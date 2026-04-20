@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2d5a2d"/>
+      <stop offset="1" stop-color="#1a3d1a"/>
+    </linearGradient>
+    <linearGradient id="leaf" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8bc34a"/>
+      <stop offset="1" stop-color="#4caf50"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" ry="96" fill="url(#bg)"/>
+  <g transform="translate(256 256)">
+    <path d="M -10 120 C -10 120, -110 80, -110 -20 C -110 -90, -20 -130, 10 -130 C 40 -130, 130 -90, 130 -20 C 130 80, 10 120, 10 120 Z"
+          fill="url(#leaf)" stroke="#2e7d32" stroke-width="6" transform="rotate(-15)"/>
+    <path d="M 0 120 L 0 -100 M -40 0 L 0 -20 M -60 -40 L 0 -60 M 40 20 L 0 0 M 60 -20 L 0 -40"
+          stroke="#2e7d32" stroke-width="5" fill="none" transform="rotate(-15)" stroke-linecap="round"/>
+  </g>
+  <text x="256" y="470" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="48" font-weight="700" fill="#e8f5e9">GreenScan</text>
+</svg>
