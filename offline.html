@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>GreenScan — Offline</title>
+<meta name="theme-color" content="#1a3d1a">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:linear-gradient(135deg,#1b5e20 0%,#2e7d32 50%,#33691e 100%);color:#e8f5e9;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;}
+.ico{font-size:90px;margin-bottom:8px;}
+h1{font-size:30px;margin:8px 0 4px;font-weight:800;letter-spacing:-.3px;}
+.sub{font-size:14px;opacity:.9;margin-bottom:18px;}
+p{max-width:420px;line-height:1.55;font-size:15px;margin:0 0 24px;}
+button,a.btn{display:inline-block;margin:6px 4px;padding:13px 28px;background:rgba(255,255,255,.92);color:#1b5e20;border:none;border-radius:12px;font-size:14.5px;font-weight:800;cursor:pointer;font-family:inherit;text-decoration:none;transition:transform .15s;}
+button:hover,a.btn:hover{transform:translateY(-2px);}
+.ghost{background:rgba(255,255,255,.15);color:#fff;border:2px solid rgba(255,255,255,.3);}
+.hint{margin-top:30px;font-size:12px;opacity:.7;}
+</style>
+</head>
+<body>
+<div class="ico">🌿</div>
+<h1>Kein Internet</h1>
+<div class="sub">Aber GreenScan bleibt offline-fähig</div>
+<p>Die Datenbank mit 4342 Arten, das Gartenwissen und deine gespeicherten Scans sind weiterhin verfügbar. Nur die KI-Funktionen (Scanner, Chat, Garten-Planer) benötigen Internet.</p>
+<button onclick="location.reload()">🔄 Erneut versuchen</button>
+<a href="./index.html" class="btn ghost">📚 App öffnen</a>
+<div class="hint">Prüfe deine WLAN- oder Mobilfunk-Verbindung.</div>
+</body>
+</html>

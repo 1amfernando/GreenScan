@@ -1,0 +1,54 @@
+{
+  "name": "GreenScan — Schweizer Naturbestimmung",
+  "short_name": "GreenScan",
+  "description": "Über 4342 Schweizer Arten bestimmen: Pflanzen, Pilze, Bäume, Kräuter, Moose, Flechten, Algen. KI-Scanner, Garten-Planer, Rezepte, Heilkunde.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "id": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#eef7ee",
+  "theme_color": "#1a3d1a",
+  "lang": "de-CH",
+  "dir": "ltr",
+  "prefer_related_applications": false,
+  "categories": ["education", "lifestyle", "food", "utilities"],
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable"},
+    {"src": "icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+    {"src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}
+  ],
+  "shortcuts": [
+    {
+      "name": "Scanner starten",
+      "short_name": "Scanner",
+      "description": "Pflanze oder Pilz fotografieren und bestimmen",
+      "url": "./index.html?screen=scanner",
+      "icons": [{"src": "icons/icon-192.png", "sizes": "192x192"}]
+    },
+    {
+      "name": "KI-Garten-Planer",
+      "short_name": "Garten",
+      "description": "Gartenplan mit KI erstellen",
+      "url": "./index.html?screen=garden",
+      "icons": [{"src": "icons/icon-192.png", "sizes": "192x192"}]
+    },
+    {
+      "name": "Gartenwissen",
+      "short_name": "Wissen",
+      "description": "Gartenbau-Kompendium Schweiz",
+      "url": "./index.html?screen=wissen",
+      "icons": [{"src": "icons/icon-192.png", "sizes": "192x192"}]
+    },
+    {
+      "name": "Lichtmessung",
+      "short_name": "Licht",
+      "description": "Lichtintensität für Pflanzen messen",
+      "url": "./index.html?screen=light",
+      "icons": [{"src": "icons/icon-192.png", "sizes": "192x192"}]
+    }
+  ]
+}

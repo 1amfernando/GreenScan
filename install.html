@@ -1,12 +1,187 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Installation</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>GreenScan installieren — App für Android, iPhone, Desktop</title>
+<meta name="description" content="GreenScan — Schweizer Naturbestimmung als App installieren. 4342 Arten, KI-Scanner, offline-fähig. Android, iOS, Desktop.">
+<meta name="theme-color" content="#1a3d1a">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --g-dark:#1a3d1a;--g-main:#2d8a2d;--g-mid:#3d9e3d;--g-light:#b8ddb8;--g-bg:#eef7ee;
+  --text:#111;--text2:#3a3a3a;--muted:#6b6b6b;
+  --card:#fff;--border:#c8e0c8;
+  --shadow:0 4px 20px rgba(0,0,0,.10);
+}
+*{box-sizing:border-box}
+body{margin:0;padding:0;font-family:'DM Sans',-apple-system,BlinkMacSystemFont,sans-serif;color:var(--text);background:var(--g-bg);line-height:1.55;}
+.hero{background:linear-gradient(135deg,#1b5e20 0%,#2e7d32 50%,#33691e 100%);color:#fff;padding:48px 20px 56px;text-align:center;position:relative;overflow:hidden;}
+.hero::before{content:'🌿';position:absolute;top:-40px;right:-30px;font-size:260px;opacity:.08;}
+.hero::after{content:'📚';position:absolute;bottom:-50px;left:-20px;font-size:180px;opacity:.07;}
+.hero-inner{max-width:720px;margin:0 auto;position:relative;}
+.hero h1{font-family:'Playfair Display',serif;font-size:clamp(30px,6vw,46px);margin:12px 0 8px;letter-spacing:-.5px;line-height:1.1;}
+.hero p{font-size:clamp(14px,2.5vw,17px);opacity:.95;margin:0 auto 22px;max-width:540px;}
+.badge{display:inline-block;background:rgba(255,255,255,.18);backdrop-filter:blur(8px);padding:5px 14px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;}
+.cta-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:20px;}
+.cta{display:inline-flex;align-items:center;gap:8px;padding:13px 22px;background:#fff;color:var(--g-dark);border:none;border-radius:12px;font-size:14.5px;font-weight:800;text-decoration:none;cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(0,0,0,.12);transition:transform .15s;}
+.cta:hover{transform:translateY(-2px);}
+.cta-ghost{background:rgba(255,255,255,.12);color:#fff;border:2px solid rgba(255,255,255,.3);box-shadow:none;}
+main{max-width:900px;margin:0 auto;padding:40px 20px 80px;}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:40px;}
+.stat{background:var(--card);border-radius:14px;padding:18px 14px;text-align:center;box-shadow:var(--shadow);border-left:4px solid var(--g-main);}
+.stat-num{font-family:'Playfair Display',serif;font-size:28px;font-weight:900;color:var(--g-dark);line-height:1;}
+.stat-lbl{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin-top:6px;font-weight:700;}
+section{background:var(--card);border-radius:18px;padding:26px 24px;margin-bottom:18px;box-shadow:var(--shadow);}
+section h2{font-family:'Playfair Display',serif;font-size:24px;margin:0 0 14px;color:var(--g-dark);}
+section h3{font-size:16px;margin:20px 0 8px;color:var(--g-dark);}
+.platform{display:flex;align-items:flex-start;gap:14px;padding:14px 0;border-bottom:1px solid var(--border);}
+.platform:last-child{border-bottom:0;}
+.platform-icon{font-size:40px;flex-shrink:0;}
+.platform-body{flex:1;}
+.platform-body h4{font-size:15.5px;margin:0 0 6px;color:var(--g-dark);}
+.steps{counter-reset:step;margin:8px 0 0;padding:0;list-style:none;}
+.steps li{counter-increment:step;position:relative;padding:6px 0 6px 34px;font-size:14px;color:var(--text2);}
+.steps li::before{content:counter(step);position:absolute;left:0;top:5px;width:24px;height:24px;background:var(--g-main);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;font-family:inherit;}
+.feat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;}
+.feat{background:var(--g-bg);border-radius:12px;padding:14px 16px;border-left:3px solid var(--g-main);}
+.feat-ico{font-size:28px;margin-bottom:6px;}
+.feat-title{font-size:14px;font-weight:800;color:var(--g-dark);margin-bottom:4px;}
+.feat-desc{font-size:12.5px;color:var(--text2);line-height:1.5;}
+.kbd{background:#f4f4f4;border:1px solid #ddd;border-radius:6px;padding:2px 7px;font-family:'SF Mono',Menlo,monospace;font-size:12px;}
+.note{background:#e3f2fd;border-left:4px solid #1976d2;padding:12px 14px;border-radius:8px;font-size:13px;color:#0d47a1;margin:12px 0;}
+footer{text-align:center;padding:30px 20px;color:var(--muted);font-size:12.5px;}
+footer a{color:var(--g-main);text-decoration:none;margin:0 8px;}
+@media (max-width:600px){
+  section{padding:20px 18px;}
+  .hero{padding:36px 16px 46px;}
+}
+</style>
 </head>
 <body>
-    <h1>Install GreenScan</h1>
-    <p>Follow the instructions to install GreenScan.</p>
+<div class="hero">
+  <div class="hero-inner">
+    <div class="badge">🇨🇭 v23.58 · Schweizer Naturbestimmung</div>
+    <h1>🌿 GreenScan als App</h1>
+    <p>Bestimme über <strong>4342 Schweizer Arten</strong> — Pflanzen, Pilze, Bäume, Kräuter, Moose, Flechten. KI-Scanner, Garten-Planer, Offline-fähig. Läuft als App auf Android, iPhone und Desktop.</p>
+    <div class="cta-row">
+      <a href="./index.html" class="cta">▶️ Direkt starten</a>
+      <a href="#android" class="cta cta-ghost">📱 Android</a>
+      <a href="#ios" class="cta cta-ghost">🍎 iPhone / iPad</a>
+    </div>
+  </div>
+</div>
+
+<main>
+  <div class="stats">
+    <div class="stat"><div class="stat-num">4342</div><div class="stat-lbl">Arten</div></div>
+    <div class="stat"><div class="stat-num">8</div><div class="stat-lbl">Kategorien</div></div>
+    <div class="stat"><div class="stat-num">100%</div><div class="stat-lbl">Offline-fähig</div></div>
+    <div class="stat"><div class="stat-num">0 MB</div><div class="stat-lbl">App-Store Download</div></div>
+  </div>
+
+  <section>
+    <h2>✨ Features auf einen Blick</h2>
+    <div class="feat-grid">
+      <div class="feat"><div class="feat-ico">🤖</div><div class="feat-title">Autonomer KI-Scanner</div><div class="feat-desc">Foto machen — die KI erkennt selbst, ob Pflanze, Pilz oder Baum, und gibt VAPKO-konforme Identifikation.</div></div>
+      <div class="feat"><div class="feat-ico">🌱</div><div class="feat-title">KI-Garten-Planer</div><div class="feat-desc">Plan für deinen Garten mit Mondphase, Mischkultur, Fruchtfolge und Bewässerungs-Kalkulation.</div></div>
+      <div class="feat"><div class="feat-ico">💬</div><div class="feat-title">Expertin-Chat</div><div class="feat-desc">Prof. Dr. Elena Meierhofer — Botanik &amp; Mykologie aus 45 Jahren Felderfahrung, live mit Standort.</div></div>
+      <div class="feat"><div class="feat-ico">📚</div><div class="feat-title">Gartenwissen</div><div class="feat-desc">Das Schweizer Hausgarten-Kompendium: Boden, Düngung, Schädlinge, Aussaat, Lexikon.</div></div>
+      <div class="feat"><div class="feat-ico">🩺</div><div class="feat-title">Pflanzendoktor</div><div class="feat-desc">Foto von kranker Pflanze → KI-Diagnose mit Bio-Behandlung und FiBL-konformen Massnahmen.</div></div>
+      <div class="feat"><div class="feat-ico">💡</div><div class="feat-title">10-Punkt-Lichtmessung</div><div class="feat-desc">Misst die tatsächliche Lichtintensität im Raum und empfiehlt passende Zimmerpflanzen.</div></div>
+      <div class="feat"><div class="feat-ico">🗺️</div><div class="feat-title">Outdoor-Karte</div><div class="feat-desc">10 Marker-Kategorien, GPS-Track, Kompass. Für Wanderer und Pilzsammler perfekt.</div></div>
+      <div class="feat"><div class="feat-ico">🧺</div><div class="feat-title">Ernte &amp; Saatgut</div><div class="feat-desc">Dokumentiere Ernte in kg/Sorte, Saatgut-Inventar mit Ablauf-Warnung, Biodiversitäts-Score.</div></div>
+    </div>
+  </section>
+
+  <section id="android">
+    <h2>📱 Installation auf Android</h2>
+    <div class="platform">
+      <div class="platform-icon">📲</div>
+      <div class="platform-body">
+        <h4>Chrome, Edge, Brave oder Samsung Internet</h4>
+        <ol class="steps">
+          <li>Öffne <strong>greenscan.ch</strong> (oder <a href="./index.html">diese Seite direkt</a>) im Browser.</li>
+          <li>Tippe auf das Menü (drei Punkte ⋮ oben rechts).</li>
+          <li>Wähle <strong>„Zum Startbildschirm hinzufügen"</strong> oder <strong>„App installieren"</strong>.</li>
+          <li>Bestätige — GreenScan erscheint als eigenständige App mit Icon.</li>
+          <li>Öffne die App. Läuft offline, ohne Browser-Leisten, 1000% flüssiger.</li>
+        </ol>
+        <div class="note">💡 <strong>Tipp:</strong> In Chrome taucht oft automatisch ein Banner „GreenScan installieren" unten auf — einfach antippen.</div>
+      </div>
+    </div>
+    <div class="platform">
+      <div class="platform-icon">🔥</div>
+      <div class="platform-body">
+        <h4>Firefox Android</h4>
+        <ol class="steps">
+          <li>Öffne die Seite in Firefox.</li>
+          <li>Tippe auf das Menü (drei Punkte ⋮).</li>
+          <li>Wähle <strong>„Installieren"</strong> (falls verfügbar) oder <strong>„Seite zum Startbildschirm hinzufügen"</strong>.</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section id="ios">
+    <h2>🍎 Installation auf iPhone &amp; iPad</h2>
+    <div class="platform">
+      <div class="platform-icon">📱</div>
+      <div class="platform-body">
+        <h4>Safari (empfohlen auf iOS)</h4>
+        <ol class="steps">
+          <li>Öffne <strong>greenscan.ch</strong> in <strong>Safari</strong> (wichtig — andere Browser funktionieren nicht für die Installation).</li>
+          <li>Tippe auf das <strong>Teilen-Symbol</strong> <span class="kbd">⬆️</span> unten in der Mitte (iPhone) oder oben rechts (iPad).</li>
+          <li>Scrolle in der Liste nach unten und wähle <strong>„Zum Home-Bildschirm"</strong>.</li>
+          <li>Bestätige mit <strong>„Hinzufügen"</strong>. Das GreenScan-Icon erscheint auf deinem Home-Bildschirm.</li>
+          <li>Öffne es — GreenScan läuft im Vollbild wie eine native App.</li>
+        </ol>
+        <div class="note">💡 <strong>Tipp:</strong> Auf iOS benötigt die Kamera-Funktion die erste Installation aus Safari. Danach funktioniert sie auch in der installierten App reibungslos.</div>
+      </div>
+    </div>
+    <h3>Was funktioniert auf iOS?</h3>
+    <p style="font-size:14px;color:var(--text2);">Die App läuft auf iOS im Vollbild-Modus wie eine native App, inklusive Kamera für den Scanner, GPS-Ortung für die Karte, Offline-Fähigkeit der wichtigsten Features, und Sync mit iCloud über die Browser-Speicherung.</p>
+  </section>
+
+  <section>
+    <h2>🖥️ Installation auf Desktop (Windows, Mac, Linux)</h2>
+    <div class="platform">
+      <div class="platform-icon">💻</div>
+      <div class="platform-body">
+        <h4>Chrome, Edge, Brave</h4>
+        <ol class="steps">
+          <li>Öffne <strong>greenscan.ch</strong>.</li>
+          <li>Klicke auf das Installations-Symbol <span class="kbd">⊕</span> rechts in der Adressleiste (oder Menü → Apps → GreenScan installieren).</li>
+          <li>Bestätige — die App öffnet sich in einem eigenen Fenster.</li>
+          <li>Du findest GreenScan danach im Startmenü / Launchpad / Apps.</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>❓ Häufig gefragt</h2>
+    <h3>Brauche ich einen Account?</h3>
+    <p style="font-size:14px;color:var(--text2);">Nein, GreenScan funktioniert ohne Account. Wenn du einen Account erstellst, synchronisieren sich deine Scans, Favoriten, Level und Meilensteine automatisch über alle Geräte.</p>
+    <h3>Funktioniert die App offline?</h3>
+    <p style="font-size:14px;color:var(--text2);">Ja. Nach dem ersten Öffnen werden alle wichtigen Inhalte gecached — Datenbank, Gartenwissen, UI. Der KI-Scanner und die KI-Chat-Funktion benötigen allerdings Internet.</p>
+    <h3>Wie viel kostet GreenScan?</h3>
+    <p style="font-size:14px;color:var(--text2);">Die Gratis-Version enthält alle Basis-Funktionen. Plus (CHF 4.90/Mt) und Pro (CHF 9.90/Mt) Abos bieten unbegrenzte KI-Scans, erweiterte Analyse und Experten-Features. Jederzeit kündbar.</p>
+    <h3>Wird GreenScan auch im App Store / Play Store erscheinen?</h3>
+    <p style="font-size:14px;color:var(--text2);">Dank PWA-Technologie brauchst du keinen App-Store — du installierst GreenScan direkt aus dem Browser in 30 Sekunden, ohne Registrierung, ohne Store-Konto.</p>
+  </section>
+
+</main>
+
+<footer>
+  <div>🌿 <strong>GreenScan</strong> v23.58 · Schweizer Naturbestimmung · Made in Switzerland</div>
+  <div style="margin-top:10px;">
+    <a href="./index.html">App öffnen</a> ·
+    <a href="mailto:kontakt@greenscan.ch">Kontakt</a>
+  </div>
+</footer>
 </body>
 </html>

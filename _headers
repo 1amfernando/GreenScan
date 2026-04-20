@@ -1,0 +1,64 @@
+# GreenScan v23.58 — Cloudflare Pages Edge-Caching
+# Diese Header werden von Cloudflare Pages vollständig unterstützt.
+# Ziel: Maximale Edge-Cache-Trefferrate → null Bandbreiten-Limits in Sicht.
+
+# ═══ HTML-Hauptseite ═══════════════════════════════════════════
+# index.html darf nicht zu lange gecached werden, damit Updates ankommen.
+# Cloudflare: "no-cache" für Browser, aber Edge cached trotzdem mit kurzer TTL
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+  CDN-Cache-Control: public, max-age=300
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(self), geolocation=(self), microphone=()
+
+/install.html
+  Cache-Control: public, max-age=3600
+  CDN-Cache-Control: public, max-age=86400
+  X-Content-Type-Options: nosniff
+
+/offline.html
+  Cache-Control: public, max-age=86400
+
+# ═══ Service Worker ════════════════════════════════════════════
+# SW darf NIE aggressiv gecached werden — muss immer frisch sein
+/sw.js
+  Cache-Control: public, max-age=0, must-revalidate
+  Service-Worker-Allowed: /
+
+# ═══ Manifest ══════════════════════════════════════════════════
+/manifest.json
+  Cache-Control: public, max-age=3600
+  CDN-Cache-Control: public, max-age=86400
+
+# ═══ Icons & Favicons — lang cachen am Edge ═══════════════════
+/icons/*
+  Cache-Control: public, max-age=2592000, immutable
+  CDN-Cache-Control: public, max-age=31536000, immutable
+
+/apple-touch-icon.png
+  Cache-Control: public, max-age=2592000, immutable
+  CDN-Cache-Control: public, max-age=31536000, immutable
+
+/favicon.ico
+  Cache-Control: public, max-age=2592000, immutable
+
+/favicon-*.png
+  Cache-Control: public, max-age=2592000, immutable
+
+# ═══ Sitemap / robots ══════════════════════════════════════════
+/sitemap.xml
+  Cache-Control: public, max-age=86400
+
+/robots.txt
+  Cache-Control: public, max-age=86400
+
+# ═══ Globale Security-Header ═══════════════════════════════════
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Permissions-Policy: camera=(self), geolocation=(self), microphone=()
+  # Erlaubt Cloudflare-Edge-Caching
+  CDN-Cache-Control: public, max-age=3600

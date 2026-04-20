@@ -1,0 +1,10 @@
+# GreenScan v23.58 — Cloudflare Pages Redirects
+# Format identisch zu Netlify — Cloudflare Pages unterstützt _redirects vollständig.
+
+# Friendly-URLs
+/install    /install.html   200
+/offline    /offline.html   200
+/app        /index.html     301!
+
+# SPA-Fallback: alle nicht-existierenden Pfade → App
+/*          /index.html     200
