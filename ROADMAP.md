@@ -19,7 +19,8 @@
 | S6 | **P1-6 Share-Target-Receiver** | `ba743df` v23.89 | Foto teilen aus anderer App → Scanner liest aus + analysiert. Plus File-Handler |
 | S7 | **P1-5 Storage-Auto-Rotation** | `ba743df` v23.89 | Quota-Error löst Auto-Trim aus, App crasht nie wegen vollem Speicher (Bug B3 erledigt) |
 | S8 | **P1-1 Anthropic Edge-Function-Proxy** (Code) | `c69c5b7` v23.90 | User braucht keinen eigenen Claude-Key mehr. Tier-Quota (5/200/2000), Modell-Whitelist, Telemetrie. **Server-Deploy durch Owner ausstehend** |
-| S9 | **P1-2 Brain-Memory Cloud-Sync** | (next push) v23.91 | gsBrain.observe pusht zu Supabase brain_memory. Login → pullCloud merged. Schleimpilz lebt geräteübergreifend. **Migration-Deploy ausstehend** |
+| S9 | **P1-2 Brain-Memory Cloud-Sync** | `16de706` v23.91 | gsBrain.observe pusht zu Supabase brain_memory. Login → pullCloud merged. Schleimpilz lebt geräteübergreifend. **Migration-Deploy ausstehend** |
+| S10 | **P1-7 Stripe-Entitlement server-seitig** | (next push) v23.92 | Edge Fn `entitlements` liefert `can_scan` authoritativ. Client-Counter ist nur noch UX-Hint. Bug B4 erledigt. **Edge-Fn-Deploy ausstehend** |
 
 ---
 
@@ -44,7 +45,7 @@
 | P1-4 | **Multikriterien-Bestimmungs-Schlüssel** (Blattform / Blütenfarbe / Habitat / Höhe) | Killer-Feature gegen Flora Helvetica. Daten sind in `PLANT_DB` schon da — fehlt nur UI. | 2–3 Tage |
 | ~~P1-5~~ | ~~Storage-Layer mit Rotations-Strategie~~ | **erledigt v23.89** (Auto-Rotation + `gsStoragePush`/`gsStorageInfo`) | — |
 | ~~P1-6~~ | ~~Share-Target-Receiver im Scanner~~ | **erledigt v23.89** (SW-Postmessage + File Handling API) | — |
-| P1-7 | **Stripe-Entitlement server-seitig** | Behebt Bug B4. Edge Function `consume-scan` zählt atomar gegen `v_user_entitlements`. | 1 Tag |
+| ~~P1-7~~ | ~~Stripe-Entitlement server-seitig~~ | **Code erledigt v23.92** — Edge-Fn-Deploy durch Owner pending | — |
 | P1-8 | **PLANT_DB-Split** (4.5 MB raus aus index.html) | Initial-JS halbiert sich. DB als `data/plants.v1.json` mit Cache-Control immutable. Hydration via IndexedDB. | 1 Tag |
 
 ---

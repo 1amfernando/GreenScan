@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-29 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v23.91` (in Arbeit) / `v23.90` (gepusht)
+**Stand**: 2026-04-29 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v23.92` (in Arbeit) / `v23.91` (gepusht)
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v23.91 | Sprint 3: Brain-Memory geräteübergreifend (Supabase brain_memory + push/pull/flushQueue) |
+| (next push) | v23.92 | Sprint 4: Stripe-Entitlement server-seitig (entitlements Edge Fn + Client-Cache) |
+| `16de706` | v23.91 | Sprint 3: Brain-Memory geräteübergreifend (Supabase brain_memory + push/pull/flushQueue) |
 | `c69c5b7` | v23.90 | Sprint 2: Anthropic Edge-Function-Proxy (Supabase Edge Fn + Client-Switch) |
 | `ba743df` | v23.89 | Sprint 1: Share-Target-Receiver + Storage-Layer mit Auto-Rotation |
 | `39249e9` | v23.88 | Brain-Tip auf Home, Multi-Agent-Doku (CLAUDE/STATUS/ROADMAP) |
@@ -74,6 +75,12 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
   re-played offline gesammelte Events. Migration unter
   `supabase/migrations/20260429_brain_memory.sql`. Damit lebt der
   „Schleimpilz" über Geräte-Grenzen hinweg.
+- ✅ **Stripe-Entitlement server-seitig** (v23.92, Code committed —
+  Edge-Fn-Deploy ausstehend): Bug B4 erledigt. Edge Function
+  `entitlements` liefert authoritatives `{tier, scans_today,
+  scans_limit, can_scan}` aus `v_user_entitlements` ⨝ `ai_usage`.
+  Client cached 60s in `_gsServerEnt`, `gsAboCanUse('scan')` nutzt
+  Server-Wert wenn vorhanden — localStorage-Manipulation nutzlos.
 
 ---
 
@@ -107,9 +114,9 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
 | B1 | HIGH | `index.html` ~31 KB JWT-Storage | Auth-Token in localStorage. Mit CSP entschärft, aber XSS-Hijack theoretisch möglich. | P2: HttpOnly-Cookies |
 | B2 | MEDIUM | `index.html` 299× innerHTML | Manche Stellen mit User-Input, gegen XSS via `gsSanitize` geschützt — nicht alle systematisch | P2: safeHTML-Migration |
 | ~~B3~~ | ~~MEDIUM~~ | ~~`localStorage` Quota~~ | ~~`safeSetItem` schluckt Quota-Errors still~~ | **erledigt v23.89** (Auto-Rotation) |
-| B4 | MEDIUM | Stripe-Entitlement | `GS_PLANS[plan].scans` aus localStorage manipulierbar | P1-7: Server-seitig in Edge Function |
 | B5 | LOW | `book-ingest` (Z. 46135–46259) | Funktion ohne UI-Hook (kein onclick im HTML) | P3: aktivieren oder löschen |
 | B6 | LOW | PLANT_DB inline 4.5 MB | Lädt jedes Mal komplett neu, nicht in IndexedDB | P1-8: Split + Hydration |
+| ~~B4~~ | ~~MEDIUM~~ | ~~Stripe-Entitlement~~ | ~~`GS_PLANS[plan].scans` aus localStorage manipulierbar~~ | **erledigt v23.92** (entitlements Edge Fn = SoT) |
 | ~~B7~~ | ~~INFO~~ | ~~`callAIWithOfflineFallback`~~ | | **erledigt v23.88** (brain-aware) |
 
 ---
