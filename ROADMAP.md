@@ -15,7 +15,9 @@
 | S2 | NVIDIA komplett entfernt | `a5651f4` | Code halbiert auf API-Layer; Claude-only-UX |
 | S3 | App-Store-Polish | `1bde9ec` | iOS-Meta, a11y, SW-Update-Banner, sbFetch-Retry |
 | S4 | gsBrain — Kontext-Hub | `cd90f34` | Alle KI-Calls sehen automatisch User-Kontext |
-| S5 | Doku-Sync für Multi-Agent | (mit dieser Doku) | CLAUDE.md / STATUS.md / ROADMAP.md |
+| S5 | Doku-Sync für Multi-Agent | `39249e9` | CLAUDE.md / STATUS.md / ROADMAP.md |
+| S6 | **P1-6 Share-Target-Receiver** | (next push) v23.89 | Foto teilen aus anderer App → Scanner liest aus + analysiert. Plus File-Handler |
+| S7 | **P1-5 Storage-Auto-Rotation** | (next push) v23.89 | Quota-Error löst Auto-Trim aus, App crasht nie wegen vollem Speicher (Bug B3 erledigt) |
 
 ---
 
@@ -38,8 +40,8 @@
 | P1-2 | **Brain-Memory in Supabase syncen** | User wechselt Gerät → seine ganze Lerngeschichte bleibt erhalten. Tabelle `brain_memory` mit RLS, `gsBrain.observe()` schreibt zusätzlich nach Cloud, `pull` beim Login. | 1 Tag |
 | P1-3 | **i18n FR + IT** (CH-Amtssprachen) | Verdoppelt potenziellen Markt; FlorApp und Flora Helvetica beherrschen DE/FR/IT. JSON-basierter `t(key)`-Layer, `<html lang>` dynamisch. | 3–5 Tage |
 | P1-4 | **Multikriterien-Bestimmungs-Schlüssel** (Blattform / Blütenfarbe / Habitat / Höhe) | Killer-Feature gegen Flora Helvetica. Daten sind in `PLANT_DB` schon da — fehlt nur UI. | 2–3 Tage |
-| P1-5 | **Storage-Layer mit Rotations-Strategie** | Behebt Bug B3 (Quota-Race). Wrapper `gsStore.append(key, item, max)` mit auto-trim. Migration der bestehenden Listen. | 1 Tag |
-| P1-6 | **Share-Target-Receiver im Scanner** | SW legt geteiltes Foto in Cache, aber Scanner liest es nicht. Hook in `?shared=1`-Pfad. | 2h |
+| ~~P1-5~~ | ~~Storage-Layer mit Rotations-Strategie~~ | **erledigt v23.89** (Auto-Rotation + `gsStoragePush`/`gsStorageInfo`) | — |
+| ~~P1-6~~ | ~~Share-Target-Receiver im Scanner~~ | **erledigt v23.89** (SW-Postmessage + File Handling API) | — |
 | P1-7 | **Stripe-Entitlement server-seitig** | Behebt Bug B4. Edge Function `consume-scan` zählt atomar gegen `v_user_entitlements`. | 1 Tag |
 | P1-8 | **PLANT_DB-Split** (4.5 MB raus aus index.html) | Initial-JS halbiert sich. DB als `data/plants.v1.json` mit Cache-Control immutable. Hydration via IndexedDB. | 1 Tag |
 

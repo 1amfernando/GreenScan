@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-29 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v23.88` (in Arbeit) / `v23.87` (gepusht)
+**Stand**: 2026-04-29 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v23.89` (in Arbeit) / `v23.88` (gepusht)
 
 ---
 
@@ -12,7 +12,9 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| `cd90f34` | v23.87 | gsBrain — zentraler Kontext-/Lern-/Empfehlungs-Hub + 5 KI-Call-Sites verdrahtet |
+| (next push) | v23.89 | Sprint 1: Share-Target-Receiver + Storage-Layer mit Auto-Rotation |
+| `39249e9` | v23.88 | Brain-Tip auf Home, Multi-Agent-Doku (CLAUDE/STATUS/ROADMAP) |
+| `cd90f34` | v23.87 | gsBrain — zentraler Kontext-/Lern-/Empfehlungs-Hub + 5 KI-Call-Sites |
 | `1bde9ec` | v23.86 | App-Store-Polish: iOS-Meta, a11y, SW-Update-Banner, sbFetch-Retry |
 | `a5651f4` | v23.86 | NVIDIA-Provider entfernt, Claude-only-UX |
 | `d5b9d55` | v23.86 | Sicherheit/CSP/PWA-Hygiene, revDSG-Consent |
@@ -49,6 +51,14 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
 - ✅ **iOS**: format-detection off, theme-color dark/light split,
   msapplication-TileColor, mehrere apple-touch-icon sizes
 - ✅ **sbFetch**: Auto-Retry/Backoff (GET 3 Versuche, POST 2 bei Network)
+- ✅ **Share-Target-Receiver** (v23.89): App liest geteilte Fotos aus
+  SW-Cache und führt sie automatisch in den Scanner. Plus: File Handling
+  API (Doppelklick auf .jpg/.png/.webp im OS) öffnet Scanner mit Foto.
+- ✅ **Storage-Auto-Rotation** (v23.89): Bei `QuotaExceededError` werden
+  acht bekannte rotatable Listen (`gs_scan_history`, `gs_brain_memory`,
+  `gs_ernte_log`, …) automatisch gekürzt und der Schreibversuch
+  wiederholt. Public API: `gsStoragePush(key, item, max)` und
+  `gsStorageInfo()` für Debug.
 
 ---
 
@@ -81,11 +91,11 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
 |---|---|---|---|---|
 | B1 | HIGH | `index.html` ~31 KB JWT-Storage | Auth-Token in localStorage. Mit CSP entschärft, aber XSS-Hijack theoretisch möglich. | P2: HttpOnly-Cookies |
 | B2 | MEDIUM | `index.html` 299× innerHTML | Manche Stellen mit User-Input, gegen XSS via `gsSanitize` geschützt — nicht alle systematisch | P2: safeHTML-Migration |
-| B3 | MEDIUM | `localStorage` Quota | `safeSetItem` schluckt Quota-Errors still. `gs_ernte_log`, `gs_scan_history` können bei Vielnutzung Quota sprengen | P1: Storage-Layer mit Rotation |
-| B4 | MEDIUM | Stripe-Entitlement | `GS_PLANS[plan].scans` aus localStorage manipulierbar | P1: Server-seitig in Edge Function |
+| ~~B3~~ | ~~MEDIUM~~ | ~~`localStorage` Quota~~ | ~~`safeSetItem` schluckt Quota-Errors still~~ | **erledigt v23.89** (Auto-Rotation) |
+| B4 | MEDIUM | Stripe-Entitlement | `GS_PLANS[plan].scans` aus localStorage manipulierbar | P1-7: Server-seitig in Edge Function |
 | B5 | LOW | `book-ingest` (Z. 46135–46259) | Funktion ohne UI-Hook (kein onclick im HTML) | P3: aktivieren oder löschen |
-| B6 | LOW | PLANT_DB inline 4.5 MB | Lädt jedes Mal komplett neu, nicht in IndexedDB | P1: Split + Hydration |
-| B7 | INFO | `callAIWithOfflineFallback` (Z. 33141) | Wird sehr selten genutzt, jetzt brain-aware (v23.88) | erledigt |
+| B6 | LOW | PLANT_DB inline 4.5 MB | Lädt jedes Mal komplett neu, nicht in IndexedDB | P1-8: Split + Hydration |
+| ~~B7~~ | ~~INFO~~ | ~~`callAIWithOfflineFallback`~~ | | **erledigt v23.88** (brain-aware) |
 
 ---
 
