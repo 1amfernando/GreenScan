@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-29 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v23.90` (in Arbeit) / `v23.89` (gepusht)
+**Stand**: 2026-04-29 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v23.91` (in Arbeit) / `v23.90` (gepusht)
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v23.90 | Sprint 2: Anthropic Edge-Function-Proxy (Supabase Edge Fn + Client-Switch) |
+| (next push) | v23.91 | Sprint 3: Brain-Memory geräteübergreifend (Supabase brain_memory + push/pull/flushQueue) |
+| `c69c5b7` | v23.90 | Sprint 2: Anthropic Edge-Function-Proxy (Supabase Edge Fn + Client-Switch) |
 | `ba743df` | v23.89 | Sprint 1: Share-Target-Receiver + Storage-Layer mit Auto-Rotation |
 | `39249e9` | v23.88 | Brain-Tip auf Home, Multi-Agent-Doku (CLAUDE/STATUS/ROADMAP) |
 | `cd90f34` | v23.87 | gsBrain — zentraler Kontext-/Lern-/Empfehlungs-Hub + 5 KI-Call-Sites |
@@ -66,6 +67,13 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
   (free 5/Tag, plus 200/Tag, pro 2'000/Tag), Modell-Whitelist,
   Token-Cap 4096, Telemetrie in `ai_usage`-Tabelle. Code unter
   `supabase/functions/ai-proxy/` mit Deploy-README.
+- ✅ **Brain-Memory geräteübergreifend** (v23.91, Code committed —
+  Migration-Deploy ausstehend): `gsBrain.observe()` schreibt zusätzlich
+  in Supabase `brain_memory`. Beim Login: `pullCloud()` mergt letzte
+  200 Cloud-Events mit Lokalem (Dedup nach `ts+event`), `flushQueue()`
+  re-played offline gesammelte Events. Migration unter
+  `supabase/migrations/20260429_brain_memory.sql`. Damit lebt der
+  „Schleimpilz" über Geräte-Grenzen hinweg.
 
 ---
 
