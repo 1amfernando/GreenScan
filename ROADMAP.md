@@ -16,8 +16,9 @@
 | S3 | App-Store-Polish | `1bde9ec` | iOS-Meta, a11y, SW-Update-Banner, sbFetch-Retry |
 | S4 | gsBrain — Kontext-Hub | `cd90f34` | Alle KI-Calls sehen automatisch User-Kontext |
 | S5 | Doku-Sync für Multi-Agent | `39249e9` | CLAUDE.md / STATUS.md / ROADMAP.md |
-| S6 | **P1-6 Share-Target-Receiver** | (next push) v23.89 | Foto teilen aus anderer App → Scanner liest aus + analysiert. Plus File-Handler |
-| S7 | **P1-5 Storage-Auto-Rotation** | (next push) v23.89 | Quota-Error löst Auto-Trim aus, App crasht nie wegen vollem Speicher (Bug B3 erledigt) |
+| S6 | **P1-6 Share-Target-Receiver** | `ba743df` v23.89 | Foto teilen aus anderer App → Scanner liest aus + analysiert. Plus File-Handler |
+| S7 | **P1-5 Storage-Auto-Rotation** | `ba743df` v23.89 | Quota-Error löst Auto-Trim aus, App crasht nie wegen vollem Speicher (Bug B3 erledigt) |
+| S8 | **P1-1 Anthropic Edge-Function-Proxy** (Code) | (next push) v23.90 | User braucht keinen eigenen Claude-Key mehr. Tier-Quota (5/200/2000), Modell-Whitelist, Telemetrie. **Server-Deploy durch Owner ausstehend** |
 
 ---
 
@@ -36,7 +37,7 @@
 
 | # | Meilenstein | Wirkung | Aufwand |
 |---|---|---|---|
-| P1-1 | **Anthropic Edge-Function-Proxy** | User braucht **keinen eigenen Key** mehr. Du zahlst pauschal, kontrollierst Quota, kein API-Key mehr im Client. | 1 Tag |
+| ~~P1-1~~ | ~~Anthropic Edge-Function-Proxy~~ | **Code erledigt v23.90** — Server-Deploy durch Owner pending (siehe `supabase/functions/ai-proxy/README.md`) | — |
 | P1-2 | **Brain-Memory in Supabase syncen** | User wechselt Gerät → seine ganze Lerngeschichte bleibt erhalten. Tabelle `brain_memory` mit RLS, `gsBrain.observe()` schreibt zusätzlich nach Cloud, `pull` beim Login. | 1 Tag |
 | P1-3 | **i18n FR + IT** (CH-Amtssprachen) | Verdoppelt potenziellen Markt; FlorApp und Flora Helvetica beherrschen DE/FR/IT. JSON-basierter `t(key)`-Layer, `<html lang>` dynamisch. | 3–5 Tage |
 | P1-4 | **Multikriterien-Bestimmungs-Schlüssel** (Blattform / Blütenfarbe / Habitat / Höhe) | Killer-Feature gegen Flora Helvetica. Daten sind in `PLANT_DB` schon da — fehlt nur UI. | 2–3 Tage |

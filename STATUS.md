@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-29 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v23.89` (in Arbeit) / `v23.88` (gepusht)
+**Stand**: 2026-04-29 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v23.90` (in Arbeit) / `v23.89` (gepusht)
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v23.89 | Sprint 1: Share-Target-Receiver + Storage-Layer mit Auto-Rotation |
+| (next push) | v23.90 | Sprint 2: Anthropic Edge-Function-Proxy (Supabase Edge Fn + Client-Switch) |
+| `ba743df` | v23.89 | Sprint 1: Share-Target-Receiver + Storage-Layer mit Auto-Rotation |
 | `39249e9` | v23.88 | Brain-Tip auf Home, Multi-Agent-Doku (CLAUDE/STATUS/ROADMAP) |
 | `cd90f34` | v23.87 | gsBrain — zentraler Kontext-/Lern-/Empfehlungs-Hub + 5 KI-Call-Sites |
 | `1bde9ec` | v23.86 | App-Store-Polish: iOS-Meta, a11y, SW-Update-Banner, sbFetch-Retry |
@@ -59,6 +60,12 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
   `gs_ernte_log`, …) automatisch gekürzt und der Schreibversuch
   wiederholt. Public API: `gsStoragePush(key, item, max)` und
   `gsStorageInfo()` für Debug.
+- ✅ **Anthropic Edge-Function-Proxy** (v23.90, Code committed —
+  Server-Deploy steht noch aus): User braucht keinen eigenen Claude-Key
+  mehr, wenn `localStorage.gs_use_proxy === '1'`. Quota pro Tier
+  (free 5/Tag, plus 200/Tag, pro 2'000/Tag), Modell-Whitelist,
+  Token-Cap 4096, Telemetrie in `ai_usage`-Tabelle. Code unter
+  `supabase/functions/ai-proxy/` mit Deploy-README.
 
 ---
 
