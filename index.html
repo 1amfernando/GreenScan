@@ -21,7 +21,7 @@
 <meta name="apple-mobile-web-app-title" content="GreenScan">
 <meta name="description" content="4342 Schweizer Arten: Wildpflanzen, Pilze, Bäume, Kräuter, Moose, Flechten, Algen, Hauspflanzen. KI-Scanner, Garten, Lichtmessung.">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="24.18">
+<meta name="app-version" content="24.19">
 <link rel="canonical" href="https://greenscan.ch/">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <meta name="author" content="GreenScan">
@@ -4434,6 +4434,10 @@ button:focus-visible, .ib:focus-visible, .tab:focus-visible{
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){try{gsRunSelfTestModal&&gsRunSelfTestModal();}catch(_){}}, 200)" id="mi-selftest">
         <div class="menu-item-icon" style="background:#e8f5e9;">🔬</div>
         <span class="menu-item-label" data-i18n="menu.selftest">Self-Test</span>
+      </button>
+      <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){try{window.gsOpenPushSettings&&window.gsOpenPushSettings();}catch(_){}}, 200)" id="mi-push">
+        <div class="menu-item-icon" style="background:#e1f5fe;">🔔</div>
+        <span class="menu-item-label" data-i18n="menu.push">Push-Tipps</span>
       </button>
     </div>
 
@@ -16064,6 +16068,115 @@ window.gsPush = (function(){
   };
 })();
 
+// v24.19: gsOpenPushSettings — UI-Wrapper für gsPush (vorher nur DevTools)
+window.gsOpenPushSettings = async function(){
+  var existing = document.getElementById('gs-push-modal');
+  if (existing) { try { existing.remove(); } catch(_){} }
+  var t = (window.gsI18n && window.gsI18n.t) ? window.gsI18n.t.bind(window.gsI18n) : function(k){ return k; };
+  var esc = (typeof gsHTMLEscape === 'function') ? gsHTMLEscape : function(s){ return String(s||'').replace(/[<>&"']/g, function(c){ return ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]; }); };
+
+  var m = document.createElement('div');
+  m.id = 'gs-push-modal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
+  var box = document.createElement('div');
+  box.style.cssText = 'background:var(--card,#fff);color:var(--text,#222);border-radius:14px;max-width:480px;width:100%;max-height:88vh;overflow:auto;padding:18px;font-family:inherit;';
+  m.appendChild(box);
+  document.body.appendChild(m);
+  m.addEventListener('click', function(e){ if (e.target === m) { try { m.remove(); } catch(_){} } });
+
+  function close(){ try { m.remove(); } catch(_){} }
+
+  async function render(){
+    var s = { supported: false, permission: 'default', subscribed: false };
+    try { s = await window.gsPush.status(); } catch(_){}
+    var loggedIn = (typeof sbIsLoggedIn === 'function') && sbIsLoggedIn();
+    var hour = parseInt(localStorage.getItem('gs_push_hour') || '7', 10);
+    if (!(hour >= 0 && hour <= 23)) hour = 7;
+    var statusBadge = !s.supported
+      ? '<span style="background:#ffebee;color:#c62828;padding:3px 8px;border-radius:7px;font-size:11px;font-weight:700;">' + esc(t('push.unsupported')) + '</span>'
+      : s.subscribed
+        ? '<span style="background:#e8f5e9;color:#1a7a3e;padding:3px 8px;border-radius:7px;font-size:11px;font-weight:700;">✓ ' + esc(t('push.active')) + '</span>'
+        : s.permission === 'denied'
+          ? '<span style="background:#ffebee;color:#c62828;padding:3px 8px;border-radius:7px;font-size:11px;font-weight:700;">' + esc(t('push.denied')) + '</span>'
+          : '<span style="background:#fff3e0;color:#b25b00;padding:3px 8px;border-radius:7px;font-size:11px;font-weight:700;">' + esc(t('push.inactive')) + '</span>';
+    var bodyHtml = ''+
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">'+
+        '<h3 style="margin:0;font-size:16px;display:flex;align-items:center;gap:8px;">🔔 ' + esc(t('push.title')) + '</h3>'+
+        '<button id="gs-push-close" style="background:none;border:none;font-size:22px;cursor:pointer;line-height:1;color:var(--text);">×</button>'+
+      '</div>'+
+      '<div style="font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:14px;">' + esc(t('push.lead')) + '</div>'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;padding:11px 13px;background:var(--surface2);border-radius:10px;margin-bottom:12px;">'+
+        '<span style="font-size:13px;font-weight:700;">Status</span>'+ statusBadge +
+      '</div>'+
+      (!loggedIn
+        ? '<div style="padding:11px 13px;background:#fff3e0;color:#8d6e00;border-radius:10px;font-size:12.5px;line-height:1.55;margin-bottom:12px;">⚠️ ' + esc(t('push.loginNeeded')) + '</div>'
+        : '')+
+      '<label style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 13px;background:var(--surface2);border-radius:10px;margin-bottom:12px;">'+
+        '<span style="font-size:13px;font-weight:700;">' + esc(t('push.hour')) + '</span>'+
+        '<select id="gs-push-hour" style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:13px;">'+
+          (function(){
+            var o=''; for (var h=5;h<=22;h++){ o += '<option value="'+h+'"'+(h===hour?' selected':'')+'>'+(h<10?'0':'')+h+':00</option>'; } return o;
+          })()+
+        '</select>'+
+      '</label>'+
+      '<div style="display:flex;flex-direction:column;gap:8px;">'+
+        (s.subscribed
+          ? '<button id="gs-push-unsub" style="padding:12px;background:#ffebee;color:#c62828;border:1px solid #ffcdd2;border-radius:11px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;">' + esc(t('push.unsubscribe')) + '</button>'+
+            '<button id="gs-push-test" style="padding:12px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">' + esc(t('push.testNow')) + '</button>'
+          : '<button id="gs-push-sub" '+(loggedIn && s.supported ? '' : 'disabled')+' style="padding:13px;background:var(--g-main,#2e7d32);color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;'+(loggedIn && s.supported ? '' : 'opacity:.5;cursor:not-allowed;')+'">' + esc(t('push.subscribe')) + '</button>')+
+      '</div>'+
+      '<div id="gs-push-msg" style="margin-top:10px;font-size:12px;color:var(--muted);line-height:1.55;"></div>';
+    box.innerHTML = bodyHtml;
+    box.querySelector('#gs-push-close').addEventListener('click', close);
+    var hourSel = box.querySelector('#gs-push-hour');
+    hourSel.addEventListener('change', function(){
+      try { localStorage.setItem('gs_push_hour', String(parseInt(hourSel.value, 10) || 7)); } catch(_){}
+    });
+    var msg = box.querySelector('#gs-push-msg');
+    function setMsg(txt, isErr){
+      msg.textContent = txt || '';
+      msg.style.color = isErr ? '#c62828' : 'var(--muted)';
+    }
+    var subBtn = box.querySelector('#gs-push-sub');
+    if (subBtn) subBtn.addEventListener('click', async function(){
+      subBtn.disabled = true; setMsg(t('push.subscribing'));
+      try {
+        var h = parseInt(hourSel.value, 10) || 7;
+        await window.gsPush.subscribe({ hour: h });
+        try { localStorage.setItem('gs_push_hour', String(h)); } catch(_){}
+        await render();
+      } catch(e) {
+        setMsg((e && e.message) ? e.message : 'Fehler', true);
+        subBtn.disabled = false;
+      }
+    });
+    var unsubBtn = box.querySelector('#gs-push-unsub');
+    if (unsubBtn) unsubBtn.addEventListener('click', async function(){
+      unsubBtn.disabled = true; setMsg(t('push.unsubscribing'));
+      try {
+        await window.gsPush.unsubscribe();
+        await render();
+      } catch(e) {
+        setMsg((e && e.message) ? e.message : 'Fehler', true);
+        unsubBtn.disabled = false;
+      }
+    });
+    var testBtn = box.querySelector('#gs-push-test');
+    if (testBtn) testBtn.addEventListener('click', async function(){
+      testBtn.disabled = true; setMsg(t('push.testing'));
+      try {
+        await window.gsPush.test();
+        setMsg(t('push.testSent'));
+      } catch(e) {
+        setMsg((e && e.message) ? e.message : 'Fehler', true);
+      } finally {
+        testBtn.disabled = false;
+      }
+    });
+  }
+  await render();
+};
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  gsI18n — Mehrsprachigkeit DE / FR / IT (v23.97)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -16196,6 +16309,22 @@ window.gsI18n = (function(){
       'menu.brain': 'Brain-Inspector',
       'menu.tour': 'Welcome-Tour',
       'menu.selftest': 'Self-Test',
+      'menu.push': 'Push-Tipps',
+      'push.title': 'Push-Tipps',
+      'push.lead': 'Erhalte täglich einen personalisierten Smart-Tipp aus deinem Brain — passend zu Saison, Standort und deinen Scans.',
+      'push.active': 'aktiv',
+      'push.inactive': 'inaktiv',
+      'push.denied': 'Browser-Zugriff verweigert',
+      'push.unsupported': 'nicht unterstützt',
+      'push.loginNeeded': 'Push-Tipps brauchen einen Account — bitte zuerst anmelden.',
+      'push.hour': 'Tageszeit',
+      'push.subscribe': '🔔 Tägliche Tipps abonnieren',
+      'push.unsubscribe': 'Abonnement beenden',
+      'push.testNow': 'Test-Push senden',
+      'push.subscribing': 'Aktiviere …',
+      'push.unsubscribing': 'Deaktiviere …',
+      'push.testing': 'Sende Test …',
+      'push.testSent': '✅ Test-Push verschickt — sollte gleich kommen.',
       'scan.shareCard': 'Teilbare Karte erstellen',
       'search.empty.tryKey': 'Nichts gefunden? Probier den Bestimmungs-Schlüssel.'
     },
@@ -16287,6 +16416,22 @@ window.gsI18n = (function(){
       'menu.brain': 'Inspecteur Brain',
       'menu.tour': 'Visite de bienvenue',
       'menu.selftest': 'Auto-test',
+      'menu.push': 'Push-Astuces',
+      'push.title': 'Astuces push',
+      'push.lead': 'Reçois chaque jour une astuce intelligente personnalisée — adaptée à la saison, ton lieu et tes scans.',
+      'push.active': 'actif',
+      'push.inactive': 'inactif',
+      'push.denied': 'Accès navigateur refusé',
+      'push.unsupported': 'non pris en charge',
+      'push.loginNeeded': 'Les astuces push nécessitent un compte — connecte-toi d’abord.',
+      'push.hour': 'Heure',
+      'push.subscribe': '🔔 S’abonner aux astuces',
+      'push.unsubscribe': 'Se désabonner',
+      'push.testNow': 'Envoyer un test',
+      'push.subscribing': 'Activation …',
+      'push.unsubscribing': 'Désactivation …',
+      'push.testing': 'Envoi du test …',
+      'push.testSent': '✅ Test envoyé — devrait arriver bientôt.',
       'scan.shareCard': 'Créer une carte partageable',
       'search.empty.tryKey': 'Rien trouvé ? Essaie la clé d’identification.'
     },
@@ -16378,6 +16523,22 @@ window.gsI18n = (function(){
       'menu.brain': 'Brain-Inspector',
       'menu.tour': 'Tour di benvenuto',
       'menu.selftest': 'Auto-test',
+      'menu.push': 'Push-Suggerimenti',
+      'push.title': 'Suggerimenti push',
+      'push.lead': 'Ricevi ogni giorno un suggerimento personalizzato — basato su stagione, luogo e tuoi scan.',
+      'push.active': 'attivo',
+      'push.inactive': 'inattivo',
+      'push.denied': 'Accesso al browser rifiutato',
+      'push.unsupported': 'non supportato',
+      'push.loginNeeded': 'I push richiedono un account — accedi prima.',
+      'push.hour': 'Ora',
+      'push.subscribe': '🔔 Abbonati ai suggerimenti',
+      'push.unsubscribe': 'Annulla abbonamento',
+      'push.testNow': 'Invia test',
+      'push.subscribing': 'Attivazione …',
+      'push.unsubscribing': 'Disattivazione …',
+      'push.testing': 'Invio test …',
+      'push.testSent': '✅ Test inviato — dovrebbe arrivare a breve.',
       'scan.shareCard': 'Crea una carta condivisibile',
       'search.empty.tryKey': 'Nulla trovato? Prova la chiave d’identificazione.'
     },
@@ -16472,6 +16633,22 @@ window.gsI18n = (function(){
       'menu.brain': 'Brain-Inspector',
       'menu.tour': 'Welcome-Tour',
       'menu.selftest': 'Sälbst-Test',
+      'menu.push': 'Push-Tipps',
+      'push.title': 'Push-Tipps',
+      'push.lead': 'Chrieg jede Tag en perseenliche Smart-Tipp us dim Brain — passend zur Saison, em Ort und dine Scans.',
+      'push.active': 'aktiv',
+      'push.inactive': 'inaktiv',
+      'push.denied': 'Browser het abgleehnt',
+      'push.unsupported': 'nöd unterstützt',
+      'push.loginNeeded': 'Push brucht en Account — bitte zerscht aamälde.',
+      'push.hour': 'Tageszyt',
+      'push.subscribe': '🔔 Tägliche Tipps abonniere',
+      'push.unsubscribe': 'Abo abbreche',
+      'push.testNow': 'Test-Push schicke',
+      'push.subscribing': 'Aktivier …',
+      'push.unsubscribing': 'Deaktivier …',
+      'push.testing': 'Schick Test …',
+      'push.testSent': '✅ Test ggschickt — sött grad cho.',
       'scan.shareCard': 'Teilbari Charte mache',
       'search.empty.tryKey': 'Nüt gfunde? Probier de Bestimmig-Schlüssel.'
     }
@@ -39573,7 +39750,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v24.18';
+var GS_VERSION = 'v24.19';
 // ══ GMAIL DRAFT-IDs ═══════════════════════════════════════════
 // Vorgefertigte E-Mail-Templates im Gmail-Konto www.greenscan@gmail.com
 // Absender: GreenScan <info@greenscan.ch>

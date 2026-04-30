@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-QZgDb` · **Version**: `v24.18` (in Arbeit) / `v24.17` (gepusht) · **2 Wochen bis Release**
+**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-QZgDb` · **Version**: `v24.19` (in Arbeit) / `v24.18` (gepusht) · **2 Wochen bis Release**
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v24.18 | **Sprint 40 — Performance-Pass**: Leaflet jetzt `defer`-geladen (~140 KB JS blockt Initial-Parse nicht mehr) · pdf.js wirklich lazy via `gsEnsurePdfjs()` (~500 KB nur beim ersten Plan-Export geladen, vorher 2× geladen: eager + dynamic-import) · `loading="lazy" decoding="async"` auf 3 Listen-Bilder (Marktplatz-Listings, Scan-History, Hero-Foto) — nur sichtbare Bilder werden geladen. Erwarteter Gewinn: -140 KB blockendes JS auf Home/Scanner/Search/Favs/Menu (5 von 6 Haupt-Tabs), pdf.js nur on-demand. |
+| (next push) | v24.19 | **Sprint 41 — Push-UI**: `gsPush` (subscribe/unsubscribe/test) war bisher nur via DevTools-Console aufrufbar — jetzt vollständige Modal-UI über `gsOpenPushSettings()` mit Status-Badge (active/inactive/denied/unsupported), Stunden-Picker (5–22 h, persistent in `gs_push_hour`), Login-Hinweis, Test-Button. Eingebunden ins Menü → 🩺 Diagnose & Hilfe → 🔔 Push-Tipps. 17 i18n-Keys (DE/FR/IT/gsw) für die komplette Push-UX. |
+| `9975b6f` | v24.18 | **Sprint 40 — Performance-Pass**: Leaflet jetzt `defer`-geladen (~140 KB JS blockt Initial-Parse nicht mehr) · pdf.js wirklich lazy via `gsEnsurePdfjs()` (~500 KB nur beim ersten Plan-Export geladen, vorher 2× geladen: eager + dynamic-import) · `loading="lazy" decoding="async"` auf 3 Listen-Bilder (Marktplatz-Listings, Scan-History, Hero-Foto) — nur sichtbare Bilder werden geladen. Erwarteter Gewinn: -140 KB blockendes JS auf Home/Scanner/Search/Favs/Menu (5 von 6 Haupt-Tabs), pdf.js nur on-demand. |
 | `cd74506` | v24.17 | **Sprint 39 — Discovery & Deep-Links**: Erst-User (0 Scans) bekommen prominente Discovery-Card auf Home für „📋 Bestimmungs-Schlüssel" (Killer-Feature gegen Flora Helvetica) · `gsHandleShortcutUrl` erweitert um 9 Modal-Screens (multikey, vapko, achievements, doctor, brain, health, tour, inat, light) und sauberer Tab-Whitelist (vorher kaputter `navTo`-Call) · manifest.json shortcuts: Lichtmessung + Garten-Planer raus, dafür „Bestimmungs-Schlüssel" + „Pflanzendoktor" rein (long-press auf Home-Icon zeigt jetzt die Power-Features). |
 | `57a4a92` | v24.16 | **Sprint 38 — Home-Hook + B2-Hardening**: Home zeigt unter Brain-Tipp ein Achievement-Hint-Card („🏆 12/34 · Nächstes: 🦋 Sammler") mit Click→Modal — psychologischer Sog für Quote-getriebene User · 3 unescaped `err.message`/`e.message`-innerHTML-Stellen (Lichtmesser, Solar-Sensor, Pflanzendoktor-Foto) gehärtet mit `gsHTMLEscape`-Fallback (B2-Mini-Migration). |
 | `434f457` | v24.15 | **Sprint 37 — UI-Polish**: i18n-Keys (DE/FR/IT/gsw) für 11 neue Strings (menu.multikey/vapko/achievements/inat/diagnose/health/brain/tour/selftest, scan.shareCard, search.empty.tryKey) · `data-i18n`-Attribute auf neuen Menü-Buttons + Section · Achievement-Counter (X/Y) live im Menü-Button (rendert beim openMainMenu) · Multikriterien-Schlüssel-CTA im leeren Search-Result als prominenter Button · `gsApplyI18n` re-apply beim Menü-Open (Locale-Switch wirkt sofort) |
@@ -55,6 +56,15 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
 
 ## 2 · Was nachweislich funktioniert (Code-Verifikation)
 
+- ✅ **gsPush-Settings-UI** (v24.19): vorher achtes unsichtbares
+  Power-Feature (alle 5 Methoden — `isSupported/status/subscribe/
+  unsubscribe/test` — nur via DevTools-Console). Jetzt:
+  `gsOpenPushSettings()` Modal mit Live-Status-Badge,
+  Stunden-Picker (persistent in `gs_push_hour`),
+  Login-Hinweis wenn nicht angemeldet, defensiver Error-Pfad mit
+  Server-Setup-Hinweis (VAPID-Public-Key fehlt → klare Botschaft).
+  Eingebunden ins Menü → 🩺 Diagnose & Hilfe → 🔔 Push-Tipps. 17 i18n-
+  Keys in DE/FR/IT/gsw.
 - ✅ **Performance-Pass** (v24.18): drei konkrete Wins für Initial-Load:
   - **Leaflet defer-loaded** (`<script defer>` statt sync) — ~140 KB JS
     blockt Initial-Parse nicht mehr. Sicher, weil alle `L.`-Calls in
