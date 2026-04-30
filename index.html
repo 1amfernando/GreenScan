@@ -21,7 +21,7 @@
 <meta name="apple-mobile-web-app-title" content="GreenScan">
 <meta name="description" content="4342 Schweizer Arten: Wildpflanzen, Pilze, Bäume, Kräuter, Moose, Flechten, Algen, Hauspflanzen. KI-Scanner, Garten, Lichtmessung.">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="24.10">
+<meta name="app-version" content="24.13">
 <link rel="canonical" href="https://greenscan.ch/">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <meta name="author" content="GreenScan">
@@ -8865,7 +8865,7 @@ function mktLike(id) {
   }
   // Supabase sync
   if (typeof sbFetch === 'function') {
-    sbFetch('/rest/v1/marketplace_listings?id=eq.'+id, {
+    sbFetch('/rest/v1/marketplace_listings?id=eq.'+encodeURIComponent(id), {
       method: 'PATCH',
       body: JSON.stringify({likes: l.likes})
     }).catch(function(){});
@@ -8883,7 +8883,7 @@ function mktDelete(id) {
   renderMarket();
   showProfileToast('Inserat gelöscht', 'info');
   if (typeof sbFetch === 'function') {
-    sbFetch('/rest/v1/marketplace_listings?id=eq.'+id, {method:'DELETE'}).catch(function(){});
+    sbFetch('/rest/v1/marketplace_listings?id=eq.'+encodeURIComponent(id), {method:'DELETE'}).catch(function(){});
   }
 }
 
@@ -16625,7 +16625,67 @@ window.gsRedList = (function(){
     'Cantharellus cibarius': 'LC',     // Eierschwamm
     'Amanita muscaria': 'LC',          // Fliegenpilz
     'Amanita phalloides': 'LC',        // Knollenblaetterpilz, toedlich
-    'Hericium erinaceus': 'NT'         // Igelstachelbart
+    'Hericium erinaceus': 'NT',        // Igelstachelbart
+    // Erweiterung v24.13: weitere prominente Schweizer Arten
+    // (Quelle: Bornand 2016 + BAFU 2019, kuratierte Auswahl)
+    // Orchideen
+    'Orchis morio': 'EN',                // Kleines Knabenkraut
+    'Orchis militaris': 'NT',
+    'Orchis purpurea': 'NT',
+    'Dactylorhiza incarnata': 'VU',
+    'Dactylorhiza fuchsii': 'LC',
+    'Epipactis palustris': 'EN',         // Sumpf-Stendelwurz
+    'Cephalanthera damasonium': 'LC',
+    'Cephalanthera rubra': 'NT',         // Rotes Waldvöglein
+    'Listera ovata': 'LC',
+    'Platanthera bifolia': 'NT',         // Weisse Waldhyazinthe
+    'Anacamptis morio': 'EN',
+    // Alpenflora
+    'Gentiana clusii': 'LC',
+    'Gentiana verna': 'LC',              // Frühlings-Enzian
+    'Gentiana brachyphylla': 'LC',
+    'Primula farinosa': 'NT',            // Mehlprimel
+    'Primula veris': 'LC',               // Schlüsselblume
+    'Cyclamen purpurascens': 'LC',       // Alpen-Veilchen
+    'Daphne cneorum': 'VU',              // Rosmarin-Seidelbast
+    'Eryngium alpinum': 'EN',            // Alpen-Mannstreu
+    'Aster alpinus': 'LC',
+    'Aquilegia alpina': 'NT',
+    // Wasserpflanzen
+    'Nymphaea alba': 'NT',               // Weisse Seerose
+    'Nuphar lutea': 'LC',                // Gelbe Teichrose
+    'Hottonia palustris': 'EN',          // Wasserfeder
+    'Stratiotes aloides': 'EN',          // Krebsschere
+    // Magerwiesen
+    'Salvia pratensis': 'LC',
+    'Trifolium montanum': 'LC',
+    'Lotus corniculatus': 'LC',
+    'Centaurea cyanus': 'NT',            // Kornblume
+    'Adonis aestivalis': 'EN',           // Sommer-Adonisröschen
+    'Anthemis arvensis': 'NT',
+    // Wald-Spezies
+    'Lilium martagon': 'NT',             // Türkenbund
+    'Paris quadrifolia': 'LC',
+    'Convallaria majalis': 'LC',         // Maiglöckchen
+    'Polygonatum multiflorum': 'LC',
+    'Mercurialis perennis': 'LC',
+    // Heilkundlich relevant
+    'Arnica montana': 'NT',              // Echte Arnika (geschützt!)
+    'Carlina acaulis': 'LC',             // Silberdistel (geschützt!)
+    'Rhodiola rosea': 'NT',              // Rosenwurz
+    'Vaccinium myrtillus': 'LC',         // Heidelbeere
+    'Vaccinium vitis-idaea': 'LC',
+    // Bäume / Sträucher
+    'Pinus sylvestris': 'LC',
+    'Abies alba': 'LC',
+    'Sorbus aria': 'LC',                 // Mehlbeere
+    'Sorbus torminalis': 'LC',           // Elsbeere
+    'Cornus mas': 'LC',                  // Kornelkirsche
+    'Viburnum lantana': 'LC',
+    'Viburnum opulus': 'LC',             // Gewöhnlicher Schneeball
+    'Frangula alnus': 'LC',
+    'Berberis vulgaris': 'LC',           // Sauerdorn
+    'Juniperus communis': 'LC'
   };
 
   function status(latName){
@@ -17725,6 +17785,84 @@ window.gsAchievements = (function(){
     { id:'vapko_visitor', icon:'🍄', name:'VAPKO-Vorsicht',
       desc:'Pilzkontrollstellen-Liste geöffnet — Sicherheit zuerst!',
       trig: function(m){ return m.some(function(e){return e.event==='vapko_open';}); }
+    },
+    // ─── Erweiterte Sammler-Stufen ───────────────────────────────────────
+    { id:'collector_500', icon:'🦅', name:'Naturadler',
+      desc:'500 Arten entdeckt — du bist eine Schweizer Legende!',
+      trig: function(m){ return m.filter(function(e){return e.event==='scan_added';}).length >= 500; }
+    },
+    // ─── Saison-Spezialisten ────────────────────────────────────────────
+    { id:'fungi_autumn', icon:'🍂', name:'Pilz-Herbst',
+      desc:'5 Pilze in der Hauptsaison (Sept–Nov) gescannt.',
+      trig: function(m){
+        return m.filter(function(e){
+          if (e.event !== 'scan_added' || !e.data || !/pilz/i.test(e.data.category||'')) return false;
+          var d = new Date(e.ts); var mn = d.getMonth()+1;
+          return mn >= 9 && mn <= 11;
+        }).length >= 5;
+      }
+    },
+    // ─── Geographische Diversität ───────────────────────────────────────
+    { id:'kanton_5', icon:'📍', name:'Kantons-Wanderer:in',
+      desc:'In 5 verschiedenen Kantonen gescannt.',
+      trig: function(m){
+        var cantons = {};
+        m.forEach(function(e){
+          if (e.event === 'scan_added' && e.data && e.data.canton) cantons[e.data.canton] = 1;
+        });
+        return Object.keys(cantons).length >= 5;
+      }
+    },
+    // ─── Tageszeit-Verhalten ────────────────────────────────────────────
+    { id:'early_bird', icon:'🌅', name:'Frühaufsteher:in',
+      desc:'Vor 7:00 die App geöffnet — Morgentau im Blick!',
+      trig: function(m){ return m.some(function(e){
+        if (e.event !== 'home_open') return false;
+        return (e.data && typeof e.data.hour === 'number' && e.data.hour < 7);
+      }); }
+    },
+    { id:'night_owl', icon:'🦉', name:'Nachteule',
+      desc:'Nach 22:00 die App geöffnet — Nachtwanderung im Kopf?',
+      trig: function(m){ return m.some(function(e){
+        if (e.event !== 'home_open') return false;
+        return (e.data && typeof e.data.hour === 'number' && e.data.hour >= 22);
+      }); }
+    },
+    // ─── Höhe-Premium ───────────────────────────────────────────────────
+    { id:'high_alpine', icon:'⛰️', name:'Hochalpinist:in',
+      desc:'Über 2500 m ü.M. gescannt — echtes Bergerlebnis.',
+      trig: function(m, ctx){ return ctx && ctx.elevation > 2500 && m.some(function(e){return e.event==='scan_added';}); }
+    },
+    // ─── Sharing & Community ────────────────────────────────────────────
+    { id:'share_5', icon:'📣', name:'Botschafter:in',
+      desc:'5 Funde mit Share-Card geteilt.',
+      trig: function(m){ return m.filter(function(e){return e.event==='share_card_shared';}).length >= 5; }
+    },
+    // ─── Quiz-Schnellfinger ─────────────────────────────────────────────
+    { id:'quiz_speed', icon:'⚡', name:'Schnellfinger',
+      desc:'5x in unter 5 Sekunden korrekt gequiztet.',
+      trig: function(m){
+        return m.filter(function(e){
+          return e.event === 'quiz_answered' && e.data && e.data.correct === true && e.data.timeS != null && e.data.timeS < 5;
+        }).length >= 5;
+      }
+    },
+    // ─── Sprache ────────────────────────────────────────────────────────
+    { id:'mundart', icon:'🇨🇭', name:'Mundart-Pionier:in',
+      desc:'In Schweizerdeutsch ("Doheim, Mys Gärtli") gewechselt.',
+      trig: function(m){ return m.some(function(e){
+        return e.event === 'locale_changed' && e.data && e.data.to === 'gsw';
+      }); }
+    },
+    // ─── Multi-Tool-Power ───────────────────────────────────────────────
+    { id:'all_tools', icon:'🛠️', name:'Werkzeugkasten',
+      desc:'Multikriterien, VAPKO und Brain-Inspector verwendet.',
+      trig: function(m){
+        var hasMulti = m.some(function(e){return e.event==='multikey_open' || e.event==='multikey_apply';});
+        var hasVapko = m.some(function(e){return e.event==='vapko_open';});
+        var hasInsp  = m.some(function(e){return e.event==='achievements_open';});
+        return hasMulti && hasVapko && hasInsp;
+      }
     }
   ];
 
@@ -39179,7 +39317,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v24.10';
+var GS_VERSION = 'v24.13';
 // ══ GMAIL DRAFT-IDs ═══════════════════════════════════════════
 // Vorgefertigte E-Mail-Templates im Gmail-Konto www.greenscan@gmail.com
 // Absender: GreenScan <info@greenscan.ch>
@@ -40103,7 +40241,7 @@ async function sbLoadProfile() {
   var uid = localStorage.getItem('gs_sb_uid');
   if (!uid) return null;
   try {
-    var res = await sbFetch('/rest/v1/profiles?id=eq.'+uid+'&select=*', {method:'GET'});
+    var res = await sbFetch('/rest/v1/profiles?id=eq.'+encodeURIComponent(uid)+'&select=*', {method:'GET'});
     if (res.error || !res.data || !res.data[0]) {
       // Profil existiert noch nicht — Fallback-Profil aus localStorage
       _sbProfile = {
@@ -41224,7 +41362,7 @@ async function profDeleteAccount() {
   // Profil löschen (via RLS geschützt)
   var uid = localStorage.getItem('gs_sb_uid');
   if (uid) {
-    await sbFetch('/rest/v1/profiles?id=eq.'+uid, {method:'DELETE'});
+    await sbFetch('/rest/v1/profiles?id=eq.'+encodeURIComponent(uid), {method:'DELETE'});
   }
   await sbLogout();
   closeModal('modal-profile');

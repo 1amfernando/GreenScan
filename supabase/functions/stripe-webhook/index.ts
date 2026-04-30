@@ -124,7 +124,11 @@ serve(async (req) => {
     (obj.id && eventType.startsWith("customer.subscription.") ? (obj.id as string) : null) ||
     null;
   const meta = (obj.metadata as Record<string, string>) || {};
-  const user_id = (meta.user_id || meta.userId) ?? null;
+  // v24.13 SECURITY-FIX (D4 MEDIUM): user_id muss valides UUID sein.
+  // Verhindert Injection-Versuche via Stripe-Metadata.
+  const rawUserId = meta.user_id || meta.userId || "";
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const user_id = UUID_RE.test(rawUserId) ? rawUserId : null;
 
   const supa = createClient(SUPA_URL, SERVICE, { auth: { persistSession: false } });
 

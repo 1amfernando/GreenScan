@@ -18,22 +18,36 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 import webpush from "npm:web-push@3.6.7";
 
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Max-Age": "86400",
-};
+// v24.13 SECURITY-FIX (D1 HIGH): CORS Origin-aware (siehe ai-proxy).
+const ALLOWED_ORIGINS = ["https://greenscan.ch", "https://www.greenscan.ch"];
+function corsHeaders(origin: string | null): Record<string, string> {
+  let allowed = "https://greenscan.ch";
+  if (origin) {
+    if (ALLOWED_ORIGINS.includes(origin) || /\.pages\.dev$/.test(origin) ||
+        /^http:\/\/localhost(:\d+)?$/.test(origin) ||
+        /^http:\/\/127\.0\.0\.1(:\d+)?$/.test(origin)) {
+      allowed = origin;
+    }
+  }
+  return {
+    "Access-Control-Allow-Origin": allowed,
+    "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Max-Age": "86400",
+    "Vary": "Origin",
+  };
+}
 
-function jsonResp(payload: unknown, status = 200) {
+function jsonResp(payload: unknown, status = 200, origin: string | null = null) {
   return new Response(JSON.stringify(payload), {
     status,
-    headers: { ...CORS, "Content-Type": "application/json" },
+    headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
   });
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  const origin = req.headers.get("origin");
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders(origin) });
 
   const VAPID_PUB = Deno.env.get("VAPID_PUBLIC_KEY") || "";
   const VAPID_PRIV = Deno.env.get("VAPID_PRIVATE_KEY") || "";

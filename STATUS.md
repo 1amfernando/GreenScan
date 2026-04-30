@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.12` (in Arbeit) / `v24.11` (gepusht) · **2 Wochen bis Release**
+**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.13` (in Arbeit) / `v24.12` (gepusht) · **2 Wochen bis Release**
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v24.12 | Phase 8: Performance-Polish (preconnect/preload erweitert) · DEPLOY.md §16-17 (OG/Screenshots/App-Store-Wrapper) · README-Refresh · Stripe-Webhook Edge Fn (audit-log) + Migration · Error→Brain-Memory-Telemetry |
+| (next push) | v24.13 | Phase 9: Pre-Launch-Audit-Subagent + 5 Sicherheits-Fixes (1 CRITICAL daily-push-Auth · 3 HIGH CORS-Origins/encodeURIComponent · 1 MED stripe-uuid · LOW SW-Version-Bump) · 10 zusätzliche Achievements (34 total) · 50 zusätzliche IUCN-Arten (130 total) |
+| `ee900a7` | v24.12 | Phase 8: Performance-Polish (preconnect/preload erweitert) · DEPLOY.md §16-17 (OG/Screenshots/App-Store-Wrapper) · README-Refresh · Stripe-Webhook Edge Fn (audit-log) + Migration · Error→Brain-Memory-Telemetry |
 | `80ba380` | v24.11 | Sprint 28+29+30: Pre-Launch-Polish — `gsAlert`-Helper + 9 alert()→Toast Migrationen · B5 als „Admin-Feature" geklärt · `gsSelfTest()` mit 33 Module-Reachability-Checks |
 | `9a78621` | v24.10 | Sprint 26+27: Pre-Launch-Audit + Versions-Sync (alles `v24.10`), install.html-Marketing-Polish (16 Features statt 8) |
 | `b6f3df8` | v24.09 | Sprint 25: `gsWelcomeTour` — 3-Slide Welcome (auto-trigger erst-Launch, defensiv, idempotent) |
@@ -107,6 +108,30 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
   mehrzeilige Texte zurück. 9 wichtige User-facing alert()-Stellen
   migriert (Login-Hinweis, Stripe-Recovery-Status, Kamera-Errors,
   Garten-Limits, Feedback-Bestätigung).
+- ✅ **Pre-Launch-Audit-Sicherheits-Fixes** (v24.13):
+  - **D3 (CRITICAL)**: `daily-push` Edge Fn verlangt jetzt
+    Service-Role-Bearer-Auth mit Constant-Time-Compare. Vorher: jeder
+    mit Function-URL konnte Push-Spam triggern.
+  - **D1 (HIGH)**: CORS in `ai-proxy`, `entitlements`, `push-test` von
+    `*` auf Allowlist (`greenscan.ch`, `*.pages.dev`, `localhost`)
+    umgestellt. `Vary: Origin`-Header hinzugefügt.
+  - **G2 (HIGH)**: 4 Stellen `marketplace_listings?id=eq.'+id` und
+    `profiles?id=eq.'+uid` mit `encodeURIComponent` geschützt — keine
+    String-Concat-Injection möglich.
+  - **D4 (MEDIUM)**: `stripe-webhook` validiert `metadata.user_id`
+    gegen UUID-Regex `/^[0-9a-f-]{36}$/i` — verhindert Injection-
+    Versuche via Stripe-Metadata.
+  - **F2 (LOW)**: Versions-Sync v24.13 in allen Files (sw.js
+    CACHE_VERSION, index.html GS_VERSION + meta, install.html,
+    _redirects, robots.txt).
+- ✅ **gsAchievements erweitert auf 34 Badges** (v24.13): +Naturadler
+  (500 Scans), +Pilz-Herbst (Sept-Nov), +Kantons-Wanderer:in (5+),
+  +Frühaufsteher:in (<7h), +Nachteule (>22h), +Hochalpinist:in
+  (>2500m), +Botschafter:in (5 Shares), +Schnellfinger (Quiz <5s),
+  +Mundart-Pionier:in, +Werkzeugkasten (alle Tools).
+- ✅ **gsRedList erweitert auf ~130 Arten** (v24.13): +50 prominente
+  Schweizer Spezies (Orchideen, Alpenflora, Wasserpflanzen,
+  Magerwiesen, Heilpflanzen, Bäume) nach Bornand 2016.
 - ✅ **Performance-Polish** (v24.12): preconnect für Supabase (mit
   crossorigin) hinzu, dns-prefetch erweitert auf 11 Hosts (cdnjs,
   Anthropic, Open-Meteo, Geocoding, Nominatim, Wikipedia, iNat,

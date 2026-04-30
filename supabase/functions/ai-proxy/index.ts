@@ -17,13 +17,31 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 
-// CORS — wenn du strenger sein willst, ersetze "*" durch "https://greenscan.ch".
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Max-Age": "86400",
-};
+// v24.13 SECURITY-FIX (D1 HIGH): CORS auf vertrauenswuerdige Origins
+// beschraenken. Erlaubt: greenscan.ch, *.pages.dev (Cloudflare-Previews),
+// localhost (Dev). Andere Origins erhalten kein CORS-Allow → Browser
+// blockiert den Request vor JWT-Pruefung.
+const ALLOWED_ORIGINS = [
+  "https://greenscan.ch",
+  "https://www.greenscan.ch",
+];
+function corsHeaders(origin: string | null): Record<string, string> {
+  let allowed = "https://greenscan.ch"; // default
+  if (origin) {
+    if (ALLOWED_ORIGINS.includes(origin) || /\.pages\.dev$/.test(origin) ||
+        /^http:\/\/localhost(:\d+)?$/.test(origin) ||
+        /^http:\/\/127\.0\.0\.1(:\d+)?$/.test(origin)) {
+      allowed = origin;
+    }
+  }
+  return {
+    "Access-Control-Allow-Origin": allowed,
+    "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Max-Age": "86400",
+    "Vary": "Origin",
+  };
+}
 
 // Whitelist erlaubte Modelle. Verhindert, dass Clients teure Modelle erzwingen.
 const ALLOWED_MODELS = new Set([
@@ -47,16 +65,17 @@ const TIER_LIMITS: Record<string, number> = {
 // Hard-Cap für max_tokens (verhindert teure Mega-Requests).
 const MAX_TOKENS_CAP = 4096;
 
-function jsonResp(payload: unknown, status = 200) {
+function jsonResp(payload: unknown, status = 200, origin: string | null = null) {
   return new Response(JSON.stringify(payload), {
     status,
-    headers: { ...CORS, "Content-Type": "application/json" },
+    headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
   });
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
-  if (req.method !== "POST") return jsonResp({ error: { message: "Method Not Allowed" } }, 405);
+  const origin = req.headers.get("origin");
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders(origin) });
+  if (req.method !== "POST") return jsonResp({ error: { message: "Method Not Allowed" } }, 405, origin);
 
   // 1) JWT pruefen
   const authHeader = req.headers.get("authorization") || "";
@@ -188,6 +207,6 @@ serve(async (req) => {
   // 6) 1:1 weiterleiten
   return new Response(upstreamText, {
     status: upstream.status,
-    headers: { ...CORS, "Content-Type": "application/json" },
+    headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
   });
 });

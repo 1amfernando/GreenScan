@@ -22,12 +22,25 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Max-Age": "86400",
-};
+// v24.13 SECURITY-FIX (D1 HIGH): CORS Origin-aware (siehe ai-proxy).
+const ALLOWED_ORIGINS = ["https://greenscan.ch", "https://www.greenscan.ch"];
+function corsHeaders(origin: string | null): Record<string, string> {
+  let allowed = "https://greenscan.ch";
+  if (origin) {
+    if (ALLOWED_ORIGINS.includes(origin) || /\.pages\.dev$/.test(origin) ||
+        /^http:\/\/localhost(:\d+)?$/.test(origin) ||
+        /^http:\/\/127\.0\.0\.1(:\d+)?$/.test(origin)) {
+      allowed = origin;
+    }
+  }
+  return {
+    "Access-Control-Allow-Origin": allowed,
+    "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Max-Age": "86400",
+    "Vary": "Origin",
+  };
+}
 
 // Muss synchron mit ai-proxy/index.ts gehalten werden!
 const TIER_LIMITS: Record<string, number> = {
@@ -37,16 +50,17 @@ const TIER_LIMITS: Record<string, number> = {
   lifetime: 2000,
 };
 
-function jsonResp(payload: unknown, status = 200) {
+function jsonResp(payload: unknown, status = 200, origin: string | null = null) {
   return new Response(JSON.stringify(payload), {
     status,
-    headers: { ...CORS, "Content-Type": "application/json" },
+    headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
   });
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
-  if (req.method !== "GET") return jsonResp({ error: "Method Not Allowed" }, 405);
+  const origin = req.headers.get("origin");
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders(origin) });
+  if (req.method !== "GET") return jsonResp({ error: "Method Not Allowed" }, 405, origin);
 
   const auth = req.headers.get("authorization") || "";
   if (!auth.startsWith("Bearer ")) return jsonResp({ error: "auth required" }, 401);

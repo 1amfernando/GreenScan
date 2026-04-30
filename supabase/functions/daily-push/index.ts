@@ -107,6 +107,19 @@ serve(async (req) => {
   if (!VAPID_PUB || !VAPID_PRIV) return jsonResp({ error: "VAPID nicht konfiguriert" }, 503);
   if (!SUPA_URL || !SERVICE) return jsonResp({ error: "service role missing" }, 503);
 
+  // v24.13 SECURITY-FIX (D3 CRITICAL): Auth-Check.
+  // Vorher: jeder mit URL konnte daily-push triggern → Spam/DoS.
+  // Jetzt: nur Aufrufer mit Service-Role-Key (pg_cron oder Owner) erlaubt.
+  // Constant-Time-Compare gegen Timing-Attacks.
+  const authHeader = req.headers.get("authorization") || "";
+  const expected = "Bearer " + SERVICE;
+  if (authHeader.length !== expected.length) return jsonResp({ error: "unauthorized" }, 401);
+  let mismatch = 0;
+  for (let i = 0; i < expected.length; i++) {
+    mismatch |= authHeader.charCodeAt(i) ^ expected.charCodeAt(i);
+  }
+  if (mismatch !== 0) return jsonResp({ error: "unauthorized" }, 401);
+
   const supa = createClient(SUPA_URL, SERVICE, { auth: { persistSession: false } });
   webpush.setVapidDetails(VAPID_SUB, VAPID_PUB, VAPID_PRIV);
 
