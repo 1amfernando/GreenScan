@@ -1,4 +1,4 @@
-// GreenScan Service Worker v24.13
+// GreenScan Service Worker v24.14
 // Strategie:
 //   - Static-Assets:    Cache-First mit langer TTL
 //   - HTML-Navigation:  Network-First, Fallback offline.html
@@ -13,7 +13,7 @@
 //   - Push-Empfang (Stub) für Garten-Erinnerungen
 //   - Image-Cache-Quota (max ~80 Einträge) verhindert Storage-Explosion
 
-const CACHE_VERSION = 'greenscan-v24.13';
+const CACHE_VERSION = 'greenscan-v24.14';
 const CACHE_STATIC   = CACHE_VERSION + '-static';
 const CACHE_DYNAMIC  = CACHE_VERSION + '-dynamic';
 const CACHE_IMG      = CACHE_VERSION + '-images';

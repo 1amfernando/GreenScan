@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.13` (in Arbeit) / `v24.12` (gepusht) · **2 Wochen bis Release**
+**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-QZgDb` · **Version**: `v24.14` (in Arbeit) / `v24.13` (gepusht via PR #1) · **2 Wochen bis Release**
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v24.13 | Phase 9: Pre-Launch-Audit-Subagent + 5 Sicherheits-Fixes (1 CRITICAL daily-push-Auth · 3 HIGH CORS-Origins/encodeURIComponent · 1 MED stripe-uuid · LOW SW-Version-Bump) · 10 zusätzliche Achievements (34 total) · 50 zusätzliche IUCN-Arten (130 total) |
+| (next push) | v24.14 | **Sprint 36 — UI-Verdrahtung**: 7 unsichtbare Features bekommen Menü-Buttons (Multikriterien-Schlüssel, VAPKO-Pilzkontrollen, Achievements, iNaturalist, Brain-Inspector, Welcome-Tour, Self-Test). Neue Menü-Sektion „🩺 Diagnose & Hilfe". Share-Card-Button im Scan-Result mit Auto-Fill aus letztem Scan + Standort + IUCN-Status. `gsRunSelfTestModal()` als Modal-Wrapper für Self-Test. Größte UX-Lücke der letzten 7 Sprints geschlossen. |
+| `4d295d5` | v24.13 | Phase 9: Pre-Launch-Audit-Subagent + 5 Sicherheits-Fixes (1 CRITICAL daily-push-Auth · 3 HIGH CORS-Origins/encodeURIComponent · 1 MED stripe-uuid · LOW SW-Version-Bump) · 10 zusätzliche Achievements (34 total) · 50 zusätzliche IUCN-Arten (130 total) |
 | `ee900a7` | v24.12 | Phase 8: Performance-Polish (preconnect/preload erweitert) · DEPLOY.md §16-17 (OG/Screenshots/App-Store-Wrapper) · README-Refresh · Stripe-Webhook Edge Fn (audit-log) + Migration · Error→Brain-Memory-Telemetry |
 | `80ba380` | v24.11 | Sprint 28+29+30: Pre-Launch-Polish — `gsAlert`-Helper + 9 alert()→Toast Migrationen · B5 als „Admin-Feature" geklärt · `gsSelfTest()` mit 33 Module-Reachability-Checks |
 | `9a78621` | v24.10 | Sprint 26+27: Pre-Launch-Audit + Versions-Sync (alles `v24.10`), install.html-Marketing-Polish (16 Features statt 8) |
@@ -50,6 +51,16 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
 
 ## 2 · Was nachweislich funktioniert (Code-Verifikation)
 
+- ✅ **UI-Verdrahtung der Power-Features** (v24.14): 10 neue Buttons im
+  Hauptmenü und Scan-Result. Vorher nur via DevTools-Console erreichbar:
+  `openMultiKey` (Wissen → 📋 Bestimmungs-Schlüssel), `openVapko`
+  (Wissen → 🍄 Pilzkontrolle VAPKO), `openAchievements` (Next-Level →
+  🏆 Auszeichnungen), `openInat` (Community → 🌍 iNaturalist),
+  `gsHealthCheck(true)` / `gsBrainDebug(true)` / `openWelcomeTour` /
+  `gsRunSelfTestModal` (neue Sektion „🩺 Diagnose & Hilfe"),
+  `gsOpenShareCardForLastScan` (Scan-Result → 🎴 Teilbare Karte
+  erstellen, auto-fill aus `_lastScanResult` + `gs_user_location` +
+  `gsRedList`).
 - ✅ **gsBrain-Modul**: `context()`, `format()`, `systemPrompt()`,
   `observe()`, `recommend()`, `dailyTip()`, `memory()`, `roles()` exposed
   via `window.gsBrain`
@@ -331,8 +342,7 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
   Resultatliste mit Klick-zur-Detail-Ansicht. Filter-State persistiert in
   `gs_key_filter_state`. Brain-Observe: `multikey_open`, `multikey_apply`.
   Trigger: `window.openMultiKey()`. **Killer-Feature gegen Flora Helvetica**
-  (deren Kern-USP), aber UI-Trigger noch nicht in Tabs eingebunden — nächster
-  Schritt: Button im Wissen-/Suche-Bereich.
+  (deren Kern-USP). **Ab v24.14** im Menü → Wissen → „📋 Bestimmungs-Schlüssel".
 - ✅ **Health-Check / Diagnose-Tool** (v23.94): `gsHealthCheck()` läuft
   9 Checks parallel/sequenziell durch — Online, Service Worker,
   localStorage-Quota, KI-Zugang (BYO-Key oder Proxy), Anmeldung,

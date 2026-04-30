@@ -7,10 +7,11 @@
 
 ---
 
-## ✅ Shipped (auf Branch `claude/audit-app-features-CXtrI`)
+## ✅ Shipped (auf Branch `claude/audit-app-features-QZgDb`)
 
 | # | Meilenstein | Commit | Wirkung |
 |---|---|---|---|
+| S16 | **Sprint 36: UI-Verdrahtung** | (next push) v24.14 | 7 unsichtbare Power-Features bekommen Menü-Buttons (Multikriterien, VAPKO, Achievements, iNat, Brain-Inspector, Welcome-Tour, Self-Test) + Share-Card-Button im Scan-Result. Größte UX-Lücke der letzten 7 Sprints geschlossen. |
 | S1 | Sicherheits-Audit + CSP | `d5b9d55` | Hardcoded NVIDIA-Key raus, vollständige Allowlist-CSP |
 | S2 | NVIDIA komplett entfernt | `a5651f4` | Code halbiert auf API-Layer; Claude-only-UX |
 | S3 | App-Store-Polish | `1bde9ec` | iOS-Meta, a11y, SW-Update-Banner, sbFetch-Retry |

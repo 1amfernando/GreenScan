@@ -21,7 +21,7 @@
 <meta name="apple-mobile-web-app-title" content="GreenScan">
 <meta name="description" content="4342 Schweizer Arten: Wildpflanzen, Pilze, Bäume, Kräuter, Moose, Flechten, Algen, Hauspflanzen. KI-Scanner, Garten, Lichtmessung.">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="24.13">
+<meta name="app-version" content="24.14">
 <link rel="canonical" href="https://greenscan.ch/">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <meta name="author" content="GreenScan">
@@ -4358,6 +4358,14 @@ button:focus-visible, .ib:focus-visible, .tab:focus-visible{
         <div class="menu-item-icon" style="background:#e8eaf6;">🗺️</div>
         <span class="menu-item-label">Karte</span>
       </button>
+      <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){try{window.openMultiKey&&window.openMultiKey();}catch(_){}}, 200)" id="mi-multikey">
+        <div class="menu-item-icon" style="background:#e8f5e9;">📋</div>
+        <span class="menu-item-label">Bestimmungs-Schlüssel</span>
+      </button>
+      <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){try{window.openVapko&&window.openVapko();}catch(_){}}, 200)" id="mi-vapko">
+        <div class="menu-item-icon" style="background:#fff3e0;">🍄</div>
+        <span class="menu-item-label">Pilzkontrolle (VAPKO)</span>
+      </button>
     </div>
     <div class="menu-section">Küche & Gesundheit</div>
     <div class="menu-grid">
@@ -4397,6 +4405,30 @@ button:focus-visible, .ib:focus-visible, .tab:focus-visible{
         <div class="menu-item-icon" style="background:#e1f5fe;">⚠️</div>
         <span class="menu-item-label">Wetter-Warnung</span>
       </button>
+      <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){try{window.openAchievements&&window.openAchievements();}catch(_){}}, 200)" id="mi-achievements">
+        <div class="menu-item-icon" style="background:#fffde7;">🏆</div>
+        <span class="menu-item-label">Auszeichnungen</span>
+      </button>
+    </div>
+
+    <div class="menu-section">🩺 Diagnose &amp; Hilfe</div>
+    <div class="menu-grid">
+      <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){try{window.gsHealthCheck&&window.gsHealthCheck(true);}catch(_){}}, 200)" id="mi-health">
+        <div class="menu-item-icon" style="background:#ffebee;">❤️‍🩹</div>
+        <span class="menu-item-label">Health-Check</span>
+      </button>
+      <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){try{window.gsBrainDebug&&window.gsBrainDebug(true);}catch(_){}}, 200)" id="mi-brain">
+        <div class="menu-item-icon" style="background:#ede7f6;">🧠</div>
+        <span class="menu-item-label">Brain-Inspector</span>
+      </button>
+      <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){try{window.openWelcomeTour&&window.openWelcomeTour();}catch(_){}}, 200)" id="mi-tour">
+        <div class="menu-item-icon" style="background:#e3f2fd;">👋</div>
+        <span class="menu-item-label">Welcome-Tour</span>
+      </button>
+      <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){try{gsRunSelfTestModal&&gsRunSelfTestModal();}catch(_){}}, 200)" id="mi-selftest">
+        <div class="menu-item-icon" style="background:#e8f5e9;">🔬</div>
+        <span class="menu-item-label">Self-Test</span>
+      </button>
     </div>
 
     <div class="menu-section">Community</div>
@@ -4408,6 +4440,10 @@ button:focus-visible, .ib:focus-visible, .tab:focus-visible{
       <button class="menu-item" onclick="menuNav('market')" id="mi-market">
         <div class="menu-item-icon" style="background:#fff3e0;">🛒</div>
         <span class="menu-item-label">Marktplatz</span>
+      </button>
+      <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){try{window.openInat&&window.openInat();}catch(_){}}, 200)" id="mi-inat">
+        <div class="menu-item-icon" style="background:#e1f5fe;">🌍</div>
+        <span class="menu-item-label">iNaturalist</span>
       </button>
       <button class="menu-item" onclick="menuNav('settings')" id="mi-settings">
         <div class="menu-item-icon" style="background:#f0f0f0;">⚙️</div>
@@ -18648,6 +18684,38 @@ window.gsSelfTest = async function(verbose){
   return summary;
 };
 
+// v24.14: Modal-Variante des Self-Tests (für UI-Button "🔬 Self-Test" im Menü)
+window.gsRunSelfTestModal = async function(){
+  var existing = document.getElementById('gs-selftest-modal');
+  if (existing) { try { existing.remove(); } catch(_){} }
+  var m = document.createElement('div');
+  m.id = 'gs-selftest-modal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
+  var box = document.createElement('div');
+  box.style.cssText = 'background:#fff;border-radius:14px;max-width:520px;width:100%;max-height:88vh;overflow:auto;padding:18px;font-family:inherit;color:#222;';
+  box.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;"><h3 style="margin:0;font-size:16px;">🔬 Self-Test</h3><button id="gs-st-close" style="background:none;border:none;font-size:20px;cursor:pointer;line-height:1;">×</button></div><div id="gs-st-status" style="font-size:13px;color:#1a7a3e;margin-bottom:10px;">Läuft…</div><div id="gs-st-list" style="font-size:12px;line-height:1.6;max-height:60vh;overflow:auto;background:#f7f9f7;border-radius:8px;padding:10px;"></div>';
+  m.appendChild(box);
+  document.body.appendChild(m);
+  m.addEventListener('click', function(e){ if (e.target === m) { try { m.remove(); } catch(_){} } });
+  box.querySelector('#gs-st-close').addEventListener('click', function(){ try { m.remove(); } catch(_){} });
+  try {
+    var summary = await window.gsSelfTest(false);
+    var status = box.querySelector('#gs-st-status');
+    var list = box.querySelector('#gs-st-list');
+    status.textContent = (summary.ok ? '✅ ' : '⚠️ ') + summary.passed + ' / ' + summary.total + ' Module reachable';
+    status.style.color = summary.ok ? '#1a7a3e' : '#b25b00';
+    var html = '';
+    summary.results.forEach(function(r){
+      var icon = r.ok ? '✅' : '❌';
+      var extra = r.error ? ' <span style="color:#b00020;">— ' + (window.gsHTMLEscape ? window.gsHTMLEscape(r.error) : r.error) + '</span>' : '';
+      html += '<div>' + icon + ' ' + (window.gsHTMLEscape ? window.gsHTMLEscape(r.name) : r.name) + extra + '</div>';
+    });
+    list.innerHTML = html;
+  } catch(e) {
+    box.querySelector('#gs-st-status').textContent = '⚠️ Fehler: ' + (e && e.message ? e.message : e);
+  }
+};
+
 // ═══ KAMERA / SCANNER ════════════════════════════════
 // v23.54: Scanner-Loading-Overlay Helpers
 function _gsSrLoadingShow(text, sub){
@@ -20205,6 +20273,19 @@ function showScanResult(r){
     _extra2.innerHTML = '<button class="sr2-cta sr2-cta-secondary" style="width:100%;" onclick="openScanChat()">🤖 KI fragen</button>';
     _container.appendChild(_extra2);
   }
+  // v24.14: Share-Card Button (viraler Mechanismus aus letztem Scan)
+  if (window.gsShareCard && r && r.name) {
+    var _shareCardBtn = document.createElement('div');
+    _shareCardBtn.style.cssText = 'margin-top:10px;';
+    _shareCardBtn.innerHTML =
+      '<button onclick="gsOpenShareCardForLastScan()" ' +
+      'style="width:100%;padding:12px;background:var(--card);color:var(--g-dark);' +
+      'border:1.5px solid var(--g-light);border-radius:12px;font-weight:700;font-size:13.5px;cursor:pointer;' +
+      'display:flex;align-items:center;justify-content:center;gap:8px;font-family:inherit;">' +
+      '<span style="font-size:18px;">🎴</span> Teilbare Karte erstellen' +
+      '</button>';
+    _container.appendChild(_shareCardBtn);
+  }
   // ── "Neuer Scan" Button immer anhängen ──────────────────
   var _newScanBtn = document.createElement('div');
   _newScanBtn.style.cssText = 'margin-top:14px;';
@@ -20440,6 +20521,38 @@ async function sendScanChat() {
 var SCAN_HISTORY_KEY = 'gs_scan_history';
 var MAX_SCAN_HISTORY = 50;
 var _lastScanResult  = null;
+
+// v24.14: Helper für Share-Card-Button im Scan-Result
+window.gsOpenShareCardForLastScan = function(){
+  try {
+    var r = _lastScanResult;
+    if (!r || !r.name) { try { gsAlert && gsAlert('Kein Scan-Ergebnis verfügbar.'); } catch(_){} return; }
+    var loc = null;
+    try { loc = JSON.parse(localStorage.getItem('gs_user_location') || 'null'); } catch(_){}
+    var rl = null;
+    try { rl = window.gsRedList && window.gsRedList.status(r.latin || ''); } catch(_){}
+    var photoB64 = '';
+    try {
+      var hist = JSON.parse(localStorage.getItem(SCAN_HISTORY_KEY) || '[]');
+      if (hist[0] && hist[0].thumb) photoB64 = hist[0].thumb;
+    } catch(_){}
+    var opts = {
+      title: r.name,
+      subtitle: r.latin || '',
+      photoB64: photoB64,
+      locationName: (loc && (loc.region || loc.city)) || '',
+      canton: (loc && loc.canton) || '',
+      altitude: (loc && typeof loc.altitude === 'number') ? Math.round(loc.altitude) : null,
+      confidence: r.confidence || 0,
+      rlCode: rl && rl.code ? rl.code : '',
+      badgeText: r.category ? ('🌿 ' + r.category) : '',
+      date: new Date()
+    };
+    window.openShareCard(opts);
+  } catch(e) {
+    try { gsAlert && gsAlert('Share-Card konnte nicht erstellt werden.'); } catch(_){}
+  }
+};
 
 function saveScanToHistory(result, imageB64thumb) {
   if (!result || !result.name) return;
@@ -39317,7 +39430,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v24.13';
+var GS_VERSION = 'v24.14';
 // ══ GMAIL DRAFT-IDs ═══════════════════════════════════════════
 // Vorgefertigte E-Mail-Templates im Gmail-Konto www.greenscan@gmail.com
 // Absender: GreenScan <info@greenscan.ch>
