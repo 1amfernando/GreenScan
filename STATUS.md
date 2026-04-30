@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.11` (in Arbeit) / `v24.10` (gepusht) · **2 Wochen bis Release**
+**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.12` (in Arbeit) / `v24.11` (gepusht) · **2 Wochen bis Release**
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v24.11 | Sprint 28+29+30: Pre-Launch-Polish — `gsAlert`-Helper + 9 alert()→Toast Migrationen · B5 als „Admin-Feature" geklärt · `gsSelfTest()` mit 33 Module-Reachability-Checks |
+| (next push) | v24.12 | Phase 8: Performance-Polish (preconnect/preload erweitert) · DEPLOY.md §16-17 (OG/Screenshots/App-Store-Wrapper) · README-Refresh · Stripe-Webhook Edge Fn (audit-log) + Migration · Error→Brain-Memory-Telemetry |
+| `80ba380` | v24.11 | Sprint 28+29+30: Pre-Launch-Polish — `gsAlert`-Helper + 9 alert()→Toast Migrationen · B5 als „Admin-Feature" geklärt · `gsSelfTest()` mit 33 Module-Reachability-Checks |
 | `9a78621` | v24.10 | Sprint 26+27: Pre-Launch-Audit + Versions-Sync (alles `v24.10`), install.html-Marketing-Polish (16 Features statt 8) |
 | `b6f3df8` | v24.09 | Sprint 25: `gsWelcomeTour` — 3-Slide Welcome (auto-trigger erst-Launch, defensiv, idempotent) |
 | `050c45a` | v24.08 | Sprint 24: `gsShareCard` — Canvas-basierte 1080×1080 Share-Cards mit Foto, IUCN-Badge, Schweiz-Branding + native Share-API |
@@ -106,6 +107,31 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
   mehrzeilige Texte zurück. 9 wichtige User-facing alert()-Stellen
   migriert (Login-Hinweis, Stripe-Recovery-Status, Kamera-Errors,
   Garten-Limits, Feedback-Bestätigung).
+- ✅ **Performance-Polish** (v24.12): preconnect für Supabase (mit
+  crossorigin) hinzu, dns-prefetch erweitert auf 11 Hosts (cdnjs,
+  Anthropic, Open-Meteo, Geocoding, Nominatim, Wikipedia, iNat,
+  ArcGIS). 2 preload für `data/plants.v1.js` (script) + Leaflet-CSS
+  (style) — Browser fängt früher zu fetchen an.
+- ✅ **Stripe-Webhook Edge Function** (v24.12, Code committed —
+  Stripe-Webhook-Setup + Secret durch Owner pending): empfängt
+  signierte Webhook-Events von Stripe (HMAC-SHA256 verified mit
+  5min-Toleranz, Constant-Time-Compare). Schreibt jeden Event in
+  `stripe_events`-Audit-Log (additive Migration, kollidiert nicht
+  mit existierenden Tabellen). Idempotent über `event.id` als PK.
+  Owner-Anleitung in `supabase/functions/stripe-webhook/README.md`
+  + DEPLOY.md.
+- ✅ **Error→Brain-Memory-Telemetry** (v24.12): bestehender
+  globaler Error-Handler (window.onerror + unhandledrejection)
+  ruft jetzt zusätzlich `gsBrain.observe('error'|'promise_error', {msg})`
+  rate-limited auf 1/sec → Errors sichtbar im Brain-Inspector
+  (`gsBrainDebug(true)`).
+- ✅ **DEPLOY.md erweitert** (v24.12): §8 mit `gsSelfTest`-Pre-Deploy-
+  Block + 12 Smoke-Test-Befehle. §16: OG-Image-Strategie + manifest-
+  Screenshots-Anleitung. §17: App-Store-Wrapper (PWABuilder/
+  Capacitor) für Google Play + Apple App Store.
+- ✅ **README-Refresh** (v24.12): Schlüsselfeatures von 6 auf 21
+  Bullets erweitert in 5 Kategorien (KI/Authentizität/Bestimmung/
+  Community/Stabilität).
 - ✅ **gsSelfTest — Module-Reachability-Check** (v24.11):
   `gsSelfTest()` ruft 33 zentrale Module-Hooks auf und prüft, ob sie
   reachable + funktional sind (gsBrain/Key/RedList/ExternalSources/

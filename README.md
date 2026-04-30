@@ -16,15 +16,39 @@ Garten-Planer, swisstopo-Karte, offline-fähig.
 
 ## Schlüsselfeatures
 
-- 🤖 **gsBrain** — zentraler Lern-Hub: aggregiert Standort, Saison, Wetter,
-  Garten, Quiz-Schwächen → fließt in jeden KI-Call. Geräteübergreifend.
+**KI & Lernen:**
+- 🤖 **gsBrain** — Kontext-/Lern-Hub: aggregiert Standort, Saison, Wetter,
+  Garten, Quiz-Schwächen → fließt in jeden KI-Call. Geräteübergreifend
+  via Supabase. LLM-basierte Smart-Recommendations bei reichem Memory.
+- 🧠 **gsSRS** — Spaced-Repetition (SM-2, SuperMemo) für adaptives Quiz.
+- 🤖 **Server-Proxy** — User braucht keinen eigenen Claude-Key.
+
+**Schweizer Authentizität:**
+- 🍄 **VAPKO-Pilzkontrollen** — ~50 Stationen direkt auf der Karte.
+- 🛡️ **IUCN-Schutzstatus** nach BAFU für 80+ Schweizer Arten.
+- 🌡️ **MeteoSwiss-Warnungen** — Frost / Hitze / Sturm / Stark-Regen.
+- 🗺️ **swisstopo** + Wanderwege + GPX-Import/Export.
+- 📚 **Quellen pro Art** — Info Flora · GBIF · Wikipedia (locale-aware).
+- 🌍 **DE/FR/IT/Mundart** — vier Sprachen incl. Schweizerdeutsch.
+
+**Bestimmung:**
 - 🔑 **Multikriterien-Schlüssel** — Filter nach Familie, Farbe, Habitat,
   Höhe, Saison, essbar, giftig, geschützt.
-- 🩺 **Health-Check** — `gsHealthCheck()` liefert in 5 s Status aller
-  Subsysteme.
+- 📷 **KI-Scanner** — Claude Vision mit Phytopathologin/Mykologe/
+  Botaniker-Personas + User-Kontext.
+
+**Community & Viralität:**
+- 🦋 **iNaturalist-Bridge** (PKCE-OAuth) — Funde zu 630k+ CH-Sichtungen.
+- 📤 **Share-Cards** — 1080×1080 Image-Cards mit Schweiz-Branding.
 - 🔔 **Smart-Push** — tägliche personalisierte Tipps aus Brain-Memory.
-- 🌍 **i18n** — DE/FR/IT.
-- 🔐 **Server-Proxy** — User braucht keinen eigenen KI-Key.
+- 🏆 **24 Achievements** — Badge-System, gamifizierte Retention.
+
+**Stabilität & Diagnose:**
+- 🩺 **`gsHealthCheck`** — 9-Komponenten-Ampel.
+- 🧪 **`gsSelfTest`** — 33 Module-Reachability-Checks vor Deploy.
+- 🔐 **CSP/HSTS/COOP** + revDSG-Consent + server-side Quota.
+- 💾 **Storage-Auto-Rotation** — keine Quota-Crashes.
+- 📦 **PLANT_DB-Split** — -45% Initial-Download.
 
 ## Dokumentation
 

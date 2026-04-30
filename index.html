@@ -44,9 +44,21 @@
 <!-- Performance: preconnect für externe Hosts (Fonts, CDN, Map-Tiles) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="dns-prefetch" href="https://unpkg.com">
+<link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
 <link rel="dns-prefetch" href="https://wmts.geo.admin.ch">
-<link rel="dns-prefetch" href="https://vowbiueikwrauuceilhc.supabase.co">
+<link rel="dns-prefetch" href="https://api.anthropic.com">
+<link rel="dns-prefetch" href="https://api.open-meteo.com">
+<link rel="dns-prefetch" href="https://geocoding-api.open-meteo.com">
+<link rel="dns-prefetch" href="https://nominatim.openstreetmap.org">
+<link rel="dns-prefetch" href="https://en.wikipedia.org">
+<link rel="dns-prefetch" href="https://www.inaturalist.org">
+<link rel="dns-prefetch" href="https://api.inaturalist.org">
+<link rel="dns-prefetch" href="https://server.arcgisonline.com">
+<!-- Preload kritische Assets -->
+<link rel="preload" href="data/plants.v1.js" as="script">
+<link rel="preload" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" as="style">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <!-- Strukturierte Daten (Schema.org WebApplication) — verbessert SERP-Snippets -->
 <script type="application/ld+json">
@@ -1358,11 +1370,25 @@ body.dark .menu-search-wrap{background:var(--card);}
       localStorage.setItem('gs_error_log', JSON.stringify(list));
     } catch(_) {}
   }
+  // v24.12: Rate-limit fuer Brain-Observe — sonst spammt eine Endlosschleife
+  // den Memory voll. Max 1 Error-Event pro Sekunde an gsBrain.
+  var _lastBrainErr = 0;
+  function brainObserveError(type, msg) {
+    try {
+      var now = Date.now();
+      if (now - _lastBrainErr < 1000) return;
+      _lastBrainErr = now;
+      if (window.gsBrain && typeof window.gsBrain.observe === 'function') {
+        window.gsBrain.observe(type, { msg: String(msg || '').slice(0, 120) });
+      }
+    } catch(_){}
+  }
   window.addEventListener('error', function(e) {
     var msg = e.message || 'Unknown error';
     var ctx = (e.filename || '') + ':' + (e.lineno || '') + ':' + (e.colno || '');
     console.error('[GS-Error]', msg, ctx);
     persistError({ t: Date.now(), type: 'error', msg: msg, ctx: ctx, stack: e.error && e.error.stack ? String(e.error.stack).slice(0,800) : null });
+    brainObserveError('error', msg);
     // bei "Cannot read properties of undefined" unterdrücken (kosmetisch)
     if (msg.indexOf('Cannot read properties of undefined') > -1) e.preventDefault();
   });
@@ -1371,6 +1397,7 @@ body.dark .menu-search-wrap{background:var(--card);}
     var msg = (r && r.message) ? r.message : String(r);
     console.error('[GS-Promise]', msg);
     persistError({ t: Date.now(), type: 'promise', msg: msg, stack: r && r.stack ? String(r.stack).slice(0,800) : null });
+    brainObserveError('promise_error', msg);
   });
   // Helper zum Abfragen — nutzbar in Admin-Panel / Support
   window.gsGetErrorLog = function() {
