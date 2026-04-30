@@ -14907,7 +14907,11 @@ window.gsBrain = (function(){
   }
 
   // -- Daily-Tip: ein konkreter Smart-Hinweis fuer heute ---------------------
+  // v24.05: Wenn smartCache fuer 'daily_tip' frisch ist, wird der LLM-Tipp
+  // priorisiert. Sonst heuristische Komposition aus recommend().
   function dailyTip(){
+    var smart = smartCacheGet('daily_tip');
+    if (smart) return smart;
     var ctx = context();
     var bits = [];
     bits.push(recommend('garden_task'));
@@ -14915,6 +14919,128 @@ window.gsBrain = (function(){
     if (nxt) bits.push('Saison-Tipp: ' + nxt + ' passt jetzt.');
     if (ctx.quizWeakness) bits.push('Lerne heute: ' + ctx.quizWeakness + '.');
     return bits.filter(Boolean).join(' · ');
+  }
+
+  // -- Smart-Recommend (v24.05): LLM-Layer ueber der Heuristik ---------------
+  // Greift nur, wenn:
+  //   - Memory >= 30 Events (sonst ist Heuristik aussagekraeftiger)
+  //   - Es einen API-Key gibt (BYO oder useProxy)
+  //   - Heute noch kein Smart-Tipp fuer 'kind' generiert wurde (1/Tag)
+  // Cache: gs_brain_smart_cache = { '<kind>:<YYYY-MM-DD>': {ts, value} }
+  // Falls Bedingungen nicht erfuellt → null (Caller faellt auf recommend zurueck).
+  var SMART_KEY = 'gs_brain_smart_cache';
+  var SMART_TTL = 21600000; // 6h
+  function smartCacheKey(kind){ return kind + ':' + todayIso(); }
+  function smartCacheGet(kind){
+    try {
+      var c = JSON.parse(localStorage.getItem(SMART_KEY) || '{}');
+      var hit = c[smartCacheKey(kind)];
+      if (hit && (Date.now() - hit.ts) < SMART_TTL) return hit.value;
+    } catch(_){}
+    return null;
+  }
+  function smartCachePut(kind, value){
+    try {
+      var c = JSON.parse(localStorage.getItem(SMART_KEY) || '{}');
+      c[smartCacheKey(kind)] = { ts: Date.now(), value: value };
+      // Maximal 30 Eintraege im Cache halten (oldest first wegwerfen)
+      var keys = Object.keys(c);
+      if (keys.length > 30) {
+        keys.sort(function(a,b){ return (c[a].ts||0) - (c[b].ts||0); });
+        for (var i = 0; i < keys.length - 30; i++) delete c[keys[i]];
+      }
+      localStorage.setItem(SMART_KEY, JSON.stringify(c));
+    } catch(_){}
+  }
+
+  async function smartRecommend(kind, opts){
+    kind = kind || 'daily_tip';
+    // Cache-Hit?
+    var cached = smartCacheGet(kind);
+    if (cached && !(opts && opts.force)) return cached;
+
+    // Voraussetzungen pruefen
+    var mem = memory();
+    if (mem.length < 30 && !(opts && opts.force)) return null;
+    if (typeof getApiConfig !== 'function') return null;
+    var cfg = getApiConfig();
+    if (!cfg.useProxy && !cfg.key) return null;
+    if (typeof callAI !== 'function') return null;
+
+    // Memory kompakt zusammenfassen (Top-30 Events) — kein PII, nur Events.
+    var recent = mem.slice(-30).map(function(e){
+      var d = e.data || {};
+      var cat = d.category ? ' [' + d.category + ']' : '';
+      var nm  = d.name     ? ' ' + d.name           : '';
+      return e.event + cat + nm;
+    }).join('\n');
+
+    var ctx = context();
+    var ctxBlock = format(ctx);
+
+    var question;
+    switch(kind){
+      case 'daily_tip':
+        question = 'Erstelle EINEN konkreten Smart-Tipp fuer den User fuer heute. Max 2 Saetze, auf Deutsch (CH). Beruecksichtige Saison, Wetter, Hoehenlage, sein Garten-Inventar, was er kuerzlich gescannt hat. Kein Marketing, kein "Hallo".';
+        break;
+      case 'next_plant':
+        question = 'Welche EINE Pflanze sollte der User als naechstes anbauen oder bewusst suchen, basierend auf seinem Verhalten? Antwort: nur der Pflanzenname und EIN Satz Begruendung. Deutsch (CH).';
+        break;
+      case 'quiz_focus':
+        question = 'Welche Kategorie oder Schweizer Pflanzen-/Pilz-Familie sollte der User im Quiz uesben, gegeben seine Memory-Daten? Antwort: nur die Kategorie und EIN Satz Begruendung. Deutsch (CH).';
+        break;
+      case 'next_action':
+        question = 'Was sollte der User als naechstes in der App tun, um am meisten zu lernen? Konkret, max 2 Saetze. Deutsch (CH).';
+        break;
+      default:
+        question = 'Liefere eine personalisierte Empfehlung zu: ' + kind + '. Max 2 Saetze, Deutsch (CH).';
+    }
+
+    var prompt = '── User-Kontext (lokal aus PWA) ──\n' + ctxBlock +
+                 '\n\n── Letzte ' + recent.split('\n').length + ' Events ──\n' + recent +
+                 '\n\n── Aufgabe ──\n' + question +
+                 '\n\nWichtig: knapp, konkret, kein Smalltalk. Antworte nur mit dem Tipp selbst.';
+
+    try {
+      var reply = await callAI(
+        [{ role: 'user', content: prompt }],
+        '',
+        160,
+        { brain: 'generalist' }
+      );
+      if (typeof reply !== 'string') reply = String(reply || '');
+      reply = reply.trim();
+      if (!reply) return null;
+      // Sehr kurz halten (max 2 Saetze ~280 Zeichen)
+      if (reply.length > 320) reply = reply.slice(0, 317) + '…';
+      smartCachePut(kind, reply);
+      observe('smart_rec_generated', { kind: kind, len: reply.length });
+      return reply;
+    } catch(e) {
+      observe('smart_rec_error', { kind: kind, msg: (e && e.message || '').slice(0,80) });
+      return null;
+    }
+  }
+
+  // Hintergrund-Hydration: wenn der User die App oeffnet und alle Bedingungen
+  // erfuellt sind, generieren wir den Daily-Tipp einmal pro Tag still.
+  // Nach Fertigstellung Re-Render des Home-Tipps via 'gs-brain-smart-tip'-Event.
+  function _hydrateSmartTip(){
+    if (smartCacheGet('daily_tip')) return;
+    setTimeout(function(){
+      smartRecommend('daily_tip').then(function(tip){
+        if (!tip) return;
+        try { window.dispatchEvent(new CustomEvent('gs-brain-smart-tip', {detail:{tip:tip}})); } catch(_){}
+        // Home-Tipp aktualisieren falls Element vorhanden
+        try {
+          var box = document.getElementById('gs-brain-tip');
+          if (box) {
+            var safe = String(tip).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            box.innerHTML = '🧠 <b>Smart-Tipp heute:</b> ' + safe;
+          }
+        } catch(_){}
+      }).catch(function(){});
+    }, 5000);
   }
 
   return {
@@ -14925,6 +15051,9 @@ window.gsBrain = (function(){
     memory: memory,
     recommend: recommend,
     dailyTip: dailyTip,
+    smartRecommend: smartRecommend,
+    smartCache: function(){ try { return JSON.parse(localStorage.getItem(SMART_KEY) || '{}'); } catch(_) { return {}; } },
+    hydrateSmartTip: _hydrateSmartTip,
     roles: function(){ return Object.keys(ROLES); },
     // Cloud-Sync (v23.91)
     flushQueue: flushQueue,
@@ -14942,6 +15071,9 @@ window.gsBrain = (function(){
     setTimeout(function(){
       try { window.gsBrain && window.gsBrain.flushQueue && window.gsBrain.flushQueue(); } catch(_){}
       try { window.gsBrain && window.gsBrain.pullCloud  && window.gsBrain.pullCloud();  } catch(_){}
+      // v24.05: Smart-Tipp im Hintergrund hydratieren (1x/Tag, nur wenn
+      // Memory >= 30 Events und API-Key/Proxy verfuegbar).
+      try { window.gsBrain && window.gsBrain.hydrateSmartTip && window.gsBrain.hydrateSmartTip(); } catch(_){}
     }, 1500);
   }
   // Falls schon eingeloggt beim Boot

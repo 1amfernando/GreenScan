@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.04` (in Arbeit) / `v24.03` (gepusht)
+**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.05` (in Arbeit) / `v24.04` (gepusht)
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v24.04 | Sprint 20 (P2-1): iNaturalist-OAuth-Bridge — `gsINaturalist` mit PKCE-Flow, `publishObservation`, Connect-Modal |
+| (next push) | v24.05 | Sprint 21 (P3-8): Brain-Recommend-LLM — `gsBrain.smartRecommend(kind)` Async + Cache 6h + Hintergrund-Hydration |
+| `d103747` | v24.04 | Sprint 20 (P2-1): iNaturalist-OAuth-Bridge — `gsINaturalist` mit PKCE-Flow, `publishObservation`, Connect-Modal |
 | `8c43ac3` | v24.03 | Sprint 17: PLANT_DB-Split → `data/plants.v1.js` (~2.1 MB raus, -45% Initial-Size) + immutable-Cache + SW-Precache |
 | `6f23ff1` | v24.02 | Sprint 18: `gsSafeHTML`-Tagged-Template (auto-escape) + CLAUDE.md-Doku-Pattern |
 | `1ada9fd` | v24.01 | Sprint 19: `gsSRS` SM-2-Spaced-Repetition + Auto-Bridge zu `gsBrain.observe('quiz_answered')` |
@@ -93,6 +94,16 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
   scans_limit, can_scan}` aus `v_user_entitlements` ⨝ `ai_usage`.
   Client cached 60s in `_gsServerEnt`, `gsAboCanUse('scan')` nutzt
   Server-Wert wenn vorhanden — localStorage-Manipulation nutzlos.
+- ✅ **Brain-Recommend-LLM** (v24.05): Wenn `gs_brain_memory` ≥ 30
+  Events UND API-Key/Proxy verfügbar, generiert `gsBrain.smartRecommend(kind)`
+  asynchron einen LLM-basierten Tipp via `callAI({brain:'generalist'})`.
+  4 Kinds: `daily_tip`, `next_plant`, `quiz_focus`, `next_action`.
+  Cache 6h pro `<kind>:<datum>` (max 1 Call/Typ/Tag — kostensicher).
+  Hintergrund-Hydration: nach Boot + Login (`syncOnce`) wird der
+  Daily-Tipp still generiert; bei Erfolg dispatched
+  `gs-brain-smart-tip`-Event und re-rendert die Tipp-Box auf Home.
+  `dailyTip()` priorisiert smarten Tipp über Heuristik. Silent-Fallback
+  bei fehlendem Key oder Fehler.
 - ✅ **iNaturalist-OAuth-Bridge** (v24.04, Code committed —
   Client-ID-Setup durch Owner ausstehend): `gsINaturalist.connect()`
   startet OAuth2-PKCE-Flow (sicher für PWA, kein Client-Secret).
