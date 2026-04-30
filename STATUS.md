@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.06` (in Arbeit) / `v24.05` (gepusht)
+**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.07` (in Arbeit) / `v24.06` (gepusht)
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v24.06 | Sprint 22 (P3-2): Schweizerdeutsch-Modus — Locale `gsw` mit ~70 Mundart-Strings, hreflang `gsw-CH` |
+| (next push) | v24.07 | Sprint 23: `gsAchievements` — 24 Schweizer Badges + Auto-Trigger über Brain-Events + Toast + Badge-Wand-Modal |
+| `8acc95c` | v24.06 | Sprint 22 (P3-2): Schweizerdeutsch-Modus — Locale `gsw` mit ~70 Mundart-Strings, hreflang `gsw-CH` |
 | `9b135c6` | v24.05 | Sprint 21 (P3-8): Brain-Recommend-LLM — `gsBrain.smartRecommend(kind)` Async + Cache 6h + Hintergrund-Hydration |
 | `d103747` | v24.04 | Sprint 20 (P2-1): iNaturalist-OAuth-Bridge — `gsINaturalist` mit PKCE-Flow, `publishObservation`, Connect-Modal |
 | `8c43ac3` | v24.03 | Sprint 17: PLANT_DB-Split → `data/plants.v1.js` (~2.1 MB raus, -45% Initial-Size) + immutable-Cache + SW-Precache |
@@ -95,6 +96,16 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
   scans_limit, can_scan}` aus `v_user_entitlements` ⨝ `ai_usage`.
   Client cached 60s in `_gsServerEnt`, `gsAboCanUse('scan')` nutzt
   Server-Wert wenn vorhanden — localStorage-Manipulation nutzlos.
+- ✅ **gsAchievements — Schweizer Badge-System** (v24.07): 24 kuratierte
+  Badges (Erstgeborenes/Späher/Sammler/Botaniker:in/Pilzsammler:in/
+  Dendrologe/Heilkundler:in/Alpinist:in/Quizmeister:in/Frühlingsbote/
+  Bürger-Wissenschaftler:in usw.). Auto-Check nach jedem Brain-Event
+  (Bridge wickelt `gsBrain.observe`). Bei Unlock: Toast oben am
+  Bildschirm mit Icon, Name, Beschreibung — sequenziell mit 600ms
+  Versatz wenn mehrere gleichzeitig. Badge-Wand-Modal mit Progress-Bar
+  (X von Y freigeschaltet). Storage `gs_achievements`, idempotent.
+  `gsAchievements.reset()` als DevTools-Helper. Globaler Helper
+  `window.openAchievements()`.
 - ✅ **Schweizerdeutsch-Modus** (v24.06): Locale `gsw` (IETF Tag für
   Swiss German) mit ~70 Strings als „lesbares Schweizerdeutsch"
   (moderater Berner-/Zürcher-Mix). `gsLocaleSwitch('gsw')` triggert

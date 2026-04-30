@@ -17548,6 +17548,315 @@ window.gsINaturalist = (function(){
 // Globaler Helper
 window.openInat = function(){ try { window.gsINaturalist.openConnectModal(); } catch(_){} };
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  gsAchievements — Schweizer Badge-System (v24.07)
+// ═══════════════════════════════════════════════════════════════════════════
+//  Retention-Mechanik: User unlocked Badges wenn er Meilensteine erreicht.
+//  Hört auf gsBrain-Events, prüft nach jedem Event alle Definitionen.
+//  Idempotent (jedes Badge nur einmal unlocked). Toast + Confetti-Effekt
+//  beim Unlock. Profile zeigt Badge-Wand.
+//
+//  Public API:
+//    gsAchievements.all()         → komplette Liste (mit unlocked-Flag)
+//    gsAchievements.unlocked()    → nur unlocked-Badges
+//    gsAchievements.check()       → manuelles Re-Check (z.B. nach Import)
+//    gsAchievements.openModal()   → Badge-Wand-Modal
+//    gsAchievements.reset()       → DevTools-Helper, setzt alle zurueck
+//
+//  Storage: localStorage.gs_achievements = { id: {ts: unlockTs} }
+// ═══════════════════════════════════════════════════════════════════════════
+window.gsAchievements = (function(){
+  'use strict';
+  var KEY = 'gs_achievements';
+
+  // ── Definitionen ──────────────────────────────────────────────────────────
+  // Trigger ist eine Funktion (memory, ctx, event, data) → boolean.
+  // Sie wird nach jedem Brain-Observe-Event aufgerufen, aber durch Cache
+  // (s.u.) nicht doppelt verarbeitet.
+  var DEFS = [
+    // ─── Erste Schritte ───────────────────────────────────────────────────
+    { id:'first_scan', icon:'🌱', name:'Erstgeborenes',
+      desc:'Dein erster Scan — Willkommen in der Schweizer Natur!',
+      trig: function(m){ return m.some(function(e){return e.event==='scan_added';}); }
+    },
+    { id:'first_garden', icon:'🪴', name:'Garten-Anfang',
+      desc:'Erste Pflanze in deinen Garten gepflanzt.',
+      trig: function(m){ return m.some(function(e){return e.event==='garden_plant_added';}); }
+    },
+    { id:'first_quiz', icon:'🎯', name:'Erste Antwort',
+      desc:'Erste Quiz-Frage beantwortet.',
+      trig: function(m){ return m.some(function(e){return e.event==='quiz_answered';}); }
+    },
+    // ─── Sammler-Badges ───────────────────────────────────────────────────
+    { id:'collector_10', icon:'🔍', name:'Späher',
+      desc:'10 Arten entdeckt.',
+      trig: function(m){ return m.filter(function(e){return e.event==='scan_added';}).length >= 10; }
+    },
+    { id:'collector_50', icon:'🦋', name:'Sammler',
+      desc:'50 Arten entdeckt.',
+      trig: function(m){ return m.filter(function(e){return e.event==='scan_added';}).length >= 50; }
+    },
+    { id:'collector_200', icon:'🌿', name:'Schweizer Botaniker:in',
+      desc:'200 Arten entdeckt — du kennst dich aus!',
+      trig: function(m){ return m.filter(function(e){return e.event==='scan_added';}).length >= 200; }
+    },
+    // ─── Kategorie-Spezialisten ──────────────────────────────────────────
+    { id:'fungi_5', icon:'🍄', name:'Pilzsammler:in',
+      desc:'5 Pilze gescannt — VAPKO-Kontrolle nicht vergessen!',
+      trig: function(m){ return m.filter(function(e){return e.event==='scan_added' && e.data && /pilz/i.test(e.data.category||'');}).length >= 5; }
+    },
+    { id:'trees_5', icon:'🌳', name:'Dendrologe:in',
+      desc:'5 Bäume gescannt.',
+      trig: function(m){ return m.filter(function(e){return e.event==='scan_added' && e.data && /baum/i.test(e.data.category||'');}).length >= 5; }
+    },
+    { id:'herbs_5', icon:'🌿', name:'Kräuterkenner:in',
+      desc:'5 Wildpflanzen oder Kräuter gescannt.',
+      trig: function(m){ return m.filter(function(e){return e.event==='scan_added' && e.data && /(wildpflanze|kraut|heilkraut)/i.test(e.data.category||'');}).length >= 5; }
+    },
+    { id:'medicinal_10', icon:'💊', name:'Heilkundler:in',
+      desc:'10 Heilpflanzen gescannt.',
+      trig: function(m){ return m.filter(function(e){return e.event==='scan_added' && e.data && /heil/i.test(e.data.category||'');}).length >= 10; }
+    },
+    // ─── Standort/Höhe ────────────────────────────────────────────────────
+    { id:'alpinist', icon:'🏔️', name:'Alpinist:in',
+      desc:'Über 2000m ü.M. gescannt.',
+      trig: function(m, ctx){ return ctx && ctx.elevation > 2000 && m.some(function(e){return e.event==='scan_added';}); }
+    },
+    { id:'lowland', icon:'🌾', name:'Mittelländer:in',
+      desc:'Im Mittelland (<800m) gescannt.',
+      trig: function(m, ctx){ return ctx && ctx.elevation != null && ctx.elevation < 800 && m.some(function(e){return e.event==='scan_added';}); }
+    },
+    // ─── Quiz/Lernen ──────────────────────────────────────────────────────
+    { id:'quiz_streak_7', icon:'📚', name:'Wissensdurst',
+      desc:'7-Tage-Quiz-Serie.',
+      trig: function(m, ctx){ return ctx && ctx.quizStreak >= 7; }
+    },
+    { id:'quiz_streak_30', icon:'🧠', name:'Quizmeister:in',
+      desc:'30-Tage-Quiz-Serie — beeindruckend!',
+      trig: function(m, ctx){ return ctx && ctx.quizStreak >= 30; }
+    },
+    { id:'quiz_acc_80', icon:'🎓', name:'Lernprofi',
+      desc:'≥80% Quiz-Trefferquote (mind. 20 Fragen).',
+      trig: function(m, ctx){
+        var total = m.filter(function(e){return e.event==='quiz_answered';}).length;
+        return total >= 20 && ctx && ctx.quizAcc >= 80;
+      }
+    },
+    // ─── Garten ───────────────────────────────────────────────────────────
+    { id:'garden_5', icon:'🌻', name:'Hobby-Gärtner:in',
+      desc:'5 Pflanzen im Garten.',
+      trig: function(m){ return m.filter(function(e){return e.event==='garden_plant_added';}).length >= 5; }
+    },
+    { id:'garden_20', icon:'🥕', name:'Schrebergärtner:in',
+      desc:'20 Pflanzen im Garten — Selbstversorgungs-Modus.',
+      trig: function(m){ return m.filter(function(e){return e.event==='garden_plant_added';}).length >= 20; }
+    },
+    // ─── Saison ──────────────────────────────────────────────────────────
+    { id:'spring_scout', icon:'🌸', name:'Frühlingsbote',
+      desc:'Im Frühling (März–Mai) gescannt.',
+      trig: function(m){ return m.some(function(e){
+        if (e.event !== 'scan_added') return false;
+        var d = new Date(e.ts); var mn = d.getMonth()+1;
+        return mn >= 3 && mn <= 5;
+      }); }
+    },
+    { id:'autumn_forager', icon:'🍂', name:'Herbst-Sammler:in',
+      desc:'Im Herbst (Sept–Nov) gescannt — Pilzsaison!',
+      trig: function(m){ return m.some(function(e){
+        if (e.event !== 'scan_added') return false;
+        var d = new Date(e.ts); var mn = d.getMonth()+1;
+        return mn >= 9 && mn <= 11;
+      }); }
+    },
+    // ─── Vorsichtig / Sicher ─────────────────────────────────────────────
+    { id:'cautious', icon:'⚠️', name:'Vorsichtig',
+      desc:'Gift-Warnung beachtet — du kümmerst dich um Sicherheit.',
+      trig: function(m){
+        return m.some(function(e){
+          return e.event==='scan_added' && e.data && (e.data.tox >= 3 || /giftig/i.test(e.data.warning||''));
+        });
+      }
+    },
+    // ─── Community / Sharing ─────────────────────────────────────────────
+    { id:'sharer', icon:'📤',  name:'Teiler:in',
+      desc:'Erste:n Fund mit anderer App geteilt.',
+      trig: function(m){ return m.some(function(e){return e.event==='shared_image';}); }
+    },
+    { id:'inat_explorer', icon:'🦋', name:'Bürger-Wissenschaftler:in',
+      desc:'Erste Beobachtung auf iNaturalist veröffentlicht.',
+      trig: function(m){ return m.some(function(e){return e.event==='inat_published';}); }
+    },
+    // ─── Power-User ──────────────────────────────────────────────────────
+    { id:'power_user', icon:'⚡', name:'Power-User',
+      desc:'100+ Memory-Events — du nutzt GreenScan intensiv.',
+      trig: function(m){ return m.length >= 100; }
+    },
+    { id:'multikey_pro', icon:'🔑', name:'Schlüssel-Profi',
+      desc:'Multikriterien-Bestimmung verwendet.',
+      trig: function(m){ return m.some(function(e){return e.event==='multikey_apply';}); }
+    },
+    { id:'vapko_visitor', icon:'🍄', name:'VAPKO-Vorsicht',
+      desc:'Pilzkontrollstellen-Liste geöffnet — Sicherheit zuerst!',
+      trig: function(m){ return m.some(function(e){return e.event==='vapko_open';}); }
+    }
+  ];
+
+  function loadUnlocked(){
+    try { return JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch(_) { return {}; }
+  }
+  function saveUnlocked(map){
+    try { localStorage.setItem(KEY, JSON.stringify(map||{})); } catch(_){}
+  }
+
+  function all(){
+    var unlocked = loadUnlocked();
+    return DEFS.map(function(d){
+      return Object.assign({}, d, {
+        unlocked: !!unlocked[d.id],
+        unlockedAt: unlocked[d.id] ? unlocked[d.id].ts : null
+      });
+    });
+  }
+  function unlocked(){
+    return all().filter(function(b){ return b.unlocked; });
+  }
+
+  // Toast + Confetti-Effekt beim Unlock
+  function showUnlock(badge){
+    try {
+      var existing = document.getElementById('gs-achievement-toast');
+      if (existing) existing.remove();
+      var el = document.createElement('div');
+      el.id = 'gs-achievement-toast';
+      el.setAttribute('role', 'status');
+      el.setAttribute('aria-live', 'polite');
+      el.style.cssText = 'position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 20px);transform:translateX(-50%);z-index:99999;background:linear-gradient(135deg,#1a3d1a,#2e7d32);color:#fff;border-radius:14px;padding:14px 18px;box-shadow:0 12px 40px rgba(0,0,0,.4);font-family:DM Sans,sans-serif;display:flex;align-items:center;gap:14px;max-width:90vw;animation:gsAchSlide .5s ease-out;';
+      el.innerHTML =
+        '<div style="font-size:36px;flex-shrink:0;line-height:1;">' + (badge.icon||'🏆') + '</div>' +
+        '<div>' +
+          '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#a5d6a7;margin-bottom:2px;">🏆 Badge freigeschaltet</div>' +
+          '<div style="font-size:14px;font-weight:800;line-height:1.3;">' + (badge.name||'').replace(/[<>&]/g,'') + '</div>' +
+          '<div style="font-size:11.5px;opacity:.85;line-height:1.4;margin-top:2px;">' + (badge.desc||'').replace(/[<>&]/g,'') + '</div>' +
+        '</div>';
+      document.body.appendChild(el);
+      // CSS-Animation einmalig injecten
+      if (!document.getElementById('gs-ach-style')) {
+        var st = document.createElement('style'); st.id='gs-ach-style';
+        st.textContent = '@keyframes gsAchSlide{from{opacity:0;transform:translate(-50%,-20px)}to{opacity:1;transform:translateX(-50%)}}';
+        document.head.appendChild(st);
+      }
+      // 5s sichtbar, dann ausblenden
+      setTimeout(function(){
+        try { el.style.transition = 'opacity .4s ease-out'; el.style.opacity = '0'; setTimeout(function(){ el.remove(); }, 500); } catch(_){}
+      }, 5000);
+      try { if (typeof gsHaptic === 'function') gsHaptic('success'); } catch(_){}
+    } catch(_){}
+  }
+
+  // Re-Check: gibt unlocked-Map zurueck mit allen neuen Badges. Verarbeitet
+  // nicht doppelt (idempotent).
+  function check(){
+    var mem = (window.gsBrain && window.gsBrain.memory) ? window.gsBrain.memory() : [];
+    var ctx = (window.gsBrain && window.gsBrain.context) ? window.gsBrain.context() : {};
+    var unlockedMap = loadUnlocked();
+    var newlyUnlocked = [];
+    DEFS.forEach(function(d){
+      if (unlockedMap[d.id]) return;
+      var ok = false;
+      try { ok = !!d.trig(mem, ctx); } catch(_) {}
+      if (ok) {
+        unlockedMap[d.id] = { ts: Date.now() };
+        newlyUnlocked.push(d);
+      }
+    });
+    if (newlyUnlocked.length) {
+      saveUnlocked(unlockedMap);
+      // Sequenziell mit kleinem Versatz toasts zeigen
+      newlyUnlocked.forEach(function(b, i){
+        setTimeout(function(){ showUnlock(b); }, i * 600);
+        try { window.gsBrain && window.gsBrain.observe('achievement_unlocked', { id: b.id }); } catch(_){}
+      });
+    }
+    return newlyUnlocked;
+  }
+
+  function reset(){
+    try { localStorage.removeItem(KEY); } catch(_){}
+    return true;
+  }
+
+  // ── UI: Badge-Wand-Modal ────────────────────────────────────────────────
+  function openModal(){
+    var list = all();
+    var unlockedCount = list.filter(function(b){return b.unlocked;}).length;
+    var total = list.length;
+    var pct = Math.round((unlockedCount/total)*100);
+    var rows = list.map(function(b){
+      var dim = b.unlocked ? '' : 'opacity:.35;filter:grayscale(1);';
+      var date = b.unlocked && b.unlockedAt ? new Date(b.unlockedAt).toLocaleDateString('de-CH') : '';
+      return '<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center;' + dim + '">' +
+        '<div style="font-size:36px;line-height:1;margin-bottom:6px;">' + b.icon + '</div>' +
+        '<div style="font-size:12px;font-weight:800;color:var(--text);line-height:1.3;">' + b.name.replace(/[<>&]/g,'') + '</div>' +
+        '<div style="font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.4;">' + (b.unlocked ? '✅ ' + date : '🔒 Noch nicht') + '</div>' +
+      '</div>';
+    }).join('');
+    var existing = document.getElementById('gs-ach-modal'); if (existing) existing.remove();
+    var m = document.createElement('div');
+    m.id = 'gs-ach-modal';
+    m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true');
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:14px;';
+    var box = document.createElement('div');
+    box.style.cssText = 'background:var(--card);color:var(--text);max-width:560px;width:100%;max-height:90vh;overflow-y:auto;border-radius:14px;padding:18px 20px;font-family:DM Sans,sans-serif;';
+    box.innerHTML =
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">' +
+        '<div style="font-size:24px;">🏆</div>' +
+        '<div style="flex:1;font-weight:800;font-size:16px;">Deine Erfolge</div>' +
+        '<button id="gs-ach-close" aria-label="Schliessen" style="background:transparent;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:4px 8px;">×</button>' +
+      '</div>' +
+      '<div style="font-size:12px;color:var(--muted);margin-bottom:12px;">' + unlockedCount + ' von ' + total + ' freigeschaltet (' + pct + '%)</div>' +
+      '<div style="height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;margin-bottom:14px;">' +
+        '<div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,var(--g-main),#a5d6a7);border-radius:3px;transition:width .6s;"></div>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;">' + rows + '</div>';
+    m.appendChild(box);
+    m.addEventListener('click', function(e){ if (e.target === m) m.remove(); });
+    box.querySelector('#gs-ach-close').addEventListener('click', function(){ m.remove(); });
+    document.body.appendChild(m);
+    try { window.gsBrain && window.gsBrain.observe('achievements_open', { unlocked: unlockedCount, total: total }); } catch(_){}
+  }
+
+  // ── Auto-Check bei Brain-Events ─────────────────────────────────────────
+  // Wickelt gsBrain.observe analog zur SRS-Bridge.
+  (function bridge(){
+    if (!window.gsBrain || typeof window.gsBrain.observe !== 'function') return;
+    var orig = window.gsBrain.observe;
+    if (orig._gsAchBridged) return;
+    var bridged = function(event, data){
+      try { orig.apply(window.gsBrain, arguments); } catch(_){}
+      try { check(); } catch(_){}
+    };
+    bridged._gsAchBridged = true;
+    // Erhalte SRS-Bridge falls schon vorhanden
+    if (orig._gsSrsBridged) bridged._gsSrsBridged = true;
+    window.gsBrain.observe = bridged;
+  })();
+
+  // Initial-Check beim Modul-Load (zaehlt Bestands-Memory mit)
+  setTimeout(function(){ try { check(); } catch(_){} }, 2500);
+
+  return {
+    all: all,
+    unlocked: unlocked,
+    check: check,
+    openModal: openModal,
+    reset: reset,
+    defs: function(){ return DEFS.slice(); }
+  };
+})();
+
+// Globaler Helper
+window.openAchievements = function(){ try { window.gsAchievements.openModal(); } catch(_){} };
+
 // ═══ KAMERA / SCANNER ════════════════════════════════
 // v23.54: Scanner-Loading-Overlay Helpers
 function _gsSrLoadingShow(text, sub){
