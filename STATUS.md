@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.05` (in Arbeit) / `v24.04` (gepusht)
+**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.06` (in Arbeit) / `v24.05` (gepusht)
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v24.05 | Sprint 21 (P3-8): Brain-Recommend-LLM — `gsBrain.smartRecommend(kind)` Async + Cache 6h + Hintergrund-Hydration |
+| (next push) | v24.06 | Sprint 22 (P3-2): Schweizerdeutsch-Modus — Locale `gsw` mit ~70 Mundart-Strings, hreflang `gsw-CH` |
+| `9b135c6` | v24.05 | Sprint 21 (P3-8): Brain-Recommend-LLM — `gsBrain.smartRecommend(kind)` Async + Cache 6h + Hintergrund-Hydration |
 | `d103747` | v24.04 | Sprint 20 (P2-1): iNaturalist-OAuth-Bridge — `gsINaturalist` mit PKCE-Flow, `publishObservation`, Connect-Modal |
 | `8c43ac3` | v24.03 | Sprint 17: PLANT_DB-Split → `data/plants.v1.js` (~2.1 MB raus, -45% Initial-Size) + immutable-Cache + SW-Precache |
 | `6f23ff1` | v24.02 | Sprint 18: `gsSafeHTML`-Tagged-Template (auto-escape) + CLAUDE.md-Doku-Pattern |
@@ -94,6 +95,14 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
   scans_limit, can_scan}` aus `v_user_entitlements` ⨝ `ai_usage`.
   Client cached 60s in `_gsServerEnt`, `gsAboCanUse('scan')` nutzt
   Server-Wert wenn vorhanden — localStorage-Manipulation nutzlos.
+- ✅ **Schweizerdeutsch-Modus** (v24.06): Locale `gsw` (IETF Tag für
+  Swiss German) mit ~70 Strings als „lesbares Schweizerdeutsch"
+  (moderater Berner-/Zürcher-Mix). `gsLocaleSwitch('gsw')` triggert
+  re-render: Tab-Bar zeigt z.B. „Doheim · Scanner · Sueche · Pflanze ·
+  Menü", Buttons werden „Spichere"/„Abbreche", Garten heisst „Gärtli",
+  Karte „Charte". `<html lang>` wird `gsw-CH`, `og:locale` wird
+  `gsw_CH`, hreflang `gsw-CH` ergänzt. Spielerei mit hohem viralen
+  Wow-Effekt — keine offizielle Mundart-Standardisierung nötig.
 - ✅ **Brain-Recommend-LLM** (v24.05): Wenn `gs_brain_memory` ≥ 30
   Events UND API-Key/Proxy verfügbar, generiert `gsBrain.smartRecommend(kind)`
   asynchron einen LLM-basierten Tipp via `callAI({brain:'generalist'})`.

@@ -16195,6 +16195,89 @@ window.gsI18n = (function(){
       'tox.severe': 'Molto tossico',
       'tox.deadly': 'Mortalmente tossico',
       'tox.callPoison': 'Tox Info Suisse 145'
+    },
+    // Schweizerdeutsch (Bärndütsch / Züritüütsch-Mix, lesbar fuer ~80% CH).
+    // IETF-Tag: gsw. Kein Standard-Spelling — wir verwenden moderaten,
+    // vokalreichen Stil. Spielerei mit hohem Aha-Effekt.
+    gsw: {
+      'tab.home': 'Doheim',
+      'tab.scanner': 'Scanner',
+      'tab.search': 'Sueche',
+      'tab.plants': 'Pflanze',
+      'tab.menu': 'Menü',
+      'tab.garden': 'Gärtli',
+      'tab.map': 'Charte',
+      'tab.knowledge': 'Wüsse',
+      'tab.community': 'Lüt',
+      'tab.profile': 'Profil',
+      'btn.save': 'Spichere',
+      'btn.cancel': 'Abbreche',
+      'btn.close': 'Zuemache',
+      'btn.delete': 'Lösche',
+      'btn.confirm': 'Jo, ok',
+      'btn.back': 'Zrugg',
+      'btn.next': 'Wyter',
+      'btn.start': 'Loslegge',
+      'btn.retry': 'Nomal probiere',
+      'btn.loading': 'Lädt …',
+      'btn.upgrade': 'Upgrade',
+      'auth.login': 'Aamälde',
+      'auth.logout': 'Abmälde',
+      'auth.register': 'Konto erstelle',
+      'auth.email': 'E-Mail',
+      'auth.password': 'Passwort',
+      'auth.guest': 'Als Gascht wytermache',
+      'scanner.title': 'KI-Scanner',
+      'scanner.takePhoto': 'Foto mache',
+      'scanner.uploadPhoto': 'Foto ufelade',
+      'scanner.analyzing': 'Aalyse loift …',
+      'scanner.noKey': 'Claude-Key brucht\'s',
+      'scanner.setKey': 'Key ystelle',
+      'garden.title': 'Mys Gärtli',
+      'garden.add': 'Pflanz dezue',
+      'garden.empty': 'No kei Pflanze — füeg di erschti hinzue.',
+      'garden.harvest': 'Ärnte',
+      'garden.tasks': 'Aufgabe',
+      'map.title': 'Charte',
+      'map.layer.swisstopo': 'swisstopo',
+      'map.layer.osm': 'OpenStreetMap',
+      'map.layer.sat': 'Satellit',
+      'map.layer.hike': 'Wanderwäg',
+      'wissen.title': 'Wüsse',
+      'wissen.search': 'Sueche …',
+      'settings.title': 'Ystellige',
+      'settings.language': 'Sproch',
+      'settings.theme': 'Aussehe',
+      'settings.notifications': 'Mäldige',
+      'settings.privacy': 'Datäschutz',
+      'settings.about': 'Über',
+      'plan.free': 'Gratis',
+      'plan.plus': 'Plus',
+      'plan.pro': 'Pro',
+      'plan.lifetime': 'Lebänslang',
+      'plan.upgrade': 'Plan upgrade',
+      'quiz.title': 'Quiz vom Tag',
+      'quiz.correct': 'Stimmt!',
+      'quiz.wrong': 'Schad, falsch.',
+      'quiz.streak': '{n}-Täg-Serie',
+      'quiz.points': '{n} Pünkt',
+      'brain.dailyTip': 'Smart-Tipp hüt',
+      'brain.weekly': 'Letschti 7 Täg',
+      'brain.scansFound': '{n} Arte gscannt',
+      'notif.subscribe': 'Tagesteipps abonniere',
+      'notif.unsubscribe': 'Abo abbreche',
+      'notif.test': 'Test-Mäldig schicke',
+      'status.online': 'Online',
+      'status.offline': 'Offline',
+      'err.network': 'Kei Verbindig. Bitte nomal probiere.',
+      'err.unknown': 'Unbekannte Fähler.',
+      'tox.safe': 'Ungiftig',
+      'tox.mild': 'Leicht giftig',
+      'tox.moderate': 'Mässig giftig',
+      'tox.toxic': 'Giftig',
+      'tox.severe': 'Stark giftig',
+      'tox.deadly': 'Tödlich giftig',
+      'tox.callPoison': 'Tox Info Suisse 145'
     }
   };
 
@@ -16235,7 +16318,7 @@ window.gsI18n = (function(){
     }
   };
 
-  var SUPPORTED = ['de', 'fr', 'it'];
+  var SUPPORTED = ['de', 'fr', 'it', 'gsw'];
   var FALLBACK = 'de';
   var current = null;
 
@@ -16261,13 +16344,13 @@ window.gsI18n = (function(){
     try { localStorage.setItem('gs_locale', loc); } catch(_){}
     try {
       // <html lang> dynamisch — Crawler + Screenreader profitieren
-      var htmlLang = (loc === 'de') ? 'de-CH' : (loc === 'fr') ? 'fr-CH' : 'it-CH';
+      var htmlLang = (loc === 'de') ? 'de-CH' : (loc === 'fr') ? 'fr-CH' : (loc === 'gsw') ? 'gsw-CH' : 'it-CH';
       document.documentElement.lang = htmlLang;
     } catch(_){}
     try {
       // og:locale + twitter
       var og = document.querySelector('meta[property="og:locale"]');
-      if (og) og.setAttribute('content', (loc === 'de') ? 'de_CH' : (loc === 'fr') ? 'fr_CH' : 'it_CH');
+      if (og) og.setAttribute('content', (loc === 'de') ? 'de_CH' : (loc === 'fr') ? 'fr_CH' : (loc === 'gsw') ? 'gsw_CH' : 'it_CH');
     } catch(_){}
     try { window.dispatchEvent(new CustomEvent('gs-locale-changed', {detail:{locale: loc}})); } catch(_){}
     try { window.gsBrain && window.gsBrain.observe('locale_changed', { to: loc }); } catch(_){}
@@ -16313,13 +16396,13 @@ window.gsI18n = (function(){
 (function(){
   try {
     var loc = window.gsI18n.locale();
-    var htmlLang = (loc === 'de') ? 'de-CH' : (loc === 'fr') ? 'fr-CH' : 'it-CH';
+    var htmlLang = (loc === 'de') ? 'de-CH' : (loc === 'fr') ? 'fr-CH' : (loc === 'gsw') ? 'gsw-CH' : 'it-CH';
     if (document.documentElement.lang !== htmlLang) {
       document.documentElement.lang = htmlLang;
     }
     // hreflang-Tags fuer SEO (idempotent)
     if (!document.querySelector('link[rel="alternate"][hreflang="de-CH"]')) {
-      ['de-CH','fr-CH','it-CH','x-default'].forEach(function(hl){
+      ['de-CH','fr-CH','it-CH','gsw-CH','x-default'].forEach(function(hl){
         var l = document.createElement('link');
         l.rel = 'alternate';
         l.hreflang = hl;

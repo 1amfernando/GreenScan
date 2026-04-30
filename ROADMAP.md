@@ -87,6 +87,7 @@
 | ~~P1-8~~ | ~~PLANT_DB-Split~~ | **erledigt v24.03** (`data/plants.v1.js`, -2.16 MB Initial-Size, immutable-cached) |
 | ~~P2-1~~ | ~~iNaturalist-OAuth-Bridge~~ | **erledigt v24.04** (`gsINaturalist` mit PKCE-Flow + publishObservation; Client-ID-Setup durch Owner pending) |
 | ~~P3-8~~ | ~~Brain-Recommend in der Cloud~~ | **erledigt v24.05** (`gsBrain.smartRecommend` mit 6h-Cache + Hintergrund-Hydration; min. 30 Events nötig) |
+| ~~P3-2~~ | ~~Schweizerdeutsch-Modus~~ | **erledigt v24.06** (Locale `gsw`, 70 Strings, hreflang) |
 | P3-4 | **GPX-Import/Export** für Karten-Tracks | Pilzsammler:innen wollen Touren speichern + teilen. |
 | P3-5 | **Print-/PDF-Export** des Garten-Plans | Bestehende `pdf.js`-Lib ausreizen. |
 | P3-6 | **AR-Pflanzenmarkierung** (WebXR/AR.js) | Pflanze in der Realität markieren mit Kamera-Overlay. |
