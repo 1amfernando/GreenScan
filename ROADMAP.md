@@ -24,7 +24,8 @@
 | S11 | **Sprint 5: Brain v2** | `22cf57d` v23.93 | recommend() mit Frost-Awareness + Memory-basierter Quiz-Schwäche; weekly_summary; Smart-Insights auf Home; gsBrainDebug() Inspector |
 | S12 | **Sprint 6: Health-Check** | `424c2ff` v23.94 | `gsHealthCheck()` mit 9 Checks + Modal-UI mit Ampelsystem |
 | S13 | **Sprint 7 (B): Multikriterien-Schlüssel** | `4559bee` v23.95 | `gsKey` Filter-Engine + Modal mit 9 Kriterien. Killer-Feature gegen Flora Helvetica |
-| S14 | **Sprint 8 (C): Smart-Push-Notifications** | (next push) v23.96 | `gsPush` Client + push-test/daily-push Edge Fns + push_subscriptions Migration. Tägliche personalisierte Tipps aus brain_memory. **VAPID-Keys + Cron-Setup durch Owner pending** |
+| S14 | **Sprint 8 (C): Smart-Push-Notifications** | `be8d202` v23.96 | `gsPush` Client + push-test/daily-push Edge Fns. Tägliche personalisierte Tipps aus brain_memory. **VAPID-Keys + Cron-Setup durch Owner pending** |
+| S15 | **Sprint 9 (A): i18n FR/IT-Infrastruktur** | (next push) v23.97 | `gsI18n` Modul mit DE/FR/IT-Bundles (~70 Strings + 14 Pflanzen-Namen), Locale-Detect, dynamisches html-lang, hreflang. Strings-Migration iterativ |
 
 ---
 
@@ -45,7 +46,7 @@
 |---|---|---|---|
 | ~~P1-1~~ | ~~Anthropic Edge-Function-Proxy~~ | **Code erledigt v23.90** — Server-Deploy durch Owner pending (siehe `supabase/functions/ai-proxy/README.md`) | — |
 | ~~P1-2~~ | ~~Brain-Memory in Supabase syncen~~ | **Code erledigt v23.91** — Migration-Deploy durch Owner pending | — |
-| P1-3 | **i18n FR + IT** (CH-Amtssprachen) | Verdoppelt potenziellen Markt; FlorApp und Flora Helvetica beherrschen DE/FR/IT. JSON-basierter `t(key)`-Layer, `<html lang>` dynamisch. | 3–5 Tage |
+| ~~P1-3~~ | ~~i18n FR + IT~~ | **Infrastruktur erledigt v23.97** (`gsI18n`+ Bundles). String-Konvertierung im Code iterativ (eigene Mini-Sprints) | — |
 | ~~P1-4~~ | ~~Multikriterien-Bestimmungs-Schlüssel~~ | **erledigt v23.95** (`gsKey` + Modal-UI) — UI-Einbindung in Tab-Buttons als Folge-Sprint | — |
 | ~~P1-5~~ | ~~Storage-Layer mit Rotations-Strategie~~ | **erledigt v23.89** (Auto-Rotation + `gsStoragePush`/`gsStorageInfo`) | — |
 | ~~P1-6~~ | ~~Share-Target-Receiver im Scanner~~ | **erledigt v23.89** (SW-Postmessage + File Handling API) | — |
