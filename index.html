@@ -21,7 +21,7 @@
 <meta name="apple-mobile-web-app-title" content="GreenScan">
 <meta name="description" content="4342 Schweizer Arten: Wildpflanzen, Pilze, Bäume, Kräuter, Moose, Flechten, Algen, Hauspflanzen. KI-Scanner, Garten, Lichtmessung.">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="24.17">
+<meta name="app-version" content="24.18">
 <link rel="canonical" href="https://greenscan.ch/">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <meta name="author" content="GreenScan">
@@ -1330,8 +1330,14 @@ body.dark .menu-search-wrap{background:var(--card);}
 #lidar-toggle:checked + span#lidar-slider:before { transform: translateX(18px); }
 #lidar-slider:before { content:''; position:absolute; height:18px; width:18px; left:3px; bottom:3px; background:var(--card); border-radius:50%; transition:.3s; }
 </style>
+  <!-- v24.18: Leaflet defer-loaded — Map ist nicht above-the-fold, blockt
+       Initial-Parse nicht mehr. CSS bleibt synchron, weil 14 KB klein und
+       crash-frei wenn JS später lädt. JS-Defer: Skript wird parallel zum
+       HTML-Parser geladen, aber erst nach DOM-fertig ausgeführt — sicher,
+       weil alle L.-Calls in Functions sind, die erst on-demand laufen
+       (initMap/gsVapko.layer/...). Boot-Pfade berühren L nicht. -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <!-- v24.03: PLANT_DB extrahiert (~2.1 MB raus aus index.html).
        Synchron geladen, damit window.DB beim parser-arrival des shim
        (siehe `var DB = window.DB` weiter unten) bereits gefuellt ist.
@@ -12713,7 +12719,7 @@ function renderMarket() {
     html += '<div class="mk-card" onclick="openListingDetail(\'' + l.id + '\')" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px;margin-bottom:8px;cursor:pointer;-webkit-tap-highlight-color:transparent;display:flex;gap:11px;">' +
       // Bild/Icon
       '<div style="width:64px;height:64px;background:var(--g-bg);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:34px;flex-shrink:0;overflow:hidden;">' +
-        (l.images && l.images[0] ? '<img src="' + l.images[0] + '" alt="" style="width:100%;height:100%;object-fit:cover;">' : catEmoji) +
+        (l.images && l.images[0] ? '<img src="' + l.images[0] + '" alt="" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;">' : catEmoji) +
       '</div>' +
       // Info
       '<div style="flex:1;min-width:0;">' +
@@ -19445,7 +19451,7 @@ function gsRenderMultiShotBar() {
     shots.map(function(s,i){
       var lbl = s.label ? '<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.85);color:#fff;font-size:8px;text-align:center;padding:2px 0;font-weight:700;letter-spacing:.2px;">' + s.label.slice(0,12) + '</div>' : '';
       return '<div style="position:relative;width:64px;height:64px;border-radius:9px;overflow:hidden;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);background:#000;cursor:pointer;flex-shrink:0;" data-msi="'+i+'" onclick="gsPreviewMultiShot('+i+')">' +
-        '<img src="data:'+(s.mt||'image/jpeg')+';base64,'+s.b64+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block;">' +
+        '<img src="data:'+(s.mt||'image/jpeg')+';base64,'+s.b64+'" alt="" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;display:block;">' +
         lbl +
         '<button type="button" onclick="event.stopPropagation();gsDiscardMultiShot('+i+');" aria-label="Verwerfen" style="position:absolute;top:-7px;right:-7px;width:22px;height:22px;border-radius:50%;border:2px solid #fff;background:#c62828;color:#fff;font-size:13px;font-weight:800;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;z-index:5;">✕</button>' +
         '</div>';
@@ -20922,7 +20928,7 @@ function openScanHistory() {
       var confCol = e.conf>=80?'#27ae60':e.conf>=55?'#f9a825':'#ef5350';
       return '<div style="display:flex;gap:10px;padding:12px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;" onclick="openScanHistoryDetail(' + idx + ')">' +
         '<div style="width:44px;height:44px;border-radius:10px;overflow:hidden;flex-shrink:0;background:var(--surface2);display:flex;align-items:center;justify-content:center;">' +
-          (e.thumb ? '<img src="' + e.thumb + '" style="width:100%;height:100%;object-fit:cover;">' : '<span style="font-size:22px;">' + (e.emoji||'🌿') + '</span>') +
+          (e.thumb ? '<img src="' + e.thumb + '" alt="" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;">' : '<span style="font-size:22px;">' + (e.emoji||'🌿') + '</span>') +
         '</div>' +
         '<div style="flex:1;min-width:0;">' +
           '<div style="font-weight:800;font-size:13.5px;color:var(--text);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">' + e.name + '</div>' +
@@ -39567,7 +39573,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v24.17';
+var GS_VERSION = 'v24.18';
 // ══ GMAIL DRAFT-IDs ═══════════════════════════════════════════
 // Vorgefertigte E-Mail-Templates im Gmail-Konto www.greenscan@gmail.com
 // Absender: GreenScan <info@greenscan.ch>
@@ -46486,15 +46492,27 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
   </div>
 </div>
 
-<!-- pdf.js CDN (client-side PDF parsing) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs" type="module"></script>
-<script type="module">
-  // Lazy-load pdfjs worker
-  try {
-    const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs');
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs';
-    window._pdfjsLib = pdfjsLib;
-  } catch(e) { console.log('pdf.js load failed:', e.message); }
+<!-- v24.18: pdf.js wirklich lazy — ~500 KB, früher zweimal geladen
+     (eager <script src> + dynamic import). Jetzt nur über
+     gsEnsurePdfjs() beim ersten Plan-Export. window._pdfjsLib bleibt
+     für Rückwärtskompatibilität, wird beim ersten Resolve gefüllt. -->
+<script>
+window.gsEnsurePdfjs = function(){
+  if (window._pdfjsLib) return Promise.resolve(window._pdfjsLib);
+  if (window._pdfjsLoading) return window._pdfjsLoading;
+  window._pdfjsLoading = (async function(){
+    try {
+      const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs';
+      window._pdfjsLib = pdfjsLib;
+      return pdfjsLib;
+    } catch(e) {
+      window._pdfjsLoading = null;
+      throw e;
+    }
+  })();
+  return window._pdfjsLoading;
+};
 </script>
 
 <script>
@@ -46841,10 +46859,11 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
   };
 
   async function extractPdfText(file, onPage) {
-    if (!window._pdfjsLib) {
-      await new Promise(function(r){ setTimeout(r, 500); });
-      if (!window._pdfjsLib) throw new Error('pdf.js nicht geladen');
+    // v24.18: pdf.js wird hier lazy via gsEnsurePdfjs() geladen.
+    if (typeof window.gsEnsurePdfjs === 'function') {
+      try { await window.gsEnsurePdfjs(); } catch(e) { throw new Error('pdf.js konnte nicht geladen werden: ' + (e && e.message ? e.message : e)); }
     }
+    if (!window._pdfjsLib) throw new Error('pdf.js nicht geladen');
     var buf = await file.arrayBuffer();
     var pdf = await window._pdfjsLib.getDocument({ data: buf }).promise;
     var pages = [];

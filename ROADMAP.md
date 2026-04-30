@@ -11,7 +11,8 @@
 
 | # | Meilenstein | Commit | Wirkung |
 |---|---|---|---|
-| S19 | **Sprint 39: Discovery & Deep-Links** | (next push) v24.17 | Discovery-Card auf Home für 0-Scan-User · gsHandleShortcutUrl erweitert um 9 Modal-Screens (vorher kaputter navTo-Call) · manifest shortcuts auf killer-Features umgestellt |
+| S20 | **Sprint 40: Performance-Pass** | (next push) v24.18 | Leaflet defer-loaded (-140 KB blockend) · pdf.js lazy via gsEnsurePdfjs (-500 KB Default-Save, vorher 2× geladen) · loading=lazy auf 3 Listen-Bilder |
+| S19 | **Sprint 39: Discovery & Deep-Links** | `cd74506` v24.17 | Discovery-Card auf Home für 0-Scan-User · gsHandleShortcutUrl erweitert um 9 Modal-Screens (vorher kaputter navTo-Call) · manifest shortcuts auf killer-Features umgestellt |
 | S18 | **Sprint 38: Home-Hook + B2-Hardening** | `57a4a92` v24.16 | Home-Achievement-Hint-Card (X/Y + Nächstes-Badge mit Click→Modal) als psychologischer Sog · 3 unescaped err.message-innerHTML-Stellen mit gsHTMLEscape-Fallback gehärtet |
 | S17 | **Sprint 37: UI-Polish** | `434f457` v24.15 | i18n DE/FR/IT/gsw für 11 neue Strings · `data-i18n` auf neuen Buttons + Section · Achievement-Counter „X/Y" live im Menü · Multikriterien-CTA im Empty-State der Plant-Suche · Locale-Switch wirkt sofort im Menü |
 | S16 | **Sprint 36: UI-Verdrahtung** | `685210f` v24.14 | 7 unsichtbare Power-Features bekommen Menü-Buttons (Multikriterien, VAPKO, Achievements, iNat, Brain-Inspector, Welcome-Tour, Self-Test) + Share-Card-Button im Scan-Result. Größte UX-Lücke der letzten 7 Sprints geschlossen. |
