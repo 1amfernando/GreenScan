@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v23.99` (in Arbeit) / `v23.98` (gepusht)
+**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.00` (in Arbeit) / `v23.99` (gepusht)
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v23.99 | Phase 1 (Sprint 10-12): GPX-Import · Print-CSS für saubere PDFs · i18n-Tab-Migration (`gsApplyI18n` + data-i18n) |
+| (next push) | v24.00 | Phase 2 (Sprint 13-16): `gsRedList` + `gsExternalSources` (in Detail-Modal verdrahtet) · `gsVapko` Pilzkontrollstellen (~50 Stellen) · `gsMeteo` Schweizer Warnungen (Frost/Hitze/Sturm/Regen aus open-meteo) |
+| `70aa68c` | v23.99 | Phase 1 (Sprint 10-12): GPX-Import · Print-CSS für saubere PDFs · i18n-Tab-Migration (`gsApplyI18n` + data-i18n) |
 | `5dc9880` | v23.98 | Deploy-Ready: DEPLOY.md (7 Befehle), README-Update, defensive Quota-Cache bei Failure |
 | `7b61cf7` | v23.97 | Sprint 9 (A): i18n FR/IT-Infrastruktur (`gsI18n` + DE/FR/IT-Bundles + plant-name lookup + hreflang) |
 | `be8d202` | v23.96 | Sprint 8 (C): Smart-Push-Notifications (`gsPush` + push-test/daily-push Edge Fns + push_subscriptions Migration) |
@@ -88,6 +89,28 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
   scans_limit, can_scan}` aus `v_user_entitlements` ⨝ `ai_usage`.
   Client cached 60s in `_gsServerEnt`, `gsAboCanUse('scan')` nutzt
   Server-Wert wenn vorhanden — localStorage-Manipulation nutzlos.
+- ✅ **gsRedList — IUCN-Schutzstatus Schweiz** (v24.00): kuratierte Liste
+  von ~80 Schweizer Arten mit IUCN-Status (LC/NT/VU/EN/CR/RE) nach
+  Bornand 2016 + BAFU 2019. `gsRedList.status(latName)` liefert
+  `{code,label,color,bg}`. Im Detail-Modal als farbiges Status-Badge
+  sichtbar.
+- ✅ **gsExternalSources — Wissenschaftliche Quellen** (v24.00): Pro
+  Pflanze Links zu Info Flora (`infoflora.ch/de/flora/<slug>.html`),
+  GBIF (search by name) und Wikipedia (locale-aware: DE/FR/IT).
+  Im Detail-Modal als Quellen-Block sichtbar.
+- ✅ **gsVapko — Pilzkontrollstellen** (v24.00): ~50 Schweizer
+  Stationen mit Lat/Lng, Kanton, saisonalem Hinweis, optional URL.
+  `gsVapko.nearest(lat, lng, n)` Haversine-Sortierung,
+  `gsVapko.layer(map)` Leaflet-LayerGroup mit 🍄-Markers,
+  `gsVapko.openModal()` Modal mit den 8 nächsten Stellen ab GPS.
+  Globaler Helper `window.openVapko()`. Killer-USP gegen alle
+  Mitbewerber.
+- ✅ **gsMeteo — Schweizer Wetter-Warnungen** (v24.00): leitet aus
+  `_gsWeatherData` (open-meteo) Frost/Hitze/Sturm/Stark-Regen-
+  Warnungen für die nächsten 3 Tage ab nach MeteoSwiss-Schwellen.
+  `gsMeteo.warnings()`, `gsMeteo.urgent()`, `gsMeteo.bannerHTML()`,
+  `gsMeteo.officialUrl(canton)` (Link zur offiziellen MeteoSwiss-
+  Warn-Seite). Brain-Tipp und Push-Logik können das nutzen.
 - ✅ **GPX-Import** (v23.99): `gsTrackImportGPX()` öffnet File-Picker,
   parst GPX 1.0/1.1 (DOMParser, tolerant für `<trkpt>`+`<ele>`+`<time>`),
   splittet Multi-Track-Files in separate Tracks, downsampelt auf 5000
