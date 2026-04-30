@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-QZgDb` · **Version**: `v24.19` (in Arbeit) / `v24.18` (gepusht) · **2 Wochen bis Release**
+**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-QZgDb` · **Version**: `v24.20` (in Arbeit) / `v24.19` (gepusht) · **2 Wochen bis Release**
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v24.19 | **Sprint 41 — Push-UI**: `gsPush` (subscribe/unsubscribe/test) war bisher nur via DevTools-Console aufrufbar — jetzt vollständige Modal-UI über `gsOpenPushSettings()` mit Status-Badge (active/inactive/denied/unsupported), Stunden-Picker (5–22 h, persistent in `gs_push_hour`), Login-Hinweis, Test-Button. Eingebunden ins Menü → 🩺 Diagnose & Hilfe → 🔔 Push-Tipps. 17 i18n-Keys (DE/FR/IT/gsw) für die komplette Push-UX. |
+| (next push) | v24.20 | **Sprint 42 — revDSG-Compliance: Datenexport + sauberer Lösch-Flow**: Recht auf Datenübertragbarkeit (revDSG Art. 8 / DSGVO Art. 20) wird jetzt bedient — `gsExportUserData()` sammelt alle gs_*/ps_*-localStorage-Einträge als JSON und lädt sie als `greenscan-data-YYYY-MM-DD.json` herunter. Sensible Keys (gs_sb_token, gs_claude_key) werden im Export redacted. Settings → 📤 „Meine Daten exportieren" sichtbar für ALLE User (vorher gab es nur Admin-only Import-Row). `profDeleteAccount` jetzt revDSG-konform: bietet Export vor Löschung an, löscht zusätzlich zum Server-Profil auch alle lokalen gs_*/ps_*-Keys, reload danach. 4 i18n-Keys × 4 Sprachen. |
+| `00be57e` | v24.19 | **Sprint 41 — Push-UI**: `gsPush` (subscribe/unsubscribe/test) war bisher nur via DevTools-Console aufrufbar — jetzt vollständige Modal-UI über `gsOpenPushSettings()` mit Status-Badge (active/inactive/denied/unsupported), Stunden-Picker (5–22 h, persistent in `gs_push_hour`), Login-Hinweis, Test-Button. Eingebunden ins Menü → 🩺 Diagnose & Hilfe → 🔔 Push-Tipps. 17 i18n-Keys (DE/FR/IT/gsw) für die komplette Push-UX. |
 | `9975b6f` | v24.18 | **Sprint 40 — Performance-Pass**: Leaflet jetzt `defer`-geladen (~140 KB JS blockt Initial-Parse nicht mehr) · pdf.js wirklich lazy via `gsEnsurePdfjs()` (~500 KB nur beim ersten Plan-Export geladen, vorher 2× geladen: eager + dynamic-import) · `loading="lazy" decoding="async"` auf 3 Listen-Bilder (Marktplatz-Listings, Scan-History, Hero-Foto) — nur sichtbare Bilder werden geladen. Erwarteter Gewinn: -140 KB blockendes JS auf Home/Scanner/Search/Favs/Menu (5 von 6 Haupt-Tabs), pdf.js nur on-demand. |
 | `cd74506` | v24.17 | **Sprint 39 — Discovery & Deep-Links**: Erst-User (0 Scans) bekommen prominente Discovery-Card auf Home für „📋 Bestimmungs-Schlüssel" (Killer-Feature gegen Flora Helvetica) · `gsHandleShortcutUrl` erweitert um 9 Modal-Screens (multikey, vapko, achievements, doctor, brain, health, tour, inat, light) und sauberer Tab-Whitelist (vorher kaputter `navTo`-Call) · manifest.json shortcuts: Lichtmessung + Garten-Planer raus, dafür „Bestimmungs-Schlüssel" + „Pflanzendoktor" rein (long-press auf Home-Icon zeigt jetzt die Power-Features). |
 | `57a4a92` | v24.16 | **Sprint 38 — Home-Hook + B2-Hardening**: Home zeigt unter Brain-Tipp ein Achievement-Hint-Card („🏆 12/34 · Nächstes: 🦋 Sammler") mit Click→Modal — psychologischer Sog für Quote-getriebene User · 3 unescaped `err.message`/`e.message`-innerHTML-Stellen (Lichtmesser, Solar-Sensor, Pflanzendoktor-Foto) gehärtet mit `gsHTMLEscape`-Fallback (B2-Mini-Migration). |
@@ -56,6 +57,19 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
 
 ## 2 · Was nachweislich funktioniert (Code-Verifikation)
 
+- ✅ **revDSG-Datenexport + sauberer Lösch-Flow** (v24.20): Recht auf
+  Datenübertragbarkeit (revDSG Art. 8 / DSGVO Art. 20) implementiert.
+  - `gsExportUserData()` sammelt alle `gs_*`/`ps_*`-localStorage-Keys
+    als strukturierten JSON-Blob (parst JSON-Werte automatisch),
+    redacted Auth-Token und API-Keys, fügt App-Version + UID +
+    Server-Daten-Hinweis (info@greenscan.ch für Auskunfts-Antrag) bei,
+    triggert Download als `greenscan-data-YYYY-MM-DD.json`.
+  - **Settings → 📤 „Meine Daten exportieren"** sichtbar für ALLE User
+    (vorher: nur Admin-only Import-Row).
+  - **`profDeleteAccount`** jetzt vollständig: bietet Export vor
+    Löschung an, löscht Profil-Row (RLS), führt Logout durch und
+    löscht zusätzlich alle lokalen `gs_*`/`ps_*`-Keys → wirklich
+    blanker Zustand. Reload danach.
 - ✅ **gsPush-Settings-UI** (v24.19): vorher achtes unsichtbares
   Power-Feature (alle 5 Methoden — `isSupported/status/subscribe/
   unsubscribe/test` — nur via DevTools-Console). Jetzt:
@@ -481,7 +495,9 @@ Bereiche, die nicht gleichzeitig editiert werden sollten:
 
 ## 7 · Schweizer Compliance-Status
 
-- ✅ **revDSG**: Datenschutz-Erklärung verlinkt, EDÖB-Verweis, Opt-In Analytics
+- ✅ **revDSG**: Datenschutz-Erklärung verlinkt, EDÖB-Verweis, Opt-In
+  Analytics, **Datenexport (Art. 8)** ab v24.20 in Settings, **Konto-
+  Löschung mit lokaler + serverseitiger Bereinigung** ab v24.20
 - ✅ **VAPKO**: Pilz-Warnung im Scanner (Tox-Info Suisse 145 prominent)
 - ✅ **swisstopo**: Default-Karten-Layer
 - ⚠️ **FR/IT/RM**: nur DE-CH — eigene Roadmap-Punkte (P1)

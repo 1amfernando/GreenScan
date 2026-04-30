@@ -11,7 +11,8 @@
 
 | # | Meilenstein | Commit | Wirkung |
 |---|---|---|---|
-| S21 | **Sprint 41: Push-UI** | (next push) v24.19 | gsPush vollständig im Menü erreichbar (Modal mit Status/Hour-Picker/Test) — 8. unsichtbares Power-Feature verdrahtet, 17 i18n-Keys DE/FR/IT/gsw |
+| S22 | **Sprint 42: revDSG-Datenexport + sauberer Lösch-Flow** | (next push) v24.20 | Recht auf Datenübertragbarkeit (Art. 8 revDSG / Art. 20 GDPR) — gsExportUserData liefert JSON-Backup, sensible Keys redacted · Settings-Row für alle User · profDeleteAccount mit Export-Angebot + lokale Bereinigung |
+| S21 | **Sprint 41: Push-UI** | `00be57e` v24.19 | gsPush vollständig im Menü erreichbar (Modal mit Status/Hour-Picker/Test) — 8. unsichtbares Power-Feature verdrahtet, 17 i18n-Keys DE/FR/IT/gsw |
 | S20 | **Sprint 40: Performance-Pass** | `9975b6f` v24.18 | Leaflet defer-loaded (-140 KB blockend) · pdf.js lazy via gsEnsurePdfjs (-500 KB Default-Save, vorher 2× geladen) · loading=lazy auf 3 Listen-Bilder |
 | S19 | **Sprint 39: Discovery & Deep-Links** | `cd74506` v24.17 | Discovery-Card auf Home für 0-Scan-User · gsHandleShortcutUrl erweitert um 9 Modal-Screens (vorher kaputter navTo-Call) · manifest shortcuts auf killer-Features umgestellt |
 | S18 | **Sprint 38: Home-Hook + B2-Hardening** | `57a4a92` v24.16 | Home-Achievement-Hint-Card (X/Y + Nächstes-Badge mit Click→Modal) als psychologischer Sog · 3 unescaped err.message-innerHTML-Stellen mit gsHTMLEscape-Fallback gehärtet |

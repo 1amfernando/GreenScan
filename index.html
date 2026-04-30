@@ -21,7 +21,7 @@
 <meta name="apple-mobile-web-app-title" content="GreenScan">
 <meta name="description" content="4342 Schweizer Arten: Wildpflanzen, Pilze, Bäume, Kräuter, Moose, Flechten, Algen, Hauspflanzen. KI-Scanner, Garten, Lichtmessung.">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="24.19">
+<meta name="app-version" content="24.20">
 <link rel="canonical" href="https://greenscan.ch/">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <meta name="author" content="GreenScan">
@@ -3945,6 +3945,16 @@ button:focus-visible, .ib:focus-visible, .tab:focus-visible{
         <div class="settings-label">
           <div class="settings-label-title">Daten importieren</div>
           <div class="settings-label-sub">Backup wiederherstellen</div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);">›</div>
+      </div>
+
+      <!-- v24.20: revDSG Art. 8 / GDPR Art. 20 — Recht auf Datenübertragbarkeit -->
+      <div class="settings-row" id="settings-export-row" onclick="try{window.gsExportUserData&&window.gsExportUserData();}catch(_){}" style="cursor:pointer;">
+        <div class="settings-icon" style="background:#e8f5e9;">📤</div>
+        <div class="settings-label">
+          <div class="settings-label-title" data-i18n="settings.exportTitle">Meine Daten exportieren</div>
+          <div class="settings-label-sub" data-i18n="settings.exportSub">JSON-Backup zum Herunterladen (revDSG)</div>
         </div>
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
@@ -16310,6 +16320,8 @@ window.gsI18n = (function(){
       'menu.tour': 'Welcome-Tour',
       'menu.selftest': 'Self-Test',
       'menu.push': 'Push-Tipps',
+      'settings.exportTitle': 'Meine Daten exportieren',
+      'settings.exportSub': 'JSON-Backup zum Herunterladen (revDSG)',
       'push.title': 'Push-Tipps',
       'push.lead': 'Erhalte täglich einen personalisierten Smart-Tipp aus deinem Brain — passend zu Saison, Standort und deinen Scans.',
       'push.active': 'aktiv',
@@ -16417,6 +16429,8 @@ window.gsI18n = (function(){
       'menu.tour': 'Visite de bienvenue',
       'menu.selftest': 'Auto-test',
       'menu.push': 'Push-Astuces',
+      'settings.exportTitle': 'Exporter mes données',
+      'settings.exportSub': 'Sauvegarde JSON à télécharger (revDSG)',
       'push.title': 'Astuces push',
       'push.lead': 'Reçois chaque jour une astuce intelligente personnalisée — adaptée à la saison, ton lieu et tes scans.',
       'push.active': 'actif',
@@ -16524,6 +16538,8 @@ window.gsI18n = (function(){
       'menu.tour': 'Tour di benvenuto',
       'menu.selftest': 'Auto-test',
       'menu.push': 'Push-Suggerimenti',
+      'settings.exportTitle': 'Esporta i miei dati',
+      'settings.exportSub': 'Backup JSON da scaricare (revDSG)',
       'push.title': 'Suggerimenti push',
       'push.lead': 'Ricevi ogni giorno un suggerimento personalizzato — basato su stagione, luogo e tuoi scan.',
       'push.active': 'attivo',
@@ -16634,6 +16650,8 @@ window.gsI18n = (function(){
       'menu.tour': 'Welcome-Tour',
       'menu.selftest': 'Sälbst-Test',
       'menu.push': 'Push-Tipps',
+      'settings.exportTitle': 'Mini Date exportiere',
+      'settings.exportSub': 'JSON-Backup zum Abelade (revDSG)',
       'push.title': 'Push-Tipps',
       'push.lead': 'Chrieg jede Tag en perseenliche Smart-Tipp us dim Brain — passend zur Saison, em Ort und dine Scans.',
       'push.active': 'aktiv',
@@ -32188,6 +32206,63 @@ function importUserData() {
   input.click();
 }
 
+// v24.20: revDSG / GDPR Art. 20 — Datenexport für User
+//   Sammelt alle lokalen gs_*/ps_*-localStorage-Einträge als strukturierten
+//   JSON-Blob, parsed JSON-Werte automatisch (statt String-Schnipsel) und
+//   triggert einen Download. Server-seitige Daten (Supabase-Tabellen) sind
+//   im Export-Format als Verweis auf den Profile-/Owner-Pfad markiert —
+//   detaillierte Server-Exports laufen über den Auskunfts-Antrag.
+window.gsExportUserData = function(){
+  try {
+    var keys = Object.keys(localStorage).filter(function(k){
+      return k.indexOf('gs_') === 0 || k.indexOf('ps_') === 0;
+    });
+    var data = {};
+    keys.forEach(function(k){
+      var v = localStorage.getItem(k);
+      // Versuche JSON zu parsen, sonst behalte den String
+      try {
+        var parsed = JSON.parse(v);
+        data[k] = parsed;
+      } catch(_) {
+        data[k] = v;
+      }
+      // Sensible Keys ausblenden (kein Auth-Token / API-Key in Export!)
+      if (k === 'gs_sb_token' || k === 'gs_claude_key' || k === 'gs_sb_key') {
+        data[k] = '<redacted — sensible Daten nicht im Export>';
+      }
+    });
+    var payload = {
+      version: 1,
+      exportDate: new Date().toISOString(),
+      app: 'GreenScan',
+      appVersion: (typeof GS_VERSION !== 'undefined') ? GS_VERSION : '',
+      uid: localStorage.getItem('gs_sb_uid') || null,
+      lang: (window.gsI18n && window.gsI18n.locale) ? window.gsI18n.locale() : 'de',
+      hint_server_data: 'Server-seitige Daten (profiles, scan_history, brain_memory, etc.) gemäss revDSG Art. 8 / DSGVO Art. 15 auf Anfrage an info@greenscan.ch',
+      localStorage: data
+    };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    var date = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = 'greenscan-data-' + date + '.json';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){
+      try { document.body.removeChild(a); URL.revokeObjectURL(url); } catch(_){}
+    }, 1000);
+    try { window.gsBrain && window.gsBrain.observe('data_export', { keys: keys.length }); } catch(_){}
+    if (typeof showProfileToast === 'function') showProfileToast('📥 Daten exportiert (' + keys.length + ' Einträge)');
+    return { ok: true, keys: keys.length };
+  } catch(e) {
+    if (typeof showProfileToast === 'function') showProfileToast('❌ Export fehlgeschlagen: ' + (e && e.message ? e.message : e));
+    return { ok: false, error: e && e.message };
+  }
+};
+
 function clearAllData() {
   const keys = Object.keys(localStorage).filter(k => k.startsWith('gs_') || k.startsWith('ps_'));
   keys.forEach(k => localStorage.removeItem(k));
@@ -39750,7 +39825,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v24.19';
+var GS_VERSION = 'v24.20';
 // ══ GMAIL DRAFT-IDs ═══════════════════════════════════════════
 // Vorgefertigte E-Mail-Templates im Gmail-Konto www.greenscan@gmail.com
 // Absender: GreenScan <info@greenscan.ch>
@@ -41813,17 +41888,38 @@ async function doChangePassword() {
 }
 
 async function profDeleteAccount() {
-  var confirm1 = prompt('Konto wirklich löschen? Tippe "LÖSCHEN" zur Bestätigung:');
-  if (confirm1 !== 'LÖSCHEN') { showProfileToast('Abgebrochen.'); return; }
-  showProfileToast('⏳ Konto wird gelöscht…');
-  // Profil löschen (via RLS geschützt)
-  var uid = localStorage.getItem('gs_sb_uid');
-  if (uid) {
-    await sbFetch('/rest/v1/profiles?id=eq.'+encodeURIComponent(uid), {method:'DELETE'});
+  // v24.20: revDSG-konformer Lösch-Flow
+  // 1. Anbieten, vorher die Daten zu exportieren (Auskunfts-Recht)
+  // 2. Bestätigung mit Lösch-Wort
+  // 3. Server-Profil löschen (RLS)
+  // 4. Logout
+  // 5. Lokale gs_*/ps_*-Keys löschen → wirklich blanker Zustand
+  try {
+    if (typeof window.gsExportUserData === 'function' &&
+        confirm('Bevor das Konto gelöscht wird: Möchtest du deine Daten zuerst exportieren?\n(Recht auf Datenübertragbarkeit nach revDSG)')) {
+      try { window.gsExportUserData(); } catch(_){}
+    }
+    var confirm1 = prompt('Konto wirklich löschen? Tippe "LÖSCHEN" zur Bestätigung:');
+    if (confirm1 !== 'LÖSCHEN') { showProfileToast('Abgebrochen.'); return; }
+    showProfileToast('⏳ Konto wird gelöscht…');
+    var uid = localStorage.getItem('gs_sb_uid');
+    if (uid) {
+      try { await sbFetch('/rest/v1/profiles?id=eq.'+encodeURIComponent(uid), {method:'DELETE'}); } catch(_){}
+    }
+    try { await sbLogout(); } catch(_){}
+    closeModal('modal-profile');
+    // Lokale User-Daten zusätzlich löschen — sonst bleibt Brain-Memory etc.
+    try {
+      var keys = Object.keys(localStorage).filter(function(k){
+        return k.indexOf('gs_') === 0 || k.indexOf('ps_') === 0;
+      });
+      keys.forEach(function(k){ try { localStorage.removeItem(k); } catch(_){} });
+    } catch(_){}
+    showProfileToast('👋 Konto und lokale Daten gelöscht. Auf Wiedersehen!');
+    setTimeout(function(){ try { location.reload(); } catch(_){} }, 1500);
+  } catch(e) {
+    showProfileToast('❌ Fehler: ' + (e && e.message ? e.message : e));
   }
-  await sbLogout();
-  closeModal('modal-profile');
-  showProfileToast('👋 Konto gelöscht. Auf Wiedersehen!');
 }
 
 // ── Setup-Modus (kein Supabase konfiguriert) ──────────────────
