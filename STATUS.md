@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.01` (in Arbeit) / `v24.00` (gepusht)
+**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.02` (in Arbeit) / `v24.01` (gepusht)
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v24.01 | Sprint 19: `gsSRS` SM-2-Spaced-Repetition + Auto-Bridge zu `gsBrain.observe('quiz_answered')` |
+| (next push) | v24.02 | Sprint 18: `gsSafeHTML`-Tagged-Template (auto-escape) + CLAUDE.md-Doku-Pattern |
+| `1ada9fd` | v24.01 | Sprint 19: `gsSRS` SM-2-Spaced-Repetition + Auto-Bridge zu `gsBrain.observe('quiz_answered')` |
 | `318427e` | v24.00 | Phase 2 (Sprint 13-16): `gsRedList` + `gsExternalSources` (in Detail-Modal verdrahtet) · `gsVapko` Pilzkontrollstellen (~50 Stellen) · `gsMeteo` Schweizer Warnungen (Frost/Hitze/Sturm/Regen aus open-meteo) |
 | `70aa68c` | v23.99 | Phase 1 (Sprint 10-12): GPX-Import · Print-CSS für saubere PDFs · i18n-Tab-Migration (`gsApplyI18n` + data-i18n) |
 | `5dc9880` | v23.98 | Deploy-Ready: DEPLOY.md (7 Befehle), README-Update, defensive Quota-Cache bei Failure |
@@ -90,6 +91,15 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
   scans_limit, can_scan}` aus `v_user_entitlements` ⨝ `ai_usage`.
   Client cached 60s in `_gsServerEnt`, `gsAboCanUse('scan')` nutzt
   Server-Wert wenn vorhanden — localStorage-Manipulation nutzlos.
+- ✅ **gsSafeHTML — Auto-Escape Tagged-Template** (v24.02): Pattern für
+  alle neuen DOM-Konstruktionen mit User-Input.
+  `gsSafeHTML\`<div>${userInput}</div>\`` escaped automatisch. Helpers:
+  `.escape`, `.attr`, `.url` (whitelist https/http/mailto/relative),
+  `.unsafe` (bypass für bereits-escapte Sub-Templates), `.raw` (Variant
+  ohne Auto-Escape). `gsHTMLEscape` als Kurz-Alias. CLAUDE.md
+  §3.6 dokumentiert das Pattern. **Bestehende 299 innerHTML-Stellen
+  bleiben unverändert** (mit `gsSanitize` und CSP gehärtet) — Migration
+  iterativ in Folge-Sprints, modul-weise, mit Browser-Test.
 - ✅ **gsSRS — Spaced-Repetition (SM-2)** (v24.01): Adaptives Lernen
   statt Zufalls-Quiz. SM-2-Algorithmus (SuperMemo, Goldstandard).
   `gsSRS.review(cardId, q)` mit q∈[0..5] aktualisiert Karten-State
@@ -217,7 +227,7 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
 | ID | Severity | Wo | Beschreibung | ROADMAP |
 |---|---|---|---|---|
 | B1 | HIGH | `index.html` ~31 KB JWT-Storage | Auth-Token in localStorage. Mit CSP entschärft, aber XSS-Hijack theoretisch möglich. | P2: HttpOnly-Cookies |
-| B2 | MEDIUM | `index.html` 299× innerHTML | Manche Stellen mit User-Input, gegen XSS via `gsSanitize` geschützt — nicht alle systematisch | P2: safeHTML-Migration |
+| B2 | MEDIUM | `index.html` 299× innerHTML | `gsSafeHTML`-Helper steht ab v24.02 bereit. Migration iterativ pro Modul (eigene Mini-Sprints) | P2: safeHTML-Migration (Helper ✓, Code-Migration pending) |
 | ~~B3~~ | ~~MEDIUM~~ | ~~`localStorage` Quota~~ | ~~`safeSetItem` schluckt Quota-Errors still~~ | **erledigt v23.89** (Auto-Rotation) |
 | B5 | LOW | `book-ingest` (Z. 46135–46259) | Funktion ohne UI-Hook (kein onclick im HTML) | P3: aktivieren oder löschen |
 | B6 | LOW | PLANT_DB inline 4.5 MB | Lädt jedes Mal komplett neu, nicht in IndexedDB | P1-8: Split + Hydration |
