@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-QZgDb` · **Version**: `v24.14` (in Arbeit) / `v24.13` (gepusht via PR #1) · **2 Wochen bis Release**
+**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-QZgDb` · **Version**: `v24.15` (in Arbeit) / `v24.14` (gepusht) · **2 Wochen bis Release**
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v24.14 | **Sprint 36 — UI-Verdrahtung**: 7 unsichtbare Features bekommen Menü-Buttons (Multikriterien-Schlüssel, VAPKO-Pilzkontrollen, Achievements, iNaturalist, Brain-Inspector, Welcome-Tour, Self-Test). Neue Menü-Sektion „🩺 Diagnose & Hilfe". Share-Card-Button im Scan-Result mit Auto-Fill aus letztem Scan + Standort + IUCN-Status. `gsRunSelfTestModal()` als Modal-Wrapper für Self-Test. Größte UX-Lücke der letzten 7 Sprints geschlossen. |
+| (next push) | v24.15 | **Sprint 37 — UI-Polish**: i18n-Keys (DE/FR/IT/gsw) für 11 neue Strings (menu.multikey/vapko/achievements/inat/diagnose/health/brain/tour/selftest, scan.shareCard, search.empty.tryKey) · `data-i18n`-Attribute auf neuen Menü-Buttons + Section · Achievement-Counter (X/Y) live im Menü-Button (rendert beim openMainMenu) · Multikriterien-Schlüssel-CTA im leeren Search-Result als prominenter Button · `gsApplyI18n` re-apply beim Menü-Open (Locale-Switch wirkt sofort) |
+| `685210f` | v24.14 | **Sprint 36 — UI-Verdrahtung**: 7 unsichtbare Features bekommen Menü-Buttons (Multikriterien-Schlüssel, VAPKO-Pilzkontrollen, Achievements, iNaturalist, Brain-Inspector, Welcome-Tour, Self-Test). Neue Menü-Sektion „🩺 Diagnose & Hilfe". Share-Card-Button im Scan-Result mit Auto-Fill aus letztem Scan + Standort + IUCN-Status. `gsRunSelfTestModal()` als Modal-Wrapper für Self-Test. Größte UX-Lücke der letzten 7 Sprints geschlossen. |
 | `4d295d5` | v24.13 | Phase 9: Pre-Launch-Audit-Subagent + 5 Sicherheits-Fixes (1 CRITICAL daily-push-Auth · 3 HIGH CORS-Origins/encodeURIComponent · 1 MED stripe-uuid · LOW SW-Version-Bump) · 10 zusätzliche Achievements (34 total) · 50 zusätzliche IUCN-Arten (130 total) |
 | `ee900a7` | v24.12 | Phase 8: Performance-Polish (preconnect/preload erweitert) · DEPLOY.md §16-17 (OG/Screenshots/App-Store-Wrapper) · README-Refresh · Stripe-Webhook Edge Fn (audit-log) + Migration · Error→Brain-Memory-Telemetry |
 | `80ba380` | v24.11 | Sprint 28+29+30: Pre-Launch-Polish — `gsAlert`-Helper + 9 alert()→Toast Migrationen · B5 als „Admin-Feature" geklärt · `gsSelfTest()` mit 33 Module-Reachability-Checks |
@@ -51,6 +52,12 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
 
 ## 2 · Was nachweislich funktioniert (Code-Verifikation)
 
+- ✅ **UI-Polish-Sprint** (v24.15): i18n-Keys (DE/FR/IT/gsw) für alle
+  neuen Buttons + `data-i18n`-Attribute. Achievement-Counter „X/Y" rendert
+  live im Menü-Button beim Öffnen. Empty-State der Plant-Suche bekommt
+  prominenten CTA „📋 Bestimmungs-Schlüssel" mit i18n-Hinweis. Locale-
+  Switch wirkt sofort auch im Menü (`gsApplyI18n` re-apply in
+  `openMainMenu`).
 - ✅ **UI-Verdrahtung der Power-Features** (v24.14): 10 neue Buttons im
   Hauptmenü und Scan-Result. Vorher nur via DevTools-Console erreichbar:
   `openMultiKey` (Wissen → 📋 Bestimmungs-Schlüssel), `openVapko`

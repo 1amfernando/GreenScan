@@ -21,7 +21,7 @@
 <meta name="apple-mobile-web-app-title" content="GreenScan">
 <meta name="description" content="4342 Schweizer Arten: Wildpflanzen, Pilze, Bäume, Kräuter, Moose, Flechten, Algen, Hauspflanzen. KI-Scanner, Garten, Lichtmessung.">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="24.14">
+<meta name="app-version" content="24.15">
 <link rel="canonical" href="https://greenscan.ch/">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <meta name="author" content="GreenScan">
@@ -4360,11 +4360,11 @@ button:focus-visible, .ib:focus-visible, .tab:focus-visible{
       </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){try{window.openMultiKey&&window.openMultiKey();}catch(_){}}, 200)" id="mi-multikey">
         <div class="menu-item-icon" style="background:#e8f5e9;">📋</div>
-        <span class="menu-item-label">Bestimmungs-Schlüssel</span>
+        <span class="menu-item-label" data-i18n="menu.multikey">Bestimmungs-Schlüssel</span>
       </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){try{window.openVapko&&window.openVapko();}catch(_){}}, 200)" id="mi-vapko">
         <div class="menu-item-icon" style="background:#fff3e0;">🍄</div>
-        <span class="menu-item-label">Pilzkontrolle (VAPKO)</span>
+        <span class="menu-item-label" data-i18n="menu.vapko">Pilzkontrolle (VAPKO)</span>
       </button>
     </div>
     <div class="menu-section">Küche & Gesundheit</div>
@@ -4407,27 +4407,27 @@ button:focus-visible, .ib:focus-visible, .tab:focus-visible{
       </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){try{window.openAchievements&&window.openAchievements();}catch(_){}}, 200)" id="mi-achievements">
         <div class="menu-item-icon" style="background:#fffde7;">🏆</div>
-        <span class="menu-item-label">Auszeichnungen</span>
+        <span class="menu-item-label"><span data-i18n="menu.achievements">Auszeichnungen</span><span id="mi-achievements-counter" style="display:none;font-size:10px;font-weight:700;color:var(--g-dark);background:var(--surface2);border-radius:8px;padding:1px 6px;margin-left:5px;">0/0</span></span>
       </button>
     </div>
 
-    <div class="menu-section">🩺 Diagnose &amp; Hilfe</div>
+    <div class="menu-section" data-i18n="menu.diagnose">🩺 Diagnose &amp; Hilfe</div>
     <div class="menu-grid">
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){try{window.gsHealthCheck&&window.gsHealthCheck(true);}catch(_){}}, 200)" id="mi-health">
         <div class="menu-item-icon" style="background:#ffebee;">❤️‍🩹</div>
-        <span class="menu-item-label">Health-Check</span>
+        <span class="menu-item-label" data-i18n="menu.health">Health-Check</span>
       </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){try{window.gsBrainDebug&&window.gsBrainDebug(true);}catch(_){}}, 200)" id="mi-brain">
         <div class="menu-item-icon" style="background:#ede7f6;">🧠</div>
-        <span class="menu-item-label">Brain-Inspector</span>
+        <span class="menu-item-label" data-i18n="menu.brain">Brain-Inspector</span>
       </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){try{window.openWelcomeTour&&window.openWelcomeTour();}catch(_){}}, 200)" id="mi-tour">
         <div class="menu-item-icon" style="background:#e3f2fd;">👋</div>
-        <span class="menu-item-label">Welcome-Tour</span>
+        <span class="menu-item-label" data-i18n="menu.tour">Welcome-Tour</span>
       </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){try{gsRunSelfTestModal&&gsRunSelfTestModal();}catch(_){}}, 200)" id="mi-selftest">
         <div class="menu-item-icon" style="background:#e8f5e9;">🔬</div>
-        <span class="menu-item-label">Self-Test</span>
+        <span class="menu-item-label" data-i18n="menu.selftest">Self-Test</span>
       </button>
     </div>
 
@@ -4443,7 +4443,7 @@ button:focus-visible, .ib:focus-visible, .tab:focus-visible{
       </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){try{window.openInat&&window.openInat();}catch(_){}}, 200)" id="mi-inat">
         <div class="menu-item-icon" style="background:#e1f5fe;">🌍</div>
-        <span class="menu-item-label">iNaturalist</span>
+        <span class="menu-item-label" data-i18n="menu.inat">iNaturalist</span>
       </button>
       <button class="menu-item" onclick="menuNav('settings')" id="mi-settings">
         <div class="menu-item-icon" style="background:#f0f0f0;">⚙️</div>
@@ -13522,6 +13522,20 @@ function openMainMenu() {
       window._gsNotifAckTimer = setTimeout(gsMarkAllNotifsSeen, 1800);
     }
   } catch(_){}
+  // v24.15: Achievement-Counter (X/Y) live aktualisieren
+  try {
+    var counter = document.getElementById('mi-achievements-counter');
+    if (counter && window.gsAchievements) {
+      var all = window.gsAchievements.all() || [];
+      var unlocked = all.filter(function(a){ return a && a.unlocked; }).length;
+      if (all.length) {
+        counter.textContent = unlocked + '/' + all.length;
+        counter.style.display = '';
+      }
+    }
+  } catch(_){}
+  // v24.15: i18n-Re-Apply (falls Locale nach DOM-Build geändert)
+  try { if (typeof gsApplyI18n === 'function') gsApplyI18n(document.getElementById('main-menu')); } catch(_){}
 }
 
 // ═══════════ v23.70: NOTIFICATION-CENTER (iOS/WhatsApp-Style) ═══════════
@@ -16097,7 +16111,19 @@ window.gsI18n = (function(){
       'tox.toxic': 'Giftig',
       'tox.severe': 'Stark giftig',
       'tox.deadly': 'Tödlich giftig',
-      'tox.callPoison': 'Tox Info Suisse 145'
+      'tox.callPoison': 'Tox Info Suisse 145',
+      // v24.15: Menü-Buttons (UI-Verdrahtung-Sprint)
+      'menu.multikey': 'Bestimmungs-Schlüssel',
+      'menu.vapko': 'Pilzkontrolle',
+      'menu.achievements': 'Auszeichnungen',
+      'menu.inat': 'iNaturalist',
+      'menu.diagnose': 'Diagnose & Hilfe',
+      'menu.health': 'Health-Check',
+      'menu.brain': 'Brain-Inspector',
+      'menu.tour': 'Welcome-Tour',
+      'menu.selftest': 'Self-Test',
+      'scan.shareCard': 'Teilbare Karte erstellen',
+      'search.empty.tryKey': 'Nichts gefunden? Probier den Bestimmungs-Schlüssel.'
     },
     fr: {
       'tab.home': 'Accueil',
@@ -16177,7 +16203,18 @@ window.gsI18n = (function(){
       'tox.toxic': 'Toxique',
       'tox.severe': 'Très toxique',
       'tox.deadly': 'Mortellement toxique',
-      'tox.callPoison': 'Tox Info Suisse 145'
+      'tox.callPoison': 'Tox Info Suisse 145',
+      'menu.multikey': 'Clé d’identification',
+      'menu.vapko': 'Contrôle des champignons',
+      'menu.achievements': 'Distinctions',
+      'menu.inat': 'iNaturalist',
+      'menu.diagnose': 'Diagnostic & aide',
+      'menu.health': 'Bilan de santé',
+      'menu.brain': 'Inspecteur Brain',
+      'menu.tour': 'Visite de bienvenue',
+      'menu.selftest': 'Auto-test',
+      'scan.shareCard': 'Créer une carte partageable',
+      'search.empty.tryKey': 'Rien trouvé ? Essaie la clé d’identification.'
     },
     it: {
       'tab.home': 'Home',
@@ -16257,7 +16294,18 @@ window.gsI18n = (function(){
       'tox.toxic': 'Tossico',
       'tox.severe': 'Molto tossico',
       'tox.deadly': 'Mortalmente tossico',
-      'tox.callPoison': 'Tox Info Suisse 145'
+      'tox.callPoison': 'Tox Info Suisse 145',
+      'menu.multikey': 'Chiave d’identificazione',
+      'menu.vapko': 'Controllo funghi',
+      'menu.achievements': 'Riconoscimenti',
+      'menu.inat': 'iNaturalist',
+      'menu.diagnose': 'Diagnostica & aiuto',
+      'menu.health': 'Health-Check',
+      'menu.brain': 'Brain-Inspector',
+      'menu.tour': 'Tour di benvenuto',
+      'menu.selftest': 'Auto-test',
+      'scan.shareCard': 'Crea una carta condivisibile',
+      'search.empty.tryKey': 'Nulla trovato? Prova la chiave d’identificazione.'
     },
     // Schweizerdeutsch (Bärndütsch / Züritüütsch-Mix, lesbar fuer ~80% CH).
     // IETF-Tag: gsw. Kein Standard-Spelling — wir verwenden moderaten,
@@ -16340,7 +16388,18 @@ window.gsI18n = (function(){
       'tox.toxic': 'Giftig',
       'tox.severe': 'Stark giftig',
       'tox.deadly': 'Tödlich giftig',
-      'tox.callPoison': 'Tox Info Suisse 145'
+      'tox.callPoison': 'Tox Info Suisse 145',
+      'menu.multikey': 'Bestimmig-Schlüssel',
+      'menu.vapko': 'Pilzkontrolle',
+      'menu.achievements': 'Auszeichnige',
+      'menu.inat': 'iNaturalist',
+      'menu.diagnose': 'Diagnose & Hilf',
+      'menu.health': 'Health-Check',
+      'menu.brain': 'Brain-Inspector',
+      'menu.tour': 'Welcome-Tour',
+      'menu.selftest': 'Sälbst-Test',
+      'scan.shareCard': 'Teilbari Charte mache',
+      'search.empty.tryKey': 'Nüt gfunde? Probier de Bestimmig-Schlüssel.'
     }
   };
 
@@ -20899,11 +20958,15 @@ function renderList(){
   }
   
   if(!validRes.length){
+    var hintTxt = (window.gsI18n && window.gsI18n.t) ? window.gsI18n.t('search.empty.tryKey') : 'Nichts gefunden? Probier den Bestimmungs-Schlüssel.';
     document.getElementById('results-list').innerHTML =
       '<div style="text-align:center;padding:50px 20px;">' +
       '<div style="font-size:44px;margin-bottom:12px;">🔍</div>' +
       '<div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;">Keine Einträge gefunden</div>' +
-      '<div style="font-size:13px;color:var(--muted);">Versuche einen anderen Begriff<br>oder wähle eine andere Kategorie.</div></div>';
+      '<div style="font-size:13px;color:var(--muted);margin-bottom:18px;">Versuche einen anderen Begriff<br>oder wähle eine andere Kategorie.</div>' +
+      '<button onclick="try{window.openMultiKey&&window.openMultiKey();}catch(_){}" style="display:inline-flex;align-items:center;gap:8px;padding:11px 18px;background:var(--g-main);color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(46,125,50,.2);">' +
+      '<span style="font-size:16px;">📋</span><span>' + hintTxt + '</span></button>' +
+      '</div>';
     return;
   }
   
@@ -39430,7 +39493,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v24.14';
+var GS_VERSION = 'v24.15';
 // ══ GMAIL DRAFT-IDs ═══════════════════════════════════════════
 // Vorgefertigte E-Mail-Templates im Gmail-Konto www.greenscan@gmail.com
 // Absender: GreenScan <info@greenscan.ch>
