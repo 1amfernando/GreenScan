@@ -18189,6 +18189,184 @@ window.gsShareCard = (function(){
 //                        photoB64: ..., locationName:'Schaffhausen', canton:'SH'})
 window.openShareCard = function(opts){ try { window.gsShareCard.preview(opts||{}); } catch(_){} };
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  gsWelcomeTour — 3-Slide-Welcome fuer Erst-Launch (v24.09)
+// ═══════════════════════════════════════════════════════════════════════════
+//  Erstes-Erfolg-Erlebnis pre-Release: bei erstem App-Open zeigt sich
+//  ein dezenter Welcome-Modal mit 3 Slides:
+//    1) Was ist GreenScan + Schweiz-Fokus
+//    2) Schweizer USPs (VAPKO, MeteoSwiss, Rote Liste, swisstopo)
+//    3) Erste Schritte (Scan/Karte/Quiz)
+//
+//  Public API:
+//    gsWelcomeTour.openModal()    → Tour manuell starten
+//    gsWelcomeTour.markSeen()     → Flag setzen, nicht mehr automatisch
+//    gsWelcomeTour.reset()        → Flag löschen (für Tests)
+//
+//  Auto-Trigger nur einmal: beim Boot, wenn `gs_welcomed_v24` !== '1'.
+//  Nicht-invasiv: respektiert wenn Login-Modal/Splash gerade offen sind.
+// ═══════════════════════════════════════════════════════════════════════════
+window.gsWelcomeTour = (function(){
+  'use strict';
+  var KEY = 'gs_welcomed_v24';
+
+  var SLIDES = [
+    {
+      icon: '🌿',
+      title: 'Willkommen bei GreenScan',
+      lead: 'Schweizer Naturbestimmung — 4’342 Arten in deiner Tasche.',
+      body: '<p style="margin:0 0 8px;">Pflanzen, Pilze, Bäume, Kräuter, Moose, Flechten, Algen. Mit KI-Scanner, Garten-Planer, swisstopo-Karte und Mondkalender — speziell für die Schweiz gemacht.</p>' +
+            '<p style="margin:0;color:var(--muted);font-size:11.5px;">Funktioniert offline · Datenschutz nach revDSG · Made in Switzerland.</p>'
+    },
+    {
+      icon: '🇨🇭',
+      title: 'Schweizer Authentizität',
+      lead: 'Was uns von anderen Apps unterscheidet.',
+      body: '<ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.7;">' +
+            '<li>🍄 <b>VAPKO-Pilzkontrollstellen</b> direkt auf der Karte</li>' +
+            '<li>🗺️ <b>swisstopo</b> als Default-Karte (Wanderwege inkl.)</li>' +
+            '<li>🛡️ <b>IUCN-Schutzstatus</b> nach BAFU für 80+ Arten</li>' +
+            '<li>🌡️ <b>MeteoSwiss-Warnungen</b> (Frost / Hitze / Sturm)</li>' +
+            '<li>📚 <b>Quellen pro Art</b>: Info Flora, GBIF, Wikipedia</li>' +
+            '<li>📞 <b>Tox Info Suisse 145</b> bei jedem Giftpflanzen-Hinweis</li>' +
+            '</ul>'
+    },
+    {
+      icon: '🚀',
+      title: 'Loslegen',
+      lead: 'Drei Wege, um sofort etwas zu lernen.',
+      body: '<div style="display:flex;flex-direction:column;gap:9px;">' +
+            '<div style="padding:9px 11px;background:var(--surface2);border-radius:9px;border-left:3px solid var(--g-main);">' +
+              '<div style="font-weight:700;font-size:13px;margin-bottom:2px;">📷 Foto machen</div>' +
+              '<div style="font-size:11.5px;color:var(--muted);line-height:1.45;">Tippe unten auf Scanner und richte die Kamera auf eine Pflanze. Die KI bestimmt sie in Sekunden.</div>' +
+            '</div>' +
+            '<div style="padding:9px 11px;background:var(--surface2);border-radius:9px;border-left:3px solid var(--g-main);">' +
+              '<div style="font-weight:700;font-size:13px;margin-bottom:2px;">🔑 Multikriterien-Schlüssel</div>' +
+              '<div style="font-size:11.5px;color:var(--muted);line-height:1.45;">Filter nach Blattfarbe, Habitat, Saison, Höhe — wie der dichotome Schlüssel im Buch.</div>' +
+            '</div>' +
+            '<div style="padding:9px 11px;background:var(--surface2);border-radius:9px;border-left:3px solid var(--g-main);">' +
+              '<div style="font-weight:700;font-size:13px;margin-bottom:2px;">🧠 Quiz des Tages</div>' +
+              '<div style="font-size:11.5px;color:var(--muted);line-height:1.45;">Lerne mit Spaced-Repetition. Je länger deine Streak, desto mehr Punkte.</div>' +
+            '</div>' +
+            '</div>'
+    }
+  ];
+
+  function hasSeen(){
+    try { return localStorage.getItem(KEY) === '1'; } catch(_) { return false; }
+  }
+  function markSeen(){
+    try { localStorage.setItem(KEY, '1'); } catch(_){}
+  }
+  function reset(){
+    try { localStorage.removeItem(KEY); } catch(_){}
+  }
+
+  function openModal(){
+    var existing = document.getElementById('gs-welcome-modal');
+    if (existing) existing.remove();
+    var idx = 0;
+
+    var m = document.createElement('div');
+    m.id = 'gs-welcome-modal';
+    m.setAttribute('role', 'dialog');
+    m.setAttribute('aria-modal', 'true');
+    m.setAttribute('aria-labelledby', 'gs-welcome-title');
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:99999;display:flex;align-items:center;justify-content:center;padding:14px;';
+
+    var box = document.createElement('div');
+    box.style.cssText = 'background:var(--card);color:var(--text);max-width:480px;width:100%;border-radius:18px;padding:0;font-family:DM Sans,sans-serif;overflow:hidden;box-shadow:0 16px 56px rgba(0,0,0,.45);';
+
+    function render(){
+      var s = SLIDES[idx];
+      var bullets = SLIDES.map(function(_, i){
+        return '<div style="width:8px;height:8px;border-radius:50%;background:' + (i===idx?'var(--g-main)':'var(--border)') + ';margin:0 3px;"></div>';
+      }).join('');
+      box.innerHTML =
+        '<div style="background:linear-gradient(135deg,#1a3d1a,#2e7d32);color:#fff;padding:32px 24px 22px;text-align:center;">' +
+          '<div style="font-size:54px;line-height:1;margin-bottom:10px;">' + s.icon + '</div>' +
+          '<div id="gs-welcome-title" style="font-family:Playfair Display,Georgia,serif;font-size:22px;font-weight:800;margin-bottom:6px;line-height:1.2;">' + s.title + '</div>' +
+          '<div style="font-size:13.5px;opacity:.9;line-height:1.45;">' + s.lead + '</div>' +
+        '</div>' +
+        '<div style="padding:20px 22px 12px;font-size:13.5px;color:var(--text);line-height:1.6;">' + s.body + '</div>' +
+        '<div style="display:flex;align-items:center;justify-content:center;padding:6px 0 14px;">' + bullets + '</div>' +
+        '<div style="display:flex;gap:8px;padding:0 22px 22px;">' +
+          (idx === 0
+            ? '<button id="gs-welc-skip" style="flex:1;padding:11px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">Überspringen</button>'
+            : '<button id="gs-welc-prev" style="flex:1;padding:11px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">← Zurück</button>') +
+          (idx < SLIDES.length - 1
+            ? '<button id="gs-welc-next" style="flex:2;padding:11px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">Weiter →</button>'
+            : '<button id="gs-welc-done" style="flex:2;padding:11px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">🚀 Loslegen</button>'
+          ) +
+        '</div>';
+
+      var skip = box.querySelector('#gs-welc-skip');
+      if (skip) skip.addEventListener('click', close);
+      var prev = box.querySelector('#gs-welc-prev');
+      if (prev) prev.addEventListener('click', function(){ idx = Math.max(0, idx-1); render(); });
+      var next = box.querySelector('#gs-welc-next');
+      if (next) next.addEventListener('click', function(){ idx = Math.min(SLIDES.length-1, idx+1); render(); });
+      var done = box.querySelector('#gs-welc-done');
+      if (done) done.addEventListener('click', function(){
+        markSeen();
+        try { window.gsBrain && window.gsBrain.observe('welcome_completed', {}); } catch(_){}
+        close();
+      });
+    }
+    function close(){
+      markSeen();
+      try { m.remove(); } catch(_){}
+    }
+    m.addEventListener('click', function(e){ if (e.target === m) close(); });
+
+    render();
+    m.appendChild(box);
+    document.body.appendChild(m);
+    try { window.gsBrain && window.gsBrain.observe('welcome_open', {}); } catch(_){}
+  }
+
+  // Auto-Trigger beim Boot — nicht-invasiv:
+  // - Nur wenn nicht schon gesehen
+  // - Nur wenn DOM bereit
+  // - Verzögerung 2.5s, damit Splash-Screen zuerst weg ist
+  // - Nicht zeigen, wenn ein anderes Modal gerade offen ist (heuristisch)
+  function maybeAutoOpen(){
+    if (hasSeen()) return;
+    setTimeout(function(){
+      try {
+        // Heuristik: kein anderes Modal offen
+        var hasModal = document.querySelector('#gs-consent, #modal-profile.modal-overlay[style*="display: flex"]');
+        if (hasModal) {
+          // Anderes Modal offen — später nochmal versuchen
+          setTimeout(function(){ if (!hasSeen()) openModal(); }, 4000);
+          return;
+        }
+        openModal();
+      } catch(_){}
+    }, 2500);
+  }
+
+  return {
+    openModal: openModal,
+    markSeen:  markSeen,
+    reset:     reset,
+    hasSeen:   hasSeen,
+    maybeAutoOpen: maybeAutoOpen
+  };
+})();
+
+// Auto-Trigger im Boot
+(function(){
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ try { window.gsWelcomeTour.maybeAutoOpen(); } catch(_){} });
+  } else {
+    try { window.gsWelcomeTour.maybeAutoOpen(); } catch(_){}
+  }
+})();
+
+// Globaler Helper: aufrufbar aus Settings → "Tour wiederholen"
+window.openWelcomeTour = function(){ try { window.gsWelcomeTour.openModal(); } catch(_){} };
+
 // ═══ KAMERA / SCANNER ════════════════════════════════
 // v23.54: Scanner-Loading-Overlay Helpers
 function _gsSrLoadingShow(text, sub){

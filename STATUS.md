@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.08` (in Arbeit) / `v24.07` (gepusht)
+**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.09` (in Arbeit) / `v24.08` (gepusht)
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v24.08 | Sprint 24: `gsShareCard` — Canvas-basierte 1080×1080 Share-Cards mit Foto, IUCN-Badge, Schweiz-Branding + native Share-API |
+| (next push) | v24.09 | Sprint 25: `gsWelcomeTour` — 3-Slide Welcome (auto-trigger erst-Launch, defensiv, idempotent) |
+| `050c45a` | v24.08 | Sprint 24: `gsShareCard` — Canvas-basierte 1080×1080 Share-Cards mit Foto, IUCN-Badge, Schweiz-Branding + native Share-API |
 | `a155bfb` | v24.07 | Sprint 23: `gsAchievements` — 24 Schweizer Badges + Auto-Trigger über Brain-Events + Toast + Badge-Wand-Modal |
 | `8acc95c` | v24.06 | Sprint 22 (P3-2): Schweizerdeutsch-Modus — Locale `gsw` mit ~70 Mundart-Strings, hreflang `gsw-CH` |
 | `9b135c6` | v24.05 | Sprint 21 (P3-8): Brain-Recommend-LLM — `gsBrain.smartRecommend(kind)` Async + Cache 6h + Hintergrund-Hydration |
@@ -97,6 +98,16 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
   scans_limit, can_scan}` aus `v_user_entitlements` ⨝ `ai_usage`.
   Client cached 60s in `_gsServerEnt`, `gsAboCanUse('scan')` nutzt
   Server-Wert wenn vorhanden — localStorage-Manipulation nutzlos.
+- ✅ **gsWelcomeTour — Erstes-Erfolg-Erlebnis** (v24.09): 3-Slide-Modal
+  beim ersten App-Open: (1) Was ist GreenScan + 4'342 Arten + Schweiz-
+  Fokus, (2) Schweizer USPs (VAPKO/swisstopo/IUCN/MeteoSwiss/Quellen/
+  Tox-145), (3) Drei Wege zum Loslegen (Foto/Multikriterien/Quiz).
+  Auto-Trigger 2.5s nach DOMContentLoaded, **defensiv**: prüft
+  Consent-Banner und Login-Modal heuristisch, verschiebt sich um 4s
+  wenn kollidiert. Idempotent über `gs_welcomed_v24`-Flag. Skip /
+  Zurück / Weiter / Loslegen-Buttons. Brain-Observe: `welcome_open`,
+  `welcome_completed`. `gsWelcomeTour.reset()` für Tests, globaler
+  Helper `window.openWelcomeTour()` für Settings → Tour wiederholen.
 - ✅ **gsShareCard — Viral-Share-Cards** (v24.08): Canvas-basierter
   Renderer für 1080×1080 PNG-Cards (Insta-Post + Story-tauglich) mit
   Foto-Hero, Pflanzenname, lat. Name, Datum, Standort (Region/Kanton/
