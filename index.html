@@ -17857,6 +17857,338 @@ window.gsAchievements = (function(){
 // Globaler Helper
 window.openAchievements = function(){ try { window.gsAchievements.openModal(); } catch(_){} };
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  gsShareCard — Canvas-basierte Share-Cards (v24.08)
+// ═══════════════════════════════════════════════════════════════════════════
+//  Viraler Mechanismus: User teilt einen Fund → schoene 1080x1080 Image-Card
+//  mit Foto + Name + lat. Name + Datum + Standort + GreenScan-Logo. Optimiert
+//  fuer WhatsApp/Instagram-Stories/Twitter. Kein externer Service noetig.
+//
+//  Public API:
+//    gsShareCard.render(opts)    → Promise<Blob> (image/png)
+//    gsShareCard.share(opts)     → ruft navigator.share oder Download
+//    gsShareCard.preview(opts)   → oeffnet Modal mit Vorschau + Buttons
+//
+//  opts = {
+//    title:      'Bärlauch',
+//    subtitle:   'Allium ursinum',
+//    photoB64:   '...',        // optional, base64 ohne 'data:'-Prefix
+//    photoMime:  'image/jpeg', // optional
+//    locationName: 'Schaffhausen', canton: 'SH',
+//    altitude:   437,
+//    confidence: 92,           // optional Prozent
+//    rlCode:     'NT',         // optional IUCN-Status fuer Badge
+//    badgeText:  '🌿 Wildpflanze',  // optional Kategorie-Badge
+//    date:       new Date()
+//  }
+// ═══════════════════════════════════════════════════════════════════════════
+window.gsShareCard = (function(){
+  'use strict';
+
+  var W = 1080, H = 1080; // Quadrat — passt fuer Insta-Post + Story
+
+  // Hilfsfunktionen --------------------------------------------------------
+  function loadImage(b64, mime){
+    return new Promise(function(resolve, reject){
+      if (!b64) return resolve(null);
+      var img = new Image();
+      img.onload = function(){ resolve(img); };
+      img.onerror = function(e){ reject(e); };
+      img.crossOrigin = 'anonymous';
+      img.src = (b64.startsWith('data:') ? b64 : 'data:' + (mime||'image/jpeg') + ';base64,' + b64);
+    });
+  }
+  function roundedRect(ctx, x, y, w, h, r){
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.lineTo(x+w-r, y); ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+    ctx.lineTo(x+w, y+h-r); ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+    ctx.lineTo(x+r, y+h); ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+    ctx.lineTo(x, y+r); ctx.quadraticCurveTo(x, y, x+r, y);
+    ctx.closePath();
+  }
+  function wrapText(ctx, text, x, y, maxW, lineH, maxLines){
+    var words = String(text||'').split(' ');
+    var line = '';
+    var lines = 0;
+    for (var n = 0; n < words.length; n++){
+      var test = line + words[n] + ' ';
+      var w = ctx.measureText(test).width;
+      if (w > maxW && line) {
+        ctx.fillText(line.trim(), x, y);
+        line = words[n] + ' ';
+        y += lineH;
+        lines++;
+        if (maxLines && lines >= maxLines - 1) {
+          // Letzte Zeile mit Ellipsis falls noch was uebrig
+          var rest = words.slice(n).join(' ');
+          while (rest && ctx.measureText(rest + '…').width > maxW) rest = rest.slice(0,-1);
+          ctx.fillText(rest + (lines===maxLines-1?'…':''), x, y);
+          return y;
+        }
+      } else {
+        line = test;
+      }
+    }
+    ctx.fillText(line.trim(), x, y);
+    return y;
+  }
+
+  // Hauptrenderer ----------------------------------------------------------
+  async function render(opts){
+    opts = opts || {};
+    var canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    var ctx = canvas.getContext('2d');
+
+    // Hintergrund-Verlauf (GreenScan-Markenfarben)
+    var bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, '#0c170c');
+    bg.addColorStop(0.5, '#1a3d1a');
+    bg.addColorStop(1, '#2e7d32');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Subtle pattern (kleine Punkte fuer Tiefe)
+    ctx.fillStyle = 'rgba(255,255,255,0.03)';
+    for (var i = 0; i < 200; i++){
+      var px = Math.random()*W, py = Math.random()*H, ps = Math.random()*3+1;
+      ctx.beginPath(); ctx.arc(px, py, ps, 0, Math.PI*2); ctx.fill();
+    }
+
+    // Foto (falls vorhanden) als grosses Hero-Image, sonst Emoji
+    var photoArea = { x:60, y:60, w:W-120, h:600, r:32 };
+    ctx.save();
+    roundedRect(ctx, photoArea.x, photoArea.y, photoArea.w, photoArea.h, photoArea.r);
+    ctx.clip();
+    if (opts.photoB64) {
+      try {
+        var img = await loadImage(opts.photoB64, opts.photoMime);
+        if (img) {
+          // Cover-Strategy
+          var ar = img.width / img.height;
+          var aw = photoArea.w, ah = photoArea.h;
+          var sx, sy, sw, sh;
+          if (ar > aw/ah) {
+            sh = img.height; sw = sh * (aw/ah);
+            sx = (img.width - sw)/2; sy = 0;
+          } else {
+            sw = img.width; sh = sw * (ah/aw);
+            sx = 0; sy = (img.height - sh)/2;
+          }
+          ctx.drawImage(img, sx, sy, sw, sh, photoArea.x, photoArea.y, photoArea.w, photoArea.h);
+        }
+      } catch(_) {}
+    } else {
+      // Fallback: grosser Emoji
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      ctx.fillRect(photoArea.x, photoArea.y, photoArea.w, photoArea.h);
+      ctx.font = '320px sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.fillText(opts.emoji || '🌿', photoArea.x + photoArea.w/2, photoArea.y + photoArea.h/2);
+    }
+    ctx.restore();
+
+    // Foto-Border-Schimmer
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.lineWidth = 3;
+    roundedRect(ctx, photoArea.x, photoArea.y, photoArea.w, photoArea.h, photoArea.r);
+    ctx.stroke();
+
+    // Optional: IUCN-Status-Badge oben rechts auf Foto
+    if (opts.rlCode) {
+      var rl = opts.rlCode;
+      var badgeColors = {
+        LC:'#4caf50', NT:'#fbc02d', VU:'#ff9800', EN:'#e53935', CR:'#7b1fa2', RE:'#424242'
+      };
+      var bcolor = badgeColors[rl] || '#4caf50';
+      var bx = photoArea.x + photoArea.w - 130, by = photoArea.y + 24;
+      ctx.fillStyle = bcolor;
+      roundedRect(ctx, bx, by, 110, 56, 14); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 28px DM Sans, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(rl, bx + 55, by + 28);
+    }
+
+    // Confidence-Badge oben links
+    if (typeof opts.confidence === 'number' && opts.confidence > 0) {
+      var bx2 = photoArea.x + 24, by2 = photoArea.y + 24;
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      roundedRect(ctx, bx2, by2, 130, 56, 14); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 22px DM Sans, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('🎯 ' + Math.round(opts.confidence) + '%', bx2 + 65, by2 + 28);
+    }
+
+    // Titel (Pflanzenname)
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 72px Playfair Display, Georgia, serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    var titleY = wrapText(ctx, opts.title || 'Unbekannt', 60, 700, W-120, 80, 2);
+
+    // Untertitel (lat. Name)
+    if (opts.subtitle) {
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.font = 'italic 38px DM Sans, sans-serif';
+      ctx.fillText(opts.subtitle, 60, titleY + 90);
+    }
+
+    // Meta-Zeile (Datum + Standort)
+    var metaY = H - 200;
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.font = '28px DM Sans, sans-serif';
+    var d = opts.date instanceof Date ? opts.date : (opts.date ? new Date(opts.date) : new Date());
+    var dateStr = d.toLocaleDateString('de-CH', {day:'2-digit', month:'long', year:'numeric'});
+    ctx.fillText('📅 ' + dateStr, 60, metaY);
+
+    var locParts = [];
+    if (opts.locationName) locParts.push(opts.locationName);
+    if (opts.canton) locParts.push('Kt. ' + opts.canton);
+    if (typeof opts.altitude === 'number') locParts.push(Math.round(opts.altitude) + ' m ü.M.');
+    if (locParts.length) {
+      ctx.fillText('📍 ' + locParts.join(' · '), 60, metaY + 44);
+    }
+
+    // GreenScan-Footer (Branding)
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.font = 'bold 36px Playfair Display, Georgia, serif';
+    ctx.fillText('🌿 GreenScan', 60, H - 90);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.font = '22px DM Sans, sans-serif';
+    ctx.fillText('Schweizer Naturbestimmung · greenscan.ch', 60, H - 50);
+
+    // Optional Kategorie-Badge unten rechts
+    if (opts.badgeText) {
+      ctx.fillStyle = 'rgba(255,255,255,0.18)';
+      var bw = ctx.measureText(opts.badgeText).width + 40;
+      var bx3 = W - bw - 60, by3 = H - 96;
+      roundedRect(ctx, bx3, by3, bw, 50, 12); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 22px DM Sans, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(opts.badgeText, bx3 + bw/2, by3 + 25);
+    }
+
+    // → Blob
+    return new Promise(function(resolve, reject){
+      canvas.toBlob(function(blob){
+        if (blob) resolve(blob); else reject(new Error('Canvas->Blob fehlgeschlagen'));
+      }, 'image/png', 0.95);
+    });
+  }
+
+  // Native Share oder Download-Fallback
+  async function share(opts){
+    var blob = await render(opts);
+    var fileName = 'greenscan-' + (opts.title||'fund').replace(/[^a-z0-9]/gi,'-').toLowerCase() + '-' +
+                   new Date().toISOString().slice(0,10) + '.png';
+    var file = null;
+    try {
+      file = new File([blob], fileName, { type: 'image/png' });
+    } catch(_) {}
+
+    var shareData = {
+      title: opts.title ? '🌿 ' + opts.title + ' · GreenScan' : '🌿 GreenScan-Fund',
+      text:  (opts.title || 'Naturfund') + ' mit GreenScan entdeckt — Schweizer Naturbestimmungs-App.',
+      url:   'https://greenscan.ch/?utm_source=share-card'
+    };
+    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+      shareData.files = [file];
+      try {
+        await navigator.share(shareData);
+        try { window.gsBrain && window.gsBrain.observe('share_card_shared', { method: 'native' }); } catch(_){}
+        return { ok: true, method: 'native' };
+      } catch(e) {
+        if (e && e.name === 'AbortError') return { ok: false, aborted: true };
+        // Fallback auf Download
+      }
+    }
+    // Download-Fallback
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = fileName;
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ try { document.body.removeChild(a); URL.revokeObjectURL(url); } catch(_){} }, 1500);
+    try { window.gsBrain && window.gsBrain.observe('share_card_shared', { method: 'download' }); } catch(_){}
+    return { ok: true, method: 'download' };
+  }
+
+  // Vorschau-Modal mit Buttons (Teilen / Herunterladen / Schliessen)
+  async function preview(opts){
+    var existing = document.getElementById('gs-share-modal'); if (existing) existing.remove();
+    var m = document.createElement('div');
+    m.id = 'gs-share-modal';
+    m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true');
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:99999;display:flex;align-items:center;justify-content:center;padding:14px;';
+    var box = document.createElement('div');
+    box.style.cssText = 'background:var(--card);color:var(--text);max-width:520px;width:100%;max-height:92vh;overflow-y:auto;border-radius:14px;padding:16px 18px;font-family:DM Sans,sans-serif;';
+    box.innerHTML =
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">' +
+        '<div style="font-size:24px;">📤</div>' +
+        '<div style="flex:1;font-weight:800;font-size:16px;">Fund teilen</div>' +
+        '<button id="gs-share-close" aria-label="Schliessen" style="background:transparent;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:4px 8px;">×</button>' +
+      '</div>' +
+      '<div id="gs-share-preview" style="background:#0c170c;border-radius:12px;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;margin-bottom:12px;color:#888;font-size:13px;">Lade Vorschau …</div>' +
+      '<div style="display:flex;gap:8px;">' +
+        '<button id="gs-share-go" style="flex:2;padding:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">📲 Teilen</button>' +
+        '<button id="gs-share-dl" style="flex:1;padding:12px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">⬇ Speichern</button>' +
+      '</div>' +
+      '<div style="margin-top:10px;font-size:11px;color:var(--muted);text-align:center;">Foto + Daten bleiben lokal. Wir erfassen nichts.</div>';
+    m.appendChild(box);
+    m.addEventListener('click', function(e){ if (e.target === m) m.remove(); });
+    box.querySelector('#gs-share-close').addEventListener('click', function(){ m.remove(); });
+    document.body.appendChild(m);
+
+    // Vorschau rendern
+    var preview = box.querySelector('#gs-share-preview');
+    try {
+      var blob = await render(opts);
+      var url = URL.createObjectURL(blob);
+      preview.innerHTML = '';
+      preview.style.background = 'transparent';
+      var img = document.createElement('img');
+      img.src = url;
+      img.alt = 'Vorschau Share-Card';
+      img.style.cssText = 'width:100%;height:100%;object-fit:contain;border-radius:12px;';
+      preview.appendChild(img);
+      // Cleanup wenn Modal schliesst
+      m.addEventListener('remove', function(){ try { URL.revokeObjectURL(url); } catch(_){} });
+    } catch(e) {
+      preview.textContent = '❌ Vorschau-Fehler: ' + (e.message||'unbekannt');
+    }
+
+    box.querySelector('#gs-share-go').addEventListener('click', async function(){
+      try { await share(opts); m.remove(); }
+      catch(e) { try { showProfileToast('Share-Fehler: ' + e.message, 'error'); } catch(_){} }
+    });
+    box.querySelector('#gs-share-dl').addEventListener('click', async function(){
+      try {
+        var blob = await render(opts);
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'greenscan-' + (opts.title||'fund').replace(/[^a-z0-9]/gi,'-').toLowerCase() + '.png';
+        document.body.appendChild(a); a.click();
+        setTimeout(function(){ try { document.body.removeChild(a); URL.revokeObjectURL(url); } catch(_){} }, 1500);
+        try { window.gsBrain && window.gsBrain.observe('share_card_shared', { method: 'manual_download' }); } catch(_){}
+        try { showProfileToast('✅ Bild gespeichert', 'success'); } catch(_){}
+      } catch(e) { try { showProfileToast('Speicher-Fehler: ' + e.message, 'error'); } catch(_){} }
+    });
+    try { window.gsBrain && window.gsBrain.observe('share_card_open', {}); } catch(_){}
+  }
+
+  return { render: render, share: share, preview: preview };
+})();
+
+// Globaler Helper — z.B. aufrufbar aus Scan-Result oder Detail-Modal:
+//   gsShareCard.preview({title:'Bärlauch', subtitle:'Allium ursinum',
+//                        photoB64: ..., locationName:'Schaffhausen', canton:'SH'})
+window.openShareCard = function(opts){ try { window.gsShareCard.preview(opts||{}); } catch(_){} };
+
 // ═══ KAMERA / SCANNER ════════════════════════════════
 // v23.54: Scanner-Loading-Overlay Helpers
 function _gsSrLoadingShow(text, sub){

@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.07` (in Arbeit) / `v24.06` (gepusht)
+**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.08` (in Arbeit) / `v24.07` (gepusht)
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v24.07 | Sprint 23: `gsAchievements` — 24 Schweizer Badges + Auto-Trigger über Brain-Events + Toast + Badge-Wand-Modal |
+| (next push) | v24.08 | Sprint 24: `gsShareCard` — Canvas-basierte 1080×1080 Share-Cards mit Foto, IUCN-Badge, Schweiz-Branding + native Share-API |
+| `a155bfb` | v24.07 | Sprint 23: `gsAchievements` — 24 Schweizer Badges + Auto-Trigger über Brain-Events + Toast + Badge-Wand-Modal |
 | `8acc95c` | v24.06 | Sprint 22 (P3-2): Schweizerdeutsch-Modus — Locale `gsw` mit ~70 Mundart-Strings, hreflang `gsw-CH` |
 | `9b135c6` | v24.05 | Sprint 21 (P3-8): Brain-Recommend-LLM — `gsBrain.smartRecommend(kind)` Async + Cache 6h + Hintergrund-Hydration |
 | `d103747` | v24.04 | Sprint 20 (P2-1): iNaturalist-OAuth-Bridge — `gsINaturalist` mit PKCE-Flow, `publishObservation`, Connect-Modal |
@@ -96,6 +97,16 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
   scans_limit, can_scan}` aus `v_user_entitlements` ⨝ `ai_usage`.
   Client cached 60s in `_gsServerEnt`, `gsAboCanUse('scan')` nutzt
   Server-Wert wenn vorhanden — localStorage-Manipulation nutzlos.
+- ✅ **gsShareCard — Viral-Share-Cards** (v24.08): Canvas-basierter
+  Renderer für 1080×1080 PNG-Cards (Insta-Post + Story-tauglich) mit
+  Foto-Hero, Pflanzenname, lat. Name, Datum, Standort (Region/Kanton/
+  Höhe), optionalem IUCN-Badge, Confidence-Score, Schweiz-Gradient-
+  Branding. `gsShareCard.share(opts)` nutzt native `navigator.share`
+  mit File falls verfügbar (WhatsApp/Insta direkt), sonst Download-
+  Fallback. `gsShareCard.preview(opts)` öffnet Vorschau-Modal mit
+  Teilen+Speichern-Buttons. Brain-Observe: `share_card_open`,
+  `share_card_shared` (mit method: native|download|manual_download).
+  Globaler Helper `window.openShareCard(opts)`.
 - ✅ **gsAchievements — Schweizer Badge-System** (v24.07): 24 kuratierte
   Badges (Erstgeborenes/Späher/Sammler/Botaniker:in/Pilzsammler:in/
   Dendrologe/Heilkundler:in/Alpinist:in/Quizmeister:in/Frühlingsbote/
