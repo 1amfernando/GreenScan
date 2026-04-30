@@ -22,7 +22,8 @@
 | S9 | **P1-2 Brain-Memory Cloud-Sync** | `16de706` v23.91 | gsBrain.observe pusht zu Supabase brain_memory. Login → pullCloud merged. Schleimpilz lebt geräteübergreifend. **Migration-Deploy ausstehend** |
 | S10 | **P1-7 Stripe-Entitlement server-seitig** | `9d85f4a` v23.92 | Edge Fn `entitlements` liefert `can_scan` authoritativ. Client-Counter ist nur noch UX-Hint. Bug B4 erledigt. **Edge-Fn-Deploy ausstehend** |
 | S11 | **Sprint 5: Brain v2** | `22cf57d` v23.93 | recommend() mit Frost-Awareness + Memory-basierter Quiz-Schwäche; weekly_summary; Smart-Insights auf Home; gsBrainDebug() Inspector |
-| S12 | **Sprint 6: Health-Check** | (next push) v23.94 | `gsHealthCheck()` mit 9 Checks (Online/SW/Storage/KI/Auth/Quota/Brain/GPS/Cam) + Modal-UI mit Ampelsystem |
+| S12 | **Sprint 6: Health-Check** | `424c2ff` v23.94 | `gsHealthCheck()` mit 9 Checks + Modal-UI mit Ampelsystem |
+| S13 | **Sprint 7 (B): Multikriterien-Schlüssel** | (next push) v23.95 | `gsKey` Filter-Engine + Modal mit 9 Kriterien (Kategorie/Familie/Farbe/Habitat/Monat/Höhe/essbar/heilkundlich/Toxizität). Top-50 live-Liste, Filter-Persistenz. Killer-Feature gegen Flora Helvetica |
 
 ---
 
@@ -44,7 +45,7 @@
 | ~~P1-1~~ | ~~Anthropic Edge-Function-Proxy~~ | **Code erledigt v23.90** — Server-Deploy durch Owner pending (siehe `supabase/functions/ai-proxy/README.md`) | — |
 | ~~P1-2~~ | ~~Brain-Memory in Supabase syncen~~ | **Code erledigt v23.91** — Migration-Deploy durch Owner pending | — |
 | P1-3 | **i18n FR + IT** (CH-Amtssprachen) | Verdoppelt potenziellen Markt; FlorApp und Flora Helvetica beherrschen DE/FR/IT. JSON-basierter `t(key)`-Layer, `<html lang>` dynamisch. | 3–5 Tage |
-| P1-4 | **Multikriterien-Bestimmungs-Schlüssel** (Blattform / Blütenfarbe / Habitat / Höhe) | Killer-Feature gegen Flora Helvetica. Daten sind in `PLANT_DB` schon da — fehlt nur UI. | 2–3 Tage |
+| ~~P1-4~~ | ~~Multikriterien-Bestimmungs-Schlüssel~~ | **erledigt v23.95** (`gsKey` + Modal-UI) — UI-Einbindung in Tab-Buttons als Folge-Sprint | — |
 | ~~P1-5~~ | ~~Storage-Layer mit Rotations-Strategie~~ | **erledigt v23.89** (Auto-Rotation + `gsStoragePush`/`gsStorageInfo`) | — |
 | ~~P1-6~~ | ~~Share-Target-Receiver im Scanner~~ | **erledigt v23.89** (SW-Postmessage + File Handling API) | — |
 | ~~P1-7~~ | ~~Stripe-Entitlement server-seitig~~ | **Code erledigt v23.92** — Edge-Fn-Deploy durch Owner pending | — |

@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-29 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v23.94` (in Arbeit) / `v23.93` (gepusht)
+**Stand**: 2026-04-29 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v23.95` (in Arbeit) / `v23.94` (gepusht)
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v23.94 | Sprint 6: Health-Check / Diagnose-Tool (`gsHealthCheck()` + Modal) |
+| (next push) | v23.95 | Sprint 7 (B): Multikriterien-Bestimmungs-Schlüssel (`gsKey` + Filter-Modal) |
+| `424c2ff` | v23.94 | Sprint 6: Health-Check / Diagnose-Tool (`gsHealthCheck()` + Modal) |
 | `22cf57d` | v23.93 | Sprint 5: Brain v2 — smartere Empfehlungen + Wochen-Insights auf Home + Brain-Inspector |
 | `9d85f4a` | v23.92 | Sprint 4: Stripe-Entitlement server-seitig (entitlements Edge Fn + Client-Cache) |
 | `16de706` | v23.91 | Sprint 3: Brain-Memory geräteübergreifend (Supabase brain_memory + push/pull/flushQueue) |
@@ -83,6 +84,15 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
   scans_limit, can_scan}` aus `v_user_entitlements` ⨝ `ai_usage`.
   Client cached 60s in `_gsServerEnt`, `gsAboCanUse('scan')` nutzt
   Server-Wert wenn vorhanden — localStorage-Manipulation nutzlos.
+- ✅ **Multikriterien-Bestimmungs-Schlüssel** (v23.95): `gsKey.filter(criteria)`
+  liefert Pflanzen aus DB, gefiltert nach Kategorie / Familie / Blütenfarbe /
+  Habitat / Saison-Monat / Höhenlage (Range-Slider) / essbar / heilkundlich /
+  geschützt / max-Toxizität. UI-Modal mit Live-Treffer-Counter, Top-50-
+  Resultatliste mit Klick-zur-Detail-Ansicht. Filter-State persistiert in
+  `gs_key_filter_state`. Brain-Observe: `multikey_open`, `multikey_apply`.
+  Trigger: `window.openMultiKey()`. **Killer-Feature gegen Flora Helvetica**
+  (deren Kern-USP), aber UI-Trigger noch nicht in Tabs eingebunden — nächster
+  Schritt: Button im Wissen-/Suche-Bereich.
 - ✅ **Health-Check / Diagnose-Tool** (v23.94): `gsHealthCheck()` läuft
   9 Checks parallel/sequenziell durch — Online, Service Worker,
   localStorage-Quota, KI-Zugang (BYO-Key oder Proxy), Anmeldung,
