@@ -21,7 +21,7 @@
 <meta name="apple-mobile-web-app-title" content="GreenScan">
 <meta name="description" content="4342 Schweizer Arten: Wildpflanzen, Pilze, Bäume, Kräuter, Moose, Flechten, Algen, Hauspflanzen. KI-Scanner, Garten, Lichtmessung.">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="24.20">
+<meta name="app-version" content="24.21">
 <link rel="canonical" href="https://greenscan.ch/">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <meta name="author" content="GreenScan">
@@ -9908,7 +9908,7 @@ function gsShowQuickActions(id, name, lat, x, y) {
     var act = btn.dataset.qa;
     if (act==='open') openDetail(el._qid);
     else if (act==='fav') { if(typeof toggleFav==='function') toggleFav(el._qid); gsHaptic('success'); }
-    else if (act==='share') { if(typeof gsShareSpecies==='function') gsShareSpecies(el._qname, el._qlat); }
+    else if (act==='share') { if(typeof gsShareSpecies==='function') gsShareSpecies(el._qname, el._qlat, el._qid); }
     el.remove();
   });
   document.body.appendChild(el);
@@ -10227,15 +10227,20 @@ function gsInitOfflineDetection() {
 }
 
 // ── NATIVE SHARE API ────────────────────────────────────────
-function gsShareSpecies(name, latin) {
+// v24.21: optional plantId → ?plant=ID Deep-Link, damit Empfänger direkt
+//         im Detail-Modal landet (siehe gsHandleShortcutUrl).
+function gsShareSpecies(name, latin, plantId) {
   gsHaptic('light');
   var text = name + (latin ? ' (' + latin + ')' : '');
-  var url = location.href.split('?')[0];
+  var base = location.origin + location.pathname;
+  var url = (plantId && /^[A-Za-z0-9_-]{1,20}$/.test(String(plantId)))
+    ? (base + '?plant=' + encodeURIComponent(plantId))
+    : base;
   if (navigator.share) {
     navigator.share({ title: '🌿 ' + name + ' — GreenScan', text: 'Ich habe ' + text + ' mit GreenScan entdeckt!', url: url }).catch(function(){});
   } else if (navigator.clipboard) {
-    navigator.clipboard.writeText(text + ' — GreenScan').then(function() {
-      showProfileToast('📋 Kopiert: ' + name);
+    navigator.clipboard.writeText(url).then(function() {
+      showProfileToast('📋 Link kopiert: ' + name);
     });
   }
 }
@@ -21537,7 +21542,7 @@ function openDetail(id){
         return btns ? '<div style="display:flex;gap:6px;margin-bottom:6px;">' + btns + '</div>' : '';
       })(),
       '<div style="display:flex;gap:6px;">',
-        '<button onclick="gsShareSpecies(\''+escHtml(sp.name)+'\',\''+escHtml(sp.lat||'')+'\')" style="padding:11px 14px;background:var(--surface2);color:var(--g-dark);border:1px solid var(--border);border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;"><span style="font-size:15px;">↑</span>Teilen</button>',
+        '<button onclick="gsShareSpecies(\''+escHtml(sp.name)+'\',\''+escHtml(sp.lat||'')+'\',\''+escHtml(sp.id||'')+'\')" style="padding:11px 14px;background:var(--surface2);color:var(--g-dark);border:1px solid var(--border);border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;"><span style="font-size:15px;">↑</span>Teilen</button>',
         '<button class="fav-btn'+(isFav?' added':'')+'" id="fav-btn" onclick="toggleFav(this.dataset.fid)" data-fid="'+id+'" style="flex:1;">',
           isFav?'⭐ Entfernen':'☆ Favorit',
         '</button>',
@@ -25761,7 +25766,7 @@ function openListingDetail(lid) {
       '<div style="background:#f9fafb;border-radius:10px;padding:11px 13px;margin-bottom:10px;">' +
         '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Verkäufer & Lieferung</div>' +
         '<div style="display:flex;align-items:center;gap:9px;">' +
-          '<div class="post-avatar">' + (l.sellerAvatar||'🌿') + '</div>' +
+          '<div class="post-avatar">' + escHtml(l.sellerAvatar||'🌿') + '</div>' +
           '<div>' +
             '<div style="font-size:13px;font-weight:800;color:var(--text);">' + escHtml(l.seller||'') + '</div>' +
             '<div style="font-size:11.5px;color:var(--muted);">📍 ' + escHtml(l.region||'CH') + ' · ' + shipText + '</div>' +
@@ -39825,7 +39830,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v24.20';
+var GS_VERSION = 'v24.21';
 // ══ GMAIL DRAFT-IDs ═══════════════════════════════════════════
 // Vorgefertigte E-Mail-Templates im Gmail-Konto www.greenscan@gmail.com
 // Absender: GreenScan <info@greenscan.ch>
@@ -41236,20 +41241,21 @@ function gsRegisterServiceWorker() {
   } catch(err){ console.warn('[GreenScan] SW-Init fehlgeschlagen: ' + err.message); }
 }
 
-// v23.58 / v24.17: Shortcut-URLs verarbeiten (?screen=scanner etc.)
+// v23.58 / v24.17 / v24.21: Shortcut-URLs verarbeiten (?screen=scanner, ?plant=ID etc.)
 //   Tab-Screens:   home, scanner, search, favs, garden, map, social, market, settings, more, recipes, remedies, season, ai, wissen
 //   Modal-Screens: multikey, vapko, achievements, doctor, brain, health, tour, inat, light
+//   Plant-Deeplink: ?plant=P001 → openDetail(P001) — für viral-shareable URLs
 function gsHandleShortcutUrl() {
   try {
     var params = new URLSearchParams(location.search);
     var screen = params.get('screen');
-    if (!screen) return;
+    var plantId = params.get('plant');
+    var didConsume = false;
 
     var TAB_SCREENS = {
       home:1,scanner:1,search:1,favs:1,garden:1,map:1,social:1,market:1,
       settings:1,more:1,recipes:1,remedies:1,season:1,ai:1,wissen:1
     };
-    // Modal-Screens → direkt ein Helper-Call
     var MODAL_HANDLERS = {
       multikey:     function(){ window.openMultiKey && window.openMultiKey(); },
       vapko:        function(){ window.openVapko && window.openVapko(); },
@@ -41264,12 +41270,39 @@ function gsHandleShortcutUrl() {
 
     setTimeout(function(){
       try {
-        if (TAB_SCREENS[screen] && typeof switchTab === 'function') {
-          switchTab(screen, document.getElementById('tab-' + screen) || null);
-        } else if (MODAL_HANDLERS[screen]) {
-          MODAL_HANDLERS[screen]();
-        } else if (typeof showScreen === 'function') {
-          showScreen('screen-' + screen);
+        if (screen) {
+          if (TAB_SCREENS[screen] && typeof switchTab === 'function') {
+            switchTab(screen, document.getElementById('tab-' + screen) || null);
+            didConsume = true;
+          } else if (MODAL_HANDLERS[screen]) {
+            MODAL_HANDLERS[screen]();
+            didConsume = true;
+          } else if (typeof showScreen === 'function') {
+            showScreen('screen-' + screen);
+            didConsume = true;
+          }
+        }
+        // v24.21: Plant-Deep-Link — nur akzeptiere DB-IDs (alphanumerisch + kurz)
+        if (plantId && typeof plantId === 'string' && /^[A-Za-z0-9_-]{1,20}$/.test(plantId) &&
+            typeof DB !== 'undefined' && Array.isArray(DB) &&
+            typeof openDetail === 'function') {
+          var hit = DB.find(function(s){ return s && s.id === plantId; });
+          if (hit) {
+            openDetail(plantId);
+            didConsume = true;
+            try { window.gsBrain && window.gsBrain.observe('deeplink_plant', { id: plantId }); } catch(_){}
+          }
+        }
+        // v24.21: URL säubern wenn etwas konsumiert wurde — bessere Share-UX,
+        //         keine veralteten Query-Params bei Reload, manifest start_url
+        //         wird nicht überschrieben.
+        if (didConsume && typeof history !== 'undefined' && history.replaceState) {
+          try {
+            var p2 = new URLSearchParams(location.search);
+            ['screen','plant','shared','fromfile','deeplink'].forEach(function(k){ p2.delete(k); });
+            var qs = p2.toString();
+            history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+          } catch(_){}
         }
       } catch(e){}
     }, 800);

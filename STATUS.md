@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-QZgDb` · **Version**: `v24.20` (in Arbeit) / `v24.19` (gepusht) · **2 Wochen bis Release**
+**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-QZgDb` · **Version**: `v24.21` (in Arbeit) / `v24.20` (gepusht) · **2 Wochen bis Release**
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v24.20 | **Sprint 42 — revDSG-Compliance: Datenexport + sauberer Lösch-Flow**: Recht auf Datenübertragbarkeit (revDSG Art. 8 / DSGVO Art. 20) wird jetzt bedient — `gsExportUserData()` sammelt alle gs_*/ps_*-localStorage-Einträge als JSON und lädt sie als `greenscan-data-YYYY-MM-DD.json` herunter. Sensible Keys (gs_sb_token, gs_claude_key) werden im Export redacted. Settings → 📤 „Meine Daten exportieren" sichtbar für ALLE User (vorher gab es nur Admin-only Import-Row). `profDeleteAccount` jetzt revDSG-konform: bietet Export vor Löschung an, löscht zusätzlich zum Server-Profil auch alle lokalen gs_*/ps_*-Keys, reload danach. 4 i18n-Keys × 4 Sprachen. |
+| (next push) | v24.21 | **Sprint 43 — Plant-Deep-Link + Marketplace-XSS-Fix + URL-Hygiene**: `?plant=ID` Deep-Link öffnet Detail-Modal direkt — viral-shareable URLs ab jetzt möglich · `gsShareSpecies` erweitert um optionalen `plantId`-Param + Call-Sites updated · `history.replaceState` säubert die URL nach jeder Deep-Link-Konsumierung (screen/plant/shared/fromfile/deeplink raus) · marketplace `l.sellerAvatar` jetzt escaped (B2-Mini-Migration). |
+| `2dda5a6` | v24.20 | **Sprint 42 — revDSG-Compliance: Datenexport + sauberer Lösch-Flow**: Recht auf Datenübertragbarkeit (revDSG Art. 8 / DSGVO Art. 20) wird jetzt bedient — `gsExportUserData()` sammelt alle gs_*/ps_*-localStorage-Einträge als JSON und lädt sie als `greenscan-data-YYYY-MM-DD.json` herunter. Sensible Keys (gs_sb_token, gs_claude_key) werden im Export redacted. Settings → 📤 „Meine Daten exportieren" sichtbar für ALLE User (vorher gab es nur Admin-only Import-Row). `profDeleteAccount` jetzt revDSG-konform: bietet Export vor Löschung an, löscht zusätzlich zum Server-Profil auch alle lokalen gs_*/ps_*-Keys, reload danach. 4 i18n-Keys × 4 Sprachen. |
 | `00be57e` | v24.19 | **Sprint 41 — Push-UI**: `gsPush` (subscribe/unsubscribe/test) war bisher nur via DevTools-Console aufrufbar — jetzt vollständige Modal-UI über `gsOpenPushSettings()` mit Status-Badge (active/inactive/denied/unsupported), Stunden-Picker (5–22 h, persistent in `gs_push_hour`), Login-Hinweis, Test-Button. Eingebunden ins Menü → 🩺 Diagnose & Hilfe → 🔔 Push-Tipps. 17 i18n-Keys (DE/FR/IT/gsw) für die komplette Push-UX. |
 | `9975b6f` | v24.18 | **Sprint 40 — Performance-Pass**: Leaflet jetzt `defer`-geladen (~140 KB JS blockt Initial-Parse nicht mehr) · pdf.js wirklich lazy via `gsEnsurePdfjs()` (~500 KB nur beim ersten Plan-Export geladen, vorher 2× geladen: eager + dynamic-import) · `loading="lazy" decoding="async"` auf 3 Listen-Bilder (Marktplatz-Listings, Scan-History, Hero-Foto) — nur sichtbare Bilder werden geladen. Erwarteter Gewinn: -140 KB blockendes JS auf Home/Scanner/Search/Favs/Menu (5 von 6 Haupt-Tabs), pdf.js nur on-demand. |
 | `cd74506` | v24.17 | **Sprint 39 — Discovery & Deep-Links**: Erst-User (0 Scans) bekommen prominente Discovery-Card auf Home für „📋 Bestimmungs-Schlüssel" (Killer-Feature gegen Flora Helvetica) · `gsHandleShortcutUrl` erweitert um 9 Modal-Screens (multikey, vapko, achievements, doctor, brain, health, tour, inat, light) und sauberer Tab-Whitelist (vorher kaputter `navTo`-Call) · manifest.json shortcuts: Lichtmessung + Garten-Planer raus, dafür „Bestimmungs-Schlüssel" + „Pflanzendoktor" rein (long-press auf Home-Icon zeigt jetzt die Power-Features). |
@@ -57,6 +58,16 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
 
 ## 2 · Was nachweislich funktioniert (Code-Verifikation)
 
+- ✅ **Plant-Deep-Link + URL-Hygiene** (v24.21): `?plant=ID` öffnet
+  Detail-Modal direkt, validiert ID gegen `/^[A-Za-z0-9_-]{1,20}$/`
+  und prüft DB-Hit vor Öffnen — defensiver Schutz gegen Müll-Params.
+  `gsShareSpecies` baut `?plant=ID`-URLs wenn ID übergeben — viral-
+  shareable Links ab jetzt möglich. Brain-Observe `deeplink_plant`.
+  `history.replaceState` säubert URL nach Konsum (`screen/plant/shared/
+  fromfile/deeplink` raus) — bessere Share-UX, Reload bleibt sauber.
+- ✅ **B2-Mini-Migration Marketplace** (v24.21): `l.sellerAvatar` im
+  Listing-Detail jetzt durch `escHtml` — verhindert XSS via
+  user-controlled Avatar-Strings.
 - ✅ **revDSG-Datenexport + sauberer Lösch-Flow** (v24.20): Recht auf
   Datenübertragbarkeit (revDSG Art. 8 / DSGVO Art. 20) implementiert.
   - `gsExportUserData()` sammelt alle `gs_*`/`ps_*`-localStorage-Keys

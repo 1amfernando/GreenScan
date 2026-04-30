@@ -11,7 +11,8 @@
 
 | # | Meilenstein | Commit | Wirkung |
 |---|---|---|---|
-| S22 | **Sprint 42: revDSG-Datenexport + sauberer Lösch-Flow** | (next push) v24.20 | Recht auf Datenübertragbarkeit (Art. 8 revDSG / Art. 20 GDPR) — gsExportUserData liefert JSON-Backup, sensible Keys redacted · Settings-Row für alle User · profDeleteAccount mit Export-Angebot + lokale Bereinigung |
+| S23 | **Sprint 43: Plant-Deep-Link + URL-Hygiene + Marketplace-XSS-Fix** | (next push) v24.21 | ?plant=ID öffnet Detail-Modal direkt (viral-shareable URLs) · gsShareSpecies baut Deep-Links · history.replaceState säubert URL · seller-avatar escaped |
+| S22 | **Sprint 42: revDSG-Datenexport + sauberer Lösch-Flow** | `2dda5a6` v24.20 | Recht auf Datenübertragbarkeit (Art. 8 revDSG / Art. 20 GDPR) — gsExportUserData liefert JSON-Backup, sensible Keys redacted · Settings-Row für alle User · profDeleteAccount mit Export-Angebot + lokale Bereinigung |
 | S21 | **Sprint 41: Push-UI** | `00be57e` v24.19 | gsPush vollständig im Menü erreichbar (Modal mit Status/Hour-Picker/Test) — 8. unsichtbares Power-Feature verdrahtet, 17 i18n-Keys DE/FR/IT/gsw |
 | S20 | **Sprint 40: Performance-Pass** | `9975b6f` v24.18 | Leaflet defer-loaded (-140 KB blockend) · pdf.js lazy via gsEnsurePdfjs (-500 KB Default-Save, vorher 2× geladen) · loading=lazy auf 3 Listen-Bilder |
 | S19 | **Sprint 39: Discovery & Deep-Links** | `cd74506` v24.17 | Discovery-Card auf Home für 0-Scan-User · gsHandleShortcutUrl erweitert um 9 Modal-Screens (vorher kaputter navTo-Call) · manifest shortcuts auf killer-Features umgestellt |
