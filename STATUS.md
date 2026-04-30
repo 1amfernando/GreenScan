@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-29 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v23.92` (in Arbeit) / `v23.91` (gepusht)
+**Stand**: 2026-04-29 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v23.93` (in Arbeit) / `v23.92` (gepusht)
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v23.92 | Sprint 4: Stripe-Entitlement server-seitig (entitlements Edge Fn + Client-Cache) |
+| (next push) | v23.93 | Sprint 5: Brain v2 — smartere Empfehlungen + Wochen-Insights auf Home + Brain-Inspector |
+| `9d85f4a` | v23.92 | Sprint 4: Stripe-Entitlement server-seitig (entitlements Edge Fn + Client-Cache) |
 | `16de706` | v23.91 | Sprint 3: Brain-Memory geräteübergreifend (Supabase brain_memory + push/pull/flushQueue) |
 | `c69c5b7` | v23.90 | Sprint 2: Anthropic Edge-Function-Proxy (Supabase Edge Fn + Client-Switch) |
 | `ba743df` | v23.89 | Sprint 1: Share-Target-Receiver + Storage-Layer mit Auto-Rotation |
@@ -81,6 +82,14 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
   scans_limit, can_scan}` aus `v_user_entitlements` ⨝ `ai_usage`.
   Client cached 60s in `_gsServerEnt`, `gsAboCanUse('scan')` nutzt
   Server-Wert wenn vorhanden — localStorage-Manipulation nutzlos.
+- ✅ **gsBrain v2** (v23.93): smartere `recommend()` mit Frost-Awareness
+  (`<5°C` filtert empfindliche Pflanzen), Memory-basierter Quiz-
+  Schwäche-Detection (Top-Fehlerkategorie der letzten 100 Events),
+  neuer Typ `weekly_summary` (Scans/Garten/Quiz/Shares + Top-Kategorie
+  der letzten 7 Tage). Smart-Insights-Box auf Home (nur wenn ≥3 Events).
+  `gsBrainDebug()` als DevTools-Helper, `gsBrainDebug(true)` öffnet
+  Inspector-Modal (Kontext, Empfehlungen, Memory-Tail, Server-Quota,
+  Storage-Info).
 
 ---
 
