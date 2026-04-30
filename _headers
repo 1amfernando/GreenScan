@@ -32,6 +32,16 @@
   CDN-Cache-Control: public, max-age=86400
 
 # ═══ Icons & Favicons — lang cachen am Edge ═══════════════════
+# ═══ Daten-Files (versioniert via Filename → immutable) ══════
+# v24.03: PLANT_DB extrahiert in data/plants.v1.js. Bei DB-Aenderung
+# wird die Datei umbenannt (plants.v2.js etc.) und der Script-Tag im
+# index.html angepasst. Damit ist Cache-Bust per URL erzwungen, ohne
+# Edge-Invalidation noetig.
+/data/*.js
+  Cache-Control: public, max-age=2592000, immutable
+  CDN-Cache-Control: public, max-age=31536000, immutable
+  Content-Type: application/javascript; charset=utf-8
+
 /icons/*
   Cache-Control: public, max-age=2592000, immutable
   CDN-Cache-Control: public, max-age=31536000, immutable

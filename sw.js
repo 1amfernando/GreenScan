@@ -13,7 +13,7 @@
 //   - Push-Empfang (Stub) für Garten-Erinnerungen
 //   - Image-Cache-Quota (max ~80 Einträge) verhindert Storage-Explosion
 
-const CACHE_VERSION = 'greenscan-v23.86';
+const CACHE_VERSION = 'greenscan-v24.03';
 const CACHE_STATIC   = CACHE_VERSION + '-static';
 const CACHE_DYNAMIC  = CACHE_VERSION + '-dynamic';
 const CACHE_IMG      = CACHE_VERSION + '-images';
@@ -35,6 +35,8 @@ const STATIC_ASSETS = [
   './icons/icon-512.png',
   './icons/icon-192-maskable.png',
   './icons/icon-512-maskable.png',
+  // v24.03: PLANT_DB extrahiert — kritisch für Offline-Funktion
+  './data/plants.v1.js',
   'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap'
 ];
 

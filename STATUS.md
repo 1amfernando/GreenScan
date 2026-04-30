@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.02` (in Arbeit) / `v24.01` (gepusht)
+**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.03` (in Arbeit) / `v24.02` (gepusht)
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v24.02 | Sprint 18: `gsSafeHTML`-Tagged-Template (auto-escape) + CLAUDE.md-Doku-Pattern |
+| (next push) | v24.03 | Sprint 17: PLANT_DB-Split → `data/plants.v1.js` (~2.1 MB raus, -45% Initial-Size) + immutable-Cache + SW-Precache |
+| `6f23ff1` | v24.02 | Sprint 18: `gsSafeHTML`-Tagged-Template (auto-escape) + CLAUDE.md-Doku-Pattern |
 | `1ada9fd` | v24.01 | Sprint 19: `gsSRS` SM-2-Spaced-Repetition + Auto-Bridge zu `gsBrain.observe('quiz_answered')` |
 | `318427e` | v24.00 | Phase 2 (Sprint 13-16): `gsRedList` + `gsExternalSources` (in Detail-Modal verdrahtet) · `gsVapko` Pilzkontrollstellen (~50 Stellen) · `gsMeteo` Schweizer Warnungen (Frost/Hitze/Sturm/Regen aus open-meteo) |
 | `70aa68c` | v23.99 | Phase 1 (Sprint 10-12): GPX-Import · Print-CSS für saubere PDFs · i18n-Tab-Migration (`gsApplyI18n` + data-i18n) |
@@ -91,6 +92,15 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
   scans_limit, can_scan}` aus `v_user_entitlements` ⨝ `ai_usage`.
   Client cached 60s in `_gsServerEnt`, `gsAboCanUse('scan')` nutzt
   Server-Wert wenn vorhanden — localStorage-Manipulation nutzlos.
+- ✅ **PLANT_DB-Split** (v24.03): 4'342 Pflanzen aus `index.html`
+  extrahiert nach `data/plants.v1.js` (-2.16 MB, -45% Initial-Size).
+  index.html jetzt 2.63 MB (vorher 4.79 MB), 45'104 Zeilen (vorher
+  49'440). Synchroner `<script src>` im `<head>` lädt DB vor dem
+  Shim — `var DB = window.DB` ist 100% kompatibel mit allen
+  bestehenden DB-Lese-Stellen. Cache-Header `immutable` (`/data/*.js`),
+  Cache-Bust per URL-Versionierung (`plants.v2.js` bei DB-Update).
+  Service Worker precacht das File (CACHE_VERSION → `v24.03`) und
+  unterstützt Offline-Boot. **Bug B6 erledigt.**
 - ✅ **gsSafeHTML — Auto-Escape Tagged-Template** (v24.02): Pattern für
   alle neuen DOM-Konstruktionen mit User-Input.
   `gsSafeHTML\`<div>${userInput}</div>\`` escaped automatisch. Helpers:
@@ -230,7 +240,7 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
 | B2 | MEDIUM | `index.html` 299× innerHTML | `gsSafeHTML`-Helper steht ab v24.02 bereit. Migration iterativ pro Modul (eigene Mini-Sprints) | P2: safeHTML-Migration (Helper ✓, Code-Migration pending) |
 | ~~B3~~ | ~~MEDIUM~~ | ~~`localStorage` Quota~~ | ~~`safeSetItem` schluckt Quota-Errors still~~ | **erledigt v23.89** (Auto-Rotation) |
 | B5 | LOW | `book-ingest` (Z. 46135–46259) | Funktion ohne UI-Hook (kein onclick im HTML) | P3: aktivieren oder löschen |
-| B6 | LOW | PLANT_DB inline 4.5 MB | Lädt jedes Mal komplett neu, nicht in IndexedDB | P1-8: Split + Hydration |
+| ~~B6~~ | ~~LOW~~ | ~~PLANT_DB inline 4.5 MB~~ | | **erledigt v24.03** (extrahiert in `data/plants.v1.js`, immutable-cached) |
 | ~~B4~~ | ~~MEDIUM~~ | ~~Stripe-Entitlement~~ | ~~`GS_PLANS[plan].scans` aus localStorage manipulierbar~~ | **erledigt v23.92** (entitlements Edge Fn = SoT) |
 | ~~B7~~ | ~~INFO~~ | ~~`callAIWithOfflineFallback`~~ | | **erledigt v23.88** (brain-aware) |
 

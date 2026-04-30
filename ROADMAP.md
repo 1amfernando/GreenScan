@@ -83,6 +83,8 @@
 | ~~P2-3~~ | ~~MeteoSwiss OGD-Integration~~ | **erledigt v24.00** (`gsMeteo` leitet aus open-meteo Schweizer Warnungen ab + verlinkt offizielle MeteoSwiss-Seite) |
 | ~~P2-5~~ | ~~Schutzstatus + Rote Liste~~ | **erledigt v24.00** (`gsRedList` mit ~80 Arten IUCN Schweiz) |
 | ~~P2-6~~ | ~~Spaced-Repetition für Quiz~~ | **erledigt v24.01** (`gsSRS` SM-2 + Auto-Bridge zu Brain-Events) |
+| ~~P2-8~~ | ~~innerHTML → safeHTML-Migration~~ | **Helper erledigt v24.02** (`gsSafeHTML` Tagged-Template + CLAUDE.md-Pattern); Code-Migration iterativ in Folge-Sprints |
+| ~~P1-8~~ | ~~PLANT_DB-Split~~ | **erledigt v24.03** (`data/plants.v1.js`, -2.16 MB Initial-Size, immutable-cached) |
 | P3-4 | **GPX-Import/Export** für Karten-Tracks | Pilzsammler:innen wollen Touren speichern + teilen. |
 | P3-5 | **Print-/PDF-Export** des Garten-Plans | Bestehende `pdf.js`-Lib ausreizen. |
 | P3-6 | **AR-Pflanzenmarkierung** (WebXR/AR.js) | Pflanze in der Realität markieren mit Kamera-Overlay. |
