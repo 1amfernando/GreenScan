@@ -1,0 +1,37 @@
+# GreenScan — .gitignore
+
+# Secrets / ENV (NIEMALS committen!)
+.env
+.env.local
+.env.*.local
+*.env.bak
+
+# Supabase CLI Cache
+supabase/.temp/
+supabase/.branches/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+
+# Node (falls jemand local npm-Pakete für Tests installiert)
+node_modules/
+package-lock.json.bak
+
+# Build / Cache
+dist/
+build/
+.cache/

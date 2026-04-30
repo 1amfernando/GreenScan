@@ -1,0 +1,78 @@
+name: Preview Smoke (PR)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '**'
+
+jobs:
+  static-checks:
+    name: HTML/JSON/SQL Sanity
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: HTML Tag-Balance
+        run: |
+          OPEN=$(grep -cE '<script(\s|>)' index.html)
+          CLOSE=$(grep -cE '</script>' index.html)
+          echo "script open: $OPEN, close: $CLOSE"
+          [ "$OPEN" = "$CLOSE" ] || { echo "❌ unbalanced <script> tags"; exit 1; }
+
+      - name: JSON Valid (manifest.json)
+        run: |
+          python3 -c "import json; json.load(open('manifest.json'))"
+
+      - name: XML Valid (sitemap.xml)
+        run: |
+          python3 -c "import xml.etree.ElementTree as ET; ET.parse('sitemap.xml')"
+
+      - name: SQL Migrations syntax
+        run: |
+          for f in supabase/migrations/*.sql; do
+            echo "→ $f"
+            # Sehr lockerer Check: nur dass Datei nicht leer ist und ; enthält
+            [ -s "$f" ] || { echo "❌ leere Migration: $f"; exit 1; }
+            grep -q ';' "$f" || { echo "❌ kein Statement in: $f"; exit 1; }
+          done
+
+      - name: Edge Functions TypeScript syntax
+        run: |
+          # Deno-Check ohne Install: nur basic syntax
+          for f in supabase/functions/*/index.ts; do
+            echo "→ $f"
+            node -e "
+              const fs = require('fs');
+              const src = fs.readFileSync('$f', 'utf8');
+              if (!src.includes('serve(')) { console.error('❌ kein serve() in $f'); process.exit(1); }
+            "
+          done
+
+      - name: Repo-Strukturcheck
+        run: |
+          # Pflicht-Files
+          for required in CLAUDE.md STATUS.md ROADMAP.md DEPLOY.md RELEASE.md README.md \
+                          manifest.json sw.js _headers _redirects \
+                          data/plants.v1.js .env.example; do
+            [ -f "$required" ] || { echo "❌ fehlt: $required"; exit 1; }
+          done
+          echo "✅ Alle Pflicht-Files vorhanden"
+
+      - name: Secrets in Code? (Sicherheits-Check)
+        run: |
+          # Suche nach hardcoded API-Keys
+          # nvapi-* (NVIDIA), sk-ant-X (echter Anthropic-Key, ohne X-Suffix sind das Beispiele)
+          # whsec_* (Stripe-Webhook), service_role JWT
+          BAD=$(grep -rEn 'nvapi-[A-Za-z0-9_-]{30,}|sk-ant-[A-Za-z0-9_-]{30,}' \
+                  --include='*.html' --include='*.js' --include='*.ts' \
+                  --exclude-dir=node_modules . | \
+                grep -v '\.gitignore\|README\|DEPLOY\|RELEASE\|CLAUDE\|STATUS\|ROADMAP\|AGENT\|sk-ant-XXXXX' || true)
+          if [ -n "$BAD" ]; then
+            echo "❌ Hardcoded Secrets gefunden:"
+            echo "$BAD"
+            exit 1
+          fi
+          echo "✅ Keine hardcoded Secrets gefunden"

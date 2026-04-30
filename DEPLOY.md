@@ -1,14 +1,36 @@
 # DEPLOY.md — GreenScan Deploy-Checkliste
 
 > **Eine Datei, alle Schritte.** Wenn du diese Liste durchgehst, ist
-> GreenScan v23.98 produktions-fertig.
+> GreenScan v24.13 produktions-fertig.
 
-**Verbindlich vorher**: `git checkout claude/audit-app-features-CXtrI` und
-`git pull` — du arbeitest auf dem Audit-Branch, nicht auf `main`.
+**Verbindlich vorher**: PR #1 nach `main` mergen, dann `git checkout main && git pull`.
 
 ---
 
-## ⏱️ TL;DR — die 7 Befehle
+## ⚡ Schneller Weg — Auto-Deploy via Skripte
+
+Statt diese Liste manuell durchzugehen kannst du **alles automatisch
+deployen**:
+
+```bash
+# 1) .env aus Vorlage füllen
+cp .env.example .env
+$EDITOR .env  # ANTHROPIC_API_KEY, SUPABASE_SERVICE_ROLE_KEY, etc.
+
+# 2) Master-Deploy
+./scripts/deploy.sh
+```
+
+Das führt alle TL;DR-Schritte unten in einem Rutsch aus.
+Idempotent (kann beliebig oft laufen). Siehe [`AGENT.md`](./AGENT.md)
+für volle Anleitung — auch für CI/CD via GitHub Actions
+(`.github/workflows/deploy.yml`).
+
+Bei manuellem Deploy: weiterlesen.
+
+---
+
+## ⏱️ TL;DR — die 7 Befehle (manuell)
 
 ```bash
 # 1) Supabase verlinken
