@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.09` (in Arbeit) / `v24.08` (gepusht)
+**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.10` (in Arbeit) / `v24.09` (gepusht) · **2 Wochen bis Release**
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v24.09 | Sprint 25: `gsWelcomeTour` — 3-Slide Welcome (auto-trigger erst-Launch, defensiv, idempotent) |
+| (next push) | v24.10 | Sprint 26+27: Pre-Launch-Audit + Versions-Sync (alles `v24.10`), install.html-Marketing-Polish (16 Features statt 8) |
+| `b6f3df8` | v24.09 | Sprint 25: `gsWelcomeTour` — 3-Slide Welcome (auto-trigger erst-Launch, defensiv, idempotent) |
 | `050c45a` | v24.08 | Sprint 24: `gsShareCard` — Canvas-basierte 1080×1080 Share-Cards mit Foto, IUCN-Badge, Schweiz-Branding + native Share-API |
 | `a155bfb` | v24.07 | Sprint 23: `gsAchievements` — 24 Schweizer Badges + Auto-Trigger über Brain-Events + Toast + Badge-Wand-Modal |
 | `8acc95c` | v24.06 | Sprint 22 (P3-2): Schweizerdeutsch-Modus — Locale `gsw` mit ~70 Mundart-Strings, hreflang `gsw-CH` |
@@ -98,6 +99,17 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
   scans_limit, can_scan}` aus `v_user_entitlements` ⨝ `ai_usage`.
   Client cached 60s in `_gsServerEnt`, `gsAboCanUse('scan')` nutzt
   Server-Wert wenn vorhanden — localStorage-Manipulation nutzlos.
+- ✅ **Versions-Sync v24.10** (Pre-Launch): alle hardcoded Version-
+  Strings synchronisiert — `meta app-version=24.10`, `GS_VERSION=v24.10`,
+  `sw.js CACHE_VERSION=greenscan-v24.10`, `install.html` Badge + Footer,
+  `_redirects` + `robots.txt` Header. SW-Cache wird beim nächsten
+  Deploy invalidiert → User bekommt Update-Banner automatisch.
+- ✅ **install.html Marketing-Polish** (v24.10): Feature-Grid von 8
+  auf 16 Karten erweitert. Neue Features sichtbar: Multikriterien-
+  Schlüssel, VAPKO-Pilzkontrollen, IUCN-Schutzstatus, MeteoSwiss-
+  Warnungen, gsBrain, swisstopo+GPX, iNaturalist-Bridge, 24
+  Achievement-Badges, SRS-Quiz, DE/FR/IT/Mundart, Share-Cards, Smart-
+  Push, revDSG-konform.
 - ✅ **gsWelcomeTour — Erstes-Erfolg-Erlebnis** (v24.09): 3-Slide-Modal
   beim ersten App-Open: (1) Was ist GreenScan + 4'342 Arten + Schweiz-
   Fokus, (2) Schweizer USPs (VAPKO/swisstopo/IUCN/MeteoSwiss/Quellen/
