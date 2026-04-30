@@ -21,7 +21,7 @@
 <meta name="apple-mobile-web-app-title" content="GreenScan">
 <meta name="description" content="4342 Schweizer Arten: Wildpflanzen, Pilze, Bäume, Kräuter, Moose, Flechten, Algen, Hauspflanzen. KI-Scanner, Garten, Lichtmessung.">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="24.21">
+<meta name="app-version" content="24.22">
 <link rel="canonical" href="https://greenscan.ch/">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <meta name="author" content="GreenScan">
@@ -16327,6 +16327,9 @@ window.gsI18n = (function(){
       'menu.push': 'Push-Tipps',
       'settings.exportTitle': 'Meine Daten exportieren',
       'settings.exportSub': 'JSON-Backup zum Herunterladen (revDSG)',
+      'whatsnew.title': 'Was ist neu?',
+      'whatsnew.lead': 'Seit deinem letzten Besuch sind diese Verbesserungen dazugekommen:',
+      'whatsnew.ok': 'Verstanden',
       'push.title': 'Push-Tipps',
       'push.lead': 'Erhalte täglich einen personalisierten Smart-Tipp aus deinem Brain — passend zu Saison, Standort und deinen Scans.',
       'push.active': 'aktiv',
@@ -16436,6 +16439,9 @@ window.gsI18n = (function(){
       'menu.push': 'Push-Astuces',
       'settings.exportTitle': 'Exporter mes données',
       'settings.exportSub': 'Sauvegarde JSON à télécharger (revDSG)',
+      'whatsnew.title': 'Quoi de neuf ?',
+      'whatsnew.lead': 'Depuis ta dernière visite, voici les améliorations :',
+      'whatsnew.ok': 'Compris',
       'push.title': 'Astuces push',
       'push.lead': 'Reçois chaque jour une astuce intelligente personnalisée — adaptée à la saison, ton lieu et tes scans.',
       'push.active': 'actif',
@@ -16545,6 +16551,9 @@ window.gsI18n = (function(){
       'menu.push': 'Push-Suggerimenti',
       'settings.exportTitle': 'Esporta i miei dati',
       'settings.exportSub': 'Backup JSON da scaricare (revDSG)',
+      'whatsnew.title': 'Novità',
+      'whatsnew.lead': 'Dalla tua ultima visita sono arrivati questi miglioramenti:',
+      'whatsnew.ok': 'Capito',
       'push.title': 'Suggerimenti push',
       'push.lead': 'Ricevi ogni giorno un suggerimento personalizzato — basato su stagione, luogo e tuoi scan.',
       'push.active': 'attivo',
@@ -16657,6 +16666,9 @@ window.gsI18n = (function(){
       'menu.push': 'Push-Tipps',
       'settings.exportTitle': 'Mini Date exportiere',
       'settings.exportSub': 'JSON-Backup zum Abelade (revDSG)',
+      'whatsnew.title': 'Was isch nöi?',
+      'whatsnew.lead': 'Sit dim letschte Bsuech sind die Sache neu:',
+      'whatsnew.ok': 'Klar',
       'push.title': 'Push-Tipps',
       'push.lead': 'Chrieg jede Tag en perseenliche Smart-Tipp us dim Brain — passend zur Saison, em Ort und dine Scans.',
       'push.active': 'aktiv',
@@ -18897,6 +18909,119 @@ window.gsWelcomeTour = (function(){
     try { window.gsWelcomeTour.maybeAutoOpen(); } catch(_){}
   }
 })();
+
+// v24.22: gsWhatsNew — zeigt einmal pro Major-Version eine kompakte
+// „Was ist neu?"-Karte beim Boot. Nur für returning users (welcomed=1
+// aber gs_seen_version !== aktuelle GS_VERSION). Erst-User bekommen
+// stattdessen Welcome-Tour.
+window.gsWhatsNew = (function(){
+  'use strict';
+  var KEY_VER = 'gs_seen_version';
+  var KEY_WELC = 'gs_welcomed_v24';
+
+  // Feature-Highlights ab v24.14 — gepflegt im Code, kompakt für Modal.
+  // Reihenfolge: aktuell zuerst.
+  var HIGHLIGHTS = [
+    { v:'v24.21', items:[ '🔗 Pflanzen direkt teilen via ?plant=ID Deep-Link' ] },
+    { v:'v24.20', items:[ '📤 Datenexport (revDSG): JSON-Backup zum Herunterladen' ] },
+    { v:'v24.19', items:[ '🔔 Push-Tipps: tägliche Smart-Tipps abonnieren (Settings → Diagnose)' ] },
+    { v:'v24.18', items:[ '⚡ App startet schneller — Leaflet/PDF.js erst on-demand geladen' ] },
+    { v:'v24.17', items:[ '📋 Bestimmungs-Schlüssel als Discovery-Card auf Home für neue User' ] },
+    { v:'v24.16', items:[ '🏆 Achievement-Hint auf Home: „Nächstes Badge: …"' ] },
+    { v:'v24.15', items:[ '🇨🇭 Schweizerdeutsch im Menü · Achievement-Counter X/Y' ] },
+    { v:'v24.14', items:[ '✨ Neue Menü-Buttons: Multikriterien · VAPKO · Achievements · iNat · Self-Test · Teilbare Karten' ] }
+  ];
+
+  function lastSeen(){ try { return localStorage.getItem(KEY_VER) || ''; } catch(_){ return ''; } }
+  function markSeen(){
+    try { localStorage.setItem(KEY_VER, (typeof GS_VERSION !== 'undefined') ? GS_VERSION : ''); } catch(_){}
+  }
+  function compareDesc(a, b){ return (a.v < b.v) ? 1 : (a.v > b.v) ? -1 : 0; }
+
+  function changesSince(prev){
+    if (!prev) return [];
+    var sorted = HIGHLIGHTS.slice().sort(compareDesc);
+    return sorted.filter(function(h){ return h.v > prev; });
+  }
+
+  function openModal(){
+    var existing = document.getElementById('gs-whatsnew-modal');
+    if (existing) { try { existing.remove(); } catch(_){} }
+    var t = (window.gsI18n && window.gsI18n.t) ? window.gsI18n.t.bind(window.gsI18n) : function(k){ return k; };
+    var esc = (typeof gsHTMLEscape === 'function') ? gsHTMLEscape : function(s){ return String(s||'').replace(/[<>&"']/g, function(c){ return ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]; }); };
+    var prev = lastSeen();
+    var diff = changesSince(prev);
+    if (!diff.length) { markSeen(); return; }
+    var listHtml = diff.slice(0, 6).map(function(h){
+      var bullets = h.items.map(function(i){ return '<li>' + esc(i) + '</li>'; }).join('');
+      return '<div style="margin-bottom:10px;"><div style="font-size:11.5px;font-weight:800;color:var(--g-main);margin-bottom:4px;">' + esc(h.v) + '</div><ul style="margin:0 0 0 18px;padding:0;font-size:13px;color:var(--text2);line-height:1.65;">' + bullets + '</ul></div>';
+    }).join('');
+
+    var m = document.createElement('div');
+    m.id = 'gs-whatsnew-modal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
+    var box = document.createElement('div');
+    box.style.cssText = 'background:var(--card,#fff);color:var(--text,#222);border-radius:14px;max-width:480px;width:100%;max-height:85vh;overflow:auto;padding:20px;font-family:inherit;';
+    box.innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;">'+
+        '<h3 style="margin:0;font-size:17px;display:flex;align-items:center;gap:8px;">✨ ' + esc(t('whatsnew.title')) + '</h3>'+
+        '<button id="gs-wn-close" aria-label="Schliessen" style="background:none;border:none;font-size:22px;cursor:pointer;line-height:1;color:var(--text);">×</button>'+
+      '</div>'+
+      '<div style="font-size:13px;color:var(--muted);margin-bottom:14px;">' + esc(t('whatsnew.lead')) + '</div>'+
+      listHtml +
+      '<button id="gs-wn-ok" style="width:100%;margin-top:8px;padding:13px;background:var(--g-main,#2e7d32);color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">' + esc(t('whatsnew.ok')) + '</button>';
+    m.appendChild(box);
+    document.body.appendChild(m);
+    function close(){ try { m.remove(); markSeen(); } catch(_){} }
+    m.addEventListener('click', function(e){ if (e.target === m) close(); });
+    box.querySelector('#gs-wn-close').addEventListener('click', close);
+    box.querySelector('#gs-wn-ok').addEventListener('click', close);
+    try { window.gsBrain && window.gsBrain.observe('whatsnew_open', { from: prev, to: (typeof GS_VERSION !== 'undefined' ? GS_VERSION : '') }); } catch(_){}
+  }
+
+  function maybeAutoOpen(){
+    try {
+      var welcomed = false;
+      try { welcomed = localStorage.getItem(KEY_WELC) === '1'; } catch(_){}
+      if (!welcomed) return; // Erst-User → Welcome-Tour zeigt sich, kein WhatsNew
+      var current = (typeof GS_VERSION !== 'undefined') ? GS_VERSION : '';
+      var prev = lastSeen();
+      if (!prev) { markSeen(); return; } // erstes Mal nach Welcome → still markieren, kein Modal
+      if (prev === current) return;
+      // Heuristik: kein anderes Modal offen
+      setTimeout(function(){
+        try {
+          var hasModal = document.querySelector('#gs-consent, #gs-welcome-modal, #modal-profile.modal-overlay[style*="display: flex"]');
+          if (hasModal) {
+            setTimeout(maybeAutoOpen, 4500);
+            return;
+          }
+          openModal();
+        } catch(_){}
+      }, 3000);
+    } catch(_){}
+  }
+
+  return {
+    openModal: openModal,
+    markSeen:  markSeen,
+    lastSeen:  lastSeen,
+    changesSince: changesSince,
+    maybeAutoOpen: maybeAutoOpen
+  };
+})();
+
+// Auto-Trigger im Boot (nach Welcome-Tour)
+(function(){
+  function go(){ try { window.gsWhatsNew.maybeAutoOpen(); } catch(_){} }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', go);
+  } else {
+    go();
+  }
+})();
+
+window.openWhatsNew = function(){ try { window.gsWhatsNew.openModal(); } catch(_){} };
 
 // Globaler Helper: aufrufbar aus Settings → "Tour wiederholen"
 window.openWelcomeTour = function(){ try { window.gsWelcomeTour.openModal(); } catch(_){} };
@@ -39830,7 +39955,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v24.21';
+var GS_VERSION = 'v24.22';
 // ══ GMAIL DRAFT-IDs ═══════════════════════════════════════════
 // Vorgefertigte E-Mail-Templates im Gmail-Konto www.greenscan@gmail.com
 // Absender: GreenScan <info@greenscan.ch>

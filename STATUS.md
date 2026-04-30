@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-QZgDb` · **Version**: `v24.21` (in Arbeit) / `v24.20` (gepusht) · **2 Wochen bis Release**
+**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-QZgDb` · **Version**: `v24.22` (in Arbeit) / `v24.21` (gepusht) · **2 Wochen bis Release**
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v24.21 | **Sprint 43 — Plant-Deep-Link + Marketplace-XSS-Fix + URL-Hygiene**: `?plant=ID` Deep-Link öffnet Detail-Modal direkt — viral-shareable URLs ab jetzt möglich · `gsShareSpecies` erweitert um optionalen `plantId`-Param + Call-Sites updated · `history.replaceState` säubert die URL nach jeder Deep-Link-Konsumierung (screen/plant/shared/fromfile/deeplink raus) · marketplace `l.sellerAvatar` jetzt escaped (B2-Mini-Migration). |
+| (next push) | v24.22 | **Sprint 44 — What's-New-Modal**: Returning Users sehen beim ersten Boot mit neuer GS_VERSION ein kompaktes Highlights-Modal mit den Bullet-Points seit `gs_seen_version`. `gsWhatsNew` mit `HIGHLIGHTS`-Tabelle für v24.14–v24.21, `compareDesc` lex-sort, Welcomed-Gate (Erst-User → Welcome-Tour, kein WhatsNew), Idempotent über `gs_seen_version`. Globaler Helper `openWhatsNew()` für „Was ist neu wiederholen". 3 i18n-Keys × 4 Sprachen. |
+| `2f16ee6` | v24.21 | **Sprint 43 — Plant-Deep-Link + Marketplace-XSS-Fix + URL-Hygiene**: `?plant=ID` Deep-Link öffnet Detail-Modal direkt — viral-shareable URLs ab jetzt möglich · `gsShareSpecies` erweitert um optionalen `plantId`-Param + Call-Sites updated · `history.replaceState` säubert die URL nach jeder Deep-Link-Konsumierung (screen/plant/shared/fromfile/deeplink raus) · marketplace `l.sellerAvatar` jetzt escaped (B2-Mini-Migration). |
 | `2dda5a6` | v24.20 | **Sprint 42 — revDSG-Compliance: Datenexport + sauberer Lösch-Flow**: Recht auf Datenübertragbarkeit (revDSG Art. 8 / DSGVO Art. 20) wird jetzt bedient — `gsExportUserData()` sammelt alle gs_*/ps_*-localStorage-Einträge als JSON und lädt sie als `greenscan-data-YYYY-MM-DD.json` herunter. Sensible Keys (gs_sb_token, gs_claude_key) werden im Export redacted. Settings → 📤 „Meine Daten exportieren" sichtbar für ALLE User (vorher gab es nur Admin-only Import-Row). `profDeleteAccount` jetzt revDSG-konform: bietet Export vor Löschung an, löscht zusätzlich zum Server-Profil auch alle lokalen gs_*/ps_*-Keys, reload danach. 4 i18n-Keys × 4 Sprachen. |
 | `00be57e` | v24.19 | **Sprint 41 — Push-UI**: `gsPush` (subscribe/unsubscribe/test) war bisher nur via DevTools-Console aufrufbar — jetzt vollständige Modal-UI über `gsOpenPushSettings()` mit Status-Badge (active/inactive/denied/unsupported), Stunden-Picker (5–22 h, persistent in `gs_push_hour`), Login-Hinweis, Test-Button. Eingebunden ins Menü → 🩺 Diagnose & Hilfe → 🔔 Push-Tipps. 17 i18n-Keys (DE/FR/IT/gsw) für die komplette Push-UX. |
 | `9975b6f` | v24.18 | **Sprint 40 — Performance-Pass**: Leaflet jetzt `defer`-geladen (~140 KB JS blockt Initial-Parse nicht mehr) · pdf.js wirklich lazy via `gsEnsurePdfjs()` (~500 KB nur beim ersten Plan-Export geladen, vorher 2× geladen: eager + dynamic-import) · `loading="lazy" decoding="async"` auf 3 Listen-Bilder (Marktplatz-Listings, Scan-History, Hero-Foto) — nur sichtbare Bilder werden geladen. Erwarteter Gewinn: -140 KB blockendes JS auf Home/Scanner/Search/Favs/Menu (5 von 6 Haupt-Tabs), pdf.js nur on-demand. |
@@ -58,6 +59,15 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
 
 ## 2 · Was nachweislich funktioniert (Code-Verifikation)
 
+- ✅ **What's-New-Modal** (v24.22): kompaktes „Was ist neu?"-Modal
+  beim Boot, sobald `localStorage.gs_seen_version !== GS_VERSION`.
+  Liest aus `HIGHLIGHTS`-Tabelle (in-Code, eine Zeile pro Version)
+  und filtert mit `changesSince(prev)` lex-sortiert. Welcomed-Gate:
+  Erst-User (`gs_welcomed_v24 !== '1'`) bekommen weiterhin nur die
+  Welcome-Tour, kein WhatsNew. Defensive Modal-Stack-Heuristik
+  (3 s Delay, retry nach 4.5 s wenn anderes Modal offen). Brain-
+  Observe `whatsnew_open`. Globaler Helper `openWhatsNew()` für
+  „nochmal anschauen".
 - ✅ **Plant-Deep-Link + URL-Hygiene** (v24.21): `?plant=ID` öffnet
   Detail-Modal direkt, validiert ID gegen `/^[A-Za-z0-9_-]{1,20}$/`
   und prüft DB-Hit vor Öffnen — defensiver Schutz gegen Müll-Params.
