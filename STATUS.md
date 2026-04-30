@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-29 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v23.95` (in Arbeit) / `v23.94` (gepusht)
+**Stand**: 2026-04-29 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v23.96` (in Arbeit) / `v23.95` (gepusht)
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v23.95 | Sprint 7 (B): Multikriterien-Bestimmungs-Schlüssel (`gsKey` + Filter-Modal) |
+| (next push) | v23.96 | Sprint 8 (C): Smart-Push-Notifications (`gsPush` + push-test/daily-push Edge Fns + push_subscriptions Migration) |
+| `4559bee` | v23.95 | Sprint 7 (B): Multikriterien-Bestimmungs-Schlüssel (`gsKey` + Filter-Modal) |
 | `424c2ff` | v23.94 | Sprint 6: Health-Check / Diagnose-Tool (`gsHealthCheck()` + Modal) |
 | `22cf57d` | v23.93 | Sprint 5: Brain v2 — smartere Empfehlungen + Wochen-Insights auf Home + Brain-Inspector |
 | `9d85f4a` | v23.92 | Sprint 4: Stripe-Entitlement server-seitig (entitlements Edge Fn + Client-Cache) |
@@ -84,6 +85,15 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
   scans_limit, can_scan}` aus `v_user_entitlements` ⨝ `ai_usage`.
   Client cached 60s in `_gsServerEnt`, `gsAboCanUse('scan')` nutzt
   Server-Wert wenn vorhanden — localStorage-Manipulation nutzlos.
+- ✅ **Smart-Push-Notifications** (v23.96, Code committed — VAPID-Keys
+  + Cron-Setup durch Owner ausstehend): `gsPush.subscribe({hour: 7})`
+  registriert Browser-Push, speichert Endpoint+Keys in Supabase
+  `push_subscriptions`. `gsPush.test()` schickt sofortige Test-Push,
+  `gsPush.unsubscribe()` deaktiviert. Edge Fn `daily-push` wird
+  stündlich von pg_cron aufgerufen, baut personalisierte Smart-Tipps
+  aus `brain_memory` (letzte 7 Tage) + Saison-Heuristik. Edge Fn
+  `push-test` für Sofort-Pushes + VAPID-Key-Lookup. Setup-Schritte
+  in `supabase/functions/push-test/README.md`.
 - ✅ **Multikriterien-Bestimmungs-Schlüssel** (v23.95): `gsKey.filter(criteria)`
   liefert Pflanzen aus DB, gefiltert nach Kategorie / Familie / Blütenfarbe /
   Habitat / Saison-Monat / Höhenlage (Range-Slider) / essbar / heilkundlich /

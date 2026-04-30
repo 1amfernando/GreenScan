@@ -23,7 +23,8 @@
 | S10 | **P1-7 Stripe-Entitlement server-seitig** | `9d85f4a` v23.92 | Edge Fn `entitlements` liefert `can_scan` authoritativ. Client-Counter ist nur noch UX-Hint. Bug B4 erledigt. **Edge-Fn-Deploy ausstehend** |
 | S11 | **Sprint 5: Brain v2** | `22cf57d` v23.93 | recommend() mit Frost-Awareness + Memory-basierter Quiz-Schwäche; weekly_summary; Smart-Insights auf Home; gsBrainDebug() Inspector |
 | S12 | **Sprint 6: Health-Check** | `424c2ff` v23.94 | `gsHealthCheck()` mit 9 Checks + Modal-UI mit Ampelsystem |
-| S13 | **Sprint 7 (B): Multikriterien-Schlüssel** | (next push) v23.95 | `gsKey` Filter-Engine + Modal mit 9 Kriterien (Kategorie/Familie/Farbe/Habitat/Monat/Höhe/essbar/heilkundlich/Toxizität). Top-50 live-Liste, Filter-Persistenz. Killer-Feature gegen Flora Helvetica |
+| S13 | **Sprint 7 (B): Multikriterien-Schlüssel** | `4559bee` v23.95 | `gsKey` Filter-Engine + Modal mit 9 Kriterien. Killer-Feature gegen Flora Helvetica |
+| S14 | **Sprint 8 (C): Smart-Push-Notifications** | (next push) v23.96 | `gsPush` Client + push-test/daily-push Edge Fns + push_subscriptions Migration. Tägliche personalisierte Tipps aus brain_memory. **VAPID-Keys + Cron-Setup durch Owner pending** |
 
 ---
 
@@ -74,7 +75,7 @@
 |---|---|---|
 | P3-1 | **BirdNET-Audio-Bestimmung** (TFLite client-side) | Differenziert von ALLEN Pflanzen-Apps. Vögel über Mikrofon erkennen, lokal, offline-fähig. |
 | P3-2 | **Schweizerdeutsch-Modus** (UI-Toggle) | Spielerei mit viralem Potenzial („Hesch s'Bärlauch gfunde?"). |
-| P3-3 | **Push-Smart-Notifications** | „Heute Vollmond + dein Garten hat Karotten → idealer Tag zum Wurzelschneiden." Über Brain.recommend(). |
+| ~~P3-3~~ | ~~Push-Smart-Notifications~~ | **erledigt v23.96** — Code + Edge Fns committed; VAPID + Cron-Setup durch Owner pending |
 | P3-4 | **GPX-Import/Export** für Karten-Tracks | Pilzsammler:innen wollen Touren speichern + teilen. |
 | P3-5 | **Print-/PDF-Export** des Garten-Plans | Bestehende `pdf.js`-Lib ausreizen. |
 | P3-6 | **AR-Pflanzenmarkierung** (WebXR/AR.js) | Pflanze in der Realität markieren mit Kamera-Overlay. |
