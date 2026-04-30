@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-29 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v23.93` (in Arbeit) / `v23.92` (gepusht)
+**Stand**: 2026-04-29 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v23.94` (in Arbeit) / `v23.93` (gepusht)
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v23.93 | Sprint 5: Brain v2 — smartere Empfehlungen + Wochen-Insights auf Home + Brain-Inspector |
+| (next push) | v23.94 | Sprint 6: Health-Check / Diagnose-Tool (`gsHealthCheck()` + Modal) |
+| `22cf57d` | v23.93 | Sprint 5: Brain v2 — smartere Empfehlungen + Wochen-Insights auf Home + Brain-Inspector |
 | `9d85f4a` | v23.92 | Sprint 4: Stripe-Entitlement server-seitig (entitlements Edge Fn + Client-Cache) |
 | `16de706` | v23.91 | Sprint 3: Brain-Memory geräteübergreifend (Supabase brain_memory + push/pull/flushQueue) |
 | `c69c5b7` | v23.90 | Sprint 2: Anthropic Edge-Function-Proxy (Supabase Edge Fn + Client-Switch) |
@@ -82,6 +83,15 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
   scans_limit, can_scan}` aus `v_user_entitlements` ⨝ `ai_usage`.
   Client cached 60s in `_gsServerEnt`, `gsAboCanUse('scan')` nutzt
   Server-Wert wenn vorhanden — localStorage-Manipulation nutzlos.
+- ✅ **Health-Check / Diagnose-Tool** (v23.94): `gsHealthCheck()` läuft
+  9 Checks parallel/sequenziell durch — Online, Service Worker,
+  localStorage-Quota, KI-Zugang (BYO-Key oder Proxy), Anmeldung,
+  Server-Quota (entitlements Edge Fn), gsBrain-Modul, GPS-Permission,
+  Camera-Permission. Liefert Array `{id, name, status:
+  'ok'|'warn'|'error'|'na', message, hint}`. Mit `gsHealthCheck(true)`
+  öffnet sich ein Diagnose-Modal mit Ampelsystem + konkreten Hilfe-
+  Hinweisen pro Check + „Erneut prüfen"-Button. User kann selbst
+  prüfen, ob die App intakt ist.
 - ✅ **gsBrain v2** (v23.93): smartere `recommend()` mit Frost-Awareness
   (`<5°C` filtert empfindliche Pflanzen), Memory-basierter Quiz-
   Schwäche-Detection (Top-Fehlerkategorie der letzten 100 Events),

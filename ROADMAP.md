@@ -21,7 +21,8 @@
 | S8 | **P1-1 Anthropic Edge-Function-Proxy** (Code) | `c69c5b7` v23.90 | User braucht keinen eigenen Claude-Key mehr. Tier-Quota (5/200/2000), Modell-Whitelist, Telemetrie. **Server-Deploy durch Owner ausstehend** |
 | S9 | **P1-2 Brain-Memory Cloud-Sync** | `16de706` v23.91 | gsBrain.observe pusht zu Supabase brain_memory. Login → pullCloud merged. Schleimpilz lebt geräteübergreifend. **Migration-Deploy ausstehend** |
 | S10 | **P1-7 Stripe-Entitlement server-seitig** | `9d85f4a` v23.92 | Edge Fn `entitlements` liefert `can_scan` authoritativ. Client-Counter ist nur noch UX-Hint. Bug B4 erledigt. **Edge-Fn-Deploy ausstehend** |
-| S11 | **Sprint 5: Brain v2** | (next push) v23.93 | recommend() mit Frost-Awareness + Memory-basierter Quiz-Schwäche; weekly_summary; Smart-Insights auf Home; gsBrainDebug() Inspector |
+| S11 | **Sprint 5: Brain v2** | `22cf57d` v23.93 | recommend() mit Frost-Awareness + Memory-basierter Quiz-Schwäche; weekly_summary; Smart-Insights auf Home; gsBrainDebug() Inspector |
+| S12 | **Sprint 6: Health-Check** | (next push) v23.94 | `gsHealthCheck()` mit 9 Checks (Online/SW/Storage/KI/Auth/Quota/Brain/GPS/Cam) + Modal-UI mit Ampelsystem |
 
 ---
 
