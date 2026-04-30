@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-29 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v23.98` (in Arbeit) / `v23.97` (gepusht)
+**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v23.99` (in Arbeit) / `v23.98` (gepusht)
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v23.98 | Deploy-Ready: DEPLOY.md (7 Befehle), README-Update, defensive Quota-Cache bei Failure |
+| (next push) | v23.99 | Phase 1 (Sprint 10-12): GPX-Import · Print-CSS für saubere PDFs · i18n-Tab-Migration (`gsApplyI18n` + data-i18n) |
+| `5dc9880` | v23.98 | Deploy-Ready: DEPLOY.md (7 Befehle), README-Update, defensive Quota-Cache bei Failure |
 | `7b61cf7` | v23.97 | Sprint 9 (A): i18n FR/IT-Infrastruktur (`gsI18n` + DE/FR/IT-Bundles + plant-name lookup + hreflang) |
 | `be8d202` | v23.96 | Sprint 8 (C): Smart-Push-Notifications (`gsPush` + push-test/daily-push Edge Fns + push_subscriptions Migration) |
 | `4559bee` | v23.95 | Sprint 7 (B): Multikriterien-Bestimmungs-Schlüssel (`gsKey` + Filter-Modal) |
@@ -87,6 +88,25 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
   scans_limit, can_scan}` aus `v_user_entitlements` ⨝ `ai_usage`.
   Client cached 60s in `_gsServerEnt`, `gsAboCanUse('scan')` nutzt
   Server-Wert wenn vorhanden — localStorage-Manipulation nutzlos.
+- ✅ **GPX-Import** (v23.99): `gsTrackImportGPX()` öffnet File-Picker,
+  parst GPX 1.0/1.1 (DOMParser, tolerant für `<trkpt>`+`<ele>`+`<time>`),
+  splittet Multi-Track-Files in separate Tracks, downsampelt auf 5000
+  Punkte. Import-Button im Tracks-Modal. Quellen wie SchweizMobil,
+  komoot, Strava werden direkt akzeptiert. (Export existierte bereits.)
+- ✅ **Print-CSS** (v23.99): globaler `@media print`-Block versteckt
+  Tab-Bar/Topbar/Banner/Modal-Close-X/Skip-Link, A4 mit 1.5cm Rand,
+  schwarz-auf-weiss-tauglich, page-break-Hints für `h1-3`/Tabellen/
+  Plant-Cards. `window.print()` liefert jetzt saubere PDFs ohne UI-
+  Chrome — wirkt für **alle** Modals (Garten-Plan, Pflanzendoktor,
+  Wissen-Detail, etc.).
+- ✅ **i18n-Tab-Migration** (v23.99): Bundles erweitert um `tab.search`/
+  `tab.plants`/`tab.menu` in DE/FR/IT. Alle 5 Bottom-Tab-Labels mit
+  `data-i18n="tab.xxx"` markiert. `gsApplyI18n(root?)` scannt
+  `[data-i18n]` und `[data-i18n-attr="placeholder:key"]`, ersetzt
+  textContent/Attribute idempotent. Wird beim DOMContentLoaded und bei
+  jedem `gs-locale-changed`-Event automatisch aufgerufen.
+  `gsLocaleSwitch(loc)` triggert kein Reload mehr (live re-render),
+  `gsLocaleSwitch(loc, {reload:true})` als Fallback.
 - ✅ **i18n FR/IT-Infrastruktur** (v23.97): `gsI18n.t(key, vars)` mit
   Fallback-Chain (current → DE → key). Bundles mit ~70 wichtigsten
   UI-Strings in DE/FR/IT (Tabs, Buttons, Auth, Scanner, Garten, Karte,

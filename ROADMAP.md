@@ -77,6 +77,8 @@
 | P3-1 | **BirdNET-Audio-Bestimmung** (TFLite client-side) | Differenziert von ALLEN Pflanzen-Apps. Vögel über Mikrofon erkennen, lokal, offline-fähig. |
 | P3-2 | **Schweizerdeutsch-Modus** (UI-Toggle) | Spielerei mit viralem Potenzial („Hesch s'Bärlauch gfunde?"). |
 | ~~P3-3~~ | ~~Push-Smart-Notifications~~ | **erledigt v23.96** — Code + Edge Fns committed; VAPID + Cron-Setup durch Owner pending |
+| ~~P3-4~~ | ~~GPX-Import/Export~~ | **erledigt v23.99** (Export war v23.84, Import in v23.99 ergänzt) |
+| ~~P3-5~~ | ~~Print-/PDF-Export~~ | **erledigt v23.99** (globales `@media print`, gilt für alle Modals) |
 | P3-4 | **GPX-Import/Export** für Karten-Tracks | Pilzsammler:innen wollen Touren speichern + teilen. |
 | P3-5 | **Print-/PDF-Export** des Garten-Plans | Bestehende `pdf.js`-Lib ausreizen. |
 | P3-6 | **AR-Pflanzenmarkierung** (WebXR/AR.js) | Pflanze in der Realität markieren mit Kamera-Overlay. |
