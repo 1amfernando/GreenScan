@@ -8602,7 +8602,7 @@ async function gsStartCheckout(priceLookupKey, claimLaunchOffer) {
 async function gsOpenBillingPortal() {
   gsHaptic('medium');
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) {
-    alert('Bitte zuerst anmelden.'); return;
+    gsAlert('Bitte zuerst anmelden.', 'warn'); return;
   }
   var popup = window.open('about:blank', 'greenscan_portal',
     'width=520,height=760,left=' + ((screen.width-520)/2) +
@@ -8650,7 +8650,7 @@ async function gsOpenBillingPortal() {
 async function gsRestorePurchases() {
   gsHaptic('light');
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) {
-    alert('Bitte zuerst mit deinem Konto anmelden, unter dem du gekauft hast.');
+    gsAlert('Bitte zuerst mit deinem Konto anmelden, unter dem du gekauft hast.', 'warn');
     return;
   }
   var row = await gsLoadEntitlements();
@@ -8659,7 +8659,7 @@ async function gsRestorePurchases() {
     try { closeModal('detail-modal'); } catch(e){}
     gsShowAboScreen();
   } else {
-    alert('Kein aktives Abo gefunden. Bitte prüfe, dass du mit der richtigen E-Mail angemeldet bist.');
+    gsAlert('Kein aktives Abo gefunden. Bitte prüfe, dass du mit der richtigen E-Mail angemeldet bist.', 'info');
   }
 }
 
@@ -18367,6 +18367,122 @@ window.gsWelcomeTour = (function(){
 // Globaler Helper: aufrufbar aus Settings → "Tour wiederholen"
 window.openWelcomeTour = function(){ try { window.gsWelcomeTour.openModal(); } catch(_){} };
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  gsAlert — UX-freundlicher alert()-Ersatz (v24.11)
+// ═══════════════════════════════════════════════════════════════════════════
+//  Statt nativer alert() (blockiert UI, hässlich, nicht-themenfähig) nutzen
+//  wir Toasts via showProfileToast — falls verfügbar. Lange Nachrichten
+//  (>200 Zeichen) bleiben bei alert(), weil Toasts ohnehin abgeschnitten
+//  werden.
+//
+//  Public API:
+//    gsAlert(msg, type?)
+//      type: 'info' (default) | 'success' | 'warn' | 'error'
+//
+//  Pattern fuer Migration: alert('...') → gsAlert('...', 'error')
+// ═══════════════════════════════════════════════════════════════════════════
+window.gsAlert = function(msg, type){
+  var s = String(msg == null ? '' : msg);
+  if (!s) return;
+  // Lange Texte → native alert (Toasts werden abgeschnitten/unleserlich)
+  if (s.length > 200 || /\n/.test(s)) {
+    try { return alert(s); } catch(_) { return; }
+  }
+  // Toast wenn verfuegbar
+  try {
+    if (typeof showProfileToast === 'function') {
+      return showProfileToast(s, type || 'info');
+    }
+  } catch(_){}
+  try { alert(s); } catch(_){}
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  gsSelfTest — Module-Reachability-Check (v24.11)
+// ═══════════════════════════════════════════════════════════════════════════
+//  Ruft alle 18+ Module auf und prüft, ob sie:
+//    1) als Funktion/Objekt verfügbar sind
+//    2) mindestens eine ihrer Standard-Methoden ohne Crash liefern
+//
+//  Vor Deploy: in DevTools `gsSelfTest()` aufrufen.
+//  Erwartetes Ergebnis: alle Module → ✅. Bei Fehler → roter Eintrag mit
+//  Stack-Snippet → fix vor Deploy.
+//
+//  Public API:
+//    gsSelfTest()             → Promise<{ok, total, passed, failed, results}>
+//    gsSelfTest(true)         → zusätzlich Console-Output formatiert
+// ═══════════════════════════════════════════════════════════════════════════
+window.gsSelfTest = async function(verbose){
+  var TESTS = [
+    // [name, testFn, expectedTruthy?]
+    ['gsBrain',         function(){ return window.gsBrain && typeof window.gsBrain.context === 'function' && window.gsBrain.context(); }],
+    ['gsBrain.dailyTip',function(){ return window.gsBrain && window.gsBrain.dailyTip(); }],
+    ['gsBrain.recommend', function(){ return window.gsBrain && window.gsBrain.recommend('garden_task'); }],
+    ['gsKey',           function(){ return window.gsKey && window.gsKey.options(); }],
+    ['gsKey.filter',    function(){ var r = window.gsKey && window.gsKey.filter({categories:['wildpflanze']}); return Array.isArray(r) && r.length >= 0; }],
+    ['gsRedList',       function(){ return window.gsRedList && window.gsRedList.entries(); }],
+    ['gsExternalSources', function(){ return window.gsExternalSources && window.gsExternalSources.urls('Allium ursinum'); }],
+    ['gsVapko',         function(){ return window.gsVapko && Array.isArray(window.gsVapko.all()) && window.gsVapko.all().length >= 40; }],
+    ['gsMeteo',         function(){ return window.gsMeteo && Array.isArray(window.gsMeteo.warnings()); }],
+    ['gsSRS',           function(){ return window.gsSRS && window.gsSRS.stats(); }],
+    ['gsSafeHTML',      function(){ var s = window.gsSafeHTML`<b>${'<script>x</script>'}</b>`; return s.indexOf('<script>') === -1 && s.indexOf('&lt;script') !== -1; }],
+    ['gsHTMLEscape',    function(){ return window.gsHTMLEscape('<a>') === '&lt;a&gt;'; }],
+    ['gsI18n',          function(){ return window.gsI18n && window.gsI18n.t('btn.save'); }],
+    ['gsI18n.locale',   function(){ return window.gsI18n && ['de','fr','it','gsw'].indexOf(window.gsI18n.locale()) !== -1; }],
+    ['gsApplyI18n',     function(){ return typeof window.gsApplyI18n === 'function'; }],
+    ['gsINaturalist',   function(){ return window.gsINaturalist && typeof window.gsINaturalist.isConnected === 'function'; }],
+    ['gsAchievements',  function(){ var a = window.gsAchievements; return a && Array.isArray(a.all()) && a.all().length >= 20; }],
+    ['gsShareCard',     function(){ return window.gsShareCard && typeof window.gsShareCard.render === 'function'; }],
+    ['gsWelcomeTour',   function(){ return window.gsWelcomeTour && typeof window.gsWelcomeTour.openModal === 'function'; }],
+    ['gsPush',          function(){ return window.gsPush && typeof window.gsPush.isSupported === 'function'; }],
+    ['gsHealthCheck',   function(){ return typeof window.gsHealthCheck === 'function'; }],
+    ['gsBrainDebug',    function(){ return typeof window.gsBrainDebug === 'function'; }],
+    ['gsStoragePush',   function(){ return typeof window.gsStoragePush === 'function'; }],
+    ['gsStorageInfo',   function(){ var i = window.gsStorageInfo && window.gsStorageInfo(); return i && typeof i.totalKB === 'number'; }],
+    ['gsAlert',         function(){ return typeof window.gsAlert === 'function'; }],
+    ['gsTrackImportGPX',function(){ return typeof window.gsTrackImportGPX === 'function'; }],
+    ['callAI',          function(){ return typeof window.callAI === 'function' || typeof callAI === 'function'; }],
+    ['callVisionAI',    function(){ return typeof window.callVisionAI === 'function' || typeof callVisionAI === 'function'; }],
+    ['DB (PLANT_DB)',   function(){ return Array.isArray(window.DB) && window.DB.length >= 4000; }],
+    ['ServiceWorker',   function(){ return ('serviceWorker' in navigator); }],
+    ['Leaflet',         function(){ return typeof L !== 'undefined' && typeof L.map === 'function'; }],
+    ['Crypto.subtle',   function(){ return !!(window.crypto && window.crypto.subtle); }],
+    ['localStorage',    function(){ try { localStorage.setItem('_st_', '1'); var v = localStorage.getItem('_st_'); localStorage.removeItem('_st_'); return v === '1'; } catch(_) { return false; } }]
+  ];
+
+  var results = [];
+  for (var i = 0; i < TESTS.length; i++){
+    var name = TESTS[i][0];
+    var fn = TESTS[i][1];
+    try {
+      var r = fn();
+      // Promise-aware
+      if (r && typeof r.then === 'function') r = await r;
+      results.push({ name: name, ok: !!r, value: r });
+    } catch(e) {
+      results.push({ name: name, ok: false, error: (e && e.message) ? e.message : String(e) });
+    }
+  }
+
+  var passed = results.filter(function(r){return r.ok;}).length;
+  var failed = results.length - passed;
+  var summary = { ok: failed === 0, total: results.length, passed: passed, failed: failed, results: results };
+
+  if (verbose !== false) {
+    console.group('🧪 GreenScan Self-Test (' + passed + '/' + results.length + ' bestanden)');
+    results.forEach(function(r){
+      var icon = r.ok ? '✅' : '❌';
+      var extra = r.error ? ' — ' + r.error : '';
+      console.log(icon + ' ' + r.name + extra);
+    });
+    if (failed) console.warn('⚠️ ' + failed + ' Tests fehlgeschlagen — vor Deploy fixen.');
+    else console.log('🎉 Alle ' + passed + ' Module reachable.');
+    console.groupEnd();
+  }
+  try { window.gsBrain && window.gsBrain.observe('selftest', { passed: passed, failed: failed }); } catch(_){}
+  return summary;
+};
+
 // ═══ KAMERA / SCANNER ════════════════════════════════
 // v23.54: Scanner-Loading-Overlay Helpers
 function _gsSrLoadingShow(text, sub){
@@ -24020,7 +24136,7 @@ async function openDiagCamera() {
     if (placeholder) placeholder.style.display = 'none';
     if (controls) controls.style.display = 'flex';
   } catch(e) {
-    alert('Kamera nicht verfügbar: ' + e.message);
+    gsAlert('Kamera nicht verfügbar: ' + e.message, 'error');
   }
 }
 
@@ -34576,7 +34692,7 @@ async function openGardenScanCamera() {
     const btn = document.getElementById('gs-capture-btn');
     btn.disabled = false; btn.style.opacity = '1';
   } catch(e) {
-    alert('Kamera nicht verfügbar: ' + e.message);
+    gsAlert('Kamera nicht verfügbar: ' + e.message, 'error');
   }
 }
 
@@ -37424,7 +37540,7 @@ function openAddPlanting(preGardenId) {
   // Fill garden selector
   const sel = document.getElementById('plant-garden-sel');
   if (gardens.length === 0) {
-    alert('Bitte zuerst einen Garten anlegen.');
+    gsAlert('Bitte zuerst einen Garten anlegen.', 'info');
     return;
   }
   sel.innerHTML = gardens.map(g => '<option value="' + escHtml(g.id) + '">' + escHtml(g.name||'') + '</option>').join('');
@@ -38169,11 +38285,11 @@ function addFarmPlot() {
   const level = getLevelFromXP(farmState.xp);
   const cost = farmState.plots.length * 10;
   if (farmState.coins < cost) {
-    alert('Nicht genug Münzen! Kosten: ' + cost + ' 🌾');
+    gsAlert('Nicht genug Münzen! Kosten: ' + cost + ' 🌾', 'warn');
     return;
   }
   if (farmState.plots.length >= 12) {
-    alert('Maximale Feldanzahl (12) erreicht!');
+    gsAlert('Maximale Feldanzahl (12) erreicht!', 'info');
     return;
   }
   if (cost > 0) farmState.coins -= cost;
@@ -38275,7 +38391,7 @@ function openSeedSelector(plotIdx) {
 
 function plantCrop(plotIdx, cropKey) {
   if (farmState.resources.seeds < 1) {
-    alert('Keine Samen mehr! Kaufe im Shop.');
+    gsAlert('Keine Samen mehr! Kaufe im Shop.', 'warn');
     return;
   }
   farmState.plots[plotIdx].crop = cropKey;
@@ -38644,7 +38760,7 @@ function submitFeedback(){
     }
   } catch(e) { console.warn('[feedback] sync fail:', e); }
 
-  alert('✅ Feedback gespeichert! Danke für deine Rückmeldung.');
+  gsAlert('✅ Feedback gespeichert! Danke für deine Rückmeldung.', 'success');
 
   // Zusätzlich per E-Mail senden (optional)
   var fbText = document.getElementById('fb-text');
