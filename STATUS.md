@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-QZgDb` · **Version**: `v24.15` (in Arbeit) / `v24.14` (gepusht) · **2 Wochen bis Release**
+**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-QZgDb` · **Version**: `v24.16` (in Arbeit) / `v24.15` (gepusht) · **2 Wochen bis Release**
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v24.15 | **Sprint 37 — UI-Polish**: i18n-Keys (DE/FR/IT/gsw) für 11 neue Strings (menu.multikey/vapko/achievements/inat/diagnose/health/brain/tour/selftest, scan.shareCard, search.empty.tryKey) · `data-i18n`-Attribute auf neuen Menü-Buttons + Section · Achievement-Counter (X/Y) live im Menü-Button (rendert beim openMainMenu) · Multikriterien-Schlüssel-CTA im leeren Search-Result als prominenter Button · `gsApplyI18n` re-apply beim Menü-Open (Locale-Switch wirkt sofort) |
+| (next push) | v24.16 | **Sprint 38 — Home-Hook + B2-Hardening**: Home zeigt unter Brain-Tipp ein Achievement-Hint-Card („🏆 12/34 · Nächstes: 🦋 Sammler") mit Click→Modal — psychologischer Sog für Quote-getriebene User · 3 unescaped `err.message`/`e.message`-innerHTML-Stellen (Lichtmesser, Solar-Sensor, Pflanzendoktor-Foto) gehärtet mit `gsHTMLEscape`-Fallback (B2-Mini-Migration). |
+| `434f457` | v24.15 | **Sprint 37 — UI-Polish**: i18n-Keys (DE/FR/IT/gsw) für 11 neue Strings (menu.multikey/vapko/achievements/inat/diagnose/health/brain/tour/selftest, scan.shareCard, search.empty.tryKey) · `data-i18n`-Attribute auf neuen Menü-Buttons + Section · Achievement-Counter (X/Y) live im Menü-Button (rendert beim openMainMenu) · Multikriterien-Schlüssel-CTA im leeren Search-Result als prominenter Button · `gsApplyI18n` re-apply beim Menü-Open (Locale-Switch wirkt sofort) |
 | `685210f` | v24.14 | **Sprint 36 — UI-Verdrahtung**: 7 unsichtbare Features bekommen Menü-Buttons (Multikriterien-Schlüssel, VAPKO-Pilzkontrollen, Achievements, iNaturalist, Brain-Inspector, Welcome-Tour, Self-Test). Neue Menü-Sektion „🩺 Diagnose & Hilfe". Share-Card-Button im Scan-Result mit Auto-Fill aus letztem Scan + Standort + IUCN-Status. `gsRunSelfTestModal()` als Modal-Wrapper für Self-Test. Größte UX-Lücke der letzten 7 Sprints geschlossen. |
 | `4d295d5` | v24.13 | Phase 9: Pre-Launch-Audit-Subagent + 5 Sicherheits-Fixes (1 CRITICAL daily-push-Auth · 3 HIGH CORS-Origins/encodeURIComponent · 1 MED stripe-uuid · LOW SW-Version-Bump) · 10 zusätzliche Achievements (34 total) · 50 zusätzliche IUCN-Arten (130 total) |
 | `ee900a7` | v24.12 | Phase 8: Performance-Polish (preconnect/preload erweitert) · DEPLOY.md §16-17 (OG/Screenshots/App-Store-Wrapper) · README-Refresh · Stripe-Webhook Edge Fn (audit-log) + Migration · Error→Brain-Memory-Telemetry |
@@ -52,6 +53,16 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
 
 ## 2 · Was nachweislich funktioniert (Code-Verifikation)
 
+- ✅ **Home-Achievement-Hint** (v24.16): nach Brain-Tipp + Insights-Box
+  rendert `initHomeBoard` einen Hint-Card-Button: „🏆 X/Y freigeschaltet
+  · Nächstes: <Icon> <Name>". Sichtbar nur wenn ≥1 Badge unlocked UND
+  ≥1 noch offen. Click öffnet Achievements-Modal. Idempotent (re-render
+  beim Home-Re-Open ohne Duplikate).
+- ✅ **B2-Mini-Migration** (v24.16): 3 unescaped `err.message`/
+  `e.message` innerHTML-Pfade gehärtet — Lichtmesser-Status (Z. 23021),
+  Solar-Sensor-Messung (Z. 35701), Pflanzendoktor-Foto-Upload-Fehler
+  (Z. 43365). Alle nutzen jetzt `gsHTMLEscape`-Fallback. Defensiver
+  Schutz gegen Server-/Browser-Error-Messages mit eingebettetem HTML.
 - ✅ **UI-Polish-Sprint** (v24.15): i18n-Keys (DE/FR/IT/gsw) für alle
   neuen Buttons + `data-i18n`-Attribute. Achievement-Counter „X/Y" rendert
   live im Menü-Button beim Öffnen. Empty-State der Plant-Suche bekommt

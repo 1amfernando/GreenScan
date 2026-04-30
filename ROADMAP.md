@@ -11,7 +11,8 @@
 
 | # | Meilenstein | Commit | Wirkung |
 |---|---|---|---|
-| S17 | **Sprint 37: UI-Polish** | (next push) v24.15 | i18n DE/FR/IT/gsw für 11 neue Strings · `data-i18n` auf neuen Buttons + Section · Achievement-Counter „X/Y" live im Menü · Multikriterien-CTA im Empty-State der Plant-Suche · Locale-Switch wirkt sofort im Menü |
+| S18 | **Sprint 38: Home-Hook + B2-Hardening** | (next push) v24.16 | Home-Achievement-Hint-Card (X/Y + Nächstes-Badge mit Click→Modal) als psychologischer Sog · 3 unescaped err.message-innerHTML-Stellen mit gsHTMLEscape-Fallback gehärtet |
+| S17 | **Sprint 37: UI-Polish** | `434f457` v24.15 | i18n DE/FR/IT/gsw für 11 neue Strings · `data-i18n` auf neuen Buttons + Section · Achievement-Counter „X/Y" live im Menü · Multikriterien-CTA im Empty-State der Plant-Suche · Locale-Switch wirkt sofort im Menü |
 | S16 | **Sprint 36: UI-Verdrahtung** | `685210f` v24.14 | 7 unsichtbare Power-Features bekommen Menü-Buttons (Multikriterien, VAPKO, Achievements, iNat, Brain-Inspector, Welcome-Tour, Self-Test) + Share-Card-Button im Scan-Result. Größte UX-Lücke der letzten 7 Sprints geschlossen. |
 | S1 | Sicherheits-Audit + CSP | `d5b9d55` | Hardcoded NVIDIA-Key raus, vollständige Allowlist-CSP |
 | S2 | NVIDIA komplett entfernt | `a5651f4` | Code halbiert auf API-Layer; Claude-only-UX |

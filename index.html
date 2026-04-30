@@ -21,7 +21,7 @@
 <meta name="apple-mobile-web-app-title" content="GreenScan">
 <meta name="description" content="4342 Schweizer Arten: Wildpflanzen, Pilze, Bäume, Kräuter, Moose, Flechten, Algen, Hauspflanzen. KI-Scanner, Garten, Lichtmessung.">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="24.15">
+<meta name="app-version" content="24.16">
 <link rel="canonical" href="https://greenscan.ch/">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <meta name="author" content="GreenScan">
@@ -12219,6 +12219,43 @@ function initHomeBoard() {
       }
     } catch(_){}
 
+    // ── v24.16: Achievement-Hint (Next Badge) ─────────────
+    // Zeigt „🏆 12/34 · Nächstes: 🦋 Sammler" wenn User mind. 1 Badge hat
+    // und mind. 1 noch offen. Click öffnet Achievements-Modal.
+    try {
+      if (window.gsAchievements && document.getElementById('daily-fact')) {
+        var allBadges = window.gsAchievements.all() || [];
+        var unlocked  = allBadges.filter(function(b){ return b && b.unlocked; });
+        var locked    = allBadges.filter(function(b){ return b && !b.unlocked; });
+        var existingHint = document.getElementById('gs-ach-hint');
+        if (unlocked.length >= 1 && locked.length >= 1) {
+          var nextBadge = locked[0];
+          if (!existingHint) {
+            existingHint = document.createElement('button');
+            existingHint.id = 'gs-ach-hint';
+            existingHint.type = 'button';
+            existingHint.setAttribute('aria-label', 'Auszeichnungen öffnen');
+            existingHint.style.cssText = 'display:flex;align-items:center;gap:10px;width:100%;margin-top:8px;padding:10px 12px;background:linear-gradient(135deg,rgba(255,193,7,.10),rgba(255,235,59,.04));border:1px solid rgba(255,193,7,.25);border-radius:10px;font-size:12px;color:var(--text);text-align:left;cursor:pointer;font-family:inherit;line-height:1.5;';
+            existingHint.addEventListener('click', function(){
+              try { window.openAchievements && window.openAchievements(); } catch(_){}
+            });
+            var anchor2 = document.getElementById('gs-brain-insights') || document.getElementById('gs-brain-tip') || document.getElementById('daily-fact');
+            anchor2.parentNode && anchor2.parentNode.insertBefore(existingHint, anchor2.nextSibling);
+          }
+          existingHint.innerHTML =
+            '<span style="font-size:18px;flex-shrink:0;">🏆</span>' +
+            '<span style="flex:1;min-width:0;">' +
+              '<b>' + unlocked.length + '</b>/' + allBadges.length + ' freigeschaltet · Nächstes: ' +
+              '<span style="white-space:nowrap;">' + window.gsHTMLEscape(nextBadge.icon || '⭐') + ' ' +
+              '<b>' + window.gsHTMLEscape(nextBadge.name || '') + '</b></span>' +
+            '</span>' +
+            '<span style="opacity:.5;font-size:14px;flex-shrink:0;">›</span>';
+        } else if (existingHint) {
+          existingHint.remove();
+        }
+      }
+    } catch(_){}
+
     // ── Saison-Tipp ───────────────────────────────────────
     try {
       var month = now.getMonth();
@@ -22981,7 +23018,10 @@ async function gsLightPro10Measure() {
     if (typeof gsHaptic === 'function') gsHaptic('tick');
     gsLightPro10Render();
   } catch(err) {
-    if (statusEl) statusEl.innerHTML = '<span style="color:#c62828;">❌ ' + (err.name === 'NotAllowedError' ? 'Kamera verweigert' : (err.message || 'Fehler')) + '</span>';
+    if (statusEl) {
+      var _esc = (typeof gsHTMLEscape === 'function') ? gsHTMLEscape : function(s){ return String(s||'').replace(/[<>&"']/g, function(c){ return ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]; }); };
+      statusEl.innerHTML = '<span style="color:#c62828;">❌ ' + (err.name === 'NotAllowedError' ? 'Kamera verweigert' : _esc(err.message || 'Fehler')) + '</span>';
+    }
     try { if (lightStream) { lightStream.getTracks().forEach(function(t){t.stop();}); lightStream = null; } } catch(e){}
   }
 }
@@ -35661,7 +35701,10 @@ async function gsPPmeasureLuxInline() {
     if (typeof showProfileToast === 'function') showProfileToast('☀️ Lichtmessung übernommen: ' + lux.toLocaleString('de-CH') + ' lx');
   } catch(e) {
     try { if (stream) stream.getTracks().forEach(function(t){ t.stop(); }); } catch(_){}
-    if (txt) txt.innerHTML = '❌ Messung fehlgeschlagen: ' + (e.message || 'Kamera-Zugriff verweigert');
+    if (txt) {
+      var _esc2 = (typeof gsHTMLEscape === 'function') ? gsHTMLEscape : function(s){ return String(s||'').replace(/[<>&"']/g, function(c){ return ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]; }); };
+      txt.innerHTML = '❌ Messung fehlgeschlagen: ' + _esc2(e.message || 'Kamera-Zugriff verweigert');
+    }
     if (typeof showProfileToast === 'function') showProfileToast('❌ Lichtmessung: ' + (e.message || 'Kamera nicht verfügbar'), 'error');
   }
 }
@@ -39493,7 +39536,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v24.15';
+var GS_VERSION = 'v24.16';
 // ══ GMAIL DRAFT-IDs ═══════════════════════════════════════════
 // Vorgefertigte E-Mail-Templates im Gmail-Konto www.greenscan@gmail.com
 // Absender: GreenScan <info@greenscan.ch>
@@ -43319,7 +43362,8 @@ async function gsDoctorRun(file){
           localStorage.setItem('gs_doctor_history', JSON.stringify(hist));
         } catch(e){}
       } catch(err){
-        out.innerHTML = '<div style="padding:12px;background:#ffebee;color:#c62828;border-radius:10px;">❌ ' + (err.message||'Fehler') + ' — API-Key prüfen.</div>';
+        var _esc3 = (typeof gsHTMLEscape === 'function') ? gsHTMLEscape : (typeof escHtml === 'function' ? escHtml : function(s){ return String(s||'').replace(/[<>&"']/g, function(c){ return ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]; }); });
+        out.innerHTML = '<div style="padding:12px;background:#ffebee;color:#c62828;border-radius:10px;">❌ ' + _esc3(err.message || 'Fehler') + ' — API-Key prüfen.</div>';
       }
     };
     reader.readAsDataURL(file);
