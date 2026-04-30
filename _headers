@@ -1,6 +1,6 @@
-# GreenScan v23.58 — Cloudflare Pages Edge-Caching
+# GreenScan — Cloudflare Pages Edge-Caching + Security
 # Diese Header werden von Cloudflare Pages vollständig unterstützt.
-# Ziel: Maximale Edge-Cache-Trefferrate → null Bandbreiten-Limits in Sicht.
+# Ziel: Maximale Edge-Cache-Trefferrate + CSP-Härtung gegen XSS / Token-Exfiltration.
 
 # ═══ HTML-Hauptseite ═══════════════════════════════════════════
 # index.html darf nicht zu lange gecached werden, damit Updates ankommen.
@@ -10,7 +10,7 @@
   CDN-Cache-Control: public, max-age=300
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: camera=(self), geolocation=(self), microphone=()
+  Permissions-Policy: camera=(self), geolocation=(self), microphone=(), accelerometer=(self), ambient-light-sensor=(self), gyroscope=(self), magnetometer=(self), bluetooth=(self), usb=(), payment=(self)
 
 /install.html
   Cache-Control: public, max-age=3600
@@ -32,6 +32,16 @@
   CDN-Cache-Control: public, max-age=86400
 
 # ═══ Icons & Favicons — lang cachen am Edge ═══════════════════
+# ═══ Daten-Files (versioniert via Filename → immutable) ══════
+# v24.03: PLANT_DB extrahiert in data/plants.v1.js. Bei DB-Aenderung
+# wird die Datei umbenannt (plants.v2.js etc.) und der Script-Tag im
+# index.html angepasst. Damit ist Cache-Bust per URL erzwungen, ohne
+# Edge-Invalidation noetig.
+/data/*.js
+  Cache-Control: public, max-age=2592000, immutable
+  CDN-Cache-Control: public, max-age=31536000, immutable
+  Content-Type: application/javascript; charset=utf-8
+
 /icons/*
   Cache-Control: public, max-age=2592000, immutable
   CDN-Cache-Control: public, max-age=31536000, immutable
@@ -54,11 +64,22 @@
   Cache-Control: public, max-age=86400
 
 # ═══ Globale Security-Header ═══════════════════════════════════
+# CSP-Allowlist orientiert sich an tatsächlich genutzten Hosts:
+#   - script-src: leaflet (unpkg), pdf.js (cdnjs), eigene Inline-Scripts
+#   - connect-src: Supabase, Anthropic, NVIDIA, Open-Meteo, Nominatim, Wikipedia
+#   - img-src:    swisstopo, OSM-Tiles, ArcGIS-Sat, Supabase-Storage, data:/blob:
+#   - style-src/font-src: Google Fonts
+#   - frame-ancestors none → Clickjacking-Schutz (ersetzt X-Frame-Options)
+# Hinweis: 'unsafe-inline' bei script-src ist nötig wegen der ~7 Inline-Scripts
+# im Monolith. Mittelfristig durch nonce-basierten CSP ersetzen, sobald die App
+# in ESM-Module aufgeteilt ist.
 /*
   X-Content-Type-Options: nosniff
-  X-Frame-Options: SAMEORIGIN
+  X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
-  Strict-Transport-Security: max-age=31536000; includeSubDomains
-  Permissions-Policy: camera=(self), geolocation=(self), microphone=()
-  # Erlaubt Cloudflare-Edge-Caching
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+  Permissions-Policy: camera=(self), geolocation=(self), microphone=(), accelerometer=(self), ambient-light-sensor=(self), gyroscope=(self), magnetometer=(self), bluetooth=(self), usb=(), payment=(self), interest-cohort=()
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; manifest-src 'self'; worker-src 'self' blob:; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co https://wmts.geo.admin.ch https://*.tile.openstreetmap.org https://server.arcgisonline.com https://*.wikipedia.org https://en.wikipedia.org; media-src 'self' blob: data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.anthropic.com https://integrate.api.nvidia.com https://api.open-meteo.com https://geocoding-api.open-meteo.com https://nominatim.openstreetmap.org https://en.wikipedia.org https://wmts.geo.admin.ch
   CDN-Cache-Control: public, max-age=3600
