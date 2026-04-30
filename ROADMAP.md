@@ -11,7 +11,8 @@
 
 | # | Meilenstein | Commit | Wirkung |
 |---|---|---|---|
-| S25 | **Sprint 45: Self-Test-Coverage + WhatsNew-Settings-Row** | (next push) v24.23 | gsSelfTest um 6 neue Module erweitert (39 Checks total) · Settings-Row für „Was ist neu wiederholen" (manueller WhatsNew-Trigger) · HIGHLIGHTS um v24.22+v24.23 |
+| S26 | **Sprint 46: About-Modal-Changelog + Session-Handoff** | (next push) v24.24 | About-Modal „Aktuelle Version" + Header-Default auf v24.24 (war v23.65/v23.74) · kompakter v24.14–v24.23-Block mit 12 Bullets · STATUS.md §5 als Session-Handoff für nächsten Agenten neu geschrieben (Tabelle aller 11 Sprints, offene Owner-Tasks, sichere/risiko-Bereiche, Konventionen für neue Sprints) |
+| S25 | **Sprint 45: Self-Test-Coverage + WhatsNew-Settings-Row** | `31202fb` v24.23 | gsSelfTest um 6 neue Module erweitert (39 Checks total) · Settings-Row für „Was ist neu wiederholen" (manueller WhatsNew-Trigger) · HIGHLIGHTS um v24.22+v24.23 |
 | S24 | **Sprint 44: What's-New-Modal** | `42746bf` v24.22 | gsWhatsNew zeigt returning Usern Highlights seit gs_seen_version (HIGHLIGHTS-Tabelle, lex-sort, Welcomed-Gate, Stack-Heuristik) — i18n in 4 Sprachen |
 | S23 | **Sprint 43: Plant-Deep-Link + URL-Hygiene + Marketplace-XSS-Fix** | `2f16ee6` v24.21 | ?plant=ID öffnet Detail-Modal direkt (viral-shareable URLs) · gsShareSpecies baut Deep-Links · history.replaceState säubert URL · seller-avatar escaped |
 | S22 | **Sprint 42: revDSG-Datenexport + sauberer Lösch-Flow** | `2dda5a6` v24.20 | Recht auf Datenübertragbarkeit (Art. 8 revDSG / Art. 20 GDPR) — gsExportUserData liefert JSON-Backup, sensible Keys redacted · Settings-Row für alle User · profDeleteAccount mit Export-Angebot + lokale Bereinigung |

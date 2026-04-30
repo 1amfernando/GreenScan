@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-QZgDb` · **Version**: `v24.23` (in Arbeit) / `v24.22` (gepusht) · **2 Wochen bis Release**
+**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-QZgDb` · **Version**: `v24.24` (gepusht, head) · **2 Wochen bis Release**
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v24.23 | **Sprint 45 — Self-Test-Coverage + WhatsNew-Settings-Row**: gsSelfTest TESTS-Array um 6 Sprint-36–44-Module erweitert (gsRunSelfTestModal, gsOpenShareCardForLastScan, gsOpenPushSettings, gsExportUserData, gsEnsurePdfjs, gsWhatsNew) — Pre-Deploy-Check fängt jetzt Regressionen in den neuen Modulen ab. Settings → ✨ „Was ist neu" Row öffnet das WhatsNew-Modal manuell (Highlights wieder anschauen). 2 i18n-Keys × 4 Sprachen. HIGHLIGHTS-Tabelle um v24.22+v24.23 erweitert. |
+| (next push) | v24.24 | **Sprint 46 — About-Modal-Changelog + Session-Handoff**: About-Modal „Aktuelle Version"-Block + Header-Default (Z. 4640) auf v24.24 aktualisiert, ersetzt veralteten v23.74-Stand · neuer kompakter v24.14–v24.23-Block mit 12 Bullets (statt nur das alte v23.74-Detail) · STATUS.md §5 als Session-Handoff für den nächsten Agenten neu geschrieben (Stand, offene Server-Deploys, sichere/unsichere Bereiche, „Sag dem nächsten Agenten" Block). |
+| `31202fb` | v24.23 | **Sprint 45 — Self-Test-Coverage + WhatsNew-Settings-Row**: gsSelfTest TESTS-Array um 6 Sprint-36–44-Module erweitert (gsRunSelfTestModal, gsOpenShareCardForLastScan, gsOpenPushSettings, gsExportUserData, gsEnsurePdfjs, gsWhatsNew) — Pre-Deploy-Check fängt jetzt Regressionen in den neuen Modulen ab. Settings → ✨ „Was ist neu" Row öffnet das WhatsNew-Modal manuell (Highlights wieder anschauen). 2 i18n-Keys × 4 Sprachen. HIGHLIGHTS-Tabelle um v24.22+v24.23 erweitert. |
 | `42746bf` | v24.22 | **Sprint 44 — What's-New-Modal**: Returning Users sehen beim ersten Boot mit neuer GS_VERSION ein kompaktes Highlights-Modal mit den Bullet-Points seit `gs_seen_version`. `gsWhatsNew` mit `HIGHLIGHTS`-Tabelle für v24.14–v24.21, `compareDesc` lex-sort, Welcomed-Gate (Erst-User → Welcome-Tour, kein WhatsNew), Idempotent über `gs_seen_version`. Globaler Helper `openWhatsNew()` für „Was ist neu wiederholen". 3 i18n-Keys × 4 Sprachen. |
 | `2f16ee6` | v24.21 | **Sprint 43 — Plant-Deep-Link + Marketplace-XSS-Fix + URL-Hygiene**: `?plant=ID` Deep-Link öffnet Detail-Modal direkt — viral-shareable URLs ab jetzt möglich · `gsShareSpecies` erweitert um optionalen `plantId`-Param + Call-Sites updated · `history.replaceState` säubert die URL nach jeder Deep-Link-Konsumierung (screen/plant/shared/fromfile/deeplink raus) · marketplace `l.sellerAvatar` jetzt escaped (B2-Mini-Migration). |
 | `2dda5a6` | v24.20 | **Sprint 42 — revDSG-Compliance: Datenexport + sauberer Lösch-Flow**: Recht auf Datenübertragbarkeit (revDSG Art. 8 / DSGVO Art. 20) wird jetzt bedient — `gsExportUserData()` sammelt alle gs_*/ps_*-localStorage-Einträge als JSON und lädt sie als `greenscan-data-YYYY-MM-DD.json` herunter. Sensible Keys (gs_sb_token, gs_claude_key) werden im Export redacted. Settings → 📤 „Meine Daten exportieren" sichtbar für ALLE User (vorher gab es nur Admin-only Import-Row). `profDeleteAccount` jetzt revDSG-konform: bietet Export vor Löschung an, löscht zusätzlich zum Server-Profil auch alle lokalen gs_*/ps_*-Keys, reload danach. 4 i18n-Keys × 4 Sprachen. |
@@ -60,6 +61,11 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
 
 ## 2 · Was nachweislich funktioniert (Code-Verifikation)
 
+- ✅ **About-Modal-Changelog modernisiert** (v24.24): „Aktuelle
+  Version"-Block + Header-Default zeigen jetzt v24.24 statt v23.65/
+  v23.74. Kompakter v24.14–v24.23-Block mit 12 Bullets vor dem alten
+  v23.74-Detail-Block — User in About sehen tatsächlich was passiert
+  ist seit dem letzten echten Update.
 - ✅ **Self-Test-Coverage erweitert** (v24.23): `gsSelfTest`-Array
   enthält jetzt 39 Module-Checks (vorher 33), inkl. der 6 neuen
   Sprint-36–44-Helfer. Damit wird `gsRunSelfTestModal()` als Pre-
@@ -500,14 +506,80 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
 
 ---
 
-## 5 · In Progress (durch wen?)
+## 5 · In Progress / Session-Handoff
 
-> Wenn du an einem Bereich arbeitest, schreib dich hier ein, damit andere
-> Agenten dich nicht überschreiben.
+> Aktueller Zustand für den nächsten AI-Agenten — **lies das zuerst**.
 
-| Datum | Agent | Bereich | Erwartete Dauer |
+**Branch**: `claude/audit-app-features-QZgDb` · **HEAD**: v24.24 ·
+**Letzte Session**: 11 Sprints (36–46) auf v24.13 → v24.24 in einem
+Lauf, alle gepusht. Kein PR offen. PR #1 (von CXtrI nach main) wartet
+weiterhin auf Owner-Merge — siehe `RELEASE.md`.
+
+### Zusammenfassung letzte Session (Sprints 36–46)
+
+| Sprint | Version | Commit | Wirkung |
 |---|---|---|---|
-| 2026-04-29 | claude-code (Cloud) | Boot-Audit, Brain, Doku-Sync | abgeschlossen (gepusht) |
+| 36 | v24.14 | `685210f` | UI-Verdrahtung 7 Power-Features (Multikriterien · VAPKO · Achievements · iNat · Brain-Inspector · Welcome-Tour · Self-Test) als Menü-Buttons + Share-Card im Scan-Result |
+| 37 | v24.15 | `434f457` | i18n DE/FR/IT/gsw für 11 Strings · Achievement-Counter X/Y im Menü · Multikriterien-CTA in Empty-Search-State |
+| 38 | v24.16 | `57a4a92` | Home-Achievement-Hint (psychologischer Sog) · 3 unescaped err.message-innerHTML gehärtet (B2-Mini) |
+| 39 | v24.17 | `cd74506` | Discovery-Card auf Home für 0-Scan-User · gsHandleShortcutUrl Bugfix (war kaputt: navTo existiert nicht) · manifest shortcuts auf Killer-Features |
+| 40 | v24.18 | `9975b6f` | Performance: Leaflet defer (−140 KB blockend) · pdf.js wirklich lazy via gsEnsurePdfjs (−500 KB Default-Save, vorher 2× geladen) · loading=lazy auf Listen-Bildern |
+| 41 | v24.19 | `00be57e` | Push-UI: gsPush.subscribe/unsubscribe/test als Modal (8. Power-Feature verdrahtet) — 17 i18n-Keys × 4 Sprachen |
+| 42 | v24.20 | `2dda5a6` | revDSG-Datenexport: gsExportUserData (sensible Keys redacted) · profDeleteAccount mit Export-Angebot + lokaler Bereinigung |
+| 43 | v24.21 | `2f16ee6` | Plant-Deep-Link `?plant=ID` öffnet Detail-Modal · gsShareSpecies baut shareable URLs · history.replaceState säubert URL · seller-avatar escaped |
+| 44 | v24.22 | `42746bf` | What's-New-Modal: gsWhatsNew zeigt returning Usern Highlights seit gs_seen_version (Welcomed-Gate, Stack-Heuristik) |
+| 45 | v24.23 | `31202fb` | gsSelfTest auf 39 Module-Checks erweitert (von 33) · Settings → ✨ Was-ist-neu-wiederholen-Row |
+| 46 | v24.24 | (this) | About-Modal-Changelog modernisiert (war auf v23.74 stehen geblieben) · diese §5-Handoff-Notiz |
+
+### Was offen ist (Owner-Tasks, nicht Code)
+
+- **PR #1** in `main` mergen (CXtrI → main) — siehe RELEASE.md Phase 1
+- **Server-Stack deployen**: 4 Migrations + 5 Edge Fns (ai-proxy,
+  entitlements, push-test, daily-push, stripe-webhook) — siehe DEPLOY.md
+- **VAPID-Keys + pg_cron** für daily-push — RELEASE.md Phase 2+3
+- **iNaturalist-Client-ID** registrieren — RELEASE.md Phase 4
+- **Stripe-Webhook-Setup** + Test-Mode-Smoke — RELEASE.md Phase 4+8
+- **NVIDIA-API-Key rotieren** (war in Git-History gleakt pre-v23.86)
+- **OG-Image 1200×630** + manifest screenshots — RELEASE.md Phase 6
+
+### Was du als nächster Agent sinnvoll angehen könntest
+
+1. **B2-Migration weiter**: noch ~290 innerHTML-Stellen ohne
+   gsSafeHTML, Helper steht seit v24.02. Ziel: hot-spots in Marketplace,
+   Community-Posts, Profile-Bio. Siehe Bug B2.
+2. **Saisonkalender-Tile** auf Home (analog Discovery-Card v24.17 für
+   0-Scan-User, aber für saisonal-aktive User: „Hat jetzt Saison")
+3. **SW-Update-Banner mit Versions-Anzeige** — derzeit generisch.
+   `reg.waiting.postMessage({type:'GET_VERSION'})` + MessageChannel
+   liefert die neue CACHE_VERSION (sw.js Z. 250 unterstützt das).
+4. **Quick-Add-To-Garden vom Scan-Result** — Friction-Reducer
+5. **B1 (HIGH): JWT in HttpOnly-Cookies** — das größte offene Sec-Item,
+   braucht Server-Migration mit User-Logout-Flow, also nicht ohne
+   Owner-Approval starten
+
+### Sicher zu editieren
+
+- Index.html-Bereiche **außerhalb** der File-Locks unten
+- CSS-Inline-Styles auf neuen Buttons (CSP erlaubt)
+- i18n-Bundles (4 Sprachen, klare Struktur Z. ~16007 ff.)
+- gsSelfTest-TESTS-Array (Z. ~18950) bei jedem neuen Modul ergänzen
+- HIGHLIGHTS-Tabelle in gsWhatsNew bei jedem Sprint-Push aktualisieren
+
+### NICHT editieren ohne Plan (Race-Risiken)
+
+Siehe §6 unten — File Locks gelten weiterhin.
+
+### Pre-Deploy-Smoke-Test
+
+In DevTools-Console auf Branch-Preview:
+```js
+await gsSelfTest()           // muss 39 ✅ liefern
+await gsHealthCheck(true)    // muss min. 4 ✅ haben
+gsBrainDebug(true)           // Modal mit Kontext muss erscheinen
+openMultiKey(); openVapko(); openAchievements();   // alle 3 öffnen
+```
+
+Wenn ein Test rot ist: **vor Deploy fixen**, nicht ignorieren.
 
 ---
 
@@ -519,8 +591,11 @@ Bereiche, die nicht gleichzeitig editiert werden sollten:
 |---|---|---|
 | API-Helpers (callAI/callVisionAI/sbFetch) | 18321–18450, 39346–39410 | Stable |
 | gsBrain-Modul | 18495–18820 | Stable |
-| PLANT_DB (4342 Arten) | 12252–32500 | Read-Only ohne Migrations-Plan |
+| gsAchievements-Modul | 17750–18120 | Stable (v24.13: 34 Badges) |
+| gsWhatsNew-Modul + HIGHLIGHTS | ~18900 ff. | Pflichtfeld bei Versions-Bump |
+| PLANT_DB (4342 Arten) | extern in `data/plants.v1.js` | Read-Only ohne Migrations-Plan |
 | Init-Sequenz | 40330–42410 | Vorsicht — Race-Risiko |
+| gsHandleShortcutUrl | ~41373 ff. | Bei Deep-Link-Erweiterung MODAL_HANDLERS-Map updaten |
 
 ---
 
@@ -549,6 +624,22 @@ Bereiche, die nicht gleichzeitig editiert werden sollten:
 
 ## 9 · Wenn du nicht weißt, was du tun sollst
 
-1. Lies `ROADMAP.md` — dort sind Meilensteine priorisiert.
-2. Wenn keiner passt: arbeite an P0/P1 aus Tabelle in §4.
-3. Wenn du auf einen Bug stößt: trag ihn in §4 ein, nicht „silent fix".
+1. Lies §5 oben — die Session-Handoff-Liste hat 5 konkrete Vorschläge.
+2. Lies `ROADMAP.md` — dort sind Meilensteine priorisiert (S26+ ist
+   offen, alle bisherigen Sprints sind dokumentiert).
+3. Wenn keiner passt: arbeite an P0/P1 aus Tabelle in §4.
+4. Wenn du auf einen Bug stößt: trag ihn in §4 ein, nicht „silent fix".
+
+## 10 · Konventionen für jeden neuen Sprint
+
+1. Code editieren (eine Sache nach der anderen, kein Refactor-Mix)
+2. **Versions-Sync** in 5 Files: `index.html` (GS_VERSION + meta
+   app-version), `sw.js` (Header-Comment + CACHE_VERSION),
+   `install.html`, `_redirects`, `robots.txt`
+3. Wenn **Module-API neu** → in `gsSelfTest`-TESTS ergänzen
+4. Wenn **i18n-relevant** → 4 Sprachen (DE/FR/IT/gsw) parallel
+5. **HIGHLIGHTS-Tabelle** in gsWhatsNew updaten (1 Bullet pro Version)
+6. **STATUS.md §1 + §2** ergänzen, **ROADMAP.md** mit S-Eintrag
+7. Sanity-Check: `node --check sw.js` + JSON.parse(manifest)
+8. Commit-Message: `vXX.YY: <kurze Aussage>` + Bullet-Body
+9. Push auf Feature-Branch — kein direkter main-Push

@@ -21,7 +21,7 @@
 <meta name="apple-mobile-web-app-title" content="GreenScan">
 <meta name="description" content="4342 Schweizer Arten: Wildpflanzen, Pilze, Bäume, Kräuter, Moose, Flechten, Algen, Hauspflanzen. KI-Scanner, Garten, Lichtmessung.">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="24.23">
+<meta name="app-version" content="24.24">
 <link rel="canonical" href="https://greenscan.ch/">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <meta name="author" content="GreenScan">
@@ -4637,7 +4637,7 @@ button:focus-visible, .ib:focus-visible, .tab:focus-visible{
     <div class="modal-header" style="background:var(--hero-bg);color:#fff;padding:18px 20px;border-radius:22px 22px 0 0;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
       <div>
         <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:800;">🌿 GreenScan</div>
-        <div style="font-size:12px;opacity:.9;margin-top:2px;">Version <span id="modal-about-ver">23.65</span> · <span id="modal-about-arten">4342</span> Arten</div>
+        <div style="font-size:12px;opacity:.9;margin-top:2px;">Version <span id="modal-about-ver">24.24</span> · <span id="modal-about-arten">4342</span> Arten</div>
       </div>
       <button class="modal-close-btn" aria-label="Schliessen" onclick="closeModal('about-modal')" style="background:rgba(255,255,255,.2);color:#fff;border:none;width:34px;height:34px;border-radius:50%;font-size:18px;cursor:pointer;">&#x2715;</button>
     </div>
@@ -4648,12 +4648,31 @@ button:focus-visible, .ib:focus-visible, .tab:focus-visible{
       <!-- Aktuelle Version Highlight -->
       <div style="background:linear-gradient(135deg,rgba(45,138,45,.12),rgba(45,138,45,.04));border-left:3px solid var(--g-main);border-radius:10px;padding:12px 14px;margin-bottom:16px;">
         <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--g-main);margin-bottom:4px;">✨ Aktuelle Version</div>
-        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;">v23.74 — April 2026</div>
-        <div style="font-size:12.5px;color:var(--text2);line-height:1.55;">Zukunftssichere Plattform: 44 Tabellen im Supabase-Schema · IoT-Sensoren-Support (eigene Hardware anschließbar) · Push-Notifications · Shared Gardens · Garden-Tasks · Vouchers · Referrals · Analytics · Audit-Log — alles mit RLS &amp; Client-Sync-Helpers verknüpft.</div>
+        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;">v24.24 — April 2026</div>
+        <div style="font-size:12.5px;color:var(--text2);line-height:1.55;">Pre-Launch-Polish: 8 zuvor unsichtbare Power-Features mit Menü-Buttons verdrahtet (Multikriterien-Schlüssel, VAPKO, Achievements, iNat, Push-Tipps, Health-Check, Brain-Inspector, Self-Test) · revDSG-Datenexport · Plant-Deep-Links (?plant=ID) · Performance-Pass (Leaflet defer, pdf.js lazy: −640 KB Initial-Load) · „Was ist neu?"-Modal für Returning Users.</div>
       </div>
 
       <!-- Changelog -->
       <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:10px;">📋 Was ist neu?</div>
+
+      <!-- v24.14 – v24.23: Pre-Launch-Sprints 36–45 (kompakt) -->
+      <div style="margin-bottom:14px;padding:10px 12px;background:rgba(46,125,50,.05);border-radius:8px;">
+        <div style="font-size:12.5px;font-weight:700;color:var(--g-main);margin-bottom:6px;">v24.14 – v24.23 · Pre-Launch-Polish (April 2026)</div>
+        <ul style="margin:0 0 0 18px;padding:0;font-size:12px;color:var(--text2);line-height:1.7;">
+          <li>✨ <b>Was-ist-neu-Modal:</b> Returning User sehen Highlights seit dem letzten Besuch automatisch (gsWhatsNew, idempotent über gs_seen_version)</li>
+          <li>🔗 <b>Plant-Deep-Links:</b> <code>?plant=ID</code> öffnet die Pflanzen-Detail direkt — Teilen-Buttons bauen jetzt shareable URLs · URL-Hygiene via history.replaceState</li>
+          <li>📤 <b>Datenexport (revDSG Art. 8 / GDPR Art. 20):</b> JSON-Backup zum Herunterladen mit redacted Auth-Token · sauberer Konto-Lösch-Flow inkl. lokaler Bereinigung</li>
+          <li>🔔 <b>Push-Tipps-Modal:</b> Stunden-Picker, Live-Status, Test-Button — gsPush jetzt voll im Menü erreichbar (Diagnose &amp; Hilfe)</li>
+          <li>⚡ <b>Performance:</b> Leaflet defer-loaded (−140 KB blockend), pdf.js wirklich lazy via gsEnsurePdfjs (−500 KB Default-Save), loading=lazy auf Listen-Bildern</li>
+          <li>🛒 <b>Discovery-Card auf Home:</b> Erst-User (0 Scans) sehen prominent „📋 Bestimmungs-Schlüssel" als CTA · Empty-State-CTA in der Suche</li>
+          <li>🏆 <b>Achievement-Hooks:</b> X/Y-Counter im Menü-Button · „Nächstes Badge"-Hint auf Home (psychologischer Sog)</li>
+          <li>📋 <b>UI-Verdrahtung:</b> 8 Power-Features (Multikriterien · VAPKO · Achievements · iNat · Push · Brain-Inspector · Welcome-Tour · Self-Test) als Menü-Buttons in „🩺 Diagnose &amp; Hilfe"</li>
+          <li>🇨🇭 <b>Schweizerdeutsch + i18n:</b> Push-UI · Settings · WhatsNew · Achievement-Counter alle in DE/FR/IT/gsw</li>
+          <li>🛡️ <b>Sicherheit:</b> 4 unescaped innerHTML-Pfade gehärtet (B2-Mini-Migration), Marketplace seller-avatar escaped</li>
+          <li>🚀 <b>Manifest-Shortcuts:</b> Long-press auf Home-Icon zeigt jetzt Bestimmungs-Schlüssel + Pflanzendoktor (statt Lichtmessung/Garten-Planer)</li>
+          <li>🔬 <b>Self-Test:</b> 39 Module-Reachability-Checks (vorher 33), Pre-Deploy-Smoke-Test als Modal aufrufbar</li>
+        </ul>
+      </div>
 
       <div style="margin-bottom:12px;">
         <div style="font-size:12.5px;font-weight:700;color:var(--g-main);margin-bottom:4px;">v23.74 · 24.04.2026</div>
@@ -18940,6 +18959,7 @@ window.gsWhatsNew = (function(){
   // Feature-Highlights ab v24.14 — gepflegt im Code, kompakt für Modal.
   // Reihenfolge: aktuell zuerst.
   var HIGHLIGHTS = [
+    { v:'v24.24', items:[ '📋 About-Modal-Changelog modernisiert — alle Sprint-36–46-Highlights kompakt erklärt' ] },
     { v:'v24.23', items:[ '🔬 Self-Test deckt jetzt 6 weitere Module ab · Settings → ✨ Was ist neu wiederholen' ] },
     { v:'v24.22', items:[ '✨ „Was ist neu?"-Modal beim Boot — siehst Highlights seit deinem letzten Besuch' ] },
     { v:'v24.21', items:[ '🔗 Pflanzen direkt teilen via ?plant=ID Deep-Link' ] },
@@ -39982,7 +40002,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v24.23';
+var GS_VERSION = 'v24.24';
 // ══ GMAIL DRAFT-IDs ═══════════════════════════════════════════
 // Vorgefertigte E-Mail-Templates im Gmail-Konto www.greenscan@gmail.com
 // Absender: GreenScan <info@greenscan.ch>

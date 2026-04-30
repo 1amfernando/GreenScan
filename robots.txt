@@ -1,4 +1,4 @@
-# GreenScan v24.23 — robots.txt
+# GreenScan v24.24 — robots.txt
 # Erlaubt legitime Suchmaschinen, blockiert bandbreiten-fressende AI-Scraper
 
 # Haupt-Suchmaschinen: erlaubt
