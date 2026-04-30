@@ -16986,6 +16986,353 @@ window.gsSafeHTML = (function(){
 // Convenience: gsHTMLEscape als kurzer Alias (analog zu lodash.escape)
 window.gsHTMLEscape = window.gsSafeHTML.escape;
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  gsINaturalist — OAuth-Bridge zur Schweizer Wissenschafts-Community (v24.04)
+// ═══════════════════════════════════════════════════════════════════════════
+//  Nutzt iNaturalist OAuth2 mit PKCE (Proof Key for Code Exchange) — der
+//  empfohlene Flow fuer rein clientseitige Apps. Kein Client-Secret noetig.
+//
+//  Setup-einmalig (Owner — siehe DEPLOY.md):
+//    1) https://www.inaturalist.org/oauth/applications/new aufrufen
+//    2) Anwendungsname: "GreenScan", Redirect-URI: https://greenscan.ch/
+//    3) Client-ID in localStorage.setItem('gs_inat_client_id', '<ID>') ODER
+//       per `<meta name="gs-inat-client-id" content="...">` im Head.
+//
+//  Public API:
+//    gsINaturalist.connect()                  → OAuth-Flow (Redirect)
+//    gsINaturalist.disconnect()               → Token + Profile loeschen
+//    gsINaturalist.isConnected()              → boolean
+//    gsINaturalist.me()                       → Promise<User-Profile>
+//    gsINaturalist.publishObservation(opts)   → Promise<{id, url}>
+//
+//  PKCE-Storage: gs_inat_pkce (waehrend Flow), gs_inat_token (nach Erfolg).
+//  Token-Storage ist localStorage (PWA-Standard) — analog zum Supabase-JWT,
+//  mit aktiver CSP entschaerft.
+// ═══════════════════════════════════════════════════════════════════════════
+window.gsINaturalist = (function(){
+  'use strict';
+
+  var BASE        = 'https://www.inaturalist.org';
+  var API         = 'https://api.inaturalist.org/v1';
+  var AUTH_PATH   = '/oauth/authorize';
+  var TOKEN_PATH  = '/oauth/token';
+
+  function getClientId(){
+    var fromLs = '';
+    try { fromLs = localStorage.getItem('gs_inat_client_id') || ''; } catch(_){}
+    if (fromLs) return fromLs;
+    var meta = document.querySelector('meta[name="gs-inat-client-id"]');
+    return (meta && meta.getAttribute('content')) || '';
+  }
+
+  // Redirect-URI = aktueller Origin + '/' (so registriert auf iNat).
+  function redirectUri(){
+    return location.origin + '/';
+  }
+
+  // base64url Encoding (RFC 7636)
+  function b64url(bytes){
+    var bin = '';
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  }
+  function randomBytes(n){
+    var arr = new Uint8Array(n);
+    (window.crypto || window.msCrypto).getRandomValues(arr);
+    return arr;
+  }
+  async function sha256(str){
+    var data = new TextEncoder().encode(str);
+    var hash = await crypto.subtle.digest('SHA-256', data);
+    return new Uint8Array(hash);
+  }
+  function randomId(){
+    return b64url(randomBytes(16));
+  }
+
+  // PKCE-Verifier (43..128 Zeichen, base64url)
+  function genVerifier(){
+    return b64url(randomBytes(64));
+  }
+
+  // -- Connect: Authorization-Code-Flow mit PKCE -----------------------------
+  async function connect(){
+    var clientId = getClientId();
+    if (!clientId) {
+      alert('iNaturalist-Verbindung: gs_inat_client_id ist nicht gesetzt.\n\nOwner-Setup:\n1) https://www.inaturalist.org/oauth/applications/new\n2) Redirect-URI: ' + redirectUri() + '\n3) localStorage.setItem("gs_inat_client_id", "<ID>")');
+      return false;
+    }
+    var verifier = genVerifier();
+    var challenge = b64url(await sha256(verifier));
+    var state = randomId();
+    try {
+      localStorage.setItem('gs_inat_pkce', JSON.stringify({
+        verifier: verifier, state: state, ts: Date.now()
+      }));
+    } catch(_){}
+    var url = BASE + AUTH_PATH + '?' +
+      'response_type=code' +
+      '&client_id=' + encodeURIComponent(clientId) +
+      '&redirect_uri=' + encodeURIComponent(redirectUri()) +
+      '&code_challenge=' + encodeURIComponent(challenge) +
+      '&code_challenge_method=S256' +
+      '&state=' + encodeURIComponent(state) +
+      '&scope=write';
+    try { window.gsBrain && window.gsBrain.observe('inat_connect_start', {}); } catch(_){}
+    location.href = url;
+    return true;
+  }
+
+  // Wird beim Boot aufgerufen, wenn ?code & ?state in der URL stehen.
+  async function handleCallback(){
+    try {
+      var p = new URLSearchParams(location.search);
+      var code = p.get('code');
+      var state = p.get('state');
+      if (!code) return false;
+      var pkce = null;
+      try { pkce = JSON.parse(localStorage.getItem('gs_inat_pkce') || 'null'); } catch(_){}
+      if (!pkce || pkce.state !== state) {
+        // Nicht unser Flow — z.B. anderer OAuth oder veralteter State
+        return false;
+      }
+      var clientId = getClientId();
+      if (!clientId) return false;
+
+      var body = new URLSearchParams();
+      body.set('grant_type', 'authorization_code');
+      body.set('client_id', clientId);
+      body.set('redirect_uri', redirectUri());
+      body.set('code', code);
+      body.set('code_verifier', pkce.verifier);
+
+      var resp = await fetch(BASE + TOKEN_PATH, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
+        body: body.toString()
+      });
+      if (!resp.ok) {
+        try { showProfileToast('iNat: Token-Tausch fehlgeschlagen ('+resp.status+')', 'error'); } catch(_){}
+        return false;
+      }
+      var t = await resp.json();
+      if (!t || !t.access_token) return false;
+      // Token speichern + PKCE wegwerfen
+      localStorage.setItem('gs_inat_token', JSON.stringify({
+        access_token: t.access_token,
+        token_type:   t.token_type || 'Bearer',
+        expires_in:   t.expires_in || null,
+        scope:        t.scope || 'write',
+        ts:           Date.now()
+      }));
+      try { localStorage.removeItem('gs_inat_pkce'); } catch(_){}
+      // URL aufräumen, damit ?code nicht in der History bleibt
+      try {
+        var clean = location.origin + location.pathname + (location.hash || '');
+        history.replaceState(null, '', clean);
+      } catch(_){}
+      try { window.gsBrain && window.gsBrain.observe('inat_connected', {}); } catch(_){}
+      try { showProfileToast('✅ iNaturalist verbunden', 'success'); } catch(_){}
+      // Profile vorausladen (best effort)
+      me().catch(function(){});
+      return true;
+    } catch(e) {
+      console.warn('[gsINaturalist.handleCallback]', e);
+      return false;
+    }
+  }
+
+  function getToken(){
+    try {
+      var t = JSON.parse(localStorage.getItem('gs_inat_token') || 'null');
+      if (!t || !t.access_token) return null;
+      return t.access_token;
+    } catch(_) { return null; }
+  }
+
+  function isConnected(){ return !!getToken(); }
+
+  function disconnect(){
+    try {
+      localStorage.removeItem('gs_inat_token');
+      localStorage.removeItem('gs_inat_profile');
+    } catch(_){}
+    try { window.gsBrain && window.gsBrain.observe('inat_disconnected', {}); } catch(_){}
+    return true;
+  }
+
+  async function me(force){
+    if (!force) {
+      try {
+        var cached = JSON.parse(localStorage.getItem('gs_inat_profile') || 'null');
+        if (cached && (Date.now() - cached.ts) < 86400000) return cached.data;
+      } catch(_){}
+    }
+    var token = getToken();
+    if (!token) return null;
+    var resp = await fetch(API + '/users/me', {
+      headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' }
+    });
+    if (resp.status === 401) { disconnect(); return null; }
+    if (!resp.ok) return null;
+    var d = await resp.json();
+    var user = (d && d.results && d.results[0]) || d;
+    try { localStorage.setItem('gs_inat_profile', JSON.stringify({ts: Date.now(), data: user})); } catch(_){}
+    return user;
+  }
+
+  // Convertiert eine base64-Photo (von der App) → Blob fuer Multipart-Upload
+  function b64ToBlob(b64, mt){
+    var bin = atob(b64);
+    var arr = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: mt || 'image/jpeg' });
+  }
+
+  // Veroeffentlicht eine Beobachtung. opts:
+  //   { speciesGuess: 'Bärlauch', latinName: 'Allium ursinum',
+  //     observedOn: '2026-04-30', lat, lng, accuracy, description?,
+  //     photoB64?, photoMime?, captive?: false }
+  async function publishObservation(opts){
+    var token = getToken();
+    if (!token) throw new Error('Nicht mit iNaturalist verbunden.');
+    if (!opts) throw new Error('Beobachtungs-Daten fehlen.');
+
+    // 1) Observation anlegen
+    var obs = {
+      species_guess: opts.speciesGuess || opts.latinName || '',
+      observed_on_string: opts.observedOn || new Date().toISOString().slice(0,10),
+      description: (opts.description || 'Erstellt mit GreenScan').slice(0, 5000),
+      captive_flag: !!opts.captive
+    };
+    if (typeof opts.lat === 'number' && typeof opts.lng === 'number') {
+      obs.latitude  = opts.lat;
+      obs.longitude = opts.lng;
+      if (typeof opts.accuracy === 'number') obs.positional_accuracy = Math.round(opts.accuracy);
+    }
+
+    var resp = await fetch(API + '/observations', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({ observation: obs })
+    });
+    if (resp.status === 401) { disconnect(); throw new Error('iNat-Sitzung abgelaufen — bitte neu verbinden.'); }
+    if (!resp.ok) {
+      var errText = await resp.text().catch(function(){ return ''; });
+      throw new Error('iNat-API-Fehler ' + resp.status + ': ' + errText.slice(0,200));
+    }
+    var data = await resp.json();
+    var obsId = data && (data.id || (data[0] && data[0].id));
+    var obsUrl = obsId ? (BASE + '/observations/' + obsId) : null;
+
+    // 2) Foto separat uploaden — best effort, fail nicht den ganzen Flow
+    if (obsId && opts.photoB64) {
+      try {
+        var blob = b64ToBlob(opts.photoB64, opts.photoMime || 'image/jpeg');
+        var fd = new FormData();
+        fd.append('observation_photo[observation_id]', String(obsId));
+        fd.append('file', blob, 'greenscan-' + obsId + '.jpg');
+        var pResp = await fetch(API + '/observation_photos', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' },
+          body: fd
+        });
+        if (!pResp.ok) {
+          console.warn('[gsINaturalist.publishObservation] Foto-Upload schlug fehl:', pResp.status);
+        }
+      } catch(e) {
+        console.warn('[gsINaturalist.publishObservation] Foto-Upload-Fehler:', e);
+      }
+    }
+
+    try { window.gsBrain && window.gsBrain.observe('inat_published', {id: obsId, hasPhoto: !!opts.photoB64}); } catch(_){}
+    return { id: obsId, url: obsUrl };
+  }
+
+  // -- UI: Connect-Modal -----------------------------------------------------
+  function openConnectModal(){
+    var connected = isConnected();
+    var existing = document.getElementById('gs-inat-modal');
+    if (existing) existing.remove();
+    var m = document.createElement('div');
+    m.id = 'gs-inat-modal';
+    m.setAttribute('role', 'dialog');
+    m.setAttribute('aria-modal', 'true');
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:14px;';
+    var box = document.createElement('div');
+    box.style.cssText = 'background:var(--card);color:var(--text);max-width:480px;width:100%;max-height:90vh;overflow-y:auto;border-radius:14px;padding:18px 20px;font-family:DM Sans,sans-serif;';
+    if (connected) {
+      box.innerHTML = window.gsSafeHTML.raw`
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <div style="font-size:24px;">${window.gsSafeHTML.unsafe('🦋')}</div>
+          <div style="flex:1;font-weight:800;font-size:16px;">iNaturalist verbunden</div>
+          <button id="gs-inat-close" aria-label="Schliessen" style="background:transparent;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:4px 8px;">×</button>
+        </div>
+        <p style="font-size:13px;line-height:1.5;color:var(--text2);margin-bottom:14px;">Deine GreenScan-Funde können auf <a href="https://www.inaturalist.org/" target="_blank" rel="noopener noreferrer" style="color:var(--g-main);">inaturalist.org</a> als Beobachtungen veröffentlicht werden — sie helfen der Schweizer Bürger-Wissenschaft.</p>
+        <button id="gs-inat-disconnect" style="width:100%;padding:11px;background:#ffebee;color:#b71c1c;border:1px solid #ef9a9a;border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">🔌 Verbindung trennen</button>`;
+    } else {
+      var clientId = getClientId();
+      var hasClient = !!clientId;
+      box.innerHTML = window.gsSafeHTML.raw`
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <div style="font-size:24px;">${window.gsSafeHTML.unsafe('🦋')}</div>
+          <div style="flex:1;font-weight:800;font-size:16px;">Mit iNaturalist verbinden</div>
+          <button id="gs-inat-close" aria-label="Schliessen" style="background:transparent;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:4px 8px;">×</button>
+        </div>
+        <p style="font-size:13px;line-height:1.5;color:var(--text2);margin-bottom:12px;">Veröffentliche deine GreenScan-Funde direkt auf <a href="https://www.inaturalist.org/" target="_blank" rel="noopener noreferrer" style="color:var(--g-main);">iNaturalist</a> — der weltgrössten Bürger-Wissenschafts-Plattform für Natur. Schweizer Daten gehen ins <a href="https://www.gbif.org/" target="_blank" rel="noopener noreferrer" style="color:var(--g-main);">GBIF</a> und werden von Forschenden genutzt.</p>
+        ${window.gsSafeHTML.unsafe(hasClient
+          ? '<button id="gs-inat-go" style="width:100%;padding:12px;background:#74ac00;color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;font-size:14px;">→ Auf iNaturalist anmelden</button>'
+          : '<div style="padding:11px 13px;background:#fff8e1;border-left:3px solid #f9a825;border-radius:8px;font-size:12px;color:#7a5800;line-height:1.5;">⚠️ <b>Setup nicht abgeschlossen.</b> Der Owner muss zuerst eine iNat-OAuth-App registrieren. Siehe DEPLOY.md §15.</div>'
+        )}
+        <div style="margin-top:10px;font-size:11px;color:var(--muted);text-align:center;line-height:1.5;">Du wirst zu <b>inaturalist.org</b> umgeleitet, loggst dich dort ein und kommst hierher zurück. Wir bekommen <b>nur einen Schreib-Token</b> — kein Passwort.</div>`;
+    }
+    m.appendChild(box);
+    m.addEventListener('click', function(e){ if (e.target === m) m.remove(); });
+    box.querySelector('#gs-inat-close').addEventListener('click', function(){ m.remove(); });
+    var go = box.querySelector('#gs-inat-go');
+    if (go) go.addEventListener('click', function(){ connect(); });
+    var dis = box.querySelector('#gs-inat-disconnect');
+    if (dis) dis.addEventListener('click', function(){
+      disconnect();
+      try { showProfileToast('iNaturalist getrennt', 'info'); } catch(_){}
+      m.remove();
+    });
+    document.body.appendChild(m);
+  }
+
+  return {
+    connect: connect,
+    disconnect: disconnect,
+    isConnected: isConnected,
+    handleCallback: handleCallback,
+    me: me,
+    publishObservation: publishObservation,
+    openConnectModal: openConnectModal,
+    redirectUri: redirectUri,
+    getClientId: getClientId
+  };
+})();
+
+// Beim Boot: wenn ?code & ?state in der URL → Callback verarbeiten
+(function(){
+  try {
+    var p = new URLSearchParams(location.search);
+    if (p.get('code') && p.get('state')) {
+      // Async, nicht-blockierend
+      setTimeout(function(){
+        try { window.gsINaturalist.handleCallback(); } catch(_){}
+      }, 200);
+    }
+  } catch(_){}
+})();
+
+// Globaler Helper
+window.openInat = function(){ try { window.gsINaturalist.openConnectModal(); } catch(_){} };
+
 // ═══ KAMERA / SCANNER ════════════════════════════════
 // v23.54: Scanner-Loading-Overlay Helpers
 function _gsSrLoadingShow(text, sub){

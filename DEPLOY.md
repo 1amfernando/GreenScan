@@ -243,6 +243,73 @@ supabase functions deploy ai-proxy entitlements
 
 ---
 
+## 15 · iNaturalist-Bridge (optional, P2-1)
+
+GreenScan kann Funde auf [iNaturalist](https://www.inaturalist.org/)
+veröffentlichen — Eintritt zur Schweizer Bürger-Wissenschafts-Community
+(630k+ CH-Sichtungen, GBIF-Anbindung).
+
+### 15.1 · OAuth-App registrieren (einmalig)
+
+1. Mit deinem iNat-Owner-Account einloggen
+2. https://www.inaturalist.org/oauth/applications/new
+3. Felder ausfüllen:
+   - **Name**: `GreenScan`
+   - **Redirect URI**: `https://greenscan.ch/`  ← exakt mit Trailing-Slash
+   - **Scopes**: `write` (Standard reicht)
+4. **Client-ID** notieren (lange Hex-String). **Client-Secret wird NICHT
+   gebraucht** — wir nutzen PKCE.
+
+### 15.2 · Client-ID in der App hinterlegen
+
+Zwei Wege (entweder oder):
+
+**a)** Per Browser-DevTools (für Tests):
+```js
+localStorage.setItem('gs_inat_client_id', '<deine-client-id>')
+```
+
+**b)** Per Meta-Tag im `<head>` (für alle User dauerhaft) — in
+`index.html` nach den anderen Metas einfügen:
+```html
+<meta name="gs-inat-client-id" content="<deine-client-id>">
+```
+
+### 15.3 · Test
+
+```js
+gsINaturalist.connect()        // → Redirect zu iNat-Login
+// Nach Rückkehr:
+await gsINaturalist.me()       // → User-Profil
+gsINaturalist.isConnected()    // → true
+```
+
+### 15.4 · Im Scan-Result-Flow nutzen
+
+```js
+await gsINaturalist.publishObservation({
+  speciesGuess: 'Bärlauch',
+  latinName:    'Allium ursinum',
+  observedOn:   '2026-04-30',
+  lat: 47.3769, lng: 8.5417, accuracy: 12,
+  description:  'Auf einem Spaziergang im Waldhof gefunden.',
+  photoB64:     'iVBORw0KGgoAAAANSU...',
+  photoMime:    'image/jpeg'
+});
+// → { id: 123456, url: 'https://www.inaturalist.org/observations/123456' }
+```
+
+### 15.5 · Rollback / Disconnect
+
+```js
+gsINaturalist.disconnect()  // Token + Profile löschen
+```
+
+Token wird auch automatisch entfernt, wenn iNat ihn als ungültig (401)
+ablehnt.
+
+---
+
 ## 11 · Rollback
 
 Wenn etwas nicht passt:

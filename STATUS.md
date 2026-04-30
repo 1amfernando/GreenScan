@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.03` (in Arbeit) / `v24.02` (gepusht)
+**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.04` (in Arbeit) / `v24.03` (gepusht)
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v24.03 | Sprint 17: PLANT_DB-Split → `data/plants.v1.js` (~2.1 MB raus, -45% Initial-Size) + immutable-Cache + SW-Precache |
+| (next push) | v24.04 | Sprint 20 (P2-1): iNaturalist-OAuth-Bridge — `gsINaturalist` mit PKCE-Flow, `publishObservation`, Connect-Modal |
+| `8c43ac3` | v24.03 | Sprint 17: PLANT_DB-Split → `data/plants.v1.js` (~2.1 MB raus, -45% Initial-Size) + immutable-Cache + SW-Precache |
 | `6f23ff1` | v24.02 | Sprint 18: `gsSafeHTML`-Tagged-Template (auto-escape) + CLAUDE.md-Doku-Pattern |
 | `1ada9fd` | v24.01 | Sprint 19: `gsSRS` SM-2-Spaced-Repetition + Auto-Bridge zu `gsBrain.observe('quiz_answered')` |
 | `318427e` | v24.00 | Phase 2 (Sprint 13-16): `gsRedList` + `gsExternalSources` (in Detail-Modal verdrahtet) · `gsVapko` Pilzkontrollstellen (~50 Stellen) · `gsMeteo` Schweizer Warnungen (Frost/Hitze/Sturm/Regen aus open-meteo) |
@@ -92,6 +93,18 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
   scans_limit, can_scan}` aus `v_user_entitlements` ⨝ `ai_usage`.
   Client cached 60s in `_gsServerEnt`, `gsAboCanUse('scan')` nutzt
   Server-Wert wenn vorhanden — localStorage-Manipulation nutzlos.
+- ✅ **iNaturalist-OAuth-Bridge** (v24.04, Code committed —
+  Client-ID-Setup durch Owner ausstehend): `gsINaturalist.connect()`
+  startet OAuth2-PKCE-Flow (sicher für PWA, kein Client-Secret).
+  `handleCallback()` läuft beim Boot wenn `?code&state` in der URL,
+  tauscht Code gegen `access_token`, säubert URL via
+  `history.replaceState`. `publishObservation({speciesGuess, latinName,
+  observedOn, lat, lng, accuracy, description, photoB64, photoMime})`
+  → POST `/observations` + separater Foto-Upload via
+  `/observation_photos`. `me()` cached User-Profile 24h.
+  Connect-Modal mit Scope-Hinweis + Disconnect-Option. Brain-Observe:
+  `inat_connect_start`, `inat_connected`, `inat_disconnected`,
+  `inat_published`. Setup-Anleitung in `DEPLOY.md §15`.
 - ✅ **PLANT_DB-Split** (v24.03): 4'342 Pflanzen aus `index.html`
   extrahiert nach `data/plants.v1.js` (-2.16 MB, -45% Initial-Size).
   index.html jetzt 2.63 MB (vorher 4.79 MB), 45'104 Zeilen (vorher
