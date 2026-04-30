@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.00` (in Arbeit) / `v23.99` (gepusht)
+**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.01` (in Arbeit) / `v24.00` (gepusht)
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v24.00 | Phase 2 (Sprint 13-16): `gsRedList` + `gsExternalSources` (in Detail-Modal verdrahtet) · `gsVapko` Pilzkontrollstellen (~50 Stellen) · `gsMeteo` Schweizer Warnungen (Frost/Hitze/Sturm/Regen aus open-meteo) |
+| (next push) | v24.01 | Sprint 19: `gsSRS` SM-2-Spaced-Repetition + Auto-Bridge zu `gsBrain.observe('quiz_answered')` |
+| `318427e` | v24.00 | Phase 2 (Sprint 13-16): `gsRedList` + `gsExternalSources` (in Detail-Modal verdrahtet) · `gsVapko` Pilzkontrollstellen (~50 Stellen) · `gsMeteo` Schweizer Warnungen (Frost/Hitze/Sturm/Regen aus open-meteo) |
 | `70aa68c` | v23.99 | Phase 1 (Sprint 10-12): GPX-Import · Print-CSS für saubere PDFs · i18n-Tab-Migration (`gsApplyI18n` + data-i18n) |
 | `5dc9880` | v23.98 | Deploy-Ready: DEPLOY.md (7 Befehle), README-Update, defensive Quota-Cache bei Failure |
 | `7b61cf7` | v23.97 | Sprint 9 (A): i18n FR/IT-Infrastruktur (`gsI18n` + DE/FR/IT-Bundles + plant-name lookup + hreflang) |
@@ -89,6 +90,16 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
   scans_limit, can_scan}` aus `v_user_entitlements` ⨝ `ai_usage`.
   Client cached 60s in `_gsServerEnt`, `gsAboCanUse('scan')` nutzt
   Server-Wert wenn vorhanden — localStorage-Manipulation nutzlos.
+- ✅ **gsSRS — Spaced-Repetition (SM-2)** (v24.01): Adaptives Lernen
+  statt Zufalls-Quiz. SM-2-Algorithmus (SuperMemo, Goldstandard).
+  `gsSRS.review(cardId, q)` mit q∈[0..5] aktualisiert Karten-State
+  (ease, interval, reps, lapses, due). `gsSRS.due()` liefert fällige
+  Karten sortiert nach Overdue-Tagen, `gsSRS.stats()` liefert
+  total/due/learning/mature. **Auto-Bridge**: wickelt
+  `gsBrain.observe` ein und konvertiert `quiz_answered`-Events
+  automatisch in `gsSRS.observeQuiz(cardId, ok, timeS)` —
+  kein Eingriff in Quiz-Flow nötig, das Lern-System wächst transparent
+  mit. Storage: `gs_srs_cards`.
 - ✅ **gsRedList — IUCN-Schutzstatus Schweiz** (v24.00): kuratierte Liste
   von ~80 Schweizer Arten mit IUCN-Status (LC/NT/VU/EN/CR/RE) nach
   Bornand 2016 + BAFU 2019. `gsRedList.status(latName)` liefert
