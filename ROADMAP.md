@@ -11,7 +11,8 @@
 
 | # | Meilenstein | Commit | Wirkung |
 |---|---|---|---|
-| S24 | **Sprint 44: What's-New-Modal** | (next push) v24.22 | gsWhatsNew zeigt returning Usern Highlights seit gs_seen_version (HIGHLIGHTS-Tabelle, lex-sort, Welcomed-Gate, Stack-Heuristik) — i18n in 4 Sprachen |
+| S25 | **Sprint 45: Self-Test-Coverage + WhatsNew-Settings-Row** | (next push) v24.23 | gsSelfTest um 6 neue Module erweitert (39 Checks total) · Settings-Row für „Was ist neu wiederholen" (manueller WhatsNew-Trigger) · HIGHLIGHTS um v24.22+v24.23 |
+| S24 | **Sprint 44: What's-New-Modal** | `42746bf` v24.22 | gsWhatsNew zeigt returning Usern Highlights seit gs_seen_version (HIGHLIGHTS-Tabelle, lex-sort, Welcomed-Gate, Stack-Heuristik) — i18n in 4 Sprachen |
 | S23 | **Sprint 43: Plant-Deep-Link + URL-Hygiene + Marketplace-XSS-Fix** | `2f16ee6` v24.21 | ?plant=ID öffnet Detail-Modal direkt (viral-shareable URLs) · gsShareSpecies baut Deep-Links · history.replaceState säubert URL · seller-avatar escaped |
 | S22 | **Sprint 42: revDSG-Datenexport + sauberer Lösch-Flow** | `2dda5a6` v24.20 | Recht auf Datenübertragbarkeit (Art. 8 revDSG / Art. 20 GDPR) — gsExportUserData liefert JSON-Backup, sensible Keys redacted · Settings-Row für alle User · profDeleteAccount mit Export-Angebot + lokale Bereinigung |
 | S21 | **Sprint 41: Push-UI** | `00be57e` v24.19 | gsPush vollständig im Menü erreichbar (Modal mit Status/Hour-Picker/Test) — 8. unsichtbares Power-Feature verdrahtet, 17 i18n-Keys DE/FR/IT/gsw |

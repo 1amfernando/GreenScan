@@ -21,7 +21,7 @@
 <meta name="apple-mobile-web-app-title" content="GreenScan">
 <meta name="description" content="4342 Schweizer Arten: Wildpflanzen, Pilze, Bäume, Kräuter, Moose, Flechten, Algen, Hauspflanzen. KI-Scanner, Garten, Lichtmessung.">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="24.22">
+<meta name="app-version" content="24.23">
 <link rel="canonical" href="https://greenscan.ch/">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <meta name="author" content="GreenScan">
@@ -3955,6 +3955,16 @@ button:focus-visible, .ib:focus-visible, .tab:focus-visible{
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings.exportTitle">Meine Daten exportieren</div>
           <div class="settings-label-sub" data-i18n="settings.exportSub">JSON-Backup zum Herunterladen (revDSG)</div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);">›</div>
+      </div>
+
+      <!-- v24.23: Was ist neu wiederholen -->
+      <div class="settings-row" id="settings-whatsnew-row" onclick="try{window.openWhatsNew&&window.openWhatsNew();}catch(_){}" style="cursor:pointer;">
+        <div class="settings-icon" style="background:#fff3e0;">✨</div>
+        <div class="settings-label">
+          <div class="settings-label-title" data-i18n="settings.whatsnewTitle">Was ist neu</div>
+          <div class="settings-label-sub" data-i18n="settings.whatsnewSub">Highlights der letzten Versionen</div>
         </div>
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
@@ -16330,6 +16340,8 @@ window.gsI18n = (function(){
       'whatsnew.title': 'Was ist neu?',
       'whatsnew.lead': 'Seit deinem letzten Besuch sind diese Verbesserungen dazugekommen:',
       'whatsnew.ok': 'Verstanden',
+      'settings.whatsnewTitle': 'Was ist neu',
+      'settings.whatsnewSub': 'Highlights der letzten Versionen',
       'push.title': 'Push-Tipps',
       'push.lead': 'Erhalte täglich einen personalisierten Smart-Tipp aus deinem Brain — passend zu Saison, Standort und deinen Scans.',
       'push.active': 'aktiv',
@@ -16442,6 +16454,8 @@ window.gsI18n = (function(){
       'whatsnew.title': 'Quoi de neuf ?',
       'whatsnew.lead': 'Depuis ta dernière visite, voici les améliorations :',
       'whatsnew.ok': 'Compris',
+      'settings.whatsnewTitle': 'Quoi de neuf',
+      'settings.whatsnewSub': 'Faits saillants des dernières versions',
       'push.title': 'Astuces push',
       'push.lead': 'Reçois chaque jour une astuce intelligente personnalisée — adaptée à la saison, ton lieu et tes scans.',
       'push.active': 'actif',
@@ -16554,6 +16568,8 @@ window.gsI18n = (function(){
       'whatsnew.title': 'Novità',
       'whatsnew.lead': 'Dalla tua ultima visita sono arrivati questi miglioramenti:',
       'whatsnew.ok': 'Capito',
+      'settings.whatsnewTitle': 'Novità',
+      'settings.whatsnewSub': 'Punti salienti delle ultime versioni',
       'push.title': 'Suggerimenti push',
       'push.lead': 'Ricevi ogni giorno un suggerimento personalizzato — basato su stagione, luogo e tuoi scan.',
       'push.active': 'attivo',
@@ -16669,6 +16685,8 @@ window.gsI18n = (function(){
       'whatsnew.title': 'Was isch nöi?',
       'whatsnew.lead': 'Sit dim letschte Bsuech sind die Sache neu:',
       'whatsnew.ok': 'Klar',
+      'settings.whatsnewTitle': 'Was isch nöi',
+      'settings.whatsnewSub': 'Highlights vo de letschte Versione',
       'push.title': 'Push-Tipps',
       'push.lead': 'Chrieg jede Tag en perseenliche Smart-Tipp us dim Brain — passend zur Saison, em Ort und dine Scans.',
       'push.active': 'aktiv',
@@ -18922,6 +18940,8 @@ window.gsWhatsNew = (function(){
   // Feature-Highlights ab v24.14 — gepflegt im Code, kompakt für Modal.
   // Reihenfolge: aktuell zuerst.
   var HIGHLIGHTS = [
+    { v:'v24.23', items:[ '🔬 Self-Test deckt jetzt 6 weitere Module ab · Settings → ✨ Was ist neu wiederholen' ] },
+    { v:'v24.22', items:[ '✨ „Was ist neu?"-Modal beim Boot — siehst Highlights seit deinem letzten Besuch' ] },
     { v:'v24.21', items:[ '🔗 Pflanzen direkt teilen via ?plant=ID Deep-Link' ] },
     { v:'v24.20', items:[ '📤 Datenexport (revDSG): JSON-Backup zum Herunterladen' ] },
     { v:'v24.19', items:[ '🔔 Push-Tipps: tägliche Smart-Tipps abonnieren (Settings → Diagnose)' ] },
@@ -19102,6 +19122,13 @@ window.gsSelfTest = async function(verbose){
     ['gsTrackImportGPX',function(){ return typeof window.gsTrackImportGPX === 'function'; }],
     ['callAI',          function(){ return typeof window.callAI === 'function' || typeof callAI === 'function'; }],
     ['callVisionAI',    function(){ return typeof window.callVisionAI === 'function' || typeof callVisionAI === 'function'; }],
+    // v24.23: neue Module aus Sprint 36–44
+    ['gsRunSelfTestModal',     function(){ return typeof window.gsRunSelfTestModal === 'function'; }],
+    ['gsOpenShareCardForLastScan', function(){ return typeof window.gsOpenShareCardForLastScan === 'function'; }],
+    ['gsOpenPushSettings',     function(){ return typeof window.gsOpenPushSettings === 'function'; }],
+    ['gsExportUserData',       function(){ return typeof window.gsExportUserData === 'function'; }],
+    ['gsEnsurePdfjs',          function(){ return typeof window.gsEnsurePdfjs === 'function'; }],
+    ['gsWhatsNew',             function(){ var w = window.gsWhatsNew; return w && typeof w.maybeAutoOpen === 'function' && typeof w.openModal === 'function'; }],
     ['DB (PLANT_DB)',   function(){ return Array.isArray(window.DB) && window.DB.length >= 4000; }],
     ['ServiceWorker',   function(){ return ('serviceWorker' in navigator); }],
     ['Leaflet',         function(){ return typeof L !== 'undefined' && typeof L.map === 'function'; }],
@@ -39955,7 +39982,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v24.22';
+var GS_VERSION = 'v24.23';
 // ══ GMAIL DRAFT-IDs ═══════════════════════════════════════════
 // Vorgefertigte E-Mail-Templates im Gmail-Konto www.greenscan@gmail.com
 // Absender: GreenScan <info@greenscan.ch>
