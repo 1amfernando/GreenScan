@@ -36,10 +36,17 @@
       "icons": [{"src": "icons/icon-192.png", "sizes": "192x192"}]
     },
     {
-      "name": "KI-Garten-Planer",
-      "short_name": "Garten",
-      "description": "Gartenplan mit KI erstellen",
-      "url": "./index.html?screen=garden",
+      "name": "Bestimmungs-Schlüssel",
+      "short_name": "Schlüssel",
+      "description": "Pflanze nach Merkmalen filtern (Multikriterien)",
+      "url": "./index.html?screen=multikey",
+      "icons": [{"src": "icons/icon-192.png", "sizes": "192x192"}]
+    },
+    {
+      "name": "Pflanzendoktor",
+      "short_name": "Doktor",
+      "description": "Krankheiten & Schäden mit KI diagnostizieren",
+      "url": "./index.html?screen=doctor",
       "icons": [{"src": "icons/icon-192.png", "sizes": "192x192"}]
     },
     {
@@ -47,13 +54,6 @@
       "short_name": "Wissen",
       "description": "Gartenbau-Kompendium Schweiz",
       "url": "./index.html?screen=wissen",
-      "icons": [{"src": "icons/icon-192.png", "sizes": "192x192"}]
-    },
-    {
-      "name": "Lichtmessung",
-      "short_name": "Licht",
-      "description": "Lichtintensität für Pflanzen messen",
-      "url": "./index.html?screen=light",
       "icons": [{"src": "icons/icon-192.png", "sizes": "192x192"}]
     }
   ],

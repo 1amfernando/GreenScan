@@ -21,7 +21,7 @@
 <meta name="apple-mobile-web-app-title" content="GreenScan">
 <meta name="description" content="4342 Schweizer Arten: Wildpflanzen, Pilze, Bäume, Kräuter, Moose, Flechten, Algen, Hauspflanzen. KI-Scanner, Garten, Lichtmessung.">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="24.16">
+<meta name="app-version" content="24.17">
 <link rel="canonical" href="https://greenscan.ch/">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <meta name="author" content="GreenScan">
@@ -12216,6 +12216,37 @@ function initHomeBoard() {
         }
         // Brain lernt: User hat Home geoeffnet
         try { window.gsBrain.observe('home_open', {hour: now.getHours()}); } catch(_){}
+      }
+    } catch(_){}
+
+    // ── v24.17: Discovery-Card für Erst-User (0 Scans → Multikriterien-Schlüssel) ─
+    // Wenn der User noch keinen Scan gemacht hat, surfacen wir das Killer-
+    // Feature gegen Flora-Helvetica direkt auf Home als prominente Karte.
+    try {
+      var hist0 = [];
+      try { hist0 = JSON.parse(localStorage.getItem('gs_scan_history') || '[]'); } catch(_){}
+      var anchor3 = document.getElementById('daily-fact');
+      var existingDisco = document.getElementById('gs-disco-multikey');
+      if (anchor3 && Array.isArray(hist0) && hist0.length === 0) {
+        if (!existingDisco) {
+          existingDisco = document.createElement('button');
+          existingDisco.id = 'gs-disco-multikey';
+          existingDisco.type = 'button';
+          existingDisco.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;margin-top:10px;padding:12px 14px;background:linear-gradient(135deg,#1a3d1a,#2d8a2d);color:#fff;border:none;border-radius:12px;cursor:pointer;font-family:inherit;text-align:left;line-height:1.45;box-shadow:0 3px 10px rgba(46,125,50,.18);';
+          existingDisco.innerHTML =
+            '<span style="font-size:28px;flex-shrink:0;">📋</span>' +
+            '<span style="flex:1;min-width:0;">' +
+              '<div style="font-size:13.5px;font-weight:800;">Bestimmungs-Schlüssel</div>' +
+              '<div style="font-size:11.5px;opacity:.85;margin-top:2px;">Pflanze nach Merkmalen filtern — auch ohne Foto</div>' +
+            '</span>' +
+            '<span style="opacity:.7;font-size:18px;flex-shrink:0;">›</span>';
+          existingDisco.addEventListener('click', function(){
+            try { window.openMultiKey && window.openMultiKey(); } catch(_){}
+          });
+          anchor3.parentNode && anchor3.parentNode.insertBefore(existingDisco, anchor3.nextSibling);
+        }
+      } else if (existingDisco) {
+        existingDisco.remove();
       }
     } catch(_){}
 
@@ -39536,7 +39567,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v24.16';
+var GS_VERSION = 'v24.17';
 // ══ GMAIL DRAFT-IDs ═══════════════════════════════════════════
 // Vorgefertigte E-Mail-Templates im Gmail-Konto www.greenscan@gmail.com
 // Absender: GreenScan <info@greenscan.ch>
@@ -40947,19 +40978,43 @@ function gsRegisterServiceWorker() {
   } catch(err){ console.warn('[GreenScan] SW-Init fehlgeschlagen: ' + err.message); }
 }
 
-// v23.58: Shortcut-URLs verarbeiten (?screen=scanner etc.)
+// v23.58 / v24.17: Shortcut-URLs verarbeiten (?screen=scanner etc.)
+//   Tab-Screens:   home, scanner, search, favs, garden, map, social, market, settings, more, recipes, remedies, season, ai, wissen
+//   Modal-Screens: multikey, vapko, achievements, doctor, brain, health, tour, inat, light
 function gsHandleShortcutUrl() {
   try {
     var params = new URLSearchParams(location.search);
     var screen = params.get('screen');
-    if (screen) {
-      setTimeout(function(){
-        try {
-          if (typeof navTo === 'function') navTo(screen);
-          else if (typeof showScreen === 'function') showScreen('screen-' + screen);
-        } catch(e){}
-      }, 800);
-    }
+    if (!screen) return;
+
+    var TAB_SCREENS = {
+      home:1,scanner:1,search:1,favs:1,garden:1,map:1,social:1,market:1,
+      settings:1,more:1,recipes:1,remedies:1,season:1,ai:1,wissen:1
+    };
+    // Modal-Screens → direkt ein Helper-Call
+    var MODAL_HANDLERS = {
+      multikey:     function(){ window.openMultiKey && window.openMultiKey(); },
+      vapko:        function(){ window.openVapko && window.openVapko(); },
+      achievements: function(){ window.openAchievements && window.openAchievements(); },
+      doctor:       function(){ typeof gsOpenPlantDoctor === 'function' && gsOpenPlantDoctor(); },
+      brain:        function(){ window.gsBrainDebug && window.gsBrainDebug(true); },
+      health:       function(){ window.gsHealthCheck && window.gsHealthCheck(true); },
+      tour:         function(){ window.openWelcomeTour && window.openWelcomeTour(); },
+      inat:         function(){ window.openInat && window.openInat(); },
+      light:        function(){ typeof openLightMeter === 'function' && openLightMeter(); }
+    };
+
+    setTimeout(function(){
+      try {
+        if (TAB_SCREENS[screen] && typeof switchTab === 'function') {
+          switchTab(screen, document.getElementById('tab-' + screen) || null);
+        } else if (MODAL_HANDLERS[screen]) {
+          MODAL_HANDLERS[screen]();
+        } else if (typeof showScreen === 'function') {
+          showScreen('screen-' + screen);
+        }
+      } catch(e){}
+    }, 800);
   } catch(e){}
 }
 

@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-QZgDb` · **Version**: `v24.16` (in Arbeit) / `v24.15` (gepusht) · **2 Wochen bis Release**
+**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-QZgDb` · **Version**: `v24.17` (in Arbeit) / `v24.16` (gepusht) · **2 Wochen bis Release**
 
 ---
 
@@ -12,7 +12,8 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v24.16 | **Sprint 38 — Home-Hook + B2-Hardening**: Home zeigt unter Brain-Tipp ein Achievement-Hint-Card („🏆 12/34 · Nächstes: 🦋 Sammler") mit Click→Modal — psychologischer Sog für Quote-getriebene User · 3 unescaped `err.message`/`e.message`-innerHTML-Stellen (Lichtmesser, Solar-Sensor, Pflanzendoktor-Foto) gehärtet mit `gsHTMLEscape`-Fallback (B2-Mini-Migration). |
+| (next push) | v24.17 | **Sprint 39 — Discovery & Deep-Links**: Erst-User (0 Scans) bekommen prominente Discovery-Card auf Home für „📋 Bestimmungs-Schlüssel" (Killer-Feature gegen Flora Helvetica) · `gsHandleShortcutUrl` erweitert um 9 Modal-Screens (multikey, vapko, achievements, doctor, brain, health, tour, inat, light) und sauberer Tab-Whitelist (vorher kaputter `navTo`-Call) · manifest.json shortcuts: Lichtmessung + Garten-Planer raus, dafür „Bestimmungs-Schlüssel" + „Pflanzendoktor" rein (long-press auf Home-Icon zeigt jetzt die Power-Features). |
+| `57a4a92` | v24.16 | **Sprint 38 — Home-Hook + B2-Hardening**: Home zeigt unter Brain-Tipp ein Achievement-Hint-Card („🏆 12/34 · Nächstes: 🦋 Sammler") mit Click→Modal — psychologischer Sog für Quote-getriebene User · 3 unescaped `err.message`/`e.message`-innerHTML-Stellen (Lichtmesser, Solar-Sensor, Pflanzendoktor-Foto) gehärtet mit `gsHTMLEscape`-Fallback (B2-Mini-Migration). |
 | `434f457` | v24.15 | **Sprint 37 — UI-Polish**: i18n-Keys (DE/FR/IT/gsw) für 11 neue Strings (menu.multikey/vapko/achievements/inat/diagnose/health/brain/tour/selftest, scan.shareCard, search.empty.tryKey) · `data-i18n`-Attribute auf neuen Menü-Buttons + Section · Achievement-Counter (X/Y) live im Menü-Button (rendert beim openMainMenu) · Multikriterien-Schlüssel-CTA im leeren Search-Result als prominenter Button · `gsApplyI18n` re-apply beim Menü-Open (Locale-Switch wirkt sofort) |
 | `685210f` | v24.14 | **Sprint 36 — UI-Verdrahtung**: 7 unsichtbare Features bekommen Menü-Buttons (Multikriterien-Schlüssel, VAPKO-Pilzkontrollen, Achievements, iNaturalist, Brain-Inspector, Welcome-Tour, Self-Test). Neue Menü-Sektion „🩺 Diagnose & Hilfe". Share-Card-Button im Scan-Result mit Auto-Fill aus letztem Scan + Standort + IUCN-Status. `gsRunSelfTestModal()` als Modal-Wrapper für Self-Test. Größte UX-Lücke der letzten 7 Sprints geschlossen. |
 | `4d295d5` | v24.13 | Phase 9: Pre-Launch-Audit-Subagent + 5 Sicherheits-Fixes (1 CRITICAL daily-push-Auth · 3 HIGH CORS-Origins/encodeURIComponent · 1 MED stripe-uuid · LOW SW-Version-Bump) · 10 zusätzliche Achievements (34 total) · 50 zusätzliche IUCN-Arten (130 total) |
@@ -53,6 +54,19 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
 
 ## 2 · Was nachweislich funktioniert (Code-Verifikation)
 
+- ✅ **Discovery-Card für Erst-User** (v24.17): User mit 0 Scans sehen
+  prominent grünen Button „📋 Bestimmungs-Schlüssel" direkt unter dem
+  Tages-Fact auf Home. Surfact das Killer-Feature genau dann, wenn der
+  User noch nicht scannen kann/will. Auto-removed nach erstem Scan.
+- ✅ **Deep-Link-Handler erweitert** (v24.17): `?screen=` unterstützt
+  jetzt 9 Modal-Screens (multikey/vapko/achievements/doctor/brain/health/
+  tour/inat/light) zusätzlich zu 15 Tab-Screens. Vorher rief der Handler
+  ein nicht-existentes `navTo` auf (silent no-op). Jetzt:
+  Tab-Whitelist + Modal-Handlers + showScreen-Fallback.
+- ✅ **manifest.json shortcuts überarbeitet** (v24.17): Lichtmessung +
+  Garten-Planer raus (kleiner Hebel), dafür „Bestimmungs-Schlüssel" +
+  „Pflanzendoktor" rein. Long-press auf das Home-Icon zeigt User direkt
+  die wichtigsten Power-Features.
 - ✅ **Home-Achievement-Hint** (v24.16): nach Brain-Tipp + Insights-Box
   rendert `initHomeBoard` einen Hint-Card-Button: „🏆 X/Y freigeschaltet
   · Nächstes: <Icon> <Name>". Sichtbar nur wenn ≥1 Badge unlocked UND
