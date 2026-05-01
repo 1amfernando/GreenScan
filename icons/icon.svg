@@ -1,21 +1,56 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#2d5a2d"/>
-      <stop offset="1" stop-color="#1a3d1a"/>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a3d1a"/>
+      <stop offset="100%" stop-color="#2e7d32"/>
     </linearGradient>
-    <linearGradient id="leaf" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#8bc34a"/>
-      <stop offset="1" stop-color="#4caf50"/>
+    <linearGradient id="leaf" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7cc97c"/>
+      <stop offset="100%" stop-color="#3d9e3d"/>
     </linearGradient>
+    <linearGradient id="leaf2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a5e0a5"/>
+      <stop offset="100%" stop-color="#5cba5c"/>
+    </linearGradient>
+    <radialGradient id="shine" cx="30%" cy="30%" r="60%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
   </defs>
   <rect width="512" height="512" rx="96" ry="96" fill="url(#bg)"/>
-  <g transform="translate(256 256)">
-    <path d="M -10 120 C -10 120, -110 80, -110 -20 C -110 -90, -20 -130, 10 -130 C 40 -130, 130 -90, 130 -20 C 130 80, 10 120, 10 120 Z"
-          fill="url(#leaf)" stroke="#2e7d32" stroke-width="6" transform="rotate(-15)"/>
-    <path d="M 0 120 L 0 -100 M -40 0 L 0 -20 M -60 -40 L 0 -60 M 40 20 L 0 0 M 60 -20 L 0 -40"
-          stroke="#2e7d32" stroke-width="5" fill="none" transform="rotate(-15)" stroke-linecap="round"/>
+  <rect width="512" height="512" rx="96" ry="96" fill="url(#shine)"/>
+  <!-- Stem -->
+  <path d="M 256 420 Q 256 360 250 300 Q 248 250 256 200 Q 262 170 256 140"
+        stroke="#1a3d1a" stroke-width="10" stroke-linecap="round" fill="none" opacity="0.85"/>
+  <!-- Big leaf left -->
+  <path d="M 256 280
+           Q 160 240 130 290
+           Q 110 340 170 360
+           Q 220 365 256 320 Z"
+        fill="url(#leaf)" stroke="#1a3d1a" stroke-width="4"/>
+  <path d="M 256 305 Q 200 290 160 310" stroke="#1a3d1a" stroke-width="3" fill="none" opacity="0.55"/>
+  <!-- Big leaf right -->
+  <path d="M 256 220
+           Q 360 180 390 230
+           Q 410 280 350 300
+           Q 290 305 256 260 Z"
+        fill="url(#leaf2)" stroke="#1a3d1a" stroke-width="4"/>
+  <path d="M 256 245 Q 320 230 380 250" stroke="#1a3d1a" stroke-width="3" fill="none" opacity="0.55"/>
+  <!-- Top leaf -->
+  <path d="M 256 160
+           Q 200 110 220 70
+           Q 256 40 290 70
+           Q 312 110 256 160 Z"
+        fill="url(#leaf2)" stroke="#1a3d1a" stroke-width="4"/>
+  <path d="M 256 70 Q 256 110 256 155" stroke="#1a3d1a" stroke-width="3" fill="none" opacity="0.55"/>
+  <!-- Scanner ring -->
+  <circle cx="256" cy="256" r="180" fill="none" stroke="#ffffff" stroke-width="6" stroke-opacity="0.35" stroke-dasharray="14,10"/>
+  <!-- Scanner corners -->
+  <g stroke="#ffffff" stroke-width="10" stroke-linecap="round" fill="none" opacity="0.85">
+    <path d="M 90 90 L 90 130 M 90 90 L 130 90"/>
+    <path d="M 422 90 L 422 130 M 422 90 L 382 90"/>
+    <path d="M 90 422 L 90 382 M 90 422 L 130 422"/>
+    <path d="M 422 422 L 422 382 M 422 422 L 382 422"/>
   </g>
-  <text x="256" y="470" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="48" font-weight="700" fill="#e8f5e9">GreenScan</text>
 </svg>
