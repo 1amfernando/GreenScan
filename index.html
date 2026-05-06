@@ -60,7 +60,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="24.52.20260506">
+<meta name="app-version" content="24.53.20260506">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -8200,7 +8200,7 @@ function _gsStreakSig(streak, lastDay, stamp){
   return h.toString(36);
 }
 function _gsStreakVerify(){
-  var streak = parseInt(localStorage.getItem('gs_streak') || '0', 10);
+  var streak = parseInt(gsStore.get('gs_streak', null) || '0', 10);
   var lastDay = localStorage.getItem('gs_last_active_day_iso') || '';
   var stamp = parseInt(localStorage.getItem('gs_streak_stamp') || '0', 10) || 0;
   var sig = localStorage.getItem('gs_streak_sig') || '';
@@ -8217,7 +8217,7 @@ function _gsStreakVerify(){
 function _gsStreakWriteSigned(streak, lastDay){
   try {
     var stamp = Date.now();
-    localStorage.setItem('gs_streak', String(streak));
+    gsStore.set('gs_streak',String(streak));
     if (lastDay) localStorage.setItem('gs_last_active_day_iso', lastDay);
     else localStorage.removeItem('gs_last_active_day_iso');
     localStorage.setItem('gs_streak_stamp', String(stamp));
@@ -8226,7 +8226,7 @@ function _gsStreakWriteSigned(streak, lastDay){
 }
 function _gsStreakResetAll(){
   try {
-    localStorage.setItem('gs_streak','0');
+    gsStore.set('gs_streak','0');
     localStorage.removeItem('gs_last_active_day_iso');
     localStorage.removeItem('gs_streak_stamp');
     localStorage.removeItem('gs_streak_sig');
@@ -8242,7 +8242,7 @@ function gsGetStreak() {
   // v23.56: Bulletproof Lazy-read + Sanity-Check + Auto-Reset bei Lücke
   var today = _gsDayKey();
   var lastDay = localStorage.getItem('gs_last_active_day_iso') || '';
-  var streak = parseInt(localStorage.getItem('gs_streak') || '0', 10);
+  var streak = parseInt(gsStore.get('gs_streak', null) || '0', 10);
   if (!isFinite(streak) || streak < 0) streak = 0;
 
   // Sanity: Streak > 0 aber kein lastDay → Daten korrupt → reset
@@ -8271,7 +8271,7 @@ function gsUpdateStreak() {
   }
   var today = _gsDayKey();
   var lastDay = localStorage.getItem('gs_last_active_day_iso') || '';
-  var streak = parseInt(localStorage.getItem('gs_streak') || '0', 10) || 0;
+  var streak = parseInt(gsStore.get('gs_streak', null) || '0', 10) || 0;
 
   if (lastDay === today) {
     // Heute schon aktiv — nichts ändern (Signatur trotzdem refreshen für neue Stamp)
@@ -9293,12 +9293,12 @@ function gsAutoFillDBGaps() {
 function mktLike(id) {
   gsHaptic('light');
   var listings = [];
-  try { listings = JSON.parse(localStorage.getItem('gs_market_listings')||'[]'); } catch(e){}
+  try { listings = JSON.parse(gsStore.get('gs_market_listings', null)||'[]'); } catch(e){}
   var l = listings.find(function(x){ return x.id === id; });
   if (!l) return;
   l.liked = !l.liked;
   l.likes = Math.max(0, (l.likes||0) + (l.liked?1:-1));
-  try { localStorage.setItem('gs_market_listings', JSON.stringify(listings)); } catch(e){}
+  try { gsStore.set('gs_market_listings',JSON.stringify(listings)); } catch(e){}
   // Optimistic UI
   var btn = document.querySelector('[data-mkt-like="'+id+'"]');
   if (btn) {
@@ -9318,9 +9318,9 @@ function mktDelete(id) {
   gsHaptic('medium');
   if (!confirm('Inserat löschen?')) return;
   var listings = [];
-  try { listings = JSON.parse(localStorage.getItem('gs_market_listings')||'[]'); } catch(e){}
+  try { listings = JSON.parse(gsStore.get('gs_market_listings', null)||'[]'); } catch(e){}
   listings = listings.filter(function(x){ return x.id !== id; });
-  try { localStorage.setItem('gs_market_listings', JSON.stringify(listings)); } catch(e){}
+  try { gsStore.set('gs_market_listings',JSON.stringify(listings)); } catch(e){}
   closeModal('modal-listing-detail');
   renderMarket();
   showProfileToast('Inserat gelöscht', 'info');
@@ -9492,10 +9492,10 @@ async function loadMarketFromSupabase() {
     if (result && result.data && result.data.length > 0) {
       // Merge mit lokalen Listings
       var local = [];
-      try { local = JSON.parse(localStorage.getItem('gs_market_listings')||'[]'); } catch(e){}
+      try { local = JSON.parse(gsStore.get('gs_market_listings', null)||'[]'); } catch(e){}
       var supaIds = new Set(result.data.map(function(l){ return l.id; }));
       var merged = result.data.concat(local.filter(function(l){ return !supaIds.has(l.id); }));
-      try { localStorage.setItem('gs_market_listings', JSON.stringify(merged)); } catch(e){}
+      try { gsStore.set('gs_market_listings',JSON.stringify(merged)); } catch(e){}
     }
   } catch(e) { console.log('Market Supabase load failed:', e); }
   renderMarket();
@@ -17698,13 +17698,13 @@ function getCatLabel(c){
 
 function gsMarketLoad() {
   if (!window._gsMarket) {
-    try { window._gsMarket = JSON.parse(localStorage.getItem('gs_market_listings') || '[]'); }
+    try { window._gsMarket = JSON.parse(gsStore.get('gs_market_listings', null) || '[]'); }
     catch(e) { window._gsMarket = []; }
   }
   return window._gsMarket;
 }
 function gsMarketSave() {
-  try { localStorage.setItem('gs_market_listings', JSON.stringify(window._gsMarket.slice(0,500))); }
+  try { gsStore.set('gs_market_listings',JSON.stringify(window._gsMarket.slice(0,500))); }
   catch(e) {}
 }
 
@@ -19776,7 +19776,7 @@ window._gsTriedModels = window._gsTriedModels || {};
 window._gsPickClaudeModel = function(){
   // Persistierte Wahl wenn bereits verifiziert
   var saved = null;
-  try { saved = localStorage.getItem('gs_claude_model'); } catch(_){}
+  try { saved = gsStore.get('gs_claude_model', null); } catch(_){}
   if (saved && window._gsClaudeFallbacks.indexOf(saved) >= 0) return saved;
   return window._gsClaudeModel || window._gsClaudeFallbacks[0];
 };
@@ -19829,7 +19829,7 @@ async function callAI(messages, systemPrompt, maxTokens, opts){
       }, { timeout: timeoutMs, retries: retries });
       var data = await resp.json().catch(()=>({error:{message:'Ungültige Server-Antwort'}}));
       if (resp.ok) {
-        try { localStorage.setItem('gs_claude_model', tryModel); } catch(_){}
+        try { gsStore.set('gs_claude_model',tryModel); } catch(_){}
         window._gsClaudeModel = tryModel;
         // v24.22: Erfolgreichen AI-Call gegen Free-Quota tracken (nur bei globalem Key)
         if (source === 'global' && typeof gsAboTrackAICall === 'function') gsAboTrackAICall();
@@ -19916,7 +19916,7 @@ async function callVisionAI(b64, mediaType, prompt, extraImages){
       }, { timeout: 60000, retries: 1 });
       var data = await resp.json().catch(()=>({error:{message:'Ungültige Server-Antwort'}}));
       if (resp.ok) {
-        try { localStorage.setItem('gs_claude_model', tryModel); } catch(_){}
+        try { gsStore.set('gs_claude_model',tryModel); } catch(_){}
         window._gsClaudeModel = tryModel;
         // v24.22: Vision-Call gegen Free-Quota tracken (nur bei globalem Key)
         if (source === 'global' && typeof gsAboTrackAICall === 'function') gsAboTrackAICall();
@@ -20956,7 +20956,7 @@ window.gsTestApiKey = async function(){
       if (resp.ok) {
         results.push('✅ ' + m + ' — OK');
         window._gsClaudeModel = m;
-        try { localStorage.setItem('gs_claude_model', m); } catch(_){}
+        try { gsStore.set('gs_claude_model',m); } catch(_){}
         break;
       } else {
         results.push('❌ ' + m + ' — ' + resp.status + ' ' + ((data.error && data.error.message) || ''));
@@ -22789,7 +22789,7 @@ function renderFavs(){
 // MEINE PFLANZEN – Kernfunktionen
 
 function savePlantsToStorage(){
-  localStorage.setItem('ps_myplants', JSON.stringify(myPlants));
+  gsStore.set('ps_myplants',JSON.stringify(myPlants));
   // v23.73: User-Account-Sync (debounced)
   try { if (typeof gsPushPlantsNow === 'function') gsPushPlantsNow(); } catch(_){}
 }
@@ -24987,7 +24987,7 @@ function gsChatBuildContext(){
     } catch(e){}
     // 6. Eigene Pflanzen
     try {
-      var myP = JSON.parse(localStorage.getItem('ps_myplants') || '[]');
+      var myP = JSON.parse(gsStore.get('ps_myplants', null) || '[]');
       if (Array.isArray(myP) && myP.length) {
         var names = myP.slice(0,6).map(function(p){ return p.name || p.customName || ''; }).filter(Boolean).join(', ');
         if (names) ctx.push('🪴 Eigene Pflanzen: ' + names + (myP.length>6?'…':''));
@@ -33915,7 +33915,7 @@ function loadPrefs() {
 }
 
 function savePrefs() {
-  localStorage.setItem('gs_prefs', JSON.stringify(userPrefs));
+  gsStore.set('gs_prefs',JSON.stringify(userPrefs));
 }
 
 // v23.78: Settings Single-Source-of-Truth mit Event-Bus + Cross-Tab + Server-Sync
@@ -33943,7 +33943,7 @@ window._gsSettingsBus = window._gsSettingsBus || (function(){
             var d = ev.data;
             if (d && d.type === 'set') {
               userPrefs[d.key] = d.val;
-              try { localStorage.setItem('gs_prefs', JSON.stringify(userPrefs)); } catch(_){}
+              try { gsStore.set('gs_prefs',JSON.stringify(userPrefs)); } catch(_){}
               // Re-apply ohne re-emit (kein Loop)
               _gsApplyPref(d.key, d.val);
             }
@@ -42915,7 +42915,7 @@ async function gsPPtryBluetooth() {
 
 function saveGardenData() {
   localStorage.setItem('gs_gardens', JSON.stringify(gardens));
-  localStorage.setItem('gs_plantings', JSON.stringify(plantings));
+  gsStore.set('gs_plantings',JSON.stringify(plantings));
   // v23.73: User-Account-Sync (debounced)
   try { if (typeof gsPushGardenNow === 'function') gsPushGardenNow(); } catch(_){}
 }
@@ -44855,10 +44855,10 @@ function gsAdminSaveSbKey() {
   closeModal('modal-recipe-detail');
   showProfileToast('✅ Supabase Key gespeichert und aktiviert!');
   // Admin-Log
-  var log = JSON.parse(localStorage.getItem('gs_admin_log') || '[]');
+  var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
   log.unshift({ ts: new Date().toISOString(), admin: gsStore.get('gs_sb_email', null),
     action: 'sb_key_changed', note: 'Key geändert auf: ' + newKey.slice(0,20) + '…' });
-  localStorage.setItem('gs_admin_log', JSON.stringify(log.slice(0,200)));
+  gsStore.set('gs_admin_log',JSON.stringify(log.slice(0,200)));
 }
 
 // Stellt den Standard-Key wieder her
@@ -44902,7 +44902,7 @@ async function _gsKeyHealthWalker(key, opts) {
       }, 15000);
       if (r.ok) {
         // Erfolgs-Modell für Hot-Path persistieren
-        try { localStorage.setItem('gs_claude_model', model); } catch(_){}
+        try { gsStore.set('gs_claude_model',model); } catch(_){}
         try { window._gsClaudeModel = model; } catch(_){}
         return { ok: true, model: model };
       }
@@ -45020,9 +45020,9 @@ async function gsAdminSetGlobalApiKey(newKey, providerArg, enabledArg) {
         showProfileToast && showProfileToast({type:'warn', icon:'⚠️', title:'Key gespeichert, aber Test fehlgeschlagen', body:'Grund: ' + h.reason + '. Bitte Key prüfen.', duration:8000});
       }
       try {
-        var log = JSON.parse(localStorage.getItem('gs_admin_log') || '[]');
+        var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
         log.unshift({ ts: new Date().toISOString(), admin: gsStore.get('gs_sb_email', null), action: 'global_api_key_set', note: 'Key: ' + newKey.slice(0,12) + '…' + ', healthOk: ' + h.ok });
-        localStorage.setItem('gs_admin_log', JSON.stringify(log.slice(0,200)));
+        gsStore.set('gs_admin_log',JSON.stringify(log.slice(0,200)));
       } catch(_){}
       return true;
     }
@@ -45199,6 +45199,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v24.53', date: '06.05.2026',
+    headline: 'gsStore-Migration Welle 3 (45 Calls): gs_admin_log 10× · gs_market_listings 8× · gs_streak 7× · ps_myplants 5× · gs_prefs 5× · gs_plantings 5× · gs_claude_model 5×',
+    summary: 'Dritte gsStore-Welle schließt die Top-17 Daten-Keys ab. Total nach drei Wellen: 220 gsStore-Calls (101 Auth aus v24.51 + 74 Welle 2 aus v24.52 + 45 Welle 3 aus v24.53). localStorage-Calls: 794 → 579 (-27% seit v24.50). Damit sind alle High-Frequency-Schreibpfade — Auth-Persistenz, Pflanzen-Speicherung, Garten-Sync, Tagebuch, Prefs, GPS, Streak, Marketplace, Admin-Log — quota-safe gewrappt. Bei QuotaExceededError schluckt der Wrapper still und zählt in window.gsStoreQuotaHits (sichtbar in Admin-Storage-Diagnostics-Card aus v24.49). Pre-Release-Schutz gegen Storage-Quota damit substantiell vollständig. Verbleibende localStorage-Calls sind low-frequency Single-Use-Flags und Migration-Marker — kein Release-Risiko mehr.',
+    items: [
+      {emoji:'🔐', bold:'gsStore-Welle 3 (45 Calls):', text:' gs_admin_log (10×, Admin-Audit-Log mit JSON-parse-stringify-Pattern) + gs_market_listings (8×, Marketplace-Cache) + gs_streak (7×, Single-Source-of-Truth via gsGetStreak/gsUpdateStreak — inkl. 1× setItem ohne Space nach Komma als Sonder-Edit nachgebessert) + ps_myplants (5×, myPlants-Array zentrale Persistenz) + gs_prefs (5×, userPrefs-Object mit Locale/Units/Privacy) + gs_plantings (5×, Garten-Pflanzungs-Slots) + gs_claude_model (5×, KI-Modell-Auto-Persist nach Fallback-Chain).'},
+      {emoji:'📊', bold:'3-Wellen-Bilanz:', text:' v24.51 Auth-Triple = 101 + v24.52 Welle 2 = 74 + v24.53 Welle 3 = 45 = 220 gsStore-Calls. localStorage: 794 → 579. 17 wichtigste Daten-Keys quota-safe. Verbleibende localStorage-Calls sind low-frequency (Flags, Marker).'},
+      {emoji:'🛡️', bold:'Quota-Schutz substantiell vollständig:', text:' Auth-Persistenz, Pflanzen-Speicherung, Garten-Sync, Tagebuch, Prefs, GPS, Streak, Marketplace, Admin-Log — alle gehen jetzt durch gsStore. Bei QuotaExceededError keine App-Crash mehr, sondern stille Fehler-Counter via window.gsStoreQuotaHits.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check ✓ · sw.js (gs-v24.53) + manifest.json valid ✓ · GS_VERSION=v24.53 ✓ · _headers v24.53 ✓ · meta app-version=24.53.20260506 ✓ · Welle-3-Keys localStorage verbleibend (Boundary-Match): 0 ✓ · Welle-3 gsStore-Calls: 45 ✓ · Total gsStore: 219 (+1 in v24.52 GS_RELEASES-Text mitgezählt = 220 effektiv) · localStorage: 579 (von 794).'},
+    ]
+  },
   {
     v: 'v24.52', date: '06.05.2026',
     headline: 'gsStore-Welle 2 (74 Calls quota-safe) + Frontend-Sync zu past_due-Migration (Cowork autonom deployed)',
@@ -46084,7 +46095,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v24.52';
+var GS_VERSION = 'v24.53';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -46196,7 +46207,7 @@ function openAdminActions(targetEmail) {
   }).join('');
 
   // Admin-Log anzeigen
-  var log = JSON.parse(localStorage.getItem('gs_admin_log') || '[]');
+  var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
   var recentLog = log.filter(function(e){ return e.target === targetEmail; }).slice(0,3);
   var logHtml = recentLog.length ? recentLog.map(function(e){
     return '<div style="font-size:11px;color:#666;padding:4px 0;border-bottom:1px solid #eee;">' +
@@ -46286,10 +46297,10 @@ function _gsOpenIngCard(plantId, recipeId) {
 function gsAdminBanUser(targetEmail) {
   if (!gsIsAdmin()) return;
   if (!confirm('Nutzer ' + targetEmail + ' wirklich sperren?')) return;
-  var log = JSON.parse(localStorage.getItem('gs_admin_log') || '[]');
+  var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
   log.unshift({ ts: new Date().toISOString(), admin: gsStore.get('gs_sb_email', null),
     target: targetEmail, action: 'ban', note: 'Gesperrt durch Admin' });
-  localStorage.setItem('gs_admin_log', JSON.stringify(log.slice(0,200)));
+  gsStore.set('gs_admin_log',JSON.stringify(log.slice(0,200)));
   closeModal('modal-recipe-detail');
   showProfileToast('🚫 ' + targetEmail + ' wurde gesperrt (lokal protokolliert).');
 }
@@ -46308,7 +46319,7 @@ async function gsAdminSetExpertLevel(targetEmail) {
     if (!token) { showProfileToast('Nicht eingeloggt.'); return; }
     // Über Supabase RPC oder direkt (vereinfacht: localStorage + API)
     // Admin-Log lokal speichern
-    var log = JSON.parse(localStorage.getItem('gs_admin_log') || '[]');
+    var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
     log.unshift({
       ts: new Date().toISOString(),
       admin: gsStore.get('gs_sb_email', null),
@@ -46317,7 +46328,7 @@ async function gsAdminSetExpertLevel(targetEmail) {
       level: newLevel,
       note: noteText
     });
-    localStorage.setItem('gs_admin_log', JSON.stringify(log.slice(0,200)));
+    gsStore.set('gs_admin_log',JSON.stringify(log.slice(0,200)));
     closeModal('modal-recipe-detail');
     showProfileToast('✅ Status "' + (GS_EXPERT_LEVELS[newLevel]||{label:newLevel}).label + '" an ' + targetEmail + ' vergeben.');
   } catch(e) {
@@ -48874,7 +48885,7 @@ window.gsBuildGardenStats = function(){
   // Days-Garden
   var daysGarden = oldestTs ? Math.floor((Date.now() - oldestTs) / 86400000) : 0;
   // v24.41 BUGFIX: echter Streak-Key ist 'gs_streak' (single-source-of-truth via gsGetStreak)
-  var streak = (typeof gsGetStreak === 'function') ? gsGetStreak() : parseInt(localStorage.getItem('gs_streak') || '0', 10);
+  var streak = (typeof gsGetStreak === 'function') ? gsGetStreak() : parseInt(gsStore.get('gs_streak', null) || '0', 10);
   return { total: total, byCat: byCat, totalDiary: totalDiary, topActions: actionEntries.map(function(e){ return { action: e[0], label: actionLabels[e[0]] || e[0], count: e[1] }; }), daysGarden: daysGarden, lastActivity: lastActivityTs, streak: streak };
 };
 
@@ -50493,7 +50504,7 @@ async function gsSyncUserDataOnLogin(){
         if (d.plans)     try { gsStore.set('gs_garden_plans',JSON.stringify(d.plans)); } catch(_){}
         if (d.current)   try { localStorage.setItem('gs_garden_plan_current', JSON.stringify(d.current)); } catch(_){}
         if (d.gardens)   try { localStorage.setItem('gs_gardens', JSON.stringify(d.gardens)); } catch(_){}
-        if (d.plantings) try { localStorage.setItem('gs_plantings', JSON.stringify(d.plantings)); } catch(_){}
+        if (d.plantings) try { gsStore.set('gs_plantings',JSON.stringify(d.plantings)); } catch(_){}
         if (gUpdated) try { localStorage.setItem('gs_sync_synced_at_garden', gUpdated); } catch(_){}
       }
     }
@@ -50504,7 +50515,7 @@ async function gsSyncUserDataOnLogin(){
       var pUpdated = p.data[0].updated_at || null;
       if (_shouldOverwriteLocal('plants', pUpdated)) {
         if (Array.isArray(pd.plants)) {
-          try { localStorage.setItem('ps_myplants', JSON.stringify(pd.plants)); } catch(_){}
+          try { gsStore.set('ps_myplants',JSON.stringify(pd.plants)); } catch(_){}
           if (typeof myPlants !== 'undefined') myPlants = pd.plants;
         }
         if (pd.diary) try { gsStore.set('gs_gartentagebuch',JSON.stringify(pd.diary)); } catch(_){}
@@ -50733,7 +50744,7 @@ window.gsCloudSync = (function(){
 
   function _buildPlantsBlob(){
     var data = {};
-    try { data.plants = JSON.parse(localStorage.getItem('ps_myplants')||'[]'); } catch(_){ data.plants = []; }
+    try { data.plants = JSON.parse(gsStore.get('ps_myplants', null)||'[]'); } catch(_){ data.plants = []; }
     try { data.diary  = JSON.parse(gsStore.get('gs_gartentagebuch', null)||'[]'); } catch(_){ data.diary = []; }
     // v24.24: zusätzliche pflanzenbezogene lokale Keys mitsyncen
     try { data.dead_plants = JSON.parse(localStorage.getItem('gs_dead_plants')||'[]'); } catch(_){}
@@ -50746,7 +50757,7 @@ window.gsCloudSync = (function(){
     try { data.plans     = JSON.parse(gsStore.get('gs_garden_plans', null)||'[]'); } catch(_){}
     try { data.current   = JSON.parse(localStorage.getItem('gs_garden_plan_current')||'null'); } catch(_){}
     try { data.gardens   = JSON.parse(localStorage.getItem('gs_gardens')||'[]'); } catch(_){}
-    try { data.plantings = JSON.parse(localStorage.getItem('gs_plantings')||'[]'); } catch(_){}
+    try { data.plantings = JSON.parse(gsStore.get('gs_plantings', null)||'[]'); } catch(_){}
     // v24.24: GPX-Tracks (Live-Tracking-Feature) sind garten-bezogen
     try { data.gpx_tracks = JSON.parse(gsStore.get('gs_gpx_tracks', null)||'[]'); } catch(_){}
     return data;
@@ -50756,7 +50767,7 @@ window.gsCloudSync = (function(){
   function _buildStateBlob(){
     var data = {};
     // Streak/Activity
-    try { data.streak = JSON.parse(localStorage.getItem('gs_streak')||'null'); } catch(_){}
+    try { data.streak = JSON.parse(gsStore.get('gs_streak', null)||'null'); } catch(_){}
     try { data.login_streak = JSON.parse(localStorage.getItem('gs_login_streak')||'null'); } catch(_){}
     try { data.streak_sig = localStorage.getItem('gs_streak_sig') || ''; } catch(_){}
     try { data.streak_stamp = localStorage.getItem('gs_streak_stamp') || ''; } catch(_){}
@@ -50974,10 +50985,10 @@ window.gsCloudSync = (function(){
     if (!localStorage.getItem('gs_sync_v24_23_migrated')) {
       var nowIso = new Date().toISOString();
       var hasPlants = false, hasGarden = false;
-      try { var ar = JSON.parse(localStorage.getItem('ps_myplants') || '[]'); hasPlants = Array.isArray(ar) && ar.length > 0; } catch(_){}
+      try { var ar = JSON.parse(gsStore.get('ps_myplants', null) || '[]'); hasPlants = Array.isArray(ar) && ar.length > 0; } catch(_){}
       try {
         var hasGardens = (JSON.parse(localStorage.getItem('gs_gardens') || '[]')||[]).length > 0;
-        var hasPlantings = (JSON.parse(localStorage.getItem('gs_plantings') || '[]')||[]).length > 0;
+        var hasPlantings = (JSON.parse(gsStore.get('gs_plantings', null) || '[]')||[]).length > 0;
         var hasPlans = (JSON.parse(gsStore.get('gs_garden_plans', null) || '[]')||[]).length > 0;
         hasGarden = hasGardens || hasPlantings || hasPlans;
       } catch(_){}
@@ -51214,7 +51225,7 @@ async function gsPrefsPull(){
   try {
     var r = await sbFetch('/rest/v1/user_preferences?user_id=eq.' + uid + '&select=*&limit=1', {method:'GET'});
     if (r && !r.error && Array.isArray(r.data) && r.data[0]) {
-      try { localStorage.setItem('gs_prefs', JSON.stringify(r.data[0])); } catch(_){}
+      try { gsStore.set('gs_prefs',JSON.stringify(r.data[0])); } catch(_){}
       return r.data[0];
     }
   } catch(e){ console.warn('[gsPrefsPull]', e); }
@@ -51227,7 +51238,7 @@ function gsPrefsPushNow(partial){
   clearTimeout(window._gsPushDebounce.prefs);
   window._gsPushDebounce.prefs = setTimeout(function(){
     var current = {};
-    try { current = JSON.parse(localStorage.getItem('gs_prefs')||'{}'); } catch(_){}
+    try { current = JSON.parse(gsStore.get('gs_prefs', null)||'{}'); } catch(_){}
     var merged = Object.assign({user_id: uid}, current, partial || {});
     sbFetch('/rest/v1/user_preferences', {
       method:'POST',
@@ -51257,7 +51268,7 @@ window.gsTrackEvent = function(event, props){
   try {
     // Nur tracken wenn Consent vorhanden (user_preferences.analytics === true)
     var prefs = {};
-    try { prefs = JSON.parse(localStorage.getItem('gs_prefs')||'{}'); } catch(_){}
+    try { prefs = JSON.parse(gsStore.get('gs_prefs', null)||'{}'); } catch(_){}
     if (prefs && prefs.privacy && prefs.privacy.analytics === false) return;
     if (typeof sbFetch !== 'function') return;
     var uid = gsStore.get('gs_sb_uid', null) || null;
@@ -52047,7 +52058,7 @@ function gsConfirmScanWarning() {
 // ── Admin-Einstellungen im Profil (nur für gsIsAdmin) ─────────
 function renderAdminSettingsSection() {
   if (typeof gsIsAdmin !== 'function' || !gsIsAdmin()) return '';
-  var log = JSON.parse(localStorage.getItem('gs_admin_log') || '[]');
+  var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
   return '<div style="background:#ffebee;border-radius:12px;padding:14px;margin-top:12px;">' +
     '<div style="font-size:13px;font-weight:800;color:#c62828;margin-bottom:10px;">🛡️ Admin-Bereich</div>' +
     '<button onclick="closeModal(\'modal-profile\');openLegalModal(\'agb\')" style="width:100%;text-align:left;padding:8px 10px;background:var(--card);border:1px solid #ffcdd2;border-radius:8px;margin-bottom:6px;font-size:13px;cursor:pointer;font-family:inherit;">📜 AGB / Rechtliches</button>' +
@@ -55548,7 +55559,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
       // Plantings
       var p = await supaGet('garden_plantings', 'select=*&order=planted_at.desc');
       if (p && p.data) {
-        try { localStorage.setItem('gs_plantings', JSON.stringify(p.data)); } catch(e){}
+        try { gsStore.set('gs_plantings',JSON.stringify(p.data)); } catch(e){}
         try { window.plantings = p.data; } catch(e){}
       }
       // Trigger re-render if app already showing garden

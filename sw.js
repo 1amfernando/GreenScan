@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v24.52 — gsStore-Migration Welle 2 (74 Calls): gs_gpx_tracks 13 + gs_garden_plans 12 + gs_admin 12 + gs_global_api_key 10 + gs_user_location 9 + gs_quiz_streak 9 + gs_gartentagebuch 9. Frontend-Sync zur past_due-Migration die Cowork autonom deployed hat (4/4 Test-PASS, 7-Tage-Grace-Period via active_sub-CTE).
+   v24.53 — gsStore-Migration Welle 3 (45 Calls): gs_admin_log 10 + gs_market_listings 8 + gs_streak 7 + ps_myplants 5 + gs_prefs 5 + gs_plantings 5 + gs_claude_model 5. Total gsStore-Calls: 220 (101 Auth + 74 Welle 2 + 45 Welle 3). 17 wichtigste Daten-Keys quota-safe.
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v24.52';
+const VERSION = 'gs-v24.53';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
