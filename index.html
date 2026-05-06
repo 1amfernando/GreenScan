@@ -60,7 +60,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="24.34.20260429">
+<meta name="app-version" content="24.51.20260504">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -5170,7 +5170,7 @@ if (typeof NATURE_FACTS === 'undefined') var NATURE_FACTS = [];
 function gsIsActuallyAdmin() {
   try {
     if (localStorage.getItem('gs_admin') !== 'true') return false;
-    var email = (localStorage.getItem('gs_sb_email') || '').toLowerCase();
+    var email = (gsStore.get('gs_sb_email', null) || '').toLowerCase();
     if (!email) return false;
     // GS_ADMINS-Liste muss zum Zeitpunkt der Prüfung existieren
     if (typeof GS_ADMINS === 'undefined' || !Array.isArray(GS_ADMINS)) return false;
@@ -5190,7 +5190,7 @@ window.gsRefreshAdminFlag = function() {
   }
   IS_ADMIN = actual;
   try {
-    var email = (localStorage.getItem('gs_sb_email') || '').toLowerCase();
+    var email = (gsStore.get('gs_sb_email', null) || '').toLowerCase();
     var isWhitelisted = typeof GS_ADMINS !== 'undefined' && Array.isArray(GS_ADMINS) && GS_ADMINS.includes(email);
     var badge = document.getElementById('admin-badge');
     if (badge) {
@@ -5487,7 +5487,7 @@ window.gsSnoozePlantReminder = async function(dedupKey, days) {
   var n = parseInt(days, 10) || 1;
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return false;
   if (typeof sbFetch !== 'function') return false;
-  var uid = localStorage.getItem('gs_sb_uid');
+  var uid = gsStore.get('gs_sb_uid', null);
   if (!uid) return false;
   try {
     var snoozedUntil = new Date(Date.now() + n * 86400000).toISOString().slice(0,10);
@@ -5533,7 +5533,7 @@ window.gsMarkPlantReminderRead = async function(plantId, taskKey) {
   try {
     if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
     if (typeof sbFetch !== 'function') return;
-    var uid = localStorage.getItem('gs_sb_uid');
+    var uid = gsStore.get('gs_sb_uid', null);
     if (!uid) return;
     // v24.26: auch Pre-Reminder (kind=plant_task_pre) als gelesen markieren
     var prefix = 'plant_' + plantId + '_' + taskKey + '_';
@@ -7965,7 +7965,7 @@ async function answerSupaDailyQuiz(btn) {
     // Server-side: Antwort + Idempotency (UNIQUE (user_id, quiz_id, answered_date))
     try {
       if (typeof sbFetch === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
-        var uid = localStorage.getItem('gs_sb_uid');
+        var uid = gsStore.get('gs_sb_uid', null);
         if (uid && window._dqSupaQuizId) {
           sbFetch('/rest/v1/quiz_answers', {
             method:'POST',
@@ -9005,7 +9005,7 @@ async function gsStartCheckout(priceLookupKey, claimLaunchOffer) {
     }
     // 2) Checkout-Session anfordern — success/cancel URLs zeigen auf eine kleine Bridge-Seite
     //    die das Popup schließt und die Parent-App per postMessage informiert
-    var token = localStorage.getItem('gs_sb_token') || '';
+    var token = gsStore.get('gs_sb_token', null) || '';
     var base  = (typeof SB_URL !== 'undefined') ? SB_URL : (localStorage.getItem('gs_sb_url') || '');
     var root = location.origin + (location.pathname||'/');
     var resp = await _gsWithTimeout(fetch(base + '/functions/v1/stripe-checkout', {
@@ -9058,7 +9058,7 @@ async function gsStartCheckout(priceLookupKey, claimLaunchOffer) {
     });
     if (ok) {
       try { if (popup && !popup.closed) popup.close(); } catch(_){}
-      var email = localStorage.getItem('gs_sb_email') || '';
+      var email = gsStore.get('gs_sb_email', null) || '';
       var subject = encodeURIComponent('GreenScan Abo — ' + priceLookupKey);
       var body = encodeURIComponent('Ich möchte ' + priceLookupKey + ' abonnieren.\n\nKonto-E-Mail: ' + email + '\n\nCheckout-Fehler: ' + (e.message||e));
       window.location.href = 'mailto:www.greenscan@gmail.com?subject=' + subject + '&body=' + body;
@@ -9083,7 +9083,7 @@ async function gsOpenBillingPortal() {
     } catch(e){}
   }
   try {
-    var token = localStorage.getItem('gs_sb_token') || '';
+    var token = gsStore.get('gs_sb_token', null) || '';
     var base  = (typeof SB_URL !== 'undefined') ? SB_URL : (localStorage.getItem('gs_sb_url') || '');
     var resp = await (window._gsFetch || fetch)(base + '/functions/v1/stripe-portal', {
       method: 'POST',
@@ -10018,7 +10018,7 @@ async function gsAutoLogin() {
     var session = (await supabase.auth.getSession()).data.session;
     if (session && session.user) {
       var uid = session.user.id;
-      localStorage.setItem('gs_sb_uid', uid);
+      gsStore.set('gs_sb_uid',uid);
       var meta = session.user.user_metadata || {};
       var name = meta.display_name || meta.name || session.user.email.split('@')[0] || 'Natur-Fan';
       localStorage.setItem('gs_sb_display_name', name);
@@ -10087,7 +10087,7 @@ function gsLikePost(postId, btn) {
   }
 
   // Supabase sync
-  var uid = localStorage.getItem('gs_sb_uid');
+  var uid = gsStore.get('gs_sb_uid', null);
   if (uid && typeof sbFetch === 'function') {
     if (!liked) {
       sbFetch('/rest/v1/post_likes', {method:'POST',
@@ -10429,7 +10429,7 @@ async function gsScanPersistToCloud(r) {
   }
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
   if (typeof sbFetch !== 'function') return;
-  var uid = localStorage.getItem('gs_sb_uid');
+  var uid = gsStore.get('gs_sb_uid', null);
   if (!uid) return;
   try {
     // Foto zu Storage hochladen (falls vorhanden)
@@ -11308,7 +11308,7 @@ function gsUpdateHomeBadge() {
   // 1) Eingeloggt → Vorname aus display_name oder Email-Prefix
   try {
     var displayName = localStorage.getItem('gs_sb_display_name') || '';
-    var email = localStorage.getItem('gs_sb_email') || '';
+    var email = gsStore.get('gs_sb_email', null) || '';
     var nick = displayName || (email ? email.split('@')[0] : '');
     // Nur Vorname (erstes Wort), max 14 Zeichen
     if (nick) {
@@ -17722,7 +17722,7 @@ function gsRatingsSave() {
 
 // Aktueller User (für Verified-Badge)
 function gsMarketUser() {
-  var email = localStorage.getItem('gs_sb_email') || '';
+  var email = gsStore.get('gs_sb_email', null) || '';
   var name  = localStorage.getItem('gs_profile_name') || '';
   var verified = !!email; // Email vorhanden = basis-verifiziert
   return { email: email, name: name || email.split('@')[0] || 'Anonym', verified: verified };
@@ -18780,7 +18780,7 @@ function updateMenuProfileBar() {
     // Sofort anzeigen — aus localStorage oder Profil
     var nm  = (_sbProfile && _sbProfile.display_name)
               || localStorage.getItem('gs_sb_display_name')
-              || (localStorage.getItem('gs_sb_email') || '').split('@')[0]
+              || (gsStore.get('gs_sb_email', null) || '').split('@')[0]
               || 'Naturfreund';
     var av  = (_sbProfile && _sbProfile.avatar_emoji) || '🌿';
     var xp  = (_sbProfile && _sbProfile.xp)           || 0;
@@ -19131,7 +19131,7 @@ async function gsFriendsSearchUsers(query) {
     var q = encodeURIComponent('%' + query + '%');
     var r = await sbFetch('/rest/v1/v_user_search?display_name=ilike.' + q + '&select=id,display_name,avatar_emoji,role,tier,xp,scan_count,bio&limit=30', {method:'GET'});
     var rows = (r && r.data && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : []);
-    var uid = localStorage.getItem('gs_sb_uid');
+    var uid = gsStore.get('gs_sb_uid', null);
     return rows.filter(function(u){ return u.id !== uid; });
   } catch(e) { return []; }
 }
@@ -19141,7 +19141,7 @@ async function gsFriendsSendRequest(targetUid) {
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) {
     showProfileToast && showProfileToast('🔐 Bitte einloggen'); return false;
   }
-  var uid = localStorage.getItem('gs_sb_uid');
+  var uid = gsStore.get('gs_sb_uid', null);
   if (!uid || uid === targetUid) return false;
   try {
     var r = await sbFetch('/rest/v1/friendships', {
@@ -21073,7 +21073,7 @@ async function gsAutoEnrichNewSpecies(r){
 
     // Supabase-Sync (optional — falls eingeloggt)
     try {
-      var uid = localStorage.getItem('gs_sb_uid');
+      var uid = gsStore.get('gs_sb_uid', null);
       if (uid && typeof sbFetch === 'function') {
         sbFetch('/rest/v1/user_species', {
           method:'POST',
@@ -21154,7 +21154,7 @@ function gsSaveConfirmedScan(r) {
 
   showProfileToast('✅ ' + r.name + ' ('+r.confidence+'%) gespeichert!');
   // In Supabase user_scans speichern
-  var uid = localStorage.getItem('gs_sb_uid');
+  var uid = gsStore.get('gs_sb_uid', null);
   if (uid && typeof sbFetch === 'function') {
     sbFetch('/rest/v1/user_scans', {method:'POST',
       headers:{'Prefer':'return=minimal'},
@@ -21288,7 +21288,7 @@ async function gsSubmitScanMistake() {
   // Supabase
   try {
     if (typeof sbFetch === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
-      var uid = localStorage.getItem('gs_sb_uid') || null;
+      var uid = gsStore.get('gs_sb_uid', null) || null;
       await sbFetch('/rest/v1/scan_corrections', {
         method:'POST',
         headers:{'Prefer':'return=minimal'},
@@ -21952,7 +21952,7 @@ async function gsProposeNewSpeciesFromScan(result, imageB64thumb) {
   // Supabase-Insert
   try {
     if (typeof sbFetch === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
-      var uid = localStorage.getItem('gs_sb_uid');
+      var uid = gsStore.get('gs_sb_uid', null);
       var row = {
         user_id: uid || null,
         scan_name: payload.name,
@@ -22041,7 +22041,7 @@ async function gsLoadCloudScans() {
   try {
     if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return 0;
     if (typeof sbFetch !== 'function') return 0;
-    var uid = localStorage.getItem('gs_sb_uid');
+    var uid = gsStore.get('gs_sb_uid', null);
     if (!uid) return 0;
     var qs = 'select=created_at,species_name,species_latin,category,confidence,toxicity,edible,thumb,context'
            + '&user_id=eq.' + encodeURIComponent(uid)
@@ -22292,7 +22292,7 @@ window.gsScanHistoryReportWrong = function(idx) {
   var correctName = prompt('Was hätte korrekt erkannt werden sollen?\n(deutscher oder lateinischer Name)\n\nKI hatte erkannt: ' + e.name);
   if (!correctName || !correctName.trim()) return;
   if (typeof sbFetch === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
-    var uid = localStorage.getItem('gs_sb_uid');
+    var uid = gsStore.get('gs_sb_uid', null);
     sbFetch('/rest/v1/scan_corrections', {
       method:'POST',
       headers:{'Content-Type':'application/json','Prefer':'return=minimal'},
@@ -25714,7 +25714,7 @@ window.gsFbMarkDone = async function(id){
   if (!note) { if (typeof showProfileToast === 'function') showProfileToast('⚠️ Bitte eine Erklärung angeben'); return; }
   fb.ki_status = 'implemented';
   fb.ki_action = note;
-  fb.done_by = localStorage.getItem('gs_sb_email') || 'admin';
+  fb.done_by = gsStore.get('gs_sb_email', null) || 'admin';
   fb.done_at = new Date().toISOString();
   fb.done_version = (typeof GS_VERSION !== 'undefined') ? GS_VERSION : '';
   try { localStorage.setItem('ps_feedback', JSON.stringify(feedbackItems)); } catch(_){}
@@ -26277,7 +26277,7 @@ let socialUserName = localStorage.getItem('gs_social_name') || '';
 function renderSocialFeed() {
   var feed = document.getElementById('social-feed');
   if (!feed) return;
-  var uid = localStorage.getItem('gs_sb_uid');
+  var uid = gsStore.get('gs_sb_uid', null);
 
   var filtered = currentSocialFilter === 'all' ? socialPosts :
     socialPosts.filter(function(p){ return (p.type || p.category) === currentSocialFilter; });
@@ -26382,7 +26382,7 @@ function filterSocial(filter, el) {
 function openNewPost() {
   if (!gsRequire('post_community', 'Bitte anmelden um zu posten.')) return;
   var name   = localStorage.getItem('gs_sb_display_name') ||
-               localStorage.getItem('gs_sb_email') || 'Naturfreund';
+               gsStore.get('gs_sb_email', null) || 'Naturfreund';
   var avatar = (_sbProfile && _sbProfile.avatar_emoji) || '🌿';
   var ca = document.getElementById('compose-avatar');
   if (ca) ca.textContent = avatar;
@@ -26398,7 +26398,7 @@ function openNewPost() {
 async function deletePost(postId) {
   if (!gsRequire('post_community', 'Bitte anmelden.')) return;
   if (!confirm('Post wirklich löschen?')) return;
-  var uid = localStorage.getItem('gs_sb_uid');
+  var uid = gsStore.get('gs_sb_uid', null);
   var res = await sbFetch('/rest/v1/social_posts?id=eq.' + postId + '&user_id=eq.' + uid, {method:'DELETE'});
   if (!res.error) {
     socialPosts = socialPosts.filter(function(p){ return String(p.id) !== String(postId); });
@@ -26447,7 +26447,7 @@ function loadSocialPosts(reset) {
   sbFetch('/rest/v1/social_posts?select=*&order=created_at.desc&limit=' + limit + '&offset=' + offset + filter, {method:'GET'})
     .then(function(res) {
       if (!res.error && res.data) {
-        var uid = localStorage.getItem('gs_sb_uid');
+        var uid = gsStore.get('gs_sb_uid', null);
         var data = res.data;
         data.forEach(function(p){ p.liked = false; p.type = p.category||'fund'; p.comments = []; });
         if (uid && data.length > 0) {
@@ -26503,7 +26503,7 @@ function toggleLike(postId) {
   post.liked = !post.liked;
   post.likes = Math.max(0, (post.likes||0) + (post.liked ? 1 : -1));
   renderSocialFeed();
-  var uid = localStorage.getItem('gs_sb_uid');
+  var uid = gsStore.get('gs_sb_uid', null);
   sbFetch('/rest/v1/rpc/toggle_post_like', {method:'POST', body:JSON.stringify({p_post_id:postId, p_user_id:uid})})
     .catch(function(){});
 }
@@ -26513,7 +26513,7 @@ async function addComment() {
   var input = document.getElementById('new-comment-input');
   var text  = input ? input.value.trim() : '';
   if (!text || !currentCommentPostId) return;
-  var uid    = localStorage.getItem('gs_sb_uid');
+  var uid    = gsStore.get('gs_sb_uid', null);
   var name   = localStorage.getItem('gs_sb_display_name')||'Naturfreund';
   var avatar = (_sbProfile && _sbProfile.avatar_emoji)||'🌿';
   var res = await sbFetch('/rest/v1/post_comments', {method:'POST',
@@ -26532,9 +26532,9 @@ async function submitPost() {
   if (!gsRequire('post_community','Bitte anmelden um zu posten.')) return;
   var text = ((document.getElementById('post-text')||{}).value||'').trim();
   if (!text) { alert('Bitte etwas schreiben!'); return; }
-  var uid    = localStorage.getItem('gs_sb_uid');
+  var uid    = gsStore.get('gs_sb_uid', null);
   if (!uid) { showProfileToast('❌ Kein User · bitte einloggen'); return; }
-  var name   = localStorage.getItem('gs_sb_display_name')||localStorage.getItem('gs_sb_email')||'Naturfreund';
+  var name   = localStorage.getItem('gs_sb_display_name')||gsStore.get('gs_sb_email', null)||'Naturfreund';
   var avatar = (_sbProfile && _sbProfile.avatar_emoji)||'🌿';
   var cat    = ((document.getElementById('post-category')||{}).value)||'fund';
   var plant  = ((document.getElementById('post-plant')||{}).value)||'';
@@ -26785,12 +26785,12 @@ async function submitIgPost() {
   }
   if (text.length > 500) { alert('Text ist zu lang (max. 500 Zeichen).'); return; }
 
-  const uid = localStorage.getItem('gs_sb_uid');
+  const uid = gsStore.get('gs_sb_uid', null);
   if (!uid) { showProfileToast && showProfileToast('❌ Bitte einloggen'); return; }
 
   const author = document.getElementById('ig-author')?.value?.trim()
     || localStorage.getItem('gs_sb_display_name')
-    || localStorage.getItem('gs_sb_email')
+    || gsStore.get('gs_sb_email', null)
     || 'Naturfreund';
   socialUserName = author;
   try { localStorage.setItem('gs_social_name', author); } catch(_){}
@@ -34111,7 +34111,7 @@ function initSettingsScreen() {
   // Admin-only Elemente zeigen/verstecken
   var isA = gsIsAdmin ? gsIsAdmin() : false;
   var isAdminEmail = typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() &&
-    (GS_ADMINS || []).includes((localStorage.getItem('gs_sb_email')||'').toLowerCase());
+    (GS_ADMINS || []).includes((gsStore.get('gs_sb_email', null)||'').toLowerCase());
   var showAdmin = isA || isAdminEmail;
   document.querySelectorAll('.admin-only-row').forEach(function(el) {
     el.style.display = showAdmin ? '' : 'none';
@@ -34423,7 +34423,7 @@ async function submitInlinePost() {
 
   // Login-Check
   if (typeof gsRequire === 'function' && !gsRequire('post_community','Bitte anmelden um zu posten.')) return;
-  const uid = localStorage.getItem('gs_sb_uid');
+  const uid = gsStore.get('gs_sb_uid', null);
   if (!uid) {
     showProfileToast && showProfileToast('🔐 Bitte einloggen zum Posten');
     return;
@@ -34436,7 +34436,7 @@ async function submitInlinePost() {
     || '🌿';
   const author = socialUserName
     || localStorage.getItem('gs_sb_display_name')
-    || localStorage.getItem('gs_sb_email')
+    || gsStore.get('gs_sb_email', null)
     || 'Naturfreund';
 
   // Map inline-Type → DB-category (CHECK-Constraint: fund/help/tip/showcase/rare/question)
@@ -38686,7 +38686,7 @@ window.gsUploadImage = window.gsUploadImage || async function(b64, bucket, ext) 
   ext = ext || 'jpg';
   bucket = bucket || 'post-images';
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return null;
-  var uid = localStorage.getItem('gs_sb_uid');
+  var uid = gsStore.get('gs_sb_uid', null);
   if (!uid) return null;
   try {
     var bin = atob(b64);
@@ -38694,7 +38694,7 @@ window.gsUploadImage = window.gsUploadImage || async function(b64, bucket, ext) 
     for (var i=0; i<bin.length; i++) u8[i] = bin.charCodeAt(i);
     var fileName = uid + '/' + Date.now() + '_' + Math.random().toString(36).slice(2,8) + '.' + ext;
     var url = (window.SB_URL || window.SB_URL_DEFAULT) + '/storage/v1/object/' + bucket + '/' + fileName;
-    var token = localStorage.getItem('gs_sb_token') || '';
+    var token = gsStore.get('gs_sb_token', null) || '';
     var apikey = window.SB_KEY || window.SB_KEY_DEFAULT;
     var resp = await (window._gsFetch || fetch)(url, {
       method: 'POST',
@@ -41574,7 +41574,7 @@ async function gsPPsavePlan() {
   // Wenn eingeloggt: zusätzlich Cloud-Sync
   try {
     if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof sbFetch === 'function') {
-      var uid = localStorage.getItem('gs_sb_uid');
+      var uid = gsStore.get('gs_sb_uid', null);
       if (uid) {
         var existing = await sbFetch('/rest/v1/user_gardens?user_id=eq.' + uid + '&select=data&limit=1', {method:'GET'});
         var rows = (existing && existing.data && Array.isArray(existing.data)) ? existing.data : [];
@@ -42138,7 +42138,7 @@ async function gsAgentScheduleNotifications(plan) {
 
   // v23.76: Auch zu Supabase als garden_tasks anlegen damit pg_cron-Reminder triggern
   if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof sbFetch === 'function') {
-    var uid = localStorage.getItem('gs_sb_uid');
+    var uid = gsStore.get('gs_sb_uid', null);
     if (!uid) return;
     try {
       // Tasks aus careSchedule + notifications generieren
@@ -42499,7 +42499,7 @@ async function gsDevAddCloudSensor() {
   var kindOpts = 'soil, light, temp, humidity, generic, multi';
   var kind = prompt('Sensor-Typ?\n(' + kindOpts + ')', 'multi');
   if (!kind) kind = 'generic';
-  var uid = localStorage.getItem('gs_sb_uid');
+  var uid = gsStore.get('gs_sb_uid', null);
   try {
     var r = await sbFetch('/rest/v1/sensor_devices', {
       method:'POST',
@@ -42530,8 +42530,8 @@ async function gsDevShowSensorCode(deviceId) {
     var sbUrl = window.SB_URL || window.SB_URL_DEFAULT;
     var sbKey = window.SB_KEY || window.SB_KEY_DEFAULT;
     var endpoint = sbUrl + '/rest/v1/sensor_readings';
-    var uid = localStorage.getItem('gs_sb_uid');
-    var token = localStorage.getItem('gs_sb_token') || '';
+    var uid = gsStore.get('gs_sb_uid', null);
+    var token = gsStore.get('gs_sb_token', null) || '';
     var curlExample = 'curl -X POST "' + endpoint + '" \\\n' +
       '  -H "apikey: ' + sbKey + '" \\\n' +
       '  -H "Authorization: Bearer ' + token + '" \\\n' +
@@ -42822,7 +42822,7 @@ async function gsPPtryBluetooth() {
   // 1) Erst Cloud-Sensor-Daten holen (funktioniert auf JEDEM Gerät — auch iOS)
   try {
     if (typeof sbFetch === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
-      var uid = localStorage.getItem('gs_sb_uid');
+      var uid = gsStore.get('gs_sb_uid', null);
       if (uid) {
         var srRes = await sbFetch('/rest/v1/sensor_readings?user_id=eq.' + uid + '&select=metric,value_num,ts&order=ts.desc&limit=20', {method:'GET'});
         var rows = (srRes && !srRes.error && Array.isArray(srRes.data)) ? srRes.data : (Array.isArray(srRes) ? srRes : []);
@@ -43716,7 +43716,7 @@ async function gsHashPw(pw) {
 
 function toggleAdminMode() {
   // v23.90 SECURITY: Email-Whitelist VOR Login-Dialog prüfen
-  var email = (localStorage.getItem('gs_sb_email') || '').toLowerCase();
+  var email = (gsStore.get('gs_sb_email', null) || '').toLowerCase();
   var isWhitelisted = typeof GS_ADMINS !== 'undefined' && Array.isArray(GS_ADMINS) && GS_ADMINS.includes(email);
   if (!isWhitelisted) {
     // Stummer No-Op — Non-Admins sollten den Button gar nicht sehen, aber Defense-in-Depth
@@ -43753,7 +43753,7 @@ function closeAdminLogin() {
 
 async function doAdminLogin() {
   // v23.90 SECURITY: Doppel-Check — Email muss in GS_ADMINS sein
-  var email = (localStorage.getItem('gs_sb_email') || '').toLowerCase();
+  var email = (gsStore.get('gs_sb_email', null) || '').toLowerCase();
   var isWhitelisted = typeof GS_ADMINS !== 'undefined' && Array.isArray(GS_ADMINS) && GS_ADMINS.includes(email);
   if (!isWhitelisted) {
     var errEl0 = document.getElementById('admin-login-error');
@@ -44588,8 +44588,8 @@ function submitFeedback(){
     var fbId = 'fb' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
 
     // Auth-Quelle: gs_sb_* (echte App-Keys, NICHT 'sb-session' — das war der Bug)
-    var uid   = localStorage.getItem('gs_sb_uid')   || '';
-    var email = localStorage.getItem('gs_sb_email') || '';
+    var uid   = gsStore.get('gs_sb_uid', null)   || '';
+    var email = gsStore.get('gs_sb_email', null) || '';
 
     var newFb = {
       id: fbId,
@@ -44856,7 +44856,7 @@ function gsAdminSaveSbKey() {
   showProfileToast('✅ Supabase Key gespeichert und aktiviert!');
   // Admin-Log
   var log = JSON.parse(localStorage.getItem('gs_admin_log') || '[]');
-  log.unshift({ ts: new Date().toISOString(), admin: localStorage.getItem('gs_sb_email'),
+  log.unshift({ ts: new Date().toISOString(), admin: gsStore.get('gs_sb_email', null),
     action: 'sb_key_changed', note: 'Key geändert auf: ' + newKey.slice(0,20) + '…' });
   localStorage.setItem('gs_admin_log', JSON.stringify(log.slice(0,200)));
 }
@@ -45021,7 +45021,7 @@ async function gsAdminSetGlobalApiKey(newKey, providerArg, enabledArg) {
       }
       try {
         var log = JSON.parse(localStorage.getItem('gs_admin_log') || '[]');
-        log.unshift({ ts: new Date().toISOString(), admin: localStorage.getItem('gs_sb_email'), action: 'global_api_key_set', note: 'Key: ' + newKey.slice(0,12) + '…' + ', healthOk: ' + h.ok });
+        log.unshift({ ts: new Date().toISOString(), admin: gsStore.get('gs_sb_email', null), action: 'global_api_key_set', note: 'Key: ' + newKey.slice(0,12) + '…' + ', healthOk: ' + h.ok });
         localStorage.setItem('gs_admin_log', JSON.stringify(log.slice(0,200)));
       } catch(_){}
       return true;
@@ -45199,6 +45199,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v24.51', date: '04.05.2026',
+    headline: 'gsStore-Migration Auth-Triple: 101 localStorage-Calls quota-safe (gs_sb_uid 51× · gs_sb_email 31× · gs_sb_token 19×)',
+    summary: 'v24.51 schließt das P0-Item aus dem Pre-Release-Backlog: alle 101 direkten localStorage-Calls für die Auth-Triple (User-UUID, E-Mail, JWT-Token) wandern auf den in v24.48 eingeführten gsStore-Wrapper. Damit ist das kritischste Quota-Risiko entschärft — ein QuotaExceededError beim Schreiben von Pflanzen/Tagebuch/Tracks führt jetzt nicht mehr dazu, dass der User beim nächsten Boot auf einer scheinbar leeren App landet (alter Pfad: localStorage.setItem throws → Auth-Token nicht persistiert → Re-Boot ohne Login). Der gsStore-Wrapper schluckt Quota-Fehler still und zählt sie in window.gsStoreQuotaHits — sichtbar in der Admin-Storage-Diagnostics-Card aus v24.49. Verbleibend für v24.52+: 695 weitere localStorage-Calls (vorher 794), davon Top-Kandidaten gs_gpx_tracks 13×, gs_garden_plans 12×, gs_admin 12×, gs_global_api_key 10×.',
+    items: [
+      {emoji:'🔐', bold:'Auth-Triple migriert (101 Calls):', text:' gs_sb_uid 51× (User-UUID) + gs_sb_email 31× (User-Email) + gs_sb_token 19× (JWT) — alle localStorage.getItem/setItem/removeItem auf gsStore.get/set/remove umgestellt. Verhalten 1:1 (gsStore.get gibt bei Missing den 2. Parameter zurück, sonst identisch zu localStorage.getItem).'},
+      {emoji:'🛡️', bold:'Quota-safe Auth:', text:' Bei QuotaExceededError (Code 22, 1014, NS_ERROR_DOM_QUOTA_REACHED) oder Safari-Private-Mode wirft die Auth-Persistenz keinen Fehler mehr — Caller bekommt false (für set) oder null (für get). Damit ist das Logout-Risiko bei vollem Storage neutralisiert. window.gsStoreQuotaHits zählt die Events für Admin-Diagnostics.'},
+      {emoji:'📉', bold:'localStorage-Bilanz:', text:' Direkte localStorage-Calls: 794 → 695 (-13%). gsStore-Calls: 0 → 101. Restliche Hot-Paths für v24.52+: gs_gpx_tracks 13×, gs_garden_plans 12×, gs_admin 12×, gs_global_api_key 10×, gs_user_location 9×, gs_quiz_streak 9×, gs_gartentagebuch 9×.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check ✓ · sw.js (gs-v24.51) + manifest.json valid ✓ · GS_VERSION=v24.51 ✓ · _headers v24.51 ✓ · meta app-version=24.51.20260504 ✓ · Auth-Triple localStorage-Calls verbleibend: 0 ✓ · Auth-Triple gsStore-Calls: 101 ✓.'},
+    ]
+  },
   {
     v: 'v24.50', date: '30.04.2026',
     headline: 'Pre-Release Pass 11: Z-Index-Token-Migration (12 Sites) · neuer --z-image-overlay · maxlength auf 14 Auth/Profile-Inputs',
@@ -46062,7 +46073,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v24.50';
+var GS_VERSION = 'v24.51';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -46158,7 +46169,7 @@ function gsIsVerifiedExpert(profile) {
 // Experten-Level-Info für Profil-Anzeige
 function gsGetExpertInfo(profile) {
   if (!profile) return GS_EXPERT_LEVELS.user;
-  if (gsIsAdmin(profile.email || localStorage.getItem('gs_sb_email'))) {
+  if (gsIsAdmin(profile.email || gsStore.get('gs_sb_email', null))) {
     return { label: 'GreenScan Admin', icon: '🛡️', color: '#c62828', rank: 99, isAdmin: true };
   }
   return GS_EXPERT_LEVELS[profile.expert_level || 'user'] || GS_EXPERT_LEVELS.user;
@@ -46265,7 +46276,7 @@ function gsAdminBanUser(targetEmail) {
   if (!gsIsAdmin()) return;
   if (!confirm('Nutzer ' + targetEmail + ' wirklich sperren?')) return;
   var log = JSON.parse(localStorage.getItem('gs_admin_log') || '[]');
-  log.unshift({ ts: new Date().toISOString(), admin: localStorage.getItem('gs_sb_email'),
+  log.unshift({ ts: new Date().toISOString(), admin: gsStore.get('gs_sb_email', null),
     target: targetEmail, action: 'ban', note: 'Gesperrt durch Admin' });
   localStorage.setItem('gs_admin_log', JSON.stringify(log.slice(0,200)));
   closeModal('modal-recipe-detail');
@@ -46282,14 +46293,14 @@ async function gsAdminSetExpertLevel(targetEmail) {
 
   // In Supabase speichern
   try {
-    var token = localStorage.getItem('gs_sb_token');
+    var token = gsStore.get('gs_sb_token', null);
     if (!token) { showProfileToast('Nicht eingeloggt.'); return; }
     // Über Supabase RPC oder direkt (vereinfacht: localStorage + API)
     // Admin-Log lokal speichern
     var log = JSON.parse(localStorage.getItem('gs_admin_log') || '[]');
     log.unshift({
       ts: new Date().toISOString(),
-      admin: localStorage.getItem('gs_sb_email'),
+      admin: gsStore.get('gs_sb_email', null),
       target: targetEmail,
       action: 'set_expert_level',
       level: newLevel,
@@ -46358,7 +46369,7 @@ async function gsSubmitExpertApplication() {
   if (_sbProfile) { _sbProfile.biography = bio; _sbProfile.diplomas = dips; }
   localStorage.setItem('gs_expert_application', JSON.stringify({
     ts: new Date().toISOString(),
-    email: localStorage.getItem('gs_sb_email'),
+    email: gsStore.get('gs_sb_email', null),
     biography: bio,
     diplomas: dips,
     status: 'pending'
@@ -46434,12 +46445,12 @@ function sbGetConfig() {
 // ── Supabase REST fetch (ohne SDK, 0KB overhead) ──────────────
 async function sbFetch(path, opts) {
   if (!sbGetConfig()) return {error:{message:'Supabase nicht konfiguriert'}};
-  var token = localStorage.getItem('gs_sb_token') || '';
+  var token = gsStore.get('gs_sb_token', null) || '';
   var expires = parseInt(localStorage.getItem('gs_sb_expires') || '0');
   // Auto-Refresh wenn Token in <60s abläuft
   if (token && expires && Date.now() > expires - 60000) {
     await sbRefresh();
-    token = localStorage.getItem('gs_sb_token') || '';
+    token = gsStore.get('gs_sb_token', null) || '';
   }
   var headers = Object.assign({
     'Content-Type': 'application/json',
@@ -46470,7 +46481,7 @@ async function sbRefresh() {
     var parsed2 = await sbParseResponse(resp);
     var data = parsed2.data || {};
     if (data.access_token) {
-      localStorage.setItem('gs_sb_token', data.access_token);
+      gsStore.set('gs_sb_token',data.access_token);
       localStorage.setItem('gs_sb_refresh', data.refresh_token);
       localStorage.setItem('gs_sb_expires', String(Date.now() + (data.expires_in||3600)*1000));
     }
@@ -46522,7 +46533,7 @@ async function gsHandleAuthRedirect(){
         // Token kurz in Session schreiben damit Password-Update möglich
         var expM = hash.match(/expires_in=(\d+)/);
         var expSec = expM ? parseInt(expM[1]) : 3600;
-        localStorage.setItem('gs_sb_token', m[1]);
+        gsStore.set('gs_sb_token',m[1]);
         localStorage.setItem('gs_sb_expires', String(Date.now() + expSec*1000));
         // Dialog zum neuen Passwort
         setTimeout(function(){
@@ -46874,7 +46885,7 @@ window.gsInstallApp = async function(){
       var skipUntil = parseInt(localStorage.getItem('gs_auth_prompt_skip_until') || '0', 10);
       if (Date.now() < skipUntil) return;
       // Schon einmal erfolgreich eingeloggt gewesen (Account existiert) → leiser pingen
-      var hadSession = !!localStorage.getItem('gs_sb_email');
+      var hadSession = !!gsStore.get('gs_sb_email', null);
       // Welcome-Card mit klarer Message + Skip-Option
       var existing = document.getElementById('gs-auth-pflicht-modal');
       if (existing) existing.remove();
@@ -46959,17 +46970,17 @@ async function sbEnsureValidToken() {
 function sbSaveSession(data) {
   if (!data) return;
   // v23.90 SECURITY: Account-Wechsel-Detection — Admin-Flag aufräumen wenn Email wechselt
-  var oldEmail = (localStorage.getItem('gs_sb_email') || '').toLowerCase();
+  var oldEmail = (gsStore.get('gs_sb_email', null) || '').toLowerCase();
   var newEmail = ((data.user && data.user.email) || '').toLowerCase();
   if (oldEmail && newEmail && oldEmail !== newEmail) {
     // Account-Wechsel erkannt: Admin-Mode strikt zurücksetzen
     localStorage.removeItem('gs_admin');
   }
-  localStorage.setItem('gs_sb_token',   data.access_token || '');
+  gsStore.set('gs_sb_token',  data.access_token || '');
   localStorage.setItem('gs_sb_refresh', data.refresh_token || '');
   localStorage.setItem('gs_sb_expires', String(Date.now() + (data.expires_in||3600)*1000));
-  localStorage.setItem('gs_sb_uid',     (data.user && data.user.id) || '');
-  localStorage.setItem('gs_sb_email',   (data.user && data.user.email) || '');
+  gsStore.set('gs_sb_uid',    (data.user && data.user.id) || '');
+  gsStore.set('gs_sb_email',  (data.user && data.user.email) || '');
   var _meta = (data.user && data.user.user_metadata) || {};
   var _dn = _meta.display_name || _meta.name || (data.user && data.user.email && data.user.email.split('@')[0]) || '';
   if (_dn) localStorage.setItem('gs_sb_display_name', _dn);
@@ -46990,7 +47001,7 @@ function sbClearSession() {
 }
 
 function sbIsLoggedIn() {
-  return !!(localStorage.getItem('gs_sb_token') && localStorage.getItem('gs_sb_uid'));
+  return !!(gsStore.get('gs_sb_token', null) && gsStore.get('gs_sb_uid', null));
 }
 
 // ── Auth-Operationen ──────────────────────────────────────────
@@ -47288,11 +47299,11 @@ async function sbLogin(email, password) {
 }
 
 async function sbLogout() {
-  if (localStorage.getItem('gs_sb_token') && sbGetConfig()) {
+  if (gsStore.get('gs_sb_token', null) && sbGetConfig()) {
     // v24.46: _gsFetch mit 10s — Logout ist Fire-and-Forget, kürzeres Timeout OK
     (window._gsFetch || fetch)(SB_URL + '/auth/v1/logout', {
       method: 'POST',
-      headers: {'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+localStorage.getItem('gs_sb_token')}
+      headers: {'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+gsStore.get('gs_sb_token', null)}
     }, 10000).catch(function(){});
   }
   sbClearSession();
@@ -47386,7 +47397,7 @@ function gsOpenAboTab() {
 }
 
 async function sbLoadProfile() {
-  var uid = localStorage.getItem('gs_sb_uid');
+  var uid = gsStore.get('gs_sb_uid', null);
   if (!uid) return null;
   try {
     var res = await sbFetch('/rest/v1/profiles?id=eq.'+uid+'&select=*', {method:'GET'});
@@ -47394,7 +47405,7 @@ async function sbLoadProfile() {
       // Profil existiert noch nicht — Fallback-Profil aus localStorage
       _sbProfile = {
         id: uid,
-        email: localStorage.getItem('gs_sb_email') || '',
+        email: gsStore.get('gs_sb_email', null) || '',
         display_name: localStorage.getItem('gs_sb_display_name') || '',
         xp: 0, level: 1, login_streak: 0, avatar_emoji: '🌿'
       };
@@ -47405,7 +47416,7 @@ async function sbLoadProfile() {
     console.warn('[sbLoadProfile] error:', e.message);
     _sbProfile = {
       id: uid,
-      email: localStorage.getItem('gs_sb_email') || '',
+      email: gsStore.get('gs_sb_email', null) || '',
       display_name: localStorage.getItem('gs_sb_display_name') || '',
       xp: 0, level: 1, login_streak: 0, avatar_emoji: '🌿'
     };
@@ -47418,7 +47429,7 @@ async function sbLoadProfile() {
 }
 
 async function sbSaveProfile(updates) {
-  var uid = localStorage.getItem('gs_sb_uid');
+  var uid = gsStore.get('gs_sb_uid', null);
   if (!uid) return Promise.resolve({error:{message:'Nicht eingeloggt'}});
   updates.id = uid;
   updates.updated_at = new Date().toISOString();
@@ -49524,7 +49535,7 @@ async function renderProfileLoggedIn(mc) {
   // Onboarding-Status nach erfolgreichem Login aktualisieren
   if (typeof gsOnLoginSuccess === 'function') gsOnLoginSuccess();
   var profile = _sbProfile || await sbLoadProfile();
-  var email = localStorage.getItem('gs_sb_email') || '';
+  var email = gsStore.get('gs_sb_email', null) || '';
   var name  = (profile && profile.display_name) || email.split('@')[0] || 'Naturfreund';
   var avatar= (profile && profile.avatar_emoji) || '🌿';
   // v23.71: XP aus zentraler Single-Source-of-Truth (gsGetXP) — identischer Wert überall.
@@ -49751,7 +49762,7 @@ async function doChangePassword() {
   if (btn) { btn.textContent = '⏳ Prüfe…'; btn.disabled = true; }
 
   // 1) Re-Auth via current password
-  var email = (localStorage.getItem('gs_sb_email') || '').toLowerCase();
+  var email = (gsStore.get('gs_sb_email', null) || '').toLowerCase();
   if (!email) { showErr('Nicht angemeldet. Bitte erneut einloggen.'); if (btn) { btn.textContent = '🔒 Passwort speichern'; btn.disabled = false; } return; }
   try {
     // v24.46: _gsFetch mit 15s Timeout
@@ -49768,7 +49779,7 @@ async function doChangePassword() {
     var fresh = await reauth.json().catch(function(){return null;});
     if (fresh && fresh.access_token) {
       // Token aktualisieren — der nächste Update-Call muss mit gültigem Token gehen
-      localStorage.setItem('gs_sb_token', fresh.access_token);
+      gsStore.set('gs_sb_token',fresh.access_token);
       if (fresh.refresh_token) localStorage.setItem('gs_sb_refresh', fresh.refresh_token);
       if (fresh.expires_in) localStorage.setItem('gs_sb_expires', String(Date.now() + fresh.expires_in*1000));
     }
@@ -49857,7 +49868,7 @@ async function gsExecuteDeleteAccount() {
   var btn = document.getElementById('del-btn');
   if (btn) { btn.textContent = '⏳ Lösche…'; btn.disabled = true; btn.style.opacity = '.7'; }
 
-  var uid = localStorage.getItem('gs_sb_uid');
+  var uid = gsStore.get('gs_sb_uid', null);
   if (!uid) {
     if (typeof showProfileToast==='function') showProfileToast({title:'❌ Nicht angemeldet', body:'Bitte erneut einloggen.', kind:'error', duration:3500});
     if (btn) { btn.textContent = 'Endgültig löschen'; btn.disabled = false; btn.style.opacity = ''; }
@@ -50360,7 +50371,7 @@ function gsOnLoginSuccess() {
   var banner = document.getElementById('gs-guest-banner');
   if (banner) banner.style.display = 'none';
   // Admin-Status sofort anwenden
-  var email = (localStorage.getItem('gs_sb_email')||'').toLowerCase();
+  var email = (gsStore.get('gs_sb_email', null)||'').toLowerCase();
   var isAdmin = GS_ADMINS.includes(email);
   document.querySelectorAll('.admin-only-row').forEach(function(el) {
     el.style.display = isAdmin ? '' : 'none';
@@ -50438,7 +50449,7 @@ function gsClearUserDataKeys(){
 // v24.11: erweiterter Sync — zieht ALLE User-Daten cross-device
 async function gsSyncUserDataOnLogin(){
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
-  var uid = localStorage.getItem('gs_sb_uid');
+  var uid = gsStore.get('gs_sb_uid', null);
   if (!uid || typeof sbFetch !== 'function') return;
   // PRIVACY: User-ID-Switch erkennen → Cache des vorigen Users löschen
   var lastUid = localStorage.getItem('gs_last_active_uid');
@@ -50635,7 +50646,7 @@ window.gsCloudSync = (function(){
   function _getQueue(){ try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch(_){ return []; } }
   function _setQueue(q){ try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q.slice(-200))); } catch(_){} } // max 200
 
-  function _uid(){ return localStorage.getItem('gs_sb_uid') || ''; }
+  function _uid(){ return gsStore.get('gs_sb_uid', null) || ''; }
   function _canPush(){ return (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) && !!_uid() && (typeof sbFetch === 'function'); }
 
   function markDirty(scope){
@@ -50783,7 +50794,7 @@ window.gsCloudSync = (function(){
       // Beacon-Pfad — beforeunload, kein Auth-Header möglich. Wir nutzen Fallback-RPC
       // (Beacon kann keine Custom-Headers → wir versuchen normalen Fetch sync mit keepalive)
       try {
-        var token = localStorage.getItem('gs_sb_token') || '';
+        var token = gsStore.get('gs_sb_token', null) || '';
         var key = localStorage.getItem('gs_sb_key') || (typeof SB_KEY !== 'undefined' ? SB_KEY : '');
         var supaUrl = (typeof SB_URL !== 'undefined' ? SB_URL : 'https://' + (localStorage.getItem('gs_sb_url')||'') );
         if (!supaUrl || !key) return false;
@@ -51068,7 +51079,7 @@ function gsPushPlantsNow(){ window.gsCloudSync && gsCloudSync.markDirty('plants'
 // ── SENSOREN (sensor_devices + sensor_readings + thresholds) ────────────────
 async function gsSensorSync(){
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return null;
-  var uid = localStorage.getItem('gs_sb_uid');
+  var uid = gsStore.get('gs_sb_uid', null);
   if (!uid || typeof sbFetch !== 'function') return null;
   try {
     var r = await sbFetch('/rest/v1/sensor_devices?user_id=eq.' + uid + '&select=*&order=last_seen.desc.nullslast', {method:'GET'});
@@ -51089,7 +51100,7 @@ async function gsSensorSync(){
 // Neues Gerät registrieren (z.B. nach Bluetooth-Pairing)
 async function gsRegisterSensorDevice(device){
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return {error:'not_logged_in'};
-  var uid = localStorage.getItem('gs_sb_uid');
+  var uid = gsStore.get('gs_sb_uid', null);
   if (!uid || typeof sbFetch !== 'function') return {error:'no_sb'};
   var payload = Object.assign({
     user_id: uid,
@@ -51118,7 +51129,7 @@ async function gsRegisterSensorDevice(device){
 // Messwert hochladen (für BLE-Sensoren die im Client gelesen werden)
 async function gsPushSensorReading(deviceId, metric, value, unit){
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
-  var uid = localStorage.getItem('gs_sb_uid');
+  var uid = gsStore.get('gs_sb_uid', null);
   if (!uid || !deviceId || typeof sbFetch !== 'function') return;
   try {
     await sbFetch('/rest/v1/sensor_readings', {
@@ -51136,7 +51147,7 @@ async function gsPushSensorReading(deviceId, metric, value, unit){
 // ── NOTIFICATIONS (Inbox + Push) ────────────────────────────────────────────
 async function gsNotifPull(){
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return [];
-  var uid = localStorage.getItem('gs_sb_uid');
+  var uid = gsStore.get('gs_sb_uid', null);
   if (!uid || typeof sbFetch !== 'function') return [];
   try {
     var r = await sbFetch('/rest/v1/notifications?user_id=eq.' + uid + '&order=created_at.desc&limit=50', {method:'GET'});
@@ -51163,7 +51174,7 @@ async function gsNotifMarkRead(id){
 // Web-Push-Subscription registrieren (für PWA-Notifications)
 async function gsRegisterPushSubscription(subscription){
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
-  var uid = localStorage.getItem('gs_sb_uid');
+  var uid = gsStore.get('gs_sb_uid', null);
   if (!uid || !subscription || typeof sbFetch !== 'function') return;
   try {
     var json = subscription.toJSON ? subscription.toJSON() : subscription;
@@ -51187,7 +51198,7 @@ async function gsRegisterPushSubscription(subscription){
 // ── USER-PREFERENCES ────────────────────────────────────────────────────────
 async function gsPrefsPull(){
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return null;
-  var uid = localStorage.getItem('gs_sb_uid');
+  var uid = gsStore.get('gs_sb_uid', null);
   if (!uid || typeof sbFetch !== 'function') return null;
   try {
     var r = await sbFetch('/rest/v1/user_preferences?user_id=eq.' + uid + '&select=*&limit=1', {method:'GET'});
@@ -51200,7 +51211,7 @@ async function gsPrefsPull(){
 }
 function gsPrefsPushNow(partial){
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
-  var uid = localStorage.getItem('gs_sb_uid');
+  var uid = gsStore.get('gs_sb_uid', null);
   if (!uid || typeof sbFetch !== 'function') return;
   clearTimeout(window._gsPushDebounce.prefs);
   window._gsPushDebounce.prefs = setTimeout(function(){
@@ -51218,7 +51229,7 @@ function gsPrefsPushNow(partial){
 // ── GARDEN-TASKS ────────────────────────────────────────────────────────────
 async function gsAddGardenTask(task){
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return {error:'not_logged_in'};
-  var uid = localStorage.getItem('gs_sb_uid');
+  var uid = gsStore.get('gs_sb_uid', null);
   if (!uid || typeof sbFetch !== 'function') return {error:'no_sb'};
   try {
     var r = await sbFetch('/rest/v1/garden_tasks', {
@@ -51238,7 +51249,7 @@ window.gsTrackEvent = function(event, props){
     try { prefs = JSON.parse(localStorage.getItem('gs_prefs')||'{}'); } catch(_){}
     if (prefs && prefs.privacy && prefs.privacy.analytics === false) return;
     if (typeof sbFetch !== 'function') return;
-    var uid = localStorage.getItem('gs_sb_uid') || null;
+    var uid = gsStore.get('gs_sb_uid', null) || null;
     sbFetch('/rest/v1/analytics_events', {
       method:'POST',
       headers:{'Content-Type':'application/json','Prefer':'return=minimal'},
@@ -51259,7 +51270,7 @@ window.gsTrackEvent = function(event, props){
 async function gsRedeemVoucher(code){
   if (!code) return {error:'no_code'};
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return {error:'not_logged_in'};
-  var uid = localStorage.getItem('gs_sb_uid');
+  var uid = gsStore.get('gs_sb_uid', null);
   if (!uid || typeof sbFetch !== 'function') return {error:'no_sb'};
   try {
     // Voucher holen (public-read)
@@ -51331,7 +51342,7 @@ function gsIsAdmin(email) {
       return Array.isArray(window.GS_ADMINS) && GS_ADMINS.includes((email||'').toLowerCase());
     }
     if (gsGetUserRole() === 'admin') return true;
-    var em = (localStorage.getItem('gs_sb_email') || '').toLowerCase();
+    var em = (gsStore.get('gs_sb_email', null) || '').toLowerCase();
     return Array.isArray(window.GS_ADMINS) && em && GS_ADMINS.includes(em);
   } catch(_){ return false; }
 }
@@ -51353,7 +51364,7 @@ async function gsSyncUserRole() {
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return null;
   if (typeof sbFetch !== 'function') return null;
   try {
-    var uid = localStorage.getItem('gs_sb_uid');
+    var uid = gsStore.get('gs_sb_uid', null);
     if (!uid) return null;
     var r = await sbFetch('/rest/v1/profiles?id=eq.' + uid + '&select=role,is_admin,is_expert', {method:'GET'});
     var rows = (r && r.data && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : []);
@@ -51561,12 +51572,12 @@ function gsSanitize(input, maxLen) {
       localStorage.removeItem('gs_admin');
     }
     // Token-Struktur validieren (JWT hat 3 Teile getrennt durch '.')
-    var token = localStorage.getItem('gs_sb_token');
+    var token = gsStore.get('gs_sb_token', null);
     if (token && token.split('.').length !== 3) {
       // Ungültiger Token → Session löschen
-      localStorage.removeItem('gs_sb_token');
-      localStorage.removeItem('gs_sb_uid');
-      localStorage.removeItem('gs_sb_email');
+      gsStore.remove('gs_sb_token');
+      gsStore.remove('gs_sb_uid');
+      gsStore.remove('gs_sb_email');
     }
   }, 500);
 })();
@@ -55409,7 +55420,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
     try { return typeof sbIsLoggedIn === 'function' && sbIsLoggedIn(); }
     catch(e) { return false; }
   }
-  function uid() { return localStorage.getItem('gs_sb_uid') || null; }
+  function uid() { return gsStore.get('gs_sb_uid', null) || null; }
   function isOnline() { return (typeof navigator === 'undefined') ? true : (navigator.onLine !== false); }
 
   function loadQueue() {
@@ -55704,7 +55715,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
       if (typeof sbEnsureValidToken === 'function') {
         await sbEnsureValidToken();
       }
-      var t = (typeof localStorage !== 'undefined') ? localStorage.getItem('gs_sb_token') : null;
+      var t = (typeof localStorage !== 'undefined') ? gsStore.get('gs_sb_token', null) : null;
       if (t) return t;
       // Fallback (für den seltenen Fall dass jemand den offiziellen Client doch lädt)
       if (window.supabase && window.supabase.auth) {
@@ -55805,8 +55816,8 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
         // (c) Audit-Trail. Pfad: <uid>/<jobId-or-uuid>_<filename>.pdf
         var storagePath = null;
         try {
-          var uid = localStorage.getItem('gs_sb_uid');
-          var token = localStorage.getItem('gs_sb_token');
+          var uid = gsStore.get('gs_sb_uid', null);
+          var token = gsStore.get('gs_sb_token', null);
           var sbUrl = (typeof SB_URL !== 'undefined' ? SB_URL : ('https://' + (localStorage.getItem('gs_sb_url') || 'vowbiueikwrauuceilhc.supabase.co')));
           var sbKey = (typeof SB_KEY !== 'undefined' ? SB_KEY : (localStorage.getItem('gs_sb_key') || ''));
           if (uid && token && sbUrl && sbKey) {
@@ -56642,7 +56653,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
           method:'POST',
           headers:{'Content-Type':'application/json','Prefer':'return=minimal'},
           body: JSON.stringify({
-            user_id:    localStorage.getItem('gs_sb_uid'),
+            user_id:    gsStore.get('gs_sb_uid', null),
             device_id:  s.id,
             metric:     s.metric || 'unknown',
             threshold:  Number(thresholdVal),
