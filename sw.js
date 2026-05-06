@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v24.51 — gsStore-Migration Auth-Triple: 101 localStorage-Calls (gs_sb_uid 51 + gs_sb_email 31 + gs_sb_token 19) auf gsStore-Wrapper umgestellt — Quota-safe Auth (kein Logout bei Storage-Hit)
+   v24.52 — gsStore-Migration Welle 2 (74 Calls): gs_gpx_tracks 13 + gs_garden_plans 12 + gs_admin 12 + gs_global_api_key 10 + gs_user_location 9 + gs_quiz_streak 9 + gs_gartentagebuch 9. Frontend-Sync zur past_due-Migration die Cowork autonom deployed hat (4/4 Test-PASS, 7-Tage-Grace-Period via active_sub-CTE).
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v24.51';
+const VERSION = 'gs-v24.52';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
