@@ -60,7 +60,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="24.51.20260504">
+<meta name="app-version" content="25.1.20260509">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -1970,8 +1970,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <button onclick="initScanner()" style="display:block;width:100%;margin-top:14px;padding:13px;background:linear-gradient(135deg,#2d8a2d,#1b5e20);color:#fff;border:none;border-radius:12px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🔄 Kamera erneut öffnen</button>
   </div>
   
-  <!-- File-Input (unsichtbar) -->
-  <input type="file" id="file-input" accept="image/*" capture="environment" style="display:none" onchange="handleUpload(event)">
+  <!-- File-Input (unsichtbar) — v25.1: capture="environment" entfernt, sonst forciert iOS/Android nur Kamera statt Datei-Picker -->
+  <input type="file" id="file-input" accept="image/*" style="display:none" onchange="handleUpload(event)">
   
   <!-- Ergebnis-Overlay -->
   <div id="scan-result" style="display:none;position:absolute;inset:0;z-index:100;background:var(--card);overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:80px;"></div>
@@ -45200,6 +45200,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.1', date: '09.05.2026',
+    headline: 'Bug #1 Scanner-Upload (Datei-Picker statt Forced-Camera) + Auth-Fix-Restore (war von UPDATE.command-Sync überschrieben)',
+    summary: 'Erster v25.x-Mini-Commit nach Cowork-Audit (AUDIT_v25_BUG_BRIEFINGS.md). Zwei P0-Fixes in einem Commit weil der UPDATE.command-Sync vom 2026-05-09 (bae5750) den v25.0-Auth-Fix-Code aus dem Working-Tree entfernt hatte (Commit a8be650 ist in git history erhalten, aber Funktionen wurden auf v24.51-State zurückgerollt). Ergänzend: Bug #1 aus dem Audit-Briefing — Scanner-„Hochladen"-Button öffnete bisher direkt die Kamera statt einen Datei-Picker. Root-Cause: file-input Z.1974 hatte capture="environment" — iOS Safari + Android Chrome interpretieren das als Camera-only und überspringen das Action-Sheet. Fix entfernt das Attribut, damit User Aufnahme/Galerie/Dateien wählen kann (Anderer Code in der App macht es bereits richtig mit getrennten inline-camera-input + inline-gallery-input).',
+    items: [
+      {emoji:'📤', bold:'Bug #1 Scanner-Upload (1 Edit, 5 Min):', text:' Z.1974 file-input capture="environment" entfernt. Effekt: iOS Safari öffnet Action-Sheet (Foto aufnehmen / Foto wählen / Aus Dateien), Android Chrome öffnet Datei-Picker, Desktop öffnet Datei-Picker. Verhalten konsistent mit den getrennten inline-camera-input/inline-gallery-input.'},
+      {emoji:'🔓', bold:'Auth-Fix-Restore (gsOnboardingHide + gsCheckOnboarding):', text:' v25.0-Code war im Working-Tree weg nach UPDATE.command-Sync. Jetzt wieder drin: gsOnboardingHide() resetet Sub-Views (onb-start sichtbar, onb-register/onb-login hidden) + leert 5 Auth-Inputs. gsCheckOnboarding() Idempotent-Guard (return early wenn sbIsLoggedIn() && Wrapper.style.display === "none").'},
+      {emoji:'⚠️', bold:'Sync-Problem dokumentiert:', text:' UPDATE.command bae5750 hat 4 lokale Commits (v24.52 Welle 2, v24.53 Welle 3, v24.54 Z-Index Phase 2, v25.0 Auth-Fix) im Working-Tree neutralisiert — Commits sind in git log noch da. Konsequenz: gsStore-Welle 2/3 (74+45 Calls) sind aktuell NICHT im Working-Tree, ebenso Z-Index Phase 2 (12 Sites). Restore dieser Migrationen ist offen — kommt in folgenden v25.x-Sprints zurück.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check ✓ · sw.js (gs-v25.1) + manifest.json valid ✓ · GS_VERSION=v25.1 ✓ · _headers v25.1 ✓ · meta app-version=25.1.20260509 ✓ · "v25.0/v25.1 Auth-Bug-Fix"-Marker: 2 (Fix 1 + Fix 2) ✓ · "v25.1: capture"-Marker: 1 ✓.'},
+    ]
+  },
+  {
     v: 'v24.51', date: '04.05.2026',
     headline: 'gsStore-Migration Auth-Triple: 101 localStorage-Calls quota-safe (gs_sb_uid 51× · gs_sb_email 31× · gs_sb_token 19×)',
     summary: 'v24.51 schließt das P0-Item aus dem Pre-Release-Backlog: alle 101 direkten localStorage-Calls für die Auth-Triple (User-UUID, E-Mail, JWT-Token) wandern auf den in v24.48 eingeführten gsStore-Wrapper. Damit ist das kritischste Quota-Risiko entschärft — ein QuotaExceededError beim Schreiben von Pflanzen/Tagebuch/Tracks führt jetzt nicht mehr dazu, dass der User beim nächsten Boot auf einer scheinbar leeren App landet (alter Pfad: localStorage.setItem throws → Auth-Token nicht persistiert → Re-Boot ohne Login). Der gsStore-Wrapper schluckt Quota-Fehler still und zählt sie in window.gsStoreQuotaHits — sichtbar in der Admin-Storage-Diagnostics-Card aus v24.49. Verbleibend für v24.52+: 695 weitere localStorage-Calls (vorher 794), davon Top-Kandidaten gs_gpx_tracks 13×, gs_garden_plans 12×, gs_admin 12×, gs_global_api_key 10×.',
@@ -46073,7 +46084,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v24.51';
+var GS_VERSION = 'v25.1';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -49989,6 +50000,15 @@ var GS_GUEST_MODE_KEY = 'gs_guest_mode';
 
 // Zeige Onboarding wenn: nicht eingeloggt UND noch keine Entscheidung getroffen
 function gsCheckOnboarding() {
+  // v25.0/v25.1 Auth-Bug-Fix: Idempotent-Guard — wenn schon eingeloggt UND Wrapper
+  // bereits hidden, gar nichts tun. Verhindert dass ein Re-Trigger nach Login
+  // den Wrapper mit altem Sub-View (Register-Form) wieder öffnet.
+  try {
+    if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
+      var preEl = document.getElementById('gs-onboarding');
+      if (preEl && preEl.style.display === 'none') return;
+    }
+  } catch(_){}
   // Warte max. 1.5s bis sbInit abgeschlossen ist, dann entscheide
   var waited = 0;
   function _doCheck() {
@@ -50330,6 +50350,20 @@ function gsOnboardingHide() {
   setTimeout(function(){
     el.style.display = 'none';
     el.style.opacity = '';
+    // v25.0/v25.1 Auth-Bug-Fix: Sub-Views auf Default-State zurücksetzen, damit beim
+    // nächsten Re-Open des Wrappers (z.B. nach Logout) der saubere Start-Screen
+    // kommt — nicht der zuletzt aktive Login/Register-View.
+    var startEl = document.getElementById('onb-start');
+    var regEl   = document.getElementById('onb-register');
+    var loginEl = document.getElementById('onb-login');
+    if (startEl) startEl.style.display = '';     // sichtbar (Default)
+    if (regEl)   regEl.style.display = 'none';
+    if (loginEl) loginEl.style.display = 'none';
+    // Inputs leeren — Daten-Leck-Schutz zwischen User-Sessions
+    ['onb-reg-name','onb-reg-email','onb-reg-pw','onb-login-email','onb-login-pw'].forEach(function(id){
+      var inp = document.getElementById(id);
+      if (inp) inp.value = '';
+    });
   }, 350);
   try { localStorage.setItem(GS_ONBOARDING_KEY, 'logged_in'); } catch(e){}
 }
