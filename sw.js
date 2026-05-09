@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v24.53 — gsStore-Migration Welle 3 (45 Calls): gs_admin_log 10 + gs_market_listings 8 + gs_streak 7 + ps_myplants 5 + gs_prefs 5 + gs_plantings 5 + gs_claude_model 5. Total gsStore-Calls: 220 (101 Auth + 74 Welle 2 + 45 Welle 3). 17 wichtigste Daten-Keys quota-safe.
+   v24.54 — Z-Index-Token-Migration Phase 2: 12 Sites auf neue Tokens (--z-detail-base 6000 für Track-Detail-Modal-Stack 8 Sites mit calc-Offsets, --z-banner-high 8500 für persistente Boden-Banner, --z-sticky 100 für topbar+scan-result, --z-debug 999999 für gs-splash). Hardcoded z-index: 85 → 73, Token-Sites: 18 → 31.
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v24.53';
+const VERSION = 'gs-v24.54';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;

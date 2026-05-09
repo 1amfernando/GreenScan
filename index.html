@@ -60,7 +60,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="24.53.20260506">
+<meta name="app-version" content="24.54.20260509">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -124,6 +124,11 @@
   --z-toast:    9999;    /* Toast/Snackbar — über allem */
   --z-image-overlay: 99999; /* v24.50: Lightbox/Photo-Fullscreen — über Toasts */
   --z-debug:    999999;  /* Debug-Overlay, nur Dev-Mode */
+  /* v24.54: Track-Detail-Modal-Stack-Base (6000) — Sub-Layer via calc(--z-detail-base + offset).
+     Liegt zwischen --z-modal-top (5000) und --z-toast (9999). 6 Stack-Stufen 6000/6500/6700/6800/6900/7000. */
+  --z-detail-base: 6000;
+  /* v24.54: High-Banner (8500) für persistente Boden-Banner mit hoher Sichtbarkeit (Stripe-/Onboarding-Hint). */
+  --z-banner-high: 8500;
 }
 
 body.dark{
@@ -271,7 +276,7 @@ body{height:100%;background:var(--g-dark);font-family:"DM Sans",sans-serif;overf
   background:var(--g-dark);
   display:flex;align-items:center;justify-content:space-between;
   padding-left:16px;padding-right:12px;
-  z-index:100;
+  z-index:var(--z-sticky,100);
   border-bottom:none;
   box-shadow:none;
 }
@@ -1372,7 +1377,7 @@ body.dark .menu-search-wrap{background:var(--card);}
 
 
 #gs-splash {
-  position: fixed; inset: 0; z-index: 999999;
+  position: fixed; inset: 0; z-index: var(--z-debug,999999);
   background: linear-gradient(145deg, #0a1f0a, #1a3d1a);
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
@@ -1974,7 +1979,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   <input type="file" id="file-input" accept="image/*" capture="environment" style="display:none" onchange="handleUpload(event)">
   
   <!-- Ergebnis-Overlay -->
-  <div id="scan-result" style="display:none;position:absolute;inset:0;z-index:100;background:var(--card);overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:80px;"></div>
+  <div id="scan-result" style="display:none;position:absolute;inset:0;z-index:var(--z-sticky,100);background:var(--card);overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:80px;"></div>
   
 </div>
 
@@ -10361,7 +10366,7 @@ function gsScanHistoryOpen(uidOrIdx) {
   }
 
   var html =
-    '<div style="position:fixed;inset:0;z-index:6000;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:center;" onclick="if(event.target===this)closeScanDetail()">' +
+    '<div style="position:fixed;inset:0;z-index:var(--z-detail-base,6000);background:rgba(0,0,0,.7);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:center;" onclick="if(event.target===this)closeScanDetail()">' +
       '<div style="background:var(--card);width:100%;max-width:540px;max-height:92vh;overflow-y:auto;border-radius:20px 20px 0 0;padding:14px 16px 24px;-webkit-overflow-scrolling:touch;" onclick="event.stopPropagation()">' +
         '<div style="width:42px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 14px;"></div>' +
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;gap:8px;">' +
@@ -22215,7 +22220,7 @@ function openScanHistoryDetail(idx) {
     modal = document.createElement('div');
     modal.id = 'scan-detail-modal';
     modal.className = 'modal-overlay';
-    modal.style.cssText = 'z-index:6000;display:none;';
+    modal.style.cssText = 'z-index:var(--z-detail-base,6000);display:none;';
     modal.onclick = function(ev){ if (ev.target===modal) modal.style.display='none'; };
     document.body.appendChild(modal);
   }
@@ -36065,7 +36070,7 @@ function gsTrackOpenDetail(idx) {
 
   // Modal-Aufbau
   var html =
-    '<div style="position:fixed;inset:0;z-index:6500;background:rgba(0,0,0,.78);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:center;" onclick="if(event.target===this)gsTrackCloseDetail()">' +
+    '<div style="position:fixed;inset:0;z-index:calc(var(--z-detail-base,6000) + 500);background:rgba(0,0,0,.78);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:center;" onclick="if(event.target===this)gsTrackCloseDetail()">' +
       '<div style="background:var(--card);width:100%;max-width:580px;max-height:94vh;overflow-y:auto;border-radius:20px 20px 0 0;-webkit-overflow-scrolling:touch;" onclick="event.stopPropagation()">' +
         '<div style="position:sticky;top:0;background:var(--card);padding:14px 16px 10px;border-bottom:1px solid var(--border);z-index:5;display:flex;align-items:center;gap:10px;">' +
           '<div style="flex:1;min-width:0;">' +
@@ -39832,7 +39837,7 @@ window.gsPPTestConnection = async function(btnEl) {
   if (existing) existing.remove();
   var m = document.createElement('div');
   m.id = 'gs-conn-test-modal';
-  m.style.cssText = 'position:fixed;inset:0;z-index:7000;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px;';
+  m.style.cssText = 'position:fixed;inset:0;z-index:calc(var(--z-detail-base,6000) + 1000);background:rgba(0,0,0,.7);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px;';
   m.onclick = function(e){ if (e.target===m) m.remove(); };
   m.innerHTML = '<div style="background:var(--card);border-radius:14px;padding:20px;max-width:460px;width:100%;max-height:80vh;overflow-y:auto;">' + html +
     '<button onclick="document.getElementById(\'gs-conn-test-modal\').remove()" style="margin-top:14px;width:100%;padding:11px;background:var(--g-main);color:#fff;border:none;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">Schließen</button>' +
@@ -40472,7 +40477,7 @@ function gsPPshow3DCad() {
   if (existing) existing.remove();
   var m = document.createElement('div');
   m.id = 'modal-plan-3dcad';
-  m.style.cssText = 'position:fixed;inset:0;z-index:6800;background:#0a1a0a;display:flex;flex-direction:column;';
+  m.style.cssText = 'position:fixed;inset:0;z-index:calc(var(--z-detail-base,6000) + 800);background:#0a1a0a;display:flex;flex-direction:column;';
   m.innerHTML =
     '<div style="position:absolute;top:14px;left:14px;right:14px;display:flex;align-items:center;gap:10px;z-index:5;pointer-events:none;">' +
       '<div style="background:rgba(0,0,0,.55);color:#e0f2e0;padding:8px 12px;border-radius:10px;font-size:12.5px;backdrop-filter:blur(8px);pointer-events:auto;">' +
@@ -41649,7 +41654,7 @@ function gsPPopenSavedPlans() {
 
   var m = document.createElement('div');
   m.id = 'modal-saved-plans';
-  m.style.cssText = 'position:fixed;inset:0;z-index:6700;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:center;';
+  m.style.cssText = 'position:fixed;inset:0;z-index:calc(var(--z-detail-base,6000) + 700);background:rgba(0,0,0,.65);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:center;';
   m.onclick = function(ev){ if (ev.target === m) m.remove(); };
   m.innerHTML =
     '<div style="background:var(--card);width:100%;max-width:560px;max-height:88vh;overflow-y:auto;border-radius:20px 20px 0 0;-webkit-overflow-scrolling:touch;">' +
@@ -42376,7 +42381,7 @@ function _gsAgentShowModal(title, bodyHtml) {
   if (existing) existing.remove();
   var m = document.createElement('div');
   m.id = 'modal-agent';
-  m.style.cssText = 'position:fixed;inset:0;z-index:6900;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:center;';
+  m.style.cssText = 'position:fixed;inset:0;z-index:calc(var(--z-detail-base,6000) + 900);background:rgba(0,0,0,.65);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:center;';
   m.onclick = function(ev){ if (ev.target === m) m.remove(); };
   m.innerHTML =
     '<div style="background:var(--card);width:100%;max-width:520px;max-height:88vh;overflow-y:auto;border-radius:20px 20px 0 0;-webkit-overflow-scrolling:touch;">' +
@@ -45065,7 +45070,7 @@ window.gsOpenGlobalKeyAdmin = async function() {
   if (existing) existing.remove();
   var m = document.createElement('div');
   m.id = 'gs-global-key-admin';
-  m.style.cssText = 'position:fixed;inset:0;z-index:7000;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:18px;';
+  m.style.cssText = 'position:fixed;inset:0;z-index:calc(var(--z-detail-base,6000) + 1000);background:rgba(0,0,0,.7);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:18px;';
   m.onclick = function(e){ if (e.target === m) m.remove(); };
   var keyPreview = key ? (key.slice(0, 12) + '…' + key.slice(-4)) : '—';
   m.innerHTML =
@@ -45199,6 +45204,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v24.54', date: '09.05.2026',
+    headline: 'Z-Index-Token-Migration Phase 2: Track-Detail-Modal-Stack + Banner-High auf semantische Tokens',
+    summary: 'Zweite Welle der Z-Index-Token-Migration nimmt sich die zwei Memory-Hint-Cluster vor: Track-Detail-Modal-Stack (8 Sites von 6000 bis 7000 für die verschachtelten Track-Detail-Overlays, Photo-Map und Compass-Modals) und den High-Banner-Layer (1 Site bei 8500 für persistente Boden-Banner). Plus 3 Easy-Wins (topbar/scan-result auf --z-sticky, gs-splash auf --z-debug). Zwei neue semantische Tokens definiert: --z-detail-base (6000) als Anker für den Track-Detail-Stack mit calc()-Offsets (+500/+700/+800/+900/+1000) — Stack-Order bleibt exakt erhalten, lässt sich aber zentral verschieben. --z-banner-high (8500) trennt den High-Sichtbarkeits-Banner vom regulären Banner-Layer. Hardcoded z-index-Sites: 85 → 73, Token-Sites: 18 → 31. Stack-Konflikte zwischen verschachtelten Track-Detail-Modals jetzt deklarativ — wenn das ganze Track-Detail-System in Z-Hierarchie verschoben werden muss, reicht ein Token-Update in :root.',
+    items: [
+      {emoji:'🎚️', bold:'Track-Detail-Stack (8 Sites, calc-Offsets):', text:' Scan-History-Detail z:6000 → var(--z-detail-base,6000) (2 Sites), Track-Detail-Modal z:6500 → calc(var(--z-detail-base,6000)+500), Photo-Map z:6700 → +700, Compass-Modal z:6800 → +800, GPX-Track-Detail z:6900 → +900, Track-Edit + Track-Delete z:7000 → +1000 (2 Sites). Stack-Order durch calc-Offsets exakt erhalten.'},
+      {emoji:'🆕', bold:'Neue Tokens --z-detail-base (6000) + --z-banner-high (8500):', text:' --z-detail-base als Anker für den Track-Detail-Modal-Stack (Sub-Layer via calc + Offset), --z-banner-high für persistente Boden-Banner mit hoher Sichtbarkeit (Stripe-/Onboarding-Hints). Token-System hat jetzt 11 semantische Layers.'},
+      {emoji:'🎯', bold:'Easy-Wins (3 Sites):', text:' .topbar z:100 → var(--z-sticky,100), #scan-result z:100 → var(--z-sticky,100), #gs-splash z:999999 → var(--z-debug,999999).'},
+      {emoji:'⏭️', bold:'Verschoben auf v24.55:', text:' Banner-Layer 8000 (3 Sites) — wegen querySelector [style*="z-index:8000"]-Edge-Case (Z.~52053) braucht Code-Audit + Klassen-Marker statt Inline-Match. Plus 64× input maxlength + 125× label-for Polish-Pässe.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check ✓ · sw.js (gs-v24.54) + manifest.json valid ✓ · GS_VERSION=v24.54 ✓ · _headers v24.54 ✓ · meta app-version=24.54.20260509 ✓ · Hardcoded z-index: 85 → 73 ✓ · Token-Sites: 18 → 31 ✓ · Track-Detail-Stack-Sites: 8 ✓ · Banner-High: 1 ✓ · Easy-Wins: 3 ✓.'},
+    ]
+  },
   {
     v: 'v24.53', date: '06.05.2026',
     headline: 'gsStore-Migration Welle 3 (45 Calls): gs_admin_log 10× · gs_market_listings 8× · gs_streak 7× · ps_myplants 5× · gs_prefs 5× · gs_plantings 5× · gs_claude_model 5×',
@@ -46095,7 +46112,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v24.53';
+var GS_VERSION = 'v24.54';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -46781,7 +46798,7 @@ async function gsHandleAuthRedirect(){
     if (!isIOS || !isSafari) return;
     var b = document.createElement('div');
     b.id = 'gs-ios-install-banner';
-    b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 84px);z-index:8500;background:linear-gradient(135deg,#1a3d1a,#2e7d32);color:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 8px 28px rgba(0,0,0,.35);display:flex;gap:12px;align-items:center;font-family:inherit;animation:gsSlideUpBanner .4s ease-out;';
+    b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 84px);z-index:var(--z-banner-high,8500);background:linear-gradient(135deg,#1a3d1a,#2e7d32);color:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 8px 28px rgba(0,0,0,.35);display:flex;gap:12px;align-items:center;font-family:inherit;animation:gsSlideUpBanner .4s ease-out;';
     if (!document.getElementById('gs-banner-anim')) {
       var s = document.createElement('style'); s.id = 'gs-banner-anim';
       s.textContent = '@keyframes gsSlideUpBanner{from{transform:translateY(120%);opacity:0}to{transform:translateY(0);opacity:1}}';
