@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.2 — Bug #2 Stripe-Billing-Return-Handler (Frontend-Polish): URL-Parameter ?billing=success/cancel/return werden in gsHandleAuthRedirect erkannt → Toast mit passender Message, Entitlements-Refresh via gsRestorePurchases bei success/return, history.replaceState räumt URL auf. Komplettiert Coworks stripe-checkout v4 (success_url green-scan.ch/?billing=success).
+   v25.3 — Bug #4 Marktplatz-Audit (Code-Review): MARKETPLACE_AUDIT.md dokumentiert 3 P0-Bugs (saveListing macht keinen Backend-INSERT, Schema-Mismatch Frontend↔Backend, Photos nicht im Storage-Bucket) + 2 mittlere Schwächen. Plus Frontend-Sicherheits-Restore: mktLike/mktDelete bekommen wieder encodeURIComponent (war v24.13 gefixt, durch UPDATE.command-Sync verloren).
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.2';
+const VERSION = 'gs-v25.3';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;

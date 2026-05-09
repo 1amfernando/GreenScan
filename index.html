@@ -60,7 +60,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.2.20260509">
+<meta name="app-version" content="25.3.20260510">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -9305,9 +9305,11 @@ function mktLike(id) {
     btn.textContent = (l.liked?'❤️':'🤍') + ' ' + l.likes;
     btn.style.color = l.liked ? '#e53935' : 'var(--muted)';
   }
-  // Supabase sync
+  // Supabase sync (v25.3: encodeURIComponent-Restore — war in v24.13 gefixt,
+  // durch UPDATE.command-Sync verloren gegangen. Schützt vor String-Concat-
+  // Injection wenn id einen unerwarteten Wert hat.)
   if (typeof sbFetch === 'function') {
-    sbFetch('/rest/v1/marketplace_listings?id=eq.'+id, {
+    sbFetch('/rest/v1/marketplace_listings?id=eq.'+encodeURIComponent(id), {
       method: 'PATCH',
       body: JSON.stringify({likes: l.likes})
     }).catch(function(){});
@@ -9324,8 +9326,9 @@ function mktDelete(id) {
   closeModal('modal-listing-detail');
   renderMarket();
   showProfileToast('Inserat gelöscht', 'info');
+  // v25.3: encodeURIComponent-Restore (war v24.13 gefixt, durch Sync verloren)
   if (typeof sbFetch === 'function') {
-    sbFetch('/rest/v1/marketplace_listings?id=eq.'+id, {method:'DELETE'}).catch(function(){});
+    sbFetch('/rest/v1/marketplace_listings?id=eq.'+encodeURIComponent(id), {method:'DELETE'}).catch(function(){});
   }
 }
 
@@ -45200,6 +45203,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.3', date: '10.05.2026',
+    headline: 'Bug #4 Marktplatz-Audit: 3 P0-Bugs dokumentiert + Sicherheits-Restore mktLike/mktDelete',
+    summary: 'Code-Audit der Marktplatz-Funktionen aus AUDIT_v25_BUG_BRIEFINGS.md Bug #4. Drei kritische Befunde dokumentiert in MARKETPLACE_AUDIT.md: (M1) saveListing() schreibt nur localStorage und macht KEINEN POST in marketplace_listings — User-Listings sind unsichtbar für andere User, „Veröffentlicht"-Toast lügt. (M2) Schema-Mismatch zwischen Frontend (desc/cat/images/createdAt/sellerId/...) und Backend (description/category/photo_url/created_at/user_id/...). (M3) Photos werden als komprimierte Base64-Arrays im Listing-JSON gespeichert statt im 2026-05-09 von Cowork angelegten marketplace-photos Storage-Bucket — bläht localStorage auf, würde Backend-INSERT zusätzlich brechen. Plus zwei mittlere Schwächen (M4 encodeURIComponent fehlte / M5 sellerId-aus-localStorage). M4 wird sofort gefixt: mktLike/mktDelete bekommen encodeURIComponent zurück (war in v24.13 schon mal drin, durch UPDATE.command-Sync bae5750 verloren). M1-M3-M5 brauchen Cowork-Coordination und folgen in v25.4-v25.6.',
+    items: [
+      {emoji:'🔍', bold:'MARKETPLACE_AUDIT.md angelegt:', text:' Komplettes Bug-Inventar mit Code-Pfaden (saveListing Z.18084, mktLike Z.9293, mktDelete Z.9317, loadMarketFromSupabase Z.9485, gsMarketLoad/Save/User Z.17699-17729, Filter-Funktionen Z.17883-17919). Schema-Mapping-Tabelle Frontend↔Backend. Fix-Vorschläge mit konkretem JS-Code. E2E-Test-Plan für Cowork-Chrome-MCP.'},
+      {emoji:'🛡️', bold:'M4 Sicherheits-Restore (sofort gefixt):', text:' mktLike Z.9310 + mktDelete Z.9328 bekommen wieder encodeURIComponent(id) im URL-Path. War in v24.13 als Concat-Injection-Vuln (G2 HIGH) gefixt, ging mit UPDATE.command-Sync verloren. Jetzt wieder drin.'},
+      {emoji:'⏭️', bold:'M1-M3-M5 für v25.4-v25.6:', text:' M1 saveListing() POST-Call (2-3h, braucht ID-Migration-Doppel-Tracking), M2 Schema-Adapter-Funktionen (1-2h), M3 Storage-Upload via marketplace-photos Bucket (2h, Cowork hat Bucket bereit), M5 user_id aus auth.uid() (1h). Vor v25.4 sollte Cowork ein Test-Listing per SQL anlegen damit Display-Path verifiziert werden kann.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check ✓ · sw.js (gs-v25.3) + manifest.json valid ✓ · GS_VERSION=v25.3 ✓ · _headers v25.3 ✓ · meta app-version=25.3.20260510 ✓ · encodeURIComponent in marketplace_listings-Calls: 2 (mktLike + mktDelete) ✓.'},
+    ]
+  },
+  {
     v: 'v25.2', date: '09.05.2026',
     headline: 'Bug #2 Stripe-Billing-Return-Handler — Frontend-Polish komplettiert Coworks stripe-checkout v4',
     summary: 'Cowork hat das Stripe-Backend autonom auf v4 deployed (Schema-Fix für interval/is_launch_offer + green-scan.ch URL-Fix). Backend setzt jetzt success_url=green-scan.ch/?billing=success und cancel_url=green-scan.ch/?billing=cancel. Frontend-Polish in v25.2: gsHandleAuthRedirect erkennt diese Top-Level-Returns (NICHT Popup-Mode, der wird via postMessage in Z.9187 gehandelt), zeigt eine passende Toast-Message und ruft bei success/return gsRestorePurchases() um die Entitlements server-seitig zu pullen. URL wird via history.replaceState aufgeräumt damit ein Reload den Toast nicht erneut triggert. Damit ist der Stripe-Card-Flow End-to-End funktional — Cowork verifiziert via WebFetch nach Push.',
@@ -46094,7 +46108,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.2';
+var GS_VERSION = 'v25.3';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
