@@ -60,7 +60,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="24.54.20260509">
+<meta name="app-version" content="25.0.20260509">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -45205,6 +45205,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.0', date: '09.05.2026',
+    headline: 'P0 Auth-Login-Bug fix: nach Login kommt Home statt Register-Form',
+    summary: 'Major-Bump auf v25.0 wegen P0-Auth-Bug der den Login-Flow blockierte. Symptom: User klickt Anmelden → Login-Form → Email+PW eingeben → Anmelden → statt Home erscheint die Registrier-Form. Root-Cause (Cowork-Diagnose 2026-05-06): gsOnboardingHide() versteckte nur den Wrapper #gs-onboarding, ließ aber die Sub-Views (onb-start/onb-login/onb-register) in ihrem letzten State stehen. Bei einem Re-Trigger von gsCheckOnboarding() (z.B. via sbInit-Race-Condition) wurde der Wrapper wieder geöffnet — und der zuletzt aktive Sub-View kam hoch (Login-Form nach Login → wahrscheinlich auch Register wenn der User vorher zwischen Tabs wechselte). Fix in zwei Stellen: gsOnboardingHide() resetet Sub-Views auf Default (onb-start sichtbar, onb-register+onb-login hidden) und leert die 5 Auth-Inputs (Daten-Leck-Schutz zwischen User-Sessions). gsCheckOnboarding() bekommt einen Idempotent-Guard: wenn User schon eingeloggt UND Wrapper bereits hidden, wird komplett nichts gemacht — kein Re-Open mehr möglich.',
+    items: [
+      {emoji:'🔓', bold:'Fix 1 — gsOnboardingHide() Sub-View-Reset:', text:' Nach setTimeout(350ms) wird onb-start auf default-visible (display:""), onb-register und onb-login auf display:none gesetzt. Plus: 5 Inputs (onb-reg-name/onb-reg-email/onb-reg-pw/onb-login-email/onb-login-pw) werden geleert — verhindert dass Email/Passwort-Eingaben zwischen User-Sessions sichtbar bleiben.'},
+      {emoji:'🛡️', bold:'Fix 2 — gsCheckOnboarding() Idempotent-Guard:', text:' Vor dem Setup-Block neuer Pre-Check: wenn sbIsLoggedIn() true UND #gs-onboarding bereits display:none, return early. Damit kann ein Re-Trigger nach erfolgreichem Login (sbInit-Race, Auth-State-Listener, etc.) den Wrapper nicht mehr versehentlich wieder öffnen.'},
+      {emoji:'📋', bold:'Diagnose-Doc:', text:' BUG_AUTH_LOGIN_ZEIGT_REGISTER.md (Cowork 2026-05-06) dokumentiert die komplette Code-Pfad-Analyse, alternative Re-Trigger-Quellen (Email-Confirm-Redirect, Guest-Mode-Banner) und die Definition-of-Done für den Fix.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check ✓ · sw.js (gs-v25.0) + manifest.json valid ✓ · GS_VERSION=v25.0 ✓ · _headers v25.0 ✓ · meta app-version=25.0.20260509 ✓ · "v25.0 Auth-Bug-Fix"-Marker in index.html: 2 (Fix 1 + Fix 2) ✓. Definition-of-Done (Live-Verify): Cowork via Chrome-MCP testet Login → Home, Logout → onb-start, Magic-Link unverändert.'},
+    ]
+  },
+  {
     v: 'v24.54', date: '09.05.2026',
     headline: 'Z-Index-Token-Migration Phase 2: Track-Detail-Modal-Stack + Banner-High auf semantische Tokens',
     summary: 'Zweite Welle der Z-Index-Token-Migration nimmt sich die zwei Memory-Hint-Cluster vor: Track-Detail-Modal-Stack (8 Sites von 6000 bis 7000 für die verschachtelten Track-Detail-Overlays, Photo-Map und Compass-Modals) und den High-Banner-Layer (1 Site bei 8500 für persistente Boden-Banner). Plus 3 Easy-Wins (topbar/scan-result auf --z-sticky, gs-splash auf --z-debug). Zwei neue semantische Tokens definiert: --z-detail-base (6000) als Anker für den Track-Detail-Stack mit calc()-Offsets (+500/+700/+800/+900/+1000) — Stack-Order bleibt exakt erhalten, lässt sich aber zentral verschieben. --z-banner-high (8500) trennt den High-Sichtbarkeits-Banner vom regulären Banner-Layer. Hardcoded z-index-Sites: 85 → 73, Token-Sites: 18 → 31. Stack-Konflikte zwischen verschachtelten Track-Detail-Modals jetzt deklarativ — wenn das ganze Track-Detail-System in Z-Hierarchie verschoben werden muss, reicht ein Token-Update in :root.',
@@ -46112,7 +46123,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v24.54';
+var GS_VERSION = 'v25.0';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -50028,6 +50039,15 @@ var GS_GUEST_MODE_KEY = 'gs_guest_mode';
 
 // Zeige Onboarding wenn: nicht eingeloggt UND noch keine Entscheidung getroffen
 function gsCheckOnboarding() {
+  // v25.0 Auth-Bug-Fix: Idempotent-Guard — wenn schon eingeloggt UND Wrapper
+  // bereits hidden, gar nichts tun. Verhindert dass ein Re-Trigger nach Login
+  // den Wrapper mit altem Sub-View (Register-Form) wieder öffnet.
+  try {
+    if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
+      var preEl = document.getElementById('gs-onboarding');
+      if (preEl && preEl.style.display === 'none') return;
+    }
+  } catch(_){}
   // Warte max. 1.5s bis sbInit abgeschlossen ist, dann entscheide
   var waited = 0;
   function _doCheck() {
@@ -50369,6 +50389,20 @@ function gsOnboardingHide() {
   setTimeout(function(){
     el.style.display = 'none';
     el.style.opacity = '';
+    // v25.0 Auth-Bug-Fix: Sub-Views auf Default-State zurücksetzen, damit beim
+    // nächsten Re-Open des Wrappers (z.B. nach Logout) der saubere Start-Screen
+    // kommt — nicht der zuletzt aktive Login/Register-View.
+    var startEl = document.getElementById('onb-start');
+    var regEl   = document.getElementById('onb-register');
+    var loginEl = document.getElementById('onb-login');
+    if (startEl) startEl.style.display = '';     // sichtbar (Default)
+    if (regEl)   regEl.style.display = 'none';
+    if (loginEl) loginEl.style.display = 'none';
+    // Inputs leeren — Daten-Leck-Schutz zwischen User-Sessions
+    ['onb-reg-name','onb-reg-email','onb-reg-pw','onb-login-email','onb-login-pw'].forEach(function(id){
+      var inp = document.getElementById(id);
+      if (inp) inp.value = '';
+    });
   }, 350);
   try { localStorage.setItem(GS_ONBOARDING_KEY, 'logged_in'); } catch(e){}
 }

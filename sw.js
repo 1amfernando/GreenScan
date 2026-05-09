@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v24.54 — Z-Index-Token-Migration Phase 2: 12 Sites auf neue Tokens (--z-detail-base 6000 für Track-Detail-Modal-Stack 8 Sites mit calc-Offsets, --z-banner-high 8500 für persistente Boden-Banner, --z-sticky 100 für topbar+scan-result, --z-debug 999999 für gs-splash). Hardcoded z-index: 85 → 73, Token-Sites: 18 → 31.
+   v25.0 — Auth-Login-Bug fix: gsOnboardingHide() resetet Sub-Views (onb-start sichtbar, onb-register/onb-login hidden) + Inputs leer; gsCheckOnboarding() idempotent (kein Re-Open wenn schon eingeloggt+hidden). Root-Cause: Wrapper wurde versteckt, Sub-Views blieben in zuletztem State → Re-Trigger zeigte Register-Form statt Home. Diagnose Cowork 2026-05-06 in BUG_AUTH_LOGIN_ZEIGT_REGISTER.md.
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v24.54';
+const VERSION = 'gs-v25.0';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
