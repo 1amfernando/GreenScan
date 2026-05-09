@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.0 — Auth-Login-Bug fix: gsOnboardingHide() resetet Sub-Views (onb-start sichtbar, onb-register/onb-login hidden) + Inputs leer; gsCheckOnboarding() idempotent (kein Re-Open wenn schon eingeloggt+hidden). Root-Cause: Wrapper wurde versteckt, Sub-Views blieben in zuletztem State → Re-Trigger zeigte Register-Form statt Home. Diagnose Cowork 2026-05-06 in BUG_AUTH_LOGIN_ZEIGT_REGISTER.md.
+   v24.51 — gsStore-Migration Auth-Triple: 101 localStorage-Calls (gs_sb_uid 51 + gs_sb_email 31 + gs_sb_token 19) auf gsStore-Wrapper umgestellt — Quota-safe Auth (kein Logout bei Storage-Hit)
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.0';
+const VERSION = 'gs-v24.51';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;

@@ -1,157 +1,142 @@
-// GreenScan — Stripe Webhook Receiver (Supabase Edge Function · Deno)
-//
-// Zweck:
-//   Empfängt signierte Webhook-Events von Stripe und persistiert sie als
-//   Audit-Log in `stripe_events`. Decoupelt vom restlichen Schema —
-//   nachgelagerte Trigger/Views können daraus eine `subscriptions`-
-//   Tabelle ableiten ohne dass diese Function direkt schreiben muss.
-//
-// Endpoint:
-//   POST  https://<project>.supabase.co/functions/v1/stripe-webhook
-//   Header: Stripe-Signature: <sig>
-//
-// Setup:
-//   supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_...
-//   supabase secrets set STRIPE_SECRET_KEY=sk_live_...   # (optional, für Re-Lookups)
-//   In Stripe-Dashboard:
-//     - Webhook hinzufügen mit URL = oben
-//     - Events selektieren: checkout.session.completed,
-//       customer.subscription.created/updated/deleted,
-//       invoice.paid, invoice.payment_failed
-//     - Signing-Secret kopieren in Supabase-Secrets
-//
-// Sicherheit:
-//   - Stripe-Signatur wird verifiziert (HMAC-SHA256 mit Tolerance 5min)
-//   - Idempotenz: event.id ist Primary Key → Replay-Attacks unmöglich
-//   - Only service_role schreibt (RLS in Migration)
+// Stripe Webhook Handler — receives subscription events and syncs to DB
+// v5 (2026-05-04): STRIPE_WEBHOOK_SECRET kann aus app_settings.stripe_webhook_secret gelesen werden
+//                  (Fallback Env) — ermöglicht voll-automatischen Setup ohne UI-Eingriff.
+// Cowork-deployed via Supabase MCP 2026-05-04 — ersetzt vorherige Audit-only-Version.
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import Stripe from "npm:stripe@17";
+import { createClient } from "jsr:@supabase/supabase-js@2";
 
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
+const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const svcKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const admin = createClient(supabaseUrl, svcKey);
 
-const TOL_SECONDS = 300;
-
-function jsonResp(payload: unknown, status = 200) {
-  return new Response(JSON.stringify(payload), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
-
-// HMAC-SHA256 wie Stripe es spezifiziert
-async function hmacHex(secret: string, payload: string): Promise<string> {
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(payload));
-  return Array.from(new Uint8Array(sig))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-// Stripe-Signatur-Header parsen: "t=...,v1=...,v0=..."
-function parseStripeSig(header: string): { t?: string; v1: string[] } {
-  const parts: Record<string, string[]> = {};
-  header.split(",").forEach((p) => {
-    const [k, v] = p.split("=");
-    if (!k || !v) return;
-    if (!parts[k]) parts[k] = [];
-    parts[k].push(v);
-  });
-  return { t: parts.t?.[0], v1: parts.v1 || [] };
-}
-
-// Constant-Time-Compare gegen Timing-Attacks
-function safeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let r = 0;
-  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return r === 0;
-}
-
-async function verifySignature(
-  payload: string,
-  header: string,
-  secret: string,
-): Promise<boolean> {
-  const { t, v1 } = parseStripeSig(header);
-  if (!t || v1.length === 0) return false;
-  const ts = parseInt(t, 10);
-  if (!Number.isFinite(ts)) return false;
-  // Replay-Schutz
-  if (Math.abs(Date.now() / 1000 - ts) > TOL_SECONDS) return false;
-  const expected = await hmacHex(secret, t + "." + payload);
-  return v1.some((sig) => safeEqual(sig, expected));
-}
-
-serve(async (req) => {
-  if (req.method !== "POST") return jsonResp({ error: "Method Not Allowed" }, 405);
-
-  const SUPA_URL = Deno.env.get("SUPABASE_URL");
-  const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const STRIPE_SECRET = Deno.env.get("STRIPE_WEBHOOK_SECRET");
-  if (!SUPA_URL || !SERVICE) return jsonResp({ error: "supabase config missing" }, 503);
-  if (!STRIPE_SECRET) return jsonResp({ error: "STRIPE_WEBHOOK_SECRET fehlt" }, 503);
-
-  const sigHeader = req.headers.get("stripe-signature") || "";
-  if (!sigHeader) return jsonResp({ error: "no signature" }, 400);
-
-  const payload = await req.text();
-  const ok = await verifySignature(payload, sigHeader, STRIPE_SECRET);
-  if (!ok) return jsonResp({ error: "invalid signature" }, 401);
-
-  let event: Record<string, unknown>;
+// Cache für webhook secret — ein 1× Lookup pro Process-Lifetime
+let cachedWebhookSecret: string | null = null;
+async function getWebhookSecret(): Promise<string | null> {
+  if (cachedWebhookSecret) return cachedWebhookSecret;
+  // 1) Env-Variable hat Vorrang
+  const fromEnv = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+  if (fromEnv) { cachedWebhookSecret = fromEnv; return fromEnv; }
+  // 2) Fallback: app_settings.stripe_webhook_secret (von stripe-setup-webhook gepflegt)
   try {
-    event = JSON.parse(payload);
-  } catch {
-    return jsonResp({ error: "bad JSON" }, 400);
+    const { data } = await admin.from("app_settings").select("value").eq("key", "stripe_webhook_secret").maybeSingle();
+    if (data?.value) { cachedWebhookSecret = data.value; return data.value; }
+  } catch (_) { /* swallow */ }
+  return null;
+}
+
+async function resolveTier(priceId: string): Promise<string> {
+  const { data } = await admin.from("stripe_prices").select("product_id, stripe_products(tier)").eq("id", priceId).maybeSingle();
+  // @ts-ignore nested return
+  return data?.stripe_products?.tier ?? "free";
+}
+
+async function upsertSubscription(sub: Stripe.Subscription) {
+  const priceId = sub.items.data[0]?.price.id;
+  const userId = (sub.metadata?.supabase_user_id as string) ?? null;
+  if (!userId) return;
+  const tier = priceId ? await resolveTier(priceId) : "free";
+
+  await admin.from("stripe_subscriptions").upsert({
+    id: sub.id,
+    user_id: userId,
+    stripe_customer_id: sub.customer as string,
+    price_id: priceId ?? null,
+    tier,
+    status: sub.status,
+    cancel_at_period_end: sub.cancel_at_period_end,
+    current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
+    current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+    trial_end: sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
+    canceled_at: sub.canceled_at ? new Date(sub.canceled_at * 1000).toISOString() : null,
+    ended_at: sub.ended_at ? new Date(sub.ended_at * 1000).toISOString() : null,
+    metadata: sub.metadata as any,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "id" });
+}
+
+async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
+  const userId = session.metadata?.supabase_user_id;
+  if (!userId) return;
+
+  if (session.mode === "payment" && session.payment_status === "paid") {
+    const priceId = (session as any).line_items?.data?.[0]?.price?.id ?? null;
+    let resolvedPriceId = priceId;
+    if (!resolvedPriceId && session.id) {
+      const stripe = new Stripe(stripeKey!, { apiVersion: "2024-12-18.acacia" });
+      const li = await stripe.checkout.sessions.listLineItems(session.id, { limit: 1 });
+      resolvedPriceId = li.data[0]?.price?.id ?? null;
+    }
+    const tier = resolvedPriceId ? await resolveTier(resolvedPriceId) : "plus";
+
+    const subId = `lifetime_${userId}`;
+    await admin.from("stripe_subscriptions").upsert({
+      id: subId,
+      user_id: userId,
+      stripe_customer_id: session.customer as string,
+      price_id: resolvedPriceId,
+      tier,
+      status: "active",
+      is_launch_lifetime: true,
+      current_period_start: new Date().toISOString(),
+      current_period_end: null,
+      metadata: session.metadata as any,
+    }, { onConflict: "id" });
+
+    if (session.metadata?.claim_launch_offer === "1") {
+      await admin.from("launch_offer_usage").upsert({ user_id: userId, subscription_id: subId }, { onConflict: "user_id" });
+    }
+  }
+}
+
+Deno.serve(async (req) => {
+  if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
+  if (!stripeKey) return new Response("Stripe not configured", { status: 503 });
+  const webhookSecret = await getWebhookSecret();
+  if (!webhookSecret) return new Response("Webhook secret not configured (set STRIPE_WEBHOOK_SECRET env or app_settings.stripe_webhook_secret)", { status: 503 });
+
+  const sig = req.headers.get("stripe-signature");
+  if (!sig) return new Response("Missing signature", { status: 400 });
+
+  const stripe = new Stripe(stripeKey, { apiVersion: "2024-12-18.acacia" });
+  const body = await req.text();
+  let event: Stripe.Event;
+  try {
+    event = await stripe.webhooks.constructEventAsync(body, sig, webhookSecret);
+  } catch (e) {
+    return new Response(`Webhook signature verification failed: ${(e as Error).message}`, { status: 400 });
   }
 
-  const eventId = event.id as string;
-  const eventType = event.type as string;
-  if (!eventId || !eventType) return jsonResp({ error: "missing id/type" }, 400);
+  // Idempotency check
+  const { data: existing } = await admin.from("stripe_webhook_events").select("processed_at").eq("id", event.id).maybeSingle();
+  if (existing?.processed_at) return new Response("Already processed", { status: 200 });
+  await admin.from("stripe_webhook_events").upsert({ id: event.id, type: event.type, payload: event as any });
 
-  // user_id / customer_id / subscription_id aus Event extrahieren (best effort)
-  const data = (event.data as { object?: Record<string, unknown> }) || {};
-  const obj = data.object || {};
-  const customer_id = (obj.customer as string) || null;
-  const subscription_id =
-    (obj.subscription as string) ||
-    (obj.id && eventType.startsWith("customer.subscription.") ? (obj.id as string) : null) ||
-    null;
-  const meta = (obj.metadata as Record<string, string>) || {};
-  // v24.13 SECURITY-FIX (D4 MEDIUM): user_id muss valides UUID sein.
-  // Verhindert Injection-Versuche via Stripe-Metadata.
-  const rawUserId = meta.user_id || meta.userId || "";
-  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const user_id = UUID_RE.test(rawUserId) ? rawUserId : null;
-
-  const supa = createClient(SUPA_URL, SERVICE, { auth: { persistSession: false } });
-
-  // Idempotenter Insert: ON CONFLICT DO NOTHING via upsert
-  const { error: insErr } = await supa.from("stripe_events").upsert(
-    {
-      id: eventId,
-      type: eventType,
-      payload: event,
-      user_id,
-      customer_id,
-      subscription_id,
-      processed_at: new Date().toISOString(),
-    },
-    { onConflict: "id", ignoreDuplicates: true },
-  );
-
-  if (insErr) {
-    // Trotzdem 200 zurückgeben, sonst retried Stripe ewig.
-    // Owner sieht Fehler im Function-Log.
-    console.error("[stripe-webhook] insert failed:", insErr.message);
-    return jsonResp({ ok: false, error: insErr.message }, 200);
+  try {
+    switch (event.type) {
+      case "customer.subscription.created":
+      case "customer.subscription.updated":
+      case "customer.subscription.deleted":
+        await upsertSubscription(event.data.object as Stripe.Subscription);
+        break;
+      case "checkout.session.completed":
+        await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
+        break;
+      case "invoice.paid":
+      case "invoice.payment_failed": {
+        const inv = event.data.object as Stripe.Invoice;
+        if (inv.subscription) {
+          const sub = await stripe.subscriptions.retrieve(inv.subscription as string);
+          await upsertSubscription(sub);
+        }
+        break;
+      }
+    }
+    await admin.from("stripe_webhook_events").update({ processed_at: new Date().toISOString() }).eq("id", event.id);
+    return new Response(JSON.stringify({ received: true }), { status: 200, headers: { "Content-Type": "application/json" } });
+  } catch (e) {
+    await admin.from("stripe_webhook_events").update({ error: String(e) }).eq("id", event.id);
+    return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { "Content-Type": "application/json" } });
   }
-
-  return jsonResp({ ok: true, id: eventId, type: eventType });
 });
