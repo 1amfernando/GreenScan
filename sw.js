@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.1 — Bug #1 Scanner-Upload-Fix (capture="environment" auf Z.1974 entfernt, sonst forciert iOS/Android nur Kamera statt Datei-Picker) + Auth-Fix-Restore (v25.0 Login→Register-Bug war von UPDATE.command-Sync überschrieben, jetzt wieder drin: gsOnboardingHide() resetet Sub-Views + leert Auth-Inputs, gsCheckOnboarding() Idempotent-Guard).
+   v25.2 — Bug #2 Stripe-Billing-Return-Handler (Frontend-Polish): URL-Parameter ?billing=success/cancel/return werden in gsHandleAuthRedirect erkannt → Toast mit passender Message, Entitlements-Refresh via gsRestorePurchases bei success/return, history.replaceState räumt URL auf. Komplettiert Coworks stripe-checkout v4 (success_url green-scan.ch/?billing=success).
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.1';
+const VERSION = 'gs-v25.2';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;

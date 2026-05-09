@@ -60,7 +60,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.1.20260509">
+<meta name="app-version" content="25.2.20260509">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -45200,6 +45200,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.2', date: '09.05.2026',
+    headline: 'Bug #2 Stripe-Billing-Return-Handler — Frontend-Polish komplettiert Coworks stripe-checkout v4',
+    summary: 'Cowork hat das Stripe-Backend autonom auf v4 deployed (Schema-Fix für interval/is_launch_offer + green-scan.ch URL-Fix). Backend setzt jetzt success_url=green-scan.ch/?billing=success und cancel_url=green-scan.ch/?billing=cancel. Frontend-Polish in v25.2: gsHandleAuthRedirect erkennt diese Top-Level-Returns (NICHT Popup-Mode, der wird via postMessage in Z.9187 gehandelt), zeigt eine passende Toast-Message und ruft bei success/return gsRestorePurchases() um die Entitlements server-seitig zu pullen. URL wird via history.replaceState aufgeräumt damit ein Reload den Toast nicht erneut triggert. Damit ist der Stripe-Card-Flow End-to-End funktional — Cowork verifiziert via WebFetch nach Push.',
+    items: [
+      {emoji:'💳', bold:'Billing-Return-Handler in gsHandleAuthRedirect:', text:' ?billing=success → Toast „Zahlung erfolgreich" + gsRestorePurchases() · ?billing=cancel → Toast „Zahlung abgebrochen" · ?billing=return → silent Entitlements-Refresh (Portal-Return). URL clean via history.replaceState. Popup-Mode-Pfad (?popup=1) wird explizit übersprungen — der wird bereits via window.opener.postMessage gehandelt.'},
+      {emoji:'🔗', bold:'Komplementär zu Coworks Backend:', text:' stripe-checkout v4 (Schema-Fix interval/is_launch_offer aus metadata + green-scan.ch URL-Default). Plus stripe-bootstrap v4 (metadata.lookup_key). Marketplace-RLS-INSERT-Policy + Storage-Buckets garden-scans/marketplace-photos + user_gardens.scan_history-Schema-Migration.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check ✓ · sw.js (gs-v25.2) + manifest.json valid ✓ · GS_VERSION=v25.2 ✓ · _headers v25.2 ✓ · meta app-version=25.2.20260509 ✓ · "v25.2 Bug #2: Stripe-Billing-Return"-Marker: 1 ✓. Cowork-Live-Verify nach Push: Test-Card 4242 4242 4242 4242 → Plus-Plan kaufen → Toast erscheint, Plan ist aktiv.'},
+    ]
+  },
+  {
     v: 'v25.1', date: '09.05.2026',
     headline: 'Bug #1 Scanner-Upload (Datei-Picker statt Forced-Camera) + Auth-Fix-Restore (war von UPDATE.command-Sync überschrieben)',
     summary: 'Erster v25.x-Mini-Commit nach Cowork-Audit (AUDIT_v25_BUG_BRIEFINGS.md). Zwei P0-Fixes in einem Commit weil der UPDATE.command-Sync vom 2026-05-09 (bae5750) den v25.0-Auth-Fix-Code aus dem Working-Tree entfernt hatte (Commit a8be650 ist in git history erhalten, aber Funktionen wurden auf v24.51-State zurückgerollt). Ergänzend: Bug #1 aus dem Audit-Briefing — Scanner-„Hochladen"-Button öffnete bisher direkt die Kamera statt einen Datei-Picker. Root-Cause: file-input Z.1974 hatte capture="environment" — iOS Safari + Android Chrome interpretieren das als Camera-only und überspringen das Action-Sheet. Fix entfernt das Attribut, damit User Aufnahme/Galerie/Dateien wählen kann (Anderer Code in der App macht es bereits richtig mit getrennten inline-camera-input + inline-gallery-input).',
@@ -46084,7 +46094,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.1';
+var GS_VERSION = 'v25.2';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -46579,6 +46589,31 @@ async function gsHandleAuthRedirect(){
         if (typeof showProfileToast === 'function') {
           showProfileToast({type:'info', icon:'🔑', title:'Link geöffnet', body:'Folge den Anweisungen in der E-Mail — klicke auf "Passwort zurücksetzen"', duration:7000});
         }
+      }, 800);
+    }
+    // v25.2 Bug #2: Stripe-Billing-Return — Top-Level (NICHT Popup-Mode).
+    // stripe-checkout v4 (Cowork 2026-05-09) setzt success_url/cancel_url auf
+    // green-scan.ch/?billing=... — der Popup-Modus hat zusätzlich popup=1 und
+    // wird in Z.9187 via postMessage gehandelt; hier nur die direkte Redirect-
+    // Variante (Mobile-Browser ohne window.opener).
+    if (search.includes('billing=') && !search.includes('popup=1')) {
+      setTimeout(function(){
+        if (search.includes('billing=success')) {
+          if (typeof showProfileToast === 'function') {
+            showProfileToast({type:'success', icon:'✅', title:'Zahlung erfolgreich', body:'Dein Plan ist aktiv. Premium-Funktionen sind freigeschaltet.', duration:6000});
+          }
+          // Entitlements neu laden (Server-State pullen)
+          try { if (typeof gsRestorePurchases === 'function') gsRestorePurchases(); } catch(_){}
+        } else if (search.includes('billing=cancel')) {
+          if (typeof showProfileToast === 'function') {
+            showProfileToast({type:'info', icon:'↩️', title:'Zahlung abgebrochen', body:'Kein Problem — du kannst es jederzeit erneut versuchen.', duration:5000});
+          }
+        } else if (search.includes('billing=return')) {
+          // Portal-Return (Subscription verwaltet) — Entitlements refresh
+          try { if (typeof gsRestorePurchases === 'function') gsRestorePurchases(); } catch(_){}
+        }
+        // URL clean — billing-Param weg, sonst triggert sich beim Reload erneut
+        try { history.replaceState(null, '', location.pathname); } catch(_){}
       }, 800);
     }
     // v24.04: SHARED-LINK-PRIVACY — Empfänger soll nicht den Account des Senders übernehmen
