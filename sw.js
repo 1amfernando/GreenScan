@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.15 — KI-Planer Theme 1 Sub-Tasks 1.6+1.7: Auto-Sync Plan-Pflanzen zu myPlants als status=planned mit plan_id-Referenz (Dedup falls schon importiert) + PDF-Export-Polish via iframe + window.print (cross-platform: Mobile-Browser zeigt Als-PDF-speichern). Theme 1 KI-Planer-Mega-Upgrade komplett.
+   v25.16 — Bee-Friendly-Garden-Modal: nutzt Coworks pollinators-Tabelle (15+ Insekten/Bienen mit preferred_flowers[]). gsLoadPollinators 30min-Cache, gsAggregatePollinatorPlants liefert Top-Plants nach Pollinator-Coverage, Modal zeigt myPlants-Match-Highlight + Top-12-Pflanzen + 30 Insekten-Cards mit ecological_value-Badges (kritisch/hoch). UI-Trigger im Garten-Tab.
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.15';
+const VERSION = 'gs-v25.16';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
