@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.11 — KI-Planer Theme 1 Sub-Tasks 1.1+1.2: Multi-Foto-Wizard (gsOpenGardenScan + 3-Slot-Modal mit GPS-Auto) + gsRunGardenScan() Wrapper für Coworks Edge-Fn garden-scan-analyze (verify_jwt, 60s Timeout, save_as_plan default true). UI-Trigger im KI-Planer-Header neben Meine-Pläne-Button. State in window._gsGardenScan.
+   v25.12 — KI-Planer Theme 1 Sub-Task 1.3: Responsive 2D-SVG-Render aus analysis.layout_grid + recommended_plants[].position. viewBox + preserveAspectRatio mobile-first, 1m=100SVG-Units, 1m-Grid gestrichelt, Pflanzen als farbcodierte Kreise mit Emoji + qty-Badge. Tap-Handler gsGardenScanShowPlant öffnet Detail-Modal mit 10 Eigenschaften (lat, sow/harvest, companion_plants etc.). Plant-Liste klickbar.
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.11';
+const VERSION = 'gs-v25.12';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;

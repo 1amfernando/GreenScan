@@ -60,7 +60,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.11.20260510">
+<meta name="app-version" content="25.12.20260510">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -37670,18 +37670,133 @@ async function gsGardenScanSubmit() {
   }
 }
 
-// Vorläufige Result-Preview — v25.12 ersetzt das durch 2D-SVG-Render.
+// v25.12 Sub-Task 1.3: Responsive 2D-SVG-Render aus layout_grid + positions.
+// viewBox + preserveAspectRatio macht das SVG mobile-first responsive — keine
+// fixe Pixel-Width, skaliert auf Container-Breite. 1m = 100 SVG-Units.
+function gsBuildGardenScanSvg(analysis) {
+  var sa = (analysis && analysis.site_analysis) || {};
+  var rp = (analysis && analysis.recommended_plants) || [];
+  var grid = (analysis && analysis.layout_grid) || {};
+  // Fallback-Größe wenn layout_grid fehlt — aus site_analysis.size_m2 ableiten
+  var w = Number(grid.width_m) || (sa.size_m2 ? Math.sqrt(sa.size_m2 * 1.5) : 3);
+  var d = Number(grid.depth_m) || (sa.size_m2 ? Math.sqrt(sa.size_m2 / 1.5) : 4);
+  if (!isFinite(w) || w <= 0) w = 3;
+  if (!isFinite(d) || d <= 0) d = 4;
+  var W = w * 100, D = d * 100;
+  // Kategorie → Farbe für Pflanzen-Kreise
+  var catColor = { 'gemüse':'#43a047', 'gemuese':'#43a047', 'kräuter':'#1b5e20', 'kraeuter':'#1b5e20', 'kraut':'#1b5e20',
+                   'obst':'#c62828', 'beere':'#ad1457', 'beeren':'#ad1457',
+                   'zierpflanze':'#7b1fa2', 'blume':'#d81b60', 'blumen':'#d81b60',
+                   'baum':'#5d4037', 'bäume':'#5d4037', 'gewürz':'#ef6c00' };
+  function cColor(c) {
+    if (!c) return '#388e3c';
+    var k = String(c).toLowerCase();
+    return catColor[k] || '#388e3c';
+  }
+  function escAttr(s) { return String(s||'').replace(/[<>"&']/g, function(ch){ return {'<':'&lt;','>':'&gt;','"':'&quot;','&':'&amp;',"'":'&#39;'}[ch]; }); }
+  // Grid-Linien (1m-Raster)
+  var gridLines = '';
+  for (var i = 0; i <= w; i++) gridLines += '<line x1="' + (i*100) + '" y1="0" x2="' + (i*100) + '" y2="' + D + '" stroke="rgba(46,125,50,0.18)" stroke-width="1" stroke-dasharray="4,4"/>';
+  for (var j = 0; j <= d; j++) gridLines += '<line x1="0" y1="' + (j*100) + '" x2="' + W + '" y2="' + (j*100) + '" stroke="rgba(46,125,50,0.18)" stroke-width="1" stroke-dasharray="4,4"/>';
+  // Pflanzen-Kreise mit Emoji (clamped in Range)
+  var plants = '';
+  rp.forEach(function(pl, idx) {
+    if (!pl) return;
+    var pos = pl.position || {};
+    var px = Number(pos.x);
+    var py = Number(pos.y);
+    if (!isFinite(px)) px = (idx * (w / Math.max(rp.length, 1))) % w;
+    if (!isFinite(py)) py = ((idx * 0.6) % d);
+    px = Math.max(0.15, Math.min(w - 0.15, px));
+    py = Math.max(0.15, Math.min(d - 0.15, py));
+    var cx = px * 100, cy = py * 100;
+    var r = pl.qty && pl.qty > 1 ? Math.min(28, 18 + Math.log2(pl.qty) * 4) : 20;
+    var col = cColor(pl.category);
+    var name = escAttr(pl.name || '?');
+    var qty = pl.qty || 1;
+    plants += '<g style="cursor:pointer" onclick="gsGardenScanShowPlant(' + idx + ')" data-idx="' + idx + '">' +
+      '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="' + col + '" fill-opacity="0.78" stroke="#fff" stroke-width="2.5"/>' +
+      (qty > 1 ? '<text x="' + (cx + r * 0.65) + '" y="' + (cy - r * 0.55) + '" font-size="10" font-weight="800" fill="#fff" text-anchor="middle" stroke="#1b5e20" stroke-width="2" paint-order="stroke">' + qty + 'x</text>' : '') +
+      '<text x="' + cx + '" y="' + (cy + 4) + '" font-size="13" font-weight="700" text-anchor="middle" fill="#fff">' + (pl.qty ? '' : '') + (gsCatEmoji ? (gsCatEmoji({cat: pl.category}) || '🌱') : '🌱') + '</text>' +
+      '<title>' + name + (pl.lat ? ' (' + escAttr(pl.lat) + ')' : '') + (qty > 1 ? ' · ' + qty + 'x' : '') + '</title>' +
+      '</g>';
+  });
+  // Maße-Beschriftung (Breite oben, Tiefe rechts)
+  var labels =
+    '<text x="' + (W/2) + '" y="-8" font-size="11" font-weight="700" text-anchor="middle" fill="#2e7d32">' + w.toFixed(1) + ' m</text>' +
+    '<text x="' + (W + 12) + '" y="' + (D/2) + '" font-size="11" font-weight="700" text-anchor="middle" fill="#2e7d32" transform="rotate(90 ' + (W + 12) + ' ' + (D/2) + ')">' + d.toFixed(1) + ' m</text>';
+  // SVG-Container: viewBox mit kleinem Padding für Beschriftungen
+  var pad = 30;
+  var vb = '-' + pad + ' -' + pad + ' ' + (W + pad*2) + ' ' + (D + pad*2);
+  return '<div style="background:#f1f8e9;border:1.5px solid #c5e1a5;border-radius:14px;padding:10px;margin-bottom:14px;">' +
+    '<div style="font-size:11px;font-weight:700;color:#2e7d32;margin-bottom:6px;text-align:center;">📐 Plan-Skizze (' + w.toFixed(1) + 'm × ' + d.toFixed(1) + 'm · ' + rp.length + ' Pflanzen)</div>' +
+    '<svg viewBox="' + vb + '" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;max-height:60vh;display:block;background:#fafff5;border-radius:8px;">' +
+      '<rect x="0" y="0" width="' + W + '" height="' + D + '" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2" rx="6"/>' +
+      gridLines +
+      plants +
+      labels +
+    '</svg>' +
+    '<div style="font-size:10px;color:var(--muted);text-align:center;margin-top:6px;">Tap auf eine Pflanze für Details · 1m-Raster gestrichelt</div>' +
+  '</div>';
+}
+
+// Tap-Handler für SVG-Pflanzen — zeigt Detail-Modal mit Pflege-Tipps.
+function gsGardenScanShowPlant(idx) {
+  var s = window._gsGardenScan;
+  if (!s || !s.analysis || !s.analysis.recommended_plants) return;
+  var pl = s.analysis.recommended_plants[idx];
+  if (!pl) return;
+  if (typeof gsHaptic === 'function') gsHaptic('tap');
+  var rows = [];
+  if (pl.lat) rows.push(['Lat. Name', '<em>' + pl.lat + '</em>']);
+  if (pl.category) rows.push(['Kategorie', pl.category]);
+  if (pl.qty) rows.push(['Anzahl', pl.qty + 'x']);
+  if (pl.position) rows.push(['Position', (pl.position.x||0) + ',' + (pl.position.y||0) + 'm' + (pl.position.row ? ' (Reihe ' + pl.position.row + ')' : '')]);
+  if (pl.spacing_cm) rows.push(['Abstand', pl.spacing_cm + ' cm']);
+  if (pl.sow_date) rows.push(['Aussaat', pl.sow_date]);
+  if (pl.harvest_date) rows.push(['Ernte', pl.harvest_date]);
+  if (pl.yield_kg_estimate) rows.push(['Ertrag', pl.yield_kg_estimate + ' kg']);
+  if (pl.companion_plants && pl.companion_plants.length) rows.push(['Gute Nachbarn', pl.companion_plants.join(', ')]);
+  if (pl.incompatible_plants && pl.incompatible_plants.length) rows.push(['Unverträglich', pl.incompatible_plants.join(', ')]);
+  if (pl.care_intensity) rows.push(['Pflege', pl.care_intensity]);
+  var rowsHtml = rows.map(function(r){
+    return '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12.5px;"><span style="color:var(--muted);font-weight:600;">' + r[0] + '</span><span style="color:var(--text);text-align:right;">' + r[1] + '</span></div>';
+  }).join('');
+  var html = '<div style="padding:0;">' +
+    '<div style="background:linear-gradient(135deg,#1b5e20,#2e7d32);padding:18px;color:#fff;position:relative;">' +
+      '<button onclick="gsGardenScanCloseDetail()" aria-label="Zurück" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:18px;cursor:pointer;">←</button>' +
+      '<div style="font-size:20px;font-weight:900;">' + (pl.name || 'Pflanze') + '</div>' +
+      (pl.lat ? '<div style="font-size:12px;font-style:italic;opacity:.85;margin-top:2px;">' + pl.lat + '</div>' : '') +
+    '</div>' +
+    '<div style="padding:16px;">' +
+      rowsHtml +
+      (pl.reason ? '<div style="margin-top:12px;padding:10px 12px;background:#f1f8e9;border-left:3px solid #2e7d32;border-radius:6px;font-size:12px;line-height:1.55;color:var(--text);"><strong style="color:#1b5e20;">💡 Warum hier:</strong> ' + pl.reason + '</div>' : '') +
+    '</div>' +
+  '</div>';
+  var mc = document.getElementById('modal-content');
+  if (mc) mc.innerHTML = html;
+}
+
+// Zurück zum Plan-Result.
+function gsGardenScanCloseDetail() {
+  var s = window._gsGardenScan;
+  if (!s || !s.analysis) return;
+  var mc = document.getElementById('modal-content');
+  if (mc) mc.innerHTML = gsBuildGardenScanResultPreview(s.analysis, s.plan_id);
+}
+
+// v25.12 erweitert: Result-Preview mit 2D-SVG-Render am Anfang.
 function gsBuildGardenScanResultPreview(analysis, planId) {
   if (!analysis) return '<div style="padding:24px;">Kein Plan-Ergebnis erhalten.</div>';
   var sa = analysis.site_analysis || {};
   var rp = analysis.recommended_plants || [];
-  var cal = analysis.monthly_calendar || {};
   var warns = analysis.warnings || [];
+  var svgBlock = gsBuildGardenScanSvg(analysis);
   var planted = '<ol style="padding-left:20px;margin:8px 0;font-size:12.5px;line-height:1.6;color:var(--text);">' +
-    rp.slice(0, 12).map(function(pl){
-      return '<li><strong>' + (pl.name||'Pflanze') + '</strong>' +
+    rp.slice(0, 12).map(function(pl, idx){
+      return '<li style="cursor:pointer;" onclick="gsGardenScanShowPlant(' + idx + ')"><strong>' + (pl.name||'Pflanze') + '</strong>' +
         (pl.lat ? ' <em style="color:var(--muted);">(' + pl.lat + ')</em>' : '') +
-        (pl.qty ? ' · <strong>' + pl.qty + '×</strong>' : '') +
+        (pl.qty ? ' · <strong>' + pl.qty + 'x</strong>' : '') +
         (pl.position && (pl.position.x || pl.position.y) ? ' · Pos. ' + (pl.position.x||0) + ',' + (pl.position.y||0) + 'm' : '') +
         (pl.reason ? '<br><span style="font-size:11px;color:var(--muted);">' + pl.reason + '</span>' : '') +
       '</li>';
@@ -37700,11 +37815,12 @@ function gsBuildGardenScanResultPreview(analysis, planId) {
       '</div>' +
     '</div>' +
     '<div style="padding:16px;">' +
+      svgBlock +
       '<div style="font-size:13.5px;font-weight:800;color:var(--text);margin-bottom:6px;">🌿 ' + rp.length + ' empfohlene Pflanzen</div>' +
       planted +
       warnHtml +
       '<div style="font-size:11.5px;color:var(--muted);margin-top:14px;text-align:center;line-height:1.55;">' +
-        (planId ? '✅ Plan gespeichert (id: ' + String(planId).slice(0,8) + '…). 2D-Skizze + 3D-Render kommen in v25.12+v25.13.' : '⚠️ Plan nicht in Cloud gespeichert.') +
+        (planId ? '✅ Plan gespeichert (id: ' + String(planId).slice(0,8) + '…). 3D-Render kommt in v25.13.' : '⚠️ Plan nicht in Cloud gespeichert.') +
       '</div>' +
     '</div>' +
   '</div>';
@@ -41303,6 +41419,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.12', date: '10.05.2026',
+    headline: 'KI-Planer Theme 1 Sub-Task 1.3: Responsive 2D-SVG-Plan-Skizze',
+    summary: 'Zweiter Sub-Task der v25.9-Sprint-Theme-1. Nach v25.11 (Multi-Foto-Wizard + Edge-Fn) zeigt das Plan-Result jetzt eine echte 2D-Skizze des Gartens. SVG mit viewBox + preserveAspectRatio mobile-first responsive. 1m im Garten = 100 SVG-Units, mit gestricheltem 1m-Grid im Hintergrund. Pflanzen werden als farbcodierte Kreise gerendert mit Emoji im Kreis und qty-Badge oben rechts wenn Anzahl groesser 1. Tap auf Pflanze oeffnet Detail-Modal mit 10 Eigenschaften aus dem JSON-Schema. Pflanzen-Liste in der Result-Preview ist auch klickbar.',
+    items: [
+      {emoji:'📐', bold:'gsBuildGardenScanSvg(analysis):', text:' viewBox + preserveAspectRatio xMidYMid meet skaliert proportional auf Container-Breite. Fallback-Groesse aus site_analysis.size_m2 wenn layout_grid fehlt. Pflanzen-Position wird auf Garten-Range geclamped damit Kreise sichtbar bleiben.'},
+      {emoji:'🎨', bold:'Farbcodierung nach Kategorie:', text:' Map kategorie zu Hex-Color (Gemuese gruen, Kraeuter dunkelgruen, Obst rot, Beeren pink, Zier violett, Blumen rosa, Baum braun, Gewuerz orange). qty-Badge mit White-Stroke fuer Kontrast.'},
+      {emoji:'📋', bold:'gsGardenScanShowPlant(idx) Detail-Modal:', text:' Zeigt 10 Eigenschaften aus dem strukturierten JSON plus Why-here-Reason als gruener Quote-Block. Back-Arrow zurueck zum Plan-Result via gsGardenScanCloseDetail.'},
+      {emoji:'⏭️', bold:'Naechste Sub-Tasks:', text:' v25.13 1.4 3D-Three.js-Render. v25.14 1.5 Chat-Iteration via plan-iterate. v25.15 1.6+1.7 Auto-Sync myPlants + PDF-Export.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · sw.js (gs-v25.12) valid OK · GS_VERSION=v25.12 OK.'},
+    ]
+  },
+  {
     v: 'v25.11', date: '10.05.2026',
     headline: 'KI-Planer Theme 1 Sub-Tasks 1.1+1.2: Multi-Foto-Wizard + Edge-Fn-Integration',
     summary: 'Erster Sub-Task der v25.9-Sprint-Theme-1 Mega-Upgrade-Serie. Cowork hat Sprint A komplett: 3 neue Edge-Functions deployed (garden-scan-analyze, plan-iterate, species-bulk-seed), garden_plans-Tabelle mit RLS, species-Schema mit 17 neuen Spalten (companion_plants, growth_phases, frost_tolerance_c etc.), species-Cloud-DB von 99 auf 2837 Eintraegen gewachsen (28-fache Coverage fuer Knowledge-Search). v25.11 bringt das Frontend dazu: neuer 3-Foto-Wizard parallel zum existing 5-Step gsPP-Planner. User klickt im KI-Planer-Header auf den neuen KI-Scan-Button, sieht ein Modal mit 3 Photo-Slots (Top-Down / Boden-Close-up / Umgebung), kann pro Slot ein Foto waehlen, optional GPS hinzufuegen, und triggert dann gsRunGardenScan() — der ruft die garden-scan-analyze Edge-Fn (60s Timeout, Bearer-Auth, save_as_plan=true). Result: strukturiertes JSON mit site_analysis (Groesse, Boden, Licht, Klimazone, existing plants), recommended_plants (8-15 Pflanzen mit Position-Koordinaten, Companion-Plants, Sow/Harvest-Dates), monthly_calendar, tools_needed, warnings, follow_up_questions. Plan wird in garden_plans persistiert (RLS own-data). Ergebnis-Modal zeigt vorlaeufige Liste + Warnungen + Plan-ID. Sub-Tasks 1.3-1.6 in folgenden v25.x: 2D-SVG-Render aus layout_grid+positions, 3D-Three.js (offline-faehig dank v25.9), Chat-Iteration via plan-iterate, Auto-Sync zu myPlants als status=planned.',
@@ -42293,7 +42421,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.11';
+var GS_VERSION = 'v25.12';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
