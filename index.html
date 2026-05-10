@@ -60,7 +60,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.18.20260510">
+<meta name="app-version" content="25.20.20260510">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -2372,6 +2372,12 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <div style="padding:0 16px 8px;">
   <button onclick="gsSeasonalOpen()" title="Saisonkalender — alle 12 Monate" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#e8f5e9,#c5e1a5);border:1.5px solid #66bb6a;color:#1b5e20;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
     <span>📅 Saisonkalender · Voll-Jahres-Übersicht</span><span style="color:#1b5e20;font-size:18px;">›</span>
+  </button>
+</div>
+<!-- v25.20: Garten-Insights-Dashboard (aggregiert pollinators + diseases + tasks + myPlants) -->
+<div style="padding:0 16px 8px;">
+  <button onclick="gsInsightsOpen()" title="Garten-Insights — Bestaeuber-Score + Risiken + DB-Stats" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#e3f2fd,#bbdefb);border:1.5px solid #0277bd;color:#01579b;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span>📊 Garten-Insights · Score + Risiken</span><span style="color:#01579b;font-size:18px;">›</span>
   </button>
 </div>
 <!-- v24.06: Smart-Home Sensor-Dashboard -->
@@ -38851,6 +38857,214 @@ function gsBuildSeasonalModal(rows) {
 // Ende v25.18 Saisonkalender-Block
 // ═════════════════════════════════════════════════════════════════════
 
+// ═════════════════════════════════════════════════════════════════════
+// v25.20 Garten-Insights-Dashboard — aggregiert DB-Wissen + myPlants.
+// Vorgezogen vor v25.19 (Mischkultur wartet auf plant_companion_matrix-Daten).
+// Nutzt 3 bereits existierende Cache-Funktionen (Pollinators/Diseases/Tasks)
+// plus species-DB.length und myPlants. Reine Client-Aggregation.
+// ─────────────────────────────────────────────────────────────────────
+
+async function gsInsightsCompute() {
+  // Parallel laden — alle 3 sind 30min/1h-cached
+  var results = await Promise.all([
+    gsLoadPollinators().catch(function(){ return []; }),
+    gsLoadDiseases().catch(function(){ return []; }),
+    gsLoadSeasonalTasks().catch(function(){ return []; })
+  ]);
+  var pollinators = results[0] || [];
+  var diseases = results[1] || [];
+  var tasks = results[2] || [];
+
+  var mp = (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) ? myPlants : [];
+  var dbCount = (typeof DB !== 'undefined' && Array.isArray(DB)) ? DB.length : 0;
+
+  // 1) Bestäuber-Coverage: wieviele myPlants matchen Top-Pflanzen aus
+  //    pollinators[].preferred_flowers ?
+  var topPolPlants = gsAggregatePollinatorPlants(pollinators);
+  var topNamesLower = topPolPlants.map(function(p){ return p.name.toLowerCase(); });
+  var beeMatches = mp.filter(function(p){
+    var n = (p.name || '').toLowerCase();
+    if (!n) return false;
+    return topNamesLower.some(function(tn){ return n.indexOf(tn) >= 0 || tn.indexOf(n) >= 0; });
+  });
+  var beeScorePct = mp.length > 0 ? Math.round((beeMatches.length / mp.length) * 100) : 0;
+
+  // 2) Krankheits-Risiko: wieviele myPlants matchen affected_plants[] ?
+  var diseaseRisk = [];
+  diseases.forEach(function(d){
+    var aff = d.affected_plants;
+    if (!Array.isArray(aff) || !aff.length) return;
+    var affLower = aff.map(function(s){ return String(s||'').toLowerCase(); });
+    mp.forEach(function(p){
+      var pn = (p.name || '').toLowerCase();
+      if (!pn) return;
+      if (affLower.some(function(a){ return a.indexOf(pn) >= 0 || pn.indexOf(a) >= 0; })) {
+        diseaseRisk.push({ plant: p.name, disease: d.name, severity: d.severity || '' });
+      }
+    });
+  });
+  // dedup gleiche pflanze+disease-Kombi
+  var seen = new Set();
+  diseaseRisk = diseaseRisk.filter(function(r){
+    var k = r.plant + '|' + r.disease;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  var riskyPlantsCount = new Set(diseaseRisk.map(function(r){ return r.plant; })).size;
+
+  // 3) Saisonkalender: wieviele Tasks aktuell relevant?
+  var month = new Date().getMonth() + 1;
+  var currentTasks = gsFilterTasksForMonth(tasks, month);
+
+  // 4) Geplant-vs-eingepflanzt-Score (status='planned' aus v25.15)
+  var plannedCount = mp.filter(function(p){ return p.status === 'planned'; }).length;
+  var plantedCount = mp.length - plannedCount;
+
+  return {
+    counts: {
+      myPlants: mp.length,
+      planned: plannedCount,
+      planted: plantedCount,
+      species: dbCount,
+      pollinators: pollinators.length,
+      diseases: diseases.length,
+      tasks: tasks.length
+    },
+    bee: {
+      score_pct: beeScorePct,
+      matches: beeMatches.slice(0, 8).map(function(p){ return p.name || ''; }).filter(Boolean),
+      total: beeMatches.length
+    },
+    risk: {
+      plants_count: riskyPlantsCount,
+      issues: diseaseRisk.slice(0, 8)
+    },
+    season: {
+      month: month,
+      tasks_count: currentTasks.length,
+      tasks: currentTasks.slice(0, 4).map(function(t){ return t.title || t.name || ''; }).filter(Boolean)
+    }
+  };
+}
+
+async function gsInsightsOpen() {
+  if (typeof gsHaptic === 'function') gsHaptic('light');
+  var mc = document.getElementById('modal-content');
+  if (!mc) return;
+  // Skeleton
+  mc.innerHTML = '<div style="padding:0;"><div style="background:linear-gradient(135deg,#0277bd,#0288d1,#03a9f4);padding:22px 18px;color:#fff;text-align:center;position:relative;"><button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(0,0,0,.18);color:#fff;font-size:20px;cursor:pointer;">×</button><div style="font-size:42px;margin-bottom:6px;">📊</div><div style="font-family:\'Playfair Display\',serif;font-size:21px;font-weight:900;">Garten-Insights</div></div><div style="padding:30px 18px;text-align:center;color:var(--muted);">⏳ Aggregiere Daten …</div></div>';
+  openModal('detail-modal');
+  var data = await gsInsightsCompute();
+  mc.innerHTML = gsBuildInsightsModal(data);
+  if (typeof gsBrain !== 'undefined' && gsBrain && typeof gsBrain.observe === 'function') {
+    try { gsBrain.observe('insights_open', { plants: data.counts.myPlants }); } catch(_){}
+  }
+}
+window.openGardenInsights = gsInsightsOpen;
+
+function gsBuildInsightsModal(data) {
+  var c = data.counts || {};
+  var bee = data.bee || {};
+  var risk = data.risk || {};
+  var season = data.season || {};
+  var monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+
+  // 4 Big-Stat-Boxen (Grid 2×2)
+  var bigStats = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">' +
+    '<div style="background:#e8f5e9;border:1.5px solid #2e7d32;border-radius:12px;padding:12px;text-align:center;">' +
+      '<div style="font-size:28px;font-weight:900;color:#1b5e20;line-height:1;">' + c.myPlants + '</div>' +
+      '<div style="font-size:11px;color:var(--muted);font-weight:700;margin-top:4px;">🌿 Meine Pflanzen</div>' +
+    '</div>' +
+    '<div style="background:#fff8e1;border:1.5px solid #fbc02d;border-radius:12px;padding:12px;text-align:center;">' +
+      '<div style="font-size:28px;font-weight:900;color:#e65100;line-height:1;">' + bee.score_pct + '%</div>' +
+      '<div style="font-size:11px;color:var(--muted);font-weight:700;margin-top:4px;">🐝 Bestäuber-Score</div>' +
+    '</div>' +
+    '<div style="background:#fff3e0;border:1.5px solid #f57c00;border-radius:12px;padding:12px;text-align:center;">' +
+      '<div style="font-size:28px;font-weight:900;color:#bf360c;line-height:1;">' + risk.plants_count + '</div>' +
+      '<div style="font-size:11px;color:var(--muted);font-weight:700;margin-top:4px;">🦠 Krankheits-Risiko</div>' +
+    '</div>' +
+    '<div style="background:#e3f2fd;border:1.5px solid #0277bd;border-radius:12px;padding:12px;text-align:center;">' +
+      '<div style="font-size:28px;font-weight:900;color:#01579b;line-height:1;">' + season.tasks_count + '</div>' +
+      '<div style="font-size:11px;color:var(--muted);font-weight:700;margin-top:4px;">📅 Tasks ' + monthNames[season.month-1].slice(0,3) + '</div>' +
+    '</div>' +
+  '</div>';
+
+  // Bestäuber-Block
+  var beeBlock = '<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;">' +
+    '<div style="font-size:13px;font-weight:900;color:var(--text);margin-bottom:6px;">🐝 Bestäuber-Coverage</div>' +
+    (bee.total > 0
+      ? '<div style="font-size:12px;color:var(--text);margin-bottom:6px;line-height:1.55;">' + bee.total + ' deiner Pflanzen unterstützen Bestäuber.</div>' +
+        (bee.matches.length ? '<div style="font-size:11px;color:var(--muted);">🌟 ' + bee.matches.map(gsEscHtml).join(' · ') + '</div>' : '')
+      : '<div style="font-size:12px;color:var(--muted);line-height:1.55;">Noch keine Bestäuber-freundlichen Pflanzen erkannt. Tipp: 🐝 Bestäuber-Garten öffnen für Top-Empfehlungen.</div>') +
+  '</div>';
+
+  // Risk-Block
+  var riskBlock = '';
+  if (risk.plants_count > 0) {
+    var issuesHtml = (risk.issues || []).slice(0, 5).map(function(r){
+      var sevColor = (r.severity === 'high' || r.severity === 'hoch') ? '#d32f2f' : '#f57c00';
+      return '<li><strong>' + gsEscHtml(r.plant) + '</strong> — anfaellig fuer <span style="color:' + sevColor + ';font-weight:700;">' + gsEscHtml(r.disease) + '</span></li>';
+    }).join('');
+    riskBlock = '<div style="background:#fff3e0;border:1.5px solid #f57c00;border-radius:12px;padding:12px 14px;margin-bottom:10px;">' +
+      '<div style="font-size:13px;font-weight:900;color:#bf360c;margin-bottom:6px;">🦠 Mögliche Krankheits-Risiken</div>' +
+      '<ol style="margin:0;padding-left:20px;font-size:12px;line-height:1.7;color:var(--text);">' + issuesHtml + '</ol>' +
+      '<div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5;">Vorbeugung: 🦠 Krankheits-Lexikon öffnen für Bio/Konventionell-Treatments.</div>' +
+    '</div>';
+  } else if (c.myPlants > 0) {
+    riskBlock = '<div style="background:#e8f5e9;border:1.5px solid #2e7d32;border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--text);">' +
+      '✅ Aktuell keine bekannten Krankheits-Risiken in deinem Garten. Trotzdem: regelmäßig Blätter checken.' +
+    '</div>';
+  }
+
+  // Saison-Block
+  var seasonBlock = '<div style="background:#e3f2fd;border:1px solid #0277bd;border-radius:12px;padding:12px 14px;margin-bottom:10px;">' +
+    '<div style="font-size:13px;font-weight:900;color:#01579b;margin-bottom:6px;">📅 ' + monthNames[season.month-1] + ' im Garten</div>' +
+    (season.tasks.length
+      ? '<ul style="margin:0;padding-left:20px;font-size:12px;line-height:1.7;color:var(--text);">' + season.tasks.map(function(t){ return '<li>' + gsEscHtml(t) + '</li>'; }).join('') + '</ul>'
+      : '<div style="font-size:12px;color:var(--muted);">Diesen Monat keine spezifischen Tasks.</div>') +
+  '</div>';
+
+  // Garten-Status (planned vs planted)
+  var statusBlock = '';
+  if (c.planned > 0) {
+    statusBlock = '<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--text);">' +
+      '🌱 <strong>' + c.planned + '</strong> Pflanzen aus KI-Plänen (Status geplant) · 🌿 <strong>' + c.planted + '</strong> bereits eingepflanzt' +
+    '</div>';
+  }
+
+  // DB-Stats (footer)
+  var dbStatsBlock = '<div style="background:linear-gradient(135deg,#f5f5f5,#fafafa);border:1px solid var(--border);border-radius:12px;padding:10px 14px;font-size:11.5px;color:var(--muted);line-height:1.6;text-align:center;">' +
+    '<strong style="color:var(--text);">📚 Knowledge-DB:</strong><br>' +
+    c.species.toLocaleString('de-CH') + ' Pflanzenarten · ' +
+    c.pollinators + ' Bestäuber · ' +
+    c.diseases + ' Krankheiten · ' +
+    c.tasks + ' Saison-Tasks' +
+    '<br><span style="font-size:10px;">Cowork pg_cron erweitert die DB taeglich</span>' +
+  '</div>';
+
+  return '<div style="padding:0;">' +
+    '<div style="background:linear-gradient(135deg,#0277bd,#0288d1,#03a9f4);padding:22px 18px;color:#fff;text-align:center;position:relative;">' +
+      '<button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(0,0,0,.18);color:#fff;font-size:20px;cursor:pointer;">×</button>' +
+      '<div style="font-size:42px;margin-bottom:6px;">📊</div>' +
+      '<div style="font-family:\'Playfair Display\',serif;font-size:21px;font-weight:900;margin-bottom:4px;">Garten-Insights</div>' +
+      '<div style="font-size:12.5px;opacity:.95;">Bestäuber-Score · Krankheits-Risiko · Saison-Tasks · DB-Stats</div>' +
+    '</div>' +
+    '<div style="padding:14px 16px 18px;">' +
+      bigStats +
+      statusBlock +
+      beeBlock +
+      riskBlock +
+      seasonBlock +
+      dbStatsBlock +
+    '</div>' +
+  '</div>';
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// Ende v25.20 Insights-Dashboard-Block
+// ═════════════════════════════════════════════════════════════════════
+
 // v24.00: Modal "Meine Pläne" — alle gespeicherten Pläne ansehen / wieder öffnen / löschen
 function gsPPopenSavedPlans() {
   var saved = [];
@@ -42440,6 +42654,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.20', date: '10.05.2026',
+    headline: '📊 Garten-Insights-Dashboard — DB-Mega-Sprint v25.16-v25.20 KOMPLETT',
+    summary: 'Letztes Feature der DB-Mega-Sprint-Serie. Aggregiert pollinators + plant_diseases + garden_tasks_catalog + species-DB + myPlants in einem Insights-Modal. Bestäuber-Score (% myPlants in Top-Pollinator-Plants), Krankheits-Risiko (Anzahl myPlants in affected_plants), Saison-Tasks-Count, DB-Stats-Footer. Reine Client-Aggregation ueber 3 cached Edge-Fn-Loads.',
+    items: [
+      {emoji:'🧮', bold:'gsInsightsCompute:', text:' Promise.all auf gsLoadPollinators+gsLoadDiseases+gsLoadSeasonalTasks. Berechnet Match-Scores + Risk-Liste mit Dedup + aktuelle Tasks.'},
+      {emoji:'📊', bold:'4 Big-Stat-Boxen:', text:' myPlants gruen, Bestaeuber-% gelb, Krankheits-Risiko orange, Tasks blau. Color-coded scanbar.'},
+      {emoji:'🌟', bold:'Detail-Blocks:', text:' Bestaeuber-Block, Risk-Block (Top-5 Issues), Saison-Block, Status-Block (planned vs planted), DB-Stats-Footer.'},
+      {emoji:'🎉', bold:'DB-Mega-Sprint KOMPLETT:', text:' v25.16 Bee-Friendly + v25.17 Krankheits-Lexikon + v25.18 Saisonkalender + v25.20 Insights alle live. v25.19 Mischkultur wartet auf Cowork-Daten.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check OK · sw.js gs-v25.20 OK.'},
+    ]
+  },
+  {
     v: 'v25.18', date: '10.05.2026',
     headline: '📅 Saisonkalender — aktuelle Garten-Tasks inline + 12-Monats-Uebersicht',
     summary: 'Drittes Feature der v25.16-v25.20 DB-Mega-Sprint-Serie. Nutzt Coworks garden_tasks_catalog (15+ Tasks mit month_start/month_end + applies_to). Im Garten-Tab inline-Section mit Top-4 Tasks fuer aktuellen Monat plus Modal mit voller 12-Monats-Uebersicht. Year-Wrap fuer Tasks Nov-Feb. Emoji-Mapping fuer 10 Task-Typen.',
@@ -43517,7 +43743,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.18';
+var GS_VERSION = 'v25.20';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

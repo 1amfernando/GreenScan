@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.18 — Saisonkalender: nutzt Coworks garden_tasks_catalog (15+ Tasks mit month_start/month_end + applies_to[]). gsLoadSeasonalTasks 1h-Cache, gsFilterTasksForMonth filtert nach aktuellem Monat (inkl. Year-Wrap fuer Nov-Feb). Inline-Section im Garten-Tab zeigt Top-4 Tasks fuer aktuellen Monat (auto-render nach Boot 2.2s). Modal mit Voll-Jahres-Uebersicht: 12 Monate je Block, current-Monat highlighted gruen mit Stern, Cause-Emoji-Mapping (Aussaat/Ernte/Schnitt/Duengung/Giessen/Mulch/Boden/Frost/Pflanzen/Check).
+   v25.20 — Garten-Insights-Dashboard: aggregiert pollinators+plant_diseases+garden_tasks_catalog+species+myPlants in einem Modal. 4 Big-Stat-Boxen (myPlants/Bestaeuber-Score/Krankheits-Risiko/Tasks-aktueller-Monat). Bestaeuber-Coverage-Block, Risk-Block mit Top-5 Issues, Saison-Block mit aktuellen Tasks, DB-Stats-Footer. Reine Client-Aggregation ueber 3 cached Edge-Fn-Loads. v25.19 Mischkultur-Score wartet weiter auf Cowork plant_companion_matrix-Daten (Schema bereit, 0 Eintraege).
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.18';
+const VERSION = 'gs-v25.20';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
