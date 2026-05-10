@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.4 — A1 Logout zeigt sofort Onboarding: sbLogout() macht Wrapper visible + _onbShowView('onb-start') + alle Modals zu + Toast „Erfolgreich abgemeldet". Vorher: User blieb auf letzter Seite nach Token-Clear und sah keinen Anmelde-Screen.
+   v25.5 — A2 Login-Welcome-Differential: onbDoRegister setzt gs_first_login-Flag → onbDoLogin prüft Flag → First-Login zeigt gsWelcomeTour (oder „🎉 Willkommen bei GreenScan!"-Toast), Re-Login zeigt „🌿 Willkommen zurück, <Name>!"-Toast mit Display-Name aus gs_profile_name oder Email-Prefix.
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.4';
+const VERSION = 'gs-v25.5';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;

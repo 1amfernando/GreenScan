@@ -60,7 +60,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.4.20260510">
+<meta name="app-version" content="25.5.20260510">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -45203,6 +45203,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.5', date: '10.05.2026',
+    headline: 'A2: Login-Welcome-Differential — First-Login zeigt Tour, Re-Login zeigt „Willkommen zurück, <Name>!"',
+    summary: 'Zweiter Sub-Task aus AUFTRAG_v25.4_AUTH_TRIAL_ABO.md. Bisheriges Verhalten: jeder Login zeigte das gleiche „Willkommen zurück!"-Toast — egal ob Erstregistrierung oder normaler Re-Login. Plus: in manchen Konstellationen (z.B. Welcome-Modal aus v24.09 gsWelcomeTour) wurde nach Login fälschlich ein „Account erstellen"-Step angezeigt. Fix: bei erfolgreicher onbDoRegister wird gs_first_login=\'1\' im gsStore gesetzt (beide Pfade — auto-confirm und email-confirm-pending). onbDoLogin prüft beim erfolgreichen Login das Flag: wenn da, wird der Welcome-Pfad triggered (gsWelcomeTour aus v24.09 wenn verfügbar, sonst „🎉 Willkommen bei GreenScan!"-Toast) und das Flag wieder entfernt — beim nächsten Login zeigt sich dann der Re-Login-Pfad mit „🌿 Willkommen zurück, <Name>!" inkl. Display-Name aus gs_profile_name oder Email-Prefix.',
+    items: [
+      {emoji:'🎉', bold:'onbDoRegister setzt First-Login-Flag (Z.~50300):', text:' gsStore.set(\'gs_first_login\', \'1\') in beiden Erfolgs-Pfaden (auto-confirm mit access_token sofort + email-confirm-pending). Damit ist der State für den nächsten Login persistiert.'},
+      {emoji:'🌿', bold:'onbDoLogin Differential (Z.~50343):', text:' Nach gsResetLoginAttempts() + gsOnLoginSuccess() + sbLoadProfile() + updateMenuProfileBar() + gsOnboardingHide() prüft die Logik gsStore.get(\'gs_first_login\'). True → Flag entfernen + gsWelcomeTour.start() oder „🎉"-Toast. False → „🌿 Willkommen zurück, <Name>!" mit Name aus localStorage.gs_profile_name oder Email-Prefix.'},
+      {emoji:'⏭️', bold:'Nächste Sub-Tasks:', text:' A5 (v25.6) „Mein Abo"-Tab mit gsLoadSubInfo/gsRenderSubInfo + Cancel/Reactivate via gsOpenBillingPortal. A3 (v25.7) Trial-Modal nach ?email_confirmed=1 + gsStartCheckout(trial_days:30) — Cowork hat stripe-checkout v5 mit trial_days-Support deployed.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check ✓ · sw.js (gs-v25.5) + manifest.json valid ✓ · GS_VERSION=v25.5 ✓ · _headers v25.5 ✓ · meta app-version=25.5.20260510 ✓ · "v25.5 A2"-Marker: 2 (Register-Set + Login-Differential) ✓.'},
+    ]
+  },
+  {
     v: 'v25.4', date: '10.05.2026',
     headline: 'A1: Logout zeigt sofort Anmelde-Screen statt auf letzter Seite zu hängen',
     summary: 'Erster Sub-Task aus AUFTRAG_v25.4_AUTH_TRIAL_ABO.md. Symptom: nach Klick auf Logout-Button blieb der User auf seiner aktuellen Tab-Seite (z.B. Settings, Garten, Marktplatz) — Token wurde clear, Cloud-Daten wurden weg, aber das UI sah aus wie vorher und der Anmelde-Screen kam erst beim nächsten App-Reload. Verwirrend für User. Fix: sbLogout() macht nach sbClearSession() und gsOnLogout() jetzt explizit den Onboarding-Wrapper visible (display:flex, opacity:1), ruft _onbShowView("onb-start") für den sauberen Start-Screen mit Anmelden/Registrieren/Gast-Buttons, schließt alle offenen .modal-overlay-Layer und zeigt einen Toast „👋 Erfolgreich abgemeldet". Komplettiert die v25.0/v25.1 Auth-Fixes (Login → Home, Logout → onb-start). Sub-Tasks A2/A5/A3 folgen in v25.5/v25.6/v25.7.',
@@ -46119,7 +46130,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.4';
+var GS_VERSION = 'v25.5';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -50298,13 +50309,18 @@ async function onbDoRegister() {
     }
     // Erfolg: direkt einloggen (falls Auto-Confirm an)
     if (res.data && res.data.access_token) {
+      // v25.5 A2: Flag setzen — onbDoLogin zeigt damit den richtigen Welcome-Pfad
+      // (First-Login = Welcome-Modal/Tour, Re-Login = Willkommen-zurück-Toast)
+      try { gsStore.set('gs_first_login', '1'); } catch(_){}
       // Session gespeichert — UI updaten und Onboarding schliessen
       if (typeof gsOnLoginSuccess === 'function') gsOnLoginSuccess();
       if (typeof updateMenuProfileBar === 'function') updateMenuProfileBar();
       gsOnboardingHide();
-      if (typeof showProfileToast === 'function') showProfileToast('✅ Willkommen bei GreenScan!', 'success');
+      if (typeof showProfileToast === 'function') showProfileToast('🎉 Willkommen bei GreenScan!', 'success');
     } else {
-      // E-Mail Bestätigung nötig
+      // E-Mail Bestätigung nötig — Flag setzen damit nach Email-Confirm-Login
+      // der First-Login-Welcome-Pfad triggert
+      try { gsStore.set('gs_first_login', '1'); } catch(_){}
       _onbShowErr('register', '📧 Bitte prüfe deine E-Mail zur Bestätigung. Danach kannst du dich anmelden.');
       if (btn) { btn.textContent = '✨ Registrieren'; btn.disabled = false; }
       // Auto-switch zu Login nach 2.5s
@@ -50346,7 +50362,30 @@ async function onbDoLogin() {
     try { await sbLoadProfile(); } catch(e){}
     if (typeof updateMenuProfileBar === 'function') updateMenuProfileBar();
     gsOnboardingHide();
-    if (typeof showProfileToast === 'function') showProfileToast('✅ Willkommen zurück!', 'success');
+    // v25.5 A2: Differential Welcome — First-Login (Flag aus onbDoRegister) zeigt
+    // „Willkommen bei GreenScan", normaler Re-Login zeigt „Willkommen zurück, <Name>".
+    // Flag wird verbraucht (removed) — beim nächsten Login wieder Re-Login-Pfad.
+    var firstLogin = false;
+    try { firstLogin = gsStore.get('gs_first_login', null) === '1'; } catch(_){}
+    if (firstLogin) {
+      try { gsStore.remove('gs_first_login'); } catch(_){}
+      if (typeof gsWelcomeTour !== 'undefined' && gsWelcomeTour && typeof gsWelcomeTour.start === 'function') {
+        // Welcome-Tour aus v24.09 (3-Slide-Modal) — nur First-Login
+        try { gsWelcomeTour.start(); } catch(_){}
+      } else if (typeof showProfileToast === 'function') {
+        showProfileToast('🎉 Willkommen bei GreenScan!', 'success');
+      }
+    } else {
+      // Normaler Re-Login: Welcome-Back-Toast mit Display-Name
+      var displayName = '';
+      try {
+        displayName = localStorage.getItem('gs_profile_name') ||
+                      (gsStore.get('gs_sb_email', '') || '').split('@')[0] || '';
+      } catch(_){}
+      if (typeof showProfileToast === 'function') {
+        showProfileToast('🌿 Willkommen zurück' + (displayName ? ', ' + displayName : '') + '!', 'success');
+      }
+    }
   } catch(e) {
     _onbShowErr('login', gsTranslateAuthError(e.message || 'Unbekannt'));
     if (btn) { btn.textContent = '🔑 Anmelden'; btn.disabled = false; }
