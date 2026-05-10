@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.17 — Krankheits-Lexikon: nutzt Coworks plant_diseases-Tabelle (16+ Eintraege). gsLoadDiseases 30min-Cache, gsDiseaseSearch Multi-Keyword-Match in symptoms+name+lat+affected_plants, gsDiseaseOpen Modal mit Symptom-Such-Input im Header + Krankheits-Cards mit cause-Badges (Pilz/Bakterien/Virus/Schaedling/Mangel) + severity-Badges + Bio-Treatment + Konventionell-Treatment + Vorbeugung. UI-Trigger im Garten-Tab.
+   v25.18 — Saisonkalender: nutzt Coworks garden_tasks_catalog (15+ Tasks mit month_start/month_end + applies_to[]). gsLoadSeasonalTasks 1h-Cache, gsFilterTasksForMonth filtert nach aktuellem Monat (inkl. Year-Wrap fuer Nov-Feb). Inline-Section im Garten-Tab zeigt Top-4 Tasks fuer aktuellen Monat (auto-render nach Boot 2.2s). Modal mit Voll-Jahres-Uebersicht: 12 Monate je Block, current-Monat highlighted gruen mit Stern, Cause-Emoji-Mapping (Aussaat/Ernte/Schnitt/Duengung/Giessen/Mulch/Boden/Frost/Pflanzen/Check).
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.17';
+const VERSION = 'gs-v25.18';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;

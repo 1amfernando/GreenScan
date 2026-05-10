@@ -60,7 +60,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.17.20260510">
+<meta name="app-version" content="25.18.20260510">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -2364,6 +2364,14 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <div style="padding:0 16px 8px;">
   <button onclick="gsDiseaseOpen()" title="Krankheits-Lexikon — Symptome erkennen + behandeln" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#ffebee,#ffcdd2);border:1.5px solid #ef5350;color:#c62828;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
     <span>🦠 Krankheits-Lexikon · Symptome + Treatment</span><span style="color:#c62828;font-size:18px;">›</span>
+  </button>
+</div>
+<!-- v25.18: Saisonkalender-Inline-Host (wird via gsRenderSeasonalInline gefüllt) -->
+<div id="seasonal-tasks-host" style="padding:0 16px 8px;"></div>
+<!-- v25.18: Saisonkalender-Modal-Trigger (Voll-Jahres-Übersicht) -->
+<div style="padding:0 16px 8px;">
+  <button onclick="gsSeasonalOpen()" title="Saisonkalender — alle 12 Monate" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#e8f5e9,#c5e1a5);border:1.5px solid #66bb6a;color:#1b5e20;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span>📅 Saisonkalender · Voll-Jahres-Übersicht</span><span style="color:#1b5e20;font-size:18px;">›</span>
   </button>
 </div>
 <!-- v24.06: Smart-Home Sensor-Dashboard -->
@@ -38669,6 +38677,180 @@ function gsBuildDiseaseModal(rows, query) {
 // Ende v25.17 Krankheits-Lexikon-Block
 // ═════════════════════════════════════════════════════════════════════
 
+// ═════════════════════════════════════════════════════════════════════
+// v25.18 Saisonkalender — nutzt garden_tasks_catalog (Cowork v25.9)
+// 15+ Tasks mit month_start/month_end + applies_to[]. Aktuelle-Monat-
+// Tasks werden im Garten-Tab inline angezeigt, voller Jahres-Überblick
+// im Modal.
+// ─────────────────────────────────────────────────────────────────────
+
+window._gsSeasonalCache = null;
+window._gsSeasonalCacheTs = 0;
+
+async function gsLoadSeasonalTasks() {
+  var ttl = 60 * 60 * 1000;   // 1h Cache (Tasks sind statisch)
+  if (window._gsSeasonalCache && (Date.now() - window._gsSeasonalCacheTs) < ttl) {
+    return window._gsSeasonalCache;
+  }
+  if (typeof sbFetch !== 'function') return [];
+  try {
+    var res = await sbFetch('/rest/v1/garden_tasks_catalog?select=*&order=month_start.asc&limit=300', { method: 'GET' });
+    var rows = (res && res.data && Array.isArray(res.data)) ? res.data : [];
+    window._gsSeasonalCache = rows;
+    window._gsSeasonalCacheTs = Date.now();
+    return rows;
+  } catch(e) {
+    return [];
+  }
+}
+
+// Filtert Tasks für den aktuellen Monat (1-12). month_start/month_end inklusiv.
+// Wenn month_end < month_start: wraps over year (z.B. Nov-Feb).
+function gsFilterTasksForMonth(rows, month) {
+  if (!rows || !Array.isArray(rows)) return [];
+  return rows.filter(function(t){
+    var s = parseInt(t.month_start, 10);
+    var e = parseInt(t.month_end, 10);
+    if (!isFinite(s) || !isFinite(e) || s < 1 || e < 1) return false;
+    if (s <= e) return month >= s && month <= e;
+    // Wraps over year
+    return month >= s || month <= e;
+  });
+}
+
+function gsTaskCategoryEmoji(cat) {
+  cat = String(cat || '').toLowerCase();
+  if (cat.indexOf('aussaat') >= 0 || cat.indexOf('saen') >= 0 || cat.indexOf('sow') >= 0) return '🌱';
+  if (cat.indexOf('ernte') >= 0 || cat.indexOf('harvest') >= 0) return '🌾';
+  if (cat.indexOf('schnitt') >= 0 || cat.indexOf('prune') >= 0) return '✂️';
+  if (cat.indexOf('düng') >= 0 || cat.indexOf('duen') >= 0 || cat.indexOf('fertili') >= 0) return '⚗️';
+  if (cat.indexOf('giess') >= 0 || cat.indexOf('water') >= 0) return '💧';
+  if (cat.indexOf('mulch') >= 0) return '🍂';
+  if (cat.indexOf('boden') >= 0 || cat.indexOf('soil') >= 0) return '🟫';
+  if (cat.indexOf('frost') >= 0 || cat.indexOf('winter') >= 0) return '❄️';
+  if (cat.indexOf('pflanz') >= 0 || cat.indexOf('plant') >= 0) return '🌿';
+  if (cat.indexOf('check') >= 0 || cat.indexOf('beob') >= 0) return '🔍';
+  return '📅';
+}
+
+// Inline-Render der aktuellen-Monat-Tasks für Garten-Tab. Wird in den
+// Container #seasonal-tasks-host injiziert sobald geladen.
+async function gsRenderSeasonalInline() {
+  var host = document.getElementById('seasonal-tasks-host');
+  if (!host) return;
+  var rows = await gsLoadSeasonalTasks();
+  if (!rows || !rows.length) {
+    host.innerHTML = '';
+    return;
+  }
+  var month = new Date().getMonth() + 1;
+  var monthName = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'][month - 1];
+  var tasks = gsFilterTasksForMonth(rows, month);
+  if (!tasks.length) {
+    host.innerHTML = '';
+    return;
+  }
+  var top = tasks.slice(0, 4);   // Inline nur die ersten 4 — Modal zeigt alle
+  var cards = top.map(function(t){
+    var emoji = gsTaskCategoryEmoji(t.category || t.task_type || t.title || '');
+    return '<div style="background:var(--card);border-left:3px solid #2e7d32;border-radius:8px;padding:8px 10px;margin-bottom:6px;display:flex;align-items:flex-start;gap:8px;">' +
+      '<span style="font-size:18px;flex-shrink:0;">' + emoji + '</span>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="font-size:12.5px;font-weight:800;color:var(--text);">' + gsEscHtml(t.title || t.name || 'Aufgabe') + '</div>' +
+        (t.description || t.note ? '<div style="font-size:11px;color:var(--muted);margin-top:2px;line-height:1.45;">' + gsEscHtml(t.description || t.note) + '</div>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+  host.innerHTML = '<div style="background:linear-gradient(135deg,#e8f5e9,#fff);border:1.5px solid #2e7d32;border-radius:12px;padding:12px 14px;margin-bottom:10px;">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+      '<div style="font-size:13px;font-weight:900;color:#1b5e20;">📅 Im ' + monthName + ' im Garten</div>' +
+      '<button onclick="gsSeasonalOpen()" style="font-size:11px;font-weight:800;background:none;border:none;color:#2e7d32;cursor:pointer;font-family:inherit;padding:2px 0;">Alle ' + tasks.length + ' Tasks ›</button>' +
+    '</div>' +
+    cards +
+  '</div>';
+}
+
+// Modal mit Voll-Jahres-Übersicht (alle Monate).
+async function gsSeasonalOpen() {
+  if (typeof gsHaptic === 'function') gsHaptic('light');
+  var mc = document.getElementById('modal-content');
+  if (!mc) return;
+  mc.innerHTML = '<div style="padding:0;"><div style="background:linear-gradient(135deg,#1b5e20,#2e7d32,#43a047);padding:22px 18px;color:#fff;text-align:center;position:relative;"><button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(0,0,0,.18);color:#fff;font-size:20px;cursor:pointer;">×</button><div style="font-size:42px;margin-bottom:6px;">📅</div><div style="font-family:\'Playfair Display\',serif;font-size:21px;font-weight:900;">Saisonkalender</div></div><div style="padding:30px 18px;text-align:center;color:var(--muted);">⏳ Lade Saison-Tasks …</div></div>';
+  openModal('detail-modal');
+  var rows = await gsLoadSeasonalTasks();
+  if (!rows || !rows.length) {
+    mc.innerHTML = mc.innerHTML.replace('⏳ Lade Saison-Tasks …', '⚠️ Keine Saison-Daten verfügbar.');
+    return;
+  }
+  mc.innerHTML = gsBuildSeasonalModal(rows);
+  if (typeof gsBrain !== 'undefined' && gsBrain && typeof gsBrain.observe === 'function') {
+    try { gsBrain.observe('seasonal_calendar_open', { count: rows.length }); } catch(_){}
+  }
+}
+window.openSeasonalCalendar = gsSeasonalOpen;
+
+function gsBuildSeasonalModal(rows) {
+  var monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  var currentMonth = new Date().getMonth() + 1;
+  var monthsHtml = '';
+  for (var m = 1; m <= 12; m++) {
+    var tasks = gsFilterTasksForMonth(rows, m);
+    var isCurrent = (m === currentMonth);
+    var bg = isCurrent ? 'linear-gradient(135deg,#e8f5e9,#fff)' : 'var(--card)';
+    var border = isCurrent ? '2px solid #2e7d32' : '1px solid var(--border)';
+    var headerColor = isCurrent ? '#1b5e20' : 'var(--text)';
+    monthsHtml += '<div style="background:' + bg + ';border:' + border + ';border-radius:12px;padding:10px 12px;margin-bottom:10px;">' +
+      '<div style="font-size:13px;font-weight:900;color:' + headerColor + ';margin-bottom:' + (tasks.length ? '6px' : '0') + ';">' +
+        (isCurrent ? '⭐ ' : '') + monthNames[m-1] + ' (' + tasks.length + ' Tasks)' +
+      '</div>';
+    if (tasks.length) {
+      monthsHtml += tasks.map(function(t){
+        var emoji = gsTaskCategoryEmoji(t.category || t.task_type || t.title || '');
+        var applies = '';
+        if (Array.isArray(t.applies_to) && t.applies_to.length) {
+          applies = '<div style="font-size:10.5px;color:var(--muted);margin-top:3px;">🌿 Für: ' + t.applies_to.slice(0, 6).map(gsEscHtml).join(' · ') + '</div>';
+        }
+        return '<div style="background:rgba(0,0,0,0.03);border-left:2px solid #2e7d32;border-radius:6px;padding:6px 9px;margin-bottom:5px;">' +
+          '<div style="font-size:12px;font-weight:700;color:var(--text);">' + emoji + ' ' + gsEscHtml(t.title || t.name || '') + '</div>' +
+          (t.description || t.note ? '<div style="font-size:11px;color:var(--muted);margin-top:2px;line-height:1.45;">' + gsEscHtml(t.description || t.note) + '</div>' : '') +
+          applies +
+        '</div>';
+      }).join('');
+    } else {
+      monthsHtml += '<div style="font-size:11px;color:var(--muted);font-style:italic;">Keine spezifischen Tasks</div>';
+    }
+    monthsHtml += '</div>';
+  }
+  return '<div style="padding:0;">' +
+    '<div style="background:linear-gradient(135deg,#1b5e20,#2e7d32,#43a047);padding:22px 18px;color:#fff;text-align:center;position:relative;">' +
+      '<button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(0,0,0,.18);color:#fff;font-size:20px;cursor:pointer;">×</button>' +
+      '<div style="font-size:42px;margin-bottom:6px;">📅</div>' +
+      '<div style="font-family:\'Playfair Display\',serif;font-size:21px;font-weight:900;margin-bottom:4px;">Saisonkalender</div>' +
+      '<div style="font-size:12.5px;opacity:.95;">' + rows.length + ' Garten-Tasks · 12 Monate · Cowork-DB wächst</div>' +
+    '</div>' +
+    '<div style="padding:14px 16px 18px;">' +
+      monthsHtml +
+      '<div style="font-size:10.5px;color:var(--muted);text-align:center;margin-top:10px;line-height:1.5;">Tasks gelten fuer Mitteleuropaeisches Klima · individuelle Anpassung je nach Hoehenlage</div>' +
+    '</div>' +
+  '</div>';
+}
+
+// Auto-Trigger Inline-Render nach Boot (1h-Cache schützt gegen Spam).
+(function(){
+  function _scheduleSeasonalRender(){
+    setTimeout(function(){ try { gsRenderSeasonalInline(); } catch(_){} }, 2200);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _scheduleSeasonalRender);
+  } else {
+    _scheduleSeasonalRender();
+  }
+})();
+
+// ═════════════════════════════════════════════════════════════════════
+// Ende v25.18 Saisonkalender-Block
+// ═════════════════════════════════════════════════════════════════════
+
 // v24.00: Modal "Meine Pläne" — alle gespeicherten Pläne ansehen / wieder öffnen / löschen
 function gsPPopenSavedPlans() {
   var saved = [];
@@ -42258,6 +42440,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.18', date: '10.05.2026',
+    headline: '📅 Saisonkalender — aktuelle Garten-Tasks inline + 12-Monats-Uebersicht',
+    summary: 'Drittes Feature der v25.16-v25.20 DB-Mega-Sprint-Serie. Nutzt Coworks garden_tasks_catalog (15+ Tasks mit month_start/month_end + applies_to). Im Garten-Tab inline-Section mit Top-4 Tasks fuer aktuellen Monat plus Modal mit voller 12-Monats-Uebersicht. Year-Wrap fuer Tasks Nov-Feb. Emoji-Mapping fuer 10 Task-Typen.',
+    items: [
+      {emoji:'⏰', bold:'gsLoadSeasonalTasks 1h-Cache:', text:' GET garden_tasks_catalog mit order=month_start.asc. Tasks sind statisch.'},
+      {emoji:'🎯', bold:'gsFilterTasksForMonth Year-Wrap:', text:' s<=e direkt-Range, sonst wrapping. Aktueller Monat = new Date().getMonth()+1.'},
+      {emoji:'📌', bold:'Inline-Section:', text:' Auto-render im Garten-Tab nach DOM-Ready+2.2s. Top-4 Tasks als Card-Block. Header zeigt Im Monat + Alle X Tasks-Button -> Modal.'},
+      {emoji:'📚', bold:'Voll-Uebersicht-Modal:', text:' 12 Monate als Cards, aktueller Monat highlighted gruen. Pro Task: Emoji+Title+Description+applies_to-Liste.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v25.19 Mischkultur (wartet auf Daten). v25.20 Insights-Dashboard.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check OK · sw.js gs-v25.18 OK.'},
+    ]
+  },
+  {
     v: 'v25.17', date: '10.05.2026',
     headline: '🦠 Krankheits-Lexikon — Symptom-Suche mit plant_diseases-DB + Bio/Chemo-Treatment',
     summary: 'Zweites Feature der v25.16-v25.20 DB-Mega-Sprint-Serie. Nutzt Coworks plant_diseases-Tabelle (16+ Eintraege, taeglich wachsend via pg_cron). Neues Modal im Garten-Tab mit Live-Symptom-Suche im Header (z.B. gelbe Blaetter, brauner Rand). Pro Krankheit: Cause-Badge, Severity-Badge, Symptome, Bio-Treatment + Konventionell-Treatment + Vorbeugung. Konkurrenz-Killer gegen PictureThis fuer Schweizer-DSGVO-konformen Disease-Use-Case.',
@@ -43322,7 +43517,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.17';
+var GS_VERSION = 'v25.18';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
