@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.7 — A3 Trial-Modal: nach First-Login (Flag aus v25.5) zeigt sich Trial-Modal mit 3 Optionen — Plus 1-Monat-gratis, Pro 1-Monat-gratis oder Free-Plan. gsStartCheckout um trialDays-Parameter erweitert (Backend stripe-checkout v5 cap't auf max 30 + first-sub-check). Komplettiert v25.4-Sprint A1+A2+A5+A3.
+   v25.8 — HOTFIX für v25.7: zwei unescapte Apostrophe (cappt) in single-quoted GS_RELEASES-Strings haben inline-script #2 syntaktisch gebrochen. Live war broken seit Push 21394f8. Sofort-Fix: cap't → cappt im summary + items[].text.
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.7';
+const VERSION = 'gs-v25.8';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
