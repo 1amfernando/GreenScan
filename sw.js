@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.5 — A2 Login-Welcome-Differential: onbDoRegister setzt gs_first_login-Flag → onbDoLogin prüft Flag → First-Login zeigt gsWelcomeTour (oder „🎉 Willkommen bei GreenScan!"-Toast), Re-Login zeigt „🌿 Willkommen zurück, <Name>!"-Toast mit Display-Name aus gs_profile_name oder Email-Prefix.
+   v25.6 — A5 „Mein Abo"-Tab: gsLoadSubInfo() pullt aktive stripe_subscriptions inkl. price-Joins, gsRenderSubInfo(sub) zeigt Restlaufzeit/Status/Cancel-Button mit color-coded Status (Lifetime/Trial/Active/PastDue/Canceled). gsConfirmCancelSub mit gsConfirmModal-Dialog → gsOpenBillingPortal('cancel'). gsUncancelSub → gsOpenBillingPortal('reactivate'). gsOpenBillingPortal nimmt jetzt optionalen flow-Parameter. Card am Anfang von gsShowAboScreen() async befüllt.
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.5';
+const VERSION = 'gs-v25.6';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;

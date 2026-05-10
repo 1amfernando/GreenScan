@@ -60,7 +60,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.5.20260510">
+<meta name="app-version" content="25.6.20260510">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -8808,6 +8808,8 @@ function gsShowAboScreen() {
       '<div style="font-size:12.5px;opacity:.85;">Die vollständige Natur-App der Schweiz</div>' +
     '</div>' +
     '<div style="padding:18px;">' +
+      // v25.6 A5: Sub-Info-Card am Anfang — wird nach Modal-Open async befüllt
+      '<div id="abo-sub-info-host"></div>' +
       freeCard + plusCard + proCard + lifeCard +
       portalBtn +
       restoreBtn +
@@ -8818,6 +8820,14 @@ function gsShowAboScreen() {
     '</div>' +
   '</div>';
   openModal('detail-modal');
+  // v25.6 A5: Sub-Info async laden (nicht-blockierend, paid User sehen
+  // Restlaufzeit/Status direkt am Card-Anfang).
+  if (paid) {
+    gsLoadSubInfo().then(function(sub){
+      var host = document.getElementById('abo-sub-info-host');
+      if (host) host.innerHTML = gsRenderSubInfo(sub);
+    }).catch(function(){});
+  }
   // Launch-Angebot Verfügbarkeit live prüfen
   gsCheckLaunchAvailable().then(function(avail){
     var card = document.getElementById('abo-lifetime-card');
@@ -9068,7 +9078,11 @@ async function gsStartCheckout(priceLookupKey, claimLaunchOffer) {
 
 // ── Stripe Customer Portal (Abo verwalten / kündigen) ─────────
 // v23.50: Popup-Flow (selbe UX wie Checkout)
-async function gsOpenBillingPortal() {
+async function gsOpenBillingPortal(flow) {
+  // v25.6 A5: optionaler flow-Parameter ('cancel'|'reactivate'|undefined) wird
+  // an stripe-portal Edge-Fn weitergegeben — Backend kann via flow_data einen
+  // direkten Cancel-/Reactivate-Flow erzeugen. Wenn Backend nicht unterstützt:
+  // ignoriert das Param und zeigt das Standard-Portal.
   gsHaptic('medium');
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) {
     gsToast('Bitte zuerst anmelden.', 'error'); return;
@@ -9085,6 +9099,8 @@ async function gsOpenBillingPortal() {
   try {
     var token = gsStore.get('gs_sb_token', null) || '';
     var base  = (typeof SB_URL !== 'undefined') ? SB_URL : (localStorage.getItem('gs_sb_url') || '');
+    var bodyObj = { return_url: location.origin + (location.pathname||'/') + '?billing=return&popup=1' };
+    if (flow === 'cancel' || flow === 'reactivate') bodyObj.flow = flow;
     var resp = await (window._gsFetch || fetch)(base + '/functions/v1/stripe-portal', {
       method: 'POST',
       headers: {
@@ -9092,7 +9108,7 @@ async function gsOpenBillingPortal() {
         'Authorization': 'Bearer ' + token,
         'apikey': (typeof SB_KEY !== 'undefined') ? SB_KEY : ''
       },
-      body: JSON.stringify({ return_url: location.origin + (location.pathname||'/') + '?billing=return&popup=1' })
+      body: JSON.stringify(bodyObj)
     }, 20000);
     var data = await resp.json().catch(function(){ return {}; });
     if (!resp.ok || !data || !data.url) {
@@ -9130,6 +9146,108 @@ async function gsRestorePurchases() {
   } else {
     gsToast({title:'Kein aktives Abo gefunden', body:'Bitte prüfe, dass du mit der richtigen E-Mail angemeldet bist.', type:'warning', duration:5000});
   }
+}
+
+// ── v25.6 A5: Subscription-Info — Restlaufzeit + Status + Cancel/Reactivate ──
+// Lädt aktive Subscription aus stripe_subscriptions inkl. Price-Details (Joins).
+async function gsLoadSubInfo() {
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return null;
+  var uid = gsStore.get('gs_sb_uid', null);
+  if (!uid) return null;
+  try {
+    var res = await sbFetch(
+      '/rest/v1/stripe_subscriptions?user_id=eq.' + encodeURIComponent(uid) +
+      '&select=*,stripe_prices(unit_amount,currency,recurring,metadata,lookup_key)' +
+      '&order=created_at.desc&limit=1',
+      { method: 'GET' }
+    );
+    var rows = (res && res.data) || [];
+    return rows[0] || null;
+  } catch(e) {
+    return null;
+  }
+}
+
+// Rendert die Subscription-Info-Card als HTML-String. Bei null → Free-Plan-Hinweis.
+function gsRenderSubInfo(sub) {
+  if (!sub) {
+    return '<div style="border:1px dashed var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px;background:var(--card);text-align:center;color:var(--muted);font-size:12.5px;">' +
+      '🌱 Aktuell: <strong>Free-Plan</strong> · 5 Scans/Tag' +
+      '</div>';
+  }
+  var now = new Date();
+  var endDate = sub.current_period_end ? new Date(sub.current_period_end) : null;
+  var daysLeft = endDate ? Math.max(0, Math.ceil((endDate - now) / 86400000)) : null;
+  var isCanceled = !!sub.cancel_at_period_end || sub.status === 'canceled';
+  var isTrial = sub.status === 'trialing';
+  var isPastDue = sub.status === 'past_due';
+  var isLifetime = !!sub.is_lifetime;
+
+  var statusIcon, statusText, accent;
+  if (isLifetime) { statusIcon = '🏆'; statusText = 'Lifetime aktiv'; accent = '#2e7d32'; }
+  else if (isCanceled) { statusIcon = '🟡'; statusText = endDate ? ('Endet am ' + endDate.toLocaleDateString('de-CH')) : 'Gekündigt'; accent = '#f57c00'; }
+  else if (isPastDue) { statusIcon = '⚠️'; statusText = 'Zahlung ausstehend (7-Tage Grace)'; accent = '#d32f2f'; }
+  else if (isTrial) { statusIcon = '🆓'; statusText = 'Aktiv (Trial)'; accent = '#1a237e'; }
+  else { statusIcon = '✅'; statusText = 'Aktiv'; accent = '#1b5e20'; }
+
+  var planName = sub.tier ? (sub.tier.charAt(0).toUpperCase() + sub.tier.slice(1)) : 'Plus';
+  var html = '<div style="border:2px solid ' + accent + ';border-radius:14px;padding:14px 16px;margin-bottom:14px;background:var(--card);">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+      '<div style="font-size:15px;font-weight:900;color:var(--text);">💎 GreenScan ' + planName + '</div>' +
+      '<span style="background:' + accent + ';color:#fff;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:800;">' + statusIcon + ' ' + statusText + '</span>' +
+    '</div>';
+
+  if (daysLeft !== null && !isLifetime) {
+    html += '<div style="font-size:12.5px;color:var(--muted);margin-bottom:4px;">📅 Verbleibend: <strong style="color:var(--text);">' + daysLeft + ' Tag' + (daysLeft === 1 ? '' : 'e') + '</strong>' +
+      (endDate ? ' (bis ' + endDate.toLocaleDateString('de-CH') + ')' : '') + '</div>';
+  }
+
+  if (sub.stripe_prices && !isLifetime && !isCanceled) {
+    var price = (sub.stripe_prices.unit_amount / 100).toFixed(2);
+    var cur = (sub.stripe_prices.currency || 'chf').toUpperCase();
+    var iv = (sub.stripe_prices.recurring && sub.stripe_prices.recurring.interval) || 'month';
+    var ivLabel = iv === 'year' ? 'Jahr' : 'Monat';
+    var afterTrialHint = isTrial ? ' (nach Trial)' : '';
+    html += '<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px;">💰 Preis: <strong style="color:var(--text);">' + cur + ' ' + price + ' / ' + ivLabel + '</strong>' + afterTrialHint + '</div>';
+  }
+
+  // Action-Buttons je nach Status
+  if (isLifetime) {
+    html += '<div style="font-size:11.5px;color:var(--muted);font-style:italic;">🏆 Einmalzahlung — keine Verlängerung nötig.</div>';
+  } else if (isCanceled) {
+    html += '<button onclick="gsUncancelSub()" style="width:100%;padding:11px;background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">↩️ Kündigung zurücknehmen</button>';
+  } else {
+    html += '<div style="display:flex;gap:8px;">' +
+      '<button onclick="gsOpenBillingPortal()" style="flex:1;padding:11px;background:var(--card);color:var(--text);border:1.5px solid var(--border);border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;">💳 Stripe-Portal</button>' +
+      '<button onclick="gsConfirmCancelSub()" style="flex:1;padding:11px;background:transparent;color:#d32f2f;border:1.5px solid #d32f2f;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;">⚠️ Kündigen</button>' +
+    '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+// Cancel-Confirm-Dialog → öffnet Stripe-Portal mit Cancel-Flow.
+async function gsConfirmCancelSub() {
+  if (typeof gsConfirmModal !== 'function') {
+    if (confirm('Abo wirklich kündigen? Du behältst Plus-Features bis zum Ende der Periode.')) {
+      gsOpenBillingPortal('cancel');
+    }
+    return;
+  }
+  var ok = await gsConfirmModal({
+    title: 'Abo wirklich kündigen?',
+    message: 'Du behältst alle Premium-Features bis zum Ende deiner Periode. Danach wird auf Free-Plan umgeschaltet — keine Sofort-Sperre.',
+    ok: 'Ja, kündigen',
+    cancel: 'Abbrechen',
+    kind: 'warn'
+  });
+  if (!ok) return;
+  await gsOpenBillingPortal('cancel');
+}
+
+// Reactivate via Stripe-Portal mit reactivate-Flow.
+async function gsUncancelSub() {
+  await gsOpenBillingPortal('reactivate');
 }
 
 // ── Billing-Return-Handler: nach Stripe-Redirect Plan aktualisieren
@@ -45203,6 +45321,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.6', date: '10.05.2026',
+    headline: 'A5: „Mein Abo"-Tab mit Restlaufzeit, Status, Cancel/Reactivate via Stripe-Portal',
+    summary: 'Dritter Sub-Task aus AUFTRAG_v25.4_AUTH_TRIAL_ABO.md. Bisher zeigte das Abo-Modal nur die Plan-Auswahl-Karten — User mit aktivem Plus/Pro-Abo sah keine Restlaufzeit, kein Status (Trial vs Active vs Cancelled), keinen direkten Cancel-Button. Neue Sub-Info-Card am Modal-Anfang zeigt jetzt: Plan-Name, color-coded Status-Badge (🏆 Lifetime, 🆓 Trial, ✅ Active, 🟡 Gekündigt, ⚠️ Past-Due 7-Tage-Grace), verbleibende Tage bis zur nächsten Abrechnung, Preis pro Periode mit „nach Trial"-Hint wenn Status=trialing. Action-Buttons je nach Status: bei aktiv → Stripe-Portal + Kündigen-Button; bei gekündigt → Reactivate-Button (nimmt cancel_at_period_end zurück); bei Lifetime → Hinweis „Einmalzahlung". Daten kommen aus stripe_subscriptions inkl. JOIN auf stripe_prices (unit_amount/currency/recurring/lookup_key). Cancel-Flow nutzt gsConfirmModal für Bestätigung, dann öffnet sich Stripe-Portal mit flow=cancel — Cowork muss den flow-Parameter in stripe-portal v2 unterstützen (Briefing erwähnt subscription_cancel.mode=at_period_end Konfiguration).',
+    items: [
+      {emoji:'📋', bold:'gsLoadSubInfo() (Z.~9135):', text:' GET stripe_subscriptions?user_id=eq.<uid>&select=*,stripe_prices(unit_amount,currency,recurring,metadata,lookup_key)&order=created_at.desc&limit=1. Liefert die jüngste Sub mit eingebetteten Price-Details. encodeURIComponent für UID.'},
+      {emoji:'🎴', bold:'gsRenderSubInfo(sub) — color-coded Card:', text:' 5 Status-Varianten mit eigenen Accent-Farben (#2e7d32 Lifetime, #f57c00 Cancelled, #d32f2f Past-Due, #1a237e Trial, #1b5e20 Active). Restlaufzeit-Anzeige (Math.ceil((endDate-now)/86400000)) mit „bis <Datum>". Preis-Zeile mit interval-Label (Monat/Jahr) + „nach Trial"-Hint.'},
+      {emoji:'⚠️', bold:'gsConfirmCancelSub() + gsUncancelSub():', text:' Cancel via gsConfirmModal-Dialog (kind:warn, Hinweis dass User bis Periodenende Premium behält), dann gsOpenBillingPortal(\'cancel\'). Reactivate direkt via gsOpenBillingPortal(\'reactivate\').'},
+      {emoji:'🔄', bold:'gsOpenBillingPortal(flow) erweitert:', text:' Optionaler flow-Parameter (\'cancel\'|\'reactivate\') wird via JSON-Body an stripe-portal Edge-Fn weitergegeben. Backend kann via flow_data einen direkten Cancel-/Reactivate-Flow erzeugen. Wenn Backend nicht supportet: Standard-Portal als Fallback (kein Fehler).'},
+      {emoji:'⏭️', bold:'Nächster Sub-Task A3 (v25.7):', text:' Trial-Modal nach Email-Confirm + gsStartCheckout(trial_days:30) für First-Subscription. Cowork hat stripe-checkout v5 mit trial_days-Support deployed.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check ✓ · sw.js (gs-v25.6) + manifest.json valid ✓ · GS_VERSION=v25.6 ✓ · _headers v25.6 ✓ · meta app-version=25.6.20260510 ✓ · "v25.6 A5"-Marker: 4 (Portal-Flow + LoadSub + RenderSub-Host + RenderSub-Logic) ✓.'},
+    ]
+  },
+  {
     v: 'v25.5', date: '10.05.2026',
     headline: 'A2: Login-Welcome-Differential — First-Login zeigt Tour, Re-Login zeigt „Willkommen zurück, <Name>!"',
     summary: 'Zweiter Sub-Task aus AUFTRAG_v25.4_AUTH_TRIAL_ABO.md. Bisheriges Verhalten: jeder Login zeigte das gleiche „Willkommen zurück!"-Toast — egal ob Erstregistrierung oder normaler Re-Login. Plus: in manchen Konstellationen (z.B. Welcome-Modal aus v24.09 gsWelcomeTour) wurde nach Login fälschlich ein „Account erstellen"-Step angezeigt. Fix: bei erfolgreicher onbDoRegister wird gs_first_login=\'1\' im gsStore gesetzt (beide Pfade — auto-confirm und email-confirm-pending). onbDoLogin prüft beim erfolgreichen Login das Flag: wenn da, wird der Welcome-Pfad triggered (gsWelcomeTour aus v24.09 wenn verfügbar, sonst „🎉 Willkommen bei GreenScan!"-Toast) und das Flag wieder entfernt — beim nächsten Login zeigt sich dann der Re-Login-Pfad mit „🌿 Willkommen zurück, <Name>!" inkl. Display-Name aus gs_profile_name oder Email-Prefix.',
@@ -46130,7 +46261,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.5';
+var GS_VERSION = 'v25.6';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
