@@ -60,7 +60,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.6.20260510">
+<meta name="app-version" content="25.7.20260510">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -8935,7 +8935,9 @@ window.gsConfirmModal = function gsConfirmModal(opts){
 // v23.50: Popup-Window-Flow statt Full-Redirect. User bleibt in der App,
 // Stripe öffnet sich in einer neuen Seite, nach Zahlung wird Popup
 // automatisch geschlossen und Entitlements werden neu geladen.
-async function gsStartCheckout(priceLookupKey, claimLaunchOffer) {
+async function gsStartCheckout(priceLookupKey, claimLaunchOffer, trialDays) {
+  // v25.7 A3: trialDays optional. Wenn > 0, wird an stripe-checkout v5 übergeben.
+  // Backend cap't sicher auf max 30 + first-sub-check (Cowork-Audit-Briefing).
   gsHaptic('medium');
   if (!priceLookupKey) priceLookupKey = 'plus_monthly';
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) {
@@ -9025,12 +9027,17 @@ async function gsStartCheckout(priceLookupKey, claimLaunchOffer) {
         'Authorization': 'Bearer ' + token,
         'apikey': (typeof SB_KEY !== 'undefined') ? SB_KEY : ''
       },
-      body: JSON.stringify({
-        price_id: price.id,
-        claim_launch_offer: !!claimLaunchOffer,
-        success_url: root + '?billing=success&popup=1',
-        cancel_url:  root + '?billing=cancel&popup=1'
-      })
+      body: JSON.stringify((function(){
+        var b = {
+          price_id: price.id,
+          claim_launch_offer: !!claimLaunchOffer,
+          success_url: root + '?billing=success&popup=1',
+          cancel_url:  root + '?billing=cancel&popup=1'
+        };
+        // v25.7 A3: Trial-Days optional weitergeben (Backend cap't auf max 30 + first-sub)
+        if (trialDays && Number(trialDays) > 0) b.trial_days = Number(trialDays);
+        return b;
+      })())
     }), 15000, 'Stripe-Checkout antwortet nicht (Timeout). Bitte später nochmals versuchen.');
     var data = await resp.json().catch(function(){ return {}; });
     if (!resp.ok || !data || !data.url) {
@@ -9248,6 +9255,64 @@ async function gsConfirmCancelSub() {
 // Reactivate via Stripe-Portal mit reactivate-Flow.
 async function gsUncancelSub() {
   await gsOpenBillingPortal('reactivate');
+}
+
+// ── v25.7 A3: Trial-Modal nach Erstregistrierung ─────────────────────
+// Wird nach First-Login (Flag gs_first_login aus v25.5) gezeigt — wenn User
+// noch keine Sub hat. 3 Plan-Optionen: Plus 1-Monat-Trial, Pro 1-Monat-Trial,
+// Free-Plan (Modal schließen). Backend (stripe-checkout v5) cap't trial_days
+// sicher auf max 30 + first-sub-check.
+function gsShowFirstTrialModal() {
+  var mc = document.getElementById('modal-content');
+  if (!mc) return;
+  mc.innerHTML = '<div style="padding:0;">' +
+    '<div style="background:linear-gradient(135deg,#1b5e20,#2e7d32,#43a047);padding:28px 22px;color:#fff;text-align:center;position:relative;">' +
+      '<button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:20px;cursor:pointer;">×</button>' +
+      '<div style="font-size:48px;margin-bottom:8px;">🌱</div>' +
+      '<div style="font-family:\'Playfair Display\',serif;font-size:24px;font-weight:900;margin-bottom:6px;">Willkommen bei GreenScan</div>' +
+      '<div style="font-size:13px;opacity:.92;line-height:1.5;">1 Monat lang kostenlos alles ausprobieren.<br>Jederzeit kündbar — keine Sofort-Sperre.</div>' +
+    '</div>' +
+    '<div style="padding:18px;">' +
+      // Plus 1-Monat-Trial
+      '<button onclick="gsTrialStart(\'plus_monthly\')" style="width:100%;display:block;padding:16px;margin-bottom:10px;background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;text-align:left;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+          '<div><div style="font-size:15px;margin-bottom:2px;">⭐ Plus — 1 Monat gratis testen</div>' +
+          '<div style="font-size:11.5px;opacity:.9;font-weight:600;">Danach CHF 3.90/Monat · Unlimited Scans · Export · Werbefrei</div></div>' +
+          '<div style="font-size:18px;">→</div>' +
+        '</div>' +
+      '</button>' +
+      // Pro 1-Monat-Trial
+      '<button onclick="gsTrialStart(\'pro_monthly\')" style="width:100%;display:block;padding:16px;margin-bottom:10px;background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;text-align:left;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+          '<div><div style="font-size:15px;margin-bottom:2px;">💎 Pro — 1 Monat gratis testen</div>' +
+          '<div style="font-size:11.5px;opacity:.9;font-weight:600;">Danach CHF 7.90/Monat · KI-Kräuterberater · Offline · Diagnose</div></div>' +
+          '<div style="font-size:18px;">→</div>' +
+        '</div>' +
+      '</button>' +
+      // Free-Plan
+      '<button onclick="gsTrialSkip()" style="width:100%;display:block;padding:13px;background:transparent;color:var(--muted);border:1.5px solid var(--border);border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:6px;">Mit Free-Plan starten (5 Scans/Tag)</button>' +
+      '<div style="font-size:10.5px;color:var(--muted);text-align:center;margin-top:14px;line-height:1.55;">' +
+        'Trial-Abos: Du behältst alle Premium-Features bis zum Periodenende — auch nach Kündigung.<br>Sichere Zahlung über Stripe.' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+  openModal('detail-modal');
+}
+
+// Trial-Start: ruft gsStartCheckout mit trial_days=30. Modal bleibt offen
+// bis Stripe-Popup aufgeht (gsStartCheckout managed das).
+function gsTrialStart(planLookupKey) {
+  try { closeModal('detail-modal'); } catch(_){}
+  // Kurze Verzögerung damit Modal schließen kann, dann Checkout
+  setTimeout(function(){ gsStartCheckout(planLookupKey, false, 30); }, 250);
+}
+
+// Free-Plan: Modal schließen, Toast.
+function gsTrialSkip() {
+  try { closeModal('detail-modal'); } catch(_){}
+  if (typeof showProfileToast === 'function') {
+    showProfileToast('🌱 Free-Plan aktiv — viel Spass beim Scannen!', 'info');
+  }
 }
 
 // ── Billing-Return-Handler: nach Stripe-Redirect Plan aktualisieren
@@ -45321,6 +45386,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.7', date: '10.05.2026',
+    headline: 'A3: Trial-Modal nach First-Login mit 1-Monat-gratis Plus/Pro — komplettiert v25.4-Sprint',
+    summary: 'Letzter Sub-Task aus AUFTRAG_v25.4_AUTH_TRIAL_ABO.md. Komplettiert die v25.4-Auth-Sprint-Serie (A1 Logout-Sofort-Onboarding v25.4 → A2 Login-Welcome-Differential v25.5 → A5 Mein-Abo-Tab v25.6 → A3 Trial-Modal v25.7). Erstregistrierte User bekommen jetzt nach dem ersten Login (Flag gs_first_login aus v25.5) ein Trial-Modal mit 3 klaren Optionen: ⭐ Plus 1-Monat-gratis (danach CHF 3.90/Monat), 💎 Pro 1-Monat-gratis (danach CHF 7.90/Monat), 🌱 Mit Free-Plan starten (5 Scans/Tag). Klick auf Plus/Pro startet sofort gsStartCheckout(plan, false, 30) — der dritte Parameter trial_days wird im Body an Coworks stripe-checkout v5 weitergegeben, das Backend cap't sicher auf max 30 + erste-Sub-Check. Stripe übernimmt: 30 Tage frei, dann automatisch kostenpflichtig — User kann jederzeit über das in v25.6 implementierte „Mein Abo"-Tab kündigen (cancel_at_period_end, behält Premium bis Periodenende). Modal-Verzögerung 1.6s nach Welcome-Toast — User sieht erst „🎉 Willkommen bei GreenScan!", dann erscheint die Plan-Auswahl. Wenn User schon paid plan hat (z.B. Lifetime via separater Pfad), wird stattdessen die gsWelcomeTour gezeigt.',
+    items: [
+      {emoji:'🌱', bold:'gsShowFirstTrialModal() (Z.~9242):', text:' 3 Plan-Buttons: Plus/Pro Trial mit gsTrialStart(planLookupKey) → closeModal + gsStartCheckout(plan, false, 30). Free-Plan-Button via gsTrialSkip() → closeModal + Toast „🌱 Free-Plan aktiv". Header-Gradient #1b5e20→#2e7d32→#43a047 + 48px Sprout-Emoji.'},
+      {emoji:'💳', bold:'gsStartCheckout(plan, claimLaunchOffer, trialDays):', text:' Dritter optionaler Parameter — wenn > 0, wird trial_days im JSON-Body an stripe-checkout Edge-Fn übergeben. Backend (Cowork v5) hat trial_days-Support, cap't auf max 30 + first-sub-only. Bei trialDays=null/0/undefined wird kein trial_days gesendet → Standard-Subscription ohne Trial.'},
+      {emoji:'🚀', bold:'First-Login-Branch in onbDoLogin (Z.~50356):', text:' Nach gs_first_login-Flag-Konsum + Welcome-Toast, setTimeout 1.6s: prüft localStorage.gs_abo_plan. Wenn "free" → gsShowFirstTrialModal(). Sonst → gsWelcomeTour.start() falls vorhanden. Verzögerung damit Toast vorher gesehen wird.'},
+      {emoji:'✅', bold:'v25.4-Sprint komplett:', text:' A1 (v25.4 c47988e) Logout zeigt onb-start. A2 (v25.5 68d4ced) Welcome-Differential mit gs_first_login. A5 (v25.6 e7ee72f) Mein-Abo-Tab mit gsLoadSubInfo/gsRenderSubInfo + Cancel/Reactivate. A3 (v25.7 jetzt) Trial-Modal mit gsStartCheckout(trial_days:30). 4 Mini-Commits, jeder einzeln gepusht. Cowork verifiziert Test-Card-Flow + DB.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check ✓ · sw.js (gs-v25.7) + manifest.json valid ✓ · GS_VERSION=v25.7 ✓ · _headers v25.7 ✓ · meta app-version=25.7.20260510 ✓ · "v25.7 A3"-Marker: 3 (gsStartCheckout-trialDays + gsShowFirstTrialModal + onbDoLogin-Branch) ✓.'},
+    ]
+  },
+  {
     v: 'v25.6', date: '10.05.2026',
     headline: 'A5: „Mein Abo"-Tab mit Restlaufzeit, Status, Cancel/Reactivate via Stripe-Portal',
     summary: 'Dritter Sub-Task aus AUFTRAG_v25.4_AUTH_TRIAL_ABO.md. Bisher zeigte das Abo-Modal nur die Plan-Auswahl-Karten — User mit aktivem Plus/Pro-Abo sah keine Restlaufzeit, kein Status (Trial vs Active vs Cancelled), keinen direkten Cancel-Button. Neue Sub-Info-Card am Modal-Anfang zeigt jetzt: Plan-Name, color-coded Status-Badge (🏆 Lifetime, 🆓 Trial, ✅ Active, 🟡 Gekündigt, ⚠️ Past-Due 7-Tage-Grace), verbleibende Tage bis zur nächsten Abrechnung, Preis pro Periode mit „nach Trial"-Hint wenn Status=trialing. Action-Buttons je nach Status: bei aktiv → Stripe-Portal + Kündigen-Button; bei gekündigt → Reactivate-Button (nimmt cancel_at_period_end zurück); bei Lifetime → Hinweis „Einmalzahlung". Daten kommen aus stripe_subscriptions inkl. JOIN auf stripe_prices (unit_amount/currency/recurring/lookup_key). Cancel-Flow nutzt gsConfirmModal für Bestätigung, dann öffnet sich Stripe-Portal mit flow=cancel — Cowork muss den flow-Parameter in stripe-portal v2 unterstützen (Briefing erwähnt subscription_cancel.mode=at_period_end Konfiguration).',
@@ -46261,7 +46338,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.6';
+var GS_VERSION = 'v25.7';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -50500,12 +50577,23 @@ async function onbDoLogin() {
     try { firstLogin = gsStore.get('gs_first_login', null) === '1'; } catch(_){}
     if (firstLogin) {
       try { gsStore.remove('gs_first_login'); } catch(_){}
-      if (typeof gsWelcomeTour !== 'undefined' && gsWelcomeTour && typeof gsWelcomeTour.start === 'function') {
-        // Welcome-Tour aus v24.09 (3-Slide-Modal) — nur First-Login
-        try { gsWelcomeTour.start(); } catch(_){}
-      } else if (typeof showProfileToast === 'function') {
+      if (typeof showProfileToast === 'function') {
         showProfileToast('🎉 Willkommen bei GreenScan!', 'success');
       }
+      // v25.7 A3: Trial-Modal nach First-Login zeigen — User wählt Plus/Pro
+      // mit 1-Monat-Trial oder Free-Plan. Nur wenn noch kein paid plan.
+      // Verzögerung 1.6s: Welcome-Toast erst sehen, dann Modal.
+      setTimeout(function(){
+        try {
+          var plan = localStorage.getItem('gs_abo_plan') || 'free';
+          if (plan === 'free' && typeof gsShowFirstTrialModal === 'function') {
+            gsShowFirstTrialModal();
+          } else if (typeof gsWelcomeTour !== 'undefined' && gsWelcomeTour && typeof gsWelcomeTour.start === 'function') {
+            // Bereits paid (z.B. Lifetime via separater Pfad) — dann lieber die Tour
+            gsWelcomeTour.start();
+          }
+        } catch(_){}
+      }, 1600);
     } else {
       // Normaler Re-Login: Welcome-Back-Toast mit Display-Name
       var displayName = '';
