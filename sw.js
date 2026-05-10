@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.13 — KI-Planer Theme 1 Sub-Task 1.4: 3D-Three.js-Render. Toggle-Button im Plan-Result wechselt zwischen 2D-SVG und 3D-Scene. Plane (braune Erde) + 1m-Grid + Cylinder pro Pflanze (Höhe aus mature_height_cm oder Kategorie-Default). Auto-Rotate, Drag-to-Rotate, Wheel/Pinch-Zoom. Beere/Obst/Blume bekommen zusätzlich eine Sphere oben drauf. Offline-fähig dank v25.9 sw.js Three.js-Cache.
+   v25.14 — KI-Planer Theme 1 Sub-Task 1.5: Chat-Iteration via plan-iterate Edge-Fn. gsIteratePlan(planId, message) Wrapper + Chat-Bar im Plan-Result-Footer mit Live-Iter-Counter (0-5), Input + Send-Button + Status-Display. Erfolg ersetzt s.analysis + zeigt change_summary als grünen Quote-Block + re-rendert Modal (3D auch wenn aktiv). Limit 5 Iterations enforced backend-seitig.
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.13';
+const VERSION = 'gs-v25.14';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;

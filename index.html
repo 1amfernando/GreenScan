@@ -60,7 +60,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.13.20260510">
+<meta name="app-version" content="25.14.20260510">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -38044,15 +38044,128 @@ function gsBuildGardenScanResultPreview(analysis, planId) {
       '<div style="font-size:13.5px;font-weight:800;color:var(--text);margin-bottom:6px;">🌿 ' + rp.length + ' empfohlene Pflanzen</div>' +
       planted +
       warnHtml +
+      gsBuildGardenScanChatBar() +
       '<div style="font-size:11.5px;color:var(--muted);margin-top:14px;text-align:center;line-height:1.55;">' +
-        (planId ? '✅ Plan gespeichert (id: ' + String(planId).slice(0,8) + '…). Chat-Iteration in v25.14, Auto-Sync zu myPlants in v25.15.' : '⚠️ Plan nicht in Cloud gespeichert.') +
+        (planId ? '✅ Plan gespeichert (id: ' + String(planId).slice(0,8) + '…). Auto-Sync zu myPlants kommt in v25.15.' : '⚠️ Plan nicht in Cloud gespeichert.') +
       '</div>' +
     '</div>' +
   '</div>';
 }
 
+// ── v25.14 Sub-Task 1.5: Chat-Iteration via plan-iterate Edge-Fn ─────
+// 5-Iterations-Limit pro Plan (Backend enforced). Persistiert iteration_count
+// + iterations_remaining in window._gsGardenScan-State.
+
+async function gsIteratePlan(planId, message) {
+  if (!planId) return { ok: false, error: { code: 'no_plan', message: 'Kein Plan-ID — erst Plan erstellen.' } };
+  if (!message || !String(message).trim()) return { ok: false, error: { code: 'empty', message: 'Bitte Änderungs-Wunsch eingeben.' } };
+  if (typeof sbIsLoggedIn === 'function' && !sbIsLoggedIn()) {
+    return { ok: false, error: { code: 'not_authenticated', message: 'Bitte anmelden.' } };
+  }
+  var token = gsStore.get('gs_sb_token', null) || '';
+  var base = (typeof SB_URL !== 'undefined') ? SB_URL : (localStorage.getItem('gs_sb_url') || '');
+  var apikey = (typeof SB_KEY !== 'undefined') ? SB_KEY : '';
+  try {
+    var resp = await (window._gsFetch || fetch)(base + '/functions/v1/plan-iterate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
+        'apikey': apikey
+      },
+      body: JSON.stringify({ plan_id: planId, user_message: String(message).trim() })
+    }, 30000);
+    var data = await resp.json().catch(function(){ return {}; });
+    if (!resp.ok) {
+      return { ok: false, error: data.error || { code: 'http_' + resp.status, message: 'Server-Fehler ' + resp.status + (data.error && data.error.message ? ': ' + data.error.message : '') } };
+    }
+    return data;
+  } catch(e) {
+    return { ok: false, error: { code: 'network', message: (e && e.message) || 'Netzwerk-Fehler' } };
+  }
+}
+
+// Chat-Send-Handler — wird aus dem Chat-Input gerufen.
+async function gsGardenScanChatSend() {
+  var s = window._gsGardenScan;
+  if (!s || !s.plan_id || s.busy) return;
+  var inp = document.getElementById('garden-scan-chat-input');
+  var msg = inp ? (inp.value || '').trim() : '';
+  if (!msg) return;
+  s.busy = true;
+  // Optimistic UI: Input leeren + Spinner
+  if (inp) { inp.value = ''; inp.disabled = true; }
+  var sendBtn = document.getElementById('garden-scan-chat-send');
+  if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = '⏳'; }
+  var statusEl = document.getElementById('garden-scan-chat-status');
+  if (statusEl) statusEl.textContent = '⏳ KI bearbeitet deine Änderung … (10-20s)';
+  if (typeof gsHaptic === 'function') gsHaptic('light');
+  var res = await gsIteratePlan(s.plan_id, msg);
+  s.busy = false;
+  if (!res || !res.ok) {
+    var em = res && res.error ? (res.error.message || res.error.code || 'Unbekannter Fehler') : 'Keine Antwort';
+    if (statusEl) statusEl.textContent = '⚠️ ' + em;
+    if (inp) { inp.disabled = false; }
+    if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = '✨ Senden'; }
+    if (typeof gsToast === 'function') gsToast({title:'Iteration fehlgeschlagen', body: em, type:'error'});
+    return;
+  }
+  // Erfolg: Plan ersetzen + Iteration-Counter speichern + Modal re-rendern
+  if (res.analysis) s.analysis = res.analysis;
+  s.iteration_count = res.iteration_count || ((s.iteration_count || 0) + 1);
+  s.iterations_remaining = (typeof res.iterations_remaining === 'number') ? res.iterations_remaining : Math.max(0, 5 - s.iteration_count);
+  s.last_change_summary = res.change_summary || '';
+  if (typeof gsHaptic === 'function') gsHaptic('success');
+  var mc = document.getElementById('modal-content');
+  if (mc) mc.innerHTML = gsBuildGardenScanResultPreview(s.analysis, s.plan_id);
+  // 3D-Render neu falls aktiv
+  if (s.viewMode === '3d') {
+    setTimeout(function(){
+      var c = document.getElementById('garden-scan-3d-host');
+      if (c) gsRenderGardenScan3D(c, s.analysis);
+    }, 60);
+  }
+}
+
+// Enter-Key in Chat-Input → Send.
+function gsGardenScanChatKey(ev) {
+  if (ev && ev.key === 'Enter' && !ev.shiftKey) {
+    ev.preventDefault();
+    gsGardenScanChatSend();
+  }
+}
+
+// Chat-Bar HTML — wird in gsBuildGardenScanResultPreview unten eingefügt
+// wenn plan_id vorhanden (also Plan in Cloud gespeichert + iterierbar).
+function gsBuildGardenScanChatBar() {
+  var s = window._gsGardenScan || {};
+  if (!s.plan_id) return '';
+  var iterUsed = s.iteration_count || 0;
+  var iterLeft = (typeof s.iterations_remaining === 'number') ? s.iterations_remaining : (5 - iterUsed);
+  if (iterLeft < 0) iterLeft = 0;
+  var locked = iterLeft <= 0;
+  var lastChange = s.last_change_summary
+    ? '<div style="background:#e8f5e9;border-left:3px solid #2e7d32;border-radius:6px;padding:8px 10px;margin-bottom:10px;font-size:11.5px;line-height:1.55;color:var(--text);"><strong style="color:#1b5e20;">Letzte Änderung:</strong> ' + s.last_change_summary + '</div>'
+    : '';
+  return '<div style="margin-top:14px;padding-top:14px;border-top:1.5px solid var(--border);">' +
+    '<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">' +
+      '<span>💬 Plan anpassen</span>' +
+      '<span style="font-size:10.5px;font-weight:600;color:var(--muted);">' + iterUsed + '/5 Iterationen</span>' +
+    '</div>' +
+    lastChange +
+    (locked
+      ? '<div style="text-align:center;padding:12px;background:#fff3e0;border:1.5px solid #f57c00;border-radius:10px;font-size:11.5px;color:#e65100;font-weight:600;">⚠️ Iteration-Limit erreicht (5/5). Erstelle einen neuen Plan für weitere Anpassungen.</div>'
+      : '<div style="display:flex;gap:8px;">' +
+          '<input id="garden-scan-chat-input" type="text" placeholder="z.B. Ich will keinen Bambus, lieber Schnittlauch" maxlength="300" onkeydown="gsGardenScanChatKey(event)" style="flex:1;padding:10px 12px;background:var(--card);border:1.5px solid var(--border);border-radius:10px;font-size:12.5px;font-family:inherit;color:var(--text);outline:none;">' +
+          '<button id="garden-scan-chat-send" onclick="gsGardenScanChatSend()" style="padding:10px 14px;background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border:none;border-radius:10px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;">✨ Senden</button>' +
+        '</div>' +
+        '<div id="garden-scan-chat-status" style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center;min-height:14px;">Beschreibe deinen Wunsch — die KI passt den Plan punktuell an.</div>'
+    ) +
+  '</div>';
+}
+
 // ═════════════════════════════════════════════════════════════════════
-// Ende v25.11 KI-Planer Block — v25.12 erweitert um 2D-SVG-Render
+// Ende v25.11-v25.14 KI-Planer Block — v25.15 erweitert um Auto-Sync
 // ═════════════════════════════════════════════════════════════════════
 
 // v24.00: Modal "Meine Pläne" — alle gespeicherten Pläne ansehen / wieder öffnen / löschen
@@ -41644,6 +41757,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.14', date: '10.05.2026',
+    headline: 'KI-Planer Theme 1 Sub-Task 1.5: Chat-Iteration via plan-iterate Edge-Fn',
+    summary: 'Vierter Sub-Task der v25.9-Theme-1-Serie. Plan-Result hat jetzt eine Chat-Bar im Footer mit Input + Send-Button + Live-Iter-Counter. User kann Plan-Aenderungen in natuerlicher Sprache requesten. gsIteratePlan(planId, message) ruft plan-iterate Edge-Fn (30s Timeout). Response enthaelt vollstaendigen neuen Plan + change_summary. Bei Erfolg ersetzt s.analysis und re-rendert das Plan-Result inkl. SVG/3D-Re-Render. Letzte Aenderung wird als gruener Quote-Block angezeigt. Limit 5 Iterations pro Plan (Backend enforced via HTTP 429).',
+    items: [
+      {emoji:'💬', bold:'gsIteratePlan(planId, message):', text:' Async Wrapper fuer POST plan-iterate. Bearer-Auth, 30s Timeout. Body: plan_id+user_message. Response: ok+analysis+change_summary+iteration_count+iterations_remaining.'},
+      {emoji:'⌨️', bold:'gsBuildGardenScanChatBar() UI:', text:' Footer-Block in Plan-Result mit Header (Plan anpassen + Iter-Counter), letzten change_summary, Input mit maxlength=300 + Enter-Submit, Send-Button. Bei Iter-Limit: Warning-Block statt Input.'},
+      {emoji:'🔄', bold:'gsGardenScanChatSend() Handler:', text:' Optimistic UI mit Input clear + disable. Bei Erfolg: s.analysis ersetzt, Modal re-rendert (auch 3D falls aktiv).'},
+      {emoji:'⏭️', bold:'Naechster Sub-Task:', text:' v25.15 1.6+1.7 Auto-Sync Plan-Pflanzen zu myPlants + PDF-Export-Polish.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · sw.js (gs-v25.14) valid OK · GS_VERSION=v25.14 OK.'},
+    ]
+  },
+  {
     v: 'v25.13', date: '10.05.2026',
     headline: 'KI-Planer Theme 1 Sub-Task 1.4: 3D-Three.js-Render mit Auto-Rotate + Drag/Zoom',
     summary: 'Dritter Sub-Task der v25.9-Theme-1-Serie. Plan-Result hat jetzt einen 2D/3D-Toggle-Button. 3D-Mode rendert die Garten-Plane (braune Erde) mit 1m-GridHelper und einer Cylinder-Geometry pro Pflanze. Cylinder-Hoehe aus pl.mature_height_cm oder Kategorie-Defaults. Beeren/Obst/Blumen bekommen zusaetzlich Sphere oben drauf. Auto-Rotate-Mode pausiert bei User-Interaktion (Resume nach 2.5s). Drag-to-Rotate via Mouse + Touch. Wheel-Zoom + Pinch. Cleanup-Handle raeumt Listener + Renderer + Geometries beim Toggle zurueck zu 2D auf. Funktioniert offline dank v25.9 sw.js Three.js-Cache.',
@@ -42659,7 +42784,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.13';
+var GS_VERSION = 'v25.14';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
