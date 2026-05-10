@@ -60,7 +60,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.14.20260510">
+<meta name="app-version" content="25.15.20260510">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -38044,9 +38044,14 @@ function gsBuildGardenScanResultPreview(analysis, planId) {
       '<div style="font-size:13.5px;font-weight:800;color:var(--text);margin-bottom:6px;">🌿 ' + rp.length + ' empfohlene Pflanzen</div>' +
       planted +
       warnHtml +
+      // v25.15 Action-Buttons: Auto-Sync + PDF-Export
+      '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">' +
+        '<button onclick="gsGardenScanSyncToMyPlants()" style="flex:1;min-width:140px;padding:12px;background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border:none;border-radius:10px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;">📚 In meinen Garten</button>' +
+        '<button onclick="gsGardenScanExportPDF()" style="flex:1;min-width:140px;padding:12px;background:var(--card);color:var(--text);border:1.5px solid var(--border);border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;">📄 PDF exportieren</button>' +
+      '</div>' +
       gsBuildGardenScanChatBar() +
       '<div style="font-size:11.5px;color:var(--muted);margin-top:14px;text-align:center;line-height:1.55;">' +
-        (planId ? '✅ Plan gespeichert (id: ' + String(planId).slice(0,8) + '…). Auto-Sync zu myPlants kommt in v25.15.' : '⚠️ Plan nicht in Cloud gespeichert.') +
+        (planId ? '✅ Plan gespeichert (id: ' + String(planId).slice(0,8) + '…). Pflanzen kommen mit Status „geplant" in deinen Garten.' : '⚠️ Plan nicht in Cloud gespeichert.') +
       '</div>' +
     '</div>' +
   '</div>';
@@ -38164,8 +38169,175 @@ function gsBuildGardenScanChatBar() {
   '</div>';
 }
 
+// ── v25.15 Sub-Task 1.6: Auto-Sync Plan-Pflanzen → myPlants ────────
+// Nutzer klickt „In meinen Garten übernehmen", bekommt pro recommended_plants[]
+// einen myPlants-Eintrag mit status='planned' und plan_id-Referenz. Bei
+// erneutem Klick werden bereits-importierte Pflanzen (gleicher plan_id+name)
+// nicht doppelt hinzugefügt.
+
+function gsGardenScanSyncToMyPlants() {
+  var s = window._gsGardenScan;
+  if (!s || !s.analysis || !s.analysis.recommended_plants) {
+    if (typeof gsToast === 'function') gsToast('Kein Plan zum Übernehmen', 'error');
+    return;
+  }
+  if (typeof myPlants === 'undefined' || !Array.isArray(myPlants)) {
+    if (typeof gsToast === 'function') gsToast('myPlants nicht initialisiert', 'error');
+    return;
+  }
+  var rp = s.analysis.recommended_plants || [];
+  if (!rp.length) {
+    if (typeof gsToast === 'function') gsToast('Plan enthält keine Pflanzen', 'info');
+    return;
+  }
+  var planId = s.plan_id || ('local_' + Date.now());
+  var now = Date.now();
+  var nowIso = new Date().toISOString();
+  // Dedup: prüfe ob für diesen plan_id schon Pflanzen importiert wurden
+  var alreadyImported = myPlants.filter(function(p){ return p.plan_id === planId; });
+  var existingNames = new Set(alreadyImported.map(function(p){ return (p.name || '').toLowerCase(); }));
+
+  var added = 0;
+  rp.forEach(function(pl, idx) {
+    if (!pl || !pl.name) return;
+    if (existingNames.has(pl.name.toLowerCase())) return;
+    var emoji = (typeof gsCatEmoji === 'function') ? gsCatEmoji({cat: pl.category}) : '🌱';
+    // Care-Intensity → Wasser-Default-Mapping
+    var careLevel = (pl.care_intensity || '').toLowerCase();
+    var water = careLevel.indexOf('high') >= 0 ? 3 : (careLevel.indexOf('low') >= 0 ? 1 : 2);
+    var waterInterval = water === 1 ? 14 : water === 2 ? 7 : 3;
+    var notesParts = [];
+    if (pl.position && (typeof pl.position.x === 'number' || typeof pl.position.y === 'number')) {
+      notesParts.push('📍 Pos. ' + (pl.position.x||0) + ',' + (pl.position.y||0) + 'm');
+    }
+    if (pl.qty && pl.qty > 1) notesParts.push(pl.qty + 'x');
+    if (pl.spacing_cm) notesParts.push(pl.spacing_cm + ' cm Abstand');
+    if (pl.sow_date) notesParts.push('Aussaat: ' + pl.sow_date);
+    if (pl.harvest_date) notesParts.push('Ernte: ' + pl.harvest_date);
+    if (pl.reason) notesParts.push(pl.reason);
+    var newPlant = {
+      id: 'mp_' + now + '_' + idx,
+      name: pl.name,
+      nick: '',
+      emoji: emoji,
+      lat: pl.lat || '',
+      cat: pl.category || '',
+      water: water,
+      sun: 2,
+      notes: notesParts.join(' · '),
+      photo: null,
+      // v25.15: KI-Planer-Markierung
+      status: 'planned',
+      plan_id: planId,
+      added: nowIso,
+      tasks: {
+        water:     { active: true,  intervalDays: waterInterval, lastDone: now },
+        fertilize: { active: true,  intervalDays: 30,  lastDone: now },
+        repot:     { active: false, intervalDays: 365, lastDone: now },
+        rotate:    { active: false, intervalDays: 14,  lastDone: now },
+        mist:      { active: water === 3, intervalDays: 2, lastDone: now },
+        dust:      { active: false, intervalDays: 30,  lastDone: now },
+        prune:     { active: false, intervalDays: 90,  lastDone: now },
+        check:     { active: true,  intervalDays: 14,  lastDone: now }
+      },
+      diary: []
+    };
+    myPlants.push(newPlant);
+    added++;
+  });
+
+  if (added === 0) {
+    if (typeof gsToast === 'function') gsToast('Alle Pflanzen schon übernommen', 'info');
+    return;
+  }
+  if (typeof savePlantsToStorage === 'function') {
+    try { savePlantsToStorage(); } catch(_){}
+  }
+  if (typeof renderMyPlants === 'function') {
+    try { renderMyPlants(); } catch(_){}
+  }
+  if (typeof scheduleAllNotifications === 'function') {
+    try { scheduleAllNotifications(); } catch(_){}
+  }
+  if (typeof gsHaptic === 'function') gsHaptic('success');
+  if (typeof gsToast === 'function') {
+    gsToast({title: '✅ ' + added + ' Pflanze' + (added === 1 ? '' : 'n') + ' übernommen', body: 'Status: geplant. Sichtbar in Mein Garten.', type:'success', duration: 5000});
+  }
+  if (typeof gsBrain !== 'undefined' && gsBrain && typeof gsBrain.observe === 'function') {
+    try { gsBrain.observe('garden_plan_imported', { plan_id: planId, plant_count: added }); } catch(_){}
+  }
+}
+
+// ── v25.15 Sub-Task 1.7: PDF-Export-Polish ─────────────────────────
+// Nutzt window.print() mit print-only CSS — funktioniert auf allen Plattformen.
+// Mobile: Browser zeigt Print-Dialog mit "Als PDF speichern"-Option.
+function gsGardenScanExportPDF() {
+  var s = window._gsGardenScan;
+  if (!s || !s.analysis) {
+    if (typeof gsToast === 'function') gsToast('Kein Plan zum Exportieren', 'error');
+    return;
+  }
+  if (typeof gsHaptic === 'function') gsHaptic('light');
+  // Plan-HTML in eigenem Print-Container rendern
+  var sa = s.analysis.site_analysis || {};
+  var rp = s.analysis.recommended_plants || [];
+  var cal = s.analysis.monthly_calendar || {};
+  var tools = s.analysis.tools_needed || [];
+  var warns = s.analysis.warnings || [];
+  var monthNames = ['jan','feb','mar','apr','mai','jun','jul','aug','sep','okt','nov','dez'];
+  var monthLabels = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  var calRows = monthNames.map(function(m, i){
+    var entries = cal[m] || cal[monthLabels[i].toLowerCase()] || [];
+    if (!Array.isArray(entries)) entries = [];
+    if (!entries.length) return '';
+    return '<tr><td style="font-weight:700;padding:4px 8px;border-bottom:1px solid #ddd;">' + monthLabels[i] + '</td><td style="padding:4px 8px;border-bottom:1px solid #ddd;">' + entries.join(' · ') + '</td></tr>';
+  }).filter(Boolean).join('');
+  var plantsList = rp.map(function(pl){
+    return '<li><strong>' + (pl.name||'') + '</strong>' + (pl.lat?' <em>('+pl.lat+')</em>':'') + (pl.qty?' · '+pl.qty+'x':'') + (pl.position?' · Pos. '+(pl.position.x||0)+','+(pl.position.y||0)+'m':'') + '</li>';
+  }).join('');
+  var svgBlock = (typeof gsBuildGardenScanSvg === 'function') ? gsBuildGardenScanSvg(s.analysis) : '';
+  var iframe = document.createElement('iframe');
+  iframe.style.cssText = 'position:fixed;top:-9999px;left:0;width:1px;height:1px;border:none;';
+  document.body.appendChild(iframe);
+  var doc = iframe.contentDocument || iframe.contentWindow.document;
+  doc.open();
+  doc.write(
+    '<!DOCTYPE html><html><head><meta charset="utf-8"><title>GreenScan KI-Garten-Plan</title>' +
+    '<style>' +
+    'body{font-family:-apple-system,system-ui,sans-serif;color:#222;padding:20px;max-width:800px;margin:0 auto;}' +
+    'h1{font-family:Georgia,serif;color:#1b5e20;border-bottom:2px solid #2e7d32;padding-bottom:8px;}' +
+    'h2{color:#2e7d32;margin-top:18px;font-size:16px;}' +
+    'table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px;}' +
+    'ol,ul{padding-left:22px;font-size:12px;line-height:1.6;}' +
+    '.meta{color:#666;font-size:11px;margin-bottom:14px;}' +
+    '@media print { body{padding:8px;} h1{page-break-after:avoid;} h2{page-break-after:avoid;} svg{max-width:100%;height:auto;page-break-inside:avoid;} }' +
+    '</style></head><body>' +
+    '<h1>🌱 GreenScan — KI-Garten-Plan</h1>' +
+    '<div class="meta">Erstellt: ' + new Date().toLocaleDateString('de-CH') + ' · ' + (sa.size_m2?sa.size_m2+' m²':'') + (sa.shape?' · '+sa.shape:'') + (sa.light&&sa.light.level?' · '+sa.light.level:'') + (s.plan_id?' · ID: '+String(s.plan_id).slice(0,8):'') + '</div>' +
+    (svgBlock ? '<h2>📐 Plan-Skizze</h2>' + svgBlock.replace(/onclick="[^"]*"/g, '') : '') +
+    '<h2>🌿 Empfohlene Pflanzen (' + rp.length + ')</h2><ol>' + plantsList + '</ol>' +
+    (calRows ? '<h2>📅 Monatskalender</h2><table>' + calRows + '</table>' : '') +
+    (tools.length ? '<h2>🔧 Werkzeuge</h2><ul>' + tools.map(function(t){return '<li>'+t+'</li>';}).join('') + '</ul>' : '') +
+    (warns.length ? '<h2>⚠️ Warnungen</h2><ul>' + warns.map(function(w){return '<li>'+w+'</li>';}).join('') + '</ul>' : '') +
+    '<div class="meta" style="margin-top:30px;text-align:center;">https://green-scan.ch · KI-generiert</div>' +
+    '</body></html>'
+  );
+  doc.close();
+  // Kurze Verzögerung damit DOM rendert, dann print
+  setTimeout(function(){
+    try {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    } catch(e) {
+      if (typeof gsToast === 'function') gsToast({title:'PDF-Export', body: 'Print-Dialog konnte nicht geöffnet werden: ' + (e.message||e), type:'error'});
+    }
+    // Cleanup nach 2s
+    setTimeout(function(){ try { iframe.remove(); } catch(_){} }, 2000);
+  }, 250);
+}
+
 // ═════════════════════════════════════════════════════════════════════
-// Ende v25.11-v25.14 KI-Planer Block — v25.15 erweitert um Auto-Sync
+// Ende v25.11-v25.15 KI-Planer Block — Theme 1 komplett
 // ═════════════════════════════════════════════════════════════════════
 
 // v24.00: Modal "Meine Pläne" — alle gespeicherten Pläne ansehen / wieder öffnen / löschen
@@ -41757,6 +41929,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.15', date: '10.05.2026',
+    headline: 'KI-Planer Theme 1 Sub-Tasks 1.6+1.7: Auto-Sync myPlants + PDF-Export — Theme 1 KOMPLETT',
+    summary: 'Letzter Sub-Task der v25.9-Theme-1-Mega-Upgrade-Serie. Plan-Result hat jetzt zwei Action-Buttons: In meinen Garten und PDF exportieren. Erstes legt pro recommended_plants[] einen myPlants-Eintrag an mit status=planned und plan_id-Referenz. Care-Intensity bestimmt Wasser-Default. Dedup gegen doppelte Imports. PDF-Export via iframe + window.print() funktioniert auf allen Plattformen (Mobile zeigt Als-PDF-speichern). Damit ist Theme 1 komplett.',
+    items: [
+      {emoji:'📚', bold:'gsGardenScanSyncToMyPlants():', text:' Pro recommended_plants[] ein myPlants-Eintrag mit status=planned, plan_id, lat, cat, emoji aus gsCatEmoji, water aus care_intensity, notes mit Position+qty+spacing+sow/harvest+reason. Dedup-Set gegen Doppel-Import. savePlantsToStorage + renderMyPlants + scheduleAllNotifications + Toast + Brain-Observe garden_plan_imported.'},
+      {emoji:'📄', bold:'gsGardenScanExportPDF():', text:' Hidden-iframe mit Plan-HTML (Header + Site-Analysis + SVG-Skizze + Plant-Liste + Monatskalender + Tools + Warnings + Footer). Print-CSS mit page-break-Hints. iframe.contentWindow.print(). Cleanup nach 2s.'},
+      {emoji:'🎨', bold:'UI Action-Buttons:', text:' In-meinen-Garten (gruen) + PDF-exportieren (outline). Flex-Layout mit min-width 140px, wrapped auf schmalen Screens.'},
+      {emoji:'🎉', bold:'Theme 1 KI-Planer-Mega-Upgrade KOMPLETT:', text:' v25.11 (Wizard+Edge-Fn) -> v25.12 (2D-SVG) -> v25.13 (3D) -> v25.14 (Chat) -> v25.15 (Auto-Sync+PDF). Cowork-Backend voll integriert. End-to-End: 3 Fotos zu KI-Analyse zu 2D/3D-Plan zu Chat-Iteration zu eigenem Garten plus PDF.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · sw.js (gs-v25.15) valid OK · GS_VERSION=v25.15 OK.'},
+    ]
+  },
+  {
     v: 'v25.14', date: '10.05.2026',
     headline: 'KI-Planer Theme 1 Sub-Task 1.5: Chat-Iteration via plan-iterate Edge-Fn',
     summary: 'Vierter Sub-Task der v25.9-Theme-1-Serie. Plan-Result hat jetzt eine Chat-Bar im Footer mit Input + Send-Button + Live-Iter-Counter. User kann Plan-Aenderungen in natuerlicher Sprache requesten. gsIteratePlan(planId, message) ruft plan-iterate Edge-Fn (30s Timeout). Response enthaelt vollstaendigen neuen Plan + change_summary. Bei Erfolg ersetzt s.analysis und re-rendert das Plan-Result inkl. SVG/3D-Re-Render. Letzte Aenderung wird als gruener Quote-Block angezeigt. Limit 5 Iterations pro Plan (Backend enforced via HTTP 429).',
@@ -42784,7 +42968,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.14';
+var GS_VERSION = 'v25.15';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

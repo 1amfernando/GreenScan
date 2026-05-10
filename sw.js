@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.14 — KI-Planer Theme 1 Sub-Task 1.5: Chat-Iteration via plan-iterate Edge-Fn. gsIteratePlan(planId, message) Wrapper + Chat-Bar im Plan-Result-Footer mit Live-Iter-Counter (0-5), Input + Send-Button + Status-Display. Erfolg ersetzt s.analysis + zeigt change_summary als grünen Quote-Block + re-rendert Modal (3D auch wenn aktiv). Limit 5 Iterations enforced backend-seitig.
+   v25.15 — KI-Planer Theme 1 Sub-Tasks 1.6+1.7: Auto-Sync Plan-Pflanzen zu myPlants als status=planned mit plan_id-Referenz (Dedup falls schon importiert) + PDF-Export-Polish via iframe + window.print (cross-platform: Mobile-Browser zeigt Als-PDF-speichern). Theme 1 KI-Planer-Mega-Upgrade komplett.
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.14';
+const VERSION = 'gs-v25.15';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
