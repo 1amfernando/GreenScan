@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.12 — KI-Planer Theme 1 Sub-Task 1.3: Responsive 2D-SVG-Render aus analysis.layout_grid + recommended_plants[].position. viewBox + preserveAspectRatio mobile-first, 1m=100SVG-Units, 1m-Grid gestrichelt, Pflanzen als farbcodierte Kreise mit Emoji + qty-Badge. Tap-Handler gsGardenScanShowPlant öffnet Detail-Modal mit 10 Eigenschaften (lat, sow/harvest, companion_plants etc.). Plant-Liste klickbar.
+   v25.13 — KI-Planer Theme 1 Sub-Task 1.4: 3D-Three.js-Render. Toggle-Button im Plan-Result wechselt zwischen 2D-SVG und 3D-Scene. Plane (braune Erde) + 1m-Grid + Cylinder pro Pflanze (Höhe aus mature_height_cm oder Kategorie-Default). Auto-Rotate, Drag-to-Rotate, Wheel/Pinch-Zoom. Beere/Obst/Blume bekommen zusätzlich eine Sphere oben drauf. Offline-fähig dank v25.9 sw.js Three.js-Cache.
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.12';
+const VERSION = 'gs-v25.13';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
