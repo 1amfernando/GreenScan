@@ -60,7 +60,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.3.20260510">
+<meta name="app-version" content="25.4.20260510">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -45203,6 +45203,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.4', date: '10.05.2026',
+    headline: 'A1: Logout zeigt sofort Anmelde-Screen statt auf letzter Seite zu hängen',
+    summary: 'Erster Sub-Task aus AUFTRAG_v25.4_AUTH_TRIAL_ABO.md. Symptom: nach Klick auf Logout-Button blieb der User auf seiner aktuellen Tab-Seite (z.B. Settings, Garten, Marktplatz) — Token wurde clear, Cloud-Daten wurden weg, aber das UI sah aus wie vorher und der Anmelde-Screen kam erst beim nächsten App-Reload. Verwirrend für User. Fix: sbLogout() macht nach sbClearSession() und gsOnLogout() jetzt explizit den Onboarding-Wrapper visible (display:flex, opacity:1), ruft _onbShowView("onb-start") für den sauberen Start-Screen mit Anmelden/Registrieren/Gast-Buttons, schließt alle offenen .modal-overlay-Layer und zeigt einen Toast „👋 Erfolgreich abgemeldet". Komplettiert die v25.0/v25.1 Auth-Fixes (Login → Home, Logout → onb-start). Sub-Tasks A2/A5/A3 folgen in v25.5/v25.6/v25.7.',
+    items: [
+      {emoji:'👋', bold:'sbLogout() Sofort-Onboarding (~Z.47361):', text:' Nach sbClearSession() + gsOnLogout()-Aufruf wird gs-onboarding-Wrapper auf display:flex/opacity:1 gesetzt, _onbShowView("onb-start") zeigt den Start-Screen, alle .modal-overlay-Elemente werden geschlossen. Toast „👋 Erfolgreich abgemeldet" als Bestätigung.'},
+      {emoji:'🔗', bold:'Komplettiert Auth-Flow:', text:' v25.0/v25.1 fixed Login→Home (Sub-View-Reset in gsOnboardingHide + Idempotent-Guard in gsCheckOnboarding). v25.4 fixed Logout→onb-start. Damit ist der Auth-State-Übergang in beide Richtungen sauber.'},
+      {emoji:'⏭️', bold:'Nächste Sub-Tasks:', text:' A2 (v25.5) Login-Welcome-Differential — Welcome-Modal nur nach Erstregistrierung, sonst Toast. A5 (v25.6) „Mein Abo"-Tab mit Restlaufzeit/Cancel/Reactivate via stripe-portal. A3 (v25.7) Trial-Modal nach Email-Confirm + gsStartCheckout(trial_days:30) für First-Subscription. Cowork hat stripe-checkout v5 mit trial_days deployed.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check ✓ · sw.js (gs-v25.4) + manifest.json valid ✓ · GS_VERSION=v25.4 ✓ · _headers v25.4 ✓ · meta app-version=25.4.20260510 ✓ · "v25.4 A1"-Marker: 1 ✓.'},
+    ]
+  },
+  {
     v: 'v25.3', date: '10.05.2026',
     headline: 'Bug #4 Marktplatz-Audit: 3 P0-Bugs dokumentiert + Sicherheits-Restore mktLike/mktDelete',
     summary: 'Code-Audit der Marktplatz-Funktionen aus AUDIT_v25_BUG_BRIEFINGS.md Bug #4. Drei kritische Befunde dokumentiert in MARKETPLACE_AUDIT.md: (M1) saveListing() schreibt nur localStorage und macht KEINEN POST in marketplace_listings — User-Listings sind unsichtbar für andere User, „Veröffentlicht"-Toast lügt. (M2) Schema-Mismatch zwischen Frontend (desc/cat/images/createdAt/sellerId/...) und Backend (description/category/photo_url/created_at/user_id/...). (M3) Photos werden als komprimierte Base64-Arrays im Listing-JSON gespeichert statt im 2026-05-09 von Cowork angelegten marketplace-photos Storage-Bucket — bläht localStorage auf, würde Backend-INSERT zusätzlich brechen. Plus zwei mittlere Schwächen (M4 encodeURIComponent fehlte / M5 sellerId-aus-localStorage). M4 wird sofort gefixt: mktLike/mktDelete bekommen encodeURIComponent zurück (war in v24.13 schon mal drin, durch UPDATE.command-Sync bae5750 verloren). M1-M3-M5 brauchen Cowork-Coordination und folgen in v25.4-v25.6.',
@@ -46108,7 +46119,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.3';
+var GS_VERSION = 'v25.4';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -47368,6 +47379,19 @@ async function sbLogout() {
   }
   sbClearSession();
   if (typeof gsOnLogout === 'function') gsOnLogout();
+  // v25.4 A1: Sofort Onboarding zeigen — User soll nicht auf der letzten Seite
+  // hängen bleiben. Wrapper sichtbar machen + Sub-View auf onb-start zurücksetzen.
+  // Plus: alle offenen Modals zu (Settings/Profile/Detail).
+  try {
+    var ob = document.getElementById('gs-onboarding');
+    if (ob) {
+      ob.style.display = 'flex';
+      ob.style.opacity = '1';
+    }
+    if (typeof _onbShowView === 'function') _onbShowView('onb-start');
+    document.querySelectorAll('.modal-overlay').forEach(function(m){ try { m.style.display = 'none'; } catch(_){} });
+    if (typeof showProfileToast === 'function') showProfileToast('👋 Erfolgreich abgemeldet', 'info');
+  } catch(_){}
 }
 
 async function sbChangePassword(newPassword) {

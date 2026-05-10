@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.3 — Bug #4 Marktplatz-Audit (Code-Review): MARKETPLACE_AUDIT.md dokumentiert 3 P0-Bugs (saveListing macht keinen Backend-INSERT, Schema-Mismatch Frontend↔Backend, Photos nicht im Storage-Bucket) + 2 mittlere Schwächen. Plus Frontend-Sicherheits-Restore: mktLike/mktDelete bekommen wieder encodeURIComponent (war v24.13 gefixt, durch UPDATE.command-Sync verloren).
+   v25.4 — A1 Logout zeigt sofort Onboarding: sbLogout() macht Wrapper visible + _onbShowView('onb-start') + alle Modals zu + Toast „Erfolgreich abgemeldet". Vorher: User blieb auf letzter Seite nach Token-Clear und sah keinen Anmelde-Screen.
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.3';
+const VERSION = 'gs-v25.4';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
