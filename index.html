@@ -60,7 +60,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.10.20260510">
+<meta name="app-version" content="25.11.20260510">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -3173,6 +3173,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
         <p style="font-size:11.5px;opacity:.75;">Foto-Flächen­messung · Boden-Scan · Wetter · 3D-Modell · Gewächshaus</p>
       </div>
       <!-- v24.03: „Meine Pläne"-Direkt-Zugang im Header -->
+      <!-- v25.11: Neuer KI-Garten-Scan (3-Foto-Wizard via Edge-Fn garden-scan-analyze) -->
+      <button onclick="gsOpenGardenScan()" style="background:linear-gradient(135deg,#1b5e20,#2e7d32);border:none;color:#fff;padding:7px 11px;border-radius:9px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;flex-shrink:0;margin-right:6px;" title="Neuer KI-Garten-Scan mit 3 Fotos">✨ KI-Scan</button>
       <button onclick="gsPPopenSavedPlans()" style="background:rgba(27,94,32,.15);border:1px solid rgba(27,94,32,.3);color:var(--g-dark);padding:7px 11px;border-radius:9px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;flex-shrink:0;" title="Gespeicherte Pläne ansehen">📂 Meine Pläne</button>
     </div>
 
@@ -37458,6 +37460,260 @@ async function gsPPsavePlan() {
   });
 }
 
+// ═════════════════════════════════════════════════════════════════════
+// v25.11 KI-Planer Mega-Upgrade Theme 1 — Multi-Foto-Wizard + Edge-Fn
+// AUFTRAG_v25.9_KI_PLANER_MEGA.md + EDGE_FUNCTIONS_v25.9_API.md
+// ─────────────────────────────────────────────────────────────────────
+// Cowork-deployed Backend: garden-scan-analyze (Vision-AI mit JSON-Schema-
+// Output + optional save_as_plan in garden_plans). plan-iterate für Chat-
+// basierte Plan-Änderung. species-Schema mit 17 neuen Feldern (companion,
+// growth_phases, frost_tolerance_c etc.).
+// ─────────────────────────────────────────────────────────────────────
+
+// Globaler State für den 3-Foto-Wizard (1 = Top-Down, 2 = Boden-Close-up,
+// 3 = Umgebung). Photos als base64 ohne data-URL-Prefix.
+window._gsGardenScan = {
+  photos: [null, null, null],   // {b64, mime, label, slot} oder null
+  metadata: {},                  // {gps, climate_zone, user_preferences}
+  busy: false,
+  plan_id: null,                 // gesetzt nach erfolgreichem Edge-Fn-Call
+  analysis: null                 // structured Plan-JSON
+};
+
+// Edge-Fn-Wrapper. Sub-Task 1.2.
+async function gsRunGardenScan(photos, metadata, opts) {
+  opts = opts || {};
+  if (typeof sbIsLoggedIn === 'function' && !sbIsLoggedIn()) {
+    return { ok: false, error: { code: 'not_authenticated', message: 'Bitte zuerst anmelden für KI-Planer.' } };
+  }
+  var token = gsStore.get('gs_sb_token', null) || '';
+  var base = (typeof SB_URL !== 'undefined') ? SB_URL : (localStorage.getItem('gs_sb_url') || '');
+  var apikey = (typeof SB_KEY !== 'undefined') ? SB_KEY : '';
+  if (!base || !token) {
+    return { ok: false, error: { code: 'config_missing', message: 'Supabase-URL oder Token fehlt.' } };
+  }
+  var body = {
+    photos: (photos || []).filter(Boolean),
+    metadata: metadata || {},
+    save_as_plan: opts.save_as_plan !== false,   // default: speichern
+    plan_title: opts.plan_title || ('KI-Plan ' + new Date().toLocaleDateString('de-CH'))
+  };
+  if (!body.photos.length) {
+    return { ok: false, error: { code: 'no_photos', message: 'Mindestens 1 Foto nötig.' } };
+  }
+  if (body.photos.length > 3) body.photos = body.photos.slice(0, 3);
+  try {
+    var resp = await (window._gsFetch || fetch)(base + '/functions/v1/garden-scan-analyze', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
+        'apikey': apikey
+      },
+      body: JSON.stringify(body)
+    }, 60000);
+    var data = await resp.json().catch(function(){ return {}; });
+    if (!resp.ok) {
+      return { ok: false, error: data.error || { code: 'http_' + resp.status, message: 'Server-Fehler ' + resp.status } };
+    }
+    return data;
+  } catch(e) {
+    return { ok: false, error: { code: 'network', message: (e && e.message) || 'Netzwerk-Fehler' } };
+  }
+}
+
+// Wizard-Modal öffnen. Sub-Task 1.1.
+function gsOpenGardenScan() {
+  if (typeof sbIsLoggedIn === 'function' && !sbIsLoggedIn()) {
+    if (typeof gsToast === 'function') gsToast('Bitte zuerst anmelden für KI-Planer.', 'error');
+    return;
+  }
+  // State zurücksetzen für neuen Scan
+  window._gsGardenScan = { photos: [null, null, null], metadata: {}, busy: false, plan_id: null, analysis: null };
+  // GPS optional vorbefüllen
+  try {
+    var loc = gsStore.getJSON ? gsStore.getJSON('gs_user_location', null) : null;
+    if (loc && loc.lat && loc.lng) window._gsGardenScan.metadata.gps = { lat: loc.lat, lng: loc.lng };
+  } catch(_){}
+  var mc = document.getElementById('modal-content');
+  if (!mc) return;
+  mc.innerHTML = gsBuildGardenScanWizard();
+  openModal('detail-modal');
+  gsHaptic('light');
+}
+window.openGardenScan = gsOpenGardenScan;
+
+// Render des Wizard-HTML. Wird auch nach jedem Photo-Update aufgerufen.
+function gsBuildGardenScanWizard() {
+  var s = window._gsGardenScan || { photos: [null,null,null], metadata: {} };
+  var p = s.photos || [null,null,null];
+  var photoCount = p.filter(Boolean).length;
+  var canSubmit = photoCount >= 1 && !s.busy;
+  var slotLabels = [
+    { idx: 0, title: 'Top-Down (Vogelperspektive)', desc: 'Ganze Fläche aus erhöhter Position', emoji: '📸' },
+    { idx: 1, title: 'Boden-Close-up', desc: 'Nahaufnahme des Bodens (für Bodenart)', emoji: '🌱' },
+    { idx: 2, title: 'Umgebung / Wand / Zaun', desc: 'Licht-Kontext, Schatten-Quellen', emoji: '☀️' }
+  ];
+  var slotsHtml = slotLabels.map(function(sl){
+    var ph = p[sl.idx];
+    var img = ph ? '<img src="data:'+ (ph.mime||'image/jpeg') +';base64,'+ ph.b64 +'" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">' : '';
+    var bg = ph ? '#1b5e20' : 'var(--card)';
+    var border = ph ? '2px solid #2e7d32' : '1.5px dashed var(--border)';
+    return '<div style="position:relative;background:' + bg + ';border:' + border + ';border-radius:12px;padding:10px;min-height:120px;display:flex;flex-direction:column;cursor:pointer;-webkit-tap-highlight-color:transparent;" onclick="gsGardenScanCapture(' + sl.idx + ')">' +
+      '<div style="position:absolute;top:8px;left:10px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:2px 8px;border-radius:6px;font-weight:700;">' + sl.emoji + ' Foto ' + (sl.idx+1) + (ph ? ' ✓' : '') + '</div>' +
+      (ph ? '<div style="position:absolute;inset:0;border-radius:12px;overflow:hidden;">' + img + '</div>' : '') +
+      (ph ? '<button onclick="event.stopPropagation();gsGardenScanRemove(' + sl.idx + ')" style="position:absolute;top:6px;right:6px;width:28px;height:28px;border:none;border-radius:50%;background:rgba(211,47,47,.9);color:#fff;font-size:14px;cursor:pointer;font-family:inherit;" aria-label="Foto entfernen">×</button>' :
+        '<div style="margin-top:24px;font-size:12.5px;font-weight:700;color:var(--text);">' + sl.title + '</div><div style="font-size:11px;color:var(--muted);margin-top:3px;">' + sl.desc + '</div><div style="margin-top:auto;font-size:11px;color:var(--g-main);font-weight:700;">+ Foto wählen</div>') +
+      '</div>';
+  }).join('');
+
+  var gpsBlock = s.metadata && s.metadata.gps
+    ? '<div style="font-size:11.5px;color:var(--muted);text-align:center;margin-top:6px;">📍 GPS: ' + (s.metadata.gps.lat||0).toFixed(4) + ', ' + (s.metadata.gps.lng||0).toFixed(4) + '</div>'
+    : '<button onclick="gsGardenScanGPS()" style="width:100%;padding:9px;background:transparent;border:1px dashed var(--border);color:var(--muted);border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:6px;">📍 GPS hinzufügen (optional, für Klimazone)</button>';
+
+  var busyBlock = s.busy ? '<div style="text-align:center;padding:14px;background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border-radius:12px;font-size:13px;font-weight:700;margin-top:10px;">⏳ KI analysiert deine Fotos … (15-45s)</div>' : '';
+
+  var html = '<div style="padding:0;">' +
+    '<div style="background:linear-gradient(135deg,#1b5e20,#2e7d32,#43a047);padding:22px 18px;color:#fff;text-align:center;position:relative;">' +
+      '<button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:20px;cursor:pointer;">×</button>' +
+      '<div style="font-size:38px;margin-bottom:6px;">🌱</div>' +
+      '<div style="font-family:\'Playfair Display\',serif;font-size:21px;font-weight:900;margin-bottom:4px;">KI-Garten-Scan</div>' +
+      '<div style="font-size:12px;opacity:.92;line-height:1.5;">3 Fotos für den smarten Plan — Top-Down, Boden, Umgebung. Min. 1 Foto reicht.</div>' +
+    '</div>' +
+    '<div style="padding:14px;">' +
+      '<div style="display:grid;grid-template-columns:1fr;gap:10px;">' + slotsHtml + '</div>' +
+      gpsBlock +
+      busyBlock +
+      '<button onclick="gsGardenScanSubmit()"' + (canSubmit ? '' : ' disabled') + ' style="width:100%;margin-top:14px;padding:14px;background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:' + (canSubmit?'pointer':'not-allowed') + ';font-family:inherit;opacity:' + (canSubmit?'1':'0.5') + ';">✨ Plan generieren (' + photoCount + ' Foto' + (photoCount===1?'':'s') + ')</button>' +
+      '<div style="font-size:10.5px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.55;">Photos werden nicht dauerhaft gespeichert — nur an die KI gesendet, das strukturierte Plan-Ergebnis bleibt in deinem Garten.</div>' +
+    '</div>' +
+  '</div>';
+  return html;
+}
+
+// Photo-Capture für Slot. Triggered den File-Input.
+function gsGardenScanCapture(slotIdx) {
+  if (window._gsGardenScan && window._gsGardenScan.busy) return;
+  var inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = 'image/*';
+  inp.style.display = 'none';
+  document.body.appendChild(inp);
+  inp.onchange = async function(ev){
+    var f = ev.target.files && ev.target.files[0];
+    if (!f) { try { inp.remove(); } catch(_){} return; }
+    try {
+      var b64 = await gsPPfileToB64(f);
+      window._gsGardenScan.photos[slotIdx] = { b64: b64, mime: f.type || 'image/jpeg', label: 'slot_' + slotIdx };
+      _gsGardenScanRefresh();
+    } catch(e) {
+      if (typeof gsToast === 'function') gsToast({title:'Foto-Fehler', body:(e && e.message)||'Konnte Foto nicht laden', type:'error'});
+    } finally {
+      try { inp.remove(); } catch(_){}
+    }
+  };
+  inp.click();
+}
+
+function gsGardenScanRemove(slotIdx) {
+  if (!window._gsGardenScan) return;
+  window._gsGardenScan.photos[slotIdx] = null;
+  _gsGardenScanRefresh();
+}
+
+function gsGardenScanGPS() {
+  if (!navigator.geolocation) {
+    if (typeof gsToast === 'function') gsToast('GPS nicht verfügbar', 'error');
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(function(pos){
+    if (!window._gsGardenScan) return;
+    window._gsGardenScan.metadata.gps = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    _gsGardenScanRefresh();
+  }, function(err){
+    if (typeof gsToast === 'function') gsToast({title:'GPS-Fehler', body:(err && err.message)||'GPS-Zugriff verweigert', type:'error'});
+  }, { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 });
+}
+
+function _gsGardenScanRefresh() {
+  var mc = document.getElementById('modal-content');
+  if (mc) mc.innerHTML = gsBuildGardenScanWizard();
+}
+
+// Submit: ruft Edge-Fn, zeigt nach Erfolg ein Result-Preview.
+async function gsGardenScanSubmit() {
+  var s = window._gsGardenScan;
+  if (!s || s.busy) return;
+  var photoB64s = (s.photos || []).filter(Boolean).map(function(p){ return p.b64; });
+  if (!photoB64s.length) {
+    if (typeof gsToast === 'function') gsToast('Mindestens 1 Foto wählen', 'error');
+    return;
+  }
+  s.busy = true;
+  _gsGardenScanRefresh();
+  var res = await gsRunGardenScan(photoB64s, s.metadata, { save_as_plan: true });
+  s.busy = false;
+  if (!res || !res.ok) {
+    var em = res && res.error ? (res.error.message || res.error.code || 'Unbekannter Fehler') : 'Keine Antwort vom Server';
+    _gsGardenScanRefresh();
+    if (typeof gsToast === 'function') gsToast({title:'KI-Scan fehlgeschlagen', body: em, type:'error', duration: 6500});
+    return;
+  }
+  s.plan_id = res.plan_id || null;
+  s.analysis = res.analysis || null;
+  if (typeof gsHaptic === 'function') gsHaptic('success');
+  // Vorläufige Result-Preview (v25.12 wird das durch echtes 2D-SVG-Render ersetzen)
+  var mc = document.getElementById('modal-content');
+  if (mc) mc.innerHTML = gsBuildGardenScanResultPreview(s.analysis, s.plan_id);
+  if (typeof gsBrain !== 'undefined' && gsBrain && typeof gsBrain.observe === 'function') {
+    try { gsBrain.observe('garden_scan_complete', { plan_id: s.plan_id, plant_count: ((s.analysis||{}).recommended_plants||[]).length }); } catch(_){}
+  }
+}
+
+// Vorläufige Result-Preview — v25.12 ersetzt das durch 2D-SVG-Render.
+function gsBuildGardenScanResultPreview(analysis, planId) {
+  if (!analysis) return '<div style="padding:24px;">Kein Plan-Ergebnis erhalten.</div>';
+  var sa = analysis.site_analysis || {};
+  var rp = analysis.recommended_plants || [];
+  var cal = analysis.monthly_calendar || {};
+  var warns = analysis.warnings || [];
+  var planted = '<ol style="padding-left:20px;margin:8px 0;font-size:12.5px;line-height:1.6;color:var(--text);">' +
+    rp.slice(0, 12).map(function(pl){
+      return '<li><strong>' + (pl.name||'Pflanze') + '</strong>' +
+        (pl.lat ? ' <em style="color:var(--muted);">(' + pl.lat + ')</em>' : '') +
+        (pl.qty ? ' · <strong>' + pl.qty + '×</strong>' : '') +
+        (pl.position && (pl.position.x || pl.position.y) ? ' · Pos. ' + (pl.position.x||0) + ',' + (pl.position.y||0) + 'm' : '') +
+        (pl.reason ? '<br><span style="font-size:11px;color:var(--muted);">' + pl.reason + '</span>' : '') +
+      '</li>';
+    }).join('') + '</ol>';
+  var warnHtml = warns.length
+    ? '<div style="background:#fff3e0;border:1.5px solid #f57c00;border-radius:10px;padding:10px 12px;margin-top:10px;"><strong style="color:#e65100;">⚠️ Warnungen:</strong><ul style="margin:4px 0 0;padding-left:20px;font-size:12px;">' + warns.map(function(w){ return '<li>' + w + '</li>'; }).join('') + '</ul></div>'
+    : '';
+  return '<div style="padding:0;">' +
+    '<div style="background:linear-gradient(135deg,#1b5e20,#2e7d32);padding:18px;color:#fff;position:relative;">' +
+      '<button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:20px;cursor:pointer;">×</button>' +
+      '<div style="font-size:18px;font-weight:900;font-family:\'Playfair Display\',serif;">✨ Dein KI-Garten-Plan</div>' +
+      '<div style="font-size:11.5px;opacity:.9;margin-top:4px;">' +
+        (sa.size_m2 ? sa.size_m2 + ' m² · ' : '') +
+        (sa.shape ? sa.shape + ' · ' : '') +
+        (sa.light && sa.light.level ? sa.light.level : '') +
+      '</div>' +
+    '</div>' +
+    '<div style="padding:16px;">' +
+      '<div style="font-size:13.5px;font-weight:800;color:var(--text);margin-bottom:6px;">🌿 ' + rp.length + ' empfohlene Pflanzen</div>' +
+      planted +
+      warnHtml +
+      '<div style="font-size:11.5px;color:var(--muted);margin-top:14px;text-align:center;line-height:1.55;">' +
+        (planId ? '✅ Plan gespeichert (id: ' + String(planId).slice(0,8) + '…). 2D-Skizze + 3D-Render kommen in v25.12+v25.13.' : '⚠️ Plan nicht in Cloud gespeichert.') +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// Ende v25.11 KI-Planer Block — v25.12 erweitert um 2D-SVG-Render
+// ═════════════════════════════════════════════════════════════════════
+
 // v24.00: Modal "Meine Pläne" — alle gespeicherten Pläne ansehen / wieder öffnen / löschen
 function gsPPopenSavedPlans() {
   var saved = [];
@@ -41047,6 +41303,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.11', date: '10.05.2026',
+    headline: 'KI-Planer Theme 1 Sub-Tasks 1.1+1.2: Multi-Foto-Wizard + Edge-Fn-Integration',
+    summary: 'Erster Sub-Task der v25.9-Sprint-Theme-1 Mega-Upgrade-Serie. Cowork hat Sprint A komplett: 3 neue Edge-Functions deployed (garden-scan-analyze, plan-iterate, species-bulk-seed), garden_plans-Tabelle mit RLS, species-Schema mit 17 neuen Spalten (companion_plants, growth_phases, frost_tolerance_c etc.), species-Cloud-DB von 99 auf 2837 Eintraegen gewachsen (28-fache Coverage fuer Knowledge-Search). v25.11 bringt das Frontend dazu: neuer 3-Foto-Wizard parallel zum existing 5-Step gsPP-Planner. User klickt im KI-Planer-Header auf den neuen KI-Scan-Button, sieht ein Modal mit 3 Photo-Slots (Top-Down / Boden-Close-up / Umgebung), kann pro Slot ein Foto waehlen, optional GPS hinzufuegen, und triggert dann gsRunGardenScan() — der ruft die garden-scan-analyze Edge-Fn (60s Timeout, Bearer-Auth, save_as_plan=true). Result: strukturiertes JSON mit site_analysis (Groesse, Boden, Licht, Klimazone, existing plants), recommended_plants (8-15 Pflanzen mit Position-Koordinaten, Companion-Plants, Sow/Harvest-Dates), monthly_calendar, tools_needed, warnings, follow_up_questions. Plan wird in garden_plans persistiert (RLS own-data). Ergebnis-Modal zeigt vorlaeufige Liste + Warnungen + Plan-ID. Sub-Tasks 1.3-1.6 in folgenden v25.x: 2D-SVG-Render aus layout_grid+positions, 3D-Three.js (offline-faehig dank v25.9), Chat-Iteration via plan-iterate, Auto-Sync zu myPlants als status=planned.',
+    items: [
+      {emoji:'📸', bold:'gsOpenGardenScan + 3-Slot-Wizard:', text:' Modal mit 3 Foto-Slots (Top-Down / Boden / Umgebung), GPS-Optional-Button (auto-vorbefuellt aus gs_user_location), Submit-Button mit Live-Counter. State in window._gsGardenScan = photos+metadata+busy+plan_id+analysis. Foto-Capture via dynamischem File-Input + gsCompressImage Wrapper.'},
+      {emoji:'🤖', bold:'gsRunGardenScan(photos, metadata, opts):', text:' Async Wrapper fuer POST garden-scan-analyze Edge-Fn. Bearer-Auth via gs_sb_token, apikey-Header, 60s Timeout via _gsFetch. Body: photos+metadata+save_as_plan+plan_title. Response: ok+analysis+plan_id+tokens+model. Error-Handling mit code+message: not_authenticated / no_photos / network / http_4xx-5xx. Fehler-Toasts bei Submit-Fail.'},
+      {emoji:'🎯', bold:'UI-Trigger im KI-Planer-Header:', text:' Neuer KI-Scan-Button neben dem Meine-Plaene-Button (Z.~3176). Linear-Gradient #1b5e20 nach #2e7d32. Setzt _gsGardenScan-State zurueck und oeffnet das Wizard-Modal.'},
+      {emoji:'🧠', bold:'Brain-Observe-Hook:', text:' Nach erfolgreichem Scan wird gsBrain.observe(garden_scan_complete, plan_id+plant_count) gerufen — damit Brain die App-Lern-Funktion bedient und Smart-Recommendations darauf bauen kann.'},
+      {emoji:'⏭️', bold:'Naechste Sub-Tasks:', text:' v25.12 Sub-Task 1.3 — 2D-SVG-Render aus analysis.layout_grid + recommended_plants[].position (mit viewBox + preserveAspectRatio mobile-responsive). v25.13 Sub-Task 1.4 — 3D-Three.js-Render mit Plane + Cylinder pro Pflanze (Hoehe aus species.mature_height_cm) — offline-faehig dank v25.9 sw.js-Cache. v25.14 Chat-Iteration. v25.15 Auto-Sync myPlants + PDF-Export.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK (vor Push verifiziert) · sw.js (gs-v25.11) + manifest.json valid OK · GS_VERSION=v25.11 OK · _headers v25.11 OK · meta app-version=25.11.20260510 OK · Marker im Code: gsOpenGardenScan + gsRunGardenScan + gsGardenScanCapture + gsGardenScanSubmit + gsBuildGardenScanWizard + gsBuildGardenScanResultPreview OK.'},
+    ]
+  },
+  {
     v: 'v25.10', date: '10.05.2026',
     headline: 'Thema 3 PLANT_DB-Restore: Inline-DB raus aus index.html (-2.16 MB / -40%)',
     summary: 'Aus AUFTRAG_v25.9_KI_PLANER_MEGA.md Thema 3. Die in v24.03 nach data/plants.v1.js extrahierte Pflanzen-DB war nach UPDATE.command-Sync wieder als Inline-Block in index.html gelandet (Z.13325-17670, 4341 Einträge). Das bedeutet: data/plants.v1.js existierte zwar, wurde aber nicht geladen — index.html war 2.16 MB größer als nötig, jeder Page-Load lieferte die DB doppelt aus (über Inline + nicht-genutzten externen Cache). v25.10 stellt den v24.03-Zustand wieder her: Inline-DB-Block durch eine Drop-In-Zeile ersetzt (var DB = window.DB || []), data/plants.v1.js wird via script src im head synchron geladen (vor dem Main-Inline-Script, sodass DB-References ab Zeile 1 verfügbar sind). Plus: data/plants.v1.js?v=1 ins Service-Worker SHELL_URLS aufgenommen (Pre-Cache beim SW-Install) — damit die App auch offline mit voller Pflanzen-DB funktioniert. index.html ist jetzt 3.22 MB statt 5.38 MB — 40 Prozent kleiner. Initial-Load wird messbar schneller, plants.v1.js wird via Cloudflare-Pages immutable-Cache nur einmal pro Browser geladen.',
@@ -42024,7 +42293,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.10';
+var GS_VERSION = 'v25.11';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

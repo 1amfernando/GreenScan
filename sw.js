@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.10 — Thema 3 PLANT_DB-Restore: Inline-DB-Block (Z.13325-17670, 4341 Einträge, ~2.16 MB) aus index.html entfernt. data/plants.v1.js wird wieder via <script src="data/plants.v1.js?v=1"> im head geladen (Restore von v24.03 nach UPDATE.command-Sync-Drift). var DB = window.DB als Drop-In für die 100+ DB-References im Code. index.html: 5.38 MB → 3.22 MB (-40%).
+   v25.11 — KI-Planer Theme 1 Sub-Tasks 1.1+1.2: Multi-Foto-Wizard (gsOpenGardenScan + 3-Slot-Modal mit GPS-Auto) + gsRunGardenScan() Wrapper für Coworks Edge-Fn garden-scan-analyze (verify_jwt, 60s Timeout, save_as_plan default true). UI-Trigger im KI-Planer-Header neben Meine-Pläne-Button. State in window._gsGardenScan.
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.10';
+const VERSION = 'gs-v25.11';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
