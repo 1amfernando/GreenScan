@@ -60,7 +60,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.8.20260510">
+<meta name="app-version" content="25.9.20260510">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -45386,6 +45386,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.9', date: '10.05.2026',
+    headline: '3D-Internet-Fix: Three.js + Leaflet + pdf.js offline-verfügbar (4 „benötigt Internet"-Fallbacks weg)',
+    summary: 'Erster Sub-Task aus AUFTRAG_v25.9_KI_PLANER_MEGA.md (Thema 2). Bisher zeigten 4 Stellen einen „benötigt Internet"-Fallback wenn die App offline war oder die externe CDN nicht erreichbar war: Karte (Leaflet, Z.34952), 3D-Track-Wanderung (Three.js, Z.36365), KI-Planer-3D-Render (Three.js, Z.40143), Garten-Detail-3D (Three.js, Z.40695). Root-Cause: Die externen Libs (unpkg.com Leaflet 1.9.4, unpkg.com Three.js r128, cdnjs pdf.js 4.0.379) waren nicht in der Service-Worker-Install-Cache-Liste, sondern nur in IMAGE_HOSTS für Stale-While-Revalidate. Das hieß: erst BEIM Erst-Request gecached, beim nächsten Reload wieder fragil bei flakiger Verbindung. Fix in sw.js Z.21: alle 4 CDN-URLs in SHELL_URLS aufgenommen — Service-Worker fetcht sie beim Install + speichert sie permanent. Bei Cache-Fail per .catch() weitermachen (kein Install-Block). Vorbereitung für Thema 1 v25.9-Sprint: KI-Planer 3D-Render kann jetzt offline rendern.',
+    items: [
+      {emoji:'🌐', bold:'sw.js SHELL_URLS um 4 CDN-URLs erweitert:', text:' unpkg.com/leaflet@1.9.4/dist/leaflet.css + leaflet.js (für Swisstopo-Karte und Open-Street-Map-Layer), unpkg.com/three@0.128.0/build/three.min.js (für 3D-Render in 3 Modulen), cdnjs.cloudflare.com/.../pdf.js/4.0.379/pdf.min.mjs (für Garten-Plan-PDF-Export). Beim Service-Worker-Install fetcht sw.js alle 20 SHELL_URLS via cache.add() — bei einzelnen Fails wird per .catch() weitergemacht.'},
+      {emoji:'🛡️', bold:'CORS-Sicherheit:', text:' Die externen Libs haben crossorigin=anonymous + SRI-Hashes (sha384) im index.html-Tag. cache.add() macht CORS-Request — opaque-Responses werden vermieden, der Cache hat reguläre Response-Objects mit Status 200.'},
+      {emoji:'🔄', bold:'Verify-Pfad nach Push:', text:' Nach erstem Online-Visit lädt der Service-Worker v25.9 die Libs in den SHELL_CACHE. Anschließend Flugmodus → App neu öffnen → Karte sollte Swisstopo-Layer zeigen, KI-Planer 3D-View sollte ohne Fallback rendern, 3D-Track-Modal sollte funktionieren. Cowork verifiziert via Chrome-MCP.'},
+      {emoji:'⏭️', bold:'Nächste v25.9-Sprint-Tasks:', text:' Thema 1 KI-Planer Mega-Upgrade (3-Foto-Wizard + JSON-Schema + 2D-SVG + 3D-Three.js + Chat-Iteration + Auto-Sync) wartet auf Coworks Backend (garden_plans-Tabelle, species-Schema-Erweiterung, garden-scan-analyze Edge-Fn). Thema 3 species-Frontend-Inline-DB-Extract (Z.13050-16569) mechanisch parallel zu Coworks Bulk-Seed.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check ✓ · sw.js (gs-v25.9) + manifest.json valid ✓ · GS_VERSION=v25.9 ✓ · _headers v25.9 ✓ · meta app-version=25.9.20260510 ✓ · SHELL_URLS-Anzahl: 20 (vorher 16) ✓.'},
+    ]
+  },
+  {
     v: 'v25.7', date: '10.05.2026',
     headline: 'A3: Trial-Modal nach First-Login mit 1-Monat-gratis Plus/Pro — komplettiert v25.4-Sprint',
     summary: 'Letzter Sub-Task aus AUFTRAG_v25.4_AUTH_TRIAL_ABO.md. Komplettiert die v25.4-Auth-Sprint-Serie (A1 Logout-Sofort-Onboarding v25.4 → A2 Login-Welcome-Differential v25.5 → A5 Mein-Abo-Tab v25.6 → A3 Trial-Modal v25.7). Erstregistrierte User bekommen jetzt nach dem ersten Login (Flag gs_first_login aus v25.5) ein Trial-Modal mit 3 klaren Optionen: ⭐ Plus 1-Monat-gratis (danach CHF 3.90/Monat), 💎 Pro 1-Monat-gratis (danach CHF 7.90/Monat), 🌱 Mit Free-Plan starten (5 Scans/Tag). Klick auf Plus/Pro startet sofort gsStartCheckout(plan, false, 30) — der dritte Parameter trial_days wird im Body an Coworks stripe-checkout v5 weitergegeben, das Backend cappt sicher auf max 30 + erste-Sub-Check. Stripe übernimmt: 30 Tage frei, dann automatisch kostenpflichtig — User kann jederzeit über das in v25.6 implementierte „Mein Abo"-Tab kündigen (cancel_at_period_end, behält Premium bis Periodenende). Modal-Verzögerung 1.6s nach Welcome-Toast — User sieht erst „🎉 Willkommen bei GreenScan!", dann erscheint die Plan-Auswahl. Wenn User schon paid plan hat (z.B. Lifetime via separater Pfad), wird stattdessen die gsWelcomeTour gezeigt.',
@@ -46338,7 +46350,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.8';
+var GS_VERSION = 'v25.9';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

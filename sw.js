@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.8 — HOTFIX für v25.7: zwei unescapte Apostrophe (cappt) in single-quoted GS_RELEASES-Strings haben inline-script #2 syntaktisch gebrochen. Live war broken seit Push 21394f8. Sofort-Fix: cap't → cappt im summary + items[].text.
+   v25.9 — Thema 2 3D-Internet-Fix: SHELL_URLS um Three.js (unpkg) + Leaflet JS+CSS (unpkg) + pdf.js (cdnjs) erweitert. Damit werden die externen CDN-Libs beim Service-Worker-Install vorgecached und sind offline verfügbar. 4 „benötigt Internet"-Fallbacks (Karte / 3D-Track / KI-Planer-3D / Garten-Detail-3D) verschwinden. Vorbereitung für Thema 1 (KI-Planer 3D-Render).
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.8';
+const VERSION = 'gs-v25.9';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
@@ -34,7 +34,18 @@ const SHELL_URLS = [
   '/icons/shortcut-scanner.png',
   '/icons/shortcut-garden.png',
   '/icons/shortcut-quiz.png',
-  '/icons/shortcut-knowledge.png'
+  '/icons/shortcut-knowledge.png',
+  // v25.9 Thema 2: Externe CDN-Libs vorcachen, damit 3D-Render und Karte
+  // offline funktionieren (vorher: 4 „benötigt Internet"-Fallbacks bei
+  // Karte/3D-Track/KI-Planer-3D/Garten-Detail-3D). cache.add macht CORS-
+  // Request — die Libs haben crossorigin=anonymous + SRI, klappt sauber.
+  // Bei add-Fail (z.B. CDN down beim Install) wird per .catch() weitergemacht
+  // — dann wird die Lib beim ersten Online-Visit via staleWhileRevalidate
+  // (IMAGE_HOSTS-Pfad) gecached und ist beim nächsten Offline-Open verfügbar.
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+  'https://unpkg.com/three@0.128.0/build/three.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs'
 ];
 
 // Domains, die NIE gecached werden (immer Network)
