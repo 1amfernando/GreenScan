@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.9 — Thema 2 3D-Internet-Fix: SHELL_URLS um Three.js (unpkg) + Leaflet JS+CSS (unpkg) + pdf.js (cdnjs) erweitert. Damit werden die externen CDN-Libs beim Service-Worker-Install vorgecached und sind offline verfügbar. 4 „benötigt Internet"-Fallbacks (Karte / 3D-Track / KI-Planer-3D / Garten-Detail-3D) verschwinden. Vorbereitung für Thema 1 (KI-Planer 3D-Render).
+   v25.10 — Thema 3 PLANT_DB-Restore: Inline-DB-Block (Z.13325-17670, 4341 Einträge, ~2.16 MB) aus index.html entfernt. data/plants.v1.js wird wieder via <script src="data/plants.v1.js?v=1"> im head geladen (Restore von v24.03 nach UPDATE.command-Sync-Drift). var DB = window.DB als Drop-In für die 100+ DB-References im Code. index.html: 5.38 MB → 3.22 MB (-40%).
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.9';
+const VERSION = 'gs-v25.10';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
@@ -35,6 +35,9 @@ const SHELL_URLS = [
   '/icons/shortcut-garden.png',
   '/icons/shortcut-quiz.png',
   '/icons/shortcut-knowledge.png',
+  // v25.10 Thema 3: PLANT_DB extern (4341 Arten, immutable-cached). Vor-Cachen
+  // damit App offline mit voller Pflanzen-DB funktioniert (sonst nur leere DB).
+  '/data/plants.v1.js?v=1',
   // v25.9 Thema 2: Externe CDN-Libs vorcachen, damit 3D-Render und Karte
   // offline funktionieren (vorher: 4 „benötigt Internet"-Fallbacks bei
   // Karte/3D-Track/KI-Planer-3D/Garten-Detail-3D). cache.add macht CORS-
