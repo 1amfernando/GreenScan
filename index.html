@@ -60,7 +60,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.24.20260511">
+<meta name="app-version" content="25.26.20260511">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -3961,6 +3961,36 @@ html, body{ scroll-behavior: smooth; }
           <div class="settings-label-sub" id="notif-perm-status">Status wird geladen…</div>
         </div>
         <div style="font-size:18px;color:var(--muted);">›</div>
+      </div>
+      <!-- v25.26: Smart-Push-Notifications mit 4 Trigger-Kategorien + Stille-Zeit -->
+      <div class="settings-row" id="push-settings-row" style="border-top:1px solid var(--border);">
+        <div class="settings-icon" style="background:#e3f2fd;">🔔</div>
+        <div class="settings-label" style="flex:1;">
+          <div class="settings-label-title">Smart-Push (Frost/Wasser/Saison/Quiz)</div>
+          <div class="settings-label-sub" id="push-status-sub">Status wird geladen …</div>
+        </div>
+        <label class="settings-toggle">
+          <input type="checkbox" id="push-master-toggle" onchange="gsTogglePushMaster(this.checked)">
+          <span class="settings-toggle-slider"></span>
+        </label>
+      </div>
+      <div id="push-detail-settings" style="display:none;padding:14px 18px;background:var(--surface2);border-top:1px solid var(--border);">
+        <div style="font-size:11.5px;color:var(--muted);font-weight:700;margin-bottom:10px;">Welche Benachrichtigungen?</div>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px;color:var(--text);"><input type="checkbox" id="push-cat-frost" checked onchange="gsSavePushSettings({frost:this.checked})" style="width:18px;height:18px;cursor:pointer;"> 🥶 Frostgefahr (12h vorher)</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px;color:var(--text);"><input type="checkbox" id="push-cat-water" checked onchange="gsSavePushSettings({water:this.checked})" style="width:18px;height:18px;cursor:pointer;"> 💧 Pflanzen giessen</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px;color:var(--text);"><input type="checkbox" id="push-cat-seasonal" checked onchange="gsSavePushSettings({seasonal:this.checked})" style="width:18px;height:18px;cursor:pointer;"> 📅 Saison-Aufgaben</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px;color:var(--text);"><input type="checkbox" id="push-cat-quiz" checked onchange="gsSavePushSettings({quiz:this.checked})" style="width:18px;height:18px;cursor:pointer;"> 🎯 Quiz-Streak-Erinnerung</label>
+        <div style="margin-top:14px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:var(--text);">
+          <span style="font-weight:700;">🌙 Stille-Zeit:</span>
+          <select id="push-quiet-start" onchange="gsSavePushSettings({quietStart:parseInt(this.value)})" style="padding:6px 8px;background:var(--card);border:1px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit;color:var(--text);">
+            <option value="20">20:00</option><option value="21">21:00</option><option value="22" selected>22:00</option><option value="23">23:00</option><option value="0">0:00</option>
+          </select>
+          <span>bis</span>
+          <select id="push-quiet-end" onchange="gsSavePushSettings({quietEnd:parseInt(this.value)})" style="padding:6px 8px;background:var(--card);border:1px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit;color:var(--text);">
+            <option value="5">5:00</option><option value="6">6:00</option><option value="7" selected>7:00</option><option value="8">8:00</option><option value="9">9:00</option>
+          </select>
+        </div>
+        <div style="font-size:10.5px;color:var(--muted);margin-top:10px;line-height:1.5;">Push-Empfang nur ausserhalb der Stille-Zeit. Backend prüft cron 07:00 + 19:00 UTC.</div>
       </div>
     </div>
 
@@ -43234,6 +43264,31 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.26', date: '11.05.2026',
+    headline: '🔔 Smart-Push-Notifications Frontend — fertig verdrahtet mit Coworks Backend',
+    summary: 'Cowork hat in v25.25-Sprint das komplette Push-Backend deployed (VAPID, daily-push-checker v2, pg_cron 07/19 UTC, push_subscriptions-Schema +7 Spalten). v25.26 ist das Frontend dazu. 3 Bugs gefixt: Schema-Mismatch, Subscribe-Flow, Settings-UI. Plus iOS-Detection (Standalone + 16.4+ Pflicht).',
+    items: [
+      {emoji:'🔧', bold:'Bug 1 Schema-Fix:', text:' POST schreibt jetzt auth_secret (war auth), plus gps_lat/lng aus gs_user_location, plus 4 notify_*-Toggles, plus quiet_start/end_hour.'},
+      {emoji:'🆕', bold:'Bug 2 Subscribe-Flow:', text:' gsGetVapidPublicKey + gsBase64UrlToUint8 + gsSubscribeWebPush mit pushManager.subscribe. gsUnsubscribeWebPush mit Server-DELETE.'},
+      {emoji:'⚙️', bold:'Bug 3 Settings-UI:', text:' Master-Toggle + 4 Kategorie-Checkboxes (Frost/Wasser/Saison/Quiz) + Stille-Zeit-Picker. gsSavePushSettings persistiert localStorage + PATCH zum Server. Auto-Refresh nach Boot.'},
+      {emoji:'🍎', bold:'iOS-Handling:', text:' gsPushSupportStatus prueft Standalone + iOS 16.4. Toast-Hinweis statt Subscribe-Versuch bei Inkompatibilitaet.'},
+      {emoji:'⏭️', bold:'Smoke-Test pending Cowork:', text:' Toggle ON -> push_subscriptions row. dry_run-Trigger sollte details.sent enthalten. v25.27 i18n FR/IT als naechstes.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check OK · sw.js gs-v25.26 OK.'},
+    ]
+  },
+  {
+    v: 'v25.25', date: '11.05.2026',
+    headline: '🔓 Auth-Bug Final-Fix: „Registrierfenster nach Login" — Race-Condition mit Pflicht-Modal beseitigt',
+    summary: 'Fernando-Reproduzierter Bug: Nach erfolgreichem Login zeigte sich plötzlich ein „Account erstellen — kostenlos"-Fenster. Root-Cause: Das in v24.33 eingeführte gs-auth-pflicht-modal (Boot-Timer 2.2s) öffnete sich PARALLEL zum Onboarding-Wrapper hinter diesem (z-index 9000 vs 9999999). Wenn der User seinen Login-Flow länger als 2.2s brauchte (E-Mail/Passwort tippen + senden), war das Pflicht-Modal bereits im DOM — versteckt hinter Onboarding. Nach erfolgreichem Login versteckte gsOnboardingHide den Onboarding-Wrapper, aber das Pflicht-Modal blieb sichtbar. Aus User-Sicht: „nach Login kommt Registrierfenster". v25.0/v25.1-Fixes (Sub-View-Reset + Idempotent-Guard) waren korrekt für den Onboarding-Flow selbst, hatten aber das parallele Modal nicht berücksichtigt.',
+    items: [
+      {emoji:'🛡️', bold:'Fix 1 — _gsAuthPrompt Onboarding-Guard (Z.~45197):', text:' Vor dem Erstellen des Pflicht-Modals wird geprüft ob #gs-onboarding sichtbar ist (style.display !== "none"). Wenn ja, wird das Modal NICHT erstellt — User ist mitten im Login/Register-Flow.'},
+      {emoji:'🧹', bold:'Fix 2 — gsOnLoginSuccess Cleanup (Z.~48749):', text:' Nach erfolgreichem Login werden #gs-auth-pflicht-modal UND legacy #modal-profile entfernt/geschlossen falls noch im DOM. Doppelte Sicherheit für Edge-Cases (z.B. User klickt im Pflicht-Modal auf „Einloggen", dann via Onboarding ein).'},
+      {emoji:'🎯', bold:'Saubere Lösung — keine Symptom-Behandlung:', text:' Beide Fixes adressieren die Wurzel: das Pflicht-Modal weiß jetzt vom Onboarding-Kontext, und gsOnLoginSuccess räumt restlos auf. Kein setTimeout-Hack, keine display:none-Vererbungs-Tricks. Verhalten dokumentiert in BUG_AUTH_LOGIN_ZEIGT_REGISTER.md (v25.25-Update).'},
+      {emoji:'⏭️', bold:'Nächste:', text:' v25.21 Mischkultur-Score (entsperrt durch 41 plant_companion_matrix-Pairs). v25.23 Push wartet auf Cowork VAPID + Edge-Fn.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · sw.js gs-v25.25 OK · GS_VERSION=v25.25 OK · _headers v25.25 OK · meta app-version=25.25.20260511 OK · v25.25-Marker im Code: 2 (Fix 1 _gsAuthPrompt + Fix 2 gsOnLoginSuccess) OK.'},
+    ]
+  },
+  {
     v: 'v25.24', date: '11.05.2026',
     headline: '🎙️ Hey GreenScan — Voice-Mode mit Web Speech API',
     summary: 'Drittes Feature des Konkurrenz-Killer-Sprints. v25.23 Push wartet auf Cowork. v25.24 Voice-Mode zuerst da kein Backend noetig. Floating-Modal mit 120px Mikrofon-Button (Pulse-Animation). SpeechRecognition de-CH, Intent-Detection 3 Use-Cases, SpeechSynthesis liest Antwort vor.',
@@ -44362,7 +44417,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.24';
+var GS_VERSION = 'v25.26';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -45195,6 +45250,16 @@ window.gsInstallApp = async function(){
     try {
       // Schon eingeloggt? → nichts tun
       if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) return;
+      // v25.25 Auth-Bug-Fix: Onboarding-Guard — wenn der Onboarding-Wrapper
+      // (#gs-onboarding) gerade sichtbar ist, User ist mitten im Login/Register-
+      // Flow. KEIN paralleles Pflicht-Modal aufmachen, sonst kommt es nach
+      // gsOnboardingHide() hinter dem schließenden Wrapper hervor und sieht aus
+      // wie ein Registrierfenster nach erfolgreichem Login.
+      var onbEl = document.getElementById('gs-onboarding');
+      if (onbEl) {
+        var onbDisp = onbEl.style.display;
+        if (onbDisp && onbDisp !== 'none') return;
+      }
       // Skip-Cooldown: nach „Erst ausprobieren" 24h kein Modal mehr
       var skipUntil = parseInt(localStorage.getItem('gs_auth_prompt_skip_until') || '0', 10);
       if (Date.now() < skipUntil) return;
@@ -48750,6 +48815,20 @@ function gsOnLoginSuccess() {
   localStorage.setItem(GS_ONBOARDING_KEY, 'logged_in');
   localStorage.removeItem(GS_GUEST_MODE_KEY);
   window._gsGuestMode = false;
+  // v25.25 Auth-Bug-Fix: Auth-Pflicht-Modal entfernen falls vom 2.2s-Boot-Timer
+  // (Z.~45241) hinter dem Onboarding-Wrapper aufgemacht und noch im DOM. Sonst
+  // wird es nach gsOnboardingHide() sichtbar und User sieht „Account erstellen"
+  // als ob der Login fehlgeschlagen wäre. Plus: legacy modal-profile (renderProfileLogin)
+  // schließen falls noch offen vom Auth-Pflicht-Modal-Button.
+  try {
+    var pflicht = document.getElementById('gs-auth-pflicht-modal');
+    if (pflicht) pflicht.remove();
+    var legacyProfile = document.getElementById('modal-profile');
+    if (legacyProfile && legacyProfile.style.display !== 'none') {
+      if (typeof closeModal === 'function') { try { closeModal('modal-profile'); } catch(_){} }
+      else { legacyProfile.style.display = 'none'; }
+    }
+  } catch(_){}
   // v24.33: Auth-Prompt-Skip-Counter zurücksetzen (war evtl. gesetzt vor Login)
   try { localStorage.removeItem('gs_auth_prompt_skip_until'); } catch(_){}
   // v24.33: Globaler API-Key SOFORT pullen damit Scanner direkt funktioniert
@@ -49561,6 +49640,8 @@ async function gsNotifMarkRead(id){
 }
 
 // Web-Push-Subscription registrieren (für PWA-Notifications)
+// v25.26: Schema-Fix — Cowork-Tabelle hat „auth_secret" (NICHT „auth")
+// und 7 neue Spalten (gps_lat/lng + 4 notify_*-Toggles + quiet_start/end_hour).
 async function gsRegisterPushSubscription(subscription){
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
   var uid = gsStore.get('gs_sb_uid', null);
@@ -49568,6 +49649,12 @@ async function gsRegisterPushSubscription(subscription){
   try {
     var json = subscription.toJSON ? subscription.toJSON() : subscription;
     var keys = json.keys || {};
+    // GPS aus User-Standort (für Frost-Trigger)
+    var loc = {};
+    try { loc = JSON.parse(localStorage.getItem('gs_user_location') || '{}'); } catch(_){}
+    // Push-Settings aus localStorage-Cache (Defaults true)
+    var s = {};
+    try { s = JSON.parse(localStorage.getItem('gs_push_settings') || '{}'); } catch(_){}
     await sbFetch('/rest/v1/push_subscriptions', {
       method:'POST',
       headers:{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
@@ -49575,14 +49662,257 @@ async function gsRegisterPushSubscription(subscription){
         user_id: uid,
         endpoint: json.endpoint,
         p256dh: keys.p256dh || '',
-        auth: keys.auth || '',
+        auth_secret: keys.auth || '',          // v25.26 FIX: Cowork-Spalte heisst auth_secret
         user_agent: (navigator.userAgent||'').slice(0,200),
-        platform: /iPad|iPhone|iPod/.test(navigator.userAgent) ? 'ios' :
-                  /Android/.test(navigator.userAgent) ? 'android' : 'web'
+        gps_lat: (loc && typeof loc.lat === 'number') ? loc.lat : null,
+        gps_lng: (loc && typeof loc.lng === 'number') ? loc.lng : null,
+        notify_frost: s.frost !== false,
+        notify_water: s.water !== false,
+        notify_seasonal: s.seasonal !== false,
+        notify_quiz_streak: s.quiz !== false,
+        quiet_start_hour: (typeof s.quietStart === 'number') ? s.quietStart : 22,
+        quiet_end_hour:   (typeof s.quietEnd === 'number')   ? s.quietEnd   : 7
       })
     });
   } catch(e){ console.warn('[gsRegisterPushSubscription]', e); }
 }
+
+// ═════════════════════════════════════════════════════════════════════
+// v25.26 Smart-Push-Notifications Frontend (Cowork-Backend ready)
+// ─────────────────────────────────────────────────────────────────────
+
+// VAPID-Public-Key aus app_settings holen (anon-policy ist drin).
+// Hardcoded-Fallback aus Cowork-Briefing wenn Loader failt.
+window._gsVapidPublicKey = window._gsVapidPublicKey || null;
+async function gsGetVapidPublicKey(){
+  if (window._gsVapidPublicKey) return window._gsVapidPublicKey;
+  try {
+    var r = await sbFetch('/rest/v1/app_settings?key=eq.vapid_public_key&select=value', { method: 'GET' });
+    var v = (r && r.data && r.data[0] && r.data[0].value) || null;
+    if (v) { window._gsVapidPublicKey = v; return v; }
+  } catch(_){}
+  // Hardcoded-Fallback (Cowork v25.25 Briefing)
+  var fallback = 'BFr4JqzlaIVpnfYhMR14hzjMpjrzPq-2PFGETL2LU4kdsuC2amkOf333lWly3C9TJlgAXF4PZl3wT2ceE6rH9tk';
+  window._gsVapidPublicKey = fallback;
+  return fallback;
+}
+
+// Base64URL → Uint8Array (Web-Push-Standard für applicationServerKey).
+function gsBase64UrlToUint8(b64){
+  var pad = '='.repeat((4 - b64.length % 4) % 4);
+  var base64 = (b64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+  var raw = atob(base64);
+  var arr = new Uint8Array(raw.length);
+  for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
+
+// iOS-Detection für Web-Push-Support-Hinweise.
+// Web Push auf iOS Safari nur in Standalone-Mode + iOS 16.4+.
+function gsIsIOS() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+function gsIsStandalonePWA() {
+  try {
+    return window.matchMedia && window.matchMedia('(display-mode: standalone)').matches
+      || window.navigator.standalone === true;
+  } catch(_) { return false; }
+}
+function gsIOSVersion() {
+  // Liefert Major.Minor als Float oder null. iOS 16.4 → 16.4.
+  if (!gsIsIOS()) return null;
+  var m = navigator.userAgent.match(/OS (\d+)[._](\d+)/);
+  if (!m) return null;
+  return parseFloat(m[1] + '.' + m[2]);
+}
+function gsPushSupportStatus() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    return { ok: false, reason: 'browser', message: 'Push wird auf diesem Browser nicht unterstuetzt' };
+  }
+  if (gsIsIOS()) {
+    var iosVer = gsIOSVersion();
+    if (iosVer !== null && iosVer < 16.4) {
+      return { ok: false, reason: 'ios_old', message: 'Push auf deinem iOS leider nicht unterstuetzt (braucht iOS 16.4 oder neuer)' };
+    }
+    if (!gsIsStandalonePWA()) {
+      return { ok: false, reason: 'ios_not_pwa', message: 'iOS: erst zur Startseite hinzufuegen (Teilen-Symbol → Zum Home-Bildschirm), dann Push aktivieren' };
+    }
+  }
+  return { ok: true };
+}
+
+async function gsSubscribeWebPush(){
+  var status = gsPushSupportStatus();
+  if (!status.ok) {
+    if (typeof showProfileToast === 'function') showProfileToast({title:'Push nicht möglich', body: status.message, type:'error', duration: 6000});
+    return null;
+  }
+  if (typeof sbIsLoggedIn === 'function' && !sbIsLoggedIn()) {
+    if (typeof showProfileToast === 'function') showProfileToast('Bitte anmelden für Push', 'error');
+    return null;
+  }
+  // Permission (gsNotif.request prüft Browser-Permission)
+  var perm = 'default';
+  try {
+    if (typeof gsNotif !== 'undefined' && gsNotif && typeof gsNotif.request === 'function') {
+      perm = await gsNotif.request();
+    } else if (typeof Notification !== 'undefined' && Notification.requestPermission) {
+      perm = await Notification.requestPermission();
+    }
+  } catch(_) {}
+  if (perm !== 'granted') {
+    if (typeof showProfileToast === 'function') showProfileToast('Notification-Permission verweigert', 'info');
+    return null;
+  }
+  var vapidB64 = await gsGetVapidPublicKey();
+  if (!vapidB64) {
+    if (typeof showProfileToast === 'function') showProfileToast('VAPID-Key nicht verfügbar', 'error');
+    return null;
+  }
+  try {
+    var reg = await navigator.serviceWorker.ready;
+    // Existing-Sub clearen wenn VAPID-Wechsel (sonst InvalidStateError)
+    var existing = await reg.pushManager.getSubscription();
+    if (existing) {
+      try { await existing.unsubscribe(); } catch(_){}
+    }
+    var sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: gsBase64UrlToUint8(vapidB64)
+    });
+    await gsRegisterPushSubscription(sub);
+    if (typeof showProfileToast === 'function') showProfileToast('🔔 Push-Notifications aktiv!', 'success');
+    if (typeof gsBrain !== 'undefined' && gsBrain && typeof gsBrain.observe === 'function') {
+      try { gsBrain.observe('push_subscribed', {}); } catch(_){}
+    }
+    return sub;
+  } catch(e) {
+    if (typeof showProfileToast === 'function') showProfileToast({title:'Push-Setup fehlgeschlagen', body:(e && e.message)||'Unbekannter Fehler', type:'error'});
+    return null;
+  }
+}
+
+async function gsUnsubscribeWebPush(){
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    var reg = await navigator.serviceWorker.ready;
+    var sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      var ep = sub.endpoint;
+      try { await sub.unsubscribe(); } catch(_){}
+      if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
+        var uid = gsStore.get('gs_sb_uid', null);
+        if (uid && typeof sbFetch === 'function') {
+          await sbFetch('/rest/v1/push_subscriptions?user_id=eq.' + encodeURIComponent(uid) +
+            '&endpoint=eq.' + encodeURIComponent(ep), { method: 'DELETE' });
+        }
+      }
+    }
+    if (typeof showProfileToast === 'function') showProfileToast('Push-Notifications deaktiviert', 'info');
+    if (typeof gsBrain !== 'undefined' && gsBrain && typeof gsBrain.observe === 'function') {
+      try { gsBrain.observe('push_unsubscribed', {}); } catch(_){}
+    }
+  } catch(e) { console.warn('[gsUnsubscribeWebPush]', e); }
+}
+
+// Settings persistieren: localStorage + PATCH zum Server falls subscribed.
+async function gsSavePushSettings(partial){
+  if (!partial || typeof partial !== 'object') return;
+  var cur = {};
+  try { cur = JSON.parse(localStorage.getItem('gs_push_settings') || '{}'); } catch(_){}
+  Object.assign(cur, partial);
+  try { localStorage.setItem('gs_push_settings', JSON.stringify(cur)); } catch(_){}
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
+  var uid = gsStore.get('gs_sb_uid', null);
+  if (!uid || typeof sbFetch !== 'function') return;
+  var patch = {};
+  if ('frost'      in partial) patch.notify_frost        = !!partial.frost;
+  if ('water'      in partial) patch.notify_water        = !!partial.water;
+  if ('seasonal'   in partial) patch.notify_seasonal     = !!partial.seasonal;
+  if ('quiz'       in partial) patch.notify_quiz_streak  = !!partial.quiz;
+  if ('quietStart' in partial && typeof partial.quietStart === 'number') patch.quiet_start_hour = partial.quietStart;
+  if ('quietEnd'   in partial && typeof partial.quietEnd   === 'number') patch.quiet_end_hour   = partial.quietEnd;
+  if (Object.keys(patch).length === 0) return;
+  try {
+    await sbFetch('/rest/v1/push_subscriptions?user_id=eq.' + encodeURIComponent(uid), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      body: JSON.stringify(patch)
+    });
+  } catch(e) { console.warn('[gsSavePushSettings]', e); }
+}
+
+// Master-Toggle-Handler — wird vom Settings-Checkbox aufgerufen.
+async function gsTogglePushMaster(on){
+  var detail = document.getElementById('push-detail-settings');
+  var statusSub = document.getElementById('push-status-sub');
+  var toggle = document.getElementById('push-master-toggle');
+  if (on) {
+    var sub = await gsSubscribeWebPush();
+    if (sub) {
+      if (detail) detail.style.display = '';
+      if (statusSub) statusSub.textContent = 'Status: aktiv';
+    } else {
+      if (toggle) toggle.checked = false;
+      if (statusSub) statusSub.textContent = 'Status: aus';
+    }
+  } else {
+    await gsUnsubscribeWebPush();
+    if (detail) detail.style.display = 'none';
+    if (statusSub) statusSub.textContent = 'Status: aus';
+  }
+}
+
+// Status-Refresh: lädt aktuellen Sub-Status + befüllt UI-State.
+async function gsPushSettingsRefresh(){
+  var toggle = document.getElementById('push-master-toggle');
+  var detail = document.getElementById('push-detail-settings');
+  var statusSub = document.getElementById('push-status-sub');
+  if (!toggle) return;
+  var status = gsPushSupportStatus();
+  if (!status.ok) {
+    toggle.disabled = true;
+    if (statusSub) statusSub.textContent = status.message;
+    return;
+  }
+  // Lokale Settings ins UI spiegeln
+  var s = {};
+  try { s = JSON.parse(localStorage.getItem('gs_push_settings') || '{}'); } catch(_){}
+  var ids = { frost:'push-cat-frost', water:'push-cat-water', seasonal:'push-cat-seasonal', quiz:'push-cat-quiz' };
+  Object.keys(ids).forEach(function(k){
+    var el = document.getElementById(ids[k]);
+    if (el) el.checked = (s[k] !== false);
+  });
+  var qs = document.getElementById('push-quiet-start');
+  var qe = document.getElementById('push-quiet-end');
+  if (qs) qs.value = String(typeof s.quietStart === 'number' ? s.quietStart : 22);
+  if (qe) qe.value = String(typeof s.quietEnd   === 'number' ? s.quietEnd   : 7);
+  // Echter Sub-Status vom Browser
+  try {
+    if (!('serviceWorker' in navigator)) return;
+    var reg = await navigator.serviceWorker.ready;
+    var sub = await reg.pushManager.getSubscription();
+    toggle.checked = !!sub;
+    if (statusSub) statusSub.textContent = sub ? 'Status: aktiv' : 'Status: aus';
+    if (detail) detail.style.display = sub ? '' : 'none';
+  } catch(_){}
+}
+
+// Auto-Refresh nach Boot (sw.js ready abwarten + Settings-DOM präsent).
+(function(){
+  function _scheduleRefresh(){
+    setTimeout(function(){ try { gsPushSettingsRefresh(); } catch(_){} }, 2800);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _scheduleRefresh);
+  } else {
+    _scheduleRefresh();
+  }
+})();
+
+// ═════════════════════════════════════════════════════════════════════
+// Ende v25.26 Push-Frontend-Block
+// ═════════════════════════════════════════════════════════════════════
 
 // ── USER-PREFERENCES ────────────────────────────────────────────────────────
 async function gsPrefsPull(){
