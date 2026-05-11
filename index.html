@@ -2,6 +2,11 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
+<!-- v25.27: hreflang fuer Schweizer Markt (DE/FR/IT) — wird von gsI18n.applyToDOM dynamisch ergaenzt durch <html lang=> -->
+<link rel="alternate" hreflang="de" href="https://green-scan.ch/">
+<link rel="alternate" hreflang="fr" href="https://green-scan.ch/?lang=fr">
+<link rel="alternate" hreflang="it" href="https://green-scan.ch/?lang=it">
+<link rel="alternate" hreflang="x-default" href="https://green-scan.ch/">
 <!-- v24.34: Echte Icon-Files (statt nur data-URI) für maximale PWA-Installability -->
 <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
@@ -60,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.26.20260511">
+<meta name="app-version" content="25.27.20260511">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -2346,24 +2351,24 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
 <!-- ── ACTION BAR · v24.03: + „Meine Pläne"-Button -->
 <div style="padding:4px 16px 8px;display:flex;gap:8px;">
-  <button onclick="openAddPlanting()" style="flex:1;padding:11px 8px;background:var(--g-main);color:#fff;border:none;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🌱 Einpflanzen</button>
-  <button onclick="openGardenAI()" title="KI-Gartenplaner PRO" style="flex:1;padding:11px 8px;background:linear-gradient(135deg,#2d8a2d,#1b5e20);color:#fff;border:none;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:0 2px 8px rgba(45,138,45,.25);">🤖 KI-Planer</button>
+  <button onclick="openAddPlanting()" data-i18n="btn_garden_plant" data-i18n-fallback="🌱 Einpflanzen" style="flex:1;padding:11px 8px;background:var(--g-main);color:#fff;border:none;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🌱 Einpflanzen</button>
+  <button onclick="openGardenAI()" title="KI-Gartenplaner PRO" data-i18n="btn_garden_ai_planner" data-i18n-fallback="🤖 KI-Planer" style="flex:1;padding:11px 8px;background:linear-gradient(135deg,#2d8a2d,#1b5e20);color:#fff;border:none;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:0 2px 8px rgba(45,138,45,.25);">🤖 KI-Planer</button>
 </div>
 <div style="padding:0 16px 8px;">
   <button onclick="gsPPopenSavedPlans()" title="Gespeicherte Garten-Pläne" style="width:100%;padding:11px 12px;background:var(--card);border:1.5px solid var(--border);color:var(--text);border-radius:11px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span>📂 Meine gespeicherten Garten-Pläne</span><span style="color:var(--muted);font-size:18px;">›</span>
+    <span data-i18n="btn_saved_plans" data-i18n-fallback="📂 Meine gespeicherten Garten-Pläne">📂 Meine gespeicherten Garten-Pläne</span><span style="color:var(--muted);font-size:18px;">›</span>
   </button>
 </div>
 <!-- v25.16: Bee-Friendly-Garden-Modal (nutzt pollinators-Tabelle) -->
 <div style="padding:0 16px 8px;">
   <button onclick="gsBeeFriendlyOpen()" title="Bestäuber-freundlicher Garten" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#fff8e1,#fffbd0);border:1.5px solid #fbc02d;color:#e65100;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span>🐝 Bestäuber-Garten · Wildbienen fördern</span><span style="color:#e65100;font-size:18px;">›</span>
+    <span data-i18n="btn_bee_friendly" data-i18n-fallback="🐝 Bestäuber-Garten · Wildbienen fördern">🐝 Bestäuber-Garten · Wildbienen fördern</span><span style="color:#e65100;font-size:18px;">›</span>
   </button>
 </div>
 <!-- v25.17: Krankheits-Lexikon (nutzt plant_diseases-Tabelle) -->
 <div style="padding:0 16px 8px;">
   <button onclick="gsDiseaseOpen()" title="Krankheits-Lexikon — Symptome erkennen + behandeln" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#ffebee,#ffcdd2);border:1.5px solid #ef5350;color:#c62828;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span>🦠 Krankheits-Lexikon · Symptome + Treatment</span><span style="color:#c62828;font-size:18px;">›</span>
+    <span data-i18n="btn_disease_lexicon" data-i18n-fallback="🦠 Krankheits-Lexikon · Symptome + Treatment">🦠 Krankheits-Lexikon · Symptome + Treatment</span><span style="color:#c62828;font-size:18px;">›</span>
   </button>
 </div>
 <!-- v25.18: Saisonkalender-Inline-Host (wird via gsRenderSeasonalInline gefüllt) -->
@@ -2371,19 +2376,19 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <!-- v25.18: Saisonkalender-Modal-Trigger (Voll-Jahres-Übersicht) -->
 <div style="padding:0 16px 8px;">
   <button onclick="gsSeasonalOpen()" title="Saisonkalender — alle 12 Monate" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#e8f5e9,#c5e1a5);border:1.5px solid #66bb6a;color:#1b5e20;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span>📅 Saisonkalender · Voll-Jahres-Übersicht</span><span style="color:#1b5e20;font-size:18px;">›</span>
+    <span data-i18n="btn_seasonal_cal" data-i18n-fallback="📅 Saisonkalender · Voll-Jahres-Übersicht">📅 Saisonkalender · Voll-Jahres-Übersicht</span><span style="color:#1b5e20;font-size:18px;">›</span>
   </button>
 </div>
 <!-- v25.20: Garten-Insights-Dashboard (aggregiert pollinators + diseases + tasks + myPlants) -->
 <div style="padding:0 16px 8px;">
   <button onclick="gsInsightsOpen()" title="Garten-Insights — Bestaeuber-Score + Risiken + DB-Stats" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#e3f2fd,#bbdefb);border:1.5px solid #0277bd;color:#01579b;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span>📊 Garten-Insights · Score + Risiken</span><span style="color:#01579b;font-size:18px;">›</span>
+    <span data-i18n="btn_garden_insights" data-i18n-fallback="📊 Garten-Insights · Score + Risiken">📊 Garten-Insights · Score + Risiken</span><span style="color:#01579b;font-size:18px;">›</span>
   </button>
 </div>
 <!-- v25.24: Voice-Mode-Trigger (Web Speech API) -->
 <div style="padding:0 16px 12px;">
   <button onclick="gsVoiceOpen()" title="Hey GreenScan — sprich mit deiner Garten-App" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#1a237e,#3949ab);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span>🎙️ Hey GreenScan · Voice-Mode</span><span style="font-size:18px;opacity:.85;">›</span>
+    <span data-i18n="btn_voice_mode" data-i18n-fallback="🎙️ Hey GreenScan · Voice-Mode">🎙️ Hey GreenScan · Voice-Mode</span><span style="font-size:18px;opacity:.85;">›</span>
   </button>
 </div>
 <!-- v24.06: Smart-Home Sensor-Dashboard -->
@@ -3957,7 +3962,7 @@ html, body{ scroll-behavior: smooth; }
       <div class="settings-row" onclick="gsRequestNotifications()" style="cursor:pointer;">
         <div class="settings-icon" style="background:#e8f5e9;">📲</div>
         <div class="settings-label">
-          <div class="settings-label-title">Push-Benachrichtigungen aktivieren</div>
+          <div class="settings-label-title" data-i18n="lbl_settings_push_enable" data-i18n-fallback="Push-Benachrichtigungen aktivieren">Push-Benachrichtigungen aktivieren</div>
           <div class="settings-label-sub" id="notif-perm-status">Status wird geladen…</div>
         </div>
         <div style="font-size:18px;color:var(--muted);">›</div>
@@ -3966,7 +3971,7 @@ html, body{ scroll-behavior: smooth; }
       <div class="settings-row" id="push-settings-row" style="border-top:1px solid var(--border);">
         <div class="settings-icon" style="background:#e3f2fd;">🔔</div>
         <div class="settings-label" style="flex:1;">
-          <div class="settings-label-title">Smart-Push (Frost/Wasser/Saison/Quiz)</div>
+          <div class="settings-label-title" data-i18n="lbl_settings_smartpush" data-i18n-fallback="Smart-Push (Frost/Wasser/Saison/Quiz)">Smart-Push (Frost/Wasser/Saison/Quiz)</div>
           <div class="settings-label-sub" id="push-status-sub">Status wird geladen …</div>
         </div>
         <label class="settings-toggle">
@@ -3991,6 +3996,21 @@ html, body{ scroll-behavior: smooth; }
           </select>
         </div>
         <div style="font-size:10.5px;color:var(--muted);margin-top:10px;line-height:1.5;">Push-Empfang nur ausserhalb der Stille-Zeit. Backend prüft cron 07:00 + 19:00 UTC.</div>
+      </div>
+      <!-- v25.27: Sprachauswahl (Schweizer Markt komplett) -->
+      <div class="settings-row" id="i18n-lang-row" style="border-top:1px solid var(--border);">
+        <div class="settings-icon" style="background:#fff3e0;">🌍</div>
+        <div class="settings-label" style="flex:1;">
+          <div class="settings-label-title" data-i18n="lbl_settings_language" data-i18n-fallback="Sprache · Langue · Lingua">Sprache · Langue · Lingua</div>
+          <div class="settings-label-sub" id="i18n-status-sub">Aktiv: <span id="i18n-current-display">DE</span></div>
+        </div>
+        <select id="i18n-lang-picker" onchange="gsHandleLangChange(this.value)" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:12.5px;background:var(--card);color:var(--text);">
+          <option value="auto">🤖 Auto</option>
+          <option value="de">🇩🇪 Deutsch</option>
+          <option value="fr">🇫🇷 Français</option>
+          <option value="it">🇮🇹 Italiano</option>
+          <option value="gsw">🇨🇭 Schwiizerdütsch</option>
+        </select>
       </div>
     </div>
 
@@ -4436,11 +4456,11 @@ html, body{ scroll-behavior: smooth; }
 </div>
 <!-- TABS - 5 Haupt-Tabs -->
 <div class="tabs" id="main-tabs" role="tablist" aria-label="Haupt-Navigation">
-  <button class="tab active" id="tab-home"    role="tab" aria-selected="true"  aria-controls="screen-home"    onclick="switchTab('home',this)"><span class="ti" aria-hidden="true">🏠</span><span class="tl">Home</span></button>
-  <button class="tab"        id="tab-scanner" role="tab" aria-selected="false" aria-controls="screen-scanner" onclick="switchTab('scanner',this)"><span class="ti" aria-hidden="true">📷</span><span class="tl">Scanner</span></button>
-  <button class="tab"        id="tab-search"  role="tab" aria-selected="false" aria-controls="screen-search"  onclick="switchTab('search',this)"><span class="ti" aria-hidden="true">🔍</span><span class="tl">Suche</span></button>
-  <button class="tab"        id="tab-favs"    role="tab" aria-selected="false" aria-controls="screen-favs"    onclick="switchTab('favs',this)"><span class="ti" aria-hidden="true">🌱</span><span class="tl">Pflanzen</span></button>
-  <button class="tab"        id="tab-menu"    aria-haspopup="menu" aria-label="Hauptmenü öffnen" onclick="openMainMenu()"><span class="ti" aria-hidden="true">⋯</span><span class="tl">Menü</span><span id="gs-notif-badge" class="gs-notif-badge" role="status" aria-live="polite" style="display:none;"></span></button>
+  <button class="tab active" id="tab-home"    role="tab" aria-selected="true"  aria-controls="screen-home"    onclick="switchTab('home',this)"><span class="ti" aria-hidden="true">🏠</span><span class="tl" data-i18n="nav_tab_home" data-i18n-fallback="Home">Home</span></button>
+  <button class="tab"        id="tab-scanner" role="tab" aria-selected="false" aria-controls="screen-scanner" onclick="switchTab('scanner',this)"><span class="ti" aria-hidden="true">📷</span><span class="tl" data-i18n="nav_tab_scanner" data-i18n-fallback="Scanner">Scanner</span></button>
+  <button class="tab"        id="tab-search"  role="tab" aria-selected="false" aria-controls="screen-search"  onclick="switchTab('search',this)"><span class="ti" aria-hidden="true">🔍</span><span class="tl" data-i18n="nav_tab_search" data-i18n-fallback="Suche">Suche</span></button>
+  <button class="tab"        id="tab-favs"    role="tab" aria-selected="false" aria-controls="screen-favs"    onclick="switchTab('favs',this)"><span class="ti" aria-hidden="true">🌱</span><span class="tl" data-i18n="nav_tab_favs" data-i18n-fallback="Pflanzen">Pflanzen</span></button>
+  <button class="tab"        id="tab-menu"    aria-haspopup="menu" aria-label="Hauptmenü öffnen" onclick="openMainMenu()"><span class="ti" aria-hidden="true">⋯</span><span class="tl" data-i18n="nav_tab_menu" data-i18n-fallback="Menü">Menü</span><span id="gs-notif-badge" class="gs-notif-badge" role="status" aria-live="polite" style="display:none;"></span></button>
 </div>
 
 <!-- HAUPTMENÜ OVERLAY -->
@@ -8495,6 +8515,239 @@ function filterRecipesBySearch(q) {
 // einheitliches Notif-Center. Jetzt: zentrale gsNotif-API. Alle alten
 // Funktionen sind dünne Wrapper.
 //
+// ═════════════════════════════════════════════════════════════════════
+// v25.27 i18n — Mehrsprachigkeit DE/FR/IT/GSW mit Coworks i18n-translate
+// Edge-Fn. Bundle wird beim ersten Sprachwechsel via Bulk-Call generiert
+// und in localStorage gecached (kein zusätzliches Backend-Polling).
+// ─────────────────────────────────────────────────────────────────────
+window.gsI18n = (function(){
+  var SUPPORTED = ['de','fr','it','gsw'];
+  var DEFAULT = 'de';
+  var bundles = { de: {}, fr: {}, it: {}, gsw: {} };
+  var current = DEFAULT;
+
+  // Sprache aus Order: localStorage > URL ?lang= > navigator.language > DEFAULT
+  function detectLang(){
+    try {
+      var stored = localStorage.getItem('gs_lang');
+      if (stored && SUPPORTED.indexOf(stored) >= 0) return stored;
+    } catch(_){}
+    try {
+      var qs = new URLSearchParams(location.search);
+      var ql = (qs.get('lang') || '').toLowerCase();
+      if (SUPPORTED.indexOf(ql) >= 0) return ql;
+    } catch(_){}
+    var nl = (navigator.language || 'de').toLowerCase().split('-')[0];
+    if (SUPPORTED.indexOf(nl) >= 0) return nl;
+    return DEFAULT;
+  }
+
+  // Bundles aus localStorage hydratisieren beim Boot
+  function hydrate(){
+    try {
+      var raw = localStorage.getItem('gs_i18n_bundles');
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        SUPPORTED.forEach(function(l){
+          if (parsed[l] && typeof parsed[l] === 'object') bundles[l] = parsed[l];
+        });
+      }
+    } catch(_){}
+    current = detectLang();
+  }
+
+  // t(key, fallbackDE) — Übersetze Key mit DE-Fallback
+  function t(key, fallback){
+    if (!key) return fallback || '';
+    if (current === 'de') return fallback || key;
+    var b = bundles[current] || {};
+    if (b[key]) return b[key];
+    // Fallback: DE-Bundle ODER fallback-String ODER key
+    return (bundles.de && bundles.de[key]) || fallback || key;
+  }
+
+  // applyToDOM — alle [data-i18n] Elements übersetzen
+  function applyToDOM(root){
+    root = root || document;
+    try {
+      var nodes = root.querySelectorAll('[data-i18n]');
+      nodes.forEach(function(el){
+        var key = el.getAttribute('data-i18n');
+        var fallback = el.getAttribute('data-i18n-fallback') || el.textContent;
+        var translated = t(key, fallback);
+        if (el.hasAttribute('data-i18n-html')) el.innerHTML = translated;
+        else el.textContent = translated;
+      });
+    } catch(_){}
+    try { document.documentElement.lang = (current === 'gsw') ? 'de-CH' : current; } catch(_){}
+  }
+
+  function setLang(lang){
+    if (SUPPORTED.indexOf(lang) < 0) return false;
+    current = lang;
+    try { localStorage.setItem('gs_lang', lang); } catch(_){}
+    applyToDOM();
+    if (typeof showProfileToast === 'function') {
+      var msg = (lang === 'fr') ? '🌍 Langue: Français'
+              : (lang === 'it') ? '🌍 Lingua: Italiano'
+              : (lang === 'gsw') ? '🌍 Sprooch: Schwiizerdütsch'
+              : '🌍 Sprache: Deutsch';
+      showProfileToast(msg, 'info');
+    }
+    if (typeof gsBrain !== 'undefined' && gsBrain && typeof gsBrain.observe === 'function') {
+      try { gsBrain.observe('i18n_lang_change', { lang: lang }); } catch(_){}
+    }
+    return true;
+  }
+
+  function getLang(){ return current; }
+  function getBundles(){ return bundles; }
+
+  return {
+    SUPPORTED: SUPPORTED,
+    hydrate: hydrate,
+    t: t,
+    applyToDOM: applyToDOM,
+    setLang: setLang,
+    getLang: getLang,
+    getBundles: getBundles,
+    _setBundle: function(lang, obj){
+      bundles[lang] = obj;
+      try { localStorage.setItem('gs_i18n_bundles', JSON.stringify(bundles)); } catch(_){}
+    }
+  };
+})();
+
+// Hardcoded JS-Strings die via Toast/innerHTML gebaut werden
+// (data-i18n-Attribute funktionieren nur für statisches HTML).
+// Wird in v25.28 ausgebaut, hier nur Top-Kandidaten.
+window.GS_I18N_JS_STRINGS = {
+  'toast_login_success':    '🌿 Willkommen zurück!',
+  'toast_login_welcome_new':'🎉 Willkommen bei GreenScan!',
+  'toast_logout':           '👋 Erfolgreich abgemeldet',
+  'toast_offline_saved':    '📵 Offline gespeichert',
+  'toast_lang_loading':     '⏳ Übersetzung wird geladen…',
+  'err_offline':            'Du bist offline — Funktion benötigt Internet',
+  'err_no_camera':          'Kamera wurde abgelehnt — bitte in Browser-Einstellungen erlauben',
+  'err_login_required':     'Bitte zuerst anmelden',
+  'err_network':            'Netzwerk-Fehler — bitte erneut versuchen'
+};
+
+// Sammelt alle data-i18n Strings aus DOM + ergänzt durch JS-Map
+function gsCollectI18nStrings(){
+  var out = {};
+  try {
+    document.querySelectorAll('[data-i18n]').forEach(function(el){
+      var key = el.getAttribute('data-i18n');
+      var de  = el.getAttribute('data-i18n-fallback') || (el.textContent || '').trim();
+      if (key && de) out[key] = de;
+    });
+  } catch(_){}
+  try { Object.assign(out, window.GS_I18N_JS_STRINGS || {}); } catch(_){}
+  return out;
+}
+
+// Holt Übersetzungen vom Backend (Coworks i18n-translate Edge-Fn),
+// cached + setzt Bundles. Liefert {ok, cached, fetched, tokens}.
+async function gsBuildI18n(targetLangs){
+  targetLangs = targetLangs || ['fr','it'];
+  var strings = gsCollectI18nStrings();
+  var keys = Object.keys(strings);
+  if (!keys.length) return { ok: false, msg: 'Keine Strings gefunden' };
+  if (typeof SB_URL === 'undefined' || typeof SB_KEY === 'undefined') {
+    return { ok: false, msg: 'Supabase nicht konfiguriert' };
+  }
+  var token = gsStore.get('gs_sb_token', null);
+  try {
+    var resp = await (window._gsFetch || fetch)(SB_URL + '/functions/v1/i18n-translate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SB_KEY,
+        'Authorization': token ? ('Bearer ' + token) : ('Bearer ' + SB_KEY)
+      },
+      body: JSON.stringify({
+        source_lang: 'de',
+        target_langs: targetLangs,
+        context: 'GreenScan App-UI Buttons + Labels + Toasts',
+        strings: strings
+      })
+    }, 60000);
+    if (!resp.ok) return { ok: false, msg: 'HTTP ' + resp.status };
+    var j = await resp.json();
+    if (!j.ok) return { ok: false, msg: j.error || 'Backend-Error' };
+    // Bundles speichern
+    targetLangs.forEach(function(lang){
+      if (j.translations && j.translations[lang]) {
+        gsI18n._setBundle(lang, j.translations[lang]);
+      }
+    });
+    return { ok: true, cached: j.cached || 0, fetched: j.fetched || 0, tokens: j.tokens || { in: 0, out: 0 } };
+  } catch(e) {
+    return { ok: false, msg: (e && e.message) || 'Netzwerk-Fehler' };
+  }
+}
+
+// Boot: hydrate + applyToDOM nach DOMContentLoaded
+(function(){
+  function _bootI18n(){
+    try { gsI18n.hydrate(); } catch(_){}
+    try { gsI18n.applyToDOM(); } catch(_){}
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _bootI18n);
+  } else {
+    _bootI18n();
+  }
+})();
+
+// Settings-Sprachauswahl-Handler
+async function gsHandleLangChange(val){
+  if (val === 'auto') {
+    try { localStorage.removeItem('gs_lang'); } catch(_){}
+    location.reload();
+    return;
+  }
+  if (gsI18n.SUPPORTED.indexOf(val) < 0) return;
+  // Bundle vorhanden? Falls nein: zuerst builden
+  if (val !== 'de') {
+    var bundles = gsI18n.getBundles();
+    if (!bundles[val] || Object.keys(bundles[val]).length < 5) {
+      if (typeof showProfileToast === 'function') showProfileToast('⏳ Übersetzung wird geladen…', 'info');
+      var r = await gsBuildI18n([val]);
+      if (!r.ok) {
+        if (typeof showProfileToast === 'function') showProfileToast({title:'Übersetzung fehlgeschlagen', body:(r.msg||'Unbekannter Fehler'), type:'error'});
+        return;
+      }
+    }
+  }
+  gsI18n.setLang(val);
+  var disp = document.getElementById('i18n-current-display');
+  if (disp) disp.textContent = val.toUpperCase();
+}
+
+// Settings-Picker initialisieren (zeigt aktuelle Sprache).
+function gsInitLangPicker(){
+  var picker = document.getElementById('i18n-lang-picker');
+  if (!picker) return;
+  var stored = null;
+  try { stored = localStorage.getItem('gs_lang'); } catch(_){}
+  picker.value = stored || 'auto';
+  var disp = document.getElementById('i18n-current-display');
+  if (disp) disp.textContent = gsI18n.getLang().toUpperCase();
+}
+
+// Auto-Init Picker nach Settings-DOM-Ready (defensive: 3s nach Boot)
+(function(){
+  function _initPicker(){ setTimeout(function(){ try { gsInitLangPicker(); } catch(_){} }, 3000); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _initPicker);
+  else _initPicker();
+})();
+
+// ═════════════════════════════════════════════════════════════════════
+// Ende v25.27 i18n-Block — gsNotif folgt
+// ═════════════════════════════════════════════════════════════════════
+
 // LocalStorage-Source-of-Truth:
 //   gs_notif_enabled = '1' wenn User Notifications aktiviert hat
 // Alte Keys (gs_agent_notify) werden beim Read auf gs_notif_enabled gemappt,
@@ -43264,6 +43517,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.27', date: '11.05.2026',
+    headline: '🌍 i18n FR/IT/GSW aktiviert — Schweizer Markt mit Coworks i18n-translate-Backend',
+    summary: 'Cowork hat i18n-translate Edge-Fn (Haiku 4.5, Bulk-Chunks, SHA-256-Cache) + i18n_translations-Tabelle deployed. v25.27 ist das Frontend dazu mit 5 Baustellen: gsI18n Singleton, Bundle-Builder, Settings-UI Sprachauswahl, data-i18n Pass-1, hreflang-Tags.',
+    items: [
+      {emoji:'🌐', bold:'gsI18n Singleton:', text:' detectLang (localStorage>URL>navigator), hydrate aus gs_i18n_bundles, t-Funktion mit DE-Fallback, applyToDOM ueber [data-i18n], setLang persistiert + Toast.'},
+      {emoji:'🤖', bold:'gsBuildI18n:', text:' POST i18n-translate mit DE-Strings, Server-Cache via SHA-256, _setBundle persistiert. GS_I18N_JS_STRINGS fuer Toast/innerHTML.'},
+      {emoji:'⚙️', bold:'Settings-UI:', text:' Sprache-Row nach Push-Settings mit 5 Optionen (Auto/DE/FR/IT/GSW). gsHandleLangChange + gsInitLangPicker.'},
+      {emoji:'🏷️', bold:'data-i18n Pass-1:', text:' 16 Marker auf Bottom-Tabs + Garten-Action-Buttons + Settings-Labels.'},
+      {emoji:'🔍', bold:'hreflang:', text:' 4 link rel=alternate im head fuer SEO. html lang dynamisch.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v25.28 = restliche statische Strings. v25.29 = Community-Experten. v25.30 = AR-View.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check OK · sw.js gs-v25.27 OK.'},
+    ]
+  },
+  {
     v: 'v25.26', date: '11.05.2026',
     headline: '🔔 Smart-Push-Notifications Frontend — fertig verdrahtet mit Coworks Backend',
     summary: 'Cowork hat in v25.25-Sprint das komplette Push-Backend deployed (VAPID, daily-push-checker v2, pg_cron 07/19 UTC, push_subscriptions-Schema +7 Spalten). v25.26 ist das Frontend dazu. 3 Bugs gefixt: Schema-Mismatch, Subscribe-Flow, Settings-UI. Plus iOS-Detection (Standalone + 16.4+ Pflicht).',
@@ -44417,7 +44684,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.26';
+var GS_VERSION = 'v25.27';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

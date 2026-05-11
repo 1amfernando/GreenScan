@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.26 — Smart-Push-Notifications Frontend: gsRegisterPushSubscription Schema-Fix (auth_secret + gps_lat/lng + 4 notify_*-Toggles + quiet_start/end_hour). gsSubscribeWebPush mit VAPID-Loader (anon-policy + Hardcoded-Fallback) + Base64Url-Helper + iOS-Detection (Standalone + 16.4+ Check). gsUnsubscribeWebPush mit Server-DELETE. gsSavePushSettings persistiert lokal + PATCH zum Server. gsTogglePushMaster + gsPushSettingsRefresh fuer Settings-UI mit Master-Toggle + 4 Kategorie-Checkboxes + Stille-Zeit-Picker. Auto-Refresh nach Boot.
+   v25.27 — i18n FR/IT/GSW aktiviert (Schweizer Markt komplett). gsI18n Singleton (detectLang prio: localStorage > URL ?lang= > navigator.language > de). gsBuildI18n ruft Coworks i18n-translate Edge-Fn (DE -> FR/IT, SHA-256-cached). Settings-Sprachauswahl mit 5 Optionen. hreflang im head. data-i18n auf Top-15 statischen Strings (5 Bottom-Tabs + 2 Garten-Action-Buttons + 5 v25.16-v25.24-Modal-Trigger + 3 Settings-Labels). v25.28 wird Restliche ~270 Strings ausbauen.
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.26';
+const VERSION = 'gs-v25.27';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
