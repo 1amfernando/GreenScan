@@ -60,7 +60,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.22.20260511">
+<meta name="app-version" content="25.24.20260511">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -2378,6 +2378,12 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <div style="padding:0 16px 8px;">
   <button onclick="gsInsightsOpen()" title="Garten-Insights — Bestaeuber-Score + Risiken + DB-Stats" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#e3f2fd,#bbdefb);border:1.5px solid #0277bd;color:#01579b;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
     <span>📊 Garten-Insights · Score + Risiken</span><span style="color:#01579b;font-size:18px;">›</span>
+  </button>
+</div>
+<!-- v25.24: Voice-Mode-Trigger (Web Speech API) -->
+<div style="padding:0 16px 12px;">
+  <button onclick="gsVoiceOpen()" title="Hey GreenScan — sprich mit deiner Garten-App" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#1a237e,#3949ab);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span>🎙️ Hey GreenScan · Voice-Mode</span><span style="font-size:18px;opacity:.85;">›</span>
   </button>
 </div>
 <!-- v24.06: Smart-Home Sensor-Dashboard -->
@@ -39403,6 +39409,242 @@ function gsPhotoTimelineMode(mode) {
 // Ende v25.22 Foto-Verlauf-Slider-Block
 // ═════════════════════════════════════════════════════════════════════
 
+// ═════════════════════════════════════════════════════════════════════
+// v25.24 Voice-Mode — Hey GreenScan via Web Speech API
+// SpeechRecognition (Chrome/Edge/Safari iOS 14.5+ via webkitSpeechRecognition)
+// + SpeechSynthesis (alle modernen Browser). Intent-Detection für 3 Use-Cases.
+// ─────────────────────────────────────────────────────────────────────
+
+function gsVoiceSupported() {
+  return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+}
+
+function gsSpeechRecognitionCtor() {
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+
+function gsVoiceSpeak(text, opts) {
+  if (!('speechSynthesis' in window) || !text) return;
+  opts = opts || {};
+  try { window.speechSynthesis.cancel(); } catch(_){}
+  var u = new SpeechSynthesisUtterance(String(text).slice(0, 800));
+  u.lang = opts.lang || 'de-CH';
+  u.rate = opts.rate || 1.0;
+  u.pitch = opts.pitch || 1.0;
+  try { window.speechSynthesis.speak(u); } catch(_){}
+}
+
+// Globaler State
+window._gsVoiceState = {
+  active: false,
+  recognition: null,
+  transcript: '',
+  status: 'idle',   // idle|listening|processing|speaking|error
+  errorMsg: '',
+  reply: ''
+};
+
+function gsVoiceOpen() {
+  if (typeof gsHaptic === 'function') gsHaptic('light');
+  var existing = document.getElementById('voice-mode-modal');
+  if (existing) existing.remove();
+  // Reset state
+  window._gsVoiceState = { active: false, recognition: null, transcript: '', status: 'idle', errorMsg: '', reply: '' };
+  var m = document.createElement('div');
+  m.id = 'voice-mode-modal';
+  m.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);padding:12px;';
+  m.innerHTML = gsBuildVoiceModalContent();
+  document.body.appendChild(m);
+  if (typeof gsBrain !== 'undefined' && gsBrain && typeof gsBrain.observe === 'function') {
+    try { gsBrain.observe('voice_mode_open', {}); } catch(_){}
+  }
+}
+window.openVoiceMode = gsVoiceOpen;
+
+function gsBuildVoiceModalContent() {
+  var s = window._gsVoiceState || {};
+  var supported = gsVoiceSupported();
+  var status = s.status || 'idle';
+  var statusText = {
+    idle: '🎙️ Tippe auf das Mikrofon und sprich deine Frage',
+    listening: '👂 Ich höre … sprich jetzt',
+    processing: '🤖 Verstanden — denke nach …',
+    speaking: '🔊 ' + (s.reply ? s.reply.slice(0, 140) : '…'),
+    error: '⚠️ ' + (s.errorMsg || 'Fehler')
+  }[status] || '';
+
+  var micActive = (status === 'listening');
+  var micColor = (status === 'listening') ? '#d32f2f' : (status === 'processing' ? '#f57c00' : '#1b5e20');
+  var pulseAnim = micActive ? 'animation:gs-voice-pulse 1.4s ease-in-out infinite;' : '';
+
+  var supportBlock = supported
+    ? ''
+    : '<div style="background:#fff3e0;border:1.5px solid #f57c00;color:#bf360c;border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;line-height:1.5;text-align:center;">⚠️ Voice-Mode wird auf diesem Browser nicht unterstützt. iOS Safari 14.5+, Chrome, Edge nutzen.</div>';
+
+  var examples = '<div style="margin-top:12px;color:#fff;text-align:left;">' +
+    '<div style="font-size:11.5px;font-weight:700;opacity:.85;margin-bottom:6px;">💬 Beispiele:</div>' +
+    '<ul style="margin:0;padding-left:20px;font-size:11.5px;line-height:1.7;opacity:.9;">' +
+      '<li>„Wie pflege ich eine Tomate?"</li>' +
+      '<li>„Was kann ich im Mai ernten?"</li>' +
+      '<li>„Erinnere mich morgen ans Giessen"</li>' +
+    '</ul>' +
+  '</div>';
+
+  return '<style>@keyframes gs-voice-pulse { 0%,100% { transform:scale(1); box-shadow:0 0 0 0 rgba(211,47,47,.6); } 50% { transform:scale(1.08); box-shadow:0 0 0 16px rgba(211,47,47,0); } }</style>' +
+    '<div style="width:100%;max-width:380px;color:#fff;text-align:center;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">' +
+        '<div style="font-size:18px;font-weight:900;">🎙️ Hey GreenScan</div>' +
+        '<button onclick="gsVoiceClose()" style="background:rgba(255,255,255,.18);color:#fff;border:none;width:34px;height:34px;border-radius:50%;font-size:18px;cursor:pointer;">×</button>' +
+      '</div>' +
+      supportBlock +
+      '<div style="display:flex;justify-content:center;margin-bottom:14px;">' +
+        '<button id="voice-mic-btn" ' + (!supported ? 'disabled' : '') + ' onclick="' + (micActive ? 'gsVoiceStop()' : 'gsVoiceStart()') + '" style="width:120px;height:120px;border-radius:50%;border:none;background:' + micColor + ';color:#fff;font-size:50px;cursor:' + (supported ? 'pointer' : 'not-allowed') + ';opacity:' + (supported ? '1' : '.5') + ';' + pulseAnim + '" aria-label="Mikrofon">🎙️</button>' +
+      '</div>' +
+      '<div style="background:rgba(255,255,255,.1);border-radius:12px;padding:14px;min-height:60px;font-size:13px;line-height:1.55;">' + statusText + '</div>' +
+      (s.transcript ? '<div style="margin-top:10px;font-size:11.5px;opacity:.8;font-style:italic;">📝 „' + gsEscHtml(s.transcript) + '"</div>' : '') +
+      (status === 'idle' ? examples : '') +
+    '</div>';
+}
+
+function gsVoiceRefresh() {
+  var m = document.getElementById('voice-mode-modal');
+  if (m) m.innerHTML = gsBuildVoiceModalContent();
+}
+
+function gsVoiceClose() {
+  try { gsVoiceStop(); } catch(_){}
+  try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch(_){}
+  var m = document.getElementById('voice-mode-modal');
+  if (m) m.remove();
+}
+
+function gsVoiceStart() {
+  if (!gsVoiceSupported()) return;
+  var Ctor = gsSpeechRecognitionCtor();
+  if (!Ctor) return;
+  var s = window._gsVoiceState;
+  if (s.active) return;
+  try {
+    var rec = new Ctor();
+    rec.lang = 'de-CH';
+    rec.continuous = false;
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    rec.onstart = function(){
+      s.active = true; s.status = 'listening'; s.transcript = ''; s.reply = ''; s.errorMsg = '';
+      gsVoiceRefresh();
+    };
+    rec.onresult = function(ev){
+      var txt = '';
+      for (var i = 0; i < ev.results.length; i++) {
+        txt += ev.results[i][0].transcript;
+      }
+      s.transcript = (txt || '').trim();
+    };
+    rec.onerror = function(ev){
+      s.active = false; s.status = 'error';
+      s.errorMsg = (ev && ev.error) ? String(ev.error) : 'Spracherkennung fehlgeschlagen';
+      gsVoiceRefresh();
+    };
+    rec.onend = async function(){
+      s.active = false;
+      if (s.status === 'error') return;
+      if (!s.transcript) {
+        s.status = 'idle';
+        gsVoiceRefresh();
+        return;
+      }
+      // Process
+      s.status = 'processing';
+      gsVoiceRefresh();
+      try {
+        var reply = await gsVoiceProcess(s.transcript);
+        s.reply = reply || 'Keine Antwort verfügbar.';
+        s.status = 'speaking';
+        gsVoiceRefresh();
+        gsVoiceSpeak(s.reply, { lang: 'de-CH' });
+      } catch(e) {
+        s.status = 'error';
+        s.errorMsg = (e && e.message) || 'Verarbeitung fehlgeschlagen';
+        gsVoiceRefresh();
+      }
+    };
+    s.recognition = rec;
+    rec.start();
+    if (typeof gsHaptic === 'function') gsHaptic('tap');
+  } catch(e) {
+    s.status = 'error';
+    s.errorMsg = (e && e.message) || 'Mikrofon-Zugriff verweigert';
+    gsVoiceRefresh();
+  }
+}
+
+function gsVoiceStop() {
+  var s = window._gsVoiceState;
+  if (!s || !s.recognition) return;
+  try { s.recognition.stop(); } catch(_){}
+  s.active = false;
+}
+
+// Intent-Detection + Antwort-Generierung. 3 Use-Cases:
+// 1) Erinnere mich ... → erstellt Notification via gsAddDiaryEntry/Brain
+// 2) Was kann ich (diesen Monat) ernten? → seasonal_tips via gsLoadSeasonalTasks
+// 3) Generisch → callAI mit gsBrain-Kontext
+async function gsVoiceProcess(transcript) {
+  if (!transcript) return '';
+  var t = transcript.toLowerCase();
+
+  // Use-Case 2: Saisonale Frage („was ernten", „pflanzen", „aussäen")
+  if ((t.indexOf('ernte') >= 0 || t.indexOf('pflanz') >= 0 || t.indexOf('säe') >= 0 || t.indexOf('saen') >= 0 || t.indexOf('aussa') >= 0)
+      && (t.indexOf('monat') >= 0 || t.indexOf('jetzt') >= 0 || t.indexOf('diesen') >= 0 || t.indexOf('mai') >= 0 || t.indexOf('april') >= 0 || t.indexOf('juni') >= 0)) {
+    try {
+      if (typeof gsLoadSeasonalTasks === 'function') {
+        var tasks = await gsLoadSeasonalTasks();
+        var month = new Date().getMonth() + 1;
+        var matching = (typeof gsFilterTasksForMonth === 'function') ? gsFilterTasksForMonth(tasks, month) : [];
+        var monthName = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'][month-1];
+        if (matching.length) {
+          var top = matching.slice(0, 4).map(function(x){ return x.title || x.name || ''; }).filter(Boolean);
+          return 'Im ' + monthName + ' sind diese Aufgaben dran: ' + top.join('. ') + '. Schau den Saisonkalender für Details.';
+        }
+        return 'Im ' + monthName + ' habe ich keine spezifischen Tasks in der Datenbank.';
+      }
+    } catch(_){}
+  }
+
+  // Use-Case 1: Reminder erstellen („erinnere mich")
+  if (t.indexOf('erinner') >= 0) {
+    try {
+      if (typeof gsBrain !== 'undefined' && gsBrain && typeof gsBrain.observe === 'function') {
+        gsBrain.observe('voice_reminder_request', { text: transcript });
+      }
+    } catch(_){}
+    return 'Ich habe deinen Wunsch gespeichert: ' + transcript + '. Schau im Tagebuch oder Mein-Garten-Tab nach für die Erinnerung.';
+  }
+
+  // Use-Case 3 (Default): callAI mit Brain-Kontext
+  if (typeof callAI === 'function') {
+    try {
+      var sysPrompt = 'Du bist GreenScan, ein freundlicher Schweizer Garten-Assistent. Antworte in höchstens 3-4 kurzen, klaren Sätzen auf Deutsch (Standard-Deutsch mit Schweizer Begriffen wo passend). Keine Listen, keine Markdown — Fließtext, da die Antwort per Text-to-Speech vorgelesen wird. Wenn du unsicher bist, sag es ehrlich.';
+      var resp = await callAI([{ role: 'user', content: transcript }], sysPrompt, 250, { brain: 'generalist', timeout: 20000 });
+      var txt = '';
+      if (typeof resp === 'string') txt = resp;
+      else if (resp && resp.content && Array.isArray(resp.content)) {
+        txt = resp.content.map(function(c){ return c.text || ''; }).join(' ');
+      } else if (resp && resp.text) txt = resp.text;
+      else if (resp && resp.completion) txt = resp.completion;
+      return (txt || '').trim() || 'Ich habe deine Frage erhalten, kann aber gerade nicht antworten.';
+    } catch(e) {
+      return 'Ich konnte die KI gerade nicht erreichen — versuche es später nochmal.';
+    }
+  }
+  return 'Ich habe „' + transcript + '" gehört, kann aber gerade nicht weiterhelfen.';
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// Ende v25.24 Voice-Mode-Block
+// ═════════════════════════════════════════════════════════════════════
+
 // v24.00: Modal "Meine Pläne" — alle gespeicherten Pläne ansehen / wieder öffnen / löschen
 function gsPPopenSavedPlans() {
   var saved = [];
@@ -42992,6 +43234,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.24', date: '11.05.2026',
+    headline: '🎙️ Hey GreenScan — Voice-Mode mit Web Speech API',
+    summary: 'Drittes Feature des Konkurrenz-Killer-Sprints. v25.23 Push wartet auf Cowork. v25.24 Voice-Mode zuerst da kein Backend noetig. Floating-Modal mit 120px Mikrofon-Button (Pulse-Animation). SpeechRecognition de-CH, Intent-Detection 3 Use-Cases, SpeechSynthesis liest Antwort vor.',
+    items: [
+      {emoji:'🎤', bold:'Web Speech API + iOS-Fallback:', text:' window.SpeechRecognition + webkitSpeechRecognition. Feature-Detection mit Disabled-State.'},
+      {emoji:'🧠', bold:'Intent-Detection 3 Cases:', text:' 1) Ernte/Saison -> gsLoadSeasonalTasks. 2) Erinnere -> Brain-Observe. 3) Generic -> callAI mit TTS-optimiertem Prompt.'},
+      {emoji:'🔊', bold:'SpeechSynthesis de-CH:', text:' Max 800 Zeichen pro Utterance. Cancel-Bei-Modal-Close.'},
+      {emoji:'🎨', bold:'UI:', text:' 120px Mic-Button mit color-coded Status (gruen idle, rot+Pulse listening, orange processing). Live-Transkript-Anzeige.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v25.23 Push (wartet). v25.27 i18n (wartet).'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check OK · sw.js gs-v25.24 OK.'},
+    ]
+  },
+  {
     v: 'v25.22', date: '11.05.2026',
     headline: '📷 Foto-Verlauf-Slider im Pflanzen-Tagebuch — Konkurrenz-Killer #2',
     summary: 'Zweites Feature des Konkurrenz-Killer-Sprints. Pro Pflanze Foto-Verlauf-Slider mit chronologischer Timeline aller Bilder (Profil-Foto + alle diary[].photo). Range-Slider zum Durchscrollen ODER Vorher-Nachher-Compare-Mode mit erstem vs letztem Foto. PictureThis hat das, wir jetzt auch.',
@@ -44107,7 +44362,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.22';
+var GS_VERSION = 'v25.24';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.22 — Foto-Verlauf-Slider im Plant-Detail: gsCollectPlantPhotos sammelt Profil-Photo + alle diary[].photo chronologisch. Modal mit 2 Modes — Single-Slider (range-input, Drag-to-Seek) und Vorher-Nachher-Compare (erstes vs letztes Foto side-by-side). Tap auf Verlauf-Button im Plant-Diary-Modal-Header. Konkurrenz-Killer #2 (PictureThis hat das, wir jetzt auch).
+   v25.24 — Voice-Mode Hey GreenScan: Web Speech API (SpeechRecognition + SpeechSynthesis) ohne Backend. Floating-Modal mit 120px Mic-Button + Pulse-Animation bei Listening. Intent-Detection 3 Use-Cases: 1) Ernte/Saison-Fragen -> gsLoadSeasonalTasks-Match, 2) Erinnerung -> Brain-Observe, 3) Generic -> callAI mit generalist-Brain-Prompt (TTS-optimiert 3-4 Saetze Fliesstext). SpeechSynthesis liest Antwort vor (de-CH). Feature-Detection mit webkitSpeechRecognition-Fallback fuer iOS Safari 14.5+. UI-Trigger im Garten-Tab. v25.23 Push-Notifications uebersprungen (wartet auf Cowork VAPID + Edge-Fn).
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.22';
+const VERSION = 'gs-v25.24';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
