@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.27.20260511">
+<meta name="app-version" content="25.29.20260512">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -22495,7 +22495,13 @@ function renderSocialFeed() {
     out += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">';
     out += '<div style="font-size:28px;flex-shrink:0;">' + av + '</div>';
     out += '<div style="flex:1;min-width:0;">';
-    out += '<div style="font-weight:800;font-size:13.5px;color:var(--text);">' + name + exp + '</div>';
+    // v25.29: Expert-Verifikations-Badge wenn Post von einem Experten verifiziert wurde
+    var vBadge = '';
+    if (p.is_expert_verified) {
+      var vCount = p.verification_count || 1;
+      vBadge = '<span title="Von Experten verifiziert" style="background:linear-gradient(135deg,#1b5e20,#43a047);color:#fff;font-size:9px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:6px;letter-spacing:.2px;">✅ Verifiziert' + (vCount > 1 ? ' ' + vCount + 'x' : '') + '</span>';
+    }
+    out += '<div style="font-weight:800;font-size:13.5px;color:var(--text);">' + name + exp + vBadge + '</div>';
     out += '<div style="font-size:11px;color:var(--muted);">' + dt + (plant ? ' · 🌿 ' + escHtml(plant) : '') + '</div>';
     out += '</div>';
     out += '<span style="font-size:16px;" title="' + (p.type||p.category||'fund') + '">' + emoji + '</span>';
@@ -22522,6 +22528,20 @@ function renderSocialFeed() {
     out += 'style="display:flex;align-items:center;gap:5px;padding:6px 12px;background:var(--surface2);';
     out += 'border:1.5px solid var(--border);border-radius:20px;font-size:12.5px;font-weight:700;';
     out += 'cursor:pointer;color:var(--text2);font-family:inherit;">💬 ' + cnt + '</button>';
+    // v25.29: Verifizieren-Button (nur sichtbar wenn aktueller User Expert ist UND Post noch nicht verifiziert UND nicht eigener Post)
+    if (typeof gsIsExpert === 'function' && gsIsExpert() && !p.is_expert_verified && !isOwn) {
+      out += '<button data-pid="' + pid + '" onclick="gsOpenVerifyModal(this.dataset.pid)" ';
+      out += 'style="display:flex;align-items:center;gap:5px;padding:6px 12px;background:linear-gradient(135deg,#1b5e20,#2e7d32);';
+      out += 'border:none;border-radius:20px;font-size:12px;font-weight:800;cursor:pointer;color:#fff;font-family:inherit;">';
+      out += '✅ Verifizieren</button>';
+    }
+    // v25.29: Verifikation-anfragen-Button (nur eigener Post, PRO-User, noch nicht verifiziert)
+    if (isOwn && !p.is_expert_verified && typeof gsHasProPlan === 'function' && gsHasProPlan()) {
+      out += '<button data-pid="' + pid + '" onclick="gsRequestExpertVerification(this.dataset.pid)" ';
+      out += 'style="display:flex;align-items:center;gap:5px;padding:6px 10px;background:#fff8e1;';
+      out += 'border:1.5px solid #fbc02d;border-radius:20px;font-size:11.5px;font-weight:700;cursor:pointer;color:#e65100;font-family:inherit;">';
+      out += '🎓 Verifikation anfragen</button>';
+    }
     if (isOwn) {
       out += '<button data-pid="' + pid + '" onclick="deletePost(this.dataset.pid)" ';
       out += 'style="margin-left:auto;padding:6px 10px;background:#ffebee;border:1.5px solid #ffcdd2;';
@@ -22615,7 +22635,8 @@ function loadSocialPosts(reset) {
   }
   var limit = 20, offset = _communityPage * limit;
   var filter = currentSocialFilter === 'all' ? '' : ('&category=eq.' + currentSocialFilter);
-  sbFetch('/rest/v1/social_posts?select=*&order=created_at.desc&limit=' + limit + '&offset=' + offset + filter, {method:'GET'})
+  // v25.29: View statt Tabelle — bringt verification_count + is_expert_verified mit
+  sbFetch('/rest/v1/v_social_posts_with_verifications?select=*&order=created_at.desc&limit=' + limit + '&offset=' + offset + filter, {method:'GET'})
     .then(function(res) {
       if (!res.error && res.data) {
         var uid = gsStore.get('gs_sb_uid', null);
@@ -22666,6 +22687,189 @@ function loadSocialPosts(reset) {
       } else if (reset) renderSocialFeed();
     });
 }
+
+// ═════════════════════════════════════════════════════════════════════
+// v25.29 Community-Experten-Verifikation (Cowork-Backend ready 2026-05-11)
+// expert_verifications-Tabelle (RLS), v_social_posts_with_verifications-View,
+// stripe-expert-checkout v1 + stripe-webhook v7 mit
+// metadata.kind='expert_verification' → fee_paid_chf+at automatisch.
+// ─────────────────────────────────────────────────────────────────────
+
+// User-Expert-Status (1h-Cache). Laedt profiles.is_expert beim ersten Call.
+window._gsExpertStatusCache = window._gsExpertStatusCache || { ts: 0, value: null };
+
+async function gsLoadUserExpertStatus() {
+  var ttl = 60 * 60 * 1000;
+  if (window._gsExpertStatusCache.value !== null && (Date.now() - window._gsExpertStatusCache.ts) < ttl) {
+    return window._gsExpertStatusCache.value;
+  }
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn() || typeof sbFetch !== 'function') {
+    return false;
+  }
+  var uid = gsStore.get('gs_sb_uid', null);
+  if (!uid) return false;
+  try {
+    var res = await sbFetch('/rest/v1/profiles?id=eq.' + encodeURIComponent(uid) + '&select=is_expert', { method: 'GET' });
+    var rows = (res && res.data) || [];
+    var v = !!(rows[0] && rows[0].is_expert);
+    window._gsExpertStatusCache = { ts: Date.now(), value: v };
+    return v;
+  } catch(e) {
+    return false;
+  }
+}
+
+// Synchroner Quick-Check für UI-Render (verwendet Cache). Bei Cache-Miss
+// triggert er den Load im Hintergrund + Feed-Re-Render.
+function gsIsExpert() {
+  if (window._gsExpertStatusCache.value !== null) return !!window._gsExpertStatusCache.value;
+  // Async-Lazy-Load + Re-Render
+  gsLoadUserExpertStatus().then(function(v){
+    if (v && typeof renderSocialFeed === 'function') {
+      try { renderSocialFeed(); } catch(_){}
+    }
+  });
+  return false;
+}
+
+// Pro/Lifetime-Check via gs_abo_plan-Cache (Source-of-Truth: v_user_entitlements).
+function gsHasProPlan() {
+  try {
+    var plan = String(localStorage.getItem('gs_abo_plan') || 'free').toLowerCase();
+    return plan === 'pro' || plan === 'lifetime' || plan === 'premium';
+  } catch(_) { return false; }
+}
+
+// Verify-Modal — Experte sieht Post + bestätigt Verifikation.
+function gsOpenVerifyModal(postId) {
+  if (!postId) return;
+  var post = (window.socialPosts || []).find(function(p){ return String(p.id) === String(postId); });
+  if (!post) {
+    if (typeof showProfileToast === 'function') showProfileToast('Post nicht gefunden', 'error');
+    return;
+  }
+  var existing = document.getElementById('verify-post-modal');
+  if (existing) existing.remove();
+  if (typeof gsHaptic === 'function') gsHaptic('light');
+  var photoBlock = (post.photo_url || post.image)
+    ? '<img src="' + (post.photo_url || post.image).replace(/"/g,'&quot;') + '" alt="" style="width:100%;max-height:240px;object-fit:cover;border-radius:10px;margin-bottom:10px;">'
+    : '';
+  var author = escHtml(post.author_name || post.author || 'Naturfreund');
+  var text = escHtml((post.content || post.text || '').slice(0, 240));
+  var m = document.createElement('div');
+  m.id = 'verify-post-modal';
+  m.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);padding:12px;';
+  m.innerHTML = '<div style="background:var(--card);border-radius:16px;max-width:420px;width:100%;max-height:90vh;overflow-y:auto;padding:0;">' +
+    '<div style="background:linear-gradient(135deg,#1b5e20,#2e7d32);padding:16px 18px;color:#fff;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;">' +
+      '<div style="font-size:16px;font-weight:900;">✅ Als Experte verifizieren</div>' +
+      '<button onclick="document.getElementById(\'verify-post-modal\').remove()" style="background:rgba(255,255,255,.2);color:#fff;border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;">×</button>' +
+    '</div>' +
+    '<div style="padding:16px;">' +
+      '<div style="font-size:12px;color:var(--muted);margin-bottom:6px;">Post von ' + author + '</div>' +
+      photoBlock +
+      '<p style="font-size:13px;color:var(--text);line-height:1.55;margin:0 0 14px;">' + text + (text.length >= 240 ? '…' : '') + '</p>' +
+      '<div style="background:#f1f8e9;border-left:3px solid #2e7d32;border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--text);line-height:1.55;">' +
+        '🎓 Du bestätigst als <strong>Experte</strong>: Diese Bestimmung/Information ist fachlich korrekt. Falsche Verifikationen können den Status entziehen.' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;">' +
+        '<button onclick="document.getElementById(\'verify-post-modal\').remove()" style="flex:1;padding:11px;background:var(--card);color:var(--text);border:1.5px solid var(--border);border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;">Abbrechen</button>' +
+        '<button onclick="gsSubmitVerification(\'' + postId + '\')" style="flex:1;padding:11px;background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border:none;border-radius:10px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;">✅ Verifizieren</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+  document.body.appendChild(m);
+}
+
+// Submit Verifikation — INSERT expert_verifications (RLS prüft is_expert).
+async function gsSubmitVerification(postId) {
+  if (!postId || typeof sbFetch !== 'function') return;
+  var uid = gsStore.get('gs_sb_uid', null);
+  if (!uid) return;
+  try {
+    var res = await sbFetch('/rest/v1/expert_verifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      body: JSON.stringify({
+        post_id: postId,
+        expert_id: uid,
+        status: 'verified'
+      })
+    });
+    if (res && res.error) {
+      var msg = (res.error.message || '').toLowerCase();
+      if (msg.indexOf('duplicate') >= 0 || msg.indexOf('unique') >= 0) {
+        if (typeof showProfileToast === 'function') showProfileToast('Bereits verifiziert', 'info');
+      } else {
+        if (typeof showProfileToast === 'function') showProfileToast({title:'Verifikation fehlgeschlagen', body: res.error.message || 'Unbekannter Fehler', type:'error'});
+      }
+    } else {
+      if (typeof gsHaptic === 'function') gsHaptic('success');
+      if (typeof showProfileToast === 'function') showProfileToast('✅ Post verifiziert · Danke!', 'success');
+      if (typeof gsBrain !== 'undefined' && gsBrain && typeof gsBrain.observe === 'function') {
+        try { gsBrain.observe('expert_verify', { post_id: postId }); } catch(_){}
+      }
+    }
+  } catch(e) {
+    if (typeof showProfileToast === 'function') showProfileToast({title:'Verifikation fehlgeschlagen', body:(e && e.message)||'Netzwerk-Fehler', type:'error'});
+  }
+  var modal = document.getElementById('verify-post-modal');
+  if (modal) modal.remove();
+  // Feed reloaden damit Badge erscheint
+  if (typeof loadSocialPosts === 'function') {
+    try { loadSocialPosts(true); } catch(_){}
+  }
+}
+
+// PRO-User: Verifikation anfragen via Stripe-Checkout (CHF 0.50).
+async function gsRequestExpertVerification(postId) {
+  if (!postId) return;
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) {
+    if (typeof showProfileToast === 'function') showProfileToast('Bitte zuerst anmelden', 'error');
+    return;
+  }
+  if (!gsHasProPlan()) {
+    if (typeof showProfileToast === 'function') showProfileToast({title:'PRO-Feature', body:'Verifikation anfragen ist nur für PRO/Lifetime-User. Upgrade im Abo-Tab.', type:'info', duration: 5500});
+    return;
+  }
+  if (typeof gsHaptic === 'function') gsHaptic('medium');
+  if (typeof showProfileToast === 'function') showProfileToast('⏳ Checkout wird vorbereitet …', 'info');
+  var uid = gsStore.get('gs_sb_uid', null);
+  var token = gsStore.get('gs_sb_token', null) || '';
+  var base = (typeof SB_URL !== 'undefined') ? SB_URL : (localStorage.getItem('gs_sb_url') || '');
+  var apikey = (typeof SB_KEY !== 'undefined') ? SB_KEY : '';
+  try {
+    var resp = await (window._gsFetch || fetch)(base + '/functions/v1/stripe-expert-checkout', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
+        'apikey': apikey
+      },
+      body: JSON.stringify({ post_id: postId, expert_id: uid, amount_chf: 0.50 })
+    }, 20000);
+    var data = await resp.json().catch(function(){ return {}; });
+    if (!resp.ok || !data || !data.ok || !data.url) {
+      throw new Error((data && (data.error || data.message)) || ('HTTP ' + resp.status));
+    }
+    // Stripe-Hosted-Checkout im Top-Level — return-URL hat ev_payment=success
+    location.href = data.url;
+  } catch(e) {
+    if (typeof showProfileToast === 'function') showProfileToast({title:'Checkout fehlgeschlagen', body:(e && e.message)||'Unbekannter Fehler', type:'error'});
+  }
+}
+
+// Hot-Refresh des Expert-Status beim Login (Cache invalidieren).
+(function(){
+  window.addEventListener('storage', function(ev){
+    if (ev && (ev.key === 'gs_sb_token' || ev.key === 'gs_sb_uid')) {
+      window._gsExpertStatusCache = { ts: 0, value: null };
+    }
+  });
+})();
+
+// ═════════════════════════════════════════════════════════════════════
+// Ende v25.29 Community-Experten-Block
+// ═════════════════════════════════════════════════════════════════════
 
 function toggleLike(postId) {
   if (!gsRequire('like','Bitte anmelden um zu liken.')) return;
@@ -43517,6 +43721,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.29', date: '12.05.2026',
+    headline: '👥 Community-Experten-Verifikation — Verified-Badge + Stripe-Bestellung',
+    summary: 'Cowork hat expert_verifications + v_social_posts_with_verifications + stripe-expert-checkout v1 + stripe-webhook v7 (kind=expert_verification) deployed. v25.29 ist das Frontend dazu. Community-Feed laedt jetzt aus der View, Posts mit is_expert_verified bekommen ein gruenes ✅-Badge. Experten (profiles.is_expert) sehen Verifizieren-Button auf fremden Posts. PRO/Lifetime-User auf eigenen Posts Verifikation-anfragen-Button (CHF 0.50 via Stripe-Checkout). v25.28 i18n Pass-2 verschoben.',
+    items: [
+      {emoji:'🔗', bold:'B1 View-Switch:', text:' loadSocialPosts ruft v_social_posts_with_verifications statt social_posts. Bringt verification_count + is_expert_verified pro Post mit.'},
+      {emoji:'✅', bold:'B2 Verified-Badge:', text:' Post-Header bekommt gruenen Gradient-Badge ✅ Verifiziert + optional NxCount.'},
+      {emoji:'🎓', bold:'B3 Experten-UI:', text:' gsLoadUserExpertStatus 1h-Cache, gsIsExpert + gsHasProPlan Helper. Verifizieren-Button nur fuer Experten auf fremden Posts.'},
+      {emoji:'🛒', bold:'B4 Stripe-Flow:', text:' gsOpenVerifyModal (Confirm) + gsSubmitVerification (INSERT). gsRequestExpertVerification (PRO+own) ruft stripe-expert-checkout + Top-Level-Redirect.'},
+      {emoji:'🔁', bold:'B5 Return-Handler:', text:' ?ev_payment=success/cancel in gsHandleAuthRedirect mit Toast + Feed-Reload.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v25.28 i18n Pass-2 (verschoben Cleanup). v25.30 AR-View MVP.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check OK · sw.js gs-v25.29 OK.'},
+    ]
+  },
+  {
     v: 'v25.27', date: '11.05.2026',
     headline: '🌍 i18n FR/IT/GSW aktiviert — Schweizer Markt mit Coworks i18n-translate-Backend',
     summary: 'Cowork hat i18n-translate Edge-Fn (Haiku 4.5, Bulk-Chunks, SHA-256-Cache) + i18n_translations-Tabelle deployed. v25.27 ist das Frontend dazu mit 5 Baustellen: gsI18n Singleton, Bundle-Builder, Settings-UI Sprachauswahl, data-i18n Pass-1, hreflang-Tags.',
@@ -44684,7 +44902,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.27';
+var GS_VERSION = 'v25.29';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -45203,6 +45421,25 @@ async function gsHandleAuthRedirect(){
           try { if (typeof gsRestorePurchases === 'function') gsRestorePurchases(); } catch(_){}
         }
         // URL clean — billing-Param weg, sonst triggert sich beim Reload erneut
+        try { history.replaceState(null, '', location.pathname); } catch(_){}
+      }, 800);
+    }
+    // v25.29: Expert-Verification-Payment-Return (stripe-expert-checkout v1).
+    // ev_payment=success → fee_paid_chf+at wurde vom Webhook v7 gesetzt,
+    // Verifikation wird automatisch ausgeloest beim Webhook. UI bestaetigt nur.
+    if (search.includes('ev_payment=')) {
+      setTimeout(function(){
+        if (search.includes('ev_payment=success')) {
+          if (typeof showProfileToast === 'function') {
+            showProfileToast({type:'success', icon:'✅', title:'Verifikation angefragt', body:'Zahlung erfolgreich · ein Experte prueft deinen Post in Kuerze.', duration:6500});
+          }
+          // Feed neu laden (Badge kann gleich erscheinen wenn Webhook schnell war)
+          try { if (typeof loadSocialPosts === 'function') loadSocialPosts(true); } catch(_){}
+        } else if (search.includes('ev_payment=cancel')) {
+          if (typeof showProfileToast === 'function') {
+            showProfileToast({type:'info', icon:'↩️', title:'Verifikations-Anfrage abgebrochen', body:'Kein Problem — du kannst es jederzeit erneut versuchen.', duration:5000});
+          }
+        }
         try { history.replaceState(null, '', location.pathname); } catch(_){}
       }, 800);
     }

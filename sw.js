@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.27 — i18n FR/IT/GSW aktiviert (Schweizer Markt komplett). gsI18n Singleton (detectLang prio: localStorage > URL ?lang= > navigator.language > de). gsBuildI18n ruft Coworks i18n-translate Edge-Fn (DE -> FR/IT, SHA-256-cached). Settings-Sprachauswahl mit 5 Optionen. hreflang im head. data-i18n auf Top-15 statischen Strings (5 Bottom-Tabs + 2 Garten-Action-Buttons + 5 v25.16-v25.24-Modal-Trigger + 3 Settings-Labels). v25.28 wird Restliche ~270 Strings ausbauen.
+   v25.29 — Community-Experten-Verifikation: Feed liest v_social_posts_with_verifications statt social_posts, ✅-Badge wenn is_expert_verified, Verifizieren-Button fuer profiles.is_expert=true User, Verifikation-anfragen-Button fuer PRO/Lifetime-User mit eigenem Post (Stripe-Checkout CHF 0.50 via stripe-expert-checkout v1). Webhook v7 setzt fee_paid_chf+at automatisch. ?ev_payment=success/cancel Return-Handler in gsHandleAuthRedirect.
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.27';
+const VERSION = 'gs-v25.29';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
