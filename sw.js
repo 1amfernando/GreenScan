@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.20 — Garten-Insights-Dashboard: aggregiert pollinators+plant_diseases+garden_tasks_catalog+species+myPlants in einem Modal. 4 Big-Stat-Boxen (myPlants/Bestaeuber-Score/Krankheits-Risiko/Tasks-aktueller-Monat). Bestaeuber-Coverage-Block, Risk-Block mit Top-5 Issues, Saison-Block mit aktuellen Tasks, DB-Stats-Footer. Reine Client-Aggregation ueber 3 cached Edge-Fn-Loads. v25.19 Mischkultur-Score wartet weiter auf Cowork plant_companion_matrix-Daten (Schema bereit, 0 Eintraege).
+   v25.21 — Mischkultur-Score beim Add-Plant: nutzt Coworks plant_companion_matrix (41 Pairs, entsperrt v25.19). gsLookupLatByName mappt User-Eingabe via window.DB auf lat-Namen, gsLoadCompanionsFor 1h-Cache pro lat, gsScoreCompanions matcht gegen myPlants[].lat, gsBuildCompanionScoreBlock zeigt good/bad/neutral mit Tipps. Live-Auto-Block unter mp-name Input (800ms debounce). Edit-Mode triggert Check automatisch.
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.20';
+const VERSION = 'gs-v25.21';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;

@@ -60,7 +60,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.20.20260510">
+<meta name="app-version" content="25.21.20260511">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -18904,6 +18904,9 @@ function openAddPlant(){
   document.getElementById('mp-water').value = '2';
   document.getElementById('mp-sun').value = '2';
   document.getElementById('mp-notes').value = '';
+  // v25.21: Mischkultur-Score-Block leeren
+  var cs = document.getElementById('mp-companion-score');
+  if (cs) cs.innerHTML = '';
   openModal('modal-addplant');
 }
 
@@ -18918,6 +18921,8 @@ function editPlant(id){
   document.getElementById('mp-water').value = String(p.water || 2);
   document.getElementById('mp-sun').value = String(p.sun || 2);
   document.getElementById('mp-notes').value = p.notes || '';
+  // v25.21: Mischkultur-Score automatisch für Edit-Mode triggern
+  if (typeof gsCompanionLiveCheck === 'function') gsCompanionLiveCheck();
   openModal('modal-addplant');
 }
 
@@ -39065,6 +39070,178 @@ function gsBuildInsightsModal(data) {
 // Ende v25.20 Insights-Dashboard-Block
 // ═════════════════════════════════════════════════════════════════════
 
+// ═════════════════════════════════════════════════════════════════════
+// v25.21 Mischkultur-Score beim Add-Plant — entsperrt durch Cowork
+// plant_companion_matrix mit 41 Pairs (31 gut, 5 schlecht, 5 neutral).
+// Strategie: User tippt Pflanzen-Name → Lookup in DB (4341 Arten) für lat
+// → sbFetch companion-Pairs → score gegen existing myPlants[].lat → UI-Block.
+// ─────────────────────────────────────────────────────────────────────
+
+// Cache pro lat — 1h TTL.
+window._gsCompanionsCache = window._gsCompanionsCache || {};
+
+// Findet lat zu einem Pflanzen-Namen (case-insensitive). Liefert null wenn
+// nicht eindeutig erkennbar. Nutzt globales DB (window.DB aus plants.v1.js).
+function gsLookupLatByName(name) {
+  if (!name) return null;
+  var q = String(name).trim().toLowerCase();
+  if (!q || q.length < 3) return null;
+  if (typeof DB === 'undefined' || !Array.isArray(DB)) return null;
+  // Exakt-Match name oder lat zuerst
+  var exact = DB.find(function(s){
+    return s && ((s.name||'').toLowerCase() === q || (s.lat||'').toLowerCase() === q);
+  });
+  if (exact && exact.lat) return exact.lat;
+  // Sonst: substring-Match auf name (greift z.B. „Tomate" gegen „Cherry-Tomate")
+  var hit = DB.find(function(s){
+    if (!s || !s.name) return false;
+    var n = s.name.toLowerCase();
+    return n.indexOf(q) >= 0 || q.indexOf(n) >= 0;
+  });
+  return hit && hit.lat ? hit.lat : null;
+}
+
+// Lädt Companion-Pairs für einen lat-Namen. Cache 1h.
+async function gsLoadCompanionsFor(lat) {
+  if (!lat) return [];
+  var cached = window._gsCompanionsCache[lat];
+  if (cached && (Date.now() - cached.ts) < 60 * 60 * 1000) return cached.data;
+  if (typeof sbFetch !== 'function') return [];
+  try {
+    // Pairs wo dieses lat als a ODER b vorkommt
+    var encoded = encodeURIComponent(lat);
+    var res = await sbFetch(
+      '/rest/v1/plant_companion_matrix?or=(species_a_lat.eq.' + encoded + ',species_b_lat.eq.' + encoded + ')&select=*',
+      { method: 'GET' }
+    );
+    var rows = (res && res.data && Array.isArray(res.data)) ? res.data : [];
+    window._gsCompanionsCache[lat] = { ts: Date.now(), data: rows };
+    return rows;
+  } catch(e) {
+    return [];
+  }
+}
+
+// Berechnet Score-Struktur: { good: [...], bad: [...], neutral: [...] }.
+// gardenLats sind die lat-Namen der existing myPlants (alle, gefiltert non-empty).
+function gsScoreCompanions(pairs, sourceLat, gardenLats) {
+  var goodSet = new Set();
+  var badSet = new Set();
+  var neutralSet = new Set();
+  (pairs || []).forEach(function(r){
+    if (!r) return;
+    var other = (r.species_a_lat === sourceLat) ? r.species_b_lat : r.species_a_lat;
+    if (!other || other === sourceLat) return;
+    // Nur Match wenn die andere Pflanze auch im Garten ist
+    var otherInGarden = gardenLats.some(function(gl){ return gl === other; });
+    if (!otherInGarden) return;
+    var rel = (r.relationship || '').toLowerCase();
+    var pair = { other: other, note: r.note || r.reason || '', rel: rel };
+    if (rel === 'gut' || rel === 'good' || rel === 'beneficial') goodSet.add(JSON.stringify(pair));
+    else if (rel === 'schlecht' || rel === 'bad' || rel === 'incompatible') badSet.add(JSON.stringify(pair));
+    else neutralSet.add(JSON.stringify(pair));
+  });
+  function deserialize(s) { return Array.from(s).map(function(j){ try { return JSON.parse(j); } catch(_){ return null; } }).filter(Boolean); }
+  return { good: deserialize(goodSet), bad: deserialize(badSet), neutral: deserialize(neutralSet) };
+}
+
+// Findet einen lesbaren Namen für einen lat aus myPlants oder DB.
+function gsNameForLat(lat) {
+  if (!lat) return '';
+  try {
+    if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) {
+      var fromGarden = myPlants.find(function(p){ return p && p.lat === lat; });
+      if (fromGarden && fromGarden.name) return fromGarden.name;
+    }
+    if (typeof DB !== 'undefined' && Array.isArray(DB)) {
+      var fromDb = DB.find(function(s){ return s && s.lat === lat; });
+      if (fromDb && fromDb.name) return fromDb.name;
+    }
+  } catch(_){}
+  return lat;
+}
+
+// Rendert den HTML-Block für den Mischkultur-Score. score = aus gsScoreCompanions.
+function gsBuildCompanionScoreBlock(score, plantName) {
+  if (!score) return '';
+  var hasAny = (score.good.length + score.bad.length + score.neutral.length) > 0;
+  if (!hasAny) {
+    return '<div style="background:#f5f5f5;border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:11.5px;color:var(--muted);line-height:1.5;">' +
+      '🌱 Mischkultur-Check: keine bekannten Wechselwirkungen mit deinen aktuellen Pflanzen — fühl dich frei!' +
+    '</div>';
+  }
+  var html = '';
+  if (score.good.length) {
+    html += '<div style="background:#e8f5e9;border:1.5px solid #2e7d32;border-radius:10px;padding:10px 12px;margin-bottom:6px;">' +
+      '<div style="font-size:12px;font-weight:800;color:#1b5e20;margin-bottom:4px;">✅ Passt gut zu:</div>' +
+      '<div style="font-size:11.5px;color:var(--text);line-height:1.55;">' +
+      score.good.slice(0, 5).map(function(p){
+        return '<strong>' + gsEscHtml(gsNameForLat(p.other)) + '</strong>' + (p.note ? ' <span style="color:var(--muted);">— ' + gsEscHtml(p.note).slice(0, 80) + '</span>' : '');
+      }).join('<br>') +
+      '</div>' +
+    '</div>';
+  }
+  if (score.bad.length) {
+    html += '<div style="background:#ffebee;border:1.5px solid #c62828;border-radius:10px;padding:10px 12px;margin-bottom:6px;">' +
+      '<div style="font-size:12px;font-weight:800;color:#b71c1c;margin-bottom:4px;">⚠️ Schlecht zu:</div>' +
+      '<div style="font-size:11.5px;color:var(--text);line-height:1.55;">' +
+      score.bad.slice(0, 5).map(function(p){
+        return '<strong>' + gsEscHtml(gsNameForLat(p.other)) + '</strong>' + (p.note ? ' <span style="color:var(--muted);">— ' + gsEscHtml(p.note).slice(0, 100) + '</span>' : '');
+      }).join('<br>') +
+      '</div>' +
+      '<div style="font-size:10.5px;color:#b71c1c;margin-top:6px;font-style:italic;">💡 Tipp: getrennte Beete oder min. 50 cm Abstand einplanen.</div>' +
+    '</div>';
+  }
+  if (score.neutral.length) {
+    html += '<div style="background:#fff3e0;border:1px solid #f57c00;border-radius:10px;padding:8px 12px;margin-bottom:6px;">' +
+      '<div style="font-size:11.5px;color:#bf360c;">🤷 Neutral zu: ' +
+      score.neutral.slice(0, 4).map(function(p){ return gsEscHtml(gsNameForLat(p.other)); }).join(', ') +
+      '</div>' +
+    '</div>';
+  }
+  return '<div style="margin-top:4px;">' +
+    '<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px;">🌱 Mischkultur-Check für „' + gsEscHtml(plantName) + '"</div>' +
+    html +
+  '</div>';
+}
+
+// Live-Handler: wird bei oninput auf mp-name aufgerufen.
+window._gsCompanionDebounce = null;
+function gsCompanionLiveCheck() {
+  if (window._gsCompanionDebounce) clearTimeout(window._gsCompanionDebounce);
+  window._gsCompanionDebounce = setTimeout(async function(){
+    var inp = document.getElementById('mp-name');
+    var host = document.getElementById('mp-companion-score');
+    if (!host) return;
+    var name = inp ? (inp.value || '').trim() : '';
+    if (!name || name.length < 3) { host.innerHTML = ''; return; }
+    var lat = gsLookupLatByName(name);
+    if (!lat) {
+      host.innerHTML = '<div style="background:#f5f5f5;border:1px dashed var(--border);border-radius:10px;padding:8px 12px;font-size:11px;color:var(--muted);">🌱 Mischkultur-Check: nicht in DB gefunden — tippe einen genaueren Namen.</div>';
+      return;
+    }
+    // Wenn keine myPlants → kein Check möglich
+    var gardenLats = [];
+    try {
+      if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) {
+        gardenLats = myPlants.map(function(p){ return (p && p.lat) ? p.lat : null; }).filter(Boolean);
+      }
+    } catch(_){}
+    if (!gardenLats.length) {
+      host.innerHTML = '<div style="background:#e3f2fd;border:1px solid #0277bd;border-radius:10px;padding:8px 12px;font-size:11.5px;color:#01579b;">🌱 Mischkultur-Check: noch keine anderen Pflanzen im Garten — willkommen!</div>';
+      return;
+    }
+    host.innerHTML = '<div style="font-size:11px;color:var(--muted);font-style:italic;">⏳ Mischkultur-Check läuft …</div>';
+    var pairs = await gsLoadCompanionsFor(lat);
+    var score = gsScoreCompanions(pairs, lat, gardenLats);
+    host.innerHTML = gsBuildCompanionScoreBlock(score, name);
+  }, 800);
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// Ende v25.21 Mischkultur-Score-Block
+// ═════════════════════════════════════════════════════════════════════
+
 // v24.00: Modal "Meine Pläne" — alle gespeicherten Pläne ansehen / wieder öffnen / löschen
 function gsPPopenSavedPlans() {
   var saved = [];
@@ -42654,6 +42831,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.21', date: '11.05.2026',
+    headline: '🌱 Mischkultur-Score beim Add-Plant — entsperrt durch Cowork (41 Pairs)',
+    summary: 'Erstes Feature des Konkurrenz-Killer-Sprints. Cowork hat plant_companion_matrix mit 41 Pairs gefuellt (31 gut, 5 schlecht, 5 neutral). User tippt im Add-Plant-Modal Pflanzen-Namen — App mappt via window.DB auf lat, ruft plant_companion_matrix mit OR-Query, filtert gegen myPlants, sortiert in good/bad/neutral. Auto-Block 800ms-debounced unter Name-Input. Bei schlechten Kombinationen Tipp 50cm Abstand.',
+    items: [
+      {emoji:'🔍', bold:'gsLookupLatByName:', text:' Sucht in window.DB (4341 Arten) exakt-Match oder substring. Liefert null bei <3 Zeichen.'},
+      {emoji:'📡', bold:'gsLoadCompanionsFor 1h-Cache:', text:' OR-Query species_a_lat ODER species_b_lat = lat. Cache pro lat.'},
+      {emoji:'⚖️', bold:'gsScoreCompanions:', text:' Iteriert Pairs, klassifiziert in good/bad/neutral je nach relationship-Feld. Dedup via Set.'},
+      {emoji:'🎨', bold:'UI Live-Auto-Block:', text:' 3 farbcodierte Bloecke gruen/rot/orange. Edge-Cases mit eigenen Hinweisen (keine myPlants, kein DB-Match).'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v25.22 Foto-Verlauf. v25.23 Push-Notifications. v25.24 Voice-Mode. v25.27 i18n FR/IT.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check OK · sw.js gs-v25.21 OK.'},
+    ]
+  },
+  {
     v: 'v25.20', date: '10.05.2026',
     headline: '📊 Garten-Insights-Dashboard — DB-Mega-Sprint v25.16-v25.20 KOMPLETT',
     summary: 'Letztes Feature der DB-Mega-Sprint-Serie. Aggregiert pollinators + plant_diseases + garden_tasks_catalog + species-DB + myPlants in einem Insights-Modal. Bestäuber-Score (% myPlants in Top-Pollinator-Plants), Krankheits-Risiko (Anzahl myPlants in affected_plants), Saison-Tasks-Count, DB-Stats-Footer. Reine Client-Aggregation ueber 3 cached Edge-Fn-Loads.',
@@ -43743,7 +43933,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.20';
+var GS_VERSION = 'v25.21';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -52883,7 +53073,9 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
     <div style="padding:18px;display:flex;flex-direction:column;gap:12px;">
       <div>
         <label style="display:block;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:4px;">Art / Name <span style="color:#c62828;">*</span></label>
-        <input id="mp-name" type="text" placeholder="z.B. Monstera, Tomate…" style="width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;background:var(--input-bg);color:var(--text);box-sizing:border-box;">
+        <input id="mp-name" type="text" placeholder="z.B. Monstera, Tomate…" oninput="gsCompanionLiveCheck()" style="width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;background:var(--input-bg);color:var(--text);box-sizing:border-box;">
+        <!-- v25.21: Mischkultur-Score-Auto-Block (gefüllt via gsCompanionLiveCheck) -->
+        <div id="mp-companion-score" style="margin-top:8px;"></div>
       </div>
       <div>
         <label style="display:block;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:4px;">Spitzname (optional)</label>
