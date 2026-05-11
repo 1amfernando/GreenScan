@@ -60,7 +60,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.20.20260510">
+<meta name="app-version" content="25.21.20260511">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -2372,6 +2372,12 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <div style="padding:0 16px 8px;">
   <button onclick="gsSeasonalOpen()" title="Saisonkalender — alle 12 Monate" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#e8f5e9,#c5e1a5);border:1.5px solid #66bb6a;color:#1b5e20;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
     <span>📅 Saisonkalender · Voll-Jahres-Übersicht</span><span style="color:#1b5e20;font-size:18px;">›</span>
+  </button>
+</div>
+<!-- v25.21: Mischkultur-Berater (33-Arten Inline-DB + Supabase-Fallback) -->
+<div style="padding:0 16px 8px;">
+  <button onclick="gsMischkulturOpen()" title="Mischkultur-Berater — Gute &amp; schlechte Nachbarn + Harmonie-Score" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#e8f5e9,#c8e6c9);border:1.5px solid #43a047;color:#1b5e20;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span>🤝 Mischkultur-Berater · Gute &amp; schlechte Nachbarn</span><span style="color:#1b5e20;font-size:18px;">›</span>
   </button>
 </div>
 <!-- v25.20: Garten-Insights-Dashboard (aggregiert pollinators + diseases + tasks + myPlants) -->
@@ -38865,15 +38871,17 @@ function gsBuildSeasonalModal(rows) {
 // ─────────────────────────────────────────────────────────────────────
 
 async function gsInsightsCompute() {
-  // Parallel laden — alle 3 sind 30min/1h-cached
+  // Parallel laden — alle 4 sind 30min/1h-cached
   var results = await Promise.all([
     gsLoadPollinators().catch(function(){ return []; }),
     gsLoadDiseases().catch(function(){ return []; }),
-    gsLoadSeasonalTasks().catch(function(){ return []; })
+    gsLoadSeasonalTasks().catch(function(){ return []; }),
+    (typeof gsLoadCompanion === 'function' ? gsLoadCompanion() : Promise.resolve([])).catch(function(){ return []; })
   ]);
-  var pollinators = results[0] || [];
-  var diseases = results[1] || [];
-  var tasks = results[2] || [];
+  var pollinators  = results[0] || [];
+  var diseases     = results[1] || [];
+  var tasks        = results[2] || [];
+  var companionDb  = results[3] || [];
 
   var mp = (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) ? myPlants : [];
   var dbCount = (typeof DB !== 'undefined' && Array.isArray(DB)) ? DB.length : 0;
@@ -38921,15 +38929,21 @@ async function gsInsightsCompute() {
   var plannedCount = mp.filter(function(p){ return p.status === 'planned'; }).length;
   var plantedCount = mp.length - plannedCount;
 
+  // 5) Mischkultur-Score (v25.21)
+  var compScore = (typeof gsMischkulturScore === 'function')
+    ? gsMischkulturScore(mp, companionDb)
+    : { score: null, good: [], bad: [], harmony: null };
+
   return {
     counts: {
-      myPlants: mp.length,
-      planned: plannedCount,
-      planted: plantedCount,
-      species: dbCount,
+      myPlants:   mp.length,
+      planned:    plannedCount,
+      planted:    plantedCount,
+      species:    dbCount,
       pollinators: pollinators.length,
-      diseases: diseases.length,
-      tasks: tasks.length
+      diseases:   diseases.length,
+      tasks:      tasks.length,
+      companions: companionDb.length
     },
     bee: {
       score_pct: beeScorePct,
@@ -38944,6 +38958,14 @@ async function gsInsightsCompute() {
       month: month,
       tasks_count: currentTasks.length,
       tasks: currentTasks.slice(0, 4).map(function(t){ return t.title || t.name || ''; }).filter(Boolean)
+    },
+    companion: {
+      score_pct:  compScore.score,
+      harmony:    compScore.harmony,
+      good_count: compScore.good.length,
+      bad_count:  compScore.bad.length,
+      good:       compScore.good.slice(0, 4),
+      bad:        compScore.bad.slice(0, 4)
     }
   };
 }
@@ -38964,10 +38986,11 @@ async function gsInsightsOpen() {
 window.openGardenInsights = gsInsightsOpen;
 
 function gsBuildInsightsModal(data) {
-  var c = data.counts || {};
-  var bee = data.bee || {};
-  var risk = data.risk || {};
-  var season = data.season || {};
+  var c      = data.counts    || {};
+  var bee    = data.bee       || {};
+  var risk   = data.risk      || {};
+  var season = data.season    || {};
+  var comp   = data.companion || {};
   var monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 
   // 4 Big-Stat-Boxen (Grid 2×2)
@@ -39033,13 +39056,33 @@ function gsBuildInsightsModal(data) {
     '</div>';
   }
 
+  // Mischkultur-Block (v25.21)
+  var companionBlock = '';
+  if (comp.score_pct !== null && comp.score_pct !== undefined) {
+    var cColor  = comp.score_pct >= 80 ? '#2e7d32' : comp.score_pct >= 60 ? '#f57c00' : '#c62828';
+    var cBg     = comp.score_pct >= 80 ? '#e8f5e9' : comp.score_pct >= 60 ? '#fff8e1' : '#ffebee';
+    var cBorder = comp.score_pct >= 80 ? '#2e7d32' : comp.score_pct >= 60 ? '#fbc02d' : '#ef5350';
+    var cLabel  = comp.score_pct >= 80 ? '🌟 Exzellente Harmonie' : comp.score_pct >= 60 ? '✅ Gute Mischkultur' : comp.score_pct >= 40 ? '⚠️ Gemischtes Bild' : '❌ Konflikt-Risiko';
+    companionBlock = '<div style="background:' + cBg + ';border:1.5px solid ' + cBorder + ';border-radius:12px;padding:12px 14px;margin-bottom:10px;">' +
+      '<div style="font-size:13px;font-weight:900;color:' + cColor + ';margin-bottom:5px;">🤝 Mischkultur-Harmonie: ' + comp.score_pct + '% · ' + cLabel + '</div>' +
+      (comp.bad_count > 0 ? '<div style="font-size:12px;color:#c62828;line-height:1.6;">❌ ' + comp.bad_count + ' Konflikt-Paar' + (comp.bad_count > 1 ? 'e' : '') + ': ' + (comp.bad || []).map(gsEscHtml).join(', ') + '</div>' : '') +
+      (comp.good_count > 0 ? '<div style="font-size:12px;color:#2e7d32;margin-top:3px;">✅ ' + comp.good_count + ' harmonisch' + (comp.good_count > 1 ? 'e Paare' : 'es Paar') + ' erkannt</div>' : '') +
+      '<div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;">🤝 Mischkultur-Berater öffnen für Details + Pflanzennachschlagen.</div>' +
+    '</div>';
+  } else if ((c.myPlants || 0) >= 2) {
+    companionBlock = '<div style="background:#f5f5f5;border-radius:11px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--muted);">' +
+      '🤝 Mischkultur-Score: Companion-Daten nicht geladen — 🤝 Mischkultur-Berater öffnen.' +
+    '</div>';
+  }
+
   // DB-Stats (footer)
   var dbStatsBlock = '<div style="background:linear-gradient(135deg,#f5f5f5,#fafafa);border:1px solid var(--border);border-radius:12px;padding:10px 14px;font-size:11.5px;color:var(--muted);line-height:1.6;text-align:center;">' +
     '<strong style="color:var(--text);">📚 Knowledge-DB:</strong><br>' +
     c.species.toLocaleString('de-CH') + ' Pflanzenarten · ' +
     c.pollinators + ' Bestäuber · ' +
     c.diseases + ' Krankheiten · ' +
-    c.tasks + ' Saison-Tasks' +
+    c.tasks + ' Saison-Tasks · ' +
+    (c.companions || _GS_COMPANION_DB.length) + ' Mischkultur-Arten' +
     '<br><span style="font-size:10px;">Cowork pg_cron erweitert die DB taeglich</span>' +
   '</div>';
 
@@ -39048,12 +39091,13 @@ function gsBuildInsightsModal(data) {
       '<button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(0,0,0,.18);color:#fff;font-size:20px;cursor:pointer;">×</button>' +
       '<div style="font-size:42px;margin-bottom:6px;">📊</div>' +
       '<div style="font-family:\'Playfair Display\',serif;font-size:21px;font-weight:900;margin-bottom:4px;">Garten-Insights</div>' +
-      '<div style="font-size:12.5px;opacity:.95;">Bestäuber-Score · Krankheits-Risiko · Saison-Tasks · DB-Stats</div>' +
+      '<div style="font-size:12.5px;opacity:.95;">Bestäuber-Score · Mischkultur-Harmonie · Krankheits-Risiko · Saison-Tasks</div>' +
     '</div>' +
     '<div style="padding:14px 16px 18px;">' +
       bigStats +
       statusBlock +
       beeBlock +
+      companionBlock +
       riskBlock +
       seasonBlock +
       dbStatsBlock +
@@ -39063,6 +39107,298 @@ function gsBuildInsightsModal(data) {
 
 // ═════════════════════════════════════════════════════════════════════
 // Ende v25.20 Insights-Dashboard-Block
+// ═════════════════════════════════════════════════════════════════════
+
+// ═════════════════════════════════════════════════════════════════════
+// v25.21 Mischkultur-Berater — 33-Arten Inline-DB + Supabase-Fallback
+//        + Harmonie-Score für myPlants + Live-Pflanzennachschlagen.
+//        Inline-DB: FiBL Schweiz + Agrarökologen ETH Zürich.
+//        Supabase plant_companion_matrix wird bevorzugt (1h-Cache).
+// ─────────────────────────────────────────────────────────────────────
+
+var _GS_COMPANION_DB = [
+  { name:'Tomate',           emoji:'🍅', gut_mit:['Basilikum','Karotten','Tagetes','Petersilie','Lauch','Sellerie','Spinat','Borretsch','Kamille'],        schlecht_mit:['Fenchel','Kohlrabi','Kartoffeln','Paprika'],          hinweis:'Basilikum hält Blattläuse und weiße Fliegen fern. Tagetes schreckt Fadenwürmer ab.' },
+  { name:'Gurke',            emoji:'🥒', gut_mit:['Erbsen','Dill','Rote Beete','Lauch','Tagetes','Ringelblume','Salat','Bohnen'],                          schlecht_mit:['Kartoffeln','Salbei','Tomate'],                       hinweis:'Dill zieht Schwebfliegen an, die Blattläuse fressen. Erbsen fixieren Stickstoff.' },
+  { name:'Kartoffeln',       emoji:'🥔', gut_mit:['Spinat','Meerrettich','Erbsen','Bohnen','Kapuzinerkresse'],                                             schlecht_mit:['Tomate','Sonnenblume','Fenchel','Gurke','Kürbis'],    hinweis:'Meerrettich hält Kartoffelkäfer fern. Abstand zu Tomaten wichtig — gleiche Krankheiten.' },
+  { name:'Karotten',         emoji:'🥕', gut_mit:['Lauch','Zwiebeln','Tomate','Erbsen','Salat','Petersilie','Rosmarin','Salbei'],                          schlecht_mit:['Dill','Fenchel'],                                     hinweis:'Lauch hält Möhrenfliege fern — die klassische Schweizer Mischkultur!' },
+  { name:'Lauch',            emoji:'🧅', gut_mit:['Karotten','Sellerie','Tomate','Erdbeeren','Rote Beete'],                                               schlecht_mit:['Erbsen','Bohnen'],                                    hinweis:'Vertreibt Möhren- und Zwiebelfliege durch Duft. Ideal neben Karotten.' },
+  { name:'Salat',            emoji:'🥗', gut_mit:['Radieschen','Karotten','Erdbeeren','Gurke','Erbsen','Spinat'],                                          schlecht_mit:['Fenchel','Sellerie'],                                 hinweis:'Radieschen lenken Erdflöhe ab. Im Schatten von Tomaten oder Stangenbohnen gut.' },
+  { name:'Erbsen',           emoji:'🫛', gut_mit:['Karotten','Radieschen','Gurke','Mais','Spinat','Kohl','Salat'],                                         schlecht_mit:['Zwiebeln','Lauch','Knoblauch','Fenchel'],             hinweis:'Leguminose — fixiert Stickstoff im Boden. Ideal vor Kohl oder Mais gesät.' },
+  { name:'Bohnen',           emoji:'🫘', gut_mit:['Mais','Kürbis','Karotten','Gurke','Erdbeeren','Salat','Sellerie'],                                      schlecht_mit:['Zwiebeln','Lauch','Knoblauch','Fenchel','Paprika'],   hinweis:'Die Drei Schwestern (Mais + Bohnen + Kürbis) sind das klassische Permakultur-System.' },
+  { name:'Mais',             emoji:'🌽', gut_mit:['Bohnen','Kürbis','Gurke','Sonnenblume','Dill','Zucchini'],                                              schlecht_mit:['Tomate','Fenchel','Sellerie'],                        hinweis:'Drei Schwestern: Mais als Kletterstütze für Bohnen, Kürbis als Bodendecker.' },
+  { name:'Kürbis',           emoji:'🎃', gut_mit:['Mais','Bohnen','Radieschen','Tagetes','Dill'],                                                          schlecht_mit:['Kartoffeln','Fenchel'],                               hinweis:'Große Blätter beschatten Boden und halten Unkraut in Schach.' },
+  { name:'Zucchini',         emoji:'🫑', gut_mit:['Mais','Bohnen','Tagetes','Dill','Zwiebeln','Ringelblume'],                                              schlecht_mit:['Kartoffeln','Fenchel'],                               hinweis:'Wie Kürbis: große Blätter schützen Boden. Gut in der Drei-Schwestern-Kombination.' },
+  { name:'Basilikum',        emoji:'🌿', gut_mit:['Tomate','Paprika','Spinat','Petersilie','Ringelblume'],                                                 schlecht_mit:['Fenchel','Salbei','Thymian'],                         hinweis:'Natürliches Insektizid gegen Blattläuse, Mücken und weiße Fliegen.' },
+  { name:'Tagetes',          emoji:'🌼', gut_mit:['Tomate','Gurke','Karotten','Bohnen','Kürbis','Zucchini','Kartoffeln'],                                  schlecht_mit:['Kohl','Fenchel'],                                     hinweis:'Hält Fadenwürmer, weiße Fliegen und Blattläuse fern. Universale Begleitpflanze.' },
+  { name:'Ringelblume',      emoji:'🌻', gut_mit:['Tomate','Gurke','Karotten','Erdbeeren','Bohnen','Zucchini'],                                            schlecht_mit:[],                                                     hinweis:'Universale Begleitpflanze: schreckt Nematoden und Blattläuse ab. Ideal in jedem Beet.' },
+  { name:'Zwiebeln',         emoji:'🧅', gut_mit:['Karotten','Salat','Erdbeeren','Rote Beete','Tomate','Zucchini'],                                        schlecht_mit:['Erbsen','Bohnen','Salbei'],                           hinweis:'Ihr Duft hält viele Schädlinge fern. Ideal neben Karotten gegen Möhrenfliege.' },
+  { name:'Knoblauch',        emoji:'🧄', gut_mit:['Rosen','Erdbeeren','Tomate','Karotten'],                                                                schlecht_mit:['Erbsen','Bohnen','Kohl'],                             hinweis:'Starker Fungizid-Effekt. Neben Rosen schützt er vor Blattläusen und Pilzkrankheiten.' },
+  { name:'Erdbeeren',        emoji:'🍓', gut_mit:['Knoblauch','Zwiebeln','Lauch','Spinat','Salat','Borretsch','Ringelblume'],                              schlecht_mit:['Kohl','Fenchel','Kartoffeln'],                        hinweis:'Borretsch verbessert Geschmack und hält Schädlinge fern. Knoblauch verhindert Grauschimmel.' },
+  { name:'Kohl',             emoji:'🥦', gut_mit:['Dill','Kamille','Salbei','Rosmarin','Tagetes','Erbsen','Sellerie'],                                     schlecht_mit:['Tomate','Erdbeeren','Bohnen','Zwiebeln','Knoblauch'], hinweis:'Dill lockt Schlupfwespen an. Salbei und Rosmarin halten Kohlweißling fern.' },
+  { name:'Spinat',           emoji:'🍃', gut_mit:['Tomate','Erdbeeren','Bohnen','Erbsen','Kürbis','Radieschen'],                                           schlecht_mit:['Fenchel'],                                            hinweis:'Guter Bodendecker und Stickstoffsammler. Ideal unter Hochpflanzen.' },
+  { name:'Rote Beete',       emoji:'🌸', gut_mit:['Zwiebeln','Lauch','Salat','Kohlrabi','Rettich'],                                                        schlecht_mit:['Karotten','Bohnen','Mais'],                           hinweis:'Vergrault Minierfliegen durch Duft. Gut mit Brassica-Kulturen kombinierbar.' },
+  { name:'Sellerie',         emoji:'🌿', gut_mit:['Lauch','Tomate','Bohnen','Kohl'],                                                                       schlecht_mit:['Karotten','Mais','Fenchel'],                          hinweis:'Sellerie und Lauch: klassische Mischpartner, halten gegenseitige Schädlinge fern.' },
+  { name:'Radieschen',       emoji:'🌱', gut_mit:['Salat','Karotten','Gurke','Spinat','Erbsen'],                                                           schlecht_mit:['Fenchel'],                                            hinweis:'Lockt Erdflöhe von anderen Kulturen ab (Opferpflanze). Gut als Lückenfüller.' },
+  { name:'Fenchel',          emoji:'🌾', gut_mit:['Dill'],                                                                                                 schlecht_mit:['Tomate','Bohnen','Gurke','Kohl','Kartoffeln','Erbsen'], hinweis:'Fenchel hemmt fast alle Gemüse. Am besten isoliert oder in einer Ecke anbauen.' },
+  { name:'Dill',             emoji:'🌿', gut_mit:['Gurke','Salat','Zwiebeln','Kohl','Mais'],                                                               schlecht_mit:['Karotten','Tomate','Fenchel'],                        hinweis:'Lockt Schwebfliegen an. Kann Karotten-Wachstum hemmen.' },
+  { name:'Petersilie',       emoji:'🌱', gut_mit:['Tomate','Spargel','Rosen','Karotten'],                                                                  schlecht_mit:['Salat','Zwiebeln'],                                   hinweis:'Verbessert Aroma von Tomaten. Lockt Nützlinge an.' },
+  { name:'Borretsch',        emoji:'🌸', gut_mit:['Erdbeeren','Tomate','Bohnen','Kürbis','Zucchini'],                                                      schlecht_mit:[],                                                     hinweis:'Verbessert Geschmack von Erdbeeren. Lockt Hummeln an. Essbare Blüten.' },
+  { name:'Paprika',          emoji:'🌶️', gut_mit:['Basilikum','Karotten','Tagetes'],                                                                      schlecht_mit:['Fenchel','Kartoffeln','Bohnen'],                      hinweis:'Basilikum als Nachbar fördert Wachstum und hält Blattläuse fern.' },
+  { name:'Rosmarin',         emoji:'🌿', gut_mit:['Salbei','Thymian','Kohl','Karotten','Bohnen'],                                                          schlecht_mit:['Basilikum','Kürbis','Minze'],                         hinweis:'Hält Kohlweißling und viele Blattläuse fern. Dürreresistent — gut an Beeträndern.' },
+  { name:'Thymian',          emoji:'🌿', gut_mit:['Kohl','Karotten','Rosmarin','Zucchini'],                                                                schlecht_mit:['Basilikum','Minze'],                                  hinweis:'Ätherische Öle halten Blattläuse und Kohlweißling fern.' },
+  { name:'Minze',            emoji:'🌱', gut_mit:['Kohl','Erbsen','Tomate','Sellerie'],                                                                    schlecht_mit:['Rosmarin','Thymian','Kamille'],                       hinweis:'Sehr invasiv — am besten im Topf. Hält Ameisen, Blattläuse und Schnecken fern.' },
+  { name:'Kamille',          emoji:'🌼', gut_mit:['Kohl','Zwiebeln','Gurke','Tomate','Bohnen'],                                                            schlecht_mit:['Minze'],                                              hinweis:'Aertztin des Gartens: staerkt Nachbarpflanzen und lockt Nützlinge an.' },
+  { name:'Kapuzinerkresse',  emoji:'🌺', gut_mit:['Tomate','Gurke','Kartoffeln','Bohnen','Rosen'],                                                         schlecht_mit:[],                                                     hinweis:'Opferpflanze für Blattläuse — lenkt sie vom Gemüse weg. Essbare Blüten für Salate.' },
+  { name:'Salbei',           emoji:'🌿', gut_mit:['Karotten','Kohl','Rosmarin','Erdbeeren'],                                                               schlecht_mit:['Zwiebeln','Basilikum'],                               hinweis:'Hält Möhrenfliege und Kohlweißling fern. Gut als Beetrand gepflanzt.' }
+];
+
+window._gsCompanionCache    = null;
+window._gsCompanionCacheTs  = 0;
+
+async function gsLoadCompanion() {
+  var ttl = 60 * 60 * 1000;
+  if (window._gsCompanionCache && (Date.now() - window._gsCompanionCacheTs) < ttl) {
+    return window._gsCompanionCache;
+  }
+  if (typeof sbFetch === 'function') {
+    try {
+      var res = await sbFetch('/rest/v1/plant_companion_matrix?select=*&limit=300', { method: 'GET' });
+      var rows = (res && res.data && Array.isArray(res.data) && res.data.length >= 5) ? res.data : null;
+      if (rows) {
+        var mapped = rows.map(function(r) {
+          var g = r.good_companions || r.gut_mit || [];
+          var b = r.bad_companions  || r.schlecht_mit || [];
+          return {
+            name:         r.plant_name || r.name || '',
+            emoji:        r.emoji || '🌿',
+            gut_mit:      Array.isArray(g) ? g : [],
+            schlecht_mit: Array.isArray(b) ? b : [],
+            hinweis:      r.tip || r.hinweis || ''
+          };
+        }).filter(function(r){ return r.name && r.gut_mit; });
+        if (mapped.length >= 5) {
+          window._gsCompanionCache   = mapped;
+          window._gsCompanionCacheTs = Date.now();
+          return mapped;
+        }
+      }
+    } catch(_) {}
+  }
+  window._gsCompanionCache   = _GS_COMPANION_DB.slice();
+  window._gsCompanionCacheTs = Date.now();
+  return window._gsCompanionCache;
+}
+
+// Berechnet Paar-Harmonie-Score für myPlants gegen Companion-DB.
+// Fuzzy-Match: DB-Name in Pflanzennamen enthalten oder umgekehrt.
+function gsMischkulturScore(mp, db) {
+  var names = (mp || []).map(function(p){ return (p.name || '').toLowerCase().trim(); }).filter(Boolean);
+  if (names.length < 2) return { score: null, good: [], bad: [], harmony: null };
+
+  var byKey = {};
+  (db || []).forEach(function(r){
+    byKey[(r.name || '').toLowerCase()] = r;
+  });
+
+  function findEntry(n) {
+    if (byKey[n]) return byKey[n];
+    var keys = Object.keys(byKey);
+    for (var k = 0; k < keys.length; k++) {
+      if (n.indexOf(keys[k]) >= 0 || keys[k].indexOf(n) >= 0) return byKey[keys[k]];
+    }
+    return null;
+  }
+
+  var goodPairs = [], badPairs = [];
+  for (var i = 0; i < names.length; i++) {
+    var entry = findEntry(names[i]);
+    if (!entry) continue;
+    for (var j = i + 1; j < names.length; j++) {
+      var n2 = names[j];
+      var gutL  = (entry.gut_mit      || []).map(function(s){ return s.toLowerCase(); });
+      var badL  = (entry.schlecht_mit || []).map(function(s){ return s.toLowerCase(); });
+      var isG = gutL.some(function(g){ return g.indexOf(n2) >= 0 || n2.indexOf(g) >= 0; });
+      var isB = !isG && badL.some(function(b){ return b.indexOf(n2) >= 0 || n2.indexOf(b) >= 0; });
+      var pairName = (mp[i].name || names[i]) + ' + ' + (mp[j].name || names[j]);
+      if (isG) goodPairs.push(pairName);
+      else if (isB) badPairs.push(pairName);
+    }
+  }
+
+  var total = goodPairs.length + badPairs.length;
+  var score = total > 0 ? Math.round((goodPairs.length / total) * 100) : null;
+  var harmony = score === null ? null : score >= 80 ? 'excellent' : score >= 60 ? 'good' : score >= 40 ? 'mixed' : 'poor';
+  return { score: score, good: goodPairs, bad: badPairs, harmony: harmony };
+}
+
+function gsBuildCompanionCard(r) {
+  var esc = typeof escHtml === 'function' ? escHtml : function(s){ return String(s || ''); };
+  var goodChips = (r.gut_mit      || []).slice(0, 9).map(function(n){ return '<span class="companion-chip chip-good">✅ ' + esc(n) + '</span>'; }).join('');
+  var badChips  = (r.schlecht_mit || []).slice(0, 7).map(function(n){ return '<span class="companion-chip chip-bad">❌ '  + esc(n) + '</span>'; }).join('');
+  return '<div style="background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:13px 14px;margin-bottom:8px;">' +
+    '<div style="font-size:16px;font-weight:900;color:var(--text);margin-bottom:8px;">' + (r.emoji || '🌿') + ' ' + esc(r.name) + '</div>' +
+    (goodChips
+      ? '<div style="font-size:11px;font-weight:700;color:#2e7d32;margin-bottom:4px;">Gute Nachbarn:</div><div style="margin-bottom:6px;">' + goodChips + '</div>'
+      : '<div style="font-size:11.5px;color:var(--muted);margin-bottom:6px;">Keine guten Nachbarn bekannt.</div>') +
+    (badChips ? '<div style="font-size:11px;font-weight:700;color:#c62828;margin-bottom:4px;">Schlechte Nachbarn:</div><div style="margin-bottom:6px;">' + badChips + '</div>' : '') +
+    (r.hinweis ? '<div style="font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.5;font-style:italic;">💡 ' + esc(r.hinweis) + '</div>' : '') +
+  '</div>';
+}
+
+function gsMischkulturSearch(q) {
+  var out = document.getElementById('mischk-search-result');
+  if (!out) return;
+  var esc = typeof escHtml === 'function' ? escHtml : function(s){ return String(s || ''); };
+  if (!q || q.length < 2) {
+    out.innerHTML = '<div style="color:var(--muted);font-size:12.5px;text-align:center;padding:12px 0;">Pflanzennamen eingeben …</div>';
+    return;
+  }
+  var ql = q.toLowerCase();
+  var matches = _GS_COMPANION_DB.filter(function(r){ return r.name.toLowerCase().indexOf(ql) >= 0; });
+  if (!matches.length) {
+    out.innerHTML = '<div style="color:var(--muted);font-size:12.5px;text-align:center;padding:12px 0;">Kein Eintrag für „' + esc(q) + '" — Datenbank wird laufend erweitert.</div>';
+    return;
+  }
+  out.innerHTML = matches.slice(0, 3).map(gsBuildCompanionCard).join('');
+}
+
+async function gsMischkulturOpen() {
+  if (typeof gsHaptic === 'function') gsHaptic('light');
+  var mc = document.getElementById('modal-content');
+  if (!mc) return;
+  mc.innerHTML = '<div style="padding:0;">' +
+    '<div style="background:linear-gradient(135deg,#2e7d32,#388e3c,#43a047);padding:22px 18px;color:#fff;text-align:center;position:relative;">' +
+      '<button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(0,0,0,.18);color:#fff;font-size:20px;cursor:pointer;">×</button>' +
+      '<div style="font-size:42px;margin-bottom:6px;">🤝</div>' +
+      '<div style="font-family:\'Playfair Display\',serif;font-size:21px;font-weight:900;margin-bottom:4px;">Mischkultur-Berater</div>' +
+      '<div style="font-size:12.5px;opacity:.92;">Gute &amp; schlechte Nachbarn · Harmonie-Score</div>' +
+    '</div>' +
+    '<div style="padding:30px 18px;text-align:center;color:var(--muted);">⏳ Lade Companion-Daten …</div>' +
+  '</div>';
+  openModal('detail-modal');
+  var db = await gsLoadCompanion();
+  var mp = (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) ? myPlants : [];
+  mc.innerHTML = gsBuildMischkulturModal(db, mp);
+  if (typeof gsBrain !== 'undefined' && gsBrain && typeof gsBrain.observe === 'function') {
+    try { gsBrain.observe('mischkultur_open', { plants: mp.length, db_size: db.length }); } catch(_){}
+  }
+}
+window.openMischkultur = gsMischkulturOpen;
+
+function gsBuildMischkulturModal(db, mp) {
+  var esc = typeof escHtml === 'function' ? escHtml : function(s){ return String(s || ''); };
+  var scoreData = gsMischkulturScore(mp, db);
+
+  // Score-Card (nur wenn >= 2 Pflanzen + bekannte Paare)
+  var scoreHtml = '';
+  if (mp.length >= 2 && scoreData.score !== null) {
+    var sc = scoreData.score;
+    var scColor  = sc >= 80 ? '#2e7d32' : sc >= 60 ? '#f57c00' : '#c62828';
+    var scBg     = sc >= 80 ? '#e8f5e9' : sc >= 60 ? '#fff8e1' : '#ffebee';
+    var scBorder = sc >= 80 ? '#2e7d32' : sc >= 60 ? '#fbc02d' : '#ef5350';
+    var scLabel  = sc >= 80 ? '🌟 Exzellente Harmonie' : sc >= 60 ? '✅ Gute Mischkultur' : sc >= 40 ? '⚠️ Gemischtes Bild' : '❌ Konflikt-Risiko';
+    scoreHtml = '<div style="background:' + scBg + ';border:2px solid ' + scBorder + ';border-radius:14px;padding:16px;margin-bottom:12px;text-align:center;">' +
+      '<div style="font-size:44px;font-weight:900;color:' + scColor + ';line-height:1;">' + sc + '%</div>' +
+      '<div style="font-size:13.5px;font-weight:800;color:' + scColor + ';margin-top:5px;">' + scLabel + '</div>' +
+      '<div style="font-size:11.5px;color:var(--muted);margin-top:7px;line-height:1.5;">' +
+        (scoreData.good.length ? '✅ ' + scoreData.good.length + ' harmonische' + (scoreData.good.length > 1 ? ' Paare' : 's Paar') : '') +
+        (scoreData.good.length && scoreData.bad.length ? ' · ' : '') +
+        (scoreData.bad.length  ? '❌ ' + scoreData.bad.length  + ' Konflikt-Paar' + (scoreData.bad.length  > 1 ? 'e' : '') : '') +
+      '</div>' +
+    '</div>';
+    if (scoreData.bad.length) {
+      scoreHtml += '<div style="background:#fff3e0;border:1px solid #ffcc80;border-radius:11px;padding:10px 12px;margin-bottom:10px;">' +
+        '<div style="font-size:12px;font-weight:900;color:#e65100;margin-bottom:6px;">⚠️ Schlechte Nachbarn in deinem Garten:</div>' +
+        scoreData.bad.slice(0, 6).map(function(p){ return '<div style="font-size:12px;margin:3px 0;"><span class="companion-chip chip-bad">❌ ' + esc(p) + '</span></div>'; }).join('') +
+      '</div>';
+    }
+    if (scoreData.good.length) {
+      scoreHtml += '<div style="background:#f1f8e9;border:1px solid #aed581;border-radius:11px;padding:10px 12px;margin-bottom:10px;">' +
+        '<div style="font-size:12px;font-weight:900;color:#33691e;margin-bottom:6px;">✅ Gute Kombinationen in deinem Garten:</div>' +
+        scoreData.good.slice(0, 6).map(function(p){ return '<div style="font-size:12px;margin:3px 0;"><span class="companion-chip chip-good">✅ ' + esc(p) + '</span></div>'; }).join('') +
+      '</div>';
+    }
+  } else if (mp.length >= 2) {
+    scoreHtml = '<div style="background:#f5f5f5;border-radius:11px;padding:12px;margin-bottom:12px;font-size:12.5px;color:var(--muted);text-align:center;">' +
+      'Keine der Garten-Pflanzen in der Companion-DB gefunden. Unten nachschlagen.' +
+    '</div>';
+  } else {
+    scoreHtml = '<div style="background:#f5f5f5;border-radius:11px;padding:12px;margin-bottom:12px;font-size:12.5px;color:var(--muted);text-align:center;">' +
+      '🌱 Füge mindestens 2 Pflanzen in deinen Garten ein, um den Harmonie-Score zu sehen.' +
+    '</div>';
+  }
+
+  // Deine Pflanzen aus myPlants mit Companion-Daten
+  var myPlantCards = '';
+  if (mp.length > 0) {
+    var byKey2 = {};
+    (db || []).forEach(function(r){ byKey2[(r.name || '').toLowerCase()] = r; });
+    function findE(n) {
+      var nl = n.toLowerCase();
+      if (byKey2[nl]) return byKey2[nl];
+      var ks = Object.keys(byKey2);
+      for (var k = 0; k < ks.length; k++) {
+        if (nl.indexOf(ks[k]) >= 0 || ks[k].indexOf(nl) >= 0) return byKey2[ks[k]];
+      }
+      return null;
+    }
+    var cardsHtml = '';
+    mp.forEach(function(p) {
+      var entry = findE(p.name || '');
+      if (entry) cardsHtml += gsBuildCompanionCard(entry);
+    });
+    if (cardsHtml) {
+      myPlantCards = '<div style="font-size:13px;font-weight:900;color:var(--text);margin-bottom:8px;margin-top:4px;">🌿 Deine Pflanzen im Detail</div>' + cardsHtml;
+    }
+  }
+
+  // Live-Suche
+  var searchHtml = '<div style="margin-bottom:12px;">' +
+    '<div style="font-size:13px;font-weight:900;color:var(--text);margin-bottom:8px;">🔍 Pflanze nachschlagen</div>' +
+    '<input type="search" placeholder="z.B. Tomate, Basilikum, Karotten …" oninput="gsMischkulturSearch(this.value)" autocomplete="off" ' +
+      'style="width:100%;box-sizing:border-box;padding:11px 13px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;background:var(--card);color:var(--text);outline:none;" />' +
+    '<div id="mischk-search-result" style="margin-top:8px;">' +
+      '<div style="color:var(--muted);font-size:12.5px;text-align:center;padding:12px 0;">Pflanzennamen eingeben …</div>' +
+    '</div>' +
+  '</div>';
+
+  // Universale Begleitpflanzen
+  var universalHtml = '<div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:12px;padding:12px 14px;margin-bottom:10px;">' +
+    '<div style="font-size:12px;font-weight:900;color:#2e7d32;margin-bottom:7px;">🌟 Universale Begleitpflanzen — passen in jeden Garten:</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:4px;">' +
+      '<span class="companion-chip chip-good">🌼 Tagetes</span>' +
+      '<span class="companion-chip chip-good">🌻 Ringelblume</span>' +
+      '<span class="companion-chip chip-good">🌸 Borretsch</span>' +
+      '<span class="companion-chip chip-good">🌼 Kamille</span>' +
+      '<span class="companion-chip chip-good">🌿 Basilikum</span>' +
+      '<span class="companion-chip chip-good">🌺 Kapuzinerkresse</span>' +
+    '</div>' +
+    '<div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5;">Diese Pflanzen wirken in fast jedem Beet positiv: locken Nützlinge an, schrecken Schädlinge ab.</div>' +
+  '</div>';
+
+  var sourceHtml = '<div style="font-size:11px;color:var(--muted);text-align:center;padding-bottom:4px;">' +
+    '📚 ' + (db || []).length + ' Arten · Quellen: FiBL Schweiz, Agrarökologen ETH Zürich, Maria Thun Aussaattage' +
+  '</div>';
+
+  return '<div style="padding:0;">' +
+    '<div style="background:linear-gradient(135deg,#2e7d32,#388e3c,#43a047);padding:22px 18px;color:#fff;text-align:center;position:relative;">' +
+      '<button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(0,0,0,.18);color:#fff;font-size:20px;cursor:pointer;">×</button>' +
+      '<div style="font-size:42px;margin-bottom:6px;">🤝</div>' +
+      '<div style="font-family:\'Playfair Display\',serif;font-size:21px;font-weight:900;margin-bottom:4px;">Mischkultur-Berater</div>' +
+      '<div style="font-size:12.5px;opacity:.92;">Gute &amp; schlechte Nachbarn · ' + (db || []).length + ' Arten · Harmonie-Score</div>' +
+    '</div>' +
+    '<div style="padding:14px 16px 18px;">' +
+      scoreHtml +
+      myPlantCards +
+      searchHtml +
+      universalHtml +
+      sourceHtml +
+    '</div>' +
+  '</div>';
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// Ende v25.21 Mischkultur-Berater-Block
 // ═════════════════════════════════════════════════════════════════════
 
 // v24.00: Modal "Meine Pläne" — alle gespeicherten Pläne ansehen / wieder öffnen / löschen
@@ -42654,6 +42990,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.21', date: '11.05.2026',
+    headline: '🤝 Mischkultur-Berater — 33-Arten Inline-DB + Harmonie-Score + Supabase-Fallback',
+    summary: 'v25.19 (bisher vorgezogen) nun vollständig implementiert mit Inline-Fallback: 33 Schweizer Garten- und Küchenkräuter-Arten basierend auf FiBL Schweiz + Agrarökologen ETH Zürich. Mischkultur-Berater-Modal im Garten-Tab: Harmonie-Score für myPlants (% guter vs. schlechter Paare), Live-Pflanzennachschlagen, myPlants-Übersicht mit gut/schlecht-Nachbarn, 6 universale Begleitpflanzen-Chips. Supabase plant_companion_matrix bevorzugt (1h-Cache, Fallback Inline). gsInsightsCompute erweitert: 4. Promise.all-Slot + Mischkultur-Harmonie-Block im Insights-Modal.',
+    items: [
+      {emoji:'🌱', bold:'_GS_COMPANION_DB:', text:' 33 Arten (Tomate bis Salbei) mit gut_mit[], schlecht_mit[], hinweis. Quellen: FiBL Schweiz, Agrarökologen ETH Zürich, Maria Thun Aussaattage.'},
+      {emoji:'🔄', bold:'gsLoadCompanion:', text:' 1h-Cache. Versucht zuerst Supabase plant_companion_matrix (Feld-Mapping good_companions→gut_mit, bad_companions→schlecht_mit). Fallback auf _GS_COMPANION_DB wenn Tabelle leer/Fehler.'},
+      {emoji:'🧮', bold:'gsMischkulturScore:', text:' Paar-Analyse aller myPlants gegen Companion-DB (fuzzy match). Liefert score_pct (0-100), good[], bad[], harmony-Label (excellent/good/mixed/poor).'},
+      {emoji:'🤝', bold:'gsMischkulturOpen + gsBuildMischkulturModal:', text:' Grün-Gradient-Modal. Score-Card mit Farbkodierung, Konflikt-/Harmonie-Paar-Listen, myPlants-Detail-Cards, Live-Suche (oninput→gsMischkulturSearch), 6 universale Begleitpflanzen-Chips.'},
+      {emoji:'📊', bold:'gsInsightsCompute + gsBuildInsightsModal:', text:' 4. Promise.all-Slot (gsLoadCompanion). Return-Objekt hat companion{score_pct,harmony,good_count,bad_count,good[],bad[]}. Insights-Modal zeigt companionBlock nach Bestäuber-Coverage. dbStatsBlock zeigt Mischkultur-Arten-Count.'},
+      {emoji:'✅', bold:'Verify:', text:' node --check OK · sw.js gs-v25.21 OK · GS_VERSION=v25.21 OK · meta app-version=25.21.20260511 OK.'},
+    ]
+  },
+  {
     v: 'v25.20', date: '10.05.2026',
     headline: '📊 Garten-Insights-Dashboard — DB-Mega-Sprint v25.16-v25.20 KOMPLETT',
     summary: 'Letztes Feature der DB-Mega-Sprint-Serie. Aggregiert pollinators + plant_diseases + garden_tasks_catalog + species-DB + myPlants in einem Insights-Modal. Bestäuber-Score (% myPlants in Top-Pollinator-Plants), Krankheits-Risiko (Anzahl myPlants in affected_plants), Saison-Tasks-Count, DB-Stats-Footer. Reine Client-Aggregation ueber 3 cached Edge-Fn-Loads.',
@@ -43743,7 +44092,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.20';
+var GS_VERSION = 'v25.21';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-04-30 · **Branch**: `claude/audit-app-features-CXtrI` · **Version**: `v24.13` (in Arbeit) / `v24.12` (gepusht) · **2 Wochen bis Release**
+**Stand**: 2026-05-11 · **Branch**: `claude/happy-gates-HK3zX` · **Version**: `v25.21` (gepusht) · **Release-ready nach P0-Smoke-Test**
 
 ---
 
@@ -12,8 +12,12 @@
 
 | Commit | Version | Fokus |
 |---|---|---|
-| (next push) | v24.13 | Phase 9: Pre-Launch-Audit-Subagent + 5 Sicherheits-Fixes (1 CRITICAL daily-push-Auth · 3 HIGH CORS-Origins/encodeURIComponent · 1 MED stripe-uuid · LOW SW-Version-Bump) · 10 zusätzliche Achievements (34 total) · 50 zusätzliche IUCN-Arten (130 total) |
-| `ee900a7` | v24.12 | Phase 8: Performance-Polish (preconnect/preload erweitert) · DEPLOY.md §16-17 (OG/Screenshots/App-Store-Wrapper) · README-Refresh · Stripe-Webhook Edge Fn (audit-log) + Migration · Error→Brain-Memory-Telemetry |
+| (next push) | v25.21 | 🤝 Mischkultur-Berater: 33-Arten Inline-DB (FiBL + ETH) + Supabase-Fallback + Harmonie-Score + Live-Suche. gsInsightsCompute 4. Promise.all-Slot. Garten-Tab-Button. |
+| `49df543` | v25.20 | 📊 Garten-Insights-Dashboard — DB-Mega-Sprint v25.16-v25.20 KOMPLETT |
+| `53c497c` | v25.18 | 📅 Saisonkalender — garden_tasks_catalog inline + 12-Monats-Modal |
+| `be0efee` | v25.17 | 🦠 Krankheits-Lexikon — Symptom-Suche mit plant_diseases-DB |
+| `5da2d4d` | v25.16 | 🐝 Bestäuber-Garten — Wildbienen-Förderungs-Feature mit pollinators-DB |
+| `bd1fe4e` | v25.15 | KI-Planer 1.6+1.7 Auto-Sync myPlants + PDF — Theme 1 KOMPLETT |
 | `80ba380` | v24.11 | Sprint 28+29+30: Pre-Launch-Polish — `gsAlert`-Helper + 9 alert()→Toast Migrationen · B5 als „Admin-Feature" geklärt · `gsSelfTest()` mit 33 Module-Reachability-Checks |
 | `9a78621` | v24.10 | Sprint 26+27: Pre-Launch-Audit + Versions-Sync (alles `v24.10`), install.html-Marketing-Polish (16 Features statt 8) |
 | `b6f3df8` | v24.09 | Sprint 25: `gsWelcomeTour` — 3-Slide Welcome (auto-trigger erst-Launch, defensiv, idempotent) |

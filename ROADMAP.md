@@ -26,6 +26,7 @@
 | S13 | **Sprint 7 (B): Multikriterien-Schlüssel** | `4559bee` v23.95 | `gsKey` Filter-Engine + Modal mit 9 Kriterien. Killer-Feature gegen Flora Helvetica |
 | S14 | **Sprint 8 (C): Smart-Push-Notifications** | `be8d202` v23.96 | `gsPush` Client + push-test/daily-push Edge Fns. Tägliche personalisierte Tipps aus brain_memory. **VAPID-Keys + Cron-Setup durch Owner pending** |
 | S15 | **Sprint 9 (A): i18n FR/IT-Infrastruktur** | (next push) v23.97 | `gsI18n` Modul mit DE/FR/IT-Bundles (~70 Strings + 14 Pflanzen-Namen), Locale-Detect, dynamisches html-lang, hreflang. Strings-Migration iterativ |
+| S16 | **v25.21 Mischkultur-Berater** | (next push) v25.21 | 33-Arten Inline-Companion-DB (FiBL + ETH Zürich) + Supabase plant_companion_matrix-Fallback + Harmonie-Score + Live-Suche. Garten-Tab-Button 🤝. gsInsightsCompute 4. Slot. |
 
 ---
 
