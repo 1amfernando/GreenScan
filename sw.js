@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.21 — Mischkultur-Score beim Add-Plant: nutzt Coworks plant_companion_matrix (41 Pairs, entsperrt v25.19). gsLookupLatByName mappt User-Eingabe via window.DB auf lat-Namen, gsLoadCompanionsFor 1h-Cache pro lat, gsScoreCompanions matcht gegen myPlants[].lat, gsBuildCompanionScoreBlock zeigt good/bad/neutral mit Tipps. Live-Auto-Block unter mp-name Input (800ms debounce). Edit-Mode triggert Check automatisch.
+   v25.22 — Foto-Verlauf-Slider im Plant-Detail: gsCollectPlantPhotos sammelt Profil-Photo + alle diary[].photo chronologisch. Modal mit 2 Modes — Single-Slider (range-input, Drag-to-Seek) und Vorher-Nachher-Compare (erstes vs letztes Foto side-by-side). Tap auf Verlauf-Button im Plant-Diary-Modal-Header. Konkurrenz-Killer #2 (PictureThis hat das, wir jetzt auch).
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.21';
+const VERSION = 'gs-v25.22';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;

@@ -60,7 +60,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.21.20260511">
+<meta name="app-version" content="25.22.20260511">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -19090,10 +19090,12 @@ function openPlantDiary(plantId) {
   m.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px);';
   m.innerHTML =
     '<div style="background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:520px;max-height:90vh;display:flex;flex-direction:column;">'+
-      '<div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">'+
-        '<div><div style="font-size:16px;font-weight:800;color:var(--text);">📓 Tagebuch · '+(typeof escHtml==='function'?escHtml(p.name):p.name)+'</div>'+
+      '<div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;">'+
+        '<div style="flex:1;min-width:0;"><div style="font-size:16px;font-weight:800;color:var(--text);">📓 Tagebuch · '+(typeof escHtml==='function'?escHtml(p.name):p.name)+'</div>'+
         '<div style="font-size:11px;color:var(--muted);">'+entries.length+' Einträge</div></div>'+
-        '<button onclick="document.getElementById(\'plant-diary-modal\').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);">✕</button>'+
+        // v25.22: Foto-Verlauf-Trigger
+        '<button onclick="gsOpenPhotoTimeline(\''+plantId+'\')" title="Foto-Verlauf-Slider" style="background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit;flex-shrink:0;">📸 Verlauf</button>'+
+        '<button onclick="document.getElementById(\'plant-diary-modal\').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);flex-shrink:0;">✕</button>'+
       '</div>'+
       '<div id="diary-add-form" style="padding:14px 18px;border-bottom:1px solid var(--border);background:var(--surface2);">'+
         '<select id="diary-action" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:var(--card);color:var(--text);margin-bottom:8px;">'+
@@ -39242,6 +39244,165 @@ function gsCompanionLiveCheck() {
 // Ende v25.21 Mischkultur-Score-Block
 // ═════════════════════════════════════════════════════════════════════
 
+// ═════════════════════════════════════════════════════════════════════
+// v25.22 Foto-Verlauf-Slider im Plant-Detail
+// Sammelt Profil-Foto + alle diary[].photo chronologisch.
+// Modal mit Range-Slider + großem Foto + Vorher-Nachher-Compare.
+// ─────────────────────────────────────────────────────────────────────
+
+function gsCollectPlantPhotos(plant) {
+  if (!plant) return [];
+  var photos = [];
+  // Profil-Foto wenn vorhanden (Z.0 - älteste Annahme: bei Anlegen)
+  if (plant.photo && typeof plant.photo === 'string') {
+    var addedTs = plant.added ? Date.parse(plant.added) : 0;
+    if (!isFinite(addedTs)) addedTs = 0;
+    photos.push({ ts: addedTs, photo: plant.photo, title: 'Profilbild', action: 'initial' });
+  }
+  // Diary-Fotos
+  if (Array.isArray(plant.diary)) {
+    plant.diary.forEach(function(e){
+      if (e && e.photo) {
+        photos.push({ ts: e.ts || 0, photo: e.photo, title: e.title || 'Tagebuch', action: e.action || 'note', note: e.note || '' });
+      }
+    });
+  }
+  // Chronologisch (aelteste zuerst)
+  photos.sort(function(a,b){ return (a.ts || 0) - (b.ts || 0); });
+  return photos;
+}
+
+function gsOpenPhotoTimeline(plantId) {
+  var p = (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) ? myPlants.find(function(x){ return x.id === plantId; }) : null;
+  if (!p) return;
+  var photos = gsCollectPlantPhotos(p);
+  // Vorhandenes Modal entfernen
+  var existing = document.getElementById('photo-timeline-modal');
+  if (existing) existing.remove();
+  if (typeof gsHaptic === 'function') gsHaptic('light');
+
+  var m = document.createElement('div');
+  m.id = 'photo-timeline-modal';
+  m.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);padding:12px;';
+
+  if (!photos.length) {
+    m.innerHTML = '<div style="background:var(--card);border-radius:16px;padding:24px;max-width:380px;text-align:center;color:var(--text);">' +
+      '<div style="font-size:48px;margin-bottom:8px;opacity:.5;">📸</div>' +
+      '<div style="font-size:14px;font-weight:800;margin-bottom:6px;">Noch kein Foto-Verlauf</div>' +
+      '<div style="font-size:12px;color:var(--muted);line-height:1.55;">Fuege im Tagebuch Fotos hinzu — dieser Slider zeigt dann die Entwicklung deiner Pflanze ueber die Zeit.</div>' +
+      '<button onclick="document.getElementById(\'photo-timeline-modal\').remove()" style="margin-top:14px;padding:10px 22px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">OK</button>' +
+    '</div>';
+    document.body.appendChild(m);
+    return;
+  }
+
+  // Initial: letztes Foto (neueste)
+  var idx = photos.length - 1;
+  window._gsPhotoTimelineState = { plantId: plantId, photos: photos, idx: idx, mode: 'single' };
+
+  m.innerHTML = gsBuildPhotoTimelineContent();
+  document.body.appendChild(m);
+
+  if (typeof gsBrain !== 'undefined' && gsBrain && typeof gsBrain.observe === 'function') {
+    try { gsBrain.observe('photo_timeline_open', { plant: p.name, count: photos.length }); } catch(_){}
+  }
+}
+
+function gsBuildPhotoTimelineContent() {
+  var s = window._gsPhotoTimelineState || {};
+  var photos = s.photos || [];
+  var idx = Math.max(0, Math.min(photos.length - 1, s.idx || 0));
+  var p = (typeof myPlants !== 'undefined') ? myPlants.find(function(x){ return x.id === s.plantId; }) : null;
+  var plantName = (p && p.name) ? p.name : 'Pflanze';
+
+  // Header
+  var header = '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;color:#fff;">' +
+    '<div style="font-size:14px;font-weight:800;">📸 ' + gsEscHtml(plantName) + ' · ' + photos.length + ' Foto' + (photos.length === 1 ? '' : 's') + '</div>' +
+    '<button onclick="document.getElementById(\'photo-timeline-modal\').remove()" style="background:rgba(255,255,255,.18);color:#fff;border:none;width:34px;height:34px;border-radius:50%;font-size:18px;cursor:pointer;">×</button>' +
+  '</div>';
+
+  // Mode-Toggle (Single vs Compare)
+  var modeToggle = '<div style="display:flex;gap:6px;margin-bottom:10px;">' +
+    '<button onclick="gsPhotoTimelineMode(\'single\')" style="flex:1;padding:8px;background:' + (s.mode === 'compare' ? 'rgba(255,255,255,.12)' : '#fff') + ';color:' + (s.mode === 'compare' ? '#fff' : '#1b5e20') + ';border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">▶️ Einzel-Slider</button>' +
+    (photos.length >= 2 ? '<button onclick="gsPhotoTimelineMode(\'compare\')" style="flex:1;padding:8px;background:' + (s.mode === 'compare' ? '#fff' : 'rgba(255,255,255,.12)') + ';color:' + (s.mode === 'compare' ? '#1b5e20' : '#fff') + ';border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">⇆ Vorher / Nachher</button>' : '') +
+  '</div>';
+
+  // Content je nach Modus
+  var content = '';
+  if (s.mode === 'compare' && photos.length >= 2) {
+    var first = photos[0];
+    var last = photos[photos.length - 1];
+    var dateFmt = function(ts) {
+      if (!ts) return '?';
+      try { return new Date(ts).toLocaleDateString('de-CH', {day:'2-digit', month:'short', year:'numeric'}); } catch(_) { return '?'; }
+    };
+    content =
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+        '<div style="background:#000;border-radius:12px;overflow:hidden;aspect-ratio:1;">' +
+          '<img src="' + first.photo + '" alt="Vorher" style="width:100%;height:100%;object-fit:cover;display:block;">' +
+        '</div>' +
+        '<div style="background:#000;border-radius:12px;overflow:hidden;aspect-ratio:1;">' +
+          '<img src="' + last.photo + '" alt="Nachher" style="width:100%;height:100%;object-fit:cover;display:block;">' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;color:#fff;text-align:center;">' +
+        '<div><div style="font-size:11.5px;font-weight:700;">↑ Vorher</div><div style="font-size:10.5px;opacity:.85;">' + dateFmt(first.ts) + '</div><div style="font-size:10px;opacity:.7;margin-top:2px;">' + gsEscHtml(first.title || '') + '</div></div>' +
+        '<div><div style="font-size:11.5px;font-weight:700;">↑ Nachher</div><div style="font-size:10.5px;opacity:.85;">' + dateFmt(last.ts) + '</div><div style="font-size:10px;opacity:.7;margin-top:2px;">' + gsEscHtml(last.title || '') + '</div></div>' +
+      '</div>';
+  } else {
+    // Single + Slider
+    var cur = photos[idx];
+    var ts = cur && cur.ts ? new Date(cur.ts).toLocaleDateString('de-CH', {day:'2-digit', month:'short', year:'numeric'}) : '';
+    var labelLeft = photos[0] && photos[0].ts ? new Date(photos[0].ts).toLocaleDateString('de-CH', {month:'short', year:'2-digit'}) : '';
+    var labelRight = photos[photos.length-1] && photos[photos.length-1].ts ? new Date(photos[photos.length-1].ts).toLocaleDateString('de-CH', {month:'short', year:'2-digit'}) : 'jetzt';
+    content =
+      '<div style="background:#000;border-radius:12px;overflow:hidden;aspect-ratio:1;max-height:65vh;">' +
+        '<img src="' + (cur ? cur.photo : '') + '" alt="Verlauf" style="width:100%;height:100%;object-fit:contain;display:block;background:#000;">' +
+      '</div>' +
+      '<div style="color:#fff;text-align:center;margin-top:10px;">' +
+        '<div style="font-size:12.5px;font-weight:700;">' + ts + '</div>' +
+        '<div style="font-size:11px;opacity:.8;margin-top:2px;">' + gsEscHtml((cur && cur.title) || '') + (cur && cur.note ? ' · ' + gsEscHtml(cur.note).slice(0, 80) : '') + '</div>' +
+      '</div>' +
+      (photos.length > 1 ?
+        '<div style="margin-top:14px;">' +
+          '<input type="range" id="photo-tl-slider" min="0" max="' + (photos.length - 1) + '" value="' + idx + '" oninput="gsPhotoTimelineSeek(this.value)" style="width:100%;accent-color:#43a047;">' +
+          '<div style="display:flex;justify-content:space-between;color:#fff;font-size:10.5px;opacity:.8;margin-top:4px;">' +
+            '<span>' + labelLeft + '</span>' +
+            '<span>' + (idx + 1) + ' / ' + photos.length + '</span>' +
+            '<span>' + labelRight + '</span>' +
+          '</div>' +
+        '</div>'
+        : '');
+  }
+
+  return '<div style="width:100%;max-width:540px;max-height:92vh;overflow-y:auto;">' +
+    header +
+    modeToggle +
+    content +
+  '</div>';
+}
+
+function gsPhotoTimelineSeek(value) {
+  var s = window._gsPhotoTimelineState;
+  if (!s) return;
+  s.idx = parseInt(value, 10) || 0;
+  var m = document.getElementById('photo-timeline-modal');
+  if (m) m.innerHTML = gsBuildPhotoTimelineContent();
+}
+
+function gsPhotoTimelineMode(mode) {
+  var s = window._gsPhotoTimelineState;
+  if (!s) return;
+  s.mode = mode;
+  if (typeof gsHaptic === 'function') gsHaptic('tap');
+  var m = document.getElementById('photo-timeline-modal');
+  if (m) m.innerHTML = gsBuildPhotoTimelineContent();
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// Ende v25.22 Foto-Verlauf-Slider-Block
+// ═════════════════════════════════════════════════════════════════════
+
 // v24.00: Modal "Meine Pläne" — alle gespeicherten Pläne ansehen / wieder öffnen / löschen
 function gsPPopenSavedPlans() {
   var saved = [];
@@ -42831,6 +42992,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.22', date: '11.05.2026',
+    headline: '📷 Foto-Verlauf-Slider im Pflanzen-Tagebuch — Konkurrenz-Killer #2',
+    summary: 'Zweites Feature des Konkurrenz-Killer-Sprints. Pro Pflanze Foto-Verlauf-Slider mit chronologischer Timeline aller Bilder (Profil-Foto + alle diary[].photo). Range-Slider zum Durchscrollen ODER Vorher-Nachher-Compare-Mode mit erstem vs letztem Foto. PictureThis hat das, wir jetzt auch.',
+    items: [
+      {emoji:'📸', bold:'gsCollectPlantPhotos:', text:' p.photo (Profil mit added als ts) + alle diary[].photo. Chronologisch aelteste zuerst.'},
+      {emoji:'🎚️', bold:'Single-Mode:', text:' Aspect-ratio 1 Container, object-fit:contain. Range-Slider mit accent-color gruen. Drag-to-seek via oninput.'},
+      {emoji:'⇆', bold:'Compare-Mode:', text:' 2x1-Grid mit erstem + letztem Foto. Datum + Title-Label unter jedem Bild.'},
+      {emoji:'🎯', bold:'UI-Trigger:', text:' 📸 Verlauf-Button im Plant-Diary-Modal-Header.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v25.23 Push (wartet auf Cowork). v25.24 Voice. v25.27 i18n.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check OK · sw.js gs-v25.22 OK.'},
+    ]
+  },
+  {
     v: 'v25.21', date: '11.05.2026',
     headline: '🌱 Mischkultur-Score beim Add-Plant — entsperrt durch Cowork (41 Pairs)',
     summary: 'Erstes Feature des Konkurrenz-Killer-Sprints. Cowork hat plant_companion_matrix mit 41 Pairs gefuellt (31 gut, 5 schlecht, 5 neutral). User tippt im Add-Plant-Modal Pflanzen-Namen — App mappt via window.DB auf lat, ruft plant_companion_matrix mit OR-Query, filtert gegen myPlants, sortiert in good/bad/neutral. Auto-Block 800ms-debounced unter Name-Input. Bei schlechten Kombinationen Tipp 50cm Abstand.',
@@ -43933,7 +44107,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.21';
+var GS_VERSION = 'v25.22';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
