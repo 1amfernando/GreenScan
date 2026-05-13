@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.31.20260513">
+<meta name="app-version" content="25.32.20260513">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -8431,7 +8431,7 @@ function _gsStreakSig(streak, lastDay, stamp){
   return h.toString(36);
 }
 function _gsStreakVerify(){
-  var streak = parseInt(localStorage.getItem('gs_streak') || '0', 10);
+  var streak = parseInt(gsStore.get('gs_streak', null) || '0', 10);
   var lastDay = localStorage.getItem('gs_last_active_day_iso') || '';
   var stamp = parseInt(localStorage.getItem('gs_streak_stamp') || '0', 10) || 0;
   var sig = localStorage.getItem('gs_streak_sig') || '';
@@ -8448,7 +8448,7 @@ function _gsStreakVerify(){
 function _gsStreakWriteSigned(streak, lastDay){
   try {
     var stamp = Date.now();
-    localStorage.setItem('gs_streak', String(streak));
+    gsStore.set('gs_streak', String(streak));
     if (lastDay) localStorage.setItem('gs_last_active_day_iso', lastDay);
     else localStorage.removeItem('gs_last_active_day_iso');
     localStorage.setItem('gs_streak_stamp', String(stamp));
@@ -8457,7 +8457,7 @@ function _gsStreakWriteSigned(streak, lastDay){
 }
 function _gsStreakResetAll(){
   try {
-    localStorage.setItem('gs_streak','0');
+    gsStore.set('gs_streak','0');
     localStorage.removeItem('gs_last_active_day_iso');
     localStorage.removeItem('gs_streak_stamp');
     localStorage.removeItem('gs_streak_sig');
@@ -8473,7 +8473,7 @@ function gsGetStreak() {
   // v23.56: Bulletproof Lazy-read + Sanity-Check + Auto-Reset bei Lücke
   var today = _gsDayKey();
   var lastDay = localStorage.getItem('gs_last_active_day_iso') || '';
-  var streak = parseInt(localStorage.getItem('gs_streak') || '0', 10);
+  var streak = parseInt(gsStore.get('gs_streak', null) || '0', 10);
   if (!isFinite(streak) || streak < 0) streak = 0;
 
   // Sanity: Streak > 0 aber kein lastDay → Daten korrupt → reset
@@ -8502,7 +8502,7 @@ function gsUpdateStreak() {
   }
   var today = _gsDayKey();
   var lastDay = localStorage.getItem('gs_last_active_day_iso') || '';
-  var streak = parseInt(localStorage.getItem('gs_streak') || '0', 10) || 0;
+  var streak = parseInt(gsStore.get('gs_streak', null) || '0', 10) || 0;
 
   if (lastDay === today) {
     // Heute schon aktiv — nichts ändern (Signatur trotzdem refreshen für neue Stamp)
@@ -10044,12 +10044,12 @@ function gsAutoFillDBGaps() {
 function mktLike(id) {
   gsHaptic('light');
   var listings = [];
-  try { listings = JSON.parse(localStorage.getItem('gs_market_listings')||'[]'); } catch(e){}
+  try { listings = JSON.parse(gsStore.get('gs_market_listings', null)||'[]'); } catch(e){}
   var l = listings.find(function(x){ return x.id === id; });
   if (!l) return;
   l.liked = !l.liked;
   l.likes = Math.max(0, (l.likes||0) + (l.liked?1:-1));
-  try { localStorage.setItem('gs_market_listings', JSON.stringify(listings)); } catch(e){}
+  try { gsStore.set('gs_market_listings', JSON.stringify(listings)); } catch(e){}
   // Optimistic UI
   var btn = document.querySelector('[data-mkt-like="'+id+'"]');
   if (btn) {
@@ -10071,9 +10071,9 @@ function mktDelete(id) {
   gsHaptic('medium');
   if (!confirm('Inserat löschen?')) return;
   var listings = [];
-  try { listings = JSON.parse(localStorage.getItem('gs_market_listings')||'[]'); } catch(e){}
+  try { listings = JSON.parse(gsStore.get('gs_market_listings', null)||'[]'); } catch(e){}
   listings = listings.filter(function(x){ return x.id !== id; });
-  try { localStorage.setItem('gs_market_listings', JSON.stringify(listings)); } catch(e){}
+  try { gsStore.set('gs_market_listings', JSON.stringify(listings)); } catch(e){}
   closeModal('modal-listing-detail');
   renderMarket();
   showProfileToast('Inserat gelöscht', 'info');
@@ -10275,10 +10275,10 @@ async function loadMarketFromSupabase() {
       });
       // Merge: Cloud-Listings haben Vorrang, lokale Drafts (z.B. offline) ergänzen.
       var local = [];
-      try { local = JSON.parse(localStorage.getItem('gs_market_listings')||'[]'); } catch(e){}
+      try { local = JSON.parse(gsStore.get('gs_market_listings', null)||'[]'); } catch(e){}
       var cloudIds = new Set(cloud.map(function(l){ return l.id; }));
       var merged = cloud.concat(local.filter(function(l){ return !cloudIds.has(l.id); }));
-      try { localStorage.setItem('gs_market_listings', JSON.stringify(merged)); } catch(e){}
+      try { gsStore.set('gs_market_listings', JSON.stringify(merged)); } catch(e){}
     }
   } catch(e) { console.log('Market Supabase load failed:', e); }
   renderMarket();
@@ -13012,7 +13012,7 @@ function initDailyQuiz() {
 
 function gsUpdateQuizCard() {
   var points = parseInt(localStorage.getItem('gs_quiz_points')||'0');
-  var streak = parseInt(localStorage.getItem('gs_quiz_streak')||'0');
+  var streak = parseInt(gsStore.get('gs_quiz_streak', null)||'0');
   var streakEl = document.getElementById('quiz-streak');
   if (streakEl) streakEl.textContent = points + ' Pkt · 🔥 ' + streak + ' Tage';
 }
@@ -13232,11 +13232,11 @@ async function gsAnswerSupaQuiz(btn) {
       var pts = parseInt(localStorage.getItem('gs_quiz_points')||'0', 10) + xp;
       localStorage.setItem('gs_quiz_points', String(pts));
       var lastDay = localStorage.getItem('gs_quiz_lastday') || '';
-      var streak  = parseInt(localStorage.getItem('gs_quiz_streak')||'0', 10);
+      var streak  = parseInt(gsStore.get('gs_quiz_streak', null)||'0', 10);
       var yDate = new Date(); yDate.setDate(yDate.getDate()-1);
       var y = yDate.toISOString().slice(0,10);
       streak = (lastDay === y) ? (streak + 1) : (lastDay === today ? streak : 1);
-      localStorage.setItem('gs_quiz_streak', String(streak));
+      gsStore.set('gs_quiz_streak', String(streak));
       localStorage.setItem('gs_quiz_lastday', today);
     }
   } catch(e) {}
@@ -13308,7 +13308,7 @@ let _quizAnswered = false;
 
 // Quiz correct answer stored globally to avoid escaping issues
 let _quizCorrectAnswer = '';
-let _quizStreak = parseInt(localStorage.getItem('gs_quiz_streak') || '0');
+let _quizStreak = parseInt(gsStore.get('gs_quiz_streak', null) || '0');
 
 function initQuiz() {
   if (typeof DB === 'undefined' || !DB.length) { setTimeout(initQuiz, 500); return; }
@@ -13413,7 +13413,7 @@ function answerQuiz(btn) {
   } else {
     _quizStreak = 0;
   }
-  localStorage.setItem('gs_quiz_streak', _quizStreak);
+  gsStore.set('gs_quiz_streak', _quizStreak);
 
   const resEl = document.getElementById('quiz-result');
   if (resEl) {
@@ -13444,7 +13444,7 @@ function closeQuizModal() {
   if (modal) modal.classList.remove('open');
 }
 
-var _mqCorrect = null, _mqAnswered = false, _mqStreak = parseInt(localStorage.getItem('gs_quiz_streak')||'0');
+var _mqCorrect = null, _mqAnswered = false, _mqStreak = parseInt(gsStore.get('gs_quiz_streak', null)||'0');
 
 function initQuizModal() {
   if (typeof DB === 'undefined' || !DB.length) { setTimeout(initQuizModal, 500); return; }
@@ -13521,11 +13521,11 @@ function answerQuizModal(btn) {
   });
   if (isCorrect) {
     _mqStreak++;
-    localStorage.setItem('gs_quiz_streak', _mqStreak);
+    gsStore.set('gs_quiz_streak', _mqStreak);
     profileTrackQuizCorrect();
   } else {
     _mqStreak = 0;
-    localStorage.setItem('gs_quiz_streak', '0');
+    gsStore.set('gs_quiz_streak', '0');
   }
   var resEl = document.getElementById('quiz-modal-result');
   if (resEl) {
@@ -14138,13 +14138,13 @@ function getCatLabel(c){
 
 function gsMarketLoad() {
   if (!window._gsMarket) {
-    try { window._gsMarket = JSON.parse(localStorage.getItem('gs_market_listings') || '[]'); }
+    try { window._gsMarket = JSON.parse(gsStore.get('gs_market_listings', null) || '[]'); }
     catch(e) { window._gsMarket = []; }
   }
   return window._gsMarket;
 }
 function gsMarketSave() {
-  try { localStorage.setItem('gs_market_listings', JSON.stringify(window._gsMarket.slice(0,500))); }
+  try { gsStore.set('gs_market_listings', JSON.stringify(window._gsMarket.slice(0,500))); }
   catch(e) {}
 }
 
@@ -16240,7 +16240,7 @@ window._gsTriedModels = window._gsTriedModels || {};
 window._gsPickClaudeModel = function(){
   // Persistierte Wahl wenn bereits verifiziert
   var saved = null;
-  try { saved = localStorage.getItem('gs_claude_model'); } catch(_){}
+  try { saved = gsStore.get('gs_claude_model', null); } catch(_){}
   if (saved && window._gsClaudeFallbacks.indexOf(saved) >= 0) return saved;
   return window._gsClaudeModel || window._gsClaudeFallbacks[0];
 };
@@ -16293,7 +16293,7 @@ async function callAI(messages, systemPrompt, maxTokens, opts){
       }, { timeout: timeoutMs, retries: retries });
       var data = await resp.json().catch(()=>({error:{message:'Ungültige Server-Antwort'}}));
       if (resp.ok) {
-        try { localStorage.setItem('gs_claude_model', tryModel); } catch(_){}
+        try { gsStore.set('gs_claude_model', tryModel); } catch(_){}
         window._gsClaudeModel = tryModel;
         // v24.22: Erfolgreichen AI-Call gegen Free-Quota tracken (nur bei globalem Key)
         if (source === 'global' && typeof gsAboTrackAICall === 'function') gsAboTrackAICall();
@@ -16380,7 +16380,7 @@ async function callVisionAI(b64, mediaType, prompt, extraImages){
       }, { timeout: 60000, retries: 1 });
       var data = await resp.json().catch(()=>({error:{message:'Ungültige Server-Antwort'}}));
       if (resp.ok) {
-        try { localStorage.setItem('gs_claude_model', tryModel); } catch(_){}
+        try { gsStore.set('gs_claude_model', tryModel); } catch(_){}
         window._gsClaudeModel = tryModel;
         // v24.22: Vision-Call gegen Free-Quota tracken (nur bei globalem Key)
         if (source === 'global' && typeof gsAboTrackAICall === 'function') gsAboTrackAICall();
@@ -17420,7 +17420,7 @@ window.gsTestApiKey = async function(){
       if (resp.ok) {
         results.push('✅ ' + m + ' — OK');
         window._gsClaudeModel = m;
-        try { localStorage.setItem('gs_claude_model', m); } catch(_){}
+        try { gsStore.set('gs_claude_model', m); } catch(_){}
         break;
       } else {
         results.push('❌ ' + m + ' — ' + resp.status + ' ' + ((data.error && data.error.message) || ''));
@@ -19253,7 +19253,7 @@ function renderFavs(){
 // MEINE PFLANZEN – Kernfunktionen
 
 function savePlantsToStorage(){
-  localStorage.setItem('ps_myplants', JSON.stringify(myPlants));
+  gsStore.set('ps_myplants', JSON.stringify(myPlants));
   // v23.73: User-Account-Sync (debounced)
   try { if (typeof gsPushPlantsNow === 'function') gsPushPlantsNow(); } catch(_){}
 }
@@ -21458,7 +21458,7 @@ function gsChatBuildContext(){
     } catch(e){}
     // 6. Eigene Pflanzen
     try {
-      var myP = JSON.parse(localStorage.getItem('ps_myplants') || '[]');
+      var myP = JSON.parse(gsStore.get('ps_myplants', null) || '[]');
       if (Array.isArray(myP) && myP.length) {
         var names = myP.slice(0,6).map(function(p){ return p.name || p.customName || ''; }).filter(Boolean).join(', ');
         if (names) ctx.push('🪴 Eigene Pflanzen: ' + names + (myP.length>6?'…':''));
@@ -22493,7 +22493,7 @@ function moveToCemetery(plantId) {
   deadPlants.unshift(p);
   myPlants = myPlants.filter(x => x.id !== plantId);
   savePlantsToStorage();
-  localStorage.setItem('gs_dead_plants', JSON.stringify(deadPlants));
+  gsStore.set('gs_dead_plants', JSON.stringify(deadPlants));
   renderMyPlants();
   closeModal('modal-addplant');
 }
@@ -22505,7 +22505,7 @@ function restoreFromCemetery(plantId) {
   myPlants.push(p);
   deadPlants = deadPlants.filter(x => x.id !== plantId);
   savePlantsToStorage();
-  localStorage.setItem('gs_dead_plants', JSON.stringify(deadPlants));
+  gsStore.set('gs_dead_plants', JSON.stringify(deadPlants));
   renderCemetery();
   renderMyPlants();
 }
@@ -31011,7 +31011,7 @@ function loadPrefs() {
 }
 
 function savePrefs() {
-  localStorage.setItem('gs_prefs', JSON.stringify(userPrefs));
+  gsStore.set('gs_prefs', JSON.stringify(userPrefs));
 }
 
 // v23.78: Settings Single-Source-of-Truth mit Event-Bus + Cross-Tab + Server-Sync
@@ -31039,7 +31039,7 @@ window._gsSettingsBus = window._gsSettingsBus || (function(){
             var d = ev.data;
             if (d && d.type === 'set') {
               userPrefs[d.key] = d.val;
-              try { localStorage.setItem('gs_prefs', JSON.stringify(userPrefs)); } catch(_){}
+              try { gsStore.set('gs_prefs', JSON.stringify(userPrefs)); } catch(_){}
               // Re-apply ohne re-emit (kein Loop)
               _gsApplyPref(d.key, d.val);
             }
@@ -42157,7 +42157,7 @@ async function gsPPtryBluetooth() {
 
 function saveGardenData() {
   localStorage.setItem('gs_gardens', JSON.stringify(gardens));
-  localStorage.setItem('gs_plantings', JSON.stringify(plantings));
+  gsStore.set('gs_plantings', JSON.stringify(plantings));
   // v23.73: User-Account-Sync (debounced)
   try { if (typeof gsPushGardenNow === 'function') gsPushGardenNow(); } catch(_){}
 }
@@ -44097,10 +44097,10 @@ function gsAdminSaveSbKey() {
   closeModal('modal-recipe-detail');
   showProfileToast('✅ Supabase Key gespeichert und aktiviert!');
   // Admin-Log
-  var log = JSON.parse(localStorage.getItem('gs_admin_log') || '[]');
+  var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
   log.unshift({ ts: new Date().toISOString(), admin: gsStore.get('gs_sb_email', null),
     action: 'sb_key_changed', note: 'Key geändert auf: ' + newKey.slice(0,20) + '…' });
-  localStorage.setItem('gs_admin_log', JSON.stringify(log.slice(0,200)));
+  gsStore.set('gs_admin_log', JSON.stringify(log.slice(0,200)));
 }
 
 // Stellt den Standard-Key wieder her
@@ -44144,7 +44144,7 @@ async function _gsKeyHealthWalker(key, opts) {
       }, 15000);
       if (r.ok) {
         // Erfolgs-Modell für Hot-Path persistieren
-        try { localStorage.setItem('gs_claude_model', model); } catch(_){}
+        try { gsStore.set('gs_claude_model', model); } catch(_){}
         try { window._gsClaudeModel = model; } catch(_){}
         return { ok: true, model: model };
       }
@@ -44262,9 +44262,9 @@ async function gsAdminSetGlobalApiKey(newKey, providerArg, enabledArg) {
         showProfileToast && showProfileToast({type:'warn', icon:'⚠️', title:'Key gespeichert, aber Test fehlgeschlagen', body:'Grund: ' + h.reason + '. Bitte Key prüfen.', duration:8000});
       }
       try {
-        var log = JSON.parse(localStorage.getItem('gs_admin_log') || '[]');
+        var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
         log.unshift({ ts: new Date().toISOString(), admin: gsStore.get('gs_sb_email', null), action: 'global_api_key_set', note: 'Key: ' + newKey.slice(0,12) + '…' + ', healthOk: ' + h.ok });
-        localStorage.setItem('gs_admin_log', JSON.stringify(log.slice(0,200)));
+        gsStore.set('gs_admin_log', JSON.stringify(log.slice(0,200)));
       } catch(_){}
       return true;
     }
@@ -44441,6 +44441,27 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v25.32', date: '13.05.2026',
+    headline: '🧹 gsStore-Welle 4 — 62 localStorage-Calls auf Quota-safe Wrapper migriert',
+    summary: 'Tech-Debt-Cleanup: 10 Hot-Keys (Top-Audit-Ranking) mechanisch via Regex auf gsStore-Wrapper umgestellt. Schuetzt gegen Safari-Private-Mode-Crashes + QuotaExceededError unter Storage-Pressure. Reine Frontend-Migration, kein Backend-Bedarf.',
+    items: [
+      {emoji:'📋', bold:'gs_admin_log:', text:' 10 Calls (6 get / 4 set) — Audit-Log JSON-Array.'},
+      {emoji:'🎯', bold:'gs_quiz_streak:', text:' 9 Calls (5 get / 4 set) — Quiz-Streak-Counter.'},
+      {emoji:'🛒', bold:'gs_market_listings:', text:' 8 Calls (4 get / 4 set) — Marketplace-localStorage-Fallback fuer Drafts.'},
+      {emoji:'🔥', bold:'gs_streak:', text:' 7 Calls (5 get / 2 set) — Login-/Aktiv-Tage-Streak.'},
+      {emoji:'🌱', bold:'ps_myplants:', text:' 5 Calls (3 get / 2 set) — Pflanzen-Array Backup.'},
+      {emoji:'⚙️', bold:'gs_prefs:', text:' 5 Calls (2 get / 3 set) — User-Preferences.'},
+      {emoji:'🌻', bold:'gs_plantings:', text:' 5 Calls (2 get / 3 set) — Garten-Pflanzungen.'},
+      {emoji:'🤖', bold:'gs_claude_model:', text:' 5 Calls (1 get / 4 set) — Claude-Modell-Fallback-Chain.'},
+      {emoji:'🥀', bold:'gs_dead_plants:', text:' 4 Calls (1 get / 3 set) — Friedhof.'},
+      {emoji:'🌾', bold:'gs_seed_inventory:', text:' 4 Calls (1 get / 3 set) — Saatgut-Lager.'},
+      {emoji:'📐', bold:'Pattern:', text:' localStorage.setItem(K,v) → gsStore.set(K,v) · localStorage.getItem(K) → gsStore.get(K, null) · localStorage.removeItem(K) → gsStore.remove(K). Falsy-Fallbacks (|| "0" / || "[]") bleiben unveraendert.'},
+      {emoji:'📊', bold:'Bilanz:', text:' 62 Calls migriert. Total LS-Calls in index.html: 701 → 639. Top-10 Hot-Keys jetzt 100% Wrapper.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v25.33 AR-View MVP (P3 1 Woche optional). v26.0 Pre-Release-stable nach Stripe-Test-Card-Verify.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check OK · sw.js gs-v25.32 OK · 10/10 Hot-Keys 0 remaining-LS.'},
+    ]
+  },
   {
     v: 'v25.31', date: '13.05.2026',
     headline: '🩺 KI-Pflanzendoktor + 🥕 Erntekalender — Phase-2-Bundle (PictureThis-Killer-Features)',
@@ -45678,7 +45699,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.31';
+var GS_VERSION = 'v25.32';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -45790,7 +45811,7 @@ function openAdminActions(targetEmail) {
   }).join('');
 
   // Admin-Log anzeigen
-  var log = JSON.parse(localStorage.getItem('gs_admin_log') || '[]');
+  var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
   var recentLog = log.filter(function(e){ return e.target === targetEmail; }).slice(0,3);
   var logHtml = recentLog.length ? recentLog.map(function(e){
     return '<div style="font-size:11px;color:#666;padding:4px 0;border-bottom:1px solid #eee;">' +
@@ -45880,10 +45901,10 @@ function _gsOpenIngCard(plantId, recipeId) {
 function gsAdminBanUser(targetEmail) {
   if (!gsIsAdmin()) return;
   if (!confirm('Nutzer ' + targetEmail + ' wirklich sperren?')) return;
-  var log = JSON.parse(localStorage.getItem('gs_admin_log') || '[]');
+  var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
   log.unshift({ ts: new Date().toISOString(), admin: gsStore.get('gs_sb_email', null),
     target: targetEmail, action: 'ban', note: 'Gesperrt durch Admin' });
-  localStorage.setItem('gs_admin_log', JSON.stringify(log.slice(0,200)));
+  gsStore.set('gs_admin_log', JSON.stringify(log.slice(0,200)));
   closeModal('modal-recipe-detail');
   showProfileToast('🚫 ' + targetEmail + ' wurde gesperrt (lokal protokolliert).');
 }
@@ -45902,7 +45923,7 @@ async function gsAdminSetExpertLevel(targetEmail) {
     if (!token) { showProfileToast('Nicht eingeloggt.'); return; }
     // Über Supabase RPC oder direkt (vereinfacht: localStorage + API)
     // Admin-Log lokal speichern
-    var log = JSON.parse(localStorage.getItem('gs_admin_log') || '[]');
+    var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
     log.unshift({
       ts: new Date().toISOString(),
       admin: gsStore.get('gs_sb_email', null),
@@ -45911,7 +45932,7 @@ async function gsAdminSetExpertLevel(targetEmail) {
       level: newLevel,
       note: noteText
     });
-    localStorage.setItem('gs_admin_log', JSON.stringify(log.slice(0,200)));
+    gsStore.set('gs_admin_log', JSON.stringify(log.slice(0,200)));
     closeModal('modal-recipe-detail');
     showProfileToast('✅ Status "' + (GS_EXPERT_LEVELS[newLevel]||{label:newLevel}).label + '" an ' + targetEmail + ' vergeben.');
   } catch(e) {
@@ -48535,7 +48556,7 @@ window.gsBuildGardenStats = function(){
   // Days-Garden
   var daysGarden = oldestTs ? Math.floor((Date.now() - oldestTs) / 86400000) : 0;
   // v24.41 BUGFIX: echter Streak-Key ist 'gs_streak' (single-source-of-truth via gsGetStreak)
-  var streak = (typeof gsGetStreak === 'function') ? gsGetStreak() : parseInt(localStorage.getItem('gs_streak') || '0', 10);
+  var streak = (typeof gsGetStreak === 'function') ? gsGetStreak() : parseInt(gsStore.get('gs_streak', null) || '0', 10);
   return { total: total, byCat: byCat, totalDiary: totalDiary, topActions: actionEntries.map(function(e){ return { action: e[0], label: actionLabels[e[0]] || e[0], count: e[1] }; }), daysGarden: daysGarden, lastActivity: lastActivityTs, streak: streak };
 };
 
@@ -50230,7 +50251,7 @@ async function gsSyncUserDataOnLogin(){
         if (d.plans)     try { localStorage.setItem('gs_garden_plans', JSON.stringify(d.plans)); } catch(_){}
         if (d.current)   try { localStorage.setItem('gs_garden_plan_current', JSON.stringify(d.current)); } catch(_){}
         if (d.gardens)   try { localStorage.setItem('gs_gardens', JSON.stringify(d.gardens)); } catch(_){}
-        if (d.plantings) try { localStorage.setItem('gs_plantings', JSON.stringify(d.plantings)); } catch(_){}
+        if (d.plantings) try { gsStore.set('gs_plantings', JSON.stringify(d.plantings)); } catch(_){}
         if (gUpdated) try { localStorage.setItem('gs_sync_synced_at_garden', gUpdated); } catch(_){}
       }
     }
@@ -50241,12 +50262,12 @@ async function gsSyncUserDataOnLogin(){
       var pUpdated = p.data[0].updated_at || null;
       if (_shouldOverwriteLocal('plants', pUpdated)) {
         if (Array.isArray(pd.plants)) {
-          try { localStorage.setItem('ps_myplants', JSON.stringify(pd.plants)); } catch(_){}
+          try { gsStore.set('ps_myplants', JSON.stringify(pd.plants)); } catch(_){}
           if (typeof myPlants !== 'undefined') myPlants = pd.plants;
         }
         if (pd.diary) try { localStorage.setItem('gs_gartentagebuch', JSON.stringify(pd.diary)); } catch(_){}
-        if (pd.dead_plants) try { localStorage.setItem('gs_dead_plants', JSON.stringify(pd.dead_plants)); } catch(_){}
-        if (pd.seed_inventory) try { localStorage.setItem('gs_seed_inventory', JSON.stringify(pd.seed_inventory)); } catch(_){}
+        if (pd.dead_plants) try { gsStore.set('gs_dead_plants', JSON.stringify(pd.dead_plants)); } catch(_){}
+        if (pd.seed_inventory) try { gsStore.set('gs_seed_inventory', JSON.stringify(pd.seed_inventory)); } catch(_){}
         if (pUpdated) try { localStorage.setItem('gs_sync_synced_at_plants', pUpdated); } catch(_){}
       }
     }
@@ -50470,11 +50491,11 @@ window.gsCloudSync = (function(){
 
   function _buildPlantsBlob(){
     var data = {};
-    try { data.plants = JSON.parse(localStorage.getItem('ps_myplants')||'[]'); } catch(_){ data.plants = []; }
+    try { data.plants = JSON.parse(gsStore.get('ps_myplants', null)||'[]'); } catch(_){ data.plants = []; }
     try { data.diary  = JSON.parse(localStorage.getItem('gs_gartentagebuch')||'[]'); } catch(_){ data.diary = []; }
     // v24.24: zusätzliche pflanzenbezogene lokale Keys mitsyncen
-    try { data.dead_plants = JSON.parse(localStorage.getItem('gs_dead_plants')||'[]'); } catch(_){}
-    try { data.seed_inventory = JSON.parse(localStorage.getItem('gs_seed_inventory')||'[]'); } catch(_){}
+    try { data.dead_plants = JSON.parse(gsStore.get('gs_dead_plants', null)||'[]'); } catch(_){}
+    try { data.seed_inventory = JSON.parse(gsStore.get('gs_seed_inventory', null)||'[]'); } catch(_){}
     return data;
   }
 
@@ -50483,7 +50504,7 @@ window.gsCloudSync = (function(){
     try { data.plans     = JSON.parse(localStorage.getItem('gs_garden_plans')||'[]'); } catch(_){}
     try { data.current   = JSON.parse(localStorage.getItem('gs_garden_plan_current')||'null'); } catch(_){}
     try { data.gardens   = JSON.parse(localStorage.getItem('gs_gardens')||'[]'); } catch(_){}
-    try { data.plantings = JSON.parse(localStorage.getItem('gs_plantings')||'[]'); } catch(_){}
+    try { data.plantings = JSON.parse(gsStore.get('gs_plantings', null)||'[]'); } catch(_){}
     // v24.24: GPX-Tracks (Live-Tracking-Feature) sind garten-bezogen
     try { data.gpx_tracks = JSON.parse(localStorage.getItem('gs_gpx_tracks')||'[]'); } catch(_){}
     return data;
@@ -50493,7 +50514,7 @@ window.gsCloudSync = (function(){
   function _buildStateBlob(){
     var data = {};
     // Streak/Activity
-    try { data.streak = JSON.parse(localStorage.getItem('gs_streak')||'null'); } catch(_){}
+    try { data.streak = JSON.parse(gsStore.get('gs_streak', null)||'null'); } catch(_){}
     try { data.login_streak = JSON.parse(localStorage.getItem('gs_login_streak')||'null'); } catch(_){}
     try { data.streak_sig = localStorage.getItem('gs_streak_sig') || ''; } catch(_){}
     try { data.streak_stamp = localStorage.getItem('gs_streak_stamp') || ''; } catch(_){}
@@ -50505,7 +50526,7 @@ window.gsCloudSync = (function(){
     // Quiz
     try { data.dq_archive = JSON.parse(localStorage.getItem('gs_dq_archive')||'[]'); } catch(_){}
     try { data.dq_stats = JSON.parse(localStorage.getItem('gs_dq_stats')||'null'); } catch(_){}
-    try { data.quiz_streak = JSON.parse(localStorage.getItem('gs_quiz_streak')||'null'); } catch(_){}
+    try { data.quiz_streak = JSON.parse(gsStore.get('gs_quiz_streak', null)||'null'); } catch(_){}
     // Rezepte/Suchen
     try { data.recipe_favs = JSON.parse(localStorage.getItem('gs_recipe_favs')||'[]'); } catch(_){}
     try { data.recent_searches = JSON.parse(localStorage.getItem('gs_recent_searches')||'[]'); } catch(_){}
@@ -50711,10 +50732,10 @@ window.gsCloudSync = (function(){
     if (!localStorage.getItem('gs_sync_v24_23_migrated')) {
       var nowIso = new Date().toISOString();
       var hasPlants = false, hasGarden = false;
-      try { var ar = JSON.parse(localStorage.getItem('ps_myplants') || '[]'); hasPlants = Array.isArray(ar) && ar.length > 0; } catch(_){}
+      try { var ar = JSON.parse(gsStore.get('ps_myplants', null) || '[]'); hasPlants = Array.isArray(ar) && ar.length > 0; } catch(_){}
       try {
         var hasGardens = (JSON.parse(localStorage.getItem('gs_gardens') || '[]')||[]).length > 0;
-        var hasPlantings = (JSON.parse(localStorage.getItem('gs_plantings') || '[]')||[]).length > 0;
+        var hasPlantings = (JSON.parse(gsStore.get('gs_plantings', null) || '[]')||[]).length > 0;
         var hasPlans = (JSON.parse(localStorage.getItem('gs_garden_plans') || '[]')||[]).length > 0;
         hasGarden = hasGardens || hasPlantings || hasPlans;
       } catch(_){}
@@ -51202,7 +51223,7 @@ async function gsPrefsPull(){
   try {
     var r = await sbFetch('/rest/v1/user_preferences?user_id=eq.' + uid + '&select=*&limit=1', {method:'GET'});
     if (r && !r.error && Array.isArray(r.data) && r.data[0]) {
-      try { localStorage.setItem('gs_prefs', JSON.stringify(r.data[0])); } catch(_){}
+      try { gsStore.set('gs_prefs', JSON.stringify(r.data[0])); } catch(_){}
       return r.data[0];
     }
   } catch(e){ console.warn('[gsPrefsPull]', e); }
@@ -51215,7 +51236,7 @@ function gsPrefsPushNow(partial){
   clearTimeout(window._gsPushDebounce.prefs);
   window._gsPushDebounce.prefs = setTimeout(function(){
     var current = {};
-    try { current = JSON.parse(localStorage.getItem('gs_prefs')||'{}'); } catch(_){}
+    try { current = JSON.parse(gsStore.get('gs_prefs', null)||'{}'); } catch(_){}
     var merged = Object.assign({user_id: uid}, current, partial || {});
     sbFetch('/rest/v1/user_preferences', {
       method:'POST',
@@ -51245,7 +51266,7 @@ window.gsTrackEvent = function(event, props){
   try {
     // Nur tracken wenn Consent vorhanden (user_preferences.analytics === true)
     var prefs = {};
-    try { prefs = JSON.parse(localStorage.getItem('gs_prefs')||'{}'); } catch(_){}
+    try { prefs = JSON.parse(gsStore.get('gs_prefs', null)||'{}'); } catch(_){}
     if (prefs && prefs.privacy && prefs.privacy.analytics === false) return;
     if (typeof sbFetch !== 'function') return;
     var uid = gsStore.get('gs_sb_uid', null) || null;
@@ -52035,7 +52056,7 @@ function gsConfirmScanWarning() {
 // ── Admin-Einstellungen im Profil (nur für gsIsAdmin) ─────────
 function renderAdminSettingsSection() {
   if (typeof gsIsAdmin !== 'function' || !gsIsAdmin()) return '';
-  var log = JSON.parse(localStorage.getItem('gs_admin_log') || '[]');
+  var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
   return '<div style="background:#ffebee;border-radius:12px;padding:14px;margin-top:12px;">' +
     '<div style="font-size:13px;font-weight:800;color:#c62828;margin-bottom:10px;">🛡️ Admin-Bereich</div>' +
     '<button onclick="closeModal(\'modal-profile\');openLegalModal(\'agb\')" style="width:100%;text-align:left;padding:8px 10px;background:var(--card);border:1px solid #ffcdd2;border-radius:8px;margin-bottom:6px;font-size:13px;cursor:pointer;font-family:inherit;">📜 AGB / Rechtliches</button>' +
@@ -52369,13 +52390,13 @@ function gsSeedAdd(){
   if (!n) { if(typeof showProfileToast==='function') showProfileToast('Name erforderlich'); return; }
   var items = _gsNlSafeItems('gs_seed_inventory');
   items.push({ name:n, qty:q, expires:e||null, ts: Date.now() });
-  try { localStorage.setItem('gs_seed_inventory', JSON.stringify(items)); } catch(er){}
+  try { gsStore.set('gs_seed_inventory', JSON.stringify(items)); } catch(er){}
   gsOpenSeedInventory();
 }
 function gsSeedDel(idx){
   var items = _gsNlSafeItems('gs_seed_inventory');
   items.splice(idx,1);
-  try { localStorage.setItem('gs_seed_inventory', JSON.stringify(items)); } catch(e){}
+  try { gsStore.set('gs_seed_inventory', JSON.stringify(items)); } catch(e){}
   gsOpenSeedInventory();
 }
 
@@ -55538,7 +55559,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
       // Plantings
       var p = await supaGet('garden_plantings', 'select=*&order=planted_at.desc');
       if (p && p.data) {
-        try { localStorage.setItem('gs_plantings', JSON.stringify(p.data)); } catch(e){}
+        try { gsStore.set('gs_plantings', JSON.stringify(p.data)); } catch(e){}
         try { window.plantings = p.data; } catch(e){}
       }
       // Trigger re-render if app already showing garden

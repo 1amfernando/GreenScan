@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.31 — Phase-2-Bundle: KI-Pflanzendoktor (Vision-AI Diagnose-Modal mit 8 Symptom-Chips + Multi-Hypothese-Result + Treatment-Plan + Followup-Buttons gegen plant-doctor-diagnose Edge-Fn) + Erntekalender (Add-Modal mit Quality-Rating, Stats-Modal mit CSS-Bar-Chart aus v_harvest_stats_per_user View, harvest_log POST). 2 neue Garten-Action-Buttons.
+   v25.32 — gsStore-Welle 4: 62 direkte localStorage-Calls auf gsStore-Wrapper migriert ueber 10 Hot-Keys (gs_admin_log, gs_quiz_streak, gs_market_listings, gs_streak, ps_myplants, gs_prefs, gs_plantings, gs_claude_model, gs_dead_plants, gs_seed_inventory). Schuetzt gegen Safari-Private-Mode + QuotaExceededError.
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.31';
+const VERSION = 'gs-v25.32';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
