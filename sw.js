@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.29 — Community-Experten-Verifikation: Feed liest v_social_posts_with_verifications statt social_posts, ✅-Badge wenn is_expert_verified, Verifizieren-Button fuer profiles.is_expert=true User, Verifikation-anfragen-Button fuer PRO/Lifetime-User mit eigenem Post (Stripe-Checkout CHF 0.50 via stripe-expert-checkout v1). Webhook v7 setzt fee_paid_chf+at automatisch. ?ev_payment=success/cancel Return-Handler in gsHandleAuthRedirect.
+   v25.28 — i18n Pass-2: ~170 data-i18n Marker auf statische HTML-Strings (Onboarding, Home-Stats, Kategorien, Mehr-Screen, Settings-Labels, Garten/Community/Marktplatz Header) + GS_I18N_JS_STRINGS auf ~80 Keys (Toasts, Errors, Confirms, Status). Schweizer Markt komplett FR/IT-fähig.
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.29';
+const VERSION = 'gs-v25.28';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;

@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.29.20260512">
+<meta name="app-version" content="25.28.20260513">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -1583,8 +1583,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
     <!-- REGISTER-VIEW -->
     <div id="onb-register" style="display:none;">
-      <div style="font-size:22px;font-weight:800;color:#fff;margin-bottom:4px;font-family:'Playfair Display',serif;">Konto erstellen</div>
-      <div style="font-size:13px;color:rgba(255,255,255,.6);margin-bottom:22px;">Kostenlos · In 30 Sekunden · Keine Kreditkarte</div>
+      <div data-i18n="onb_register_title" data-i18n-fallback="Konto erstellen" style="font-size:22px;font-weight:800;color:#fff;margin-bottom:4px;font-family:'Playfair Display',serif;">Konto erstellen</div>
+      <div data-i18n="onb_register_sub" data-i18n-fallback="Kostenlos · In 30 Sekunden · Keine Kreditkarte" style="font-size:13px;color:rgba(255,255,255,.6);margin-bottom:22px;">Kostenlos · In 30 Sekunden · Keine Kreditkarte</div>
 
       <input id="onb-reg-name" type="text" placeholder="Dein Name" autocomplete="name" autocapitalize="words" style="width:100%;padding:14px 16px;background:rgba(255,255,255,.08);color:#fff;border:1.5px solid rgba(255,255,255,.15);border-radius:12px;font-size:15px;font-family:inherit;box-sizing:border-box;margin-bottom:10px;outline:none;-webkit-tap-highlight-color:transparent;" onkeydown="if(event.key==='Enter'){var e=document.getElementById('onb-reg-email');if(e)e.focus();}">
       <input id="onb-reg-email" type="email" inputmode="email" maxlength="254" placeholder="E-Mail-Adresse" autocomplete="email" autocapitalize="off" autocorrect="off" style="width:100%;padding:14px 16px;background:rgba(255,255,255,.08);color:#fff;border:1.5px solid rgba(255,255,255,.15);border-radius:12px;font-size:15px;font-family:inherit;box-sizing:border-box;margin-bottom:10px;outline:none;-webkit-tap-highlight-color:transparent;" onkeydown="if(event.key==='Enter'){var e=document.getElementById('onb-reg-pw');if(e)e.focus();}">
@@ -1615,21 +1615,21 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
       <div id="onb-reg-err" style="display:none;background:rgba(198,40,40,.15);border-left:3px solid #e57373;color:#ff8a80;padding:10px 12px;border-radius:8px;font-size:12.5px;margin-bottom:12px;line-height:1.5;"></div>
 
-      <button id="onb-reg-btn" onclick="onbDoRegister()" style="width:100%;padding:15px;background:linear-gradient(135deg,#2d8a2d,#1a5c1a);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px;box-shadow:0 4px 20px rgba(45,138,45,.4);-webkit-tap-highlight-color:transparent;">
+      <button id="onb-reg-btn" data-i18n="btn_onb_register" data-i18n-fallback="✨ Registrieren" onclick="onbDoRegister()" style="width:100%;padding:15px;background:linear-gradient(135deg,#2d8a2d,#1a5c1a);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px;box-shadow:0 4px 20px rgba(45,138,45,.4);-webkit-tap-highlight-color:transparent;">
         ✨ Registrieren
       </button>
-      <button onclick="onbShowLogin()" style="width:100%;padding:11px;background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.15);border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px;-webkit-tap-highlight-color:transparent;">
+      <button data-i18n="btn_onb_show_login" data-i18n-fallback="Schon registriert? → Anmelden" onclick="onbShowLogin()" style="width:100%;padding:11px;background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.15);border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px;-webkit-tap-highlight-color:transparent;">
         Schon registriert? → Anmelden
       </button>
-      <button onclick="onbBackToStart()" style="width:100%;padding:10px;background:transparent;color:rgba(255,255,255,.45);border:none;font-size:13px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">
+      <button data-i18n="btn_onb_back" data-i18n-fallback="← Zurück" onclick="onbBackToStart()" style="width:100%;padding:10px;background:transparent;color:rgba(255,255,255,.45);border:none;font-size:13px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">
         ← Zurück
       </button>
     </div>
 
     <!-- LOGIN-VIEW -->
     <div id="onb-login" style="display:none;">
-      <div style="font-size:22px;font-weight:800;color:#fff;margin-bottom:4px;font-family:'Playfair Display',serif;">Willkommen zurück</div>
-      <div style="font-size:13px;color:rgba(255,255,255,.6);margin-bottom:22px;">Melde dich mit deinem Konto an</div>
+      <div data-i18n="onb_login_title" data-i18n-fallback="Willkommen zurück" style="font-size:22px;font-weight:800;color:#fff;margin-bottom:4px;font-family:'Playfair Display',serif;">Willkommen zurück</div>
+      <div data-i18n="onb_login_sub" data-i18n-fallback="Melde dich mit deinem Konto an" style="font-size:13px;color:rgba(255,255,255,.6);margin-bottom:22px;">Melde dich mit deinem Konto an</div>
 
       <input id="onb-login-email" type="email" inputmode="email" maxlength="254" placeholder="E-Mail-Adresse" autocomplete="email" autocapitalize="off" autocorrect="off" style="width:100%;padding:14px 16px;background:rgba(255,255,255,.08);color:#fff;border:1.5px solid rgba(255,255,255,.15);border-radius:12px;font-size:15px;font-family:inherit;box-sizing:border-box;margin-bottom:10px;outline:none;-webkit-tap-highlight-color:transparent;" onkeydown="if(event.key==='Enter'){var p=document.getElementById('onb-login-pw');if(p)p.focus();}">
 
@@ -1644,14 +1644,14 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;-webkit-tap-highlight-color:transparent;">
           <input type="checkbox" id="onb-login-remember" checked style="accent-color:#2d8a2d;cursor:pointer;">
-          <span style="font-size:11.5px;color:rgba(255,255,255,.65);">Angemeldet bleiben</span>
+          <span data-i18n="onb_remember_me" data-i18n-fallback="Angemeldet bleiben" style="font-size:11.5px;color:rgba(255,255,255,.65);">Angemeldet bleiben</span>
         </label>
-        <button onclick="onbForgotPw()" style="background:none;border:none;color:rgba(165,214,167,.85);font-size:12px;cursor:pointer;font-family:inherit;padding:0;-webkit-tap-highlight-color:transparent;">Passwort vergessen?</button>
+        <button data-i18n="btn_onb_forgot_pw" data-i18n-fallback="Passwort vergessen?" onclick="onbForgotPw()" style="background:none;border:none;color:rgba(165,214,167,.85);font-size:12px;cursor:pointer;font-family:inherit;padding:0;-webkit-tap-highlight-color:transparent;">Passwort vergessen?</button>
       </div>
 
       <div id="onb-login-err" style="display:none;background:rgba(198,40,40,.15);border-left:3px solid #e57373;color:#ff8a80;padding:10px 12px;border-radius:8px;font-size:12.5px;margin-bottom:12px;line-height:1.5;"></div>
 
-      <button id="onb-login-btn" onclick="onbDoLogin()" style="width:100%;padding:15px;background:linear-gradient(135deg,#2d8a2d,#1a5c1a);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px;box-shadow:0 4px 20px rgba(45,138,45,.4);-webkit-tap-highlight-color:transparent;">
+      <button id="onb-login-btn" data-i18n="btn_onb_login" data-i18n-fallback="🔑 Anmelden" onclick="onbDoLogin()" style="width:100%;padding:15px;background:linear-gradient(135deg,#2d8a2d,#1a5c1a);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px;box-shadow:0 4px 20px rgba(45,138,45,.4);-webkit-tap-highlight-color:transparent;">
         🔑 Anmelden
       </button>
 
@@ -1661,15 +1661,15 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
         <div style="font-size:11px;color:rgba(255,255,255,.3);">oder</div>
         <div style="flex:1;height:1px;background:rgba(255,255,255,.1);"></div>
       </div>
-      <button id="onb-magic-btn" onclick="onbMagicLink()" style="width:100%;padding:13px;background:rgba(92,160,255,.15);color:#fff;border:1.5px solid rgba(92,160,255,.4);border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:10px;-webkit-tap-highlight-color:transparent;">
+      <button id="onb-magic-btn" data-i18n="btn_onb_magic_link" data-i18n-fallback="✨ Magic-Link senden (ohne Passwort)" onclick="onbMagicLink()" style="width:100%;padding:13px;background:rgba(92,160,255,.15);color:#fff;border:1.5px solid rgba(92,160,255,.4);border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:10px;-webkit-tap-highlight-color:transparent;">
         ✨ Magic-Link senden (ohne Passwort)
       </button>
-      <div style="font-size:10.5px;color:rgba(255,255,255,.4);text-align:center;line-height:1.5;margin-bottom:14px;">Wir senden dir einen einmaligen Login-Link per E-Mail.</div>
+      <div data-i18n="onb_magic_hint" data-i18n-fallback="Wir senden dir einen einmaligen Login-Link per E-Mail." style="font-size:10.5px;color:rgba(255,255,255,.4);text-align:center;line-height:1.5;margin-bottom:14px;">Wir senden dir einen einmaligen Login-Link per E-Mail.</div>
 
-      <button onclick="onbShowRegister()" style="width:100%;padding:11px;background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.15);border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px;-webkit-tap-highlight-color:transparent;">
+      <button data-i18n="btn_onb_show_register" data-i18n-fallback="Noch kein Konto? → Jetzt kostenlos registrieren" onclick="onbShowRegister()" style="width:100%;padding:11px;background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.15);border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px;-webkit-tap-highlight-color:transparent;">
         Noch kein Konto? → Jetzt kostenlos registrieren
       </button>
-      <button onclick="onbBackToStart()" style="width:100%;padding:10px;background:transparent;color:rgba(255,255,255,.45);border:none;font-size:13px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">
+      <button data-i18n="btn_onb_back2" data-i18n-fallback="← Zurück" onclick="onbBackToStart()" style="width:100%;padding:10px;background:transparent;color:rgba(255,255,255,.45);border:none;font-size:13px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">
         ← Zurück
       </button>
     </div>
@@ -1678,7 +1678,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 </div>
 
 <!-- ═══ GAST-MODUS BANNER ═══════════════════════════════════════════ -->
-<div id="gs-guest-banner" style="display:none;background:linear-gradient(135deg,#e65100,#bf360c);color:#fff;padding:10px 16px;font-size:12.5px;font-weight:700;text-align:center;cursor:pointer;" onclick="gsOnboardingRegister()">
+<div id="gs-guest-banner" data-i18n="banner_guest_mode" data-i18n-fallback="👁️ Demo-Modus · Ohne Konto wird nichts gespeichert · Tippe hier zum Registrieren" style="display:none;background:linear-gradient(135deg,#e65100,#bf360c);color:#fff;padding:10px 16px;font-size:12.5px;font-weight:700;text-align:center;cursor:pointer;" onclick="gsOnboardingRegister()">
   👁️ Demo-Modus · Ohne Konto wird nichts gespeichert · Tippe hier zum Registrieren
 </div>
 <div id="app">
@@ -1700,15 +1700,15 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   <div style="margin-bottom:10px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-        <div id="home-greeting-label" style="font-size:11px;opacity:.7;font-weight:700;text-transform:uppercase;letter-spacing:2px;">Schweizer Natur</div>
+        <div id="home-greeting-label" data-i18n="home_greeting" data-i18n-fallback="Schweizer Natur" style="font-size:11px;opacity:.7;font-weight:700;text-transform:uppercase;letter-spacing:2px;">Schweizer Natur</div>
         <!-- v23.66: Badge dynamisch (Streak > Saison > Tageszeit) — ersetzt statisches "Signature" -->
         <span id="home-context-badge" class="rr-signature" style="background:linear-gradient(135deg,rgba(255,251,230,.95),rgba(255,244,199,.95));"></span>
       </div>
       <span id="home-streak-badge" style="display:none;background:rgba(255,255,255,.2);color:#fff;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:800;align-items:center;gap:4px;"></span>
     </div>
 
-    <div id="home-hero-title" style="font-family:'Playfair Display',serif;font-size:24px;font-weight:900;line-height:1.2;margin-bottom:6px;">Natur bestimmen<br>&amp; entdecken</div>
-    <div id="home-hero-sub" style="font-size:12.5px;opacity:.82;line-height:1.55;">Pflanzen · Pilze · Kräuter · Bäume · Moose</div>
+    <div id="home-hero-title" data-i18n="home_hero_title" data-i18n-html data-i18n-fallback="Natur bestimmen<br>&amp; entdecken" style="font-family:'Playfair Display',serif;font-size:24px;font-weight:900;line-height:1.2;margin-bottom:6px;">Natur bestimmen<br>&amp; entdecken</div>
+    <div id="home-hero-sub" data-i18n="home_hero_sub" data-i18n-fallback="Pflanzen · Pilze · Kräuter · Bäume · Moose" style="font-size:12.5px;opacity:.82;line-height:1.55;">Pflanzen · Pilze · Kräuter · Bäume · Moose</div>
   </div>
   
 </div>
@@ -1738,22 +1738,22 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     </div>
   </div>
   <div class="stats-grid">
-    <div class="stat-card" onclick="switchTab('search')" style="cursor:pointer;"><div class="sn" id="stat-total">–</div><div class="sl">🌿 Arten</div></div>
-    <div class="stat-card" onclick="filterCat('wildpflanze')" style="cursor:pointer;"><div class="sn" id="stat-edible">–</div><div class="sl">✅ Essbar</div></div>
-    <div class="stat-card" onclick="switchTab('favs')" style="cursor:pointer;"><div class="sn" id="stat-favs">0</div><div class="sl">🌱 Pflanzen</div></div>
-    <div class="stat-card" onclick="openScanHistoryFull()" style="cursor:pointer;"><div class="sn" id="stat-scans">0</div><div class="sl">📷 Scans</div></div>
+    <div class="stat-card" onclick="switchTab('search')" style="cursor:pointer;"><div class="sn" id="stat-total">–</div><div class="sl" data-i18n="stat_species" data-i18n-fallback="🌿 Arten">🌿 Arten</div></div>
+    <div class="stat-card" onclick="filterCat('wildpflanze')" style="cursor:pointer;"><div class="sn" id="stat-edible">–</div><div class="sl" data-i18n="stat_edible" data-i18n-fallback="✅ Essbar">✅ Essbar</div></div>
+    <div class="stat-card" onclick="switchTab('favs')" style="cursor:pointer;"><div class="sn" id="stat-favs">0</div><div class="sl" data-i18n="stat_plants" data-i18n-fallback="🌱 Pflanzen">🌱 Pflanzen</div></div>
+    <div class="stat-card" onclick="openScanHistoryFull()" style="cursor:pointer;"><div class="sn" id="stat-scans">0</div><div class="sl" data-i18n="stat_scans" data-i18n-fallback="📷 Scans">📷 Scans</div></div>
   </div>
-  <div class="sec">Kategorien</div>
+  <div class="sec" data-i18n="sec_categories" data-i18n-fallback="Kategorien">Kategorien</div>
   <div class="cat-grid">
-    <div class="cat-card" onclick="filterCat('wildpflanze')"><span class="ci">🌸</span><div class="cn">Wildpflanzen</div><div class="cc" id="cnt-wildpflanze">–</div></div>
-    <div class="cat-card" onclick="filterCat('baum')"><span class="ci">🌲</span><div class="cn">Bäume</div><div class="cc" id="cnt-baum">–</div></div>
-    <div class="cat-card" onclick="filterCat('kraut')"><span class="ci">🌿</span><div class="cn">Kräuter</div><div class="cc" id="cnt-kraut">–</div></div>
-    <div class="cat-card" onclick="filterCat('pilz')"><span class="ci">🍄</span><div class="cn">Pilze</div><div class="cc" id="cnt-pilz">–</div></div>
-    <div class="cat-card" onclick="filterCat('moos')"><span class="ci">🌱</span><div class="cn">Moose</div><div class="cc" id="cnt-moos">–</div></div>
-    <div class="cat-card" onclick="filterCat('flechte')"><span class="ci">🪨</span><div class="cn">Flechten</div><div class="cc" id="cnt-flechte">–</div></div>
-    <div class="cat-card" onclick="filterCat('alge')"><span class="ci">💧</span><div class="cn">Algen</div><div class="cc" id="cnt-alge">–</div></div>
-    <div class="cat-card" onclick="filterCat('hauspflanze')"><span class="ci">🪴</span><div class="cn">Hauspflanzen</div><div class="cc" id="cnt-hauspflanze">–</div></div>
-    <div class="cat-card" onclick="filterCat('')"><span class="ci">⭐</span><div class="cn">Alle</div><div class="cc" id="cnt-all">–</div></div>
+    <div class="cat-card" onclick="filterCat('wildpflanze')"><span class="ci">🌸</span><div class="cn" data-i18n="cat_wildpflanzen" data-i18n-fallback="Wildpflanzen">Wildpflanzen</div><div class="cc" id="cnt-wildpflanze">–</div></div>
+    <div class="cat-card" onclick="filterCat('baum')"><span class="ci">🌲</span><div class="cn" data-i18n="cat_baeume" data-i18n-fallback="Bäume">Bäume</div><div class="cc" id="cnt-baum">–</div></div>
+    <div class="cat-card" onclick="filterCat('kraut')"><span class="ci">🌿</span><div class="cn" data-i18n="cat_kraeuter" data-i18n-fallback="Kräuter">Kräuter</div><div class="cc" id="cnt-kraut">–</div></div>
+    <div class="cat-card" onclick="filterCat('pilz')"><span class="ci">🍄</span><div class="cn" data-i18n="cat_pilze" data-i18n-fallback="Pilze">Pilze</div><div class="cc" id="cnt-pilz">–</div></div>
+    <div class="cat-card" onclick="filterCat('moos')"><span class="ci">🌱</span><div class="cn" data-i18n="cat_moose" data-i18n-fallback="Moose">Moose</div><div class="cc" id="cnt-moos">–</div></div>
+    <div class="cat-card" onclick="filterCat('flechte')"><span class="ci">🪨</span><div class="cn" data-i18n="cat_flechten" data-i18n-fallback="Flechten">Flechten</div><div class="cc" id="cnt-flechte">–</div></div>
+    <div class="cat-card" onclick="filterCat('alge')"><span class="ci">💧</span><div class="cn" data-i18n="cat_algen" data-i18n-fallback="Algen">Algen</div><div class="cc" id="cnt-alge">–</div></div>
+    <div class="cat-card" onclick="filterCat('hauspflanze')"><span class="ci">🪴</span><div class="cn" data-i18n="cat_hauspflanzen" data-i18n-fallback="Hauspflanzen">Hauspflanzen</div><div class="cc" id="cnt-hauspflanze">–</div></div>
+    <div class="cat-card" onclick="filterCat('')"><span class="ci">⭐</span><div class="cn" data-i18n="cat_alle" data-i18n-fallback="Alle">Alle</div><div class="cc" id="cnt-all">–</div></div>
   </div>
   <!-- Gartenwetter Widget -->
   <div style="padding:0 16px 10px;">
@@ -1761,7 +1761,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <div onclick="openWeatherDetail()" style="cursor:pointer;background:linear-gradient(135deg,#0d47a1,#1565c0);padding:13px 15px;color:#fff;display:flex;align-items:center;gap:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;" title="Detaillierte Wetterinfos">
         <div id="hw-icon" style="font-size:36px;flex-shrink:0;">🌤️</div>
         <div style="flex:1;">
-          <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;opacity:.8;">🌱 Gartenwetter</div>
+          <div data-i18n="hw_label_gartenwetter" data-i18n-fallback="🌱 Gartenwetter" style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;opacity:.8;">🌱 Gartenwetter</div>
           <div id="hw-temp" style="font-family:'Playfair Display',serif;font-size:22px;font-weight:800;line-height:1.1;">– °C</div>
           <div id="hw-desc" style="font-size:11.5px;opacity:.88;margin-top:2px;">Standort ermitteln…</div>
         </div>
@@ -1992,7 +1992,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
 <!-- ── HEADER + SUCHFELD ──────────────────────────── -->
 <div style="background:var(--hero-bg);padding:14px 16px 10px;color:#fff;flex-shrink:0;">
-  <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:900;margin-bottom:8px;">🔍 Arten suchen</div>
+  <div data-i18n="search_title" data-i18n-fallback="🔍 Arten suchen" style="font-family:'Playfair Display',serif;font-size:20px;font-weight:900;margin-bottom:8px;">🔍 Arten suchen</div>
   <div style="background:rgba(255,255,255,.15);border-radius:11px;display:flex;align-items:center;gap:8px;padding:9px 12px;">
     <span style="font-size:15px;opacity:.7;">🔍</span>
     <input id="search-input" type="text"
@@ -2007,25 +2007,25 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <!-- ── FILTER: Kategorien + Eigenschaften-Toggle ──── -->
 <div id="search-filter" style="background:var(--g-bg);border-bottom:1px solid var(--border);padding:6px 16px 6px;flex-shrink:0;">
   <div class="sf-row">
-    <button class="sf-btn active" onclick="gsFilter('',this)" data-group="cat">Alle</button>
-    <button class="sf-btn" onclick="gsFilter('wildpflanze',this)" data-group="cat">🌸 Wild</button>
-    <button class="sf-btn" onclick="gsFilter('pilz',this)" data-group="cat">🍄 Pilze</button>
-    <button class="sf-btn" onclick="gsFilter('baum',this)" data-group="cat">🌳 Bäume</button>
-    <button class="sf-btn" onclick="gsFilter('kraut',this)" data-group="cat">🌿 Kräuter</button>
-    <button class="sf-btn" onclick="gsFilter('hauspflanze',this)" data-group="cat">🪴 Haus</button>
-    <button class="sf-btn" onclick="gsFilter('moos',this)" data-group="cat">🌱 Moose</button>
-    <button class="sf-btn" onclick="gsFilter('flechte',this)" data-group="cat">🪨 Flechten</button>
-    <button class="sf-btn" onclick="gsFilter('alge',this)" data-group="cat">💧 Algen</button>
-    <button class="sf-btn sf-toggle" onclick="gsTogglePropFilter()" id="sf-toggle-btn" style="margin-left:auto;">⚙ Filter</button>
+    <button class="sf-btn active" onclick="gsFilter('',this)" data-group="cat" data-i18n="sf_alle" data-i18n-fallback="Alle">Alle</button>
+    <button class="sf-btn" onclick="gsFilter('wildpflanze',this)" data-group="cat" data-i18n="sf_wild" data-i18n-fallback="🌸 Wild">🌸 Wild</button>
+    <button class="sf-btn" onclick="gsFilter('pilz',this)" data-group="cat" data-i18n="sf_pilze" data-i18n-fallback="🍄 Pilze">🍄 Pilze</button>
+    <button class="sf-btn" onclick="gsFilter('baum',this)" data-group="cat" data-i18n="sf_baeume" data-i18n-fallback="🌳 Bäume">🌳 Bäume</button>
+    <button class="sf-btn" onclick="gsFilter('kraut',this)" data-group="cat" data-i18n="sf_kraeuter" data-i18n-fallback="🌿 Kräuter">🌿 Kräuter</button>
+    <button class="sf-btn" onclick="gsFilter('hauspflanze',this)" data-group="cat" data-i18n="sf_haus" data-i18n-fallback="🪴 Haus">🪴 Haus</button>
+    <button class="sf-btn" onclick="gsFilter('moos',this)" data-group="cat" data-i18n="sf_moose" data-i18n-fallback="🌱 Moose">🌱 Moose</button>
+    <button class="sf-btn" onclick="gsFilter('flechte',this)" data-group="cat" data-i18n="sf_flechten" data-i18n-fallback="🪨 Flechten">🪨 Flechten</button>
+    <button class="sf-btn" onclick="gsFilter('alge',this)" data-group="cat" data-i18n="sf_algen" data-i18n-fallback="💧 Algen">💧 Algen</button>
+    <button class="sf-btn sf-toggle" onclick="gsTogglePropFilter()" id="sf-toggle-btn" data-i18n="sf_filter" data-i18n-fallback="⚙ Filter" style="margin-left:auto;">⚙ Filter</button>
   </div>
   <!-- Eigenschaften: standardmässig versteckt -->
   <div class="sf-row sf-props" id="sf-props-row" style="display:none;margin-top:5px;">
-    <button class="sf-btn sf-prop" onclick="gsFilter('essbar',this)" data-group="prop">✅ Essbar</button>
-    <button class="sf-btn sf-prop" onclick="gsFilter('ungiftig',this)" data-group="prop">🟢 Ungiftig</button>
-    <button class="sf-btn sf-prop" onclick="gsFilter('giftig',this)" data-group="prop">☠️ Giftig</button>
-    <button class="sf-btn sf-prop" onclick="gsFilter('heilpflanze',this)" data-group="prop">💊 Heilpflanze</button>
-    <button class="sf-btn sf-prop" onclick="gsFilter('geschuetzt',this)" data-group="prop">🛡️ Geschützt</button>
-    <button class="sf-btn sf-reset" onclick="gsResetFilter()" style="margin-left:auto;">✕ Reset</button>
+    <button class="sf-btn sf-prop" onclick="gsFilter('essbar',this)" data-group="prop" data-i18n="sf_essbar" data-i18n-fallback="✅ Essbar">✅ Essbar</button>
+    <button class="sf-btn sf-prop" onclick="gsFilter('ungiftig',this)" data-group="prop" data-i18n="sf_ungiftig" data-i18n-fallback="🟢 Ungiftig">🟢 Ungiftig</button>
+    <button class="sf-btn sf-prop" onclick="gsFilter('giftig',this)" data-group="prop" data-i18n="sf_giftig" data-i18n-fallback="☠️ Giftig">☠️ Giftig</button>
+    <button class="sf-btn sf-prop" onclick="gsFilter('heilpflanze',this)" data-group="prop" data-i18n="sf_heilpflanze" data-i18n-fallback="💊 Heilpflanze">💊 Heilpflanze</button>
+    <button class="sf-btn sf-prop" onclick="gsFilter('geschuetzt',this)" data-group="prop" data-i18n="sf_geschuetzt" data-i18n-fallback="🛡️ Geschützt">🛡️ Geschützt</button>
+    <button class="sf-btn sf-reset" onclick="gsResetFilter()" data-i18n="sf_reset" data-i18n-fallback="✕ Reset" style="margin-left:auto;">✕ Reset</button>
   </div>
 </div>
 
@@ -2047,8 +2047,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <div style="background:var(--hero-bg);padding:14px 16px 16px;color:#fff;flex-shrink:0;">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
     <div>
-      <div style="font-size:10px;font-weight:800;opacity:.7;text-transform:uppercase;letter-spacing:.7px;">Meine Sammlung</div>
-      <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:900;line-height:1.1;">🌱 Meine Pflanzen</div>
+      <div data-i18n="favs_meine_sammlung" data-i18n-fallback="Meine Sammlung" style="font-size:10px;font-weight:800;opacity:.7;text-transform:uppercase;letter-spacing:.7px;">Meine Sammlung</div>
+      <div data-i18n="favs_meine_pflanzen" data-i18n-fallback="🌱 Meine Pflanzen" style="font-family:'Playfair Display',serif;font-size:22px;font-weight:900;line-height:1.1;">🌱 Meine Pflanzen</div>
     </div>
     <button onclick="openAddPlant()" style="width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.2);border:none;color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;">＋</button>
   </div>
@@ -2056,15 +2056,15 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   <div style="display:flex;gap:8px;">
     <div id="plants-stat-total" style="flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:8px 10px;text-align:center;">
       <div style="font-size:20px;font-weight:900;">0</div>
-      <div style="font-size:9px;opacity:.8;font-weight:700;text-transform:uppercase;">Pflanzen</div>
+      <div data-i18n="favs_stat_plants" data-i18n-fallback="Pflanzen" style="font-size:9px;opacity:.8;font-weight:700;text-transform:uppercase;">Pflanzen</div>
     </div>
     <div id="plants-stat-due" onclick="gsShowAllDue()" style="flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:8px 10px;text-align:center;cursor:pointer;">
       <div id="plants-due-count" style="font-size:20px;font-weight:900;">0</div>
-      <div style="font-size:9px;opacity:.8;font-weight:700;text-transform:uppercase;">Heute fällig</div>
+      <div data-i18n="favs_stat_due" data-i18n-fallback="Heute fällig" style="font-size:9px;opacity:.8;font-weight:700;text-transform:uppercase;">Heute fällig</div>
     </div>
     <div id="plants-stat-ok" style="flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:8px 10px;text-align:center;">
       <div id="plants-ok-count" style="font-size:20px;font-weight:900;">0</div>
-      <div style="font-size:9px;opacity:.8;font-weight:700;text-transform:uppercase;">Gut versorgt</div>
+      <div data-i18n="favs_stat_ok" data-i18n-fallback="Gut versorgt" style="font-size:9px;opacity:.8;font-weight:700;text-transform:uppercase;">Gut versorgt</div>
     </div>
   </div>
 </div>
@@ -2129,19 +2129,19 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <div class="screen" id="screen-more">
 
 <div style="background:var(--hero-bg);padding:14px 16px 12px;color:#fff;flex-shrink:0;">
-  <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:900;margin-bottom:2px;">⚙️ Mehr</div>
-  <div style="font-size:11.5px;opacity:.78;">Alle Funktionen &amp; Einstellungen</div>
+  <div data-i18n="more_title" data-i18n-fallback="⚙️ Mehr" style="font-family:'Playfair Display',serif;font-size:20px;font-weight:900;margin-bottom:2px;">⚙️ Mehr</div>
+  <div data-i18n="more_sub" data-i18n-fallback="Alle Funktionen &amp; Einstellungen" style="font-size:11.5px;opacity:.78;">Alle Funktionen &amp; Einstellungen</div>
 <div style="padding:0 16px 8px;">
   <button onclick="openScanHistoryFull()" style="width:100%;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:12px;font-size:13.5px;font-weight:700;color:var(--text);cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:10px;text-align:left;-webkit-tap-highlight-color:transparent;">
     <span style="font-size:20px;">📷</span>
-    <div><div style="font-size:13.5px;font-weight:800;">Scan-History</div><div style="font-size:11px;color:var(--muted);font-weight:500;margin-top:1px;">Alle deine Scans anzeigen</div></div>
+    <div><div data-i18n="more_scan_hist" data-i18n-fallback="Scan-History" style="font-size:13.5px;font-weight:800;">Scan-History</div><div data-i18n="more_scan_hist_sub" data-i18n-fallback="Alle deine Scans anzeigen" style="font-size:11px;color:var(--muted);font-weight:500;margin-top:1px;">Alle deine Scans anzeigen</div></div>
     <span style="margin-left:auto;color:var(--muted);font-size:18px;">›</span>
   </button>
 </div>
 
 <div style="padding:12px 16px 4px;">
   <button onclick="gsShareApp()" style="width:100%;padding:13px;background:var(--hero-bg);color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 16px rgba(0,0,0,.2);">
-    <span style="font-size:18px;">↑</span> GreenScan empfehlen
+    <span style="font-size:18px;">↑</span> <span data-i18n="btn_share_app" data-i18n-fallback="GreenScan empfehlen">GreenScan empfehlen</span>
   </button>
 </div>
 
@@ -2153,11 +2153,11 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
     <div style="background:var(--card);border-radius:14px;padding:14px;box-shadow:var(--shadow-sm);">
       <div id="more-scan-count" style="font-size:26px;font-weight:900;color:var(--g-dark);line-height:1;">0</div>
-      <div style="font-size:11px;color:var(--muted);font-weight:700;margin-top:3px;">Scans</div>
+      <div data-i18n="more_stat_scans" data-i18n-fallback="Scans" style="font-size:11px;color:var(--muted);font-weight:700;margin-top:3px;">Scans</div>
     </div>
     <div style="background:var(--card);border-radius:14px;padding:14px;box-shadow:var(--shadow-sm);">
       <div id="more-fav-count" style="font-size:26px;font-weight:900;color:var(--g-dark);line-height:1;">0</div>
-      <div style="font-size:11px;color:var(--muted);font-weight:700;margin-top:3px;">Favoriten</div>
+      <div data-i18n="more_stat_favs" data-i18n-fallback="Favoriten" style="font-size:11px;color:var(--muted);font-weight:700;margin-top:3px;">Favoriten</div>
     </div>
     <div style="background:var(--card);border-radius:14px;padding:14px;box-shadow:var(--shadow-sm);cursor:pointer;-webkit-tap-highlight-color:transparent;" onclick="(typeof sbIsLoggedIn==='function' &amp;&amp; sbIsLoggedIn()) ? openUserProfile() : openLoginModal();">
       <div id="more-xp-count" style="font-size:26px;font-weight:900;color:var(--g-dark);line-height:1;">0</div>
@@ -2165,7 +2165,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     </div>
     <div style="background:var(--card);border-radius:14px;padding:14px;box-shadow:var(--shadow-sm);">
       <div id="more-quiz-correct" style="font-size:26px;font-weight:900;color:var(--g-dark);line-height:1;">0/0</div>
-      <div style="font-size:11px;color:var(--muted);font-weight:700;margin-top:3px;">Quiz</div>
+      <div data-i18n="more_stat_quiz" data-i18n-fallback="Quiz" style="font-size:11px;color:var(--muted);font-weight:700;margin-top:3px;">Quiz</div>
 <!-- v23.95: Mehr-Screen XP-Bar — klickbar zum Profil + theme-aware Bar-Color -->
 <div style="margin:0 16px 12px;background:var(--hero-bg);border-radius:14px;padding:12px 16px;color:#fff;cursor:pointer;" onclick="(typeof sbIsLoggedIn==='function' &amp;&amp; sbIsLoggedIn()) ? openUserProfile() : openLoginModal();">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:8px;">
@@ -2181,18 +2181,18 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 </div><div style="padding:0 16px 8px;display:flex;gap:8px;">
   <div style="flex:1;background:var(--card);border-radius:12px;padding:10px 12px;border:1px solid var(--border);text-align:center;cursor:pointer;" onclick="if(typeof openScanHistoryFull==='function')openScanHistoryFull()">
     <div id="more-streak" style="font-size:22px;font-weight:900;color:var(--g-dark);">–</div>
-    <div style="font-size:10px;color:var(--muted);font-weight:700;margin-top:2px;text-transform:uppercase;letter-spacing:.3px;">Aktiv-Tage 🔥</div>
+    <div data-i18n="more_stat_streak" data-i18n-fallback="Aktiv-Tage 🔥" style="font-size:10px;color:var(--muted);font-weight:700;margin-top:2px;text-transform:uppercase;letter-spacing:.3px;">Aktiv-Tage 🔥</div>
   </div>
   <div style="flex:1;background:var(--card);border-radius:12px;padding:10px 12px;border:1px solid var(--border);text-align:center;">
     <div id="more-total-scans" style="font-size:22px;font-weight:900;color:var(--g-dark);">0</div>
-    <div style="font-size:10px;color:var(--muted);font-weight:700;margin-top:2px;text-transform:uppercase;letter-spacing:.3px;">Scans</div>
+    <div data-i18n="more_stat_total_scans" data-i18n-fallback="Scans" style="font-size:10px;color:var(--muted);font-weight:700;margin-top:2px;text-transform:uppercase;letter-spacing:.3px;">Scans</div>
   </div>
 </div>
 
 <div style="padding:0 16px 12px;">
   <button onclick="gsRequestNotifications()" style="width:100%;padding:12px;background:var(--card);border:1.5px solid var(--border);border-radius:14px;font-size:13.5px;font-weight:700;color:var(--text);cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:10px;-webkit-tap-highlight-color:transparent;">
     <span style="font-size:20px;">🔔</span>
-    <div style="flex:1;text-align:left;"><div style="font-weight:800;">Saison-Erinnerungen</div><div style="font-size:11px;color:var(--muted);margin-top:1px;">Wöchentliche Tipps was jetzt Saison hat</div></div>
+    <div style="flex:1;text-align:left;"><div data-i18n="lbl_season_reminders" data-i18n-fallback="Saison-Erinnerungen" style="font-weight:800;">Saison-Erinnerungen</div><div data-i18n="lbl_season_reminders_sub" data-i18n-fallback="Wöchentliche Tipps was jetzt Saison hat" style="font-size:11px;color:var(--muted);margin-top:1px;">Wöchentliche Tipps was jetzt Saison hat</div></div>
     <span style="color:var(--muted);">›</span>
   </button>
 </div>
@@ -2205,13 +2205,13 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <div style="font-size:11px;opacity:.75;" id="more-quiz-streak">0 Tage 🎯 Quiz</div>
   </div>
 <div style="padding:0 16px 12px;">
-  <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);padding:8px 0 6px;">🧭 Navigation</div>
+  <div data-i18n="more_nav_header" data-i18n-fallback="🧭 Navigation" style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);padding:8px 0 6px;">🧭 Navigation</div>
   <div style="background:var(--card);border-radius:14px;overflow:hidden;border:1px solid var(--border);">
-    <div onclick="menuNav('wissen')" style="display:flex;align-items:center;gap:12px;padding:12px 15px;border-bottom:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;"><span style="font-size:20px;width:32px;text-align:center;">📚</span><div style="flex:1;"><div style="font-size:14px;font-weight:700;color:var(--text);">Wissens-Zentrum</div><div style="font-size:11px;color:var(--muted);">Tipps, Regeln, Sicherheit</div></div><span style="color:var(--muted);">›</span></div>
-    <div onclick="menuNav('season')" style="display:flex;align-items:center;gap:12px;padding:12px 15px;border-bottom:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;"><span style="font-size:20px;width:32px;text-align:center;">📅</span><div style="flex:1;"><div style="font-size:14px;font-weight:700;color:var(--text);">Saison-Kalender</div><div style="font-size:11px;color:var(--muted);">Was hat wann Saison?</div></div><span style="color:var(--muted);">›</span></div>
-    <div onclick="menuNav('market')" style="display:flex;align-items:center;gap:12px;padding:12px 15px;border-bottom:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;"><span style="font-size:20px;width:32px;text-align:center;">🛒</span><div style="flex:1;"><div style="font-size:14px;font-weight:700;color:var(--text);">Marktplatz</div><div style="font-size:11px;color:var(--muted);">Tauschen & Verkaufen</div></div><span style="color:var(--muted);">›</span></div>
-    <div onclick="menuNav('remedies')" style="display:flex;align-items:center;gap:12px;padding:12px 15px;border-bottom:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;"><span style="font-size:20px;width:32px;text-align:center;">💊</span><div style="flex:1;"><div style="font-size:14px;font-weight:700;color:var(--text);">Heilmittel</div><div style="font-size:11px;color:var(--muted);">Natürliche Hausmittel</div></div><span style="color:var(--muted);">›</span></div>
-    <div onclick="menuNav('map')" style="display:flex;align-items:center;gap:12px;padding:12px 15px;cursor:pointer;-webkit-tap-highlight-color:transparent;"><span style="font-size:20px;width:32px;text-align:center;">🗺️</span><div style="flex:1;"><div style="font-size:14px;font-weight:700;color:var(--text);">Karte</div><div style="font-size:11px;color:var(--muted);">Fundorte & Standorte</div></div><span style="color:var(--muted);">›</span></div>
+    <div onclick="menuNav('wissen')" style="display:flex;align-items:center;gap:12px;padding:12px 15px;border-bottom:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;"><span style="font-size:20px;width:32px;text-align:center;">📚</span><div style="flex:1;"><div data-i18n="nav_wissen_title" data-i18n-fallback="Wissens-Zentrum" style="font-size:14px;font-weight:700;color:var(--text);">Wissens-Zentrum</div><div data-i18n="nav_wissen_sub" data-i18n-fallback="Tipps, Regeln, Sicherheit" style="font-size:11px;color:var(--muted);">Tipps, Regeln, Sicherheit</div></div><span style="color:var(--muted);">›</span></div>
+    <div onclick="menuNav('season')" style="display:flex;align-items:center;gap:12px;padding:12px 15px;border-bottom:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;"><span style="font-size:20px;width:32px;text-align:center;">📅</span><div style="flex:1;"><div data-i18n="nav_season_title" data-i18n-fallback="Saison-Kalender" style="font-size:14px;font-weight:700;color:var(--text);">Saison-Kalender</div><div data-i18n="nav_season_sub" data-i18n-fallback="Was hat wann Saison?" style="font-size:11px;color:var(--muted);">Was hat wann Saison?</div></div><span style="color:var(--muted);">›</span></div>
+    <div onclick="menuNav('market')" style="display:flex;align-items:center;gap:12px;padding:12px 15px;border-bottom:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;"><span style="font-size:20px;width:32px;text-align:center;">🛒</span><div style="flex:1;"><div data-i18n="nav_market_title" data-i18n-fallback="Marktplatz" style="font-size:14px;font-weight:700;color:var(--text);">Marktplatz</div><div data-i18n="nav_market_sub" data-i18n-fallback="Tauschen & Verkaufen" style="font-size:11px;color:var(--muted);">Tauschen & Verkaufen</div></div><span style="color:var(--muted);">›</span></div>
+    <div onclick="menuNav('remedies')" style="display:flex;align-items:center;gap:12px;padding:12px 15px;border-bottom:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;"><span style="font-size:20px;width:32px;text-align:center;">💊</span><div style="flex:1;"><div data-i18n="nav_remedies_title" data-i18n-fallback="Heilmittel" style="font-size:14px;font-weight:700;color:var(--text);">Heilmittel</div><div data-i18n="nav_remedies_sub" data-i18n-fallback="Natürliche Hausmittel" style="font-size:11px;color:var(--muted);">Natürliche Hausmittel</div></div><span style="color:var(--muted);">›</span></div>
+    <div onclick="menuNav('map')" style="display:flex;align-items:center;gap:12px;padding:12px 15px;cursor:pointer;-webkit-tap-highlight-color:transparent;"><span style="font-size:20px;width:32px;text-align:center;">🗺️</span><div style="flex:1;"><div data-i18n="nav_map_title" data-i18n-fallback="Karte" style="font-size:14px;font-weight:700;color:var(--text);">Karte</div><div data-i18n="nav_map_sub" data-i18n-fallback="Fundorte & Standorte" style="font-size:11px;color:var(--muted);">Fundorte & Standorte</div></div><span style="color:var(--muted);">›</span></div>
   </div>
 </div>
 
@@ -2219,40 +2219,40 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <button onclick="toggleAdminMode()" id="admin-badge" style="display:none;padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:none;font-family:inherit;transition:.15s;"></button></div>
   <!-- FEEDBACK -->
   <div class="fb-screen" id="feedback-section">
-    <div class="sec" style="padding-top:8px;">💬 Feedback &amp; Ideen</div>
+    <div class="sec" data-i18n="sec_feedback_ideen" data-i18n-fallback="💬 Feedback &amp; Ideen" style="padding-top:8px;">💬 Feedback &amp; Ideen</div>
     <div class="fb-form">
-      <h3>Feedback senden</h3>
-      <div style="font-size:11.5px;color:var(--text2);line-height:1.55;margin-bottom:12px;">
+      <h3 data-i18n="fb_send_title" data-i18n-fallback="Feedback senden">Feedback senden</h3>
+      <div data-i18n="fb_intro" data-i18n-fallback="Hilf uns GreenScan besser zu machen — jedes Feedback wird gelesen, von der KI vor-sortiert und in der Roadmap berücksichtigt." style="font-size:11.5px;color:var(--text2);line-height:1.55;margin-bottom:12px;">
         Hilf uns GreenScan besser zu machen — jedes Feedback wird gelesen, von der KI vor-sortiert und in der Roadmap berücksichtigt.
       </div>
-      <label style="display:block;font-size:11px;font-weight:700;color:var(--text);margin-bottom:4px;">Typ <span style="color:#c62828;">*</span></label>
+      <label data-i18n="fb_lbl_type" data-i18n-html data-i18n-fallback="Typ <span style=&quot;color:#c62828;&quot;>*</span>" style="display:block;font-size:11px;font-weight:700;color:var(--text);margin-bottom:4px;">Typ <span style="color:#c62828;">*</span></label>
       <select class="fb-select" id="fb-type" onchange="gsFbValidate()">
-        <option value="">Typ wählen…</option>
-        <option value="bug">🐛 Fehler melden</option>
-        <option value="idea">💡 Idee / Verbesserung</option>
-        <option value="data">📊 Datenfehler (Pflanze falsch)</option>
-        <option value="ui">🎨 UI/Design-Feedback</option>
+        <option value="" data-i18n="fb_opt_choose" data-i18n-fallback="Typ wählen…">Typ wählen…</option>
+        <option value="bug" data-i18n="fb_opt_bug" data-i18n-fallback="🐛 Fehler melden">🐛 Fehler melden</option>
+        <option value="idea" data-i18n="fb_opt_idea" data-i18n-fallback="💡 Idee / Verbesserung">💡 Idee / Verbesserung</option>
+        <option value="data" data-i18n="fb_opt_data" data-i18n-fallback="📊 Datenfehler (Pflanze falsch)">📊 Datenfehler (Pflanze falsch)</option>
+        <option value="ui" data-i18n="fb_opt_ui" data-i18n-fallback="🎨 UI/Design-Feedback">🎨 UI/Design-Feedback</option>
       </select>
-      <label style="display:block;font-size:11px;font-weight:700;color:var(--text);margin:4px 0 4px;">Beschreibung <span style="color:#c62828;">*</span></label>
+      <label data-i18n="fb_lbl_desc" data-i18n-html data-i18n-fallback="Beschreibung <span style=&quot;color:#c62828;&quot;>*</span>" style="display:block;font-size:11px;font-weight:700;color:var(--text);margin:4px 0 4px;">Beschreibung <span style="color:#c62828;">*</span></label>
       <textarea class="fb-textarea" id="fb-text" placeholder="Was ist passiert? Wie sollte es sein?  Je konkreter, desto besser." oninput="gsFbValidate()" maxlength="2000"></textarea>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;font-size:10.5px;color:var(--muted);">
         <span id="fb-counter">0 / 2000 Zeichen</span>
         <span id="fb-hint">Min. 10 Zeichen</span>
       </div>
-      <button class="fb-submit" id="fb-submit-btn" onclick="submitFeedback()" style="opacity:.55;">📤 Absenden</button>
+      <button class="fb-submit" id="fb-submit-btn" data-i18n="btn_fb_submit" data-i18n-fallback="📤 Absenden" onclick="submitFeedback()" style="opacity:.55;">📤 Absenden</button>
     </div>
     <div class="sec" style="padding-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-      <span>📊 Community-Feedback</span>
+      <span data-i18n="sec_community_feedback" data-i18n-fallback="📊 Community-Feedback">📊 Community-Feedback</span>
       <span id="fb-live-dot" title="Live-Feed aus der Community" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#1b5e20;background:#e8f5e9;border:1px solid #a5d6a7;padding:2px 8px;border-radius:10px;letter-spacing:.3px;">
         <span style="width:6px;height:6px;border-radius:50%;background:#43a047;box-shadow:0 0 6px #43a047;animation:fbPulse 1.6s ease-in-out infinite;"></span>LIVE
       </span>
       <span style="flex:1;"></span>
-      <button id="fb-refresh-btn" onclick="gsRefreshGlobalFeedback(true)" style="padding:4px 10px;font-size:11px;font-weight:700;background:#eceff1;color:#37474f;border:1px solid #cfd8dc;border-radius:8px;cursor:pointer;font-family:inherit;">🔄 Aktualisieren</button>
-      <button onclick="openKiImprove()" style="padding:4px 10px;font-size:11px;font-weight:700;background:var(--g-main);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:inherit;">🤖 KI-Analyse</button>
+      <button id="fb-refresh-btn" data-i18n="btn_refresh" data-i18n-fallback="🔄 Aktualisieren" onclick="gsRefreshGlobalFeedback(true)" style="padding:4px 10px;font-size:11px;font-weight:700;background:#eceff1;color:#37474f;border:1px solid #cfd8dc;border-radius:8px;cursor:pointer;font-family:inherit;">🔄 Aktualisieren</button>
+      <button onclick="openKiImprove()" data-i18n="btn_ki_analyse" data-i18n-fallback="🤖 KI-Analyse" style="padding:4px 10px;font-size:11px;font-weight:700;background:var(--g-main);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:inherit;">🤖 KI-Analyse</button>
     </div>
     <div id="feedback-list"></div>
     <!-- SUPPORT -->
-    <div class="sec">🆘 Support &amp; Hilfe</div>
+    <div class="sec" data-i18n="sec_support_help" data-i18n-fallback="🆘 Support &amp; Hilfe">🆘 Support &amp; Hilfe</div>
     <div class="sup-screen" id="support-content"></div>
   </div>
 
@@ -2279,8 +2279,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <div style="background:var(--hero-bg);padding:14px 16px 14px;color:#fff;flex-shrink:0;display:flex;align-items:center;gap:12px;">
   <button onclick="gsGoBack()" aria-label="Zurück" style="width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.15);color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent;">&#8249;</button>
   <div style="flex:1;min-width:0;">
-    <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:900;margin-bottom:2px;">🌻 Mein Garten</div>
-    <div style="font-size:11.5px;opacity:.78;line-height:1.3;">Planen · Pflegen · Ernten</div>
+    <div data-i18n="garden_title" data-i18n-fallback="🌻 Mein Garten" style="font-family:'Playfair Display',serif;font-size:20px;font-weight:900;margin-bottom:2px;">🌻 Mein Garten</div>
+    <div data-i18n="garden_sub" data-i18n-fallback="Planen · Pflegen · Ernten" style="font-size:11.5px;opacity:.78;line-height:1.3;">Planen · Pflegen · Ernten</div>
   </div>
 </div>
 
@@ -2288,10 +2288,10 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <div onclick="openWeatherDetail()" style="margin:10px 16px 0;background:linear-gradient(135deg,#0d47a1,#1565c0);border-radius:12px;padding:11px 14px;color:#fff;display:flex;align-items:center;gap:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;">
   <span id="garden-hw-icon" style="font-size:28px;flex-shrink:0;">🌤️</span>
   <div style="flex:1;min-width:0;">
-    <div style="font-size:9px;font-weight:800;opacity:.7;text-transform:uppercase;letter-spacing:.5px;line-height:1;margin-bottom:3px;">Gartenwetter</div>
+    <div data-i18n="garden_weather_label" data-i18n-fallback="Gartenwetter" style="font-size:9px;font-weight:800;opacity:.7;text-transform:uppercase;letter-spacing:.5px;line-height:1;margin-bottom:3px;">Gartenwetter</div>
     <div style="display:flex;align-items:baseline;gap:8px;">
       <span id="garden-hw-temp" style="font-size:18px;font-weight:900;line-height:1;">–°</span>
-      <span id="garden-hw-desc" style="font-size:11.5px;opacity:.85;line-height:1.3;">Tippen für Details</span>
+      <span id="garden-hw-desc" data-i18n="garden_weather_tap_details" data-i18n-fallback="Tippen für Details" style="font-size:11.5px;opacity:.85;line-height:1.3;">Tippen für Details</span>
     </div>
   </div>
   <span style="opacity:.45;font-size:18px;">›</span>
@@ -2543,17 +2543,17 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   <!-- Header -->
   <div style="background:var(--hero-bg);padding:14px 16px 10px;color:#fff;display:flex;align-items:center;gap:12px;position:relative;overflow:hidden;"><button onclick="gsGoBack()" aria-label="Zurück" style="width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent;">&#8249;</button><div style="flex:1;">
     <div style="position:absolute;right:-5px;top:-8px;font-size:90px;opacity:.07;">🌿</div></div>
-    <div style="font-family:'Playfair Display',serif;font-size:19px;font-weight:800;">🌿 GreenScan Community</div>
-    <div style="font-size:12px;opacity:.8;margin-top:2px;">Teile · Lerne · Hilf anderen</div>
+    <div data-i18n="social_title" data-i18n-fallback="🌿 GreenScan Community" style="font-family:'Playfair Display',serif;font-size:19px;font-weight:800;">🌿 GreenScan Community</div>
+    <div data-i18n="social_sub" data-i18n-fallback="Teile · Lerne · Hilf anderen" style="font-size:12px;opacity:.8;margin-top:2px;">Teile · Lerne · Hilf anderen</div>
   </div>
   <!-- Tabs -->
   <div class="social-tabs" id="social-tabs">
-    <button class="social-tab active" onclick="filterSocial('all',this)">🌿 Alle</button>
-    <button class="social-tab" onclick="filterSocial('help',this)">🆘 Hilfe gesucht</button>
-    <button class="social-tab" onclick="filterSocial('showcase',this)">⭐ Showcase</button>
-    <button class="social-tab" onclick="filterSocial('tip',this)">💡 Tipps</button>
-    <button class="social-tab" onclick="filterSocial('question',this)">❓ Fragen</button>
-    <button class="social-tab" onclick="filterSocial('rare',this)">💎 Raritäten</button>
+    <button class="social-tab active" onclick="filterSocial('all',this)" data-i18n="social_tab_all" data-i18n-fallback="🌿 Alle">🌿 Alle</button>
+    <button class="social-tab" onclick="filterSocial('help',this)" data-i18n="social_tab_help" data-i18n-fallback="🆘 Hilfe gesucht">🆘 Hilfe gesucht</button>
+    <button class="social-tab" onclick="filterSocial('showcase',this)" data-i18n="social_tab_showcase" data-i18n-fallback="⭐ Showcase">⭐ Showcase</button>
+    <button class="social-tab" onclick="filterSocial('tip',this)" data-i18n="social_tab_tip" data-i18n-fallback="💡 Tipps">💡 Tipps</button>
+    <button class="social-tab" onclick="filterSocial('question',this)" data-i18n="social_tab_question" data-i18n-fallback="❓ Fragen">❓ Fragen</button>
+    <button class="social-tab" onclick="filterSocial('rare',this)" data-i18n="social_tab_rare" data-i18n-fallback="💎 Raritäten">💎 Raritäten</button>
   </div>
   <!-- Inline Composer -->
   <div id="social-inline-composer" style="background:var(--card);margin:8px 16px 0;border-radius:var(--r);box-shadow:var(--shadow-sm);overflow:hidden;">
@@ -2604,7 +2604,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <button class="modal-close-btn" onclick="closeModal('modal-new-post')" aria-label="Schliessen">&#x2715;</button>
     <div class="mhdr">
       <span class="memoji">📸</span>
-      <div><h2>Neuer Post</h2><p>Teile deine Pflanze mit der Community</p></div>
+      <div><h2 data-i18n="modal_new_post_title" data-i18n-fallback="Neuer Post">Neuer Post</h2><p data-i18n="modal_new_post_sub" data-i18n-fallback="Teile deine Pflanze mit der Community">Teile deine Pflanze mit der Community</p></div>
     </div>
     <div style="padding:4px 18px 18px;">
       <div class="mp-field">
@@ -2711,10 +2711,10 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <div style="background:var(--hero-bg);padding:14px 16px 12px;color:#fff;flex-shrink:0;display:flex;align-items:center;gap:12px;">
   <button onclick="gsGoBack()" aria-label="Zurück" style="width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.15);color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent;">&#8249;</button>
   <div style="flex:1;min-width:0;">
-    <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:900;margin-bottom:2px;">🛒 Marktplatz</div>
+    <div data-i18n="market_title" data-i18n-fallback="🛒 Marktplatz" style="font-family:'Playfair Display',serif;font-size:20px;font-weight:900;margin-bottom:2px;">🛒 Marktplatz</div>
     <div style="font-size:11.5px;opacity:.78;line-height:1.3;"><span id="market-stat-count">0</span> Angebote · Schweizweit</div>
   </div>
-  <button onclick="openNewListing()" aria-label="Inserat erstellen" style="padding:8px 14px;background:var(--card);color:var(--g-dark);border:none;border-radius:10px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">+ Angebot</button>
+  <button onclick="openNewListing()" aria-label="Inserat erstellen" data-i18n="btn_market_new" data-i18n-fallback="+ Angebot" style="padding:8px 14px;background:var(--card);color:var(--g-dark);border:none;border-radius:10px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">+ Angebot</button>
 </div>
 
 <!-- ── SUCHE ──────────────────────────────────── -->
@@ -2730,12 +2730,12 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <!-- ── HAUPTKATEGORIEN ────────────────────────── -->
 <div style="background:var(--g-bg);padding:8px 16px 4px;flex-shrink:0;">
   <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:3px;" id="market-cats-row">
-    <button class="mk-cat active" data-cat="all" onclick="gsMarketFilterCat('all')">🌿 Alle</button>
-    <button class="mk-cat" data-cat="produkte" onclick="gsMarketFilterCat('produkte')">🍅 Naturprodukte</button>
-    <button class="mk-cat" data-cat="samen" onclick="gsMarketFilterCat('samen')">🌰 Samen & Setzlinge</button>
-    <button class="mk-cat" data-cat="zubehor" onclick="gsMarketFilterCat('zubehor')">🔧 Garten-Zubehör</button>
-    <button class="mk-cat" data-cat="dienst" onclick="gsMarketFilterCat('dienst')">🤝 Dienstleistungen</button>
-    <button class="mk-cat" data-cat="tausch" onclick="gsMarketFilterCat('tausch')">🔄 Tausch</button>
+    <button class="mk-cat active" data-cat="all" onclick="gsMarketFilterCat('all')" data-i18n="mk_cat_all" data-i18n-fallback="🌿 Alle">🌿 Alle</button>
+    <button class="mk-cat" data-cat="produkte" onclick="gsMarketFilterCat('produkte')" data-i18n="mk_cat_produkte" data-i18n-fallback="🍅 Naturprodukte">🍅 Naturprodukte</button>
+    <button class="mk-cat" data-cat="samen" onclick="gsMarketFilterCat('samen')" data-i18n="mk_cat_samen" data-i18n-fallback="🌰 Samen & Setzlinge">🌰 Samen & Setzlinge</button>
+    <button class="mk-cat" data-cat="zubehor" onclick="gsMarketFilterCat('zubehor')" data-i18n="mk_cat_zubehor" data-i18n-fallback="🔧 Garten-Zubehör">🔧 Garten-Zubehör</button>
+    <button class="mk-cat" data-cat="dienst" onclick="gsMarketFilterCat('dienst')" data-i18n="mk_cat_dienst" data-i18n-fallback="🤝 Dienstleistungen">🤝 Dienstleistungen</button>
+    <button class="mk-cat" data-cat="tausch" onclick="gsMarketFilterCat('tausch')" data-i18n="mk_cat_tausch" data-i18n-fallback="🔄 Tausch">🔄 Tausch</button>
   </div>
 </div>
 
@@ -2934,8 +2934,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
   <div style="background:var(--hero-bg);padding:10px 16px 12px;color:#fff;display:flex;align-items:center;gap:12px;position:relative;overflow:hidden;"><button onclick="gsGoBack()" aria-label="Zurück" style="width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent;">&#8249;</button><div style="flex:1;">
     <div style="position:absolute;right:-5px;top:-8px;font-size:90px;opacity:.08;">🍲</div></div>
-    <div style="font-family:'Playfair Display',serif;font-size:19px;font-weight:800;">🍲 Rezepte & Fermentierungen</div>
-    <div style="font-size:12px;opacity:.8;margin-top:2px;">Kochen · Einlegen · Fermentieren · Konservieren</div>
+    <div data-i18n="recipes_title" data-i18n-fallback="🍲 Rezepte & Fermentierungen" style="font-family:'Playfair Display',serif;font-size:19px;font-weight:800;">🍲 Rezepte & Fermentierungen</div>
+    <div data-i18n="recipes_sub" data-i18n-fallback="Kochen · Einlegen · Fermentieren · Konservieren" style="font-size:12px;opacity:.8;margin-top:2px;">Kochen · Einlegen · Fermentieren · Konservieren</div>
   </div>
   <!-- Filter -->
   <div class="recipe-cats">
@@ -2979,8 +2979,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
   <div style="background:var(--hero-bg);padding:10px 16px 12px;color:#fff;display:flex;align-items:center;gap:12px;position:relative;overflow:hidden;"><button onclick="gsGoBack()" aria-label="Zurück" style="width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent;">&#8249;</button><div style="flex:1;">
     <div style="position:absolute;right:-5px;top:-8px;font-size:90px;opacity:.08;">🌿</div></div>
-    <div style="font-family:'Playfair Display',serif;font-size:19px;font-weight:800;">🌿 Heilmittel & Kräuter</div>
-    <div style="font-size:12px;opacity:.8;margin-top:2px;">Heilpflanzen · Tinkturen · Salben · Tees</div>
+    <div data-i18n="remedies_title" data-i18n-fallback="🌿 Heilmittel & Kräuter" style="font-family:'Playfair Display',serif;font-size:19px;font-weight:800;">🌿 Heilmittel & Kräuter</div>
+    <div data-i18n="remedies_sub" data-i18n-fallback="Heilpflanzen · Tinkturen · Salben · Tees" style="font-size:12px;opacity:.8;margin-top:2px;">Heilpflanzen · Tinkturen · Salben · Tees</div>
   </div>
   <!-- Filter -->
   <div class="recipe-cats">
@@ -3726,8 +3726,8 @@ html, body{ scroll-behavior: smooth; }
     <div style="display:flex;align-items:center;gap:12px;position:relative;">
       <button onclick="gsGoBack()" aria-label="Zurück" style="width:38px;height:38px;border-radius:50%;border:none;background:rgba(255,255,255,.22);backdrop-filter:blur(6px);color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.32)'" onmouseout="this.style.background='rgba(255,255,255,.22)'">&#8249;</button>
       <div style="flex:1;">
-        <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:800;letter-spacing:-.3px;">📚 Gartenwissen</div>
-        <div style="font-size:12.5px;opacity:.92;margin-top:3px;line-height:1.4;">Das Schweizer Hausgarten-Kompendium · 8 Kapitel · DB-verknüpft</div>
+        <div data-i18n="wissen_title" data-i18n-fallback="📚 Gartenwissen" style="font-family:'Playfair Display',serif;font-size:22px;font-weight:800;letter-spacing:-.3px;">📚 Gartenwissen</div>
+        <div data-i18n="wissen_sub" data-i18n-fallback="Das Schweizer Hausgarten-Kompendium · 8 Kapitel · DB-verknüpft" style="font-size:12.5px;opacity:.92;margin-top:3px;line-height:1.4;">Das Schweizer Hausgarten-Kompendium · 8 Kapitel · DB-verknüpft</div>
       </div>
     </div>
   </div>
@@ -3767,8 +3767,8 @@ html, body{ scroll-behavior: smooth; }
 <div class="screen" id="screen-settings">
 
 <div style="background:var(--hero-bg);padding:10px 16px 12px;color:#fff;display:flex;align-items:center;gap:12px;flex-shrink:0;"><button onclick="gsGoBack()" aria-label="Zurück" style="width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent;">&#8249;</button><div style="flex:1;">
-  <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:900;margin-bottom:2px;">⚙️ Einstellungen</div></div>
-  <div style="font-size:11.5px;opacity:.78;">App personalisieren &amp; konfigurieren</div><div id="settings-version" style="font-size:10.5px;opacity:.6;margin-top:2px;"></div>
+  <div data-i18n="settings_title" data-i18n-fallback="⚙️ Einstellungen" style="font-family:'Playfair Display',serif;font-size:20px;font-weight:900;margin-bottom:2px;">⚙️ Einstellungen</div></div>
+  <div data-i18n="settings_sub" data-i18n-fallback="App personalisieren &amp; konfigurieren" style="font-size:11.5px;opacity:.78;">App personalisieren &amp; konfigurieren</div><div id="settings-version" style="font-size:10.5px;opacity:.6;margin-top:2px;"></div>
 </div>
 
 
@@ -3776,42 +3776,42 @@ html, body{ scroll-behavior: smooth; }
   <div style="padding:12px 16px 80px;overflow-y:auto;">
 
     <!-- ABO & PREMIUM (zuoberst, gut sichtbar) -->
-    <div class="settings-group-title">🌟 Abo & Premium</div>
+    <div class="settings-group-title" data-i18n="settings_group_abo" data-i18n-fallback="🌟 Abo & Premium">🌟 Abo & Premium</div>
     <div class="settings-card" id="settings-plan-card">
       <div class="settings-row" onclick="gsShowAboScreen()" style="cursor:pointer;">
         <div class="settings-icon" style="background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;">🌟</div>
         <div class="settings-label">
-          <div class="settings-label-title" id="settings-plan-title">Gratis-Plan</div>
-          <div class="settings-label-sub" id="settings-plan-sub">Upgrade auf Plus oder Pro — jederzeit kündbar</div>
+          <div class="settings-label-title" id="settings-plan-title" data-i18n="settings_plan_title_free" data-i18n-fallback="Gratis-Plan">Gratis-Plan</div>
+          <div class="settings-label-sub" id="settings-plan-sub" data-i18n="settings_plan_upgrade_hint" data-i18n-fallback="Upgrade auf Plus oder Pro — jederzeit kündbar">Upgrade auf Plus oder Pro — jederzeit kündbar</div>
         </div>
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
       <div class="settings-row" id="settings-portal-row" onclick="gsOpenBillingPortal()" style="cursor:pointer;display:none;">
         <div class="settings-icon" style="background:#e3f2fd;">💳</div>
         <div class="settings-label">
-          <div class="settings-label-title">Abo verwalten</div>
-          <div class="settings-label-sub">Zahlung, Rechnungen, kündigen</div>
+          <div class="settings-label-title" data-i18n="settings_manage_sub" data-i18n-fallback="Abo verwalten">Abo verwalten</div>
+          <div class="settings-label-sub" data-i18n="settings_manage_sub_hint" data-i18n-fallback="Zahlung, Rechnungen, kündigen">Zahlung, Rechnungen, kündigen</div>
         </div>
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
       <div class="settings-row" onclick="gsRestorePurchases()" style="cursor:pointer;">
         <div class="settings-icon" style="background:#fff3e0;">🔄</div>
         <div class="settings-label">
-          <div class="settings-label-title">Kauf wiederherstellen</div>
-          <div class="settings-label-sub">Nach App-Neuinstallation oder Gerätewechsel</div>
+          <div class="settings-label-title" data-i18n="settings_restore" data-i18n-fallback="Kauf wiederherstellen">Kauf wiederherstellen</div>
+          <div class="settings-label-sub" data-i18n="settings_restore_hint" data-i18n-fallback="Nach App-Neuinstallation oder Gerätewechsel">Nach App-Neuinstallation oder Gerätewechsel</div>
         </div>
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
     </div>
 
     <!-- STANDORT -->
-    <div class="settings-group-title">📍 Standort & Region</div>
+    <div class="settings-group-title" data-i18n="settings_group_location" data-i18n-fallback="📍 Standort & Region">📍 Standort & Region</div>
     <div class="settings-card">
       <div class="settings-row" onclick="openLocationSettings()" style="cursor:pointer;">
         <div class="settings-icon" style="background:#e3f2fd;">📍</div>
         <div class="settings-label">
-          <div class="settings-label-title">Mein Standort</div>
-          <div class="settings-label-sub" id="settings-loc-display">Kein Standort gesetzt</div>
+          <div class="settings-label-title" data-i18n="settings_my_location" data-i18n-fallback="Mein Standort">Mein Standort</div>
+          <div class="settings-label-sub" id="settings-loc-display" data-i18n="settings_no_location" data-i18n-fallback="Kein Standort gesetzt">Kein Standort gesetzt</div>
         </div>
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
@@ -3819,8 +3819,8 @@ html, body{ scroll-behavior: smooth; }
       <div class="settings-row">
         <div class="settings-icon" style="background:#fff8e1;">🥾</div>
         <div class="settings-label">
-          <div class="settings-label-title">Live-Standort beim Wandern</div>
-          <div class="settings-label-sub">Kontinuierlich folgen — akkuintensiver. Standard: aus.</div>
+          <div class="settings-label-title" data-i18n="settings_live_loc" data-i18n-fallback="Live-Standort beim Wandern">Live-Standort beim Wandern</div>
+          <div class="settings-label-sub" data-i18n="settings_live_loc_hint" data-i18n-fallback="Kontinuierlich folgen — akkuintensiver. Standard: aus.">Kontinuierlich folgen — akkuintensiver. Standard: aus.</div>
         </div>
         <label class="settings-toggle">
           <input type="checkbox" id="live-track-toggle" onchange="gsLiveTrackingToggle(this.checked)">
@@ -3831,8 +3831,8 @@ html, body{ scroll-behavior: smooth; }
       <div class="settings-row">
         <div class="settings-icon" style="background:#fce4ec;">🔁</div>
         <div class="settings-label">
-          <div class="settings-label-title">Standort immer neu abfragen</div>
-          <div class="settings-label-sub">Statt zu merken — jede Anfrage bestätigen. Standard: aus.</div>
+          <div class="settings-label-title" data-i18n="settings_gps_ask_always" data-i18n-fallback="Standort immer neu abfragen">Standort immer neu abfragen</div>
+          <div class="settings-label-sub" data-i18n="settings_gps_ask_always_hint" data-i18n-fallback="Statt zu merken — jede Anfrage bestätigen. Standard: aus.">Statt zu merken — jede Anfrage bestätigen. Standard: aus.</div>
         </div>
         <label class="settings-toggle">
           <input type="checkbox" id="gps-always-ask-toggle" onchange="gsGpsAlwaysAskToggle(this.checked)">
@@ -3843,8 +3843,8 @@ html, body{ scroll-behavior: smooth; }
       <div class="settings-row">
         <div class="settings-icon" style="background:#fce4ec;">🔁</div>
         <div class="settings-label">
-          <div class="settings-label-title">Kamera immer neu abfragen</div>
-          <div class="settings-label-sub">Statt zu merken — jede Anfrage bestätigen. Standard: aus.</div>
+          <div class="settings-label-title" data-i18n="settings_cam_ask_always" data-i18n-fallback="Kamera immer neu abfragen">Kamera immer neu abfragen</div>
+          <div class="settings-label-sub" data-i18n="settings_cam_ask_always_hint" data-i18n-fallback="Statt zu merken — jede Anfrage bestätigen. Standard: aus.">Statt zu merken — jede Anfrage bestätigen. Standard: aus.</div>
         </div>
         <label class="settings-toggle">
           <input type="checkbox" id="cam-always-ask-toggle" onchange="gsCamAlwaysAskToggle(this.checked)">
@@ -3854,8 +3854,8 @@ html, body{ scroll-behavior: smooth; }
       <div class="settings-row">
         <div class="settings-icon" style="background:#e8f5e9;">🌡️</div>
         <div class="settings-label">
-          <div class="settings-label-title">Masseinheiten</div>
-          <div class="settings-label-sub">Temperatur & Masse</div>
+          <div class="settings-label-title" data-i18n="settings_units" data-i18n-fallback="Masseinheiten">Masseinheiten</div>
+          <div class="settings-label-sub" data-i18n="settings_units_hint" data-i18n-fallback="Temperatur & Masse">Temperatur & Masse</div>
         </div>
         <select id="pref-units" class="mp-select" style="width:auto;padding:6px 10px;font-size:13px;" onchange="savePref('units',this.value)">
           <option value="metric">°C / cm / kg</option>
@@ -3866,14 +3866,14 @@ html, body{ scroll-behavior: smooth; }
     </div>
 
     <!-- DARSTELLUNG -->
-    <div class="settings-group-title">🎨 Darstellung</div>
+    <div class="settings-group-title" data-i18n="settings_group_display" data-i18n-fallback="🎨 Darstellung">🎨 Darstellung</div>
     <div class="settings-card">
       <!-- Dark Mode -->
       <div class="settings-row">
         <div class="settings-icon" style="background:#1a2e1a;">🌙</div>
         <div class="settings-label">
-          <div class="settings-label-title">Nachtmodus</div>
-          <div class="settings-label-sub">Dunkles Farbschema</div>
+          <div class="settings-label-title" data-i18n="settings_dark_mode" data-i18n-fallback="Nachtmodus">Nachtmodus</div>
+          <div class="settings-label-sub" data-i18n="settings_dark_mode_hint" data-i18n-fallback="Dunkles Farbschema">Dunkles Farbschema</div>
         </div>
         <label class="settings-toggle">
           <input type="checkbox" id="toggle-dark" onchange="applyDarkMode(this.checked)">
@@ -3886,8 +3886,8 @@ html, body{ scroll-behavior: smooth; }
       <div class="settings-row">
         <div class="settings-icon" style="background:#e8f5e9;">🎨</div>
         <div class="settings-label">
-          <div class="settings-label-title">App-Farbe</div>
-          <div class="settings-label-sub">Hauptfarbe der App</div>
+          <div class="settings-label-title" data-i18n="settings_theme_color" data-i18n-fallback="App-Farbe">App-Farbe</div>
+          <div class="settings-label-sub" data-i18n="settings_theme_color_hint" data-i18n-fallback="Hauptfarbe der App">Hauptfarbe der App</div>
         </div>
         <div style="display:flex;gap:7px;align-items:center;">
           <div class="theme-swatch active" id="swatch-green"  data-theme="green"  style="background:#2d8a2d;" onclick="applyTheme('green',this)"></div>
@@ -3902,8 +3902,8 @@ html, body{ scroll-behavior: smooth; }
       <div class="settings-row">
         <div class="settings-icon" style="background:#fce4ec;">📱</div>
         <div class="settings-label">
-          <div class="settings-label-title">Kompakt-Ansicht</div>
-          <div class="settings-label-sub">Kleinere Karten und Abstände</div>
+          <div class="settings-label-title" data-i18n="settings_compact" data-i18n-fallback="Kompakt-Ansicht">Kompakt-Ansicht</div>
+          <div class="settings-label-sub" data-i18n="settings_compact_hint" data-i18n-fallback="Kleinere Karten und Abstände">Kleinere Karten und Abstände</div>
         </div>
         <label class="settings-toggle">
           <input type="checkbox" id="toggle-compact" onchange="applyCompact(this.checked)">
@@ -3913,13 +3913,13 @@ html, body{ scroll-behavior: smooth; }
     </div>
 
     <!-- BENACHRICHTIGUNGEN -->
-    <div class="settings-group-title">🔔 Benachrichtigungen</div>
+    <div class="settings-group-title" data-i18n="settings_group_notif" data-i18n-fallback="🔔 Benachrichtigungen">🔔 Benachrichtigungen</div>
     <div class="settings-card">
       <div class="settings-row">
         <div class="settings-icon" style="background:#fff3e0;">💧</div>
         <div class="settings-label">
-          <div class="settings-label-title">Giess-Erinnerungen</div>
-          <div class="settings-label-sub">Benachrichtigung wenn Giessen fällig</div>
+          <div class="settings-label-title" data-i18n="settings_water_notif" data-i18n-fallback="Giess-Erinnerungen">Giess-Erinnerungen</div>
+          <div class="settings-label-sub" data-i18n="settings_water_notif_hint" data-i18n-fallback="Benachrichtigung wenn Giessen fällig">Benachrichtigung wenn Giessen fällig</div>
         </div>
         <label class="settings-toggle">
           <input type="checkbox" id="toggle-water-notif" onchange="savePref('waterNotif',this.checked)">
@@ -3929,8 +3929,8 @@ html, body{ scroll-behavior: smooth; }
       <div class="settings-row">
         <div class="settings-icon" style="background:#ffebee;">⛈️</div>
         <div class="settings-label">
-          <div class="settings-label-title">Wetter-Warnungen</div>
-          <div class="settings-label-sub">Sturm / Frost / Hitze-Warnungen</div>
+          <div class="settings-label-title" data-i18n="settings_weather_notif" data-i18n-fallback="Wetter-Warnungen">Wetter-Warnungen</div>
+          <div class="settings-label-sub" data-i18n="settings_weather_notif_hint" data-i18n-fallback="Sturm / Frost / Hitze-Warnungen">Sturm / Frost / Hitze-Warnungen</div>
         </div>
         <label class="settings-toggle">
           <input type="checkbox" id="toggle-weather-notif" onchange="savePref('weatherNotif',this.checked)" checked>
@@ -3940,8 +3940,8 @@ html, body{ scroll-behavior: smooth; }
       <div class="settings-row">
         <div class="settings-icon" style="background:#e8f5e9;">🛒</div>
         <div class="settings-label">
-          <div class="settings-label-title">Marktplatz-Alerts</div>
-          <div class="settings-label-sub">Überboten, neue Angebote</div>
+          <div class="settings-label-title" data-i18n="settings_market_alerts" data-i18n-fallback="Marktplatz-Alerts">Marktplatz-Alerts</div>
+          <div class="settings-label-sub" data-i18n="settings_market_alerts_hint" data-i18n-fallback="Überboten, neue Angebote">Überboten, neue Angebote</div>
         </div>
         <label class="settings-toggle">
           <input type="checkbox" id="toggle-market-notif" onchange="savePref('marketNotif',this.checked)" checked>
@@ -3951,8 +3951,8 @@ html, body{ scroll-behavior: smooth; }
       <div class="settings-row">
         <div class="settings-icon" style="background:#f3e5f5;">🌿</div>
         <div class="settings-label">
-          <div class="settings-label-title">Community-Nachrichten</div>
-          <div class="settings-label-sub">Antworten auf deine Posts</div>
+          <div class="settings-label-title" data-i18n="settings_social_notif" data-i18n-fallback="Community-Nachrichten">Community-Nachrichten</div>
+          <div class="settings-label-sub" data-i18n="settings_social_notif_hint" data-i18n-fallback="Antworten auf deine Posts">Antworten auf deine Posts</div>
         </div>
         <label class="settings-toggle">
           <input type="checkbox" id="toggle-social-notif" onchange="savePref('socialNotif',this.checked)" checked>
@@ -4015,13 +4015,13 @@ html, body{ scroll-behavior: smooth; }
     </div>
 
     <!-- GARTEN & PFLANZEN -->
-    <div class="settings-group-title">🌱 Garten & Pflanzen</div>
+    <div class="settings-group-title" data-i18n="settings_group_garden" data-i18n-fallback="🌱 Garten & Pflanzen">🌱 Garten & Pflanzen</div>
     <div class="settings-card">
       <div class="settings-row">
         <div class="settings-icon" style="background:#e8f5e9;">🌙</div>
         <div class="settings-label">
-          <div class="settings-label-title">Mondkalender</div>
-          <div class="settings-label-sub">Im Garten-Tab anzeigen</div>
+          <div class="settings-label-title" data-i18n="settings_moon_cal" data-i18n-fallback="Mondkalender">Mondkalender</div>
+          <div class="settings-label-sub" data-i18n="settings_moon_cal_hint" data-i18n-fallback="Im Garten-Tab anzeigen">Im Garten-Tab anzeigen</div>
         </div>
         <label class="settings-toggle">
           <input type="checkbox" id="toggle-moon" onchange="savePref('showMoon',this.checked)" checked>
@@ -8620,17 +8620,103 @@ window.gsI18n = (function(){
 
 // Hardcoded JS-Strings die via Toast/innerHTML gebaut werden
 // (data-i18n-Attribute funktionieren nur für statisches HTML).
-// Wird in v25.28 ausgebaut, hier nur Top-Kandidaten.
+// v25.28: ausgebaut auf ~80 Top-Keys (Toasts, Errors, Confirms, gsConfirmModal-Buttons).
+// Verwendung: gsI18n.t('key', 'Fallback-Text-DE')
 window.GS_I18N_JS_STRINGS = {
-  'toast_login_success':    '🌿 Willkommen zurück!',
-  'toast_login_welcome_new':'🎉 Willkommen bei GreenScan!',
-  'toast_logout':           '👋 Erfolgreich abgemeldet',
-  'toast_offline_saved':    '📵 Offline gespeichert',
-  'toast_lang_loading':     '⏳ Übersetzung wird geladen…',
-  'err_offline':            'Du bist offline — Funktion benötigt Internet',
-  'err_no_camera':          'Kamera wurde abgelehnt — bitte in Browser-Einstellungen erlauben',
-  'err_login_required':     'Bitte zuerst anmelden',
-  'err_network':            'Netzwerk-Fehler — bitte erneut versuchen'
+  // ── Login / Logout / Account ────────────────────────────────────
+  'toast_login_success':       '🌿 Willkommen zurück!',
+  'toast_login_welcome_new':   '🎉 Willkommen bei GreenScan!',
+  'toast_logout':              '👋 Erfolgreich abgemeldet',
+  'toast_register_success':    '✅ Konto erstellt — willkommen!',
+  'toast_register_confirm':    '📧 Bestätigungs-Mail gesendet',
+  'toast_magic_sent':          '✉️ Magic-Link gesendet — prüfe dein Postfach',
+  'toast_pw_reset_sent':       '🔑 Reset-Link gesendet',
+  'toast_pw_changed':          '✅ Passwort geändert',
+  'toast_account_deleted':     '🗑️ Konto gelöscht — bis bald!',
+  // ── Garten / Pflanzen ───────────────────────────────────────────
+  'toast_plant_added':         '🌱 Pflanze hinzugefügt',
+  'toast_plant_removed':       '🗑️ Pflanze entfernt',
+  'toast_plant_watered':       '💧 Gegossen — schön gemacht!',
+  'toast_plant_harvested':     '🌾 Ernte gespeichert',
+  'toast_plant_diary_saved':   '📔 Tagebuch-Eintrag gespeichert',
+  'toast_garden_created':      '🌻 Garten angelegt',
+  'toast_garden_saved':        '✅ Garten gespeichert',
+  'toast_planting_saved':      '🌱 Pflanzung gespeichert',
+  'toast_companion_warning':   '⚠️ Mischkultur-Konflikt!',
+  // ── Scanner / KI ────────────────────────────────────────────────
+  'toast_scan_saved':          '📷 Scan gespeichert',
+  'toast_scan_failed':         '❌ Scan fehlgeschlagen — bitte erneut',
+  'toast_ai_thinking':         '🤖 KI denkt nach…',
+  'toast_ai_done':             '✅ Fertig',
+  'toast_voice_listening':     '🎙️ Höre zu…',
+  'toast_voice_not_supported': '❌ Voice nicht unterstützt auf diesem Gerät',
+  // ── Push / Notifications ────────────────────────────────────────
+  'toast_push_enabled':        '🔔 Push aktiviert',
+  'toast_push_disabled':       '🔕 Push deaktiviert',
+  'toast_push_denied':         '⛔ Push abgelehnt — in Browser-Einstellungen erlauben',
+  'toast_push_test_sent':      '📨 Test-Push gesendet',
+  // ── Community / Social ──────────────────────────────────────────
+  'toast_post_published':      '🌿 Post veröffentlicht',
+  'toast_post_deleted':        '🗑️ Post gelöscht',
+  'toast_comment_added':       '💬 Kommentar gepostet',
+  'toast_liked':               '❤️ Geliked',
+  'toast_expert_verified':     '🏅 Verifiziert!',
+  'toast_verification_sent':   '✅ Verifizierungs-Anfrage gesendet',
+  // ── Stripe / Abo ────────────────────────────────────────────────
+  'toast_trial_started':       '🎉 7-Tage-Probemonat gestartet',
+  'toast_subscribed':          '✅ Abo aktiviert',
+  'toast_cancelled':           '😢 Abo gekündigt — gültig bis Periodenende',
+  'toast_reactivated':         '🌿 Abo reaktiviert',
+  'toast_payment_failed':      '❌ Zahlung fehlgeschlagen — bitte erneut',
+  // ── i18n / Sprache ──────────────────────────────────────────────
+  'toast_lang_loading':        '⏳ Übersetzung wird geladen…',
+  'toast_lang_ready':          '🌍 Sprache umgeschaltet',
+  'toast_lang_failed':         '❌ Übersetzung fehlgeschlagen — DE bleibt aktiv',
+  // ── Marktplatz ──────────────────────────────────────────────────
+  'toast_listing_created':     '✅ Angebot eingestellt',
+  'toast_listing_deleted':     '🗑️ Angebot entfernt',
+  'toast_bid_placed':          '🎯 Gebot abgegeben',
+  'toast_bid_outbid':          '⚠️ Du wurdest überboten!',
+  // ── Offline / Sync ──────────────────────────────────────────────
+  'toast_offline_saved':       '📵 Offline gespeichert',
+  'toast_offline_synced':      '🔄 Online — Sync abgeschlossen',
+  'toast_offline_mode':        '📴 Offline-Modus',
+  // ── Confirm-Modal Buttons (gsConfirmModal) ─────────────────────
+  'confirm_ok':                'OK',
+  'confirm_cancel':            'Abbrechen',
+  'confirm_yes':               'Ja',
+  'confirm_no':                'Nein',
+  'confirm_delete':            'Löschen',
+  'confirm_save':              'Speichern',
+  'confirm_continue':          'Weiter',
+  'confirm_back':              'Zurück',
+  // ── Errors ──────────────────────────────────────────────────────
+  'err_offline':               'Du bist offline — Funktion benötigt Internet',
+  'err_no_camera':             'Kamera wurde abgelehnt — bitte in Browser-Einstellungen erlauben',
+  'err_no_location':           'Standort wurde abgelehnt — bitte in Browser-Einstellungen erlauben',
+  'err_login_required':        'Bitte zuerst anmelden',
+  'err_network':               'Netzwerk-Fehler — bitte erneut versuchen',
+  'err_timeout':               'Zeitüberschreitung — bitte erneut versuchen',
+  'err_quota':                 'Speicher voll — bitte alte Daten entfernen',
+  'err_invalid_email':         'Ungültige E-Mail-Adresse',
+  'err_invalid_pw':            'Passwort muss mind. 8 Zeichen haben',
+  'err_pw_mismatch':           'Passwörter stimmen nicht überein',
+  'err_terms_required':        'Bitte Datenschutz akzeptieren',
+  'err_required_field':        'Pflichtfeld — bitte ausfüllen',
+  'err_too_long':              'Text zu lang — bitte kürzen',
+  'err_upload_failed':         'Upload fehlgeschlagen — bitte erneut',
+  'err_image_too_big':         'Bild zu gross (max 10 MB)',
+  'err_unsupported_format':    'Format nicht unterstützt',
+  'err_ai_failed':             'KI-Anfrage fehlgeschlagen — bitte erneut',
+  'err_subscription_required': 'Premium-Abo erforderlich',
+  'err_quota_exceeded':        'Tageslimit erreicht — morgen wieder',
+  // ── Loading / Status ───────────────────────────────────────────
+  'status_loading':            '⏳ Lade…',
+  'status_saving':             '💾 Speichere…',
+  'status_uploading':          '⬆️ Lade hoch…',
+  'status_processing':         '⚙️ Verarbeite…',
+  'status_done':               '✅ Fertig',
+  'status_no_data':            'Keine Daten verfügbar'
 };
 
 // Sammelt alle data-i18n Strings aus DOM + ergänzt durch JS-Map
@@ -43721,6 +43807,29 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.28', date: '13.05.2026',
+    headline: '🌍 i18n Pass-2 — ~170 data-i18n Marker + ~80 JS-String-Keys (Schweizer Markt komplett)',
+    summary: 'Cleanup-Sprint fuer i18n: alle wichtigen statischen UI-Strings bekommen jetzt data-i18n Marker, FR/IT/GSW-User sehen die ganze App in ihrer Sprache (nicht nur Tabs+Garten). GS_I18N_JS_STRINGS Map waechst von 9 auf ~80 Keys: Toasts (Login, Plant, Push, Community, Stripe, Sync), Errors (Quota, Auth, Upload, Premium), Confirm-Buttons (OK/Cancel/Save/Delete), Loading-Status. gsBuildI18n bekommt automatisch alle neuen Keys beim naechsten Sprach-Switch.',
+    items: [
+      {emoji:'🏷️', bold:'Onboarding:', text:' Register/Login/Magic-Link/Passwort-vergessen/Demo-Banner mit data-i18n (11 Marker).'},
+      {emoji:'🏠', bold:'Home-Screen:', text:' Hero-Title, Hero-Sub, Stats-Labels (Arten/Essbar/Pflanzen/Scans), 9 Kategorie-Karten, Section-Header.'},
+      {emoji:'🔍', bold:'Suche+Filter:', text:' "Arten suchen"-Title, 10 Category-Filter-Buttons, 6 Property-Filter, Reset-Button.'},
+      {emoji:'🌱', bold:'Meine Pflanzen:', text:' Sammlung-Header, Title, 3 Stat-Karten (Pflanzen/Heute faellig/Gut versorgt).'},
+      {emoji:'⚙️', bold:'Mehr-Screen:', text:' Title+Sub, Scan-History-Row, Share-App, 5 Nav-Items (Wissen/Saison/Markt/Heilmittel/Karte) inkl. Subtitle.'},
+      {emoji:'🌻', bold:'Garten:', text:' Mein-Garten-Title+Sub, Gartenwetter-Card (Label+Tap-fuer-Details).'},
+      {emoji:'🌿', bold:'Community:', text:' Title+Sub, 6 Filter-Tabs (Alle/Hilfe/Showcase/Tipps/Fragen/Raritaeten), New-Post Modal-Header.'},
+      {emoji:'🛒', bold:'Marktplatz:', text:' Title, +Angebot-Button, 6 Cat-Buttons (Alle/Produkte/Samen/Zubehoer/Dienst/Tausch).'},
+      {emoji:'🍲', bold:'Rezepte/Heilmittel/Wissen:', text:' alle Title+Sub.'},
+      {emoji:'⚙️', bold:'Settings:', text:' 7 Group-Header (Abo/Standort/Darstellung/Notif/Garten/...) + ~30 Row-Labels inkl. Hints (Mein Standort, Dark Mode, App-Farbe, Kompakt, Giess-Notif, Wetter-Notif, Marktplatz-Alerts, Social-Notif, Mondkalender, Masseinheiten).'},
+      {emoji:'💬', bold:'Feedback+Support:', text:' sec-Header (Feedback&Ideen / Community-Feedback / Support&Hilfe), Form-Labels, 4 Type-Options, Submit-Button.'},
+      {emoji:'📦', bold:'Modal-Titel:', text:' Scan-Verlauf, KI-Experte, Neuer Garten, Neue Pflanzung, Neuer Post.'},
+      {emoji:'💾', bold:'JS-Strings-Map:', text:' ~80 Keys (war 9): toast_* (Login/Plant/Push/Community/Stripe/Sync/i18n), err_* (Quota/Auth/Upload/Premium), confirm_* (OK/Cancel/Yes/No/Delete/Save), status_* (Loading/Saving/Done).'},
+      {emoji:'🤖', bold:'Auto-Build:', text:' gsCollectI18nStrings sammelt alle data-i18n + JS-Map. Naechster Sprach-Switch baut FR/IT-Bundle automatisch.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v25.30 AR-View MVP (P3 nice-to-have). v26.0 Pre-Release-stable Tag.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check OK · sw.js gs-v25.28 OK · data-i18n count: 172.'},
+    ]
+  },
+  {
     v: 'v25.29', date: '12.05.2026',
     headline: '👥 Community-Experten-Verifikation — Verified-Badge + Stripe-Bestellung',
     summary: 'Cowork hat expert_verifications + v_social_posts_with_verifications + stripe-expert-checkout v1 + stripe-webhook v7 (kind=expert_verification) deployed. v25.29 ist das Frontend dazu. Community-Feed laedt jetzt aus der View, Posts mit is_expert_verified bekommen ein gruenes ✅-Badge. Experten (profiles.is_expert) sehen Verifizieren-Button auf fremden Posts. PRO/Lifetime-User auf eigenen Posts Verifikation-anfragen-Button (CHF 0.50 via Stripe-Checkout). v25.28 i18n Pass-2 verschoben.',
@@ -44902,7 +45011,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.29';
+var GS_VERSION = 'v25.28';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -53906,7 +54015,7 @@ if (typeof window.gsGoBack !== 'function') {
 <div class="modal-overlay" id="scan-history-modal" style="z-index:var(--z-modal,4000);" onclick="if(event.target===this)closeScanHistory()">
   <div class="modal" style="max-width:420px;max-height:80vh;display:flex;flex-direction:column;">
     <div class="modal-header">
-      <div class="modal-title">📷 Scan-Verlauf</div>
+      <div class="modal-title" data-i18n="modal_scan_history_title" data-i18n-fallback="📷 Scan-Verlauf">📷 Scan-Verlauf</div>
       <div style="display:flex;gap:6px;">
         <button class="btn btn-secondary" onclick="clearScanHistory()" style="font-size:11px;padding:4px 8px;">🗑️ Löschen</button>
         <button class="modal-close" onclick="closeScanHistory()">✕</button>
@@ -53921,7 +54030,7 @@ if (typeof window.gsGoBack !== 'function') {
   <div class="modal" style="max-width:440px;height:80vh;display:flex;flex-direction:column;">
     <div class="modal-header" style="flex-shrink:0;">
       <div>
-        <div class="modal-title">🤖 KI-Experte befragen</div>
+        <div class="modal-title" data-i18n="modal_ki_expert_title" data-i18n-fallback="🤖 KI-Experte befragen">🤖 KI-Experte befragen</div>
         <div style="font-size:11px;color:var(--muted);" id="scan-chat-subtitle">Über die identifizierte Art</div>
       </div>
       <button class="modal-close" onclick="closeScanChat()">✕</button>
@@ -54403,7 +54512,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
   <div class="modal" style="max-width:460px;">
     <div class="modal-header" style="background:var(--hero-bg);color:#fff;padding:16px 18px;border-radius:22px 22px 0 0;display:flex;justify-content:space-between;align-items:center;">
       <div>
-        <div class="modal-title" style="color:#fff;font-family:'Playfair Display',serif;font-size:18px;font-weight:800;">🌻 Neuer Garten</div>
+        <div class="modal-title" data-i18n="modal_new_garden_title" data-i18n-fallback="🌻 Neuer Garten" style="color:#fff;font-family:'Playfair Display',serif;font-size:18px;font-weight:800;">🌻 Neuer Garten</div>
         <div style="font-size:11.5px;opacity:.85;margin-top:2px;">Beet, Balkon oder Zimmer-Ecke</div>
       </div>
       <button class="modal-close-btn" aria-label="Schliessen" onclick="closeModal('modal-add-garden')" style="background:rgba(255,255,255,.2);color:#fff;border:none;width:34px;height:34px;border-radius:50%;font-size:18px;cursor:pointer;">&#x2715;</button>
@@ -54467,7 +54576,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
   <div class="modal" style="max-width:460px;">
     <div class="modal-header" style="background:var(--hero-bg);color:#fff;padding:16px 18px;border-radius:22px 22px 0 0;display:flex;justify-content:space-between;align-items:center;">
       <div>
-        <div class="modal-title" style="color:#fff;font-family:'Playfair Display',serif;font-size:18px;font-weight:800;">🌱 Neue Pflanzung</div>
+        <div class="modal-title" data-i18n="modal_new_planting_title" data-i18n-fallback="🌱 Neue Pflanzung" style="color:#fff;font-family:'Playfair Display',serif;font-size:18px;font-weight:800;">🌱 Neue Pflanzung</div>
         <div style="font-size:11.5px;opacity:.85;margin-top:2px;">Was hast du wann gepflanzt?</div>
       </div>
       <button class="modal-close-btn" aria-label="Schliessen" onclick="closeModal('modal-add-planting')" style="background:rgba(255,255,255,.2);color:#fff;border:none;width:34px;height:34px;border-radius:50%;font-size:18px;cursor:pointer;">&#x2715;</button>
