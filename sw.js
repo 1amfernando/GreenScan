@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.30 — Marketplace-Repair: saveListing ruft jetzt marketplace-publish Edge-Fn (Validate + Foto-Upload + DB-INSERT in 1 Call) statt nur localStorage. loadMarketFromSupabase liest v_marketplace_listings View (mit seller_name + verified + photo_urls). openListingDetail inkrementiert Views via fn_mkt_increment_views RPC. P0 Vertrauens-Bug fix.
+   v25.31 — Phase-2-Bundle: KI-Pflanzendoktor (Vision-AI Diagnose-Modal mit 8 Symptom-Chips + Multi-Hypothese-Result + Treatment-Plan + Followup-Buttons gegen plant-doctor-diagnose Edge-Fn) + Erntekalender (Add-Modal mit Quality-Rating, Stats-Modal mit CSS-Bar-Chart aus v_harvest_stats_per_user View, harvest_log POST). 2 neue Garten-Action-Buttons.
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.30';
+const VERSION = 'gs-v25.31';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;

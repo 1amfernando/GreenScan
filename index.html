@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.30.20260513">
+<meta name="app-version" content="25.31.20260513">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -995,6 +995,10 @@ body.dark #screen-remedies { background: linear-gradient(180deg, var(--g-bg) 0%,
 body.dark .recipe-cats{background:rgba(20,30,20,.55);}
 .recipe-cat{flex:0 0 auto;padding:7px 13px;border:1.5px solid var(--g-light);border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:var(--card);color:var(--g-dark);font-family:inherit;transition:.15s;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.04);}
 .recipe-cat.active{background:var(--g-main);border-color:var(--g-main);color:#fff;box-shadow:0 2px 8px rgba(45,138,45,.25);}
+/* v25.31: Doctor-Symptom-Chips (Multi-Select) */
+.doctor-sym-chip{display:inline-flex;align-items:center;gap:4px;padding:6px 11px;border:1.5px solid var(--border);border-radius:18px;background:var(--card);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text);transition:.15s;user-select:none;-webkit-tap-highlight-color:transparent;}
+.doctor-sym-chip input{display:none;}
+.doctor-sym-chip:has(input:checked){background:#e0f2f1;border-color:#00897b;color:#00695c;}
 /* Recipe-Card-Image: warm-erdig statt blass-grün */
 #screen-recipes .recipe-card-img{background:linear-gradient(135deg,#fff3e0,#ffe0b2);}
 body.dark #screen-recipes .recipe-card-img{background:linear-gradient(135deg,#3a2a1e,#5d4037);}
@@ -2391,6 +2395,18 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <span data-i18n="btn_voice_mode" data-i18n-fallback="🎙️ Hey GreenScan · Voice-Mode">🎙️ Hey GreenScan · Voice-Mode</span><span style="font-size:18px;opacity:.85;">›</span>
   </button>
 </div>
+<!-- v25.31: KI-Pflanzendoktor (Vision-AI via plant-doctor-diagnose Edge-Fn) -->
+<div style="padding:0 16px 12px;">
+  <button onclick="openDoctorModal()" title="KI-Pflanzendoktor — Symptome diagnostizieren + Behandlungsplan" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#00897b,#00695c);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_doctor_open" data-i18n-fallback="🩺 KI-Pflanzendoktor · Symptom-Analyse">🩺 KI-Pflanzendoktor · Symptom-Analyse</span><span style="font-size:18px;opacity:.85;">›</span>
+  </button>
+</div>
+<!-- v25.31: Erntekalender-Trigger (Statistik aller Ernten dieses Jahr) -->
+<div style="padding:0 16px 12px;">
+  <button onclick="openHarvestStatsModal()" title="Erntekalender — Jahres-Statistik aller Ernten" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#f57c00,#e65100);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_harvest_open" data-i18n-fallback="🥕 Erntekalender · Jahres-Statistik">🥕 Erntekalender · Jahres-Statistik</span><span style="font-size:18px;opacity:.85;">›</span>
+  </button>
+</div>
 <!-- v24.06: Smart-Home Sensor-Dashboard -->
 <div style="padding:0 16px 20px;">
   <button onclick="gsShOpen()" title="Smart-Home Sensoren" style="width:100%;padding:13px 14px;background:linear-gradient(135deg,var(--c-info-d),var(--c-info));color:#fff;border:none;border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 12px rgba(21,101,192,.25);">
@@ -2924,6 +2940,133 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <div class="mhandle"></div>
     <button class="modal-close-btn" onclick="closeModal('modal-listing-detail')" aria-label="Schliessen">&#x2715;</button>
     <div id="listing-detail-body" style="padding-bottom:10px;"></div>
+  </div>
+</div>
+
+<!-- ═══ v25.31 KI-PFLANZENDOKTOR MODAL ════════════════════════ -->
+<div class="modal-overlay" id="modal-doctor" onclick="if(event.target===this)closeModal('modal-doctor')">
+  <div class="modal" style="position:relative;max-height:92vh;overflow-y:auto;">
+    <div class="mhandle"></div>
+    <button class="modal-close-btn" onclick="closeModal('modal-doctor')" aria-label="Schliessen">&#x2715;</button>
+    <div class="mhdr" style="background:linear-gradient(135deg,#00897b,#00695c);color:#fff;">
+      <span class="memoji">🩺</span>
+      <div>
+        <h2 data-i18n="doctor_title" data-i18n-fallback="KI-Pflanzendoktor" style="color:#fff;">KI-Pflanzendoktor</h2>
+        <p data-i18n="doctor_sub" data-i18n-fallback="Foto + Symptome → KI-Analyse + Behandlungsplan" style="color:rgba(255,255,255,.85);">Foto + Symptome → KI-Analyse + Behandlungsplan</p>
+      </div>
+    </div>
+    <div id="doctor-form" style="padding:14px 18px 18px;">
+      <!-- Foto-Upload -->
+      <div class="mp-field">
+        <label data-i18n="doctor_lbl_photo" data-i18n-fallback="📷 Foto der Pflanze (Pflicht)">📷 Foto der Pflanze (Pflicht)</label>
+        <div id="doctor-photo-area" style="display:flex;gap:8px;">
+          <button onclick="document.getElementById('doctor-photo-camera').click()" style="flex:1;padding:11px;background:#e0f2f1;border:1.5px solid #4db6ac;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:#00695c;font-family:inherit;" data-i18n="btn_doctor_camera" data-i18n-fallback="📷 Kamera">📷 Kamera</button>
+          <button onclick="document.getElementById('doctor-photo-gallery').click()" style="flex:1;padding:11px;background:#e0f2f1;border:1.5px solid #4db6ac;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:#00695c;font-family:inherit;" data-i18n="btn_doctor_gallery" data-i18n-fallback="🖼️ Galerie">🖼️ Galerie</button>
+        </div>
+        <input type="file" id="doctor-photo-camera" accept="image/*" capture="environment" style="display:none;" onchange="gsDoctorLoadPhoto(this)">
+        <input type="file" id="doctor-photo-gallery" accept="image/*" style="display:none;" onchange="gsDoctorLoadPhoto(this)">
+        <div id="doctor-photo-preview" style="margin-top:10px;display:none;"></div>
+      </div>
+      <!-- Pflanze auswählen (optional) -->
+      <div class="mp-field">
+        <label data-i18n="doctor_lbl_plant" data-i18n-fallback="🌱 Welche Pflanze (optional)">🌱 Welche Pflanze (optional)</label>
+        <select class="mp-select" id="doctor-plant">
+          <option value="" data-i18n="doctor_opt_none" data-i18n-fallback="— Nicht aus meinen Pflanzen —">— Nicht aus meinen Pflanzen —</option>
+        </select>
+      </div>
+      <!-- Symptome (Multi-Select) -->
+      <div class="mp-field">
+        <label data-i18n="doctor_lbl_symptoms" data-i18n-fallback="🔍 Symptome (mehrere möglich)">🔍 Symptome (mehrere möglich)</label>
+        <div id="doctor-symptoms" style="display:flex;flex-wrap:wrap;gap:6px;">
+          <label class="doctor-sym-chip"><input type="checkbox" value="gelbe_blaetter"><span data-i18n="sym_gelbe_blaetter" data-i18n-fallback="🍂 Gelbe Blätter">🍂 Gelbe Blätter</span></label>
+          <label class="doctor-sym-chip"><input type="checkbox" value="welke"><span data-i18n="sym_welke" data-i18n-fallback="💧 Welke">💧 Welke</span></label>
+          <label class="doctor-sym-chip"><input type="checkbox" value="flecken"><span data-i18n="sym_flecken" data-i18n-fallback="🔴 Flecken">🔴 Flecken</span></label>
+          <label class="doctor-sym-chip"><input type="checkbox" value="schaedling_sichtbar"><span data-i18n="sym_pest" data-i18n-fallback="🐛 Schädling sichtbar">🐛 Schädling sichtbar</span></label>
+          <label class="doctor-sym-chip"><input type="checkbox" value="missbildung"><span data-i18n="sym_deformity" data-i18n-fallback="🌀 Missbildung">🌀 Missbildung</span></label>
+          <label class="doctor-sym-chip"><input type="checkbox" value="faulnis"><span data-i18n="sym_rot" data-i18n-fallback="🦠 Fäulnis">🦠 Fäulnis</span></label>
+          <label class="doctor-sym-chip"><input type="checkbox" value="vertrocknung"><span data-i18n="sym_dry" data-i18n-fallback="🥀 Vertrocknung">🥀 Vertrocknung</span></label>
+          <label class="doctor-sym-chip"><input type="checkbox" value="parasit"><span data-i18n="sym_parasite" data-i18n-fallback="🪱 Parasit">🪱 Parasit</span></label>
+        </div>
+      </div>
+      <!-- Notiz -->
+      <div class="mp-field">
+        <label data-i18n="doctor_lbl_note" data-i18n-fallback="📝 Zusätzliche Beobachtungen (optional)">📝 Zusätzliche Beobachtungen (optional)</label>
+        <textarea class="mp-input fb-textarea" id="doctor-note" placeholder="z.B. seit wann · Standort · Düngung · Wassergabe…" rows="3" style="resize:vertical;min-height:60px;"></textarea>
+      </div>
+      <button onclick="gsRunDiagnose()" id="doctor-submit-btn" style="width:100%;padding:14px;background:linear-gradient(135deg,#00897b,#00695c);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;" data-i18n="btn_doctor_start" data-i18n-fallback="🔍 Diagnose starten">🔍 Diagnose starten</button>
+    </div>
+    <div id="doctor-result" style="padding:0 18px 20px;"></div>
+  </div>
+</div>
+
+<!-- ═══ v25.31 ERNTE-ADD-MODAL ══════════════════════════════ -->
+<div class="modal-overlay" id="modal-harvest-add" onclick="if(event.target===this)closeModal('modal-harvest-add')">
+  <div class="modal" style="position:relative;max-height:90vh;overflow-y:auto;">
+    <div class="mhandle"></div>
+    <button class="modal-close-btn" onclick="closeModal('modal-harvest-add')" aria-label="Schliessen">&#x2715;</button>
+    <div class="mhdr" style="background:linear-gradient(135deg,#f57c00,#e65100);color:#fff;">
+      <span class="memoji">🥕</span>
+      <div>
+        <h2 data-i18n="harvest_add_title" data-i18n-fallback="Ernte erfassen" style="color:#fff;">Ernte erfassen</h2>
+        <p id="harvest-plant-name" style="color:rgba(255,255,255,.85);"></p>
+      </div>
+    </div>
+    <div style="padding:14px 18px 20px;">
+      <div class="mp-field">
+        <label data-i18n="harvest_lbl_date" data-i18n-fallback="📅 Datum">📅 Datum</label>
+        <input class="mp-input" type="date" id="harvest-date">
+      </div>
+      <div class="mp-field" style="display:flex;gap:8px;">
+        <div style="flex:2;">
+          <label data-i18n="harvest_lbl_amount" data-i18n-fallback="⚖️ Menge">⚖️ Menge</label>
+          <input class="mp-input" type="number" id="harvest-amount" placeholder="z.B. 250" min="0" step="0.1">
+        </div>
+        <div style="flex:1;">
+          <label data-i18n="harvest_lbl_unit" data-i18n-fallback="Einheit">Einheit</label>
+          <select class="mp-select" id="harvest-unit">
+            <option value="g">g</option>
+            <option value="kg">kg</option>
+            <option value="stk">Stk</option>
+            <option value="bund">Bund</option>
+            <option value="l">l</option>
+            <option value="tasse">Tasse</option>
+          </select>
+        </div>
+      </div>
+      <div class="mp-field">
+        <label data-i18n="harvest_lbl_quality" data-i18n-fallback="⭐ Qualität (optional)">⭐ Qualität (optional)</label>
+        <div id="harvest-rating" style="display:flex;gap:6px;justify-content:center;padding:6px 0;">
+          <button type="button" onclick="gsHarvestRate(1)" data-n="1" class="harvest-star" style="background:none;border:none;font-size:30px;cursor:pointer;color:var(--border);padding:2px 4px;-webkit-tap-highlight-color:transparent;">★</button>
+          <button type="button" onclick="gsHarvestRate(2)" data-n="2" class="harvest-star" style="background:none;border:none;font-size:30px;cursor:pointer;color:var(--border);padding:2px 4px;-webkit-tap-highlight-color:transparent;">★</button>
+          <button type="button" onclick="gsHarvestRate(3)" data-n="3" class="harvest-star" style="background:none;border:none;font-size:30px;cursor:pointer;color:var(--border);padding:2px 4px;-webkit-tap-highlight-color:transparent;">★</button>
+          <button type="button" onclick="gsHarvestRate(4)" data-n="4" class="harvest-star" style="background:none;border:none;font-size:30px;cursor:pointer;color:var(--border);padding:2px 4px;-webkit-tap-highlight-color:transparent;">★</button>
+          <button type="button" onclick="gsHarvestRate(5)" data-n="5" class="harvest-star" style="background:none;border:none;font-size:30px;cursor:pointer;color:var(--border);padding:2px 4px;-webkit-tap-highlight-color:transparent;">★</button>
+        </div>
+      </div>
+      <div class="mp-field">
+        <label data-i18n="harvest_lbl_note" data-i18n-fallback="📝 Notiz (optional)">📝 Notiz (optional)</label>
+        <textarea class="mp-input fb-textarea" id="harvest-note" placeholder="z.B. Standort · Sorte · Geschmack…" rows="2" style="resize:vertical;min-height:50px;"></textarea>
+      </div>
+      <button onclick="gsHarvestSubmit()" style="width:100%;padding:13px;background:linear-gradient(135deg,#f57c00,#e65100);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;" data-i18n="btn_harvest_save" data-i18n-fallback="✅ Ernte speichern">✅ Ernte speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ v25.31 ERNTE-STATISTIK-MODAL ════════════════════════ -->
+<div class="modal-overlay" id="modal-harvest-stats" onclick="if(event.target===this)closeModal('modal-harvest-stats')">
+  <div class="modal" style="position:relative;max-height:90vh;overflow-y:auto;">
+    <div class="mhandle"></div>
+    <button class="modal-close-btn" onclick="closeModal('modal-harvest-stats')" aria-label="Schliessen">&#x2715;</button>
+    <div class="mhdr" style="background:linear-gradient(135deg,#f57c00,#e65100);color:#fff;">
+      <span class="memoji">📊</span>
+      <div>
+        <h2 data-i18n="harvest_stats_title" data-i18n-fallback="Erntekalender" style="color:#fff;">Erntekalender</h2>
+        <p id="harvest-stats-summary" style="color:rgba(255,255,255,.85);"></p>
+      </div>
+    </div>
+    <div id="harvest-stats-body" style="padding:14px 18px 24px;">
+      <div style="text-align:center;color:var(--muted);padding:20px;">⏳ Lade Statistik…</div>
+    </div>
   </div>
 </div>
 
@@ -8721,7 +8864,20 @@ window.GS_I18N_JS_STRINGS = {
   'status_uploading':          '⬆️ Lade hoch…',
   'status_processing':         '⚙️ Verarbeite…',
   'status_done':               '✅ Fertig',
-  'status_no_data':            'Keine Daten verfügbar'
+  'status_no_data':            'Keine Daten verfügbar',
+  // ── v25.31 Plant-Doctor ────────────────────────────────────────
+  'doctor_no_photo':           'Bitte Foto hochladen',
+  'doctor_analyzing':          '🔬 KI analysiert…',
+  'doctor_error':              'Diagnose fehlgeschlagen',
+  'doctor_followup_thanks':    'Danke für dein Feedback! Hilft anderen Usern.',
+  'doctor_urgency_low':        'Gering',
+  'doctor_urgency_medium':     'Mittel',
+  'doctor_urgency_high':       'Hoch',
+  'doctor_urgency_critical':   'Kritisch',
+  // ── v25.31 Erntekalender ───────────────────────────────────────
+  'harvest_no_amount':         'Bitte Menge angeben',
+  'harvest_save_error':        '⚠️ Konnte nicht speichern',
+  'harvest_saved':             '✅ Ernte gespeichert!'
 };
 
 // Sammelt alle data-i18n Strings aus DOM + ergänzt durch JS-Map
@@ -23013,6 +23169,416 @@ async function gsRequestExpertVerification(postId) {
 
 // ═════════════════════════════════════════════════════════════════════
 // Ende v25.29 Community-Experten-Block
+// ═════════════════════════════════════════════════════════════════════
+
+// ═════════════════════════════════════════════════════════════════════
+// v25.31 KI-PFLANZENDOKTOR (Vision-AI Diagnose) + ERNTEKALENDER
+// Backend: plant-doctor-diagnose Edge-Fn + plant_doctor_history-Tabelle
+//          + harvest_log + v_harvest_stats_per_user View
+// ═════════════════════════════════════════════════════════════════════
+
+// ── Datei → Base64 Helper (idempotent, falls noch nicht vorhanden) ──
+if (typeof window.gsFileToBase64 !== 'function') {
+  window.gsFileToBase64 = function(file) {
+    return new Promise(function(resolve, reject){
+      var r = new FileReader();
+      r.onload = function(){ resolve(r.result); };
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+  };
+}
+
+// ── Doctor: Modal öffnen ─────────────────────────────────────────────
+function openDoctorModal() {
+  // Reset Form-State
+  window._gsDoctorPhotoB64 = null;
+  var preview = document.getElementById('doctor-photo-preview');
+  if (preview) { preview.innerHTML = ''; preview.style.display = 'none'; }
+  var note = document.getElementById('doctor-note'); if (note) note.value = '';
+  document.querySelectorAll('#doctor-symptoms input').forEach(function(c){ c.checked = false; });
+  var result = document.getElementById('doctor-result'); if (result) result.innerHTML = '';
+  // Pflanzen-Picker aus myPlants füllen
+  try {
+    var sel = document.getElementById('doctor-plant');
+    if (sel) {
+      sel.innerHTML = '<option value="">— Nicht aus meinen Pflanzen —</option>';
+      var plants = Array.isArray(window.myPlants) ? window.myPlants : [];
+      plants.forEach(function(p){
+        var o = document.createElement('option');
+        o.value = p.id;
+        o.textContent = (p.emoji ? p.emoji + ' ' : '') + (p.name || p.lat || '?');
+        sel.appendChild(o);
+      });
+    }
+  } catch(_){}
+  if (typeof openModal === 'function') openModal('modal-doctor');
+  else document.getElementById('modal-doctor').classList.add('open');
+}
+window.openDoctorModal = openDoctorModal;
+
+// ── Doctor: Foto laden + Preview ────────────────────────────────────
+async function gsDoctorLoadPhoto(input) {
+  var file = input && input.files && input.files[0];
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) {
+    if (typeof showProfileToast === 'function') showProfileToast(
+      (window.gsI18n ? gsI18n.t('err_image_too_big', 'Bild zu gross (max 10 MB)') : 'Bild zu gross (max 10 MB)'),
+      'error');
+    return;
+  }
+  try {
+    var b64 = await gsFileToBase64(file);
+    window._gsDoctorPhotoB64 = b64;
+    var preview = document.getElementById('doctor-photo-preview');
+    if (preview) {
+      preview.innerHTML = '<img src="' + b64 + '" alt="Vorschau" style="width:100%;max-height:220px;object-fit:cover;border-radius:10px;border:1px solid var(--border);">';
+      preview.style.display = 'block';
+    }
+  } catch(e) {
+    if (typeof showProfileToast === 'function') showProfileToast(
+      (window.gsI18n ? gsI18n.t('err_upload_failed', 'Upload fehlgeschlagen — bitte erneut') : 'Upload fehlgeschlagen — bitte erneut'),
+      'error');
+  }
+}
+window.gsDoctorLoadPhoto = gsDoctorLoadPhoto;
+
+// ── Doctor: Diagnose-Call gegen plant-doctor-diagnose Edge-Fn ──────
+async function gsRunDiagnose() {
+  if (!window._gsDoctorPhotoB64) {
+    if (typeof showProfileToast === 'function') showProfileToast(
+      (window.gsI18n ? gsI18n.t('doctor_no_photo', 'Bitte Foto hochladen') : 'Bitte Foto hochladen'),
+      'error');
+    return;
+  }
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) {
+    if (typeof showProfileToast === 'function') showProfileToast(
+      (window.gsI18n ? gsI18n.t('err_login_required', 'Bitte zuerst anmelden') : 'Bitte zuerst anmelden'),
+      'error');
+    return;
+  }
+  var symptoms = Array.from(document.querySelectorAll('#doctor-symptoms input:checked')).map(function(c){ return c.value; });
+  var plantSelect = document.getElementById('doctor-plant');
+  var plantId = plantSelect ? plantSelect.value : '';
+  var plant = (Array.isArray(window.myPlants) ? window.myPlants : []).find(function(p){ return p.id === plantId; });
+  var note = (document.getElementById('doctor-note') || {}).value || '';
+  var btn = document.getElementById('doctor-submit-btn');
+  if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = '⏳ Analysiere…'; }
+
+  if (typeof showProfileToast === 'function') showProfileToast(
+    (window.gsI18n ? gsI18n.t('doctor_analyzing', '🔬 KI analysiert…') : '🔬 KI analysiert…'),
+    'info');
+
+  try {
+    var token = (window.gsStore && typeof gsStore.get === 'function') ? gsStore.get('gs_sb_token', null) : null;
+    var fetchFn = window._gsFetch || fetch;
+    var photoB64 = String(window._gsDoctorPhotoB64).replace(/^data:image\/\w+;base64,/, '');
+    var resp = await fetchFn(SB_URL + '/functions/v1/plant-doctor-diagnose', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SB_KEY,
+        'Authorization': 'Bearer ' + token
+      },
+      body: JSON.stringify({
+        photo: photoB64,
+        species_lat: (plant && plant.lat) || null,
+        species_name: (plant && plant.name) || '',
+        symptoms: symptoms,
+        user_note: note,
+        plant_local_id: (plant && plant.id) || null,
+        save_history: true
+      })
+    }, 60000);
+    var j = await resp.json();
+    if (!resp.ok || !j.ok) {
+      if (typeof showProfileToast === 'function') showProfileToast(
+        '⚠️ ' + (j.error || (window.gsI18n ? gsI18n.t('doctor_error', 'Diagnose fehlgeschlagen') : 'Diagnose fehlgeschlagen')),
+        'error');
+      return;
+    }
+    gsRenderDoctorResult(j);
+  } catch(e) {
+    if (typeof showProfileToast === 'function') showProfileToast(
+      (window.gsI18n ? gsI18n.t('err_network', 'Netzwerk-Fehler — bitte erneut versuchen') : 'Netzwerk-Fehler — bitte erneut versuchen'),
+      'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false; btn.style.opacity = '1';
+      btn.textContent = (window.gsI18n ? gsI18n.t('btn_doctor_start', '🔍 Diagnose starten') : '🔍 Diagnose starten');
+    }
+  }
+}
+window.gsRunDiagnose = gsRunDiagnose;
+
+// ── Doctor: Result-Render (Hypothesen + Treatment + Followup) ──────
+function gsRenderDoctorResult(j) {
+  var box = document.getElementById('doctor-result');
+  if (!box) return;
+  var d = (j && j.diagnosis) || {};
+  var t = (j && j.treatment_plan) || {};
+  var hyps = Array.isArray(d.hypotheses) ? d.hypotheses : [];
+  var top = hyps[0] || { name: d.top || '?', confidence: 0, reason: '' };
+
+  var urgency = String(d.urgency || 'medium');
+  var urgColors = {
+    low: { bg:'#e8f5e9', col:'#1b5e20', lbl:'🟢 Gering' },
+    medium: { bg:'#fff8e1', col:'#e65100', lbl:'🟡 Mittel' },
+    high: { bg:'#ffebee', col:'#c62828', lbl:'🔴 Hoch' },
+    critical: { bg:'#b71c1c', col:'#fff', lbl:'🚨 Kritisch' }
+  };
+  var u = urgColors[urgency] || urgColors.medium;
+
+  var esc = (typeof gsHTMLEscape === 'function') ? gsHTMLEscape : function(s){ return String(s||'').replace(/[<>&"]/g, function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+
+  var html = '<div class="doctor-result-card" style="margin-top:14px;border-radius:14px;overflow:hidden;border:1px solid var(--border);background:var(--card);">';
+  html += '<div style="background:' + u.bg + ';color:' + u.col + ';padding:10px 16px;font-size:13px;font-weight:800;text-align:center;">' + u.lbl + ' · <span data-i18n="doctor_urgency_label" data-i18n-fallback="Dringlichkeit">Dringlichkeit</span></div>';
+  html += '<div style="padding:14px 16px;">';
+  html += '<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;" data-i18n="doctor_top_diagnosis" data-i18n-fallback="Wahrscheinlichste Diagnose">Wahrscheinlichste Diagnose</div>';
+  html += '<div style="font-size:18px;font-weight:900;color:var(--text);">' + esc(top.name) + ' <span style="font-size:13px;color:var(--g-main);">(' + Math.round((top.confidence||0)*100) + '%)</span></div>';
+  if (top.reason) html += '<div style="font-size:12.5px;color:var(--text2);line-height:1.5;margin-top:4px;">' + esc(top.reason) + '</div>';
+  // Weitere Hypothesen
+  if (hyps.length > 1) {
+    html += '<div style="margin-top:14px;font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;" data-i18n="doctor_other_hyps" data-i18n-fallback="Weitere Möglichkeiten">Weitere Möglichkeiten</div>';
+    for (var i = 1; i < Math.min(hyps.length, 4); i++) {
+      var h = hyps[i];
+      html += '<div style="padding:8px 10px;background:var(--surface2);border-radius:8px;margin-bottom:5px;font-size:12.5px;">' +
+              '<b>' + esc(h.name) + '</b> <span style="color:var(--g-main);">(' + Math.round((h.confidence||0)*100) + '%)</span>';
+      if (h.reason) html += '<div style="color:var(--text2);font-size:11.5px;margin-top:2px;">' + esc(h.reason) + '</div>';
+      html += '</div>';
+    }
+  }
+  // Treatment
+  var steps = Array.isArray(t.steps) ? t.steps : [];
+  if (steps.length) {
+    html += '<div style="margin-top:14px;font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;" data-i18n="doctor_treatment" data-i18n-fallback="Behandlungsplan">Behandlungsplan</div>';
+    steps.forEach(function(s, idx){
+      var pri = s.priority || 'normal';
+      var border = pri === 'high' ? '#c62828' : (pri === 'low' ? '#66bb6a' : '#fb8c00');
+      html += '<div style="padding:9px 11px;background:var(--surface2);border-left:3px solid ' + border + ';border-radius:8px;margin-bottom:6px;">' +
+              '<div style="font-size:13px;font-weight:800;color:var(--text);">' + (idx+1) + '. ' + esc(s.title || '') + '</div>';
+      if (s.description) html += '<div style="font-size:12px;color:var(--text2);line-height:1.5;margin-top:3px;">' + esc(s.description) + '</div>';
+      if (s.when) html += '<div style="font-size:11px;color:var(--muted);margin-top:4px;">⏱ ' + esc(s.when) + '</div>';
+      html += '</div>';
+    });
+  }
+  // Natürliche Hilfsmittel
+  if (Array.isArray(t.natural_remedies) && t.natural_remedies.length) {
+    html += '<div style="margin-top:12px;padding:10px 12px;background:#e8f5e9;border-radius:10px;">';
+    html += '<div style="font-size:11.5px;font-weight:800;color:#1b5e20;margin-bottom:5px;" data-i18n="doctor_natural" data-i18n-fallback="🌿 Natürliche Hilfsmittel">🌿 Natürliche Hilfsmittel</div>';
+    html += '<ul style="margin:0;padding-left:18px;font-size:12.5px;color:#1b5e20;line-height:1.6;">';
+    t.natural_remedies.forEach(function(r){ html += '<li>' + esc(r) + '</li>'; });
+    html += '</ul></div>';
+  }
+  // Pro rufen?
+  if (t.when_call_pro) {
+    html += '<div style="margin-top:12px;padding:9px 12px;background:#fff3e0;border:1px solid #ffb74d;border-radius:10px;font-size:12px;color:#e65100;line-height:1.5;">⚠️ <b data-i18n="doctor_call_pro" data-i18n-fallback="Profi rufen wenn:">Profi rufen wenn:</b> ' + esc(t.when_call_pro) + '</div>';
+  }
+  // Followup-Buttons
+  var hid = (j && j.history_id) ? String(j.history_id) : '';
+  if (hid) {
+    html += '<div style="margin-top:14px;display:flex;gap:6px;flex-wrap:wrap;">';
+    html += '<button onclick="gsDoctorFollowup(\'' + esc(hid) + '\',\'helpful\')" style="flex:1;min-width:90px;padding:9px 8px;background:#e8f5e9;border:1px solid #66bb6a;color:#1b5e20;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;" data-i18n="btn_doctor_helpful" data-i18n-fallback="👍 Hilfreich">👍 Hilfreich</button>';
+    html += '<button onclick="gsDoctorFollowup(\'' + esc(hid) + '\',\'got_better\')" style="flex:1;min-width:90px;padding:9px 8px;background:#e3f2fd;border:1px solid #42a5f5;color:#01579b;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;" data-i18n="btn_doctor_better" data-i18n-fallback="✅ Wurde besser">✅ Wurde besser</button>';
+    html += '<button onclick="gsDoctorFollowup(\'' + esc(hid) + '\',\'got_worse\')" style="flex:1;min-width:90px;padding:9px 8px;background:#ffebee;border:1px solid #ef5350;color:#c62828;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;" data-i18n="btn_doctor_worse" data-i18n-fallback="⚠️ Wurde schlechter">⚠️ Wurde schlechter</button>';
+    html += '</div>';
+  }
+  html += '</div></div>';
+  box.innerHTML = html;
+  try { if (window.gsI18n && typeof gsI18n.applyToDOM === 'function') gsI18n.applyToDOM(box); } catch(_){}
+  try { box.scrollIntoView({ behavior:'smooth', block:'start' }); } catch(_){}
+}
+window.gsRenderDoctorResult = gsRenderDoctorResult;
+
+// ── Doctor: Follow-up (PATCH plant_doctor_history) ────────────────
+async function gsDoctorFollowup(historyId, status) {
+  if (!historyId) return;
+  try {
+    await sbFetch('/rest/v1/plant_doctor_history?id=eq.' + encodeURIComponent(historyId), {
+      method: 'PATCH',
+      headers: {'Content-Type':'application/json','Prefer':'return=minimal'},
+      body: JSON.stringify({ user_followup: status, followup_at: new Date().toISOString() })
+    });
+    if (typeof showProfileToast === 'function') showProfileToast(
+      (window.gsI18n ? gsI18n.t('doctor_followup_thanks', 'Danke für dein Feedback! Hilft anderen Usern.') : 'Danke für dein Feedback! Hilft anderen Usern.'),
+      'success');
+  } catch(_){}
+}
+window.gsDoctorFollowup = gsDoctorFollowup;
+
+// ── Doctor: History laden (für Plant-Detail-Tab) ──────────────────
+async function gsDoctorHistoryLoad(plantLocalId) {
+  if (!plantLocalId || typeof sbFetch !== 'function') return [];
+  try {
+    var r = await sbFetch('/rest/v1/plant_doctor_history?plant_local_id=eq.' + encodeURIComponent(plantLocalId) + '&order=created_at.desc&limit=20', { method:'GET' });
+    return (r && r.data) || [];
+  } catch(_) { return []; }
+}
+window.gsDoctorHistoryLoad = gsDoctorHistoryLoad;
+
+// ═════════════════════════════════════════════════════════════════════
+// v25.31 ERNTEKALENDER — harvest_log + v_harvest_stats_per_user
+// ═════════════════════════════════════════════════════════════════════
+
+window._gsHarvestRating = 0;
+
+function gsHarvestRate(n) {
+  window._gsHarvestRating = n;
+  document.querySelectorAll('.harvest-star').forEach(function(b){
+    var v = parseInt(b.getAttribute('data-n'), 10) || 0;
+    b.style.color = (v <= n) ? '#f57c00' : 'var(--border)';
+  });
+}
+window.gsHarvestRate = gsHarvestRate;
+
+function openHarvestAddModal(plantId) {
+  window._gsCurrentHarvestPlantId = plantId;
+  window._gsHarvestRating = 0;
+  // Reset
+  var amt = document.getElementById('harvest-amount'); if (amt) amt.value = '';
+  var note = document.getElementById('harvest-note'); if (note) note.value = '';
+  var dt = document.getElementById('harvest-date'); if (dt) dt.value = new Date().toISOString().slice(0,10);
+  gsHarvestRate(0);
+  // Plant-Name im Header
+  var plant = (Array.isArray(window.myPlants) ? window.myPlants : []).find(function(p){ return p.id === plantId; });
+  var head = document.getElementById('harvest-plant-name');
+  if (head) head.textContent = plant ? ((plant.emoji ? plant.emoji + ' ' : '') + (plant.name || plant.lat || '')) : '';
+  if (typeof openModal === 'function') openModal('modal-harvest-add');
+  else document.getElementById('modal-harvest-add').classList.add('open');
+}
+window.openHarvestAddModal = openHarvestAddModal;
+
+async function gsHarvestSubmit() {
+  var plantId = window._gsCurrentHarvestPlantId || null;
+  var plant = (Array.isArray(window.myPlants) ? window.myPlants : []).find(function(p){ return p.id === plantId; });
+  var uid = (window.gsStore && typeof gsStore.get === 'function') ? gsStore.get('gs_sb_uid', null) : null;
+  if (!uid) {
+    if (typeof showProfileToast === 'function') showProfileToast(
+      (window.gsI18n ? gsI18n.t('err_login_required', 'Bitte zuerst anmelden') : 'Bitte zuerst anmelden'),
+      'error');
+    return;
+  }
+  var amt = parseFloat((document.getElementById('harvest-amount') || {}).value || '0');
+  if (!amt || amt <= 0) {
+    if (typeof showProfileToast === 'function') showProfileToast(
+      (window.gsI18n ? gsI18n.t('harvest_no_amount', 'Bitte Menge angeben') : 'Bitte Menge angeben'),
+      'error');
+    return;
+  }
+  var row = {
+    user_id: uid,
+    plant_local_id: plantId,
+    species_lat: plant ? (plant.lat || null) : null,
+    species_name: plant ? (plant.name || '') : '',
+    harvested_at: (document.getElementById('harvest-date') || {}).value || new Date().toISOString().slice(0,10),
+    amount_value: amt,
+    amount_unit: (document.getElementById('harvest-unit') || {}).value || 'g',
+    note: (document.getElementById('harvest-note') || {}).value || '',
+    quality_rating: window._gsHarvestRating || null
+  };
+  try {
+    var r = await sbFetch('/rest/v1/harvest_log', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','Prefer':'return=minimal'},
+      body: JSON.stringify(row)
+    });
+    if (r && r.error) {
+      if (typeof showProfileToast === 'function') showProfileToast(
+        (window.gsI18n ? gsI18n.t('harvest_save_error', '⚠️ Konnte nicht speichern') : '⚠️ Konnte nicht speichern'),
+        'error');
+      return;
+    }
+    if (typeof showProfileToast === 'function') showProfileToast(
+      (window.gsI18n ? gsI18n.t('harvest_saved', '✅ Ernte gespeichert!') : '✅ Ernte gespeichert!'),
+      'success');
+    if (typeof closeModal === 'function') closeModal('modal-harvest-add');
+    if (typeof gsHaptic === 'function') gsHaptic('success');
+  } catch(e) {
+    if (typeof showProfileToast === 'function') showProfileToast(
+      (window.gsI18n ? gsI18n.t('err_network', 'Netzwerk-Fehler — bitte erneut versuchen') : 'Netzwerk-Fehler — bitte erneut versuchen'),
+      'error');
+  }
+}
+window.gsHarvestSubmit = gsHarvestSubmit;
+
+// ── Harvest: Statistik laden ──────────────────────────────────────
+async function gsHarvestStatsLoad(year) {
+  var uid = (window.gsStore && typeof gsStore.get === 'function') ? gsStore.get('gs_sb_uid', null) : null;
+  if (!uid) return [];
+  year = year || new Date().getFullYear();
+  try {
+    var r = await sbFetch('/rest/v1/v_harvest_stats_per_user?user_id=eq.' + encodeURIComponent(uid) + '&year=eq.' + year + '&order=total_grams.desc', { method:'GET' });
+    return (r && r.data) || [];
+  } catch(_) { return []; }
+}
+window.gsHarvestStatsLoad = gsHarvestStatsLoad;
+
+// ── Harvest: Stats-Modal öffnen + rendern ────────────────────────
+async function openHarvestStatsModal() {
+  if (typeof openModal === 'function') openModal('modal-harvest-stats');
+  else document.getElementById('modal-harvest-stats').classList.add('open');
+  var body = document.getElementById('harvest-stats-body');
+  var summary = document.getElementById('harvest-stats-summary');
+  if (!body) return;
+  body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;">⏳ Lade Statistik…</div>';
+  var year = new Date().getFullYear();
+  var rows = await gsHarvestStatsLoad(year);
+  if (!rows.length) {
+    body.innerHTML = '<div style="text-align:center;padding:30px 20px;color:var(--muted);"><div style="font-size:42px;margin-bottom:8px;">🥕</div><div style="font-size:14px;font-weight:700;margin-bottom:4px;" data-i18n="harvest_empty_title" data-i18n-fallback="Noch keine Ernte erfasst">Noch keine Ernte erfasst</div><div style="font-size:12px;line-height:1.5;" data-i18n="harvest_empty_hint" data-i18n-fallback="Tippe in der Pflanzen-Detail-Ansicht auf 🥕 Ernte, um deine erste Ernte zu speichern.">Tippe in der Pflanzen-Detail-Ansicht auf 🥕 Ernte, um deine erste Ernte zu speichern.</div></div>';
+    if (summary) summary.textContent = '';
+    return;
+  }
+  // Aggregate
+  var totalG = 0, totalStk = 0, plants = new Set();
+  rows.forEach(function(r){
+    totalG += (r.total_grams || 0);
+    totalStk += (r.total_stk || 0);
+    if (r.species_name) plants.add(r.species_name);
+  });
+  if (summary) {
+    var kg = (totalG / 1000).toFixed(1);
+    summary.textContent = year + ' · ' + kg + ' kg · ' + totalStk + ' Stk · ' + plants.size + ' Arten';
+  }
+  // Bar-Chart (CSS-Bars, kein recharts — bleibt vanilla)
+  var max = Math.max.apply(null, rows.map(function(r){ return r.total_grams || 0; })) || 1;
+  var esc = (typeof gsHTMLEscape === 'function') ? gsHTMLEscape : function(s){ return String(s||''); };
+  var html = '<div style="display:flex;flex-direction:column;gap:8px;">';
+  rows.slice(0, 20).forEach(function(r){
+    var pct = max ? Math.round((r.total_grams || 0) / max * 100) : 0;
+    var amount = '';
+    if (r.total_grams >= 1000) amount = (r.total_grams/1000).toFixed(2) + ' kg';
+    else if (r.total_grams > 0) amount = Math.round(r.total_grams) + ' g';
+    else if (r.total_stk > 0) amount = r.total_stk + ' Stk';
+    html += '<div style="background:var(--surface2);border-radius:10px;padding:10px 12px;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">' +
+              '<span style="font-size:13px;font-weight:800;color:var(--text);">' + esc(r.species_name || '?') + '</span>' +
+              '<span style="font-size:12px;font-weight:800;color:var(--g-dark);">' + amount + '</span>' +
+            '</div>' +
+            '<div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;">' +
+              '<div style="width:' + pct + '%;height:100%;background:linear-gradient(90deg,#f57c00,#e65100);"></div>' +
+            '</div>' +
+            '<div style="font-size:10.5px;color:var(--muted);margin-top:4px;">' + (r.harvest_count || 0) + ' Ernte-Einträge</div>' +
+            '</div>';
+  });
+  html += '</div>';
+  body.innerHTML = html;
+}
+window.openHarvestStatsModal = openHarvestStatsModal;
+
+// ── Harvest: Pflanzen-spezifische Liste laden ────────────────────
+async function gsHarvestLoadForPlant(plantLocalId) {
+  if (!plantLocalId || typeof sbFetch !== 'function') return [];
+  var uid = (window.gsStore && typeof gsStore.get === 'function') ? gsStore.get('gs_sb_uid', null) : null;
+  if (!uid) return [];
+  try {
+    var r = await sbFetch('/rest/v1/harvest_log?user_id=eq.' + encodeURIComponent(uid) + '&plant_local_id=eq.' + encodeURIComponent(plantLocalId) + '&order=harvested_at.desc&limit=50', { method:'GET' });
+    return (r && r.data) || [];
+  } catch(_) { return []; }
+}
+window.gsHarvestLoadForPlant = gsHarvestLoadForPlant;
+
+// ═════════════════════════════════════════════════════════════════════
+// Ende v25.31 Plant-Doctor + Harvest-Block
 // ═════════════════════════════════════════════════════════════════════
 
 function toggleLike(postId) {
@@ -43876,6 +44442,25 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.31', date: '13.05.2026',
+    headline: '🩺 KI-Pflanzendoktor + 🥕 Erntekalender — Phase-2-Bundle (PictureThis-Killer-Features)',
+    summary: 'Cowork hat plant-doctor-diagnose Edge-Fn (Vision-AI mit Multi-Hypothese + Treatment-Plan) + plant_doctor_history + harvest_log + v_harvest_stats_per_user View deployed. v25.31 ist das Frontend dazu: 3 neue Modals (Doctor / Harvest-Add / Harvest-Stats) + 2 neue Garten-Action-Buttons + ~25 i18n-Keys.',
+    items: [
+      {emoji:'🩺', bold:'A1 Doctor-Modal:', text:' Foto-Upload (Camera+Gallery max 10MB), Pflanzen-Picker aus myPlants, 8 Symptom-Multi-Select-Chips (Gelbe-Blaetter/Welke/Flecken/Schaedling/Missbildung/Faulnis/Vertrocknung/Parasit), Notiz-Textarea. Submit-Button mit Loading-State.'},
+      {emoji:'🔬', bold:'A2 gsRunDiagnose:', text:' POST plant-doctor-diagnose mit photo-Base64 + species_lat + symptoms + user_note + plant_local_id + save_history=true. 60s Timeout. Login-Check.'},
+      {emoji:'📊', bold:'A3 Result-Render:', text:' Urgency-Badge (4 Stufen Low/Medium/High/Critical mit Farben), Top-Diagnose mit Confidence-%, bis zu 4 Hypothesen, Treatment-Steps (priority-color border), Natural-Remedies-Liste, when_call_pro Warning, Smooth-Scroll-to-Result.'},
+      {emoji:'👍', bold:'A4 Followup:', text:' 3 Buttons (Hilfreich/Wurde-besser/Wurde-schlechter) PATCH plant_doctor_history. Hilft anderen Usern via aggregierter Daten.'},
+      {emoji:'📚', bold:'A5 History-Helper:', text:' gsDoctorHistoryLoad(plant_local_id) ready fuer kuenftige Plant-Detail-Tab-Integration.'},
+      {emoji:'🥕', bold:'B1 Harvest-Add:', text:' Modal mit Datum (today-default), Menge+Einheit (g/kg/Stk/Bund/l/Tasse), Quality 1-5 Stars, Notiz. gsHarvestSubmit POST harvest_log.'},
+      {emoji:'📊', bold:'B2 Stats-Modal:', text:' Liest v_harvest_stats_per_user fuer current-year, aggregiert total_grams + total_stk + plant-count, CSS-Bar-Chart (kein recharts dependency).'},
+      {emoji:'🌻', bold:'B3 Garten-Buttons:', text:' 2 neue Action-Buttons unterhalb Voice-Mode (Doctor: teal, Harvest: orange).'},
+      {emoji:'🌍', bold:'i18n:', text:' ~15 doctor_* Keys (no_photo/analyzing/urgency_*/followup_thanks) + ~5 harvest_* Keys (no_amount/save_error/saved) in GS_I18N_JS_STRINGS. ~25 data-i18n im Modal-HTML (Symptome, Labels, Buttons).'},
+      {emoji:'🎨', bold:'CSS:', text:' .doctor-sym-chip (Multi-Select Chip mit :has-Selector fuer Checkbox-State).'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v25.32 gsStore-Welle 4 (1 Tag mechanisch). v25.33 AR-View MVP (1 Woche P3 optional). v26.0 Pre-Release-stable nach Stripe-Test-Card-Verify.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check OK · sw.js gs-v25.31 OK.'},
+    ]
+  },
+  {
     v: 'v25.30', date: '13.05.2026',
     headline: '🛒 Marketplace-Repair — User-Listings landen jetzt im Cloud-Feed (P0 Vertrauens-Bug fix)',
     summary: 'Cowork hat marketplace-publish Edge-Fn (Validate + Foto-Upload nach Storage + INSERT in 1 Call) + v_marketplace_listings View (mit seller_name + seller_is_expert + seller_is_premium + photo_urls JOIN) + fn_mkt_increment_views RPC deployed. v25.30 ist das Frontend dazu mit 3 Anpassungen.',
@@ -45093,7 +45678,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.30';
+var GS_VERSION = 'v25.31';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
