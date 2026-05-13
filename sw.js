@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.32 — gsStore-Welle 4: 62 direkte localStorage-Calls auf gsStore-Wrapper migriert ueber 10 Hot-Keys (gs_admin_log, gs_quiz_streak, gs_market_listings, gs_streak, ps_myplants, gs_prefs, gs_plantings, gs_claude_model, gs_dead_plants, gs_seed_inventory). Schuetzt gegen Safari-Private-Mode + QuotaExceededError.
+   v25.33 — 6 Fernando-Bug-Fixes nach Stripe-Test (BUG1 _gsAuthPrompt deaktiviert / BUG2 Demo-Gast-Button + gs-guest-banner entfernt / BUG3 Trial 30→7 + UI „1 Monat" → „1 Woche" / BUG4 gsRenderSubInfo Empty-State Free-Plan-Card mit Upgrade-CTA / BUG5 gsAddScanHistory Dedup-by-id (Scanner pusht nicht mehr 3× pro Scan) / BUG6 Karten-Lazy-Load mit 3× Retry statt Sofort-Fallback). Cowork hat parallel Stripe komplett saniert: 3 Live-Products + Prices + Webhook + stripe-checkout v6 mit 7-Tage-Trial-Default.
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.32';
+const VERSION = 'gs-v25.33';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;

@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.32.20260513">
+<meta name="app-version" content="25.33.20260513">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -1575,14 +1575,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <button onclick="onbShowLogin()" style="width:100%;padding:15px;background:rgba(255,255,255,.08);color:#fff;border:1.5px solid rgba(255,255,255,.2);border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:20px;-webkit-tap-highlight-color:transparent;">
         🔑 Ich habe bereits ein Konto
       </button>
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-        <div style="flex:1;height:1px;background:rgba(255,255,255,.12);"></div>
-        <div style="font-size:11px;color:rgba(255,255,255,.35);">oder</div>
-        <div style="flex:1;height:1px;background:rgba(255,255,255,.12);"></div>
-      </div>
-      <button onclick="gsOnboardingGuest()" style="width:100%;padding:12px;background:transparent;color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.12);border-radius:14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">
-        👁️ Als Gast fortfahren (Demo-Modus)
-      </button>
+      <!-- v25.33 Fernando-Bug-Fix: Demo-Gast-Button entfernt (User sollen sich
+           direkt anmelden/registrieren, kein Demo-Bypass). -->
     </div>
 
     <!-- REGISTER-VIEW -->
@@ -1682,9 +1676,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 </div>
 
 <!-- ═══ GAST-MODUS BANNER ═══════════════════════════════════════════ -->
-<div id="gs-guest-banner" data-i18n="banner_guest_mode" data-i18n-fallback="👁️ Demo-Modus · Ohne Konto wird nichts gespeichert · Tippe hier zum Registrieren" style="display:none;background:linear-gradient(135deg,#e65100,#bf360c);color:#fff;padding:10px 16px;font-size:12.5px;font-weight:700;text-align:center;cursor:pointer;" onclick="gsOnboardingRegister()">
-  👁️ Demo-Modus · Ohne Konto wird nichts gespeichert · Tippe hier zum Registrieren
-</div>
+<!-- v25.33 Fernando-Bug-Fix: gs-guest-banner entfernt (Demo-Modus deaktiviert). -->
 <div id="app">
 
 <div class="topbar">
@@ -9743,12 +9735,20 @@ async function gsLoadSubInfo() {
   }
 }
 
-// Rendert die Subscription-Info-Card als HTML-String. Bei null → Free-Plan-Hinweis.
+// Rendert die Subscription-Info-Card als HTML-String. Bei null → Free-Plan-Card
+// mit prominentem Upgrade-CTA (v25.33 Fernando-Bug-Fix: User sah vorher nur
+// dünne Dashed-Box ohne Action — jetzt eingeladene Free-Plan-Karte + Trial-CTA).
 function gsRenderSubInfo(sub) {
   if (!sub) {
-    return '<div style="border:1px dashed var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px;background:var(--card);text-align:center;color:var(--muted);font-size:12.5px;">' +
-      '🌱 Aktuell: <strong>Free-Plan</strong> · 5 Scans/Tag' +
-      '</div>';
+    return '<div style="text-align:center;padding:24px 20px;background:linear-gradient(135deg,#f5f5f5,#eaeaea);border-radius:14px;margin-bottom:14px;">' +
+      '<div style="font-size:48px;margin-bottom:8px;">🌱</div>' +
+      '<div style="font-size:18px;font-weight:900;color:var(--g-dark);margin-bottom:6px;">Free-Plan aktiv</div>' +
+      '<div style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.5;">5 Scans/Tag · Kein Cloud-Sync · Keine KI-Doctor-Analyse</div>' +
+      '<button onclick="gsShowFirstTrialModal()" style="background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;padding:14px 24px;border:none;border-radius:12px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 14px rgba(26,35,126,.3);">' +
+        '⬆️ Plus oder Pro — 7 Tage gratis testen' +
+      '</button>' +
+      '<div style="font-size:10.5px;color:var(--muted);margin-top:10px;line-height:1.45;">Jederzeit kündbar · Keine Sofort-Sperre · Sichere Stripe-Zahlung</div>' +
+    '</div>';
   }
   var now = new Date();
   var endDate = sub.current_period_end ? new Date(sub.current_period_end) : null;
@@ -9825,11 +9825,10 @@ async function gsUncancelSub() {
   await gsOpenBillingPortal('reactivate');
 }
 
-// ── v25.7 A3: Trial-Modal nach Erstregistrierung ─────────────────────
-// Wird nach First-Login (Flag gs_first_login aus v25.5) gezeigt — wenn User
-// noch keine Sub hat. 3 Plan-Optionen: Plus 1-Monat-Trial, Pro 1-Monat-Trial,
-// Free-Plan (Modal schließen). Backend (stripe-checkout v5) cap't trial_days
-// sicher auf max 30 + first-sub-check.
+// ── v25.7 A3 + v25.33: Trial-Modal nach Erstregistrierung ────────────
+// v25.33 Fernando-Bug-Fix: Trial 30 → 7 Tage (Backend stripe-checkout v6
+// cap't auf max 7 + Default 7). UI-Texte „1 Monat" → „1 Woche".
+// Backend (stripe-checkout v6) cap't trial_days sicher + first-sub-check.
 function gsShowFirstTrialModal() {
   var mc = document.getElementById('modal-content');
   if (!mc) return;
@@ -9838,21 +9837,21 @@ function gsShowFirstTrialModal() {
       '<button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:20px;cursor:pointer;">×</button>' +
       '<div style="font-size:48px;margin-bottom:8px;">🌱</div>' +
       '<div style="font-family:\'Playfair Display\',serif;font-size:24px;font-weight:900;margin-bottom:6px;">Willkommen bei GreenScan</div>' +
-      '<div style="font-size:13px;opacity:.92;line-height:1.5;">1 Monat lang kostenlos alles ausprobieren.<br>Jederzeit kündbar — keine Sofort-Sperre.</div>' +
+      '<div style="font-size:13px;opacity:.92;line-height:1.5;">1 Woche lang kostenlos alles ausprobieren.<br>Jederzeit kündbar — keine Sofort-Sperre.</div>' +
     '</div>' +
     '<div style="padding:18px;">' +
-      // Plus 1-Monat-Trial
+      // Plus 1-Woche-Trial
       '<button onclick="gsTrialStart(\'plus_monthly\')" style="width:100%;display:block;padding:16px;margin-bottom:10px;background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;text-align:left;">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;">' +
-          '<div><div style="font-size:15px;margin-bottom:2px;">⭐ Plus — 1 Monat gratis testen</div>' +
+          '<div><div style="font-size:15px;margin-bottom:2px;">⭐ Plus — 1 Woche gratis testen</div>' +
           '<div style="font-size:11.5px;opacity:.9;font-weight:600;">Danach CHF 3.90/Monat · Unlimited Scans · Export · Werbefrei</div></div>' +
           '<div style="font-size:18px;">→</div>' +
         '</div>' +
       '</button>' +
-      // Pro 1-Monat-Trial
+      // Pro 1-Woche-Trial
       '<button onclick="gsTrialStart(\'pro_monthly\')" style="width:100%;display:block;padding:16px;margin-bottom:10px;background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;text-align:left;">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;">' +
-          '<div><div style="font-size:15px;margin-bottom:2px;">💎 Pro — 1 Monat gratis testen</div>' +
+          '<div><div style="font-size:15px;margin-bottom:2px;">💎 Pro — 1 Woche gratis testen</div>' +
           '<div style="font-size:11.5px;opacity:.9;font-weight:600;">Danach CHF 7.90/Monat · KI-Kräuterberater · Offline · Diagnose</div></div>' +
           '<div style="font-size:18px;">→</div>' +
         '</div>' +
@@ -9867,12 +9866,12 @@ function gsShowFirstTrialModal() {
   openModal('detail-modal');
 }
 
-// Trial-Start: ruft gsStartCheckout mit trial_days=30. Modal bleibt offen
-// bis Stripe-Popup aufgeht (gsStartCheckout managed das).
+// Trial-Start: ruft gsStartCheckout mit trial_days=7 (v25.33). Backend
+// stripe-checkout v6 cap't auf max 7 UND nimmt 7 als Default.
 function gsTrialStart(planLookupKey) {
   try { closeModal('detail-modal'); } catch(_){}
   // Kurze Verzögerung damit Modal schließen kann, dann Checkout
-  setTimeout(function(){ gsStartCheckout(planLookupKey, false, 30); }, 250);
+  setTimeout(function(){ gsStartCheckout(planLookupKey, false, 7); }, 250);
 }
 
 // Free-Plan: Modal schließen, Toast.
@@ -11290,14 +11289,50 @@ async function gsScanPersistToCloud(r) {
   } catch(e) { console.warn('[gsScanPersistToCloud]', e); }
 }
 
+// v25.33 Fernando-Bug-Fix: Unified Scan-History-Writer mit Dedup-by-id.
+// VORHER: Scanner pushte über 2 Codepfade (gsAddToScanHistory + saveScanToHistory)
+// → 2 Einträge pro Scan + Cloud-Photo-Merge → 3 Einträge sichtbar.
+// JETZT: gsAddScanHistory(item) ist Single-Source-of-Truth. Wenn item.id bereits
+// in den letzten 5 Einträgen vorhanden ist → UPDATE (Felder mergen), sonst INSERT.
+// Beide alten Writer routen jetzt durch diesen Helper mit gemeinsamer window._gsCurrentScanId.
+function gsAddScanHistory(item) {
+  if (!item) return;
+  var hist = [];
+  try { hist = JSON.parse(gsStore.get(SCAN_HISTORY_KEY, null) || '[]'); } catch(e){}
+  // Dedup: wenn item.id bereits da → UPDATE (Field-Merge), sonst INSERT.
+  var existingIdx = item.id ? hist.findIndex(function(h){ return h && h.id === item.id; }) : -1;
+  if (existingIdx !== -1) {
+    hist[existingIdx] = Object.assign({}, hist[existingIdx], item, { updatedAt: Date.now() });
+  } else {
+    item.id = item.id || ('scan_' + Date.now() + '_' + Math.random().toString(36).slice(2,6));
+    item.createdAt = item.createdAt || Date.now();
+    hist.unshift(item);
+  }
+  if (hist.length > 200) hist = hist.slice(0, 200);
+  try { gsStore.set(SCAN_HISTORY_KEY, JSON.stringify(hist)); } catch(e){}
+  if (typeof updateScanHistoryBadge === 'function') updateScanHistoryBadge();
+  return item.id;
+}
+window.gsAddScanHistory = gsAddScanHistory;
+
+// Generiert eine Scan-ID die für die aktuelle Scan-Session gilt. Wird von
+// gsAddToScanHistory und saveScanToHistory geteilt, damit beide Push-Pfade
+// dedupliziert werden statt zwei Einträge zu erzeugen.
+function gsCurrentScanId() {
+  var now = Date.now();
+  var info = window._gsLastScanIdInfo;
+  if (info && (now - info.ts) < 10000) return info.id;
+  var id = 'scan_' + now + '_' + Math.random().toString(36).slice(2,6);
+  window._gsLastScanIdInfo = { id: id, ts: now };
+  return id;
+}
+window.gsCurrentScanId = gsCurrentScanId;
+
 // Scan in History speichern (bei jedem Scan-Ergebnis)
 // v23.85: Robust für Confidence-Format (0-1 vs 0-100, string vs number)
+// v25.33: routet durch gsAddScanHistory (Dedup-by-id).
 function gsAddToScanHistory(r) {
   if (!r || !r.name) return;
-  var hist = [];
-  try { hist = JSON.parse(localStorage.getItem(SCAN_HISTORY_KEY)||'[]'); } catch(e){}
-  // Duplikat-Check (letzte 5)
-  if (hist.slice(0,5).find(function(h){ return h.name === r.name; })) return;
   // Confidence normalisieren: kann sein 0-100 (number/string) oder 0-1 (float)
   var conf = 0;
   var raw = r.confidence != null ? r.confidence : (r.score != null ? r.score : (r.match != null ? r.match : 0));
@@ -11307,15 +11342,13 @@ function gsAddToScanHistory(r) {
     else if (raw > 1 && raw <= 100) conf = Math.round(raw); // 0-100
     else if (raw > 100) conf = 100;
   }
-  hist.unshift({
+  gsAddScanHistory({
+    id: gsCurrentScanId(),
     name: r.name, latin: r.latin||'', confidence: conf,
     emoji: r.emoji || '🔬', timestamp: new Date().toISOString(),
     category: r.category||'wildpflanze',
     thumb: r.thumb || r.image_thumb || null
   });
-  if (hist.length > 50) hist = hist.slice(0, 50);
-  try { localStorage.setItem(SCAN_HISTORY_KEY, JSON.stringify(hist)); } catch(e){}
-  if (typeof updateScanHistoryBadge === 'function') updateScanHistoryBadge();
 }
 
 // v23.85: Auto-fix bestehende History-Einträge mit conf=0 → null umbenennen damit nicht angezeigt
@@ -18279,7 +18312,12 @@ function saveScanToHistory(result, imageB64thumb) {
     }
     if (window._gsScanContext) Object.assign(ctx, window._gsScanContext);
   } catch(_){}
+  // v25.33 Fernando-Bug-Fix: durch gsAddScanHistory routen (Dedup-by-id).
+  // Wenn gsAddToScanHistory schon mit derselben gsCurrentScanId() einen Eintrag
+  // erzeugt hat (häufig der Fall — beide werden vom Scanner direkt nacheinander
+  // gerufen), dann mergen die Felder rein, statt einen zweiten Eintrag zu pushen.
   var entry = {
+    id:       (typeof gsCurrentScanId === 'function') ? gsCurrentScanId() : undefined,
     ts:       Date.now(),
     name:     result.name,
     latin:    result.latin  || '',
@@ -18292,11 +18330,7 @@ function saveScanToHistory(result, imageB64thumb) {
     note:     '',                   // User-editable
     context:  ctx                   // {lat, lon, locName}
   };
-  var hist = getScanHistory();
-  hist.unshift(entry);
-  if (hist.length > MAX_SCAN_HISTORY) hist = hist.slice(0, MAX_SCAN_HISTORY);
-  try { localStorage.setItem(SCAN_HISTORY_KEY, JSON.stringify(hist)); } catch(e) {}
-  updateScanHistoryBadge();
+  gsAddScanHistory(entry);
   // v23.56: Scan als Kernaktivität → Streak ticken
   try { if (typeof gsTouchStreak === 'function') gsTouchStreak(); } catch(e){}
   // v23.50 Task #36: Unbekannte Arten → Vorschlag für Datenbank einreichen
@@ -31844,23 +31878,51 @@ const GS_MAP_LAYERS = {
   }
 };
 
-// Leaflet laden und Karte initialisieren
-function initMap() {
+// v25.33 Fernando-Bug-Fix: Karten-Lazy-Load-Helper (idempotent).
+// Lädt Leaflet on-demand wenn typeof L === 'undefined' (z.B. SW-Cache-Miss
+// oder Race zwischen DOM-Ready und CDN-Load). 3× Versuche, je 2s Pause.
+function gsLoadLeaflet() {
+  if (window._gsLeafletLoadingPromise) return window._gsLeafletLoadingPromise;
+  if (typeof L !== 'undefined') return Promise.resolve();
+  window._gsLeafletLoadingPromise = new Promise(function(resolve, reject){
+    var src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    if (document.querySelector('script[src="' + src + '"]')) { return resolve(); }
+    var s = document.createElement('script');
+    s.src = src; s.async = true;
+    s.onload = function(){ resolve(); };
+    s.onerror = function(){ window._gsLeafletLoadingPromise = null; reject(new Error('Leaflet load failed')); };
+    document.head.appendChild(s);
+  });
+  return window._gsLeafletLoadingPromise;
+}
+
+// Leaflet laden und Karte initialisieren (v25.33: 3× Retry-Loader statt Single-Try)
+async function initMap() {
   if (gsMap) {
     // Bereits initialisiert – nur resize
-    setTimeout(() => gsMap.invalidateSize(true), 200);
-    updateMapCount();
+    setTimeout(function(){ try { gsMap.invalidateSize(true); } catch(_){} }, 200);
+    if (typeof updateMapCount === 'function') updateMapCount();
     return;
   }
+  const mapDiv = document.getElementById('gs-map-div');
 
-  if (!window.L) {
-    // Leaflet nicht geladen – warte kurz und versuche nochmals
-    const mapDiv = document.getElementById('gs-map-div');
+  // Lazy-Load Leaflet mit 3 Versuchen, je 2s Pause
+  if (typeof L === 'undefined') {
     if (mapDiv) mapDiv.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:#666;"><div style="font-size:40px;">🗺️</div><div style="font-size:13px;font-weight:700;">Swisstopo lädt…</div><div style="font-size:11px;color:#999;">Bitte kurz warten</div></div>';
-    setTimeout(() => {
-      if (window.L) gsCreateMap();
-      else if (mapDiv) mapDiv.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;color:#555;"><div style="font-size:40px;">📵</div><div style="font-size:13px;font-weight:700;text-align:center;">Karte benötigt Internet<br><span style=\"font-size:11px;color:#999\">Bitte Verbindung prüfen und neu laden</span></div></div>';
-    }, 2000);
+    for (var i = 0; i < 3; i++) {
+      if (typeof L !== 'undefined') break;
+      try { await gsLoadLeaflet(); } catch(_){}
+      if (typeof L !== 'undefined') break;
+      await new Promise(function(r){ setTimeout(r, 2000); });
+    }
+  }
+
+  if (typeof L === 'undefined') {
+    // Echter Fallback nach 3 Retry-Versuchen
+    if (mapDiv) mapDiv.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;color:#555;">' +
+      '<div style="font-size:40px;">📵</div>' +
+      '<div style="font-size:13px;font-weight:700;text-align:center;">Karte konnte nicht geladen werden<br>' +
+      '<span style="font-size:11px;color:#999">Bitte App neu starten oder Verbindung prüfen</span></div></div>';
     return;
   }
   gsCreateMap();
@@ -44442,6 +44504,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.33', date: '13.05.2026',
+    headline: '🐛 6 Fernando-Bug-Fixes nach Stripe-Test — Doppel-Modal weg, Trial 7 Tage, Scan-Dedup, Karte mit Retry',
+    summary: 'Frontend-Cleanup nach Fernandos Stripe-Live-Test. Cowork hat parallel STRIPE komplett saniert: 3 Live-Products + Prices + Webhook + stripe-checkout v6 (Trial-Cap 30→7 + Default 7). v25.33 pflegt die UX-Probleme die im Test sichtbar wurden.',
+    items: [
+      {emoji:'🔴', bold:'BUG1 _gsAuthPrompt:', text:' Doppel-Onboarding-Modal deaktiviert (early return). Inkognito-User sahen vorher erst "Account erstellen" Pflicht-Modal, dann das richtige Onboarding. Alter Code bleibt als unreachable-Block fuer Notfall-Restore.'},
+      {emoji:'🔴', bold:'BUG2 Demo-Modus:', text:' "👁️ Als Gast fortfahren" Button + gs-guest-banner aus DOM entfernt. gsOnboardingGuest + gsActivateGuestMode auf no-op gesetzt (Functions bleiben falls Re-Enable noetig).'},
+      {emoji:'🔴', bold:'BUG3 Trial 30→7:', text:' gsTrialStart ruft jetzt gsStartCheckout(plan, false, 7). gsShowFirstTrialModal Texte "1 Monat gratis" → "1 Woche gratis" (3 Stellen: Header + 2 Plan-Buttons).'},
+      {emoji:'🟠', bold:'BUG4 Empty-State:', text:' gsRenderSubInfo(null) zeigt jetzt eingeladene Free-Plan-Card mit grossem Upgrade-CTA "⬆️ Plus oder Pro — 7 Tage gratis testen" → gsShowFirstTrialModal. Vorher nur duenne Dashed-Box ohne Action.'},
+      {emoji:'🟡', bold:'BUG5 Scan-Dedup:', text:' Neuer gsAddScanHistory(item) Helper mit Dedup-by-id. gsCurrentScanId() teilt eine ID zwischen den zwei Push-Pfaden (gsAddToScanHistory + saveScanToHistory) — 10s-Fenster. Beide alten Writer routen jetzt durch den Helper, mergen Felder statt 3 Eintraege zu erzeugen. Max 200 Eintraege.'},
+      {emoji:'🟡', bold:'BUG6 Karten-Retry:', text:' initMap async + neuer gsLoadLeaflet() Lazy-Loader. 3× Versuche je 2s Pause, dann erst Fallback. Echter Fallback-Text: "Karte konnte nicht geladen werden · App neu starten" (statt "benötigt Internet" obwohl online).'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.0 Pre-Release-stable Tag nach Stripe-Test-Card-Verify durch Fernando. v25.34 AR-View MVP (P3 1 Woche optional).'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check OK · sw.js gs-v25.33 OK · 6/6 Bug-Stellen grep-clean.'},
+    ]
+  },
+  {
     v: 'v25.32', date: '13.05.2026',
     headline: '🧹 gsStore-Welle 4 — 62 localStorage-Calls auf Quota-safe Wrapper migriert',
     summary: 'Tech-Debt-Cleanup: 10 Hot-Keys (Top-Audit-Ranking) mechanisch via Regex auf gsStore-Wrapper umgestellt. Schuetzt gegen Safari-Private-Mode-Crashes + QuotaExceededError unter Storage-Pressure. Reine Frontend-Migration, kein Backend-Bedarf.',
@@ -45699,7 +45776,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.32';
+var GS_VERSION = 'v25.33';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -46548,6 +46625,12 @@ window.gsInstallApp = async function(){
 // nötig ist für volle Funktionalität: Cross-Device, KI, Buch-Wissen, Reminders).
 (function(){
   function _gsAuthPrompt(){
+    // v25.33 Fernando-Bug-Fix: Modal komplett deaktiviert — der Onboarding-
+    // Wrapper (#gs-onboarding) deckt Login/Register schon ab. Vor dem Fix
+    // sahen Inkognito-User ZWEI Fenster (erst "Account erstellen — kostenlos"
+    // Pflicht-Modal, dann das normale Onboarding mit Login).
+    return;
+    // eslint-disable-next-line no-unreachable
     try {
       // Schon eingeloggt? → nichts tun
       if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) return;
@@ -49746,22 +49829,9 @@ function gsOnboardingLogin() {
 
 // Als Gast fortfahren
 function gsOnboardingGuest() {
-  // Hinweis kurz anzeigen
-  var hint = document.getElementById('gs-guest-hint');
-  if (hint) {
-    hint.style.display = 'block';
-    setTimeout(function() {
-      localStorage.setItem(GS_ONBOARDING_KEY, 'guest');
-      localStorage.setItem(GS_GUEST_MODE_KEY, 'true');
-      gsOnboardingDone(false);
-      gsActivateGuestMode(true);
-    }, 1800);
-  } else {
-    localStorage.setItem(GS_ONBOARDING_KEY, 'guest');
-    localStorage.setItem(GS_GUEST_MODE_KEY, 'true');
-    gsOnboardingDone(false);
-    gsActivateGuestMode(true);
-  }
+  // v25.33 Fernando-Bug-Fix: Demo-Modus deaktiviert — Function leer return.
+  // Falls re-enable nötig: alte Logik via git log v25.32^..main wiederherstellen.
+  return;
 }
 
 // Onboarding-Screen schliessen
@@ -50098,17 +50168,9 @@ function gsOnboardingDone(showBanner) {
   }
 }
 
-// Gast-Modus aktivieren — zeigt Demo-Banner, löscht Beispielpflanzen
+// Gast-Modus aktivieren — v25.33 Fernando-Bug-Fix: deaktiviert (no-op).
 function gsActivateGuestMode(showBanner) {
-  window._gsGuestMode = true;
-  // Demo-Banner anzeigen
-  var banner = document.getElementById('gs-guest-banner');
-  if (banner) banner.style.display = 'block';
-  // Demo-Beispielpflanzen entfernen (myPlants soll leer sein für Gäste)
-  if (typeof myPlants !== 'undefined') {
-    myPlants = [];
-    if (typeof savePlantsToStorage === 'function') savePlantsToStorage();
-  }
+  return;
 }
 
 // Nach erfolgreichem Login: Onboarding-Status setzen + Gast-Modus beenden
