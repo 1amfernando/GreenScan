@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.28 — i18n Pass-2: ~170 data-i18n Marker auf statische HTML-Strings (Onboarding, Home-Stats, Kategorien, Mehr-Screen, Settings-Labels, Garten/Community/Marktplatz Header) + GS_I18N_JS_STRINGS auf ~80 Keys (Toasts, Errors, Confirms, Status). Schweizer Markt komplett FR/IT-fähig.
+   v25.30 — Marketplace-Repair: saveListing ruft jetzt marketplace-publish Edge-Fn (Validate + Foto-Upload + DB-INSERT in 1 Call) statt nur localStorage. loadMarketFromSupabase liest v_marketplace_listings View (mit seller_name + verified + photo_urls). openListingDetail inkrementiert Views via fn_mkt_increment_views RPC. P0 Vertrauens-Bug fix.
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.28';
+const VERSION = 'gs-v25.30';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;

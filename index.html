@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.28.20260513">
+<meta name="app-version" content="25.30.20260513">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -8677,6 +8677,11 @@ window.GS_I18N_JS_STRINGS = {
   'toast_listing_deleted':     '🗑️ Angebot entfernt',
   'toast_bid_placed':          '🎯 Gebot abgegeben',
   'toast_bid_outbid':          '⚠️ Du wurdest überboten!',
+  'toast_market_login_required':'🔑 Bitte einloggen um zu veröffentlichen',
+  'toast_market_publishing':   '⏳ Veröffentliche…',
+  'toast_market_published':    '✅ Live im Marketplace!',
+  'toast_market_error':        'Fehler beim Veröffentlichen',
+  'toast_market_network_error':'⚠️ Netzwerkfehler — versuche es erneut',
   // ── Offline / Sync ──────────────────────────────────────────────
   'toast_offline_saved':       '📵 Offline gespeichert',
   'toast_offline_synced':      '🔄 Online — Sync abgeschlossen',
@@ -10075,19 +10080,48 @@ function gsShowSeasonMonth(monthIdx) {
 }
 
 // ══ MARKTPLATZ SUPABASE ══════════════════════════════════════
+// v25.30: Reads aus v_marketplace_listings View (kommt mit seller_name +
+// seller_is_expert + seller_is_premium + photo_urls already joined).
+// Mappt DB-Schema → Frontend-Schema, merged mit lokalen Drafts.
 async function loadMarketFromSupabase() {
-  if (!window.supabase || typeof sbFetch !== 'function') {
+  if (typeof sbFetch !== 'function') {
     renderMarket();
     return;
   }
   try {
-    var result = await sbFetch('/rest/v1/marketplace_listings?select=*&order=created_at.desc&limit=50', {method:'GET'});
-    if (result && result.data && result.data.length > 0) {
-      // Merge mit lokalen Listings
+    var result = await sbFetch('/rest/v1/v_marketplace_listings?select=*&order=created_at.desc&limit=50', {method:'GET'});
+    if (result && result.data) {
+      var cloud = (result.data || []).map(function(dbRow){
+        return {
+          id: dbRow.id,
+          title: dbRow.title,
+          desc: dbRow.description,
+          cat: dbRow.category,
+          priceMode: dbRow.price_mode,
+          price: dbRow.price,
+          currency: dbRow.currency || 'CHF',
+          region: dbRow.region,
+          contact: dbRow.contact,
+          images: dbRow.photo_urls || (dbRow.photo_url ? [dbRow.photo_url] : []),
+          sellerId: dbRow.user_id,
+          sellerName: dbRow.seller_name,
+          sellerIsExpert: dbRow.seller_is_expert,
+          sellerIsPremium: dbRow.seller_is_premium,
+          sellerLevel: dbRow.seller_level,
+          sellerAvatar: dbRow.seller_avatar,
+          verified: !!dbRow.seller_is_expert,
+          createdAt: dbRow.created_at ? new Date(dbRow.created_at).getTime() : Date.now(),
+          updatedAt: dbRow.updated_at ? new Date(dbRow.updated_at).getTime() : Date.now(),
+          status: dbRow.status || 'active',
+          views: dbRow.views || 0,
+          reports: 0
+        };
+      });
+      // Merge: Cloud-Listings haben Vorrang, lokale Drafts (z.B. offline) ergänzen.
       var local = [];
       try { local = JSON.parse(localStorage.getItem('gs_market_listings')||'[]'); } catch(e){}
-      var supaIds = new Set(result.data.map(function(l){ return l.id; }));
-      var merged = result.data.concat(local.filter(function(l){ return !supaIds.has(l.id); }));
+      var cloudIds = new Set(cloud.map(function(l){ return l.id; }));
+      var merged = cloud.concat(local.filter(function(l){ return !cloudIds.has(l.id); }));
       try { localStorage.setItem('gs_market_listings', JSON.stringify(merged)); } catch(e){}
     }
   } catch(e) { console.log('Market Supabase load failed:', e); }
@@ -14331,7 +14365,10 @@ function gsNlClearPhotos() {
   if (inp) inp.value = '';
 }
 
-function saveListing() {
+// v25.30: saveListing umgeschrieben — Backend marketplace-publish Edge-Fn
+// macht Validate + Foto-Upload + DB-INSERT in 1 Call. User-Listings landen
+// nicht mehr nur in localStorage, sondern im Cloud-Feed (Vertrauens-Bug P0 fix).
+async function saveListing() {
   var title = document.getElementById('nl-title').value.trim();
   var cat = localStorage.getItem('gs_nl_cat') || '';
   var pmode = localStorage.getItem('gs_nl_pmode') || '';
@@ -14347,39 +14384,60 @@ function saveListing() {
   if (!contact) { if (typeof showProfileToast === 'function') showProfileToast('Kontakt fehlt', 'info'); return; }
   if ((pmode === 'fix' || pmode === 'vb') && !price) { if (typeof showProfileToast === 'function') showProfileToast('Preis angeben', 'info'); return; }
 
-  var user = gsMarketUser();
-  var listings = gsMarketLoad();
-  var now = Date.now();
-  listings.unshift({
-    id: 'L' + now + '_' + Math.random().toString(36).slice(2,8),
-    title: title.slice(0,80),
-    desc: desc.slice(0,500),
-    cat: cat,
-    priceMode: pmode,
-    price: (pmode === 'fix' || pmode === 'vb') ? parseFloat(price) : 0,
-    currency: 'CHF',
-    region: region,
-    // v23.98: Foto-Upload — bis zu 3 komprimierte Fotos pro Listing
-    images: (window._gsNlPhotos || []).slice(0, 3),
-    contact: contact.slice(0,80),
-    sellerId: user.email || 'anon_' + now,
-    sellerName: user.name,
-    sellerEmail: user.email,
-    verified: user.verified,
-    createdAt: now,
-    updatedAt: now,
-    status: 'active',
-    reports: 0,
-    views: 0
-  });
-  window._gsMarket = listings;
-  gsMarketSave();
-  // v23.98: Foto-State für nächstes Inserat zurücksetzen
-  try { gsNlClearPhotos(); } catch(_){}
-  gsHaptic('success');
-  if (typeof showProfileToast === 'function') showProfileToast('✅ Angebot veröffentlicht', 'success');
-  closeModal('detail-modal');
-  renderMarket();
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) {
+    if (typeof showProfileToast === 'function') showProfileToast(
+      (window.gsI18n ? gsI18n.t('toast_market_login_required', '🔑 Bitte einloggen um zu veröffentlichen') : '🔑 Bitte einloggen um zu veröffentlichen'),
+      'error');
+    return;
+  }
+
+  if (typeof showProfileToast === 'function') showProfileToast(
+    (window.gsI18n ? gsI18n.t('toast_market_publishing', '⏳ Veröffentliche…') : '⏳ Veröffentliche…'),
+    'info');
+
+  try {
+    var token = (window.gsStore && typeof gsStore.get === 'function') ? gsStore.get('gs_sb_token', null) : null;
+    var fetchFn = window._gsFetch || fetch;
+    var resp = await fetchFn(SB_URL + '/functions/v1/marketplace-publish', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SB_KEY,
+        'Authorization': 'Bearer ' + token
+      },
+      body: JSON.stringify({
+        title: title.slice(0, 80),
+        description: desc.slice(0, 500),
+        category: cat,
+        price_mode: pmode,
+        price: (pmode === 'fix' || pmode === 'vb') ? parseFloat(price) : null,
+        currency: 'CHF',
+        region: region,
+        contact: contact.slice(0, 80),
+        photos_b64: (window._gsNlPhotos || []).slice(0, 3)
+      })
+    }, 60000);  // 60s für Foto-Upload
+
+    var j = await resp.json();
+    if (!resp.ok || !j.ok) {
+      if (typeof showProfileToast === 'function') showProfileToast(
+        '⚠️ ' + (j.error || (window.gsI18n ? gsI18n.t('toast_market_error', 'Fehler beim Veröffentlichen') : 'Fehler beim Veröffentlichen')),
+        'error');
+      return;
+    }
+    gsHaptic('success');
+    if (typeof showProfileToast === 'function') showProfileToast(
+      (window.gsI18n ? gsI18n.t('toast_market_published', '✅ Live im Marketplace!') : '✅ Live im Marketplace!') +
+      ' (' + (j.photo_count || 0) + ' Foto)',
+      'success');
+    try { gsNlClearPhotos(); } catch(_){}
+    closeModal('detail-modal');
+    if (typeof renderMarket === 'function') renderMarket();
+  } catch(e) {
+    if (typeof showProfileToast === 'function') showProfileToast(
+      (window.gsI18n ? gsI18n.t('toast_market_network_error', '⚠️ Netzwerkfehler — versuche es erneut') : '⚠️ Netzwerkfehler — versuche es erneut'),
+      'error');
+  }
 }
 
 // ── DETAIL-ANSICHT ───────────────────────────────────────────────
@@ -23589,6 +23647,17 @@ function gsMarketShowDetail(l) {
 }
 
 function openListingDetail(lid) {
+  // v25.30: Views-Counter inkrementieren (Fire-and-Forget, ohne Detail-Open zu blockieren).
+  // Nutzt fn_mkt_increment_views RPC — funktioniert für jedes Cloud-Listing.
+  try {
+    if (typeof sbFetch === 'function' && lid && /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(lid)) {
+      sbFetch('/rest/v1/rpc/fn_mkt_increment_views', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ p_listing_id: lid })
+      }).catch(function(){});
+    }
+  } catch(_){}
   // v23.98: Beide Listing-Pools (neu: gsMarketLoad mit Fotos, alt: marketListings) durchsuchen
   // Wenn Listing aus dem neuen Pool stammt → eigene Detail-Funktion mit Bilder-Galerie
   if (typeof gsMarketLoad === 'function') {
@@ -43807,6 +43876,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.30', date: '13.05.2026',
+    headline: '🛒 Marketplace-Repair — User-Listings landen jetzt im Cloud-Feed (P0 Vertrauens-Bug fix)',
+    summary: 'Cowork hat marketplace-publish Edge-Fn (Validate + Foto-Upload nach Storage + INSERT in 1 Call) + v_marketplace_listings View (mit seller_name + seller_is_expert + seller_is_premium + photo_urls JOIN) + fn_mkt_increment_views RPC deployed. v25.30 ist das Frontend dazu mit 3 Anpassungen.',
+    items: [
+      {emoji:'📤', bold:'B1 saveListing:', text:' Komplett umgeschrieben auf marketplace-publish (60s Timeout fuer Foto-Upload). Validate-Block bleibt, ABER nach Erfolg: kein localStorage-INSERT mehr — Backend macht alles. j.photo_count im Toast.'},
+      {emoji:'📥', bold:'B2 loadMarketFromSupabase:', text:' Liest v_marketplace_listings statt rohe Tabelle. Mappt DB-Schema (description/category/photo_urls/user_id/seller_name) auf Frontend-Schema (desc/cat/images/sellerId/sellerName). Cloud-Listings haben Vorrang, lokale Drafts ergaenzen.'},
+      {emoji:'👁️', bold:'B3 Views-Counter:', text:' openListingDetail ruft Fire-and-Forget fn_mkt_increment_views RPC mit p_listing_id. UUID-Regex stellt sicher dass alte localStorage-IDs nicht hochgezaehlt werden.'},
+      {emoji:'🌐', bold:'i18n:', text:' 5 neue toast_market_* Keys (login_required/publishing/published/error/network_error) in GS_I18N_JS_STRINGS.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v25.31 Phase-2-Bundle (KI-Pflanzendoktor + Erntekalender, ~2 Tage). Backends LIVE.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check OK · sw.js gs-v25.30 OK.'},
+    ]
+  },
+  {
     v: 'v25.28', date: '13.05.2026',
     headline: '🌍 i18n Pass-2 — ~170 data-i18n Marker + ~80 JS-String-Keys (Schweizer Markt komplett)',
     summary: 'Cleanup-Sprint fuer i18n: alle wichtigen statischen UI-Strings bekommen jetzt data-i18n Marker, FR/IT/GSW-User sehen die ganze App in ihrer Sprache (nicht nur Tabs+Garten). GS_I18N_JS_STRINGS Map waechst von 9 auf ~80 Keys: Toasts (Login, Plant, Push, Community, Stripe, Sync), Errors (Quota, Auth, Upload, Premium), Confirm-Buttons (OK/Cancel/Save/Delete), Loading-Status. gsBuildI18n bekommt automatisch alle neuen Keys beim naechsten Sprach-Switch.',
@@ -45011,7 +45093,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.28';
+var GS_VERSION = 'v25.30';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
