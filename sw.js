@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.36 — SELF-HOST Leaflet + Three.js (Cowork hat live verifiziert: unpkg.com liefert vom Browser onerror=unknown → CDN dead, v25.35-Polling rennt 50× ins Leere). 6 Files nach /assets/ kopiert (leaflet.js + leaflet.css + three.min.js + 3 marker-images, ~770 KB). <head> Leaflet-Link auf /assets/, gsLoadLeaflet + _gsLoadThree auf /assets/, L.Icon.Default.imagePath auf /assets/leaflet-images/, SHELL_URLS lokal, unpkg aus IMAGE_HOSTS. PLUS Mein-Abo-Fix: gsOpenAboTab routet auf gsShowAboScreen (statt auf iframe-Modal mit src=abo.html der gar nicht existiert), statisches #abo-sub-info-host Element ins #gs-abo-modal-Markup eingefuegt.
+   v25.37 — Scanner-Key-Robustheit: getApiConfig() Length-Check >= 80 chars fuer personalKey UND globalKey (echte sk-ant-Keys sind 80+ chars, alles drunter ist Muell). Verhindert dass ein leerer/abgebrochener ps_api_key den globalen Key blockiert (Fernando-Bug aus Stripe-Live-Test). Plus neue Settings-Row "Persoenlichen API-Key entfernen" mit Warn-Hint bei ungueltigem Key + gsRemovePersonalKey() Function.
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.36';
+const VERSION = 'gs-v25.37';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;

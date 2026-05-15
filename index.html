@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.36.20260515">
+<meta name="app-version" content="25.37.20260515">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -4208,6 +4208,18 @@ html, body{ scroll-behavior: smooth; }
           <div class="settings-label-sub" id="settings-api-status">Wird geprüft…</div>
         </div>
         <div style="font-size:18px;color:var(--muted);">›</div>
+      </div>
+      <!-- v25.37: Personal-Key entfernen — sichtbar nur wenn ein ps_api_key
+           gesetzt ist (kann von alten Sessions/Tests stammen, evtl. ungueltig).
+           gsRemovePersonalKey() loescht den Eintrag damit Scanner auf den
+           globalen Key fallen kann. JS toggled die Sichtbarkeit nach Click. -->
+      <div class="settings-row" id="settings-personal-key-row" style="display:none;cursor:pointer;" onclick="gsRemovePersonalKey()">
+        <div class="settings-icon" style="background:#ffebee;">🗑️</div>
+        <div class="settings-label">
+          <div class="settings-label-title">Persönlichen API-Key entfernen</div>
+          <div class="settings-label-sub" id="settings-personal-key-sub">Auf globalen Key zurücksetzen</div>
+        </div>
+        <div style="font-size:18px;color:#c62828;">×</div>
       </div>
 
       <div class="settings-row">
@@ -16093,17 +16105,57 @@ function getApiConfig(){
   // v24.22: nvapi-Reste aus altem NVIDIA-Pfad rausfiltern
   if (personalKey && personalKey.startsWith('nvapi-')) personalKey = '';
   if (globalKey && globalKey.startsWith('nvapi-')) globalKey = '';
-  // v24.22: Personal-Key gewinnt (User-Intent), Global als Fallback
+  // v25.37 Scanner-Key-Robustheit: Personal gewinnt NUR wenn die Laenge
+  // auch realistisch ist (echte Anthropic-Keys sind ≥80 chars, alles drunter
+  // ist Muell — z.B. leerer String "sk-ant-" oder abgebrochener Paste).
+  // Vorher: Personal mit kaputtem Key liess Scanner failen obwohl global
+  // Key verfuegbar war (Fernando-Bug aus Stripe-Live-Test).
   var key, source;
-  if (personalKey && personalKey.startsWith('sk-ant-')) {
+  if (personalKey && personalKey.startsWith('sk-ant-') && personalKey.length >= 80) {
     key = personalKey; source = 'personal';
-  } else if (globalKey && globalKey.startsWith('sk-ant-')) {
+  } else if (globalKey && globalKey.startsWith('sk-ant-') && globalKey.length >= 80) {
     key = globalKey; source = 'global';
   } else {
     key = ''; source = 'none';
   }
   return { provider: 'anthropic', key: key, source: source };
 }
+
+// v25.37 Scanner-Key-Robustheit: Personal-Key entfernen
+// (Settings → KI & Scanner → "Persönlichen API-Key entfernen"-Row).
+// Loescht ps_api_key damit getApiConfig() auf den globalen Key zurueckfaellt.
+async function gsRemovePersonalKey() {
+  var current = localStorage.getItem('ps_api_key') || '';
+  if (!current) {
+    if (typeof showProfileToast === 'function') showProfileToast('Kein persönlicher Key gesetzt', 'info');
+    return;
+  }
+  var doIt = true;
+  if (typeof gsConfirmModal === 'function') {
+    doIt = await gsConfirmModal({
+      title: 'Persönlichen API-Key entfernen?',
+      body: 'Der Scanner nutzt danach den globalen Key. Du kannst jederzeit einen neuen persönlichen Key einrichten.',
+      okText: '🗑️ Entfernen',
+      cancelText: 'Abbrechen',
+      danger: true
+    });
+  } else if (typeof confirm === 'function') {
+    doIt = confirm('Persönlichen API-Key entfernen? Der Scanner nutzt danach den globalen Key.');
+  }
+  if (!doIt) return;
+  try { localStorage.removeItem('ps_api_key'); } catch(_){}
+  if (typeof showProfileToast === 'function') {
+    showProfileToast('🗑️ Persönlicher Key entfernt — globaler Key ist jetzt aktiv', 'success');
+  }
+  // Row sofort verstecken + API-Status neu laden
+  try {
+    var rmRow = document.getElementById('settings-personal-key-row');
+    if (rmRow) rmRow.style.display = 'none';
+    if (typeof initSettingsScreen === 'function') initSettingsScreen();
+    if (typeof updateApiBanner === 'function') updateApiBanner();
+  } catch(_){}
+}
+window.gsRemovePersonalKey = gsRemovePersonalKey;
 
 // v23.77: Globalen Key vom Server pullen (admin setzt → alle nutzen automatisch)
 window._gsApiKeyPullPromise = null;
@@ -31368,6 +31420,28 @@ function initSettingsScreen() {
     apiEl.textContent = hasKey ? '✅ API Key gesetzt' : '❌ Kein API Key – tippen zum Einrichten';
     apiEl.style.color = hasKey ? '#2e7d32' : '#c62828';
   }
+  // v25.37: Personal-Key-Remove-Row Visibility + Status-Hint.
+  // Zeigt die Row nur wenn ein ps_api_key gesetzt ist. Bei ungueltigen Keys
+  // (zu kurz / kein sk-ant-) erscheint zusaetzlich ein Warn-Hinweis.
+  try {
+    var rmRow = document.getElementById('settings-personal-key-row');
+    var rmSub = document.getElementById('settings-personal-key-sub');
+    if (rmRow) {
+      var pk = localStorage.getItem('ps_api_key') || '';
+      if (pk) {
+        rmRow.style.display = 'flex';
+        var isInvalid = !(pk.startsWith('sk-ant-') && pk.length >= 80);
+        if (rmSub) {
+          rmSub.textContent = isInvalid
+            ? '⚠️ Ungültiger Key blockiert Scanner — tippen zum Entfernen'
+            : 'Auf globalen Key zurücksetzen';
+          rmSub.style.color = isInvalid ? '#c62828' : 'var(--muted)';
+        }
+      } else {
+        rmRow.style.display = 'none';
+      }
+    }
+  } catch(_){}
 
   // Notification permission
   const notifEl = document.getElementById('notif-perm-status');
@@ -44585,6 +44659,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.37', date: '15.05.2026',
+    headline: '🔑 Scanner-Key-Robustheit — Length-Check >= 80 chars + "Personal-Key entfernen"-Button',
+    summary: 'Zusatz-Bug aus Fernandos Stripe-Live-Test: wenn ps_api_key gesetzt aber LEER oder UNGUELTIG (z.B. abgebrochener Paste-Versuch "sk-ant-"), gewann das ueber den globalen Key → Scanner failt obwohl globaler Key live ist. Fix: Length-Check >= 80 in getApiConfig() schliesst Muell-Keys aus. Plus Settings-Row zum manuellen Entfernen falls schon einer im LocalStorage liegt.',
+    items: [
+      {emoji:'🛡️', bold:'getApiConfig() Z.16089:', text:' personalKey gewinnt jetzt NUR wenn startsWith("sk-ant-") UND length >= 80 (echte Anthropic-Keys sind 80+ chars). Gleiche Pruefung fuer globalKey als Sicherheits-Net. Vorher: jeder String mit "sk-ant-"-Prefix wurde akzeptiert.'},
+      {emoji:'🗑️', bold:'Settings-Row "Persoenlichen API-Key entfernen":', text:' Neuer Eintrag in Settings → KI & Scanner. Sichtbar nur wenn ps_api_key gesetzt ist. Bei ungueltigem Key (kein sk-ant- oder < 80 chars) erscheint roter Warn-Hinweis "⚠️ Ungueltiger Key blockiert Scanner". JS toggled Visibility in initSettingsScreen().'},
+      {emoji:'⚡', bold:'gsRemovePersonalKey():', text:' gsConfirmModal-basierte Bestaetigung, localStorage.removeItem("ps_api_key"), Toast "🗑️ Persoenlicher Key entfernt — globaler Key ist jetzt aktiv". Row sofort versteckt + Settings + API-Banner neu geladen.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v25.38 sw.js Cache-Control no-cache header (gegen Cache-Inkonsistenzen). v25.39 A11y. v26.0 Pre-Release-stable.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check OK · sw.js gs-v25.37 OK · 1× personalKey.length >= 80 · 1× settings-personal-key-row · 1× gsRemovePersonalKey.'},
+    ]
+  },
+  {
     v: 'v25.36', date: '15.05.2026',
     headline: '🌐 SELF-HOST Leaflet + Three.js (unpkg-CDN dead) + Mein-Abo Element-Fix',
     summary: 'Cowork-Live-Diagnose nach v25.35 via Chrome-MCP: NaN-Fix wirkt ("8 Scans"), ABER Karte haengt weiter — fetch von unpkg.com/leaflet returns onerror=unknown. CDN ist nicht erreichbar (Cloudflare-CSP / Adblock / unpkg-Outage). Polling-Retry kann das nicht heilen. PLUS Mein-Abo zeigt nur kaputtes Icon weil #abo-sub-info-host Element gar nicht im DOM ist (gsOpenAboTab oeffnete ein iframe-Modal mit src=abo.html — Datei existiert nicht). v25.36 loest beides: Self-Host und Modal-Routing.',
@@ -45898,7 +45984,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.36';
+var GS_VERSION = 'v25.37';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
