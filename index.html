@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.33.20260513">
+<meta name="app-version" content="25.35.20260514">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -9380,14 +9380,17 @@ function gsShowAboScreen() {
     '</div>' +
   '</div>';
   openModal('detail-modal');
-  // v25.6 A5: Sub-Info async laden (nicht-blockierend, paid User sehen
-  // Restlaufzeit/Status direkt am Card-Anfang).
-  if (paid) {
-    gsLoadSubInfo().then(function(sub){
-      var host = document.getElementById('abo-sub-info-host');
-      if (host) host.innerHTML = gsRenderSubInfo(sub);
-    }).catch(function(){});
-  }
+  // v25.6 A5 + v25.35 Empty-State-Fix: Sub-Info IMMER async laden (auch für
+  // Free-User). gsRenderSubInfo handelt sub=null als Empty-State mit Upgrade-
+  // CTA — vorher war's hinter `if (paid)` versteckt, Free-User sahen nichts.
+  gsLoadSubInfo().then(function(sub){
+    var host = document.getElementById('abo-sub-info-host');
+    if (host) host.innerHTML = gsRenderSubInfo(sub);
+  }).catch(function(){
+    // Auch bei Lade-Fehler den Free-Plan-Empty-State zeigen statt leerem Host.
+    var host = document.getElementById('abo-sub-info-host');
+    if (host) host.innerHTML = gsRenderSubInfo(null);
+  });
   // Launch-Angebot Verfügbarkeit live prüfen
   gsCheckLaunchAvailable().then(function(avail){
     var card = document.getElementById('abo-lifetime-card');
@@ -10633,11 +10636,21 @@ function setRecipeFilter(cat, btn) {
 }
 
 function gsUpdateHomeScanStat() {
+  // v25.35 NaN-Fix: jeder Wert defensiv durch Number-Coercion + isFinite-Check.
+  // Vorher konnte localStorage parse-fail → undefined → NaN beim toString
+  // in stat-scans.
   var total = 0;
-  try { total = JSON.parse(localStorage.getItem('gs_scan_history')||'[]').length; } catch(e){}
-  try { total += JSON.parse(localStorage.getItem('gs_confirmed_species')||'[]').length; } catch(e){}
+  try {
+    var a = JSON.parse(localStorage.getItem('gs_scan_history')||'[]');
+    if (Array.isArray(a)) total += a.length;
+  } catch(e){}
+  try {
+    var b = JSON.parse(localStorage.getItem('gs_confirmed_species')||'[]');
+    if (Array.isArray(b)) total += b.length;
+  } catch(e){}
+  if (!Number.isFinite(total)) total = 0;
   var el = document.getElementById('stat-scans');
-  if (el) el.textContent = total;
+  if (el) el.textContent = String(total);
 }
 
 // ══ DEBOUNCE SUCHE ════════════════════════════════════════════
@@ -10812,29 +10825,43 @@ async function gsAutoLogin() {
 
 // ══ MORE SCREEN LIVE STATS ═══════════════════════════════════
 function gsUpdateMoreStats() {
+  // v25.35 NaN-Fix: Array.isArray-Check + Number-Coercion damit Number.NaN
+  // nie in den Stats-Cells landet (Fernando: Home zeigte "NaN 📷 Scans").
   var scanCount = 0;
-  try { scanCount = JSON.parse(localStorage.getItem('gs_scan_history')||'[]').length; } catch(e){}
+  try {
+    var a = JSON.parse(localStorage.getItem('gs_scan_history')||'[]');
+    if (Array.isArray(a)) scanCount = a.length;
+  } catch(e){}
   var confirmed = 0;
-  try { confirmed = JSON.parse(localStorage.getItem('gs_confirmed_species')||'[]').length; } catch(e){}
+  try {
+    var b = JSON.parse(localStorage.getItem('gs_confirmed_species')||'[]');
+    if (Array.isArray(b)) confirmed = b.length;
+  } catch(e){}
   var favCount = 0;
-  try { favCount = JSON.parse(localStorage.getItem('ps_favs')||'[]').length; } catch(e){}
-  var xp = typeof gsGetXP === 'function' ? gsGetXP() : 0;
+  try {
+    var f = JSON.parse(localStorage.getItem('ps_favs')||'[]');
+    if (Array.isArray(f)) favCount = f.length;
+  } catch(e){}
+  var xpRaw = typeof gsGetXP === 'function' ? gsGetXP() : 0;
+  var xp = Number.isFinite(xpRaw) ? xpRaw : 0;
   var stats = typeof dqGetStats === 'function' ? dqGetStats() : {};
   var total = typeof DB !== 'undefined' ? DB.length : 4330;
+  var scansTotal = scanCount + confirmed;
+  if (!Number.isFinite(scansTotal)) scansTotal = 0;
 
   // v23.56: Streak NICHT mehr hier rendern — gsRenderStreakEverywhere() ist SSoT
   var els = {
-    'more-scan-count': scanCount + confirmed,
-    'more-total-scans': scanCount + confirmed,
+    'more-scan-count': scansTotal,
+    'more-total-scans': scansTotal,
     'more-fav-count':  favCount,
     'more-xp-count':   xp,
     'more-stat-total': total,
     'more-quiz-correct': (stats.correct||0) + '/' + (stats.total||0),
-    'stat-scans': scanCount + confirmed,
+    'stat-scans': scansTotal,
   };
   Object.keys(els).forEach(function(id) {
     var el = document.getElementById(id);
-    if (el) el.textContent = els[id];
+    if (el) el.textContent = String(els[id]);
   });
   // Streak über zentralen Renderer — garantiert überall identisch
   try { if (typeof gsRenderStreakEverywhere === 'function') gsRenderStreakEverywhere(); } catch(e){}
@@ -11740,15 +11767,18 @@ function gsSetSearchCat(cat, btn) {
 // ══ ANIMIERTE COUNTER ══════════════════════════════════════
 function gsAnimateCounter(el, targetNum, duration) {
   if (!el) return;
+  // v25.35 NaN-Fix: defensiv targetNum auf Finite-Number coercen, sonst
+  // rendert toLocaleString "NaN" in Stats-Cells (Fernando: Home zeigte NaN).
+  var target = Number(targetNum);
+  if (!Number.isFinite(target)) target = 0;
   duration = duration || 1200;
-  var start = 0;
   var startTime = null;
   function step(ts) {
     if (!startTime) startTime = ts;
     var progress = Math.min((ts - startTime) / duration, 1);
     // Ease-out cubic
     var ease = 1 - Math.pow(1 - progress, 3);
-    var current = Math.round(ease * targetNum);
+    var current = Math.round(ease * target);
     el.textContent = current.toLocaleString('de-CH');
     if (progress < 1) requestAnimationFrame(step);
   }
@@ -13341,10 +13371,15 @@ let _quizAnswered = false;
 
 // Quiz correct answer stored globally to avoid escaping issues
 let _quizCorrectAnswer = '';
-let _quizStreak = parseInt(gsStore.get('gs_quiz_streak', null) || '0');
+// v25.34 P0-Hotfix: Top-Level gsStore-Call wuerde ReferenceError werfen weil
+// gsStore erst bei Z.~16186 definiert wird. Init mit Safe-Default 0,
+// initQuiz() laedt unten den echten Wert via gsStore.get sobald verfuegbar.
+let _quizStreak = 0;
 
 function initQuiz() {
   if (typeof DB === 'undefined' || !DB.length) { setTimeout(initQuiz, 500); return; }
+  // v25.34 P0-Hotfix: jetzt sicher dass gsStore definiert ist (lazy-load Streak)
+  try { _quizStreak = parseInt(gsStore.get('gs_quiz_streak', null) || '0', 10) || 0; } catch(_){}
 
   const today = new Date();
   const seed  = today.getFullYear() * 10000 + (today.getMonth()+1) * 100 + today.getDate();
@@ -13477,10 +13512,14 @@ function closeQuizModal() {
   if (modal) modal.classList.remove('open');
 }
 
-var _mqCorrect = null, _mqAnswered = false, _mqStreak = parseInt(gsStore.get('gs_quiz_streak', null)||'0');
+// v25.34 P0-Hotfix: _mqStreak war Top-Level gsStore-Call → ReferenceError beim Init
+// (gsStore wird erst bei Z.~16186 definiert). Default 0, Lazy-Load in initQuizModal.
+var _mqCorrect = null, _mqAnswered = false, _mqStreak = 0;
 
 function initQuizModal() {
   if (typeof DB === 'undefined' || !DB.length) { setTimeout(initQuizModal, 500); return; }
+  // v25.34 P0-Hotfix: Lazy-Load _mqStreak (Top-Level wuerde ReferenceError werfen)
+  try { _mqStreak = parseInt(gsStore.get('gs_quiz_streak', null) || '0', 10) || 0; } catch(_){}
   var qEl  = document.getElementById('quiz-modal-question');
   var opEl = document.getElementById('quiz-modal-options');
   var resEl = document.getElementById('quiz-modal-result');
@@ -31886,10 +31925,27 @@ function gsLoadLeaflet() {
   if (typeof L !== 'undefined') return Promise.resolve();
   window._gsLeafletLoadingPromise = new Promise(function(resolve, reject){
     var src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    if (document.querySelector('script[src="' + src + '"]')) { return resolve(); }
+    // v25.35 Karten-Bug-Patch: poll() check ob window.L wirklich verfügbar ist
+    // — onload kann triggern bevor das Script vollständig parsed ist (Race-
+    // Condition aus v25.33). Polling 200ms-Intervall mit Tries-Cap.
+    var poll = function(tries){
+      if (typeof L !== 'undefined') return resolve();
+      if (tries <= 0) {
+        window._gsLeafletLoadingPromise = null;
+        return reject(new Error('Leaflet timeout — L global blieb undefined'));
+      }
+      setTimeout(function(){ poll(tries - 1); }, 200);
+    };
+    var existing = document.querySelector('script[src="' + src + '"]');
+    if (existing) {
+      // Script-Tag schon da (z.B. via SW-Cache geladen) aber L noch nicht
+      // verfügbar — bis zu 10s polling.
+      poll(50);
+      return;
+    }
     var s = document.createElement('script');
     s.src = src; s.async = true;
-    s.onload = function(){ resolve(); };
+    s.onload = function(){ poll(20); };  // nach onload nochmal max 4s polling
     s.onerror = function(){ window._gsLeafletLoadingPromise = null; reject(new Error('Leaflet load failed')); };
     document.head.appendChild(s);
   });
@@ -44504,6 +44560,31 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.35', date: '14.05.2026',
+    headline: '🐛 3 P1-Bug-Fixes: Karten-Polling-Retry · NaN-Stats-Fix · Mein-Abo Empty-State sichtbar',
+    summary: 'Cowork-Diagnose 2026-05-13 via Chrome-MCP + DB-Inspektion nach v25.34-Hotfix. App-Init laeuft jetzt durch, ABER 3 P1-Bugs noch sichtbar: Karte haengt (Splash 91% oder "Swisstopo laedt…" forever), Home zeigt "NaN 📷 Scans", Mein-Abo-Tab leer (Free-User sehen kein Empty-State).',
+    items: [
+      {emoji:'🗺️', bold:'BUG1 gsLoadLeaflet:', text:' Polling-Retry statt vertrauen-auf-onload. Neuer poll(tries) Innerer-Resolver checkt 50× im 200ms-Intervall ob typeof L wirklich object ist. Schuetzt vor Race wenn Script-Tag laedt aber L global nicht parsed. existing-Script-Pfad pollt auch 10s (z.B. via SW-Cache geladen, aber langsam initialisiert).'},
+      {emoji:'⚙️', bold:'BUG1 Splash-91%:', text:' Splash-Step "🗺️ Karte & Marker vorbereiten…" bekommt try/catch um updateApiBanner + deduplicateDB. Ein Fehler in einer der Sub-Funktionen blockte vorher den ganzen Splash → 91% forever.'},
+      {emoji:'🔢', bold:'BUG2 NaN-Fix:', text:' gsUpdateHomeScanStat + gsUpdateMoreStats parsen JSON.parse-Ergebnisse jetzt mit Array.isArray-Check (vermeidet undefined→NaN bei kaputtem localStorage). Number.isFinite-Final-Guard auf Total. gsAnimateCounter: Number(targetNum) + Number.isFinite-Check als allerletzte Defensive bevor toLocaleString.'},
+      {emoji:'💎', bold:'BUG3 Mein-Abo:', text:' if(paid)-Wrapper entfernt — gsLoadSubInfo().then(gsRenderSubInfo) wird jetzt IMMER aufgerufen. Free-User sehen jetzt die Empty-State-Card aus v25.33 mit prominentem "⬆️ Plus oder Pro — 7 Tage gratis testen" CTA. .catch() rendert ebenfalls null-Empty-State (statt leeren Host).'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v25.36 Leaflet+Three.js self-host falls Karte trotz Polling-Retry noch flaky (eliminiert CDN-Race fuer immer). v25.37 sw.js Cache-Control no-cache header. v26.0 Pre-Release-stable.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check OK · sw.js gs-v25.35 OK · meta=25.35.20260514 · _headers v25.35.'},
+    ]
+  },
+  {
+    v: 'v25.34', date: '13.05.2026',
+    headline: '🚨 P0 HOTFIX: App stuck beim Init — Top-Level gsStore-Calls vor gsStore-Definition',
+    summary: 'Cowork-Diagnose via Chrome-MCP nach Fernando-Bug-Report "App bleibt beim Init stehen". Console: "ReferenceError: gsStore is not defined at Z.13344". Root-Cause: v25.32 gsStore-Welle 4 (62 Calls migriert) hatte 2 TOP-LEVEL Initialisierungen übersehen — `let _quizStreak = parseInt(gsStore.get(...))` (Z.13344) und `var _mqStreak = parseInt(gsStore.get(...))` (Z.13485). Beide werden beim Script-Load ausgeführt, BEVOR gsStore (Z.~16186) definiert ist → ReferenceError → App-Init bricht ab → Splash bleibt bei "🌱 Starte App..." stehen. Fix: beide Top-Level-Vars auf safe-default 0 + Lazy-Load in initQuiz/initQuizModal sobald Funktion aufgerufen wird (DB+gsStore dann sicher da). 7/7 inline-scripts node --check OK. Verify: 0 Top-Level gsStore-Refs mehr vor Z.16186.',
+    items: [
+      {emoji:'🔍', bold:'Chrome-MCP-Diagnose:', text:' navigate green-scan.ch → 5s wait → Splash stuck. Console: ReferenceError gsStore at Z.13344. v25.32-Migration hatte 2 Top-Level-Calls übersehen weil Audit-Script nur Funktions-INSIDE-Pattern gesucht hatte.'},
+      {emoji:'🛡️', bold:'Fix Z.13344 (_quizStreak):', text:' var = parseInt(gsStore.get(...)) → var = 0 (safe-default). initQuiz() lädt echten Wert via try-catch beim Aufruf.'},
+      {emoji:'🛡️', bold:'Fix Z.13485 (_mqStreak):', text:' Gleicher Fix-Pattern. initQuizModal() lädt lazy.'},
+      {emoji:'⏭️', bold:'Lessons-Learned 11:', text:' Bei localStorage→gsStore-Migration MUSS audit-script auch Top-Level-Initialisierungen (let/var/const) prüfen, nicht nur Funktions-INSIDE-Calls. gsStore wird erst spät im Script-Load definiert.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · sw.js gs-v25.34 · GS_VERSION=v25.34 · _headers v25.34 · meta=25.34.20260513 · grep "^(let|var|const).*gsStore." vor Z.16186: 0 Treffer ✓.'},
+    ]
+  },
+  {
     v: 'v25.33', date: '13.05.2026',
     headline: '🐛 6 Fernando-Bug-Fixes nach Stripe-Test — Doppel-Modal weg, Trial 7 Tage, Scan-Dedup, Karte mit Retry',
     summary: 'Frontend-Cleanup nach Fernandos Stripe-Live-Test. Cowork hat parallel STRIPE komplett saniert: 3 Live-Products + Prices + Webhook + stripe-checkout v6 (Trial-Cap 30→7 + Default 7). v25.33 pflegt die UX-Probleme die im Test sichtbar wurden.',
@@ -45776,7 +45857,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.33';
+var GS_VERSION = 'v25.35';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -51728,8 +51809,11 @@ function gsRunSplash(onDone) {
       pct: 91,
       msg: '🗺️ Karte & Marker vorbereiten…',
       fn: function() {
-        if (typeof updateApiBanner === 'function') updateApiBanner();
-        if (typeof deduplicateDB === 'function') { /* bereits ausgeführt */ }
+        // v25.35 Karten-Bug-Patch: try/catch damit ein Fehler in updateApiBanner
+        // nicht den ganzen Splash-Loader blockt (Bug-Report Fernando: Splash
+        // bei 91% hängen geblieben).
+        try { if (typeof updateApiBanner === 'function') updateApiBanner(); } catch(_){}
+        try { if (typeof deduplicateDB === 'function') { /* bereits ausgeführt */ } } catch(_){}
         return true;
       }
     },

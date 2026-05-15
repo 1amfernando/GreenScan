@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.33 — 6 Fernando-Bug-Fixes nach Stripe-Test (BUG1 _gsAuthPrompt deaktiviert / BUG2 Demo-Gast-Button + gs-guest-banner entfernt / BUG3 Trial 30→7 + UI „1 Monat" → „1 Woche" / BUG4 gsRenderSubInfo Empty-State Free-Plan-Card mit Upgrade-CTA / BUG5 gsAddScanHistory Dedup-by-id (Scanner pusht nicht mehr 3× pro Scan) / BUG6 Karten-Lazy-Load mit 3× Retry statt Sofort-Fallback). Cowork hat parallel Stripe komplett saniert: 3 Live-Products + Prices + Webhook + stripe-checkout v6 mit 7-Tage-Trial-Default.
+   v25.35 — 3 P1-Bug-Fixes nach v25.34-Hotfix: BUG1 gsLoadLeaflet Polling-Retry (50× 200ms statt vertrauen-auf-onload) + Splash-Step-91% try/catch (Splash hing bei 91% wenn updateApiBanner failed). BUG2 NaN-Fix: gsUpdateHomeScanStat + gsUpdateMoreStats + gsAnimateCounter mit Array.isArray + Number.isFinite Guards (Home zeigte "NaN" statt "0"). BUG3 Mein-Abo Empty-State: if(paid)-Wrapper entfernt, gsRenderSubInfo(null) wird jetzt auch fuer Free-User gerendert (Empty-State-Card mit Upgrade-CTA aus v25.33 war vorher unsichtbar).
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.33';
+const VERSION = 'gs-v25.35';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
