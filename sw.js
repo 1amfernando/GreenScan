@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.37 — Scanner-Key-Robustheit: getApiConfig() Length-Check >= 80 chars fuer personalKey UND globalKey (echte sk-ant-Keys sind 80+ chars, alles drunter ist Muell). Verhindert dass ein leerer/abgebrochener ps_api_key den globalen Key blockiert (Fernando-Bug aus Stripe-Live-Test). Plus neue Settings-Row "Persoenlichen API-Key entfernen" mit Warn-Hint bei ungueltigem Key + gsRemovePersonalKey() Function.
+   v25.38 — Pro-only Restructure (Backend hat Plus-Plans deaktiviert + Plus-Lifetime in Pro Lifetime umbenannt). Frontend: gsShowFirstTrialModal mit 3 Buttons (Pro Lifetime / Pro Monthly 7d-Trial / Free), gsShowAboScreen vereinfacht (freeCard + proCard + lifeCard statt 4 Karten), GS_PRICE_CATALOG auf 3 Pro-Eintraege gekuerzt, planName in gsRenderSubInfo immer "Pro", Empty-State CTA "Pro 7 Tage gratis testen", gsStartCheckout-Default = pro_monthly. Legacy plus/premium-Subs bleiben als isPaid backwards-compat.
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.37';
+const VERSION = 'gs-v25.38';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
