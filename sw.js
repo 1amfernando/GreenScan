@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
-   v25.35 — 3 P1-Bug-Fixes nach v25.34-Hotfix: BUG1 gsLoadLeaflet Polling-Retry (50× 200ms statt vertrauen-auf-onload) + Splash-Step-91% try/catch (Splash hing bei 91% wenn updateApiBanner failed). BUG2 NaN-Fix: gsUpdateHomeScanStat + gsUpdateMoreStats + gsAnimateCounter mit Array.isArray + Number.isFinite Guards (Home zeigte "NaN" statt "0"). BUG3 Mein-Abo Empty-State: if(paid)-Wrapper entfernt, gsRenderSubInfo(null) wird jetzt auch fuer Free-User gerendert (Empty-State-Card mit Upgrade-CTA aus v25.33 war vorher unsichtbar).
+   v25.36 — SELF-HOST Leaflet + Three.js (Cowork hat live verifiziert: unpkg.com liefert vom Browser onerror=unknown → CDN dead, v25.35-Polling rennt 50× ins Leere). 6 Files nach /assets/ kopiert (leaflet.js + leaflet.css + three.min.js + 3 marker-images, ~770 KB). <head> Leaflet-Link auf /assets/, gsLoadLeaflet + _gsLoadThree auf /assets/, L.Icon.Default.imagePath auf /assets/leaflet-images/, SHELL_URLS lokal, unpkg aus IMAGE_HOSTS. PLUS Mein-Abo-Fix: gsOpenAboTab routet auf gsShowAboScreen (statt auf iframe-Modal mit src=abo.html der gar nicht existiert), statisches #abo-sub-info-host Element ins #gs-abo-modal-Markup eingefuegt.
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
      • Statische Assets (icons/fonts/manifest): Cache-First
@@ -11,7 +11,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.35';
+const VERSION = 'gs-v25.36';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
@@ -38,16 +38,18 @@ const SHELL_URLS = [
   // v25.10 Thema 3: PLANT_DB extern (4341 Arten, immutable-cached). Vor-Cachen
   // damit App offline mit voller Pflanzen-DB funktioniert (sonst nur leere DB).
   '/data/plants.v1.js?v=1',
-  // v25.9 Thema 2: Externe CDN-Libs vorcachen, damit 3D-Render und Karte
-  // offline funktionieren (vorher: 4 „benötigt Internet"-Fallbacks bei
-  // Karte/3D-Track/KI-Planer-3D/Garten-Detail-3D). cache.add macht CORS-
-  // Request — die Libs haben crossorigin=anonymous + SRI, klappt sauber.
-  // Bei add-Fail (z.B. CDN down beim Install) wird per .catch() weitergemacht
-  // — dann wird die Lib beim ersten Online-Visit via staleWhileRevalidate
-  // (IMAGE_HOSTS-Pfad) gecached und ist beim nächsten Offline-Open verfügbar.
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
-  'https://unpkg.com/three@0.128.0/build/three.min.js',
+  // v25.36 SELF-HOST: vorher unpkg.com fuer Leaflet+Three (siehe v25.9 Comment
+  // im git log) — Cowork hat live verifiziert dass unpkg vom Browser onerror
+  // returns. Jetzt aus eigenem /assets/-Ordner: kein CDN-Race, kein CSP-Issue,
+  // garantiert im Shell-Cache nach Install. Repo waechst ~770 KB.
+  '/assets/leaflet.js',
+  '/assets/leaflet.css',
+  '/assets/three.min.js',
+  '/assets/leaflet-images/marker-icon.png',
+  '/assets/leaflet-images/marker-icon-2x.png',
+  '/assets/leaflet-images/marker-shadow.png',
+  // pdf.js bleibt CDN (1.5MB zu gross fuer das Repo, wird nur fuer PDF-Export
+  // genutzt — nicht kritisch fuer Karte/3D-Render).
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs'
 ];
 
@@ -68,11 +70,11 @@ const NEVER_CACHE_HOSTS = [
 ];
 
 // Bild-Hosts: Stale-While-Revalidate
+// v25.36 SELF-HOST: unpkg.com entfernt — Leaflet+Three sind jetzt /assets/-lokal.
 const IMAGE_HOSTS = [
   'fonts.gstatic.com',
   'fonts.googleapis.com',
-  'unpkg.com',
-  'cdnjs.cloudflare.com'
+  'cdnjs.cloudflare.com'  // bleibt fuer pdf.js
 ];
 
 // ─── INSTALL ─────────────────────────────────────────────────

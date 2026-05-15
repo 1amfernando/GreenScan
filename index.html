@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.35.20260514">
+<meta name="app-version" content="25.36.20260515">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -1441,13 +1441,13 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 /* v24.43 — Stronger muted contrast (4.74:1 → 7.0:1 in light) */
 :root { --muted: #5a5a5a; }
 </style>
-  <!-- v24.44: SRI hash hinzugefügt — schützt vor CDN-Compromise (sha384 aus npm leaflet@1.9.4 dist/) -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
-        crossorigin="anonymous">
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-          integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
-          crossorigin="anonymous"></script>
+  <!-- v25.36 SELF-HOST: vorher unpkg.com/leaflet@1.9.4/dist/leaflet.{css,js}
+       — unpkg lieferte live onerror=unknown vom Browser (CDN blocked/dead).
+       Jetzt aus eigenem /assets/-Ordner ausgeliefert: kein DNS-Lookup, kein
+       CSP-Issue, garantiert im SW-Shell-Cache nach Install. SRI entfaellt
+       bei same-origin (Cloudflare Pages signed jeden Build). -->
+  <link rel="stylesheet" href="/assets/leaflet.css">
+  <script src="/assets/leaflet.js"></script>
   <!-- v25.10 Thema 3: PLANT_DB als externe immutable JS-Datei (extrahiert v24.03,
        Restore nach UPDATE.command-Sync). Lädt window.DB synchron — Inline-DB
        in Z.~13325 wurde entfernt, var DB = window.DB referenziert das Result. -->
@@ -4877,12 +4877,24 @@ html, body{ scroll-behavior: smooth; }
 </div>
 
 
-<!-- ABO MODAL -->
+<!-- ABO MODAL — v25.36: iframe (src=abo.html, Datei existiert nicht!) durch
+     statischen #abo-sub-info-host ersetzt. gsOpenAboTab routet jetzt eh auf
+     gsShowAboScreen (dynamische Modal-UI). Dieses Modal ist nur noch
+     defensive Belt-and-Suspenders falls irgendein anderer Caller direkt das
+     statische Modal oeffnet — der Host ist da, gsRenderSubInfo kann
+     Empty-State / Status-Card rendern. -->
 <div class="modal-overlay" id="gs-abo-modal" role="dialog" aria-modal="true" aria-label="GreenScan Plus Abonnement" onclick="if(event.target===this){this.classList.remove('open');this.style.display='none';document.body.style.overflow='';}">
-  <div class="modal" style="position:relative;max-height:94vh;overflow-y:auto;border-radius:22px 22px 0 0;padding:0;">
+  <div class="modal" style="position:relative;max-height:94vh;overflow-y:auto;border-radius:22px 22px 0 0;padding:18px;">
     <div class="mhandle"></div>
     <button onclick="document.getElementById('gs-abo-modal').classList.remove('open');document.getElementById('gs-abo-modal').style.display='none';document.body.style.overflow='';" style="position:absolute;top:14px;right:16px;background:rgba(0,0,0,0.08);border:none;width:30px;height:30px;border-radius:50%;font-size:16px;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;">&#x2715;</button>
-    <iframe id="gs-abo-iframe" src="abo.html" style="width:100%;height:85vh;border:none;display:block;" loading="lazy"></iframe>
+    <div style="padding:14px 0 6px;">
+      <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:800;color:var(--g-dark);">💎 Abo &amp; Premium</div>
+    </div>
+    <!-- v25.36: Host-Element fuer gsRenderSubInfo (Empty-State / Status-Card) -->
+    <div id="abo-sub-info-host"></div>
+    <div style="text-align:center;margin-top:18px;">
+      <button onclick="if(typeof gsShowAboScreen==='function'){document.getElementById('gs-abo-modal').classList.remove('open');document.getElementById('gs-abo-modal').style.display='none';document.body.style.overflow='';gsShowAboScreen();}" style="padding:12px 24px;background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">📋 Alle Plaene ansehen</button>
+    </div>
   </div>
 </div>
 
@@ -31921,32 +31933,36 @@ const GS_MAP_LAYERS = {
 // Lädt Leaflet on-demand wenn typeof L === 'undefined' (z.B. SW-Cache-Miss
 // oder Race zwischen DOM-Ready und CDN-Load). 3× Versuche, je 2s Pause.
 function gsLoadLeaflet() {
-  if (window._gsLeafletLoadingPromise) return window._gsLeafletLoadingPromise;
   if (typeof L !== 'undefined') return Promise.resolve();
+  if (window._gsLeafletLoadingPromise) return window._gsLeafletLoadingPromise;
   window._gsLeafletLoadingPromise = new Promise(function(resolve, reject){
-    var src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    // v25.35 Karten-Bug-Patch: poll() check ob window.L wirklich verfügbar ist
-    // — onload kann triggern bevor das Script vollständig parsed ist (Race-
-    // Condition aus v25.33). Polling 200ms-Intervall mit Tries-Cap.
+    // v25.36 SELF-HOST: vorher https://unpkg.com/leaflet@1.9.4/... — Cowork
+    // hat live verifiziert dass unpkg vom Browser onerror=unknown gibt
+    // (CDN blocked/dead). Jetzt selbst gehostete Kopie aus /assets/leaflet.js.
+    // Polling-Retry aus v25.35 bleibt fuer Script-Parse-Race-Condition.
+    var src = '/assets/leaflet.js';
     var poll = function(tries){
-      if (typeof L !== 'undefined') return resolve();
+      if (typeof L !== 'undefined') {
+        // Leaflet-Marker-Image-Path auf self-hosted setzen, sonst broken Pins
+        try { L.Icon.Default.imagePath = '/assets/leaflet-images/'; } catch(_){}
+        return resolve();
+      }
       if (tries <= 0) {
         window._gsLeafletLoadingPromise = null;
         return reject(new Error('Leaflet timeout — L global blieb undefined'));
       }
-      setTimeout(function(){ poll(tries - 1); }, 200);
+      setTimeout(function(){ poll(tries - 1); }, 100);
     };
     var existing = document.querySelector('script[src="' + src + '"]');
     if (existing) {
-      // Script-Tag schon da (z.B. via SW-Cache geladen) aber L noch nicht
-      // verfügbar — bis zu 10s polling.
+      // Script-Tag schon da (z.B. via SW-Shell-Cache geladen) — 5s polling.
       poll(50);
       return;
     }
     var s = document.createElement('script');
     s.src = src; s.async = true;
-    s.onload = function(){ poll(20); };  // nach onload nochmal max 4s polling
-    s.onerror = function(){ window._gsLeafletLoadingPromise = null; reject(new Error('Leaflet load failed')); };
+    s.onload = function(){ poll(20); };  // nach onload nochmal max 2s polling
+    s.onerror = function(){ window._gsLeafletLoadingPromise = null; reject(new Error('Leaflet load failed (self-hosted!)')); };
     document.head.appendChild(s);
   });
   return window._gsLeafletLoadingPromise;
@@ -32902,18 +32918,27 @@ function gsTrackComputeStats(track) {
 window._gsThreeLoaded = false;
 window._gsThreeLoading = null;
 function _gsLoadThree() {
-  if (window._gsThreeLoaded) return Promise.resolve();
+  if (typeof THREE !== 'undefined') { window._gsThreeLoaded = true; return Promise.resolve(); }
   if (window._gsThreeLoading) return window._gsThreeLoading;
   window._gsThreeLoading = new Promise(function(resolve, reject) {
-    if (typeof THREE !== 'undefined') { window._gsThreeLoaded = true; resolve(); return; }
+    // v25.36 SELF-HOST: vorher unpkg.com/three@0.128.0 — CDN war live tot
+    // (gleiche Symptomatik wie Leaflet). Jetzt /assets/three.min.js. SRI/
+    // crossOrigin entfaellt bei same-origin. Polling-Retry wie bei Leaflet.
+    var src = '/assets/three.min.js';
+    var poll = function(tries){
+      if (typeof THREE !== 'undefined') { window._gsThreeLoaded = true; return resolve(); }
+      if (tries <= 0) {
+        window._gsThreeLoading = null;
+        return reject(new Error('THREE timeout — global blieb undefined'));
+      }
+      setTimeout(function(){ poll(tries - 1); }, 100);
+    };
+    var existing = document.querySelector('script[src="' + src + '"]');
+    if (existing) { poll(50); return; }
     var s = document.createElement('script');
-    // v24.47: cdnjs → unpkg (npm 1:1) für SRI-Verifizierbarkeit (npm-Hash matched).
-    s.src = 'https://unpkg.com/three@0.128.0/build/three.min.js';
-    s.integrity = 'sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu';
-    s.crossOrigin = 'anonymous';
-    s.async = true;
-    s.onload = function(){ window._gsThreeLoaded = true; resolve(); };
-    s.onerror = function(){ reject(new Error('Three.js konnte nicht geladen werden')); };
+    s.src = src; s.async = true;
+    s.onload = function(){ poll(20); };
+    s.onerror = function(){ window._gsThreeLoading = null; reject(new Error('Three.js konnte nicht geladen werden (self-hosted!)')); };
     document.head.appendChild(s);
   });
   return window._gsThreeLoading;
@@ -44560,6 +44585,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v25.36', date: '15.05.2026',
+    headline: '🌐 SELF-HOST Leaflet + Three.js (unpkg-CDN dead) + Mein-Abo Element-Fix',
+    summary: 'Cowork-Live-Diagnose nach v25.35 via Chrome-MCP: NaN-Fix wirkt ("8 Scans"), ABER Karte haengt weiter — fetch von unpkg.com/leaflet returns onerror=unknown. CDN ist nicht erreichbar (Cloudflare-CSP / Adblock / unpkg-Outage). Polling-Retry kann das nicht heilen. PLUS Mein-Abo zeigt nur kaputtes Icon weil #abo-sub-info-host Element gar nicht im DOM ist (gsOpenAboTab oeffnete ein iframe-Modal mit src=abo.html — Datei existiert nicht). v25.36 loest beides: Self-Host und Modal-Routing.',
+    items: [
+      {emoji:'📦', bold:'6 Files kopiert nach /assets/ (~770 KB):', text:' leaflet.js (148 KB), leaflet.css (15 KB), three.min.js (604 KB), 3 leaflet-images/ Marker-PNGs. via curl von unpkg gezogen (Stand 1.9.4 / 0.128.0).'},
+      {emoji:'🗺️', bold:'gsLoadLeaflet auf /assets/leaflet.js:', text:' SRI entfaellt bei same-origin. Polling-Retry aus v25.35 bleibt. onload Callback setzt L.Icon.Default.imagePath = "/assets/leaflet-images/" damit Marker-Pins nicht broken sind.'},
+      {emoji:'🧊', bold:'_gsLoadThree auf /assets/three.min.js:', text:' Helper aktualisiert. 3 Three.js-Stellen (3D-Track + KI-Planer-3D + Garten-Detail-3D) routen ueber den existing Helper — keine Aenderungen an Callsites noetig.'},
+      {emoji:'🎨', bold:'<head>-Link umgestellt:', text:' <link rel=stylesheet href=/assets/leaflet.css> + <script src=/assets/leaflet.js> statt unpkg-URLs mit SRI. Cloudflare Pages signiert jeden Build → kein SRI-Bedarf.'},
+      {emoji:'🛠️', bold:'sw.js SHELL_URLS:', text:' 6 lokale /assets/-Pfade ersetzen 3 unpkg-URLs. unpkg.com aus IMAGE_HOSTS entfernt (kein Stale-While-Revalidate mehr noetig). pdf.js bleibt cdnjs (1.5 MB zu gross fuer Repo).'},
+      {emoji:'💎', bold:'Mein-Abo Element-Fix:', text:' gsOpenAboTab oeffnete ein statisches #gs-abo-modal mit iframe src=abo.html — Datei existiert gar nicht im Repo. Jetzt routet die Function auf gsShowAboScreen (richtige dynamische Modal-UI mit Plan-Karten + #abo-sub-info-host). PLUS: statisches Modal bekommt eigenen #abo-sub-info-host als Belt-and-Suspenders fuer alle anderen Callsites.'},
+      {emoji:'📊', bold:'Vorteile Self-Host:', text:' Keine externe DNS-Abhaengigkeit · Kein CDN-Outage-Risk · Kein CSP-Issue · Garantiert im SW-Shell-Cache nach Install · Cloudflare-Edge ist naeher als unpkg.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v25.37 sw.js Cache-Control no-cache header (gegen Cache-Inkonsistenzen). v25.38 A11y. v26.0 Pre-Release-stable.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check OK · sw.js gs-v25.36 OK · 2× id="abo-sub-info-host" im Markup · 0 unpkg.com-Refs ausserhalb Kommentare.'},
+    ]
+  },
+  {
     v: 'v25.35', date: '14.05.2026',
     headline: '🐛 3 P1-Bug-Fixes: Karten-Polling-Retry · NaN-Stats-Fix · Mein-Abo Empty-State sichtbar',
     summary: 'Cowork-Diagnose 2026-05-13 via Chrome-MCP + DB-Inspektion nach v25.34-Hotfix. App-Init laeuft jetzt durch, ABER 3 P1-Bugs noch sichtbar: Karte haengt (Splash 91% oder "Swisstopo laedt…" forever), Home zeigt "NaN 📷 Scans", Mein-Abo-Tab leer (Free-User sehen kein Empty-State).',
@@ -45857,7 +45898,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.35';
+var GS_VERSION = 'v25.36';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -47249,6 +47290,16 @@ function gsTranslateAuthError(msg) {
 
 // ── Profil-Operationen ────────────────────────────────────────
 function gsOpenAboTab() {
+  // v25.36 Mein-Abo-Element-Fix: alte gsOpenAboTab oeffnete das statische
+  // #gs-abo-modal-iframe (src=abo.html — Datei existiert gar nicht im Repo!).
+  // Dadurch landete Fernando in einem leeren Modal ohne #abo-sub-info-host
+  // Element → gsRenderSubInfo Empty-State unsichtbar. Jetzt route auf
+  // gsShowAboScreen, das die korrekte Modal-UI baut MIT Host-Element.
+  if (typeof gsShowAboScreen === 'function') {
+    gsShowAboScreen();
+    return;
+  }
+  // Fallback: altes Modal nur wenn gsShowAboScreen wegfaellt (defensive)
   var m = document.getElementById('gs-abo-modal');
   if (m) { m.classList.add('open'); m.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
 }
