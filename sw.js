@@ -1,5 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
+   v26.1 — Karten-Reparatur + User-friendly Release-Notes. Karte: Tile-Error-Auto-Fallback (Swisstopo→OSM nach 5 Fehlern in 10s), localStorage-Persistenz der Layer-Wahl, CSP um wmts.geo.admin.ch + opentopomap + arcgisonline + fastly.net erweitert. GS_RELEASES bekommt user_summary + user_items fuer Nutzer-Whats-New (technische items bleiben fuer Devs). Pro-only Restructure aus v25.38 bleibt aktiv.
    v25.38 — Pro-only Restructure (Backend hat Plus-Plans deaktiviert + Plus-Lifetime in Pro Lifetime umbenannt). Frontend: gsShowFirstTrialModal mit 3 Buttons (Pro Lifetime / Pro Monthly 7d-Trial / Free), gsShowAboScreen vereinfacht (freeCard + proCard + lifeCard statt 4 Karten), GS_PRICE_CATALOG auf 3 Pro-Eintraege gekuerzt, planName in gsRenderSubInfo immer "Pro", Empty-State CTA "Pro 7 Tage gratis testen", gsStartCheckout-Default = pro_monthly. Legacy plus/premium-Subs bleiben als isPaid backwards-compat.
    Strategien:
      • App-Shell (HTML/CSS/JS): Network-First mit Cache-Fallback → offline.html
@@ -11,7 +12,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v25.38';
+const VERSION = 'gs-v26.1';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;

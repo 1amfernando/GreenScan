@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="25.38.20260516">
+<meta name="app-version" content="26.1.20260519">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -32074,8 +32074,21 @@ function gsCreateMap() {
 
   gsMap = L.map('gs-map-div').setView([startLat, startLon], startZoom);
 
-  // Standard-Layer: Swisstopo
-  gsMapLayer = L.tileLayer(GS_MAP_LAYERS.swisstopo.url, GS_MAP_LAYERS.swisstopo.opts).addTo(gsMap);
+  // v26.1 Karten-Fix: gespeicherte Layer-Wahl aus localStorage holen, sonst Swisstopo.
+  // Tile-Error-Wächter switcht nach 5 Fehlern innerhalb 10s automatisch auf OSM,
+  // damit User nie eine graue Karte sehen muss (Fernando-Report: graue Map + blauer Punkt).
+  var savedLayer = null;
+  try { savedLayer = gsStore && gsStore.get ? gsStore.get('gs_map_layer') : localStorage.getItem('gs_map_layer'); } catch(_){}
+  var initialLayer = (savedLayer && GS_MAP_LAYERS[savedLayer]) ? savedLayer : 'swisstopo';
+  gsMapCurrentLayer = initialLayer;
+  _gsAddLayerWithFallback(initialLayer, true);
+  // Button-Aktivität synchronisieren
+  try {
+    document.querySelectorAll('.gs-map-lb').forEach(function(b){ b.classList.remove('active'); });
+    var btnId = 'gsmb-' + (initialLayer === 'swisstopo' ? 'sw' : initialLayer === 'wanderwege' ? 'ww' : initialLayer);
+    var b0 = document.getElementById(btnId);
+    if (b0) b0.classList.add('active');
+  } catch(_){}
 
   // Massstab
   L.control.scale({ imperial: false, metric: true, position: 'bottomleft' }).addTo(gsMap);
@@ -32128,7 +32141,42 @@ function gsCreateMap() {
   setTimeout(() => gsMap.invalidateSize(true), 800);
 }
 
-// Layer wechseln
+// v26.1 Layer-Helper mit Tile-Error-Auto-Fallback (Swisstopo→OSM bei Netzwerk-/CSP-Problem)
+function _gsAddLayerWithFallback(name, isInitial) {
+  if (!gsMap || !window.L) return;
+  var cfg = GS_MAP_LAYERS[name] || GS_MAP_LAYERS.osm;
+  // Bestehende Layer entfernen
+  try { if (gsMapLayer) gsMap.removeLayer(gsMapLayer); } catch(_){}
+  try { if (gsMapOverlay) { gsMap.removeLayer(gsMapOverlay); gsMapOverlay = null; } } catch(_){}
+  // Tile-Layer mit crossOrigin + maxNativeZoom Defensiv-Defaults
+  var opts = Object.assign({ crossOrigin: true, keepBuffer: 2 }, cfg.opts || {});
+  gsMapLayer = L.tileLayer(cfg.url, opts).addTo(gsMap);
+  if (cfg.overlay) {
+    gsMapOverlay = L.tileLayer(cfg.overlay.url, cfg.overlay.opts).addTo(gsMap);
+  }
+  // Error-Wächter: 5 Tile-Errors in 10s → automatischer Switch auf OSM
+  var errCount = 0;
+  var watchTimer = null;
+  var didFallback = false;
+  gsMapLayer.on('tileerror', function(){
+    errCount++;
+    if (errCount === 1) {
+      watchTimer = setTimeout(function(){ errCount = 0; }, 10000);
+    }
+    if (errCount >= 5 && !didFallback && name !== 'osm') {
+      didFallback = true;
+      try { clearTimeout(watchTimer); } catch(_){}
+      try { if (typeof gsToast === 'function') gsToast('🗺️ Karte über Standard-Layer geladen', 'info', 3500); } catch(_){}
+      // Auto-Switch auf OSM
+      gsMapCurrentLayer = 'osm';
+      try { document.querySelectorAll('.gs-map-lb').forEach(function(b){ b.classList.remove('active'); }); } catch(_){}
+      try { var ob = document.getElementById('gsmb-osm'); if (ob) ob.classList.add('active'); } catch(_){}
+      _gsAddLayerWithFallback('osm', false);
+    }
+  });
+}
+
+// Layer wechseln (User-Action)
 function gsSetLayer(name, btn) {
   gsMapCurrentLayer = name;
   document.querySelectorAll('.gs-map-lb').forEach(b => b.classList.remove('active'));
@@ -32137,15 +32185,12 @@ function gsSetLayer(name, btn) {
   if (lbtn) lbtn.classList.add('active');
 
   if (!gsMap || !window.L) return;
-
-  if (gsMapLayer) gsMap.removeLayer(gsMapLayer);
-  if (gsMapOverlay) { gsMap.removeLayer(gsMapOverlay); gsMapOverlay = null; }
-
-  const cfg = GS_MAP_LAYERS[name] || GS_MAP_LAYERS.swisstopo;
-  gsMapLayer = L.tileLayer(cfg.url, cfg.opts).addTo(gsMap);
-  if (cfg.overlay) {
-    gsMapOverlay = L.tileLayer(cfg.overlay.url, cfg.overlay.opts).addTo(gsMap);
-  }
+  _gsAddLayerWithFallback(name, false);
+  // v26.1: User-Wahl persistieren
+  try {
+    if (typeof gsStore !== 'undefined' && gsStore.set) gsStore.set('gs_map_layer', name);
+    else localStorage.setItem('gs_map_layer', name);
+  } catch(_){}
 }
 
 // v23.56: Kategorie-Icon erzeugen
@@ -44649,8 +44694,36 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.1', date: '19.05.2026',
+    headline: '🗺️ Karte repariert · Nutzerfreundliche Update-Meldungen',
+    // v26.2: user_summary + user_items zeigen wir End-Usern; items + summary bleiben fuer Devs/Changelog
+    user_summary: 'Die Karte zeigt jetzt zuverlaessig deine Region — bei Netzwerk-Problemen wechselt sie automatisch auf eine immer erreichbare Standardkarte. Updates erklaeren wir ab sofort in einfacher Sprache.',
+    user_items: [
+      {emoji:'🗺️', text:'Karte laedt jetzt zuverlaessig. Wenn Swisstopo mal nicht erreichbar ist, springt automatisch die Standard-Karte ein — keine graue Flaeche mehr.'},
+      {emoji:'💾', text:'Deine gewaehlte Karten-Ansicht (Swisstopo, Satellit, Wanderwege) wird gemerkt — beim naechsten Oeffnen ist sie sofort wieder da.'},
+      {emoji:'📰', text:'„Was ist neu?" zeigt ab sofort kurze, klare Erklaerungen — kein Code-Kauderwelsch mehr.'},
+    ],
+    summary: 'Karten-Reparatur nach Fernandos Live-Report "graue Map mit blauem Punkt". Tile-Error-Auto-Fallback: nach 5 fehlgeschlagenen Swisstopo-Tiles innerhalb 10s switcht der Layer automatisch auf OSM (immer erreichbar). gsSetLayer persistiert die User-Wahl in localStorage (Key gs_map_layer). CSP connect-src um wmts.geo.admin.ch + opentopomap + arcgisonline + fastly.net erweitert (Tiles werden trotzdem ueber img-src https geladen, aber Connect-Path schadet nicht und macht prefetch-Warnings weg). GS_RELEASES Schema-Erweiterung: user_summary + user_items werden bevorzugt im Whats-new-Modal gerendert wenn vorhanden, sonst Fallback auf items.',
+    items: [
+      {emoji:'🗺️', bold:'_gsAddLayerWithFallback (neu):', text:' Helper mit tileerror-Watcher (5 Fehler in 10s → didFallback-Flag → Switch auf OSM). Init und User-Action gehen beide ueber diesen Helper. crossOrigin:true + keepBuffer:2 als Defensive-Defaults.'},
+      {emoji:'💾', bold:'localStorage Layer-Persistenz:', text:' gsSetLayer schreibt gs_map_layer key (gsStore-Wrapper mit localStorage-Fallback). gsCreateMap liest den Wert beim Init und stellt den Button entsprechend auf active. Default bleibt swisstopo wenn nichts gespeichert.'},
+      {emoji:'🔐', bold:'CSP connect-src erweitert:', text:' wmts.geo.admin.ch, *.geo.admin.ch, server.arcgisonline.com, *.tile.opentopomap.org, *.fastly.net (fuer Hybrid-Labels). Header-Version v25.38 → v26.1.'},
+      {emoji:'📰', bold:'GS_RELEASES user_summary/user_items:', text:' Neue optionale Felder pro Release-Eintrag. Whats-new-Modal (gsRenderWhatsNew + Settings-Liste) bevorzugt user_items wenn vorhanden, items bleibt fuer Devs/Changelog. v26.1 + v25.38 retro-gefuellt; aeltere Releases nicht angefasst (zeigen weiterhin items).'},
+      {emoji:'🐛', bold:'meta app-version Sync:', text:' 25.38.20260516 → 26.1.20260519.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.3 a11y aria-labels Top-100 Icon-only Buttons. v26.4 maxlength + Z-Index-Tokens. v26.5 Console-Cleanup. v26.6 Marketplace-Connect-Frontend.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check OK · sw.js gs-v26.1 OK · _headers v26.1 OK · meta=26.1.20260519 · 1× _gsAddLayerWithFallback · 1× gs_map_layer Persistenz · tileerror-Listener registriert.'},
+    ]
+  },
+  {
     v: 'v25.38', date: '16.05.2026',
     headline: '💎 Pro-only Restructure — Plus deaktiviert, Pro Lifetime + Pro 7d-Trial + Free',
+    user_summary: 'Wir haben unsere Abos vereinfacht: nur noch EIN Pro-Abo (vereint alle bisherigen Features) plus „Pro Lifetime" — einmal zahlen, fuer immer alles. 7 Tage gratis testen, jederzeit kuendbar.',
+    user_items: [
+      {emoji:'⭐', text:'Pro Monthly fuer CHF 7.90/Monat oder Pro Yearly fuer CHF 79/Jahr (= 2 Monate gratis).'},
+      {emoji:'🏆', text:'Pro Lifetime: einmalig CHF 45.60 — fuer immer alle Features, kein Abo mehr.'},
+      {emoji:'🎁', text:'Gratis-Testwoche: 7 Tage alle Pro-Features. Wenn du nicht ueberzeugt bist, kostet es nichts.'},
+      {emoji:'🌱', text:'Free-Plan bleibt natuerlich erhalten: 5 Scans pro Tag.'},
+    ],
     summary: 'Fernando-Wunsch: nur noch EIN Abo-Modell — Pro (vereint alle bisherigen Plus + Pro Features). Plus-Lifetime wurde in Pro Lifetime umbenannt. Backend war LIVE 2026-05-14: Plus-Plans in Stripe + DB deaktiviert, 3 aktive Prices (pro_monthly 7.90, pro_yearly 79, pro_lifetime 45.60), stripe-checkout v6 capt 7d-Trial. v25.38 = Frontend dazu.',
     items: [
       {emoji:'🌱', bold:'gsShowFirstTrialModal:', text:' Drei Buttons statt vier — 🏆 Pro Lifetime einmalig CHF 45.60, ⭐ Pro Monthly 7-Tage-Trial (danach CHF 7.90/Mt), 🌱 Free-Plan. Plus-Button komplett raus. Header "7 Tage lang ALLES kostenlos testen".'},
@@ -45931,24 +46004,34 @@ window.GS_RELEASES = [
 ];
 
 function gsRenderAboutChangelog(){
-  // Aktuelle Version (Highlight-Block)
+  // Aktuelle Version (Highlight-Block) — v26.2: zeigt user_summary wenn vorhanden, sonst summary
   var current = (window.GS_RELEASES && window.GS_RELEASES[0]) || null;
   var hi = document.getElementById('about-current-version');
   if (hi && current) {
+    var headlineText = current.headline || '';
+    var summaryText = current.user_summary || current.summary || '';
     hi.innerHTML =
       '<div style="background:linear-gradient(135deg,rgba(45,138,45,.12),rgba(45,138,45,.04));border-left:3px solid var(--g-main);border-radius:10px;padding:12px 14px;margin-bottom:16px;">' +
         '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--g-main);margin-bottom:4px;">✨ Aktuelle Version</div>' +
-        '<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;">' + current.v + ' — ' + (current.headline || '') + '</div>' +
-        '<div style="font-size:12.5px;color:var(--text2);line-height:1.55;">' + (current.summary || '') + '</div>' +
+        '<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;">' + current.v + ' — ' + headlineText + '</div>' +
+        '<div style="font-size:12.5px;color:var(--text2);line-height:1.55;">' + summaryText + '</div>' +
       '</div>';
   }
 
   // Liste der neuen Versionen (alle aus GS_RELEASES)
+  // v26.2: Nutzerfreundliche user_items werden bevorzugt; klassische items als Fallback fuer aeltere Releases.
+  // user_items haben Format {emoji, text} ohne 'bold'-Praefix → kein Code-Kauderwelsch fuer End-User.
   var listEl = document.getElementById('about-recent-releases');
   if (listEl) {
     var html = '';
     (window.GS_RELEASES || []).forEach(function(rel){
-      var items = (rel.items || []).map(function(it){
+      var useUserItems = Array.isArray(rel.user_items) && rel.user_items.length > 0;
+      var src = useUserItems ? rel.user_items : (rel.items || []);
+      var items = src.map(function(it){
+        if (useUserItems) {
+          // Nutzerfreundlich: nur Emoji + Text, kein technisches bold
+          return '<li>' + (it.emoji || '') + ' ' + (it.text || '') + '</li>';
+        }
         return '<li>' + (it.emoji || '') + ' <b>' + (it.bold || '') + '</b>' + (it.text || '') + '</li>';
       }).join('');
       html +=
@@ -45990,7 +46073,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v25.38';
+var GS_VERSION = 'v26.1';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -48940,7 +49023,17 @@ window.gsRenderGardenStats = function(){
     m.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:18px;';
     m.onclick = function(e){ if (e.target === m) closeIt(); };
     function closeIt(){ try { localStorage.setItem('gs_seen_version', current); } catch(e){} m.remove(); }
-    var itemsHtml = (release.items || []).slice(0, 6).map(function(it){
+    // v26.2: Bevorzuge user_items + user_summary fuer End-User; fallback auf items/summary
+    var useUser = Array.isArray(release.user_items) && release.user_items.length > 0;
+    var src = useUser ? release.user_items : (release.items || []);
+    var summaryText = release.user_summary || release.summary || '';
+    var itemsHtml = src.slice(0, 6).map(function(it){
+      if (useUser) {
+        return '<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);align-items:flex-start;">' +
+          '<div style="font-size:22px;flex-shrink:0;line-height:1;">' + (it.emoji || '✨') + '</div>' +
+          '<div style="flex:1;font-size:13px;line-height:1.5;color:var(--text);">' + (it.text || '') + '</div>' +
+        '</div>';
+      }
       return '<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);align-items:flex-start;">' +
         '<div style="font-size:22px;flex-shrink:0;line-height:1;">' + (it.emoji || '✨') + '</div>' +
         '<div style="flex:1;font-size:12.5px;line-height:1.45;color:var(--text2);"><b style="color:var(--text);">' + (it.bold || '') + '</b> ' + (it.text || '') + '</div>' +
@@ -48953,7 +49046,7 @@ window.gsRenderGardenStats = function(){
           '<div style="font-family:\'Playfair Display\',serif;font-size:22px;font-weight:800;">Was ist neu in ' + current + '</div>' +
           '<div style="font-size:12px;opacity:.92;margin-top:2px;line-height:1.35;">' + (release.headline || '') + '</div>' +
         '</div>' +
-        '<div style="padding:14px 22px 8px;font-size:12.5px;color:var(--text2);line-height:1.5;">' + (release.summary || '') + '</div>' +
+        '<div style="padding:14px 22px 8px;font-size:12.5px;color:var(--text2);line-height:1.5;">' + summaryText + '</div>' +
         '<div style="padding:0 22px;">' + itemsHtml + '</div>' +
         '<div style="padding:14px 22px 22px;display:flex;gap:8px;">' +
           '<button id="gs-wn-close" style="flex:1;padding:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">Verstanden</button>' +
