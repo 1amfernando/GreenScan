@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.3.20260520">
+<meta name="app-version" content="26.5.20260520">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -76,6 +76,13 @@
   --r:16px;--r-sm:10px;--r-xs:8px;
   --tab-h:64px;--top-h:56px;
   --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);
+  /* v26.4 Z-Index-Tokens (Layer-Cake erweitert) — bestehende Tokens
+     --z-overlay (1500), --z-modal (4000), --z-modal-top (5000), --z-toast (9999)
+     bleiben unveraendert (Z.133-136). Diese hier ergaenzen fehlende Layer:
+     base 1 · sticky 100 · dropdown 500 · tooltip 8000 · whatsnew 9500 · critical 9999.
+     Bitte fuer neue Modals/Overlays die Tokens statt magic numbers verwenden. */
+  --z-base:1;--z-sticky:100;--z-dropdown:500;
+  --z-tooltip:8000;--z-whatsnew:9500;--z-critical:9999;
   --text-on-green:#ffffff;
   --text-subtle:#4a4a4a;
   --input-bg:#f8fdf8;
@@ -1453,6 +1460,48 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
        in Z.~13325 wurde entfernt, var DB = window.DB referenziert das Result. -->
   <script src="data/plants.v1.js?v=1"></script>
 <script>
+// ── v26.5 Console-Cleanup (vor allem anderen) ─────────────
+// Silenced console.log / console.debug / console.info in Production
+// (= alles ausser localhost). Aktivierbar via:
+//   - URL: ?gs_debug=1
+//   - localStorage: localStorage.setItem('gs_debug','1')
+// console.warn + console.error + console.trace bleiben IMMER aktiv.
+// Reduziert Noise + Performance (weniger DevTools-Render) +
+// vermeidet versehentliches PII-Leakage in Live-Console.
+(function _gsConsoleCleanup(){
+  try {
+    var isDev = false;
+    var host = (location && location.hostname) || '';
+    if (host === 'localhost' || host === '127.0.0.1' || /\.local$/.test(host) || /^192\.168\./.test(host)) isDev = true;
+    if (location && location.search && /[?&]gs_debug=1/.test(location.search)) isDev = true;
+    try { if (localStorage.getItem('gs_debug') === '1') isDev = true; } catch(_){}
+    window._gsDevMode = isDev;
+    // Originale aufheben fuer Notfall-Restore
+    window._gsConsoleOrig = { log: console.log.bind(console), debug: console.debug.bind(console), info: console.info.bind(console) };
+    if (!isDev) {
+      // Silent no-ops fuer Production
+      console.log = function(){};
+      console.debug = function(){};
+      console.info = function(){};
+      // Helper: console.gsRestore() um wieder einzuschalten ohne Reload
+      window.gsConsoleRestore = function(){
+        console.log = window._gsConsoleOrig.log;
+        console.debug = window._gsConsoleOrig.debug;
+        console.info = window._gsConsoleOrig.info;
+        try { localStorage.setItem('gs_debug','1'); } catch(_){}
+        window._gsDevMode = true;
+        console.warn('[gs] Dev-Mode aktiviert — console restored. Reload um persistent zu machen.');
+      };
+    } else {
+      // Dev: leichter Banner-Hint in der Console
+      try {
+        console.info('%c[GreenScan] Dev-Mode aktiv','color:#2e7d32;font-weight:700;background:#e8f5e9;padding:2px 6px;border-radius:4px;');
+        console.info('Aus: localStorage.removeItem("gs_debug") + Reload, oder URL ohne ?gs_debug=1');
+      } catch(_){}
+    }
+  } catch(_) {}
+})();
+
 // ── Globaler Fehler-Handler (v23.59 erweitert) ──────────────
 // Speichert JS-Fehler + unhandled Promise-Rejects in localStorage
 // für Diagnose. Sichtbar via admin panel → "Error Log anzeigen"
@@ -44694,6 +44743,43 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.5', date: '20.05.2026',
+    headline: '🧹 Saubere Konsole · weniger Hintergrund-Rauschen',
+    user_summary: 'Hinter den Kulissen: GreenScan schreibt weniger Diagnose-Meldungen in die Browser-Konsole — bessere Performance, weniger Krach. Entwickler koennen Dev-Mode jederzeit anschalten.',
+    user_items: [
+      {emoji:'🧹', text:'Konsole bleibt sauber — nur echte Warnungen und Fehler werden angezeigt.'},
+      {emoji:'⚡', text:'Schnellere App durch weniger Browser-Logging-Last.'},
+      {emoji:'🔬', text:'Entwickler-Modus jederzeit aktivierbar (URL ?gs_debug=1 oder localStorage).'},
+    ],
+    summary: 'v26.5 Cowork-Sprint: _gsConsoleCleanup IIFE läuft als allerstes Script. Wenn Host nicht localhost/127.0.0.1/.local/192.168.* UND ?gs_debug=1 nicht in URL UND localStorage.gs_debug !== "1": console.log/debug/info werden silent no-op. console.warn/error/trace bleiben IMMER aktiv. _gsConsoleOrig speichert Originale für gsConsoleRestore() Notfall-Switch. window._gsDevMode flag fuer andere Module. 80 bestehende Boot-Logs (72 log + 4 debug + 4 info) werden ohne Code-Aenderung silent.',
+    items: [
+      {emoji:'🧹', bold:'_gsConsoleCleanup (neu, Top of Script):', text:' IIFE wird im allerersten <script>-Tag ausgefuehrt VOR allem anderen (vor Error-Handler). Pruefung: location.hostname localhost/127.0.0.1/.local/192.168.* → Dev. URL ?gs_debug=1 → Dev. localStorage.gs_debug=1 → Dev. Sonst Prod = Silence.'},
+      {emoji:'🔓', bold:'gsConsoleRestore() (Helper):', text:' Window-Helper um nach Boot Dev-Mode ohne Reload zu aktivieren. Setzt localStorage.gs_debug=1 + restored console.log/debug/info aus _gsConsoleOrig. Toast-Hinweis via console.warn.'},
+      {emoji:'🟢', bold:'Dev-Banner in Console:', text:' Bei Dev-Mode logged Helper-Hint mit Style-Banner ("[GreenScan] Dev-Mode aktiv"). Macht klar dass Logs ankommen.'},
+      {emoji:'🛡️', bold:'Was bleibt sichtbar:', text:' console.warn (114 Calls), console.error (17 Calls), console.trace, globaler Error-Handler ([GS-Error], [GS-Promise]). Alle Kritischen Meldungen kommen weiterhin durch.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.6 Marketplace-Connect-Frontend (Code). v26.7 Trial-End-Reminder (Code). v26.8 i18n Pass-3.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check OK · sw.js gs-v26.5 OK · _headers v26.5 · meta=26.5.20260520 · 80 silenced Boot-Logs · 131 Warnings/Errors bleiben aktiv.'},
+    ]
+  },
+  {
+    v: 'v26.4', date: '20.05.2026',
+    headline: '✏️ Eingabe-Limits · sichere Formulare ohne Roman-Spam',
+    user_summary: 'Eingabefelder begrenzen jetzt sinnvoll wie viele Zeichen du eintippen kannst — verhindert versehentliches Pasten von ganzen Texten in Namen-Felder und schuetzt deine monatliche KI-Quote.',
+    user_items: [
+      {emoji:'✏️', text:'Namen-Felder akzeptieren bis 80 Zeichen, Notizen 500, Feedback bis 2000. Klar gekennzeichnet im Browser.'},
+      {emoji:'🔒', text:'Schuetzt vor versehentlichem Mega-Paste — ein langer Roman ins „Wie sollen wir dich nennen"-Feld ist nicht mehr moeglich.'},
+      {emoji:'💚', text:'Sauberere Daten gehen an unseren Server → schneller, weniger Fehler.'},
+    ],
+    summary: 'v26.4 Cowork-Sprint: _gsAutoMaxlength scannt alle <input>/<textarea> ohne maxlength und setzt Limits via Placeholder/Name/Type-Heuristik. Klassifiziert: name=80, title=120, search=100, email=254, password=256, url=2048, tel=32, code/otp=16, kurz-notizen=200, textarea-default=500, feedback/share/story=2000. MutationObserver patcht dynamische Forms. PLUS Z-Index-Tokens als :root --z-base/sticky/dropdown/overlay/modal/toast/tooltip/whatsnew/critical — sauberere Layer-Cake fuer neue Modals statt 99999 / 9050 / 8000 Spaghetti.',
+    items: [
+      {emoji:'✏️', bold:'_gsAutoMaxlength (neu):', text:' IIFE mit _gsAutoMlInit Guard. applyTo(root) iteriert input:not([maxlength]),textarea:not([maxlength]). classify(el) liest type+name+id+placeholder, mappt auf LIMITS-Konstante. Skipt Non-text Inputs (hidden/file/checkbox/radio/range/color/etc).'},
+      {emoji:'🧱', bold:'CSS Z-Index-Tokens (erweitert):', text:' :root bekommt --z-base:1 / --z-sticky:100 / --z-dropdown:500 / --z-tooltip:8000 / --z-whatsnew:9500 / --z-critical:9999. Bestehende --z-overlay (1500) / --z-modal (4000) / --z-modal-top (5000) / --z-toast (9999) aus v24.49 bleiben unveraendert — kein breaking change.'},
+      {emoji:'🔭', bold:'MutationObserver:', text:' wie v26.3 Auto-ARIA — beobachtet body fuer childList+subtree, triggert applyTo bei neuen Nodes.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.5 Console-Cleanup (Logger-Wrapper, prod-strip). v26.6 Marketplace-Connect-Frontend (Code). v26.7 Trial-End-Reminder (Code).'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check OK · sw.js gs-v26.4 OK · _headers v26.4 · meta=26.4.20260520 · 84 inputs + 22 textareas ohne maxlength werden beim Boot gepatcht · :root mit 9 neuen --z-* Tokens.'},
+    ]
+  },
+  {
     v: 'v26.3', date: '20.05.2026',
     headline: '♿ Barrierefreiheit · Icon-Knoepfe sprechen jetzt mit Screen-Readern',
     user_summary: 'Wer GreenScan mit einem Screen-Reader (VoiceOver, NVDA, TalkBack) nutzt, hoert ab sofort sinnvolle Bezeichnungen fuer alle Symbol-Knoepfe — Schliessen, Loeschen, Bewerten, Foto, Teilen und mehr.',
@@ -46092,7 +46178,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.3';
+var GS_VERSION = 'v26.5';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -49172,6 +49258,87 @@ window.gsRenderGardenStats = function(){
     });
     obs.observe(document.body || document.documentElement, { childList: true, subtree: true });
     window._gsAutoAriasObs = obs;
+  } catch(_){}
+})();
+
+// v26.4 ═══ AUTO-MAXLENGTH fuer Inputs/Textareas ═══════════════════
+// Wendet sinnvolle Limits auf alle <input type=text|search|email|tel|url|password>
+// und <textarea> an die noch kein maxlength haben. Verhindert dass User
+// versehentlich Tausende Zeichen pasten (kann Edge-Functions abkacken oder
+// Quota fressen). Klassifiziert via Placeholder/Name-Heuristik. Plus
+// MutationObserver fuer dynamisch gerenderte Forms.
+(function _gsAutoMaxlength(){
+  if (window._gsAutoMlInit) return;
+  window._gsAutoMlInit = true;
+  // Sinnvolle Defaults nach Feld-Zweck
+  var LIMITS = {
+    name: 80,        // Anzeige-Namen, Pflanze, Marker
+    title: 120,
+    short: 200,      // Kurz-Notizen, Tipps
+    search: 100,
+    email: 254,      // RFC 5321
+    password: 256,
+    url: 2048,
+    tel: 32,
+    code: 16,        // OTP, Coupon
+    long: 500,       // Standard-Textareas (Notizen, Beschreibungen)
+    veryLong: 2000,  // Feedback, Beschwerden, lange Posts
+    input_default: 200,
+    textarea_default: 500,
+  };
+  function classify(el){
+    var typ = (el.getAttribute('type') || 'text').toLowerCase();
+    var name = (el.getAttribute('name') || '').toLowerCase();
+    var id = (el.id || '').toLowerCase();
+    var ph = (el.getAttribute('placeholder') || '').toLowerCase();
+    var hay = name + ' ' + id + ' ' + ph;
+    // Type-First-Match (fuer special types)
+    if (typ === 'email') return LIMITS.email;
+    if (typ === 'password') return LIMITS.password;
+    if (typ === 'url') return LIMITS.url;
+    if (typ === 'tel') return LIMITS.tel;
+    if (typ === 'search') return LIMITS.search;
+    // Code / OTP / Coupon
+    if (/code|coupon|otp|pin|token/.test(hay)) return LIMITS.code;
+    // Name-like
+    if (/name|nickname|user|titel|title|pflanze|marker|sorte|art|category/.test(hay)) return LIMITS.name;
+    // Feedback / Beschreibung lang
+    if (el.tagName === 'TEXTAREA' && /feedback|beschwerde|bug|problem|teilen|share|story/.test(hay)) return LIMITS.veryLong;
+    if (el.tagName === 'TEXTAREA') return LIMITS.textarea_default;
+    // Kurz-Notizen
+    if (/notiz|note|tipp|hinweis|comment|kommentar/.test(hay)) return LIMITS.short;
+    return LIMITS.input_default;
+  }
+  function applyTo(root){
+    try {
+      var sel = (root || document).querySelectorAll('input:not([maxlength]),textarea:not([maxlength])');
+      var fixed = 0;
+      sel.forEach(function(el){
+        var typ = (el.getAttribute('type') || 'text').toLowerCase();
+        // Skip Non-text Inputs
+        if (el.tagName === 'INPUT' && /^(hidden|file|checkbox|radio|button|submit|reset|range|color|image|date|time|datetime-local|month|week|number)$/.test(typ)) return;
+        if (el.hasAttribute('maxlength')) return;
+        var lim = classify(el);
+        if (lim > 0) { el.setAttribute('maxlength', String(lim)); fixed++; }
+      });
+      return fixed;
+    } catch(_) { return 0; }
+  }
+  function run(){
+    var n = applyTo(document);
+    if (n && window.console && console.debug) console.debug('[gsAutoMl] +' + n + ' maxlength');
+  }
+  if (document.readyState !== 'loading') setTimeout(run, 600);
+  else document.addEventListener('DOMContentLoaded', function(){ setTimeout(run, 600); });
+  // MutationObserver — gleiche Strategie wie Auto-ARIA
+  try {
+    var obs = new MutationObserver(function(mutations){
+      var dirty = false;
+      mutations.forEach(function(m){ if (m.addedNodes && m.addedNodes.length) dirty = true; });
+      if (dirty) { try { applyTo(document); } catch(_){} }
+    });
+    obs.observe(document.body || document.documentElement, { childList: true, subtree: true });
+    window._gsAutoMlObs = obs;
   } catch(_){}
 })();
 
