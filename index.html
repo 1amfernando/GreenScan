@@ -65,7 +65,15 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.5.20260520">
+<meta name="app-version" content="26.12.20260521">
+<!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
+<link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="dns-prefetch" href="https://api.anthropic.com">
+<link rel="dns-prefetch" href="https://api.stripe.com">
+<!-- v26.11 Three.js prefetch: laedt erst bei AR/3D-Use, aber CSS-warm fuer Geschwindigkeit -->
+<link rel="prefetch" href="/assets/three.min.js" as="script">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -1453,11 +1461,16 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
        Jetzt aus eigenem /assets/-Ordner ausgeliefert: kein DNS-Lookup, kein
        CSP-Issue, garantiert im SW-Shell-Cache nach Install. SRI entfaellt
        bei same-origin (Cloudflare Pages signed jeden Build). -->
+  <!-- v26.11 Performance: Leaflet als defer geladen — kein Boot-Blocker mehr.
+       gsLoadLeaflet() in initMap() pollt typeof L bis zur Verfügbarkeit (50× 100ms)
+       — funktioniert mit defer weil Map erst nach User-Klick auf Tab geöffnet wird. -->
   <link rel="stylesheet" href="/assets/leaflet.css">
-  <script src="/assets/leaflet.js"></script>
+  <script src="/assets/leaflet.js" defer></script>
   <!-- v25.10 Thema 3: PLANT_DB als externe immutable JS-Datei (extrahiert v24.03,
        Restore nach UPDATE.command-Sync). Lädt window.DB synchron — Inline-DB
-       in Z.~13325 wurde entfernt, var DB = window.DB referenziert das Result. -->
+       in Z.~13325 wurde entfernt, var DB = window.DB referenziert das Result.
+       v26.11 Note: kein defer — Inline-Scripts Z.14082 erwarten window.DB
+       synchron. Bei spaeter Migration auf async-DB-Load: gsLoadDB() Helper bauen. -->
   <script src="data/plants.v1.js?v=1"></script>
 <script>
 // ── v26.5 Console-Cleanup (vor allem anderen) ─────────────
@@ -4269,6 +4282,16 @@ html, body{ scroll-behavior: smooth; }
           <div class="settings-label-sub" id="settings-personal-key-sub">Auf globalen Key zurücksetzen</div>
         </div>
         <div style="font-size:18px;color:#c62828;">×</div>
+      </div>
+      <!-- v26.6 Marketplace-Connect: Verkaeufer-Konto via Stripe-Express.
+           Status dynamisch in initSettingsScreen() via gsMarketplaceLoadStatus(). -->
+      <div class="settings-row" id="gs-marketplace-seller-row" onclick="gsMarketplaceOpenSellerScreen()" style="cursor:pointer;">
+        <div class="settings-icon" style="background:#e8f5e9;">🏪</div>
+        <div class="settings-label">
+          <div class="settings-label-title" id="gs-marketplace-seller-title">Verkäufer-Konto verbinden</div>
+          <div class="settings-label-sub" id="gs-marketplace-seller-sub">Eigene Pflanzen, Samen oder Werkzeug verkaufen — Bezahlung über Stripe</div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
 
       <div class="settings-row">
@@ -16195,6 +16218,183 @@ async function gsRemovePersonalKey() {
   } catch(_){}
 }
 window.gsRemovePersonalKey = gsRemovePersonalKey;
+
+// ═════════════════════════════════════════════════════════════════════
+// v26.6 MARKETPLACE-CONNECT (Stripe Connect Express Onboarding)
+// Backend: marketplace_sellers Tabelle + stripe-create-connect-account
+//          Edge-Fn + v_my_marketplace_seller View + stripe-webhook v9
+//          account.updated Handler (Cowork-Deploy via Supabase MCP).
+// Files: supabase/migrations/20260520_marketplace_sellers.sql
+//        supabase/functions/stripe-create-connect-account/index.ts
+// ═════════════════════════════════════════════════════════════════════
+
+async function gsMarketplaceLoadStatus() {
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return null;
+  try {
+    var r = await sbFetch('/rest/v1/v_my_marketplace_seller?select=*');
+    if (r && Array.isArray(r.data) && r.data.length) return r.data[0];
+    return null;
+  } catch(_) { return null; }
+}
+window.gsMarketplaceLoadStatus = gsMarketplaceLoadStatus;
+
+// Settings-Row Title/Sub je nach Verkaeufer-Status aktualisieren.
+async function gsMarketplaceRefreshSettingsRow() {
+  var titleEl = document.getElementById('gs-marketplace-seller-title');
+  var subEl   = document.getElementById('gs-marketplace-seller-sub');
+  if (!titleEl || !subEl) return;
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) {
+    titleEl.textContent = 'Verkäufer-Konto verbinden';
+    subEl.textContent = 'Bitte zuerst anmelden';
+    return;
+  }
+  try {
+    var s = await gsMarketplaceLoadStatus();
+    if (!s || s.status === 'pending') {
+      titleEl.textContent = 'Verkäufer-Konto verbinden';
+      subEl.textContent = 'Eigene Pflanzen, Samen oder Werkzeug verkaufen — Bezahlung über Stripe';
+    } else if (s.status === 'active') {
+      titleEl.textContent = '✅ Verkäufer-Konto aktiv';
+      subEl.textContent = 'Listings veröffentlichen · Stripe-Dashboard öffnen';
+    } else if (s.status === 'restricted') {
+      titleEl.textContent = '⚠️ Verkäufer-Konto eingeschränkt';
+      subEl.textContent = 'Stripe benötigt weitere Angaben — tippen zum Vervollständigen';
+    } else if (s.status === 'disabled') {
+      titleEl.textContent = '❌ Verkäufer-Konto deaktiviert';
+      subEl.textContent = 'Bei Fragen: www.greenscan@gmail.com';
+    }
+  } catch(_){}
+}
+window.gsMarketplaceRefreshSettingsRow = gsMarketplaceRefreshSettingsRow;
+
+async function gsMarketplaceOpenSellerScreen() {
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) {
+    if (typeof gsToast === 'function') gsToast('🔑 Bitte zuerst anmelden', 'info');
+    if (typeof openLoginModal === 'function') openLoginModal();
+    return;
+  }
+  if (typeof gsHaptic === 'function') gsHaptic('light');
+  var mc = document.getElementById('modal-content');
+  if (!mc) return;
+  mc.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted);font-size:13px;">⏳ Lade Verkäufer-Status…</div>';
+  if (typeof openModal === 'function') openModal('detail-modal');
+
+  var s = await gsMarketplaceLoadStatus();
+  var body = '';
+  if (!s || s.status === 'pending') {
+    body =
+      '<div style="padding:0;">' +
+        '<div style="background:linear-gradient(135deg,#1b5e20,#2e7d32);padding:24px 22px;color:#fff;text-align:center;position:relative;">' +
+          '<button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:20px;cursor:pointer;">×</button>' +
+          '<div style="font-size:48px;margin-bottom:8px;">🏪</div>' +
+          '<div style="font-family:\'Playfair Display\',serif;font-size:22px;font-weight:900;margin-bottom:4px;">Werde Verkäufer</div>' +
+          '<div style="font-size:12.5px;opacity:.92;line-height:1.5;">Verkaufe eigene Pflanzen, Samen, Werkzeug oder Imker-Beratung an die GreenScan-Community.</div>' +
+        '</div>' +
+        '<div style="padding:18px 20px;">' +
+          '<ul style="font-size:13px;color:var(--text2);line-height:1.85;margin:0 0 16px;padding-left:18px;">' +
+            '<li>✓ Pro Verkauf 5% GreenScan-Gebühr</li>' +
+            '<li>✓ TWINT, Karte, Kontoüberweisung — alles unterstützt</li>' +
+            '<li>✓ Vereinfachte Schweizer Steuer-Reports via Stripe-Dashboard</li>' +
+            '<li>✓ Geld auf dein Bankkonto in 2-7 Tagen</li>' +
+          '</ul>' +
+          '<button onclick="gsMarketplaceStartConnect()" style="width:100%;padding:14px;background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🔐 Mit Stripe verbinden</button>' +
+          '<div style="font-size:10.5px;color:var(--muted);text-align:center;margin-top:12px;line-height:1.5;">Du verlässt GreenScan kurz für die Stripe-Registrierung.<br>Dauer: 3-5 Minuten.</div>' +
+        '</div>' +
+      '</div>';
+  } else if (s.status === 'active') {
+    body =
+      '<div style="padding:24px 22px;text-align:center;position:relative;">' +
+        '<button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(0,0,0,.08);color:var(--text);font-size:18px;cursor:pointer;">×</button>' +
+        '<div style="font-size:48px;margin-bottom:8px;">✅</div>' +
+        '<h2 style="margin:0 0 6px;font-family:\'Playfair Display\',serif;color:var(--g-main);">Verkäufer-Konto aktiv</h2>' +
+        '<p style="font-size:13px;color:var(--muted);margin:0 0 18px;line-height:1.5;">Du kannst jetzt Listings im Marktplatz veröffentlichen. Geld geht direkt an dich, GreenScan erhält 5% Plattform-Gebühr.</p>' +
+        '<button onclick="gsMarketplaceOpenStripeDashboard()" style="width:100%;padding:13px;background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;border:none;border-radius:12px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:8px;">📊 Stripe-Dashboard öffnen</button>' +
+        '<button onclick="closeModal(\'detail-modal\');if(typeof switchTab===\'function\')switchTab(\'marktplatz\');" style="width:100%;padding:13px;background:var(--card);color:var(--text);border:1.5px solid var(--g-main);border-radius:12px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;">➕ Zum Marktplatz</button>' +
+      '</div>';
+  } else if (s.status === 'restricted') {
+    body =
+      '<div style="padding:24px 22px;text-align:center;position:relative;">' +
+        '<button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(0,0,0,.08);color:var(--text);font-size:18px;cursor:pointer;">×</button>' +
+        '<div style="font-size:48px;margin-bottom:8px;">⚠️</div>' +
+        '<h2 style="margin:0 0 6px;font-family:\'Playfair Display\',serif;color:#e65100;">Verkäufer-Konto eingeschränkt</h2>' +
+        '<p style="font-size:13px;color:var(--muted);margin:0 0 18px;line-height:1.55;">Stripe benötigt weitere Angaben (Ausweis, Bankkonto oder Steuer-ID). Bis dahin können keine Auszahlungen erfolgen.</p>' +
+        '<button onclick="gsMarketplaceStartConnect()" style="width:100%;padding:14px;background:linear-gradient(135deg,#e65100,#bf360c);color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">→ Angaben vervollständigen</button>' +
+      '</div>';
+  } else {
+    body =
+      '<div style="padding:24px 22px;text-align:center;position:relative;">' +
+        '<button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(0,0,0,.08);color:var(--text);font-size:18px;cursor:pointer;">×</button>' +
+        '<div style="font-size:48px;margin-bottom:8px;">❌</div>' +
+        '<h2 style="margin:0 0 6px;font-family:\'Playfair Display\',serif;color:#c62828;">Verkäufer-Konto deaktiviert</h2>' +
+        '<p style="font-size:13px;color:var(--muted);margin:0 0 18px;line-height:1.55;">Dein Konto wurde deaktiviert. Bei Fragen erreichst du uns unter www.greenscan@gmail.com.</p>' +
+        '<a href="mailto:www.greenscan@gmail.com?subject=Marketplace-Konto%20deaktiviert" style="display:inline-block;padding:12px 24px;background:var(--card);color:var(--text);border:1.5px solid var(--border);border-radius:12px;font-weight:700;font-size:13px;text-decoration:none;font-family:inherit;">📧 Support kontaktieren</a>' +
+      '</div>';
+  }
+  mc.innerHTML = body;
+}
+window.gsMarketplaceOpenSellerScreen = gsMarketplaceOpenSellerScreen;
+
+async function gsMarketplaceStartConnect() {
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) {
+    if (typeof gsToast === 'function') gsToast('🔑 Bitte zuerst anmelden', 'error');
+    return;
+  }
+  if (typeof gsToast === 'function') gsToast('🔐 Stripe-Onboarding wird geöffnet…', 'info', 2500);
+  try {
+    var token = (window.gsStore && typeof gsStore.get === 'function') ? gsStore.get('gs_sb_token', null) : null;
+    var fetchFn = window._gsFetch || fetch;
+    var resp = await fetchFn(SB_URL + '/functions/v1/stripe-create-connect-account', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SB_KEY,
+        'Authorization': 'Bearer ' + token
+      },
+      body: '{}'
+    }, 30000);
+    var j = await resp.json();
+    if (resp.ok && j && j.ok && j.onboarding_url) {
+      window.location.href = j.onboarding_url;
+    } else {
+      var msg = (j && j.error) ? j.error : 'Fehler bei Stripe-Verbindung';
+      if (typeof gsToast === 'function') gsToast('❌ ' + msg, 'error');
+    }
+  } catch(e) {
+    if (typeof gsToast === 'function') gsToast('❌ Verbindung zu Stripe fehlgeschlagen', 'error');
+  }
+}
+window.gsMarketplaceStartConnect = gsMarketplaceStartConnect;
+
+// Stripe-Express-Dashboard. Express-Dashboard waehlt automatisch das richtige
+// Konto wenn der User im Browser-Tab bei stripe.com eingeloggt ist.
+function gsMarketplaceOpenStripeDashboard() {
+  window.open('https://dashboard.stripe.com/express', '_blank', 'noopener,noreferrer');
+}
+window.gsMarketplaceOpenStripeDashboard = gsMarketplaceOpenStripeDashboard;
+
+// URL-Param-Handler nach Stripe-Onboarding-Return.
+(function(){
+  try {
+    var qs = new URLSearchParams(location.search || '');
+    var done = qs.get('marketplace_done');
+    var refresh = qs.get('marketplace_refresh');
+    if (!done && !refresh) return;
+    try {
+      var clean = location.pathname + location.hash;
+      history.replaceState({}, '', clean);
+    } catch(_){}
+    setTimeout(function(){
+      if (done === '1') {
+        if (typeof gsToast === 'function') gsToast('✅ Verkäufer-Konto verbunden — wird live geprüft', 'success', 4500);
+        try { gsMarketplaceRefreshSettingsRow(); } catch(_){}
+        setTimeout(function(){ try { gsMarketplaceOpenSellerScreen(); } catch(_){} }, 1200);
+      } else if (refresh === '1') {
+        if (typeof gsToast === 'function') gsToast('↩️ Stripe-Onboarding abgebrochen — du kannst es jederzeit wiederholen', 'info', 4500);
+        try { gsMarketplaceRefreshSettingsRow(); } catch(_){}
+      }
+    }, 800);
+  } catch(_){}
+})();
 
 // v23.77: Globalen Key vom Server pullen (admin setzt → alle nutzen automatisch)
 window._gsApiKeyPullPromise = null;
@@ -31459,6 +31659,8 @@ function initSettingsScreen() {
     apiEl.textContent = hasKey ? '✅ API Key gesetzt' : '❌ Kein API Key – tippen zum Einrichten';
     apiEl.style.color = hasKey ? '#2e7d32' : '#c62828';
   }
+  // v26.6 Marketplace-Connect: Verkaeufer-Row dynamisch aktualisieren.
+  try { if (typeof gsMarketplaceRefreshSettingsRow === 'function') gsMarketplaceRefreshSettingsRow(); } catch(_){}
   // v25.37: Personal-Key-Remove-Row Visibility + Status-Hint.
   // Zeigt die Row nur wenn ein ps_api_key gesetzt ist. Bei ungueltigen Keys
   // (zu kurz / kein sk-ant-) erscheint zusaetzlich ein Warn-Hinweis.
@@ -44743,6 +44945,43 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.12', date: '21.05.2026',
+    headline: '🏪 Marketplace-Connect — Verkaeufer-Konto via Stripe Connect',
+    summary: 'GreenScan-User koennen sich als Marketplace-Verkaeufer registrieren und Stripe-Express-Konto verbinden. Listings (Pflanzen, Samen, Werkzeug, Imker-Beratung) gehen direkt an den Verkaeufer, GreenScan erhaelt 5% Plattform-Gebuehr. Sprint-Identitaet "v26.6 Marketplace-Connect" — GS_VERSION-Bump zu v26.12 weil Cowork v26.1-v26.11 lokal vorgebaut hat (Karten-Reparatur, A11y, Maxlength, Console, Performance).',
+    user_summary: '🏪 Neu: Werde Verkaeufer im Marktplatz! Verbinde dein Stripe-Konto in Settings und verkaufe eigene Pflanzen, Samen oder Werkzeug. Zahlung sicher ueber Stripe, Geld in 2-7 Tagen auf dein Konto.',
+    items: [
+      {emoji:'🗄️', bold:'Backend marketplace_sellers:', text:' Neue Tabelle mit RLS (User darf nur eigenen Eintrag lesen/schreiben), View v_my_marketplace_seller mit profiles-JOIN, Trigger fuer updated_at. Migration in supabase/migrations/20260520_marketplace_sellers.sql.'},
+      {emoji:'⚡', bold:'Edge-Fn stripe-create-connect-account:', text:' Express-Onboarding-Account erstellen (CH, CHF, individual), AccountLink mit refresh_url/return_url, idempotent (existing account wird reused). Code in supabase/functions/stripe-create-connect-account/index.ts. Cowork deploys via Supabase MCP.'},
+      {emoji:'⚙️', bold:'Settings-Row:', text:' Neue Card in "KI & Scanner" Block — Title/Sub dynamisch je nach Status (Pending/Active/Restricted/Disabled) via gsMarketplaceRefreshSettingsRow im initSettingsScreen.'},
+      {emoji:'🖼️', bold:'gsMarketplaceOpenSellerScreen:', text:' Modal mit 4 Status-Renderings — Pending (Werbe-Block + Mit-Stripe-verbinden-Button), Active (Dashboard + Zum-Marktplatz), Restricted (Angaben-vervollstaendigen), Disabled (Support-Mail).'},
+      {emoji:'🔐', bold:'gsMarketplaceStartConnect:', text:' POST stripe-create-connect-account mit Auth-Token, 30s Timeout, redirect zu onboarding_url. Error-Handling mit Toast.'},
+      {emoji:'↩️', bold:'URL-Param-Handler:', text:' ?marketplace_done=1 zeigt Success-Toast + auto-opens Seller-Screen. ?marketplace_refresh=1 zeigt Abbruch-Toast. history.replaceState bereinigt URL.'},
+      {emoji:'⚠️', bold:'Constraint:', text:' Stripe Connect muss im Dashboard aktiviert sein (https://dashboard.stripe.com/settings/connect) bevor erste Anmeldung klappt. stripe-webhook v9 account.updated Handler ist Cowork-Pflicht damit Status auto-syncen.'},
+      {emoji:'🚀', bold:'Cowork-Sync:', text:' Bundled mit v26.1-v26.11 lokalen Aenderungen (Karten-Reparatur Tile-Fallback, A11y Auto-Labeler 78 Buttons, Auto-Maxlength + Z-Index-Tokens, Console-Cleanup silent in Production, Performance-Pass preconnect/dns-prefetch/_gsAutoLazyImg).'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.13 Trial-Reminder (Push + Banner 24h vor Trial-End). v26.14 i18n Pass-3 (FR+IT komplettieren). v26.0+ Pre-Release-stable.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 inline-scripts node --check OK · 4 marketplace-Funktionen + Settings-Row + URL-Handler eingebaut · sw.js gs-v26.12 OK.'},
+    ]
+  },
+  {
+    v: 'v26.11', date: '20.05.2026',
+    headline: '⚡ Schnellerer Start · Bilder laden im Hintergrund',
+    user_summary: 'Die App startet sichtbar schneller, weil Karten-Engine und Bilder im Hintergrund nachgeladen werden — du siehst die Inhalte sofort, statt auf alles zu warten.',
+    user_items: [
+      {emoji:'⚡', text:'Karten-Code (Leaflet) blockiert den Start nicht mehr — App ist schneller benutzbar.'},
+      {emoji:'🖼️', text:'Bilder weiter unten laden erst wenn du dorthin scrollst — spart Datenvolumen + Akku.'},
+      {emoji:'🔌', text:'Verbindung zu Supabase wird beim Start schon „warm" gehalten — erste Datenabfrage fühlt sich sofort an.'},
+    ],
+    summary: 'v26.11 Cowork Performance-Sprint: 5 Preconnect/dns-prefetch/prefetch Hints im <head> fuer Supabase/Fonts/Anthropic/Stripe/three.min.js. leaflet.js mit defer (kein Boot-Block — gsLoadLeaflet Polling-Helper handled spaeten Load). _gsAutoLazyImg IIFE patcht alle <img> ausser Top-4 LCP-Kandidaten auf loading=lazy + decoding=async + fetchpriority=low. MutationObserver wie bei v26.3/v26.4. Erwarteter LCP-Boost +20-40%, weniger Datenvolumen bei Scroll-Heavy-Sessions.',
+    items: [
+      {emoji:'⚡', bold:'preconnect/dns-prefetch (neu):', text:' <link rel="preconnect" href="vowbiueikwrauuceilhc.supabase.co" crossorigin> + fonts.googleapis + fonts.gstatic. dns-prefetch fuer api.anthropic.com + api.stripe.com. prefetch as="script" fuer /assets/three.min.js (lazy bei AR/3D-Use).'},
+      {emoji:'🚀', bold:'leaflet.js defer:', text:' Vorher boot-blockierend (148 KB sync parse). Jetzt defer — gsLoadLeaflet() pollt typeof L beim Tab-Open, war bereits resilient gegen lazy Load.'},
+      {emoji:'🖼️', bold:'_gsAutoLazyImg (neu):', text:' patcht alle <img>:not([loading]) ausser ersten 4 (LCP-Kandidaten) auf loading=lazy + decoding=async + fetchpriority=low. MutationObserver fuer dynamische Bild-Renderer (Marketplace-Listings, Plant-Detail-Modals).'},
+      {emoji:'📊', bold:'Erwarteter Impact:', text:' LCP -300ms bis -800ms je nach Connection, FCP -100ms (defer), TBT -50ms (kein synchroner Leaflet-Parse). Bytes-on-Load -150KB bei Plant-Liste mit 50+ Thumbnails.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.6 Marketplace-Frontend (Code). v26.7 Trial-Reminder (Code). v26.8 i18n FR/IT Pass-3 (Code). Plus Daily-Routine via CODE_ROUTINE_MASTER.md.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check OK · sw.js gs-v26.11 OK · _headers v26.11 · meta=26.11.20260520 · 5 preconnect/prefetch hints im <head> · leaflet.js defer · _gsAutoLazyImg aktiv (~17 Bilder lazy nach Boot).'},
+    ]
+  },
+  {
     v: 'v26.5', date: '20.05.2026',
     headline: '🧹 Saubere Konsole · weniger Hintergrund-Rauschen',
     user_summary: 'Hinter den Kulissen: GreenScan schreibt weniger Diagnose-Meldungen in die Browser-Konsole — bessere Performance, weniger Krach. Entwickler koennen Dev-Mode jederzeit anschalten.',
@@ -46178,7 +46417,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.5';
+var GS_VERSION = 'v26.12';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -49339,6 +49578,47 @@ window.gsRenderGardenStats = function(){
     });
     obs.observe(document.body || document.documentElement, { childList: true, subtree: true });
     window._gsAutoMlObs = obs;
+  } catch(_){}
+})();
+
+// v26.11 ═══ AUTO-LAZY-IMG fuer below-fold Bilder ═══════════════════
+// Patcht alle <img> ohne loading-Attr auf loading="lazy" — ausser Hero/LCP-Bilder
+// (erste 4 Stuck). Plus decoding="async" + fetchpriority="low" fuer noch
+// weiteren Boot-Speedup. Initial-Pass + MutationObserver wie v26.3/v26.4.
+(function _gsAutoLazyImg(){
+  if (window._gsAutoLazyInit) return;
+  window._gsAutoLazyInit = true;
+  function patch(root){
+    try {
+      var imgs = (root || document).querySelectorAll('img:not([loading])');
+      var fixed = 0, skipped = 0;
+      imgs.forEach(function(img, i){
+        // Top-4 Bilder im DOM = LCP-Kandidaten (Splash, Logo, Header, Hero)
+        if (i < 4) { skipped++; return; }
+        try {
+          img.setAttribute('loading', 'lazy');
+          if (!img.hasAttribute('decoding')) img.setAttribute('decoding', 'async');
+          if (!img.hasAttribute('fetchpriority')) img.setAttribute('fetchpriority', 'low');
+          fixed++;
+        } catch(_) {}
+      });
+      return fixed;
+    } catch(_) { return 0; }
+  }
+  function run(){
+    var n = patch(document);
+    if (n && window.console && console.debug) console.debug('[gsAutoLazy] +' + n + ' img lazy');
+  }
+  if (document.readyState !== 'loading') setTimeout(run, 700);
+  else document.addEventListener('DOMContentLoaded', function(){ setTimeout(run, 700); });
+  try {
+    var obs = new MutationObserver(function(mutations){
+      var dirty = false;
+      mutations.forEach(function(m){ if (m.addedNodes && m.addedNodes.length) dirty = true; });
+      if (dirty) { try { patch(document); } catch(_){} }
+    });
+    obs.observe(document.body || document.documentElement, { childList: true, subtree: true });
+    window._gsAutoLazyObs = obs;
   } catch(_){}
 })();
 

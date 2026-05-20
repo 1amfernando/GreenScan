@@ -1,5 +1,7 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
+   v26.12 — Marketplace-Connect Frontend (v26.6-Sprint, GS_VERSION-Bump erfolgt zu v26.12 weil Cowork v26.1-v26.11 lokal vorgebaut hat). Settings-Row "Verkaeufer-Konto verbinden" + 5 Functions (gsMarketplaceLoadStatus, gsMarketplaceRefreshSettingsRow, gsMarketplaceOpenSellerScreen mit 4 Statusansichten Pending/Active/Restricted/Disabled, gsMarketplaceStartConnect ruft stripe-create-connect-account Edge-Fn, gsMarketplaceOpenStripeDashboard) + URL-Handler ?marketplace_done=1/?marketplace_refresh=1. Backend-Files in supabase/migrations/20260520_marketplace_sellers.sql + supabase/functions/stripe-create-connect-account/index.ts. Cowork deploys via Supabase MCP. Bundled mit dem ungepushten lokalen v26.11 Performance-Pass (preconnect/dns-prefetch/_gsAutoLazyImg) und v26.1-v26.5 (Karten-Reparatur, A11y Auto-Labeler, Maxlength, Z-Index, Console-Cleanup).
+   v26.11 — Performance-Pass: preconnect zu Supabase/Fonts, dns-prefetch Anthropic+Stripe, prefetch three.min.js, leaflet.js mit defer (kein Boot-Block — gsLoadLeaflet pollt eh). _gsAutoLazyImg patcht alle <img> ausser Top-4 LCP-Kandidaten auf loading=lazy + decoding=async + fetchpriority=low. Erwarteter LCP-Boost +20-40%.
    v26.5 — Console-Cleanup _gsConsoleCleanup: silent no-op fuer console.log/debug/info in Production (Host !localhost UND nicht ?gs_debug=1 UND nicht localStorage.gs_debug=1). console.warn/error/trace bleiben aktiv. window.gsConsoleRestore() schaltet ad-hoc ein. Reduziert Noise + PII-Leakage + DevTools-Render-Cost. 80 Boot-Logs (72 log + 4 debug + 4 info) werden silent ohne dass einzelne Calls geaendert werden mussten.
    v26.4 — Auto-Maxlength + Z-Index-Tokens. _gsAutoMaxlength scannt alle <input>/<textarea> ohne maxlength und setzt sinnvolle Limits via Placeholder/Name-Heuristik (name=80, search=100, email=254, code=16, textarea_default=500, feedback/share=2000). MutationObserver wie bei v26.3. Plus :root CSS-Tokens --z-base/sticky/dropdown/overlay/modal/toast/tooltip/whatsnew/critical fuer kuenftige Layer.
    v26.3 — A11y Auto-Labeler: 78 Icon-only Buttons (×, 🗑️, ★, ➤, ❤, 💬, ↑, ＋, 📷 etc.) bekommen automatisch aria-label via Boot-Scan + MutationObserver fuer dynamisch gerenderte Modals. Screen-Reader-friendly (NVDA/VoiceOver/TalkBack) ohne 78 manuelle HTML-Edits. EMOJI_LABELS-Map mit ~40 Symbol→Text-Mappings. Defensive: skipt Buttons mit aria-labelledby oder echtem Text-Content.
@@ -15,7 +17,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v26.5';
+const VERSION = 'gs-v26.12';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
