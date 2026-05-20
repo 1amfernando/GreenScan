@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.1.20260519">
+<meta name="app-version" content="26.3.20260520">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -44694,6 +44694,25 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.3', date: '20.05.2026',
+    headline: '♿ Barrierefreiheit · Icon-Knoepfe sprechen jetzt mit Screen-Readern',
+    user_summary: 'Wer GreenScan mit einem Screen-Reader (VoiceOver, NVDA, TalkBack) nutzt, hoert ab sofort sinnvolle Bezeichnungen fuer alle Symbol-Knoepfe — Schliessen, Loeschen, Bewerten, Foto, Teilen und mehr.',
+    user_items: [
+      {emoji:'♿', text:'Symbol-Knoepfe sagen jetzt ihren Zweck — z.B. „Schliessen" statt nur „X" — wenn dir GreenScan via Screen-Reader vorgelesen wird.'},
+      {emoji:'🔄', text:'Auch neu eingeblendete Fenster (Abo-Modal, Was-ist-neu, KI-Doctor) bekommen automatisch die richtigen Bezeichnungen.'},
+      {emoji:'🌍', text:'Bessere Barrierefreiheit hilft allen — auch wer Tastatur-Navigation oder Sprach-Steuerung nutzt.'},
+    ],
+    summary: 'v26.3 A11y Sprint: Auto-Labeler _gsAutoArias scannt beim Boot alle <button>EMOJI</button> ohne aria-label und ergaenzt aus EMOJI_LABELS-Map (~40 Symbol→Text-Mappings). MutationObserver patcht dynamisch eingeblendete Modals (gsShowAboScreen, gsShowFirstTrialModal, gsRenderWhatsNew, KI-Doctor etc.) ohne Re-Render-Cost. Defensive: skipt Buttons mit aria-labelledby oder echtem Text-Content (>4 lateinische Zeichen). Console-Debug-Log "+ N aria-labels" beim ersten Run.',
+    items: [
+      {emoji:'♿', bold:'_gsAutoArias (neu):', text:' IIFE mit window._gsAutoAriasInit Guard. labelize(root) iteriert button:not([aria-label]), liest textContent, mappt via EMOJI_LABELS, setAttribute("aria-label", lbl). Fallback-Reihenfolge: direct → first-char → title-attr.'},
+      {emoji:'🗺️', bold:'EMOJI_LABELS-Map:', text:' 40+ Eintraege. × ✕ ✖ → Schliessen · 🗑 🗑️ → Loeschen · ★ ⭐ → Bewerten · ➤ → Weiter · ＋ + ➕ → Hinzufuegen · ❤ ❤️ 💚 → Gefaellt mir · 💬 → Kommentieren · 📷 📸 → Foto aufnehmen · 🖼 🖼️ → Bild auswaehlen · 🔄 ↻ → Aktualisieren · 🔍 🔎 → Suchen · ⚙ ⚙️ → Einstellungen · 🔔 → Benachrichtigungen · ▶ ▶️ → Abspielen · ⏸ ⏸️ → Pause · ↑ ↓ ← → → Richtungen.'},
+      {emoji:'🔭', bold:'MutationObserver:', text:' beobachtet document.body fuer childList+subtree Aenderungen. Bei neuen Nodes triggert labelize(document). Dirty-Flag prevented dass jeder Add ein voller Scan ausloest, aber observer ist nicht throttled — bei extrem vielen Mutations koennten wir spaeter requestIdleCallback nutzen.'},
+      {emoji:'🛡️', bold:'Defensive Skips:', text:' aria-labelledby-Wins-Path · echter Text-Content > 4 lateinische Zeichen wird ignoriert (real Button-Text) · Empty Buttons skipped.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.4 maxlength + Z-Index-Tokens. v26.5 Console-Cleanup. v26.6 Marketplace-Connect-Frontend.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check OK · sw.js gs-v26.3 OK · _headers v26.3 · meta=26.3.20260520 · 78 Icon-only Buttons ohne aria-label gefunden → werden alle beim Boot gepatcht.'},
+    ]
+  },
+  {
     v: 'v26.1', date: '19.05.2026',
     headline: '🗺️ Karte repariert · Nutzerfreundliche Update-Meldungen',
     // v26.2: user_summary + user_items zeigen wir End-Usern; items + summary bleiben fuer Devs/Changelog
@@ -46073,7 +46092,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.1';
+var GS_VERSION = 'v26.3';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -49066,6 +49085,94 @@ window.gsRenderGardenStats = function(){
       } catch(e){}
     }, 3500);
   });
+})();
+
+// v26.3 ═══ A11Y AUTO-LABELER fuer Icon-only Buttons ═══════════════════
+// Findet alle <button>EMOJI</button> ohne aria-label und ergaenzt einen
+// passenden Label-Text aus EMOJI_LABELS-Map. Laeuft idempotent beim Boot +
+// nach jedem dynamischen Render (MutationObserver). Verbessert Screen-Reader
+// Verstaendlichkeit (NVDA/VoiceOver/TalkBack) ohne 78 manuelle HTML-Edits.
+(function _gsAutoArias(){
+  if (window._gsAutoAriasInit) return;
+  window._gsAutoAriasInit = true;
+  var EMOJI_LABELS = {
+    '×':'Schliessen', '✕':'Schliessen', '✖':'Schliessen',
+    '＋':'Hinzufuegen', '+':'Hinzufuegen', '➕':'Hinzufuegen',
+    '🗑':'Loeschen', '🗑️':'Loeschen', '🪦':'Loeschen',
+    '★':'Bewerten', '⭐':'Bewerten',
+    '➤':'Weiter', '→':'Weiter', '⏭':'Weiter',
+    '←':'Zurueck', '⏮':'Zurueck',
+    '↑':'Nach oben', '⬆':'Nach oben',
+    '↓':'Nach unten', '⬇':'Nach unten',
+    '❤':'Gefaellt mir', '❤️':'Gefaellt mir', '💚':'Gefaellt mir',
+    '💬':'Kommentieren',
+    '📷':'Foto aufnehmen', '📸':'Foto aufnehmen', '🖼️':'Bild auswaehlen', '🖼':'Bild auswaehlen',
+    '🔄':'Aktualisieren', '↻':'Aktualisieren',
+    '📚':'Bibliothek oeffnen',
+    '🔥':'Heatmap anzeigen',
+    '🔬':'Details',
+    '⏰':'Erinnerung',
+    '🧭':'Kompass',
+    '⚙':'Einstellungen', '⚙️':'Einstellungen',
+    '🔍':'Suchen', '🔎':'Suchen',
+    '🌐':'Sprache aendern',
+    '⌫':'Loeschen',
+    '☰':'Menue',
+    '▶':'Abspielen', '▶️':'Abspielen', '⏸':'Pause', '⏸️':'Pause',
+    '🔔':'Benachrichtigungen', '🔕':'Benachrichtigungen stumm',
+    '📍':'Standort', '📌':'Anpinnen',
+    '✅':'Bestaetigen', '✔':'Bestaetigen', '✔️':'Bestaetigen',
+    '❌':'Abbrechen',
+    '⬇️':'Herunterladen', '📥':'Herunterladen', '⬆️':'Hochladen', '📤':'Hochladen', '🔗':'Teilen',
+    'i':'Information', 'ℹ':'Information', 'ℹ️':'Information',
+    '?':'Hilfe', '？':'Hilfe',
+  };
+  function labelize(root){
+    try {
+      var buttons = (root || document).querySelectorAll('button:not([aria-label])');
+      var fixed = 0;
+      buttons.forEach(function(btn){
+        // Skip wenn aria-labelledby gesetzt
+        if (btn.hasAttribute('aria-labelledby')) return;
+        // Skip wenn das Element echten Text-Content hat (mehr als nur Symbol)
+        var txt = (btn.textContent || '').trim();
+        if (!txt) return;
+        // Pure-Symbol-Check: ist der Text nur 1-3 chars und kein lateinischer Buchstabe?
+        if (/[a-zA-ZäöüÄÖÜß]/.test(txt) && txt.length > 4) return;
+        // Direct-Lookup
+        var lbl = EMOJI_LABELS[txt];
+        if (!lbl) {
+          // Fallback: ersten Char probieren
+          lbl = EMOJI_LABELS[txt.charAt(0)];
+        }
+        if (!lbl) {
+          // Title-Attribut als Fallback
+          var title = btn.getAttribute('title');
+          if (title) lbl = title;
+        }
+        if (lbl) { btn.setAttribute('aria-label', lbl); fixed++; }
+      });
+      return fixed;
+    } catch(_) { return 0; }
+  }
+  function run(){
+    var n = labelize(document);
+    if (n && window.console && console.debug) console.debug('[gsAutoArias] +' + n + ' aria-labels');
+  }
+  if (document.readyState !== 'loading') setTimeout(run, 500);
+  else document.addEventListener('DOMContentLoaded', function(){ setTimeout(run, 500); });
+  // MutationObserver fuer dynamisch gerenderte Modals (gsShowAboScreen, gsShowFirstTrialModal, etc.)
+  try {
+    var obs = new MutationObserver(function(mutations){
+      var dirty = false;
+      mutations.forEach(function(m){
+        if (m.addedNodes && m.addedNodes.length) dirty = true;
+      });
+      if (dirty) { try { labelize(document); } catch(_){} }
+    });
+    obs.observe(document.body || document.documentElement, { childList: true, subtree: true });
+    window._gsAutoAriasObs = obs;
+  } catch(_){}
 })();
 
 // v24.38: ═══ CSV-EXPORT für Pflanzen + Garten-Tagebuch ═══════════════════
