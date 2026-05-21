@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.15.20260521">
+<meta name="app-version" content="26.16.20260520">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -45050,6 +45050,25 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.16', date: '20.05.2026',
+    headline: '⚙️ Cache-Inkonsistenz-Fix · neue Versionen erscheinen sofort',
+    user_summary: 'Hintergrund-Verbesserung: wenn wir ein Update pushen, siehst du es sofort beim naechsten Browser-Refresh — keine veraltete Version mehr im Cache.',
+    user_items: [
+      {emoji:'⚙️', text:'HTML-Seite revalidiert bei jedem Besuch — neue Versionen kommen sofort an.'},
+      {emoji:'⚡', text:'Statische Bilder + Bibliotheken bleiben 1 Jahr im Cache (sind versioniert) — schnellerer Wiederbesuch.'},
+      {emoji:'🔄', text:'Service-Worker bumpt sich bei jeder Version automatisch — Update-Banner kommt zuverlaessig durch.'},
+    ],
+    summary: 'v26.16 Cowork Cache-Sprint: _headers HTML-Shell (/ und /index.html) auf max-age=0,must-revalidate (Cloudflare-Default war "cache" — User sahen alten GS_VERSION trotz Live-Deploy). Plus /assets/* + /data/* auf max-age=31536000 immutable (sind versioned via ?v=N query, sicherer Long-Cache). sw.js bleibt unveraendert (war schon max-age=0,must-revalidate aus v25.x).',
+    items: [
+      {emoji:'⚙️', bold:'_headers Cache-Control HTML:', text:' / und /index.html bekommen max-age=0,must-revalidate. Browser fragt bei jedem Aufruf den Server: "Hat sich was geaendert?" Wenn ja → neuer Body. Wenn nein → 304 (kein Re-Transfer). Loest Cache-Drift wo User stundenlang alte Version sahen.'},
+      {emoji:'🗄️', bold:'_headers Assets + Data Long-Cache:', text:' /assets/* (leaflet.js, three.min.js, leaflet-images/*) und /data/* (plants.v1.js) bekommen max-age=31536000 immutable. Diese URLs sind content-versioned (?v=1) — Bump auf v=2 invalidet automatisch. Browser muss sie nie nochmal holen bis URL aendert.'},
+      {emoji:'🔄', bold:'SW Update-Banner robuster:', text:' sw.js Top-Comment versionsbump dokumentiert v26.16 Cache-Strategie. Aus v25.x bleibt sw.js: Cache-Control public, max-age=0, must-revalidate + Service-Worker-Allowed: / (war schon korrekt). VERSION-Bump sorgt fuer Cache-Key-Refresh aller SW-internen Caches (SHELL_CACHE, STATIC_CACHE, IMAGE_CACHE, RUNTIME_CACHE).'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.9 AR-View MVP (P3 optional). Cowork-Backend-Deploys fuer Code\'s v26.12/v26.13 Edge-Fns. Live-Mode-Switch (Test→Live) Stripe.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check OK · sw.js gs-v26.16 · _headers v26.16 · meta=26.16.20260520 · 4 neue Cache-Control Bloecke in _headers · Push → HardRefresh → GS_VERSION live=v26.16 sofort sichtbar.'},
+    ]
+  },
+  
+  {
     v: 'v26.15', date: '21.05.2026',
     headline: '✨ Update-News einfacher — Auto-User-Summary + Tech-Details-Toggle fuer alle Releases',
     summary: 'Sprint-Identitaet "v26.2 User-friendly Release-Notes Vollausbau". Cowork hat in v26.1 user_summary/user_items-Felder eingefuehrt — aber ~30 historische v25.x-Releases haben das noch nicht. Diese Version fuegt eine Auto-Heuristik hinzu, die fuer JEDEN alten Release einen lesbaren ersten Satz und Top-Items extrahiert. Plus Toggle "Technische Details" pro Release fuer Devs.',
@@ -46623,7 +46642,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.15';
+var GS_VERSION = 'v26.16';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

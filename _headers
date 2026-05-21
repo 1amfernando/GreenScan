@@ -1,4 +1,4 @@
-# GreenScan — Cloudflare Pages Security Headers (v26.15)
+# GreenScan — Cloudflare Pages Security Headers (v26.16)
 # Apply to every path on the deployed site.
 
 /*
@@ -30,3 +30,20 @@
 # Offline fallback page
 /offline.html
   Cache-Control: public, max-age=600
+
+# v26.16 Cache-Inkonsistenz-Fix: HTML-Shell darf nie stale serven nach Push.
+# Cloudflare-Default war "cache" — User sahen alten GS_VERSION trotz Live-Deploy.
+# Jetzt: HTML revalidiert immer beim Server, Body nur bei Aenderung gepullt.
+/
+  Cache-Control: public, max-age=0, must-revalidate
+
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+# v26.16 Self-hosted Assets sind content-versioned (?v=N query). Long-Cache + immutable.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# v26.16 PLANT_DB ist versioned (?v=N). Long-Cache, bumpt bei v=N+1.
+/data/*
+  Cache-Control: public, max-age=31536000, immutable
