@@ -1,5 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
+   v26.15 — User-friendly Release-Notes Vollausbau (v26.2-Sprint). gsAutoUserSummary nimmt ersten Satz der technischen summary fuer alle alten v25.x-Releases. gsAutoUserItems filtert Verify/Naechste/Cowork-Tech-Items raus und strippt BUG/BAUSTELLE/B<N>-Praefixe von bold-Texten — Format {emoji, text} fuer End-User. About-Modal + Whats-New-Modal zeigen Default nur user-friendly Items und einen 🔧 Technische Details-Toggle pro Release fuer Power-User/Devs. Backwards-Compat fuer ~30 Legacy-Releases ohne extra-Aufwand.
    v26.14 — i18n Pass-3 Tooling (v26.8-Sprint). Inventory-Script extrahiert 235 unique Translation-Keys aus index.html (218 data-i18n + 18 gsI18n.t + GS_I18N_JS_STRINGS-Map). Bulk-Translate-Skript scripts/i18n_translate.sh ruft i18n-translate Edge-Fn chunk-weise (10 keys, 8s sleep) gegen Anthropic Rate-Limit. gsI18n.coverage() DevTools-Helper + window.gsI18nCoverage() Shortcut fuer Cowork-Verify nach Bulk-Translate. Tatsaechliches FR/IT-Backfill ist Cowork-Pflicht (braucht SERVICE_ROLE_KEY + DB-Diff SELECT-Query).
    v26.13 — Trial-End-Reminder (v26.7-Sprint). Backend daily-push-checker v3 mit notifyTrialEndingSoon (Subs mit trial_end in 24-25h, dedup via push_send_log unique-index Migration 20260521_push_dedup.sql). Frontend gsCheckTrialEnding pruft alle 4.5s nach Boot wenn eingeloggt — bei <36h Trial-Rest zeigt es einen orange In-App-Banner ueber der Bottom-Nav mit "Verlaengern"-CTA zu gsShowAboScreen. sessionStorage-Guard pro Trial-End-Datum verhindert Mehrfach-Show. URL-Handler ?open=abo oeffnet Abo-Modal nach Push-Click.
    v26.12 — Marketplace-Connect Frontend (v26.6-Sprint, GS_VERSION-Bump erfolgt zu v26.12 weil Cowork v26.1-v26.11 lokal vorgebaut hat). Settings-Row "Verkaeufer-Konto verbinden" + 5 Functions (gsMarketplaceLoadStatus, gsMarketplaceRefreshSettingsRow, gsMarketplaceOpenSellerScreen mit 4 Statusansichten Pending/Active/Restricted/Disabled, gsMarketplaceStartConnect ruft stripe-create-connect-account Edge-Fn, gsMarketplaceOpenStripeDashboard) + URL-Handler ?marketplace_done=1/?marketplace_refresh=1. Backend-Files in supabase/migrations/20260520_marketplace_sellers.sql + supabase/functions/stripe-create-connect-account/index.ts. Cowork deploys via Supabase MCP. Bundled mit dem ungepushten lokalen v26.11 Performance-Pass (preconnect/dns-prefetch/_gsAutoLazyImg) und v26.1-v26.5 (Karten-Reparatur, A11y Auto-Labeler, Maxlength, Z-Index, Console-Cleanup).
@@ -19,7 +20,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v26.14';
+const VERSION = 'gs-v26.15';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;

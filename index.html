@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.14.20260521">
+<meta name="app-version" content="26.15.20260521">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -45050,6 +45050,26 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.15', date: '21.05.2026',
+    headline: '✨ Update-News einfacher — Auto-User-Summary + Tech-Details-Toggle fuer alle Releases',
+    summary: 'Sprint-Identitaet "v26.2 User-friendly Release-Notes Vollausbau". Cowork hat in v26.1 user_summary/user_items-Felder eingefuehrt — aber ~30 historische v25.x-Releases haben das noch nicht. Diese Version fuegt eine Auto-Heuristik hinzu, die fuer JEDEN alten Release einen lesbaren ersten Satz und Top-Items extrahiert. Plus Toggle "Technische Details" pro Release fuer Devs.',
+    user_summary: 'Update-News sind jetzt einfacher zu lesen — kein technisches Kauderwelsch mehr. Wer doch alle Details sehen will, klickt auf "Technische Details".',
+    user_items: [
+      { emoji: '✨', text: 'Einfachere Sprache in den Update-News (was hat sich aus deiner Sicht geaendert).' },
+      { emoji: '🔧', text: 'Toggle "Technische Details" fuer Power-User die alle Aenderungen sehen wollen.' },
+      { emoji: '📜', text: 'Funktioniert auch fuer alte Updates — nichts muss nachgepflegt werden.' },
+    ],
+    items: [
+      {emoji:'🪄', bold:'gsAutoUserSummary:', text:' Nimmt ersten Satz der technischen summary (max 220 chars). Fallback fuer alle Releases ohne explizite user_summary.'},
+      {emoji:'🪄', bold:'gsAutoUserItems:', text:' Filtert technische Items (SKIP_BOLD_RX matched Verify/Naechste/Cowork/Constraint/Bilanz/Backwards-Compat/Hard-Lesson) und strippt BUG/BAUSTELLE/B<N>-Praefixe vom bold-Text. Liefert max 6 Items im {emoji, text}-Format.'},
+      {emoji:'📜', bold:'About-Modal:', text:' Default zeigt user-friendly Items pro Release. Pro Release ein Tech-Details-Button der die rohen items mit bold-Praefix einblendet.'},
+      {emoji:'🔔', bold:'Whats-New-Modal:', text:' Nutzt dieselbe Heuristik. Eigener Tech-Toggle unterhalb der User-Items. Backwards-Compat falls Heuristik-Funktionen nicht vorhanden sind.'},
+      {emoji:'🎁', bold:'Zero-Touch:', text:' Existing GS_RELEASES-Eintraege bekommen 0 Aenderungen — Heuristik laeuft zur Render-Zeit. Wenn ein neuer Release explizit user_summary/user_items setzt, wird das bevorzugt.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.0 Pre-Release-stable Tag auf v26.15 (5 Min). v26.16 sw.js Cache-Control header.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 inline-scripts node --check OK · sw.js gs-v26.15 OK.'},
+    ]
+  },
+  {
     v: 'v26.14', date: '21.05.2026',
     headline: '🌍 i18n Pass-3 Tooling — 235 Keys-Inventory + Bulk-Translate-Skript + Coverage-Helper',
     summary: 'Sprint-Identitaet "v26.8 i18n Pass-3". Frontend ist bereit fuer komplette FR+IT-Coverage: gsI18n hat 3-Level-Fallback, neuer gsI18nCoverage()-Helper zeigt pro Sprache geladene Keys-Anzahl. Inventory-Skript zaehlt 235 unique Translation-Keys aus index.html. Bulk-Translate-Skript ruft i18n-translate Edge-Fn chunk-weise (10 keys, 8s sleep). Tatsaechliches FR/IT-Backfill ist Cowork-Pflicht (braucht SERVICE_ROLE_KEY + DB-Diff via Supabase MCP).',
@@ -46483,13 +46503,55 @@ window.GS_RELEASES = [
   },
 ];
 
+// v26.15 (v26.2-Sprint): Heuristik fuer alte Releases ohne user_summary/user_items.
+// Nimmt den ersten Satz der technischen summary (max 220 chars) und macht ihn
+// zur User-Variante. Skip-Phrases wie "stripe-checkout v6 capt" werden grob
+// rausgekuerzt.
+function gsAutoUserSummary(rel){
+  if (!rel) return '';
+  if (rel.user_summary) return rel.user_summary;
+  var s = String(rel.summary || rel.headline || '').trim();
+  if (!s) return '';
+  // Nimm den ersten Satz (bis erster Punkt+Space) oder die ersten 220 Zeichen.
+  var firstSentence = s.split(/(?<=[.!?])\s+/)[0] || s;
+  if (firstSentence.length > 220) firstSentence = firstSentence.slice(0, 217) + '…';
+  return firstSentence;
+}
+
+// v26.15: Heuristik fuer user_items aus technischen items.
+// - bold-Praefix wird wegoperiert ("BAUSTELLE 1 — Foo:" → "Foo")
+// - Verifikations/Tech-Items werden gefiltert (Verify/Naechste/Cowork-Pflicht)
+function gsAutoUserItems(rel){
+  if (!rel) return [];
+  if (Array.isArray(rel.user_items) && rel.user_items.length) return rel.user_items;
+  if (!Array.isArray(rel.items) || !rel.items.length) return [];
+  var SKIP_BOLD_RX = /^(Verify|Naechste|Cowork|Cowork-Pflicht|Constraint|Bilanz|Backwards-Compat|Verify-Bilanz|Hard-Lesson|Sprint-Bilanz)\b/i;
+  var result = [];
+  rel.items.forEach(function(it){
+    var boldRaw = String(it.bold || '').trim();
+    var textRaw = String(it.text || '').trim();
+    if (SKIP_BOLD_RX.test(boldRaw)) return;
+    // bold ohne Praefix-Pattern: "BUG3 Trial 30→7:" → "Trial 30→7"
+    var boldClean = boldRaw
+      .replace(/^(BUG\s*\d+|BAUSTELLE\s*\d+|B\d+|Sprint|TEIL\s*\d+)\s*[—\-:]\s*/i, '')
+      .replace(/:$/, '')
+      .trim();
+    var combined = boldClean ? (boldClean + (textRaw ? ' — ' + textRaw : '')) : textRaw;
+    if (!combined) return;
+    if (combined.length > 200) combined = combined.slice(0, 197) + '…';
+    result.push({ emoji: it.emoji || '✨', text: combined });
+  });
+  return result.slice(0, 6); // max 6 fuer User-Modal
+}
+
 function gsRenderAboutChangelog(){
-  // Aktuelle Version (Highlight-Block) — v26.2: zeigt user_summary wenn vorhanden, sonst summary
+  // Aktuelle Version (Highlight-Block) — v26.2: zeigt user_summary wenn vorhanden,
+  // sonst Auto-Heuristik aus summary. Original-Tech-summary bleibt unter Toggle erreichbar.
   var current = (window.GS_RELEASES && window.GS_RELEASES[0]) || null;
   var hi = document.getElementById('about-current-version');
   if (hi && current) {
     var headlineText = current.headline || '';
-    var summaryText = current.user_summary || current.summary || '';
+    var summaryText = gsAutoUserSummary(current);
     hi.innerHTML =
       '<div style="background:linear-gradient(135deg,rgba(45,138,45,.12),rgba(45,138,45,.04));border-left:3px solid var(--g-main);border-radius:10px;padding:12px 14px;margin-bottom:16px;">' +
         '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--g-main);margin-bottom:4px;">✨ Aktuelle Version</div>' +
@@ -46498,26 +46560,34 @@ function gsRenderAboutChangelog(){
       '</div>';
   }
 
-  // Liste der neuen Versionen (alle aus GS_RELEASES)
-  // v26.2: Nutzerfreundliche user_items werden bevorzugt; klassische items als Fallback fuer aeltere Releases.
-  // user_items haben Format {emoji, text} ohne 'bold'-Praefix → kein Code-Kauderwelsch fuer End-User.
+  // Liste der neuen Versionen (alle aus GS_RELEASES).
+  // v26.15: Default = user-friendly Heuristik. "🔧 Technische Details"-Toggle
+  // schaltet je Release auf die rohen items (mit bold-Praefix) um.
   var listEl = document.getElementById('about-recent-releases');
   if (listEl) {
     var html = '';
-    (window.GS_RELEASES || []).forEach(function(rel){
-      var useUserItems = Array.isArray(rel.user_items) && rel.user_items.length > 0;
-      var src = useUserItems ? rel.user_items : (rel.items || []);
-      var items = src.map(function(it){
-        if (useUserItems) {
-          // Nutzerfreundlich: nur Emoji + Text, kein technisches bold
-          return '<li>' + (it.emoji || '') + ' ' + (it.text || '') + '</li>';
-        }
+    (window.GS_RELEASES || []).forEach(function(rel, idx){
+      var userItems = gsAutoUserItems(rel);
+      var techItems = Array.isArray(rel.items) ? rel.items : [];
+      var hasTech = techItems.length > 0;
+      var userListHtml = userItems.length
+        ? userItems.map(function(it){ return '<li>' + (it.emoji || '') + ' ' + (it.text || '') + '</li>'; }).join('')
+        : techItems.slice(0, 3).map(function(it){ return '<li>' + (it.emoji || '') + ' ' + (it.text || '') + '</li>'; }).join('');
+      var techListHtml = techItems.map(function(it){
         return '<li>' + (it.emoji || '') + ' <b>' + (it.bold || '') + '</b>' + (it.text || '') + '</li>';
       }).join('');
+      var toggleId = 'rel-tech-' + idx;
       html +=
         '<div style="margin-bottom:12px;">' +
           '<div style="font-size:12.5px;font-weight:700;color:var(--g-main);margin-bottom:4px;">' + rel.v + ' · ' + (rel.date || '') + '</div>' +
-          '<ul style="margin:0 0 0 18px;padding:0;font-size:12px;color:var(--text2);line-height:1.7;">' + items + '</ul>' +
+          '<ul style="margin:0 0 0 18px;padding:0;font-size:12px;color:var(--text2);line-height:1.7;">' + userListHtml + '</ul>' +
+          (hasTech ? (
+            '<div style="margin-top:4px;">' +
+              '<button type="button" onclick="(function(b){var t=document.getElementById(\'' + toggleId + '\');if(!t)return;var open=t.style.display!==\'none\';t.style.display=open?\'none\':\'block\';b.textContent=open?\'🔧 Technische Details\':\'▾ Technische Details ausblenden\';})(this)" ' +
+                'style="background:transparent;border:none;color:var(--g-main);font-size:11px;font-weight:700;cursor:pointer;padding:2px 0;font-family:inherit;">🔧 Technische Details</button>' +
+              '<ul id="' + toggleId + '" style="display:none;margin:6px 0 0 18px;padding:0;font-size:11.5px;color:var(--muted);line-height:1.65;">' + techListHtml + '</ul>' +
+            '</div>'
+          ) : '') +
         '</div>';
     });
     listEl.innerHTML = html;
@@ -46553,7 +46623,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.14';
+var GS_VERSION = 'v26.15';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -49503,22 +49573,34 @@ window.gsRenderGardenStats = function(){
     m.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:18px;';
     m.onclick = function(e){ if (e.target === m) closeIt(); };
     function closeIt(){ try { localStorage.setItem('gs_seen_version', current); } catch(e){} m.remove(); }
-    // v26.2: Bevorzuge user_items + user_summary fuer End-User; fallback auf items/summary
-    var useUser = Array.isArray(release.user_items) && release.user_items.length > 0;
-    var src = useUser ? release.user_items : (release.items || []);
-    var summaryText = release.user_summary || release.summary || '';
-    var itemsHtml = src.slice(0, 6).map(function(it){
-      if (useUser) {
-        return '<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);align-items:flex-start;">' +
-          '<div style="font-size:22px;flex-shrink:0;line-height:1;">' + (it.emoji || '✨') + '</div>' +
-          '<div style="flex:1;font-size:13px;line-height:1.5;color:var(--text);">' + (it.text || '') + '</div>' +
-        '</div>';
-      }
+    // v26.15: Auto-Heuristik fuer alte Releases ohne user_summary/user_items.
+    // Fallback auf gsAutoUserSummary / gsAutoUserItems falls Funktionen vorhanden.
+    var userItems = (typeof gsAutoUserItems === 'function')
+      ? gsAutoUserItems(release)
+      : (Array.isArray(release.user_items) ? release.user_items : []);
+    var techItems = Array.isArray(release.items) ? release.items : [];
+    var summaryText = (typeof gsAutoUserSummary === 'function')
+      ? gsAutoUserSummary(release)
+      : (release.user_summary || release.summary || '');
+    var displayItems = userItems.length ? userItems : techItems.slice(0, 4);
+    var itemsHtml = displayItems.slice(0, 6).map(function(it){
       return '<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);align-items:flex-start;">' +
         '<div style="font-size:22px;flex-shrink:0;line-height:1;">' + (it.emoji || '✨') + '</div>' +
-        '<div style="flex:1;font-size:12.5px;line-height:1.45;color:var(--text2);"><b style="color:var(--text);">' + (it.bold || '') + '</b> ' + (it.text || '') + '</div>' +
+        '<div style="flex:1;font-size:13px;line-height:1.5;color:var(--text);">' + (it.text || (it.bold ? (it.bold + ' ') : '')) + '</div>' +
       '</div>';
     }).join('');
+    var techHtml = techItems.map(function(it){
+      return '<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border);align-items:flex-start;">' +
+        '<div style="font-size:18px;flex-shrink:0;line-height:1;">' + (it.emoji || '✨') + '</div>' +
+        '<div style="flex:1;font-size:11.5px;line-height:1.45;color:var(--muted);"><b style="color:var(--text);">' + (it.bold || '') + '</b> ' + (it.text || '') + '</div>' +
+      '</div>';
+    }).join('');
+    var techToggleHtml = (techItems.length ? (
+      '<div style="padding:6px 22px 0;">' +
+        '<button id="gs-wn-tech-toggle" type="button" style="background:transparent;border:none;color:var(--g-main);font-size:11.5px;font-weight:700;cursor:pointer;padding:6px 0;font-family:inherit;">🔧 Technische Details</button>' +
+        '<div id="gs-wn-tech" style="display:none;margin-top:4px;">' + techHtml + '</div>' +
+      '</div>'
+    ) : '');
     m.innerHTML =
       '<div style="background:var(--card);border-radius:18px;max-width:480px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.35);">' +
         '<div style="background:linear-gradient(135deg,#1a3d1a,#2e7d32);color:#fff;padding:22px 22px 18px;text-align:center;position:sticky;top:0;z-index:1;">' +
@@ -49528,12 +49610,21 @@ window.gsRenderGardenStats = function(){
         '</div>' +
         '<div style="padding:14px 22px 8px;font-size:12.5px;color:var(--text2);line-height:1.5;">' + summaryText + '</div>' +
         '<div style="padding:0 22px;">' + itemsHtml + '</div>' +
+        techToggleHtml +
         '<div style="padding:14px 22px 22px;display:flex;gap:8px;">' +
           '<button id="gs-wn-close" style="flex:1;padding:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">Verstanden</button>' +
         '</div>' +
       '</div>';
     document.body.appendChild(m);
     document.getElementById('gs-wn-close').onclick = closeIt;
+    var tt = document.getElementById('gs-wn-tech-toggle');
+    if (tt) tt.onclick = function(){
+      var t = document.getElementById('gs-wn-tech');
+      if (!t) return;
+      var open = t.style.display !== 'none';
+      t.style.display = open ? 'none' : 'block';
+      tt.textContent = open ? '🔧 Technische Details' : '▾ Technische Details ausblenden';
+    };
   }
   // Nach Boot 3.5s zeigen (nicht zu früh — andere Modals haben Vorrang, z.B. Auth)
   document.addEventListener('DOMContentLoaded', function(){
