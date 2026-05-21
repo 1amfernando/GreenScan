@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.13.20260521">
+<meta name="app-version" content="26.14.20260521">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -8797,6 +8797,28 @@ window.gsI18n = (function(){
     return (bundles.de && bundles.de[key]) || fallback || key;
   }
 
+  // v26.8/v26.14: DevTools-Helper fuer i18n-Coverage. In DevTools-Console
+  // aufrufen: gsI18nCoverage()  → { de:218, fr:.., it:.., gsw:.., expected:235 }.
+  // Wird von Cowork nach Bulk-Translate fuer Verify genutzt.
+  function coverage(){
+    var expected = 0;
+    try {
+      var seen = {};
+      // Aus DOM data-i18n + GS_I18N_JS_STRINGS-Keys
+      document.querySelectorAll('[data-i18n]').forEach(function(el){
+        var k = el.getAttribute('data-i18n'); if (k) seen[k] = 1;
+      });
+      var jsMap = window.GS_I18N_JS_STRINGS || {};
+      Object.keys(jsMap).forEach(function(k){ seen[k] = 1; });
+      expected = Object.keys(seen).length;
+    } catch(_){}
+    var out = { expected: expected };
+    SUPPORTED.forEach(function(l){
+      out[l] = (bundles[l] && typeof bundles[l] === 'object') ? Object.keys(bundles[l]).length : 0;
+    });
+    return out;
+  }
+
   // applyToDOM — alle [data-i18n] Elements übersetzen
   function applyToDOM(root){
     root = root || document;
@@ -8842,12 +8864,15 @@ window.gsI18n = (function(){
     setLang: setLang,
     getLang: getLang,
     getBundles: getBundles,
+    coverage: coverage,
     _setBundle: function(lang, obj){
       bundles[lang] = obj;
       try { localStorage.setItem('gs_i18n_bundles', JSON.stringify(bundles)); } catch(_){}
     }
   };
 })();
+// v26.14: DevTools-Shortcut fuer Cowork-Verify nach i18n-Pass-3.
+window.gsI18nCoverage = function(){ try { return window.gsI18n.coverage(); } catch(_) { return null; } };
 
 // Hardcoded JS-Strings die via Toast/innerHTML gebaut werden
 // (data-i18n-Attribute funktionieren nur für statisches HTML).
@@ -45025,6 +45050,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.14', date: '21.05.2026',
+    headline: '🌍 i18n Pass-3 Tooling — 235 Keys-Inventory + Bulk-Translate-Skript + Coverage-Helper',
+    summary: 'Sprint-Identitaet "v26.8 i18n Pass-3". Frontend ist bereit fuer komplette FR+IT-Coverage: gsI18n hat 3-Level-Fallback, neuer gsI18nCoverage()-Helper zeigt pro Sprache geladene Keys-Anzahl. Inventory-Skript zaehlt 235 unique Translation-Keys aus index.html. Bulk-Translate-Skript ruft i18n-translate Edge-Fn chunk-weise (10 keys, 8s sleep). Tatsaechliches FR/IT-Backfill ist Cowork-Pflicht (braucht SERVICE_ROLE_KEY + DB-Diff via Supabase MCP).',
+    user_summary: '🌍 Schweizer Markt Pass-3 vorbereitet: 235 Strings sind bereit fuer Franzoesisch + Italienisch. Backend-Translate folgt durch Cowork.',
+    items: [
+      {emoji:'📊', bold:'scripts/i18n_inventory.sh:', text:' Extrahiert ALLE Translation-Keys aus index.html (data-i18n + gsI18n.t + GS_I18N_JS_STRINGS) als sortierte Unique-Liste in /tmp/all_i18n_keys.txt. Aktuelle Zaehlung: 218 data-i18n + 18 gsI18n.t = 235 unique (Schnittmenge der drei Quellen).'},
+      {emoji:'🔁', bold:'scripts/i18n_translate.sh:', text:' Chunked POST zu i18n-translate Edge-Fn (10 keys pro Call, 8s sleep gegen Anthropic Rate-Limit). Args fr/it/all. Liest /tmp/fr_missing.txt + /tmp/it_missing.txt (kommen aus Cowork DB-Diff). Erfordert SUPABASE_SERVICE_ROLE_KEY in Env.'},
+      {emoji:'🔍', bold:'gsI18nCoverage():', text:' DevTools-Helper. Iteriert DOM [data-i18n] + GS_I18N_JS_STRINGS-Keys → expected. Pro Sprache zeigt geladene Bundle-Keys-Count. Ausgabe: {expected:235, de:218, fr:N, it:N, gsw:N}.'},
+      {emoji:'⚠️', bold:'Cowork-Pipeline:', text:' (1) DB-Diff via Supabase MCP query → /tmp/fr_missing.txt + /tmp/it_missing.txt. (2) bash scripts/i18n_translate.sh all. (3) SELECT lang, COUNT(*) FROM i18n_translations GROUP BY lang → Verify 100% Coverage.'},
+      {emoji:'🛡️', bold:'Frontend-Robustheit:', text:' gsI18n.t() hat bereits 3-Level-Fallback (bundle[current] → bundles.de → fallback-String → key). Auch bei luckenhafter Coverage bricht nichts.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.15 sw.js Cache-Control header (gegen Cache-Inkonsistenzen). v26.0+ Pre-Release-stable.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 inline-scripts node --check OK · sw.js gs-v26.14 OK · scripts/i18n_inventory.sh local test: 235 keys gezaehlt.'},
+    ]
+  },
+  {
     v: 'v26.13', date: '21.05.2026',
     headline: '⏰ Trial-End-Reminder — 24h Push + In-App-Banner vor Trial-Auslauf',
     summary: 'User im 7-Tage-Trial bekommt 24h vor Auto-Charge eine Push-Notification + beim naechsten App-Open einen orangen In-App-Banner mit "Verlaengern"-CTA. Verbessert Conversion-Pipe und verhindert Refund-Drama. Sprint-Identitaet "v26.7 Trial-Reminder".',
@@ -46513,7 +46553,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.13';
+var GS_VERSION = 'v26.14';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
