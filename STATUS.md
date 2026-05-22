@@ -12,6 +12,26 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-05-22 (d) — AUFTRAG_v26.17 Refinements (stripe-webhook v10)
+
+- **Auftrag:** Nach v9-Push schrieb Cowork das AUFTRAG_v26.17 mit 3 spezifizierten Refinements. Meine v9 matched zu ~95%, aber: (a) `account.application.deauthorized` Handler fehlte komplett, (b) v9 setzte `disabled` bei JEDEM disabled_reason (zu aggressiv — Stripe nutzt das auch für transient `pending_verification`), (c) v9 hatte impliziten Skip via UPDATE statt expliziten Pre-Check + warn-log.
+- **Edge-Fn `stripe-webhook` v10 LIVE:**
+  - `handleAccountUpdated`: jetzt Pre-Check (`SELECT marketplace_sellers WHERE stripe_account_id=...maybeSingle()`), skip mit warn-log wenn kein Eintrag. Status-Mapping konservativer — `disabled` NUR wenn `disabled_reason.startsWith('rejected')`. Sonst `restricted` (für `pending_verification` etc.).
+  - `handleAccountDeauthorized` (NEU): bei `account.application.deauthorized` → status='disabled', charges/payouts=false. Account-ID-Lookup zuerst via `event.account` (top-level), Fallback via `event.data.object.account` (API-Version-tolerant).
+  - Switch-Case erweitert um `case "account.application.deauthorized"`.
+  - Repo-File 1:1 mit v10 synced.
+- **Definition of Done v26.17 erfüllt:**
+  - ✅ account.updated → marketplace_sellers.status/charges_enabled/payouts_enabled/details_submitted/requirements/business_type sync
+  - ✅ account.application.deauthorized → status=disabled
+  - ✅ Status-Mapping wie spezifiziert (pending/active/restricted/disabled)
+  - ✅ Header-Kommentar v10-Notiz
+- **Cowork-Restpflichten (weiter reduziert):**
+  - 🟡 Stripe-Dashboard: Webhook-Endpoint um `account.updated` + `account.application.deauthorized` als Enabled-Events ergänzen (sonst kommen die Events nicht beim Webhook an) — siehe AUFTRAG_v26.17 §1.
+  - 🟡 Stripe-Dashboard Connect aktivieren
+  - 🟡 knowledge-bulk-gen v7 mit seasonal_highlights Topic
+  - 🟡 Stripe Live-Mode-Switch
+- **Followup naechste Session:** Smoke-Test via AUFTRAG_v26.17 Variante A (synthetic) wenn Cowork den Webhook-Endpoint erweitert hat.
+
 ### 2026-05-22 (c) — Autonome Backend-Erweiterung (i18n Pass-3 Live + stripe-webhook v9)
 
 - **Auftrag:** User-Freigabe „lets go" → autonome Wertschoepfung auf 2 Tracks: (1) i18n FR/IT komplett, (2) stripe-webhook v9 mit account.updated Handler.

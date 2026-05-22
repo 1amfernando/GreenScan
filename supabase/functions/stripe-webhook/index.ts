@@ -1,10 +1,13 @@
 // Stripe Webhook Handler
+// v10 (2026-05-22): AUFTRAG_v26.17 refinements. account.application.deauthorized
+//   Handler ergänzt (User trennt Connect → status='disabled'). Status-Mapping
+//   konservativer: 'disabled' NUR wenn disabled_reason startsWith('rejected').
+//   Sonstige disabled_reason (z.B. requirements.pending_verification) →
+//   'restricted'. Plus expliziter Pre-Check + warn-log wenn marketplace_sellers
+//   keinen Eintrag fuer den Stripe-Account hat (statt silent skip).
 // v9 (2026-05-22): + account.updated Handler fuer v26.6 Marketplace-Connect.
-//   Syncen marketplace_sellers.status / charges_enabled / payouts_enabled /
-//   details_submitted / requirements bei jedem Stripe-Account-Update.
 // v8 (2026-05-15): cache-bust deploy nach Webhook-Secret-Rotation (we_1TXfAuJnN3SSU2QNYb56og3J)
 // v7: Expert-Verification fee_paid Handling fuer v25.26 Community-Feature.
-// v6: cache-bust deploy nach Webhook-Secret-Rotation.
 // v5 (2026-05-04): STRIPE_WEBHOOK_SECRET kann aus app_settings.stripe_webhook_secret gelesen werden.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import Stripe from "npm:stripe@17";
@@ -119,58 +122,69 @@ async function handlePaymentIntentSucceeded(pi: Stripe.PaymentIntent) {
   }).eq("post_id", postId).eq("expert_id", expertId);
 }
 
-// v9 NEU: account.updated Handler fuer Marketplace-Connect (v26.6).
-// Wird gefired bei jedem Stripe-Connect-Account-Change (Onboarding-Step,
-// Requirement-Update, Capability-Aktivierung). Syncen marketplace_sellers
-// damit die Settings-Row + Modal immer den korrekten Status zeigen.
+// v9/v10: account.updated Handler fuer Marketplace-Connect (v26.6/v26.17).
+// v10-Refinements: expliziter Pre-Check, konservativeres disabled-Mapping.
 async function handleAccountUpdated(account: Stripe.Account) {
-  const userId = (account.metadata?.gs_user_id as string) ?? null;
-  if (!userId) {
-    // Fallback: Lookup via stripe_account_id falls metadata fehlt
-    const { data: row } = await admin.from("marketplace_sellers")
-      .select("user_id").eq("stripe_account_id", account.id).maybeSingle();
-    if (!row?.user_id) {
-      console.warn("[account.updated] no user_id for account", account.id);
-      return;
-    }
+  // Pre-Check: existiert ein marketplace_sellers-Eintrag fuer diesen Account?
+  const { data: existing } = await admin
+    .from("marketplace_sellers")
+    .select("user_id, status")
+    .eq("stripe_account_id", account.id)
+    .maybeSingle();
+
+  if (!existing) {
+    console.warn(`[webhook] account.updated for unknown stripe_account_id=${account.id} — skip`);
+    return;
   }
 
-  const chargesEnabled = !!account.charges_enabled;
-  const payoutsEnabled = !!account.payouts_enabled;
-  const detailsSubmitted = !!account.details_submitted;
-  const currentlyDue = (account.requirements?.currently_due || []).length;
-  const disabledReason = account.requirements?.disabled_reason;
+  const requirements = account.requirements ?? {};
+  const disabledReason = (requirements as any).disabled_reason as string | null;
+  const currentlyDue = (requirements.currently_due?.length ?? 0);
 
-  // Status-Mapping:
-  //   - alle 3 enabled + 0 due  → active
-  //   - details_submitted=false → pending (Onboarding noch nicht durch)
-  //   - currently_due > 0       → restricted (Info fehlt)
-  //   - disabled_reason gesetzt → disabled (Stripe hat Account gesperrt)
-  let status: string;
-  if (disabledReason) status = "disabled";
-  else if (chargesEnabled && payoutsEnabled && detailsSubmitted && currentlyDue === 0) status = "active";
-  else if (!detailsSubmitted) status = "pending";
-  else status = "restricted";
+  // Status-Mapping (konservativ):
+  //   - alle 3 enabled              → active
+  //   - disabled_reason startsWith('rejected') → disabled (Stripe hat permanent abgelehnt)
+  //   - currently_due > 0 ODER disabled_reason (non-rejected) → restricted
+  //   - sonst (z.B. erst halb durch Onboarding)        → pending
+  let newStatus: string = "pending";
+  if (account.charges_enabled && account.payouts_enabled && account.details_submitted) {
+    newStatus = "active";
+  } else if (disabledReason && disabledReason.startsWith("rejected")) {
+    newStatus = "disabled";
+  } else if (currentlyDue > 0 || disabledReason) {
+    newStatus = "restricted";
+  }
 
-  const patch: any = {
-    status,
-    charges_enabled: chargesEnabled,
-    payouts_enabled: payoutsEnabled,
-    details_submitted: detailsSubmitted,
-    requirements: account.requirements ?? {},
+  await admin.from("marketplace_sellers").update({
+    status: newStatus,
+    charges_enabled: account.charges_enabled ?? false,
+    payouts_enabled: account.payouts_enabled ?? false,
+    details_submitted: account.details_submitted ?? false,
     business_type: account.business_type ?? null,
+    requirements: requirements as any,
     updated_at: new Date().toISOString(),
-  };
+  }).eq("stripe_account_id", account.id);
 
-  // Wenn wir einen gs_user_id im metadata haben: by user_id patchen.
-  // Sonst: by stripe_account_id (account.id ist eindeutig in DB).
-  if (userId) {
-    await admin.from("marketplace_sellers")
-      .update(patch).eq("user_id", userId);
-  } else {
-    await admin.from("marketplace_sellers")
-      .update(patch).eq("stripe_account_id", account.id);
+  console.log(`[webhook] account.updated ${account.id} → status=${newStatus} charges=${account.charges_enabled} payouts=${account.payouts_enabled}`);
+}
+
+// v10 NEU: account.application.deauthorized Handler.
+// Wenn User Connect trennt (oder Stripe Account deauthorisiert) → status='disabled'.
+async function handleAccountDeauthorized(event: Stripe.Event) {
+  // Bei Connect-Events steht die Account-ID in event.account (top-level), nicht im data.object.
+  // Manche API-Versionen liefern es auch in data.object.account — beide checken.
+  const acctId = (event as any).account ?? (event.data.object as any)?.account ?? null;
+  if (!acctId) {
+    console.warn("[webhook] account.application.deauthorized without account-id");
+    return;
   }
+  await admin.from("marketplace_sellers").update({
+    status: "disabled",
+    charges_enabled: false,
+    payouts_enabled: false,
+    updated_at: new Date().toISOString(),
+  }).eq("stripe_account_id", acctId);
+  console.log(`[webhook] account.application.deauthorized ${acctId} → disabled`);
 }
 
 Deno.serve(async (req) => {
@@ -219,6 +233,9 @@ Deno.serve(async (req) => {
       }
       case "account.updated":
         await handleAccountUpdated(event.data.object as Stripe.Account);
+        break;
+      case "account.application.deauthorized":
+        await handleAccountDeauthorized(event);
         break;
     }
     await admin.from("stripe_webhook_events").update({ processed_at: new Date().toISOString() }).eq("id", event.id);
