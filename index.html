@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.21.20260522">
+<meta name="app-version" content="26.22.20260522">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3056,6 +3056,34 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <button onclick="gsRunDiagnose()" id="doctor-submit-btn" style="width:100%;padding:14px;background:linear-gradient(135deg,#00897b,#00695c);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;" data-i18n="btn_doctor_start" data-i18n-fallback="🔍 Diagnose starten">🔍 Diagnose starten</button>
     </div>
     <div id="doctor-result" style="padding:0 18px 20px;"></div>
+  </div>
+</div>
+
+<!-- ═══ v26.18 AR-VIEW MODAL ═══════════════════════════════ -->
+<div class="modal-overlay" id="modal-ar" onclick="if(event.target===this)closeModal('modal-ar')">
+  <div class="modal" style="position:relative;max-height:94vh;overflow:hidden;padding:0;background:#1a1a1a;color:#fff;">
+    <button class="modal-close-btn" onclick="closeModal('modal-ar')" aria-label="Schliessen" style="position:absolute;top:10px;right:12px;z-index:10;background:rgba(0,0,0,.6);color:#fff;border:none;width:36px;height:36px;border-radius:50%;font-size:18px;cursor:pointer;">&#x2715;</button>
+    <div style="position:absolute;top:12px;left:14px;z-index:10;background:rgba(0,0,0,.55);padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;color:#fff;letter-spacing:.4px;">
+      <span data-i18n="ar_modal_label" data-i18n-fallback="🪴 AR-Vorschau">🪴 AR-Vorschau</span>
+    </div>
+    <div id="ar-canvas-wrap" style="width:100%;height:75vh;min-height:420px;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#2c3e50 0%,#1a1a1a 70%,#0a0a0a 100%);position:relative;">
+      <canvas id="ar-canvas" style="width:100%;height:100%;display:block;touch-action:none;"></canvas>
+      <div id="ar-loading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#bbb;font-size:13px;pointer-events:none;background:rgba(0,0,0,.4);">
+        <div style="font-size:42px;margin-bottom:8px;">🪴</div>
+        <div data-i18n="ar_loading" data-i18n-fallback="3D-Engine wird geladen…">3D-Engine wird geladen…</div>
+      </div>
+      <div id="ar-fallback" style="position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;color:#bbb;font-size:13px;padding:24px;text-align:center;">
+        <div style="font-size:42px;margin-bottom:8px;">📵</div>
+        <div data-i18n="ar_not_supported" data-i18n-fallback="3D-Vorschau hier nicht möglich. Update deinen Browser oder versuche es auf einem anderen Gerät.">3D-Vorschau hier nicht möglich. Update deinen Browser oder versuche es auf einem anderen Gerät.</div>
+      </div>
+    </div>
+    <div style="padding:14px 18px 18px;background:#1a1a1a;color:#fff;">
+      <div id="ar-plant-name" style="font-family:'Playfair Display',serif;font-size:18px;font-weight:800;margin-bottom:2px;"></div>
+      <div id="ar-plant-height" style="font-size:12.5px;color:#9ec3ff;margin-bottom:8px;"></div>
+      <div style="font-size:11.5px;color:#aaa;line-height:1.5;" data-i18n="ar_hint" data-i18n-fallback="👆 Drag zum Drehen · 🤏 Pinch oder Scroll zum Zoomen · Höhe entspricht erwachsener Pflanze (Schätzung).">
+        👆 Drag zum Drehen · 🤏 Pinch oder Scroll zum Zoomen · Höhe entspricht erwachsener Pflanze (Schätzung).
+      </div>
+    </div>
   </div>
 </div>
 
@@ -24286,6 +24314,346 @@ async function gsPestAddToDiary(slug) {
 window.gsPestAddToDiary = gsPestAddToDiary;
 
 // ═════════════════════════════════════════════════════════════════════
+// v26.18 AR-VIEW MVP (Three.js + Fallback-Geometrie)
+// Backend: ar_models-Tabelle (30 Seed-Pflanzen, gltf_url=NULL → Fallback).
+// Three.js: bereits self-hosted in /assets/three.min.js (v25.36).
+// OrbitControls: minimale Eigen-Implementation (Pointer-Drag + Pinch/Scroll-Zoom),
+// spart externe Abhaengigkeit + CSP-Issues.
+// ═════════════════════════════════════════════════════════════════════
+
+// Farb-Lookup: species_lat → Krone-Farbe (Hex).
+// 30 Seed-Pflanzen aus ar_models, plus paar Defaults.
+window._gsARColors = {
+  // Gemuese
+  'Solanum lycopersicum': 0xc62828,  // Tomate → rot
+  'Solanum tuberosum':    0x8d6e63,  // Kartoffel → braun-erdig
+  'Capsicum annuum':      0xff6f00,  // Paprika → orange
+  'Cucumis sativus':      0x2e7d32,  // Gurke → dunkelgruen
+  'Cucurbita pepo':       0x558b2f,  // Zucchini → mittelgruen
+  'Lactuca sativa':       0x9ccc65,  // Salat → hellgruen
+  'Daucus carota':        0x66bb6a,  // Moehre (Kraut) → gruen
+  'Brassica oleracea':    0x66bb6a,  // Kohl → gruen
+  'Allium cepa':          0xc5cae9,  // Zwiebel → silber-lila
+  'Allium sativum':       0xfff9c4,  // Knoblauch → hellgelb
+  'Phaseolus vulgaris':   0x4caf50,  // Bohne → gruen
+  'Pisum sativum':        0x81c784,  // Erbse → hellgruen
+  // Beeren
+  'Fragaria vesca':       0xe53935,  // Erdbeere → rot
+  'Rubus idaeus':         0xc62828,  // Himbeere → dunkelrot
+  'Ribes nigrum':         0x4527a0,  // Schwarze Johannisbeere → dunkellila
+  // Obstbaeume
+  'Malus domestica':      0xd84315,  // Apfel → rotbraun
+  'Pyrus communis':       0xfdd835,  // Birne → gelbgruen
+  'Prunus avium':         0x8e0000,  // Kirsche → dunkelrot
+  // Zier
+  'Rosa gallica':         0xec407a,  // Rose → pink
+  'Lavandula angustifolia':0x7e57c2, // Lavendel → violett
+  'Helianthus annuus':    0xfdd835,  // Sonnenblume → gelb
+  'Calendula officinalis':0xffa726,  // Ringelblume → orange
+  'Tagetes erecta':       0xffb300,  // Tagetes → goldgelb
+  'Vitis vinifera':        0x6a1b9a, // Weinrebe → tiefviolett
+  // Kraeuter
+  'Rosmarinus officinalis':0x558b2f, // Rosmarin → dunkelgruen
+  'Ocimum basilicum':     0x7cb342,  // Basilikum → hellgruen
+  'Mentha piperita':      0x33691e,  // Pfefferminze → dunkelgruen
+  'Salvia officinalis':   0x9e9d24,  // Salbei → graugruen
+  'Thymus vulgaris':      0x827717,  // Thymian → olivgruen
+  'Petroselinum crispum': 0x388e3c   // Petersilie → mittelgruen
+};
+
+function _gsARColorForSpecies(species_lat) {
+  return (window._gsARColors && window._gsARColors[species_lat]) || 0x4caf50;
+}
+
+// State: Aktive Scene fuer Cleanup-Dispose
+window._gsARState = null;
+
+async function gsAROpen(species_lat, opts) {
+  opts = opts || {};
+  if (!species_lat) return;
+  if (typeof openModal === 'function') openModal('modal-ar');
+  else { var m = document.getElementById('modal-ar'); if (m) m.classList.add('open'); }
+
+  var loadingEl = document.getElementById('ar-loading');
+  var fallbackEl = document.getElementById('ar-fallback');
+  var nameEl = document.getElementById('ar-plant-name');
+  var heightEl = document.getElementById('ar-plant-height');
+  if (loadingEl) loadingEl.style.display = 'flex';
+  if (fallbackEl) fallbackEl.style.display = 'none';
+
+  // WebGL-Check
+  if (!window.WebGLRenderingContext) {
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (fallbackEl) fallbackEl.style.display = 'flex';
+    return;
+  }
+
+  // 1) ar_models laden
+  var model = null;
+  try {
+    if (typeof sbFetch === 'function') {
+      var r = await sbFetch('/rest/v1/ar_models?species_lat=eq.' + encodeURIComponent(species_lat) + '&select=*', { method: 'GET' });
+      if (r && Array.isArray(r.data) && r.data.length) model = r.data[0];
+    }
+  } catch(_){}
+
+  // 2) Three.js laden (lazy via existing _gsLoadThree)
+  if (typeof THREE === 'undefined') {
+    try {
+      if (typeof _gsLoadThree === 'function') await _gsLoadThree();
+    } catch(_){}
+  }
+  if (typeof THREE === 'undefined') {
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (fallbackEl) fallbackEl.style.display = 'flex';
+    return;
+  }
+
+  // 3) Scene aufbauen
+  try {
+    _gsARDispose();  // alte Scene aufraeumen falls noch da
+    var canvas = document.getElementById('ar-canvas');
+    if (!canvas) return;
+    var state = _gsARInitScene(canvas);
+    _gsARRenderFallback(state, species_lat, model);
+    _gsARStartLoop(state);
+    window._gsARState = state;
+  } catch(e) {
+    console.warn('[AR] init failed:', e);
+    if (fallbackEl) fallbackEl.style.display = 'flex';
+    return;
+  }
+
+  if (loadingEl) loadingEl.style.display = 'none';
+
+  // Header-Text
+  var heightCm = (model && model.default_height_cm) || 80;
+  var heightM = (heightCm / 100).toFixed(2);
+  if (nameEl) nameEl.textContent = species_lat;
+  if (heightEl) heightEl.textContent = '≈ ' + heightM + ' m hoch (' + heightCm + ' cm)';
+}
+window.gsAROpen = gsAROpen;
+
+function _gsARInitScene(canvas) {
+  var w = canvas.clientWidth || 320;
+  var h = canvas.clientHeight || 480;
+
+  var scene = new THREE.Scene();
+  scene.background = null; // CSS-Gradient bleibt sichtbar
+
+  var camera = new THREE.PerspectiveCamera(45, w/h, 0.05, 100);
+  camera.position.set(2.5, 1.6, 2.5);
+  camera.lookAt(0, 0.8, 0);
+
+  var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(w, h, false);
+  renderer.shadowMap.enabled = true;
+
+  // Beleuchtung — sanftes Daylight-Setup
+  var hemi = new THREE.HemisphereLight(0xffffff, 0x404060, 0.7);
+  scene.add(hemi);
+  var sun = new THREE.DirectionalLight(0xffffff, 0.85);
+  sun.position.set(3, 6, 4);
+  sun.castShadow = true;
+  sun.shadow.mapSize.width = 1024;
+  sun.shadow.mapSize.height = 1024;
+  scene.add(sun);
+
+  // Resize-Handler
+  function onResize() {
+    var nw = canvas.clientWidth || 320;
+    var nh = canvas.clientHeight || 480;
+    camera.aspect = nw / nh;
+    camera.updateProjectionMatrix();
+    renderer.setSize(nw, nh, false);
+  }
+  window.addEventListener('resize', onResize);
+
+  // Eigene Drag/Zoom-Logic (statt OrbitControls)
+  var azimuth = 0, polar = Math.PI * 0.45, radius = 3.5;
+  var dragging = false;
+  var lastX = 0, lastY = 0;
+  var pinchStart = 0;
+
+  function applyCamera() {
+    var r = Math.max(1.0, Math.min(15, radius));
+    var p = Math.max(0.15, Math.min(Math.PI - 0.15, polar));
+    camera.position.x = r * Math.sin(p) * Math.cos(azimuth);
+    camera.position.z = r * Math.sin(p) * Math.sin(azimuth);
+    camera.position.y = r * Math.cos(p);
+    camera.lookAt(0, 0.6, 0);
+  }
+  applyCamera();
+
+  function onPointerDown(e) {
+    dragging = true;
+    lastX = (e.touches ? e.touches[0].clientX : e.clientX);
+    lastY = (e.touches ? e.touches[0].clientY : e.clientY);
+    if (e.touches && e.touches.length === 2) {
+      pinchStart = _pinchDist(e.touches);
+    }
+  }
+  function onPointerMove(e) {
+    if (e.touches && e.touches.length === 2) {
+      // Pinch-Zoom
+      var d = _pinchDist(e.touches);
+      if (pinchStart > 0) {
+        var ratio = pinchStart / d;
+        radius *= ratio;
+        pinchStart = d;
+        applyCamera();
+      }
+      return;
+    }
+    if (!dragging) return;
+    var x = (e.touches ? e.touches[0].clientX : e.clientX);
+    var y = (e.touches ? e.touches[0].clientY : e.clientY);
+    var dx = x - lastX, dy = y - lastY;
+    azimuth -= dx * 0.008;
+    polar  -= dy * 0.008;
+    lastX = x; lastY = y;
+    applyCamera();
+  }
+  function onPointerUp() { dragging = false; pinchStart = 0; }
+  function onWheel(e) {
+    e.preventDefault();
+    radius += (e.deltaY > 0 ? 0.4 : -0.4);
+    applyCamera();
+  }
+  function _pinchDist(t) {
+    var dx = t[0].clientX - t[1].clientX;
+    var dy = t[0].clientY - t[1].clientY;
+    return Math.sqrt(dx*dx + dy*dy);
+  }
+  canvas.addEventListener('mousedown', onPointerDown);
+  canvas.addEventListener('mousemove', onPointerMove);
+  canvas.addEventListener('mouseup', onPointerUp);
+  canvas.addEventListener('mouseleave', onPointerUp);
+  canvas.addEventListener('touchstart', onPointerDown, { passive: true });
+  canvas.addEventListener('touchmove', onPointerMove, { passive: true });
+  canvas.addEventListener('touchend', onPointerUp);
+  canvas.addEventListener('wheel', onWheel, { passive: false });
+
+  return {
+    scene: scene, camera: camera, renderer: renderer, canvas: canvas,
+    rafId: 0, resizeHandler: onResize,
+    pointerCleanup: function() {
+      canvas.removeEventListener('mousedown', onPointerDown);
+      canvas.removeEventListener('mousemove', onPointerMove);
+      canvas.removeEventListener('mouseup', onPointerUp);
+      canvas.removeEventListener('mouseleave', onPointerUp);
+      canvas.removeEventListener('touchstart', onPointerDown);
+      canvas.removeEventListener('touchmove', onPointerMove);
+      canvas.removeEventListener('touchend', onPointerUp);
+      canvas.removeEventListener('wheel', onWheel);
+      window.removeEventListener('resize', onResize);
+    },
+    disposables: []
+  };
+}
+
+function _gsARRenderFallback(state, species_lat, model) {
+  var scene = state.scene;
+  var heightM = ((model && model.default_height_cm) || 80) / 100;
+  var scale = (model && model.scale_factor) ? parseFloat(model.scale_factor) : 1.0;
+
+  // Stamm — Zylinder mit Verjuengung
+  var trunkHeight = heightM * 0.55;
+  var trunkRadius = Math.max(0.012, heightM * 0.04);
+  var trunkGeo = new THREE.CylinderGeometry(trunkRadius * 0.9, trunkRadius * 1.25, trunkHeight, 12);
+  var trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4f3a, roughness: 0.85 });
+  var trunk = new THREE.Mesh(trunkGeo, trunkMat);
+  trunk.position.y = trunkHeight / 2;
+  trunk.castShadow = true;
+  scene.add(trunk);
+  state.disposables.push(trunkGeo, trunkMat);
+
+  // Krone — Kugel/Form je nach Hoehe
+  var crownRadius = Math.max(0.08, heightM * 0.42);
+  var crownGeo;
+  if (heightM > 3.0) {
+    // Baum: groessere Krone-Kugel mit kleinerer Sekundaer-Kugel
+    crownGeo = new THREE.SphereGeometry(crownRadius, 20, 16);
+  } else if (heightM < 0.4) {
+    // Kraut/Salat: flacher Halbkugel
+    crownGeo = new THREE.SphereGeometry(crownRadius * 1.4, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.55);
+  } else {
+    // Standard-Strauch: Kugel
+    crownGeo = new THREE.SphereGeometry(crownRadius, 16, 12);
+  }
+  var color = _gsARColorForSpecies(species_lat);
+  var crownMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.6, flatShading: true });
+  var crown = new THREE.Mesh(crownGeo, crownMat);
+  crown.position.y = trunkHeight + crownRadius * 0.55;
+  crown.castShadow = true;
+  scene.add(crown);
+  state.disposables.push(crownGeo, crownMat);
+
+  // Boden — runde Erde-Plane mit Schatten
+  var groundGeo = new THREE.CircleGeometry(Math.max(0.8, heightM * 0.6), 32);
+  var groundMat = new THREE.MeshStandardMaterial({ color: 0x3e2723, roughness: 1.0 });
+  var ground = new THREE.Mesh(groundGeo, groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+  state.disposables.push(groundGeo, groundMat);
+
+  // Skalierung
+  scene.scale.set(scale, scale, scale);
+}
+
+function _gsARStartLoop(state) {
+  function tick() {
+    state.rafId = requestAnimationFrame(tick);
+    try { state.renderer.render(state.scene, state.camera); } catch(_){}
+  }
+  tick();
+}
+
+function _gsARDispose() {
+  var s = window._gsARState;
+  if (!s) return;
+  try {
+    if (s.rafId) cancelAnimationFrame(s.rafId);
+    if (s.pointerCleanup) s.pointerCleanup();
+    (s.disposables || []).forEach(function(d){
+      try { if (d && typeof d.dispose === 'function') d.dispose(); } catch(_){}
+    });
+    if (s.scene) {
+      // Alle Meshes/Geometries traversen + disposen (Belt-and-Suspenders)
+      s.scene.traverse(function(obj){
+        try {
+          if (obj.geometry && typeof obj.geometry.dispose === 'function') obj.geometry.dispose();
+          if (obj.material) {
+            var mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+            mats.forEach(function(m){ try { m.dispose && m.dispose(); } catch(_){} });
+          }
+        } catch(_){}
+      });
+    }
+    if (s.renderer && typeof s.renderer.dispose === 'function') s.renderer.dispose();
+  } catch(_){}
+  window._gsARState = null;
+}
+window._gsARDispose = _gsARDispose;
+
+// Hook: bei closeModal('modal-ar') Dispose-Aufruf
+(function(){
+  if (window._gsARCloseHookWrapped) return;
+  if (typeof window.closeModal !== 'function') return;
+  window._gsARCloseHookWrapped = true;
+  var _origClose = window.closeModal;
+  window.closeModal = function(modalId){
+    var r = _origClose.apply(this, arguments);
+    if (modalId === 'modal-ar') {
+      try { _gsARDispose(); } catch(_){}
+    }
+    return r;
+  };
+})();
+
+// ═════════════════════════════════════════════════════════════════════
 // v25.31 ERNTEKALENDER — harvest_log + v_harvest_stats_per_user
 // ═════════════════════════════════════════════════════════════════════
 
@@ -45438,6 +45806,30 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.22', date: '22.05.2026',
+    headline: '🪴 AR-Vorschau — Sieh deine Pflanzen in 3D im Browser',
+    summary: 'Cowork-Auftrag v26.18. Three.js basierter 3D-View für 30 Seed-Pflanzen aus ar_models. Da gltf_url=NULL: prozedurale Fallback-Geometrie (Stamm + Krone mit form/höhe/farbe-Variation pro Spezies). 30 species-spezifische Krone-Farben (Tomate rot, Lavendel violett, etc.). Eigene Drag/Pinch/Wheel-Pointer-Logic statt OrbitControls — spart externe Abhängigkeit + CSP-Issues. Memory-Leak-frei via _gsARDispose beim Modal-Close.',
+    user_summary: '🪴 Neu: Schau dir Pflanzen in 3D an! Tippe in der App auf eine Pflanze → "In 3D ansehen" → drag zum Drehen, pinch zum Zoomen. Größe entspricht erwachsener Pflanze.',
+    user_items: [
+      { emoji: '🌳', text: '30 Pflanzen mit realistischer Höhe (Tomate 1.8m bis Kirschbaum 6m)' },
+      { emoji: '🎨', text: 'Farben passend zur Spezies (Lavendel violett, Sonnenblume gelb, Apfel rot)' },
+      { emoji: '👆', text: 'Drag zum Drehen, pinch oder Scroll zum Zoomen' },
+      { emoji: '🌑', text: 'Schatten + Tageslicht-Beleuchtung' },
+      { emoji: '🪲', text: 'Drei.js wird nur beim Öffnen geladen (Speicher-effizient)' },
+    ],
+    items: [
+      {emoji:'🎬', bold:'gsAROpen(species_lat):', text:' Öffnet #modal-ar, lädt ar_models-Row, ruft _gsLoadThree() (lazy aus /assets/three.min.js), bei Fail zeigt "3D-Vorschau hier nicht möglich"-Fallback. Plant-Name + Höhe als Header.'},
+      {emoji:'🏗️', bold:'_gsARInitScene:', text:' THREE.Scene + PerspectiveCamera + WebGLRenderer (antialias, alpha=true, devicePixelRatio cap 2). HemisphereLight 0.7 + DirectionalLight 0.85 mit shadowMap 1024². Eigene Drag/Pinch/Wheel-Logic: azimuth/polar/radius Spherical-Camera, Touch + Mouse + Wheel-Events, mit Limits (radius 1-15m, polar 0.15-π-0.15).'},
+      {emoji:'🌱', bold:'_gsARRenderFallback:', text:' Stamm (CylinderGeometry, verjüngt nach unten) + Krone (SphereGeometry, Form je nach Höhe: Halbkugel für <40cm, Standard-Kugel für Sträucher, vergrößert für Bäume >3m). Krone-Farbe via _gsARColorForSpecies-Map (30 Einträge). Boden-Kreis (CircleGeometry, dunkelbraun, receiveShadow).'},
+      {emoji:'🎨', bold:'_gsARColors-Map:', text:' Alle 30 Seed-Pflanzen mapped: Tomate rot, Paprika orange, Gurke dunkelgrün, Salat hellgrün, Erdbeere rot, Lavendel violett, Sonnenblume gelb, Apfel rotbraun, Kirsche dunkelrot, Rose pink, Rosmarin dunkelgrün, etc.'},
+      {emoji:'♻️', bold:'_gsARDispose Memory-Cleanup:', text:' Cancelt RAF, removed Event-Listeners (Pointer + Resize), traversed Scene und disposed Geometries/Materials, disposed Renderer. Hook in closeModal damit beim Schliessen aufgeräumt wird. State in window._gsARState.'},
+      {emoji:'🪟', bold:'Modal #modal-ar:', text:' Dark-Theme mit CSS-Gradient-Background, Canvas 75vh, Header-Label "🪴 AR-Vorschau", Footer mit Pflanzen-Name + Höhe + Touch-Hint.'},
+      {emoji:'⚠️', bold:'WebXR Magic-Window only:', text:' MVP nicht zwingend AR-Mode. WebGL-Probe Pre-Check, bei kein WebGL: graceful "📵 hier nicht möglich"-Fallback.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' Bonus v26.18a/b/c aus Roadmap (Compost/Propagation-Tabellen ins Wissen-Tab, Pest-Filter im KI-Planer, seasonal_highlights als 17. knowledge-bulk-gen Topic).'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 inline-scripts node --check OK · sw.js gs-v26.22 OK · 30 Pflanzen-Farb-Map.'},
+    ]
+  },
+  {
     v: 'v26.21', date: '22.05.2026',
     headline: '🪲 Schädlings-Scanner — Foto vom Befall → KI identifiziert + Bio-Behandlung',
     summary: 'Cowork-Auftrag v26.19. Neuer Garten-Aktion-Button "🪲 Schädling-Scanner" mit Foto-Upload + optionalem Host-Pflanze-Picker. POSTet an pest-identify Edge-Fn v1 (Anthropic Vision Haiku 4.5 + plant_pests-Knowledge-Context: 25 kuratierte Schweizer Garten-Schädlinge mit Bio-Behandlung, Prävention, natürlichen Feinden). Result-Modal zeigt Confidence-Badge, Symptome, sofortige Massnahme, Bio-Behandlung-Liste, Prävention, natürliche Feinde + Alternative-Kandidaten. Bei Confidence < 40 statt false-positive: "bitte näher"-Hint.',
@@ -47074,7 +47466,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.21';
+var GS_VERSION = 'v26.22';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

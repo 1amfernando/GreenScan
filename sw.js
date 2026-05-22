@@ -1,5 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
+   v26.22 — AR-View MVP (AUFTRAG_CODE_v26.18). Three.js-basierter 3D-View fuer 30 Seed-Pflanzen aus ar_models. Da gltf_url=NULL: Fallback-Geometrie (Stamm-Zylinder + Krone-Sphere mit verjuengter Form je nach Hoehe: flach fuer Kraeuter <40cm, Standard-Strauch, vergroessert fuer Baeume >3m). 30 species-spezifische Krone-Farben (Tomate rot, Lavendel violett, Sonnenblume gelb, etc.). _gsARInitScene mit HemisphereLight + DirectionalLight + Shadow-Map + eigener Drag/Pinch/Wheel-Pointer-Logic (statt OrbitControls — spart externe Abhaengigkeit). _gsARDispose disposed Geometries/Materials/Renderer beim Modal-Close (Memory-Leak-frei) via closeModal-Hook. Three.js lazy via existing _gsLoadThree() aus /assets/three.min.js (v25.36).
    v26.21 — Schaedlings-Scanner (AUFTRAG_CODE_v26.19). Neue Edge-Fn pest-identify v1 (verify_jwt:true) mit Anthropic Vision Haiku 4.5 + plant_pests-Knowledge-Context (25 Schweizer Schaedlinge mit Bio-Behandlung + Praevention + natuerliche Feinde, AGFF-Source). Frontend: neuer Garten-Aktion-Button "🪲 Schaedling-Scanner" + Modal mit Foto-Upload (Kamera/Galerie) + optionalem Host-Pflanze-Picker aus myPlants. gsPestRunScan POSTet zu Edge-Fn, gsPestRenderResult zeigt Match mit Confidence-Badge (3 Stufen Gering/Mittel/Hoch), Symptome, Bio-Behandlung, Praevention, natuerliche Feinde + Alternative-Kandidaten. Confidence < 40 zeigt "bitte naeher"-Hint statt false-positive. "📓 Im Garten-Tagebuch festhalten"-Button insertet in garden_diary.
    v26.20 — i18n Frontend-Switcher (AUFTRAG_CODE_v26.20). gsI18n erweitert: neuer loadFromDb(lang) Direct-PostgREST-Pull aus i18n_translations (1 GET-Query, 0 Anthropic-Calls; viel schneller als gsBuildI18n weil Edge-Fn-Cache-Miss-Path entfaellt). 24h-TTL pro Sprache via bundleTs-Map. Boot-Auto-Build: bei detectLang()!=de UND isStale(lang) wird Bundle async beim DOMContentLoaded geladen + applyToDOM erneut. openModal-Hook (idempotent) ruft applyToDOM auf jeden neu geoeffneten Modal damit dynamische Inhalte uebersetzt sind. gsHandleLangChange nutzt Fast-Path loadFromDb zuerst, Fallback auf gsBuildI18n nur bei DB-Pull-Fehler. FR/IT/GSW-User sehen jetzt schon beim Erst-Visit ihre Sprache.
    v26.16 — Cache-Inkonsistenz-Fix: _headers HTML-Shell mit max-age=0,must-revalidate (Cloudflare-Default war cache → User sahen alten GS_VERSION nach Push). Plus /assets/* + /data/* mit max-age=31536000 immutable (versioned URLs). sw.js wird bei v-Bump automatisch revalidated. Reduziert Cache-Drift zwischen Browser-Cache und Live-Deploy.
@@ -23,7 +24,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v26.21';
+const VERSION = 'gs-v26.22';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
