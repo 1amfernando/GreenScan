@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.32.20260523">
+<meta name="app-version" content="26.33.20260523">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2461,6 +2461,12 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <span data-i18n="btn_pest_open" data-i18n-fallback="🪲 Schädling-Scanner · Foto → Bio-Behandlung">🪲 Schädling-Scanner · Foto → Bio-Behandlung</span><span style="font-size:18px;opacity:.85;">›</span>
   </button>
 </div>
+<!-- v26.33: Pilz-Scanner (mushroom-identify Edge-Fn + VAPKO-Compliance) -->
+<div style="padding:0 16px 12px;">
+  <button onclick="openMushroomModal()" title="Pilz-Scanner — KI + VAPKO-Hinweis · Tox-Info 145 bei toedlich" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#6a1b9a,#4a148c);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_mushroom_open" data-i18n-fallback="🍄 Pilz-Scanner · KI + VAPKO-Hinweis">🍄 Pilz-Scanner · KI + VAPKO-Hinweis</span><span style="font-size:18px;opacity:.85;">›</span>
+  </button>
+</div>
 <!-- v25.31: Erntekalender-Trigger (Statistik aller Ernten dieses Jahr) -->
 <div style="padding:0 16px 12px;">
   <button onclick="openHarvestStatsModal()" title="Erntekalender — Jahres-Statistik aller Ernten" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#f57c00,#e65100);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
@@ -3223,6 +3229,53 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <button onclick="gsRunSoilRecommend()" id="soil-submit-btn" style="width:100%;padding:14px;background:linear-gradient(135deg,#5d4037,#3e2723);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;" data-i18n="btn_soil_recommend" data-i18n-fallback="🔍 Empfehlungen anzeigen">🔍 Empfehlungen anzeigen</button>
     </div>
     <div id="soil-amend-result" style="padding:0 18px 20px;"></div>
+  </div>
+</div>
+
+<!-- ═══ v26.33 PILZ-SCANNER MODAL (lebensgefahr-kritisch) ═══ -->
+<div class="modal-overlay" id="modal-mushroom" onclick="if(event.target===this)closeModal('modal-mushroom')">
+  <div class="modal" style="position:relative;max-height:94vh;overflow-y:auto;">
+    <div class="mhandle"></div>
+    <button class="modal-close-btn" onclick="closeModal('modal-mushroom')" aria-label="Schliessen">&#x2715;</button>
+    <div class="mhdr" style="background:linear-gradient(135deg,#6a1b9a,#4a148c);color:#fff;">
+      <span class="memoji">🍄</span>
+      <div>
+        <h2 data-i18n="mushroom_title" data-i18n-fallback="Pilz-Scanner" style="color:#fff;">Pilz-Scanner</h2>
+        <p data-i18n="mushroom_sub" data-i18n-fallback="KI-Hilfe + VAPKO-Standard. Information, KEINE Garantie." style="color:rgba(255,255,255,.85);">KI-Hilfe + VAPKO-Standard. Information, KEINE Garantie.</p>
+      </div>
+    </div>
+    <!-- Disclaimer SOFORT sichtbar -->
+    <div style="margin:14px 18px 0;padding:11px 13px;background:#fff8e1;border:2px solid #fbc02d;border-radius:10px;font-size:11.5px;color:#bf360c;line-height:1.55;">
+      <b>⚠️ Wichtig:</b> Diese KI ist eine erste Einschätzung — sie ersetzt KEINE offizielle Pilzkontrolle (VAPKO). Im Zweifel: nie essen. Bei Verdacht auf Vergiftung sofort <b>Tox-Info Schweiz: 145</b> (24/7).
+    </div>
+    <div id="mushroom-form" style="padding:14px 18px 18px;">
+      <div class="mp-field">
+        <label data-i18n="mushroom_lbl_photo" data-i18n-fallback="📷 Foto des Pilzes (Pflicht)">📷 Foto des Pilzes (Pflicht)</label>
+        <div id="mushroom-photo-area" style="display:flex;gap:8px;">
+          <button onclick="document.getElementById('mushroom-photo-camera').click()" style="flex:1;padding:11px;background:#f3e5f5;border:1.5px solid #ab47bc;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:#4a148c;font-family:inherit;" data-i18n="btn_mushroom_camera" data-i18n-fallback="📷 Kamera">📷 Kamera</button>
+          <button onclick="document.getElementById('mushroom-photo-gallery').click()" style="flex:1;padding:11px;background:#f3e5f5;border:1.5px solid #ab47bc;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:#4a148c;font-family:inherit;" data-i18n="btn_mushroom_gallery" data-i18n-fallback="🖼️ Galerie">🖼️ Galerie</button>
+        </div>
+        <input type="file" id="mushroom-photo-camera" accept="image/*" capture="environment" style="display:none;" onchange="gsMushroomLoadPhoto(this)">
+        <input type="file" id="mushroom-photo-gallery" accept="image/*" style="display:none;" onchange="gsMushroomLoadPhoto(this)">
+        <div id="mushroom-photo-preview" style="margin-top:10px;display:none;"></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.45;">Tipp: Hut, Stiel UND Lamellen-Unterseite — wenn möglich auch Substrat (Wurzel/Holz/Boden).</div>
+      </div>
+      <div class="mp-field">
+        <label data-i18n="mushroom_lbl_habitat" data-i18n-fallback="🌲 Wo gefunden? (optional)">🌲 Wo gefunden? (optional)</label>
+        <select class="mp-select" id="mushroom-habitat">
+          <option value="" data-i18n="mushroom_hab_none" data-i18n-fallback="— Unbekannt / nicht angegeben —">— Unbekannt / nicht angegeben —</option>
+          <option value="laubwald">Laubwald (Buche, Eiche, Birke)</option>
+          <option value="nadelwald">Nadelwald (Fichte, Tanne, Föhre)</option>
+          <option value="mischwald">Mischwald</option>
+          <option value="wiese">Wiese / Weide</option>
+          <option value="garten">Garten / Park</option>
+          <option value="totholz">Auf Totholz / Baumstumpf</option>
+          <option value="strassenrand">Wegrand / Strassenrand</option>
+        </select>
+      </div>
+      <button onclick="gsMushroomRunScan()" id="mushroom-submit-btn" style="width:100%;padding:14px;background:linear-gradient(135deg,#6a1b9a,#4a148c);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;" data-i18n="btn_mushroom_start" data-i18n-fallback="🔍 Pilz identifizieren">🔍 Pilz identifizieren</button>
+    </div>
+    <div id="mushroom-result" style="padding:0 18px 20px;"></div>
   </div>
 </div>
 
@@ -24468,6 +24521,248 @@ async function gsPestAddToDiary(slug) {
   }
 }
 window.gsPestAddToDiary = gsPestAddToDiary;
+
+// ═════════════════════════════════════════════════════════════════════
+// v26.33 PILZ-SCANNER (mushroom-identify Edge-Fn + VAPKO-Compliance)
+// SICHERHEITSKRITISCH: bei edibility='toedlich'/'giftig' wird ein
+// ROTER VOLLBILD-Warnscreen gezeigt mit Tox-Info-145-Notruf.
+// VAPKO-Disclaimer ist Pflicht in jedem Result.
+// ═════════════════════════════════════════════════════════════════════
+
+function openMushroomModal() {
+  window._gsMushroomPhotoB64 = null;
+  var preview = document.getElementById('mushroom-photo-preview');
+  if (preview) { preview.innerHTML = ''; preview.style.display = 'none'; }
+  var result = document.getElementById('mushroom-result'); if (result) result.innerHTML = '';
+  if (typeof openModal === 'function') openModal('modal-mushroom');
+  else document.getElementById('modal-mushroom').classList.add('open');
+}
+window.openMushroomModal = openMushroomModal;
+
+async function gsMushroomLoadPhoto(input) {
+  var file = input && input.files && input.files[0];
+  if (!file) return;
+  if (file.size > 8 * 1024 * 1024) {
+    if (typeof showProfileToast === 'function') showProfileToast('Bild zu gross (max 8 MB)', 'error');
+    return;
+  }
+  try {
+    var b64 = await gsFileToBase64(file);
+    window._gsMushroomPhotoB64 = b64;
+    var preview = document.getElementById('mushroom-photo-preview');
+    if (preview) {
+      preview.innerHTML = '<img src="' + b64 + '" alt="Vorschau" style="width:100%;max-height:220px;object-fit:cover;border-radius:10px;border:1px solid var(--border);">';
+      preview.style.display = 'block';
+    }
+  } catch(_) {
+    if (typeof showProfileToast === 'function') showProfileToast('Upload fehlgeschlagen', 'error');
+  }
+}
+window.gsMushroomLoadPhoto = gsMushroomLoadPhoto;
+
+async function gsMushroomRunScan() {
+  if (!window._gsMushroomPhotoB64) {
+    if (typeof showProfileToast === 'function') showProfileToast('Bitte Foto hochladen', 'error');
+    return;
+  }
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) {
+    if (typeof showProfileToast === 'function') showProfileToast('Bitte zuerst anmelden', 'error');
+    return;
+  }
+  var habitatSel = document.getElementById('mushroom-habitat');
+  var habitat = (habitatSel && habitatSel.value) ? habitatSel.value : null;
+  var regionSlug = null;
+  try { regionSlug = localStorage.getItem('gs_region') || null; } catch(_){}
+
+  var btn = document.getElementById('mushroom-submit-btn');
+  if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = '⏳ Identifiziere…'; }
+
+  if (typeof showProfileToast === 'function') showProfileToast('🔬 KI analysiert (Sicherheit vor Präzision)…', 'info');
+
+  try {
+    var token = (window.gsStore && typeof gsStore.get === 'function') ? gsStore.get('gs_sb_token', null) : null;
+    var fetchFn = window._gsFetch || fetch;
+    var photoB64 = String(window._gsMushroomPhotoB64).replace(/^data:image\/\w+;base64,/, '');
+    var resp = await fetchFn(SB_URL + '/functions/v1/mushroom-identify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SB_KEY, 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ image_base64: photoB64, media_type: 'image/jpeg', habitat_hint: habitat, region_slug: regionSlug })
+    }, 60000);
+    var j = await resp.json();
+    if (!resp.ok || j.error) {
+      if (typeof showProfileToast === 'function') showProfileToast('⚠️ ' + (j.error || 'Identifikation fehlgeschlagen'), 'error');
+      return;
+    }
+    gsMushroomRenderResult(j);
+  } catch(_) {
+    if (typeof showProfileToast === 'function') showProfileToast('Netzwerk-Fehler — bitte erneut versuchen', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🔍 Pilz identifizieren'; }
+  }
+}
+window.gsMushroomRunScan = gsMushroomRunScan;
+
+function gsMushroomRenderResult(j) {
+  var box = document.getElementById('mushroom-result');
+  if (!box) return;
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+  var m = j && j.mushroom;
+  var conf = Math.round(j && typeof j.confidence === 'number' ? j.confidence : 0);
+
+  // ============= LEBENSGEFAHR-VOLLBILD-WARNUNG bei toedlich/giftig =============
+  if (m && (m.edibility === 'toedlich' || m.edibility === 'giftig')) {
+    gsShowMushroomDangerOverlay(j);
+    // Plus Result-Box im Modal mit allen Details (nach Overlay-Schliessen sichtbar)
+  }
+
+  // ============= "UNSICHER" Hint bei < 60% Confidence ohne Match =============
+  if (!m || !j.matched_slug || conf < 60) {
+    var reason = (j && j.reasoning) ? j.reasoning : '';
+    var alt = (j && Array.isArray(j.alternatives) && j.alternatives.length) ? '<div style="margin-top:6px;font-size:11.5px;color:var(--muted);">Möglicher Kandidat: ' + j.alternatives.map(ed).join(', ') + '</div>' : '';
+    box.innerHTML =
+      '<div style="margin-top:14px;padding:14px;background:#fff8e1;border:2px solid #fbc02d;border-radius:12px;color:#bf360c;">' +
+        '<div style="font-size:14px;font-weight:900;margin-bottom:6px;">⚠️ UNSICHERE Identifikation (Confidence ' + conf + '%)</div>' +
+        '<div style="font-size:12.5px;line-height:1.55;margin-bottom:8px;">' + ed(reason || 'KI ist sich nicht sicher.') + '</div>' +
+        alt +
+        '<div style="margin-top:10px;padding:9px 12px;background:#ffebee;border-left:3px solid #c62828;border-radius:8px;font-size:12.5px;color:#b71c1c;line-height:1.5;font-weight:700;">' +
+          '🚫 NICHT essen! Geh zur offiziellen VAPKO-Pilzkontrolle.' +
+        '</div>' +
+        gsMushroomVapkoBox(j, ed) +
+      '</div>';
+    return;
+  }
+
+  // ============= Match-Card =============
+  // safety_color aus v_mushroom_safety: red/orange/yellow/green
+  var safety = String(j.safety_color || 'yellow');
+  var safetyMap = {
+    red:    { bg:'#ffebee', border:'#c62828', col:'#b71c1c', lbl:'🚫 ' + (m.edibility === 'toedlich' ? 'TÖDLICH' : 'GIFTIG'), prom:true },
+    orange: { bg:'#fff3e0', border:'#e65100', col:'#bf360c', lbl:'⚠️ NUR JUNG / BEDINGT ESSBAR', prom:true },
+    yellow: { bg:'#fff8e1', border:'#fbc02d', col:'#bf360c', lbl:'⚠️ Vorsicht', prom:false },
+    green:  { bg:'#e8f5e9', border:'#2e7d32', col:'#1b5e20', lbl:'✅ Speisepilz', prom:false }
+  };
+  var sm = safetyMap[safety] || safetyMap.yellow;
+
+  var html = '<div style="margin-top:14px;border-radius:14px;overflow:hidden;border:2px solid ' + sm.border + ';background:var(--card);">';
+  html += '<div style="background:' + sm.bg + ';color:' + sm.col + ';padding:11px 16px;font-size:13.5px;font-weight:900;text-align:center;border-bottom:1px solid ' + sm.border + ';">' + sm.lbl + ' · Confidence ' + conf + '%</div>';
+  html += '<div style="padding:14px 16px;">';
+  html += '<div style="font-size:18px;font-weight:900;color:var(--text);margin-bottom:2px;">' + ed(m.common_name_de) + '</div>';
+  if (m.scientific_name) html += '<div style="font-size:12px;font-style:italic;color:var(--muted);margin-bottom:6px;">' + ed(m.scientific_name) + (m.family ? ' · ' + ed(m.family) : '') + '</div>';
+  // VAPKO-Klasse
+  if (m.vapko_klasse) html += '<div style="display:inline-block;background:#ede7f6;color:#311b92;padding:3px 10px;border-radius:7px;font-size:11px;font-weight:800;margin-bottom:8px;">VAPKO-Klasse: ' + ed(m.vapko_klasse) + '</div>';
+
+  if (j.safety_advice) html += '<div style="padding:9px 12px;background:' + sm.bg + ';border-left:3px solid ' + sm.border + ';border-radius:9px;font-size:12.5px;color:' + sm.col + ';line-height:1.55;margin-bottom:10px;font-weight:700;">' + ed(j.safety_advice) + '</div>';
+  if (j.reasoning) html += '<div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:10px;">' + ed(j.reasoning) + '</div>';
+  if (j.observed_features) html += '<div style="font-size:11.5px;color:var(--muted);margin-bottom:8px;"><b>Beobachtet:</b> ' + ed(j.observed_features) + '</div>';
+
+  // Bei toedlich/giftig: zusaetzliche Symptome + Notfall-Box
+  if (m.edibility === 'toedlich' || m.edibility === 'giftig') {
+    if (m.symptoms_if_toxic) {
+      html += '<div style="margin-top:8px;padding:10px 12px;background:#ffebee;border:1px solid #c62828;border-radius:10px;font-size:12px;color:#b71c1c;line-height:1.55;"><b>🤢 Symptome bei Verzehr:</b><br>' + ed(m.symptoms_if_toxic) + '</div>';
+    }
+    if (m.emergency_action) {
+      html += '<div style="margin-top:6px;padding:10px 12px;background:#b71c1c;color:#fff;border-radius:10px;font-size:12.5px;line-height:1.55;font-weight:700;">' + ed(m.emergency_action) + '</div>';
+    }
+    html += '<div style="margin-top:6px;padding:10px 12px;background:#b71c1c;color:#fff;border-radius:10px;font-size:13.5px;line-height:1.55;font-weight:900;text-align:center;">' +
+      '☎️ Tox-Info Schweiz: <a href="tel:145" style="color:#fff;text-decoration:underline;">145</a> (24/7)' +
+    '</div>';
+  }
+
+  // Speisepilz: Zubereitungs-Hinweise
+  if (m.edibility === 'speisepilz' || m.edibility === 'speisepilz_jung' || m.edibility === 'bedingt_essbar') {
+    if (m.cooking_preparation) html += '<div style="margin-top:8px;padding:10px 12px;background:#e8f5e9;border-radius:10px;font-size:12px;color:#1b5e20;line-height:1.55;"><b>🍳 Zubereitung:</b> ' + ed(m.cooking_preparation) + '</div>';
+    if (Array.isArray(m.conservation_methods) && m.conservation_methods.length) html += '<div style="margin-top:6px;font-size:11.5px;color:var(--text2);"><b>📦 Konservieren:</b> ' + ed(m.conservation_methods.join(', ')) + '</div>';
+  }
+
+  // LOOKALIKES — kritisch!
+  if (Array.isArray(j.lookalikes) && j.lookalikes.length) {
+    html += '<div style="margin-top:12px;padding:12px 14px;background:#fff3e0;border:2px solid #e65100;border-radius:12px;">';
+    html += '<div style="font-size:12.5px;font-weight:900;color:#bf360c;margin-bottom:6px;letter-spacing:.3px;">⚠️ VERWECHSLUNGS-RISIKO</div>';
+    j.lookalikes.forEach(function(la){
+      var otherSlug = (la.edible_slug === j.matched_slug) ? la.lookalike_slug : la.edible_slug;
+      var risk = String(la.confusion_risk || 'mittel');
+      var riskBg = risk === 'hoch' ? '#c62828' : risk === 'mittel' ? '#e65100' : '#827717';
+      html += '<div style="padding:7px 0;border-top:1px dashed rgba(0,0,0,.1);">' +
+        '<div style="font-size:12.5px;color:#bf360c;"><span style="background:' + riskBg + ';color:#fff;padding:1px 7px;border-radius:5px;font-size:10.5px;font-weight:800;margin-right:6px;">' + ed(risk.toUpperCase()) + '</span><b>' + ed(otherSlug) + '</b></div>';
+      if (la.visual_differences) html += '<div style="font-size:11.5px;color:#bf360c;margin-top:3px;line-height:1.5;"><b>👁️ Visuell:</b> ' + ed(la.visual_differences) + '</div>';
+      if (la.smell_differences) html += '<div style="font-size:11.5px;color:#bf360c;margin-top:2px;"><b>👃 Geruch:</b> ' + ed(la.smell_differences) + '</div>';
+      if (la.spore_print_differences) html += '<div style="font-size:11.5px;color:#bf360c;margin-top:2px;"><b>🔬 Sporen:</b> ' + ed(la.spore_print_differences) + '</div>';
+      if (la.pro_tip) html += '<div style="font-size:11.5px;color:#1b5e20;margin-top:3px;background:#e8f5e9;padding:3px 7px;border-radius:5px;display:inline-block;"><b>💡 Profi-Tipp:</b> ' + ed(la.pro_tip) + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  // VAPKO-Pflicht-Hinweis (immer)
+  html += gsMushroomVapkoBox(j, ed);
+
+  // Footer Disclaimer
+  html += '<div style="margin-top:12px;padding:9px 12px;background:#fffde7;border:1px dashed #fbc02d;border-radius:9px;font-size:10.5px;color:#827717;line-height:1.5;text-align:center;"><b>Hinweis:</b> Diese KI ist eine erste Einschätzung. Sie ersetzt KEINE offizielle Pilzkontrolle (VAPKO). Im Zweifel: nie essen.</div>';
+  if (m.source) html += '<div style="margin-top:6px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(m.source) + '</div>';
+  html += '</div></div>';
+
+  box.innerHTML = html;
+  try { box.scrollIntoView({ behavior:'smooth', block:'start' }); } catch(_){}
+}
+window.gsMushroomRenderResult = gsMushroomRenderResult;
+
+function gsMushroomVapkoBox(j, ed) {
+  if (!j) return '';
+  if (!j.vapko_required && !j.vapko_kontrollstelle) return '';
+  var html = '<div style="margin-top:10px;padding:11px 13px;background:#ede7f6;border:1.5px solid #5e35b1;border-radius:11px;">';
+  html += '<div style="font-size:12px;font-weight:800;color:#311b92;margin-bottom:4px;">🔒 VAPKO-Kontrolle empfohlen</div>';
+  if (j.vapko_kontrollstelle) html += '<div style="font-size:11.5px;color:#311b92;line-height:1.5;"><b>Kontrollstelle:</b> ' + ed(j.vapko_kontrollstelle) + '</div>';
+  if (j.vapko_phone) html += '<div style="font-size:13px;color:#311b92;margin-top:4px;"><b>☎️ <a href="tel:' + ed(j.vapko_phone).replace(/\s/g,'') + '" style="color:#311b92;text-decoration:underline;">' + ed(j.vapko_phone) + '</a></b></div>';
+  if (j.vapko_link) html += '<div style="font-size:11px;margin-top:3px;"><a href="' + ed(j.vapko_link) + '" target="_blank" rel="noopener" style="color:#5e35b1;">' + ed(j.vapko_link) + '</a></div>';
+  html += '</div>';
+  return html;
+}
+
+// VOLLBILD-ROT-Overlay bei toedlich/giftig — User MUSS aktiv dismissen.
+function gsShowMushroomDangerOverlay(j) {
+  if (document.getElementById('gs-mushroom-danger')) return;
+  var m = j.mushroom || {};
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+  var isToedlich = m.edibility === 'toedlich';
+
+  var overlay = document.createElement('div');
+  overlay.id = 'gs-mushroom-danger';
+  overlay.setAttribute('role', 'alertdialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#b71c1c;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;animation:gs-mushroom-pulse 1.2s ease infinite alternate;';
+
+  var pulseStyle = document.getElementById('gs-mushroom-pulse-style');
+  if (!pulseStyle) {
+    pulseStyle = document.createElement('style');
+    pulseStyle.id = 'gs-mushroom-pulse-style';
+    pulseStyle.textContent = '@keyframes gs-mushroom-pulse { from { background:#b71c1c; } to { background:#c62828; } }';
+    document.head.appendChild(pulseStyle);
+  }
+
+  overlay.innerHTML =
+    '<div style="font-size:72px;line-height:1;margin-bottom:14px;">' + (isToedlich ? '☠️' : '⚠️') + '</div>' +
+    '<div style="font-family:\'Playfair Display\',serif;font-size:28px;font-weight:900;letter-spacing:.5px;margin-bottom:10px;">' +
+      (isToedlich ? 'TÖDLICH GIFTIG' : 'GIFTIG') +
+    '</div>' +
+    '<div style="font-size:14px;font-weight:700;line-height:1.5;max-width:400px;margin-bottom:10px;">' +
+      'KI vermutet: <b>' + ed(m.common_name_de) + '</b>' +
+      (m.scientific_name ? '<br><i>' + ed(m.scientific_name) + '</i>' : '') +
+    '</div>' +
+    '<div style="font-size:13px;line-height:1.55;max-width:400px;margin-bottom:18px;background:rgba(0,0,0,.25);padding:11px 14px;border-radius:12px;">' +
+      (isToedlich ?
+        'NICHT ESSEN, NICHT BERÜHREN. Bei Verdacht auf Verzehr SOFORT Notfall-Nummer wählen.' :
+        'NICHT ESSEN. Bei Symptomen umgehend Tox-Info anrufen.') +
+    '</div>' +
+    '<a href="tel:145" style="display:flex;align-items:center;justify-content:center;gap:8px;background:#fff;color:#b71c1c;padding:14px 26px;border-radius:14px;font-weight:900;font-size:18px;text-decoration:none;margin-bottom:14px;min-width:240px;">' +
+      '☎️ Tox-Info: 145' +
+    '</a>' +
+    '<button onclick="document.getElementById(\'gs-mushroom-danger\').remove();document.getElementById(\'gs-mushroom-pulse-style\') && document.getElementById(\'gs-mushroom-pulse-style\').remove();" ' +
+      'style="background:transparent;color:#fff;border:2px solid #fff;padding:11px 22px;border-radius:12px;font-weight:800;font-size:13.5px;cursor:pointer;font-family:inherit;">' +
+      'Verstanden — Details anzeigen' +
+    '</button>';
+  document.body.appendChild(overlay);
+}
+window.gsShowMushroomDangerOverlay = gsShowMushroomDangerOverlay;
 
 // ═════════════════════════════════════════════════════════════════════
 // v26.25 BODENVERBESSERER-RECOMMENDER (soil_amendments-DB, 15 CH-Produkte)
@@ -47251,6 +47546,30 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.33', date: '23.05.2026',
+    headline: '🍄 Pilz-Scanner mit Tox-Info-145-Notruf bei Knollenblätter & Co (sicherheitskritisch)',
+    summary: 'Cowork-Auftrag v26.33. Neue Edge-Fn mushroom-identify v1 (verify_jwt:true) mit Anthropic Vision Haiku 4.5 + 20-Pilze-Knowledge-Context aus mushroom_register (5 toedlich, 2 giftig, 13 essbar+bedingt, VAPKO-Klassen). 4. Scan-Modus "🍄 Pilz-Scanner" Garten-Aktion-Button (violetter Gradient). Modal mit Tox-Info-145-Disclaimer + Habitat-Picker (7 Typen) + 8MB Foto-Upload. safetyMap-Rendering aus v_mushroom_safety View. Bidirektionale Lookalikes-Box mit confusion_risk-Badge. VAPKO-Box mit Kontrollstelle + tel-Link aus mushroom_seasonal_patches. Bei edibility ∈ {toedlich,giftig}: ROTER VOLLBILD-Overlay z:99999 mit pulse-Animation + ☠️-Icon + "TÖDLICH GIFTIG"-Headline + ☎️-145-Button + Dismiss. App ist Information, KEINE Garantie — Disclaimer prominent.',
+    user_summary: '🍄 NEU: Pilz-Scanner — KI-Identifikation mit verpflichtendem VAPKO-Hinweis. Wenn die KI einen tödlichen oder giftigen Pilz vermutet, blockiert sie sofort den ganzen Bildschirm mit einer Rot-Warnung und der Tox-Info-Schweiz-Nummer 145 (24/7). Bei jeder Identifikation: VAPKO-Kontrollstelle deiner Region mit Telefonnummer. Diese App ersetzt KEINE offizielle Pilzkontrolle.',
+    user_items: [
+      { emoji: '🍄', text: '4. Scan-Modus neben Pflanze/Schädling — speziell für Pilze (Foto + optional Habitat)' },
+      { emoji: '☠️', text: 'Bei Knollenblätter/Pantherpilz: roter Vollbild-Warnscreen mit Tox-Info 145 als 1-Klick-Anruf' },
+      { emoji: '🔁', text: 'Verwechslungs-Risiko (Lookalikes) prominent — Pfifferling vs Raukopf, Steinpilz vs Gallenröhrling …' },
+      { emoji: '🔒', text: 'VAPKO-Pilzkontrollstelle deiner Region mit direkter Telefonnummer (Pflicht-Hinweis)' },
+    ],
+    items: [
+      {emoji:'🚀', bold:'Edge-Fn mushroom-identify v1:', text:' deployed (verify_jwt:true). Input: image_base64 + media_type + habitat_hint + region_slug. Anthropic-Key via app_settings fallback. System-Prompt mit 20-Pilze-Knowledge-Context (slug, common_name_de, scientific_name, family, vapko_klasse, edibility, key_features). Force vapko_required=true bei confidence<70 ODER toedlich/giftig. Response: {matched_slug, confidence, reasoning, observed_features, alternatives, mushroom (full row), edibility, safety_color, safety_advice, lookalikes (bidirektional), vapko_required, vapko_kontrollstelle, vapko_phone, vapko_link, emergency_hint, tokens}.'},
+      {emoji:'🎨', bold:'Modal + Habitat-Picker:', text:' #modal-mushroom mit gelbem 145-Disclaimer-Box ZUERST. Foto-Inputs Kamera/Galerie (8MB cap). Habitat-Picker (Laubwald/Nadelwald/Mischwald/Wiese/Park/Garten/anderes) als optional Hint.'},
+      {emoji:'🟥', bold:'gsShowMushroomDangerOverlay:', text:' position:fixed inset:0 z:99999 background:#b71c1c mit eigener gs-mushroom-pulse-keyframe-Animation. 72px ☠️ (toedlich) oder ⚠️ (giftig). 28px Playfair-Headline. KI-Match-Card mit common_name_de + scientific_name italic. NICHT-ESSEN-Warning in rgba(0,0,0,.25)-Box. White-on-red ☎️-145-Button (min-width:240px). "Verstanden — Details anzeigen"-Dismiss-Button. User MUSS aktiv dismissen.'},
+      {emoji:'🗺️', bold:'safetyMap aus v_mushroom_safety:', text:' red→🚫 TÖDLICH/GIFTIG, orange→⚠️ NUR JUNG/BEDINGT ESSBAR, yellow→⚠️ Vorsicht, green→✅ Speisepilz. Card-Header mit safety_color background + safety_advice in farbiger Border-Box. Plus symptoms_if_toxic + emergency_action + Bottom-Tox-Info-145-Footer bei toedlich/giftig. cooking_preparation + conservation_methods bei Speisepilz.'},
+      {emoji:'🔁', bold:'Lookalikes bidirektional:', text:' j.lookalikes-Array kann matched_slug entweder als edible_slug ODER lookalike_slug enthalten (Logik im Renderer). risk-Badge (hoch=#c62828, mittel=#e65100, niedrig=#827717). Pro Lookalike: visual_differences + smell_differences + spore_print_differences + pro_tip (Profi-Tipp grün).'},
+      {emoji:'🔒', bold:'VAPKO-Pflicht-Box:', text:' gsMushroomVapkoBox rendert bei vapko_required ODER vapko_kontrollstelle: Kontrollstelle + Telefonnummer als tel:-Link (Spaces gestrippt) + vapko_link external. Aus mushroom_seasonal_patches pro region_slug aufgelöst.'},
+      {emoji:'⚠️', bold:'Confidence < 60:', text:' Statt false-positive → gelbe "UNSICHERE Identifikation"-Box mit reasoning + alternatives + NICHT-essen-Hinweis + VAPKO-Box. Schützt vor KI-Hallucination bei sicherheitskritischer Domain.'},
+      {emoji:'📜', bold:'Compliance-Disclaimer:', text:' Footer in jedem Result: "Diese KI ist eine erste Einschätzung. Sie ersetzt KEINE offizielle Pilzkontrolle (VAPKO). Im Zweifel: nie essen." Plus source-Attribution.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.34 Tagebuch-UI-Form (Type-Picker für 11 entry_types), v26.35 Bauernregeln-Widget, v26.36 Marketplace-Pestizid-frei-Filter, v26.37 Pollinator-Garten-Modus.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · sw.js gs-v26.33 OK · GS_VERSION=v26.33 OK · _headers v26.33 OK · meta app-version=26.33.20260523 OK · Edge-Fn LIVE.'},
+    ]
+  },
+  {
     v: 'v26.32', date: '23.05.2026',
     headline: '📓 Garten-Tagebuch v2 — kategorisierte Einträge mit 11 Typen + Saison-Stats-API',
     summary: 'Cowork-Auftrag v26.32. Migration v26_32_garden_diary_v2_kategorien LIVE-applied via Supabase MCP — fügt entry_type (check 11 values) + pest_slug (FK plant_pests) + species_lat + harvest_kg + metadata jsonb hinzu. Bug-Fix: bestehende v26.21 Pest-Scanner + v26.29 Düngeplan-Coach Inserts schlugen silent fehl weil sie type+notes Spalten erwarteten die nicht existierten — jetzt korrekt auf entry_type+text+tag. Neue generic gsDiaryAddEntry + gsDiaryStats-Helper.',
@@ -49103,7 +49422,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.32';
+var GS_VERSION = 'v26.33';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
