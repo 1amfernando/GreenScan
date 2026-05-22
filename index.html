@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.24.20260523">
+<meta name="app-version" content="26.25.20260523">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2467,6 +2467,12 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <span data-i18n="btn_harvest_open" data-i18n-fallback="🥕 Erntekalender · Jahres-Statistik">🥕 Erntekalender · Jahres-Statistik</span><span style="font-size:18px;opacity:.85;">›</span>
   </button>
 </div>
+<!-- v26.25: Bodenverbesserer-Recommender (soil_amendments-DB) -->
+<div style="padding:0 16px 12px;">
+  <button onclick="openSoilAmendmentModal()" title="Bodenverbesserer-Empfehlung basierend auf pH + Bodenart" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#5d4037,#3e2723);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_soil_amend_open" data-i18n-fallback="🪨 Boden verbessern · NPK + pH-Empfehlung">🪨 Boden verbessern · NPK + pH-Empfehlung</span><span style="font-size:18px;opacity:.85;">›</span>
+  </button>
+</div>
 <!-- v24.06: Smart-Home Sensor-Dashboard -->
 <div style="padding:0 16px 20px;">
   <button onclick="gsShOpen()" title="Smart-Home Sensoren" style="width:100%;padding:13px 14px;background:linear-gradient(135deg,var(--c-info-d),var(--c-info));color:#fff;border:none;border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 12px rgba(21,101,192,.25);">
@@ -3084,6 +3090,55 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
         👆 Drag zum Drehen · 🤏 Pinch oder Scroll zum Zoomen · Höhe entspricht erwachsener Pflanze (Schätzung).
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ═══ v26.25 BODENVERBESSERER-RECOMMENDER MODAL ═══════════ -->
+<div class="modal-overlay" id="modal-soil-amend" onclick="if(event.target===this)closeModal('modal-soil-amend')">
+  <div class="modal" style="position:relative;max-height:92vh;overflow-y:auto;">
+    <div class="mhandle"></div>
+    <button class="modal-close-btn" onclick="closeModal('modal-soil-amend')" aria-label="Schliessen">&#x2715;</button>
+    <div class="mhdr" style="background:linear-gradient(135deg,#5d4037,#3e2723);color:#fff;">
+      <span class="memoji">🪨</span>
+      <div>
+        <h2 data-i18n="soil_amend_title" data-i18n-fallback="Boden verbessern" style="color:#fff;">Boden verbessern</h2>
+        <p data-i18n="soil_amend_sub" data-i18n-fallback="pH + Bodenart → Top-5 Bodenverbesserer aus 15 CH-Produkten" style="color:rgba(255,255,255,.85);">pH + Bodenart → Top-5 Bodenverbesserer aus 15 CH-Produkten</p>
+      </div>
+    </div>
+    <div id="soil-amend-form" style="padding:14px 18px 18px;">
+      <div class="mp-field">
+        <label data-i18n="soil_lbl_ph" data-i18n-fallback="⚗️ pH-Wert deines Bodens">⚗️ pH-Wert deines Bodens</label>
+        <select class="mp-select" id="soil-ph">
+          <option value="unknown" data-i18n="soil_ph_unknown" data-i18n-fallback="unbekannt — alle Empfehlungen">unbekannt — alle Empfehlungen</option>
+          <option value="acid" data-i18n="soil_ph_acid" data-i18n-fallback="sauer (pH < 6) — Heidelbeere, Hortensie">sauer (pH &lt; 6) — Heidelbeere, Hortensie</option>
+          <option value="neutral" data-i18n="soil_ph_neutral" data-i18n-fallback="neutral (pH 6-7,5) — die meisten Gemüse">neutral (pH 6-7,5) — die meisten Gemüse</option>
+          <option value="alkaline" data-i18n="soil_ph_alkaline" data-i18n-fallback="basisch (pH > 7,5) — Lavendel, Salbei">basisch (pH &gt; 7,5) — Lavendel, Salbei</option>
+        </select>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.4;">Test-Streifen aus Apotheke/Gärtnerei oder professionelle Bodenanalyse.</div>
+      </div>
+      <div class="mp-field">
+        <label data-i18n="soil_lbl_type" data-i18n-fallback="🌍 Bodenart">🌍 Bodenart</label>
+        <select class="mp-select" id="soil-type">
+          <option value="unknown" data-i18n="soil_type_unknown" data-i18n-fallback="unbekannt — alle Empfehlungen">unbekannt — alle Empfehlungen</option>
+          <option value="sandy" data-i18n="soil_type_sandy" data-i18n-fallback="Sand-Boden (locker, durchlässig, mager)">Sand-Boden (locker, durchlässig, mager)</option>
+          <option value="loamy" data-i18n="soil_type_loamy" data-i18n-fallback="Lehm-Boden (mittelschwer, nährstoffreich)">Lehm-Boden (mittelschwer, nährstoffreich)</option>
+          <option value="clay" data-i18n="soil_type_clay" data-i18n-fallback="Ton-Boden (schwer, verdichtet)">Ton-Boden (schwer, verdichtet)</option>
+          <option value="humus" data-i18n="soil_type_humus" data-i18n-fallback="Humus-Boden (dunkel, nährstoffreich)">Humus-Boden (dunkel, nährstoffreich)</option>
+        </select>
+      </div>
+      <div class="mp-field">
+        <label data-i18n="soil_lbl_goal" data-i18n-fallback="🎯 Was möchtest du erreichen? (optional)">🎯 Was möchtest du erreichen? (optional)</label>
+        <select class="mp-select" id="soil-goal">
+          <option value="" data-i18n="soil_goal_none" data-i18n-fallback="— Allgemeine Verbesserung —">— Allgemeine Verbesserung —</option>
+          <option value="nitrogen" data-i18n="soil_goal_n" data-i18n-fallback="Mehr Stickstoff (kräftiges Blattwachstum)">Mehr Stickstoff (kräftiges Blattwachstum)</option>
+          <option value="phosphorus" data-i18n="soil_goal_p" data-i18n-fallback="Mehr Phosphor (Wurzel + Blüte)">Mehr Phosphor (Wurzel + Blüte)</option>
+          <option value="potassium" data-i18n="soil_goal_k" data-i18n-fallback="Mehr Kalium (Frucht + Frost-Resistenz)">Mehr Kalium (Frucht + Frost-Resistenz)</option>
+          <option value="structure" data-i18n="soil_goal_struct" data-i18n-fallback="Bessere Struktur (Auflockerung)">Bessere Struktur (Auflockerung)</option>
+        </select>
+      </div>
+      <button onclick="gsRunSoilRecommend()" id="soil-submit-btn" style="width:100%;padding:14px;background:linear-gradient(135deg,#5d4037,#3e2723);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;" data-i18n="btn_soil_recommend" data-i18n-fallback="🔍 Empfehlungen anzeigen">🔍 Empfehlungen anzeigen</button>
+    </div>
+    <div id="soil-amend-result" style="padding:0 18px 20px;"></div>
   </div>
 </div>
 
@@ -24317,6 +24372,128 @@ async function gsPestAddToDiary(slug) {
   }
 }
 window.gsPestAddToDiary = gsPestAddToDiary;
+
+// ═════════════════════════════════════════════════════════════════════
+// v26.25 BODENVERBESSERER-RECOMMENDER (soil_amendments-DB, 15 CH-Produkte)
+// User wählt pH + Bodenart + Goal (optional) → Score über alle Amendments
+// → Top-5 Empfehlungen. Persistenz in localStorage gs_soil_profile.
+// ═════════════════════════════════════════════════════════════════════
+
+function openSoilAmendmentModal() {
+  // Saved Profile rein-prefillen
+  try {
+    var saved = JSON.parse(localStorage.getItem('gs_soil_profile') || '{}');
+    var ph = document.getElementById('soil-ph');     if (ph && saved.ph) ph.value = saved.ph;
+    var st = document.getElementById('soil-type');   if (st && saved.type) st.value = saved.type;
+    var gl = document.getElementById('soil-goal');   if (gl && saved.goal) gl.value = saved.goal;
+  } catch(_){}
+  var res = document.getElementById('soil-amend-result'); if (res) res.innerHTML = '';
+  if (typeof openModal === 'function') openModal('modal-soil-amend');
+  else document.getElementById('modal-soil-amend').classList.add('open');
+}
+window.openSoilAmendmentModal = openSoilAmendmentModal;
+
+async function gsRunSoilRecommend() {
+  var ph   = (document.getElementById('soil-ph') || {}).value || 'unknown';
+  var type = (document.getElementById('soil-type') || {}).value || 'unknown';
+  var goal = (document.getElementById('soil-goal') || {}).value || '';
+  // Persist
+  try { localStorage.setItem('gs_soil_profile', JSON.stringify({ ph: ph, type: type, goal: goal, ts: Date.now() })); } catch(_){}
+
+  var box = document.getElementById('soil-amend-result');
+  if (box) box.innerHTML = '<div style="margin-top:14px;padding:14px;text-align:center;color:var(--muted);font-size:13px;">⏳ Berechne Top-Empfehlungen…</div>';
+
+  try {
+    if (typeof sbFetch !== 'function') throw new Error('Supabase nicht verfügbar');
+    var r = await sbFetch('/rest/v1/soil_amendments?select=*&limit=50', { method: 'GET' });
+    var rows = (r && Array.isArray(r.data)) ? r.data : [];
+    if (!rows.length) {
+      if (box) box.innerHTML = '<div style="margin-top:14px;padding:14px;background:#fff3e0;border-radius:10px;color:#bf360c;text-align:center;">Keine Bodenverbesserer in der Datenbank.</div>';
+      return;
+    }
+    // Score
+    var scored = rows.map(function(a){
+      var score = 0;
+      var bestForLower = String(a.best_for_soil || '').toLowerCase();
+      // pH-Match
+      if (ph === 'acid' && a.ph_effect === 'erhoehend') score += 50;
+      if (ph === 'alkaline' && (a.ph_effect === 'senkend' || a.ph_effect === 'stark_senkend')) score += 50;
+      if (ph === 'neutral' && a.ph_effect === 'neutral') score += 20;
+      if (ph === 'unknown') score += 15;
+      // Bodenart-Match via ILIKE-ähnliches Pattern
+      var typeMap = {
+        sandy:  ['sand', 'leicht', 'mager'],
+        clay:   ['ton', 'schwer', 'verdicht'],
+        loamy:  ['lehm', 'struktur'],
+        humus:  ['humus', 'erschöpft', 'alle']
+      };
+      var matchTokens = typeMap[type] || [];
+      matchTokens.forEach(function(t){ if (bestForLower.indexOf(t) >= 0) score += 18; });
+      // Goal-Match
+      if (goal === 'nitrogen' && (a.n_pct || 0) >= 3) score += 25;
+      if (goal === 'phosphorus' && (a.p_pct || 0) >= 3) score += 25;
+      if (goal === 'potassium' && (a.k_pct || 0) >= 3) score += 25;
+      if (goal === 'structure' && bestForLower.indexOf('struktur') >= 0) score += 25;
+      // Universal-Bonus für "alle Böden"
+      if (bestForLower.indexOf('alle') >= 0) score += 8;
+      return { row: a, score: score };
+    });
+    scored.sort(function(a,b){ return b.score - a.score; });
+    var top5 = scored.slice(0, 5);
+
+    var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+    var html = '<div style="margin-top:14px;padding:10px 12px;background:#efebe9;border-radius:9px;font-size:11.5px;color:#4e342e;text-align:center;">';
+    html += '<b>Dein Profil:</b> pH ' + ed(ph) + ' · ' + ed(type) + (goal ? ' · Ziel: ' + ed(goal) : '');
+    html += '</div>';
+    html += '<div style="margin-top:8px;">';
+    top5.forEach(function(s, i){
+      var a = s.row;
+      var nutrients = [];
+      if (a.n_pct != null) nutrients.push('N ' + a.n_pct + '%');
+      if (a.p_pct != null) nutrients.push('P ' + a.p_pct + '%');
+      if (a.k_pct != null) nutrients.push('K ' + a.k_pct + '%');
+      if (a.ca_pct != null) nutrients.push('Ca ' + a.ca_pct + '%');
+      if (a.mg_pct != null) nutrients.push('Mg ' + a.mg_pct + '%');
+      var nutrientStr = nutrients.length ? nutrients.join(' · ') : '—';
+      html += '<div onclick="gsSoilOpenDetail(\'' + ed(a.slug || a.id) + '\')" style="cursor:pointer;background:var(--card);border:1px solid var(--border);border-left:3px solid #5d4037;border-radius:12px;padding:11px 14px;margin-bottom:8px;">' +
+        '<div style="display:flex;align-items:flex-start;gap:10px;">' +
+          '<div style="font-size:20px;flex-shrink:0;color:#5d4037;font-weight:900;">' + (i+1) + '.</div>' +
+          '<div style="flex:1;min-width:0;">' +
+            '<div style="font-size:14px;font-weight:800;color:var(--text);">' + ed(a.name_de || a.slug || '?') + '</div>' +
+            '<div style="font-size:11.5px;color:var(--muted);margin-top:2px;">' + ed(a.category || '?') + ' · pH-Effekt: ' + ed(a.ph_effect || 'neutral') + '</div>' +
+            '<div style="font-size:11.5px;color:#1b5e20;margin-top:3px;background:#e8f5e9;padding:3px 8px;border-radius:6px;display:inline-block;font-weight:700;">' + ed(nutrientStr) + '</div>' +
+            (a.application_rate ? '<div style="font-size:11.5px;color:var(--text2);margin-top:4px;line-height:1.4;"><b>Anwendung:</b> ' + ed(a.application_rate) + (a.application_timing ? ' · ' + ed(a.application_timing) : '') + '</div>' : '') +
+          '</div>' +
+          '<div style="font-size:18px;color:var(--muted);flex-shrink:0;">›</div>' +
+        '</div>' +
+      '</div>';
+    });
+    html += '</div>';
+    // Speicher-Hinweis
+    html += '<div style="margin-top:8px;padding:8px 12px;background:#e3f2fd;border-radius:9px;font-size:10.5px;color:#01579b;text-align:center;">Dein Boden-Profil ist gespeichert — beim nächsten Mal vorausgefüllt.</div>';
+
+    // Store top5 für Detail-Lookup
+    window._gsSoilTop5 = top5.map(function(s){ return s.row; });
+    if (box) box.innerHTML = html;
+    try { box.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(_){}
+  } catch(e) {
+    if (box) box.innerHTML = '<div style="margin-top:14px;padding:14px;background:#ffebee;border-radius:10px;color:#c62828;text-align:center;">⚠️ Konnte nicht laden — ' + (e.message || '') + '</div>';
+  }
+}
+window.gsRunSoilRecommend = gsRunSoilRecommend;
+
+window.gsSoilOpenDetail = function(slug) {
+  var rows = window._gsSoilTop5 || [];
+  var a = rows.find(function(x){ return String(x.slug || x.id) === String(slug); });
+  if (!a) return;
+  var mc = document.getElementById('modal-content');
+  if (!mc) return;
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+  mc.innerHTML = typeof _gsWave9RenderSoilAmend === 'function'
+    ? _gsWave9RenderSoilAmend(a, ed)
+    : '<div style="padding:20px;color:var(--text);">' + ed(a.name_de || a.slug) + '</div>';
+  if (typeof openModal === 'function') openModal('detail-modal');
+};
 
 // ═════════════════════════════════════════════════════════════════════
 // v26.18 AR-VIEW MVP (Three.js + Fallback-Geometrie)
@@ -46246,6 +46423,27 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.25', date: '23.05.2026',
+    headline: '🪨 Bodenverbesserer-Recommender — pH + Bodenart → Top-5 CH-Produkte',
+    summary: 'Cowork-Auftrag v26.25. Neuer Garten-Aktion-Button "🪨 Boden verbessern" öffnet Modal mit 3 Pickers (pH-Wert, Bodenart, Ziel-Nährstoff/Struktur). Client-side Scoring über alle 15 CH-Bodenverbesserer aus soil_amendments-DB: pH-Match (50 Punkte), Bodenart-Match via ILIKE-Token (18), Goal-Match auf NPK-Werte (25), Universal-Bonus (8). Top-5 als geordnete Karten mit NPK-Tag, Anwendung, Timing. Profil persistent in localStorage.',
+    user_summary: '🪨 Neu: Sag uns deinen pH-Wert + Bodenart → Top-5 Bodenverbesserer aus 15 Schweizer Produkten. Wird gespeichert für nächstes Mal.',
+    user_items: [
+      { emoji: '🎯', text: 'pH-Picker (sauer/neutral/basisch) + Bodenart (Sand/Lehm/Ton/Humus) + Ziel (N/P/K/Struktur)' },
+      { emoji: '🧮', text: 'Scoring-Algorithmus: 15 Produkte → Top-5 mit NPK-Werten + Anwendungsmenge + Timing' },
+      { emoji: '💾', text: 'Profil gespeichert — beim nächsten Mal vorausgefüllt' },
+      { emoji: '📖', text: 'Detail-Klick öffnet vollständige Karte (Quelle, Warnungen, Kombinationen)' },
+    ],
+    items: [
+      {emoji:'🧩', bold:'Garten-Aktion-Button:', text:' "🪨 Boden verbessern · NPK + pH-Empfehlung" unter dem Erntekalender-Button, braun-Gradient (#5d4037 → #3e2723).'},
+      {emoji:'📋', bold:'#modal-soil-amend:', text:' 3 Selects (pH/Type/Goal) + Submit-Button. Pre-fill aus localStorage.gs_soil_profile beim Open.'},
+      {emoji:'⚖️', bold:'gsRunSoilRecommend Scoring:', text:' pH-Match: ph=acid → ph_effect=erhoehend +50. type-Match: ILIKE-Token-Map (sandy:["sand","leicht","mager"], clay:["ton","schwer"], etc.) +18. goal-Match: N/P/K-pct ≥3 → +25. "alle Böden" → +8. Sort desc, take 5.'},
+      {emoji:'🎨', bold:'Top-5 Cards:', text:' Rang-Nr · Name · Kategorie + pH-Effekt · NPK-Tag in grünem Badge · Anwendungsmenge + Timing. Click → Detail-Modal mit gemeinsamem _gsWave9RenderSoilAmend.'},
+      {emoji:'💾', bold:'Persistenz:', text:' gs_soil_profile als {ph,type,goal,ts}. Auto-prefill bei nächstem Open.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.26 Heilpflanzen-Profile im Pflanzen-Detail. v26.27 Regional-Calendar.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 inline-scripts node --check OK · sw.js gs-v26.25 OK.'},
+    ]
+  },
+  {
     v: 'v26.24', date: '23.05.2026',
     headline: '🪲 KI-Planer mit Schädlings-Hint — Top-Risiken + Schutzpflanzen-Vorschläge',
     summary: 'Cowork-Auftrag v26.24. Im KI-Planer Plan-Detail-Modal (gsGardenScanShowPlant) wird jetzt asynchron pro Pflanze (mit species_lat) ein Block geladen: Top-3 Schädlinge aus plant_pests (host_plants @> [species_lat]) mit Severity-Dots + Prävention + Bio-Behandlung, plus Companion-Plant-Vorschläge aus pest_companion_plants (effective_against-Array-Overlap). "🪲 Schädling fotografieren"-CTA öffnet den existing v26.21 Pest-Scanner.',
@@ -47949,7 +48147,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.24';
+var GS_VERSION = 'v26.25';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
