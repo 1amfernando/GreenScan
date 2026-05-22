@@ -1,5 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
+   v26.32 — Garten-Tagebuch v2 (AUFTRAG_v26.32): Migration v26_32_garden_diary_v2_kategorien applied — entry_type (check 11 values) + pest_slug (FK plant_pests) + species_lat + harvest_kg + metadata jsonb. Plus idx_garden_diary_user_type_ts + idx_garden_diary_pest_slug. Bug-Fix bestehende v26.21+v26.29 Inserts (silent fail durch type/notes-Spalten die nicht existierten → korrigiert auf entry_type/text/tag). Neue Helper gsDiaryAddEntry generic + gsDiaryStats aggregiert harvest_kg/per_type/per_species fuer Saison-Statistik. GS_DIARY_TYPES-Map mit 11 emoji+label+tag definitions.
    v26.30 — Samen-Gewinnung-Wissen (AUFTRAG_v26.30): 5. Sub-Tab im Wissen-Bereich (🌰 Samen ernten) als Erweiterung der v26.23 Wave-9-Renderer. configs[]-Map um 'samen' erweitert (seed_saving_methods, 12 Eintraege, Order difficulty+plant_name_de, Card-Sub mit pollination_type + isolation_distance + viability_years, Card-Accent rot bei Cucurbita-Kreuzung). _gsWave9RenderSeedSaving Detail-Modal mit WICHTIG-Warning ZUERST (Cucurbita), Badges (Bestäubung/Isolation/Keimfähigkeit/Schwierigkeit/Sortenstabilität), Ernte-Timing + Reife-Zeichen, Extraktion + Reinigung + Trocknung, Lagerung-Box mit Temp/Feuchte/Behälter, Schweizer Rechtslage + Kulturelle Bedeutung.
    v26.29 — Duengeplan-Coach (AUFTRAG_v26.29) + Beet-Layout-Designer (AUFTRAG_v26.31, bundled): 2 neue Garten-Aktion-Buttons. Duengeplan: Modal mit Pflanzen-Picker, auto-select bei myPlants-Match, Phasen-Liste aus fertilization_schedules mit NPK-Focus, Bio + Mineral-Optionen, Dosis (g/m² + ml/l), Frequenz, Kosten CHF, Warnungen, organic_certified Badge. "Erledigt"-Button pro Phase → garden_diary (type=fertilization). Layouts: 10 Vorlagen aus garden_layouts mit Filter-Pills (layout_type + Anfaenger-Toggle). Detail-Modal mit plant_combinations (jsonb array/object), rotation_plan (jsonb Jahr→Pflanzen), pro_tips (gruen), common_pitfalls (rot).
    v26.28 — KI-Planer Region-Wiring (AUFTRAG_v26.28): gsRunGardenScan body.metadata bekommt async region_slug (via gsGetRegionContext aus v26.27) + soil_type/soil_ph (aus localStorage gs_soil_profile von v26.25). Backend garden-scan-analyze v2 nutzt das fuer Frost-Constraints + best_vegetables + Boden-Empfehlungen im System-Prompt. plan-iterate v2 lest die region_used aus garden_plans-Record (automatisch region-aware bei Iterationen).
@@ -32,7 +33,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v26.30';
+const VERSION = 'gs-v26.32';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;

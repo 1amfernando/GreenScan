@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.30.20260523">
+<meta name="app-version" content="26.32.20260523">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -24448,9 +24448,14 @@ async function gsPestAddToDiary(slug) {
       headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
       body: JSON.stringify({
         user_id: uid,
-        type: 'pest_observation',
-        notes: 'Pest identified: ' + slug,
-        metadata: { pest_slug: slug }
+        ts: new Date().toISOString(),
+        entry_type: 'pest_observation',
+        pest_slug: slug,
+        emoji: '🪲',
+        title: 'Schädling erkannt',
+        text: 'Pest identified: ' + slug,
+        tag: 'pest',
+        metadata: { pest_slug: slug, source: 'pest_scanner_v26.21' }
       })
     });
     if (typeof showProfileToast === 'function') showProfileToast(
@@ -24952,10 +24957,14 @@ async function gsFertilizerLogDone(slug, lat, name, phase) {
       headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
       body: JSON.stringify({
         user_id: uid,
-        type: 'fertilization',
+        ts: new Date().toISOString(),
+        entry_type: 'fertilization',
         species_lat: lat || null,
-        notes: name + ' — Phase: ' + (phase || '?'),
-        metadata: { fertilizer_slug: slug, phase: phase }
+        emoji: '🌱',
+        title: 'Düngung: ' + (name || ''),
+        text: name + ' — Phase: ' + (phase || '?'),
+        tag: 'fertilization',
+        metadata: { fertilizer_slug: slug, phase: phase, source: 'fertilizer_coach_v26.29' }
       })
     });
     if (typeof showProfileToast === 'function') showProfileToast('✅ Düngung im Tagebuch festgehalten', 'success');
@@ -25045,6 +25054,102 @@ window.gsLayoutsFilter = function(f) {
   window._gsLayoutsFilter = f || { beginner: false, type: '' };
   openGardenLayoutsModal();
 };
+
+// ═════════════════════════════════════════════════════════════════════
+// v26.32 GARTEN-TAGEBUCH v2 (garden_diary erweitert mit entry_type)
+// Schema-Erweiterung via Migration v26_32_garden_diary_v2_kategorien:
+//   entry_type, pest_slug, species_lat, harvest_kg, metadata jsonb
+// API-Helpers fuer kategorisierte Diary-Eintraege + Saison-Statistik.
+// 11 Type-Codes: general, pest_observation, disease, harvest, sowing,
+//   fertilization, pruning, watering, medicinal_harvest,
+//   seed_collection, flowering.
+// ═════════════════════════════════════════════════════════════════════
+
+window.GS_DIARY_TYPES = {
+  general:           { emoji: '📝', label: 'Allgemein',          tag: 'general' },
+  pest_observation:  { emoji: '🪲', label: 'Schädling',          tag: 'pest' },
+  disease:           { emoji: '🦠', label: 'Krankheit',          tag: 'disease' },
+  harvest:           { emoji: '🥕', label: 'Ernte',              tag: 'harvest' },
+  sowing:            { emoji: '🌱', label: 'Aussaat',            tag: 'sowing' },
+  fertilization:     { emoji: '🌿', label: 'Düngung',            tag: 'fertilization' },
+  pruning:           { emoji: '✂️', label: 'Schnitt',            tag: 'pruning' },
+  watering:          { emoji: '💧', label: 'Bewässerung',        tag: 'watering' },
+  medicinal_harvest: { emoji: '🌿', label: 'Heilkräuter-Ernte',  tag: 'medicinal' },
+  seed_collection:   { emoji: '🌰', label: 'Samen geerntet',     tag: 'seeds' },
+  flowering:         { emoji: '🌸', label: 'Blüte',              tag: 'flowering' }
+};
+
+// Generic Helper fuer kategorisierte Diary-Eintraege.
+// Wird von v26.21 (Pest), v26.29 (Düngung), und kuenftigen Sprints genutzt.
+async function gsDiaryAddEntry(opts) {
+  opts = opts || {};
+  var uid = (window.gsStore && typeof gsStore.get === 'function') ? gsStore.get('gs_sb_uid', null) : null;
+  if (!uid) return { ok: false, error: 'not_logged_in' };
+  var t = opts.entry_type || 'general';
+  var meta = GS_DIARY_TYPES[t] || GS_DIARY_TYPES.general;
+  var row = {
+    user_id: uid,
+    ts: opts.ts || new Date().toISOString(),
+    entry_type: t,
+    emoji: opts.emoji || meta.emoji,
+    title: opts.title || meta.label,
+    text: opts.text || '',
+    tag: opts.tag || meta.tag,
+    metadata: opts.metadata || {}
+  };
+  if (opts.species_lat != null) row.species_lat = opts.species_lat;
+  if (opts.pest_slug != null) row.pest_slug = opts.pest_slug;
+  if (opts.harvest_kg != null) row.harvest_kg = opts.harvest_kg;
+  if (opts.photo_url) row.photo_url = opts.photo_url;
+  if (opts.garden_id) row.garden_id = opts.garden_id;
+
+  try {
+    var r = await sbFetch('/rest/v1/garden_diary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      body: JSON.stringify(row)
+    });
+    if (r && r.error) return { ok: false, error: r.error };
+    return { ok: true };
+  } catch(e) {
+    return { ok: false, error: String(e && e.message || e) };
+  }
+}
+window.gsDiaryAddEntry = gsDiaryAddEntry;
+
+// Saison-Statistik: aggregiert harvest_kg + entry-counts pro Type.
+// Fuer Pflanzen-Detail, Garten-Header-Widgets oder Stats-Modal.
+async function gsDiaryStats(opts) {
+  opts = opts || {};
+  var uid = (window.gsStore && typeof gsStore.get === 'function') ? gsStore.get('gs_sb_uid', null) : null;
+  if (!uid) return null;
+  var fromTs = opts.from || new Date(new Date().getFullYear(), 0, 1).toISOString();
+  var toTs = opts.to || new Date(new Date().getFullYear() + 1, 0, 1).toISOString();
+  try {
+    var r = await sbFetch(
+      '/rest/v1/garden_diary?user_id=eq.' + encodeURIComponent(uid) +
+      '&ts=gte.' + encodeURIComponent(fromTs) +
+      '&ts=lt.' + encodeURIComponent(toTs) +
+      '&select=entry_type,harvest_kg,species_lat&limit=2000',
+      { method: 'GET' }
+    );
+    var rows = (r && Array.isArray(r.data)) ? r.data : [];
+    var stats = { total: rows.length, per_type: {}, harvest_total_kg: 0, harvest_per_species: {}, pest_count: 0 };
+    rows.forEach(function(d){
+      var t = d.entry_type || 'general';
+      stats.per_type[t] = (stats.per_type[t] || 0) + 1;
+      if (t === 'harvest' && d.harvest_kg) {
+        stats.harvest_total_kg += Number(d.harvest_kg) || 0;
+        var sp = d.species_lat || '_unknown_';
+        stats.harvest_per_species[sp] = (stats.harvest_per_species[sp] || 0) + (Number(d.harvest_kg) || 0);
+      }
+      if (t === 'pest_observation') stats.pest_count++;
+    });
+    stats.harvest_total_kg = Math.round(stats.harvest_total_kg * 100) / 100;
+    return stats;
+  } catch(_) { return null; }
+}
+window.gsDiaryStats = gsDiaryStats;
 
 window.gsLayoutOpenDetail = function(slug) {
   var rows = (window._gsLayoutsCache || {}).rows || [];
@@ -47146,6 +47251,27 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.32', date: '23.05.2026',
+    headline: '📓 Garten-Tagebuch v2 — kategorisierte Einträge mit 11 Typen + Saison-Stats-API',
+    summary: 'Cowork-Auftrag v26.32. Migration v26_32_garden_diary_v2_kategorien LIVE-applied via Supabase MCP — fügt entry_type (check 11 values) + pest_slug (FK plant_pests) + species_lat + harvest_kg + metadata jsonb hinzu. Bug-Fix: bestehende v26.21 Pest-Scanner + v26.29 Düngeplan-Coach Inserts schlugen silent fehl weil sie type+notes Spalten erwarteten die nicht existierten — jetzt korrekt auf entry_type+text+tag. Neue generic gsDiaryAddEntry + gsDiaryStats-Helper.',
+    user_summary: '📓 Das Garten-Tagebuch unterscheidet jetzt zwischen 11 Eintrag-Typen: Schädling, Krankheit, Ernte, Aussaat, Düngung, Schnitt, Bewässerung, Heilkräuter, Samen, Blüte, Allgemein. Damit lassen sich saisonale Statistiken erstellen (z.B. "X kg Tomaten geerntet").',
+    user_items: [
+      { emoji: '🏷️', text: '11 Eintrag-Typen mit eigenen Emoji + Tag (auto-Filter)' },
+      { emoji: '🥕', text: 'Ernte-Einträge mit harvest_kg → Saison-Total + pro-Pflanze-Statistik' },
+      { emoji: '🪲', text: 'Schädlings-Beobachtungen jetzt referenziert (FK auf plant_pests)' },
+      { emoji: '🐛', text: 'Bug-Fix: Pest-Scanner + Düngeplan speichern wieder korrekt (silent fail behoben)' },
+    ],
+    items: [
+      {emoji:'🗄️', bold:'Migration v26_32 applied:', text:' ALTER TABLE garden_diary ADD COLUMN entry_type (default general, check 11 values) + pest_slug (FK plant_pests ON DELETE SET NULL) + species_lat + harvest_kg (numeric) + metadata (jsonb). Plus 2 Indexes (user+type+ts desc, pest_slug).'},
+      {emoji:'🛠️', bold:'Bug-Fix existing Inserts:', text:' v26.21 Pest-Scanner gsPestAddToDiary + v26.29 Düngeplan gsFertilizerLogDone hatten type/notes-Spalten die nicht existierten → silent fail. Korrigiert auf existing Schema (ts, emoji, title, text, tag) + neue Spalten (entry_type, pest_slug, species_lat, metadata).'},
+      {emoji:'🧰', bold:'gsDiaryAddEntry generic:', text:' Window-exposed Helper fuer kategorisierte Eintraege. opts: {entry_type, species_lat, pest_slug, harvest_kg, title, text, photo_url, garden_id, metadata}. Auto-fuellt emoji+tag aus GS_DIARY_TYPES-Map.'},
+      {emoji:'📊', bold:'gsDiaryStats:', text:' Aggregiert pro Jahr: total_entries, per_type-Counts, harvest_total_kg, harvest_per_species, pest_count. Bereit fuer Pflanzen-Detail-Widgets, Garten-Header-Stats, Saison-Modal.'},
+      {emoji:'🏷️', bold:'GS_DIARY_TYPES:', text:' Map mit 11 Codes: general/pest_observation/disease/harvest/sowing/fertilization/pruning/watering/medicinal_harvest/seed_collection/flowering. Jeder mit emoji+label+tag.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' Frontend Type-Picker UI im Diary-Form (bisher kein User-Form da, nur API-Helper) als Bonus-Sprint. Plus B1 did_you_know_facts + seasonal_tips Bulk-Refill, B2 Marketplace Pestizid-frei-Filter, B3 Pollinator-Garten-Modus.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 inline-scripts node --check OK · sw.js gs-v26.32 OK · Migration applied · 2 Inserts bug-fixed.'},
+    ]
+  },
+  {
     v: 'v26.30', date: '23.05.2026',
     headline: '🌰 Samen ernten & lagern — 5. Wissen-Sub-Tab mit 12 Methoden',
     summary: 'Cowork-Auftrag v26.30. Wissen-Tab bekommt 5. DB-basierten Sub-Tab "🌰 Samen ernten" als Erweiterung der v26.23 Wave-9-Renderer. configs[]-Map um seed_saving_methods erweitert. Neuer _gsWave9RenderSeedSaving Detail-Modal mit WICHTIG-Warning ZUERST (Cucurbita-Kreuzung), Badges (Bestäubung/Isolation/Keimfähigkeit), Ernte-Timing, Reife-Zeichen, Extraktion + Reinigung + Trocknung, Lagerung-Box mit Temp/Feuchte/Behälter, Schweizer Rechtslage + Kulturelle Bedeutung.',
@@ -48977,7 +49103,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.30';
+var GS_VERSION = 'v26.32';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
