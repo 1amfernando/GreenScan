@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.25.20260523">
+<meta name="app-version" content="26.26.20260523">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19946,10 +19946,15 @@ function openDetail(id){
   ].join('');
 
   html = '<button class="modal-close-btn" onclick="closeModal(\'detail-modal\')" title="Schliessen">✕</button>' + html;
+  // v26.26: Heilpflanzen-Hook — async-Container fuer medicinal_plants_register-Match.
+  // Wird unter dem normalen Detail eingefuegt; gsLoadMedicinalProfile injectet das HTML.
+  html += '<div id="medicinal-profile-host-' + sp.id + '" data-medicinal-lat="' + (sp.lat ? String(sp.lat).replace(/"/g,'&quot;') : '') + '"></div>';
   try {
     document.getElementById('modal-content').innerHTML = html;
     openModal('detail-modal');
     if(sp.lat&&typeof gsLoadWikiImage==='function') setTimeout(function(){gsLoadWikiImage(sp.lat,'wi-'+sp.id);},150);
+    // v26.26: Heilpflanzen-Profil async laden falls Pflanze als Heilpflanze gelistet
+    if (sp.lat) { try { gsLoadMedicinalProfile(sp.id, sp.lat); } catch(_){} }
   } catch(e) {
     console.warn('openDetail render error:', e, 'for species:', id);
     // Show fallback modal with basic info
@@ -24481,6 +24486,94 @@ async function gsRunSoilRecommend() {
   }
 }
 window.gsRunSoilRecommend = gsRunSoilRecommend;
+
+// ═════════════════════════════════════════════════════════════════════
+// v26.26 HEILPFLANZEN-PROFIL (medicinal_plants_register Lookup)
+// Wird async beim openDetail-Render aufgerufen falls sp.lat vorhanden.
+// Wenn DB-Match: mountet ausfuehrliches Heilpflanzen-HTML mit prominent
+// roten Warnungen (Kontraindikationen, Wechselwirkungen) am ENDE des
+// existing Pflanzen-Detail-Modals.
+// ═════════════════════════════════════════════════════════════════════
+async function gsLoadMedicinalProfile(spId, latName) {
+  if (!latName || typeof sbFetch !== 'function') return;
+  var host = document.getElementById('medicinal-profile-host-' + spId);
+  if (!host) return;
+  try {
+    var r = await sbFetch(
+      '/rest/v1/medicinal_plants_register?scientific_name=eq.' +
+      encodeURIComponent(latName) + '&select=*&limit=1',
+      { method: 'GET' }
+    );
+    var med = (r && Array.isArray(r.data) && r.data.length) ? r.data[0] : null;
+    if (!med) return;  // Keine Heilpflanze → keine Section
+    var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+
+    var html = '<div style="margin:14px 16px 18px;padding:14px;background:linear-gradient(135deg,#f1f8e9,#e8f5e9);border:2px solid #66bb6a;border-radius:14px;">';
+    // Section-Header
+    html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;border-bottom:1.5px solid #66bb6a;padding-bottom:8px;">';
+    html += '<span style="font-size:24px;">🌿</span>';
+    html += '<div style="font-family:\'Playfair Display\',serif;font-size:17px;font-weight:900;color:#1b5e20;">Als Heilpflanze</div>';
+    html += '</div>';
+
+    // Badges
+    var badges = '';
+    if (med.evidence_level) badges += '<span style="background:#e8f5e9;color:#1b5e20;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:700;">📊 Evidenz: ' + ed(med.evidence_level) + '</span> ';
+    if (med.swiss_native) badges += '<span style="background:#e3f2fd;color:#01579b;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:700;">🇨🇭 CH-heimisch</span> ';
+    if (med.protected_species) badges += '<span style="background:#ffebee;color:#c62828;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:700;">🛡️ Geschützt</span> ';
+    if (badges) html += '<div style="margin-bottom:10px;">' + badges + '</div>';
+
+    // WICHTIG: Warnungen ZUERST und PROMINENT
+    if (med.contraindications && med.contraindications.length) {
+      html += '<div style="padding:11px 14px;background:#ffebee;border:2px solid #c62828;border-radius:11px;margin-bottom:8px;">';
+      html += '<div style="font-size:12.5px;font-weight:900;color:#c62828;margin-bottom:5px;letter-spacing:.3px;">⛔ KONTRAINDIKATIONEN</div>';
+      html += '<ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.55;color:#b71c1c;">';
+      med.contraindications.forEach(function(c){ html += '<li><b>' + ed(c) + '</b></li>'; });
+      html += '</ul></div>';
+    }
+    if (med.drug_interactions && med.drug_interactions.length) {
+      html += '<div style="padding:10px 13px;background:#fff3e0;border:1.5px solid #e65100;border-radius:11px;margin-bottom:8px;">';
+      html += '<div style="font-size:12px;font-weight:900;color:#e65100;margin-bottom:4px;">⚠️ Wechselwirkungen mit Medikamenten</div>';
+      html += '<ul style="margin:0;padding-left:18px;font-size:11.5px;line-height:1.55;color:#bf360c;">';
+      med.drug_interactions.forEach(function(c){ html += '<li>' + ed(c) + '</li>'; });
+      html += '</ul></div>';
+    }
+    if (med.toxicity_notes) {
+      html += '<div style="margin-bottom:8px;padding:9px 12px;background:#fff8e1;border:1.5px solid #f57f17;border-radius:10px;font-size:11.5px;color:#bf360c;line-height:1.5;"><b>☠️ Toxizität:</b> ' + ed(med.toxicity_notes) + '</div>';
+    }
+
+    // Verwendung
+    function listBlock(label, arr, bg) {
+      if (!Array.isArray(arr) || !arr.length) return '';
+      return '<div style="margin-top:8px;padding:8px 11px;background:' + (bg || 'var(--surface2)') + ';border-radius:9px;">' +
+        '<div style="font-size:10.5px;font-weight:800;color:var(--text);margin-bottom:3px;letter-spacing:.3px;">' + ed(label) + '</div>' +
+        '<div style="font-size:11.5px;color:var(--text2);line-height:1.55;">' + arr.map(ed).join(' · ') + '</div></div>';
+    }
+    html += listBlock('🌱 Verwendete Pflanzenteile', med.used_parts, '#e8f5e9');
+    html += listBlock('🧪 Hauptwirkstoffe', med.primary_compounds, '#e3f2fd');
+    if (med.secondary_compounds && med.secondary_compounds.length) html += listBlock('⚗️ Begleitwirkstoffe', med.secondary_compounds);
+    html += listBlock('📖 Traditionelle Anwendung', med.traditional_uses, '#f3e5f5');
+    html += listBlock('🔬 Klinisch belegte Anwendung', med.evidence_based_uses, '#e8f5e9');
+    html += listBlock('🍵 Zubereitung', med.preparation_methods);
+
+    if (med.dosage_general) html += '<div style="margin-top:8px;padding:8px 11px;background:#e3f2fd;border-radius:9px;font-size:11.5px;color:#01579b;"><b>💊 Dosierung:</b> ' + ed(med.dosage_general) + '</div>';
+    if (med.best_harvest_month && med.best_harvest_month.length) {
+      html += '<div style="margin-top:6px;font-size:11.5px;color:var(--text2);"><b>📅 Beste Erntezeit:</b> ' + ed((med.best_harvest_month).join(', '));
+      if (med.best_harvest_part_timing) html += ' — ' + ed(med.best_harvest_part_timing);
+      html += '</div>';
+    }
+    if (med.swiss_legal_status) html += '<div style="margin-top:4px;font-size:11.5px;color:var(--text2);"><b>📍 Schweizer Rechtslage:</b> ' + ed(med.swiss_legal_status) + '</div>';
+    if (med.conservation_status) html += '<div style="margin-top:4px;font-size:11.5px;color:var(--text2);"><b>🌍 Schutzstatus:</b> ' + ed(med.conservation_status) + '</div>';
+    if (med.cultivation_notes) html += '<div style="margin-top:4px;font-size:11.5px;color:var(--text2);"><b>🌱 Anbau:</b> ' + ed(med.cultivation_notes) + '</div>';
+
+    // Disclaimer
+    html += '<div style="margin-top:12px;padding:8px 11px;background:#fffde7;border:1px dashed #fbc02d;border-radius:9px;font-size:10.5px;color:#827717;line-height:1.5;text-align:center;"><b>Hinweis:</b> Keine medizinische Beratung. Bei Beschwerden Arzt oder Apotheker fragen. Heilpflanzen ersetzen keine ärztliche Behandlung.</div>';
+    if (med.source) html += '<div style="margin-top:6px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(med.source) + '</div>';
+
+    html += '</div>';
+    host.innerHTML = html;
+  } catch(_) { /* silent — keine Heilpflanze-Section bei Lookup-Fehler */ }
+}
+window.gsLoadMedicinalProfile = gsLoadMedicinalProfile;
 
 window.gsSoilOpenDetail = function(slug) {
   var rows = window._gsSoilTop5 || [];
@@ -46423,6 +46516,29 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.26', date: '23.05.2026',
+    headline: '🌿 Heilpflanzen-Profile — automatischer Tab im Pflanzen-Detail',
+    summary: 'Cowork-Auftrag v26.26. openDetail Pflanzen-Detail-Modal bekommt jetzt async geladenen Heilpflanzen-Block falls Match in medicinal_plants_register. gsLoadMedicinalProfile mountet eine grüne Section am Ende des bestehenden Modals: Badges (Evidenz/CH-heimisch/Geschützt), dann ZUERST prominent rote Kontraindikationen + orange Wechselwirkungen + gelbe Toxizität (rechtssicher), dann Verwendung mit Pflanzenteilen, Wirkstoffen, traditioneller vs evidenzbasierter Anwendung, Zubereitung, Dosierung, Erntezeit, CH-Rechtslage. Disclaimer-Footer.',
+    user_summary: '🌿 Tippe auf eine Pflanze die als Heilpflanze gilt → unten erscheint automatisch ein Heilpflanzen-Profil mit allen wichtigen Warnungen (Schwangerschaft, Medikamente) ganz oben.',
+    user_items: [
+      { emoji: '⛔', text: 'Kontraindikationen ROT und prominent — niemals übersehbar' },
+      { emoji: '⚠️', text: 'Wechselwirkungen mit Medikamenten orange markiert' },
+      { emoji: '🌱', text: 'Verwendete Pflanzenteile + Wirkstoffe + Anwendungen + Dosierung' },
+      { emoji: '📍', text: 'Schweizer Rechtslage + Schutzstatus + beste Erntezeit' },
+    ],
+    items: [
+      {emoji:'🪝', bold:'openDetail-Hook:', text:' Container <div id="medicinal-profile-host-<id>"> wird am Ende des Detail-HTML eingefuegt. gsLoadMedicinalProfile(spId, sp.lat) ruft async DB.'},
+      {emoji:'🔍', bold:'DB-Lookup:', text:' GET medicinal_plants_register WHERE scientific_name=eq.<lat> LIMIT 1. Falls kein Match → silent return (keine Section).'},
+      {emoji:'🎨', bold:'Section-Render:', text:' Grüner Gradient-Box mit Header "🌿 Als Heilpflanze". Badges (📊 Evidenz, 🇨🇭 CH-heimisch, 🛡️ Geschützt).'},
+      {emoji:'⛔', bold:'Warnungen ZUERST:', text:' Kontraindikationen in roter dicker Box (border-2 #c62828). Wechselwirkungen in orange Box. Toxizität in gelber Box. Reihenfolge nach Schwere.'},
+      {emoji:'📚', bold:'Verwendung-Listen:', text:' used_parts (grün), primary_compounds (blau), secondary_compounds, traditional_uses (lila), evidence_based_uses (grün), preparation_methods.'},
+      {emoji:'💊', bold:'Dosierung + Kontext:', text:' dosage_general (blau), best_harvest_month + timing, swiss_legal_status, conservation_status, cultivation_notes.'},
+      {emoji:'⚖️', bold:'Disclaimer:', text:' "Keine medizinische Beratung. Bei Beschwerden Arzt oder Apotheker fragen." + Quelle am Footer.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.27 Regional-Calendar (7 CH-Regionen + Monats-Widget + KI-Planer-Context).'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 inline-scripts node --check OK · sw.js gs-v26.26 OK.'},
+    ]
+  },
+  {
     v: 'v26.25', date: '23.05.2026',
     headline: '🪨 Bodenverbesserer-Recommender — pH + Bodenart → Top-5 CH-Produkte',
     summary: 'Cowork-Auftrag v26.25. Neuer Garten-Aktion-Button "🪨 Boden verbessern" öffnet Modal mit 3 Pickers (pH-Wert, Bodenart, Ziel-Nährstoff/Struktur). Client-side Scoring über alle 15 CH-Bodenverbesserer aus soil_amendments-DB: pH-Match (50 Punkte), Bodenart-Match via ILIKE-Token (18), Goal-Match auf NPK-Werte (25), Universal-Bonus (8). Top-5 als geordnete Karten mit NPK-Tag, Anwendung, Timing. Profil persistent in localStorage.',
@@ -48147,7 +48263,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.25';
+var GS_VERSION = 'v26.26';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
