@@ -1,7 +1,19 @@
--- v26.7 Trial-End-Reminder
--- Dedup-Index auf push_send_log.dedup_key — verhindert dass
--- daily-push-checker v3 denselben Trial-End-Reminder mehrfach verschickt
--- (Job laeuft 07/19 UTC, ohne Dedup wuerde User 2× pro Tag gepingt werden).
-
-create unique index if not exists idx_push_send_log_dedup
-  on push_send_log(dedup_key);
+-- v26.7/v26.13 Trial-End-Reminder — ORIGINAL PLAN OBSOLET (2026-05-22)
+--
+-- Beim Deploy 2026-05-22 hat sich gezeigt: push_send_log hat KEINE
+-- dedup_key-Spalte. Die Live-Tabelle nutzt das (user_id, category)-Pattern
+-- mit der RPC fn_push_already_sent_today fuer taegliche Dedup.
+--
+-- → daily-push-checker v3 ruft alreadySentToday(userId, 'trial_end')
+--   anstelle eines dedup_key-Lookups. Keine neue Tabelle / kein neuer
+--   Index noetig.
+--
+-- Dieses File ist nur noch ein Marker damit klar ist:
+--   1. Die original push_dedup-Migration aus AUFTRAG_CODE_v26.7 wurde nie
+--      applied (schema-incompatible).
+--   2. daily-push-checker v3 ist Live (slug=daily-push-checker, version=3)
+--      und nutzt das v2-Dedup-Pattern.
+--
+-- NO-OP — bewusst harmlos, falls jemand das File doch versehentlich
+-- via apply_migration laufen lässt.
+select 1 as v26_7_push_dedup_obsoleted_2026_05_22;
