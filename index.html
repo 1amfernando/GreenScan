@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.29.20260523">
+<meta name="app-version" content="26.30.20260523">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4167,6 +4167,8 @@ html, body{ scroll-behavior: smooth; }
     <button class="recipe-cat" onclick="showWissen('vermehrung',this)" data-i18n="wissen_propagation" data-i18n-fallback="✂️ Vermehrung">✂️ Vermehrung</button>
     <button class="recipe-cat" onclick="showWissen('bodenpflege',this)" data-i18n="wissen_soil_amend" data-i18n-fallback="🪨 Boden-Pflege">🪨 Boden-Pflege</button>
     <button class="recipe-cat" onclick="showWissen('heilpflanzen',this)" data-i18n="wissen_medicinal" data-i18n-fallback="🌿 Heilpflanzen">🌿 Heilpflanzen</button>
+    <!-- v26.30: 5. Wave-9-Sub-Tab — Samen-Gewinnung -->
+    <button class="recipe-cat" onclick="showWissen('samen',this)" data-i18n="wissen_seeds" data-i18n-fallback="🌰 Samen ernten">🌰 Samen ernten</button>
   </div>
 
   <!-- Content -->
@@ -32378,7 +32380,9 @@ function showWissen(section, btn) {
     kompost:       {ico:'🌱', title:'Kompostieren', sub:'8 Methoden mit Schritt-Anleitung, Schwierigkeit, Saisonstart und Troubleshooting.'},
     vermehrung:    {ico:'✂️', title:'Pflanzen vermehren', sub:'12 Methoden — Stecklinge, Absenker, Teilung, Aussaat — mit Erfolgsrate.'},
     bodenpflege:   {ico:'🪨', title:'Boden verbessern', sub:'15 Schweizer Bodenverbesserer: NPK-Werte, pH-Effekt, Anwendung.'},
-    heilpflanzen:  {ico:'🌿', title:'Heilpflanzen-Register', sub:'15 CH-Heilpflanzen mit Wirkstoffen, Anwendungen und WARNUNGEN (rechtssicher).'}
+    heilpflanzen:  {ico:'🌿', title:'Heilpflanzen-Register', sub:'15 CH-Heilpflanzen mit Wirkstoffen, Anwendungen und WARNUNGEN (rechtssicher).'},
+    // v26.30: Wave-9 Sub-Tab — Samen-Gewinnung
+    samen:         {ico:'🌰', title:'Samen ernten & lagern', sub:'12 Methoden — Bestäubung, Isolationsabstand, Trocknung, Lagerung, Keimfähigkeit.'}
   };
   var intro = introMap[section] || {ico:'📚', title:'Gartenwissen', sub:''};
   var introHtml =
@@ -32417,8 +32421,8 @@ function showWissen(section, btn) {
     body = '<div id="kb-loading-' + section + '" class="kb-loading" style="padding:18px;text-align:center;color:var(--muted);">📚 Lade …</div>';
     setTimeout(function(){ try { gsRenderKnowledge(section); } catch(e){ console.warn('[gsRenderKnowledge]',e); } }, 50);
   }
-  // v26.23: 4 neue DB-basierte Sub-Tabs (Wave-9)
-  else if (section === 'kompost' || section === 'vermehrung' || section === 'bodenpflege' || section === 'heilpflanzen') {
+  // v26.23 + v26.30: 5 DB-basierte Sub-Tabs (Wave-9 + Wave-10)
+  else if (section === 'kompost' || section === 'vermehrung' || section === 'bodenpflege' || section === 'heilpflanzen' || section === 'samen') {
     body = '<div id="kb-loading-' + section + '" class="kb-loading" style="padding:18px;text-align:center;color:var(--muted);">📚 Lade …</div>';
     setTimeout(function(){ try { gsRenderWissenWave9(section); } catch(e){ console.warn('[gsRenderWissenWave9]',e); } }, 50);
   }
@@ -32684,6 +32688,21 @@ window.gsRenderWissenWave9 = async function(section) {
       cardSub: function(r){ return (r.scientific_name || '') + ' · Evidenz: ' + (r.evidence_level || '?'); },
       cardAccent: function(r){ return (r.contraindications && r.contraindications.length) ? '#c62828' : null; },
       emptyMsg: 'Noch keine Heilpflanzen in der DB.'
+    },
+    // v26.30 Wave-10: Samen ernten
+    samen: {
+      table: 'seed_saving_methods', order: 'difficulty,plant_name_de',
+      titleField: 'plant_name_de', categoryField: 'difficulty',
+      cardEmoji: '🌰',
+      cardSub: function(r){ return (r.pollination_type || '?') + ' · Isolation ' + (r.isolation_distance_m != null ? r.isolation_distance_m + ' m' : '?') + ' · Keimfähigkeit ' + (r.viability_years || '?') + ' J'; },
+      cardAccent: function(r){
+        // Cucurbita-Kreuzung Warnung → roter Accent
+        var lat = String(r.plant_species_lat || '').toLowerCase();
+        var warn = String(r.warnings || '').toLowerCase();
+        if (lat.indexOf('cucurbita') >= 0 || warn.indexOf('kreuz') >= 0 || warn.indexOf('cross') >= 0) return '#c62828';
+        return null;
+      },
+      emptyMsg: 'Noch keine Samen-Methoden in der DB.'
     }
   };
   var cfg = configs[section];
@@ -32776,12 +32795,71 @@ window.gsWave9OpenDetail = function(section, slug) {
     html += _gsWave9RenderSoilAmend(r, ed);
   } else if (section === 'heilpflanzen') {
     html += _gsWave9RenderMedicinal(r, ed);
+  } else if (section === 'samen') {
+    html += _gsWave9RenderSeedSaving(r, ed);
   }
 
   html += '</div>';
   mc.innerHTML = html;
   if (typeof openModal === 'function') openModal('detail-modal');
 };
+
+// v26.30 Detail-Renderer für seed_saving_methods
+function _gsWave9RenderSeedSaving(r, ed) {
+  var lat = String(r.plant_species_lat || '').toLowerCase();
+  var isCucurbita = lat.indexOf('cucurbita') >= 0;
+  var hasWarn = isCucurbita || (r.warnings && (String(r.warnings).toLowerCase().indexOf('kreuz') >= 0));
+  var gradient = hasWarn ? 'linear-gradient(135deg,#e65100,#bf360c)' : 'linear-gradient(135deg,#827717,#558b2f)';
+
+  var html = _gsWave9HeaderHtml('🌰', r.plant_name_de, r.plant_species_lat, gradient, ed);
+  html += '<div style="padding:16px 18px 20px;">';
+
+  // WICHTIG: Cucurbita-Kreuzung Warnung PROMINENT zuerst
+  if (r.warnings) {
+    html += '<div style="margin-bottom:10px;padding:11px 14px;background:#ffebee;border:2px solid #c62828;border-radius:12px;">';
+    html += '<div style="font-size:12.5px;font-weight:900;color:#c62828;margin-bottom:5px;">⚠️ WICHTIG</div>';
+    html += '<div style="font-size:12.5px;color:#b71c1c;line-height:1.55;">' + ed(r.warnings) + '</div>';
+    html += '</div>';
+  }
+
+  // Badges
+  html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">';
+  if (r.pollination_type) html += '<span style="background:#fff8e1;color:#e65100;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">🐝 ' + ed(r.pollination_type) + '</span>';
+  if (r.isolation_distance_m != null) html += '<span style="background:#fff3e0;color:#bf360c;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">📏 Isolation ' + ed(r.isolation_distance_m) + ' m</span>';
+  if (r.viability_years != null) html += '<span style="background:#e8f5e9;color:#1b5e20;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">🌱 ' + ed(r.viability_years) + ' Jahre keimfähig</span>';
+  if (r.difficulty) html += '<span style="background:#e3f2fd;color:#01579b;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">💪 ' + ed(r.difficulty) + '</span>';
+  if (r.variety_stability) html += '<span style="background:#f3e5f5;color:#4527a0;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">🧬 ' + ed(r.variety_stability) + '</span>';
+  html += '</div>';
+
+  if (r.description) html += '<div style="font-size:12.5px;color:var(--text2);line-height:1.55;margin-bottom:10px;">' + ed(r.description) + '</div>';
+
+  // Ernte-Timing
+  if (r.harvest_timing) html += '<div style="margin-top:8px;padding:8px 11px;background:#fff8e1;border-radius:9px;font-size:12px;color:#bf360c;"><b>📅 Ernte-Timing:</b> ' + ed(r.harvest_timing) + '</div>';
+  html += _gsWave9ListSection('Reife-Zeichen der Frucht', r.fruit_ripeness_signs, ed, '#fff8e1');
+
+  // Extraktion + Reinigung + Trocknung
+  if (r.extraction_method) html += '<div style="margin-top:8px;padding:8px 11px;background:#e3f2fd;border-radius:9px;font-size:12px;color:#01579b;"><b>🔪 Extraktion:</b> ' + ed(r.extraction_method) + '</div>';
+  html += _gsWave9ListSection('🧼 Reinigungs-Schritte', r.cleaning_steps, ed, '#e1f5fe');
+  if (r.drying_method) html += '<div style="margin-top:6px;padding:8px 11px;background:#e8f5e9;border-radius:9px;font-size:12px;color:#1b5e20;"><b>🌬️ Trocknung:</b> ' + ed(r.drying_method) + (r.drying_days ? ' · <b>' + ed(r.drying_days) + ' Tage</b>' : '') + '</div>';
+
+  // Lagerung
+  var storageBits = [];
+  if (r.storage_container) storageBits.push('Behälter: ' + r.storage_container);
+  if (r.storage_temp_c) storageBits.push('Temp: ' + r.storage_temp_c + '°C');
+  if (r.storage_humidity_pct) storageBits.push('Luftfeuchte: ' + r.storage_humidity_pct + '%');
+  if (storageBits.length) html += '<div style="margin-top:8px;padding:9px 12px;background:#ede7f6;border-radius:10px;font-size:12px;color:#311b92;"><b>📦 Lagerung:</b> ' + ed(storageBits.join(' · ')) + '</div>';
+
+  // Yield + Stability
+  if (r.seeds_per_plant) html += '<div style="margin-top:6px;font-size:11.5px;color:var(--text2);"><b>🌾 Ausbeute:</b> ' + ed(r.seeds_per_plant) + '</div>';
+
+  // Legales + Kulturelles
+  if (r.swiss_legal_status) html += '<div style="margin-top:8px;padding:8px 11px;background:#f3e5f5;border-radius:9px;font-size:11.5px;color:#4527a0;"><b>📍 Schweizer Rechtslage:</b> ' + ed(r.swiss_legal_status) + '</div>';
+  if (r.cultural_significance) html += '<div style="margin-top:5px;padding:8px 11px;background:#fff3e0;border-radius:9px;font-size:11.5px;color:#bf360c;"><b>🏛️ Kulturelle Bedeutung:</b> ' + ed(r.cultural_significance) + '</div>';
+
+  if (r.source) html += '<div style="margin-top:14px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(r.source) + '</div>';
+  html += '</div>';
+  return html;
+}
 
 function _gsWave9HeaderHtml(emoji, title, subtitle, gradient, ed) {
   return '<div style="background:' + gradient + ';padding:22px 20px;color:#fff;position:relative;">' +
@@ -47068,6 +47146,26 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.30', date: '23.05.2026',
+    headline: '🌰 Samen ernten & lagern — 5. Wissen-Sub-Tab mit 12 Methoden',
+    summary: 'Cowork-Auftrag v26.30. Wissen-Tab bekommt 5. DB-basierten Sub-Tab "🌰 Samen ernten" als Erweiterung der v26.23 Wave-9-Renderer. configs[]-Map um seed_saving_methods erweitert. Neuer _gsWave9RenderSeedSaving Detail-Modal mit WICHTIG-Warning ZUERST (Cucurbita-Kreuzung), Badges (Bestäubung/Isolation/Keimfähigkeit), Ernte-Timing, Reife-Zeichen, Extraktion + Reinigung + Trocknung, Lagerung-Box mit Temp/Feuchte/Behälter, Schweizer Rechtslage + Kulturelle Bedeutung.',
+    user_summary: '🌰 Neu im Wissen-Tab: 12 Anleitungen zum Samen-Ernten und -Lagern — von der Tomate bis zur Möhre. Wichtige Kreuzungs-Warnungen bei Kürbisgewächsen ganz oben.',
+    user_items: [
+      { emoji: '🐝', text: 'Bestäubungs-Typ (selbst vs fremd) + Isolations-Abstand pro Pflanze' },
+      { emoji: '🌱', text: 'Keimfähigkeit in Jahren (z.B. Tomate 5+, Möhre 2-3)' },
+      { emoji: '🧼', text: 'Schritt-für-Schritt: Reife erkennen, Extraktion, Reinigung, Trocknung, Lagerung' },
+      { emoji: '⚠️', text: 'Cucurbita-Kreuzungs-Warnung prominent (Zucchini × Kürbis = ungenießbar)' },
+    ],
+    items: [
+      {emoji:'🧩', bold:'5. Wave-9 Sub-Tab:', text:' #wissen-nav um "🌰 Samen ernten" Button erweitert. Dispatch via showWissen("samen") → gsRenderWissenWave9.'},
+      {emoji:'📋', bold:'configs[samen]:', text:' table=seed_saving_methods, order=difficulty+plant_name_de, titleField=plant_name_de, categoryField=difficulty (Filter-Pills nach Anfänger/Mittel/Fortgeschritten). Card-Sub mit pollination_type + isolation_distance_m + viability_years.'},
+      {emoji:'🔴', bold:'Card-Accent rot:', text:' Bei Cucurbita-species (Zucchini, Kürbis) ODER warnings enthält "kreuz" → roter Border-Akzent in der Liste.'},
+      {emoji:'🎨', bold:'_gsWave9RenderSeedSaving:', text:' WICHTIG-Box rot ZUERST bei warnings. Header-Gradient gelb (Standard) oder orange (Warn). 5 Badges. Block: Ernte-Timing + Reife-Zeichen → Extraktion + Reinigung + Trocknung → Lagerung (Container/Temp/Humidity) → Yield + Sortenstabilität → Schweizer Rechtslage + Kulturelle Bedeutung.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.32 Garten-Tagebuch v2 (Migration + Type-Picker + Filter + Saison-Stats).'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 inline-scripts node --check OK · sw.js gs-v26.30 OK · 12 Samen-Methoden DB-ready.'},
+    ]
+  },
+  {
     v: 'v26.29', date: '23.05.2026',
     headline: '🌱 Düngeplan-Coach + 📐 Beet-Layout-Designer (Bundle v26.29 + v26.31)',
     summary: 'Cowork-Aufträge v26.29 + v26.31 als Bundle. 2 neue Garten-Aktion-Buttons: Düngeplan-Coach (fertilization_schedules-UI mit Pflanzen-Picker und Phasen) + Beet-Layout-Designer (10 garden_layouts-Vorlagen mit Filter, Detail-Modal, Rotations-Plan). Beide Modals teilen gemeinsame UI-Patterns (Filter-Pills, Detail-Renderer, gs*-Helper).',
@@ -48879,7 +48977,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.29';
+var GS_VERSION = 'v26.30';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
