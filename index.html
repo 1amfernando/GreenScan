@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.26.20260523">
+<meta name="app-version" content="26.27.20260523">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2473,6 +2473,12 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <span data-i18n="btn_soil_amend_open" data-i18n-fallback="🪨 Boden verbessern · NPK + pH-Empfehlung">🪨 Boden verbessern · NPK + pH-Empfehlung</span><span style="font-size:18px;opacity:.85;">›</span>
   </button>
 </div>
+<!-- v26.27: Regional-Calendar (7 CH-Höhenzonen) -->
+<div style="padding:0 16px 12px;">
+  <button onclick="openRegionalCalendarModal()" title="Regional-Kalender — Monats-Tasks für deine CH-Region" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#0277bd,#01579b);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_region_cal_open" data-i18n-fallback="🗓️ Regional-Kalender · Monats-Tasks deiner CH-Zone">🗓️ Regional-Kalender · Monats-Tasks deiner CH-Zone</span><span style="font-size:18px;opacity:.85;">›</span>
+  </button>
+</div>
 <!-- v24.06: Smart-Home Sensor-Dashboard -->
 <div style="padding:0 16px 20px;">
   <button onclick="gsShOpen()" title="Smart-Home Sensoren" style="width:100%;padding:13px 14px;background:linear-gradient(135deg,var(--c-info-d),var(--c-info));color:#fff;border:none;border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 12px rgba(21,101,192,.25);">
@@ -3090,6 +3096,31 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
         👆 Drag zum Drehen · 🤏 Pinch oder Scroll zum Zoomen · Höhe entspricht erwachsener Pflanze (Schätzung).
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ═══ v26.27 REGIONAL-CALENDAR MODAL ═════════════════════ -->
+<div class="modal-overlay" id="modal-region-cal" onclick="if(event.target===this)closeModal('modal-region-cal')">
+  <div class="modal" style="position:relative;max-height:92vh;overflow-y:auto;">
+    <div class="mhandle"></div>
+    <button class="modal-close-btn" onclick="closeModal('modal-region-cal')" aria-label="Schliessen">&#x2715;</button>
+    <div class="mhdr" style="background:linear-gradient(135deg,#0277bd,#01579b);color:#fff;">
+      <span class="memoji">🗓️</span>
+      <div>
+        <h2 data-i18n="region_cal_title" data-i18n-fallback="Regional-Kalender" style="color:#fff;">Regional-Kalender</h2>
+        <p data-i18n="region_cal_sub" data-i18n-fallback="Monats-Tasks für deine CH-Höhenzone (7 Regionen)" style="color:rgba(255,255,255,.85);">Monats-Tasks für deine CH-Höhenzone (7 Regionen)</p>
+      </div>
+    </div>
+    <div style="padding:14px 18px 14px;">
+      <div class="mp-field">
+        <label data-i18n="region_lbl_pick" data-i18n-fallback="📍 Deine Region">📍 Deine Region</label>
+        <select class="mp-select" id="region-cal-picker" onchange="gsRegionPickChange(this.value)">
+          <option value="" data-i18n="region_opt_pick" data-i18n-fallback="— Bitte wählen —">— Bitte wählen —</option>
+        </select>
+        <div id="region-cal-meta" style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;"></div>
+      </div>
+    </div>
+    <div id="region-cal-content" style="padding:0 18px 22px;"></div>
   </div>
 </div>
 
@@ -24574,6 +24605,155 @@ async function gsLoadMedicinalProfile(spId, latName) {
   } catch(_) { /* silent — keine Heilpflanze-Section bei Lookup-Fehler */ }
 }
 window.gsLoadMedicinalProfile = gsLoadMedicinalProfile;
+
+// ═════════════════════════════════════════════════════════════════════
+// v26.27 REGIONAL-CALENDAR (regional_garden_calendars-DB, 7 CH-Hoehenzonen)
+// User waehlt Region → aktuelle Monats-Tasks prominent + 12 Monate als
+// Accordion + last_frost + growing_season + best_vegetables. Persistenz
+// in localStorage gs_region (slug). KI-Planer kann via gsGetRegionContext
+// die Region als Constraint nutzen.
+// ═════════════════════════════════════════════════════════════════════
+
+window._gsRegionCache = null;  // { rows: [...], ts: number }
+
+async function gsLoadRegionalCalendars(force) {
+  var c = window._gsRegionCache;
+  if (!force && c && (Date.now() - c.ts) < 30 * 60 * 1000) return c.rows;
+  if (typeof sbFetch !== 'function') return [];
+  try {
+    var r = await sbFetch('/rest/v1/regional_garden_calendars?select=*&order=altitude_m_min.asc&limit=50', { method: 'GET' });
+    var rows = (r && Array.isArray(r.data)) ? r.data : [];
+    window._gsRegionCache = { rows: rows, ts: Date.now() };
+    return rows;
+  } catch(_) { return []; }
+}
+window.gsLoadRegionalCalendars = gsLoadRegionalCalendars;
+
+// Liefert das aktuelle Region-Objekt fuer KI-Planer-Constraints.
+// Kann von garden-scan-analyze / plan-iterate als Kontext genutzt werden.
+async function gsGetRegionContext() {
+  var slug = null;
+  try { slug = localStorage.getItem('gs_region'); } catch(_){}
+  if (!slug) return null;
+  var rows = await gsLoadRegionalCalendars();
+  return rows.find(function(r){ return r.slug === slug; }) || null;
+}
+window.gsGetRegionContext = gsGetRegionContext;
+
+async function openRegionalCalendarModal() {
+  if (typeof openModal === 'function') openModal('modal-region-cal');
+  else document.getElementById('modal-region-cal').classList.add('open');
+  var picker = document.getElementById('region-cal-picker');
+  var content = document.getElementById('region-cal-content');
+  if (content) content.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px;">⏳ Lade Regionen…</div>';
+
+  var rows = await gsLoadRegionalCalendars();
+  if (!rows.length) {
+    if (content) content.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px;">Keine Regional-Kalender in der DB.</div>';
+    return;
+  }
+  // Picker fuellen
+  if (picker) {
+    picker.innerHTML = '<option value="">— Bitte wählen —</option>';
+    rows.forEach(function(r){
+      var o = document.createElement('option');
+      o.value = r.slug;
+      o.textContent = r.region_name + ' (' + r.altitude_m_min + '-' + r.altitude_m_max + 'm)';
+      picker.appendChild(o);
+    });
+    var saved = null;
+    try { saved = localStorage.getItem('gs_region'); } catch(_){}
+    if (saved) {
+      picker.value = saved;
+      gsRegionPickChange(saved);
+    } else if (content) {
+      content.innerHTML = '<div style="padding:18px 14px;text-align:center;color:var(--muted);font-size:13px;line-height:1.6;">Wähle deine Schweizer Region oben.<br><span style="font-size:11px;">Tipp: ähnliche Höhenlage wie dein Garten = ähnliche Aussaat-/Erntezeiten.</span></div>';
+    }
+  }
+}
+window.openRegionalCalendarModal = openRegionalCalendarModal;
+
+function gsRegionPickChange(slug) {
+  if (!slug) { localStorage.removeItem('gs_region'); return; }
+  try { localStorage.setItem('gs_region', slug); } catch(_){}
+  gsRenderRegionalContent(slug);
+  if (typeof showProfileToast === 'function') showProfileToast('📍 Region gespeichert', 'success', 2000);
+}
+window.gsRegionPickChange = gsRegionPickChange;
+
+async function gsRenderRegionalContent(slug) {
+  var rows = await gsLoadRegionalCalendars();
+  var r = rows.find(function(x){ return x.slug === slug; });
+  var content = document.getElementById('region-cal-content');
+  var meta = document.getElementById('region-cal-meta');
+  if (!r || !content) return;
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+
+  if (meta) {
+    meta.innerHTML = '<b>' + ed(r.region_name) + '</b> · ' + ed(r.altitude_m_min) + '-' + ed(r.altitude_m_max) + 'm · Letzter Frost: <b>' + ed(r.last_frost_avg || '?') + '</b> · Wachstumssaison: <b>' + ed(r.growing_season_days || '?') + ' Tage</b>' + (r.rainfall_mm_year ? ' · ☔ ' + ed(r.rainfall_mm_year) + ' mm/Jahr' : '');
+  }
+
+  var months = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+  var monthNamesDe = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  var monthEmoji = ['❄️','❄️','🌱','🌷','🌸','☀️','🌞','🌻','🍂','🍁','🍂','❄️'];
+  var curIdx = new Date().getMonth();
+
+  var html = '';
+  // Aktueller Monat ZUERST prominent
+  var curKey = months[curIdx] + '_tasks';
+  var curTasks = r[curKey] || [];
+  html += '<div style="margin-bottom:14px;padding:14px;background:linear-gradient(135deg,#fff8e1,#fffbd0);border:2px solid #fbc02d;border-radius:14px;">';
+  html += '<div style="font-size:11.5px;font-weight:800;color:#e65100;letter-spacing:.4px;margin-bottom:6px;">🌟 DIESEN MONAT (' + monthNamesDe[curIdx] + ' ' + monthEmoji[curIdx] + ')</div>';
+  if (curTasks.length) {
+    html += '<ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.65;color:#bf360c;">';
+    curTasks.forEach(function(t){ html += '<li>' + ed(String(t)) + '</li>'; });
+    html += '</ul>';
+  } else {
+    html += '<div style="font-size:12px;color:#bf360c;line-height:1.6;">Keine spezifischen Tasks für diesen Monat in dieser Region.</div>';
+  }
+  html += '</div>';
+
+  // Best Vegetables + Challenging
+  if (r.best_vegetables && r.best_vegetables.length) {
+    html += '<div style="padding:11px 13px;background:#e8f5e9;border-radius:11px;margin-bottom:8px;">';
+    html += '<div style="font-size:11.5px;font-weight:800;color:#1b5e20;margin-bottom:4px;">✅ Gut geeignet</div>';
+    html += '<div style="font-size:12.5px;color:#1b5e20;line-height:1.55;">' + ed((r.best_vegetables).join(', ')) + '</div>';
+    html += '</div>';
+  }
+  if (r.challenging_plants && r.challenging_plants.length) {
+    html += '<div style="padding:11px 13px;background:#fff3e0;border-radius:11px;margin-bottom:14px;">';
+    html += '<div style="font-size:11.5px;font-weight:800;color:#e65100;margin-bottom:4px;">⚠️ Schwierig hier</div>';
+    html += '<div style="font-size:12.5px;color:#bf360c;line-height:1.55;">' + ed((r.challenging_plants).join(', ')) + '</div>';
+    html += '</div>';
+  }
+
+  // 12 Monate Accordion (collapsed default außer aktueller Monat)
+  html += '<div style="font-size:11.5px;font-weight:800;color:var(--text);margin-bottom:8px;letter-spacing:.4px;">📅 12-Monats-Übersicht</div>';
+  months.forEach(function(mKey, i){
+    var tasks = r[mKey + '_tasks'] || [];
+    var isCur = (i === curIdx);
+    var taskStr = tasks.length ? tasks.length + ' Aufgaben' : 'keine';
+    html += '<details ' + (isCur ? 'open' : '') + ' style="margin-bottom:5px;background:var(--surface2);border-radius:9px;padding:0;">' +
+      '<summary style="padding:8px 12px;cursor:pointer;font-size:12.5px;font-weight:700;color:var(--text);list-style:none;display:flex;justify-content:space-between;align-items:center;">' +
+        '<span>' + monthEmoji[i] + ' ' + monthNamesDe[i] + '</span>' +
+        '<span style="font-size:10.5px;color:var(--muted);font-weight:600;">' + taskStr + '</span>' +
+      '</summary>';
+    if (tasks.length) {
+      html += '<ul style="margin:0;padding:6px 12px 10px 30px;font-size:12px;line-height:1.6;color:var(--text2);">';
+      tasks.forEach(function(t){ html += '<li>' + ed(String(t)) + '</li>'; });
+      html += '</ul>';
+    } else {
+      html += '<div style="padding:4px 12px 10px 30px;font-size:11.5px;color:var(--muted);font-style:italic;">— keine Tasks —</div>';
+    }
+    html += '</details>';
+  });
+
+  if (r.notes) html += '<div style="margin-top:12px;padding:10px 12px;background:#e3f2fd;border-radius:10px;font-size:11.5px;color:#01579b;line-height:1.55;"><b>📝 Hinweis:</b> ' + ed(r.notes) + '</div>';
+  if (r.source) html += '<div style="margin-top:8px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(r.source) + '</div>';
+
+  content.innerHTML = html;
+}
+window.gsRenderRegionalContent = gsRenderRegionalContent;
 
 window.gsSoilOpenDetail = function(slug) {
   var rows = window._gsSoilTop5 || [];
@@ -46516,6 +46696,30 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.27', date: '23.05.2026',
+    headline: '🗓️ Regional-Kalender — 7 CH-Höhenzonen mit Monats-Tasks',
+    summary: 'Cowork-Auftrag v26.27. Garten-Aktion-Button "🗓️ Regional-Kalender" öffnet Modal mit Picker für 7 CH-Höhenzonen aus regional_garden_calendars (Tessin 200m bis Graubünden 1500m). Wahl persistiert in localStorage gs_region. Render-Layout: aktueller Monat prominent in oranger Box, best_vegetables (grün) + challenging_plants (orange), 12-Monats-Accordion (current open). Plus gsGetRegionContext() API für künftige KI-Planer-Integration.',
+    user_summary: '🗓️ Neu: Wähle deine Schweizer Region (Tessin bis Graubünden) — siehst sofort was diesen Monat in deiner Höhenzone zu tun ist. Plus 12-Monats-Übersicht und Aussaat-Tipps.',
+    user_items: [
+      { emoji: '📍', text: '7 CH-Regionen: Tessin · Basel · Mittelland · Jura · Wallis · Voralpen · Graubünden' },
+      { emoji: '🌟', text: 'Aktueller Monat groß und prominent — die wichtigsten Tasks' },
+      { emoji: '✅', text: 'Gut geeignete Gemüse + ⚠️ schwierige Pflanzen für deine Höhenlage' },
+      { emoji: '🗓️', text: '12-Monats-Übersicht aufklappbar pro Monat' },
+      { emoji: '❄️', text: 'Letzter Frost-Termin + Wachstumssaison-Tage spezifisch für deine Zone' },
+    ],
+    items: [
+      {emoji:'🛢️', bold:'gsLoadRegionalCalendars (30min Cache):', text:' GET regional_garden_calendars ORDER BY altitude_m_min. 7 Rows: tessin_sued (200-500m), basel_rhein (240-500m), mittelland (400-700m), walliserkern (500-800m), jura (500-1000m), voralpen (700-1000m), graubuenden_hoch (1000-1500m).'},
+      {emoji:'📋', bold:'#modal-region-cal:', text:' Header-Picker oben mit Meta-Zeile (region_name, altitude-range, last_frost_avg, growing_season_days). 7 Optionen plus "— Bitte wählen —".'},
+      {emoji:'🌟', bold:'Current-Month-Box:', text:' Erstellt aus january_tasks..december_tasks Array-Feldern. Orange-Gradient-Box mit Emoji + Bullet-Liste der ~5-10 Tasks fuer aktuellen Monat.'},
+      {emoji:'✅', bold:'Best/Challenging:', text:' best_vegetables in grüner Box, challenging_plants in oranger Box. CSV-render der Array-Listen.'},
+      {emoji:'📅', bold:'12-Monats-Accordion:', text:' <details>-Tags mit Emoji pro Monat (❄️/🌱/🌷/🌸/☀️/🌞/🌻/🍂/🍁/❄️). Current-Month open default, andere collapsed. Task-Count im Summary.'},
+      {emoji:'⚡', bold:'gsGetRegionContext() API:', text:' Window-exposed Helper fuer KI-Planer-Integration. Liest localStorage gs_region + Cache, returnt full region-row. Kann von garden-scan-analyze / plan-iterate als Constraint genutzt werden.'},
+      {emoji:'💾', bold:'Persistenz:', text:' gs_region als slug in localStorage. Beim openRegionalCalendarModal automatisch vorausgewählt + Render getriggert. Toast "📍 Region gespeichert" bei Change.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.28+ Bonus-Sprints (knowledge-bulk-gen v8 mit Wave-9 Schemas, Marketplace Pestizid-frei-Filter, Garten-Tagebuch Pest+Heilpflanzen-Kategorisierung).'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 inline-scripts node --check OK · sw.js gs-v26.27 OK · 7 Regionen verifiziert in DB.'},
+    ]
+  },
+  {
     v: 'v26.26', date: '23.05.2026',
     headline: '🌿 Heilpflanzen-Profile — automatischer Tab im Pflanzen-Detail',
     summary: 'Cowork-Auftrag v26.26. openDetail Pflanzen-Detail-Modal bekommt jetzt async geladenen Heilpflanzen-Block falls Match in medicinal_plants_register. gsLoadMedicinalProfile mountet eine grüne Section am Ende des bestehenden Modals: Badges (Evidenz/CH-heimisch/Geschützt), dann ZUERST prominent rote Kontraindikationen + orange Wechselwirkungen + gelbe Toxizität (rechtssicher), dann Verwendung mit Pflanzenteilen, Wirkstoffen, traditioneller vs evidenzbasierter Anwendung, Zubereitung, Dosierung, Erntezeit, CH-Rechtslage. Disclaimer-Footer.',
@@ -48263,7 +48467,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.26';
+var GS_VERSION = 'v26.27';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

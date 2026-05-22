@@ -1,5 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
+   v26.27 — Regional-Calendar (AUFTRAG_v26.27): neuer Garten-Aktion-Button "🗓️ Regional-Kalender" + Modal mit 7-CH-Hoehenzonen-Picker aus regional_garden_calendars. Wahl persistiert in localStorage gs_region. Render: aktueller Monat prominent in oranger Box (12 Monats-Tasks), best_vegetables (gruen), challenging_plants (orange), 12-Monats-Accordion (current open, andere collapsed). gsGetRegionContext() API fuer KI-Planer-Integration (kann last_frost_avg, growing_season_days, monthly_tasks als Constraint nutzen).
    v26.26 — Heilpflanzen-Profile (AUFTRAG_v26.26): openDetail Pflanzen-Detail-Modal bekommt async geladenen Heilpflanzen-Block falls sp.lat in medicinal_plants_register existiert. gsLoadMedicinalProfile mountet eine groessere gruene Section am Ende des existing Modals mit Badges (Evidenz/CH-heimisch/geschuetzt), dann ZUERST prominent rote Kontraindikationen + orange Wechselwirkungen + gelbe Toxizitaet, dann Verwendung (Pflanzenteile/Wirkstoffe/traditionelle vs evidenzbasierte Anwendung/Zubereitung/Dosierung/Erntezeit/Rechtslage), Footer-Disclaimer. Backwards-compat: keine Section wenn kein Match.
    v26.25 — Bodenverbesserer-Recommender (AUFTRAG_v26.25): Garten-Aktion-Button "🪨 Boden verbessern" + Modal mit pH/Bodenart/Goal Pickers + scoring (50 pH-Match, 18 Type-Match, 25 Goal-Match, 8 Universal). Top-5 aus 15 CH-Bodenverbesserern. Profil in gs_soil_profile localStorage gecached + bei naechstem Open vorausgefuellt. Detail-Modal nutzt v26.23 _gsWave9RenderSoilAmend.
    v26.24 — Pest-Filter im KI-Planer (AUFTRAG_v26.24): gsGardenScanShowPlant Detail-Modal bekommt async geladenen Block mit Top-3 Schaedlingen (plant_pests via host_plants @> [species_lat]) + Companion-Plant-Vorschlaegen (pest_companion_plants via effective_against-Overlap). Severity-Dots + Praevention + Bio-Behandlung pro Pest. "🪲 Schaedling fotografieren"-CTA oeffnet existing v26.21 Pest-Scanner-Modal.
@@ -28,7 +29,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v26.26';
+const VERSION = 'gs-v26.27';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
