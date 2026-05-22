@@ -1,5 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
+   v26.24 — Pest-Filter im KI-Planer (AUFTRAG_v26.24): gsGardenScanShowPlant Detail-Modal bekommt async geladenen Block mit Top-3 Schaedlingen (plant_pests via host_plants @> [species_lat]) + Companion-Plant-Vorschlaegen (pest_companion_plants via effective_against-Overlap). Severity-Dots + Praevention + Bio-Behandlung pro Pest. "🪲 Schaedling fotografieren"-CTA oeffnet existing v26.21 Pest-Scanner-Modal.
    v26.23 — Wissen-Tab Erweiterung (AUFTRAG_v26.23): 4 neue Sub-Tabs aus DB-Wave-9. Kompostieren (8 Methoden), Vermehrung (12 Methoden), Boden-Pflege (15 Bodenverbesserer), Heilpflanzen (15 CH-Heilpflanzen). gsRenderWissenWave9 generic Renderer mit Filter-Pills (Kategorie-Distinct + Counts) + Card-Liste. gsWave9OpenDetail dispatch zu 4 spezifischen Render-Funktionen (_gsWave9RenderCompost/Propagation/SoilAmend/Medicinal). Heilpflanzen-Renderer mit PROMINENT (rot/orange) Kontraindikationen + Wechselwirkungen + Toxizitaet + Disclaimer-Footer (rechtssicher). 10min in-Memory-Cache pro Section.
    v26.22 — AR-View MVP (AUFTRAG_CODE_v26.18). Three.js-basierter 3D-View fuer 30 Seed-Pflanzen aus ar_models. Da gltf_url=NULL: Fallback-Geometrie (Stamm-Zylinder + Krone-Sphere mit verjuengter Form je nach Hoehe: flach fuer Kraeuter <40cm, Standard-Strauch, vergroessert fuer Baeume >3m). 30 species-spezifische Krone-Farben (Tomate rot, Lavendel violett, Sonnenblume gelb, etc.). _gsARInitScene mit HemisphereLight + DirectionalLight + Shadow-Map + eigener Drag/Pinch/Wheel-Pointer-Logic (statt OrbitControls — spart externe Abhaengigkeit). _gsARDispose disposed Geometries/Materials/Renderer beim Modal-Close (Memory-Leak-frei) via closeModal-Hook. Three.js lazy via existing _gsLoadThree() aus /assets/three.min.js (v25.36).
    v26.21 — Schaedlings-Scanner (AUFTRAG_CODE_v26.19). Neue Edge-Fn pest-identify v1 (verify_jwt:true) mit Anthropic Vision Haiku 4.5 + plant_pests-Knowledge-Context (25 Schweizer Schaedlinge mit Bio-Behandlung + Praevention + natuerliche Feinde, AGFF-Source). Frontend: neuer Garten-Aktion-Button "🪲 Schaedling-Scanner" + Modal mit Foto-Upload (Kamera/Galerie) + optionalem Host-Pflanze-Picker aus myPlants. gsPestRunScan POSTet zu Edge-Fn, gsPestRenderResult zeigt Match mit Confidence-Badge (3 Stufen Gering/Mittel/Hoch), Symptome, Bio-Behandlung, Praevention, natuerliche Feinde + Alternative-Kandidaten. Confidence < 40 zeigt "bitte naeher"-Hint statt false-positive. "📓 Im Garten-Tagebuch festhalten"-Button insertet in garden_diary.
@@ -25,7 +26,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v26.23';
+const VERSION = 'gs-v26.24';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;

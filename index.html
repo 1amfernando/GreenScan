@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.23.20260522">
+<meta name="app-version" content="26.24.20260523">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -40724,11 +40724,109 @@ function gsGardenScanShowPlant(idx) {
     '<div style="padding:16px;">' +
       rowsHtml +
       (pl.reason ? '<div style="margin-top:12px;padding:10px 12px;background:#f1f8e9;border-left:3px solid #2e7d32;border-radius:6px;font-size:12px;line-height:1.55;color:var(--text);"><strong style="color:#1b5e20;">💡 Warum hier:</strong> ' + pl.reason + '</div>' : '') +
+      // v26.24: Pest-Filter + Companion-Plants async geladen nach Modal-Render
+      '<div id="ai-plant-pests-block-' + idx + '" data-pest-host="' + (pl.lat ? String(pl.lat).replace(/"/g,'&quot;') : '') + '"></div>' +
     '</div>' +
   '</div>';
   var mc = document.getElementById('modal-content');
   if (mc) mc.innerHTML = html;
+  // Async: Pests + Companions laden falls species_lat vorhanden
+  if (pl.lat) {
+    try { gsLoadPestsForPlanPlant(idx, pl.lat); } catch(_){}
+  }
 }
+
+// v26.24: Lädt plant_pests + pest_companion_plants asynchron für die
+// gerade im Plan-Detail-Modal angezeigte Pflanze. Mountet das Result-HTML
+// in <div id="ai-plant-pests-block-<idx>">.
+async function gsLoadPestsForPlanPlant(idx, speciesLat) {
+  if (!speciesLat || typeof sbFetch !== 'function') return;
+  var host = document.getElementById('ai-plant-pests-block-' + idx);
+  if (!host) return;
+  host.innerHTML = '<div style="margin-top:14px;padding:8px 12px;background:var(--surface2);border-radius:9px;font-size:11.5px;color:var(--muted);text-align:center;">🔎 Schädling-Risiken werden geladen…</div>';
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+
+  // 1) Top-3 Schädlinge die diese Pflanze als host_plant haben
+  var pests = [];
+  try {
+    var r1 = await sbFetch(
+      '/rest/v1/plant_pests?host_plants=cs.{' + encodeURIComponent(speciesLat) + '}' +
+      '&select=slug,common_name_de,scientific_name,damage_severity,prevention,natural_enemies,treatment_organic' +
+      '&order=damage_severity.desc&limit=3',
+      { method: 'GET' }
+    );
+    pests = (r1 && Array.isArray(r1.data)) ? r1.data : [];
+  } catch(_){}
+
+  // 2) Companion-Plants die gegen MINDESTENS einen der gefundenen Pests wirken
+  var companions = [];
+  if (pests.length) {
+    try {
+      // pest_companion_plants.effective_against ist ARRAY (text) — Match via overlap-Operator "ov"
+      // PostgREST: effective_against=ov.{val1,val2,...}
+      var pestNames = pests.map(function(p){ return p.common_name_de; }).filter(Boolean);
+      // Auch slug versuchen — manche companions sind via slug verlinkt
+      var pestSlugs = pests.map(function(p){ return p.slug; }).filter(Boolean);
+      var allKeys = pestNames.concat(pestSlugs);
+      var ovParam = allKeys.map(function(k){ return '"' + k.replace(/"/g, '\\"') + '"'; }).join(',');
+      var r2 = await sbFetch(
+        '/rest/v1/pest_companion_plants?effective_against=ov.{' + encodeURIComponent(ovParam) + '}' +
+        '&select=plant_name_de,plant_species_lat,role,effective_against,planting_pattern&limit=5',
+        { method: 'GET' }
+      );
+      companions = (r2 && Array.isArray(r2.data)) ? r2.data : [];
+    } catch(_){}
+  }
+
+  // 3) HTML aufbauen
+  if (!pests.length && !companions.length) {
+    host.innerHTML = '<div style="margin-top:14px;padding:9px 12px;background:#e8f5e9;border-radius:9px;font-size:11.5px;color:#1b5e20;text-align:center;">✅ Keine spezifischen Schädling-Risiken für diese Pflanze in der DB.</div>';
+    return;
+  }
+
+  var html = '';
+  if (pests.length) {
+    html += '<div style="margin-top:14px;padding:12px 14px;background:#fff8e1;border:1px solid #fbc02d;border-radius:11px;">';
+    html += '<div style="font-size:12px;font-weight:800;color:#e65100;margin-bottom:8px;">⚠️ Mögliche Schädlinge (Top ' + pests.length + ')</div>';
+    pests.forEach(function(p){
+      var sev = String(p.damage_severity || 'mittel');
+      var sevDot = sev === 'hoch' ? '🔴' : sev === 'gering' ? '🟢' : '🟡';
+      var prev = (Array.isArray(p.prevention) && p.prevention.length) ? p.prevention.slice(0,2).join(' · ') : '';
+      var bio = (Array.isArray(p.treatment_organic) && p.treatment_organic.length) ? p.treatment_organic[0] : '';
+      html += '<div style="padding:6px 0;border-top:1px dashed rgba(0,0,0,.1);">' +
+        '<div style="font-size:12.5px;font-weight:700;color:#bf360c;">' + sevDot + ' ' + ed(p.common_name_de || '?') +
+          (p.scientific_name ? ' <span style="font-weight:400;font-style:italic;font-size:11px;opacity:.75;">' + ed(p.scientific_name) + '</span>' : '') + '</div>' +
+        (prev ? '<div style="font-size:11.5px;color:#bf360c;margin-top:2px;line-height:1.5;"><b>Vorbeugen:</b> ' + ed(prev) + '</div>' : '') +
+        (bio ? '<div style="font-size:11.5px;color:#bf360c;margin-top:2px;line-height:1.5;"><b>Bio-Behandlung:</b> ' + ed(bio) + '</div>' : '') +
+      '</div>';
+    });
+    html += '<div style="margin-top:8px;text-align:right;">' +
+      '<button onclick="(function(){try{closeModal(\'detail-modal\');}catch(_){};setTimeout(function(){if(typeof openPestModal===\'function\')openPestModal();},150);})()" ' +
+        'style="background:#6d4c41;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;">🪲 Schädling fotografieren →</button>' +
+    '</div>';
+    html += '</div>';
+  }
+
+  if (companions.length) {
+    html += '<div style="margin-top:10px;padding:12px 14px;background:#e8f5e9;border:1px solid #66bb6a;border-radius:11px;">';
+    html += '<div style="font-size:12px;font-weight:800;color:#1b5e20;margin-bottom:6px;">💚 Schutzpflanzen-Vorschlag (gegen die obigen Schädlinge)</div>';
+    companions.forEach(function(c){
+      var roles = (c.role) ? ed(c.role) : '';
+      var against = Array.isArray(c.effective_against) ? c.effective_against.slice(0,3).join(', ') : '';
+      html += '<div style="padding:5px 0;border-top:1px dashed rgba(0,0,0,.1);font-size:11.5px;color:#1b5e20;line-height:1.5;">' +
+        '<b>🌱 ' + ed(c.plant_name_de || '?') + '</b>' +
+        (c.plant_species_lat ? ' <span style="font-style:italic;opacity:.7;font-size:10.5px;">(' + ed(c.plant_species_lat) + ')</span>' : '') +
+        (roles ? ' — <i>' + roles + '</i>' : '') +
+        (against ? '<div style="margin-top:2px;font-size:11px;opacity:.85;">wirkt gegen: ' + ed(against) + '</div>' : '') +
+        (c.planting_pattern ? '<div style="margin-top:2px;font-size:11px;opacity:.85;"><b>Pflanz-Muster:</b> ' + ed(c.planting_pattern) + '</div>' : '') +
+      '</div>';
+    });
+    html += '</div>';
+  }
+
+  host.innerHTML = html;
+}
+window.gsLoadPestsForPlanPlant = gsLoadPestsForPlanPlant;
 
 // Zurück zum Plan-Result.
 function gsGardenScanCloseDetail() {
@@ -46148,6 +46246,27 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.24', date: '23.05.2026',
+    headline: '🪲 KI-Planer mit Schädlings-Hint — Top-Risiken + Schutzpflanzen-Vorschläge',
+    summary: 'Cowork-Auftrag v26.24. Im KI-Planer Plan-Detail-Modal (gsGardenScanShowPlant) wird jetzt asynchron pro Pflanze (mit species_lat) ein Block geladen: Top-3 Schädlinge aus plant_pests (host_plants @> [species_lat]) mit Severity-Dots + Prävention + Bio-Behandlung, plus Companion-Plant-Vorschläge aus pest_companion_plants (effective_against-Array-Overlap). "🪲 Schädling fotografieren"-CTA öffnet den existing v26.21 Pest-Scanner.',
+    user_summary: '🪲 Beim KI-Planer siehst du jetzt für jede Pflanze die Top-3 Schädlinge plus Schutzpflanzen-Vorschläge — direkt im Detail-Modal.',
+    user_items: [
+      { emoji: '⚠️', text: 'Top-3 Schädlinge pro Pflanze mit Severity-Ampel (🔴 hoch / 🟡 mittel / 🟢 gering)' },
+      { emoji: '🌿', text: 'Pro Schädling: Vorbeugen-Tipp + Bio-Behandlung als 1-Klick-Info' },
+      { emoji: '💚', text: 'Companion-Plants-Vorschlag (z.B. Tagetes gegen Wurzelnematoden)' },
+      { emoji: '📷', text: 'Direkt zum Pest-Scanner: "🪲 Schädling fotografieren →"' },
+    ],
+    items: [
+      {emoji:'🧩', bold:'gsLoadPestsForPlanPlant(idx, lat):', text:' Async-Helper triggert nach Modal-Render. GET plant_pests WHERE host_plants @>[lat] ORDER BY damage_severity.desc LIMIT 3.'},
+      {emoji:'💚', bold:'Companion-Lookup:', text:' GET pest_companion_plants WHERE effective_against ov.{pest_name_de, pest_slug, ...} LIMIT 5. Overlap-Operator (ov) matched gegen Pest-Namen UND -Slugs.'},
+      {emoji:'🎨', bold:'Render im Plan-Detail:', text:' Orange Box "⚠️ Mögliche Schädlinge (Top N)" mit Severity-Dots + Prävention + Bio-Behandlung pro Pest. Grüne Box "💚 Schutzpflanzen-Vorschlag" mit role + wirkt-gegen + Pflanz-Muster.'},
+      {emoji:'🔗', bold:'Pest-Scanner-CTA:', text:' "🪲 Schädling fotografieren →" Button schließt detail-modal + öffnet modal-pest (v26.21).'},
+      {emoji:'✅', bold:'Empty-State:', text:' Wenn keine Pests UND keine Companions in DB → grüne "✅ Keine spezifischen Schädling-Risiken"-Box statt leere Sektion.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.25 Bodenverbesserer-Recommender. v26.26 Heilpflanzen-Profile. v26.27 Regional-Calendar.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 inline-scripts node --check OK · sw.js gs-v26.24 OK.'},
+    ]
+  },
+  {
     v: 'v26.23', date: '22.05.2026',
     headline: '📚 Wissen-Tab wächst — Kompost · Vermehrung · Boden · Heilpflanzen',
     summary: 'Cowork-Auftrag v26.23. DB-Wave-9 brachte 4 neue kuratierte Tabellen (compost_recipes, propagation_methods, soil_amendments, medicinal_plants_register) — diese Sprint baut die UI dazu: 4 neue Sub-Tabs im Wissen-Bereich mit Filter-Pills nach Kategorie + Detail-Modals mit allen Feldern (NPK-Werte, Schritt-Anleitungen, JSON-Parser für monthly_steps / step_by_step / troubleshooting). Heilpflanzen-Renderer mit PROMINENT-roter Kontraindikations-Box (rechtssicher).',
@@ -47830,7 +47949,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.23';
+var GS_VERSION = 'v26.24';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
