@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.28.20260523">
+<meta name="app-version" content="26.29.20260523">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2479,6 +2479,18 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <span data-i18n="btn_region_cal_open" data-i18n-fallback="🗓️ Regional-Kalender · Monats-Tasks deiner CH-Zone">🗓️ Regional-Kalender · Monats-Tasks deiner CH-Zone</span><span style="font-size:18px;opacity:.85;">›</span>
   </button>
 </div>
+<!-- v26.29: Düngeplan-Coach (fertilization_schedules-DB) -->
+<div style="padding:0 16px 12px;">
+  <button onclick="openFertilizerModal()" title="Düngeplan für deine Pflanze nach Wachstumsphase" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#2e7d32,#1b5e20);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_fertilizer_open" data-i18n-fallback="🌱 Düngeplan-Coach · Phase + Menge + Bio-Tipp">🌱 Düngeplan-Coach · Phase + Menge + Bio-Tipp</span><span style="font-size:18px;opacity:.85;">›</span>
+  </button>
+</div>
+<!-- v26.31: Beet-Layout-Designer (garden_layouts-DB) -->
+<div style="padding:0 16px 12px;">
+  <button onclick="openGardenLayoutsModal()" title="Beet-Vorlagen: Hochbeet, Permakultur, Mandala, Kräuterspirale, ..." style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#388e3c,#2e7d32);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_layouts_open" data-i18n-fallback="📐 Beet-Layouts · 10 fertige Vorlagen">📐 Beet-Layouts · 10 fertige Vorlagen</span><span style="font-size:18px;opacity:.85;">›</span>
+  </button>
+</div>
 <!-- v24.06: Smart-Home Sensor-Dashboard -->
 <div style="padding:0 16px 20px;">
   <button onclick="gsShOpen()" title="Smart-Home Sensoren" style="width:100%;padding:13px 14px;background:linear-gradient(135deg,var(--c-info-d),var(--c-info));color:#fff;border:none;border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 12px rgba(21,101,192,.25);">
@@ -3096,6 +3108,47 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
         👆 Drag zum Drehen · 🤏 Pinch oder Scroll zum Zoomen · Höhe entspricht erwachsener Pflanze (Schätzung).
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ═══ v26.29 DÜNGEPLAN-COACH MODAL ═══════════════════════ -->
+<div class="modal-overlay" id="modal-fertilizer" onclick="if(event.target===this)closeModal('modal-fertilizer')">
+  <div class="modal" style="position:relative;max-height:92vh;overflow-y:auto;">
+    <div class="mhandle"></div>
+    <button class="modal-close-btn" onclick="closeModal('modal-fertilizer')" aria-label="Schliessen">&#x2715;</button>
+    <div class="mhdr" style="background:linear-gradient(135deg,#2e7d32,#1b5e20);color:#fff;">
+      <span class="memoji">🌱</span>
+      <div>
+        <h2 data-i18n="fertilizer_title" data-i18n-fallback="Düngeplan-Coach" style="color:#fff;">Düngeplan-Coach</h2>
+        <p data-i18n="fertilizer_sub" data-i18n-fallback="Phasen-basierter Düngeplan für deine Pflanze (Bio + Mineral, NPK, Schweizer Mengen)" style="color:rgba(255,255,255,.85);">Phasen-basierter Düngeplan für deine Pflanze (Bio + Mineral, NPK, Schweizer Mengen)</p>
+      </div>
+    </div>
+    <div style="padding:14px 18px 14px;">
+      <div class="mp-field">
+        <label data-i18n="fertilizer_lbl_pick" data-i18n-fallback="🌱 Pflanze">🌱 Pflanze</label>
+        <select class="mp-select" id="fertilizer-plant-picker" onchange="gsRenderFertilizerPlan(this.value)">
+          <option value="" data-i18n="fertilizer_opt_pick" data-i18n-fallback="— Bitte wählen —">— Bitte wählen —</option>
+        </select>
+      </div>
+    </div>
+    <div id="fertilizer-content" style="padding:0 18px 22px;"></div>
+  </div>
+</div>
+
+<!-- ═══ v26.31 BEET-LAYOUTS MODAL ══════════════════════════ -->
+<div class="modal-overlay" id="modal-layouts" onclick="if(event.target===this)closeModal('modal-layouts')">
+  <div class="modal" style="position:relative;max-height:92vh;overflow-y:auto;">
+    <div class="mhandle"></div>
+    <button class="modal-close-btn" onclick="closeModal('modal-layouts')" aria-label="Schliessen">&#x2715;</button>
+    <div class="mhdr" style="background:linear-gradient(135deg,#388e3c,#2e7d32);color:#fff;">
+      <span class="memoji">📐</span>
+      <div>
+        <h2 data-i18n="layouts_title" data-i18n-fallback="Beet-Layouts" style="color:#fff;">Beet-Layouts</h2>
+        <p data-i18n="layouts_sub" data-i18n-fallback="10 fertige Vorlagen mit Mischkultur, Kosten und Einrichtungszeit" style="color:rgba(255,255,255,.85);">10 fertige Vorlagen mit Mischkultur, Kosten und Einrichtungszeit</p>
+      </div>
+    </div>
+    <div id="layouts-filter" style="padding:10px 18px 4px;"></div>
+    <div id="layouts-content" style="padding:0 18px 22px;"></div>
   </div>
 </div>
 
@@ -24754,6 +24807,307 @@ async function gsRenderRegionalContent(slug) {
   content.innerHTML = html;
 }
 window.gsRenderRegionalContent = gsRenderRegionalContent;
+
+// ═════════════════════════════════════════════════════════════════════
+// v26.29 DÜNGEPLAN-COACH (fertilization_schedules-DB, 15 Eintraege)
+// Modal mit Pflanzen-Picker → zeigt alle Phasen mit Duenger-Type, Bio +
+// Mineral-Optionen, Dose, Frequenz, NPK-Focus, Kosten, Warnungen.
+// "Erledigt"-Button per Phase → garden_diary Eintrag fuer Verlauf.
+// ═════════════════════════════════════════════════════════════════════
+
+window._gsFertilizerCache = null;
+
+async function gsLoadFertilizationSchedules(force) {
+  var c = window._gsFertilizerCache;
+  if (!force && c && (Date.now() - c.ts) < 10 * 60 * 1000) return c.rows;
+  if (typeof sbFetch !== 'function') return [];
+  try {
+    var r = await sbFetch('/rest/v1/fertilization_schedules?select=*&order=plant_name_de,phase&limit=200', { method: 'GET' });
+    var rows = (r && Array.isArray(r.data)) ? r.data : [];
+    window._gsFertilizerCache = { rows: rows, ts: Date.now() };
+    return rows;
+  } catch(_) { return []; }
+}
+window.gsLoadFertilizationSchedules = gsLoadFertilizationSchedules;
+
+async function openFertilizerModal() {
+  if (typeof openModal === 'function') openModal('modal-fertilizer');
+  else document.getElementById('modal-fertilizer').classList.add('open');
+  var picker = document.getElementById('fertilizer-plant-picker');
+  var content = document.getElementById('fertilizer-content');
+  if (content) content.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px;">⏳ Lade Düngepläne…</div>';
+
+  var rows = await gsLoadFertilizationSchedules();
+  if (!rows.length) {
+    if (content) content.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px;">Keine Düngepläne in der DB.</div>';
+    return;
+  }
+
+  // Group by plant
+  var plantsMap = {};
+  rows.forEach(function(r){
+    var key = r.plant_species_lat + '|' + r.plant_name_de;
+    if (!plantsMap[key]) plantsMap[key] = { lat: r.plant_species_lat, name: r.plant_name_de, phases: [] };
+    plantsMap[key].phases.push(r);
+  });
+  var plants = Object.values(plantsMap).sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
+
+  if (picker) {
+    picker.innerHTML = '<option value="">— Bitte wählen —</option>';
+    plants.forEach(function(p){
+      var o = document.createElement('option');
+      o.value = p.lat + '|' + p.name;
+      o.textContent = p.name + ' (' + p.lat + ') — ' + p.phases.length + ' Phasen';
+      picker.appendChild(o);
+    });
+  }
+
+  // Auto-select wenn nur eine Pflanze in myPlants matched
+  var myPlantsArr = Array.isArray(window.myPlants) ? window.myPlants : [];
+  var matchedKey = null;
+  if (myPlantsArr.length) {
+    var lats = myPlantsArr.map(function(p){ return p.lat; }).filter(Boolean);
+    var matches = plants.filter(function(p){ return lats.indexOf(p.lat) >= 0; });
+    if (matches.length === 1) matchedKey = matches[0].lat + '|' + matches[0].name;
+  }
+  if (matchedKey && picker) {
+    picker.value = matchedKey;
+    gsRenderFertilizerPlan(matchedKey);
+  } else if (content) {
+    content.innerHTML = '<div style="padding:18px 14px;text-align:center;color:var(--muted);font-size:13px;line-height:1.6;">Wähle eine Pflanze oben.<br><span style="font-size:11px;">Tipp: Tomate hat 5 Phasen mit detailliertem Plan.</span></div>';
+  }
+}
+window.openFertilizerModal = openFertilizerModal;
+
+async function gsRenderFertilizerPlan(key) {
+  if (!key) return;
+  var parts = String(key).split('|');
+  var lat = parts[0], name = parts[1];
+  var rows = await gsLoadFertilizationSchedules();
+  var phases = rows.filter(function(r){ return r.plant_species_lat === lat && r.plant_name_de === name; });
+  var content = document.getElementById('fertilizer-content');
+  if (!content) return;
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+
+  if (!phases.length) {
+    content.innerHTML = '<div style="padding:18px;color:var(--muted);text-align:center;">Keine Phasen für diese Pflanze.</div>';
+    return;
+  }
+
+  var html = '<div style="margin-bottom:10px;padding:10px 12px;background:#e8f5e9;border-radius:9px;font-size:12px;color:#1b5e20;line-height:1.5;text-align:center;">' +
+    '<b>🌱 ' + ed(name) + '</b> · <i>' + ed(lat) + '</i> · ' + phases.length + ' Phasen';
+  // Cost-summary
+  var costStrs = phases.map(function(p){ return p.cost_swiss_chf; }).filter(Boolean);
+  if (costStrs.length) html += '<br><span style="font-size:11px;color:#2e7d32;">💰 Geschätzte Kosten: ' + ed(costStrs.join(' + ')) + '</span>';
+  html += '</div>';
+
+  phases.forEach(function(p, idx){
+    var phaseColors = ['#558b2f','#7cb342','#aed581','#fbc02d','#ff6f00','#bf360c'];
+    var col = phaseColors[idx % phaseColors.length];
+    html += '<div style="margin-bottom:10px;border:1px solid var(--border);border-left:4px solid ' + col + ';border-radius:11px;padding:11px 13px;background:var(--card);">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">';
+    html += '<div style="font-size:13.5px;font-weight:900;color:' + col + ';">' + (idx+1) + '. ' + ed(p.phase || 'Phase') + '</div>';
+    if (p.weeks_after_planting) html += '<div style="font-size:11px;color:var(--muted);background:var(--surface2);padding:2px 8px;border-radius:6px;flex-shrink:0;">' + ed(p.weeks_after_planting) + '</div>';
+    html += '</div>';
+    if (p.npk_focus) html += '<div style="font-size:11.5px;color:#1b5e20;background:#e8f5e9;padding:3px 8px;border-radius:6px;display:inline-block;margin-bottom:6px;font-weight:700;">NPK: ' + ed(p.npk_focus) + '</div>';
+    if (p.fertilizer_type) html += '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;"><b>Typ:</b> ' + ed(p.fertilizer_type) + '</div>';
+    if (Array.isArray(p.fertilizer_organic) && p.fertilizer_organic.length) {
+      html += '<div style="margin-top:6px;padding:7px 10px;background:#e8f5e9;border-radius:8px;font-size:11.5px;color:#1b5e20;line-height:1.55;">';
+      html += '<b>🌿 Bio-Optionen:</b> ' + p.fertilizer_organic.map(ed).join(' · ') + '</div>';
+    }
+    if (Array.isArray(p.fertilizer_mineral) && p.fertilizer_mineral.length) {
+      html += '<div style="margin-top:5px;padding:7px 10px;background:#e3f2fd;border-radius:8px;font-size:11.5px;color:#01579b;line-height:1.55;">';
+      html += '<b>⚗️ Mineral-Optionen:</b> ' + p.fertilizer_mineral.map(ed).join(' · ') + '</div>';
+    }
+    var doseStr = '';
+    if (p.dose_g_per_m2) doseStr += p.dose_g_per_m2;
+    if (p.dose_ml_per_l) doseStr += (doseStr ? ' · ' : '') + p.dose_ml_per_l;
+    if (doseStr) html += '<div style="margin-top:5px;font-size:11.5px;color:var(--text2);"><b>📏 Dosis:</b> ' + ed(doseStr) + (p.frequency ? ' · <b>Frequenz:</b> ' + ed(p.frequency) : '') + '</div>';
+    if (p.application_method) html += '<div style="margin-top:3px;font-size:11.5px;color:var(--text2);"><b>🔧 Methode:</b> ' + ed(p.application_method) + '</div>';
+    if (p.ph_consideration) html += '<div style="margin-top:3px;font-size:11.5px;color:var(--text2);"><b>⚗️ pH:</b> ' + ed(p.ph_consideration) + '</div>';
+    if (p.cost_swiss_chf) html += '<div style="margin-top:3px;font-size:11.5px;color:#2e7d32;"><b>💰</b> ' + ed(p.cost_swiss_chf) + '</div>';
+    if (p.warnings) html += '<div style="margin-top:6px;padding:6px 10px;background:#fff3e0;border:1px solid #ffb74d;border-radius:8px;font-size:11.5px;color:#bf360c;line-height:1.5;">⚠️ ' + ed(p.warnings) + '</div>';
+    if (p.organic_certified) html += '<div style="margin-top:5px;font-size:10.5px;color:#1b5e20;font-weight:700;">✅ Bio-zertifiziert (Schweiz)</div>';
+    html += '<button onclick="gsFertilizerLogDone(\'' + ed(p.slug || p.id) + '\',\'' + ed(lat) + '\',\'' + ed(name) + '\',\'' + ed(p.phase || '') + '\')" style="margin-top:8px;width:100%;padding:8px;background:' + col + ';color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">✅ Diese Düngung jetzt erledigt</button>';
+    html += '</div>';
+  });
+
+  var firstSource = (phases[0] && phases[0].source) || '';
+  if (firstSource) html += '<div style="font-size:10.5px;color:var(--muted);text-align:right;margin-top:8px;">Quelle: ' + ed(firstSource) + '</div>';
+  content.innerHTML = html;
+}
+window.gsRenderFertilizerPlan = gsRenderFertilizerPlan;
+
+async function gsFertilizerLogDone(slug, lat, name, phase) {
+  var uid = (window.gsStore && typeof gsStore.get === 'function') ? gsStore.get('gs_sb_uid', null) : null;
+  if (!uid) {
+    if (typeof showProfileToast === 'function') showProfileToast('Bitte erst anmelden', 'error');
+    return;
+  }
+  try {
+    await sbFetch('/rest/v1/garden_diary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      body: JSON.stringify({
+        user_id: uid,
+        type: 'fertilization',
+        species_lat: lat || null,
+        notes: name + ' — Phase: ' + (phase || '?'),
+        metadata: { fertilizer_slug: slug, phase: phase }
+      })
+    });
+    if (typeof showProfileToast === 'function') showProfileToast('✅ Düngung im Tagebuch festgehalten', 'success');
+  } catch(_) {
+    if (typeof showProfileToast === 'function') showProfileToast('⚠️ Konnte nicht speichern', 'error');
+  }
+}
+window.gsFertilizerLogDone = gsFertilizerLogDone;
+
+// ═════════════════════════════════════════════════════════════════════
+// v26.31 BEET-LAYOUT-DESIGNER (garden_layouts-DB, 10 Vorlagen)
+// Modal mit 10 Layouts (Hochbeet/Kräuterspirale/Permakultur/Mandala/Hügelkultur)
+// → Detail mit Pflanzkombinationen, Kosten, Setup-Zeit, Tips, Pitfalls.
+// "Plan übernehmen" → garden_plans-Eintrag (Coworks Tabelle aus v25.9).
+// ═════════════════════════════════════════════════════════════════════
+
+window._gsLayoutsCache = null;
+
+async function gsLoadGardenLayouts(force) {
+  var c = window._gsLayoutsCache;
+  if (!force && c && (Date.now() - c.ts) < 30 * 60 * 1000) return c.rows;
+  if (typeof sbFetch !== 'function') return [];
+  try {
+    var r = await sbFetch('/rest/v1/garden_layouts?select=*&order=size_m2.asc&limit=50', { method: 'GET' });
+    var rows = (r && Array.isArray(r.data)) ? r.data : [];
+    window._gsLayoutsCache = { rows: rows, ts: Date.now() };
+    return rows;
+  } catch(_) { return []; }
+}
+window.gsLoadGardenLayouts = gsLoadGardenLayouts;
+
+async function openGardenLayoutsModal() {
+  if (typeof openModal === 'function') openModal('modal-layouts');
+  else document.getElementById('modal-layouts').classList.add('open');
+  var filterEl = document.getElementById('layouts-filter');
+  var content = document.getElementById('layouts-content');
+  if (content) content.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px;">⏳ Lade Beet-Vorlagen…</div>';
+  window._gsLayoutsFilter = window._gsLayoutsFilter || { beginner: false, type: '' };
+  var rows = await gsLoadGardenLayouts();
+  if (!rows.length) {
+    if (content) content.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);">Keine Beet-Vorlagen in der DB.</div>';
+    return;
+  }
+  // Filter-Pills: layout_type-Distinct + Beginner-Toggle
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+  var types = Array.from(new Set(rows.map(function(r){ return r.layout_type; }).filter(Boolean)));
+  if (filterEl) {
+    var html = '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">';
+    html += '<button onclick="gsLayoutsFilter({type:\'\',beginner:false})" class="recipe-cat' + (!window._gsLayoutsFilter.type && !window._gsLayoutsFilter.beginner ? ' active' : '') + '" style="font-size:11.5px;padding:5px 11px;">Alle (' + rows.length + ')</button>';
+    types.forEach(function(t){
+      var n = rows.filter(function(r){ return r.layout_type === t; }).length;
+      html += '<button onclick="gsLayoutsFilter({type:\'' + ed(t) + '\',beginner:false})" class="recipe-cat' + (window._gsLayoutsFilter.type===t?' active':'') + '" style="font-size:11.5px;padding:5px 11px;">' + ed(t) + ' (' + n + ')</button>';
+    });
+    var nB = rows.filter(function(r){ return r.best_for_beginners; }).length;
+    if (nB > 0) html += '<button onclick="gsLayoutsFilter({type:\'\',beginner:true})" class="recipe-cat' + (window._gsLayoutsFilter.beginner?' active':'') + '" style="font-size:11.5px;padding:5px 11px;">🌱 Anfänger (' + nB + ')</button>';
+    html += '</div>';
+    filterEl.innerHTML = html;
+  }
+  // Render visible rows
+  var visible = rows.filter(function(r){
+    if (window._gsLayoutsFilter.beginner && !r.best_for_beginners) return false;
+    if (window._gsLayoutsFilter.type && r.layout_type !== window._gsLayoutsFilter.type) return false;
+    return true;
+  });
+
+  var html = '';
+  visible.forEach(function(L){
+    html += '<div onclick="gsLayoutOpenDetail(\'' + ed(L.slug || L.id) + '\')" style="cursor:pointer;background:var(--card);border:1px solid var(--border);border-left:3px solid #2e7d32;border-radius:12px;padding:12px 14px;margin-bottom:8px;">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">';
+    html += '<div style="flex:1;min-width:0;">';
+    html += '<div style="font-size:14px;font-weight:800;color:var(--text);">📐 ' + ed(L.name_de || L.slug || '?') + '</div>';
+    html += '<div style="font-size:11.5px;color:var(--muted);margin-top:2px;">' + ed(L.layout_type || '?') + ' · ' + ed(L.size_m2 || '?') + ' m² · ' + ed(L.difficulty || '?') + (L.best_for_beginners ? ' · 🌱 Anfänger-freundlich' : '') + '</div>';
+    if (L.description) html += '<div style="font-size:12px;color:var(--text2);margin-top:5px;line-height:1.45;">' + ed(String(L.description).slice(0,160)) + (L.description.length > 160 ? '…' : '') + '</div>';
+    var infos = [];
+    if (L.estimated_cost_chf) infos.push('💰 ' + L.estimated_cost_chf);
+    if (L.setup_time_hours) infos.push('⏱ ' + L.setup_time_hours + 'h Setup');
+    if (infos.length) html += '<div style="font-size:11px;color:#1b5e20;margin-top:5px;">' + ed(infos.join(' · ')) + '</div>';
+    html += '</div>';
+    html += '<div style="font-size:18px;color:var(--muted);flex-shrink:0;">›</div>';
+    html += '</div></div>';
+  });
+  if (content) content.innerHTML = html;
+}
+window.openGardenLayoutsModal = openGardenLayoutsModal;
+
+window.gsLayoutsFilter = function(f) {
+  window._gsLayoutsFilter = f || { beginner: false, type: '' };
+  openGardenLayoutsModal();
+};
+
+window.gsLayoutOpenDetail = function(slug) {
+  var rows = (window._gsLayoutsCache || {}).rows || [];
+  var L = rows.find(function(x){ return String(x.slug || x.id) === String(slug); });
+  if (!L) return;
+  var mc = document.getElementById('modal-content');
+  if (!mc) return;
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+  var html = '<div style="padding:0;">';
+  html += '<div style="background:linear-gradient(135deg,#388e3c,#2e7d32);padding:22px 20px;color:#fff;position:relative;">';
+  html += '<button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.22);color:#fff;font-size:18px;cursor:pointer;">×</button>';
+  html += '<div style="font-size:36px;margin-bottom:6px;">📐</div>';
+  html += '<div style="font-family:\'Playfair Display\',serif;font-size:20px;font-weight:900;">' + ed(L.name_de || L.slug) + '</div>';
+  if (L.layout_type) html += '<div style="font-size:12.5px;opacity:.92;margin-top:3px;">' + ed(L.layout_type) + (L.size_m2 ? ' · ' + ed(L.size_m2) + ' m²' : '') + (L.difficulty ? ' · ' + ed(L.difficulty) : '') + '</div>';
+  html += '</div>';
+  html += '<div style="padding:16px 18px 20px;">';
+  if (L.description) html += '<div style="font-size:13px;color:var(--text2);line-height:1.55;margin-bottom:10px;">' + ed(L.description) + '</div>';
+  var infos = '';
+  if (L.estimated_cost_chf) infos += '<span style="background:#e8f5e9;color:#1b5e20;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:700;">💰 ' + ed(L.estimated_cost_chf) + '</span> ';
+  if (L.setup_time_hours) infos += '<span style="background:#fff8e1;color:#e65100;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:700;">⏱ ' + ed(L.setup_time_hours) + 'h Setup</span> ';
+  if (L.best_for_beginners) infos += '<span style="background:#e3f2fd;color:#01579b;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:700;">🌱 Anfänger-freundlich</span>';
+  if (infos) html += '<div style="margin-bottom:12px;">' + infos + '</div>';
+  // plant_combinations jsonb
+  if (L.plant_combinations) {
+    var combos = L.plant_combinations;
+    if (Array.isArray(combos)) {
+      html += '<div style="margin-top:8px;font-size:11.5px;font-weight:800;color:var(--text);">🌱 Pflanz-Kombinationen</div>';
+      combos.forEach(function(c, i){
+        html += '<div style="margin-top:5px;padding:7px 11px;background:var(--surface2);border-radius:8px;font-size:12px;color:var(--text2);"><b>' + (i+1) + '.</b> ' + ed(typeof c === 'string' ? c : (c.name || c.text || JSON.stringify(c))) + '</div>';
+      });
+    } else if (typeof combos === 'object') {
+      html += '<div style="margin-top:8px;font-size:11.5px;font-weight:800;color:var(--text);">🌱 Pflanz-Kombinationen</div>';
+      Object.keys(combos).forEach(function(k){
+        var v = combos[k];
+        html += '<div style="margin-top:5px;padding:7px 11px;background:var(--surface2);border-radius:8px;font-size:12px;color:var(--text2);"><b>' + ed(k) + ':</b> ' + ed(Array.isArray(v) ? v.join(', ') : String(v)) + '</div>';
+      });
+    }
+  }
+  // rotation_plan jsonb
+  if (L.rotation_plan && typeof L.rotation_plan === 'object') {
+    html += '<div style="margin-top:12px;padding:10px 12px;background:#fff3e0;border-radius:10px;">';
+    html += '<div style="font-size:11.5px;font-weight:800;color:#e65100;margin-bottom:5px;">🔄 Rotations-Plan</div>';
+    var keys = Object.keys(L.rotation_plan).sort();
+    keys.forEach(function(k){ html += '<div style="font-size:12px;color:#bf360c;margin-top:3px;"><b>' + ed(k) + ':</b> ' + ed(Array.isArray(L.rotation_plan[k]) ? L.rotation_plan[k].join(', ') : String(L.rotation_plan[k])) + '</div>'; });
+    html += '</div>';
+  }
+  if (Array.isArray(L.pro_tips) && L.pro_tips.length) {
+    html += '<div style="margin-top:10px;padding:10px 12px;background:#e8f5e9;border-radius:10px;">';
+    html += '<div style="font-size:11.5px;font-weight:800;color:#1b5e20;margin-bottom:5px;">💡 Pro-Tips</div>';
+    html += '<ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.55;color:#1b5e20;">';
+    L.pro_tips.forEach(function(t){ html += '<li>' + ed(String(t)) + '</li>'; });
+    html += '</ul></div>';
+  }
+  if (Array.isArray(L.common_pitfalls) && L.common_pitfalls.length) {
+    html += '<div style="margin-top:8px;padding:10px 12px;background:#ffebee;border:1px solid #ef5350;border-radius:10px;">';
+    html += '<div style="font-size:11.5px;font-weight:800;color:#c62828;margin-bottom:5px;">⚠️ Häufige Fehler</div>';
+    html += '<ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.55;color:#c62828;">';
+    L.common_pitfalls.forEach(function(t){ html += '<li>' + ed(String(t)) + '</li>'; });
+    html += '</ul></div>';
+  }
+  if (L.source) html += '<div style="margin-top:14px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(L.source) + '</div>';
+  html += '</div></div>';
+  mc.innerHTML = html;
+  if (typeof openModal === 'function') openModal('detail-modal');
+};
 
 window.gsSoilOpenDetail = function(slug) {
   var rows = window._gsSoilTop5 || [];
@@ -46714,6 +47068,26 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.29', date: '23.05.2026',
+    headline: '🌱 Düngeplan-Coach + 📐 Beet-Layout-Designer (Bundle v26.29 + v26.31)',
+    summary: 'Cowork-Aufträge v26.29 + v26.31 als Bundle. 2 neue Garten-Aktion-Buttons: Düngeplan-Coach (fertilization_schedules-UI mit Pflanzen-Picker und Phasen) + Beet-Layout-Designer (10 garden_layouts-Vorlagen mit Filter, Detail-Modal, Rotations-Plan). Beide Modals teilen gemeinsame UI-Patterns (Filter-Pills, Detail-Renderer, gs*-Helper).',
+    user_summary: '🌱 Zwei neue Helfer im Garten: Ein Düngeplan-Coach (was wann für welche Pflanze + Bio-Tipps + Schweizer Mengen) und ein Beet-Layout-Designer (10 fertige Vorlagen von Hochbeet bis Mandala-Garten).',
+    user_items: [
+      { emoji: '🌱', text: 'Düngeplan pro Pflanze in 1-5 Phasen mit Bio + Mineral-Optionen und CHF-Kosten' },
+      { emoji: '📐', text: '10 Beet-Vorlagen: Hochbeet, Kräuterspirale, Permakultur, Mandala, Hügelkultur, ...' },
+      { emoji: '🌿', text: 'Rotations-Plan (4-Jahres-Cycle Starkzehrer → Schwachzehrer → Gründüngung)' },
+      { emoji: '💡', text: 'Pro-Tips + häufige Fehler pro Vorlage' },
+      { emoji: '✅', text: '"Düngung erledigt"-Button speichert direkt im Garten-Tagebuch' },
+    ],
+    items: [
+      {emoji:'🌱', bold:'v26.29 Düngeplan-Coach:', text:' Neuer Garten-Aktion-Button. Modal mit Pflanzen-Picker (auto-select bei myPlants-Match). Phasen-Liste mit Phase-Name, NPK-Focus-Badge, Bio-Optionen-Box (grün), Mineral-Optionen-Box (blau), Dosis (g/m² oder ml/l), Frequenz, Application-Method, pH-Consideration, CHF-Kosten, organic_certified-Badge. "Erledigt"-Button → garden_diary INSERT mit type=fertilization + fertilizer_slug + phase.'},
+      {emoji:'📐', bold:'v26.31 Beet-Layout-Designer:', text:' Neuer Garten-Aktion-Button. Modal mit Filter-Pills (layout_type-Distinct + 🌱 Anfaenger-Toggle). Card-Liste mit Name, Type, Size, Difficulty, Description-Snippet, Cost-CHF, Setup-Hours. Detail-Modal mit plant_combinations (jsonb array/object), rotation_plan (jsonb), pro_tips (grün), common_pitfalls (rot).'},
+      {emoji:'🛢️', bold:'In-Memory-Cache:', text:' 10min fuer fertilization_schedules, 30min fuer garden_layouts. Reduziert DB-Hits bei Re-Open.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.30 Samen-Gewinnung-Wissen (5. Wissen-Sub-Tab). v26.32 Garten-Tagebuch v2 (Migration + Type-Picker).'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 inline-scripts node --check OK · sw.js gs-v26.29 OK · fertilization_schedules + garden_layouts beide DB-ready.'},
+    ]
+  },
+  {
     v: 'v26.28', date: '23.05.2026',
     headline: '🗺️ KI-Planer kennt jetzt deine Region — Frost + Boden + Höhenzone als Constraint',
     summary: 'Cowork-Auftrag v26.28. gsRunGardenScan body.metadata bekommt async region_slug (aus v26.27 gsGetRegionContext) + soil_type + soil_ph (aus v26.25 gs_soil_profile). Backend garden-scan-analyze v2 + plan-iterate v2 sind region-aware: laden regional_garden_calendars + injecten last_frost/growing_season/best_vegetables als Constraint im System-Prompt.',
@@ -48505,7 +48879,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.28';
+var GS_VERSION = 'v26.29';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

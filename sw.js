@@ -1,5 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
+   v26.29 — Duengeplan-Coach (AUFTRAG_v26.29) + Beet-Layout-Designer (AUFTRAG_v26.31, bundled): 2 neue Garten-Aktion-Buttons. Duengeplan: Modal mit Pflanzen-Picker, auto-select bei myPlants-Match, Phasen-Liste aus fertilization_schedules mit NPK-Focus, Bio + Mineral-Optionen, Dosis (g/m² + ml/l), Frequenz, Kosten CHF, Warnungen, organic_certified Badge. "Erledigt"-Button pro Phase → garden_diary (type=fertilization). Layouts: 10 Vorlagen aus garden_layouts mit Filter-Pills (layout_type + Anfaenger-Toggle). Detail-Modal mit plant_combinations (jsonb array/object), rotation_plan (jsonb Jahr→Pflanzen), pro_tips (gruen), common_pitfalls (rot).
    v26.28 — KI-Planer Region-Wiring (AUFTRAG_v26.28): gsRunGardenScan body.metadata bekommt async region_slug (via gsGetRegionContext aus v26.27) + soil_type/soil_ph (aus localStorage gs_soil_profile von v26.25). Backend garden-scan-analyze v2 nutzt das fuer Frost-Constraints + best_vegetables + Boden-Empfehlungen im System-Prompt. plan-iterate v2 lest die region_used aus garden_plans-Record (automatisch region-aware bei Iterationen).
    v26.27 — Regional-Calendar (AUFTRAG_v26.27): neuer Garten-Aktion-Button "🗓️ Regional-Kalender" + Modal mit 7-CH-Hoehenzonen-Picker aus regional_garden_calendars. Wahl persistiert in localStorage gs_region. Render: aktueller Monat prominent in oranger Box (12 Monats-Tasks), best_vegetables (gruen), challenging_plants (orange), 12-Monats-Accordion (current open, andere collapsed). gsGetRegionContext() API fuer KI-Planer-Integration (kann last_frost_avg, growing_season_days, monthly_tasks als Constraint nutzen).
    v26.26 — Heilpflanzen-Profile (AUFTRAG_v26.26): openDetail Pflanzen-Detail-Modal bekommt async geladenen Heilpflanzen-Block falls sp.lat in medicinal_plants_register existiert. gsLoadMedicinalProfile mountet eine groessere gruene Section am Ende des existing Modals mit Badges (Evidenz/CH-heimisch/geschuetzt), dann ZUERST prominent rote Kontraindikationen + orange Wechselwirkungen + gelbe Toxizitaet, dann Verwendung (Pflanzenteile/Wirkstoffe/traditionelle vs evidenzbasierte Anwendung/Zubereitung/Dosierung/Erntezeit/Rechtslage), Footer-Disclaimer. Backwards-compat: keine Section wenn kein Match.
@@ -30,7 +31,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v26.28';
+const VERSION = 'gs-v26.29';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
