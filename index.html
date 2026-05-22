@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.33.20260523">
+<meta name="app-version" content="26.34.20260523">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2497,6 +2497,12 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <span data-i18n="btn_layouts_open" data-i18n-fallback="📐 Beet-Layouts · 10 fertige Vorlagen">📐 Beet-Layouts · 10 fertige Vorlagen</span><span style="font-size:18px;opacity:.85;">›</span>
   </button>
 </div>
+<!-- v26.34: Garten-Tagebuch UI-Form + Saison-Statistik (User-Form für 11 entry_types aus v26.32-Migration) -->
+<div style="padding:0 16px 12px;">
+  <button onclick="openDiaryEntryModal()" title="Tagebuch-Eintrag — 11 Typen mit Saison-Statistik" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#558b2f,#33691e);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_diary_open" data-i18n-fallback="📔 Tagebuch-Eintrag · 11 Typen + Saison-Stats">📔 Tagebuch-Eintrag · 11 Typen + Saison-Stats</span><span style="font-size:18px;opacity:.85;">›</span>
+  </button>
+</div>
 <!-- v24.06: Smart-Home Sensor-Dashboard -->
 <div style="padding:0 16px 20px;">
   <button onclick="gsShOpen()" title="Smart-Home Sensoren" style="width:100%;padding:13px 14px;background:linear-gradient(135deg,var(--c-info-d),var(--c-info));color:#fff;border:none;border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 12px rgba(21,101,192,.25);">
@@ -3276,6 +3282,59 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <button onclick="gsMushroomRunScan()" id="mushroom-submit-btn" style="width:100%;padding:14px;background:linear-gradient(135deg,#6a1b9a,#4a148c);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;" data-i18n="btn_mushroom_start" data-i18n-fallback="🔍 Pilz identifizieren">🔍 Pilz identifizieren</button>
     </div>
     <div id="mushroom-result" style="padding:0 18px 20px;"></div>
+  </div>
+</div>
+
+<!-- ═══ v26.34 GARTEN-TAGEBUCH UI-FORM MODAL (Type-Picker für 11 entry_types + Saison-Stats) ═══ -->
+<div class="modal-overlay" id="modal-diary-entry" onclick="if(event.target===this)closeModal('modal-diary-entry')">
+  <div class="modal" style="position:relative;max-height:94vh;overflow-y:auto;">
+    <div class="mhandle"></div>
+    <button class="modal-close-btn" onclick="closeModal('modal-diary-entry')" aria-label="Schliessen">&#x2715;</button>
+    <div class="mhdr" style="background:linear-gradient(135deg,#558b2f,#33691e);color:#fff;">
+      <span class="memoji">📔</span>
+      <div>
+        <h2 data-i18n="diary_title" data-i18n-fallback="Garten-Tagebuch" style="color:#fff;">Garten-Tagebuch</h2>
+        <p data-i18n="diary_sub" data-i18n-fallback="Neuer Eintrag + Saison-Statistik dieses Jahres" style="color:rgba(255,255,255,.85);">Neuer Eintrag + Saison-Statistik dieses Jahres</p>
+      </div>
+    </div>
+    <!-- Tabs: Neuer Eintrag | Statistik -->
+    <div style="display:flex;border-bottom:1px solid var(--border);background:var(--card);">
+      <button id="diary-tab-new" onclick="gsDiarySwitchTab('new')" style="flex:1;padding:12px;background:#558b2f;color:#fff;border:none;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">➕ Neuer Eintrag</button>
+      <button id="diary-tab-stats" onclick="gsDiarySwitchTab('stats')" style="flex:1;padding:12px;background:transparent;color:var(--text2);border:none;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📊 Saison-Statistik</button>
+    </div>
+    <!-- Pane: Neuer Eintrag -->
+    <div id="diary-pane-new" style="padding:14px 18px 18px;">
+      <div class="mp-field">
+        <label>🏷️ Eintrag-Typ</label>
+        <div id="diary-type-picker" style="display:grid;grid-template-columns:repeat(2,1fr);gap:7px;"></div>
+      </div>
+      <!-- Conditional Fields-Container -->
+      <div id="diary-conditional-fields" style="margin-top:6px;"></div>
+      <!-- Common Fields -->
+      <div class="mp-field">
+        <label>📝 Titel (optional)</label>
+        <input type="text" id="diary-title" class="mp-input" placeholder="z.B. Erste Tomate des Jahres" maxlength="100">
+      </div>
+      <div class="mp-field">
+        <label>💬 Notiz / Beobachtung</label>
+        <textarea id="diary-text" class="mp-input" rows="3" placeholder="Was ist passiert? Welche Bedingungen?" maxlength="800" style="font-family:inherit;resize:vertical;"></textarea>
+      </div>
+      <div class="mp-field">
+        <label>📷 Foto (optional)</label>
+        <div style="display:flex;gap:8px;">
+          <button onclick="document.getElementById('diary-photo-camera').click()" style="flex:1;padding:11px;background:#f1f8e9;border:1.5px solid #689f38;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:#33691e;font-family:inherit;">📷 Kamera</button>
+          <button onclick="document.getElementById('diary-photo-gallery').click()" style="flex:1;padding:11px;background:#f1f8e9;border:1.5px solid #689f38;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:#33691e;font-family:inherit;">🖼️ Galerie</button>
+        </div>
+        <input type="file" id="diary-photo-camera" accept="image/*" capture="environment" style="display:none;" onchange="gsDiaryLoadPhoto(this)">
+        <input type="file" id="diary-photo-gallery" accept="image/*" style="display:none;" onchange="gsDiaryLoadPhoto(this)">
+        <div id="diary-photo-preview" style="margin-top:10px;display:none;"></div>
+      </div>
+      <button onclick="gsDiarySubmitEntry()" id="diary-submit-btn" style="width:100%;padding:14px;margin-top:6px;background:linear-gradient(135deg,#558b2f,#33691e);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">💾 Eintrag speichern</button>
+    </div>
+    <!-- Pane: Statistik -->
+    <div id="diary-pane-stats" style="padding:14px 18px 20px;display:none;">
+      <div id="diary-stats-content" style="min-height:120px;color:var(--muted);font-size:13px;text-align:center;padding:30px 0;">⏳ Lade Statistik…</div>
+    </div>
   </div>
 </div>
 
@@ -25446,6 +25505,274 @@ async function gsDiaryStats(opts) {
 }
 window.gsDiaryStats = gsDiaryStats;
 
+// ═════════════════════════════════════════════════════════════════════
+// v26.34 GARTEN-TAGEBUCH UI-FORM (Type-Picker + Conditional Fields + Stats)
+// User-Form fuer die 11 entry_types aus v26.32-Migration. Bisher fehlte
+// ein User-Form — Inserts kamen nur aus pest-scanner/duengeplan programmgesteuert.
+// ═════════════════════════════════════════════════════════════════════
+
+window._gsDiaryState = { type: 'general', photoB64: null };
+
+function openDiaryEntryModal() {
+  window._gsDiaryState = { type: 'general', photoB64: null };
+  // Form-Reset
+  var t = document.getElementById('diary-title'); if (t) t.value = '';
+  var x = document.getElementById('diary-text'); if (x) x.value = '';
+  var pv = document.getElementById('diary-photo-preview'); if (pv) { pv.innerHTML = ''; pv.style.display = 'none'; }
+  gsDiaryRenderTypePicker();
+  gsDiaryRenderConditional();
+  gsDiarySwitchTab('new');
+  if (typeof openModal === 'function') openModal('modal-diary-entry');
+  else document.getElementById('modal-diary-entry').classList.add('open');
+}
+window.openDiaryEntryModal = openDiaryEntryModal;
+
+function gsDiarySwitchTab(tab) {
+  var paneNew = document.getElementById('diary-pane-new');
+  var paneStats = document.getElementById('diary-pane-stats');
+  var btnNew = document.getElementById('diary-tab-new');
+  var btnStats = document.getElementById('diary-tab-stats');
+  var active = 'background:#558b2f;color:#fff;border:none;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;flex:1;padding:12px;';
+  var inactive = 'background:transparent;color:var(--text2);border:none;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;flex:1;padding:12px;';
+  if (tab === 'stats') {
+    if (paneNew) paneNew.style.display = 'none';
+    if (paneStats) paneStats.style.display = 'block';
+    if (btnNew) btnNew.style.cssText = inactive;
+    if (btnStats) btnStats.style.cssText = active;
+    gsDiaryRenderStats();
+  } else {
+    if (paneNew) paneNew.style.display = 'block';
+    if (paneStats) paneStats.style.display = 'none';
+    if (btnNew) btnNew.style.cssText = active;
+    if (btnStats) btnStats.style.cssText = inactive;
+  }
+}
+window.gsDiarySwitchTab = gsDiarySwitchTab;
+
+function gsDiaryRenderTypePicker() {
+  var box = document.getElementById('diary-type-picker');
+  if (!box) return;
+  var types = window.GS_DIARY_TYPES || {};
+  var keys = Object.keys(types);
+  var sel = window._gsDiaryState.type || 'general';
+  var html = '';
+  keys.forEach(function(k){
+    var m = types[k];
+    var active = (k === sel);
+    var bg = active ? '#33691e' : 'var(--card)';
+    var col = active ? '#fff' : 'var(--text)';
+    var border = active ? '#33691e' : 'var(--border)';
+    html += '<button type="button" onclick="gsDiarySetType(\'' + k + '\')" style="padding:10px 8px;background:' + bg + ';color:' + col + ';border:1.5px solid ' + border + ';border-radius:9px;font-size:11.5px;font-weight:' + (active?'800':'700') + ';cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px;text-align:left;-webkit-tap-highlight-color:transparent;">' +
+      '<span style="font-size:16px;">' + (m.emoji || '📝') + '</span>' +
+      '<span>' + (m.label || k) + '</span>' +
+      '</button>';
+  });
+  box.innerHTML = html;
+}
+window.gsDiaryRenderTypePicker = gsDiaryRenderTypePicker;
+
+function gsDiarySetType(t) {
+  window._gsDiaryState.type = t;
+  gsDiaryRenderTypePicker();
+  gsDiaryRenderConditional();
+}
+window.gsDiarySetType = gsDiarySetType;
+
+// Conditional Fields pro entry_type
+function gsDiaryRenderConditional() {
+  var box = document.getElementById('diary-conditional-fields');
+  if (!box) return;
+  var t = window._gsDiaryState.type || 'general';
+  var html = '';
+
+  // Species-Picker fuer Typen, die eine Pflanze brauchen
+  var needsSpecies = ['harvest', 'sowing', 'medicinal_harvest', 'seed_collection', 'pruning', 'flowering', 'disease'];
+  if (needsSpecies.indexOf(t) >= 0) {
+    var myPlants = window.myPlants || [];
+    var opts = '<option value="">— Pflanze wählen oder freilassen —</option>';
+    myPlants.forEach(function(p){
+      var lat = p.lat || p.scientific_name || '';
+      var de = p.de || p.name || lat;
+      if (lat) opts += '<option value="' + lat + '">' + de + ' (' + lat + ')</option>';
+    });
+    html += '<div class="mp-field"><label>🌱 Pflanze (optional)</label>' +
+      '<select id="diary-species" class="mp-select">' + opts + '</select></div>';
+  }
+
+  // Harvest-spezifisch: kg-Feld
+  if (t === 'harvest' || t === 'medicinal_harvest') {
+    html += '<div class="mp-field"><label>⚖️ Erntemenge (kg, optional)</label>' +
+      '<input type="number" id="diary-harvest-kg" class="mp-input" min="0" step="0.1" placeholder="z.B. 0.8" style="font-family:inherit;"></div>';
+  }
+
+  // Pest-spezifisch: pest-slug aus plant_pests
+  if (t === 'pest_observation') {
+    html += '<div class="mp-field"><label>🪲 Schädling (optional, falls bekannt)</label>' +
+      '<input type="text" id="diary-pest-slug" class="mp-input" placeholder="z.B. blattlaus oder schnecke" maxlength="60"></div>' +
+      '<div style="margin:6px 0 10px;padding:8px 11px;background:#fff3e0;border-left:3px solid #e65100;border-radius:8px;font-size:11.5px;color:#bf360c;line-height:1.5;">💡 Tipp: Nutze <b>🪲 Schädling-Scanner</b> für KI-Identifikation — der schreibt automatisch ins Tagebuch.</div>';
+  }
+
+  // Fertilization-spezifisch: Dünger-Hinweis
+  if (t === 'fertilization') {
+    html += '<div class="mp-field"><label>🌿 Dünger / Mittel (optional)</label>' +
+      '<input type="text" id="diary-fertilizer" class="mp-input" placeholder="z.B. Kompost, Hornspäne, Brennnessel-Jauche" maxlength="80"></div>';
+  }
+
+  // Watering-spezifisch: Menge
+  if (t === 'watering') {
+    html += '<div class="mp-field"><label>💧 Menge in Liter (optional)</label>' +
+      '<input type="number" id="diary-water-liter" class="mp-input" min="0" step="0.5" placeholder="z.B. 10" style="font-family:inherit;"></div>';
+  }
+
+  // Disease-spezifisch: Symptom
+  if (t === 'disease') {
+    html += '<div class="mp-field"><label>🦠 Symptom (optional)</label>' +
+      '<input type="text" id="diary-disease" class="mp-input" placeholder="z.B. Mehltau, gelbe Flecken" maxlength="80"></div>';
+  }
+
+  box.innerHTML = html;
+}
+window.gsDiaryRenderConditional = gsDiaryRenderConditional;
+
+async function gsDiaryLoadPhoto(input) {
+  var file = input && input.files && input.files[0];
+  if (!file) return;
+  if (file.size > 8 * 1024 * 1024) {
+    if (typeof showProfileToast === 'function') showProfileToast('Bild zu gross (max 8 MB)', 'error');
+    return;
+  }
+  try {
+    var b64 = await gsFileToBase64(file);
+    window._gsDiaryState.photoB64 = b64;
+    var preview = document.getElementById('diary-photo-preview');
+    if (preview) {
+      preview.innerHTML = '<img src="' + b64 + '" alt="Vorschau" style="width:100%;max-height:200px;object-fit:cover;border-radius:10px;border:1px solid var(--border);">';
+      preview.style.display = 'block';
+    }
+  } catch(_) {
+    if (typeof showProfileToast === 'function') showProfileToast('Foto-Upload fehlgeschlagen', 'error');
+  }
+}
+window.gsDiaryLoadPhoto = gsDiaryLoadPhoto;
+
+async function gsDiarySubmitEntry() {
+  var btn = document.getElementById('diary-submit-btn');
+  if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = '⏳ Speichere…'; }
+  try {
+    var t = window._gsDiaryState.type || 'general';
+    var titleEl = document.getElementById('diary-title');
+    var textEl = document.getElementById('diary-text');
+    var title = titleEl ? String(titleEl.value || '').trim() : '';
+    var text = textEl ? String(textEl.value || '').trim() : '';
+    if (!title && !text) {
+      if (typeof showProfileToast === 'function') showProfileToast('Bitte mindestens Titel oder Notiz angeben', 'error');
+      return;
+    }
+    var opts = { entry_type: t, title: title || undefined, text: text || undefined, metadata: {} };
+    // Species
+    var spEl = document.getElementById('diary-species');
+    if (spEl && spEl.value) opts.species_lat = spEl.value;
+    // Harvest-kg
+    var hkEl = document.getElementById('diary-harvest-kg');
+    if (hkEl && hkEl.value) opts.harvest_kg = Number(hkEl.value);
+    // Pest-slug
+    var psEl = document.getElementById('diary-pest-slug');
+    if (psEl && psEl.value) opts.pest_slug = String(psEl.value).trim().toLowerCase();
+    // Fertilizer
+    var ftEl = document.getElementById('diary-fertilizer');
+    if (ftEl && ftEl.value) opts.metadata.fertilizer = String(ftEl.value).trim();
+    // Watering
+    var wlEl = document.getElementById('diary-water-liter');
+    if (wlEl && wlEl.value) opts.metadata.water_liter = Number(wlEl.value);
+    // Disease
+    var dsEl = document.getElementById('diary-disease');
+    if (dsEl && dsEl.value) opts.metadata.disease = String(dsEl.value).trim();
+    // Photo (b64 — TODO später Storage-Upload; jetzt im metadata.photo_b64 falls vorhanden)
+    if (window._gsDiaryState.photoB64) opts.metadata.photo_b64 = window._gsDiaryState.photoB64;
+
+    if (typeof gsDiaryAddEntry !== 'function') {
+      if (typeof showProfileToast === 'function') showProfileToast('Diary-API nicht verfügbar', 'error');
+      return;
+    }
+    var r = await gsDiaryAddEntry(opts);
+    if (r && r.ok) {
+      if (typeof showProfileToast === 'function') showProfileToast('✅ Eintrag gespeichert', 'success');
+      if (typeof closeModal === 'function') closeModal('modal-diary-entry');
+    } else {
+      if (typeof showProfileToast === 'function') showProfileToast('Fehler: ' + (r && r.error || 'unbekannt'), 'error');
+    }
+  } catch(e) {
+    if (typeof showProfileToast === 'function') showProfileToast('Fehler: ' + String(e && e.message || e), 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💾 Eintrag speichern'; }
+  }
+}
+window.gsDiarySubmitEntry = gsDiarySubmitEntry;
+
+// Saison-Statistik via gsDiaryStats
+async function gsDiaryRenderStats() {
+  var box = document.getElementById('diary-stats-content');
+  if (!box) return;
+  box.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:30px 0;">⏳ Lade Statistik…</div>';
+  if (typeof gsDiaryStats !== 'function') {
+    box.innerHTML = '<div style="text-align:center;color:#bf360c;padding:20px;">Stats-API nicht verfügbar.</div>';
+    return;
+  }
+  var stats = await gsDiaryStats();
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+  if (!stats || stats.total === 0) {
+    box.innerHTML = '<div style="text-align:center;color:var(--muted);padding:30px 18px;line-height:1.6;">📭 Noch keine Tagebuch-Einträge dieses Jahr.<br><span style="font-size:11.5px;">Lege im Tab "Neuer Eintrag" deinen ersten an.</span></div>';
+    return;
+  }
+  var year = new Date().getFullYear();
+  var types = window.GS_DIARY_TYPES || {};
+  var html = '';
+  // Header
+  html += '<div style="padding:14px;background:linear-gradient(135deg,#558b2f,#33691e);color:#fff;border-radius:12px;margin-bottom:12px;text-align:center;">';
+  html += '<div style="font-family:\'Playfair Display\',serif;font-size:24px;font-weight:900;">' + stats.total + '</div>';
+  html += '<div style="font-size:12px;opacity:.92;">Einträge ' + year + '</div>';
+  html += '</div>';
+  // Harvest-Total
+  if (stats.harvest_total_kg > 0) {
+    html += '<div style="padding:11px 14px;background:#fff3e0;border:1.5px solid #f57c00;border-radius:11px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">';
+    html += '<div><div style="font-size:11.5px;color:#bf360c;font-weight:700;">🥕 Ernte gesamt</div><div style="font-size:18px;font-weight:900;color:#bf360c;font-family:\'Playfair Display\',serif;">' + stats.harvest_total_kg + ' kg</div></div>';
+    var nSp = Object.keys(stats.harvest_per_species || {}).length;
+    html += '<div style="font-size:11px;color:#bf360c;text-align:right;">aus ' + nSp + (nSp === 1 ? ' Pflanze' : ' Pflanzen') + '</div>';
+    html += '</div>';
+    // Top-5 Ernten pro Species
+    var perSp = stats.harvest_per_species || {};
+    var entries = Object.keys(perSp).map(function(k){ return [k, perSp[k]]; }).sort(function(a,b){ return b[1] - a[1]; }).slice(0,5);
+    if (entries.length) {
+      html += '<div style="margin:0 0 12px;padding:0 4px;">';
+      entries.forEach(function(e){
+        var label = e[0] === '_unknown_' ? '(unbenannt)' : e[0];
+        html += '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px dashed var(--border);"><span style="color:var(--text);">' + ed(label) + '</span><span style="color:var(--text2);font-weight:700;">' + (Math.round(e[1]*100)/100) + ' kg</span></div>';
+      });
+      html += '</div>';
+    }
+  }
+  // Pest-Count
+  if (stats.pest_count > 0) {
+    html += '<div style="padding:11px 14px;background:#fff3e0;border:1.5px solid #6d4c41;border-radius:11px;margin-bottom:10px;">';
+    html += '<div style="font-size:11.5px;color:#4e342e;font-weight:700;">🪲 Schädlings-Beobachtungen</div>';
+    html += '<div style="font-size:16px;font-weight:900;color:#4e342e;">' + stats.pest_count + '</div>';
+    html += '</div>';
+  }
+  // Per-Type-Liste
+  html += '<div style="margin-top:14px;font-size:11.5px;color:var(--muted);font-weight:700;letter-spacing:.3px;text-transform:uppercase;margin-bottom:6px;">Nach Typ</div>';
+  var perType = stats.per_type || {};
+  var typeKeys = Object.keys(perType).sort(function(a,b){ return (perType[b]||0) - (perType[a]||0); });
+  typeKeys.forEach(function(k){
+    var meta = types[k] || { emoji: '📝', label: k };
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 11px;background:var(--card);border:1px solid var(--border);border-radius:9px;margin-bottom:5px;">';
+    html += '<span style="font-size:12.5px;color:var(--text);"><span style="margin-right:6px;">' + (meta.emoji || '📝') + '</span>' + ed(meta.label || k) + '</span>';
+    html += '<span style="font-size:13px;font-weight:800;color:#33691e;">' + (perType[k] || 0) + '</span>';
+    html += '</div>';
+  });
+  box.innerHTML = html;
+}
+window.gsDiaryRenderStats = gsDiaryRenderStats;
+
 window.gsLayoutOpenDetail = function(slug) {
   var rows = (window._gsLayoutsCache || {}).rows || [];
   var L = rows.find(function(x){ return String(x.slug || x.id) === String(slug); });
@@ -47546,6 +47873,29 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.34', date: '23.05.2026',
+    headline: '📔 Garten-Tagebuch UI-Form — 11 Typen, Conditional Fields + Saison-Statistik',
+    summary: 'Cowork-Auftrag v26.34 (Sprint 2/5). User-Form fuer die 11 entry_types aus v26.32-Migration. Bisher fehlte ein User-Form — Inserts kamen nur aus Pest-Scanner/Düngeplan programmgesteuert. Neuer "📔 Tagebuch-Eintrag"-Button mit 2-Tab-Modal: ➕ Neuer Eintrag mit Type-Picker (2-Spalten-Grid) + Conditional Fields pro Type (Species-Picker / harvest_kg / pest_slug / Dünger / Wasser / Krankheit) + Photo-Upload + Titel/Notiz. 📊 Saison-Statistik Tab via gsDiaryStats: Header-Card mit total, Ernte-Total + Top-5 Pflanzen, Pest-Count, Per-Type-Liste.',
+    user_summary: '📔 Du kannst jetzt direkt Tagebuch-Einträge anlegen — mit 11 Typen wie Ernte, Aussaat, Düngung, Schnitt, Bewässerung. Je nach Typ erscheinen die passenden Felder (z.B. Pflanze + kg bei Ernte). Und ein neuer Statistik-Tab zeigt deine Saison-Bilanz: wie viel kg geerntet, von welcher Pflanze, wie viele Schädlinge beobachtet.',
+    user_items: [
+      { emoji: '🏷️', text: '11 Typen direkt im Picker: Allgemein, Schädling, Krankheit, Ernte, Aussaat, Düngung, Schnitt, Bewässerung, Heilkräuter, Samen, Blüte' },
+      { emoji: '🌱', text: 'Pflanzen-Dropdown bei Ernte/Aussaat/Schnitt — aus deinen myPlants' },
+      { emoji: '⚖️', text: 'Erntemenge in kg bei Typ "Ernte" → fließt in Saison-Total + Top-5-Pflanzen' },
+      { emoji: '📊', text: 'Saison-Stats-Tab: total Einträge, kg geerntet, Schädlings-Beobachtungen, Aufschlüsselung nach Typ' },
+    ],
+    items: [
+      {emoji:'🎨', bold:'Garten-Aktion-Button:', text:' "📔 Tagebuch-Eintrag · 11 Typen + Saison-Stats" mit Gradient #558b2f→#33691e neben den anderen 8 Garten-Aktionen.'},
+      {emoji:'📐', bold:'Modal #modal-diary-entry:', text:' 2-Tab-Layout. Tab-Switch via gsDiarySwitchTab — active-State sichtbar via background-Color.'},
+      {emoji:'🏷️', bold:'Type-Picker:', text:' 2-Spalten-Grid (11 Buttons) aus GS_DIARY_TYPES-Map. Active-Type hat dunkelgrünen background #33691e. Click → gsDiarySetType → re-render Picker + Conditional Fields.'},
+      {emoji:'🧩', bold:'Conditional Fields:', text:' Species-Dropdown aus myPlants bei needsSpecies-Liste (harvest/sowing/medicinal_harvest/seed_collection/pruning/flowering/disease). harvest_kg input bei Ernte. pest_slug input + Pest-Scanner-CTA-Hinweis bei Schädling. fertilizer / water_liter / disease in metadata-jsonb.'},
+      {emoji:'📷', bold:'Photo-Upload:', text:' 8 MB cap (gsFileToBase64), Preview-Box, b64 vorerst in metadata.photo_b64 — Storage-Upload kommt in späterem Sprint.'},
+      {emoji:'💾', bold:'gsDiarySubmitEntry:', text:' Validiert Titel ODER Notiz, baut opts {entry_type, species_lat, pest_slug, harvest_kg, metadata}, ruft existing gsDiaryAddEntry (v26.32-Helper). Toast "✅ Eintrag gespeichert" + closeModal bei Success.'},
+      {emoji:'📊', bold:'Saison-Statistik-Tab:', text:' gsDiaryRenderStats nutzt v26.32 gsDiaryStats-API. Layout: grüne Header-Card mit total-Count + Jahr; Ernte-Card (orange) mit harvest_total_kg + nSp Pflanzen + Top-5-Pflanzen-Tabelle; Pest-Card (braun) bei pest_count > 0; Per-Type-Liste sortiert nach Count desc mit emoji + label + count-Badge.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.35 Bauernregeln-Widget (traditional_garden_wisdom Daily-Rotation), v26.36 Marketplace Pestizid-frei-Filter, v26.37 Pollinator-Garten-Modus.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · sw.js gs-v26.34 OK · GS_VERSION=v26.34 OK · _headers v26.34 OK · meta app-version=26.34.20260523 OK.'},
+    ]
+  },
+  {
     v: 'v26.33', date: '23.05.2026',
     headline: '🍄 Pilz-Scanner mit Tox-Info-145-Notruf bei Knollenblätter & Co (sicherheitskritisch)',
     summary: 'Cowork-Auftrag v26.33. Neue Edge-Fn mushroom-identify v1 (verify_jwt:true) mit Anthropic Vision Haiku 4.5 + 20-Pilze-Knowledge-Context aus mushroom_register (5 toedlich, 2 giftig, 13 essbar+bedingt, VAPKO-Klassen). 4. Scan-Modus "🍄 Pilz-Scanner" Garten-Aktion-Button (violetter Gradient). Modal mit Tox-Info-145-Disclaimer + Habitat-Picker (7 Typen) + 8MB Foto-Upload. safetyMap-Rendering aus v_mushroom_safety View. Bidirektionale Lookalikes-Box mit confusion_risk-Badge. VAPKO-Box mit Kontrollstelle + tel-Link aus mushroom_seasonal_patches. Bei edibility ∈ {toedlich,giftig}: ROTER VOLLBILD-Overlay z:99999 mit pulse-Animation + ☠️-Icon + "TÖDLICH GIFTIG"-Headline + ☎️-145-Button + Dismiss. App ist Information, KEINE Garantie — Disclaimer prominent.',
@@ -49422,7 +49772,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.33';
+var GS_VERSION = 'v26.34';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
