@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.34.20260523">
+<meta name="app-version" content="26.35.20260523">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1888,7 +1888,17 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       </div>
     </div>
 
-    
+    <!-- v26.35: Bauernregel des Tages (traditional_garden_wisdom Daily-Rotation) -->
+    <div id="wisdom-card" style="display:none;background:linear-gradient(135deg,#f9f5e8,#f5ecd0);border:1.5px solid #c4a572;border-radius:var(--r);padding:13px 15px;margin-bottom:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;" onclick="gsShowNextWisdom()">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6d4c41;">🌾 Bauernregel des Tages</div>
+        <span id="wisdom-validity-badge" style="font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:7px;"></span>
+      </div>
+      <div id="wisdom-saying" style="font-family:'Playfair Display',serif;font-size:14.5px;font-weight:800;color:#3e2723;line-height:1.4;margin-bottom:6px;font-style:italic;"></div>
+      <div id="wisdom-source" style="font-size:10.5px;color:#6d4c41;margin-bottom:6px;font-weight:600;"></div>
+      <div id="wisdom-meaning" style="font-size:12px;color:#4e342e;line-height:1.55;margin-bottom:6px;"></div>
+      <div id="wisdom-modern" style="font-size:11.5px;color:#5d4037;line-height:1.5;background:rgba(255,255,255,.55);padding:6px 9px;border-radius:7px;border-left:3px solid #8d6e63;"></div>
+    </div>
 
     <!-- Schnell-Quiz -->
     <div id="quiz-card" style="background:linear-gradient(135deg,#4527a0,#7b1fa2);border-radius:var(--r);padding:14px 15px;color:#fff;margin-bottom:12px;">
@@ -13667,6 +13677,104 @@ function gsShowNextDynFact() {
   }, 200);
 }
 
+// ═════════════════════════════════════════════════════════════════════
+// v26.35 BAUERNREGEL DES TAGES (traditional_garden_wisdom)
+// Daily-Rotation: zeigt für den aktuellen Monat passende Bauernregel,
+// rotiert über day-of-year deterministisch. Click → nächste Regel.
+// Validity-Color: wissenschaftlich_bestaetigt=grün, tendenziell_richtig=gelb,
+// umstritten=orange, aberglaube_widerlegt=rot mit "Mythos"-Label.
+// ═════════════════════════════════════════════════════════════════════
+
+window._gsWisdomCache = null; // {data, ts}
+window._gsWisdomIdx = 0;
+var GS_WISDOM_TTL_MS = 12 * 60 * 60 * 1000; // 12h
+
+async function gsLoadTodaysWisdom() {
+  var card = document.getElementById('wisdom-card');
+  if (!card) return;
+  if (typeof sbFetch !== 'function') return;
+  try {
+    var now = Date.now();
+    var fresh = window._gsWisdomCache && (now - window._gsWisdomCache.ts) < GS_WISDOM_TTL_MS;
+    if (!fresh) {
+      var month = new Date().getMonth() + 1;
+      var r = await sbFetch('/rest/v1/traditional_garden_wisdom?applicable_months=cs.{' + month + '}&select=slug,saying,saying_dialect,meaning,modern_take,validity,category,region,source&limit=50', { method:'GET' });
+      var rows = (r && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : []);
+      // Fallback: keine Monats-Match → alle laden
+      if (!rows.length) {
+        var r2 = await sbFetch('/rest/v1/traditional_garden_wisdom?select=slug,saying,saying_dialect,meaning,modern_take,validity,category,region,source&limit=50', { method:'GET' });
+        rows = (r2 && Array.isArray(r2.data)) ? r2.data : (Array.isArray(r2) ? r2 : []);
+      }
+      // Order: validity-Reihenfolge (wissenschaftlich_bestaetigt first)
+      var validityRank = { wissenschaftlich_bestaetigt: 0, tendenziell_richtig: 1, umstritten: 2, aberglaube_widerlegt: 3 };
+      rows.sort(function(a,b){
+        return (validityRank[a.validity] || 9) - (validityRank[b.validity] || 9);
+      });
+      window._gsWisdomCache = { data: rows, ts: now };
+    }
+    var data = (window._gsWisdomCache && window._gsWisdomCache.data) || [];
+    if (!data.length) { card.style.display = 'none'; return; }
+    // Day-of-year deterministisch
+    var d = new Date();
+    var day = Math.floor((d.getTime() - new Date(d.getFullYear(), 0, 1).getTime()) / 86400000);
+    window._gsWisdomIdx = day % data.length;
+    gsRenderWisdom(data[window._gsWisdomIdx]);
+  } catch(e) { /* silent */ }
+}
+window.gsLoadTodaysWisdom = gsLoadTodaysWisdom;
+
+function gsRenderWisdom(w) {
+  var card = document.getElementById('wisdom-card');
+  if (!card || !w) return;
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+  var validityMap = {
+    wissenschaftlich_bestaetigt: { lbl:'🟢 Bestätigt', bg:'#c8e6c9', col:'#1b5e20' },
+    tendenziell_richtig:         { lbl:'🟡 Meistens',  bg:'#fff9c4', col:'#827717' },
+    umstritten:                  { lbl:'🟠 Umstritten',bg:'#ffe0b2', col:'#bf360c' },
+    aberglaube_widerlegt:        { lbl:'🔴 Mythos',    bg:'#ffcdd2', col:'#b71c1c' }
+  };
+  var v = validityMap[w.validity] || { lbl:'?', bg:'#eee', col:'#555' };
+
+  var badge = document.getElementById('wisdom-validity-badge');
+  if (badge) {
+    badge.textContent = v.lbl;
+    badge.style.background = v.bg;
+    badge.style.color = v.col;
+  }
+  var sayEl = document.getElementById('wisdom-saying');
+  if (sayEl) sayEl.textContent = '„' + (w.saying || '') + '"';
+  var srcEl = document.getElementById('wisdom-source');
+  if (srcEl) {
+    var src = '— ' + (w.region || 'Schweizer') + ' Bauernregel';
+    if (w.saying_dialect) src += ' · Dialekt: „' + w.saying_dialect + '"';
+    srcEl.textContent = src;
+  }
+  var meanEl = document.getElementById('wisdom-meaning');
+  if (meanEl) meanEl.innerHTML = w.meaning ? '<b>📖 Bedeutung:</b> ' + ed(w.meaning) : '';
+  var modEl = document.getElementById('wisdom-modern');
+  if (modEl) modEl.innerHTML = w.modern_take ? '<b>🔬 Modern:</b> ' + ed(w.modern_take) : '';
+  card.style.display = 'block';
+}
+window.gsRenderWisdom = gsRenderWisdom;
+
+function gsShowNextWisdom() {
+  var data = (window._gsWisdomCache && window._gsWisdomCache.data) || [];
+  if (!data.length) return;
+  window._gsWisdomIdx = (window._gsWisdomIdx + 1) % data.length;
+  var card = document.getElementById('wisdom-card');
+  if (card) {
+    card.style.transition = 'opacity .2s';
+    card.style.opacity = '0';
+    setTimeout(function(){
+      gsRenderWisdom(data[window._gsWisdomIdx]);
+      card.style.opacity = '1';
+    }, 200);
+  } else {
+    gsRenderWisdom(data[window._gsWisdomIdx]);
+  }
+}
+window.gsShowNextWisdom = gsShowNextWisdom;
+
 // ══ SUPABASE-BACKED DAILY CONTENT ═══════════════════════════════
 // Lädt Saison-Tipp, Wusstest du?, Tägliches Quiz und Seasonal-Highlights
 // aus Supabase (Tabellen seasonal_tips, did_you_know_facts, daily_quizzes,
@@ -14538,6 +14646,13 @@ function initHomeBoard() {
         setTimeout(function() { gsLoadSupabaseDailyContent(); }, 300);
       }
     } catch(e) { console.log('SBDaily:', e.message); }
+
+    // ── v26.35: Bauernregel des Tages (rotierend, traditional_garden_wisdom) ──
+    try {
+      if (typeof gsLoadTodaysWisdom === 'function') {
+        setTimeout(function(){ gsLoadTodaysWisdom(); }, 400);
+      }
+    } catch(e) { console.log('SBWisdom:', e.message); }
 
     // ── Animierte Zahlen ──────────────────────────────────
     setTimeout(function() {
@@ -47873,6 +47988,28 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.35', date: '23.05.2026',
+    headline: '🌾 Bauernregel des Tages — 20 CH-Sprichwörter mit wissenschaftlichem Modern-Check',
+    summary: 'Cowork-Auftrag v26.35 (Sprint 3/5). Neues Home-Widget #wisdom-card zwischen "Wusstest du?" und "Schnell-Quiz". Daily-Rotation aus traditional_garden_wisdom (20 Einträge, Cowork-DB-Wave-11) mit applicable_months-Filter für aktuellen Monat. Day-of-year deterministisch (jeder Tag zeigt fix die gleiche Regel). 12h in-Memory-Cache. Click rotiert zur nächsten Regel mit Fade. Validity-Badge mit 4 Farben (grün/gelb/orange/rot+Mythos-Label) — wissenschaftliche Einordnung jedes Sprichworts.',
+    user_summary: '🌾 Auf der Startseite siehst du jetzt täglich eine andere Schweizer Bauernregel — z.B. „Wenn die Birne blüht, kommen die Kartoffeln raus". Mit grünem/gelbem/rotem Badge: ist die Regel wissenschaftlich bestätigt, nur tendenziell richtig, umstritten oder ein widerlegter Mythos? Tipp auf das Widget zeigt die nächste Regel.',
+    user_items: [
+      { emoji: '📖', text: 'Sprichwort + Bedeutung + moderner wissenschaftlicher Check' },
+      { emoji: '🌿', text: 'Passend zum aktuellen Monat — z.B. im Mai Eisheilige-Regeln' },
+      { emoji: '🟢', text: '4-Farben-Badge: 🟢 Bestätigt · 🟡 Meistens · 🟠 Umstritten · 🔴 Mythos' },
+      { emoji: '👆', text: 'Tippen zeigt die nächste Bauernregel — über den ganzen Tag wechselbar' },
+    ],
+    items: [
+      {emoji:'🎨', bold:'Widget #wisdom-card:', text:' cream-Gradient #f9f5e8→#f5ecd0 mit #c4a572 Border. Header mit Validity-Badge rechts. Saying in Playfair-italic + Region/Dialekt + Bedeutung + Modern-Take in heller Sub-Box mit Left-Border.'},
+      {emoji:'📅', bold:'Daily-Rotation:', text:' Query traditional_garden_wisdom?applicable_months=cs.{currentMonth} (Postgres-Array-Contains). Fallback: alle Regeln wenn Monat-Match leer. Sort: validity_rank (bestaetigt→Mythos), dann day-of-year % data.length deterministisch (jeder User sieht heute dieselbe Regel).'},
+      {emoji:'⏰', bold:'Cache:', text:' window._gsWisdomCache mit 12h TTL — verhindert mehrfaches Reload pro Session.'},
+      {emoji:'👆', bold:'Click-to-rotate:', text:' gsShowNextWisdom inkrementiert idx, Fade-Out 200ms → re-render → Fade-In. Header-Hinweis durch CSS cursor:pointer.'},
+      {emoji:'🟢', bold:'Validity-Badge:', text:' 4-Color-Map: wissenschaftlich_bestaetigt (🟢 #c8e6c9/#1b5e20), tendenziell_richtig (🟡 #fff9c4/#827717), umstritten (🟠 #ffe0b2/#bf360c), aberglaube_widerlegt (🔴 #ffcdd2/#b71c1c mit "Mythos"-Label).'},
+      {emoji:'🚀', bold:'Auto-Load:', text:' gsLoadTodaysWisdom wird 400ms nach Home-Mount aufgerufen (im selben Block wie gsLoadSupabaseDailyContent). Silent-fail wenn sbFetch fehlt.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.36 Marketplace Pestizid-frei-Filter, v26.37 Pollinator-Garten-Modus.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · sw.js gs-v26.35 OK · GS_VERSION=v26.35 OK · _headers v26.35 OK · meta=26.35.20260523 OK.'},
+    ]
+  },
+  {
     v: 'v26.34', date: '23.05.2026',
     headline: '📔 Garten-Tagebuch UI-Form — 11 Typen, Conditional Fields + Saison-Statistik',
     summary: 'Cowork-Auftrag v26.34 (Sprint 2/5). User-Form fuer die 11 entry_types aus v26.32-Migration. Bisher fehlte ein User-Form — Inserts kamen nur aus Pest-Scanner/Düngeplan programmgesteuert. Neuer "📔 Tagebuch-Eintrag"-Button mit 2-Tab-Modal: ➕ Neuer Eintrag mit Type-Picker (2-Spalten-Grid) + Conditional Fields pro Type (Species-Picker / harvest_kg / pest_slug / Dünger / Wasser / Krankheit) + Photo-Upload + Titel/Notiz. 📊 Saison-Statistik Tab via gsDiaryStats: Header-Card mit total, Ernte-Total + Top-5 Pflanzen, Pest-Count, Per-Type-Liste.',
@@ -49772,7 +49909,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.34';
+var GS_VERSION = 'v26.35';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
