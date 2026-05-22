@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.27.20260523">
+<meta name="app-version" content="26.28.20260523">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -40905,6 +40905,24 @@ async function gsRunGardenScan(photos, metadata, opts) {
     return { ok: false, error: { code: 'no_photos', message: 'Mindestens 1 Foto nötig.' } };
   }
   if (body.photos.length > 3) body.photos = body.photos.slice(0, 3);
+
+  // v26.28 Region-Wiring: region_slug + soil_profile in metadata injecten falls
+  // User-Profile gesetzt. Backend (garden-scan-analyze v2) liest beides und
+  // injectet Frost-Constraints + best_vegetables als Plan-Constraint.
+  try {
+    if (body.metadata.region_slug === undefined && typeof gsGetRegionContext === 'function') {
+      var regionCtx = await gsGetRegionContext();
+      if (regionCtx && regionCtx.slug) body.metadata.region_slug = regionCtx.slug;
+    }
+    if (body.metadata.soil_type === undefined || body.metadata.soil_ph === undefined) {
+      try {
+        var soil = JSON.parse(localStorage.getItem('gs_soil_profile') || '{}');
+        if (soil && soil.type && body.metadata.soil_type === undefined) body.metadata.soil_type = soil.type;
+        if (soil && soil.ph && body.metadata.soil_ph === undefined) body.metadata.soil_ph = soil.ph;
+      } catch(_){}
+    }
+  } catch(_){}
+
   try {
     var resp = await (window._gsFetch || fetch)(base + '/functions/v1/garden-scan-analyze', {
       method: 'POST',
@@ -46696,6 +46714,26 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.28', date: '23.05.2026',
+    headline: '🗺️ KI-Planer kennt jetzt deine Region — Frost + Boden + Höhenzone als Constraint',
+    summary: 'Cowork-Auftrag v26.28. gsRunGardenScan body.metadata bekommt async region_slug (aus v26.27 gsGetRegionContext) + soil_type + soil_ph (aus v26.25 gs_soil_profile). Backend garden-scan-analyze v2 + plan-iterate v2 sind region-aware: laden regional_garden_calendars + injecten last_frost/growing_season/best_vegetables als Constraint im System-Prompt.',
+    user_summary: '🗺️ Der KI-Planer berücksichtigt jetzt deine Region und Bodenprofil — Plant nur Pflanzen die in deiner Höhenlage und Bodenart wirklich gedeihen.',
+    user_items: [
+      { emoji: '❄️', text: 'Frost-Termine deiner Region werden bei Aussaat-Vorschlägen beachtet' },
+      { emoji: '🪨', text: 'Boden-Profil (pH + Bodenart aus v26.25) fliesst in Pflanzen-Auswahl' },
+      { emoji: '🌱', text: 'Best-Vegetables deiner Höhenzone werden bevorzugt vorgeschlagen' },
+      { emoji: '🔄', text: 'Plan-Iteration via Chat ist auch region-aware (automatisch via garden_plans.region_used)' },
+    ],
+    items: [
+      {emoji:'🧩', bold:'metadata.region_slug:', text:' Falls undefined und gsGetRegionContext (v26.27) ein Profil zurueckgibt → slug wird gesetzt. Backward-compatible: explicit metadata.region_slug=null/false respektiert.'},
+      {emoji:'🪨', bold:'metadata.soil_type + soil_ph:', text:' Aus localStorage gs_soil_profile (v26.25) Auto-Inject falls noch nicht in metadata. Nutzt soil.type (sandy/loamy/clay/humus) + soil.ph (acid/neutral/alkaline).'},
+      {emoji:'⚡', bold:'Async-Injection:', text:' Vor dem POST wird ein await gsGetRegionContext() ausgefuehrt. Keine BLOCKING-Penalty weil Region-Cache 30min.'},
+      {emoji:'🔁', bold:'plan-iterate v2:', text:' Liest scan_input.region_used aus garden_plans-Record. Backend macht das automatisch — kein Frontend-Change noetig fuer Iterationen.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.29 Duengeplan-Coach. v26.30 Samen-Gewinnung-Wissen. v26.31 Beet-Layout-Designer. v26.32 Garten-Tagebuch v2.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 inline-scripts node --check OK · sw.js gs-v26.28 OK.'},
+    ]
+  },
+  {
     v: 'v26.27', date: '23.05.2026',
     headline: '🗓️ Regional-Kalender — 7 CH-Höhenzonen mit Monats-Tasks',
     summary: 'Cowork-Auftrag v26.27. Garten-Aktion-Button "🗓️ Regional-Kalender" öffnet Modal mit Picker für 7 CH-Höhenzonen aus regional_garden_calendars (Tessin 200m bis Graubünden 1500m). Wahl persistiert in localStorage gs_region. Render-Layout: aktueller Monat prominent in oranger Box, best_vegetables (grün) + challenging_plants (orange), 12-Monats-Accordion (current open). Plus gsGetRegionContext() API für künftige KI-Planer-Integration.',
@@ -48467,7 +48505,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.27';
+var GS_VERSION = 'v26.28';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
