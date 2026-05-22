@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.35.20260523">
+<meta name="app-version" content="26.36.20260523">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2882,6 +2882,12 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   <button onclick="gsMarketResetFilter()" style="padding:6px 10px;background:transparent;border:none;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;margin-left:auto;-webkit-tap-highlight-color:transparent;">↻ Zurücksetzen</button>
 </div>
 
+<!-- v26.36: Bio / Pestizid-frei Filter-Pills -->
+<div style="background:var(--g-bg);padding:0 16px 8px;flex-shrink:0;display:flex;gap:6px;overflow-x:auto;">
+  <button id="market-filter-organic" onclick="gsMarketFilterOrganic()" style="padding:5px 11px;background:var(--card);border:1.5px solid #a5d6a7;border-radius:14px;font-size:11px;font-weight:800;cursor:pointer;color:#1b5e20;font-family:inherit;white-space:nowrap;-webkit-tap-highlight-color:transparent;">🌱 Bio-zertifiziert</button>
+  <button id="market-filter-pestfree" onclick="gsMarketFilterPestfree()" style="padding:5px 11px;background:var(--card);border:1.5px solid #ffcc80;border-radius:14px;font-size:11px;font-weight:800;cursor:pointer;color:#bf360c;font-family:inherit;white-space:nowrap;-webkit-tap-highlight-color:transparent;">🚫 Pestizid-frei</button>
+</div>
+
 <!-- ── STATUS-LINE ────────────────────────────── -->
 <div id="market-status" style="padding:4px 16px 2px;font-size:11.5px;font-weight:700;color:var(--muted);flex-shrink:0;"></div>
 
@@ -3033,6 +3039,31 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <div class="mp-field">
         <label>Kontakt (optional)</label>
         <input class="mp-input" id="listing-contact" placeholder="E-Mail oder Telegram-Handle…">
+      </div>
+      <!-- v26.36: Bio / Pestizid-frei Kennzeichnung -->
+      <div class="mp-field">
+        <label>🌿 Anbau / Zertifizierung (optional)</label>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:9px 11px;background:#e8f5e9;border-radius:8px;border:1px solid #a5d6a7;">
+            <input type="checkbox" id="listing-organic" style="accent-color:var(--g-main);width:16px;height:16px;" onchange="document.getElementById('listing-cert-row').style.display=this.checked?'block':'none'">
+            <div><div style="font-size:12.5px;font-weight:700;">🌱 Bio-zertifiziert</div><div style="font-size:11px;color:var(--muted);">Knospe, EU-Bio, Demeter etc.</div></div>
+          </label>
+          <div id="listing-cert-row" style="display:none;padding-left:26px;">
+            <select class="mp-select" id="listing-cert-label">
+              <option value="">— Label wählen —</option>
+              <option value="Knospe">🍀 Knospe (Bio Suisse)</option>
+              <option value="EU-Bio">🇪🇺 EU-Bio</option>
+              <option value="Demeter">🌙 Demeter</option>
+              <option value="Naturland">🌍 Naturland</option>
+              <option value="Bioland">🌾 Bioland</option>
+              <option value="Sonstiges">📋 Sonstiges</option>
+            </select>
+          </div>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:9px 11px;background:#fff8e1;border-radius:8px;border:1px solid #ffcc80;">
+            <input type="checkbox" id="listing-pestfree" style="accent-color:#f57c00;width:16px;height:16px;">
+            <div><div style="font-size:12.5px;font-weight:700;">🚫 Pestizid-frei</div><div style="font-size:11px;color:var(--muted);">Eigene Aussage (ohne Zertifikat)</div></div>
+          </label>
+        </div>
       </div>
       <button class="mp-save-btn" onclick="submitListing()" style="background:linear-gradient(135deg,var(--g-main),#1b5e20);font-size:15px;">🏷️ Inserat veröffentlichen</button>
       <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.5;">GreenScan übernimmt keine Haftung für Transaktionen. Bitte persönlich übergeben oder sicheren Versand nutzen.</div>
@@ -10850,6 +10881,10 @@ async function loadMarketFromSupabase() {
           sellerLevel: dbRow.seller_level,
           sellerAvatar: dbRow.seller_avatar,
           verified: !!dbRow.seller_is_expert,
+          // v26.36: Bio / Pestizid-frei
+          organic_certified: !!dbRow.organic_certified,
+          pesticide_free: !!dbRow.pesticide_free,
+          certification_label: dbRow.certification_label || '',
           createdAt: dbRow.created_at ? new Date(dbRow.created_at).getTime() : Date.now(),
           updatedAt: dbRow.updated_at ? new Date(dbRow.updated_at).getTime() : Date.now(),
           status: dbRow.status || 'active',
@@ -14939,6 +14974,9 @@ function renderMarket() {
   var cat = localStorage.getItem('gs_market_cat') || 'all';
   var sort = localStorage.getItem('gs_market_sort') || 'new';
   var region = localStorage.getItem('gs_market_region') || 'all';
+  // v26.36: Bio / Pestizid-frei filter-Toggles
+  var fOrganic = localStorage.getItem('gs_market_filter_organic') === '1';
+  var fPestfree = localStorage.getItem('gs_market_filter_pestfree') === '1';
 
   // Aktiver Filter-Sync (UI)
   document.querySelectorAll('.mk-cat').forEach(function(b) {
@@ -14948,6 +14986,17 @@ function renderMarket() {
   if (sortSel) sortSel.value = sort;
   var regSel = document.getElementById('market-region');
   if (regSel) regSel.value = region;
+  // v26.36 Toggle-Visuals
+  var orgBtn = document.getElementById('market-filter-organic');
+  if (orgBtn) {
+    orgBtn.style.background = fOrganic ? '#2e7d32' : 'var(--card)';
+    orgBtn.style.color = fOrganic ? '#fff' : '#1b5e20';
+  }
+  var pfBtn = document.getElementById('market-filter-pestfree');
+  if (pfBtn) {
+    pfBtn.style.background = fPestfree ? '#e65100' : 'var(--card)';
+    pfBtn.style.color = fPestfree ? '#fff' : '#bf360c';
+  }
   var searchInp = document.getElementById('market-search');
   if (searchInp && search !== searchInp.value.toLowerCase()) {
     // nur wenn unterschiedlich, sonst Cursor-Jump
@@ -14960,6 +15009,8 @@ function renderMarket() {
     if (l.status === 'deleted') return false;
     if (cat !== 'all' && l.cat !== cat) return false;
     if (region !== 'all' && l.region !== region) return false;
+    if (fOrganic && !l.organic_certified) return false;
+    if (fPestfree && !l.pesticide_free && !l.organic_certified) return false; // Bio implies pestfree
     if (search) {
       var hay = ((l.title||'') + ' ' + (l.desc||'') + ' ' + (l.sellerName||'')).toLowerCase();
       if (hay.indexOf(search) < 0) return false;
@@ -15027,6 +15078,9 @@ function renderMarket() {
     var catLabel = _catLabel(l.cat);
     var verifiedBadge = l.verified ? '<span style="color:#2e7d32;font-size:11px;margin-left:3px;" title="Verifiziert">✓</span>' : '';
     var reportBadge = (l.reports||0) >= 3 ? '<span style="background:#fff3e0;color:#e65100;font-size:9px;padding:1px 5px;border-radius:4px;font-weight:800;margin-left:4px;">⚠️ Gemeldet</span>' : '';
+    // v26.36: Bio + Pestizid-frei-Badges
+    var bioBadge = l.organic_certified ? '<span style="background:#e8f5e9;color:#1b5e20;font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;" title="Bio-zertifiziert' + (l.certification_label ? ': ' + l.certification_label : '') + '">🌱 Bio' + (l.certification_label ? ' (' + _esc(l.certification_label) + ')' : '') + '</span>' : '';
+    var pfBadge = (!l.organic_certified && l.pesticide_free) ? '<span style="background:#fff8e1;color:#bf360c;font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;" title="Pestizid-frei (eigene Aussage)">🚫 Pestizid-frei</span>' : '';
     var regionText = l.region && l.region !== 'other' ? l.region : '';
     var timeAgo = _timeAgo(l.createdAt);
 
@@ -15047,7 +15101,7 @@ function renderMarket() {
           (regionText ? '<span>📍 ' + regionText + '</span>' : '') +
           (avg > 0 ? '<span style="color:#ef6c00;font-weight:700;">★ ' + avg.toFixed(1) + (ratingCount ? ' (' + ratingCount + ')' : '') + '</span>' : '') +
           '<span style="margin-left:auto;">' + timeAgo + '</span>' +
-          verifiedBadge + reportBadge +
+          verifiedBadge + reportBadge + bioBadge + pfBadge +
         '</div>' +
       '</div>' +
     '</div>';
@@ -15092,6 +15146,21 @@ function gsMarketRegion(region) {
   localStorage.setItem('gs_market_region', region);
   renderMarket();
 }
+// v26.36: Bio / Pestizid-frei Toggle-Filter
+function gsMarketFilterOrganic() {
+  gsHaptic('tap');
+  var cur = localStorage.getItem('gs_market_filter_organic') === '1';
+  localStorage.setItem('gs_market_filter_organic', cur ? '0' : '1');
+  renderMarket();
+}
+window.gsMarketFilterOrganic = gsMarketFilterOrganic;
+function gsMarketFilterPestfree() {
+  gsHaptic('tap');
+  var cur = localStorage.getItem('gs_market_filter_pestfree') === '1';
+  localStorage.setItem('gs_market_filter_pestfree', cur ? '0' : '1');
+  renderMarket();
+}
+window.gsMarketFilterPestfree = gsMarketFilterPestfree;
 function gsMarketSearch(q) {
   localStorage.setItem('gs_market_search', q || '');
   if (window._gsMarketSearchTimer) clearTimeout(window._gsMarketSearchTimer);
@@ -15112,6 +15181,9 @@ function gsMarketResetFilter() {
   localStorage.setItem('gs_market_sort', 'new');
   localStorage.setItem('gs_market_region', 'all');
   localStorage.setItem('gs_market_search', '');
+  // v26.36: auch Bio + Pestizid-frei toggles zurücksetzen
+  localStorage.setItem('gs_market_filter_organic', '0');
+  localStorage.setItem('gs_market_filter_pestfree', '0');
   var inp = document.getElementById('market-search');
   if (inp) inp.value = '';
   renderMarket();
@@ -15184,6 +15256,22 @@ function openNewListing() {
     // Kontakt
     '<label style="display:block;font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Kontakt *</label>' +
     '<input id="nl-contact" type="text" maxlength="80" placeholder="E-Mail, Telefon oder @username" value="' + _esc(user.email) + '" style="width:100%;padding:10px 12px;border-radius:9px;border:1.5px solid var(--border);background:var(--card);font-size:13.5px;font-family:inherit;color:var(--text);outline:none;margin-bottom:14px;box-sizing:border-box;">' +
+
+    // v26.36: Bio / Pestizid-frei Kennzeichnung
+    '<label style="display:block;font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">🌿 Anbau / Zertifizierung (optional)</label>' +
+    '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 11px;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:9px;margin-bottom:6px;"><input type="checkbox" id="nl-organic" style="accent-color:var(--g-main);width:16px;height:16px;" onchange="var r=document.getElementById(\'nl-cert-row\');if(r)r.style.display=this.checked?\'block\':\'none\'"><div><div style="font-size:12.5px;font-weight:700;color:#1b5e20;">🌱 Bio-zertifiziert</div><div style="font-size:11px;color:var(--muted);">Knospe, EU-Bio, Demeter etc.</div></div></label>' +
+    '<div id="nl-cert-row" style="display:none;margin-bottom:8px;padding-left:24px;">' +
+      '<select id="nl-cert-label" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--card);font-size:12.5px;color:var(--text);font-family:inherit;">' +
+        '<option value="">— Label wählen —</option>' +
+        '<option value="Knospe">🍀 Knospe (Bio Suisse)</option>' +
+        '<option value="EU-Bio">🇪🇺 EU-Bio</option>' +
+        '<option value="Demeter">🌙 Demeter</option>' +
+        '<option value="Naturland">🌍 Naturland</option>' +
+        '<option value="Bioland">🌾 Bioland</option>' +
+        '<option value="Sonstiges">📋 Sonstiges</option>' +
+      '</select>' +
+    '</div>' +
+    '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 11px;background:#fff8e1;border:1px solid #ffcc80;border-radius:9px;margin-bottom:14px;"><input type="checkbox" id="nl-pestfree" style="accent-color:#f57c00;width:16px;height:16px;"><div><div style="font-size:12.5px;font-weight:700;color:#bf360c;">🚫 Pestizid-frei</div><div style="font-size:11px;color:var(--muted);">Eigene Aussage (ohne Zertifikat)</div></div></label>' +
 
     // Info
     '<div style="background:var(--g-bg);border-radius:9px;padding:9px 11px;font-size:11px;color:var(--g-dark);line-height:1.45;margin-bottom:14px;">' +
@@ -15291,6 +15379,10 @@ async function saveListing() {
   var region = document.getElementById('nl-region').value;
   var desc = document.getElementById('nl-desc').value.trim();
   var contact = document.getElementById('nl-contact').value.trim();
+  // v26.36: Bio / Pestizid-frei aus Checkboxen
+  var nlOrganic = !!document.getElementById('nl-organic')?.checked;
+  var nlPestfree = !!document.getElementById('nl-pestfree')?.checked;
+  var nlCertLabel = nlOrganic ? (document.getElementById('nl-cert-label')?.value || '') : '';
 
   if (!title) { if (typeof showProfileToast === 'function') showProfileToast('Titel fehlt', 'info'); return; }
   if (!cat) { if (typeof showProfileToast === 'function') showProfileToast('Kategorie wählen', 'info'); return; }
@@ -15341,9 +15433,23 @@ async function saveListing() {
       return;
     }
     gsHaptic('success');
+    // v26.36: Bio / Pestizid-frei nachträglich PATCHen wenn aktiviert (Edge-Fn kennt diese Spalten noch nicht)
+    if ((nlOrganic || nlPestfree) && j.id && typeof sbFetch === 'function') {
+      try {
+        await sbFetch('/rest/v1/marketplace_listings?id=eq.' + encodeURIComponent(j.id), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+          body: JSON.stringify({
+            organic_certified: nlOrganic,
+            pesticide_free: nlPestfree,
+            certification_label: nlCertLabel || null
+          })
+        });
+      } catch(_){}
+    }
     if (typeof showProfileToast === 'function') showProfileToast(
       (window.gsI18n ? gsI18n.t('toast_market_published', '✅ Live im Marketplace!') : '✅ Live im Marketplace!') +
-      ' (' + (j.photo_count || 0) + ' Foto)',
+      ' (' + (j.photo_count || 0) + ' Foto)' + (nlOrganic ? ' · 🌱 Bio' : nlPestfree ? ' · 🚫 Pestizid-frei' : ''),
       'success');
     try { gsNlClearPhotos(); } catch(_){}
     closeModal('detail-modal');
@@ -27633,6 +27739,13 @@ function submitListing() {
   if (document.getElementById('ship-local')?.checked) shipping.push('local');
   if (document.getElementById('ship-post')?.checked) shipping.push('post');
 
+  // v26.36: Bio / Pestizid-frei Kennzeichnung
+  var organicCertified = !!document.getElementById('listing-organic')?.checked;
+  var pesticideFree = !!document.getElementById('listing-pestfree')?.checked;
+  var certificationLabel = organicCertified ? (document.getElementById('listing-cert-label')?.value || '') : '';
+  if (organicCertified) tags.push('Bio');
+  if (pesticideFree) tags.push('Pestizid-frei');
+
   const newListing = {
     id: 'l_' + Date.now(),
     type: currentListingType,
@@ -27646,6 +27759,10 @@ function submitListing() {
     emoji: '🌿',
     // v23.98: Foto in Listing speichern (vorher: nur Preview, nicht persistiert)
     photo: window._gsListingPhotoB64 ? ('data:image/jpeg;base64,' + window._gsListingPhotoB64) : null,
+    // v26.36: Bio / Pestizid-frei
+    organic_certified: organicCertified,
+    pesticide_free: pesticideFree,
+    certification_label: certificationLabel,
     likes: 0, liked: false,
     status: 'active',
     created: Date.now(),
@@ -47988,6 +48105,29 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.36', date: '23.05.2026',
+    headline: '🌱 Marketplace Bio + Pestizid-frei — Migration + Checkboxen + 2 Filter-Pills + Badges',
+    summary: 'Cowork-Auftrag v26.36 (Sprint 4/5). Migration v26_36_marketplace_pesticide_free LIVE-applied via Supabase MCP — fügt 3 Spalten zu marketplace_listings hinzu (organic_certified bool, pesticide_free bool, certification_label text) + 2 partial Indexes. Frontend: Bio + Pestizid-frei Checkboxen in beiden Listing-Forms (submitListing + saveListing). Bei Bio-Aktivierung erscheint Cert-Label-Dropdown (6 Optionen: Knospe / EU-Bio / Demeter / Naturland / Bioland / Sonstiges). renderMarket-Cards mit grünem Bio-Badge + orangem Pestizid-frei-Badge. 2 neue Filter-Pills "🌱 Bio-zertifiziert" + "🚫 Pestizid-frei" oberhalb der Listings.',
+    user_summary: '🌱 Im Marktplatz kannst du jetzt beim Inserieren angeben "Bio-zertifiziert" (mit Label wie Knospe, EU-Bio, Demeter) oder "Pestizid-frei" (eigene Aussage). Käufer sehen das als grünes/oranges Badge auf der Karte. Plus: 2 neue Filter-Pills um nur Bio oder nur Pestizid-frei zu zeigen.',
+    user_items: [
+      { emoji: '🌱', text: 'Bio-Zertifizierung mit 6 Labels: Knospe, EU-Bio, Demeter, Naturland, Bioland, Sonstiges' },
+      { emoji: '🚫', text: 'Pestizid-frei als zusätzliche eigene Aussage (ohne Zertifikat)' },
+      { emoji: '🟢', text: 'Bio-Badge grün auf Listing-Cards: "🌱 Bio (Knospe)"' },
+      { emoji: '🔍', text: '2 Filter-Pills im Marktplatz — nur Bio oder nur Pestizid-frei zeigen' },
+    ],
+    items: [
+      {emoji:'🗄️', bold:'Migration v26_36 applied:', text:' ALTER TABLE marketplace_listings ADD organic_certified bool default false + pesticide_free bool default false + certification_label text. Plus 2 partial Indexes (WHERE organic_certified=true / pesticide_free=true). idempotent (IF NOT EXISTS).'},
+      {emoji:'☑️', bold:'Checkboxen im submitListing-Form:', text:' Neuer mp-field-Block nach Kontakt mit 2 Checkboxen (Bio grün-rot Hintergrund + Pestizid-frei orange Hintergrund). Bio-Checkbox toggelt #listing-cert-row mit 6-Label-Dropdown. tags Array bekommt "Bio" / "Pestizid-frei" automatisch.'},
+      {emoji:'☑️', bold:'Checkboxen im saveListing-Form:', text:' Identische UI im inline-erzeugten nl-* Form. Edge-Fn marketplace-publish kennt die Spalten noch nicht → PATCH-Call nach POST setzt sie nach.'},
+      {emoji:'🗺️', bold:'loadMarketFromSupabase:', text:' DB-Schema-Mapping erweitert um organic_certified + pesticide_free + certification_label.'},
+      {emoji:'🏷️', bold:'Badges auf Cards:', text:' Bio-Badge #e8f5e9/#1b5e20 "🌱 Bio (Knospe)" mit Cert-Label im Title-Tooltip. Pestizid-frei-Badge #fff8e1/#bf360c "🚫 Pestizid-frei" nur wenn nicht Bio (Bio implies pestfree). Beide in der Meta-Zeile rechts neben verifiedBadge.'},
+      {emoji:'🔍', bold:'2 Filter-Pills:', text:' "🌱 Bio-zertifiziert" + "🚫 Pestizid-frei" als pill-buttons in eigener Toolbar oberhalb der Listings. Click toggelt gs_market_filter_organic/_pestfree in localStorage (Persistenz). Active-State: solid grüner/oranger Background. Pestizid-frei-Filter zeigt auch Bio (Bio implies pestfree).'},
+      {emoji:'🧰', bold:'gsMarketResetFilter:', text:' Erweitert um die 2 neuen localStorage-Keys (organic + pestfree) — Reset-Button löscht jetzt alles inklusive Bio/Pestizid-Filter.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.37 Pollinator-Garten-Modus im KI-Planer.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · sw.js gs-v26.36 OK · GS_VERSION=v26.36 OK · _headers v26.36 OK · meta=26.36.20260523 OK · Migration applied.'},
+    ]
+  },
+  {
     v: 'v26.35', date: '23.05.2026',
     headline: '🌾 Bauernregel des Tages — 20 CH-Sprichwörter mit wissenschaftlichem Modern-Check',
     summary: 'Cowork-Auftrag v26.35 (Sprint 3/5). Neues Home-Widget #wisdom-card zwischen "Wusstest du?" und "Schnell-Quiz". Daily-Rotation aus traditional_garden_wisdom (20 Einträge, Cowork-DB-Wave-11) mit applicable_months-Filter für aktuellen Monat. Day-of-year deterministisch (jeder Tag zeigt fix die gleiche Regel). 12h in-Memory-Cache. Click rotiert zur nächsten Regel mit Fade. Validity-Badge mit 4 Farben (grün/gelb/orange/rot+Mythos-Label) — wissenschaftliche Einordnung jedes Sprichworts.',
@@ -49909,7 +50049,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.35';
+var GS_VERSION = 'v26.36';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
