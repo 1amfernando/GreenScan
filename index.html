@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.16.20260520">
+<meta name="app-version" content="26.20.20260522">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -8756,6 +8756,9 @@ window.gsI18n = (function(){
   var DEFAULT = 'de';
   var bundles = { de: {}, fr: {}, it: {}, gsw: {} };
   var current = DEFAULT;
+  // v26.20: per-lang Timestamps fuer 24h-TTL-Check.
+  var bundleTs = { de: 0, fr: 0, it: 0, gsw: 0 };
+  var TTL_MS = 24 * 3600 * 1000;
 
   // Sprache aus Order: localStorage > URL ?lang= > navigator.language > DEFAULT
   function detectLang(){
@@ -8779,12 +8782,83 @@ window.gsI18n = (function(){
       var raw = localStorage.getItem('gs_i18n_bundles');
       if (raw) {
         var parsed = JSON.parse(raw);
-        SUPPORTED.forEach(function(l){
-          if (parsed[l] && typeof parsed[l] === 'object') bundles[l] = parsed[l];
-        });
+        // v26.20: Format-Aware — entweder altes Format { de:{},fr:{},... } ODER
+        // neues v26.20-Format { bundles: {...}, ts: {de:..,fr:..} }.
+        if (parsed && parsed.bundles && parsed.ts) {
+          SUPPORTED.forEach(function(l){
+            if (parsed.bundles[l] && typeof parsed.bundles[l] === 'object') bundles[l] = parsed.bundles[l];
+            bundleTs[l] = parsed.ts[l] || 0;
+          });
+        } else {
+          SUPPORTED.forEach(function(l){
+            if (parsed[l] && typeof parsed[l] === 'object') {
+              bundles[l] = parsed[l];
+              // Alt-Cache hat kein Timestamp → als stale markieren (= 0)
+              bundleTs[l] = 0;
+            }
+          });
+        }
       }
     } catch(_){}
     current = detectLang();
+  }
+
+  function isStale(lang){
+    if (lang === 'de') return false;
+    if (!bundleTs[lang]) return true;
+    return (Date.now() - bundleTs[lang]) > TTL_MS;
+  }
+
+  // v26.20: Direct-DB-Pull aus i18n_translations (PostgREST). Schneller als
+  // gsBuildI18n weil 1 GET-Query, keine Anthropic-Calls. RLS i18n_select_all
+  // erlaubt public read. Mappt {source_text → translated_text}, plus
+  // backwards-compat: data-i18n="<key>" + data-i18n-fallback="<DE-Phrase>"
+  // wird nachgemappt sodass bundles[lang][<key>] = translated.
+  async function loadFromDb(lang){
+    if (lang === 'de' || SUPPORTED.indexOf(lang) < 0) return false;
+    if (typeof sbFetch !== 'function') return false;
+    try {
+      var r = await sbFetch(
+        '/rest/v1/i18n_translations?source_lang=eq.de&target_lang=eq.' +
+        encodeURIComponent(lang) + '&select=source_text,translated_text&limit=2000',
+        { method: 'GET' }
+      );
+      if (!r || !Array.isArray(r.data)) return false;
+      // source_text → translated_text Map
+      var srcMap = {};
+      r.data.forEach(function(row){
+        if (row && row.source_text) srcMap[row.source_text] = row.translated_text;
+      });
+      // data-i18n keys → translated lookup via data-i18n-fallback Phrase
+      var keyBundle = {};
+      try {
+        document.querySelectorAll('[data-i18n]').forEach(function(el){
+          var key = el.getAttribute('data-i18n');
+          var de  = el.getAttribute('data-i18n-fallback') || (el.textContent || '').trim();
+          if (key && de && srcMap[de]) keyBundle[key] = srcMap[de];
+        });
+      } catch(_){}
+      // GS_I18N_JS_STRINGS map: keys mit DE-Phrasen → translated
+      try {
+        var jsMap = window.GS_I18N_JS_STRINGS || {};
+        Object.keys(jsMap).forEach(function(k){
+          var de = jsMap[k];
+          if (srcMap[de]) keyBundle[k] = srcMap[de];
+        });
+      } catch(_){}
+      bundles[lang] = keyBundle;
+      bundleTs[lang] = Date.now();
+      _persist();
+      return true;
+    } catch(_) { return false; }
+  }
+
+  function _persist(){
+    try {
+      localStorage.setItem('gs_i18n_bundles', JSON.stringify({
+        bundles: bundles, ts: bundleTs
+      }));
+    } catch(_){}
   }
 
   // t(key, fallbackDE) — Übersetze Key mit DE-Fallback
@@ -8865,9 +8939,13 @@ window.gsI18n = (function(){
     getLang: getLang,
     getBundles: getBundles,
     coverage: coverage,
+    // v26.20 NEU: Direct-DB-Pull (Fast-Path) + Stale-Check.
+    loadFromDb: loadFromDb,
+    isStale: isStale,
     _setBundle: function(lang, obj){
       bundles[lang] = obj;
-      try { localStorage.setItem('gs_i18n_bundles', JSON.stringify(bundles)); } catch(_){}
+      bundleTs[lang] = Date.now();
+      _persist();
     }
   };
 })();
@@ -9048,11 +9126,34 @@ async function gsBuildI18n(targetLangs){
   }
 }
 
-// Boot: hydrate + applyToDOM nach DOMContentLoaded
+// Boot: hydrate + applyToDOM nach DOMContentLoaded.
+// v26.20: auto-build wenn current !== 'de' UND Bundle stale/leer →
+// direct-DB-Pull via loadFromDb (1 GET, kein Anthropic). FR/IT/GSW-User
+// sehen jetzt schon beim Erst-Visit ihre Sprache, nicht erst nach manuellem
+// Sprach-Picker-Switch.
 (function(){
-  function _bootI18n(){
+  async function _bootI18n(){
     try { gsI18n.hydrate(); } catch(_){}
     try { gsI18n.applyToDOM(); } catch(_){}
+    try {
+      var lang = gsI18n.getLang();
+      if (lang !== 'de' && gsI18n.isStale(lang)) {
+        // Async: blockt Boot nicht, applyToDOM nach Load.
+        gsI18n.loadFromDb(lang).then(function(ok){
+          if (ok) {
+            try { gsI18n.applyToDOM(); } catch(_){}
+          } else {
+            // Fallback auf gsBuildI18n falls direct-DB-Pull fehlschlaegt
+            // (z.B. RLS-Issue, sbFetch unavailable).
+            if (typeof gsBuildI18n === 'function') {
+              gsBuildI18n([lang]).then(function(r){
+                if (r && r.ok) try { gsI18n.applyToDOM(); } catch(_){}
+              }).catch(function(){});
+            }
+          }
+        }).catch(function(){});
+      }
+    } catch(_){}
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', _bootI18n);
@@ -9061,7 +9162,30 @@ async function gsBuildI18n(targetLangs){
   }
 })();
 
+// v26.20: openModal-Hook — wenn dynamische Modals geöffnet werden, sofort
+// applyToDOM auf den Modal-Root damit Inhalte uebersetzt sind (nicht-DE-User).
+// Idempotent via window-Flag, defensiv via try/catch.
+(function(){
+  if (window._gsI18nOpenModalWrapped) return;
+  if (typeof window.openModal !== 'function') return;
+  window._gsI18nOpenModalWrapped = true;
+  var _origOpenModal = window.openModal;
+  window.openModal = function(modalId){
+    var r = _origOpenModal.apply(this, arguments);
+    try {
+      if (gsI18n.getLang() !== 'de') {
+        var el = (typeof modalId === 'string') ? document.getElementById(modalId) : modalId;
+        if (el) gsI18n.applyToDOM(el);
+      }
+    } catch(_){}
+    return r;
+  };
+})();
+
 // Settings-Sprachauswahl-Handler
+// v26.20: Fast-Path via loadFromDb (1 GET aus i18n_translations) statt
+// gsBuildI18n (POSTet zu Edge-Fn, kann Anthropic-Calls triggern). Fallback
+// auf gsBuildI18n nur wenn direct-DB-Pull fehlschlaegt oder zu wenig Eintraege.
 async function gsHandleLangChange(val){
   if (val === 'auto') {
     try { localStorage.removeItem('gs_lang'); } catch(_){}
@@ -9069,15 +9193,24 @@ async function gsHandleLangChange(val){
     return;
   }
   if (gsI18n.SUPPORTED.indexOf(val) < 0) return;
-  // Bundle vorhanden? Falls nein: zuerst builden
+
+  // Bundle vorhanden + frisch? Falls nein: zuerst laden.
   if (val !== 'de') {
     var bundles = gsI18n.getBundles();
-    if (!bundles[val] || Object.keys(bundles[val]).length < 5) {
+    var needLoad = !bundles[val] || Object.keys(bundles[val]).length < 5 || gsI18n.isStale(val);
+    if (needLoad) {
       if (typeof showProfileToast === 'function') showProfileToast('⏳ Übersetzung wird geladen…', 'info');
-      var r = await gsBuildI18n([val]);
-      if (!r.ok) {
-        if (typeof showProfileToast === 'function') showProfileToast({title:'Übersetzung fehlgeschlagen', body:(r.msg||'Unbekannter Fehler'), type:'error'});
-        return;
+      // v26.20 Fast-Path: zuerst aus DB pullen (keine Anthropic-Costs)
+      var dbOk = false;
+      try { dbOk = await gsI18n.loadFromDb(val); } catch(_){}
+      if (!dbOk) {
+        // Fallback auf Edge-Fn-Build (loest ggf Anthropic-Translate aus
+        // fuer fehlende Strings)
+        var r = await gsBuildI18n([val]);
+        if (!r.ok) {
+          if (typeof showProfileToast === 'function') showProfileToast({title:'Übersetzung fehlgeschlagen', body:(r.msg||'Unbekannter Fehler'), type:'error'});
+          return;
+        }
       }
     }
   }
@@ -45050,6 +45183,28 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.20', date: '22.05.2026',
+    headline: '🌍 i18n Live-Switcher — FR/IT/GSW sehen ihre Sprache direkt beim Erst-Visit',
+    summary: 'gsI18n erweitert um Direct-PostgREST-Pull aus i18n_translations (1 GET, keine Anthropic-Calls), 24h-TTL pro Sprache und Boot-Auto-Build wenn Browser-Lang nicht DE ist. Plus openModal-Hook der dynamische Inhalte uebersetzt. FR/IT/GSW-User sehen jetzt die Top-211 UI-Strings ohne erst manuell im Picker zu wechseln.',
+    user_summary: '🌍 GreenScan spricht jetzt auch Französisch, Italienisch und Schwiizerdüütsch — automatisch, je nach Browser-Sprache. Wechsel jederzeit im Profil unter "Sprache".',
+    user_items: [
+      { emoji: '🇫🇷', text: 'Französisch (321 Übersetzungen) — auto-aktiv bei navigator.language=fr*' },
+      { emoji: '🇮🇹', text: 'Italienisch (313 Übersetzungen) — auto-aktiv bei navigator.language=it*' },
+      { emoji: '🇨🇭', text: 'Schwiizerdüütsch (297 Übersetzungen) — manuell wählbar im Profil' },
+      { emoji: '⚡', text: 'Schnellerer Sprach-Switch (Direct-DB-Pull, kein Edge-Fn-Hop)' },
+      { emoji: '🔄', text: '24h-Auto-Refresh: neue Übersetzungen werden täglich nachgezogen' },
+    ],
+    items: [
+      {emoji:'🛢️', bold:'gsI18n.loadFromDb(lang):', text:' Neuer Helper. Pullt aus /rest/v1/i18n_translations (PostgREST) direkt, mapped source_text→translated_text + matchet via data-i18n-fallback auf logische Keys + GS_I18N_JS_STRINGS-Map. 1 GET-Query, 0 Anthropic-Calls.'},
+      {emoji:'⏱️', bold:'24h-TTL via bundleTs:', text:' Per-Sprache-Timestamp im persistierten Cache. hydrate() liest beide Cache-Formate (alt {de:{},fr:{}} ODER neu {bundles,ts}). isStale(lang) prueft >24h.'},
+      {emoji:'🚀', bold:'Boot-Auto-Build:', text:' _bootI18n() nach DOMContentLoaded: wenn current!==de UND isStale(current) → async loadFromDb(current) → applyToDOM(). Fallback auf gsBuildI18n nur bei DB-Pull-Fehler.'},
+      {emoji:'🔌', bold:'openModal-Hook:', text:' Idempotent gewrappte openModal ruft gsI18n.applyToDOM(modal) wenn current!==de. Damit werden dynamisch geoeffnete Modals (Marketplace/Doctor/Harvest/etc.) auch in FR/IT angezeigt.'},
+      {emoji:'⚡', bold:'gsHandleLangChange Fast-Path:', text:' Bei manuellem Sprach-Switch nutzt jetzt zuerst loadFromDb (1 GET) statt gsBuildI18n (POSTet Edge-Fn, kann Anthropic-Calls triggern bei Cache-Miss). Fallback bleibt bei Fehler.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.19 Schädlings-Scanner (pest-identify Edge-Fn) · v26.18 AR-View MVP (Three.js).'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 inline-scripts node --check OK · sw.js gs-v26.20 OK · 211 data-i18n-fallback Markers im Code.'},
+    ]
+  },
+  {
     v: 'v26.16', date: '20.05.2026',
     headline: '⚙️ Cache-Inkonsistenz-Fix · neue Versionen erscheinen sofort',
     user_summary: 'Hintergrund-Verbesserung: wenn wir ein Update pushen, siehst du es sofort beim naechsten Browser-Refresh — keine veraltete Version mehr im Cache.',
@@ -46642,7 +46797,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.16';
+var GS_VERSION = 'v26.20';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

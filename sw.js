@@ -1,5 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
+   v26.20 — i18n Frontend-Switcher (AUFTRAG_CODE_v26.20). gsI18n erweitert: neuer loadFromDb(lang) Direct-PostgREST-Pull aus i18n_translations (1 GET-Query, 0 Anthropic-Calls; viel schneller als gsBuildI18n weil Edge-Fn-Cache-Miss-Path entfaellt). 24h-TTL pro Sprache via bundleTs-Map. Boot-Auto-Build: bei detectLang()!=de UND isStale(lang) wird Bundle async beim DOMContentLoaded geladen + applyToDOM erneut. openModal-Hook (idempotent) ruft applyToDOM auf jeden neu geoeffneten Modal damit dynamische Inhalte uebersetzt sind. gsHandleLangChange nutzt Fast-Path loadFromDb zuerst, Fallback auf gsBuildI18n nur bei DB-Pull-Fehler. FR/IT/GSW-User sehen jetzt schon beim Erst-Visit ihre Sprache.
    v26.16 — Cache-Inkonsistenz-Fix: _headers HTML-Shell mit max-age=0,must-revalidate (Cloudflare-Default war cache → User sahen alten GS_VERSION nach Push). Plus /assets/* + /data/* mit max-age=31536000 immutable (versioned URLs). sw.js wird bei v-Bump automatisch revalidated. Reduziert Cache-Drift zwischen Browser-Cache und Live-Deploy.
    v26.15 — User-friendly Release-Notes Vollausbau (v26.2-Sprint)
    v26.14 — i18n Pass-3 Tooling (v26.8-Sprint). Inventory-Script extrahiert 235 unique Translation-Keys aus index.html (218 data-i18n + 18 gsI18n.t + GS_I18N_JS_STRINGS-Map). Bulk-Translate-Skript scripts/i18n_translate.sh ruft i18n-translate Edge-Fn chunk-weise (10 keys, 8s sleep) gegen Anthropic Rate-Limit. gsI18n.coverage() DevTools-Helper + window.gsI18nCoverage() Shortcut fuer Cowork-Verify nach Bulk-Translate. Tatsaechliches FR/IT-Backfill ist Cowork-Pflicht (braucht SERVICE_ROLE_KEY + DB-Diff SELECT-Query).
@@ -21,7 +22,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v26.16';
+const VERSION = 'gs-v26.20';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
