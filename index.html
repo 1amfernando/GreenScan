@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.20.20260522">
+<meta name="app-version" content="26.21.20260522">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2455,6 +2455,12 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <span data-i18n="btn_doctor_open" data-i18n-fallback="🩺 KI-Pflanzendoktor · Symptom-Analyse">🩺 KI-Pflanzendoktor · Symptom-Analyse</span><span style="font-size:18px;opacity:.85;">›</span>
   </button>
 </div>
+<!-- v26.19: Schädlings-Scanner (Vision-AI via pest-identify Edge-Fn) -->
+<div style="padding:0 16px 12px;">
+  <button onclick="openPestModal()" title="Schädlings-Scanner — Foto → KI identifiziert + Bio-Behandlung" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#6d4c41,#4e342e);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_pest_open" data-i18n-fallback="🪲 Schädling-Scanner · Foto → Bio-Behandlung">🪲 Schädling-Scanner · Foto → Bio-Behandlung</span><span style="font-size:18px;opacity:.85;">›</span>
+  </button>
+</div>
 <!-- v25.31: Erntekalender-Trigger (Statistik aller Ernten dieses Jahr) -->
 <div style="padding:0 16px 12px;">
   <button onclick="openHarvestStatsModal()" title="Erntekalender — Jahres-Statistik aller Ernten" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#f57c00,#e65100);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
@@ -3050,6 +3056,42 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <button onclick="gsRunDiagnose()" id="doctor-submit-btn" style="width:100%;padding:14px;background:linear-gradient(135deg,#00897b,#00695c);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;" data-i18n="btn_doctor_start" data-i18n-fallback="🔍 Diagnose starten">🔍 Diagnose starten</button>
     </div>
     <div id="doctor-result" style="padding:0 18px 20px;"></div>
+  </div>
+</div>
+
+<!-- ═══ v26.19 PEST-SCANNER MODAL ═══════════════════════════ -->
+<div class="modal-overlay" id="modal-pest" onclick="if(event.target===this)closeModal('modal-pest')">
+  <div class="modal" style="position:relative;max-height:92vh;overflow-y:auto;">
+    <div class="mhandle"></div>
+    <button class="modal-close-btn" onclick="closeModal('modal-pest')" aria-label="Schliessen">&#x2715;</button>
+    <div class="mhdr" style="background:linear-gradient(135deg,#6d4c41,#4e342e);color:#fff;">
+      <span class="memoji">🪲</span>
+      <div>
+        <h2 data-i18n="pest_title" data-i18n-fallback="Schädlings-Scanner" style="color:#fff;">Schädlings-Scanner</h2>
+        <p data-i18n="pest_sub" data-i18n-fallback="Foto → KI identifiziert + Bio-Behandlung" style="color:rgba(255,255,255,.85);">Foto → KI identifiziert + Bio-Behandlung</p>
+      </div>
+    </div>
+    <div id="pest-form" style="padding:14px 18px 18px;">
+      <div class="mp-field">
+        <label data-i18n="pest_lbl_photo" data-i18n-fallback="📷 Foto vom Befall (Pflicht)">📷 Foto vom Befall (Pflicht)</label>
+        <div id="pest-photo-area" style="display:flex;gap:8px;">
+          <button onclick="document.getElementById('pest-photo-camera').click()" style="flex:1;padding:11px;background:#efebe9;border:1.5px solid #8d6e63;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:#4e342e;font-family:inherit;" data-i18n="btn_pest_camera" data-i18n-fallback="📷 Kamera">📷 Kamera</button>
+          <button onclick="document.getElementById('pest-photo-gallery').click()" style="flex:1;padding:11px;background:#efebe9;border:1.5px solid #8d6e63;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:#4e342e;font-family:inherit;" data-i18n="btn_pest_gallery" data-i18n-fallback="🖼️ Galerie">🖼️ Galerie</button>
+        </div>
+        <input type="file" id="pest-photo-camera" accept="image/*" capture="environment" style="display:none;" onchange="gsPestLoadPhoto(this)">
+        <input type="file" id="pest-photo-gallery" accept="image/*" style="display:none;" onchange="gsPestLoadPhoto(this)">
+        <div id="pest-photo-preview" style="margin-top:10px;display:none;"></div>
+      </div>
+      <div class="mp-field">
+        <label data-i18n="pest_lbl_host" data-i18n-fallback="🌱 Welche Pflanze ist befallen (optional)">🌱 Welche Pflanze ist befallen (optional)</label>
+        <select class="mp-select" id="pest-host-plant">
+          <option value="" data-i18n="pest_opt_none" data-i18n-fallback="— Nicht aus meinen Pflanzen —">— Nicht aus meinen Pflanzen —</option>
+        </select>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.4;">Mit Host-Pflanze findet die KI deutlich präzisere Treffer.</div>
+      </div>
+      <button onclick="gsPestRunScan()" id="pest-submit-btn" style="width:100%;padding:14px;background:linear-gradient(135deg,#6d4c41,#4e342e);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;" data-i18n="btn_pest_start" data-i18n-fallback="🔍 Schädling identifizieren">🔍 Schädling identifizieren</button>
+    </div>
+    <div id="pest-result" style="padding:0 18px 20px;"></div>
   </div>
 </div>
 
@@ -24029,6 +24071,219 @@ async function gsDoctorHistoryLoad(plantLocalId) {
   } catch(_) { return []; }
 }
 window.gsDoctorHistoryLoad = gsDoctorHistoryLoad;
+
+// ═════════════════════════════════════════════════════════════════════
+// v26.19 PEST-SCANNER (Schaedlinge identifizieren via Anthropic Vision)
+// Backend: pest-identify Edge-Fn v1 (verify_jwt: true) + plant_pests-Tabelle
+//          mit 25 Schweizer Garten-Schaedlingen (AGFF-Source).
+// ═════════════════════════════════════════════════════════════════════
+
+function openPestModal() {
+  window._gsPestPhotoB64 = null;
+  var preview = document.getElementById('pest-photo-preview');
+  if (preview) { preview.innerHTML = ''; preview.style.display = 'none'; }
+  var result = document.getElementById('pest-result'); if (result) result.innerHTML = '';
+  // Pflanzen-Picker aus myPlants fuellen (Host-Plant)
+  try {
+    var sel = document.getElementById('pest-host-plant');
+    if (sel) {
+      sel.innerHTML = '<option value="">— Nicht aus meinen Pflanzen —</option>';
+      var plants = Array.isArray(window.myPlants) ? window.myPlants : [];
+      plants.forEach(function(p){
+        var o = document.createElement('option');
+        // Wert = species_lat (Latein) damit pest-identify es zum host_plants-Array-Filter nutzen kann
+        o.value = p.lat || p.scientific_name || '';
+        o.textContent = (p.emoji ? p.emoji + ' ' : '') + (p.name || p.lat || '?');
+        sel.appendChild(o);
+      });
+    }
+  } catch(_){}
+  if (typeof openModal === 'function') openModal('modal-pest');
+  else document.getElementById('modal-pest').classList.add('open');
+}
+window.openPestModal = openPestModal;
+
+async function gsPestLoadPhoto(input) {
+  var file = input && input.files && input.files[0];
+  if (!file) return;
+  if (file.size > 8 * 1024 * 1024) {
+    if (typeof showProfileToast === 'function') showProfileToast(
+      (window.gsI18n ? gsI18n.t('err_image_too_big', 'Bild zu gross (max 8 MB)') : 'Bild zu gross (max 8 MB)'),
+      'error');
+    return;
+  }
+  try {
+    var b64 = await gsFileToBase64(file);
+    window._gsPestPhotoB64 = b64;
+    var preview = document.getElementById('pest-photo-preview');
+    if (preview) {
+      preview.innerHTML = '<img src="' + b64 + '" alt="Vorschau" style="width:100%;max-height:220px;object-fit:cover;border-radius:10px;border:1px solid var(--border);">';
+      preview.style.display = 'block';
+    }
+  } catch(_) {
+    if (typeof showProfileToast === 'function') showProfileToast(
+      (window.gsI18n ? gsI18n.t('err_upload_failed', 'Upload fehlgeschlagen — bitte erneut') : 'Upload fehlgeschlagen — bitte erneut'),
+      'error');
+  }
+}
+window.gsPestLoadPhoto = gsPestLoadPhoto;
+
+async function gsPestRunScan() {
+  if (!window._gsPestPhotoB64) {
+    if (typeof showProfileToast === 'function') showProfileToast(
+      (window.gsI18n ? gsI18n.t('pest_no_photo', 'Bitte Foto hochladen') : 'Bitte Foto hochladen'),
+      'error');
+    return;
+  }
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) {
+    if (typeof showProfileToast === 'function') showProfileToast(
+      (window.gsI18n ? gsI18n.t('err_login_required', 'Bitte zuerst anmelden') : 'Bitte zuerst anmelden'),
+      'error');
+    return;
+  }
+  var hostSel = document.getElementById('pest-host-plant');
+  var hostPlant = (hostSel && hostSel.value) ? hostSel.value : null;
+  var btn = document.getElementById('pest-submit-btn');
+  if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = '⏳ Identifiziere…'; }
+
+  if (typeof showProfileToast === 'function') showProfileToast(
+    (window.gsI18n ? gsI18n.t('pest_analyzing', '🔬 KI analysiert den Schädling…') : '🔬 KI analysiert den Schädling…'),
+    'info');
+
+  try {
+    var token = (window.gsStore && typeof gsStore.get === 'function') ? gsStore.get('gs_sb_token', null) : null;
+    var fetchFn = window._gsFetch || fetch;
+    var photoB64 = String(window._gsPestPhotoB64).replace(/^data:image\/\w+;base64,/, '');
+    var resp = await fetchFn(SB_URL + '/functions/v1/pest-identify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SB_KEY,
+        'Authorization': 'Bearer ' + token
+      },
+      body: JSON.stringify({
+        image_base64: photoB64,
+        media_type: 'image/jpeg',
+        host_plant: hostPlant
+      })
+    }, 45000);
+    var j = await resp.json();
+    if (!resp.ok || j.error) {
+      if (typeof showProfileToast === 'function') showProfileToast(
+        '⚠️ ' + (j.error || (window.gsI18n ? gsI18n.t('pest_error', 'Identifikation fehlgeschlagen') : 'Identifikation fehlgeschlagen')),
+        'error');
+      return;
+    }
+    gsPestRenderResult(j);
+  } catch(_) {
+    if (typeof showProfileToast === 'function') showProfileToast(
+      (window.gsI18n ? gsI18n.t('err_network', 'Netzwerk-Fehler — bitte erneut versuchen') : 'Netzwerk-Fehler — bitte erneut versuchen'),
+      'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false; btn.style.opacity = '1';
+      btn.textContent = (window.gsI18n ? gsI18n.t('btn_pest_start', '🔍 Schädling identifizieren') : '🔍 Schädling identifizieren');
+    }
+  }
+}
+window.gsPestRunScan = gsPestRunScan;
+
+function gsPestRenderResult(j) {
+  var box = document.getElementById('pest-result');
+  if (!box) return;
+  var p = j && j.pest_detail;
+  var conf = Math.round(j && typeof j.confidence === 'number' ? j.confidence : 0);
+  var esc = (typeof gsHTMLEscape === 'function') ? gsHTMLEscape : function(s){ return String(s||'').replace(/[<>&"]/g, function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+
+  // Confidence < 40 ODER kein Match → "Bitte naeher" Hint
+  if (!p || !j.matched_slug || conf < 40) {
+    var msg = (j && j.reasoning) ? j.reasoning : 'Kein eindeutiger Schädling erkannt. Bitte Foto näher oder schärfer aufnehmen.';
+    box.innerHTML =
+      '<div style="margin-top:14px;padding:14px;background:#fff8e1;border:1px solid #fbc02d;border-radius:12px;color:#e65100;">' +
+        '<div style="font-size:14px;font-weight:800;margin-bottom:6px;">⚠️ Unsicher (Confidence ' + conf + '%)</div>' +
+        '<div style="font-size:12.5px;line-height:1.5;">' + esc(msg) + '</div>' +
+      '</div>';
+    return;
+  }
+
+  var sev = String(j.severity || 'mittel');
+  var sevColors = {
+    gering: { bg:'#e8f5e9', col:'#1b5e20', lbl:'🟢 Gering' },
+    mittel: { bg:'#fff8e1', col:'#e65100', lbl:'🟡 Mittel' },
+    hoch:   { bg:'#ffebee', col:'#c62828', lbl:'🔴 Hoch' }
+  };
+  var u = sevColors[sev] || sevColors.mittel;
+
+  var html = '<div class="pest-result-card" style="margin-top:14px;border-radius:14px;overflow:hidden;border:1px solid var(--border);background:var(--card);">';
+  html += '<div style="background:' + u.bg + ';color:' + u.col + ';padding:10px 16px;font-size:13px;font-weight:800;text-align:center;">' + u.lbl + ' · Schwere · Confidence ' + conf + '%</div>';
+  html += '<div style="padding:14px 16px;">';
+  html += '<div style="font-size:18px;font-weight:900;color:var(--text);margin-bottom:2px;">' + esc(p.common_name_de) + '</div>';
+  if (p.scientific_name) html += '<div style="font-size:12px;font-style:italic;color:var(--muted);margin-bottom:8px;">' + esc(p.scientific_name) + '</div>';
+  if (j.reasoning) html += '<div style="font-size:12.5px;color:var(--text2);line-height:1.5;margin-bottom:10px;">' + esc(j.reasoning) + '</div>';
+  if (j.advice) html += '<div style="padding:9px 12px;background:#e3f2fd;border:1px solid #42a5f5;border-radius:9px;font-size:12.5px;color:#01579b;line-height:1.5;margin-bottom:10px;"><b>💡 Sofort:</b> ' + esc(j.advice) + '</div>';
+
+  if (p.symptoms) {
+    html += '<div style="margin-top:10px;font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Schaden / Symptome</div>';
+    html += '<div style="font-size:12.5px;color:var(--text2);line-height:1.5;margin-bottom:8px;">' + esc(p.symptoms) + '</div>';
+  }
+  if (Array.isArray(p.treatment_organic) && p.treatment_organic.length) {
+    html += '<div style="margin-top:10px;padding:10px 12px;background:#e8f5e9;border-radius:10px;">';
+    html += '<div style="font-size:11.5px;font-weight:800;color:#1b5e20;margin-bottom:5px;">🌿 Bio-Behandlung</div>';
+    html += '<ul style="margin:0;padding-left:18px;font-size:12.5px;color:#1b5e20;line-height:1.6;">';
+    p.treatment_organic.forEach(function(t){ html += '<li>' + esc(t) + '</li>'; });
+    html += '</ul></div>';
+  }
+  if (Array.isArray(p.prevention) && p.prevention.length) {
+    html += '<div style="margin-top:8px;padding:10px 12px;background:#e0f2f1;border-radius:10px;">';
+    html += '<div style="font-size:11.5px;font-weight:800;color:#00695c;margin-bottom:5px;">🛡️ Vorbeugen</div>';
+    html += '<ul style="margin:0;padding-left:18px;font-size:12.5px;color:#004d40;line-height:1.6;">';
+    p.prevention.forEach(function(t){ html += '<li>' + esc(t) + '</li>'; });
+    html += '</ul></div>';
+  }
+  if (Array.isArray(p.natural_enemies) && p.natural_enemies.length) {
+    html += '<div style="margin-top:8px;padding:9px 12px;background:#fff3e0;border:1px solid #ffb74d;border-radius:10px;font-size:12px;color:#e65100;line-height:1.5;">🐞 <b>Natürliche Feinde:</b> ' + esc(p.natural_enemies.join(', ')) + '</div>';
+  }
+  if (Array.isArray(j.alternatives) && j.alternatives.length) {
+    html += '<div style="margin-top:10px;font-size:11px;color:var(--muted);">Alternative Kandidaten: ' + j.alternatives.map(function(a){ return esc(a); }).join(', ') + '</div>';
+  }
+  html += '<button onclick="gsPestAddToDiary(\'' + esc(p.slug) + '\')" style="width:100%;margin-top:14px;padding:11px;background:linear-gradient(135deg,#6d4c41,#4e342e);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;" data-i18n="btn_pest_diary" data-i18n-fallback="📓 Im Garten-Tagebuch festhalten">📓 Im Garten-Tagebuch festhalten</button>';
+  html += '</div></div>';
+  box.innerHTML = html;
+  try { if (window.gsI18n && typeof gsI18n.applyToDOM === 'function') gsI18n.applyToDOM(box); } catch(_){}
+  try { box.scrollIntoView({ behavior:'smooth', block:'start' }); } catch(_){}
+}
+window.gsPestRenderResult = gsPestRenderResult;
+
+async function gsPestAddToDiary(slug) {
+  if (!slug) return;
+  var uid = (window.gsStore && typeof gsStore.get === 'function') ? gsStore.get('gs_sb_uid', null) : null;
+  if (!uid) {
+    if (typeof showProfileToast === 'function') showProfileToast(
+      (window.gsI18n ? gsI18n.t('err_login_required', 'Bitte zuerst anmelden') : 'Bitte zuerst anmelden'),
+      'error');
+    return;
+  }
+  try {
+    await sbFetch('/rest/v1/garden_diary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      body: JSON.stringify({
+        user_id: uid,
+        type: 'pest_observation',
+        notes: 'Pest identified: ' + slug,
+        metadata: { pest_slug: slug }
+      })
+    });
+    if (typeof showProfileToast === 'function') showProfileToast(
+      (window.gsI18n ? gsI18n.t('pest_diary_saved', '📓 Im Garten-Tagebuch gespeichert') : '📓 Im Garten-Tagebuch gespeichert'),
+      'success');
+  } catch(_) {
+    if (typeof showProfileToast === 'function') showProfileToast(
+      (window.gsI18n ? gsI18n.t('pest_diary_error', '⚠️ Konnte nicht speichern') : '⚠️ Konnte nicht speichern'),
+      'error');
+  }
+}
+window.gsPestAddToDiary = gsPestAddToDiary;
 
 // ═════════════════════════════════════════════════════════════════════
 // v25.31 ERNTEKALENDER — harvest_log + v_harvest_stats_per_user
@@ -45183,6 +45438,28 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.21', date: '22.05.2026',
+    headline: '🪲 Schädlings-Scanner — Foto vom Befall → KI identifiziert + Bio-Behandlung',
+    summary: 'Cowork-Auftrag v26.19. Neuer Garten-Aktion-Button "🪲 Schädling-Scanner" mit Foto-Upload + optionalem Host-Pflanze-Picker. POSTet an pest-identify Edge-Fn v1 (Anthropic Vision Haiku 4.5 + plant_pests-Knowledge-Context: 25 kuratierte Schweizer Garten-Schädlinge mit Bio-Behandlung, Prävention, natürlichen Feinden). Result-Modal zeigt Confidence-Badge, Symptome, sofortige Massnahme, Bio-Behandlung-Liste, Prävention, natürliche Feinde + Alternative-Kandidaten. Bei Confidence < 40 statt false-positive: "bitte näher"-Hint.',
+    user_summary: '🪲 Neu: Schädling im Garten? Mach ein Foto und die KI sagt dir was es ist + welche Bio-Behandlung hilft. Bei deinen eigenen Pflanzen wird die Treffer-Qualität noch genauer.',
+    user_items: [
+      { emoji: '📷', text: 'Foto vom Befall (Kamera oder Galerie) — bis 8 MB' },
+      { emoji: '🎯', text: '25 Schweizer Garten-Schädlinge mit AGFF-Quelle' },
+      { emoji: '🌿', text: 'Bio-Behandlung + Prävention + natürliche Feinde (z.B. Marienkäfer gegen Blattläuse)' },
+      { emoji: '📓', text: '"Im Garten-Tagebuch festhalten"-Button für späteren Verlauf' },
+    ],
+    items: [
+      {emoji:'⚡', bold:'pest-identify Edge-Fn v1 (verify_jwt:true):', text:' Anthropic Vision Haiku 4.5 + plant_pests-Knowledge-Block. host_plant-Filter via .contains() — wenn keine Treffer, Fallback auf alle 25. JSON-Response mit matched_slug + confidence + reasoning + alternatives + severity + advice + pest_detail (FULL row aus DB).'},
+      {emoji:'🪲', bold:'Garten-Aktion-Button:', text:' Neuer Button "🪲 Schädling-Scanner" unter dem 🩺 Pflanzendoktor-Button. Braun-Gradient. data-i18n="btn_pest_open".'},
+      {emoji:'📋', bold:'#modal-pest:', text:' Foto-Upload (Kamera+Galerie 8MB Limit, Base64-Preview) + Host-Plant Select aus myPlants (value=species_lat fuer Filter im Backend) + Submit-Button mit Loading-State.'},
+      {emoji:'🎬', bold:'gsPestRunScan:', text:' POST pest-identify mit photo_base64 + media_type + host_plant. 45s Timeout. Login-Check. Error-Handling via Toast.'},
+      {emoji:'🧾', bold:'gsPestRenderResult:', text:' Confidence-Badge (3 Stufen Gering/Mittel/Hoch mit Farben), Top-Match mit common_name_de + scientific_name + reasoning. 💡 Sofort-Advice-Box. Bio-Behandlung-Liste (gruen). Praevention-Liste (teal). Natuerliche Feinde-Hint. Alternative-Kandidaten-Liste. Confidence < 40 zeigt "bitte naeher"-Warning.'},
+      {emoji:'📓', bold:'gsPestAddToDiary:', text:' INSERT in garden_diary mit type=pest_observation + pest_slug im metadata.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.18 AR-View MVP (Three.js + Fallback-Geometrie fuer 30 Seed-Pflanzen).'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 inline-scripts node --check OK · sw.js gs-v26.21 OK · pest-identify v1 ACTIVE.'},
+    ]
+  },
+  {
     v: 'v26.20', date: '22.05.2026',
     headline: '🌍 i18n Live-Switcher — FR/IT/GSW sehen ihre Sprache direkt beim Erst-Visit',
     summary: 'gsI18n erweitert um Direct-PostgREST-Pull aus i18n_translations (1 GET, keine Anthropic-Calls), 24h-TTL pro Sprache und Boot-Auto-Build wenn Browser-Lang nicht DE ist. Plus openModal-Hook der dynamische Inhalte uebersetzt. FR/IT/GSW-User sehen jetzt die Top-211 UI-Strings ohne erst manuell im Picker zu wechseln.',
@@ -46797,7 +47074,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.20';
+var GS_VERSION = 'v26.21';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
