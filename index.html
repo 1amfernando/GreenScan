@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.22.20260522">
+<meta name="app-version" content="26.23.20260522">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4023,6 +4023,11 @@ html, body{ scroll-behavior: smooth; }
     <button class="recipe-cat" onclick="showWissen('blumen',this)">🌸 Blumen</button>
     <button class="recipe-cat" onclick="showWissen('folklore',this)">📜 Folklore</button>
     <button class="recipe-cat" onclick="showWissen('techniken',this)">🛠️ Techniken</button>
+    <!-- v26.23: 4 neue Sub-Tabs aus DB-Wave-9 -->
+    <button class="recipe-cat" onclick="showWissen('kompost',this)" data-i18n="wissen_compost" data-i18n-fallback="🌱 Kompostieren">🌱 Kompostieren</button>
+    <button class="recipe-cat" onclick="showWissen('vermehrung',this)" data-i18n="wissen_propagation" data-i18n-fallback="✂️ Vermehrung">✂️ Vermehrung</button>
+    <button class="recipe-cat" onclick="showWissen('bodenpflege',this)" data-i18n="wissen_soil_amend" data-i18n-fallback="🪨 Boden-Pflege">🪨 Boden-Pflege</button>
+    <button class="recipe-cat" onclick="showWissen('heilpflanzen',this)" data-i18n="wissen_medicinal" data-i18n-fallback="🌿 Heilpflanzen">🌿 Heilpflanzen</button>
   </div>
 
   <!-- Content -->
@@ -31564,7 +31569,12 @@ function showWissen(section, btn) {
     bibliothek:    {ico:'📚', title:'Bibliothek — Buch-Wissen', sub:'Aus eingelesenen Büchern extrahierte Arten · auto-dedupliziert · mit Quellen-Nachweis.'},
     blumen:        {ico:'🌸', title:'Blumen & Zierpflanzen', sub:'Blühende Arten — sortiert nach Bestäuber-Wert, Blütenfarbe, Saison.'},
     folklore:      {ico:'📜', title:'Volkskunde & Tradition', sub:'Pflanzen-Mythen, alpine Bräuche, Schweizer Folklore über die Jahrhunderte.'},
-    techniken:     {ico:'🛠️', title:'Garten-Techniken', sub:'Drei-Schwestern, Hügelkultur, Mulchen, Mischkultur — Permakultur-Methoden.'}
+    techniken:     {ico:'🛠️', title:'Garten-Techniken', sub:'Drei-Schwestern, Hügelkultur, Mulchen, Mischkultur — Permakultur-Methoden.'},
+    // v26.23: 4 neue Sub-Tabs aus DB-Wave-9
+    kompost:       {ico:'🌱', title:'Kompostieren', sub:'8 Methoden mit Schritt-Anleitung, Schwierigkeit, Saisonstart und Troubleshooting.'},
+    vermehrung:    {ico:'✂️', title:'Pflanzen vermehren', sub:'12 Methoden — Stecklinge, Absenker, Teilung, Aussaat — mit Erfolgsrate.'},
+    bodenpflege:   {ico:'🪨', title:'Boden verbessern', sub:'15 Schweizer Bodenverbesserer: NPK-Werte, pH-Effekt, Anwendung.'},
+    heilpflanzen:  {ico:'🌿', title:'Heilpflanzen-Register', sub:'15 CH-Heilpflanzen mit Wirkstoffen, Anwendungen und WARNUNGEN (rechtssicher).'}
   };
   var intro = introMap[section] || {ico:'📚', title:'Gartenwissen', sub:''};
   var introHtml =
@@ -31602,6 +31612,11 @@ function showWissen(section, btn) {
   else if (section === 'blumen' || section === 'folklore' || section === 'techniken') {
     body = '<div id="kb-loading-' + section + '" class="kb-loading" style="padding:18px;text-align:center;color:var(--muted);">📚 Lade …</div>';
     setTimeout(function(){ try { gsRenderKnowledge(section); } catch(e){ console.warn('[gsRenderKnowledge]',e); } }, 50);
+  }
+  // v26.23: 4 neue DB-basierte Sub-Tabs (Wave-9)
+  else if (section === 'kompost' || section === 'vermehrung' || section === 'bodenpflege' || section === 'heilpflanzen') {
+    body = '<div id="kb-loading-' + section + '" class="kb-loading" style="padding:18px;text-align:center;color:var(--muted);">📚 Lade …</div>';
+    setTimeout(function(){ try { gsRenderWissenWave9(section); } catch(e){ console.warn('[gsRenderWissenWave9]',e); } }, 50);
   }
   el.innerHTML = introHtml + body;
 
@@ -31819,6 +31834,333 @@ function _gsKbGetFilter(section) {
   if (!window._gsKbFilters[section]) window._gsKbFilters[section] = { search: '', cat: '' };
   return window._gsKbFilters[section];
 }
+// ═════════════════════════════════════════════════════════════════════
+// v26.23 Wissen-Tab Erweiterung — 4 neue Sub-Tabs aus DB-Wave-9
+// Tabellen: compost_recipes / propagation_methods / soil_amendments /
+//           medicinal_plants_register (Cowork-Backend ready).
+// Render-Pattern: Card-Liste + Detail-Modal mit allen Spalten + JSON-Parser.
+// ═════════════════════════════════════════════════════════════════════
+
+window._gsWave9Cache = {};  // pro section: { rows, fetchedAt }
+window._gsWave9CurrentSection = null;
+
+window.gsRenderWissenWave9 = async function(section) {
+  var el = document.getElementById('wissen-content');
+  if (!el) return;
+  var introHtml = (el.querySelector('div')||{outerHTML:''}).outerHTML;
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+  window._gsWave9CurrentSection = section;
+
+  var configs = {
+    kompost: {
+      table: 'compost_recipes', order: 'duration_weeks_min.asc',
+      titleField: 'name_de', categoryField: 'difficulty',
+      cardEmoji: '🌱',
+      cardSub: function(r){ return 'Methode: ' + (r.method || '?') + ' · ' + (r.duration_weeks_min ? r.duration_weeks_min + '-' + (r.duration_weeks_max || '?') + ' Wochen' : '?') + ' · ' + (r.difficulty || ''); },
+      emptyMsg: 'Noch keine Kompostier-Methoden in der DB.'
+    },
+    vermehrung: {
+      table: 'propagation_methods', order: 'success_rate_pct.desc',
+      titleField: 'name_de', categoryField: 'method_type',
+      cardEmoji: '✂️',
+      cardSub: function(r){ return (r.method_type || '?') + ' · Erfolg ' + (r.success_rate_pct||'?') + '% · ' + (r.difficulty || ''); },
+      emptyMsg: 'Noch keine Vermehrungs-Methoden in der DB.'
+    },
+    bodenpflege: {
+      table: 'soil_amendments', order: 'category.asc',
+      titleField: 'name_de', categoryField: 'category',
+      cardEmoji: '🪨',
+      cardSub: function(r){ return (r.category || '?') + ' · pH ' + (r.ph_effect || 'neutral') + ' · ' + (r.swiss_availability || ''); },
+      emptyMsg: 'Noch keine Bodenverbesserer in der DB.'
+    },
+    heilpflanzen: {
+      table: 'medicinal_plants_register', order: 'common_name_de.asc',
+      titleField: 'common_name_de', categoryField: 'evidence_level',
+      cardEmoji: '🌿',
+      cardSub: function(r){ return (r.scientific_name || '') + ' · Evidenz: ' + (r.evidence_level || '?'); },
+      cardAccent: function(r){ return (r.contraindications && r.contraindications.length) ? '#c62828' : null; },
+      emptyMsg: 'Noch keine Heilpflanzen in der DB.'
+    }
+  };
+  var cfg = configs[section];
+  if (!cfg) { el.innerHTML = introHtml; return; }
+
+  try {
+    var cached = window._gsWave9Cache[section];
+    var rows;
+    if (cached && (Date.now() - cached.fetchedAt) < 10 * 60 * 1000) {
+      rows = cached.rows;
+    } else {
+      if (typeof sbFetch !== 'function') throw new Error('Supabase nicht verfügbar');
+      var url = '/rest/v1/' + cfg.table + '?select=*&order=' + cfg.order + '&limit=200';
+      var r = await sbFetch(url, { method: 'GET' });
+      rows = (r && Array.isArray(r.data)) ? r.data : [];
+      window._gsWave9Cache[section] = { rows: rows, fetchedAt: Date.now() };
+    }
+
+    if (!rows.length) {
+      el.innerHTML = introHtml + '<div style="padding:24px;text-align:center;background:var(--card);border-radius:14px;color:var(--muted);">' +
+        '<div style="font-size:48px;margin-bottom:10px;">📭</div>' +
+        '<div style="font-size:13px;">' + ed(cfg.emptyMsg) + '</div></div>';
+      return;
+    }
+
+    // Filter-Pills: alle Distinct categoryField-Werte
+    var allCats = Array.from(new Set(rows.map(function(r){ return r[cfg.categoryField] || ''; }).filter(Boolean)));
+    var currentFilter = window._gsWave9Filter && window._gsWave9Filter[section] ? window._gsWave9Filter[section] : '';
+    var filterPills = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 12px;">' +
+      '<button onclick="gsWave9Filter(\'' + section + '\', \'\')" class="recipe-cat' + (!currentFilter?' active':'') + '" style="font-size:11.5px;padding:5px 11px;">Alle (' + rows.length + ')</button>' +
+      allCats.map(function(c){
+        var n = rows.filter(function(r){ return r[cfg.categoryField] === c; }).length;
+        return '<button onclick="gsWave9Filter(\'' + section + '\', \'' + ed(c) + '\')" class="recipe-cat' + (currentFilter===c?' active':'') + '" style="font-size:11.5px;padding:5px 11px;">' + ed(c) + ' (' + n + ')</button>';
+      }).join('') +
+      '</div>';
+
+    var visibleRows = currentFilter ? rows.filter(function(r){ return r[cfg.categoryField] === currentFilter; }) : rows;
+
+    // Card-Liste
+    var cardsHtml = visibleRows.map(function(r, idx){
+      var accent = (cfg.cardAccent && cfg.cardAccent(r)) || 'var(--border)';
+      var title = ed(r[cfg.titleField] || r.slug || '?');
+      var sub = ed(cfg.cardSub(r));
+      var desc = ed(String(r.description || r.notes || r.toxicity_notes || '').slice(0, 140));
+      return '<div onclick="gsWave9OpenDetail(\'' + section + '\', \'' + ed(r.slug || r.id) + '\')" style="cursor:pointer;background:var(--card);border:1px solid ' + accent + ';border-left:3px solid ' + accent + ';border-radius:12px;padding:12px 14px;margin-bottom:8px;-webkit-tap-highlight-color:transparent;">' +
+        '<div style="display:flex;align-items:flex-start;gap:10px;">' +
+          '<div style="font-size:24px;flex-shrink:0;">' + (cfg.cardEmoji || '📚') + '</div>' +
+          '<div style="flex:1;min-width:0;">' +
+            '<div style="font-size:14px;font-weight:800;color:var(--text);">' + title + '</div>' +
+            '<div style="font-size:11.5px;color:var(--muted);margin-top:2px;">' + sub + '</div>' +
+            (desc ? '<div style="font-size:12px;color:var(--text2);margin-top:5px;line-height:1.45;">' + desc + (desc.length === 140 ? '…' : '') + '</div>' : '') +
+          '</div>' +
+          '<div style="font-size:18px;color:var(--muted);flex-shrink:0;">›</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    el.innerHTML = introHtml + filterPills + '<div>' + cardsHtml + '</div>';
+    try { if (window.gsI18n && typeof gsI18n.applyToDOM === 'function') gsI18n.applyToDOM(el); } catch(_){}
+  } catch(e) {
+    console.warn('[Wave9]', e);
+    el.innerHTML = introHtml + '<div style="padding:18px;color:#c62828;text-align:center;">⚠️ Konnte nicht laden — ' + ed(e.message || '') + '</div>';
+  }
+};
+
+window._gsWave9Filter = window._gsWave9Filter || {};
+window.gsWave9Filter = function(section, cat) {
+  window._gsWave9Filter[section] = cat;
+  gsRenderWissenWave9(section);
+};
+
+window.gsWave9OpenDetail = function(section, slug) {
+  if (typeof gsHaptic === 'function') gsHaptic('light');
+  var rows = (window._gsWave9Cache[section] || {}).rows || [];
+  var r = rows.find(function(x){ return String(x.slug || x.id) === String(slug); });
+  if (!r) return;
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+
+  var mc = document.getElementById('modal-content');
+  if (!mc) return;
+
+  var html = '<div style="padding:0;">';
+
+  // Renderers pro Section
+  if (section === 'kompost') {
+    html += _gsWave9RenderCompost(r, ed);
+  } else if (section === 'vermehrung') {
+    html += _gsWave9RenderPropagation(r, ed);
+  } else if (section === 'bodenpflege') {
+    html += _gsWave9RenderSoilAmend(r, ed);
+  } else if (section === 'heilpflanzen') {
+    html += _gsWave9RenderMedicinal(r, ed);
+  }
+
+  html += '</div>';
+  mc.innerHTML = html;
+  if (typeof openModal === 'function') openModal('detail-modal');
+};
+
+function _gsWave9HeaderHtml(emoji, title, subtitle, gradient, ed) {
+  return '<div style="background:' + gradient + ';padding:22px 20px;color:#fff;position:relative;">' +
+    '<button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.22);color:#fff;font-size:18px;cursor:pointer;">×</button>' +
+    '<div style="font-size:36px;margin-bottom:6px;">' + emoji + '</div>' +
+    '<div style="font-family:\'Playfair Display\',serif;font-size:20px;font-weight:900;">' + ed(title) + '</div>' +
+    (subtitle ? '<div style="font-size:12.5px;opacity:.92;margin-top:3px;line-height:1.45;">' + ed(subtitle) + '</div>' : '') +
+  '</div>';
+}
+
+function _gsWave9ListSection(label, arr, ed, colorAccent) {
+  if (!Array.isArray(arr) || !arr.length) return '';
+  return '<div style="margin-top:12px;padding:10px 12px;background:' + (colorAccent || 'var(--surface2)') + ';border-radius:10px;">' +
+    '<div style="font-size:11.5px;font-weight:800;color:var(--text);margin-bottom:5px;letter-spacing:.4px;">' + ed(label) + '</div>' +
+    '<ul style="margin:0;padding-left:18px;font-size:12.5px;line-height:1.6;color:var(--text2);">' +
+      arr.map(function(x){ return '<li>' + ed(String(x)) + '</li>'; }).join('') +
+    '</ul></div>';
+}
+
+function _gsWave9RenderCompost(r, ed) {
+  var html = _gsWave9HeaderHtml('🌱', r.name_de, r.description || '', 'linear-gradient(135deg,#558b2f,#33691e)', ed);
+  html += '<div style="padding:16px 18px 20px;">';
+  html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">' +
+    '<span style="background:#e8f5e9;color:#1b5e20;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">📦 ' + ed(r.method || '') + '</span>' +
+    '<span style="background:#fff8e1;color:#e65100;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">⏱ ' + ed((r.duration_weeks_min||'?') + '-' + (r.duration_weeks_max||'?') + ' Wochen') + '</span>' +
+    '<span style="background:#e3f2fd;color:#01579b;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">💪 ' + ed(r.difficulty || '') + '</span>' +
+    (r.space_needed_m2 ? '<span style="background:#f3e5f5;color:#4527a0;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">📏 ' + ed(r.space_needed_m2 + ' m²') + '</span>' : '') +
+    '</div>';
+  html += _gsWave9ListSection('Braunes Material', r.inputs_browns, ed, '#fff3e0');
+  html += _gsWave9ListSection('Grünes Material', r.inputs_greens, ed, '#e8f5e9');
+  if (r.ratio_browns_greens) html += '<div style="margin-top:8px;font-size:12px;color:var(--text2);"><b>Verhältnis Braun:Grün:</b> ' + ed(r.ratio_browns_greens) + '</div>';
+  if (r.ideal_temperature_c) html += '<div style="margin-top:4px;font-size:12px;color:var(--text2);"><b>Ideal-Temp:</b> ' + ed(r.ideal_temperature_c) + '°C · <b>Feuchte:</b> ' + ed(r.moisture_target || '?') + ' · <b>pH:</b> ' + ed(r.ph_target || '?') + '</div>';
+  // monthly_steps jsonb
+  if (r.monthly_steps && typeof r.monthly_steps === 'object') {
+    var keys = Object.keys(r.monthly_steps).sort();
+    if (keys.length) {
+      html += '<div style="margin-top:12px;font-size:11.5px;font-weight:800;color:var(--text);">📅 Monats-Schritte</div>';
+      html += '<div style="margin-top:4px;">';
+      keys.forEach(function(k){
+        var v = r.monthly_steps[k];
+        html += '<div style="padding:6px 10px;margin-top:4px;background:var(--surface2);border-radius:8px;font-size:12px;color:var(--text2);"><b>' + ed(k) + ':</b> ' + ed(String(v)) + '</div>';
+      });
+      html += '</div>';
+    }
+  }
+  if (r.troubleshooting && typeof r.troubleshooting === 'object') {
+    var tkeys = Object.keys(r.troubleshooting);
+    if (tkeys.length) {
+      html += '<div style="margin-top:12px;padding:10px 12px;background:#fff3e0;border:1px solid #ffb74d;border-radius:10px;">';
+      html += '<div style="font-size:11.5px;font-weight:800;color:#e65100;margin-bottom:5px;">⚠️ Wenn etwas schiefläuft</div>';
+      tkeys.forEach(function(k){
+        html += '<div style="font-size:12px;color:#bf360c;line-height:1.5;margin-top:3px;"><b>' + ed(k) + ':</b> ' + ed(String(r.troubleshooting[k])) + '</div>';
+      });
+      html += '</div>';
+    }
+  }
+  if (r.output_quality) html += '<div style="margin-top:10px;padding:8px 12px;background:#e8f5e9;border-radius:9px;font-size:12px;color:#1b5e20;"><b>📦 Output-Qualität:</b> ' + ed(r.output_quality) + '</div>';
+  if (r.best_for_garden) html += '<div style="margin-top:4px;font-size:12px;color:var(--text2);"><b>Ideal für:</b> ' + ed(r.best_for_garden) + '</div>';
+  if (r.source) html += '<div style="margin-top:14px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(r.source) + '</div>';
+  html += '</div>';
+  return html;
+}
+
+function _gsWave9RenderPropagation(r, ed) {
+  var html = _gsWave9HeaderHtml('✂️', r.name_de, r.description || '', 'linear-gradient(135deg,#5e35b1,#3f1f7a)', ed);
+  html += '<div style="padding:16px 18px 20px;">';
+  html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">' +
+    '<span style="background:#ede7f6;color:#311b92;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">🌱 ' + ed(r.method_type || '') + '</span>' +
+    '<span style="background:#e8f5e9;color:#1b5e20;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">✅ Erfolg ' + ed(r.success_rate_pct || '?') + '%</span>' +
+    '<span style="background:#fff8e1;color:#e65100;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">💪 ' + ed(r.difficulty || '') + '</span>' +
+    (r.duration_weeks ? '<span style="background:#e3f2fd;color:#01579b;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">⏱ ' + ed(r.duration_weeks) + '</span>' : '') +
+    '</div>';
+  if (r.best_season && r.best_season.length) html += '<div style="margin-top:4px;font-size:12px;color:var(--text2);"><b>Beste Saison:</b> ' + ed((r.best_season || []).join(', ')) + '</div>';
+  if (r.temperature_min_c != null) html += '<div style="margin-top:4px;font-size:12px;color:var(--text2);"><b>Temperatur:</b> ' + ed(r.temperature_min_c + '–' + (r.temperature_max_c||'?') + '°C') + ' · <b>Licht:</b> ' + ed(r.light_requirement || '?') + ' · <b>Luftfeuchte:</b> ' + ed(r.humidity_pct || '?') + '</div>';
+  html += _gsWave9ListSection('Geeignete Pflanzen', r.applicable_plants, ed, '#e8f5e9');
+  html += _gsWave9ListSection('NICHT für', r.not_for_plants, ed, '#ffebee');
+  html += _gsWave9ListSection('Werkzeuge', r.required_tools, ed);
+  if (r.required_substrate) html += '<div style="margin-top:6px;font-size:12px;color:var(--text2);"><b>Substrat:</b> ' + ed(r.required_substrate) + '</div>';
+  // step_by_step jsonb (array of steps oder object)
+  if (r.step_by_step) {
+    var steps = Array.isArray(r.step_by_step) ? r.step_by_step
+                : (typeof r.step_by_step === 'object') ? Object.keys(r.step_by_step).sort().map(function(k){ return { step: k, text: r.step_by_step[k] }; })
+                : [];
+    if (steps.length) {
+      html += '<div style="margin-top:12px;font-size:11.5px;font-weight:800;color:var(--text);">📝 Schritt-für-Schritt</div>';
+      steps.forEach(function(s, i){
+        var t = (typeof s === 'string') ? s : (s.text || s.step || JSON.stringify(s));
+        html += '<div style="padding:8px 11px;margin-top:5px;background:var(--surface2);border-left:3px solid #5e35b1;border-radius:8px;font-size:12.5px;color:var(--text2);line-height:1.5;"><b>' + (i+1) + '.</b> ' + ed(String(t)) + '</div>';
+      });
+    }
+  }
+  html += _gsWave9ListSection('💡 Tipps', r.tips, ed, '#e8f5e9');
+  html += _gsWave9ListSection('⚠️ Häufige Fehler', r.common_mistakes, ed, '#fff3e0');
+  if (r.source) html += '<div style="margin-top:14px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(r.source) + '</div>';
+  html += '</div>';
+  return html;
+}
+
+function _gsWave9RenderSoilAmend(r, ed) {
+  var html = _gsWave9HeaderHtml('🪨', r.name_de, r.description || '', 'linear-gradient(135deg,#6d4c41,#3e2723)', ed);
+  html += '<div style="padding:16px 18px 20px;">';
+  html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">' +
+    '<span style="background:#efebe9;color:#3e2723;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">📦 ' + ed(r.category || '') + '</span>' +
+    '<span style="background:#fff8e1;color:#e65100;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">⚗️ pH ' + ed(r.ph_effect || 'neutral') + '</span>' +
+    (r.swiss_availability ? '<span style="background:#e3f2fd;color:#01579b;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">🇨🇭 ' + ed(r.swiss_availability) + '</span>' : '') +
+    '</div>';
+  // NPK + Mineral-Zusammensetzung
+  var nutrients = [];
+  if (r.n_pct != null) nutrients.push('N ' + r.n_pct + '%');
+  if (r.p_pct != null) nutrients.push('P ' + r.p_pct + '%');
+  if (r.k_pct != null) nutrients.push('K ' + r.k_pct + '%');
+  if (r.ca_pct != null) nutrients.push('Ca ' + r.ca_pct + '%');
+  if (r.mg_pct != null) nutrients.push('Mg ' + r.mg_pct + '%');
+  if (nutrients.length) html += '<div style="padding:8px 12px;background:#e8f5e9;border-radius:9px;margin-bottom:8px;font-size:12px;color:#1b5e20;"><b>Nährstoffe:</b> ' + ed(nutrients.join(' · ')) + '</div>';
+
+  if (r.best_for_soil) html += '<div style="margin-top:6px;font-size:12px;color:var(--text2);"><b>Geeignet für:</b> ' + ed(r.best_for_soil) + '</div>';
+  if (r.application_rate) html += '<div style="margin-top:4px;font-size:12px;color:var(--text2);"><b>Anwendungsmenge:</b> ' + ed(r.application_rate) + '</div>';
+  if (r.application_timing) html += '<div style="margin-top:4px;font-size:12px;color:var(--text2);"><b>Wann anwenden:</b> ' + ed(r.application_timing) + '</div>';
+  if (r.effect_duration) html += '<div style="margin-top:4px;font-size:12px;color:var(--text2);"><b>Wirkdauer:</b> ' + ed(r.effect_duration) + '</div>';
+  if (r.cost_chf_per_kg) html += '<div style="margin-top:4px;font-size:12px;color:var(--text2);"><b>Preis (CHF/kg):</b> ' + ed(r.cost_chf_per_kg) + '</div>';
+  html += _gsWave9ListSection('Kombiniert gut mit', r.works_well_with, ed, '#e8f5e9');
+  html += _gsWave9ListSection('NICHT kombinieren mit', r.do_not_combine, ed, '#ffebee');
+  if (r.warnings) {
+    html += '<div style="margin-top:12px;padding:10px 12px;background:#ffebee;border:1px solid #ef5350;border-radius:10px;font-size:12px;color:#c62828;line-height:1.5;"><b>⚠️ Achtung:</b> ' + ed(r.warnings) + '</div>';
+  }
+  if (r.source) html += '<div style="margin-top:14px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(r.source) + '</div>';
+  html += '</div>';
+  return html;
+}
+
+function _gsWave9RenderMedicinal(r, ed) {
+  var hasWarn = (r.contraindications && r.contraindications.length) || r.toxicity_notes;
+  var gradient = hasWarn ? 'linear-gradient(135deg,#558b2f,#33691e)' : 'linear-gradient(135deg,#558b2f,#1b5e20)';
+  var html = _gsWave9HeaderHtml('🌿', r.common_name_de, r.scientific_name, gradient, ed);
+  html += '<div style="padding:16px 18px 20px;">';
+  // Badges
+  html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">' +
+    (r.evidence_level ? '<span style="background:#e8f5e9;color:#1b5e20;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">📊 Evidenz: ' + ed(r.evidence_level) + '</span>' : '') +
+    (r.swiss_native ? '<span style="background:#e3f2fd;color:#01579b;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">🇨🇭 CH-heimisch</span>' : '') +
+    (r.protected_species ? '<span style="background:#ffebee;color:#c62828;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">🛡️ Geschützt</span>' : '') +
+    (r.family ? '<span style="background:#f3e5f5;color:#4527a0;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">' + ed(r.family) + '</span>' : '') +
+    '</div>';
+
+  // WICHTIG: Warnungen ZUERST und PROMINENT
+  if (r.contraindications && r.contraindications.length) {
+    html += '<div style="margin-top:8px;padding:12px 14px;background:#ffebee;border:2px solid #c62828;border-radius:12px;">';
+    html += '<div style="font-size:13px;font-weight:900;color:#c62828;margin-bottom:6px;letter-spacing:.4px;">⛔ KONTRAINDIKATIONEN</div>';
+    html += '<ul style="margin:0;padding-left:18px;font-size:12.5px;line-height:1.6;color:#b71c1c;">';
+    r.contraindications.forEach(function(c){ html += '<li><b>' + ed(c) + '</b></li>'; });
+    html += '</ul></div>';
+  }
+  if (r.drug_interactions && r.drug_interactions.length) {
+    html += '<div style="margin-top:8px;padding:11px 14px;background:#fff3e0;border:1.5px solid #e65100;border-radius:12px;">';
+    html += '<div style="font-size:12.5px;font-weight:900;color:#e65100;margin-bottom:5px;">⚠️ Wechselwirkungen mit Medikamenten</div>';
+    html += '<ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.6;color:#bf360c;">';
+    r.drug_interactions.forEach(function(c){ html += '<li>' + ed(c) + '</li>'; });
+    html += '</ul></div>';
+  }
+  if (r.toxicity_notes) {
+    html += '<div style="margin-top:8px;padding:10px 12px;background:#fff8e1;border:1.5px solid #f57f17;border-radius:11px;font-size:12px;color:#bf360c;line-height:1.5;"><b>☠️ Toxizität:</b> ' + ed(r.toxicity_notes) + '</div>';
+  }
+
+  // Verwendung
+  html += _gsWave9ListSection('Verwendete Pflanzenteile', r.used_parts, ed, '#e8f5e9');
+  html += _gsWave9ListSection('Hauptwirkstoffe', r.primary_compounds, ed, '#e3f2fd');
+  if (r.secondary_compounds && r.secondary_compounds.length) html += _gsWave9ListSection('Begleitwirkstoffe', r.secondary_compounds, ed);
+  html += _gsWave9ListSection('Traditionelle Anwendung', r.traditional_uses, ed, '#f3e5f5');
+  html += _gsWave9ListSection('Klinisch belegte Anwendung', r.evidence_based_uses, ed, '#e8f5e9');
+  html += _gsWave9ListSection('Zubereitung', r.preparation_methods, ed);
+
+  if (r.dosage_general) html += '<div style="margin-top:8px;padding:9px 12px;background:#e3f2fd;border-radius:10px;font-size:12.5px;color:#01579b;"><b>💊 Dosierung:</b> ' + ed(r.dosage_general) + '</div>';
+  if (r.best_harvest_month && r.best_harvest_month.length) html += '<div style="margin-top:6px;font-size:12px;color:var(--text2);"><b>📅 Beste Erntezeit:</b> ' + ed((r.best_harvest_month || []).join(', ')) + (r.best_harvest_part_timing ? ' — ' + ed(r.best_harvest_part_timing) : '') + '</div>';
+  if (r.swiss_legal_status) html += '<div style="margin-top:6px;font-size:12px;color:var(--text2);"><b>📍 Schweizer Rechtslage:</b> ' + ed(r.swiss_legal_status) + '</div>';
+  if (r.conservation_status) html += '<div style="margin-top:4px;font-size:12px;color:var(--text2);"><b>🌍 Schutzstatus:</b> ' + ed(r.conservation_status) + '</div>';
+  if (r.cultivation_notes) html += '<div style="margin-top:6px;font-size:12px;color:var(--text2);"><b>🌱 Anbau:</b> ' + ed(r.cultivation_notes) + '</div>';
+
+  // Footer-Disclaimer
+  html += '<div style="margin-top:14px;padding:9px 12px;background:#fffde7;border:1px dashed #fbc02d;border-radius:9px;font-size:10.5px;color:#827717;line-height:1.5;text-align:center;"><b>Hinweis:</b> Keine medizinische Beratung. Bei Beschwerden bitte Arzt oder Apotheker fragen. Heilpflanzen ersetzen keine Behandlung.</div>';
+  if (r.source) html += '<div style="margin-top:8px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(r.source) + '</div>';
+  html += '</div>';
+  return html;
+}
+
 window.gsRenderKnowledge = async function(section) {
   var el = document.getElementById('wissen-content');
   if (!el) return;
@@ -45806,6 +46148,28 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.23', date: '22.05.2026',
+    headline: '📚 Wissen-Tab wächst — Kompost · Vermehrung · Boden · Heilpflanzen',
+    summary: 'Cowork-Auftrag v26.23. DB-Wave-9 brachte 4 neue kuratierte Tabellen (compost_recipes, propagation_methods, soil_amendments, medicinal_plants_register) — diese Sprint baut die UI dazu: 4 neue Sub-Tabs im Wissen-Bereich mit Filter-Pills nach Kategorie + Detail-Modals mit allen Feldern (NPK-Werte, Schritt-Anleitungen, JSON-Parser für monthly_steps / step_by_step / troubleshooting). Heilpflanzen-Renderer mit PROMINENT-roter Kontraindikations-Box (rechtssicher).',
+    user_summary: '📚 4 neue Wissens-Sektionen: Kompostieren, Pflanzen-Vermehrung, Boden verbessern und Heilpflanzen — alles aus Schweizer Quellen kuratiert.',
+    user_items: [
+      { emoji: '🌱', text: 'Kompostieren: 8+ Methoden von Heiß- bis Wurmkompost mit Monats-Schritten und Troubleshooting' },
+      { emoji: '✂️', text: 'Vermehrung: 12 Methoden mit Erfolgsrate, Schritt-für-Schritt und Werkzeug-Liste' },
+      { emoji: '🪨', text: 'Boden-Pflege: 15 Bodenverbesserer mit NPK-Werten und pH-Effekt' },
+      { emoji: '🌿', text: 'Heilpflanzen-Register: 15 CH-Heilpflanzen mit Wirkstoffen + Warnungen (Kontraindikationen, Wechselwirkungen, Schwangerschaft)' },
+    ],
+    items: [
+      {emoji:'🧩', bold:'4 neue Nav-Buttons:', text:' Kompostieren / Vermehrung / Boden-Pflege / Heilpflanzen in #wissen-nav.'},
+      {emoji:'🎨', bold:'gsRenderWissenWave9 generic:', text:' Eine Renderer-Function für alle 4 Sections mit configs[]-Map (Tabelle, Order, Title-Field, Category-Field, Card-Emoji, Card-Sub-Builder, optionaler Card-Accent). 10min-In-Memory-Cache pro Section.'},
+      {emoji:'🔖', bold:'Filter-Pills:', text:' Distinct categoryField-Werte mit Counts. "Alle (N)" + N Kategorie-Pills. Active-State auf gewähltem Filter.'},
+      {emoji:'📋', bold:'Card-Layout:', text:' Emoji + Titel + Sub (Methode/Erfolg/Schwierigkeit) + Description-Snippet (140 chars) + Chevron. Click → openModal(detail-modal).'},
+      {emoji:'🔬', bold:'4 spezifische Render-Funktionen:', text:' _gsWave9RenderCompost (Badges + Inputs-Listen + Verhältnis + Monats-Steps + Troubleshooting), _gsWave9RenderPropagation (Badges + Pflanzen-Listen + Steps-jsonb + Tipps), _gsWave9RenderSoilAmend (NPK-Tag + Anwendung + Warnungen), _gsWave9RenderMedicinal (Kontraindikationen ZUERST rot, Wechselwirkungen orange, Toxizität gelb, dann Verwendung + Dosierung + Disclaimer).'},
+      {emoji:'⚠️', bold:'Heilpflanzen-Rechtssicherheit:', text:' Kontraindikationen (rote Box, fett), Drug-Interactions (orange Box), Toxizität (gelbe Box), Disclaimer-Footer "Keine medizinische Beratung" am Ende.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.24 Pest-Filter im KI-Planer. v26.25 Bodenverbesserer-Recommender. v26.26 Heilpflanzen-Profile im Pflanzen-Detail.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 inline-scripts node --check OK · sw.js gs-v26.23 OK · 4 neue Wissen-Tabs verdrahtet.'},
+    ]
+  },
+  {
     v: 'v26.22', date: '22.05.2026',
     headline: '🪴 AR-Vorschau — Sieh deine Pflanzen in 3D im Browser',
     summary: 'Cowork-Auftrag v26.18. Three.js basierter 3D-View für 30 Seed-Pflanzen aus ar_models. Da gltf_url=NULL: prozedurale Fallback-Geometrie (Stamm + Krone mit form/höhe/farbe-Variation pro Spezies). 30 species-spezifische Krone-Farben (Tomate rot, Lavendel violett, etc.). Eigene Drag/Pinch/Wheel-Pointer-Logic statt OrbitControls — spart externe Abhängigkeit + CSP-Issues. Memory-Leak-frei via _gsARDispose beim Modal-Close.',
@@ -47466,7 +47830,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.22';
+var GS_VERSION = 'v26.23';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
