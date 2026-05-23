@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.42.20260523">
+<meta name="app-version" content="26.43.20260524">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4344,6 +4344,8 @@ html, body{ scroll-behavior: smooth; }
     <button class="recipe-cat" onclick="showWissen('wasser',this)" data-i18n="wissen_water" data-i18n-fallback="💧 Wassergarten">💧 Wassergarten</button>
     <!-- v26.42: 8. Sub-Tab — Vögel (garden_birds_register) -->
     <button class="recipe-cat" onclick="showWissen('voegel',this)" data-i18n="wissen_birds" data-i18n-fallback="🦜 Vögel">🦜 Vögel</button>
+    <!-- v26.43: 9. Sub-Tab — Alpenpflanzen (alpine_garden_plants) -->
+    <button class="recipe-cat" onclick="showWissen('alpen',this)" data-i18n="wissen_alpine" data-i18n-fallback="🏔️ Alpen">🏔️ Alpen</button>
   </div>
 
   <!-- Content -->
@@ -33851,6 +33853,33 @@ window.gsRenderWissenWave9 = async function(section) {
         return null;
       },
       emptyMsg: 'Noch keine Vögel in der DB.'
+    },
+    // v26.43 Wave-13: Alpenpflanzen — alpine_garden_plants
+    // Sort: altitude_m_min ASC (niedrige zuerst), Eisenhut TÖDLICH-Warnung prominent
+    alpen: {
+      table: 'alpine_garden_plants', order: 'altitude_m_min,common_name_de',
+      titleField: 'common_name_de', categoryField: 'habitat_type',
+      cardEmoji: '🏔️',
+      cardSub: function(r){
+        var alt = (r.altitude_m_min != null) ? r.altitude_m_min + '-' + (r.altitude_m_max || '?') + 'm' : '';
+        var bits = [r.scientific_name || ''];
+        if (alt) bits.push(alt);
+        if (r.protected_species) bits.push('🔒 geschützt');
+        if (r.swiss_native) bits.push('🇨🇭');
+        return bits.filter(Boolean).join(' · ');
+      },
+      cardAccent: function(r){
+        // Tödlich-Pflanzen (Eisenhut) → rot
+        var w = String(r.warnings || '').toLowerCase();
+        if (w.indexOf('tödlich') >= 0 || w.indexOf('toedlich') >= 0 || String(r.slug).indexOf('eisenhut') >= 0) return '#b71c1c';
+        // Geschützt → orange
+        if (r.protected_species) return '#e65100';
+        // Gefährdet (Rote Liste) → gelb
+        var rl = String(r.red_list_status || '').toLowerCase();
+        if (rl.indexOf('gef') >= 0 || rl.indexOf('verletzlich') >= 0) return '#f9a825';
+        return null;
+      },
+      emptyMsg: 'Noch keine Alpenpflanzen in der DB.'
     }
   };
   var cfg = configs[section];
@@ -33951,6 +33980,8 @@ window.gsWave9OpenDetail = function(section, slug) {
     html += _gsWave9RenderWater(r, ed);
   } else if (section === 'voegel') {
     html += _gsWave9RenderBird(r, ed);
+  } else if (section === 'alpen') {
+    html += _gsWave9RenderAlpine(r, ed);
   }
 
   html += '</div>';
@@ -34315,6 +34346,89 @@ function _gsWave9RenderBird(r, ed) {
 
   // Fun-Fact
   if (r.fun_fact) html += '<div style="margin-top:10px;padding:9px 12px;background:#fff3e0;border-radius:9px;font-size:11.5px;color:#bf360c;line-height:1.55;"><b>💡 Wusstest du?</b> ' + ed(r.fun_fact) + '</div>';
+
+  if (r.source) html += '<div style="margin-top:12px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(r.source) + '</div>';
+  html += '</div>';
+  return html;
+}
+
+// v26.43 Detail-Renderer für alpine_garden_plants
+function _gsWave9RenderAlpine(r, ed) {
+  var w = String(r.warnings || '').toLowerCase();
+  var isToxic = w.indexOf('tödlich') >= 0 || w.indexOf('toedlich') >= 0 || String(r.slug || '').indexOf('eisenhut') >= 0;
+  var isProtected = r.protected_species === true;
+  var rl = String(r.red_list_status || '').toLowerCase();
+  var isEndangered = rl.indexOf('gef') >= 0 || rl.indexOf('verletzlich') >= 0 || rl.indexOf('aussterben') >= 0;
+  var gradient = isToxic ? 'linear-gradient(135deg,#b71c1c,#7f0000)'
+              : isProtected ? 'linear-gradient(135deg,#e65100,#bf360c)'
+              : 'linear-gradient(135deg,#01579b,#0d47a1)';
+
+  var html = _gsWave9HeaderHtml('🏔️', r.common_name_de, r.scientific_name + (r.family ? ' · ' + r.family : ''), gradient, ed);
+
+  // Tödlich-Banner ZUERST bei Eisenhut & Co
+  if (isToxic) {
+    html += '<div style="background:#b71c1c;color:#fff;padding:13px 16px;text-align:center;font-weight:900;font-size:13.5px;letter-spacing:.3px;line-height:1.5;">' +
+      '☠️ TÖDLICH GIFTIG — alle Pflanzenteile!<br>' +
+      '<span style="font-size:11.5px;font-weight:700;">Bei Verzehr-Verdacht ☎️ <a href="tel:145" style="color:#fff;text-decoration:underline;">Tox-Info 145</a> (24/7)</span>' +
+    '</div>';
+  }
+  // Schutz-Banner bei protected_species
+  if (isProtected && !isToxic) {
+    html += '<div style="background:#e65100;color:#fff;padding:10px 16px;text-align:center;font-weight:800;font-size:12.5px;line-height:1.5;">' +
+      '🔒 GESCHÜTZT — Pflücken/Ausgraben in CH verboten (NHG)' +
+    '</div>';
+  }
+
+  html += '<div style="padding:16px 18px 20px;">';
+
+  // Höhenband (prominent als grosser Badge)
+  if (r.altitude_m_min != null || r.altitude_m_max != null) {
+    html += '<div style="display:inline-block;background:#01579b;color:#fff;padding:6px 14px;border-radius:9px;font-size:13px;font-weight:800;margin-bottom:10px;">' +
+      '⛰ ' + (r.altitude_m_min || '?') + '-' + (r.altitude_m_max || '?') + ' m ü.M.</div>';
+  }
+
+  // Badges
+  var badges = '';
+  if (r.swiss_native) badges += '<span style="background:#e8f5e9;color:#1b5e20;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🇨🇭 CH-heimisch</span>';
+  if (r.habitat_type) badges += '<span style="background:#e3f2fd;color:#01579b;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🌄 ' + ed(r.habitat_type) + '</span>';
+  if (r.red_list_status && r.red_list_status !== 'nicht gefährdet') badges += '<span style="background:#ffebee;color:#b71c1c;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">⚠ ' + ed(r.red_list_status) + '</span>';
+  if (r.cultivation_difficulty) badges += '<span style="background:#fff8e1;color:#827717;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🎯 ' + ed(r.cultivation_difficulty) + '</span>';
+  if (badges) html += '<div style="margin-bottom:10px;">' + badges + '</div>';
+
+  // Eckdaten kompakt
+  var specs = [];
+  if (r.exposition) specs.push('☀ ' + r.exposition);
+  if (r.water_need) specs.push('💧 ' + r.water_need);
+  if (r.ph_preference) specs.push('🧪 pH ' + r.ph_preference);
+  if (r.soil_preference) specs.push('🪨 ' + r.soil_preference);
+  if (r.hardiness_to_celsius != null) specs.push('❄ bis ' + r.hardiness_to_celsius + '°C');
+  if (specs.length) html += '<div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:8px;">' + ed(specs.join(' · ')) + '</div>';
+
+  // Wuchsform
+  var growth = [];
+  if (r.height_cm != null) growth.push('↕ ' + r.height_cm + ' cm hoch');
+  if (r.spread_cm != null) growth.push('↔ ' + r.spread_cm + ' cm breit');
+  if (Array.isArray(r.bloom_months) && r.bloom_months.length) growth.push('🌸 Monate ' + r.bloom_months.join(','));
+  if (r.flower_color) growth.push('🎨 ' + r.flower_color);
+  if (growth.length) html += '<div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:8px;">' + ed(growth.join(' · ')) + '</div>';
+
+  // Garten-Eignung
+  if (r.garden_suitability) html += '<div style="margin-top:10px;padding:10px 12px;background:#e8f5e9;border-left:3px solid #2e7d32;border-radius:9px;font-size:12px;color:#1b5e20;line-height:1.55;"><b>🌿 Garten-Eignung:</b> ' + ed(r.garden_suitability) + '</div>';
+  if (r.rock_garden_role) html += '<div style="margin-top:6px;padding:9px 11px;background:#efebe9;border-left:3px solid #6d4c41;border-radius:9px;font-size:11.5px;color:#4e342e;line-height:1.5;"><b>🪨 Steingarten-Rolle:</b> ' + ed(r.rock_garden_role) + '</div>';
+
+  // Kultivierungs-Notizen
+  if (r.cultivation_notes) html += '<div style="margin-top:8px;padding:10px 12px;background:#e0f7fa;border-left:3px solid #00838f;border-radius:9px;font-size:12px;color:#004d40;line-height:1.55;"><b>🌱 Kultivierung:</b> ' + ed(r.cultivation_notes) + '</div>';
+
+  // Companion-Plants
+  if (Array.isArray(r.companion_plants) && r.companion_plants.length) html += _gsWave9ListSection('🤝 Gute Begleiter', r.companion_plants, ed, '#e8f5e9');
+
+  // Warnungen prominent
+  if (r.warnings) html += '<div style="margin-top:10px;padding:11px 13px;background:' + (isToxic ? '#ffebee' : '#fff3e0') + ';border:1.5px solid ' + (isToxic ? '#c62828' : '#e65100') + ';border-radius:10px;font-size:12px;color:' + (isToxic ? '#b71c1c' : '#bf360c') + ';line-height:1.55;font-weight:' + (isToxic ? '700' : '500') + ';"><b>⚠ Warnung:</b> ' + ed(r.warnings) + '</div>';
+
+  // Schutz-Disclaimer wenn protected
+  if (isProtected) {
+    html += '<div style="margin-top:10px;padding:9px 12px;background:#ede7f6;border:1.5px solid #5e35b1;border-radius:10px;font-size:11.5px;color:#311b92;line-height:1.55;"><b>📋 Schweizer Naturschutz:</b> Wildpflanzen dieser Art dürfen nicht gepflückt, ausgegraben oder beschädigt werden. Kauf nur aus zertifiziertem Anbau (Gärtnerei mit Alpinpflanzen-Lizenz).</div>';
+  }
 
   if (r.source) html += '<div style="margin-top:12px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(r.source) + '</div>';
   html += '</div>';
@@ -48764,6 +48878,28 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.43', date: '24.05.2026',
+    headline: '🏔️ Alpenpflanzen-Sub-Tab — 12 CH-Alpenklassiker mit Eisenhut-Lebensgefahr-Warnung',
+    summary: 'Cowork-Auftrag v26.43 (Sprint 1/5 von Pentagon-Sprint #3). 9. Wissen-Sub-Tab "🏔️ Alpen". 12 alpine_garden_plants aus DB-Wave-13 inkl. Eisenhut (TÖDLICH GIFTIG), Edelweiss (geschützt), Enzian, Soldanelle, Arnika (geschützt). Card-Accent rot bei toxic (Eisenhut), orange bei protected, gelb bei Rote-Liste-Status. Detail-Modal mit Toedlich-Banner + tel:145 ZUERST + Schutz-Banner mit NHG-Hinweis + Höhenband-Badge prominent + Steingarten-Rolle + Companion-Plants.',
+    user_summary: '🏔️ Im Wissen-Tab gibt es jetzt einen Sub-Tab "🏔️ Alpen" mit 12 Schweizer Alpenklassikern (Edelweiss, Enzian, Soldanelle, Arnika, …). Eisenhut wird mit roter Lebensgefahr-Warnung + Tox-Info-145 angezeigt. Geschützte Arten haben einen orangen "🔒 GESCHÜTZT"-Banner (Pflücken in CH verboten). Pro Pflanze: Höhenband, Standort, Härtegrad, Garten-Eignung.',
+    user_items: [
+      { emoji: '⛰', text: 'Höhenband-Badge prominent (z.B. "1500-3400m ü.M.") in der Card-Sub und im Detail' },
+      { emoji: '☠️', text: 'Eisenhut: roter Vollbild-Banner "TÖDLICH GIFTIG" + tel:145 Notruf' },
+      { emoji: '🔒', text: 'Geschützte Arten (Edelweiss/Arnika): oranger Banner mit NHG-Schutz-Hinweis' },
+      { emoji: '🌿', text: 'Steingarten-Rolle + Garten-Eignung pro Pflanze' },
+    ],
+    items: [
+      {emoji:'🧩', bold:'9. Wave-9 Sub-Tab:', text:' #wissen-nav um "🏔️ Alpen" Button erweitert. Dispatch via showWissen("alpen") → gsRenderWissenWave9 → configs[alpen] (table=alpine_garden_plants, order=altitude_m_min,common_name_de).'},
+      {emoji:'📋', bold:'Filter-Pills:', text:' categoryField=habitat_type (Distinct: alpenmatte / alpenrasen / felsspalte / bachufer / felsschutt etc.). Auto-Counts.'},
+      {emoji:'🎨', bold:'Card-Accent:', text:' warnings indexOf "tödlich" OR slug indexOf "eisenhut" → #b71c1c (rot); protected_species=true → #e65100 (orange); red_list_status gefährdet/verletzlich → #f9a825 (gelb). Card-Sub mit scientific_name + Höhenband + 🔒 bei protected + 🇨🇭 bei native.'},
+      {emoji:'☠️', bold:'Toedlich-Banner (_gsWave9RenderAlpine):', text:' Bei isToxic ZUERST roter Vollbild-Banner "☠️ TÖDLICH GIFTIG — alle Pflanzenteile!" mit tel:145-Link.'},
+      {emoji:'🔒', bold:'Schutz-Banner:', text:' Bei isProtected oranger Banner "GESCHÜTZT — Pflücken/Ausgraben in CH verboten (NHG)".'},
+      {emoji:'🎨', bold:'Detail-Layout:', text:' Höhenband als grosser blauer Badge (#01579b). Badges (CH-heimisch + habitat_type + Rote-Liste-Status + cultivation_difficulty). Eckdaten kompakt (Exposition/Wasser/pH/Boden/Härte-Celsius). Wuchsform (Höhe/Breite/Blütezeit/Farbe). Garten-Eignung grün + Steingarten-Rolle braun. Kultivierungs-Notizen cyan. Companion-Plants (grüne List-Section). Warnungen prominent rot bei toxic, orange sonst. Schutz-Disclaimer lila bei protected.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.44 Forest-Garden Designer mit 7-Schichten-SVG, v26.45 Indoor-Pflanzen-Tab, v26.46 Urban-Balkon-Wizard, v26.47 Token-Cost-Widget.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · sw.js gs-v26.43 OK · GS_VERSION=v26.43 OK · _headers v26.43 OK · meta=26.43.20260524 OK.'},
+    ]
+  },
+  {
     v: 'v26.42', date: '23.05.2026',
     headline: '🦜 Vogel-Garten Sub-Tab + Vogel-Garten-Modus im KI-Planer (Pentagon-Sprint #2 fertig)',
     summary: 'Cowork-Auftrag v26.42 (Sprint 5/5 = Pentagon-Sprint #2 v26.38-v26.42 abgeschlossen). 8. Sub-Tab "🦜 Vögel" im Wissen-Tab aktiviert (19 garden_birds_register). Card-Accent nach Rote-Liste-Status (gefährdete rot, verletzlich orange). Detail-Modal mit Lockpflanzen + Futter + Nistkasten + Attracting-Tips + Bedrohungen + Fun-Fact. Plus: KI-Planer Plan-Typ-Picker um 5. Option "🦜 Vogel-Garten" erweitert (bird_friendly intent). Cowork-Ergänzung garden-scan-analyze v4 wird das nutzen.',
@@ -50837,7 +50973,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.42';
+var GS_VERSION = 'v26.43';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
