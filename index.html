@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.46.20260524">
+<meta name="app-version" content="26.47.20260524">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3401,6 +3401,28 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   </div>
 </div>
 
+<!-- ═══ v26.47 TOKEN-COST-WIDGET ADMIN-MODAL (ai_daily_usage Dashboard) ═══ -->
+<div class="modal-overlay" id="modal-token-cost" onclick="if(event.target===this)closeModal('modal-token-cost')">
+  <div class="modal" style="position:relative;max-height:94vh;overflow-y:auto;">
+    <div class="mhandle"></div>
+    <button class="modal-close-btn" onclick="closeModal('modal-token-cost')" aria-label="Schliessen">&#x2715;</button>
+    <div class="mhdr" style="background:linear-gradient(135deg,#00838f,#006064);color:#fff;">
+      <span class="memoji">📊</span>
+      <div>
+        <h2 style="color:#fff;">KI-Nutzung &amp; Kosten</h2>
+        <p style="color:rgba(255,255,255,.85);">Anthropic-Token-Usage pro Edge-Fn (admin-only)</p>
+      </div>
+    </div>
+    <div style="padding:14px 18px 6px;display:flex;gap:6px;">
+      <button id="tk-tab-today" onclick="gsTokenCostSwitchTab('today')" style="flex:1;padding:9px;background:#00838f;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;">📅 Heute</button>
+      <button id="tk-tab-7d" onclick="gsTokenCostSwitchTab('7d')" style="flex:1;padding:9px;background:transparent;color:var(--text2);border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">📈 7-Tage-Trend</button>
+    </div>
+    <div id="token-cost-content" style="padding:8px 18px 20px;min-height:200px;">
+      <div style="padding:30px;text-align:center;color:var(--muted);font-size:13px;">⏳ Lade KI-Nutzung…</div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ v26.44 FOREST-GARDEN DESIGNER MODAL (8 Permakultur-Designs + 7-Schichten-SVG) ═══ -->
 <div class="modal-overlay" id="modal-forest-garden" onclick="if(event.target===this)closeModal('modal-forest-garden')">
   <div class="modal" style="position:relative;max-height:94vh;overflow-y:auto;">
@@ -4696,6 +4718,15 @@ html, body{ scroll-behavior: smooth; }
         <div class="settings-label">
           <div class="settings-label-title">API-Schlüssel</div>
           <div class="settings-label-sub" id="settings-api-status">Wird geprüft…</div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);">›</div>
+      </div>
+      <!-- v26.47: Token-Cost-Widget Admin (ai_daily_usage Dashboard) -->
+      <div class="settings-row admin-only-row" id="settings-token-cost-row" style="display:none;cursor:pointer;" onclick="openTokenCostModal()">
+        <div class="settings-icon" style="background:#e0f7fa;">📊</div>
+        <div class="settings-label">
+          <div class="settings-label-title">KI-Nutzung &amp; Kosten</div>
+          <div class="settings-label-sub" id="settings-token-cost-status">Anthropic-Tokens heute · 7-Tage-Trend</div>
         </div>
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
@@ -43720,6 +43751,181 @@ window.gsBalconyAdoptTemplate = async function(slug) {
   }
 };
 
+// ═════════════════════════════════════════════════════════════════════
+// v26.47 TOKEN-COST-WIDGET ADMIN (ai_daily_usage Dashboard)
+// Migration v26_47 schafft Table public.ai_daily_usage. Cowork ergänzt
+// Edge-Fn-Logging (upsert pro Call). Frontend: admin-only Modal mit
+// Heute-Tab (pro Edge-Fn Tokens/Cost) + 7-Tage-Trend-Tab (Tages-Total).
+// Anthropic Haiku 4.5 Preise: $1/Mio Input · $5/Mio Output (Stand 2026).
+// 1 USD ≈ 0.88 CHF.
+// ═════════════════════════════════════════════════════════════════════
+
+window._gsTokenCostState = { tab: 'today' };
+
+// Haiku 4.5 Preise pro Token (USD)
+var GS_TOKEN_PRICE_IN_USD  = 1 / 1000000;
+var GS_TOKEN_PRICE_OUT_USD = 5 / 1000000;
+var GS_USD_TO_CHF = 0.88;
+
+function gsEstimateCostCHF(tokIn, tokOut) {
+  var usd = (Number(tokIn)||0) * GS_TOKEN_PRICE_IN_USD + (Number(tokOut)||0) * GS_TOKEN_PRICE_OUT_USD;
+  return usd * GS_USD_TO_CHF;
+}
+
+function gsFormatChf(v) {
+  if (v == null || isNaN(v)) return '–';
+  if (v < 0.01) return '<0.01';
+  return v.toFixed(2);
+}
+
+async function openTokenCostModal() {
+  if (typeof openModal === 'function') openModal('modal-token-cost');
+  else document.getElementById('modal-token-cost').classList.add('open');
+  window._gsTokenCostState.tab = 'today';
+  gsTokenCostSwitchTab('today');
+}
+window.openTokenCostModal = openTokenCostModal;
+
+window.gsTokenCostSwitchTab = function(tab) {
+  window._gsTokenCostState.tab = tab;
+  var btnT = document.getElementById('tk-tab-today');
+  var btn7 = document.getElementById('tk-tab-7d');
+  var active = 'background:#00838f;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;flex:1;padding:9px;';
+  var inactive = 'background:transparent;color:var(--text2);border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;flex:1;padding:9px;';
+  if (btnT) btnT.style.cssText = (tab === 'today') ? active : inactive;
+  if (btn7) btn7.style.cssText = (tab === '7d') ? active : inactive;
+  if (tab === '7d') gsTokenCostLoad7d();
+  else gsTokenCostLoadToday();
+};
+
+async function gsTokenCostLoadToday() {
+  var box = document.getElementById('token-cost-content');
+  if (!box) return;
+  box.innerHTML = '<div style="padding:30px;text-align:center;color:var(--muted);font-size:13px;">⏳ Lade heute…</div>';
+  if (typeof sbFetch !== 'function') {
+    box.innerHTML = '<div style="padding:20px;color:#bf360c;text-align:center;">Supabase nicht verfügbar.</div>';
+    return;
+  }
+  try {
+    var today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    var r = await sbFetch('/rest/v1/ai_daily_usage?date=eq.' + today + '&select=*&order=total_tokens_in.desc', { method:'GET' });
+    var rows = (r && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : []);
+    var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+    if (!rows.length) {
+      box.innerHTML = '<div style="padding:30px 18px;text-align:center;color:var(--muted);line-height:1.6;">' +
+        '<div style="font-size:42px;opacity:.25;margin-bottom:8px;">📭</div>' +
+        '<div style="font-size:13px;font-weight:700;color:var(--text2);">Keine Edge-Fn-Calls heute aufgezeichnet.</div>' +
+        '<div style="font-size:11.5px;margin-top:6px;">Cowork ergänzt das Logging in den Edge-Fns. Sobald aktiv, erscheinen hier alle Calls pro Tag.</div>' +
+      '</div>';
+      return;
+    }
+    var totalIn = 0, totalOut = 0, totalCalls = 0;
+    rows.forEach(function(r){ totalIn += r.total_tokens_in || 0; totalOut += r.total_tokens_out || 0; totalCalls += r.call_count || 0; });
+    var totalCost = gsEstimateCostCHF(totalIn, totalOut);
+    var html = '';
+    // Total-Header
+    html += '<div style="padding:14px 16px;background:linear-gradient(135deg,#00838f,#006064);color:#fff;border-radius:12px;margin-bottom:12px;">';
+    html += '<div style="font-size:10.5px;font-weight:800;letter-spacing:.5px;opacity:.85;text-transform:uppercase;margin-bottom:4px;">Heute Total</div>';
+    html += '<div style="font-family:\'Playfair Display\',serif;font-size:26px;font-weight:900;">CHF ' + gsFormatChf(totalCost) + '</div>';
+    html += '<div style="font-size:11.5px;opacity:.92;margin-top:3px;">' +
+      totalCalls + ' Calls · ' + (totalIn/1000).toFixed(1) + 'k Tok In · ' + (totalOut/1000).toFixed(1) + 'k Tok Out' +
+    '</div>';
+    html += '</div>';
+    // Pro Edge-Fn Liste
+    rows.forEach(function(r){
+      var cost = gsEstimateCostCHF(r.total_tokens_in, r.total_tokens_out);
+      html += '<div style="padding:11px 13px;background:var(--card);border:1px solid var(--border);border-left:3px solid #00838f;border-radius:10px;margin-bottom:7px;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;">' +
+          '<div style="font-size:12.5px;font-weight:800;color:var(--text);font-family:monospace;">' + ed(r.edge_fn) + '</div>' +
+          '<div style="font-size:12px;font-weight:900;color:#006064;">CHF ' + gsFormatChf(cost) + '</div>' +
+        '</div>' +
+        '<div style="font-size:11px;color:var(--muted);line-height:1.5;">' +
+          '🔄 ' + (r.call_count || 0) + ' Calls · ⬇ ' + ((r.total_tokens_in||0)/1000).toFixed(1) + 'k Tok · ⬆ ' + ((r.total_tokens_out||0)/1000).toFixed(1) + 'k Tok' +
+        '</div>' +
+      '</div>';
+    });
+    // Footer: Disclaimer
+    html += '<div style="margin-top:12px;padding:8px 11px;background:var(--surface2);border-radius:8px;font-size:10.5px;color:var(--muted);line-height:1.5;text-align:center;">' +
+      '📋 Kosten geschätzt mit Anthropic Haiku 4.5 Pricing: $1/Mio In · $5/Mio Out (USD→CHF ~0.88).' +
+    '</div>';
+    box.innerHTML = html;
+  } catch(e) {
+    box.innerHTML = '<div style="padding:20px;color:#b71c1c;text-align:center;">Fehler: ' + String(e.message || e) + '</div>';
+  }
+}
+window.gsTokenCostLoadToday = gsTokenCostLoadToday;
+
+async function gsTokenCostLoad7d() {
+  var box = document.getElementById('token-cost-content');
+  if (!box) return;
+  box.innerHTML = '<div style="padding:30px;text-align:center;color:var(--muted);font-size:13px;">⏳ Lade 7-Tage-Trend…</div>';
+  if (typeof sbFetch !== 'function') return;
+  try {
+    var fromDate = new Date(); fromDate.setDate(fromDate.getDate() - 6);
+    var fromStr = fromDate.toISOString().slice(0, 10);
+    var r = await sbFetch('/rest/v1/ai_daily_usage?date=gte.' + fromStr + '&select=*&order=date.asc', { method:'GET' });
+    var rows = (r && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : []);
+    var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+    if (!rows.length) {
+      box.innerHTML = '<div style="padding:30px 18px;text-align:center;color:var(--muted);line-height:1.6;">' +
+        '<div style="font-size:42px;opacity:.25;margin-bottom:8px;">📭</div>' +
+        '<div style="font-size:13px;font-weight:700;color:var(--text2);">Keine Daten in den letzten 7 Tagen.</div>' +
+        '<div style="font-size:11.5px;margin-top:6px;">Sobald Cowork das Edge-Fn-Logging aktiviert hat, erscheinen hier alle Calls pro Tag.</div>' +
+      '</div>';
+      return;
+    }
+    // Aggregate pro Tag
+    var perDay = {};
+    rows.forEach(function(r){
+      var d = r.date;
+      if (!perDay[d]) perDay[d] = { tokIn: 0, tokOut: 0, calls: 0, fns: {} };
+      perDay[d].tokIn += r.total_tokens_in || 0;
+      perDay[d].tokOut += r.total_tokens_out || 0;
+      perDay[d].calls += r.call_count || 0;
+      perDay[d].fns[r.edge_fn] = true;
+    });
+    var dates = Object.keys(perDay).sort();
+    var total7d = 0;
+    dates.forEach(function(d){ total7d += gsEstimateCostCHF(perDay[d].tokIn, perDay[d].tokOut); });
+    var html = '';
+    // Header
+    html += '<div style="padding:14px 16px;background:linear-gradient(135deg,#00838f,#006064);color:#fff;border-radius:12px;margin-bottom:12px;">';
+    html += '<div style="font-size:10.5px;font-weight:800;letter-spacing:.5px;opacity:.85;text-transform:uppercase;margin-bottom:4px;">7-Tage-Total</div>';
+    html += '<div style="font-family:\'Playfair Display\',serif;font-size:26px;font-weight:900;">CHF ' + gsFormatChf(total7d) + '</div>';
+    html += '<div style="font-size:11.5px;opacity:.92;margin-top:3px;">Ø CHF ' + gsFormatChf(total7d / dates.length) + '/Tag</div>';
+    html += '</div>';
+    // Mini-Bar-Chart per Tag
+    var maxCost = 0.001;
+    dates.forEach(function(d){
+      var c = gsEstimateCostCHF(perDay[d].tokIn, perDay[d].tokOut);
+      if (c > maxCost) maxCost = c;
+    });
+    html += '<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">📈 Tages-Trend</div>';
+    dates.forEach(function(d){
+      var c = gsEstimateCostCHF(perDay[d].tokIn, perDay[d].tokOut);
+      var pct = Math.max(2, Math.round((c / maxCost) * 100));
+      var dateLbl = new Date(d).toLocaleDateString('de-CH', { weekday: 'short', day: '2-digit', month: '2-digit' });
+      html += '<div style="margin-bottom:7px;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;font-size:11.5px;color:var(--text);margin-bottom:3px;">' +
+          '<span style="font-weight:700;">' + ed(dateLbl) + '</span>' +
+          '<span style="font-weight:800;color:#006064;">CHF ' + gsFormatChf(c) + ' · ' + perDay[d].calls + ' Calls</span>' +
+        '</div>' +
+        '<div style="height:8px;background:var(--surface2);border-radius:4px;overflow:hidden;">' +
+          '<div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,#00bcd4,#00838f);border-radius:4px;"></div>' +
+        '</div>' +
+      '</div>';
+    });
+    // Disclaimer
+    html += '<div style="margin-top:12px;padding:8px 11px;background:var(--surface2);border-radius:8px;font-size:10.5px;color:var(--muted);line-height:1.5;text-align:center;">' +
+      '📋 Anthropic Haiku 4.5 Pricing: $1/Mio In · $5/Mio Out (USD→CHF ~0.88).' +
+    '</div>';
+    box.innerHTML = html;
+  } catch(e) {
+    box.innerHTML = '<div style="padding:20px;color:#b71c1c;text-align:center;">Fehler: ' + String(e.message || e) + '</div>';
+  }
+}
+window.gsTokenCostLoad7d = gsTokenCostLoad7d;
+
 function gsGardenScanGPS() {
   if (!navigator.geolocation) {
     if (typeof gsToast === 'function') gsToast('GPS nicht verfügbar', 'error');
@@ -49508,6 +49714,30 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.47', date: '24.05.2026',
+    headline: '📊 Token-Cost-Widget Admin — Anthropic-Nutzung pro Tag mit 7-Tage-Trend (Pentagon #3 fertig)',
+    summary: 'Cowork-Auftrag v26.47 (Sprint 5/5 = Pentagon-Sprint #3 v26.43-v26.47 abgeschlossen). Migration v26_47_ai_daily_usage LIVE applied (composite-PK date+edge_fn + RLS). Cowork ergänzt Edge-Fn-Logging via UPSERT in jeder Anthropic-Call. Admin-only Settings-Row "📊 KI-Nutzung & Kosten". Modal mit Heute-Tab (pro Edge-Fn Tokens/Calls/Cost) + 7-Tage-Trend-Tab (Tages-Total + Mini-Bar-Chart). Anthropic Haiku 4.5 Pricing client-side estimate (USD→CHF).',
+    user_summary: '📊 Im Profil/Einstellungen ist jetzt ein Admin-only Widget "KI-Nutzung & Kosten" — zeigt pro Tag alle Anthropic-API-Calls aufgeschlüsselt pro Edge-Fn (garden-scan-analyze, pest-identify, mushroom-identify, etc.) mit geschätzten Kosten in CHF. Plus 7-Tage-Trend-View mit Mini-Balkendiagramm. Nur sichtbar für Admin-Email.',
+    user_items: [
+      { emoji: '📅', text: 'Heute-Tab: pro Edge-Fn Calls + Tokens In/Out + geschätzte CHF-Kosten' },
+      { emoji: '📈', text: '7-Tage-Trend mit Mini-Bar-Chart und Durchschnitts-Tageskosten' },
+      { emoji: '🔒', text: 'Nur sichtbar für Admin-Emails (greenscan + fernando.rankwiler1997)' },
+      { emoji: '💰', text: 'Kosten geschätzt mit Anthropic Haiku 4.5: $1/Mio In · $5/Mio Out (USD→CHF)' },
+    ],
+    items: [
+      {emoji:'🗄️', bold:'Migration v26_47_ai_daily_usage applied:', text:' CREATE TABLE ai_daily_usage (date date, edge_fn text, total_tokens_in/out int, total_cost_chf numeric, call_count int, updated_at, PRIMARY KEY (date, edge_fn)) + Index date desc + RLS (authenticated select, service_role all). Idempotent.'},
+      {emoji:'🔄', bold:'Cowork-Sync:', text:' Cowork ergänzt jetzt UPSERT-Pattern in alle 8 Edge-Fns die Anthropic rufen (garden-scan-analyze, plant-doctor-diagnose, pest-identify, mushroom-identify, knowledge-bulk-gen, i18n-translate, book-ingest, feedback-triage). INSERT ON CONFLICT DO UPDATE SET +=.'},
+      {emoji:'⚙️', bold:'Admin-Settings-Row:', text:' "📊 KI-Nutzung & Kosten" in "KI & Scanner"-Sektion. Class admin-only-row → display:none default, sichtbar nach GS_ADMINS.includes(email).'},
+      {emoji:'📐', bold:'Modal #modal-token-cost:', text:' Header lila/teal-Gradient. 2 Tabs (📅 Heute · 📈 7-Tage-Trend) als button-toggles. Active-State #00838f bg.'},
+      {emoji:'💰', bold:'Heute-Tab:', text:' GET ai_daily_usage?date=eq.<today>. Header-Card Playfair-Total CHF + Calls/Tokens-Sub. Pro Edge-Fn Card mit monospace-slug + CHF-Cost rechts + Calls/⬇Tok-In/⬆Tok-Out Sub.'},
+      {emoji:'📈', bold:'7-Tage-Trend-Tab:', text:' GET ai_daily_usage?date=gte.<6daysAgo>. Aggregate pro Tag. Header mit 7d-Total + Ø/Tag. Mini-Bar-Chart pro Tag: linear-gradient #00bcd4→#00838f, Höhe proportional zu max-day-cost. Wochentag + Date + CHF-Cost + Calls.'},
+      {emoji:'🧮', bold:'Client-side Cost-Estimate:', text:' gsEstimateCostCHF nutzt Anthropic Haiku 4.5 Pricing ($1/Mio In · $5/Mio Out × 0.88 USD→CHF). Disclaimer-Footer in beiden Tabs.'},
+      {emoji:'🧰', bold:'5 neue Functions:', text:' openTokenCostModal / gsTokenCostSwitchTab / gsTokenCostLoadToday / gsTokenCostLoad7d / gsEstimateCostCHF / gsFormatChf.'},
+      {emoji:'📦', bold:'Pentagon-Sprint #3 v26.43-v26.47 abgeschlossen:', text:' 5 Pushes für 5 Sprints in einer Session. 2 neue Wissen-Sub-Tabs (8 → 10 total), 1 neuer Garten-Aktion-Button (Forest-Garden), 1 Plan-Picker-Wizard-Inline (Balkon), 1 Admin-Dashboard. 1 Migration applied (ai_daily_usage). 16+ neue Functions. Total seit v26.33 heute: 15 Pushes.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · sw.js gs-v26.47 OK · GS_VERSION=v26.47 OK · _headers v26.47 OK · meta=26.47.20260524 OK · Migration applied.'},
+    ]
+  },
+  {
     v: 'v26.46', date: '24.05.2026',
     headline: '🪴 Urban-Balkon-Wizard im KI-Planer — 16 CH-Designs mit Größe + Orientierung-Match',
     summary: 'Cowork-Auftrag v26.46 (Sprint 4/5 von Pentagon #3). KI-Planer Plan-Typ-Picker mit Container-Balkon-Option zeigt nun einen inline Balkon-Wizard: Number-Input m² + Orientation-Select + Match-Button. Query urban_balcony_design via size-Range-Match + Orientation-Filter (Fallback ohne Orientation). 6 inline-Result-Cards, Click öffnet Vollbild-Detail mit allen Eckdaten + recommended_plants + pro_tips. "Vorlage übernehmen" erstellt garden_plan mit template_slug + recommended_plants flat.',
@@ -51672,7 +51902,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.46';
+var GS_VERSION = 'v26.47';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
