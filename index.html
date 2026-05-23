@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.43.20260524">
+<meta name="app-version" content="26.44.20260524">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2529,6 +2529,12 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <span data-i18n="btn_diary_open" data-i18n-fallback="📔 Tagebuch-Eintrag · 11 Typen + Saison-Stats">📔 Tagebuch-Eintrag · 11 Typen + Saison-Stats</span><span style="font-size:18px;opacity:.85;">›</span>
   </button>
 </div>
+<!-- v26.44: Forest-Garden Designer (Permakultur 7-Schichten + 8 Designs aus forest_garden_design) -->
+<div style="padding:0 16px 12px;">
+  <button onclick="openForestGardenModal()" title="Forest-Garden — Permakultur 7-Schichten-Designs" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#33691e,#1b5e20);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_forest_open" data-i18n-fallback="🌳 Forest-Garden planen · 7-Schichten + 8 Vorlagen">🌳 Forest-Garden planen · 7-Schichten + 8 Vorlagen</span><span style="font-size:18px;opacity:.85;">›</span>
+  </button>
+</div>
 <!-- v24.06: Smart-Home Sensor-Dashboard -->
 <div style="padding:0 16px 20px;">
   <button onclick="gsShOpen()" title="Smart-Home Sensoren" style="width:100%;padding:13px 14px;background:linear-gradient(135deg,var(--c-info-d),var(--c-info));color:#fff;border:none;border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 12px rgba(21,101,192,.25);">
@@ -3392,6 +3398,33 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <div id="diary-pane-stats" style="padding:14px 18px 20px;display:none;">
       <div id="diary-stats-content" style="min-height:120px;color:var(--muted);font-size:13px;text-align:center;padding:30px 0;">⏳ Lade Statistik…</div>
     </div>
+  </div>
+</div>
+
+<!-- ═══ v26.44 FOREST-GARDEN DESIGNER MODAL (8 Permakultur-Designs + 7-Schichten-SVG) ═══ -->
+<div class="modal-overlay" id="modal-forest-garden" onclick="if(event.target===this)closeModal('modal-forest-garden')">
+  <div class="modal" style="position:relative;max-height:94vh;overflow-y:auto;">
+    <div class="mhandle"></div>
+    <button class="modal-close-btn" onclick="closeModal('modal-forest-garden')" aria-label="Schliessen">&#x2715;</button>
+    <div class="mhdr" style="background:linear-gradient(135deg,#33691e,#1b5e20);color:#fff;">
+      <span class="memoji">🌳</span>
+      <div>
+        <h2 data-i18n="forest_title" data-i18n-fallback="Forest-Garden Designer" style="color:#fff;">Forest-Garden Designer</h2>
+        <p data-i18n="forest_sub" data-i18n-fallback="Permakultur 7-Schichten · 8 Schweizer Designs" style="color:rgba(255,255,255,.85);">Permakultur 7-Schichten · 8 Schweizer Designs</p>
+      </div>
+    </div>
+    <!-- Intro -->
+    <div style="padding:14px 18px 8px;font-size:12px;color:var(--text2);line-height:1.55;">
+      Klassisches Permakultur-Modell mit 7 vertikalen Schichten (Krone bis Wurzel) + Pilz-Etage. Wähle eine der 8 Vorlagen — vom kleinen Pilz-Etage-Setup bis zum 300 m² Food-Forest.
+    </div>
+    <!-- Filter-Pills -->
+    <div id="forest-filter-pills" style="padding:0 18px 8px;display:flex;gap:6px;flex-wrap:wrap;"></div>
+    <!-- Design-Liste -->
+    <div id="forest-list" style="padding:0 18px 12px;">
+      <div style="padding:30px 0;text-align:center;color:var(--muted);font-size:13px;">⏳ Lade Designs…</div>
+    </div>
+    <!-- Detail-Slot (versteckt, on-demand befüllt) -->
+    <div id="forest-detail" style="padding:0 18px 20px;display:none;"></div>
   </div>
 </div>
 
@@ -26131,6 +26164,279 @@ async function gsDiaryRenderStats() {
   box.innerHTML = html;
 }
 window.gsDiaryRenderStats = gsDiaryRenderStats;
+
+// ═════════════════════════════════════════════════════════════════════
+// v26.44 FOREST-GARDEN DESIGNER (forest_garden_design, DB-Wave-13)
+// 8 Permakultur-7-Schichten-Designs vom Pilz-Etage-Setup bis Mehrzone-System.
+// Modal mit Filter-Pills (design_type) + Card-Liste + Detail mit
+// vertikalem 7-Schichten-SVG-Diagramm. "Plan übernehmen" erstellt garden_plan.
+// 30min in-Memory-Cache.
+// ═════════════════════════════════════════════════════════════════════
+
+window._gsForestCache = null; // {rows, ts}
+window._gsForestFilter = '';
+var GS_FOREST_TTL_MS = 30 * 60 * 1000;
+
+async function openForestGardenModal() {
+  if (typeof openModal === 'function') openModal('modal-forest-garden');
+  else document.getElementById('modal-forest-garden').classList.add('open');
+  await gsForestLoad();
+}
+window.openForestGardenModal = openForestGardenModal;
+
+async function gsForestLoad() {
+  var listEl = document.getElementById('forest-list');
+  if (!listEl) return;
+  var now = Date.now();
+  var fresh = window._gsForestCache && (now - window._gsForestCache.ts) < GS_FOREST_TTL_MS;
+  if (!fresh) {
+    if (typeof sbFetch !== 'function') {
+      listEl.innerHTML = '<div style="padding:24px;color:#bf360c;text-align:center;">Supabase nicht verfügbar.</div>';
+      return;
+    }
+    try {
+      var r = await sbFetch('/rest/v1/forest_garden_design?select=*&order=size_m2_min&limit=20', { method: 'GET' });
+      var rows = (r && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : []);
+      window._gsForestCache = { rows: rows, ts: now };
+    } catch(e) {
+      listEl.innerHTML = '<div style="padding:24px;color:#bf360c;text-align:center;">Fehler: ' + String(e.message || e) + '</div>';
+      return;
+    }
+  }
+  gsForestRender();
+}
+window.gsForestLoad = gsForestLoad;
+
+function gsForestRender() {
+  var listEl = document.getElementById('forest-list');
+  var pillsEl = document.getElementById('forest-filter-pills');
+  var detailEl = document.getElementById('forest-detail');
+  if (!listEl) return;
+  if (detailEl) detailEl.style.display = 'none';
+  var rows = (window._gsForestCache && window._gsForestCache.rows) || [];
+  if (!rows.length) {
+    listEl.innerHTML = '<div style="padding:30px;text-align:center;color:var(--muted);font-size:13px;">Keine Forest-Garden-Designs in der DB.</div>';
+    if (pillsEl) pillsEl.innerHTML = '';
+    return;
+  }
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+  var filt = window._gsForestFilter || '';
+  // Pills
+  if (pillsEl) {
+    var types = Array.from(new Set(rows.map(function(r){ return r.design_type || ''; }).filter(Boolean)));
+    var ph = '<button onclick="gsForestSetFilter(\'\')" class="recipe-cat' + (!filt?' active':'') + '" style="font-size:11px;padding:5px 10px;">Alle (' + rows.length + ')</button>';
+    types.forEach(function(t){
+      var n = rows.filter(function(r){ return r.design_type === t; }).length;
+      ph += '<button onclick="gsForestSetFilter(\'' + ed(t) + '\')" class="recipe-cat' + (filt===t?' active':'') + '" style="font-size:11px;padding:5px 10px;">' + ed(t.replace(/_/g,' ')) + ' (' + n + ')</button>';
+    });
+    pillsEl.innerHTML = ph;
+  }
+  // Filter
+  var visible = filt ? rows.filter(function(r){ return r.design_type === filt; }) : rows;
+  var diffMap = { einfach:'🟢', mittel:'🟡', fortgeschritten:'🔴' };
+  var html = visible.map(function(r){
+    var diff = diffMap[String(r.difficulty || '').toLowerCase()] || '⚪';
+    return '<div onclick="gsForestOpenDetail(\'' + ed(r.slug) + '\')" style="cursor:pointer;background:var(--card);border:1px solid var(--border);border-left:3px solid #2e7d32;border-radius:12px;padding:13px 14px;margin-bottom:8px;-webkit-tap-highlight-color:transparent;">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px;">' +
+        '<div style="font-size:13.5px;font-weight:800;color:var(--text);">🌳 ' + ed(r.name_de) + '</div>' +
+        '<div style="font-size:11px;color:var(--muted);font-weight:700;">' + diff + ' ' + ed(r.difficulty || '?') + '</div>' +
+      '</div>' +
+      '<div style="font-size:11.5px;color:var(--text2);line-height:1.5;margin-bottom:4px;">' +
+        '📐 ' + (r.size_m2_min || '?') + '-' + (r.size_m2_max || '?') + ' m² · ⏱ ' + (r.setup_years || '?') + ' J Setup · 🌾 ' + ed(r.yield_estimate_kg_year || '?') +
+      '</div>' +
+      (r.initial_cost_chf ? '<div style="font-size:11px;color:#bf360c;font-weight:700;">💰 CHF ' + ed(r.initial_cost_chf) + '</div>' : '') +
+      (r.description ? '<div style="font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.5;">' + ed(String(r.description).slice(0,140)) + (String(r.description).length > 140 ? '…' : '') + '</div>' : '') +
+    '</div>';
+  }).join('');
+  listEl.innerHTML = html;
+  listEl.style.display = 'block';
+}
+window.gsForestRender = gsForestRender;
+
+window.gsForestSetFilter = function(f) {
+  window._gsForestFilter = f;
+  gsForestRender();
+};
+
+window.gsForestOpenDetail = function(slug) {
+  var rows = (window._gsForestCache && window._gsForestCache.rows) || [];
+  var r = rows.find(function(x){ return x.slug === slug; });
+  if (!r) return;
+  if (typeof gsHaptic === 'function') gsHaptic('light');
+  var listEl = document.getElementById('forest-list');
+  var detailEl = document.getElementById('forest-detail');
+  if (!detailEl) return;
+  if (listEl) listEl.style.display = 'none';
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+
+  // 7-Schichten + Pilz
+  var layers = [
+    { k: 'layer_canopy',      lbl: '🌳 1 Krone (Canopy)',       desc: 'Hohe Bäume (Nuss, Kastanie, alte Apfelbäume)',     col: '#1b5e20' },
+    { k: 'layer_understory',  lbl: '🌲 2 Unterstand (Understory)', desc: 'Mittelhohe Obstbäume (Apfel, Pflaume, Kirsche)', col: '#2e7d32' },
+    { k: 'layer_shrubs',      lbl: '🌿 3 Sträucher (Shrubs)',  desc: 'Beerensträucher (Holunder, Aronia, Johannisbeere)', col: '#388e3c' },
+    { k: 'layer_herbaceous',  lbl: '🌱 4 Stauden (Herbaceous)', desc: 'Mehrjährige Kräuter (Beinwell, Brennnessel, Minze)', col: '#558b2f' },
+    { k: 'layer_groundcover', lbl: '🍓 5 Bodendecker (Groundcover)', desc: 'Niedrige Pflanzen (Erdbeere, Walderdbeere, Klee)', col: '#827717' },
+    { k: 'layer_rhizosphere', lbl: '🥔 6 Wurzel (Rhizosphere)',  desc: 'Knollen-Pflanzen (Topinambur, Yacon, Wurzel-Zwiebel)', col: '#6d4c41' },
+    { k: 'layer_vertical',    lbl: '🍇 7 Vertikal / Klettern', desc: 'Klettern (Kiwi, Trauben, Hopfen, Bohnen)',           col: '#5d4037' },
+    { k: 'layer_mushroom',    lbl: '🍄 + Pilz-Etage',           desc: 'Pilze auf Stämmen (Shiitake, Austernpilz)',          col: '#4a148c' }
+  ];
+
+  // Vertikales SVG-Diagramm — Höhe pro Schicht abgestuft (Canopy oben, Wurzel unten)
+  var svgH = 380;
+  var svgW = 320;
+  var bandH = 42;
+  var svg = '<svg viewBox="0 0 ' + svgW + ' ' + svgH + '" style="width:100%;max-width:320px;display:block;margin:0 auto 14px;background:linear-gradient(to bottom,#bbdefb 0%,#e3f2fd 30%,#ffffff 70%,#a1887f 100%);border-radius:12px;">';
+  layers.forEach(function(L, i){
+    var y = 8 + i * (bandH + 2);
+    var content = r[L.k];
+    var hasContent = false;
+    if (Array.isArray(content)) hasContent = content.length > 0;
+    else if (typeof content === 'string') hasContent = content.trim().length > 0;
+    else if (content && typeof content === 'object') hasContent = Object.keys(content).length > 0;
+    var opacity = hasContent ? '0.92' : '0.4';
+    svg += '<rect x="6" y="' + y + '" width="' + (svgW-12) + '" height="' + bandH + '" rx="6" fill="' + L.col + '" opacity="' + opacity + '" />';
+    svg += '<text x="14" y="' + (y + 16) + '" font-family="Inter,sans-serif" font-size="11" font-weight="800" fill="#fff">' + L.lbl + '</text>';
+    svg += '<text x="14" y="' + (y + 31) + '" font-family="Inter,sans-serif" font-size="9" fill="#fff" opacity="0.85">' + (hasContent ? '✓ ' + (Array.isArray(content) ? content.length + ' Pflanzen' : 'definiert') : '— leer') + '</text>';
+  });
+  svg += '</svg>';
+
+  // Pro Schicht: Pflanzen-Liste
+  var layersHtml = '';
+  layers.forEach(function(L){
+    var content = r[L.k];
+    var items = [];
+    if (Array.isArray(content)) items = content;
+    else if (typeof content === 'string' && content.trim()) items = [content];
+    else if (content && typeof content === 'object') {
+      Object.keys(content).forEach(function(k){
+        var v = content[k];
+        if (Array.isArray(v)) items = items.concat(v);
+        else if (typeof v === 'string' && v.trim()) items.push(v);
+      });
+    }
+    if (!items.length) return;
+    layersHtml += '<div style="margin-bottom:8px;padding:9px 11px;background:var(--card);border-left:3px solid ' + L.col + ';border-radius:8px;">' +
+      '<div style="font-size:11.5px;font-weight:800;color:' + L.col + ';margin-bottom:4px;">' + L.lbl + '</div>' +
+      '<div style="font-size:11px;color:var(--muted);margin-bottom:5px;line-height:1.4;">' + L.desc + '</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:4px;">' +
+        items.slice(0, 12).map(function(p){
+          return '<span style="background:' + L.col + '22;color:' + L.col + ';padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:700;">' + ed(String(p)) + '</span>';
+        }).join('') +
+      '</div>' +
+    '</div>';
+  });
+
+  var html = '<button onclick="gsForestBackToList()" style="margin-bottom:10px;background:transparent;border:none;color:var(--g-main);font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;padding:4px 0;-webkit-tap-highlight-color:transparent;">← Zurück zur Liste</button>';
+  html += '<div style="font-family:\'Playfair Display\',serif;font-size:18px;font-weight:900;color:var(--text);margin-bottom:4px;">🌳 ' + ed(r.name_de) + '</div>';
+  html += '<div style="font-size:11.5px;color:var(--muted);margin-bottom:10px;">' + ed(r.design_type || '').replace(/_/g,' ') + ' · ' + (r.size_m2_min || '?') + '-' + (r.size_m2_max || '?') + ' m² · ' + ed(r.difficulty || '?') + ' · ' + (r.setup_years || '?') + ' J Setup</div>';
+  // Eckdaten-Pills
+  var stats = '';
+  if (r.yield_estimate_kg_year) stats += '<span style="background:#e8f5e9;color:#1b5e20;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🌾 ' + ed(r.yield_estimate_kg_year) + '</span>';
+  if (r.initial_cost_chf) stats += '<span style="background:#fff3e0;color:#bf360c;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">💰 CHF ' + ed(r.initial_cost_chf) + '</span>';
+  if (r.maintenance_hours_year != null) stats += '<span style="background:#fff8e1;color:#827717;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">⏱ ' + ed(r.maintenance_hours_year) + 'h/J Pflege</span>';
+  if (r.full_maturity_years != null) stats += '<span style="background:#e3f2fd;color:#01579b;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🌳 reif nach ' + ed(r.full_maturity_years) + ' J</span>';
+  if (stats) html += '<div style="margin-bottom:12px;">' + stats + '</div>';
+  // Description
+  if (r.description) html += '<div style="font-size:12.5px;color:var(--text2);line-height:1.6;margin-bottom:12px;">' + ed(r.description) + '</div>';
+  // 7-Schichten-SVG
+  html += '<div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:6px;letter-spacing:.3px;text-transform:uppercase;">📐 7-Schichten-Diagramm</div>';
+  html += svg;
+  // Pro Schicht Pflanzen
+  html += '<div style="font-size:12px;font-weight:800;color:var(--text);margin:14px 0 6px;letter-spacing:.3px;text-transform:uppercase;">🌱 Pflanzen pro Schicht</div>';
+  html += layersHtml || '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;">Keine Schicht-Daten in dieser DB-Zeile.</div>';
+  // Pro-Tips + Pitfalls
+  if (Array.isArray(r.pro_tips) && r.pro_tips.length) {
+    html += '<div style="margin-top:14px;padding:11px 13px;background:#e8f5e9;border-left:3px solid #2e7d32;border-radius:9px;">';
+    html += '<div style="font-size:11.5px;font-weight:800;color:#1b5e20;margin-bottom:5px;">💡 Profi-Tipps</div>';
+    html += '<ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.6;color:#1b5e20;">' + r.pro_tips.map(function(t){ return '<li>' + ed(t) + '</li>'; }).join('') + '</ul>';
+    html += '</div>';
+  }
+  if (Array.isArray(r.common_pitfalls) && r.common_pitfalls.length) {
+    html += '<div style="margin-top:8px;padding:11px 13px;background:#ffebee;border-left:3px solid #c62828;border-radius:9px;">';
+    html += '<div style="font-size:11.5px;font-weight:800;color:#b71c1c;margin-bottom:5px;">⚠ Häufige Fehler</div>';
+    html += '<ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.6;color:#b71c1c;">' + r.common_pitfalls.map(function(t){ return '<li>' + ed(t) + '</li>'; }).join('') + '</ul>';
+    html += '</div>';
+  }
+  // Klima + Wasser + Slope
+  var meta = [];
+  if (Array.isArray(r.swiss_climate_zones) && r.swiss_climate_zones.length) meta.push('🇨🇭 Zonen: ' + r.swiss_climate_zones.join(', '));
+  if (r.best_for_slope) meta.push('⛰ Hang: ' + r.best_for_slope);
+  if (r.water_management) meta.push('💧 Wasser: ' + r.water_management);
+  if (Array.isArray(r.beneficial_animals) && r.beneficial_animals.length) meta.push('🐝 Nutztiere: ' + r.beneficial_animals.join(', '));
+  if (meta.length) html += '<div style="margin-top:8px;font-size:11.5px;color:var(--text2);line-height:1.6;padding:9px 11px;background:var(--surface2);border-radius:9px;">' + ed(meta.join(' · ')) + '</div>';
+  // Plan-Übernehmen-Button
+  html += '<button onclick="gsForestAdoptPlan(\'' + ed(r.slug) + '\')" style="width:100%;margin-top:14px;padding:13px;background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border:none;border-radius:11px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">✨ Diesen Plan übernehmen → garden_plan</button>';
+  if (r.source) html += '<div style="margin-top:10px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(r.source) + '</div>';
+
+  detailEl.innerHTML = html;
+  detailEl.style.display = 'block';
+  try { detailEl.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(_){}
+};
+
+window.gsForestBackToList = function() {
+  var listEl = document.getElementById('forest-list');
+  var detailEl = document.getElementById('forest-detail');
+  if (detailEl) { detailEl.style.display = 'none'; detailEl.innerHTML = ''; }
+  if (listEl) listEl.style.display = 'block';
+};
+
+window.gsForestAdoptPlan = async function(slug) {
+  var rows = (window._gsForestCache && window._gsForestCache.rows) || [];
+  var r = rows.find(function(x){ return x.slug === slug; });
+  if (!r) return;
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) {
+    if (typeof showProfileToast === 'function') showProfileToast('🔑 Bitte zuerst anmelden', 'error');
+    return;
+  }
+  if (typeof sbFetch !== 'function') return;
+  if (typeof showProfileToast === 'function') showProfileToast('⏳ Plan wird übernommen…', 'info');
+  // Bauen recommended_plants aus allen Layer-Listen
+  var allPlants = [];
+  ['layer_canopy','layer_understory','layer_shrubs','layer_herbaceous','layer_groundcover','layer_rhizosphere','layer_vertical','layer_mushroom'].forEach(function(k){
+    var v = r[k];
+    if (Array.isArray(v)) {
+      v.forEach(function(name){
+        allPlants.push({ name: name, layer: k.replace('layer_', '') });
+      });
+    } else if (v && typeof v === 'object') {
+      Object.keys(v).forEach(function(sub){
+        var vv = v[sub];
+        if (Array.isArray(vv)) vv.forEach(function(n){ allPlants.push({ name:n, layer: k.replace('layer_',''), sub: sub }); });
+      });
+    }
+  });
+  var planRow = {
+    title: '🌳 ' + (r.name_de || 'Forest-Garden'),
+    plan_intent: 'permaculture_hugel',
+    metadata: {
+      forest_design_slug: r.slug,
+      design_type: r.design_type,
+      source: 'v26.44_forest_designer'
+    },
+    analysis: {
+      site_analysis: { size_m2: r.size_m2_min || null },
+      recommended_plants: allPlants,
+      warnings: Array.isArray(r.common_pitfalls) ? r.common_pitfalls : [],
+      pro_tips: Array.isArray(r.pro_tips) ? r.pro_tips : []
+    }
+  };
+  try {
+    var resp = await sbFetch('/rest/v1/garden_plans', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+      body: JSON.stringify(planRow)
+    });
+    if (resp && resp.error) {
+      if (typeof showProfileToast === 'function') showProfileToast('⚠️ ' + resp.error, 'error');
+      return;
+    }
+    if (typeof gsHaptic === 'function') gsHaptic('success');
+    if (typeof showProfileToast === 'function') showProfileToast('✅ Forest-Garden-Plan erstellt (' + allPlants.length + ' Pflanzen)', 'success');
+    if (typeof closeModal === 'function') closeModal('modal-forest-garden');
+  } catch(e) {
+    if (typeof showProfileToast === 'function') showProfileToast('Fehler: ' + String(e.message || e), 'error');
+  }
+};
 
 window.gsLayoutOpenDetail = function(slug) {
   var rows = (window._gsLayoutsCache || {}).rows || [];
@@ -48878,6 +49184,30 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.44', date: '24.05.2026',
+    headline: '🌳 Forest-Garden Designer — 8 Permakultur-Designs mit 7-Schichten-SVG-Diagramm',
+    summary: 'Cowork-Auftrag v26.44 (Sprint 2/5). Neuer Garten-Aktion-Button "🌳 Forest-Garden planen". Modal mit 8 forest_garden_design-Vorlagen (DB-Wave-13). Filter-Pills nach design_type. Card-Liste mit difficulty-Emoji + Size + Setup-Years + Yield + CHF. Detail-View mit vertikalem 7-Schichten-SVG-Diagramm (Canopy oben grün → Wurzel unten braun + Pilz-Etage lila), Schicht-Pflanzen als farbige Pills, Eckdaten-Pills, Pro-Tips + Pitfalls, "Plan übernehmen"-Button erstellt garden_plan mit plan_intent=permaculture_hugel.',
+    user_summary: '🌳 Im Garten gibt es jetzt einen "Forest-Garden planen"-Button. Du wählst aus 8 Permakultur-Vorlagen (vom kleinen Pilz-Etage-Setup bis zum 300m² Food-Forest) und siehst pro Design ein farbiges 7-Schichten-Diagramm — von der Kronenschicht oben bis zu Wurzelpflanzen unten. "Plan übernehmen" erstellt direkt einen Garten-Plan mit allen Pflanzen.',
+    user_items: [
+      { emoji: '🌳', text: '8 Designs: Food-Forest, Beerenstrauch-Etage, Wildhecke, Pilz-Etage, Wein-Etage, ...' },
+      { emoji: '📐', text: '7-Schichten-SVG-Diagramm pro Design — visuelles Permakultur-Modell' },
+      { emoji: '💰', text: 'Pro Design: Setup-Kosten CHF + Yield kg/Jahr + Pflege-Stunden + Maturity-Years' },
+      { emoji: '✨', text: '"Plan übernehmen" erstellt direkt einen garden_plan in deinem Garten' },
+    ],
+    items: [
+      {emoji:'🎨', bold:'Garten-Aktion-Button:', text:' "🌳 Forest-Garden planen · 7-Schichten + 8 Vorlagen" mit Gradient #33691e→#1b5e20 neben den 9 anderen Garten-Aktionen.'},
+      {emoji:'📐', bold:'Modal #modal-forest-garden:', text:' Intro + Filter-Pills (Distinct design_type) + Card-Liste. Card mit difficulty-Emoji (🟢 einfach / 🟡 mittel / 🔴 fortgeschritten) + Size-Range + Setup-Years + Yield + CHF + Description-Snippet.'},
+      {emoji:'🖼️', bold:'7-Schichten-SVG-Diagramm:', text:' Vertikales SVG mit 8 Bändern: Canopy #1b5e20 → Understory #2e7d32 → Shrubs #388e3c → Herbaceous #558b2f → Groundcover #827717 → Rhizosphere #6d4c41 → Vertikal #5d4037 + Pilz-Etage #4a148c. Opacity 0.92 bei Schicht mit Daten, 0.4 bei leerer. Hintergrund-Gradient Himmel→Erde.'},
+      {emoji:'🌱', bold:'Pflanzen-Pills pro Schicht:', text:' Jede Schicht mit Label + Beschreibung + alle Pflanzen aus dem jsonb-Feld als gefärbte Pills in der Schicht-Farbe.'},
+      {emoji:'🏷️', bold:'Eckdaten-Pills:', text:' 🌾 Yield kg/J + 💰 CHF Setup + ⏱ Maintenance-Stunden + 🌳 Full-Maturity-Years.'},
+      {emoji:'💡', bold:'Pro-Tips + Pitfalls:', text:' Grüne Pro-Tips-Box und rote Common-Pitfalls-Box je als Liste.'},
+      {emoji:'✨', bold:'gsForestAdoptPlan:', text:' Klick auf "Plan übernehmen" → POST /rest/v1/garden_plans mit title="🌳 <name_de>", plan_intent="permaculture_hugel", recommended_plants flat aus allen 8 Layern, metadata.forest_design_slug. Toast bei Success.'},
+      {emoji:'⏰', bold:'30min Cache:', text:' window._gsForestCache — verhindert mehrfaches Fetch beim Modal-Reopen.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.45 Indoor-Pflanzen-Tab, v26.46 Urban-Balkon-Wizard, v26.47 Token-Cost-Widget.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · sw.js gs-v26.44 OK · GS_VERSION=v26.44 OK · _headers v26.44 OK · meta=26.44.20260524 OK.'},
+    ]
+  },
+  {
     v: 'v26.43', date: '24.05.2026',
     headline: '🏔️ Alpenpflanzen-Sub-Tab — 12 CH-Alpenklassiker mit Eisenhut-Lebensgefahr-Warnung',
     summary: 'Cowork-Auftrag v26.43 (Sprint 1/5 von Pentagon-Sprint #3). 9. Wissen-Sub-Tab "🏔️ Alpen". 12 alpine_garden_plants aus DB-Wave-13 inkl. Eisenhut (TÖDLICH GIFTIG), Edelweiss (geschützt), Enzian, Soldanelle, Arnika (geschützt). Card-Accent rot bei toxic (Eisenhut), orange bei protected, gelb bei Rote-Liste-Status. Detail-Modal mit Toedlich-Banner + tel:145 ZUERST + Schutz-Banner mit NHG-Hinweis + Höhenband-Badge prominent + Steingarten-Rolle + Companion-Plants.',
@@ -50973,7 +51303,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.43';
+var GS_VERSION = 'v26.44';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
