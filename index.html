@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.45.20260524">
+<meta name="app-version" content="26.46.20260524">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -43454,6 +43454,7 @@ function gsBuildGardenScanWizard() {
     '</div>' +
     (intent === 'pollinator' ? '<div style="margin-top:6px;padding:7px 10px;background:#fff8e1;border-left:3px solid #f9a825;border-radius:6px;font-size:11px;color:#827717;line-height:1.5;">🐝 KI bevorzugt Pflanzen mit hoher ecological_value für Bestäuber (Honigbiene, Hummel, Schwebfliege).</div>' : '') +
     (intent === 'bird_friendly' ? '<div style="margin-top:6px;padding:7px 10px;background:#e8f5e9;border-left:3px solid #2e7d32;border-radius:6px;font-size:11px;color:#1b5e20;line-height:1.5;">🦜 KI empfiehlt Hecken, Beerensträucher und Wildkräuter-Ecken — wenig Rasen, viel Vielfalt für Vögel.</div>' : '') +
+    (intent === 'container' ? '<div style="margin-top:6px;padding:8px 11px;background:#e3f2fd;border-left:3px solid #1565c0;border-radius:6px;font-size:11.5px;color:#01579b;line-height:1.55;">🪴 <b>Balkon-Wizard:</b> Wähle Größe + Orientierung — wir matchen passende Designs aus 16 Schweizer Stadtbalkon-Vorlagen.<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><input id="gs-balcony-size" type="number" min="1" max="30" step="0.5" value="' + (s.metadata.balcony_size_m2 != null ? s.metadata.balcony_size_m2 : '') + '" placeholder="m²" style="width:65px;padding:4px 7px;border:1.5px solid #90caf9;border-radius:6px;font-size:11.5px;font-family:inherit;background:#fff;color:#01579b;font-weight:700;" onchange="gsBalconyWizardChanged()"><span style="font-size:11px;color:#01579b;">m²</span><select id="gs-balcony-orientation" style="padding:4px 7px;border:1.5px solid #90caf9;border-radius:6px;font-size:11px;font-family:inherit;background:#fff;color:#01579b;font-weight:700;" onchange="gsBalconyWizardChanged()"><option value="">— Richtung —</option><option value="sued"' + (s.metadata.balcony_orientation === 'sued' ? ' selected' : '') + '>☀ Süd</option><option value="suedost"' + (s.metadata.balcony_orientation === 'suedost' ? ' selected' : '') + '>🌅 Süd-Ost</option><option value="suedwest"' + (s.metadata.balcony_orientation === 'suedwest' ? ' selected' : '') + '>🌇 Süd-West</option><option value="ost"' + (s.metadata.balcony_orientation === 'ost' ? ' selected' : '') + '>🌅 Ost</option><option value="west"' + (s.metadata.balcony_orientation === 'west' ? ' selected' : '') + '>🌇 West</option><option value="nord"' + (s.metadata.balcony_orientation === 'nord' ? ' selected' : '') + '>🌫 Nord</option><option value="geschlossen_wintergarten"' + (s.metadata.balcony_orientation === 'geschlossen_wintergarten' ? ' selected' : '') + '>🏠 Wintergarten</option></select><button onclick="gsBalconyWizardSearch()" style="padding:5px 11px;background:#1565c0;color:#fff;border:none;border-radius:6px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🔍 Vorlagen</button></div><div id="gs-balcony-results" style="margin-top:8px;"></div></div>' : '') +
   '</div>';
 
   var gpsBlock = s.metadata && s.metadata.gps
@@ -43520,6 +43521,204 @@ function gsGardenScanSetIntent(intent) {
   _gsGardenScanRefresh();
 }
 window.gsGardenScanSetIntent = gsGardenScanSetIntent;
+
+// ═════════════════════════════════════════════════════════════════════
+// v26.46 URBAN-BALKON-WIZARD (urban_balcony_design, DB-Wave-13)
+// Wenn User plan_intent='container' wählt, kann er optional Grösse +
+// Orientation eingeben → Match aus 16 vorgefertigten Designs.
+// gsBalconyWizardSearch: balcony_size_m2_min<=size, balcony_size_m2_max>=size,
+//                        orientation=eq.<picked>. Fallback ohne orientation.
+// "Vorlage übernehmen" erstellt garden_plan mit recommended_plants aus Template.
+// ═════════════════════════════════════════════════════════════════════
+
+window.gsBalconyWizardChanged = function() {
+  var s = window._gsGardenScan;
+  if (!s || !s.metadata) return;
+  var sz = document.getElementById('gs-balcony-size');
+  var or = document.getElementById('gs-balcony-orientation');
+  if (sz && sz.value) s.metadata.balcony_size_m2 = parseFloat(sz.value) || null;
+  else delete s.metadata.balcony_size_m2;
+  if (or && or.value) s.metadata.balcony_orientation = or.value;
+  else delete s.metadata.balcony_orientation;
+};
+
+window.gsBalconyWizardSearch = async function() {
+  var s = window._gsGardenScan;
+  if (!s) return;
+  gsBalconyWizardChanged();
+  var size = (s.metadata && s.metadata.balcony_size_m2) || null;
+  var ori = (s.metadata && s.metadata.balcony_orientation) || '';
+  var resBox = document.getElementById('gs-balcony-results');
+  if (!resBox) return;
+  if (!size || size < 0.5) {
+    resBox.innerHTML = '<div style="margin-top:6px;font-size:11px;color:#bf360c;">Bitte Grösse eingeben (z.B. 3).</div>';
+    return;
+  }
+  resBox.innerHTML = '<div style="padding:8px;text-align:center;color:#01579b;font-size:11.5px;">⏳ Suche Vorlagen…</div>';
+  if (typeof sbFetch !== 'function') return;
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+  try {
+    var q = '/rest/v1/urban_balcony_design?balcony_size_m2_min=lte.' + encodeURIComponent(size) +
+            '&balcony_size_m2_max=gte.' + encodeURIComponent(size) +
+            '&select=*&order=difficulty,balcony_size_m2_min&limit=30';
+    if (ori) q += '&orientation=eq.' + encodeURIComponent(ori);
+    var r = await sbFetch(q, { method: 'GET' });
+    var rows = (r && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : []);
+    if (!rows.length && ori) {
+      var r2 = await sbFetch('/rest/v1/urban_balcony_design?balcony_size_m2_min=lte.' + encodeURIComponent(size) + '&balcony_size_m2_max=gte.' + encodeURIComponent(size) + '&select=*&order=balcony_size_m2_min&limit=30', { method:'GET' });
+      rows = (r2 && Array.isArray(r2.data)) ? r2.data : [];
+      if (rows.length) {
+        resBox.innerHTML = '<div style="padding:6px 8px;font-size:11px;color:#bf360c;background:#fff3e0;border-radius:6px;margin-bottom:6px;">⚠ Keine Treffer für ' + ed(ori) + ' bei ' + size + ' m². Zeige andere Orientierungen:</div>';
+      }
+    } else {
+      resBox.innerHTML = '';
+    }
+    if (!rows.length) {
+      resBox.innerHTML = '<div style="padding:10px;text-align:center;color:#bf360c;font-size:11.5px;">Keine passenden Vorlagen für ' + size + ' m². Versuche eine andere Grösse.</div>';
+      return;
+    }
+    window._gsBalconyRowsCache = rows;
+    var diffMap = { einfach:'🟢', mittel:'🟡', fortgeschritten:'🔴' };
+    var html = '';
+    rows.slice(0, 6).forEach(function(t){
+      var diff = diffMap[String(t.difficulty || '').toLowerCase()] || '⚪';
+      html += '<div onclick="gsBalconyTemplateOpen(\'' + ed(t.slug) + '\')" style="cursor:pointer;background:#fff;border:1px solid #90caf9;border-left:3px solid #1565c0;border-radius:9px;padding:9px 11px;margin-top:6px;-webkit-tap-highlight-color:transparent;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:3px;">' +
+          '<div style="font-size:12.5px;font-weight:800;color:#01579b;">🪴 ' + ed(t.name_de) + '</div>' +
+          '<div style="font-size:10.5px;color:#bf360c;font-weight:700;">' + diff + ' ' + ed(t.difficulty || '?') + '</div>' +
+        '</div>' +
+        '<div style="font-size:11px;color:#01579b;line-height:1.5;">' +
+          '📐 ' + ed(t.balcony_size_m2_min || '?') + '-' + ed(t.balcony_size_m2_max || '?') + 'm² · ' +
+          (t.orientation ? ed(t.orientation) + ' · ' : '') +
+          '📦 ' + (t.container_count || '?') + ' Container · 💰 CHF ' + ed(t.total_cost_chf || '?') +
+        '</div>' +
+        '<div style="font-size:10.5px;color:#01579b;opacity:.85;margin-top:3px;">🌾 ' + ed(t.yield_estimate || '') + '</div>' +
+      '</div>';
+    });
+    if (rows.length > 6) html += '<div style="margin-top:6px;font-size:10.5px;color:#01579b;text-align:center;">+ ' + (rows.length - 6) + ' weitere Vorlagen verfügbar</div>';
+    resBox.innerHTML += html;
+  } catch(e) {
+    resBox.innerHTML = '<div style="padding:10px;color:#b71c1c;font-size:11.5px;">Fehler: ' + ed(e.message || e) + '</div>';
+  }
+};
+
+window.gsBalconyTemplateOpen = function(slug) {
+  var rows = window._gsBalconyRowsCache || [];
+  var t = rows.find(function(x){ return x.slug === slug; });
+  if (!t) return;
+  if (typeof gsHaptic === 'function') gsHaptic('light');
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+  var mc = document.getElementById('modal-content');
+  if (!mc) return;
+  var html = '<div style="padding:0;">';
+  html += '<div style="background:linear-gradient(135deg,#1565c0,#01579b);padding:18px;color:#fff;position:relative;">';
+  html += '<button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:20px;cursor:pointer;">×</button>';
+  html += '<div style="font-size:32px;margin-bottom:4px;">🪴</div>';
+  html += '<div style="font-family:\'Playfair Display\',serif;font-size:19px;font-weight:900;">' + ed(t.name_de) + '</div>';
+  html += '<div style="font-size:11.5px;opacity:.92;margin-top:3px;">' + ed(t.balcony_size_m2_min || '?') + '-' + ed(t.balcony_size_m2_max || '?') + ' m² · ' + ed(t.orientation || '?') + ' · ' + ed(t.difficulty || '?') + '</div>';
+  html += '</div>';
+  html += '<div style="padding:14px 18px 18px;">';
+  var pills = '';
+  if (t.total_cost_chf) pills += '<span style="background:#fff3e0;color:#bf360c;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">💰 CHF ' + ed(t.total_cost_chf) + '</span>';
+  if (t.container_count) pills += '<span style="background:#e3f2fd;color:#01579b;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">📦 ' + t.container_count + ' Container</span>';
+  if (t.setup_time_hours) pills += '<span style="background:#fff8e1;color:#827717;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">⏱ ' + ed(t.setup_time_hours) + 'h Setup</span>';
+  if (t.maintenance_min_week) pills += '<span style="background:#f3e5f5;color:#6a1b9a;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🛠 ' + ed(t.maintenance_min_week) + ' min/W</span>';
+  if (t.pet_friendly) pills += '<span style="background:#e8f5e9;color:#1b5e20;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🐾 Pet-OK</span>';
+  if (t.child_friendly) pills += '<span style="background:#e8f5e9;color:#1b5e20;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">👶 Kind-OK</span>';
+  if (pills) html += '<div style="margin-bottom:10px;">' + pills + '</div>';
+  if (t.yield_estimate) html += '<div style="font-size:12.5px;color:var(--text);margin-bottom:8px;"><b>🌾 Ertrag:</b> ' + ed(t.yield_estimate) + '</div>';
+  if (t.watering_strategy) html += '<div style="font-size:12px;color:var(--text2);margin-bottom:6px;"><b>💧 Wassern:</b> ' + ed(t.watering_strategy) + '</div>';
+  if (t.winter_strategy) html += '<div style="font-size:12px;color:var(--text2);margin-bottom:6px;"><b>❄ Winter:</b> ' + ed(t.winter_strategy) + '</div>';
+  if (t.wind_protection) html += '<div style="font-size:12px;color:var(--text2);margin-bottom:6px;"><b>💨 Wind:</b> ' + ed(t.wind_protection) + '</div>';
+  if (t.sun_protection) html += '<div style="font-size:12px;color:var(--text2);margin-bottom:6px;"><b>☀ Sonne:</b> ' + ed(t.sun_protection) + '</div>';
+  var rec = t.recommended_plants;
+  var recList = [];
+  if (Array.isArray(rec)) recList = rec;
+  else if (rec && typeof rec === 'object') {
+    Object.keys(rec).forEach(function(k){ var v = rec[k]; if (Array.isArray(v)) recList = recList.concat(v); else if (typeof v === 'string') recList.push(v); });
+  }
+  if (recList.length) {
+    html += '<div style="font-size:12px;font-weight:800;color:var(--text);margin:12px 0 6px;">🌱 Empfohlene Pflanzen (' + recList.length + ')</div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:5px;">';
+    recList.slice(0, 18).forEach(function(p){
+      var name = typeof p === 'string' ? p : (p.name || p.de || p.lat || JSON.stringify(p));
+      html += '<span style="background:#e8f5e9;color:#1b5e20;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700;">' + ed(String(name)) + '</span>';
+    });
+    html += '</div>';
+  }
+  if (Array.isArray(t.container_types) && t.container_types.length) html += '<div style="margin-top:10px;font-size:11.5px;color:var(--text2);"><b>📦 Container:</b> ' + ed(t.container_types.join(', ')) + '</div>';
+  if (Array.isArray(t.best_for_swiss_cities) && t.best_for_swiss_cities.length) html += '<div style="margin-top:6px;font-size:11.5px;color:var(--text2);"><b>🇨🇭 Stadt:</b> ' + ed(t.best_for_swiss_cities.join(', ')) + '</div>';
+  if (Array.isArray(t.pro_tips) && t.pro_tips.length) {
+    html += '<div style="margin-top:10px;padding:10px 12px;background:#e8f5e9;border-left:3px solid #2e7d32;border-radius:9px;">';
+    html += '<div style="font-size:11.5px;font-weight:800;color:#1b5e20;margin-bottom:5px;">💡 Profi-Tipps</div>';
+    html += '<ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.6;color:#1b5e20;">' + t.pro_tips.map(function(x){ return '<li>' + ed(x) + '</li>'; }).join('') + '</ul>';
+    html += '</div>';
+  }
+  if (Array.isArray(t.common_pitfalls) && t.common_pitfalls.length) {
+    html += '<div style="margin-top:8px;padding:10px 12px;background:#ffebee;border-left:3px solid #c62828;border-radius:9px;">';
+    html += '<div style="font-size:11.5px;font-weight:800;color:#b71c1c;margin-bottom:5px;">⚠ Häufige Fehler</div>';
+    html += '<ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.6;color:#b71c1c;">' + t.common_pitfalls.map(function(x){ return '<li>' + ed(x) + '</li>'; }).join('') + '</ul>';
+    html += '</div>';
+  }
+  html += '<button onclick="gsBalconyAdoptTemplate(\'' + ed(t.slug) + '\')" style="width:100%;margin-top:14px;padding:13px;background:linear-gradient(135deg,#1565c0,#01579b);color:#fff;border:none;border-radius:11px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">✨ Diese Vorlage übernehmen → garden_plan</button>';
+  if (t.source) html += '<div style="margin-top:10px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(t.source) + '</div>';
+  html += '</div></div>';
+  mc.innerHTML = html;
+  if (typeof openModal === 'function') openModal('detail-modal');
+};
+
+window.gsBalconyAdoptTemplate = async function(slug) {
+  var rows = window._gsBalconyRowsCache || [];
+  var t = rows.find(function(x){ return x.slug === slug; });
+  if (!t) return;
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) {
+    if (typeof showProfileToast === 'function') showProfileToast('🔑 Bitte zuerst anmelden', 'error');
+    return;
+  }
+  if (typeof sbFetch !== 'function') return;
+  if (typeof showProfileToast === 'function') showProfileToast('⏳ Vorlage wird übernommen…', 'info');
+  var rec = t.recommended_plants;
+  var allPlants = [];
+  if (Array.isArray(rec)) allPlants = rec.map(function(p){ return (typeof p === 'object') ? p : { name: String(p) }; });
+  else if (rec && typeof rec === 'object') {
+    Object.keys(rec).forEach(function(k){
+      var v = rec[k];
+      if (Array.isArray(v)) v.forEach(function(n){ allPlants.push((typeof n === 'object') ? n : { name: String(n), category: k }); });
+    });
+  }
+  var planRow = {
+    title: '🪴 ' + (t.name_de || 'Balkon-Garten'),
+    plan_intent: 'container_balcony',
+    metadata: {
+      balcony_template_slug: t.slug,
+      balcony_size_m2: t.balcony_size_m2_min || null,
+      orientation: t.orientation || null,
+      source: 'v26.46_balcony_wizard'
+    },
+    analysis: {
+      site_analysis: { size_m2: t.balcony_size_m2_min, orientation: t.orientation },
+      recommended_plants: allPlants,
+      warnings: Array.isArray(t.common_pitfalls) ? t.common_pitfalls : [],
+      pro_tips: Array.isArray(t.pro_tips) ? t.pro_tips : []
+    }
+  };
+  try {
+    var resp = await sbFetch('/rest/v1/garden_plans', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+      body: JSON.stringify(planRow)
+    });
+    if (resp && resp.error) {
+      if (typeof showProfileToast === 'function') showProfileToast('⚠️ ' + resp.error, 'error');
+      return;
+    }
+    if (typeof gsHaptic === 'function') gsHaptic('success');
+    if (typeof showProfileToast === 'function') showProfileToast('✅ Balkon-Vorlage übernommen (' + allPlants.length + ' Pflanzen)', 'success');
+    if (typeof closeModal === 'function') closeModal('detail-modal');
+  } catch(e) {
+    if (typeof showProfileToast === 'function') showProfileToast('Fehler: ' + String(e.message || e), 'error');
+  }
+};
 
 function gsGardenScanGPS() {
   if (!navigator.geolocation) {
@@ -49309,6 +49508,28 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.46', date: '24.05.2026',
+    headline: '🪴 Urban-Balkon-Wizard im KI-Planer — 16 CH-Designs mit Größe + Orientierung-Match',
+    summary: 'Cowork-Auftrag v26.46 (Sprint 4/5 von Pentagon #3). KI-Planer Plan-Typ-Picker mit Container-Balkon-Option zeigt nun einen inline Balkon-Wizard: Number-Input m² + Orientation-Select + Match-Button. Query urban_balcony_design via size-Range-Match + Orientation-Filter (Fallback ohne Orientation). 6 inline-Result-Cards, Click öffnet Vollbild-Detail mit allen Eckdaten + recommended_plants + pro_tips. "Vorlage übernehmen" erstellt garden_plan mit template_slug + recommended_plants flat.',
+    user_summary: '🪴 Wenn du im KI-Planer "Container-Balkon" wählst, fragt dich die App jetzt deine Balkon-Größe + Himmelsrichtung (Süd/Ost/Nord/...) und matched dazu passende Vorlagen aus 16 vorgefertigten Schweizer Stadtbalkon-Designs — vom 2m² Süd-Klein bis zum 30m² Wintergarten. Mit Container-Anzahl, CHF-Setup-Kosten und kompletter Pflanzliste. "Vorlage übernehmen" erstellt direkt einen Plan.',
+    user_items: [
+      { emoji: '📐', text: 'Number-Input für m² + Dropdown für 7 Orientierungen (inkl. Wintergarten)' },
+      { emoji: '🔍', text: 'Auto-Match aus 16 urban_balcony_design-Vorlagen via size-Range + orientation' },
+      { emoji: '💰', text: 'Pro Design: Setup-Kosten CHF + Container-Anzahl + Yield + Pflege min/Woche' },
+      { emoji: '✨', text: '"Vorlage übernehmen" erstellt garden_plan mit kompletter Pflanzliste' },
+    ],
+    items: [
+      {emoji:'🎨', bold:'Inline-Wizard im Plan-Typ-Picker:', text:' Bei intent="container" erscheint blauer Wizard-Block unter den 5 Plan-Typ-Buttons mit "🪴 Balkon-Wizard"-Header, m²-Number-Input + Orientation-Select + "🔍 Vorlagen"-Button.'},
+      {emoji:'🔍', bold:'gsBalconyWizardSearch:', text:' Query urban_balcony_design WHERE balcony_size_m2_min<=user_size AND balcony_size_m2_max>=user_size + orientation=eq.<picked>. Fallback ohne orientation-Filter wenn 0 Treffer. Cache der Rows für Detail-Klick.'},
+      {emoji:'🎴', bold:'Inline-Results:', text:' Bis 6 Card-Items mit Difficulty-Emoji + Size-Range + Orientation + Container + CHF + Yield. Click → gsBalconyTemplateOpen.'},
+      {emoji:'🖼️', bold:'gsBalconyTemplateOpen Vollbild-Modal:', text:' Lila→Blau-Gradient-Header. Eckdaten-Pills (CHF + Container + Setup-h + Maintenance min/W + Pet-OK + Kind-OK). Watering/Winter/Wind/Sun-Strategy. recommended_plants als grüne Pills (bis 18). container_types + best_for_swiss_cities. Pro-Tips (grün) + Common-Pitfalls (rot) als Listen.'},
+      {emoji:'✨', bold:'gsBalconyAdoptTemplate:', text:' POST /rest/v1/garden_plans mit title="🪴 <name_de>", plan_intent="container_balcony", recommended_plants flat aus jsonb (Array oder Object → normalisiert), metadata.balcony_template_slug/size/orientation. Toast bei Success + closeModal.'},
+      {emoji:'🧰', bold:'4 neue Functions:', text:' gsBalconyWizardChanged (Input → metadata-Sync) / gsBalconyWizardSearch (Query + Fallback) / gsBalconyTemplateOpen (Detail-Modal) / gsBalconyAdoptTemplate (Plan-Insert).'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.47 Token-Cost-Widget Admin (Migration + Daily-Dashboard).'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · sw.js gs-v26.46 OK · GS_VERSION=v26.46 OK · _headers v26.46 OK · meta=26.46.20260524 OK.'},
+    ]
+  },
+  {
     v: 'v26.45', date: '24.05.2026',
     headline: '🪴 Indoor-Pflanzen-Sub-Tab — 20 Zimmer-Klassiker mit Pet-Tox-Warnung prominent',
     summary: 'Cowork-Auftrag v26.45 (Sprint 3/5 von Pentagon #3). 10. Wissen-Sub-Tab "🪴 Zimmer". 20 indoor_houseplants aus DB-Wave-13 (Monstera, Dieffenbachia TOXISCH, Spathiphyllum, Ficus etc.). Card-Accent rot bei toxic_to_pets/toxic_to_children, gruen bei air_purifying, hellgruen bei einfacher difficulty. Detail-Modal mit Pet/Kinder-Tox-Banner ZUERST + Air-Purifying-Banner als Pluspunkt + 2x2-Pflege-Profil (Licht/Wasser/Temp/Feuchte) + Vermehrung + Probleme + Pet-Disclaimer.',
@@ -51451,7 +51672,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.45';
+var GS_VERSION = 'v26.46';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
