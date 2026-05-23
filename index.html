@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.47.20260524">
+<meta name="app-version" content="26.48.20260524">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4403,6 +4403,8 @@ html, body{ scroll-behavior: smooth; }
     <button class="recipe-cat" onclick="showWissen('alpen',this)" data-i18n="wissen_alpine" data-i18n-fallback="🏔️ Alpen">🏔️ Alpen</button>
     <!-- v26.45: 10. Sub-Tab — Indoor-Pflanzen (indoor_houseplants) -->
     <button class="recipe-cat" onclick="showWissen('indoor',this)" data-i18n="wissen_indoor" data-i18n-fallback="🪴 Zimmer">🪴 Zimmer</button>
+    <!-- v26.48: 11. Sub-Tab — Garten-Besucher (garden_visitors_animals) -->
+    <button class="recipe-cat" onclick="showWissen('besucher',this)" data-i18n="wissen_visitors" data-i18n-fallback="🦔 Besucher">🦔 Besucher</button>
   </div>
 
   <!-- Content -->
@@ -34241,6 +34243,40 @@ window.gsRenderWissenWave9 = async function(section) {
         return null;
       },
       emptyMsg: 'Noch keine Indoor-Pflanzen in der DB.'
+    },
+    // v26.48 Wave-14: Garten-Besucher (Igel, Marienkäfer, Fledermaus, Salamander...)
+    // Sort: red_list_status (gefährdet zuerst), category, name. Nützling highlight.
+    besucher: {
+      table: 'garden_visitors_animals', order: 'red_list_status,category,common_name_de',
+      titleField: 'common_name_de', categoryField: 'category',
+      cardEmoji: '🦔',
+      cardSub: function(r){
+        var bits = [r.scientific_name || ''];
+        if (r.category) bits.push((function(c){
+          var m = {
+            saeugetier:'🦔 Säugetier', insekt_nuetzling:'🐞 Nützling-Insekt',
+            insekt_schaedlich:'🐛 Schädlich-Insekt', reptil:'🦎 Reptil',
+            amphibie:'🐸 Amphibie', fledermaus:'🦇 Fledermaus', sonstige:'🪱 Sonstige'
+          };
+          return m[c] || c;
+        })(r.category));
+        if (r.red_list_status && String(r.red_list_status).indexOf('nicht gef') < 0) bits.push('⚠️ ' + r.red_list_status);
+        return bits.filter(Boolean).join(' · ');
+      },
+      cardAccent: function(r){
+        // Damage hoch/mittel → orange/rot
+        var sev = String(r.damage_severity || '').toLowerCase();
+        if (sev === 'hoch' || sev === 'katastrophal') return '#c62828';
+        if (sev === 'mittel') return '#e65100';
+        // Gefährdet → gelb (Schutz-Hinweis)
+        var rl = String(r.red_list_status || '').toLowerCase();
+        if (rl.indexOf('vom aussterben') >= 0 || rl.indexOf('stark gef') >= 0) return '#b71c1c';
+        if (rl.indexOf('gef') >= 0 || rl.indexOf('verletzlich') >= 0) return '#f9a825';
+        // Sonst Nützling → grün
+        if (sev === 'keiner' || sev === 'sehr_gering' || sev === 'gering') return '#2e7d32';
+        return null;
+      },
+      emptyMsg: 'Noch keine Garten-Besucher in der DB.'
     }
   };
   var cfg = configs[section];
@@ -34345,6 +34381,8 @@ window.gsWave9OpenDetail = function(section, slug) {
     html += _gsWave9RenderAlpine(r, ed);
   } else if (section === 'indoor') {
     html += _gsWave9RenderIndoor(r, ed);
+  } else if (section === 'besucher') {
+    html += _gsWave9RenderVisitor(r, ed);
   }
 
   html += '</div>';
@@ -34891,6 +34929,84 @@ function _gsWave9RenderIndoor(r, ed) {
       '. Bewahre sie ausserhalb der Reichweite auf. Bei Verzehr-Verdacht: ☎️ <a href="tel:145" style="color:#b71c1c;font-weight:800;">Tox-Info 145</a> (24/7).' +
     '</div>';
   }
+
+  if (r.source) html += '<div style="margin-top:12px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(r.source) + '</div>';
+  html += '</div>';
+  return html;
+}
+
+// v26.48 Detail-Renderer für garden_visitors_animals
+function _gsWave9RenderVisitor(r, ed) {
+  var sev = String(r.damage_severity || '').toLowerCase();
+  var rl = String(r.red_list_status || '').toLowerCase();
+  var isDanger = sev === 'hoch' || sev === 'katastrophal';
+  var isModerate = sev === 'mittel';
+  var isEndangered = rl.indexOf('vom aussterben') >= 0 || rl.indexOf('stark gef') >= 0;
+  var isVulnerable = !isEndangered && (rl.indexOf('gef') >= 0 || rl.indexOf('verletzlich') >= 0);
+  // Nützling = kein bis geringer Schaden + meist beneficial_role gesetzt
+  var isBeneficial = (sev === 'keiner' || sev === 'sehr_gering' || sev === 'gering') && r.beneficial_role;
+  // Category-Emoji
+  var catEmojiMap = {
+    saeugetier: '🦔', insekt_nuetzling: '🐞', insekt_schaedlich: '🐛',
+    reptil: '🦎', amphibie: '🐸', fledermaus: '🦇', sonstige: '🪱'
+  };
+  var catLblMap = {
+    saeugetier: 'Säugetier', insekt_nuetzling: 'Nützling-Insekt', insekt_schaedlich: 'Schädling-Insekt',
+    reptil: 'Reptil', amphibie: 'Amphibie', fledermaus: 'Fledermaus', sonstige: 'Sonstige'
+  };
+  var emoji = catEmojiMap[r.category] || '🦔';
+  var gradient = isDanger ? 'linear-gradient(135deg,#c62828,#7f0000)'
+              : isModerate ? 'linear-gradient(135deg,#e65100,#bf360c)'
+              : isEndangered ? 'linear-gradient(135deg,#b71c1c,#7f0000)'
+              : isBeneficial ? 'linear-gradient(135deg,#2e7d32,#1b5e20)'
+              : 'linear-gradient(135deg,#558b2f,#33691e)';
+  var html = _gsWave9HeaderHtml(emoji, r.common_name_de, r.scientific_name + (r.family ? ' · ' + r.family : ''), gradient, ed);
+
+  // Rote-Liste-Banner ZUERST bei gefährdet
+  if (isEndangered) html += '<div style="background:#b71c1c;color:#fff;padding:11px 14px;text-align:center;font-weight:900;font-size:13px;line-height:1.5;">⚠ ' + ed(r.red_list_status) + ' — Schutz prioritär!</div>';
+  else if (isVulnerable) html += '<div style="background:#e65100;color:#fff;padding:9px 14px;text-align:center;font-weight:700;font-size:12.5px;">⚠ ' + ed(r.red_list_status) + '</div>';
+  // Nützling-Highlight als grünes Banner
+  if (isBeneficial && !isEndangered && !isVulnerable) html += '<div style="background:#2e7d32;color:#fff;padding:10px 14px;text-align:center;font-weight:800;font-size:12.5px;line-height:1.5;">🌿 NÜTZLING IM GARTEN · ' + ed(catLblMap[r.category] || r.category) + '</div>';
+
+  html += '<div style="padding:16px 18px 20px;">';
+
+  // Badges
+  var badges = '';
+  badges += '<span style="background:#e3f2fd;color:#01579b;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">' + emoji + ' ' + ed(catLblMap[r.category] || r.category) + '</span>';
+  if (r.size_cm != null) badges += '<span style="background:#fff8e1;color:#827717;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">📏 ' + ed(r.size_cm) + ' cm</span>';
+  if (r.swiss_native) badges += '<span style="background:#e8f5e9;color:#1b5e20;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🇨🇭 CH-heimisch</span>';
+  if (r.protected_status) badges += '<span style="background:#ede7f6;color:#311b92;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🔒 ' + ed(r.protected_status) + '</span>';
+  if (r.active_time) badges += '<span style="background:#f3e5f5;color:#6a1b9a;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">⏰ ' + ed(r.active_time) + '</span>';
+  html += '<div style="margin-bottom:10px;">' + badges + '</div>';
+
+  // Aktiv-Monate
+  if (Array.isArray(r.active_months) && r.active_months.length) html += '<div style="font-size:12px;color:var(--text2);margin-bottom:8px;"><b>📅 Aktiv:</b> Monate ' + ed(r.active_months.join(', ')) + '</div>';
+
+  // beneficial_role PROMINENT bei Nützling
+  if (r.beneficial_role) html += '<div style="margin-top:10px;padding:11px 13px;background:#e8f5e9;border-left:3px solid #2e7d32;border-radius:10px;font-size:12.5px;color:#1b5e20;line-height:1.55;font-weight:600;"><b>🌿 Nutzen im Garten:</b> ' + ed(r.beneficial_role) + '</div>';
+
+  // potential_damage prominent bei sev hoch/katastrophal
+  if (r.potential_damage && (isDanger || isModerate)) html += '<div style="margin-top:8px;padding:10px 12px;background:' + (isDanger ? '#ffebee' : '#fff3e0') + ';border-left:3px solid ' + (isDanger ? '#c62828' : '#e65100') + ';border-radius:10px;font-size:12px;color:' + (isDanger ? '#b71c1c' : '#bf360c') + ';line-height:1.55;"><b>⚠ Schaden:</b> ' + ed(r.potential_damage) + '</div>';
+
+  // Lebensraum + Futter
+  if (r.habitat_in_garden) html += '<div style="margin-top:8px;padding:9px 11px;background:#f1f8e9;border-left:3px solid #689f38;border-radius:9px;font-size:11.5px;color:#33691e;line-height:1.5;"><b>🏡 Lebensraum:</b> ' + ed(r.habitat_in_garden) + '</div>';
+  if (Array.isArray(r.food_preferences) && r.food_preferences.length) html += _gsWave9ListSection('🍇 Futter', r.food_preferences, ed, '#fff8e1');
+
+  // What attracts / repels (Bird-Friendly-Pattern)
+  if (Array.isArray(r.what_attracts) && r.what_attracts.length) html += _gsWave9ListSection('✨ Was lockt', r.what_attracts, ed, '#e8f5e9');
+  if (Array.isArray(r.what_repels) && r.what_repels.length) html += _gsWave9ListSection('🚫 Was vertreibt', r.what_repels, ed, '#ffebee');
+
+  // Shelter
+  if (Array.isArray(r.shelter_recommendations) && r.shelter_recommendations.length) html += _gsWave9ListSection('🏠 Unterschlupf bauen', r.shelter_recommendations, ed, '#efebe9');
+
+  // Conservation actions
+  if (Array.isArray(r.conservation_actions) && r.conservation_actions.length) html += _gsWave9ListSection('🛡 Schutz-Maßnahmen', r.conservation_actions, ed, '#ede7f6');
+
+  // Observation tips
+  if (r.observation_tips) html += '<div style="margin-top:10px;padding:9px 11px;background:#e0f7fa;border-left:3px solid #00838f;border-radius:9px;font-size:11.5px;color:#004d40;line-height:1.5;"><b>👀 Beobachten:</b> ' + ed(r.observation_tips) + '</div>';
+
+  // Fun-Fact
+  if (r.fun_fact) html += '<div style="margin-top:10px;padding:9px 12px;background:#fff3e0;border-radius:9px;font-size:11.5px;color:#bf360c;line-height:1.55;"><b>💡 Wusstest du?</b> ' + ed(r.fun_fact) + '</div>';
 
   if (r.source) html += '<div style="margin-top:12px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(r.source) + '</div>';
   html += '</div>';
@@ -43808,8 +43924,14 @@ async function gsTokenCostLoadToday() {
   }
   try {
     var today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-    var r = await sbFetch('/rest/v1/ai_daily_usage?date=eq.' + today + '&select=*&order=total_tokens_in.desc', { method:'GET' });
+    // v26.48: bevorzuge v_ai_usage_summary View (mit pre-computed Haiku + Sonnet Cost), Fallback ai_daily_usage
+    var r = await sbFetch('/rest/v1/v_ai_usage_summary?date=eq.' + today + '&select=*&order=total_tokens_in.desc', { method:'GET' });
     var rows = (r && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : []);
+    if (!rows.length) {
+      // Fallback auf Roh-Tabelle (Cowork-Sync noch nicht fertig?)
+      var r0 = await sbFetch('/rest/v1/ai_daily_usage?date=eq.' + today + '&select=*&order=total_tokens_in.desc', { method:'GET' });
+      rows = (r0 && Array.isArray(r0.data)) ? r0.data : [];
+    }
     var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
     if (!rows.length) {
       box.innerHTML = '<div style="padding:30px 18px;text-align:center;color:var(--muted);line-height:1.6;">' +
@@ -43819,9 +43941,16 @@ async function gsTokenCostLoadToday() {
       '</div>';
       return;
     }
-    var totalIn = 0, totalOut = 0, totalCalls = 0;
-    rows.forEach(function(r){ totalIn += r.total_tokens_in || 0; totalOut += r.total_tokens_out || 0; totalCalls += r.call_count || 0; });
-    var totalCost = gsEstimateCostCHF(totalIn, totalOut);
+    var totalIn = 0, totalOut = 0, totalCalls = 0, totalCostUsdView = 0;
+    rows.forEach(function(r){
+      totalIn += r.total_tokens_in || 0;
+      totalOut += r.total_tokens_out || 0;
+      totalCalls += r.call_count || 0;
+      // v26.48: bevorzuge View-Wert (estimated_cost_usd_haiku) wenn vorhanden
+      if (r.estimated_cost_usd_haiku != null) totalCostUsdView += Number(r.estimated_cost_usd_haiku) || 0;
+    });
+    // View-Cost in USD → CHF; Fallback eigene Estimate wenn View leer
+    var totalCost = totalCostUsdView > 0 ? totalCostUsdView * GS_USD_TO_CHF : gsEstimateCostCHF(totalIn, totalOut);
     var html = '';
     // Total-Header
     html += '<div style="padding:14px 16px;background:linear-gradient(135deg,#00838f,#006064);color:#fff;border-radius:12px;margin-bottom:12px;">';
@@ -43833,7 +43962,9 @@ async function gsTokenCostLoadToday() {
     html += '</div>';
     // Pro Edge-Fn Liste
     rows.forEach(function(r){
-      var cost = gsEstimateCostCHF(r.total_tokens_in, r.total_tokens_out);
+      var cost;
+      if (r.estimated_cost_usd_haiku != null) cost = Number(r.estimated_cost_usd_haiku) * GS_USD_TO_CHF;
+      else cost = gsEstimateCostCHF(r.total_tokens_in, r.total_tokens_out);
       html += '<div style="padding:11px 13px;background:var(--card);border:1px solid var(--border);border-left:3px solid #00838f;border-radius:10px;margin-bottom:7px;">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;">' +
           '<div style="font-size:12.5px;font-weight:800;color:var(--text);font-family:monospace;">' + ed(r.edge_fn) + '</div>' +
@@ -43863,8 +43994,13 @@ async function gsTokenCostLoad7d() {
   try {
     var fromDate = new Date(); fromDate.setDate(fromDate.getDate() - 6);
     var fromStr = fromDate.toISOString().slice(0, 10);
-    var r = await sbFetch('/rest/v1/ai_daily_usage?date=gte.' + fromStr + '&select=*&order=date.asc', { method:'GET' });
+    // v26.48: View bevorzugt
+    var r = await sbFetch('/rest/v1/v_ai_usage_summary?date=gte.' + fromStr + '&select=*&order=date.asc', { method:'GET' });
     var rows = (r && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : []);
+    if (!rows.length) {
+      var r0 = await sbFetch('/rest/v1/ai_daily_usage?date=gte.' + fromStr + '&select=*&order=date.asc', { method:'GET' });
+      rows = (r0 && Array.isArray(r0.data)) ? r0.data : [];
+    }
     var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
     if (!rows.length) {
       box.innerHTML = '<div style="padding:30px 18px;text-align:center;color:var(--muted);line-height:1.6;">' +
@@ -43878,15 +44014,20 @@ async function gsTokenCostLoad7d() {
     var perDay = {};
     rows.forEach(function(r){
       var d = r.date;
-      if (!perDay[d]) perDay[d] = { tokIn: 0, tokOut: 0, calls: 0, fns: {} };
+      if (!perDay[d]) perDay[d] = { tokIn: 0, tokOut: 0, calls: 0, fns: {}, costUsdView: 0 };
       perDay[d].tokIn += r.total_tokens_in || 0;
       perDay[d].tokOut += r.total_tokens_out || 0;
       perDay[d].calls += r.call_count || 0;
       perDay[d].fns[r.edge_fn] = true;
+      if (r.estimated_cost_usd_haiku != null) perDay[d].costUsdView += Number(r.estimated_cost_usd_haiku) || 0;
     });
     var dates = Object.keys(perDay).sort();
     var total7d = 0;
-    dates.forEach(function(d){ total7d += gsEstimateCostCHF(perDay[d].tokIn, perDay[d].tokOut); });
+    dates.forEach(function(d){
+      var c = perDay[d].costUsdView > 0 ? perDay[d].costUsdView * GS_USD_TO_CHF : gsEstimateCostCHF(perDay[d].tokIn, perDay[d].tokOut);
+      perDay[d].chf = c;
+      total7d += c;
+    });
     var html = '';
     // Header
     html += '<div style="padding:14px 16px;background:linear-gradient(135deg,#00838f,#006064);color:#fff;border-radius:12px;margin-bottom:12px;">';
@@ -43896,13 +44037,10 @@ async function gsTokenCostLoad7d() {
     html += '</div>';
     // Mini-Bar-Chart per Tag
     var maxCost = 0.001;
-    dates.forEach(function(d){
-      var c = gsEstimateCostCHF(perDay[d].tokIn, perDay[d].tokOut);
-      if (c > maxCost) maxCost = c;
-    });
+    dates.forEach(function(d){ if (perDay[d].chf > maxCost) maxCost = perDay[d].chf; });
     html += '<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">📈 Tages-Trend</div>';
     dates.forEach(function(d){
-      var c = gsEstimateCostCHF(perDay[d].tokIn, perDay[d].tokOut);
+      var c = perDay[d].chf;
       var pct = Math.max(2, Math.round((c / maxCost) * 100));
       var dateLbl = new Date(d).toLocaleDateString('de-CH', { weekday: 'short', day: '2-digit', month: '2-digit' });
       html += '<div style="margin-bottom:7px;">' +
@@ -49714,6 +49852,27 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.48', date: '24.05.2026',
+    headline: '🦔 Garten-Besucher Sub-Tab — 12 Nützlinge + Schädlinge mit Schutz-Hinweisen',
+    summary: 'Cowork-Auftrag v26.48 (Trio-Sprint #4 Start). 11. Wissen-Sub-Tab "🦔 Besucher" mit 12 garden_visitors_animals aus DB-Wave-14 (Igel, Marienkäfer, Fledermaus, Salamander, Eidechse, Regenwurm etc). Card-Accent farbig nach damage_severity + red_list_status. Detail-Modal mit Rote-Liste-Banner + Nützling-Highlight + beneficial_role als grosse grüne Box. PLUS: v26.47 Token-Cost-Widget wired to v_ai_usage_summary View mit pre-computed Haiku-Cost.',
+    user_summary: '🦔 Im Wissen-Tab ist jetzt ein 11. Sub-Tab "🦔 Besucher" mit allen häufigen Schweizer Garten-Tieren — vom Igel über die Fledermaus (frisst 2000 Mücken/Nacht!) bis zur Blindschleiche (5-10 Schnecken/Tag). Nützlinge bekommen grünen Highlight-Banner. Gefährdete Arten (Igel, Hornisse, Salamander, Zauneidechse) werden rot/orange markiert mit Schutz-Hinweisen. Plus: Pro Tier "Was lockt" / "Was vertreibt" / "Unterschlupf bauen" als praktische Anleitung.',
+    user_items: [
+      { emoji: '🌿', text: '12 CH-Garten-Tiere: Igel, Eichhörnchen, Fledermaus, Marienkäfer, Hornisse, Salamander, Eidechse, Regenwurm...' },
+      { emoji: '🐞', text: 'Nützling-Highlight grün mit beneficial_role prominent (z.B. "BESTER Blattlaus-Vertilger")' },
+      { emoji: '⚠️', text: 'Gefährdete Arten rot markiert mit conservation_actions als Schutz-Liste' },
+      { emoji: '🏠', text: 'Pro Tier: "Was lockt" / "Was vertreibt" / "Unterschlupf bauen" als Handlungsanleitung' },
+    ],
+    items: [
+      {emoji:'🧩', bold:'11. Wave-9 Sub-Tab:', text:' #wissen-nav um "🦔 Besucher" Button erweitert. configs[besucher] table=garden_visitors_animals order=red_list_status,category,common_name_de.'},
+      {emoji:'📋', bold:'Filter-Pills:', text:' categoryField=category. Distinct: saeugetier / insekt_nuetzling / insekt_schaedlich / reptil / amphibie / fledermaus / sonstige. Auto-Counts.'},
+      {emoji:'🎨', bold:'Card-Accent:', text:' damage_severity hoch/katastrophal=#c62828 (rot), mittel=#e65100 (orange); red_list_status vom Aussterben=#b71c1c, gefährdet=#f9a825 (gelb); sonst Nützling (keiner/sehr_gering/gering)=#2e7d32 (grün).'},
+      {emoji:'🎨', bold:'_gsWave9RenderVisitor Detail-Modal:', text:' Header-Gradient nach Status. Bei gefährdet: Rote-Liste-Banner ZUERST. Bei Nützling: grüner "NÜTZLING IM GARTEN"-Banner mit Category-Label. Category-Emoji-Pill + Size + CH-heimisch + protected_status + active_time. active_months. beneficial_role PROMINENT als grosse grüne Box mit Bold-Label. potential_damage als rote/orange Box bei sev>=mittel. habitat_in_garden. food_preferences + what_attracts + what_repels + shelter_recommendations + conservation_actions als List-Sections. observation_tips cyan + Fun-Fact orange.'},
+      {emoji:'📊', bold:'v26.47 Token-Cost-Widget Wiring:', text:' Heute + 7-Tage-Trend lesen jetzt aus v_ai_usage_summary View (Cowork-Backend mit pre-computed estimated_cost_usd_haiku). Multiply × 0.88 USD→CHF für CHF-Anzeige. Fallback auf eigene gsEstimateCostCHF wenn View leer (Backwards-Compat falls View nicht deployed). Genauere Werte als die alte Client-Side-Estimate.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.49 Weather-Alert-Widget Home (region+month), v26.50 ai_daily_usage 1-Min-Patches in 5 Edge-Fns.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · sw.js gs-v26.48 OK · GS_VERSION=v26.48 OK · _headers v26.48 OK · meta=26.48.20260524 OK.'},
+    ]
+  },
+  {
     v: 'v26.47', date: '24.05.2026',
     headline: '📊 Token-Cost-Widget Admin — Anthropic-Nutzung pro Tag mit 7-Tage-Trend (Pentagon #3 fertig)',
     summary: 'Cowork-Auftrag v26.47 (Sprint 5/5 = Pentagon-Sprint #3 v26.43-v26.47 abgeschlossen). Migration v26_47_ai_daily_usage LIVE applied (composite-PK date+edge_fn + RLS). Cowork ergänzt Edge-Fn-Logging via UPSERT in jeder Anthropic-Call. Admin-only Settings-Row "📊 KI-Nutzung & Kosten". Modal mit Heute-Tab (pro Edge-Fn Tokens/Calls/Cost) + 7-Tage-Trend-Tab (Tages-Total + Mini-Bar-Chart). Anthropic Haiku 4.5 Pricing client-side estimate (USD→CHF).',
@@ -51902,7 +52061,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.47';
+var GS_VERSION = 'v26.48';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
