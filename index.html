@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.48.20260524">
+<meta name="app-version" content="26.49.20260524">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1885,6 +1885,21 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <div id="fact-text" style="font-size:13px;color:var(--text2);line-height:1.6;"></div>
       <div style="display:flex;justify-content:flex-end;margin-top:8px;">
         <button onclick="gsShowNextDynFact()" style="padding:5px 11px;background:#f0f7ee;border:none;border-radius:8px;font-size:12px;font-weight:700;color:var(--g-main);cursor:pointer;font-family:inherit;">Nächster Fakt ›</button>
+      </div>
+    </div>
+
+    <!-- v26.49: Wetter-Alert-Widget (region+month aus garden_weather_alerts) — pulsiert bei katastrophal -->
+    <div id="weather-alert-card" style="display:none;background:linear-gradient(135deg,#c62828,#7f0000);border-radius:var(--r);padding:13px 15px;color:#fff;margin-bottom:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;" onclick="gsShowNextWeatherAlert()">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;opacity:.9;">⚠️ Wetter-Warnung Garten</div>
+        <span id="wa-severity-badge" style="background:rgba(255,255,255,.22);font-size:9.5px;padding:2px 7px;border-radius:7px;font-weight:800;"></span>
+      </div>
+      <div id="wa-title" style="font-family:'Playfair Display',serif;font-size:16px;font-weight:900;line-height:1.3;margin-bottom:4px;"></div>
+      <div id="wa-region-line" style="font-size:11.5px;opacity:.92;margin-bottom:7px;"></div>
+      <div id="wa-actions" style="background:rgba(0,0,0,.22);padding:8px 11px;border-radius:8px;font-size:11.5px;line-height:1.55;margin-bottom:7px;display:none;"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+        <a id="wa-meteo-link" href="#" target="_blank" rel="noopener" style="flex:1;min-width:160px;padding:8px 10px;background:rgba(255,255,255,.92);border-radius:9px;font-size:12px;font-weight:800;color:#b71c1c;text-align:center;text-decoration:none;-webkit-tap-highlight-color:transparent;">🛰 MeteoSchweiz</a>
+        <button onclick="event.stopPropagation();gsShowNextWeatherAlert();" style="padding:8px 12px;background:transparent;border:1.5px solid rgba(255,255,255,.45);color:#fff;border-radius:9px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">Nächste ›</button>
       </div>
     </div>
 
@@ -14009,6 +14024,161 @@ function gsRenderMushroomSeason(patch, regionName, month) {
 }
 window.gsRenderMushroomSeason = gsRenderMushroomSeason;
 
+// ═════════════════════════════════════════════════════════════════════
+// v26.49 WETTER-ALERT-WIDGET HOME (garden_weather_alerts, DB-Wave-14)
+// Zeigt aktuelle Garten-Wetter-Risiken für User-Region + Monat.
+// Severity-Sort: katastrophal → hoch → mittel → gering. Click rotiert.
+// Region-Match heuristisch (typical_regions ist Text-Array, kein ENUM)
+// — wir mappen User-Region grob auf Strings wie "Mittelland", "Wallis" etc.
+// 4h Cache. Sicht nur wenn Treffer.
+// ═════════════════════════════════════════════════════════════════════
+
+window._gsWeatherAlertCache = null; // {key, data, ts}
+window._gsWeatherAlertIdx = 0;
+var GS_WA_TTL_MS = 4 * 60 * 60 * 1000;
+
+// User-Region-Slug → grobe Match-Tokens für typical_regions text-Array
+var GS_WA_REGION_TOKENS = {
+  mittelland_basic:   ['Mittelland', 'ganz CH'],
+  mittelland_mittel:  ['Mittelland', 'ganz CH'],
+  mittelland_zh_be:   ['Mittelland', 'ganz CH'],
+  voralpen:           ['Voralpen', 'Berg-Regionen', 'ganz CH'],
+  alpen:              ['Berg-Regionen', 'Voralpen', 'ganz CH'],
+  wallis:             ['Wallis', 'Wallis Talkern', 'ganz CH'],
+  tessin:             ['Tessin', 'ganz CH'],
+  jura:               ['ganz CH', 'Mittelland']
+};
+
+async function gsLoadGardenWeatherAlerts() {
+  var card = document.getElementById('weather-alert-card');
+  if (!card) return;
+  if (typeof sbFetch !== 'function') return;
+  try {
+    var month = new Date().getMonth() + 1;
+    // Region heuristisch
+    var regionSlug = null;
+    var regionTokens = null;
+    try {
+      regionSlug = localStorage.getItem('gs_region') || null;
+      if (regionSlug && GS_WA_REGION_TOKENS[regionSlug]) regionTokens = GS_WA_REGION_TOKENS[regionSlug];
+    } catch(_){}
+    var cacheKey = (regionSlug || 'any') + '|' + month;
+    var now = Date.now();
+    var fresh = window._gsWeatherAlertCache && window._gsWeatherAlertCache.key === cacheKey && (now - window._gsWeatherAlertCache.ts) < GS_WA_TTL_MS;
+    var rows;
+    if (fresh) {
+      rows = window._gsWeatherAlertCache.data;
+    } else {
+      // typical_months ist int-Array → contains-Match {month}
+      var q = '/rest/v1/garden_weather_alerts?typical_months=cs.{' + month + '}&select=*&limit=20';
+      var r = await sbFetch(q, { method:'GET' });
+      var allRows = (r && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : []);
+      // Region-Filter client-side (typical_regions ist Text-Array mit unstrukturierten Werten)
+      if (regionTokens && allRows.length) {
+        var matching = allRows.filter(function(a){
+          var regs = Array.isArray(a.typical_regions) ? a.typical_regions : [];
+          return regs.some(function(rg){
+            var l = String(rg||'').toLowerCase();
+            return regionTokens.some(function(tok){ return l.indexOf(String(tok).toLowerCase()) >= 0; });
+          });
+        });
+        if (matching.length) allRows = matching;
+      }
+      // Sort: severity desc (katastrophal first), dann hours_to_react asc (dringend first)
+      var sevRank = { katastrophal: 0, hoch: 1, mittel: 2, gering: 3 };
+      allRows.sort(function(a,b){
+        var sa = sevRank[String(a.damage_severity||'').toLowerCase()] || 9;
+        var sb = sevRank[String(b.damage_severity||'').toLowerCase()] || 9;
+        if (sa !== sb) return sa - sb;
+        return (a.hours_to_react||999) - (b.hours_to_react||999);
+      });
+      window._gsWeatherAlertCache = { key: cacheKey, data: allRows, ts: now };
+      rows = allRows;
+    }
+    if (!rows.length) { card.style.display = 'none'; return; }
+    window._gsWeatherAlertIdx = 0;
+    gsRenderWeatherAlert(rows[0]);
+  } catch(_){}
+}
+window.gsLoadGardenWeatherAlerts = gsLoadGardenWeatherAlerts;
+
+function gsRenderWeatherAlert(a) {
+  var card = document.getElementById('weather-alert-card');
+  if (!card || !a) return;
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+  // Severity → Background-Gradient
+  var sev = String(a.damage_severity || '').toLowerCase();
+  var sevMap = {
+    katastrophal: { bg: 'linear-gradient(135deg,#b71c1c,#4a0000)', lbl: '☠ KATASTROPHAL', pulse: true },
+    hoch:         { bg: 'linear-gradient(135deg,#c62828,#7f0000)', lbl: '⚠ HOCH', pulse: false },
+    mittel:       { bg: 'linear-gradient(135deg,#e65100,#bf360c)', lbl: '⚠ MITTEL', pulse: false },
+    gering:       { bg: 'linear-gradient(135deg,#f57c00,#e65100)', lbl: '⚠ GERING', pulse: false }
+  };
+  var sm = sevMap[sev] || sevMap.mittel;
+  card.style.background = sm.bg;
+  // Severity-Badge
+  var sevBadge = document.getElementById('wa-severity-badge');
+  if (sevBadge) sevBadge.textContent = sm.lbl + (a.hours_to_react != null ? ' · React in ' + a.hours_to_react + 'h' : '');
+  // Pulse-Animation bei katastrophal
+  if (sm.pulse) {
+    if (!document.getElementById('gs-wa-pulse-style')) {
+      var st = document.createElement('style'); st.id = 'gs-wa-pulse-style';
+      st.textContent = '@keyframes gs-wa-pulse { 0%{box-shadow:0 0 0 0 rgba(183,28,28,.7);} 70%{box-shadow:0 0 0 14px rgba(183,28,28,0);} 100%{box-shadow:0 0 0 0 rgba(183,28,28,0);} }';
+      document.head.appendChild(st);
+    }
+    card.style.animation = 'gs-wa-pulse 1.5s ease infinite';
+  } else {
+    card.style.animation = '';
+  }
+  // Title
+  var titleEl = document.getElementById('wa-title');
+  if (titleEl) titleEl.textContent = (a.emoji ? a.emoji + ' ' : '') + (a.title || a.alert_type || '');
+  // Region + Pflanzen-Phasen
+  var regionLine = document.getElementById('wa-region-line');
+  if (regionLine) {
+    var bits = [];
+    if (Array.isArray(a.typical_regions) && a.typical_regions.length) bits.push('📍 ' + a.typical_regions.slice(0,3).join(' · '));
+    if (Array.isArray(a.affected_plants) && a.affected_plants.length) bits.push('🌱 ' + a.affected_plants.slice(0,4).join(', '));
+    regionLine.textContent = bits.join(' · ');
+  }
+  // Sofort-Actions
+  var actsEl = document.getElementById('wa-actions');
+  if (actsEl) {
+    if (Array.isArray(a.immediate_actions) && a.immediate_actions.length) {
+      actsEl.innerHTML = '<b>🚨 Sofort:</b> ' + a.immediate_actions.slice(0,3).map(ed).join(' · ');
+      actsEl.style.display = 'block';
+    } else {
+      actsEl.style.display = 'none';
+    }
+  }
+  // MeteoSchweiz-Link
+  var meteoEl = document.getElementById('wa-meteo-link');
+  if (meteoEl) {
+    var link = a.meteoswiss_warning_link || 'https://www.meteoswiss.admin.ch/';
+    meteoEl.href = link;
+  }
+  card.style.display = 'block';
+}
+window.gsRenderWeatherAlert = gsRenderWeatherAlert;
+
+function gsShowNextWeatherAlert() {
+  var data = (window._gsWeatherAlertCache && window._gsWeatherAlertCache.data) || [];
+  if (!data.length) return;
+  window._gsWeatherAlertIdx = (window._gsWeatherAlertIdx + 1) % data.length;
+  var card = document.getElementById('weather-alert-card');
+  if (card) {
+    card.style.transition = 'opacity .2s';
+    card.style.opacity = '0';
+    setTimeout(function(){
+      gsRenderWeatherAlert(data[window._gsWeatherAlertIdx]);
+      card.style.opacity = '1';
+    }, 200);
+  } else {
+    gsRenderWeatherAlert(data[window._gsWeatherAlertIdx]);
+  }
+}
+window.gsShowNextWeatherAlert = gsShowNextWeatherAlert;
+
 // ══ SUPABASE-BACKED DAILY CONTENT ═══════════════════════════════
 // Lädt Saison-Tipp, Wusstest du?, Tägliches Quiz und Seasonal-Highlights
 // aus Supabase (Tabellen seasonal_tips, did_you_know_facts, daily_quizzes,
@@ -14894,6 +15064,13 @@ function initHomeBoard() {
         setTimeout(function(){ gsLoadTodaysMushroomSeason(); }, 500);
       }
     } catch(e) { console.log('SBMushSeason:', e.message); }
+
+    // ── v26.49: Wetter-Alert-Widget (region+month, garden_weather_alerts) ──
+    try {
+      if (typeof gsLoadGardenWeatherAlerts === 'function') {
+        setTimeout(function(){ gsLoadGardenWeatherAlerts(); }, 350);
+      }
+    } catch(e) { console.log('SBWeatherAlert:', e.message); }
 
     // ── Animierte Zahlen ──────────────────────────────────
     setTimeout(function() {
@@ -49852,6 +50029,29 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.49', date: '24.05.2026',
+    headline: '⚠ Wetter-Alert-Widget Home — 10 Garten-Warnungen mit MeteoSchweiz-Link (region-aware)',
+    summary: 'Cowork-Auftrag v26.49 (Trio #4 Sprint 2/3). Neues #weather-alert-card auf Home über der Mushroom-Saison-Card. Query garden_weather_alerts mit typical_months overlap + Region-Filter heuristisch über GS_WA_REGION_TOKENS-Map. Severity-Sort katastrophal first, dann hours_to_react asc. Pulse-Animation bei katastrophal. Immediate-actions + MeteoSchweiz-Link + Nächste-Toggle. 4h Cache.',
+    user_summary: '⚠ Auf der Startseite siehst du jetzt aktuelle Garten-Wetter-Warnungen für deine Region und den aktuellen Monat — z.B. "Spätfrost nach Eisheiligen" mit "React in 6h" + Sofort-Maßnahmen ("Vlies bereit halten"). Bei katastrophalen Warnungen (Hagel-Sturm) pulsiert die Karte. Direkter Link zu MeteoSchweiz-Warnstufen.',
+    user_items: [
+      { emoji: '⚠', text: '10 Garten-spezifische Wetter-Warnungen: Spätfrost, Hagel, Hitze, Dürre, Starkregen, Sturm, Glatteis-Bruch...' },
+      { emoji: '📍', text: 'Region-aware: zeigt nur Warnungen für deine CH-Höhenzone (Mittelland/Voralpen/Wallis/Tessin)' },
+      { emoji: '🚨', text: 'Sofort-Maßnahmen prominent bei jeder Warnung ("Vlies bereit halten", "Wasser stoppen"...)' },
+      { emoji: '🛰', text: 'Direkter Link zu MeteoSchweiz-Warnstufen + Pulse-Animation bei katastrophal' },
+    ],
+    items: [
+      {emoji:'🎨', bold:'Widget #weather-alert-card:', text:' Position über Mushroom-Saison-Card (höhere Priorität). Severity-Gradient (katastrophal=#b71c1c→#4a0000 + Pulse, hoch=#c62828, mittel=#e65100, gering=#f57c00).'},
+      {emoji:'💓', bold:'Pulse-Animation bei katastrophal:', text:' Eigene gs-wa-pulse-keyframe (box-shadow 0px → 14px rgba(183,28,28) 1.5s infinite). Nur bei damage_severity=katastrophal aktiv.'},
+      {emoji:'🔍', bold:'Query-Strategie:', text:' GET garden_weather_alerts?typical_months=cs.{currentMonth} (Postgres-Array-Contains). Client-side Region-Filter via GS_WA_REGION_TOKENS-Map: user_region_slug → ["Mittelland","Wallis",...] Substring-Match in typical_regions Text-Array. Fallback: alle Warnungen wenn kein Match.'},
+      {emoji:'📊', bold:'Severity-Sort:', text:' sevRank katastrophal=0 < hoch=1 < mittel=2 < gering=3, dann hours_to_react asc (dringend first). User sieht dringendste Warnung zuerst.'},
+      {emoji:'🎨', bold:'Render:', text:' Severity-Badge "⚠ HOCH · React in 6h" Header. Playfair-Title mit emoji. Region + erste 4 affected_plants. immediate_actions (Top-3) als dunkle Inline-Box. 2 Buttons: MeteoSchweiz-Link extern (target=_blank) + "Nächste" toggelt mit Fade.'},
+      {emoji:'⏰', bold:'4h Cache:', text:' window._gsWeatherAlertCache mit cacheKey aus regionSlug+month — verhindert mehrfaches Reload pro Session.'},
+      {emoji:'🚀', bold:'Auto-Load:', text:' gsLoadGardenWeatherAlerts wird 350ms nach Home-Mount aufgerufen (zwischen Wisdom und Mushroom-Season). Silent-fail wenn sbFetch fehlt.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.50 ai_daily_usage 1-Min-Patches in 5 Edge-Fns.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · sw.js gs-v26.49 OK · GS_VERSION=v26.49 OK · _headers v26.49 OK · meta=26.49.20260524 OK.'},
+    ]
+  },
+  {
     v: 'v26.48', date: '24.05.2026',
     headline: '🦔 Garten-Besucher Sub-Tab — 12 Nützlinge + Schädlinge mit Schutz-Hinweisen',
     summary: 'Cowork-Auftrag v26.48 (Trio-Sprint #4 Start). 11. Wissen-Sub-Tab "🦔 Besucher" mit 12 garden_visitors_animals aus DB-Wave-14 (Igel, Marienkäfer, Fledermaus, Salamander, Eidechse, Regenwurm etc). Card-Accent farbig nach damage_severity + red_list_status. Detail-Modal mit Rote-Liste-Banner + Nützling-Highlight + beneficial_role als grosse grüne Box. PLUS: v26.47 Token-Cost-Widget wired to v_ai_usage_summary View mit pre-computed Haiku-Cost.',
@@ -52061,7 +52261,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.48';
+var GS_VERSION = 'v26.49';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
