@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.37.20260523">
+<meta name="app-version" content="26.38.20260523">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4322,6 +4322,8 @@ html, body{ scroll-behavior: smooth; }
     <button class="recipe-cat" onclick="showWissen('heilpflanzen',this)" data-i18n="wissen_medicinal" data-i18n-fallback="🌿 Heilpflanzen">🌿 Heilpflanzen</button>
     <!-- v26.30: 5. Wave-9-Sub-Tab — Samen-Gewinnung -->
     <button class="recipe-cat" onclick="showWissen('samen',this)" data-i18n="wissen_seeds" data-i18n-fallback="🌰 Samen ernten">🌰 Samen ernten</button>
+    <!-- v26.38: 6. Sub-Tab — Pilz-Glossar (mit v_mushroom_safety) -->
+    <button class="recipe-cat" onclick="showWissen('pilze',this)" data-i18n="wissen_mushrooms" data-i18n-fallback="🍄 Pilze">🍄 Pilze</button>
   </div>
 
   <!-- Content -->
@@ -33662,6 +33664,59 @@ window.gsRenderWissenWave9 = async function(section) {
         return null;
       },
       emptyMsg: 'Noch keine Samen-Methoden in der DB.'
+    },
+    // v26.38 Wave-11: Pilz-Glossar mit Sicherheit (mushroom_register + v_mushroom_safety in Detail)
+    // Sort: edibility ASC → toedlich/giftig zuerst (Warnungen prominent)
+    pilze: {
+      table: 'mushroom_register', order: 'edibility,common_name_de',
+      titleField: 'common_name_de', categoryField: 'edibility',
+      cardEmoji: '🍄',
+      cardSub: function(r){ return (r.scientific_name || '') + ' · VAPKO ' + (r.vapko_klasse || '?') + ' · ' + (Array.isArray(r.habitat) ? r.habitat.slice(0,2).join('/') : ''); },
+      cardAccent: function(r){
+        if (r.edibility === 'toedlich') return '#b71c1c';
+        if (r.edibility === 'giftig') return '#e65100';
+        if (r.edibility === 'bedingt_essbar' || r.edibility === 'speisepilz_jung') return '#f9a825';
+        if (r.edibility === 'speisepilz') return '#2e7d32';
+        return null;
+      },
+      emptyMsg: 'Noch keine Pilze in der DB.'
+    },
+    // v26.41 Wave-12: Wassergarten — water_features (Teich + Schwimm + Designs + Wassertiere)
+    wasser: {
+      table: 'water_features', order: 'feature_type,name_de',
+      titleField: 'name_de', categoryField: 'feature_type',
+      cardEmoji: '💧',
+      cardSub: function(r){
+        var depth = (r.water_depth_cm_min != null && r.water_depth_cm_max != null) ? r.water_depth_cm_min + '-' + r.water_depth_cm_max + ' cm' : '';
+        var s = (r.scientific_name || r.feature_type || '') + (depth ? ' · ' + depth : '') + (r.swiss_native ? ' · 🇨🇭' : '');
+        return s;
+      },
+      cardAccent: function(r){
+        if (r.invasive_in_ch === true) return '#c62828';
+        if (r.feature_type === 'teich_design') return '#1565c0';
+        if (r.swiss_native) return '#2e7d32';
+        return null;
+      },
+      emptyMsg: 'Noch keine Wassergarten-Einträge in der DB.'
+    },
+    // v26.42 Wave-12: Vogel-Glossar — garden_birds_register
+    // Sort: status_in_ch (gefährdet zuerst), dann name
+    voegel: {
+      table: 'garden_birds_register', order: 'status_in_ch,common_name_de',
+      titleField: 'common_name_de', categoryField: 'status_in_ch',
+      cardEmoji: '🦜',
+      cardSub: function(r){
+        var size = (r.size_cm != null) ? r.size_cm + ' cm' : '';
+        return (r.scientific_name || '') + (size ? ' · ' + size : '') + (r.red_list_status && r.red_list_status !== 'nicht gefährdet' ? ' · ⚠️ ' + r.red_list_status : '');
+      },
+      cardAccent: function(r){
+        var rl = String(r.red_list_status || '').toLowerCase();
+        if (rl.indexOf('vom aussterben') >= 0 || rl.indexOf('stark gef') >= 0) return '#b71c1c';
+        if (rl.indexOf('gef') >= 0 || rl.indexOf('verletzlich') >= 0) return '#e65100';
+        if (rl.indexOf('potentiell') >= 0 || rl.indexOf('nahezu') >= 0) return '#f9a825';
+        return null;
+      },
+      emptyMsg: 'Noch keine Vögel in der DB.'
     }
   };
   var cfg = configs[section];
@@ -33756,6 +33811,12 @@ window.gsWave9OpenDetail = function(section, slug) {
     html += _gsWave9RenderMedicinal(r, ed);
   } else if (section === 'samen') {
     html += _gsWave9RenderSeedSaving(r, ed);
+  } else if (section === 'pilze') {
+    html += _gsWave9RenderMushroom(r, ed);
+  } else if (section === 'wasser') {
+    html += _gsWave9RenderWater(r, ed);
+  } else if (section === 'voegel') {
+    html += _gsWave9RenderBird(r, ed);
   }
 
   html += '</div>';
@@ -33816,6 +33877,312 @@ function _gsWave9RenderSeedSaving(r, ed) {
   if (r.cultural_significance) html += '<div style="margin-top:5px;padding:8px 11px;background:#fff3e0;border-radius:9px;font-size:11.5px;color:#bf360c;"><b>🏛️ Kulturelle Bedeutung:</b> ' + ed(r.cultural_significance) + '</div>';
 
   if (r.source) html += '<div style="margin-top:14px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(r.source) + '</div>';
+  html += '</div>';
+  return html;
+}
+
+// v26.38 Detail-Renderer für mushroom_register + Lookalikes + Recipes (async sub-loads)
+function _gsWave9RenderMushroom(r, ed) {
+  var isToedlich = r.edibility === 'toedlich';
+  var isGiftig = r.edibility === 'giftig';
+  var isDanger = isToedlich || isGiftig;
+  var isBedingt = r.edibility === 'bedingt_essbar' || r.edibility === 'speisepilz_jung';
+  var isEdible = r.edibility === 'speisepilz' || isBedingt;
+  var gradient = isToedlich ? 'linear-gradient(135deg,#b71c1c,#7f0000)'
+              : isGiftig ? 'linear-gradient(135deg,#e65100,#bf360c)'
+              : isBedingt ? 'linear-gradient(135deg,#f9a825,#ef6c00)'
+              : isEdible ? 'linear-gradient(135deg,#2e7d32,#1b5e20)'
+              : 'linear-gradient(135deg,#6a1b9a,#4a148c)';
+  var lblMap = {
+    toedlich: '☠️ TÖDLICH GIFTIG · NICHT ESSEN',
+    giftig:   '⚠️ GIFTIG · NICHT ESSEN',
+    bedingt_essbar: '⚠️ NUR BEDINGT ESSBAR',
+    speisepilz_jung: '⚠️ NUR JUNG GENIESSBAR',
+    speisepilz: '✅ Speisepilz',
+    ungeniessbar: '⊘ Ungeniessbar'
+  };
+  var ediLbl = lblMap[r.edibility] || (r.edibility || '?');
+
+  var html = _gsWave9HeaderHtml('🍄', r.common_name_de, r.scientific_name + (r.family ? ' · ' + r.family : ''), gradient, ed);
+
+  // Lebensgefahr-Banner ZUERST bei toedlich/giftig
+  if (isDanger) {
+    html += '<div style="margin:0;padding:14px 18px;background:#b71c1c;color:#fff;text-align:center;font-weight:900;font-size:14px;letter-spacing:.3px;">' +
+      ediLbl + ' · ☎️ <a href="tel:145" style="color:#fff;text-decoration:underline;">Tox-Info 145</a> (24/7)' +
+    '</div>';
+  }
+
+  html += '<div style="padding:16px 18px 20px;">';
+
+  // Edibility-Pill + VAPKO
+  html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">' +
+    '<span style="background:' + (isDanger ? '#ffebee' : isEdible ? '#e8f5e9' : '#fff8e1') + ';color:' + (isDanger ? '#b71c1c' : isEdible ? '#1b5e20' : '#bf360c') + ';padding:4px 10px;border-radius:8px;font-size:11.5px;font-weight:800;">' + ed(ediLbl) + '</span>' +
+    (r.vapko_klasse ? '<span style="background:#ede7f6;color:#311b92;padding:4px 10px;border-radius:8px;font-size:11.5px;font-weight:800;">VAPKO ' + ed(r.vapko_klasse) + '</span>' : '') +
+    (r.protected_status ? '<span style="background:#e3f2fd;color:#01579b;padding:4px 10px;border-radius:8px;font-size:11.5px;font-weight:800;">🛡 ' + ed(r.protected_status) + '</span>' : '') +
+  '</div>';
+
+  // Habitat + Saison
+  if (Array.isArray(r.habitat) && r.habitat.length) html += '<div style="font-size:12px;color:var(--text2);margin-bottom:6px;"><b>🌲 Habitat:</b> ' + ed(r.habitat.join(', ')) + '</div>';
+  if (Array.isArray(r.symbiosis_partners) && r.symbiosis_partners.length) html += '<div style="font-size:12px;color:var(--text2);margin-bottom:6px;"><b>🤝 Symbiose:</b> ' + ed(r.symbiosis_partners.join(', ')) + '</div>';
+  if (Array.isArray(r.season_months) && r.season_months.length) html += '<div style="font-size:12px;color:var(--text2);margin-bottom:6px;"><b>📅 Saison:</b> Monate ' + ed(r.season_months.join(', ')) + '</div>';
+  var alt = '';
+  if (r.altitude_m_min != null) alt += r.altitude_m_min;
+  if (r.altitude_m_max != null) alt += (alt ? '-' : '') + r.altitude_m_max + ' m';
+  if (alt) html += '<div style="font-size:12px;color:var(--text2);margin-bottom:6px;"><b>⛰ Höhe:</b> ' + ed(alt) + '</div>';
+
+  // Identifying Features
+  if (r.identifying_features) html += '<div style="margin-top:10px;padding:10px 12px;background:#fff8e1;border-left:3px solid #fbc02d;border-radius:9px;font-size:12.5px;color:#827717;line-height:1.55;"><b>👁 Erkennen:</b> ' + ed(r.identifying_features) + '</div>';
+
+  // Hut + Lamellen + Stiel kompakt
+  var morph = [];
+  if (r.cap_diameter_cm_min != null || r.cap_diameter_cm_max != null) morph.push('Hut ' + (r.cap_diameter_cm_min||'?') + '-' + (r.cap_diameter_cm_max||'?') + ' cm');
+  if (Array.isArray(r.cap_color) && r.cap_color.length) morph.push('Farbe ' + r.cap_color.join('/'));
+  if (r.cap_surface) morph.push(r.cap_surface);
+  if (r.gills_or_pores) morph.push(r.gills_or_pores + (r.gill_color ? '/' + r.gill_color : ''));
+  if (r.spore_color) morph.push('Sporen ' + r.spore_color);
+  if (r.stem_color) morph.push('Stiel ' + r.stem_color);
+  if (r.smell) morph.push('Geruch ' + r.smell);
+  if (r.taste) morph.push('Geschmack ' + r.taste);
+  if (morph.length) html += '<div style="margin-top:8px;font-size:11.5px;color:var(--text2);line-height:1.55;"><b>📐 Merkmale:</b> ' + ed(morph.join(' · ')) + '</div>';
+
+  // Bei Gift: Toxine + Symptome + Emergency PROMINENT
+  if (isDanger) {
+    if (r.toxic_compounds) html += '<div style="margin-top:10px;padding:10px 12px;background:#ffebee;border:1px solid #c62828;border-radius:10px;font-size:12px;color:#b71c1c;"><b>☣ Toxine:</b> ' + ed(r.toxic_compounds) + '</div>';
+    if (r.symptoms_if_toxic) html += '<div style="margin-top:6px;padding:10px 12px;background:#ffebee;border:1px solid #c62828;border-radius:10px;font-size:12px;color:#b71c1c;line-height:1.55;"><b>🤢 Symptome:</b> ' + ed(r.symptoms_if_toxic) + '</div>';
+    if (r.emergency_action) html += '<div style="margin-top:6px;padding:10px 12px;background:#b71c1c;color:#fff;border-radius:10px;font-size:12.5px;line-height:1.55;font-weight:700;"><b>🆘 Notfall:</b> ' + ed(r.emergency_action) + '</div>';
+  }
+  // Speisepilz: Zubereitung + Konservieren
+  if (isEdible) {
+    if (r.cooking_preparation) html += '<div style="margin-top:10px;padding:10px 12px;background:#e8f5e9;border-radius:10px;font-size:12px;color:#1b5e20;line-height:1.55;"><b>🍳 Zubereitung:</b> ' + ed(r.cooking_preparation) + '</div>';
+    if (Array.isArray(r.conservation_methods) && r.conservation_methods.length) html += '<div style="margin-top:6px;font-size:11.5px;color:var(--text2);"><b>📦 Konservieren:</b> ' + ed(r.conservation_methods.join(', ')) + '</div>';
+  }
+
+  if (r.cultural_notes) html += '<div style="margin-top:10px;padding:9px 11px;background:#fff3e0;border-radius:9px;font-size:11.5px;color:#bf360c;"><b>🏛 Kultur:</b> ' + ed(r.cultural_notes) + '</div>';
+
+  // Async-Slots fuer Lookalikes + Recipes (gefüllt durch _gsMushroomLoadDetailExtras)
+  html += '<div id="gs-mushroom-lookalikes-' + ed(r.slug) + '" style="margin-top:14px;"></div>';
+  if (isEdible) html += '<div id="gs-mushroom-recipes-' + ed(r.slug) + '" style="margin-top:10px;"></div>';
+  // VAPKO-Footer immer
+  html += '<div style="margin-top:14px;padding:10px 12px;background:#ede7f6;border:1.5px solid #5e35b1;border-radius:11px;font-size:11.5px;color:#311b92;line-height:1.5;"><b>🔒 VAPKO:</b> Diese App ersetzt keine offizielle Pilzkontrolle. Im Zweifel: nie essen. Bei Verzehr-Verdacht ☎️ <a href="tel:145" style="color:#311b92;">145</a>.</div>';
+  if (r.source) html += '<div style="margin-top:8px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(r.source) + '</div>';
+  html += '</div>';
+
+  // Triggert async Lookalikes + Recipes Sub-Load
+  setTimeout(function(){ _gsMushroomLoadDetailExtras(r.slug, !!isEdible); }, 50);
+
+  return html;
+}
+
+async function _gsMushroomLoadDetailExtras(slug, isEdible) {
+  if (typeof sbFetch !== 'function') return;
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+  // Lookalikes bidirektional
+  try {
+    var r1 = await sbFetch('/rest/v1/mushroom_lookalikes?or=(edible_slug.eq.' + encodeURIComponent(slug) + ',lookalike_slug.eq.' + encodeURIComponent(slug) + ')&select=*', { method:'GET' });
+    var laRows = (r1 && Array.isArray(r1.data)) ? r1.data : (Array.isArray(r1) ? r1 : []);
+    var laBox = document.getElementById('gs-mushroom-lookalikes-' + slug);
+    if (laBox && laRows.length) {
+      var html = '<div style="padding:12px 14px;background:#fff3e0;border:2px solid #e65100;border-radius:12px;">';
+      html += '<div style="font-size:12.5px;font-weight:900;color:#bf360c;margin-bottom:8px;letter-spacing:.3px;">⚠️ VERWECHSLUNGS-RISIKO (' + laRows.length + ')</div>';
+      laRows.forEach(function(la){
+        var other = (la.edible_slug === slug) ? la.lookalike_slug : la.edible_slug;
+        var risk = String(la.confusion_risk || 'mittel');
+        var riskBg = risk === 'hoch' ? '#c62828' : risk === 'mittel' ? '#e65100' : '#827717';
+        html += '<div style="padding:7px 0;border-top:1px dashed rgba(0,0,0,.1);">' +
+          '<div style="font-size:12.5px;color:#bf360c;"><span style="background:' + riskBg + ';color:#fff;padding:1px 7px;border-radius:5px;font-size:10.5px;font-weight:800;margin-right:6px;">' + ed(risk.toUpperCase()) + '</span><b>' + ed(other) + '</b></div>';
+        if (la.visual_differences) html += '<div style="font-size:11.5px;color:#bf360c;margin-top:3px;line-height:1.5;"><b>👁 Visuell:</b> ' + ed(la.visual_differences) + '</div>';
+        if (la.smell_differences) html += '<div style="font-size:11.5px;color:#bf360c;margin-top:2px;"><b>👃 Geruch:</b> ' + ed(la.smell_differences) + '</div>';
+        if (la.habitat_differences) html += '<div style="font-size:11.5px;color:#bf360c;margin-top:2px;"><b>🌲 Habitat:</b> ' + ed(la.habitat_differences) + '</div>';
+        if (la.spore_print_differences) html += '<div style="font-size:11.5px;color:#bf360c;margin-top:2px;"><b>🔬 Sporen:</b> ' + ed(la.spore_print_differences) + '</div>';
+        if (la.pro_tip) html += '<div style="font-size:11.5px;color:#1b5e20;margin-top:3px;background:#e8f5e9;padding:3px 7px;border-radius:5px;display:inline-block;"><b>💡 Profi-Tipp:</b> ' + ed(la.pro_tip) + '</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+      laBox.innerHTML = html;
+    }
+  } catch(_){}
+  // Rezepte nur bei Speisepilzen
+  if (!isEdible) return;
+  try {
+    var r2 = await sbFetch('/rest/v1/mushroom_recipes?primary_mushroom_slugs=cs.{' + encodeURIComponent(slug) + '}&select=slug,title,emoji,description,difficulty,prep_time_min,cooking_time_min,swiss_tradition&limit=5', { method:'GET' });
+    var recRows = (r2 && Array.isArray(r2.data)) ? r2.data : (Array.isArray(r2) ? r2 : []);
+    var recBox = document.getElementById('gs-mushroom-recipes-' + slug);
+    if (recBox && recRows.length) {
+      var rh = '<div style="padding:11px 13px;background:#fff8e1;border:1.5px solid #fbc02d;border-radius:11px;">';
+      rh += '<div style="font-size:12.5px;font-weight:900;color:#827717;margin-bottom:6px;">🍳 Rezepte mit diesem Pilz (' + recRows.length + ')</div>';
+      recRows.forEach(function(rec){
+        rh += '<div onclick="gsMushroomRecipeOpen(\'' + ed(rec.slug) + '\')" style="cursor:pointer;padding:8px 0;border-top:1px dashed rgba(0,0,0,.12);display:flex;align-items:center;gap:10px;-webkit-tap-highlight-color:transparent;">' +
+          '<span style="font-size:22px;">' + ed(rec.emoji || '🍽') + '</span>' +
+          '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:800;color:var(--text);">' + ed(rec.title) + '</div>' +
+          '<div style="font-size:11px;color:var(--muted);">' + ed(rec.difficulty || '?') + ' · ' + ((rec.prep_time_min||0)+(rec.cooking_time_min||0)) + ' min' + (rec.swiss_tradition ? ' · 🇨🇭' : '') + '</div></div>' +
+          '<span style="font-size:18px;color:var(--muted);">›</span>' +
+        '</div>';
+      });
+      rh += '</div>';
+      recBox.innerHTML = rh;
+    }
+  } catch(_){}
+}
+
+// Mushroom-Rezept Detail-Modal (vom Mushroom-Detail aus aufgerufen)
+window.gsMushroomRecipeOpen = async function(slug) {
+  if (typeof sbFetch !== 'function') return;
+  if (typeof gsHaptic === 'function') gsHaptic('light');
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+  try {
+    var r = await sbFetch('/rest/v1/mushroom_recipes?slug=eq.' + encodeURIComponent(slug) + '&select=*&limit=1', { method:'GET' });
+    var rec = (r && Array.isArray(r.data) && r.data[0]) || null;
+    if (!rec) return;
+    var mc = document.getElementById('modal-content');
+    if (!mc) return;
+    var ing = rec.ingredients;
+    var ingHtml = '';
+    if (Array.isArray(ing)) {
+      ingHtml = ing.map(function(i){
+        if (typeof i === 'string') return '<li>' + ed(i) + '</li>';
+        return '<li>' + ed((i.amount ? i.amount + ' ' : '') + (i.unit ? i.unit + ' ' : '') + (i.name || '')) + (i.notes ? ' <span style="color:var(--muted);font-size:11px;">(' + ed(i.notes) + ')</span>' : '') + '</li>';
+      }).join('');
+    } else if (typeof ing === 'object' && ing) {
+      ingHtml = Object.keys(ing).map(function(k){ return '<li>' + ed(k + ': ' + ing[k]) + '</li>'; }).join('');
+    }
+    var steps = rec.steps;
+    var stepsHtml = '';
+    if (Array.isArray(steps)) stepsHtml = steps.map(function(s){ return '<li style="margin-bottom:6px;">' + ed(typeof s === 'string' ? s : (s.text || s.step || '')) + '</li>'; }).join('');
+    var html = '<div style="padding:0;">';
+    html += '<div style="background:linear-gradient(135deg,#827717,#558b2f);padding:20px;color:#fff;position:relative;">';
+    html += '<button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.22);color:#fff;font-size:18px;cursor:pointer;">×</button>';
+    html += '<div style="font-size:36px;margin-bottom:6px;">' + ed(rec.emoji || '🍳') + '</div>';
+    html += '<div style="font-family:\'Playfair Display\',serif;font-size:20px;font-weight:900;">' + ed(rec.title) + '</div>';
+    if (rec.description) html += '<div style="font-size:12.5px;opacity:.92;margin-top:4px;line-height:1.5;">' + ed(rec.description) + '</div>';
+    html += '</div>';
+    html += '<div style="padding:16px 18px 20px;">';
+    var meta = [];
+    if (rec.servings) meta.push('👥 ' + rec.servings + ' Pers.');
+    if (rec.prep_time_min) meta.push('🔪 ' + rec.prep_time_min + ' min Vorb.');
+    if (rec.cooking_time_min) meta.push('🔥 ' + rec.cooking_time_min + ' min Kochen');
+    if (rec.difficulty) meta.push('🎯 ' + rec.difficulty);
+    if (meta.length) html += '<div style="font-size:11.5px;color:var(--muted);margin-bottom:10px;font-weight:700;">' + ed(meta.join(' · ')) + '</div>';
+    if (rec.warning) html += '<div style="padding:10px 12px;background:#ffebee;border-left:3px solid #c62828;border-radius:9px;font-size:12px;color:#b71c1c;margin-bottom:12px;line-height:1.5;"><b>⚠ Warnung:</b> ' + ed(rec.warning) + '</div>';
+    if (ingHtml) html += '<div style="font-size:12.5px;font-weight:800;color:var(--text);margin-bottom:6px;">📋 Zutaten</div><ul style="margin:0 0 14px;padding-left:20px;font-size:12.5px;line-height:1.6;color:var(--text2);">' + ingHtml + '</ul>';
+    if (stepsHtml) html += '<div style="font-size:12.5px;font-weight:800;color:var(--text);margin-bottom:6px;">📝 Zubereitung</div><ol style="margin:0 0 14px;padding-left:20px;font-size:12.5px;line-height:1.6;color:var(--text2);">' + stepsHtml + '</ol>';
+    if (rec.cooking_method) html += '<div style="font-size:11.5px;color:var(--text2);margin-bottom:4px;"><b>👨‍🍳 Methode:</b> ' + ed(rec.cooking_method) + '</div>';
+    if (rec.alcohol_pairing) html += '<div style="font-size:11.5px;color:var(--text2);margin-bottom:4px;"><b>🍷 Getränk:</b> ' + ed(rec.alcohol_pairing) + '</div>';
+    if (rec.food_pairing) html += '<div style="font-size:11.5px;color:var(--text2);margin-bottom:4px;"><b>🥖 Beilage:</b> ' + ed(rec.food_pairing) + '</div>';
+    if (rec.preservation_method) html += '<div style="font-size:11.5px;color:var(--text2);margin-bottom:4px;"><b>📦 Haltbarmachen:</b> ' + ed(rec.preservation_method) + '</div>';
+    if (rec.swiss_tradition) html += '<div style="margin-top:10px;padding:9px 11px;background:#fff3e0;border-radius:9px;font-size:11.5px;color:#bf360c;"><b>🇨🇭 Tradition:</b> ' + ed(rec.swiss_tradition) + (rec.region ? ' (' + ed(rec.region) + ')' : '') + '</div>';
+    if (rec.source) html += '<div style="margin-top:12px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(rec.source) + '</div>';
+    html += '</div></div>';
+    mc.innerHTML = html;
+    if (typeof openModal === 'function') openModal('detail-modal');
+  } catch(_){}
+};
+
+// v26.41 Detail-Renderer für water_features
+function _gsWave9RenderWater(r, ed) {
+  var typeMap = {
+    teichpflanze: { e:'🌿', l:'Teichpflanze' },
+    schwimmpflanze: { e:'🌊', l:'Schwimmpflanze' },
+    unterwasserpflanze: { e:'🌱', l:'Unterwasserpflanze' },
+    teich_design: { e:'🌳', l:'Teich-Design' },
+    wassertier: { e:'🐸', l:'Wassertier' }
+  };
+  var t = typeMap[r.feature_type] || { e:'💧', l: r.feature_type || '?' };
+  var isInvasive = r.invasive_in_ch === true;
+  var gradient = isInvasive ? 'linear-gradient(135deg,#c62828,#7f0000)'
+              : r.feature_type === 'teich_design' ? 'linear-gradient(135deg,#1565c0,#0d47a1)'
+              : 'linear-gradient(135deg,#0288d1,#01579b)';
+  var html = _gsWave9HeaderHtml(t.e, r.name_de, r.scientific_name + ' · ' + t.l, gradient, ed);
+
+  if (isInvasive) {
+    html += '<div style="background:#b71c1c;color:#fff;padding:11px 14px;text-align:center;font-size:13px;font-weight:800;">⛔ INVASIV in CH — bitte nicht setzen!</div>';
+  }
+
+  html += '<div style="padding:16px 18px 20px;">';
+
+  // Badges
+  var badges = '';
+  if (r.swiss_native) badges += '<span style="background:#e8f5e9;color:#1b5e20;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🇨🇭 CH-heimisch</span>';
+  if (r.oxygenating) badges += '<span style="background:#e3f2fd;color:#01579b;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">💨 Sauerstoff</span>';
+  if (r.water_filtration) badges += '<span style="background:#e0f7fa;color:#006064;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🌊 Filtert Wasser</span>';
+  if (r.attracts_wildlife) badges += '<span style="background:#fff8e1;color:#bf360c;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🦋 Tiere</span>';
+  if (r.cost_chf_each) badges += '<span style="background:#fff3e0;color:#e65100;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">💰 CHF ' + ed(r.cost_chf_each) + '</span>';
+  if (badges) html += '<div style="margin-bottom:10px;">' + badges + '</div>';
+
+  // Wasser-Tiefe + Licht
+  var specBits = [];
+  if (r.water_depth_cm_min != null || r.water_depth_cm_max != null) specBits.push('💧 Tiefe ' + (r.water_depth_cm_min||0) + '-' + (r.water_depth_cm_max||'?') + ' cm');
+  if (r.light_requirement) specBits.push('☀ ' + r.light_requirement);
+  if (r.hardiness_zone) specBits.push('❄ Zone ' + r.hardiness_zone);
+  if (r.height_above_water_cm != null) specBits.push('↕ ' + r.height_above_water_cm + ' cm über Wasser');
+  if (r.spreading_behavior) specBits.push('📏 ' + r.spreading_behavior);
+  if (specBits.length) html += '<div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:8px;">' + ed(specBits.join(' · ')) + '</div>';
+
+  // Blüten
+  if (Array.isArray(r.bloom_months) && r.bloom_months.length) html += '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;"><b>🌸 Blüht:</b> Monate ' + ed(r.bloom_months.join(', ')) + (r.flower_color ? ' · ' + ed(r.flower_color) : '') + '</div>';
+
+  // Pairing
+  if (Array.isArray(r.best_paired_with) && r.best_paired_with.length) html += _gsWave9ListSection('🤝 Passt gut zu', r.best_paired_with, ed, '#e8f5e9');
+  if (Array.isArray(r.do_not_pair_with) && r.do_not_pair_with.length) html += _gsWave9ListSection('⚠ Nicht kombinieren mit', r.do_not_pair_with, ed, '#ffebee');
+
+  // Tipps + Warnungen
+  if (r.cultivation_tips) html += '<div style="margin-top:10px;padding:10px 12px;background:#e0f7fa;border-left:3px solid #00838f;border-radius:9px;font-size:12px;color:#004d40;line-height:1.55;"><b>🌱 Kultivierung:</b> ' + ed(r.cultivation_tips) + '</div>';
+  if (r.warnings) html += '<div style="margin-top:6px;padding:10px 12px;background:#fff3e0;border-left:3px solid #e65100;border-radius:9px;font-size:12px;color:#bf360c;line-height:1.55;"><b>⚠ Hinweis:</b> ' + ed(r.warnings) + '</div>';
+
+  // CH-Genehmigung-Hinweis bei Teich-Designs
+  if (r.feature_type === 'teich_design') {
+    html += '<div style="margin-top:10px;padding:9px 12px;background:#ede7f6;border:1.5px solid #5e35b1;border-radius:10px;font-size:11.5px;color:#311b92;line-height:1.55;"><b>📋 CH-Recht:</b> Teiche über bestimmten Größen können Bewilligung der Gemeinde brauchen. Vor Bau kurz beim Bauamt nachfragen.</div>';
+  }
+
+  if (r.source) html += '<div style="margin-top:12px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(r.source) + '</div>';
+  html += '</div>';
+  return html;
+}
+
+// v26.42 Detail-Renderer für garden_birds_register
+function _gsWave9RenderBird(r, ed) {
+  var rl = String(r.red_list_status || '').toLowerCase();
+  var endangered = rl.indexOf('vom aussterben') >= 0 || rl.indexOf('stark gef') >= 0;
+  var vulnerable = !endangered && (rl.indexOf('gef') >= 0 || rl.indexOf('verletzlich') >= 0);
+  var gradient = endangered ? 'linear-gradient(135deg,#b71c1c,#7f0000)'
+              : vulnerable ? 'linear-gradient(135deg,#e65100,#bf360c)'
+              : 'linear-gradient(135deg,#558b2f,#33691e)';
+  var html = _gsWave9HeaderHtml('🦜', r.common_name_de, r.scientific_name + (r.family ? ' · ' + r.family : ''), gradient, ed);
+
+  if (endangered) html += '<div style="background:#b71c1c;color:#fff;padding:11px 14px;text-align:center;font-size:13px;font-weight:800;">⚠ ' + ed(r.red_list_status) + ' — Schutz prioritär!</div>';
+  else if (vulnerable) html += '<div style="background:#e65100;color:#fff;padding:9px 14px;text-align:center;font-size:12.5px;font-weight:700;">⚠ ' + ed(r.red_list_status) + '</div>';
+
+  html += '<div style="padding:16px 18px 20px;">';
+
+  // Status-Badges
+  var badges = '';
+  if (r.status_in_ch) badges += '<span style="background:#e3f2fd;color:#01579b;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">📊 ' + ed(r.status_in_ch) + '</span>';
+  if (r.size_cm) badges += '<span style="background:#fff8e1;color:#827717;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">📏 ' + ed(r.size_cm) + ' cm</span>';
+  if (r.weight_g) badges += '<span style="background:#fff8e1;color:#827717;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">⚖ ' + ed(r.weight_g) + ' g</span>';
+  if (badges) html += '<div style="margin-bottom:10px;">' + badges + '</div>';
+
+  // Sichtbarkeit/Saison
+  if (Array.isArray(r.active_months) && r.active_months.length) html += '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;"><b>📅 Aktiv:</b> Monate ' + ed(r.active_months.join(', ')) + '</div>';
+  if (r.best_observation_time) html += '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;"><b>👀 Beobachten:</b> ' + ed(r.best_observation_time) + '</div>';
+  if (r.song_description) html += '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;"><b>🎵 Gesang:</b> ' + ed(r.song_description) + '</div>';
+
+  // Lock-Pflanzen + Futter
+  if (Array.isArray(r.preferred_plants) && r.preferred_plants.length) html += _gsWave9ListSection('🌿 Lockpflanzen (im Garten setzen)', r.preferred_plants, ed, '#e8f5e9');
+  if (Array.isArray(r.food_preferences) && r.food_preferences.length) html += _gsWave9ListSection('🍇 Futter', r.food_preferences, ed, '#fff8e1');
+  if (Array.isArray(r.feeder_seeds) && r.feeder_seeds.length) html += _gsWave9ListSection('🥜 Futterhaus-Körner', r.feeder_seeds, ed, '#fff3e0');
+
+  // Nistkasten
+  if (r.birdhouse_type) html += '<div style="margin-top:10px;padding:10px 12px;background:#efebe9;border-left:3px solid #6d4c41;border-radius:9px;font-size:12px;color:#4e342e;line-height:1.55;"><b>🏠 Nistkasten:</b> ' + ed(r.birdhouse_type) + (r.nesting_location ? ' · <b>Lage:</b> ' + ed(r.nesting_location) : '') + '</div>';
+
+  // Attracting-Tips (Bird-Friendly)
+  if (r.attracting_tips) html += '<div style="margin-top:10px;padding:10px 12px;background:#e8f5e9;border-left:3px solid #2e7d32;border-radius:9px;font-size:12px;color:#1b5e20;line-height:1.55;"><b>🌳 Bird-Friendly-Garten:</b> ' + ed(r.attracting_tips) + '</div>';
+
+  // Bedrohungen
+  if (Array.isArray(r.threats) && r.threats.length) html += _gsWave9ListSection('⚠ Bedrohungen', r.threats, ed, '#ffebee');
+
+  // Fun-Fact
+  if (r.fun_fact) html += '<div style="margin-top:10px;padding:9px 12px;background:#fff3e0;border-radius:9px;font-size:11.5px;color:#bf360c;line-height:1.55;"><b>💡 Wusstest du?</b> ' + ed(r.fun_fact) + '</div>';
+
+  if (r.source) html += '<div style="margin-top:12px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(r.source) + '</div>';
   html += '</div>';
   return html;
 }
@@ -48164,6 +48531,29 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.38', date: '23.05.2026',
+    headline: '🍄 Pilz-Glossar im Wissen-Tab — 20 CH-Pilze mit Lookalikes + Rezepten',
+    summary: 'Cowork-Auftrag v26.38 (Bonus B-C, Sprint 1/5 von Pentagon-Sprint #2). 6. Sub-Tab "🍄 Pilze" im Wissen-Tab als Erweiterung der v26.23 Wave-9-Renderer. mushroom_register sortiert nach edibility ASC (toedlich/giftig zuerst = Warnungen prominent). Card-Accent-Farbe nach Edibility. Detail-Modal mit Lebensgefahr-Banner + tel:145 ZUERST bei toedlich/giftig. Async sub-loads für bidirektionale Lookalikes (mushroom_lookalikes via .or-Query) + Rezepte (mushroom_recipes via primary_mushroom_slugs cs.{slug}). Eigener gsMushroomRecipeOpen-Modal für Rezept-Details.',
+    user_summary: '🍄 Im Wissen-Tab gibt es jetzt einen Sub-Tab "🍄 Pilze" — alle 20 CH-Pilze auf einen Blick. Tödliche und giftige werden rot angezeigt und stehen ganz oben (Warnung prominent). Im Detail-Modal siehst du Verwechslungs-Pilze ("Lookalikes") mit Visual/Geruch/Sporen-Unterschieden — und bei Speisepilzen direkt die passenden Rezepte aus der DB.',
+    user_items: [
+      { emoji: '🍄', text: '20 CH-Pilze sortiert nach Sicherheit (tödliche zuerst, Speisepilze nach unten)' },
+      { emoji: '☠️', text: 'Bei tödlich/giftig: roter Header + Tox-Info-145-Banner sofort sichtbar' },
+      { emoji: '⚠️', text: 'Lookalikes-Block mit Confusion-Risk-Badge + Visual/Geruch/Sporen-Unterschiede' },
+      { emoji: '🍳', text: 'Bei Speisepilzen: passende Rezepte aus der DB (25 Pilz-Rezepte)' },
+    ],
+    items: [
+      {emoji:'🧩', bold:'6. Wave-9 Sub-Tab:', text:' #wissen-nav um "🍄 Pilze" Button erweitert. Dispatch via showWissen("pilze") → gsRenderWissenWave9.'},
+      {emoji:'📋', bold:'configs[pilze]:', text:' table=mushroom_register, order=edibility,common_name_de (toedlich → giftig → bedingt_essbar → speisepilz). categoryField=edibility (Filter-Pills nach Sicherheits-Klasse). Card-Sub mit scientific_name + VAPKO-Klasse + erste 2 Habitat-Tags.'},
+      {emoji:'🔴', bold:'Card-Accent nach Edibility:', text:' toedlich=#b71c1c, giftig=#e65100, bedingt_essbar/speisepilz_jung=#f9a825, speisepilz=#2e7d32. Border-Left-Accent in Karten.'},
+      {emoji:'🎨', bold:'_gsWave9RenderMushroom Detail-Modal:', text:' Header-Gradient nach Edibility (rot/orange/gelb/grün). Lebensgefahr-Banner mit tel:145-Link ZUERST bei toedlich/giftig. Badges (Edibility-Pill + VAPKO + protected_status). Habitat + Symbiose + Saison-Monate + Höhen-Range. Identifying-Features in gelber Highlight-Box. Morph-Kompakt-Zeile (Hut/Lamellen/Sporen/Stiel/Geruch/Geschmack). Bei Gift: toxic_compounds + symptoms_if_toxic + emergency_action in roten Boxen. Bei Speisepilz: cooking_preparation + conservation_methods in grünen Boxen. cultural_notes. VAPKO-Footer immer.'},
+      {emoji:'🔁', bold:'Async Lookalikes-Sub-Load:', text:' _gsMushroomLoadDetailExtras query mushroom_lookalikes via .or(edible_slug.eq.,lookalike_slug.eq.) bidirektional. risk-Badge (hoch=#c62828, mittel=#e65100, niedrig=#827717). Pro Lookalike: visual_differences + smell_differences + habitat_differences + spore_print_differences + pro_tip in grünem Inline-Badge.'},
+      {emoji:'🍳', bold:'Async Rezepte-Sub-Load:', text:' Nur bei isEdible: query mushroom_recipes?primary_mushroom_slugs=cs.{slug}. Card-Liste mit emoji + title + difficulty + Gesamt-Minuten + 🇨🇭-Marker bei swiss_tradition. Click → gsMushroomRecipeOpen mit eigenem Detail-Modal (Header-Gradient #827717→#558b2f, Zutaten-Liste, nummerierte Steps, Methode/Pairing/Tradition/Region).'},
+      {emoji:'🔮', bold:'Forward-Compat:', text:' configs[wasser] + configs[voegel] + _gsWave9RenderWater + _gsWave9RenderBird sind bereits enthalten (Tabs werden in v26.41/v26.42 ergänzt).'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.39 Mushroom-Saison-Widget Home, v26.40 Companion-Lookup-View, v26.41 Wassergarten-Sub-Tab, v26.42 Vogel-Garten + bird_friendly plan_intent.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · sw.js gs-v26.38 OK · GS_VERSION=v26.38 OK · _headers v26.38 OK · meta=26.38.20260523 OK.'},
+    ]
+  },
+  {
     v: 'v26.37', date: '23.05.2026',
     headline: '🐝 Pollinator-Garten-Modus — Plan-Typ-Picker im KI-Planer (Bienen, Permakultur, Container)',
     summary: 'Cowork-Auftrag v26.37 (Sprint 5/5 = Pentagon-Sprint v26.33-v26.37 abgeschlossen). KI-Planer-Wizard bekommt 4-Optionen-Plan-Typ-Picker (Selbstversorgung default / Bienen-Garten / Permakultur-Hügel / Container-Balkon). gsRunGardenScan setzt body.metadata.plan_intent — Cowork-Ergänzung garden-scan-analyze v3 wird das nutzen für System-Prompt-Erweiterung (bei pollinator: Top-Bestäuber-Pflanzen aus pollinators.preferred_flowers + ecological_value-Sortierung). Plant-Liste forward-compatible mit 🐝-Tag wenn Backend v3 pl.pollinator_tags liefert.',
@@ -50130,7 +50520,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.37';
+var GS_VERSION = 'v26.38';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
