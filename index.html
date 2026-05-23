@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.49.20260524">
+<meta name="app-version" content="26.50.20260524">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -50029,6 +50029,28 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.50', date: '24.05.2026',
+    headline: '📊 ai_daily_usage Edge-Fn-Logging — 5 Edge-Fns gepatched, Admin-Widget zeigt jetzt Live-Daten',
+    summary: 'Cowork-Auftrag v26.50 (Trio #4 Sprint 3/3 = Pentagon-Sprint #4 abgeschlossen). 5 Edge-Fns gepatched mit fn_log_ai_usage RPC fire-and-forget vor success-Return. LIVE deployed: pest-identify v2, mushroom-identify v2, garden-scan-analyze v5, plan-iterate v3, knowledge-bulk-gen v11. Token-Cost-Widget aus v26.47 zeigt jetzt echte Live-Daten statt leerem View.',
+    user_summary: '📊 Backend-Hardening: jeder Anthropic-Call von 5 Edge-Fns wird jetzt in der ai_daily_usage-Tabelle aufgezeichnet (Tokens In/Out + Call-Count). Das Admin-Widget "KI-Nutzung & Kosten" (v26.47) zeigt damit jetzt echte Live-Daten — heute alle Calls aufgeschlüsselt pro Edge-Fn + 7-Tage-Trend mit echten Kosten in CHF.',
+    user_items: [
+      { emoji: '🚀', text: '5 Edge-Fns LIVE redeployed: pest-identify v2, mushroom-identify v2, garden-scan-analyze v5, plan-iterate v3, knowledge-bulk-gen v11' },
+      { emoji: '📊', text: 'v26.47 Admin-Widget zeigt jetzt echte Live-Daten (statt leerer View)' },
+      { emoji: '⚡', text: 'Logging ist fire-and-forget, blockiert die User-Response nicht' },
+      { emoji: '🔒', text: 'fn_log_ai_usage RPC ist SECURITY DEFINER — Edge-Fns brauchen keine direkte Tabellen-Write-Permission' },
+    ],
+    items: [
+      {emoji:'🚀', bold:'5 Edge-Fns LIVE redeployed:', text:' pest-identify v2 · mushroom-identify v2 · garden-scan-analyze v5 · plan-iterate v3 · knowledge-bulk-gen v11. Alle nutzen jetzt admin.rpc("fn_log_ai_usage", {p_edge_fn, p_tokens_in, p_tokens_out}) vor dem success-Return.'},
+      {emoji:'⚡', bold:'Fire-and-forget Pattern:', text:' try/catch um den RPC-Call, Fehler werden geschluckt damit User-Response nicht blockiert wird. Tokens kommen aus anthropicData.usage (Sonnet) ODER aiJson.usage (Haiku Vision) ODER aiData.usage (Haiku Bulk).'},
+      {emoji:'📋', bold:'Logging-Pattern:', text:' await admin.rpc("fn_log_ai_usage", { p_edge_fn: "<name>", p_tokens_in: usage?.input_tokens || 0, p_tokens_out: usage?.output_tokens || 0 }). Cowork-RPC ist SECURITY DEFINER mit UPSERT ON CONFLICT date+edge_fn DO UPDATE SET +=.'},
+      {emoji:'📊', bold:'v26.47 Admin-Widget aktiviert:', text:' Settings → KI & Scanner → 📊 KI-Nutzung & Kosten zeigt jetzt echte Live-Daten. v_ai_usage_summary View aggregiert mit pre-computed estimated_cost_usd_haiku, das Widget multipliziert × 0.88 USD→CHF.'},
+      {emoji:'📦', bold:'Pentagon-Sprint #4 v26.48-v26.50 abgeschlossen:', text:' 3 Pushes für 3 Sprints in einer Session. 1 neuer Wissen-Sub-Tab (11 total), 1 neues Home-Widget (Weather-Alert mit Pulse), 5 Edge-Fn-Redeploys. Total seit v26.33 heute: 18 Pushes in 4 Sessions.'},
+      {emoji:'🌱', bold:'GreenScan-Bilanz:', text:' Voll ausgebaute Schweizer Naturgarten-PWA: 11 Wissen-Sub-Tabs, 5 KI-Plan-Intents, Pilz-Scanner mit 145-Notruf, 3 Home-Widgets (Bauernregel + Saison-Pilze + Wetter-Alert), Marketplace mit Bio-Filter, Forest-Garden 7-Schichten-Designer, Balkon-Wizard, Admin-Token-Dashboard mit Live-Logging.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' Stripe Live-Mode-Switch sobald Fernando bereit. DB-Wave-15 falls neue Domains sinnvoll.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · sw.js gs-v26.50 OK · GS_VERSION=v26.50 OK · _headers v26.50 OK · meta=26.50.20260524 OK · 5 Edge-Fns LIVE redeployed.'},
+    ]
+  },
+  {
     v: 'v26.49', date: '24.05.2026',
     headline: '⚠ Wetter-Alert-Widget Home — 10 Garten-Warnungen mit MeteoSchweiz-Link (region-aware)',
     summary: 'Cowork-Auftrag v26.49 (Trio #4 Sprint 2/3). Neues #weather-alert-card auf Home über der Mushroom-Saison-Card. Query garden_weather_alerts mit typical_months overlap + Region-Filter heuristisch über GS_WA_REGION_TOKENS-Map. Severity-Sort katastrophal first, dann hours_to_react asc. Pulse-Animation bei katastrophal. Immediate-actions + MeteoSchweiz-Link + Nächste-Toggle. 4h Cache.',
@@ -52261,7 +52283,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.49';
+var GS_VERSION = 'v26.50';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
