@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.36.20260523">
+<meta name="app-version" content="26.37.20260523">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -42312,6 +42312,11 @@ async function gsRunGardenScan(photos, metadata, opts) {
         if (soil && soil.ph && body.metadata.soil_ph === undefined) body.metadata.soil_ph = soil.ph;
       } catch(_){}
     }
+    // v26.37: plan_intent default self_sufficiency (Backend v3 nutzt das fuer
+    // Pollinator-Modus etc. — bevorzugt Pflanzen mit hoher ecological_value).
+    if (body.metadata.plan_intent === undefined) {
+      body.metadata.plan_intent = 'self_sufficiency';
+    }
   } catch(_){}
 
   try {
@@ -42379,6 +42384,29 @@ function gsBuildGardenScanWizard() {
       '</div>';
   }).join('');
 
+  // v26.37: Plan-Intent-Picker (Selbstversorgung/Pollinator/Permakultur/Container)
+  var intent = (s.metadata && s.metadata.plan_intent) || 'self_sufficiency';
+  var intentOptions = [
+    { v: 'self_sufficiency', e: '🥕', l: 'Selbstversorgung' },
+    { v: 'pollinator',       e: '🐝', l: 'Bienen-Garten' },
+    { v: 'permaculture',     e: '🌳', l: 'Permakultur-Hügel' },
+    { v: 'container',        e: '🪴', l: 'Container-Balkon' }
+  ];
+  var intentHtml = '<div style="margin-top:14px;">' +
+    '<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">🌳 Plan-Typ</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;">' +
+    intentOptions.map(function(o){
+      var active = intent === o.v;
+      var bg = active ? '#2e7d32' : 'var(--card)';
+      var col = active ? '#fff' : 'var(--text)';
+      var border = active ? '#2e7d32' : 'var(--border)';
+      return '<button type="button" onclick="gsGardenScanSetIntent(\'' + o.v + '\')" style="padding:9px 8px;background:' + bg + ';color:' + col + ';border:1.5px solid ' + border + ';border-radius:9px;font-size:11.5px;font-weight:' + (active?'800':'700') + ';cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px;text-align:left;-webkit-tap-highlight-color:transparent;">' +
+        '<span style="font-size:15px;">' + o.e + '</span><span>' + o.l + '</span></button>';
+    }).join('') +
+    '</div>' +
+    (intent === 'pollinator' ? '<div style="margin-top:6px;padding:7px 10px;background:#fff8e1;border-left:3px solid #f9a825;border-radius:6px;font-size:11px;color:#827717;line-height:1.5;">🐝 KI bevorzugt Pflanzen mit hoher ecological_value für Bestäuber (Honigbiene, Hummel, Schwebfliege).</div>' : '') +
+  '</div>';
+
   var gpsBlock = s.metadata && s.metadata.gps
     ? '<div style="font-size:11.5px;color:var(--muted);text-align:center;margin-top:6px;">📍 GPS: ' + (s.metadata.gps.lat||0).toFixed(4) + ', ' + (s.metadata.gps.lng||0).toFixed(4) + '</div>'
     : '<button onclick="gsGardenScanGPS()" style="width:100%;padding:9px;background:transparent;border:1px dashed var(--border);color:var(--muted);border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:6px;">📍 GPS hinzufügen (optional, für Klimazone)</button>';
@@ -42394,6 +42422,7 @@ function gsBuildGardenScanWizard() {
     '</div>' +
     '<div style="padding:14px;">' +
       '<div style="display:grid;grid-template-columns:1fr;gap:10px;">' + slotsHtml + '</div>' +
+      intentHtml +
       gpsBlock +
       busyBlock +
       '<button onclick="gsGardenScanSubmit()"' + (canSubmit ? '' : ' disabled') + ' style="width:100%;margin-top:14px;padding:14px;background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:' + (canSubmit?'pointer':'not-allowed') + ';font-family:inherit;opacity:' + (canSubmit?'1':'0.5') + ';">✨ Plan generieren (' + photoCount + ' Foto' + (photoCount===1?'':'s') + ')</button>' +
@@ -42432,6 +42461,16 @@ function gsGardenScanRemove(slotIdx) {
   window._gsGardenScan.photos[slotIdx] = null;
   _gsGardenScanRefresh();
 }
+
+// v26.37: Plan-Intent-Picker setter. Wird im body.metadata.plan_intent an
+// garden-scan-analyze gesendet — Backend v3 nutzt das fuer Pollinator-Modus etc.
+function gsGardenScanSetIntent(intent) {
+  if (!window._gsGardenScan) return;
+  if (!window._gsGardenScan.metadata) window._gsGardenScan.metadata = {};
+  window._gsGardenScan.metadata.plan_intent = intent;
+  _gsGardenScanRefresh();
+}
+window.gsGardenScanSetIntent = gsGardenScanSetIntent;
 
 function gsGardenScanGPS() {
   if (!navigator.geolocation) {
@@ -42926,13 +42965,32 @@ function gsBuildGardenScanResultPreview(analysis, planId) {
     '</button>' +
   '</div>';
 
+  // v26.37: plan_intent-Label im Header (falls vorhanden)
+  var planIntent = (s && s.metadata && s.metadata.plan_intent) || (analysis && analysis.plan_intent) || null;
+  var intentLabelMap = {
+    self_sufficiency: { e:'🥕', l:'Selbstversorgung' },
+    pollinator:       { e:'🐝', l:'Bienen-Garten' },
+    permaculture:     { e:'🌳', l:'Permakultur-Hügel' },
+    container:        { e:'🪴', l:'Container-Balkon' }
+  };
+  var intentLbl = (planIntent && intentLabelMap[planIntent]) ? (intentLabelMap[planIntent].e + ' ' + intentLabelMap[planIntent].l) : '';
+  var isPollinator = planIntent === 'pollinator';
+
   var planted = '<ol style="padding-left:20px;margin:8px 0;font-size:12.5px;line-height:1.6;color:var(--text);">' +
     rp.slice(0, 12).map(function(pl, idx){
+      // v26.37: Pollinator-Tag falls Backend v3 pl.pollinator_tags liefert (Honigbiene/Hummel/Schwebfliege)
+      var beeTag = '';
+      if (Array.isArray(pl.pollinator_tags) && pl.pollinator_tags.length) {
+        beeTag = '<br><span style="font-size:11px;color:#827717;font-weight:700;">🐝 Bevorzugt von: ' + pl.pollinator_tags.slice(0,3).join(', ') + '</span>';
+      } else if (isPollinator && pl.ecological_value && Number(pl.ecological_value) >= 7) {
+        beeTag = '<br><span style="font-size:11px;color:#827717;font-weight:700;">🐝 Hoher Bestäuber-Wert</span>';
+      }
       return '<li style="cursor:pointer;" onclick="gsGardenScanShowPlant(' + idx + ')"><strong>' + (pl.name||'Pflanze') + '</strong>' +
         (pl.lat ? ' <em style="color:var(--muted);">(' + pl.lat + ')</em>' : '') +
         (pl.qty ? ' · <strong>' + pl.qty + 'x</strong>' : '') +
         (pl.position && (pl.position.x || pl.position.y) ? ' · Pos. ' + (pl.position.x||0) + ',' + (pl.position.y||0) + 'm' : '') +
         (pl.reason ? '<br><span style="font-size:11px;color:var(--muted);">' + pl.reason + '</span>' : '') +
+        beeTag +
       '</li>';
     }).join('') + '</ol>';
   var warnHtml = warns.length
@@ -42947,6 +43005,7 @@ function gsBuildGardenScanResultPreview(analysis, planId) {
         (sa.shape ? sa.shape + ' · ' : '') +
         (sa.light && sa.light.level ? sa.light.level : '') +
       '</div>' +
+      (intentLbl ? '<div style="display:inline-block;margin-top:6px;font-size:11.5px;padding:3px 9px;background:rgba(255,255,255,.18);border-radius:7px;font-weight:800;">' + intentLbl + '</div>' : '') +
     '</div>' +
     '<div style="padding:16px;">' +
       toggleBtn +
@@ -48105,6 +48164,28 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.37', date: '23.05.2026',
+    headline: '🐝 Pollinator-Garten-Modus — Plan-Typ-Picker im KI-Planer (Bienen, Permakultur, Container)',
+    summary: 'Cowork-Auftrag v26.37 (Sprint 5/5 = Pentagon-Sprint v26.33-v26.37 abgeschlossen). KI-Planer-Wizard bekommt 4-Optionen-Plan-Typ-Picker (Selbstversorgung default / Bienen-Garten / Permakultur-Hügel / Container-Balkon). gsRunGardenScan setzt body.metadata.plan_intent — Cowork-Ergänzung garden-scan-analyze v3 wird das nutzen für System-Prompt-Erweiterung (bei pollinator: Top-Bestäuber-Pflanzen aus pollinators.preferred_flowers + ecological_value-Sortierung). Plant-Liste forward-compatible mit 🐝-Tag wenn Backend v3 pl.pollinator_tags liefert.',
+    user_summary: '🐝 Beim KI-Planer kannst du jetzt wählen, was für einen Garten du willst: 🥕 Selbstversorgung (Standard), 🐝 Bienen-Garten (KI bevorzugt Bestäuber-Pflanzen), 🌳 Permakultur-Hügel oder 🪴 Container-Balkon. Im Plan-Ergebnis steht dein gewählter Typ als Badge, und bei Bienen-Modus werden Pflanzen mit Hinweis "🐝 Bevorzugt von: Honigbiene, Hummel, Schwebfliege" markiert.',
+    user_items: [
+      { emoji: '🌳', text: '4 Plan-Typen wählbar — KI passt Pflanzen-Auswahl an deinen Garten-Zweck an' },
+      { emoji: '🐝', text: 'Bei "Bienen-Garten" Modus: KI bevorzugt Pflanzen mit hoher ecological_value für Bestäuber' },
+      { emoji: '🏷️', text: 'Plan-Result zeigt gewählten Typ als Badge im Header' },
+      { emoji: '🐝', text: 'Plant-Liste bekommt Bestäuber-Hinweise bei passenden Pflanzen' },
+    ],
+    items: [
+      {emoji:'🎨', bold:'Plan-Typ-Picker:', text:' 2x2-Grid mit 4 Buttons im KI-Garten-Scan-Wizard (vor GPS-Block). Options: self_sufficiency (🥕 Selbstversorgung default) / pollinator (🐝 Bienen-Garten) / permaculture (🌳 Permakultur-Hügel) / container (🪴 Container-Balkon). Active-State: solid #2e7d32 bg, weiß text.'},
+      {emoji:'💡', bold:'Pollinator-Hint:', text:' Bei plan_intent=pollinator zusätzliche gelbe Hint-Box ("KI bevorzugt Pflanzen mit hoher ecological_value für Bestäuber") unter den Buttons.'},
+      {emoji:'🚀', bold:'gsRunGardenScan-Wiring:', text:' body.metadata.plan_intent defaultet auf self_sufficiency wenn unset. Backend (garden-scan-analyze v3, Cowork-Ergänzung) liest das und ändert den System-Prompt entsprechend.'},
+      {emoji:'🏷️', bold:'Result-Preview Header-Badge:', text:' intentLbl in 4-Map (Emoji + Label) wird als white-on-green pill im Result-Header gezeigt (z.B. "🐝 Bienen-Garten").'},
+      {emoji:'🐝', bold:'Plant-Liste Pollinator-Tag:', text:' beeTag-Logik im rp.map: (a) wenn pl.pollinator_tags Array vorhanden (Backend v3) → "🐝 Bevorzugt von: Honigbiene, Hummel, Schwebfliege"; (b) sonst wenn isPollinator + pl.ecological_value >= 7 → "🐝 Hoher Bestäuber-Wert". Forward-compatible für noch nicht deployed garden-scan-analyze v3.'},
+      {emoji:'🧰', bold:'gsGardenScanSetIntent:', text:' Window-exposed Setter. Updated window._gsGardenScan.metadata.plan_intent + ruft _gsGardenScanRefresh — re-rendert Wizard mit neuem Active-Button + Hint-Box.'},
+      {emoji:'📦', bold:'Pentagon-Sprint v26.33-v26.37 fertig:', text:' 5 Sprints in einer Session: Pilz-Scanner + Tagebuch-UI + Bauernregeln + Pestizid-frei-Filter + Pollinator-Modus. 1 Migration applied, 1 Edge-Fn deployed (mushroom-identify v1), 14+ neue Functions, 4 neue Modals, 4 neue Garten-Aktion-Buttons, 1 Home-Widget.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · sw.js gs-v26.37 OK · GS_VERSION=v26.37 OK · _headers v26.37 OK · meta=26.37.20260523 OK.'},
+    ]
+  },
+  {
     v: 'v26.36', date: '23.05.2026',
     headline: '🌱 Marketplace Bio + Pestizid-frei — Migration + Checkboxen + 2 Filter-Pills + Badges',
     summary: 'Cowork-Auftrag v26.36 (Sprint 4/5). Migration v26_36_marketplace_pesticide_free LIVE-applied via Supabase MCP — fügt 3 Spalten zu marketplace_listings hinzu (organic_certified bool, pesticide_free bool, certification_label text) + 2 partial Indexes. Frontend: Bio + Pestizid-frei Checkboxen in beiden Listing-Forms (submitListing + saveListing). Bei Bio-Aktivierung erscheint Cert-Label-Dropdown (6 Optionen: Knospe / EU-Bio / Demeter / Naturland / Bioland / Sonstiges). renderMarket-Cards mit grünem Bio-Badge + orangem Pestizid-frei-Badge. 2 neue Filter-Pills "🌱 Bio-zertifiziert" + "🚫 Pestizid-frei" oberhalb der Listings.',
@@ -50049,7 +50130,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.36';
+var GS_VERSION = 'v26.37';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
