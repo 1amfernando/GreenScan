@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.40.20260523">
+<meta name="app-version" content="26.41.20260523">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4340,6 +4340,8 @@ html, body{ scroll-behavior: smooth; }
     <button class="recipe-cat" onclick="showWissen('samen',this)" data-i18n="wissen_seeds" data-i18n-fallback="🌰 Samen ernten">🌰 Samen ernten</button>
     <!-- v26.38: 6. Sub-Tab — Pilz-Glossar (mit v_mushroom_safety) -->
     <button class="recipe-cat" onclick="showWissen('pilze',this)" data-i18n="wissen_mushrooms" data-i18n-fallback="🍄 Pilze">🍄 Pilze</button>
+    <!-- v26.41: 7. Sub-Tab — Wassergarten (water_features) -->
+    <button class="recipe-cat" onclick="showWissen('wasser',this)" data-i18n="wissen_water" data-i18n-fallback="💧 Wassergarten">💧 Wassergarten</button>
   </div>
 
   <!-- Content -->
@@ -48747,6 +48749,27 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.41', date: '23.05.2026',
+    headline: '💧 Wassergarten-Sub-Tab — 24 Teichpflanzen + Designs aus DB-Wave-12',
+    summary: 'Cowork-Auftrag v26.41 (Sprint 4/5). 7. Sub-Tab "💧 Wassergarten" im Wissen-Tab aktiviert (configs + Renderer bereits in v26.38 als forward-compat enthalten). 24 water_features-Einträge (Teichpflanzen + Schwimm-/Unterwasserpflanzen + Teich-Designs + Wassertiere). Filter-Pills nach feature_type. Card-Accent rot bei invasive_in_ch, blau bei teich_design, grün bei swiss_native. Detail-Modal mit Pairing + CH-Recht-Hinweis bei Teich-Designs.',
+    user_summary: '💧 Im Wissen-Tab gibt es jetzt einen Sub-Tab "💧 Wassergarten" mit 24 CH-Teichpflanzen, Schwimmpflanzen, Unterwasserpflanzen, Teich-Designs (vom Naturteich bis zum Mini-Balkon-Teich) und Wassertieren. Invasive Pflanzen werden rot markiert mit "⛔ INVASIV in CH". Bei Teich-Designs ein Hinweis zur Bewilligung beim Bauamt.',
+    user_items: [
+      { emoji: '🌿', text: '24 Wassergarten-Einträge: Teichpflanzen, Schwimmer, Unterwasser, Designs, Tiere' },
+      { emoji: '🇨🇭', text: 'CH-heimisch / invasiv Klassifizierung — keine Invasiven mehr versehentlich setzen' },
+      { emoji: '🌳', text: 'Teich-Designs vom Naturteich bis Balkon-Mini-Teich mit Kosten + Pflanzliste' },
+      { emoji: '🤝', text: 'Best-paired-with / do-not-pair Listen pro Pflanze' },
+    ],
+    items: [
+      {emoji:'🧩', bold:'7. Wave-9 Sub-Tab:', text:' #wissen-nav um "💧 Wassergarten" Button erweitert. Dispatch via showWissen("wasser") → gsRenderWissenWave9 → configs[wasser] (table=water_features, order=feature_type,name_de).'},
+      {emoji:'📋', bold:'Filter-Pills:', text:' Distinct feature_type: teichpflanze / schwimmpflanze / unterwasserpflanze / teich_design / wassertier. Auto-Counts pro Type.'},
+      {emoji:'🎨', bold:'Card-Accent:', text:' invasive_in_ch=#c62828 (rot), teich_design=#1565c0 (blau), swiss_native=#2e7d32 (grün). Card-Sub mit scientific_name + Tiefe-Range + 🇨🇭-Flag bei native.'},
+      {emoji:'⛔', bold:'Invasive-Banner:', text:' Bei invasive_in_ch=true → rotes Top-Banner "⛔ INVASIV in CH — bitte nicht setzen!" im Detail-Modal.'},
+      {emoji:'🎨', bold:'_gsWave9RenderWater (in v26.38 enthalten):', text:' Header-Gradient nach Type. Badges (CH-heimisch + Sauerstoff + Wasser-Filtration + Tiere + CHF-Kosten). Wasser-Tiefe + Licht + Hardiness-Zone + Höhe-über-Wasser. Blütezeit + Farbe. best_paired_with (grün) + do_not_pair_with (rot). Kultivierungs-Tipps (cyan) + Warnungen (orange). Bei teich_design: CH-Recht-Hinweis (Gemeinde-Bewilligung).'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.42 Vogel-Garten-Sub-Tab + bird_friendly plan_intent (Cowork garden-scan-analyze v4 wird das nutzen).'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · sw.js gs-v26.41 OK · GS_VERSION=v26.41 OK · _headers v26.41 OK · meta=26.41.20260523 OK.'},
+    ]
+  },
+  {
     v: 'v26.40', date: '23.05.2026',
     headline: '🤝 Companion-Lookup im KI-Planer — gute & schlechte Nachbarn aus v_companion_lookup (Bonus B-B)',
     summary: 'Cowork-Auftrag v26.40 (Bonus B-B, Sprint 3/5). Im Plan-Detail-Modal (gsGardenScanShowPlant) wird zusätzlich zur v26.24 Pest-Box ein async-Block geladen mit Top-3 "gute Nachbarn" + Top-2 "schlechte Nachbarn" aus v_companion_lookup View. Vereinfacht die alte OR-Logik auf 1 GET-Query pro Pflanze. Render: 2 Boxen (grün + rot) mit partner_lat + Confidence-Badge + reason + effect_on_self. 15min in-Memory-Cache pro species_lat.',
@@ -50777,7 +50800,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.40';
+var GS_VERSION = 'v26.41';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
