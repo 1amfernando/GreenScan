@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.41.20260523">
+<meta name="app-version" content="26.42.20260523">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4342,6 +4342,8 @@ html, body{ scroll-behavior: smooth; }
     <button class="recipe-cat" onclick="showWissen('pilze',this)" data-i18n="wissen_mushrooms" data-i18n-fallback="🍄 Pilze">🍄 Pilze</button>
     <!-- v26.41: 7. Sub-Tab — Wassergarten (water_features) -->
     <button class="recipe-cat" onclick="showWissen('wasser',this)" data-i18n="wissen_water" data-i18n-fallback="💧 Wassergarten">💧 Wassergarten</button>
+    <!-- v26.42: 8. Sub-Tab — Vögel (garden_birds_register) -->
+    <button class="recipe-cat" onclick="showWissen('voegel',this)" data-i18n="wissen_birds" data-i18n-fallback="🦜 Vögel">🦜 Vögel</button>
   </div>
 
   <!-- Content -->
@@ -42884,12 +42886,14 @@ function gsBuildGardenScanWizard() {
   }).join('');
 
   // v26.37: Plan-Intent-Picker (Selbstversorgung/Pollinator/Permakultur/Container)
+  // v26.42: + Vogel-Garten (bird_friendly) — Cowork garden-scan-analyze v4 liest das
   var intent = (s.metadata && s.metadata.plan_intent) || 'self_sufficiency';
   var intentOptions = [
     { v: 'self_sufficiency', e: '🥕', l: 'Selbstversorgung' },
     { v: 'pollinator',       e: '🐝', l: 'Bienen-Garten' },
     { v: 'permaculture',     e: '🌳', l: 'Permakultur-Hügel' },
-    { v: 'container',        e: '🪴', l: 'Container-Balkon' }
+    { v: 'container',        e: '🪴', l: 'Container-Balkon' },
+    { v: 'bird_friendly',    e: '🦜', l: 'Vogel-Garten' }
   ];
   var intentHtml = '<div style="margin-top:14px;">' +
     '<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">🌳 Plan-Typ</div>' +
@@ -42904,6 +42908,7 @@ function gsBuildGardenScanWizard() {
     }).join('') +
     '</div>' +
     (intent === 'pollinator' ? '<div style="margin-top:6px;padding:7px 10px;background:#fff8e1;border-left:3px solid #f9a825;border-radius:6px;font-size:11px;color:#827717;line-height:1.5;">🐝 KI bevorzugt Pflanzen mit hoher ecological_value für Bestäuber (Honigbiene, Hummel, Schwebfliege).</div>' : '') +
+    (intent === 'bird_friendly' ? '<div style="margin-top:6px;padding:7px 10px;background:#e8f5e9;border-left:3px solid #2e7d32;border-radius:6px;font-size:11px;color:#1b5e20;line-height:1.5;">🦜 KI empfiehlt Hecken, Beerensträucher und Wildkräuter-Ecken — wenig Rasen, viel Vielfalt für Vögel.</div>' : '') +
   '</div>';
 
   var gpsBlock = s.metadata && s.metadata.gps
@@ -43550,16 +43555,18 @@ function gsBuildGardenScanResultPreview(analysis, planId) {
     '</button>' +
   '</div>';
 
-  // v26.37: plan_intent-Label im Header (falls vorhanden)
+  // v26.37: plan_intent-Label im Header (falls vorhanden); v26.42 +bird_friendly
   var planIntent = (s && s.metadata && s.metadata.plan_intent) || (analysis && analysis.plan_intent) || null;
   var intentLabelMap = {
     self_sufficiency: { e:'🥕', l:'Selbstversorgung' },
     pollinator:       { e:'🐝', l:'Bienen-Garten' },
     permaculture:     { e:'🌳', l:'Permakultur-Hügel' },
-    container:        { e:'🪴', l:'Container-Balkon' }
+    container:        { e:'🪴', l:'Container-Balkon' },
+    bird_friendly:    { e:'🦜', l:'Vogel-Garten' }
   };
   var intentLbl = (planIntent && intentLabelMap[planIntent]) ? (intentLabelMap[planIntent].e + ' ' + intentLabelMap[planIntent].l) : '';
   var isPollinator = planIntent === 'pollinator';
+  var isBirdFriendly = planIntent === 'bird_friendly';
 
   var planted = '<ol style="padding-left:20px;margin:8px 0;font-size:12.5px;line-height:1.6;color:var(--text);">' +
     rp.slice(0, 12).map(function(pl, idx){
@@ -43570,12 +43577,20 @@ function gsBuildGardenScanResultPreview(analysis, planId) {
       } else if (isPollinator && pl.ecological_value && Number(pl.ecological_value) >= 7) {
         beeTag = '<br><span style="font-size:11px;color:#827717;font-weight:700;">🐝 Hoher Bestäuber-Wert</span>';
       }
+      // v26.42: Bird-Tag falls Backend v4 pl.bird_tags liefert (Amsel/Rotkehlchen/Singdrossel etc)
+      var birdTag = '';
+      if (Array.isArray(pl.bird_tags) && pl.bird_tags.length) {
+        birdTag = '<br><span style="font-size:11px;color:#1b5e20;font-weight:700;">🦜 Lockt: ' + pl.bird_tags.slice(0,3).join(', ') + '</span>';
+      } else if (isBirdFriendly && (pl.attracts_birds === true || pl.bird_friendly === true)) {
+        birdTag = '<br><span style="font-size:11px;color:#1b5e20;font-weight:700;">🦜 Vogel-freundlich</span>';
+      }
       return '<li style="cursor:pointer;" onclick="gsGardenScanShowPlant(' + idx + ')"><strong>' + (pl.name||'Pflanze') + '</strong>' +
         (pl.lat ? ' <em style="color:var(--muted);">(' + pl.lat + ')</em>' : '') +
         (pl.qty ? ' · <strong>' + pl.qty + 'x</strong>' : '') +
         (pl.position && (pl.position.x || pl.position.y) ? ' · Pos. ' + (pl.position.x||0) + ',' + (pl.position.y||0) + 'm' : '') +
         (pl.reason ? '<br><span style="font-size:11px;color:var(--muted);">' + pl.reason + '</span>' : '') +
         beeTag +
+        birdTag +
       '</li>';
     }).join('') + '</ol>';
   var warnHtml = warns.length
@@ -48749,6 +48764,28 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.42', date: '23.05.2026',
+    headline: '🦜 Vogel-Garten Sub-Tab + Vogel-Garten-Modus im KI-Planer (Pentagon-Sprint #2 fertig)',
+    summary: 'Cowork-Auftrag v26.42 (Sprint 5/5 = Pentagon-Sprint #2 v26.38-v26.42 abgeschlossen). 8. Sub-Tab "🦜 Vögel" im Wissen-Tab aktiviert (19 garden_birds_register). Card-Accent nach Rote-Liste-Status (gefährdete rot, verletzlich orange). Detail-Modal mit Lockpflanzen + Futter + Nistkasten + Attracting-Tips + Bedrohungen + Fun-Fact. Plus: KI-Planer Plan-Typ-Picker um 5. Option "🦜 Vogel-Garten" erweitert (bird_friendly intent). Cowork-Ergänzung garden-scan-analyze v4 wird das nutzen.',
+    user_summary: '🦜 8. Sub-Tab im Wissen "🦜 Vögel" mit 19 CH-Garten-Vögeln. Gefährdete Arten werden rot markiert. Pro Vogel: welche Pflanzen locken ihn (z.B. Beerensträucher), welches Futterhaus, welche Bedrohungen. Plus: Im KI-Planer kannst du nun "🦜 Vogel-Garten" wählen — die KI empfiehlt dann Hecken, Beerensträucher und Wildkräuter-Ecken statt nur Gemüse.',
+    user_items: [
+      { emoji: '🦜', text: '19 CH-Garten-Vögel mit Nistkasten-Specs, Lockpflanzen, Saison' },
+      { emoji: '⚠️', text: 'Rote-Liste-Status farblich (rot = vom Aussterben, orange = verletzlich)' },
+      { emoji: '🌳', text: 'KI-Planer: 5. Plan-Typ "🦜 Vogel-Garten" für vogelfreundliche Gärten' },
+      { emoji: '💡', text: 'Pro Vogel: attracting_tips als praktische Bird-Friendly-Garten-Anleitung' },
+    ],
+    items: [
+      {emoji:'🧩', bold:'8. Wave-9 Sub-Tab:', text:' #wissen-nav um "🦜 Vögel" Button erweitert. Dispatch via showWissen("voegel") → gsRenderWissenWave9 → configs[voegel] (table=garden_birds_register, order=status_in_ch,common_name_de).'},
+      {emoji:'🎨', bold:'Card-Accent nach Rote-Liste:', text:' "vom aussterben"/"stark gefährdet"=#b71c1c (rot), "verletzlich"/"gefährdet"=#e65100 (orange), "potentiell/nahezu gefährdet"=#f9a825 (gelb). Card-Sub mit scientific_name + size_cm + Rote-Liste-Warnung.'},
+      {emoji:'🎨', bold:'_gsWave9RenderBird (in v26.38 enthalten):', text:' Header-Gradient nach Status. Banner bei gefährdet. Status-Badges (📊 Status + 📏 Grösse + ⚖ Gewicht). Aktiv-Monate + Beobachtungs-Zeit + Gesang-Beschreibung. Lockpflanzen (grün) + Futter (gelb) + Futterhaus-Körner (orange) als Listen. Birdhouse-Type-Box (braun) mit Lage. attracting_tips als grüne Bird-Friendly-Garten-Anleitung. Bedrohungen-Liste (rot). Fun-Fact (orange).'},
+      {emoji:'🌳', bold:'KI-Planer Plan-Typ-Erweiterung:', text:' intentOptions im gsBuildGardenScanWizard um 5. Option "🦜 Vogel-Garten" ergänzt (bird_friendly intent). Bei Auswahl grüne Hint-Box "KI empfiehlt Hecken, Beerensträucher und Wildkräuter-Ecken — wenig Rasen, viel Vielfalt".'},
+      {emoji:'🏷️', bold:'Result-Preview Erweiterung:', text:' intentLabelMap + isBirdFriendly Variable. Plant-Liste mit birdTag forward-compat: pl.bird_tags Array (Backend v4) → "🦜 Lockt: Amsel, Rotkehlchen, Singdrossel" ODER bei isBirdFriendly + pl.attracts_birds/bird_friendly=true → "🦜 Vogel-freundlich".'},
+      {emoji:'🤝', bold:'Cowork-Sync:', text:' garden-scan-analyze v4 mit plan_intent="bird_friendly" parallel von Cowork deployed — liest Top-Vögel mit attracting_tips, empfiehlt Hecken/Beerensträucher/Wildkräuter-Ecken.'},
+      {emoji:'📦', bold:'Pentagon-Sprint #2 v26.38-v26.42 fertig:', text:' 5 Pushes für 5 Sprints in einer Session: Mushroom-Glossar + Saison-Widget + Companion-View + Wassergarten-Tab + Vogel-Tab/Bird-Friendly. 3 neue Wissen-Sub-Tabs (6→8), 1 Home-Widget, 1 KI-Planer-Plan-Typ-Erweiterung (4→5), 1 Plan-Detail-Erweiterung (Companions), 10+ neue Functions inkl. mushroom-recipe-Modal.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · sw.js gs-v26.42 OK · GS_VERSION=v26.42 OK · _headers v26.42 OK · meta=26.42.20260523 OK.'},
+    ]
+  },
+  {
     v: 'v26.41', date: '23.05.2026',
     headline: '💧 Wassergarten-Sub-Tab — 24 Teichpflanzen + Designs aus DB-Wave-12',
     summary: 'Cowork-Auftrag v26.41 (Sprint 4/5). 7. Sub-Tab "💧 Wassergarten" im Wissen-Tab aktiviert (configs + Renderer bereits in v26.38 als forward-compat enthalten). 24 water_features-Einträge (Teichpflanzen + Schwimm-/Unterwasserpflanzen + Teich-Designs + Wassertiere). Filter-Pills nach feature_type. Card-Accent rot bei invasive_in_ch, blau bei teich_design, grün bei swiss_native. Detail-Modal mit Pairing + CH-Recht-Hinweis bei Teich-Designs.',
@@ -50800,7 +50837,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.41';
+var GS_VERSION = 'v26.42';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
