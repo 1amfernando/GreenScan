@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.38.20260523">
+<meta name="app-version" content="26.39.20260523">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1885,6 +1885,22 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <div id="fact-text" style="font-size:13px;color:var(--text2);line-height:1.6;"></div>
       <div style="display:flex;justify-content:flex-end;margin-top:8px;">
         <button onclick="gsShowNextDynFact()" style="padding:5px 11px;background:#f0f7ee;border:none;border-radius:8px;font-size:12px;font-weight:700;color:var(--g-main);cursor:pointer;font-family:inherit;">Nächster Fakt ›</button>
+      </div>
+    </div>
+
+    <!-- v26.39: Mushroom-Saison-Widget (Bonus B-A, region-aware aus mushroom_seasonal_patches) -->
+    <div id="mushroom-season-card" style="display:none;background:linear-gradient(135deg,#4a148c,#6a1b9a);border-radius:var(--r);padding:13px 15px;color:#fff;margin-bottom:12px;-webkit-tap-highlight-color:transparent;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;opacity:.85;">🍄 Saison-Pilze in deiner Region</div>
+        <span id="mushroom-season-difficulty" style="background:rgba(255,255,255,.2);font-size:9.5px;padding:2px 7px;border-radius:7px;font-weight:800;"></span>
+      </div>
+      <div id="mushroom-season-region" style="font-size:11.5px;opacity:.92;margin-bottom:6px;"></div>
+      <div id="mushroom-season-list" style="font-family:'Playfair Display',serif;font-size:14px;font-weight:800;line-height:1.5;margin-bottom:6px;"></div>
+      <div id="mushroom-season-trigger" style="font-size:11.5px;opacity:.88;background:rgba(0,0,0,.18);padding:6px 9px;border-radius:7px;margin-bottom:8px;line-height:1.4;"></div>
+      <div id="mushroom-season-vapko" style="font-size:11px;opacity:.92;margin-bottom:8px;"></div>
+      <div style="display:flex;gap:6px;">
+        <button onclick="openMushroomModal()" style="flex:1;padding:8px 10px;background:rgba(255,255,255,.9);border:none;color:#4a148c;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🔍 Pilz-Scanner</button>
+        <button onclick="openRegionalCalendarModal()" style="flex:1;padding:8px 10px;background:transparent;border:1.5px solid rgba(255,255,255,.45);color:#fff;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🗓️ Region wechseln</button>
       </div>
     </div>
 
@@ -13812,6 +13828,113 @@ function gsShowNextWisdom() {
 }
 window.gsShowNextWisdom = gsShowNextWisdom;
 
+// ═════════════════════════════════════════════════════════════════════
+// v26.39 MUSHROOM-SAISON-WIDGET (Bonus B-A, Cowork-Briefing)
+// Region-aware "Diesen Monat findest du..." aus mushroom_seasonal_patches.
+// Nutzt User-Region (gs_region) → canton_codes → overlap mit best_months
+// für aktuellen Monat. Fallback: erste Patch ohne Region-Filter.
+// 6h Cache pro Region+Monat.
+// ═════════════════════════════════════════════════════════════════════
+
+window._gsMushroomSeasonCache = null; // {key, data, ts}
+var GS_MUSHROOM_SEASON_TTL_MS = 6 * 60 * 60 * 1000;
+
+async function gsLoadTodaysMushroomSeason() {
+  var card = document.getElementById('mushroom-season-card');
+  if (!card) return;
+  if (typeof sbFetch !== 'function') return;
+  try {
+    var month = new Date().getMonth() + 1;
+    // Region holen — falls verfügbar
+    var cantons = null;
+    var regionName = '';
+    try {
+      if (typeof gsGetRegionContext === 'function') {
+        var ctx = await gsGetRegionContext();
+        if (ctx && Array.isArray(ctx.canton_codes) && ctx.canton_codes.length) {
+          cantons = ctx.canton_codes;
+          regionName = ctx.region_name || '';
+        }
+      }
+    } catch(_){}
+    var cacheKey = (cantons ? cantons.join(',') : 'any') + '|' + month;
+    var now = Date.now();
+    var fresh = window._gsMushroomSeasonCache && window._gsMushroomSeasonCache.key === cacheKey && (now - window._gsMushroomSeasonCache.ts) < GS_MUSHROOM_SEASON_TTL_MS;
+    var rows;
+    if (fresh) {
+      rows = window._gsMushroomSeasonCache.data;
+    } else {
+      var q = '/rest/v1/mushroom_seasonal_patches?best_months=cs.{' + month + '}&select=*&limit=20';
+      if (cantons) q += '&region_canton_codes=ov.{' + cantons.join(',') + '}';
+      var r = await sbFetch(q, { method:'GET' });
+      rows = (r && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : []);
+      // Fallback: keine Region-Treffer → alle Patches des Monats
+      if (!rows.length && cantons) {
+        var r2 = await sbFetch('/rest/v1/mushroom_seasonal_patches?best_months=cs.{' + month + '}&select=*&limit=10', { method:'GET' });
+        rows = (r2 && Array.isArray(r2.data)) ? r2.data : (Array.isArray(r2) ? r2 : []);
+      }
+      window._gsMushroomSeasonCache = { key: cacheKey, data: rows, ts: now };
+    }
+    if (!rows.length) { card.style.display = 'none'; return; }
+    // Day-of-year deterministisch eine Patch wählen
+    var d = new Date();
+    var day = Math.floor((d.getTime() - new Date(d.getFullYear(), 0, 1).getTime()) / 86400000);
+    var patch = rows[day % rows.length];
+    gsRenderMushroomSeason(patch, regionName, month);
+  } catch(_){}
+}
+window.gsLoadTodaysMushroomSeason = gsLoadTodaysMushroomSeason;
+
+function gsRenderMushroomSeason(patch, regionName, month) {
+  var card = document.getElementById('mushroom-season-card');
+  if (!card || !patch) return;
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+  var monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  var monthName = monthNames[(month||1)-1];
+  // Schwierigkeit-Badge
+  var diff = String(patch.difficulty_to_find || '');
+  var diffBadge = document.getElementById('mushroom-season-difficulty');
+  if (diffBadge) diffBadge.textContent = diff ? '🎯 ' + diff : '';
+  // Region
+  var regionLine = document.getElementById('mushroom-season-region');
+  if (regionLine) {
+    var parts = [monthName];
+    if (regionName) parts.push(regionName);
+    else if (Array.isArray(patch.region_canton_codes)) parts.push(patch.region_canton_codes.slice(0,3).join('/'));
+    if (patch.forest_type) parts.push(patch.forest_type);
+    regionLine.textContent = parts.join(' · ');
+  }
+  // Liste typischer Pilze (titlecase + Bindestriche zu Leerzeichen)
+  var listEl = document.getElementById('mushroom-season-list');
+  if (listEl) {
+    var typ = Array.isArray(patch.typical_mushrooms) ? patch.typical_mushrooms : [];
+    var pretty = typ.slice(0, 5).map(function(s){
+      return String(s).replace(/_/g,' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+    }).join(' · ');
+    listEl.textContent = pretty || '—';
+  }
+  // Wetter-Trigger
+  var trigEl = document.getElementById('mushroom-season-trigger');
+  if (trigEl) {
+    trigEl.innerHTML = patch.weather_trigger ? '🌧 ' + ed(patch.weather_trigger) : '';
+    trigEl.style.display = patch.weather_trigger ? 'block' : 'none';
+  }
+  // VAPKO
+  var vapEl = document.getElementById('mushroom-season-vapko');
+  if (vapEl) {
+    var v = '';
+    if (patch.vapko_kontrollstelle) v += '🔒 ' + ed(patch.vapko_kontrollstelle);
+    if (patch.vapko_phone) {
+      var tel = String(patch.vapko_phone).replace(/\s/g,'');
+      v += (v ? ' · ' : '') + '☎️ <a href="tel:' + ed(tel) + '" style="color:#fff;text-decoration:underline;font-weight:800;">' + ed(patch.vapko_phone) + '</a>';
+    }
+    vapEl.innerHTML = v;
+    vapEl.style.display = v ? 'block' : 'none';
+  }
+  card.style.display = 'block';
+}
+window.gsRenderMushroomSeason = gsRenderMushroomSeason;
+
 // ══ SUPABASE-BACKED DAILY CONTENT ═══════════════════════════════
 // Lädt Saison-Tipp, Wusstest du?, Tägliches Quiz und Seasonal-Highlights
 // aus Supabase (Tabellen seasonal_tips, did_you_know_facts, daily_quizzes,
@@ -14690,6 +14813,13 @@ function initHomeBoard() {
         setTimeout(function(){ gsLoadTodaysWisdom(); }, 400);
       }
     } catch(e) { console.log('SBWisdom:', e.message); }
+
+    // ── v26.39: Mushroom-Saison-Widget (region-aware, mushroom_seasonal_patches) ──
+    try {
+      if (typeof gsLoadTodaysMushroomSeason === 'function') {
+        setTimeout(function(){ gsLoadTodaysMushroomSeason(); }, 500);
+      }
+    } catch(e) { console.log('SBMushSeason:', e.message); }
 
     // ── Animierte Zahlen ──────────────────────────────────
     setTimeout(function() {
@@ -48531,6 +48661,26 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.39', date: '23.05.2026',
+    headline: '🍄 Saison-Pilze-Widget Home — region-aware mit VAPKO-Telefon (Bonus B-A)',
+    summary: 'Cowork-Auftrag v26.39 (Bonus B-A, Sprint 2/5). Neues Home-Widget #mushroom-season-card lila zwischen Bauernregel und Quiz. Query mushroom_seasonal_patches mit best_months overlap currentMonth + region_canton_codes overlap userCantons via gsGetRegionContext (v26.27 API). Day-of-year deterministisch eine Patch pro Tag. 6h in-Memory-Cache pro region+month. Render mit typical_mushrooms-Liste + weather_trigger + VAPKO-Telefon + 2 Action-Buttons.',
+    user_summary: '🍄 Auf der Startseite siehst du jetzt täglich: "Saison-Pilze in deiner Region" — z.B. "Mai · Mittelland Mischwald: Steinpilz · Marone · Pfifferling · Parasol". Mit Schwierigkeit-Badge, Wetter-Trigger ("Nach 2-3 Tagen Regen + 15-22°C"), VAPKO-Telefonnummer als 1-Klick-Anruf. Buttons öffnen direkt den Pilz-Scanner oder den Regional-Kalender.',
+    user_items: [
+      { emoji: '📍', text: 'Region-aware: zeigt typische Pilze für deine CH-Kantone' },
+      { emoji: '📅', text: 'Filter nach aktuellem Monat — z.B. im Oktober andere Pilze als im Juli' },
+      { emoji: '🌧', text: 'Wetter-Trigger-Hinweis ("Nach 2-3 Tagen Regen + 15-22°C")' },
+      { emoji: '☎️', text: 'VAPKO-Telefonnummer als 1-Klick-Anruf direkt im Widget' },
+    ],
+    items: [
+      {emoji:'🎨', bold:'Widget #mushroom-season-card:', text:' Lila Gradient #4a148c→#6a1b9a. Header mit "🍄 Saison-Pilze in deiner Region" + Schwierigkeit-Badge (🎯 einfach/mittel/schwer). Region-Zeile (Monat · regionName · forest_type). Playfair-Liste der Top-5 typical_mushrooms (titlecased). Wetter-Trigger in dunkler Inline-Box. VAPKO-Kontrollstelle + tel-Link. 2 Buttons: Pilz-Scanner (öffnet openMushroomModal) + Region wechseln (openRegionalCalendarModal).'},
+      {emoji:'🔍', bold:'Query-Strategie:', text:' /rest/v1/mushroom_seasonal_patches?best_months=cs.{currentMonth}&region_canton_codes=ov.{userCantons}. Cantons aus gsGetRegionContext (v26.27 API) — Fallback wenn keine Region: erste 10 Patches des Monats. Day-of-year deterministisch (day % rows.length) → fix eine Patch pro Tag.'},
+      {emoji:'⏰', bold:'6h Cache:', text:' window._gsMushroomSeasonCache mit cacheKey aus cantons+month — verhindert mehrfaches Reload.'},
+      {emoji:'🚀', bold:'Auto-Load:', text:' gsLoadTodaysMushroomSeason wird 500ms nach Home-Mount aufgerufen (im selben Block wie gsLoadTodaysWisdom). Silent-fail wenn sbFetch fehlt.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.40 Companion-View, v26.41 Wassergarten-Tab, v26.42 Vogel-Tab + bird_friendly plan_intent.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · sw.js gs-v26.39 OK · GS_VERSION=v26.39 OK · _headers v26.39 OK · meta=26.39.20260523 OK.'},
+    ]
+  },
+  {
     v: 'v26.38', date: '23.05.2026',
     headline: '🍄 Pilz-Glossar im Wissen-Tab — 20 CH-Pilze mit Lookalikes + Rezepten',
     summary: 'Cowork-Auftrag v26.38 (Bonus B-C, Sprint 1/5 von Pentagon-Sprint #2). 6. Sub-Tab "🍄 Pilze" im Wissen-Tab als Erweiterung der v26.23 Wave-9-Renderer. mushroom_register sortiert nach edibility ASC (toedlich/giftig zuerst = Warnungen prominent). Card-Accent-Farbe nach Edibility. Detail-Modal mit Lebensgefahr-Banner + tel:145 ZUERST bei toedlich/giftig. Async sub-loads für bidirektionale Lookalikes (mushroom_lookalikes via .or-Query) + Rezepte (mushroom_recipes via primary_mushroom_slugs cs.{slug}). Eigener gsMushroomRecipeOpen-Modal für Rezept-Details.',
@@ -50520,7 +50670,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.38';
+var GS_VERSION = 'v26.39';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
