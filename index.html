@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.39.20260523">
+<meta name="app-version" content="26.40.20260523">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -43119,17 +43119,103 @@ function gsGardenScanShowPlant(idx) {
     '<div style="padding:16px;">' +
       rowsHtml +
       (pl.reason ? '<div style="margin-top:12px;padding:10px 12px;background:#f1f8e9;border-left:3px solid #2e7d32;border-radius:6px;font-size:12px;line-height:1.55;color:var(--text);"><strong style="color:#1b5e20;">💡 Warum hier:</strong> ' + pl.reason + '</div>' : '') +
+      // v26.40: Companion-Lookup über v_companion_lookup View (Top-3 gut + Top-2 schlecht)
+      '<div id="ai-plant-companions-block-' + idx + '"></div>' +
       // v26.24: Pest-Filter + Companion-Plants async geladen nach Modal-Render
       '<div id="ai-plant-pests-block-' + idx + '" data-pest-host="' + (pl.lat ? String(pl.lat).replace(/"/g,'&quot;') : '') + '"></div>' +
     '</div>' +
   '</div>';
   var mc = document.getElementById('modal-content');
   if (mc) mc.innerHTML = html;
-  // Async: Pests + Companions laden falls species_lat vorhanden
+  // Async: v26.40 Companions (View) zuerst, dann v26.24 Pests + Pest-Companions
   if (pl.lat) {
+    try { gsLoadCompanionsForPlanPlant(idx, pl.lat); } catch(_){}
     try { gsLoadPestsForPlanPlant(idx, pl.lat); } catch(_){}
   }
 }
+
+// ═════════════════════════════════════════════════════════════════════
+// v26.40 COMPANION-LOOKUP (Cowork-Briefing Bonus B-B)
+// Nutzt v_companion_lookup View (Cowork-Backend) — vereinfacht die alte
+// OR-Logik (species_a/species_b in companion_plants_full Tabelle).
+// View liefert bereits {species_lat, partner_lat, relationship,
+//                       reason, effect_on_self, effect_on_partner, confidence}
+// Top-3 'gut' + Top-2 'schlecht' pro Pflanze im Plan-Detail-Modal.
+// 15min in-Memory-Cache pro species_lat.
+// ═════════════════════════════════════════════════════════════════════
+
+window._gsCompanionCache = window._gsCompanionCache || {};
+var GS_COMPANION_TTL_MS = 15 * 60 * 1000;
+
+async function gsLoadCompanionsForPlanPlant(idx, speciesLat) {
+  if (!speciesLat || typeof sbFetch !== 'function') return;
+  var host = document.getElementById('ai-plant-companions-block-' + idx);
+  if (!host) return;
+  host.innerHTML = '<div style="margin-top:14px;padding:8px 12px;background:var(--surface2);border-radius:9px;font-size:11.5px;color:var(--muted);text-align:center;">🤝 Companions werden geladen…</div>';
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+
+  // Cache-Check
+  var cached = window._gsCompanionCache[speciesLat];
+  var now = Date.now();
+  var rows;
+  if (cached && (now - cached.ts) < GS_COMPANION_TTL_MS) {
+    rows = cached.rows;
+  } else {
+    try {
+      // View ist bereits bidirektional → 1 Query pro Pflanze
+      var r = await sbFetch(
+        '/rest/v1/v_companion_lookup?species_lat=eq.' + encodeURIComponent(speciesLat) +
+        '&select=partner_lat,relationship,reason,effect_on_self,confidence&order=confidence.desc&limit=20',
+        { method: 'GET' }
+      );
+      rows = (r && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : []);
+      window._gsCompanionCache[speciesLat] = { rows: rows, ts: now };
+    } catch(_){
+      host.innerHTML = '';
+      return;
+    }
+  }
+
+  if (!rows || !rows.length) {
+    host.innerHTML = '<div style="margin-top:14px;padding:9px 12px;background:#f3e5f5;border-radius:9px;font-size:11.5px;color:#6a1b9a;text-align:center;">🤝 Keine Companion-Daten für diese Pflanze in der DB.</div>';
+    return;
+  }
+
+  var good = rows.filter(function(r){ return r.relationship === 'gut'; }).slice(0, 3);
+  var bad = rows.filter(function(r){ return r.relationship === 'schlecht'; }).slice(0, 2);
+
+  var html = '';
+  if (good.length) {
+    html += '<div style="margin-top:14px;padding:12px 14px;background:#e8f5e9;border:1px solid #66bb6a;border-radius:11px;">';
+    html += '<div style="font-size:12px;font-weight:800;color:#1b5e20;margin-bottom:6px;">🤝 Gute Nachbarn (Top ' + good.length + ')</div>';
+    good.forEach(function(c){
+      var conf = (c.confidence != null) ? Math.round(c.confidence * 100) : null;
+      html += '<div style="padding:6px 0;border-top:1px dashed rgba(0,0,0,.1);font-size:11.5px;color:#1b5e20;line-height:1.5;">' +
+        '<b>🌱 ' + ed(c.partner_lat) + '</b>' +
+        (conf != null ? ' <span style="background:#c8e6c9;color:#2e7d32;font-size:10px;font-weight:800;padding:1px 6px;border-radius:5px;margin-left:4px;">' + conf + '%</span>' : '') +
+        (c.reason ? '<div style="margin-top:2px;font-size:11px;opacity:.92;">' + ed(c.reason) + '</div>' : '') +
+        (c.effect_on_self ? '<div style="margin-top:1px;font-size:11px;opacity:.85;"><i>→ ' + ed(c.effect_on_self) + '</i></div>' : '') +
+      '</div>';
+    });
+    html += '</div>';
+  }
+  if (bad.length) {
+    html += '<div style="margin-top:8px;padding:12px 14px;background:#ffebee;border:1px solid #ef9a9a;border-radius:11px;">';
+    html += '<div style="font-size:12px;font-weight:800;color:#c62828;margin-bottom:6px;">⚠️ Schlechte Nachbarn (nicht direkt daneben)</div>';
+    bad.forEach(function(c){
+      var conf = (c.confidence != null) ? Math.round(c.confidence * 100) : null;
+      html += '<div style="padding:6px 0;border-top:1px dashed rgba(0,0,0,.1);font-size:11.5px;color:#b71c1c;line-height:1.5;">' +
+        '<b>🚫 ' + ed(c.partner_lat) + '</b>' +
+        (conf != null ? ' <span style="background:#ffcdd2;color:#c62828;font-size:10px;font-weight:800;padding:1px 6px;border-radius:5px;margin-left:4px;">' + conf + '%</span>' : '') +
+        (c.reason ? '<div style="margin-top:2px;font-size:11px;opacity:.92;">' + ed(c.reason) + '</div>' : '') +
+      '</div>';
+    });
+    html += '</div>';
+  }
+
+  host.innerHTML = html;
+}
+window.gsLoadCompanionsForPlanPlant = gsLoadCompanionsForPlanPlant;
 
 // v26.24: Lädt plant_pests + pest_companion_plants asynchron für die
 // gerade im Plan-Detail-Modal angezeigte Pflanze. Mountet das Result-HTML
@@ -48661,6 +48747,27 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.40', date: '23.05.2026',
+    headline: '🤝 Companion-Lookup im KI-Planer — gute & schlechte Nachbarn aus v_companion_lookup (Bonus B-B)',
+    summary: 'Cowork-Auftrag v26.40 (Bonus B-B, Sprint 3/5). Im Plan-Detail-Modal (gsGardenScanShowPlant) wird zusätzlich zur v26.24 Pest-Box ein async-Block geladen mit Top-3 "gute Nachbarn" + Top-2 "schlechte Nachbarn" aus v_companion_lookup View. Vereinfacht die alte OR-Logik auf 1 GET-Query pro Pflanze. Render: 2 Boxen (grün + rot) mit partner_lat + Confidence-Badge + reason + effect_on_self. 15min in-Memory-Cache pro species_lat.',
+    user_summary: '🤝 Wenn du im KI-Planer eine Pflanze antippst, zeigt dir die App jetzt automatisch ihre "guten Nachbarn" (wie Basilikum bei Tomaten) und "schlechten Nachbarn" (Pflanzen, die nicht direkt daneben sollten). Mit wissenschaftlicher Confidence-Bewertung in Prozent und kurzer Begründung.',
+    user_items: [
+      { emoji: '🤝', text: 'Top-3 gute Nachbarn pro Pflanze mit Begründung' },
+      { emoji: '🚫', text: 'Top-2 schlechte Nachbarn als Warnung (rot)' },
+      { emoji: '📊', text: 'Confidence-Badge (Prozent) zeigt wissenschaftliche Belegbarkeit' },
+      { emoji: '⚡', text: 'Schneller dank neuer v_companion_lookup View (1 Query statt 2)' },
+    ],
+    items: [
+      {emoji:'🧩', bold:'gsLoadCompanionsForPlanPlant(idx, lat):', text:' Async-Helper triggert nach Modal-Render parallel zu gsLoadPestsForPlanPlant. GET v_companion_lookup?species_lat=eq.<lat>&order=confidence.desc&limit=20.'},
+      {emoji:'⚡', bold:'View statt OR-Query:', text:' Cowork hat v_companion_lookup mit pre-computed bidirektionalem Lookup deployed (statt der alten companion_plants_full OR(species_a=X,species_b=X) Logik). 1 Query pro Pflanze statt 2.'},
+      {emoji:'🎨', bold:'2-Boxen-Render:', text:' Client-side split nach relationship. Grüne Box "🤝 Gute Nachbarn (Top 3)" mit partner_lat + 🟢-Confidence-Badge + reason + effect_on_self italic. Rote Box "⚠️ Schlechte Nachbarn (nicht direkt daneben)" Top-2 mit 🔴-Confidence-Badge + reason.'},
+      {emoji:'📦', bold:'Mount-Slot:', text:' #ai-plant-companions-block-<idx> ZWISCHEN den Pflanzen-Rows und der v26.24 Pest-Box.'},
+      {emoji:'⏰', bold:'15min Cache:', text:' window._gsCompanionCache pro species_lat — wenn User mehrere Pflanzen im selben Plan antippt.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.41 Wassergarten-Tab, v26.42 Vogel-Tab + bird_friendly plan_intent.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · sw.js gs-v26.40 OK · GS_VERSION=v26.40 OK · _headers v26.40 OK · meta=26.40.20260523 OK.'},
+    ]
+  },
+  {
     v: 'v26.39', date: '23.05.2026',
     headline: '🍄 Saison-Pilze-Widget Home — region-aware mit VAPKO-Telefon (Bonus B-A)',
     summary: 'Cowork-Auftrag v26.39 (Bonus B-A, Sprint 2/5). Neues Home-Widget #mushroom-season-card lila zwischen Bauernregel und Quiz. Query mushroom_seasonal_patches mit best_months overlap currentMonth + region_canton_codes overlap userCantons via gsGetRegionContext (v26.27 API). Day-of-year deterministisch eine Patch pro Tag. 6h in-Memory-Cache pro region+month. Render mit typical_mushrooms-Liste + weather_trigger + VAPKO-Telefon + 2 Action-Buttons.',
@@ -50670,7 +50777,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.39';
+var GS_VERSION = 'v26.40';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
