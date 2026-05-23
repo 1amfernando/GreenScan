@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.44.20260524">
+<meta name="app-version" content="26.45.20260524">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4379,6 +4379,8 @@ html, body{ scroll-behavior: smooth; }
     <button class="recipe-cat" onclick="showWissen('voegel',this)" data-i18n="wissen_birds" data-i18n-fallback="🦜 Vögel">🦜 Vögel</button>
     <!-- v26.43: 9. Sub-Tab — Alpenpflanzen (alpine_garden_plants) -->
     <button class="recipe-cat" onclick="showWissen('alpen',this)" data-i18n="wissen_alpine" data-i18n-fallback="🏔️ Alpen">🏔️ Alpen</button>
+    <!-- v26.45: 10. Sub-Tab — Indoor-Pflanzen (indoor_houseplants) -->
+    <button class="recipe-cat" onclick="showWissen('indoor',this)" data-i18n="wissen_indoor" data-i18n-fallback="🪴 Zimmer">🪴 Zimmer</button>
   </div>
 
   <!-- Content -->
@@ -34186,6 +34188,28 @@ window.gsRenderWissenWave9 = async function(section) {
         return null;
       },
       emptyMsg: 'Noch keine Alpenpflanzen in der DB.'
+    },
+    // v26.45 Wave-13: Indoor-Pflanzen — indoor_houseplants
+    // Sort: difficulty (einfach zuerst), dann name. Pet-Tox prominent.
+    indoor: {
+      table: 'indoor_houseplants', order: 'difficulty,common_name_de',
+      titleField: 'common_name_de', categoryField: 'light_requirement',
+      cardEmoji: '🪴',
+      cardSub: function(r){
+        var bits = [r.scientific_name || ''];
+        if (r.light_requirement) bits.push('💡 ' + r.light_requirement);
+        if (r.difficulty) bits.push('🎯 ' + r.difficulty);
+        if (r.toxic_to_pets) bits.push('🚫 Pet-Tox');
+        if (r.air_purifying) bits.push('🌬 Luft');
+        return bits.filter(Boolean).join(' · ');
+      },
+      cardAccent: function(r){
+        if (r.toxic_to_pets === true || r.toxic_to_children === true) return '#c62828';
+        if (r.air_purifying === true) return '#2e7d32';
+        if (String(r.difficulty || '').toLowerCase() === 'einfach') return '#558b2f';
+        return null;
+      },
+      emptyMsg: 'Noch keine Indoor-Pflanzen in der DB.'
     }
   };
   var cfg = configs[section];
@@ -34288,6 +34312,8 @@ window.gsWave9OpenDetail = function(section, slug) {
     html += _gsWave9RenderBird(r, ed);
   } else if (section === 'alpen') {
     html += _gsWave9RenderAlpine(r, ed);
+  } else if (section === 'indoor') {
+    html += _gsWave9RenderIndoor(r, ed);
   }
 
   html += '</div>';
@@ -34734,6 +34760,105 @@ function _gsWave9RenderAlpine(r, ed) {
   // Schutz-Disclaimer wenn protected
   if (isProtected) {
     html += '<div style="margin-top:10px;padding:9px 12px;background:#ede7f6;border:1.5px solid #5e35b1;border-radius:10px;font-size:11.5px;color:#311b92;line-height:1.55;"><b>📋 Schweizer Naturschutz:</b> Wildpflanzen dieser Art dürfen nicht gepflückt, ausgegraben oder beschädigt werden. Kauf nur aus zertifiziertem Anbau (Gärtnerei mit Alpinpflanzen-Lizenz).</div>';
+  }
+
+  if (r.source) html += '<div style="margin-top:12px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(r.source) + '</div>';
+  html += '</div>';
+  return html;
+}
+
+// v26.45 Detail-Renderer für indoor_houseplants
+function _gsWave9RenderIndoor(r, ed) {
+  var isPetTox = r.toxic_to_pets === true;
+  var isChildTox = r.toxic_to_children === true;
+  var isTox = isPetTox || isChildTox;
+  var isAirPurify = r.air_purifying === true;
+  var isBeginner = String(r.difficulty || '').toLowerCase() === 'einfach';
+  var gradient = isTox ? 'linear-gradient(135deg,#c62828,#7f0000)'
+              : isAirPurify ? 'linear-gradient(135deg,#2e7d32,#1b5e20)'
+              : isBeginner ? 'linear-gradient(135deg,#558b2f,#33691e)'
+              : 'linear-gradient(135deg,#4a148c,#311b92)';
+
+  var html = _gsWave9HeaderHtml('🪴', r.common_name_de, r.scientific_name + (r.family ? ' · ' + r.family : ''), gradient, ed);
+
+  // Pet/Kinder-Tox-Banner ZUERST bei toxic
+  if (isTox) {
+    var who = [];
+    if (isPetTox) who.push('Haustiere');
+    if (isChildTox) who.push('Kinder');
+    html += '<div style="background:#b71c1c;color:#fff;padding:12px 16px;text-align:center;font-weight:900;font-size:13px;letter-spacing:.3px;line-height:1.5;">' +
+      '⚠️ TOXISCH für ' + who.join(' & ') +
+      (r.pet_warnings ? '<br><span style="font-size:11.5px;font-weight:700;opacity:.95;">' + ed(r.pet_warnings) + '</span>' : '') +
+      '<br><span style="font-size:11px;font-weight:600;">Tox-Info: ☎️ <a href="tel:145" style="color:#fff;text-decoration:underline;">145</a> (24/7)</span>' +
+    '</div>';
+  }
+  // Air-Purifying-Banner als Pluspunkt
+  if (!isTox && isAirPurify) {
+    html += '<div style="background:#2e7d32;color:#fff;padding:9px 16px;text-align:center;font-weight:800;font-size:12.5px;">🌬 LUFT-REINIGEND · NASA-Studie</div>';
+  }
+
+  html += '<div style="padding:16px 18px 20px;">';
+
+  // Pflege-Profil-Icons als 2x2-Grid
+  var careHtml = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">';
+  // Licht
+  careHtml += '<div style="padding:9px 11px;background:#fff8e1;border:1px solid #ffd54f;border-radius:9px;">' +
+    '<div style="font-size:10px;font-weight:800;color:#827717;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">💡 Licht</div>' +
+    '<div style="font-size:12.5px;font-weight:700;color:#bf360c;">' + ed(r.light_requirement || '?') + '</div></div>';
+  // Wasser
+  careHtml += '<div style="padding:9px 11px;background:#e0f7fa;border:1px solid #4dd0e1;border-radius:9px;">' +
+    '<div style="font-size:10px;font-weight:800;color:#00838f;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">💧 Gießen</div>' +
+    '<div style="font-size:12.5px;font-weight:700;color:#006064;">' + ed(r.watering_frequency || '?') + '</div></div>';
+  // Temperatur
+  var tempRange = '';
+  if (r.temperature_c_min != null && r.temperature_c_max != null) tempRange = r.temperature_c_min + '-' + r.temperature_c_max + '°C';
+  else if (r.temperature_c_min != null) tempRange = '>' + r.temperature_c_min + '°C';
+  careHtml += '<div style="padding:9px 11px;background:#fff3e0;border:1px solid #ffb74d;border-radius:9px;">' +
+    '<div style="font-size:10px;font-weight:800;color:#e65100;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">🌡 Temp</div>' +
+    '<div style="font-size:12.5px;font-weight:700;color:#bf360c;">' + ed(tempRange || '?') + '</div></div>';
+  // Luftfeuchte
+  var humRange = '';
+  if (r.humidity_pct_min != null && r.humidity_pct_max != null) humRange = r.humidity_pct_min + '-' + r.humidity_pct_max + '%';
+  else if (r.humidity_pct_min != null) humRange = '>' + r.humidity_pct_min + '%';
+  careHtml += '<div style="padding:9px 11px;background:#e3f2fd;border:1px solid #64b5f6;border-radius:9px;">' +
+    '<div style="font-size:10px;font-weight:800;color:#01579b;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">💨 Feuchte</div>' +
+    '<div style="font-size:12.5px;font-weight:700;color:#01579b;">' + ed(humRange || '?') + '</div></div>';
+  careHtml += '</div>';
+  html += careHtml;
+
+  // Badges
+  var badges = '';
+  if (r.difficulty) badges += '<span style="background:#fff8e1;color:#827717;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🎯 ' + ed(r.difficulty) + '</span>';
+  if (r.origin_region) badges += '<span style="background:#e3f2fd;color:#01579b;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🌍 ' + ed(r.origin_region) + '</span>';
+  if (r.growth_speed) badges += '<span style="background:#f3e5f5;color:#6a1b9a;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🌱 ' + ed(r.growth_speed) + '</span>';
+  if (r.mature_size_cm) badges += '<span style="background:#fff3e0;color:#e65100;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">↕ ' + ed(r.mature_size_cm) + ' cm</span>';
+  if (badges) html += '<div style="margin-bottom:10px;">' + badges + '</div>';
+
+  // Description
+  if (r.description) html += '<div style="font-size:12.5px;color:var(--text2);line-height:1.6;margin-bottom:10px;">' + ed(r.description) + '</div>';
+
+  // Pflege-Schedule
+  if (r.fertilizer_schedule) html += '<div style="margin-top:8px;padding:9px 11px;background:#e8f5e9;border-left:3px solid #2e7d32;border-radius:9px;font-size:11.5px;color:#1b5e20;line-height:1.5;"><b>🌿 Dünger:</b> ' + ed(r.fertilizer_schedule) + '</div>';
+  if (r.repotting_frequency) html += '<div style="margin-top:6px;padding:9px 11px;background:#efebe9;border-left:3px solid #6d4c41;border-radius:9px;font-size:11.5px;color:#4e342e;line-height:1.5;"><b>🪴 Umtopfen:</b> ' + ed(r.repotting_frequency) + '</div>';
+  if (r.preferred_pot_material) html += '<div style="margin-top:6px;font-size:11.5px;color:var(--text2);"><b>🏺 Topf:</b> ' + ed(r.preferred_pot_material) + '</div>';
+
+  // Vermehrung
+  if (r.propagation_method) html += '<div style="margin-top:10px;padding:9px 11px;background:#e0f7fa;border-left:3px solid #00838f;border-radius:9px;font-size:11.5px;color:#004d40;line-height:1.5;"><b>✂️ Vermehrung:</b> ' + ed(r.propagation_method) + '</div>';
+
+  // Common Problems + Pest-Susceptibility
+  if (Array.isArray(r.common_problems) && r.common_problems.length) html += _gsWave9ListSection('⚠ Häufige Probleme', r.common_problems, ed, '#fff3e0');
+  if (Array.isArray(r.pest_susceptibility) && r.pest_susceptibility.length) html += _gsWave9ListSection('🪲 Schädling-Anfällig für', r.pest_susceptibility, ed, '#ffebee');
+
+  // Pro-Tips
+  if (Array.isArray(r.pro_tips) && r.pro_tips.length) html += _gsWave9ListSection('💡 Profi-Tipps', r.pro_tips, ed, '#e8f5e9');
+
+  // Pet-Warning Disclaimer wenn toxic
+  if (isTox) {
+    html += '<div style="margin-top:12px;padding:11px 13px;background:#ffebee;border:1.5px solid #c62828;border-radius:10px;font-size:11.5px;color:#b71c1c;line-height:1.55;">' +
+      '<b>🐾 Haustier-/Kinder-Sicherheit:</b> Diese Pflanze ist toxisch ' +
+      (isPetTox && isChildTox ? 'für Haustiere UND Kinder' : isPetTox ? 'für Haustiere' : 'für Kinder') +
+      '. Bewahre sie ausserhalb der Reichweite auf. Bei Verzehr-Verdacht: ☎️ <a href="tel:145" style="color:#b71c1c;font-weight:800;">Tox-Info 145</a> (24/7).' +
+    '</div>';
   }
 
   if (r.source) html += '<div style="margin-top:12px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(r.source) + '</div>';
@@ -49184,6 +49309,29 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.45', date: '24.05.2026',
+    headline: '🪴 Indoor-Pflanzen-Sub-Tab — 20 Zimmer-Klassiker mit Pet-Tox-Warnung prominent',
+    summary: 'Cowork-Auftrag v26.45 (Sprint 3/5 von Pentagon #3). 10. Wissen-Sub-Tab "🪴 Zimmer". 20 indoor_houseplants aus DB-Wave-13 (Monstera, Dieffenbachia TOXISCH, Spathiphyllum, Ficus etc.). Card-Accent rot bei toxic_to_pets/toxic_to_children, gruen bei air_purifying, hellgruen bei einfacher difficulty. Detail-Modal mit Pet/Kinder-Tox-Banner ZUERST + Air-Purifying-Banner als Pluspunkt + 2x2-Pflege-Profil (Licht/Wasser/Temp/Feuchte) + Vermehrung + Probleme + Pet-Disclaimer.',
+    user_summary: '🪴 Im Wissen-Tab gibt es jetzt einen Sub-Tab "🪴 Zimmer" mit 20 Wohnzimmer-Klassikern. Toxische Pflanzen (Dieffenbachia, Monstera für Tiere/Kinder) werden mit rotem Banner + Tox-Info-145 angezeigt. Pflege-Profil als 2x2-Grid: Licht/Gießen/Temperatur/Luftfeuchte auf einen Blick. Air-Purifying-Pflanzen (NASA-Studie) bekommen einen grünen Bonus-Banner.',
+    user_items: [
+      { emoji: '🚫', text: 'Pet/Kinder-Tox-Banner rot prominent (Dieffenbachia, Monstera, etc.)' },
+      { emoji: '🌬', text: 'Air-Purifying-Banner grün (NASA-Studie: Spathiphyllum, Ficus, Sansevieria)' },
+      { emoji: '💡', text: '2x2-Pflege-Profil: Licht · Gießen · Temperatur · Luftfeuchte' },
+      { emoji: '✂️', text: 'Pro Pflanze: Vermehrung + Dünger-Schedule + Topf-Material' },
+    ],
+    items: [
+      {emoji:'🧩', bold:'10. Wave-9 Sub-Tab:', text:' #wissen-nav um "🪴 Zimmer" Button erweitert. configs[indoor] table=indoor_houseplants order=difficulty,common_name_de.'},
+      {emoji:'📋', bold:'Filter-Pills:', text:' categoryField=light_requirement (Distinct: hell/sonne/halbschatten/schatten). Auto-Counts.'},
+      {emoji:'🎨', bold:'Card-Accent:', text:' toxic_to_pets=true OR toxic_to_children=true → #c62828 (rot); air_purifying=true → #2e7d32 (grün); difficulty=einfach → #558b2f.'},
+      {emoji:'🚫', bold:'Pet/Kinder-Tox-Banner:', text:' Bei isTox roter Vollbild-Banner ZUERST mit "TOXISCH für Haustiere & Kinder" + pet_warnings als Detail-Text + tel:145.'},
+      {emoji:'🌬', bold:'Air-Purifying-Banner:', text:' Bei air_purifying=true und nicht toxic: grüner Bonus-Banner "🌬 LUFT-REINIGEND · NASA-Studie".'},
+      {emoji:'🎨', bold:'2x2-Pflege-Profil-Grid:', text:' 💡 Licht (gelb) · 💧 Gießen (cyan) · 🌡 Temp (orange) · 💨 Feuchte (blau). Ranges aus min/max-Spalten.'},
+      {emoji:'🪴', bold:'Detail-Layout:', text:' Badges (difficulty + origin_region + growth_speed + mature_size). Description. fertilizer_schedule grün + repotting_frequency braun + preferred_pot_material. propagation_method cyan. common_problems orange + pest_susceptibility rot als List-Sections. Pro-Tips grün. Pet-Disclaimer rot prominent am Ende bei toxic.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.46 Urban-Balkon-Wizard, v26.47 Token-Cost-Widget.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · sw.js gs-v26.45 OK · GS_VERSION=v26.45 OK · _headers v26.45 OK · meta=26.45.20260524 OK.'},
+    ]
+  },
+  {
     v: 'v26.44', date: '24.05.2026',
     headline: '🌳 Forest-Garden Designer — 8 Permakultur-Designs mit 7-Schichten-SVG-Diagramm',
     summary: 'Cowork-Auftrag v26.44 (Sprint 2/5). Neuer Garten-Aktion-Button "🌳 Forest-Garden planen". Modal mit 8 forest_garden_design-Vorlagen (DB-Wave-13). Filter-Pills nach design_type. Card-Liste mit difficulty-Emoji + Size + Setup-Years + Yield + CHF. Detail-View mit vertikalem 7-Schichten-SVG-Diagramm (Canopy oben grün → Wurzel unten braun + Pilz-Etage lila), Schicht-Pflanzen als farbige Pills, Eckdaten-Pills, Pro-Tips + Pitfalls, "Plan übernehmen"-Button erstellt garden_plan mit plan_intent=permaculture_hugel.',
@@ -51303,7 +51451,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.44';
+var GS_VERSION = 'v26.45';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
