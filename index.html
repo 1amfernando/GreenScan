@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.51.20260524">
+<meta name="app-version" content="26.52.20260524">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1947,11 +1947,18 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <button onclick="menuNav('market')" style="padding:12px 8px;background:var(--card);color:var(--g-dark);border:1.5px solid var(--g-light);border-radius:12px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:7px;box-shadow:var(--shadow-sm);">🛒 Marktplatz</button>
     </div>
 
-    <!-- Notfall-Banner -->
-    <div style="background:#ffebee;border-radius:var(--r-sm);padding:10px 13px;display:flex;align-items:center;gap:10px;margin-bottom:4px;" onclick="window.open ? null : null">
-      <span style="font-size:22px;">🚨</span>
-      <div style="flex:1;font-size:12px;color:#c62828;line-height:1.4;">
-        <strong>Vergiftungsverdacht?</strong> Sofort Tox Info Suisse <strong>145</strong> oder Notruf <strong>144</strong> anrufen.
+    <!-- v26.52: Notfall-Banner mit Tox-Quick-Search + 145-Tap-to-Call -->
+    <div style="background:#ffebee;border:1.5px solid #c62828;border-radius:var(--r-sm);padding:11px 13px;margin-bottom:4px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <span style="font-size:22px;flex-shrink:0;">🚨</span>
+        <div style="flex:1;font-size:12px;color:#c62828;line-height:1.4;">
+          <strong>Vergiftungsverdacht?</strong> Sofort handeln — Tox Info Suisse <strong>145</strong> (24/7) oder Notruf <strong>144</strong>.
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <a href="tel:145" style="flex:1;padding:9px 10px;background:#c62828;color:#fff;text-decoration:none;border-radius:8px;font-size:12.5px;font-weight:800;text-align:center;-webkit-tap-highlight-color:transparent;">☎ 145 Tox-Info</a>
+        <a href="tel:144" style="flex:1;padding:9px 10px;background:#7f0000;color:#fff;text-decoration:none;border-radius:8px;font-size:12.5px;font-weight:800;text-align:center;-webkit-tap-highlight-color:transparent;">☎ 144 Notruf</a>
+        <button onclick="openToxQuickSearch()" style="flex:1.5;padding:9px 10px;background:#fff;color:#c62828;border:1.5px solid #c62828;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🔍 Tox-Suche</button>
       </div>
     </div>
   </div>
@@ -3360,6 +3367,38 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <button onclick="gsMushroomRunScan()" id="mushroom-submit-btn" style="width:100%;padding:14px;background:linear-gradient(135deg,#6a1b9a,#4a148c);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;" data-i18n="btn_mushroom_start" data-i18n-fallback="🔍 Pilz identifizieren">🔍 Pilz identifizieren</button>
     </div>
     <div id="mushroom-result" style="padding:0 18px 20px;"></div>
+  </div>
+</div>
+
+<!-- ═══ v26.52 TOX-QUICK-SEARCH MODAL (lebensrettend, no-login, ohne KI) ═══ -->
+<div class="modal-overlay" id="modal-tox-search" onclick="if(event.target===this)closeModal('modal-tox-search')">
+  <div class="modal" style="position:relative;max-height:94vh;overflow-y:auto;">
+    <div class="mhandle"></div>
+    <button class="modal-close-btn" onclick="closeModal('modal-tox-search')" aria-label="Schliessen">&#x2715;</button>
+    <div class="mhdr" style="background:linear-gradient(135deg,#c62828,#7f0000);color:#fff;">
+      <span class="memoji">⚠️</span>
+      <div>
+        <h2 data-i18n="tox_title" data-i18n-fallback="Tox-Schnellsuche" style="color:#fff;">Tox-Schnellsuche</h2>
+        <p data-i18n="tox_sub" data-i18n-fallback="Schnell prüfen: ist das giftig? (Pflanzen + Pilze + Zimmer)" style="color:rgba(255,255,255,.85);">Schnell prüfen: ist das giftig? (Pflanzen + Pilze + Zimmer)</p>
+      </div>
+    </div>
+    <div style="margin:14px 18px 0;padding:11px 13px;background:#fff3e0;border-left:4px solid #e65100;border-radius:8px;font-size:11.5px;color:#bf360c;line-height:1.55;">
+      <b>⚠ Diese Suche ist nur ein Hilfsmittel.</b> Bei Verdacht IMMER zuerst <a href="tel:145" style="color:#bf360c;font-weight:900;">☎ 145 anrufen</a> — die geben am Telefon konkrete Empfehlungen.
+    </div>
+    <div style="padding:14px 18px 18px;">
+      <input type="search" id="tox-search-input" placeholder="Name eingeben — z.B. „Knollenblätter", „Eisenhut", „Efeu", „Monstera" …" oninput="gsToxSearchRun(this.value)" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:11px;font-size:14px;font-family:inherit;color:var(--text);background:var(--card);box-sizing:border-box;outline:none;" autocomplete="off">
+      <div id="tox-search-status" style="margin-top:8px;font-size:11px;color:var(--muted);"></div>
+      <div id="tox-search-results" style="margin-top:10px;"></div>
+    </div>
+    <div style="padding:0 18px 18px;border-top:1px solid var(--border);margin-top:6px;padding-top:14px;">
+      <div style="font-size:10.5px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px;">⚡ Schnellzugriff</div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;">
+        <button onclick="gsToxQuickFilter('toedlich')" style="padding:8px 10px;background:#c62828;color:#fff;border:none;border-radius:8px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit;">☠ Tödliche Pilze</button>
+        <button onclick="gsToxQuickFilter('eisenhut')" style="padding:8px 10px;background:#b71c1c;color:#fff;border:none;border-radius:8px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit;">⚠ Eisenhut & Co</button>
+        <button onclick="gsToxQuickFilter('pet-tox')" style="padding:8px 10px;background:#e65100;color:#fff;border:none;border-radius:8px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit;">🐾 Pet-Toxisch</button>
+        <button onclick="gsToxQuickFilter('child-tox')" style="padding:8px 10px;background:#bf360c;color:#fff;border:none;border-radius:8px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit;">👶 Kind-Toxisch</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -14178,6 +14217,191 @@ function gsShowNextWeatherAlert() {
   }
 }
 window.gsShowNextWeatherAlert = gsShowNextWeatherAlert;
+
+// ═════════════════════════════════════════════════════════════════════
+// v26.52 TOX-QUICK-SEARCH (lebensrettend — Tap-to-Call + Live-DB-Search)
+// Sucht parallel in mushroom_register (Pilze), alpine_garden_plants
+// (Alpen-Tox wie Eisenhut), indoor_houseplants (Pet/Child-Tox) — KEIN
+// KI-Call, KEIN Login nötig, schnell auch offline-cache-bar.
+// ═════════════════════════════════════════════════════════════════════
+
+window._gsToxCache = null; // { ts, items: [...] }
+var GS_TOX_TTL_MS = 30 * 60 * 1000; // 30min Cache
+
+function openToxQuickSearch() {
+  var inp = document.getElementById('tox-search-input');
+  if (inp) { inp.value = ''; setTimeout(function(){ try { inp.focus(); } catch(_){} }, 250); }
+  var res = document.getElementById('tox-search-results'); if (res) res.innerHTML = '';
+  var st = document.getElementById('tox-search-status'); if (st) st.textContent = '';
+  if (typeof openModal === 'function') openModal('modal-tox-search');
+  else document.getElementById('modal-tox-search').classList.add('open');
+  // Preload cache async
+  gsToxLoadCache();
+}
+window.openToxQuickSearch = openToxQuickSearch;
+
+async function gsToxLoadCache(force) {
+  if (typeof sbFetch !== 'function') return;
+  var now = Date.now();
+  if (!force && window._gsToxCache && (now - window._gsToxCache.ts) < GS_TOX_TTL_MS) return window._gsToxCache;
+  try {
+    // Parallel-Loads aus 3 Tabellen
+    var [mushrooms, alpine, indoor] = await Promise.all([
+      sbFetch('/rest/v1/mushroom_register?select=slug,common_name_de,scientific_name,edibility,symptoms_if_toxic,emergency_action,vapko_klasse&edibility=in.(toedlich,giftig,bedingt_essbar,ungeniessbar)&limit=200', {method:'GET'}),
+      sbFetch('/rest/v1/alpine_garden_plants?select=slug,common_name_de,scientific_name,warnings,protected_species,habitat_type&warnings=not.is.null&limit=200', {method:'GET'}),
+      sbFetch('/rest/v1/indoor_houseplants?select=slug,common_name_de,scientific_name,toxic_to_pets,toxic_to_children,pet_warnings&or=(toxic_to_pets.eq.true,toxic_to_children.eq.true)&limit=200', {method:'GET'})
+    ]);
+    var items = [];
+    (((mushrooms||{}).data) || []).forEach(function(m){
+      items.push({
+        kind: 'mushroom',
+        slug: m.slug,
+        name: m.common_name_de,
+        sci: m.scientific_name,
+        sev: m.edibility === 'toedlich' ? 'fatal' : m.edibility === 'giftig' ? 'toxic' : m.edibility === 'bedingt_essbar' ? 'conditional' : 'inedible',
+        info: m.symptoms_if_toxic || '',
+        action: m.emergency_action || '',
+        vapko: m.vapko_klasse,
+        keywords: [m.common_name_de, m.scientific_name, m.slug].filter(Boolean).join(' ').toLowerCase()
+      });
+    });
+    (((alpine||{}).data) || []).forEach(function(a){
+      var w = String(a.warnings || '').toLowerCase();
+      var isFatal = w.indexOf('tödlich') >= 0 || w.indexOf('toedlich') >= 0 || String(a.slug).indexOf('eisenhut') >= 0;
+      items.push({
+        kind: 'alpine',
+        slug: a.slug,
+        name: a.common_name_de,
+        sci: a.scientific_name,
+        sev: isFatal ? 'fatal' : 'toxic',
+        info: a.warnings || '',
+        action: '',
+        habitat: a.habitat_type,
+        keywords: [a.common_name_de, a.scientific_name, a.slug].filter(Boolean).join(' ').toLowerCase()
+      });
+    });
+    (((indoor||{}).data) || []).forEach(function(i){
+      items.push({
+        kind: 'indoor',
+        slug: i.slug,
+        name: i.common_name_de,
+        sci: i.scientific_name,
+        sev: 'pet-child',
+        info: (Array.isArray(i.pet_warnings) ? i.pet_warnings.join(' · ') : ''),
+        action: '',
+        petTox: i.toxic_to_pets,
+        childTox: i.toxic_to_children,
+        keywords: [i.common_name_de, i.scientific_name, i.slug].filter(Boolean).join(' ').toLowerCase()
+      });
+    });
+    window._gsToxCache = { ts: now, items: items };
+    return window._gsToxCache;
+  } catch(e) { return null; }
+}
+window.gsToxLoadCache = gsToxLoadCache;
+
+function gsToxSearchRun(query) {
+  // Debounce
+  if (window._gsToxSearchTimer) clearTimeout(window._gsToxSearchTimer);
+  window._gsToxSearchTimer = setTimeout(function(){ gsToxSearchExec(query); }, 200);
+}
+window.gsToxSearchRun = gsToxSearchRun;
+
+async function gsToxSearchExec(query) {
+  var q = String(query || '').trim().toLowerCase();
+  var res = document.getElementById('tox-search-results');
+  var st = document.getElementById('tox-search-status');
+  if (!res) return;
+  if (!q) { res.innerHTML = ''; if (st) st.textContent = ''; return; }
+  if (q.length < 2) { if (st) st.textContent = 'Mindestens 2 Buchstaben…'; return; }
+  if (st) st.textContent = '⏳ Lade…';
+  var cache = await gsToxLoadCache();
+  if (!cache || !cache.items.length) { if (st) st.textContent = '⚠ Datenbank nicht erreichbar — bei Verdacht ☎ 145 anrufen.'; return; }
+  // Fuzzy-Match in Keywords (substring)
+  var matches = cache.items.filter(function(it){ return it.keywords.indexOf(q) >= 0; });
+  // Priorisiere fatal > toxic > conditional > pet-child > inedible
+  var sevRank = { fatal: 0, toxic: 1, conditional: 2, 'pet-child': 3, inedible: 4 };
+  matches.sort(function(a,b){ return (sevRank[a.sev]||9) - (sevRank[b.sev]||9); });
+  matches = matches.slice(0, 25);
+  if (!matches.length) {
+    res.innerHTML = '<div style="padding:20px 14px;background:#e8f5e9;border-left:4px solid #2e7d32;border-radius:9px;color:#1b5e20;font-size:13px;line-height:1.55;">' +
+      '🔍 Keine Treffer für „' + (typeof gsHTMLEscape==="function"?gsHTMLEscape(q):q) + '" in unserer DB (' + cache.items.length + ' toxische Einträge).' +
+      '<br><b>Heisst NICHT: ungiftig.</b> Bei Verdacht ☎ <a href="tel:145" style="color:#1b5e20;font-weight:900;">145</a> anrufen.' +
+    '</div>';
+    if (st) st.textContent = '0 Treffer';
+    return;
+  }
+  if (st) st.textContent = matches.length + ' Treffer (sortiert: tödlich zuerst)';
+  res.innerHTML = matches.map(function(it){ return gsToxRenderCard(it); }).join('');
+}
+window.gsToxSearchExec = gsToxSearchExec;
+
+function gsToxRenderCard(it) {
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+  var sevMap = {
+    fatal:         { lbl:'☠ TÖDLICH', bg:'#b71c1c', col:'#fff', border:'#7f0000' },
+    toxic:         { lbl:'⚠ GIFTIG', bg:'#c62828', col:'#fff', border:'#7f0000' },
+    conditional:   { lbl:'⚠ BEDINGT ESSBAR', bg:'#e65100', col:'#fff', border:'#bf360c' },
+    'pet-child':   { lbl:'🐾 PET/KIND-TOX', bg:'#bf360c', col:'#fff', border:'#7f0000' },
+    inedible:      { lbl:'⊘ UNGENIESSBAR', bg:'#827717', col:'#fff', border:'#5d6e0e' }
+  };
+  var sm = sevMap[it.sev] || sevMap.toxic;
+  var kindEmoji = it.kind === 'mushroom' ? '🍄' : it.kind === 'alpine' ? '🏔️' : it.kind === 'indoor' ? '🪴' : '🌿';
+  var html = '<div style="margin-bottom:8px;border:2px solid ' + sm.border + ';border-radius:11px;overflow:hidden;background:var(--card);">';
+  html += '<div style="background:' + sm.bg + ';color:' + sm.col + ';padding:7px 12px;font-size:11.5px;font-weight:900;display:flex;justify-content:space-between;align-items:center;">' +
+    '<span>' + kindEmoji + ' ' + sm.lbl + '</span>' +
+    (it.vapko ? '<span style="font-size:10px;font-weight:700;opacity:.9;">VAPKO-Klasse ' + ed(it.vapko) + '</span>' : '') +
+  '</div>';
+  html += '<div style="padding:10px 13px;">';
+  html += '<div style="font-size:14px;font-weight:900;color:var(--text);">' + ed(it.name || '?') + '</div>';
+  if (it.sci) html += '<div style="font-size:11.5px;font-style:italic;color:var(--muted);margin-top:1px;">' + ed(it.sci) + '</div>';
+  if (it.info) html += '<div style="margin-top:7px;padding:7px 9px;background:#ffebee;border-left:3px solid #c62828;border-radius:7px;font-size:11.5px;color:#b71c1c;line-height:1.5;"><b>Symptome:</b> ' + ed(it.info).slice(0, 280) + '</div>';
+  if (it.action) html += '<div style="margin-top:6px;padding:7px 9px;background:#b71c1c;color:#fff;border-radius:7px;font-size:11.5px;line-height:1.5;"><b>🚨 Notfall:</b> ' + ed(it.action).slice(0, 200) + '</div>';
+  if (it.kind === 'indoor') {
+    var who = [];
+    if (it.petTox) who.push('Haustiere');
+    if (it.childTox) who.push('Kinder');
+    if (who.length) html += '<div style="margin-top:6px;font-size:11px;color:#bf360c;font-weight:700;">Toxisch für: ' + who.join(' + ') + '</div>';
+  }
+  html += '<div style="margin-top:8px;display:flex;gap:6px;">';
+  html += '<a href="tel:145" style="flex:1;padding:7px 9px;background:#b71c1c;color:#fff;text-decoration:none;border-radius:7px;font-size:11.5px;font-weight:800;text-align:center;">☎ 145</a>';
+  html += '<a href="tel:144" style="flex:1;padding:7px 9px;background:#7f0000;color:#fff;text-decoration:none;border-radius:7px;font-size:11.5px;font-weight:800;text-align:center;">☎ 144</a>';
+  html += '</div>';
+  html += '</div></div>';
+  return html;
+}
+window.gsToxRenderCard = gsToxRenderCard;
+
+function gsToxQuickFilter(preset) {
+  var inp = document.getElementById('tox-search-input');
+  if (!inp) return;
+  // Direkt im Cache filtern statt Suche zu missbrauchen
+  gsToxLoadCache().then(function(cache){
+    if (!cache) return;
+    var res = document.getElementById('tox-search-results');
+    var st = document.getElementById('tox-search-status');
+    var matches = [];
+    if (preset === 'toedlich') {
+      matches = cache.items.filter(function(it){ return it.sev === 'fatal' && it.kind === 'mushroom'; });
+      inp.value = '[Filter: ☠ Tödliche Pilze]';
+    } else if (preset === 'eisenhut') {
+      matches = cache.items.filter(function(it){ return it.sev === 'fatal' && (it.kind === 'alpine' || String(it.slug || '').indexOf('eisenhut') >= 0); });
+      inp.value = '[Filter: ⚠ Eisenhut & Co]';
+    } else if (preset === 'pet-tox') {
+      matches = cache.items.filter(function(it){ return it.kind === 'indoor' && it.petTox; });
+      inp.value = '[Filter: 🐾 Pet-Toxische Zimmerpflanzen]';
+    } else if (preset === 'child-tox') {
+      matches = cache.items.filter(function(it){ return it.kind === 'indoor' && it.childTox; });
+      inp.value = '[Filter: 👶 Kind-Toxische Zimmerpflanzen]';
+    }
+    var sevRank = { fatal: 0, toxic: 1, conditional: 2, 'pet-child': 3, inedible: 4 };
+    matches.sort(function(a,b){ return (sevRank[a.sev]||9) - (sevRank[b.sev]||9); });
+    if (st) st.textContent = matches.length + ' Treffer in dieser Kategorie';
+    if (res) res.innerHTML = matches.length ? matches.map(function(it){ return gsToxRenderCard(it); }).join('')
+      : '<div style="padding:14px;text-align:center;color:var(--muted);">Keine Einträge in dieser Kategorie.</div>';
+  });
+}
+window.gsToxQuickFilter = gsToxQuickFilter;
 
 // ══ SUPABASE-BACKED DAILY CONTENT ═══════════════════════════════
 // Lädt Saison-Tipp, Wusstest du?, Tägliches Quiz und Seasonal-Highlights
@@ -50032,6 +50256,30 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.52', date: '24.05.2026',
+    headline: '⚠️ Tox-Quick-Search im Notfall-Banner — Pflanzen/Pilze/Zimmerpflanzen-Lookup ohne Login',
+    summary: 'Lebensrettender Feature-Sprint. Notfall-Banner auf Home erweitert mit 3 Actions: ☎ 145 Tox-Info Direkt-Tap, ☎ 144 Notruf Direkt-Tap, 🔍 Tox-Suche öffnet Modal mit Live-Search durch mushroom_register + alpine_garden_plants + indoor_houseplants. KEIN Login + KEIN KI-Call nötig — pure DB-Lookup, 30min Cache. Severity-sortiert (fatal → toxic → pet-child). Pro Treffer: Symptome + Notfall-Action + 145/144-Buttons.',
+    user_summary: '⚠️ Im Notfall-Banner auf der Startseite kannst du jetzt direkt anrufen (145 Tox-Info ODER 144 Notruf) ODER eine blitzschnelle Suche starten: tippe "Eisenhut" oder "Knollenblätter" oder "Efeu" oder "Monstera" → siehst sofort ob giftig/tödlich, Symptome, was zu tun ist, und nochmal die Notfall-Nummern. Funktioniert OHNE Login. 4 Schnellzugriff-Filter: Tödliche Pilze / Eisenhut & Co / Pet-Tox / Kind-Tox.',
+    user_items: [
+      { emoji: '☎', text: '2 Direkt-Tap Notruf-Buttons im Banner: 145 Tox-Info + 144 Notruf' },
+      { emoji: '🔍', text: 'Tox-Quick-Search Modal mit Live-DB-Suche (kein Foto, kein Login, kein KI-Call)' },
+      { emoji: '🟢', text: '4 Schnellzugriff-Filter: Tödliche Pilze · Eisenhut & Co · Pet-Tox · Kind-Tox' },
+      { emoji: '⚡', text: 'Severity-Sort: tödlich zuerst. Pro Treffer: Symptome + Notfall-Action + tel:145/144' },
+    ],
+    items: [
+      {emoji:'🚨', bold:'Erweiterter Notfall-Banner:', text:' #ffebee Background mit 1.5px #c62828 Border. 2 Direkt-Tap Buttons (145 #c62828 + 144 #7f0000) + 1 Tox-Suche-Button (weiss/rot outline) als 3-Col-Flex.'},
+      {emoji:'🗄', bold:'Parallel-DB-Load:', text:' Promise.all([mushroom_register?edibility=in.(toedlich,giftig,bedingt_essbar,ungeniessbar), alpine_garden_plants?warnings=not.is.null, indoor_houseplants?or=(toxic_to_pets.eq.true,toxic_to_children.eq.true)]). Limit 200/Quelle. Normalisiert zu uniform Items mit kind+sev+keywords.'},
+      {emoji:'⏰', bold:'30min Cache:', text:' window._gsToxCache mit TTL — verhindert Re-Loads pro Session. Preload bei Modal-Open async.'},
+      {emoji:'🔎', bold:'Fuzzy-Search:', text:' 200ms debounced (gsToxSearchRun → gsToxSearchExec). Substring-Match in keywords (common_name_de + scientific_name + slug). Severity-Sort fatal=0 < toxic=1 < conditional=2 < pet-child=3 < inedible=4. Top-25.'},
+      {emoji:'🎨', bold:'Render-Card:', text:' Severity-Header (☠ TÖDLICH #b71c1c, ⚠ GIFTIG #c62828, ⚠ BEDINGT ESSBAR #e65100, 🐾 PET/KIND-TOX #bf360c, ⊘ UNGENIESSBAR #827717). Kind-Emoji (🍄/🏔️/🪴). VAPKO-Klasse-Badge bei Pilzen. Symptome rote Box + Notfall-Action dunkelrote Box. 145+144-tel-Buttons pro Card.'},
+      {emoji:'⚡', bold:'4 Quick-Filter:', text:' "☠ Tödliche Pilze" (sev=fatal+kind=mushroom), "⚠ Eisenhut & Co" (sev=fatal+kind=alpine OR slug includes eisenhut), "🐾 Pet-Tox" (kind=indoor+petTox), "👶 Kind-Tox" (kind=indoor+childTox). Direkt aus Cache, kein neuer Query.'},
+      {emoji:'📋', bold:'Disclaimer-Pflicht:', text:' Header-Box "Bei Verdacht IMMER zuerst ☎ 145 anrufen". Empty-Result-Hint "Keine Treffer heisst NICHT: ungiftig". Compliance.'},
+      {emoji:'🔒', bold:'No-Login + No-KI:', text:' Pure sbFetch GET — funktioniert auch für anon-Users (RLS auf den 3 Tabellen erlaubt public SELECT). Spart Anthropic-Tokens + ist lebensrettend wenn User keine Zeit für Foto + KI-Wartezeit hat.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' Optional: i18n FR/IT für Tox-UI · Service-Worker-Cache für Tox-Items damit auch offline funktioniert · Notfall-Banner Quick-Action auch in Garten-/Wissen-Tab.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · sw.js gs-v26.52 OK · GS_VERSION=v26.52 OK · _headers v26.52 OK · meta=26.52.20260524 OK.'},
+    ]
+  },
+  {
     v: 'v26.51', date: '24.05.2026',
     headline: '🛡 Self-Audit-Sprint — Backend-Security-Hardening (14 ERROR + 19 WARN gefixt)',
     summary: 'Self-initiierter Audit nach Supabase-Advisor-Findings. 2 Migrations LIVE applied: v26_51_backend_security_hardening + v26_51b_lock_admin_only_functions. 14 SECURITY DEFINER Views → security_invoker=true (RLS wieder respektiert), feedback_votes RLS-Hardening (war ALWAYS-TRUE → own-votes only), 29 FK-Indexes für Perf, 6 Duplicate-Indexes gedroppt, 2 function_search_path_mutable Fix, 4 admin-only Functions gelockt. Frontend: 4 user-facing alert() → gsToast (iOS-PWA-safe). Advisor-Diff: 14 ERROR + 84 WARN → 0 ERROR + 75 WARN.',
@@ -52310,7 +52558,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.51';
+var GS_VERSION = 'v26.52';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
