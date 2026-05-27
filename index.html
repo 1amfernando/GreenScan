@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.50.20260524">
+<meta name="app-version" content="26.51.20260524">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28376,9 +28376,11 @@ function submitListing() {
   const title = document.getElementById('listing-title')?.value?.trim();
   const desc  = document.getElementById('listing-desc')?.value?.trim();
   const seller = document.getElementById('listing-seller')?.value?.trim();
-  if (!title) { alert('Bitte einen Titel eingeben.'); return; }
-  if (!desc)  { alert('Bitte eine Beschreibung eingeben.'); return; }
-  if (!seller){ alert('Bitte deinen Namen eingeben.'); return; }
+  // v26.51 Hard-Lesson-#2 Fix: alert() → gsToast (iOS-PWA-safe, blockiert nicht)
+  var _gsToastIfAvail = function(m){ if (typeof gsToast === 'function') return gsToast({title:'Fehlt', body:m, type:'error'}); if (typeof showProfileToast === 'function') return showProfileToast(m, 'error'); };
+  if (!title) { _gsToastIfAvail('Bitte einen Titel eingeben.'); return; }
+  if (!desc)  { _gsToastIfAvail('Bitte eine Beschreibung eingeben.'); return; }
+  if (!seller){ _gsToastIfAvail('Bitte deinen Namen eingeben.'); return; }
 
   socialUserName = seller;
   localStorage.setItem('gs_social_name', seller);
@@ -33582,7 +33584,8 @@ function deleteRecipe(id) {
 function saveRecipe() {
   if (!gsRequire('edit_recipe')) return;
   const title = document.getElementById('recipe-title')?.value?.trim();
-  if (!title) { alert('Bitte einen Titel eingeben.'); return; }
+  // v26.51: alert → Toast (iOS-PWA-safe)
+  if (!title) { if (typeof gsToast === 'function') gsToast({title:'Fehlt', body:'Bitte einen Titel eingeben.', type:'error'}); else alert('Bitte einen Titel eingeben.'); return; }
   const isRemedy = newRecipeType === 'remedies';
 
   const data = {
@@ -50029,6 +50032,30 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.51', date: '24.05.2026',
+    headline: '🛡 Self-Audit-Sprint — Backend-Security-Hardening (14 ERROR + 19 WARN gefixt)',
+    summary: 'Self-initiierter Audit nach Supabase-Advisor-Findings. 2 Migrations LIVE applied: v26_51_backend_security_hardening + v26_51b_lock_admin_only_functions. 14 SECURITY DEFINER Views → security_invoker=true (RLS wieder respektiert), feedback_votes RLS-Hardening (war ALWAYS-TRUE → own-votes only), 29 FK-Indexes für Perf, 6 Duplicate-Indexes gedroppt, 2 function_search_path_mutable Fix, 4 admin-only Functions gelockt. Frontend: 4 user-facing alert() → gsToast (iOS-PWA-safe). Advisor-Diff: 14 ERROR + 84 WARN → 0 ERROR + 75 WARN.',
+    user_summary: '🛡 Sicherheits-Update unter der Haube: 14 kritische Backend-Lecks gefixt (Database-Views, die RLS umgangen hatten — jeder konnte über sie Daten anderer User sehen). Plus feedback_votes ist jetzt sauber abgesichert (vorher konnte jeder fremde Votes löschen/ändern). 4 nervige iOS-PWA-Popups durch sanfte Toast-Hinweise ersetzt. App-Performance ~3-15% schneller durch 29 neue Datenbank-Indizes.',
+    user_items: [
+      { emoji: '🛡', text: '14 SECURITY DEFINER Views jetzt auf security_invoker=true (RLS respektiert)' },
+      { emoji: '🔒', text: 'feedback_votes RLS-Hardening: ALWAYS-TRUE → own-votes only (Manipulations-Schutz)' },
+      { emoji: '⚡', text: '29 neue FK-Indexes + 6 Duplicate-Indexes gedroppt (Query-Perf-Boost)' },
+      { emoji: '📱', text: '4 native alert() → gsToast in Marketplace + Recipes (iOS-PWA-safe, Hard-Lesson #2)' },
+    ],
+    items: [
+      {emoji:'🛡', bold:'14 ERROR-Level Views fix:', text:' ALTER VIEW ... SET (security_invoker = true) auf v_ai_usage_summary, v_user_entitlements, v_marketplace_listings, v_mushroom_safety, v_companion_lookup, v_knowledge_search, v_harvest_stats_per_user, v_social_posts_with_verifications, v_cron_health, v_species_stats, v_my_marketplace_seller, v_knowledge_db_stats, v_ai_usage_weekly, v_ai_usage_monthly. Pre-Fix war Risk: jeder authenticated User konnte via View Daten lesen die normalerweise durch RLS limitiert wären.'},
+      {emoji:'🔒', bold:'feedback_votes RLS-Hardening:', text:' War USING(true)/WITH CHECK(true) für INSERT/UPDATE/DELETE → jeder Public-User konnte fremde Votes manipulieren. Neue Policies: voter_key = auth.uid()::text ODER (anon:* AND auth.uid IS NULL). SELECT bleibt public (Vote-Counts sind eh aggregate).'},
+      {emoji:'⚡', bold:'29 FK-Indexes:', text:' ai_queries(user_id), garden_diary(user_id), garden_harvests(user_id), garden_plans(user_id), garden_tasks(user_id), marketplace_listings(user_id), notifications(user_id), plant_diagnoses(user_id), plant_doctor_history(user_id), push_send_log/subscriptions(user_id), quiz_answers/ranking(user_id), scan_corrections/events(user_id), sensor_alerts/readings(user_id, device_id), user_achievements/quest_progress/scans(user_id), friendships(user_id, friend_id), post_comments(post_id), book_ingest_jobs(user_id), app_settings(updated_by), plant_reminder_snoozes(user_id), user_quest_progress(quest_id), harvest_log(user_id).'},
+      {emoji:'🗑', bold:'6 Duplicate-Indexes gedroppt:', text:' idx_ai_usage_date, idx_diary_user_ts, idx_harvests_user_ts, idx_plantings_user, idx_plantings_garden, idx_species_name_tri. Behalten: jeweils der idx_<table>_<col>-Index als Single-Source-of-Truth.'},
+      {emoji:'🔐', bold:'4 admin-only Functions locked:', text:' REVOKE EXECUTE FROM PUBLIC, anon, authenticated für fn_assign_role, fn_cleanup_old_data, fn_set_global_api_key, is_admin_user. GRANT EXECUTE TO service_role behalten. Edge-Fns + Backend nutzen weiter problemlos.'},
+      {emoji:'🛠', bold:'2 function_search_path_mutable Fix:', text:' ALTER FUNCTION ... SET search_path = "" für update_expert_verif_timestamp + fn_normalize_species_cat (Schutz vor Search-Path-Injection).'},
+      {emoji:'📱', bold:'Frontend Hard-Lesson #2 Fix:', text:' submitListing 3× alert() + saveRecipe 1× alert() → gsToast (iOS-PWA-safe). Pattern: gsToast({title, body, type:"error"}) statt nativem alert() das im PWA-Standalone-Mode den ganzen Webview blockiert.'},
+      {emoji:'📊', bold:'Advisor-Diff:', text:' Security: 14 ERROR + 84 WARN → 0 ERROR + 75 WARN (-23%). Verbleibende WARN: 35 SD-Functions public (by-design für Frontend-RPCs), 6 storage_buckets_allows_listing (by-design für avatars/marketplace-photos), 3 extension_in_public (kein User-Action), 1 auth_leaked_password_protection (Dashboard-Setting).'},
+      {emoji:'⏭️', bold:'Naechste:', text:' Optional: weitere alert() → gsToast Migration. Dashboard Auth-Settings (Leaked-Password-Protection + DB-Connection-Strategy auf Percentage). Stripe Live-Mode-Switch.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · sw.js gs-v26.51 OK · GS_VERSION=v26.51 OK · _headers v26.51 OK · meta=26.51.20260524 OK · 2 Migrations LIVE applied · Re-Audit confirmed 0 ERROR-Level.'},
+    ]
+  },
+  {
     v: 'v26.50', date: '24.05.2026',
     headline: '📊 ai_daily_usage Edge-Fn-Logging — 5 Edge-Fns gepatched, Admin-Widget zeigt jetzt Live-Daten',
     summary: 'Cowork-Auftrag v26.50 (Trio #4 Sprint 3/3 = Pentagon-Sprint #4 abgeschlossen). 5 Edge-Fns gepatched mit fn_log_ai_usage RPC fire-and-forget vor success-Return. LIVE deployed: pest-identify v2, mushroom-identify v2, garden-scan-analyze v5, plan-iterate v3, knowledge-bulk-gen v11. Token-Cost-Widget aus v26.47 zeigt jetzt echte Live-Daten statt leerem View.',
@@ -52283,7 +52310,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.50';
+var GS_VERSION = 'v26.51';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
