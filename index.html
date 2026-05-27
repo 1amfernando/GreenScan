@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.51.20260527">
+<meta name="app-version" content="26.55.20260527">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10005,8 +10005,41 @@ async function gsLoadEntitlements() {
       localStorage.setItem('gs_ent_recipes_export', row.recipes_export ? '1' : '0');
       if (typeof gsUpdateSettingsPlanCard === 'function') gsUpdateSettingsPlanCard();
     }
+    // v26.55: Past-Due-Banner check — separat von tier (View-tier zeigt in 7d-Grace noch Pro)
+    try { if (typeof gsCheckPastDueBanner === 'function') gsCheckPastDueBanner(); } catch(_){}
     return row;
   } catch(e) { return null; }
+}
+
+// v26.55: Globaler Past-Due-Warn-Banner
+async function gsCheckPastDueBanner() {
+  try {
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
+    if (typeof sbFetch !== 'function') return;
+    var uid = (typeof gsStore !== 'undefined') ? gsStore.get('gs_sb_uid', null) : null;
+    if (!uid) return;
+    var res = await sbFetch('/rest/v1/stripe_subscriptions?user_id=eq.' + uid + '&select=status,current_period_end&order=current_period_end.desc&limit=1', {method:'GET'});
+    var row = null;
+    if (res && res.data && Array.isArray(res.data) && res.data.length) row = res.data[0];
+    var isPastDue = row && row.status === 'past_due';
+    var bannerHost = document.getElementById('gs-past-due-banner');
+    if (!isPastDue) {
+      if (bannerHost) bannerHost.remove();
+      return;
+    }
+    if (bannerHost) return; // bereits angezeigt
+    var b = document.createElement('div');
+    b.id = 'gs-past-due-banner';
+    b.setAttribute('role', 'alert');
+    b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:var(--z-toast,9999);background:linear-gradient(90deg,#e65100,#bf360c);color:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,.2);font-size:14px;line-height:1.35;';
+    b.innerHTML =
+      '<span style="font-size:20px;flex-shrink:0;">⚠️</span>' +
+      '<div style="flex:1;min-width:0;"><b>Zahlung fehlgeschlagen</b><div style="font-size:12.5px;opacity:.92;">Bitte Karte aktualisieren — sonst endet dein Abo in wenigen Tagen.</div></div>' +
+      '<button id="gs-past-due-cta" style="background:#fff;color:#bf360c;border:none;padding:7px 14px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;">Karte aktualisieren</button>';
+    document.body.appendChild(b);
+    var cta = document.getElementById('gs-past-due-cta');
+    if (cta) cta.onclick = function(){ if (typeof gsOpenBillingPortal === 'function') gsOpenBillingPortal('payment_method_update'); };
+  } catch(_){}
 }
 
 function gsUpdateSettingsPlanCard() {
@@ -10112,7 +10145,8 @@ function gsShowAboScreen() {
     '</div>' +
     '<div style="padding:18px;">' +
       // v25.6 A5: Sub-Info-Card am Anfang — wird nach Modal-Open async befüllt
-      '<div id="abo-sub-info-host"></div>' +
+      // v26.55: ID umbenannt → abo-sub-info-host-inline (Dup-ID-Bug fix, Z.5454 statisch + hier dynamisch)
+      '<div id="abo-sub-info-host-inline"></div>' +
       freeCard + proCard + lifeCard +
       portalBtn +
       restoreBtn +
@@ -10126,12 +10160,12 @@ function gsShowAboScreen() {
   // v25.6 A5 + v25.35 Empty-State-Fix: Sub-Info IMMER async laden (auch für
   // Free-User). gsRenderSubInfo handelt sub=null als Empty-State mit Upgrade-
   // CTA — vorher war's hinter `if (paid)` versteckt, Free-User sahen nichts.
+  // v26.55: greift jetzt den Inline-Host (kein Dup-ID-Risiko mehr).
   gsLoadSubInfo().then(function(sub){
-    var host = document.getElementById('abo-sub-info-host');
+    var host = document.getElementById('abo-sub-info-host-inline');
     if (host) host.innerHTML = gsRenderSubInfo(sub);
   }).catch(function(){
-    // Auch bei Lade-Fehler den Free-Plan-Empty-State zeigen statt leerem Host.
-    var host = document.getElementById('abo-sub-info-host');
+    var host = document.getElementById('abo-sub-info-host-inline');
     if (host) host.innerHTML = gsRenderSubInfo(null);
   });
   // Launch-Angebot Verfügbarkeit live prüfen
@@ -52331,7 +52365,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.51';
+var GS_VERSION = 'v26.55';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
