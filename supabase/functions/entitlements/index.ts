@@ -42,9 +42,11 @@ function corsHeaders(origin: string | null): Record<string, string> {
   };
 }
 
-// Muss synchron mit ai-proxy/index.ts gehalten werden!
+// Muss synchron mit Frontend GS_PLANS und ai-proxy/index.ts gehalten werden!
+// v26.54: free 5 → 15 — Sync mit Frontend GS_PLANS.free.ai_calls=15.
+// Backend zählte vorher gegen 5, Frontend zeigte aber 15 → Inkonsistenz.
 const TIER_LIMITS: Record<string, number> = {
-  free: 5,
+  free: 15,
   plus: 200,
   pro: 2000,
   lifetime: 2000,

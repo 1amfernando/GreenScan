@@ -97,7 +97,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       price_id: resolvedPriceId,
       tier,
       status: "active",
-      is_launch_lifetime: true,
+      is_lifetime: true, // v26.54: umbenannt von is_launch_lifetime (Schema-Drift fix)
       current_period_start: new Date().toISOString(),
       current_period_end: null,
       metadata: session.metadata as any,
@@ -187,6 +187,98 @@ async function handleAccountDeauthorized(event: Stripe.Event) {
   console.log(`[webhook] account.application.deauthorized ${acctId} → disabled`);
 }
 
+// v26.55 — Trial-Will-End (Stripe sendet ~3 Tage vor Trial-Ende automatisch).
+// Wir erzeugen eine Notification + UPDATE stripe_subscriptions.trial_will_end_notified_at.
+async function handleTrialWillEnd(sub: Stripe.Subscription) {
+  const customerId = sub.customer as string;
+  const { data: existing } = await admin
+    .from("stripe_subscriptions")
+    .select("user_id")
+    .eq("stripe_customer_id", customerId)
+    .maybeSingle();
+  const userId = existing?.user_id;
+  if (!userId) {
+    console.warn(`[webhook] trial_will_end without user mapping for customer ${customerId}`);
+    return;
+  }
+  const trialEnd = sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null;
+  const dedupKey = `trial_will_end_${sub.id}`;
+  await admin.from("notifications").upsert({
+    user_id: userId,
+    kind: "trial_ending",
+    title: "Trial endet bald",
+    body: trialEnd ? `Dein Trial endet am ${new Date(trialEnd).toLocaleDateString("de-CH")}. Karte hinterlegen damit's nahtlos weitergeht.` : "Dein Trial endet bald.",
+    dedup_key: dedupKey,
+    link: "/?open=abo",
+    created_at: new Date().toISOString(),
+  }, { onConflict: "dedup_key" }).catch((e) => console.warn("[webhook] notif insert failed", e));
+  await admin
+    .from("stripe_subscriptions")
+    .update({ trial_will_end_notified_at: new Date().toISOString() })
+    .eq("id", sub.id)
+    .catch(() => {/* Spalte existiert evtl. nicht — silent */});
+  console.log(`[webhook] trial_will_end notif gesetzt für user=${userId}`);
+}
+
+// v26.55 — Charge.failed (außerhalb von Subscriptions, z.B. Expert-Verification CHF 0.50).
+// Loggen + Admin-Audit. Wenn associated subscription: status synct via separate event.
+async function handleChargeFailed(charge: Stripe.Charge) {
+  await admin.from("audit_log").insert({
+    actor_id: null,
+    action: "stripe_charge_failed",
+    target_type: "stripe_charge",
+    target_id: charge.id,
+    diff: {
+      customer: charge.customer,
+      amount: charge.amount,
+      currency: charge.currency,
+      failure_code: charge.failure_code,
+      failure_message: charge.failure_message,
+      payment_intent: charge.payment_intent,
+    }
+  }).catch(() => {});
+  console.log(`[webhook] charge.failed ${charge.id} customer=${charge.customer} reason=${charge.failure_code}`);
+}
+
+// v26.55 — Charge.dispute.created (Chargeback eingereicht).
+// Admin-Audit + Sub pausieren (manuelle Review-Pflicht).
+async function handleChargeDispute(dispute: Stripe.Dispute) {
+  await admin.from("audit_log").insert({
+    actor_id: null,
+    action: "stripe_dispute_created",
+    target_type: "stripe_dispute",
+    target_id: dispute.id,
+    diff: {
+      charge: dispute.charge,
+      amount: dispute.amount,
+      currency: dispute.currency,
+      reason: dispute.reason,
+      status: dispute.status,
+    }
+  }).catch(() => {});
+  // Sub-Status nicht automatisch ändern — manuelles Review.
+  console.warn(`[webhook] DISPUTE ${dispute.id} reason=${dispute.reason} — manuelle Review nötig`);
+}
+
+// v26.55 — Customer.updated (Email/Address-Sync zu profiles).
+async function handleCustomerUpdated(customer: Stripe.Customer) {
+  if (!customer.email) return;
+  const { data: sub } = await admin
+    .from("stripe_subscriptions")
+    .select("user_id")
+    .eq("stripe_customer_id", customer.id)
+    .maybeSingle();
+  if (!sub?.user_id) return;
+  // Email aktualisieren — aber NICHT auth.users (das macht der User via Auth-Update).
+  // Nur in profiles syncen falls dort separat gehalten.
+  await admin
+    .from("profiles")
+    .update({ stripe_email: customer.email })
+    .eq("id", sub.user_id)
+    .catch(() => {/* Spalte stripe_email existiert evtl. nicht — silent */});
+  console.log(`[webhook] customer.updated email synct für user=${sub.user_id}`);
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
   if (!stripeKey) return new Response("Stripe not configured", { status: 503 });
@@ -236,6 +328,33 @@ Deno.serve(async (req) => {
         break;
       case "account.application.deauthorized":
         await handleAccountDeauthorized(event);
+        break;
+      // v26.55 — neue Cases (Audit-Finding: 5 von 13 enabled events ohne switch-case)
+      case "customer.subscription.trial_will_end":
+        // Stripe sendet das ~3 Tage vor Trial-Ende. Wir loggen + erzeugen eine Notification.
+        await handleTrialWillEnd(event.data.object as Stripe.Subscription);
+        break;
+      case "charge.failed":
+        // Payment-Fail außerhalb von Subscriptions (z.B. Expert-Verification CHF 0.50). Admin-Alert.
+        await handleChargeFailed(event.data.object as Stripe.Charge);
+        break;
+      case "charge.dispute.created":
+        // User hat Chargeback eingereicht. Sub pausieren + Admin-Alert.
+        await handleChargeDispute(event.data.object as Stripe.Dispute);
+        break;
+      case "customer.updated":
+        // Email/Address-Update beim Stripe-Customer → in profiles syncen.
+        await handleCustomerUpdated(event.data.object as Stripe.Customer);
+        break;
+      case "payment_method.attached":
+        // Nur Analytics: wer eine neue Karte hinterlegt hat. Kein State-Update nötig.
+        await admin.from("audit_log").insert({
+          actor_id: null,
+          action: "stripe_payment_method_attached",
+          target_type: "stripe_customer",
+          target_id: (event.data.object as Stripe.PaymentMethod).customer as string,
+          diff: { event_id: event.id }
+        }).catch(() => {});
         break;
     }
     await admin.from("stripe_webhook_events").update({ processed_at: new Date().toISOString() }).eq("id", event.id);

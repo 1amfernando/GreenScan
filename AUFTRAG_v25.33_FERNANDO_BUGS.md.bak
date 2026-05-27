@@ -1,0 +1,290 @@
+# AUFTRAG v25.32 — 6 Fernando-Bugs aus Stripe-Test fixen
+
+> **Cowork-Briefing 2026-05-13** nach Fernandos Live-Test mit Pro-Abo, Inkognito-Login, Scanner und Karte.
+>
+> **Backend:** Cowork hat parallel STRIPE komplett neu aufgesetzt (3 Live-Products + 3 Prices mit korrekten lookup_keys + neuer Webhook + stripe-checkout v6 mit 7-Tage-Trial-Default). Frontend-Fixes pflegen die UX-Probleme.
+
+---
+
+## 🔴 BUG 1 — Doppel-Onboarding: „Account erstellen"-Modal vor Login
+
+**Wo:** `_gsAuthPrompt` IIFE bei Z.~46529-46580
+**Symptom:** Im Inkognito-Tab sieht User ZWEI Fenster: erst „✨ Account erstellen — kostenlos" Pflicht-Modal, dann das normale Onboarding mit Login.
+
+**Root-Cause:** `_gsAuthPrompt` (v24.33) zeigt `#gs-auth-pflicht-modal` 2.2s nach Boot. War damals als „Erinnerung" gedacht — heute redundant weil Onboarding-Wrapper das schon macht.
+
+**Fix:** IIFE komplett deaktivieren. Behält den Code (für Notfall-Restore) aber kommentiert ihn aus, ODER: `_gsAuthPrompt` Funktion nur returnen ohne Modal zu erstellen.
+
+**Snippet:**
+```js
+// Suche: function _gsAuthPrompt(){
+function _gsAuthPrompt(){
+  // v25.32: Modal komplett deaktiviert — Onboarding-Wrapper deckt das schon ab.
+  // Fernando-Bug: User sah erst „Account erstellen — kostenlos" dann nochmal Onboarding.
+  return;
+  /* ALTER CODE auskommentieren oder löschen:
+  try { ... } catch(e){ ... }
+  */
+}
+```
+
+---
+
+## 🔴 BUG 2 — Demo-Modus-Button entfernen
+
+**Wo:**
+- Z.1583-1585: „👁️ Als Gast fortfahren (Demo-Modus)" Button im Onboarding
+- Z.1685-1687: `#gs-guest-banner` orange Top-Bar
+- Plus: alle `gsOnboardingGuest` Aufrufe und `gsActivateGuestMode`
+
+**Symptom:** User soll sich direkt anmelden/registrieren, kein Demo-Bypass.
+
+**Fix:** Beide DOM-Elemente entfernen. Functions können bleiben (für späteren Re-Enable).
+
+**Snippet:**
+```html
+<!-- Z.1573-1585: ENTFERNEN — der gesamte „oder"-Block + Gast-Button -->
+<!-- VORHER: -->
+<div style="display:flex;align-items:center;gap:12px;...">...oder...</div>
+<button onclick="gsOnboardingGuest()" ...>👁️ Als Gast fortfahren (Demo-Modus)</button>
+
+<!-- NACHHER: nichts — die beiden Auth-Buttons (Register + Login) reichen -->
+```
+
+```html
+<!-- Z.1685-1687: ENTFERNEN -->
+<div id="gs-guest-banner" ...>
+  👁️ Demo-Modus · Ohne Konto wird nichts gespeichert · Tippe hier zum Registrieren
+</div>
+```
+
+Bonus: `gsOnboardingGuest()` und `gsActivateGuestMode()` Funktionen leer machen (return) damit kein versehentlicher Aufruf den Modus aktiviert.
+
+---
+
+## 🔴 BUG 3 — Trial 30 → 7 Tage
+
+**Wo:** Z.9870 (gsTrialStart) ruft `gsStartCheckout(plan, false, 30)`
+**Symptom:** Fernando-Wunsch: neue Nutzer 1 Woche statt 1 Monat Trial.
+
+**Backend bereits live:** `stripe-checkout v6` cap't auf max 7 Tage UND nimmt 7 als Default wenn kein trial_days gesendet → safe.
+
+**Fix:** Frontend von 30 auf 7 ändern.
+
+**Snippet:**
+```js
+// Z.~9870 — VORHER
+function gsTrialStart(planLookupKey) {
+  try { closeModal('detail-modal'); } catch(_){}
+  setTimeout(function(){ gsStartCheckout(planLookupKey, false, 30); }, 250);
+}
+
+// NACHHER
+function gsTrialStart(planLookupKey) {
+  try { closeModal('detail-modal'); } catch(_){}
+  setTimeout(function(){ gsStartCheckout(planLookupKey, false, 7); }, 250);
+}
+```
+
+Plus: gsShowFirstTrialModal HTML — alle „1 Monat gratis" → „1 Woche gratis":
+```html
+<!-- Suche: "1 Monat gratis testen" -->
+'<div style="font-size:15px;margin-bottom:2px;">⭐ Plus — 1 Woche gratis testen</div>' +
+'<div style="font-size:11.5px;opacity:.9;font-weight:600;">Danach CHF 3.90/Monat · Unlimited Scans · Export · Werbefrei</div></div>' +
+...
+'<div style="font-size:13px;opacity:.92;line-height:1.5;">1 Woche lang kostenlos alles ausprobieren.<br>Jederzeit kündbar — keine Sofort-Sperre.</div>' +
+```
+
+---
+
+## 🟠 BUG 4 — Mein-Abo-Tab: Pro-Status nicht sichtbar + Kündigen-Button fehlt
+
+**Wo:** `gsLoadSubInfo` Z.9728 + `gsRenderSubInfo` Z.9747 + `gsConfirmCancelSub` Z.9805
+
+**Symptom:** Fernando hat Pro getestet, sieht „aktiv" Toast aber im Mein-Abo-Tab keinen Status. Kündigen-Button nicht gefunden.
+
+**Mögliche Ursachen:**
+1. `gsLoadSubInfo` läuft erst beim Tab-Open — zeigt aber „Lädt..." dauerhaft wenn DB leer (Cowork-Verify: 0 stripe_subscriptions in DB → kein Wunder dass Tab leer ist)
+2. Tab-Navigation zum „Mein Abo" ist versteckt oder nur in Settings (User findet's nicht)
+3. `gsRenderSubInfo(null)` rendert nichts wenn keine sub → User sieht leeren Tab
+
+**Fix-Strategie:**
+1. **Empty-State:** Wenn `gsLoadSubInfo` keine Sub findet, zeigen: „Du bist im Free-Plan. ⬆️ Upgrade auf Plus/Pro?" mit großem Button → öffnet `gsShowFirstTrialModal`
+2. **Tab-Sichtbarkeit:** Profil-Tab → Top-Position für „💎 Mein Abo"-Row
+3. **Polling:** Nach Stripe-Return (`?billing=success`) sofort `gsLoadSubInfo` mit 3× Retry (Webhook braucht 2-5s)
+4. **Cancel-Button:** im Render auch wenn Status='trialing' anzeigen — Trial darf jederzeit gekündigt werden
+5. **Status-Badge prominenter:** „🆓 7-Tage-Trial — endet am DD.MM.YYYY · [Kündigen]"
+
+**Snippet (Empty-State):**
+```js
+function gsRenderSubInfo(sub) {
+  var card = document.getElementById('gs-sub-info-card');
+  if (!card) return;
+  if (!sub) {
+    card.innerHTML = `
+      <div style="text-align:center;padding:24px;background:linear-gradient(135deg,#f5f5f5,#e8e8e8);border-radius:14px;">
+        <div style="font-size:48px;margin-bottom:8px;">🌱</div>
+        <div style="font-size:18px;font-weight:800;color:var(--g-dark);margin-bottom:6px;">Free-Plan aktiv</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:16px;">5 Scans/Tag · Kein Cloud-Sync · Keine KI</div>
+        <button onclick="gsShowFirstTrialModal()" style="background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;padding:14px 24px;border:none;border-radius:12px;font-weight:800;font-size:14px;cursor:pointer;">
+          ⬆️ Plus oder Pro — 7 Tage gratis testen
+        </button>
+      </div>`;
+    return;
+  }
+  // ... existing render-Logik für sub != null
+}
+```
+
+---
+
+## 🟡 BUG 5 — Scan-History: Resultat 3× pro Scan
+
+**Wo:** `saveScanHistory` / `gsAddScanHistory` (suche im Code)
+**Symptom:** 1 Scan → 3 Einträge in History (2× Resultat + 1× Bild).
+
+**Wahrscheinliche Ursache:** Scanner pusht in 3 verschiedenen Code-Pfaden:
+1. Beim Start des Scans (mit Bild, ohne Resultat)
+2. Nach Resultat (Update mit Resultat-Daten)
+3. Aus dem Result-Modal (Re-Save für Sync)
+
+**Fix-Strategie:** Single-Source-of-Truth: nur 1× pro Scan pushen, danach IN-PLACE updaten via ID.
+
+**Code-Audit nötig:** Bevor Code fixt, alle 4 Stellen wo `gs_scan_history` geschrieben wird:
+```bash
+grep -nE "localStorage.*gs_scan_history.*setItem|gs_scan_history.*JSON\.stringify" index.html
+```
+
+**Fix-Pattern:**
+```js
+function gsAddScanHistory(item) {
+  var hist = JSON.parse(localStorage.getItem('gs_scan_history') || '[]');
+  // Dedup: wenn item.id bereits da → UPDATE, sonst INSERT
+  var existingIdx = hist.findIndex(h => h.id === item.id);
+  if (existingIdx !== -1) {
+    hist[existingIdx] = { ...hist[existingIdx], ...item, updatedAt: Date.now() };
+  } else {
+    item.id = item.id || ('scan_' + Date.now() + '_' + Math.random().toString(36).slice(2,6));
+    item.createdAt = item.createdAt || Date.now();
+    hist.unshift(item);
+  }
+  // Max 200 Einträge behalten
+  if (hist.length > 200) hist = hist.slice(0, 200);
+  gsStore.set('gs_scan_history', JSON.stringify(hist));
+}
+```
+
+**Plus:** alle vorhandenen Aufrufstellen prüfen ob sie eine `id` mitgeben. Wenn nicht → eine generieren beim ersten Push, beim 2.+3. Push wiederverwenden.
+
+---
+
+## 🟡 BUG 6 — Karte „benötigt Internet" Bug
+
+**Wo:** Z.31862 mapDiv.innerHTML mit „Karte benötigt Internet"
+**Symptom:** Karte funktioniert nicht obwohl Online + obwohl v25.9 Service-Worker die Leaflet-Libs cached.
+
+**Root-Cause:** Code prüft wahrscheinlich `typeof L === 'undefined'` und failed sofort wenn Leaflet noch nicht geladen ist (zwischen DOM-Ready und Lib-Load).
+
+**Fix-Strategie:** Lazy-Load mit Retry — wenn `L` nicht da, versuche Lib zu laden, dann nochmal initMap.
+
+**Snippet:**
+```js
+async function gsInitMap() {
+  var mapDiv = document.getElementById('main-map');
+  if (!mapDiv) return;
+  // Lazy-Load Leaflet falls noch nicht geladen
+  if (typeof L === 'undefined') {
+    try {
+      // Retry-Loader: 3 Versuche, je 2s Pause
+      for (var i = 0; i < 3; i++) {
+        if (typeof L !== 'undefined') break;
+        await gsLoadScript('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js');
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    } catch(_){}
+  }
+  if (typeof L === 'undefined') {
+    // Echter Fallback nach 3 Retry-Versuchen
+    mapDiv.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;color:#555;">' +
+      '<div style="font-size:40px;">📵</div>' +
+      '<div style="font-size:13px;font-weight:700;text-align:center;">Karte konnte nicht geladen werden<br>' +
+      '<span style="font-size:11px;color:#999">Bitte App neu starten oder Verbindung prüfen</span></div></div>';
+    return;
+  }
+  // Karte initialisieren wie gehabt
+  // ... existing L.map() etc.
+}
+
+// Helper falls noch nicht da
+function gsLoadScript(src) {
+  return new Promise(function(resolve, reject) {
+    if (document.querySelector('script[src="' + src + '"]')) return resolve();
+    var s = document.createElement('script');
+    s.src = src; s.async = true;
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+```
+
+**Plus für die 3 weiteren „3D benötigt Internet" Stellen** (Z.33275, 37053, 37605):
+Gleicher Pattern mit `THREE` statt `L`.
+
+---
+
+## 📦 Versions-Disziplin
+
+```
+GS_VERSION = 'v25.32'
+sw.js gs-v25.32 + Top-Comment
+_headers v25.32
+meta = 25.32.20260513
+GS_RELEASES neuer Top-Eintrag mit „6 Fernando-Bug-Fixes"
+```
+
+---
+
+## ✅ Pre-Push-Verify
+
+```
+[ ] 7/7 Inline-Scripts node --check OK
+[ ] grep -c "_gsAuthPrompt" → Funktion da aber INHALT auskommentiert
+[ ] grep -c "Als Gast fortfahren" → 0 (entfernt)
+[ ] grep -c "gs-guest-banner" → entfernt aus DOM
+[ ] grep "trial_days, 30" → 0 (alle auf 7)
+[ ] grep "1 Monat gratis" → 0 (alle auf "1 Woche gratis")
+[ ] grep "gsAddScanHistory" → 1 Definition + IDs überall
+[ ] grep "Karte benötigt Internet" → nur als Final-Fallback
+```
+
+---
+
+## 🧪 Smoke-Test nach Push (Cowork)
+
+1. **Inkognito-Tab → green-scan.ch** → 5s warten → KEIN „Account erstellen"-Modal
+2. **Onboarding** → KEIN „Als Gast"-Button mehr
+3. **Trial-Modal** → „1 Woche gratis" steht da (nicht „1 Monat")
+4. **Stripe Checkout** mit Test-Card 4242 → success → Mein-Abo-Tab zeigt „Plus — 7-Tage-Trial"
+5. **Cancel-Button** sichtbar im Tab → klick → Confirm → Stripe-Portal Cancel
+6. **1 Scan** → in History GENAU 1 Eintrag (nicht 3)
+7. **Karte** öffnen → Swisstopo-Layer lädt (wenn online), graceful fallback wenn offline
+
+---
+
+## 🛠️ Backend-Status (Cowork hat parallel gemacht)
+
+✅ Stripe komplett neu aufgesetzt:
+- Plus monthly (CHF 3.90, lookup_key=plus_monthly, price_1TWdxOJnN3SSU2QNdBlIWfhd)
+- Pro monthly (CHF 7.90, lookup_key=pro_monthly, price_1TWdxRJnN3SSU2QN3pxX72Ta)
+- Plus Lifetime (CHF 89.00, lookup_key=plus_launch, price_1TWdxYJnN3SSU2QNUwE7bGFE)
+- Webhook-Endpoint LIVE (we_1TWe0dJnN3SSU2QNCnua8sIT) mit 6 Events + neuem Secret
+- stripe-checkout v6: Trial-Cap 30→7 + Default 7 für First-Sub
+
+✅ DB stripe_prices/products synchronisiert
+
+⏳ Test-Card-Verify wartet auf Frontend-Push (gsLoadSubInfo Empty-State + Trial 7 Tage) damit Fernando sauber durchtesten kann.
+
+---
+
+**Stand:** 2026-05-13 nach Fernando-Stripe-Test · 6 P0/P1-Bugs identifiziert · Stripe-Backend bereinigt

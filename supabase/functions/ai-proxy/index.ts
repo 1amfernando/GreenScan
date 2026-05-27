@@ -55,8 +55,9 @@ const ALLOWED_MODELS = new Set([
 ]);
 
 // Tier → Tageslimit (KI-Calls). Anpassen je nach Geschäftsmodell.
+// v26.54: free 5 → 15 — Sync mit Frontend GS_PLANS.free.ai_calls=15 (entitlements/index.ts ebenso).
 const TIER_LIMITS: Record<string, number> = {
-  free: 5,
+  free: 15,
   plus: 200,
   pro: 2000,
   lifetime: 2000,
