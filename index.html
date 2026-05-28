@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.55.20260527">
+<meta name="app-version" content="26.56.20260528">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -50091,6 +50091,41 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.56', date: '28.05.2026',
+    headline: '🛡 4 LIVE Edge-Functions ins Repo gepullt — Disaster-Recovery',
+    summary: 'Cowork-Sprint v26.56 (autonom, Sprint-Plan v26.56-v26.60 erste Etappe). 4 Edge-Functions die bisher NUR in Supabase deployed waren, sind jetzt im git-Repo versioniert: stripe-checkout v6 (Trial-Cap 7 Tage, TWINT auto-add bei CHF), stripe-portal v3 (flow_data=cancel/reactivate Direct-Flow), stripe-expert-checkout v1 (CHF 0.50 One-Time-Payment für Community-Experten-Verifikation), stripe-admin-extend-webhook v1 (Admin-Tool zum Erweitern des Stripe-Webhook-Endpoints um account.* Events). Wenn das Supabase-Project je verloren ginge, waren diese 4 Functions weg — jetzt rekonstruierbar aus Git-History. Repo-Function-Count: 12 → 16.',
+    user_summary: '🛡 Backend-Sicherheit: alle wichtigen Stripe-Funktionen sind jetzt im Code-Repo versioniert. Falls etwas mit dem Server passiert, ist alles wiederherstellbar.',
+    user_items: [
+      { emoji: '🔒', text: 'Disaster-Recovery: 4 LIVE-Functions sind jetzt im Git versioniert' },
+      { emoji: '📦', text: 'Repo-Function-Count: 12 → 16' },
+    ],
+    items: [
+      {emoji:'📥', bold:'stripe-checkout v6 gepullt:', text:' Default-Trial 7 Tage für First-Sub. TWINT/SEPA Auto-Add nach Currency. Anti-Trial-Abuse: nur first sub kriegt trial.'},
+      {emoji:'📥', bold:'stripe-portal v3 gepullt:', text:' flow_data-Support für subscription_cancel + subscription_update Direct-Flows. Spart User 2 Klicks.'},
+      {emoji:'📥', bold:'stripe-expert-checkout v1 gepullt:', text:' CHF 0.50 One-Time-Payment bei Community-Experten-Verifikation. metadata.kind=expert_verification triggert stripe-webhook fee_paid_chf-Update.'},
+      {emoji:'📥', bold:'stripe-admin-extend-webhook v1 gepullt:', text:' Admin-Tool für Webhook-Event-Sync. Aktuell account.updated + account.application.deauthorized hinzufügen. Idempotent — kein Schaden bei Re-Run.'},
+      {emoji:'🗑', bold:'7 obsolete Edge-Fns: 410-Gone-Stubs', text:' create-checkout, customer-portal, stripe-restructure-pro-only, stripe-import-fernando-sub, stripe-complete-setup, stripe-final-audit, stripe-setup-webhook — jeder Call gibt jetzt status:410 + {error: "gone"}. Attack-Surface minimiert.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · GS_VERSION=v26.56 OK · sw.js gs-v26.56 OK · _headers v26.56 OK · meta=26.56.20260528 OK · 16 Edge-Functions im Repo.'},
+    ]
+  },
+  {
+    v: 'v26.55', date: '27.05.2026',
+    headline: '🚨 P0/P1-HOTFIX-Bundle — Lifetime-Bug · Free-Quota-Sync · Dup-ID · Webhook v11 · Past-Due-Banner',
+    summary: 'Cowork-Triple-Audit-Findings (Button-Wiring + Stripe + Abo) als Bundle gefixt: Lifetime-Spalten-Drift is_launch_lifetime → is_lifetime (Migration v26_54 LIVE), Free-Quota Frontend 15 vs Backend 5 → beides auf 15, abo-sub-info-host Dup-ID umbenannt, stripe-webhook v11 mit 5 neuen Cases (trial_will_end → Push, charge.failed, dispute, customer.updated, payment_method.attached), globaler Past-Due-Warn-Banner gsCheckPastDueBanner.',
+    user_summary: '🚨 5 wichtige Fixes auf einmal: Lifetime-Käufer werden jetzt zuverlässig erkannt, Free-Quota auf 15 KI-Calls/Tag, iOS-PWA-Bug bei Abo-Modal behoben, Trial-Reminder kommt jetzt 3 Tage vor Ende automatisch, und ein orange Warn-Banner falls deine Karte abgelaufen ist.',
+    user_items: [
+      { emoji: '💎', text: 'Lifetime-Bug gefixt: CHF-45.60-Käufer wurden manchmal als free erkannt' },
+      { emoji: '🔄', text: 'KI-Quota für Free-User: jetzt 15/Tag (vorher zählte Backend nur gegen 5)' },
+      { emoji: '⏰', text: 'Trial-Reminder kommt jetzt 3 Tage vor Ende automatisch via Webhook' },
+      { emoji: '⚠️', text: 'Karte abgelaufen? Orange Warn-Banner mit direktem Update-Button' },
+      { emoji: '🛡️', text: '3 Migrations LIVE: Lifetime-Rename + 5 Mein-Garten-Tabellen + 5 Engagement-Tabellen' },
+    ],
+    items: [
+      {emoji:'✅', bold:'Migrations LIVE deployed:', text:' v26_54_lifetime_rename + v26_57_garden_tables + v26_58_user_engagement via Supabase MCP.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · GS_VERSION=v26.55 LIVE auf green-scan.ch.'},
+    ]
+  },
+  {
     v: 'v26.51', date: '27.05.2026',
     headline: '🌱 Mein-Garten Audit: 3 Datenverlust-Fixes — iOS-PWA-Modals + Done-History + Säkalender-Sync',
     summary: 'Cowork-Mein-Garten-Audit (25 Lücken, 3 Quick-Wins). (1) gsTbDelete + gsErnteDelete nutzen jetzt gsConfirmModal statt native confirm() — Hard-Lesson #2 (iOS-PWA-Webview-Blocker bei nativen Alerts) endgültig für Mein-Garten geschlossen. (2) gsQuickDone + gsDoneAllDue schreiben pro Done einen p.diary-Entry mit Action + Timestamp + Source — Done-Verlauf bleibt erhalten und ist Cross-Device-synct via plants-Scope (Cap 200/Pflanze). (3) gs_sae_merkliste + 8 weitere Mein-Garten-Keys (gs_bl_*, gs_tb_*, gs_ernte_unit/view, gs_ernte_log als plants-Scope) in STATE_KEYS-Map + _buildStateBlob + Pull-Pfad stateMap — Säkalender-Merkliste und Sub-Tab-Prefs überleben Geräte-Wechsel.',
@@ -52365,7 +52400,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.55';
+var GS_VERSION = 'v26.56';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
