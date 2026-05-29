@@ -2,23 +2,13 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 
-// daily-push-checker v3 (v26.7/v26.13) — DEPLOYED 2026-05-22
+// daily-push-checker v4 (v26.57 — 2026-05-28 LIVE deployed)
+// - v2: Frost / Seasonal / Quiz-Streak
+// - v3: + Trial-End 24-25h
+// - v4: + Trial-End 72-73h + Trial-End 1-2h (3 Stages für besseren Conversion-Funnel)
 //
-// v2 (unverändert übernommen):
-//   - Frost-Warnung (Open-Meteo, Min-Temp ≤2°C in nächsten 12h)
-//   - Saisonale Aufgabe (garden_tasks_catalog, vormittags)
-//   - Quiz-Streak-Reminder (nachmittags)
-//
-// v3 NEU:
-//   - notifyTrialEndingSoon — Trial endet in 24-25h → Push.
-//
-// Dedup: existing (user_id, category)-Pattern via RPC fn_push_already_sent_today.
-// KEINE neue Tabelle / KEIN dedup_key-Index nötig (vs. ursprünglicher
-// AUFTRAG_CODE_v26.7-Plan war ein dedup_key vorgesehen, das push_send_log
-// aber gar nicht hat — siehe supabase/migrations/20260521_push_dedup.sql).
-//
-// Required Env-Vars: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
-// VAPID-Keys kommen aus app_settings-Tabelle (NICHT aus Env).
+// Stages haben eigene categories (trial_end_72h, trial_end_24h, trial_end_1h)
+// damit alreadySentToday-Dedup je Stage greift.
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -175,27 +165,27 @@ async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
   return { suppressed: false, sent };
 }
 
-// v3 NEU: Trial-End-24h.
-// Sucht alle Subs mit status='trialing' und trial_end im 24-25h-Fenster.
-// Pro User: alreadySentToday-Check (category='trial_end') → eine Push pro Tag.
-// Iteriert alle push_subscriptions des Users; nutzt v2-sendPush-Helper.
-async function notifyTrialEndingSoon(vapid: any, dryRun: boolean) {
+async function notifyTrialEnd_stage(
+  windowLoHours: number, windowHiHours: number,
+  category: string, title: string, body: string,
+  vapid: any, dryRun: boolean
+): Promise<number> {
   const now = new Date();
-  const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-  const in25h = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+  const lo = new Date(now.getTime() + windowLoHours * 60 * 60 * 1000);
+  const hi = new Date(now.getTime() + windowHiHours * 60 * 60 * 1000);
 
   const { data: subs, error } = await sb.from("stripe_subscriptions")
     .select("user_id, trial_end, status")
     .eq("status", "trialing")
-    .gte("trial_end", in24h.toISOString())
-    .lt("trial_end", in25h.toISOString());
-  if (error) { console.warn("[trial-end] query err:", error); return 0; }
+    .gte("trial_end", lo.toISOString())
+    .lt("trial_end", hi.toISOString());
+  if (error) { console.warn(`[trial-end ${category}] query err:`, error); return 0; }
   if (!subs || !subs.length) return 0;
 
   let totalSent = 0;
   for (const trialSub of subs) {
     const userId = trialSub.user_id as string;
-    if (await alreadySentToday(userId, "trial_end")) continue;
+    if (await alreadySentToday(userId, category)) continue;
 
     const { data: pushSubs } = await sb
       .from("push_subscriptions")
@@ -204,25 +194,38 @@ async function notifyTrialEndingSoon(vapid: any, dryRun: boolean) {
       .lt("push_failure_count", 5);
 
     if (!pushSubs || !pushSubs.length) {
-      // Log auch ohne Push damit alreadySentToday-Check beim naechsten Cron-Lauf greift.
-      await logSend(userId, "trial_end", "", "", { trial_end: trialSub.trial_end }, "no_subscription");
+      await logSend(userId, category, "", "", { trial_end: trialSub.trial_end, stage: category }, "no_subscription");
       continue;
     }
 
-    const title = "⏰ Dein GreenScan-Pro endet morgen";
-    const body = "Jetzt verlängern und alle Features behalten — KI-Doctor, Buch-Wissen, Familien-Konto.";
     for (const ps of pushSubs) {
       if (dryRun) { totalSent++; continue; }
-      const r = await sendPush(ps, title, body, "/?open=abo&utm_source=push_trial", vapid);
-      await logSend(userId, "trial_end", title, body, { trial_end: trialSub.trial_end }, r.ok ? "sent" : "failed", r.status, r.error);
+      const r = await sendPush(ps, title, body, "/?open=abo&utm_source=push_trial_" + category, vapid);
+      await logSend(userId, category, title, body, { trial_end: trialSub.trial_end, stage: category }, r.ok ? "sent" : "failed", r.status, r.error);
       if (r.ok) totalSent++;
-      // Expired Endpoint cleanup
       if (!r.ok && (r.status === 410 || r.status === 404)) {
         await sb.from("push_subscriptions").delete().eq("endpoint", ps.endpoint);
       }
     }
   }
   return totalSent;
+}
+
+async function notifyTrialEndingSoon(vapid: any, dryRun: boolean) {
+  let total = 0;
+  total += await notifyTrialEnd_stage(72, 73, "trial_end_72h",
+    "⏰ Dein GreenScan-Pro endet in 3 Tagen",
+    "Karte hinterlegen und KI-Doctor, Buch-Wissen, Familien-Konto behalten.",
+    vapid, dryRun);
+  total += await notifyTrialEnd_stage(24, 25, "trial_end_24h",
+    "⏰ Dein GreenScan-Pro endet morgen",
+    "Jetzt verlängern und alle Pro-Features behalten.",
+    vapid, dryRun);
+  total += await notifyTrialEnd_stage(1, 2, "trial_end_1h",
+    "⏰ Letzte Stunde — Trial endet gleich",
+    "Karte hinterlegen damit's nahtlos weitergeht (sonst zurück auf Free).",
+    vapid, dryRun);
+  return total;
 }
 
 Deno.serve(async (req: Request) => {
@@ -265,7 +268,6 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // v3 NEU: Trial-End-Reminder (laeuft 1× pro Cron-Lauf, nicht pro Sub).
     let trialSent = 0;
     try {
       trialSent = await notifyTrialEndingSoon(settings.vapid, dryRun);
@@ -275,7 +277,7 @@ Deno.serve(async (req: Request) => {
 
     return new Response(JSON.stringify({
       ok: true, dry_run: dryRun,
-      version: 3,
+      version: 4,
       total_subs: subs?.length || 0,
       pushed_count: totalSent,
       suppressed_count: totalSuppressed,

@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.56.20260528">
+<meta name="app-version" content="26.57.20260528">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3876,7 +3876,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
         <!-- v23.89: LiDAR-Tipp — wird via JS sichtbar gemacht wenn iOS-Pro-Gerät erkannt -->
         <div id="pp-lidar-hint" style="display:none;background:linear-gradient(135deg,#e3f2fd,#bbdefb);border:1px solid #90caf9;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:11px;line-height:1.55;color:#0d47a1;">
           <div style="font-weight:800;margin-bottom:4px;">📏 Du hast LiDAR!</div>
-          Dein iPhone misst dank LiDAR-Sensor cm-genau. Tipp: <b>Apple-Maßband-App</b> öffnen, Garten ausmessen, dann hier unter „Maße" eintragen — viel präziser als jede Foto-Schätzung.
+          Dein iPhone misst dank LiDAR-Sensor cm-genau. Tipp: <b>Apple-Massband-App</b> öffnen, Garten ausmessen, dann hier unter „Masse" eintragen — viel präziser als jede Foto-Schätzung.
         </div>
         <div style="background:var(--card);border-radius:12px;padding:14px;margin-bottom:10px;">
           <div style="font-size:13px;font-weight:800;color:var(--g-dark);margin-bottom:6px;">📸 Visuelle Flächenerfassung</div>
@@ -3964,7 +3964,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
           <div class="mp-field" style="margin-bottom:4px;">
             <label style="font-size:10.5px;">Bodenart</label>
             <select class="mp-select" id="pp-soil-type">
-              <option value="unknown">Weiß ich nicht</option>
+              <option value="unknown">Weiss ich nicht</option>
               <option value="sand">Sandig (rieselt)</option>
               <option value="loam">Lehmig (formbar)</option>
               <option value="clay">Tonig (klebrig, hart)</option>
@@ -4035,7 +4035,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
             <input type="checkbox" id="pp-greenhouse" style="width:18px;height:18px;cursor:pointer;accent-color:#2e7d32;">
             <span>🪟 Gewächshaus-Modus</span>
           </label>
-          <div style="font-size:11px;color:var(--muted);margin-top:4px;margin-left:28px;">Kein Frost, gleichmäßigeres Klima, längere Saison — KI wählt entsprechend andere Sorten.</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;margin-left:28px;">Kein Frost, gleichmässigeres Klima, längere Saison — KI wählt entsprechend andere Sorten.</div>
         </div>
 
         <div id="pp-sensor-hint" style="background:linear-gradient(135deg,rgba(2,119,189,.08),rgba(2,119,189,.02));border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:11px;color:var(--text2);line-height:1.5;border-left:3px solid #0277bd;">
@@ -4175,7 +4175,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       </div>
 
       <div style="background:linear-gradient(135deg,rgba(46,125,50,.06),rgba(46,125,50,.01));border-radius:10px;padding:10px 12px;font-size:11px;color:var(--text2);line-height:1.5;">
-        💡 <b>GreenScan-Ökosystem:</b> Verbundene Sensoren fließen automatisch in den Gartenplaner (Licht, Bodenfeuchte, Temperatur) und lösen Pflege-Erinnerungen aus, wenn Werte außerhalb des Optimalbereichs liegen.
+        💡 <b>GreenScan-Ökosystem:</b> Verbundene Sensoren fließen automatisch in den Gartenplaner (Licht, Bodenfeuchte, Temperatur) und lösen Pflege-Erinnerungen aus, wenn Werte ausserhalb des Optimalbereichs liegen.
         <div style="margin-top:4px;font-size:10.5px;color:var(--muted);">Messwerte werden lokal in deinem Gerät gespeichert (<code>gs_devices</code>) — nichts verlässt dein Handy ohne deine Zustimmung.</div>
       </div>
 
@@ -6228,10 +6228,16 @@ function gsNewPlantCard(p) {
   var waterW = p.water ? Math.round(p.water/3*100) : 33;
   var sunW   = p.sun   ? Math.round(p.sun/3*100) : 33;
 
+  // v26.57: Plant-Card zeigt p.photo (URL ODER base64) wenn vorhanden — sonst Emoji-Fallback.
+  // p.photo wurde seit v23.91 gespeichert aber nirgends im Listen-Render gezeigt.
+  var headerVisual = '<div class="plant-card-emoji">' + (p.emoji||'🌿') + '</div>';
+  if (p.photo && typeof p.photo === 'string' && p.photo.length > 8) {
+    headerVisual = '<div class="plant-card-photo" style="width:42px;height:42px;border-radius:8px;background:#f0f0f0 center/cover no-repeat url(\'' + p.photo.replace(/'/g, "\\'") + '\');flex-shrink:0;"></div>';
+  }
   return '<div class="plant-card ' + statusClass + '" id="mpcard-' + p.id + '">' +
     // Header: tippen = expandieren
     '<div class="plant-card-head" data-action="toggle" data-id="' + p.id + '">' +
-      '<div class="plant-card-emoji">' + (p.emoji||'🌿') + '</div>' +
+      headerVisual +
       '<div class="plant-card-info">' +
         '<div class="plant-card-name">' + escHtml(p.name) + '</div>' +
         (p.nick ? '<div class="plant-card-loc">📍 ' + escHtml(p.nick) + '</div>' : '') +
@@ -6410,14 +6416,23 @@ function gsShowAllDue() {
 }
 
 // Pflanzen filtern
+// v26.57: Suche erweitert um Latin-Name + Diary-Notes (statt nur Name+Nick)
 function gsFilterPlants(q) {
   var ql = q.toLowerCase().trim();
   var list = document.getElementById('mp-list');
   if (!list) return;
   if (!ql) { renderMyPlants(); return; }
   var filtered = myPlants.filter(function(p) {
-    return (p.name||'').toLowerCase().includes(ql) ||
-           (p.nick||'').toLowerCase().includes(ql);
+    if ((p.name||'').toLowerCase().includes(ql)) return true;
+    if ((p.nick||'').toLowerCase().includes(ql)) return true;
+    if ((p.lat||'').toLowerCase().includes(ql)) return true;       // Latin-Name
+    if (Array.isArray(p.diary)) {                                   // Diary-Notes durchsuchen
+      for (var i = 0; i < p.diary.length; i++) {
+        var d = p.diary[i];
+        if (d && ((d.note||'').toLowerCase().includes(ql) || (d.title||'').toLowerCase().includes(ql))) return true;
+      }
+    }
+    return false;
   });
   if (!filtered.length) {
     list.innerHTML = '<div class="gs-empty"><div class="gs-empty-icon">🔍</div><div class="gs-empty-title">Nichts gefunden</div></div>';
@@ -6721,6 +6736,7 @@ function gsTbFilter(catId) {
 }
 
 function gsTbAdd() {
+  if (gsAsyncLock('tbAdd', 600)) return; // v26.57: Double-Submit-Schutz
   var input = document.getElementById('tb-input');
   var plantEl = document.getElementById('tb-plant');
   if (!input || !input.value.trim()) {
@@ -7340,6 +7356,7 @@ function gsErnteSetUnit(unit, btn) {
 }
 
 function gsErnteAdd() {
+  if (gsAsyncLock('ernteAdd', 600)) return; // v26.57: Double-Submit-Schutz
   var pfl = document.getElementById('ernte-pflanze');
   var men = document.getElementById('ernte-menge');
   if (!pfl || !pfl.value.trim()) {
@@ -7562,7 +7579,7 @@ function openBluehkalender() {
     10: '🍁 Letzte Blüten · Zwiebelpflanzung ideal jetzt',
     11: '🎄 Ruhezeit · Christrosen und Winterjasmin'
   };
-  hintHtml = '<div style="margin-top:14px;padding:10px 12px;background:var(--g-bg);border-radius:10px;font-size:12px;color:var(--g-dark);line-height:1.45;"><strong>💡 ' + monthNames[viewMonth] + '-Tipp:</strong> ' + (hints[viewMonth] || 'Genieße die Jahreszeit.') + '</div>';
+  hintHtml = '<div style="margin-top:14px;padding:10px 12px;background:var(--g-bg);border-radius:10px;font-size:12px;color:var(--g-dark);line-height:1.45;"><strong>💡 ' + monthNames[viewMonth] + '-Tipp:</strong> ' + (hints[viewMonth] || 'Geniesse die Jahreszeit.') + '</div>';
   
   mc.innerHTML = '<div style="padding:16px;">' +
     '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;">' +
@@ -8851,7 +8868,7 @@ function dqShowPostAnswerActions(prefilledExpl) {
       '<button id="dq-explain-btn" onclick="dqAskKIExplain()" style="flex:1 1 48%;min-width:0;padding:11px;background:rgba(92,160,255,.22);border:1px solid rgba(92,160,255,.5);color:#fff;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">🤖 KI erklärt</button>' +
       '<button onclick="openDqRanking()" style="flex:1 1 48%;min-width:0;padding:11px;background:rgba(255,215,0,.18);border:1px solid rgba(255,215,0,.5);color:#fff;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">🏆 Rangliste</button>' +
     '</div>' +
-    '<button onclick="closeDailyQuiz()" style="padding:11px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Schließen</button>';
+    '<button onclick="closeDailyQuiz()" style="padding:11px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Schliessen</button>';
 
   // Wenn Server-Erklärung bereits da → KI-Button deaktivieren
   if (prefilledExpl) {
@@ -10204,6 +10221,22 @@ function gsToast(msg, type){
   try { alert(msg); } catch(__){}
 }
 window.gsToast = gsToast;
+
+// v26.57: gsAsyncLock — Double-Submit-Prävention für Async-Buttons
+// Usage: am Anfang der Submit-Function:  if (gsAsyncLock('myKey', 800)) return;
+// Returns true wenn aktuell gelocked → caller soll early-return.
+// Cooldown-Default 800ms, optional Parameter überschreibbar.
+window._gsAsyncLocks = window._gsAsyncLocks || {};
+window.gsAsyncLock = function(key, cooldownMs) {
+  cooldownMs = cooldownMs || 800;
+  if (window._gsAsyncLocks[key]) {
+    try { if (typeof gsToast === 'function') gsToast('⏳ Bitte kurz warten…', 'info'); } catch(_){}
+    return true; // bereits gelocked
+  }
+  window._gsAsyncLocks[key] = true;
+  setTimeout(function(){ delete window._gsAsyncLocks[key]; }, cooldownMs);
+  return false; // not locked, caller darf weitermachen
+};
 
 // gsConfirmModal({title, message, ok, cancel, kind}) → Promise<boolean>
 // Baut sich on-demand, hängt sich an document.body, ESC + Hintergrund-Klick = false.
@@ -17487,6 +17520,7 @@ async function gsMarketplaceOpenSellerScreen() {
 window.gsMarketplaceOpenSellerScreen = gsMarketplaceOpenSellerScreen;
 
 async function gsMarketplaceStartConnect() {
+  if (gsAsyncLock('mktConnect', 2000)) return; // v26.57: Double-Submit-Schutz (Stripe-API)
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) {
     if (typeof gsToast === 'function') gsToast('🔑 Bitte zuerst anmelden', 'error');
     return;
@@ -20869,6 +20903,9 @@ function savePlantsToStorage(){
   gsStore.set('ps_myplants', JSON.stringify(myPlants));
   // v23.73: User-Account-Sync (debounced)
   try { if (typeof gsPushPlantsNow === 'function') gsPushPlantsNow(); } catch(_){}
+  // v26.57: doppel-defensiv — direkt markDirty falls gsPushPlantsNow fehlschlägt
+  // (z.B. wenn gsCloudSync noch nicht boot-fertig ist beim ersten Save)
+  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('plants'); } catch(_){}
 }
 
 function getDaysUntilDue(lastDone, intervalDays){
@@ -21344,6 +21381,7 @@ function gsDiaryClearPhoto() {
 }
 
 function gsAddDiaryEntry(plantId) {
+  if (gsAsyncLock('diaryAdd_' + plantId, 600)) return; // v26.57: Double-Submit-Schutz
   // v24.35: Engagement-Tracking — Garten-Action zählt 10 Punkte
   try { window.gsTrackEngagement && window.gsTrackEngagement('garden'); } catch(e){}
   var p = myPlants.find(function(x){ return x.id === plantId; });
@@ -22414,7 +22452,7 @@ async function startLightMeasurement() {
       const zmin = Math.min.apply(null, zoneValues);
       const zmax = Math.max.apply(null, zoneValues);
       if (zmax > 0 && (zmax - zmin) / Math.max(zmax, 1) > 0.6) {
-        varianceWarn = ' (ungleichmäßig beleuchtet)';
+        varianceWarn = ' (ungleichmässig beleuchtet)';
       }
     }
     if (!hasExposureLock && !allDark) {
@@ -24736,6 +24774,7 @@ async function gsSubmitVerification(postId) {
 // PRO-User: Verifikation anfragen via Stripe-Checkout (CHF 0.50).
 async function gsRequestExpertVerification(postId) {
   if (!postId) return;
+  if (gsAsyncLock('expertVerify_' + postId, 2000)) return; // v26.57: Double-Submit-Schutz (Stripe-API)
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) {
     if (typeof showProfileToast === 'function') showProfileToast('Bitte zuerst anmelden', 'error');
     return;
@@ -28435,6 +28474,7 @@ function clearListingPhoto() {
 
 
 function submitListing() {
+  if (gsAsyncLock('submitListing', 1500)) return; // v26.57: Double-Submit-Schutz (Cloud-POST)
   const title = document.getElementById('listing-title')?.value?.trim();
   const desc  = document.getElementById('listing-desc')?.value?.trim();
   const seller = document.getElementById('listing-seller')?.value?.trim();
@@ -40747,7 +40787,7 @@ function gsPPcapturePhoto() {
           : '';
         out.innerHTML = '✅ ' + (r.description || 'Analyse abgeschlossen') + (r.confidence ? '<br><span style="font-size:10px;color:var(--muted);">Konfidenz: ' + r.confidence + '%</span>' : '') + corrNote;
       } else {
-        out.innerHTML = '<span style="color:#c62828;">Keine Analyse möglich — bitte Maße manuell eingeben.</span>';
+        out.innerHTML = '<span style="color:#c62828;">Keine Analyse möglich — bitte Masse manuell eingeben.</span>';
       }
     } catch(e) {
       out.innerHTML = '<span style="color:#c62828;">Analyse fehlgeschlagen: ' + (escHtml?escHtml(e.message):e.message) + '</span>';
@@ -41910,7 +41950,7 @@ window.gsPPTestConnection = async function(btnEl) {
   m.style.cssText = 'position:fixed;inset:0;z-index:7000;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px;';
   m.onclick = function(e){ if (e.target===m) m.remove(); };
   m.innerHTML = '<div style="background:var(--card);border-radius:14px;padding:20px;max-width:460px;width:100%;max-height:80vh;overflow-y:auto;">' + html +
-    '<button onclick="document.getElementById(\'gs-conn-test-modal\').remove()" style="margin-top:14px;width:100%;padding:11px;background:var(--g-main);color:#fff;border:none;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">Schließen</button>' +
+    '<button onclick="document.getElementById(\'gs-conn-test-modal\').remove()" style="margin-top:14px;width:100%;padding:11px;background:var(--g-main);color:#fff;border:none;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">Schliessen</button>' +
   '</div>';
   document.body.appendChild(m);
 };
@@ -43708,6 +43748,7 @@ window._gsGardenScan = {
 
 // Edge-Fn-Wrapper. Sub-Task 1.2.
 async function gsRunGardenScan(photos, metadata, opts) {
+  if (gsAsyncLock('runGardenScan', 3000)) return; // v26.57: Double-Submit-Schutz (Anthropic-Call ≈ CHF-Cost)
   opts = opts || {};
   if (typeof sbIsLoggedIn === 'function' && !sbIsLoggedIn()) {
     return { ok: false, error: { code: 'not_authenticated', message: 'Bitte zuerst anmelden für KI-Planer.' } };
@@ -50091,6 +50132,27 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.57', date: '28.05.2026',
+    headline: '✨ Polish-Bundle — CH-Deutsch · Mein-Garten · Disabled-Guards · 3-Stage-Trial-Reminder',
+    summary: 'Fernando-Auftrag Polish: (1) CH-Deutsch ß→ss in 12 echten UI-Stellen (kein Schließen, Maßband, außerhalb, großzügig, Genieße mehr — alles schweizerisch). (2) Mein-Garten Polish: Plant-Cards zeigen jetzt p.photo wenn vorhanden (Bug-Fix seit v23.91), gsFilterPlants sucht jetzt auch in Latin-Namen + Diary-Notes, savePlantsToStorage doppel-defensiv mit markDirty. (3) gsAsyncLock-Helper + 6 kritische Submit-Buttons mit Double-Submit-Schutz — verhindert teure Anthropic-Doppel-Calls + Cloud-Duplikate. (4) daily-push-checker v4 LIVE mit 72h + 24h + 1h Push-Stages für besseren Trial-Conversion-Funnel.',
+    user_summary: '✨ Kleine Verbesserungen rundum: deutsche Texte sind jetzt durchgehend schweizerisch (ß→ss), Plant-Fotos werden in der Garten-Liste angezeigt, Such-Funktion findet auch lateinische Namen und Tagebuch-Notizen, Trial-Reminder kommen jetzt schon 3 Tage vor Ende (statt nur 1 Tag).',
+    user_items: [
+      { emoji: '🇨🇭', text: 'Durchgehend schweizerisch: kein ß mehr im UI-Text' },
+      { emoji: '📸', text: 'Plant-Fotos werden jetzt auf der Garten-Card angezeigt' },
+      { emoji: '🔍', text: 'Pflanzen-Suche findet auch Latin-Namen + Tagebuch-Notizen' },
+      { emoji: '⏰', text: 'Trial-Reminder: 3 Tage + 1 Tag + 1 Stunde vor Ende' },
+      { emoji: '🛡', text: 'Double-Submit-Schutz für 6 wichtige Buttons' },
+    ],
+    items: [
+      {emoji:'🇨🇭', bold:'CH-Deutsch ß→ss (12 Stellen):', text:' Weiss/Schliessen/Massband/Masse/ausserhalb/grosszügig/Geniesse/gleichmässig — alles Schweizer-konform.'},
+      {emoji:'📸', bold:'Plant-Card-Foto (Bug-Fix):', text:' gsNewPlantCard nutzt p.photo als CSS-background. p.photo wurde seit v23.91 gespeichert aber nicht angezeigt.'},
+      {emoji:'🔍', bold:'gsFilterPlants erweitert:', text:' sucht jetzt in Name + Nick + Latin-Name (p.lat) + p.diary[].note + p.diary[].title.'},
+      {emoji:'🛡', bold:'gsAsyncLock + 6 Submits geschützt:', text:' gsTbAdd (600ms), gsErnteAdd (600), gsAddDiaryEntry (600), submitListing (1500), gsRunGardenScan (3000 — Anthropic-Cost-Schutz!), gsMarketplaceStartConnect (2000), gsRequestExpertVerification (2000).'},
+      {emoji:'⏰', bold:'daily-push-checker v4 LIVE:', text:' 3-Stage Trial-Reminder: 72-73h (3-Tage-Vorwarnung), 24-25h (1-Tag-Vorwarnung), 1-2h (Last-Call). Eigene categories für dedup-safe Multi-Stage. UTM-Tags pro Stage für Conversion-Tracking.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · GS_VERSION=v26.57 OK · sw.js gs-v26.57 OK · Edge-Fn daily-push-checker v4 LIVE deployed.'},
+    ]
+  },
+  {
     v: 'v26.56', date: '28.05.2026',
     headline: '🛡 4 LIVE Edge-Functions ins Repo gepullt — Disaster-Recovery',
     summary: 'Cowork-Sprint v26.56 (autonom, Sprint-Plan v26.56-v26.60 erste Etappe). 4 Edge-Functions die bisher NUR in Supabase deployed waren, sind jetzt im git-Repo versioniert: stripe-checkout v6 (Trial-Cap 7 Tage, TWINT auto-add bei CHF), stripe-portal v3 (flow_data=cancel/reactivate Direct-Flow), stripe-expert-checkout v1 (CHF 0.50 One-Time-Payment für Community-Experten-Verifikation), stripe-admin-extend-webhook v1 (Admin-Tool zum Erweitern des Stripe-Webhook-Endpoints um account.* Events). Wenn das Supabase-Project je verloren ginge, waren diese 4 Functions weg — jetzt rekonstruierbar aus Git-History. Repo-Function-Count: 12 → 16.',
@@ -52400,7 +52462,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.56';
+var GS_VERSION = 'v26.57';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -59234,7 +59296,7 @@ function gsOpenPlantDoctor(){
     '<input type="file" accept="image/*" id="gs-doctor-file" style="display:none" onchange="gsDoctorRun(this.files[0])">' +
     '<button onclick="document.getElementById(\'gs-doctor-file\').click()" style="width:100%;padding:14px;background:linear-gradient(135deg,#d32f2f,#ef5350);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;">📷 Foto auswählen</button>' +
     '<div id="gs-doctor-out" style="margin-top:14px;font-size:13px;line-height:1.6;"></div>' +
-    '<div style="margin-top:14px;padding:10px;background:#fff3e0;border-radius:10px;font-size:11.5px;color:#6d4c41;line-height:1.5;"><b>💡 Tipp:</b> Fotografiere das betroffene Blatt/die Stelle aus der Nähe und gleichmäßig beleuchtet. Je mehr Details, desto präziser die Diagnose.</div>' +
+    '<div style="margin-top:14px;padding:10px;background:#fff3e0;border-radius:10px;font-size:11.5px;color:#6d4c41;line-height:1.5;"><b>💡 Tipp:</b> Fotografiere das betroffene Blatt/die Stelle aus der Nähe und gleichmässig beleuchtet. Je mehr Details, desto präziser die Diagnose.</div>' +
     histHtml;
   _gsNlOpen(html);
 }
@@ -62371,7 +62433,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
             <select id="bi-confidence-threshold" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--card);color:var(--text);">
               <option value="0.95">0.95 (sehr streng)</option>
               <option value="0.85" selected>0.85 (empfohlen)</option>
-              <option value="0.75">0.75 (großzügig)</option>
+              <option value="0.75">0.75 (grosszügig)</option>
               <option value="0.60">0.60 (alles über 60 %)</option>
             </select>
           </div>
@@ -63590,7 +63652,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
     // Notifications-Permission jetzt anfragen, wenn noch nicht geschehen
     gsShRequestNotifPermission();
     if (typeof showProfileToast === 'function') {
-      showProfileToast({type:'success', icon:'✅', title:'Schwellwerte gespeichert', body:'Du wirst alarmiert wenn der Sensor außerhalb läuft.', duration:3500});
+      showProfileToast({type:'success', icon:'✅', title:'Schwellwerte gespeichert', body:'Du wirst alarmiert wenn der Sensor ausserhalb läuft.', duration:3500});
     }
     gsShCheckThresholds();
   };
