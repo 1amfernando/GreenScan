@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.62.20260530">
+<meta name="app-version" content="26.63.20260530">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2432,8 +2432,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     </div>
     <div id="widget-bloom-subline" style="font-size:10.5px;color:var(--muted);line-height:1.35;">Blüte-Kalender</div>
   </div>
-  <!-- v26.62: Achievements + Garten-Score -->
-  <div onclick="if(typeof openAchievementsModal==='function')openAchievementsModal()" class="garden-widget" style="background:linear-gradient(135deg,#fff8e1,#ffecb3);border-radius:14px;border:1px solid #ffd54f;padding:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .1s;">
+  <!-- v26.62: Achievements + Garten-Score (v26.63: A11y aria-label + Keyboard) -->
+  <div onclick="if(typeof openAchievementsModal==='function')openAchievementsModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();if(typeof openAchievementsModal==='function')openAchievementsModal()}" role="button" tabindex="0" aria-label="Achievements und Garten-Score öffnen" class="garden-widget" style="background:linear-gradient(135deg,#fff8e1,#ffecb3);border-radius:14px;border:1px solid #ffd54f;padding:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .1s;">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
       <span style="font-size:22px;">🏆</span>
       <div style="font-size:13px;font-weight:800;color:#5d4037;">Achievements</div>
@@ -7475,12 +7475,14 @@ function gsErnteAdd() {
     });
   } catch(_){}
   gsHaptic('success');
+  // v26.63: Menge VOR dem Reset cachen (sonst zeigt Toast 0 weil men.value bereits leer ist)
+  var savedMenge = entry.menge;
   // Felder zurücksetzen
   pfl.value = ''; men.value = '';
   var clr = ['ernte-notes','ernte-destination','ernte-price','ernte-buyer','ernte-rating'];
   clr.forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
   if (typeof showProfileToast === 'function') {
-    var toastMsg = '+' + (parseFloat(men.value) || entry.menge) + ' ' + unit + ' ' + entry.pflanze + ' ✅';
+    var toastMsg = '+' + savedMenge + ' ' + unit + ' ' + entry.pflanze + ' ✅';
     if (entry.destination === 'sold' && entry.price_chf) toastMsg += ' (CHF ' + entry.price_chf + ')';
     showProfileToast(toastMsg, 'success');
   }
@@ -7753,13 +7755,20 @@ function gsCheckFrostWarning() {
   if (frostDays.length > 0) {
     var banner = document.getElementById('frost-warning-banner');
     if (banner) {
-      banner.style.display = 'block';
-      banner.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(135deg,#0d47a1,#1565c0);color:#fff;border-radius:10px;margin:8px 16px;">' +
-        '<span style="font-size:20px;">❄️</span>' +
-        '<div style="flex:1;"><div style="font-size:13px;font-weight:800;">Frostwarnung</div>' +
-        '<div style="font-size:11.5px;opacity:.85;">' + frostDays.join(' · ') + ' — Pflanzen schützen!</div></div>' +
-        '<button onclick="this.parentElement.parentElement.style.display=\'none\'" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:12px;">✕</button>' +
-        '</div>';
+      // v26.63: Re-Render-Guard — wenn Banner schon mit gleichem Frost-Key angezeigt + nicht dismissed → nicht neu rendern
+      var frostKey = frostDays.join('|');
+      if (banner.style.display === 'block' && banner.dataset.frostKey === frostKey) {
+        // bereits sichtbar mit gleichem Inhalt — User-Dismiss-Geste nicht überschreiben
+      } else {
+        banner.style.display = 'block';
+        banner.dataset.frostKey = frostKey;
+        banner.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(135deg,#0d47a1,#1565c0);color:#fff;border-radius:10px;margin:8px 16px;">' +
+          '<span style="font-size:20px;">❄️</span>' +
+          '<div style="flex:1;"><div style="font-size:13px;font-weight:800;">Frostwarnung</div>' +
+          '<div style="font-size:11.5px;opacity:.85;">' + frostDays.join(' · ') + ' — Pflanzen schützen!</div></div>' +
+          '<button aria-label="Frostwarnung schliessen" onclick="this.parentElement.parentElement.style.display=\'none\'" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:12px;">✕</button>' +
+          '</div>';
+      }
     }
     // Auch als Toast
     if (frostDays[0].includes('Heute') || frostDays[0].includes('Morgen')) {
@@ -11051,13 +11060,8 @@ function gsRenderSubInfo(sub) {
 }
 
 // Cancel-Confirm-Dialog → öffnet Stripe-Portal mit Cancel-Flow.
+// v26.63: confirm()-Fallback entfernt (Dead-Code seit v24.44 gsConfirmModal global, plus Hard-Lesson #2 iOS-PWA-Conversion-Pfad).
 async function gsConfirmCancelSub() {
-  if (typeof gsConfirmModal !== 'function') {
-    if (confirm('Abo wirklich kündigen? Du behältst Plus-Features bis zum Ende der Periode.')) {
-      gsOpenBillingPortal('cancel');
-    }
-    return;
-  }
   var ok = await gsConfirmModal({
     title: 'Abo wirklich kündigen?',
     message: 'Du behältst alle Premium-Features bis zum Ende deiner Periode. Danach wird auf Free-Plan umgeschaltet — keine Sofort-Sperre.',
@@ -21884,18 +21888,23 @@ function gsAddDiaryEntry(plantId) {
   openPlantDiary(plantId);
   if (typeof showProfileToast==='function') showProfileToast({title:'📓 Eintrag gespeichert', body:titles[action] || 'Tagebuch aktualisiert', kind:'success', duration:1800});
 }
-function gsDeleteDiaryEntry(plantId, ts) {
+async function gsDeleteDiaryEntry(plantId, ts) {
   var p = myPlants.find(function(x){ return x.id === plantId; });
   if (!p || !Array.isArray(p.diary)) return;
-  if (!confirm('Eintrag löschen?')) return;
+  // v26.63: iOS-PWA-safe — gsConfirmModal statt bare confirm() (Hard-Lesson #2)
+  var ok = await gsConfirmModal({title:'Tagebuch-Eintrag löschen?', message:'Diese Aktion kann nicht rückgängig gemacht werden.', ok:'Löschen', cancel:'Abbrechen', kind:'warn'});
+  if (!ok) return;
   p.diary = p.diary.filter(function(e){ return e.ts !== ts; });
   savePlantsToStorage();
-  document.getElementById('plant-diary-modal').remove();
+  var pdm = document.getElementById('plant-diary-modal');
+  if (pdm) pdm.remove();
   openPlantDiary(plantId);
 }
 
-function deletePlant(id){
-  if(!confirm('Pflanze wirklich löschen?')) return;
+async function deletePlant(id){
+  // v26.63: iOS-PWA-safe — gsConfirmModal statt bare confirm() (Hard-Lesson #2)
+  var ok = await gsConfirmModal({title:'Pflanze wirklich löschen?', message:'Alle Diary-Einträge und Foto gehen verloren.', ok:'Löschen', cancel:'Abbrechen', kind:'warn'});
+  if (!ok) return;
   myPlants = myPlants.filter(p => p.id !== id);
   savePlantsToStorage();
   renderMyPlants();
@@ -52933,7 +52942,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.62';
+var GS_VERSION = 'v26.63';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
