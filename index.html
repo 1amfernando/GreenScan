@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.60.20260529">
+<meta name="app-version" content="26.61.20260530">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -6765,6 +6765,14 @@ function gsTbAdd() {
   gsHaptic('success');
   if (typeof showProfileToast === 'function') showProfileToast('Eintrag gespeichert ✅', 'success');
   if (typeof gsUpdateTagebuchWidget === 'function') gsUpdateTagebuchWidget();
+  // v26.61: Milestones triggern
+  try {
+    if (typeof window.gsCheckMilestone === 'function') {
+      window.gsCheckMilestone('first_diary_entry').catch(function(){});
+      var tbCount = (Array.isArray(_gsTagebuch) ? _gsTagebuch.length : 0);
+      if (tbCount >= 30) window.gsCheckMilestone('diary_30').catch(function(){});
+    }
+  } catch(_){}
   openGartenTagebuch();
 }
 
@@ -7468,6 +7476,13 @@ function gsErnteAdd() {
     if (entry.destination === 'sold' && entry.price_chf) toastMsg += ' (CHF ' + entry.price_chf + ')';
     showProfileToast(toastMsg, 'success');
   }
+  // v26.61: Milestones triggern
+  try {
+    if (typeof window.gsCheckMilestone === 'function') {
+      window.gsCheckMilestone('first_harvest').catch(function(){});
+      if (_gsErnteLog.length >= 10) window.gsCheckMilestone('harvest_10').catch(function(){});
+    }
+  } catch(_){}
   openErnteTracking();
 }
 
@@ -7695,13 +7710,38 @@ function gsCheckFrostWarning() {
   var daily = _gsWeatherData.daily;
   if (!daily || !daily.temperature_2m_min) return;
   var frostDays = [];
+  var minPredicted = null;
   daily.time.slice(0,5).forEach(function(d, i) {
     if (daily.temperature_2m_min[i] < 2) {
       var days = ['Mo','Di','Mi','Do','Fr','Sa','So'];
       var dn = i===0?'Heute':i===1?'Morgen':days[new Date(d).getDay()];
       frostDays.push(dn + ': ' + Math.round(daily.temperature_2m_min[i]) + '°C');
+      if (minPredicted === null || daily.temperature_2m_min[i] < minPredicted) {
+        minPredicted = daily.temperature_2m_min[i];
+      }
     }
   });
+  // v26.61: Frost-History-INSERT (1× pro Tag dedup'd via dedup_key)
+  if (frostDays.length > 0 && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof sbFetch === 'function') {
+    try {
+      var uid = (typeof gsStore !== 'undefined') ? gsStore.get('gs_sb_uid', null) : null;
+      var dailyKey = 'gs_frost_logged_' + new Date().toISOString().slice(0,10);
+      if (uid && !localStorage.getItem(dailyKey)) {
+        sbFetch('/rest/v1/frost_history', {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json', 'Prefer':'return=minimal' },
+          body: JSON.stringify({
+            user_id: uid,
+            predicted_min_temp_c: minPredicted,
+            location_lat: (typeof _gsWeatherLat !== 'undefined') ? _gsWeatherLat : null,
+            location_lon: (typeof _gsWeatherLon !== 'undefined') ? _gsWeatherLon : null,
+            notes: frostDays.join(' · ')
+          })
+        }).catch(function(){});
+        try { localStorage.setItem(dailyKey, '1'); } catch(_){}
+      }
+    } catch(_){}
+  }
   if (frostDays.length > 0) {
     var banner = document.getElementById('frost-warning-banner');
     if (banner) {
@@ -7911,6 +7951,33 @@ async function loadGardenWeather(forceReload) {
       localStorage.setItem('gs_weather_cache', JSON.stringify({
         ts: Date.now(), data: data, lat: lat, lon: lon
       }));
+    } catch(_){}
+    // v26.61: weather_log_per_garden UPSERT (1× pro Tag pro User, dedup'd via uniq user_id+date)
+    try {
+      var todayKey = 'gs_weather_logged_' + new Date().toISOString().slice(0,10);
+      if (!localStorage.getItem(todayKey) && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof sbFetch === 'function') {
+        var uid2 = (typeof gsStore !== 'undefined') ? gsStore.get('gs_sb_uid', null) : null;
+        if (uid2 && data.current_weather && data.daily) {
+          var todayDateIso = new Date().toISOString().slice(0,10);
+          sbFetch('/rest/v1/weather_log_per_garden', {
+            method: 'POST',
+            headers: { 'Content-Type':'application/json', 'Prefer':'resolution=merge-duplicates,return=minimal' },
+            body: JSON.stringify({
+              user_id: uid2,
+              date: todayDateIso,
+              min_temp_c: data.daily.temperature_2m_min?.[0] ?? null,
+              max_temp_c: data.daily.temperature_2m_max?.[0] ?? null,
+              avg_temp_c: data.current_weather.temperature ?? null,
+              precip_mm: data.daily.precipitation_sum?.[0] ?? null,
+              wind_max_kmh: data.daily.windspeed_10m_max?.[0] ?? null,
+              frost_risk: (data.daily.temperature_2m_min?.[0] ?? 99) < 2,
+              source: 'open-meteo',
+              raw_data: { code: data.current_weather.weathercode }
+            })
+          }).catch(function(){});
+          try { localStorage.setItem(todayKey, '1'); } catch(_){}
+        }
+      }
     } catch(_){}
   if(typeof gsCheckFrostWarning==='function') setTimeout(gsCheckFrostWarning, 300);
   // Garden Wetter-Mini syncen
@@ -10393,6 +10460,49 @@ window.gsMigrateBase64Photos = async function() {
   if (migrated > 0 && typeof savePlantsToStorage === 'function') savePlantsToStorage();
   localStorage.setItem('gs_photos_migrated_v26_58', '1');
   return { migrated: migrated, failed: failed };
+};
+
+// v26.61: gsCheckMilestone — UPSERT garden_milestones bei User-Achievement
+// Slugs aus achievements_catalog (z.B. 'first_plant', 'first_harvest', 'plant_5', 'harvest_10').
+// Idempotent via UNIQUE(user_id, milestone_slug) — re-Trigger ist safe.
+// LS-Cache 'gs_milestones_local' verhindert Server-Calls bei bereits-bestätigten Milestones.
+window.gsCheckMilestone = async function(slug, data) {
+  try {
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return false;
+    // LS-Schnellcheck — bereits bestätigte Milestones nicht erneut posten
+    var lsKey = 'gs_milestones_local';
+    var local = {};
+    try { local = JSON.parse(localStorage.getItem(lsKey) || '{}'); } catch(_){}
+    if (local[slug]) return false; // schon achieved
+    // Server INSERT (idempotent via UNIQUE)
+    if (typeof sbFetch === 'function') {
+      var uid = (typeof gsStore !== 'undefined') ? gsStore.get('gs_sb_uid', null) : null;
+      if (!uid) return false;
+      var body = JSON.stringify({
+        user_id: uid,
+        milestone_slug: slug,
+        achieved_at: new Date().toISOString(),
+        data: data || null
+      });
+      var r = await sbFetch('/rest/v1/garden_milestones', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'Prefer':'resolution=ignore-duplicates,return=minimal' },
+        body: body
+      });
+      // Lokal merken (auch wenn Server fehlschlägt — verhindert Spam)
+      local[slug] = Date.now();
+      try { localStorage.setItem(lsKey, JSON.stringify(local)); } catch(_){}
+      // User-Feedback (Toast)
+      try {
+        if (typeof gsToast === 'function') {
+          var emoji = (slug.indexOf('first_') === 0 || slug.indexOf('streak_') === 0) ? '🏆' : '⭐';
+          gsToast(emoji + ' Meilenstein: ' + slug.replace(/_/g, ' '), 'success');
+        }
+      } catch(_){}
+      return true;
+    }
+  } catch(_){}
+  return false;
 };
 
 // gsConfirmModal({title, message, ok, cancel, kind}) → Promise<boolean>
@@ -21470,6 +21580,15 @@ async function savePlant(){
   try { gsClearPlantPhoto(); } catch(_){}
   renderMyPlants();
   scheduleAllNotifications();
+  // v26.61: Milestones triggern
+  try {
+    if (typeof window.gsCheckMilestone === 'function') {
+      window.gsCheckMilestone('first_plant').catch(function(){});
+      if (myPlants.length >= 5) window.gsCheckMilestone('plant_5').catch(function(){});
+      if (myPlants.length >= 20) window.gsCheckMilestone('plant_20').catch(function(){});
+      if (myPlants.length >= 50) window.gsCheckMilestone('plant_50').catch(function(){});
+    }
+  } catch(_){}
 }
 
 // v23.91: Tagebuch-Modal für eine Pflanze öffnen
@@ -21499,13 +21618,25 @@ function openPlantDiary(plantId) {
     '</div>';
   }).join('') : '<div style="text-align:center;padding:32px 20px;color:var(--muted);font-size:13px;">📓 Noch kein Eintrag.<br>Dokumentiere die Entwicklung deiner Pflanze über die Zeit.</div>';
 
+  // v26.61: Hero-Image wenn p.photo existiert (prominent, 200px hoch über Header)
+  var heroHtml = '';
+  if (p.photo && typeof p.photo === 'string' && p.photo.length > 8) {
+    heroHtml = '<div style="width:100%;height:200px;background:#f0f0f0 center/cover no-repeat url(\''+ p.photo.replace(/'/g, "\\'") +'\');border-radius:20px 20px 0 0;flex-shrink:0;position:relative;">'+
+      '<div style="position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent, rgba(0,0,0,.65));padding:24px 18px 12px;color:#fff;">'+
+        '<div style="font-size:18px;font-weight:800;text-shadow:0 1px 3px rgba(0,0,0,.5);">'+(p.emoji||'🌿')+' '+(typeof escHtml==='function'?escHtml(p.name):p.name)+'</div>'+
+        (p.nick ? '<div style="font-size:12px;opacity:.9;text-shadow:0 1px 2px rgba(0,0,0,.5);">📍 '+(typeof escHtml==='function'?escHtml(p.nick):p.nick)+'</div>' : '')+
+      '</div>'+
+    '</div>';
+  }
+
   var m = document.createElement('div');
   m.id = 'plant-diary-modal';
   m.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px);';
   m.innerHTML =
     '<div style="background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:520px;max-height:90vh;display:flex;flex-direction:column;">'+
-      '<div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;">'+
-        '<div style="flex:1;min-width:0;"><div style="font-size:16px;font-weight:800;color:var(--text);">📓 Tagebuch · '+(typeof escHtml==='function'?escHtml(p.name):p.name)+'</div>'+
+      heroHtml +
+      '<div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;'+(heroHtml?'background:var(--card);':'')+'">'+
+        '<div style="flex:1;min-width:0;"><div style="font-size:16px;font-weight:800;color:var(--text);">📓 Tagebuch'+(heroHtml?'':' · '+(typeof escHtml==='function'?escHtml(p.name):p.name))+'</div>'+
         '<div style="font-size:11px;color:var(--muted);">'+entries.length+' Einträge</div></div>'+
         // v25.22: Foto-Verlauf-Trigger
         '<button onclick="gsOpenPhotoTimeline(\''+plantId+'\')" title="Foto-Verlauf-Slider" style="background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit;flex-shrink:0;">📸 Verlauf</button>'+
@@ -52637,7 +52768,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.60';
+var GS_VERSION = 'v26.61';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
