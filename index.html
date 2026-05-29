@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.57.20260528">
+<meta name="app-version" content="26.60.20260529">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -7320,6 +7320,36 @@ function openErnteTracking() {
           '<input id="ernte-menge" type="number" placeholder="' + unit + '" step="0.1" min="0" style="width:72px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--card);font-size:12.5px;font-family:inherit;color:var(--text);outline:none;">' +
           '<button onclick="gsErnteAdd()" style="padding:8px 13px;background:var(--g-main);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">+</button>' +
         '</div>' +
+        // v26.59: Expand-Section "Mehr Details" — Notiz, Foto, Verkaufstracking
+        '<details style="margin-top:8px;">' +
+          '<summary style="font-size:12px;color:var(--g-dark);cursor:pointer;padding:4px 0;font-weight:600;">⚙️ Mehr Details (Notiz, Foto, Verkauf)</summary>' +
+          '<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">' +
+            '<textarea id="ernte-notes" placeholder="Notiz (optional)" maxlength="200" rows="2" style="padding:7px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--card);font-size:12px;font-family:inherit;color:var(--text);outline:none;resize:vertical;"></textarea>' +
+            '<select id="ernte-destination" style="padding:7px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--card);font-size:12.5px;font-family:inherit;color:var(--text);">' +
+              '<option value="">— Was passiert mit der Ernte? —</option>' +
+              '<option value="eaten">🍽️ Selbst gegessen</option>' +
+              '<option value="sold">💰 Verkauft</option>' +
+              '<option value="gifted">🎁 Verschenkt</option>' +
+              '<option value="composted">♻️ Kompostiert</option>' +
+              '<option value="preserved">🥫 Konserviert</option>' +
+            '</select>' +
+            '<div style="display:flex;gap:5px;">' +
+              '<input id="ernte-price" type="number" step="0.10" min="0" placeholder="Preis CHF (bei Verkauf)" style="flex:1;padding:7px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--card);font-size:12px;font-family:inherit;color:var(--text);">' +
+              '<input id="ernte-buyer" type="text" maxlength="50" placeholder="Käufer (optional)" style="flex:1;padding:7px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--card);font-size:12px;font-family:inherit;color:var(--text);">' +
+            '</div>' +
+            '<div style="display:flex;gap:5px;align-items:center;">' +
+              '<label style="font-size:12px;color:var(--muted);">Qualität:</label>' +
+              '<select id="ernte-rating" style="padding:6px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--card);font-size:12px;font-family:inherit;color:var(--text);">' +
+                '<option value="">—</option>' +
+                '<option value="5">⭐⭐⭐⭐⭐ Top</option>' +
+                '<option value="4">⭐⭐⭐⭐ Sehr gut</option>' +
+                '<option value="3">⭐⭐⭐ Gut</option>' +
+                '<option value="2">⭐⭐ Ok</option>' +
+                '<option value="1">⭐ Mässig</option>' +
+              '</select>' +
+            '</div>' +
+          '</div>' +
+        '</details>' +
       '</div>'
       : '') +
     
@@ -7376,17 +7406,42 @@ function gsErnteAdd() {
   gsErnteLoad();
   // v24.23: lokale ID UND Cloud-Row mit gleichem id (uuid) damit Cross-Device-Lookup geht
   var rowId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Date.now() + '-' + Math.random().toString(36).slice(2,10));
+  // v26.59: erweiterte Felder
+  var nVal = (document.getElementById('ernte-notes') || {value:''}).value.trim();
+  var dest = (document.getElementById('ernte-destination') || {value:''}).value || null;
+  var priceRaw = (document.getElementById('ernte-price') || {value:''}).value;
+  var price = priceRaw ? (parseFloat(priceRaw) || null) : null;
+  var buyer = (document.getElementById('ernte-buyer') || {value:''}).value.trim() || null;
+  var ratingRaw = (document.getElementById('ernte-rating') || {value:''}).value;
+  var rating = ratingRaw ? (parseInt(ratingRaw, 10) || null) : null;
+  // Wetter-Snapshot zum Ernte-Zeitpunkt
+  var weatherSnap = null;
+  try {
+    if (window._gsWeatherData && _gsWeatherData.current_weather) {
+      weatherSnap = {
+        temp: _gsWeatherData.current_weather.temperature,
+        code: _gsWeatherData.current_weather.weathercode,
+        windspeed: _gsWeatherData.current_weather.windspeed
+      };
+    }
+  } catch(_){}
   var entry = {
     id: rowId,
     ts: new Date().toISOString(),
     pflanze: pfl.value.trim().slice(0,50),
     emoji: emoji,
     menge: parseFloat(men.value) || 0,
-    unit: unit
+    unit: unit,
+    notes: nVal || null,
+    destination: dest,
+    price_chf: price,
+    buyer: buyer,
+    quality_rating: rating,
+    weather: weatherSnap
   };
   _gsErnteLog.unshift(entry);
   try { localStorage.setItem('gs_ernte_log', JSON.stringify(_gsErnteLog.slice(0,1000))); } catch(e){}
-  // v24.23: Cross-Device-Sync — direkter Push nach garden_harvests
+  // v26.59: Cross-Device-Sync mit erweitertem Schema
   try {
     if (window.gsCloudSync) gsCloudSync.pushHarvestAdd({
       id: rowId,
@@ -7394,11 +7449,25 @@ function gsErnteAdd() {
       emoji: entry.emoji,
       ts: entry.ts,
       menge: entry.menge,
-      unit: entry.unit
+      unit: entry.unit,
+      notes: entry.notes,
+      destination: entry.destination,
+      price_chf: entry.price_chf,
+      buyer: entry.buyer,
+      quality_rating: entry.quality_rating,
+      weather: entry.weather
     });
   } catch(_){}
   gsHaptic('success');
-  if (typeof showProfileToast === 'function') showProfileToast('+' + men.value + ' ' + unit + ' ' + pfl.value + ' ✅', 'success');
+  // Felder zurücksetzen
+  pfl.value = ''; men.value = '';
+  var clr = ['ernte-notes','ernte-destination','ernte-price','ernte-buyer','ernte-rating'];
+  clr.forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
+  if (typeof showProfileToast === 'function') {
+    var toastMsg = '+' + (parseFloat(men.value) || entry.menge) + ' ' + unit + ' ' + entry.pflanze + ' ✅';
+    if (entry.destination === 'sold' && entry.price_chf) toastMsg += ' (CHF ' + entry.price_chf + ')';
+    showProfileToast(toastMsg, 'success');
+  }
   openErnteTracking();
 }
 
@@ -7799,6 +7868,21 @@ async function loadGardenWeather(forceReload) {
   gsGetWeatherLocation();
   var lat = _gsWeatherLat, lon = _gsWeatherLon;
 
+  // v26.60: localStorage-Cache mit TTL 30min — Spart open-meteo-Round-Trip bei App-Resume
+  if (!forceReload) {
+    try {
+      var cached = JSON.parse(localStorage.getItem('gs_weather_cache') || 'null');
+      if (cached && cached.ts && cached.data && cached.lat === lat && cached.lon === lon
+          && (Date.now() - cached.ts) < 1800000) {
+        _gsWeatherData = cached.data;
+        _gsWeatherLoaded = true;
+        if (typeof gsCheckFrostWarning === 'function') setTimeout(gsCheckFrostWarning, 300);
+        gsApplyWeatherToWidget(cached.data);
+        return;
+      }
+    } catch(_){}
+  }
+
   try {
     var url = 'https://api.open-meteo.com/v1/forecast' +
       '?latitude=' + lat + '&longitude=' + lon +
@@ -7809,11 +7893,25 @@ async function loadGardenWeather(forceReload) {
       '&forecast_days=7' +
       '&wind_speed_unit=kmh';
 
-    var res = await (window._gsFetch || fetch)(url, {}, 15000);
+    // v26.60: Timeout 15s → 20s, plus 1× Retry mit 2s Backoff bei AbortError/Network
+    var res;
+    try {
+      res = await (window._gsFetch || fetch)(url, {}, 20000);
+    } catch (firstErr) {
+      // 1× Retry mit 2s Backoff (Edge/4G-Flap)
+      await new Promise(function(r){ setTimeout(r, 2000); });
+      res = await (window._gsFetch || fetch)(url, {}, 20000);
+    }
     if (!res.ok) throw new Error('HTTP ' + res.status);
     var data = await res.json();
     _gsWeatherData = data;
     _gsWeatherLoaded = true;
+    // v26.60: Cache schreiben
+    try {
+      localStorage.setItem('gs_weather_cache', JSON.stringify({
+        ts: Date.now(), data: data, lat: lat, lon: lon
+      }));
+    } catch(_){}
   if(typeof gsCheckFrostWarning==='function') setTimeout(gsCheckFrostWarning, 300);
   // Garden Wetter-Mini syncen
   if (cw) {
@@ -10236,6 +10334,65 @@ window.gsAsyncLock = function(key, cooldownMs) {
   window._gsAsyncLocks[key] = true;
   setTimeout(function(){ delete window._gsAsyncLocks[key]; }, cooldownMs);
   return false; // not locked, caller darf weitermachen
+};
+
+// v26.58: gsUploadPhotoToBucket — base64 → Supabase Storage Upload
+// Returns Public-URL bei Erfolg, wirft Error bei Fail (caller-Fallback auf base64 bleibt).
+// Bucket-Path-Convention: <uid>/<uuid>.jpg → Cloud-CDN-served via /storage/v1/object/public/<bucket>/<path>
+window.gsUploadPhotoToBucket = async function(bucket, b64) {
+  if (!b64) throw new Error('no_b64');
+  var uid = (typeof gsStore !== 'undefined') ? gsStore.get('gs_sb_uid', null) : null;
+  if (!uid) throw new Error('not_logged_in');
+  var token = (typeof gsStore !== 'undefined') ? gsStore.get('gs_sb_token', null) : null;
+  var key = localStorage.getItem('gs_sb_key') || (typeof SB_KEY !== 'undefined' ? SB_KEY : '');
+  var sbUrl = (typeof SB_URL !== 'undefined') ? SB_URL : ('https://' + (localStorage.getItem('gs_sb_url') || ''));
+  if (!token || !key || !sbUrl) throw new Error('no_credentials');
+  // base64 → Uint8Array → Blob
+  var bin = Uint8Array.from(atob(b64), function(c){ return c.charCodeAt(0); });
+  var blob = new Blob([bin], { type: 'image/jpeg' });
+  var name = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Date.now() + '-' + Math.random().toString(36).slice(2,10));
+  var path = uid + '/' + name + '.jpg';
+  var uploadUrl = sbUrl + '/storage/v1/object/' + bucket + '/' + path;
+  var fetchFn = window._gsFetch || fetch;
+  var r = await fetchFn(uploadUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + token,
+      'apikey': key,
+      'Content-Type': 'image/jpeg',
+      'x-upsert': 'false'
+    },
+    body: blob
+  }, 60000);
+  if (!r || !r.ok) {
+    var msg = 'upload_failed';
+    try { var err = await r.text(); msg = 'upload_failed: ' + err.slice(0, 200); } catch(_){}
+    throw new Error(msg);
+  }
+  return sbUrl + '/storage/v1/object/public/' + bucket + '/' + path;
+};
+
+// v26.58: Ein-Pass-Migration für existing base64-Photos in myPlants[].photo
+// Läuft beim ersten Boot nach v26.58. Idempotent via gs_photos_migrated_v26_58-Flag.
+window.gsMigrateBase64Photos = async function() {
+  if (localStorage.getItem('gs_photos_migrated_v26_58')) return { skipped: 'already_migrated' };
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return { skipped: 'not_logged_in' };
+  if (typeof myPlants === 'undefined' || !Array.isArray(myPlants)) return { skipped: 'no_plants' };
+  var migrated = 0, failed = 0;
+  for (var i = 0; i < myPlants.length; i++) {
+    var p = myPlants[i];
+    if (p && p.photo && typeof p.photo === 'string' && p.photo.indexOf('data:image') === 0) {
+      try {
+        var b64 = p.photo.split(',')[1];
+        var url = await gsUploadPhotoToBucket('user-plant-photos', b64);
+        p.photo = url;
+        migrated++;
+      } catch (e) { failed++; /* skip, base64 bleibt */ }
+    }
+  }
+  if (migrated > 0 && typeof savePlantsToStorage === 'function') savePlantsToStorage();
+  localStorage.setItem('gs_photos_migrated_v26_58', '1');
+  return { migrated: migrated, failed: failed };
 };
 
 // gsConfirmModal({title, message, ok, cancel, kind}) → Promise<boolean>
@@ -21228,7 +21385,8 @@ function gsClearPlantPhoto() {
   var st = document.getElementById('mp-photo-status'); if (st) st.style.display = 'none';
 }
 
-function savePlant(){
+async function savePlant(){
+  // v26.58: async für gsUploadPhotoToBucket (base64 → Storage-Bucket).
   // Nur für eingeloggte Nutzer
   if (!gsRequire('save_plant', 'Bitte anmelden um Pflanzen zu speichern.')) return;
   // Abo-Check
@@ -21248,12 +21406,20 @@ function savePlant(){
       p.water = +document.getElementById('mp-water').value;
       p.sun   = +document.getElementById('mp-sun').value;
       p.notes = document.getElementById('mp-notes').value.trim();
-      // v24.11: Foto-Update — Cloud-URL hat Vorrang (cross-device-sync), B64 als Fallback
+      // v24.11/v26.58: Foto-Update — Cloud-URL hat Vorrang. Bei B64: Storage-Bucket-Upload,
+      // Fallback auf base64 nur wenn Upload-Fail (Privacy-/Quota-Safety).
       if (window._gsPlantPhotoUrl) {
         p.photoUrl = window._gsPlantPhotoUrl;
-        p.photo = window._gsPlantPhotoUrl;  // Profilbild = Cloud-URL
+        p.photo = window._gsPlantPhotoUrl;
       } else if (window._gsPlantPhotoB64) {
-        p.photo = 'data:image/jpeg;base64,' + window._gsPlantPhotoB64;
+        try {
+          var photoUrl = await window.gsUploadPhotoToBucket('user-plant-photos', window._gsPlantPhotoB64);
+          p.photo = photoUrl;
+          p.photoUrl = photoUrl;
+        } catch (uploadErr) {
+          // Fallback: base64 (User-Action nicht blockieren — Upload kann später via gsMigrateBase64Photos nachgezogen werden)
+          p.photo = 'data:image/jpeg;base64,' + window._gsPlantPhotoB64;
+        }
       }
       if (!Array.isArray(p.diary)) p.diary = [];
     }
@@ -21262,6 +21428,15 @@ function savePlant(){
     // Vorher: lastDone:null → Fällig-Check interpretiert das als 1970 → sofort fällig.
     const water = +document.getElementById('mp-water').value;
     const waterInterval = water === 1 ? 14 : water === 2 ? 7 : 3;
+    // v26.58: Beim Anlegen — Foto direkt nach Bucket uploaden (URL statt base64)
+    var newPlantPhoto = window._gsPlantPhotoUrl || null;
+    if (!newPlantPhoto && window._gsPlantPhotoB64) {
+      try {
+        newPlantPhoto = await window.gsUploadPhotoToBucket('user-plant-photos', window._gsPlantPhotoB64);
+      } catch (_uErr) {
+        newPlantPhoto = 'data:image/jpeg;base64,' + window._gsPlantPhotoB64; // Fallback
+      }
+    }
     const newPlant = {
       id: 'mp_' + Date.now(),
       name,
@@ -21270,9 +21445,9 @@ function savePlant(){
       water: +document.getElementById('mp-water').value,
       sun:   +document.getElementById('mp-sun').value,
       notes: document.getElementById('mp-notes').value.trim(),
-      // v24.11: Profilbild — Cloud-URL bevorzugt (cross-device-sync), B64 als Fallback
-      photo: window._gsPlantPhotoUrl || (window._gsPlantPhotoB64 ? ('data:image/jpeg;base64,' + window._gsPlantPhotoB64) : null),
-      photoUrl: window._gsPlantPhotoUrl || null,
+      // v26.58: Profilbild — Storage-Bucket-URL (cross-device-sync, kein LS-Bloat)
+      photo: newPlantPhoto,
+      photoUrl: window._gsPlantPhotoUrl || (newPlantPhoto && newPlantPhoto.indexOf('data:') !== 0 ? newPlantPhoto : null),
       // v23.91: Tagebuch — Verlaufseinträge
       diary: [],
       added: now,
@@ -52462,7 +52637,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.57';
+var GS_VERSION = 'v26.60';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -53053,6 +53228,14 @@ async function gsHandleAuthRedirect(){
         }
       } catch(_){}
     }, 1800);
+    // v26.58: Migrations-Pass für base64 → Storage-Bucket (Ein-Pass, idempotent)
+    setTimeout(function(){
+      try {
+        if (typeof window.gsMigrateBase64Photos === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
+          window.gsMigrateBase64Photos().catch(function(){});
+        }
+      } catch(_){}
+    }, 5000);
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', _gsBootSync);
