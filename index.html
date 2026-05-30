@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.63.20260530">
+<meta name="app-version" content="26.64.20260530">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10655,11 +10655,15 @@ window.openAchievementsModal = async function() {
 
   var m = document.createElement('div');
   m.id = 'achievements-modal';
+  // v26.64: a11y — role/aria-modal/labelledby + ESC-Close + gsTrapFocus
+  m.setAttribute('role', 'dialog');
+  m.setAttribute('aria-modal', 'true');
+  m.setAttribute('aria-labelledby', 'achievements-modal-title');
   m.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px);';
   m.innerHTML =
     '<div style="background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:520px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;">' +
       '<div style="padding:16px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">' +
-        '<div><div style="font-size:17px;font-weight:800;color:var(--text);">🏆 Achievements & Garten-Score</div>' +
+        '<div><div id="achievements-modal-title" style="font-size:17px;font-weight:800;color:var(--text);">🏆 Achievements & Garten-Score</div>' +
         '<div style="font-size:11px;color:var(--muted);">' + milestoneSlugs.length + ' Meilensteine erreicht</div></div>' +
         '<button onclick="document.getElementById(\'achievements-modal\').remove()" aria-label="Schliessen" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);">✕</button>' +
       '</div>' +
@@ -10677,6 +10681,17 @@ window.openAchievementsModal = async function() {
     '</div>';
   document.body.appendChild(m);
   m.addEventListener('click', function(e) { if (e.target === m) m.remove(); });
+  // v26.64: ESC-Close + gsTrapFocus
+  var escHandler = function(e) {
+    if (e.key === 'Escape') {
+      m.remove();
+      document.removeEventListener('keydown', escHandler);
+    }
+  };
+  document.addEventListener('keydown', escHandler);
+  try {
+    if (typeof window.gsTrapFocus === 'function') window.gsTrapFocus(m);
+  } catch(_){}
 };
 
 // gsConfirmModal({title, message, ok, cancel, kind}) → Promise<boolean>
@@ -21674,7 +21689,7 @@ async function savePlant(){
     setTimeout(gsOpenAboTab, 600); return;
   }
   const name = document.getElementById('mp-name').value.trim();
-  if(!name){ alert('Bitte einen Namen eingeben.'); return; }
+  if(!name){ try { gsToast('Bitte einen Namen eingeben.', 'warn'); } catch(_){ } return; }
   const now = new Date().toISOString();
   if(editingPlantId){
     const p = myPlants.find(x => x.id === editingPlantId);
@@ -27849,7 +27864,7 @@ async function addComment() {
 async function submitPost() {
   if (!gsRequire('post_community','Bitte anmelden um zu posten.')) return;
   var text = ((document.getElementById('post-text')||{}).value||'').trim();
-  if (!text) { alert('Bitte etwas schreiben!'); return; }
+  if (!text) { try { gsToast('Bitte etwas schreiben!', 'warn'); } catch(_){ } return; }
   var uid    = gsStore.get('gs_sb_uid', null);
   if (!uid) { showProfileToast('❌ Kein User · bitte einloggen'); return; }
   var name   = localStorage.getItem('gs_sb_display_name')||gsStore.get('gs_sb_email', null)||'Naturfreund';
@@ -28101,7 +28116,7 @@ async function submitIgPost() {
     setTimeout(() => { const el = document.getElementById('ig-text'); if(el) el.style.borderColor=''; }, 1500);
     return;
   }
-  if (text.length > 500) { alert('Text ist zu lang (max. 500 Zeichen).'); return; }
+  if (text.length > 500) { try { gsToast('Text ist zu lang (max. 500 Zeichen).', 'warn'); } catch(_){ } return; }
 
   const uid = gsStore.get('gs_sb_uid', null);
   if (!uid) { showProfileToast && showProfileToast('❌ Bitte einloggen'); return; }
@@ -28958,9 +28973,10 @@ function submitListing() {
   const title = document.getElementById('listing-title')?.value?.trim();
   const desc  = document.getElementById('listing-desc')?.value?.trim();
   const seller = document.getElementById('listing-seller')?.value?.trim();
-  if (!title) { alert('Bitte einen Titel eingeben.'); return; }
-  if (!desc)  { alert('Bitte eine Beschreibung eingeben.'); return; }
-  if (!seller){ alert('Bitte deinen Namen eingeben.'); return; }
+  // v26.64: Hard-Lesson #2 final — bare alert() → gsToast (iOS-PWA-Webview-Blocker)
+  if (!title) { try { gsToast('Bitte einen Titel eingeben.', 'warn'); } catch(_){ } return; }
+  if (!desc)  { try { gsToast('Bitte eine Beschreibung eingeben.', 'warn'); } catch(_){ } return; }
+  if (!seller){ try { gsToast('Bitte deinen Namen eingeben.', 'warn'); } catch(_){ } return; }
 
   socialUserName = seller;
   localStorage.setItem('gs_social_name', seller);
@@ -34164,7 +34180,7 @@ function deleteRecipe(id) {
 function saveRecipe() {
   if (!gsRequire('edit_recipe')) return;
   const title = document.getElementById('recipe-title')?.value?.trim();
-  if (!title) { alert('Bitte einen Titel eingeben.'); return; }
+  if (!title) { try { gsToast('Bitte einen Titel eingeben.', 'warn'); } catch(_){ } return; }
   const isRemedy = newRecipeType === 'remedies';
 
   const data = {
@@ -40705,7 +40721,7 @@ function autoDetectLocation() {
 async function saveManualLocation() {
   var inp  = document.getElementById('loc-name-input');
   var name = (inp ? inp.value : '').trim();
-  if (!name) { alert('Bitte einen Ort eingeben.'); return; }
+  if (!name) { try { gsToast('Bitte einen Ort eingeben.', 'warn'); } catch(_){ } return; }
   var stEl = document.getElementById('loc-status');
   if (stEl) { stEl.style.background='#fff3e0'; stEl.style.color='#e65100'; stEl.textContent='🔍 Suche "'+name+'"…'; }
 
@@ -48733,7 +48749,7 @@ async function detectGardenLocation() {
 function saveGarden() {
   if (!gsRequire('save_garden', 'Bitte anmelden um einen Garten zu erstellen.')) return;
   const name = document.getElementById('gard-name').value.trim();
-  if (!name) { alert('Bitte einen Namen eingeben.'); return; }
+  if (!name) { try { gsToast('Bitte einen Namen eingeben.', 'warn'); } catch(_){ } return; }
   const data = {
     name,
     location: document.getElementById('gard-loc').value.trim(),
@@ -52942,7 +52958,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.63';
+var GS_VERSION = 'v26.64';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
