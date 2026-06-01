@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.72.20260601">
+<meta name="app-version" content="26.73.20260601">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14675,8 +14675,53 @@ function gsRenderMushroomSeason(patch, regionName, month) {
     vapEl.style.display = v ? 'block' : 'none';
   }
   card.style.display = 'block';
+  // v26.73: Live-Counter "Heute gemeldet" aus map_user_finds (anonymisiert, nur Count)
+  try { gsAttachMushroomLiveCounter(card, patch); } catch(_){}
 }
 window.gsRenderMushroomSeason = gsRenderMushroomSeason;
+
+// v26.73 Saison-Pilze Erweiterung (Master #9):
+// Live-Counter "Pilze heute in deiner Region gemeldet" aus map_user_finds.
+// Anonymisiert: zählt nur is_private=false-Funde + category=pilz im aktuellen Monat.
+async function gsAttachMushroomLiveCounter(card, patch) {
+  if (!card || typeof sbFetch !== 'function') return;
+  // Idempotent: einmal pro Card-Render
+  if (card.dataset.liveCounterMounted === '1') return;
+  card.dataset.liveCounterMounted = '1';
+  // Container nach #mushroom-season-vapko anhängen
+  var counterEl = document.createElement('div');
+  counterEl.id = 'mushroom-season-live';
+  counterEl.style.cssText = 'display:none;margin-top:8px;padding:8px 12px;background:rgba(255,255,255,.13);border-radius:9px;font-size:12px;font-weight:700;line-height:1.45;';
+  card.appendChild(counterEl);
+  try {
+    var now = new Date();
+    var monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    // Community-Funde dieses Monats (RLS sorgt dafür dass nur is_private=false sichtbar ist
+    // OHNE Login — eingeloggte sehen zusätzlich eigene private. Wir filtern explizit auf
+    // is_private.eq.false damit der Count "Community-Heatmap-tauglich" bleibt.)
+    var r = await sbFetch(
+      '/rest/v1/map_user_finds?select=id,found_at,species_name&category=eq.pilz&is_private=eq.false&found_at=gte.' +
+      encodeURIComponent(monthStart) + '&order=found_at.desc&limit=200',
+      { method:'GET' }
+    );
+    if (!r || !Array.isArray(r.data)) return;
+    var rows = r.data;
+    if (!rows.length) {
+      counterEl.innerHTML = '🐾 Noch keine Community-Funde diesen Monat. <span style="opacity:.85;">Teile deinen ersten Fund (privat-default)!</span>';
+      counterEl.style.display = 'block';
+      return;
+    }
+    // Top-3 Species nach Häufigkeit
+    var freq = {};
+    rows.forEach(function(x){ var k = String(x.species_name||'').trim(); if (!k) return; freq[k] = (freq[k]||0) + 1; });
+    var top = Object.entries(freq).sort(function(a,b){ return b[1]-a[1]; }).slice(0,3)
+      .map(function(p){ return p[0] + ' (' + p[1] + ')'; });
+    counterEl.innerHTML = '🐾 <b>' + rows.length + '</b> Community-Funde diesen Monat'
+      + (top.length ? '<br><span style="opacity:.92;font-weight:500;">Top: ' + top.join(' · ') + '</span>' : '');
+    counterEl.style.display = 'block';
+  } catch(e){ console.warn('[mushroom-live-counter]', e && e.message); }
+}
+window.gsAttachMushroomLiveCounter = gsAttachMushroomLiveCounter;
 
 // ═════════════════════════════════════════════════════════════════════
 // v26.49 WETTER-ALERT-WIDGET HOME (garden_weather_alerts, DB-Wave-14)
@@ -51042,6 +51087,26 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.73', date: '01.06.2026',
+    headline: '🗺 Backend-Frontend-Map + Saison-Pilze Live-Counter (Master #4 + #9)',
+    summary: 'Master-Auftrag #4: vollständige Backend-Frontend-Matrix mit 122 Tables × 30 Edge-Fns. BACKEND_FRONTEND_MAP_v26.73.md im Repo. 8 Audit-Findings (5 Dead-Code-Edge-Fns, 5 legacy_*-Tables, 1 fehlendes AI-Logging). Master-#9: Saison-Pilze-Card erweitert um Live-Counter aus map_user_finds.',
+    user_summary: '🗺 Wartung-Sprint: vollständiger System-Audit (Backend vs Frontend). Plus: die Saison-Pilze-Card auf Home zeigt jetzt anonyme Community-Funde-Counter ("X Pilz-Funde diesen Monat — Top: Steinpilz x4, Pfifferling x3"). Wer seine Funde teilt (is_private=false), hilft anderen Pilzlern.',
+    user_items: [
+      { emoji: '🗺', text: 'Vollständige Backend↔Frontend-Map im Repo (122 Tables, 30 Edge-Fns)' },
+      { emoji: '📊', text: 'plant-doctor AI-Logging nachgerüstet — jetzt Telemetrie für alle 5 KI-Funktionen' },
+      { emoji: '🐾', text: 'Saison-Pilze-Card: Community-Counter "X Funde diesen Monat + Top-3 Species"' },
+      { emoji: '🧹', text: 'Audit-Findings: 5 Stripe-Setup-Functions sind Dead-Code (Aufräumen in v26.75)' },
+    ],
+    items: [
+      {emoji:'📋', bold:'BACKEND_FRONTEND_MAP_v26.73.md:', text:' Vollständige Matrix Tabelle × Frontend-Modul × Edge-Fn. User-Content (Read/Write/Render-Pfade), Knowledge-Content (Quelle/Modul), Edge-Functions (Verify-JWT/Version/Status). 122 Tables: alle haben RLS. 30 Edge-Fns mit Aufruf-Status.'},
+      {emoji:'🐛', bold:'Audit-Finding behoben: plant-doctor-diagnose v2 LIVE:', text:' Single Edge-Fn die fn_log_ai_usage nicht aufrief → Telemetrie war incomplete. Patch fire-and-forget vor success-Return.'},
+      {emoji:'⚠️', bold:'Audit-Findings P1 (Cleanup-Backlog):', text:' (1) 5 Stripe-Setup-Time-Functions sind Dead-Code seit v26.40 (stripe-setup-webhook, stripe-restructure-pro-only, stripe-import-fernando-sub, stripe-complete-setup, stripe-final-audit). (2) customer-portal + create-checkout sind Duplikate von stripe-portal + stripe-checkout. (3) 5 legacy_*-Tables zum Sanity-Check vor DROP.'},
+      {emoji:'🐾', bold:'gsAttachMushroomLiveCounter (Master-#9):', text:' Idempotent appended an mushroom-season-card. Query map_user_finds WHERE category=pilz AND is_private=false AND found_at>=monatsanfang LIMIT 200. Aggregate: total-Count + Top-3 Species nach Häufigkeit. Empty-State: CTA "Teile deinen ersten Fund". Privacy: nur is_private=false-Funde — User-Anonymität gewahrt.'},
+      {emoji:'⏭️', bold:'Naechste Sprints (P2):', text:' v26.74 = Master #3 KI-Pro 3D-Planer Polish (Sonnen-Slider + Konflikte + Mini-Map + 4K-Foto) + Frontend für marketplace_messages-Chat + "Meine Funde"-Sub-Tab + Home-Card Quiz-Leaderboard. v26.75 = Stripe-Cleanup.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 inline-scripts node --check OK · GS_VERSION=v26.73 · sw.js gs-v26.73 · _headers v26.73 · meta=26.73.20260601 · plant-doctor-diagnose v2 LIVE.'},
+    ]
+  },
+  {
     v: 'v26.72', date: '01.06.2026',
     headline: '🏆 Quiz-Rangliste — Top 20 mit eigenem Rang (Master #11)',
     summary: 'Master-Auftrag #11: Globale Quiz-Rangliste über alle User. Backend: quiz_leaderboard-Tabelle + 3 RPCs (top, my_rank, upsert) + pg_cron daily rank-update. Frontend: dqSaveStats triggert UPSERT (debounced 2s) → Cloud. gsOpenQuizLeaderboard zeigt Top-20 + Medaillen + eigener Rang.',
@@ -53460,7 +53525,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.72';
+var GS_VERSION = 'v26.73';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
