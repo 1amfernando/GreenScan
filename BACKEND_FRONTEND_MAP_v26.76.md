@@ -1,14 +1,34 @@
-# Backend ↔ Frontend Map · v26.73 · 2026-06-01
+# Backend ↔ Frontend Map · v26.76 · 2026-06-01
 
-> **Master-Auftrag #4 Audit.** Stand: nach v26.65–v26.72 (8 Sprints in 1 Tag). Quelle: `information_schema.tables`, `list_edge_functions`, grep `index.html`.
+> **Master-Auftrag #4 Audit.** Stand: nach v26.65–v26.75 (9 Sprints in 1 Tag) + v26.76 Backend-Cleanup. Quelle: `information_schema.tables`, `list_edge_functions`, grep `index.html`, `get_advisors`.
 
 ## TL;DR
 
-- **122 Tables** (inkl. 5 `legacy_*`-Tables + 3 `schema_migrations`-Duplikate, alle in `public`).
+- **117 Tables** (5 `legacy_*` in v26.76 gedroppt + `schema_migrations`-Duplikate, alle in `public`).
 - **30 Edge-Functions** LIVE deployed.
-- Alle Tables haben RLS (außer 2 verwaiste `schema_migrations`-Klone — siehe Findings).
+- Alle Tables haben RLS · **0 Security-Advisor-ERRORs** (4 in v26.76 behoben).
 - 100% Backend-Coverage: jede Domain hat ein zugeordnetes Frontend-Modul.
-- **Verwaiste Edge-Functions:** 6 Stripe-Setup-Fns sind seit Stripe-Live-Switch (v26.40) Dead-Code.
+- **Verwaiste Edge-Functions:** 6 Stripe-Setup-Fns sind seit Stripe-Live-Switch (v26.40) Dead-Code (Code-seitig 410-Gone-Stubs; physisches Löschen = Fernando-Dashboard).
+
+---
+
+## v26.76 · Backend-Cleanup-Sprint — Resolution Log
+
+> Backend-only (KEIN Client-v-Bump — index.html/sw.js unverändert, kein Re-Download erzwungen).
+
+| # | Finding | Fix (LIVE in DB) | Migration / Deploy |
+|---|---|---|---|
+| P1.1/P1.2 | Stripe Dead-Code + `customer-portal`/`create-checkout`-Duplikate | Bereits in Vor-Version als **410-Gone-Stubs** im Code erledigt (grep `index.html`: nur noch in `GS_RELEASES`-Changelog-Text). Physisches Edge-Fn-Löschen = Fernando-Dashboard. | — |
+| P1.4 | `legacy_*`-Tables (5) | **⚠️ Korrektur:** Audit nannte sie "safe drops" — sind aber FK-PARENTS von ~12 aktiven Tabellen. DROP nur sicher, weil alle FK-Children **0 Rows**. Behebt sogar latente kaputte FKs. | `v26_76_drop_legacy_tables.sql` (CASCADE) + `delete-user` v4 (legacy_profiles-Block raus, ZUERST deployed) |
+| P1.5 | `plant-doctor-diagnose` ohne AI-Logging | Verifiziert: **loggt bereits** (Edge-Fn ruft `fn_log_ai_usage`) → No-Op. | — |
+| P3.1 | `book_ingest_jobs` Archivierung | TTL 90d für Terminal-Status (`completed/done/failed/error/cancelled`); **pending NIE gelöscht** (66 pending). | `v26_76_implement_cleanup_old_data.sql` |
+| P3.2 | `audit_log` ohne TTL | TTL 180d. + `notifications` TTL 90d. | dito |
+| — | `fn_cleanup_old_data()` war **Placeholder-No-Op** | Echte TTL-Logik implementiert (Cron `gs_cleanup_old_data` 03:15 UTC lief seit jeher ins Leere). | dito |
+| ADV | 4 Security-Advisor **ERRORs** | 3× `security_definer_view` → `security_invoker=true`; 1× `auth_users_exposed` → GRANT entzogen. **0 ERRORs verbleibend.** | `v26_76_security_view_hardening.sql` |
+| ADV | `duplicate_index` (3×) | redundante Indexes/Constraints gedroppt (jeweils funktional identisches behalten). | `v26_76_drop_duplicate_indexes.sql` |
+| ADV | `function_search_path_mutable` (4 eigene Fns) | `search_path=public, pg_temp` gepinnt (Extension-Fns bewusst ausgelassen). | `v26_76_function_search_path_hardening.sql` |
+
+**DEFERRED (eigener Perf-Sprint, NICHT v26.76):** 73× `auth_rls_initplan` + 166× `multiple_permissive_policies` (zu groß/riskant auf Live-Payment-DB ohne Per-Policy-Review), 14× `unindexed_foreign_key`, 7× `public_bucket_allows_listing`. **Fernando-Manual:** 7 obsolete Stripe-Edge-Fns physisch löschen · Stripe-Live-Switch · TWINT/4242-Test · GitHub `workflow`-Scope-PAT.
 
 ---
 
@@ -156,7 +176,7 @@
 |---|---:|---:|---|---|
 | `garden-scan-analyze` | ✅ | v5 | `gsRunGardenScan` | ✅ `fn_log_ai_usage` |
 | `plan-iterate` | ✅ | v3 | `gsIteratePlan` | ✅ `fn_log_ai_usage` |
-| `plant-doctor-diagnose` | ✅ | v1 | `runDoctor` | ⚠ kein Logging |
+| `plant-doctor-diagnose` | ✅ | v2 | `runDoctor` | ✅ `fn_log_ai_usage` (v26.76 verifiziert) |
 | `pest-identify` | ✅ | v2 | `runPestScan` | ✅ `fn_log_ai_usage` |
 | `mushroom-identify` | ✅ | v2 | `runMushroomScan` | ✅ `fn_log_ai_usage` |
 
@@ -177,7 +197,7 @@
 | `customer-portal` | ❌ | v4 | LIVE (older variant von stripe-portal — TODO konsolidieren) |
 | `create-checkout` | ❌ | v5 | LIVE (older variant — TODO konsolidieren) |
 | `send-receipt` | ✅ | v2 | LIVE — Email-Receipt |
-| `delete-user` | ✅ | v3 | LIVE — Konto-Lösch-Flow |
+| `delete-user` | ✅ | v4 | LIVE — Konto-Lösch-Flow (v26.76: legacy_profiles-Block raus) |
 | `stripe-setup-webhook` | ❌ | v4 | 💀 DEAD-CODE — Setup-Time (v26.0) |
 | `stripe-restructure-pro-only` | ❌ | v3 | 💀 DEAD-CODE — Setup-Time (v25.38) |
 | `stripe-import-fernando-sub` | ❌ | v3 | 💀 DEAD-CODE — Migration-once |
@@ -204,43 +224,44 @@
 
 ## 3 · Findings
 
-### 🟥 P1 — Cleanup empfohlen
-1. **5 Setup-Time-Stripe-Functions sind Dead-Code:**
-   - `stripe-setup-webhook`, `stripe-restructure-pro-only`, `stripe-import-fernando-sub`,
-     `stripe-complete-setup`, `stripe-final-audit`
-   - Sie wurden für die einmaligen Migrationen v25.38–v26.0 gebraucht und werden seit
-     v26.40 nicht mehr aufgerufen. Löschen sicher.
-2. **`customer-portal` + `create-checkout` sind Duplikate** der neueren `stripe-portal` und `stripe-checkout`.
-   Frontend ruft beide Varianten an verschiedenen Stellen — sollte konsolidiert werden.
-3. **`schema_migrations`-Duplikate (3×):** Postgres-System-Klone. Können bleiben (Supabase intern), aber sollten in einer Audit-Spalte als "system" markiert sein.
-4. **`legacy_*`-Tables (5):** `legacy_daily_quizzes`, `legacy_did_you_know_facts`, `legacy_profiles`, `legacy_species`, `legacy_user_scans`. Backup-Snapshots aus Schema-Migrationen. Nach Sanity-Check (sind Daten in den neuen Tables?) löschen.
-5. **`plant-doctor-diagnose` fehlt AI-Usage-Logging.** Single Edge-Fn die `fn_log_ai_usage` nicht aufruft → Telemetrie incomplete.
+### 🟥 P1 — Cleanup
+1. ✅ **5 Setup-Time-Stripe-Functions Dead-Code** — Code-seitig als 410-Gone-Stubs erledigt; physisches Löschen = Fernando-Dashboard (nicht via MCP).
+2. ✅ **`customer-portal` + `create-checkout` Duplikate** — Frontend ruft nur noch `stripe-portal`/`stripe-checkout`; alte Slugs nur in Changelog-Text.
+3. **`schema_migrations`-Duplikate (3×):** Postgres-System-Klone. Bleiben (Supabase intern).
+4. ✅ **`legacy_*`-Tables (5) — GEDROPPT (v26.76).** ⚠️ **Korrektur des Original-Findings:** waren NICHT "safe drops", sondern FK-PARENTS von ~12 aktiven Tabellen. DROP CASCADE war nur sicher, weil alle FK-Children 0 Rows hatten — verifiziert vor dem Lauf. Behob latente kaputte FKs (zeigten auf falschen Parent, hätten echte User-Inserts blockiert). `delete-user` v4 ZUERST deployed (legacy_profiles-Ref raus), dann DROP.
+5. ✅ **`plant-doctor-diagnose` AI-Logging** — verifiziert: loggt bereits via `fn_log_ai_usage` (Edge-Fn v2). War No-Op.
 
-### 🟡 P2 — Frontend-Ergänzungen pending
-1. **`marketplace_messages` Backend ready, kein Chat-UI.** Tabelle + RLS + View + RPC sind in v26.70 deployed; Frontend-Chat-Modal kommt in v26.74.
-2. **`map_user_finds` Backend ready, kein "Meine Funde"-Screen.** v26.71 baut Wrapper-API `gsMapFinds.list/togglePrivacy/delete`; Sub-Tab/Screen TODO.
-3. **`quiz_leaderboard` Home-Card fehlt.** v26.72 deployed `gsOpenQuizLeaderboard` Modal-Trigger; Home-Card mit Top-3 als Live-Widget pending.
+### 🟡 P2 — Frontend-Ergänzungen (alle ✅ v26.75)
+1. ✅ **`marketplace_messages` Chat-UI** — `openMarketChat` + `gsOpenConversations` live (v26.75).
+2. ✅ **`map_user_finds` "Meine Funde"-Screen** — `gsOpenMyFinds` live (v26.75).
+3. ✅ **`quiz_leaderboard` Home-Card** — `gsHomeFillLeaderboard` Top-3 live (v26.75).
 
 ### 🟢 P3 — Optimierungen
-1. **`book_ingest_jobs` 208 kB, 66 pending Jobs.** Reine Speicher-Last; alte completed-Jobs nach 90d archivieren.
-2. **`audit_log` ohne TTL.** Wächst monoton; LRU-Trim auf 50k Rows oder TTL=180d sinnvoll.
-3. **`species` 4.3 MB + `species_embeddings` 1.6 MB.** Größte Tables. Für Embeddings: pgvector-Index ist da. Für `species`: 57 Spalten — manche wären in JSON aggregierbar.
+1. ✅ **`book_ingest_jobs` Archivierung** — `fn_cleanup_old_data` TTL 90d für Terminal-Status (pending NIE); Cron 03:15 UTC (v26.76).
+2. ✅ **`audit_log` TTL** — 180d via `fn_cleanup_old_data` (v26.76). + `notifications` 90d.
+3. **`species` 4.3 MB + `species_embeddings` 1.6 MB.** Größte Tables. Embeddings: pgvector-Index vorhanden. `species`: 57 Spalten — manche in JSON aggregierbar (DEFER).
+
+### 🔵 ADV — Security/Performance-Advisors (v26.76)
+- ✅ **4 ERRORs behoben:** 3× `security_definer_view` (→ `security_invoker=true`), 1× `auth_users_exposed` (GRANT entzogen). **0 ERRORs verbleibend.**
+- ✅ **3× `duplicate_index`** gedroppt. ✅ **4 eigene Fns** mit gepinntem `search_path`.
+- ⏭ **DEFERRED (eigener Perf-Sprint):** 73× `auth_rls_initplan`, 166× `multiple_permissive_policies`, 14× `unindexed_foreign_key`, 7× `public_bucket_allows_listing`. Zu groß/riskant auf Live-Payment-DB ohne Per-Policy-Review.
 
 ---
 
 ## 4 · RLS-Status
 
-Alle 122 Tabellen haben RLS aktiv (✅ post-v26.51-Hardening). Die `schema_migrations`-Klone in System-Schemas sind Supabase-intern und nicht user-facing.
+Alle 117 Tabellen haben RLS aktiv (✅ post-v26.51-Hardening). Die `schema_migrations`-Klone in System-Schemas sind Supabase-intern und nicht user-facing. `book_ocr_pages` + `species_import_queue` haben RLS-enabled-no-policy → bewusst Deny-All (Admin-/Service-Role-only, kein Frontend-Read).
 
 ---
 
 ## 5 · Empfehlungen für nächste Sprints
 
-- **v26.74:** Frontend-Chat-Modal für `marketplace_messages` + "Meine Funde"-Screen für `map_user_finds` + Home-Card Quiz-Leaderboard.
-- **v26.75:** Stripe-Cleanup-Sprint — 5 Dead-Code-Functions löschen, `customer-portal`/`create-checkout` zu Aliasen konsolidieren.
-- **v26.76:** AI-Logging in `plant-doctor-diagnose` nachrüsten + `book_ingest_jobs` Archivierung-Cron + `audit_log` TTL.
-- **v26.77:** `legacy_*`-Tables Sanity-Check + DROP nach Verifikation.
+- ✅ **v26.74/v26.75:** Frontend-Chat + "Meine Funde" + Quiz-Leaderboard-Home-Card — DONE.
+- ✅ **v26.76:** Backend-Cleanup — legacy-DROP, cleanup-fn, audit/notif TTL, 4 Advisor-ERRORs, duplicate-index, search_path — DONE.
+- **v26.77 (Perf-Sprint):** RLS-Hardening — `auth_rls_initplan` (73× `auth.uid()` → `(SELECT auth.uid())`) + `multiple_permissive_policies` (166×) per-policy konsolidieren + 14× `unindexed_foreign_key`. Vorsicht: Live-Payment-DB, Per-Policy-Review.
+- **Fernando-Manual:** 7 obsolete Stripe-Edge-Fns physisch löschen · Stripe-Live-Switch · TWINT/4242-Test · GitHub `workflow`-Scope-PAT · 7× `public_bucket_allows_listing` prüfen.
+- **DEFER:** `species` 57-Spalten-Schema in JSON aggregieren.
 
 ---
 
-**Erstellt:** 2026-06-01 in v26.73 · GreenScan Backend-Frontend-Map v1.
+**Erstellt:** 2026-06-01 in v26.73 · **Update:** v26.76 Backend-Cleanup-Resolution-Log · GreenScan Backend-Frontend-Map v2.
