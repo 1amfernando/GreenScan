@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.74.20260601">
+<meta name="app-version" content="26.75.20260601">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1854,6 +1854,23 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
   </div>
 
+  <!-- v26.75: Quiz-Rangliste Home-Card -->
+  <div style="padding:0 16px 12px;">
+    <div id="home-lb-card" onclick="if(typeof gsOpenQuizLeaderboard==='function')gsOpenQuizLeaderboard()" style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);padding:13px 15px;cursor:pointer;-webkit-tap-highlight-color:transparent;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:7px;">
+        <div style="font-size:24px;">🏆</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:800;color:var(--g-dark);">Quiz-Rangliste</div>
+          <div style="font-size:11px;color:var(--muted);">Top-Naturkenner der Schweiz</div>
+        </div>
+        <div style="font-size:18px;opacity:.5;">›</div>
+      </div>
+      <div id="home-lb-preview" style="display:flex;flex-wrap:wrap;align-items:center;min-height:16px;">
+        <span style="color:var(--muted);font-size:11.5px;">⏳ Lade Top-3…</span>
+      </div>
+    </div>
+  </div>
+
   <!-- Tägliche Infotafel -->
   <div style="padding:0 16px 16px;">
     <!-- Heute in der Natur -->
@@ -2881,6 +2898,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <div data-i18n="market_title" data-i18n-fallback="🛒 Marktplatz" style="font-family:'Playfair Display',serif;font-size:20px;font-weight:900;margin-bottom:2px;">🛒 Marktplatz</div>
     <div style="font-size:11.5px;opacity:.78;line-height:1.3;"><span id="market-stat-count">0</span> Angebote · Schweizweit</div>
   </div>
+  <button onclick="gsOpenConversations()" aria-label="Nachrichten" title="Meine Marktplatz-Nachrichten" style="width:38px;height:38px;flex-shrink:0;background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:10px;font-size:17px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📨</button>
   <button onclick="openNewListing()" aria-label="Inserat erstellen" data-i18n="btn_market_new" data-i18n-fallback="+ Angebot" style="padding:8px 14px;background:var(--card);color:var(--g-dark);border:none;border-radius:10px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">+ Angebot</button>
 </div>
 
@@ -5112,6 +5130,7 @@ html, body{ scroll-behavior: smooth; }
     <div style="font-family:'Playfair Display',serif;font-size:19px;font-weight:800;">🗺️ Schweizer Karte</div>
     <div style="font-size:11.5px;opacity:.78;">Swisstopo · Pflanzenfunde · Wanderwege</div>
   </div>
+  <button onclick="gsOpenMyFinds()" aria-label="Meine Funde" title="Meine gespeicherten Funde" style="padding:6px 10px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);border-radius:7px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📋</button>
   <button onclick="gsMapGPS()" style="padding:6px 11px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);border-radius:7px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📍 GPS</button>
   <button onclick="gsMapClearAll()" aria-label="Löschen" style="padding:6px 10px;background:rgba(255,100,100,.25);border:1px solid rgba(255,100,100,.4);border-radius:7px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🗑️</button>
 </div>
@@ -8436,6 +8455,31 @@ function gsOpenQuizLeaderboard() {
   });
 }
 window.gsOpenQuizLeaderboard = gsOpenQuizLeaderboard;
+
+// v26.75: Home-Card Top-3-Preview (lazy, auch für anon — RPC ist granted)
+window.gsHomeFillLeaderboard = async function(){
+  var el = document.getElementById('home-lb-preview');
+  if (!el || el._gsFilled) return;
+  el._gsFilled = true;
+  try {
+    var rows = (typeof dqLoadLeaderboardTop === 'function') ? await dqLoadLeaderboardTop(3) : [];
+    if (!rows || !rows.length){
+      el.innerHTML = '<span style="color:var(--muted);font-size:11.5px;">Noch keine Einträge — sei der/die Erste! 🎯</span>';
+      return;
+    }
+    var medals = ['🥇','🥈','🥉'];
+    el.innerHTML = rows.map(function(r, i){
+      return '<span style="display:inline-flex;align-items:center;gap:3px;font-size:11.5px;font-weight:700;color:var(--text2);margin-right:9px;">' +
+        medals[i] + ' ' + escHtml((r.display_name||'Anonym').slice(0,12)) +
+        ' <b style="color:#2e7d32;">' + (r.total_correct|0) + '</b></span>';
+    }).join('');
+  } catch(_){ el._gsFilled = false; }
+};
+try {
+  window.addEventListener('load', function(){
+    setTimeout(function(){ try { if (typeof gsHomeFillLeaderboard === 'function') gsHomeFillLeaderboard(); } catch(_){} }, 1500);
+  });
+} catch(_){}
 
 // 7 Fragetypen
 // v23.50: Smarter Distractor-Generation — Antworten dürfen NIE zu ähnlich sein
@@ -28899,36 +28943,238 @@ function confirmBuyNow(lid) {
 }
 
 // ── Chat ──────────────────────────────────────────────────
+// v26.75: Marketplace-Chat backend-verdrahtet (marketplace_messages).
+// Listing in BEIDEN Pools suchen (Cloud-Pool mit sellerId + Demo-Pool marketListings).
+function _gsFindListing(lid){
+  try {
+    if (typeof gsMarketLoad === 'function') {
+      var n = gsMarketLoad().find(function(x){ return x.id === lid; });
+      if (n) return n;
+    }
+  } catch(_){}
+  try { return (typeof marketListings !== 'undefined' ? marketListings : []).find(function(x){ return x.id === lid; }) || null; } catch(_){ return null; }
+}
+
+// v26.75: globaler Chat-State (Backend-Thread vs Demo)
+window._gsChat = window._gsChat || { backend:false, listingId:null, buyerId:null, sellerId:null, title:'', otherName:'', pollId:null, lastCount:-1 };
+
 function openMarketChat(lid) {
-  const l = marketListings.find(x => x.id === lid);
+  var l = _gsFindListing(lid);
   if (!l) return;
+  var myUid = (typeof gsStore !== 'undefined') ? gsStore.get('gs_sb_uid', null) : null;
+  var loggedIn = (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn());
+  var sellerId = l.sellerId || l.seller_id || null;
+  var isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(String(lid));
+  // Echter Backend-Chat nur bei: eingeloggt + Cloud-Listing (uuid) + Seller-UID bekannt + sbFetch verfügbar
+  if (loggedIn && myUid && sellerId && isUuid && typeof sbFetch === 'function') {
+    if (myUid === sellerId) {
+      // Ich bin Verkäufer → Konversations-Inbox (gefiltert auf dieses Listing)
+      gsOpenConversations(lid);
+      return;
+    }
+    _gsChatStartThread(lid, myUid, sellerId, l.title || 'Inserat', l.sellerName || 'Verkäufer', l.sellerAvatar || '🌿');
+    return;
+  }
+  // Fallback: Demo-Chat (Gast / Demo-Listing)
+  _openMarketChatDemo(lid, l);
+}
+window.openMarketChat = openMarketChat;
+
+function _openMarketChatDemo(lid, l){
+  l = l || _gsFindListing(lid);
+  if (!l) return;
+  if (window._gsChat) window._gsChat.backend = false;
+  var sellerName = l.seller || l.sellerName || 'Verkäufer';
+  var title = l.title || 'Inserat';
   currentChatListingId = lid;
 
-  const titleEl = document.getElementById('chat-title');
-  const subEl   = document.getElementById('chat-subtitle');
-  const avatarEl= document.getElementById('chat-avatar');
-  if (titleEl) titleEl.textContent = l.title;
-  if (subEl)   subEl.textContent   = 'Chat mit ' + (l.seller||'Verkäufer');
+  var titleEl = document.getElementById('chat-title');
+  var subEl   = document.getElementById('chat-subtitle');
+  var avatarEl= document.getElementById('chat-avatar');
+  if (titleEl) titleEl.textContent = title;
+  if (subEl)   subEl.textContent   = 'Chat mit ' + sellerName;
   if (avatarEl) avatarEl.textContent = l.sellerAvatar || '🌿';
 
   // Init chat if new
   if (!marketChats[lid]) {
     marketChats[lid] = [];
-    // Auto-welcome message from seller
-    const welcomeMsg = l.type === 'auction'
-      ? 'Hallo! Danke für dein Interesse an "' + l.title + '". Bei Fragen bin ich gerne da! 🌿'
-      : 'Hallo! "' + l.title + '" ist noch verfügbar. Schreib mir bei Fragen. 🌿';
-    marketChats[lid].push({ author: l.seller||'Verkäufer', text: welcomeMsg, ts: Date.now() - 60000, isMe: false });
+    var welcomeMsg = l.type === 'auction'
+      ? 'Hallo! Danke für dein Interesse an "' + title + '". Bei Fragen bin ich gerne da! 🌿'
+      : 'Hallo! "' + title + '" ist noch verfügbar. Schreib mir bei Fragen. 🌿';
+    marketChats[lid].push({ author: sellerName, text: welcomeMsg, ts: Date.now() - 60000, isMe: false });
     saveMarketChats();
   }
 
   renderChatMessages(lid);
   openModal('modal-market-chat');
-  setTimeout(() => {
-    const msgs = document.getElementById('mkt-chat-msgs');
+  setTimeout(function() {
+    var msgs = document.getElementById('mkt-chat-msgs');
     if (msgs) msgs.scrollTop = msgs.scrollHeight;
   }, 100);
 }
+
+// ── v26.75: Backend-Chat-Thread (Käufer↔Verkäufer) ───────────────
+function _gsChatStartThread(listingId, buyerId, sellerId, title, otherName, avatar){
+  window._gsChat = { backend:true, listingId:listingId, buyerId:buyerId, sellerId:sellerId, title:title, otherName:otherName, pollId:null, lastCount:-1 };
+  currentChatListingId = listingId;
+  var titleEl = document.getElementById('chat-title');
+  var subEl   = document.getElementById('chat-subtitle');
+  var avatarEl= document.getElementById('chat-avatar');
+  if (titleEl) titleEl.textContent = title;
+  if (subEl)   subEl.textContent   = 'Chat mit ' + otherName;
+  if (avatarEl) avatarEl.textContent = avatar || '🌿';
+  var msgs = document.getElementById('mkt-chat-msgs');
+  if (msgs) msgs.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;font-size:13px;">⏳ Lade Nachrichten…</div>';
+  openModal('modal-market-chat');
+  _gsChatLoadMessages(true);
+  // Polling alle 5s, solange das Chat-Modal offen ist
+  try { clearInterval(window._gsChat.pollId); } catch(_){}
+  window._gsChat.pollId = setInterval(function(){
+    var m = document.getElementById('modal-market-chat');
+    if (!m || !m.classList.contains('open')) { try { clearInterval(window._gsChat.pollId); } catch(_){}; window._gsChat.pollId = null; return; }
+    _gsChatLoadMessages(false);
+  }, 5000);
+}
+
+async function _gsChatLoadMessages(scrollDown){
+  var c = window._gsChat;
+  if (!c || !c.backend || typeof sbFetch !== 'function') return;
+  try {
+    var path = '/rest/v1/marketplace_messages?listing_id=eq.' + c.listingId +
+               '&buyer_id=eq.' + c.buyerId +
+               '&select=id,sender_id,message,created_at,read_at&order=created_at.asc&limit=500';
+    var r = await sbFetch(path, {method:'GET'});
+    var rows = (r && Array.isArray(r.data)) ? r.data : [];
+    // Nur neu rendern wenn sich Anzahl geändert hat (kein Flackern beim Polling)
+    if (c.lastCount === rows.length && !scrollDown) return;
+    c.lastCount = rows.length;
+    _gsRenderRealChat(rows, scrollDown);
+    _gsChatMarkRead();
+  } catch(e){ console.warn('[chat load]', e && e.message); }
+}
+
+function _gsRenderRealChat(rows, scrollDown){
+  var msgs = document.getElementById('mkt-chat-msgs');
+  if (!msgs) return;
+  if (!rows || !rows.length){
+    msgs.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;font-size:13px;">Noch keine Nachrichten. Schreib als Erster! 💬</div>';
+    return;
+  }
+  var me = (typeof gsStore !== 'undefined') ? gsStore.get('gs_sb_uid', null) : null;
+  msgs.innerHTML = rows.map(function(m){
+    var isMe = (m.sender_id === me);
+    var t = new Date(m.created_at).toLocaleTimeString('de-CH', {hour:'2-digit', minute:'2-digit'});
+    return '<div class="mkt-chat-msg ' + (isMe?'me':'them') + '">' +
+      escHtml(m.message) +
+      '<div class="mkt-chat-msg-time">' + t + '</div>' +
+    '</div>';
+  }).join('');
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+async function _gsChatSendBackend(){
+  var c = window._gsChat;
+  if (!c || !c.backend) return;
+  var input = document.getElementById('mkt-chat-input');
+  var text = (input && input.value) ? input.value.trim() : '';
+  if (!text) return;
+  if (text.length > 2000) text = text.slice(0,2000);
+  var me = (typeof gsStore !== 'undefined') ? gsStore.get('gs_sb_uid', null) : null;
+  if (!me) { if (typeof showProfileToast === 'function') showProfileToast('Bitte anmelden', 'info'); return; }
+  if (input) input.value = '';
+  try {
+    var r = await sbFetch('/rest/v1/marketplace_messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Prefer':'return=minimal'},
+      body: JSON.stringify({
+        listing_id: c.listingId, buyer_id: c.buyerId, seller_id: c.sellerId,
+        sender_id: me, message: text
+      })
+    });
+    if (r && r.error) throw new Error(r.error.message || 'send failed');
+    try { gsHaptic('tap'); } catch(_){}
+    c.lastCount = -1; // Re-Render erzwingen
+    _gsChatLoadMessages(true);
+  } catch(e){
+    if (input) input.value = text; // Eingabe wiederherstellen
+    if (typeof showProfileToast === 'function') showProfileToast('Senden fehlgeschlagen', 'info');
+    console.warn('[chat send]', e && e.message);
+  }
+}
+
+async function _gsChatMarkRead(){
+  var c = window._gsChat;
+  if (!c || !c.backend || typeof sbFetch !== 'function') return;
+  try {
+    await sbFetch('/rest/v1/rpc/fn_mkt_chat_mark_read', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ p_listing_id: c.listingId, p_buyer_id: c.buyerId })
+    });
+  } catch(_){}
+}
+
+// ── v26.75: Konversations-Inbox (v_marketplace_conversations) ────
+async function gsOpenConversations(filterListingId){
+  if (!(typeof sbIsLoggedIn === 'function' && sbIsLoggedIn())) {
+    if (typeof openLoginModal === 'function') openLoginModal();
+    else if (typeof showProfileToast === 'function') showProfileToast('Bitte anmelden', 'info');
+    return;
+  }
+  var mc = document.getElementById('modal-content');
+  if (!mc) return;
+  mc.innerHTML =
+    '<div style="padding:18px;">' +
+      '<button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(0,0,0,.08);font-size:18px;cursor:pointer;">×</button>' +
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">' +
+        '<div style="font-size:30px;">📨</div>' +
+        '<div><div style="font-family:\'Playfair Display\',serif;font-size:20px;font-weight:900;color:#1a3d1a;">Nachrichten</div>' +
+        '<div style="font-size:12px;color:var(--muted);">Deine Marktplatz-Chats</div></div>' +
+      '</div>' +
+      '<div id="gs-conv-list" style="color:var(--muted);font-size:13px;text-align:center;padding:18px 0;">⏳ Lade…</div>' +
+    '</div>';
+  openModal('detail-modal');
+  try {
+    var me = gsStore.get('gs_sb_uid', null);
+    var r = await sbFetch('/rest/v1/v_marketplace_conversations?select=*&order=last_message_at.desc&limit=100', {method:'GET'});
+    var rows = (r && Array.isArray(r.data)) ? r.data : [];
+    if (filterListingId) rows = rows.filter(function(x){ return x.listing_id === filterListingId; });
+    window._gsConvRows = rows;
+    var listEl = document.getElementById('gs-conv-list');
+    if (!listEl) return;
+    if (!rows.length){
+      listEl.innerHTML = '<div style="text-align:center;padding:18px 0;color:var(--muted);">Noch keine Nachrichten 📭</div>';
+      return;
+    }
+    listEl.style.textAlign = 'left'; listEl.style.padding = '0';
+    listEl.innerHTML = rows.map(function(cv, i){
+      var iAmSeller = (cv.seller_id === me);
+      var unread = (cv.unread_count|0);
+      var last = cv.last_message || '';
+      return '<div onclick="_gsConvOpen(' + i + ')" style="display:flex;align-items:center;gap:10px;padding:11px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:6px;cursor:pointer;-webkit-tap-highlight-color:transparent;">' +
+        '<div style="font-size:22px;">' + (iAmSeller?'🛒':'🏷️') + '</div>' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="font-size:13px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(cv.listing_title||'Inserat') + '</div>' +
+          '<div style="font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (iAmSeller?'Käufer-Anfrage · ':'') + escHtml(last) + '</div>' +
+        '</div>' +
+        (unread>0 ? '<div style="background:#e53935;color:#fff;border-radius:11px;min-width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;padding:0 5px;">' + unread + '</div>' : '<div style="color:var(--muted);">›</div>') +
+      '</div>';
+    }).join('');
+  } catch(e){
+    var el = document.getElementById('gs-conv-list');
+    if (el) el.innerHTML = '<div style="text-align:center;padding:18px 0;color:var(--muted);">Fehler beim Laden 😕</div>';
+  }
+}
+window.gsOpenConversations = gsOpenConversations;
+
+function _gsConvOpen(i){
+  var cv = (window._gsConvRows || [])[i];
+  if (!cv) return;
+  var me = (typeof gsStore !== 'undefined') ? gsStore.get('gs_sb_uid', null) : null;
+  var iAmSeller = (cv.seller_id === me);
+  closeModal('detail-modal');
+  _gsChatStartThread(cv.listing_id, cv.buyer_id, cv.seller_id, cv.listing_title || 'Inserat', iAmSeller ? 'Käufer' : 'Verkäufer', iAmSeller ? '🛒' : '🏷️');
+}
+window._gsConvOpen = _gsConvOpen;
 
 function renderChatMessages(lid) {
   const msgs = document.getElementById('mkt-chat-msgs');
@@ -28952,6 +29198,8 @@ function renderChatMessages(lid) {
 }
 
 function sendChatMsg() {
+  // v26.75: Backend-Thread aktiv → echte Nachricht senden
+  if (window._gsChat && window._gsChat.backend) { _gsChatSendBackend(); return; }
   const lid = currentChatListingId;
   if (!lid) return;
   const input = document.getElementById('mkt-chat-input');
@@ -37904,6 +38152,102 @@ window.gsMapFinds = {
     return true;
   }
 };
+
+// ── v26.75: "Meine Funde"-Screen (nutzt window.gsMapFinds) ───────
+async function gsOpenMyFinds(){
+  var mc = document.getElementById('modal-content');
+  if (!mc) return;
+  mc.innerHTML =
+    '<div style="padding:18px;">' +
+      '<button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(0,0,0,.08);font-size:18px;cursor:pointer;">×</button>' +
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">' +
+        '<div style="font-size:30px;">📋</div>' +
+        '<div><div style="font-family:\'Playfair Display\',serif;font-size:20px;font-weight:900;color:#1a3d1a;">Meine Funde</div>' +
+        '<div style="font-size:12px;color:var(--muted);">Pilze, Pflanzen &amp; POIs auf der Karte</div></div>' +
+      '</div>' +
+      '<div id="gs-myfinds-list" style="color:var(--muted);font-size:13px;text-align:center;padding:18px 0;">⏳ Lade Funde…</div>' +
+    '</div>';
+  openModal('detail-modal');
+  try {
+    var finds = (window.gsMapFinds && typeof window.gsMapFinds.list === 'function') ? await window.gsMapFinds.list() : [];
+    window._gsMyFindsRows = finds || [];
+    var listEl = document.getElementById('gs-myfinds-list');
+    if (!listEl) return;
+    if (!finds || !finds.length){
+      listEl.innerHTML = '<div style="text-align:center;padding:18px 0;color:var(--muted);">Noch keine Funde gespeichert.<br>Tippe auf der Karte, um einen Fundort zu speichern. 📍</div>';
+      return;
+    }
+    listEl.style.textAlign = 'left'; listEl.style.padding = '0';
+    var catEmoji = { pilz:'🍄', pflanze:'🌿', baum:'🌲', kraut:'🌿', beere:'🫐', heil:'🌿', poi:'📍', sonstiges:'📍' };
+    listEl.innerHTML = finds.map(function(f, i){
+      var d = new Date(f.found_at || f.created_at || Date.now());
+      var emo = catEmoji[f.category] || '📍';
+      var pub = (f.is_private === false);
+      return '<div style="display:flex;align-items:center;gap:10px;padding:10px 11px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:6px;">' +
+        '<div style="font-size:22px;cursor:pointer;" onclick="_gsMyFindFocus(' + i + ')">' + emo + '</div>' +
+        '<div style="flex:1;min-width:0;cursor:pointer;" onclick="_gsMyFindFocus(' + i + ')">' +
+          '<div style="font-size:13px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(f.species_name||'Unbenannt') + '</div>' +
+          '<div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + d.toLocaleDateString('de-CH') + (f.note ? ' · ' + escHtml(String(f.note).slice(0,40)) : '') + '</div>' +
+        '</div>' +
+        '<button onclick="_gsMyFindTogglePub(' + i + ',this)" title="Community-Freigabe" style="padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:' + (pub?'#e8f5e9':'var(--surface2)') + ';font-size:14px;cursor:pointer;-webkit-tap-highlight-color:transparent;">' + (pub?'🌍':'🔒') + '</button>' +
+        '<button onclick="_gsMyFindDelete(' + i + ')" title="Löschen" style="padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:#ffebee;font-size:14px;cursor:pointer;-webkit-tap-highlight-color:transparent;">🗑️</button>' +
+      '</div>';
+    }).join('');
+  } catch(e){
+    var el = document.getElementById('gs-myfinds-list');
+    if (el) el.innerHTML = '<div style="text-align:center;padding:18px 0;color:var(--muted);">Fehler beim Laden 😕</div>';
+  }
+}
+window.gsOpenMyFinds = gsOpenMyFinds;
+
+function _gsMyFindFocus(i){
+  var f = (window._gsMyFindsRows || [])[i];
+  if (!f || f.lat == null) return;
+  closeModal('detail-modal');
+  try { if (typeof switchTab === 'function') switchTab('map'); } catch(_){}
+  try { if ((typeof gsMap === 'undefined' || !gsMap) && typeof initMap === 'function') initMap(); } catch(_){}
+  setTimeout(function(){ try { if (typeof gsMap !== 'undefined' && gsMap) gsMap.setView([f.lat, f.lng], 15); } catch(_){} }, 350);
+}
+window._gsMyFindFocus = _gsMyFindFocus;
+
+async function _gsMyFindTogglePub(i, btn){
+  var f = (window._gsMyFindsRows || [])[i];
+  if (!f) return;
+  var makePublic = (f.is_private !== false); // aktuell privat → öffentlich machen
+  if (!(window.gsMapFinds && typeof window.gsMapFinds.togglePrivacy === 'function')) return;
+  var ok = await window.gsMapFinds.togglePrivacy(f.id, makePublic);
+  if (ok){
+    f.is_private = !makePublic;
+    if (btn){ btn.textContent = makePublic ? '🌍' : '🔒'; btn.style.background = makePublic ? '#e8f5e9' : 'var(--surface2)'; }
+    if (typeof showProfileToast === 'function') showProfileToast(makePublic ? 'Für Community freigegeben 🌍' : 'Wieder privat 🔒', 'success');
+  } else if (typeof showProfileToast === 'function') { showProfileToast('Nicht gespeichert (offline?)', 'info'); }
+}
+window._gsMyFindTogglePub = _gsMyFindTogglePub;
+
+async function _gsMyFindDelete(i){
+  var f = (window._gsMyFindsRows || [])[i];
+  if (!f) return;
+  var sure = (typeof gsConfirmModal === 'function')
+    ? await gsConfirmModal('Diesen Fund löschen?', { okText:'Löschen', cancelText:'Abbrechen' })
+    : true;
+  if (!sure) return;
+  try { if (window.gsMapFinds && typeof window.gsMapFinds.delete === 'function') await window.gsMapFinds.delete(f.id); } catch(_){}
+  // Live-Marker von der Karte entfernen (best effort)
+  try {
+    if (typeof _gsMarkerLayers !== 'undefined' && typeof gsMap !== 'undefined' && gsMap){
+      for (var k = _gsMarkerLayers.length - 1; k >= 0; k--){
+        if (_gsMarkerLayers[k] && _gsMarkerLayers[k].cloud_id === f.id){
+          try { gsMap.removeLayer(_gsMarkerLayers[k].layer); } catch(_){}
+          _gsMarkerLayers.splice(k, 1);
+        }
+      }
+    }
+  } catch(_){}
+  try { if (typeof updateMapCount === 'function') updateMapCount(); } catch(_){}
+  if (typeof showProfileToast === 'function') showProfileToast('Fund gelöscht', 'success');
+  gsOpenMyFinds(); // Liste neu laden
+}
+window._gsMyFindDelete = _gsMyFindDelete;
 
 function gsGetSavedMarkers() {
   try { return JSON.parse(localStorage.getItem('greenscan_markers')) || []; }
@@ -51196,6 +51540,26 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.75', date: '01.06.2026',
+    headline: '💬 Marktplatz-Chat live + 📋 Meine Funde + 🏆 Quiz-Rangliste auf Home',
+    summary: 'Frontend-Vervollständigung der v26.70–v26.72-Backends: (1) Marktplatz-Chat ist jetzt ECHT — Nachrichten zwischen Käufer & Verkäufer werden in der Cloud gespeichert (marketplace_messages), gepollt und als gelesen markiert. Neuer 📨-Posteingang im Marktplatz-Header für alle Konversationen. (2) "📋 Meine Funde"-Liste im Karten-Header: alle gespeicherten Fundorte mit Karten-Fokus, Community-Freigabe-Toggle und Löschen. (3) Quiz-Rangliste-Karte auf der Home mit Live-Top-3-Vorschau.',
+    user_summary: '💬 Der Marktplatz-Chat funktioniert jetzt richtig: Schreib Verkäufern direkt in der App — deine Nachrichten bleiben gespeichert und der/die andere sieht sie auf jedem Gerät. Oben im Marktplatz findest du den neuen 📨-Posteingang. Auf der Karte zeigt dir "📋 Meine Funde" alle deine gespeicherten Fundorte. Und auf der Startseite siehst du jetzt die Quiz-Rangliste der besten Naturkenner.',
+    user_items: [
+      { emoji: '💬', text: 'Echter Marktplatz-Chat mit Verkäufern (Cloud, geräteübergreifend)' },
+      { emoji: '📨', text: 'Nachrichten-Posteingang für alle deine Marktplatz-Chats' },
+      { emoji: '📋', text: '"Meine Funde": Fundorte ansehen, freigeben, löschen' },
+      { emoji: '🏆', text: 'Quiz-Rangliste-Karte auf der Startseite mit Top-3-Vorschau' },
+    ],
+    items: [
+      {emoji:'💬', bold:'Marktplatz-Chat backend-verdrahtet:', text:' openMarketChat erkennt eingeloggte User + Cloud-Listing (uuid) + Seller-UID → echter Thread via marketplace_messages (buyer_id/seller_id/sender_id). Käufer öffnet Thread direkt; Verkäufer landet in der gefilterten Konversations-Inbox. _gsChatLoadMessages pollt alle 5s (nur bei offenem Modal, kein Flackern via lastCount-Diff). _gsChatSendBackend POSTet (return=minimal), _gsChatMarkRead ruft fn_mkt_chat_mark_read. Demo-Fallback bleibt für Gast/Demo-Listings.'},
+      {emoji:'📨', bold:'Konversations-Inbox:', text:' gsOpenConversations liest v_marketplace_conversations (security_invoker → nur eigene Chats), zeigt Käufer/Verkäufer-Rolle + Unread-Badge + letzte Nachricht. _gsConvOpen springt in den jeweiligen Thread. 📨-Button im Marktplatz-Header.'},
+      {emoji:'📋', bold:'Meine-Funde-Screen:', text:' gsOpenMyFinds nutzt window.gsMapFinds.list() (Cloud bevorzugt, LS-Fallback). Pro Eintrag: Karten-Fokus (_gsMyFindFocus → switchTab map + setView z15), Community-Toggle (togglePrivacy 🌍/🔒), Löschen (gsConfirmModal → gsMapFinds.delete + Live-Marker-Removal aus _gsMarkerLayers + updateMapCount). 📋-Button im Karten-Header.'},
+      {emoji:'🏆', bold:'Home-Card Quiz-Rangliste:', text:' Statische Karte im Home-Content (öffnet gsOpenQuizLeaderboard). gsHomeFillLeaderboard lädt lazy Top-3 via dqLoadLeaderboardTop(3) (granted für anon) — Medaillen + Name + Correct-Count. Idempotent via _gsFilled, getriggert ~1.5s nach window.load.'},
+      {emoji:'🔌', bold:'Kein neues Backend nötig:', text:' Alle Tabellen/Views/RPCs aus v26.70–v26.72 bereits LIVE (marketplace_messages, v_marketplace_conversations, fn_mkt_chat_mark_read, map_user_finds, quiz_leaderboard, fn_quiz_leaderboard_top). Reine Frontend-Verdrahtung.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 inline-scripts node --check OK · GS_VERSION=v26.75 · sw.js gs-v26.75 · _headers v26.75 · meta=26.75.20260601.'},
+    ]
+  },
+  {
     v: 'v26.74', date: '01.06.2026',
     headline: '🌅 KI-Plan 3D mit Sonnen-Slider + Schatten + 4K-Foto-Export (Master #3 Subset)',
     summary: 'Master-Auftrag #3 angefangen mit den 3 wichtigsten Improvements: (1) Sonnen-Slider 4-20h mit Halbkreis-Bogen, Goldene-Stunde-Tönung morgens+abends, dynamische Schatten. (2) Three.js shadowMap PCFSoft mit 1024² Resolution. (3) 4K-Photo-Export (3840×2160 PNG-Download) als Standalone-Button. Mini-Map + Companion-Konflikt-Glow + GLB-Modelle für späteren Sprint.',
@@ -53655,7 +54019,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.74';
+var GS_VERSION = 'v26.75';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
