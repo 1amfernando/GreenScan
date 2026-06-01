@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.69.20260601">
+<meta name="app-version" content="26.70.20260601">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3110,6 +3110,16 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
           </label>
         </div>
       </div>
+      <!-- v26.70 Marketplace Tutti-Style: Online-Payment OPTIONAL -->
+      <div class="mp-field" style="margin-top:14px;padding:12px;background:#f7faf3;border:1px solid #c8e6c9;border-radius:10px;">
+        <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;">
+          <input type="checkbox" id="listing-online-pay" style="accent-color:#1565c0;width:17px;height:17px;margin-top:2px;flex-shrink:0;">
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:700;color:var(--g-dark);">💳 Online-Bezahlung anbieten <span style="color:var(--muted);font-weight:500;">(optional)</span></div>
+            <div style="font-size:11.5px;color:var(--muted);line-height:1.45;margin-top:3px;">Käufer kann in der App via Stripe bezahlen. Erfordert einmaliges Verbinden mit Stripe-Connect. Ohne diese Option funktioniert der Verkauf wie bei Tutti — direkter Kontakt, private Bezahlung (TWINT/Cash/etc).</div>
+          </div>
+        </label>
+      </div>
       <button class="mp-save-btn" onclick="submitListing()" style="background:linear-gradient(135deg,var(--g-main),#1b5e20);font-size:15px;">🏷️ Inserat veröffentlichen</button>
       <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.5;">GreenScan übernimmt keine Haftung für Transaktionen. Bitte persönlich übergeben oder sicheren Versand nutzen.</div>
     </div>
@@ -4768,13 +4778,13 @@ html, body{ scroll-behavior: smooth; }
         </div>
         <div style="font-size:18px;color:#c62828;">×</div>
       </div>
-      <!-- v26.6 Marketplace-Connect: Verkaeufer-Konto via Stripe-Express.
-           Status dynamisch in initSettingsScreen() via gsMarketplaceLoadStatus(). -->
+      <!-- v26.70 Marketplace Tutti-Style: Inserate gehen ohne Stripe-Connect.
+           Online-Payment ist optional. Settings-Row jetzt umformuliert (kein Zwang). -->
       <div class="settings-row" id="gs-marketplace-seller-row" onclick="gsMarketplaceOpenSellerScreen()" style="cursor:pointer;">
         <div class="settings-icon" style="background:#e8f5e9;">🏪</div>
         <div class="settings-label">
-          <div class="settings-label-title" id="gs-marketplace-seller-title" data-i18n="settings_seller_connect" data-i18n-fallback="Verkäufer-Konto verbinden">Verkäufer-Konto verbinden</div>
-          <div class="settings-label-sub" id="gs-marketplace-seller-sub" data-i18n="settings_seller_connect_hint" data-i18n-fallback="Eigene Pflanzen, Samen oder Werkzeug verkaufen — Bezahlung über Stripe">Eigene Pflanzen, Samen oder Werkzeug verkaufen — Bezahlung über Stripe</div>
+          <div class="settings-label-title" id="gs-marketplace-seller-title" data-i18n="settings_seller_connect" data-i18n-fallback="Online-Bezahlung aktivieren · Optional">Online-Bezahlung aktivieren · Optional</div>
+          <div class="settings-label-sub" id="gs-marketplace-seller-sub" data-i18n="settings_seller_connect_hint" data-i18n-fallback="Damit Käufer in der App bezahlen können. Sonst funktioniert der Verkauf wie bei Tutti — direkter Kontakt + private Klärung.">Damit Käufer in der App bezahlen können. Sonst funktioniert der Verkauf wie bei Tutti — direkter Kontakt + private Klärung.</div>
         </div>
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
@@ -11528,6 +11538,9 @@ async function loadMarketFromSupabase() {
           organic_certified: !!dbRow.organic_certified,
           pesticide_free: !!dbRow.pesticide_free,
           certification_label: dbRow.certification_label || '',
+          // v26.70: Marketplace Tutti-Style
+          allow_online_payment: !!dbRow.allow_online_payment,
+          contact_method: dbRow.contact_method || 'chat',
           createdAt: dbRow.created_at ? new Date(dbRow.created_at).getTime() : Date.now(),
           updatedAt: dbRow.updated_at ? new Date(dbRow.updated_at).getTime() : Date.now(),
           status: dbRow.status || 'active',
@@ -28514,12 +28527,20 @@ function openListingDetail(lid) {
       '<button class="market-btn-wish" onclick="openMarketChat(\'' + l.id + '\')" style="background:#e3f2fd;">💬</button>' +
       '</div>';
   } else if (l.type === 'buynow') {
+    // v26.70 Tutti-Style: Online-Payment optional — wenn nicht aktiviert, Contact-Button statt Kaufen
+    var canPayOnline = l.allow_online_payment === true;
+    var primaryBtn = canPayOnline
+      ? '<button class="market-btn-buy" onclick="buyNow(\'' + l.id + '\')">💳 Jetzt kaufen</button>'
+      : '<button class="market-btn-buy" onclick="contactSeller(\'' + l.id + '\')" style="background:linear-gradient(135deg,#1565c0,#0d47a1);color:#fff;">💬 Kontakt aufnehmen</button>';
+    var tuttiHint = canPayOnline ? '' : '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;padding:7px 10px;background:#f9fafb;border-radius:8px;line-height:1.4;">💡 Tutti-Style: Verkäufer akzeptiert nur direkte Kontaktaufnahme. Bezahlung privat (TWINT/Bargeld) und Übergabe nach Absprache.</div>';
     priceSection =
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;background:#e8f5e9;border-radius:12px;padding:12px 14px;">' +
         '<div><div style="font-size:11px;color:var(--g-main);font-weight:700;">Preis</div><div style="font-size:26px;font-weight:800;color:var(--g-dark);font-family:\'Playfair Display\',serif;">CHF ' + (l.price||0).toFixed(2) + '</div></div>' +
+        (canPayOnline ? '<div style="background:#fff;border:1px solid #c8e6c9;color:#1b5e20;padding:4px 9px;border-radius:7px;font-size:11px;font-weight:700;">💳 Online-Zahlung</div>' : '<div style="background:#fff;border:1px solid #b0bec5;color:#37474f;padding:4px 9px;border-radius:7px;font-size:11px;font-weight:700;">🤝 Privat</div>') +
       '</div>' +
+      tuttiHint +
       '<div style="display:flex;gap:8px;margin-bottom:12px;">' +
-        '<button class="market-btn-buy" onclick="buyNow(\'' + l.id + '\')">💳 Jetzt kaufen</button>' +
+        primaryBtn +
         '<button class="market-btn-wish" onclick="wishlistToggle(\'' + l.id + '\')">❤️</button>' +
       '<button class="market-btn-wish" onclick="openMarketChat(\'' + l.id + '\')" style="background:#e3f2fd;">💬</button>' +
       '</div>';
@@ -29006,6 +29027,11 @@ function submitListing() {
   if (organicCertified) tags.push('Bio');
   if (pesticideFree) tags.push('Pestizid-frei');
 
+  // v26.70 Marketplace Tutti-Style: Online-Payment optional
+  var allowOnlinePay = !!document.getElementById('listing-online-pay')?.checked;
+  // Contact-Method derzeit immer 'chat' (Default). Künftig kann der User wählen.
+  var contactMethod = 'chat';
+
   const newListing = {
     id: 'l_' + Date.now(),
     type: currentListingType,
@@ -29023,6 +29049,9 @@ function submitListing() {
     organic_certified: organicCertified,
     pesticide_free: pesticideFree,
     certification_label: certificationLabel,
+    // v26.70: Marketplace Tutti-Style
+    allow_online_payment: allowOnlinePay,
+    contact_method: contactMethod,
     likes: 0, liked: false,
     status: 'active',
     created: Date.now(),
@@ -50769,6 +50798,29 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.70', date: '01.06.2026',
+    headline: '🏪 Marketplace Tutti-Style — Verkaufen ohne Stripe-Zwang (Master #5)',
+    summary: 'Master-Auftrag #5: Inserate erstellen jetzt OHNE Pflicht-Stripe-Connect. Online-Bezahlung ist OPTIONAL. Default ist Tutti-Style: Kontakt-Button + private Klärung (TWINT/Cash/etc). Migration v26_70 fügt allow_online_payment + contact_method zu marketplace_listings, plus neue marketplace_messages-Tabelle für In-App-Chat mit RLS. Settings-Eintrag umformuliert. Listing-Form mit Online-Pay-Checkbox. Buy-Button vs Contact-Button basierend auf Listing-Flag.',
+    user_summary: '🏪 Du kannst jetzt im Marktplatz verkaufen OHNE dich mit Stripe verbinden zu müssen — wie bei Tutti. Default ist: Käufer kontaktiert dich, ihr klärt Übergabe + Bezahlung privat (TWINT/Cash). Wenn du willst, kannst du optional Online-Bezahlung über Stripe aktivieren (Plus-Feature) damit Käufer direkt in der App zahlen.',
+    user_items: [
+      { emoji: '🤝', text: 'Default: Tutti-Style — Käufer kontaktiert, private Bezahlung (TWINT/Cash)' },
+      { emoji: '💳', text: 'Optional: Online-Bezahlung via Stripe (für wer will, mit Connect-Setup)' },
+      { emoji: '💬', text: 'Neuer In-App-Chat zwischen Käufer und Verkäufer' },
+      { emoji: '🏷', text: 'Cards zeigen Badge: "💳 Online-Zahlung" oder "🤝 Privat"' },
+    ],
+    items: [
+      {emoji:'🗄️', bold:'Migration v26_70_marketplace_tutti_style LIVE:', text:' ALTER TABLE marketplace_listings ADD allow_online_payment bool default false + contact_method text default \'chat\'. Plus partial Index für allow_online_payment=true.'},
+      {emoji:'💬', bold:'Neue Tabelle marketplace_messages:', text:' In-App-Chat zwischen Buyer und Seller. Spalten: listing_id, buyer_id, seller_id, sender_id, message (max 2000 chars), read_at, created_at. 4 Indexes (listing+time, buyer, seller, unread). RLS: User sieht nur Chats wo er Buyer ODER Seller ist. INSERT nur sender_id=own_uid. Update/Delete eingeschränkt.'},
+      {emoji:'🔍', bold:'View v_marketplace_conversations:', text:' security_invoker=true. Gruppiert Messages pro listing+buyer mit last_message_at + unread_count. Frontend kann damit Inbox-Liste rendern.'},
+      {emoji:'🔁', bold:'RPC fn_mkt_chat_mark_read:', text:' Setzt read_at für alle eingehenden (sender<>own) ungelesenen Messages eines Listing+Buyer-Pair. SECURITY INVOKER, GRANT zu authenticated.'},
+      {emoji:'⚙️', bold:'Settings-Row umformuliert:', text:' "Verkäufer-Konto verbinden — Bezahlung über Stripe" → "💳 Online-Bezahlung aktivieren · Optional — Damit Käufer in der App bezahlen können. Sonst funktioniert der Verkauf wie bei Tutti — direkter Kontakt + private Klärung."'},
+      {emoji:'☑️', bold:'Listing-Form Checkbox:', text:' Neuer hellgrüner Block "💳 Online-Bezahlung anbieten (optional)" nach Bio/Pestizid-Block. submitListing speichert allow_online_payment + contact_method (=\'chat\').'},
+      {emoji:'🎨', bold:'openListingDetail buynow-Pfad:', text:' Bei !allow_online_payment → primärer Button wird "💬 Kontakt aufnehmen" (blauer Gradient) statt "💳 Jetzt kaufen". Plus Tutti-Hint-Box mit "Bezahlung privat (TWINT/Bargeld)" + Badge im Preis-Block (💳 Online-Zahlung vs 🤝 Privat).'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.71 = Master #10 Karten-Fund-Speicher (map_user_finds + Storage-Bucket).'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 inline-scripts node --check OK · GS_VERSION=v26.70 · sw.js gs-v26.70 · _headers v26.70 · meta=26.70.20260601 · Migration LIVE.'},
+    ]
+  },
+  {
     v: 'v26.69', date: '01.06.2026',
     headline: '💾 Universal-Save Audit — Settings-Toggles syncen jetzt WIRKLICH (Silent-Bug seit v23.78 gefixt)',
     summary: 'Master-Auftrag Punkt #8 abgearbeitet. Großer Silent-Bug entdeckt: savePref() rief gsPrefsPush — definiert war aber nur gsPrefsPushNow. typeof-Guard schluckte das silent → 25+ Settings-Toggles wurden NIE in user_preferences gespiegelt seit v23.78 (homeWeather, showMoon, pestTips, safetyWarnings, marketNotif, socialNotif, harvestNotif, waterNotif, weatherNotif). Plus Migration v26_69 für prefs jsonb-Spalte (vorher fehlte Schema-Support für arbitrary Toggles). gsPrefsPull merged prefs zurück in userPrefs. Neue Konstante GS_KEEP_ON_LOGOUT als explizite Whitelist-Doku.',
@@ -53120,7 +53172,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.69';
+var GS_VERSION = 'v26.70';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
