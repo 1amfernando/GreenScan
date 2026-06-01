@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.65.20260530">
+<meta name="app-version" content="26.68.20260601">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4760,7 +4760,7 @@ html, body{ scroll-behavior: smooth; }
            gesetzt ist (kann von alten Sessions/Tests stammen, evtl. ungueltig).
            gsRemovePersonalKey() loescht den Eintrag damit Scanner auf den
            globalen Key fallen kann. JS toggled die Sichtbarkeit nach Click. -->
-      <div class="settings-row" id="settings-personal-key-row" style="display:none;cursor:pointer;" onclick="gsRemovePersonalKey()">
+      <div class="settings-row admin-only-row" id="settings-personal-key-row" style="display:none;cursor:pointer;" onclick="gsRemovePersonalKey()">
         <div class="settings-icon" style="background:#ffebee;">🗑️</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_remove_personal_key" data-i18n-fallback="Persönlichen API-Key entfernen">Persönlichen API-Key entfernen</div>
@@ -19669,7 +19669,12 @@ function gsSaveConfirmedScan(r) {
 
   // Lokale bestätigte Arten
   var KEY = 'gs_confirmed_species';
-  var confirmed = JSON.parse(localStorage.getItem(KEY) || '[]');
+  // v26.66: Defensive Guards — alte Backups konnten {} statt [] eingeschleust haben.
+  var confirmed = [];
+  try {
+    var _raw = JSON.parse(localStorage.getItem(KEY) || '[]');
+    confirmed = Array.isArray(_raw) ? _raw : [];
+  } catch(_) { confirmed = []; }
 
   // Bereits gespeichert?
   if (confirmed.find(function(s){ return s.name === r.name; })) return;
@@ -19720,7 +19725,12 @@ function gsSaveConfirmedScan(r) {
 // Bestätigte Scans anzeigen (Infokarten aus Scanner)
 function gsShowConfirmedScans() {
   var KEY = 'gs_confirmed_species';
-  var confirmed = JSON.parse(localStorage.getItem(KEY) || '[]');
+  // v26.66: Defensive Guards (siehe Hinweis bei addToConfirmed).
+  var confirmed = [];
+  try {
+    var _raw = JSON.parse(localStorage.getItem(KEY) || '[]');
+    confirmed = Array.isArray(_raw) ? _raw : [];
+  } catch(_) { confirmed = []; }
   if (!confirmed.length) {
     showProfileToast('Noch keine 95%+ Scans gespeichert.');
     return;
@@ -47085,9 +47095,52 @@ async function gsVoiceProcess(transcript) {
 // ═════════════════════════════════════════════════════════════════════
 
 // v24.00: Modal "Meine Pläne" — alle gespeicherten Pläne ansehen / wieder öffnen / löschen
-function gsPPopenSavedPlans() {
+async function gsPPopenSavedPlans() {
+  // v26.68: Bug-Fix Cross-Device-Sync. Save schreibt in LS + user_gardens.data.plans + garden_plans.
+  // Read aber holte nur aus LS → Pläne nach Login auf 2. Gerät unsichtbar.
+  // Neuer Flow: Cloud-Pull MERGEt mit LS, deduped per p.id, LS wird aktualisiert.
   var saved = [];
   try { saved = JSON.parse(localStorage.getItem('gs_garden_plans') || '[]'); } catch(_){}
+  if (!Array.isArray(saved)) saved = [];
+
+  // Cloud-Merge wenn eingeloggt
+  try {
+    if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof sbFetch === 'function') {
+      var uid = gsStore.get('gs_sb_uid', null);
+      if (uid) {
+        // (a) user_gardens.data.plans[] — Hauptspeicher von gsPPsavePlan
+        var ug = await sbFetch('/rest/v1/user_gardens?user_id=eq.' + uid + '&select=data&limit=1', {method:'GET'});
+        var ugRows = (ug && ug.data && Array.isArray(ug.data)) ? ug.data : [];
+        var ugPlans = (ugRows[0] && ugRows[0].data && Array.isArray(ugRows[0].data.plans)) ? ugRows[0].data.plans : [];
+        // (b) garden_plans Tabelle — von Balcony/Forest-Adopt-Pfaden
+        var gp = await sbFetch('/rest/v1/garden_plans?user_id=eq.' + uid + '&select=id,title,plan_json,created_at,plan_intent&order=created_at.desc&limit=30', {method:'GET'});
+        var gpRows = (gp && gp.data && Array.isArray(gp.data)) ? gp.data : [];
+        var gpMapped = gpRows.map(function(r){
+          return {
+            id: 'gp_' + r.id,
+            created: r.created_at,
+            title: r.title || ('Plan vom ' + new Date(r.created_at).toLocaleDateString('de-CH')),
+            plan: r.plan_json || {},
+            source: 'garden_plans',
+            _origId: r.id
+          };
+        });
+        // Merge: union per id, Cloud gewinnt bei Konflikt (Cross-Device-Truth)
+        var byId = {};
+        ugPlans.forEach(function(p){ if (p && p.id) byId[p.id] = p; });
+        gpMapped.forEach(function(p){ if (p && p.id) byId[p.id] = p; });
+        saved.forEach(function(p){ if (p && p.id && !byId[p.id]) byId[p.id] = p; });
+        var merged = Object.values(byId).sort(function(a,b){
+          return new Date(b.created || 0) - new Date(a.created || 0);
+        });
+        saved = merged;
+        // LS-Cache aktualisieren (Cap 30)
+        try {
+          localStorage.setItem('gs_garden_plans', JSON.stringify(saved.slice(0, 30)));
+        } catch(_){}
+      }
+    }
+  } catch(e) { console.warn('[gsPPopenSavedPlans] cloud-merge:', e); }
 
   var existing = document.getElementById('modal-saved-plans');
   if (existing) existing.remove();
@@ -47138,10 +47191,15 @@ function gsPPopenSavedPlans() {
   document.body.appendChild(m);
 }
 function gsPPloadSavedPlan(id) {
+  // v26.68: LS hat nach gsPPopenSavedPlans die merged Liste (LS+Cloud), also auch gp_-prefixed IDs.
   var saved = [];
   try { saved = JSON.parse(localStorage.getItem('gs_garden_plans') || '[]'); } catch(_){}
+  if (!Array.isArray(saved)) saved = [];
   var p = saved.find(function(x){ return x.id === id; });
-  if (!p || !p.plan) return;
+  if (!p || !p.plan) {
+    if (typeof showProfileToast === 'function') showProfileToast({title:'⚠️ Plan nicht gefunden', body:'Bitte „Meine Pläne" neu öffnen.', kind:'warn'});
+    return;
+  }
   _gsPP.plan = p.plan;
   if (p.data) window._gsPP.data = p.data;
   document.getElementById('modal-saved-plans') && document.getElementById('modal-saved-plans').remove();
@@ -47157,14 +47215,52 @@ function gsPPloadSavedPlan(id) {
     if (actions) actions.classList.remove('hidden');
   }, 200);
 }
-function gsPPdeletePlan(id) {
-  if (!confirm('Plan wirklich löschen?')) return;
+async function gsPPdeletePlan(id) {
+  // v26.68: bare confirm() → gsConfirmModal + Cloud-Delete (sonst kommt Plan beim nächsten Open zurück)
+  var ok = false;
+  try {
+    if (typeof gsConfirmModal === 'function') {
+      ok = await gsConfirmModal({
+        title: 'Plan löschen?',
+        message: 'Der Plan wird auf allen deinen Geräten entfernt. Kann nicht rückgängig gemacht werden.',
+        ok: '🗑 Löschen', cancel: 'Abbrechen', kind: 'danger'
+      });
+    } else { ok = confirm('Plan wirklich löschen?'); }
+  } catch(_){}
+  if (!ok) return;
+  // LS
   try {
     var saved = JSON.parse(localStorage.getItem('gs_garden_plans') || '[]');
     saved = saved.filter(function(x){ return x.id !== id; });
     localStorage.setItem('gs_garden_plans', JSON.stringify(saved));
-    gsPPopenSavedPlans(); // re-render
   } catch(_){}
+  // Cloud (user_gardens.data.plans + garden_plans falls source='garden_plans')
+  try {
+    if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof sbFetch === 'function') {
+      var uid = gsStore.get('gs_sb_uid', null);
+      if (uid) {
+        // (a) garden_plans Tabelle: nur wenn id mit 'gp_' prefixed
+        if (typeof id === 'string' && id.indexOf('gp_') === 0) {
+          var realId = id.slice(3);
+          await sbFetch('/rest/v1/garden_plans?id=eq.' + encodeURIComponent(realId) + '&user_id=eq.' + uid, {method:'DELETE'});
+        }
+        // (b) user_gardens.data.plans Array — Re-Pull, Filter, Re-Post
+        var ug = await sbFetch('/rest/v1/user_gardens?user_id=eq.' + uid + '&select=data&limit=1', {method:'GET'});
+        var ugRows = (ug && ug.data && Array.isArray(ug.data)) ? ug.data : [];
+        if (ugRows[0] && ugRows[0].data && Array.isArray(ugRows[0].data.plans)) {
+          var data = ugRows[0].data;
+          data.plans = data.plans.filter(function(p){ return p.id !== id; });
+          await sbFetch('/rest/v1/user_gardens', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
+            body: JSON.stringify({user_id: uid, data: data, updated_at: new Date().toISOString()})
+          });
+        }
+      }
+    }
+  } catch(e) { console.warn('[gsPPdeletePlan] cloud-delete:', e); }
+  if (typeof showProfileToast === 'function') showProfileToast('🗑 Plan gelöscht');
+  gsPPopenSavedPlans(); // re-render
 }
 
 // v23.98: PDF-Export mit Web Share API (Mobile-first) → a.click → Print-Modal Fallback
@@ -53003,7 +53099,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.65';
+var GS_VERSION = 'v26.68';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -53602,6 +53698,22 @@ async function gsHandleAuthRedirect(){
         }
       } catch(_){}
     }, 5000);
+    // v26.66: Boot-Repair für gs_confirmed_species — alte {} -Backups → []
+    // damit confirmed.find/forEach nie mehr "is not a function" crashen.
+    try {
+      var _csKey = 'gs_confirmed_species';
+      var _raw = localStorage.getItem(_csKey);
+      if (_raw) {
+        var _val = null;
+        try { _val = JSON.parse(_raw); } catch(_) { _val = null; }
+        if (_val !== null && !Array.isArray(_val)) {
+          // Konvertiere Object-Values zu Array wenn möglich (best-effort)
+          var _arr = (typeof _val === 'object') ? Object.values(_val).filter(function(v){ return v && typeof v === 'object'; }) : [];
+          localStorage.setItem(_csKey, JSON.stringify(_arr));
+          console.warn('[v26.66] gs_confirmed_species war ' + (typeof _val) + ' — auf Array repariert (' + _arr.length + ' Einträge)');
+        }
+      }
+    } catch(_){}
     // v26.62: Garden-Score täglich loggen (1× pro Tag dedup'd via LS-Flag)
     setTimeout(function(){
       try {
@@ -57844,7 +57956,9 @@ async function gsSyncUserDataOnLogin(){
             'gs_dq_archive': sd.dq_archive, 'gs_dq_stats': sd.dq_stats, 'gs_quiz_streak': sd.quiz_streak,
             'gs_recipe_favs': sd.recipe_favs, 'gs_recent_searches': sd.recent_searches,
             'ps_favs': sd.favs, 'ps_votes': sd.votes,
-            'gs_confirmed_species': sd.confirmed_species,
+            // v26.66 BUG-FIX: alte Backups (vor v26.66) konnten {} statt [] enthalten.
+            // → forcen auf Array damit confirmed.find() im Scan-Code nicht crashed.
+            'gs_confirmed_species': Array.isArray(sd.confirmed_species) ? sd.confirmed_species : [],
             'gs_achievements': sd.achievements,
             // v26.51: Mein-Garten Merklisten/Prefs
             'gs_sae_merkliste': sd.sae_merkliste
@@ -58103,7 +58217,12 @@ window.gsCloudSync = (function(){
     // Pflanzen-Interaktionen
     try { data.favs = JSON.parse(localStorage.getItem('ps_favs')||'[]'); } catch(_){}
     try { data.votes = JSON.parse(localStorage.getItem('ps_votes')||'{}'); } catch(_){}
-    try { data.confirmed_species = JSON.parse(localStorage.getItem('gs_confirmed_species')||'{}'); } catch(_){}
+    // v26.66 BUG-FIX: '{}' war falscher Fallback (Object-Schema), gs_confirmed_species ist ein Array.
+    // Brach Scans mit "confirmed.find is not a function" wenn LS leer + Cloud-Pull lieferte {}.
+    try {
+      var _cs = JSON.parse(localStorage.getItem('gs_confirmed_species')||'[]');
+      data.confirmed_species = Array.isArray(_cs) ? _cs : [];
+    } catch(_){ data.confirmed_species = []; }
     // UI-Prefs
     var ui = {};
     try { ui.dark = localStorage.getItem('gs_dark'); } catch(_){}
