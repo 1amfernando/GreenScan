@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.73.20260601">
+<meta name="app-version" content="26.74.20260601">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -45610,23 +45610,36 @@ function gsRenderGardenScan3D(container, analysis) {
   scene.fog = new THREE.Fog(0xb8d4e8, 8, 30);
 
   var camera = new THREE.PerspectiveCamera(55, w / h, 0.1, 100);
-  var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+  // v26.74: preserveDrawingBuffer für Photo-Export, Shadow-Map für Sonnen-Schatten
+  var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(w, h);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   container.appendChild(renderer.domElement);
 
-  // Lichter
-  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+  // Lichter — Ambient + DirectionalSun + Hemisphere
+  var ambient = new THREE.AmbientLight(0xffffff, 0.55);
+  scene.add(ambient);
   var sun = new THREE.DirectionalLight(0xffffff, 0.85);
   sun.position.set(W * 0.6, 6, D * 0.4);
+  sun.castShadow = true;
+  sun.shadow.mapSize.width = 1024;
+  sun.shadow.mapSize.height = 1024;
+  var shadowR = Math.max(W, D) * 1.2;
+  sun.shadow.camera.left = -shadowR; sun.shadow.camera.right = shadowR;
+  sun.shadow.camera.top = shadowR; sun.shadow.camera.bottom = -shadowR;
+  sun.shadow.camera.near = 0.5; sun.shadow.camera.far = 30;
   scene.add(sun);
-  scene.add(new THREE.HemisphereLight(0xa0c0e8, 0x4a6a3a, 0.4));
+  var hemi = new THREE.HemisphereLight(0xa0c0e8, 0x4a6a3a, 0.4);
+  scene.add(hemi);
 
-  // Boden = Plane (braune Erde)
+  // Boden = Plane (braune Erde) — empfängt Schatten
   var groundGeo = new THREE.PlaneGeometry(W, D);
   var groundMat = new THREE.MeshLambertMaterial({ color: 0x6d4c2c });
   var ground = new THREE.Mesh(groundGeo, groundMat);
   ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
   scene.add(ground);
 
   // Grid-Helper (1m-Raster)
@@ -45675,6 +45688,8 @@ function gsRenderGardenScan3D(container, analysis) {
     var mesh = new THREE.Mesh(geo, mat);
     // Position: 0,0 = Mitte des Gartens, daher px-W/2, py-D/2 (Y=Höhe)
     mesh.position.set(px - W / 2, height / 2, py - D / 2);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
     scene.add(mesh);
 
     // Optional: Sphere on top (Frucht/Blüte) für Beeren/Obst
@@ -45684,6 +45699,7 @@ function gsRenderGardenScan3D(container, analysis) {
       var sphereMat = new THREE.MeshLambertMaterial({ color: cColor(pl.category) });
       var sphere = new THREE.Mesh(sphereGeo, sphereMat);
       sphere.position.set(px - W / 2, height + radius * 0.5, py - D / 2);
+      sphere.castShadow = true;
       scene.add(sphere);
     }
   });
@@ -45748,7 +45764,70 @@ function gsRenderGardenScan3D(container, analysis) {
   window.addEventListener('touchend', onUp);
   renderer.domElement.addEventListener('wheel', onWheel, { passive: false });
 
-  // Cleanup-Handle
+  // v26.74: Sonnen-Position aus Tageszeit-Hour (4-20) berechnen — Tag-Bogen über X→Z
+  function setSunHour(hour) {
+    hour = Math.max(4, Math.min(20, hour || 12));
+    // Normalisiert 4-20h → 0..1 → 0..PI (Halbkreis-Bogen)
+    var t = (hour - 4) / 16;
+    var arc = Math.PI * t;             // 0 = Sonnenaufgang Ost, PI = Untergang West
+    var height = Math.sin(arc);        // 0..1..0
+    var R = Math.max(W, D) * 1.5;
+    sun.position.set(Math.cos(arc) * R, Math.max(1.5, height * R * 0.9), Math.sin(arc) * R * 0.6 - D/4);
+    // Intensität + Farbe: mittags weiß-hell, früh/spät orange-rot
+    var intensity = 0.35 + height * 0.85;
+    sun.intensity = intensity;
+    // Goldenes Licht morgens (4-8h) + abends (17-20h)
+    var goldFactor = (hour < 8) ? (1 - (hour-4)/4) : (hour > 16 ? (hour-16)/4 : 0);
+    var r = 1.0;
+    var g = 1.0 - goldFactor * 0.25;
+    var b = 1.0 - goldFactor * 0.55;
+    sun.color.setRGB(r, g, b);
+    // Ambient nachts dunkler
+    ambient.intensity = 0.25 + height * 0.55;
+    // Sky-Background-Tönung
+    var skyR = 0.72 - goldFactor * 0.18;
+    var skyG = 0.83 - goldFactor * 0.20;
+    var skyB = 0.91 - goldFactor * 0.10;
+    if (scene.background && scene.background.setRGB) scene.background.setRGB(skyR, skyG, skyB);
+    if (scene.fog) scene.fog.color.setRGB(skyR, skyG, skyB);
+  }
+  // Initial 12:00
+  setSunHour(12);
+
+  // v26.74: Photo-Export 4K — temporärer Render mit 3840×2160 + PNG-Download
+  function exportPhoto() {
+    try {
+      var oldW = renderer.domElement.width;
+      var oldH = renderer.domElement.height;
+      var oldPR = renderer.getPixelRatio();
+      var TARGET_W = 3840;
+      var TARGET_H = 2160;
+      renderer.setPixelRatio(1);
+      renderer.setSize(TARGET_W, TARGET_H, false);
+      var aspect = TARGET_W / TARGET_H;
+      var oldAspect = camera.aspect;
+      camera.aspect = aspect;
+      camera.updateProjectionMatrix();
+      renderer.render(scene, camera);
+      var dataUrl = renderer.domElement.toDataURL('image/png');
+      // Restore
+      camera.aspect = oldAspect;
+      camera.updateProjectionMatrix();
+      renderer.setPixelRatio(oldPR);
+      renderer.setSize(w, h, false);
+      // Trigger Download
+      var a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = 'greenscan-plan-' + new Date().toISOString().slice(0,10) + '.png';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      if (typeof gsToast === 'function') gsToast('📸 4K-Foto gespeichert', 'success');
+    } catch(e) {
+      console.warn('[3D photo]', e);
+      if (typeof gsToast === 'function') gsToast('Foto-Export fehlgeschlagen', 'error');
+    }
+  }
+
+  // Cleanup-Handle + öffentliche API
   window._gsGardenScan3DScene = {
     dispose: function() {
       running = false;
@@ -45761,9 +45840,33 @@ function gsRenderGardenScan3D(container, analysis) {
       try { renderer.domElement.removeEventListener('wheel', onWheel); } catch(_){}
       try { renderer.dispose(); } catch(_){}
       try { scene.traverse(function(o){ if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); } catch(_){}
-    }
+    },
+    setSunHour: setSunHour,
+    exportPhoto: exportPhoto
   };
 }
+
+// v26.74: Window-exposed Bridges für die HTML-Controls (Sun-Slider + Photo-Button)
+window.gs3DSetSunHour = function(hour) {
+  var lbl = document.getElementById('gs-3d-sun-label');
+  if (lbl) {
+    var h = Math.floor(hour);
+    var m = Math.round((hour - h) * 60);
+    lbl.textContent = (h<10?'0':'') + h + ':' + (m<10?'0':'') + m;
+  }
+  try {
+    if (window._gsGardenScan3DScene && typeof window._gsGardenScan3DScene.setSunHour === 'function') {
+      window._gsGardenScan3DScene.setSunHour(hour);
+    }
+  } catch(_){}
+};
+window.gs3DExportPhoto = function() {
+  try {
+    if (window._gsGardenScan3DScene && typeof window._gsGardenScan3DScene.exportPhoto === 'function') {
+      window._gsGardenScan3DScene.exportPhoto();
+    }
+  } catch(_){}
+};
 
 // v25.12 + v25.13: Result-Preview mit 2D-SVG- ODER 3D-Three.js-Render (toggleable).
 function gsBuildGardenScanResultPreview(analysis, planId) {
@@ -45779,8 +45882,14 @@ function gsBuildGardenScanResultPreview(analysis, planId) {
     // 3D-Host wird nach Render gefüllt via gsRenderGardenScan3D
     visualBlock = '<div style="background:#f1f8e9;border:1.5px solid #c5e1a5;border-radius:14px;padding:10px;margin-bottom:14px;">' +
       '<div style="font-size:11px;font-weight:700;color:#2e7d32;margin-bottom:6px;text-align:center;">🧊 3D-Plan (Drag zum Drehen, Scroll für Zoom)</div>' +
+      // v26.74: 3D-Controls — Sonnen-Slider (4-20h) + Photo-Export-Button
+      '<div id="gs-3d-controls" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:8px 11px;background:rgba(255,255,255,.6);border-radius:9px;flex-wrap:wrap;">' +
+        '<span style="font-size:11px;font-weight:700;color:#2e7d32;white-space:nowrap;">☀ <span id="gs-3d-sun-label">12:00</span></span>' +
+        '<input id="gs-3d-sun-slider" type="range" min="4" max="20" step="0.5" value="12" style="flex:1;min-width:120px;accent-color:#ffa726;" oninput="gs3DSetSunHour(parseFloat(this.value))">' +
+        '<button onclick="gs3DExportPhoto()" style="padding:5px 11px;background:#1b5e20;color:#fff;border:none;border-radius:7px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;">📸 4K-Foto</button>' +
+      '</div>' +
       '<div id="garden-scan-3d-host" style="width:100%;height:60vh;max-height:480px;border-radius:8px;background:#cfe6f5;overflow:hidden;touch-action:none;"></div>' +
-      '<div style="font-size:10px;color:var(--muted);text-align:center;margin-top:6px;">Auto-Rotation pausiert bei Interaktion · Höhe pro Pflanze aus species.mature_height_cm oder Kategorie-Default</div>' +
+      '<div style="font-size:10px;color:var(--muted);text-align:center;margin-top:6px;">Drag drehen · Scroll zoomen · Sonnen-Slider verschiebt Schatten · 📸 exportiert 4K-PNG</div>' +
     '</div>';
   } else {
     visualBlock = gsBuildGardenScanSvg(analysis);
@@ -51087,6 +51196,27 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.74', date: '01.06.2026',
+    headline: '🌅 KI-Plan 3D mit Sonnen-Slider + Schatten + 4K-Foto-Export (Master #3 Subset)',
+    summary: 'Master-Auftrag #3 angefangen mit den 3 wichtigsten Improvements: (1) Sonnen-Slider 4-20h mit Halbkreis-Bogen, Goldene-Stunde-Tönung morgens+abends, dynamische Schatten. (2) Three.js shadowMap PCFSoft mit 1024² Resolution. (3) 4K-Photo-Export (3840×2160 PNG-Download) als Standalone-Button. Mini-Map + Companion-Konflikt-Glow + GLB-Modelle für späteren Sprint.',
+    user_summary: '🌅 Der 3D-Garten-Planer ist jetzt deutlich realistischer: Schiebe den Sonnen-Slider und schau, wie Schatten wandern, Lichtfarbe morgens golden und abends rötlich wird. Mit dem 📸-Button exportierst du deinen Plan als 4K-PNG (3840×2160px) zum Drucken/Teilen.',
+    user_items: [
+      { emoji: '☀', text: 'Sonnen-Slider 04:00 → 20:00 mit Live-Schatten-Bewegung' },
+      { emoji: '🌅', text: 'Goldene Stunde morgens (4-8h) + abends (16-20h) — Light-Tönung' },
+      { emoji: '🌑', text: 'Echte Schatten dank PCFSoftShadowMap (Pflanze auf Erde)' },
+      { emoji: '📸', text: '4K-Foto-Export (3840×2160 PNG) per Button-Klick' },
+    ],
+    items: [
+      {emoji:'🌅', bold:'setSunHour(4-20):', text:' Halbkreis-Bogen: arc=π·(h-4)/16. Sonne wandert Ost→Süd→West. Intensity = 0.35 + sin(arc)·0.85. Golden-Factor: (8-h)/4 wenn h<8, (h-16)/4 wenn h>16. Lichtfarbe r=1, g=1-gold·0.25, b=1-gold·0.55. Ambient + Sky-Background tönen mit.'},
+      {emoji:'🌑', bold:'Schatten-Setup:', text:' renderer.shadowMap.enabled=true + PCFSoftShadowMap. sun.castShadow + ortho shadow.camera mit Bounds Math.max(W,D)·1.2. mapSize 1024². Plant-Mesh+Sphere castShadow=true. Ground receiveShadow=true.'},
+      {emoji:'📸', bold:'exportPhoto 4K:', text:' preserveDrawingBuffer=true im WebGLRenderer-Init. Bei Export: setSize(3840,2160,false) + pixelRatio=1 + camera.aspect update → render → toDataURL("image/png") → Anchor-Download. Danach Restore auf Bildschirm-Größe.'},
+      {emoji:'🎚️', bold:'HTML-Controls in Result-Preview:', text:' Inline-Bar über dem 3D-Host. Sun-Slider input[type=range] 4-20 step 0.5, accent-color #ffa726, Live-Label "HH:MM" updated über gs3DSetSunHour. 4K-Foto-Button rechts vom Slider.'},
+      {emoji:'🧰', bold:'Cleanup-Handle API:', text:' window._gsGardenScan3DScene = { dispose, setSunHour(h), exportPhoto() }. Bridges: window.gs3DSetSunHour / gs3DExportPhoto greifen darauf zu (HTML-onclick-safe).'},
+      {emoji:'⏭️', bold:'Master-#3 Subset 3/10 done:', text:' Sonnen-Slider + Schatten + 4K-Foto. Verschoben in v26.75+: Mini-Map (2D-Aufsicht oben rechts), Companion-Konflikt-Glow (red Halo bei inkompatiblen Pflanzen), GLB-Pflanzen-Modelle, Pfad-Tool, Beet-Editor, Wachstums-Animation (Tween), AR-Vorschau usdz, Texturen (PBR Wood/Soil).'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 inline-scripts node --check OK · GS_VERSION=v26.74 · sw.js gs-v26.74 · _headers v26.74 · meta=26.74.20260601.'},
+    ]
+  },
+  {
     v: 'v26.73', date: '01.06.2026',
     headline: '🗺 Backend-Frontend-Map + Saison-Pilze Live-Counter (Master #4 + #9)',
     summary: 'Master-Auftrag #4: vollständige Backend-Frontend-Matrix mit 122 Tables × 30 Edge-Fns. BACKEND_FRONTEND_MAP_v26.73.md im Repo. 8 Audit-Findings (5 Dead-Code-Edge-Fns, 5 legacy_*-Tables, 1 fehlendes AI-Logging). Master-#9: Saison-Pilze-Card erweitert um Live-Counter aus map_user_finds.',
@@ -53525,7 +53655,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.73';
+var GS_VERSION = 'v26.74';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
