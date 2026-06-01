@@ -1,4 +1,7 @@
 // Stripe Webhook Handler
+// v11 (2026-05-30): Deploy aus repo-clone. Code hat seit ~3 Wochen 5 neue Cases:
+//   trial_will_end → Push, charge.failed, dispute, customer.updated, payment_method.attached
+//   (war ungedeployed). Plus alle v10-Refinements unten.
 // v10 (2026-05-22): AUFTRAG_v26.17 refinements. account.application.deauthorized
 //   Handler ergänzt (User trennt Connect → status='disabled'). Status-Mapping
 //   konservativer: 'disabled' NUR wenn disabled_reason startsWith('rejected').

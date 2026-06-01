@@ -1,5 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
+   v26.65 — Settings + i18n + Backend Audit (Cowork 2026-05-30): (1) Sprachen-System: Schwiizerdütsch raus, Englisch + Spanisch rein. gsI18n.SUPPORTED=['de','en','fr','it','es'] + bundles + Toast-Cases. Sprach-Picker HTML. i18n_translations gsw-rows DELETE (297). i18n-translate Edge-Fn v2 mit en/es Lang-Map deployed. EN/ES werden lazy by first-switch via Anthropic-Bulk-Run gefüllt. (2) Settings-Audit: confirm() bei clearAllData → gsConfirmModal mit kind=danger + Free-Quota-Hint. Doppelte About-Card konsolidiert. Arten-Zahl jetzt dynamisch aus DB.length. ~25 data-i18n auf Settings-Toggles ergänzt (Garten/KI/Datenschutz/Rechtliches/Über). (3) AI-Quota-Row: Free-User sehen 'X/15 Calls heute · Y übrig', Paid sehen '∞ Unlimited'. Live-Refresh in initSettingsScreen. (4) gsRemovePersonalKey: Property-Bug behoben (body→message, okText→ok, danger→kind:'danger') + Free-Plan-Quota-Hint im Confirm. (5) Backend: stripe-webhook v11 deployed (5 neue Cases: trial_will_end Push, charge.failed Audit, dispute Alert, customer.updated email-sync, payment_method.attached Analytics — Code war 3 Wochen ungedeployed). 7/7 node --check OK.
    v26.64 — Polish (Cowork 2026-05-30): (1) 7 user-facing bare alert() → gsToast (savePlant/submitListing-3x/submitPost/submitIgPost/saveRecipe/saveManualLocation/saveGarden) — Hard-Lesson #2 (iOS-PWA-Webview-Blocker) für alle Form-Validations final geschlossen. (2) Achievements-Modal a11y: role=dialog + aria-modal + aria-labelledby + ESC-Close-Handler (auto-cleanup) + gsTrapFocus wenn vorhanden. 7/7 node --check OK.
    v26.63 — Audit-Sweep + Memory-Sync (B+ → A-, Cowork 2026-05-30): (1) gsConfirmCancelSub Fallback raus (Dead-Code, iOS-PWA-P0). (2) gsDeleteDiaryEntry + deletePlant: async + gsConfirmModal. (3) gsErnteAdd Toast-Bug: savedMenge vor Reset. (4) Achievements-Widget A11y (role/tabindex/aria/keyboard). (5) Frost-Banner Re-Render-Guard via dataset.frostKey + aria-label. Memory-Sync 4 Files. 7/7 node --check OK.
    v26.51 — Mein-Garten Audit + 3 Quick-Wins (Cowork 2026-05-27): (1) gsTbDelete + gsErnteDelete nutzen gsConfirmModal statt native confirm() — Hard-Lesson #2 (iOS-PWA-Webview-Blocker) für Mein-Garten geschlossen. (2) gsQuickDone + gsDoneAllDue schreiben pro Done einen p.diary-Entry (action+ts+title+source, Cap 200/Plant) — Done-History persistent und Cross-Device-synct. (3) STATE_KEYS-Map erweitert um gs_sae_merkliste + gs_bl_month/tab/bee + gs_tb_filter/search/cat_selected + gs_ernte_unit/view + gs_ernte_log (plants-Scope). _buildStateBlob serialisiert sae_merkliste + garten_prefs sub-object. Pull-Pfad stateMap setzt nach Cloud-Pull zurück in localStorage. Audit-Findings in outputs/MEIN_GARTEN_AUDIT_v26.51.md (25 Lücken, 3 P0 + 3 P1 + 3 RT). 7/7 node --check OK.
@@ -54,7 +55,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v26.64';
+const VERSION = 'gs-v26.65';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
