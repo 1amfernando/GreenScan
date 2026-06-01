@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.70.20260601">
+<meta name="app-version" content="26.71.20260601">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -37584,10 +37584,47 @@ function gsAddMarker(lat, lng) {
   // Für Filter registrieren
   try { if (typeof _gsMarkerLayers !== 'undefined') _gsMarkerLayers.push({ cat: cat, layer: marker }); } catch(e){}
 
-  // In localStorage speichern
+  // In localStorage speichern (lokaler Cache + offline-Safety)
+  var clientId = 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
   const markers = gsGetSavedMarkers();
-  markers.push({ lat: lat, lng: lng, name: name, note: note, cat: cat, date: Date.now() });
+  markers.push({ id: clientId, lat: lat, lng: lng, name: name, note: note, cat: cat, date: Date.now() });
   localStorage.setItem('greenscan_markers', JSON.stringify(markers));
+
+  // v26.71: ALSO Cloud-Sync via map_user_finds (Cross-Device, optional Community-Share)
+  // Categories der Marker-UI ('pilz','baum','pflanze','aussicht','wasser','hof') auf
+  // map_user_finds.category-Enum ('pilz','pflanze','baum','kraut','sonstiges') mappen.
+  try {
+    if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof sbFetch === 'function') {
+      var catMap = { pilz:'pilz', baum:'baum', pflanze:'pflanze', kraut:'kraut' };
+      var dbCat = catMap[cat] || 'sonstiges';
+      var payload = {
+        species_name: name,
+        category: dbCat,
+        lat: lat, lng: lng,
+        note: note || null,
+        found_at: new Date().toISOString(),
+        is_private: true
+      };
+      sbFetch('/rest/v1/map_user_finds', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','Prefer':'return=representation'},
+        body: JSON.stringify(payload)
+      }).then(function(r){
+        if (r && r.data && (Array.isArray(r.data) ? r.data[0] : r.data)) {
+          var row = Array.isArray(r.data) ? r.data[0] : r.data;
+          // LS-Eintrag mit Cloud-ID anreichern für späteres Delete/Update
+          try {
+            var local = gsGetSavedMarkers();
+            var idx = local.findIndex(function(m){ return m.id === clientId; });
+            if (idx >= 0) {
+              local[idx].cloud_id = row.id;
+              localStorage.setItem('greenscan_markers', JSON.stringify(local));
+            }
+          } catch(_){}
+        }
+      }).catch(function(e){ console.warn('[gsAddMarker cloud]', e && e.message); });
+    }
+  } catch(_){}
 
   updateMapCount();
   showMarketNotif('Fundort gespeichert! ' + catMeta.emoji, '📍', catMeta.color);
@@ -37614,7 +37651,109 @@ function gsLoadMarkers() {
     );
     try { if (typeof _gsMarkerLayers !== 'undefined') _gsMarkerLayers.push({ cat: cat, layer: marker }); } catch(e){}
   });
+
+  // v26.71: ASYNC Cloud-Pull aus map_user_finds — Cross-Device-Funde landen auch auf der Map.
+  // Merged mit lokalem LS-Cache (Cloud hat Vorrang bei collision via cloud_id).
+  gsLoadMarkersFromCloud();
 }
+
+// v26.71: Pull map_user_finds für eingeloggte User + render als zusätzliche Marker.
+async function gsLoadMarkersFromCloud() {
+  if (!gsMap || !window.L) return;
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn() || typeof sbFetch !== 'function') return;
+  try {
+    var r = await sbFetch('/rest/v1/map_user_finds?select=*&order=found_at.desc&limit=500', {method:'GET'});
+    if (!r || !Array.isArray(r.data)) return;
+    var local = gsGetSavedMarkers();
+    var knownCloudIds = new Set(local.map(function(m){ return m.cloud_id; }).filter(Boolean));
+    // Cloud-Funde rendern (nicht doppelt zu schon-LS-geladenen)
+    var addedToLs = false;
+    r.data.forEach(function(row){
+      if (knownCloudIds.has(row.id)) return; // bereits lokal als Marker
+      // Cat-Mapping rückwärts: pilz/pflanze/baum/kraut/sonstiges → Marker-Cat
+      var dbCat = row.category || 'pflanze';
+      var markerCat = (typeof GS_MARKER_CATS !== 'undefined' && GS_MARKER_CATS[dbCat]) ? dbCat : 'pflanze';
+      var catMeta = GS_MARKER_CATS[markerCat];
+      var icon = _gsCatIcon(markerCat, true);
+      var d = new Date(row.found_at || row.created_at || Date.now());
+      var marker = L.marker([row.lat, row.lng], { icon: icon }).addTo(gsMap).bindPopup(
+        '<div style="font-size:13px;">' +
+        '<b style="color:#1a3d1a;">' + catMeta.emoji + ' ' + escHtml(row.species_name || '') + '</b>' +
+        '<span style="display:inline-block;margin-left:6px;padding:1px 7px;border-radius:8px;font-size:10.5px;background:' + catMeta.color + '22;color:' + catMeta.color + ';font-weight:700;">' + catMeta.label + '</span>' +
+        (row.note ? '<br><span style="color:#666;font-size:12px;">' + escHtml(row.note) + '</span>' : '') +
+        '<br><span style="color:#999;font-size:11px;">☁️ ' + d.toLocaleDateString('de-CH') + (row.is_private===false ? ' · 🌍 Community' : '') + '</span>' +
+        '</div>'
+      );
+      try { if (typeof _gsMarkerLayers !== 'undefined') _gsMarkerLayers.push({ cat: markerCat, layer: marker, cloud_id: row.id }); } catch(_){}
+      // LS-Cache anreichern
+      local.push({
+        id: 'cloud_' + row.id,
+        cloud_id: row.id,
+        lat: row.lat, lng: row.lng,
+        name: row.species_name, note: row.note || '',
+        cat: markerCat,
+        date: new Date(row.found_at || row.created_at).getTime(),
+        is_private: row.is_private !== false
+      });
+      addedToLs = true;
+    });
+    if (addedToLs) {
+      try { localStorage.setItem('greenscan_markers', JSON.stringify(local)); } catch(_){}
+      try { updateMapCount(); } catch(_){}
+    }
+  } catch(e){ console.warn('[gsLoadMarkersFromCloud]', e && e.message); }
+}
+window.gsLoadMarkersFromCloud = gsLoadMarkersFromCloud;
+
+// v26.71: Wrapper-API für künftiges "Meine Funde"-Screen
+window.gsMapFinds = {
+  // Liste aller Funde des aktuellen Users (Cloud bevorzugt, LS-Fallback)
+  list: async function(){
+    if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof sbFetch === 'function') {
+      try {
+        var uid = gsStore.get('gs_sb_uid', null);
+        var r = await sbFetch('/rest/v1/map_user_finds?user_id=eq.' + uid + '&select=*&order=found_at.desc&limit=500', {method:'GET'});
+        if (r && Array.isArray(r.data)) return r.data;
+      } catch(_){}
+    }
+    // Fallback: LS-Marker (für Gast / Offline)
+    return gsGetSavedMarkers().map(function(m){
+      return {
+        id: m.cloud_id || m.id,
+        species_name: m.name,
+        category: m.cat,
+        lat: m.lat, lng: m.lng,
+        note: m.note,
+        found_at: new Date(m.date || Date.now()).toISOString(),
+        is_private: m.is_private !== false
+      };
+    });
+  },
+  // Toggle Community-Share (is_private flip)
+  togglePrivacy: async function(findId, makePublic){
+    if (typeof sbFetch !== 'function') return false;
+    try {
+      var r = await sbFetch('/rest/v1/map_user_finds?id=eq.' + findId, {
+        method:'PATCH',
+        headers:{'Content-Type':'application/json','Prefer':'return=minimal'},
+        body: JSON.stringify({ is_private: !makePublic, updated_at: new Date().toISOString() })
+      });
+      return r && !r.error;
+    } catch(_){ return false; }
+  },
+  // Delete (Cloud + LS-Mirror)
+  delete: async function(findId){
+    if (typeof sbFetch === 'function') {
+      try { await sbFetch('/rest/v1/map_user_finds?id=eq.' + findId, {method:'DELETE'}); } catch(_){}
+    }
+    // LS auch räumen
+    try {
+      var local = gsGetSavedMarkers().filter(function(m){ return m.cloud_id !== findId && m.id !== findId; });
+      localStorage.setItem('greenscan_markers', JSON.stringify(local));
+    } catch(_){}
+    return true;
+  }
+};
 
 function gsGetSavedMarkers() {
   try { return JSON.parse(localStorage.getItem('greenscan_markers')) || []; }
@@ -50798,6 +50937,27 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.71', date: '01.06.2026',
+    headline: '🗺️ Karten-Fundpunkte syncen jetzt — Cross-Device + Community-Share (Master #10)',
+    summary: 'Master-Auftrag #10: Funde auf der Karte landen jetzt zusätzlich in der Cloud-Tabelle map_user_finds. Verlust beim Cache-Löschen oder Geräte-Wechsel ist Geschichte. Plus optionaler Community-Share via is_private-Flag. Storage-Bucket map-find-photos vorbereitet für Bild-Uploads.',
+    user_summary: '🗺️ Deine Karten-Fundpunkte werden jetzt auf alle Geräte synct — speichern auf Mac, sehen auf iPhone. Vorher gingen sie verloren, wenn du den Browser-Cache geleert hast. Plus: künftig kannst du einzelne Funde mit der Community teilen (Heatmap "Wo gibts Steinpilze in der Region?").',
+    user_items: [
+      { emoji: '☁️', text: 'Cross-Device: Karten-Funde syncen automatisch auf alle Geräte' },
+      { emoji: '🔒', text: 'Standard: privat — nur du siehst sie' },
+      { emoji: '🌍', text: 'Optional: Community-Share für Heatmap (kommt in v26.72)' },
+      { emoji: '📸', text: 'Storage-Bucket bereit für Fund-Fotos (Bild-Upload in v26.71+)' },
+    ],
+    items: [
+      {emoji:'🗄️', bold:'Migration v26_71_map_user_finds LIVE:', text:' CREATE TABLE map_user_finds(user_id FK, species_name, category check(pilz|pflanze|baum|kraut|sonstiges), lat/lng, accuracy_m, altitude_m, found_at, note 1000 chars, photo_url, weather_condition, edible_confirmed, quantity_estimate, is_private default true). 5 Indexes (user+time, geo, species, category+time, community partial). RLS 5 Policies.'},
+      {emoji:'🪣', bold:'Storage-Bucket map-find-photos:', text:' Public-read, Folder-Pattern uid/<file>. User darf nur eigenen Folder schreiben/updaten/löschen. Anyone read.'},
+      {emoji:'➕', bold:'gsAddMarker erweitert:', text:' POST to map_user_finds zusätzlich zum LS-Save. cloud_id wird zurück in LS-Cache geschrieben für späteres Delete/Update. Cat-Mapping pilz/baum/pflanze/kraut → DB-Enum, Rest → sonstiges.'},
+      {emoji:'⬇️', bold:'gsLoadMarkersFromCloud async:', text:' Pullt 500 letzte Funde + rendert die noch nicht-LS-bekannten als Leaflet-Marker mit ☁️-Indicator + Community-Badge wenn !is_private. LS-Cache wird angereichert.'},
+      {emoji:'🧰', bold:'Wrapper-API window.gsMapFinds:', text:' .list (Cloud bevorzugt, LS-Fallback), .togglePrivacy(id, makePublic), .delete(id, beide Stellen). Frontend-ready für künftiges "Meine Funde"-Screen.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.72 = Master #11 Quiz-Leaderboard mit Cron-Ranking.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 inline-scripts node --check OK · GS_VERSION=v26.71 · sw.js gs-v26.71 · _headers v26.71 · meta=26.71.20260601 · Migration + Storage-Bucket LIVE.'},
+    ]
+  },
+  {
     v: 'v26.70', date: '01.06.2026',
     headline: '🏪 Marketplace Tutti-Style — Verkaufen ohne Stripe-Zwang (Master #5)',
     summary: 'Master-Auftrag #5: Inserate erstellen jetzt OHNE Pflicht-Stripe-Connect. Online-Bezahlung ist OPTIONAL. Default ist Tutti-Style: Kontakt-Button + private Klärung (TWINT/Cash/etc). Migration v26_70 fügt allow_online_payment + contact_method zu marketplace_listings, plus neue marketplace_messages-Tabelle für In-App-Chat mit RLS. Settings-Eintrag umformuliert. Listing-Form mit Online-Pay-Checkbox. Buy-Button vs Contact-Button basierend auf Listing-Flag.',
@@ -53172,7 +53332,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.70';
+var GS_VERSION = 'v26.71';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
