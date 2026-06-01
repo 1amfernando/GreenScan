@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.71.20260601">
+<meta name="app-version" content="26.72.20260601">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -8330,7 +8330,112 @@ function dqGetStats() {
 }
 function dqSaveStats(s) {
   try { localStorage.setItem('gs_dq_stats', JSON.stringify(s)); } catch(e) {}
+  // v26.72: Quiz-Leaderboard Cloud-Sync (debounced 2s, fire-and-forget)
+  try { if (typeof dqPushLeaderboardDebounced === 'function') dqPushLeaderboardDebounced(s); } catch(_){}
 }
+
+// v26.72: Quiz-Leaderboard Push
+window._dqLbDebounce = window._dqLbDebounce || null;
+function dqPushLeaderboardDebounced(stats) {
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
+  if (typeof sbFetch !== 'function') return;
+  clearTimeout(window._dqLbDebounce);
+  window._dqLbDebounce = setTimeout(function(){
+    var nick = null;
+    try { nick = localStorage.getItem('gs_social_name') || null; } catch(_){}
+    // RPC nutzt fallback-Display-Name aus user_id-Hash wenn p_display_name null ist
+    sbFetch('/rest/v1/rpc/fn_quiz_leaderboard_upsert', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        p_total_correct: Math.max(0, stats.correct|0),
+        p_total_attempts: Math.max(0, stats.total|0),
+        p_streak_current: Math.max(0, stats.streak|0),
+        p_streak_max: Math.max(0, stats.bestStreak|0),
+        p_display_name: nick
+      })
+    }).catch(function(e){ console.warn('[dqLb push]', e && e.message); });
+  }, 2000);
+}
+window.dqPushLeaderboardDebounced = dqPushLeaderboardDebounced;
+
+// v26.72: Quiz-Leaderboard Top-Liste laden + render
+async function dqLoadLeaderboardTop(limit) {
+  if (typeof sbFetch !== 'function') return [];
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_quiz_leaderboard_top', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ p_limit: Math.max(1, Math.min(100, limit||10)) })
+    });
+    return (r && Array.isArray(r.data)) ? r.data : [];
+  } catch(_) { return []; }
+}
+async function dqLoadMyRank() {
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return null;
+  if (typeof sbFetch !== 'function') return null;
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_quiz_leaderboard_my_rank', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({})
+    });
+    // Postgres-Function returns scalar; PostgREST liefert das als Wert direkt
+    if (r && r.data != null) {
+      var v = Array.isArray(r.data) ? r.data[0] : r.data;
+      return (typeof v === 'number') ? v : (v && typeof v.fn_quiz_leaderboard_my_rank === 'number' ? v.fn_quiz_leaderboard_my_rank : null);
+    }
+  } catch(_) {}
+  return null;
+}
+window.dqLoadLeaderboardTop = dqLoadLeaderboardTop;
+window.dqLoadMyRank = dqLoadMyRank;
+
+function gsOpenQuizLeaderboard() {
+  var mc = document.getElementById('modal-content');
+  if (!mc) return;
+  mc.innerHTML =
+    '<div style="padding:18px;">' +
+      '<button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(0,0,0,.08);font-size:18px;cursor:pointer;">×</button>' +
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">' +
+        '<div style="font-size:32px;">🏆</div>' +
+        '<div>' +
+          '<div style="font-family:\'Playfair Display\',serif;font-size:20px;font-weight:900;color:#1a3d1a;">Quiz-Rangliste</div>' +
+          '<div style="font-size:12px;color:var(--muted);">Top 20 + dein Rang</div>' +
+        '</div>' +
+      '</div>' +
+      '<div id="gs-quiz-lb-list" style="margin-bottom:12px;color:var(--muted);font-size:13px;text-align:center;padding:18px 0;">⏳ Lade Rangliste…</div>' +
+      '<div id="gs-quiz-lb-myrank" style="font-size:12px;color:var(--muted);text-align:center;padding:8px;background:#f1f8e9;border-radius:8px;"></div>' +
+    '</div>';
+  openModal('detail-modal');
+  Promise.all([ dqLoadLeaderboardTop(20), dqLoadMyRank() ]).then(function(arr){
+    var rows = arr[0]||[];
+    var myRank = arr[1];
+    var listEl = document.getElementById('gs-quiz-lb-list');
+    if (!rows.length) {
+      listEl.innerHTML = '<div style="text-align:center;padding:18px 0;color:var(--muted);">Noch keine Einträge — sei der/die Erste! 🎯</div>';
+    } else {
+      var medals = ['🥇','🥈','🥉'];
+      var html = rows.map(function(r){
+        var medal = (r.rnk <= 3) ? medals[r.rnk-1] : (r.rnk + '.');
+        return '<div style="display:flex;align-items:center;gap:10px;padding:9px 11px;background:var(--card);border:1px solid var(--border);border-radius:9px;margin-bottom:5px;">' +
+          '<div style="font-size:18px;min-width:30px;text-align:center;font-weight:800;color:#1a3d1a;">' + medal + '</div>' +
+          '<div style="flex:1;font-size:13px;color:var(--text);font-weight:700;">' + escHtml(r.display_name||'Anonym') + '</div>' +
+          '<div style="font-size:13px;color:#2e7d32;font-weight:800;">✓ ' + r.total_correct + '</div>' +
+          (r.streak_max > 0 ? '<div style="font-size:11px;color:#e65100;font-weight:700;">🔥 ' + r.streak_max + '</div>' : '') +
+        '</div>';
+      }).join('');
+      listEl.innerHTML = html;
+    }
+    var myEl = document.getElementById('gs-quiz-lb-myrank');
+    if (myRank) {
+      myEl.innerHTML = '<b>Dein Rang:</b> ' + myRank + '. <span style="opacity:.7;">— spiele mehr Quizze für eine bessere Platzierung 🎯</span>';
+    } else if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
+      myEl.innerHTML = '<b>Du bist noch nicht in der Rangliste.</b> Spiele dein erstes Quiz!';
+    } else {
+      myEl.innerHTML = '<b>Anmelden,</b> um in der Rangliste zu erscheinen.';
+    }
+  });
+}
+window.gsOpenQuizLeaderboard = gsOpenQuizLeaderboard;
 
 // 7 Fragetypen
 // v23.50: Smarter Distractor-Generation — Antworten dürfen NIE zu ähnlich sein
@@ -50937,6 +51042,29 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.72', date: '01.06.2026',
+    headline: '🏆 Quiz-Rangliste — Top 20 mit eigenem Rang (Master #11)',
+    summary: 'Master-Auftrag #11: Globale Quiz-Rangliste über alle User. Backend: quiz_leaderboard-Tabelle + 3 RPCs (top, my_rank, upsert) + pg_cron daily rank-update. Frontend: dqSaveStats triggert UPSERT (debounced 2s) → Cloud. gsOpenQuizLeaderboard zeigt Top-20 + Medaillen + eigener Rang.',
+    user_summary: '🏆 Quiz-Rangliste über alle GreenScan-User! Top-20 mit Medaillen (🥇🥈🥉), Streak-Anzeige (🔥) und deinem persönlichen Rang. Display-Name kommt aus deinem Spitznamen — wenn keiner gesetzt: anonym-generiertes "Pilz-Fuchs 42" o.ä.',
+    user_items: [
+      { emoji: '🥇', text: 'Top-20 mit Medaillen für Top 3' },
+      { emoji: '🔥', text: 'Streak-Badge pro User (höchste Antwort-Serie)' },
+      { emoji: '🎯', text: 'Eigener Rang am Modal-Ende' },
+      { emoji: '🤖', text: 'Anonym-Default: Pilz-<Animal> <Number> wenn kein Nick gesetzt' },
+    ],
+    items: [
+      {emoji:'🗄️', bold:'Migration v26_72_quiz_leaderboard LIVE:', text:' CREATE TABLE quiz_leaderboard PK user_id, display_name, total_correct, total_attempts, streak_current, streak_max, last_active_date, rank_position, updated_at. 3 Indexes (correct/streak/active). RLS: all read + users upsert own.'},
+      {emoji:'🔍', bold:'RPC fn_quiz_leaderboard_top(limit):', text:' SECURITY INVOKER, GRANT authenticated+anon. row_number()-Ranking ORDER BY total_correct DESC, streak_max DESC. Clamp 1..100.'},
+      {emoji:'👤', bold:'RPC fn_quiz_leaderboard_my_rank:', text:' SECURITY DEFINER mit search_path=public, GRANT authenticated. CTE über alle Rows → eigener Rang.'},
+      {emoji:'➕', bold:'RPC fn_quiz_leaderboard_upsert:', text:' SECURITY INVOKER, GRANT authenticated. GREATEST-Merge für correct/attempts/streak_max (kein Backward-Slide bei alten LS-Werten). display_name-Fallback "Pilz-<Animal> <Num>" aus user_id-hashtext.'},
+      {emoji:'⏰', bold:'pg_cron quiz-leaderboard-rank:', text:' Täglich 02:00 UTC. UPDATE rank_position via window-function ORDER BY total_correct DESC, streak_max DESC.'},
+      {emoji:'🔄', bold:'dqSaveStats triggers dqPushLeaderboardDebounced:', text:' 2s Debounce → RPC-Call mit aktuellen Stats + gs_social_name als optionaler Display-Name.'},
+      {emoji:'🎨', bold:'gsOpenQuizLeaderboard Modal:', text:' Top-20 als Liste mit Medaillen 🥇🥈🥉 + Display-Name + ✓ correct-count + 🔥 streak_max-badge. Footer mit "Dein Rang: X." oder "Anmelden um zu erscheinen". dqLoadLeaderboardTop / dqLoadMyRank window-exposed für künftiges Home-Card-Use.'},
+      {emoji:'⏭️', bold:'Naechste:', text:' v26.73 = Master #3 KI-Pro 3D-Planer Polish (Sonnen-Slider + Konflikte + Mini-Map + 4K-Foto).'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 inline-scripts node --check OK · GS_VERSION=v26.72 · sw.js gs-v26.72 · _headers v26.72 · meta=26.72.20260601 · Migration + Cron LIVE.'},
+    ]
+  },
+  {
     v: 'v26.71', date: '01.06.2026',
     headline: '🗺️ Karten-Fundpunkte syncen jetzt — Cross-Device + Community-Share (Master #10)',
     summary: 'Master-Auftrag #10: Funde auf der Karte landen jetzt zusätzlich in der Cloud-Tabelle map_user_finds. Verlust beim Cache-Löschen oder Geräte-Wechsel ist Geschichte. Plus optionaler Community-Share via is_private-Flag. Storage-Bucket map-find-photos vorbereitet für Bild-Uploads.',
@@ -53332,7 +53460,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.71';
+var GS_VERSION = 'v26.72';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
