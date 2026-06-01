@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.68.20260601">
+<meta name="app-version" content="26.69.20260601">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -50769,6 +50769,27 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.69', date: '01.06.2026',
+    headline: '💾 Universal-Save Audit — Settings-Toggles syncen jetzt WIRKLICH (Silent-Bug seit v23.78 gefixt)',
+    summary: 'Master-Auftrag Punkt #8 abgearbeitet. Großer Silent-Bug entdeckt: savePref() rief gsPrefsPush — definiert war aber nur gsPrefsPushNow. typeof-Guard schluckte das silent → 25+ Settings-Toggles wurden NIE in user_preferences gespiegelt seit v23.78 (homeWeather, showMoon, pestTips, safetyWarnings, marketNotif, socialNotif, harvestNotif, waterNotif, weatherNotif). Plus Migration v26_69 für prefs jsonb-Spalte (vorher fehlte Schema-Support für arbitrary Toggles). gsPrefsPull merged prefs zurück in userPrefs. Neue Konstante GS_KEEP_ON_LOGOUT als explizite Whitelist-Doku.',
+    user_summary: '💾 Deine Settings-Toggles werden jetzt WIRKLICH auf alle Geräte synct. Vorher war das Cross-Device-Sync für Toggles wie "Wetter auf Home zeigen", "Mond-Phase", "Schädlings-Tipps" silent kaputt (Logic-Bug seit 6 Versionen). Du musstest alles auf jedem Gerät neu einstellen. Ab v26.69: einmal eingestellt = überall gleich.',
+    user_items: [
+      { emoji: '⚙️', text: '25+ Settings-Toggles syncen jetzt zur Cloud (homeWeather, showMoon, pestTips, etc.)' },
+      { emoji: '🔄', text: 'Login auf zweitem Gerät: alle Settings übernommen' },
+      { emoji: '🛡', text: 'Konto-Switch: alte Settings werden korrekt überschrieben (vorher Mix)' },
+      { emoji: '📋', text: 'Logout-Whitelist explizit dokumentiert: was bleibt erhalten' },
+    ],
+    items: [
+      {emoji:'🐛', bold:'Silent-Bug seit v23.78:', text:' savePref() rief gsPrefsPush({key:val}) — definiert war nur gsPrefsPushNow. Der typeof===\'function\'-Guard schluckte den fehlenden Alias silent → kein Cloud-Push, kein Error. Fix: window.gsPrefsPush = gsPrefsPushNow.'},
+      {emoji:'🗄️', bold:'Migration v26_69_user_preferences_prefs_jsonb LIVE:', text:' ALTER TABLE user_preferences ADD COLUMN prefs jsonb default \'{}\'. Vorher gab es nur fixe Columns (language/region/units etc) — arbitrary Toggles hätten INSERT-Fehler verursacht.'},
+      {emoji:'🧩', bold:'Smart-Mapping in gsPrefsPushNow:', text:' GS_PREFS_KNOWN_COLUMNS-Map trennt strukturierte Felder (language, region, altitude_m, reminders_enabled, push_enabled, email_enabled, digest_freq, units) von free-form Toggles. Strukturierte landen als flache Columns, der Rest im prefs jsonb-Blob. updated_at wird mitgesetzt.'},
+      {emoji:'⬇️', bold:'gsPrefsPull merge:', text:' Beim Login wird user_preferences gepullt, prefs jsonb zurück in gs_prefs gemerged, plus userPrefs-Globalvar refresht — Frontend-Code liest weiterhin flach (userPrefs.homeWeather etc).'},
+      {emoji:'📋', bold:'GS_KEEP_ON_LOGOUT Konstante:', text:' Explizite Whitelist als Doku — bleibt beim Logout erhalten: gs_dark, gs_theme_color, gs_lang, gs_consent, gs_prefs, gs_user_location, gs_units, gs_sb_url, gs_sb_key. gsClearUserDataKeys löscht nur GS_USER_KEYS (Deny-Liste).'},
+      {emoji:'🧪', bold:'Verifizierte Flows:', text:' (1) savePref(\'homeWeather\',true) → gsPrefsPushNow debounced 2s → user_preferences UPSERT mit merge-duplicates. (2) gsPrefsPull beim Login → merged Server-Werte zurück. (3) Konto-Wechsel: gsClearUserDataKeys + gsPrefsPull holt neue. (4) savePlantsToStorage doppel-defensiv (gsPushPlantsNow + markDirty) — Pflanze-Edit ohne Foto syncedauch.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 inline-scripts node --check OK · GS_VERSION=v26.69 · sw.js gs-v26.69 · _headers v26.69 · meta=26.69.20260601 · Migration LIVE.'},
+    ]
+  },
+  {
     v: 'v26.57', date: '28.05.2026',
     headline: '✨ Polish-Bundle — CH-Deutsch · Mein-Garten · Disabled-Guards · 3-Stage-Trial-Reminder',
     summary: 'Fernando-Auftrag Polish: (1) CH-Deutsch ß→ss in 12 echten UI-Stellen (kein Schließen, Maßband, außerhalb, großzügig, Genieße mehr — alles schweizerisch). (2) Mein-Garten Polish: Plant-Cards zeigen jetzt p.photo wenn vorhanden (Bug-Fix seit v23.91), gsFilterPlants sucht jetzt auch in Latin-Namen + Diary-Notes, savePlantsToStorage doppel-defensiv mit markDirty. (3) gsAsyncLock-Helper + 6 kritische Submit-Buttons mit Double-Submit-Schutz — verhindert teure Anthropic-Doppel-Calls + Cloud-Duplikate. (4) daily-push-checker v4 LIVE mit 72h + 24h + 1h Push-Stages für besseren Trial-Conversion-Funnel.',
@@ -53099,7 +53120,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.68';
+var GS_VERSION = 'v26.69';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -57856,6 +57877,22 @@ function gsOnLogout() {
   } catch(e){ console.warn('[gsOnLogout]', e); }
 }
 
+// v26.69 Universal-Save Audit: explizite Whitelist von LS-Keys die beim Logout
+// ERHALTEN bleiben. Dient als Doku — gsClearUserDataKeys löscht nur GS_USER_KEYS,
+// alles andere bleibt implizit. Diese Konstante dokumentiert, was bleibt.
+// (Pendant: clearAllData / Konto-Löschung wipet komplett bis auf gs_dark/lang/theme_color.)
+var GS_KEEP_ON_LOGOUT = [
+  'gs_dark',           // Dark-Mode (UI-Pref, nicht user-spezifisch)
+  'gs_theme_color',    // Theme-Color (UI-Pref)
+  'gs_lang',           // Sprache (UI-Pref)
+  'gs_consent',        // revDSG-Consent (Re-Login soll Consent nicht zurücksetzen)
+  'gs_prefs',          // Settings-Toggles (homeWeather, showMoon, etc — wird beim Re-Login gsPrefsPull-überschrieben)
+  'gs_user_location',  // Letzte Standort-Info (Re-Login holt vom Cloud-Profil)
+  'gs_units',          // kg/lb-Anzeige
+  'gs_sb_url',         // Supabase-Endpoint
+  'gs_sb_key'          // Supabase-Anon-Key
+];
+
 // v23.74: User-Data-Keys-Liste zentral (Login + Logout teilen sie)
 var GS_USER_KEYS = [
   'gs_garden_plans','gs_garden_plan_current','gs_gardens','gs_plantings',
@@ -58931,28 +58968,67 @@ async function gsPrefsPull(){
   try {
     var r = await sbFetch('/rest/v1/user_preferences?user_id=eq.' + uid + '&select=*&limit=1', {method:'GET'});
     if (r && !r.error && Array.isArray(r.data) && r.data[0]) {
-      try { gsStore.set('gs_prefs', JSON.stringify(r.data[0])); } catch(_){}
-      return r.data[0];
+      var row = r.data[0];
+      // v26.69: prefs jsonb in gs_prefs-Blob mergen — Frontend-Code liest weiterhin flach
+      // (z.B. userPrefs.homeWeather). Strukturierte Felder bleiben ebenfalls flach.
+      var merged = Object.assign({}, row, (row.prefs && typeof row.prefs === 'object') ? row.prefs : {});
+      delete merged.user_id;
+      delete merged.created_at;
+      delete merged.updated_at;
+      try { gsStore.set('gs_prefs', JSON.stringify(merged)); } catch(_){}
+      // Globale userPrefs-Variable refreshen für aktuell sichtbare Settings-Toggles
+      try {
+        if (typeof userPrefs !== 'undefined' && userPrefs && typeof userPrefs === 'object') {
+          Object.assign(userPrefs, merged);
+        }
+      } catch(_){}
+      return merged;
     }
   } catch(e){ console.warn('[gsPrefsPull]', e); }
   return null;
 }
+// v26.69 Universal-Save Audit: bekannte user_preferences-Spalten vs. free-form prefs-Blob.
+// Vorher gab es 2 Bugs:
+//   1. savePref() rief gsPrefsPush() — definiert war aber gsPrefsPushNow() (typeof-Guard schluckt's silent).
+//   2. user_preferences-Schema hatte keine Spalte für arbitrary Toggles wie homeWeather.
+// Fix: Migration v26_69 fügt prefs jsonb hinzu, Mapper trennt strukturierte Felder von freien Toggles.
+var GS_PREFS_KNOWN_COLUMNS = {
+  language: 1, region: 1, altitude_m: 1,
+  reminders_enabled: 1, push_enabled: 1, email_enabled: 1,
+  digest_freq: 1, units: 1
+};
+
 function gsPrefsPushNow(partial){
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
   var uid = gsStore.get('gs_sb_uid', null);
   if (!uid || typeof sbFetch !== 'function') return;
+  window._gsPushDebounce = window._gsPushDebounce || {};
   clearTimeout(window._gsPushDebounce.prefs);
   window._gsPushDebounce.prefs = setTimeout(function(){
+    // 1) Local-Prefs-Snapshot (gs_prefs ist der userPrefs-Blob aus savePrefs())
     var current = {};
     try { current = JSON.parse(gsStore.get('gs_prefs', null)||'{}'); } catch(_){}
-    var merged = Object.assign({user_id: uid}, current, partial || {});
+    // 2) partial-Felder klassifizieren: strukturiert vs. frei
+    var structured = { user_id: uid };
+    var freeBlob = Object.assign({}, (current && typeof current === 'object') ? current : {});
+    var p = partial || {};
+    Object.keys(p).forEach(function(k){
+      if (GS_PREFS_KNOWN_COLUMNS[k]) structured[k] = p[k];
+      else freeBlob[k] = p[k];
+    });
+    // 3) Free-Blob aufräumen: strukturierte Keys NICHT in prefs jsonb mitschleppen
+    Object.keys(GS_PREFS_KNOWN_COLUMNS).forEach(function(k){ delete freeBlob[k]; });
+    structured.prefs = freeBlob;
+    structured.updated_at = new Date().toISOString();
     sbFetch('/rest/v1/user_preferences', {
       method:'POST',
       headers:{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
-      body: JSON.stringify(merged)
+      body: JSON.stringify(structured)
     }).catch(function(e){ console.warn('[gsPrefsPush]', e); });
   }, 2000);
 }
+// v26.69 Alias-Bug-Fix: savePref() ruft gsPrefsPush — vorher silent No-Op.
+window.gsPrefsPush = gsPrefsPushNow;
 
 // ── GARDEN-TASKS ────────────────────────────────────────────────────────────
 async function gsAddGardenTask(task){

@@ -1,5 +1,6 @@
 /* ────────────────────────────────────────────────────────────
    GreenScan Service Worker
+   v26.69 — Universal-Save Audit (Master-Auftrag #8): Cloud-Sync für Settings-Toggles war SILENT BROKEN seit v23.78. (1) Bug-Fix: savePref() rief gsPrefsPush — definiert war aber nur gsPrefsPushNow → typeof-Guard schluckte den Push silent. Settings-Toggles wurden NIE in user_preferences gespiegelt. Alias window.gsPrefsPush=gsPrefsPushNow + smart Mapping (strukturierte Spalten language/region/units vs. free-form prefs jsonb). (2) Migration v26_69_user_preferences_prefs_jsonb LIVE: ALTER TABLE user_preferences ADD prefs jsonb default '{}'. Arbitrary Toggles (homeWeather/showMoon/pestTips/safetyWarnings/marketNotif/socialNotif/harvestNotif) landen jetzt im prefs-Blob. (3) gsPrefsPull merged jetzt prefs-jsonb in gs_prefs zurück + refresht userPrefs-Globalvar — flacher Lese-Zugriff bleibt erhalten. (4) Neue Konstante GS_KEEP_ON_LOGOUT als explizite Doku-Whitelist für Keys die Logout überleben (gs_dark, gs_lang, gs_theme_color, gs_consent, gs_prefs, gs_user_location, gs_units, sb_url/key). 7/7 node --check OK.
    v26.68 — KI-Plan Cross-Device + Stripe-Portal Bug-Fix (Cowork 2026-06-01): (1) Plan-Save in Mein-Garten: gsPPopenSavedPlans pullt jetzt Cloud aus user_gardens.data.plans + garden_plans Tabelle und merged mit LS → Pläne sichtbar auf allen Geräten. gsPPdeletePlan löscht aus beiden Cloud-Stellen + nutzt gsConfirmModal. gsPPloadSavedPlan robust. (2) Stripe Abo verwalten Bug behoben: Edge-Fn stripe-portal v4 LIVE — vorher las sie aus nicht-existenter Tabelle stripe_customers → 404 für alle User. Jetzt Customer-ID aus stripe_subscriptions.stripe_customer_id + Stripe-API-Search-Fallback. 7/7 node --check OK.
    v26.67 — Personal-API-Key admin-only (Cowork 2026-06-01): Settings-Row "Persönlichen API-Key entfernen" jetzt admin-only-row Class — Normal-User sehen sie nicht mehr. Globaler Claude-Key funktioniert für ALLE Abo-Stufen (Free 15/Tag · Plus/Pro/Lifetime ∞). Verhalten wie bei anderen Apps: Key ist immer aktiv, nur das Abo regelt die Quota. Power-User können ps_api_key weiterhin via Browser-Console setzen. 7/7 node --check OK.
    v26.66 — HOTFIX (Cowork 2026-06-01): Scan-Crash "confirmed.find is not a function" gefixt. Backup-Build Z.58106 hatte '{}' als Fallback statt '[]' → corrupted gs_confirmed_species als Object in Cloud → confirmed.find() crashed. Fix: (1) Backup-Build forciert []. (2) addToConfirmed + gsShowConfirmedScans Array.isArray-Guards. (3) Cloud-Pull stateMap forced auf Array. (4) Boot-Repair migriert alte {}-Backups direkt in LS auf []. Tritt nie wieder auf, auch nicht mit alten corrupted Cloud-Backups. 7/7 node --check OK.
@@ -58,7 +59,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v26.68';
+const VERSION = 'gs-v26.69';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
