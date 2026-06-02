@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.89.20260602">
+<meta name="app-version" content="26.90.20260602">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2229,6 +2229,24 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   </div>
 </div>
 
+<!-- ── v26.90 SUB-TAB-SWITCHER 🏠 Wohnung | 🌳 Garten ─────────── -->
+<div id="favs-subtabs" role="tablist" aria-label="Pflanzen-Bereich"
+     style="display:flex;gap:6px;padding:10px 16px 10px;position:sticky;top:0;background:var(--g-bg);z-index:6;border-bottom:1px solid var(--border);">
+  <button role="tab" aria-selected="true" id="favs-sub-indoor"
+          onclick="gsFavsSwitchSub('indoor', this)"
+          style="flex:1;padding:11px 12px;border-radius:14px;border:1.5px solid var(--g-main);background:linear-gradient(135deg,rgba(45,138,45,.10),rgba(45,138,45,.03));color:var(--g-main);font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;transition:.18s;-webkit-tap-highlight-color:transparent;">
+    <span style="font-size:18px;">🏠</span> <span data-i18n="favs_sub_indoor" data-i18n-fallback="Wohnung">Wohnung</span> <span id="favs-cnt-indoor" style="margin-left:4px;padding:1px 7px;border-radius:8px;background:rgba(45,138,45,.18);font-size:11px;">0</span>
+  </button>
+  <button role="tab" aria-selected="false" id="favs-sub-outdoor"
+          onclick="gsFavsSwitchSub('outdoor', this)"
+          style="flex:1;padding:11px 12px;border-radius:14px;border:1.5px solid var(--border);background:var(--card);color:var(--text);font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;transition:.18s;-webkit-tap-highlight-color:transparent;">
+    <span style="font-size:18px;">🌳</span> <span data-i18n="favs_sub_outdoor" data-i18n-fallback="Garten">Garten</span> <span id="favs-cnt-outdoor" style="margin-left:4px;padding:1px 7px;border-radius:8px;background:var(--surface2);font-size:11px;">0</span>
+  </button>
+</div>
+
+<!-- v26.90 Indoor-Inhalt (bestehende Pflanzen-Liste) -->
+<div id="favs-content-indoor">
+
 <!-- ── SUCHE + SORT ──────────────────────────────────────────── -->
 <div style="padding:8px 16px 6px;background:var(--g-bg);border-bottom:1px solid var(--border);flex-shrink:0;">
   <div style="background:var(--card);border-radius:10px;display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--border);">
@@ -2261,6 +2279,12 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <button class="gs-empty-action" onclick="openAddPlant()">＋ Erste Pflanze hinzufügen</button>
     </div>
   </div>
+</div>
+</div><!-- /#favs-content-indoor -->
+
+<!-- v26.90 Outdoor-Inhalt (Garten + Beete inline, lazy gerendert) -->
+<div id="favs-content-outdoor" style="display:none;padding:8px 16px 90px;">
+  <div id="favs-garden-inline-list"></div>
 </div>
 </div>
 
@@ -22022,7 +22046,103 @@ function toggleFav(id){
 
 function renderFavs(){
   renderMyPlants();
+  // v26.90: Sub-Tab-Switcher (🏠 Wohnung | 🌳 Garten) initialisieren/wiederherstellen
+  try { if (typeof gsFavsInitSub === 'function') gsFavsInitSub(); } catch(_){}
 }
+
+// ═══ v26.90: Sub-Tab-Switcher 🏠 Wohnung | 🌳 Garten im Pflanzen-Screen ═══
+function gsFavsUpdateSubCounts(){
+  var inEl = document.getElementById('favs-cnt-indoor');
+  var outEl = document.getElementById('favs-cnt-outdoor');
+  if (inEl) inEl.textContent = (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) ? myPlants.length : 0;
+  if (outEl) outEl.textContent = (typeof plantings !== 'undefined' && Array.isArray(plantings)) ? plantings.length : 0;
+}
+window.gsFavsUpdateSubCounts = gsFavsUpdateSubCounts;
+
+window.gsFavsSwitchSub = function(mode, btn){
+  var indoor = document.getElementById('favs-content-indoor');
+  var outdoor = document.getElementById('favs-content-outdoor');
+  var bIn = document.getElementById('favs-sub-indoor');
+  var bOut = document.getElementById('favs-sub-outdoor');
+  if (!indoor || !outdoor) return;
+  var isIndoor = (mode !== 'outdoor');
+  indoor.style.display = isIndoor ? '' : 'none';
+  outdoor.style.display = isIndoor ? 'none' : '';
+  function setActive(b, active){
+    if (!b) return;
+    b.setAttribute('aria-selected', active ? 'true' : 'false');
+    b.style.borderColor = active ? 'var(--g-main)' : 'var(--border)';
+    b.style.background = active ? 'linear-gradient(135deg,rgba(45,138,45,.10),rgba(45,138,45,.03))' : 'var(--card)';
+    b.style.color = active ? 'var(--g-main)' : 'var(--text)';
+  }
+  setActive(bIn, isIndoor); setActive(bOut, !isIndoor);
+  if (!isIndoor) { try { gsFavsRenderOutdoor(); } catch(_){} }
+  try { gsStore.set('gs_favs_sub_mode', isIndoor ? 'indoor' : 'outdoor'); } catch(_){}
+  try { if (typeof gsHaptic === 'function') gsHaptic('light'); } catch(_){}
+};
+
+function gsFavsRenderOutdoor(){
+  var list = document.getElementById('favs-garden-inline-list');
+  if (!list) return;
+  var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s||''); };
+  // Kein Garten → Empty-State mit Anlegen-CTA
+  if (typeof gardens === 'undefined' || !Array.isArray(gardens) || !gardens.length) {
+    list.innerHTML = '<div class="gs-empty" style="padding:32px 20px;text-align:center;">' +
+      '<div class="gs-empty-icon" style="font-size:54px;">🌳</div>' +
+      '<div class="gs-empty-title" style="font-size:19px;font-weight:900;margin:6px 0;">Noch kein Garten</div>' +
+      '<div class="gs-empty-sub" style="font-size:13.5px;margin:0 auto 18px;max-width:340px;line-height:1.5;">Lege einen Garten oder ein Beet an, um Outdoor-Pflanzen, Pflege-Plan und Ernte-Kalender zu nutzen.</div>' +
+      '<button onclick="if(typeof openAddGarden===\'function\'){openAddGarden();}else if(typeof openModal===\'function\'){openModal(\'modal-add-garden\');}" style="display:inline-flex;align-items:center;gap:8px;padding:14px 22px;background:linear-gradient(135deg,#2d8a2d,#1a6a1a);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(45,138,45,.35);-webkit-tap-highlight-color:transparent;"><span style="font-size:20px;">＋</span> Garten anlegen</button>' +
+      '</div>';
+    return;
+  }
+  // Garten-Karten als kompakte Übersicht (deep-linkt in „Mein Garten" für volle Aktionen).
+  // Nicht-kollabierbar + KEINE gexpand-/gchev-IDs → vermeidet Duplikat-ID-Konflikt mit renderGarden().
+  var html = '';
+  for (var gi = 0; gi < gardens.length; gi++) {
+    var garden = gardens[gi];
+    var gid = garden.id;
+    var gPlantings = (typeof plantings !== 'undefined' && Array.isArray(plantings)) ? plantings.filter(function(p){ return p.gardenId === gid; }) : [];
+    html += '<div class="garden-card" style="margin-bottom:12px;">';
+    html += '<div class="garden-card-hdr" onclick="if(typeof switchTab===\'function\')switchTab(\'garden\')">';
+    html += '<div class="garden-card-icon">🌻</div>';
+    html += '<div class="garden-card-info">';
+    html += '<div class="garden-card-name">' + esc(garden.name||'Mein Garten') + '</div>';
+    html += '<div class="garden-card-meta">' + esc(garden.location||'Kein Standort') + ' · ' + gPlantings.length + ' Pflanzen</div>';
+    html += '</div>';
+    html += '<div class="mpcard-chevron">›</div></div>';
+    html += '<div style="padding:8px 14px;">';
+    if (gPlantings.length) {
+      gPlantings.slice(0, 5).forEach(function(p){
+        var info = (typeof getPlantInfo === 'function') ? getPlantInfo(p.name) : null;
+        var emoji = (info && info.emoji) ? info.emoji : '🌱';
+        var dStr = '';
+        try { if (p.date) dStr = new Date(p.date).toLocaleDateString('de-CH'); } catch(_){}
+        html += '<div class="planting-row" onclick="if(typeof openPlantingDetail===\'function\')openPlantingDetail(\'' + p.id + '\')">';
+        html += '<div class="planting-emoji">' + emoji + '</div>';
+        html += '<div class="planting-info"><div class="planting-name">' + esc(p.name||'') + '</div><div class="planting-meta">' + (dStr ? 'Gepflanzt: ' + dStr : '') + '</div></div>';
+        html += '</div>';
+      });
+      if (gPlantings.length > 5) {
+        html += '<div style="text-align:center;padding:6px 0;"><a href="#" onclick="event.preventDefault();if(typeof switchTab===\'function\')switchTab(\'garden\');" style="color:var(--g-main);font-size:12.5px;font-weight:700;text-decoration:none;">Alle ' + gPlantings.length + ' in „Mein Garten" →</a></div>';
+      }
+    } else {
+      html += '<div style="padding:10px 0;text-align:center;font-size:12.5px;color:var(--muted);">Noch nichts gepflanzt. <a href="#" onclick="event.preventDefault();if(typeof openAddPlanting===\'function\')openAddPlanting(\'' + gid + '\');" style="color:var(--g-main);font-weight:700;text-decoration:none;">＋ Einsetzen</a></div>';
+    }
+    html += '<button class="mp-action-btn" onclick="if(typeof openAddPlanting===\'function\')openAddPlanting(\'' + gid + '\')" style="width:100%;margin-top:6px;">🌱 Pflanze hinzufügen</button>';
+    html += '</div></div>';
+  }
+  list.innerHTML = html;
+}
+window.gsFavsRenderOutdoor = gsFavsRenderOutdoor;
+
+function gsFavsInitSub(){
+  gsFavsUpdateSubCounts();
+  var sub = 'indoor';
+  try { sub = gsStore.get('gs_favs_sub_mode', 'indoor') || 'indoor'; } catch(_){}
+  var btn = document.getElementById('favs-sub-' + sub);
+  if (btn && typeof gsFavsSwitchSub === 'function') gsFavsSwitchSub(sub, btn);
+}
+window.gsFavsInitSub = gsFavsInitSub;
 
 // MEINE PFLANZEN – Kernfunktionen
 
@@ -22111,6 +22231,8 @@ function renderMyPlants() {
   if (totalEl) totalEl.querySelector('div').textContent = myPlants.length;
   if (dueEl) dueEl.textContent = overdue.length + soon.length;
   if (okEl) okEl.textContent = ok.length;
+  // v26.90: Sub-Tab-Badge-Counts mitziehen
+  try { if (typeof gsFavsUpdateSubCounts === 'function') gsFavsUpdateSubCounts(); } catch(_){}
 
   // Stat-Box Farbe wenn fällig
   var dueBox = document.getElementById('plants-stat-due');
@@ -51144,6 +51266,8 @@ function calcHarvestDate(planting, weather) {
 // ── Garden Render ──────────────────────────────────────────
 async function renderGarden() {
   initDefaultGarden();
+  // v26.90: Sub-Tab-Badge-Counts (🌳 Garten) mitziehen
+  try { if (typeof gsFavsUpdateSubCounts === 'function') gsFavsUpdateSubCounts(); } catch(_){}
   const list = document.getElementById('garden-list');
   if (!list) return;
 
@@ -51409,6 +51533,12 @@ function savePlanting() {
   saveGardenData();
   closeModal('modal-add-planting');
   renderGarden();
+  // v26.90: Sub-Tab-Counts + Inline-Garten-Liste (falls sichtbar) aktualisieren
+  try { if (typeof gsFavsUpdateSubCounts === 'function') gsFavsUpdateSubCounts(); } catch(_){}
+  try {
+    var _oc = document.getElementById('favs-content-outdoor');
+    if (_oc && _oc.style.display !== 'none' && typeof gsFavsRenderOutdoor === 'function') gsFavsRenderOutdoor();
+  } catch(_){}
 }
 
 // MONDKALENDER – Exakte astronomische Berechnung
@@ -53229,6 +53359,23 @@ window.GS_RELEASES = [
       {emoji:'🗄️', bold:'Backend (2 Migrations):', text:' v26_91_rls_wrap_phase2_initplan wrappt auth.uid()/auth.jwt() in 56 RLS-Policies über 33 Tabellen zu (SELECT auth.uid()) (init-plan-Caching, Hard-Lesson #6). v26_91_rls_wrap_phase2_authrole wrappt auth.role() in 3 service-role-only Policies (feature_limits/species_images/species_sources).'},
       {emoji:'🚀', bold:'Wirkung:', text:' Berechtigungsprüfung läuft 1× pro Query statt 1× pro Row — bei 1k+ Rows/User 50–200× schneller. Semantik-erhaltend: identische Truth-Table, keine Zugriffs-Änderung.'},
       {emoji:'✅', bold:'Verify:', text:' Advisor auth_rls_initplan 59 → 0 · 233 Policies total erhalten · 0 ungewrappt verbleibend · 7/7 Inline-Scripts node --check OK · GS_VERSION=v26.91 · sw.js gs-v26.91 · _headers v26.91 · meta=26.91.20260602.'},
+    ]
+  },
+  {
+    v: 'v26.90', date: '02.06.2026',
+    headline: '🏠🌳 Wohnung & Garten als Umschalter im Pflanzen-Bereich',
+    summary: 'Der Pflanzen-Bereich hat jetzt oben einen Umschalter: 🏠 Wohnung zeigt deine Zimmerpflanzen (wie bisher), 🌳 Garten zeigt deine Gärten und Beete direkt auf derselben Seite — du musst nicht mehr ins Menü zu „Mein Garten" wechseln. Jeder Tab zeigt eine Zähler-Plakette mit der Anzahl. Hast du noch keinen Garten, erscheint ein freundlicher Hinweis mit einem großen „Garten anlegen"-Knopf. Welchen Tab du zuletzt offen hattest, merkt sich die App.',
+    user_summary: '🏠🌳 Im Pflanzen-Bereich wechselst du jetzt oben zwischen 🏠 Wohnung und 🌳 Garten — beides auf einer Seite, ohne Umweg übers Menü.',
+    user_items: [
+      { emoji: '🏠', text: 'Wohnung-Tab: deine Zimmerpflanzen wie gewohnt' },
+      { emoji: '🌳', text: 'Garten-Tab: Gärten & Beete inline, ein Tipp führt zur vollen Garten-Ansicht' },
+      { emoji: '🔢', text: 'Zähler-Plaketten zeigen die Anzahl je Bereich' },
+    ],
+    items: [
+      {emoji:'🏠🌳', bold:'Sub-Tab-Switcher:', text:' Sticky-Leiste #favs-subtabs im Pflanzen-Screen (role=tablist). gsFavsSwitchSub(mode) toggelt #favs-content-indoor (myPlants) ↔ #favs-content-outdoor (gardens/plantings), persistiert den Modus via gsStore (gs_favs_sub_mode), gsHaptic-Feedback.'},
+      {emoji:'🌳', bold:'Garten inline:', text:' gsFavsRenderOutdoor() rendert je Garten eine kompakte Karte (echte renderGarden-CSS-Klassen) mit bis zu 5 Beet-Pflanzen, Deep-Link „Alle N in Mein Garten →" (switchTab) und „🌱 Pflanze hinzufügen" (openAddPlanting). Kein Garten → Empty-State mit „Garten anlegen"-CTA. Bewusst nicht-kollabierbar & ohne gexpand-IDs → kein Duplikat-ID-Konflikt mit der vollen Garten-Ansicht.'},
+      {emoji:'🔢', bold:'Counts:', text:' gsFavsUpdateSubCounts() hält die Badge-Zahlen (myPlants.length / plantings.length) aktuell — verdrahtet in renderMyPlants, renderGarden & savePlanting. State-Restore über gsFavsInitSub() aus renderFavs.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · GS_VERSION=v26.90 · sw.js gs-v26.90 · _headers v26.90 · meta=26.90.20260602.'},
     ]
   },
   {
@@ -55934,7 +56081,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.89';
+var GS_VERSION = 'v26.90';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
