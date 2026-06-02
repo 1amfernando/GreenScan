@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.87.20260602">
+<meta name="app-version" content="26.88.20260602">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22188,17 +22188,58 @@ function togglePlantCard(id){
 // Sucht in der globalen DB (~4'342 Arten · {name, lat, emoji, cat, ...})
 // — debounced (150ms) — Top 8 Matches — Name-Match priorisiert vor Latein-Match.
 // Kategorie-Tag + Emoji + Latein-Name werden mitgeliefert; Klick füllt das Form vor.
-var _gsSugTimer = null;
+var _gsSugTimer = null, _gsSugSeq = 0;
+var _GS_SUG_CATLABEL = { hauspflanze:'🏠 Haus', wildpflanze:'🌿 Wild', kraut:'🌱 Kraut', gemuese:'🥕 Gemüse', frucht:'🍓 Frucht', beere:'🫐 Beere', blume:'🌸 Blume', baum:'🌳 Baum', strauch:'🌳 Strauch', pilz:'🍄 Pilz', moos:'🌿 Moos', flechte:'🌿 Flechte', alge:'🌿 Alge', neophyte:'⚠️ Neophyt' };
 window.gsPlantSuggest = function(inputEl) {
   var q = (inputEl && inputEl.value || '').trim();
   var dropdown = document.getElementById('mp-name-sug');
   if (!dropdown) return;
   if (_gsSugTimer) clearTimeout(_gsSugTimer);
   if (!q || q.length < 2) { dropdown.style.display = 'none'; dropdown.innerHTML = ''; return; }
-  _gsSugTimer = setTimeout(function(){ _gsRenderSuggestions(q, dropdown); }, 150);
+  var seq = ++_gsSugSeq;
+  _gsSugTimer = setTimeout(function(){ _gsRenderSuggestions(q, dropdown, seq); }, 150);
 };
 
-function _gsRenderSuggestions(q, dropdown){
+// v26.88: shared Render einer Arten-Liste (lokal ODER online-gemergt) ins Dropdown.
+// list = Array von Arten-Objekten {name, lat, emoji, cat, toxic, [_remote], [_sid], ...}
+function _gsRenderSugList(list, q, dropdown){
+  if (!list || !list.length) {
+    dropdown.style.display = 'block';
+    dropdown.innerHTML = '<div style="padding:14px 14px;color:var(--muted);font-size:12.5px;text-align:center;">Keine Vorschläge zu „' + escHtml(q) + '". Tippe trotzdem weiter und klick „Speichern" für eigenen Eintrag.</div>';
+    window._gsLastSuggestions = [];
+    return;
+  }
+  dropdown.innerHTML = list.map(function(s, idx){
+    var emoji = s.emoji || '🌿';
+    var name = s.name || '';
+    var lat = s.lat || '';
+    var cat = (s.cat || '').toLowerCase();
+    var tag = _GS_SUG_CATLABEL[cat] || '';
+    var tox = s.toxic ? '<span style="color:#c62828;font-size:11px;font-weight:700;margin-left:6px;" title="Giftig">⚠️ giftig</span>' : '';
+    var cloud = s._remote ? '<span style="font-size:11px;margin-left:5px;opacity:.6;" title="Online-Treffer (tippfehler-tolerant)">☁️</span>' : '';
+    return '<div role="option" tabindex="0" data-sug-idx="' + idx + '"' +
+      ' onmousedown="event.preventDefault(); _gsApplyPlantSuggestion(' + idx + ')"' +
+      ' onkeydown="if(event.key===\'Enter\'){_gsApplyPlantSuggestion(' + idx + ');}"' +
+      ' style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .12s;"' +
+      ' onmouseover="this.style.background=\'rgba(45,138,45,.08)\'"' +
+      ' onmouseout="this.style.background=\'transparent\'">' +
+      '<div style="font-size:22px;width:30px;text-align:center;">' + emoji + '</div>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="font-size:13.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(name) + tox + cloud + '</div>' +
+        (lat ? '<div style="font-size:11px;font-style:italic;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(lat) + '</div>' : '') +
+      '</div>' +
+      (tag ? '<span style="font-size:10px;font-weight:700;padding:3px 7px;border-radius:8px;background:var(--surface2);color:var(--text2);white-space:nowrap;">' + tag + '</span>' : '') +
+    '</div>';
+  }).join('');
+  // Letztes Item ohne Border
+  var last = dropdown.querySelector('[data-sug-idx="' + (list.length - 1) + '"]');
+  if (last) last.style.borderBottom = 'none';
+  window._gsLastSuggestions = list;
+  dropdown.style.display = 'block';
+}
+
+function _gsRenderSuggestions(q, dropdown, seq){
+  window._gsLastSugQuery = q;
   if (typeof DB === 'undefined' || !Array.isArray(DB) || !DB.length) {
     dropdown.style.display = 'none'; return;
   }
@@ -22226,39 +22267,59 @@ function _gsRenderSuggestions(q, dropdown){
   }
   scored.sort(function(a,b){ return b.score - a.score; });
   scored = scored.slice(0, 8);
-  if (!scored.length) {
-    dropdown.style.display = 'block';
-    dropdown.innerHTML = '<div style="padding:14px 14px;color:var(--muted);font-size:12.5px;text-align:center;">Keine Vorschläge zu „' + escHtml(q) + '". Tippe trotzdem weiter und klick „Speichern" für eigenen Eintrag.</div>';
-    return;
+  // 1) lokale Treffer sofort rendern (instant, offline-fähig)
+  _gsRenderSugList(scored.map(function(x){ return x.s; }), q, dropdown);
+  // 2) v26.88: online Fuzzy-Boost (tippfehler-tolerant via pg_trgm Edge-Fn) — Vorrang vor lokal
+  if (q.length >= 3 && navigator.onLine) {
+    _gsRemoteSearch(q).then(function(remote){
+      if (seq !== _gsSugSeq) return;          // veraltete Antwort verwerfen (User tippt weiter)
+      if (!remote || !remote.length) return;
+      _gsMergeRemote(q, dropdown, remote);
+    }).catch(function(){});
   }
-  var catLabel = { hauspflanze:'🏠 Haus', wildpflanze:'🌿 Wild', kraut:'🌱 Kraut', gemuese:'🥕 Gemüse', frucht:'🍓 Frucht', baum:'🌳 Baum', strauch:'🌳 Strauch', pilz:'🍄 Pilz', moos:'🌿 Moos', flechte:'🌿 Flechte', alge:'🌿 Alge', neophyte:'⚠️ Neophyt' };
-  dropdown.innerHTML = scored.map(function(x, idx){
-    var s = x.s;
-    var emoji = s.emoji || '🌿';
-    var name = s.name || '';
-    var lat = s.lat || '';
-    var cat = (s.cat || '').toLowerCase();
-    var tag = catLabel[cat] || '';
-    var tox = s.toxic ? '<span style="color:#c62828;font-size:11px;font-weight:700;margin-left:6px;" title="Giftig">⚠️ giftig</span>' : '';
-    return '<div role="option" tabindex="0" data-sug-idx="' + idx + '"' +
-      ' onmousedown="event.preventDefault(); _gsApplyPlantSuggestion(' + idx + ')"' +
-      ' onkeydown="if(event.key===\'Enter\'){_gsApplyPlantSuggestion(' + idx + ');}"' +
-      ' style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .12s;"' +
-      ' onmouseover="this.style.background=\'rgba(45,138,45,.08)\'"' +
-      ' onmouseout="this.style.background=\'transparent\'">' +
-      '<div style="font-size:22px;width:30px;text-align:center;">' + emoji + '</div>' +
-      '<div style="flex:1;min-width:0;">' +
-        '<div style="font-size:13.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(name) + tox + '</div>' +
-        (lat ? '<div style="font-size:11px;font-style:italic;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(lat) + '</div>' : '') +
-      '</div>' +
-      (tag ? '<span style="font-size:10px;font-weight:700;padding:3px 7px;border-radius:8px;background:var(--surface2);color:var(--text2);white-space:nowrap;">' + tag + '</span>' : '') +
-    '</div>';
-  }).join('');
-  // Letztes Item ohne Border
-  var last = dropdown.querySelector('[data-sug-idx="' + (scored.length - 1) + '"]');
-  if (last) last.style.borderBottom = 'none';
-  window._gsLastSuggestions = scored.map(function(x){ return x.s; });
-  dropdown.style.display = 'block';
+}
+
+// v26.88: Edge-Fn-Aufruf — liefert Fuzzy/Popularity-Treffer; null bei Offline/Fehler.
+// Injiziert Anon-Key als Bearer wenn nicht eingeloggt (Edge-Fn verify_jwt=true).
+async function _gsRemoteSearch(q){
+  try {
+    if (typeof sbFetch !== 'function' || typeof sbGetConfig !== 'function' || !sbGetConfig()) return null;
+    var hdrs = { 'Content-Type':'application/json' };
+    var tok = null;
+    try { tok = (typeof gsStore !== 'undefined') ? gsStore.get('gs_sb_token', null) : null; } catch(_){}
+    if (!tok && typeof SB_KEY !== 'undefined' && SB_KEY) hdrs['Authorization'] = 'Bearer ' + SB_KEY;
+    var lang = 'de';
+    try { lang = gsStore.get('gs_lang','de') || 'de'; } catch(_){}
+    var resp = await sbFetch('/functions/v1/species-search', {
+      method:'POST', headers: hdrs,
+      body: JSON.stringify({ q: q, limit: 8, lang: lang })
+    });
+    if (resp && resp.data && Array.isArray(resp.data.results)) return resp.data.results;
+  } catch(_){}
+  return null;
+}
+
+// v26.88: merge — Edge-Fn-Treffer haben Vorrang, lokale DB als Fallback (dedupe by name)
+function _gsMergeRemote(q, dropdown, remote){
+  var merged = [], seen = {};
+  remote.forEach(function(r){
+    if (!r || !r.name) return;
+    var key = String(r.name).toLowerCase().trim();
+    if (seen[key]) return; seen[key] = 1;
+    merged.push({
+      name: r.name, lat: r.lat || '', emoji: r.emoji || '🌿',
+      cat: r.cat || '', toxic: !!r.toxic, edible: !!r.edible,
+      _remote: true, _sid: r.id || r.slug || ''
+    });
+  });
+  // lokale Treffer anhängen die online nicht zurückkamen
+  (window._gsLastSuggestions || []).forEach(function(s){
+    if (!s || !s.name) return;
+    var key = String(s.name).toLowerCase().trim();
+    if (seen[key]) return; seen[key] = 1;
+    merged.push(s);
+  });
+  _gsRenderSugList(merged.slice(0, 10), q, dropdown);
 }
 
 window._gsApplyPlantSuggestion = function(idx){
@@ -22288,6 +22349,15 @@ window._gsApplyPlantSuggestion = function(idx){
   // Dropdown zu, Companion-Check refreshen
   var d = document.getElementById('mp-name-sug'); if (d) d.style.display = 'none';
   if (typeof gsCompanionLiveCheck === 'function') { try { gsCompanionLiveCheck(); } catch(_){} }
+  // v26.88: Pick loggen → Popularity-Ranking (fire-and-forget, nur eingeloggt + nur DB-Treffer mit species_id)
+  try {
+    if (s._sid && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof sbFetch === 'function') {
+      sbFetch('/rest/v1/rpc/fn_species_log_pick', {
+        method:'POST',
+        body: JSON.stringify({ p_q: (window._gsLastSugQuery || s.name || ''), p_species_id: String(s._sid) })
+      });
+    }
+  } catch(_){}
   if (typeof gsHaptic === 'function') gsHaptic('select');
 };
 
@@ -53063,6 +53133,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.88', date: '02.06.2026',
+    headline: '🔎 Tippfehler-tolerante Online-Pflanzensuche',
+    summary: 'Die Vorschläge beim Hinzufügen einer Pflanze sind jetzt online viel schlauer: Sie verzeihen Tippfehler und Mehrzahl-Formen (z.B. „tomaten" findet „Fleischtomate", „rosee" findet „Rose") und durchsuchen auch lateinische Namen. Im Hintergrund läuft eine echte Fuzzy-Suche (pg_trgm) über alle Arten der Datenbank, mit 60-Sekunden-Cache für Tempo. Offline bleibt die schnelle lokale Suche wie bisher. Häufig gewählte Arten ranken mit der Zeit höher (Popularity-Ranking) — datenschutzfreundlich nur als anonyme Gesamtzahl, keine Einzel-Suchen werden veröffentlicht.',
+    user_summary: '🔎 Online finden die Vorschläge jetzt auch bei Tippfehlern die richtige Pflanze (☁️-Treffer). Offline bleibt die schnelle lokale Suche.',
+    user_items: [
+      { emoji: '🔡', text: 'Tippfehler-tolerant: „tomaten" → Fleischtomate, „rosee" → Rose' },
+      { emoji: '🌐', text: 'Online-Treffer (☁️) mit Vorrang, offline lokale DB als Fallback' },
+      { emoji: '⚡', text: 'Schnell dank 60-Sekunden-Cache' },
+    ],
+    items: [
+      {emoji:'🗄️', bold:'Backend:', text:' Migration v26_88_species_search — pg_trgm GIN-Indizes (name+lat), fn_species_search (similarity + word_similarity für Kompositum/Plural, INVOKER), fn_species_log_pick (DEFINER, authenticated-only), fn_species_top_picks. Echtes Schema: species.id=uuid, slug, tox smallint(0-5)→toxic-bool, kein common_name_en/es.'},
+      {emoji:'🔒', bold:'Privacy:', text:' species_search_log RLS insert/select-own (privat). Aggregat-Tabelle species_popularity (kein user_id) public-readable. species_search_cache locked (nur service-role). Maintenance-Fns von anon/authenticated revoked (cron-only). 0 neue Security-ERRORs.'},
+      {emoji:'☁️', bold:'Edge-Fn species-search v1:', text:' service-role-Wrapper mit 60s-Cache (species_search_cache), CORS, verify_jwt. Frontend _gsRemoteSearch ruft sie (Anon-Key-Bearer-Fallback), _gsMergeRemote merged Online-Treffer mit Vorrang in das Autocomplete-Dropdown.'},
+      {emoji:'🧹', bold:'Cron:', text:' species-maintenance-daily 02:15 UTC — fn_refresh_species_popularity (self-heal aus Log) + fn_cleanup_species_search_cache (Cache-Expiry + 90d Log-TTL).'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · GS_VERSION=v26.88 · sw.js gs-v26.88 · _headers v26.88 · meta=26.88.20260602.'},
+    ]
+  },
+  {
     v: 'v26.87', date: '02.06.2026',
     headline: '✨ Pflanzen-Vorschläge beim Tippen + klare Wohnung/Garten-Wahl',
     summary: 'Wenn du eine Pflanze hinzufügst, schlägt die App jetzt direkt beim Tippen passende Arten aus der Pflanzen-Datenbank (~4\'342 Arten) vor — mit Emoji, lateinischem Namen, Giftig-Warnung und Kategorie. Ein Klick füllt das ganze Formular vor. Zusätzlich fragt das Formular jetzt zuerst: Soll die Pflanze in die 🏠 Wohnung („Meine Pflanzen") oder in den 🌳 Garten („Mein Garten" mit Beet/Pflege-Plan)? — bei Garten leitet die App automatisch zum passenden Workflow. Pflanzen- und Garten-Karten sind nun smoother (rundere Ecken, weiche Schatten, sanfter Hover-Lift).',
@@ -55730,7 +55818,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.87';
+var GS_VERSION = 'v26.88';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
