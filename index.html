@@ -4926,6 +4926,17 @@ html, body{ scroll-behavior: smooth; }
     <!-- DATENSCHUTZ & DATEN -->
     <div class="settings-group-title" data-i18n="settings_group_data" data-i18n-fallback="🔒 Datenschutz & Daten">🔒 Datenschutz &amp; Daten</div>
     <div class="settings-card">
+      <div class="settings-row">
+        <div class="settings-icon" style="background:#fff8e1;">🏆</div>
+        <div class="settings-label">
+          <div class="settings-label-title" data-i18n="settings_ach_feed" data-i18n-fallback="Achievements im Community-Feed zeigen">Achievements im Community-Feed zeigen</div>
+          <div class="settings-label-sub" data-i18n="settings_ach_feed_hint" data-i18n-fallback="Deine freigeschalteten Erfolge erscheinen anonymisierbar im Feed anderer">Deine freigeschalteten Erfolge erscheinen im Feed anderer</div>
+        </div>
+        <label class="settings-toggle">
+          <input type="checkbox" id="toggle-ach-feed" onchange="gsToggleAchFeed(this.checked)" checked>
+          <span class="settings-toggle-slider"></span>
+        </label>
+      </div>
       <div class="settings-row admin-only-row" id="settings-export-row" style="display:none;cursor:pointer;" onclick="exportUserData()">
         <div class="settings-icon" style="background:#e8f5e9;">📤</div>
         <div class="settings-label">
@@ -6906,6 +6917,8 @@ function gsTbAdd() {
       var tbCount = (Array.isArray(_gsTagebuch) ? _gsTagebuch.length : 0);
       if (tbCount >= 30) window.gsCheckMilestone('diary_30').catch(function(){});
     }
+    // v26.95: Achievements-Bump (SET auf aktuelle Tagebuch-Anzahl)
+    if (typeof gsAchBump === 'function') gsAchBump('diary_count', (Array.isArray(_gsTagebuch) ? _gsTagebuch.length : 1), true);
   } catch(_){}
   openGartenTagebuch();
 }
@@ -7618,6 +7631,8 @@ function gsErnteAdd() {
       window.gsCheckMilestone('first_harvest').catch(function(){});
       if (_gsErnteLog.length >= 10) window.gsCheckMilestone('harvest_10').catch(function(){});
     }
+    // v26.95: Achievements-Bump (SET auf aktuelle Ernte-Anzahl)
+    if (typeof gsAchBump === 'function') gsAchBump('harvest_count', (Array.isArray(_gsErnteLog) ? _gsErnteLog.length : 1), true);
   } catch(_){}
   openErnteTracking();
 }
@@ -10958,65 +10973,251 @@ window.gsLogGardenScore = async function() {
       })
     });
     try { localStorage.setItem(todayKey, '1'); } catch(_){}
+    // v26.95: täglich 1× Login-Streak als Achievement-Metric setzen (SET)
+    try {
+      if (typeof gsAchBump === 'function') {
+        var st = (typeof gsGetStreak === 'function') ? gsGetStreak() : 0;
+        if (st > 0) gsAchBump('streak', st, true);
+      }
+    } catch(_){}
   } catch(_){}
 };
 
-// v26.62: openAchievementsModal — zeigt erreichte Milestones + Garden-Score-Trend
+// ── v26.95: Achievements Bump-Engine + Feed + Share (Frontend) ──────────────
+// Rarity-Leiter → Farben (shared zwischen Overview + Feed)
+window._gsAchRarity = {
+  common:    { c:'#90a4ae', label:'Gewöhnlich' },
+  uncommon:  { c:'#66bb6a', label:'Ungewöhnlich' },
+  rare:      { c:'#42a5f5', label:'Selten' },
+  epic:      { c:'#ab47bc', label:'Episch' },
+  legendary: { c:'#ffa726', label:'Legendär' }
+};
+
+// gsAchBump(metric, value, isSet) — fire-and-forget Progress → fn_achievements_bump.
+// isSet=true → SET (z.B. plant_count = myPlants.length); false → INC (z.B. scan_count +1).
+// Bei neuen Unlocks: Konfetti + Toast. Best-effort (Hard-Lesson #10): wirft nie.
+window.gsAchBump = function(metric, value, isSet) {
+  try {
+    if (!metric) return;
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
+    if (typeof sbFetch !== 'function') return;
+    var v = parseInt(value, 10);
+    if (isNaN(v)) v = isSet ? 0 : 1;
+    sbFetch('/rest/v1/rpc/fn_achievements_bump', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ p_metric: String(metric), p_value: Math.max(0, v), p_set: !!isSet })
+    }).then(function(r){
+      try {
+        var d = r && r.data;
+        if (Array.isArray(d)) d = d[0];
+        if (d && Array.isArray(d.unlocked) && d.unlocked.length) window.gsAchUnlockCelebrate(d.unlocked);
+      } catch(_){}
+    }).catch(function(){});
+  } catch(_){}
+};
+
+// _gsConfetti() — kurzer Canvas-Konfetti-Burst, räumt sich selbst auf (respektiert reduced-motion).
+window._gsConfetti = function() {
+  try {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var cv = document.createElement('canvas');
+    cv.style.cssText = 'position:fixed;inset:0;z-index:100000;pointer-events:none;';
+    cv.width = window.innerWidth; cv.height = window.innerHeight;
+    document.body.appendChild(cv);
+    var ctx = cv.getContext('2d');
+    var cols = ['#2e7d32','#66bb6a','#ffa726','#42a5f5','#ab47bc','#ffd54f'];
+    var P = [];
+    for (var i=0;i<90;i++) P.push({
+      x: cv.width/2 + (Math.random()-0.5)*120, y: cv.height*0.32,
+      vx:(Math.random()-0.5)*9, vy:(Math.random()*-11-4),
+      s: 4+Math.random()*6, c: cols[(Math.random()*cols.length)|0],
+      r: Math.random()*6, vr:(Math.random()-0.5)*0.4
+    });
+    var t0 = Date.now();
+    (function frame(){
+      var el = Date.now()-t0;
+      ctx.clearRect(0,0,cv.width,cv.height);
+      P.forEach(function(p){
+        p.vy += 0.35; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+        ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.r);
+        ctx.fillStyle = p.c; ctx.fillRect(-p.s/2,-p.s/2,p.s,p.s*1.6); ctx.restore();
+      });
+      if (el < 1600) requestAnimationFrame(frame); else { try { cv.remove(); } catch(_){} }
+    })();
+  } catch(_){}
+};
+
+// gsAchUnlockCelebrate(unlocked[]) — Konfetti + gestaffelte Toasts je Unlock.
+window.gsAchUnlockCelebrate = function(unlocked) {
+  try {
+    if (!Array.isArray(unlocked) || !unlocked.length) return;
+    window._gsConfetti();
+    try { if (typeof gsHaptic === 'function') gsHaptic('success'); } catch(_){}
+    unlocked.forEach(function(u, idx){
+      setTimeout(function(){
+        try {
+          var xp = u.xp ? (' · +' + u.xp + ' XP') : '';
+          if (typeof gsToast === 'function')
+            gsToast((u.icon || '🏆') + ' Achievement: ' + (u.title || u.slug) + xp, 'success', 4200);
+        } catch(_){}
+      }, idx*650);
+    });
+  } catch(_){}
+};
+
+// gsAchShare(slug,title,template) — Web-Share + Clipboard-Fallback (Hard-Lesson #12: keine var-Quote-Embeds).
+window.gsAchShare = function(slug, title, template) {
+  try {
+    var text = template || ('Ich habe „' + (title||slug) + '" auf GreenScan freigeschaltet! 🌿');
+    var url = 'https://green-scan.ch/';
+    if (navigator.share) {
+      navigator.share({ title: 'GreenScan Achievement', text: text, url: url }).catch(function(){});
+    } else if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text + ' ' + url).then(function(){
+        if (typeof gsToast === 'function') gsToast('📋 In Zwischenablage kopiert', 'success');
+      }).catch(function(){});
+    } else if (typeof gsToast === 'function') { gsToast(text, 'info'); }
+  } catch(_){}
+};
+window.gsAchShareIdx = function(i) {
+  try { var r = (window._gsAchOverview||[])[i]; if (r) window.gsAchShare(r.slug, r.title, r.share_template); } catch(_){}
+};
+
+// gsAchToggleShowcase(i) — Vitrine-Stern toggeln (max 5), persistieren via RPC.
+window.gsAchToggleShowcase = function(i) {
+  try {
+    var r = (window._gsAchOverview||[])[i]; if (!r || !r.unlocked) return;
+    var sc = window._gsAchShowcase || [];
+    var pos = sc.indexOf(r.slug);
+    if (pos >= 0) sc.splice(pos,1);
+    else {
+      if (sc.length >= 5) { if (typeof gsToast==='function') gsToast('Vitrine voll (max 5) — erst eines entfernen', 'info'); return; }
+      sc.push(r.slug);
+    }
+    window._gsAchShowcase = sc;
+    window._gsAchRenderMine();
+    if (typeof sbFetch === 'function')
+      sbFetch('/rest/v1/rpc/fn_achievements_showcase_set', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_slugs: sc }) }).catch(function(){});
+  } catch(_){}
+};
+
+// gsAchTab(name) — Tab-Wechsel 'mine' | 'feed' (Feed lazy-load beim ersten Öffnen).
+window.gsAchTab = function(name) {
+  try {
+    var mine = document.getElementById('ach-tab-mine'), feed = document.getElementById('ach-tab-feed');
+    var bM = document.getElementById('ach-tabbtn-mine'), bF = document.getElementById('ach-tabbtn-feed');
+    var isMine = (name === 'mine');
+    if (mine) mine.style.display = isMine ? 'block':'none';
+    if (feed) feed.style.display = isMine ? 'none':'block';
+    if (bM){ bM.style.color = isMine?'var(--text)':'var(--muted)'; bM.style.borderBottomColor = isMine?'var(--g-main,#2e7d32)':'transparent'; }
+    if (bF){ bF.style.color = isMine?'var(--muted)':'var(--text)'; bF.style.borderBottomColor = isMine?'transparent':'var(--g-main,#2e7d32)'; }
+    if (!isMine && !window._gsAchFeedLoaded) { window._gsAchFeedLoaded = true; window._gsAchRenderFeed(); }
+  } catch(_){}
+};
+
+function _gsAchEsc(s){
+  return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(s)
+    : String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; });
+}
+
+// _gsAchRenderMine() — Garten-Score-Card + Katalog gruppiert nach Kategorie, Progress, Share, Vitrine.
+window._gsAchRenderMine = function() {
+  var cont = document.getElementById('ach-tab-mine'); if (!cont) return;
+  var esc = _gsAchEsc;
+  var rows = window._gsAchOverview || [];
+  var rar = window._gsAchRarity;
+  var live = (typeof window.gsComputeGardenScore==='function') ? window.gsComputeGardenScore() : {score:0,breakdown:{diversity:0,care:0,harvest:0,biodiversity:0,consistency:0}};
+  var scoreColor = live.score>=70?'#2e7d32':live.score>=40?'#f57c00':'#c62828';
+  var unlockedCount = rows.filter(function(r){return r.unlocked;}).length;
+  var html =
+    '<div style="padding:16px 18px;background:linear-gradient(135deg,'+scoreColor+',#1b5e20);color:#fff;">' +
+      '<div style="font-size:12px;opacity:.85;text-transform:uppercase;letter-spacing:1px;">Dein Garten-Score</div>' +
+      '<div style="font-size:44px;font-weight:900;line-height:1;margin:4px 0;">'+live.score+'<span style="font-size:17px;opacity:.6;">/100</span></div>' +
+      '<div style="font-size:11px;opacity:.9;">Div '+live.breakdown.diversity+' · Pflege '+live.breakdown.care+' · Ernte '+live.breakdown.harvest+' · Bio '+live.breakdown.biodiversity+' · Konst. '+live.breakdown.consistency+'</div>' +
+    '</div>';
+  if (!rows.length) {
+    html += '<div style="padding:24px;text-align:center;color:var(--muted);font-size:12.5px;line-height:1.6;">🌱 Achievements erscheinen hier, sobald du eingeloggt bist und erste Aktionen ausführst (scannen, Pflanze anlegen, Quiz spielen).</div>';
+    cont.innerHTML = html; return;
+  }
+  html += '<div style="padding:10px 18px 2px;font-size:11.5px;color:var(--muted);">'+unlockedCount+' / '+rows.length+' freigeschaltet · ⭐ tippen für Vitrine (max 5)</div>';
+  var catLabels = { explorer:'🧭 Entdecker', gardener:'🌱 Gärtner', collector:'📦 Sammler', healer:'🌿 Heiler', sage:'📚 Weiser', milestone:'👑 Meilensteine' };
+  var groups = {}, order = [];
+  rows.forEach(function(r){ var c=r.category||'sonstige'; if(!groups[c]){groups[c]=[];order.push(c);} groups[c].push(r); });
+  order.forEach(function(cat){
+    html += '<div style="padding:12px 18px 4px;font-size:13px;font-weight:800;color:var(--text);">'+(catLabels[cat]||esc(cat))+'</div>';
+    groups[cat].forEach(function(r){
+      var i = rows.indexOf(r);
+      var meta = rar[r.rarity] || rar.common;
+      var cur = Number(r.current_value||0), thr = Number(r.threshold||1);
+      var pct = Math.min(100, Math.round(cur/Math.max(1,thr)*100));
+      var inShow = (window._gsAchShowcase||[]).indexOf(r.slug) >= 0;
+      html +=
+        '<div style="margin:0 18px 8px;border:1px solid '+(r.unlocked?meta.c:'var(--border)')+';border-radius:12px;padding:10px 12px;'+(r.unlocked?'background:linear-gradient(135deg,'+meta.c+'18,'+meta.c+'08);':'opacity:.62;')+'">' +
+          '<div style="display:flex;align-items:center;gap:10px;">' +
+            '<div style="font-size:24px;'+(r.unlocked?'':'filter:grayscale(1);')+'">'+(r.icon||'🏅')+'</div>' +
+            '<div style="flex:1;min-width:0;">' +
+              '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+                '<span style="font-size:13.5px;font-weight:700;color:var(--text);">'+esc(r.title)+'</span>' +
+                '<span style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#fff;background:'+meta.c+';border-radius:6px;padding:1px 5px;">'+meta.label+'</span>' +
+                (r.xp_reward?'<span style="font-size:10px;color:var(--muted);">+'+r.xp_reward+' XP</span>':'') +
+              '</div>' +
+              '<div style="font-size:11px;color:var(--muted);margin:2px 0 4px;">'+esc(r.description||'')+'</div>' +
+              '<div style="height:6px;background:var(--border);border-radius:4px;overflow:hidden;"><div style="height:100%;width:'+pct+'%;background:'+meta.c+';"></div></div>' +
+              '<div style="font-size:10px;color:var(--muted);margin-top:2px;">'+Math.min(cur,thr)+' / '+thr+(r.unlocked?' ✓':'')+'</div>' +
+            '</div>' +
+            (r.unlocked ?
+              '<div style="display:flex;flex-direction:column;gap:8px;align-items:center;">' +
+                '<button onclick="gsAchToggleShowcase('+i+')" aria-label="Vitrine umschalten" style="background:none;border:none;font-size:18px;cursor:pointer;line-height:1;padding:0;">'+(inShow?'⭐':'☆')+'</button>' +
+                '<button onclick="gsAchShareIdx('+i+')" aria-label="Teilen" style="background:none;border:none;font-size:15px;cursor:pointer;line-height:1;padding:0;">📤</button>' +
+              '</div>' : '') +
+          '</div>' +
+        '</div>';
+    });
+  });
+  cont.innerHTML = html;
+};
+
+// _gsAchRenderFeed() — Community-Feed (7 Tage, uncommon+) via fn_achievements_feed.
+window._gsAchRenderFeed = async function() {
+  var cont = document.getElementById('ach-tab-feed'); if (!cont) return;
+  var esc = _gsAchEsc;
+  var rar = window._gsAchRarity;
+  var feed = [];
+  try {
+    if (typeof sbFetch === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
+      var r = await sbFetch('/rest/v1/rpc/fn_achievements_feed', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_limit: 30 }) });
+      feed = (r && Array.isArray(r.data)) ? r.data : [];
+    }
+  } catch(_){}
+  if (!feed.length) {
+    cont.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:12.5px;line-height:1.6;">🌍 Noch keine Community-Achievements der letzten 7 Tage.<br>Schalte selbst eines frei — du erscheinst hier (sofern Feed-Opt-In aktiv).</div>';
+    return;
+  }
+  var html = '<div style="padding:10px 18px;font-size:11.5px;color:var(--muted);">Letzte 7 Tage · ungewöhnlich und seltener</div>';
+  feed.forEach(function(f){
+    var meta = rar[f.rarity] || rar.common;
+    var when = '';
+    try { when = new Date(f.unlocked_at).toLocaleDateString('de-CH'); } catch(_){}
+    html += '<div style="margin:0 18px 8px;border:1px solid var(--border);border-left:3px solid '+meta.c+';border-radius:10px;padding:9px 12px;display:flex;align-items:center;gap:10px;">' +
+      '<div style="font-size:22px;">'+(f.avatar_emoji||'🌿')+'</div>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="font-size:12.5px;color:var(--text);"><b>'+esc(f.display_name||'Anonym')+'</b> schaltete frei</div>' +
+        '<div style="font-size:12.5px;font-weight:700;color:'+meta.c+';">'+(f.icon||'🏅')+' '+esc(f.title)+'</div>' +
+      '</div>' +
+      (when?'<div style="font-size:10px;color:var(--muted);">'+when+'</div>':'') +
+    '</div>';
+  });
+  cont.innerHTML = html;
+};
+
+// v26.95: openAchievementsModal — Katalog-getrieben (Tabs: 🏆 Meine + 🌍 Community) + Garten-Score
 window.openAchievementsModal = async function() {
   try { if (typeof gsHaptic === 'function') gsHaptic('light'); } catch(_){}
   var existing = document.getElementById('achievements-modal');
   if (existing) existing.remove();
-  // Score live berechnen
-  var live = window.gsComputeGardenScore();
-  var scoreColor = live.score >= 70 ? '#2e7d32' : live.score >= 40 ? '#f57c00' : '#c62828';
-  // Local-Milestones aus gs_milestones_local
-  var local = {};
-  try { local = JSON.parse(localStorage.getItem('gs_milestones_local') || '{}'); } catch(_){}
-  var milestoneSlugs = Object.keys(local).sort();
-  var milestoneLabels = {
-    'first_plant': '🌱 Erste Pflanze',
-    'plant_5': '🌿 5 Pflanzen',
-    'plant_20': '🌳 20 Pflanzen',
-    'plant_50': '🏆 50 Pflanzen',
-    'first_harvest': '🧺 Erste Ernte',
-    'harvest_10': '🥕 10 Ernten',
-    'first_diary_entry': '📓 Erster Tagebuch-Eintrag',
-    'diary_30': '📔 30 Tagebuch-Einträge',
-    'first_scan': '📷 Erster Scan',
-    'scan_10': '🔍 10 Scans',
-    'scan_50': '🔎 50 Scans',
-    'scan_100': '🏅 100 Scans',
-    'scan_500': '🥇 500 Scans',
-    'streak_3': '🔥 3-Tage-Streak',
-    'streak_7': '🔥 7-Tage-Streak',
-    'streak_30': '🔥 30-Tage-Streak',
-    'streak_100': '🔥 100-Tage-Streak',
-    'first_track': '🥾 Erste GPS-Tour',
-    'track_distance_50': '🚶 50km Wandern',
-    'first_recipe': '🍳 Erstes Rezept',
-    'first_remedy': '🌿 Erstes Heilmittel',
-    'quiz_streak_5': '🧠 5-Quiz-Streak',
-    'quiz_streak_20': '🧠 20-Quiz-Streak',
-    'mushroom_5': '🍄 5 Pilze',
-    'tree_10': '🌳 10 Bäume',
-    'flower_10': '🌸 10 Blumen',
-    'herb_15': '🌿 15 Kräuter',
-    'bee_friendly_5': '🐝 5 Bienen-Pflanzen',
-    'book_uploader': '📚 Buch-Upload',
-    'master_gardener': '👑 Meister-Gärtner'
-  };
-  var milestonesHtml = milestoneSlugs.length ? milestoneSlugs.map(function(slug) {
-    var label = milestoneLabels[slug] || slug;
-    var dateStr = local[slug] ? new Date(local[slug]).toLocaleDateString('de-CH') : '';
-    return '<div style="background:linear-gradient(135deg,#fff8e1,#ffecb3);border:1px solid #ffd54f;border-radius:12px;padding:10px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">' +
-      '<div style="font-size:13.5px;font-weight:700;color:#5d4037;">' + label + '</div>' +
-      (dateStr ? '<div style="font-size:10.5px;color:#8d6e63;">' + dateStr + '</div>' : '') +
-    '</div>';
-  }).join('') : '<div style="text-align:center;padding:24px 12px;color:var(--muted);font-size:12.5px;line-height:1.5;">🌱 Noch keine Meilensteine.<br>Lege deine erste Pflanze, Ernte oder Tagebuch-Eintrag an um Achievements zu sammeln.</div>';
 
   var m = document.createElement('div');
   m.id = 'achievements-modal';
-  // v26.64: a11y — role/aria-modal/labelledby + ESC-Close + gsTrapFocus
   m.setAttribute('role', 'dialog');
   m.setAttribute('aria-modal', 'true');
   m.setAttribute('aria-labelledby', 'achievements-modal-title');
@@ -11024,35 +11225,41 @@ window.openAchievementsModal = async function() {
   m.innerHTML =
     '<div style="background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:520px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;">' +
       '<div style="padding:16px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">' +
-        '<div><div id="achievements-modal-title" style="font-size:17px;font-weight:800;color:var(--text);">🏆 Achievements & Garten-Score</div>' +
-        '<div style="font-size:11px;color:var(--muted);">' + milestoneSlugs.length + ' Meilensteine erreicht</div></div>' +
+        '<div id="achievements-modal-title" style="font-size:17px;font-weight:800;color:var(--text);">🏆 Achievements</div>' +
         '<button onclick="document.getElementById(\'achievements-modal\').remove()" aria-label="Schliessen" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);">✕</button>' +
       '</div>' +
-      // Score-Card
-      '<div style="padding:16px 18px;background:linear-gradient(135deg,' + scoreColor + ',#1b5e20);color:#fff;">' +
-        '<div style="font-size:12px;opacity:.85;text-transform:uppercase;letter-spacing:1px;">Dein Garten-Score</div>' +
-        '<div style="font-size:48px;font-weight:900;font-family:Playfair Display, serif;line-height:1;margin:4px 0;">' + live.score + '<span style="font-size:18px;opacity:.6;">/100</span></div>' +
-        '<div style="font-size:11.5px;opacity:.9;">Diversität ' + live.breakdown.diversity + ' · Pflege ' + live.breakdown.care + ' · Ernte ' + live.breakdown.harvest + ' · Biodiversität ' + live.breakdown.biodiversity + ' · Konsistenz ' + live.breakdown.consistency + '</div>' +
+      '<div style="display:flex;border-bottom:1px solid var(--border);">' +
+        '<button id="ach-tabbtn-mine" onclick="gsAchTab(\'mine\')" style="flex:1;padding:12px;border:none;background:none;font-size:13px;font-weight:700;cursor:pointer;color:var(--text);border-bottom:2px solid var(--g-main,#2e7d32);">🏆 Meine</button>' +
+        '<button id="ach-tabbtn-feed" onclick="gsAchTab(\'feed\')" style="flex:1;padding:12px;border:none;background:none;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;">🌍 Community</button>' +
       '</div>' +
-      // Milestones-Liste
-      '<div style="padding:16px 18px;flex:1;overflow-y:auto;">' +
-        '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;">Erreichte Meilensteine</div>' +
-        milestonesHtml +
-      '</div>' +
+      '<div id="ach-tab-mine" style="flex:1;overflow-y:auto;"><div style="padding:24px;text-align:center;color:var(--muted);font-size:12.5px;">⏳ Lade…</div></div>' +
+      '<div id="ach-tab-feed" style="flex:1;overflow-y:auto;display:none;"></div>' +
     '</div>';
   document.body.appendChild(m);
   m.addEventListener('click', function(e) { if (e.target === m) m.remove(); });
-  // v26.64: ESC-Close + gsTrapFocus
   var escHandler = function(e) {
-    if (e.key === 'Escape') {
-      m.remove();
-      document.removeEventListener('keydown', escHandler);
-    }
+    if (e.key === 'Escape') { m.remove(); document.removeEventListener('keydown', escHandler); }
   };
   document.addEventListener('keydown', escHandler);
+  try { if (typeof window.gsTrapFocus === 'function') window.gsTrapFocus(m); } catch(_){}
+
+  // Daten laden: Overview + Showcase (best-effort)
+  window._gsAchOverview = []; window._gsAchShowcase = []; window._gsAchFeedLoaded = false;
   try {
-    if (typeof window.gsTrapFocus === 'function') window.gsTrapFocus(m);
+    if (typeof sbFetch === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
+      var ov = await sbFetch('/rest/v1/rpc/fn_achievements_overview', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+      window._gsAchOverview = (ov && Array.isArray(ov.data)) ? ov.data : [];
+      try {
+        var uid = (typeof gsStore!=='undefined') ? gsStore.get('gs_sb_uid', null) : null;
+        if (uid) {
+          var pr = await sbFetch('/rest/v1/profiles?select=showcase_achievements&id=eq.' + encodeURIComponent(uid));
+          var prow = (pr && Array.isArray(pr.data) && pr.data[0]) ? pr.data[0] : null;
+          window._gsAchShowcase = (prow && Array.isArray(prow.showcase_achievements)) ? prow.showcase_achievements : [];
+        }
+      } catch(_){}
+    }
   } catch(_){}
+  window._gsAchRenderMine();
 };
 
 // gsConfirmModal({title, message, ok, cancel, kind}) → Promise<boolean>
@@ -12969,6 +13176,8 @@ function gsAddScanHistory(item) {
     item.id = item.id || ('scan_' + Date.now() + '_' + Math.random().toString(36).slice(2,6));
     item.createdAt = item.createdAt || Date.now();
     hist.unshift(item);
+    // v26.95: Achievements-Bump nur bei echtem NEU-Scan (INC), nicht bei Field-Merge/Re-Add
+    try { if (typeof gsAchBump === 'function') gsAchBump('scan_count', 1, false); } catch(_){}
   }
   if (hist.length > 200) hist = hist.slice(0, 200);
   try { gsStore.set(SCAN_HISTORY_KEY, JSON.stringify(hist)); } catch(e){}
@@ -15706,6 +15915,8 @@ function answerQuiz(btn) {
     _quizStreak = 0;
   }
   gsStore.set('gs_quiz_streak', _quizStreak);
+  // v26.95: Achievements-Bump (SET auf aktuellen Quiz-Streak — nur bei Richtig sinnvoll)
+  try { if (isCorrect && typeof gsAchBump === 'function') gsAchBump('quiz_streak', _quizStreak, true); } catch(_){}
 
   const resEl = document.getElementById('quiz-result');
   if (resEl) {
@@ -22971,6 +23182,8 @@ async function savePlant(){
       if (myPlants.length >= 20) window.gsCheckMilestone('plant_20').catch(function(){});
       if (myPlants.length >= 50) window.gsCheckMilestone('plant_50').catch(function(){});
     }
+    // v26.95: Achievements-Bump (SET auf aktuelle Pflanzen-Anzahl)
+    if (typeof gsAchBump === 'function') gsAchBump('plant_count', (Array.isArray(myPlants) ? myPlants.length : 1), true);
   } catch(_){}
 }
 
@@ -37931,6 +38144,7 @@ const DEFAULT_PREFS = {
   // rearCam removed - user controls camera in device settings
   safetyWarnings: true,
   scanHistory:  true,
+  achFeed:      true,
 };
 
 let userPrefs = {};
@@ -38083,6 +38297,27 @@ function savePref(key, val) {
     }
   } catch(_){}
 }
+
+// v26.95: Achievements-Community-Feed Opt-In. PATCHt profiles.opt_in_achievement_feed
+// (authoritativ für fn_achievements_feed) und spiegelt lokal für Checkbox-State.
+window.gsToggleAchFeed = function(checked) {
+  try {
+    userPrefs.achFeed = !!checked;
+    savePrefs();
+    if (typeof sbFetch === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
+      var uid = (typeof gsStore !== 'undefined') ? gsStore.get('gs_sb_uid', null) : null;
+      if (uid) {
+        sbFetch('/rest/v1/profiles?id=eq.' + encodeURIComponent(uid), {
+          method:'PATCH',
+          headers:{'Content-Type':'application/json','Prefer':'return=minimal'},
+          body: JSON.stringify({ opt_in_achievement_feed: !!checked })
+        }).then(function(){
+          if (typeof gsToast === 'function') gsToast(checked ? '🏆 Feed-Anzeige aktiviert' : '🔒 Aus Feed entfernt', 'success');
+        }).catch(function(){});
+      }
+    }
+  } catch(_){}
+};
 
 // ── Dark Mode ─────────────────────────────────────────────
 function applyDarkMode(isDark, save = true) {
@@ -38238,6 +38473,7 @@ function initSettingsScreen() {
       // rearCam setting removed
     'toggle-safety': 'safetyWarnings',
     'toggle-scan-history': 'scanHistory',
+    'toggle-ach-feed': 'achFeed',
   };
   Object.entries(toggleMap).forEach(([id, key]) => {
     const el = document.getElementById(id);
@@ -54177,6 +54413,24 @@ window.GS_RELEASES = [
       {emoji:'🖥️', bold:'Frontend:', text:' Foto-Timeline (gsBuildPhotoTimelineContent) erweitert: Vorher/Nachher-Dropdowns (frei wählbare A/B-Indizes), „🤖 KI-Wachstums-Analyse"-Button → gsPhotoDiffAnalyze konvertiert beide Fotos via _gsPhotoToB64 (data-URL ODER remote-fetch) und ruft callVisionAI (Foto B als extraImages) mit JSON-Schema-Prompt. Ergebnis-Karten (gsBuildPhotoDiffResult: growth_pct/new_leaves/color_health/summary/highlights/concerns). Zeitraffer-Player (gsPhotoTimelinePlay, 900ms auto-advance). Persist via fn_photo_diff_create (nur eingeloggt, keine data-URLs in DB).'},
       {emoji:'🔌', bold:'Keine neue Edge-Fn:', text:' Bewusst client-seitiges callVisionAI statt separater photo-diff-analyze-Edge-Fn — konsistent mit Scanner/Doktor, nutzt die bestehende einheitliche ai_call-Tagesquota (kein paralleles Monats-Limit).'},
       {emoji:'✅', bold:'Verify:', text:' Advisor ohne neue ERRORs · anon-EXECUTE auf beiden RPCs revoked · RLS ppd_own + 2 Indizes verifiziert · 7/7 Inline-Scripts node --check OK · GS_VERSION=v26.98 · sw.js gs-v26.98 · _headers v26.98 · meta=26.98.20260602.'},
+    ]
+  },
+  {
+    v: 'v26.95', date: '02.06.2026',
+    headline: '🏆 Achievements neu: Stufen, Fortschritt, Community-Feed & Teilen',
+    summary: 'Die Erfolge-Sammlung ist generalüberholt. Hinter dem 🏆-Widget findest du jetzt zwei Tabs: „🏆 Meine" zeigt alle Achievements nach Kategorie gruppiert (Entdecker, Gärtner, Sammler, Heiler, Weiser, Meilensteine) mit Fortschrittsbalken, Seltenheits-Stufe (gewöhnlich → legendär) und XP-Belohnung — freigeschaltete leuchten farbig, gesperrte zeigen, wie weit du noch bist. Schaltest du eines frei, gibt es Konfetti, einen Toast und automatisch XP. Bis zu fünf Lieblings-Erfolge heftest du per ⭐ in deine Vitrine, und jedes freigeschaltete teilst du per 📤. Der zweite Tab „🌍 Community" zeigt, was andere in den letzten 7 Tagen erreicht haben (ab Stufe „ungewöhnlich"). In den Einstellungen steuerst du, ob deine Erfolge im Feed erscheinen.',
+    user_summary: '🏆 Achievements zeigen jetzt Stufen, Fortschrittsbalken und XP — mit Konfetti beim Freischalten, einer ⭐-Vitrine, 📤-Teilen und einem Community-Feed der letzten 7 Tage.',
+    user_items: [
+      { emoji: '📊', text: 'Alle Erfolge nach Kategorie, mit Fortschrittsbalken, Seltenheit & XP' },
+      { emoji: '🎉', text: 'Konfetti + Toast + automatische XP beim Freischalten' },
+      { emoji: '🌍', text: 'Community-Feed (7 Tage) · ⭐-Vitrine (max 5) · 📤 Teilen — Feed-Anzeige in Einstellungen abschaltbar' },
+    ],
+    items: [
+      {emoji:'🗄️', bold:'Backend (Migration v26_95_achievements_plus):', text:' Rein additiv auf dem bestehenden flachen achievements_catalog (30 Einträge: condition->>type = Metric, ->>value = Schwelle, rarity = Stufenleiter — kein Tier-Rebuild nötig). profiles +showcase_achievements (text[]) +opt_in_achievement_feed (bool). achievements_catalog +share_template (+generischer Seed). Index idx_user_ach_unlocked. 4 RPCs: fn_achievements_bump (DEFINER, INC/SET pro Metric-Familie, schaltet Stufen idempotent frei, vergibt XP, Capstone master_gardener), fn_achievements_overview (INVOKER, eigener Fortschritt own-only), fn_achievements_feed (DEFINER, 7 Tage/uncommon+/opt-in, anon revoked), fn_achievements_showcase_set (DEFINER, max 5, nur freigeschaltete).'},
+      {emoji:'🏛️', bold:'Architektur-Realität (Hard-Lesson #8):', text:' Die Spec-Tabellen (tier_thresholds int[], plural achievements_progress, user_achievements.tier, profiles.full_name/avatar_url/opt_in_feed) existieren NICHT. Real: singular achievement_progress + user_achievements waren beide LEER → das System war faktisch tot. Mehrstufigkeit ist bereits über Metric-Familien + rarity modelliert. Belebt per Bump-Engine statt Rebuild; profiles hat display_name/avatar_emoji.'},
+      {emoji:'🖥️', bold:'Frontend:', text:' openAchievementsModal komplett neu — Tabs „🏆 Meine" (Garten-Score-Card + katalog-getriebene Liste, Progress, Seltenheits-Badges, ⭐-Vitrine, 📤-Teilen) + „🌍 Community" (lazy-load Feed). Neue Helfer: gsAchBump (fire-and-forget, Hard-Lesson #10), _gsConfetti (Canvas, respektiert reduced-motion), gsAchUnlockCelebrate, gsAchShare (Web-Share + Clipboard-Fallback), gsAchShowcase. Bump-Calls an echten Erfolgs-Punkten: Pflanze (plant_count SET), Scan (scan_count INC nur bei Neu-Scan), Tagebuch (diary_count SET), Ernte (harvest_count SET), Quiz (quiz_streak SET bei Richtig), Login-Streak (täglich 1×). Hard-Lesson #12: Share/Vitrine-Buttons übergeben nur den Array-Index (window._gsAchOverview), kein Quote-Escape im onclick.'},
+      {emoji:'⚙️', bold:'Einstellungen:', text:' Neuer Datenschutz-Toggle „Achievements im Community-Feed zeigen" (gsToggleAchFeed → PATCH profiles.opt_in_achievement_feed, lokal gespiegelt für sofortigen Checkbox-State).'},
+      {emoji:'✅', bold:'Verify:', text:' Migration angewandt · 2 profiles-Spalten + share_template + Index + 4 RPCs verifiziert · 3 DEFINER zeigen erwartete own-only-guarded WARN, Overview INVOKER ohne WARN, anon revoked · 0 neue Advisor-ERRORs · 7/7 Inline-Scripts node --check OK. Mid-Range-Sprint: GS_VERSION/meta/sw.js/_headers bleiben auf v27.00 (gemeinsamer Mega-Deploy durch Fernando nach allen 13 Sprints).'},
     ]
   },
   {
