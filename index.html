@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.90.20260602">
+<meta name="app-version" content="26.94.20260602">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4486,6 +4486,11 @@ html, body{ scroll-behavior: smooth; }
   <!-- v24.31: Globale Wissens-Suche über alle 5 Tabellen -->
   <div style="padding:8px 16px 0;">
     <input type="text" id="wissen-global-search" placeholder="🔍 Alle Wissensgebiete durchsuchen…" oninput="clearTimeout(window._gsKnowSearchT);window._gsKnowSearchT=setTimeout(function(){gsKnowledgeGlobalSearch(document.getElementById('wissen-global-search').value)},350);" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;background:var(--input-bg);color:var(--text);box-sizing:border-box;">
+    <!-- v26.94: Discover-Strip — Heute neu + Gespeichert -->
+    <div id="wissen-discover" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+      <button onclick="gsKnRenderDiscover()" style="font-size:11.5px;font-weight:700;padding:6px 12px;border:1.5px solid var(--border);border-radius:20px;background:var(--card);color:var(--text);cursor:pointer;-webkit-tap-highlight-color:transparent;">🆕 Heute neu</button>
+      <button onclick="gsKnShowBookmarks()" style="font-size:11.5px;font-weight:700;padding:6px 12px;border:1.5px solid var(--border);border-radius:20px;background:var(--card);color:var(--text);cursor:pointer;-webkit-tap-highlight-color:transparent;">🔖 Gespeichert</button>
+    </div>
     <div id="wissen-global-results" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-top:6px;max-height:400px;overflow-y:auto;box-shadow:var(--shadow);"></div>
   </div>
 
@@ -36058,7 +36063,99 @@ window.gsRenderBibliothek = async function() {
   }
 };
 
-// v24.31: Globale Wissens-Suche über alle 5 Tabellen via fn_knowledge_search RPC
+// v24.31 / v26.94: Globale Wissens-Suche über alle 5 Tabellen.
+// v26.94: bookmark-aware fn_knowledge_search2 + 🔖 Merken + 🆕 NEU-Badge + View-Tracking.
+// Identität eines Eintrags = COMPOSITE (source_type, source_id) — KEINE Einzeltabelle.
+// v24.32: Recipes + Remedies → Hauptmenü-Seiten (kein Wissens-Tab mehr)
+window._gsKnTypeMap = {
+  'species':     {section: 'bibliothek', menuTab: null, label: 'Art', color: '#2e7d32'},
+  'recipes':     {section: null, menuTab: 'recipes', label: 'Rezept', color: '#e65100'},
+  'remedies':    {section: null, menuTab: 'remedies', label: 'Heilmittel', color: '#7b1fa2'},
+  'folk_lore':   {section: 'folklore', menuTab: null, label: 'Folklore', color: '#5d4037'},
+  'garden_techniques': {section: 'techniken', menuTab: null, label: 'Technik', color: '#0277bd'}
+};
+
+// v26.94: 🔖 Bookmark-Toggle (auth-only via fn_knowledge_bookmark_toggle).
+window.gsKnBmToggle = async function(st, sid, el){
+  try {
+    if (typeof sbIsLoggedIn === 'function' && !sbIsLoggedIn()) { if (typeof gsToast === 'function') gsToast('Bitte zuerst anmelden', 'info'); return; }
+    if (typeof sbFetch !== 'function') return;
+    if (el) el.style.pointerEvents = 'none';
+    var r = await sbFetch('/rest/v1/rpc/fn_knowledge_bookmark_toggle', {
+      method: 'POST',
+      body: JSON.stringify({ p_source_type: st, p_source_id: sid })
+    });
+    var nowState = (r && r.data);
+    if (Array.isArray(nowState)) nowState = nowState[0];
+    nowState = (nowState === true);
+    if (el) { el.style.opacity = nowState ? '1' : '0.32'; el.setAttribute('data-bm', nowState ? '1' : '0'); el.title = nowState ? 'Gespeichert' : 'Merken'; }
+    if (typeof gsHaptic === 'function') gsHaptic('light');
+    if (typeof gsToast === 'function') gsToast(nowState ? '🔖 Gespeichert' : 'Entfernt', 'success');
+  } catch(e) {
+    if (typeof gsToast === 'function') gsToast('Fehler beim Speichern', 'error');
+  } finally { if (el) el.style.pointerEvents = ''; }
+};
+
+// v26.94: View-Tracking beim Öffnen eines Treffers (fire-and-forget, auth-only).
+window.gsKnTrackView = function(st, sid){
+  try {
+    if (typeof sbIsLoggedIn === 'function' && !sbIsLoggedIn()) return;
+    if (typeof sbFetch !== 'function' || !st || !sid) return;
+    var p = sbFetch('/rest/v1/rpc/fn_knowledge_track_progress', {
+      method: 'POST',
+      body: JSON.stringify({ p_source_type: st, p_source_id: sid, p_scroll_pct: 1 })
+    });
+    if (p && typeof p.catch === 'function') p.catch(function(){});
+  } catch(e){}
+};
+
+// v26.94: Geteilter Result-Card-Renderer — normalisiert ONLINE (search2/recent/bookmarks)
+// UND OFFLINE-Cache-Shape ({kind, snippet, score, _from_cache}).
+window._gsKnResultCard = function(row){
+  var ed = function(s){ return (typeof escHtml === 'function') ? escHtml(String(s||'')) : String(s||'').replace(/</g,'&lt;'); };
+  var st = row.source_type;
+  if (!st && row.kind) {
+    st = (row.kind === 'recipe') ? 'recipes' : (row.kind === 'remedy') ? 'remedies' : (row.kind === 'technique') ? 'garden_techniques' : row.kind;
+  }
+  var sid = (row.source_id != null) ? String(row.source_id) : '';
+  var title = row.title || '';
+  var subtitle = row.subtitle || '';
+  var body = row.body || row.snippet || '';
+  var icon = row.icon || '';
+  var sim = (row.similarity != null) ? row.similarity : ((row.score != null) ? row.score : 0);
+  var conf = Math.round((sim || 0) * 100);
+  var isBm = row.is_bookmarked === true;
+  var isNew = row.created_at && ((Date.now() - new Date(row.created_at).getTime()) < 7 * 864e5);
+  var fromCache = row._from_cache === true;
+  var info = (window._gsKnTypeMap && window._gsKnTypeMap[st]) || {section:'bibliothek', menuTab:null, label:'?', color:'#666'};
+  // Hard-Lesson #12: source_type (Enum) + source_id (uuid/int) sind quote-frei → echte Konkatenation safe.
+  var trackPrefix = (st && sid) ? ('if(typeof gsKnTrackView===\'function\')gsKnTrackView(\'' + st + '\',\'' + sid + '\');') : '';
+  var nav = info.menuTab
+    ? 'document.getElementById(\'wissen-global-results\').style.display=\'none\';document.getElementById(\'wissen-global-search\').value=\'\';if(typeof menuNav===\'function\')menuNav(\'' + info.menuTab + '\')'
+    : 'document.getElementById(\'wissen-global-results\').style.display=\'none\';document.getElementById(\'wissen-global-search\').value=\'\';showWissen(\'' + info.section + '\',document.querySelector(\'#wissen-nav .recipe-cat[onclick*=' + info.section + ']\'))';
+  var clickAction = trackPrefix + nav;
+  var loggedIn = (typeof sbIsLoggedIn === 'function') ? sbIsLoggedIn() : false;
+  var showBm = loggedIn && !fromCache && !!st && !!sid;
+  var bmSpan = showBm
+    ? '<span onclick="event.stopPropagation();gsKnBmToggle(\'' + st + '\',\'' + sid + '\',this)" data-bm="' + (isBm?'1':'0') + '" title="' + (isBm?'Gespeichert':'Merken') + '" style="font-size:16px;cursor:pointer;opacity:' + (isBm?'1':'0.32') + ';-webkit-tap-highlight-color:transparent;padding:0 2px;">🔖</span>'
+    : '';
+  var rightGroup = (conf > 0 || bmSpan)
+    ? '<span style="margin-left:auto;display:flex;align-items:center;gap:6px;">' + (conf > 0 ? '<span style="font-size:10px;color:var(--muted);">' + conf + '%</span>' : '') + bmSpan + '</span>'
+    : '';
+  return '<button onclick="' + clickAction + '" ' +
+    'style="display:block;width:100%;text-align:left;padding:10px 12px;background:transparent;border:none;border-bottom:1px solid var(--border);cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' +
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">' +
+      (icon ? '<span style="font-size:18px;">' + ed(icon) + '</span>' : '') +
+      '<strong style="font-size:13px;color:var(--text);">' + ed(title) + '</strong>' +
+      '<span style="font-size:9.5px;background:' + info.color + ';color:#fff;padding:1px 6px;border-radius:3px;font-weight:700;text-transform:uppercase;">' + info.label + '</span>' +
+      (isNew ? '<span style="font-size:9px;background:#d32f2f;color:#fff;padding:1px 5px;border-radius:3px;font-weight:700;">🆕 NEU</span>' : '') +
+      rightGroup +
+    '</div>' +
+    (subtitle ? '<div style="font-size:11px;color:var(--text2);font-style:italic;margin-bottom:2px;">' + ed(subtitle).slice(0,80) + '</div>' : '') +
+    (body ? '<div style="font-size:11.5px;color:var(--text2);line-height:1.4;">' + ed(body).slice(0,120) + (body.length > 120 ? '…' : '') + '</div>' : '') +
+  '</button>';
+};
+
 window.gsKnowledgeGlobalSearch = async function(query) {
   var resEl = document.getElementById('wissen-global-results');
   if (!resEl) return;
@@ -36068,9 +36165,10 @@ window.gsKnowledgeGlobalSearch = async function(query) {
   resEl.innerHTML = '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;">⏳ Suche läuft…</div>';
   try {
     if (typeof sbFetch !== 'function') throw new Error('Supabase nicht verfügbar');
-    var r = await sbFetch('/rest/v1/rpc/fn_knowledge_search', {
+    // v26.94: bookmark-aware search2. Offline-Hook keyt auf Substring 'fn_knowledge_search' → Fallback bleibt aktiv.
+    var r = await sbFetch('/rest/v1/rpc/fn_knowledge_search2', {
       method: 'POST',
-      body: JSON.stringify({ q: query.trim(), lim: 30 })
+      body: JSON.stringify({ p_q: query.trim(), p_lim: 30 })
     });
     var rows = (r && r.data) || (Array.isArray(r) ? r : []);
     if (!Array.isArray(rows)) rows = [];
@@ -36078,35 +36176,49 @@ window.gsKnowledgeGlobalSearch = async function(query) {
       resEl.innerHTML = '<div style="padding:18px;text-align:center;color:var(--muted);font-size:13px;">Keine Treffer für „' + ed(query) + '"</div>';
       return;
     }
-    // v24.32: Recipes + Remedies → Hauptmenü-Seiten (kein Wissens-Tab mehr)
-    var typeMap = {
-      'species':     {section: 'bibliothek', menuTab: null, label: 'Art', color: '#2e7d32'},
-      'recipes':     {section: null, menuTab: 'recipes', label: 'Rezept', color: '#e65100'},
-      'remedies':    {section: null, menuTab: 'remedies', label: 'Heilmittel', color: '#7b1fa2'},
-      'folk_lore':   {section: 'folklore', menuTab: null, label: 'Folklore', color: '#5d4037'},
-      'garden_techniques': {section: 'techniken', menuTab: null, label: 'Technik', color: '#0277bd'}
-    };
-    var html = rows.map(function(row){
-      var info = typeMap[row.source_type] || {section:'bibliothek', menuTab:null, label:'?', color:'#666'};
-      var conf = Math.round((row.similarity || 0) * 100);
-      var clickAction = info.menuTab
-        ? 'document.getElementById(\'wissen-global-results\').style.display=\'none\';document.getElementById(\'wissen-global-search\').value=\'\';if(typeof menuNav===\'function\')menuNav(\'' + info.menuTab + '\')'
-        : 'document.getElementById(\'wissen-global-results\').style.display=\'none\';document.getElementById(\'wissen-global-search\').value=\'\';showWissen(\'' + info.section + '\',document.querySelector(\'#wissen-nav .recipe-cat[onclick*=' + info.section + ']\'))';
-      return '<button onclick="' + clickAction + '" ' +
-        'style="display:block;width:100%;text-align:left;padding:10px 12px;background:transparent;border:none;border-bottom:1px solid var(--border);cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' +
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">' +
-          (row.icon ? '<span style="font-size:18px;">' + ed(row.icon) + '</span>' : '') +
-          '<strong style="font-size:13px;color:var(--text);">' + ed(row.title) + '</strong>' +
-          '<span style="font-size:9.5px;background:' + info.color + ';color:#fff;padding:1px 6px;border-radius:3px;font-weight:700;text-transform:uppercase;">' + info.label + '</span>' +
-          (conf > 0 ? '<span style="font-size:10px;color:var(--muted);margin-left:auto;">' + conf + '%</span>' : '') +
-        '</div>' +
-        (row.subtitle ? '<div style="font-size:11px;color:var(--text2);font-style:italic;margin-bottom:2px;">' + ed(row.subtitle).slice(0,80) + '</div>' : '') +
-        (row.body ? '<div style="font-size:11.5px;color:var(--text2);line-height:1.4;">' + ed(row.body).slice(0,120) + (row.body.length > 120 ? '…' : '') + '</div>' : '') +
-      '</button>';
-    }).join('');
-    resEl.innerHTML = html;
+    resEl.innerHTML = rows.map(window._gsKnResultCard).join('');
   } catch(e) {
     resEl.innerHTML = '<div style="padding:14px;color:#c62828;font-size:12px;">❌ Fehler: ' + ed(e.message||e) + '</div>';
+  }
+};
+
+// v26.94: Discover-Strip "🆕 Heute neu" — neueste redaktionelle Einträge via fn_knowledge_recent.
+window.gsKnRenderDiscover = async function(){
+  var resEl = document.getElementById('wissen-global-results');
+  if (!resEl) return;
+  var srch = document.getElementById('wissen-global-search'); if (srch) srch.value = '';
+  resEl.style.display = 'block';
+  resEl.innerHTML = '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;">⏳ Lädt…</div>';
+  try {
+    if (typeof sbFetch !== 'function') throw new Error('Supabase nicht verfügbar');
+    var r = await sbFetch('/rest/v1/rpc/fn_knowledge_recent', { method: 'POST', body: JSON.stringify({ p_limit: 8 }) });
+    var rows = (r && r.data) || (Array.isArray(r) ? r : []);
+    if (!Array.isArray(rows)) rows = [];
+    if (!rows.length) { resEl.innerHTML = '<div style="padding:18px;text-align:center;color:var(--muted);font-size:13px;">Noch keine neuen Einträge</div>'; return; }
+    resEl.innerHTML = '<div style="padding:8px 12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);">🆕 Heute neu</div>' + rows.map(window._gsKnResultCard).join('');
+  } catch(e) {
+    resEl.innerHTML = '<div style="padding:14px;color:#c62828;font-size:12px;">❌ ' + ((typeof escHtml==='function')?escHtml(e.message||''):'Fehler') + '</div>';
+  }
+};
+
+// v26.94: Discover-Strip "🔖 Gespeichert" — eigene Bookmarks via fn_knowledge_bookmarks_list.
+window.gsKnShowBookmarks = async function(){
+  var resEl = document.getElementById('wissen-global-results');
+  if (!resEl) return;
+  if (typeof sbIsLoggedIn === 'function' && !sbIsLoggedIn()) { if (typeof gsToast === 'function') gsToast('Bitte zuerst anmelden', 'info'); return; }
+  var srch = document.getElementById('wissen-global-search'); if (srch) srch.value = '';
+  resEl.style.display = 'block';
+  resEl.innerHTML = '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;">⏳ Lädt…</div>';
+  try {
+    if (typeof sbFetch !== 'function') throw new Error('Supabase nicht verfügbar');
+    var r = await sbFetch('/rest/v1/rpc/fn_knowledge_bookmarks_list', { method: 'POST', body: JSON.stringify({ p_limit: 50, p_offset: 0 }) });
+    var rows = (r && r.data) || (Array.isArray(r) ? r : []);
+    if (!Array.isArray(rows)) rows = [];
+    if (!rows.length) { resEl.innerHTML = '<div style="padding:18px;text-align:center;color:var(--muted);font-size:13px;">🔖 Noch nichts gespeichert</div>'; return; }
+    rows.forEach(function(x){ x.is_bookmarked = true; });
+    resEl.innerHTML = '<div style="padding:8px 12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);">🔖 Gespeichert (' + rows.length + ')</div>' + rows.map(window._gsKnResultCard).join('');
+  } catch(e) {
+    resEl.innerHTML = '<div style="padding:14px;color:#c62828;font-size:12px;">❌ ' + ((typeof escHtml==='function')?escHtml(e.message||''):'Fehler') + '</div>';
   }
 };
 
@@ -53347,6 +53459,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.94', date: '02.06.2026',
+    headline: '📚 Gartenwissen: Merken, „Heute neu" & schnellere Suche',
+    summary: 'Das Gartenwissen-Portal kann jetzt Lieblings-Einträge merken: Tippe in den Suchergebnissen auf das 🔖-Lesezeichen, und der Eintrag landet unter „🔖 Gespeichert" — geräteübergreifend, weil in deinem Konto gesichert. Neu im Wissens-Kopf: zwei Schnellzugriffe „🆕 Heute neu" (die neuesten Rezepte, Heilmittel, Folklore & Techniken) und „🔖 Gespeichert" (deine Merkliste). Frisch dazugekommene Einträge tragen ein rotes „🆕 NEU"-Abzeichen. Die Suche ist intern auf eine schnellere, lesezeichen-bewusste Variante umgestellt; offline funktioniert sie weiterhin über den lokalen Cache.',
+    user_summary: '📚 Im Gartenwissen kannst du Einträge mit 🔖 merken und über „🆕 Heute neu" und „🔖 Gespeichert" schnell wiederfinden. Neue Inhalte sind mit „NEU" markiert.',
+    user_items: [
+      { emoji: '🔖', text: 'Wissens-Einträge merken — geräteübergreifend in deinem Konto' },
+      { emoji: '🆕', text: '„Heute neu" zeigt die frischesten Rezepte, Heilmittel & Techniken' },
+      { emoji: '🔍', text: 'Schnellere Suche, weiterhin offline-fähig' },
+    ],
+    items: [
+      {emoji:'🗄️', bold:'Backend (2 Migrations):', text:' v26_94_knowledge_polish legt knowledge_bookmarks + knowledge_progress (Composite-Key source_type+source_id, RLS own-only, auth.uid() gewrappt) an plus 6 RPCs: fn_knowledge_bookmark_toggle, fn_knowledge_bookmarks_list, fn_knowledge_recent („Heute neu", species ausgeschlossen), fn_knowledge_related, fn_knowledge_track_progress, fn_knowledge_search2 (bookmark-aware, is_bookmarked + created_at). v26_94_knowledge_polish_grants_hardening entzieht anon EXECUTE auf den auth-only-Fns.'},
+      {emoji:'🏛️', bold:'Architektur-Realität:', text:' Es gibt KEINE Tabelle knowledge_articles (Spec-Annahme). Wissen = VIEW v_knowledge_search (UNION ALL über species/recipes/remedies/folk_lore/garden_techniques). Identität = COMPOSITE (source_type, source_id). Bookmarks/Progress daher auf Composite-Key, kein FK auf Einzeltabelle.'},
+      {emoji:'🖥️', bold:'Frontend:', text:' Wissens-Suche nutzt fn_knowledge_search2; geteilter _gsKnResultCard normalisiert Online- UND Offline-Cache-Shape (kind→source_type, snippet→body, score→similarity). 🔖-Toggle als <span> (event.stopPropagation, kein Button-in-Button), nur sichtbar wenn eingeloggt + online. 🆕-NEU-Badge <7 Tage. View-Tracking feuert beim Treffer-Klick (fire-and-forget). Discover-Strip #wissen-discover mit „🆕 Heute neu" + „🔖 Gespeichert". Hard-Lesson #12: source_type/source_id quote-frei → echte Konkatenation im onclick.'},
+      {emoji:'✅', bold:'Verify:', text:' Advisor ohne neue ERRORs · anon-EXECUTE auf toggle/track/bookmarks_list revoked · Offline-Hook liest jetzt auch p_q/p_lim · 7/7 Inline-Scripts node --check OK · GS_VERSION=v26.94 · sw.js gs-v26.94 · _headers v26.94 · meta=26.94.20260602.'},
+    ]
+  },
+  {
     v: 'v26.91', date: '02.06.2026',
     headline: '⚡ Schnellere App bei großen Datenmengen',
     summary: 'Reine Performance- und Stabilitäts-Verbesserung im Hintergrund — am Aussehen und an der Bedienung ändert sich nichts. Die Datenbank-Zugriffsregeln (Row Level Security) wurden so umgestellt, dass die Berechtigungsprüfung pro Abfrage nur noch einmal statt einmal pro Datenzeile ausgewertet wird. Für Nutzer mit vielen Pflanzen, Scans, Tagebuch-Einträgen oder Markt-Inseraten heißt das spürbar schnellere Ladezeiten (bei 1\'000+ Einträgen bis zu 50–200× schneller). Es wurden keine Berechtigungen geändert — wer was sehen darf, bleibt exakt gleich.',
@@ -56081,7 +56210,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.90';
+var GS_VERSION = 'v26.94';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -59484,10 +59613,10 @@ window.gsShowExportModal = function(){
       if (typeof path === 'string' && path.indexOf('fn_knowledge_search') !== -1 && opts && opts.body) {
         try {
           var body = (typeof opts.body === 'string') ? JSON.parse(opts.body) : opts.body;
-          var q = body.q || body._q || '';
+          var q = body.q || body._q || body.p_q || '';  // v26.94: search2 nutzt p_q
           if (q && typeof window.gsKnowledgeSearch === 'function') {
             console.log('[KnowledgeCache] Cloud failed, fallback to local cache for:', q);
-            var hits = await window.gsKnowledgeSearch(q, body.lim || body._lim || 20);
+            var hits = await window.gsKnowledgeSearch(q, body.lim || body._lim || body.p_lim || 20);
             return hits.map(function(h){
               return {
                 kind: h.type === 'species' ? 'species' : (h.type === 'recipes' ? 'recipe' : (h.type === 'remedies' ? 'remedy' : (h.type === 'folk_lore' ? 'folk_lore' : 'technique'))),
