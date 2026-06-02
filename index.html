@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.75.20260601">
+<meta name="app-version" content="26.80.20260602">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -9208,13 +9208,16 @@ async function dqAskKIExplain() {
   var btn = document.getElementById('dq-explain-btn');
   var block = document.getElementById('dq-expl-block');
   if (!block) return;
-  // Key holen
-  var key = localStorage.getItem('gs_anthropic_key') || localStorage.getItem('anthropic_key') || '';
-  if (!key) {
+
+  // v26.80 BUG-FIX: Statt direkt localStorage.gs_anthropic_key (Personal-Key, seit v26.67 admin-only)
+  // → nutze callAI() das den Global-Key über getApiConfig() bekommt.
+  // Abo-Quota wird automatisch geprüft (Free 15/Tag, Paid ∞).
+  if (typeof callAI !== 'function') {
     block.style.display = 'block';
-    block.innerHTML = '<div style="color:#ffb74d;font-size:12px;">⚠️ Für die KI-Erklärung wird dein Anthropic-API-Key benötigt. Füge ihn in den Einstellungen hinzu.</div>';
+    block.innerHTML = '<div style="color:#ffb74d;font-size:12px;">⚠️ KI-Modul lädt noch — bitte gleich nochmal versuchen.</div>';
     return;
   }
+
   if (btn) { btn.textContent = '⏳ KI denkt nach…'; btn.disabled = true; }
   block.style.display = 'block';
   block.innerHTML = '<div style="color:rgba(255,255,255,.7);font-size:12px;">⏳ Analysiere die Frage…</div>';
@@ -9243,27 +9246,22 @@ async function dqAskKIExplain() {
     (context.art_warnung ? '\n- Warnung: ' + context.art_warnung : '');
 
   try {
-    var fetchFn = (typeof _gsApiFetch === 'function') ? _gsApiFetch : fetch;
-    var resp = await fetchFn('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body: JSON.stringify({
-        model: (window._gsClaudeModel || 'claude-sonnet-4-5'),
-        max_tokens: 300,
-        system: systemPrompt,
-        messages: [{role:'user', content: userMsg}]
-      })
-    }, { timeout: 25000, retries: 1 });
-    var data = await resp.json();
-    var answer = (data.content && data.content[0] && data.content[0].text) || 'Keine Antwort';
-    var safe = String(answer).replace(/</g,'&lt;').replace(/\n/g,'<br>');
+    var messages = [{ role: 'user', content: userMsg }];
+    var answer = await callAI(messages, systemPrompt, 300, { brain: 'botaniker' });
+    var safe = String(answer || 'Keine Antwort').replace(/</g,'&lt;').replace(/\n/g,'<br>');
     block.innerHTML =
       '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;opacity:.65;margin-bottom:4px;">💡 Erklärung</div>' +
       safe;
     if (btn) { btn.textContent = '✅ Erklärung'; btn.style.opacity = '0.55'; btn.style.cursor = 'default'; }
   } catch(err) {
-    var friendly = (typeof _gsFriendlyApiError === 'function' && err.status) ? _gsFriendlyApiError(err.status, err.message) : (err.message || 'KI-Fehler');
-    block.innerHTML = '<div style="color:#ef9a9a;font-size:12px;">❌ ' + friendly + '</div>';
+    var msg = (err && err.message) || 'KI-Fehler';
+    // Klar formulierte Fehler-Meldungen je nach Ursache
+    if (msg.toLowerCase().indexOf('quota') >= 0 || msg.toLowerCase().indexOf('limit') >= 0) {
+      msg = '⚠️ Tageslimit erreicht (Free: 15 KI-Aufrufe/Tag). Mit Plus/Pro: unbegrenzt.';
+    } else if (msg.toLowerCase().indexOf('key') >= 0) {
+      msg = '⚠️ KI temporär nicht verfügbar — versuche es später nochmal.';
+    }
+    block.innerHTML = '<div style="color:#ef9a9a;font-size:12px;">❌ ' + msg + '</div>';
     if (btn) { btn.textContent = '🔄 Nochmal versuchen'; btn.disabled = false; }
   }
 }
@@ -13076,13 +13074,30 @@ async function openDqRanking() {
     } catch(e) {}
   }
 
-  // Supabase Rangliste laden
+  // v26.80 BUG-FIX: Code's quiz_leaderboard-Tabelle nutzen (v26.72) statt alte leere quiz_ranking.
+  // RPC fn_quiz_leaderboard_top liefert {rnk, user_id, display_name, total_correct, streak_max, total_attempts}.
   var entries = [];
   if (typeof sbFetch === 'function') {
     try {
-      var result = await sbFetch('/rest/v1/quiz_ranking?select=*&year=eq.'+yr+'&order=year_points.desc&limit=50', {method:'GET'});
-      if (result && result.data) entries = result.data;
-    } catch(e) {}
+      var result = await sbFetch('/rest/v1/rpc/fn_quiz_leaderboard_top', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ p_limit: 50 })
+      });
+      if (result && result.data) {
+        // Mappe v26.72-Schema → openDqRanking-Schema (year_points/yearCorrect/yearTotal etc.)
+        entries = result.data.map(function(r){
+          return {
+            username: r.display_name || 'Spieler',
+            yearPoints: r.total_correct || 0,
+            yearCorrect: r.total_correct || 0,
+            yearTotal: r.total_attempts || 0,
+            streak: r.streak_max || 0,
+            isMe: false
+          };
+        });
+      }
+    } catch(e) { console.warn('[openDqRanking] cloud load:', e && e.message); }
   }
 
   // Lokalen Eintrag mergen falls nicht drin
@@ -14721,6 +14736,9 @@ function gsRenderMushroomSeason(patch, regionName, month) {
   card.style.display = 'block';
   // v26.73: Live-Counter "Heute gemeldet" aus map_user_finds (anonymisiert, nur Count)
   try { gsAttachMushroomLiveCounter(card, patch); } catch(_){}
+  // v26.78: Phase 2 — Wachstums-Forecast + Verwechsler-Galerie
+  try { gsAttachMushroomForecast(card, patch); } catch(_){}
+  try { gsAttachMushroomLookalikeWarn(card, patch); } catch(_){}
 }
 window.gsRenderMushroomSeason = gsRenderMushroomSeason;
 
@@ -14766,6 +14784,170 @@ async function gsAttachMushroomLiveCounter(card, patch) {
   } catch(e){ console.warn('[mushroom-live-counter]', e && e.message); }
 }
 window.gsAttachMushroomLiveCounter = gsAttachMushroomLiveCounter;
+
+// ═════════════════════════════════════════════════════════════════════
+// v26.78 Saison-Pilze Phase 2 — Verwechsler-Galerie + Wachstums-Forecast
+// ─────────────────────────────────────────────────────────────────────
+
+// (1) Verwechsler-Galerie: für jeden essbaren Pilz im patch.typical_mushrooms
+// queryt mushroom_lookalikes (confusion_risk in ['sehr_hoch_lebensgefahr','hoch'])
+// und zeigt die wichtigsten Unterscheidungs-Merkmale in einer collapsible Warn-Sektion.
+async function gsAttachMushroomLookalikeWarn(card, patch) {
+  if (!card || !patch || !Array.isArray(patch.typical_mushrooms) || typeof sbFetch !== 'function') return;
+  if (card.dataset.lookalikeMounted === '1') return;
+  card.dataset.lookalikeMounted = '1';
+
+  // Sammle alle essbaren Slugs in dem Patch
+  var slugs = patch.typical_mushrooms.filter(Boolean);
+  if (!slugs.length) return;
+  var quoted = '"' + slugs.map(function(s){ return String(s).replace(/"/g,'\\"'); }).join('","') + '"';
+  var qs = '/rest/v1/mushroom_lookalikes?edible_slug=in.(' + quoted + ')&confusion_risk=in.(sehr_hoch_lebensgefahr,hoch)&select=edible_slug,lookalike_slug,confusion_risk,key_differences,visual_differences,pro_tip&limit=15';
+
+  try {
+    var r = await sbFetch(qs, { method: 'GET' });
+    if (!r || !Array.isArray(r.data) || !r.data.length) return;
+    var rows = r.data;
+
+    // Group by confusion_risk
+    var lethal = rows.filter(function(x){ return x.confusion_risk === 'sehr_hoch_lebensgefahr'; });
+    var high   = rows.filter(function(x){ return x.confusion_risk === 'hoch'; });
+
+    var container = document.createElement('div');
+    container.id = 'mushroom-season-lookalikes';
+    container.style.cssText = 'margin-top:8px;padding:10px 12px;background:rgba(198,40,40,.18);border:1px solid rgba(198,40,40,.45);border-radius:9px;font-size:12px;line-height:1.5;';
+
+    var html = '<div style="font-weight:800;color:#ffebee;margin-bottom:6px;display:flex;align-items:center;gap:6px;">⚠️ Verwechsler-Warnung</div>';
+    var n = lethal.length + high.length;
+    html += '<div style="font-size:11px;opacity:.92;margin-bottom:8px;">' + n + ' kritische' + (n>1?'r':'') + ' Doppelgänger in dieser Region. Bei Zweifel: <b>VAPKO!</b></div>';
+
+    // Top 2 lethal als Detail
+    lethal.slice(0, 2).forEach(function(l){
+      var key1 = Array.isArray(l.key_differences) && l.key_differences.length ? l.key_differences[0] : '';
+      var tip = l.pro_tip || '';
+      html += '<div style="background:rgba(0,0,0,.25);border-left:3px solid #ff5252;padding:6px 9px;border-radius:5px;margin-bottom:5px;">' +
+        '<div style="font-weight:700;color:#ffcdd2;font-size:11.5px;">☠️ ' + String(l.edible_slug).replace(/_/g,' ') + ' vs. ' + String(l.lookalike_slug).replace(/_/g,' ') + '</div>' +
+        (key1 ? '<div style="opacity:.92;margin-top:3px;font-size:11px;">→ ' + (typeof escHtml === 'function' ? escHtml(key1) : key1) + '</div>' : '') +
+        (tip ? '<div style="opacity:.85;margin-top:3px;font-size:10.5px;font-style:italic;">💡 ' + (typeof escHtml === 'function' ? escHtml(tip) : tip) + '</div>' : '') +
+      '</div>';
+    });
+    // Click "alle anzeigen" → Modal mit allen Details
+    if (rows.length > 2) {
+      html += '<button onclick="gsOpenMushroomLookalikesModal(' + JSON.stringify(JSON.stringify(rows)).replace(/"/g,'&quot;') + ')" style="margin-top:5px;background:transparent;border:1px solid rgba(255,235,238,.5);color:#ffebee;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">' +
+        'Alle ' + rows.length + ' Verwechsler ansehen ›</button>';
+    }
+
+    container.innerHTML = html;
+    card.appendChild(container);
+  } catch(e) { console.warn('[mushroom-lookalike]', e && e.message); }
+}
+window.gsAttachMushroomLookalikeWarn = gsAttachMushroomLookalikeWarn;
+
+// (2) Verwechsler-Detail-Modal
+window.gsOpenMushroomLookalikesModal = function(jsonStr) {
+  try {
+    var rows = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
+    if (!Array.isArray(rows) || !rows.length) return;
+    var existing = document.getElementById('modal-mushroom-lookalikes');
+    if (existing) existing.remove();
+    var m = document.createElement('div');
+    m.id = 'modal-mushroom-lookalikes';
+    m.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px);';
+    m.onclick = function(e){ if (e.target === m) m.remove(); };
+    var esc = (typeof escHtml === 'function') ? escHtml : function(s){return String(s||'');};
+    var html = '<div style="background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:560px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;">' +
+      '<div style="padding:16px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">' +
+        '<div><div style="font-size:17px;font-weight:800;color:var(--text);">☠️ Verwechsler-Galerie</div>' +
+        '<div style="font-size:11px;color:var(--muted);">' + rows.length + ' kritische Doppelgänger · Quelle: VAPKO Schweiz</div></div>' +
+        '<button onclick="document.getElementById(\'modal-mushroom-lookalikes\').remove()" aria-label="Schliessen" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);">✕</button>' +
+      '</div>' +
+      '<div style="padding:14px 16px;overflow-y:auto;flex:1;">';
+    rows.forEach(function(l){
+      var risk = l.confusion_risk === 'sehr_hoch_lebensgefahr' ? '☠️ Lebensgefahr' : (l.confusion_risk === 'hoch' ? '⚠️ Hoch' : 'ℹ Beachten');
+      var riskBg = l.confusion_risk === 'sehr_hoch_lebensgefahr' ? '#c62828' : '#e65100';
+      html += '<div style="background:var(--surface2);border-radius:12px;padding:12px 14px;margin-bottom:10px;border-left:4px solid ' + riskBg + ';">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+          '<div style="font-weight:800;font-size:14px;color:var(--text);">' + esc(String(l.edible_slug).replace(/_/g,' ')) + ' ↔ ' + esc(String(l.lookalike_slug).replace(/_/g,' ')) + '</div>' +
+          '<span style="font-size:10.5px;background:' + riskBg + ';color:#fff;padding:2px 7px;border-radius:5px;font-weight:800;">' + risk + '</span>' +
+        '</div>';
+      if (l.visual_differences) html += '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;"><b>👁 Optisch:</b> ' + esc(l.visual_differences) + '</div>';
+      if (Array.isArray(l.key_differences) && l.key_differences.length) {
+        html += '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;"><b>🔑 Kernunterschiede:</b><ul style="margin:4px 0 0 18px;padding:0;">' +
+          l.key_differences.map(function(d){ return '<li style="margin-bottom:2px;">' + esc(d) + '</li>'; }).join('') +
+        '</ul></div>';
+      }
+      if (l.pro_tip) html += '<div style="font-size:11.5px;color:var(--g-dark);background:var(--g-bg);padding:6px 9px;border-radius:6px;margin-top:6px;font-weight:600;">💡 ' + esc(l.pro_tip) + '</div>';
+      html += '</div>';
+    });
+    html += '<div style="text-align:center;padding:14px 0;font-size:11px;color:var(--muted);">Im Zweifel <b>immer VAPKO-Kontrolle</b> nutzen — nie alleine verzehren bei Unsicherheit.</div>';
+    html += '</div></div>';
+    m.innerHTML = html;
+    document.body.appendChild(m);
+  } catch(e) { console.warn('[mushroom-lookalikes-modal]', e && e.message); }
+};
+
+// (3) Wachstums-Forecast: berechnet Pilz-Wahrscheinlichkeit aus Niederschlag-3d + Bodentemp.
+// Quelle: Open-Meteo (free, no-key). Score 0-100 als simple Heuristik:
+//   - Niederschlag der letzten 3 Tage 15-50mm = peak (+50)
+//   - Bodentemp 8-20°C = peak (+30)
+//   - aktuelle Luftfeuchte > 70% = +20
+// Region kommt aus gs_user_location (lat/lng).
+async function gsAttachMushroomForecast(card, patch) {
+  if (!card || card.dataset.forecastMounted === '1') return;
+  card.dataset.forecastMounted = '1';
+  var loc = null;
+  try { loc = JSON.parse(localStorage.getItem('gs_user_location') || 'null'); } catch(_){}
+  if (!loc || !loc.lat || !loc.lng) return;
+  var container = document.createElement('div');
+  container.id = 'mushroom-season-forecast';
+  container.style.cssText = 'margin-top:8px;padding:10px 12px;background:rgba(76,175,80,.18);border:1px solid rgba(76,175,80,.4);border-radius:9px;font-size:12px;line-height:1.5;';
+  container.innerHTML = '<div style="opacity:.7;">⏳ Wachstums-Forecast wird berechnet…</div>';
+  card.appendChild(container);
+  try {
+    // Open-Meteo: letzte 3 Tage past + heute current
+    var u = 'https://api.open-meteo.com/v1/forecast?latitude=' + loc.lat + '&longitude=' + loc.lng
+      + '&current=relative_humidity_2m,temperature_2m,soil_temperature_6cm'
+      + '&past_days=3&daily=precipitation_sum&timezone=auto';
+    var rsp = await (window._gsFetch || fetch)(u, {}, 10000);
+    var j = await rsp.json();
+    var prec = (j.daily && Array.isArray(j.daily.precipitation_sum)) ? j.daily.precipitation_sum.slice(0,3).reduce(function(a,b){return a+(Number(b)||0);},0) : 0;
+    var soilT = (j.current && j.current.soil_temperature_6cm != null) ? Number(j.current.soil_temperature_6cm) : Number(j.current && j.current.temperature_2m) || 12;
+    var hum = (j.current && j.current.relative_humidity_2m != null) ? Number(j.current.relative_humidity_2m) : 70;
+
+    // Score-Berechnung
+    var score = 0;
+    // Niederschlag-Score: peak bei 15-50mm 3-Tage-Total, dann linear abnehmend
+    if (prec >= 15 && prec <= 50) score += 50;
+    else if (prec >= 5 && prec < 15) score += Math.round((prec - 5) / 10 * 50);
+    else if (prec > 50 && prec < 80) score += Math.round((80 - prec) / 30 * 50);
+    else if (prec >= 2 && prec < 5) score += 15;
+    // Bodentemp-Score: peak 8-20°C
+    if (soilT >= 8 && soilT <= 20) score += 30;
+    else if (soilT >= 5 && soilT < 8) score += Math.round((soilT - 5) / 3 * 30);
+    else if (soilT > 20 && soilT < 25) score += Math.round((25 - soilT) / 5 * 30);
+    // Humidity-Score
+    if (hum >= 75) score += 20;
+    else if (hum >= 60) score += Math.round((hum - 60) / 15 * 20);
+    score = Math.max(0, Math.min(100, score));
+
+    var emoji = score >= 70 ? '🍄' : (score >= 40 ? '🌧' : (score >= 20 ? '🌥' : '☀'));
+    var label = score >= 70 ? 'sehr hoch' : (score >= 40 ? 'gut' : (score >= 20 ? 'mittel' : 'gering'));
+    var color = score >= 70 ? '#43a047' : (score >= 40 ? '#7cb342' : (score >= 20 ? '#fdd835' : '#bdbdbd'));
+
+    container.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">' +
+        '<div style="font-weight:800;color:#fff;">' + emoji + ' Pilz-Wahrscheinlichkeit heute</div>' +
+        '<div style="font-size:18px;font-weight:900;color:' + color + ';background:rgba(0,0,0,.25);padding:3px 9px;border-radius:6px;">' + score + '%</div>' +
+      '</div>' +
+      '<div style="font-size:11px;opacity:.85;color:#fff;">' + label + ' · ' + Math.round(prec) + 'mm Regen (3d) · ' + soilT.toFixed(1) + '°C Boden · ' + Math.round(hum) + '% Luftfeuchte</div>' +
+      (score < 30 ? '<div style="font-size:10.5px;opacity:.75;color:#fff;margin-top:4px;">Warten auf Regen — Pilze brauchen Feuchtigkeit + warmen Boden.</div>' :
+       score < 70 ? '<div style="font-size:10.5px;opacity:.85;color:#fff;margin-top:4px;">Schon Bedingungen — vielleicht in 2-4 Tagen optimal.</div>' :
+                    '<div style="font-size:11px;opacity:.95;color:#fff;margin-top:4px;font-weight:700;">🎯 Jetzt sofort raus — perfekte Bedingungen!</div>');
+  } catch(e) {
+    container.innerHTML = '<div style="opacity:.6;">Forecast nicht verfügbar (Offline?)</div>';
+    console.warn('[mushroom-forecast]', e && e.message);
+  }
+}
+window.gsAttachMushroomForecast = gsAttachMushroomForecast;
 
 // ═════════════════════════════════════════════════════════════════════
 // v26.49 WETTER-ALERT-WIDGET HOME (garden_weather_alerts, DB-Wave-14)
@@ -37962,6 +38144,8 @@ function gsAddMarker(lat, lng) {
 
   if (!name) {
     if (nameEl) { nameEl.style.borderColor = '#e53935'; nameEl.focus(); }
+    // v26.80: User-Feedback statt silent return
+    if (typeof gsToast === 'function') gsToast('Bitte einen Namen für den Fundort eingeben.', 'warn');
     return;
   }
 
@@ -45978,18 +46162,58 @@ function gsRenderGardenScan3D(container, analysis) {
   var hemi = new THREE.HemisphereLight(0xa0c0e8, 0x4a6a3a, 0.4);
   scene.add(hemi);
 
-  // Boden = Plane (braune Erde) — empfängt Schatten
-  var groundGeo = new THREE.PlaneGeometry(W, D);
-  var groundMat = new THREE.MeshLambertMaterial({ color: 0x6d4c2c });
+  // v26.79: Schönerer Boden — segmentierte Plane mit Vertex-Color-Variation (Earth-Pattern)
+  var groundSeg = 24;
+  var groundGeo = new THREE.PlaneGeometry(W, D, groundSeg, groundSeg);
+  // Vertex-Colors: braun mit zufälliger Helligkeit für organische Optik
+  var colors = [];
+  var baseColor = new THREE.Color(0x6d4c2c);
+  var darkColor = new THREE.Color(0x4a2e1a);
+  for (var v = 0; v < groundGeo.attributes.position.count; v++) {
+    var t = 0.6 + Math.random() * 0.4;
+    var c = baseColor.clone().lerp(darkColor, 1 - t);
+    colors.push(c.r, c.g, c.b);
+  }
+  groundGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  var groundMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0 });
   var ground = new THREE.Mesh(groundGeo, groundMat);
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
 
-  // Grid-Helper (1m-Raster)
+  // v26.79: Gras-Patches — scattered tufts in Plant-freien Zonen, fixed seed für Konsistenz
+  var grassGroup = new THREE.Group();
+  scene.add(grassGroup);
+  var grassCount = Math.min(60, Math.round(W * D * 4));
+  for (var gi = 0; gi < grassCount; gi++) {
+    var gx = (Math.random() - 0.5) * W * 0.92;
+    var gz = (Math.random() - 0.5) * D * 0.92;
+    var gh = 0.06 + Math.random() * 0.08;
+    var gGeo = new THREE.ConeGeometry(0.02, gh, 4);
+    var gMat = new THREE.MeshLambertMaterial({ color: new THREE.Color(0x4a7a3a).offsetHSL(0, 0, (Math.random()-0.5)*0.15) });
+    var grass = new THREE.Mesh(gGeo, gMat);
+    grass.position.set(gx, gh/2, gz);
+    grass.rotation.y = Math.random() * Math.PI * 2;
+    grass.rotation.x = (Math.random()-0.5) * 0.2;
+    grassGroup.add(grass);
+  }
+
+  // Grid-Helper (1m-Raster) — dezenter
   var gridHelper = new THREE.GridHelper(Math.max(W, D), Math.max(W, D), 0x2e7d32, 0x4a6a3a);
-  gridHelper.position.y = 0.01;
+  gridHelper.material.opacity = 0.35; gridHelper.material.transparent = true;
+  gridHelper.position.y = 0.012;
   scene.add(gridHelper);
+
+  // v26.79: Sonnen-Disk-Visualisierung — sichtbares Sun-Sphere am Himmel (mit Sonnen-Slider mit-bewegt)
+  var sunDiskGeo = new THREE.SphereGeometry(0.55, 16, 12);
+  var sunDiskMat = new THREE.MeshBasicMaterial({ color: 0xfff7d6, transparent: true, opacity: 0.95 });
+  var sunDisk = new THREE.Mesh(sunDiskGeo, sunDiskMat);
+  scene.add(sunDisk);
+  // Halo (größere transparente Sphere)
+  var haloGeo = new THREE.SphereGeometry(1.2, 16, 12);
+  var haloMat = new THREE.MeshBasicMaterial({ color: 0xffe8a0, transparent: true, opacity: 0.18 });
+  var sunHalo = new THREE.Mesh(haloGeo, haloMat);
+  scene.add(sunHalo);
 
   // Kategorie-Farben (analog zu SVG)
   var catColor = { 'gemüse':0x43a047, 'gemuese':0x43a047, 'kräuter':0x1b5e20, 'kraeuter':0x1b5e20, 'kraut':0x1b5e20,
@@ -46015,6 +46239,256 @@ function gsRenderGardenScan3D(container, analysis) {
     return 0.5;
   }
 
+  // v26.77: Konflikt-Erkennung — lade plant_companion_matrix für alle vorhandenen Latein-Namen.
+  // Map<latLower, Set<latLower-of-incompatible>>. Async lazy-load — render geht weiter, Glow kommt nach.
+  var conflictMap = {};               // latA → Set of latB (antagonist)
+  var conflictMeshes = [];            // Array von {mesh, lat, partnerLat} zum nachträglichen Glow
+  var conflictPaint = function(){};   // wird nach Cloud-Pull gesetzt
+  (async function loadConflicts(){
+    try {
+      if (typeof sbFetch !== 'function') return;
+      var lats = rp.map(function(p){ return (p && (p.scientific_name || p.latin || p.lat || '')+'').toLowerCase().trim(); }).filter(Boolean);
+      if (!lats.length) return;
+      var quoted = lats.map(function(s){ return '"' + s.replace(/"/g,'\\"') + '"'; }).join(',');
+      var qs = '/rest/v1/plant_companion_matrix?or=(species_a_lat.in.(' + quoted + '),species_b_lat.in.(' + quoted + '))&relationship=in.(schlecht,kritisch_schlecht)&select=species_a_lat,species_b_lat,relationship&limit=200';
+      var r = await sbFetch(qs, { method: 'GET' });
+      var rows = (r && Array.isArray(r.data)) ? r.data : [];
+      rows.forEach(function(row){
+        var a = (row.species_a_lat||'').toLowerCase().trim();
+        var b = (row.species_b_lat||'').toLowerCase().trim();
+        if (!a || !b) return;
+        if (!conflictMap[a]) conflictMap[a] = new Set();
+        if (!conflictMap[b]) conflictMap[b] = new Set();
+        conflictMap[a].add(b);
+        conflictMap[b].add(a);
+      });
+      conflictPaint();
+    } catch(_){}
+  })();
+
+  // v26.79: Procedural Plant-Builder — 8 Kategorie-spezifische Modelle statt flat Cylinder.
+  // Sammelt Sway-Targets (top-of-plant Meshes) für Wind-Animation.
+  var swayTargets = [];   // Array von { group, phase, amp } für Wind-Sway
+
+  function buildBaum(catColor, height, radius) {
+    var g = new THREE.Group();
+    var trunkH = height * 0.55;
+    var trunkR = Math.max(0.05, radius * 0.55);
+    var trunkGeo = new THREE.CylinderGeometry(trunkR * 0.85, trunkR * 1.15, trunkH, 10);
+    var trunkMat = new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 0.95 });
+    var trunk = new THREE.Mesh(trunkGeo, trunkMat);
+    trunk.position.y = trunkH / 2;
+    trunk.castShadow = true; trunk.receiveShadow = true;
+    g.add(trunk);
+    // Crown: 2-3 überlappende Spheres für volumige Optik
+    var crownGroup = new THREE.Group();
+    var crownR = Math.max(radius * 1.6, 0.45);
+    var crownColor = (catColor === 0x5d4037) ? 0x2e7d32 : catColor;
+    var crownMat = new THREE.MeshStandardMaterial({ color: crownColor, roughness: 0.85, flatShading: true });
+    [[0,0,0,1], [-crownR*0.4, crownR*0.3, 0, 0.78], [crownR*0.35, crownR*0.2, crownR*0.3, 0.7]].forEach(function(p){
+      var cg = new THREE.SphereGeometry(crownR * p[3], 14, 10);
+      var c = new THREE.Mesh(cg, crownMat);
+      c.position.set(p[0], p[1], p[2]);
+      c.castShadow = true; c.receiveShadow = true;
+      crownGroup.add(c);
+    });
+    crownGroup.position.y = trunkH + crownR * 0.4;
+    g.add(crownGroup);
+    swayTargets.push({ group: crownGroup, phase: Math.random()*Math.PI*2, amp: 0.025 });
+    return g;
+  }
+  function buildBeere(catColor, height, radius) {
+    var g = new THREE.Group();
+    // Bushy stems
+    var stemMat = new THREE.MeshStandardMaterial({ color: 0x33691e, roughness: 0.85 });
+    var stemH = height * 0.85;
+    for (var s = 0; s < 4; s++) {
+      var sg = new THREE.CylinderGeometry(0.015, 0.025, stemH, 6);
+      var sm = new THREE.Mesh(sg, stemMat);
+      sm.position.set(Math.cos(s*Math.PI/2) * radius*0.5, stemH/2, Math.sin(s*Math.PI/2) * radius*0.5);
+      sm.rotation.z = Math.sin(s)*0.15;
+      sm.castShadow = true;
+      g.add(sm);
+    }
+    // Leaves around middle
+    var leavesGroup = new THREE.Group();
+    var leafMat = new THREE.MeshLambertMaterial({ color: 0x4a7a3a });
+    for (var l = 0; l < 8; l++) {
+      var lg = new THREE.SphereGeometry(radius * 0.5, 8, 6);
+      lg.scale(1, 0.3, 1);
+      var lm = new THREE.Mesh(lg, leafMat);
+      var ang = l*Math.PI/4;
+      lm.position.set(Math.cos(ang)*radius*0.5, stemH*0.55 + Math.random()*0.1, Math.sin(ang)*radius*0.5);
+      lm.rotation.y = ang;
+      lm.castShadow = true;
+      leavesGroup.add(lm);
+    }
+    g.add(leavesGroup);
+    // Beeren (mehrere kleine Spheres in Cluster)
+    var berryGroup = new THREE.Group();
+    var berryMat = new THREE.MeshStandardMaterial({ color: catColor, roughness: 0.4, metalness: 0.05, emissive: catColor, emissiveIntensity: 0.06 });
+    var berryCount = Math.floor(6 + Math.random()*4);
+    for (var b = 0; b < berryCount; b++) {
+      var bg = new THREE.SphereGeometry(radius * 0.18, 10, 8);
+      var bm = new THREE.Mesh(bg, berryMat);
+      var ba = Math.random()*Math.PI*2, br = Math.random()*radius*0.45;
+      bm.position.set(Math.cos(ba)*br, stemH*0.7 + Math.random()*0.15, Math.sin(ba)*br);
+      bm.castShadow = true;
+      berryGroup.add(bm);
+    }
+    g.add(berryGroup);
+    swayTargets.push({ group: leavesGroup, phase: Math.random()*Math.PI*2, amp: 0.04 });
+    swayTargets.push({ group: berryGroup, phase: Math.random()*Math.PI*2, amp: 0.04 });
+    return g;
+  }
+  function buildObst(catColor, height, radius) {
+    // Wie Baum aber kompakter + bunte Frucht-Spheres in der Krone
+    var g = new THREE.Group();
+    var trunkH = height * 0.5;
+    var trunkR = Math.max(0.04, radius * 0.4);
+    var trunkGeo = new THREE.CylinderGeometry(trunkR * 0.85, trunkR * 1.1, trunkH, 8);
+    var trunkMat = new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 0.95 });
+    var trunk = new THREE.Mesh(trunkGeo, trunkMat); trunk.position.y = trunkH/2; trunk.castShadow=true;
+    g.add(trunk);
+    var crownR = Math.max(radius * 1.4, 0.35);
+    var crownGroup = new THREE.Group();
+    var crownMat = new THREE.MeshStandardMaterial({ color: 0x4caf50, roughness: 0.85, flatShading: true });
+    var cg1 = new THREE.SphereGeometry(crownR, 12, 10); var c1 = new THREE.Mesh(cg1, crownMat); c1.castShadow=true; crownGroup.add(c1);
+    var cg2 = new THREE.SphereGeometry(crownR*0.7, 10, 8); var c2 = new THREE.Mesh(cg2, crownMat); c2.position.set(crownR*0.4, crownR*0.2, 0); c2.castShadow=true; crownGroup.add(c2);
+    // Früchte: kleine bunte Spheres in der Krone
+    var fruitMat = new THREE.MeshStandardMaterial({ color: catColor, roughness: 0.35, emissive: catColor, emissiveIntensity: 0.08 });
+    for (var f = 0; f < 6; f++) {
+      var fg = new THREE.SphereGeometry(0.07, 8, 8);
+      var fm = new THREE.Mesh(fg, fruitMat);
+      var fa = Math.random()*Math.PI*2, fr = crownR*0.7, fy = (Math.random()-0.5)*crownR*0.6;
+      fm.position.set(Math.cos(fa)*fr, fy, Math.sin(fa)*fr);
+      fm.castShadow = true;
+      crownGroup.add(fm);
+    }
+    crownGroup.position.y = trunkH + crownR * 0.5;
+    g.add(crownGroup);
+    swayTargets.push({ group: crownGroup, phase: Math.random()*Math.PI*2, amp: 0.022 });
+    return g;
+  }
+  function buildGemuese(catColor, height, radius) {
+    // Bushy Layer + breite low-Leaves
+    var g = new THREE.Group();
+    var stemH = height;
+    var stemGeo = new THREE.CylinderGeometry(radius*0.45, radius*0.65, stemH, 8);
+    var stemMat = new THREE.MeshLambertMaterial({ color: 0x558b2f });
+    var stem = new THREE.Mesh(stemGeo, stemMat); stem.position.y = stemH/2; stem.castShadow=true; stem.receiveShadow=true;
+    g.add(stem);
+    var leavesGroup = new THREE.Group();
+    var leafMat = new THREE.MeshLambertMaterial({ color: catColor });
+    // 3 Layer Blätter
+    for (var lv = 0; lv < 3; lv++) {
+      var ly = stemH * (0.35 + lv*0.25);
+      for (var li = 0; li < 5; li++) {
+        var leafGeo = new THREE.SphereGeometry(radius*0.7, 8, 6);
+        leafGeo.scale(1.2, 0.25, 0.7);
+        var leaf = new THREE.Mesh(leafGeo, leafMat);
+        var lan = (li/5)*Math.PI*2 + lv*0.4;
+        leaf.position.set(Math.cos(lan)*radius*0.5, ly, Math.sin(lan)*radius*0.5);
+        leaf.rotation.y = lan;
+        leaf.rotation.z = -0.2;
+        leaf.castShadow = true; leaf.receiveShadow = true;
+        leavesGroup.add(leaf);
+      }
+    }
+    g.add(leavesGroup);
+    swayTargets.push({ group: leavesGroup, phase: Math.random()*Math.PI*2, amp: 0.03 });
+    return g;
+  }
+  function buildKraut(catColor, height, radius) {
+    // Kleine, dichte Bushes
+    var g = new THREE.Group();
+    var bushGroup = new THREE.Group();
+    var leafMat = new THREE.MeshLambertMaterial({ color: catColor, flatShading: true });
+    for (var k = 0; k < 12; k++) {
+      var bg = new THREE.SphereGeometry(radius*0.4 + Math.random()*0.05, 6, 6);
+      var bm = new THREE.Mesh(bg, leafMat);
+      var ba = Math.random()*Math.PI*2, br = Math.random()*radius*0.5;
+      var by = Math.random()*height;
+      bm.position.set(Math.cos(ba)*br, by, Math.sin(ba)*br);
+      bm.castShadow = true; bm.receiveShadow = true;
+      bushGroup.add(bm);
+    }
+    g.add(bushGroup);
+    swayTargets.push({ group: bushGroup, phase: Math.random()*Math.PI*2, amp: 0.045 });
+    return g;
+  }
+  function buildBlume(catColor, height, radius) {
+    // Stem + Petal-Rosette + Pollen-Center
+    var g = new THREE.Group();
+    var stemH = height * 0.85;
+    var stemGeo = new THREE.CylinderGeometry(0.02, 0.03, stemH, 6);
+    var stemMat = new THREE.MeshLambertMaterial({ color: 0x33691e });
+    var stem = new THREE.Mesh(stemGeo, stemMat); stem.position.y = stemH/2; stem.castShadow=true;
+    g.add(stem);
+    // Leaves an Stem
+    var leaf1Geo = new THREE.SphereGeometry(radius*0.45, 6, 5); leaf1Geo.scale(1.5, 0.2, 0.6);
+    var leafMat = new THREE.MeshLambertMaterial({ color: 0x4a7a3a });
+    var leaf1 = new THREE.Mesh(leaf1Geo, leafMat); leaf1.position.set(radius*0.2, stemH*0.35, 0); leaf1.rotation.z = 0.4; leaf1.castShadow=true; g.add(leaf1);
+    var leaf2 = new THREE.Mesh(leaf1Geo, leafMat); leaf2.position.set(-radius*0.2, stemH*0.55, 0); leaf2.rotation.z = -0.4; leaf2.castShadow=true; g.add(leaf2);
+    // Blüten-Kopf — Pollen-Center + 8 Petals
+    var blossomGroup = new THREE.Group();
+    var pollMat = new THREE.MeshStandardMaterial({ color: 0xff9800, emissive: 0xffc107, emissiveIntensity: 0.3 });
+    var pollGeo = new THREE.SphereGeometry(radius*0.35, 10, 8);
+    var poll = new THREE.Mesh(pollGeo, pollMat); poll.castShadow=true; blossomGroup.add(poll);
+    var petalMat = new THREE.MeshStandardMaterial({ color: catColor, side: THREE.DoubleSide, roughness: 0.45 });
+    for (var p = 0; p < 8; p++) {
+      var petalGeo = new THREE.SphereGeometry(radius*0.55, 6, 5);
+      petalGeo.scale(1.5, 0.18, 0.8);
+      var petal = new THREE.Mesh(petalGeo, petalMat);
+      var pang = (p/8)*Math.PI*2;
+      petal.position.set(Math.cos(pang)*radius*0.6, 0, Math.sin(pang)*radius*0.6);
+      petal.rotation.y = pang;
+      petal.castShadow = true;
+      blossomGroup.add(petal);
+    }
+    blossomGroup.position.y = stemH;
+    g.add(blossomGroup);
+    swayTargets.push({ group: blossomGroup, phase: Math.random()*Math.PI*2, amp: 0.05 });
+    return g;
+  }
+  function buildHausp(catColor, height, radius) {
+    // Topfpflanze (Hauspflanze) — Topf + bushy
+    var g = new THREE.Group();
+    var potH = Math.min(0.18, height*0.3);
+    var potGeo = new THREE.CylinderGeometry(radius*0.85, radius*0.7, potH, 12);
+    var potMat = new THREE.MeshStandardMaterial({ color: 0x8d6e63, roughness: 0.7 });
+    var pot = new THREE.Mesh(potGeo, potMat); pot.position.y = potH/2; pot.castShadow=true; pot.receiveShadow=true;
+    g.add(pot);
+    // Bushy on top
+    var leavesGroup = new THREE.Group();
+    var leafMat = new THREE.MeshLambertMaterial({ color: catColor });
+    var bushH = height - potH;
+    for (var bl = 0; bl < 10; bl++) {
+      var blGeo = new THREE.SphereGeometry(radius*0.55, 7, 6);
+      blGeo.scale(1, 0.5, 1);
+      var blm = new THREE.Mesh(blGeo, leafMat);
+      var bla = Math.random()*Math.PI*2, blr = Math.random()*radius*0.5;
+      blm.position.set(Math.cos(bla)*blr, potH + bushH*(0.2 + Math.random()*0.7), Math.sin(bla)*blr);
+      blm.castShadow=true;
+      leavesGroup.add(blm);
+    }
+    g.add(leavesGroup);
+    swayTargets.push({ group: leavesGroup, phase: Math.random()*Math.PI*2, amp: 0.035 });
+    return g;
+  }
+
+  function buildPlantModel(pl, height, radius, color) {
+    var cat = (pl.category || '').toLowerCase();
+    if (cat.indexOf('baum') >= 0) return buildBaum(color, height, radius);
+    if (cat.indexOf('obst') >= 0) return buildObst(color, height, radius);
+    if (cat.indexOf('beere') >= 0) return buildBeere(color, height, radius);
+    if (cat.indexOf('gemüs') >= 0 || cat.indexOf('gemues') >= 0) return buildGemuese(color, height, radius);
+    if (cat.indexOf('blum') >= 0 || cat.indexOf('zier') >= 0) return buildBlume(color, height, radius);
+    if (cat.indexOf('haus') >= 0 || cat.indexOf('zimmer') >= 0) return buildHausp(color, height, radius);
+    // Default: Kraut/Kräuter/Gewürz
+    return buildKraut(color, height, radius);
+  }
+
   rp.forEach(function(pl, idx) {
     if (!pl) return;
     var pos = pl.position || {};
@@ -46027,26 +46501,52 @@ function gsRenderGardenScan3D(container, analysis) {
 
     var height = plantHeight(pl);
     var radius = 0.18 + Math.log2(Math.max(1, pl.qty || 1)) * 0.04;
-    var geo = new THREE.CylinderGeometry(radius * 0.7, radius, height, 12);
-    var mat = new THREE.MeshLambertMaterial({ color: cColor(pl.category) });
-    var mesh = new THREE.Mesh(geo, mat);
-    // Position: 0,0 = Mitte des Gartens, daher px-W/2, py-D/2 (Y=Höhe)
-    mesh.position.set(px - W / 2, height / 2, py - D / 2);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    scene.add(mesh);
+    var color = cColor(pl.category);
 
-    // Optional: Sphere on top (Frucht/Blüte) für Beeren/Obst
-    var cat = (pl.category || '').toLowerCase();
-    if (cat.indexOf('beere') >= 0 || cat.indexOf('obst') >= 0 || cat.indexOf('blum') >= 0) {
-      var sphereGeo = new THREE.SphereGeometry(radius * 0.9, 10, 10);
-      var sphereMat = new THREE.MeshLambertMaterial({ color: cColor(pl.category) });
-      var sphere = new THREE.Mesh(sphereGeo, sphereMat);
-      sphere.position.set(px - W / 2, height + radius * 0.5, py - D / 2);
-      sphere.castShadow = true;
-      scene.add(sphere);
-    }
+    // v26.79: Procedural-Modell statt Cylinder
+    var plantModel = buildPlantModel(pl, height, radius, color);
+    plantModel.position.set(px - W / 2, 0, py - D / 2);
+    // Slight random rotation für Natürlichkeit
+    plantModel.rotation.y = Math.random() * Math.PI * 2;
+    plantModel.userData = {
+      px: px, py: py,
+      lat: ((pl.scientific_name || pl.latin || pl.lat || '')+'').toLowerCase().trim(),
+      name: pl.name || '',
+      baseColor: color
+    };
+    scene.add(plantModel);
+    conflictMeshes.push({ mesh: plantModel, lat: plantModel.userData.lat });
   });
+
+  // v26.77+v26.79: Konflikt-Paint — Group-Tree traverse (jetzt sind Pflanzen Groups statt single Meshes)
+  conflictPaint = function() {
+    conflictMeshes.forEach(function(item){
+      var lat = item.lat;
+      if (!lat || !conflictMap[lat]) return;
+      var hasConflict = conflictMeshes.some(function(other){
+        return other.lat && other.lat !== lat && conflictMap[lat].has(other.lat);
+      });
+      if (hasConflict) {
+        // Traverse: alle Child-Meshes bekommen emissive Glow
+        item.mesh.traverse(function(o){
+          if (o.isMesh && o.material) {
+            try {
+              var oldColor = o.material.color ? o.material.color.getHex() : 0xffffff;
+              var newMat = new THREE.MeshStandardMaterial({
+                color: oldColor,
+                emissive: 0xd32f2f,
+                emissiveIntensity: 0.4,
+                roughness: 0.6
+              });
+              try { o.material.dispose(); } catch(_){}
+              o.material = newMat;
+            } catch(_){}
+          }
+        });
+        item.mesh.userData.hasConflict = true;
+      }
+    });
+  };
 
   // Kamera: leicht erhöht, von vorn-rechts
   var camDist = Math.max(W, D) * 1.3;
@@ -46064,9 +46564,19 @@ function gsRenderGardenScan3D(container, analysis) {
   var running = true;
   var autoRotate = true;
   var lastInteract = 0;
+  // v26.79: Wind-Animation — leichtes Sway aller swayTargets (crowns, leaves, blossoms)
+  var windT = 0;
   function loop() {
     if (!running) return;
     if (autoRotate && (Date.now() - lastInteract) > 2500) camAngle += 0.0035;
+    windT += 0.018;
+    // Sway alle gespeicherten Targets mit individuellem phase + amp
+    for (var si = 0; si < swayTargets.length; si++) {
+      var st = swayTargets[si];
+      if (!st.group) continue;
+      st.group.rotation.z = Math.sin(windT + st.phase) * st.amp;
+      st.group.rotation.x = Math.cos(windT * 0.7 + st.phase) * st.amp * 0.6;
+    }
     updateCamera();
     renderer.render(scene, camera);
     requestAnimationFrame(loop);
@@ -46117,6 +46627,11 @@ function gsRenderGardenScan3D(container, analysis) {
     var height = Math.sin(arc);        // 0..1..0
     var R = Math.max(W, D) * 1.5;
     sun.position.set(Math.cos(arc) * R, Math.max(1.5, height * R * 0.9), Math.sin(arc) * R * 0.6 - D/4);
+    // v26.79: Sun-Disk + Halo am Himmel mit-bewegen + Color je nach Tageszeit
+    if (typeof sunDisk !== 'undefined' && sunDisk) {
+      sunDisk.position.copy(sun.position);
+      sunHalo.position.copy(sun.position);
+    }
     // Intensität + Farbe: mittags weiß-hell, früh/spät orange-rot
     var intensity = 0.35 + height * 0.85;
     sun.intensity = intensity;
@@ -46134,6 +46649,12 @@ function gsRenderGardenScan3D(container, analysis) {
     var skyB = 0.91 - goldFactor * 0.10;
     if (scene.background && scene.background.setRGB) scene.background.setRGB(skyR, skyG, skyB);
     if (scene.fog) scene.fog.color.setRGB(skyR, skyG, skyB);
+    // v26.79: Sun-Disk-Color (warm bei Sonnen-Auf/Untergang)
+    if (typeof sunDisk !== 'undefined' && sunDisk && sunDisk.material) {
+      sunDisk.material.color.setRGB(1, 1 - goldFactor*0.30, 1 - goldFactor*0.55);
+      sunHalo.material.color.setRGB(1, 0.92 - goldFactor*0.30, 0.6 - goldFactor*0.50);
+      sunHalo.material.opacity = 0.18 + goldFactor*0.25;
+    }
   }
   // Initial 12:00
   setSunHour(12);
@@ -46171,10 +46692,85 @@ function gsRenderGardenScan3D(container, analysis) {
     }
   }
 
+  // v26.77: Mini-Map — 2D-Top-Down-View der Pflanzen-Positionen + Camera-Direction-Pfeil
+  var miniMapVisible = true;
+  function renderMiniMap() {
+    var mm = document.getElementById('gs-3d-minimap');
+    if (!mm || !miniMapVisible) return;
+    var ctx = mm.getContext('2d');
+    if (!ctx) return;
+    var MW = mm.width, MH = mm.height;
+    ctx.clearRect(0, 0, MW, MH);
+    var pad = 8;
+    var scaleX = (MW - 2*pad) / W;
+    var scaleY = (MH - 2*pad) / D;
+    // Beet-Boden
+    ctx.fillStyle = '#8d6e63';
+    ctx.fillRect(pad, pad, MW - 2*pad, MH - 2*pad);
+    // 1m-Raster
+    ctx.strokeStyle = 'rgba(255,255,255,.25)';
+    ctx.lineWidth = 0.5;
+    for (var gx = 0; gx <= W; gx++) {
+      ctx.beginPath(); ctx.moveTo(pad + gx*scaleX, pad); ctx.lineTo(pad + gx*scaleX, MH-pad); ctx.stroke();
+    }
+    for (var gy = 0; gy <= D; gy++) {
+      ctx.beginPath(); ctx.moveTo(pad, pad + gy*scaleY); ctx.lineTo(MW-pad, pad + gy*scaleY); ctx.stroke();
+    }
+    // Pflanzen-Punkte (v26.79: Pflanzen sind jetzt Groups, lese userData direkt vom Group)
+    conflictMeshes.forEach(function(item){
+      var u = item.mesh && item.mesh.userData;
+      if (!u || !isFinite(u.px) || !isFinite(u.py)) return;
+      var x = pad + u.px * scaleX;
+      var y = pad + u.py * scaleY;
+      // baseColor ist eine Hex-Zahl; toHex-String padded auf 6 Stellen
+      var hex = (typeof u.baseColor === 'number') ? u.baseColor.toString(16) : '388e3c';
+      while (hex.length < 6) hex = '0' + hex;
+      ctx.fillStyle = u.hasConflict ? '#d32f2f' : '#' + hex;
+      ctx.beginPath(); ctx.arc(x, y, u.hasConflict ? 4 : 3, 0, Math.PI*2); ctx.fill();
+      if (u.hasConflict) {
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+      }
+    });
+    // Kamera-Pfeil (zeigt Blick-Richtung von Mitte aus)
+    var cx = MW / 2;
+    var cy = MH / 2;
+    var arrowLen = 14;
+    // camAngle 0 = Camera auf +X-Achse → schaut Richtung -X (zum Garten-Center)
+    // Pfeil zeigt VON Camera-Position INS Center, also -cos(camAngle), -sin(camAngle)
+    var ax = cx - Math.cos(camAngle) * arrowLen;
+    var ay = cy - Math.sin(camAngle) * arrowLen;
+    ctx.strokeStyle = '#1b5e20';
+    ctx.fillStyle = '#1b5e20';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(ax, ay); ctx.stroke();
+    // Pfeilspitze
+    ctx.beginPath(); ctx.arc(ax, ay, 3, 0, Math.PI*2); ctx.fill();
+  }
+  function toggleMiniMap() {
+    miniMapVisible = !miniMapVisible;
+    var mm = document.getElementById('gs-3d-minimap');
+    if (mm) mm.style.display = miniMapVisible ? 'block' : 'none';
+    var btn = document.getElementById('gs-3d-minimap-btn');
+    if (btn) btn.style.background = miniMapVisible ? '#1b5e20' : 'var(--card)';
+    if (btn) btn.style.color = miniMapVisible ? '#fff' : 'var(--text)';
+    if (miniMapVisible) renderMiniMap();
+  }
+  // initial paint after a tick (gibt Container Zeit zum Mounten)
+  setTimeout(function(){
+    var btn = document.getElementById('gs-3d-minimap-btn');
+    if (btn) { btn.style.background = '#1b5e20'; btn.style.color = '#fff'; }
+    renderMiniMap();
+  }, 100);
+  // Re-Render Mini-Map alle ~250ms wenn aktive Rotation (camera-Arrow update)
+  var miniMapTimer = setInterval(function(){ if (miniMapVisible) renderMiniMap(); }, 250);
+
   // Cleanup-Handle + öffentliche API
   window._gsGardenScan3DScene = {
     dispose: function() {
       running = false;
+      try { clearInterval(miniMapTimer); } catch(_){}
       try { renderer.domElement.removeEventListener('mousedown', onDown); } catch(_){}
       try { renderer.domElement.removeEventListener('touchstart', onDown); } catch(_){}
       try { window.removeEventListener('mousemove', onMove); } catch(_){}
@@ -46186,7 +46782,9 @@ function gsRenderGardenScan3D(container, analysis) {
       try { scene.traverse(function(o){ if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); } catch(_){}
     },
     setSunHour: setSunHour,
-    exportPhoto: exportPhoto
+    exportPhoto: exportPhoto,
+    toggleMiniMap: toggleMiniMap,
+    renderMiniMap: renderMiniMap
   };
 }
 
@@ -46211,6 +46809,14 @@ window.gs3DExportPhoto = function() {
     }
   } catch(_){}
 };
+// v26.77: Mini-Map-Toggle (2D-Aufsicht ein/aus)
+window.gs3DToggleMiniMap = function() {
+  try {
+    if (window._gsGardenScan3DScene && typeof window._gsGardenScan3DScene.toggleMiniMap === 'function') {
+      window._gsGardenScan3DScene.toggleMiniMap();
+    }
+  } catch(_){}
+};
 
 // v25.12 + v25.13: Result-Preview mit 2D-SVG- ODER 3D-Three.js-Render (toggleable).
 function gsBuildGardenScanResultPreview(analysis, planId) {
@@ -46227,13 +46833,18 @@ function gsBuildGardenScanResultPreview(analysis, planId) {
     visualBlock = '<div style="background:#f1f8e9;border:1.5px solid #c5e1a5;border-radius:14px;padding:10px;margin-bottom:14px;">' +
       '<div style="font-size:11px;font-weight:700;color:#2e7d32;margin-bottom:6px;text-align:center;">🧊 3D-Plan (Drag zum Drehen, Scroll für Zoom)</div>' +
       // v26.74: 3D-Controls — Sonnen-Slider (4-20h) + Photo-Export-Button
+      // v26.77: Mini-Map-Toggle + Konflikt-Highlight-Toggle
       '<div id="gs-3d-controls" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:8px 11px;background:rgba(255,255,255,.6);border-radius:9px;flex-wrap:wrap;">' +
         '<span style="font-size:11px;font-weight:700;color:#2e7d32;white-space:nowrap;">☀ <span id="gs-3d-sun-label">12:00</span></span>' +
         '<input id="gs-3d-sun-slider" type="range" min="4" max="20" step="0.5" value="12" style="flex:1;min-width:120px;accent-color:#ffa726;" oninput="gs3DSetSunHour(parseFloat(this.value))">' +
+        '<button id="gs-3d-minimap-btn" onclick="gs3DToggleMiniMap()" style="padding:5px 10px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;" title="2D-Aufsicht ein/aus">🗺</button>' +
         '<button onclick="gs3DExportPhoto()" style="padding:5px 11px;background:#1b5e20;color:#fff;border:none;border-radius:7px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;">📸 4K-Foto</button>' +
       '</div>' +
-      '<div id="garden-scan-3d-host" style="width:100%;height:60vh;max-height:480px;border-radius:8px;background:#cfe6f5;overflow:hidden;touch-action:none;"></div>' +
-      '<div style="font-size:10px;color:var(--muted);text-align:center;margin-top:6px;">Drag drehen · Scroll zoomen · Sonnen-Slider verschiebt Schatten · 📸 exportiert 4K-PNG</div>' +
+      '<div id="garden-scan-3d-host" style="position:relative;width:100%;height:60vh;max-height:480px;border-radius:8px;background:#cfe6f5;overflow:hidden;touch-action:none;">' +
+        // v26.77: Mini-Map Canvas Overlay (rechts oben), default sichtbar
+        '<canvas id="gs-3d-minimap" width="120" height="120" style="position:absolute;top:10px;right:10px;background:rgba(255,255,255,.85);border:1.5px solid #1b5e20;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.18);z-index:10;display:block;pointer-events:none;"></canvas>' +
+      '</div>' +
+      '<div style="font-size:10px;color:var(--muted);text-align:center;margin-top:6px;">Drag drehen · Scroll zoomen · 🗺 Mini-Map · Konflikte glühen rot · 📸 exportiert 4K-PNG</div>' +
     '</div>';
   } else {
     visualBlock = gsBuildGardenScanSvg(analysis);
@@ -54019,7 +54630,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.75';
+var GS_VERSION = 'v26.80';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
