@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="27.02.20260603">
+<meta name="app-version" content="27.03.20260603">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22776,6 +22776,10 @@ function buildPlantCard(p){
 }
 
 function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+// v27.03 Hard-Lesson #9: gsHTMLEscape war als „Kurz-Alias" dokumentiert, aber NIE definiert
+// → alle `typeof gsHTMLEscape==='function' ? gsHTMLEscape(x) : fallback`-Sites (8+) nahmen
+// immer den Fallback. Jetzt definiert (voller Escaper inkl. Single-Quote) → konsistentes Escaping.
+window.gsHTMLEscape = function(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
 
 function togglePlantCard(id){
   const expand = document.getElementById('expand-' + id);
@@ -43366,6 +43370,10 @@ function gsBroadcastLocationChange() {
   if (typeof gsLoadGardenWeather === 'function') { try { gsLoadGardenWeather(); } catch(e){} }
   if (typeof loadGardenWeather === 'function') { try { loadGardenWeather(); } catch(e){} }
   if (typeof renderGardenWeatherBanner === 'function') { try { renderGardenWeatherBanner(); } catch(e){} }
+  // v27.03 Hard-Lesson #9: echter Name ist gsLoadGardenWeatherAlerts (gsLoadGardenWeather existierte nie
+  // → Wetter-Alerts refreshten bisher NICHT bei Standort-Wechsel). + Karten-Funde neu laden.
+  if (typeof gsLoadGardenWeatherAlerts === 'function') { try { gsLoadGardenWeatherAlerts(); } catch(e){} }
+  if (typeof gsLoadMarkersFromCloud === 'function') { try { gsLoadMarkersFromCloud(); } catch(e){} }
   // Farm-Wetter
   if (typeof gsLoadFarmWeather === 'function') { try { gsLoadFarmWeather(); } catch(e){} }
   // Saison / Blühkalender (regional)
@@ -54939,6 +54947,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v27.03', date: '03.06.2026',
+    headline: '⚙️ Einstellungen: zuverlässiger gespeichert & geräteübergreifend',
+    summary: 'Deine Einstellungen werden jetzt sauberer und schneller gespeichert — und syncen zuverlässig zwischen deinen Geräten. Bisher konnte ein Setting, das du auf dem Handy änderst, eine Änderung auf dem Mac überschreiben (oder umgekehrt), weil immer der ganze Einstellungs-Block ersetzt wurde. Jetzt werden Änderungen einzeln zusammengeführt (Deep-Merge), schneller gespeichert (nach 0,8 statt 2 Sekunden) und bei Verbindungsproblemen bis zu 3× automatisch erneut versucht. Im Hintergrund haben wir ausserdem zwei „stille" Fehler gefunden und behoben, die seit Monaten unbemerkt waren: eine nie aktivierte Text-Absicherung und eine Wetter-Warnungs-Aktualisierung, die bei Standort-Wechsel nie lief.',
+    user_summary: '⚙️ Einstellungen speichern jetzt zuverlässiger (Deep-Merge statt Überschreiben), schneller und mit Auto-Retry — plus 2 stille Hintergrund-Bugs behoben.',
+    user_items: [
+      { emoji: '🔀', text: 'Einstellungen werden geräteübergreifend zusammengeführt statt überschrieben' },
+      { emoji: '⚡', text: 'Schnelleres Speichern (0,8 s) + 3× Auto-Retry bei Verbindungsproblemen' },
+      { emoji: '🛠️', text: '2 stille Bugs behoben (Text-Escaping + Wetter-Refresh bei Standort-Wechsel)' },
+    ],
+    items: [
+      {emoji:'🏛️', bold:'Architektur-Realität (Hard-Lesson #14):', text:' Spec-Tabelle user_prefs existiert nicht — echte Tabelle user_preferences (structured cols + units jsonb + prefs jsonb). Der bisherige REST-Upsert ERSETZTE den prefs-Blob komplett → Cross-Device-Teil-Edits gingen verloren.'},
+      {emoji:'🗄️', bold:'Backend (Migration v27_03_user_prefs_save):', text:' RPC fn_user_prefs_save(jsonb) — upsert mit COALESCE-erhaltenden Spalten + prefs = prefs || patch (atomarer jsonb-DEEP-MERGE). REVOKE anon/PUBLIC + GRANT authenticated. Keine konfliktären neuen Spalten.'},
+      {emoji:'🔄', bold:'Frontend:', text:' gsPrefsPushNow nutzt jetzt die Deep-Merge-RPC, Debounce 2000→800 ms, 3× Retry bei Netzwerk-Fehler, Sync-Status-Update. Pull-Pfad unverändert.'},
+      {emoji:'🐛', bold:'Hard-Lesson #9 (2 silent Aliases gefixt):', text:' gsHTMLEscape war als Alias dokumentiert aber NIE definiert (8+ Sites nahmen den Fallback) → jetzt definiert. gsBroadcastLocationChange rief gsLoadGardenWeather (echter Name gsLoadGardenWeatherAlerts) → Wetter-Alerts refreshten nie bei Standort-Wechsel → gefixt + Karten-Funde-Refresh ergänzt. 6 weitere Guards als harmlose Fallbacks verifiziert.'},
+      {emoji:'✅', bold:'Verify:', text:' Migration angewandt + RPC verifiziert · SETTINGS_AUDIT_v27.03.md im Repo (vollständige Toggle-Karte) · Advisor 0 NEUE ERRORs · 7/7 Inline-Scripts node --check OK. NICHT: Settings-UI-Teardown, Senior-Mode. Sprint 3/4 (v27.01→v27.04).'},
+    ]
+  },
+  {
     v: 'v27.02', date: '03.06.2026',
     headline: '🌿 Community: Profile, Folgen & Privatsphäre-Kontrolle',
     summary: 'GreenScan wird sozial — aber du behältst die volle Kontrolle. Du kannst jetzt die Profile anderer Mitglieder ansehen (Avatar, Bio, Region, Statistiken, Achievement-Vitrine), ihnen folgen und in einem Folge-Feed sehen, was sie freischalten, finden oder anbieten. Über „👥 Mitglieder entdecken" in der Community findest du beliebte Mitglieder und kannst nach Namen suchen. Deine Privatsphäre ist zentral: in den Einstellungen unter „👤 Profil & Privatsphäre" legst du fest, ob dein Profil öffentlich, nur für Follower oder privat ist — und einzeln, ob Pflanzen-Anzahl, Erfolge, Marktplatz-Angebote und öffentliche Funde sichtbar sind. Nie sichtbar: deine Pläne, privaten Funde, Tagebuch, Pflege-Aufgaben, Doktor-Diagnosen und E-Mail. Du kannst Mitglieder blockieren und melden.',
@@ -57873,7 +57899,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v27.02';
+var GS_VERSION = 'v27.03';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -64465,28 +64491,42 @@ function gsPrefsPushNow(partial){
   if (!uid || typeof sbFetch !== 'function') return;
   window._gsPushDebounce = window._gsPushDebounce || {};
   clearTimeout(window._gsPushDebounce.prefs);
+  // v27.03: 2000ms → 800ms (weniger Datenverlust-Fenster bei Tab-Close)
   window._gsPushDebounce.prefs = setTimeout(function(){
     // 1) Local-Prefs-Snapshot (gs_prefs ist der userPrefs-Blob aus savePrefs())
     var current = {};
     try { current = JSON.parse(gsStore.get('gs_prefs', null)||'{}'); } catch(_){}
     // 2) partial-Felder klassifizieren: strukturiert vs. frei
-    var structured = { user_id: uid };
+    var patch = {};
     var freeBlob = Object.assign({}, (current && typeof current === 'object') ? current : {});
     var p = partial || {};
     Object.keys(p).forEach(function(k){
-      if (GS_PREFS_KNOWN_COLUMNS[k]) structured[k] = p[k];
+      if (GS_PREFS_KNOWN_COLUMNS[k]) patch[k] = p[k];
       else freeBlob[k] = p[k];
     });
     // 3) Free-Blob aufräumen: strukturierte Keys NICHT in prefs jsonb mitschleppen
     Object.keys(GS_PREFS_KNOWN_COLUMNS).forEach(function(k){ delete freeBlob[k]; });
-    structured.prefs = freeBlob;
-    structured.updated_at = new Date().toISOString();
-    sbFetch('/rest/v1/user_preferences', {
-      method:'POST',
-      headers:{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
-      body: JSON.stringify(structured)
-    }).catch(function(e){ console.warn('[gsPrefsPush]', e); });
-  }, 2000);
+    patch.prefs = freeBlob;
+    // v27.03: über fn_user_prefs_save (atomarer jsonb-DEEP-MERGE statt REST-Replace →
+    // Cross-Device-Teil-Edits clobbern sich nicht mehr) + 3× Retry bei Netzwerk-Fehler.
+    var attempt = 0;
+    function _trySave(){
+      attempt++;
+      sbFetch('/rest/v1/rpc/fn_user_prefs_save', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ p_patch: patch })
+      }).then(function(r){
+        if (r && r.error && attempt < 3) { setTimeout(_trySave, 600 * attempt); return; }
+        if (r && !r.error) { try { localStorage.setItem('gs_prefs_synced_at', new Date().toISOString()); } catch(_){}
+          try { if (typeof _gsUpdateSyncStatusEl === 'function') _gsUpdateSyncStatusEl(); } catch(_){} }
+      }).catch(function(e){
+        console.warn('[gsPrefsPush]', e && e.message);
+        if (attempt < 3) setTimeout(_trySave, 600 * attempt);
+      });
+    }
+    _trySave();
+  }, 800);
 }
 // v26.69 Alias-Bug-Fix: savePref() ruft gsPrefsPush — vorher silent No-Op.
 window.gsPrefsPush = gsPrefsPushNow;
