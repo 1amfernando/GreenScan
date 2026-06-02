@@ -26772,10 +26772,40 @@ function openDoctorModal() {
       });
     }
   } catch(_){}
+  // v26.96: Symptome dynamisch aus symptom_library (Fallback: statische Chips bleiben)
+  try { gsDoctorLoadSymptoms(); } catch(_){}
   if (typeof openModal === 'function') openModal('modal-doctor');
   else document.getElementById('modal-doctor').classList.add('open');
 }
 window.openDoctorModal = openDoctorModal;
+
+// v26.96: Symptom-Picker aus symptom_library (public read). Fällt bei Fehler
+// auf die statisch im HTML hinterlegten 8 Chips zurück.
+async function gsDoctorLoadSymptoms() {
+  var box = document.getElementById('doctor-symptoms');
+  if (!box) return;
+  try {
+    var lib = window._gsSymptomLib;
+    if (!Array.isArray(lib) || !lib.length) {
+      if (typeof sbFetch !== 'function') return; // statischer Fallback
+      var r = await sbFetch('/rest/v1/symptom_library?select=slug,label_de,label_en,label_es,icon,sort_order&order=sort_order.asc', { method: 'GET' });
+      lib = (r && r.data) || [];
+      if (lib.length) window._gsSymptomLib = lib;
+    }
+    if (!lib.length) return; // statischer Fallback
+    var lang = 'de';
+    try { lang = (window.gsStore && gsStore.get) ? (gsStore.get('gs_lang', 'de') || 'de') : (localStorage.getItem('gs_lang') || 'de'); } catch(_){}
+    var esc = (typeof gsHTMLEscape === 'function') ? gsHTMLEscape : function(s){ return String(s||'').replace(/[<>&"]/g, function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+    var html = lib.map(function(s){
+      var lbl = (lang === 'en' && s.label_en) ? s.label_en : ((lang === 'es' && s.label_es) ? s.label_es : s.label_de);
+      var disp = (s.icon ? s.icon + ' ' : '') + lbl;
+      // value = label_de (sauberer DE-Term → bessere Disease-Context-Matches + lesbare Storage)
+      return '<label class="doctor-sym-chip"><input type="checkbox" value="' + esc(s.label_de) + '"><span>' + esc(disp) + '</span></label>';
+    }).join('');
+    if (html) box.innerHTML = html;
+  } catch(_) { /* statischer Fallback bleibt */ }
+}
+window.gsDoctorLoadSymptoms = gsDoctorLoadSymptoms;
 
 // ── Doctor: Foto laden + Preview ────────────────────────────────────
 async function gsDoctorLoadPhoto(input) {
@@ -26844,9 +26874,11 @@ async function gsRunDiagnose() {
         photo: photoB64,
         species_lat: (plant && plant.lat) || null,
         species_name: (plant && plant.name) || '',
+        plant_name: (plant && plant.name) || '',
         symptoms: symptoms,
         user_note: note,
         plant_local_id: (plant && plant.id) || null,
+        include_history: !!(plant && plant.id),
         save_history: true
       })
     }, 60000);
@@ -26857,7 +26889,7 @@ async function gsRunDiagnose() {
         'error');
       return;
     }
-    gsRenderDoctorResult(j);
+    gsRenderDoctorResult(j, (plant && plant.id) || null);
   } catch(e) {
     if (typeof showProfileToast === 'function') showProfileToast(
       (window.gsI18n ? gsI18n.t('err_network', 'Netzwerk-Fehler — bitte erneut versuchen') : 'Netzwerk-Fehler — bitte erneut versuchen'),
@@ -26872,7 +26904,7 @@ async function gsRunDiagnose() {
 window.gsRunDiagnose = gsRunDiagnose;
 
 // ── Doctor: Result-Render (Hypothesen + Treatment + Followup) ──────
-function gsRenderDoctorResult(j) {
+function gsRenderDoctorResult(j, plantLocalId) {
   var box = document.getElementById('doctor-result');
   if (!box) return;
   var d = (j && j.diagnosis) || {};
@@ -26943,6 +26975,13 @@ function gsRenderDoctorResult(j) {
     html += '<button onclick="gsDoctorFollowup(\'' + esc(hid) + '\',\'got_worse\')" style="flex:1;min-width:90px;padding:9px 8px;background:#ffebee;border:1px solid #ef5350;color:#c62828;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;" data-i18n="btn_doctor_worse" data-i18n-fallback="⚠️ Wurde schlechter">⚠️ Wurde schlechter</button>';
     html += '</div>';
   }
+  // v26.96: Behandlungs-Tracker + Verlauf (Pflanzen-Doktor v2)
+  if (hid) {
+    html += '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">';
+    html += '<button onclick="gsDoctorAddStep(\'' + esc(hid) + '\')" style="flex:1;min-width:130px;padding:10px 8px;background:#e0f2f1;border:1px solid #4db6ac;color:#00695c;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;" data-i18n="btn_doctor_track" data-i18n-fallback="💊 Behandlung dokumentieren">💊 Behandlung dokumentieren</button>';
+    if (plantLocalId) html += '<button onclick="gsDoctorShowHistory(\'' + esc(plantLocalId) + '\')" style="flex:1;min-width:130px;padding:10px 8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;" data-i18n="btn_doctor_history" data-i18n-fallback="📋 Frühere Diagnosen">📋 Frühere Diagnosen</button>';
+    html += '</div>';
+  }
   html += '</div></div>';
   box.innerHTML = html;
   try { if (window.gsI18n && typeof gsI18n.applyToDOM === 'function') gsI18n.applyToDOM(box); } catch(_){}
@@ -26975,6 +27014,178 @@ async function gsDoctorHistoryLoad(plantLocalId) {
   } catch(_) { return []; }
 }
 window.gsDoctorHistoryLoad = gsDoctorHistoryLoad;
+
+// ═════════════════════════════════════════════════════════════════════
+// v26.96 PFLANZEN-DOKTOR v2 — Behandlungs-Tracker + Verlauf + 7-Tage-Follow-up
+// Backend: plant_treatment_steps + symptom_library + RPCs fn_treatment_step_add /
+//          fn_plant_diagnoses_for_plant / fn_followup_due / fn_followup_submit.
+//          Edge-Fn plant-doctor-diagnose v4 setzt status='open' + followup_due_at = now()+7d.
+// ═════════════════════════════════════════════════════════════════════
+
+// ── Behandlungs-Schritt dokumentieren (fn_treatment_step_add) ──────
+function gsDoctorAddStep(historyId) {
+  if (!historyId) return;
+  window._gsTreatDiagId = String(historyId);
+  var html =
+    '<div style="padding:6px 4px 12px;">' +
+      '<h3 style="margin:0 0 4px;color:var(--g-dark);">💊 Behandlungs-Schritt</h3>' +
+      '<div style="font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:10px;">Was hast du gemacht? (z.B. „Umgetopft", „Neemöl gesprüht", „Standort gewechselt")</div>' +
+      '<textarea id="gs-treat-input" rows="3" class="mp-input fb-textarea" style="width:100%;resize:vertical;min-height:64px;" placeholder="Behandlungs-Schritt…" maxlength="200"></textarea>' +
+      '<button onclick="gsDoctorSaveStep()" style="margin-top:10px;width:100%;padding:13px;background:linear-gradient(135deg,#00897b,#00695c);color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">✅ Schritt speichern</button>' +
+    '</div>';
+  _gsNlOpen(html);
+}
+window.gsDoctorAddStep = gsDoctorAddStep;
+
+async function gsDoctorSaveStep() {
+  var inp = document.getElementById('gs-treat-input');
+  var label = inp ? String(inp.value || '').trim() : '';
+  var hid = window._gsTreatDiagId;
+  if (!label) {
+    if (typeof showProfileToast === 'function') showProfileToast('Bitte zuerst etwas eingeben', 'info');
+    return;
+  }
+  if (!hid || typeof sbFetch !== 'function') return;
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_treatment_step_add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_diagnosis_id: hid, p_step_label: label.slice(0, 200) })
+    });
+    if (r && r.error) throw new Error(r.error.message || 'err');
+    if (typeof closeModal === 'function') closeModal('gs-nl-modal');
+    if (typeof showProfileToast === 'function') showProfileToast('✅ Behandlungs-Schritt gespeichert', 'success');
+    try { if (typeof gsHaptic === 'function') gsHaptic('light'); } catch(_){}
+  } catch(e) {
+    if (typeof showProfileToast === 'function') showProfileToast('⚠️ Speichern fehlgeschlagen — bitte erneut', 'error');
+  }
+}
+window.gsDoctorSaveStep = gsDoctorSaveStep;
+
+// ── Diagnose-Verlauf einer Pflanze (fn_plant_diagnoses_for_plant) ──
+async function gsDoctorShowHistory(plantLocalId) {
+  if (!plantLocalId || typeof sbFetch !== 'function') return;
+  _gsNlOpen('<div style="padding:30px;text-align:center;color:var(--muted);">⏳ Lade Verlauf…</div>');
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_plant_diagnoses_for_plant', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_plant_id: String(plantLocalId) })
+    });
+    var rows = (r && r.data) || [];
+    var esc = (typeof gsHTMLEscape === 'function') ? gsHTMLEscape : function(s){ return String(s||'').replace(/[<>&"]/g, function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+    if (!rows.length) {
+      _gsNlOpen('<div style="padding:24px;text-align:center;color:var(--muted);">Noch keine früheren Diagnosen für diese Pflanze.</div>');
+      return;
+    }
+    var statusMap = {
+      open:      { l: '🔵 Offen',          c: '#1565c0' },
+      treating:  { l: '🟡 In Behandlung',  c: '#e65100' },
+      resolved:  { l: '🟢 Geheilt',        c: '#1b5e20' },
+      worsened:  { l: '🔴 Verschlechtert', c: '#c62828' },
+      abandoned: { l: '⚪ Abgebrochen',    c: '#757575' }
+    };
+    var fuMap = { better: '😊 besser', same: '😐 gleich', worse: '😟 schlimmer', unknown: '❓ unklar' };
+    var html = '<div style="padding:4px 2px 10px;"><h3 style="margin:0 0 12px;color:var(--g-dark);">📋 Diagnose-Verlauf (' + rows.length + ')</h3>';
+    rows.forEach(function(d){
+      var dt = d.diagnosed_at ? String(d.diagnosed_at).slice(0, 10) : '?';
+      var top = (d.ai_diagnosis && d.ai_diagnosis.top) || d.species_name || 'Diagnose';
+      var st = statusMap[d.status] || statusMap.open;
+      var stepCnt = d.treatment_steps_count || 0;
+      var fu = d.followup_result ? (fuMap[d.followup_result] || d.followup_result) : '';
+      html += '<div style="background:var(--card);border-radius:11px;padding:11px 13px;margin-bottom:8px;border-left:3px solid ' + st.c + ';">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">' +
+          '<div style="font-size:13px;font-weight:800;color:var(--text);">' + esc(top) + '</div>' +
+          '<div style="font-size:11px;color:var(--muted);white-space:nowrap;">' + esc(dt) + '</div>' +
+        '</div>' +
+        '<div style="font-size:11.5px;color:' + st.c + ';font-weight:700;margin-top:5px;">' + st.l +
+          (stepCnt ? ' · 💊 ' + stepCnt + ' Schritte' : '') +
+          (fu ? ' · Follow-up: ' + esc(fu) : '') +
+        '</div>' +
+      '</div>';
+    });
+    html += '</div>';
+    _gsNlOpen(html);
+  } catch(e) {
+    _gsNlOpen('<div style="padding:24px;text-align:center;color:#c62828;">⚠️ Verlauf konnte nicht geladen werden.</div>');
+  }
+}
+window.gsDoctorShowHistory = gsDoctorShowHistory;
+
+// ── 7-Tage-Follow-up: fällige Checks beim Boot (fn_followup_due) ───
+async function gsDoctorCheckFollowups() {
+  if (typeof sbFetch !== 'function' || typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
+  try {
+    var guardKey = 'gs_followup_shown_' + new Date().toISOString().slice(0, 10);
+    if (sessionStorage.getItem(guardKey)) return; // max. 1× pro Tag
+    var r = await sbFetch('/rest/v1/rpc/fn_followup_due', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}'
+    });
+    var due = (r && r.data) || [];
+    if (!due.length) return;
+    try { sessionStorage.setItem(guardKey, '1'); } catch(_){}
+    gsDoctorShowFollowupBanner(due[0]);
+  } catch(_){}
+}
+window.gsDoctorCheckFollowups = gsDoctorCheckFollowups;
+
+function gsDoctorShowFollowupBanner(item) {
+  if (!item || !item.id) return;
+  // State-Bridge (Hard-Lesson #12): Diagnose-ID NICHT in onclick einbetten.
+  window._gsFollowupDiagId = String(item.id);
+  var esc = (typeof gsHTMLEscape === 'function') ? gsHTMLEscape : function(s){ return String(s||'').replace(/[<>&"]/g, function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+  var plantName = esc(item.plant_name || 'deine Pflanze');
+  var top = esc(item.diagnosis_top || '');
+  var html =
+    '<div style="padding:6px 4px 10px;text-align:center;">' +
+      '<div style="font-size:42px;">🌱</div>' +
+      '<h3 style="margin:6px 0 4px;color:var(--g-dark);">Wie geht es ' + plantName + '?</h3>' +
+      '<div style="font-size:12.5px;color:var(--muted);line-height:1.5;">' +
+        (top ? 'Vor ein paar Tagen: Diagnose „' + top + '". ' : '') +
+        'Hat sich etwas verändert?</div>' +
+    '</div>' +
+    '<div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">' +
+      '<button onclick="gsDoctorSubmitFollowup(\'better\')" style="padding:13px;background:#e8f5e9;border:1.5px solid #66bb6a;color:#1b5e20;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">😊 Besser</button>' +
+      '<button onclick="gsDoctorSubmitFollowup(\'same\')" style="padding:13px;background:#fff8e1;border:1.5px solid #ffb74d;color:#e65100;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">😐 Gleich</button>' +
+      '<button onclick="gsDoctorSubmitFollowup(\'worse\')" style="padding:13px;background:#ffebee;border:1.5px solid #ef5350;color:#c62828;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">😟 Schlimmer</button>' +
+      '<button onclick="gsDoctorSubmitFollowup(\'unknown\')" style="padding:12px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">❓ Weiss nicht</button>' +
+    '</div>';
+  _gsNlOpen(html);
+}
+window.gsDoctorShowFollowupBanner = gsDoctorShowFollowupBanner;
+
+async function gsDoctorSubmitFollowup(result) {
+  var hid = window._gsFollowupDiagId;
+  if (!hid || !result || typeof sbFetch !== 'function') return;
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_followup_submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_diagnosis_id: hid, p_result: result })
+    });
+    if (r && r.error) throw new Error(r.error.message || 'err');
+    if (typeof closeModal === 'function') closeModal('gs-nl-modal');
+    var msg = (result === 'better') ? '😊 Schön, dass es besser geht!'
+            : (result === 'worse')  ? 'Schade — schau dir die Behandlungstipps nochmal an.'
+            : 'Danke fürs Update!';
+    if (typeof showProfileToast === 'function') showProfileToast(msg, (result === 'worse') ? 'info' : 'success');
+    try { if (typeof gsHaptic === 'function') gsHaptic('light'); } catch(_){}
+  } catch(e) {
+    if (typeof showProfileToast === 'function') showProfileToast('⚠️ Konnte nicht gespeichert werden', 'error');
+  }
+}
+window.gsDoctorSubmitFollowup = gsDoctorSubmitFollowup;
+
+// Boot-Trigger: 6s nach DOMContentLoaded — wartet bis Auth bereit ist.
+(function(){
+  function _kick(){
+    setTimeout(function(){ try { gsDoctorCheckFollowups(); } catch(_){} }, 6000);
+  }
+  if (document.readyState === 'complete' || document.readyState === 'interactive') _kick();
+  else document.addEventListener('DOMContentLoaded', _kick);
+})();
 
 // ═════════════════════════════════════════════════════════════════════
 // v26.19 PEST-SCANNER (Schaedlinge identifizieren via Anthropic Vision)
@@ -54413,6 +54624,25 @@ window.GS_RELEASES = [
       {emoji:'🖥️', bold:'Frontend:', text:' Foto-Timeline (gsBuildPhotoTimelineContent) erweitert: Vorher/Nachher-Dropdowns (frei wählbare A/B-Indizes), „🤖 KI-Wachstums-Analyse"-Button → gsPhotoDiffAnalyze konvertiert beide Fotos via _gsPhotoToB64 (data-URL ODER remote-fetch) und ruft callVisionAI (Foto B als extraImages) mit JSON-Schema-Prompt. Ergebnis-Karten (gsBuildPhotoDiffResult: growth_pct/new_leaves/color_health/summary/highlights/concerns). Zeitraffer-Player (gsPhotoTimelinePlay, 900ms auto-advance). Persist via fn_photo_diff_create (nur eingeloggt, keine data-URLs in DB).'},
       {emoji:'🔌', bold:'Keine neue Edge-Fn:', text:' Bewusst client-seitiges callVisionAI statt separater photo-diff-analyze-Edge-Fn — konsistent mit Scanner/Doktor, nutzt die bestehende einheitliche ai_call-Tagesquota (kein paralleles Monats-Limit).'},
       {emoji:'✅', bold:'Verify:', text:' Advisor ohne neue ERRORs · anon-EXECUTE auf beiden RPCs revoked · RLS ppd_own + 2 Indizes verifiziert · 7/7 Inline-Scripts node --check OK · GS_VERSION=v26.98 · sw.js gs-v26.98 · _headers v26.98 · meta=26.98.20260602.'},
+    ]
+  },
+  {
+    v: 'v26.96', date: '02.06.2026',
+    headline: '🩺 Pflanzendoktor v2: Verlauf, Behandlungs-Tracker & Nachfrage nach 7 Tagen',
+    summary: 'Der KI-Pflanzendoktor merkt sich jetzt deine Fälle. Nach einer Diagnose dokumentierst du per „💊 Behandlung dokumentieren" was du gemacht hast (umgetopft, Neemöl gesprüht …) und siehst unter „📋 Frühere Diagnosen" den ganzen Verlauf einer Pflanze mit Status (offen, in Behandlung, geheilt, verschlechtert). Die Symptom-Auswahl wird neu aus einer gepflegten Bibliothek geladen (mehr und treffendere Symptome, mehrsprachig). Und nach rund 7 Tagen fragt die App von selbst nach: „Wie geht es deiner Pflanze?" — mit einem Tipp auf 😊 Besser / 😐 Gleich / 😟 Schlimmer hältst du den Heilungsverlauf fest. Die KI bezieht bei Folge-Diagnosen den bisherigen Verlauf derselben Pflanze mit ein.',
+    user_summary: '🩺 Der Pflanzendoktor merkt sich jetzt deine Fälle: Behandlungs-Tracker, Diagnose-Verlauf je Pflanze und eine automatische Nachfrage „Wie geht es deiner Pflanze?" nach ~7 Tagen.',
+    user_items: [
+      { emoji: '💊', text: 'Behandlung dokumentieren — halte fest, was du gegen das Problem getan hast' },
+      { emoji: '📋', text: 'Diagnose-Verlauf je Pflanze mit Status (offen · in Behandlung · geheilt · verschlechtert)' },
+      { emoji: '🌱', text: 'Automatische Nachfrage nach ~7 Tagen: 😊 Besser / 😐 Gleich / 😟 Schlimmer' },
+      { emoji: '🔍', text: 'Mehr & treffendere Symptome aus einer mehrsprachigen Bibliothek' },
+    ],
+    items: [
+      {emoji:'🗄️', bold:'Backend (Migration v26_96_plant_doctor_history):', text:' Rein additiv. plant_doctor_history +species_name +status (open/treating/resolved/worsened/abandoned, CHECK) +followup_due_at +followup_result (better/same/worse/unknown, CHECK) +updated_at; 2 Indizes (user+plant+created, partieller Follow-up-Due-Scan). Neue Tabelle plant_treatment_steps (FK→Diagnose ON DELETE CASCADE, RLS own-only). Neue Tabelle symptom_library (14 Seed-Symptome DE/EN/ES, public read). 5 RPCs: fn_plant_diagnoses_for_plant (Verlauf-Timeline, INVOKER), fn_followup_due (fällige Follow-ups, INVOKER), fn_followup_submit (DEFINER, better→resolved/worse→worsened), fn_treatment_step_add (DEFINER, status open→treating), fn_treatment_steps_for_diagnosis (INVOKER). anon auf den mutierenden RPCs revoked.'},
+      {emoji:'🏛️', bold:'Architektur-Realität (Hard-Lesson #8):', text:' Der LIVE-Diagnose-Pfad schreibt bereits nach plant_doctor_history — die in der Spec vorgeschlagene Tabelle plant_diagnoses ist eine verwaiste Experten-Flow-Tabelle (0 Zeilen, inkompatibles Schema). Daher plant_doctor_history additiv erweitert statt eine Parallel-Tabelle zu bauen. user_followup (Alt-Spalte) bleibt unangetastet → die bestehenden Inline-Feedback-Buttons funktionieren weiter.'},
+      {emoji:'🔌', bold:'Edge-Fn plant-doctor-diagnose v4:', text:' Speichert species_name + status=open + followup_due_at = now()+7d; akzeptiert plant_name + include_history und lädt bei gesetzter Pflanze die letzten 3 Diagnosen derselben Pflanze als Verlaufs-Kontext in den System-Prompt (Besserung/Verschlechterung erkennen). Bewusst NICHT als TS-Spiegel im Repo (Transkriptions-Fehlerrisiko) — nur die Migration ist gespiegelt.'},
+      {emoji:'🖥️', bold:'Frontend:', text:' Symptom-Picker lädt dynamisch aus symptom_library (Fallback: die statischen 8 Chips). gsRunDiagnose reicht plant_name + include_history durch. gsRenderDoctorResult bekommt zwei Buttons: „💊 Behandlung dokumentieren" (gsDoctorAddStep/SaveStep → fn_treatment_step_add) + „📋 Frühere Diagnosen" (gsDoctorShowHistory → fn_plant_diagnoses_for_plant, Status-farbige Timeline). Follow-up-Banner beim Boot (gsDoctorCheckFollowups, 6s nach DOMContentLoaded, Session-Guard pro Tag) → 4-Button-Modal (gsDoctorSubmitFollowup → fn_followup_submit). Hard-Lesson #12: Diagnose-ID via State-Bridge window._gsFollowupDiagId, im onclick nur statische Result-Literale.'},
+      {emoji:'✅', bold:'Verify:', text:' Migration angewandt · 5 Spalten + 2 Tabellen + 14 Seed-Symptome + 5 RPCs + Indizes verifiziert · 0 neue Advisor-ERRORs (einzige ERROR v_marketplace_listings ist vorbestehend) · Edge-Fn v4 ACTIVE · 7/7 Inline-Scripts node --check OK. Mid-Range-Sprint: GS_VERSION/meta/sw.js/_headers bleiben auf v27.00 (gemeinsamer Mega-Deploy durch Fernando nach allen 13 Sprints).'},
     ]
   },
   {
