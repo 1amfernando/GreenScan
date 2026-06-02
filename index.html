@@ -4776,6 +4776,8 @@ html, body{ scroll-behavior: smooth; }
           </select>
         </div>
         <div style="font-size:10.5px;color:var(--muted);margin-top:10px;line-height:1.5;">Push-Empfang nur ausserhalb der Stille-Zeit. Backend prüft cron 07:00 + 19:00 UTC.</div>
+        <!-- v26.93: Test-Push (an eigene Subscriptions via send-push Edge-Fn) -->
+        <button id="push-test-btn" onclick="gsSendTestPush()" style="margin-top:14px;width:100%;padding:10px;background:var(--accent,#2e7d32);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">📨 Test-Push senden</button>
       </div>
       <!-- v25.27: Sprachauswahl (Schweizer Markt komplett) -->
       <div class="settings-row" id="i18n-lang-row" style="border-top:1px solid var(--border);">
@@ -6452,12 +6454,30 @@ window.gsMarkPlantReminderRead = async function(plantId, taskKey) {
 };
 
 // Schnell-Erledigen (mit Animation)
+// v26.93: Task-Done granular zum Backend syncen (RPC fn_plant_task_done).
+// ZUSÄTZLICH zum Blob-Push (savePlantsToStorage → user_plants.data): falls der
+// Blob-Push offline/Quota silent fehlschlägt (Hard-Lesson #10), landet der
+// lastDone-Stand trotzdem serverseitig → v_plant_tasks_due bleibt korrekt und
+// der Cron-Push re-triggert erst zur nächsten Fälligkeit. Fire-and-forget.
+function gsRpcTaskDone(plantId, taskKey) {
+  try {
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
+    if (!plantId || !taskKey || typeof sbFetch !== 'function') return;
+    sbFetch('/rest/v1/rpc/fn_plant_task_done', {
+      method: 'POST',
+      body: JSON.stringify({ p_plant_id: String(plantId), p_task_key: String(taskKey) })
+    }).then(function(){}, function(){});
+  } catch (_) {}
+}
+window.gsRpcTaskDone = gsRpcTaskDone;
+
 function gsQuickDone(plantId, taskKey) {
   gsHaptic('success');
   var p = myPlants.find(function(x){ return x.id === plantId; });
   if (!p || !p.tasks || !p.tasks[taskKey]) return;
   var nowIso = new Date().toISOString();
   p.tasks[taskKey].lastDone = nowIso;
+  gsRpcTaskDone(plantId, taskKey);
   // v26.51: Done-History persistent — pro Pflanze in p.diary[] + global gs_gartentagebuch
   // damit "keine Daten verloren gehen" gilt auch für Quick-Done.
   try {
@@ -23099,6 +23119,7 @@ function doneTask(plantId, taskKey){
   const p = myPlants.find(x => x.id === plantId);
   if(!p || !p.tasks[taskKey]) return;
   p.tasks[taskKey].lastDone = new Date().toISOString();
+  if (typeof gsRpcTaskDone === 'function') gsRpcTaskDone(plantId, taskKey); // v26.93 Backend-Sync
   savePlantsToStorage();
   renderMyPlants();
   // Nächste Benachrichtigung planen
@@ -54148,6 +54169,24 @@ window.GS_RELEASES = [
     ]
   },
   {
+    v: 'v26.93', date: '02.06.2026',
+    headline: '🔔 Push-Benachrichtigungen für Pflege-Aufgaben & Wochen-Rückblick',
+    summary: 'GreenScan kann dich jetzt erinnern — auch wenn die App geschlossen ist. Aktiviere die Push-Benachrichtigungen in den Einstellungen, und du bekommst morgens eine Erinnerung, wenn eine Pflege-Aufgabe fällig ist (z.B. „💧 Gießen: Monstera"). Sonntags fasst dir ein Wochen-Rückblick zusammen, was in den nächsten 7 Tagen ansteht. Tippst du auf eine Benachrichtigung, landest du direkt bei deinen Pflanzen. Mit „📨 Test-Push senden" prüfst du sofort, ob alles ankommt. Auf dem iPhone funktionieren Push-Mitteilungen nur, wenn GreenScan über „Zum Home-Bildschirm" installiert ist (iOS 16.4+).',
+    user_summary: '🔔 Aktiviere Push-Benachrichtigungen und werde an fällige Pflege-Aufgaben erinnert — plus ein Wochen-Rückblick am Sonntag und ein Test-Knopf zum sofortigen Prüfen.',
+    user_items: [
+      { emoji: '💧', text: 'Morgens eine Erinnerung, wenn Gießen/Düngen/Umtopfen fällig ist' },
+      { emoji: '🗓️', text: 'Sonntags ein Wochen-Rückblick mit den anstehenden Aufgaben' },
+      { emoji: '📨', text: '„Test-Push senden" prüft sofort, ob Benachrichtigungen ankommen' },
+    ],
+    items: [
+      {emoji:'🗄️', bold:'Backend (Migration v26_93_plant_tasks_due):', text:' Neuer STABLE-Helper _gs_parse_ts_flex(text) (epoch-ms ≥13 Stellen → /1000, epoch-s, sonst ::timestamptz, exception-safe → NULL). VIEW v_plant_tasks_due (security_invoker) expandiert user_plants.data->plants[].tasks via LATERAL jsonb_each, rechnet next_due_at = last_done + interval_days, liefert is_due_now + task_label (💧 Gießen / 🌿 Düngen / 🔍 Kontrolle / …). RPC fn_plant_task_done(p_plant_id text, p_task_key text) (DEFINER) setzt lastDone per jsonb_set im richtigen Array-Index als ISO-8601-String, REVOKE PUBLIC/anon + GRANT authenticated.'},
+      {emoji:'🏛️', bold:'Architektur-Realität (Hard-Lesson #8):', text:' Die komplette Push-Infrastruktur war bereits da — push_subscriptions/push_send_log-Tabellen, VAPID-Keys in app_settings (NICHT als Env-Secret), daily-push-checker (v5) und das ganze v25.26-Push-Frontend. lastDone ist real ein ISO-String, NICHT epoch-ms wie die Spec annahm → der erste View lieferte 0 Zeilen, gefixt via _gs_parse_ts_flex (Dual-Format). Daher gezielt Lücken gefüllt statt neu gebaut.'},
+      {emoji:'🔌', bold:'Edge-Functions:', text:' send-push v1 (verify_jwt, self-target via JWT oder Service-Role-Broadcast, 410/404 → Sub-Delete, sonst failure_count++, Erfolg → reset + last_push_sent_at, Log in push_send_log). daily-push-checker v6: neuer plant_tasks-Block (morgens, hourUtc<12, Dedup-Kategorie plant_tasks, einzeln oder gebündelt) + Sonntags-weekly_summary-Block (next_due_at in 7 Tagen), alle Deep-Links auf ?screen= vereinheitlicht.'},
+      {emoji:'🖥️', bold:'Frontend:', text:' „📨 Test-Push senden"-Button + gsSendTestPush (prüft Login + aktives Abo, ruft send-push). gsRpcTaskDone spiegelt erledigte Aufgaben best-effort serverseitig (in gsQuickDone + doneTask), damit der Cron exakt weiß, was fällig ist. SW-Push-Handler normalisiert top-level url → data.url (Deep-Link-Fix) + Default-Icon/Badge.'},
+      {emoji:'✅', bold:'Verify:', text:' Beide Migrations angewandt · v_plant_tasks_due 6 Zeilen (5 fällig) verifiziert · send-push v1 + daily-push-checker v6 deployed · Advisor ohne neue ERRORs · 7/7 Inline-Scripts node --check OK. Teil des Mega-Sprints v26.88→v27.00 (gemeinsamer Mega-Deploy durch Fernando) — Versions-Marker bleiben auf dem höchsten gebauten Stand (v26.99).'},
+    ]
+  },
+  {
     v: 'v26.92', date: '02.06.2026',
     headline: '🛒 Marktplatz-Politur: Status verwalten, Preisfilter & bessere Suche',
     summary: 'Der Marktplatz wird aufgeräumter und flexibler. Für deine eigenen Inserate gibt es jetzt eine Status-Verwaltung direkt im Inserat: 🟢 Aktiv, 🟡 Reserviert, ✅ Verkauft oder 📦 Archiviert — mit passenden Abzeichen in der Liste, damit Interessenten den Stand sofort sehen. Verkaufte Inserate werden nach 30 Tagen automatisch archiviert. Neu kannst du beim Suchen einen Preis-Bereich (CHF min–max) angeben, und die Volltextsuche findet jetzt auch Inserate, die noch nicht in der Liste geladen waren (serverseitig, deutsch-optimiert). Beim Erstellen sind bis zu 5 Fotos möglich, und du bestimmst per „☆ Haupt" welches Bild das Titelbild wird.',
@@ -62734,6 +62773,54 @@ async function gsPushSettingsRefresh(){
     _scheduleRefresh();
   }
 })();
+
+// v26.93: Test-Push an die eigenen Subscriptions (send-push Edge-Fn).
+// send-push hat verify_jwt=true → sbFetch hängt den User-JWT an → der User
+// kann ausschliesslich an sich selbst pushen (role=authenticated, sub=uid).
+async function gsSendTestPush(){
+  var btn = document.getElementById('push-test-btn');
+  try {
+    if (typeof sbIsLoggedIn === 'function' && !sbIsLoggedIn()) {
+      if (typeof showProfileToast === 'function') showProfileToast('Bitte zuerst anmelden', 'error');
+      return;
+    }
+    // Sicherstellen, dass überhaupt eine aktive Subscription existiert
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      var reg = await navigator.serviceWorker.ready;
+      var existing = await reg.pushManager.getSubscription();
+      if (!existing) {
+        if (typeof showProfileToast === 'function') showProfileToast('Bitte zuerst Push aktivieren (Toggle oben)', 'info');
+        return;
+      }
+    }
+  } catch(_){}
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Sende …'; }
+  try {
+    var r = await sbFetch('/functions/v1/send-push', {
+      method: 'POST',
+      body: JSON.stringify({
+        category: 'test',
+        title: '🔔 GreenScan Test-Push',
+        body: 'Super — Push funktioniert! 🌿 Du bekommst künftig Pflege-Erinnerungen.',
+        url: '/?screen=favs',
+        tag: 'gs-test'
+      })
+    });
+    var d = (r && r.data) || {};
+    var ok = (d.ok === true) || (typeof d.sent === 'number' && d.sent > 0);
+    if (ok) {
+      if (typeof showProfileToast === 'function') showProfileToast('📨 Test-Push gesendet — schau auf dein Gerät!', 'success');
+    } else {
+      var msg = (d.error === 'no_subscription') ? 'Keine aktive Subscription gefunden' : 'Test-Push fehlgeschlagen';
+      if (typeof showProfileToast === 'function') showProfileToast(msg, 'error');
+    }
+  } catch(e) {
+    if (typeof showProfileToast === 'function') showProfileToast('Test-Push Fehler: ' + ((e && e.message) || 'unbekannt'), 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📨 Test-Push senden'; }
+  }
+}
+window.gsSendTestPush = gsSendTestPush;
 
 // ═════════════════════════════════════════════════════════════════════
 // Ende v25.26 Push-Frontend-Block
