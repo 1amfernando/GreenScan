@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.99.20260602">
+<meta name="app-version" content="27.00.20260602">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4761,10 +4761,18 @@ html, body{ scroll-behavior: smooth; }
       </div>
       <div id="push-detail-settings" style="display:none;padding:14px 18px;background:var(--surface2);border-top:1px solid var(--border);">
         <div style="font-size:11.5px;color:var(--muted);font-weight:700;margin-bottom:10px;">Welche Benachrichtigungen?</div>
-        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px;color:var(--text);"><input type="checkbox" id="push-cat-frost" checked onchange="gsSavePushSettings({frost:this.checked})" style="width:18px;height:18px;cursor:pointer;"> 🥶 Frostgefahr (12h vorher)</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px;color:var(--text);"><input type="checkbox" id="push-cat-frost" checked onchange="gsSavePushSettings({frost:this.checked})" style="width:18px;height:18px;cursor:pointer;"> 🥶 Frostgefahr</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px;color:var(--text);"><input type="checkbox" id="push-cat-heat" checked onchange="gsSavePushSettings({heat:this.checked})" style="width:18px;height:18px;cursor:pointer;"> 🥵 Hitzewarnung</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px;color:var(--text);"><input type="checkbox" id="push-cat-storm" checked onchange="gsSavePushSettings({storm:this.checked})" style="width:18px;height:18px;cursor:pointer;"> 🌪️ Sturm / Starkregen</label>
         <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px;color:var(--text);"><input type="checkbox" id="push-cat-water" checked onchange="gsSavePushSettings({water:this.checked})" style="width:18px;height:18px;cursor:pointer;"> 💧 Pflanzen giessen</label>
         <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px;color:var(--text);"><input type="checkbox" id="push-cat-seasonal" checked onchange="gsSavePushSettings({seasonal:this.checked})" style="width:18px;height:18px;cursor:pointer;"> 📅 Saison-Aufgaben</label>
         <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px;color:var(--text);"><input type="checkbox" id="push-cat-quiz" checked onchange="gsSavePushSettings({quiz:this.checked})" style="width:18px;height:18px;cursor:pointer;"> 🎯 Quiz-Streak-Erinnerung</label>
+        <!-- v27.00: Wetter-Vorlauf (Lead-Time) — wie viele Stunden im Voraus warnen -->
+        <div style="margin-top:12px;font-size:12.5px;color:var(--text);">
+          <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:4px;"><span>🌦️ Wetter-Vorlauf</span><span id="push-lead-display" style="color:var(--accent,#2e7d32);">12 h</span></div>
+          <input type="range" id="push-lead-hours" min="2" max="48" step="2" value="12" oninput="var d=document.getElementById('push-lead-display');if(d)d.textContent=this.value+' h';" onchange="gsSavePushSettings({leadHours:parseInt(this.value)})" style="width:100%;cursor:pointer;accent-color:var(--accent,#2e7d32);">
+          <div style="font-size:10.5px;color:var(--muted);">Frost/Hitze/Sturm werden so viele Stunden im Voraus geprüft (alle 3 h).</div>
+        </div>
         <div style="margin-top:14px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:var(--text);">
           <span style="font-weight:700;">🌙 Stille-Zeit:</span>
           <select id="push-quiet-start" onchange="gsSavePushSettings({quietStart:parseInt(this.value)})" style="padding:6px 8px;background:var(--card);border:1px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit;color:var(--text);">
@@ -4778,6 +4786,8 @@ html, body{ scroll-behavior: smooth; }
         <div style="font-size:10.5px;color:var(--muted);margin-top:10px;line-height:1.5;">Push-Empfang nur ausserhalb der Stille-Zeit. Backend prüft cron 07:00 + 19:00 UTC.</div>
         <!-- v26.93: Test-Push (an eigene Subscriptions via send-push Edge-Fn) -->
         <button id="push-test-btn" onclick="gsSendTestPush()" style="margin-top:14px;width:100%;padding:10px;background:var(--accent,#2e7d32);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">📨 Test-Push senden</button>
+        <!-- v27.00: Wetter-Warnungen-Inbox (weather_alerts) -->
+        <button id="push-wx-btn" onclick="gsOpenWeatherAlerts()" style="margin-top:8px;width:100%;padding:10px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">🌦️ Wetter-Warnungen ansehen <span id="push-wx-badge" style="display:none;margin-left:4px;background:#e53935;color:#fff;border-radius:999px;padding:1px 7px;font-size:11px;"></span></button>
       </div>
       <!-- v25.27: Sprachauswahl (Schweizer Markt komplett) -->
       <div class="settings-row" id="i18n-lang-row" style="border-top:1px solid var(--border);">
@@ -54116,6 +54126,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v27.00', date: '02.06.2026',
+    headline: '🌦️ Wetter-Warnungen: Frost, Hitze & Sturm rechtzeitig aufs Handy',
+    summary: 'GreenScan warnt dich jetzt aktiv vor kritischem Wetter für deinen Garten — alle 3 Stunden prüft der Dienst deinen Standort. Du bekommst eine Push-Benachrichtigung, wenn in den nächsten Stunden Frost (≤ 2°C), Hitze (≥ 30°C) oder Sturm/Starkregen droht. In den Einstellungen wählst du, welche Warnungen du willst (🥶 Frost · 🥵 Hitze · 🌪️ Sturm/Starkregen) und wie viel Vorlauf (2 – 48 Stunden) du haben möchtest. Über „🌦️ Wetter-Warnungen ansehen" öffnest du eine Inbox mit allen aktuellen Warnungen, die du als gesehen markieren oder entfernen kannst. Kritische Lagen (z.B. strenger Frost) erreichen dich auch während der Stille-Zeit.',
+    user_summary: '🌦️ Aktiviere Wetter-Warnungen und werde bei Frost, Hitze oder Sturm rechtzeitig erinnert — mit einstellbarem Vorlauf (2 – 48 h) und einer Inbox mit allen aktuellen Warnungen.',
+    user_items: [
+      { emoji: '🥶', text: 'Frost-, 🥵 Hitze- und 🌪️ Sturm-/Starkregen-Warnungen einzeln einschaltbar' },
+      { emoji: '⏱️', text: 'Vorlauf frei wählbar (2 – 48 h) — Standort-Check alle 3 Stunden' },
+      { emoji: '📥', text: '„Wetter-Warnungen ansehen": Inbox mit Gesehen/Entfernen — Kritisches auch in der Stille-Zeit' },
+    ],
+    items: [
+      {emoji:'🗄️', bold:'Backend (Migration v27_00_weather_alerts):', text:' push_subscriptions +3 additive Spalten (notify_heat, notify_storm, alert_lead_hours). Neue Inbox-Tabelle weather_alerts (alert_type frost/heat/storm + severity info/warning/critical CHECK, title/body/temps/metric/valid_until/pushed/acknowledged/dismissed; RLS own-only SELECT+UPDATE via (SELECT auth.uid()), service_role INSERT). Shared weather_forecast_cache (grid 0.1°, 3h TTL, RLS ohne Policy → nur service_role). RPCs fn_weather_alert_ack (DEFINER, own-only ack/dismiss) + fn_weather_alerts_unread (Badge-Count) — anon EXECUTE revoked.'},
+      {emoji:'🔌', bold:'Edge-Fn weather-alert-checker v1 (NEU) + Cron 0 */3:', text:' Pro Subscription mit GPS-Koordinaten → Open-Meteo (Temperatur/Niederschlag/Böen, forecast_days=2) via Grid-Cache; windowMetrics über die kommenden alert_lead_hours; Schwellen Frost ≤2°C, Hitze ≥30°C, Sturm Böen ≥60 km/h oder Regen ≥12 mm/h (kritisch bei -3°C / 34°C / 90 km/h / 25 mm). Inbox-Row immer (Dedup pro Typ im Fenster), Push nur ausserhalb der Stille-Zeit (Kritisches override) und entkoppelt-dedupt über fn_push_already_sent_today (kein Doppel mit daily-push-checker).'},
+      {emoji:'🏛️', bold:'Architektur-Realität (Hard-Lesson #8):', text:' frost_tolerance_c existiert NIRGENDS (weder garden_plantings noch species) → Warnungen sind standort- statt pflanzen-spezifisch. garden_plantings/gardens sind leer (echte Daten in user_gardens.data jsonb), user_prefs existiert nicht (real user_preferences.prefs). Server-Koordinaten kommen aus push_subscriptions.gps_lat/gps_lng (NICHT garden.location=Freitext). daily-push-checker v6 macht bereits Basis-Frost → ergänzt statt ersetzt.'},
+      {emoji:'🖥️', bold:'Frontend:', text:' Push-Einstellungen +Toggles 🥵 Hitze / 🌪️ Sturm + Vorlauf-Slider (2 – 48 h). „🌦️ Wetter-Warnungen ansehen"-Button mit ungelesen-Badge. gsOpenWeatherAlerts (Bottom-Sheet, severity-Farben, escaped) + gsWxAck (Gesehen/Entfernen via fn_weather_alert_ack) + gsWxRefreshBadge. Hard-Lesson #12: onclick übergibt nur den Array-Index (window._gsWxAlerts), kein Quote-Escape.'},
+      {emoji:'✅', bold:'Verify:', text:' Migration angewandt · 3 Spalten + 2 Tabellen + 2 Policies + 2 RPCs (anon revoked) verifiziert · weather_forecast_cache service-role-only · Cron weather-alert-3h aktiv · Edge-Fn v1 deployed · Advisor ohne neue ERRORs · 7/7 Inline-Scripts node --check OK. FINALE des Mega-Sprints v26.88→v27.00 — höchste Version, daher GS_VERSION/meta/sw.js/_headers jetzt auf v27.00 (gemeinsamer Mega-Deploy durch Fernando).'},
+    ]
+  },
+  {
     v: 'v26.99', date: '02.06.2026',
     headline: '🗓️ Garten-Planer v3: 3-Jahres-Plan, klima-adaptiv & „Was-wäre-wenn"',
     summary: 'Der Garten-Planer denkt jetzt mehrjährig und klima-bewusst. Im Planer legst du in den neuen „🎯 Ambitionen" fest, ob du für 1, 2 oder 3 Jahre planst, welches Schweizer Klima-Szenario (Referenz · wärmer & trockener · feuchtere Sommer) zugrunde liegt und welche Rahmenbedingungen gelten — Budget pro Jahr, Pflege-Stunden pro Woche, Erfahrungsstufe, Bio-only, Permakultur, Haustiere/Kinder. Bei Mehrjahres-Plänen erscheint ein neuer Tab „📆 Mehrjahres" mit Jahres-Reitern, einer Klima-Resilienz-Bewertung, Ernte-Schätzung und einer Mehrjahres-Strategie inkl. Risiken. Mit „🔮 Was-wäre-wenn" rechnest du dieselbe Lage mit anderem Budget, Klima oder Optimismus-Modus durch und siehst die Differenz direkt gegenübergestellt.',
@@ -56938,7 +56966,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.99';
+var GS_VERSION = 'v27.00';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -62691,11 +62719,14 @@ async function gsSavePushSettings(partial){
   if (!uid || typeof sbFetch !== 'function') return;
   var patch = {};
   if ('frost'      in partial) patch.notify_frost        = !!partial.frost;
+  if ('heat'       in partial) patch.notify_heat         = !!partial.heat;   // v27.00
+  if ('storm'      in partial) patch.notify_storm        = !!partial.storm;  // v27.00
   if ('water'      in partial) patch.notify_water        = !!partial.water;
   if ('seasonal'   in partial) patch.notify_seasonal     = !!partial.seasonal;
   if ('quiz'       in partial) patch.notify_quiz_streak  = !!partial.quiz;
   if ('quietStart' in partial && typeof partial.quietStart === 'number') patch.quiet_start_hour = partial.quietStart;
   if ('quietEnd'   in partial && typeof partial.quietEnd   === 'number') patch.quiet_end_hour   = partial.quietEnd;
+  if ('leadHours'  in partial && typeof partial.leadHours  === 'number') patch.alert_lead_hours = Math.max(2, Math.min(48, partial.leadHours)); // v27.00
   if (Object.keys(patch).length === 0) return;
   try {
     await sbFetch('/rest/v1/push_subscriptions?user_id=eq.' + encodeURIComponent(uid), {
@@ -62742,7 +62773,7 @@ async function gsPushSettingsRefresh(){
   // Lokale Settings ins UI spiegeln
   var s = {};
   try { s = JSON.parse(localStorage.getItem('gs_push_settings') || '{}'); } catch(_){}
-  var ids = { frost:'push-cat-frost', water:'push-cat-water', seasonal:'push-cat-seasonal', quiz:'push-cat-quiz' };
+  var ids = { frost:'push-cat-frost', heat:'push-cat-heat', storm:'push-cat-storm', water:'push-cat-water', seasonal:'push-cat-seasonal', quiz:'push-cat-quiz' };
   Object.keys(ids).forEach(function(k){
     var el = document.getElementById(ids[k]);
     if (el) el.checked = (s[k] !== false);
@@ -62751,6 +62782,12 @@ async function gsPushSettingsRefresh(){
   var qe = document.getElementById('push-quiet-end');
   if (qs) qs.value = String(typeof s.quietStart === 'number' ? s.quietStart : 22);
   if (qe) qe.value = String(typeof s.quietEnd   === 'number' ? s.quietEnd   : 7);
+  // v27.00: Wetter-Vorlauf-Slider spiegeln
+  var lead = (typeof s.leadHours === 'number') ? Math.max(2, Math.min(48, s.leadHours)) : 12;
+  var ls = document.getElementById('push-lead-hours');
+  var ld = document.getElementById('push-lead-display');
+  if (ls) ls.value = String(lead);
+  if (ld) ld.textContent = lead + ' h';
   // Echter Sub-Status vom Browser
   try {
     if (!('serviceWorker' in navigator)) return;
@@ -62821,6 +62858,124 @@ async function gsSendTestPush(){
   }
 }
 window.gsSendTestPush = gsSendTestPush;
+
+// ═════════════════════════════════════════════════════════════════════
+// v27.00 — Wetter-Warnungen-Inbox (weather_alerts)
+// Persistente Frost/Hitze/Sturm-Alerts vom 3-stündlichen weather-alert-checker.
+// RLS own-only; ack/dismiss via RPC fn_weather_alert_ack. Hard-Lesson #12:
+// onclick übergibt nur den Array-Index (window._gsWxAlerts), KEINE Quote-Escapes.
+// ═════════════════════════════════════════════════════════════════════
+function _gsWxEsc(s){
+  if (window.gsSafeHTML && typeof window.gsSafeHTML.escape === 'function') return window.gsSafeHTML.escape(String(s == null ? '' : s));
+  return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]; });
+}
+function _gsWxAgo(ts){
+  try {
+    var d = (new Date() - new Date(ts)) / 60000;
+    if (d < 60) return Math.max(0, Math.round(d)) + ' Min.';
+    if (d < 1440) return Math.round(d/60) + ' Std.';
+    return Math.round(d/1440) + ' T.';
+  } catch(_) { return ''; }
+}
+var _GS_WX_STYLE = { critical:{bg:'#fdecea',br:'#e53935',ic:'🚨'}, warning:{bg:'#fff8e1',br:'#f9a825',ic:'⚠️'}, info:{bg:'#e8f5e9',br:'#2e7d32',ic:'ℹ️'} };
+
+async function gsWxRefreshBadge(){
+  try {
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn() || typeof sbFetch !== 'function') return;
+    var r = await sbFetch('/rest/v1/rpc/fn_weather_alerts_unread', { method:'POST', body: JSON.stringify({}) });
+    var n = (r && typeof r.data === 'number') ? r.data : (r && r.data ? Number(r.data) : 0);
+    var b = document.getElementById('push-wx-badge');
+    if (b) { if (n > 0) { b.textContent = String(n); b.style.display = ''; } else { b.style.display = 'none'; } }
+  } catch(_){}
+}
+window.gsWxRefreshBadge = gsWxRefreshBadge;
+
+async function gsOpenWeatherAlerts(){
+  if (typeof sbIsLoggedIn === 'function' && !sbIsLoggedIn()) {
+    if (typeof showProfileToast === 'function') showProfileToast('Bitte zuerst anmelden', 'info');
+    return;
+  }
+  var ov = document.getElementById('gs-wx-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'gs-wx-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;';
+    ov.addEventListener('click', function(e){ if (e.target === ov) gsCloseWeatherAlerts(); });
+    ov.innerHTML = '<div id="gs-wx-panel" role="dialog" aria-label="Wetter-Warnungen" style="background:var(--bg,#fff);color:var(--text,#222);width:100%;max-width:560px;max-height:82vh;border-radius:18px 18px 0 0;overflow-y:auto;padding:18px 16px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -8px 30px rgba(0,0,0,.25);"></div>';
+    document.body.appendChild(ov);
+  }
+  ov.style.display = 'flex';
+  var panel = document.getElementById('gs-wx-panel');
+  if (panel) panel.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);">Lade Wetter-Warnungen …</div>';
+  try {
+    var r = await sbFetch('/rest/v1/weather_alerts?dismissed=eq.false&order=created_at.desc&limit=40');
+    var rows = (r && Array.isArray(r.data)) ? r.data : [];
+    window._gsWxAlerts = rows;
+    gsWxRender();
+  } catch(e) {
+    if (panel) panel.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);">Konnte Warnungen nicht laden.</div>';
+  }
+}
+window.gsOpenWeatherAlerts = gsOpenWeatherAlerts;
+
+function gsCloseWeatherAlerts(){
+  var ov = document.getElementById('gs-wx-overlay');
+  if (ov) ov.style.display = 'none';
+  gsWxRefreshBadge();
+}
+window.gsCloseWeatherAlerts = gsCloseWeatherAlerts;
+
+function gsWxRender(){
+  var panel = document.getElementById('gs-wx-panel');
+  if (!panel) return;
+  var rows = window._gsWxAlerts || [];
+  var head = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
+    + '<div style="font-size:17px;font-weight:800;">🌦️ Wetter-Warnungen</div>'
+    + '<button onclick="gsCloseWeatherAlerts()" aria-label="Schliessen" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1;">×</button></div>';
+  if (!rows.length) {
+    panel.innerHTML = head + '<div style="text-align:center;padding:34px 10px;color:var(--muted);">'
+      + '<div style="font-size:34px;margin-bottom:8px;">☀️</div>Keine aktiven Warnungen. '
+      + 'GreenScan prüft deinen Standort alle 3 Stunden auf Frost, Hitze und Sturm.</div>';
+    return;
+  }
+  var cards = rows.map(function(a, i){
+    var st = _GS_WX_STYLE[a.severity] || _GS_WX_STYLE.warning;
+    var ackTxt = a.acknowledged ? '✓ Gesehen' : '✓ Gesehen';
+    return '<div style="border:1px solid ' + st.br + ';background:' + st.bg + ';border-radius:14px;padding:12px 13px;margin-bottom:10px;'
+      + (a.acknowledged ? 'opacity:.62;' : '') + '">'
+      + '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;">'
+      + '<div style="font-weight:800;font-size:14px;color:#1a1a1a;">' + st.ic + ' ' + _gsWxEsc(a.title) + '</div>'
+      + '<div style="font-size:11px;color:#555;white-space:nowrap;">vor ' + _gsWxEsc(_gsWxAgo(a.created_at)) + '</div></div>'
+      + '<div style="font-size:12.5px;color:#333;margin-top:4px;line-height:1.45;">' + _gsWxEsc(a.body) + '</div>'
+      + '<div style="display:flex;gap:8px;margin-top:10px;">'
+      + (a.acknowledged ? '' : '<button onclick="gsWxAck(' + i + ',false)" style="flex:1;padding:7px;border:1px solid ' + st.br + ';background:transparent;color:#1a1a1a;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">' + ackTxt + '</button>')
+      + '<button onclick="gsWxAck(' + i + ',true)" style="flex:1;padding:7px;border:none;background:' + st.br + ';color:#fff;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">🗑️ Entfernen</button>'
+      + '</div></div>';
+  }).join('');
+  panel.innerHTML = head + cards;
+}
+
+async function gsWxAck(idx, dismiss){
+  var rows = window._gsWxAlerts || [];
+  var a = rows[idx];
+  if (!a || !a.id) return;
+  try {
+    await sbFetch('/rest/v1/rpc/fn_weather_alert_ack', { method:'POST', body: JSON.stringify({ p_id: a.id, p_dismiss: !!dismiss }) });
+  } catch(_){}
+  if (dismiss) { rows.splice(idx, 1); }
+  else { a.acknowledged = true; }
+  window._gsWxAlerts = rows;
+  gsWxRender();
+  gsWxRefreshBadge();
+}
+window.gsWxAck = gsWxAck;
+
+// Badge nach Boot aktualisieren (eingeloggt + Push-Settings sichtbar).
+(function(){
+  function _wxBadgeBoot(){ setTimeout(function(){ try { gsWxRefreshBadge(); } catch(_){} }, 3200); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _wxBadgeBoot);
+  else _wxBadgeBoot();
+})();
 
 // ═════════════════════════════════════════════════════════════════════
 // Ende v25.26 Push-Frontend-Block
