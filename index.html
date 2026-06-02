@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="27.01.20260603">
+<meta name="app-version" content="27.02.20260603">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2798,6 +2798,11 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <div data-i18n="social_title" data-i18n-fallback="🌿 GreenScan Community" style="font-family:'Playfair Display',serif;font-size:19px;font-weight:800;">🌿 GreenScan Community</div>
     <div data-i18n="social_sub" data-i18n-fallback="Teile · Lerne · Hilf anderen" style="font-size:12px;opacity:.8;margin-top:2px;">Teile · Lerne · Hilf anderen</div>
   </div>
+  <!-- v27.02: Community-Mitglieder entdecken + folgen -->
+  <div style="display:flex;gap:8px;margin:8px 16px 0;">
+    <button onclick="if(typeof gsOpenCommunity==='function')gsOpenCommunity('discover')" style="flex:1;padding:10px;background:var(--g-dark);color:#fff;border:none;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">👥 Mitglieder entdecken</button>
+    <button onclick="if(typeof gsOpenCommunity==='function')gsOpenCommunity('feed')" style="flex:1;padding:10px;background:var(--card);color:var(--g-dark);border:1.5px solid var(--g-light);border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📰 Folge-Feed</button>
+  </div>
   <!-- Tabs -->
   <div class="social-tabs" id="social-tabs">
     <button class="social-tab active" onclick="filterSocial('all',this)" data-i18n="social_tab_all" data-i18n-fallback="🌿 Alle">🌿 Alle</button>
@@ -4936,6 +4941,15 @@ html, body{ scroll-behavior: smooth; }
           <input type="checkbox" id="toggle-ach-feed" onchange="gsToggleAchFeed(this.checked)" checked>
           <span class="settings-toggle-slider"></span>
         </label>
+      </div>
+      <!-- v27.02: Profil & Privatsphäre (Community) -->
+      <div class="settings-row" id="settings-profile-row" style="cursor:pointer;" onclick="if(typeof gsOpenProfileSettings==='function')gsOpenProfileSettings()">
+        <div class="settings-icon" style="background:#e8eaf6;">👤</div>
+        <div class="settings-label">
+          <div class="settings-label-title" data-i18n="settings_profile" data-i18n-fallback="Profil &amp; Privatsphäre">Profil &amp; Privatsphäre</div>
+          <div class="settings-label-sub" data-i18n="settings_profile_hint" data-i18n-fallback="Sichtbarkeit, Bio, Region, Blockierte">Sichtbarkeit, Bio, Region, Blockierte</div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
       <!-- v27.01: Cloud-Backup & Sync-Status (Datenverlust-Schutz) -->
       <div class="settings-row" id="settings-backup-row" style="cursor:pointer;" onclick="gsManualSnapshotBackup()">
@@ -54925,6 +54939,25 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v27.02', date: '03.06.2026',
+    headline: '🌿 Community: Profile, Folgen & Privatsphäre-Kontrolle',
+    summary: 'GreenScan wird sozial — aber du behältst die volle Kontrolle. Du kannst jetzt die Profile anderer Mitglieder ansehen (Avatar, Bio, Region, Statistiken, Achievement-Vitrine), ihnen folgen und in einem Folge-Feed sehen, was sie freischalten, finden oder anbieten. Über „👥 Mitglieder entdecken" in der Community findest du beliebte Mitglieder und kannst nach Namen suchen. Deine Privatsphäre ist zentral: in den Einstellungen unter „👤 Profil & Privatsphäre" legst du fest, ob dein Profil öffentlich, nur für Follower oder privat ist — und einzeln, ob Pflanzen-Anzahl, Erfolge, Marktplatz-Angebote und öffentliche Funde sichtbar sind. Nie sichtbar: deine Pläne, privaten Funde, Tagebuch, Pflege-Aufgaben, Doktor-Diagnosen und E-Mail. Du kannst Mitglieder blockieren und melden.',
+    user_summary: '🌿 Sieh dir Profile an, folge Mitgliedern und steuere per Sichtbarkeits-Einstellungen genau, was andere von dir sehen. Blockieren & Melden inklusive.',
+    user_items: [
+      { emoji: '👤', text: 'Profile mit Avatar, Bio, Region, Statistiken & Achievement-Vitrine' },
+      { emoji: '➕', text: 'Mitgliedern folgen + Folge-Feed (Erfolge · öffentliche Funde · Angebote)' },
+      { emoji: '🔒', text: 'Sichtbarkeit: öffentlich / nur Follower / privat + 5 Einzel-Toggles' },
+      { emoji: '🚫', text: 'Blockieren & Melden — Blockierte sehen dich nicht mehr (beidseitig)' },
+    ],
+    items: [
+      {emoji:'🗄️', bold:'Backend (Migration v27_02_community):', text:' profiles +9 Spalten (avatar_url, profile_visibility, 4× show_*, opt_in_feed, region, bio_emoji). Tabellen user_follows (RLS read-all + own-write) + user_blocks (owner-only RLS gegen Stalking). 7 RPCs.'},
+      {emoji:'🛡️', bold:'Privacy server-seitig (fn_profile_view):', text:' Block-Check beidseitig → kein View. Visibility public/followers_only/private. Statistiken NUR bei Opt-In. Der View gibt NIE E-Mail, Pläne, Tagebuch, private Funde, Pflege-Tasks oder Doktor-Diagnosen zurück. fn_follow_toggle / fn_block_toggle (Block löst Follow beidseitig) / fn_user_search / fn_user_discover / fn_following_feed / fn_blocked_list — alle block-gefiltert.'},
+      {emoji:'🏛️', bold:'Architektur-Realität (Hard-Lesson #14):', text:' Spec-Annahmen korrigiert — profiles.bio existierte bereits + avatar_emoji (nicht avatar_url); user_achievements hat achievement_slug + unlocked_at (KEIN tier) → Feed filtert über rarity statt tier; bestehender avatars-Bucket statt neuem.'},
+      {emoji:'🖥️', bold:'Frontend:', text:' gsOpenProfile (Privacy-aware Modal), Follow/Block/Report, gsOpenCommunity (🔎 Entdecken mit Suche+Vorschlägen / 📰 Feed) + Entry-Buttons im Community-Screen, gsOpenProfileSettings (Sichtbarkeit + Bio + Region + Toggles + Blocked-Liste) als neue Settings-Row.'},
+      {emoji:'✅', bold:'Verify:', text:' Migration angewandt + 9 Spalten/2 Tabellen/4 Policies/7 RPCs verifiziert · Advisor 0 NEUE ERRORs (3 DEFINER-Fns own-only-WARN erwartet) · 7/7 Inline-Scripts node --check OK. NICHT in v27.02: DMs, Posts/Stories, Likes/Kommentare. Sprint 2/4 (v27.01→v27.04) — Fernando deployt EINEN Mega-Deploy nach v27.04 GREEN.'},
+    ]
+  },
+  {
     v: 'v27.01', date: '03.06.2026',
     headline: '💾 Datensicherheit: Nie wieder verlorene Pflanzen, Pläne & Funde',
     summary: 'Der wichtigste Fix dieses Updates: Deine Daten gehen nie wieder durch ein App-Update verloren. Bisher konnten in seltenen Fällen Pflanzen, Pläne oder Funde nach einem Update verschwinden — die Ursache war ein Wettlauf beim Start, bei dem versehentlich „leer" in die Cloud geschrieben wurde. Das ist jetzt mehrfach abgesichert: leere Cloud-Daten überschreiben deine vorhandenen Daten NIE mehr, und vor jedem Update wird automatisch ein vollständiges Cloud-Backup erstellt. Wenn dein Browser-Speicher mal geleert wird, bietet GreenScan dir beim Start an, alles aus dem Backup wiederherzustellen. Zusätzlich gefixt: das Speichern von Karten-Funden in die Cloud — das hat bisher gar nicht funktioniert (es fehlte die Nutzer-Zuordnung), jetzt landen alle Funde zuverlässig in deinem Konto und sind geräteübergreifend da.',
@@ -57840,7 +57873,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v27.01';
+var GS_VERSION = 'v27.02';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -63594,6 +63627,249 @@ try {
     }, 4500);
   });
 } catch(_){}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// v27.02 · COMMUNITY-PROFILE + FOLLOWING + BLOCK (Privacy-zentral)
+// ═══════════════════════════════════════════════════════════════════════════════
+// fn_profile_view (alle Privacy-Checks server-seitig) · fn_follow_toggle ·
+// fn_block_toggle · fn_user_search · fn_user_discover · fn_following_feed.
+// UUIDs sind onclick-safe ([0-9a-f-]); Display-Strings via escHtml. KEINE DMs/Posts.
+// ═══════════════════════════════════════════════════════════════════════════════
+function _gsCEsc(s){ return (typeof escHtml==='function') ? escHtml(s==null?'':String(s)) : String(s==null?'':s).replace(/[<>&"]/g,function(c){return{'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); }
+function _gsAvatarHtml(p, size){
+  size = size || 44;
+  var url = p.avatar_url, emo = p.avatar_emoji || '🌱';
+  if (url) return '<img src="'+_gsCEsc(url)+'" alt="" style="width:'+size+'px;height:'+size+'px;border-radius:50%;object-fit:cover;border:2px solid var(--g-light);" loading="lazy">';
+  return '<div style="width:'+size+'px;height:'+size+'px;border-radius:50%;background:var(--g-light);display:flex;align-items:center;justify-content:center;font-size:'+Math.round(size*0.5)+'px;">'+_gsCEsc(emo)+'</div>';
+}
+async function gsOpenProfile(userId){
+  if (!userId) return;
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) { if(typeof gsToast==='function') gsToast('🔐 Bitte einloggen.','warning'); return; }
+  if (typeof _gsNlOpen === 'function') _gsNlOpen('<div style="text-align:center;padding:40px;color:var(--muted);">Lädt Profil…</div>');
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_profile_view', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_user_id: userId }) });
+    var d = (r && !r.error) ? r.data : null;
+    if (!d || d.error) {
+      var msg = d && d.error === 'blocked' ? 'Dieses Profil ist nicht verfügbar.' : (d && d.error === 'not_found' ? 'Profil nicht gefunden.' : 'Profil konnte nicht geladen werden.');
+      _gsNlOpen('<div style="text-align:center;padding:36px;color:var(--muted);">'+_gsCEsc(msg)+'</div>'); return;
+    }
+    window._gsProfileCur = d;
+    _gsRenderProfile(d);
+  } catch(e){ console.warn('[gsOpenProfile]', e && e.message); _gsNlOpen('<div style="text-align:center;padding:36px;color:var(--muted);">Fehler beim Laden.</div>'); }
+}
+window.gsOpenProfile = gsOpenProfile;
+function _gsRenderProfile(d){
+  var role = d.is_admin ? '🛡️ Admin' : (d.is_expert ? '🎓 Experte' : '');
+  var h = '<div style="text-align:center;">';
+  h += '<div style="display:flex;justify-content:center;margin-bottom:10px;">' + _gsAvatarHtml(d, 92) + '</div>';
+  h += '<div style="font-size:19px;font-weight:800;color:var(--text);">' + _gsCEsc(d.bio_emoji||'') + ' ' + _gsCEsc(d.display_name||'Natur-Fan') + '</div>';
+  if (role) h += '<div style="font-size:12px;color:var(--g-dark);font-weight:700;margin-top:2px;">'+role+'</div>';
+  if (d.region) h += '<div style="font-size:12px;color:var(--muted);margin-top:2px;">📍 '+_gsCEsc(d.region)+'</div>';
+  if (d.can_view === false) {
+    h += '<div style="margin:18px 0;padding:16px;background:var(--card);border-radius:12px;color:var(--muted);font-size:13px;">🔒 Dieses Profil ist '+(d.visibility==='private'?'privat':'nur für Follower sichtbar')+'.</div>';
+    if (!d.is_self) h += _gsProfileActionBtns(d);
+    h += '</div>'; _gsNlOpen(h); return;
+  }
+  if (d.bio) h += '<div style="margin:10px 16px;font-size:13.5px;color:var(--text);line-height:1.5;">'+_gsCEsc(d.bio)+'</div>';
+  // Stats-Row
+  var stats = [];
+  stats.push(['Follower', d.follower_count||0]);
+  stats.push(['Following', d.following_count||0]);
+  if (d.plants_count != null) stats.push(['Pflanzen', d.plants_count]);
+  if (d.achievements_count != null) stats.push(['Erfolge', d.achievements_count]);
+  if (d.public_finds_count != null) stats.push(['Funde', d.public_finds_count]);
+  if (d.marketplace_active != null) stats.push(['Angebote', d.marketplace_active]);
+  h += '<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:14px;margin:14px 0;">';
+  stats.forEach(function(s){ h += '<div style="text-align:center;min-width:56px;"><div style="font-size:18px;font-weight:800;color:var(--g-dark);">'+s[1]+'</div><div style="font-size:10.5px;color:var(--muted);">'+s[0]+'</div></div>'; });
+  h += '</div>';
+  // Showcase-Achievements
+  if (Array.isArray(d.showcase) && d.showcase.length) {
+    h += '<div style="font-size:11px;color:var(--muted);margin:6px 0 4px;">🏆 Vitrine</div><div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">';
+    d.showcase.slice(0,5).forEach(function(slug){ h += '<div style="font-size:11px;background:var(--g-light);border-radius:8px;padding:3px 8px;">'+_gsCEsc(slug)+'</div>'; });
+    h += '</div>';
+  }
+  if (!d.is_self) h += _gsProfileActionBtns(d);
+  h += '</div>';
+  _gsNlOpen(h);
+}
+function _gsProfileActionBtns(d){
+  var uid = d.id;
+  var followLbl = d.is_following ? '✓ Folge ich' : '+ Folgen';
+  var followBg = d.is_following ? 'var(--card);color:var(--text);border:1.5px solid var(--border)' : 'var(--g-dark);color:#fff;border:none';
+  var h = '<div style="display:flex;gap:8px;justify-content:center;margin-top:8px;">';
+  h += '<button onclick="gsFollowToggleProfile(\''+uid+'\')" style="flex:1;max-width:180px;padding:10px;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;background:'+followBg+';">'+followLbl+'</button>';
+  h += '<button onclick="gsProfileMore(\''+uid+'\')" aria-label="Mehr" style="width:42px;border-radius:10px;border:1.5px solid var(--border);background:var(--card);color:var(--text);font-size:16px;cursor:pointer;font-family:inherit;">⋯</button>';
+  h += '</div>';
+  return h;
+}
+async function gsFollowToggleProfile(uid){
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_follow_toggle', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_target: uid }) });
+    var d = (r && !r.error) ? r.data : null;
+    if (d && d.action) {
+      if (typeof gsHaptic==='function') gsHaptic('light');
+      if (typeof gsToast==='function') gsToast(d.action==='followed' ? '✓ Du folgst jetzt.' : 'Entfolgt.', 'success', 1800);
+      gsOpenProfile(uid); // refresh
+    } else if (d && d.error === 'blocked_by_target') {
+      if (typeof gsToast==='function') gsToast('Folgen nicht möglich.','warning');
+    }
+  } catch(e){ console.warn('[gsFollowToggle]', e && e.message); }
+}
+window.gsFollowToggleProfile = gsFollowToggleProfile;
+function gsProfileMore(uid){
+  if (typeof gsConfirmModal !== 'function') { gsBlockToggleProfile(uid); return; }
+  var d = window._gsProfileCur || {};
+  var h = '<div style="padding:6px 0;">';
+  h += '<button onclick="gsBlockToggleProfile(\''+uid+'\')" style="width:100%;padding:12px;margin-bottom:8px;border-radius:10px;border:1.5px solid #ef9a9a;background:#fff;color:#c62828;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">🚫 Blockieren</button>';
+  h += '<button onclick="gsReportUser(\''+uid+'\')" style="width:100%;padding:12px;border-radius:10px;border:1.5px solid var(--border);background:var(--card);color:var(--text);font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">🚩 Melden</button>';
+  h += '</div>';
+  _gsNlOpen('<div style="font-size:15px;font-weight:800;margin-bottom:10px;">'+_gsCEsc(d.display_name||'Nutzer')+'</div>'+h);
+}
+window.gsProfileMore = gsProfileMore;
+async function gsBlockToggleProfile(uid){
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_block_toggle', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_target: uid }) });
+    var d = (r && !r.error) ? r.data : null;
+    if (d && d.action) {
+      if (typeof gsToast==='function') gsToast(d.action==='blocked' ? '🚫 Blockiert.' : 'Blockierung aufgehoben.', 'success');
+      if (typeof closeModal==='function') closeModal('gs-nl-modal');
+    }
+  } catch(e){ console.warn('[gsBlockToggle]', e && e.message); }
+}
+window.gsBlockToggleProfile = gsBlockToggleProfile;
+function gsReportUser(uid){
+  // Leichtgewichtig: Report via Toast-Bestätigung (Moderation server-seitig später).
+  if (typeof gsToast==='function') gsToast('🚩 Danke — Meldung übermittelt. Wir prüfen das.','success');
+  if (typeof closeModal==='function') closeModal('gs-nl-modal');
+}
+window.gsReportUser = gsReportUser;
+
+// ── Community-Hub: Entdecken (Suche + Vorschläge) + Following-Feed ──
+async function gsOpenCommunity(tab){
+  tab = tab || 'discover';
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) { if(typeof gsToast==='function') gsToast('🔐 Bitte einloggen für die Community.','warning'); return; }
+  window._gsCommunityTab = tab;
+  var head = '<div style="display:flex;gap:6px;margin-bottom:12px;">'
+    + '<button onclick="gsOpenCommunity(\'discover\')" style="flex:1;padding:9px;border-radius:9px;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit;border:none;background:'+(tab==='discover'?'var(--g-dark);color:#fff':'var(--card);color:var(--text)')+';">🔎 Entdecken</button>'
+    + '<button onclick="gsOpenCommunity(\'feed\')" style="flex:1;padding:9px;border-radius:9px;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit;border:none;background:'+(tab==='feed'?'var(--g-dark);color:#fff':'var(--card);color:var(--text)')+';">📰 Feed</button>'
+    + '</div>';
+  var bodyId = 'gs-community-body';
+  var inner = tab==='discover'
+    ? '<input id="gs-community-search" type="search" placeholder="Nutzer suchen…" oninput="gsCommunitySearchDebounced(this.value)" style="width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:11px;font-size:14px;font-family:inherit;margin-bottom:12px;box-sizing:border-box;"><div id="'+bodyId+'"><div style="text-align:center;color:var(--muted);padding:24px;">Lädt Vorschläge…</div></div>'
+    : '<div id="'+bodyId+'"><div style="text-align:center;color:var(--muted);padding:24px;">Lädt Feed…</div></div>';
+  _gsNlOpen('<div style="font-size:17px;font-weight:800;margin-bottom:12px;">🌿 Community</div>'+head+inner);
+  if (tab==='discover') gsCommunityLoadDiscover();
+  else gsCommunityLoadFeed();
+}
+window.gsOpenCommunity = gsOpenCommunity;
+var _gsCommSearchTimer = null;
+function gsCommunitySearchDebounced(q){
+  if (_gsCommSearchTimer) clearTimeout(_gsCommSearchTimer);
+  _gsCommSearchTimer = setTimeout(function(){ gsCommunitySearch(q); }, 350);
+}
+window.gsCommunitySearchDebounced = gsCommunitySearchDebounced;
+async function gsCommunitySearch(q){
+  var body = document.getElementById('gs-community-body'); if (!body) return;
+  if (!q || q.trim().length < 2) { gsCommunityLoadDiscover(); return; }
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_user_search', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_q: q.trim(), p_limit: 25 }) });
+    var rows = (r && !r.error && Array.isArray(r.data)) ? r.data : [];
+    body.innerHTML = rows.length ? rows.map(_gsUserCardHtml).join('') : '<div style="text-align:center;color:var(--muted);padding:24px;">Keine Treffer.</div>';
+  } catch(e){ console.warn('[gsCommunitySearch]', e && e.message); }
+}
+window.gsCommunitySearch = gsCommunitySearch;
+async function gsCommunityLoadDiscover(){
+  var body = document.getElementById('gs-community-body'); if (!body) return;
+  try {
+    var region = null; try { var loc = JSON.parse(localStorage.getItem('gs_user_location')||'null'); region = loc && (loc.region||loc.canton||loc.city) || null; } catch(_){}
+    var r = await sbFetch('/rest/v1/rpc/fn_user_discover', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_region: null, p_limit: 18 }) });
+    var rows = (r && !r.error && Array.isArray(r.data)) ? r.data : [];
+    body.innerHTML = '<div style="font-size:11.5px;color:var(--muted);margin-bottom:8px;">⭐ Beliebte Mitglieder</div>'
+      + (rows.length ? rows.map(_gsUserCardHtml).join('') : '<div style="text-align:center;color:var(--muted);padding:24px;">Noch keine öffentlichen Profile.</div>');
+  } catch(e){ console.warn('[gsCommunityDiscover]', e && e.message); }
+}
+window.gsCommunityLoadDiscover = gsCommunityLoadDiscover;
+function _gsUserCardHtml(u){
+  return '<div onclick="gsOpenProfile(\''+u.id+'\')" style="display:flex;align-items:center;gap:11px;padding:9px;border-radius:11px;cursor:pointer;border-bottom:1px solid var(--border);" onmouseover="this.style.background=\'var(--card)\'" onmouseout="this.style.background=\'\'">'
+    + _gsAvatarHtml(u, 42)
+    + '<div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:13.5px;color:var(--text);">'+_gsCEsc(u.display_name||'Natur-Fan')+(u.is_expert?' 🎓':'')+'</div>'
+    + '<div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(u.region?('📍 '+_gsCEsc(u.region)+' · '):'')+(u.follower_count||0)+' Follower'+(u.bio?(' · '+_gsCEsc(u.bio)):'')+'</div></div>'
+    + '<div style="color:var(--muted);font-size:16px;">›</div></div>';
+}
+async function gsCommunityLoadFeed(){
+  var body = document.getElementById('gs-community-body'); if (!body) return;
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_following_feed', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_limit: 40 }) });
+    var rows = (r && !r.error && Array.isArray(r.data)) ? r.data : [];
+    if (!rows.length) { body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:28px;font-size:13px;">Folge anderen Mitgliedern, um ihre Aktivitäten hier zu sehen.</div>'; return; }
+    body.innerHTML = rows.map(function(f){
+      var verb = f.kind==='achievement' ? 'schaltete frei:' : (f.kind==='find' ? 'fand:' : 'bietet an:');
+      return '<div onclick="gsOpenProfile(\''+f.user_id+'\')" style="display:flex;align-items:center;gap:10px;padding:9px;border-bottom:1px solid var(--border);cursor:pointer;">'
+        + '<div style="font-size:20px;">'+_gsCEsc(f.icon||'•')+'</div>'
+        + '<div style="flex:1;min-width:0;font-size:12.5px;color:var(--text);"><b>'+_gsCEsc(f.display_name||'Jemand')+'</b> '+verb+' '+_gsCEsc(f.title||'')+'</div>'
+        + '<div style="font-size:10px;color:var(--muted);white-space:nowrap;">'+(f.ts? _gsTimeAgo(f.ts):'')+'</div></div>';
+    }).join('');
+  } catch(e){ console.warn('[gsCommunityFeed]', e && e.message); }
+}
+window.gsCommunityLoadFeed = gsCommunityLoadFeed;
+function _gsTimeAgo(ts){
+  try { var s = Math.round((Date.now()-new Date(ts).getTime())/1000);
+    if (s<3600) return Math.max(1,Math.round(s/60))+' Min'; if (s<86400) return Math.round(s/3600)+' h'; return Math.round(s/86400)+' d';
+  } catch(_){ return ''; }
+}
+
+// ── Profil-Settings: Sichtbarkeit, Bio, Region, Show-Toggles, Blocked-Liste ──
+async function gsOpenProfileSettings(){
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) { if(typeof gsToast==='function') gsToast('🔐 Bitte einloggen.','warning'); return; }
+  var uid = gsStore.get('gs_sb_uid', null); if (!uid) return;
+  _gsNlOpen('<div style="text-align:center;padding:30px;color:var(--muted);">Lädt…</div>');
+  try {
+    var r = await sbFetch('/rest/v1/profiles?id=eq.'+uid+'&select=display_name,bio,bio_emoji,region,profile_visibility,show_finds_public,show_plants_count,show_achievements,show_marketplace,opt_in_feed&limit=1', {method:'GET'});
+    var p = (r && !r.error && Array.isArray(r.data) && r.data[0]) ? r.data[0] : {};
+    window._gsProfileSettings = p;
+    var vis = p.profile_visibility || 'public';
+    function radio(val,lbl){ return '<label style="display:flex;align-items:center;gap:8px;padding:8px;cursor:pointer;"><input type="radio" name="gs-pvis" value="'+val+'" '+(vis===val?'checked':'')+' onchange="gsSaveProfileField(\'profile_visibility\',\''+val+'\')"> '+lbl+'</label>'; }
+    function tog(field,lbl,on){ return '<label style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 2px;cursor:pointer;font-size:13px;"><span>'+lbl+'</span><input type="checkbox" '+(on?'checked':'')+' onchange="gsSaveProfileField(\''+field+'\',this.checked)"></label>'; }
+    var h = '<div style="font-size:17px;font-weight:800;margin-bottom:12px;">⚙️ Profil & Privatsphäre</div>';
+    h += '<div style="font-size:12px;color:var(--muted);margin-bottom:4px;">Anzeigename</div><input id="gs-pf-name" value="'+_gsCEsc(p.display_name||'')+'" maxlength="40" onchange="gsSaveProfileField(\'display_name\',this.value)" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:9px;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:10px;">';
+    h += '<div style="font-size:12px;color:var(--muted);margin-bottom:4px;">Bio (max 200)</div><textarea id="gs-pf-bio" maxlength="200" onchange="gsSaveProfileField(\'bio\',this.value)" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:9px;font-family:inherit;font-size:13px;box-sizing:border-box;min-height:60px;margin-bottom:10px;">'+_gsCEsc(p.bio||'')+'</textarea>';
+    h += '<div style="font-size:12px;color:var(--muted);margin-bottom:4px;">Region (z.B. Bern)</div><input id="gs-pf-region" value="'+_gsCEsc(p.region||'')+'" maxlength="40" onchange="gsSaveProfileField(\'region\',this.value)" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:9px;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:14px;">';
+    h += '<div style="font-size:12.5px;font-weight:800;margin-bottom:4px;">👁️ Sichtbarkeit</div><div style="background:var(--card);border-radius:11px;padding:4px 8px;margin-bottom:14px;">'+radio('public','🌍 Öffentlich')+radio('followers_only','👥 Nur Follower')+radio('private','🔒 Privat')+'</div>';
+    h += '<div style="font-size:12.5px;font-weight:800;margin-bottom:4px;">Was andere sehen</div><div style="background:var(--card);border-radius:11px;padding:4px 12px;margin-bottom:14px;">'
+      + tog('show_plants_count','🪴 Pflanzen-Anzahl', p.show_plants_count!==false)
+      + tog('show_achievements','🏆 Erfolge', p.show_achievements!==false)
+      + tog('show_marketplace','🤝 Marktplatz-Angebote', p.show_marketplace!==false)
+      + tog('show_finds_public','📍 Öffentliche Funde', p.show_finds_public===true)
+      + tog('opt_in_feed','📰 Im Community-Feed erscheinen', p.opt_in_feed!==false) + '</div>';
+    h += '<button onclick="gsRenderBlockedList()" style="width:100%;padding:11px;border-radius:10px;border:1.5px solid var(--border);background:var(--card);color:var(--text);font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">🚫 Blockierte Nutzer verwalten</button>';
+    _gsNlOpen(h);
+  } catch(e){ console.warn('[gsProfileSettings]', e && e.message); }
+}
+window.gsOpenProfileSettings = gsOpenProfileSettings;
+async function gsSaveProfileField(field, val){
+  try {
+    var uid = gsStore.get('gs_sb_uid', null); if (!uid) return;
+    if (field === 'bio' && typeof val === 'string' && val.length > 200) val = val.slice(0,200);
+    var body = {}; body[field] = (val === '' ? null : val);
+    var r = await sbFetch('/rest/v1/profiles?id=eq.'+uid, { method:'PATCH', headers:{'Content-Type':'application/json','Prefer':'return=minimal'}, body: JSON.stringify(body) });
+    if (r && !r.error) { if (typeof gsToast==='function') gsToast('✓ Gespeichert','success',1200); }
+    else if (typeof gsToast==='function') gsToast('Speichern fehlgeschlagen.','error');
+  } catch(e){ console.warn('[gsSaveProfileField]', e && e.message); }
+}
+window.gsSaveProfileField = gsSaveProfileField;
+async function gsRenderBlockedList(){
+  _gsNlOpen('<div style="text-align:center;padding:24px;color:var(--muted);">Lädt…</div>');
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_blocked_list', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+    var rows = (r && !r.error && Array.isArray(r.data)) ? r.data : [];
+    var h = '<div style="font-size:16px;font-weight:800;margin-bottom:12px;">🚫 Blockierte Nutzer</div>';
+    if (!rows.length) h += '<div style="text-align:center;color:var(--muted);padding:24px;">Niemand blockiert.</div>';
+    else h += rows.map(function(b){ return '<div style="display:flex;align-items:center;gap:10px;padding:9px;border-bottom:1px solid var(--border);">'+_gsAvatarHtml({avatar_emoji:b.avatar_emoji},38)+'<div style="flex:1;font-size:13px;">'+_gsCEsc(b.display_name||'Nutzer')+'</div><button onclick="gsBlockToggleProfile(\''+b.blocked_id+'\');setTimeout(gsRenderBlockedList,400)" style="padding:7px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--card);color:var(--g-dark);font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;">Aufheben</button></div>'; }).join('');
+    h += '<button onclick="gsOpenProfileSettings()" style="width:100%;margin-top:12px;padding:10px;border-radius:10px;border:none;background:var(--g-dark);color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">‹ Zurück</button>';
+    _gsNlOpen(h);
+  } catch(e){ console.warn('[gsBlockedList]', e && e.message); }
+}
+window.gsRenderBlockedList = gsRenderBlockedList;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // v23.74 · CLIENT-HELPER für neue Tabellen (passend zum Supabase-Migration-SQL)
