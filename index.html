@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="27.00.20260602">
+<meta name="app-version" content="27.01.20260603">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4936,6 +4936,15 @@ html, body{ scroll-behavior: smooth; }
           <input type="checkbox" id="toggle-ach-feed" onchange="gsToggleAchFeed(this.checked)" checked>
           <span class="settings-toggle-slider"></span>
         </label>
+      </div>
+      <!-- v27.01: Cloud-Backup & Sync-Status (Datenverlust-Schutz) -->
+      <div class="settings-row" id="settings-backup-row" style="cursor:pointer;" onclick="gsManualSnapshotBackup()">
+        <div class="settings-icon" style="background:#e8f5e9;">💾</div>
+        <div class="settings-label">
+          <div class="settings-label-title" data-i18n="settings_backup" data-i18n-fallback="Cloud-Backup &amp; Sync">Cloud-Backup &amp; Sync</div>
+          <div class="settings-label-sub" id="gs-sync-status" aria-live="polite">☁️ Tippen zum Sichern</div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
       <div class="settings-row admin-only-row" id="settings-export-row" style="display:none;cursor:pointer;" onclick="exportUserData()">
         <div class="settings-icon" style="background:#e8f5e9;">📤</div>
@@ -40029,13 +40038,20 @@ async function gsAddMarker(lat, lng) {
   // Categories der Marker-UI auf map_user_finds.category-Enum ('pilz','pflanze','baum','kraut','sonstiges') mappen.
   var cloudMsg = '';
   try {
-    if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof sbFetch === 'function') {
+    // v27.01 FUNDE-CLOUD-FIX: user_id war NIE im Payload → RLS-INSERT (with_check user_id=auth.uid())
+    // + NOT-NULL-Constraint scheiterten lautlos → map_user_finds blieb 0 Zeilen. Jetzt uid mitgeben.
+    var __finduid = (typeof gsStore !== 'undefined' && gsStore.get) ? gsStore.get('gs_sb_uid', null) : null;
+    if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof sbFetch === 'function' && __finduid) {
       var catMap = { pilz:'pilz', baum:'baum', pflanze:'pflanze', kraut:'kraut' };
       var dbCat = catMap[cat] || 'sonstiges';
+      // v27.01: lat/lng defensiv zu finiten Numbers (DB ist double precision NOT NULL)
+      var _flat = Number(lat), _flng = Number(lng);
       var payload = {
-        species_name: name,
+        user_id: __finduid,
+        species_name: name || 'Fund',
         category: dbCat,
-        lat: lat, lng: lng,
+        lat: isFinite(_flat) ? _flat : null,
+        lng: isFinite(_flng) ? _flng : null,
         note: note || null,
         photo_url: photoUrl,
         found_at: new Date().toISOString(),
@@ -54909,6 +54925,26 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v27.01', date: '03.06.2026',
+    headline: '💾 Datensicherheit: Nie wieder verlorene Pflanzen, Pläne & Funde',
+    summary: 'Der wichtigste Fix dieses Updates: Deine Daten gehen nie wieder durch ein App-Update verloren. Bisher konnten in seltenen Fällen Pflanzen, Pläne oder Funde nach einem Update verschwinden — die Ursache war ein Wettlauf beim Start, bei dem versehentlich „leer" in die Cloud geschrieben wurde. Das ist jetzt mehrfach abgesichert: leere Cloud-Daten überschreiben deine vorhandenen Daten NIE mehr, und vor jedem Update wird automatisch ein vollständiges Cloud-Backup erstellt. Wenn dein Browser-Speicher mal geleert wird, bietet GreenScan dir beim Start an, alles aus dem Backup wiederherzustellen. Zusätzlich gefixt: das Speichern von Karten-Funden in die Cloud — das hat bisher gar nicht funktioniert (es fehlte die Nutzer-Zuordnung), jetzt landen alle Funde zuverlässig in deinem Konto und sind geräteübergreifend da.',
+    user_summary: '💾 Deine Daten sind jetzt sicher: automatisches Cloud-Backup vor jedem Update, Wiederherstellen-Funktion bei Speicher-Verlust und der gefixte Funde-Cloud-Speicher (geräteübergreifend).',
+    user_items: [
+      { emoji: '🛡️', text: 'Pflanzen, Pläne & Funde gehen nach Updates nicht mehr verloren (Empty-Clobber- & Boot-Race-Schutz)' },
+      { emoji: '☁️', text: 'Automatisches Cloud-Backup vor jedem Update + täglich — wiederherstellbar per Banner beim Start' },
+      { emoji: '📍', text: 'Karten-Funde werden jetzt korrekt in der Cloud gespeichert (war 0 Funde) — geräteübergreifend' },
+      { emoji: '⚙️', text: 'Neu in den Einstellungen: „Cloud-Backup & Sync" mit Status + manuellem Sichern' },
+    ],
+    items: [
+      {emoji:'🔍', bold:'Diagnose (9-Agenten-Audit + DB-Pre-Flight):', text:' map_user_finds hatte 0 Zeilen total — Funde wurden NIE in die Cloud gespeichert. user_plants hatte 2 von 4 Zeilen mit leerem Pflanzen-Array — realer, aktiver Datenverlust. Vollständige Save/Pull-Karte aller Domains in PERSISTENCE_MAP_v27.01.md.'},
+      {emoji:'📍', bold:'Funde-Cloud-Fix:', text:' gsAddMarker POSTete ohne user_id → RLS-INSERT (with_check user_id=auth.uid()) + NOT-NULL scheiterten lautlos (trotz Erfolgs-Toast). Fix: user_id ins Payload, lat/lng defensiv via Number()/isFinite, Skip wenn keine User-ID. Cross-Device-Pull via gsLoadMarkersFromCloud beim Karten-Öffnen.'},
+      {emoji:'🛡️', bold:'Datenverlust-Fix (Defense-in-Depth):', text:' (1) PULL-Empty-Guard: eine leere Cloud-Collection überschreibt populated local NIE mehr — stattdessen wird die Cloud repariert (Re-Push). (2) PUSH-Boot-Race-Guard: window._gsInitialSyncDone verhindert leere plants/garden-Pushes vor dem ersten erfolgreichen Pull (das war die Hauptursache — Boot setzt myPlants=[], ein früher Flush schrieb das in die Cloud).'},
+      {emoji:'🗄️', bold:'Backend (Migration v27_01_persistence_safeguard):', text:' Tabelle user_state_snapshots (kompletter User-Content als ein jsonb-Backup, max 3/User, RLS own-only). RPCs fn_user_snapshot_create/list/latest + fn_cleanup_user_snapshots (Hard-Lesson #13: REVOKE anon/PUBLIC + GRANT authenticated; Maintenance-Fns authenticated-revoked). fn_cleanup_old_data v3: + push_send_log (>30 Tage) + Snapshot-Cleanup. User-Content (Pflanzen/Pläne/Funde/Diary/Achievements/Doktor/Foto-Diff/Battles) sakrosankt — nie automatisch gelöscht.'},
+      {emoji:'🖥️', bold:'Frontend-Schutznetz:', text:' Snapshot-Engine (gsSnapshotBuildState/Create/Restore), Restore-Banner beim Start (Speicher leer + Cloud-Backup → „💾 Daten wiederherstellen?"), Auto-Sync alle 5 Min + täglicher Snapshot, Pre-Update-Snapshot beim „Neu laden" des Update-Banners (max 2.5s, blockiert nie), neue Settings-Row „Cloud-Backup & Sync" mit Live-Status.'},
+      {emoji:'✅', bold:'Verify:', text:' Migration angewandt + Tabelle/4 RPCs/RLS/cleanup-v3 verifiziert · Advisor 0 NEUE ERRORs (einzige ERROR pre-existing v_marketplace_listings) · 7/7 Inline-Scripts node --check OK · sw.js OK. P0-Sprint, erster von 4 (v27.01→v27.04) — 6 Versions-Marker auf v27.01 (Fernando deployt EINEN Mega-Deploy nach v27.04 GREEN).'},
+    ]
+  },
+  {
     v: 'v27.00', date: '02.06.2026',
     headline: '🌦️ Wetter-Warnungen: Frost, Hitze & Sturm rechtzeitig aufs Handy',
     summary: 'GreenScan warnt dich jetzt aktiv vor kritischem Wetter für deinen Garten — alle 3 Stunden prüft der Dienst deinen Standort. Du bekommst eine Push-Benachrichtigung, wenn in den nächsten Stunden Frost (≤ 2°C), Hitze (≥ 30°C) oder Sturm/Starkregen droht. In den Einstellungen wählst du, welche Warnungen du willst (🥶 Frost · 🥵 Hitze · 🌪️ Sturm/Starkregen) und wie viel Vorlauf (2 – 48 Stunden) du haben möchtest. Über „🌦️ Wetter-Warnungen ansehen" öffnest du eine Inbox mit allen aktuellen Warnungen, die du als gesehen markieren oder entfernen kannst. Kritische Lagen (z.B. strenger Frost) erreichen dich auch während der Stille-Zeit.',
@@ -57804,7 +57840,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v27.00';
+var GS_VERSION = 'v27.01';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -59707,13 +59743,30 @@ function gsRegisterServiceWorker() {
             '<button id="gs-sw-later-btn" aria-label="Später" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:8px;width:30px;height:30px;font-size:16px;cursor:pointer;flex-shrink:0;font-family:inherit;">×</button>';
           document.body.appendChild(b);
           document.getElementById('gs-sw-reload-btn').onclick = function(){
-            if (newSw) newSw.postMessage({ type: 'SKIP_WAITING' });
-            // Wenn SW skipWaiting → controllerchange → reload
-            navigator.serviceWorker.addEventListener('controllerchange', function(){
-              window.location.reload();
-            }, { once: true });
-            // Fallback: Hard-Reload nach 1.5s
-            setTimeout(function(){ window.location.reload(); }, 1500);
+            var _go = function(){
+              if (newSw) newSw.postMessage({ type: 'SKIP_WAITING' });
+              // Wenn SW skipWaiting → controllerchange → reload
+              navigator.serviceWorker.addEventListener('controllerchange', function(){
+                window.location.reload();
+              }, { once: true });
+              // Fallback: Hard-Reload nach 1.5s
+              setTimeout(function(){ window.location.reload(); }, 1500);
+            };
+            // v27.01: VOR dem Update den kompletten User-State als Pre-Migration-Snapshot
+            // in die Cloud sichern (Sicherheitsnetz gegen Datenverlust). Reload nie länger
+            // als 2.5s blockieren — Snapshot ist best-effort.
+            try {
+              var _rb = document.getElementById('gs-sw-reload-btn');
+              if (_rb) { _rb.textContent = 'Sichere…'; _rb.disabled = true; }
+            } catch(_){}
+            try {
+              if (typeof gsSnapshotCreate === 'function') {
+                var _done = false;
+                var _proceed = function(){ if (_done) return; _done = true; _go(); };
+                Promise.resolve(gsSnapshotCreate('pre_migration')).then(_proceed).catch(_proceed);
+                setTimeout(_proceed, 2500);
+              } else { _go(); }
+            } catch(_){ _go(); }
           };
           document.getElementById('gs-sw-later-btn').onclick = function(){ b.remove(); };
         }
@@ -62637,11 +62690,24 @@ async function gsSyncUserDataOnLogin(){
       var d = g.data[0].data;
       var gUpdated = g.data[0].updated_at || null;
       if (_shouldOverwriteLocal('garden', gUpdated)) {
-        if (d.plans)     try { localStorage.setItem('gs_garden_plans', JSON.stringify(d.plans)); } catch(_){}
-        if (d.current)   try { localStorage.setItem('gs_garden_plan_current', JSON.stringify(d.current)); } catch(_){}
-        if (d.gardens)   try { localStorage.setItem('gs_gardens', JSON.stringify(d.gardens)); } catch(_){}
-        if (d.plantings) try { gsStore.set('gs_plantings', JSON.stringify(d.plantings)); } catch(_){}
-        if (gUpdated) try { localStorage.setItem('gs_sync_synced_at_garden', gUpdated); } catch(_){}
+        // v27.01 EMPTY-CLOBBER-GUARD: leere Cloud-Garten-Daten dürfen populated local nicht überschreiben.
+        var _cloudGardenEmpty = !(((d.plans&&d.plans.length))||((d.gardens&&d.gardens.length))||((d.plantings&&d.plantings.length)));
+        var _localGardenHas = false;
+        try {
+          _localGardenHas = ((JSON.parse(localStorage.getItem('gs_garden_plans')||'[]')||[]).length>0)
+            || ((JSON.parse(localStorage.getItem('gs_gardens')||'[]')||[]).length>0)
+            || ((JSON.parse(gsStore.get('gs_plantings', null)||'[]')||[]).length>0);
+        } catch(_){}
+        if (_cloudGardenEmpty && _localGardenHas) {
+          try { gsCloudSync.markDirty('garden'); } catch(_){}
+          console.warn('[gsSync] v27.01: cloud garden empty but local has data — keeping local + repairing cloud');
+        } else {
+          if (d.plans)     try { localStorage.setItem('gs_garden_plans', JSON.stringify(d.plans)); } catch(_){}
+          if (d.current)   try { localStorage.setItem('gs_garden_plan_current', JSON.stringify(d.current)); } catch(_){}
+          if (d.gardens)   try { localStorage.setItem('gs_gardens', JSON.stringify(d.gardens)); } catch(_){}
+          if (d.plantings) try { gsStore.set('gs_plantings', JSON.stringify(d.plantings)); } catch(_){}
+          if (gUpdated) try { localStorage.setItem('gs_sync_synced_at_garden', gUpdated); } catch(_){}
+        }
       }
     }
     // user_plants — myPlants + Diary + dead_plants + seed_inventory (v24.24)
@@ -62651,8 +62717,17 @@ async function gsSyncUserDataOnLogin(){
       var pUpdated = p.data[0].updated_at || null;
       if (_shouldOverwriteLocal('plants', pUpdated)) {
         if (Array.isArray(pd.plants)) {
-          try { gsStore.set('ps_myplants', JSON.stringify(pd.plants)); } catch(_){}
-          if (typeof myPlants !== 'undefined') myPlants = pd.plants;
+          // v27.01 EMPTY-CLOBBER-GUARD: eine leere Cloud-Liste darf NIE populated local überschreiben.
+          // Stattdessen local behalten + Cloud reparieren (Re-Push). Verhindert Boot-Race-Datenverlust.
+          var _localP = []; try { _localP = JSON.parse(gsStore.get('ps_myplants', null)||'[]'); } catch(_){}
+          var _localPN = Array.isArray(_localP) ? _localP.length : 0;
+          if (pd.plants.length > 0 || _localPN === 0) {
+            try { gsStore.set('ps_myplants', JSON.stringify(pd.plants)); } catch(_){}
+            if (typeof myPlants !== 'undefined') myPlants = pd.plants;
+          } else {
+            try { gsCloudSync.markDirty('plants'); } catch(_){}
+            console.warn('[gsSync] v27.01: cloud plants empty but local has ' + _localPN + ' — keeping local + repairing cloud');
+          }
         }
         if (pd.diary) try { localStorage.setItem('gs_gartentagebuch', JSON.stringify(pd.diary)); } catch(_){}
         if (pd.dead_plants) try { gsStore.set('gs_dead_plants', JSON.stringify(pd.dead_plants)); } catch(_){}
@@ -62789,7 +62864,12 @@ async function gsSyncUserDataOnLogin(){
     try { if (typeof gsUpdateGartenWidgets === 'function') gsUpdateGartenWidgets(); } catch(_){}
     try { if (typeof renderGarden === 'function') renderGarden(); } catch(_){}
     try { if (typeof updateScanHistoryBadge === 'function') updateScanHistoryBadge(); } catch(_){}
+    // v27.01: Initial-Pull erfolgreich → ab jetzt dürfen auch leere Blobs gepusht werden
+    // (legitimes „User hat alles gelöscht"). Vorher blockiert der Boot-Race-Guard leere Pushes.
+    window._gsInitialSyncDone = true;
     console.log('[gsSync] complete cross-device sync done for', uid);
+    // v27.01: nach erfolgreichem Pull eventuell zurückgehaltene Repair-Pushes ausführen
+    try { if (window.gsCloudSync && gsCloudSync.flushNow) gsCloudSync.flushNow(); } catch(_){}
   } catch(e){ console.warn('[gsSyncUserDataOnLogin]', e); }
 }
 window.gsSyncUserDataOnLogin = gsSyncUserDataOnLogin;
@@ -62863,13 +62943,26 @@ window.gsCloudSync = (function(){
       var stillDirty = {};
       // Push Plants-Blob
       if (d.plants) {
-        var ok = await _pushBlob('user_plants', _buildPlantsBlob(), sync);
-        if (!ok) stillDirty.plants = d.plants;
+        // v27.01 BOOT-RACE-GUARD: vor dem ersten erfolgreichen Pull NIE einen leeren plants-Blob
+        // pushen — sonst überschreibt der Boot-Reset (myPlants=[]) die Cloud des Users (Datenverlust).
+        var _pblob = _buildPlantsBlob();
+        if (!window._gsInitialSyncDone && (!_pblob.plants || _pblob.plants.length === 0)) {
+          stillDirty.plants = d.plants; // dirty behalten → nach dem Pull erneut versuchen
+        } else {
+          var ok = await _pushBlob('user_plants', _pblob, sync);
+          if (!ok) stillDirty.plants = d.plants;
+        }
       }
       // Push Garden-Blob
       if (d.garden) {
-        var ok2 = await _pushBlob('user_gardens', _buildGardenBlob(), sync);
-        if (!ok2) stillDirty.garden = d.garden;
+        var _gblob = _buildGardenBlob();
+        var _gEmpty = !(((_gblob.plans&&_gblob.plans.length))||((_gblob.gardens&&_gblob.gardens.length))||((_gblob.plantings&&_gblob.plantings.length)));
+        if (!window._gsInitialSyncDone && _gEmpty) {
+          stillDirty.garden = d.garden;
+        } else {
+          var ok2 = await _pushBlob('user_gardens', _gblob, sync);
+          if (!ok2) stillDirty.garden = d.garden;
+        }
       }
       // v24.24: Push State-Blob
       if (d.state) {
@@ -63268,6 +63361,239 @@ window.gsCloudSync = (function(){
 // v23.73 → v24.23: Backwards-compatible Wrapper — alte Aufrufer rufen markDirty
 function gsPushGardenNow(){ window.gsCloudSync && gsCloudSync.markDirty('garden'); }
 function gsPushPlantsNow(){ window.gsCloudSync && gsCloudSync.markDirty('plants'); }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// v27.01 · USER-STATE-SNAPSHOT-BACKUP — Sicherheitsnetz gegen Datenverlust
+// ═══════════════════════════════════════════════════════════════════════════════
+// Sichert den KOMPLETTEN User-Content als ein jsonb-Backup in user_state_snapshots
+// (max 3/User). Trigger: pre_migration (vor SW-Update), auto_daily (1×/Tag),
+// manual, pre_logout. Restore-Banner beim Boot wenn LS leer + Cloud-Snapshot da.
+// ═══════════════════════════════════════════════════════════════════════════════
+function gsSnapshotBuildState(){
+  function _j(k, fb){ try { return JSON.parse((typeof gsStore!=='undefined'&&gsStore.get? gsStore.get(k,null): localStorage.getItem(k)) || fb); } catch(_){ try { return JSON.parse(fb); } catch(__){ return null; } } }
+  function _s(k){ try { return localStorage.getItem(k) || null; } catch(_){ return null; } }
+  return {
+    _v: 'v27.01', _ts: new Date().toISOString(),
+    plants:              _j('ps_myplants','[]'),
+    diary:               _j('gs_gartentagebuch','[]'),
+    ernte:               _j('gs_ernte_log','[]'),
+    dead_plants:         _j('gs_dead_plants','[]'),
+    seed_inventory:      _j('gs_seed_inventory','[]'),
+    garden_plans:        _j('gs_garden_plans','[]'),
+    garden_plan_current: _j('gs_garden_plan_current','null'),
+    gardens:             _j('gs_gardens','[]'),
+    plantings:           _j('gs_plantings','[]'),
+    gpx_tracks:          _j('gs_gpx_tracks','[]'),
+    markers:             _j('greenscan_markers','[]'),
+    achievements:        _j('gs_achievements','[]'),
+    confirmed_species:   _j('gs_confirmed_species','[]'),
+    scan_history:        _j('gs_scan_history','[]'),
+    doctor_history:      _j('gs_doctor_history','[]'),
+    chat_history:        _j('gs_chat_history','[]'),
+    dq_archive:          _j('gs_dq_archive','[]'),
+    dq_stats:            _j('gs_dq_stats','null'),
+    favs:                _j('ps_favs','[]'),
+    sae_merkliste:       _j('gs_sae_merkliste','[]'),
+    prefs:               _j('gs_prefs','{}'),
+    ui: { dark: _s('gs_dark'), theme_color: _s('gs_theme_color'), lang: _s('gs_lang') }
+  };
+}
+// Hat der State echten User-Content? (Mülldaten-/Leer-Snapshot-Schutz)
+function _gsSnapshotHasContent(st){
+  if (!st || typeof st !== 'object') return false;
+  function _n(a){ return Array.isArray(a) && a.length > 0; }
+  return _n(st.plants) || _n(st.markers) || _n(st.garden_plans) || _n(st.gardens)
+      || _n(st.plantings) || _n(st.diary) || _n(st.scan_history) || _n(st.ernte)
+      || _n(st.achievements) || _n(st.doctor_history);
+}
+async function gsSnapshotCreate(trigger){
+  try {
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn() || typeof sbFetch !== 'function') return null;
+    if (!gsStore.get('gs_sb_uid', null)) return null;
+    var st = gsSnapshotBuildState();
+    if (!_gsSnapshotHasContent(st)) return null; // nie einen leeren Snapshot speichern
+    var r = await sbFetch('/rest/v1/rpc/fn_user_snapshot_create', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ p_trigger: trigger || 'manual', p_state: st })
+    });
+    if (r && !r.error) {
+      try { localStorage.setItem('gs_snapshot_last', new Date().toISOString()); } catch(_){}
+      return r.data || true;
+    }
+    return null;
+  } catch(e){ console.warn('[gsSnapshot] create', e && e.message); return null; }
+}
+window.gsSnapshotCreate = gsSnapshotCreate;
+window.gsSnapshotBuildState = gsSnapshotBuildState;
+
+// Restore: jüngsten Snapshot holen + sicher in LS mergen (local-wins bei id-Arrays,
+// sonst nur befüllen wenn local leer). Nie populated local blind überschreiben.
+function _gsRestoreKey(lsKey, snapVal){
+  if (snapVal == null) return;
+  var cur = null; try { cur = localStorage.getItem(lsKey); } catch(_){}
+  var curEmpty = !cur || cur === '[]' || cur === '{}' || cur === 'null' || cur === '""';
+  if (!curEmpty) {
+    // local hat Daten → bei id-Arrays mergen (local gewinnt), sonst local behalten
+    try {
+      var c = JSON.parse(cur);
+      if (Array.isArray(c) && Array.isArray(snapVal) && c.length && c[0] && c[0].id != null) {
+        var byId = {};
+        snapVal.forEach(function(x){ if (x && x.id != null) byId[String(x.id)] = x; });
+        c.forEach(function(x){ if (x && x.id != null) byId[String(x.id)] = x; }); // local wins
+        try { localStorage.setItem(lsKey, JSON.stringify(Object.keys(byId).map(function(k){ return byId[k]; }))); } catch(_){}
+      }
+    } catch(_){}
+    return;
+  }
+  try { localStorage.setItem(lsKey, typeof snapVal === 'string' ? snapVal : JSON.stringify(snapVal)); } catch(_){}
+}
+async function gsSnapshotRestore(){
+  try {
+    if (typeof sbFetch !== 'function') return false;
+    var r = await sbFetch('/rest/v1/rpc/fn_user_snapshot_latest', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'
+    });
+    var st = (r && !r.error) ? r.data : null;
+    if (!st || typeof st !== 'object') { if (typeof gsToast==='function') gsToast('Kein Backup gefunden.','warning'); return false; }
+    _gsRestoreKey('ps_myplants', st.plants);
+    _gsRestoreKey('gs_gartentagebuch', st.diary);
+    _gsRestoreKey('gs_ernte_log', st.ernte);
+    _gsRestoreKey('gs_dead_plants', st.dead_plants);
+    _gsRestoreKey('gs_seed_inventory', st.seed_inventory);
+    _gsRestoreKey('gs_garden_plans', st.garden_plans);
+    _gsRestoreKey('gs_garden_plan_current', st.garden_plan_current);
+    _gsRestoreKey('gs_gardens', st.gardens);
+    _gsRestoreKey('gs_plantings', st.plantings);
+    _gsRestoreKey('gs_gpx_tracks', st.gpx_tracks);
+    _gsRestoreKey('greenscan_markers', st.markers);
+    _gsRestoreKey('gs_achievements', st.achievements);
+    _gsRestoreKey('gs_confirmed_species', st.confirmed_species);
+    _gsRestoreKey('gs_scan_history', st.scan_history);
+    _gsRestoreKey('gs_doctor_history', st.doctor_history);
+    _gsRestoreKey('gs_chat_history', st.chat_history);
+    _gsRestoreKey('gs_dq_archive', st.dq_archive);
+    _gsRestoreKey('ps_favs', st.favs);
+    _gsRestoreKey('gs_sae_merkliste', st.sae_merkliste);
+    // Globals neu laden + Cloud reparieren + UI rendern
+    try { if (typeof myPlants !== 'undefined') myPlants = JSON.parse(localStorage.getItem('ps_myplants')||'[]'); } catch(_){}
+    try { if (window.gsCloudSync){ gsCloudSync.markDirty('plants'); gsCloudSync.markDirty('garden'); gsCloudSync.markDirty('state'); } } catch(_){}
+    try { if (typeof renderFavs === 'function') renderFavs(); } catch(_){}
+    try { if (typeof renderGarden === 'function') renderGarden(); } catch(_){}
+    try { if (typeof gsLoadMarkers === 'function') gsLoadMarkers(); } catch(_){}
+    try { if (typeof applyAllPrefs === 'function') applyAllPrefs(); } catch(_){}
+    if (typeof gsToast === 'function') gsToast('✅ Daten wiederhergestellt!','success', 4000);
+    return true;
+  } catch(e){ console.warn('[gsSnapshot] restore', e && e.message); if (typeof gsToast==='function') gsToast('Wiederherstellung fehlgeschlagen.','error'); return false; }
+}
+window.gsSnapshotRestore = gsSnapshotRestore;
+
+function _gsShowRestoreBanner(){
+  try {
+    if (document.getElementById('gs-restore-banner')) return;
+    var b = document.createElement('div');
+    b.id = 'gs-restore-banner';
+    b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);z-index:var(--z-toast,9999);background:linear-gradient(135deg,#2e7d32,#388e3c);color:#fff;border-radius:14px;padding:12px 14px;box-shadow:0 6px 22px rgba(0,0,0,.35);display:flex;gap:12px;align-items:center;font-family:inherit;';
+    b.innerHTML =
+      '<div style="font-size:24px;flex-shrink:0;">💾</div>' +
+      '<div style="flex:1;min-width:0;font-size:13px;line-height:1.35;">' +
+        '<b>Daten wiederherstellen?</b><br><span style="opacity:.9;font-size:11.5px;">Wir haben ein Cloud-Backup deiner Pflanzen, Pläne &amp; Funde gefunden.</span>' +
+      '</div>' +
+      '<button id="gs-restore-btn" style="background:#fff;color:#2e7d32;border:none;border-radius:8px;padding:8px 14px;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit;flex-shrink:0;">Wiederherstellen</button>' +
+      '<button id="gs-restore-x" aria-label="Schließen" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:8px;width:30px;height:30px;font-size:16px;cursor:pointer;flex-shrink:0;font-family:inherit;">×</button>';
+    document.body.appendChild(b);
+    document.getElementById('gs-restore-btn').onclick = function(){
+      var btn = document.getElementById('gs-restore-btn');
+      if (btn) { btn.textContent = 'Lädt…'; btn.disabled = true; }
+      gsSnapshotRestore().then(function(){ try { b.remove(); } catch(_){} });
+    };
+    document.getElementById('gs-restore-x').onclick = function(){ try { b.remove(); } catch(_){} };
+  } catch(e){ console.warn('[gsSnapshot] banner', e && e.message); }
+}
+// Beim Boot: eingeloggt + lokaler User-Content leer + Cloud-Snapshot vorhanden → Banner.
+async function gsSnapshotMaybeOfferRestore(){
+  try {
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn() || typeof sbFetch !== 'function') return;
+    if (!gsStore.get('gs_sb_uid', null)) return;
+    // Lokaler Content vorhanden? Dann kein Restore nötig.
+    var local = gsSnapshotBuildState();
+    if (_gsSnapshotHasContent(local)) return;
+    // Cloud-Snapshot vorhanden?
+    var r = await sbFetch('/rest/v1/rpc/fn_user_snapshots_list', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'
+    });
+    var rows = (r && !r.error && Array.isArray(r.data)) ? r.data : [];
+    if (rows.length > 0) _gsShowRestoreBanner();
+  } catch(e){ console.warn('[gsSnapshot] maybeOffer', e && e.message); }
+}
+window.gsSnapshotMaybeOfferRestore = gsSnapshotMaybeOfferRestore;
+
+// Sync-Status-Text für Settings („Zuletzt synchronisiert vor X Min")
+function gsSyncStatusText(){
+  try {
+    var s = (window.gsCloudSync && gsCloudSync.status) ? gsCloudSync.status() : null;
+    if (!s) return 'Sync-Status unbekannt';
+    if (!s.canPush) return 'Nicht eingeloggt — kein Cloud-Sync';
+    var parts = [];
+    if (s.lastPushAgeSec != null) {
+      var m = Math.round(s.lastPushAgeSec/60);
+      parts.push(m <= 0 ? 'gerade eben synchronisiert' : ('zuletzt synchronisiert vor ' + m + ' Min'));
+    } else parts.push('noch nicht synchronisiert');
+    if (!s.ok) parts.push('· ' + (s.dirty.length + s.pendingOps) + ' ausstehend');
+    var snap = null; try { snap = localStorage.getItem('gs_snapshot_last'); } catch(_){}
+    if (snap) { var sm = Math.round((Date.now()-new Date(snap).getTime())/60000); parts.push('· Backup vor ' + (sm<60? sm+' Min' : Math.round(sm/60)+' h')); }
+    return parts.join(' ');
+  } catch(_){ return 'Sync-Status unbekannt'; }
+}
+window.gsSyncStatusText = gsSyncStatusText;
+// Manueller Backup-Trigger (Settings-Row „Cloud-Backup & Sync")
+async function gsManualSnapshotBackup(){
+  try {
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) { if (typeof gsToast==='function') gsToast('🔐 Bitte einloggen für Cloud-Backup.','warning'); return; }
+    if (typeof gsToast==='function') gsToast('💾 Sichere Daten…','info',1800);
+    try { if (window.gsCloudSync && gsCloudSync.flushNow) await gsCloudSync.flushNow(); } catch(_){}
+    var id = await gsSnapshotCreate('manual');
+    _gsUpdateSyncStatusEl();
+    if (id) { if (typeof gsToast==='function') gsToast('✅ Backup in der Cloud gesichert.','success'); }
+    else { if (typeof gsToast==='function') gsToast('Noch keine Daten zum Sichern.','warning'); }
+  } catch(e){ console.warn('[gsSnapshot] manual', e && e.message); }
+}
+window.gsManualSnapshotBackup = gsManualSnapshotBackup;
+function _gsUpdateSyncStatusEl(){
+  try { var el = document.getElementById('gs-sync-status'); if (el) el.textContent = '☁️ ' + gsSyncStatusText(); } catch(_){}
+}
+
+// Auto-Sync alle 5 Min: Flush + 1×/Tag auto_daily-Snapshot + Status-Indikator. Idempotent.
+function _gsSnapshotSetupAutoSync(){
+  if (window._gsAutoSyncSetup) return;
+  window._gsAutoSyncSetup = true;
+  try {
+    window._gsAutoSyncInterval = setInterval(function(){
+      try {
+        if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
+        if (window.gsCloudSync && gsCloudSync.flushNow) gsCloudSync.flushNow();
+        // 1× pro Tag einen auto_daily-Snapshot
+        var today = new Date().toISOString().slice(0,10);
+        var last = null; try { last = localStorage.getItem('gs_snapshot_auto_day'); } catch(_){}
+        if (last !== today) {
+          gsSnapshotCreate('auto_daily').then(function(id){
+            if (id) { try { localStorage.setItem('gs_snapshot_auto_day', today); } catch(_){} }
+          });
+        }
+        _gsUpdateSyncStatusEl();
+      } catch(_){}
+    }, 300000); // 5 Min
+  } catch(_){}
+}
+// Boot-Hook: nach dem Login-Pull (~1.8s + Puffer) Auto-Sync starten + ggf. Restore anbieten.
+try {
+  document.addEventListener('DOMContentLoaded', function(){
+    setTimeout(function(){
+      try { _gsSnapshotSetupAutoSync(); } catch(_){}
+      try { gsSnapshotMaybeOfferRestore(); } catch(_){}
+      try { _gsUpdateSyncStatusEl(); } catch(_){}
+    }, 4500);
+  });
+} catch(_){}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // v23.74 · CLIENT-HELPER für neue Tabellen (passend zum Supabase-Migration-SQL)
