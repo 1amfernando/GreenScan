@@ -3017,6 +3017,13 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <div style="background:var(--g-bg);padding:0 16px 8px;flex-shrink:0;display:flex;gap:6px;overflow-x:auto;">
   <button id="market-filter-organic" onclick="gsMarketFilterOrganic()" style="padding:5px 11px;background:var(--card);border:1.5px solid #a5d6a7;border-radius:14px;font-size:11px;font-weight:800;cursor:pointer;color:#1b5e20;font-family:inherit;white-space:nowrap;-webkit-tap-highlight-color:transparent;">🌱 Bio-zertifiziert</button>
   <button id="market-filter-pestfree" onclick="gsMarketFilterPestfree()" style="padding:5px 11px;background:var(--card);border:1.5px solid #ffcc80;border-radius:14px;font-size:11px;font-weight:800;cursor:pointer;color:#bf360c;font-family:inherit;white-space:nowrap;-webkit-tap-highlight-color:transparent;">🚫 Pestizid-frei</button>
+  <!-- v26.92: Preis-Range-Filter -->
+  <div style="display:flex;align-items:center;gap:4px;background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:3px 9px;white-space:nowrap;flex-shrink:0;">
+    <span style="font-size:10.5px;font-weight:800;color:var(--muted);">CHF</span>
+    <input id="market-price-min" type="number" inputmode="decimal" min="0" placeholder="min" oninput="gsMarketPriceFilter()" style="width:44px;border:none;background:none;outline:none;font-size:11px;font-family:inherit;color:var(--text);text-align:center;">
+    <span style="font-size:11px;color:var(--muted);">–</span>
+    <input id="market-price-max" type="number" inputmode="decimal" min="0" placeholder="max" oninput="gsMarketPriceFilter()" style="width:44px;border:none;background:none;outline:none;font-size:11px;font-family:inherit;color:var(--text);text-align:center;">
+  </div>
 </div>
 
 <!-- ── STATUS-LINE ────────────────────────────── -->
@@ -11868,6 +11875,7 @@ async function loadMarketFromSupabase() {
           createdAt: dbRow.created_at ? new Date(dbRow.created_at).getTime() : Date.now(),
           updatedAt: dbRow.updated_at ? new Date(dbRow.updated_at).getTime() : Date.now(),
           status: dbRow.status || 'active',
+          soldAt: dbRow.sold_at ? new Date(dbRow.sold_at).getTime() : null,
           views: dbRow.views || 0,
           reports: 0
         };
@@ -16462,6 +16470,9 @@ function renderMarket() {
   // v26.36: Bio / Pestizid-frei filter-Toggles
   var fOrganic = localStorage.getItem('gs_market_filter_organic') === '1';
   var fPestfree = localStorage.getItem('gs_market_filter_pestfree') === '1';
+  // v26.92: Preis-Range-Filter (CHF)
+  var pMin = parseFloat(localStorage.getItem('gs_market_price_min') || '');
+  var pMax = parseFloat(localStorage.getItem('gs_market_price_max') || '');
 
   // Aktiver Filter-Sync (UI)
   document.querySelectorAll('.mk-cat').forEach(function(b) {
@@ -16488,14 +16499,36 @@ function renderMarket() {
   }
   var clearBtn = document.getElementById('market-search-clear');
   if (clearBtn) clearBtn.style.display = search ? 'block' : 'none';
+  // v26.92: Preis-Range-Inputs syncen (nur wenn nicht fokussiert → kein Cursor-Jump)
+  var pminEl = document.getElementById('market-price-min');
+  var pmaxEl = document.getElementById('market-price-max');
+  var pminStored = localStorage.getItem('gs_market_price_min') || '';
+  var pmaxStored = localStorage.getItem('gs_market_price_max') || '';
+  if (pminEl && document.activeElement !== pminEl && pminEl.value !== pminStored) pminEl.value = pminStored;
+  if (pmaxEl && document.activeElement !== pmaxEl && pmaxEl.value !== pmaxStored) pmaxEl.value = pmaxStored;
 
   // Filtern
+  // v26.92: eigene UID für Owner-Erkennung (eigene verkaufte/archivierte Inserate bleiben sichtbar)
+  var myUid = (typeof gsStore !== 'undefined') ? gsStore.get('gs_sb_uid', null) : null;
   var filtered = listings.filter(function(l) {
-    if (l.status === 'deleted') return false;
+    // v26.92: archived/reported/deleted nur für Fremde ausblenden; eigene Inserate immer sichtbar
+    var isMine = myUid && l.sellerId === myUid;
+    if (!isMine && (l.status === 'deleted' || l.status === 'archived' || l.status === 'reported')) return false;
+    if (l.status === 'deleted' && isMine) return false; // gelöschte nie zeigen
     if (cat !== 'all' && l.cat !== cat) return false;
     if (region !== 'all' && l.region !== region) return false;
     if (fOrganic && !l.organic_certified) return false;
     if (fPestfree && !l.pesticide_free && !l.organic_certified) return false; // Bio implies pestfree
+    // v26.92: Preis-Range (nur fix/vb-Preise berücksichtigen)
+    if (!isNaN(pMin) || !isNaN(pMax)) {
+      var pv = parseFloat(l.price);
+      if (!isNaN(pv)) {
+        if (!isNaN(pMin) && pv < pMin) return false;
+        if (!isNaN(pMax) && pv > pMax) return false;
+      } else if (!isNaN(pMin) && pMin > 0) {
+        return false; // Preisfilter aktiv aber Inserat ohne Preis (gratis/tausch)
+      }
+    }
     if (search) {
       var hay = ((l.title||'') + ' ' + (l.desc||'') + ' ' + (l.sellerName||'')).toLowerCase();
       if (hay.indexOf(search) < 0) return false;
@@ -16568,8 +16601,14 @@ function renderMarket() {
     var pfBadge = (!l.organic_certified && l.pesticide_free) ? '<span style="background:#fff8e1;color:#bf360c;font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;" title="Pestizid-frei (eigene Aussage)">🚫 Pestizid-frei</span>' : '';
     var regionText = l.region && l.region !== 'other' ? l.region : '';
     var timeAgo = _timeAgo(l.createdAt);
+    // v26.92: Status-Badge (reserved / sold / archived)
+    var statusBadge = '';
+    if (l.status === 'sold')        statusBadge = '<span style="background:#eceff1;color:#455a64;font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;">✅ Verkauft</span>';
+    else if (l.status === 'reserved') statusBadge = '<span style="background:#fff8e1;color:#ef6c00;font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;">🟡 Reserviert</span>';
+    else if (l.status === 'archived') statusBadge = '<span style="background:#f5f5f5;color:#90a4ae;font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;">📦 Archiviert</span>';
+    var cardDim = (l.status === 'sold' || l.status === 'archived') ? 'opacity:.62;' : '';
 
-    html += '<div class="mk-card" onclick="openListingDetail(\'' + l.id + '\')" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px;margin-bottom:8px;cursor:pointer;-webkit-tap-highlight-color:transparent;display:flex;gap:11px;">' +
+    html += '<div class="mk-card" onclick="openListingDetail(\'' + l.id + '\')" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px;margin-bottom:8px;cursor:pointer;-webkit-tap-highlight-color:transparent;display:flex;gap:11px;' + cardDim + '">' +
       // Bild/Icon
       '<div style="width:64px;height:64px;background:var(--g-bg);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:34px;flex-shrink:0;overflow:hidden;">' +
         (l.images && l.images[0] ? '<img src="' + l.images[0] + '" alt="" style="width:100%;height:100%;object-fit:cover;">' : catEmoji) +
@@ -16586,7 +16625,7 @@ function renderMarket() {
           (regionText ? '<span>📍 ' + regionText + '</span>' : '') +
           (avg > 0 ? '<span style="color:#ef6c00;font-weight:700;">★ ' + avg.toFixed(1) + (ratingCount ? ' (' + ratingCount + ')' : '') + '</span>' : '') +
           '<span style="margin-left:auto;">' + timeAgo + '</span>' +
-          verifiedBadge + reportBadge + bioBadge + pfBadge +
+          statusBadge + verifiedBadge + reportBadge + bioBadge + pfBadge +
         '</div>' +
       '</div>' +
     '</div>';
@@ -16653,8 +16692,62 @@ function gsMarketSearch(q) {
     renderMarket();
     var clearBtn = document.getElementById('market-search-clear');
     if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
-  }, 300);
+    // v26.92: Server-FTS für Treffer ausserhalb des 50er-Fensters (merge + dedup)
+    if (q && q.trim().length >= 3) { try { gsMarketServerSearch(q.trim()); } catch(_){} }
+  }, 350);
 }
+// v26.92: serverseitige Volltextsuche via fn_marketplace_search RPC.
+// Ergänzt den lokalen Pool um Treffer, die noch nicht geladen wurden.
+async function gsMarketServerSearch(q) {
+  if (typeof sbFetch !== 'function') return;
+  var token = ++window._gsMktSearchToken || (window._gsMktSearchToken = 1);
+  try {
+    var cat = localStorage.getItem('gs_market_cat') || 'all';
+    var region = localStorage.getItem('gs_market_region') || 'all';
+    var body = {
+      p_query: q,
+      p_category: (cat && cat !== 'all') ? cat : null,
+      p_region: (region && region !== 'all') ? region : null,
+      p_price_min: parseFloat(localStorage.getItem('gs_market_price_min') || '') || null,
+      p_price_max: parseFloat(localStorage.getItem('gs_market_price_max') || '') || null,
+      p_limit: 50
+    };
+    var r = await sbFetch('/rest/v1/rpc/fn_marketplace_search', {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    // Veraltete Antwort (neuerer Suchlauf gestartet) verwerfen
+    if (token !== window._gsMktSearchToken) return;
+    if (!r || !r.data || !Array.isArray(r.data) || !r.data.length) return;
+    var pool = gsMarketLoad();
+    var have = {}; pool.forEach(function(l){ have[l.id] = true; });
+    var added = 0;
+    r.data.forEach(function(dbRow){
+      if (have[dbRow.id]) return;
+      pool.push({
+        id: dbRow.id, title: dbRow.title, desc: dbRow.description, cat: dbRow.category,
+        priceMode: dbRow.price_mode, price: dbRow.price, currency: dbRow.currency || 'CHF',
+        region: dbRow.region, contact: dbRow.contact,
+        images: dbRow.photo_urls || (dbRow.photo_url ? [dbRow.photo_url] : []),
+        sellerId: dbRow.user_id, sellerName: dbRow.seller_name,
+        sellerIsExpert: dbRow.seller_is_expert, sellerIsPremium: dbRow.seller_is_premium,
+        sellerLevel: dbRow.seller_level, sellerAvatar: dbRow.seller_avatar,
+        verified: !!dbRow.seller_is_expert,
+        organic_certified: !!dbRow.organic_certified, pesticide_free: !!dbRow.pesticide_free,
+        certification_label: dbRow.certification_label || '',
+        allow_online_payment: !!dbRow.allow_online_payment,
+        contact_method: dbRow.contact_method || 'chat',
+        createdAt: dbRow.created_at ? new Date(dbRow.created_at).getTime() : Date.now(),
+        updatedAt: dbRow.updated_at ? new Date(dbRow.updated_at).getTime() : Date.now(),
+        status: dbRow.status || 'active',
+        soldAt: dbRow.sold_at ? new Date(dbRow.sold_at).getTime() : null,
+        views: dbRow.views || 0, reports: 0
+      });
+      added++;
+    });
+    if (added) { window._gsMarket = pool; try { gsMarketSave(); } catch(_){} renderMarket(); }
+  } catch(_){}
+}
+window.gsMarketServerSearch = gsMarketServerSearch;
 function gsMarketClearSearch() {
   var inp = document.getElementById('market-search');
   if (inp) inp.value = '';
@@ -16669,10 +16762,27 @@ function gsMarketResetFilter() {
   // v26.36: auch Bio + Pestizid-frei toggles zurücksetzen
   localStorage.setItem('gs_market_filter_organic', '0');
   localStorage.setItem('gs_market_filter_pestfree', '0');
+  // v26.92: Preis-Range zurücksetzen
+  localStorage.removeItem('gs_market_price_min');
+  localStorage.removeItem('gs_market_price_max');
   var inp = document.getElementById('market-search');
   if (inp) inp.value = '';
+  var pmin = document.getElementById('market-price-min'); if (pmin) pmin.value = '';
+  var pmax = document.getElementById('market-price-max'); if (pmax) pmax.value = '';
   renderMarket();
 }
+// v26.92: Preis-Range-Filter (debounced)
+function gsMarketPriceFilter() {
+  var minEl = document.getElementById('market-price-min');
+  var maxEl = document.getElementById('market-price-max');
+  var minV = minEl ? minEl.value.trim() : '';
+  var maxV = maxEl ? maxEl.value.trim() : '';
+  if (minV === '') localStorage.removeItem('gs_market_price_min'); else localStorage.setItem('gs_market_price_min', minV);
+  if (maxV === '') localStorage.removeItem('gs_market_price_max'); else localStorage.setItem('gs_market_price_max', maxV);
+  if (window._gsMarketPriceTimer) clearTimeout(window._gsMarketPriceTimer);
+  window._gsMarketPriceTimer = setTimeout(function(){ renderMarket(); }, 300);
+}
+window.gsMarketPriceFilter = gsMarketPriceFilter;
 
 // ── NEUES INSERAT ────────────────────────────────────────────────
 function openNewListing() {
@@ -16730,7 +16840,7 @@ function openNewListing() {
     '<textarea id="nl-desc" maxlength="500" placeholder="Details, Zustand, Abholung…" style="width:100%;padding:10px 12px;border-radius:9px;border:1.5px solid var(--border);background:var(--card);font-size:13px;font-family:inherit;color:var(--text);outline:none;resize:none;min-height:80px;box-sizing:border-box;margin-bottom:10px;"></textarea>' +
 
     // v23.98: Foto-Upload — User können Bilder ihrer Produkte hinzufügen
-    '<label style="display:block;font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Foto (optional, max. 3)</label>' +
+    '<label style="display:block;font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Fotos (optional, max. 5 · erstes = Hauptbild)</label>' +
     '<div id="nl-photos-preview" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;"></div>' +
     '<input type="file" id="nl-photo-input" accept="image/*" multiple style="display:none;" onchange="gsNlAddPhotos(this)">' +
     '<div style="display:flex;gap:6px;margin-bottom:10px;">' +
@@ -16803,7 +16913,7 @@ window._gsNlPhotos = [];
 function gsNlAddPhotos(input) {
   var files = input.files;
   if (!files || !files.length) return;
-  var max = 3;
+  var max = 5;
   var processNext = function(idx){
     if (idx >= files.length || window._gsNlPhotos.length >= max) {
       gsNlRenderPhotos();
@@ -16837,6 +16947,9 @@ function gsNlRenderPhotos() {
   prev.innerHTML = window._gsNlPhotos.map(function(src, i){
     return '<div style="position:relative;width:78px;height:78px;border-radius:9px;overflow:hidden;background:var(--surface2);">' +
       '<img src="' + src + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block;">' +
+      (i === 0
+        ? '<span style="position:absolute;bottom:2px;left:2px;background:rgba(27,94,32,.9);color:#fff;font-size:8.5px;font-weight:800;padding:1px 5px;border-radius:5px;">★ Haupt</span>'
+        : '<button onclick="gsNlMakeMain(' + i + ')" aria-label="Als Hauptbild" title="Als Hauptbild setzen" style="position:absolute;bottom:2px;left:2px;background:rgba(0,0,0,.6);color:#fff;border:none;padding:1px 5px;border-radius:5px;font-size:8.5px;font-weight:800;cursor:pointer;font-family:inherit;">☆ Haupt</button>') +
       '<button onclick="gsNlRemovePhoto(' + i + ')" aria-label="Foto entfernen" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.65);color:#fff;border:none;width:22px;height:22px;border-radius:50%;font-size:12px;cursor:pointer;font-family:inherit;">✕</button>' +
     '</div>';
   }).join('');
@@ -16845,6 +16958,15 @@ function gsNlRemovePhoto(idx) {
   window._gsNlPhotos.splice(idx, 1);
   gsNlRenderPhotos();
 }
+// v26.92: Foto nach vorne (Index 0 = Hauptbild) verschieben
+function gsNlMakeMain(idx) {
+  if (idx <= 0 || idx >= window._gsNlPhotos.length) return;
+  var pic = window._gsNlPhotos.splice(idx, 1)[0];
+  window._gsNlPhotos.unshift(pic);
+  if (typeof gsHaptic === 'function') gsHaptic('tap');
+  gsNlRenderPhotos();
+}
+window.gsNlMakeMain = gsNlMakeMain;
 function gsNlClearPhotos() {
   window._gsNlPhotos = [];
   var p = document.getElementById('nl-photos-preview');
@@ -16906,7 +17028,7 @@ async function saveListing() {
         currency: 'CHF',
         region: region,
         contact: contact.slice(0, 80),
-        photos_b64: (window._gsNlPhotos || []).slice(0, 3)
+        photos_b64: (window._gsNlPhotos || []).slice(0, 5)
       })
     }, 60000);  // 60s für Foto-Upload
 
@@ -29449,6 +29571,33 @@ function gsMarketShowDetail(l) {
   var rs = ratings[l.id] || [];
   var avg = rs.length ? (rs.reduce(function(s,r){return s+r.stars;},0) / rs.length) : 0;
 
+  // v26.92: Status-Chip + Owner-Status-Verwaltung
+  var myUid = (typeof gsStore !== 'undefined') ? gsStore.get('gs_sb_uid', null) : null;
+  var isOwner = myUid && l.sellerId === myUid;
+  var statusMeta = {
+    active:   { label: 'Aktiv',      emoji: '🟢', bg: '#e8f5e9', fg: '#2e7d32' },
+    reserved: { label: 'Reserviert', emoji: '🟡', bg: '#fff8e1', fg: '#ef6c00' },
+    sold:     { label: 'Verkauft',   emoji: '✅', bg: '#eceff1', fg: '#455a64' },
+    archived: { label: 'Archiviert', emoji: '📦', bg: '#f5f5f5', fg: '#90a4ae' }
+  };
+  var st = statusMeta[l.status] || null;
+  var statusChip = (st && l.status !== 'active')
+    ? '<span style="background:' + st.bg + ';color:' + st.fg + ';padding:4px 10px;border-radius:14px;font-size:11.5px;font-weight:800;">' + st.emoji + ' ' + st.label + '</span>'
+    : '';
+  var ownerCtrl = '';
+  if (isOwner) {
+    ownerCtrl = '<div style="background:var(--surface2);border-radius:10px;padding:11px 13px;margin-bottom:14px;">' +
+      '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px;">Dein Inserat · Status</div>' +
+      '<div style="display:flex;gap:5px;flex-wrap:wrap;">' +
+      ['active','reserved','sold','archived'].map(function(s){
+        var m = statusMeta[s]; var sel = (l.status || 'active') === s;
+        return '<button onclick="gsMktSetStatus(\'' + l.id + '\',\'' + s + '\')" style="flex:1;min-width:68px;padding:8px 6px;border-radius:9px;border:1.5px solid ' + (sel ? m.fg : 'var(--border)') + ';background:' + (sel ? m.bg : 'var(--card)') + ';color:' + (sel ? m.fg : 'var(--text2)') + ';font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' + m.emoji + ' ' + m.label + '</button>';
+      }).join('') +
+      '</div>' +
+      '<div style="font-size:10.5px;color:var(--muted);margin-top:7px;line-height:1.4;">Verkaufte Inserate werden nach 30 Tagen automatisch archiviert.</div>' +
+    '</div>';
+  }
+
   // Bilder-Galerie (1 großes Bild + Thumbnails)
   var galleryHtml = imgs.length
     ? '<div style="margin:0 -16px 14px;">' +
@@ -29484,12 +29633,14 @@ function gsMarketShowDetail(l) {
         '<span style="background:var(--surface2);padding:4px 10px;border-radius:14px;font-size:11.5px;font-weight:700;">' + (typeof _catEmoji==='function' ? _catEmoji(l.cat) : '') + ' ' + (typeof _catLabel==='function' ? _catLabel(l.cat) : esc(l.cat||'')) + '</span>' +
         (l.region ? '<span style="background:var(--surface2);padding:4px 10px;border-radius:14px;font-size:11.5px;font-weight:700;">📍 ' + esc(l.region) + '</span>' +'' : '') +
         (l.verified ? '<span style="background:#e8f5e9;color:#2e7d32;padding:4px 10px;border-radius:14px;font-size:11.5px;font-weight:700;">✓ verifiziert</span>' : '') +
+        statusChip +
       '</div>' +
       (l.desc ? '<div style="font-size:13.5px;color:var(--text2);line-height:1.65;margin-bottom:14px;white-space:pre-wrap;">' + esc(l.desc) + '</div>' : '') +
       '<div style="background:var(--surface2);border-radius:10px;padding:11px 13px;margin-bottom:14px;">' +
         '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:5px;">Anbieter</div>' +
         '<div style="font-size:14px;font-weight:800;color:var(--text);">' + esc(l.sellerName || 'Unbekannt') + '</div>' +
       '</div>' +
+      ownerCtrl +
       '<div style="display:flex;gap:8px;">' +
         '<button onclick="contactSeller(\'' + l.id + '\')" style="flex:2;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">💬 Kontakt aufnehmen</button>' +
         '<button onclick="openRateListing(\'' + l.id + '\')" style="flex:1;padding:13px;background:#fff3e0;color:#e65100;border:1px solid #ffcc80;border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">⭐ Bewerten</button>' +
@@ -29506,6 +29657,44 @@ function gsMarketShowDetail(l) {
     if (hit) { hit.views = (hit.views || 0) + 1; window._gsMarket = p; gsMarketSave(); }
   } catch(_){}
 }
+
+// v26.92: Listing-Status setzen (Owner-only via fn_marketplace_set_status RPC)
+async function gsMktSetStatus(lid, status) {
+  if (!lid || !status) return;
+  if (typeof sbIsLoggedIn === 'function' && !sbIsLoggedIn()) {
+    if (typeof gsToast === 'function') gsToast('🔑 Bitte einloggen', 'error');
+    return;
+  }
+  if (typeof gsHaptic === 'function') gsHaptic('tap');
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_marketplace_set_status', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ p_listing_id: lid, p_status: status })
+    });
+    var res = r && r.data ? r.data : null;
+    if (!res || res.ok !== true) {
+      var err = res && res.error ? res.error : (r && r.error ? r.error.message : 'Fehler');
+      if (typeof gsToast === 'function') gsToast('⚠️ ' + (err === 'forbidden' ? 'Nur eigene Inserate' : err), 'error');
+      return;
+    }
+    // Lokalen Pool aktualisieren
+    var pool = gsMarketLoad();
+    var hit = pool.find(function(x){ return x.id === lid; });
+    if (hit) {
+      hit.status = status;
+      hit.soldAt = (status === 'sold') ? (hit.soldAt || Date.now()) : (status === 'active' ? null : hit.soldAt);
+      window._gsMarket = pool; try { gsMarketSave(); } catch(_){}
+    }
+    var labels = { active:'🟢 Aktiv', reserved:'🟡 Reserviert', sold:'✅ Verkauft', archived:'📦 Archiviert' };
+    if (typeof gsToast === 'function') gsToast('Status: ' + (labels[status] || status), 'success');
+    // Detail-Modal mit neuem Status neu rendern + Liste aktualisieren
+    if (hit && typeof gsMarketShowDetail === 'function') gsMarketShowDetail(hit);
+    if (typeof renderMarket === 'function') renderMarket();
+  } catch(e) {
+    if (typeof gsToast === 'function') gsToast('⚠️ Netzwerkfehler', 'error');
+  }
+}
+window.gsMktSetStatus = gsMktSetStatus;
 
 function openListingDetail(lid) {
   // v25.30: Views-Counter inkrementieren (Fire-and-Forget, ohne Detail-Open zu blockieren).
@@ -53956,6 +54145,23 @@ window.GS_RELEASES = [
       {emoji:'🏛️', bold:'Architektur-Realität:', text:' Es gibt KEINE Tabelle knowledge_articles (Spec-Annahme). Wissen = VIEW v_knowledge_search (UNION ALL über species/recipes/remedies/folk_lore/garden_techniques). Identität = COMPOSITE (source_type, source_id). Bookmarks/Progress daher auf Composite-Key, kein FK auf Einzeltabelle.'},
       {emoji:'🖥️', bold:'Frontend:', text:' Wissens-Suche nutzt fn_knowledge_search2; geteilter _gsKnResultCard normalisiert Online- UND Offline-Cache-Shape (kind→source_type, snippet→body, score→similarity). 🔖-Toggle als <span> (event.stopPropagation, kein Button-in-Button), nur sichtbar wenn eingeloggt + online. 🆕-NEU-Badge <7 Tage. View-Tracking feuert beim Treffer-Klick (fire-and-forget). Discover-Strip #wissen-discover mit „🆕 Heute neu" + „🔖 Gespeichert". Hard-Lesson #12: source_type/source_id quote-frei → echte Konkatenation im onclick.'},
       {emoji:'✅', bold:'Verify:', text:' Advisor ohne neue ERRORs · anon-EXECUTE auf toggle/track/bookmarks_list revoked · Offline-Hook liest jetzt auch p_q/p_lim · 7/7 Inline-Scripts node --check OK · GS_VERSION=v26.94 · sw.js gs-v26.94 · _headers v26.94 · meta=26.94.20260602.'},
+    ]
+  },
+  {
+    v: 'v26.92', date: '02.06.2026',
+    headline: '🛒 Marktplatz-Politur: Status verwalten, Preisfilter & bessere Suche',
+    summary: 'Der Marktplatz wird aufgeräumter und flexibler. Für deine eigenen Inserate gibt es jetzt eine Status-Verwaltung direkt im Inserat: 🟢 Aktiv, 🟡 Reserviert, ✅ Verkauft oder 📦 Archiviert — mit passenden Abzeichen in der Liste, damit Interessenten den Stand sofort sehen. Verkaufte Inserate werden nach 30 Tagen automatisch archiviert. Neu kannst du beim Suchen einen Preis-Bereich (CHF min–max) angeben, und die Volltextsuche findet jetzt auch Inserate, die noch nicht in der Liste geladen waren (serverseitig, deutsch-optimiert). Beim Erstellen sind bis zu 5 Fotos möglich, und du bestimmst per „☆ Haupt" welches Bild das Titelbild wird.',
+    user_summary: '🛒 Im Marktplatz verwaltest du den Status deiner Inserate (aktiv/reserviert/verkauft/archiviert), filterst nach Preis, suchst serverseitig im Volltext und lädst bis zu 5 Fotos mit wählbarem Hauptbild hoch.',
+    user_items: [
+      { emoji: '🏷️', text: 'Eigene Inserate als reserviert/verkauft/archiviert markieren — mit Abzeichen in der Liste' },
+      { emoji: '💰', text: 'Preis-Bereich-Filter (CHF min–max) in der Suchleiste' },
+      { emoji: '📸', text: 'Bis zu 5 Fotos pro Inserat + „☆ Haupt" zum Festlegen des Titelbilds' },
+    ],
+    items: [
+      {emoji:'🗄️', bold:'Backend (Migration v26_92_marketplace_polish):', text:' marketplace_listings um sold_at erweitert; GIN-FTS-Index idx_marketplace_listings_fts_de (german, title+description). Neue RPCs: fn_marketplace_set_status (owner-only via (SELECT auth.uid()), Status active/reserved/sold/archived, setzt sold_at), fn_marketplace_search (websearch_to_tsquery german + Kategorie/Region/Preis-Range-Filter, nur status=active), fn_marketplace_auto_archive (sold > 30 Tage → archived) — eingehängt als 4. Schritt in fn_cleanup_old_data. View v_marketplace_listings zeigt jetzt active/reserved/sold (für Badges) + sold_at. Edge-Fn marketplace-publish v3: MAX_PHOTOS 3 → 5.'},
+      {emoji:'🏛️', bold:'Architektur-Realität (Hard-Lesson #8):', text:' marketplace_listings hat KEINE lat/lng-Spalten (Spec-Annahme falsch) — Distanz bleibt region-basiert (Kanton-Text), kein Haversine. status-Enum kanonisch \'active\' (NICHT \'available\'); photo_urls[], views, status existierten bereits. Seller-Verifikation via profiles.is_expert + display_name (nicht full_name/role). Multi-Foto-Upload + client-seitige Suche/Filter waren bereits vorhanden → nur gezielt erweitert statt neu gebaut.'},
+      {emoji:'🖥️', bold:'Frontend:', text:' renderMarket: Status-Badges (🟡/✅/📦), verkaufte/archivierte abgedimmt, archived/reported für Fremde ausgeblendet (eigene bleiben sichtbar), Preis-Range-Filter. Detail-Modal: Status-Chip + Owner-Segment-Steuerung (gsMktSetStatus → RPC, kein Quote-Escape, Hard-Lesson #12). Suche feuert ab 3 Zeichen serverseitig (gsMarketServerSearch, merge + dedup + Race-Token). Erstell-Formular: max. 5 Fotos + „☆ Haupt"-Reorder (gsNlMakeMain).'},
+      {emoji:'✅', bold:'Verify:', text:' Migration angewandt · FTS „Tomaten Setzlinge" matcht · set_status liefert not_authenticated ohne Auth · auto_archive=0 · Edge-Fn v3 deployed · 7/7 Inline-Scripts node --check OK. Teil des Mega-Sprints v26.88→v27.00 (gemeinsamer Mega-Deploy durch Fernando) — Versions-Marker bleiben auf dem höchsten gebauten Stand (v26.99).'},
     ]
   },
   {
