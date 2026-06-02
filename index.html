@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.80.20260602">
+<meta name="app-version" content="26.81.20260602">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5131,6 +5131,7 @@ html, body{ scroll-behavior: smooth; }
     <div style="font-size:11.5px;opacity:.78;">Swisstopo · Pflanzenfunde · Wanderwege</div>
   </div>
   <button onclick="gsOpenMyFinds()" aria-label="Meine Funde" title="Meine gespeicherten Funde" style="padding:6px 10px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);border-radius:7px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📋</button>
+  <button onclick="gsRefreshMarkers(this)" aria-label="Funde aktualisieren" title="Fundorte neu laden (Cloud-Sync)" style="padding:6px 10px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);border-radius:7px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🔄</button>
   <button onclick="gsMapGPS()" style="padding:6px 11px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);border-radius:7px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📍 GPS</button>
   <button onclick="gsMapClearAll()" aria-label="Löschen" style="padding:6px 10px;background:rgba(255,100,100,.25);border:1px solid rgba(255,100,100,.4);border-radius:7px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🗑️</button>
 </div>
@@ -38133,23 +38134,41 @@ function _gsCatIcon(cat, small) {
 }
 
 // Neuen Marker hinzufügen
-function gsAddMarker(lat, lng) {
+// v26.81: Logging + DOM-Robustness + gsMap-Guard + LS-Quota-Catch + awaited Cloud-Sync mit Status-Toast.
+//         Vorher: localStorage.setItem ohne try/catch → QuotaExceeded warf SILENT → Cloud-POST + Toast
+//         liefen nie → weder LS noch map_user_finds bekamen Daten ("beide 0 Zeilen"-Symptom).
+async function gsAddMarker(lat, lng) {
   const nameEl = document.getElementById('gs-pin-name');
   const noteEl = document.getElementById('gs-pin-note');
   const catEl  = document.getElementById('gs-pin-cat');
-  const name = nameEl ? nameEl.value.trim() : '';
+
+  // v26.81: DOM-Robustness — Pin-Form muss gerendert sein, sonst klarer Fehler statt silent fail
+  if (!nameEl) {
+    console.error('[v26.81] gsAddMarker: #gs-pin-name nicht im DOM (Popup-Render-Problem)', { lat: lat, lng: lng });
+    if (typeof gsToast === 'function') gsToast('Eingabefeld nicht gefunden — bitte Pin-Popup neu öffnen.', 'error');
+    return;
+  }
+  // v26.81: Karte muss initialisiert sein (gsMap.closePopup würde sonst werfen)
+  if (typeof gsMap === 'undefined' || !gsMap) {
+    console.error('[v26.81] gsAddMarker: gsMap nicht initialisiert', { lat: lat, lng: lng });
+    if (typeof gsToast === 'function') gsToast('Karte noch nicht bereit — bitte kurz warten.', 'error');
+    return;
+  }
+
+  const name = nameEl.value.trim();
   const note = noteEl ? noteEl.value.trim() : '';
   var cat = (catEl && catEl.value) ? catEl.value : 'pflanze';
   if (typeof GS_MARKER_CATS === 'undefined' || !GS_MARKER_CATS[cat]) cat = 'pflanze';
 
+  console.log('[v26.81] gsAddMarker called', { lat: lat, lng: lng, name: name, cat: cat });
+
   if (!name) {
-    if (nameEl) { nameEl.style.borderColor = '#e53935'; nameEl.focus(); }
-    // v26.80: User-Feedback statt silent return
-    if (typeof gsToast === 'function') gsToast('Bitte einen Namen für den Fundort eingeben.', 'warn');
+    nameEl.style.borderColor = '#e53935'; nameEl.focus();
+    if (typeof gsToast === 'function') gsToast('Bitte einen Namen für den Fundort eingeben.', 'warning');
     return;
   }
 
-  gsMap.closePopup();
+  try { gsMap.closePopup(); } catch(_){}
 
   var catMeta = GS_MARKER_CATS[cat];
   var icon = _gsCatIcon(cat, false);
@@ -38166,15 +38185,27 @@ function gsAddMarker(lat, lng) {
   // Für Filter registrieren
   try { if (typeof _gsMarkerLayers !== 'undefined') _gsMarkerLayers.push({ cat: cat, layer: marker }); } catch(e){}
 
-  // In localStorage speichern (lokaler Cache + offline-Safety)
+  // v26.81: In localStorage speichern MIT Quota-Catch (lokaler Cache + offline-Safety)
   var clientId = 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
-  const markers = gsGetSavedMarkers();
-  markers.push({ id: clientId, lat: lat, lng: lng, name: name, note: note, cat: cat, date: Date.now() });
-  localStorage.setItem('greenscan_markers', JSON.stringify(markers));
+  var lsOk = false;
+  try {
+    var markers = gsGetSavedMarkers();
+    markers.push({ id: clientId, lat: lat, lng: lng, name: name, note: note, cat: cat, date: Date.now() });
+    localStorage.setItem('greenscan_markers', JSON.stringify(markers));
+    lsOk = true;
+  } catch(e) {
+    var quota = e && (e.name === 'QuotaExceededError' || /quota|exceeded/i.test(e.message || ''));
+    console.error('[v26.81] gsAddMarker LS-setItem fail', e && (e.name + ': ' + e.message));
+    if (typeof gsToast === 'function') {
+      gsToast(quota ? 'Speicher voll — lokaler Cache konnte nicht gesichert werden.' : 'Lokales Speichern fehlgeschlagen.', 'error');
+    }
+  }
 
-  // v26.71: ALSO Cloud-Sync via map_user_finds (Cross-Device, optional Community-Share)
-  // Categories der Marker-UI ('pilz','baum','pflanze','aussicht','wasser','hof') auf
-  // map_user_finds.category-Enum ('pilz','pflanze','baum','kraut','sonstiges') mappen.
+  updateMapCount();
+
+  // v26.81: Cloud-Sync via map_user_finds EXPLIZIT awaited + Status-Toast (vorher fire-and-forget mit nur console.warn).
+  // Categories der Marker-UI auf map_user_finds.category-Enum ('pilz','pflanze','baum','kraut','sonstiges') mappen.
+  var cloudMsg = '';
   try {
     if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof sbFetch === 'function') {
       var catMap = { pilz:'pilz', baum:'baum', pflanze:'pflanze', kraut:'kraut' };
@@ -38187,29 +38218,43 @@ function gsAddMarker(lat, lng) {
         found_at: new Date().toISOString(),
         is_private: true
       };
-      sbFetch('/rest/v1/map_user_finds', {
+      var r = await sbFetch('/rest/v1/map_user_finds', {
         method:'POST',
         headers:{'Content-Type':'application/json','Prefer':'return=representation'},
         body: JSON.stringify(payload)
-      }).then(function(r){
-        if (r && r.data && (Array.isArray(r.data) ? r.data[0] : r.data)) {
-          var row = Array.isArray(r.data) ? r.data[0] : r.data;
-          // LS-Eintrag mit Cloud-ID anreichern für späteres Delete/Update
-          try {
-            var local = gsGetSavedMarkers();
-            var idx = local.findIndex(function(m){ return m.id === clientId; });
-            if (idx >= 0) {
-              local[idx].cloud_id = row.id;
-              localStorage.setItem('greenscan_markers', JSON.stringify(local));
-            }
-          } catch(_){}
-        }
-      }).catch(function(e){ console.warn('[gsAddMarker cloud]', e && e.message); });
+      });
+      var row = (r && r.data && (Array.isArray(r.data) ? r.data[0] : r.data)) || null;
+      if (r && r.error) {
+        console.warn('[v26.81] gsAddMarker cloud error', r.error);
+        cloudMsg = '⚠ Cloud-Sync fehlgeschlagen — nur lokal gespeichert';
+      } else if (row && row.id) {
+        // LS-Eintrag mit Cloud-ID anreichern für späteres Delete/Update
+        try {
+          var local = gsGetSavedMarkers();
+          var idx = local.findIndex(function(m){ return m.id === clientId; });
+          if (idx >= 0) {
+            local[idx].cloud_id = row.id;
+            localStorage.setItem('greenscan_markers', JSON.stringify(local));
+          }
+        } catch(_){}
+        console.log('[v26.81] gsAddMarker cloud OK', { id: row.id });
+        cloudMsg = '☁️ In Cloud gespeichert';
+      } else {
+        console.warn('[v26.81] gsAddMarker cloud: kein Row zurück', r);
+        cloudMsg = '⚠ Cloud-Sync unklar — nur lokal gespeichert';
+      }
+    } else {
+      cloudMsg = lsOk ? '📍 Lokal gespeichert (nicht eingeloggt — kein Cloud-Sync)' : '';
     }
-  } catch(_){}
+  } catch(e) {
+    console.warn('[v26.81] gsAddMarker cloud exception', e && e.message);
+    cloudMsg = '⚠ Cloud-Sync fehlgeschlagen — nur lokal gespeichert';
+  }
 
-  updateMapCount();
   showMarketNotif('Fundort gespeichert! ' + catMeta.emoji, '📍', catMeta.color);
+  if (cloudMsg && typeof gsToast === 'function') {
+    gsToast(cloudMsg, cloudMsg.charAt(0) === '⚠' ? 'warning' : 'success');
+  }
 }
 
 // Gespeicherte Marker beim Start laden
@@ -38286,6 +38331,36 @@ async function gsLoadMarkersFromCloud() {
   } catch(e){ console.warn('[gsLoadMarkersFromCloud]', e && e.message); }
 }
 window.gsLoadMarkersFromCloud = gsLoadMarkersFromCloud;
+
+// v26.81: Manueller Refresh — entfernt ALLE bestehenden Marker-Layer (sonst Duplikate, da
+// gsLoadMarkers nur das Tracking-Array resettet, nicht die Leaflet-Layer) und lädt LS + Cloud neu.
+async function gsRefreshMarkers(btn) {
+  if (typeof gsMap === 'undefined' || !gsMap || !window.L) {
+    if (typeof gsToast === 'function') gsToast('Karte noch nicht bereit.', 'warning');
+    return;
+  }
+  var orig = null;
+  if (btn) { orig = btn.textContent; btn.textContent = '⏳'; btn.disabled = true; }
+  try {
+    // 1) Bestehende Marker-Layer von der Karte entfernen
+    if (typeof _gsMarkerLayers !== 'undefined' && Array.isArray(_gsMarkerLayers)) {
+      _gsMarkerLayers.forEach(function(o){ try { if (o && o.layer) gsMap.removeLayer(o.layer); } catch(_){} });
+      _gsMarkerLayers = [];
+    }
+    // 2) LS-Marker neu rendern (ruft intern gsLoadMarkersFromCloud für Cloud-Pull)
+    gsLoadMarkers();
+    // 3) Cloud-Pull awaiten, damit der Toast erst nach dem Sync kommt
+    if (typeof gsLoadMarkersFromCloud === 'function') { try { await gsLoadMarkersFromCloud(); } catch(_){} }
+    console.log('[v26.81] gsRefreshMarkers done');
+    if (typeof gsToast === 'function') gsToast('Karte aktualisiert ☁️', 'success');
+  } catch(e) {
+    console.warn('[v26.81] gsRefreshMarkers', e && e.message);
+    if (typeof gsToast === 'function') gsToast('Aktualisieren fehlgeschlagen.', 'error');
+  } finally {
+    if (btn) { btn.textContent = orig || '🔄'; btn.disabled = false; }
+  }
+}
+window.gsRefreshMarkers = gsRefreshMarkers;
 
 // v26.71: Wrapper-API für künftiges "Meine Funde"-Screen
 window.gsMapFinds = {
@@ -52151,6 +52226,85 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.81', date: '02.06.2026',
+    headline: '🗺️ Karten-Funde zuverlässiger speichern + 🔄 Aktualisieren-Button',
+    summary: 'Tiefen-Debug des "gespeicherte Funde erscheinen nicht auf der Karte"-Problems. Root-Cause: Der lokale Speicher-Schritt (localStorage) hatte keinen Fehler-Schutz — war der Browser-Speicher voll, brach der gesamte Speichervorgang stumm ab, sodass weder lokal noch in der Cloud etwas ankam. Jetzt: Fehler-Toasts bei vollem Speicher, expliziter Cloud-Sync mit Status-Rückmeldung, Robustheit gegen fehlende Eingabefelder, Debug-Logs und ein neuer 🔄-Button zum manuellen Neuladen.',
+    user_summary: '🗺️ Wenn du einen Fundort auf der Karte speicherst, bekommst du jetzt klare Rückmeldung: "☁️ In Cloud gespeichert" oder einen Hinweis, falls etwas schiefgeht. Mit dem neuen 🔄-Button oben in der Karte lädst du deine Funde jederzeit neu (z.B. um Funde von anderen Geräten zu sehen).',
+    user_items: [
+      { emoji: '✅', text: 'Klare Rückmeldung beim Speichern (lokal + Cloud)' },
+      { emoji: '🔄', text: 'Neuer Aktualisieren-Button in der Karte (Cloud-Sync)' },
+      { emoji: '🛟', text: 'Kein stilles Fehlschlagen mehr bei vollem Speicher' },
+    ],
+    items: [
+      {emoji:'🐛', bold:'Root-Cause:', text:' localStorage.setItem(greenscan_markers) hatte kein try/catch → QuotaExceededError warf SILENT → Cloud-POST + updateMapCount + Toast liefen nie → map_user_finds UND LS blieben leer ("beide 0 Zeilen").'},
+      {emoji:'☁️', bold:'Cloud-Sync awaited:', text:' map_user_finds-POST von fire-and-forget auf await + Result-Check umgestellt, Status-Toast "☁️ In Cloud gespeichert" bzw. "⚠ Cloud-Sync fehlgeschlagen — nur lokal".'},
+      {emoji:'🧱', bold:'DOM-Robustness:', text:' fehlt #gs-pin-name → console.error + Toast statt silent fail; gsMap-Init-Guard. console.log("[v26.81] gsAddMarker called",{lat,lng,name,cat}) für F12-Debug.'},
+      {emoji:'🔄', bold:'gsRefreshMarkers:', text:' entfernt alle Layer (gegen Duplikate, da gsLoadMarkers nur das Tracking-Array resettet) + lädt LS + gsLoadMarkersFromCloud neu.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · GS_VERSION=v26.81 · sw.js gs-v26.81 · _headers v26.81 · meta=26.81.20260602.'},
+    ]
+  },
+  {
+    v: 'v26.80', date: '02.06.2026',
+    headline: '🐛 3 Bug-Fixes: Quiz-Rangliste + KI-Erklärung + Karten-Feedback',
+    summary: 'Quiz-Rangliste nutzt jetzt die echte quiz_leaderboard-Tabelle (vorher die alte leere quiz_ranking). KI-Erklärung im Quiz funktioniert wieder für alle (nutzt den globalen Schlüssel via callAI statt des admin-only Personal-Keys). Karten-Speichern gibt Feedback bei leerem Namen.',
+    user_summary: '🏆 Die Quiz-Rangliste zeigt wieder echte Platzierungen. 💡 Die "Erkläre mir das"-Funktion im Quiz geht wieder für alle. 🗺️ Beim Karten-Speichern bekommst du einen Hinweis, wenn der Name fehlt.',
+    user_items: [
+      { emoji: '🏆', text: 'Quiz-Rangliste zeigt wieder echte Platzierungen' },
+      { emoji: '💡', text: 'KI-Quiz-Erklärung funktioniert wieder für alle Abos' },
+      { emoji: '🗺️', text: 'Karten-Speichern mit Feedback bei leerem Namen' },
+    ],
+    items: [
+      {emoji:'🏆', bold:'openDqRanking:', text:' auf RPC fn_quiz_leaderboard_top(p_limit:50) (quiz_leaderboard v26.72) umgestellt statt leere quiz_ranking. Schema-Mapping {rnk,display_name,total_correct,streak_max,total_attempts}.'},
+      {emoji:'💡', bold:'dqAskKIExplain:', text:' nutzt callAI() (Global-Key via getApiConfig + Abo-Quota) statt direkt localStorage.gs_anthropic_key (Personal-Key seit v26.67 admin-only → Normal-User sahen "Key fehlt").'},
+      {emoji:'🗺️', bold:'gsAddMarker:', text:' gsToast bei leerem Namen statt silent return.'},
+    ]
+  },
+  {
+    v: 'v26.79', date: '02.06.2026',
+    headline: '🌳 3D-Planer Phase 3: realistische Pflanzen-Modelle + Wind + Sonne',
+    summary: 'Der 3D-Garten-Planer rendert jetzt 8 kategorie-spezifische Pflanzen-Modelle (Baum, Obstbaum, Beere, Gemüse, Kraut, Blume, Hauspflanze) statt einfacher Zylinder, plus organischer Boden, Gras-Büschel, sichtbare Sonne mit Halo und sanfte Wind-Animation.',
+    user_summary: '🌳 Dein 3D-Garten sieht jetzt viel echter aus: Bäume mit Kronen, Beeren mit Früchten, Blumen mit Blütenblättern — alles wiegt sich leicht im Wind, mit sichtbarer Sonne am Himmel.',
+    user_items: [
+      { emoji: '🌳', text: '8 realistische Pflanzen-Modelle statt Zylinder' },
+      { emoji: '🍃', text: 'Wind-Animation für Kronen, Blätter & Blüten' },
+      { emoji: '☀️', text: 'Sichtbare Sonne + Halo, organischer Boden mit Gras' },
+    ],
+    items: [
+      {emoji:'🌳', bold:'Procedural Plant-Builder:', text:' 8 Kategorie-Modelle (Baum/Obstbaum/Beere/Gemüse/Kraut/Blume/Hauspflanze) mit Crowns, Früchten, Blütenblättern, emissive Berry-Glow.'},
+      {emoji:'🍃', bold:'Wind-Sway:', text:' alle Crowns/Leaves/Blossoms mit individueller phase+amplitude, rotation oszilliert mit windT.'},
+      {emoji:'☀️', bold:'Sky + Boden:', text:' visible Sun-Disk + Halo (folgt Sun-Hour-Slider), segmentierter Boden mit Vertex-Color + 60 Gras-Tufts. Backend: plant_3d_models + Storage-Bucket für spätere GLB-Assets.'},
+    ]
+  },
+  {
+    v: 'v26.78', date: '01.06.2026',
+    headline: '🍄 Saison-Pilze Phase 2: Verwechsler-Galerie + Wachstums-Forecast',
+    summary: 'Die Pilz-Saison-Karte auf der Startseite warnt jetzt aktiv vor kritischen Doppelgängern (Verwechsler-Galerie mit lebensgefährlichen Verwechslern) und zeigt einen Wachstums-Forecast auf Basis von Niederschlag, Bodentemperatur und Luftfeuchte.',
+    user_summary: '🍄 Die Pilz-Saison-Karte zeigt dir jetzt gefährliche Verwechslungspartner mit Unterscheidungsmerkmalen und schätzt anhand des Wetters, wie hoch die Pilz-Wahrscheinlichkeit gerade ist.',
+    user_items: [
+      { emoji: '⚠️', text: 'Verwechsler-Galerie mit lebensgefährlichen Doppelgängern' },
+      { emoji: '📈', text: 'Wachstums-Forecast (Regen + Bodentemp + Luftfeuchte)' },
+    ],
+    items: [
+      {emoji:'⚠️', bold:'Verwechsler-Galerie:', text:' listet kritische Doppelgänger (mushroom_lookalikes.confusion_risk ∈ {sehr_hoch_lebensgefahr, hoch}) mit visual/key/smell/habitat-Unterschieden + pro_tip + VAPKO-Hinweis.'},
+      {emoji:'📈', bold:'Wachstums-Forecast:', text:' Open-Meteo 3-Tage-Niederschlag + Boden-6cm-Temp + Luftfeuchte → Score 0-100 mit Color-Code (≥70 grün, 40-70 gelb, <40 grau).'},
+    ]
+  },
+  {
+    v: 'v26.77', date: '01.06.2026',
+    headline: '🗺 3D-Planer Phase 2: Mini-Map + Companion-Konflikt-Glow',
+    summary: 'Der 3D-Garten-Planer bekommt eine 2D-Mini-Map (Top-Down-Übersicht mit Kamera-Pfeil) und markiert antagonistische Pflanzen-Paare mit rotem Konflikt-Glow. Im Backend wurden 7 fehlende Fremdschlüssel-Indexe erstellt (Perf).',
+    user_summary: '🗺 Im 3D-Planer siehst du jetzt eine Mini-Karte deines Gartens von oben, und Pflanzen die sich nicht vertragen leuchten rot auf.',
+    user_items: [
+      { emoji: '🗺', text: '2D-Mini-Map im 3D-Planer mit Kamera-Richtung' },
+      { emoji: '🔴', text: 'Rotes Glow bei sich-nicht-vertragenden Pflanzen' },
+    ],
+    items: [
+      {emoji:'🗺', bold:'Mini-Map:', text:' 120×120 Canvas-Overlay, Top-Down-Pflanzen-Positionen + 1m-Raster + Kamera-Pfeil, Re-Render alle 250ms, Toggle-Button 🗺.'},
+      {emoji:'🔴', bold:'Konflikt-Glow:', text:' plant_companion_matrix-Lookup, antagonistische Paare (relationship schlecht/kritisch_schlecht) mit emissive 0xd32f2f. '},
+      {emoji:'⚡', bold:'Backend-Perf:', text:' 7 unindexed FK-Indexes LIVE (marketplace_messages_sender_id, profiles_role_assigned_by, species_proposals u.a.).'},
+    ]
+  },
+  {
     v: 'v26.75', date: '01.06.2026',
     headline: '💬 Marktplatz-Chat live + 📋 Meine Funde + 🏆 Quiz-Rangliste auf Home',
     summary: 'Frontend-Vervollständigung der v26.70–v26.72-Backends: (1) Marktplatz-Chat ist jetzt ECHT — Nachrichten zwischen Käufer & Verkäufer werden in der Cloud gespeichert (marketplace_messages), gepollt und als gelesen markiert. Neuer 📨-Posteingang im Marktplatz-Header für alle Konversationen. (2) "📋 Meine Funde"-Liste im Karten-Header: alle gespeicherten Fundorte mit Karten-Fokus, Community-Freigabe-Toggle und Löschen. (3) Quiz-Rangliste-Karte auf der Home mit Live-Top-3-Vorschau.',
@@ -54630,7 +54784,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.80';
+var GS_VERSION = 'v26.81';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
