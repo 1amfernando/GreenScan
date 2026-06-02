@@ -15640,6 +15640,9 @@ function renderDailyQuizTeaser() {
     var stEl = document.getElementById('quiz-streak');
     if (!qEl || !oEl) return;
 
+    // v26.97: Quiz-Battle-Einstieg (1v1 async) — in beiden Zuständen anbieten
+    var battleBtn = '<button onclick="if(typeof gsOpenBattles===\'function\')gsOpenBattles()" style="position:relative;width:100%;padding:11px 14px;margin-top:8px;background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.45);border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">⚔️ Quiz-Battle (1v1)<span id="quiz-battle-badge" style="display:none;position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 5px;align-items:center;justify-content:center;background:#e53935;color:#fff;border-radius:10px;font-size:11px;font-weight:900;"></span></button>';
+
     // Streak + Punkte-Anzeige
     var stats = (typeof dqGetStats === 'function') ? dqGetStats() : {streak:0, points:0};
     if (stEl) {
@@ -15665,8 +15668,10 @@ function renderDailyQuizTeaser() {
       qEl.innerHTML = icon + ' Heute schon beantwortet';
       oEl.innerHTML =
         '<div style="padding:9px 12px;background:rgba(255,255,255,.12);border-radius:10px;font-size:12.5px;font-weight:700;opacity:.92;">' + status + '</div>' +
-        '<div style="font-size:11.5px;opacity:.85;margin-top:6px;">Nächste Frage in ' + hrs + 'h ' + min + 'min</div>';
+        '<div style="font-size:11.5px;opacity:.85;margin-top:6px;">Nächste Frage in ' + hrs + 'h ' + min + 'min</div>' +
+        battleBtn;
       if (rEl) rEl.style.display = 'none';
+      try { if (typeof gsBattleBadgeRefresh === 'function') gsBattleBadgeRefresh(); } catch(_){}
       return;
     }
 
@@ -15676,8 +15681,10 @@ function renderDailyQuizTeaser() {
       '<button onclick="openDailyQuiz()" style="width:100%;padding:13px 16px;background:rgba(255,255,255,.95);color:#4527a0;border:none;border-radius:11px;font-size:14px;font-weight:900;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:0 2px 8px rgba(0,0,0,.18);">' +
         '▶ Jetzt starten <span style="opacity:.6;font-weight:700;margin-left:6px;">20 Sek</span>' +
       '</button>' +
-      '<div style="font-size:10.5px;opacity:.8;margin-top:6px;text-align:center;">Keine zweite Chance · Nicht schummeln · App verlassen = verloren</div>';
+      '<div style="font-size:10.5px;opacity:.8;margin-top:6px;text-align:center;">Keine zweite Chance · Nicht schummeln · App verlassen = verloren</div>' +
+      battleBtn;
     if (rEl) rEl.style.display = 'none';
+    try { if (typeof gsBattleBadgeRefresh === 'function') gsBattleBadgeRefresh(); } catch(_){}
   } catch(e) { console.log('[GS] renderDailyQuizTeaser:', e.message); }
 }
 
@@ -27183,6 +27190,335 @@ window.gsDoctorSubmitFollowup = gsDoctorSubmitFollowup;
   function _kick(){
     setTimeout(function(){ try { gsDoctorCheckFollowups(); } catch(_){} }, 6000);
   }
+  if (document.readyState === 'complete' || document.readyState === 'interactive') _kick();
+  else document.addEventListener('DOMContentLoaded', _kick);
+})();
+
+// ═════════════════════════════════════════════════════════════════════
+// v26.97 QUIZ-BATTLES (1v1 async, ELO) — Backend: quiz_battles + 6 RPCs.
+// ARCHITEKTUR (Hard-Lesson #8): Es gibt KEINE quiz_questions-Tabelle.
+// Der Herausforderer generiert die 5 Fragen client-seitig (dqBuildQuestion)
+// und reicht sie als jsonb an fn_quiz_battle_create / _find_or_create_random.
+// RPCs liefern rollen-relative Daten (your_score/you_won/elo_delta) → kein uid
+// im Frontend nötig. Hard-Lesson #12: alle dynamischen onclick nutzen nur
+// numerische Indizes + State-Bridge (window._gsBattle / window._gsBattleList).
+// ═════════════════════════════════════════════════════════════════════
+function _gsBtlEsc(s){ return (typeof gsHTMLEscape === 'function') ? gsHTMLEscape(String(s==null?'':s)) : String(s==null?'':s).replace(/[<>&"]/g, function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); }
+
+// 5 Fragen client-seitig aus dem Arten-Pool generieren (Optionen + correct_idx)
+function gsBattleBuildQuestions(n){
+  n = n || 5;
+  var out = [];
+  if (typeof DB === 'undefined' || !DB || !DB.length || typeof dqBuildQuestion !== 'function') return out;
+  var pool = DB.filter(function(sp){ return sp && sp.name && sp.id; });
+  if (pool.length < 8) return out;
+  var used = {}, attempts = 0;
+  while (out.length < n && attempts < n * 10) {
+    attempts++;
+    var sp = pool[(Math.random() * pool.length) | 0];
+    if (!sp || used[sp.id]) continue;
+    var typeIdx = (Math.random() * 7) | 0;
+    var others = [];
+    for (var k = 0; k < 10 && others.length < 6; k++) {
+      var o = pool[(Math.random() * pool.length) | 0];
+      if (o && o.id !== sp.id) others.push(o);
+    }
+    var qd;
+    try { qd = dqBuildQuestion(sp, typeIdx, others); } catch(_) { continue; }
+    if (!qd || !qd.a) continue;
+    var wrong = Array.from(new Set((qd.wrong || []).filter(Boolean)));
+    if (typeof dqFilterDistractors === 'function') {
+      var f = dqFilterDistractors(qd.a, wrong, 0.6);
+      if (f && f.length >= 3) wrong = f;
+    }
+    wrong = wrong.filter(function(w){ return w !== qd.a; }).slice(0, 3);
+    if (wrong.length < 3) continue;
+    var opts = [String(qd.a), String(wrong[0]), String(wrong[1]), String(wrong[2])];
+    for (var s = opts.length - 1; s > 0; s--) { var j = (Math.random() * (s + 1)) | 0; var t = opts[s]; opts[s] = opts[j]; opts[j] = t; }
+    var ci = opts.indexOf(String(qd.a));
+    if (ci < 0) continue;
+    out.push({ q: String(qd.q), icon: qd.icon || '🌿', options: opts, correct_idx: ci, category: sp.cat || '' });
+    used[sp.id] = true;
+  }
+  return out;
+}
+window.gsBattleBuildQuestions = gsBattleBuildQuestions;
+
+function gsBattleClose(){
+  try { if (window._gsBattle && window._gsBattle.timer) clearInterval(window._gsBattle.timer); } catch(_){}
+  window._gsBattle = null;
+}
+window.gsBattleClose = gsBattleClose;
+
+// ── Haupt-Einstieg: Battle-Liste laden + Tabs rendern ──────────────────
+async function gsOpenBattles(){
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) {
+    if (typeof showProfileToast === 'function') showProfileToast('Bitte zuerst anmelden für Quiz-Battles.', 'info');
+    return;
+  }
+  _gsNlOpen('<div style="padding:30px;text-align:center;color:var(--muted);">⏳ Lade Battles…</div>');
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_quiz_battle_list', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_limit: 40 })
+    });
+    var rows = (r && Array.isArray(r.data)) ? r.data : [];
+    window._gsBattleList = rows;
+    gsBattleRenderList(rows);
+  } catch(e) {
+    _gsNlOpen('<div style="padding:24px;text-align:center;color:#c62828;">⚠️ Battles konnten nicht geladen werden.</div>');
+  }
+}
+window.gsOpenBattles = gsOpenBattles;
+
+function gsBattleRenderList(rows){
+  var esc = _gsBtlEsc;
+  var active = [], open = [], past = [];
+  (rows || []).forEach(function(b, i){
+    b._i = i;
+    if (b.status === 'resolved' || b.status === 'expired' || b.status === 'declined') past.push(b);
+    else if (!b.you_answered && (b.status === 'accepted' || b.status === 'opponent_done' || b.status === 'challenger_done' || (b.role === 'opponent' && b.status === 'open'))) active.push(b);
+    else open.push(b);
+  });
+  var myElo = (rows && rows[0] && rows[0].your_elo) ? rows[0].your_elo : (window._gsBattleMyElo || 1200);
+  window._gsBattleMyElo = myElo;
+
+  var h = '';
+  h += '<div style="text-align:center;margin-bottom:14px;">';
+  h += '<div style="font-size:19px;font-weight:900;color:var(--text);">⚔️ Quiz-Battles</div>';
+  h += '<div style="font-size:12.5px;color:var(--muted);margin-top:3px;">Dein ELO: <b style="color:#5e35b1;">' + (myElo|0) + '</b></div>';
+  h += '</div>';
+  h += '<button onclick="gsBattleNewRandom()" style="width:100%;padding:14px;background:linear-gradient(135deg,#7e57c2,#4527a0);color:#fff;border:none;border-radius:13px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:0 3px 12px rgba(69,39,160,.35);margin-bottom:16px;">🎲 Neues Battle (Zufalls-Gegner)</button>';
+
+  function section(title, list, kind){
+    var s = '<div style="font-size:12px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin:6px 0 8px;">' + title + ' (' + list.length + ')</div>';
+    if (!list.length) { s += '<div style="padding:10px 12px;color:var(--muted);font-size:12.5px;opacity:.8;margin-bottom:14px;">Nichts hier.</div>'; return s; }
+    list.forEach(function(b){
+      var name = esc(b.opponent_name || (b.is_random_match ? 'Zufalls-Gegner' : 'Gegner'));
+      var emoji = esc(b.opponent_emoji || '🌿');
+      var sub = '';
+      var border = 'var(--border,#e0e0e0)';
+      if (kind === 'past') {
+        var verdict = b.you_won === 1 ? '🏆 Sieg' : (b.you_won === -1 ? '💔 Niederlage' : '🤝 Unentschieden');
+        var dlt = (b.elo_delta > 0 ? '+' : '') + (b.elo_delta || 0);
+        border = b.you_won === 1 ? '#43a047' : (b.you_won === -1 ? '#e53935' : '#9e9e9e');
+        sub = verdict + ' · ' + (b.your_score|0) + ':' + (b.their_score|0) + ' · ELO ' + dlt;
+      } else if (kind === 'active') {
+        sub = '▶ Du bist dran! · ' + (b.is_random_match ? 'Zufall' : 'Freund');
+        border = '#7e57c2';
+      } else {
+        sub = b.you_answered ? '⏳ Warte auf Gegner…' : '⏳ Offen';
+      }
+      var clickable = (kind === 'active');
+      s += '<div ' + (clickable ? 'onclick="gsBattleOpenFromList(' + b._i + ')" ' : '') + 'style="display:flex;align-items:center;gap:11px;padding:11px 13px;border:1.5px solid ' + border + ';border-radius:12px;margin-bottom:9px;' + (clickable ? 'cursor:pointer;' : '') + 'background:var(--card-bg,#fff);">';
+      s += '<div style="font-size:24px;flex-shrink:0;">' + emoji + '</div>';
+      s += '<div style="flex:1;min-width:0;"><div style="font-weight:800;font-size:14px;color:var(--text);">' + name + '</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">' + sub + '</div></div>';
+      if (b.opponent_elo) s += '<div style="font-size:11.5px;color:#5e35b1;font-weight:800;flex-shrink:0;">' + (b.opponent_elo|0) + '</div>';
+      if (clickable) s += '<div style="font-size:18px;color:#7e57c2;flex-shrink:0;margin-left:4px;">›</div>';
+      s += '</div>';
+    });
+    return s;
+  }
+  h += section('▶ Du bist dran', active, 'active');
+  h += section('⏳ Offen', open, 'open');
+  h += section('📜 Vergangen', past, 'past');
+  _gsNlOpen(h);
+}
+window.gsBattleRenderList = gsBattleRenderList;
+
+// Aus der Liste ein Battle öffnen (anhand State-Bridge-Index)
+async function gsBattleOpenFromList(i){
+  var b = (window._gsBattleList || [])[i];
+  if (!b) return;
+  await gsBattleLoadAndPlay(b.id);
+}
+window.gsBattleOpenFromList = gsBattleOpenFromList;
+
+// Neues Zufalls-Battle: Fragen generieren → Matchmaker → sofort spielen
+async function gsBattleNewRandom(){
+  if (typeof DB === 'undefined' || !DB || !DB.length) {
+    if (typeof showProfileToast === 'function') showProfileToast('Arten werden noch geladen — kurz warten.', 'info');
+    return;
+  }
+  var qs = gsBattleBuildQuestions(5);
+  if (!qs || qs.length < 5) {
+    if (typeof showProfileToast === 'function') showProfileToast('Konnte keine Fragen erstellen.', 'error');
+    return;
+  }
+  _gsNlOpen('<div style="padding:30px;text-align:center;color:var(--muted);">🎲 Suche Gegner…</div>');
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_quiz_battle_find_or_create_random', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_questions: qs })
+    });
+    var d = r && r.data;
+    if (Array.isArray(d)) d = d[0];
+    if (!d || !d.battle_id) throw new Error('no_battle');
+    if (typeof gsHaptic === 'function') gsHaptic('light');
+    // Beide Rollen spielen sofort: Gegner spielt die übernommenen Fragen,
+    // Herausforderer spielt seine eigenen (danach „warte auf Gegner").
+    if (d.matched) {
+      await gsBattleLoadAndPlay(d.battle_id);   // als Gegner: Fragen vom Server (ohne correct_idx)
+    } else {
+      gsBattleStartPlay(d.battle_id, 'challenger', qs);  // als Herausforderer: eigene Fragen
+    }
+  } catch(e) {
+    _gsNlOpen('<div style="padding:24px;text-align:center;color:#c62828;">⚠️ Match fehlgeschlagen. Bitte erneut versuchen.</div>');
+  }
+}
+window.gsBattleNewRandom = gsBattleNewRandom;
+
+// Battle laden (Fragen OHNE correct_idx) und spielen
+async function gsBattleLoadAndPlay(battleId){
+  _gsNlOpen('<div style="padding:30px;text-align:center;color:var(--muted);">⏳ Lade Battle…</div>');
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_quiz_battle_get', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_battle_id: battleId })
+    });
+    var d = r && r.data;
+    if (Array.isArray(d)) d = d[0];
+    if (!d || !d.questions) throw new Error('no_battle');
+    if (d.you_answered) {
+      _gsNlOpen('<div style="padding:26px;text-align:center;"><div style="font-size:40px;">⏳</div><div style="font-weight:800;margin:10px 0;color:var(--text);">Du hast schon geantwortet</div><div style="font-size:13px;color:var(--muted);">Warte bis dein Gegner fertig ist.</div><button onclick="gsOpenBattles()" style="margin-top:16px;padding:10px 20px;background:#7e57c2;color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">Zurück</button></div>');
+      return;
+    }
+    gsBattleStartPlay(d.id, d.role, d.questions);
+  } catch(e) {
+    _gsNlOpen('<div style="padding:24px;text-align:center;color:#c62828;">⚠️ Battle konnte nicht geladen werden.</div>');
+  }
+}
+window.gsBattleLoadAndPlay = gsBattleLoadAndPlay;
+
+// Spiel-State setzen + erste Runde rendern
+function gsBattleStartPlay(battleId, role, questions){
+  if (!questions || !questions.length) return;
+  window._gsBattle = { id: battleId, role: role || 'challenger', questions: questions, answers: [], idx: 0, qStart: 0, timer: null, timeLeft: 30 };
+  // Match-Up-Intro kurz, dann Runde 1
+  _gsNlOpen('<div style="padding:34px 20px;text-align:center;"><div style="font-size:46px;">⚔️</div><div style="font-size:20px;font-weight:900;margin:10px 0;color:var(--text);">Battle startet!</div><div style="font-size:13px;color:var(--muted);">' + questions.length + ' Runden · 30 Sek pro Frage</div><button onclick="gsBattleRenderRound()" style="margin-top:18px;padding:12px 28px;background:linear-gradient(135deg,#7e57c2,#4527a0);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;box-shadow:0 3px 12px rgba(69,39,160,.35);">▶ Los geht\'s</button></div>');
+}
+window.gsBattleStartPlay = gsBattleStartPlay;
+
+function gsBattleRenderRound(){
+  var b = window._gsBattle;
+  if (!b) return;
+  if (b.timer) { clearInterval(b.timer); b.timer = null; }
+  var q = b.questions[b.idx];
+  if (!q) { gsBattleSubmit(); return; }
+  var esc = _gsBtlEsc;
+  b.timeLeft = 30; b.qStart = Date.now();
+
+  var h = '';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
+  h += '<div style="font-size:12.5px;font-weight:900;color:#5e35b1;">Runde ' + (b.idx + 1) + ' / ' + b.questions.length + '</div>';
+  h += '<div id="gs-btl-timer" style="font-size:13px;font-weight:900;color:#43a047;">30s</div>';
+  h += '</div>';
+  h += '<div style="height:5px;background:rgba(126,87,194,.15);border-radius:3px;overflow:hidden;margin-bottom:16px;"><div id="gs-btl-bar" style="height:100%;width:100%;background:linear-gradient(90deg,#43a047,#7e57c2);transition:width 1s linear;"></div></div>';
+  h += '<div style="text-align:center;font-size:36px;margin-bottom:8px;">' + esc(q.icon || '🌿') + '</div>';
+  h += '<div style="font-size:16px;font-weight:800;color:var(--text);text-align:center;margin-bottom:18px;line-height:1.4;">' + esc(q.q) + '</div>';
+  (q.options || []).forEach(function(opt, oi){
+    h += '<button onclick="gsBattleAnswer(' + oi + ')" style="display:block;width:100%;padding:13px 15px;margin-bottom:10px;background:var(--card-bg,#fff);border:1.5px solid var(--border,#ddd);border-radius:12px;font-size:14px;font-weight:700;color:var(--text);text-align:left;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' + esc(opt) + '</button>';
+  });
+  _gsNlOpen(h);
+
+  b.timer = setInterval(function(){
+    var bb = window._gsBattle;
+    if (!bb) return;
+    bb.timeLeft--;
+    var tEl = document.getElementById('gs-btl-timer');
+    var barEl = document.getElementById('gs-btl-bar');
+    if (tEl) { tEl.textContent = Math.max(0, bb.timeLeft) + 's'; tEl.style.color = bb.timeLeft <= 8 ? '#e53935' : '#43a047'; }
+    if (barEl) barEl.style.width = Math.max(0, (bb.timeLeft / 30) * 100) + '%';
+    if (bb.timeLeft <= 0) { clearInterval(bb.timer); bb.timer = null; gsBattleAnswer(-1); }
+  }, 1000);
+}
+window.gsBattleRenderRound = gsBattleRenderRound;
+
+// Antwort erfassen (-1 = Timeout/keine Antwort) und weiter
+function gsBattleAnswer(optIdx){
+  var b = window._gsBattle;
+  if (!b) return;
+  if (b.timer) { clearInterval(b.timer); b.timer = null; }
+  var t = Math.max(0, Date.now() - (b.qStart || Date.now()));
+  b.answers.push({ idx: b.idx, ans: (optIdx < 0 ? null : optIdx), time_ms: t });
+  if (typeof gsHaptic === 'function') gsHaptic('light');
+  b.idx++;
+  if (b.idx >= b.questions.length) gsBattleSubmit();
+  else gsBattleRenderRound();
+}
+window.gsBattleAnswer = gsBattleAnswer;
+
+async function gsBattleSubmit(){
+  var b = window._gsBattle;
+  if (!b) return;
+  if (b.timer) { clearInterval(b.timer); b.timer = null; }
+  _gsNlOpen('<div style="padding:30px;text-align:center;color:var(--muted);">📤 Antworten werden gewertet…</div>');
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_quiz_battle_submit', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ p_battle_id: b.id, p_answers: b.answers })
+    });
+    var d = r && r.data;
+    if (Array.isArray(d)) d = d[0];
+    if (r && r.error) throw new Error(r.error.message || 'submit_failed');
+    gsBattleRenderResult(d || {});
+  } catch(e) {
+    _gsNlOpen('<div style="padding:24px;text-align:center;color:#c62828;">⚠️ Konnte nicht absenden.<br><button onclick="gsOpenBattles()" style="margin-top:14px;padding:10px 20px;background:#7e57c2;color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">Zurück</button></div>');
+  } finally {
+    window._gsBattle = null;
+  }
+}
+window.gsBattleSubmit = gsBattleSubmit;
+
+function gsBattleRenderResult(res){
+  var esc = _gsBtlEsc;
+  var h = '<div style="padding:24px 18px;text-align:center;">';
+  if (!res.resolved) {
+    // Gegner noch nicht fertig
+    h += '<div style="font-size:48px;">⏳</div>';
+    h += '<div style="font-size:19px;font-weight:900;margin:12px 0 6px;color:var(--text);">Geschafft!</div>';
+    h += '<div style="font-size:14px;color:var(--muted);">Dein Score: <b style="color:#5e35b1;">' + (res.your_score|0) + '</b></div>';
+    h += '<div style="font-size:13px;color:var(--muted);margin-top:10px;">Warte auf deinen Gegner. Schau später wieder rein — das ⚔️-Badge zeigt dir an, sobald das Ergebnis da ist.</div>';
+  } else {
+    var won = res.you_won;
+    var verdict = won === 1 ? '🏆 Sieg!' : (won === -1 ? '💔 Niederlage' : '🤝 Unentschieden');
+    var col = won === 1 ? '#43a047' : (won === -1 ? '#e53935' : '#9e9e9e');
+    h += '<div style="font-size:54px;">' + (won === 1 ? '🏆' : (won === -1 ? '💔' : '🤝')) + '</div>';
+    h += '<div style="font-size:23px;font-weight:900;margin:10px 0;color:' + col + ';">' + verdict + '</div>';
+    h += '<div style="font-size:15px;color:var(--text);font-weight:800;">Dein Score: ' + (res.your_score|0) + '</div>';
+    var dlt = (res.elo_delta > 0 ? '+' : '') + (res.elo_delta || 0);
+    h += '<div style="font-size:14px;color:var(--muted);margin-top:8px;">ELO ' + dlt + ' → <b style="color:#5e35b1;">' + (res.your_elo|0) + '</b></div>';
+    // Achievement-Hooks (idempotent via p_set=true)
+    try {
+      if (typeof gsAchBump === 'function') {
+        if (typeof res.your_battles_won === 'number') gsAchBump('battles_won', res.your_battles_won, true);
+        if (typeof res.your_elo === 'number') gsAchBump('quiz_elo', res.your_elo, true);
+      }
+    } catch(_){}
+    if (won === 1) { try { if (typeof window._gsConfetti === 'function') window._gsConfetti(); } catch(_){} if (typeof gsHaptic === 'function') gsHaptic('success'); }
+  }
+  h += '<button onclick="gsOpenBattles()" style="margin-top:20px;padding:12px 26px;background:linear-gradient(135deg,#7e57c2,#4527a0);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;">Weiter</button>';
+  h += '</div>';
+  _gsNlOpen(h);
+}
+window.gsBattleRenderResult = gsBattleRenderResult;
+
+// Badge: Anzahl Battles bei denen ich dran bin → auf Entry-Button #quiz-battle-badge
+async function gsBattleBadgeRefresh(){
+  try {
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn() || typeof sbFetch !== 'function') return;
+    var r = await sbFetch('/rest/v1/rpc/fn_quiz_battle_list', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_limit: 40 })
+    });
+    var rows = (r && Array.isArray(r.data)) ? r.data : [];
+    var myTurn = rows.filter(function(b){
+      return !b.you_answered && (b.status === 'accepted' || b.status === 'opponent_done' || b.status === 'challenger_done' || (b.role === 'opponent' && b.status === 'open'));
+    }).length;
+    var el = document.getElementById('quiz-battle-badge');
+    if (el) { el.textContent = myTurn > 0 ? String(myTurn) : ''; el.style.display = myTurn > 0 ? 'inline-flex' : 'none'; }
+  } catch(_){}
+}
+window.gsBattleBadgeRefresh = gsBattleBadgeRefresh;
+
+(function(){
+  function _kick(){ setTimeout(function(){ try { gsBattleBadgeRefresh(); } catch(_){} }, 7000); }
   if (document.readyState === 'complete' || document.readyState === 'interactive') _kick();
   else document.addEventListener('DOMContentLoaded', _kick);
 })();
@@ -54624,6 +54960,24 @@ window.GS_RELEASES = [
       {emoji:'🖥️', bold:'Frontend:', text:' Foto-Timeline (gsBuildPhotoTimelineContent) erweitert: Vorher/Nachher-Dropdowns (frei wählbare A/B-Indizes), „🤖 KI-Wachstums-Analyse"-Button → gsPhotoDiffAnalyze konvertiert beide Fotos via _gsPhotoToB64 (data-URL ODER remote-fetch) und ruft callVisionAI (Foto B als extraImages) mit JSON-Schema-Prompt. Ergebnis-Karten (gsBuildPhotoDiffResult: growth_pct/new_leaves/color_health/summary/highlights/concerns). Zeitraffer-Player (gsPhotoTimelinePlay, 900ms auto-advance). Persist via fn_photo_diff_create (nur eingeloggt, keine data-URLs in DB).'},
       {emoji:'🔌', bold:'Keine neue Edge-Fn:', text:' Bewusst client-seitiges callVisionAI statt separater photo-diff-analyze-Edge-Fn — konsistent mit Scanner/Doktor, nutzt die bestehende einheitliche ai_call-Tagesquota (kein paralleles Monats-Limit).'},
       {emoji:'✅', bold:'Verify:', text:' Advisor ohne neue ERRORs · anon-EXECUTE auf beiden RPCs revoked · RLS ppd_own + 2 Indizes verifiziert · 7/7 Inline-Scripts node --check OK · GS_VERSION=v26.98 · sw.js gs-v26.98 · _headers v26.98 · meta=26.98.20260602.'},
+    ]
+  },
+  {
+    v: 'v26.97', date: '02.06.2026',
+    headline: '⚔️ Quiz-Battles: 1v1 gegen andere mit ELO-Rangliste',
+    summary: 'Das tägliche Quiz bekommt einen Wettkampf-Modus: Über „⚔️ Quiz-Battle" forderst du einen Zufalls-Gegner heraus und spielt 5 Runden Pflanzen-Quiz — asynchron, also jeder antwortet wann er will. Wer mehr Fragen richtig hat, gewinnt ELO-Punkte (Start: 1200) und steigt im Rang. Du siehst deine offenen, laufenden und vergangenen Battles mit Sieg/Niederlage-Bilanz und ELO-Verlauf. Neue Erfolge: „Erster Sieg", „Quiz-Krieger/Champion/Legende" (10/50/200 Siege) sowie ELO-Meilensteine (1300/1500/1800/2200).',
+    user_summary: '⚔️ Neuer 1v1-Quiz-Battle-Modus: fordere Zufalls-Gegner über 5 Runden heraus, gewinne ELO-Punkte und steige in der Rangliste — plus neue Battle-Erfolge.',
+    user_items: [
+      { emoji: '🎲', text: 'Zufalls-Gegner herausfordern — 5 Runden Pflanzen-Quiz, asynchron spielbar' },
+      { emoji: '📊', text: 'ELO-Rangliste (Start 1200): Sieg gibt Punkte, Niederlage kostet — fair berechnet' },
+      { emoji: '🏆', text: '8 neue Erfolge: Erster Sieg, 10/50/200 Siege + ELO-Stufen 1300–2200' },
+    ],
+    items: [
+      {emoji:'🗄️', bold:'Backend (1 Migration v26_97_quiz_battles):', text:' Tabelle quiz_battles (RLS: Teilnehmer-Read + offene Random-Battles sichtbar, challenger-only INSERT, auth.uid() gewrappt) · profiles +quiz_elo/battles_won/lost/tied · 6 RPCs (DEFINER, anon-revoked): fn_quiz_battle_create + fn_quiz_battle_find_or_create_random (Matchmaker ±250 ELO, FOR UPDATE SKIP LOCKED) + fn_quiz_battle_accept + fn_quiz_battle_submit (wertet 5 Runden, finalisiert bei beiden-fertig) + fn_quiz_battle_list (rollen-relativ) + fn_quiz_battle_get (Fragen OHNE correct_idx = Anti-Cheat) · interne _fn_quiz_battle_finalize (ELO K=32 symmetrisch, ≥100 geklemmt) · 8 achievements_catalog-Stufen · Cron quiz-battles-expire (*/30, abgelaufene → expired).'},
+      {emoji:'🏛️', bold:'Architektur-Realität (Hard-Lesson #8):', text:' Es gibt KEINE quiz_questions-Tabelle (Spec-Annahme falsch) — das Tagesquiz generiert Fragen client-seitig via dqBuildQuestion. Daher generiert der Herausforderer die 5 Fragen lokal und reicht sie als jsonb in die Create-RPC. RPCs liefern rollen-relative Daten (your_score/you_won/elo_delta) → das Frontend braucht nie die rohe auth.uid(). updated_at-Spalte ergänzt (Spec-Tabelle hatte sie nicht, RPCs referenzierten sie). Mangels Freundes-System: Random-Matchmaker statt Freund-Challenge.'},
+      {emoji:'🖥️', bold:'Frontend:', text:' „⚔️ Quiz-Battle (1v1)"-Button in der Quiz-Karte (mit „du bist dran"-Badge). gsOpenBattles (Liste: Du-bist-dran / Offen / Vergangen) · gsBattleNewRandom (Fragen generieren → Matchmaker → sofort spielen) · gsBattleRenderRound (5 Runden, 30s-Timer + Fortschritts-Bar) · gsBattleSubmit → gsBattleRenderResult (🏆/💔/🤝 + ELO-Delta + Konfetti bei Sieg). Achievement-Hooks gsAchBump(battles_won|quiz_elo, …, p_set=true) idempotent. Hard-Lesson #12: alle dynamischen onclick nur numerische Indizes + State-Bridge (window._gsBattle / _gsBattleList).'},
+      {emoji:'🔌', bold:'Bewusst NICHT:', text:' Realtime-WebSocket (rein async), 2v2/Team-Battles, Custom-Quiz, Wagering, sowie Push „dein Gegner hat geantwortet" (würde Edge-Fn-Eingriff erfordern — deferred wie v26.96-Push-Hook; stattdessen ⚔️-Badge in der Quiz-Karte).'},
+      {emoji:'✅', bold:'Verify:', text:' Migration angewandt + 8 Funktionen/2 Policies/4 profiles-Spalten/8 Achievement-Stufen/Cron verifiziert · ELO-Logik per Zero-Persistence-Test (RAISE+Rollback): 4:2-Sieg → +16/−16 symmetrisch, Gewinner korrekt · Advisor 0 NEUE ERRORs · 7/7 Inline-Scripts node --check OK. MID-RANGE: KEIN v-Bump — 6 Versions-Marker bleiben v27.00, nur GS_RELEASES-Eintrag + sw.js-Changelog-Note.'},
     ]
   },
   {
