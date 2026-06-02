@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.81.20260602">
+<meta name="app-version" content="26.82.20260602">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -9192,11 +9192,43 @@ function dqShowPostAnswerActions(prefilledExpl) {
 
   container.innerHTML =
     explBlockHtml +
+    // v26.82: Inline-Mini-Rangliste direkt nach Quiz-Antwort (zusätzlich zum Full-Modal-Button)
+    '<div id="dq-inline-lb" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,215,0,.3);border-radius:10px;padding:10px 12px;margin-bottom:8px;color:#fff;">' +
+      '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;opacity:.75;margin-bottom:6px;display:flex;align-items:center;gap:6px;">🏆 Quiz-Rangliste <span style="opacity:.5;font-size:10px;">· Top 5</span></div>' +
+      '<div id="dq-inline-lb-rows" style="font-size:12.5px;opacity:.85;">⏳ Lädt…</div>' +
+    '</div>' +
     '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
       '<button id="dq-explain-btn" onclick="dqAskKIExplain()" style="flex:1 1 48%;min-width:0;padding:11px;background:rgba(92,160,255,.22);border:1px solid rgba(92,160,255,.5);color:#fff;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">🤖 KI erklärt</button>' +
-      '<button onclick="openDqRanking()" style="flex:1 1 48%;min-width:0;padding:11px;background:rgba(255,215,0,.18);border:1px solid rgba(255,215,0,.5);color:#fff;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">🏆 Rangliste</button>' +
+      '<button onclick="openDqRanking()" style="flex:1 1 48%;min-width:0;padding:11px;background:rgba(255,215,0,.18);border:1px solid rgba(255,215,0,.5);color:#fff;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">🏆 Volle Rangliste</button>' +
     '</div>' +
     '<button onclick="closeDailyQuiz()" style="padding:11px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Schliessen</button>';
+
+  // v26.82: Inline-Rangliste asynchron befüllen (Top-5 aus fn_quiz_leaderboard_top)
+  (async function fillInlineLb(){
+    try {
+      var rows = (typeof dqLoadLeaderboardTop === 'function') ? await dqLoadLeaderboardTop(5) : [];
+      var el = document.getElementById('dq-inline-lb-rows');
+      if (!el) return;
+      if (!rows || !rows.length) {
+        el.innerHTML = '<span style="opacity:.6;">Noch keine Einträge — sei der/die Erste! 🎯</span>';
+        return;
+      }
+      var medals = ['🥇','🥈','🥉'];
+      el.innerHTML = rows.map(function(r, i){
+        var medal = (i < 3) ? medals[i] : ((i+1) + '.');
+        var name = (r.display_name || 'Anonym');
+        var correct = r.total_correct || 0;
+        return '<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px;">' +
+          '<span style="min-width:24px;text-align:center;">' + medal + '</span>' +
+          '<span style="flex:1;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (typeof escHtml === 'function' ? escHtml(name) : name) + '</span>' +
+          '<span style="color:#a5d6a7;font-weight:800;">✓ ' + correct + '</span>' +
+        '</div>';
+      }).join('');
+    } catch(e) {
+      var el2 = document.getElementById('dq-inline-lb-rows');
+      if (el2) el2.innerHTML = '<span style="opacity:.6;">Rangliste lädt nicht — versuche „Volle Rangliste".</span>';
+    }
+  })();
 
   // Wenn Server-Erklärung bereits da → KI-Button deaktivieren
   if (prefilledExpl) {
@@ -18739,12 +18771,22 @@ async function callAI(messages, systemPrompt, maxTokens, opts){
   var cfg = getApiConfig();
   // v24.22: Wenn kein Key da ist aber User eingeloggt → on-demand Pull versuchen
   // (Verhindert Race beim Boot wenn callAI VOR sync abläuft)
+  // v26.82: Bis zu 3 Retry-Versuche mit short-backoff (statt nur 1) — bei Race-Conditions oder kurzem Token-Drop
   if (!cfg.key && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof gsPullGlobalApiKey === 'function') {
-    try { await gsPullGlobalApiKey(); cfg = getApiConfig(); } catch(_){}
+    for (var tryI = 0; tryI < 3; tryI++) {
+      try { await gsPullGlobalApiKey(); cfg = getApiConfig(); } catch(_){}
+      if (cfg.key) break;
+      await new Promise(function(r){ setTimeout(r, 350 * (tryI + 1)); });
+    }
   }
   var provider = cfg.provider, key = cfg.key, source = cfg.source;
-  // v24.16: KEY-FEHLER explizit werfen statt null zurück (Auth-Branch sauber triggern)
-  if(!key) throw new Error('🔑 API-Key fehlt — bitte einloggen damit der globale Key geladen wird, oder einen eigenen Anthropic-Key in „Einstellungen → KI & Scanner" eintragen.');
+  // v26.82: Klarere Fehler-Meldung — Personal-Key admin-only (v26.67), Global-Key wird via Login geholt.
+  if(!key) {
+    var loggedIn = (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn());
+    throw new Error(loggedIn
+      ? '🔑 KI temporär nicht verfügbar — bitte kurz aus- und wieder einloggen (lädt den Key neu) oder in 1-2 Min nochmal versuchen.'
+      : '🔑 Bitte zuerst einloggen — dann ist die KI direkt nutzbar (kein eigener Key nötig).');
+  }
   // v24.22: ABO-GATE — bei globalem Key + Free-User → tägliches Limit prüfen
   if (source === 'global' && typeof gsAboCanUse === 'function' && !gsAboCanUse('ai_call')) {
     var q = (typeof gsAboGetAIQuota === 'function') ? gsAboGetAIQuota() : null;
@@ -43147,14 +43189,13 @@ async function gsPPrun(opts) {
     }
 
     if (!resp) {
-      // v23.76: Klare Fehlermeldung — was tun?
+      // v26.82: Bei null-Response → neutraler Toast statt "API-Key fehlt" (Global-Key ist da).
       loader.style.display = 'none';
       res.style.display = 'block';
       res.innerHTML = '<div style="background:#fff3e0;border:2px solid #ff9800;border-radius:12px;padding:18px;color:#e65100;">' +
         '<div style="font-size:15px;font-weight:800;margin-bottom:8px;">⚠️ Plan konnte nicht generiert werden</div>' +
-        '<div style="font-size:12.5px;color:#5d4037;line-height:1.6;margin-bottom:12px;">Wahrscheinliche Ursache: Anthropic-API-Key fehlt oder ist ungültig. Der Plan braucht einen aktiven KI-Zugang.</div>' +
-        '<button onclick="closeModal(\'modal-planner-pro\');setTimeout(openApiKey,200)" style="display:block;width:100%;padding:11px;background:linear-gradient(135deg,#1565c0,#0d47a1);color:#fff;border:none;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;margin-bottom:6px;">🔑 API-Key eintragen</button>' +
-        '<button onclick="gsPPrun()" style="display:block;width:100%;padding:11px;background:#fff;border:1.5px solid #ff9800;color:#e65100;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">🔄 Erneut versuchen</button>' +
+        '<div style="font-size:12.5px;color:#5d4037;line-height:1.6;margin-bottom:12px;">Die KI hat keine Antwort zurückgegeben. Mögliche Ursachen: Netzwerk-Problem, KI-Anbieter überlastet, oder Tageslimit erreicht (Free-Plan: 15/Tag).</div>' +
+        '<button onclick="gsPPrun()" style="display:block;width:100%;padding:11px;background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border:none;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;margin-bottom:6px;">🔄 Erneut versuchen</button>' +
       '</div>';
       actions.classList.remove('hidden');
       return;
@@ -43313,20 +43354,24 @@ async function gsPPrun(opts) {
     var msg = (e && e.message) ? e.message : 'Unbekannter Fehler';
     var stackTrace = (e && e.stack) ? String(e.stack).slice(0, 400) : '';
     var isTimeout = /Zeitüberschreitung|timeout|aborted/i.test(msg);
-    var isAuth    = /API.?Key|🔑|401|403/i.test(msg);
-    var isRate    = /Rate.?Limit|429|überlastet|busy/i.test(msg);
+    // v26.82 BUG-FIX: Quota-Check ZUERST (alter Code fing es als isAuth weil "Anthropic-Key"-Erwähnung in der Quota-Message).
+    var isQuota   = /Tageslimit erreicht|free_quota_reached|🚫|Quota|Limit erreicht/i.test(msg) || (e && e.code === 'free_quota_reached');
+    var isAuth    = !isQuota && /^🔑|API-Key fehlt|401|403|Unauthorized|invalid.*key/i.test(msg);
+    var isRate    = !isQuota && /Rate.?Limit|429|überlastet|busy/i.test(msg);
     var isNet     = /Failed to fetch|NetworkError|network|cors|TypeError.*fetch/i.test(msg);
     var isParse   = /JSON|parse|unexpected token/i.test(msg);
     var isRef     = /not defined|is not a function|undefined/i.test(msg);
-    var icon      = isTimeout ? '⏱️' : isAuth ? '🔑' : isRate ? '🚦' : isNet ? '📡' : isParse ? '🧩' : isRef ? '🐛' : '⚠️';
-    var hint      = isTimeout
+    var icon      = isQuota ? '🚫' : isTimeout ? '⏱️' : isAuth ? '🔑' : isRate ? '🚦' : isNet ? '📡' : isParse ? '🧩' : isRef ? '🐛' : '⚠️';
+    var hint      = isQuota
+      ? 'Tageslimit erreicht — Free-Plan: 15 KI-Aufrufe pro Tag. Mit Plus oder Pro: unbegrenzt. Upgrade in den Einstellungen → Abo & Premium.'
+      : isTimeout
       ? 'Die KI antwortet aktuell sehr langsam (>3 Min). Versuche es mit einem kompakten Plan — der ist schneller fertig.'
       : isAuth
-      ? 'Anthropic-API-Key fehlt oder ist abgelaufen. Bitte oben rechts einen gültigen Key eintragen.'
+      ? 'KI temporär nicht verfügbar — falls du gerade eingeloggt bist, kurz aus- und wieder einloggen (lädt den Key neu). Sonst in 1-2 Min nochmal.'
       : isRate
       ? 'Die KI ist gerade überlastet. Bitte 1-2 Minuten warten und erneut versuchen.'
       : isNet
-      ? 'Netzwerk-Fehler — keine Verbindung zur KI. Mögliche Ursachen: (1) API-Key fehlt oder ist ungültig, (2) Internet weg, (3) Browser-Extension (z.B. uBlock) blockt api.anthropic.com, (4) KI-Anbieter offline. Nutze „Verbindung testen" unten.'
+      ? 'Netzwerk-Fehler — keine Verbindung zur KI. Mögliche Ursachen: (1) Internet weg, (2) Browser-Extension (z.B. uBlock) blockt api.anthropic.com, (3) KI-Anbieter offline. Nutze „Verbindung testen" unten.'
       : isParse
       ? 'Die KI-Antwort konnte nicht gelesen werden (JSON-Parse-Fehler). Bitte erneut versuchen.'
       : isRef
@@ -43335,7 +43380,9 @@ async function gsPPrun(opts) {
     // v24.04: Bei Timeout zusätzlich „Kompakter Plan"-Button → kleinerer Schema, schneller
     var compactBtn = isTimeout ? '<button onclick="gsPPrun({compact:true})" style="display:block;width:100%;padding:13px;background:linear-gradient(135deg,#1565c0,#0d47a1);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:8px;">⚡ Kompakten Plan generieren (~25 s)</button>' : '';
     var retryBtn = '<button onclick="gsPPrun()" style="display:block;width:100%;padding:13px;background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:8px;">🔄 Erneut versuchen</button>';
-    var keyBtn = (isAuth || isNet) ? '<button onclick="closeModal(\'modal-planner-pro\');setTimeout(openApiKey,200)" style="display:block;width:100%;padding:11px;background:#1565c0;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;margin-bottom:8px;">🔑 API-Key prüfen / eintragen</button>' : '';
+    // v26.82: bei Quota → Abo-Upgrade-Button, bei Auth/Net → Connection-Test. Keinen "API-Key eintragen"-Button mehr (Personal-Key admin-only seit v26.67).
+    var upgradeBtn = isQuota ? '<button onclick="closeModal(\'modal-planner-pro\');if(typeof gsShowAboScreen===\'function\')setTimeout(gsShowAboScreen,200)" style="display:block;width:100%;padding:13px;background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:8px;">🌟 Upgrade auf Plus/Pro — keine Limits</button>' : '';
+    var keyBtn = '';
     // v24.16: Connection-Test-Button bei Netzwerk-Fehler
     var testBtn = isNet ? '<button onclick="gsPPTestConnection(this)" style="display:block;width:100%;padding:11px;background:#4527a0;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;margin-bottom:8px;">📡 Verbindung testen</button>' : '';
     // v24.15: Details-Block mit echter Fehlermeldung (collapsed, für Diagnose)
@@ -43349,7 +43396,7 @@ async function gsPPrun(opts) {
         '<div style="font-size:48px;margin-bottom:8px;">' + icon + '</div>' +
         '<div style="font-size:15.5px;font-weight:800;color:#e65100;margin-bottom:8px;">Plan konnte nicht erstellt werden</div>' +
         '<div style="font-size:12.5px;color:#5d4037;line-height:1.6;margin-bottom:14px;">' + (escHtml ? escHtml(hint) : hint) + '</div>' +
-        keyBtn + testBtn + compactBtn + retryBtn +
+        upgradeBtn + keyBtn + testBtn + compactBtn + retryBtn +
         '<button onclick="gsPPgoStep(4)" style="display:block;width:100%;padding:11px;background:transparent;border:1.5px solid #ff9800;color:#e65100;border-radius:10px;font-weight:700;font-size:12.5px;cursor:pointer;font-family:inherit;">↩︎ Zurück zu den Eingaben</button>' +
         detailsBlock +
       '</div>';
@@ -54784,7 +54831,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.81';
+var GS_VERSION = 'v26.82';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
