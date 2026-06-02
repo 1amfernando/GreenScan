@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.98.20260602">
+<meta name="app-version" content="26.99.20260602">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -46286,6 +46286,20 @@ async function gsRunGardenScan(photos, metadata, opts) {
     }
   } catch(_){}
 
+  // v26.99 v3: Multi-Year + Klima-Szenario + Constraints + Simulation (opts override > State > default)
+  try {
+    var _st = window._gsGardenScan || {};
+    var _hz = (opts.planning_horizon_years != null) ? opts.planning_horizon_years : (_st.planning_horizon_years || 1);
+    _hz = parseInt(_hz, 10); if (!(_hz >= 1 && _hz <= 3)) _hz = 1;
+    body.planning_horizon_years = _hz;
+    var _cs = opts.climate_scenario || _st.climate_scenario || 'baseline';
+    body.climate_scenario = (['baseline','warmer_drier','wetter_summer'].indexOf(_cs) >= 0) ? _cs : 'baseline';
+    var _sm = opts.simulation_mode || _st.simulation_mode || 'realistic';
+    body.simulation_mode = (['realistic','optimistic','pessimistic'].indexOf(_sm) >= 0) ? _sm : 'realistic';
+    body.constraints = (opts.constraints && typeof opts.constraints === 'object') ? opts.constraints
+                      : (_st.constraints && typeof _st.constraints === 'object') ? _st.constraints : {};
+  } catch(_){ body.planning_horizon_years = body.planning_horizon_years || 1; }
+
   try {
     var resp = await (window._gsFetch || fetch)(base + '/functions/v1/garden-scan-analyze', {
       method: 'POST',
@@ -46313,7 +46327,10 @@ function gsOpenGardenScan() {
     return;
   }
   // State zurücksetzen für neuen Scan
-  window._gsGardenScan = { photos: [null, null, null], metadata: {}, busy: false, plan_id: null, analysis: null };
+  // v26.99 v3: Multi-Year (1-3 J) + Klima-Szenario + Constraints + Was-Wenn-State
+  window._gsGardenScan = { photos: [null, null, null], metadata: {}, busy: false, plan_id: null, analysis: null,
+    planning_horizon_years: 1, climate_scenario: 'baseline', simulation_mode: 'realistic', constraints: {},
+    planYear: 1, whatIfOpen: false, whatIf: null, whatIfBusy: false };
   // GPS optional vorbefüllen
   try {
     var loc = gsStore.getJSON ? gsStore.getJSON('gs_user_location', null) : null;
@@ -46378,6 +46395,41 @@ function gsBuildGardenScanWizard() {
     (intent === 'container' ? '<div style="margin-top:6px;padding:8px 11px;background:#e3f2fd;border-left:3px solid #1565c0;border-radius:6px;font-size:11.5px;color:#01579b;line-height:1.55;">🪴 <b>Balkon-Wizard:</b> Wähle Größe + Orientierung — wir matchen passende Designs aus 16 Schweizer Stadtbalkon-Vorlagen.<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><input id="gs-balcony-size" type="number" min="1" max="30" step="0.5" value="' + (s.metadata.balcony_size_m2 != null ? s.metadata.balcony_size_m2 : '') + '" placeholder="m²" style="width:65px;padding:4px 7px;border:1.5px solid #90caf9;border-radius:6px;font-size:11.5px;font-family:inherit;background:#fff;color:#01579b;font-weight:700;" onchange="gsBalconyWizardChanged()"><span style="font-size:11px;color:#01579b;">m²</span><select id="gs-balcony-orientation" style="padding:4px 7px;border:1.5px solid #90caf9;border-radius:6px;font-size:11px;font-family:inherit;background:#fff;color:#01579b;font-weight:700;" onchange="gsBalconyWizardChanged()"><option value="">— Richtung —</option><option value="sued"' + (s.metadata.balcony_orientation === 'sued' ? ' selected' : '') + '>☀ Süd</option><option value="suedost"' + (s.metadata.balcony_orientation === 'suedost' ? ' selected' : '') + '>🌅 Süd-Ost</option><option value="suedwest"' + (s.metadata.balcony_orientation === 'suedwest' ? ' selected' : '') + '>🌇 Süd-West</option><option value="ost"' + (s.metadata.balcony_orientation === 'ost' ? ' selected' : '') + '>🌅 Ost</option><option value="west"' + (s.metadata.balcony_orientation === 'west' ? ' selected' : '') + '>🌇 West</option><option value="nord"' + (s.metadata.balcony_orientation === 'nord' ? ' selected' : '') + '>🌫 Nord</option><option value="geschlossen_wintergarten"' + (s.metadata.balcony_orientation === 'geschlossen_wintergarten' ? ' selected' : '') + '>🏠 Wintergarten</option></select><button onclick="gsBalconyWizardSearch()" style="padding:5px 11px;background:#1565c0;color:#fff;border:none;border-radius:6px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🔍 Vorlagen</button></div><div id="gs-balcony-results" style="margin-top:8px;"></div></div>' : '') +
   '</div>';
 
+  // v26.99 v3: „Wie ambitioniert?" — Horizont + Klima-Szenario + Constraints
+  var horizon = s.planning_horizon_years || 1;
+  var climate = s.climate_scenario || 'baseline';
+  var sim = s.simulation_mode || 'realistic';
+  var cons = s.constraints || {};
+  var expLvl = cons.experience_level || '';
+  function _gsSeg(opts, active, fn, cols){
+    return '<div style="display:grid;grid-template-columns:repeat(' + (cols||opts.length) + ',1fr);gap:6px;">' +
+      opts.map(function(o){
+        var on = String(active) === String(o.v);
+        return '<button type="button" onclick="' + fn + '(' + (typeof o.v === 'number' ? o.v : '\'' + o.v + '\'') + ')" style="padding:8px 6px;background:' + (on?'#2e7d32':'var(--card)') + ';color:' + (on?'#fff':'var(--text)') + ';border:1.5px solid ' + (on?'#2e7d32':'var(--border)') + ';border-radius:9px;font-size:11px;font-weight:' + (on?'800':'700') + ';cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;line-height:1.25;">' + (o.e ? o.e + ' ' : '') + o.l + '</button>';
+      }).join('') + '</div>';
+  }
+  var horizonSeg = _gsSeg([{v:1,l:'1 Jahr'},{v:2,l:'2 Jahre'},{v:3,l:'3 Jahre'}], horizon, 'gsGSSetHorizon', 3);
+  var climateSeg = _gsSeg([{v:'baseline',e:'🌡',l:'Heute'},{v:'warmer_drier',e:'🔥',l:'Wärmer/Trockener'},{v:'wetter_summer',e:'🌧',l:'Feuchtere Sommer'}], climate, 'gsGSSetClimate', 3);
+  var expSeg = _gsSeg([{v:'anfaenger',e:'🌱',l:'Anfänger'},{v:'fortgeschritten',e:'🌿',l:'Fortgeschr.'},{v:'profi',e:'🌳',l:'Profi'}], expLvl, 'gsGSSetExperience', 3);
+  var simSeg = horizon > 1 ? _gsSeg([{v:'realistic',l:'Realistisch'},{v:'optimistic',l:'Optimistisch'},{v:'pessimistic',l:'Pessimistisch'}], sim, 'gsGSSetSimMode', 3) : '';
+  var ambitionsHtml = '<div style="margin-top:14px;border:1.5px solid var(--border);border-radius:12px;padding:12px;background:var(--bg);">' +
+    '<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">🎯 Wie ambitioniert?</div>' +
+    '<div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:5px;">📅 Planungs-Horizont</div>' + horizonSeg +
+    '<div style="font-size:11px;font-weight:700;color:var(--text);margin:10px 0 5px;">🌍 Klima-Szenario</div>' + climateSeg +
+    (climate !== 'baseline' ? '<div style="margin-top:6px;padding:6px 9px;background:#fff8e1;border-left:3px solid #f9a825;border-radius:6px;font-size:10.5px;color:#827717;line-height:1.45;">KI passt Sorten + Timing an dieses Klima an (Schweizer CH2018-Szenarien).</div>' : '') +
+    (simSeg ? '<div style="font-size:11px;font-weight:700;color:var(--text);margin:10px 0 5px;">🎲 Simulation</div>' + simSeg : '') +
+    '<div style="font-size:11px;font-weight:700;color:var(--text);margin:10px 0 5px;">🧑‍🌾 Erfahrung</div>' + expSeg +
+    '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">' +
+      '<div style="flex:1;min-width:120px;"><label style="font-size:10.5px;font-weight:700;color:var(--muted);display:block;margin-bottom:3px;">💰 Budget CHF/Jahr</label><input id="gs-c-budget" type="number" min="0" step="10" value="' + (cons.budget_chf_per_year != null ? cons.budget_chf_per_year : '') + '" placeholder="z.B. 150" onchange="gsGSConstraintChanged()" style="width:100%;padding:7px 9px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit;background:var(--card);color:var(--text);box-sizing:border-box;"></div>' +
+      '<div style="flex:1;min-width:120px;"><label style="font-size:10.5px;font-weight:700;color:var(--muted);display:block;margin-bottom:3px;">⏱ Pflege h/Woche</label><input id="gs-c-care" type="number" min="0" step="0.5" value="' + (cons.care_hours_per_week != null ? cons.care_hours_per_week : '') + '" placeholder="z.B. 3" onchange="gsGSConstraintChanged()" style="width:100%;padding:7px 9px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit;background:var(--card);color:var(--text);box-sizing:border-box;"></div>' +
+    '</div>' +
+    '<div style="display:flex;flex-direction:column;gap:7px;margin-top:11px;">' +
+      '<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text);cursor:pointer;"><input id="gs-c-perm" type="checkbox"' + (cons.permaculture_principles ? ' checked' : '') + ' onchange="gsGSConstraintChanged()" style="width:17px;height:17px;accent-color:#2e7d32;">🌳 Permakultur-Prinzipien</label>' +
+      '<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text);cursor:pointer;"><input id="gs-c-kids" type="checkbox"' + (cons.pets_or_kids ? ' checked' : '') + ' onchange="gsGSConstraintChanged()" style="width:17px;height:17px;accent-color:#2e7d32;">🧒🐕 Kinder/Haustiere — nur giftfreie Pflanzen</label>' +
+      '<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text);cursor:pointer;"><input id="gs-c-org" type="checkbox"' + (cons.organic_only ? ' checked' : '') + ' onchange="gsGSConstraintChanged()" style="width:17px;height:17px;accent-color:#2e7d32;">🌿 Nur biologische Methoden</label>' +
+    '</div>' +
+  '</div>';
+
   var gpsBlock = s.metadata && s.metadata.gps
     ? '<div style="font-size:11.5px;color:var(--muted);text-align:center;margin-top:6px;">📍 GPS: ' + (s.metadata.gps.lat||0).toFixed(4) + ', ' + (s.metadata.gps.lng||0).toFixed(4) + '</div>'
     : '<button onclick="gsGardenScanGPS()" style="width:100%;padding:9px;background:transparent;border:1px dashed var(--border);color:var(--muted);border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:6px;">📍 GPS hinzufügen (optional, für Klimazone)</button>';
@@ -46394,6 +46446,7 @@ function gsBuildGardenScanWizard() {
     '<div style="padding:14px;">' +
       '<div style="display:grid;grid-template-columns:1fr;gap:10px;">' + slotsHtml + '</div>' +
       intentHtml +
+      ambitionsHtml +
       gpsBlock +
       busyBlock +
       '<button onclick="gsGardenScanSubmit()"' + (canSubmit ? '' : ' disabled') + ' style="width:100%;margin-top:14px;padding:14px;background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:' + (canSubmit?'pointer':'not-allowed') + ';font-family:inherit;opacity:' + (canSubmit?'1':'0.5') + ';">✨ Plan generieren (' + photoCount + ' Foto' + (photoCount===1?'':'s') + ')</button>' +
@@ -46442,6 +46495,25 @@ function gsGardenScanSetIntent(intent) {
   _gsGardenScanRefresh();
 }
 window.gsGardenScanSetIntent = gsGardenScanSetIntent;
+
+// ── v26.99 Garten-Planer v3: Ambitions-Setter (Horizont/Klima/Sim/Erfahrung/Constraints) ──
+function gsGSSetHorizon(n){ var s=window._gsGardenScan; if(!s)return; var v=parseInt(n,10); s.planning_horizon_years=(v>=1&&v<=3)?v:1; _gsGardenScanRefresh(); }
+function gsGSSetClimate(v){ var s=window._gsGardenScan; if(!s)return; s.climate_scenario=(['baseline','warmer_drier','wetter_summer'].indexOf(v)>=0)?v:'baseline'; _gsGardenScanRefresh(); }
+function gsGSSetSimMode(v){ var s=window._gsGardenScan; if(!s)return; s.simulation_mode=(['realistic','optimistic','pessimistic'].indexOf(v)>=0)?v:'realistic'; _gsGardenScanRefresh(); }
+function gsGSSetExperience(v){ var s=window._gsGardenScan; if(!s)return; if(!s.constraints)s.constraints={}; s.constraints.experience_level=v; _gsGardenScanRefresh(); }
+// onchange-Reader (kein Refresh → Input-Fokus bleibt; Werte landen direkt im State)
+function gsGSConstraintChanged(){
+  var s=window._gsGardenScan; if(!s)return; if(!s.constraints)s.constraints={};
+  var b=document.getElementById('gs-c-budget'), h=document.getElementById('gs-c-care');
+  var perm=document.getElementById('gs-c-perm'), kids=document.getElementById('gs-c-kids'), org=document.getElementById('gs-c-org');
+  if(b){ var bv=parseFloat(b.value); if(isFinite(bv)&&bv>0) s.constraints.budget_chf_per_year=Math.round(bv); else delete s.constraints.budget_chf_per_year; }
+  if(h){ var hv=parseFloat(h.value); if(isFinite(hv)&&hv>0) s.constraints.care_hours_per_week=Math.round(hv*10)/10; else delete s.constraints.care_hours_per_week; }
+  if(perm){ if(perm.checked) s.constraints.permaculture_principles=true; else delete s.constraints.permaculture_principles; }
+  if(kids){ if(kids.checked) s.constraints.pets_or_kids=true; else delete s.constraints.pets_or_kids; }
+  if(org){ if(org.checked) s.constraints.organic_only=true; else delete s.constraints.organic_only; }
+}
+window.gsGSSetHorizon=gsGSSetHorizon; window.gsGSSetClimate=gsGSSetClimate; window.gsGSSetSimMode=gsGSSetSimMode;
+window.gsGSSetExperience=gsGSSetExperience; window.gsGSConstraintChanged=gsGSConstraintChanged;
 
 // ═════════════════════════════════════════════════════════════════════
 // v26.46 URBAN-BALKON-WIZARD (urban_balcony_design, DB-Wave-13)
@@ -48201,6 +48273,7 @@ function gsBuildPlanTabsWrap(analysis, activeTab){
   var rp = analysis.recommended_plants || [];
   var tabs = [
     { id:'overview', label:'📋 Übersicht', show:true },
+    { id:'years', label:'📆 Mehrjahres', show: (Array.isArray(analysis.yearly_outputs) && analysis.yearly_outputs.length > 0) || !!analysis.multi_year_strategy || (Array.isArray(analysis.risks) && analysis.risks.length > 0) },
     { id:'plants', label:'🌱 Pflanzen', show: rp.length > 0 },
     { id:'calendar', label:'📅 Kalender', show: Array.isArray(analysis.weekly_calendar) && analysis.weekly_calendar.some(function(w){ return w && Array.isArray(w.actions) && w.actions.length; }) },
     { id:'rotation', label:'🔄 Fruchtfolge', show: !!analysis.crop_rotation_4_year && ['year_1','year_2','year_3','year_4'].some(function(k){ return Array.isArray(analysis.crop_rotation_4_year[k]) && analysis.crop_rotation_4_year[k].length; }) },
@@ -48211,7 +48284,7 @@ function gsBuildPlanTabsWrap(analysis, activeTab){
   if (ids.indexOf(activeTab) < 0) activeTab = 'overview';
   var bar = '<div style="display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:2px 0 8px;margin-bottom:4px;">' +
     tabs.map(function(t){ var on = (t.id === activeTab); return '<button onclick="gsGSPlanTab(\'' + t.id + '\')" style="flex:0 0 auto;padding:7px 13px;border-radius:18px;border:1.5px solid ' + (on?'#1b5e20':'var(--border)') + ';background:' + (on?'#1b5e20':'var(--card)') + ';color:' + (on?'#fff':'var(--text)') + ';font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;-webkit-tap-highlight-color:transparent;">' + t.label + '</button>'; }).join('') + '</div>';
-  var builders = { overview:gsBuildPlanOverview, plants:gsBuildPlanPlants, calendar:gsBuildPlanCalendar, rotation:gsBuildPlanRotation, lunar:gsBuildPlanLunar, water:gsBuildPlanWater };
+  var builders = { overview:gsBuildPlanOverview, years:gsBuildPlanYears, plants:gsBuildPlanPlants, calendar:gsBuildPlanCalendar, rotation:gsBuildPlanRotation, lunar:gsBuildPlanLunar, water:gsBuildPlanWater };
   var content = '';
   try { content = (builders[activeTab] || gsBuildPlanOverview)(analysis); }
   catch(e){ content = '<div style="padding:16px;color:#c62828;font-size:12px;">Anzeige-Fehler: ' + _gsPlanEsc(e && e.message) + '</div>'; }
@@ -48226,6 +48299,169 @@ function gsGSPlanTab(tab){
   if (typeof gsHaptic === 'function') { try { gsHaptic('light'); } catch(_){} }
 }
 window.gsGSPlanTab = gsGSPlanTab;
+
+// ════════════════════════════════════════════════════════════════════
+// v26.99 Garten-Planer v3 — Tab „📆 Mehrjahres": yearly_outputs Jahr-Sub-Tabs
+// + multi_year_strategy + risks + simulated_yield_year3_kg + Was-Wenn-Panel.
+// Graceful Degradation: bei 1-Jahres-Plänen wird der Tab gar nicht angezeigt.
+// ════════════════════════════════════════════════════════════════════
+function _gsResilienceBar(score){
+  var v = Number(score); if (!isFinite(v)) return '';
+  v = Math.max(0, Math.min(100, v));
+  var col = v >= 70 ? '#2e7d32' : (v >= 40 ? '#f9a825' : '#e64a19');
+  return '<div style="margin-top:8px;"><div style="display:flex;justify-content:space-between;font-size:10.5px;font-weight:700;color:var(--muted);margin-bottom:3px;"><span>🛡 Klima-Resilienz</span><span style="color:' + col + ';">' + Math.round(v) + '/100</span></div>' +
+    '<div style="height:7px;background:var(--border);border-radius:5px;overflow:hidden;"><div style="height:100%;width:' + v + '%;background:' + col + ';border-radius:5px;"></div></div></div>';
+}
+function gsBuildPlanYears(analysis){
+  var s = window._gsGardenScan || {};
+  var yo = Array.isArray(analysis && analysis.yearly_outputs) ? analysis.yearly_outputs.slice() : [];
+  yo.sort(function(a,b){ return (Number(a&&a.year)||0) - (Number(b&&b.year)||0); });
+  var strat = analysis && analysis.multi_year_strategy;
+  var risks = Array.isArray(analysis && analysis.risks) ? analysis.risks : [];
+  var simYield = (analysis && analysis.simulated_yield_year3_kg != null && analysis.simulated_yield_year3_kg !== '') ? (Math.round(Number(analysis.simulated_yield_year3_kg)*10)/10) : null;
+  var out = '<div style="padding:4px 0;">';
+  if (strat) out += '<div style="background:linear-gradient(135deg,#e8f5e9,#f1f8e9);border:1.5px solid #a5d6a7;border-radius:12px;padding:12px 14px;margin-bottom:12px;"><div style="font-size:13px;font-weight:800;color:#1b5e20;margin-bottom:5px;">📆 Mehrjahres-Strategie</div><div style="font-size:12.5px;color:#2e4d2e;line-height:1.55;">' + _gsPlanEsc(strat) + '</div></div>';
+  if (simYield != null) out += '<div style="display:flex;gap:8px;margin-bottom:12px;"><div style="flex:1;background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:12px 10px;text-align:center;"><div style="font-size:20px;">🌾</div><div style="font-size:18px;font-weight:900;color:#2e7d32;line-height:1.1;margin-top:2px;">' + simYield + '<span style="font-size:11px;font-weight:700;color:var(--muted);"> kg</span></div><div style="font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-top:2px;">Ertrag letztes Planjahr</div></div></div>';
+
+  if (yo.length){
+    var activeYear = s.planYear || (yo[0] && yo[0].year) || 1;
+    if (!yo.some(function(y){ return Number(y.year) === Number(activeYear); })) activeYear = Number(yo[0].year) || 1;
+    var subbar = '<div style="display:flex;gap:6px;margin-bottom:10px;">' + yo.map(function(y){
+      var yr = Number(y.year) || 1, on = (yr === Number(activeYear));
+      return '<button onclick="gsGSPlanYear(' + yr + ')" style="flex:1;padding:8px 4px;border-radius:9px;border:1.5px solid ' + (on?'#1b5e20':'var(--border)') + ';background:' + (on?'#1b5e20':'var(--card)') + ';color:' + (on?'#fff':'var(--text)') + ';font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">Jahr ' + yr + '</button>';
+    }).join('') + '</div>';
+    var cur = yo.filter(function(y){ return Number(y.year) === Number(activeYear); })[0] || yo[0];
+    var card = '<div style="background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:13px;">';
+    if (cur.yearly_highlight) card += '<div style="font-size:13px;font-weight:800;color:var(--text);line-height:1.45;margin-bottom:10px;">✨ ' + _gsPlanEsc(cur.yearly_highlight) + '</div>';
+    var miniStats = [];
+    if (cur.yield_kg != null && cur.yield_kg !== '') miniStats.push(['🥗', (Math.round(Number(cur.yield_kg)*10)/10), 'kg Ertrag']);
+    if (cur.estimated_budget_chf != null && cur.estimated_budget_chf !== '') miniStats.push(['💰', 'CHF ' + Math.round(Number(cur.estimated_budget_chf)), 'Budget']);
+    if (cur.estimated_care_hours_per_week != null && cur.estimated_care_hours_per_week !== '') miniStats.push(['⏱', (Math.round(Number(cur.estimated_care_hours_per_week)*10)/10), 'h/Woche']);
+    if (miniStats.length) card += '<div style="display:flex;gap:8px;flex-wrap:wrap;">' + miniStats.map(function(m){ return '<div style="flex:1;min-width:80px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:9px 8px;text-align:center;"><div style="font-size:16px;">' + m[0] + '</div><div style="font-size:14px;font-weight:900;color:#2e7d32;line-height:1.1;margin-top:1px;">' + m[1] + '</div><div style="font-size:9.5px;color:var(--muted);font-weight:700;margin-top:1px;">' + m[2] + '</div></div>'; }).join('') + '</div>';
+    if (cur.climate_resilience_score != null && cur.climate_resilience_score !== '') card += _gsResilienceBar(cur.climate_resilience_score);
+    if (Array.isArray(cur.plants) && cur.plants.length) card += '<div style="margin-top:10px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">🌿 Pflanzen Jahr ' + (Number(cur.year)||activeYear) + '</div><div style="font-size:12px;color:var(--text);line-height:1.55;">' + cur.plants.map(_gsPlanEsc).join(' · ') + '</div>';
+    card += '</div>';
+    out += subbar + card;
+  }
+
+  if (risks.length) out += '<div style="background:#fff3e0;border:1.5px solid #f57c00;border-radius:10px;padding:10px 12px;margin-top:12px;"><strong style="color:#e65100;font-size:12.5px;">⚠️ Mehrjahres-Risiken</strong><ul style="margin:6px 0 0;padding-left:20px;font-size:12px;line-height:1.5;color:#5d4037;">' + risks.map(function(r){ return '<li>' + _gsPlanEsc(r) + '</li>'; }).join('') + '</ul></div>';
+
+  // ── Was-Wenn-Panel ──
+  out += gsBuildWhatIfPanel();
+  out += '</div>';
+  return out;
+}
+
+function gsGSPlanYear(n){
+  var s = window._gsGardenScan || {};
+  s.planYear = parseInt(n, 10) || 1;
+  var wrap = document.getElementById('gs-plan-tabs-wrap');
+  if (wrap) wrap.innerHTML = gsBuildPlanTabsWrap(s.analysis || {}, 'years');
+  if (typeof gsHaptic === 'function') { try { gsHaptic('light'); } catch(_){} }
+}
+window.gsGSPlanYear = gsGSPlanYear;
+
+function _gsRenderYearsTab(){
+  var s = window._gsGardenScan || {};
+  var wrap = document.getElementById('gs-plan-tabs-wrap');
+  if (wrap) wrap.innerHTML = gsBuildPlanTabsWrap(s.analysis || {}, 'years');
+}
+
+// „🔄 Was wenn…" — re-runt den Planer mit geänderten Constraints (ohne neuen Plan zu speichern)
+// und zeigt einen kompakten Vorher/Nachher-Vergleich.
+function gsBuildWhatIfPanel(){
+  var s = window._gsGardenScan || {};
+  var cons = s.constraints || {};
+  var wrap = '<div style="margin-top:14px;border:1.5px dashed var(--border);border-radius:12px;padding:12px;">';
+  wrap += '<button onclick="gsGSWhatIfToggle()" style="width:100%;padding:10px;background:' + (s.whatIfOpen?'#1b5e20':'var(--card)') + ';color:' + (s.whatIfOpen?'#fff':'var(--text)') + ';border:1.5px solid ' + (s.whatIfOpen?'#1b5e20':'var(--border)') + ';border-radius:10px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🔄 Was wenn… (Szenario durchspielen)</button>';
+  if (s.whatIfOpen){
+    var climate = (s.whatIf && s.whatIf.climate_scenario) || s.climate_scenario || 'baseline';
+    var sim = (s.whatIf && s.whatIf.simulation_mode) || s.simulation_mode || 'realistic';
+    wrap += '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">' +
+      '<div style="flex:1;min-width:110px;"><label style="font-size:10.5px;font-weight:700;color:var(--muted);display:block;margin-bottom:3px;">💰 Budget CHF/J</label><input id="gs-wi-budget" type="number" min="0" step="10" value="' + (cons.budget_chf_per_year != null ? cons.budget_chf_per_year : '') + '" style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit;background:var(--card);color:var(--text);box-sizing:border-box;"></div>' +
+      '<div style="flex:1;min-width:110px;"><label style="font-size:10.5px;font-weight:700;color:var(--muted);display:block;margin-bottom:3px;">⏱ Pflege h/W</label><input id="gs-wi-care" type="number" min="0" step="0.5" value="' + (cons.care_hours_per_week != null ? cons.care_hours_per_week : '') + '" style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit;background:var(--card);color:var(--text);box-sizing:border-box;"></div>' +
+    '</div>';
+    wrap += '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">' +
+      '<div style="flex:1;min-width:130px;"><label style="font-size:10.5px;font-weight:700;color:var(--muted);display:block;margin-bottom:3px;">🌍 Klima</label><select id="gs-wi-climate" style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit;background:var(--card);color:var(--text);box-sizing:border-box;"><option value="baseline"' + (climate==='baseline'?' selected':'') + '>🌡 Heute</option><option value="warmer_drier"' + (climate==='warmer_drier'?' selected':'') + '>🔥 Wärmer/Trockener</option><option value="wetter_summer"' + (climate==='wetter_summer'?' selected':'') + '>🌧 Feuchtere Sommer</option></select></div>' +
+      '<div style="flex:1;min-width:130px;"><label style="font-size:10.5px;font-weight:700;color:var(--muted);display:block;margin-bottom:3px;">🎲 Simulation</label><select id="gs-wi-sim" style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit;background:var(--card);color:var(--text);box-sizing:border-box;"><option value="realistic"' + (sim==='realistic'?' selected':'') + '>Realistisch</option><option value="optimistic"' + (sim==='optimistic'?' selected':'') + '>Optimistisch</option><option value="pessimistic"' + (sim==='pessimistic'?' selected':'') + '>Pessimistisch</option></select></div>' +
+    '</div>';
+    wrap += '<button onclick="gsGardenScanWhatIfRun()"' + (s.whatIfBusy?' disabled':'') + ' style="width:100%;margin-top:10px;padding:11px;background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border:none;border-radius:10px;font-size:12.5px;font-weight:800;cursor:' + (s.whatIfBusy?'not-allowed':'pointer') + ';font-family:inherit;opacity:' + (s.whatIfBusy?'0.6':'1') + ';">' + (s.whatIfBusy?'⏳ KI berechnet…':'▶ Neu berechnen') + '</button>';
+    if (s.whatIf && s.whatIf.analysis) wrap += gsBuildWhatIfCompare(s.analysis || {}, s.whatIf.analysis);
+  }
+  wrap += '</div>';
+  return wrap;
+}
+function _gsWhatIfNum(a, path){
+  try {
+    if (path === 'yield') { var v = (a && a.simulated_yield_year3_kg != null && a.simulated_yield_year3_kg !== '') ? a.simulated_yield_year3_kg : (a && a.plan_summary && a.plan_summary.yield_estimate_kg_year); return (v != null && v !== '') ? Math.round(Number(v)*10)/10 : null; }
+    if (path === 'effort') { var e = a && a.plan_summary && a.plan_summary.effort_hours_week; return (e != null && e !== '') ? Math.round(Number(e)*10)/10 : null; }
+  } catch(_){}
+  return null;
+}
+function gsBuildWhatIfCompare(orig, mod){
+  function row(label, ov, mv, unit){
+    var delta = (ov != null && mv != null) ? (Math.round((mv-ov)*10)/10) : null;
+    var dCol = delta == null ? 'var(--muted)' : (delta > 0 ? '#2e7d32' : (delta < 0 ? '#e64a19' : 'var(--muted)'));
+    var dTxt = delta == null ? '' : (delta > 0 ? '▲ +' + delta : (delta < 0 ? '▼ ' + delta : '–'));
+    return '<tr><td style="padding:5px 6px;font-size:11.5px;color:var(--text);">' + label + '</td>' +
+      '<td style="padding:5px 6px;font-size:11.5px;text-align:right;color:var(--muted);">' + (ov != null ? ov + ' ' + unit : '–') + '</td>' +
+      '<td style="padding:5px 6px;font-size:11.5px;text-align:right;font-weight:800;color:var(--text);">' + (mv != null ? mv + ' ' + unit : '–') + '</td>' +
+      '<td style="padding:5px 6px;font-size:11px;text-align:right;font-weight:800;color:' + dCol + ';white-space:nowrap;">' + dTxt + '</td></tr>';
+  }
+  var oY = _gsWhatIfNum(orig,'yield'), mY = _gsWhatIfNum(mod,'yield');
+  var oE = _gsWhatIfNum(orig,'effort'), mE = _gsWhatIfNum(mod,'effort');
+  return '<div style="margin-top:12px;background:var(--card);border:1.5px solid var(--border);border-radius:10px;padding:10px 8px;">' +
+    '<div style="font-size:12px;font-weight:800;color:var(--text);margin:0 4px 6px;">📊 Vergleich</div>' +
+    '<table style="width:100%;border-collapse:collapse;"><thead><tr><th style="text-align:left;font-size:10px;color:var(--muted);padding:0 6px 4px;font-weight:700;text-transform:uppercase;"></th><th style="text-align:right;font-size:10px;color:var(--muted);padding:0 6px 4px;font-weight:700;">Original</th><th style="text-align:right;font-size:10px;color:var(--muted);padding:0 6px 4px;font-weight:700;">Was-Wenn</th><th style="text-align:right;font-size:10px;color:var(--muted);padding:0 6px 4px;font-weight:700;">Δ</th></tr></thead><tbody>' +
+    row('🥗 Ertrag', oY, mY, 'kg') +
+    row('⏱ Aufwand', oE, mE, 'h/W') +
+    '</tbody></table>' +
+    '<div style="font-size:10.5px;color:var(--muted);margin-top:6px;padding:0 4px;line-height:1.45;">Was-Wenn-Läufe werden nicht als eigener Plan gespeichert — nur dein Original-Plan bleibt im Garten.</div>' +
+  '</div>';
+}
+function gsGSWhatIfToggle(){
+  var s = window._gsGardenScan; if (!s) return;
+  s.whatIfOpen = !s.whatIfOpen;
+  _gsRenderYearsTab();
+  if (typeof gsHaptic === 'function') { try { gsHaptic('light'); } catch(_){} }
+}
+window.gsGSWhatIfToggle = gsGSWhatIfToggle;
+
+async function gsGardenScanWhatIfRun(){
+  var s = window._gsGardenScan; if (!s || s.whatIfBusy) return;
+  var photoB64s = (s.photos || []).filter(Boolean).map(function(p){ return p.b64; });
+  if (!photoB64s.length){ if (typeof gsToast === 'function') gsToast('Fotos für Neuberechnung fehlen', 'error'); return; }
+  var c = Object.assign({}, s.constraints || {});
+  var b = document.getElementById('gs-wi-budget'), h = document.getElementById('gs-wi-care');
+  if (b){ var bv = parseFloat(b.value); if (isFinite(bv) && bv > 0) c.budget_chf_per_year = Math.round(bv); else delete c.budget_chf_per_year; }
+  if (h){ var hv = parseFloat(h.value); if (isFinite(hv) && hv > 0) c.care_hours_per_week = Math.round(hv*10)/10; else delete c.care_hours_per_week; }
+  var climEl = document.getElementById('gs-wi-climate'), simEl = document.getElementById('gs-wi-sim');
+  var climate = climEl ? climEl.value : (s.climate_scenario || 'baseline');
+  var sim = simEl ? simEl.value : (s.simulation_mode || 'realistic');
+  s.whatIfBusy = true; _gsRenderYearsTab();
+  var res = await gsRunGardenScan(photoB64s, s.metadata, { save_as_plan: false, planning_horizon_years: s.planning_horizon_years || 1, climate_scenario: climate, simulation_mode: sim, constraints: c });
+  s.whatIfBusy = false;
+  if (!res || !res.ok){
+    var em = res && res.error ? (res.error.message || res.error.code || 'Fehler') : 'Keine Antwort';
+    _gsRenderYearsTab();
+    if (typeof gsToast === 'function') gsToast({title:'Was-Wenn fehlgeschlagen', body: em, type:'error', duration: 6000});
+    return;
+  }
+  s.whatIf = { analysis: res.analysis || {}, climate_scenario: climate, simulation_mode: sim, constraints: c };
+  if (typeof gsHaptic === 'function') { try { gsHaptic('success'); } catch(_){} }
+  // best-effort: Was-Wenn-Lauf am Plan persistieren (what_if_runs jsonb-Array, RLS own-only)
+  try {
+    if (s.plan_id && typeof sbFetch === 'function'){
+      var compact = { ts: Date.now(), climate_scenario: climate, simulation_mode: sim, constraints: c, yield_last_kg: _gsWhatIfNum(res.analysis || {}, 'yield') };
+      var curR = await sbFetch('/rest/v1/garden_plans?id=eq.' + encodeURIComponent(s.plan_id) + '&select=what_if_runs', { method: 'GET' });
+      var arr = (curR && curR.data && curR.data[0] && Array.isArray(curR.data[0].what_if_runs)) ? curR.data[0].what_if_runs : [];
+      arr.push(compact); if (arr.length > 20) arr = arr.slice(-20);
+      await sbFetch('/rest/v1/garden_plans?id=eq.' + encodeURIComponent(s.plan_id), { method: 'PATCH', headers: { 'Prefer': 'return=minimal' }, body: JSON.stringify({ what_if_runs: arr }) });
+    }
+  } catch(_){}
+  _gsRenderYearsTab();
+}
+window.gsGardenScanWhatIfRun = gsGardenScanWhatIfRun;
 
 // ── v25.14 Sub-Task 1.5: Chat-Iteration via plan-iterate Edge-Fn ─────
 // 5-Iterations-Limit pro Plan (Backend enforced). Persistiert iteration_count
@@ -53670,6 +53906,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.99', date: '02.06.2026',
+    headline: '🗓️ Garten-Planer v3: 3-Jahres-Plan, klima-adaptiv & „Was-wäre-wenn"',
+    summary: 'Der Garten-Planer denkt jetzt mehrjährig und klima-bewusst. Im Planer legst du in den neuen „🎯 Ambitionen" fest, ob du für 1, 2 oder 3 Jahre planst, welches Schweizer Klima-Szenario (Referenz · wärmer & trockener · feuchtere Sommer) zugrunde liegt und welche Rahmenbedingungen gelten — Budget pro Jahr, Pflege-Stunden pro Woche, Erfahrungsstufe, Bio-only, Permakultur, Haustiere/Kinder. Bei Mehrjahres-Plänen erscheint ein neuer Tab „📆 Mehrjahres" mit Jahres-Reitern, einer Klima-Resilienz-Bewertung, Ernte-Schätzung und einer Mehrjahres-Strategie inkl. Risiken. Mit „🔮 Was-wäre-wenn" rechnest du dieselbe Lage mit anderem Budget, Klima oder Optimismus-Modus durch und siehst die Differenz direkt gegenübergestellt.',
+    user_summary: '🗓️ Der Garten-Planer plant jetzt bis zu 3 Jahre voraus, berücksichtigt Schweizer Klima-Szenarien und deine Rahmenbedingungen (Budget, Pflege-Zeit, Erfahrung) — plus ein „Was-wäre-wenn" zum Durchrechnen von Alternativen.',
+    user_items: [
+      { emoji: '📆', text: '1-, 2- oder 3-Jahres-Plan mit Jahres-Reitern, Resilienz-Score & Ernte-Schätzung' },
+      { emoji: '🌡️', text: 'Klima-adaptiv: Referenz, wärmer & trockener oder feuchtere Sommer (CH2018)' },
+      { emoji: '🔮', text: '„Was-wäre-wenn": Budget/Klima/Modus ändern und die Differenz sofort sehen' },
+    ],
+    items: [
+      {emoji:'🗄️', bold:'Backend (Migration v26_99_plan_v3):', text:' garden_plans um 6 additive Spalten erweitert (planning_horizon_years 1-3, climate_scenario, constraints jsonb, plan_version, yearly_outputs, what_if_runs) mit CHECK-Constraints. Neue Referenz-Tabelle climate_scenarios_ch (4 CH-Regionen × 3 Szenarien = 12 Seed-Zeilen, CH2018/MeteoSchweiz-orientierte Temp-/Niederschlag-/Frost-Deltas, RLS read-only für authenticated).'},
+      {emoji:'🔌', bold:'Edge-Fn garden-scan-analyze v7:', text:' nimmt planning_horizon_years, climate_scenario, constraints und simulation_mode (realistic/optimistic/pessimistic) entgegen (validiert + geklemmt), lädt die passende Klima-Szenario-Zeile (Region fuzzy aus Standort abgeleitet), erweitert das KI-Schema um yearly_outputs[] (Jahr, Pflanzen, Budget/Pflege-Schätzung, Klima-Resilienz-Score, Ertrag) + multi_year_strategy + risks[] und speichert die neuen Spalten beim „als Plan speichern".'},
+      {emoji:'🖥️', bold:'Frontend:', text:' Neuer „🎯 Ambitionen"-Abschnitt im Planer (Horizont-/Klima-/Simulations-/Erfahrungs-Segmente via State-Bridge — kein Quote-Escape im onclick, Hard-Lesson #12; Budget/Pflege-Inputs + Bio/Permakultur/Kinder-Checkboxen). Neuer Plan-Tab „📆 Mehrjahres" (nur bei Horizont>1 bzw. vorhandenen yearly_outputs) mit Jahres-Reitern (gsGSPlanYear), Mini-Stats, Resilienz-Balken, Strategie-Karte & Risiken. „🔮 Was-wäre-wenn"-Panel: re-runt die Analyse ohne Speichern mit Overrides (gsGardenScanWhatIfRun) und zeigt eine Δ-Vergleichstabelle (Ertrag/Aufwand); Läufe best-effort in what_if_runs persistiert (max. 20).'},
+      {emoji:'🏛️', bold:'Architektur-Realität (Hard-Lesson #8):', text:' Der Planer ist eine Single-Screen-Modal-Flow, kein Multi-Step-Wizard — die in der Spec genannte „Step 3" wurde als Ambitionen-Abschnitt umgesetzt, „Jahres-Sub-Tabs" als zusätzlicher Plan-Tab. Die Edge-Fn wird live betrieben (v7) und bewusst NICHT als TS-Spiegel ins Repo transkribiert (Transkriptions-Fehlerrisiko > Nutzen); die Migration IST gespiegelt (DB-Reproduzierbarkeit).'},
+      {emoji:'✅', bold:'Verify:', text:' Migration angewandt + 12 Klima-Zeilen + 6 Spalten + RLS-Policy verifiziert · Edge-Fn als v7 deployed · Advisor ohne neue ERRORs · 7/7 Inline-Scripts node --check OK · GS_VERSION=v26.99 · sw.js gs-v26.99 · _headers v26.99 · meta=26.99.20260602.'},
+    ]
+  },
+  {
     v: 'v26.98', date: '02.06.2026',
     headline: '📸 Foto-Verlauf mit KI-Wachstums-Analyse',
     summary: 'Der Foto-Verlauf deiner Pflanzen kann jetzt mehr: Im „📸 Verlauf" (aus dem Pflanzen-Tagebuch) wählst du zwei beliebige Fotos als Vorher/Nachher aus und lässt sie von der KI vergleichen. Du erhältst eine geschätzte Wachstums-Veränderung in Prozent, die Anzahl neuer Blätter, eine Gesundheits-/Farb-Einschätzung sowie eine kurze Zusammenfassung mit Stärken und möglichen Problemen. Neu ist außerdem ein Zeitraffer-Knopf, der im Einzel-Slider automatisch durch alle Fotos blättert. Eingeloggte Nutzer speichern ihre Analysen geräteübergreifend in ihrem Konto.',
@@ -56439,7 +56693,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.98';
+var GS_VERSION = 'v26.99';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
