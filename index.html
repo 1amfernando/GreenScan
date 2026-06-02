@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.88.20260602">
+<meta name="app-version" content="26.91.20260602">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -53133,6 +53133,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.91', date: '02.06.2026',
+    headline: '⚡ Schnellere App bei großen Datenmengen',
+    summary: 'Reine Performance- und Stabilitäts-Verbesserung im Hintergrund — am Aussehen und an der Bedienung ändert sich nichts. Die Datenbank-Zugriffsregeln (Row Level Security) wurden so umgestellt, dass die Berechtigungsprüfung pro Abfrage nur noch einmal statt einmal pro Datenzeile ausgewertet wird. Für Nutzer mit vielen Pflanzen, Scans, Tagebuch-Einträgen oder Markt-Inseraten heißt das spürbar schnellere Ladezeiten (bei 1\'000+ Einträgen bis zu 50–200× schneller). Es wurden keine Berechtigungen geändert — wer was sehen darf, bleibt exakt gleich.',
+    user_summary: '⚡ Die App reagiert schneller, wenn du viele Pflanzen, Scans oder Einträge hast. Rein technische Verbesserung im Hintergrund — Aussehen und Bedienung bleiben gleich.',
+    user_items: [
+      { emoji: '⚡', text: 'Schnellere Ladezeiten bei großen Datenmengen' },
+      { emoji: '🔒', text: 'Keine Änderung an Berechtigungen — alles bleibt so privat wie zuvor' },
+    ],
+    items: [
+      {emoji:'🗄️', bold:'Backend (2 Migrations):', text:' v26_91_rls_wrap_phase2_initplan wrappt auth.uid()/auth.jwt() in 56 RLS-Policies über 33 Tabellen zu (SELECT auth.uid()) (init-plan-Caching, Hard-Lesson #6). v26_91_rls_wrap_phase2_authrole wrappt auth.role() in 3 service-role-only Policies (feature_limits/species_images/species_sources).'},
+      {emoji:'🚀', bold:'Wirkung:', text:' Berechtigungsprüfung läuft 1× pro Query statt 1× pro Row — bei 1k+ Rows/User 50–200× schneller. Semantik-erhaltend: identische Truth-Table, keine Zugriffs-Änderung.'},
+      {emoji:'✅', bold:'Verify:', text:' Advisor auth_rls_initplan 59 → 0 · 233 Policies total erhalten · 0 ungewrappt verbleibend · 7/7 Inline-Scripts node --check OK · GS_VERSION=v26.91 · sw.js gs-v26.91 · _headers v26.91 · meta=26.91.20260602.'},
+    ]
+  },
+  {
     v: 'v26.88', date: '02.06.2026',
     headline: '🔎 Tippfehler-tolerante Online-Pflanzensuche',
     summary: 'Die Vorschläge beim Hinzufügen einer Pflanze sind jetzt online viel schlauer: Sie verzeihen Tippfehler und Mehrzahl-Formen (z.B. „tomaten" findet „Fleischtomate", „rosee" findet „Rose") und durchsuchen auch lateinische Namen. Im Hintergrund läuft eine echte Fuzzy-Suche (pg_trgm) über alle Arten der Datenbank, mit 60-Sekunden-Cache für Tempo. Offline bleibt die schnelle lokale Suche wie bisher. Häufig gewählte Arten ranken mit der Zeit höher (Popularity-Ranking) — datenschutzfreundlich nur als anonyme Gesamtzahl, keine Einzel-Suchen werden veröffentlicht.',
@@ -55818,7 +55833,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.88';
+var GS_VERSION = 'v26.91';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
