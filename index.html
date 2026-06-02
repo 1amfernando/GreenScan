@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.83.20260602">
+<meta name="app-version" content="26.87.20260602">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -307,6 +307,39 @@ body{height:100%;background:var(--g-dark);font-family:"DM Sans",sans-serif;overf
 .tab.active{color:var(--g-main);}.tab.active::before{content:"";position:absolute;top:6px;left:50%;transform:translateX(-50%);width:36px;height:36px;background:#e8f5e9;border-radius:12px;z-index:-1;}
 .ti{font-size:20px;line-height:1;position:relative;z-index:1;}
 .tl{font-size:9px;font-weight:700;letter-spacing:.2px;text-transform:uppercase;margin-top:1px;}
+
+/* v26.86: Senior-Friendly Nav — Home als zentraler grosser Anker (FAB-Style).
+   Andere Tabs bleiben flex:1; Center-Tab ragt nach oben hinaus und ist 1.45x grösser. */
+.tab.tab-center{
+  flex:0 0 auto;
+  width:74px;
+  margin-top:-22px;          /* hebt den Button nach oben aus der Nav-Bar */
+  z-index:2;
+}
+.tab.tab-center .ti{
+  width:58px; height:58px;
+  border-radius:50%;
+  background:linear-gradient(145deg, var(--g-main), #1f6b1f);
+  color:#fff;
+  font-size:28px;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 4px 14px rgba(45,138,45,.45), 0 2px 4px rgba(0,0,0,.18);
+  border:3px solid var(--g-dark);
+  transition:transform .15s ease, box-shadow .15s ease;
+}
+.tab.tab-center:active .ti{ transform:scale(.94); box-shadow:0 2px 8px rgba(45,138,45,.35); }
+.tab.tab-center .tl{
+  margin-top:3px;
+  font-size:10px;
+  color:#fff;
+  font-weight:800;
+}
+.tab.tab-center.active::before{ display:none; }   /* der eigene grüne Kreis ersetzt die Pille */
+.tab.tab-center.active .ti{
+  background:linear-gradient(145deg, #34a934, var(--g-main));
+  box-shadow:0 5px 18px rgba(45,138,45,.55), 0 2px 4px rgba(0,0,0,.2);
+}
+body.dark .tab.tab-center .ti{ border-color:var(--g-dark); }
 
 
 .screen{
@@ -5173,12 +5206,12 @@ html, body{ scroll-behavior: smooth; }
     <span style="font-size:10px;color:rgba(255,255,255,.45);">© swisstopo</span>
   </div>
 </div>
-<!-- TABS - 5 Haupt-Tabs -->
+<!-- TABS - 5 Haupt-Tabs (v26.86: Home zentral als FAB-Anker für ältere Nutzer) -->
 <div class="tabs" id="main-tabs" role="tablist" aria-label="Haupt-Navigation">
-  <button class="tab active" id="tab-home"    role="tab" aria-selected="true"  aria-controls="screen-home"    onclick="switchTab('home',this)"><span class="ti" aria-hidden="true">🏠</span><span class="tl" data-i18n="nav_tab_home" data-i18n-fallback="Home">Home</span></button>
   <button class="tab"        id="tab-scanner" role="tab" aria-selected="false" aria-controls="screen-scanner" onclick="switchTab('scanner',this)"><span class="ti" aria-hidden="true">📷</span><span class="tl" data-i18n="nav_tab_scanner" data-i18n-fallback="Scanner">Scanner</span></button>
-  <button class="tab"        id="tab-search"  role="tab" aria-selected="false" aria-controls="screen-search"  onclick="switchTab('search',this)"><span class="ti" aria-hidden="true">🔍</span><span class="tl" data-i18n="nav_tab_search" data-i18n-fallback="Suche">Suche</span></button>
   <button class="tab"        id="tab-favs"    role="tab" aria-selected="false" aria-controls="screen-favs"    onclick="switchTab('favs',this)"><span class="ti" aria-hidden="true">🌱</span><span class="tl" data-i18n="nav_tab_favs" data-i18n-fallback="Pflanzen">Pflanzen</span></button>
+  <button class="tab tab-center active" id="tab-home" role="tab" aria-selected="true" aria-controls="screen-home" onclick="switchTab('home',this)" aria-label="Startseite"><span class="ti" aria-hidden="true">🏠</span><span class="tl" data-i18n="nav_tab_home" data-i18n-fallback="Home">Home</span></button>
+  <button class="tab"        id="tab-search"  role="tab" aria-selected="false" aria-controls="screen-search"  onclick="switchTab('search',this)"><span class="ti" aria-hidden="true">🔍</span><span class="tl" data-i18n="nav_tab_search" data-i18n-fallback="Suche">Suche</span></button>
   <button class="tab"        id="tab-menu"    aria-haspopup="menu" aria-label="Hauptmenü öffnen" onclick="openMainMenu()"><span class="ti" aria-hidden="true">⋯</span><span class="tl" data-i18n="nav_tab_menu" data-i18n-fallback="Menü">Menü</span><span id="gs-notif-badge" class="gs-notif-badge" role="status" aria-live="polite" style="display:none;"></span></button>
 </div>
 
@@ -20542,8 +20575,15 @@ function showScanResult(r){
       _tc.width = 64; _tc.height = 64;
       _tc.getContext('2d').drawImage(_v, 0, 0, 64, 64);
       _thumb = _tc.toDataURL('image/jpeg', 0.6);
-    }
-  } catch(e) {}
+      // v26.86: zusätzlich grösseres Bild (480x480) für 1-Klick "Zu meinen Pflanzen"
+      try {
+        var _tcBig = document.createElement('canvas');
+        _tcBig.width = 480; _tcBig.height = 480;
+        _tcBig.getContext('2d').drawImage(_v, 0, 0, 480, 480);
+        _lastScanThumb = _tcBig.toDataURL('image/jpeg', 0.78);
+      } catch(_){ _lastScanThumb = _thumb; }
+    } else { _lastScanThumb = null; }
+  } catch(e) { _lastScanThumb = null; }
   saveScanToHistory(r, _thumb);
   // In DB suchen und Direktlink zeigen
   var _dbMatch = DB ? DB.find(function(s){ return (s.name||'').toLowerCase() === (r.name||'').toLowerCase() || (s.lat||'').toLowerCase() === (r.latin||'').toLowerCase(); }) : null;
@@ -20562,6 +20602,27 @@ function showScanResult(r){
     _extra2.innerHTML = '<button class="sr2-cta sr2-cta-secondary" style="width:100%;" onclick="openScanChat()">🤖 KI fragen</button>';
     _container.appendChild(_extra2);
   }
+  // v26.86: "Zu meinen Pflanzen hinzufügen" — prominent, vor allen anderen CTAs
+  // Nur wenn Confidence akzeptabel ist (>=60) — sonst macht es keinen Sinn, eine unklare Bestimmung in den Garten zu übernehmen.
+  // Pflanzen-Kategorie filtern (kein Pilz / kein Tier — die landen nicht in Mein-Garten).
+  try {
+    var _conf = (r && r.confidence) || 0;
+    var _cat = (r && (r.category || '') + '').toLowerCase();
+    var _isPlant = _conf >= 60 && _cat && !/(pilz|mushroom|tier|animal|insekt)/.test(_cat);
+    if (_isPlant && r && r.name) {
+      var _addBtn = document.createElement('div');
+      _addBtn.style.cssText = 'margin-top:14px;';
+      _addBtn.innerHTML =
+        '<button onclick="gsAddScanToMyPlants()" ' +
+        'style="width:100%;padding:16px 14px;background:linear-gradient(135deg,#2d8a2d,#1a6a1a);color:#fff;' +
+        'border:none;border-radius:14px;font-weight:900;font-size:16px;cursor:pointer;font-family:inherit;' +
+        'display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 14px rgba(45,138,45,.35);">' +
+        '<span style="font-size:22px;">🌱</span> Zu meinen Pflanzen hinzufügen' +
+        '</button>';
+      _container.appendChild(_addBtn);
+    }
+  } catch(_){}
+
   // ── "Neuer Scan" Button immer anhängen ──────────────────
   var _newScanBtn = document.createElement('div');
   _newScanBtn.style.cssText = 'margin-top:14px;';
@@ -20797,6 +20858,99 @@ async function sendScanChat() {
 var SCAN_HISTORY_KEY = 'gs_scan_history';
 var MAX_SCAN_HISTORY = 50;
 var _lastScanResult  = null;
+// v26.86: Thumb vom letzten Scan-Foto für 1-Klick "Zu meinen Pflanzen"
+var _lastScanThumb   = null;
+
+// v26.86: 1-Klick "Zu meinen Pflanzen" aus dem Scan-Result-Screen.
+// Nutzt _lastScanResult (Name, Latin, Cat, Emoji) + _lastScanThumb (480x480 JPEG b64).
+// Baut ein myPlants-Objekt mit sinnvollen Defaults, lädt Foto in Storage-Bucket (eingeloggt) und navigiert zu "Meine Pflanzen".
+window.gsAddScanToMyPlants = async function(){
+  try {
+    var r = _lastScanResult;
+    if (!r || !r.name) {
+      if (typeof gsToast === 'function') gsToast('Kein Scan-Ergebnis verfügbar.', 'warning');
+      return;
+    }
+    // Duplikat-Check: gleiche Latein-Name oder gleiche Name+Date innerhalb 24h
+    if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) {
+      var nowMs = Date.now();
+      var dup = myPlants.find(function(p){
+        if (!p) return false;
+        var sameLat = r.latin && p.lat && (String(p.lat).toLowerCase() === String(r.latin).toLowerCase());
+        var sameName = p.name && (String(p.name).toLowerCase() === String(r.name).toLowerCase());
+        var addedMs = p.added ? new Date(p.added).getTime() : 0;
+        var recent = (nowMs - addedMs) < (24*3600*1000);
+        return sameLat || (sameName && recent);
+      });
+      if (dup) {
+        if (typeof gsToast === 'function') gsToast('„' + r.name + '" ist schon in deinem Garten 🌱', 'info');
+        if (typeof switchTab === 'function') switchTab('favs');
+        return;
+      }
+    }
+    // Foto: bevorzugt in Storage (eingeloggt), sonst base64 inline (Quota-bewusst).
+    var photoVal = null;
+    if (_lastScanThumb) {
+      var b64 = (_lastScanThumb.indexOf(',') > 0) ? _lastScanThumb.split(',')[1] : _lastScanThumb;
+      if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof window.gsUploadPhotoToBucket === 'function') {
+        try {
+          photoVal = await window.gsUploadPhotoToBucket('user-plant-photos', b64);
+        } catch(e) {
+          console.warn('[v26.86] photo upload fail, fallback to base64', e && e.message);
+          photoVal = _lastScanThumb;
+        }
+      } else {
+        // Nicht eingeloggt: base64 direkt im myPlants — wird beim Login durch gsMigrateBase64Photos hochgeladen
+        photoVal = _lastScanThumb;
+      }
+    }
+    var now = Date.now();
+    var nowIso = new Date().toISOString();
+    var emoji = r.emoji || (r.category && (typeof EMOJI_BY_CAT === 'object') ? (EMOJI_BY_CAT[r.category] || '🌿') : '🌿');
+    var newPlant = {
+      id: 'mp_' + now + '_scan',
+      name: r.name,
+      nick: '',
+      emoji: emoji,
+      lat: r.latin || '',
+      cat: r.category || '',
+      water: 2,         // mittel
+      sun:   2,         // mittel
+      notes: 'Per Scan hinzugefügt (Bestimmung: ' + (r.confidence || '?') + '%)',
+      photo: photoVal,
+      status: 'active',
+      added: nowIso,
+      tasks: {
+        water:     { active: true,  intervalDays: 4,   lastDone: now },
+        fertilize: { active: true,  intervalDays: 30,  lastDone: now },
+        repot:     { active: false, intervalDays: 365, lastDone: now },
+        rotate:    { active: false, intervalDays: 14,  lastDone: now },
+        mist:      { active: false, intervalDays: 2,   lastDone: now },
+        dust:      { active: false, intervalDays: 30,  lastDone: now },
+        prune:     { active: false, intervalDays: 90,  lastDone: now },
+        check:     { active: true,  intervalDays: 14,  lastDone: now }
+      },
+      diary: []
+    };
+    if (typeof myPlants === 'undefined' || !Array.isArray(myPlants)) {
+      window.myPlants = [];
+    }
+    myPlants.push(newPlant);
+    if (typeof savePlantsToStorage === 'function') { try { savePlantsToStorage(); } catch(_){} }
+    if (typeof renderMyPlants === 'function') { try { renderMyPlants(); } catch(_){} }
+    if (typeof scheduleAllNotifications === 'function') { try { scheduleAllNotifications(); } catch(_){} }
+    if (typeof gsHaptic === 'function') gsHaptic('success');
+    if (typeof gsToast === 'function') gsToast({title:'✅ „' + r.name + '" zu deinen Pflanzen hinzugefügt', body:'Sichtbar unter „Pflanzen". Du kannst dort Notizen, Foto und Pflege-Plan ergänzen.', type:'success', duration:5000});
+    if (typeof gsBrain !== 'undefined' && gsBrain && typeof gsBrain.observe === 'function') {
+      try { gsBrain.observe('plant_added_from_scan', { name: r.name, category: r.category, confidence: r.confidence }); } catch(_){}
+    }
+    // Direkt zum Pflanzen-Tab — User sieht den neuen Eintrag sofort
+    setTimeout(function(){ if (typeof switchTab === 'function') switchTab('favs'); }, 350);
+  } catch(e) {
+    console.warn('[v26.86] gsAddScanToMyPlants', e && e.message);
+    if (typeof gsToast === 'function') gsToast('Hinzufügen fehlgeschlagen: ' + (e.message || ''), 'error');
+  }
+};
 
 function saveScanToHistory(result, imageB64thumb) {
   if (!result || !result.name) return;
@@ -21923,10 +22077,16 @@ function renderMyPlants() {
   if (cntDead && typeof deadPlants !== 'undefined') cntDead.textContent = deadPlants.length;
 
   if (!myPlants.length) {
-    list.innerHTML = '<div class="gs-empty"><div class="gs-empty-icon">🌱</div>' +
-      '<div class="gs-empty-title">Noch keine Pflanzen</div>' +
-      '<div class="gs-empty-sub">Füge deine erste Pflanze hinzu und behalte die Pflege im Überblick.</div>' +
-      '<button class="gs-empty-action" onclick="openAddPlant()">＋ Erste Pflanze</button></div>';
+    // v26.86: Empty-State mit zwei Wegen — Scannen (empfohlen, schnell) oder Manuell.
+    // Klarer Senior-Friendly-Text + grössere Buttons (Min-Touch 48px).
+    list.innerHTML = '<div class="gs-empty" style="padding:32px 20px;">' +
+      '<div class="gs-empty-icon" style="font-size:54px;">🌱</div>' +
+      '<div class="gs-empty-title" style="font-size:20px;font-weight:900;margin-bottom:6px;">Noch keine Pflanzen</div>' +
+      '<div class="gs-empty-sub" style="font-size:14px;line-height:1.5;margin-bottom:20px;max-width:340px;margin-left:auto;margin-right:auto;">Füge deine erste Pflanze hinzu — am einfachsten per Foto-Scan. Wir merken uns Bestimmung, Foto und Pflege.</div>' +
+      '<div style="display:flex;flex-direction:column;gap:10px;max-width:340px;margin:0 auto;">' +
+        '<button onclick="if(typeof switchTab===\'function\')switchTab(\'scanner\');" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:56px;padding:14px;background:linear-gradient(135deg,#2d8a2d,#1a6a1a);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:900;cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(45,138,45,.35);"><span style="font-size:24px;">📷</span> Pflanze scannen <span style="font-size:11px;background:rgba(255,255,255,.22);padding:3px 8px;border-radius:8px;margin-left:4px;">empfohlen</span></button>' +
+        '<button onclick="openAddPlant()" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:56px;padding:14px;background:var(--card);color:var(--text);border:1.5px solid var(--border);border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;"><span style="font-size:22px;">✍️</span> Manuell hinzufügen</button>' +
+      '</div></div>';
     return;
   }
 
@@ -22022,9 +22182,136 @@ function togglePlantCard(id){
   if(chev) chev.classList.toggle('open', !open);
 }
 
+// ═══════════════════════════════════════════════════════════
+// v26.87: Pflanzen-Autocomplete + Location-Toggle
+// ═══════════════════════════════════════════════════════════
+// Sucht in der globalen DB (~4'342 Arten · {name, lat, emoji, cat, ...})
+// — debounced (150ms) — Top 8 Matches — Name-Match priorisiert vor Latein-Match.
+// Kategorie-Tag + Emoji + Latein-Name werden mitgeliefert; Klick füllt das Form vor.
+var _gsSugTimer = null;
+window.gsPlantSuggest = function(inputEl) {
+  var q = (inputEl && inputEl.value || '').trim();
+  var dropdown = document.getElementById('mp-name-sug');
+  if (!dropdown) return;
+  if (_gsSugTimer) clearTimeout(_gsSugTimer);
+  if (!q || q.length < 2) { dropdown.style.display = 'none'; dropdown.innerHTML = ''; return; }
+  _gsSugTimer = setTimeout(function(){ _gsRenderSuggestions(q, dropdown); }, 150);
+};
+
+function _gsRenderSuggestions(q, dropdown){
+  if (typeof DB === 'undefined' || !Array.isArray(DB) || !DB.length) {
+    dropdown.style.display = 'none'; return;
+  }
+  var qLow = q.toLowerCase();
+  // Score: 100 = exakter Name-Prefix, 80 = Name-Contains, 60 = Latein-Prefix, 40 = Latein-Contains, 20 = Common-Name-Translation
+  var scored = [];
+  for (var i = 0; i < DB.length; i++) {
+    var s = DB[i]; if (!s) continue;
+    var nm = (s.name || '').toLowerCase();
+    var lt = (s.lat || '').toLowerCase();
+    var en = (s.common_name_en || s.cn_en || '').toLowerCase();
+    var es = (s.common_name_es || s.cn_es || '').toLowerCase();
+    var score = 0;
+    if (nm === qLow) score = 110;
+    else if (nm.indexOf(qLow) === 0) score = 100;
+    else if (nm.indexOf(qLow) > -1) score = 80;
+    else if (lt.indexOf(qLow) === 0) score = 60;
+    else if (lt.indexOf(qLow) > -1) score = 40;
+    else if (en.indexOf(qLow) > -1 || es.indexOf(qLow) > -1) score = 20;
+    if (score > 0) {
+      // Bonus für kürzere Namen (relevantere Treffer)
+      score -= Math.min(20, (s.name || '').length / 4);
+      scored.push({ s: s, score: score });
+    }
+  }
+  scored.sort(function(a,b){ return b.score - a.score; });
+  scored = scored.slice(0, 8);
+  if (!scored.length) {
+    dropdown.style.display = 'block';
+    dropdown.innerHTML = '<div style="padding:14px 14px;color:var(--muted);font-size:12.5px;text-align:center;">Keine Vorschläge zu „' + escHtml(q) + '". Tippe trotzdem weiter und klick „Speichern" für eigenen Eintrag.</div>';
+    return;
+  }
+  var catLabel = { hauspflanze:'🏠 Haus', wildpflanze:'🌿 Wild', kraut:'🌱 Kraut', gemuese:'🥕 Gemüse', frucht:'🍓 Frucht', baum:'🌳 Baum', strauch:'🌳 Strauch', pilz:'🍄 Pilz', moos:'🌿 Moos', flechte:'🌿 Flechte', alge:'🌿 Alge', neophyte:'⚠️ Neophyt' };
+  dropdown.innerHTML = scored.map(function(x, idx){
+    var s = x.s;
+    var emoji = s.emoji || '🌿';
+    var name = s.name || '';
+    var lat = s.lat || '';
+    var cat = (s.cat || '').toLowerCase();
+    var tag = catLabel[cat] || '';
+    var tox = s.toxic ? '<span style="color:#c62828;font-size:11px;font-weight:700;margin-left:6px;" title="Giftig">⚠️ giftig</span>' : '';
+    return '<div role="option" tabindex="0" data-sug-idx="' + idx + '"' +
+      ' onmousedown="event.preventDefault(); _gsApplyPlantSuggestion(' + idx + ')"' +
+      ' onkeydown="if(event.key===\'Enter\'){_gsApplyPlantSuggestion(' + idx + ');}"' +
+      ' style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .12s;"' +
+      ' onmouseover="this.style.background=\'rgba(45,138,45,.08)\'"' +
+      ' onmouseout="this.style.background=\'transparent\'">' +
+      '<div style="font-size:22px;width:30px;text-align:center;">' + emoji + '</div>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="font-size:13.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(name) + tox + '</div>' +
+        (lat ? '<div style="font-size:11px;font-style:italic;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(lat) + '</div>' : '') +
+      '</div>' +
+      (tag ? '<span style="font-size:10px;font-weight:700;padding:3px 7px;border-radius:8px;background:var(--surface2);color:var(--text2);white-space:nowrap;">' + tag + '</span>' : '') +
+    '</div>';
+  }).join('');
+  // Letztes Item ohne Border
+  var last = dropdown.querySelector('[data-sug-idx="' + (scored.length - 1) + '"]');
+  if (last) last.style.borderBottom = 'none';
+  window._gsLastSuggestions = scored.map(function(x){ return x.s; });
+  dropdown.style.display = 'block';
+}
+
+window._gsApplyPlantSuggestion = function(idx){
+  var s = (window._gsLastSuggestions || [])[idx];
+  if (!s) return;
+  var nameEl = document.getElementById('mp-name');
+  var emojiEl = document.getElementById('mp-emoji');
+  if (nameEl) nameEl.value = s.name || '';
+  if (emojiEl && s.emoji) emojiEl.value = s.emoji;
+  // Wasser-/Sonne-Defaults aus DB falls vorhanden
+  try {
+    var wEl = document.getElementById('mp-water');
+    var sEl = document.getElementById('mp-sun');
+    var wMap = { wenig:1, mittel:2, viel:3, niedrig:1, mittlerer:2, hoch:3 };
+    if (wEl && s.water && wMap[String(s.water).toLowerCase()]) wEl.value = wMap[String(s.water).toLowerCase()];
+    if (sEl && s.sun) {
+      var v = String(s.sun).toLowerCase();
+      if (/schatten|wenig/.test(v)) sEl.value = 1;
+      else if (/halb|teil/.test(v)) sEl.value = 2;
+      else if (/voll|sonne/.test(v)) sEl.value = 3;
+    }
+  } catch(_){}
+  // Lateinischen Namen unsichtbar im DOM mitlaufen lassen für savePlant
+  var nameWrap = nameEl && nameEl.parentElement;
+  if (nameWrap) nameWrap.setAttribute('data-picked-lat', s.lat || '');
+  if (nameWrap) nameWrap.setAttribute('data-picked-cat', s.cat || '');
+  // Dropdown zu, Companion-Check refreshen
+  var d = document.getElementById('mp-name-sug'); if (d) d.style.display = 'none';
+  if (typeof gsCompanionLiveCheck === 'function') { try { gsCompanionLiveCheck(); } catch(_){} }
+  if (typeof gsHaptic === 'function') gsHaptic('select');
+};
+
+// v26.87: Location-Toggle visuell aktualisieren + bei "Garten"-Wahl direkt zum Garten-Workflow
+document.addEventListener('change', function(e){
+  if (!e.target || e.target.name !== 'mp-location') return;
+  var opts = document.querySelectorAll('.gs-loc-opt');
+  opts.forEach(function(lbl){
+    var picked = lbl.querySelector('input').checked;
+    lbl.style.borderColor = picked ? 'var(--g-main)' : 'var(--border)';
+    lbl.style.background = picked ? 'linear-gradient(135deg,rgba(45,138,45,.06),rgba(45,138,45,.02))' : 'var(--card)';
+  });
+});
+
 // ─── Pflanze hinzufügen / bearbeiten ──────────────────────
 function openAddPlant(){
   editingPlantId = null;
+  // v26.87: Location-Toggle reset (Standard: Wohnung) + Suggestion-Cache leeren
+  try {
+    var radIndoor = document.querySelector('input[name="mp-location"][value="indoor"]');
+    if (radIndoor) { radIndoor.checked = true; radIndoor.dispatchEvent(new Event('change', {bubbles:true})); }
+    var sugDrop = document.getElementById('mp-name-sug'); if (sugDrop) { sugDrop.style.display='none'; sugDrop.innerHTML=''; }
+    var nameWrap = document.getElementById('mp-name'); if (nameWrap && nameWrap.parentElement) { nameWrap.parentElement.removeAttribute('data-picked-lat'); nameWrap.parentElement.removeAttribute('data-picked-cat'); }
+  } catch(_){}
   document.getElementById('addplant-title').textContent = 'Neue Pflanze';
   document.getElementById('mp-name').value = '';
   document.getElementById('mp-nick').value = '';
@@ -22128,6 +22415,47 @@ async function savePlant(){
   }
   const name = document.getElementById('mp-name').value.trim();
   if(!name){ try { gsToast('Bitte einen Namen eingeben.', 'warn'); } catch(_){ } return; }
+
+  // v26.87: Location-Toggle — bei Garten direkt zum Garten-Workflow weiterleiten.
+  // (Modal schliessen, Garten-Add-Planting-Modal öffnen mit vorbefülltem Namen.)
+  try {
+    var locInput = document.querySelector('input[name="mp-location"]:checked');
+    var location = locInput ? locInput.value : 'indoor';
+    if (location === 'outdoor') {
+      // Garten muss existieren — sonst „Neuer Garten"-Hint
+      if (typeof gardens === 'undefined' || !Array.isArray(gardens) || !gardens.length) {
+        if (typeof gsConfirmModal === 'function') {
+          var go = await gsConfirmModal('Du hast noch keinen Garten angelegt. Jetzt einen Garten erstellen?', { okText:'Garten anlegen', cancelText:'Abbrechen' });
+          if (go) {
+            closeModal('modal-addplant');
+            if (typeof switchTab === 'function') switchTab('garden');
+            setTimeout(function(){ if (typeof openModal === 'function') openModal('modal-add-garden'); }, 320);
+          }
+          return;
+        }
+      }
+      // Erster Garten als Default (User kann später im Garten-Modal wechseln)
+      var firstGardenId = gardens[0].id;
+      // Vorbelegung in Window-Cache, damit openAddPlanting den Namen vorfüllt
+      window._gsPrefillPlanting = { name: name, emoji: document.getElementById('mp-emoji').value || '🌿', notes: document.getElementById('mp-notes').value.trim() };
+      closeModal('modal-addplant');
+      if (typeof switchTab === 'function') switchTab('garden');
+      setTimeout(function(){
+        if (typeof openAddPlanting === 'function') openAddPlanting(firstGardenId);
+        // Nach Modal-Open: Pre-fill applizieren (best effort)
+        setTimeout(function(){
+          try {
+            var pf = window._gsPrefillPlanting;
+            var fName = document.getElementById('pl-name') || document.querySelector('#modal-add-planting input[name="name"]');
+            if (fName && pf && pf.name) { fName.value = pf.name; fName.dispatchEvent(new Event('input', {bubbles:true})); }
+          } catch(_){}
+          window._gsPrefillPlanting = null;
+        }, 350);
+      }, 320);
+      if (typeof gsToast === 'function') gsToast('🌳 Wechsle in „Mein Garten" — wähle dort Beet & Datum.', 'info', 4000);
+      return;
+    }
+  } catch(e) { console.warn('[v26.87] location-routing', e && e.message); }
   const now = new Date().toISOString();
   if(editingPlantId){
     const p = myPlants.find(x => x.id === editingPlantId);
@@ -38067,11 +38395,17 @@ function gsCreateMap() {
   gsMap.on('click', function(e) {
     const lat = e.latlng.lat;
     const lng = e.latlng.lng;
+    // v26.84: lat/lng global cachen, damit der Save-Button sie zuverlässig findet
+    // (vorher: `onclick="gsAddMarker(' + lat + ',' + lng + ')"` war ein BROKEN-Escape-String
+    //  und schickte literal "' + lat + '" / "' + lng + '" als String-Args → NaN-Coords
+    //  → INSERT scheiterte SILENT seit ewig. Hard-Lesson #12 in CLAUDE.md.)
+    window._gsPendingPin = { lat: lat, lng: lng };
+    window._gsPendingPinPhotoB64 = null;
     var catOpts = Object.keys(GS_MARKER_CATS).map(function(k){
       var c = GS_MARKER_CATS[k];
       return '<option value="'+k+'">'+c.emoji+' '+c.label+'</option>';
     }).join('');
-    const popup = L.popup({ maxWidth: 280, minWidth: 240 })
+    const popup = L.popup({ maxWidth: 300, minWidth: 250 })
       .setLatLng(e.latlng)
       .setContent(
         '<div style="padding:4px 0;">' +
@@ -38079,7 +38413,11 @@ function gsCreateMap() {
         '<select id="gs-pin-cat" style="width:100%;padding:7px 9px;border:1.5px solid #c8e6c9;border-radius:7px;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:6px;background:#fff;">'+catOpts+'</select>' +
         '<input id="gs-pin-name" placeholder="Name (z.B. Steinpilz, Aussichtspunkt)" style="width:100%;padding:7px 9px;border:1.5px solid #c8e6c9;border-radius:7px;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:6px;">' +
         '<input id="gs-pin-note" placeholder="Notiz (Anzahl, Qualität, …)" style="width:100%;padding:7px 9px;border:1.5px solid #c8e6c9;border-radius:7px;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:8px;">' +
-        '<button onclick="gsAddMarker(\' + lat + \',\' + lng + \')" style="width:100%;padding:8px;background:#2d8a2d;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">✅ Fundort speichern</button>' +
+        // v26.84: Foto-Input (optional) + Preview
+        '<label for="gs-pin-photo" style="display:block;padding:7px 9px;border:1.5px dashed #c8e6c9;border-radius:7px;font-size:12px;color:#2d8a2d;text-align:center;cursor:pointer;margin-bottom:6px;background:#f1f8f1;">📸 Foto hinzufügen (optional)</label>' +
+        '<input type="file" id="gs-pin-photo" accept="image/*" capture="environment" style="display:none;" onchange="_gsPinPhotoPick(this)">' +
+        '<div id="gs-pin-photo-preview" style="display:none;margin-bottom:8px;text-align:center;"></div>' +
+        '<button onclick="gsAddMarker(window._gsPendingPin && window._gsPendingPin.lat, window._gsPendingPin && window._gsPendingPin.lng)" style="width:100%;padding:8px;background:#2d8a2d;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">✅ Fundort speichern</button>' +
         '</div>'
       )
       .openOn(gsMap);
@@ -38179,20 +38517,59 @@ function _gsCatIcon(cat, small) {
 // v26.81: Logging + DOM-Robustness + gsMap-Guard + LS-Quota-Catch + awaited Cloud-Sync mit Status-Toast.
 //         Vorher: localStorage.setItem ohne try/catch → QuotaExceeded warf SILENT → Cloud-POST + Toast
 //         liefen nie → weder LS noch map_user_finds bekamen Daten ("beide 0 Zeilen"-Symptom).
+// v26.84: Foto-Input-Handler — File → base64 + Preview in der Pin-Form.
+// Speichert nicht direkt, sondern parkt b64 in window._gsPendingPinPhotoB64
+// für gsAddMarker, das beim Save uploaded.
+window._gsPinPhotoPick = function(inputEl){
+  try {
+    var f = inputEl && inputEl.files && inputEl.files[0];
+    if (!f) return;
+    if (f.size > 10 * 1024 * 1024) {
+      if (typeof gsToast === 'function') gsToast('Foto zu gross (max 10 MB).', 'warning');
+      inputEl.value = ''; return;
+    }
+    var rd = new FileReader();
+    rd.onload = function(ev){
+      var dataUrl = ev.target.result;
+      var b64 = (dataUrl || '').split(',')[1] || '';
+      window._gsPendingPinPhotoB64 = b64;
+      var prev = document.getElementById('gs-pin-photo-preview');
+      if (prev){
+        prev.style.display = 'block';
+        prev.innerHTML = '<img src="'+dataUrl+'" style="max-width:100%;max-height:120px;border-radius:6px;border:1px solid #c8e6c9;" alt="">';
+      }
+    };
+    rd.readAsDataURL(f);
+  } catch(e){ console.warn('[v26.84] _gsPinPhotoPick', e && e.message); }
+};
+
 async function gsAddMarker(lat, lng) {
   const nameEl = document.getElementById('gs-pin-name');
   const noteEl = document.getElementById('gs-pin-note');
   const catEl  = document.getElementById('gs-pin-cat');
 
+  // v26.84: lat/lng kommen aus window._gsPendingPin (siehe Map-Click-Handler).
+  // Defensiv: Zahlen erzwingen + NaN-Check (alter v26.81-und-davor Button schickte
+  // literal "' + lat + '"-Strings — verbliebene gecachete HTMLs würden hier explodieren).
+  lat = Number(lat); lng = Number(lng);
+  if (!isFinite(lat) || !isFinite(lng)) {
+    if (window._gsPendingPin) { lat = Number(window._gsPendingPin.lat); lng = Number(window._gsPendingPin.lng); }
+  }
+  if (!isFinite(lat) || !isFinite(lng)) {
+    console.error('[v26.84] gsAddMarker: ungültige Koordinaten', { lat: lat, lng: lng });
+    if (typeof gsToast === 'function') gsToast('Karten-Koordinaten ungültig — bitte erneut auf die Karte tippen.', 'error');
+    return;
+  }
+
   // v26.81: DOM-Robustness — Pin-Form muss gerendert sein, sonst klarer Fehler statt silent fail
   if (!nameEl) {
-    console.error('[v26.81] gsAddMarker: #gs-pin-name nicht im DOM (Popup-Render-Problem)', { lat: lat, lng: lng });
+    console.error('[v26.84] gsAddMarker: #gs-pin-name nicht im DOM (Popup-Render-Problem)', { lat: lat, lng: lng });
     if (typeof gsToast === 'function') gsToast('Eingabefeld nicht gefunden — bitte Pin-Popup neu öffnen.', 'error');
     return;
   }
   // v26.81: Karte muss initialisiert sein (gsMap.closePopup würde sonst werfen)
   if (typeof gsMap === 'undefined' || !gsMap) {
-    console.error('[v26.81] gsAddMarker: gsMap nicht initialisiert', { lat: lat, lng: lng });
+    console.error('[v26.84] gsAddMarker: gsMap nicht initialisiert', { lat: lat, lng: lng });
     if (typeof gsToast === 'function') gsToast('Karte noch nicht bereit — bitte kurz warten.', 'error');
     return;
   }
@@ -38202,7 +38579,12 @@ async function gsAddMarker(lat, lng) {
   var cat = (catEl && catEl.value) ? catEl.value : 'pflanze';
   if (typeof GS_MARKER_CATS === 'undefined' || !GS_MARKER_CATS[cat]) cat = 'pflanze';
 
-  console.log('[v26.81] gsAddMarker called', { lat: lat, lng: lng, name: name, cat: cat });
+  // v26.84: gepicktes Foto-b64 schnappen + reset, damit nicht versehentlich
+  // zwei Pins dasselbe Foto bekommen.
+  var photoB64 = window._gsPendingPinPhotoB64 || null;
+  window._gsPendingPinPhotoB64 = null;
+
+  console.log('[v26.84] gsAddMarker called', { lat: lat, lng: lng, name: name, cat: cat, hasPhoto: !!photoB64 });
 
   if (!name) {
     nameEl.style.borderColor = '#e53935'; nameEl.focus();
@@ -38212,17 +38594,24 @@ async function gsAddMarker(lat, lng) {
 
   try { gsMap.closePopup(); } catch(_){}
 
+  // v26.84: Foto vor Save uploaden (best effort, schweigend wenn nicht eingeloggt)
+  var photoUrl = null;
+  if (photoB64 && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof window.gsUploadPhotoToBucket === 'function') {
+    try {
+      if (typeof gsToast === 'function') gsToast('📤 Foto wird hochgeladen…', 'info', 2500);
+      photoUrl = await window.gsUploadPhotoToBucket('map-find-photos', photoB64);
+      console.log('[v26.84] gsAddMarker photo uploaded', photoUrl);
+    } catch(e) {
+      console.warn('[v26.84] gsAddMarker photo upload fail', e && e.message);
+      if (typeof gsToast === 'function') gsToast('Foto-Upload fehlgeschlagen — Fund wird ohne Bild gespeichert.', 'warning');
+    }
+  }
+
   var catMeta = GS_MARKER_CATS[cat];
   var icon = _gsCatIcon(cat, false);
+  var popupHtml = _gsBuildFindPopup(catMeta, name, note, new Date(), photoUrl);
 
-  var marker = L.marker([lat, lng], { icon: icon }).addTo(gsMap).bindPopup(
-    '<div style="font-size:13px;">' +
-    '<b style="color:#1a3d1a;">' + catMeta.emoji + ' ' + escHtml(name) + '</b>' +
-    '<span style="display:inline-block;margin-left:6px;padding:1px 7px;border-radius:8px;font-size:10.5px;background:' + catMeta.color + '22;color:' + catMeta.color + ';font-weight:700;">' + catMeta.label + '</span>' +
-    (note ? '<br><span style="color:#666;font-size:12px;">' + escHtml(note) + '</span>' : '') +
-    '<br><span style="color:#999;font-size:11px;">' + new Date().toLocaleDateString('de-CH') + '</span>' +
-    '</div>'
-  ).openPopup();
+  var marker = L.marker([lat, lng], { icon: icon }).addTo(gsMap).bindPopup(popupHtml).openPopup();
 
   // Für Filter registrieren
   try { if (typeof _gsMarkerLayers !== 'undefined') _gsMarkerLayers.push({ cat: cat, layer: marker }); } catch(e){}
@@ -38232,12 +38621,12 @@ async function gsAddMarker(lat, lng) {
   var lsOk = false;
   try {
     var markers = gsGetSavedMarkers();
-    markers.push({ id: clientId, lat: lat, lng: lng, name: name, note: note, cat: cat, date: Date.now() });
+    markers.push({ id: clientId, lat: lat, lng: lng, name: name, note: note, cat: cat, date: Date.now(), photo_url: photoUrl });
     localStorage.setItem('greenscan_markers', JSON.stringify(markers));
     lsOk = true;
   } catch(e) {
     var quota = e && (e.name === 'QuotaExceededError' || /quota|exceeded/i.test(e.message || ''));
-    console.error('[v26.81] gsAddMarker LS-setItem fail', e && (e.name + ': ' + e.message));
+    console.error('[v26.84] gsAddMarker LS-setItem fail', e && (e.name + ': ' + e.message));
     if (typeof gsToast === 'function') {
       gsToast(quota ? 'Speicher voll — lokaler Cache konnte nicht gesichert werden.' : 'Lokales Speichern fehlgeschlagen.', 'error');
     }
@@ -38257,6 +38646,7 @@ async function gsAddMarker(lat, lng) {
         category: dbCat,
         lat: lat, lng: lng,
         note: note || null,
+        photo_url: photoUrl,
         found_at: new Date().toISOString(),
         is_private: true
       };
@@ -38267,7 +38657,7 @@ async function gsAddMarker(lat, lng) {
       });
       var row = (r && r.data && (Array.isArray(r.data) ? r.data[0] : r.data)) || null;
       if (r && r.error) {
-        console.warn('[v26.81] gsAddMarker cloud error', r.error);
+        console.warn('[v26.84] gsAddMarker cloud error', r.error);
         cloudMsg = '⚠ Cloud-Sync fehlgeschlagen — nur lokal gespeichert';
       } else if (row && row.id) {
         // LS-Eintrag mit Cloud-ID anreichern für späteres Delete/Update
@@ -38279,17 +38669,17 @@ async function gsAddMarker(lat, lng) {
             localStorage.setItem('greenscan_markers', JSON.stringify(local));
           }
         } catch(_){}
-        console.log('[v26.81] gsAddMarker cloud OK', { id: row.id });
-        cloudMsg = '☁️ In Cloud gespeichert';
+        console.log('[v26.84] gsAddMarker cloud OK', { id: row.id, photo: !!photoUrl });
+        cloudMsg = photoUrl ? '☁️ In Cloud gespeichert (mit Foto)' : '☁️ In Cloud gespeichert';
       } else {
-        console.warn('[v26.81] gsAddMarker cloud: kein Row zurück', r);
+        console.warn('[v26.84] gsAddMarker cloud: kein Row zurück', r);
         cloudMsg = '⚠ Cloud-Sync unklar — nur lokal gespeichert';
       }
     } else {
       cloudMsg = lsOk ? '📍 Lokal gespeichert (nicht eingeloggt — kein Cloud-Sync)' : '';
     }
   } catch(e) {
-    console.warn('[v26.81] gsAddMarker cloud exception', e && e.message);
+    console.warn('[v26.84] gsAddMarker cloud exception', e && e.message);
     cloudMsg = '⚠ Cloud-Sync fehlgeschlagen — nur lokal gespeichert';
   }
 
@@ -38297,6 +38687,20 @@ async function gsAddMarker(lat, lng) {
   if (cloudMsg && typeof gsToast === 'function') {
     gsToast(cloudMsg, cloudMsg.charAt(0) === '⚠' ? 'warning' : 'success');
   }
+}
+
+// v26.84: Gemeinsamer Popup-HTML-Builder für Marker (live + reload)
+function _gsBuildFindPopup(catMeta, name, note, dateObj, photoUrl){
+  var photoBlock = '';
+  if (photoUrl) {
+    photoBlock = '<div style="margin-bottom:6px;text-align:center;"><img src="' + photoUrl + '" style="max-width:100%;max-height:140px;border-radius:6px;border:1px solid #c8e6c9;" alt="" loading="lazy"></div>';
+  }
+  return '<div style="font-size:13px;">' + photoBlock +
+    '<b style="color:#1a3d1a;">' + catMeta.emoji + ' ' + escHtml(name || '') + '</b>' +
+    '<span style="display:inline-block;margin-left:6px;padding:1px 7px;border-radius:8px;font-size:10.5px;background:' + catMeta.color + '22;color:' + catMeta.color + ';font-weight:700;">' + catMeta.label + '</span>' +
+    (note ? '<br><span style="color:#666;font-size:12px;">' + escHtml(note) + '</span>' : '') +
+    '<br><span style="color:#999;font-size:11px;">' + (dateObj || new Date()).toLocaleDateString('de-CH') + '</span>' +
+  '</div>';
 }
 
 // Gespeicherte Marker beim Start laden
@@ -38310,14 +38714,11 @@ function gsLoadMarkers() {
     if (typeof GS_MARKER_CATS === 'undefined' || !GS_MARKER_CATS[cat]) cat = 'pflanze';
     var catMeta = GS_MARKER_CATS[cat];
     var icon = _gsCatIcon(cat, true);
-    var marker = L.marker([item.lat, item.lng], { icon: icon }).addTo(gsMap).bindPopup(
-      '<div style="font-size:13px;">' +
-      '<b style="color:#1a3d1a;">' + catMeta.emoji + ' ' + escHtml(item.name) + '</b>' +
-      '<span style="display:inline-block;margin-left:6px;padding:1px 7px;border-radius:8px;font-size:10.5px;background:' + catMeta.color + '22;color:' + catMeta.color + ';font-weight:700;">' + catMeta.label + '</span>' +
-      (item.note ? '<br><span style="color:#666;font-size:12px;">' + escHtml(item.note) + '</span>' : '') +
-      '<br><span style="color:#999;font-size:11px;">' + new Date(item.date || Date.now()).toLocaleDateString('de-CH') + '</span>' +
-      '</div>'
-    );
+    // v26.84: Popup nutzt gemeinsamen Builder inkl. Foto-Block
+    var popupHtml = (typeof _gsBuildFindPopup === 'function')
+      ? _gsBuildFindPopup(catMeta, item.name, item.note, new Date(item.date || Date.now()), item.photo_url || null)
+      : ('<div style="font-size:13px;"><b>' + escHtml(item.name||'') + '</b></div>');
+    var marker = L.marker([item.lat, item.lng], { icon: icon }).addTo(gsMap).bindPopup(popupHtml);
     try { if (typeof _gsMarkerLayers !== 'undefined') _gsMarkerLayers.push({ cat: cat, layer: marker }); } catch(e){}
   });
 
@@ -38345,8 +38746,13 @@ async function gsLoadMarkersFromCloud() {
       var catMeta = GS_MARKER_CATS[markerCat];
       var icon = _gsCatIcon(markerCat, true);
       var d = new Date(row.found_at || row.created_at || Date.now());
+      // v26.84: Cloud-Popup mit Foto wenn vorhanden + Cloud-Marker-Hinweis
+      var photoBlock = '';
+      if (row.photo_url) {
+        photoBlock = '<div style="margin-bottom:6px;text-align:center;"><img src="' + row.photo_url + '" style="max-width:100%;max-height:140px;border-radius:6px;border:1px solid #c8e6c9;" alt="" loading="lazy"></div>';
+      }
       var marker = L.marker([row.lat, row.lng], { icon: icon }).addTo(gsMap).bindPopup(
-        '<div style="font-size:13px;">' +
+        '<div style="font-size:13px;">' + photoBlock +
         '<b style="color:#1a3d1a;">' + catMeta.emoji + ' ' + escHtml(row.species_name || '') + '</b>' +
         '<span style="display:inline-block;margin-left:6px;padding:1px 7px;border-radius:8px;font-size:10.5px;background:' + catMeta.color + '22;color:' + catMeta.color + ';font-weight:700;">' + catMeta.label + '</span>' +
         (row.note ? '<br><span style="color:#666;font-size:12px;">' + escHtml(row.note) + '</span>' : '') +
@@ -38361,6 +38767,7 @@ async function gsLoadMarkersFromCloud() {
         lat: row.lat, lng: row.lng,
         name: row.species_name, note: row.note || '',
         cat: markerCat,
+        photo_url: row.photo_url || null,
         date: new Date(row.found_at || row.created_at).getTime(),
         is_private: row.is_private !== false
       });
@@ -38404,29 +38811,112 @@ async function gsRefreshMarkers(btn) {
 }
 window.gsRefreshMarkers = gsRefreshMarkers;
 
-// v26.71: Wrapper-API für künftiges "Meine Funde"-Screen
+// v26.71: Wrapper-API für "Meine Funde"-Screen
+// v26.85: list() merged LS + Cloud (vorher: Entweder-Oder → offline erstellte Funde
+// verschwanden für eingeloggte User aus der Liste). Plus Auto-Upload von LS-only
+// Funden sobald User eingeloggt ist, damit der "nur lokal"-Status nicht ewig hängen bleibt.
 window.gsMapFinds = {
-  // Liste aller Funde des aktuellen Users (Cloud bevorzugt, LS-Fallback)
   list: async function(){
-    if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof sbFetch === 'function') {
+    var out = [];
+    var cloudIds = new Set();
+    var loggedIn = (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof sbFetch === 'function');
+
+    // 1) Cloud-Funde holen wenn eingeloggt
+    if (loggedIn) {
       try {
         var uid = gsStore.get('gs_sb_uid', null);
         var r = await sbFetch('/rest/v1/map_user_finds?user_id=eq.' + uid + '&select=*&order=found_at.desc&limit=500', {method:'GET'});
-        if (r && Array.isArray(r.data)) return r.data;
+        if (r && Array.isArray(r.data)) {
+          r.data.forEach(function(row){
+            if (row && row.id) { cloudIds.add(row.id); out.push(row); }
+          });
+        }
       } catch(_){}
     }
-    // Fallback: LS-Marker (für Gast / Offline)
-    return gsGetSavedMarkers().map(function(m){
-      return {
+
+    // 2) LS-Marker holen + die ohne cloud_id (oder Cloud-ID noch nicht in Cloud-Pull) hinzu
+    var ls = [];
+    try { ls = gsGetSavedMarkers(); } catch(_){ ls = []; }
+    var lsOnlyForUpload = [];
+    ls.forEach(function(m){
+      if (!m) return;
+      // Wenn LS-Eintrag bereits Cloud-Mirror ist (cloud_id matched), skip
+      if (m.cloud_id && cloudIds.has(m.cloud_id)) return;
+      // Sonst als LS-only/offline-Fund einfügen
+      var mapped = {
         id: m.cloud_id || m.id,
         species_name: m.name,
         category: m.cat,
         lat: m.lat, lng: m.lng,
         note: m.note,
+        photo_url: m.photo_url || null,
         found_at: new Date(m.date || Date.now()).toISOString(),
-        is_private: m.is_private !== false
+        is_private: m.is_private !== false,
+        _local_only: !m.cloud_id  // Flag für UI
       };
+      out.push(mapped);
+      // Wenn eingeloggt + LS-only: zur Auto-Upload-Liste hinzufügen
+      if (loggedIn && !m.cloud_id && isFinite(Number(m.lat)) && isFinite(Number(m.lng))) {
+        lsOnlyForUpload.push(m);
+      }
     });
+
+    // 3) Sortieren nach Datum (neueste zuerst)
+    out.sort(function(a, b){
+      var da = new Date(a.found_at || a.created_at || 0).getTime();
+      var db = new Date(b.found_at || b.created_at || 0).getTime();
+      return db - da;
+    });
+
+    // 4) Auto-Upload im Hintergrund (kein await, damit list() sofort returnt)
+    if (loggedIn && lsOnlyForUpload.length > 0 && typeof window.gsMapFinds._uploadLocalOnly === 'function') {
+      window.gsMapFinds._uploadLocalOnly(lsOnlyForUpload);
+    }
+
+    return out;
+  },
+
+  // v26.85: Internal — uploaded offline-erstellte LS-Marker sobald User eingeloggt.
+  // Schreibt cloud_id zurück in LS für späteren Dedup. Schweigt bei Fehlern (best effort).
+  _uploadLocalOnly: async function(items){
+    if (!items || !items.length) return;
+    var catMap = { pilz:'pilz', baum:'baum', pflanze:'pflanze', kraut:'kraut' };
+    var uploaded = 0;
+    for (var i = 0; i < items.length; i++) {
+      var m = items[i];
+      try {
+        var payload = {
+          species_name: m.name || 'Fundort',
+          category: catMap[m.cat] || 'sonstiges',
+          lat: Number(m.lat), lng: Number(m.lng),
+          note: m.note || null,
+          photo_url: m.photo_url || null,
+          found_at: new Date(m.date || Date.now()).toISOString(),
+          is_private: m.is_private !== false
+        };
+        var r = await sbFetch('/rest/v1/map_user_finds', {
+          method:'POST',
+          headers:{'Content-Type':'application/json','Prefer':'return=representation'},
+          body: JSON.stringify(payload)
+        });
+        var row = (r && r.data && (Array.isArray(r.data) ? r.data[0] : r.data)) || null;
+        if (row && row.id) {
+          // LS aktualisieren
+          try {
+            var local = gsGetSavedMarkers();
+            for (var k = 0; k < local.length; k++) {
+              if (local[k].id === m.id) { local[k].cloud_id = row.id; break; }
+            }
+            localStorage.setItem('greenscan_markers', JSON.stringify(local));
+          } catch(_){}
+          uploaded++;
+        }
+      } catch(e) { console.warn('[v26.85] _uploadLocalOnly', e && e.message); }
+    }
+    if (uploaded > 0) {
+      console.log('[v26.85] _uploadLocalOnly fertig:', uploaded, 'von', items.length);
+      if (typeof gsToast === 'function') gsToast('☁️ ' + uploaded + ' lokale' + (uploaded===1?'r':'') + ' Fund' + (uploaded===1?'':'e') + ' in Cloud synchronisiert.', 'success', 3500);
+    }
   },
   // Toggle Community-Share (is_private flip)
   togglePrivacy: async function(findId, makePublic){
@@ -38480,16 +38970,28 @@ async function gsOpenMyFinds(){
     }
     listEl.style.textAlign = 'left'; listEl.style.padding = '0';
     var catEmoji = { pilz:'🍄', pflanze:'🌿', baum:'🌲', kraut:'🌿', beere:'🫐', heil:'🌿', poi:'📍', sonstiges:'📍' };
+    // v26.84: Liste zeigt Thumbnail wenn photo_url existiert; sonst "📸 Foto"-Button für Nachrüst-Upload.
+    // v26.85: Badge "💾 nur lokal" wenn _local_only-Flag gesetzt (offline erstellter Fund, noch nicht in Cloud).
     listEl.innerHTML = finds.map(function(f, i){
       var d = new Date(f.found_at || f.created_at || Date.now());
       var emo = catEmoji[f.category] || '📍';
       var pub = (f.is_private === false);
+      var thumb = f.photo_url
+        ? '<img src="' + f.photo_url + '" style="width:46px;height:46px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:pointer;" onclick="_gsMyFindFocus(' + i + ')" loading="lazy" alt="">'
+        : '<div style="width:46px;height:46px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:var(--surface2);font-size:24px;cursor:pointer;" onclick="_gsMyFindFocus(' + i + ')">' + emo + '</div>';
+      var photoBtn = f.photo_url
+        ? ''
+        : '<button onclick="_gsMyFindAddPhoto(' + i + ')" title="Foto hinzufügen" style="padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:#fff7e0;font-size:14px;cursor:pointer;-webkit-tap-highlight-color:transparent;">📸</button>';
+      var localBadge = f._local_only
+        ? '<span title="Nur lokal — noch nicht in der Cloud" style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:7px;font-size:9.5px;font-weight:700;background:#fff7e0;color:#a87000;border:1px solid #ffe2a0;vertical-align:middle;">💾 nur lokal</span>'
+        : '';
       return '<div style="display:flex;align-items:center;gap:10px;padding:10px 11px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:6px;">' +
-        '<div style="font-size:22px;cursor:pointer;" onclick="_gsMyFindFocus(' + i + ')">' + emo + '</div>' +
+        thumb +
         '<div style="flex:1;min-width:0;cursor:pointer;" onclick="_gsMyFindFocus(' + i + ')">' +
-          '<div style="font-size:13px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(f.species_name||'Unbenannt') + '</div>' +
+          '<div style="font-size:13px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(f.species_name||'Unbenannt') + localBadge + '</div>' +
           '<div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + d.toLocaleDateString('de-CH') + (f.note ? ' · ' + escHtml(String(f.note).slice(0,40)) : '') + '</div>' +
         '</div>' +
+        photoBtn +
         '<button onclick="_gsMyFindTogglePub(' + i + ',this)" title="Community-Freigabe" style="padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:' + (pub?'#e8f5e9':'var(--surface2)') + ';font-size:14px;cursor:pointer;-webkit-tap-highlight-color:transparent;">' + (pub?'🌍':'🔒') + '</button>' +
         '<button onclick="_gsMyFindDelete(' + i + ')" title="Löschen" style="padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:#ffebee;font-size:14px;cursor:pointer;-webkit-tap-highlight-color:transparent;">🗑️</button>' +
       '</div>';
@@ -38549,6 +39051,91 @@ async function _gsMyFindDelete(i){
   gsOpenMyFinds(); // Liste neu laden
 }
 window._gsMyFindDelete = _gsMyFindDelete;
+
+// v26.84: Nachträgliches Foto an einen bestehenden Fund hängen.
+// Öffnet hidden-File-Input → upload → PATCH map_user_finds.photo_url → LS-Cache aktualisieren → Liste neu rendern.
+async function _gsMyFindAddPhoto(i){
+  var f = (window._gsMyFindsRows || [])[i];
+  if (!f) return;
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) {
+    if (typeof gsToast === 'function') gsToast('Bitte erst einloggen, damit Fotos in der Cloud landen.', 'warning');
+    return;
+  }
+  // Hidden File-Input erzeugen + clicken
+  var fi = document.createElement('input');
+  fi.type = 'file'; fi.accept = 'image/*'; fi.capture = 'environment';
+  fi.style.position = 'fixed'; fi.style.left = '-9999px';
+  document.body.appendChild(fi);
+  fi.onchange = async function(){
+    try {
+      var file = fi.files && fi.files[0];
+      if (!file) { try { fi.remove(); } catch(_){} return; }
+      if (file.size > 10 * 1024 * 1024) {
+        if (typeof gsToast === 'function') gsToast('Foto zu gross (max 10 MB).', 'warning');
+        try { fi.remove(); } catch(_){} return;
+      }
+      // File → b64
+      var b64 = await new Promise(function(res, rej){
+        var rd = new FileReader();
+        rd.onload = function(ev){ res((ev.target.result || '').split(',')[1] || ''); };
+        rd.onerror = rej;
+        rd.readAsDataURL(file);
+      });
+      if (typeof gsToast === 'function') gsToast('📤 Foto wird hochgeladen…', 'info', 2500);
+      var url = await window.gsUploadPhotoToBucket('map-find-photos', b64);
+      // PATCH Cloud-Row
+      var ok = false;
+      if (typeof sbFetch === 'function' && f.id && String(f.id).indexOf('local_') !== 0) {
+        var r = await sbFetch('/rest/v1/map_user_finds?id=eq.' + f.id, {
+          method:'PATCH',
+          headers:{'Content-Type':'application/json','Prefer':'return=minimal'},
+          body: JSON.stringify({ photo_url: url, updated_at: new Date().toISOString() })
+        });
+        ok = !!(r && !r.error);
+      } else {
+        // Pur lokaler Fund (offline-erstellt): direkt LS aktualisieren
+        ok = true;
+      }
+      if (ok) {
+        f.photo_url = url;
+        // LS-Cache spiegeln (find by cloud_id or local id)
+        try {
+          var local = gsGetSavedMarkers();
+          for (var k = 0; k < local.length; k++) {
+            if (local[k].cloud_id === f.id || local[k].id === f.id) { local[k].photo_url = url; }
+          }
+          localStorage.setItem('greenscan_markers', JSON.stringify(local));
+        } catch(_){}
+        if (typeof gsToast === 'function') gsToast('Foto gespeichert ✅', 'success');
+        // Live-Karte: alten Marker-Popup updaten (best effort)
+        try {
+          if (typeof _gsMarkerLayers !== 'undefined' && typeof gsMap !== 'undefined' && gsMap) {
+            for (var m = 0; m < _gsMarkerLayers.length; m++) {
+              if (_gsMarkerLayers[m] && _gsMarkerLayers[m].cloud_id === f.id) {
+                var lyr = _gsMarkerLayers[m].layer;
+                var catKey = _gsMarkerLayers[m].cat || 'pflanze';
+                var catMeta2 = (typeof GS_MARKER_CATS !== 'undefined') ? GS_MARKER_CATS[catKey] : null;
+                if (lyr && catMeta2 && typeof _gsBuildFindPopup === 'function') {
+                  lyr.setPopupContent(_gsBuildFindPopup(catMeta2, f.species_name, f.note, new Date(f.found_at||f.created_at||Date.now()), url));
+                }
+              }
+            }
+          }
+        } catch(_){}
+        gsOpenMyFinds(); // Liste neu rendern
+      } else {
+        if (typeof gsToast === 'function') gsToast('Foto-Speichern fehlgeschlagen.', 'error');
+      }
+    } catch(e){
+      console.warn('[v26.84] _gsMyFindAddPhoto', e && e.message);
+      if (typeof gsToast === 'function') gsToast('Foto-Upload fehlgeschlagen.', 'error');
+    } finally {
+      try { fi.remove(); } catch(_){}
+    }
+  };
+  fi.click();
+}
+window._gsMyFindAddPhoto = _gsMyFindAddPhoto;
 
 function gsGetSavedMarkers() {
   try { return JSON.parse(localStorage.getItem('greenscan_markers')) || []; }
@@ -52476,6 +53063,78 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.87', date: '02.06.2026',
+    headline: '✨ Pflanzen-Vorschläge beim Tippen + klare Wohnung/Garten-Wahl',
+    summary: 'Wenn du eine Pflanze hinzufügst, schlägt die App jetzt direkt beim Tippen passende Arten aus der Pflanzen-Datenbank (~4\'342 Arten) vor — mit Emoji, lateinischem Namen, Giftig-Warnung und Kategorie. Ein Klick füllt das ganze Formular vor. Zusätzlich fragt das Formular jetzt zuerst: Soll die Pflanze in die 🏠 Wohnung („Meine Pflanzen") oder in den 🌳 Garten („Mein Garten" mit Beet/Pflege-Plan)? — bei Garten leitet die App automatisch zum passenden Workflow. Pflanzen- und Garten-Karten sind nun smoother (rundere Ecken, weiche Schatten, sanfter Hover-Lift).',
+    user_summary: '✨ Tippst du im „Pflanze hinzufügen"-Dialog, kommen sofort Vorschläge — ein Klick und alles ist vorbefüllt. Plus: du wählst zuerst 🏠 Wohnung oder 🌳 Garten, die App leitet dich automatisch richtig.',
+    user_items: [
+      { emoji: '🔍', text: 'Live-Vorschläge aus 4\'342 Pflanzen während du tippst' },
+      { emoji: '🏠🌳', text: 'Klare Wahl: Wohnung („Meine Pflanzen") oder Garten („Mein Garten")' },
+      { emoji: '💎', text: 'Layout smoother: rundere Karten, weichere Schatten, sanfter Hover' },
+    ],
+    items: [
+      {emoji:'🔎', bold:'gsPlantSuggest:', text:' debounced 150ms, sucht in window.DB nach Name-Prefix(100)>Contains(80)>Latein-Prefix(60)>Latein-Contains(40)>EN/ES(20), Bonus kürzere Namen. Top-8 Dropdown mit Emoji+Name+Latein+Cat-Tag+Toxisch-Warnung.'},
+      {emoji:'🪴', bold:'Wohnung/Garten-Toggle:', text:' Radio-Group in modal-addplant. savePlant() routet bei outdoor → switchTab(garden) + openAddPlanting(firstGardenId) mit Pre-Fill via window._gsPrefillPlanting. Kein Garten? Confirm zum Anlegen.'},
+      {emoji:'💎', bold:'Layout-Polish:', text:' .plant-card und .garden-card border-radius 18px, doppelter shadow-layer (.06+.04), cubic-bezier transition 180ms, hover translateY(-1px). Dark-Mode-Anpassung.'},
+      {emoji:'⏭️', bold:'Folgt v26.88:', text:' Backend-Edge-Fn species-search mit pg_trgm Fuzzy + Popularity-Ranking (Code-Auftrag in AUFTRAG_CODE_v26.88_SPECIES_SEARCH.md).'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · GS_VERSION=v26.87 · sw.js gs-v26.87 · _headers v26.87 · meta=26.87.20260602.'},
+    ]
+  },
+  {
+    v: 'v26.86', date: '02.06.2026',
+    headline: '🏠 Home zentral + 🌱 Pflanzen direkt aus dem Scan hinzufügen',
+    summary: 'Zwei grosse UX-Verbesserungen: Die Haupt-Navigation ist neu sortiert — der Home-Knopf sitzt jetzt mittig und ist deutlich grösser (FAB-Style), so dass er als visueller Anker für „bring mich zurück" funktioniert. Reihenfolge: 📷 Scanner · 🌱 Pflanzen · 🏠 HOME · 🔍 Suche · ⋯ Menü. Zweitens: nach jedem Scan erscheint ein dicker „🌱 Zu meinen Pflanzen hinzufügen"-Button — ein Klick und die erkannte Pflanze landet mit Foto, Name und Pflege-Default in deinem Garten. Auch der Empty-State in „Pflanzen" hat jetzt einen empfohlenen Foto-Scan-Weg.',
+    user_summary: '🏠 Der Home-Knopf ist jetzt grösser und mittig — leicht zu finden. 🌱 Nach jedem Scan: 1 Klick und die Pflanze ist mit Foto in deinem Garten.',
+    user_items: [
+      { emoji: '🏠', text: 'Home-Knopf mittig + grösser (FAB-Style) — der Anker für „nach Hause"' },
+      { emoji: '🌱', text: 'Scan → ein Klick → Pflanze in deinem Garten (mit Foto)' },
+      { emoji: '📷', text: '„Pflanze scannen"-CTA gross im Empty-State, perfekt für Einsteiger' },
+    ],
+    items: [
+      {emoji:'🎯', bold:'Nav-Anker:', text:' .tab-center Klasse hebt Home mit margin-top:-22px aus der Nav-Bar heraus, 58px Kreis, Grün-Gradient, Box-Shadow 0 4px 14px. Active-State zusätzlich stärker.'},
+      {emoji:'🌱', bold:'gsAddScanToMyPlants:', text:' Confidence ≥60 + non-mushroom-Filter → 480x480-Foto in user-plant-photos-Bucket (eingeloggt) oder base64 inline. Default-tasks: water/4d, fertilize/30d, check/14d. Duplikat-Check via Latin-Name/Name+Date.'},
+      {emoji:'✨', bold:'Empty-State Senior-Friendly:', text:' renderMyPlants() ohne Pflanzen → grosse CTAs (56px Min-Touch), Scan-Weg „empfohlen"-Badge + sekundärer Manuell-Button.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · GS_VERSION=v26.86 · sw.js gs-v26.86 · _headers v26.86 · meta=26.86.20260602.'},
+    ]
+  },
+  {
+    v: 'v26.85', date: '02.06.2026',
+    headline: '📋 Funde-Liste zeigt jetzt ALLE Funde (lokal + Cloud)',
+    summary: 'Wenn du offline oder nicht eingeloggt einen Pin auf der Karte gespeichert hast, ist er bisher nur lokal gelandet und tauchte in „Meine Funde" nicht auf, sobald du dich einloggtest. Jetzt fliessen lokale und Cloud-Funde zusammen in eine Liste, sortiert nach Datum, und sobald du wieder online + eingeloggt bist, werden deine offline gesammelten Funde automatisch in die Cloud hochgeladen.',
+    user_summary: '📋 Egal ob du offline oder eingeloggt warst — alle deine Funde landen jetzt in der Liste. Offline-Funde werden automatisch in die Cloud nachsynchronisiert, sobald du eingeloggt bist.',
+    user_items: [
+      { emoji: '📋', text: 'Lokale + Cloud-Funde zusammen in einer Liste' },
+      { emoji: '☁️', text: 'Auto-Upload offline gesammelter Funde nach Login' },
+      { emoji: '💾', text: '„nur lokal"-Badge bis ein Fund in der Cloud ist' },
+    ],
+    items: [
+      {emoji:'🔀', bold:'list()-Merge:', text:' gsMapFinds.list macht jetzt IMMER LS+Cloud-Pull, Dedup via cloud_id, Datums-sortiert. Vorher Entweder-Oder → offline-Funde verschwanden für eingeloggte User.'},
+      {emoji:'☁️', bold:'Auto-Upload:', text:' _uploadLocalOnly() läuft im Hintergrund: alle LS-Marker ohne cloud_id werden in map_user_finds gepostet, cloud_id zurück in LS geschrieben. Toast „☁️ X lokale Funde synchronisiert".'},
+      {emoji:'🏷️', bold:'Local-Only-Badge:', text:' „💾 nur lokal" (gelblich) im Listen-Eintrag wenn _local_only-Flag → User sieht den Sync-Status.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · GS_VERSION=v26.85 · sw.js gs-v26.85 · _headers v26.85 · meta=26.85.20260602.'},
+    ]
+  },
+  {
+    v: 'v26.84', date: '02.06.2026',
+    headline: '📍 Karten-Funde Bugfix + 📸 Foto-Feature für Fundorte',
+    summary: 'Echte Ursache des seit langem bekannten „Funde werden nicht gespeichert"-Bugs gefunden und behoben: der Speichern-Button im Karten-Popup gab beim Klick falsche String-Werte statt der Koordinaten weiter, dadurch konnte kein Marker korrekt gesetzt oder in die Cloud geschrieben werden. Jetzt landet jeder Pin zuverlässig in localStorage + map_user_finds. Zusätzlich: Du kannst jeden Fund mit einem Foto versehen — entweder direkt beim Speichern (📸 im Popup) oder nachträglich aus der „Meine Funde"-Liste. Marker-Popup und Liste zeigen das Foto als Vorschau.',
+    user_summary: '📍 Wenn du auf der Karte einen Fundort speicherst, landet er endlich zuverlässig in „Meine Funde". 📸 Neu: du kannst zu jedem Fund ein Foto hinzufügen — direkt beim Speichern oder nachträglich.',
+    user_items: [
+      { emoji: '📍', text: 'Fundort-Speichern funktioniert wieder zuverlässig' },
+      { emoji: '📸', text: 'Foto direkt beim Speichern hinzufügen (Pin-Popup)' },
+      { emoji: '🖼️', text: 'Nachträgliches Foto-Hinzufügen in „Meine Funde"' },
+      { emoji: '🌅', text: 'Vorschau-Thumbnail in der Liste & im Marker-Popup' },
+    ],
+    items: [
+      {emoji:'🐛', bold:'Root-Cause:', text:' Pin-Popup-Button hatte onclick="gsAddMarker(\\\' + lat + \\\',\\\' + lng + \\\')" — die \\\' -Escapes im JS-String ergaben in HTML literal `gsAddMarker(\' + lat + \',\' + lng + \')`. Beim Klick rief der Browser das mit zwei String-Args " + lat + " und " + lng + " auf → Number(NaN) → INSERT scheiterte still. Hard-Lesson #12: nie Var-Interpolation per JS-Escape in HTML-onclick; entweder Direkt-Konkatenation oder globaler State.'},
+      {emoji:'✅', bold:'Fix:', text:' Map-Klick parkt lat/lng in window._gsPendingPin, Button liest dort. PLUS Defensiv-Check in gsAddMarker: Number(lat/lng) + isFinite-Guard mit klarem Toast statt silent NaN.'},
+      {emoji:'📸', bold:'Foto-Feature:', text:' Pin-Popup hat 📸-Input mit Preview; gsAddMarker → gsUploadPhotoToBucket(\'map-find-photos\', b64) → photo_url ins map_user_finds-INSERT. Bucket existiert seit v26.69 (public-read, 10MB Limit).'},
+      {emoji:'🖼️', bold:'Anzeige:', text:' Marker-Popups (live + reload + cloud) zeigen Foto 140px max. Meine-Funde-Liste: 46x46 Thumb statt Emoji. _gsBuildFindPopup gemeinsamer Builder.'},
+      {emoji:'➕', bold:'Nachrüst-Upload:', text:' _gsMyFindAddPhoto öffnet versteckten File-Picker → Upload → PATCH photo_url → Live-Marker-Popup wird via setPopupContent aktualisiert + Liste neu gerendert. Button erscheint nur bei Funden ohne Foto.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · GS_VERSION=v26.84 · sw.js gs-v26.84 · _headers v26.84 · meta=26.84.20260602.'},
+    ]
+  },
+  {
     v: 'v26.83', date: '02.06.2026',
     headline: '🌱 KI-Garten-Planer Mega-Upgrade: 6 neue Detail-Tabs',
     summary: 'Der KI-Garten-Planer (garden-scan-analyze v6) liefert jetzt MASSIV mehr Daten — die bisher gar nicht angezeigt wurden. Das Plan-Ergebnis hat neu ein 6-Tab-System unter der 2D/3D-Ansicht: Übersicht (Ertrag/Aufwand/Pflanzen-Stats + Grundprinzipien + „Heute starten" + Standort-Analyse), Pflanzen (Detail-Karten mit Pflanzenfamilie, Nährstoff-Bedarf, Wasserzone, Aussaat→Ernte-Timeline, Frosthärte, gute/schlechte Nachbarn), Kalender (52-Wochen-Timeline mit Mondtagen), Fruchtfolge (4-Jahres-Zyklus), Mondphasen (biodynamische Aussaat) und Wasserzonen (Bewässerungs-Plan mit Tortendiagramm). Ältere Pläne ohne diese Daten blenden leere Tabs automatisch aus.',
@@ -55071,7 +55730,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.83';
+var GS_VERSION = 'v26.87';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -64068,18 +64727,34 @@ button {
   background: var(--border);
 }
 
-/* ══ PFLANZEN-KARTEN (komplett neu) ════════════════════════ */
+/* ══ PFLANZEN-KARTEN (v26.87: smoother & polished) ════════════════════════ */
 .plant-card {
   background: var(--card);
-  border-radius: 16px;
+  border-radius: 18px;
   border: 1px solid var(--border);
-  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  box-shadow: 0 2px 10px rgba(15,40,15,.06), 0 1px 2px rgba(15,40,15,.04);
   overflow: hidden;
-  margin-bottom: 10px;
-  transition: transform .1s;
+  margin-bottom: 12px;
+  transition: transform .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s ease, border-color .18s ease;
   -webkit-tap-highlight-color: transparent;
 }
-.plant-card:active { transform: scale(.99); }
+.plant-card:hover { box-shadow: 0 6px 20px rgba(15,40,15,.10), 0 2px 4px rgba(15,40,15,.06); border-color: rgba(45,138,45,.22); transform: translateY(-1px); }
+.plant-card:active { transform: scale(.985); }
+body.dark .plant-card { box-shadow: 0 2px 10px rgba(0,0,0,.30), 0 1px 2px rgba(0,0,0,.18); }
+body.dark .plant-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,.42), 0 2px 4px rgba(0,0,0,.20); }
+
+/* v26.87: Garten-Cards bekommen denselben Polish */
+.garden-card {
+  border-radius: 18px !important;
+  box-shadow: 0 2px 10px rgba(15,40,15,.06), 0 1px 2px rgba(15,40,15,.04) !important;
+  transition: transform .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s ease !important;
+}
+.garden-card:hover { box-shadow: 0 6px 20px rgba(15,40,15,.10), 0 2px 4px rgba(15,40,15,.06) !important; transform: translateY(-1px); }
+
+/* v26.87: Autocomplete-Dropdown Dark-Mode-Polish */
+body.dark #mp-name-sug { box-shadow: 0 8px 24px rgba(0,0,0,.55) !important; border-color: var(--g-main) !important; }
+#mp-name-sug [role="option"]:hover { background: rgba(45,138,45,.10) !important; }
+body.dark #mp-name-sug [role="option"]:hover { background: rgba(45,138,45,.18) !important; }
 
 /* Status-Indikator links */
 .plant-card-status-ok     { border-left: 4px solid #4caf50; }
@@ -64869,9 +65544,30 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
       <button class="modal-close-btn" aria-label="Schliessen" onclick="closeModal('modal-addplant')" style="background:rgba(255,255,255,.2);color:#fff;border:none;width:34px;height:34px;border-radius:50%;font-size:18px;cursor:pointer;">&#x2715;</button>
     </div>
     <div style="padding:18px;display:flex;flex-direction:column;gap:12px;">
+      <!-- v26.87: Standort-Toggle — 🏠 Wohnung (myPlants) vs. 🌳 Garten (Plantings in einem Garten) -->
       <div>
+        <label style="display:block;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;">Wo soll die Pflanze stehen?</label>
+        <div role="radiogroup" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <label class="gs-loc-opt" data-loc="indoor" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:11px 12px;border:2px solid var(--g-main);border-radius:12px;background:linear-gradient(135deg,rgba(45,138,45,.06),rgba(45,138,45,.02));font-weight:700;font-size:13.5px;">
+            <input type="radio" name="mp-location" value="indoor" checked style="accent-color:var(--g-main);"><span style="font-size:20px;">🏠</span> Wohnung
+          </label>
+          <label class="gs-loc-opt" data-loc="outdoor" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:11px 12px;border:2px solid var(--border);border-radius:12px;background:var(--card);font-weight:700;font-size:13.5px;color:var(--text);">
+            <input type="radio" name="mp-location" value="outdoor" style="accent-color:var(--g-main);"><span style="font-size:20px;">🌳</span> Garten
+          </label>
+        </div>
+        <div style="font-size:10.5px;color:var(--muted);margin-top:5px;">🏠 Wohnung → „Meine Pflanzen" · 🌳 Garten → „Mein Garten" mit Pflege-Plan</div>
+      </div>
+
+      <div style="position:relative;">
         <label style="display:block;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:4px;">Art / Name <span style="color:#c62828;">*</span></label>
-        <input id="mp-name" type="text" placeholder="z.B. Monstera, Tomate…" oninput="gsCompanionLiveCheck()" style="width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;background:var(--input-bg);color:var(--text);box-sizing:border-box;">
+        <input id="mp-name" type="text" placeholder="z.B. Monstera, Tomate…" autocomplete="off"
+          oninput="gsPlantSuggest(this); gsCompanionLiveCheck();"
+          onfocus="gsPlantSuggest(this);"
+          onblur="setTimeout(function(){ var d=document.getElementById('mp-name-sug'); if(d) d.style.display='none'; }, 180);"
+          style="width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;background:var(--input-bg);color:var(--text);box-sizing:border-box;">
+        <!-- v26.87: Autocomplete-Dropdown — gefüllt via gsPlantSuggest aus DB-Array (4'342 Arten) -->
+        <div id="mp-name-sug" role="listbox" aria-label="Pflanzen-Vorschläge"
+             style="display:none;position:absolute;top:100%;left:0;right:0;z-index:1000;margin-top:4px;max-height:260px;overflow-y:auto;background:var(--card);border:1.5px solid var(--g-main);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.18);"></div>
         <!-- v25.21: Mischkultur-Score-Auto-Block (gefüllt via gsCompanionLiveCheck) -->
         <div id="mp-companion-score" style="margin-top:8px;"></div>
       </div>
