@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.91.20260602">
+<meta name="app-version" content="26.89.20260602">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1833,6 +1833,17 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <div class="stat-card" onclick="filterCat('wildpflanze')" style="cursor:pointer;"><div class="sn" id="stat-edible">–</div><div class="sl" data-i18n="stat_edible" data-i18n-fallback="✅ Essbar">✅ Essbar</div></div>
     <div class="stat-card" onclick="switchTab('favs')" style="cursor:pointer;"><div class="sn" id="stat-favs">0</div><div class="sl" data-i18n="stat_plants" data-i18n-fallback="🌱 Pflanzen">🌱 Pflanzen</div></div>
     <div class="stat-card" onclick="openScanHistoryFull()" style="cursor:pointer;"><div class="sn" id="stat-scans">0</div><div class="sl" data-i18n="stat_scans" data-i18n-fallback="📷 Scans">📷 Scans</div></div>
+  </div>
+  <!-- v26.89: „Jetzt gute Zeit für…" — saisonal + Community-beliebte Arten (fn_species_top_picks), initial leer, JS-gefüllt -->
+  <div id="home-top-picks" style="display:none;margin:0 16px 14px;padding:14px;border-radius:16px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow-sm);">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <span style="font-size:22px;">🌱</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:15px;font-weight:800;color:var(--text);" data-i18n="home_top_picks_title" data-i18n-fallback="Jetzt gute Zeit für…">Jetzt gute Zeit für…</div>
+        <div style="font-size:11.5px;color:var(--muted);" data-i18n="home_top_picks_sub" data-i18n-fallback="Saisonal &amp; bei der Community beliebt">Saisonal &amp; bei der Community beliebt</div>
+      </div>
+    </div>
+    <div id="home-top-picks-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;"></div>
   </div>
   <div class="sec" data-i18n="sec_categories" data-i18n-fallback="Kategorien">Kategorien</div>
   <div class="cat-grid">
@@ -8512,8 +8523,79 @@ window.gsHomeFillLeaderboard = async function(){
 try {
   window.addEventListener('load', function(){
     setTimeout(function(){ try { if (typeof gsHomeFillLeaderboard === 'function') gsHomeFillLeaderboard(); } catch(_){} }, 1500);
+    // v26.89: erste Befüllung der „Jetzt gute Zeit für…"-Card auch beim Boot (Home ist Default-Tab → switchTab feuert evtl. nicht)
+    setTimeout(function(){ try { if (typeof gsHomeRenderTopPicks === 'function') gsHomeRenderTopPicks(); } catch(_){} }, 1800);
   });
 } catch(_){}
+
+// ── v26.89: Home-Card „Jetzt gute Zeit für…" — saisonal + Community-beliebt (fn_species_top_picks) ──
+// State-Bridge statt Inline-String-onclick (Hard-Lesson #12): onclick übergibt nur den Integer-Index,
+// die echten Werte werden aus window._gsHomeTopPicks gelesen → keine Quote-Escape-Falle.
+window._gsHomeTopPicks = [];
+async function gsHomeRenderTopPicks(){
+  var cont = document.getElementById('home-top-picks');
+  var grid = document.getElementById('home-top-picks-grid');
+  if (!cont || !grid) return;
+  if (typeof sbFetch !== 'function') return;
+  if (cont._gsLoading) return;
+  cont._gsLoading = true;
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_species_top_picks', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ p_lim: 6 })
+    });
+    var rows = (r && Array.isArray(r.data)) ? r.data : [];
+    if (!rows.length) { cont.style.display = 'none'; return; }
+    window._gsHomeTopPicks = rows;
+    grid.innerHTML = rows.map(function(s, i){
+      var beliebt = (s.pick_count|0) > 0;
+      return '<div role="button" tabindex="0" onclick="gsHomeOpenAddFromPick(' + i + ')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();gsHomeOpenAddFromPick(' + i + ');}"' +
+        ' style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:11px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:14px;cursor:pointer;transition:transform .15s,box-shadow .15s;text-align:center;"' +
+        ' onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 4px 12px rgba(15,40,15,.10)\'"' +
+        ' onmouseout="this.style.transform=\'translateY(0)\';this.style.boxShadow=\'none\'">' +
+        '<div style="font-size:30px;line-height:1;">' + escHtml(s.emoji || '🌿') + '</div>' +
+        '<div style="font-size:12.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px;">' + escHtml(s.name || '') + '</div>' +
+        (beliebt
+          ? '<div style="font-size:10px;color:var(--g-main);font-weight:700;">🔥 beliebt</div>'
+          : '<div style="font-size:10px;color:var(--muted);">' + escHtml(s.cat || '') + '</div>') +
+        '</div>';
+    }).join('');
+    cont.style.display = 'block';
+  } catch(e) { console.warn('[gsHomeRenderTopPicks]', e && e.message); }
+  finally { cont._gsLoading = false; }
+}
+window.gsHomeRenderTopPicks = gsHomeRenderTopPicks;
+
+window.gsHomeOpenAddFromPick = function(idx){
+  var s = (window._gsHomeTopPicks || [])[idx];
+  if (!s) return;
+  if (typeof openAddPlant === 'function') openAddPlant();
+  setTimeout(function(){
+    var n = document.getElementById('mp-name');
+    var e = document.getElementById('mp-emoji');
+    if (n) n.value = s.name || '';
+    if (e && s.emoji) e.value = s.emoji;
+    var wrap = n && n.parentElement;
+    if (wrap) { wrap.setAttribute('data-picked-lat', s.lat || ''); wrap.setAttribute('data-picked-cat', s.cat || ''); }
+    if (typeof gsCompanionLiveCheck === 'function') { try { gsCompanionLiveCheck(); } catch(_){} }
+    // Garten-Default für Outdoor-Kategorien, sonst Wohnung
+    var isGarden = /^(gemuese|kraut|frucht|beere|baum|strauch|wildpflanze|blume)$/i.test(s.cat || '');
+    var rad = document.querySelector('input[name="mp-location"][value="' + (isGarden ? 'outdoor' : 'indoor') + '"]');
+    if (rad) { rad.checked = true; try { rad.dispatchEvent(new Event('change', {bubbles:true})); } catch(_){} }
+    // Pick-Tracking (fire-and-forget, nur eingeloggt + nur DB-Treffer; 2-arg-Signatur p_q/p_species_id)
+    try {
+      if (typeof sbFetch === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && s.id) {
+        sbFetch('/rest/v1/rpc/fn_species_log_pick', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ p_q: (s.name || ''), p_species_id: String(s.id) })
+        });
+      }
+    } catch(_){}
+    if (typeof gsHaptic === 'function') gsHaptic('select');
+  }, 200);
+};
 
 // 7 Fragetypen
 // v23.50: Smarter Distractor-Generation — Antworten dürfen NIE zu ähnlich sein
@@ -17309,6 +17391,8 @@ function switchTab(t, btn) {
     // v23.66: XP-Bar + Context-Badge bei jedem Home-Öffnen refreshen (Sync mit Menü)
     try { if (typeof gsUpdateXPBar === 'function') gsUpdateXPBar(); } catch(_){}
     try { if (typeof gsUpdateHomeBadge === 'function') gsUpdateHomeBadge(); } catch(_){}
+    // v26.89: „Jetzt gute Zeit für…"-Card im Hintergrund nachladen (Edge-Fn/SW-cached)
+    try { setTimeout(function(){ if (typeof gsHomeRenderTopPicks === 'function') gsHomeRenderTopPicks(); }, 600); } catch(_){}
   }
   if (t === 'garden') { if (typeof gsUpdateGartenWidgets === 'function') setTimeout(gsUpdateGartenWidgets, 100);
     if(typeof gsCheckWaterNeeded==="function") setTimeout(gsCheckWaterNeeded,100);
@@ -53148,6 +53232,23 @@ window.GS_RELEASES = [
     ]
   },
   {
+    v: 'v26.89', date: '02.06.2026',
+    headline: '🌱 Jetzt gute Zeit für… — saisonale Vorschläge auf der Startseite',
+    summary: 'Die Startseite zeigt jetzt eine neue Karte „🌱 Jetzt gute Zeit für…" mit bis zu 6 Pflanzen-Vorschlägen, die gerade gut passen — gewichtet nach Beliebtheit (anonymes Popularity-Ranking aus der Pflanzensuche). Ein Klick auf einen Vorschlag öffnet direkt den „Pflanze hinzufügen"-Dialog mit vorbefülltem Namen, Emoji und Kategorie; bei Garten-Arten (Gemüse, Kräuter, Beeren, Bäume …) springt der Standort-Schalter automatisch auf 🌳 Garten/Draußen, sonst auf 🏠 Wohnung. Außerdem sind die Online-Suchvorschläge beim Tippen jetzt direkt mit der Fuzzy-Suche aus v26.88 verdrahtet — Tippfehler-tolerant mit ☁️-Online-Treffern.',
+    user_summary: '🌱 Neue Startseiten-Karte „Jetzt gute Zeit für…" mit 6 passenden Vorschlägen — ein Klick füllt den Hinzufügen-Dialog vor und wählt automatisch Wohnung oder Garten.',
+    user_items: [
+      { emoji: '🌱', text: 'Startseiten-Karte „Jetzt gute Zeit für…" mit bis zu 6 Vorschlägen' },
+      { emoji: '👆', text: 'Ein Klick → Dialog vorbefüllt (Name, Emoji, Kategorie) + Standort automatisch' },
+      { emoji: '🔥', text: 'Beliebte Arten ranken höher (anonymes Popularity-Ranking)' },
+    ],
+    items: [
+      {emoji:'🌱', bold:'Home-Karte:', text:' Neue Sektion #home-top-picks („Jetzt gute Zeit für…") rendert via gsHomeRenderTopPicks() bis zu 6 Arten aus fn_species_top_picks(p_lim:6) — gewichtet nach species_popularity.pick_count. Beliebte Arten tragen ein 🔥-Badge, sonst die Kategorie.'},
+      {emoji:'👆', bold:'1-Klick-Hinzufügen:', text:' gsHomeOpenAddFromPick(idx) öffnet openAddPlant mit vorbefülltem Namen/Emoji/Kategorie. Garten-Kategorien (Gemüse/Kraut/Frucht/Beere/Baum/Strauch/Wildpflanze/Blume) schalten den Standort-Toggle auf Draußen, sonst Wohnung. Pick wird via fn_species_log_pick (2-arg) geloggt.'},
+      {emoji:'🔎', bold:'Online-Suche verdrahtet:', text:' Autocomplete nutzt die v26.88-Fuzzy-Suche (_gsRemoteSearch/_gsMergeRemote) — Tippfehler-tolerant mit ☁️-Online-Treffern, lokale DB als Offline-Fallback.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · GS_VERSION=v26.89 · sw.js gs-v26.89 · _headers v26.89 · meta=26.89.20260602.'},
+    ]
+  },
+  {
     v: 'v26.88', date: '02.06.2026',
     headline: '🔎 Tippfehler-tolerante Online-Pflanzensuche',
     summary: 'Die Vorschläge beim Hinzufügen einer Pflanze sind jetzt online viel schlauer: Sie verzeihen Tippfehler und Mehrzahl-Formen (z.B. „tomaten" findet „Fleischtomate", „rosee" findet „Rose") und durchsuchen auch lateinische Namen. Im Hintergrund läuft eine echte Fuzzy-Suche (pg_trgm) über alle Arten der Datenbank, mit 60-Sekunden-Cache für Tempo. Offline bleibt die schnelle lokale Suche wie bisher. Häufig gewählte Arten ranken mit der Zeit höher (Popularity-Ranking) — datenschutzfreundlich nur als anonyme Gesamtzahl, keine Einzel-Suchen werden veröffentlicht.',
@@ -55833,7 +55934,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.91';
+var GS_VERSION = 'v26.89';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
