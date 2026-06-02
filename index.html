@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.94.20260602">
+<meta name="app-version" content="26.98.20260602">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -49435,7 +49435,8 @@ function gsOpenPhotoTimeline(plantId) {
 
   // Initial: letztes Foto (neueste)
   var idx = photos.length - 1;
-  window._gsPhotoTimelineState = { plantId: plantId, photos: photos, idx: idx, mode: 'single' };
+  // v26.98: cmpA/cmpB = frei wählbare Vorher/Nachher-Indizes für KI-Diff
+  window._gsPhotoTimelineState = { plantId: plantId, photos: photos, idx: idx, mode: 'single', cmpA: 0, cmpB: photos.length - 1, diff: null, diffBusy: false };
 
   m.innerHTML = gsBuildPhotoTimelineContent();
   document.body.appendChild(m);
@@ -49467,13 +49468,27 @@ function gsBuildPhotoTimelineContent() {
   // Content je nach Modus
   var content = '';
   if (s.mode === 'compare' && photos.length >= 2) {
-    var first = photos[0];
-    var last = photos[photos.length - 1];
+    // v26.98: frei wählbare A/B-Indizes statt fix first/last
+    var ai = Math.max(0, Math.min(photos.length - 1, (typeof s.cmpA === 'number' ? s.cmpA : 0)));
+    var bi = Math.max(0, Math.min(photos.length - 1, (typeof s.cmpB === 'number' ? s.cmpB : photos.length - 1)));
+    var first = photos[ai];
+    var last = photos[bi];
     var dateFmt = function(ts) {
       if (!ts) return '?';
       try { return new Date(ts).toLocaleDateString('de-CH', {day:'2-digit', month:'short', year:'numeric'}); } catch(_) { return '?'; }
     };
+    var optsFor = function(sel) {
+      return photos.map(function(ph, i){
+        var lbl = (ph.ts ? new Date(ph.ts).toLocaleDateString('de-CH', {day:'2-digit', month:'short', year:'2-digit'}) : ('Foto ' + (i+1)));
+        return '<option value="' + i + '"' + (i === sel ? ' selected' : '') + '>' + gsEscHtml(lbl) + '</option>';
+      }).join('');
+    };
+    var selStyle = 'background:rgba(255,255,255,.92);color:#1b5e20;border:none;border-radius:7px;padding:5px 7px;font-size:11px;font-weight:700;font-family:inherit;width:100%;';
     content =
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">' +
+        '<select onchange="gsPhotoTimelineSetCmp(\'a\', this.value)" style="' + selStyle + '">' + optsFor(ai) + '</select>' +
+        '<select onchange="gsPhotoTimelineSetCmp(\'b\', this.value)" style="' + selStyle + '">' + optsFor(bi) + '</select>' +
+      '</div>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
         '<div style="background:#000;border-radius:12px;overflow:hidden;aspect-ratio:1;">' +
           '<img src="' + first.photo + '" alt="Vorher" style="width:100%;height:100%;object-fit:cover;display:block;">' +
@@ -49485,7 +49500,10 @@ function gsBuildPhotoTimelineContent() {
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;color:#fff;text-align:center;">' +
         '<div><div style="font-size:11.5px;font-weight:700;">↑ Vorher</div><div style="font-size:10.5px;opacity:.85;">' + dateFmt(first.ts) + '</div><div style="font-size:10px;opacity:.7;margin-top:2px;">' + gsEscHtml(first.title || '') + '</div></div>' +
         '<div><div style="font-size:11.5px;font-weight:700;">↑ Nachher</div><div style="font-size:10.5px;opacity:.85;">' + dateFmt(last.ts) + '</div><div style="font-size:10px;opacity:.7;margin-top:2px;">' + gsEscHtml(last.title || '') + '</div></div>' +
-      '</div>';
+      '</div>' +
+      // v26.98: KI-Wachstums-Analyse-Button + Ergebnis-Container
+      '<button id="photo-diff-btn" onclick="gsPhotoDiffAnalyze()"' + (s.diffBusy ? ' disabled' : '') + ' style="margin-top:12px;width:100%;padding:11px;background:' + (s.diffBusy ? 'rgba(255,255,255,.25)' : 'linear-gradient(135deg,#1b5e20,#43a047)') + ';color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:' + (s.diffBusy ? 'wait' : 'pointer') + ';font-family:inherit;">' + (s.diffBusy ? '⏳ KI analysiert…' : '🤖 KI-Wachstums-Analyse') + '</button>' +
+      '<div id="photo-diff-result">' + gsBuildPhotoDiffResult(s.diff) + '</div>';
   } else {
     // Single + Slider
     var cur = photos[idx];
@@ -49508,6 +49526,8 @@ function gsBuildPhotoTimelineContent() {
             '<span>' + (idx + 1) + ' / ' + photos.length + '</span>' +
             '<span>' + labelRight + '</span>' +
           '</div>' +
+          // v26.98: Zeitraffer-Player (auto-advance durch alle Fotos)
+          '<button onclick="gsPhotoTimelinePlay()" style="margin-top:10px;width:100%;padding:9px;background:' + (s.playing ? 'rgba(255,255,255,.18)' : 'rgba(255,255,255,.92)') + ';color:' + (s.playing ? '#fff' : '#1b5e20') + ';border:none;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;">' + (s.playing ? '⏸ Stopp' : '⏩ Zeitraffer abspielen') + '</button>' +
         '</div>'
         : '');
   }
@@ -49531,13 +49551,204 @@ function gsPhotoTimelineMode(mode) {
   var s = window._gsPhotoTimelineState;
   if (!s) return;
   s.mode = mode;
+  // v26.98: beim Modus-Wechsel Zeitraffer stoppen
+  if (window._gsPhotoTimelinePlayTimer) { clearInterval(window._gsPhotoTimelinePlayTimer); window._gsPhotoTimelinePlayTimer = null; s.playing = false; }
   if (typeof gsHaptic === 'function') gsHaptic('tap');
   var m = document.getElementById('photo-timeline-modal');
   if (m) m.innerHTML = gsBuildPhotoTimelineContent();
 }
 
+// ─── v26.98 Foto-Diff-AI ──────────────────────────────────────────────
+// A/B-Auswahl für Vorher/Nachher-Vergleich setzen
+function gsPhotoTimelineSetCmp(which, val) {
+  var s = window._gsPhotoTimelineState;
+  if (!s) return;
+  var i = parseInt(val, 10); if (isNaN(i)) return;
+  if (which === 'a') s.cmpA = i; else s.cmpB = i;
+  s.diff = null; // alte Analyse verwerfen wenn Auswahl geändert
+  var m = document.getElementById('photo-timeline-modal');
+  if (m) m.innerHTML = gsBuildPhotoTimelineContent();
+}
+
+// Zeitraffer-Player: auto-advance durch alle Fotos (Single-Modus)
+function gsPhotoTimelinePlay() {
+  var s = window._gsPhotoTimelineState;
+  if (!s) return;
+  if (window._gsPhotoTimelinePlayTimer) {
+    clearInterval(window._gsPhotoTimelinePlayTimer);
+    window._gsPhotoTimelinePlayTimer = null;
+    s.playing = false;
+  } else {
+    s.playing = true;
+    if (s.idx >= (s.photos.length - 1)) s.idx = 0; // von vorn wenn am Ende
+    window._gsPhotoTimelinePlayTimer = setInterval(function(){
+      var st = window._gsPhotoTimelineState;
+      var modalOpen = document.getElementById('photo-timeline-modal');
+      if (!st || !modalOpen) { clearInterval(window._gsPhotoTimelinePlayTimer); window._gsPhotoTimelinePlayTimer = null; return; }
+      if (st.idx >= (st.photos.length - 1)) {
+        clearInterval(window._gsPhotoTimelinePlayTimer); window._gsPhotoTimelinePlayTimer = null; st.playing = false;
+      } else {
+        st.idx++;
+      }
+      var m2 = document.getElementById('photo-timeline-modal');
+      if (m2) m2.innerHTML = gsBuildPhotoTimelineContent();
+    }, 900);
+  }
+  if (typeof gsHaptic === 'function') gsHaptic('tap');
+  var m = document.getElementById('photo-timeline-modal');
+  if (m) m.innerHTML = gsBuildPhotoTimelineContent();
+}
+
+// Foto-Quelle (data-URL ODER remote Storage-URL) → {b64, mt} für callVisionAI
+async function _gsPhotoToB64(src) {
+  if (!src || typeof src !== 'string') return null;
+  if (src.indexOf('data:') === 0) {
+    var i = src.indexOf('base64,');
+    if (i < 0) return null;
+    var semi = src.indexOf(';');
+    var mt = (semi > 5) ? src.slice(5, semi) : 'image/jpeg';
+    return { b64: src.slice(i + 7), mt: mt };
+  }
+  // Remote-URL (Storage) → fetch → dataURL → base64
+  try {
+    var resp = await (typeof _gsFetch === 'function' ? _gsFetch(src, {}, 15000) : fetch(src));
+    if (!resp || !resp.ok) return null;
+    var blob = await resp.blob();
+    var dataUrl = await new Promise(function(res, rej){
+      var r = new FileReader();
+      r.onload = function(){ res(r.result); };
+      r.onerror = rej;
+      r.readAsDataURL(blob);
+    });
+    var j = String(dataUrl).indexOf('base64,');
+    if (j < 0) return null;
+    return { b64: String(dataUrl).slice(j + 7), mt: blob.type || 'image/jpeg' };
+  } catch(e) { return null; }
+}
+
+// Render des KI-Analyse-Ergebnisses (Karten innerhalb des dunklen Modals)
+function gsBuildPhotoDiffResult(diff) {
+  if (!diff) return '';
+  if (diff.error) {
+    return '<div style="margin-top:10px;background:rgba(198,40,40,.22);border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:11px;color:#fff;font-size:12px;line-height:1.5;">⚠️ ' + gsEscHtml(String(diff.error)) + '</div>';
+  }
+  var gp = (typeof diff.growth_pct === 'number' && isFinite(diff.growth_pct)) ? Math.round(diff.growth_pct) : null;
+  var gpColor = gp == null ? '#90a4ae' : (gp > 3 ? '#69f0ae' : (gp < -3 ? '#ff8a80' : '#ffd54f'));
+  var nl = (typeof diff.new_leaves === 'number' && isFinite(diff.new_leaves)) ? Math.round(diff.new_leaves) : null;
+  var health = (diff.color_health || '').toString().toLowerCase();
+  var healthMap = { besser:'🟢 Besser', gleich:'🟡 Gleich', schlechter:'🔴 Schlechter' };
+  var rows = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px;">' +
+      '<div style="background:rgba(255,255,255,.1);border-radius:9px;padding:8px 4px;text-align:center;">' +
+        '<div style="font-size:17px;font-weight:900;color:' + gpColor + ';">' + (gp == null ? '–' : (gp > 0 ? '+' : '') + gp + '%') + '</div>' +
+        '<div style="font-size:9px;color:#fff;opacity:.75;">Wachstum</div>' +
+      '</div>' +
+      '<div style="background:rgba(255,255,255,.1);border-radius:9px;padding:8px 4px;text-align:center;">' +
+        '<div style="font-size:17px;font-weight:900;color:#fff;">' + (nl == null ? '–' : (nl > 0 ? '+' : '') + nl) + '</div>' +
+        '<div style="font-size:9px;color:#fff;opacity:.75;">Neue Blätter</div>' +
+      '</div>' +
+      '<div style="background:rgba(255,255,255,.1);border-radius:9px;padding:8px 4px;text-align:center;">' +
+        '<div style="font-size:12.5px;font-weight:800;color:#fff;margin-top:3px;">' + (healthMap[health] || '–') + '</div>' +
+        '<div style="font-size:9px;color:#fff;opacity:.75;">Gesundheit</div>' +
+      '</div>' +
+    '</div>';
+  var summary = diff.summary ? '<div style="background:rgba(255,255,255,.1);border-radius:9px;padding:10px;color:#fff;font-size:12px;line-height:1.55;margin-bottom:8px;">' + gsEscHtml(String(diff.summary)) + '</div>' : '';
+  var hi = (Array.isArray(diff.highlights) && diff.highlights.length) ? '<div style="margin-bottom:6px;">' + diff.highlights.slice(0, 5).map(function(h){ return '<div style="color:#b9f6ca;font-size:11.5px;margin-bottom:3px;line-height:1.45;">✅ ' + gsEscHtml(String(h)) + '</div>'; }).join('') + '</div>' : '';
+  var co = (Array.isArray(diff.concerns) && diff.concerns.length) ? '<div>' + diff.concerns.slice(0, 5).map(function(c){ return '<div style="color:#ffcdd2;font-size:11.5px;margin-bottom:3px;line-height:1.45;">⚠️ ' + gsEscHtml(String(c)) + '</div>'; }).join('') + '</div>' : '';
+  return '<div style="margin-top:12px;">' + rows + summary + hi + co + '</div>';
+}
+
+// Persistiert eine KI-Analyse via fn_photo_diff_create (auth-only, fire-and-forget)
+function gsPhotoDiffPersist(plantId, a, b, days, diff) {
+  try {
+    if (typeof sbFetch !== 'function' || !plantId) return;
+    // Keine riesigen data-URLs in die DB schreiben — nur remote Storage-URLs persistieren
+    var urlA = (a && typeof a.photo === 'string' && a.photo.indexOf('data:') !== 0) ? a.photo : null;
+    var urlB = (b && typeof b.photo === 'string' && b.photo.indexOf('data:') !== 0) ? b.photo : null;
+    var takenA = (a && a.ts) ? new Date(a.ts).toISOString() : null;
+    var takenB = (b && b.ts) ? new Date(b.ts).toISOString() : null;
+    sbFetch('/rest/v1/rpc/fn_photo_diff_create', {
+      method: 'POST',
+      body: JSON.stringify({
+        p_plant_id: String(plantId),
+        p_photo_a: urlA,
+        p_photo_b: urlB,
+        p_taken_a: takenA,
+        p_taken_b: takenB,
+        p_analysis: diff || {}
+      })
+    });
+  } catch(_){}
+}
+
+// Haupt-Funktion: zwei Fotos via callVisionAI vergleichen lassen
+async function gsPhotoDiffAnalyze() {
+  var s = window._gsPhotoTimelineState;
+  if (!s || s.diffBusy) return;
+  var photos = s.photos || [];
+  if (photos.length < 2) return;
+  var ai = Math.max(0, Math.min(photos.length - 1, (typeof s.cmpA === 'number' ? s.cmpA : 0)));
+  var bi = Math.max(0, Math.min(photos.length - 1, (typeof s.cmpB === 'number' ? s.cmpB : photos.length - 1)));
+  if (ai === bi) {
+    if (typeof gsToast === 'function') gsToast('Bitte zwei verschiedene Fotos wählen', 'warn');
+    return;
+  }
+  // Chronologisch sortieren: A = früher, B = später
+  if ((photos[ai].ts || 0) > (photos[bi].ts || 0)) { var tmp = ai; ai = bi; bi = tmp; }
+  var pa = photos[ai], pb = photos[bi];
+  s.diffBusy = true; s.diff = null;
+  if (typeof gsHaptic === 'function') gsHaptic('light');
+  var redraw = function(){ var m = document.getElementById('photo-timeline-modal'); if (m) m.innerHTML = gsBuildPhotoTimelineContent(); };
+  redraw();
+  try {
+    var imgA = await _gsPhotoToB64(pa.photo);
+    var imgB = await _gsPhotoToB64(pb.photo);
+    if (!imgA || !imgB) throw new Error('Fotos konnten nicht geladen werden.');
+    var p = (typeof myPlants !== 'undefined') ? myPlants.find(function(x){ return x.id === s.plantId; }) : null;
+    var plantName = (p && p.name) ? p.name : 'Pflanze';
+    var dA = pa.ts ? new Date(pa.ts).toLocaleDateString('de-CH') : '?';
+    var dB = pb.ts ? new Date(pb.ts).toLocaleDateString('de-CH') : '?';
+    var days = (pa.ts && pb.ts) ? Math.max(0, Math.round((pb.ts - pa.ts) / 86400000)) : null;
+    var prompt = 'Du bist ein erfahrener Pflanzen-Experte. Vergleiche zwei Fotos derselben Pflanze (' + plantName + '). ' +
+      'Foto 1 (Vorher) aufgenommen am ' + dA + ', Foto 2 (Nachher) am ' + dB + (days != null ? ' (' + days + ' Tage später)' : '') + '. ' +
+      'Analysiere die sichtbare Veränderung (Größe, Blattanzahl, Farbe, Gesundheit, Schädlinge). ' +
+      'Antworte AUSSCHLIESSLICH mit gültigem JSON in genau diesem Schema, ohne Markdown, ohne Text drumherum:\n' +
+      '{"growth_pct": <ganze Zahl, geschätzte Größen-/Volumenänderung in Prozent, negativ wenn geschrumpft>, ' +
+      '"new_leaves": <ganze Zahl, ungefähre Anzahl neuer Blätter/Triebe, 0 wenn keine>, ' +
+      '"color_health": "<genau einer von: besser | gleich | schlechter>", ' +
+      '"summary": "<1-2 Sätze auf Deutsch zur Gesamtveränderung>", ' +
+      '"highlights": ["<positive Beobachtung>"], ' +
+      '"concerns": ["<Problem oder Warnung, leer wenn keine>"]}';
+    var resp = await callVisionAI(imgA.b64, imgA.mt, prompt, [{ b64: imgB.b64, mt: imgB.mt, label: 'Nachher (' + dB + ')' }]);
+    var diff;
+    try {
+      var clean = String(resp).replace(/```json|```/g, '').trim();
+      var js = clean.indexOf('{'), je = clean.lastIndexOf('}');
+      if (js >= 0 && je > js) clean = clean.slice(js, je + 1);
+      diff = JSON.parse(clean);
+    } catch(e) {
+      diff = { summary: String(resp).slice(0, 300), highlights: [], concerns: [] };
+    }
+    s.diff = diff;
+    // Persist nur wenn eingeloggt
+    if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
+      gsPhotoDiffPersist(s.plantId, pa, pb, days, diff);
+    }
+    if (typeof gsBrain !== 'undefined' && gsBrain && typeof gsBrain.observe === 'function') {
+      try { gsBrain.observe('photo_diff_analyzed', { plant: plantName, growth: diff.growth_pct, days: days }); } catch(_){}
+    }
+    if (typeof gsHaptic === 'function') gsHaptic('success');
+  } catch(e) {
+    var msg = (e && e.message) ? e.message : 'Analyse fehlgeschlagen.';
+    s.diff = { error: msg };
+    if (e && e.code === 'free_quota_reached' && typeof gsToast === 'function') gsToast(msg, 'warn');
+  } finally {
+    s.diffBusy = false;
+    redraw();
+  }
+}
+
 // ═════════════════════════════════════════════════════════════════════
-// Ende v25.22 Foto-Verlauf-Slider-Block
+// Ende v25.22 Foto-Verlauf-Slider-Block (+ v26.98 Foto-Diff-AI)
 // ═════════════════════════════════════════════════════════════════════
 
 // ═════════════════════════════════════════════════════════════════════
@@ -53459,6 +53670,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.98', date: '02.06.2026',
+    headline: '📸 Foto-Verlauf mit KI-Wachstums-Analyse',
+    summary: 'Der Foto-Verlauf deiner Pflanzen kann jetzt mehr: Im „📸 Verlauf" (aus dem Pflanzen-Tagebuch) wählst du zwei beliebige Fotos als Vorher/Nachher aus und lässt sie von der KI vergleichen. Du erhältst eine geschätzte Wachstums-Veränderung in Prozent, die Anzahl neuer Blätter, eine Gesundheits-/Farb-Einschätzung sowie eine kurze Zusammenfassung mit Stärken und möglichen Problemen. Neu ist außerdem ein Zeitraffer-Knopf, der im Einzel-Slider automatisch durch alle Fotos blättert. Eingeloggte Nutzer speichern ihre Analysen geräteübergreifend in ihrem Konto.',
+    user_summary: '📸 Im Foto-Verlauf kannst du zwei Fotos vergleichen und von der KI die Wachstums-Veränderung analysieren lassen — plus ein Zeitraffer durch alle Fotos.',
+    user_items: [
+      { emoji: '🤖', text: 'KI vergleicht zwei Fotos: Wachstum %, neue Blätter, Gesundheit + Zusammenfassung' },
+      { emoji: '🗓️', text: 'Vorher/Nachher frei wählbar — beliebige zwei Zeitpunkte vergleichen' },
+      { emoji: '⏩', text: 'Zeitraffer-Player blättert automatisch durch den Foto-Verlauf' },
+    ],
+    items: [
+      {emoji:'🗄️', bold:'Backend (2 Migrations):', text:' v26_98_photo_diff legt plant_photo_diffs (RLS own-only, auth.uid() gewrappt, Index user+plant+created_at) + 2 RPCs an: fn_photo_diff_create (DEFINER, days_between server-seitig, plant_id TEXT = jsonb-id) und fn_photo_diff_list (DEFINER, own-only-Filter). v26_98_photo_diff_grants_hardening entzieht anon EXECUTE auf beiden.'},
+      {emoji:'🏛️', bold:'Architektur-Realität:', text:' user_plants ist KEIN per-plant-row-Modell (Spec-Annahme), sondern ein per-user jsonb-Blob (data->plants Array). Die in der Spec geplante VIEW v_plant_photo_timeline wäre invalide UND unnötig — alle Fotos liegen client-seitig in myPlants. Daher übersprungen; plant_id ist TEXT, kein FK.'},
+      {emoji:'🖥️', bold:'Frontend:', text:' Foto-Timeline (gsBuildPhotoTimelineContent) erweitert: Vorher/Nachher-Dropdowns (frei wählbare A/B-Indizes), „🤖 KI-Wachstums-Analyse"-Button → gsPhotoDiffAnalyze konvertiert beide Fotos via _gsPhotoToB64 (data-URL ODER remote-fetch) und ruft callVisionAI (Foto B als extraImages) mit JSON-Schema-Prompt. Ergebnis-Karten (gsBuildPhotoDiffResult: growth_pct/new_leaves/color_health/summary/highlights/concerns). Zeitraffer-Player (gsPhotoTimelinePlay, 900ms auto-advance). Persist via fn_photo_diff_create (nur eingeloggt, keine data-URLs in DB).'},
+      {emoji:'🔌', bold:'Keine neue Edge-Fn:', text:' Bewusst client-seitiges callVisionAI statt separater photo-diff-analyze-Edge-Fn — konsistent mit Scanner/Doktor, nutzt die bestehende einheitliche ai_call-Tagesquota (kein paralleles Monats-Limit).'},
+      {emoji:'✅', bold:'Verify:', text:' Advisor ohne neue ERRORs · anon-EXECUTE auf beiden RPCs revoked · RLS ppd_own + 2 Indizes verifiziert · 7/7 Inline-Scripts node --check OK · GS_VERSION=v26.98 · sw.js gs-v26.98 · _headers v26.98 · meta=26.98.20260602.'},
+    ]
+  },
+  {
     v: 'v26.94', date: '02.06.2026',
     headline: '📚 Gartenwissen: Merken, „Heute neu" & schnellere Suche',
     summary: 'Das Gartenwissen-Portal kann jetzt Lieblings-Einträge merken: Tippe in den Suchergebnissen auf das 🔖-Lesezeichen, und der Eintrag landet unter „🔖 Gespeichert" — geräteübergreifend, weil in deinem Konto gesichert. Neu im Wissens-Kopf: zwei Schnellzugriffe „🆕 Heute neu" (die neuesten Rezepte, Heilmittel, Folklore & Techniken) und „🔖 Gespeichert" (deine Merkliste). Frisch dazugekommene Einträge tragen ein rotes „🆕 NEU"-Abzeichen. Die Suche ist intern auf eine schnellere, lesezeichen-bewusste Variante umgestellt; offline funktioniert sie weiterhin über den lokalen Cache.',
@@ -56210,7 +56439,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.94';
+var GS_VERSION = 'v26.98';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
