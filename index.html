@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="26.82.20260602">
+<meta name="app-version" content="26.83.20260602">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -46988,37 +46988,10 @@ function gsBuildGardenScanResultPreview(analysis, planId) {
     bird_friendly:    { e:'🦜', l:'Vogel-Garten' }
   };
   var intentLbl = (planIntent && intentLabelMap[planIntent]) ? (intentLabelMap[planIntent].e + ' ' + intentLabelMap[planIntent].l) : '';
-  var isPollinator = planIntent === 'pollinator';
-  var isBirdFriendly = planIntent === 'bird_friendly';
 
-  var planted = '<ol style="padding-left:20px;margin:8px 0;font-size:12.5px;line-height:1.6;color:var(--text);">' +
-    rp.slice(0, 12).map(function(pl, idx){
-      // v26.37: Pollinator-Tag falls Backend v3 pl.pollinator_tags liefert (Honigbiene/Hummel/Schwebfliege)
-      var beeTag = '';
-      if (Array.isArray(pl.pollinator_tags) && pl.pollinator_tags.length) {
-        beeTag = '<br><span style="font-size:11px;color:#827717;font-weight:700;">🐝 Bevorzugt von: ' + pl.pollinator_tags.slice(0,3).join(', ') + '</span>';
-      } else if (isPollinator && pl.ecological_value && Number(pl.ecological_value) >= 7) {
-        beeTag = '<br><span style="font-size:11px;color:#827717;font-weight:700;">🐝 Hoher Bestäuber-Wert</span>';
-      }
-      // v26.42: Bird-Tag falls Backend v4 pl.bird_tags liefert (Amsel/Rotkehlchen/Singdrossel etc)
-      var birdTag = '';
-      if (Array.isArray(pl.bird_tags) && pl.bird_tags.length) {
-        birdTag = '<br><span style="font-size:11px;color:#1b5e20;font-weight:700;">🦜 Lockt: ' + pl.bird_tags.slice(0,3).join(', ') + '</span>';
-      } else if (isBirdFriendly && (pl.attracts_birds === true || pl.bird_friendly === true)) {
-        birdTag = '<br><span style="font-size:11px;color:#1b5e20;font-weight:700;">🦜 Vogel-freundlich</span>';
-      }
-      return '<li style="cursor:pointer;" onclick="gsGardenScanShowPlant(' + idx + ')"><strong>' + (pl.name||'Pflanze') + '</strong>' +
-        (pl.lat ? ' <em style="color:var(--muted);">(' + pl.lat + ')</em>' : '') +
-        (pl.qty ? ' · <strong>' + pl.qty + 'x</strong>' : '') +
-        (pl.position && (pl.position.x || pl.position.y) ? ' · Pos. ' + (pl.position.x||0) + ',' + (pl.position.y||0) + 'm' : '') +
-        (pl.reason ? '<br><span style="font-size:11px;color:var(--muted);">' + pl.reason + '</span>' : '') +
-        beeTag +
-        birdTag +
-      '</li>';
-    }).join('') + '</ol>';
-  var warnHtml = warns.length
-    ? '<div style="background:#fff3e0;border:1.5px solid #f57c00;border-radius:10px;padding:10px 12px;margin-top:10px;"><strong style="color:#e65100;">⚠️ Warnungen:</strong><ul style="margin:4px 0 0;padding-left:20px;font-size:12px;">' + warns.map(function(w){ return '<li>' + w + '</li>'; }).join('') + '</ul></div>'
-    : '';
+  // v26.83: flache Pflanzenliste + Warnungen ersetzt durch 6-Tab-System
+  // (gsBuildPlanTabsWrap). rp/warns werden in den Tab-Buildern aus analysis
+  // gelesen — hier nur noch der Tabs-Container.
   return '<div style="padding:0;">' +
     '<div style="background:linear-gradient(135deg,#1b5e20,#2e7d32);padding:18px;color:#fff;position:relative;">' +
       '<button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:20px;cursor:pointer;">×</button>' +
@@ -47033,9 +47006,7 @@ function gsBuildGardenScanResultPreview(analysis, planId) {
     '<div style="padding:16px;">' +
       toggleBtn +
       visualBlock +
-      '<div style="font-size:13.5px;font-weight:800;color:var(--text);margin-bottom:6px;">🌿 ' + rp.length + ' empfohlene Pflanzen</div>' +
-      planted +
-      warnHtml +
+      '<div id="gs-plan-tabs-wrap">' + gsBuildPlanTabsWrap(analysis, ((window._gsGardenScan||{}).planTab||'overview')) + '</div>' +
       // v25.15 Action-Buttons: Auto-Sync + PDF-Export
       '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">' +
         '<button onclick="gsGardenScanSyncToMyPlants()" style="flex:1;min-width:140px;padding:12px;background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border:none;border-radius:10px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;">📚 In meinen Garten</button>' +
@@ -47048,6 +47019,238 @@ function gsBuildGardenScanResultPreview(analysis, planId) {
     '</div>' +
   '</div>';
 }
+
+// ════════════════════════════════════════════════════════════════════
+// v26.83: KI-Pro-Planer Tab-UI — nutzt die neuen garden-scan-analyze v6
+// Felder (plan_summary, weekly_calendar, crop_rotation_4_year,
+// companion_groups, per-Pflanze crop_family/feeder_class/water_zone/
+// lunar_phase_optimal/Erntefenster/Vorkultur). Graceful Degradation:
+// Tabs ohne Daten (z.B. ältere Pre-v6-Pläne) werden ausgeblendet.
+// ════════════════════════════════════════════════════════════════════
+
+function _gsPlanEsc(s){
+  if (s == null) return '';
+  var str = (typeof s === 'string') ? s : String(s);
+  return (typeof escHtml === 'function') ? escHtml(str) : str;
+}
+function _gsPlanFeederIcon(fc){ return ({ stark:'🌾', mittel:'🌿', schwach:'🌱', fixer:'🟢' })[String(fc||'').toLowerCase()] || ''; }
+function _gsPlanFeederLabel(fc){ return ({ stark:'Starkzehrer', mittel:'Mittelzehrer', schwach:'Schwachzehrer', fixer:'N-Fixierer' })[String(fc||'').toLowerCase()] || ''; }
+function _gsPlanWaterMeta(wz){ return ({ trocken:{c:'#c98a3a',e:'🏜',l:'Trocken'}, mittel:{c:'#2e86c1',e:'💧',l:'Mittel'}, feucht:{c:'#16a085',e:'💦',l:'Feucht'} })[String(wz||'').toLowerCase()] || null; }
+function _gsPlanLunarMeta(ph){ return ({ wurzel:{e:'🥕',l:'Wurzeltag',c:'#a0522d'}, blatt:{e:'🥬',l:'Blatttag',c:'#43a047'}, 'blüte':{e:'🌸',l:'Blütentag',c:'#d81b60'}, frucht:{e:'🍅',l:'Fruchttag',c:'#e64a19'}, alle:{e:'🌗',l:'Alle',c:'#607d8b'} })[String(ph||'').toLowerCase()] || null; }
+var _GS_PLAN_MONTHS = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+function _gsPlanFmtDate(d){
+  if (!d || d === 'null') return '';
+  var m = String(d).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return _gsPlanEsc(d);
+  var mo = parseInt(m[2],10);
+  return parseInt(m[3],10) + '. ' + (_GS_PLAN_MONTHS[mo-1] || m[2]);
+}
+
+// Tab 1 — Übersicht: plan_summary Stats + Prinzipien + Heute-starten + Standort + Warnungen
+function gsBuildPlanOverview(analysis){
+  var ps = (analysis && analysis.plan_summary) || {};
+  var rp = (analysis && analysis.recommended_plants) || [];
+  var sa = (analysis && analysis.site_analysis) || {};
+  var warns = (analysis && analysis.warnings) || [];
+  var out = '<div style="padding:4px 0;">';
+  if (ps.headline) out += '<div style="font-size:14px;font-weight:800;color:var(--text);line-height:1.45;margin-bottom:12px;">' + _gsPlanEsc(ps.headline) + '</div>';
+
+  var yieldV = (ps.yield_estimate_kg_year != null && ps.yield_estimate_kg_year !== '') ? (Math.round(Number(ps.yield_estimate_kg_year)*10)/10) : null;
+  var effV = (ps.effort_hours_week != null && ps.effort_hours_week !== '') ? (Math.round(Number(ps.effort_hours_week)*10)/10) : null;
+  function statCard(emoji, val, unit, label){
+    return '<div style="flex:1;min-width:90px;background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:12px 10px;text-align:center;">' +
+      '<div style="font-size:20px;">' + emoji + '</div>' +
+      '<div style="font-size:18px;font-weight:900;color:#2e7d32;line-height:1.1;margin-top:2px;">' + (val != null ? val : '–') + '<span style="font-size:11px;font-weight:700;color:var(--muted);"> ' + unit + '</span></div>' +
+      '<div style="font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-top:2px;">' + label + '</div>' +
+    '</div>';
+  }
+  out += '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">' +
+    statCard('🥗', yieldV, 'kg/Jahr', 'Ertrag') + statCard('⏱', effV, 'h/Woche', 'Aufwand') + statCard('🌱', rp.length, 'Arten', 'Pflanzen') + '</div>';
+
+  if (Array.isArray(ps.main_principles) && ps.main_principles.length) {
+    out += '<div style="font-size:13px;font-weight:800;color:var(--text);margin:4px 0 6px;">🧭 Grundprinzipien</div><div style="margin-bottom:14px;">' +
+      ps.main_principles.map(function(p){ return '<div style="display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--text);line-height:1.5;padding:4px 0;"><span style="color:#2e7d32;font-weight:900;">✓</span><span>' + _gsPlanEsc(p) + '</span></div>'; }).join('') + '</div>';
+  }
+  if (Array.isArray(ps.start_now_actions) && ps.start_now_actions.length) {
+    out += '<div style="background:linear-gradient(135deg,#e8f5e9,#f1f8e9);border:1.5px solid #a5d6a7;border-radius:12px;padding:12px 14px;margin-bottom:14px;"><div style="font-size:13px;font-weight:800;color:#1b5e20;margin-bottom:8px;">🚀 Heute starten</div>' +
+      ps.start_now_actions.map(function(a){ return '<div style="display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:#2e4d2e;line-height:1.5;padding:3px 0;"><span>▸</span><span>' + _gsPlanEsc(a) + '</span></div>'; }).join('') + '</div>';
+  }
+
+  var soil = sa.soil || {}, light = sa.light || {}, siteBits = [];
+  if (soil.type) siteBits.push('🪨 Boden: <b>' + _gsPlanEsc(soil.type) + '</b>' + (soil.ph_estimate ? ' · pH ' + _gsPlanEsc(soil.ph_estimate) : '') + (soil.moisture ? ' · ' + _gsPlanEsc(soil.moisture) : ''));
+  if (light.level) siteBits.push('☀️ Licht: <b>' + _gsPlanEsc(light.level) + '</b>' + (light.hours_per_day ? ' · ' + _gsPlanEsc(light.hours_per_day) + 'h/Tag' : ''));
+  if (sa.climate_zone) siteBits.push('🗺 Klimazone: <b>' + _gsPlanEsc(sa.climate_zone) + '</b>');
+  if (siteBits.length || (soil.improvement_tips && soil.improvement_tips.length) || (sa.microclimates && sa.microclimates.length)) {
+    out += '<div style="font-size:13px;font-weight:800;color:var(--text);margin:4px 0 6px;">📍 Standort-Analyse</div><div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12px;line-height:1.7;color:var(--text);">' + siteBits.join('<br>');
+    if (Array.isArray(soil.improvement_tips) && soil.improvement_tips.length) out += '<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);"><b>Boden verbessern:</b><ul style="margin:4px 0 0;padding-left:18px;">' + soil.improvement_tips.map(function(t){ return '<li>' + _gsPlanEsc(t) + '</li>'; }).join('') + '</ul></div>';
+    if (Array.isArray(sa.microclimates) && sa.microclimates.length) out += '<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);"><b>Mikroklimate:</b> ' + sa.microclimates.map(function(mc){ return _gsPlanEsc(mc.location || '') + (mc.type ? ' (' + _gsPlanEsc(mc.type) + ')' : ''); }).join(' · ') + '</div>';
+    out += '</div>';
+  }
+  if (warns.length) out += '<div style="background:#fff3e0;border:1.5px solid #f57c00;border-radius:10px;padding:10px 12px;margin-bottom:6px;"><strong style="color:#e65100;font-size:12.5px;">⚠️ Warnungen</strong><ul style="margin:6px 0 0;padding-left:20px;font-size:12px;line-height:1.5;color:#5d4037;">' + warns.map(function(w){ return '<li>' + _gsPlanEsc(w) + '</li>'; }).join('') + '</ul></div>';
+  out += '</div>';
+  return out;
+}
+
+// Tab 2 — Pflanzen: Mischkultur-Gruppen + Detail-Karten mit allen v6-Feldern
+function gsBuildPlanPlants(analysis){
+  var rp = (analysis && analysis.recommended_plants) || [];
+  var groups = (analysis && analysis.companion_groups) || [];
+  if (!rp.length) return '<div style="padding:18px;text-align:center;color:var(--muted);font-size:12.5px;">Keine Pflanzen-Empfehlungen.</div>';
+  var out = '<div style="padding:4px 0;">';
+  if (Array.isArray(groups) && groups.length) {
+    out += '<div style="font-size:13px;font-weight:800;color:var(--text);margin:2px 0 8px;">🤝 Mischkultur-Gruppen</div>' +
+      groups.map(function(g){ return '<div style="background:linear-gradient(135deg,#e8f5e9,#f9fbe7);border:1px solid #c5e1a5;border-radius:10px;padding:9px 12px;margin-bottom:8px;"><div style="font-size:12.5px;font-weight:800;color:#1b5e20;">' + _gsPlanEsc(g.group || 'Gruppe') + '</div>' +
+        (Array.isArray(g.plants) && g.plants.length ? '<div style="font-size:12px;color:var(--text);margin-top:2px;">' + g.plants.map(_gsPlanEsc).join(' · ') + '</div>' : '') +
+        (g.synergy ? '<div style="font-size:11px;color:var(--muted);margin-top:3px;line-height:1.45;">' + _gsPlanEsc(g.synergy) + '</div>' : '') + '</div>'; }).join('') + '<div style="height:6px;"></div>';
+  }
+  out += '<div style="font-size:13px;font-weight:800;color:var(--text);margin:2px 0 8px;">🌿 ' + rp.length + ' Pflanzen im Detail</div>';
+  out += rp.map(function(pl, idx){
+    var wm = _gsPlanWaterMeta(pl.water_zone), lm = _gsPlanLunarMeta(pl.lunar_phase_optimal), fIcon = _gsPlanFeederIcon(pl.feeder_class), badges = '';
+    if (pl.crop_family) badges += '<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:7px;background:rgba(123,31,162,.12);color:#7b1fa2;margin:2px 4px 2px 0;">' + _gsPlanEsc(pl.crop_family) + '</span>';
+    if (fIcon) badges += '<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:7px;background:rgba(46,125,50,.12);color:#2e7d32;margin:2px 4px 2px 0;">' + fIcon + ' ' + _gsPlanFeederLabel(pl.feeder_class) + '</span>';
+    if (wm) badges += '<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:7px;background:' + wm.c + '22;color:' + wm.c + ';margin:2px 4px 2px 0;">' + wm.e + ' ' + wm.l + '</span>';
+    if (lm) badges += '<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:7px;background:' + lm.c + '22;color:' + lm.c + ';margin:2px 4px 2px 0;">' + lm.e + ' ' + lm.l + '</span>';
+    var tl = [], pre = _gsPlanFmtDate(pl.pre_cultivation_indoor_start), sow = _gsPlanFmtDate(pl.sow_date), tp = _gsPlanFmtDate(pl.transplant_date), hs = _gsPlanFmtDate(pl.harvest_start), he = _gsPlanFmtDate(pl.harvest_end);
+    if (pre) tl.push('🏠 Vorkultur ' + pre);
+    if (sow) tl.push('🌰 Saat ' + sow);
+    if (tp) tl.push('🪴 Auspflanzen ' + tp);
+    if (hs || he) tl.push('🧺 Ernte ' + (hs || '?') + (he ? '–' + he : ''));
+    var tlHtml = tl.length ? '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:7px;">' + tl.map(function(t){ return '<span style="font-size:10.5px;font-weight:600;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:2px 7px;color:var(--text);">' + _gsPlanEsc(t) + '</span>'; }).join('') + '</div>' : '';
+    var facts = [];
+    if (pl.qty) facts.push('<b>' + _gsPlanEsc(pl.qty) + '×</b>');
+    if (pl.spacing_cm) facts.push(_gsPlanEsc(pl.spacing_cm) + ' cm Abstand');
+    if (pl.planting_density_per_m2) facts.push(_gsPlanEsc(pl.planting_density_per_m2) + '/m²');
+    if (pl.root_depth) facts.push('Wurzel: ' + _gsPlanEsc(pl.root_depth));
+    if (pl.days_to_maturity) facts.push(_gsPlanEsc(pl.days_to_maturity) + ' Tage reif');
+    if (pl.frost_tolerance_c != null && pl.frost_tolerance_c !== '') facts.push('❄️ bis ' + _gsPlanEsc(pl.frost_tolerance_c) + '°C');
+    var factsHtml = facts.length ? '<div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;">' + facts.join(' · ') + '</div>' : '';
+    var comp = '';
+    if (Array.isArray(pl.companion_pairs) && pl.companion_pairs.length) comp += '<div style="font-size:11px;color:#2e7d32;margin-top:5px;">✅ Gute Nachbarn: ' + pl.companion_pairs.slice(0,5).map(_gsPlanEsc).join(', ') + '</div>';
+    if (Array.isArray(pl.incompatible_plants) && pl.incompatible_plants.length) comp += '<div style="font-size:11px;color:#c62828;margin-top:3px;">⛔ Meiden: ' + pl.incompatible_plants.slice(0,5).map(_gsPlanEsc).join(', ') + '</div>';
+    if (pl.succession_after) comp += '<div style="font-size:11px;color:var(--muted);margin-top:3px;">🔄 Danach: ' + _gsPlanEsc(pl.succession_after) + '</div>';
+    var tags = '';
+    if (Array.isArray(pl.pollinator_tags) && pl.pollinator_tags.length) tags += '<div style="font-size:11px;color:#827717;margin-top:3px;">🐝 ' + pl.pollinator_tags.slice(0,3).map(_gsPlanEsc).join(', ') + '</div>';
+    if (Array.isArray(pl.bird_tags) && pl.bird_tags.length) tags += '<div style="font-size:11px;color:#1b5e20;margin-top:3px;">🦜 ' + pl.bird_tags.slice(0,3).map(_gsPlanEsc).join(', ') + '</div>';
+    return '<div onclick="gsGardenScanShowPlant(' + idx + ')" style="background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:11px 13px;margin-bottom:9px;cursor:pointer;-webkit-tap-highlight-color:transparent;">' +
+      '<div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;"><span style="font-size:13.5px;font-weight:800;color:var(--text);">' + _gsPlanEsc(pl.name || 'Pflanze') + '</span>' + (pl.lat ? '<span style="font-size:11px;font-style:italic;color:var(--muted);">' + _gsPlanEsc(pl.lat) + '</span>' : '') + '</div>' +
+      (badges ? '<div style="margin-top:5px;">' + badges + '</div>' : '') + tlHtml + factsHtml + comp + tags +
+      (pl.reason ? '<div style="font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.5;">' + _gsPlanEsc(pl.reason) + '</div>' : '') + '</div>';
+  }).join('');
+  out += '</div>';
+  return out;
+}
+
+// Tab 3 — Kalender: weekly_calendar Wochen-Timeline mit Mondtag-Badge
+function gsBuildPlanCalendar(analysis){
+  var wc = (analysis && analysis.weekly_calendar) || [];
+  if (!Array.isArray(wc) || !wc.length) return '<div style="padding:18px;text-align:center;color:var(--muted);font-size:12.5px;">Kein Wochen-Kalender in diesem Plan (älterer Plan?).</div>';
+  var weeks = wc.filter(function(w){ return w && Array.isArray(w.actions) && w.actions.length; }).sort(function(a,b){ return (a.week_nr||0)-(b.week_nr||0); });
+  if (!weeks.length) return '<div style="padding:18px;text-align:center;color:var(--muted);font-size:12.5px;">Keine geplanten Aktionen.</div>';
+  var now = new Date(), soy = new Date(now.getFullYear(),0,1), curWeek = Math.ceil((Math.floor((now - soy)/86400000)+1)/7);
+  var out = '<div style="padding:4px 0;"><div style="font-size:11.5px;color:var(--muted);margin-bottom:10px;">📅 ' + weeks.length + ' aktive Wochen · 🥕 Wurzel · 🥬 Blatt · 🌸 Blüte · 🍅 Frucht</div>';
+  out += weeks.map(function(w){
+    var lm = _gsPlanLunarMeta(w.lunar_focus), isCur = (w.week_nr === curWeek);
+    return '<div style="display:flex;gap:10px;margin-bottom:9px;align-items:flex-start;"><div style="flex:0 0 46px;text-align:center;background:' + (isCur?'#1b5e20':'var(--card)') + ';color:' + (isCur?'#fff':'var(--text)') + ';border:1.5px solid ' + (isCur?'#1b5e20':'var(--border)') + ';border-radius:9px;padding:6px 2px;">' +
+      '<div style="font-size:9px;font-weight:700;opacity:.7;text-transform:uppercase;">KW</div><div style="font-size:16px;font-weight:900;line-height:1;">' + _gsPlanEsc(w.week_nr || '?') + '</div>' + (w.month ? '<div style="font-size:9px;opacity:.7;margin-top:1px;">' + _gsPlanEsc(w.month) + '</div>' : '') + '</div>' +
+      '<div style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:9px;padding:8px 11px;">' + (lm ? '<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;background:' + lm.c + '22;color:' + lm.c + ';margin-bottom:4px;">' + lm.e + ' ' + lm.l + '</span>' : '') +
+      '<ul style="margin:2px 0 0;padding-left:16px;font-size:12px;line-height:1.5;color:var(--text);">' + w.actions.map(function(a){ return '<li>' + _gsPlanEsc(a) + '</li>'; }).join('') + '</ul></div></div>';
+  }).join('');
+  out += '</div>';
+  return out;
+}
+
+// Tab 4 — Fruchtfolge: crop_rotation_4_year als 4-Jahres-Stapel
+function gsBuildPlanRotation(analysis){
+  var cr = (analysis && analysis.crop_rotation_4_year) || {};
+  var years = [{ k:'year_1', label:'Jahr 1', sub:'Starkzehrer', c:'#e64a19' },{ k:'year_2', label:'Jahr 2', sub:'Mittelzehrer', c:'#f9a825' },{ k:'year_3', label:'Jahr 3', sub:'Schwachzehrer', c:'#43a047' },{ k:'year_4', label:'Jahr 4', sub:'Gründüngung / N-Fixierer', c:'#3949ab' }];
+  if (!years.some(function(y){ return Array.isArray(cr[y.k]) && cr[y.k].length; })) return '<div style="padding:18px;text-align:center;color:var(--muted);font-size:12.5px;">Keine Fruchtfolge in diesem Plan (älterer Plan?).</div>';
+  var out = '<div style="padding:4px 0;"><div style="font-size:11.5px;color:var(--muted);margin-bottom:10px;line-height:1.5;">🔄 4-Jahres-Fruchtfolge — nie 2 Jahre dieselbe Familie am selben Beet. Der Nährstoff-Bedarf sinkt Jahr für Jahr.</div>';
+  out += years.map(function(y, i){
+    var items = Array.isArray(cr[y.k]) ? cr[y.k] : [];
+    return '<div style="margin-bottom:8px;"><div style="background:var(--card);border:1.5px solid var(--border);border-left:5px solid ' + y.c + ';border-radius:10px;padding:10px 13px;"><div style="display:flex;align-items:baseline;gap:8px;"><span style="font-size:13px;font-weight:900;color:' + y.c + ';">' + y.label + '</span><span style="font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;">' + y.sub + '</span></div>' +
+      (items.length ? '<ul style="margin:6px 0 0;padding-left:18px;font-size:12px;line-height:1.55;color:var(--text);">' + items.map(function(it){ return '<li>' + _gsPlanEsc(it) + '</li>'; }).join('') + '</ul>' : '<div style="font-size:11.5px;color:var(--muted);margin-top:4px;">—</div>') + '</div>' +
+      (i < years.length-1 ? '<div style="text-align:center;color:var(--muted);font-size:16px;line-height:1;margin:2px 0;">↓</div>' : '') + '</div>';
+  }).join('');
+  out += '<div style="text-align:center;color:var(--muted);font-size:11px;margin-top:2px;">↻ zurück zu Jahr 1</div></div>';
+  return out;
+}
+
+// Tab 5 — Mondphasen: Pflanzen nach lunar_phase_optimal gruppiert
+function gsBuildPlanLunar(analysis){
+  var rp = (analysis && analysis.recommended_plants) || [];
+  var phases = [{ k:'wurzel', e:'🥕', l:'Wurzeltage', c:'#a0522d', tip:'Wurzelgemüse bei abnehmendem Mond säen — fördert die Wurzelbildung.' },{ k:'blatt', e:'🥬', l:'Blatttage', c:'#43a047', tip:'Blattgemüse + Kräuter bei zunehmendem Mond — kräftiges Blattwachstum.' },{ k:'blüte', e:'🌸', l:'Blütentage', c:'#d81b60', tip:'Blühpflanzen + Brokkoli/Blumenkohl an Blütentagen.' },{ k:'frucht', e:'🍅', l:'Fruchttage', c:'#e64a19', tip:'Fruchtgemüse (Tomate, Bohne, Kürbis) an Fruchttagen — beste Ernte.' }];
+  var byPhase = {};
+  rp.forEach(function(pl){ var ph = String(pl.lunar_phase_optimal || '').toLowerCase(); if (!byPhase[ph]) byPhase[ph] = []; byPhase[ph].push(pl); });
+  if (!phases.some(function(p){ return (byPhase[p.k]||[]).length; })) return '<div style="padding:18px;text-align:center;color:var(--muted);font-size:12.5px;">Keine Mondphasen-Daten in diesem Plan (älterer Plan?).</div>';
+  var out = '<div style="padding:4px 0;"><div style="font-size:11.5px;color:var(--muted);margin-bottom:10px;line-height:1.5;">🌙 Biodynamische Aussaat-Empfehlung — säe jede Pflanze am passenden Mondtag.</div>';
+  out += phases.map(function(p){
+    var list = byPhase[p.k] || [];
+    return '<div style="background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:11px 13px;margin-bottom:9px;"><div style="display:flex;align-items:center;gap:8px;"><span style="font-size:20px;">' + p.e + '</span><span style="font-size:13.5px;font-weight:800;color:' + p.c + ';">' + p.l + '</span><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--muted);">' + list.length + ' Pflanzen</span></div>' +
+      (list.length ? '<div style="font-size:12.5px;color:var(--text);margin-top:6px;line-height:1.5;">' + list.map(function(pl){ return _gsPlanEsc(pl.name || '?'); }).join(' · ') + '</div>' : '<div style="font-size:11.5px;color:var(--muted);margin-top:4px;">—</div>') +
+      '<div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.45;font-style:italic;">' + p.tip + '</div></div>';
+  }).join('');
+  out += '</div>';
+  return out;
+}
+
+// Tab 6 — Wasserzonen: layout_grid.water_zones Pie + Pflanzen je Zone
+function gsBuildPlanWater(analysis){
+  var rp = (analysis && analysis.recommended_plants) || [], grid = (analysis && analysis.layout_grid) || {}, zonesData = Array.isArray(grid.water_zones) ? grid.water_zones : [];
+  var zoneDefs = [{ k:'trocken', meta:_gsPlanWaterMeta('trocken'), tip:'Selten + tief wässern. Trockenheits-Verträgler (Kräuter, Lavendel).' },{ k:'mittel', meta:_gsPlanWaterMeta('mittel'), tip:'Regelmässig moderat wässern. Standard-Gemüse.' },{ k:'feucht', meta:_gsPlanWaterMeta('feucht'), tip:'Konstant feucht halten. Salat, Gurke, Sellerie.' }];
+  var areaByZone = {};
+  zonesData.forEach(function(z){ if (z && z.zone) { var k = String(z.zone).toLowerCase(); areaByZone[k] = (areaByZone[k]||0) + (Number(z.area_m2)||0); } });
+  var plantsByZone = {};
+  rp.forEach(function(pl){ var z = String(pl.water_zone || '').toLowerCase(); if (!plantsByZone[z]) plantsByZone[z] = []; plantsByZone[z].push(pl.name || '?'); });
+  var hasArea = Object.keys(areaByZone).length > 0, hasPlants = zoneDefs.some(function(z){ return (plantsByZone[z.k]||[]).length; });
+  if (!hasArea && !hasPlants) return '<div style="padding:18px;text-align:center;color:var(--muted);font-size:12.5px;">Keine Wasserzonen-Daten in diesem Plan (älterer Plan?).</div>';
+  var out = '<div style="padding:4px 0;">';
+  if (hasArea) {
+    var totalA = zoneDefs.reduce(function(s,z){ return s + (areaByZone[z.k]||0); }, 0) || 1, acc = 0, segs = [];
+    zoneDefs.forEach(function(z){ var a = areaByZone[z.k] || 0; if (a<=0) return; var start = acc/totalA*360; acc += a; var end = acc/totalA*360; segs.push(z.meta.c + ' ' + start.toFixed(1) + 'deg ' + end.toFixed(1) + 'deg'); });
+    out += '<div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;flex-wrap:wrap;"><div style="width:96px;height:96px;border-radius:50%;background:conic-gradient(' + segs.join(',') + ');flex:0 0 auto;box-shadow:0 2px 8px rgba(0,0,0,.12);"></div><div style="flex:1;min-width:140px;">' +
+      zoneDefs.map(function(z){ var a = areaByZone[z.k]||0; if (a<=0) return ''; var pct = Math.round(a/totalA*100); return '<div style="display:flex;align-items:center;gap:7px;font-size:12px;padding:2px 0;color:var(--text);"><span style="width:11px;height:11px;border-radius:3px;background:' + z.meta.c + ';display:inline-block;"></span><b>' + z.meta.l + '</b> · ' + (Math.round(a*10)/10) + ' m² (' + pct + '%)</div>'; }).join('') + '</div></div>';
+  }
+  out += zoneDefs.map(function(z){
+    var list = plantsByZone[z.k] || [];
+    return '<div style="background:var(--card);border:1.5px solid var(--border);border-left:5px solid ' + z.meta.c + ';border-radius:10px;padding:10px 13px;margin-bottom:8px;"><div style="display:flex;align-items:center;gap:7px;"><span style="font-size:16px;">' + z.meta.e + '</span><span style="font-size:13px;font-weight:800;color:' + z.meta.c + ';">' + z.meta.l + '</span>' + (list.length ? '<span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--muted);">' + list.length + '</span>' : '') + '</div>' +
+      (list.length ? '<div style="font-size:12px;color:var(--text);margin-top:5px;line-height:1.5;">' + list.map(_gsPlanEsc).join(' · ') + '</div>' : '<div style="font-size:11.5px;color:var(--muted);margin-top:4px;">—</div>') +
+      '<div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.45;font-style:italic;">' + z.tip + '</div></div>';
+  }).join('');
+  out += '</div>';
+  return out;
+}
+
+// Tab-Bar + Content (conditional Tabs: nur anzeigen wenn Daten vorhanden)
+function gsBuildPlanTabsWrap(analysis, activeTab){
+  analysis = analysis || {};
+  var rp = analysis.recommended_plants || [];
+  var tabs = [
+    { id:'overview', label:'📋 Übersicht', show:true },
+    { id:'plants', label:'🌱 Pflanzen', show: rp.length > 0 },
+    { id:'calendar', label:'📅 Kalender', show: Array.isArray(analysis.weekly_calendar) && analysis.weekly_calendar.some(function(w){ return w && Array.isArray(w.actions) && w.actions.length; }) },
+    { id:'rotation', label:'🔄 Fruchtfolge', show: !!analysis.crop_rotation_4_year && ['year_1','year_2','year_3','year_4'].some(function(k){ return Array.isArray(analysis.crop_rotation_4_year[k]) && analysis.crop_rotation_4_year[k].length; }) },
+    { id:'lunar', label:'🌙 Mondphasen', show: rp.some(function(p){ return p && p.lunar_phase_optimal; }) },
+    { id:'water', label:'💧 Wasserzonen', show: (Array.isArray((analysis.layout_grid||{}).water_zones) && (analysis.layout_grid.water_zones||[]).length) || rp.some(function(p){ return p && p.water_zone; }) }
+  ].filter(function(t){ return t.show; });
+  var ids = tabs.map(function(t){ return t.id; });
+  if (ids.indexOf(activeTab) < 0) activeTab = 'overview';
+  var bar = '<div style="display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:2px 0 8px;margin-bottom:4px;">' +
+    tabs.map(function(t){ var on = (t.id === activeTab); return '<button onclick="gsGSPlanTab(\'' + t.id + '\')" style="flex:0 0 auto;padding:7px 13px;border-radius:18px;border:1.5px solid ' + (on?'#1b5e20':'var(--border)') + ';background:' + (on?'#1b5e20':'var(--card)') + ';color:' + (on?'#fff':'var(--text)') + ';font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;-webkit-tap-highlight-color:transparent;">' + t.label + '</button>'; }).join('') + '</div>';
+  var builders = { overview:gsBuildPlanOverview, plants:gsBuildPlanPlants, calendar:gsBuildPlanCalendar, rotation:gsBuildPlanRotation, lunar:gsBuildPlanLunar, water:gsBuildPlanWater };
+  var content = '';
+  try { content = (builders[activeTab] || gsBuildPlanOverview)(analysis); }
+  catch(e){ content = '<div style="padding:16px;color:#c62828;font-size:12px;">Anzeige-Fehler: ' + _gsPlanEsc(e && e.message) + '</div>'; }
+  return bar + '<div style="min-height:120px;">' + content + '</div>';
+}
+
+function gsGSPlanTab(tab){
+  var s = window._gsGardenScan || {};
+  s.planTab = tab;
+  var wrap = document.getElementById('gs-plan-tabs-wrap');
+  if (wrap) wrap.innerHTML = gsBuildPlanTabsWrap(s.analysis || {}, tab);
+  if (typeof gsHaptic === 'function') { try { gsHaptic('light'); } catch(_){} }
+}
+window.gsGSPlanTab = gsGSPlanTab;
 
 // ── v25.14 Sub-Task 1.5: Chat-Iteration via plan-iterate Edge-Fn ─────
 // 5-Iterations-Limit pro Plan (Backend enforced). Persistiert iteration_count
@@ -52273,6 +52476,43 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v26.83', date: '02.06.2026',
+    headline: '🌱 KI-Garten-Planer Mega-Upgrade: 6 neue Detail-Tabs',
+    summary: 'Der KI-Garten-Planer (garden-scan-analyze v6) liefert jetzt MASSIV mehr Daten — die bisher gar nicht angezeigt wurden. Das Plan-Ergebnis hat neu ein 6-Tab-System unter der 2D/3D-Ansicht: Übersicht (Ertrag/Aufwand/Pflanzen-Stats + Grundprinzipien + „Heute starten" + Standort-Analyse), Pflanzen (Detail-Karten mit Pflanzenfamilie, Nährstoff-Bedarf, Wasserzone, Aussaat→Ernte-Timeline, Frosthärte, gute/schlechte Nachbarn), Kalender (52-Wochen-Timeline mit Mondtagen), Fruchtfolge (4-Jahres-Zyklus), Mondphasen (biodynamische Aussaat) und Wasserzonen (Bewässerungs-Plan mit Tortendiagramm). Ältere Pläne ohne diese Daten blenden leere Tabs automatisch aus.',
+    user_summary: '🌱 Dein KI-Garten-Plan ist jetzt viel reichhaltiger! Unter der Garten-Ansicht findest du 6 Tabs: 📋 Übersicht (mit Ertrag- & Aufwand-Schätzung), 🌱 Pflanzen (mit Aussaat- & Ernte-Zeiten, Frosthärte, guten Nachbarn), 📅 Kalender (Woche für Woche), 🔄 Fruchtfolge (4-Jahres-Plan), 🌙 Mondphasen (biodynamische Aussaat) und 💧 Wasserzonen (Bewässerungs-Plan).',
+    user_items: [
+      { emoji: '📋', text: 'Übersicht mit Ertrag-, Aufwand- & Pflanzen-Statistik' },
+      { emoji: '🌱', text: 'Pflanzen-Detailkarten: Aussaat→Ernte, Frosthärte, Nachbarn' },
+      { emoji: '📅', text: '52-Wochen-Kalender mit Mondtagen' },
+      { emoji: '🔄', text: '4-Jahres-Fruchtfolge + 🌙 Mondphasen-Aussaat' },
+      { emoji: '💧', text: 'Wasserzonen mit Bewässerungs-Plan & Tortendiagramm' },
+    ],
+    items: [
+      {emoji:'🎨', bold:'6-Tab-UI:', text:' gsBuildGardenScanResultPreview rendert unter dem 2D/3D-Visual gsBuildPlanTabsWrap mit 6 Buildern (Overview/Plants/Calendar/Rotation/Lunar/Water). Tab-State in window._gsGardenScan.planTab, Wechsel via gsGSPlanTab ohne Re-Render des ganzen Modals.'},
+      {emoji:'🌱', bold:'v6-Felder genutzt:', text:' plan_summary (headline/yield/effort/principles/start_now), weekly_calendar[52], crop_rotation_4_year, companion_groups; per-Pflanze crop_family/feeder_class/root_depth/water_zone/lunar_phase_optimal/pre_cultivation_indoor_start/sow/transplant/harvest_start-end/days_to_maturity/frost_tolerance_c/companion_pairs/incompatible_plants/succession_after.'},
+      {emoji:'🛟', bold:'Graceful Degradation:', text:' Tabs zeigen sich nur wenn Daten vorhanden (Pre-v6-Pläne → nur Übersicht+Pflanzen). _gsPlanEsc behebt escHtml(0)→"" Bug (numerische 0-Werte wie Frosthärte).'},
+      {emoji:'💬', bold:'Part C:', text:' Plan-Iterate-Chat (plan-iterate Edge-Fn, 5 Iterationen) war bereits seit v25.14 live — bleibt unter den Tabs erhalten.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · GS_VERSION=v26.83 · sw.js gs-v26.83 · _headers v26.83 · meta=26.83.20260602.'},
+    ]
+  },
+  {
+    v: 'v26.82', date: '02.06.2026',
+    headline: '🔧 KI-Planer Fehler-Fix + Quiz-Rangliste-Vorschau + stabilere KI',
+    summary: 'Der KI-Garten-Planer zeigte fälschlich „Anthropic-API-Key fehlt", auch wenn nur das Tageslimit erreicht war — jetzt korrekt: bei Limit ein Upgrade-Hinweis, sonst neutrale Meldung. Die KI-Schlüssel-Abfrage versucht es beim Start bis zu 3-mal (stabiler gegen Timing-Probleme). Nach jeder Quiz-Antwort siehst du jetzt direkt die Top-5-Rangliste.',
+    user_summary: '🔧 Der KI-Garten-Planer zeigt keine verwirrende „Schlüssel fehlt"-Meldung mehr, wenn nur dein Tageslimit erreicht ist. 🏆 Nach jeder Quiz-Antwort siehst du sofort die Top-5-Rangliste.',
+    user_items: [
+      { emoji: '🔧', text: 'KI-Planer: klare Meldung bei Tageslimit statt „Key fehlt"' },
+      { emoji: '🏆', text: 'Quiz: Top-5-Rangliste direkt nach jeder Antwort' },
+      { emoji: '⚡', text: 'Stabilere KI beim App-Start (bis zu 3 Versuche)' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'gsPPrun Fehler-Logik:', text:' Quota-Check ZUERST, isAuth-Regex schärfer (^🔑|401|403|invalid.*key) statt jeden „API-Key"-String zu fangen. Bei Quota → gsShowAboScreen-Button. Personal-Key-Button raus (admin-only seit v26.67).'},
+      {emoji:'⚡', bold:'callAI Retry:', text:' bis zu 3 Versuche von gsPullGlobalApiKey mit 350-1050ms Backoff gegen Boot-Race-Conditions.'},
+      {emoji:'🏆', bold:'dqShowPostAnswerActions:', text:' Top-5-Inline-Rangliste (dq-inline-lb) via dqLoadLeaderboardTop(5) zusätzlich zum „Volle Rangliste"-Button.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check OK · v26.82 (Cowork).'},
+    ]
+  },
+  {
     v: 'v26.81', date: '02.06.2026',
     headline: '🗺️ Karten-Funde zuverlässiger speichern + 🔄 Aktualisieren-Button',
     summary: 'Tiefen-Debug des "gespeicherte Funde erscheinen nicht auf der Karte"-Problems. Root-Cause: Der lokale Speicher-Schritt (localStorage) hatte keinen Fehler-Schutz — war der Browser-Speicher voll, brach der gesamte Speichervorgang stumm ab, sodass weder lokal noch in der Cloud etwas ankam. Jetzt: Fehler-Toasts bei vollem Speicher, expliziter Cloud-Sync mit Status-Rückmeldung, Robustheit gegen fehlende Eingabefelder, Debug-Logs und ein neuer 🔄-Button zum manuellen Neuladen.',
@@ -54831,7 +55071,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v26.82';
+var GS_VERSION = 'v26.83';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
