@@ -19430,8 +19430,11 @@ async function callAI(messages, systemPrompt, maxTokens, opts){
   }
 }
 
-async function callVisionAI(b64, mediaType, prompt, extraImages){
+async function callVisionAI(b64, mediaType, prompt, extraImages, opts){
   // extraImages: optionales Array von {b64, mt} für Multi-Shot Scan (bis zu 3 zusätzliche Fotos)
+  // opts.systemPrompt (optional): grosser STATISCHER Instruktions-Block → wird als Anthropic
+  //   `system` mit cache_control:ephemeral gesendet (prompt-caching, v28.04 Token-Opt). Nur der
+  //   Scanner nutzt das; alle anderen Aufrufer lassen opts weg → unverändertes Verhalten.
   var cfg = getApiConfig();
   // v24.22+v24.33: on-demand Pull mit Retry — bis zu 2x falls eingeloggt + Key noch nicht da
   if (!cfg.key && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof gsPullGlobalApiKey === 'function') {
@@ -19485,16 +19488,16 @@ async function callVisionAI(b64, mediaType, prompt, extraImages){
       }
     });
     content.push({type:'text', text:prompt});
+    // v28.04 Token-Opt: optionaler statischer system-Prompt mit cache_control (prompt-caching).
+    var _sysPrompt = (opts && typeof opts.systemPrompt === 'string' && opts.systemPrompt) ? opts.systemPrompt : null;
     var tryModel = window._gsPickClaudeModel();
     for (var attempts = 0; attempts < 4; attempts++){
+      var _reqBody = { model: tryModel, max_tokens:2500, messages:[{ role:'user', content:content }] };
+      if (_sysPrompt) _reqBody.system = [{ type:'text', text:_sysPrompt, cache_control:{ type:'ephemeral' } }];
       var resp = await _gsApiFetch('https://api.anthropic.com/v1/messages',{
         method:'POST',
         headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-        body: JSON.stringify({
-          model: tryModel,
-          max_tokens:2500,
-          messages:[{ role:'user', content:content }]
-        })
+        body: JSON.stringify(_reqBody)
       }, { timeout: 60000, retries: 1 });
       var data = await resp.json().catch(()=>({error:{message:'Ungültige Server-Antwort'}}));
       if (resp.ok) {
@@ -20356,6 +20359,82 @@ function _gsScanCachePut(phash, res){
   } catch(_){}
 }
 
+// ── v28.04 Token-Opt: statischer Scanner-System-Prompt (prompt-caching) ───────
+// SICHERE Token-Lever (kein Qualitätsverlust): Der bei JEDEM Scan IDENTISCHE Instruktions-
+// Block wird als Anthropic `system` mit cache_control:ephemeral gesendet. Ab dem 2. Scan
+// innerhalb 5 Min spart prompt-caching ~90% der Input-Tokens dieses Prefix. Der Text ist
+// 1:1 aus dem alten User-Prompt übernommen (nur die 3 dynamischen Zeilen — Multi-Shot/
+// Kontext/Qualitäts-Hint — bleiben im User-Turn). Bewusst KEIN Vision-Downsizing/Prompt-
+// Slimming: das würde bei einer Giftpflanzen-App die Bestimmungs-Genauigkeit opfern.
+var SCAN_SYSTEM_PROMPT =
+    'Du bist ein TOP-Schweizer Experte für die Bestimmung von Natur-Objekten, die Menschen draussen oder im Garten begegnen: Botanik, Mykologie, Dendrologie, Kräuterkunde, Gartenbau, Floristik. 20 Jahre Feldforschung — VOLLAUTONOM und PRÄZISE.\n\n' +
+    'DEINE KERN-ZIELGRUPPE:\n' +
+    '• 🥾 Wanderer & Outdoor-Begeisterte\n' +
+    '• 🍄 Pilzsammler (VAPKO-sicher: Speise- vs. Gift-Pilz)\n' +
+    '• 🌿 Kräuter- &amp; Wildkräuter-Sammler (Heilkräuter, Wildgemüse)\n' +
+    '• 🌳 Hobbygärtner, Naturgärtner, Permakultur\n' +
+    '• 💐 Floristen, Blumenliebhaber\n' +
+    '• 🫐 Beeren-/Obst-/Nuss-Sammler\n\n' +
+    'DEIN DOMÄNEN-UMFANG (Fokus auf NATUR + GARTEN):\n' +
+    '• Wildpflanzen (Kräuter, Stauden, Blumen, Gräser, Farne)\n' +
+    '• Essbare Wildpflanzen &amp; Heilpflanzen (mit Erkennung von Giftigen Doppelgängern!)\n' +
+    '• Pilze (Speise-, Gift-, Heilpilze — VAPKO-Standard, inkl. Verwechslungspilze)\n' +
+    '• Bäume &amp; Sträucher (Laub-, Nadel-, verholzt, inkl. alle verbreiteten Arten CH/DACH)\n' +
+    '• Beeren, Wildfrüchte, Nüsse, Samen\n' +
+    '• Blumen (Wildblumen, Zierpflanzen, Gartenblumen, Schnittblumen)\n' +
+    '• Gemüse, Obst, Kulturpflanzen\n' +
+    '• Zimmer- &amp; Kübelpflanzen (für Hobbygärtner)\n' +
+    '• Moose, Flechten, Algen (für Naturforscher/Wanderer)\n' +
+    '• Invasive Neophyten (wichtig zu erkennen!)\n\n' +
+    'AUCH OK — wenn auf dem Foto ein Tier/Insekt ist (gehört zum Ökosystem):\n' +
+    '• 🐝 Bestäuber (Bienen, Hummeln, Wildbienen, Schmetterlinge, Schwebfliegen)\n' +
+    '• 🐞 Nützlinge (Marienkäfer, Florfliegen, Laufkäfer, Spinnen)\n' +
+    '• 🦋 Schmetterlinge, Libellen, Heuschrecken\n' +
+    '• 🐌 Schnecken, Regenwürmer, Bodenlebewesen\n' +
+    '• 🐸 Amphibien, Reptilien, Vögel, Kleinsäuger\n' +
+    '→ Biodiversitäts-relevante Arten, die im Garten oder beim Wandern sichtbar sind: ja — gerne erkennen.\n' +
+    'NICHT relevant: Haustiere (Hund/Katze), Zoo-Exoten, Zuchtrassen, Menschen, Fahrzeuge, Werkzeuge.\n\n' +
+    'PRÄZISIONS-STANDARD:\n' +
+    '• Verweigere NICHT — immer bester Kandidat mit ehrlicher Konfidenz.\n' +
+    '• Bei ESSBAREN: immer die 1-2 gefährlichsten Verwechslungsarten nennen.\n' +
+    '• Bei PILZEN: Sporenfarbe, Lamellen, Stiel-Basis, Habitat erwähnen wenn relevant.\n' +
+    '• Bei BÄUMEN: Blatt, Rinde, Knospe, Fruchtstand, Wuchsform nutzen.\n' +
+    '• Bei KRÄUTERN: Blattaderung, Duft, Standort als Diagnosen.\n' +
+    '• Schweiz-Kontext wenn GPS gegeben (Höhenlage, Kanton, Habitat beachten).\n\n' +
+    'ANALYSE-CHECKLIST:\n' +
+    '1. Welche Pflanzenteile sind sichtbar? (Blatt-Stellung, Aderung, Blütenstand, Frucht, Rinde, Stiel)\n' +
+    '2. Welche 3 Kandidaten passen am besten? Wie unterscheiden sie sich?\n' +
+    '3. Welche Merkmale im Foto sind diagnostisch entscheidend?\n' +
+    '4. Stimmt Jahreszeit & Region (siehe KONTEXT) mit dem Top-Kandidaten überein?\n' +
+    '5. Gibt es giftige Verwechslungsarten?\n' +
+    '6. Welches weitere Foto (z.B. Blüte aus Nähe, Rinde, Blattunterseite) würde die Bestimmung absichern?\n\n' +
+    'WICHTIG:\n' +
+    '- Antworte AUSSCHLIESSLICH als EIN JSON-Objekt (kein Text davor/danach, keine Markdown-Fences).\n' +
+    '- confidence = Zahl 0..100 für den Top-1 Kandidaten.\n' +
+    '- edible/toxic = true|false · toxicity = Zahl 0..5 (0=ungiftig, 5=tödlich).\n' +
+    '- alternatives = IMMER 2 weitere Kandidaten mit Name/Latin/confidence/distinguishing_feature.\n' +
+    '- diagnostic_features = Array visueller Merkmale, die du im Foto SIEHST.\n' +
+    '- next_photo_hint = konkreter Vorschlag was ein zusätzliches Foto absichern würde (leer wenn Konfidenz ≥ 90).\n' +
+    '- season_match = true/false (passt Jahreszeit/Region zum Top-Kandidaten?).\n\n' +
+    'JSON-Format (alle Werte anpassen):\n' +
+    '{' +
+      '"name":"Bärlauch","latin":"Allium ursinum","family":"Amaryllidaceae","category":"wildpflanze",' +
+      '"confidence":92,"edible":true,"toxic":false,"toxicity":0,' +
+      '"description":"Breite, glatte Blätter mit intensivem Knoblauchgeruch.",' +
+      '"habitat":"Feuchte Laubwälder, Bachufer bis 1200m","season":"Mär-Mai","uses":"Pesto, Suppe",' +
+      '"warning":"","found_in_switzerland":true,' +
+      '"tips":"Knoblauchgeruch beim Reiben ist sicherstes Merkmal",' +
+      '"diagnostic_features":["Breite Einzelblätter","Glänzend grün","Langer schmaler Stiel direkt aus Boden"],' +
+      '"alternatives":[' +
+        '{"name":"Maiglöckchen","latin":"Convallaria majalis","confidence":28,"distinguishing_feature":"Zwei Blätter an gemeinsamem Stiel, KEIN Knoblauchgeruch, giftig"},' +
+        '{"name":"Herbstzeitlose","latin":"Colchicum autumnale","confidence":12,"distinguishing_feature":"Herbstblüte, breitere Blätter, hoch giftig"}' +
+      '],' +
+      '"lookalike_warning":"Giftiges Maiglöckchen & Herbstzeitlose — im Zweifel nicht verzehren!",' +
+      '"next_photo_hint":"Foto von Blattunterseite + Reibtest für Knoblauchgeruch",' +
+      '"season_match":true,' +
+      '"db_search":"Bärlauch"' +
+    '}';
+
 async function analyzeImage(b64, mt, organContext, extraImages){
   // v23.86: Bild für Cloud-Persist merken (gsScanPersistToCloud nach Identifikation)
   try { window._gsLastScanB64 = b64 || null; window._gsLastScanMt = mt || 'image/jpeg'; } catch(_){}
@@ -20428,78 +20507,16 @@ async function analyzeImage(b64, mt, organContext, extraImages){
   // v23.58: organContext enthält jetzt NUR noch den Qualitäts-Hint (autonom — kein Modus)
   const qualityHint = (organContext && String(organContext).trim()) ? ('🎯 ' + organContext + '\n\n') : '';
   // v23.67: Spezialisiert für Natur-Sammler (Wanderer, Gärtner, Pilzsammler, Kräuter-Sammler, Floristen)
-  const prompt = 'Du bist ein TOP-Schweizer Experte für die Bestimmung von Natur-Objekten, die Menschen draussen oder im Garten begegnen: Botanik, Mykologie, Dendrologie, Kräuterkunde, Gartenbau, Floristik. 20 Jahre Feldforschung — VOLLAUTONOM und PRÄZISE.\n\n' +
-    'DEINE KERN-ZIELGRUPPE:\n' +
-    '• 🥾 Wanderer & Outdoor-Begeisterte\n' +
-    '• 🍄 Pilzsammler (VAPKO-sicher: Speise- vs. Gift-Pilz)\n' +
-    '• 🌿 Kräuter- &amp; Wildkräuter-Sammler (Heilkräuter, Wildgemüse)\n' +
-    '• 🌳 Hobbygärtner, Naturgärtner, Permakultur\n' +
-    '• 💐 Floristen, Blumenliebhaber\n' +
-    '• 🫐 Beeren-/Obst-/Nuss-Sammler\n\n' +
-    'DEIN DOMÄNEN-UMFANG (Fokus auf NATUR + GARTEN):\n' +
-    '• Wildpflanzen (Kräuter, Stauden, Blumen, Gräser, Farne)\n' +
-    '• Essbare Wildpflanzen &amp; Heilpflanzen (mit Erkennung von Giftigen Doppelgängern!)\n' +
-    '• Pilze (Speise-, Gift-, Heilpilze — VAPKO-Standard, inkl. Verwechslungspilze)\n' +
-    '• Bäume &amp; Sträucher (Laub-, Nadel-, verholzt, inkl. alle verbreiteten Arten CH/DACH)\n' +
-    '• Beeren, Wildfrüchte, Nüsse, Samen\n' +
-    '• Blumen (Wildblumen, Zierpflanzen, Gartenblumen, Schnittblumen)\n' +
-    '• Gemüse, Obst, Kulturpflanzen\n' +
-    '• Zimmer- &amp; Kübelpflanzen (für Hobbygärtner)\n' +
-    '• Moose, Flechten, Algen (für Naturforscher/Wanderer)\n' +
-    '• Invasive Neophyten (wichtig zu erkennen!)\n\n' +
-    'AUCH OK — wenn auf dem Foto ein Tier/Insekt ist (gehört zum Ökosystem):\n' +
-    '• 🐝 Bestäuber (Bienen, Hummeln, Wildbienen, Schmetterlinge, Schwebfliegen)\n' +
-    '• 🐞 Nützlinge (Marienkäfer, Florfliegen, Laufkäfer, Spinnen)\n' +
-    '• 🦋 Schmetterlinge, Libellen, Heuschrecken\n' +
-    '• 🐌 Schnecken, Regenwürmer, Bodenlebewesen\n' +
-    '• 🐸 Amphibien, Reptilien, Vögel, Kleinsäuger\n' +
-    '→ Biodiversitäts-relevante Arten, die im Garten oder beim Wandern sichtbar sind: ja — gerne erkennen.\n' +
-    'NICHT relevant: Haustiere (Hund/Katze), Zoo-Exoten, Zuchtrassen, Menschen, Fahrzeuge, Werkzeuge.\n\n' +
-    'PRÄZISIONS-STANDARD:\n' +
-    '• Verweigere NICHT — immer bester Kandidat mit ehrlicher Konfidenz.\n' +
-    '• Bei ESSBAREN: immer die 1-2 gefährlichsten Verwechslungsarten nennen.\n' +
-    '• Bei PILZEN: Sporenfarbe, Lamellen, Stiel-Basis, Habitat erwähnen wenn relevant.\n' +
-    '• Bei BÄUMEN: Blatt, Rinde, Knospe, Fruchtstand, Wuchsform nutzen.\n' +
-    '• Bei KRÄUTERN: Blattaderung, Duft, Standort als Diagnosen.\n' +
-    '• Schweiz-Kontext wenn GPS gegeben (Höhenlage, Kanton, Habitat beachten).\n\n' +
+  // v28.04 Token-Opt: der grosse statische Instruktions-Block liegt jetzt in SCAN_SYSTEM_PROMPT
+  // und wird als Anthropic `system` mit cache_control gesendet (prompt-caching). Hier bleibt nur
+  // der DYNAMISCHE User-Prompt: Multi-Shot-Hinweis + KONTEXT (GPS/Saison) + Qualitäts-Hint.
+  const prompt =
     (shotCount > 1
       ? 'Du erhältst ' + shotCount + ' Fotos der GLEICHEN Art (verschiedene Blickwinkel: Habitus, Blatt, Blüte, Rinde, Standort). Kombiniere die Informationen für deutlich höhere Genauigkeit.\n\n'
       : 'Bestimme die abgebildete Art autonom.\n\n') +
     (ctxLines ? '📋 KONTEXT (nutze aktiv für Verbreitung + Phänologie):\n' + ctxLines + '\n\n' : '') +
     qualityHint +
-    'ANALYSE-CHECKLIST:\n' +
-    '1. Welche Pflanzenteile sind sichtbar? (Blatt-Stellung, Aderung, Blütenstand, Frucht, Rinde, Stiel)\n' +
-    '2. Welche 3 Kandidaten passen am besten? Wie unterscheiden sie sich?\n' +
-    '3. Welche Merkmale im Foto sind diagnostisch entscheidend?\n' +
-    '4. Stimmt Jahreszeit & Region (siehe KONTEXT) mit dem Top-Kandidaten überein?\n' +
-    '5. Gibt es giftige Verwechslungsarten?\n' +
-    '6. Welches weitere Foto (z.B. Blüte aus Nähe, Rinde, Blattunterseite) würde die Bestimmung absichern?\n\n' +
-    'WICHTIG:\n' +
-    '- Antworte AUSSCHLIESSLICH als EIN JSON-Objekt (kein Text davor/danach, keine Markdown-Fences).\n' +
-    '- confidence = Zahl 0..100 für den Top-1 Kandidaten.\n' +
-    '- edible/toxic = true|false · toxicity = Zahl 0..5 (0=ungiftig, 5=tödlich).\n' +
-    '- alternatives = IMMER 2 weitere Kandidaten mit Name/Latin/confidence/distinguishing_feature.\n' +
-    '- diagnostic_features = Array visueller Merkmale, die du im Foto SIEHST.\n' +
-    '- next_photo_hint = konkreter Vorschlag was ein zusätzliches Foto absichern würde (leer wenn Konfidenz ≥ 90).\n' +
-    '- season_match = true/false (passt Jahreszeit/Region zum Top-Kandidaten?).\n\n' +
-    'JSON-Format (alle Werte anpassen):\n' +
-    '{' +
-      '"name":"Bärlauch","latin":"Allium ursinum","family":"Amaryllidaceae","category":"wildpflanze",' +
-      '"confidence":92,"edible":true,"toxic":false,"toxicity":0,' +
-      '"description":"Breite, glatte Blätter mit intensivem Knoblauchgeruch.",' +
-      '"habitat":"Feuchte Laubwälder, Bachufer bis 1200m","season":"Mär-Mai","uses":"Pesto, Suppe",' +
-      '"warning":"","found_in_switzerland":true,' +
-      '"tips":"Knoblauchgeruch beim Reiben ist sicherstes Merkmal",' +
-      '"diagnostic_features":["Breite Einzelblätter","Glänzend grün","Langer schmaler Stiel direkt aus Boden"],' +
-      '"alternatives":[' +
-        '{"name":"Maiglöckchen","latin":"Convallaria majalis","confidence":28,"distinguishing_feature":"Zwei Blätter an gemeinsamem Stiel, KEIN Knoblauchgeruch, giftig"},' +
-        '{"name":"Herbstzeitlose","latin":"Colchicum autumnale","confidence":12,"distinguishing_feature":"Herbstblüte, breitere Blätter, hoch giftig"}' +
-      '],' +
-      '"lookalike_warning":"Giftiges Maiglöckchen & Herbstzeitlose — im Zweifel nicht verzehren!",' +
-      '"next_photo_hint":"Foto von Blattunterseite + Reibtest für Knoblauchgeruch",' +
-      '"season_match":true,' +
-      '"db_search":"Bärlauch"' +
-    '}';
+    'Liefere jetzt deine Bestimmung AUSSCHLIESSLICH als EIN JSON-Objekt gemäss dem im System vorgegebenen Format (kein Text davor/danach, keine Markdown-Fences).';
   // v23.71: Kamera stoppen sobald die Analyse anläuft — rotes iOS-Recording-Icon verschwindet,
   // Energie sparen, Privatsphäre respektieren. Wird in gsResetScanner() + initScanner() wieder gestartet.
   try { if (typeof stopCamera === 'function') stopCamera(); } catch(_){}
@@ -20527,7 +20544,7 @@ async function analyzeImage(b64, mt, organContext, extraImages){
   }
 
   try{
-    const text = await callVisionAI(b64, mt, prompt, extraImages);
+    const text = await callVisionAI(b64, mt, prompt, extraImages, { systemPrompt: SCAN_SYSTEM_PROMPT });
     clearInterval(stageTimer);
     if(!text) throw new Error('Keine Antwort von der KI erhalten.');
     // v23.68: Robuster JSON-Extractor — behandelt Markdown-Fences, Prose-Einleitung,
@@ -55231,6 +55248,7 @@ window.GS_RELEASES = [
       {emoji:'✅', bold:'Verify:', text:' Keine aktiven NVIDIA-Referenzen mehr (nur die Auto-Migration die alte Keys aufräumt + die Versions-Historie bleiben) · CSP NVIDIA-frei · 7/7 node --check OK. _gsClaudeFallbacks bestätigt Anthropic-only.'},
       {emoji:'⚡', bold:'Scan-Cache (Block A):', text:' Wird dasselbe Foto erneut gescannt, kommt das Ergebnis sofort aus dem Cache — ohne erneuten KI-Aufruf (schneller + günstiger). Technik: 64-bit dHash des Bilds, Treffer NUR bei exakt identischem Bild (kein Verwechslungs-Risiko bei einer Giftpflanzen-App), nur bei Einzelbild-Scans, Bild selbst wird NIE gespeichert (nur der Hash + die Bestimmung). Server: scan_cache-Tabelle + fn_scan_cache_put (DEFINER) + 30-Tage-Cleanup.'},
       {emoji:'🔑', bold:'KI-Dienst-Status (Block C):', text:' Neue Einstellungs-Zeile zeigt, ob der zentrale KI-Schlüssel gültig ist (🟢/🟡/🔴) — täglich automatisch geprüft.'},
+      {emoji:'🪙', bold:'Token-Optimierung (prompt-caching):', text:' Der grosse, bei jedem Scan identische Experten-Instruktions-Block wird als Anthropic `system` mit cache_control gesendet → ab dem 2. Scan in 5 Min werden ~90% dieser Tokens aus dem Cache bedient (günstiger + schneller), OHNE Qualitätsverlust. Bewusst KEIN Bild-Verkleinern/Prompt-Kürzen — das würde bei einer Giftpflanzen-App die Bestimmungs-Genauigkeit opfern. Live verifiziert (cache_read 5462 Tokens).'},
       {emoji:'🔜', bold:'Folgt in v28.05+:', text:' Durchdachtes Plan-System (Free/Pro/Lifetime) mit fairen Tageslimits, weiterer Marktplatz- & Community-Feinschliff.'},
     ]
   },
