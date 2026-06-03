@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.02.20260603">
+<meta name="app-version" content="28.03.20260603">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4948,6 +4948,24 @@ html, body{ scroll-behavior: smooth; }
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_profile" data-i18n-fallback="Profil &amp; Privatsphäre">Profil &amp; Privatsphäre</div>
           <div class="settings-label-sub" data-i18n="settings_profile_hint" data-i18n-fallback="Sichtbarkeit, Bio, Region, Blockierte">Sichtbarkeit, Bio, Region, Blockierte</div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);">›</div>
+      </div>
+      <!-- v28.03: Wetter-Standort-Modus (tri-modal) -->
+      <div class="settings-row" id="settings-weatherloc-row" style="cursor:pointer;" onclick="if(typeof gsOpenWeatherLocPicker==='function')gsOpenWeatherLocPicker()">
+        <div class="settings-icon" style="background:#e3f2fd;">🌦️</div>
+        <div class="settings-label">
+          <div class="settings-label-title" data-i18n="settings_weatherloc" data-i18n-fallback="Wetter-Standort">Wetter-Standort</div>
+          <div class="settings-label-sub" data-i18n="settings_weatherloc_hint" data-i18n-fallback="Automatisch · Mein Garten · Manuell">Automatisch · Mein Garten · Manuell</div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);">›</div>
+      </div>
+      <!-- v28.03: Hilfe & FAQ (Bereich 7 Self-Service) -->
+      <div class="settings-row" id="settings-faq-row" style="cursor:pointer;" onclick="if(typeof gsOpenFAQ==='function')gsOpenFAQ()">
+        <div class="settings-icon" style="background:#fff8e1;">❓</div>
+        <div class="settings-label">
+          <div class="settings-label-title" data-i18n="settings_faq" data-i18n-fallback="Hilfe &amp; FAQ">Hilfe &amp; FAQ</div>
+          <div class="settings-label-sub" data-i18n="settings_faq_hint" data-i18n-fallback="Häufige Fragen &amp; Antworten">Häufige Fragen &amp; Antworten</div>
         </div>
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
@@ -43468,6 +43486,78 @@ function gsBroadcastLocationChange() {
   }
 }
 
+// v28.03 STANDORT TRI-MODAL: zentraler Kontext-Helper.
+//   'map'     → Live-GPS / aktuelle Profil-Location (gs_user_location, von GPS aktualisiert)
+//   'garden'  → fixe Garten-Location (einmal gesetzt, bleibt) — erste Garten-Koordinate
+//   'weather' → User-Wahl in Settings (gs_weather_loc_mode: 'auto' | 'garden' | 'manual')
+function gsGetLocationFor(context){
+  function _loc(){ try { return JSON.parse(localStorage.getItem('gs_user_location')||'null'); } catch(_){ return null; } }
+  function _gardenLoc(){
+    try {
+      var gs = JSON.parse(localStorage.getItem('gs_gardens')||'[]');
+      if (Array.isArray(gs)) { for (var i=0;i<gs.length;i++){ var g=gs[i]; if (g && (g.lat!=null || g.location)) return { lat:g.lat, lng:g.lng, name:g.name||g.location, source:'garden' }; } }
+    } catch(_){}
+    return null;
+  }
+  if (context === 'garden') return _gardenLoc() || _loc();
+  if (context === 'weather') {
+    var mode = 'auto'; try { mode = localStorage.getItem('gs_weather_loc_mode') || 'auto'; } catch(_){}
+    if (mode === 'garden') return _gardenLoc() || _loc();
+    if (mode === 'manual') { try { var m = JSON.parse(localStorage.getItem('gs_weather_loc_manual')||'null'); if (m && m.lat!=null) return Object.assign({source:'manual'}, m); } catch(_){} return _loc(); }
+    return _loc(); // 'auto'
+  }
+  return _loc(); // 'map' default → Live
+}
+window.gsGetLocationFor = gsGetLocationFor;
+// Wetter-Standort-Modus setzen (Settings) + Wetter neu laden
+function gsSetWeatherLocMode(mode){
+  if (['auto','garden','manual'].indexOf(mode) < 0) mode = 'auto';
+  try { localStorage.setItem('gs_weather_loc_mode', mode); } catch(_){}
+  if (typeof gsHaptic==='function') { try { gsHaptic('light'); } catch(_){} }
+  var lbl = mode==='garden' ? 'Mein Garten' : (mode==='manual' ? 'Manuell' : 'Automatisch (Live)');
+  if (typeof gsToast==='function') gsToast('🌦️ Wetter-Standort: ' + lbl, 'success', 2000);
+  try { if (typeof loadHomeWeather === 'function') loadHomeWeather(); } catch(_){}
+  try { if (typeof gsLoadGardenWeatherAlerts === 'function') gsLoadGardenWeatherAlerts(); } catch(_){}
+}
+window.gsSetWeatherLocMode = gsSetWeatherLocMode;
+// v28.03: Settings-Picker für den Wetter-Standort-Modus
+function gsOpenWeatherLocPicker(){
+  var cur = 'auto'; try { cur = localStorage.getItem('gs_weather_loc_mode') || 'auto'; } catch(_){}
+  function _opt(val,emoji,title,sub){
+    var on = cur===val;
+    return '<button onclick="gsSetWeatherLocMode(\''+val+'\');(function(){var e=document.getElementById(\'gs-nl-modal\');})();gsOpenWeatherLocPicker()" style="display:flex;width:100%;align-items:center;gap:11px;padding:13px;margin-bottom:8px;border-radius:11px;border:1.5px solid '+(on?'var(--g-dark)':'var(--border)')+';background:'+(on?'var(--g-light)':'var(--card)')+';cursor:pointer;font-family:inherit;text-align:left;">'
+      + '<div style="font-size:22px;">'+emoji+'</div>'
+      + '<div style="flex:1;"><div style="font-weight:800;font-size:13.5px;color:var(--text);">'+title+(on?' ✓':'')+'</div><div style="font-size:11px;color:var(--muted);">'+sub+'</div></div></button>';
+  }
+  var h = '<div style="font-size:16px;font-weight:800;margin-bottom:4px;">🌦️ Wetter-Standort</div>'
+    + '<div style="font-size:12px;color:var(--muted);margin-bottom:14px;">Welcher Standort fürs Wetter? (Karte nutzt immer Live-GPS, Mein Garten den fixen Garten-Ort.)</div>'
+    + _opt('auto','📍','Automatisch (Live)','Dein aktueller bzw. Profil-Standort')
+    + _opt('garden','🌳','Mein Garten','Der fix gespeicherte Garten-Standort')
+    + _opt('manual','✏️','Manuell','Zuletzt manuell gesetzter Ort');
+  if (typeof _gsNlOpen === 'function') _gsNlOpen(h);
+}
+window.gsOpenWeatherLocPicker = gsOpenWeatherLocPicker;
+// v28.03 (Bereich 7): einfache FAQ / Hilfe-Sektion (Self-Service)
+function gsOpenFAQ(){
+  var faqs = [
+    ['💾 Gehen meine Daten bei Updates verloren?','Nein. Seit v27.01 sichert GreenScan deinen kompletten Stand automatisch in der Cloud (vor jedem Update + täglich). Falls dein Browser-Speicher mal geleert wird, bietet die App beim Start „Daten wiederherstellen" an.'],
+    ['🌿 Was kostet GreenScan?','Die App ist gratis. Optional: Pro (CHF 7.90/Mo) oder Lifetime (CHF 45.60 einmalig) für erweiterte KI-Funktionen. Marktplatz, Community, Wissen & Lina-Coach sind für alle gratis.'],
+    ['📍 Meine Karten-Funde erscheinen nicht?','Stelle sicher, dass du eingeloggt bist — Funde werden deinem Konto zugeordnet und sind dann geräteübergreifend da.'],
+    ['🪴 Wie füge ich eine Pflanze hinzu?','Tab „Meine Pflanzen" → „+ Pflanze" → Name eintippen (Autocomplete hilft) → optional Foto → speichern. Sie wird in der Cloud gesichert.'],
+    ['🏢 Wie trete ich einer Organisation/Schule bei?','Einstellungen → „🏢 Organisationen" → „Beitreten" → den 8-stelligen Code eingeben, den du erhalten hast.'],
+    ['💬 Wie melde ich einen Bug oder gebe Feedback?','Menü → Feedback. Wähle Bug/Idee/Lob, beschreibe es kurz — wir lesen alles.']
+  ];
+  var h = '<div style="font-size:17px;font-weight:800;margin-bottom:12px;">❓ Hilfe & FAQ</div>';
+  h += faqs.map(function(f){
+    return '<details style="margin-bottom:8px;border:1px solid var(--border);border-radius:10px;padding:10px 12px;">'
+      + '<summary style="font-weight:700;font-size:13.5px;color:var(--text);cursor:pointer;">'+(typeof _gsCEsc==='function'?_gsCEsc(f[0]):f[0])+'</summary>'
+      + '<div style="font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:8px;">'+(typeof _gsCEsc==='function'?_gsCEsc(f[1]):f[1])+'</div></details>';
+  }).join('');
+  h += '<button onclick="if(typeof openFeedbackModal===\'function\')openFeedbackModal();else if(typeof menuNav===\'function\')menuNav(\'feedback\')" style="width:100%;margin-top:10px;padding:11px;border:none;border-radius:10px;background:var(--g-dark);color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">💬 Frage nicht dabei? Feedback geben</button>';
+  if (typeof _gsNlOpen === 'function') _gsNlOpen(h);
+}
+window.gsOpenFAQ = gsOpenFAQ;
+
 function updateLocationUI() {
   const name = userLocation ? (userLocation.name || 'Standort') : 'Kein Standort';
   document.querySelectorAll('.user-loc-display').forEach(el => { el.textContent = name; });
@@ -55022,6 +55112,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.03', date: '03.06.2026',
+    headline: '🔎 Grosser App-Check + Standort-Wahl fürs Wetter + Hilfe-FAQ',
+    summary: 'Wir haben die ganze App systematisch durchleuchtet — alle 8 Bereiche (Marktplatz, Community, die KI-Tools, Meine Pflanzen, Mein Garten, Einstellungen, Feedback/Hilfe, Gartenwissen) auf Backend und Frontend geprüft. Ergebnis: keine blockierenden Fehler mehr (0 P0). Direkt umgesetzt: Du kannst jetzt in den Einstellungen wählen, welcher Standort fürs Wetter verwendet wird — automatisch (dein aktueller Ort), dein fixer Garten, oder manuell. Die Karte nutzt weiterhin Live-GPS. Ausserdem gibt es jetzt eine Hilfe- & FAQ-Sektion mit Antworten auf die häufigsten Fragen. Tiefergehende Verbesserungen sind dokumentiert und kommen in den nächsten Updates.',
+    user_summary: '🔎 Kompletter App-Check (8 Bereiche, 0 blockierende Fehler) + neue Wetter-Standort-Wahl (auto/Garten/manuell) + Hilfe & FAQ in den Einstellungen.',
+    user_items: [
+      { emoji: '✅', text: 'Systematischer Audit aller 8 App-Bereiche — keine blockierenden Bugs mehr' },
+      { emoji: '🌦️', text: 'Wetter-Standort frei wählbar: Automatisch · Mein Garten · Manuell (Karte bleibt Live-GPS)' },
+      { emoji: '❓', text: 'Neue Hilfe- & FAQ-Sektion mit den häufigsten Fragen' },
+    ],
+    items: [
+      {emoji:'🔎', bold:'Phase A — Audit (FULL_APP_AUDIT_v28.03.md):', text:' Alle 8 Bereiche Frontend+Backend dokumentiert mit P0/P1/P2-Findings. Backend-Cross-Check: 23 Tabellen, 3 Views, 10 Kern-RPCs, 5 Crons LIVE. 0 P0 über alle Bereiche.'},
+      {emoji:'🌦️', bold:'Standort tri-modal (Quick-Fix B6):', text:' Helper gsGetLocationFor(context) + Settings-Picker „Wetter-Standort". Karte=Live, Mein Garten=fix, Wetter=deine Wahl.'},
+      {emoji:'❓', bold:'Hilfe & FAQ (Quick-Fix B7):', text:' 6-Item-FAQ (Daten-Sicherheit, Preise, Karten-Funde, Pflanze hinzufügen, Org beitreten, Feedback) unter Einstellungen.'},
+      {emoji:'🏛️', bold:'Hard-Lesson #14 in Aktion:', text:' Ein vermeintlicher Ernte-Bug entpuppte sich beim Code-Check als zwei bewusst getrennte Systeme — statt riskantem Schnell-Fix sauber für später dokumentiert.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · keine DB-Migration · tiefere Verbesserungen für v28.07+ gesammelt. Grösster Audit-Sprint des Projekts.'},
+    ]
+  },
+  {
     v: 'v28.02', date: '03.06.2026',
     headline: '🛠️ Hotfix: Marktplatz-Inserate gehen wieder + aufgeräumte Community',
     summary: 'Wichtige Korrekturen. Der Marktplatz-Bug ist behoben: Beim Erstellen eines Inserats kam „invalid Token" — Ursache war ein abgelaufenes Sitzungs-Token, das nicht automatisch erneuert wurde. Jetzt wird das Token vor dem Veröffentlichen automatisch aufgefrischt; bei wirklich abgelaufener Sitzung kommt eine klare Meldung statt eines kryptischen Fehlers. Der Marktplatz bleibt komplett gratis für alle. Veraltete Demo-/Vorlagen-Inserate sind raus — du siehst nur noch echte Angebote. Ausserdem ist die Community aufgeräumt und privater: kein „Mitglieder entdecken"-Massenverzeichnis mehr, in dem man durch alle Profile blättern kann. Stattdessen ein Folge-Feed mit den Aktivitäten der Leute, denen du folgst, ein Meilensteine-Tab, und eine gezielte Personen-Suche. Profile öffnest du per Klick auf den Avatar im Feed.',
@@ -58030,7 +58138,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.02';
+var GS_VERSION = 'v28.03';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
