@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="27.03.20260603">
+<meta name="app-version" content="27.04.20260603">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -8647,17 +8647,22 @@ async function gsHomeRenderTopPicks(){
     var r = await sbFetch('/rest/v1/rpc/fn_species_top_picks', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ p_lim: 6 })
+      body: JSON.stringify({ p_lim: 14 })  // v27.04: mehr laden für Rotation nach Dismiss
     });
     var rows = (r && Array.isArray(r.data)) ? r.data : [];
+    // v27.04: „nicht interessiert"-Liste herausfiltern (LS), dann auf 6 kürzen
+    var dismissed = {};
+    try { (JSON.parse(localStorage.getItem('gs_home_dismissed_picks')||'[]')||[]).forEach(function(n){ dismissed[n] = 1; }); } catch(_){}
+    rows = rows.filter(function(s){ return !dismissed[s.name]; }).slice(0, 6);
     if (!rows.length) { cont.style.display = 'none'; return; }
     window._gsHomeTopPicks = rows;
     grid.innerHTML = rows.map(function(s, i){
       var beliebt = (s.pick_count|0) > 0;
       return '<div role="button" tabindex="0" onclick="gsHomeOpenAddFromPick(' + i + ')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();gsHomeOpenAddFromPick(' + i + ');}"' +
-        ' style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:11px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:14px;cursor:pointer;transition:transform .15s,box-shadow .15s;text-align:center;"' +
+        ' style="position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;padding:11px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:14px;cursor:pointer;transition:transform .15s,box-shadow .15s;text-align:center;"' +
         ' onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 4px 12px rgba(15,40,15,.10)\'"' +
         ' onmouseout="this.style.transform=\'translateY(0)\';this.style.boxShadow=\'none\'">' +
+        '<span role="button" tabindex="0" aria-label="Nicht interessiert" title="Nicht interessiert" onclick="event.stopPropagation();gsHomeDismissPick(' + i + ')" onkeydown="if(event.key===\'Enter\'){event.stopPropagation();gsHomeDismissPick(' + i + ');}" style="position:absolute;top:3px;right:5px;font-size:12px;color:var(--muted);opacity:.55;cursor:pointer;line-height:1;padding:2px;">✕</span>' +
         '<div style="font-size:30px;line-height:1;">' + escHtml(s.emoji || '🌿') + '</div>' +
         '<div style="font-size:12.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px;">' + escHtml(s.name || '') + '</div>' +
         (beliebt
@@ -8671,6 +8676,18 @@ async function gsHomeRenderTopPicks(){
 }
 window.gsHomeRenderTopPicks = gsHomeRenderTopPicks;
 
+// v27.04: „nicht interessiert" — Pick merken (LS) + Liste neu rendern (Rotation)
+window.gsHomeDismissPick = function(idx){
+  var s = (window._gsHomeTopPicks || [])[idx];
+  if (!s || !s.name) return;
+  try {
+    var list = JSON.parse(localStorage.getItem('gs_home_dismissed_picks')||'[]'); if (!Array.isArray(list)) list = [];
+    if (list.indexOf(s.name) < 0) list.push(s.name);
+    localStorage.setItem('gs_home_dismissed_picks', JSON.stringify(list.slice(-100)));
+  } catch(_){}
+  if (typeof gsHaptic === 'function') { try { gsHaptic('light'); } catch(_){} }
+  if (typeof gsHomeRenderTopPicks === 'function') gsHomeRenderTopPicks();
+};
 window.gsHomeOpenAddFromPick = function(idx){
   var s = (window._gsHomeTopPicks || [])[idx];
   if (!s) return;
@@ -27415,9 +27432,48 @@ async function gsBattleLoadAndPlay(battleId){
 window.gsBattleLoadAndPlay = gsBattleLoadAndPlay;
 
 // Spiel-State setzen + erste Runde rendern
+// v27.04: Battle-Fortschritt crash-/reload-sicher in sessionStorage (timer ist nicht serialisierbar → ausgelassen)
+function _gsBattlePersist(){
+  try {
+    var b = window._gsBattle; if (!b) return;
+    sessionStorage.setItem('gs_battle_ip', JSON.stringify({ id:b.id, role:b.role, questions:b.questions, answers:b.answers, idx:b.idx, ts:Date.now() }));
+  } catch(_){}
+}
+function _gsBattleClearPersist(){ try { sessionStorage.removeItem('gs_battle_ip'); } catch(_){} }
+function gsBattleResume(){
+  try {
+    var raw = sessionStorage.getItem('gs_battle_ip'); if (!raw) return;
+    var s = JSON.parse(raw);
+    if (!s || !s.questions || !s.questions.length || s.idx >= s.questions.length) { _gsBattleClearPersist(); return; }
+    window._gsBattle = { id:s.id, role:s.role||'challenger', questions:s.questions, answers:s.answers||[], idx:s.idx||0, qStart:0, timer:null, timeLeft:30 };
+    var rb = document.getElementById('gs-battle-resume-banner'); if (rb) try { rb.remove(); } catch(_){}
+    if (typeof gsBattleRenderRound === 'function') gsBattleRenderRound();
+  } catch(e){ console.warn('[gsBattleResume]', e && e.message); }
+}
+window.gsBattleResume = gsBattleResume;
+// Boot: laufendes Battle (<30 Min) gefunden → dezenter Resume-Banner
+function _gsBattleMaybeOfferResume(){
+  try {
+    var raw = sessionStorage.getItem('gs_battle_ip'); if (!raw) return;
+    var s = JSON.parse(raw);
+    if (!s || !s.questions || !s.questions.length || s.idx >= s.questions.length) { _gsBattleClearPersist(); return; }
+    if (s.ts && (Date.now() - s.ts) > 1800000) { _gsBattleClearPersist(); return; } // >30 Min → verfallen
+    if (document.getElementById('gs-battle-resume-banner')) return;
+    var b = document.createElement('div');
+    b.id = 'gs-battle-resume-banner';
+    b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);z-index:var(--z-toast,9999);background:linear-gradient(135deg,#5e35b1,#7e57c2);color:#fff;border-radius:14px;padding:12px 14px;box-shadow:0 6px 22px rgba(0,0,0,.35);display:flex;gap:12px;align-items:center;font-family:inherit;';
+    b.innerHTML = '<div style="font-size:24px;flex-shrink:0;">⚔️</div>'
+      + '<div style="flex:1;min-width:0;font-size:13px;line-height:1.35;"><b>Battle fortsetzen?</b><br><span style="opacity:.9;font-size:11.5px;">Du warst bei Runde ' + ((s.idx||0)+1) + ' / ' + s.questions.length + '.</span></div>'
+      + '<button onclick="gsBattleResume()" style="background:#fff;color:#5e35b1;border:none;border-radius:8px;padding:8px 14px;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit;flex-shrink:0;">Weiter</button>'
+      + '<button onclick="(function(){try{sessionStorage.removeItem(\'gs_battle_ip\');}catch(_){}var e=document.getElementById(\'gs-battle-resume-banner\');if(e)e.remove();})()" aria-label="Schließen" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:8px;width:30px;height:30px;font-size:16px;cursor:pointer;flex-shrink:0;font-family:inherit;">×</button>';
+    document.body.appendChild(b);
+  } catch(e){ console.warn('[gsBattleResumeOffer]', e && e.message); }
+}
+window._gsBattleMaybeOfferResume = _gsBattleMaybeOfferResume;
 function gsBattleStartPlay(battleId, role, questions){
   if (!questions || !questions.length) return;
   window._gsBattle = { id: battleId, role: role || 'challenger', questions: questions, answers: [], idx: 0, qStart: 0, timer: null, timeLeft: 30 };
+  _gsBattlePersist();
   // Match-Up-Intro kurz, dann Runde 1
   _gsNlOpen('<div style="padding:34px 20px;text-align:center;"><div style="font-size:46px;">⚔️</div><div style="font-size:20px;font-weight:900;margin:10px 0;color:var(--text);">Battle startet!</div><div style="font-size:13px;color:var(--muted);">' + questions.length + ' Runden · 30 Sek pro Frage</div><button onclick="gsBattleRenderRound()" style="margin-top:18px;padding:12px 28px;background:linear-gradient(135deg,#7e57c2,#4527a0);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;box-shadow:0 3px 12px rgba(69,39,160,.35);">▶ Los geht\'s</button></div>');
 }
@@ -27467,6 +27523,7 @@ function gsBattleAnswer(optIdx){
   b.answers.push({ idx: b.idx, ans: (optIdx < 0 ? null : optIdx), time_ms: t });
   if (typeof gsHaptic === 'function') gsHaptic('light');
   b.idx++;
+  _gsBattlePersist(); // v27.04: Fortschritt sichern (reload-/crash-sicher)
   if (b.idx >= b.questions.length) gsBattleSubmit();
   else gsBattleRenderRound();
 }
@@ -27490,6 +27547,7 @@ async function gsBattleSubmit(){
     _gsNlOpen('<div style="padding:24px;text-align:center;color:#c62828;">⚠️ Konnte nicht absenden.<br><button onclick="gsOpenBattles()" style="margin-top:14px;padding:10px 20px;background:#7e57c2;color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">Zurück</button></div>');
   } finally {
     window._gsBattle = null;
+    _gsBattleClearPersist(); // v27.04: abgeschlossen → kein Resume mehr anbieten
   }
 }
 window.gsBattleSubmit = gsBattleSubmit;
@@ -54947,6 +55005,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v27.04', date: '03.06.2026',
+    headline: '✨ Politur: Battle fortsetzen, Vorschläge ausblenden & mehr',
+    summary: 'Der letzte Feinschliff für die neuen Funktionen. Wichtigste Verbesserung: Wenn die App während eines Quiz-Battles neu lädt oder abstürzt, geht dein Fortschritt nicht mehr verloren — du bekommst beim Start ein „Battle fortsetzen?"-Angebot und machst genau da weiter, wo du warst. Ausserdem kannst du Pflanzen-Vorschläge auf der Startseite jetzt mit einem ✕ ausblenden („nicht interessiert") — dann rücken neue nach. Und wichtige Aktionen geben jetzt spürbares haptisches Feedback.',
+    user_summary: '✨ Battle nach Reload fortsetzen, Startseiten-Vorschläge ausblenden (✕ → Rotation) und haptisches Feedback bei wichtigen Aktionen.',
+    user_items: [
+      { emoji: '⚔️', text: 'Quiz-Battle nach App-Reload/Absturz fortsetzen statt von vorn' },
+      { emoji: '✕', text: 'Startseiten-Vorschläge ausblenden („nicht interessiert") → neue rücken nach' },
+      { emoji: '📳', text: 'Haptisches Feedback bei Folgen, Blockieren & Backup' },
+    ],
+    items: [
+      {emoji:'⚔️', bold:'Battle-Reload-Resilienz (v26.97):', text:' Der Battle-Fortschritt wird jetzt nach jeder Antwort lokal gesichert (sessionStorage). Reload/Crash → Boot-Banner „Battle fortsetzen?" → weiter bei der aktuellen Runde. Bisher war der Zustand nur im Speicher → verloren bei Reload.'},
+      {emoji:'🏠', bold:'Startseiten-Vorschläge (v26.89):', text:' Pro Vorschlag ein ✕-Button („nicht interessiert"); die Liste lädt jetzt mehr Kandidaten und rotiert nach dem Ausblenden. Merkt sich die Auswahl lokal.'},
+      {emoji:'📳', bold:'Haptik:', text:' Folgen/Blockieren/Backup geben spürbares Feedback.'},
+      {emoji:'🧹', bold:'Backlog abgeschlossen:', text:' Push-Log-Aufräumen (>30 Tage) lief bereits seit v27.01. Follow-up- & Battle-Antwort-OS-Pushes bewusst zurückgestellt (brauchen Server-Cron — die In-App-Hinweise Doktor-Banner & ⚔️-Badge gibt es bereits).'},
+      {emoji:'✅', bold:'Verify:', text:' Reiner Frontend-Polish (keine Migration) · 7/7 Inline-Scripts node --check OK · sw.js OK. FINALE des Blocks v27.01→v27.04 — höchste Version, Marker auf v27.04. Fernando: EIN DEPLOY_FULL.command deployt jetzt v27.01-v27.04 gemeinsam live.'},
+    ]
+  },
+  {
     v: 'v27.03', date: '03.06.2026',
     headline: '⚙️ Einstellungen: zuverlässiger gespeichert & geräteübergreifend',
     summary: 'Deine Einstellungen werden jetzt sauberer und schneller gespeichert — und syncen zuverlässig zwischen deinen Geräten. Bisher konnte ein Setting, das du auf dem Handy änderst, eine Änderung auf dem Mac überschreiben (oder umgekehrt), weil immer der ganze Einstellungs-Block ersetzt wurde. Jetzt werden Änderungen einzeln zusammengeführt (Deep-Merge), schneller gespeichert (nach 0,8 statt 2 Sekunden) und bei Verbindungsproblemen bis zu 3× automatisch erneut versucht. Im Hintergrund haben wir ausserdem zwei „stille" Fehler gefunden und behoben, die seit Monaten unbemerkt waren: eine nie aktivierte Text-Absicherung und eine Wetter-Warnungs-Aktualisierung, die bei Standort-Wechsel nie lief.',
@@ -57899,7 +57975,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v27.03';
+var GS_VERSION = 'v27.04';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -63612,7 +63688,7 @@ async function gsManualSnapshotBackup(){
     try { if (window.gsCloudSync && gsCloudSync.flushNow) await gsCloudSync.flushNow(); } catch(_){}
     var id = await gsSnapshotCreate('manual');
     _gsUpdateSyncStatusEl();
-    if (id) { if (typeof gsToast==='function') gsToast('✅ Backup in der Cloud gesichert.','success'); }
+    if (id) { if (typeof gsHaptic==='function') { try { gsHaptic('success'); } catch(_){} } if (typeof gsToast==='function') gsToast('✅ Backup in der Cloud gesichert.','success'); }
     else { if (typeof gsToast==='function') gsToast('Noch keine Daten zum Sichern.','warning'); }
   } catch(e){ console.warn('[gsSnapshot] manual', e && e.message); }
 }
@@ -63650,6 +63726,7 @@ try {
       try { _gsSnapshotSetupAutoSync(); } catch(_){}
       try { gsSnapshotMaybeOfferRestore(); } catch(_){}
       try { _gsUpdateSyncStatusEl(); } catch(_){}
+      try { if (typeof _gsBattleMaybeOfferResume === 'function') _gsBattleMaybeOfferResume(); } catch(_){}
     }, 4500);
   });
 } catch(_){}
@@ -63757,6 +63834,7 @@ async function gsBlockToggleProfile(uid){
     var r = await sbFetch('/rest/v1/rpc/fn_block_toggle', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_target: uid }) });
     var d = (r && !r.error) ? r.data : null;
     if (d && d.action) {
+      if (typeof gsHaptic==='function') { try { gsHaptic(d.action==='blocked'?'warning':'light'); } catch(_){} }
       if (typeof gsToast==='function') gsToast(d.action==='blocked' ? '🚫 Blockiert.' : 'Blockierung aufgehoben.', 'success');
       if (typeof closeModal==='function') closeModal('gs-nl-modal');
     }
