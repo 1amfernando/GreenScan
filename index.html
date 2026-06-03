@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.07.20260603">
+<meta name="app-version" content="28.08.20260603">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -55368,6 +55368,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.08', date: '03.06.2026',
+    headline: '🏫 Organisationen mit eigenem Look — Onboarding & Whitelabel',
+    summary: 'Der Abschluss des grossen Organisations-Updates: Wer eine Organisation (Schule, Kurs, Verein, Botanischer Garten) leitet, kann ihr jetzt ein eigenes Gesicht geben — Logo, Akzent-Farbe, Kurzbeschreibung und Website. Nach dem Erstellen führt dich eine kleine Anleitung durch die nächsten Schritte (Logo & Farbe setzen, Mitglieder einladen, Klasse erstellen). Alles bleibt komplett kostenlos. Damit ist die Organisations- & Bildungs-Welt von GreenScan rund: Orgs → Klassen → Aufgaben → Lina, alles miteinander verbunden.',
+    user_summary: '🏫 Organisationen individuell gestalten (Logo, Farbe, Info) + geführtes Onboarding — gratis.',
+    user_items: [
+      { emoji: '🎨', text: 'Org-Branding: Logo, Akzent-Farbe, Beschreibung & Website setzen (✏️ in der Org-Ansicht)' },
+      { emoji: '🎉', text: 'Geführtes Onboarding nach dem Erstellen — die nächsten Schritte auf einen Blick' },
+      { emoji: '🔒', text: 'Nur Owner/Admin können bearbeiten; Eingaben server-seitig geprüft (sichere Farben & Links)' },
+    ],
+    items: [
+      {emoji:'🎨', bold:'Whitelabel:', text:' fn_org_update (owner/admin) für Name/Bio/Logo/Website/Akzent-Farbe — server-validiert (#RRGGBB + http(s), kein Injection-Risiko). Akzent-Balken + Logo + Website-Link in der Org-Ansicht.'},
+      {emoji:'🎉', bold:'Onboarding:', text:' Nach dem Erstellen führt eine Next-Steps-Karte zu Branding → Mitglieder einladen → Klasse erstellen.'},
+      {emoji:'🏁', bold:'Block v28 komplett:', text:' Multi-Tenant → Tier/Quotas → Lehrer-Dashboard → Lina → Onboarding/Whitelabel. Alle Bildungs-/Org-Features FREE, datenschutzfreundlich, mission-treu (keine Sales-Bremse).'},
+    ]
+  },
+  {
     v: 'v28.07', date: '03.06.2026',
     headline: '🌿 Lina ist da — deine kostenlose Garten- & Natur-Coachin',
     summary: 'Lerne Lina kennen: deine herzliche KI-Coachin für Garten, Pflanzen, Kräuter, Pilze und alles rund um die Natur. Stell ihr einfach deine Fragen im Chat („Wie pflege ich meinen Basilikum?", „Welche Wildkräuter sind jetzt essbar?", „Was kann ich im Juni säen?") — sie antwortet warm, praktisch und auf den Schweizer Kontext bezogen. Lina ist für ALLE komplett gratis und fragt nie nach Geld. Eure Gespräche werden sicher gespeichert und sind nur für dich sichtbar; du kannst sie geräteübergreifend fortsetzen. Du findest Lina in den Einstellungen unter „🌿 Lina — dein Garten-Coach".',
@@ -58463,7 +58479,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.07';
+var GS_VERSION = 'v28.08';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -64557,7 +64573,7 @@ async function gsOrgSubmitCreate(){
     }
     if (typeof gsHaptic==='function') { try { gsHaptic('success'); } catch(_){} }
     if (typeof gsToast==='function') gsToast('✅ Organisation erstellt!','success');
-    gsOpenOrgs();
+    if (typeof gsOrgOnboardingDone==='function') gsOrgOnboardingDone(); else gsOpenOrgs();
   } catch(e){ console.warn('[gsOrgSubmitCreate]', e && e.message); if(typeof gsToast==='function') gsToast('Fehler.','error'); }
 }
 window.gsOrgSubmitCreate = gsOrgSubmitCreate;
@@ -64600,12 +64616,19 @@ async function gsOpenOrgDetail(orgId){
 window.gsOpenOrgDetail = gsOpenOrgDetail;
 function _gsRenderOrgDetail(d){
   var o = d.org || {}; var canManage = d.can_manage_members; var orgId = o.id;
-  var h = '<div style="display:flex;align-items:center;gap:11px;margin-bottom:6px;">';
+  // v28.08 Whitelabel: validierter primary_color als Akzent-Balken oben (kein CSS-Injection — Hex-Check).
+  var _pc = (o.primary_color && /^#[0-9A-Fa-f]{6}$/.test(o.primary_color)) ? o.primary_color : '';
+  var h = (_pc ? '<div style="height:5px;border-radius:4px;background:'+_pc+';margin:-2px 0 12px;"></div>' : '');
+  h += '<div style="display:flex;align-items:center;gap:11px;margin-bottom:6px;">';
   h += '<div style="font-size:28px;">'+(o.logo_url?('<img src="'+_gsCEsc(o.logo_url)+'" style="width:40px;height:40px;border-radius:9px;object-fit:cover;">'):_gsOrgTypeLabel(o.org_type).split(' ')[0])+'</div>';
   h += '<div style="flex:1;min-width:0;"><div style="font-size:17px;font-weight:800;color:var(--text);">'+_gsCEsc(o.name)+'</div><div style="font-size:11.5px;color:var(--muted);">'+_gsCEsc(_gsOrgTypeLabel(o.org_type))+' · '+_gsCEsc(o.country||'')+' · '+(o.subscription_tier||'free')+'</div></div></div>';
-  if (o.bio) h += '<div style="font-size:13px;color:var(--text);margin:6px 0 12px;">'+_gsCEsc(o.bio)+'</div>';
+  if (o.bio) h += '<div style="font-size:13px;color:var(--text);margin:6px 0 10px;">'+_gsCEsc(o.bio)+'</div>';
+  if (o.website && /^https?:\/\//i.test(o.website)) h += '<div style="font-size:12px;margin:0 0 10px;"><a href="'+_gsCEsc(o.website)+'" target="_blank" rel="noopener noreferrer" style="color:'+(_pc||'var(--g-dark)')+';font-weight:700;">🌐 Website</a></div>';
   if (canManage) {
-    h += '<button onclick="gsOrgInviteCreate(\''+orgId+'\')" style="width:100%;padding:10px;border:none;border-radius:10px;background:var(--g-main,#43a047);color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;margin-bottom:12px;">+ Mitglied einladen (Code)</button>';
+    h += '<button onclick="gsOrgInviteCreate(\''+orgId+'\')" style="width:100%;padding:10px;border:none;border-radius:10px;background:var(--g-main,#43a047);color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;margin-bottom:8px;">+ Mitglied einladen (Code)</button>';
+  }
+  if (d.can_manage_settings) {
+    h += '<button onclick="gsOrgEdit(\''+orgId+'\')" style="width:100%;padding:9px;border:1px solid var(--border);border-radius:10px;background:transparent;color:var(--text);font-weight:700;font-size:12.5px;cursor:pointer;font-family:inherit;margin-bottom:12px;">✏️ Organisation bearbeiten (Logo · Farbe · Info)</button>';
   }
   h += '<div style="font-size:12.5px;font-weight:800;margin-bottom:6px;">Mitglieder ('+((d.members||[]).length)+')</div>';
   var roleOpts = ['owner','admin','teacher','student','viewer'];
@@ -64660,6 +64683,58 @@ async function gsOrgLeave(orgId){
   else if (confirm('Organisation verlassen?')) go();
 }
 window.gsOrgLeave = gsOrgLeave;
+
+// ═══ v28.08 · ORG-ONBOARDING + WHITELABEL ═══════════════════════════════════════
+// Branding-Edit (Logo/Farbe/Info) für owner/admin via fn_org_update (server-validiert).
+function gsOrgEdit(orgId){
+  if (typeof _gsNlOpen !== 'function') return;
+  var o = (window._gsOrgCur && window._gsOrgCur.org) || {};
+  var pc = (o.primary_color && /^#[0-9A-Fa-f]{6}$/.test(o.primary_color)) ? o.primary_color : '#2e7d32';
+  var h = '<div style="padding:22px 20px;max-width:420px;margin:0 auto;">';
+  h += '<div style="font-size:18px;font-weight:900;color:var(--text);margin-bottom:12px;">✏️ Organisation bearbeiten</div>';
+  h += '<label style="font-size:12px;color:var(--muted);">Name</label>';
+  h += '<input id="gs-orge-name" maxlength="60" value="'+_gsCEsc(o.name||'')+'" style="width:100%;padding:11px;margin:4px 0 10px;border:1px solid var(--border);border-radius:10px;font-family:inherit;font-size:14px;box-sizing:border-box;">';
+  h += '<label style="font-size:12px;color:var(--muted);">Beschreibung</label>';
+  h += '<textarea id="gs-orge-bio" maxlength="200" rows="2" style="width:100%;padding:11px;margin:4px 0 10px;border:1px solid var(--border);border-radius:10px;font-family:inherit;font-size:14px;box-sizing:border-box;">'+_gsCEsc(o.bio||'')+'</textarea>';
+  h += '<label style="font-size:12px;color:var(--muted);">Logo-URL (https://…)</label>';
+  h += '<input id="gs-orge-logo" placeholder="https://…/logo.png" value="'+_gsCEsc(o.logo_url||'')+'" style="width:100%;padding:11px;margin:4px 0 10px;border:1px solid var(--border);border-radius:10px;font-family:inherit;font-size:13px;box-sizing:border-box;">';
+  h += '<label style="font-size:12px;color:var(--muted);">Website (https://…)</label>';
+  h += '<input id="gs-orge-web" placeholder="https://…" value="'+_gsCEsc(o.website||'')+'" style="width:100%;padding:11px;margin:4px 0 10px;border:1px solid var(--border);border-radius:10px;font-family:inherit;font-size:13px;box-sizing:border-box;">';
+  h += '<label style="font-size:12px;color:var(--muted);">Akzent-Farbe</label>';
+  h += '<div style="display:flex;gap:8px;align-items:center;margin:4px 0 14px;"><input id="gs-orge-color" type="color" value="'+pc+'" style="width:48px;height:38px;border:1px solid var(--border);border-radius:8px;padding:2px;cursor:pointer;"><span style="font-size:12px;color:var(--muted);">Akzent in der Org-Ansicht (Whitelabel).</span></div>';
+  h += '<button onclick="gsOrgSubmitEdit(\''+orgId+'\')" style="width:100%;padding:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">Speichern</button>';
+  h += '<button onclick="gsOpenOrgDetail(\''+orgId+'\')" style="width:100%;margin-top:8px;padding:10px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">Zurück</button>';
+  h += '</div>';
+  _gsNlOpen(h);
+}
+window.gsOrgEdit = gsOrgEdit;
+async function gsOrgSubmitEdit(orgId){
+  var g = function(id){ var e=document.getElementById(id); return e?(e.value||'').trim():''; };
+  var name=g('gs-orge-name'), bio=g('gs-orge-bio'), logo=g('gs-orge-logo'), web=g('gs-orge-web'), color=g('gs-orge-color');
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_org_update', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_org_id:orgId, p_name:name, p_bio:bio, p_logo_url:logo, p_website:web, p_primary_color:color })});
+    if (r && !r.error && r.data && r.data.ok) { if(typeof gsToast==='function') gsToast('Organisation aktualisiert.','success'); gsOpenOrgDetail(orgId); }
+    else { var m=(r&&r.error&&r.error.message)||'Speichern fehlgeschlagen.'; if(typeof gsToast==='function') gsToast(m,'warning'); }
+  } catch(_){ if(typeof gsToast==='function') gsToast('Netzwerkfehler.','warning'); }
+}
+window.gsOrgSubmitEdit = gsOrgSubmitEdit;
+// Onboarding-Abschluss: Next-Steps-Karte (alles gratis) nach Org-Erstellung.
+function gsOrgOnboardingDone(){
+  if (typeof _gsNlOpen !== 'function') { if(typeof gsOpenOrgs==='function') gsOpenOrgs(); return; }
+  _gsNlOpen('<div style="padding:24px 20px;max-width:420px;margin:0 auto;text-align:center;">'
+    + '<div style="font-size:46px;">🎉</div>'
+    + '<div style="font-size:19px;font-weight:900;color:var(--text);margin:8px 0;">Organisation erstellt!</div>'
+    + '<div style="font-size:13.5px;color:var(--muted);line-height:1.6;margin-bottom:14px;">Deine nächsten Schritte — alles kostenlos:</div>'
+    + '<div style="text-align:left;background:var(--surface2);border-radius:12px;padding:14px;font-size:13px;color:var(--text);line-height:1.8;margin-bottom:14px;">'
+      + '1️⃣ <b>Org öffnen</b> → Logo &amp; Akzent-Farbe anpassen (✏️ Bearbeiten)<br>'
+      + '2️⃣ <b>Mitglieder einladen</b> → Einladungs-Code teilen<br>'
+      + '3️⃣ <b>Klasse erstellen</b> → Aufgaben stellen (🎓 Klassen)'
+    + '</div>'
+    + '<button onclick="gsOpenOrgs()" style="width:100%;padding:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">Zu meinen Organisationen</button>'
+    + '<button onclick="if(typeof gsOpenClasses===&quot;function&quot;)gsOpenClasses()" style="width:100%;margin-top:8px;padding:10px;background:transparent;color:var(--g-dark);border:1px solid var(--border);border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">🎓 Direkt zu Klassen</button>'
+    + '</div>');
+}
+window.gsOrgOnboardingDone = gsOrgOnboardingDone;
 
 // ═══ v28.06 · LEHRER-DASHBOARD: Klassen + Aufgaben + Auto-Progress (FREE) ════════
 // Hard-Lesson #12: in onclick NUR UUIDs (keine Namen-Strings mit Quotes). Klassen-Meta
