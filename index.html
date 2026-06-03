@@ -4969,6 +4969,15 @@ html, body{ scroll-behavior: smooth; }
         </div>
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
+      <!-- v28.04 Block C: KI-Dienst (Globaler-Key) Status -->
+      <div class="settings-row" id="settings-keystatus-row" style="cursor:pointer;" onclick="if(typeof gsRenderKeyStatus==='function')gsRenderKeyStatus()">
+        <div class="settings-icon" style="background:#e8eaf6;">🔑</div>
+        <div class="settings-label">
+          <div class="settings-label-title" data-i18n="settings_keystatus" data-i18n-fallback="KI-Dienst-Status">KI-Dienst-Status</div>
+          <div class="settings-label-sub" id="gs-key-status" aria-live="polite">Wird geprüft…</div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);">↻</div>
+      </div>
       <!-- v28.01: Organisationen (Multi-Tenant — Schule/Kurs/Verein/Botanischer Garten) -->
       <div class="settings-row" id="settings-orgs-row" style="cursor:pointer;" onclick="if(typeof gsOpenOrgs==='function')gsOpenOrgs()">
         <div class="settings-icon" style="background:#e8f5e9;">🏢</div>
@@ -43555,6 +43564,21 @@ function gsOpenFAQ(){
   if (typeof _gsNlOpen === 'function') _gsNlOpen(h);
 }
 window.gsOpenFAQ = gsOpenFAQ;
+// v28.04 Block C: Globaler-Anthropic-Key Health-Status in Settings anzeigen (aus app_status, daily-Cron befüllt).
+async function gsRenderKeyStatus(){
+  var el = document.getElementById('gs-key-status'); if (!el) return;
+  try {
+    if (typeof sbFetch !== 'function') return;
+    var r = await sbFetch('/rest/v1/app_status?key=eq.global_anthropic_key&select=status,message,last_check_at&limit=1', {method:'GET'});
+    var row = (r && !r.error && Array.isArray(r.data) && r.data[0]) ? r.data[0] : null;
+    if (!row) { el.textContent = 'Status unbekannt'; return; }
+    var dot = row.status==='ok' ? '🟢' : (row.status==='expiring_soon' ? '🟡' : (row.status==='invalid' ? '🔴' : '⚪'));
+    var when = '';
+    try { if (row.last_check_at) { var m = Math.round((Date.now()-new Date(row.last_check_at).getTime())/60000); when = m<60 ? (' · vor '+Math.max(1,m)+' Min') : (' · vor '+Math.round(m/60)+' h'); } } catch(_){}
+    el.textContent = dot + ' ' + (typeof _gsCEsc==='function' ? _gsCEsc(row.message||row.status) : (row.message||row.status)) + when;
+  } catch(e){ console.warn('[gsRenderKeyStatus]', e && e.message); }
+}
+window.gsRenderKeyStatus = gsRenderKeyStatus;
 
 function updateLocationUI() {
   const name = userLocation ? (userLocation.name || 'Standort') : 'Kein Standort';
@@ -63923,6 +63947,7 @@ try {
       try { gsSnapshotMaybeOfferRestore(); } catch(_){}
       try { _gsUpdateSyncStatusEl(); } catch(_){}
       try { if (typeof _gsBattleMaybeOfferResume === 'function') _gsBattleMaybeOfferResume(); } catch(_){}
+      try { if (typeof gsRenderKeyStatus === 'function') gsRenderKeyStatus(); } catch(_){}
     }, 4500);
   });
 } catch(_){}
