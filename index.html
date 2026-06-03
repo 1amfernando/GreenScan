@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.04.20260603">
+<meta name="app-version" content="28.05.20260603">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4957,6 +4957,15 @@ html, body{ scroll-behavior: smooth; }
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_weatherloc" data-i18n-fallback="Wetter-Standort">Wetter-Standort</div>
           <div class="settings-label-sub" data-i18n="settings_weatherloc_hint" data-i18n-fallback="Automatisch · Mein Garten · Manuell">Automatisch · Mein Garten · Manuell</div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);">›</div>
+      </div>
+      <!-- v28.05: Mein Plan (Tier + Tagesquota — warm, kein Verkaufsdruck) -->
+      <div class="settings-row" id="settings-myplan-row" style="cursor:pointer;" onclick="if(typeof gsOpenMyPlan==='function')gsOpenMyPlan()">
+        <div class="settings-icon" style="background:#ede7f6;">💎</div>
+        <div class="settings-label">
+          <div class="settings-label-title" data-i18n="settings_myplan" data-i18n-fallback="Mein Plan">Mein Plan</div>
+          <div class="settings-label-sub" data-i18n="settings_myplan_hint" data-i18n-fallback="Dein Tarif &amp; deine heutigen Frei-Kontingente">Dein Tarif &amp; deine heutigen Frei-Kontingente</div>
         </div>
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
@@ -10565,7 +10574,7 @@ function gsDestroyLazyList() {
 // Gilt nur wenn der GLOBALE Key verwendet wird. BYO-Key (eigener sk-ant in localStorage.ps_api_key)
 // → kein Quota-Check (User zahlt selbst). Free 15/Tag = ~3 Scans + ein paar Chat-Nachrichten.
 var GS_PLANS = {
-  free:     { name: 'Gratis',   scans: 5,   ai_calls: 15, badge: '',   price: 'CHF 0' },
+  free:     { name: 'Gratis',   scans: 15,  ai_calls: 15, badge: '',   price: 'CHF 0' }, // v28.05: scans an Server-Quota angeglichen (15/Tag, server-authoritative)
   plus:     { name: 'Plus',     scans: -1,  ai_calls: -1, badge: '⭐', price: 'CHF 3.90/Monat' },
   pro:      { name: 'Pro',      scans: -1,  ai_calls: -1, badge: '💎', price: 'CHF 7.90/Monat' },
   lifetime: { name: 'Plus Lifetime', scans: -1, ai_calls: -1, badge: '🏆', price: 'Lebenslang' },
@@ -10635,6 +10644,83 @@ function gsAboGetAIQuota() {
   var used = parseInt(localStorage.getItem('gs_aicalls_' + today) || '0');
   var limit = GS_PLANS[plan] && typeof GS_PLANS[plan].ai_calls === 'number' ? GS_PLANS[plan].ai_calls : 15;
   return { unlimited: limit === -1, used: used, limit: limit, remaining: Math.max(0, limit - used) };
+}
+
+// ── v28.05: Server-seitige Per-Feature-Tagesquota (Pfad C) ───────────────────
+// Authoritative (in feature_usage, NICHT durch LS-Löschen umgehbar). Greift nur bei
+// globalem Key + Free. Mission: API-Kosten-Bremse, KEINE Sales-Bremse → großzügige Limits,
+// warme Sprache, keine Dark-Patterns. Bei RPC-Fehler IMMER fail-open (nie wegen Quota blocken).
+function gsQuotaFeatureLabel(feature) {
+  return ({ scan:'Pflanzen-Scan', doctor:'Pflanzen-Doktor', foto_diff:'Wachstums-Analyse',
+            lina:'Lina-Chat', battle:'Quiz-Duell' })[feature] || 'KI-Funktion';
+}
+async function gsQuotaPeek(feature) {
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_quota_peek', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_feature: feature }) });
+    var d = (r && r.data != null) ? r.data : r;
+    if (d && typeof d === 'object' && !Array.isArray(d)) return d;
+  } catch(_){}
+  return { allowed:true, unlimited:true, _failopen:true };
+}
+async function gsQuotaConsume(feature) {
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_quota_consume', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_feature: feature }) });
+    var d = (r && r.data != null) ? r.data : r;
+    if (d && typeof d === 'object' && !Array.isArray(d)) return d;
+  } catch(_){}
+  return { allowed:true, unlimited:true, _failopen:true };
+}
+// Warme Limit-Meldung — wertschätzend, kein Verkaufsdruck.
+function gsQuotaMsg(feature, q) {
+  var lbl = gsQuotaFeatureLabel(feature);
+  var lim = (q && q.limit != null) ? q.limit : '';
+  return '🌿 Du hast heute alle ' + lim + ' kostenlosen ' + lbl + '-Nutzungen ausgeschöpft — schön, dass du so viel entdeckst! '
+       + 'Morgen sind wieder ' + lim + ' für dich da. Wer mehr möchte: mit Pro/Lifetime oder einem eigenen Anthropic-Key gibt es kein Limit.';
+}
+// Warme, dezente Limit-Anzeige (iOS-PWA-safe via gsToast).
+function gsShowQuotaCountdown(feature, q) {
+  try { if (typeof gsToast === 'function') gsToast(gsQuotaMsg(feature, q), 'info', 6500); } catch(_){}
+}
+// v28.05: Settings „💎 Mein Plan" — Tarif + heutige Frei-Kontingente. Warm, transparent,
+// KEIN Verkaufsdruck/FOMO: nennt BYO-Key-Alternative + 2-Klick-kündbar + Lina-gratis.
+async function gsOpenMyPlan() {
+  if (typeof _gsNlOpen !== 'function') return;
+  _gsNlOpen('<div style="padding:30px;text-align:center;color:var(--muted);">⏳ Lade deinen Plan…</div>');
+  var plan = (localStorage.getItem('gs_abo_plan') || 'free').toLowerCase();
+  var isPaid = (plan === 'pro' || plan === 'lifetime' || plan === 'plus' || plan === 'premium');
+  var planLabel = plan === 'lifetime' ? 'Lifetime 🏆' : (plan === 'pro' ? 'Pro 💎' : (isPaid ? 'Aktiv ⭐' : 'Gratis 🌱'));
+  var h = '<div style="padding:22px 20px;max-width:460px;margin:0 auto;">';
+  h += '<div style="font-size:22px;font-weight:900;color:var(--text);margin-bottom:4px;">💎 Mein Plan</div>';
+  h += '<div style="font-size:15px;color:var(--g-dark);font-weight:800;margin-bottom:16px;">Aktueller Tarif: ' + escHtml(planLabel) + '</div>';
+  if (isPaid) {
+    h += '<div style="background:#e8f5e9;border-radius:12px;padding:16px;font-size:14px;color:var(--text);line-height:1.6;">🌿 Alle KI-Funktionen <b>unbegrenzt</b> — danke, dass du GreenScan unterstützt! Deine Beiträge decken die Server- &amp; KI-Kosten, damit die App für alle da sein kann.</div>';
+  } else {
+    var feats = [{k:'scan',e:'🔍',l:'Pflanzen-Scan'},{k:'doctor',e:'🩺',l:'Pflanzen-Doktor'},{k:'foto_diff',e:'📈',l:'Wachstums-Analyse'}];
+    var peeks = await Promise.all(feats.map(function(f){ return gsQuotaPeek(f.k); }));
+    h += '<div style="font-size:13px;color:var(--muted);margin-bottom:12px;">Deine kostenlosen KI-Kontingente heute (Reset um Mitternacht):</div>';
+    feats.forEach(function(f, i){
+      var q = peeks[i] || {};
+      if (q.unlimited) {
+        h += '<div style="display:flex;justify-content:space-between;font-size:13.5px;color:var(--text);margin-bottom:12px;"><span>' + f.e + ' ' + escHtml(f.l) + '</span><span style="color:var(--muted);">unbegrenzt</span></div>';
+      } else {
+        var lim = (q.limit != null) ? q.limit : 0;
+        var used = q.used || 0;
+        var rem = Math.max(0, lim - used);
+        var pct = lim ? Math.min(100, Math.round(used / lim * 100)) : 0;
+        h += '<div style="margin-bottom:12px;">'
+          + '<div style="display:flex;justify-content:space-between;font-size:13.5px;color:var(--text);margin-bottom:4px;"><span>' + f.e + ' ' + escHtml(f.l) + '</span><span style="color:var(--muted);">' + rem + ' von ' + lim + ' übrig</span></div>'
+          + '<div style="height:7px;background:var(--surface2);border-radius:6px;overflow:hidden;"><div style="width:' + pct + '%;height:100%;background:linear-gradient(90deg,var(--g-main),var(--g-dark));"></div></div>'
+          + '</div>';
+      }
+    });
+    h += '<div style="margin-top:8px;background:#f1f8e9;border-radius:12px;padding:14px;font-size:13px;color:var(--text);line-height:1.6;">🌿 Diese Limits sind nur eine faire Kosten-Bremse für den geteilten KI-Schlüssel — kein Verkaufstrick. Wer mehr möchte: einen <b>eigenen Anthropic-Key</b> hinterlegen (dann komplett unbegrenzt &amp; gratis) oder GreenScan freiwillig mit Pro/Lifetime unterstützen.</div>';
+    h += '<button onclick="if(typeof gsShowAboScreen===\'function\')gsShowAboScreen()" style="margin-top:14px;width:100%;padding:13px;background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">Pläne ansehen</button>';
+  }
+  h += '<div style="font-size:11px;color:var(--muted);text-align:center;margin-top:14px;line-height:1.5;">Abo jederzeit mit 2 Klicks kündbar. Lina &amp; die Natur-Features bleiben für alle gratis.</div>';
+  h += '</div>';
+  _gsNlOpen(h);
 }
 
 // Lädt v_user_entitlements und schreibt Plan-Cache. Safe-No-op wenn nicht eingeloggt.
@@ -19385,13 +19471,24 @@ async function callAI(messages, systemPrompt, maxTokens, opts){
       ? '🔑 KI temporär nicht verfügbar — bitte kurz aus- und wieder einloggen (lädt den Key neu) oder in 1-2 Min nochmal versuchen.'
       : '🔑 Bitte zuerst einloggen — dann ist die KI direkt nutzbar (kein eigener Key nötig).');
   }
-  // v24.22: ABO-GATE — bei globalem Key + Free-User → tägliches Limit prüfen
-  if (source === 'global' && typeof gsAboCanUse === 'function' && !gsAboCanUse('ai_call')) {
-    var q = (typeof gsAboGetAIQuota === 'function') ? gsAboGetAIQuota() : null;
-    var qErr = new Error('🚫 Tageslimit erreicht — heute ' + (q ? q.used + '/' + q.limit : '0/15') + ' KI-Aufrufe verbraucht. Upgrade auf Plus oder Pro für unbegrenzte Nutzung. (Oder eigenen Anthropic-Key in „Einstellungen → KI & Scanner" eintragen — dann kein Limit.)');
-    qErr.code = 'free_quota_reached';
-    qErr.quota = q;
-    throw qErr;
+  // v24.22 + v28.05: ABO-GATE bei globalem Key + Free
+  if (source === 'global') {
+    if (opts.quotaFeature) {
+      // v28.05: server-authoritative Per-Feature-Tagesquota (Peek=Gate; Consume nach Erfolg)
+      var qpk = await gsQuotaPeek(opts.quotaFeature);
+      if (qpk && qpk.allowed === false && !qpk.unlimited) {
+        var qErrF = new Error(gsQuotaMsg(opts.quotaFeature, qpk));
+        qErrF.code = 'free_quota_reached'; qErrF.quota = qpk; qErrF.feature = opts.quotaFeature;
+        try { gsShowQuotaCountdown(opts.quotaFeature, qpk); } catch(_){}
+        throw qErrF;
+      }
+    } else if (typeof gsAboCanUse === 'function' && !gsAboCanUse('ai_call')) {
+      var q = (typeof gsAboGetAIQuota === 'function') ? gsAboGetAIQuota() : null;
+      var qErr = new Error('🚫 Tageslimit erreicht — heute ' + (q ? q.used + '/' + q.limit : '0/15') + ' KI-Aufrufe verbraucht. Upgrade auf Plus oder Pro für unbegrenzte Nutzung. (Oder eigenen Anthropic-Key in „Einstellungen → KI & Scanner" eintragen — dann kein Limit.)');
+      qErr.code = 'free_quota_reached';
+      qErr.quota = q;
+      throw qErr;
+    }
   }
 
   // v24.18: nur Anthropic Claude. NVIDIA-Pfad entfernt.
@@ -19413,8 +19510,11 @@ async function callAI(messages, systemPrompt, maxTokens, opts){
       if (resp.ok) {
         try { gsStore.set('gs_claude_model', tryModel); } catch(_){}
         window._gsClaudeModel = tryModel;
-        // v24.22: Erfolgreichen AI-Call gegen Free-Quota tracken (nur bei globalem Key)
-        if (source === 'global' && typeof gsAboTrackAICall === 'function') gsAboTrackAICall();
+        // v24.22 + v28.05: erfolgreichen Call zählen (nur globaler Key)
+        if (source === 'global') {
+          if (opts.quotaFeature) { try { gsQuotaConsume(opts.quotaFeature); } catch(_){} }
+          else if (typeof gsAboTrackAICall === 'function') gsAboTrackAICall();
+        }
         return (data.content||[]).map(c=>c.text||'').join('');
       }
       // Model nicht gefunden → nächsten Fallback versuchen
@@ -19454,13 +19554,25 @@ async function callVisionAI(b64, mediaType, prompt, extraImages, opts){
     }
     throw new Error('🔑 KI-Schlüssel konnte nicht geladen werden. Tipp: kurz die App neu öffnen oder 30 Sek. warten und nochmal versuchen.');
   }
-  // v24.22: ABO-GATE für Vision (Scans zählen gegen die ai_call-Quota)
-  if (source === 'global' && typeof gsAboCanUse === 'function' && !gsAboCanUse('ai_call')) {
-    var q = (typeof gsAboGetAIQuota === 'function') ? gsAboGetAIQuota() : null;
-    var qErr = new Error('🚫 Tageslimit erreicht — heute ' + (q ? q.used + '/' + q.limit : '0/15') + ' KI-Aufrufe verbraucht. Upgrade auf Plus oder Pro für unbegrenzte Scans + Chat. Oder eigenen Anthropic-Key in „Einstellungen → KI & Scanner" eintragen.');
-    qErr.code = 'free_quota_reached';
-    qErr.quota = q;
-    throw qErr;
+  // v24.22 + v28.05: ABO-GATE für Vision bei globalem Key + Free
+  var _visQf = (opts && opts.quotaFeature) ? opts.quotaFeature : null;
+  if (source === 'global') {
+    if (_visQf) {
+      // v28.05: server-authoritative Per-Feature-Tagesquota (Peek=Gate; Consume nach Erfolg)
+      var qpkV = await gsQuotaPeek(_visQf);
+      if (qpkV && qpkV.allowed === false && !qpkV.unlimited) {
+        var qErrV = new Error(gsQuotaMsg(_visQf, qpkV));
+        qErrV.code = 'free_quota_reached'; qErrV.quota = qpkV; qErrV.feature = _visQf;
+        try { gsShowQuotaCountdown(_visQf, qpkV); } catch(_){}
+        throw qErrV;
+      }
+    } else if (typeof gsAboCanUse === 'function' && !gsAboCanUse('ai_call')) {
+      var q = (typeof gsAboGetAIQuota === 'function') ? gsAboGetAIQuota() : null;
+      var qErr = new Error('🚫 Tageslimit erreicht — heute ' + (q ? q.used + '/' + q.limit : '0/15') + ' KI-Aufrufe verbraucht. Upgrade auf Plus oder Pro für unbegrenzte Scans + Chat. Oder eigenen Anthropic-Key in „Einstellungen → KI & Scanner" eintragen.');
+      qErr.code = 'free_quota_reached';
+      qErr.quota = q;
+      throw qErr;
+    }
   }
   var imgs = [{b64:b64, mt:mediaType||'image/jpeg', label:'Hauptbild'}];
   if (Array.isArray(extraImages)) {
@@ -19503,8 +19615,11 @@ async function callVisionAI(b64, mediaType, prompt, extraImages, opts){
       if (resp.ok) {
         try { gsStore.set('gs_claude_model', tryModel); } catch(_){}
         window._gsClaudeModel = tryModel;
-        // v24.22: Vision-Call gegen Free-Quota tracken (nur bei globalem Key)
-        if (source === 'global' && typeof gsAboTrackAICall === 'function') gsAboTrackAICall();
+        // v24.22 + v28.05: Vision-Call zählen (nur globaler Key)
+        if (source === 'global') {
+          if (_visQf) { try { gsQuotaConsume(_visQf); } catch(_){} }
+          else if (typeof gsAboTrackAICall === 'function') gsAboTrackAICall();
+        }
         return (data.content||[]).map(c=>c.text||'').join('');
       }
       var errMsg = (data.error && data.error.message) || '';
@@ -20438,20 +20553,9 @@ var SCAN_SYSTEM_PROMPT =
 async function analyzeImage(b64, mt, organContext, extraImages){
   // v23.86: Bild für Cloud-Persist merken (gsScanPersistToCloud nach Identifikation)
   try { window._gsLastScanB64 = b64 || null; window._gsLastScanMt = mt || 'image/jpeg'; } catch(_){}
-  // Abo-Check: Scanner ist Pro-Feature nach Trial
-  if (typeof window.gsAboCanUse === 'function' && !window.gsAboCanUse('scan')) {
-    var aboRd = document.getElementById('scan-result');
-    if (aboRd) {
-      aboRd.style.display = 'block';
-      aboRd.innerHTML = '<div style="text-align:center;padding:40px 20px;">' +
-        '<div style="font-size:52px;margin-bottom:12px;">🌟</div>' +
-        '<div style="font-size:18px;font-weight:800;color:var(--g-dark);margin-bottom:8px;">Tägliches Scan-Limit erreicht</div>' +
-        '<div style="font-size:14px;color:var(--muted);margin-bottom:20px;line-height:1.6;">Gratis: 5 Scans/Tag · Plus &amp; Pro: unbegrenzt.</div>' +
-        '<button onclick="gsShowAboScreen()" style="padding:14px 32px;background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">⭐ Plan wählen</button>' +
-        '</div>';
-    }
-    return;
-  }
+  // v28.05: Früher LS-Scan-Gate (5/Tag) ENTFERNT — die server-authoritative Per-Feature-Quota
+  // (callVisionAI mit quotaFeature:'scan', free 15/Tag) gilt jetzt UND nur bei echtem Claude-Call
+  // (Cache-Treffer sind frei → kosten keine Quota). Warme Limit-UI via gsShowQuotaCountdown.
   const {key} = getApiConfig();
   if(!key){
     // v23.72: Klares UI-Feedback statt stummem Dialog-Pop
@@ -20544,7 +20648,7 @@ async function analyzeImage(b64, mt, organContext, extraImages){
   }
 
   try{
-    const text = await callVisionAI(b64, mt, prompt, extraImages, { systemPrompt: SCAN_SYSTEM_PROMPT });
+    const text = await callVisionAI(b64, mt, prompt, extraImages, { systemPrompt: SCAN_SYSTEM_PROMPT, quotaFeature: 'scan' });
     clearInterval(stageTimer);
     if(!text) throw new Error('Keine Antwort von der KI erhalten.');
     // v23.68: Robuster JSON-Extractor — behandelt Markdown-Fences, Prose-Einleitung,
@@ -20572,6 +20676,20 @@ async function analyzeImage(b64, mt, organContext, extraImages){
   }catch(err){
     clearInterval(stageTimer);
     var errMsg = (err && err.message) || 'Unbekannter Fehler';
+    // v28.05: Tagesquota erreicht → WARME Karte (kein rotes „fehlgeschlagen", kein Verkaufsdruck).
+    if (err && err.code === 'free_quota_reached') {
+      var qrd = document.getElementById('scan-result');
+      if (qrd) {
+        qrd.style.display = 'block';
+        qrd.innerHTML = '<div style="text-align:center;padding:34px 22px;">'
+          + '<div style="font-size:52px;margin-bottom:10px;">🌿</div>'
+          + '<div style="font-size:18px;font-weight:900;color:var(--g-dark);margin-bottom:8px;">Heute schon viel entdeckt!</div>'
+          + '<div style="font-size:13.5px;color:var(--text2);line-height:1.6;max-width:340px;margin:0 auto 18px;">' + escHtml(errMsg) + '</div>'
+          + '<button onclick="if(typeof gsOpenMyPlan===\'function\')gsOpenMyPlan()" style="padding:12px 26px;background:linear-gradient(135deg,#2e7d32,#1b5e20);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">Mein Plan ansehen</button>'
+          + '</div>';
+      }
+      return;
+    }
     var isKeyErr = /API Key|ungültig|401|403/i.test(errMsg);
     var isNetErr = /Netzwerk|Zeitüberschreitung|offline|network/i.test(errMsg);
     var isRateErr= /Rate-Limit|überlastet|429|529|503/i.test(errMsg);
@@ -26424,7 +26542,7 @@ Antworte NUR mit dem JSON-Objekt, kein Text davor/danach.`;
   try {
     var resp;
     if (diagImageData) {
-      resp = await callVisionAI(diagImageData, 'image/jpeg', userMsg + '\n\n' + sysPrompt);
+      resp = await callVisionAI(diagImageData, 'image/jpeg', userMsg + '\n\n' + sysPrompt, null, { quotaFeature: 'doctor' });
     } else {
       resp = await callAI([{role:'user', content: userMsg + '\n' + sysPrompt}], '', 600);
     }
@@ -51281,7 +51399,7 @@ async function gsPhotoDiffAnalyze() {
       '"summary": "<1-2 Sätze auf Deutsch zur Gesamtveränderung>", ' +
       '"highlights": ["<positive Beobachtung>"], ' +
       '"concerns": ["<Problem oder Warnung, leer wenn keine>"]}';
-    var resp = await callVisionAI(imgA.b64, imgA.mt, prompt, [{ b64: imgB.b64, mt: imgB.mt, label: 'Nachher (' + dB + ')' }]);
+    var resp = await callVisionAI(imgA.b64, imgA.mt, prompt, [{ b64: imgB.b64, mt: imgB.mt, label: 'Nachher (' + dB + ')' }], { quotaFeature: 'foto_diff' });
     var diff;
     try {
       var clean = String(resp).replace(/```json|```/g, '').trim();
@@ -55232,6 +55350,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.05', date: '03.06.2026',
+    headline: '💎 Faire Tageskontingente + neue „Mein Plan"-Übersicht',
+    summary: 'GreenScan bekommt ein durchdachtes, faires Tier-System. Die kostenlosen KI-Funktionen (Pflanzen-Scan, Pflanzen-Doktor, Wachstums-Analyse) haben jetzt großzügige Tageskontingente, die zuverlässig serverseitig zählen — als reine Kosten-Bremse für den geteilten KI-Schlüssel, NICHT als Verkaufstrick. Wer mehr möchte, hinterlegt einen eigenen Anthropic-Key (komplett gratis & unbegrenzt) oder unterstützt GreenScan freiwillig mit Pro/Lifetime. Neu in den Einstellungen: „💎 Mein Plan" zeigt deinen Tarif und deine heutigen Kontingente transparent an. Identische Re-Scans und alle Natur-Features bleiben gratis; Lina bleibt für alle frei.',
+    user_summary: '💎 Faire, großzügige Tageskontingente für die KI-Funktionen (serverseitig, kein Verkaufsdruck) + neue „Mein Plan"-Übersicht in den Einstellungen.',
+    user_items: [
+      { emoji: '💎', text: 'Neu: „Mein Plan" in den Einstellungen — Tarif + heutige Frei-Kontingente auf einen Blick' },
+      { emoji: '🌿', text: 'Großzügige Tageslimits für Scan/Doktor/Wachstums-Analyse (faire Kosten-Bremse, keine Sales-Masche)' },
+      { emoji: '🔑', text: 'Eigener Anthropic-Key = komplett unbegrenzt & gratis (Alternative zu Pro/Lifetime)' },
+    ],
+    items: [
+      {emoji:'💎', bold:'Tier-System + Quotas (Pfad C, additiv):', text:' Server-seitige Per-Feature-Tagesquota (`feature_usage` + `fn_quota_consume`/`peek`) — zählt zuverlässig, nicht durch Cache-Löschen umgehbar. Bestehende `feature_limits`-Config erweitert (kein Parallel-System). Free-Limits großzügig (Scan 15/Tag, Doktor 5, Wachstums-Analyse 3); Pro/Lifetime unbegrenzt.'},
+      {emoji:'🌿', bold:'Mission-Leitplanken:', text:' Quota = API-Kosten-Bremse, KEINE Sales-Bremse. Warme Sprache („heute viel entdeckt!"), keine FOMO/Dark-Patterns, Abo mit 2 Klicks kündbar, BYO-Key-Alternative klar genannt. Identische Re-Scans (Cache-Treffer) kosten keine Quota.'},
+      {emoji:'⚙️', bold:'Technik:', text:' `gsQuotaPeek` (Gate vor dem Call) + `gsQuotaConsume` (nach Erfolg) in callAI/callVisionAI via `opts.quotaFeature` (rückwärts-kompatibel). Cleanup-Cron. Backend transaktional + Advisor-geprüft (0 neue ERRORs).'},
+    ]
+  },
+  {
     v: 'v28.04', date: '03.06.2026',
     headline: '🧹 Aufgeräumt: nur noch Anthropic-Claude-KI + stabilerer Key',
     summary: 'Ein Stabilitäts- und Aufräum-Update. GreenScan nutzt für alle KI-Funktionen (Scanner, Pflanzen-Doktor, Garten-Planer) jetzt ausschliesslich die Anthropic-Claude-KI — alle alten NVIDIA-Verweise und -Optionen wurden entfernt, was die App einfacher und konsistenter macht. Dabei haben wir auch einen versteckten Fehler behoben, bei dem die App intern noch fälschlich „NVIDIA" als Standard-Anbieter annahm. Die API-Key-Einrichtung, die Hinweise beim Scannen und die FAQ zeigen jetzt durchgehend nur noch Anthropic. Weitere Stabilitäts-Verbesserungen (schnelleres/günstigeres Scannen durch Caching, Key-Status-Anzeige) folgen im nächsten Update.',
@@ -58279,7 +58413,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.04';
+var GS_VERSION = 'v28.05';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
