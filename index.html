@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.01.20260603">
+<meta name="app-version" content="28.02.20260603">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2798,10 +2798,10 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <div data-i18n="social_title" data-i18n-fallback="🌿 GreenScan Community" style="font-family:'Playfair Display',serif;font-size:19px;font-weight:800;">🌿 GreenScan Community</div>
     <div data-i18n="social_sub" data-i18n-fallback="Teile · Lerne · Hilf anderen" style="font-size:12px;opacity:.8;margin-top:2px;">Teile · Lerne · Hilf anderen</div>
   </div>
-  <!-- v27.02: Community-Mitglieder entdecken + folgen -->
+  <!-- v28.02: Following-zentrische Community (kein Mitglieder-Massentab mehr) -->
   <div style="display:flex;gap:8px;margin:8px 16px 0;">
-    <button onclick="if(typeof gsOpenCommunity==='function')gsOpenCommunity('discover')" style="flex:1;padding:10px;background:var(--g-dark);color:#fff;border:none;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">👥 Mitglieder entdecken</button>
-    <button onclick="if(typeof gsOpenCommunity==='function')gsOpenCommunity('feed')" style="flex:1;padding:10px;background:var(--card);color:var(--g-dark);border:1.5px solid var(--g-light);border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📰 Folge-Feed</button>
+    <button onclick="if(typeof gsOpenCommunity==='function')gsOpenCommunity('feed')" style="flex:1;padding:10px;background:var(--g-dark);color:#fff;border:none;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📰 Folge-Feed</button>
+    <button onclick="if(typeof gsOpenCommunity==='function')gsOpenCommunity('search')" style="flex:1;padding:10px;background:var(--card);color:var(--g-dark);border:1.5px solid var(--g-light);border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🔍 Person suchen</button>
   </div>
   <!-- Tabs -->
   <div class="social-tabs" id="social-tabs">
@@ -11465,7 +11465,8 @@ async function gsStartCheckout(priceLookupKey, claimLaunchOffer, trialDays) {
     }
     // 2) Checkout-Session anfordern — success/cancel URLs zeigen auf eine kleine Bridge-Seite
     //    die das Popup schließt und die Parent-App per postMessage informiert
-    var token = gsStore.get('gs_sb_token', null) || '';
+    // v28.02: frischen Token erzwingen (verhindert „invalid Token" bei abgelaufenem JWT — Block C Stripe-Robustheit)
+    var token = (typeof _gsFreshToken === 'function') ? (await _gsFreshToken() || '') : (gsStore.get('gs_sb_token', null) || '');
     var base  = (typeof SB_URL !== 'undefined') ? SB_URL : (localStorage.getItem('gs_sb_url') || '');
     var root = location.origin + (location.pathname||'/');
     var resp = await _gsWithTimeout(fetch(base + '/functions/v1/stripe-checkout', {
@@ -11552,7 +11553,8 @@ async function gsOpenBillingPortal(flow) {
     } catch(e){}
   }
   try {
-    var token = gsStore.get('gs_sb_token', null) || '';
+    // v28.02: frischen Token erzwingen (Stripe-Portal-Robustheit, Block C)
+    var token = (typeof _gsFreshToken === 'function') ? (await _gsFreshToken() || '') : (gsStore.get('gs_sb_token', null) || '');
     var base  = (typeof SB_URL !== 'undefined') ? SB_URL : (localStorage.getItem('gs_sb_url') || '');
     var bodyObj = { return_url: location.origin + (location.pathname||'/') + '?billing=return&popup=1' };
     if (flow === 'cancel' || flow === 'reactivate') bodyObj.flow = flow;
@@ -17307,7 +17309,13 @@ async function saveListing() {
     'info');
 
   try {
-    var token = (window.gsStore && typeof gsStore.get === 'function') ? gsStore.get('gs_sb_token', null) : null;
+    // v28.02 P0-FIX: frischen Token erzwingen (war Ursache des „invalid Token"-Bugs).
+    var token = (typeof _gsFreshToken === 'function') ? await _gsFreshToken()
+              : ((window.gsStore && typeof gsStore.get === 'function') ? gsStore.get('gs_sb_token', null) : null);
+    if (!token) {
+      if (typeof showProfileToast === 'function') showProfileToast('🔑 Sitzung abgelaufen — bitte neu einloggen und erneut versuchen.', 'error');
+      return;
+    }
     var fetchFn = window._gsFetch || fetch;
     var resp = await fetchFn(SB_URL + '/functions/v1/marketplace-publish', {
       method: 'POST',
@@ -30424,8 +30432,8 @@ let marketListings = (function() {
     }
     return arr;
   }
-  // Gast: Demo-Listings anzeigen (mit isDemo-Flag markiert)
-  return DEMO_LISTINGS.map(function(l) { return Object.assign({}, l, {isDemo:true}); });
+  // v28.02: Vorlagen/Demo-Listings raus (Fernando-Vorgabe). Auch Gäste sehen nur echte Cloud-Inserate.
+  return [];
 })();
 let currentMarketFilter = 'all';
 let currentListingType = 'buynow';
@@ -55014,6 +55022,25 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.02', date: '03.06.2026',
+    headline: '🛠️ Hotfix: Marktplatz-Inserate gehen wieder + aufgeräumte Community',
+    summary: 'Wichtige Korrekturen. Der Marktplatz-Bug ist behoben: Beim Erstellen eines Inserats kam „invalid Token" — Ursache war ein abgelaufenes Sitzungs-Token, das nicht automatisch erneuert wurde. Jetzt wird das Token vor dem Veröffentlichen automatisch aufgefrischt; bei wirklich abgelaufener Sitzung kommt eine klare Meldung statt eines kryptischen Fehlers. Der Marktplatz bleibt komplett gratis für alle. Veraltete Demo-/Vorlagen-Inserate sind raus — du siehst nur noch echte Angebote. Ausserdem ist die Community aufgeräumt und privater: kein „Mitglieder entdecken"-Massenverzeichnis mehr, in dem man durch alle Profile blättern kann. Stattdessen ein Folge-Feed mit den Aktivitäten der Leute, denen du folgst, ein Meilensteine-Tab, und eine gezielte Personen-Suche. Profile öffnest du per Klick auf den Avatar im Feed.',
+    user_summary: '🛠️ Marktplatz-„invalid Token"-Bug behoben (Token-Auto-Refresh), Demo-Inserate raus, Marktplatz bleibt gratis. Community privater: kein Mitglieder-Verzeichnis mehr — Folge-Feed + gezielte Suche.',
+    user_items: [
+      { emoji: '🛒', text: 'Marktplatz-Inserate erstellen funktioniert wieder (Token-Auto-Refresh) — gratis für alle' },
+      { emoji: '🧹', text: 'Demo-/Vorlagen-Inserate entfernt — nur noch echte Angebote' },
+      { emoji: '🔒', text: 'Community privater: kein „Mitglieder entdecken"-Verzeichnis mehr' },
+      { emoji: '📰', text: 'Folge-Feed + 🏆 Meilensteine + gezielte 🔍 Personen-Suche; Profil via Avatar-Klick' },
+    ],
+    items: [
+      {emoji:'🐛', bold:'Root-Cause Marktplatz-Bug:', text:' saveListing rief die Edge-Fn marketplace-publish mit einem roh gelesenen, evtl. abgelaufenen Token ohne Refresh (sbFetch refresht intern, der direkte Aufruf nicht). Neuer Helper _gsFreshToken() frischt vor dem Call auf — auch für Stripe-Checkout/Portal eingesetzt. Klare „Sitzung abgelaufen"-Meldung als Fallback.'},
+      {emoji:'🆓', bold:'Marktplatz gratis verifiziert:', text:' Kein Abo-Gate auf dem Marktplatz (Free-für-alle bestätigt). Vorlagen/Demo-Listings entfernt.'},
+      {emoji:'🔒', bold:'Community-Redesign (Privacy):', text:' „Mitglieder entdecken"-Massenliste raus. Following-Feed als Standard, Meilensteine-Tab, Suche nur explizit (ab 2 Zeichen, kein Durchblättern). Profile nur via Avatar-Klick/Suchtreffer.'},
+      {emoji:'💳', bold:'Stripe:', text:' Modell ist Free + Pro + Lifetime (Plus existiert nicht mehr, seit v25.38 entfernt). Checkout/Portal token-robust. Aufräumen veralteter Server-Funktionen als Wartungsaufgabe vermerkt.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 Inline-Scripts node --check OK · sw.js OK · keine DB-Migration (reiner Frontend-Fix). Akut-Hotfix vor dem B2B-Programm.'},
+    ]
+  },
+  {
     v: 'v28.01', date: '03.06.2026',
     headline: '🏢 Organisationen: GreenScan für Schulen, Kurse & Vereine',
     summary: 'Der Start eines grossen neuen Kapitels: GreenScan kann jetzt auch in Gruppen genutzt werden. Du kannst eine Organisation erstellen (Schule, Universität, Kurs, Botanischer Garten, Gemeinschaftsgarten, Verein) oder einer per 8-stelligem Einladungs-Code beitreten. Jede Organisation hat klare Rollen (Inhaber, Admin, Lehrer, Schüler, Betrachter). Deine privaten Pflanzen, Pläne und Funde bleiben dabei strikt getrennt von Org-Inhalten — Datenschutz steht im Zentrum. Du findest alles unter Einstellungen → „🏢 Organisationen". Lehrer-Dashboard, Klassen und Abos folgen in den nächsten Updates.',
@@ -58003,7 +58030,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.01';
+var GS_VERSION = 'v28.02';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -58418,6 +58445,26 @@ async function sbRefresh() {
   } catch(e) {}
 }
 
+
+// v28.02 P0-FIX: garantiert frischen access_token für DIREKTE /functions/v1/-Calls,
+// die NICHT über sbFetch laufen (saveListing, stripe-checkout/portal, …). Ursache des
+// „invalid Token"-Bugs: diese Calls lasen gs_sb_token roh OHNE Refresh → abgelaufener
+// JWT (Supabase ~1h) → verify_jwt-Edge-Fn lehnt ab. sbFetch refresht intern, raw fetch nicht.
+async function _gsFreshToken() {
+  try {
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return null;
+    var token = gsStore.get('gs_sb_token', null) || '';
+    var expires = parseInt(localStorage.getItem('gs_sb_expires') || '0');
+    var needRefresh = !token || (!!expires && Date.now() > expires - 60000);
+    // Fallback: exp direkt aus JWT lesen falls gs_sb_expires fehlt/0
+    if (!needRefresh && token) {
+      try { var p = JSON.parse(atob((token.split('.')[1]||'').replace(/-/g,'+').replace(/_/g,'/'))); if (p && p.exp && (p.exp*1000 - Date.now()) < 60000) needRefresh = true; } catch(_){}
+    }
+    if (needRefresh && typeof sbRefresh === 'function') { await sbRefresh(); token = gsStore.get('gs_sb_token', null) || ''; }
+    return token || null;
+  } catch(_) { return null; }
+}
+window._gsFreshToken = _gsFreshToken;
 
 // Token-Refresh (wenn access_token abgelaufen)
 async function sbRefreshToken() {
@@ -63877,21 +63924,27 @@ function gsReportUser(uid){
 window.gsReportUser = gsReportUser;
 
 // ── Community-Hub: Entdecken (Suche + Vorschläge) + Following-Feed ──
+// v28.02 Community-Redesign: Following-Feed-zentrisch. KEIN „Mitglieder entdecken"-Massentab
+// mehr (Privacy). Tabs: 📰 Feed (default) + 🏆 Meilensteine + 🔍 Suche (nur explizit, kein Auto-Listing).
+// Profil-Zugang NUR via Avatar-Klick im Feed/Meilenstein-Item oder via Such-Treffer.
 async function gsOpenCommunity(tab){
-  tab = tab || 'discover';
+  tab = (tab === 'milestones' || tab === 'search') ? tab : 'feed';
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) { if(typeof gsToast==='function') gsToast('🔐 Bitte einloggen für die Community.','warning'); return; }
   window._gsCommunityTab = tab;
-  var head = '<div style="display:flex;gap:6px;margin-bottom:12px;">'
-    + '<button onclick="gsOpenCommunity(\'discover\')" style="flex:1;padding:9px;border-radius:9px;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit;border:none;background:'+(tab==='discover'?'var(--g-dark);color:#fff':'var(--card);color:var(--text)')+';">🔎 Entdecken</button>'
-    + '<button onclick="gsOpenCommunity(\'feed\')" style="flex:1;padding:9px;border-radius:9px;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit;border:none;background:'+(tab==='feed'?'var(--g-dark);color:#fff':'var(--card);color:var(--text)')+';">📰 Feed</button>'
-    + '</div>';
+  function _tabBtn(id,label){ return '<button onclick="gsOpenCommunity(\''+id+'\')" style="flex:1;padding:9px;border-radius:9px;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit;border:none;background:'+(tab===id?'var(--g-dark);color:#fff':'var(--card);color:var(--text)')+';">'+label+'</button>'; }
+  var head = '<div style="display:flex;gap:6px;margin-bottom:12px;">' + _tabBtn('feed','📰 Feed') + _tabBtn('milestones','🏆 Meilensteine') + _tabBtn('search','🔍 Suche') + '</div>';
   var bodyId = 'gs-community-body';
-  var inner = tab==='discover'
-    ? '<input id="gs-community-search" type="search" placeholder="Nutzer suchen…" oninput="gsCommunitySearchDebounced(this.value)" style="width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:11px;font-size:14px;font-family:inherit;margin-bottom:12px;box-sizing:border-box;"><div id="'+bodyId+'"><div style="text-align:center;color:var(--muted);padding:24px;">Lädt Vorschläge…</div></div>'
-    : '<div id="'+bodyId+'"><div style="text-align:center;color:var(--muted);padding:24px;">Lädt Feed…</div></div>';
+  var inner;
+  if (tab === 'search') {
+    inner = '<div style="font-size:11.5px;color:var(--muted);margin-bottom:6px;">Suche nach Namen (kein Durchblättern — Privacy).</div>'
+      + '<input id="gs-community-search" type="search" autofocus placeholder="Nutzername…" oninput="gsCommunitySearchDebounced(this.value)" style="width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:11px;font-size:14px;font-family:inherit;margin-bottom:12px;box-sizing:border-box;"><div id="'+bodyId+'"></div>';
+  } else {
+    inner = '<div id="'+bodyId+'"><div style="text-align:center;color:var(--muted);padding:24px;">Lädt…</div></div>';
+  }
   _gsNlOpen('<div style="font-size:17px;font-weight:800;margin-bottom:12px;">🌿 Community</div>'+head+inner);
-  if (tab==='discover') gsCommunityLoadDiscover();
-  else gsCommunityLoadFeed();
+  if (tab === 'feed') gsCommunityLoadFeed();
+  else if (tab === 'milestones') gsCommunityLoadMilestones();
+  // 'search' wartet auf User-Eingabe (kein Auto-Listing)
 }
 window.gsOpenCommunity = gsOpenCommunity;
 var _gsCommSearchTimer = null;
@@ -63902,25 +63955,33 @@ function gsCommunitySearchDebounced(q){
 window.gsCommunitySearchDebounced = gsCommunitySearchDebounced;
 async function gsCommunitySearch(q){
   var body = document.getElementById('gs-community-body'); if (!body) return;
-  if (!q || q.trim().length < 2) { gsCommunityLoadDiscover(); return; }
+  // v28.02: kein Auto-Discover-Listing mehr — bei zu kurzer Eingabe nur Hinweis (Privacy).
+  if (!q || q.trim().length < 2) { body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;font-size:12.5px;">Tippe mindestens 2 Zeichen, um nach einem Namen zu suchen.</div>'; return; }
   try {
-    var r = await sbFetch('/rest/v1/rpc/fn_user_search', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_q: q.trim(), p_limit: 25 }) });
+    var r = await sbFetch('/rest/v1/rpc/fn_user_search', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_q: q.trim(), p_limit: 15 }) });
     var rows = (r && !r.error && Array.isArray(r.data)) ? r.data : [];
     body.innerHTML = rows.length ? rows.map(_gsUserCardHtml).join('') : '<div style="text-align:center;color:var(--muted);padding:24px;">Keine Treffer.</div>';
   } catch(e){ console.warn('[gsCommunitySearch]', e && e.message); }
 }
 window.gsCommunitySearch = gsCommunitySearch;
-async function gsCommunityLoadDiscover(){
+// v28.02: „Mitglieder entdecken"-Massenliste ENTFERNT (Privacy). Stattdessen Meilensteine
+// der gefolgten User (kein anonymes Durchblättern fremder Profile).
+async function gsCommunityLoadMilestones(){
   var body = document.getElementById('gs-community-body'); if (!body) return;
   try {
-    var region = null; try { var loc = JSON.parse(localStorage.getItem('gs_user_location')||'null'); region = loc && (loc.region||loc.canton||loc.city) || null; } catch(_){}
-    var r = await sbFetch('/rest/v1/rpc/fn_user_discover', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_region: null, p_limit: 18 }) });
-    var rows = (r && !r.error && Array.isArray(r.data)) ? r.data : [];
-    body.innerHTML = '<div style="font-size:11.5px;color:var(--muted);margin-bottom:8px;">⭐ Beliebte Mitglieder</div>'
-      + (rows.length ? rows.map(_gsUserCardHtml).join('') : '<div style="text-align:center;color:var(--muted);padding:24px;">Noch keine öffentlichen Profile.</div>');
-  } catch(e){ console.warn('[gsCommunityDiscover]', e && e.message); }
+    var r = await sbFetch('/rest/v1/rpc/fn_following_feed', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_limit: 60 }) });
+    var rows = (r && !r.error && Array.isArray(r.data)) ? r.data.filter(function(f){ return f.kind==='achievement'; }) : [];
+    if (!rows.length) { body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:28px;font-size:13px;">Noch keine Erfolge von Leuten, denen du folgst. Folge aktiven Gärtnern (🔍 Suche), um ihre Meilensteine hier zu sehen.</div>'; return; }
+    body.innerHTML = '<div style="font-size:11.5px;color:var(--muted);margin-bottom:8px;">🏆 Erfolge deiner Follows (letzte 7 Tage)</div>'
+      + rows.map(function(f){
+        return '<div onclick="gsOpenProfile(\''+f.user_id+'\')" style="display:flex;align-items:center;gap:10px;padding:9px;border-bottom:1px solid var(--border);cursor:pointer;">'
+          + '<div style="font-size:22px;">'+_gsCEsc(f.icon||'🏆')+'</div>'
+          + '<div style="flex:1;min-width:0;font-size:12.5px;color:var(--text);"><b>'+_gsCEsc(f.display_name||'Jemand')+'</b> schaltete frei: '+_gsCEsc(f.title||'')+'</div>'
+          + '<div style="font-size:10px;color:var(--muted);white-space:nowrap;">'+(f.ts?_gsTimeAgo(f.ts):'')+'</div></div>';
+      }).join('');
+  } catch(e){ console.warn('[gsCommunityMilestones]', e && e.message); }
 }
-window.gsCommunityLoadDiscover = gsCommunityLoadDiscover;
+window.gsCommunityLoadMilestones = gsCommunityLoadMilestones;
 function _gsUserCardHtml(u){
   return '<div onclick="gsOpenProfile(\''+u.id+'\')" style="display:flex;align-items:center;gap:11px;padding:9px;border-radius:11px;cursor:pointer;border-bottom:1px solid var(--border);" onmouseover="this.style.background=\'var(--card)\'" onmouseout="this.style.background=\'\'">'
     + _gsAvatarHtml(u, 42)
