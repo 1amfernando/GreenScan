@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="27.04.20260603">
+<meta name="app-version" content="28.01.20260603">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4948,6 +4948,15 @@ html, body{ scroll-behavior: smooth; }
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_profile" data-i18n-fallback="Profil &amp; Privatsphäre">Profil &amp; Privatsphäre</div>
           <div class="settings-label-sub" data-i18n="settings_profile_hint" data-i18n-fallback="Sichtbarkeit, Bio, Region, Blockierte">Sichtbarkeit, Bio, Region, Blockierte</div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);">›</div>
+      </div>
+      <!-- v28.01: Organisationen (Multi-Tenant — Schule/Kurs/Verein/Botanischer Garten) -->
+      <div class="settings-row" id="settings-orgs-row" style="cursor:pointer;" onclick="if(typeof gsOpenOrgs==='function')gsOpenOrgs()">
+        <div class="settings-icon" style="background:#e8f5e9;">🏢</div>
+        <div class="settings-label">
+          <div class="settings-label-title" data-i18n="settings_orgs" data-i18n-fallback="Organisationen">Organisationen</div>
+          <div class="settings-label-sub" data-i18n="settings_orgs_hint" data-i18n-fallback="Schule, Kurs, Verein, Botanischer Garten beitreten oder erstellen">Schule, Kurs, Verein beitreten oder erstellen</div>
         </div>
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
@@ -55005,6 +55014,25 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.01', date: '03.06.2026',
+    headline: '🏢 Organisationen: GreenScan für Schulen, Kurse & Vereine',
+    summary: 'Der Start eines grossen neuen Kapitels: GreenScan kann jetzt auch in Gruppen genutzt werden. Du kannst eine Organisation erstellen (Schule, Universität, Kurs, Botanischer Garten, Gemeinschaftsgarten, Verein) oder einer per 8-stelligem Einladungs-Code beitreten. Jede Organisation hat klare Rollen (Inhaber, Admin, Lehrer, Schüler, Betrachter). Deine privaten Pflanzen, Pläne und Funde bleiben dabei strikt getrennt von Org-Inhalten — Datenschutz steht im Zentrum. Du findest alles unter Einstellungen → „🏢 Organisationen". Lehrer-Dashboard, Klassen und Abos folgen in den nächsten Updates.',
+    user_summary: '🏢 Erstelle eine Organisation oder tritt per Code bei — mit Rollen (Inhaber/Admin/Lehrer/Schüler) und strikt getrennten privaten Daten. Unter Einstellungen → Organisationen.',
+    user_items: [
+      { emoji: '🏫', text: 'Organisation erstellen: Schule, Uni, Kurs, Botanischer Garten, Verein' },
+      { emoji: '🔑', text: 'Per 8-stelligem Einladungs-Code beitreten (gültig 14 Tage)' },
+      { emoji: '👥', text: 'Rollen: Inhaber · Admin · Lehrer · Schüler · Betrachter — mit Rollen-Verwaltung' },
+      { emoji: '🔒', text: 'Strikte Datenisolierung: private Daten bleiben getrennt von Org-Inhalten' },
+    ],
+    items: [
+      {emoji:'🗄️', bold:'Backend (Migration v28_01_multitenant_foundation):', text:' 4 Tabellen (organizations, org_members mit 5 Rollen, org_invites mit 14-Tage-Ablauf, org_audit_log) + RLS auf allen + 7 RPCs (create/invite_create/invite_redeem/my_orgs/org_detail/member_set_role/leave) + Public-Directory-Funktion.'},
+      {emoji:'🛡️', bold:'Sicherheit & Privacy (4 Spec-Korrekturen):', text:' (1) RLS-Rekursion vermieden via SECURITY-DEFINER-Helper (sonst Postgres-Fehler). (2) Kein Org-Leak: members-only statt „jede aktive Org öffentlich lesbar". (3) Stripe-IDs gar nicht auf der Org-Tabelle (kommen in v28.03 service-role-only). (4) Letzter-Inhaber-Schutz auch gegen direkten DELETE.'},
+      {emoji:'✅', bold:'Verify (transaktional, Rollback):', text:' Org erstellen→Inhaber, Invite-Code 8-stellig, Beitreten→Rolle, Mitglieder-Detail leakt KEINE Stripe-ID, Letzter-Inhaber-Verlassen blockiert, Directory sichtbar, Rekursions-Test ohne Fehler. Advisor 0 neue ERRORs · 7/7 node --check OK.'},
+      {emoji:'🖥️', bold:'Frontend:', text:' Einstellungen → „🏢 Organisationen": Liste, Neue-Org-Formular, Beitreten-per-Code, Org-Detail mit Mitglieder-Liste + Rollen-Dropdown (für Admin/Inhaber) + Einladungs-Code-Erzeugung + Org-verlassen.'},
+      {emoji:'🔜', bold:'Als Nächstes:', text:' v28.02 Lehrer-Dashboard (Klassen + Aufgaben) · v28.03 Org-Abos + Personal-AI-Coach „Lina" · v28.04 Onboarding-Wizard + Whitelabel. Sprint 1/4 — Fernando deployt nach v28.04 GREEN.'},
+    ]
+  },
+  {
     v: 'v27.04', date: '03.06.2026',
     headline: '✨ Politur: Battle fortsetzen, Vorschläge ausblenden & mehr',
     summary: 'Der letzte Feinschliff für die neuen Funktionen. Wichtigste Verbesserung: Wenn die App während eines Quiz-Battles neu lädt oder abstürzt, geht dein Fortschritt nicht mehr verloren — du bekommst beim Start ein „Battle fortsetzen?"-Angebot und machst genau da weiter, wo du warst. Ausserdem kannst du Pflanzen-Vorschläge auf der Startseite jetzt mit einem ✕ ausblenden („nicht interessiert") — dann rücken neue nach. Und wichtige Aktionen geben jetzt spürbares haptisches Feedback.',
@@ -57975,7 +58003,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v27.04';
+var GS_VERSION = 'v28.01';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -63974,6 +64002,169 @@ async function gsRenderBlockedList(){
   } catch(e){ console.warn('[gsBlockedList]', e && e.message); }
 }
 window.gsRenderBlockedList = gsRenderBlockedList;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// v28.01 · MULTI-TENANT — Organisationen (Org-Switcher + Create + Join + Detail)
+// ═══════════════════════════════════════════════════════════════════════════════
+// fn_my_orgs · fn_org_create · fn_org_invite_redeem · fn_org_detail ·
+// fn_org_invite_create · fn_org_member_set_role · fn_org_leave. UUIDs onclick-safe,
+// Display-Strings via _gsCEsc. Subtil: Settings-Sektion „🏢 Organisationen".
+// ═══════════════════════════════════════════════════════════════════════════════
+var GS_ORG_TYPES = [['school','🏫 Schule'],['university','🎓 Universität'],['course','📚 Kurs'],['botanical_garden','🌳 Botanischer Garten'],['community_garden','🌻 Gemeinschaftsgarten'],['company','🏢 Firma'],['other','• Andere']];
+function _gsOrgTypeLabel(t){ var m=GS_ORG_TYPES.find(function(x){return x[0]===t;}); return m?m[1]:(t||''); }
+async function gsOpenOrgs(){
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) { if(typeof gsToast==='function') gsToast('🔐 Bitte einloggen für Organisationen.','warning'); return; }
+  if (typeof _gsNlOpen==='function') _gsNlOpen('<div style="text-align:center;padding:30px;color:var(--muted);">Lädt…</div>');
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_my_orgs', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+    var rows = (r && !r.error && Array.isArray(r.data)) ? r.data : [];
+    window._gsMyOrgs = rows;
+    var h = '<div style="font-size:17px;font-weight:800;margin-bottom:4px;">🏢 Organisationen</div>';
+    h += '<div style="font-size:12px;color:var(--muted);margin-bottom:14px;">Schule, Kurs, Verein oder Botanischer Garten — getrennt von deinen privaten Daten.</div>';
+    if (!rows.length) h += '<div style="text-align:center;color:var(--muted);padding:18px;font-size:13px;">Du bist noch in keiner Organisation.</div>';
+    else h += rows.map(function(o){
+      return '<div onclick="gsOpenOrgDetail(\''+o.org_id+'\')" style="display:flex;align-items:center;gap:11px;padding:11px;border:1px solid var(--border);border-radius:12px;margin-bottom:8px;cursor:pointer;">'
+        + '<div style="font-size:24px;">'+(o.logo_url?('<img src="'+_gsCEsc(o.logo_url)+'" style="width:34px;height:34px;border-radius:8px;object-fit:cover;">'):_gsOrgTypeLabel(o.org_type).split(' ')[0])+'</div>'
+        + '<div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:14px;color:var(--text);">'+_gsCEsc(o.name)+'</div>'
+        + '<div style="font-size:11px;color:var(--muted);">'+_gsCEsc(_gsOrgTypeLabel(o.org_type))+' · '+(o.member_count||1)+' Mitglieder · '+_gsCEsc(o.my_role)+'</div></div>'
+        + '<div style="color:var(--muted);">›</div></div>';
+    }).join('');
+    h += '<div style="display:flex;gap:8px;margin-top:14px;">'
+      + '<button onclick="gsOrgCreate()" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--g-dark);color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">+ Neue Org</button>'
+      + '<button onclick="gsOrgJoinPrompt()" style="flex:1;padding:11px;border:1.5px solid var(--g-light);border-radius:10px;background:var(--card);color:var(--g-dark);font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">🔑 Beitreten (Code)</button></div>';
+    _gsNlOpen(h);
+  } catch(e){ console.warn('[gsOpenOrgs]', e && e.message); }
+}
+window.gsOpenOrgs = gsOpenOrgs;
+function gsOrgCreate(){
+  var opts = GS_ORG_TYPES.map(function(t){ return '<option value="'+t[0]+'">'+_gsCEsc(t[1])+'</option>'; }).join('');
+  var h = '<div style="font-size:16px;font-weight:800;margin-bottom:12px;">🏢 Neue Organisation</div>';
+  h += '<div style="font-size:12px;color:var(--muted);margin-bottom:3px;">Name</div><input id="gs-org-name" maxlength="80" placeholder="z.B. Schule Bern" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:9px;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:10px;">';
+  h += '<div style="font-size:12px;color:var(--muted);margin-bottom:3px;">Kurz-URL (slug, 3-40 Klein-Buchst./Zahlen/-)</div><input id="gs-org-slug" maxlength="40" placeholder="schule-bern" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:9px;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:10px;">';
+  h += '<div style="font-size:12px;color:var(--muted);margin-bottom:3px;">Typ</div><select id="gs-org-type" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:9px;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:16px;">'+opts+'</select>';
+  h += '<button onclick="gsOrgSubmitCreate()" style="width:100%;padding:12px;border:none;border-radius:10px;background:var(--g-dark);color:#fff;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;">Erstellen</button>';
+  h += '<button onclick="gsOpenOrgs()" style="width:100%;margin-top:8px;padding:9px;border:none;background:transparent;color:var(--muted);font-size:13px;cursor:pointer;font-family:inherit;">‹ Zurück</button>';
+  _gsNlOpen(h);
+}
+window.gsOrgCreate = gsOrgCreate;
+async function gsOrgSubmitCreate(){
+  var name=(document.getElementById('gs-org-name')||{}).value||'';
+  var slug=(document.getElementById('gs-org-slug')||{}).value||'';
+  var type=(document.getElementById('gs-org-type')||{}).value||'other';
+  slug = slug.toLowerCase().trim().replace(/[^a-z0-9-]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');
+  if (name.trim().length < 2) { if(typeof gsToast==='function') gsToast('Name zu kurz.','warning'); return; }
+  if (!/^[a-z0-9-]{3,40}$/.test(slug)) { if(typeof gsToast==='function') gsToast('Slug ungültig (3-40 Zeichen, a-z 0-9 -).','warning'); return; }
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_org_create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_slug:slug, p_name:name.trim(), p_type:type, p_country:'CH' }) });
+    if (r && r.error) {
+      var msg = (r.error.message||'').indexOf('slug_taken')>=0 ? 'Diese Kurz-URL ist vergeben.' : 'Erstellen fehlgeschlagen.';
+      if(typeof gsToast==='function') gsToast(msg,'error'); return;
+    }
+    if (typeof gsHaptic==='function') { try { gsHaptic('success'); } catch(_){} }
+    if (typeof gsToast==='function') gsToast('✅ Organisation erstellt!','success');
+    gsOpenOrgs();
+  } catch(e){ console.warn('[gsOrgSubmitCreate]', e && e.message); if(typeof gsToast==='function') gsToast('Fehler.','error'); }
+}
+window.gsOrgSubmitCreate = gsOrgSubmitCreate;
+function gsOrgJoinPrompt(){
+  var h = '<div style="font-size:16px;font-weight:800;margin-bottom:12px;">🔑 Organisation beitreten</div>';
+  h += '<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px;">Gib den 8-stelligen Einladungs-Code ein, den du von deiner Schule/Org bekommen hast.</div>';
+  h += '<input id="gs-org-code" maxlength="8" placeholder="ABCD1234" style="width:100%;padding:12px;border:1.5px solid var(--border);border-radius:9px;font-family:inherit;font-size:18px;letter-spacing:3px;text-align:center;text-transform:uppercase;box-sizing:border-box;margin-bottom:14px;">';
+  h += '<button onclick="gsOrgRedeemCode()" style="width:100%;padding:12px;border:none;border-radius:10px;background:var(--g-dark);color:#fff;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;">Beitreten</button>';
+  h += '<button onclick="gsOpenOrgs()" style="width:100%;margin-top:8px;padding:9px;border:none;background:transparent;color:var(--muted);font-size:13px;cursor:pointer;font-family:inherit;">‹ Zurück</button>';
+  _gsNlOpen(h);
+}
+window.gsOrgJoinPrompt = gsOrgJoinPrompt;
+async function gsOrgRedeemCode(){
+  var code=((document.getElementById('gs-org-code')||{}).value||'').trim().toUpperCase();
+  if (code.length !== 8) { if(typeof gsToast==='function') gsToast('Code muss 8 Zeichen haben.','warning'); return; }
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_org_invite_redeem', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_code: code }) });
+    var d = (r && !r.error) ? r.data : null;
+    if (!d || d.error) {
+      var m = { invalid_code:'Code ungültig.', already_used:'Code wurde bereits benutzt.', expired:'Code abgelaufen.', max_members_reached:'Organisation ist voll.', org_inactive:'Organisation inaktiv.' };
+      if(typeof gsToast==='function') gsToast((d&&m[d.error])||'Beitreten fehlgeschlagen.','error'); return;
+    }
+    if (typeof gsHaptic==='function') { try { gsHaptic('success'); } catch(_){} }
+    if (typeof gsToast==='function') gsToast('✅ Beigetreten: '+(d.org_name||'Organisation')+' ('+d.role+')','success', 4000);
+    gsOpenOrgs();
+  } catch(e){ console.warn('[gsOrgRedeemCode]', e && e.message); if(typeof gsToast==='function') gsToast('Fehler.','error'); }
+}
+window.gsOrgRedeemCode = gsOrgRedeemCode;
+async function gsOpenOrgDetail(orgId){
+  if (!orgId) return;
+  if (typeof _gsNlOpen==='function') _gsNlOpen('<div style="text-align:center;padding:30px;color:var(--muted);">Lädt…</div>');
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_org_detail', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_org_id: orgId }) });
+    var d = (r && !r.error) ? r.data : null;
+    if (!d || d.error) { _gsNlOpen('<div style="text-align:center;padding:30px;color:var(--muted);">Nicht verfügbar.</div>'); return; }
+    window._gsOrgCur = d;
+    _gsRenderOrgDetail(d);
+  } catch(e){ console.warn('[gsOpenOrgDetail]', e && e.message); }
+}
+window.gsOpenOrgDetail = gsOpenOrgDetail;
+function _gsRenderOrgDetail(d){
+  var o = d.org || {}; var canManage = d.can_manage_members; var orgId = o.id;
+  var h = '<div style="display:flex;align-items:center;gap:11px;margin-bottom:6px;">';
+  h += '<div style="font-size:28px;">'+(o.logo_url?('<img src="'+_gsCEsc(o.logo_url)+'" style="width:40px;height:40px;border-radius:9px;object-fit:cover;">'):_gsOrgTypeLabel(o.org_type).split(' ')[0])+'</div>';
+  h += '<div style="flex:1;min-width:0;"><div style="font-size:17px;font-weight:800;color:var(--text);">'+_gsCEsc(o.name)+'</div><div style="font-size:11.5px;color:var(--muted);">'+_gsCEsc(_gsOrgTypeLabel(o.org_type))+' · '+_gsCEsc(o.country||'')+' · '+(o.subscription_tier||'free')+'</div></div></div>';
+  if (o.bio) h += '<div style="font-size:13px;color:var(--text);margin:6px 0 12px;">'+_gsCEsc(o.bio)+'</div>';
+  if (canManage) {
+    h += '<button onclick="gsOrgInviteCreate(\''+orgId+'\')" style="width:100%;padding:10px;border:none;border-radius:10px;background:var(--g-main,#43a047);color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;margin-bottom:12px;">+ Mitglied einladen (Code)</button>';
+  }
+  h += '<div style="font-size:12.5px;font-weight:800;margin-bottom:6px;">Mitglieder ('+((d.members||[]).length)+')</div>';
+  var roleOpts = ['owner','admin','teacher','student','viewer'];
+  h += (d.members||[]).map(function(m){
+    var nm = m.display_name || 'Mitglied';
+    var roleCell;
+    if (canManage && !d_isSelf(m.user_id)) {
+      roleCell = '<select onchange="gsOrgSetRole(\''+orgId+'\',\''+m.user_id+'\',this.value)" style="font-size:11px;padding:4px 6px;border:1px solid var(--border);border-radius:7px;font-family:inherit;">'
+        + roleOpts.map(function(rr){ return '<option value="'+rr+'"'+(rr===m.role?' selected':'')+'>'+rr+'</option>'; }).join('') + '</select>';
+    } else { roleCell = '<span style="font-size:11px;color:var(--muted);font-weight:700;">'+_gsCEsc(m.role)+'</span>'; }
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid var(--border);">'
+      + '<div style="width:30px;height:30px;border-radius:50%;background:var(--g-light);display:flex;align-items:center;justify-content:center;font-size:15px;">'+_gsCEsc(m.avatar_emoji||'🌱')+'</div>'
+      + '<div style="flex:1;font-size:13px;color:var(--text);">'+_gsCEsc(nm)+(d_isSelf(m.user_id)?' <span style="color:var(--muted);font-size:11px;">(du)</span>':'')+'</div>'
+      + roleCell + '</div>';
+  }).join('');
+  h += '<div style="display:flex;gap:8px;margin-top:14px;">';
+  h += '<button onclick="gsOpenOrgs()" style="flex:1;padding:10px;border:none;background:transparent;color:var(--muted);font-size:13px;cursor:pointer;font-family:inherit;">‹ Alle Orgs</button>';
+  h += '<button onclick="gsOrgLeave(\''+orgId+'\')" style="flex:1;padding:10px;border:1.5px solid #ef9a9a;border-radius:10px;background:#fff;color:#c62828;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">Org verlassen</button></div>';
+  _gsNlOpen(h);
+}
+function d_isSelf(uid){ try { return uid === gsStore.get('gs_sb_uid', null); } catch(_){ return false; } }
+async function gsOrgInviteCreate(orgId){
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_org_invite_create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_org_id: orgId, p_role: 'student' }) });
+    if (r && r.error) { if(typeof gsToast==='function') gsToast('Einladung fehlgeschlagen.','error'); return; }
+    var code = r.data;
+    var h = '<div style="text-align:center;padding:10px;"><div style="font-size:14px;font-weight:800;margin-bottom:8px;">🔑 Einladungs-Code</div>'
+      + '<div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Gültig 14 Tage · Rolle: Schüler. Teile diesen Code:</div>'
+      + '<div style="font-size:30px;font-weight:900;letter-spacing:4px;color:var(--g-dark);background:var(--card);border:2px dashed var(--g-light);border-radius:12px;padding:16px;margin-bottom:12px;">'+_gsCEsc(code)+'</div>'
+      + '<button onclick="(function(){try{navigator.clipboard.writeText(\''+code+'\');if(typeof gsToast===\'function\')gsToast(\'Code kopiert\',\'success\');}catch(_){}})()" style="padding:10px 18px;border:none;border-radius:10px;background:var(--g-dark);color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">📋 Kopieren</button>'
+      + '<button onclick="gsOpenOrgDetail(\''+orgId+'\')" style="display:block;width:100%;margin-top:10px;padding:9px;border:none;background:transparent;color:var(--muted);font-size:13px;cursor:pointer;font-family:inherit;">‹ Zurück</button></div>';
+    _gsNlOpen(h);
+  } catch(e){ console.warn('[gsOrgInviteCreate]', e && e.message); }
+}
+window.gsOrgInviteCreate = gsOrgInviteCreate;
+async function gsOrgSetRole(orgId, userId, role){
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_org_member_set_role', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_org_id: orgId, p_target_user: userId, p_new_role: role }) });
+    if (r && !r.error && r.data === true) { if(typeof gsToast==='function') gsToast('✓ Rolle geändert','success',1500); }
+    else { if(typeof gsToast==='function') gsToast('Rollenänderung nicht erlaubt.','warning'); gsOpenOrgDetail(orgId); }
+  } catch(e){ console.warn('[gsOrgSetRole]', e && e.message); }
+}
+window.gsOrgSetRole = gsOrgSetRole;
+async function gsOrgLeave(orgId){
+  var go = function(){
+    sbFetch('/rest/v1/rpc/fn_org_leave', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_org_id: orgId }) }).then(function(r){
+      if (r && !r.error && r.data === true) { if(typeof gsToast==='function') gsToast('Org verlassen.','success'); gsOpenOrgs(); }
+      else { if(typeof gsToast==='function') gsToast('Verlassen nicht möglich (letzter Owner?).','warning'); }
+    });
+  };
+  if (typeof gsConfirmModal === 'function') { gsConfirmModal('Organisation verlassen?', 'Du verlierst den Zugang zu Org-Inhalten.').then(function(ok){ if(ok) go(); }); }
+  else if (confirm('Organisation verlassen?')) go();
+}
+window.gsOrgLeave = gsOrgLeave;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // v23.74 · CLIENT-HELPER für neue Tabellen (passend zum Supabase-Migration-SQL)
