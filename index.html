@@ -20301,6 +20301,61 @@ function _gsRobustJsonParse(raw){
   return null;
 }
 
+// ── v28.04 Block A: Scan-Cache (Cost-Hebel #1) ────────────────────────────────
+// dHash (difference-hash, 9×8→64bit) des Hauptbilds. Robust gg. Helligkeit/Skalierung,
+// kollisions-ärmer als aHash. Reines Optimierungs-Feature → jeder Fehler = still überspringen.
+// ⚠️ Toxizitäts-Sicherheit: Cache trifft NUR bei EXAKTEM Hash (PK-Match, Hamming 0),
+//    KEIN Fuzzy-Range → kein ähnliches-Bild-→-falsche-Art-Risiko.
+function _gsScanDHash(b64, mt){
+  return new Promise(function(resolve){
+    try {
+      var img = new Image();
+      img.onload = function(){
+        try {
+          var W = 9, H = 8;
+          var c = document.createElement('canvas'); c.width = W; c.height = H;
+          var cx = c.getContext('2d', { willReadFrequently: true });
+          cx.drawImage(img, 0, 0, W, H);
+          var d = cx.getImageData(0, 0, W, H).data;
+          var gray = new Array(W*H);
+          for (var i = 0; i < W*H; i++){ gray[i] = d[i*4]*0.299 + d[i*4+1]*0.587 + d[i*4+2]*0.114; }
+          var bits = '';
+          for (var y = 0; y < H; y++){
+            for (var x = 0; x < W-1; x++){ bits += (gray[y*W+x] > gray[y*W+x+1]) ? '1' : '0'; }
+          }
+          var hex = '';
+          for (var k = 0; k < 64; k += 4){ hex += parseInt(bits.substr(k,4), 2).toString(16); }
+          resolve(hex.length === 16 ? hex : null);
+        } catch(e){ resolve(null); }
+      };
+      img.onerror = function(){ resolve(null); };
+      img.src = 'data:' + (mt || 'image/jpeg') + ';base64,' + b64;
+    } catch(e){ resolve(null); }
+  });
+}
+async function _gsScanCacheGet(phash){
+  if (!phash || typeof sbFetch !== 'function') return null;
+  try {
+    var res = await sbFetch('/rest/v1/scan_cache?phash=eq.' + encodeURIComponent(phash) + '&select=result_json&limit=1', { method:'GET' });
+    var rows = (res && res.data) || (Array.isArray(res) ? res : null);
+    if (rows && rows.length && rows[0].result_json) return rows[0].result_json;
+  } catch(_){}
+  return null;
+}
+function _gsScanCachePut(phash, res){
+  // fire-and-forget · RPC fn_scan_cache_put (DEFINER, authenticated). Insert ODER hit_count++.
+  if (!phash || typeof sbFetch !== 'function') return;
+  if (typeof sbIsLoggedIn === 'function' && !sbIsLoggedIn()) return; // RPC braucht authenticated
+  try {
+    var clean = {};
+    Object.keys(res || {}).forEach(function(k){ if (k.charAt(0) !== '_') clean[k] = res[k]; });
+    sbFetch('/rest/v1/rpc/fn_scan_cache_put', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ p_phash: phash, p_result: clean })
+    });
+  } catch(_){}
+}
+
 async function analyzeImage(b64, mt, organContext, extraImages){
   // v23.86: Bild für Cloud-Persist merken (gsScanPersistToCloud nach Identifikation)
   try { window._gsLastScanB64 = b64 || null; window._gsLastScanMt = mt || 'image/jpeg'; } catch(_){}
@@ -20449,6 +20504,28 @@ async function analyzeImage(b64, mt, organContext, extraImages){
   // Energie sparen, Privatsphäre respektieren. Wird in gsResetScanner() + initScanner() wieder gestartet.
   try { if (typeof stopCamera === 'function') stopCamera(); } catch(_){}
 
+  // v28.04 Block A: Scan-Cache nur bei Single-Image (Multi-Shot kombiniert Winkel → Hash des
+  // Hauptbilds wäre nicht repräsentativ). dHash + exakter Lookup VOR dem Claude-Call.
+  var _scanPhash = null;
+  if (shotCount === 1 && b64) {
+    try { _scanPhash = await _gsScanDHash(b64, mt); } catch(_){ _scanPhash = null; }
+    if (_scanPhash) {
+      try {
+        var _cachedRes = await _gsScanCacheGet(_scanPhash);
+        if (_cachedRes && _cachedRes.name && _cachedRes.confidence != null) {
+          clearInterval(stageTimer);
+          if (!Array.isArray(_cachedRes.alternatives)) _cachedRes.alternatives = [];
+          _cachedRes._ctx = ctx;
+          _cachedRes._shotCount = shotCount;
+          _cachedRes._fromCache = true;
+          _gsScanCachePut(_scanPhash, _cachedRes); // hit_count++ (fire-and-forget)
+          showScanResult(_cachedRes);
+          return;
+        }
+      } catch(_){}
+    }
+  }
+
   try{
     const text = await callVisionAI(b64, mt, prompt, extraImages);
     clearInterval(stageTimer);
@@ -20470,6 +20547,11 @@ async function analyzeImage(b64, mt, organContext, extraImages){
     res._ctx = ctx;
     res._shotCount = shotCount;
     showScanResult(res);
+    // v28.04 Block A: Cache-Miss → Identifikation ablegen (nur Single-Image, eingeloggt).
+    // Spart bei jedem künftigen identischen Re-Scan den Claude-Vision-Call.
+    if (_scanPhash && shotCount === 1 && res && res.name && res.confidence != null) {
+      _gsScanCachePut(_scanPhash, res);
+    }
   }catch(err){
     clearInterval(stageTimer);
     var errMsg = (err && err.message) || 'Unbekannter Fehler';
@@ -55141,11 +55223,15 @@ window.GS_RELEASES = [
       { emoji: '🤖', text: 'Alle KI-Funktionen einheitlich über Anthropic Claude (NVIDIA komplett raus)' },
       { emoji: '🐛', text: 'Versteckter Fehler behoben: App nahm intern noch „NVIDIA" als Standard-Anbieter an' },
       { emoji: '🔑', text: 'API-Key-Einrichtung, Scan-Hinweise & FAQ durchgehend auf Anthropic vereinheitlicht' },
+      { emoji: '⚡', text: 'Dasselbe Foto nochmal scannen? Ergebnis kommt jetzt sofort (Cache) — ohne erneuten KI-Aufruf' },
+      { emoji: '🔑', text: 'Neue Einstellungs-Zeile „KI-Dienst-Status" zeigt, ob der Schlüssel gültig ist' },
     ],
     items: [
       {emoji:'🤖', bold:'NVIDIA-Removal (Block B):', text:' Der NVIDIA-Code-Pfad war bereits seit v24.18 deaktiviert — übrig waren UI-Reste + ein Default-Bug. Entfernt: Provider-Default `||\'nvidia\'`→`\'anthropic\'`, NVIDIA-Option im Key-Modal, „build.nvidia.com"-Hinweise (Scan-UI + FAQ), updateApiHelp-Branch, Admin-Key-Placeholder, CSP-Eintrag `*.nvidia.com`.'},
       {emoji:'✅', bold:'Verify:', text:' Keine aktiven NVIDIA-Referenzen mehr (nur die Auto-Migration die alte Keys aufräumt + die Versions-Historie bleiben) · CSP NVIDIA-frei · 7/7 node --check OK. _gsClaudeFallbacks bestätigt Anthropic-only.'},
-      {emoji:'🔜', bold:'Folgt in v28.04+:', text:' Schnelleres/günstigeres Scannen via Bild-Caching, Key-Status-Anzeige in den Einstellungen, weiterer Marktplatz- & Community-Feinschliff.'},
+      {emoji:'⚡', bold:'Scan-Cache (Block A):', text:' Wird dasselbe Foto erneut gescannt, kommt das Ergebnis sofort aus dem Cache — ohne erneuten KI-Aufruf (schneller + günstiger). Technik: 64-bit dHash des Bilds, Treffer NUR bei exakt identischem Bild (kein Verwechslungs-Risiko bei einer Giftpflanzen-App), nur bei Einzelbild-Scans, Bild selbst wird NIE gespeichert (nur der Hash + die Bestimmung). Server: scan_cache-Tabelle + fn_scan_cache_put (DEFINER) + 30-Tage-Cleanup.'},
+      {emoji:'🔑', bold:'KI-Dienst-Status (Block C):', text:' Neue Einstellungs-Zeile zeigt, ob der zentrale KI-Schlüssel gültig ist (🟢/🟡/🔴) — täglich automatisch geprüft.'},
+      {emoji:'🔜', bold:'Folgt in v28.05+:', text:' Durchdachtes Plan-System (Free/Pro/Lifetime) mit fairen Tageslimits, weiterer Marktplatz- & Community-Feinschliff.'},
     ]
   },
   {
