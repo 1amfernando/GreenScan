@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS public.organizations (
   created_by      uuid NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
   subscription_tier text NOT NULL DEFAULT 'free'
     CHECK (subscription_tier IN ('free','school_basic','school_pro','botanical_garden')),
-  max_members     int NOT NULL DEFAULT 5,
+  max_members     int NOT NULL DEFAULT 1000,  -- v28.01-Follow-up: großzügig, KEIN Sales-Gate (Mission „nicht geldgierig")
   is_active       boolean NOT NULL DEFAULT true,
   created_at      timestamptz NOT NULL DEFAULT now(),
   updated_at      timestamptz NOT NULL DEFAULT now()
