@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.08.20260603">
+<meta name="app-version" content="28.09.20260603">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -29535,37 +29535,25 @@ window.gsForestAdoptPlan = async function(slug) {
       });
     }
   });
-  var planRow = {
-    title: '🌳 ' + (r.name_de || 'Forest-Garden'),
-    plan_intent: 'permaculture_hugel',
-    metadata: {
-      forest_design_slug: r.slug,
-      design_type: r.design_type,
-      source: 'v26.44_forest_designer'
-    },
-    analysis: {
+  // v28.09 B-006: über _gsSaveGardenPlanCloud (echte Spalten + user_id). Vorher: plan_intent/
+  // metadata/analysis = nicht-existente Spalten ohne user_id → INSERT 400 → Plan nie gespeichert.
+  var _fgPid = await _gsSaveGardenPlanCloud(
+    '🌳 ' + (r.name_de || 'Forest-Garden'),
+    {
       site_analysis: { size_m2: r.size_m2_min || null },
       recommended_plants: allPlants,
       warnings: Array.isArray(r.common_pitfalls) ? r.common_pitfalls : [],
       pro_tips: Array.isArray(r.pro_tips) ? r.pro_tips : []
-    }
-  };
-  try {
-    var resp = await sbFetch('/rest/v1/garden_plans', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-      body: JSON.stringify(planRow)
-    });
-    if (resp && resp.error) {
-      if (typeof showProfileToast === 'function') showProfileToast('⚠️ ' + resp.error, 'error');
-      return;
-    }
-    if (typeof gsHaptic === 'function') gsHaptic('success');
-    if (typeof showProfileToast === 'function') showProfileToast('✅ Forest-Garden-Plan erstellt (' + allPlants.length + ' Pflanzen)', 'success');
-    if (typeof closeModal === 'function') closeModal('modal-forest-garden');
-  } catch(e) {
-    if (typeof showProfileToast === 'function') showProfileToast('Fehler: ' + String(e.message || e), 'error');
+    },
+    { forest_design_slug: r.slug, design_type: r.design_type, source: 'v26.44_forest_designer' }
+  );
+  if (!_fgPid) {
+    if (typeof showProfileToast === 'function') showProfileToast('⚠️ Konnte nicht speichern — bitte eingeloggt sein & erneut versuchen', 'error');
+    return;
   }
+  if (typeof gsHaptic === 'function') gsHaptic('success');
+  if (typeof showProfileToast === 'function') showProfileToast('✅ Forest-Garden-Plan erstellt (' + allPlants.length + ' Pflanzen) · siehe „Meine Pläne"', 'success');
+  if (typeof closeModal === 'function') closeModal('modal-forest-garden');
 };
 
 window.gsLayoutOpenDetail = function(slug) {
@@ -47783,6 +47771,30 @@ async function gsRunGardenScan(photos, metadata, opts) {
   }
 }
 
+// v28.09 B-006: zuverlässiger garden_plans-Insert mit den ECHTEN Spalten + user_id (RLS).
+// Root-Cause: Edge-Fn-Insert (save_as_plan) schlug still fehl (Tabelle 0 Zeilen) UND alte
+// Frontend-Inserts nutzten nicht-existente Spalten (plan_intent/metadata/analysis) ohne user_id.
+// Liefert die neue Plan-id zurück (für what_if/re-open), null bei Fehler.
+async function _gsSaveGardenPlanCloud(title, analysis, scanInput, extra){
+  try {
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn() || typeof sbFetch !== 'function') return null;
+    var uid = gsStore.get('gs_sb_uid', null);
+    if (!uid) return null;
+    var row = Object.assign({
+      user_id: uid,
+      title: String(title || 'KI-Garten-Plan').slice(0,120),
+      scan_input: scanInput || {},
+      ai_analysis: analysis || {},
+      status: 'active'
+    }, extra || {});
+    var r = await sbFetch('/rest/v1/garden_plans', { method:'POST', headers:{'Content-Type':'application/json','Prefer':'return=representation'}, body: JSON.stringify(row) });
+    if (r && !r.error && r.data && r.data[0] && r.data[0].id) return r.data[0].id;
+    if (r && r.error) console.warn('[_gsSaveGardenPlanCloud]', r.error);
+  } catch(e){ console.warn('[_gsSaveGardenPlanCloud]', e && e.message); }
+  return null;
+}
+window._gsSaveGardenPlanCloud = _gsSaveGardenPlanCloud;
+
 // Wizard-Modal öffnen. Sub-Task 1.1.
 function gsOpenGardenScan() {
   if (typeof sbIsLoggedIn === 'function' && !sbIsLoggedIn()) {
@@ -48142,38 +48154,25 @@ window.gsBalconyAdoptTemplate = async function(slug) {
       if (Array.isArray(v)) v.forEach(function(n){ allPlants.push((typeof n === 'object') ? n : { name: String(n), category: k }); });
     });
   }
-  var planRow = {
-    title: '🪴 ' + (t.name_de || 'Balkon-Garten'),
-    plan_intent: 'container_balcony',
-    metadata: {
-      balcony_template_slug: t.slug,
-      balcony_size_m2: t.balcony_size_m2_min || null,
-      orientation: t.orientation || null,
-      source: 'v26.46_balcony_wizard'
-    },
-    analysis: {
+  // v28.09 B-006: über _gsSaveGardenPlanCloud (echte Spalten + user_id). Vorher: plan_intent/
+  // metadata/analysis = nicht-existente Spalten ohne user_id → INSERT 400 → Vorlage nie gespeichert.
+  var _balPid = await _gsSaveGardenPlanCloud(
+    '🪴 ' + (t.name_de || 'Balkon-Garten'),
+    {
       site_analysis: { size_m2: t.balcony_size_m2_min, orientation: t.orientation },
       recommended_plants: allPlants,
       warnings: Array.isArray(t.common_pitfalls) ? t.common_pitfalls : [],
       pro_tips: Array.isArray(t.pro_tips) ? t.pro_tips : []
-    }
-  };
-  try {
-    var resp = await sbFetch('/rest/v1/garden_plans', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-      body: JSON.stringify(planRow)
-    });
-    if (resp && resp.error) {
-      if (typeof showProfileToast === 'function') showProfileToast('⚠️ ' + resp.error, 'error');
-      return;
-    }
-    if (typeof gsHaptic === 'function') gsHaptic('success');
-    if (typeof showProfileToast === 'function') showProfileToast('✅ Balkon-Vorlage übernommen (' + allPlants.length + ' Pflanzen)', 'success');
-    if (typeof closeModal === 'function') closeModal('detail-modal');
-  } catch(e) {
-    if (typeof showProfileToast === 'function') showProfileToast('Fehler: ' + String(e.message || e), 'error');
+    },
+    { balcony_template_slug: t.slug, balcony_size_m2: t.balcony_size_m2_min || null, orientation: t.orientation || null, source: 'v26.46_balcony_wizard' }
+  );
+  if (!_balPid) {
+    if (typeof showProfileToast === 'function') showProfileToast('⚠️ Konnte nicht speichern — bitte eingeloggt sein & erneut versuchen', 'error');
+    return;
   }
+  if (typeof gsHaptic === 'function') gsHaptic('success');
+  if (typeof showProfileToast === 'function') showProfileToast('✅ Balkon-Vorlage übernommen (' + allPlants.length + ' Pflanzen) · siehe „Meine Pläne"', 'success');
+  if (typeof closeModal === 'function') closeModal('detail-modal');
 };
 
 // ═════════════════════════════════════════════════════════════════════
@@ -48413,6 +48412,19 @@ async function gsGardenScanSubmit() {
   }
   s.plan_id = res.plan_id || null;
   s.analysis = res.analysis || null;
+  // v28.09 B-006: Edge-Fn persistiert nicht zuverlässig (garden_plans war 0 Zeilen) → client-seitig
+  // in den echten Store schreiben, damit der Plan in „Meine Pläne" landet (cross-device).
+  if (!s.plan_id && s.analysis) {
+    var _newPid = await _gsSaveGardenPlanCloud(
+      (res.plan_title || (s.metadata && s.metadata.plan_title) || 'KI-Garten-Plan'),
+      s.analysis, s.metadata || {},
+      { planning_horizon_years: s.planning_horizon_years || 1, climate_scenario: s.climate_scenario || 'baseline', constraints: s.constraints || {} }
+    );
+    if (_newPid) { s.plan_id = _newPid; if (typeof gsToast === 'function') gsToast('✅ Plan in „Meine Pläne" gespeichert','success'); }
+    else if (typeof gsToast === 'function') gsToast('⚠️ Plan konnte nicht gespeichert werden — bitte erneut versuchen','warning');
+  } else if (s.plan_id && typeof gsToast === 'function') {
+    gsToast('✅ Plan gespeichert','success');
+  }
   if (typeof gsHaptic === 'function') gsHaptic('success');
   // Vorläufige Result-Preview (v25.12 wird das durch echtes 2D-SVG-Render ersetzen)
   var mc = document.getElementById('modal-content');
@@ -51704,17 +51716,28 @@ async function gsPPopenSavedPlans() {
         var ug = await sbFetch('/rest/v1/user_gardens?user_id=eq.' + uid + '&select=data&limit=1', {method:'GET'});
         var ugRows = (ug && ug.data && Array.isArray(ug.data)) ? ug.data : [];
         var ugPlans = (ugRows[0] && ugRows[0].data && Array.isArray(ugRows[0].data.plans)) ? ugRows[0].data.plans : [];
-        // (b) garden_plans Tabelle — von Balcony/Forest-Adopt-Pfaden
-        var gp = await sbFetch('/rest/v1/garden_plans?user_id=eq.' + uid + '&select=id,title,plan_json,created_at,plan_intent&order=created_at.desc&limit=30', {method:'GET'});
+        // (b) garden_plans Tabelle — KI-Planer-Pro + Balcony/Forest-Adopt.
+        // v28.09 B-006: ECHTE Spalten (vorher plan_json/plan_intent = nicht-existent → 400).
+        // ai_analysis → Render-Shape (summary/plants/bed/climateZone) mappen.
+        var gp = await sbFetch('/rest/v1/garden_plans?user_id=eq.' + uid + '&select=id,title,ai_analysis,created_at&order=created_at.desc&limit=30', {method:'GET'});
         var gpRows = (gp && gp.data && Array.isArray(gp.data)) ? gp.data : [];
         var gpMapped = gpRows.map(function(r){
+          var an = r.ai_analysis || {};
+          var sa = an.site_analysis || {};
+          var lg = an.layout_grid || {};
           return {
             id: 'gp_' + r.id,
             created: r.created_at,
-            title: r.title || ('Plan vom ' + new Date(r.created_at).toLocaleDateString('de-CH')),
-            plan: r.plan_json || {},
+            title: r.title || ('KI-Plan vom ' + new Date(r.created_at).toLocaleDateString('de-CH')),
+            plan: {
+              summary: sa.summary || an.summary || '',
+              plants: an.recommended_plants || [],
+              bed: { width_m: Number(lg.width_m) || 0, length_m: Number(lg.depth_m) || 0 },
+              climateZone: sa.climate_zone || sa.climateZone || ''
+            },
             source: 'garden_plans',
-            _origId: r.id
+            _origId: r.id,
+            _proAnalysis: an
           };
         });
         // Merge: union per id, Cloud gewinnt bei Konflikt (Cross-Device-Truth)
@@ -55368,6 +55391,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.09', date: '03.06.2026',
+    headline: '🐛 Last-Polish: KI-Gartenpläne speichern zuverlässig + echte Namen in der Quiz-Rangliste',
+    summary: 'Zwei gemeldete Fehler behoben, bevor das grosse Update live geht. (1) Pläne aus dem KI-Gartenplaner — und aus den Balkon-/Waldgarten-Vorlagen — landeten nicht in „Meine Pläne". Ursache: die Speicherung schrieb in nicht mehr existierende Datenbank-Spalten. Jetzt werden alle Pläne zuverlässig gespeichert (Gerät + Cloud, geräteübergreifend) mit klarer „✅ gespeichert"-Bestätigung. (2) Die Tages-Quiz-Rangliste zeigte zufällige Tier-Namen („Pilz-Igel 22") statt des selbst gewählten Profilnamens. Jetzt erscheint überall der echte Anzeigename (sonst „GreenScan-Mitglied"); bestehende Zufallsnamen wurden korrigiert.',
+    user_summary: '🐛 Behoben: KI-Gartenpläne werden jetzt zuverlässig gespeichert + Quiz-Rangliste zeigt deinen echten Namen.',
+    user_items: [
+      { emoji: '🪴', text: 'KI-Gartenpläne (+ Balkon-/Waldgarten-Vorlagen) landen jetzt zuverlässig in „Meine Pläne" — mit Bestätigung' },
+      { emoji: '🏆', text: 'Quiz-Rangliste zeigt deinen echten Profilnamen statt zufälligem „Pilz-…"-Namen' },
+    ],
+    items: [
+      {emoji:'🪴', bold:'B-006 (P0) Plan-Save:', text:' Root-Cause = Schema-Drift — Inserts/Reads nutzten nicht-existente Spalten (plan_json/plan_intent/metadata/analysis) ohne user_id → 400 → garden_plans blieb leer. Fix: zentraler `_gsSaveGardenPlanCloud` mit echten Spalten (scan_input/ai_analysis/status) + user_id; client-seitiger Save nach KI-Scan (Edge-Fn persistierte nicht); „Meine Pläne"-Read auf echte Spalten + Mapping; Balkon-/Waldgarten-Adopt repariert; Save-Bestätigungs-Toasts.'},
+      {emoji:'🏆', bold:'B-005 (P1) Quiz-Name:', text:' `fn_quiz_leaderboard_top` joint jetzt live `profiles.display_name` (Fallback „GreenScan-Mitglied", nie Random/Email); `fn_quiz_leaderboard_upsert` generiert keinen Zufallsnamen mehr (zieht aus profiles); Bestandsdaten („Pilz-…") einmalig gesynct.'},
+    ]
+  },
+  {
     v: 'v28.08', date: '03.06.2026',
     headline: '🏫 Organisationen mit eigenem Look — Onboarding & Whitelabel',
     summary: 'Der Abschluss des grossen Organisations-Updates: Wer eine Organisation (Schule, Kurs, Verein, Botanischer Garten) leitet, kann ihr jetzt ein eigenes Gesicht geben — Logo, Akzent-Farbe, Kurzbeschreibung und Website. Nach dem Erstellen führt dich eine kleine Anleitung durch die nächsten Schritte (Logo & Farbe setzen, Mitglieder einladen, Klasse erstellen). Alles bleibt komplett kostenlos. Damit ist die Organisations- & Bildungs-Welt von GreenScan rund: Orgs → Klassen → Aufgaben → Lina, alles miteinander verbunden.',
@@ -58479,7 +58516,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.08';
+var GS_VERSION = 'v28.09';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
