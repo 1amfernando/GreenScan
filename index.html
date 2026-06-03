@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.03.20260603">
+<meta name="app-version" content="28.04.20260603">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5641,15 +5641,13 @@ html, body{ scroll-behavior: smooth; }
     <button class="modal-close-btn" onclick="closeModal('apikey-modal')" title="Schliessen">&#x2715;</button>
     <h3>🔑 API Key einrichten</h3>
     <p>Für den KI-Scanner und den KI-Chat wird ein API Key benötigt.<br>
-    <strong>NVIDIA NIM:</strong> <code>nvapi-...</code> → integrate.api.nvidia.com<br>
-    <strong>Anthropic:</strong> <code>sk-ant-...</code> → api.anthropic.com</p>
+    <strong>Anthropic Claude:</strong> <code>sk-ant-...</code> → console.anthropic.com</p>
     <select class="oinput" id="api-provider" onchange="updateApiHelp()">
-      <option value="nvidia">NVIDIA NIM (empfohlen)</option>
       <option value="anthropic">Anthropic Claude</option>
     </select>
-    <input class="oinput" id="apikey-input" type="password" maxlength="200" autocomplete="off" placeholder="API Key eingeben…">
+    <input class="oinput" id="apikey-input" type="password" maxlength="200" autocomplete="off" placeholder="API Key eingeben (sk-ant-…)">
     <div id="api-help" style="font-size:12px;color:#888;margin-bottom:12px;line-height:1.5;">
-      NVIDIA NIM: console.api.nvidia.com → API Keys
+      Anthropic: console.anthropic.com → API Keys
     </div>
     <button class="obtn-prim" onclick="saveApiKey()">✅ Speichern &amp; aktivieren</button>
     <button class="obtn-sec" onclick="closeApiKey()">Abbrechen</button>
@@ -5720,7 +5718,7 @@ html, body{ scroll-behavior: smooth; }
           <li>🌀 <b>Community-Feed-Dauerloading behoben:</b> <code>_gsFbLastFetch</code> wurde nur bei erfolgreichen Fetches mit Daten gesetzt — jetzt IMMER (auch bei Error oder leerer Tabelle). Loading-UI verschwindet zuverlässig.</li>
           <li>🛠️ <b>Community-Empty-State differenziert:</b> Error-State mit Retry-Button vs. echter Empty-State (keine Posts). Früher beide identisch.</li>
           <li>🔑 <b>Passwort-Reset verbessert:</b> <code>redirect_to</code> zur App-URL, klare Fehler-Messages (Rate-Limit, ungültige Email), UX mit Loading-State</li>
-          <li>🚪 <b>Scan ohne Key:</b> statt stummem Dialog-Pop jetzt klares Full-Screen-UI „API-Key wird benötigt" mit 2 Optionen und kostenlosen NVIDIA-Hinweis.</li>
+          <li>🚪 <b>Scan ohne Key:</b> statt stummem Dialog-Pop jetzt klares Full-Screen-UI „API-Key wird benötigt" mit klarem Anthropic-Key-Hinweis.</li>
           <li>📚 <b>Quiz-Fallback-Pool:</b> 50 kuratierte Schweizer Natur-Fragen mit Day-of-year-Rotation — Quiz funktioniert auch wenn Supabase offline.</li>
           <li>🔍 <b>Passwort-Reset Email-Validation:</b> Regex-Check vor API-Call + Button-Disable während Laden</li>
         </ul>
@@ -5809,7 +5807,7 @@ html, body{ scroll-behavior: smooth; }
         <div style="font-size:12.5px;font-weight:700;color:var(--g-main);margin-bottom:4px;">v23.65 · 23.04.2026</div>
         <ul style="margin:0 0 0 18px;padding:0;font-size:12px;color:var(--text2);line-height:1.7;">
           <li>📷 <b>Scanner öffnet Kamera direkt:</b> kein Zwischen-Dialog mehr · Browser fragt nativ · HD-Rückkamera mit automatischem Fallback · Smooth Fade-In sobald erste Frames da sind</li>
-          <li>🔑 <b>Klare Key-Fehler:</b> neuer roter „Key setzen"-Chip in der Top-Bar · Hero-CTA bei 401/403 mit Direkt-Hinweis auf Anthropic + NVIDIA (kostenlos) · API-Key-Selbsttest auf einen Klick</li>
+          <li>🔑 <b>Klare Key-Fehler:</b> neuer roter „Key setzen"-Chip in der Top-Bar · Hero-CTA bei 401/403 mit Direkt-Hinweis auf Anthropic (console.anthropic.com) · API-Key-Selbsttest auf einen Klick</li>
           <li>⚠️ <b>Präzise Kamera-Fehler:</b> getrennte Meldungen für „Zugriff verweigert", „Keine Kamera", „Kamera belegt" und HTTPS-Pflicht — kein generisches Fehlen mehr</li>
           <li>💬 <b>Feedback live global:</b> neue Posts erscheinen sofort bei allen Nutzern · Auto-Refresh alle 30 s wenn Screen offen · „🔄 Aktualisieren"-Button + pulsierender LIVE-Dot · Author &amp; Zeitlabel pro Post</li>
           <li>🔁 <b>Cross-Tab-Sync:</b> Votes und Posts werden über Supabase gespiegelt · lokale Entwürfe bleiben erhalten bis Server-ID vergeben ist</li>
@@ -14282,7 +14280,7 @@ setTimeout(gsAutoFillLookalikes, 2000);
 setTimeout(gsUpdateXPBar, 500);
 
 // GREENSCAN v9 — 1000-ARTEN EDITION
-// 542 Arten · NVIDIA NIM + Anthropic · Lichtmessung · Hauspflanzen
+// 542 Arten · Anthropic Claude · Lichtmessung · Hauspflanzen
 // KI-Chat · Feedback mit Voting · Support
 
 // HOME – TÄGLICHE INFOTAFEL
@@ -20321,12 +20319,12 @@ async function analyzeImage(b64, mt, organContext, extraImages){
         '<div style="font-size:56px;margin-bottom:12px;">🔑</div>'+
         '<div style="font-size:19px;font-weight:900;color:var(--g-dark);margin-bottom:8px;">API-Key wird benötigt</div>'+
         '<div style="font-size:13.5px;color:var(--text2);line-height:1.6;margin-bottom:20px;max-width:340px;margin-left:auto;margin-right:auto;">'+
-          'Für die KI-gestützte Arterkennung brauchst du einen API-Key von Anthropic (Claude) oder NVIDIA. '+
+          'Für die KI-gestützte Arterkennung brauchst du einen Anthropic-(Claude)-API-Key. '+
           'Der Admin dieser App kann einen für alle hinterlegen — oder du setzt deinen eigenen.'+
         '</div>'+
         '<button onclick="openApiKey()" style="display:block;width:100%;max-width:300px;margin:0 auto 8px;padding:14px;background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;border:none;border-radius:12px;font-size:14.5px;font-weight:800;cursor:pointer;font-family:inherit;">🔑 API-Key einrichten</button>'+
         '<button onclick="document.getElementById(\'scan-result\').style.display=\'none\';document.getElementById(\'scan-result\').innerHTML=\'\';" style="display:block;width:100%;max-width:300px;margin:0 auto;padding:12px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Zurück</button>'+
-        '<div style="margin-top:14px;font-size:11.5px;color:var(--muted);line-height:1.5;">Kostenlos: <b>build.nvidia.com</b> (NVIDIA NIM) &middot; Bezahlt: <b>console.anthropic.com</b></div>'+
+        '<div style="margin-top:14px;font-size:11.5px;color:var(--muted);line-height:1.5;">API-Key von <b>console.anthropic.com</b> → API Keys</div>'+
       '</div>';
     }
     return;
@@ -20483,10 +20481,10 @@ async function analyzeImage(b64, mt, organContext, extraImages){
           + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
             + '<div style="font-size:28px;">🔑</div>'
             + '<div><div style="font-weight:800;color:#b37400;font-size:14px;">API-Key nötig oder ungültig</div>'
-            + '<div style="font-size:11.5px;color:#6d4c00;">Für die KI-Pflanzen-Bestimmung wird ein gültiger Anthropic- oder NVIDIA-Key gebraucht.</div></div>'
+            + '<div style="font-size:11.5px;color:#6d4c00;">Für die KI-Pflanzen-Bestimmung wird ein gültiger Anthropic-(Claude)-API-Key gebraucht.</div></div>'
           + '</div>'
           + '<button onclick="openApiKey()" style="display:block;width:100%;padding:12px;background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13.5px;font-family:inherit;font-weight:800;box-shadow:0 3px 10px rgba(26,35,126,.35);">🔑 Jetzt API-Key einrichten →</button>'
-          + '<div style="margin-top:8px;font-size:10.5px;color:#6d4c00;text-align:center;line-height:1.45;">Kostenloser NVIDIA-Key: <b>build.nvidia.com</b> &nbsp;·&nbsp; Anthropic-Key: <b>console.anthropic.com</b></div>'
+          + '<div style="margin-top:8px;font-size:10.5px;color:#6d4c00;text-align:center;line-height:1.45;">Anthropic-Key holen: <b>console.anthropic.com</b> → API Keys</div>'
         + '</div>'
       : '';
     rd.innerHTML =
@@ -54650,10 +54648,10 @@ async function gsRunServerTriage() {
 // ═══ SUPPORT ═══════════════════════════════════════
 function renderSupport(){
   const faqs = [
-    {q:'Wie funktioniert der KI-Scanner?',a:'Lade ein Foto oder nimm eines auf. Der Scanner schickt es an die KI (NVIDIA NIM oder Anthropic), die das Bild analysiert und die Pflanze/den Pilz bestimmt. Ein API Key ist nötig (🔑 oben rechts).'},
+    {q:'Wie funktioniert der KI-Scanner?',a:'Lade ein Foto oder nimm eines auf. Der Scanner schickt es an die Anthropic-Claude-KI, die das Bild analysiert und die Pflanze/den Pilz bestimmt. Ein API Key ist nötig (🔑 oben rechts) — oder der Admin hinterlegt einen für alle.'},
     {q:'Warum öffnet sich die Kamera nicht?',a:'Browser erlauben Kamerazugriff nur über HTTPS oder localhost. Wenn du die Datei lokal öffnest (file://), verwende bitte die Galerie-Funktion. Auf iPhone: Safari verwenden.'},
     {q:'Was bedeuten die Toxizitätsstufen?',a:'✅ Ungiftig · 🟡 Leicht giftig · 🟠 Mässig giftig · ⚠️ Giftig · 🔴 Stark giftig · ☠️ Tödlich. Bei Vergiftung: Sofort Tox Info Suisse 145 anrufen!'},
-    {q:'Wie bekomme ich einen API Key?',a:'NVIDIA NIM: console.api.nvidia.com → API Keys (kostenlose Credits verfügbar). Anthropic: console.anthropic.com → API Keys.'},
+    {q:'Wie bekomme ich einen API Key?',a:'Anthropic: console.anthropic.com → API Keys. Tipp: meist hat der App-Admin bereits einen globalen Key hinterlegt — dann brauchst du keinen eigenen.'},
     {q:'Kann ich die App ohne Internet nutzen?',a:'Die Datenbank mit 542 Arten funktioniert offline. Der KI-Scanner und der KI-Chat benötigen Internetverbindung.'},
     {q:'Wie melde ich einen Datenfehler?',a:'Tippe auf "Feedback" und wähle "Datenfehler". Beschreibe was falsch ist (Pflanzname, fehlerhafte Info etc.).'},
   ];
@@ -54688,14 +54686,13 @@ function updateApiBanner(){
 function updateApiHelp(){
   const p = document.getElementById('api-provider').value;
   const h = document.getElementById('api-help');
-  if(p==='nvidia') h.textContent='NVIDIA NIM: console.api.nvidia.com → API Keys (kostenlose Credits)';
-  else h.textContent='Anthropic: console.anthropic.com → API Keys';
+  h.textContent='Anthropic: console.anthropic.com → API Keys';
 }
 
 function openApiKey(){
   // Nur für Admin-E-Mails zugänglich
   if (!gsRequire('api_key')) return;
-  const provider = localStorage.getItem('ps_api_provider')||'nvidia';
+  const provider = localStorage.getItem('ps_api_provider')||'anthropic';
   document.getElementById('api-provider').value = provider;
   document.getElementById('apikey-input').value = localStorage.getItem('ps_api_key')||'';
   updateApiHelp();
@@ -54730,7 +54727,7 @@ function openAdminSbKeyPanel() {
     '</div>' +
     '<div style="margin-bottom:12px;border-top:1px solid var(--border);padding-top:12px;margin-top:4px;">' +
     '<label style="font-size:12px;font-weight:700;color:#1565c0;display:block;margin-bottom:6px;">🤖 Globaler KI-Scanner API-Key (für alle Nutzer):</label>' +
-    '<input id="admin-global-api-input" type="password" maxlength="300" autocomplete="off" placeholder="sk-ant-... oder nvidia-..." ' +
+    '<input id="admin-global-api-input" type="password" maxlength="300" autocomplete="off" placeholder="sk-ant-..." ' +
     'style="width:100%;padding:10px 12px;border:1.5px solid #90caf9;border-radius:8px;font-size:12px;font-family:monospace;box-sizing:border-box;background:var(--card);">' +
     '<div style="font-size:11px;color:#666;margin-top:4px;">Alle Nutzer können damit den Scanner verwenden.</div>' +
     '</div>' +
@@ -55111,6 +55108,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v28.04', date: '03.06.2026',
+    headline: '🧹 Aufgeräumt: nur noch Anthropic-Claude-KI + stabilerer Key',
+    summary: 'Ein Stabilitäts- und Aufräum-Update. GreenScan nutzt für alle KI-Funktionen (Scanner, Pflanzen-Doktor, Garten-Planer) jetzt ausschliesslich die Anthropic-Claude-KI — alle alten NVIDIA-Verweise und -Optionen wurden entfernt, was die App einfacher und konsistenter macht. Dabei haben wir auch einen versteckten Fehler behoben, bei dem die App intern noch fälschlich „NVIDIA" als Standard-Anbieter annahm. Die API-Key-Einrichtung, die Hinweise beim Scannen und die FAQ zeigen jetzt durchgehend nur noch Anthropic. Weitere Stabilitäts-Verbesserungen (schnelleres/günstigeres Scannen durch Caching, Key-Status-Anzeige) folgen im nächsten Update.',
+    user_summary: '🧹 KI läuft jetzt einheitlich über Anthropic Claude — alle NVIDIA-Reste entfernt, ein versteckter Standard-Anbieter-Fehler behoben, Key-Einrichtung & FAQ vereinheitlicht.',
+    user_items: [
+      { emoji: '🤖', text: 'Alle KI-Funktionen einheitlich über Anthropic Claude (NVIDIA komplett raus)' },
+      { emoji: '🐛', text: 'Versteckter Fehler behoben: App nahm intern noch „NVIDIA" als Standard-Anbieter an' },
+      { emoji: '🔑', text: 'API-Key-Einrichtung, Scan-Hinweise & FAQ durchgehend auf Anthropic vereinheitlicht' },
+    ],
+    items: [
+      {emoji:'🤖', bold:'NVIDIA-Removal (Block B):', text:' Der NVIDIA-Code-Pfad war bereits seit v24.18 deaktiviert — übrig waren UI-Reste + ein Default-Bug. Entfernt: Provider-Default `||\'nvidia\'`→`\'anthropic\'`, NVIDIA-Option im Key-Modal, „build.nvidia.com"-Hinweise (Scan-UI + FAQ), updateApiHelp-Branch, Admin-Key-Placeholder, CSP-Eintrag `*.nvidia.com`.'},
+      {emoji:'✅', bold:'Verify:', text:' Keine aktiven NVIDIA-Referenzen mehr (nur die Auto-Migration die alte Keys aufräumt + die Versions-Historie bleiben) · CSP NVIDIA-frei · 7/7 node --check OK. _gsClaudeFallbacks bestätigt Anthropic-only.'},
+      {emoji:'🔜', bold:'Folgt in v28.04+:', text:' Schnelleres/günstigeres Scannen via Bild-Caching, Key-Status-Anzeige in den Einstellungen, weiterer Marktplatz- & Community-Feinschliff.'},
+    ]
+  },
   {
     v: 'v28.03', date: '03.06.2026',
     headline: '🔎 Grosser App-Check + Standort-Wahl fürs Wetter + Hilfe-FAQ',
@@ -58138,7 +58151,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.03';
+var GS_VERSION = 'v28.04';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
