@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.09.20260603">
+<meta name="app-version" content="28.10.20260603">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -8647,7 +8647,7 @@ function gsOpenQuizLeaderboard() {
         var medal = (r.rnk <= 3) ? medals[r.rnk-1] : (r.rnk + '.');
         return '<div style="display:flex;align-items:center;gap:10px;padding:9px 11px;background:var(--card);border:1px solid var(--border);border-radius:9px;margin-bottom:5px;">' +
           '<div style="font-size:18px;min-width:30px;text-align:center;font-weight:800;color:#1a3d1a;">' + medal + '</div>' +
-          '<div style="flex:1;font-size:13px;color:var(--text);font-weight:700;">' + escHtml(r.display_name||'Anonym') + '</div>' +
+          '<div style="flex:1;font-size:13px;color:var(--text);font-weight:700;">' + _gsProfileChip(r.user_id, r.display_name||'GreenScan-Mitglied') + '</div>' +
           '<div style="font-size:13px;color:#2e7d32;font-weight:800;">✓ ' + r.total_correct + '</div>' +
           (r.streak_max > 0 ? '<div style="font-size:11px;color:#e65100;font-weight:700;">🔥 ' + r.streak_max + '</div>' : '') +
         '</div>';
@@ -17531,7 +17531,7 @@ function contactSeller(id) {
     mc.innerHTML = '<div style="padding:16px;">' +
       '<div style="font-size:19px;font-weight:900;color:var(--text);margin-bottom:10px;">💬 Kontakt</div>' +
       '<div style="padding:14px;background:var(--surface2);border-radius:10px;margin-bottom:10px;">' +
-        '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:4px;">' + _esc(l.sellerName||'Anbieter') + '</div>' +
+        '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:4px;">' + (typeof _gsProfileChip==='function' ? _gsProfileChip(l.sellerId, l.sellerName||'Anbieter') : _esc(l.sellerName||'Anbieter')) + '</div>' +
         '<div style="font-size:15px;font-weight:800;color:var(--text);word-break:break-all;">' + _esc(l.contact) + '</div>' +
       '</div>' +
       '<button onclick="navigator.clipboard&&navigator.clipboard.writeText(\'' + _esc(l.contact).replace(/'/g,"\\'") + '\');gsHaptic(\'success\');showProfileToast(\'Kopiert ✅\',\'success\');" style="width:100%;padding:11px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📋 Kontakt kopieren</button>' +
@@ -36312,6 +36312,8 @@ window.gsLoadCloudRecipes = async function() {
         ingredients: ingStr,
         steps: stepsStr,
         warning: row.warning || '',
+        photo_urls: Array.isArray(row.photo_urls) ? row.photo_urls : [],   // v28.10 B-009
+        _table: 'recipes',
         _cloud: true,
         _cloud_id: row.id,
         _slug: row.slug,
@@ -36368,6 +36370,8 @@ window.gsLoadCloudRemedies = async function() {
         ingredients: ingStr,
         steps: stepsStr,
         warning: [row.warning, row.contraindications].filter(Boolean).join(' · '),
+        photo_urls: Array.isArray(row.photo_urls) ? row.photo_urls : [],   // v28.10 B-009
+        _table: 'remedies',
         _cloud: true,
         _cloud_id: row.id,
         _slug: row.slug,
@@ -36665,6 +36669,12 @@ function openRecipeDetail(id) {
     return '<div class="recipe-step"><div class="recipe-step-num">' + (i+1) + '</div><div class="recipe-step-text">' + escHtml(text) + '</div></div>';
   }).join('');
 
+  // v28.10 B-009: Foto-Galerie (admin-kuratiert, public-read). Lazy-load, horizontal scrollbar.
+  var _photoHtml = (Array.isArray(r.photo_urls) && r.photo_urls.length)
+    ? '<div style="display:flex;gap:8px;overflow-x:auto;padding:2px 0 12px;-webkit-overflow-scrolling:touch;">' +
+        r.photo_urls.map(function(u){ var su=(typeof gsHTMLEscape==='function')?gsHTMLEscape(u):u; return '<img loading="lazy" src="'+su+'" onclick="window.open(\''+su+'\',\'_blank\')" style="height:130px;border-radius:10px;object-fit:cover;flex:0 0 auto;cursor:zoom-in;box-shadow:var(--shadow-sm);">'; }).join('') +
+      '</div>'
+    : '';
   const body =
     '<div style="padding:14px 16px 0;">' +
       '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">' +
@@ -36676,6 +36686,7 @@ function openRecipeDetail(id) {
           (r.diff ? '<span style="font-size:11px;color:var(--muted);font-weight:600;">' + (DIFF_LABELS[r.diff]||r.diff) + '</span>' : '') +
         '</div></div>' +
       '</div>' +
+      _photoHtml +
       (r.plant ? '<div onclick="_openPlantFromRecipe((r.plantId)||(window.GS_ING_LINK_MAP&&window.GS_ING_LINK_MAP[r.plant])||r.plant)" style="background:#f0f7ee;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12.5px;color:var(--g-dark);font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:space-between;">🌿 ' + escHtml(r.plant) + '<span style="font-size:10px;color:var(--g-main);font-weight:600;">Infokarte →</span></div>' : '') +
       // Heilwirkung (nur für Heilmittel)
       (isRemedy && r.wirkung ? '<div style="background:#e3f2fd;border-radius:8px;padding:11px 13px;margin-bottom:10px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#1565c0;margin-bottom:4px;">💊 Wirkung & Anwendung</div><div style="font-size:13px;color:#1565c0;line-height:1.55;">' + escHtml(r.wirkung) + '</div></div>' : '') +
@@ -36692,7 +36703,8 @@ function openRecipeDetail(id) {
       (gsIsAdmin() ? '<div style="display:flex;gap:8px;margin-bottom:10px;">' +
         '<button onclick="editRecipe(\'' + r.id + '\')" style="flex:1;padding:10px;background:#f0f7ee;border:1.5px solid var(--g-light);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;">✏️ Bearbeiten</button>' +
         '<button onclick="deleteRecipe(\'' + r.id + '\')" style="flex:1;padding:10px;background:#ffebee;border:1.5px solid #ffcdd2;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;color:#c62828;font-family:inherit;">🗑️ Löschen</button>' +
-      '</div>' : '') +
+      '</div>' +
+      '<button onclick="gsRecipePhotoUpload(\'' + r.id + '\')" style="width:100%;padding:10px;background:#e8eaf6;border:1.5px solid #c5cae9;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;color:#283593;font-family:inherit;margin-bottom:10px;">📷 Foto hinzufügen</button>' : '') +
     '</div>';
 
   var isFav = typeof isRecipeFav==='function' && isRecipeFav(r.id);
@@ -36706,6 +36718,47 @@ function openRecipeDetail(id) {
   document.getElementById('recipe-detail-body').innerHTML = actionBar + body;
   openModal('modal-recipe-detail');
 }
+
+// v28.10 B-009: Admin-Foto-Upload für Rezepte/Heilmittel (Storage 'recipe-photos' + PATCH photo_urls).
+// Nur Admin (RLS: recipes/remedies admin_write, Storage admin-write via is_admin_user). Max 5 Fotos.
+async function gsRecipePhotoUpload(localId){
+  if (typeof gsIsAdmin !== 'function' || !gsIsAdmin()) { if(typeof gsToast==='function') gsToast('Nur für Admin.','warning'); return; }
+  var r = (recipesData.find(function(x){return x.id===localId;})) || (remediesData.find(function(x){return x.id===localId;}));
+  if (!r || !r._cloud_id) { if(typeof gsToast==='function') gsToast('Nur Cloud-Einträge können Fotos erhalten.','warning'); return; }
+  if (Array.isArray(r.photo_urls) && r.photo_urls.length >= 5) { if(typeof gsToast==='function') gsToast('Max. 5 Fotos pro Eintrag.','warning'); return; }
+  var tbl = r._table || 'recipes';
+  var input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/jpeg,image/png,image/webp';
+  input.onchange = async function(){
+    var file = input.files && input.files[0]; if (!file) return;
+    try {
+      if (typeof gsToast==='function') gsToast('⏳ Foto wird hochgeladen…','info');
+      var blob = file;
+      if (typeof gsCompressImage === 'function') { try { blob = await gsCompressImage(file, 1280, 0.82); } catch(_){} }
+      var token = (typeof _gsFreshToken==='function') ? await _gsFreshToken() : (gsStore.get('gs_sb_token',null));
+      if (!token) { if(typeof gsToast==='function') gsToast('🔑 Sitzung abgelaufen — neu einloggen.','error'); return; }
+      var path = r._cloud_id + '/' + Date.now() + '.jpg';
+      var up = await (window._gsFetch||fetch)(SB_URL + '/storage/v1/object/recipe-photos/' + path, {
+        method:'POST',
+        headers:{ 'Authorization':'Bearer '+token, 'apikey':SB_KEY, 'Content-Type': (blob.type||'image/jpeg'), 'x-upsert':'true' },
+        body: blob
+      }, 60000);
+      if (!up.ok) { if(typeof gsToast==='function') gsToast('⚠️ Upload fehlgeschlagen ('+up.status+')','error'); return; }
+      var url = SB_URL + '/storage/v1/object/public/recipe-photos/' + path;
+      var arr = (Array.isArray(r.photo_urls)?r.photo_urls:[]).concat([url]).slice(0,5);
+      var pr = await sbFetch('/rest/v1/' + tbl + '?id=eq.' + encodeURIComponent(r._cloud_id), {
+        method:'PATCH', headers:{'Content-Type':'application/json','Prefer':'return=minimal'}, body: JSON.stringify({ photo_urls: arr })
+      });
+      if (pr && pr.error) { if(typeof gsToast==='function') gsToast('⚠️ Speichern fehlgeschlagen.','error'); return; }
+      r.photo_urls = arr;
+      if (typeof gsHaptic==='function') { try{ gsHaptic('success'); }catch(_){} }
+      if (typeof gsToast==='function') gsToast('✅ Foto hinzugefügt','success');
+      openRecipeDetail(localId);
+    } catch(e){ if(typeof gsToast==='function') gsToast('Fehler: '+((e&&e.message)||e),'error'); }
+  };
+  input.click();
+}
+window.gsRecipePhotoUpload = gsRecipePhotoUpload;
 
 function openNewRecipe(type) {
   newRecipeType = type;
@@ -55391,6 +55444,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.10', date: '03.06.2026',
+    headline: '🛠️ Marktplatz wieder voll funktionsfähig + Profile überall antippbar + Rezept-Fotos',
+    summary: 'Ein Polish-Update mit einem wichtigen Fix: Inserate veröffentlichen ging wegen eines Server-Fehlers nicht mehr — das ist behoben, der Marktplatz funktioniert wieder zuverlässig (mit „✅ veröffentlicht"-Bestätigung). Alte Demo-Inserate wurden aufgeräumt. Ausserdem: In der Quiz-Rangliste, bei Marktplatz-Verkäufern und in Organisations-Mitgliederlisten kannst du jetzt auf den Namen tippen, um das Profil anzusehen (Privatsphäre bleibt geschützt). Und Rezepte & Heilmittel können jetzt Fotos zeigen.',
+    user_summary: '🛠️ Marktplatz-Veröffentlichen repariert + Profile per Namen-Tipp öffnen + Fotos bei Rezepten/Heilmitteln.',
+    user_items: [
+      { emoji: '🛒', text: 'Inserieren funktioniert wieder zuverlässig (Server-Fehler behoben, alte Demo-Inserate entfernt)' },
+      { emoji: '👤', text: 'Namen in Rangliste / Marktplatz / Orgs antippen → Profil ansehen (privat bleibt privat)' },
+      { emoji: '🖼️', text: 'Rezepte & Heilmittel zeigen jetzt Fotos' },
+    ],
+    items: [
+      {emoji:'🐛', bold:'B-007 (P0) Marktplatz-Token:', text:' Root-Cause „invalid token" lag in der Edge-Fn (createClient(url,userToken)+getUser() ohne Token-Arg → user=null → 401). Fix: marketplace-publish v4 mit sbAdmin.auth.getUser(userToken). + _gsFreshToken gehärtet (kein abgelaufener Token), 4 Demo-Listings archiviert, Marktplatz quota-frei (FREE).'},
+      {emoji:'👤', bold:'B-008 Profil-Chips:', text:' Zentraler _gsProfileChip (Name → gsOpenProfile, Privacy server-seitig in fn_profile_view). Verkabelt: Quiz-Rangliste, Marktplatz-Verkäufer, Org-Mitglieder (Feed/Discover waren schon klickbar).'},
+      {emoji:'🖼️', bold:'B-009 Rezept-/Heilmittel-Fotos:', text:' photo_urls (additiv) + recipe-photos-Bucket (public-read/admin-write) + Galerie im Detail + Admin-Upload (max 5). FREE-Anzeige für alle.'},
+      {emoji:'🔜', bold:'Folgt in v28.11:', text:' Feedback-&-Hilfe-Politur + Benachrichtigungs-Intelligenz (Aggregation, Stille-Tage, Klassen-Pushes).'},
+    ]
+  },
+  {
     v: 'v28.09', date: '03.06.2026',
     headline: '🐛 Last-Polish: KI-Gartenpläne speichern zuverlässig + echte Namen in der Quiz-Rangliste',
     summary: 'Zwei gemeldete Fehler behoben, bevor das grosse Update live geht. (1) Pläne aus dem KI-Gartenplaner — und aus den Balkon-/Waldgarten-Vorlagen — landeten nicht in „Meine Pläne". Ursache: die Speicherung schrieb in nicht mehr existierende Datenbank-Spalten. Jetzt werden alle Pläne zuverlässig gespeichert (Gerät + Cloud, geräteübergreifend) mit klarer „✅ gespeichert"-Bestätigung. (2) Die Tages-Quiz-Rangliste zeigte zufällige Tier-Namen („Pilz-Igel 22") statt des selbst gewählten Profilnamens. Jetzt erscheint überall der echte Anzeigename (sonst „GreenScan-Mitglied"); bestehende Zufallsnamen wurden korrigiert.',
@@ -58516,7 +58586,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.09';
+var GS_VERSION = 'v28.10';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -58946,7 +59016,15 @@ async function _gsFreshToken() {
     if (!needRefresh && token) {
       try { var p = JSON.parse(atob((token.split('.')[1]||'').replace(/-/g,'+').replace(/_/g,'/'))); if (p && p.exp && (p.exp*1000 - Date.now()) < 60000) needRefresh = true; } catch(_){}
     }
-    if (needRefresh && typeof sbRefresh === 'function') { await sbRefresh(); token = gsStore.get('gs_sb_token', null) || ''; }
+    if (needRefresh && typeof sbRefresh === 'function') { try { await sbRefresh(); } catch(_){} token = gsStore.get('gs_sb_token', null) || ''; }
+    // v28.10 B-007: nach Refresh prüfen ob der Token WIRKLICH frisch ist — sonst null zurückgeben
+    // (kein abgelaufener Token an Edge-Fns senden → klare „Sitzung abgelaufen"-Meldung statt 401).
+    if (token) {
+      try {
+        var _p = JSON.parse(atob((token.split('.')[1]||'').replace(/-/g,'+').replace(/_/g,'/')));
+        if (_p && _p.exp && (_p.exp * 1000 <= Date.now())) return null;
+      } catch(_){}
+    }
     return token || null;
   } catch(_) { return null; }
 }
@@ -64307,6 +64385,19 @@ function _gsAvatarHtml(p, size){
   if (url) return '<img src="'+_gsCEsc(url)+'" alt="" style="width:'+size+'px;height:'+size+'px;border-radius:50%;object-fit:cover;border:2px solid var(--g-light);" loading="lazy">';
   return '<div style="width:'+size+'px;height:'+size+'px;border-radius:50%;background:var(--g-light);display:flex;align-items:center;justify-content:center;font-size:'+Math.round(size*0.5)+'px;">'+_gsCEsc(emo)+'</div>';
 }
+// v28.10 B-008: zentraler klickbarer Profil-Chip. Name/Emoji → fremdes Profil (gsOpenProfile);
+// Privacy wird server-seitig in fn_profile_view geprüft (private → freundliches „Privat"-Modal).
+// event.stopPropagation() schützt Eltern-Karten mit eigenem onclick (z.B. Marktplatz-Inserat).
+function _gsProfileChip(userId, name, opts){
+  opts = opts || {};
+  var safe = (typeof escHtml === 'function') ? escHtml(name || 'GreenScan-Mitglied') : String(name || 'GreenScan-Mitglied');
+  var pre = opts.emoji ? ((typeof escHtml==='function'?escHtml(opts.emoji):opts.emoji) + ' ') : '';
+  var st = opts.style || '';
+  if (!userId) return '<span style="' + st + '">' + pre + safe + '</span>';
+  return '<span role="button" tabindex="0" onclick="event.stopPropagation();if(typeof gsOpenProfile===\'function\')gsOpenProfile(\'' + userId + '\')" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;' + st + '" title="Profil ansehen">' + pre + safe + '</span>';
+}
+window._gsProfileChip = _gsProfileChip;
+
 async function gsOpenProfile(userId){
   if (!userId) return;
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) { if(typeof gsToast==='function') gsToast('🔐 Bitte einloggen.','warning'); return; }
@@ -64678,7 +64769,7 @@ function _gsRenderOrgDetail(d){
     } else { roleCell = '<span style="font-size:11px;color:var(--muted);font-weight:700;">'+_gsCEsc(m.role)+'</span>'; }
     return '<div style="display:flex;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid var(--border);">'
       + '<div style="width:30px;height:30px;border-radius:50%;background:var(--g-light);display:flex;align-items:center;justify-content:center;font-size:15px;">'+_gsCEsc(m.avatar_emoji||'🌱')+'</div>'
-      + '<div style="flex:1;font-size:13px;color:var(--text);">'+_gsCEsc(nm)+(d_isSelf(m.user_id)?' <span style="color:var(--muted);font-size:11px;">(du)</span>':'')+'</div>'
+      + '<div style="flex:1;font-size:13px;color:var(--text);">'+(typeof _gsProfileChip==='function'?_gsProfileChip(m.user_id, nm):_gsCEsc(nm))+(d_isSelf(m.user_id)?' <span style="color:var(--muted);font-size:11px;">(du)</span>':'')+'</div>'
       + roleCell + '</div>';
   }).join('');
   h += '<div style="display:flex;gap:8px;margin-top:14px;">';
