@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.18.20260604">
+<meta name="app-version" content="28.19.20260604">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1155,6 +1155,18 @@ body.dark .keimtyp-dunkel{background:rgba(255,255,255,.1);color:#90caf9;}
 .settings-toggle input{opacity:0;width:0;height:0;}
 .settings-toggle-slider{position:absolute;inset:0;background:#ccc;border-radius:26px;cursor:pointer;transition:.25s;}
 .settings-toggle input:checked + .settings-toggle-slider{background:var(--g-main);}
+
+/* v28.19 Senior-Modus: bessere Lesbarkeit (Kontrast) + grössere Tap-Targets + grössere
+   Bedien-Elemente. App nutzt px-Schriften → KEIN globaler Font-Scale (würde inkonsistent
+   skalieren, wurde früher entfernt); stattdessen kuratierte, layout-schonende Overrides. */
+body.senior{ --muted:#454545; --base-font:18px; }
+body.dark.senior{ --muted:#c2c2c2; }
+body.senior .settings-label-title{ font-size:15.5px !important; }
+body.senior .settings-label-sub{ font-size:13px !important; }
+body.senior .settings-group-title{ font-size:12px !important; }
+body.senior button, body.senior .settings-row{ min-height:48px; }
+body.senior .settings-toggle{ transform:scale(1.18); transform-origin:right center; }
+body.senior p, body.senior li{ line-height:1.55; }
 .settings-toggle-slider::before{content:'';position:absolute;width:20px;height:20px;left:3px;bottom:3px;background:var(--card);border-radius:50%;transition:.25s;}
 .settings-toggle input:checked + .settings-toggle-slider::before{transform:translateX(22px);}
 
@@ -4721,6 +4733,18 @@ html, body{ scroll-behavior: smooth; }
         </div>
         <label class="settings-toggle">
           <input type="checkbox" id="toggle-compact" onchange="applyCompact(this.checked)">
+          <span class="settings-toggle-slider"></span>
+        </label>
+      </div>
+      <!-- v28.19: Senior-Modus (Accessibility) -->
+      <div class="settings-row">
+        <div class="settings-icon" style="background:#e8eaf6;">👵</div>
+        <div class="settings-label">
+          <div class="settings-label-title" data-i18n="settings_senior" data-i18n-fallback="Senioren-Modus">Senioren-Modus</div>
+          <div class="settings-label-sub" data-i18n="settings_senior_hint" data-i18n-fallback="Grössere Schrift, grössere Tasten &amp; mehr Kontrast">Grössere Schrift, grössere Tasten &amp; mehr Kontrast</div>
+        </div>
+        <label class="settings-toggle">
+          <input type="checkbox" id="toggle-senior" onchange="applySenior(this.checked)">
           <span class="settings-toggle-slider"></span>
         </label>
       </div>
@@ -39647,6 +39671,18 @@ function applyCompact(isCompact, save = true) {
   if (toggle) toggle.checked = isCompact;
 }
 
+// v28.19: Senior-Modus (Accessibility — grössere Schrift/Targets/Kontrast)
+function applySenior(isSenior, save = true) {
+  document.body.classList.toggle('senior', !!isSenior);
+  if (save) {
+    userPrefs.senior = !!isSenior;
+    savePrefs();
+  }
+  const toggle = document.getElementById('toggle-senior');
+  if (toggle) toggle.checked = !!isSenior;
+}
+window.applySenior = applySenior;
+
 // ── Apply all prefs on load ───────────────────────────────
 function applyAllPrefs() {
   loadPrefs();
@@ -39654,6 +39690,7 @@ function applyAllPrefs() {
   applyFontSize(userPrefs.fontSize || 16, false);
   applyTheme(userPrefs.theme || 'green', null, false);
   applyCompact(userPrefs.compact || false, false);
+  applySenior(userPrefs.senior || false, false);
   // Apply widget visibility prefs
   const hw = document.getElementById('home-weather-widget');
   if (hw) hw.style.display = (userPrefs.homeWeather === false) ? 'none' : '';
@@ -39684,6 +39721,7 @@ function initSettingsScreen() {
   applyFontSize(userPrefs.fontSize || 16, false);
   applyTheme(userPrefs.theme || 'green', null, false);
   applyCompact(userPrefs.compact || false, false);
+  applySenior(userPrefs.senior || false, false);
 
   // Dark mode toggle
   const darkToggle = document.getElementById('toggle-dark');
@@ -55767,6 +55805,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.19', date: '04.06.2026',
+    headline: '👵 Senioren-Modus — grössere Schrift, grössere Tasten, mehr Kontrast',
+    summary: 'Neu in den Einstellungen unter „Darstellung": der Senioren-Modus. Ein Tipp genügt, und Beschriftungen werden grösser, die Bedien-Elemente (Tasten, Schalter) bekommen mehr Fläche zum Antippen, und die graue Hilfstext-Schrift wird kontrastreicher und besser lesbar. GreenScan soll Mensch und Natur verbinden — für jedes Alter. Die Einstellung bleibt gespeichert und gilt auch auf deinen anderen Geräten.',
+    user_summary: '👵 Neuer Senioren-Modus (Einstellungen → Darstellung): grössere Schrift & Tasten, mehr Kontrast.',
+    user_items: [
+      { emoji: '🔠', text: 'Grössere Beschriftungen & besser lesbarer Hilfstext' },
+      { emoji: '👆', text: 'Grössere Tasten & Schalter (leichter zu treffen)' },
+      { emoji: '🌗', text: 'Mehr Kontrast — auch im Nachtmodus' },
+    ],
+    items: [
+      {emoji:'👵', bold:'Senioren-Modus-Toggle:', text:' applySenior → body.senior, persistent (userPrefs.senior) + geräteübergreifend, Boot-Apply. Mission-treu: Natur für ALLE Altersgruppen.'},
+      {emoji:'🎯', bold:'Layout-schonend statt Zoom:', text:' Da die App px-Schriften nutzt, kuratierte Overrides statt riskantem Global-Zoom — Kontrast (--muted), Tap-Targets ≥48px (WCAG 2.5.5), grössere Toggles + Labels.'},
+    ]
+  },
+  {
     v: 'v28.18', date: '04.06.2026',
     headline: '⚡ Performance: schlankere Datenbank-Zugriffsregeln',
     summary: 'Eine unsichtbare, aber wichtige Aufräum-Aktion: Wo die Datenbank bisher mehrere überlappende Zugriffsregeln pro Tabelle prüfen musste, gibt es jetzt jeweils eine zusammengefasste Regel. Das macht Abfragen bei wachsender Nutzerzahl schneller — ohne dass sich am Datenschutz irgendetwas ändert (jede Zusammenfassung wurde nachweislich identisch gehalten und getestet). Keine sichtbare Änderung, nur mehr Tempo unter der Haube.',
@@ -59030,7 +59083,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.18';
+var GS_VERSION = 'v28.19';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
