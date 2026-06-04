@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.15.20260604">
+<meta name="app-version" content="28.16.20260604">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11459,10 +11459,14 @@ window._gsAchRenderMine = function() {
       '<div style="font-size:12px;opacity:.85;text-transform:uppercase;letter-spacing:1px;">Dein Garten-Score</div>' +
       '<div style="font-size:44px;font-weight:900;line-height:1;margin:4px 0;">'+live.score+'<span style="font-size:17px;opacity:.6;">/100</span></div>' +
       '<div style="font-size:11px;opacity:.9;">Div '+live.breakdown.diversity+' · Pflege '+live.breakdown.care+' · Ernte '+live.breakdown.harvest+' · Bio '+live.breakdown.biodiversity+' · Konst. '+live.breakdown.consistency+'</div>' +
-    '</div>';
+    '</div>' +
+    // v28.16: Score-Trend-Sparkline (garden_score_history) — async befüllt durch gsRenderScoreTrend()
+    '<div id="gs-score-trend" style="padding:12px 18px 2px;display:none;"></div>';
   if (!rows.length) {
     html += '<div style="padding:24px;text-align:center;color:var(--muted);font-size:12.5px;line-height:1.6;">🌱 Achievements erscheinen hier, sobald du eingeloggt bist und erste Aktionen ausführst (scannen, Pflanze anlegen, Quiz spielen).</div>';
-    cont.innerHTML = html; return;
+    cont.innerHTML = html;
+    if (typeof gsRenderScoreTrend === 'function') gsRenderScoreTrend();
+    return;
   }
   html += '<div style="padding:10px 18px 2px;font-size:11.5px;color:var(--muted);">'+unlockedCount+' / '+rows.length+' freigeschaltet · ⭐ tippen für Vitrine (max 5)</div>';
   var catLabels = { explorer:'🧭 Entdecker', gardener:'🌱 Gärtner', collector:'📦 Sammler', healer:'🌿 Heiler', sage:'📚 Weiser', milestone:'👑 Meilensteine' };
@@ -11500,6 +11504,38 @@ window._gsAchRenderMine = function() {
     });
   });
   cont.innerHTML = html;
+  if (typeof gsRenderScoreTrend === 'function') gsRenderScoreTrend();
+};
+
+// v28.16: Garten-Score-Trend — CSS-Sparkline aus garden_score_history (vanilla, kein recharts).
+window.gsRenderScoreTrend = async function() {
+  var el = document.getElementById('gs-score-trend'); if (!el) return;
+  if (typeof sbFetch !== 'function' || typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) { el.style.display = 'none'; return; }
+  try {
+    var uid = (typeof gsStore !== 'undefined') ? gsStore.get('gs_sb_uid', null) : null;
+    if (!uid) { el.style.display = 'none'; return; }
+    var r = await sbFetch('/rest/v1/garden_score_history?user_id=eq.' + encodeURIComponent(uid) + '&select=score,computed_at&order=computed_at.asc&limit=60', { method:'GET' });
+    var rows = (r && r.data) || [];
+    if (rows.length < 2) { el.style.display = 'none'; return; }  // erst ab 2 Datenpunkten sinnvoll
+    var scores = rows.map(function(x){ return Number(x.score) || 0; });
+    var max = Math.max.apply(null, scores) || 100;
+    var first = scores[0], last = scores[scores.length - 1];
+    var delta = last - first;
+    var deltaTxt = (delta > 0 ? '▲ +' + delta : (delta < 0 ? '▼ ' + delta : '→ ±0'));
+    var deltaCol = delta > 0 ? '#2e7d32' : (delta < 0 ? '#c62828' : 'var(--muted)');
+    var bars = scores.map(function(s){
+      var h = Math.max(6, Math.round((s / (max || 100)) * 100));
+      var col = s >= 70 ? '#66bb6a' : (s >= 40 ? '#ffb74d' : '#ef9a9a');
+      return '<div title="' + s + '" style="flex:1;min-width:2px;height:' + h + '%;background:' + col + ';border-radius:2px 2px 0 0;"></div>';
+    }).join('');
+    el.style.display = '';
+    el.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;">' +
+        '<span style="font-size:11px;font-weight:700;color:var(--text);">📈 Score-Verlauf (' + rows.length + ' Messungen)</span>' +
+        '<span style="font-size:11px;font-weight:800;color:' + deltaCol + ';">' + deltaTxt + '</span>' +
+      '</div>' +
+      '<div style="display:flex;align-items:flex-end;gap:2px;height:46px;background:var(--surface2);border-radius:8px;padding:6px;">' + bars + '</div>';
+  } catch(_) { el.style.display = 'none'; }
 };
 
 // _gsAchRenderFeed() — Community-Feed (7 Tage, uncommon+) via fn_achievements_feed.
@@ -55646,6 +55682,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.16', date: '04.06.2026',
+    headline: '📈 Garten-Score-Verlauf — sieh deinen Fortschritt über die Zeit',
+    summary: 'Dein Garten-Score (in den Achievements unter „Meine") zeigt jetzt einen Verlauf: eine kleine Balken-Grafik deiner letzten Score-Messungen plus ein Pfeil, ob es seit der ersten Messung auf- oder abwärts ging. So siehst du auf einen Blick, wie sich dein Garten entwickelt. Die Daten werden ohnehin täglich automatisch erfasst — jetzt werden sie auch sichtbar.',
+    user_summary: '📈 Neuer Score-Verlauf in den Achievements: Mini-Grafik deiner Garten-Score-Entwicklung + Trend-Pfeil.',
+    user_items: [
+      { emoji: '📊', text: 'Score-Verlauf als Balken-Sparkline (letzte Messungen)' },
+      { emoji: '🎯', text: 'Trend-Pfeil ▲/▼ — auf einen Blick, ob es vorangeht' },
+    ],
+    items: [
+      {emoji:'📈', bold:'Score-Trend-Sparkline:', text:' CSS-Grafik aus garden_score_history (vanilla, kein recharts) in der Garten-Score-Card. Async + fail-safe, blendet sich bei <2 Messpunkten aus. Score-Snapshot wird seit v26.62 täglich automatisch geloggt.'},
+      {emoji:'🔍', bold:'Diary-Verifikation:', text:' Das v28.03-„garden_diary 0 Zeilen" geprüft — es ist eine ungenutzte Tabelle; das Tagebuch synct sicher über den Pflanzen-Blob (null-guarded). Kein Bug, bewusst kein Eingriff.'},
+    ]
+  },
+  {
     v: 'v28.15', date: '04.06.2026',
     headline: '🧺 Ernte-Kalender zeigt endlich alle Ernten + reparierte Lösch-Buttons',
     summary: 'Bisher landeten Ernten, die du im Ernte-Tracker erfasst hast, NICHT im Erntekalender (Jahres-Statistik) — der war immer leer, egal wie viel du eingetragen hast. Das ist behoben: Ernte-Tracker, Pflanzen-Detail-Ernte und Erntekalender nutzen jetzt eine gemeinsame Datenquelle. Alte Einträge aus dem früheren separaten Tracker werden automatisch übernommen. Ausserdem haben wir mehrere Lösch- und Aktions-Buttons repariert, die durch einen alten Tippfehler nicht funktionierten (Ernte/Tagebuch/Saatgut löschen, Gebots-Schritte, Saison-Monat).',
@@ -58866,7 +58916,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.15';
+var GS_VERSION = 'v28.16';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
