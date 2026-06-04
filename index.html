@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.20.20260604">
+<meta name="app-version" content="28.21.20260604">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1167,6 +1167,16 @@ body.senior .settings-group-title{ font-size:12px !important; }
 body.senior button, body.senior .settings-row{ min-height:48px; }
 body.senior .settings-toggle{ transform:scale(1.18); transform-origin:right center; }
 body.senior p, body.senior li{ line-height:1.55; }
+
+/* v28.21 D.2: Home Swipe-Widget-Stack (iPhone-Style, native CSS scroll-snap → Touch+Trackpad gratis). */
+.gs-wstack-viewport{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;border-radius:var(--r);}
+.gs-wstack-viewport::-webkit-scrollbar{display:none;height:0;}
+.gs-wslide{flex:0 0 100%;min-width:100%;scroll-snap-align:start;box-sizing:border-box;display:flex;}
+.gs-wslide > *{margin-bottom:0 !important;width:100%;box-sizing:border-box;}
+.gs-wstack-dots{display:flex;justify-content:center;gap:6px;padding:9px 0 13px;}
+.gs-wdot{width:8px;height:8px;border-radius:50%;background:var(--border);border:none;padding:0;cursor:pointer;transition:background .2s,transform .2s;-webkit-tap-highlight-color:transparent;}
+.gs-wdot[aria-selected="true"]{background:var(--g-main);transform:scale(1.3);}
+@media (prefers-reduced-motion: reduce){ .gs-wstack-viewport{scroll-behavior:auto;} }
 .settings-toggle-slider::before{content:'';position:absolute;width:20px;height:20px;left:3px;bottom:3px;background:var(--card);border-radius:50%;transition:.25s;}
 .settings-toggle input:checked + .settings-toggle-slider::before{transform:translateX(22px);}
 
@@ -1863,15 +1873,17 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <div class="stat-card" onclick="openScanHistoryFull()" style="cursor:pointer;"><div class="sn" id="stat-scans">0</div><div class="sl" data-i18n="stat_scans" data-i18n-fallback="📷 Scans">📷 Scans</div></div>
   </div>
   <!-- v26.89: „Jetzt gute Zeit für…" — saisonal + Community-beliebte Arten (fn_species_top_picks), initial leer, JS-gefüllt -->
-  <div id="home-top-picks" style="display:none;margin:0 16px 14px;padding:14px;border-radius:16px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow-sm);">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-      <span style="font-size:22px;">🌱</span>
+  <!-- v28.21 D.1: Live-Marktplatz-Karte (ersetzt „Jetzt gute Zeit für…"); Klick → Marktplatz -->
+  <div id="home-marketplace-live" onclick="if(typeof menuNav==='function')menuNav('market')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();menuNav('market');}" style="margin:0 16px 14px;padding:14px;border-radius:16px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow-sm);cursor:pointer;-webkit-tap-highlight-color:transparent;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+      <span style="font-size:22px;">🛒</span>
       <div style="flex:1;min-width:0;">
-        <div style="font-size:15px;font-weight:800;color:var(--text);" data-i18n="home_top_picks_title" data-i18n-fallback="Jetzt gute Zeit für…">Jetzt gute Zeit für…</div>
-        <div style="font-size:11.5px;color:var(--muted);" data-i18n="home_top_picks_sub" data-i18n-fallback="Saisonal &amp; bei der Community beliebt">Saisonal &amp; bei der Community beliebt</div>
+        <div style="font-size:15px;font-weight:800;color:var(--text);" data-i18n="home_mkt_live_title" data-i18n-fallback="Aktive Inserate · Live">Aktive Inserate · Live</div>
+        <div style="font-size:11.5px;color:var(--muted);" data-i18n="home_mkt_live_sub" data-i18n-fallback="Frisch aus dem Marktplatz">Frisch aus dem Marktplatz</div>
       </div>
+      <span style="font-size:12px;font-weight:800;color:var(--g-main);white-space:nowrap;" data-i18n="home_mkt_live_all" data-i18n-fallback="Alle ›">Alle ›</span>
     </div>
-    <div id="home-top-picks-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;"></div>
+    <div id="home-mkt-live-list"><div style="padding:6px 0 2px;color:var(--muted);font-size:12px;">⏳ Lade Inserate…</div></div>
   </div>
   <div class="sec" data-i18n="sec_categories" data-i18n-fallback="Kategorien">Kategorien</div>
   <div class="cat-grid">
@@ -1969,7 +1981,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     </div>
 
     <!-- Wusstest du? Rotierende Wissensfakten -->
-    <div style="background:var(--card);border-radius:var(--r);box-shadow:var(--shadow-sm);padding:13px 15px;margin-bottom:12px;">
+    <div id="card-wusstest" style="background:var(--card);border-radius:var(--r);box-shadow:var(--shadow-sm);padding:13px 15px;margin-bottom:12px;">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px;">💡 Wusstest du?</div>
       <div id="fact-text" style="font-size:13px;color:var(--text2);line-height:1.6;"></div>
       <div style="display:flex;justify-content:flex-end;margin-top:8px;">
@@ -5435,7 +5447,7 @@ html, body{ scroll-behavior: smooth; }
   <button class="tab"        id="tab-scanner" role="tab" aria-selected="false" aria-controls="screen-scanner" onclick="switchTab('scanner',this)"><span class="ti" aria-hidden="true">📷</span><span class="tl" data-i18n="nav_tab_scanner" data-i18n-fallback="Scanner">Scanner</span></button>
   <button class="tab"        id="tab-favs"    role="tab" aria-selected="false" aria-controls="screen-favs"    onclick="switchTab('favs',this)"><span class="ti" aria-hidden="true">🌱</span><span class="tl" data-i18n="nav_tab_favs" data-i18n-fallback="Pflanzen">Pflanzen</span></button>
   <button class="tab tab-center active" id="tab-home" role="tab" aria-selected="true" aria-controls="screen-home" onclick="switchTab('home',this)" aria-label="Startseite"><span class="ti" aria-hidden="true">🏠</span><span class="tl" data-i18n="nav_tab_home" data-i18n-fallback="Home">Home</span></button>
-  <button class="tab"        id="tab-search"  role="tab" aria-selected="false" aria-controls="screen-search"  onclick="switchTab('search',this)"><span class="ti" aria-hidden="true">🔍</span><span class="tl" data-i18n="nav_tab_search" data-i18n-fallback="Suche">Suche</span></button>
+  <button class="tab"        id="tab-social"  role="tab" aria-selected="false" aria-controls="screen-social"  onclick="switchTab('social',this)"><span class="ti" aria-hidden="true">🌿</span><span class="tl" data-i18n="nav_tab_community" data-i18n-fallback="Community">Community</span></button>
   <button class="tab"        id="tab-menu"    aria-haspopup="menu" aria-label="Hauptmenü öffnen" onclick="openMainMenu()"><span class="ti" aria-hidden="true">⋯</span><span class="tl" data-i18n="nav_tab_menu" data-i18n-fallback="Menü">Menü</span><span id="gs-notif-badge" class="gs-notif-badge" role="status" aria-live="polite" style="display:none;"></span></button>
 </div>
 
@@ -8766,44 +8778,131 @@ try {
 // die echten Werte werden aus window._gsHomeTopPicks gelesen → keine Quote-Escape-Falle.
 window._gsHomeTopPicks = [];
 async function gsHomeRenderTopPicks(){
-  var cont = document.getElementById('home-top-picks');
-  var grid = document.getElementById('home-top-picks-grid');
-  if (!cont || !grid) return;
+  // v28.21 D.1: Card zeigt jetzt Live-Marktplatz-Inserate (ersetzt „Jetzt gute Zeit für…").
+  // Name bleibt für die 3 bestehenden Caller; rendert in #home-mkt-live-list (60s Memory-Cache).
+  var list = document.getElementById('home-mkt-live-list');
+  if (!list) return;
   if (typeof sbFetch !== 'function') return;
-  if (cont._gsLoading) return;
-  cont._gsLoading = true;
+  var empty = '<div style="padding:6px 0 2px;color:var(--muted);font-size:12.5px;">🛒 Sei der Erste mit einem Inserat — tippen führt zum Marktplatz.</div>';
   try {
-    var r = await sbFetch('/rest/v1/rpc/fn_species_top_picks', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ p_lim: 14 })  // v27.04: mehr laden für Rotation nach Dismiss
-    });
+    var c = window._gsMktHomeCache;
+    if (c && c.html && (Date.now() - c.ts < 60000)) { list.innerHTML = c.html; return; }
+  } catch(_){}
+  try {
+    var r = await sbFetch('/rest/v1/v_marketplace_listings?status=eq.active&select=id,title,price,price_mode,currency,region,category,photo_url,photo_urls,seller_name&order=created_at.desc&limit=5', { method:'GET' });
+    if (r && r.error) { list.innerHTML = '<div style="padding:6px 0;color:var(--muted);font-size:12px;">⚠️ Marktplatz gerade nicht erreichbar.</div>'; return; }
     var rows = (r && Array.isArray(r.data)) ? r.data : [];
-    // v27.04: „nicht interessiert"-Liste herausfiltern (LS), dann auf 6 kürzen
-    var dismissed = {};
-    try { (JSON.parse(localStorage.getItem('gs_home_dismissed_picks')||'[]')||[]).forEach(function(n){ dismissed[n] = 1; }); } catch(_){}
-    rows = rows.filter(function(s){ return !dismissed[s.name]; }).slice(0, 6);
-    if (!rows.length) { cont.style.display = 'none'; return; }
-    window._gsHomeTopPicks = rows;
-    grid.innerHTML = rows.map(function(s, i){
-      var beliebt = (s.pick_count|0) > 0;
-      return '<div role="button" tabindex="0" onclick="gsHomeOpenAddFromPick(' + i + ')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();gsHomeOpenAddFromPick(' + i + ');}"' +
-        ' style="position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;padding:11px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:14px;cursor:pointer;transition:transform .15s,box-shadow .15s;text-align:center;"' +
-        ' onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 4px 12px rgba(15,40,15,.10)\'"' +
-        ' onmouseout="this.style.transform=\'translateY(0)\';this.style.boxShadow=\'none\'">' +
-        '<span role="button" tabindex="0" aria-label="Nicht interessiert" title="Nicht interessiert" onclick="event.stopPropagation();gsHomeDismissPick(' + i + ')" onkeydown="if(event.key===\'Enter\'){event.stopPropagation();gsHomeDismissPick(' + i + ');}" style="position:absolute;top:3px;right:5px;font-size:12px;color:var(--muted);opacity:.55;cursor:pointer;line-height:1;padding:2px;">✕</span>' +
-        '<div style="font-size:30px;line-height:1;">' + escHtml(s.emoji || '🌿') + '</div>' +
-        '<div style="font-size:12.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px;">' + escHtml(s.name || '') + '</div>' +
-        (beliebt
-          ? '<div style="font-size:10px;color:var(--g-main);font-weight:700;">🔥 beliebt</div>'
-          : '<div style="font-size:10px;color:var(--muted);">' + escHtml(s.cat || '') + '</div>') +
-        '</div>';
+    if (!rows.length) { list.innerHTML = empty; window._gsMktHomeCache = { ts: Date.now(), html: empty }; return; }
+    var esc = (typeof gsHTMLEscape === 'function') ? gsHTMLEscape : function(s){ return String(s == null ? '' : s); };
+    var html = rows.map(function(l){
+      var img = (Array.isArray(l.photo_urls) && l.photo_urls[0]) ? l.photo_urls[0] : (l.photo_url || '');
+      var emoji = (typeof CAT_EMOJIS !== 'undefined' && CAT_EMOJIS[l.category]) ? CAT_EMOJIS[l.category] : '🛒';
+      var thumb = img
+        ? '<div style="width:40px;height:40px;border-radius:9px;background-size:cover;background-position:center;flex-shrink:0;background-image:url(\'' + encodeURI(img) + '\');"></div>'
+        : '<div style="width:40px;height:40px;border-radius:9px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">' + emoji + '</div>';
+      var pm = l.price_mode || '';
+      var price;
+      if (pm === 'free' || pm === 'gift') price = 'Gratis';
+      else if (pm === 'trade') price = 'Tausch';
+      else if (l.price != null && l.price !== '') price = (pm === 'vb' ? 'VB ' : '') + (l.currency || 'CHF') + ' ' + l.price;
+      else price = '—';
+      // Hard-Lesson #12-sicher: terminierende Quote + echte Konkatenation (l.id = uuid)
+      return '<div onclick="event.stopPropagation();if(typeof openListingDetail===\'function\')openListingDetail(\'' + l.id + '\')" role="button" tabindex="0" style="display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;">' +
+        thumb +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="font-size:13px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(String(l.title || '').slice(0,40)) + '</div>' +
+          '<div style="font-size:10.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(l.region || '') + (l.seller_name ? ' · ' + esc(l.seller_name) : '') + '</div>' +
+        '</div>' +
+        '<div style="font-size:12px;font-weight:800;color:var(--g-dark);white-space:nowrap;">' + esc(price) + '</div>' +
+      '</div>';
     }).join('');
-    cont.style.display = 'block';
-  } catch(e) { console.warn('[gsHomeRenderTopPicks]', e && e.message); }
-  finally { cont._gsLoading = false; }
+    window._gsMktHomeCache = { ts: Date.now(), html: html };
+    list.innerHTML = html;
+  } catch(e) { console.warn('[gsHomeRenderMarketLive]', e && e.message); }
 }
 window.gsHomeRenderTopPicks = gsHomeRenderTopPicks;
+window.gsHomeRenderMarketLive = gsHomeRenderTopPicks;
+
+// ── v28.21 D.2: Home Swipe-Widget-Stack ─────────────────────────────────────
+// Verschiebt 4 existierende Tages-Karten (News/Saison/Wusstest/Bauernregel) zur Laufzeit in
+// einen CSS-scroll-snap-Container (Touch+Trackpad-Swipe gratis) + Dots + Auto-Rotation +
+// sessionStorage-Index + reduced-motion. Idempotent. Bei Fehler bleiben die Karten vertikal.
+function _gsWStackSetActive(idx){
+  var dots = document.getElementById('gs-wstack-dots'); if (!dots) return;
+  var bs = dots.querySelectorAll('.gs-wdot');
+  for (var i=0;i<bs.length;i++){ bs[i].setAttribute('aria-selected', i===idx ? 'true':'false'); }
+}
+function _gsWStackGo(idx, smooth){
+  var vp = document.getElementById('gs-wstack-viewport'); if (!vp) return;
+  var w = vp.clientWidth || 1;
+  try { vp.scrollTo({ left: idx*w, behavior: (smooth && !window._gsWStackReduce) ? 'smooth' : 'auto' }); }
+  catch(_){ vp.scrollLeft = idx*w; }
+  _gsWStackSetActive(idx);
+}
+window.gsBuildWidgetStack = function(){
+  try {
+    if (window._gsWStackBuilt) return;
+    var ids = ['daily-card','season-tip-card','card-wusstest','wisdom-card'];
+    var cards = ids.map(function(id){ return document.getElementById(id); }).filter(Boolean);
+    if (cards.length < 2) return;
+    var parent = cards[0].parentNode; if (!parent) return;
+    var vp = document.createElement('div');
+    vp.className = 'gs-wstack-viewport'; vp.id = 'gs-wstack-viewport';
+    parent.insertBefore(vp, cards[0]);
+    cards.forEach(function(card){
+      if (card.style.display === 'none') card.style.display = '';  // wisdom-card sichtbar als stabiler Slide
+      var slide = document.createElement('div'); slide.className = 'gs-wslide';
+      vp.appendChild(slide); slide.appendChild(card);
+    });
+    var n = cards.length;
+    var dots = document.createElement('div');
+    dots.className = 'gs-wstack-dots'; dots.id = 'gs-wstack-dots';
+    dots.setAttribute('role','tablist'); dots.setAttribute('aria-label','Tages-Karten');
+    parent.insertBefore(dots, vp.nextSibling);
+    for (var i=0;i<n;i++){ (function(idx){
+      var d = document.createElement('button');
+      d.className = 'gs-wdot'; d.type = 'button'; d.setAttribute('role','tab');
+      d.setAttribute('aria-label','Karte ' + (idx+1) + ' von ' + n);
+      d.addEventListener('click', function(){ _gsWStackGo(idx, true); _gsWStackPause(); });
+      dots.appendChild(d);
+    })(i); }
+    window._gsWStackN = n;
+    window._gsWStackPausedUntil = 0;
+    try { window._gsWStackReduce = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch(_){ window._gsWStackReduce = false; }
+    window._gsWStackPause = function(){ window._gsWStackPausedUntil = Date.now() + 12000; };
+    // Scroll-Sync (Dots + sessionStorage)
+    var raf;
+    vp.addEventListener('scroll', function(){
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(function(){
+        var w = vp.clientWidth || 1;
+        var idx = Math.round(vp.scrollLeft / w);
+        _gsWStackSetActive(idx);
+        try { sessionStorage.setItem('gs_home_widget_idx', String(idx)); } catch(_){}
+      });
+    }, {passive:true});
+    vp.addEventListener('pointerdown', function(){ window._gsWStackPause(); }, {passive:true});
+    vp.addEventListener('touchstart', function(){ window._gsWStackPause(); }, {passive:true});
+    // Auto-Rotation alle 8s (pausiert nach Interaktion, aus bei reduced-motion / wenn Home unsichtbar)
+    if (!window._gsWStackReduce && !window._gsWStackTimer) {
+      window._gsWStackTimer = setInterval(function(){
+        var v = document.getElementById('gs-wstack-viewport');
+        if (!v || v.offsetParent === null) return;
+        if (Date.now() < (window._gsWStackPausedUntil||0)) return;
+        var w = v.clientWidth || 1;
+        var cur = Math.round(v.scrollLeft / w);
+        _gsWStackGo((cur + 1) % window._gsWStackN, true);
+      }, 8000);
+    }
+    window._gsWStackBuilt = true;
+    // Letzten Index wiederherstellen (sessionStorage)
+    var start = 0;
+    try { start = parseInt(sessionStorage.getItem('gs_home_widget_idx')||'0',10) || 0; } catch(_){}
+    if (start > 0 && start < n) setTimeout(function(){ _gsWStackGo(start, false); }, 80);
+    else _gsWStackSetActive(0);
+  } catch(e){ /* graceful: Karten bleiben vertikal sichtbar */ }
+};
+try { window.addEventListener('load', function(){ setTimeout(function(){ try { if (typeof gsBuildWidgetStack==='function') gsBuildWidgetStack(); } catch(_){} }, 700); }); } catch(_){}
 
 // v27.04: „nicht interessiert" — Pick merken (LS) + Liste neu rendern (Rotation)
 window.gsHomeDismissPick = function(idx){
@@ -16725,6 +16824,8 @@ function gsUpdateHomeGreeting() {
 
 function initHomeBoard() {
   gsUpdateHomeGreeting();
+  // v28.21 D.2: Tages-Karten-Swipe-Stack bauen (idempotent, läuft nur beim 1. Home-Aufruf)
+  try { if (typeof gsBuildWidgetStack === 'function') gsBuildWidgetStack(); } catch(_){}
   // v23.56: Streak bei jedem Home-Aufruf antippen + rendern (Single Source of Truth)
   try { if (typeof gsTouchStreak === 'function') gsTouchStreak(); } catch(e){}
   // v23.66: XP-Bar + Context-Badge auf identischen Stand bringen wie Menü
@@ -18152,8 +18253,8 @@ function switchTab(t, btn) {
   // v23.55: Tagebuch-Widget auch bei jedem Tab-Wechsel synchronisieren
   try { if (typeof gsUpdateTagebuchWidget === 'function') gsUpdateTagebuchWidget(); } catch(e){}
 
-  // Update main 5 tabs (home, scanner, search, favs, menu-btn)
-  const mainTabs = ['home','scanner','search','favs'];
+  // Update main 5 tabs (home, scanner, social, favs, menu-btn) — v28.21: search→community getauscht
+  const mainTabs = ['home','scanner','social','favs'];
   // v24.46: aria-selected mit aktualisieren (a11y/role=tablist)
   document.querySelectorAll('.tab').forEach(b => {
     b.classList.remove('active');
@@ -55810,6 +55911,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.21', date: '04.06.2026',
+    headline: '🌿 Community in der Leiste + Home neu: Live-Marktplatz & Wisch-Karten',
+    summary: 'Die untere Leiste hat jetzt 🌿 Community statt 🔍 Suche (die Suche erreichst du weiter oben im Menü). Auf der Startseite siehst du neu „🛒 Aktive Inserate · Live" — die neuesten Marktplatz-Angebote in Echtzeit; tippe drauf und du bist im Marktplatz. Und die Tages-Karten (Tagesinfo, Saison-Tipp, Wusstest-du, Bauernregel) sind jetzt zu einem Stapel zusammengefasst, durch den du wie auf dem iPhone seitlich wischst — mit Pünktchen unten und automatischem Weiterblättern.',
+    user_summary: '🌿 Community in der Navi-Leiste · 🛒 Live-Marktplatz auf der Startseite · 📱 Wisch-Karten-Stapel (iPhone-Style).',
+    user_items: [
+      { emoji: '🌿', text: 'Untere Leiste: Community statt Suche (Suche bleibt im Menü)' },
+      { emoji: '🛒', text: 'Startseite zeigt aktive Marktplatz-Inserate live' },
+      { emoji: '📱', text: 'Tages-Karten als Wisch-Stapel mit Pünktchen' },
+    ],
+    items: [
+      {emoji:'🌿', bold:'Nav-Tausch:', text:' Bottom-Nav 🔍 Suche → 🌿 Community. Suche weiter via Menü-Suche + Mehr-Menü + Universal-Suche.'},
+      {emoji:'🛒', bold:'Live-Marktplatz-Karte:', text:' Top-5 aktive Inserate (60s-Cache, Empty/Loading/Error-States), Klick → Marktplatz bzw. Inserat-Detail. Ersetzt „Jetzt gute Zeit für…".'},
+      {emoji:'📱', bold:'Swipe-Widget-Stack:', text:' 4 Tages-Karten als iPhone-Style-Stapel (native CSS scroll-snap, Touch+Trackpad), Pagination-Dots, Auto-Rotation (pausiert bei Interaktion), reduced-motion-safe, merkt sich die Karte. Mock-DOM-verifiziert.'},
+    ]
+  },
+  {
     v: 'v28.20', date: '04.06.2026',
     headline: '🌿 Lina ersetzt den alten KI-Chat + Marktplatz-Härtung',
     summary: 'Im Menü öffnet der KI-Eintrag jetzt direkt Lina — deinen freundlichen, kostenlosen Garten-Coach (statt des alten Experten-Chats). Auch in der Suche, Hilfe und FAQ heisst es jetzt überall „Lina". Ausserdem haben wir den Marktplatz weiter abgesichert: Lade-Fehler werden jetzt sichtbar gemeldet statt still verschluckt, und die Datenbank-Sicht hinter den Anzeigen wurde auf den strengeren, datenschutz-konformen Modus umgestellt — damit ist die Datenbank jetzt komplett ohne Sicherheits-Fehler.',
@@ -59104,7 +59221,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.20';
+var GS_VERSION = 'v28.21';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
