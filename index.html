@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.14.20260604">
+<meta name="app-version" content="28.15.20260604">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -6913,7 +6913,7 @@ function openGartenTagebuch() {
             '<div style="font-size:12.5px;color:var(--text);line-height:1.45;word-wrap:break-word;">' + escHtml(e.text) + '</div>' +
             '<div style="font-size:10.5px;color:var(--muted);margin-top:3px;">' + escHtml(e.date||'') + (e.weather ? ' · ' + escHtml(e.weather) : '') + '</div>' +
           '</div>' +
-          '<button onclick="gsTbDelete(\' + (Number(e.id) || 0) + \')" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:2px 4px;opacity:.4;-webkit-tap-highlight-color:transparent;">✕</button>' +
+          '<button onclick="gsTbDelete(' + (Number(e.id) || 0) + ')" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:2px 4px;opacity:.4;-webkit-tap-highlight-color:transparent;">✕</button>' +
         '</div>';
       });
     });
@@ -7578,7 +7578,7 @@ function openErnteTracking() {
         '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;color:var(--text);">' + (e.pflanze||'').replace(/</g,'&lt;') + '</div>' +
         '<div style="font-size:10.5px;color:var(--muted);">' + (e.ts||'').slice(0,10) + '</div></div>' +
         '<div style="font-size:12.5px;font-weight:800;color:var(--g-dark);">' + (e.menge||0) + ' ' + (e.unit||'kg') + '</div>' +
-        '<button onclick="gsErnteDelete(\' + e.id + \')" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:2px 4px;opacity:.4;-webkit-tap-highlight-color:transparent;">✕</button>' +
+        '<button onclick="gsErnteDelete(\'' + e.id + '\')" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:2px 4px;opacity:.4;-webkit-tap-highlight-color:transparent;">✕</button>' +
       '</div>';
     });
   }
@@ -24551,7 +24551,7 @@ function gsLuxCalibrate() {
         return '<div style="display:flex;align-items:center;gap:8px;padding:7px 9px;background:var(--surface2);border-radius:8px;margin-bottom:5px;font-size:12px;">' +
           '<span>' + src + '</span>' +
           '<span style="flex:1;">' + Math.round(p.raw).toLocaleString('de-CH') + ' → <b>' + p.target.toLocaleString('de-CH') + ' Lux</b></span>' +
-          '<button onclick="gsLuxRemoveCalibPoint(\' + idx + \')" aria-label="Löschen" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0;">×</button>' +
+          '<button onclick="gsLuxRemoveCalibPoint(' + idx + ')" aria-label="Löschen" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0;">×</button>' +
         '</div>';
       }).join('');
     }
@@ -26374,7 +26374,7 @@ function initSeasonCalendar() {
   const tabsEl = document.getElementById('month-tabs');
   if (!tabsEl) return;
   tabsEl.innerHTML = MONTH_NAMES.map((m, i) =>
-    '<button onclick="selectSeasonMonth(\' + i + \',this)" style="flex:0 0 auto;padding:5px 10px;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s;background:' +
+    '<button onclick="selectSeasonMonth(' + i + ',this)" style="flex:0 0 auto;padding:5px 10px;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s;background:' +
     (i === currentSeasonMonth ? '#fff' : 'rgba(255,255,255,.2)') + ';color:' +
     (i === currentSeasonMonth ? '#1a3d1a' : '#fff') + ';" id="sm-' + i + '">' + m + '</button>'
   ).join('');
@@ -30170,28 +30170,39 @@ async function gsHarvestSubmit() {
       'error');
     return;
   }
-  var row = {
-    user_id: uid,
-    plant_local_id: plantId,
-    species_lat: plant ? (plant.lat || null) : null,
-    species_name: plant ? (plant.name || '') : '',
-    harvested_at: (document.getElementById('harvest-date') || {}).value || new Date().toISOString().slice(0,10),
-    amount_value: amt,
-    amount_unit: (document.getElementById('harvest-unit') || {}).value || 'g',
-    note: (document.getElementById('harvest-note') || {}).value || '',
-    quality_rating: window._gsHarvestRating || null
-  };
+  // v28.15 Konsolidierung: schreibt in die EINE kanonische Pipeline (garden_harvests via
+  // gsCloudSync + gs_ernte_log-Cache) statt ins deprecated harvest_log. So erscheint die
+  // Plant-Detail-Ernte auch im Ernte-Tracker UND im Erntekalender (v_harvest_stats_per_user).
   try {
-    var r = await sbFetch('/rest/v1/harvest_log', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json','Prefer':'return=minimal'},
-      body: JSON.stringify(row)
-    });
-    if (r && r.error) {
-      if (typeof showProfileToast === 'function') showProfileToast(
-        (window.gsI18n ? gsI18n.t('harvest_save_error', '⚠️ Konnte nicht speichern') : '⚠️ Konnte nicht speichern'),
-        'error');
-      return;
+    var dateStr = (document.getElementById('harvest-date') || {}).value || new Date().toISOString().slice(0,10);
+    var rowId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Date.now() + '-' + Math.random().toString(36).slice(2,10));
+    var entry = {
+      id: rowId,
+      ts: dateStr + 'T12:00:00.000Z',
+      pflanze: plant ? (plant.name || plant.lat || '') : '',
+      emoji: (plant && plant.emoji) ? plant.emoji : '🧺',
+      menge: amt,
+      unit: (document.getElementById('harvest-unit') || {}).value || 'g',
+      notes: (document.getElementById('harvest-note') || {}).value || null,
+      destination: null, price_chf: null, buyer: null,
+      quality_rating: window._gsHarvestRating || null,
+      weather: null,
+      plant_local_id: plantId,
+      species_lat: plant ? (plant.lat || null) : null
+    };
+    if (typeof gsErnteLoad === 'function') gsErnteLoad();
+    if (Array.isArray(window._gsErnteLog)) {
+      window._gsErnteLog.unshift(entry);
+      try { localStorage.setItem('gs_ernte_log', JSON.stringify(window._gsErnteLog.slice(0, 1000))); } catch(_){}
+    }
+    if (window.gsCloudSync && typeof gsCloudSync.pushHarvestAdd === 'function') {
+      gsCloudSync.pushHarvestAdd({
+        id: rowId, species_name: entry.pflanze, emoji: entry.emoji, ts: entry.ts,
+        menge: entry.menge, unit: entry.unit, notes: entry.notes,
+        destination: null, price_chf: null, buyer: null,
+        quality_rating: entry.quality_rating, weather: null,
+        plant_local_id: entry.plant_local_id, species_lat: entry.species_lat
+      });
     }
     if (typeof showProfileToast === 'function') showProfileToast(
       (window.gsI18n ? gsI18n.t('harvest_saved', '✅ Ernte gespeichert!') : '✅ Ernte gespeichert!'),
@@ -30237,7 +30248,7 @@ async function openHarvestStatsModal() {
   var totalG = 0, totalStk = 0, plants = new Set();
   rows.forEach(function(r){
     totalG += (r.total_grams || 0);
-    totalStk += (r.total_stk || 0);
+    totalStk += (r.total_pieces || 0);
     if (r.species_name) plants.add(r.species_name);
   });
   if (summary) {
@@ -30253,7 +30264,7 @@ async function openHarvestStatsModal() {
     var amount = '';
     if (r.total_grams >= 1000) amount = (r.total_grams/1000).toFixed(2) + ' kg';
     else if (r.total_grams > 0) amount = Math.round(r.total_grams) + ' g';
-    else if (r.total_stk > 0) amount = r.total_stk + ' Stk';
+    else if (r.total_pieces > 0) amount = r.total_pieces + ' Stk';
     html += '<div style="background:var(--surface2);border-radius:10px;padding:10px 12px;">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">' +
               '<span style="font-size:13px;font-weight:800;color:var(--text);">' + esc(r.species_name || '?') + '</span>' +
@@ -30276,8 +30287,21 @@ async function gsHarvestLoadForPlant(plantLocalId) {
   var uid = (window.gsStore && typeof gsStore.get === 'function') ? gsStore.get('gs_sb_uid', null) : null;
   if (!uid) return [];
   try {
-    var r = await sbFetch('/rest/v1/harvest_log?user_id=eq.' + encodeURIComponent(uid) + '&plant_local_id=eq.' + encodeURIComponent(plantLocalId) + '&order=harvested_at.desc&limit=50', { method:'GET' });
-    return (r && r.data) || [];
+    // v28.15: kanonische garden_harvests (ts/menge/unit/notes) → alte Feldnamen mappen
+    var r = await sbFetch('/rest/v1/garden_harvests?user_id=eq.' + encodeURIComponent(uid) + '&plant_local_id=eq.' + encodeURIComponent(plantLocalId) + '&order=ts.desc&limit=50', { method:'GET' });
+    var rows = (r && r.data) || [];
+    return rows.map(function(g){
+      return {
+        id: g.id,
+        harvested_at: (g.ts || '').slice(0, 10),
+        amount_value: g.menge,
+        amount_unit: g.unit,
+        note: g.notes,
+        quality_rating: g.quality_rating,
+        species_name: g.species_name,
+        species_lat: g.species_lat
+      };
+    });
   } catch(_) { return []; }
 }
 window.gsHarvestLoadForPlant = gsHarvestLoadForPlant;
@@ -31167,7 +31191,7 @@ function placeBid(lid) {
   const quickEl = document.getElementById('bid-quick-btns');
   if (quickEl) {
     quickEl.innerHTML = [1,2,5,10,25].map(n =>
-      '<button class="bid-step-btn" onclick="addBidAmount(\' + n + \')" >+' + n + ' CHF</button>'
+      '<button class="bid-step-btn" onclick="addBidAmount(' + n + ')" >+' + n + ' CHF</button>'
     ).join('');
   }
 
@@ -55622,6 +55646,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.15', date: '04.06.2026',
+    headline: '🧺 Ernte-Kalender zeigt endlich alle Ernten + reparierte Lösch-Buttons',
+    summary: 'Bisher landeten Ernten, die du im Ernte-Tracker erfasst hast, NICHT im Erntekalender (Jahres-Statistik) — der war immer leer, egal wie viel du eingetragen hast. Das ist behoben: Ernte-Tracker, Pflanzen-Detail-Ernte und Erntekalender nutzen jetzt eine gemeinsame Datenquelle. Alte Einträge aus dem früheren separaten Tracker werden automatisch übernommen. Ausserdem haben wir mehrere Lösch- und Aktions-Buttons repariert, die durch einen alten Tippfehler nicht funktionierten (Ernte/Tagebuch/Saatgut löschen, Gebots-Schritte, Saison-Monat).',
+    user_summary: '🧺 Erntekalender zeigt jetzt alle Ernten (eine gemeinsame Datenquelle) + reparierte Lösch-/Aktions-Buttons.',
+    user_items: [
+      { emoji: '📊', text: 'Erntekalender erfasst jetzt alle Ernten — auch die aus dem Ernte-Tracker' },
+      { emoji: '🔗', text: 'Eine gemeinsame Ernte-Datenquelle (geräteübergreifend), alte Einträge übernommen' },
+      { emoji: '🛠️', text: 'Reparierte Buttons: Ernte/Tagebuch/Saatgut löschen, Gebots-Schritte, Saison-Monat' },
+    ],
+    items: [
+      {emoji:'🧺', bold:'Ernte-Mismatch behoben:', text:' garden_harvests ist jetzt die EINE kanonische Ernte-Tabelle. v_harvest_stats_per_user (Erntekalender) aggregiert sie statt der leeren Alt-Tabelle harvest_log. security_invoker=on → strenge Eigentümer-Isolation (transaktional verifiziert).'},
+      {emoji:'🔗', bold:'3 Pfade vereinheitlicht:', text:' Plant-Detail-Ernte, Ernte-Tracker-Widget und der alte Standalone-Tracker schreiben/lesen jetzt dieselbe Quelle. Einmalige, idempotente Migration der Alt-Einträge.'},
+      {emoji:'🛠️', bold:'7 Hard-Lesson-#12-Buttons repariert:', text:' onclick mit fehlerhaften JS-Escapes rendere literalen Text → ReferenceError beim Klick. Betroffen: Ernte/Tagebuch/Saatgut-Löschen, Lux-Kalibrierung, Gebots-Schritte, Saison-Monat. Alle restauriert + Stk-Anzeige-Bug im Erntekalender gefixt.'},
+    ]
+  },
+  {
     v: 'v28.14', date: '04.06.2026',
     headline: '⚙️ Aufgeräumte Einstellungen — aufklappbare Gruppen & Suche',
     summary: 'Die Einstellungen sind über die Zeit ziemlich lang geworden. Jetzt sind sie aufgeräumt: Jede der 9 Gruppen lässt sich auf- und zuklappen (Tipp auf den Titel), und ganz oben gibt es eine Suche — tippe z. B. „Nachtmodus", „Push" oder „Sprache" und springst direkt hin. Mit „⇕" klappst du alle Gruppen auf einmal auf oder zu. Welche Gruppen offen sind, merkt sich die App. Nichts wurde versteckt, nur ordentlicher sortiert.',
@@ -58826,7 +58866,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.14';
+var GS_VERSION = 'v28.15';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -63865,7 +63905,16 @@ async function gsSyncUserDataOnLogin(){
             pflanze: row.species_name || '',
             emoji: row.emoji || '🧺',
             menge: Number(row.menge) || 0,
-            unit: row.unit || 'kg'
+            unit: row.unit || 'kg',
+            // v28.15: vollständiges Schema round-trippen (sonst Verlust der Reich-Felder bei Geräte-Pull)
+            notes: row.notes || null,
+            destination: row.destination || null,
+            price_chf: (row.price_chf != null ? Number(row.price_chf) : null),
+            buyer: row.buyer || null,
+            quality_rating: (row.quality_rating != null ? row.quality_rating : null),
+            weather: row.weather || null,
+            plant_local_id: row.plant_local_id || null,
+            species_lat: row.species_lat || null
           };
         });
         try { localStorage.setItem('gs_ernte_log', JSON.stringify(mapped.slice(0,1000))); } catch(_){}
@@ -67115,30 +67164,37 @@ async function gsDoctorRun(file){
 }
 
 // ── 2. ERNTE-TRACKER ──────────────────────────────────────────────
+// v28.15 Konsolidierung: alter Standalone-Tracker (LS-only gs_harvest_log) → einmalige Migration
+// der Alt-Einträge in die kanonische Pipeline (gs_ernte_log + garden_harvests). Idempotent via Flag.
+function gsMigrateLegacyHarvestLog(){
+  try {
+    if (localStorage.getItem('gs_harvest_consol_2815')) return;
+    var legacy = [];
+    try { legacy = JSON.parse(localStorage.getItem('gs_harvest_log') || '[]') || []; } catch(_){ legacy = []; }
+    if (legacy.length && typeof gsErnteLoad === 'function') {
+      gsErnteLoad();
+      if (!Array.isArray(window._gsErnteLog)) window._gsErnteLog = [];
+      var seen = {};
+      window._gsErnteLog.forEach(function(e){ seen[((e.ts||'').slice(0,10)) + '|' + (e.pflanze||'')] = 1; });
+      legacy.forEach(function(h){
+        var ts = h.date ? (h.date + 'T12:00:00.000Z') : new Date(h.ts || Date.now()).toISOString();
+        var key = ts.slice(0,10) + '|' + (h.name || '');
+        if (seen[key]) return;
+        seen[key] = 1;
+        var rowId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Date.now() + '-' + Math.random().toString(36).slice(2,10));
+        var entry = { id: rowId, ts: ts, pflanze: (h.name || 'Ernte').slice(0,50), emoji: '🧺', menge: parseFloat(h.kg) || 0, unit: 'kg', notes: null, destination: null, price_chf: null, buyer: null, quality_rating: null, weather: null, plant_local_id: null, species_lat: null };
+        window._gsErnteLog.unshift(entry);
+        try { if (window.gsCloudSync && typeof gsCloudSync.pushHarvestAdd === 'function') gsCloudSync.pushHarvestAdd({ id: rowId, species_name: entry.pflanze, emoji: entry.emoji, ts: entry.ts, menge: entry.menge, unit: entry.unit, notes: null, destination: null, price_chf: null, buyer: null, quality_rating: null, weather: null, plant_local_id: null, species_lat: null }); } catch(_){}
+      });
+      try { localStorage.setItem('gs_ernte_log', JSON.stringify(window._gsErnteLog.slice(0,1000))); } catch(_){}
+    }
+    try { localStorage.setItem('gs_harvest_consol_2815', '1'); } catch(_){}
+  } catch(_){}
+}
 function gsOpenHarvestTracker(){
-  var items = _gsNlSafeItems('gs_harvest_log');
-  var totalKg = items.reduce(function(s,i){ return s + (parseFloat(i.kg)||0); }, 0);
-  var html =
-    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">' +
-      '<div style="font-size:36px;">🧺</div>' +
-      '<div><h3 style="margin:0;color:var(--g-dark);">Ernte-Tracker</h3>' +
-      '<div style="font-size:12px;color:var(--muted);">Gesamt-Ernte: <b>' + totalKg.toFixed(2) + ' kg</b> · ' + items.length + ' Einträge</div></div>' +
-    '</div>' +
-    '<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:6px;margin-bottom:8px;">' +
-      '<input id="gs-h-name" placeholder="Pflanze (z.B. Tomate)" style="padding:10px;border:1px solid #ddd;border-radius:8px;font-family:inherit;">' +
-      '<input id="gs-h-kg" type="number" step="0.01" placeholder="kg" style="padding:10px;border:1px solid #ddd;border-radius:8px;font-family:inherit;">' +
-      '<button onclick="gsHarvestAdd()" style="padding:10px;background:var(--g-main);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-family:inherit;">+ Ernte</button>' +
-    '</div>' +
-    '<div id="gs-h-list" style="max-height:40vh;overflow-y:auto;">' +
-      (items.length ? items.slice().reverse().map(function(i,idx){
-        var realIdx = items.length-1-idx;
-        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#fff8e1;border-radius:8px;margin-bottom:5px;">' +
-          '<div><b>' + escHtml(i.name||'?') + '</b> · ' + (parseFloat(i.kg)||0).toFixed(2) + ' kg <span style="color:#888;font-size:11px;">' + (i.date||'') + '</span></div>' +
-          '<button onclick="gsHarvestDel(\' + realIdx + \')" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:16px;">🗑️</button>' +
-          '</div>';
-      }).join('') : '<div style="padding:20px;text-align:center;color:#888;">Noch keine Einträge — erfasse deine erste Ernte!</div>') +
-    '</div>';
-  _gsNlOpen(html);
+  // v28.15: vereinheitlicht — leitet auf den kanonischen Ernte-Tracker (garden_harvests) um.
+  gsMigrateLegacyHarvestLog();
+  if (typeof openErnteTracking === 'function') return openErnteTracking();
 }
 function gsHarvestAdd(){
   var n = document.getElementById('gs-h-name').value.trim();
@@ -67186,7 +67242,7 @@ function gsOpenSeedInventory(){
         var warn = exp && (exp - Date.now())/(1000*60*60*24) < 180;
         return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:' + (warn?'#ffebee':'#fff3e0') + ';border-radius:8px;margin-bottom:5px;">' +
           '<div><b>' + escHtml(i.name||'?') + '</b> · ' + escHtml(i.qty||'') + (exp?' · <span style="font-size:11px;color:' + (warn?'#c62828':'#888') + ';">📅 ' + exp.toLocaleDateString('de-CH') + (warn?' ⚠️':'') + '</span>':'') + '</div>' +
-          '<button onclick="gsSeedDel(\' + realIdx + \')" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:16px;">🗑️</button>' +
+          '<button onclick="gsSeedDel(' + realIdx + ')" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:16px;">🗑️</button>' +
           '</div>';
       }).join('') : '<div style="padding:20px;text-align:center;color:#888;">Erfasse deine Sämereien — ich warne vor Ablaufdatum.</div>') +
     '</div>';
@@ -67282,10 +67338,17 @@ function gsOpenBiodiversity(){
 
 // ── 5. GARTEN-TIMELINE ────────────────────────────────────────────
 function gsOpenGardenTimeline(){
-  var harvest = _gsNlSafeItems('gs_harvest_log');
+  // v28.15: vereinheitlichte Ernte-Quelle (gs_ernte_log / garden_harvests) statt LS-only gs_harvest_log
+  var harvest = [];
+  try { if (typeof gsErnteLoad === 'function') gsErnteLoad(); harvest = Array.isArray(window._gsErnteLog) ? window._gsErnteLog : []; } catch(_){ harvest = []; }
   var scans   = _gsNlSafeItems('scan_history');
   var events = [];
-  harvest.forEach(function(h){ events.push({ type:'harvest', date:h.date||new Date(h.ts||Date.now()).toISOString().slice(0,10), label:'🧺 Ernte: ' + h.name + ' · ' + (parseFloat(h.kg)||0).toFixed(2) + ' kg' }); });
+  harvest.forEach(function(h){
+    var nm = h.pflanze || h.name || '?';
+    var mg = (h.menge != null ? h.menge : h.kg);
+    var un = h.unit || 'kg';
+    events.push({ type:'harvest', date:(h.ts||h.date||'').slice(0,10) || new Date().toISOString().slice(0,10), label:'🧺 Ernte: ' + nm + ' · ' + (parseFloat(mg)||0) + ' ' + un });
+  });
   scans.forEach(function(s){ if(s.ts) events.push({ type:'scan', date:new Date(s.ts).toISOString().slice(0,10), label:'🔬 Scan: ' + (s.name||s.topMatch||'?') }); });
   // Saison-Ereignisse des Jahres
   var y = new Date().getFullYear();
