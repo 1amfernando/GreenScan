@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.11.20260603">
+<meta name="app-version" content="28.12.20260603">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4772,6 +4772,10 @@ html, body{ scroll-behavior: smooth; }
         <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px;color:var(--text);"><input type="checkbox" id="push-cat-water" checked onchange="gsSavePushSettings({water:this.checked})" style="width:18px;height:18px;cursor:pointer;"> 💧 Pflanzen giessen</label>
         <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px;color:var(--text);"><input type="checkbox" id="push-cat-seasonal" checked onchange="gsSavePushSettings({seasonal:this.checked})" style="width:18px;height:18px;cursor:pointer;"> 📅 Saison-Aufgaben</label>
         <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px;color:var(--text);"><input type="checkbox" id="push-cat-quiz" checked onchange="gsSavePushSettings({quiz:this.checked})" style="width:18px;height:18px;cursor:pointer;"> 🎯 Quiz-Streak-Erinnerung</label>
+        <!-- v28.12: Engagement-Pushes (Klassen / Doktor / Battle) -->
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px;color:var(--text);"><input type="checkbox" id="push-cat-classes" checked onchange="gsSavePushSettings({classes:this.checked})" style="width:18px;height:18px;cursor:pointer;"> 🎓 Klassen (neue Aufgaben / Einreichungen)</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px;color:var(--text);"><input type="checkbox" id="push-cat-doctor" checked onchange="gsSavePushSettings({doctor:this.checked})" style="width:18px;height:18px;cursor:pointer;"> 🩺 Pflanzen-Doktor-Nachkontrolle</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px;color:var(--text);"><input type="checkbox" id="push-cat-battle" checked onchange="gsSavePushSettings({battle:this.checked})" style="width:18px;height:18px;cursor:pointer;"> ⚔️ Quiz-Duell-Antworten</label>
         <!-- v27.00: Wetter-Vorlauf (Lead-Time) — wie viele Stunden im Voraus warnen -->
         <div style="margin-top:12px;font-size:12.5px;color:var(--text);">
           <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:4px;"><span>🌦️ Wetter-Vorlauf</span><span id="push-lead-display" style="color:var(--accent,#2e7d32);">12 h</span></div>
@@ -55486,6 +55490,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.12', date: '03.06.2026',
+    headline: '🔔 Mehr hilfreiche Benachrichtigungen — Klassen, Pflanzen-Doktor & Quiz-Duelle',
+    summary: 'Drei neue, hilfreiche Benachrichtigungen — alle gratis und einzeln abschaltbar: Schüler:innen werden über neue Klassen-Aufgaben informiert, Lehrkräfte über neue Einreichungen; nach einer Pflanzen-Doktor-Diagnose erinnert dich eine Nachkontrolle nach ~7 Tagen („Wie geht\'s deiner Pflanze?"); und im Quiz-Duell erfährst du, wenn dein Gegner geantwortet hat. Alles respektiert deine Ruhezeiten und die „Stille Tage"-Pause. Du kannst jede Art einzeln im Push-Bereich der Einstellungen ein-/ausschalten.',
+    user_summary: '🔔 Neue (gratis, abschaltbare) Benachrichtigungen: Klassen-Aufgaben, Doktor-Nachkontrolle & „Gegner hat geantwortet".',
+    user_items: [
+      { emoji: '🎓', text: 'Klassen: neue Aufgabe (Schüler:innen) / neue Einreichungen (Lehrkräfte)' },
+      { emoji: '🩺', text: 'Pflanzen-Doktor: Nachkontrolle-Erinnerung nach ~7 Tagen' },
+      { emoji: '⚔️', text: 'Quiz-Duell: „Dein Gegner hat geantwortet"' },
+    ],
+    items: [
+      {emoji:'🔔', bold:'3 deferred Pushes aktiviert (FREE):', text:' Klassen-Aufgabe/Einreichung (v28.06), Doktor-Follow-up (v26.96), Battle-Antwort (v26.97). Opt-out je Kategorie (3 neue Toggles im Push-Bereich).'},
+      {emoji:'🛡️', bold:'Risikoarm gebaut:', text:' Separate Edge-Fn engagement-push-checker (die kritische Frost-Push-Fn bleibt unberührt). Detektion in 4 getesteten SQL-RPCs. Respektiert Ruhezeiten + „Stille Tage" automatisch. Tages-Dedup (kein Spam). Cron alle 3h tagsüber.'},
+    ]
+  },
+  {
     v: 'v28.11', date: '03.06.2026',
     headline: '❓ Bessere Hilfe & FAQ + 🔕 „Stille Tage" für Benachrichtigungen',
     summary: 'Zwei Verbesserungen für mehr Komfort. Die Hilfe-&-FAQ-Seite hat jetzt eine Live-Suche und ist nach Kategorien sortiert (Account, Pflanzen, Garten, Marktplatz, Abo, Privatsphäre, Technisches) mit deutlich mehr Antworten. Beim Feedback hängen wir technische Infos (App-Version, Sprache) automatisch an — du musst nichts selbst eintippen. Und neu kannst du Benachrichtigungen mit einem Klick für 3, 7 oder 14 Tage komplett pausieren („Stille Tage" — perfekt für den Urlaub) und jederzeit wieder aktivieren. Alle Benachrichtigungen bleiben gratis.',
@@ -58644,7 +58663,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.11';
+var GS_VERSION = 'v28.12';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -65509,6 +65528,9 @@ async function gsSavePushSettings(partial){
   if ('water'      in partial) patch.notify_water        = !!partial.water;
   if ('seasonal'   in partial) patch.notify_seasonal     = !!partial.seasonal;
   if ('quiz'       in partial) patch.notify_quiz_streak  = !!partial.quiz;
+  if ('classes'    in partial) patch.notify_classes      = !!partial.classes;  // v28.12
+  if ('doctor'     in partial) patch.notify_doctor       = !!partial.doctor;   // v28.12
+  if ('battle'     in partial) patch.notify_battle       = !!partial.battle;   // v28.12
   if ('quietStart' in partial && typeof partial.quietStart === 'number') patch.quiet_start_hour = partial.quietStart;
   if ('quietEnd'   in partial && typeof partial.quietEnd   === 'number') patch.quiet_end_hour   = partial.quietEnd;
   if ('leadHours'  in partial && typeof partial.leadHours  === 'number') patch.alert_lead_hours = Math.max(2, Math.min(48, partial.leadHours)); // v27.00
@@ -65570,7 +65592,7 @@ async function gsPushSettingsRefresh(){
   // Lokale Settings ins UI spiegeln
   var s = {};
   try { s = JSON.parse(localStorage.getItem('gs_push_settings') || '{}'); } catch(_){}
-  var ids = { frost:'push-cat-frost', heat:'push-cat-heat', storm:'push-cat-storm', water:'push-cat-water', seasonal:'push-cat-seasonal', quiz:'push-cat-quiz' };
+  var ids = { frost:'push-cat-frost', heat:'push-cat-heat', storm:'push-cat-storm', water:'push-cat-water', seasonal:'push-cat-seasonal', quiz:'push-cat-quiz', classes:'push-cat-classes', doctor:'push-cat-doctor', battle:'push-cat-battle' };
   Object.keys(ids).forEach(function(k){
     var el = document.getElementById(ids[k]);
     if (el) el.checked = (s[k] !== false);
