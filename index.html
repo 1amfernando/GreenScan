@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.17.20260604">
+<meta name="app-version" content="28.18.20260604">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -55767,6 +55767,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.18', date: '04.06.2026',
+    headline: '⚡ Performance: schlankere Datenbank-Zugriffsregeln',
+    summary: 'Eine unsichtbare, aber wichtige Aufräum-Aktion: Wo die Datenbank bisher mehrere überlappende Zugriffsregeln pro Tabelle prüfen musste, gibt es jetzt jeweils eine zusammengefasste Regel. Das macht Abfragen bei wachsender Nutzerzahl schneller — ohne dass sich am Datenschutz irgendetwas ändert (jede Zusammenfassung wurde nachweislich identisch gehalten und getestet). Keine sichtbare Änderung, nur mehr Tempo unter der Haube.',
+    user_summary: '⚡ Datenbank-Zugriffsregeln konsolidiert → schnellere Abfragen bei Skalierung. Datenschutz unverändert.',
+    user_items: [
+      { emoji: '⚡', text: 'Weniger Regel-Auswertungen pro Abfrage → schneller bei Wachstum' },
+      { emoji: '🔒', text: 'Datenschutz/Isolation unverändert (jede Zusammenfassung getestet)' },
+    ],
+    items: [
+      {emoji:'⚡', bold:'13 RLS-Konsolidierungen:', text:' 8 (Tabelle,cmd)-Paare → je 1 OR-gemergte Policy + 5 redundante insert_own gedroppt. Beweisbar semantik-erhaltend, transaktional verifiziert (profiles/marketplace/garden_harvests).'},
+      {emoji:'📌', bold:'Bewusst belassen:', text:' admin_write/public_read-Read-Overlap auf Referenz-Tabellen (marginal) + 195 „unused" Indizes (sind FK-/neue Indizes, nur pre-launch ungenutzt — bei Skalierung gebraucht).'},
+    ]
+  },
+  {
     v: 'v28.17', date: '04.06.2026',
     headline: '💬 Marktplatz-Chat in Echtzeit + Ungelesen-Zähler',
     summary: 'Nachrichten im Marktplatz-Chat kommen jetzt in Echtzeit an — du musst nicht mehr warten oder neu laden, die Antwort des anderen erscheint sofort. Und der 📨-Posteingang oben im Marktplatz zeigt jetzt einen roten Zähler mit der Anzahl ungelesener Nachrichten, damit du nichts verpasst. Falls die Echtzeit-Verbindung mal nicht möglich ist, aktualisiert sich der Chat automatisch weiter wie bisher.',
@@ -59016,7 +59030,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.17';
+var GS_VERSION = 'v28.18';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
