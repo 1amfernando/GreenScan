@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.16.20260604">
+<meta name="app-version" content="28.17.20260604">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2987,7 +2987,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <div data-i18n="market_title" data-i18n-fallback="🛒 Marktplatz" style="font-family:'Playfair Display',serif;font-size:20px;font-weight:900;margin-bottom:2px;">🛒 Marktplatz</div>
     <div style="font-size:11.5px;opacity:.78;line-height:1.3;"><span id="market-stat-count">0</span> Angebote · Schweizweit</div>
   </div>
-  <button onclick="gsOpenConversations()" aria-label="Nachrichten" title="Meine Marktplatz-Nachrichten" style="width:38px;height:38px;flex-shrink:0;background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:10px;font-size:17px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📨</button>
+  <button id="mkt-inbox-btn" onclick="gsOpenConversations()" aria-label="Nachrichten" title="Meine Marktplatz-Nachrichten" style="position:relative;width:38px;height:38px;flex-shrink:0;background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:10px;font-size:17px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📨<span id="mkt-inbox-badge" style="display:none;position:absolute;top:-4px;right:-4px;min-width:17px;height:17px;background:#e53935;color:#fff;border-radius:9px;font-size:10px;font-weight:800;align-items:center;justify-content:center;padding:0 4px;line-height:1;">0</span></button>
   <button onclick="openNewListing()" aria-label="Inserat erstellen" data-i18n="btn_market_new" data-i18n-fallback="+ Angebot" style="padding:8px 14px;background:var(--card);color:var(--g-dark);border:none;border-radius:10px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">+ Angebot</button>
 </div>
 
@@ -17068,6 +17068,7 @@ function gsMarketUser() {
 
 // ── HAUPTRENDERER ────────────────────────────────────────────────
 function renderMarket() {
+  try { if (typeof gsMktRefreshUnreadBadge === 'function') gsMktRefreshUnreadBadge(); } catch(_){}  // v28.17: Inbox-Badge
   var listings = gsMarketLoad();
   var listEl = document.getElementById('market-listings');
   var statusEl = document.getElementById('market-status');
@@ -31398,13 +31399,24 @@ function _gsChatStartThread(listingId, buyerId, sellerId, title, otherName, avat
   if (msgs) msgs.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;font-size:13px;">⏳ Lade Nachrichten…</div>';
   openModal('modal-market-chat');
   _gsChatLoadMessages(true);
-  // Polling alle 5s, solange das Chat-Modal offen ist
+  // Polling alle 5s als Fallback/Reconciliation, solange das Chat-Modal offen ist
   try { clearInterval(window._gsChat.pollId); } catch(_){}
   window._gsChat.pollId = setInterval(function(){
     var m = document.getElementById('modal-market-chat');
-    if (!m || !m.classList.contains('open')) { try { clearInterval(window._gsChat.pollId); } catch(_){}; window._gsChat.pollId = null; return; }
+    if (!m || !m.classList.contains('open')) {
+      try { clearInterval(window._gsChat.pollId); } catch(_){}; window._gsChat.pollId = null;
+      try { if (window._gsRealtimeChat) window._gsRealtimeChat.unsubscribe(); } catch(_){}
+      return;
+    }
     _gsChatLoadMessages(false);
   }, 5000);
+  // v28.17: Realtime-Subscription (additiv — neue Nachricht → sofortiges Reload; Polling bleibt Fallback)
+  try {
+    if (window._gsRealtimeChat) window._gsRealtimeChat.subscribe(listingId, buyerId, function(){
+      try { if (window._gsChat) window._gsChat.lastCount = -1; } catch(_){}
+      _gsChatLoadMessages(true);
+    });
+  } catch(_){}
 }
 
 async function _gsChatLoadMessages(scrollDown){
@@ -31482,7 +31494,80 @@ async function _gsChatMarkRead(){
       body: JSON.stringify({ p_listing_id: c.listingId, p_buyer_id: c.buyerId })
     });
   } catch(_){}
+  try { if (typeof gsMktRefreshUnreadBadge === 'function') gsMktRefreshUnreadBadge(); } catch(_){}
 }
+
+// ── v28.17: Realtime-Marktplatz-Chat ────────────────────────────────────────
+// Minimaler Supabase-Realtime-Client (raw WebSocket, Phoenix-Protokoll) — KEIN supabase-js.
+// STRIKT ADDITIV: liefert neue Chat-Nachrichten sofort; bei JEDEM Fehler/Abbruch trägt das
+// bestehende 5s-Polling weiter (kein Regress). CSP erlaubt wss://*.supabase.co bereits.
+window._gsRealtimeChat = (function(){
+  var ws = null, hbId = null, ref = 0, topic = null, onInsert = null, wantBuyer = null;
+  function _url(){
+    try {
+      var base = (typeof SB_URL_DEFAULT !== 'undefined' && SB_URL_DEFAULT) ? SB_URL_DEFAULT : '';
+      var key  = (typeof SB_KEY_DEFAULT !== 'undefined' && SB_KEY_DEFAULT) ? SB_KEY_DEFAULT : '';
+      if (!base || !key) return null;
+      return base.replace(/^http/i, 'ws') + '/realtime/v1/websocket?apikey=' + encodeURIComponent(key) + '&vsn=1.0.0';
+    } catch(_){ return null; }
+  }
+  function _tok(){ try { return (typeof gsStore !== 'undefined') ? gsStore.get('gs_sb_token', null) : null; } catch(_){ return null; } }
+  function unsubscribe(){
+    try { if (hbId) clearInterval(hbId); } catch(_){} hbId = null;
+    try {
+      if (ws){
+        if (topic && ws.readyState === 1) { try { ws.send(JSON.stringify({ topic: topic, event:'phx_leave', payload:{}, ref:String(++ref) })); } catch(_){} }
+        ws.onmessage = null; ws.onerror = null; ws.onclose = null;
+        try { ws.close(); } catch(_){}
+      }
+    } catch(_){}
+    ws = null; topic = null; onInsert = null; wantBuyer = null;
+  }
+  function subscribe(listingId, buyerId, cb){
+    unsubscribe();
+    if (typeof WebSocket === 'undefined' || !listingId) return false;
+    var u = _url(); if (!u) return false;
+    onInsert = cb; wantBuyer = buyerId; topic = 'realtime:gschat:' + listingId;
+    try { ws = new WebSocket(u); } catch(_){ ws = null; return false; }
+    ws.onopen = function(){
+      try {
+        ws.send(JSON.stringify({ topic: topic, event:'phx_join', ref:String(++ref), payload:{
+          config:{ broadcast:{ ack:false }, presence:{ key:'' }, private:false,
+            postgres_changes:[{ event:'INSERT', schema:'public', table:'marketplace_messages', filter:'listing_id=eq.' + listingId }] },
+          access_token: _tok()
+        }}));
+        if (hbId) clearInterval(hbId);
+        hbId = setInterval(function(){ try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ topic:'phoenix', event:'heartbeat', payload:{}, ref:String(++ref) })); } catch(_){} }, 25000);
+      } catch(_){}
+    };
+    ws.onmessage = function(ev){
+      try {
+        var m = JSON.parse(ev.data);
+        if (m && m.event === 'postgres_changes' && m.payload && m.payload.data && m.payload.data.type === 'INSERT'){
+          var rec = m.payload.data.record || {};
+          if (!wantBuyer || String(rec.buyer_id) === String(wantBuyer)) { if (typeof onInsert === 'function') onInsert(rec); }
+        }
+      } catch(_){}
+    };
+    ws.onerror = function(){ /* Polling-Fallback trägt weiter */ };
+    ws.onclose = function(){ try { if (hbId) clearInterval(hbId); } catch(_){} hbId = null; };
+    return true;
+  }
+  return { subscribe: subscribe, unsubscribe: unsubscribe };
+})();
+
+// v28.17: Gesamt-Ungelesen-Badge auf dem 📨-Marktplatz-Posteingang-Button.
+window.gsMktRefreshUnreadBadge = async function(){
+  var b = document.getElementById('mkt-inbox-badge'); if (!b) return;
+  if (typeof sbFetch !== 'function' || typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) { b.style.display = 'none'; return; }
+  try {
+    var r = await sbFetch('/rest/v1/v_marketplace_conversations?select=unread_count', { method:'GET' });
+    var rows = (r && Array.isArray(r.data)) ? r.data : [];
+    var total = rows.reduce(function(s, x){ return s + (parseInt(x.unread_count, 10) || 0); }, 0);
+    if (total > 0) { b.textContent = (total > 99 ? '99+' : String(total)); b.style.display = 'flex'; }
+    else b.style.display = 'none';
+  } catch(_){ b.style.display = 'none'; }
+};
 
 // ── v26.75: Konversations-Inbox (v_marketplace_conversations) ────
 async function gsOpenConversations(filterListingId){
@@ -55682,6 +55767,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.17', date: '04.06.2026',
+    headline: '💬 Marktplatz-Chat in Echtzeit + Ungelesen-Zähler',
+    summary: 'Nachrichten im Marktplatz-Chat kommen jetzt in Echtzeit an — du musst nicht mehr warten oder neu laden, die Antwort des anderen erscheint sofort. Und der 📨-Posteingang oben im Marktplatz zeigt jetzt einen roten Zähler mit der Anzahl ungelesener Nachrichten, damit du nichts verpasst. Falls die Echtzeit-Verbindung mal nicht möglich ist, aktualisiert sich der Chat automatisch weiter wie bisher.',
+    user_summary: '💬 Marktplatz-Chat in Echtzeit + roter Ungelesen-Zähler auf dem 📨-Posteingang.',
+    user_items: [
+      { emoji: '⚡', text: 'Neue Nachrichten erscheinen sofort (Echtzeit)' },
+      { emoji: '🔴', text: 'Ungelesen-Zähler auf dem Posteingang-Button' },
+    ],
+    items: [
+      {emoji:'⚡', bold:'Echtzeit via WebSocket:', text:' Minimaler Supabase-Realtime-Client (raw WS, Phoenix — kein supabase-js). Strikt additiv: bei Fehler trägt das bisherige 5s-Polling weiter (kein Regress). RLS greift (nur eigene Threads).'},
+      {emoji:'🔴', bold:'Ungelesen-Badge:', text:' Gesamt-Zähler auf dem 📨-Button (Summe v_marketplace_conversations.unread_count), aktualisiert beim Marktplatz-Öffnen + nach Lesen.'},
+      {emoji:'🗄️', bold:'Backend:', text:' marketplace_messages zur Realtime-Publication (RLS unverändert).'},
+    ]
+  },
+  {
     v: 'v28.16', date: '04.06.2026',
     headline: '📈 Garten-Score-Verlauf — sieh deinen Fortschritt über die Zeit',
     summary: 'Dein Garten-Score (in den Achievements unter „Meine") zeigt jetzt einen Verlauf: eine kleine Balken-Grafik deiner letzten Score-Messungen plus ein Pfeil, ob es seit der ersten Messung auf- oder abwärts ging. So siehst du auf einen Blick, wie sich dein Garten entwickelt. Die Daten werden ohnehin täglich automatisch erfasst — jetzt werden sie auch sichtbar.',
@@ -58916,7 +59016,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.16';
+var GS_VERSION = 'v28.17';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
