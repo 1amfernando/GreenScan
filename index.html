@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.10.20260603">
+<meta name="app-version" content="28.11.20260603">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4789,6 +4789,17 @@ html, body{ scroll-behavior: smooth; }
           </select>
         </div>
         <div style="font-size:10.5px;color:var(--muted);margin-top:10px;line-height:1.5;">Push-Empfang nur ausserhalb der Stille-Zeit. Backend prüft cron 07:00 + 19:00 UTC.</div>
+        <!-- v28.11 B-011: Stille Tage / Urlaubs-Pause — pausiert ALLE Pushes vorübergehend -->
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+          <div style="font-size:12.5px;font-weight:800;color:var(--text);margin-bottom:2px;">🔕 Stille Tage (Urlaub)</div>
+          <div style="font-size:10.5px;color:var(--muted);margin-bottom:8px;line-height:1.5;">Pausiert vorübergehend ALLE Benachrichtigungen. <span id="push-pause-status" style="font-weight:700;color:var(--g-dark);"></span></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button onclick="gsPushPause(3)" style="flex:1;min-width:64px;padding:8px;background:var(--card);border:1px solid var(--border);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text);font-family:inherit;">3 Tage</button>
+            <button onclick="gsPushPause(7)" style="flex:1;min-width:64px;padding:8px;background:var(--card);border:1px solid var(--border);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text);font-family:inherit;">7 Tage</button>
+            <button onclick="gsPushPause(14)" style="flex:1;min-width:64px;padding:8px;background:var(--card);border:1px solid var(--border);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text);font-family:inherit;">14 Tage</button>
+            <button onclick="gsPushPause(0)" style="flex:1;min-width:64px;padding:8px;background:var(--g-main,#43a047);border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;color:#fff;font-family:inherit;">🔔 Aktiv</button>
+          </div>
+        </div>
         <!-- v26.93: Test-Push (an eigene Subscriptions via send-push Edge-Fn) -->
         <button id="push-test-btn" onclick="gsSendTestPush()" style="margin-top:14px;width:100%;padding:10px;background:var(--accent,#2e7d32);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">📨 Test-Push senden</button>
         <!-- v27.00: Wetter-Warnungen-Inbox (weather_alerts) -->
@@ -43821,23 +43832,51 @@ function gsOpenWeatherLocPicker(){
 }
 window.gsOpenWeatherLocPicker = gsOpenWeatherLocPicker;
 // v28.03 (Bereich 7): einfache FAQ / Hilfe-Sektion (Self-Service)
-function gsOpenFAQ(){
-  var faqs = [
-    ['💾 Gehen meine Daten bei Updates verloren?','Nein. Seit v27.01 sichert GreenScan deinen kompletten Stand automatisch in der Cloud (vor jedem Update + täglich). Falls dein Browser-Speicher mal geleert wird, bietet die App beim Start „Daten wiederherstellen" an.'],
-    ['🌿 Was kostet GreenScan?','Die App ist gratis. Optional: Pro (CHF 7.90/Mo) oder Lifetime (CHF 45.60 einmalig) für erweiterte KI-Funktionen. Marktplatz, Community, Wissen & Lina-Coach sind für alle gratis.'],
-    ['📍 Meine Karten-Funde erscheinen nicht?','Stelle sicher, dass du eingeloggt bist — Funde werden deinem Konto zugeordnet und sind dann geräteübergreifend da.'],
-    ['🪴 Wie füge ich eine Pflanze hinzu?','Tab „Meine Pflanzen" → „+ Pflanze" → Name eintippen (Autocomplete hilft) → optional Foto → speichern. Sie wird in der Cloud gesichert.'],
-    ['🏢 Wie trete ich einer Organisation/Schule bei?','Einstellungen → „🏢 Organisationen" → „Beitreten" → den 8-stelligen Code eingeben, den du erhalten hast.'],
-    ['💬 Wie melde ich einen Bug oder gebe Feedback?','Menü → Feedback. Wähle Bug/Idee/Lob, beschreibe es kurz — wir lesen alles.']
-  ];
-  var h = '<div style="font-size:17px;font-weight:800;margin-bottom:12px;">❓ Hilfe & FAQ</div>';
-  h += faqs.map(function(f){
-    return '<details style="margin-bottom:8px;border:1px solid var(--border);border-radius:10px;padding:10px 12px;">'
-      + '<summary style="font-weight:700;font-size:13.5px;color:var(--text);cursor:pointer;">'+(typeof _gsCEsc==='function'?_gsCEsc(f[0]):f[0])+'</summary>'
-      + '<div style="font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:8px;">'+(typeof _gsCEsc==='function'?_gsCEsc(f[1]):f[1])+'</div></details>';
+// v28.11 B-010: FAQ mit Kategorien + Live-Suche. [Kategorie, Frage, Antwort].
+var GS_FAQ = [
+  ['Account','💾 Gehen meine Daten bei Updates verloren?','Nein. GreenScan sichert deinen kompletten Stand automatisch in der Cloud (vor jedem Update + täglich). Falls dein Browser-Speicher mal geleert wird, bietet die App beim Start „Daten wiederherstellen" an.'],
+  ['Account','🔑 Muss ich einen Account haben?','Vieles geht ohne — aber mit (kostenlosem) Account werden deine Pflanzen, Funde & Pläne geräteübergreifend gesichert, und der KI-Scanner ist nutzbar.'],
+  ['Account','🗑️ Wie lösche ich meinen Account?','Einstellungen → ganz unten „Konto löschen". Das entfernt alle deine Daten unwiderruflich (revDSG-konform).'],
+  ['Pflanzen','🪴 Wie füge ich eine Pflanze hinzu?','Tab „Meine Pflanzen" → „+ Pflanze" → Name eintippen (Autocomplete hilft) → optional Foto → speichern. Sie wird in der Cloud gesichert.'],
+  ['Pflanzen','🔍 Wie funktioniert der KI-Scanner?','Foto machen → die KI bestimmt die Art mit Konfidenz, Essbarkeit, Giftigkeit & Verwechslungs-Warnungen. Gratis: 15 Scans/Tag; mit eigenem Anthropic-Key oder Pro: unbegrenzt.'],
+  ['Pflanzen','📍 Meine Karten-Funde erscheinen nicht?','Stelle sicher, dass du eingeloggt bist — Funde werden deinem Konto zugeordnet und sind dann geräteübergreifend da.'],
+  ['Garten','🌳 Werden meine KI-Gartenpläne gespeichert?','Ja — jeder generierte Plan landet automatisch in „Meine Pläne" (Gerät + Cloud), mit Bestätigung. Auch Balkon- & Waldgarten-Vorlagen.'],
+  ['Marktplatz','🛒 Wie erstelle ich ein Inserat?','Marktplatz → „Neues Inserat" → Titel, Kategorie, Preis-Typ, Kanton, Kontakt + bis zu 5 Fotos → veröffentlichen. Du bekommst „✅ Live im Marketplace".'],
+  ['Marktplatz','👤 Wie sehe ich, wer etwas anbietet?','Tippe im Inserat oder in der Rangliste auf den Namen — du siehst das öffentliche Profil (private Profile bleiben geschützt).'],
+  ['Abo','🌿 Was kostet GreenScan?','Die App ist gratis. Optional: Pro (CHF 7.90/Mo) oder Lifetime (CHF 45.60 einmalig) für unbegrenzte KI-Funktionen. Marktplatz, Community, Wissen, Klassen & Lina-Coach sind für ALLE gratis.'],
+  ['Abo','🔑 Eigener API-Key statt Abo?','Ja — hinterlege in „Einstellungen → KI & Scanner" deinen eigenen Anthropic-Key, dann sind alle KI-Funktionen unbegrenzt & kostenlos.'],
+  ['Abo','✋ Wie kündige ich Pro?','Einstellungen → „💎 Mein Plan" → Abo verwalten. 2 Klicks, keine versteckten Hürden.'],
+  ['Privacy','🔒 Wer sieht mein Profil?','Du bestimmst es: Einstellungen → „👤 Profil & Privatsphäre" (öffentlich / nur Follower / privat). Standardmässig sind sensible Daten geschützt.'],
+  ['Privacy','🌍 Wer sieht meine Funde?','Nur du — ausser du teilst sie bewusst. Standort-Funde sind privat.'],
+  ['Klassen','🏢 Wie trete ich einer Organisation/Klasse bei?','Einstellungen → „🏢 Organisationen" → „Beitreten" (8-stelliger Org-Code), dann „🎓 Klassen" → Klassen-Code der Lehrkraft.'],
+  ['Lina','🌱 Was ist Lina?','Lina ist deine kostenlose Garten- & Natur-Coachin im Chat (Einstellungen → „🌿 Lina"). Frag sie alles zu Pflanzen, Garten, Kräutern & Pilzen.'],
+  ['Technisches','📴 Funktioniert die App offline?','Vieles ja (PWA): gespeicherte Pflanzen, Wissen & Karten-Cache. KI-Scan & Cloud-Sync brauchen Internet.'],
+  ['Technisches','🔔 Wie aktiviere ich Benachrichtigungen?','Einstellungen → Push-Bereich → erlauben. Du bekommst Pflege-Erinnerungen, Frost-/Wetter-Warnungen u.a. — alle gratis, mit Ruhezeiten.'],
+  ['Technisches','💬 Wie melde ich einen Bug oder gebe Feedback?','Menü → Feedback. Wähle Bug/Idee/Lob, beschreibe es kurz — App-Version & technische Infos hängen wir automatisch an. Wir lesen alles.']
+];
+function gsRenderFAQList(q){
+  q = (q||'').toLowerCase().trim();
+  var el = document.getElementById('gs-faq-list'); if (!el) return;
+  var list = GS_FAQ.filter(function(f){ return !q || (f[0]+' '+f[1]+' '+f[2]).toLowerCase().indexOf(q) >= 0; });
+  if (!list.length) { el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:18px;font-size:13px;">Keine Treffer — stell deine Frage gern direkt per Feedback 🌿</div>'; return; }
+  var cats = {}; list.forEach(function(f){ (cats[f[0]] = cats[f[0]] || []).push(f); });
+  el.innerHTML = Object.keys(cats).map(function(cat){
+    return '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--g-dark);margin:12px 0 6px;">'+(typeof _gsCEsc==='function'?_gsCEsc(cat):cat)+'</div>' +
+      cats[cat].map(function(f){
+        return '<details style="margin-bottom:8px;border:1px solid var(--border);border-radius:10px;padding:10px 12px;">'
+          + '<summary style="font-weight:700;font-size:13.5px;color:var(--text);cursor:pointer;">'+(typeof _gsCEsc==='function'?_gsCEsc(f[1]):f[1])+'</summary>'
+          + '<div style="font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:8px;">'+(typeof _gsCEsc==='function'?_gsCEsc(f[2]):f[2])+'</div></details>';
+      }).join('');
   }).join('');
-  h += '<button onclick="if(typeof openFeedbackModal===\'function\')openFeedbackModal();else if(typeof menuNav===\'function\')menuNav(\'feedback\')" style="width:100%;margin-top:10px;padding:11px;border:none;border-radius:10px;background:var(--g-dark);color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">💬 Frage nicht dabei? Feedback geben</button>';
+}
+window.gsRenderFAQList = gsRenderFAQList;
+function gsOpenFAQ(){
+  var h = '<div style="font-size:17px;font-weight:800;margin-bottom:10px;">❓ Hilfe & FAQ</div>';
+  h += '<input id="gs-faq-search" type="search" placeholder="🔎 Frage suchen (z.B. „Abo", „Foto", „Privatsphäre")…" oninput="gsRenderFAQList(this.value)" autocomplete="off" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;box-sizing:border-box;margin-bottom:4px;">';
+  h += '<div id="gs-faq-list"></div>';
+  h += '<button onclick="if(typeof openFeedbackModal===\'function\')openFeedbackModal();else if(typeof menuNav===\'function\')menuNav(\'feedback\')" style="width:100%;margin-top:12px;padding:11px;border:none;border-radius:10px;background:var(--g-dark);color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">💬 Frage nicht dabei? Feedback geben</button>';
   if (typeof _gsNlOpen === 'function') _gsNlOpen(h);
+  gsRenderFAQList('');
 }
 window.gsOpenFAQ = gsOpenFAQ;
 // v28.04 Block C: Globaler-Anthropic-Key Health-Status in Settings anzeigen (aus app_status, daily-Cron befüllt).
@@ -54880,7 +54919,10 @@ function submitFeedback(){
           type: type,
           local_id: fbId,
           author_email: email,
-          ua: (navigator.userAgent || '').slice(0,200)
+          ua: (navigator.userAgent || '').slice(0,200),
+          lang: (navigator.language || ''),                                  // v28.11 B-010
+          plan: (localStorage.getItem('gs_abo_plan') || 'free'),
+          ts_client: new Date().toISOString()
         }
       };
       // user_id NUR setzen wenn eingeloggt (Policy: anon → muss NULL sein)
@@ -55443,6 +55485,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v28.11', date: '03.06.2026',
+    headline: '❓ Bessere Hilfe & FAQ + 🔕 „Stille Tage" für Benachrichtigungen',
+    summary: 'Zwei Verbesserungen für mehr Komfort. Die Hilfe-&-FAQ-Seite hat jetzt eine Live-Suche und ist nach Kategorien sortiert (Account, Pflanzen, Garten, Marktplatz, Abo, Privatsphäre, Technisches) mit deutlich mehr Antworten. Beim Feedback hängen wir technische Infos (App-Version, Sprache) automatisch an — du musst nichts selbst eintippen. Und neu kannst du Benachrichtigungen mit einem Klick für 3, 7 oder 14 Tage komplett pausieren („Stille Tage" — perfekt für den Urlaub) und jederzeit wieder aktivieren. Alle Benachrichtigungen bleiben gratis.',
+    user_summary: '❓ FAQ mit Suche & Kategorien + 🔕 Benachrichtigungen für den Urlaub pausieren („Stille Tage").',
+    user_items: [
+      { emoji: '🔎', text: 'Hilfe & FAQ: Live-Suche + Kategorien + mehr Antworten' },
+      { emoji: '🔕', text: 'Neu: „Stille Tage" — alle Benachrichtigungen für 3/7/14 Tage pausieren (Urlaub)' },
+      { emoji: '💬', text: 'Feedback: App-Version & technische Infos werden automatisch angehängt' },
+    ],
+    items: [
+      {emoji:'❓', bold:'B-010 Hilfe & FAQ:', text:' FAQ mit Live-Suche (filtert Frage+Antwort) + Kategorien (Account/Pflanzen/Garten/Marktplatz/Abo/Privacy/Technisches), 19 Einträge. Feedback-Submit hängt context (Version/UA/Sprache/Plan) automatisch an (war teilweise schon da). Admin-Status läuft über die bestehende KI-Triage (ki_status).'},
+      {emoji:'🔕', bold:'B-011 „Stille Tage":', text:' Neues push_subscriptions.pause_until + Settings-Buttons (3/7/14 Tage + „Aktiv"). Enforcement elegant über das bestehende Dedup-Gate fn_push_already_sent_today (bei aktiver Pause → skip ALLE Kategorien in beiden Push-Edge-Fns) — kein riskanter Edge-Fn-Redeploy. Alle Pushes bleiben FREE.'},
+      {emoji:'🔜', bold:'Notifications-Audit (Folge-Sprint):', text:' Pflege-Push-Aggregation läuft bereits („N Pflanzen-Aufgaben fällig"), Quiet-Hours aktiv. Offen/empfohlen: Klassen-Pushes für Lehrkräfte, Doktor-Follow-up- & Battle-Pushes aktivieren — als eigener fokussierter Take.'},
+    ]
+  },
   {
     v: 'v28.10', date: '03.06.2026',
     headline: '🛠️ Marktplatz wieder voll funktionsfähig + Profile überall antippbar + Rezept-Fotos',
@@ -58586,7 +58644,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.10';
+var GS_VERSION = 'v28.11';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -65454,6 +65512,7 @@ async function gsSavePushSettings(partial){
   if ('quietStart' in partial && typeof partial.quietStart === 'number') patch.quiet_start_hour = partial.quietStart;
   if ('quietEnd'   in partial && typeof partial.quietEnd   === 'number') patch.quiet_end_hour   = partial.quietEnd;
   if ('leadHours'  in partial && typeof partial.leadHours  === 'number') patch.alert_lead_hours = Math.max(2, Math.min(48, partial.leadHours)); // v27.00
+  if ('pauseUntil' in partial) patch.pause_until = partial.pauseUntil; // v28.11 B-011: „Stille Tage" (ISO-String oder null)
   if (Object.keys(patch).length === 0) return;
   try {
     await sbFetch('/rest/v1/push_subscriptions?user_id=eq.' + encodeURIComponent(uid), {
@@ -65463,6 +65522,17 @@ async function gsSavePushSettings(partial){
     });
   } catch(e) { console.warn('[gsSavePushSettings]', e); }
 }
+
+// v28.11 B-011: „Stille Tage" — alle Pushes für N Tage pausieren (0 = wieder aktiv).
+// Enforcement server-seitig: fn_push_already_sent_today liefert bei aktiver pause_until true → skip.
+async function gsPushPause(days){
+  var iso = (days > 0) ? new Date(Date.now() + days*86400000).toISOString() : null;
+  try { await gsSavePushSettings({ pauseUntil: iso }); } catch(_){}
+  try { var st = document.getElementById('push-pause-status'); if (st) st.textContent = iso ? ('· pausiert bis ' + new Date(iso).toLocaleDateString('de-CH')) : ''; } catch(_){}
+  if (typeof gsHaptic === 'function') { try { gsHaptic('tap'); } catch(_){} }
+  if (typeof gsToast === 'function') gsToast(iso ? ('🔕 Benachrichtigungen für ' + days + ' Tage pausiert') : '🔔 Benachrichtigungen wieder aktiv', 'success');
+}
+window.gsPushPause = gsPushPause;
 
 // Master-Toggle-Handler — wird vom Settings-Checkbox aufgerufen.
 async function gsTogglePushMaster(on){
@@ -65509,6 +65579,11 @@ async function gsPushSettingsRefresh(){
   var qe = document.getElementById('push-quiet-end');
   if (qs) qs.value = String(typeof s.quietStart === 'number' ? s.quietStart : 22);
   if (qe) qe.value = String(typeof s.quietEnd   === 'number' ? s.quietEnd   : 7);
+  // v28.11 B-011: Stille-Tage-Status spiegeln
+  try {
+    var pst = document.getElementById('push-pause-status');
+    if (pst) { var pu = s.pauseUntil && new Date(s.pauseUntil); pst.textContent = (pu && pu > new Date()) ? ('· pausiert bis ' + pu.toLocaleDateString('de-CH')) : ''; }
+  } catch(_){}
   // v27.00: Wetter-Vorlauf-Slider spiegeln
   var lead = (typeof s.leadHours === 'number') ? Math.max(2, Math.min(48, s.leadHours)) : 12;
   var ls = document.getElementById('push-lead-hours');
