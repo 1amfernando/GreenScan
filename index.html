@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.12.20260603">
+<meta name="app-version" content="28.13.20260603">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -55490,6 +55490,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.13', date: '03.06.2026',
+    headline: '🧪 Launch-QA: Stabilität, Tempo & Datenschutz geprüft',
+    summary: 'Vor dem grossen Update haben wir die ganze App auf Herz und Nieren geprüft: Datenschutz-Isolation (niemand sieht fremde Daten) transaktional verifiziert, der Datenbank-Sicherheits-Check meldet keine neuen Probleme, und zwei objektive Tempo-/Hygiene-Punkte wurden gefixt (sieben fehlende Datenbank-Indizes für schnellere Abfragen + eine Funktion abgesichert). Keine sichtbare Änderung — die App fühlt sich nur etwas flotter und ist für den Launch geprüft.',
+    user_summary: '🧪 Launch-Check bestanden: Datenschutz verifiziert, Datenbank-Abfragen beschleunigt, alles bereit.',
+    user_items: [
+      { emoji: '🔒', text: 'Datenschutz-Isolation transaktional geprüft (keine fremden Daten sichtbar)' },
+      { emoji: '⚡', text: '7 fehlende Datenbank-Indizes ergänzt → schnellere Abfragen' },
+      { emoji: '✅', text: 'Sicherheits-Check: keine neuen Probleme' },
+    ],
+    items: [
+      {emoji:'🧪', bold:'Full-App-QA-Sweep:', text:' RLS-Abdeckung 21/21, Privacy-Spot-Check (coach_messages/feature_usage/snapshots/class_submissions = 0 fremde Zeilen), Security-Advisor 0 neue ERRORs. Details in QA_v28.12.md.'},
+      {emoji:'⚡', bold:'Perf/Hygiene gefixt:', text:' 7 fehlende FK-Indizes ergänzt (unindexed_foreign_keys → 0) + _gs_parse_ts_flex search_path gepinnt. multiple_permissive_policies-Konsolidierung als eigener Perf-Sprint deferred (kein Blocker).'},
+    ]
+  },
+  {
     v: 'v28.12', date: '03.06.2026',
     headline: '🔔 Mehr hilfreiche Benachrichtigungen — Klassen, Pflanzen-Doktor & Quiz-Duelle',
     summary: 'Drei neue, hilfreiche Benachrichtigungen — alle gratis und einzeln abschaltbar: Schüler:innen werden über neue Klassen-Aufgaben informiert, Lehrkräfte über neue Einreichungen; nach einer Pflanzen-Doktor-Diagnose erinnert dich eine Nachkontrolle nach ~7 Tagen („Wie geht\'s deiner Pflanze?"); und im Quiz-Duell erfährst du, wenn dein Gegner geantwortet hat. Alles respektiert deine Ruhezeiten und die „Stille Tage"-Pause. Du kannst jede Art einzeln im Push-Bereich der Einstellungen ein-/ausschalten.',
@@ -58663,7 +58678,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.12';
+var GS_VERSION = 'v28.13';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
