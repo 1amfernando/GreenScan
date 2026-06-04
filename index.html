@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.19.20260604">
+<meta name="app-version" content="28.20.20260604">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5486,9 +5486,9 @@ html, body{ scroll-behavior: smooth; }
         <div class="menu-item-icon" style="background:#f3e5f5;">🔍</div>
         <span class="menu-item-label">Suche</span>
       </button>
-      <button class="menu-item" onclick="menuNav('ai')" id="mi-ai">
-        <div class="menu-item-icon" style="background:#fff3e0;">🤖</div>
-        <span class="menu-item-label">KI-Chat</span>
+      <button class="menu-item" onclick="if(typeof gsOpenLina==='function')gsOpenLina()" id="mi-ai">
+        <div class="menu-item-icon" style="background:#e8f5e9;">🌿</div>
+        <span class="menu-item-label">Lina · Coach</span>
       </button>
     </div>
 
@@ -5744,7 +5744,7 @@ html, body{ scroll-behavior: smooth; }
   <div class="obox">
     <button class="modal-close-btn" onclick="closeModal('apikey-modal')" title="Schliessen">&#x2715;</button>
     <h3>🔑 API Key einrichten</h3>
-    <p>Für den KI-Scanner und den KI-Chat wird ein API Key benötigt.<br>
+    <p>Für den KI-Scanner wird ein API Key benötigt. Lina (dein Garten-Coach) ist gratis.<br>
     <strong>Anthropic Claude:</strong> <code>sk-ant-...</code> → console.anthropic.com</p>
     <select class="oinput" id="api-provider" onchange="updateApiHelp()">
       <option value="anthropic">Anthropic Claude</option>
@@ -5943,7 +5943,7 @@ html, body{ scroll-behavior: smooth; }
         <div style="font-size:12.5px;font-weight:700;color:var(--g-main);margin-bottom:4px;">v23.57 · 20.04.2026</div>
         <ul style="margin:0 0 0 18px;padding:0;font-size:12px;color:var(--text2);line-height:1.7;">
           <li>🧠 <b>KI-Garten-Planer Next-Level:</b> Experten-Persona (Dr. Greta Hofmann, ETH-Agronomin) · injiziert DB-Saisonvorschläge, Mondphase, Nutzer-Historie · neue Felder (Fruchtfolge, Biodiversitäts-Score, Kc-Werte, NPK-Düngung) · Post-Processing mit DB-Deep-Links &amp; Flächen-Validierung</li>
-          <li>💬 <b>KI-Chat als Prof. Dr. Elena Meierhofer:</b> Botanik &amp; Mykologie Expertin mit 45 Jahren Felderfahrung · Live-Kontext (Saison, Mond, Standort, aktiver Plan, Scans) · erkennt Arten in Fragen &amp; zitiert DB · persistenter Verlauf · Offline-Fallback</li>
+          <li>🌿 <b>Lina — dein KI-Garten-Coach:</b> freundliche, kostenlose Hilfe zu Pflanzen, Garten &amp; Natur · Live-Kontext (Saison, Standort, deine Pflanzen) · geräteübergreifender Verlauf · fragt nie nach Geld</li>
           <li>📷 <b>Scanner professionalisiert:</b> Pre-Capture Quality-Check (Helligkeit + Unschärfe) · Tap-to-Focus · 5 Modi (Auto, Pflanze, Pilz, Baum, Detail) mit Prompt-Bias</li>
           <li>✨ <b>6 neue Next-Level-Tools im Menü:</b> KI-Pflanzendoktor (Foto-Diagnose) · Ernte-Tracker (kg/Sorte) · Saatgut-Inventar (Ablauf-Warnung) · Biodiversitäts-Score (Arten, Familien, Bestäuber) · Garten-Timeline · Wetter-Frühwarnung (Frost/Hitze/Sturm)</li>
           <li>📦 Version-Bump · Setup-Guide aktualisiert · alte Dateien archiviert</li>
@@ -6142,7 +6142,7 @@ html, body{ scroll-behavior: smooth; }
         <ul style="margin:0 0 0 18px;padding:0;font-size:12px;color:var(--text2);line-height:1.7;">
           <li>🌱 4342 Schweizer Arten (Wildpflanzen, Pilze, Kräuter, Bäume, Moose, Flechten, Algen, Hauspflanzen)</li>
           <li>📷 KI-Scanner via Claude Vision</li>
-          <li>🌻 Mein Garten, Community, KI-Chat</li>
+          <li>🌻 Mein Garten, Community, Lina-Coach</li>
         </ul>
       </div>
 
@@ -6155,7 +6155,7 @@ html, body{ scroll-behavior: smooth; }
           <span style="background:var(--card);border:1px solid var(--border);padding:4px 10px;border-radius:20px;font-size:11px;color:var(--text2);">🔍 Suche</span>
           <span style="background:var(--card);border:1px solid var(--border);padding:4px 10px;border-radius:20px;font-size:11px;color:var(--text2);">🌻 Garten</span>
           <span style="background:var(--card);border:1px solid var(--border);padding:4px 10px;border-radius:20px;font-size:11px;color:var(--text2);">🌙 Mondkalender</span>
-          <span style="background:var(--card);border:1px solid var(--border);padding:4px 10px;border-radius:20px;font-size:11px;color:var(--text2);">🤖 KI-Chat</span>
+          <span style="background:var(--card);border:1px solid var(--border);padding:4px 10px;border-radius:20px;font-size:11px;color:var(--text2);">🌿 Lina</span>
           <span style="background:var(--card);border:1px solid var(--border);padding:4px 10px;border-radius:20px;font-size:11px;color:var(--text2);">🍲 500 Rezepte</span>
           <span style="background:var(--card);border:1px solid var(--border);padding:4px 10px;border-radius:20px;font-size:11px;color:var(--text2);">🌿 Heilmittel</span>
           <span style="background:var(--card);border:1px solid var(--border);padding:4px 10px;border-radius:20px;font-size:11px;color:var(--text2);">🗺️ Karte</span>
@@ -12469,7 +12469,12 @@ async function loadMarketFromSupabase() {
   }
   try {
     var result = await sbFetch('/rest/v1/v_marketplace_listings?select=*&order=created_at.desc&limit=50', {method:'GET'});
-    if (result && result.data) {
+    // v28.20 B-012-Härtung: Lade-Fehler nicht mehr still schlucken (Trust). Hinweis: KEIN
+    // &status=eq.active-Filter — die View liefert bewusst active/reserved/sold für die Status-Badges.
+    if (result && result.error) {
+      console.warn('[market] load error:', (result.error && result.error.message) || result.error);
+      if (typeof gsToast === 'function') gsToast('⚠️ Marktplatz konnte nicht geladen werden — bitte später erneut.', 'warn');
+    } else if (result && result.data) {
       var cloud = (result.data || []).map(function(dbRow){
         return {
           id: dbRow.id,
@@ -12511,7 +12516,7 @@ async function loadMarketFromSupabase() {
       var merged = cloud.concat(local.filter(function(l){ return !cloudIds.has(l.id); }));
       try { gsStore.set('gs_market_listings', JSON.stringify(merged)); } catch(e){}
     }
-  } catch(e) { console.log('Market Supabase load failed:', e); }
+  } catch(e) { console.warn('Market Supabase load failed:', e && e.message); }
   renderMarket();
 }
 
@@ -40205,7 +40210,7 @@ const MENU_ITEMS = [
   {label:'🔍 Suche', sub:'Alle Arten durchsuchen', action:"menuNav('search')", tags:['suche','arten','finden','suchen','such']},
   {label:'🌱 Meine Pflanzen', sub:'Hauspflanzen & Pflege', action:"menuNav('favs')", tags:['hauspflanze','pflege','giessen','meine','zimmer','indoor']},
   {label:'🌻 Mein Garten', sub:'Garten & Ernte', action:"menuNav('garden')", tags:['garten','ernte','gemüse','beet','pflanzen','anbau','wetter']},
-  {label:'🤖 KI-Chat', sub:'Mit KI über Pflanzen reden', action:"menuNav('ai')", tags:['ki','chat','frage','assistent','hilfe','ai','gpt']},
+  {label:'🌿 Lina · Garten-Coach', sub:'Stell Lina deine Garten- & Natur-Fragen — gratis', action:"gsOpenLina()", tags:['lina','coach','garten','frage','hilfe','assistent','ki','chat','ai']},
   {label:'🌿 Community', sub:'Posts & Austausch', action:"menuNav('social')", tags:['community','social','post','forum','teilen','fragen']},
   {label:'👥 Freunde & Folgen', sub:'Folge anderen, finde Freunde', action:"gsFriendsOpenModal()", tags:['freunde','folgen','follow','friend','followers','fanbase','instagram']},
   {label:'🛒 Marktplatz', sub:'Kaufen & Verkaufen', action:"menuNav('market')", tags:['markt','kaufen','verkaufen','bieten','angebot','pflanze kaufen']},
@@ -55348,7 +55353,7 @@ function renderSupport(){
     {q:'Warum öffnet sich die Kamera nicht?',a:'Browser erlauben Kamerazugriff nur über HTTPS oder localhost. Wenn du die Datei lokal öffnest (file://), verwende bitte die Galerie-Funktion. Auf iPhone: Safari verwenden.'},
     {q:'Was bedeuten die Toxizitätsstufen?',a:'✅ Ungiftig · 🟡 Leicht giftig · 🟠 Mässig giftig · ⚠️ Giftig · 🔴 Stark giftig · ☠️ Tödlich. Bei Vergiftung: Sofort Tox Info Suisse 145 anrufen!'},
     {q:'Wie bekomme ich einen API Key?',a:'Anthropic: console.anthropic.com → API Keys. Tipp: meist hat der App-Admin bereits einen globalen Key hinterlegt — dann brauchst du keinen eigenen.'},
-    {q:'Kann ich die App ohne Internet nutzen?',a:'Die Datenbank mit 542 Arten funktioniert offline. Der KI-Scanner und der KI-Chat benötigen Internetverbindung.'},
+    {q:'Kann ich die App ohne Internet nutzen?',a:'Die Datenbank mit 542 Arten funktioniert offline. Der KI-Scanner und Lina (Garten-Coach) benötigen Internetverbindung.'},
     {q:'Wie melde ich einen Datenfehler?',a:'Tippe auf "Feedback" und wähle "Datenfehler". Beschreibe was falsch ist (Pflanzname, fehlerhafte Info etc.).'},
   ];
   document.getElementById('support-content').innerHTML =
@@ -55804,6 +55809,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v28.20', date: '04.06.2026',
+    headline: '🌿 Lina ersetzt den alten KI-Chat + Marktplatz-Härtung',
+    summary: 'Im Menü öffnet der KI-Eintrag jetzt direkt Lina — deinen freundlichen, kostenlosen Garten-Coach (statt des alten Experten-Chats). Auch in der Suche, Hilfe und FAQ heisst es jetzt überall „Lina". Ausserdem haben wir den Marktplatz weiter abgesichert: Lade-Fehler werden jetzt sichtbar gemeldet statt still verschluckt, und die Datenbank-Sicht hinter den Anzeigen wurde auf den strengeren, datenschutz-konformen Modus umgestellt — damit ist die Datenbank jetzt komplett ohne Sicherheits-Fehler.',
+    user_summary: '🌿 Lina ersetzt den alten KI-Chat überall · Marktplatz abgesichert · 0 Datenbank-Sicherheitsfehler.',
+    user_items: [
+      { emoji: '🌿', text: 'Menü/Suche/Hilfe/FAQ öffnen jetzt Lina (gratis Garten-Coach)' },
+      { emoji: '🛒', text: 'Marktplatz: Lade-Fehler werden sichtbar gemeldet' },
+      { emoji: '🔒', text: 'Datenbank-Sicherheit: 0 Fehler (letzter behoben)' },
+    ],
+    items: [
+      {emoji:'🌿', bold:'Lina-Replace (7 Stellen):', text:' Menü, Universal-Suche, Help, Feature-Liste, About, Chip, FAQ → gsOpenLina. Alter Elena-Chat bleibt dormant im Code (kein Datenverlust), nur entlinkt.'},
+      {emoji:'🛒', bold:'Marktplatz B-012:', text:' Root-Cause war der v27.04-Token-Bug (gefixt v28.10). Härtung: v_marketplace_listings → security_invoker (RLS autoritativ, profiles public-read trägt seller_name) + Lade-Fehler via gsToast. Transaktional verifiziert.'},
+      {emoji:'🔒', bold:'Security-Advisor 0 ERRORs:', text:' Der View-Flip war der letzte ERROR. Audit konsolidiert in AUDIT_v28.20.md. Backlog B-013: native-Dialog-Sweep (Hard-Lesson #2).'},
+    ]
+  },
   {
     v: 'v28.19', date: '04.06.2026',
     headline: '👵 Senioren-Modus — grössere Schrift, grössere Tasten, mehr Kontrast',
@@ -59083,7 +59104,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.19';
+var GS_VERSION = 'v28.20';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
