@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.13.20260603">
+<meta name="app-version" content="28.14.20260604">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1134,6 +1134,22 @@ body.dark .keimtyp-dunkel{background:rgba(255,255,255,.1);color:#90caf9;}
 .settings-label{flex:1;}
 .settings-label-title{font-size:14px;font-weight:700;color:var(--text);}
 .settings-label-sub{font-size:11.5px;color:var(--muted);margin-top:1px;}
+
+/* v28.14 B-004: Settings-Redesign — Accordion-Gruppen + Live-Suche.
+   Gruppen-Titel wird ein anklickbarer Header mit Chevron (::after, immun gegen
+   i18n-textContent-Overwrites). Kollaps-State in eigenem LS-Key gs_set_acc. */
+.settings-group-title.gs-acc-h{display:flex;align-items:center;justify-content:space-between;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;border-radius:10px;transition:background .15s;}
+.settings-group-title.gs-acc-h:active{background:var(--surface2);}
+.settings-group-title.gs-acc-h::after{content:'\25B8';font-size:13px;font-weight:400;color:var(--muted);transition:transform .22s ease;transform:rotate(90deg);margin-left:8px;flex-shrink:0;}
+.settings-group-title.gs-acc-h.gs-collapsed::after{transform:rotate(0deg);}
+.gs-acc-hide,.gs-row-nomatch,.gs-grp-nomatch{display:none !important;}
+#settings-search-wrap{position:sticky;top:0;z-index:6;background:var(--g-bg);padding:2px 0 11px;margin-bottom:2px;}
+#settings-search-wrap .ss-box{position:relative;}
+#settings-search-wrap .ss-ic{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:15px;opacity:.55;pointer-events:none;}
+#settings-search{width:100%;box-sizing:border-box;padding:11px 52px 11px 38px;border:1px solid var(--border);border-radius:12px;font-size:14px;font-family:inherit;background:var(--card);color:var(--text);-webkit-appearance:none;appearance:none;}
+#settings-search:focus{outline:none;border-color:var(--g-main);}
+#settings-acc-all{position:absolute;right:5px;top:50%;transform:translateY(-50%);min-width:38px;padding:7px 9px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;font-size:14px;line-height:1;cursor:pointer;color:var(--text);font-family:inherit;}
+#settings-search-none{display:none;padding:18px 14px;text-align:center;color:var(--muted);font-size:13px;}
 
 .settings-toggle{position:relative;width:48px;height:26px;flex-shrink:0;}
 .settings-toggle input{opacity:0;width:0;height:0;}
@@ -4558,7 +4574,20 @@ html, body{ scroll-behavior: smooth; }
 
 
   
-  <div style="padding:12px 16px 80px;overflow-y:auto;">
+  <div id="settings-scroll" style="padding:12px 16px 80px;overflow-y:auto;">
+
+    <!-- v28.14 B-004: Live-Suche über alle Einstellungen (sticky) -->
+    <div id="settings-search-wrap">
+      <div class="ss-box">
+        <span class="ss-ic" aria-hidden="true">🔍</span>
+        <input id="settings-search" type="search" inputmode="search" autocomplete="off" enterkeyhint="search"
+               placeholder="Einstellung suchen…" data-i18n-ph="settings_search_ph" data-i18n-ph-fallback="Einstellung suchen…"
+               aria-label="Einstellungen durchsuchen" oninput="if(typeof gsSettingsSearch==='function')gsSettingsSearch(this.value)">
+        <button type="button" id="settings-acc-all" onclick="if(typeof gsSettingsToggleAll==='function')gsSettingsToggleAll()"
+                aria-label="Alle Gruppen auf- oder zuklappen" title="Alle auf/zu">⇕</button>
+      </div>
+      <div id="settings-search-none" data-i18n="settings_search_none" data-i18n-fallback="Keine Einstellung gefunden.">Keine Einstellung gefunden.</div>
+    </div>
 
     <!-- ABO & PREMIUM (zuoberst, gut sichtbar) -->
     <div class="settings-group-title" data-i18n="settings_group_abo" data-i18n-fallback="🌟 Abo & Premium">🌟 Abo & Premium</div>
@@ -4567,7 +4596,7 @@ html, body{ scroll-behavior: smooth; }
         <div class="settings-icon" style="background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;">🌟</div>
         <div class="settings-label">
           <div class="settings-label-title" id="settings-plan-title" data-i18n="settings_plan_title_free" data-i18n-fallback="Gratis-Plan">Gratis-Plan</div>
-          <div class="settings-label-sub" id="settings-plan-sub" data-i18n="settings_plan_upgrade_hint" data-i18n-fallback="Upgrade auf Plus oder Pro — jederzeit kündbar">Upgrade auf Plus oder Pro — jederzeit kündbar</div>
+          <div class="settings-label-sub" id="settings-plan-sub" data-i18n="settings_plan_upgrade_hint" data-i18n-fallback="Upgrade auf Pro — 7 Tage gratis testen">Upgrade auf Pro — 7 Tage gratis testen</div>
         </div>
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
@@ -9602,7 +9631,7 @@ async function dqAskKIExplain() {
     var msg = (err && err.message) || 'KI-Fehler';
     // Klar formulierte Fehler-Meldungen je nach Ursache
     if (msg.toLowerCase().indexOf('quota') >= 0 || msg.toLowerCase().indexOf('limit') >= 0) {
-      msg = '⚠️ Tageslimit erreicht (Free: 15 KI-Aufrufe/Tag). Mit Plus/Pro: unbegrenzt.';
+      msg = '⚠️ Tageslimit erreicht (Free: 15 KI-Aufrufe/Tag). Mit Pro oder eigenem Anthropic-Key: unbegrenzt.';
     } else if (msg.toLowerCase().indexOf('key') >= 0) {
       msg = '⚠️ KI temporär nicht verfügbar — versuche es später nochmal.';
     }
@@ -10826,6 +10855,109 @@ function gsUpdateSettingsPlanCard() {
     if (portal) portal.style.display = (plan !== 'free' && plan !== 'lifetime') ? 'flex' : 'none';
   } catch(e) {}
 }
+
+/* ── v28.14 B-004: Settings-Redesign — Accordion-Gruppen + Live-Suche ──────────
+   Macht die 9 statischen Settings-Gruppen kollabierbar und fügt eine Live-Suche
+   über alle Zeilen hinzu. Kollaps-State liegt in eigenem LS-Key (gs_set_acc) —
+   BEWUSST NICHT über savePref/Cloud-Sync, da reiner UI-Zustand.
+   Admin-only-Rows (inline display:none) bleiben in der Suche unsichtbar: das
+   Entfernen der .gs-row-nomatch-Klasse kann inline display:none nicht überschreiben. */
+(function(){
+  if (window._gsSetAccWired) return;
+  var LS_KEY = 'gs_set_acc';
+  var groups = [];   // [{title:el, bodies:[el,...]}]
+  function readState(){ try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}') || {}; } catch(_){ return {}; } }
+  function writeState(s){ try { localStorage.setItem(LS_KEY, JSON.stringify(s)); } catch(_){} }
+  function isOpen(i, state){ var k = String(i); return (k in state) ? !!state[k] : (i === 0); } // Default: nur 1. Gruppe (Abo) offen
+  function buildGroups(scroll){
+    groups = []; var cur = null;
+    Array.prototype.forEach.call(scroll.children, function(el){
+      if (el.classList && el.classList.contains('settings-group-title')) { cur = { title: el, bodies: [] }; groups.push(cur); }
+      else if (cur && el.id !== 'settings-search-wrap') { cur.bodies.push(el); }
+    });
+  }
+  function applyAccordion(){
+    var state = readState();
+    groups.forEach(function(g, i){
+      var open = isOpen(i, state);
+      g.title.classList.toggle('gs-collapsed', !open);
+      g.bodies.forEach(function(b){ b.classList.toggle('gs-acc-hide', !open); });
+    });
+  }
+  function clearSearch(){
+    groups.forEach(function(g){
+      g.title.classList.remove('gs-grp-nomatch');
+      g.bodies.forEach(function(b){
+        b.classList.remove('gs-grp-nomatch');
+        Array.prototype.forEach.call(b.querySelectorAll ? b.querySelectorAll('.settings-row') : [], function(r){ r.classList.remove('gs-row-nomatch'); });
+      });
+    });
+  }
+  window.gsSettingsSearch = function(q){
+    var scroll = document.getElementById('settings-scroll'); if (!scroll) return;
+    if (!groups.length) buildGroups(scroll);
+    q = (q || '').trim().toLowerCase();
+    var none = document.getElementById('settings-search-none');
+    if (!q){ clearSearch(); applyAccordion(); if (none) none.style.display = 'none'; return; }
+    var anyGroup = false;
+    groups.forEach(function(g){
+      var grpMatch = ((g.title.textContent || '').toLowerCase().indexOf(q) !== -1);
+      var groupHasVisible = false;
+      g.bodies.forEach(function(b){
+        b.classList.remove('gs-acc-hide');   // im Suchmodus alle Bodies aufklappen
+        var rows = b.querySelectorAll ? b.querySelectorAll('.settings-row') : [];
+        if (rows.length){
+          Array.prototype.forEach.call(rows, function(r){
+            var adminHidden = (r.style.display === 'none');   // admin-only-row aus → bleibt unsichtbar
+            var match = grpMatch || ((r.textContent || '').toLowerCase().indexOf(q) !== -1);
+            r.classList.toggle('gs-row-nomatch', !match);
+            if (match && !adminHidden) groupHasVisible = true;
+          });
+          b.classList.remove('gs-grp-nomatch');
+        } else {
+          // Bodies ohne Rows (Über-Card, Legal-Banner): nur bei Treffer im Gruppentitel zeigen
+          b.classList.toggle('gs-grp-nomatch', !grpMatch);
+          if (grpMatch) groupHasVisible = true;
+        }
+      });
+      g.title.classList.toggle('gs-grp-nomatch', !groupHasVisible);
+      if (groupHasVisible) anyGroup = true;
+    });
+    if (none) none.style.display = anyGroup ? 'none' : 'block';
+  };
+  window.gsSettingsToggleAll = function(){
+    var scroll = document.getElementById('settings-scroll'); if (!scroll) return;
+    if (!groups.length) buildGroups(scroll);
+    var search = document.getElementById('settings-search'); if (search && search.value){ search.value = ''; window.gsSettingsSearch(''); }
+    var state = readState();
+    var anyClosed = groups.some(function(g, i){ return !isOpen(i, state); });
+    groups.forEach(function(g, i){ state[String(i)] = anyClosed; });   // einer zu → alle auf; sonst alle zu
+    writeState(state); applyAccordion();
+    if (typeof gsHaptic === 'function') gsHaptic('light');
+  };
+  function toggleGroup(i){
+    var state = readState(); state[String(i)] = !isOpen(i, state);
+    writeState(state); applyAccordion();
+    if (typeof gsHaptic === 'function') gsHaptic('light');
+  }
+  function init(){
+    if (window._gsSetAccWired) return;
+    var scroll = document.getElementById('settings-scroll'); if (!scroll) return;
+    buildGroups(scroll); if (!groups.length) return;
+    groups.forEach(function(g, i){
+      g.title.classList.add('gs-acc-h');
+      g.title.setAttribute('role','button');
+      g.title.setAttribute('tabindex','0');
+      g.title.setAttribute('aria-expanded', isOpen(i, readState()) ? 'true' : 'false');
+      g.title.addEventListener('click', function(){ toggleGroup(i); g.title.setAttribute('aria-expanded', isOpen(i, readState()) ? 'true':'false'); });
+      g.title.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggleGroup(i); g.title.setAttribute('aria-expanded', isOpen(i, readState()) ? 'true':'false'); } });
+    });
+    applyAccordion();
+    window._gsSetAccWired = true;
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
 
 // Lookup-Key → Label/Preis (für UI, Preise kommen live von stripe_prices-Tabelle)
 // v25.38 Pro-only: Plus-Plans deaktiviert (Backend Stripe + DB). Plus-Lifetime
@@ -19517,7 +19649,7 @@ async function callAI(messages, systemPrompt, maxTokens, opts){
       }
     } else if (typeof gsAboCanUse === 'function' && !gsAboCanUse('ai_call')) {
       var q = (typeof gsAboGetAIQuota === 'function') ? gsAboGetAIQuota() : null;
-      var qErr = new Error('🚫 Tageslimit erreicht — heute ' + (q ? q.used + '/' + q.limit : '0/15') + ' KI-Aufrufe verbraucht. Upgrade auf Plus oder Pro für unbegrenzte Nutzung. (Oder eigenen Anthropic-Key in „Einstellungen → KI & Scanner" eintragen — dann kein Limit.)');
+      var qErr = new Error('🚫 Tageslimit erreicht — heute ' + (q ? q.used + '/' + q.limit : '0/15') + ' KI-Aufrufe verbraucht. Mit eigenem Anthropic-Key (Einstellungen → KI & Scanner) entfällt das Limit — oder Pro für unbegrenzte Nutzung.');
       qErr.code = 'free_quota_reached';
       qErr.quota = q;
       throw qErr;
@@ -19601,7 +19733,7 @@ async function callVisionAI(b64, mediaType, prompt, extraImages, opts){
       }
     } else if (typeof gsAboCanUse === 'function' && !gsAboCanUse('ai_call')) {
       var q = (typeof gsAboGetAIQuota === 'function') ? gsAboGetAIQuota() : null;
-      var qErr = new Error('🚫 Tageslimit erreicht — heute ' + (q ? q.used + '/' + q.limit : '0/15') + ' KI-Aufrufe verbraucht. Upgrade auf Plus oder Pro für unbegrenzte Scans + Chat. Oder eigenen Anthropic-Key in „Einstellungen → KI & Scanner" eintragen.');
+      var qErr = new Error('🚫 Tageslimit erreicht — heute ' + (q ? q.used + '/' + q.limit : '0/15') + ' KI-Aufrufe verbraucht. Mit eigenem Anthropic-Key (Einstellungen → KI & Scanner) entfällt das Limit — oder Pro für unbegrenzte Scans + Chat.');
       qErr.code = 'free_quota_reached';
       qErr.quota = q;
       throw qErr;
@@ -39530,7 +39662,7 @@ function initSettingsScreen() {
       var q = gsAboGetAIQuota();
       aqRow.style.display = '';
       if (q.unlimited) {
-        aqSub.textContent = '∞ Unlimited · ' + (gsIsPaid() ? 'Premium aktiv' : 'Plus/Pro');
+        aqSub.textContent = '∞ Unlimited · ' + (gsIsPaid() ? 'Pro aktiv' : 'Eigener Key');
         aqSub.style.color = '#2e7d32';
       } else {
         var pct = q.limit > 0 ? Math.round((q.used / q.limit) * 100) : 0;
@@ -45885,7 +46017,7 @@ async function gsPPrun(opts) {
     var isRef     = /not defined|is not a function|undefined/i.test(msg);
     var icon      = isQuota ? '🚫' : isTimeout ? '⏱️' : isAuth ? '🔑' : isRate ? '🚦' : isNet ? '📡' : isParse ? '🧩' : isRef ? '🐛' : '⚠️';
     var hint      = isQuota
-      ? 'Tageslimit erreicht — Free-Plan: 15 KI-Aufrufe pro Tag. Mit Plus oder Pro: unbegrenzt. Upgrade in den Einstellungen → Abo & Premium.'
+      ? 'Tageslimit erreicht — Free-Plan: 15 KI-Aufrufe pro Tag. Mit Pro: unbegrenzt. Oder eigenen Anthropic-Key in den Einstellungen → KI & Scanner hinterlegen — dann kein Limit.'
       : isTimeout
       ? 'Die KI antwortet aktuell sehr langsam (>3 Min). Versuche es mit einem kompakten Plan — der ist schneller fertig.'
       : isAuth
@@ -45903,7 +46035,7 @@ async function gsPPrun(opts) {
     var compactBtn = isTimeout ? '<button onclick="gsPPrun({compact:true})" style="display:block;width:100%;padding:13px;background:linear-gradient(135deg,#1565c0,#0d47a1);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:8px;">⚡ Kompakten Plan generieren (~25 s)</button>' : '';
     var retryBtn = '<button onclick="gsPPrun()" style="display:block;width:100%;padding:13px;background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:8px;">🔄 Erneut versuchen</button>';
     // v26.82: bei Quota → Abo-Upgrade-Button, bei Auth/Net → Connection-Test. Keinen "API-Key eintragen"-Button mehr (Personal-Key admin-only seit v26.67).
-    var upgradeBtn = isQuota ? '<button onclick="closeModal(\'modal-planner-pro\');if(typeof gsShowAboScreen===\'function\')setTimeout(gsShowAboScreen,200)" style="display:block;width:100%;padding:13px;background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:8px;">🌟 Upgrade auf Plus/Pro — keine Limits</button>' : '';
+    var upgradeBtn = isQuota ? '<button onclick="closeModal(\'modal-planner-pro\');if(typeof gsShowAboScreen===\'function\')setTimeout(gsShowAboScreen,200)" style="display:block;width:100%;padding:13px;background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:8px;">🌟 Upgrade auf Pro — keine Limits</button>' : '';
     var keyBtn = '';
     // v24.16: Connection-Test-Button bei Netzwerk-Fehler
     var testBtn = isNet ? '<button onclick="gsPPTestConnection(this)" style="display:block;width:100%;padding:11px;background:#4527a0;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;margin-bottom:8px;">📡 Verbindung testen</button>' : '';
@@ -55490,6 +55622,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.14', date: '04.06.2026',
+    headline: '⚙️ Aufgeräumte Einstellungen — aufklappbare Gruppen & Suche',
+    summary: 'Die Einstellungen sind über die Zeit ziemlich lang geworden. Jetzt sind sie aufgeräumt: Jede der 9 Gruppen lässt sich auf- und zuklappen (Tipp auf den Titel), und ganz oben gibt es eine Suche — tippe z. B. „Nachtmodus", „Push" oder „Sprache" und springst direkt hin. Mit „⇕" klappst du alle Gruppen auf einmal auf oder zu. Welche Gruppen offen sind, merkt sich die App. Nichts wurde versteckt, nur ordentlicher sortiert.',
+    user_summary: '⚙️ Einstellungen aufgeräumt: aufklappbare Gruppen + Suchfeld, damit du alles schnell findest.',
+    user_items: [
+      { emoji: '🔍', text: 'Neue Suche über alle Einstellungen (sticky oben)' },
+      { emoji: '📂', text: '9 Gruppen auf-/zuklappbar — Stand wird gemerkt' },
+      { emoji: '⇕', text: 'Ein Tipp: alle Gruppen auf einmal auf-/zuklappen' },
+    ],
+    items: [
+      {emoji:'⚙️', bold:'Accordion-Gruppen:', text:' Jeder der 9 Gruppen-Titel ist jetzt ein anklickbarer Header (Chevron). Kollaps-Zustand lokal gemerkt (eigener Key, NICHT in der Cloud-Sync — reiner UI-Zustand). Default: nur „Abo & Premium" offen.'},
+      {emoji:'🔍', bold:'Live-Suche:', text:' Filtert Titel + Beschreibung aller Zeilen in Echtzeit, blendet leere Gruppen aus, „keine Treffer"-Hinweis. Admin-Zeilen bleiben für normale Nutzer unsichtbar.'},
+      {emoji:'🏷️', bold:'Mission-Korrektur:', text:' Alle verbliebenen „Plus oder Pro"-Texte → „Pro" (Plus gibt es seit v25.38 nicht mehr). Quota-Hinweise nennen zuerst den gratis Weg (eigener Anthropic-Key), dann Pro.'},
+    ]
+  },
+  {
     v: 'v28.13', date: '03.06.2026',
     headline: '🧪 Launch-QA: Stabilität, Tempo & Datenschutz geprüft',
     summary: 'Vor dem grossen Update haben wir die ganze App auf Herz und Nieren geprüft: Datenschutz-Isolation (niemand sieht fremde Daten) transaktional verifiziert, der Datenbank-Sicherheits-Check meldet keine neuen Probleme, und zwei objektive Tempo-/Hygiene-Punkte wurden gefixt (sieben fehlende Datenbank-Indizes für schnellere Abfragen + eine Funktion abgesichert). Keine sichtbare Änderung — die App fühlt sich nur etwas flotter und ist für den Launch geprüft.',
@@ -58678,7 +58826,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.13';
+var GS_VERSION = 'v28.14';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
