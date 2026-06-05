@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.24.20260606">
+<meta name="app-version" content="28.25.20260606">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -6640,6 +6640,13 @@ window._gsCollList = [];
 window.gsAddPlantToCollection = function(plantId){
   var p = (Array.isArray(window.myPlants) ? window.myPlants : []).find(function(x){ return x.id === plantId; });
   if (p) gsAddToCollection('plant', p.id, p.name || '', p.emoji || '🌿');
+};
+// v28.25: Arten-Wrapper — schlägt Emoji nach Giftigkeit/Essbarkeit vor (intelligenter Touch).
+window.gsAddSpeciesToCollection = function(speciesId){
+  var sp = (typeof DB !== 'undefined' && Array.isArray(DB)) ? DB.find(function(s){ return s && s.id === String(speciesId); }) : null;
+  if (!sp) { if (typeof gsToast === 'function') gsToast('Art nicht gefunden', 'warn'); return; }
+  var emoji = (sp.tox >= 4) ? '☠️' : (sp.edible ? '🍽️' : (sp.medicinal ? '💊' : '🌿'));
+  gsAddToCollection('species', sp.id, sp.name || sp.lat || '', emoji);
 };
 
 window.gsOpenCollections = function(){
@@ -23146,6 +23153,8 @@ function openDetail(id){
       // KI-Fragen Button
       '<button onclick="gsAddSpeciesToGarden(\'' + id + '\')" style="width:100%;padding:11px;background:#e8f5e9;color:#1b5e20;border:1.5px solid var(--g-light);border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;"><span>🌱</span> <span>Zu meinem Garten hinzufügen</span></button>',
       '<button onclick="openDetailChat(\''+id+'\',\''+escHtml(sp.name)+'\',\''+escHtml(sp.lat||'')+'\','+sp.tox+')" style="width:100%;padding:11px;background:var(--surface2);color:var(--g-dark);border:1px solid var(--g-light);border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px;"><span>🤖</span> <span>KI über '+escHtml(sp.name)+' befragen</span></button>',
+      // v28.25: Art zu Sammlung hinzufügen (Wrapper, nur ID im onclick = Hard-Lesson #12)
+      '<button onclick="if(typeof gsAddSpeciesToCollection===\'function\')gsAddSpeciesToCollection(\''+id+'\')" style="width:100%;padding:11px;background:#ede7f6;color:#4527a0;border:1.5px solid #b39ddb;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;"><span>📁</span> <span>Zu Sammlung hinzufügen</span></button>',
       // Rezept-Link wenn vorhanden
       (function(){
         var hasRecipe = (typeof DEFAULT_RECIPES !== 'undefined' && DEFAULT_RECIPES.some(function(r){ return r.plant === sp.name || r.plantId === sp.id; })) ||
@@ -56105,6 +56114,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.25', date: '06.06.2026',
+    headline: '📁 Arten in Sammlungen — merken & kategorisieren',
+    summary: 'Sammlungen funktionieren jetzt auch für Arten: Öffne eine beliebige Art (aus Suche/Scan) und tippe auf „📁 Zu Sammlung hinzufügen" — leg sie in „Wunschliste", „Giftige", „Essbare" oder einen eigenen Ordner. Die App schlägt dir passend zum Pflanzentyp automatisch ein Symbol vor (☠️ giftig, 🍽️ essbar, 💊 Heilpflanze).',
+    user_summary: '📁 Arten lassen sich jetzt in Sammlungen merken (mit automatischem Symbol-Vorschlag).',
+    user_items: [
+      { emoji: '📁', text: '„Zu Sammlung hinzufügen" in jeder Art' },
+      { emoji: '💡', text: 'Automatischer Symbol-Vorschlag (giftig/essbar/Heilpflanze)' },
+    ],
+    items: [
+      {emoji:'📁', bold:'Arten-Sammlungen:', text:' 📁-Button in der Arten-Detailansicht (openDetail) + gsAddSpeciesToCollection (ID-only onclick = Hard-Lesson #12). Backend (v28.24) unterstützt species bereits.'},
+      {emoji:'⏭️', bold:'Nächste Schritte:', text:' Funde + Marktplatz-Inserate in Sammlungen, dann rule-basierte Auto-Sortierung.'},
+    ]
+  },
+  {
     v: 'v28.24', date: '06.06.2026',
     headline: '📁 Sammlungen — eigene Ordner für deine Pflanzen & Arten',
     summary: 'Neu: Du kannst jetzt eigene Sammlungen (Ordner) anlegen — z.B. „Wunschliste", „Giftige", „Mein Balkon" — und Pflanzen hineinlegen. Tippe in „Meine Pflanzen" eine Pflanze auf → 📁 Sammlung, und wähle (oder erstelle) einen Ordner. Im Menü unter „📁 Sammlungen" siehst du alle deine Ordner mit Anzahl. Die App schlägt dir sinnvolle Start-Sammlungen vor. Alles wird in der Cloud gespeichert und ist nur für dich sichtbar.',
@@ -59463,7 +59486,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.24';
+var GS_VERSION = 'v28.25';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
