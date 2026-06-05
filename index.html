@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.25.20260606">
+<meta name="app-version" content="28.26.20260606">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -6609,11 +6609,10 @@ window.gsOpenPlantDossier = async function(plantId){
     var harv = Array.isArray(d.harvests) ? d.harvests : [];
     var diag = Array.isArray(d.diagnoses) ? d.diagnoses : [];
     var pdiff = Array.isArray(d.photo_diffs) ? d.photo_diffs : [];
-    var scans = d.scan_count || 0;
     var diaryN = Array.isArray(p.diary) ? p.diary.length : 0;
     var html = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">' +
       _gsDossierChip('🧺', harv.length, 'Ernten') + _gsDossierChip('🔬', diag.length, 'Diagnosen') +
-      _gsDossierChip('📸', pdiff.length, 'Foto-Diff') + _gsDossierChip('🔍', scans, 'Scans') +
+      _gsDossierChip('📸', pdiff.length, 'Foto-Diff') +
       _gsDossierChip('📓', diaryN, 'Tagebuch') + '</div>';
     if (harv.length) {
       html += '<div style="font-size:12px;font-weight:800;color:var(--text);margin:12px 0 4px;">🧺 Ernten</div>';
@@ -6623,8 +6622,8 @@ window.gsOpenPlantDossier = async function(plantId){
       html += '<div style="font-size:12px;font-weight:800;color:var(--text);margin:12px 0 4px;">🔬 Doktor-Diagnosen</div>';
       html += diag.slice(0,8).map(function(x){ var st=x.status||''; return '<div style="font-size:12.5px;padding:5px 0;border-top:1px solid var(--border);">' + (((x.created_at||'')+'').slice(0,10)) + ' · ' + esc(x.species||'') + ' · <span style="color:' + (st==='open'?'#e65100':'#2e7d32') + ';font-weight:700;">' + esc(st) + '</span></div>'; }).join('');
     }
-    if (!harv.length && !diag.length && !pdiff.length && !scans && !diaryN) {
-      html += '<div style="color:var(--muted);font-size:13px;padding:16px;text-align:center;line-height:1.5;">Noch keine verknüpften Einträge.<br>Ernten, Diagnosen, Foto-Vergleiche & Scans erscheinen hier automatisch.</div>';
+    if (!harv.length && !diag.length && !pdiff.length && !diaryN) {
+      html += '<div style="color:var(--muted);font-size:13px;padding:16px;text-align:center;line-height:1.5;">Noch keine verknüpften Einträge.<br>Ernten, Diagnosen & Foto-Vergleiche erscheinen hier automatisch.</div>';
     }
     if (body) body.innerHTML = html;
   } catch(e) {
@@ -56114,6 +56113,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.26', date: '06.06.2026',
+    headline: '🔍 Qualitäts-Audit: Pflanzen-Dossier korrigiert',
+    summary: 'Nach einer gründlichen Selbst-Prüfung der letzten Updates haben wir einen Genauigkeits-Fehler im neuen Pflanzen-Dossier behoben: die „Scans"-Zahl wurde über den falschen Schlüssel verknüpft und hätte nie korrekt gezählt. Sie wurde entfernt — das Dossier zeigt jetzt nur noch die zuverlässig zugeordneten Inhalte (Ernten, Diagnosen, Foto-Vergleiche). Lieber ehrlich & korrekt als eine falsche Zahl.',
+    user_summary: '🔍 Audit-Fix: ungenaue „Scans"-Zahl aus dem Pflanzen-Dossier entfernt — nur noch korrekt verknüpfte Inhalte.',
+    user_items: [
+      { emoji: '✅', text: 'Dossier zeigt nur zuverlässig zugeordnete Inhalte' },
+      { emoji: '🔍', text: 'Kritischer Re-Audit von v28.22–v28.25 (sonst alles sauber)' },
+    ],
+    items: [
+      {emoji:'🐛', bold:'Bug behoben:', text:' scan_events.species_id = Arten-DB-ID (nicht lat/name) → scan_count im Dossier hätte nie korrekt verknüpft. Entfernt (Backend fn_plant_dossier + Frontend-Chip). Dossier behält per plant_local_id sicher verknüpfte Ernten/Diagnosen/Foto-Diffs.'},
+      {emoji:'✅', bold:'Audit-Ergebnis:', text:' count-guard, Sammlungen-RLS, Escaping, anon-revoke alle korrekt verifiziert. Nur dieser eine Fehler.'},
+    ]
+  },
+  {
     v: 'v28.25', date: '06.06.2026',
     headline: '📁 Arten in Sammlungen — merken & kategorisieren',
     summary: 'Sammlungen funktionieren jetzt auch für Arten: Öffne eine beliebige Art (aus Suche/Scan) und tippe auf „📁 Zu Sammlung hinzufügen" — leg sie in „Wunschliste", „Giftige", „Essbare" oder einen eigenen Ordner. Die App schlägt dir passend zum Pflanzentyp automatisch ein Symbol vor (☠️ giftig, 🍽️ essbar, 💊 Heilpflanze).',
@@ -59486,7 +59499,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.25';
+var GS_VERSION = 'v28.26';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
