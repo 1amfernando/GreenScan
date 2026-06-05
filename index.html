@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.27.20260606">
+<meta name="app-version" content="28.28.20260606">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -6668,6 +6668,121 @@ window.gsAddListingToCollection = function(lid){
   gsAddToCollection('listing', l.id, l.title || 'Inserat', emoji);
 };
 
+// ── v28.28: Smart-Ordner — rule-basierte Auto-Sortierung ──────────────────
+// Berechnet LIVE Auto-Ordner aus den eigenen Pflanzen (myPlants, Name→DB-Match)
+// + gesammelten Arten — read-only, keine Persistenz. "Als Sammlung speichern"
+// materialisiert einen Auto-Ordner in eine echte, bearbeitbare Sammlung.
+// Der "intelligente Verfahren"-Kern: sortiert nach botanischen Attributen.
+window._gsSmartRules = [
+  { key:'giftig', emoji:'☠️', name:'Giftige',      test:function(sp){ return !!sp && sp.tox >= 4; } },
+  { key:'essbar', emoji:'🍽️', name:'Essbare',      test:function(sp){ return !!sp && !!sp.edible; } },
+  { key:'heil',   emoji:'💊', name:'Heilpflanzen', test:function(sp){ return !!sp && !!sp.medicinal; } },
+  { key:'pilz',   emoji:'🍄', name:'Pilze',        test:function(sp){ return !!sp && sp.cat === 'pilz'; } },
+  { key:'baum',   emoji:'🌳', name:'Bäume',        test:function(sp){ return !!sp && sp.cat === 'baum'; } },
+  { key:'kraut',  emoji:'🌿', name:'Kräuter',      test:function(sp){ return !!sp && sp.cat === 'kraut'; } }
+];
+function _gsSmartSpeciesEmoji(sp){
+  if (!sp) return '🌿';
+  return (sp.tox >= 4) ? '☠️' : (sp.edible ? '🍽️' : (sp.medicinal ? '💊' : (sp.cat==='pilz' ? '🍄' : (sp.cat==='baum' ? '🌳' : '🌿'))));
+}
+function _gsSmartMatchDB(name){
+  if (!name || typeof DB === 'undefined' || !Array.isArray(DB)) return null;
+  var n = String(name).toLowerCase().trim();
+  if (!n) return null;
+  return DB.find(function(s){ return s && (s.name||'').toLowerCase().trim() === n; }) || null;
+}
+// Sammelt die Quell-Items (eigene Pflanzen + gesammelte Arten), reichert sie mit
+// DB-Attributen an und bucketet sie nach _gsSmartRules. Liefert nur nicht-leere Ordner.
+window.gsComputeSmartFolders = async function(){
+  var items = []; // {type, ref, label, emoji, sp}
+  try {
+    var mp = (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) ? myPlants : [];
+    mp.forEach(function(p){
+      if (!p || !p.name || p.id == null) return;
+      items.push({ type:'plant', ref:String(p.id), label:p.name, emoji:p.emoji||'🌿', sp:_gsSmartMatchDB(p.name) });
+    });
+  } catch(_){}
+  try {
+    if (_gsCollReady()){
+      var r = await sbFetch('/rest/v1/user_collection_items?item_type=eq.species&select=item_ref,label', {method:'GET'});
+      var seen = {};
+      ((r&&r.data)||[]).forEach(function(it){
+        if (!it || it.item_ref == null || seen[it.item_ref]) return; seen[it.item_ref] = 1;
+        var sp = (typeof DB!=='undefined' && Array.isArray(DB)) ? DB.find(function(s){ return s && s.id === String(it.item_ref); }) : null;
+        items.push({ type:'species', ref:String(it.item_ref), label:(sp && (sp.name||sp.lat)) || it.label || 'Art', emoji:_gsSmartSpeciesEmoji(sp), sp:sp });
+      });
+    }
+  } catch(_){}
+  var folders = window._gsSmartRules.map(function(rule){
+    return { key:rule.key, emoji:rule.emoji, name:rule.name, members:items.filter(function(it){ return rule.test(it.sp); }) };
+  }).filter(function(f){ return f.members.length > 0; });
+  window._gsSmartFolders = folders;
+  window._gsSmartItemsTotal = items.length;
+  return folders;
+};
+// Render-Helfer: Smart-Ordner-Sektion (HTML-String) für den Sammlungen-Manager.
+window._gsSmartFoldersHtml = function(folders){
+  if (!folders || !folders.length) return '';
+  var chips = folders.map(function(f){
+    return '<button onclick="gsOpenSmartFolder(\''+f.key+'\')" style="display:flex;align-items:center;gap:7px;padding:9px 12px;background:var(--card);border:1px solid var(--border);border-radius:11px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' +
+      '<span style="font-size:18px;">'+f.emoji+'</span>' +
+      '<span style="font-size:13px;font-weight:700;color:var(--text);">'+f.name+'</span>' +
+      '<span style="font-size:11px;color:var(--muted);background:var(--surface2);border-radius:999px;padding:1px 7px;">'+f.members.length+'</span></button>';
+  }).join('');
+  return '<div style="margin-bottom:14px;">' +
+    '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);font-weight:700;margin-bottom:6px;">🤖 Auto-Ordner <span style="font-weight:400;">· automatisch sortiert</span></div>' +
+    '<div style="display:flex;gap:7px;flex-wrap:wrap;">'+chips+'</div></div>';
+};
+// Auto-Ordner-Inhalt anzeigen (read-only, Mitglieder anklickbar) + Materialisieren-Button.
+window.gsOpenSmartFolder = function(key){
+  var body = document.getElementById('gs-coll-body'); if (!body) return;
+  var f = (window._gsSmartFolders||[]).find(function(x){ return x.key===key; });
+  if (!f){ gsCollectionsRefresh(); return; }
+  var html = '<button onclick="gsCollectionsRefresh()" style="background:none;border:none;color:var(--g-main);font-size:13px;font-weight:700;cursor:pointer;padding:0 0 8px;font-family:inherit;">‹ Zurück</button>' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;">' +
+      '<div style="font-size:15px;font-weight:800;color:var(--text);">'+f.emoji+' '+f.name+' <span style="font-size:11px;color:var(--muted);font-weight:600;">· Auto-Ordner</span></div></div>' +
+    '<div style="font-size:11.5px;color:var(--muted);margin-bottom:10px;">Automatisch zusammengestellt aus deinen Pflanzen &amp; Arten. Live berechnet — nichts gespeichert.</div>' +
+    '<button onclick="gsMaterializeSmartFolder(\''+f.key+'\')" style="width:100%;padding:10px;margin-bottom:12px;background:var(--g-light);color:var(--g-dark);border:1.5px dashed var(--g-main);border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📌 Als feste Sammlung speichern</button>';
+  html += f.members.map(function(m){
+    return '<div onclick="gsSmartOpenMember(\''+m.type+'\',\''+m.ref+'\')" role="button" tabindex="0" style="display:flex;align-items:center;gap:10px;padding:9px;border:1px solid var(--border);border-radius:10px;margin-bottom:6px;cursor:pointer;background:var(--card);-webkit-tap-highlight-color:transparent;">' +
+      '<div style="font-size:20px;">'+(m.emoji||'🌿')+'</div>' +
+      '<div style="flex:1;min-width:0;font-size:13px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+_gsCollEsc(m.label)+'<span style="font-size:10px;color:var(--muted);font-weight:400;"> · '+(m.type==='plant'?'Pflanze':'Art')+'</span></div>' +
+      '<div style="color:var(--muted);font-size:16px;">›</div></div>';
+  }).join('');
+  body.innerHTML = html;
+};
+// Mitglied öffnen: Sammlungen-Modal schliessen, dann Arten-Detail bzw. Pflanzen-Dossier.
+window.gsSmartOpenMember = function(type, ref){
+  try { if (typeof closeModal==='function') closeModal('gs-nl-modal'); } catch(_){}
+  setTimeout(function(){
+    try {
+      if (type==='species' && typeof openDetail==='function') openDetail(ref);
+      else if (type==='plant' && typeof gsOpenPlantDossier==='function') gsOpenPlantDossier(ref);
+    } catch(_){}
+  }, 220);
+};
+// "Verdrahten": Auto-Ordner in eine echte, bearbeitbare Sammlung materialisieren.
+window.gsMaterializeSmartFolder = async function(key){
+  if (!_gsCollReady()){ if (typeof gsToast==='function') gsToast('Bitte anmelden','info'); return; }
+  var f = (window._gsSmartFolders||[]).find(function(x){ return x.key===key; });
+  if (!f || !f.members.length) return;
+  var ok = (typeof gsConfirmModal==='function')
+    ? await gsConfirmModal({ title:f.emoji+' „'+f.name+'" speichern?', text:'Erstellt eine feste Sammlung mit '+f.members.length+' Einträgen, die du danach frei bearbeiten kannst.', okText:'Speichern', cancelText:'Abbrechen' })
+    : true;
+  if (!ok) return;
+  var uid = gsStore.get('gs_sb_uid', null);
+  try {
+    var rc = await sbFetch('/rest/v1/user_collections', {method:'POST', headers:{'Content-Type':'application/json','Prefer':'return=representation'}, body: JSON.stringify({ user_id: uid, name: f.name, emoji: f.emoji })});
+    var col = (rc && rc.data && rc.data[0]) ? rc.data[0] : null;
+    if (!col || !col.id) throw new Error('no-id');
+    var rows = f.members.map(function(m){ return { collection_id: col.id, user_id: uid, item_type: m.type, item_ref: m.ref, label: m.label||null, emoji: m.emoji||null }; });
+    await sbFetch('/rest/v1/user_collection_items', {method:'POST', headers:{'Content-Type':'application/json','Prefer':'resolution=ignore-duplicates,return=minimal'}, body: JSON.stringify(rows)});
+    if (typeof gsHaptic==='function') gsHaptic('light');
+    if (typeof gsToast==='function') gsToast(f.emoji+' „'+f.name+'" gespeichert ('+rows.length+' Einträge)', 'success');
+    gsCollectionsRefresh();
+  } catch(e){ if (typeof gsToast==='function') gsToast('Konnte nicht speichern','warn'); }
+};
+
 window.gsOpenCollections = function(){
   if (typeof _gsNlOpen !== 'function') return;
   _gsNlOpen('<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><div style="font-size:32px;">📁</div><div><h3 style="margin:0;color:var(--g-dark);">Meine Sammlungen</h3><div style="font-size:12px;color:var(--muted);">Eigene Ordner für Pflanzen, Arten &amp; mehr</div></div></div><div id="gs-coll-body"><div style="color:var(--muted);font-size:13px;padding:14px;text-align:center;">⏳ Lade…</div></div>');
@@ -6682,6 +6797,11 @@ window.gsCollectionsRefresh = async function(){
   var html = '<div style="display:flex;gap:6px;margin-bottom:10px;">' +
     '<input id="gs-coll-new" placeholder="Neue Sammlung…" maxlength="60" style="flex:1;padding:9px 11px;border:1px solid var(--border);border-radius:10px;font-size:13px;font-family:inherit;background:var(--card);color:var(--text);">' +
     '<button onclick="gsCollectionCreateFromInput()" style="padding:9px 14px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">+ Anlegen</button></div>';
+  // v28.28: Auto-Ordner (rule-basierte Smart-Sortierung) live berechnen + oben anzeigen
+  try {
+    var smart = await gsComputeSmartFolders();
+    if (typeof window._gsSmartFoldersHtml === 'function') html += window._gsSmartFoldersHtml(smart);
+  } catch(_){}
   if (rows.length < 3){
     var existing = {}; rows.forEach(function(c){ existing[(c.name||'').toLowerCase()]=1; });
     var sugg = [['⭐','Wunschliste'],['☠️','Giftige'],['🍽️','Essbare'],['🌳','Mein Garten 2026']].filter(function(s){ return !existing[s[1].toLowerCase()]; });
@@ -56135,6 +56255,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.28', date: '06.06.2026',
+    headline: '🤖 Auto-Ordner — die App sortiert für dich',
+    summary: 'Deine Sammlungen sortieren sich jetzt von selbst: Öffne „Meine Sammlungen" und du siehst oben Auto-Ordner, die die App automatisch aus deinen Pflanzen & gemerkten Arten zusammenstellt — ☠️ Giftige, 🍽️ Essbare, 💊 Heilpflanzen, 🍄 Pilze, 🌳 Bäume, 🌿 Kräuter. Sie werden live berechnet (nichts wird im Hintergrund gespeichert). Gefällt dir ein Auto-Ordner, machst du mit einem Tipp auf „📌 Als feste Sammlung speichern" einen echten, frei bearbeitbaren Ordner daraus.',
+    user_summary: '🤖 Auto-Ordner sortieren deine Pflanzen & Arten automatisch nach Giftig/Essbar/Heil/Pilz/Baum/Kraut — auf Wunsch als feste Sammlung speichern.',
+    user_items: [
+      { emoji: '🤖', text: 'Automatisch sortierte Ordner aus deinen Pflanzen & Arten' },
+      { emoji: '📌', text: 'Auto-Ordner mit einem Tipp in eine feste Sammlung umwandeln' },
+    ],
+    items: [
+      {emoji:'🧠', bold:'Smart-Engine:', text:' gsComputeSmartFolders reichert myPlants per Name→DB-Match an + lädt gesammelte Arten (dedup), bucketet nach 6 botanischen Regeln (tox>=4/edible/medicinal + cat pilz/baum/kraut). Read-only, live berechnet — kein Stale-Risiko.'},
+      {emoji:'🔗', bold:'Verdrahten:', text:' gsMaterializeSmartFolder erstellt aus einem Auto-Ordner eine echte user_collection + Bulk-Insert (ignore-duplicates). Mitglieder anklickbar → Arten-Detail / Pflanzen-Dossier.'},
+      {emoji:'✅', bold:'Client-only:', text:' nutzt v28.24-Tabellen, keine Migration. Bucketing/Dedup/leere-Namen/unmatched gegen Mock-DOM verifiziert (ALL PASS). Schliesst das Ordner-System ab (Dossier+Sammlungen+Auto-Sortierung).'},
+    ]
+  },
+  {
     v: 'v28.27', date: '06.06.2026',
     headline: '📁 Funde & Inserate sammeln — alles an einem Ort',
     summary: 'Sammlungen werden universell: Du kannst jetzt auch deine Karten-Funde und Marktplatz-Inserate in eigene Ordner legen. In „Meine Funde" tippst du auf 📁, im Inserat-Detail ebenfalls — und legst sie z.B. in „Merkliste", „Pilzstellen" oder „Wunschliste". So hast du Pflanzen, Arten, Funde und Inserate alle in derselben Sammlungs-Struktur beisammen.',
@@ -59535,7 +59670,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.27';
+var GS_VERSION = 'v28.28';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
