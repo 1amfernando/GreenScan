@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.22.20260606">
+<meta name="app-version" content="28.23.20260606">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -6554,6 +6554,8 @@ function gsNewPlantCard(p) {
         '<button style="padding:9px 12px;background:#fff3e0;border:1.5px solid #ffcc80;border-radius:10px;font-size:12.5px;font-weight:800;color:#e65100;cursor:pointer;font-family:inherit;" onclick="event.stopPropagation();openDiagnosisCamera()">🔬</button>' +
       '</div>' +
       '<div id="ai-result-' + p.id + '" style="display:none;" class="mp-ai-result"></div>' +
+      // v28.23: Pflanzen-Dossier — alle verknüpften Inhalte (Ernten/Diagnosen/Foto-Diffs/Scans/Tagebuch)
+      '<button style="width:100%;padding:9px;margin-bottom:8px;background:#ede7f6;border:1.5px solid #b39ddb;border-radius:10px;font-size:12.5px;font-weight:800;color:#4527a0;cursor:pointer;font-family:inherit;" onclick="event.stopPropagation();if(typeof gsOpenPlantDossier===\'function\')gsOpenPlantDossier(\''+p.id+'\')">📂 Dossier — alles zu dieser Pflanze</button>' +
       // Edit / Delete
       '<div style="display:flex;gap:7px;">' +
         '<button style="flex:1;padding:9px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;font-size:12.5px;font-weight:700;color:var(--text);cursor:pointer;font-family:inherit;" data-action="tasks" data-id="' + p.id + '">⚙️ Aufgaben</button>' +
@@ -6563,6 +6565,65 @@ function gsNewPlantCard(p) {
     '</div>' +
   '</div>';
 }
+
+// ── v28.23: Pflanzen-Dossier — intelligente serverseitige Verdrahtung pro Pflanze ──────────
+// Sammelt ALLE verknüpften Inhalte (Ernten/Diagnosen/Foto-Diffs/Scans via fn_plant_dossier,
+// Tagebuch lokal) zu EINER Pflanze. Verknüpfung serverseitig per plant_local_id / species (fuzzy).
+function _gsDossierChip(icon, n, label){
+  return '<div style="flex:1;min-width:60px;text-align:center;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 4px;">' +
+    '<div style="font-size:18px;">' + icon + '</div>' +
+    '<div style="font-size:15px;font-weight:900;color:var(--g-dark);">' + (n||0) + '</div>' +
+    '<div style="font-size:9.5px;color:var(--muted);">' + label + '</div></div>';
+}
+window.gsOpenPlantDossier = async function(plantId){
+  var p = (Array.isArray(window.myPlants) ? window.myPlants : []).find(function(x){ return x.id === plantId; });
+  if (!p) { if (typeof gsToast === 'function') gsToast('Pflanze nicht gefunden', 'warn'); return; }
+  var esc = (typeof gsHTMLEscape === 'function') ? gsHTMLEscape : function(s){ return String(s==null?'':s); };
+  if (typeof _gsNlOpen !== 'function') return;
+  _gsNlOpen(
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">' +
+      '<div style="font-size:34px;">' + (p.emoji||'🌿') + '</div>' +
+      '<div><h3 style="margin:0;color:var(--g-dark);">' + esc(p.name) + '</h3>' +
+      '<div style="font-size:12px;color:var(--muted);">📂 Dossier · alles zu dieser Pflanze</div></div>' +
+    '</div>' +
+    '<div id="gs-dossier-body"><div style="color:var(--muted);font-size:13px;padding:14px;text-align:center;">⏳ Lade Dossier…</div></div>'
+  );
+  var body = document.getElementById('gs-dossier-body');
+  if (typeof sbFetch !== 'function' || typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) {
+    if (body) body.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:14px;text-align:center;">Melde dich an, um das Cloud-Dossier zu sehen.</div>';
+    return;
+  }
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_plant_dossier', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ p_plant_local_id: p.id, p_species_lat: p.lat || null, p_species_name: p.name || null })
+    });
+    var d = (r && r.data) || {};
+    var harv = Array.isArray(d.harvests) ? d.harvests : [];
+    var diag = Array.isArray(d.diagnoses) ? d.diagnoses : [];
+    var pdiff = Array.isArray(d.photo_diffs) ? d.photo_diffs : [];
+    var scans = d.scan_count || 0;
+    var diaryN = Array.isArray(p.diary) ? p.diary.length : 0;
+    var html = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">' +
+      _gsDossierChip('🧺', harv.length, 'Ernten') + _gsDossierChip('🔬', diag.length, 'Diagnosen') +
+      _gsDossierChip('📸', pdiff.length, 'Foto-Diff') + _gsDossierChip('🔍', scans, 'Scans') +
+      _gsDossierChip('📓', diaryN, 'Tagebuch') + '</div>';
+    if (harv.length) {
+      html += '<div style="font-size:12px;font-weight:800;color:var(--text);margin:12px 0 4px;">🧺 Ernten</div>';
+      html += harv.slice(0,8).map(function(h){ return '<div style="font-size:12.5px;padding:5px 0;border-top:1px solid var(--border);">' + (((h.ts||'')+'').slice(0,10)) + ' · ' + esc(h.species||'') + ' · <b>' + (h.menge||0) + ' ' + esc(h.unit||'') + '</b></div>'; }).join('');
+    }
+    if (diag.length) {
+      html += '<div style="font-size:12px;font-weight:800;color:var(--text);margin:12px 0 4px;">🔬 Doktor-Diagnosen</div>';
+      html += diag.slice(0,8).map(function(x){ var st=x.status||''; return '<div style="font-size:12.5px;padding:5px 0;border-top:1px solid var(--border);">' + (((x.created_at||'')+'').slice(0,10)) + ' · ' + esc(x.species||'') + ' · <span style="color:' + (st==='open'?'#e65100':'#2e7d32') + ';font-weight:700;">' + esc(st) + '</span></div>'; }).join('');
+    }
+    if (!harv.length && !diag.length && !pdiff.length && !scans && !diaryN) {
+      html += '<div style="color:var(--muted);font-size:13px;padding:16px;text-align:center;line-height:1.5;">Noch keine verknüpften Einträge.<br>Ernten, Diagnosen, Foto-Vergleiche & Scans erscheinen hier automatisch.</div>';
+    }
+    if (body) body.innerHTML = html;
+  } catch(e) {
+    if (body) body.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:14px;text-align:center;">⚠️ Dossier konnte nicht geladen werden.</div>';
+  }
+};
 
 // v24.26: Reminder snoozen — verschiebt einen spezifischen Reminder um N Tage
 window.gsSnoozePlantReminder = async function(dedupKey, days) {
@@ -55902,6 +55963,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.23', date: '06.06.2026',
+    headline: '📂 Pflanzen-Dossier — alles zu einer Pflanze an einem Ort',
+    summary: 'Neu: Jede Pflanze hat jetzt ein „Dossier". Tippe in „Meine Pflanzen" eine Pflanze auf und dann auf 📂 Dossier — die App sammelt automatisch alles, was zu dieser Pflanze gehört: deine Ernten, Pflanzen-Doktor-Diagnosen, Vorher/Nachher-Foto-Vergleiche, Scans und Tagebuch-Einträge. Du musst nichts manuell zuordnen — die App verknüpft im Hintergrund intelligent über Art und Verlauf. Erster Schritt eines grösseren, sauber aufgebauten Ordnungs-Systems.',
+    user_summary: '📂 Neues Pflanzen-Dossier: Ernten, Diagnosen, Foto-Vergleiche, Scans & Tagebuch automatisch pro Pflanze gebündelt.',
+    user_items: [
+      { emoji: '📂', text: '„Dossier"-Button in jeder Pflanzen-Karte' },
+      { emoji: '🔗', text: 'Automatische Verknüpfung — kein manuelles Einsortieren' },
+      { emoji: '🧺', text: 'Ernten + Diagnosen + Foto-Diffs + Scans + Tagebuch an einem Ort' },
+    ],
+    items: [
+      {emoji:'🔗', bold:'Intelligente Verdrahtung (Backend):', text:' fn_plant_dossier sammelt serverseitig alles zu einer Pflanze — verknüpft per Pflanzen-ID (direkt) oder Art (fuzzy). SECURITY DEFINER + own-only + 4 Perf-Indizes. Transaktional verifiziert (RLS-isoliert).'},
+      {emoji:'📂', bold:'Dossier-Ansicht (Frontend):', text:' gsOpenPlantDossier → Übersichts-Chips + Ernten-/Diagnosen-Liste. 📂-Button pro Pflanzen-Karte.'},
+      {emoji:'⏭️', bold:'Nächster Schritt:', text:' Smart-Sammlungen (eigene Ordner + Auto-Vorschläge) → v28.24. Eins nach dem anderen, sauber aufgebaut.'},
+    ]
+  },
+  {
     v: 'v28.22', date: '06.06.2026',
     headline: '🛡️ Deine Daten sicher — Pflanzen gehen nie mehr verloren + Home aufgeräumt',
     summary: 'Wichtiger Schutz gegen Datenverlust: Falls die App nach dem Speichern einer Pflanze sofort neu lädt (oder die Geräte-Uhr ungenau ist), wird deine zuletzt gespeicherte Pflanze jetzt garantiert behalten — eine ältere/kleinere Cloud-Version kann deine lokale, neuere Liste nicht mehr überschreiben. Ausserdem ist die Startseite aufgeräumt: die Kategorien-Kacheln sind weg (Kategorien findest du weiter über die Suche und den Pflanzen-Tab).',
@@ -59228,7 +59305,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.22';
+var GS_VERSION = 'v28.23';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
