@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.21.20260604">
+<meta name="app-version" content="28.22.20260606">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1885,18 +1885,9 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     </div>
     <div id="home-mkt-live-list"><div style="padding:6px 0 2px;color:var(--muted);font-size:12px;">⏳ Lade Inserate…</div></div>
   </div>
-  <div class="sec" data-i18n="sec_categories" data-i18n-fallback="Kategorien">Kategorien</div>
-  <div class="cat-grid">
-    <div class="cat-card" onclick="filterCat('wildpflanze')"><span class="ci">🌸</span><div class="cn" data-i18n="cat_wildpflanzen" data-i18n-fallback="Wildpflanzen">Wildpflanzen</div><div class="cc" id="cnt-wildpflanze">–</div></div>
-    <div class="cat-card" onclick="filterCat('baum')"><span class="ci">🌲</span><div class="cn" data-i18n="cat_baeume" data-i18n-fallback="Bäume">Bäume</div><div class="cc" id="cnt-baum">–</div></div>
-    <div class="cat-card" onclick="filterCat('kraut')"><span class="ci">🌿</span><div class="cn" data-i18n="cat_kraeuter" data-i18n-fallback="Kräuter">Kräuter</div><div class="cc" id="cnt-kraut">–</div></div>
-    <div class="cat-card" onclick="filterCat('pilz')"><span class="ci">🍄</span><div class="cn" data-i18n="cat_pilze" data-i18n-fallback="Pilze">Pilze</div><div class="cc" id="cnt-pilz">–</div></div>
-    <div class="cat-card" onclick="filterCat('moos')"><span class="ci">🌱</span><div class="cn" data-i18n="cat_moose" data-i18n-fallback="Moose">Moose</div><div class="cc" id="cnt-moos">–</div></div>
-    <div class="cat-card" onclick="filterCat('flechte')"><span class="ci">🪨</span><div class="cn" data-i18n="cat_flechten" data-i18n-fallback="Flechten">Flechten</div><div class="cc" id="cnt-flechte">–</div></div>
-    <div class="cat-card" onclick="filterCat('alge')"><span class="ci">💧</span><div class="cn" data-i18n="cat_algen" data-i18n-fallback="Algen">Algen</div><div class="cc" id="cnt-alge">–</div></div>
-    <div class="cat-card" onclick="filterCat('hauspflanze')"><span class="ci">🪴</span><div class="cn" data-i18n="cat_hauspflanzen" data-i18n-fallback="Hauspflanzen">Hauspflanzen</div><div class="cc" id="cnt-hauspflanze">–</div></div>
-    <div class="cat-card" onclick="filterCat('')"><span class="ci">⭐</span><div class="cn" data-i18n="cat_alle" data-i18n-fallback="Alle">Alle</div><div class="cc" id="cnt-all">–</div></div>
-  </div>
+  <!-- v28.22 Block C: Home-Kategorien-Sektion entfernt (Fernando-Wunsch). Kategorie-Browsing
+       bleibt via Suche-Tab (Filter) + Pflanzen-Tab + Wissen-Tab erreichbar. cnt-*-Setter sind
+       guarded (9823 + 67143/67146). Bei Bedarf via Git-History in 1 Min wiederherstellbar. -->
   <!-- Gartenwetter Widget -->
   <div style="padding:0 16px 10px;">
     <div id="home-weather-widget" style="border-radius:var(--r);overflow:hidden;cursor:pointer;" >
@@ -55911,6 +55902,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.22', date: '06.06.2026',
+    headline: '🛡️ Deine Daten sicher — Pflanzen gehen nie mehr verloren + Home aufgeräumt',
+    summary: 'Wichtiger Schutz gegen Datenverlust: Falls die App nach dem Speichern einer Pflanze sofort neu lädt (oder die Geräte-Uhr ungenau ist), wird deine zuletzt gespeicherte Pflanze jetzt garantiert behalten — eine ältere/kleinere Cloud-Version kann deine lokale, neuere Liste nicht mehr überschreiben. Ausserdem ist die Startseite aufgeräumt: die Kategorien-Kacheln sind weg (Kategorien findest du weiter über die Suche und den Pflanzen-Tab).',
+    user_summary: '🛡️ Schutz: zuletzt gespeicherte Pflanze geht nie mehr verloren · 🏠 Home aufgeräumt (Kategorien-Kacheln weg).',
+    user_items: [
+      { emoji: '🛡️', text: 'Datenverlust-Schutz: neuere lokale Liste wird nie von älterer Cloud überschrieben' },
+      { emoji: '🌱', text: 'Zuletzt gespeicherte Pflanze bleibt sicher sichtbar' },
+      { emoji: '🏠', text: 'Startseite: Kategorien-Kacheln entfernt' },
+    ],
+    items: [
+      {emoji:'🛡️', bold:'P0 Count-Guard:', text:' Beim Sync ersetzt eine kleinere Cloud-Liste die grössere lokale nie, solange ungepushte Änderungen vorliegen (schützt vor Boot-Race + Geräte-Uhr-Abweichung). Logik 7-fach verifiziert. Doku PERSISTENCE_AUDIT_v28.22.md.'},
+      {emoji:'🏠', bold:'Home-Cleanup:', text:' Kategorien-Sektion raus, Zähler-Setter abgesichert. Kategorie-Browsing via Suche/Pflanzen/Wissen.'},
+      {emoji:'⏭️', bold:'Nächste Sprints:', text:' Marktplatz-Tutti-Vollausbau (Verkauft-Ordner/E-Mail/Admin-Archiv) → v28.23 · Tools-Bearbeiten-Modus → v28.24.'},
+    ]
+  },
+  {
     v: 'v28.21', date: '04.06.2026',
     headline: '🌿 Community in der Leiste + Home neu: Live-Marktplatz & Wisch-Karten',
     summary: 'Die untere Leiste hat jetzt 🌿 Community statt 🔍 Suche (die Suche erreichst du weiter oben im Menü). Auf der Startseite siehst du neu „🛒 Aktive Inserate · Live" — die neuesten Marktplatz-Angebote in Echtzeit; tippe drauf und du bist im Marktplatz. Und die Tages-Karten (Tagesinfo, Saison-Tipp, Wusstest-du, Bauernregel) sind jetzt zu einem Stapel zusammengefasst, durch den du wie auf dem iPhone seitlich wischst — mit Pünktchen unten und automatischem Weiterblättern.',
@@ -59221,7 +59228,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.21';
+var GS_VERSION = 'v28.22';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -64130,12 +64137,21 @@ async function gsSyncUserDataOnLogin(){
           // Stattdessen local behalten + Cloud reparieren (Re-Push). Verhindert Boot-Race-Datenverlust.
           var _localP = []; try { _localP = JSON.parse(gsStore.get('ps_myplants', null)||'[]'); } catch(_){}
           var _localPN = Array.isArray(_localP) ? _localP.length : 0;
-          if (pd.plants.length > 0 || _localPN === 0) {
+          var _cloudPN = pd.plants.length;
+          var _plantsDirty = (window.gsCloudSync && gsCloudSync.localDirtyAt) ? gsCloudSync.localDirtyAt('plants') : null;
+          // v28.22 P0: COUNT-GUARD — eine kleinere Cloud-Liste darf eine grössere lokale NIE
+          // ersetzen, solange lokal ungepushte Änderungen vorliegen (schützt vor Boot-Race UND
+          // Clock-Skew-Datenverlust; Fernando-Bug „letzte Pflanze nach Reload weg"). Bei sauberem
+          // lokalen Stand bleibt Cloud autoritativ (Löschungen von anderen Geräten propagieren).
+          // Leere-Cloud-Guard (v27.01) bleibt als Spezialfall enthalten.
+          var _keepLocalPlants = (_localPN > 0) && (_cloudPN === 0 || (_cloudPN < _localPN && _plantsDirty));
+          if (!_keepLocalPlants) {
             try { gsStore.set('ps_myplants', JSON.stringify(pd.plants)); } catch(_){}
             if (typeof myPlants !== 'undefined') myPlants = pd.plants;
           } else {
             try { gsCloudSync.markDirty('plants'); } catch(_){}
-            console.warn('[gsSync] v27.01: cloud plants empty but local has ' + _localPN + ' — keeping local + repairing cloud');
+            try { if (typeof renderMyPlants === 'function') setTimeout(renderMyPlants, 60); } catch(_){}
+            console.warn('[gsSync] v28.22 count-guard: cloud plants (' + _cloudPN + ') < local (' + _localPN + ') mit ungepushten Änderungen — local behalten + Cloud reparieren');
           }
         }
         if (pd.diary) try { localStorage.setItem('gs_gartentagebuch', JSON.stringify(pd.diary)); } catch(_){}
@@ -67134,7 +67150,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       const el=document.getElementById('cnt-'+c);
       if(el) el.textContent=(cats[c]||0)+' Arten';
     });
-    document.getElementById('cnt-all').textContent = DB.length+' Arten';
+    var _cAll=document.getElementById('cnt-all'); if(_cAll) _cAll.textContent = DB.length+' Arten';  // v28.22: guarded (Home-Kategorien entfernt)
     initHomeBoard();
     renderList();
     if(typeof gsUpdateStreak==="function") gsUpdateStreak();
