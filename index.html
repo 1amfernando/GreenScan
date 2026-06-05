@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.26.20260606">
+<meta name="app-version" content="28.27.20260606">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -6646,6 +6646,26 @@ window.gsAddSpeciesToCollection = function(speciesId){
   if (!sp) { if (typeof gsToast === 'function') gsToast('Art nicht gefunden', 'warn'); return; }
   var emoji = (sp.tox >= 4) ? '☠️' : (sp.edible ? '🍽️' : (sp.medicinal ? '💊' : '🌿'));
   gsAddToCollection('species', sp.id, sp.name || sp.lat || '', emoji);
+};
+
+// v28.27: Karten-Fund zu Sammlung — nur Cloud-Funde (echte UUID), local_-Funde erst syncen
+// damit der Sammlungs-Ref nicht nach dem Cloud-Sync veraltet (Hard-Lesson Stale-Ref).
+window.gsAddFindToCollection = function(i){
+  var f = (window._gsMyFindsRows || [])[i];
+  if (!f || f.id == null){ if (typeof gsToast === 'function') gsToast('Fund nicht gefunden', 'warn'); return; }
+  if (String(f.id).indexOf('local_') === 0){ if (typeof gsToast === 'function') gsToast('Fund erst mit der Cloud synchronisieren (einloggen + online), dann sammelbar.', 'info'); return; }
+  var catEmoji = { pilz:'🍄', pflanze:'🌿', baum:'🌲', kraut:'🌿', beere:'🫐', heil:'🌿', poi:'📍', sonstiges:'📍' };
+  var emo = catEmoji[f.category] || '📍';
+  gsAddToCollection('find', f.id, f.species_name || 'Fund', emo);
+};
+
+// v28.27: Marktplatz-Inserat zu Sammlung (z.B. Merkliste/Wunschliste)
+window.gsAddListingToCollection = function(lid){
+  var l = null;
+  try { l = (typeof gsMarketLoad === 'function' ? (gsMarketLoad()||[]) : []).find(function(x){ return x && x.id === lid; }); } catch(_){}
+  if (!l){ if (typeof gsToast === 'function') gsToast('Inserat nicht gefunden', 'warn'); return; }
+  var emoji = (typeof _catEmoji === 'function') ? (_catEmoji(l.cat) || '🛒') : '🛒';
+  gsAddToCollection('listing', l.id, l.title || 'Inserat', emoji);
 };
 
 window.gsOpenCollections = function(){
@@ -31325,6 +31345,7 @@ function gsMarketShowDetail(l) {
       '<div style="display:flex;gap:8px;">' +
         '<button onclick="contactSeller(\'' + l.id + '\')" style="flex:2;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">💬 Kontakt aufnehmen</button>' +
         '<button onclick="openRateListing(\'' + l.id + '\')" style="flex:1;padding:13px;background:#fff3e0;color:#e65100;border:1px solid #ffcc80;border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">⭐ Bewerten</button>' +
+        '<button onclick="gsAddListingToCollection(\'' + l.id + '\')" title="Zu Sammlung hinzufügen" aria-label="Zu Sammlung hinzufügen" style="flex:0 0 auto;padding:13px 14px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:11px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📁</button>' +
       '</div>' +
     '</div>' +
   '</div>';
@@ -41431,6 +41452,7 @@ async function gsOpenMyFinds(){
           '<div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + d.toLocaleDateString('de-CH') + (f.note ? ' · ' + escHtml(String(f.note).slice(0,40)) : '') + '</div>' +
         '</div>' +
         photoBtn +
+        '<button onclick="gsAddFindToCollection(' + i + ')" title="Zu Sammlung hinzufügen" style="padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);font-size:14px;cursor:pointer;-webkit-tap-highlight-color:transparent;">📁</button>' +
         '<button onclick="_gsMyFindTogglePub(' + i + ',this)" title="Community-Freigabe" style="padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:' + (pub?'#e8f5e9':'var(--surface2)') + ';font-size:14px;cursor:pointer;-webkit-tap-highlight-color:transparent;">' + (pub?'🌍':'🔒') + '</button>' +
         '<button onclick="_gsMyFindDelete(' + i + ')" title="Löschen" style="padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:#ffebee;font-size:14px;cursor:pointer;-webkit-tap-highlight-color:transparent;">🗑️</button>' +
       '</div>';
@@ -56113,6 +56135,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.27', date: '06.06.2026',
+    headline: '📁 Funde & Inserate sammeln — alles an einem Ort',
+    summary: 'Sammlungen werden universell: Du kannst jetzt auch deine Karten-Funde und Marktplatz-Inserate in eigene Ordner legen. In „Meine Funde" tippst du auf 📁, im Inserat-Detail ebenfalls — und legst sie z.B. in „Merkliste", „Pilzstellen" oder „Wunschliste". So hast du Pflanzen, Arten, Funde und Inserate alle in derselben Sammlungs-Struktur beisammen.',
+    user_summary: '📁 Karten-Funde & Marktplatz-Inserate lassen sich jetzt auch in Sammlungen ablegen.',
+    user_items: [
+      { emoji: '📍', text: 'Funde aus „Meine Funde" in Sammlungen legen' },
+      { emoji: '🛒', text: 'Marktplatz-Inserate merken (z.B. Wunschliste)' },
+    ],
+    items: [
+      {emoji:'✨', bold:'Neu:', text:' gsAddFindToCollection (📁 in gsOpenMyFinds-Liste) + gsAddListingToCollection (📁 in gsMarketShowDetail). item_type find/listing waren bereits im CHECK (v28.24) — reines Frontend, keine Migration.'},
+      {emoji:'🛡️', bold:'Stale-Ref-Guard:', text:' Funde mit local_-ID (noch nicht gesynct) werden geblockt mit Hinweis „erst synchronisieren" — verhindert veraltete Sammlungs-Refs nach Cloud-Sync.'},
+    ]
+  },
+  {
     v: 'v28.26', date: '06.06.2026',
     headline: '🔍 Qualitäts-Audit: Pflanzen-Dossier korrigiert',
     summary: 'Nach einer gründlichen Selbst-Prüfung der letzten Updates haben wir einen Genauigkeits-Fehler im neuen Pflanzen-Dossier behoben: die „Scans"-Zahl wurde über den falschen Schlüssel verknüpft und hätte nie korrekt gezählt. Sie wurde entfernt — das Dossier zeigt jetzt nur noch die zuverlässig zugeordneten Inhalte (Ernten, Diagnosen, Foto-Vergleiche). Lieber ehrlich & korrekt als eine falsche Zahl.',
@@ -59499,7 +59535,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.26';
+var GS_VERSION = 'v28.27';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
