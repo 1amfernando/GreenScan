@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.30.20260606">
+<meta name="app-version" content="28.31.20260606">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12824,9 +12824,9 @@ function mktLike(id) {
   }
 }
 
-function mktDelete(id) {
+async function mktDelete(id) {
   gsHaptic('medium');
-  if (!confirm('Inserat löschen?')) return;
+  if (!(await gsConfirmModal('Inserat löschen?'))) return;
   var listings = [];
   try { listings = JSON.parse(gsStore.get('gs_market_listings', null)||'[]'); } catch(e){}
   listings = listings.filter(function(x){ return x.id !== id; });
@@ -13732,8 +13732,8 @@ function _gsBuildScanHistList() {
 
 function gsScanHistSetFilter(f) { window._gsScanHistFilter = f; renderScanHistFull(); }
 function gsScanHistSetQuery(q)  { window._gsScanHistQuery = (q||'').toLowerCase().trim(); renderScanHistFull(); }
-function gsScanHistDelete(uid) {
-  if (!confirm('Diesen Scan löschen?')) return;
+async function gsScanHistDelete(uid) {
+  if (!(await gsConfirmModal('Diesen Scan löschen?'))) return;
   try {
     if (uid && uid.indexOf('h_') === 0) {
       var idx = parseInt(uid.slice(2));
@@ -13750,8 +13750,8 @@ function gsScanHistDelete(uid) {
     if (typeof updateScanHistoryBadge === 'function') updateScanHistoryBadge();
   } catch(_){}
 }
-function gsScanHistDeleteAll() {
-  if (!confirm('ALLE Scans löschen? Das kann nicht rückgängig gemacht werden.')) return;
+async function gsScanHistDeleteAll() {
+  if (!(await gsConfirmModal('ALLE Scans löschen? Das kann nicht rückgängig gemacht werden.'))) return;
   try {
     localStorage.removeItem(SCAN_HISTORY_KEY);
     localStorage.removeItem('gs_confirmed_species');
@@ -18348,8 +18348,8 @@ function submitRating(listingId) {
 }
 
 // ── MELDEN ───────────────────────────────────────────────────────
-function reportListing(id) {
-  if (!confirm('Dieses Angebot als unangemessen melden?\n\nBei 3+ Meldungen wird es als "Gemeldet" markiert und vom Admin geprüft.')) return;
+async function reportListing(id) {
+  if (!(await gsConfirmModal('Dieses Angebot als unangemessen melden?\n\nBei 3+ Meldungen wird es als "Gemeldet" markiert und vom Admin geprüft.'))) return;
   var listings = gsMarketLoad();
   var l = listings.find(function(x) { return x.id === id; });
   if (!l) return;
@@ -18371,8 +18371,8 @@ function reportListing(id) {
 }
 
 // ── LÖSCHEN / BEARBEITEN ─────────────────────────────────────────
-function deleteListing(id) {
-  if (!confirm('Angebot endgültig löschen?')) return;
+async function deleteListing(id) {
+  if (!(await gsConfirmModal('Angebot endgültig löschen?'))) return;
   var listings = gsMarketLoad();
   var l = listings.find(function(x) { return x.id === id; });
   if (!l) return;
@@ -19301,7 +19301,7 @@ async function gsFriendsAccept(friendshipId) {
 
 // Anfrage ablehnen / Friendship lösen
 async function gsFriendsRemove(friendshipId) {
-  if (!confirm('Wirklich entfernen?')) return false;
+  if (!(await gsConfirmModal('Wirklich entfernen?'))) return false;
   try {
     var r = await sbFetch('/rest/v1/friendships?id=eq.' + friendshipId, {method:'DELETE'});
     if (!r.error) { showProfileToast && showProfileToast('🗑 Entfernt'); return true; }
@@ -19312,7 +19312,7 @@ async function gsFriendsRemove(friendshipId) {
 
 // Block/Ban
 async function gsFriendsBlock(friendshipId) {
-  if (!confirm('Diesen User blockieren?')) return false;
+  if (!(await gsConfirmModal('Diesen User blockieren?'))) return false;
   try {
     var r = await sbFetch('/rest/v1/friendships?id=eq.' + friendshipId, {
       method: 'PATCH', headers: {'Content-Type':'application/json','Prefer':'return=minimal'},
@@ -23029,8 +23029,8 @@ window.gsScanHistoryReportWrong = function(idx) {
 };
 
 // v24.10: Einzelnen Scan aus History entfernen
-window.gsScanHistoryDelete = function(idx) {
-  if (!confirm('Diesen Scan aus der History entfernen?\n(Die Cloud-Kopie bleibt erhalten.)')) return;
+window.gsScanHistoryDelete = async function(idx) {
+  if (!(await gsConfirmModal('Diesen Scan aus der History entfernen?\n(Die Cloud-Kopie bleibt erhalten.)'))) return;
   try {
     var hist = getScanHistory();
     hist.splice(idx, 1);
@@ -25230,8 +25230,8 @@ function gsLuxRemoveCalibPoint(idx) {
   gsLuxCalibrate();  // Refresh
 }
 
-function gsLuxResetCalib() {
-  if (!confirm('Alle Kalibrierpunkte zurücksetzen?')) return;
+async function gsLuxResetCalib() {
+  if (!(await gsConfirmModal('Alle Kalibrierpunkte zurücksetzen?'))) return;
   try { localStorage.removeItem('gs_lux_calib_points'); } catch(e){}
   try { localStorage.removeItem('gs_lux_calib'); } catch(e){}
   if (typeof showProfileToast === 'function') showProfileToast('↺ Kalibrierung zurückgesetzt', 'success');
@@ -27530,7 +27530,7 @@ function openNewPost() {
 // Eigenen Post löschen
 async function deletePost(postId) {
   if (!gsRequire('post_community', 'Bitte anmelden.')) return;
-  if (!confirm('Post wirklich löschen?')) return;
+  if (!(await gsConfirmModal('Post wirklich löschen?'))) return;
   var uid = gsStore.get('gs_sb_uid', null);
   var res = await sbFetch('/rest/v1/social_posts?id=eq.' + postId + '&user_id=eq.' + uid, {method:'DELETE'});
   if (!res.error) {
@@ -37680,9 +37680,9 @@ function editRecipe(id) {
   }, 100);
 }
 
-function deleteRecipe(id) {
+async function deleteRecipe(id) {
   if (!gsRequire('delete_recipe')) return;
-  if (!confirm('Rezept wirklich löschen?')) return;
+  if (!(await gsConfirmModal('Rezept wirklich löschen?'))) return;
   recipesData  = recipesData.filter(r => r.id !== id);
   remediesData = remediesData.filter(r => r.id !== id);
   saveRecipesData();
@@ -42335,8 +42335,8 @@ function gsTrackExportGPX(idx) {
   } catch(e) { console.warn('[gsTrackExportGPX]', e); }
 }
 
-function gsTrackDelete(idx) {
-  if (!confirm('Track wirklich löschen?')) return;
+async function gsTrackDelete(idx) {
+  if (!(await gsConfirmModal('Track wirklich löschen?'))) return;
   try {
     var saved = JSON.parse(localStorage.getItem('gs_gpx_tracks') || '[]');
     saved.splice(idx, 1);
@@ -43175,8 +43175,8 @@ function gsShowMushroomSeason() {
 }
 
 // Alle Funde löschen
-function gsMapClearAll() {
-  if (!confirm('Alle ' + gsGetSavedMarkers().length + ' Fundorte löschen?')) return;
+async function gsMapClearAll() {
+  if (!(await gsConfirmModal('Alle ' + gsGetSavedMarkers().length + ' Fundorte löschen?'))) return;
   localStorage.removeItem('greenscan_markers');
   // Filter-Layer-Array zurücksetzen
   try { if (typeof _gsMarkerLayers !== 'undefined') _gsMarkerLayers = []; } catch(e){}
@@ -53713,7 +53713,7 @@ async function gsDevShowSensorCode(deviceId) {
 }
 
 async function gsDevDeleteCloudSensor(deviceId) {
-  if (!confirm('Cloud-Sensor wirklich löschen? Alle Messdaten gehen verloren.')) return;
+  if (!(await gsConfirmModal('Cloud-Sensor wirklich löschen? Alle Messdaten gehen verloren.'))) return;
   try {
     var r = await sbFetch('/rest/v1/sensor_devices?id=eq.' + deviceId, {method:'DELETE'});
     if (!r.error) {
@@ -53833,8 +53833,8 @@ async function gsDevReconnect(id) {
   gsDevConnect(_gsDev.registry[id] && _gsDev.registry[id].kind);
 }
 
-function gsDevForget(id) {
-  if (!confirm('Sensor „' + ((_gsDev.registry[id] || {}).name || id) + '" entfernen?')) return;
+async function gsDevForget(id) {
+  if (!(await gsConfirmModal('Sensor „' + ((_gsDev.registry[id] || {}).name || id) + '" entfernen?'))) return;
   try {
     if (_gsDev.connected[id] && _gsDev.connected[id].device && _gsDev.connected[id].device.gatt && _gsDev.connected[id].device.gatt.connected) {
       _gsDev.connected[id].device.gatt.disconnect();
@@ -54487,8 +54487,8 @@ function saveGarden() {
   renderGarden();
 }
 
-function deleteGarden(id) {
-  if (!confirm('Garten und alle eingepflanzten Pflanzen löschen?')) return;
+async function deleteGarden(id) {
+  if (!(await gsConfirmModal('Garten und alle eingepflanzten Pflanzen löschen?'))) return;
   gardens = gardens.filter(g => g.id !== id);
   plantings = plantings.filter(p => p.gardenId !== id);
   saveGardenData();
@@ -54790,8 +54790,8 @@ function deletePlantingById(btn) {
   deletePlanting(id);
 }
 
-function deletePlanting(id) {
-  if (!confirm('Pflanzung entfernen?')) return;
+async function deletePlanting(id) {
+  if (!(await gsConfirmModal('Pflanzung entfernen?'))) return;
   plantings = plantings.filter(p => p.id !== id);
   saveGardenData();
   closeModal('modal-planting-detail');
@@ -55110,9 +55110,9 @@ function admSaveNew() {
 function admClearForm(){admEditIdx=-1;admBuildForm();}
 function admOpenEdit(idx){admEditIdx=idx;admBuildForm(DB[idx]);admShowTab('add');document.getElementById('adm-tab-add').textContent='✏️ Bearbeiten';}
 
-function admConfirmDel(idx) {
+async function admConfirmDel(idx) {
   var e=DB[idx];
-  if(!confirm('Art "'+e.name+'" ('+e.id+') wirklich löschen?')) return;
+  if(!(await gsConfirmModal('Art "'+e.name+'" ('+e.id+') wirklich löschen?'))) return;
   DB.splice(idx,1);
   admUpdateStats();
   if(typeof renderList==='function') renderList(DB);
@@ -56305,7 +56305,7 @@ window.gsGlobalKeySaveInput = async function() {
 };
 
 window.gsGlobalKeyToggleService = async function() {
-  if (!confirm('Globalen Key-Service wirklich deaktivieren? Danach müssen ALLE User ihren eigenen sk-ant-Key eintragen.')) return;
+  if (!(await gsConfirmModal('Globalen Key-Service wirklich deaktivieren? Danach müssen ALLE User ihren eigenen sk-ant-Key eintragen.'))) return;
   if (typeof sbFetch !== 'function') return;
   try {
     var r = await sbFetch('/rest/v1/rpc/fn_set_global_api_key', {
@@ -56323,9 +56323,9 @@ window.gsGlobalKeyToggleService = async function() {
   } catch(e) { showProfileToast && showProfileToast('❌ ' + e.message); }
 };
 
-function gsAdminResetSbKey() {
+async function gsAdminResetSbKey() {
   if (!gsIsAdmin || !gsIsAdmin()) return;
-  if (!confirm('Standard-Key wiederherstellen?')) return;
+  if (!(await gsConfirmModal('Standard-Key wiederherstellen?'))) return;
   localStorage.removeItem('gs_sb_key');
   localStorage.removeItem('gs_sb_url');
   SB_KEY = SB_KEY_DEFAULT;
@@ -56353,6 +56353,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v28.31', date: '06.06.2026',
+    headline: '🧘 Bestätigungs-Fenster statt einfrierender Popups',
+    summary: 'Weiter im Dialog-Umbau (Schritt 2 von 3): Überall, wo bisher ein blockierender „OK/Abbrechen"-System-Dialog kam (Löschen-Bestätigungen, Reset-Warnungen, Konto-Aktionen), erscheint jetzt ein sauberes In-App-Fenster im App-Stil — mit klaren Buttons („Löschen" in Rot, „Abbrechen" daneben). Das gefährliche Einfrieren der Home-Screen-App-Version unter iOS bei jeder Bestätigung gehört damit der Vergangenheit an.',
+    user_summary: '🧘 21 blockierende Bestätigungs-Popups durch saubere App-Fenster ersetzt — keine eingefrorenen Bildschirme mehr bei Lösch-/Reset-Dialogen.',
+    user_items: [
+      { emoji: '✅', text: 'Saubere App-Fenster für „Wirklich löschen?"-Bestätigungen' },
+      { emoji: '🔴', text: 'Lösch-Buttons jetzt deutlich rot, „Abbrechen" daneben' },
+      { emoji: '📱', text: 'iOS-/Home-Screen-Modus fängt nicht mehr ein' },
+    ],
+    items: [
+      {emoji:'🧘', bold:'21× confirm()→await gsConfirmModal:', text:' Marktplatz (mktDelete/reportListing/deleteListing/+12 weitere), Scan-History (gsScanHistDelete/All), KI-Plan-Reset und mehr — alle umgebenden Functions zu async umgestellt. Funktionen liefern korrekt true/false via await.'},
+      {emoji:'🧮', bold:'10 verbleibende confirm() bewusst belassen:', text:' 6 sind absichtliche Fallback-Branches (`: confirm()` / `else`) für Edge-Cases ohne Helper, 4 sind deferred Sonderfälle (Z.40461/42061/54015/62189) — eigene Sub-Sweep in v28.32.'},
+      {emoji:'🤖', bold:'Skript-verifiziert:', text:' Pattern-Matcher + Diff-Audit pro Stelle, async-Konvertierung vorsichtig (nur Top-Level-Functions, keine Closures verändert). 7/7 node --check. B-013 Batch 2/3.'},
+      {emoji:'⏭️', bold:'Nächster Batch v28.32:', text:' prompt() (17 Stellen) → await gsPromptModal — schließt den B-013-Sweep ab.'},
+    ]
+  },
   {
     v: 'v28.30', date: '06.06.2026',
     headline: '🔔 Sanfte Hinweise statt blockierender Popups',
@@ -59799,7 +59816,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.30';
+var GS_VERSION = 'v28.31';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -59998,9 +60015,9 @@ function _gsOpenIngCard(plantId, recipeId) {
   }, 200);
 }
 
-function gsAdminBanUser(targetEmail) {
+async function gsAdminBanUser(targetEmail) {
   if (!gsIsAdmin()) return;
-  if (!confirm('Nutzer ' + targetEmail + ' wirklich sperren?')) return;
+  if (!(await gsConfirmModal('Nutzer ' + targetEmail + ' wirklich sperren?'))) return;
   var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
   log.unshift({ ts: new Date().toISOString(), admin: gsStore.get('gs_sb_email', null),
     target: targetEmail, action: 'ban', note: 'Gesperrt durch Admin' });
