@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.32.20260606">
+<meta name="app-version" content="28.33.20260606">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17694,7 +17694,7 @@ function renderMarket() {
   var filtered = listings.filter(function(l) {
     // v26.92: archived/reported/deleted nur für Fremde ausblenden; eigene Inserate immer sichtbar
     var isMine = myUid && l.sellerId === myUid;
-    if (!isMine && (l.status === 'deleted' || l.status === 'archived' || l.status === 'reported')) return false;
+    if (!isMine && (l.status === 'deleted' || l.status === 'archived' || l.status === 'reported' || l.status === 'sold')) return false;
     if (l.status === 'deleted' && isMine) return false; // gelöschte nie zeigen
     if (cat !== 'all' && l.cat !== cat) return false;
     if (region !== 'all' && l.region !== region) return false;
@@ -56362,6 +56362,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.33', date: '06.06.2026',
+    headline: '🔒 Verkaufte Inserate verschwinden — wie bei Tutti',
+    summary: 'Verkaufte und archivierte Inserate sind jetzt für andere Nutzer nicht mehr sichtbar — genau wie auf Tutti. Nur du selbst siehst deine eigenen verkauften/archivierten Inserate (in „Meine Inserate"). Im Hintergrund haben wir ausserdem einen versteckten, ernsten Fehler in der Admin-Rechteprüfung behoben, der seit einer früheren Aufräumaktion schlummerte.',
+    user_summary: '🔒 Verkaufte + archivierte Inserate sind für andere unsichtbar (nur du siehst deine eigenen). Plus ein wichtiger Backend-Fix.',
+    user_items: [
+      { emoji: '🔒', text: 'Verkaufte/archivierte Inserate für andere unsichtbar (Tutti-Prinzip)' },
+      { emoji: '👤', text: 'Deine eigenen Inserate aller Status bleiben für dich sichtbar' },
+    ],
+    items: [
+      {emoji:'🛡️', bold:'Lifecycle-RLS (B-018):', text:' marketplace_select_active → status IN (active,reserved) OR eigene. Transaktional verifiziert (anon/fremd sehen nur active+reserved; Eigentümer sieht alle eigenen). Frontend versteckt sold zusätzlich.'},
+      {emoji:'🚨', bold:'is_admin_user-Fix (kritisch):', text:' Funktion referenzierte gedroppte legacy_profiles → warf bei jedem Aufruf, brach 3 Admin-Policies. Gefixt auf profiles.is_admin + admin_emails. Beim Marktplatz-Pre-Test gefangen, bevor es Schaden anrichtete.'},
+      {emoji:'✅', bold:'Security-Advisor 0 ERRORs', text:' · minimale Grants (Hard-Lesson #13).'},
+    ]
+  },
+  {
     v: 'v28.32', date: '06.06.2026',
     headline: '🛒 Marktplatz-Fix: deine Inserate erscheinen sofort',
     summary: 'Wir haben den hartnäckigen Bug gefunden, bei dem neu erstellte oder von anderen veröffentlichte Inserate erst nach einem Neuladen der App auftauchten. Ursache: die App lud die frischen Inserate zwar aus der Cloud, behielt aber im Speicher die alte Liste. Jetzt sind Speicher und Cloud immer synchron — neue Inserate erscheinen sofort, ohne Neuladen. Ausserdem zeigt die Startseite nur noch aktive Inserate, und alte Test-Inserate sind ins Archiv gewandert.',
@@ -59839,7 +59854,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.32';
+var GS_VERSION = 'v28.33';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
