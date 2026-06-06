@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.31.20260606">
+<meta name="app-version" content="28.32.20260606">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13049,6 +13049,10 @@ async function loadMarketFromSupabase() {
       var cloudIds = new Set(cloud.map(function(l){ return l.id; }));
       var merged = cloud.concat(local.filter(function(l){ return !cloudIds.has(l.id); }));
       try { gsStore.set('gs_market_listings', JSON.stringify(merged)); } catch(e){}
+      // v28.32 B-017 P0-FIX: In-Memory-Cache MIT aktualisieren — sonst rendert renderMarket()
+      // via gsMarketLoad() weiter die stale window._gsMarket (frisch geladene Inserate erschienen
+      // erst nach Page-Reload). Single-Source-of-Truth: LS + Memory immer synchron.
+      window._gsMarket = merged;
     }
   } catch(e) { console.warn('Market Supabase load failed:', e && e.message); }
   renderMarket();
@@ -18243,7 +18247,11 @@ async function saveListing() {
       'success');
     try { gsNlClearPhotos(); } catch(_){}
     closeModal('detail-modal');
-    if (typeof renderMarket === 'function') renderMarket();
+    // v28.32 B-017 P0-FIX: nach Publish frisch aus Cloud nachladen (refresht window._gsMarket
+    // inkl. dem soeben erstellten Inserat) — vorher nur renderMarket() → eigenes neues Inserat
+    // erschien erst nach Reload, weil es weder in window._gsMarket noch LS gepusht wurde.
+    if (typeof loadMarketFromSupabase === 'function') loadMarketFromSupabase();
+    else if (typeof renderMarket === 'function') renderMarket();
   } catch(e) {
     if (typeof showProfileToast === 'function') showProfileToast(
       (window.gsI18n ? gsI18n.t('toast_market_network_error', '⚠️ Netzwerkfehler — versuche es erneut') : '⚠️ Netzwerkfehler — versuche es erneut'),
@@ -56354,6 +56362,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.32', date: '06.06.2026',
+    headline: '🛒 Marktplatz-Fix: deine Inserate erscheinen sofort',
+    summary: 'Wir haben den hartnäckigen Bug gefunden, bei dem neu erstellte oder von anderen veröffentlichte Inserate erst nach einem Neuladen der App auftauchten. Ursache: die App lud die frischen Inserate zwar aus der Cloud, behielt aber im Speicher die alte Liste. Jetzt sind Speicher und Cloud immer synchron — neue Inserate erscheinen sofort, ohne Neuladen. Ausserdem zeigt die Startseite nur noch aktive Inserate, und alte Test-Inserate sind ins Archiv gewandert.',
+    user_summary: '🛒 Inserate erscheinen jetzt sofort (kein Neuladen nötig); Startseite zeigt nur aktive Inserate; Test-Inserate archiviert.',
+    user_items: [
+      { emoji: '✅', text: 'Neue / fremde Inserate sofort sichtbar (Cache-Bug behoben)' },
+      { emoji: '🏠', text: 'Startseite zeigt nur aktive Inserate' },
+    ],
+    items: [
+      {emoji:'🐛', bold:'P0-Root-Cause (B-017):', text:' loadMarketFromSupabase schrieb frische Inserate nur in localStorage, nie in window._gsMarket → renderMarket rendert stale Cache. Fix: Memory+LS synchron + nach Publish frischer Cloud-Pull.'},
+      {emoji:'📦', bold:'Demo-Archiv:', text:' 2 Test-Inserate → status=archived (mit Backup). Home fragt bereits status=eq.active.'},
+      {emoji:'🏆', bold:'Quiz-Rangliste auditiert:', text:' sortiert live (fn_quiz_leaderboard_top), kontinuierlich aktuell — einwandfrei.'},
+    ]
+  },
+  {
     v: 'v28.31', date: '06.06.2026',
     headline: '🧘 Bestätigungs-Fenster statt einfrierender Popups',
     summary: 'Weiter im Dialog-Umbau (Schritt 2 von 3): Überall, wo bisher ein blockierender „OK/Abbrechen"-System-Dialog kam (Löschen-Bestätigungen, Reset-Warnungen, Konto-Aktionen), erscheint jetzt ein sauberes In-App-Fenster im App-Stil — mit klaren Buttons („Löschen" in Rot, „Abbrechen" daneben). Das gefährliche Einfrieren der Home-Screen-App-Version unter iOS bei jeder Bestätigung gehört damit der Vergangenheit an.',
@@ -59816,7 +59839,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.31';
+var GS_VERSION = 'v28.32';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
