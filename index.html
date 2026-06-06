@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.28.20260606">
+<meta name="app-version" content="28.29.20260606">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12088,7 +12088,23 @@ window.openAchievementsModal = async function() {
 
 // gsConfirmModal({title, message, ok, cancel, kind}) → Promise<boolean>
 // Baut sich on-demand, hängt sich an document.body, ESC + Hintergrund-Klick = false.
-window.gsConfirmModal = function gsConfirmModal(opts){
+window.gsConfirmModal = function gsConfirmModal(a, b){
+  // v28.29: Tolerante Signatur — akzeptiert {opts}, ('title'), ('title','message'),
+  // ('title', {opts}). Alias-Keys (für historisch uneinheitliche Aufrufer):
+  // text→message, okText→ok, cancelText→cancel, danger:true→kind:'danger'.
+  // Behebt app-weiten Falsch-Text-Bug (Body leer / generische Buttons / kein Rot).
+  var opts;
+  if (typeof a === 'string') {
+    opts = (b && typeof b === 'object') ? Object.assign({}, b) : {};
+    opts.title = a;
+    if (typeof b === 'string') opts.message = b;
+  } else {
+    opts = (a && typeof a === 'object') ? a : {};
+  }
+  if (opts.message == null && opts.text != null) opts.message = opts.text;
+  if (opts.ok == null && opts.okText != null) opts.ok = opts.okText;
+  if (opts.cancel == null && opts.cancelText != null) opts.cancel = opts.cancelText;
+  if (opts.kind == null && opts.danger === true) opts.kind = 'danger';
   return new Promise(function(resolve){
     try {
       opts = opts || {};
@@ -12148,6 +12164,85 @@ window.gsConfirmModal = function gsConfirmModal(opts){
     } catch(e){
       // Fallback: native confirm — sollte selten passieren
       try { resolve(window.confirm(opts && opts.message || 'Bestätigen?')); } catch(__){ resolve(false); }
+    }
+  });
+};
+
+// ── v28.29: gsPromptModal — iOS-PWA-safe Ersatz für native prompt() ──────
+// Promise<string|null> — null = abgebrochen, sonst der (ggf. leere) Eingabe-String.
+// Tolerant: ({opts}) | ('title') | ('title','placeholder') | ('title',{opts}).
+// opts: {title, message/text, placeholder, value, ok/okText, cancel/cancelText, maxlength, multiline}.
+window.gsPromptModal = function gsPromptModal(a, b){
+  var opts;
+  if (typeof a === 'string') {
+    opts = (b && typeof b === 'object') ? Object.assign({}, b) : {};
+    opts.title = a;
+    if (typeof b === 'string') opts.placeholder = b;
+  } else {
+    opts = (a && typeof a === 'object') ? a : {};
+  }
+  return new Promise(function(resolve){
+    try {
+      var title = opts.title || 'Eingabe';
+      var msg   = opts.message || opts.text || '';
+      var ph    = opts.placeholder || '';
+      var val   = (opts.value != null) ? String(opts.value) : '';
+      var okTxt = opts.ok || opts.okText || 'OK';
+      var cancel= opts.cancel || opts.cancelText || 'Abbrechen';
+      var maxlen= opts.maxlength || opts.maxLength || 200;
+      var multiline = !!opts.multiline;
+      var bg = (typeof getComputedStyle === 'function' ? (getComputedStyle(document.documentElement).getPropertyValue('--g-main')||'#2e7d32').trim() : '#2e7d32');
+      var prev = document.getElementById('gs-prompt-modal');
+      if (prev && prev.parentNode) prev.parentNode.removeChild(prev);
+      var w = document.createElement('div');
+      w.id = 'gs-prompt-modal';
+      w.setAttribute('role','dialog'); w.setAttribute('aria-modal','true'); w.setAttribute('aria-labelledby','gs-prompt-title');
+      w.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:var(--z-image-overlay,99999);padding:18px;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);';
+      var c = document.createElement('div');
+      c.style.cssText = 'background:var(--bg,#fff);color:var(--fg,#1a1a1a);max-width:360px;width:100%;border-radius:16px;padding:22px;box-shadow:0 12px 38px rgba(0,0,0,.32);font-family:inherit;';
+      var safe = function(s){return String(s||'').replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];});};
+      var inputHtml = multiline
+        ? '<textarea id="gs-prompt-input" rows="4" maxlength="'+maxlen+'" placeholder="'+safe(ph)+'" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid var(--border,#dcdcdc);border-radius:11px;font-size:14px;font-family:inherit;background:var(--card,#fff);color:inherit;resize:vertical;">'+safe(val)+'</textarea>'
+        : '<input id="gs-prompt-input" type="text" maxlength="'+maxlen+'" placeholder="'+safe(ph)+'" value="'+safe(val)+'" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid var(--border,#dcdcdc);border-radius:11px;font-size:14px;font-family:inherit;background:var(--card,#fff);color:inherit;">';
+      c.innerHTML =
+        '<h3 id="gs-prompt-title" style="margin:0 0 8px;font-size:17px;font-weight:800;letter-spacing:-.01em;">'+safe(title)+'</h3>'+
+        (msg ? '<p style="margin:0 0 12px;font-size:14px;line-height:1.5;opacity:.85;white-space:pre-wrap;">'+safe(msg)+'</p>' : '')+
+        '<div style="margin:0 0 16px;">'+inputHtml+'</div>'+
+        '<div style="display:flex;gap:10px;flex-direction:row-reverse;">'+
+          '<button id="gs-prompt-ok" style="flex:1;padding:11px 14px;border:none;border-radius:11px;background:'+bg+';color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;">'+safe(okTxt)+'</button>'+
+          '<button id="gs-prompt-cancel" style="flex:1;padding:11px 14px;border:1px solid var(--border,#dcdcdc);border-radius:11px;background:transparent;color:inherit;font-weight:600;font-size:14px;cursor:pointer;font-family:inherit;">'+safe(cancel)+'</button>'+
+        '</div>';
+      w.appendChild(c);
+      document.body.appendChild(w);
+      var prevFocus = document.activeElement;
+      var done = false;
+      var inp = c.querySelector('#gs-prompt-input');
+      function finish(val){
+        if (done) return; done = true;
+        try { document.removeEventListener('keydown', onKey, true); } catch(_){}
+        try { if (w.parentNode) w.parentNode.removeChild(w); } catch(_){}
+        try { if (prevFocus && prevFocus.focus) prevFocus.focus(); } catch(_){}
+        resolve(val);
+      }
+      function onKey(e){
+        if (e.key === 'Escape'){ e.preventDefault(); finish(null); return; }
+        if (e.key === 'Enter' && !multiline){ e.preventDefault(); finish(inp ? inp.value : ''); return; }
+        if (e.key === 'Tab'){
+          var f = w.querySelectorAll('button, input, textarea');
+          if (!f.length) return;
+          var first = f[0], last = f[f.length-1];
+          if (e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+          else if (!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+        }
+      }
+      document.addEventListener('keydown', onKey, true);
+      w.addEventListener('click', function(ev){ if (ev.target === w) finish(null); });
+      c.querySelector('#gs-prompt-ok').addEventListener('click', function(){ finish(inp ? inp.value : ''); });
+      c.querySelector('#gs-prompt-cancel').addEventListener('click', function(){ finish(null); });
+      try { inp.focus(); if (inp.select) inp.select(); } catch(_){}
+    } catch(e){
+      // Fallback: native prompt — sollte selten passieren
+      try { resolve(window.prompt((opts && (opts.message||opts.title)) || '', (opts && opts.value) || '')); } catch(__){ resolve(null); }
     }
   });
 };
@@ -56255,6 +56350,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.29', date: '06.06.2026',
+    headline: '🧩 Sauberere Dialoge — kein eingefrorenes Fenster mehr',
+    summary: 'Wir härten die App für iOS-/Home-Screen-Nutzung ab: Statt nativer System-Dialoge (die im Home-Screen-Modus die ganze App einfrieren können) kommen überall einheitliche, schöne In-App-Dialoge. In diesem Schritt: ein gemeinsames Eingabe-Fenster (für Umbenennen & Co.) und ein Fix, durch den Bestätigungs-Dialoge wieder ihren vollen Text + die richtigen Buttons (z.B. rotes „Löschen") zeigen — das war an mehreren Stellen unbemerkt verloren gegangen.',
+    user_summary: '🧩 Einheitliche In-App-Dialoge statt nativer System-Popups (die auf dem Home-Screen die App einfrieren konnten) — plus korrekte Texte & Buttons in Bestätigungs-Dialogen.',
+    user_items: [
+      { emoji: '✅', text: 'Bestätigungs-Dialoge zeigen wieder vollen Text + richtige Buttons' },
+      { emoji: '⌨️', text: 'Neues iOS-sicheres Eingabe-Fenster (ersetzt native Popups)' },
+    ],
+    items: [
+      {emoji:'🛠️', bold:'gsConfirmModal tolerant:', text:' akzeptiert jetzt {opts}/(str)/(str,str)/(str,obj) + Alias text→message/okText→ok/cancelText→cancel/danger→kind. Korrigiert ~9 falsch-keyed/positional Aufrufer (inkl. Sammlungen-/Ernte-/Fund-Delete) ohne Call-Site-Änderung.'},
+      {emoji:'⌨️', bold:'gsPromptModal neu:', text:' Promise<string|null>, Focus-Trap, Esc=Abbruch, multiline-Option — iOS-PWA-safe Ersatz für native prompt(). Mock-DOM 14/14 PASS.'},
+      {emoji:'📋', bold:'B-013-Start:', text:' Inventar 60 alert + 44 confirm + 17 prompt native → Sweep batchweise in Folge-Versionen (Hard-Lesson #2).'},
+    ]
+  },
+  {
     v: 'v28.28', date: '06.06.2026',
     headline: '🤖 Auto-Ordner — die App sortiert für dich',
     summary: 'Deine Sammlungen sortieren sich jetzt von selbst: Öffne „Meine Sammlungen" und du siehst oben Auto-Ordner, die die App automatisch aus deinen Pflanzen & gemerkten Arten zusammenstellt — ☠️ Giftige, 🍽️ Essbare, 💊 Heilpflanzen, 🍄 Pilze, 🌳 Bäume, 🌿 Kräuter. Sie werden live berechnet (nichts wird im Hintergrund gespeichert). Gefällt dir ein Auto-Ordner, machst du mit einem Tipp auf „📌 Als feste Sammlung speichern" einen echten, frei bearbeitbaren Ordner daraus.',
@@ -59670,7 +59780,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.28';
+var GS_VERSION = 'v28.29';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
