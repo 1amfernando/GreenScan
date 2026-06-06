@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.34.20260606">
+<meta name="app-version" content="28.35.20260606">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18764,6 +18764,7 @@ function switchTab(t, btn) {
     if (typeof gsInitPullToRefresh === 'function') gsInitPullToRefresh('screen-social', function(){ showProfileToast('🔄 Aktualisiert','info'); setTimeout(initSocialFeed,300); });
   }
   if (t === 'market') { initMarket(); }
+  if (t === 'more') { if (typeof gsMoreFeedbackFirst === 'function') gsMoreFeedbackFirst(); }
   if (t === 'recipes') {
     // v24.32: Cloud-Pull vor Render — neue Buch-Inhalte sichtbar machen
     if (typeof gsLoadCloudRecipes === 'function') gsLoadCloudRecipes().finally(function(){ renderRecipes(); });
@@ -44757,11 +44758,26 @@ function gsOpenFAQ(){
   var h = '<div style="font-size:17px;font-weight:800;margin-bottom:10px;">❓ Hilfe & FAQ</div>';
   h += '<input id="gs-faq-search" type="search" placeholder="🔎 Frage suchen (z.B. „Abo", „Foto", „Privatsphäre")…" oninput="gsRenderFAQList(this.value)" autocomplete="off" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;box-sizing:border-box;margin-bottom:4px;">';
   h += '<div id="gs-faq-list"></div>';
-  h += '<button onclick="if(typeof openFeedbackModal===\'function\')openFeedbackModal();else if(typeof menuNav===\'function\')menuNav(\'feedback\')" style="width:100%;margin-top:12px;padding:11px;border:none;border-radius:10px;background:var(--g-dark);color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">💬 Frage nicht dabei? Feedback geben</button>';
+  h += '<button onclick="if(typeof closeModal===\'function\')closeModal(\'gs-nl-modal\');if(typeof menuNav===\'function\')menuNav(\'more\')" style="width:100%;margin-top:12px;padding:11px;border:none;border-radius:10px;background:var(--g-dark);color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">💬 Frage nicht dabei? Feedback geben</button>';
   if (typeof _gsNlOpen === 'function') _gsNlOpen(h);
   gsRenderFAQList('');
 }
 window.gsOpenFAQ = gsOpenFAQ;
+// v28.35 Block E: „Feedback & Ideen" im Mehr-Screen nach oben (direkt unter Hero-Header).
+// Runtime-DOM-Reorder statt riskantem HTML-Block-Move (.screen ist display:block, kein flex →
+// CSS order geht nicht). Idempotent + graceful. Fernando: „Feedback zuoberst auf der Seite".
+function gsMoreFeedbackFirst(){
+  try {
+    if (window._gsMoreFbMoved) return;
+    var screen = document.getElementById('screen-more');
+    var fb = document.getElementById('feedback-section');
+    if (!screen || !fb || fb.parentNode !== screen) return;  // nur wenn direktes Kind (sonst nichts tun)
+    var hero = screen.firstElementChild;  // Hero-Header bleibt ganz oben
+    if (hero && hero !== fb) screen.insertBefore(fb, hero.nextSibling);
+    window._gsMoreFbMoved = true;
+  } catch(e){ /* graceful: Reihenfolge bleibt wie im HTML */ }
+}
+window.gsMoreFeedbackFirst = gsMoreFeedbackFirst;
 // v28.04 Block C: Globaler-Anthropic-Key Health-Status in Settings anzeigen (aus app_status, daily-Cron befüllt).
 async function gsRenderKeyStatus(){
   var el = document.getElementById('gs-key-status'); if (!el) return;
@@ -56369,6 +56385,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.35', date: '06.06.2026',
+    headline: '💬 Feedback & Ideen jetzt zuoberst',
+    summary: 'Im „Mehr"-Bereich erscheint das Feedback- & Ideen-Formular jetzt ganz oben (direkt unter der Kopfzeile) statt ganz unten — dein Feedback ist uns wichtig und soll leicht erreichbar sein. Ausserdem führt der „Feedback geben"-Knopf in der Hilfe jetzt zuverlässig dorthin (vorher tat er nichts).',
+    user_summary: '💬 Feedback & Ideen stehen jetzt zuoberst im „Mehr"-Bereich; der „Feedback geben"-Button in der Hilfe funktioniert wieder.',
+    user_items: [
+      { emoji: '⬆️', text: 'Feedback-Formular zuoberst im Mehr-Screen' },
+      { emoji: '🔧', text: '„Feedback geben"-Button in der Hilfe repariert' },
+    ],
+    items: [
+      {emoji:'🔀', bold:'gsMoreFeedbackFirst:', text:' Runtime-DOM-Reorder verschiebt #feedback-section unter den Hero (.screen=display:block → kein CSS-order; HTML-Block-Move zu riskant). Idempotent, graceful, Hook in switchTab(more).'},
+      {emoji:'🔧', bold:'gsOpenFAQ-Button:', text:' menuNav(feedback) (toter Screen) → closeModal + menuNav(more).'},
+    ]
+  },
+  {
     v: 'v28.34', date: '06.06.2026',
     headline: '👤 Community: Profil antippen + „Verifizieren" repariert',
     summary: 'Im Community-Feed kannst du jetzt auf den Avatar oder Namen jedes Beitrags tippen, um direkt zum Profil der Person zu gelangen — inklusive Folgen-Button. Ausserdem war der „✅ Verifizieren"-Button (für Experten) kaputt: ein Klick zeigte fälschlich „Post nicht gefunden". Das ist behoben — Experten können Beiträge wieder verifizieren.',
@@ -59875,7 +59905,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.34';
+var GS_VERSION = 'v28.35';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
