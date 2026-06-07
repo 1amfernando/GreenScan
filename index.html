@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.38.20260607">
+<meta name="app-version" content="28.39.20260607">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14814,7 +14814,9 @@ function gsCheckAchievement() {
   try {
     var scans = parseInt(localStorage.getItem('gs_scan_count') || '0');
     var favs = (localStorage.getItem('gs_favorites') || '').split(',').filter(Boolean).length;
-    var xp = parseInt(localStorage.getItem('gs_xp_total') || '0');
+    // v28.39 FIX-6: war 'gs_xp_total' (wird NIE geschrieben) → xp_100/xp_500-Achievements triggerten nie.
+    // Korrekt: gsGetXP() liest den echten Key GS_XP_KEY ('gs_xp').
+    var xp = (typeof gsGetXP === 'function') ? gsGetXP() : parseInt(localStorage.getItem(GS_XP_KEY) || '0');
     
     var unlocked = [];
     try { unlocked = JSON.parse(localStorage.getItem('gs_achievements') || '[]'); } catch(e) {}
@@ -14843,7 +14845,14 @@ function gsCheckAchievement() {
 function gsAddXP(amount, reason) {
   var prev = gsGetXP();
   var next = prev + (amount||0);
-  localStorage.setItem(GS_XP_KEY, String(next));
+  // v28.39 FIX-6: try/catch (Hard-Lesson #10 — QuotaExceededError brach sonst die ganze Funktion ab,
+  // XP-Bar + Toast erschienen nicht). gsStore ist quota-safe; Fallback localStorage mit Guard.
+  try {
+    if (typeof gsStore !== 'undefined' && gsStore.set) gsStore.set(GS_XP_KEY, String(next));
+    else localStorage.setItem(GS_XP_KEY, String(next));
+  } catch(e) { console.warn('[GS] XP storage quota:', e && e.message); }
+  // (Cross-Device-XP-Sync = FIX-6b: lokal↔profiles.xp-Merge mit atomarem fn_add_xp — bewusst separat,
+  //  da gs_xp NICHT in STATE_KEYS ist und ein naiver State-Sync mit profiles.xp kollidieren würde.)
   var oldLvl = gsGetLevel(prev);
   var newLvl = gsGetLevel(next);
   if (newLvl.lvl > oldLvl.lvl) {
@@ -56406,6 +56415,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.39', date: '07.06.2026',
+    headline: '✨ XP-System: Achievements + zuverlässige Anzeige',
+    summary: 'Mehrere XP-Verbesserungen nach einem gründlichen Audit: Die XP-Achievements („100 XP", „500 XP") lösen jetzt korrekt aus (vorher nie). Die XP-Anzeige im Profil-Menü aktualisiert sich jetzt sofort nach einem Punktgewinn statt erst nach Neuladen. Und das XP-Speichern ist robuster bei vollem Gerätespeicher.',
+    user_summary: '✨ XP-Achievements lösen wieder aus · Profil-XP aktualisiert sofort · robusteres XP-Speichern.',
+    user_items: [
+      { emoji: '🏅', text: '„100 XP"- & „500 XP"-Achievements lösen wieder aus' },
+      { emoji: '⚡', text: 'Profil-/Mehr-XP-Anzeige aktualisiert sofort' },
+    ],
+    items: [
+      {emoji:'🐛', bold:'Achievements:', text:' gsCheckAchievement las toten Key gs_xp_total → jetzt gsGetXP() (gs_xp).'},
+      {emoji:'🛡️', bold:'Quota-safe:', text:' gsAddXP setItem mit try/catch + gsStore (Hard-Lesson #10).'},
+      {emoji:'🔌', bold:'Echtzeit-Verdrahtung:', text:' profileAddXp refresht jetzt Menü-/Mehr-/Home-XP-Bar sofort.'},
+      {emoji:'📋', bold:'Audit:', text:' 4-Agenten-Workflow fand 2 parallele XP-Systeme → voller Single-Source-Merge als FIX-6b geplant (separat, da Live-XP-Risiko).'},
+    ]
+  },
+  {
     v: 'v28.38', date: '07.06.2026',
     headline: '🏆 Quiz-Rangliste aktualisiert sofort nach der Antwort',
     summary: 'Wenn du eine Quizfrage richtig beantwortest, erscheint dein Punkt jetzt sofort in der Rangliste — vorher wurde die Liste teils mit Verzögerung oder gar nicht aktualisiert. Die Top-5 unter dem Quiz und die volle Rangliste zeigen ab jetzt direkt den aktuellen Stand.',
@@ -59971,7 +59996,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.38';
+var GS_VERSION = 'v28.39';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -61532,6 +61557,11 @@ async function profileAddXp(amount, reason) {
     updates.max_level_reached = newLvl;
   }
   await sbSaveProfile(updates);
+  // v28.39 FIX-6: nach Cloud-XP-Änderung ALLE Anzeige-Stellen sofort refreshen (Echtzeit-Verdrahtung) —
+  // vorher zeigten Menü-Profil-Bar + More-Screen stale XP/Level bis zum nächsten manuellen Trigger.
+  try { if (typeof updateMenuProfileBar === 'function') updateMenuProfileBar(); } catch(_){}
+  try { if (typeof gsUpdateMoreStats === 'function') gsUpdateMoreStats(); } catch(_){}
+  try { if (typeof gsUpdateXPBar === 'function') gsUpdateXPBar(); } catch(_){}
 }
 
 // ── Streak-System ─────────────────────────────────────────────
