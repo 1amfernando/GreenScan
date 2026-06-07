@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.37.20260607">
+<meta name="app-version" content="28.38.20260607">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -9000,8 +9000,11 @@ function dqPushLeaderboardDebounced(stats) {
         p_streak_max: Math.max(0, stats.bestStreak|0),
         p_display_name: nick
       })
+    }).then(function(){
+      // v28.37 FIX-4: nach erfolgreichem Upsert offene Ranglisten refreshen → eigener Punkt sofort sichtbar
+      try { if (typeof dqRefreshLeaderboards === 'function') dqRefreshLeaderboards(); } catch(_){}
     }).catch(function(e){ console.warn('[dqLb push]', e && e.message); });
-  }, 2000);
+  }, 500);
 }
 window.dqPushLeaderboardDebounced = dqPushLeaderboardDebounced;
 
@@ -9017,6 +9020,37 @@ async function dqLoadLeaderboardTop(limit) {
     return (r && Array.isArray(r.data)) ? r.data : [];
   } catch(_) { return []; }
 }
+// v28.37 FIX-4: Inline-Top-5-Rangliste als wiederverwendbare Funktion (Echtzeit-Refresh nach Antwort).
+window.dqFillInlineLb = async function(){
+  try {
+    var rows = (typeof dqLoadLeaderboardTop === 'function') ? await dqLoadLeaderboardTop(5) : [];
+    var el = document.getElementById('dq-inline-lb-rows');
+    if (!el) return;
+    if (!rows || !rows.length) { el.innerHTML = '<span style="opacity:.6;">Noch keine Einträge — sei der/die Erste! 🎯</span>'; return; }
+    var medals = ['🥇','🥈','🥉'];
+    el.innerHTML = rows.map(function(r, i){
+      var medal = (i < 3) ? medals[i] : ((i+1) + '.');
+      var name = (r.display_name || 'Anonym');
+      var correct = r.total_correct || 0;
+      return '<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px;">' +
+        '<span style="min-width:24px;text-align:center;">' + medal + '</span>' +
+        '<span style="flex:1;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (typeof escHtml === 'function' ? escHtml(name) : name) + '</span>' +
+        '<span style="color:#a5d6a7;font-weight:800;">✓ ' + correct + '</span>' +
+      '</div>';
+    }).join('');
+  } catch(e) {
+    var el2 = document.getElementById('dq-inline-lb-rows');
+    if (el2) el2.innerHTML = '<span style="opacity:.6;">Rangliste lädt nicht — versuche „Volle Rangliste".</span>';
+  }
+};
+// v28.37 FIX-4: refresht alle OFFENEN Leaderboard-Ansichten (nach Upsert/Antwort) → Echtzeit-Effekt.
+window.dqRefreshLeaderboards = function(){
+  try { if (document.getElementById('dq-inline-lb-rows')) window.dqFillInlineLb(); } catch(_){}
+  try {
+    var rm = document.getElementById('modal-dq-ranking');
+    if (rm && rm.style.display === 'flex' && typeof openDqRanking === 'function') openDqRanking();
+  } catch(_){}
+};
 async function dqLoadMyRank() {
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return null;
   if (typeof sbFetch !== 'function') return null;
@@ -10004,32 +10038,9 @@ function dqShowPostAnswerActions(prefilledExpl) {
     '</div>' +
     '<button onclick="closeDailyQuiz()" style="padding:11px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Schliessen</button>';
 
-  // v26.82: Inline-Rangliste asynchron befüllen (Top-5 aus fn_quiz_leaderboard_top)
-  (async function fillInlineLb(){
-    try {
-      var rows = (typeof dqLoadLeaderboardTop === 'function') ? await dqLoadLeaderboardTop(5) : [];
-      var el = document.getElementById('dq-inline-lb-rows');
-      if (!el) return;
-      if (!rows || !rows.length) {
-        el.innerHTML = '<span style="opacity:.6;">Noch keine Einträge — sei der/die Erste! 🎯</span>';
-        return;
-      }
-      var medals = ['🥇','🥈','🥉'];
-      el.innerHTML = rows.map(function(r, i){
-        var medal = (i < 3) ? medals[i] : ((i+1) + '.');
-        var name = (r.display_name || 'Anonym');
-        var correct = r.total_correct || 0;
-        return '<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px;">' +
-          '<span style="min-width:24px;text-align:center;">' + medal + '</span>' +
-          '<span style="flex:1;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (typeof escHtml === 'function' ? escHtml(name) : name) + '</span>' +
-          '<span style="color:#a5d6a7;font-weight:800;">✓ ' + correct + '</span>' +
-        '</div>';
-      }).join('');
-    } catch(e) {
-      var el2 = document.getElementById('dq-inline-lb-rows');
-      if (el2) el2.innerHTML = '<span style="opacity:.6;">Rangliste lädt nicht — versuche „Volle Rangliste".</span>';
-    }
-  })();
+  // v26.82/v28.37: Inline-Rangliste (Top-5) befüllen — jetzt via wiederverwendbare dqFillInlineLb
+  // (wird nach jeder Antwort durch dqRefreshLeaderboards erneut aufgerufen → Echtzeit).
+  if (typeof window.dqFillInlineLb === 'function') window.dqFillInlineLb();
 
   // Wenn Server-Erklärung bereits da → KI-Button deaktivieren
   if (prefilledExpl) {
@@ -56395,6 +56406,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.38', date: '07.06.2026',
+    headline: '🏆 Quiz-Rangliste aktualisiert sofort nach der Antwort',
+    summary: 'Wenn du eine Quizfrage richtig beantwortest, erscheint dein Punkt jetzt sofort in der Rangliste — vorher wurde die Liste teils mit Verzögerung oder gar nicht aktualisiert. Die Top-5 unter dem Quiz und die volle Rangliste zeigen ab jetzt direkt den aktuellen Stand.',
+    user_summary: '🏆 Dein Quiz-Punkt erscheint jetzt sofort in der Rangliste (Top-5 + volle Liste aktualisieren direkt nach dem Antworten).',
+    user_items: [
+      { emoji: '⚡', text: 'Rangliste aktualisiert direkt nach der Antwort' },
+      { emoji: '🥇', text: 'Top-5 + volle Rangliste immer auf aktuellem Stand' },
+    ],
+    items: [
+      {emoji:'🐛', bold:'Root-Cause (Frontend):', text:' Inline-Top-5 lud vor dem 2s-debounced Upsert → alter Stand; kein Refresh nach Upsert.'},
+      {emoji:'✅', bold:'Backend ok:', text:' fn_quiz_leaderboard_upsert → _top spiegelt sofort (transaktional verifiziert).'},
+      {emoji:'🔧', bold:'Fix:', text:' dqFillInlineLb (wiederverwendbar) + dqRefreshLeaderboards; Debounce 2000→500ms; .then(refresh) nach Upsert.'},
+    ]
+  },
+  {
     v: 'v28.37', date: '07.06.2026',
     headline: '💬 Marktplatz-Chat: Verkäufer direkt anschreiben',
     summary: 'Der „Kontakt aufnehmen"-Button bei einem Inserat öffnet jetzt den echten In-App-Chat (für eingeloggte Nutzer) — bisher führte er nur zu E-Mail/Telefon, der Chat war vom Inserat aus gar nicht startbar. Deine Nachrichten landen sicher beim Verkäufer (und nur dort), Antworten siehst du im 📨-Posteingang. Für Gäste bleibt der E-Mail-/Telefon-Weg.',
@@ -59945,7 +59971,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.37';
+var GS_VERSION = 'v28.38';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
