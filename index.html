@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.35.20260606">
+<meta name="app-version" content="28.36.20260607">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1975,9 +1975,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <div id="card-wusstest" style="background:var(--card);border-radius:var(--r);box-shadow:var(--shadow-sm);padding:13px 15px;margin-bottom:12px;">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px;">💡 Wusstest du?</div>
       <div id="fact-text" style="font-size:13px;color:var(--text2);line-height:1.6;"></div>
-      <div style="display:flex;justify-content:flex-end;margin-top:8px;">
-        <button onclick="gsShowNextDynFact()" style="padding:5px 11px;background:#f0f7ee;border:none;border-radius:8px;font-size:12px;font-weight:700;color:var(--g-main);cursor:pointer;font-family:inherit;">Nächster Fakt ›</button>
-      </div>
+      <!-- v28.36 FIX-5: „Nächster Fakt"-Button entfernt — täglich automatisch neuer Fakt nach 00:00 (gsShowNextDynFact = day-of-year-Index) -->
     </div>
 
     <!-- v26.49: Wetter-Alert-Widget (region+month aus garden_weather_alerts) — pulsiert bei katastrophal -->
@@ -3070,8 +3068,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   <div id="market-listings"></div>
 </div>
 
-<!-- ── FAB ────────────────────────────────────── -->
-<button onclick="openNewListing()" aria-label="Neues Inserat" class="market-fab" style="position:absolute;right:16px;bottom:22px;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--g-main),var(--g-dark));color:#fff;border:none;font-size:26px;cursor:pointer;box-shadow:0 4px 14px rgba(26,61,26,.35);-webkit-tap-highlight-color:transparent;z-index:5;">＋</button>
+<!-- ── FAB ── v28.36 FIX-3: grüner Floating-„+"-Button entfernt (Fernando-Wunsch). Inserieren weiterhin über Header-Button „+ Angebot" (oben rechts). ── -->
 
 </div>
 
@@ -15774,8 +15771,7 @@ function gsInitWeekFacts() {
           '<div style="font-size:11.5px;color:var(--g-main);font-weight:700;line-height:1.4;">' + f.fact + '</div>' +
         '</div></div>';
     });
-    window._dynFi = 0;
-    if (window._dynF.length) el.innerHTML = window._dynF[0];
+    if (window._dynF.length && typeof gsShowNextDynFact === 'function') gsShowNextDynFact();  // v28.36 FIX-5: täglicher Fakt
   } catch(err) { console.log('gsInitWeekFacts:', err.message); }
 }
 // ══ DAILY QUIZ ═══════════════════════════════════════════════
@@ -15874,16 +15870,16 @@ function gsUpdateQuizCard() {
 // Legacy fallbacks
 
 
+// v28.36 FIX-5: täglich deterministischer Fakt (neuer Fakt nach 00:00) statt manuellem „nächster".
+// Wird von allen Fakt-Loadern + Boot aufgerufen; Index = day-of-year % Anzahl → stabil über den Tag,
+// wechselt um Mitternacht. „Nächster Fakt"-Button wurde entfernt (kein manuelles Weiterklicken mehr).
 function gsShowNextDynFact() {
   var el = document.getElementById('fact-text');
   if (!el || !window._dynF || !window._dynF.length) return;
-  window._dynFi = ((window._dynFi || 0) + 1) % window._dynF.length;
-  el.style.transition = 'opacity .2s';
-  el.style.opacity = '0';
-  setTimeout(function() {
-    el.innerHTML = window._dynF[window._dynFi];
-    el.style.opacity = '1';
-  }, 200);
+  var d = new Date();
+  var dayIdx = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000); // 1..366
+  window._dynFi = dayIdx % window._dynF.length;
+  el.innerHTML = window._dynF[window._dynFi];
 }
 
 // ═════════════════════════════════════════════════════════════════════
@@ -16510,8 +16506,7 @@ async function gsLoadSupabaseDailyContent() {
               '<div style="font-size:12.5px;color:var(--text2);line-height:1.45;">' + body + '</div>' +
             '</div></div>';
         });
-        window._dynFi = 0;
-        if (factEl && window._dynF.length) factEl.innerHTML = window._dynF[0];
+        if (window._dynF.length && typeof gsShowNextDynFact === 'function') gsShowNextDynFact();  // v28.36 FIX-5: täglicher Fakt
       }
     } catch(e) { console.log('[GS] SB facts:', e.message); }
 
@@ -31325,9 +31320,10 @@ async function openComments(postId) {
       list.innerHTML = res.data.map(function(c) {
         var dt = new Date(c.created_at).toLocaleDateString('de-CH',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
         return '<div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">' +
-          '<span style="font-size:22px;flex-shrink:0;">'+(c.author_avatar||'🌿')+'</span>' +
+          '<span ' + (c.user_id ? 'onclick="event.stopPropagation();if(typeof gsOpenProfile===\'function\')gsOpenProfile(\'' + c.user_id + '\')" role="button" tabindex="0" title="Profil ansehen" style="cursor:pointer;" ' : '') + 'style="font-size:22px;flex-shrink:0;">'+(c.author_avatar||'🌿')+'</span>' +
           '<div style="flex:1;min-width:0;">' +
-          '<div style="font-size:12.5px;font-weight:700;color:var(--text);">'+escHtml(c.author_name)+'</div>' +
+          // v28.36 FIX-1: Kommentar-Autor-Name klickbar → Profil (wie Posts; nur user_id im onclick = #12-sicher)
+          '<div style="font-size:12.5px;font-weight:700;color:var(--text);">'+((c.user_id && typeof _gsProfileChip==='function') ? _gsProfileChip(c.user_id, c.author_name) : escHtml(c.author_name))+'</div>' +
           '<div style="font-size:11px;color:var(--muted);margin-bottom:3px;">'+dt+'</div>' +
           '<div style="font-size:13px;color:var(--text2);line-height:1.5;">'+escHtml(c.content)+'</div>' +
           '</div></div>';
@@ -56385,6 +56381,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.36', date: '07.06.2026',
+    headline: '🔧 Kleine Verbesserungen: Profile, Marktplatz, Fakten',
+    summary: 'Drei Verbesserungen: (1) In den Kommentaren kannst du jetzt auf Name/Avatar tippen, um das Profil zu öffnen (wie bei Posts). (2) Der grüne „+"-Button im Marktplatz wurde entfernt — neue Inserate erstellst du weiter oben rechts über „+ Angebot". (3) Beim „Wusstest du?"-Widget gibt es keinen „nächster Fakt"-Knopf mehr — stattdessen erscheint jeden Tag automatisch ein neuer Fakt.',
+    user_summary: '🔧 Kommentar-Profile antippbar · grüner Marktplatz-„+"-Button entfernt · „Wusstest du?" zeigt täglich automatisch einen neuen Fakt.',
+    user_items: [
+      { emoji: '👤', text: 'Kommentar-Name/Avatar → Profil öffnen' },
+      { emoji: '🗓️', text: 'Wusstest-du-Fakt wechselt täglich automatisch' },
+    ],
+    items: [
+      {emoji:'💬', bold:'FIX-1:', text:' openComments Autor klickbar (_gsProfileChip/gsOpenProfile, #12-sicher).'},
+      {emoji:'🛒', bold:'FIX-3:', text:' market-fab entfernt; Header „+ Angebot" bleibt.'},
+      {emoji:'💡', bold:'FIX-5:', text:' gsShowNextDynFact → day-of-year-deterministisch; Button raus; beide Loader umgestellt.'},
+    ]
+  },
+  {
     v: 'v28.35', date: '06.06.2026',
     headline: '💬 Feedback & Ideen jetzt zuoberst',
     summary: 'Im „Mehr"-Bereich erscheint das Feedback- & Ideen-Formular jetzt ganz oben (direkt unter der Kopfzeile) statt ganz unten — dein Feedback ist uns wichtig und soll leicht erreichbar sein. Ausserdem führt der „Feedback geben"-Knopf in der Hilfe jetzt zuverlässig dorthin (vorher tat er nichts).',
@@ -59905,7 +59916,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.35';
+var GS_VERSION = 'v28.36';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
