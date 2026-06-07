@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.39.20260607">
+<meta name="app-version" content="28.40.20260607">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -48713,6 +48713,59 @@ window._gsGardenScan = {
 };
 
 // Edge-Fn-Wrapper. Sub-Task 1.2.
+// v28.40 FIX-7: KI-Plan-Sanitisierung — die KI lieferte teils Pflanzen AUSSERHALB der Beet-Grenzen
+// + Flächenausnutzung >100% (z.B. 123%). Dieser Sanitizer läuft auf JEDEN Plan (frisch + gespeichert),
+// bevor er gerendert/gespeichert wird: (1) clampt position.x/y in [0,width]×[0,depth]; (2) berechnet
+// die echte Flächenausnutzung (Summe Pflanz-Footprints / nutzbare Fläche) + deckelt Anzeige auf 100%
+// mit ehrlicher Warnung bei Überbelegung. Unabhängig von der KI → Plan ist immer sauber.
+function _gsSanitizeGardenPlan(a){
+  try {
+    if (!a || typeof a !== 'object') return a;
+    var grid = a.layout_grid || {};
+    var site = a.site_analysis || {};
+    var W = parseFloat(grid.width_m) || 0;
+    var D = parseFloat(grid.depth_m) || 0;
+    var usable = parseFloat(site.size_m2) || (W > 0 && D > 0 ? W * D : 0) || 0;
+    if ((!W || !D) && usable > 0) { var s = Math.sqrt(usable); W = W || s; D = D || s; }
+    var plants = Array.isArray(a.recommended_plants) ? a.recommended_plants : [];
+    // (1) Positionen in die Beet-Grenzen clampen — keine Pflanze ausserhalb
+    if (W > 0 && D > 0) {
+      plants.forEach(function(p){
+        if (p && p.position && typeof p.position === 'object') {
+          var x = parseFloat(p.position.x), y = parseFloat(p.position.y);
+          if (isFinite(x)) p.position.x = Math.max(0, Math.min(W, Math.round(x*100)/100));
+          if (isFinite(y)) p.position.y = Math.max(0, Math.min(D, Math.round(y*100)/100));
+        }
+      });
+    }
+    // (2) Flächenausnutzung korrekt berechnen (Footprint = qty/Dichte bzw. qty*(spacing_m)²)
+    var used = 0;
+    plants.forEach(function(p){
+      if (!p) return;
+      var qty = parseInt(p.qty, 10) || 1;
+      var perM2 = parseFloat(p.planting_density_per_m2);
+      var fp = 0;
+      if (isFinite(perM2) && perM2 > 0) fp = qty / perM2;
+      else { var sp = parseFloat(p.spacing_cm); if (isFinite(sp) && sp > 0) fp = qty * Math.pow(sp/100, 2); }
+      if (isFinite(fp) && fp > 0) used += fp;
+    });
+    if (usable > 0 && used > 0) {
+      var pct = Math.round(used / usable * 100);
+      a.plan_summary = a.plan_summary || {};
+      if (pct > 100) {
+        a.plan_summary.area_utilization_pct = 100;
+        a.plan_summary.area_overbooked_pct = pct; // echter Wert zur Info
+        a.warnings = Array.isArray(a.warnings) ? a.warnings : [];
+        a.warnings.unshift('⚠️ Geplante Pflanz-Fläche überschritt die verfügbare Fläche (' + pct + '%). Reduziere Stückzahlen oder Pflanzen — Anzeige auf 100% begrenzt.');
+      } else {
+        a.plan_summary.area_utilization_pct = pct;
+      }
+    }
+    return a;
+  } catch(e){ console.warn('[_gsSanitizeGardenPlan]', e && e.message); return a; }
+}
+window._gsSanitizeGardenPlan = _gsSanitizeGardenPlan;
+
 async function gsRunGardenScan(photos, metadata, opts) {
   if (gsAsyncLock('runGardenScan', 3000)) return; // v26.57: Double-Submit-Schutz (Anthropic-Call ≈ CHF-Cost)
   opts = opts || {};
@@ -48786,6 +48839,8 @@ async function gsRunGardenScan(photos, metadata, opts) {
     if (!resp.ok) {
       return { ok: false, error: data.error || { code: 'http_' + resp.status, message: 'Server-Fehler ' + resp.status } };
     }
+    // v28.40 FIX-7: KI-Plan sanitisieren (Pflanzen in Grenzen + Fläche ≤100%) bevor Render/Save.
+    try { if (data && data.analysis) data.analysis = _gsSanitizeGardenPlan(data.analysis); } catch(_){}
     return data;
   } catch(e) {
     return { ok: false, error: { code: 'network', message: (e && e.message) || 'Netzwerk-Fehler' } };
@@ -52743,7 +52798,9 @@ async function gsPPopenSavedPlans() {
         var gp = await sbFetch('/rest/v1/garden_plans?user_id=eq.' + uid + '&select=id,title,ai_analysis,created_at&order=created_at.desc&limit=30', {method:'GET'});
         var gpRows = (gp && gp.data && Array.isArray(gp.data)) ? gp.data : [];
         var gpMapped = gpRows.map(function(r){
-          var an = r.ai_analysis || {};
+          // v28.40 FIX-7: gespeicherte Pläne beim Re-Open ebenfalls sanitisieren (alte Pläne mit
+          // Pflanzen ausserhalb / >100% Fläche werden sauber dargestellt).
+          var an = (typeof _gsSanitizeGardenPlan === 'function') ? _gsSanitizeGardenPlan(r.ai_analysis || {}) : (r.ai_analysis || {});
           var sa = an.site_analysis || {};
           var lg = an.layout_grid || {};
           return {
@@ -56415,6 +56472,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.40', date: '07.06.2026',
+    headline: '🌱 KI-Garten-Planer: sauberer Plan, realistische Fläche',
+    summary: 'Der KI-Garten-Planer liefert jetzt saubere Pläne: Pflanzen liegen immer innerhalb deiner Beet-Grenzen (vorher landeten manche ausserhalb), und die Flächenausnutzung ist realistisch — nie mehr über 100% (vorher z.B. 123%). Wenn die KI zu viel einplant, wird auf 100% begrenzt und du bekommst einen klaren Hinweis, Stückzahlen zu reduzieren. Gilt auch für bereits gespeicherte Pläne beim erneuten Öffnen.',
+    user_summary: '🌱 Garten-Pläne: Pflanzen bleiben im Beet, Flächenausnutzung realistisch (max 100%, Warnung bei Überbelegung).',
+    user_items: [
+      { emoji: '📐', text: 'Pflanzen immer innerhalb der Beet-Grenzen' },
+      { emoji: '✅', text: 'Flächenausnutzung max 100% (kein 123% mehr)' },
+    ],
+    items: [
+      {emoji:'🐛', bold:'Root-Cause:', text:' KI-Prompt erzwang keine Spatial-/Flächen-Grenzen → Pflanzen ausserhalb + Σ-Footprint >100%.'},
+      {emoji:'🔧', bold:'Fix:', text:' _gsSanitizeGardenPlan clampt Positionen in [0,W]×[0,D] + berechnet echte Auslastung, deckelt auf 100% + Warnung. Frisch + gespeichert.'},
+      {emoji:'🧪', bold:'Verifiziert:', text:' Logiktest (9,12→2,5 · 130%→100%+Warnung). FIX-7b (Edge-Fn-Prompt-Constraints) optional.'},
+    ]
+  },
+  {
     v: 'v28.39', date: '07.06.2026',
     headline: '✨ XP-System: Achievements + zuverlässige Anzeige',
     summary: 'Mehrere XP-Verbesserungen nach einem gründlichen Audit: Die XP-Achievements („100 XP", „500 XP") lösen jetzt korrekt aus (vorher nie). Die XP-Anzeige im Profil-Menü aktualisiert sich jetzt sofort nach einem Punktgewinn statt erst nach Neuladen. Und das XP-Speichern ist robuster bei vollem Gerätespeicher.',
@@ -59996,7 +60068,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.39';
+var GS_VERSION = 'v28.40';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
