@@ -4,13 +4,25 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-06-07 · **Branch**: `main` · **Version**: `v28.35` (LIVE)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-06-07 — Automatischer Security-Routine-Audit (Supabase-Advisor-Scan)
+
+- **Auftrag:** Proaktiver Scheduled-Run-Audit (kein User-Briefing). Supabase Security + Performance Advisors abgerufen.
+- **Security-Findings:** 0 ERROR (unverändert seit v26.51). 153 WARNs (+78 vs. Baseline 75) — Anstieg durch neue Funktionen seit v26.51 (Quiz-Battle, Org/Classes, Photo-Diff usw.) + Advisor zählt jetzt pro Funktion×Rolle statt pro Funktion.
+- **KRITISCH identifiziert:** 35 SECURITY DEFINER Funktionen mit `anon`-Zugriff via PostgREST. Zwei besonders kritisch:
+  - `fn_get_global_api_key()` — gab Admin-Anthropic-API-Key an jeden unauthentifizierten Caller zurück (war in v26.51b vergessen, nur der Setter wurde gesperrt).
+  - `gs_abo_webhook(text,text,jsonb)` — Stripe-Subscription-Webhook ohne Auth-Pflicht callbar, erlaubte Forge-Angriffe.
+- **Migration v28_36 LIVE applied:** REVOKE EXECUTE für alle 35 betroffenen SD-Funktionen von `anon` + bei Trigger/Cron/Service-Only auch von `authenticated`. GRANT service_role für Tier-1-Funktionen. Explizite GRANT `authenticated` für Tier-2-User-RPCs.
+- **Migration v28_36b LIVE applied:** REVOKE FROM PUBLIC (überschrieb die anon-Revokes). Re-GRANT `authenticated` für Tier-2. Verifiziert: `fn_get_global_api_key` anon=false/auth=true ✅ · `gs_abo_webhook` anon=false/auth=false ✅.
+- **Performance-Findings:** 275 Lints (von 376 Baseline, dank v26.51-Fixes). 76 WARNs `multiple_permissive_policies` auf 15 Tabellen (teilweise schon durch v28.18+v28.18b adressiert). 198 INFO unused indexes. Kein Handlungsbedarf heute.
+- **Naechste:** Leaked-Password-Protection in Supabase Auth-Dashboard aktivieren (1 WARN verbleibt). Weitere `multiple_permissive_policies` konsolidieren wenn Zeit.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
