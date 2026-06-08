@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.61.20260609">
+<meta name="app-version" content="28.62.20260609">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11169,6 +11169,63 @@ window.GS_I18N_JS_STRINGS = {
   'wx_no_alerts':              'Keine aktiven Warnungen. GreenScan prüft deinen Standort alle 3 Stunden auf Frost, Hitze und Sturm.',
   'wx_seen':                   '✓ Gesehen',
   'wx_remove':                 '🗑️ Entfernen',
+  // ── v28.62: Inserat-Fotos (gsNlRenderPhotos) ───────────────────
+  'photo_main':                '★ Haupt',
+  'photo_set_main':            '☆ Haupt',
+  'photo_remove':              'Foto entfernen',
+  // ── v28.62: Lina-Coach (gsLinaRender + gsLinaSend) ─────────────
+  'lina_greeting':             'Hallo, ich bin Lina!',
+  'lina_greeting_sub':         'Deine Garten- &amp; Natur-Coachin — frag mich alles zu Pflanzen, Garten, Kräutern, Pilzen &amp; Saison. 🌱',
+  'lina_thinking':             '🌿 Lina denkt nach…',
+  'lina_name':                 'Lina',
+  'lina_subtitle':             'Dein Garten-Coach · immer gratis',
+  'lina_new':                  '＋ Neu',
+  'lina_input_ph':             'Frag Lina etwas…',
+  'lina_error':                'Entschuldige, da ist gerade etwas schiefgelaufen — magst du es nochmal versuchen? 🌿',
+  'lina_quota':                '🌿 Wir haben heute schon richtig viel geplaudert — wie schön! Mein Tageskontingent für den geteilten KI-Schlüssel ist gerade erschöpft. Morgen bin ich wieder voll für dich da. (Wer mag, kann mit einem eigenen Anthropic-Key unbegrenzt mit mir chatten — aber das musst du absolut nicht.)',
+  'lina_error_retry':          'Hmm, das hat gerade nicht geklappt 🌿 — bitte versuch es gleich nochmal.',
+  // ── v28.62: Community-Feedback (renderFeedback) ────────────────
+  'fb_loading_title':          'Community-Posts werden geladen…',
+  'fb_loading_hint':           'Frisch aus der Supabase-Datenbank',
+  'fb_error_title':            'Community-Feed konnte nicht geladen werden',
+  'fb_error_retry':            '🔄 Erneut versuchen',
+  'fb_empty_title':            'Noch kein Community-Feedback',
+  'fb_empty_hint':             'Sei die erste Person, die eine Idee, einen Fehler oder einen Wunsch teilt – oben im Formular.',
+  'fb_filter_empty':           'Keine Einträge in diesem Filter — Filter wechseln.',
+  'fb_st_pending':             'Noch nicht analysiert',
+  'fb_st_accepted':            'Angenommen',
+  'fb_st_implemented':         'Umgesetzt',
+  'fb_st_rejected':            'Abgelehnt',
+  'fb_st_needs_info':          'Braucht mehr Info',
+  'fb_st_duplicate':           'Duplikat',
+  'fb_stat_ideas':             'IDEEN',
+  'fb_stat_analyzed':          'KI-ANALYSIERT',
+  'fb_stat_accepted':          'ANGENOMMEN',
+  'fb_stat_community':         '👍 COMMUNITY',
+  'fb_stat_implemented':       'UMGESETZT',
+  'fb_ai_eval':                '🤖 KI-Bewertung',
+  'fb_reanalyze_btn':          '🔁 Neu bewerten',
+  'fb_reanalyze_title':        'KI-Bewertung neu anstossen',
+  // ── v28.62: Hilfe/Support (renderSupport + API-Banner) ─────────
+  'support_faq1_q':            'Wie funktioniert der KI-Scanner?',
+  'support_faq1_a':            'Lade ein Foto oder nimm eines auf. Der Scanner schickt es an die Anthropic-Claude-KI, die das Bild analysiert und die Pflanze/den Pilz bestimmt. Ein API Key ist nötig (🔑 oben rechts) — oder der Admin hinterlegt einen für alle.',
+  'support_faq2_q':            'Warum öffnet sich die Kamera nicht?',
+  'support_faq2_a':            'Browser erlauben Kamerazugriff nur über HTTPS oder localhost. Wenn du die Datei lokal öffnest (file://), verwende bitte die Galerie-Funktion. Auf iPhone: Safari verwenden.',
+  'support_faq3_q':            'Was bedeuten die Toxizitätsstufen?',
+  'support_faq3_a':            '✅ Ungiftig · 🟡 Leicht giftig · 🟠 Mässig giftig · ⚠️ Giftig · 🔴 Stark giftig · ☠️ Tödlich. Bei Vergiftung: Sofort Tox Info Suisse 145 anrufen!',
+  'support_faq4_q':            'Wie bekomme ich einen API Key?',
+  'support_faq4_a':            'Anthropic: console.anthropic.com → API Keys. Tipp: meist hat der App-Admin bereits einen globalen Key hinterlegt — dann brauchst du keinen eigenen.',
+  'support_faq5_q':            'Kann ich die App ohne Internet nutzen?',
+  'support_faq5_a':            'Die Datenbank mit 542 Arten funktioniert offline. Der KI-Scanner und Lina (Garten-Coach) benötigen Internetverbindung.',
+  'support_faq6_q':            'Wie melde ich einen Datenfehler?',
+  'support_faq6_a':            'Tippe auf "Feedback" und wähle "Datenfehler". Beschreibe was falsch ist (Pflanzname, fehlerhafte Info etc.).',
+  'support_emergency':         '📞 Notfall-Kontakte',
+  'support_call_144':          '🚨 Notruf Schweiz — 144',
+  'support_call_145':          '☠️ Tox Info Suisse — 145',
+  'support_call_112':          '🇪🇺 EU-Notruf — 112',
+  'support_api_active':        '✅ API Key aktiv',
+  'support_api_missing':       '⚠️ API Key fehlt – tippe zum Einrichten',
+  'support_api_help':          'Anthropic: console.anthropic.com → API Keys',
   'scan_no_scans':             'Noch keine Scans',
   'scan_change_filter':        'Filter ändern oder Suche zurücksetzen',
   'scan_first_scan':           'Scanne deine erste Pflanze mit der KI!',
@@ -18795,14 +18852,15 @@ function gsNlAddPhotos(input) {
 function gsNlRenderPhotos() {
   var prev = document.getElementById('nl-photos-preview');
   if (!prev) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   if (!window._gsNlPhotos.length) { prev.innerHTML = ''; return; }
   prev.innerHTML = window._gsNlPhotos.map(function(src, i){
     return '<div style="position:relative;width:78px;height:78px;border-radius:9px;overflow:hidden;background:var(--surface2);">' +
       '<img src="' + src + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block;">' +
       (i === 0
-        ? '<span style="position:absolute;bottom:2px;left:2px;background:rgba(27,94,32,.9);color:#fff;font-size:8.5px;font-weight:800;padding:1px 5px;border-radius:5px;">★ Haupt</span>'
-        : '<button onclick="gsNlMakeMain(' + i + ')" aria-label="Als Hauptbild" title="Als Hauptbild setzen" style="position:absolute;bottom:2px;left:2px;background:rgba(0,0,0,.6);color:#fff;border:none;padding:1px 5px;border-radius:5px;font-size:8.5px;font-weight:800;cursor:pointer;font-family:inherit;">☆ Haupt</button>') +
-      '<button onclick="gsNlRemovePhoto(' + i + ')" aria-label="Foto entfernen" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.65);color:#fff;border:none;width:22px;height:22px;border-radius:50%;font-size:12px;cursor:pointer;font-family:inherit;">✕</button>' +
+        ? '<span style="position:absolute;bottom:2px;left:2px;background:rgba(27,94,32,.9);color:#fff;font-size:8.5px;font-weight:800;padding:1px 5px;border-radius:5px;">' + _t('photo_main','★ Haupt') + '</span>'
+        : '<button onclick="gsNlMakeMain(' + i + ')" aria-label="' + _t('photo_set_main','☆ Haupt') + '" title="' + _t('photo_set_main','☆ Haupt') + '" style="position:absolute;bottom:2px;left:2px;background:rgba(0,0,0,.6);color:#fff;border:none;padding:1px 5px;border-radius:5px;font-size:8.5px;font-weight:800;cursor:pointer;font-family:inherit;">' + _t('photo_set_main','☆ Haupt') + '</button>') +
+      '<button onclick="gsNlRemovePhoto(' + i + ')" aria-label="' + _t('photo_remove','Foto entfernen') + '" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.65);color:#fff;border:none;width:22px;height:22px;border-radius:50%;font-size:12px;cursor:pointer;font-family:inherit;">✕</button>' +
     '</div>';
   }).join('');
 }
@@ -26967,6 +27025,7 @@ function removeTyping(){
 })();
 
 function renderFeedback(){
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   const listEl = document.getElementById('feedback-list');
   if(!listEl) return;
   const items = Array.isArray(feedbackItems) ? feedbackItems : [];
@@ -27014,8 +27073,8 @@ function renderFeedback(){
       listEl.innerHTML = filterHtml +
         '<div style="padding:28px 18px;text-align:center;border:1px dashed rgba(0,0,0,.12);border-radius:14px;background:rgba(76,175,80,.04);">'+
           '<div style="font-size:28px;margin-bottom:8px;animation:spin 1.4s linear infinite;display:inline-block;">🌿</div>'+
-          '<div style="font-weight:700;color:var(--g-main);margin-bottom:4px;">Community-Posts werden geladen…</div>'+
-          '<div style="font-size:12px;color:#666;line-height:1.5;">Frisch aus der Supabase-Datenbank</div>'+
+          '<div style="font-weight:700;color:var(--g-main);margin-bottom:4px;">'+_t('fb_loading_title','Community-Posts werden geladen…')+'</div>'+
+          '<div style="font-size:12px;color:#666;line-height:1.5;">'+_t('fb_loading_hint','Frisch aus der Supabase-Datenbank')+'</div>'+
         '</div>';
       // Fetch anstossen wenn nicht schon läuft
       if (!window._gsFbFetching && typeof gsRefreshGlobalFeedback === 'function') {
@@ -27030,24 +27089,24 @@ function renderFeedback(){
       listEl.innerHTML = filterHtml +
         '<div style="padding:22px 18px;text-align:center;border:1px solid rgba(198,40,40,.25);border-radius:14px;background:#ffebee;">'+
           '<div style="font-size:32px;margin-bottom:8px;">⚠️</div>'+
-          '<div style="font-weight:700;color:#c62828;margin-bottom:4px;">Community-Feed konnte nicht geladen werden</div>'+
+          '<div style="font-weight:700;color:#c62828;margin-bottom:4px;">'+_t('fb_error_title','Community-Feed konnte nicht geladen werden')+'</div>'+
           '<div style="font-size:12px;color:#888;line-height:1.4;margin-bottom:12px;">'+escHtml(String(errMsg).slice(0,120))+'</div>'+
-          '<button onclick="window._gsFbLastFetch=null;window._gsFbLastError=null;gsRefreshGlobalFeedback(true);" style="padding:8px 18px;background:#c62828;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-family:inherit;font-size:12.5px;">🔄 Erneut versuchen</button>'+
+          '<button onclick="window._gsFbLastFetch=null;window._gsFbLastError=null;gsRefreshGlobalFeedback(true);" style="padding:8px 18px;background:#c62828;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-family:inherit;font-size:12.5px;">'+_t('fb_error_retry','🔄 Erneut versuchen')+'</button>'+
         '</div>';
       return;
     }
     listEl.innerHTML = filterHtml +
       '<div style="padding:28px 18px;text-align:center;border:1px dashed rgba(0,0,0,.12);border-radius:14px;background:rgba(76,175,80,.04);">'+
         '<div style="font-size:32px;margin-bottom:8px;">💬</div>'+
-        '<div style="font-weight:700;color:var(--g-main);margin-bottom:4px;">Noch kein Community-Feedback</div>'+
-        '<div style="font-size:13px;color:#666;line-height:1.5;">Sei die erste Person, die eine Idee, einen Fehler oder einen Wunsch teilt – oben im Formular.</div>'+
+        '<div style="font-weight:700;color:var(--g-main);margin-bottom:4px;">'+_t('fb_empty_title','Noch kein Community-Feedback')+'</div>'+
+        '<div style="font-size:13px;color:#666;line-height:1.5;">'+_t('fb_empty_hint','Sei die erste Person, die eine Idee, einen Fehler oder einen Wunsch teilt – oben im Formular.')+'</div>'+
       '</div>';
     return;
   }
   // Filter-aktiv aber nichts sichtbar → sanfter Empty-State
   if (!filtered.length) {
     listEl.innerHTML = filterHtml +
-      '<div style="padding:20px 14px;text-align:center;color:#78909c;font-size:13px;">Keine Einträge in diesem Filter — Filter wechseln.</div>';
+      '<div style="padding:20px 14px;text-align:center;color:#78909c;font-size:13px;">'+_t('fb_filter_empty','Keine Einträge in diesem Filter — Filter wechseln.')+'</div>';
     return;
   }
   const now_ts = Date.now();
@@ -27072,12 +27131,12 @@ function renderFeedback(){
   const statusBadge = (fb) => {
     const s = fb.ki_status || 'pending';
     const map = {
-      pending:    {bg:'#eef1f5', fg:'#546e7a', ico:'⏳', txt:'Noch nicht analysiert'},
-      accepted:   {bg:'#e8f5e9', fg:'#1b5e20', ico:'✅', txt:'Angenommen'},
-      implemented:{bg:'#c8e6c9', fg:'#1b5e20', ico:'🎉', txt:'Umgesetzt'},
-      rejected:   {bg:'#ffebee', fg:'#b71c1c', ico:'❌', txt:'Abgelehnt'},
-      needs_info: {bg:'#fff8e1', fg:'#e65100', ico:'❓', txt:'Braucht mehr Info'},
-      duplicate:  {bg:'#f3e5f5', fg:'#6a1b9a', ico:'🔗', txt:'Duplikat'}
+      pending:    {bg:'#eef1f5', fg:'#546e7a', ico:'⏳', txt:_t('fb_st_pending','Noch nicht analysiert')},
+      accepted:   {bg:'#e8f5e9', fg:'#1b5e20', ico:'✅', txt:_t('fb_st_accepted','Angenommen')},
+      implemented:{bg:'#c8e6c9', fg:'#1b5e20', ico:'🎉', txt:_t('fb_st_implemented','Umgesetzt')},
+      rejected:   {bg:'#ffebee', fg:'#b71c1c', ico:'❌', txt:_t('fb_st_rejected','Abgelehnt')},
+      needs_info: {bg:'#fff8e1', fg:'#e65100', ico:'❓', txt:_t('fb_st_needs_info','Braucht mehr Info')},
+      duplicate:  {bg:'#f3e5f5', fg:'#6a1b9a', ico:'🔗', txt:_t('fb_st_duplicate','Duplikat')}
     };
     const st = map[s] || map.pending;
     return '<span title="'+escHtml(fb.ki_rationale||st.txt)+'" style="display:inline-flex;align-items:center;gap:4px;background:'+st.bg+';color:'+st.fg+';padding:3px 9px;border-radius:10px;font-size:10.5px;font-weight:800;letter-spacing:.2px;">'+st.ico+' '+escHtml(st.txt)+'</span>';
@@ -27129,15 +27188,15 @@ function renderFeedback(){
         '<div style="position:relative;width:72px;height:72px;flex-shrink:0;background:conic-gradient('+ringStops+');border-radius:50%;">'+
           '<div style="position:absolute;inset:10px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;box-shadow:inset 0 1px 3px rgba(0,0,0,.06);">'+
             '<div style="font-size:17px;font-weight:800;color:var(--g-dark);line-height:1;">'+stats.total+'</div>'+
-            '<div style="font-size:8.5px;color:var(--muted);font-weight:700;letter-spacing:.3px;margin-top:1px;">IDEEN</div>'+
+            '<div style="font-size:8.5px;color:var(--muted);font-weight:700;letter-spacing:.3px;margin-top:1px;">'+_t('fb_stat_ideas','IDEEN')+'</div>'+
           '</div>'+
         '</div>'+
         // KPIs
         '<div style="flex:1;min-width:0;display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;">'+
-          '<div><div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.3px;">KI-ANALYSIERT</div><div style="font-size:15px;font-weight:800;color:var(--g-dark);">'+pctAnalyzed+'<span style="font-size:10px;color:var(--muted);font-weight:600;">%</span></div></div>'+
-          '<div><div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.3px;">ANGENOMMEN</div><div style="font-size:15px;font-weight:800;color:#1b5e20;">'+pctAccepted+'<span style="font-size:10px;color:var(--muted);font-weight:600;">%</span></div></div>'+
-          '<div><div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.3px;">👍 COMMUNITY</div><div style="font-size:15px;font-weight:800;color:var(--g-main);">'+approvalRate+'<span style="font-size:10px;color:var(--muted);font-weight:600;">%</span></div></div>'+
-          '<div><div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.3px;">UMGESETZT</div><div style="font-size:15px;font-weight:800;color:#1b5e20;">🎉 '+stats.implemented+'</div></div>'+
+          '<div><div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.3px;">'+_t('fb_stat_analyzed','KI-ANALYSIERT')+'</div><div style="font-size:15px;font-weight:800;color:var(--g-dark);">'+pctAnalyzed+'<span style="font-size:10px;color:var(--muted);font-weight:600;">%</span></div></div>'+
+          '<div><div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.3px;">'+_t('fb_stat_accepted','ANGENOMMEN')+'</div><div style="font-size:15px;font-weight:800;color:#1b5e20;">'+pctAccepted+'<span style="font-size:10px;color:var(--muted);font-weight:600;">%</span></div></div>'+
+          '<div><div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.3px;">'+_t('fb_stat_community','👍 COMMUNITY')+'</div><div style="font-size:15px;font-weight:800;color:var(--g-main);">'+approvalRate+'<span style="font-size:10px;color:var(--muted);font-weight:600;">%</span></div></div>'+
+          '<div><div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.3px;">'+_t('fb_stat_implemented','UMGESETZT')+'</div><div style="font-size:15px;font-weight:800;color:#1b5e20;">🎉 '+stats.implemented+'</div></div>'+
         '</div>'+
       '</div>'+
       // Segment bar
@@ -27158,12 +27217,12 @@ function renderFeedback(){
     const hasKi = !!(fb.ki_status && fb.ki_status !== 'pending');
     const kiSection = hasKi && fb.ki_rationale
       ? '<div style="margin-top:8px;padding:8px 10px;background:rgba(46,125,50,.06);border-left:3px solid var(--g-main);border-radius:6px;font-size:11.5px;color:var(--text2);line-height:1.5;">'
-        + '<div style="font-size:10px;font-weight:800;color:var(--g-main);text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px;">🤖 KI-Bewertung</div>'
+        + '<div style="font-size:10px;font-weight:800;color:var(--g-main);text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px;">'+_t('fb_ai_eval','🤖 KI-Bewertung')+'</div>'
         + escHtml(fb.ki_rationale)
         + (fb.ki_action ? '<div style="margin-top:4px;color:var(--g-dark);font-weight:700;">→ '+escHtml(fb.ki_action)+'</div>' : '')
         + '</div>'
       : '';
-    var reanalyzeBtn = '<button onclick="gsReanalyzeFeedback(\''+safeId+'\')" title="KI-Bewertung neu anstossen" style="background:transparent;border:1px solid rgba(46,125,50,.35);color:var(--g-main);padding:4px 9px;border-radius:7px;font-size:10.5px;font-weight:700;cursor:pointer;margin-left:auto;">🔁 Neu bewerten</button>';
+    var reanalyzeBtn = '<button onclick="gsReanalyzeFeedback(\''+safeId+'\')" title="'+_t('fb_reanalyze_title','KI-Bewertung neu anstossen')+'" style="background:transparent;border:1px solid rgba(46,125,50,.35);color:var(--g-main);padding:4px 9px;border-radius:7px;font-size:10.5px;font-weight:700;cursor:pointer;margin-left:auto;">'+_t('fb_reanalyze_btn','🔁 Neu bewerten')+'</button>';
     // v23.71: Admin-Abhak-Button — nur im Admin-Modus sichtbar
     var adminDoneBtn = '';
     try {
@@ -56677,21 +56736,22 @@ async function gsRunServerTriage() {
 
 // ═══ SUPPORT ═══════════════════════════════════════
 function renderSupport(){
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   const faqs = [
-    {q:'Wie funktioniert der KI-Scanner?',a:'Lade ein Foto oder nimm eines auf. Der Scanner schickt es an die Anthropic-Claude-KI, die das Bild analysiert und die Pflanze/den Pilz bestimmt. Ein API Key ist nötig (🔑 oben rechts) — oder der Admin hinterlegt einen für alle.'},
-    {q:'Warum öffnet sich die Kamera nicht?',a:'Browser erlauben Kamerazugriff nur über HTTPS oder localhost. Wenn du die Datei lokal öffnest (file://), verwende bitte die Galerie-Funktion. Auf iPhone: Safari verwenden.'},
-    {q:'Was bedeuten die Toxizitätsstufen?',a:'✅ Ungiftig · 🟡 Leicht giftig · 🟠 Mässig giftig · ⚠️ Giftig · 🔴 Stark giftig · ☠️ Tödlich. Bei Vergiftung: Sofort Tox Info Suisse 145 anrufen!'},
-    {q:'Wie bekomme ich einen API Key?',a:'Anthropic: console.anthropic.com → API Keys. Tipp: meist hat der App-Admin bereits einen globalen Key hinterlegt — dann brauchst du keinen eigenen.'},
-    {q:'Kann ich die App ohne Internet nutzen?',a:'Die Datenbank mit 542 Arten funktioniert offline. Der KI-Scanner und Lina (Garten-Coach) benötigen Internetverbindung.'},
-    {q:'Wie melde ich einen Datenfehler?',a:'Tippe auf "Feedback" und wähle "Datenfehler". Beschreibe was falsch ist (Pflanzname, fehlerhafte Info etc.).'},
+    {q:_t('support_faq1_q','Wie funktioniert der KI-Scanner?'),a:_t('support_faq1_a','Lade ein Foto oder nimm eines auf. Der Scanner schickt es an die Anthropic-Claude-KI, die das Bild analysiert und die Pflanze/den Pilz bestimmt. Ein API Key ist nötig (🔑 oben rechts) — oder der Admin hinterlegt einen für alle.')},
+    {q:_t('support_faq2_q','Warum öffnet sich die Kamera nicht?'),a:_t('support_faq2_a','Browser erlauben Kamerazugriff nur über HTTPS oder localhost. Wenn du die Datei lokal öffnest (file://), verwende bitte die Galerie-Funktion. Auf iPhone: Safari verwenden.')},
+    {q:_t('support_faq3_q','Was bedeuten die Toxizitätsstufen?'),a:_t('support_faq3_a','✅ Ungiftig · 🟡 Leicht giftig · 🟠 Mässig giftig · ⚠️ Giftig · 🔴 Stark giftig · ☠️ Tödlich. Bei Vergiftung: Sofort Tox Info Suisse 145 anrufen!')},
+    {q:_t('support_faq4_q','Wie bekomme ich einen API Key?'),a:_t('support_faq4_a','Anthropic: console.anthropic.com → API Keys. Tipp: meist hat der App-Admin bereits einen globalen Key hinterlegt — dann brauchst du keinen eigenen.')},
+    {q:_t('support_faq5_q','Kann ich die App ohne Internet nutzen?'),a:_t('support_faq5_a','Die Datenbank mit 542 Arten funktioniert offline. Der KI-Scanner und Lina (Garten-Coach) benötigen Internetverbindung.')},
+    {q:_t('support_faq6_q','Wie melde ich einen Datenfehler?'),a:_t('support_faq6_a','Tippe auf "Feedback" und wähle "Datenfehler". Beschreibe was falsch ist (Pflanzname, fehlerhafte Info etc.).')},
   ];
   document.getElementById('support-content').innerHTML =
     '<div style="padding:0 0 20px;">' +
     faqs.map((faq,i)=>'<div class="sup-q" id="faq-'+i+'" onclick="toggleFaq('+i+')"><div class="sup-q-title">'+faq.q+'</div><div class="sup-q-ans">'+faq.a+'</div></div>').join('') +
-    '<div style="margin-top:16px;"><div style="font-size:13.5px;font-weight:700;color:var(--g-dark);margin-bottom:10px;">📞 Notfall-Kontakte</div>' +
-    '<button class="contact-btn">🚨 Notruf Schweiz — 144</button>' +
-    '<button class="contact-btn">☠️ Tox Info Suisse — 145</button>' +
-    '<button class="contact-btn">🇪🇺 EU-Notruf — 112</button>' +
+    '<div style="margin-top:16px;"><div style="font-size:13.5px;font-weight:700;color:var(--g-dark);margin-bottom:10px;">'+_t('support_emergency','📞 Notfall-Kontakte')+'</div>' +
+    '<button class="contact-btn">'+_t('support_call_144','🚨 Notruf Schweiz — 144')+'</button>' +
+    '<button class="contact-btn">'+_t('support_call_145','☠️ Tox Info Suisse — 145')+'</button>' +
+    '<button class="contact-btn">'+_t('support_call_112','🇪🇺 EU-Notruf — 112')+'</button>' +
     '</div></div>';
 }
 
@@ -56708,15 +56768,17 @@ function updateApiBanner(){
   if(!b) return;
   if(!isAdm){ b.style.display='none'; return; }
   b.style.display='';
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var key = localStorage.getItem('ps_api_key');
-  if(key){b.className='api-banner ok';t.textContent='✅ API Key aktiv';}
-  else{b.className='api-banner missing';t.textContent='⚠️ API Key fehlt – tippe zum Einrichten';}
+  if(key){b.className='api-banner ok';t.textContent=_t('support_api_active','✅ API Key aktiv');}
+  else{b.className='api-banner missing';t.textContent=_t('support_api_missing','⚠️ API Key fehlt – tippe zum Einrichten');}
 }
 
 function updateApiHelp(){
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   const p = document.getElementById('api-provider').value;
   const h = document.getElementById('api-help');
-  h.textContent='Anthropic: console.anthropic.com → API Keys';
+  h.textContent=_t('support_api_help','Anthropic: console.anthropic.com → API Keys');
 }
 
 function openApiKey(){
@@ -57138,6 +57200,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v28.62', date: '09.06.2026',
+    headline: '🌍 Feedback, Hilfe & Lina jetzt mehrsprachig — Übersetzung komplett',
+    summary: 'Letzter Teil der grossen Vollübersetzung (Batch I, Teil 3/3): Der Community-Feedback-Bereich, die Hilfe-Seite (FAQ + Notfall-Kontakte) und Lina, dein Garten-Coach, werden jetzt mit der Sprache mit-übersetzt. Damit ist die App-weite Übersetzung abgeschlossen — bei EN/FR/IT/ES wird automatisch alles mitübersetzt.',
+    user_summary: '🌍 Feedback-Feed, Hilfe-Seite und Lina sind jetzt mehrsprachig — die Übersetzung ist komplett.',
+    user_items: [
+      { emoji: '💬', text: 'Community-Feedback: Status-Badges, Statistik-Kacheln, Lade-/Leer-Zustände mehrsprachig' },
+      { emoji: '🆘', text: 'Hilfe: alle 6 FAQ + Notfall-Kontakte (144/145/112) mehrsprachig' },
+      { emoji: '🌿', text: 'Lina (Garten-Coach): Begrüssung, Eingabe & Hinweise mehrsprachig — bleibt gratis' },
+      { emoji: '🤖', text: 'EN/FR/IT/ES automatisch via Übersetzungs-Edge-Fn' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'53 neue Keys:', text:' gsNlRenderPhotos + gsLinaRender/gsLinaSend + renderFeedback + renderSupport/updateApiBanner/updateApiHelp auf gsI18n.t.'},
+      {emoji:'🌱', bold:'Mission-konform:', text:' Lina-Quota-Text bleibt ohne Verkaufspitch — nur warme Info.'},
+      {emoji:'✅', bold:'398-String-Audit DURCH:', text:' A+D+C+E+F+B+G+I komplett — offen nur noch H_Farm (4 Mini).'},
+    ]
+  },
   {
     v: 'v28.61', date: '09.06.2026',
     headline: '🌍 Wetter-Detail & Mondkalender jetzt mehrsprachig',
@@ -61063,7 +61142,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.61';
+var GS_VERSION = 'v28.62';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -67591,10 +67670,11 @@ async function gsOpenLina(){
 window.gsOpenLina = gsOpenLina;
 
 function gsLinaRender(typing){
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var msgs = window._gsLinaMsgs || [];
   var body = '';
   if (!msgs.length) {
-    body = '<div style="text-align:center;padding:24px 10px;color:var(--muted);"><div style="font-size:40px;">🌿</div><div style="font-weight:800;color:var(--g-dark);margin:8px 0 4px;font-size:16px;">Hallo, ich bin Lina!</div><div style="font-size:13px;line-height:1.6;max-width:300px;margin:0 auto;">Deine Garten- &amp; Natur-Coachin — frag mich alles zu Pflanzen, Garten, Kräutern, Pilzen &amp; Saison. 🌱</div></div>';
+    body = '<div style="text-align:center;padding:24px 10px;color:var(--muted);"><div style="font-size:40px;">🌿</div><div style="font-weight:800;color:var(--g-dark);margin:8px 0 4px;font-size:16px;">' + _t('lina_greeting','Hallo, ich bin Lina!') + '</div><div style="font-size:13px;line-height:1.6;max-width:300px;margin:0 auto;">' + _t('lina_greeting_sub','Deine Garten- &amp; Natur-Coachin — frag mich alles zu Pflanzen, Garten, Kräutern, Pilzen &amp; Saison. 🌱') + '</div></div>';
   } else {
     msgs.forEach(function(m){
       var isU = m.role === 'user';
@@ -67604,15 +67684,15 @@ function gsLinaRender(typing){
         + '">' + (isU?'':'🌿 ') + escHtml(m.content) + '</div></div>';
     });
   }
-  if (typing) body += '<div style="display:flex;justify-content:flex-start;margin:8px 0;"><div style="padding:10px 13px;border-radius:14px;background:var(--surface2);color:var(--muted);font-size:14px;">🌿 Lina denkt nach…</div></div>';
+  if (typing) body += '<div style="display:flex;justify-content:flex-start;margin:8px 0;"><div style="padding:10px 13px;border-radius:14px;background:var(--surface2);color:var(--muted);font-size:14px;">' + _t('lina_thinking','🌿 Lina denkt nach…') + '</div></div>';
   var html = '<div style="display:flex;flex-direction:column;height:72vh;max-width:520px;margin:0 auto;">'
     + '<div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border);">'
-      + '<div style="font-size:22px;">🌿</div><div><div style="font-weight:900;color:var(--text);font-size:16px;">Lina</div><div style="font-size:11px;color:var(--muted);">Dein Garten-Coach · immer gratis</div></div>'
-      + '<button onclick="gsLinaNew()" style="margin-left:auto;padding:6px 10px;background:var(--surface2);color:var(--text);border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">＋ Neu</button>'
+      + '<div style="font-size:22px;">🌿</div><div><div style="font-weight:900;color:var(--text);font-size:16px;">' + _t('lina_name','Lina') + '</div><div style="font-size:11px;color:var(--muted);">' + _t('lina_subtitle','Dein Garten-Coach · immer gratis') + '</div></div>'
+      + '<button onclick="gsLinaNew()" style="margin-left:auto;padding:6px 10px;background:var(--surface2);color:var(--text);border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">' + _t('lina_new','＋ Neu') + '</button>'
     + '</div>'
     + '<div id="gs-lina-scroll" style="flex:1;overflow-y:auto;padding:12px 16px;">' + body + '</div>'
     + '<div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);">'
-      + '<input id="gs-lina-input" placeholder="Frag Lina etwas…" onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();gsLinaSend();}" style="flex:1;padding:11px 14px;border:1px solid var(--border);border-radius:22px;font-size:14px;font-family:inherit;box-sizing:border-box;">'
+      + '<input id="gs-lina-input" placeholder="' + _t('lina_input_ph','Frag Lina etwas…') + '" onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();gsLinaSend();}" style="flex:1;padding:11px 14px;border:1px solid var(--border);border-radius:22px;font-size:14px;font-family:inherit;box-sizing:border-box;">'
       + '<button onclick="gsLinaSend()" style="padding:11px 17px;background:var(--g-main);color:#fff;border:none;border-radius:22px;font-weight:800;cursor:pointer;font-family:inherit;">➤</button>'
     + '</div></div>';
   _gsNlOpen(html);
@@ -67624,6 +67704,7 @@ function gsLinaNew(){ window._gsLinaConvId = null; window._gsLinaMsgs = []; gsLi
 window.gsLinaNew = gsLinaNew;
 
 async function gsLinaSend(){
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var inp = document.getElementById('gs-lina-input');
   var text = inp ? (inp.value||'').trim() : '';
   if (!text) return;
@@ -67643,7 +67724,7 @@ async function gsLinaSend(){
     }
     var hist = window._gsLinaMsgs.slice(-16).map(function(m){ return { role:m.role, content:m.content }; });
     var reply = await callAI(hist, LINA_SYSTEM + gsLinaContext(), 700, { quotaFeature:'lina', timeout:45000 });
-    if (!reply) reply = 'Entschuldige, da ist gerade etwas schiefgelaufen — magst du es nochmal versuchen? 🌿';
+    if (!reply) reply = _t('lina_error','Entschuldige, da ist gerade etwas schiefgelaufen — magst du es nochmal versuchen? 🌿');
     window._gsLinaMsgs.push({ role:'assistant', content:reply });
     gsLinaRender(false);
     if (window._gsLinaConvId) {
@@ -67653,9 +67734,9 @@ async function gsLinaSend(){
   } catch(err){
     if (err && err.code === 'free_quota_reached') {
       // Mission: Lina bleibt gratis — KEIN Verkaufspitch, nur warme Info.
-      window._gsLinaMsgs.push({ role:'assistant', content:'🌿 Wir haben heute schon richtig viel geplaudert — wie schön! Mein Tageskontingent für den geteilten KI-Schlüssel ist gerade erschöpft. Morgen bin ich wieder voll für dich da. (Wer mag, kann mit einem eigenen Anthropic-Key unbegrenzt mit mir chatten — aber das musst du absolut nicht.)' });
+      window._gsLinaMsgs.push({ role:'assistant', content:_t('lina_quota','🌿 Wir haben heute schon richtig viel geplaudert — wie schön! Mein Tageskontingent für den geteilten KI-Schlüssel ist gerade erschöpft. Morgen bin ich wieder voll für dich da. (Wer mag, kann mit einem eigenen Anthropic-Key unbegrenzt mit mir chatten — aber das musst du absolut nicht.)') });
     } else {
-      window._gsLinaMsgs.push({ role:'assistant', content:'Hmm, das hat gerade nicht geklappt 🌿 — bitte versuch es gleich nochmal.' });
+      window._gsLinaMsgs.push({ role:'assistant', content:_t('lina_error_retry','Hmm, das hat gerade nicht geklappt 🌿 — bitte versuch es gleich nochmal.') });
     }
     gsLinaRender(false);
   }
