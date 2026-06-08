@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.52.20260608">
+<meta name="app-version" content="28.53.20260608">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10999,6 +10999,52 @@ window.GS_I18N_JS_STRINGS = {
   'battle_your_score':         'Dein Score:',
   'battle_waiting_result_hint':'Warte auf deinen Gegner. Schau später wieder rein — das ⚔️-Badge zeigt dir an, sobald das Ergebnis da ist.',
   'battle_result_win':         'Sieg!',
+  // ── v28.53: Pflanzendoktor — Schädlings-Diagnose (gsPestRenderResult) ─
+  'pest_no_match':             'Kein eindeutiger Schädling erkannt. Bitte Foto näher oder schärfer aufnehmen.',
+  'pest_uncertain':            'Unsicher',
+  'confidence':                'Confidence',
+  'sev_low':                   '🟢 Gering',
+  'sev_mid':                   '🟡 Mittel',
+  'sev_high':                  '🔴 Hoch',
+  'pest_severity':             'Schwere',
+  'pest_now':                  '💡 Sofort:',
+  'pest_symptoms_heading':     'Schaden / Symptome',
+  'pest_organic_heading':      '🌿 Bio-Behandlung',
+  'pest_prevention_heading':   '🛡️ Vorbeugen',
+  'pest_natural_enemies':      'Natürliche Feinde:',
+  'pest_alternatives':         'Alternative Kandidaten:',
+  // ── v28.53: Pilz-Scanner — Diagnose (gsMushroomRenderResult + VapkoBox) ─
+  'mush_possible_candidate':   'Möglicher Kandidat:',
+  'mush_uncertain_id':         'UNSICHERE Identifikation',
+  'mush_ai_unsure':            'KI ist sich nicht sicher.',
+  'mush_dont_eat_vapko':       '🚫 NICHT essen! Geh zur offiziellen VAPKO-Pilzkontrolle.',
+  'mush_deadly':               'TÖDLICH',
+  'mush_cond_edible':          '⚠️ NUR JUNG / BEDINGT ESSBAR',
+  'mush_caution':              '⚠️ Vorsicht',
+  'mush_edible':               '✅ Speisepilz',
+  'mush_vapko_class':          'VAPKO-Klasse:',
+  'mush_observed':             'Beobachtet:',
+  'mush_symptoms_eaten':       '🤢 Symptome bei Verzehr:',
+  'mush_toxinfo_ch':           '☎️ Tox-Info Schweiz:',
+  'mush_cooking':              '🍳 Zubereitung:',
+  'mush_conservation':         '📦 Konservieren:',
+  'mush_confusion_risk':       '⚠️ VERWECHSLUNGS-RISIKO',
+  'mush_visual':               '👁️ Visuell:',
+  'mush_smell':                '👃 Geruch:',
+  'mush_spores':               '🔬 Sporen:',
+  'mush_protip':               '💡 Profi-Tipp:',
+  'mush_note_label':           'Hinweis:',
+  'mush_disclaimer_text':      'Diese KI ist eine erste Einschätzung. Sie ersetzt KEINE offizielle Pilzkontrolle (VAPKO). Im Zweifel: nie essen.',
+  'mush_source':               'Quelle:',
+  'mush_vapko_recommended':    '🔒 VAPKO-Kontrolle empfohlen',
+  'mush_control_station':      'Kontrollstelle:',
+  // ── v28.53: Pilz-Lebensgefahr-Overlay (gsShowMushroomDangerOverlay) ─
+  'mush_deadly_toxic':         'TÖDLICH GIFTIG',
+  'mush_ai_suspects':          'KI vermutet:',
+  'mush_deadly_warning':       'NICHT ESSEN, NICHT BERÜHREN. Bei Verdacht auf Verzehr SOFORT Notfall-Nummer wählen.',
+  'mush_toxic_warning':        'NICHT ESSEN. Bei Symptomen umgehend Tox-Info anrufen.',
+  'mush_toxinfo_145':          '☎️ Tox-Info: 145',
+  'mush_understood':           'Verstanden — Details anzeigen',
   // ── Offline / Sync ──────────────────────────────────────────────
   'toast_offline_saved':       '📵 Offline gespeichert',
   'toast_offline_synced':      '🔄 Online — Sync abgeschlossen',
@@ -29127,16 +29173,17 @@ window.gsPestRunScan = gsPestRunScan;
 function gsPestRenderResult(j) {
   var box = document.getElementById('pest-result');
   if (!box) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var p = j && j.pest_detail;
   var conf = Math.round(j && typeof j.confidence === 'number' ? j.confidence : 0);
   var esc = (typeof gsHTMLEscape === 'function') ? gsHTMLEscape : function(s){ return String(s||'').replace(/[<>&"]/g, function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
 
   // Confidence < 40 ODER kein Match → "Bitte naeher" Hint
   if (!p || !j.matched_slug || conf < 40) {
-    var msg = (j && j.reasoning) ? j.reasoning : 'Kein eindeutiger Schädling erkannt. Bitte Foto näher oder schärfer aufnehmen.';
+    var msg = (j && j.reasoning) ? j.reasoning : _t('pest_no_match','Kein eindeutiger Schädling erkannt. Bitte Foto näher oder schärfer aufnehmen.');
     box.innerHTML =
       '<div style="margin-top:14px;padding:14px;background:#fff8e1;border:1px solid #fbc02d;border-radius:12px;color:#e65100;">' +
-        '<div style="font-size:14px;font-weight:800;margin-bottom:6px;">⚠️ Unsicher (Confidence ' + conf + '%)</div>' +
+        '<div style="font-size:14px;font-weight:800;margin-bottom:6px;">⚠️ ' + _t('pest_uncertain','Unsicher') + ' (' + _t('confidence','Confidence') + ' ' + conf + '%)</div>' +
         '<div style="font-size:12.5px;line-height:1.5;">' + esc(msg) + '</div>' +
       '</div>';
     return;
@@ -29144,43 +29191,43 @@ function gsPestRenderResult(j) {
 
   var sev = String(j.severity || 'mittel');
   var sevColors = {
-    gering: { bg:'#e8f5e9', col:'#1b5e20', lbl:'🟢 Gering' },
-    mittel: { bg:'#fff8e1', col:'#e65100', lbl:'🟡 Mittel' },
-    hoch:   { bg:'#ffebee', col:'#c62828', lbl:'🔴 Hoch' }
+    gering: { bg:'#e8f5e9', col:'#1b5e20', lbl:_t('sev_low','🟢 Gering') },
+    mittel: { bg:'#fff8e1', col:'#e65100', lbl:_t('sev_mid','🟡 Mittel') },
+    hoch:   { bg:'#ffebee', col:'#c62828', lbl:_t('sev_high','🔴 Hoch') }
   };
   var u = sevColors[sev] || sevColors.mittel;
 
   var html = '<div class="pest-result-card" style="margin-top:14px;border-radius:14px;overflow:hidden;border:1px solid var(--border);background:var(--card);">';
-  html += '<div style="background:' + u.bg + ';color:' + u.col + ';padding:10px 16px;font-size:13px;font-weight:800;text-align:center;">' + u.lbl + ' · Schwere · Confidence ' + conf + '%</div>';
+  html += '<div style="background:' + u.bg + ';color:' + u.col + ';padding:10px 16px;font-size:13px;font-weight:800;text-align:center;">' + u.lbl + ' · ' + _t('pest_severity','Schwere') + ' · ' + _t('confidence','Confidence') + ' ' + conf + '%</div>';
   html += '<div style="padding:14px 16px;">';
   html += '<div style="font-size:18px;font-weight:900;color:var(--text);margin-bottom:2px;">' + esc(p.common_name_de) + '</div>';
   if (p.scientific_name) html += '<div style="font-size:12px;font-style:italic;color:var(--muted);margin-bottom:8px;">' + esc(p.scientific_name) + '</div>';
   if (j.reasoning) html += '<div style="font-size:12.5px;color:var(--text2);line-height:1.5;margin-bottom:10px;">' + esc(j.reasoning) + '</div>';
-  if (j.advice) html += '<div style="padding:9px 12px;background:#e3f2fd;border:1px solid #42a5f5;border-radius:9px;font-size:12.5px;color:#01579b;line-height:1.5;margin-bottom:10px;"><b>💡 Sofort:</b> ' + esc(j.advice) + '</div>';
+  if (j.advice) html += '<div style="padding:9px 12px;background:#e3f2fd;border:1px solid #42a5f5;border-radius:9px;font-size:12.5px;color:#01579b;line-height:1.5;margin-bottom:10px;"><b>' + _t('pest_now','💡 Sofort:') + '</b> ' + esc(j.advice) + '</div>';
 
   if (p.symptoms) {
-    html += '<div style="margin-top:10px;font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Schaden / Symptome</div>';
+    html += '<div style="margin-top:10px;font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">' + _t('pest_symptoms_heading','Schaden / Symptome') + '</div>';
     html += '<div style="font-size:12.5px;color:var(--text2);line-height:1.5;margin-bottom:8px;">' + esc(p.symptoms) + '</div>';
   }
   if (Array.isArray(p.treatment_organic) && p.treatment_organic.length) {
     html += '<div style="margin-top:10px;padding:10px 12px;background:#e8f5e9;border-radius:10px;">';
-    html += '<div style="font-size:11.5px;font-weight:800;color:#1b5e20;margin-bottom:5px;">🌿 Bio-Behandlung</div>';
+    html += '<div style="font-size:11.5px;font-weight:800;color:#1b5e20;margin-bottom:5px;">' + _t('pest_organic_heading','🌿 Bio-Behandlung') + '</div>';
     html += '<ul style="margin:0;padding-left:18px;font-size:12.5px;color:#1b5e20;line-height:1.6;">';
     p.treatment_organic.forEach(function(t){ html += '<li>' + esc(t) + '</li>'; });
     html += '</ul></div>';
   }
   if (Array.isArray(p.prevention) && p.prevention.length) {
     html += '<div style="margin-top:8px;padding:10px 12px;background:#e0f2f1;border-radius:10px;">';
-    html += '<div style="font-size:11.5px;font-weight:800;color:#00695c;margin-bottom:5px;">🛡️ Vorbeugen</div>';
+    html += '<div style="font-size:11.5px;font-weight:800;color:#00695c;margin-bottom:5px;">' + _t('pest_prevention_heading','🛡️ Vorbeugen') + '</div>';
     html += '<ul style="margin:0;padding-left:18px;font-size:12.5px;color:#004d40;line-height:1.6;">';
     p.prevention.forEach(function(t){ html += '<li>' + esc(t) + '</li>'; });
     html += '</ul></div>';
   }
   if (Array.isArray(p.natural_enemies) && p.natural_enemies.length) {
-    html += '<div style="margin-top:8px;padding:9px 12px;background:#fff3e0;border:1px solid #ffb74d;border-radius:10px;font-size:12px;color:#e65100;line-height:1.5;">🐞 <b>Natürliche Feinde:</b> ' + esc(p.natural_enemies.join(', ')) + '</div>';
+    html += '<div style="margin-top:8px;padding:9px 12px;background:#fff3e0;border:1px solid #ffb74d;border-radius:10px;font-size:12px;color:#e65100;line-height:1.5;">🐞 <b>' + _t('pest_natural_enemies','Natürliche Feinde:') + '</b> ' + esc(p.natural_enemies.join(', ')) + '</div>';
   }
   if (Array.isArray(j.alternatives) && j.alternatives.length) {
-    html += '<div style="margin-top:10px;font-size:11px;color:var(--muted);">Alternative Kandidaten: ' + j.alternatives.map(function(a){ return esc(a); }).join(', ') + '</div>';
+    html += '<div style="margin-top:10px;font-size:11px;color:var(--muted);">' + _t('pest_alternatives','Alternative Kandidaten:') + ' ' + j.alternatives.map(function(a){ return esc(a); }).join(', ') + '</div>';
   }
   html += '<button onclick="gsPestAddToDiary(\'' + esc(p.slug) + '\')" style="width:100%;margin-top:14px;padding:11px;background:linear-gradient(135deg,#6d4c41,#4e342e);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;" data-i18n="btn_pest_diary" data-i18n-fallback="📓 Im Garten-Tagebuch festhalten">📓 Im Garten-Tagebuch festhalten</button>';
   html += '</div></div>';
@@ -29309,6 +29356,7 @@ window.gsMushroomRunScan = gsMushroomRunScan;
 function gsMushroomRenderResult(j) {
   var box = document.getElementById('mushroom-result');
   if (!box) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
   var m = j && j.mushroom;
   var conf = Math.round(j && typeof j.confidence === 'number' ? j.confidence : 0);
@@ -29322,14 +29370,14 @@ function gsMushroomRenderResult(j) {
   // ============= "UNSICHER" Hint bei < 60% Confidence ohne Match =============
   if (!m || !j.matched_slug || conf < 60) {
     var reason = (j && j.reasoning) ? j.reasoning : '';
-    var alt = (j && Array.isArray(j.alternatives) && j.alternatives.length) ? '<div style="margin-top:6px;font-size:11.5px;color:var(--muted);">Möglicher Kandidat: ' + j.alternatives.map(ed).join(', ') + '</div>' : '';
+    var alt = (j && Array.isArray(j.alternatives) && j.alternatives.length) ? '<div style="margin-top:6px;font-size:11.5px;color:var(--muted);">' + _t('mush_possible_candidate','Möglicher Kandidat:') + ' ' + j.alternatives.map(ed).join(', ') + '</div>' : '';
     box.innerHTML =
       '<div style="margin-top:14px;padding:14px;background:#fff8e1;border:2px solid #fbc02d;border-radius:12px;color:#bf360c;">' +
-        '<div style="font-size:14px;font-weight:900;margin-bottom:6px;">⚠️ UNSICHERE Identifikation (Confidence ' + conf + '%)</div>' +
-        '<div style="font-size:12.5px;line-height:1.55;margin-bottom:8px;">' + ed(reason || 'KI ist sich nicht sicher.') + '</div>' +
+        '<div style="font-size:14px;font-weight:900;margin-bottom:6px;">⚠️ ' + _t('mush_uncertain_id','UNSICHERE Identifikation') + ' (' + _t('confidence','Confidence') + ' ' + conf + '%)</div>' +
+        '<div style="font-size:12.5px;line-height:1.55;margin-bottom:8px;">' + ed(reason || _t('mush_ai_unsure','KI ist sich nicht sicher.')) + '</div>' +
         alt +
         '<div style="margin-top:10px;padding:9px 12px;background:#ffebee;border-left:3px solid #c62828;border-radius:8px;font-size:12.5px;color:#b71c1c;line-height:1.5;font-weight:700;">' +
-          '🚫 NICHT essen! Geh zur offiziellen VAPKO-Pilzkontrolle.' +
+          _t('mush_dont_eat_vapko','🚫 NICHT essen! Geh zur offiziellen VAPKO-Pilzkontrolle.') +
         '</div>' +
         gsMushroomVapkoBox(j, ed) +
       '</div>';
@@ -29340,58 +29388,58 @@ function gsMushroomRenderResult(j) {
   // safety_color aus v_mushroom_safety: red/orange/yellow/green
   var safety = String(j.safety_color || 'yellow');
   var safetyMap = {
-    red:    { bg:'#ffebee', border:'#c62828', col:'#b71c1c', lbl:'🚫 ' + (m.edibility === 'toedlich' ? 'TÖDLICH' : 'GIFTIG'), prom:true },
-    orange: { bg:'#fff3e0', border:'#e65100', col:'#bf360c', lbl:'⚠️ NUR JUNG / BEDINGT ESSBAR', prom:true },
-    yellow: { bg:'#fff8e1', border:'#fbc02d', col:'#bf360c', lbl:'⚠️ Vorsicht', prom:false },
-    green:  { bg:'#e8f5e9', border:'#2e7d32', col:'#1b5e20', lbl:'✅ Speisepilz', prom:false }
+    red:    { bg:'#ffebee', border:'#c62828', col:'#b71c1c', lbl:'🚫 ' + (m.edibility === 'toedlich' ? _t('mush_deadly','TÖDLICH') : _t('tag_toxic','GIFTIG')), prom:true },
+    orange: { bg:'#fff3e0', border:'#e65100', col:'#bf360c', lbl:_t('mush_cond_edible','⚠️ NUR JUNG / BEDINGT ESSBAR'), prom:true },
+    yellow: { bg:'#fff8e1', border:'#fbc02d', col:'#bf360c', lbl:_t('mush_caution','⚠️ Vorsicht'), prom:false },
+    green:  { bg:'#e8f5e9', border:'#2e7d32', col:'#1b5e20', lbl:_t('mush_edible','✅ Speisepilz'), prom:false }
   };
   var sm = safetyMap[safety] || safetyMap.yellow;
 
   var html = '<div style="margin-top:14px;border-radius:14px;overflow:hidden;border:2px solid ' + sm.border + ';background:var(--card);">';
-  html += '<div style="background:' + sm.bg + ';color:' + sm.col + ';padding:11px 16px;font-size:13.5px;font-weight:900;text-align:center;border-bottom:1px solid ' + sm.border + ';">' + sm.lbl + ' · Confidence ' + conf + '%</div>';
+  html += '<div style="background:' + sm.bg + ';color:' + sm.col + ';padding:11px 16px;font-size:13.5px;font-weight:900;text-align:center;border-bottom:1px solid ' + sm.border + ';">' + sm.lbl + ' · ' + _t('confidence','Confidence') + ' ' + conf + '%</div>';
   html += '<div style="padding:14px 16px;">';
   html += '<div style="font-size:18px;font-weight:900;color:var(--text);margin-bottom:2px;">' + ed(m.common_name_de) + '</div>';
   if (m.scientific_name) html += '<div style="font-size:12px;font-style:italic;color:var(--muted);margin-bottom:6px;">' + ed(m.scientific_name) + (m.family ? ' · ' + ed(m.family) : '') + '</div>';
   // VAPKO-Klasse
-  if (m.vapko_klasse) html += '<div style="display:inline-block;background:#ede7f6;color:#311b92;padding:3px 10px;border-radius:7px;font-size:11px;font-weight:800;margin-bottom:8px;">VAPKO-Klasse: ' + ed(m.vapko_klasse) + '</div>';
+  if (m.vapko_klasse) html += '<div style="display:inline-block;background:#ede7f6;color:#311b92;padding:3px 10px;border-radius:7px;font-size:11px;font-weight:800;margin-bottom:8px;">' + _t('mush_vapko_class','VAPKO-Klasse:') + ' ' + ed(m.vapko_klasse) + '</div>';
 
   if (j.safety_advice) html += '<div style="padding:9px 12px;background:' + sm.bg + ';border-left:3px solid ' + sm.border + ';border-radius:9px;font-size:12.5px;color:' + sm.col + ';line-height:1.55;margin-bottom:10px;font-weight:700;">' + ed(j.safety_advice) + '</div>';
   if (j.reasoning) html += '<div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:10px;">' + ed(j.reasoning) + '</div>';
-  if (j.observed_features) html += '<div style="font-size:11.5px;color:var(--muted);margin-bottom:8px;"><b>Beobachtet:</b> ' + ed(j.observed_features) + '</div>';
+  if (j.observed_features) html += '<div style="font-size:11.5px;color:var(--muted);margin-bottom:8px;"><b>' + _t('mush_observed','Beobachtet:') + '</b> ' + ed(j.observed_features) + '</div>';
 
   // Bei toedlich/giftig: zusaetzliche Symptome + Notfall-Box
   if (m.edibility === 'toedlich' || m.edibility === 'giftig') {
     if (m.symptoms_if_toxic) {
-      html += '<div style="margin-top:8px;padding:10px 12px;background:#ffebee;border:1px solid #c62828;border-radius:10px;font-size:12px;color:#b71c1c;line-height:1.55;"><b>🤢 Symptome bei Verzehr:</b><br>' + ed(m.symptoms_if_toxic) + '</div>';
+      html += '<div style="margin-top:8px;padding:10px 12px;background:#ffebee;border:1px solid #c62828;border-radius:10px;font-size:12px;color:#b71c1c;line-height:1.55;"><b>' + _t('mush_symptoms_eaten','🤢 Symptome bei Verzehr:') + '</b><br>' + ed(m.symptoms_if_toxic) + '</div>';
     }
     if (m.emergency_action) {
       html += '<div style="margin-top:6px;padding:10px 12px;background:#b71c1c;color:#fff;border-radius:10px;font-size:12.5px;line-height:1.55;font-weight:700;">' + ed(m.emergency_action) + '</div>';
     }
     html += '<div style="margin-top:6px;padding:10px 12px;background:#b71c1c;color:#fff;border-radius:10px;font-size:13.5px;line-height:1.55;font-weight:900;text-align:center;">' +
-      '☎️ Tox-Info Schweiz: <a href="tel:145" style="color:#fff;text-decoration:underline;">145</a> (24/7)' +
+      _t('mush_toxinfo_ch','☎️ Tox-Info Schweiz:') + ' <a href="tel:145" style="color:#fff;text-decoration:underline;">145</a> (24/7)' +
     '</div>';
   }
 
   // Speisepilz: Zubereitungs-Hinweise
   if (m.edibility === 'speisepilz' || m.edibility === 'speisepilz_jung' || m.edibility === 'bedingt_essbar') {
-    if (m.cooking_preparation) html += '<div style="margin-top:8px;padding:10px 12px;background:#e8f5e9;border-radius:10px;font-size:12px;color:#1b5e20;line-height:1.55;"><b>🍳 Zubereitung:</b> ' + ed(m.cooking_preparation) + '</div>';
-    if (Array.isArray(m.conservation_methods) && m.conservation_methods.length) html += '<div style="margin-top:6px;font-size:11.5px;color:var(--text2);"><b>📦 Konservieren:</b> ' + ed(m.conservation_methods.join(', ')) + '</div>';
+    if (m.cooking_preparation) html += '<div style="margin-top:8px;padding:10px 12px;background:#e8f5e9;border-radius:10px;font-size:12px;color:#1b5e20;line-height:1.55;"><b>' + _t('mush_cooking','🍳 Zubereitung:') + '</b> ' + ed(m.cooking_preparation) + '</div>';
+    if (Array.isArray(m.conservation_methods) && m.conservation_methods.length) html += '<div style="margin-top:6px;font-size:11.5px;color:var(--text2);"><b>' + _t('mush_conservation','📦 Konservieren:') + '</b> ' + ed(m.conservation_methods.join(', ')) + '</div>';
   }
 
   // LOOKALIKES — kritisch!
   if (Array.isArray(j.lookalikes) && j.lookalikes.length) {
     html += '<div style="margin-top:12px;padding:12px 14px;background:#fff3e0;border:2px solid #e65100;border-radius:12px;">';
-    html += '<div style="font-size:12.5px;font-weight:900;color:#bf360c;margin-bottom:6px;letter-spacing:.3px;">⚠️ VERWECHSLUNGS-RISIKO</div>';
+    html += '<div style="font-size:12.5px;font-weight:900;color:#bf360c;margin-bottom:6px;letter-spacing:.3px;">' + _t('mush_confusion_risk','⚠️ VERWECHSLUNGS-RISIKO') + '</div>';
     j.lookalikes.forEach(function(la){
       var otherSlug = (la.edible_slug === j.matched_slug) ? la.lookalike_slug : la.edible_slug;
       var risk = String(la.confusion_risk || 'mittel');
       var riskBg = risk === 'hoch' ? '#c62828' : risk === 'mittel' ? '#e65100' : '#827717';
       html += '<div style="padding:7px 0;border-top:1px dashed rgba(0,0,0,.1);">' +
         '<div style="font-size:12.5px;color:#bf360c;"><span style="background:' + riskBg + ';color:#fff;padding:1px 7px;border-radius:5px;font-size:10.5px;font-weight:800;margin-right:6px;">' + ed(risk.toUpperCase()) + '</span><b>' + ed(otherSlug) + '</b></div>';
-      if (la.visual_differences) html += '<div style="font-size:11.5px;color:#bf360c;margin-top:3px;line-height:1.5;"><b>👁️ Visuell:</b> ' + ed(la.visual_differences) + '</div>';
-      if (la.smell_differences) html += '<div style="font-size:11.5px;color:#bf360c;margin-top:2px;"><b>👃 Geruch:</b> ' + ed(la.smell_differences) + '</div>';
-      if (la.spore_print_differences) html += '<div style="font-size:11.5px;color:#bf360c;margin-top:2px;"><b>🔬 Sporen:</b> ' + ed(la.spore_print_differences) + '</div>';
-      if (la.pro_tip) html += '<div style="font-size:11.5px;color:#1b5e20;margin-top:3px;background:#e8f5e9;padding:3px 7px;border-radius:5px;display:inline-block;"><b>💡 Profi-Tipp:</b> ' + ed(la.pro_tip) + '</div>';
+      if (la.visual_differences) html += '<div style="font-size:11.5px;color:#bf360c;margin-top:3px;line-height:1.5;"><b>' + _t('mush_visual','👁️ Visuell:') + '</b> ' + ed(la.visual_differences) + '</div>';
+      if (la.smell_differences) html += '<div style="font-size:11.5px;color:#bf360c;margin-top:2px;"><b>' + _t('mush_smell','👃 Geruch:') + '</b> ' + ed(la.smell_differences) + '</div>';
+      if (la.spore_print_differences) html += '<div style="font-size:11.5px;color:#bf360c;margin-top:2px;"><b>' + _t('mush_spores','🔬 Sporen:') + '</b> ' + ed(la.spore_print_differences) + '</div>';
+      if (la.pro_tip) html += '<div style="font-size:11.5px;color:#1b5e20;margin-top:3px;background:#e8f5e9;padding:3px 7px;border-radius:5px;display:inline-block;"><b>' + _t('mush_protip','💡 Profi-Tipp:') + '</b> ' + ed(la.pro_tip) + '</div>';
       html += '</div>';
     });
     html += '</div>';
@@ -29401,8 +29449,8 @@ function gsMushroomRenderResult(j) {
   html += gsMushroomVapkoBox(j, ed);
 
   // Footer Disclaimer
-  html += '<div style="margin-top:12px;padding:9px 12px;background:#fffde7;border:1px dashed #fbc02d;border-radius:9px;font-size:10.5px;color:#827717;line-height:1.5;text-align:center;"><b>Hinweis:</b> Diese KI ist eine erste Einschätzung. Sie ersetzt KEINE offizielle Pilzkontrolle (VAPKO). Im Zweifel: nie essen.</div>';
-  if (m.source) html += '<div style="margin-top:6px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(m.source) + '</div>';
+  html += '<div style="margin-top:12px;padding:9px 12px;background:#fffde7;border:1px dashed #fbc02d;border-radius:9px;font-size:10.5px;color:#827717;line-height:1.5;text-align:center;"><b>' + _t('mush_note_label','Hinweis:') + '</b> ' + _t('mush_disclaimer_text','Diese KI ist eine erste Einschätzung. Sie ersetzt KEINE offizielle Pilzkontrolle (VAPKO). Im Zweifel: nie essen.') + '</div>';
+  if (m.source) html += '<div style="margin-top:6px;font-size:10.5px;color:var(--muted);text-align:right;">' + _t('mush_source','Quelle:') + ' ' + ed(m.source) + '</div>';
   html += '</div></div>';
 
   box.innerHTML = html;
@@ -29426,6 +29474,7 @@ function gsMushroomVapkoBox(j, ed) {
 function gsShowMushroomDangerOverlay(j) {
   if (document.getElementById('gs-mushroom-danger')) return;
   var m = j.mushroom || {};
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
   var isToedlich = m.edibility === 'toedlich';
 
@@ -29446,23 +29495,23 @@ function gsShowMushroomDangerOverlay(j) {
   overlay.innerHTML =
     '<div style="font-size:72px;line-height:1;margin-bottom:14px;">' + (isToedlich ? '☠️' : '⚠️') + '</div>' +
     '<div style="font-family:\'Playfair Display\',serif;font-size:28px;font-weight:900;letter-spacing:.5px;margin-bottom:10px;">' +
-      (isToedlich ? 'TÖDLICH GIFTIG' : 'GIFTIG') +
+      (isToedlich ? _t('mush_deadly_toxic','TÖDLICH GIFTIG') : _t('tag_toxic','GIFTIG')) +
     '</div>' +
     '<div style="font-size:14px;font-weight:700;line-height:1.5;max-width:400px;margin-bottom:10px;">' +
-      'KI vermutet: <b>' + ed(m.common_name_de) + '</b>' +
+      _t('mush_ai_suspects','KI vermutet:') + ' <b>' + ed(m.common_name_de) + '</b>' +
       (m.scientific_name ? '<br><i>' + ed(m.scientific_name) + '</i>' : '') +
     '</div>' +
     '<div style="font-size:13px;line-height:1.55;max-width:400px;margin-bottom:18px;background:rgba(0,0,0,.25);padding:11px 14px;border-radius:12px;">' +
       (isToedlich ?
-        'NICHT ESSEN, NICHT BERÜHREN. Bei Verdacht auf Verzehr SOFORT Notfall-Nummer wählen.' :
-        'NICHT ESSEN. Bei Symptomen umgehend Tox-Info anrufen.') +
+        _t('mush_deadly_warning','NICHT ESSEN, NICHT BERÜHREN. Bei Verdacht auf Verzehr SOFORT Notfall-Nummer wählen.') :
+        _t('mush_toxic_warning','NICHT ESSEN. Bei Symptomen umgehend Tox-Info anrufen.')) +
     '</div>' +
     '<a href="tel:145" style="display:flex;align-items:center;justify-content:center;gap:8px;background:#fff;color:#b71c1c;padding:14px 26px;border-radius:14px;font-weight:900;font-size:18px;text-decoration:none;margin-bottom:14px;min-width:240px;">' +
-      '☎️ Tox-Info: 145' +
+      _t('mush_toxinfo_145','☎️ Tox-Info: 145') +
     '</a>' +
     '<button onclick="document.getElementById(\'gs-mushroom-danger\').remove();document.getElementById(\'gs-mushroom-pulse-style\') && document.getElementById(\'gs-mushroom-pulse-style\').remove();" ' +
       'style="background:transparent;color:#fff;border:2px solid #fff;padding:11px 22px;border-radius:12px;font-weight:800;font-size:13.5px;cursor:pointer;font-family:inherit;">' +
-      'Verstanden — Details anzeigen' +
+      _t('mush_understood','Verstanden — Details anzeigen') +
     '</button>';
   document.body.appendChild(overlay);
 }
@@ -56813,6 +56862,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.53', date: '08.06.2026',
+    headline: '🌍 Pflanzendoktor & Pilz-Scanner jetzt mehrsprachig',
+    summary: 'Weiter mit der Vollübersetzung (Batch F, Teil 1): Die Schädlings-Diagnose (Schweregrad, Bio-Behandlung, Vorbeugen, natürliche Feinde) und der sicherheitskritische Pilz-Scanner (Essbarkeits-Warnungen TÖDLICH/GIFTIG, Verwechslungs-Risiko, VAPKO-Hinweise, das rote Lebensgefahr-Vollbild) werden jetzt mit der Sprache mit-übersetzt. Bei EN/FR/IT/ES automatisch.',
+    user_summary: '🌍 Pflanzendoktor (Schädlinge) und Pilz-Scanner inkl. Gefahren-Warnungen sind jetzt mehrsprachig.',
+    user_items: [
+      { emoji: '🐛', text: 'Schädlings-Diagnose: Schweregrad, Bio-Behandlung, Vorbeugen mehrsprachig' },
+      { emoji: '🍄', text: 'Pilz-Scanner: Essbarkeit, Verwechslungs-Risiko, VAPKO, Gefahren-Vollbild mehrsprachig' },
+      { emoji: '🤖', text: 'EN/FR/IT/ES automatisch via Übersetzungs-Edge-Fn' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'43 neue Keys:', text:' gsPestRenderResult + gsMushroomRenderResult + VapkoBox + Lebensgefahr-Overlay auf gsI18n.t.'},
+      {emoji:'⚠️', bold:'Sicherheitskritisch sauber:', text:' Auch die roten TÖDLICH/GIFTIG-Warnungen + Tox-145-Notruf mehrsprachig.'},
+      {emoji:'📋', bold:'Audit-Roadmap:', text:' Batch A+D+C+E + F-1 ✅ — als nächstes Scan-History (F-2) + Wissen.'},
+    ]
+  },
+  {
     v: 'v28.52', date: '08.06.2026',
     headline: '🌍 Tages-Quiz & Quiz-Battles jetzt mehrsprachig',
     summary: 'Weiter mit der Vollübersetzung (Batch E): Das tägliche Quiz auf der Startseite (Start-Knopf, „Heute schon beantwortet", Countdown, Regeln) und die Quiz-Battles (Liste mit ELO, Sieg/Niederlage/Unentschieden, „Du bist dran", Runden-Anzeige, Ergebnis-Screen) werden jetzt mit der Sprache mit-übersetzt. Bei EN/FR/IT/ES automatisch.',
@@ -60594,7 +60659,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.52';
+var GS_VERSION = 'v28.53';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
