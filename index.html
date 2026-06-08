@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.40.20260607">
+<meta name="app-version" content="28.41.20260607">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -40285,6 +40285,13 @@ function applyAllPrefs() {
   applyTheme(userPrefs.theme || 'green', null, false);
   applyCompact(userPrefs.compact || false, false);
   applySenior(userPrefs.senior || false, false);
+  // v28.41 Settings-Audit: Sprache wurde hier NICHT angewandt — bei Cross-Device-Pull (neues
+  // gs_lang aus dem State-Blob) griff der Wechsel erst nach Reload. Jetzt: gespeicherte/gesyncte
+  // Sprache anwenden (gsI18n.setLang re-translatet das DOM idempotent; guard falls noch nicht geladen).
+  try {
+    var _lng = (window.gsStore && gsStore.get) ? gsStore.get('gs_lang', null) : (typeof localStorage !== 'undefined' ? localStorage.getItem('gs_lang') : null);
+    if (_lng && window.gsI18n && typeof gsI18n.setLang === 'function') gsI18n.setLang(_lng);
+  } catch(_){}
   // Apply widget visibility prefs
   const hw = document.getElementById('home-weather-widget');
   if (hw) hw.style.display = (userPrefs.homeWeather === false) ? 'none' : '';
@@ -56472,6 +56479,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.41', date: '07.06.2026',
+    headline: '🌍 Sprache greift jetzt auch geräteübergreifend sofort',
+    summary: 'Wenn du die Sprache auf einem Gerät änderst, wird sie jetzt auch auf deinen anderen Geräten sofort angewendet (vorher erst nach Neuladen). Die Sprach-Umschaltung selbst arbeitet zuverlässig in Echtzeit für die ganze Oberfläche. Wir haben ausserdem die App systematisch auf noch nicht übersetzte Bereiche geprüft und einen klaren Plan, diese Schritt für Schritt sauber nachzuziehen.',
+    user_summary: '🌍 Sprachwechsel greift jetzt auch geräteübergreifend sofort. Weitere Bereiche werden Schritt für Schritt vollständig übersetzt.',
+    user_items: [
+      { emoji: '⚡', text: 'Sprache wird geräteübergreifend sofort angewendet' },
+      { emoji: '🔎', text: 'App systematisch auf Übersetzungs-Lücken geprüft' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'Fix:', text:' applyAllPrefs wandte die Sprache nicht an → bei Cross-Device-Pull griff der Wechsel erst nach Reload. Jetzt gsI18n.setLang in applyAllPrefs.'},
+      {emoji:'✅', bold:'Mechanismus solide:', text:' setLang→applyToDOM (376 [data-i18n], Echtzeit) + Settings-Persistenz lokal+Cloud.'},
+      {emoji:'📋', bold:'Plan:', text:' ~660 hardcodierte DE-Strings (7 Screens + 6 Render-Funktionen) screen-by-screen via i18n-translate. Doku SETTINGS_I18N_AUDIT.md.'},
+    ]
+  },
+  {
     v: 'v28.40', date: '07.06.2026',
     headline: '🌱 KI-Garten-Planer: sauberer Plan, realistische Fläche',
     summary: 'Der KI-Garten-Planer liefert jetzt saubere Pläne: Pflanzen liegen immer innerhalb deiner Beet-Grenzen (vorher landeten manche ausserhalb), und die Flächenausnutzung ist realistisch — nie mehr über 100% (vorher z.B. 123%). Wenn die KI zu viel einplant, wird auf 100% begrenzt und du bekommst einen klaren Hinweis, Stückzahlen zu reduzieren. Gilt auch für bereits gespeicherte Pläne beim erneuten Öffnen.',
@@ -60068,7 +60090,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.40';
+var GS_VERSION = 'v28.41';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
