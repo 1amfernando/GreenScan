@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.56.20260608">
+<meta name="app-version" content="28.57.20260608">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11174,6 +11174,64 @@ window.GS_I18N_JS_STRINGS = {
   'pd_soil_suitability':       '🌍 Bodeneignung',
   'pd_notes':                  '📝 Notizen',
   'pd_delete_planting':        '🗑️ Pflanzung entfernen',
+  // ── v28.57: Garten-Tagebuch Felder (gsDiaryRenderConditional) ──
+  'diary_select_plant':        '— Pflanze wählen oder freilassen —',
+  'diary_plant_label':         '🌱 Pflanze (optional)',
+  'diary_harvest_kg':          '⚖️ Erntemenge (kg, optional)',
+  'diary_pest_label':          '🪲 Schädling (optional, falls bekannt)',
+  'diary_pest_ph':             'z.B. blattlaus oder schnecke',
+  'diary_pest_tip':            '💡 Tipp: Nutze <b>🪲 Schädling-Scanner</b> für KI-Identifikation — der schreibt automatisch ins Tagebuch.',
+  'diary_fertilizer_label':    '🌿 Dünger / Mittel (optional)',
+  'diary_fertilizer_ph':       'z.B. Kompost, Hornspäne, Brennnessel-Jauche',
+  'diary_water_label':         '💧 Menge in Liter (optional)',
+  'diary_disease_label':       '🦠 Symptom (optional)',
+  'diary_disease_ph':          'z.B. Mehltau, gelbe Flecken',
+  // ── v28.57: Waldgarten (gsForestRender + gsForestOpenDetail) ───
+  'forest_empty':              'Keine Forest-Garden-Designs in der DB.',
+  'forest_all':                'Alle',
+  'forest_setup_years':        'J Setup',
+  'fl_canopy':                 '🌳 1 Krone (Canopy)',
+  'fl_understory':             '🌲 2 Unterstand (Understory)',
+  'fl_shrubs':                 '🌿 3 Sträucher (Shrubs)',
+  'fl_herbaceous':             '🌱 4 Stauden (Herbaceous)',
+  'fl_groundcover':            '🍓 5 Bodendecker (Groundcover)',
+  'fl_rhizosphere':            '🥔 6 Wurzel (Rhizosphere)',
+  'fl_vertical':               '🍇 7 Vertikal / Klettern',
+  'fl_mushroom':               '🍄 + Pilz-Etage',
+  'fd_canopy':                 'Hohe Bäume (Nuss, Kastanie, alte Apfelbäume)',
+  'fd_understory':             'Mittelhohe Obstbäume (Apfel, Pflaume, Kirsche)',
+  'fd_shrubs':                 'Beerensträucher (Holunder, Aronia, Johannisbeere)',
+  'fd_herbaceous':             'Mehrjährige Kräuter (Beinwell, Brennnessel, Minze)',
+  'fd_groundcover':            'Niedrige Pflanzen (Erdbeere, Walderdbeere, Klee)',
+  'fd_rhizosphere':            'Knollen-Pflanzen (Topinambur, Yacon, Wurzel-Zwiebel)',
+  'fd_vertical':               'Klettern (Kiwi, Trauben, Hopfen, Bohnen)',
+  'fd_mushroom':               'Pilze auf Stämmen (Shiitake, Austernpilz)',
+  'forest_defined':            'definiert',
+  'forest_empty_layer':        '— leer',
+  'forest_back':               '← Zurück zur Liste',
+  'forest_7layer_diagram':     '📐 7-Schichten-Diagramm',
+  'forest_plants_per_layer':   '🌱 Pflanzen pro Schicht',
+  'forest_no_layer_data':      'Keine Schicht-Daten in dieser DB-Zeile.',
+  'forest_protips':            '💡 Profi-Tipps',
+  'forest_pitfalls':           '⚠ Häufige Fehler',
+  'forest_zones':              '🇨🇭 Zonen:',
+  'forest_slope':              '⛰ Hang:',
+  'forest_water':              '💧 Wasser:',
+  'forest_animals':            '🐝 Nutztiere:',
+  'forest_adopt':              '✨ Diesen Plan übernehmen → garden_plan',
+  'forest_maintenance':        'h/J Pflege',
+  'forest_mature_pre':         '🌳 reif nach',
+  'forest_year_abbr':          'J',
+  // ── v28.57: Garten-Bibliothek (renderGardenLibrary) ────────────
+  'garden_lib_empty':          'Keine Artikel gefunden',
+  // ── v28.57: Saison-Liste (renderSeasonList) ────────────────────
+  'season_no_activity_pre':    'Im',
+  'season_no_activity_suf':    'gibt es<br>für diese Kategorie keine Aktivität.',
+  'season_in_ch':              'in der Schweiz',
+  'season_harvest':            '🌾 Erntezeit',
+  'season_wild':               '🌿 Wildsammlung',
+  'season_plant':              '🪴 Auspflanzen',
+  'season_sow':                '🌱 Aussaat',
   // ── Offline / Sync ──────────────────────────────────────────────
   'toast_offline_saved':       '📵 Offline gespeichert',
   'toast_offline_synced':      '🔄 Online — Sync abgeschlossen',
@@ -15556,6 +15614,7 @@ var GARDEN_LIBRARY = {
 function renderGardenLibrary(catFilter, searchTerm) {
   var container = document.getElementById('garden-library-content');
   if (!container) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var arts = GARDEN_LIBRARY.articles;
   if (catFilter && catFilter !== 'all') arts = arts.filter(function(a){ return a.cat === catFilter; });
   if (searchTerm && searchTerm.trim()) {
@@ -15563,7 +15622,7 @@ function renderGardenLibrary(catFilter, searchTerm) {
     arts = arts.filter(function(a){ return (a.title+' '+a.summary).toLowerCase().indexOf(q)>=0; });
   }
   if (!arts.length) {
-    container.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted)"><div style="font-size:40px;margin-bottom:10px;">🌱</div><div>Keine Artikel gefunden</div></div>';
+    container.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted)"><div style="font-size:40px;margin-bottom:10px;">🌱</div><div>' + _t('garden_lib_empty','Keine Artikel gefunden') + '</div></div>';
     return;
   }
   container.innerHTML = arts.map(function(a) {
@@ -27545,6 +27604,7 @@ function filterSeason(cat, btn) {
 function renderSeasonList() {
   const list = document.getElementById('season-list');
   if (!list) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   const m = currentSeasonMonth;
 
   const filtered = SEASON_DATA.filter(item => {
@@ -27559,16 +27619,16 @@ function renderSeasonList() {
   });
 
   if (!filtered.length) {
-    list.innerHTML = '<div class="mp-empty"><span>😴</span><p>Im ' + MONTH_FULL[m] + ' gibt es<br>für diese Kategorie keine Aktivität.</p></div>';
+    list.innerHTML = '<div class="mp-empty"><span>😴</span><p>' + _t('season_no_activity_pre','Im') + ' ' + MONTH_FULL[m] + ' ' + _t('season_no_activity_suf','gibt es<br>für diese Kategorie keine Aktivität.') + '</p></div>';
     return;
   }
 
   // Group by activity
   const categories = {
-    harvest:  {label:'🌾 Erntezeit',     color:'#4caf50', items:[]},
-    wild:     {label:'🌿 Wildsammlung',   color:'#ff9800', items:[]},
-    plant:    {label:'🪴 Auspflanzen',    color:'#2196f3', items:[]},
-    sow:      {label:'🌱 Aussaat',        color:'#81c784', items:[]},
+    harvest:  {label:_t('season_harvest','🌾 Erntezeit'),     color:'#4caf50', items:[]},
+    wild:     {label:_t('season_wild','🌿 Wildsammlung'),   color:'#ff9800', items:[]},
+    plant:    {label:_t('season_plant','🪴 Auspflanzen'),    color:'#2196f3', items:[]},
+    sow:      {label:_t('season_sow','🌱 Aussaat'),        color:'#81c784', items:[]},
   };
 
   filtered.forEach(item => {
@@ -27578,7 +27638,7 @@ function renderSeasonList() {
     if (item.sow     && item.sow[m])     categories.sow.items.push(item);
   });
 
-  let html = '<div style="font-family:\'Playfair Display\',serif;font-size:17px;font-weight:800;color:var(--g-dark);margin-bottom:12px;">' + MONTH_FULL[m] + ' in der Schweiz</div>';
+  let html = '<div style="font-family:\'Playfair Display\',serif;font-size:17px;font-weight:800;color:var(--g-dark);margin-bottom:12px;">' + MONTH_FULL[m] + ' ' + _t('season_in_ch','in der Schweiz') + '</div>';
 
   Object.entries(categories).forEach(([key, cat]) => {
     if (!cat.items.length) return;
@@ -30410,6 +30470,7 @@ window.gsDiarySetType = gsDiarySetType;
 function gsDiaryRenderConditional() {
   var box = document.getElementById('diary-conditional-fields');
   if (!box) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var t = window._gsDiaryState.type || 'general';
   var html = '';
 
@@ -30417,45 +30478,45 @@ function gsDiaryRenderConditional() {
   var needsSpecies = ['harvest', 'sowing', 'medicinal_harvest', 'seed_collection', 'pruning', 'flowering', 'disease'];
   if (needsSpecies.indexOf(t) >= 0) {
     var myPlants = window.myPlants || [];
-    var opts = '<option value="">— Pflanze wählen oder freilassen —</option>';
+    var opts = '<option value="">' + _t('diary_select_plant','— Pflanze wählen oder freilassen —') + '</option>';
     myPlants.forEach(function(p){
       var lat = p.lat || p.scientific_name || '';
       var de = p.de || p.name || lat;
       if (lat) opts += '<option value="' + lat + '">' + de + ' (' + lat + ')</option>';
     });
-    html += '<div class="mp-field"><label>🌱 Pflanze (optional)</label>' +
+    html += '<div class="mp-field"><label>' + _t('diary_plant_label','🌱 Pflanze (optional)') + '</label>' +
       '<select id="diary-species" class="mp-select">' + opts + '</select></div>';
   }
 
   // Harvest-spezifisch: kg-Feld
   if (t === 'harvest' || t === 'medicinal_harvest') {
-    html += '<div class="mp-field"><label>⚖️ Erntemenge (kg, optional)</label>' +
+    html += '<div class="mp-field"><label>' + _t('diary_harvest_kg','⚖️ Erntemenge (kg, optional)') + '</label>' +
       '<input type="number" id="diary-harvest-kg" class="mp-input" min="0" step="0.1" placeholder="z.B. 0.8" style="font-family:inherit;"></div>';
   }
 
   // Pest-spezifisch: pest-slug aus plant_pests
   if (t === 'pest_observation') {
-    html += '<div class="mp-field"><label>🪲 Schädling (optional, falls bekannt)</label>' +
-      '<input type="text" id="diary-pest-slug" class="mp-input" placeholder="z.B. blattlaus oder schnecke" maxlength="60"></div>' +
-      '<div style="margin:6px 0 10px;padding:8px 11px;background:#fff3e0;border-left:3px solid #e65100;border-radius:8px;font-size:11.5px;color:#bf360c;line-height:1.5;">💡 Tipp: Nutze <b>🪲 Schädling-Scanner</b> für KI-Identifikation — der schreibt automatisch ins Tagebuch.</div>';
+    html += '<div class="mp-field"><label>' + _t('diary_pest_label','🪲 Schädling (optional, falls bekannt)') + '</label>' +
+      '<input type="text" id="diary-pest-slug" class="mp-input" placeholder="' + _t('diary_pest_ph','z.B. blattlaus oder schnecke') + '" maxlength="60"></div>' +
+      '<div style="margin:6px 0 10px;padding:8px 11px;background:#fff3e0;border-left:3px solid #e65100;border-radius:8px;font-size:11.5px;color:#bf360c;line-height:1.5;">' + _t('diary_pest_tip','💡 Tipp: Nutze <b>🪲 Schädling-Scanner</b> für KI-Identifikation — der schreibt automatisch ins Tagebuch.') + '</div>';
   }
 
   // Fertilization-spezifisch: Dünger-Hinweis
   if (t === 'fertilization') {
-    html += '<div class="mp-field"><label>🌿 Dünger / Mittel (optional)</label>' +
-      '<input type="text" id="diary-fertilizer" class="mp-input" placeholder="z.B. Kompost, Hornspäne, Brennnessel-Jauche" maxlength="80"></div>';
+    html += '<div class="mp-field"><label>' + _t('diary_fertilizer_label','🌿 Dünger / Mittel (optional)') + '</label>' +
+      '<input type="text" id="diary-fertilizer" class="mp-input" placeholder="' + _t('diary_fertilizer_ph','z.B. Kompost, Hornspäne, Brennnessel-Jauche') + '" maxlength="80"></div>';
   }
 
   // Watering-spezifisch: Menge
   if (t === 'watering') {
-    html += '<div class="mp-field"><label>💧 Menge in Liter (optional)</label>' +
+    html += '<div class="mp-field"><label>' + _t('diary_water_label','💧 Menge in Liter (optional)') + '</label>' +
       '<input type="number" id="diary-water-liter" class="mp-input" min="0" step="0.5" placeholder="z.B. 10" style="font-family:inherit;"></div>';
   }
 
   // Disease-spezifisch: Symptom
   if (t === 'disease') {
-    html += '<div class="mp-field"><label>🦠 Symptom (optional)</label>' +
-      '<input type="text" id="diary-disease" class="mp-input" placeholder="z.B. Mehltau, gelbe Flecken" maxlength="80"></div>';
+    html += '<div class="mp-field"><label>' + _t('diary_disease_label','🦠 Symptom (optional)') + '</label>' +
+      '<input type="text" id="diary-disease" class="mp-input" placeholder="' + _t('diary_disease_ph','z.B. Mehltau, gelbe Flecken') + '" maxlength="80"></div>';
   }
 
   box.innerHTML = html;
@@ -30649,9 +30710,10 @@ function gsForestRender() {
   var detailEl = document.getElementById('forest-detail');
   if (!listEl) return;
   if (detailEl) detailEl.style.display = 'none';
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var rows = (window._gsForestCache && window._gsForestCache.rows) || [];
   if (!rows.length) {
-    listEl.innerHTML = '<div style="padding:30px;text-align:center;color:var(--muted);font-size:13px;">Keine Forest-Garden-Designs in der DB.</div>';
+    listEl.innerHTML = '<div style="padding:30px;text-align:center;color:var(--muted);font-size:13px;">' + _t('forest_empty','Keine Forest-Garden-Designs in der DB.') + '</div>';
     if (pillsEl) pillsEl.innerHTML = '';
     return;
   }
@@ -30660,7 +30722,7 @@ function gsForestRender() {
   // Pills
   if (pillsEl) {
     var types = Array.from(new Set(rows.map(function(r){ return r.design_type || ''; }).filter(Boolean)));
-    var ph = '<button onclick="gsForestSetFilter(\'\')" class="recipe-cat' + (!filt?' active':'') + '" style="font-size:11px;padding:5px 10px;">Alle (' + rows.length + ')</button>';
+    var ph = '<button onclick="gsForestSetFilter(\'\')" class="recipe-cat' + (!filt?' active':'') + '" style="font-size:11px;padding:5px 10px;">' + _t('forest_all','Alle') + ' (' + rows.length + ')</button>';
     types.forEach(function(t){
       var n = rows.filter(function(r){ return r.design_type === t; }).length;
       ph += '<button onclick="gsForestSetFilter(\'' + ed(t) + '\')" class="recipe-cat' + (filt===t?' active':'') + '" style="font-size:11px;padding:5px 10px;">' + ed(t.replace(/_/g,' ')) + ' (' + n + ')</button>';
@@ -30678,7 +30740,7 @@ function gsForestRender() {
         '<div style="font-size:11px;color:var(--muted);font-weight:700;">' + diff + ' ' + ed(r.difficulty || '?') + '</div>' +
       '</div>' +
       '<div style="font-size:11.5px;color:var(--text2);line-height:1.5;margin-bottom:4px;">' +
-        '📐 ' + (r.size_m2_min || '?') + '-' + (r.size_m2_max || '?') + ' m² · ⏱ ' + (r.setup_years || '?') + ' J Setup · 🌾 ' + ed(r.yield_estimate_kg_year || '?') +
+        '📐 ' + (r.size_m2_min || '?') + '-' + (r.size_m2_max || '?') + ' m² · ⏱ ' + (r.setup_years || '?') + ' ' + _t('forest_setup_years','J Setup') + ' · 🌾 ' + ed(r.yield_estimate_kg_year || '?') +
       '</div>' +
       (r.initial_cost_chf ? '<div style="font-size:11px;color:#bf360c;font-weight:700;">💰 CHF ' + ed(r.initial_cost_chf) + '</div>' : '') +
       (r.description ? '<div style="font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.5;">' + ed(String(r.description).slice(0,140)) + (String(r.description).length > 140 ? '…' : '') + '</div>' : '') +
@@ -30703,18 +30765,19 @@ window.gsForestOpenDetail = function(slug) {
   var detailEl = document.getElementById('forest-detail');
   if (!detailEl) return;
   if (listEl) listEl.style.display = 'none';
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
 
   // 7-Schichten + Pilz
   var layers = [
-    { k: 'layer_canopy',      lbl: '🌳 1 Krone (Canopy)',       desc: 'Hohe Bäume (Nuss, Kastanie, alte Apfelbäume)',     col: '#1b5e20' },
-    { k: 'layer_understory',  lbl: '🌲 2 Unterstand (Understory)', desc: 'Mittelhohe Obstbäume (Apfel, Pflaume, Kirsche)', col: '#2e7d32' },
-    { k: 'layer_shrubs',      lbl: '🌿 3 Sträucher (Shrubs)',  desc: 'Beerensträucher (Holunder, Aronia, Johannisbeere)', col: '#388e3c' },
-    { k: 'layer_herbaceous',  lbl: '🌱 4 Stauden (Herbaceous)', desc: 'Mehrjährige Kräuter (Beinwell, Brennnessel, Minze)', col: '#558b2f' },
-    { k: 'layer_groundcover', lbl: '🍓 5 Bodendecker (Groundcover)', desc: 'Niedrige Pflanzen (Erdbeere, Walderdbeere, Klee)', col: '#827717' },
-    { k: 'layer_rhizosphere', lbl: '🥔 6 Wurzel (Rhizosphere)',  desc: 'Knollen-Pflanzen (Topinambur, Yacon, Wurzel-Zwiebel)', col: '#6d4c41' },
-    { k: 'layer_vertical',    lbl: '🍇 7 Vertikal / Klettern', desc: 'Klettern (Kiwi, Trauben, Hopfen, Bohnen)',           col: '#5d4037' },
-    { k: 'layer_mushroom',    lbl: '🍄 + Pilz-Etage',           desc: 'Pilze auf Stämmen (Shiitake, Austernpilz)',          col: '#4a148c' }
+    { k: 'layer_canopy',      lbl: _t('fl_canopy','🌳 1 Krone (Canopy)'),       desc: _t('fd_canopy','Hohe Bäume (Nuss, Kastanie, alte Apfelbäume)'),     col: '#1b5e20' },
+    { k: 'layer_understory',  lbl: _t('fl_understory','🌲 2 Unterstand (Understory)'), desc: _t('fd_understory','Mittelhohe Obstbäume (Apfel, Pflaume, Kirsche)'), col: '#2e7d32' },
+    { k: 'layer_shrubs',      lbl: _t('fl_shrubs','🌿 3 Sträucher (Shrubs)'),  desc: _t('fd_shrubs','Beerensträucher (Holunder, Aronia, Johannisbeere)'), col: '#388e3c' },
+    { k: 'layer_herbaceous',  lbl: _t('fl_herbaceous','🌱 4 Stauden (Herbaceous)'), desc: _t('fd_herbaceous','Mehrjährige Kräuter (Beinwell, Brennnessel, Minze)'), col: '#558b2f' },
+    { k: 'layer_groundcover', lbl: _t('fl_groundcover','🍓 5 Bodendecker (Groundcover)'), desc: _t('fd_groundcover','Niedrige Pflanzen (Erdbeere, Walderdbeere, Klee)'), col: '#827717' },
+    { k: 'layer_rhizosphere', lbl: _t('fl_rhizosphere','🥔 6 Wurzel (Rhizosphere)'),  desc: _t('fd_rhizosphere','Knollen-Pflanzen (Topinambur, Yacon, Wurzel-Zwiebel)'), col: '#6d4c41' },
+    { k: 'layer_vertical',    lbl: _t('fl_vertical','🍇 7 Vertikal / Klettern'), desc: _t('fd_vertical','Klettern (Kiwi, Trauben, Hopfen, Bohnen)'),           col: '#5d4037' },
+    { k: 'layer_mushroom',    lbl: _t('fl_mushroom','🍄 + Pilz-Etage'),           desc: _t('fd_mushroom','Pilze auf Stämmen (Shiitake, Austernpilz)'),          col: '#4a148c' }
   ];
 
   // Vertikales SVG-Diagramm — Höhe pro Schicht abgestuft (Canopy oben, Wurzel unten)
@@ -30732,7 +30795,7 @@ window.gsForestOpenDetail = function(slug) {
     var opacity = hasContent ? '0.92' : '0.4';
     svg += '<rect x="6" y="' + y + '" width="' + (svgW-12) + '" height="' + bandH + '" rx="6" fill="' + L.col + '" opacity="' + opacity + '" />';
     svg += '<text x="14" y="' + (y + 16) + '" font-family="Inter,sans-serif" font-size="11" font-weight="800" fill="#fff">' + L.lbl + '</text>';
-    svg += '<text x="14" y="' + (y + 31) + '" font-family="Inter,sans-serif" font-size="9" fill="#fff" opacity="0.85">' + (hasContent ? '✓ ' + (Array.isArray(content) ? content.length + ' Pflanzen' : 'definiert') : '— leer') + '</text>';
+    svg += '<text x="14" y="' + (y + 31) + '" font-family="Inter,sans-serif" font-size="9" fill="#fff" opacity="0.85">' + (hasContent ? '✓ ' + (Array.isArray(content) ? content.length + ' ' + _t('unit_plants','Pflanzen') : _t('forest_defined','definiert')) : _t('forest_empty_layer','— leer')) + '</text>';
   });
   svg += '</svg>';
 
@@ -30762,47 +30825,47 @@ window.gsForestOpenDetail = function(slug) {
     '</div>';
   });
 
-  var html = '<button onclick="gsForestBackToList()" style="margin-bottom:10px;background:transparent;border:none;color:var(--g-main);font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;padding:4px 0;-webkit-tap-highlight-color:transparent;">← Zurück zur Liste</button>';
+  var html = '<button onclick="gsForestBackToList()" style="margin-bottom:10px;background:transparent;border:none;color:var(--g-main);font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;padding:4px 0;-webkit-tap-highlight-color:transparent;">' + _t('forest_back','← Zurück zur Liste') + '</button>';
   html += '<div style="font-family:\'Playfair Display\',serif;font-size:18px;font-weight:900;color:var(--text);margin-bottom:4px;">🌳 ' + ed(r.name_de) + '</div>';
-  html += '<div style="font-size:11.5px;color:var(--muted);margin-bottom:10px;">' + ed(r.design_type || '').replace(/_/g,' ') + ' · ' + (r.size_m2_min || '?') + '-' + (r.size_m2_max || '?') + ' m² · ' + ed(r.difficulty || '?') + ' · ' + (r.setup_years || '?') + ' J Setup</div>';
+  html += '<div style="font-size:11.5px;color:var(--muted);margin-bottom:10px;">' + ed(r.design_type || '').replace(/_/g,' ') + ' · ' + (r.size_m2_min || '?') + '-' + (r.size_m2_max || '?') + ' m² · ' + ed(r.difficulty || '?') + ' · ' + (r.setup_years || '?') + ' ' + _t('forest_setup_years','J Setup') + '</div>';
   // Eckdaten-Pills
   var stats = '';
   if (r.yield_estimate_kg_year) stats += '<span style="background:#e8f5e9;color:#1b5e20;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🌾 ' + ed(r.yield_estimate_kg_year) + '</span>';
   if (r.initial_cost_chf) stats += '<span style="background:#fff3e0;color:#bf360c;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">💰 CHF ' + ed(r.initial_cost_chf) + '</span>';
-  if (r.maintenance_hours_year != null) stats += '<span style="background:#fff8e1;color:#827717;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">⏱ ' + ed(r.maintenance_hours_year) + 'h/J Pflege</span>';
-  if (r.full_maturity_years != null) stats += '<span style="background:#e3f2fd;color:#01579b;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🌳 reif nach ' + ed(r.full_maturity_years) + ' J</span>';
+  if (r.maintenance_hours_year != null) stats += '<span style="background:#fff8e1;color:#827717;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">⏱ ' + ed(r.maintenance_hours_year) + _t('forest_maintenance','h/J Pflege') + '</span>';
+  if (r.full_maturity_years != null) stats += '<span style="background:#e3f2fd;color:#01579b;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">' + _t('forest_mature_pre','🌳 reif nach') + ' ' + ed(r.full_maturity_years) + ' ' + _t('forest_year_abbr','J') + '</span>';
   if (stats) html += '<div style="margin-bottom:12px;">' + stats + '</div>';
   // Description
   if (r.description) html += '<div style="font-size:12.5px;color:var(--text2);line-height:1.6;margin-bottom:12px;">' + ed(r.description) + '</div>';
   // 7-Schichten-SVG
-  html += '<div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:6px;letter-spacing:.3px;text-transform:uppercase;">📐 7-Schichten-Diagramm</div>';
+  html += '<div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:6px;letter-spacing:.3px;text-transform:uppercase;">' + _t('forest_7layer_diagram','📐 7-Schichten-Diagramm') + '</div>';
   html += svg;
   // Pro Schicht Pflanzen
-  html += '<div style="font-size:12px;font-weight:800;color:var(--text);margin:14px 0 6px;letter-spacing:.3px;text-transform:uppercase;">🌱 Pflanzen pro Schicht</div>';
-  html += layersHtml || '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;">Keine Schicht-Daten in dieser DB-Zeile.</div>';
+  html += '<div style="font-size:12px;font-weight:800;color:var(--text);margin:14px 0 6px;letter-spacing:.3px;text-transform:uppercase;">' + _t('forest_plants_per_layer','🌱 Pflanzen pro Schicht') + '</div>';
+  html += layersHtml || '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;">' + _t('forest_no_layer_data','Keine Schicht-Daten in dieser DB-Zeile.') + '</div>';
   // Pro-Tips + Pitfalls
   if (Array.isArray(r.pro_tips) && r.pro_tips.length) {
     html += '<div style="margin-top:14px;padding:11px 13px;background:#e8f5e9;border-left:3px solid #2e7d32;border-radius:9px;">';
-    html += '<div style="font-size:11.5px;font-weight:800;color:#1b5e20;margin-bottom:5px;">💡 Profi-Tipps</div>';
+    html += '<div style="font-size:11.5px;font-weight:800;color:#1b5e20;margin-bottom:5px;">' + _t('forest_protips','💡 Profi-Tipps') + '</div>';
     html += '<ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.6;color:#1b5e20;">' + r.pro_tips.map(function(t){ return '<li>' + ed(t) + '</li>'; }).join('') + '</ul>';
     html += '</div>';
   }
   if (Array.isArray(r.common_pitfalls) && r.common_pitfalls.length) {
     html += '<div style="margin-top:8px;padding:11px 13px;background:#ffebee;border-left:3px solid #c62828;border-radius:9px;">';
-    html += '<div style="font-size:11.5px;font-weight:800;color:#b71c1c;margin-bottom:5px;">⚠ Häufige Fehler</div>';
+    html += '<div style="font-size:11.5px;font-weight:800;color:#b71c1c;margin-bottom:5px;">' + _t('forest_pitfalls','⚠ Häufige Fehler') + '</div>';
     html += '<ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.6;color:#b71c1c;">' + r.common_pitfalls.map(function(t){ return '<li>' + ed(t) + '</li>'; }).join('') + '</ul>';
     html += '</div>';
   }
   // Klima + Wasser + Slope
   var meta = [];
-  if (Array.isArray(r.swiss_climate_zones) && r.swiss_climate_zones.length) meta.push('🇨🇭 Zonen: ' + r.swiss_climate_zones.join(', '));
-  if (r.best_for_slope) meta.push('⛰ Hang: ' + r.best_for_slope);
-  if (r.water_management) meta.push('💧 Wasser: ' + r.water_management);
-  if (Array.isArray(r.beneficial_animals) && r.beneficial_animals.length) meta.push('🐝 Nutztiere: ' + r.beneficial_animals.join(', '));
+  if (Array.isArray(r.swiss_climate_zones) && r.swiss_climate_zones.length) meta.push(_t('forest_zones','🇨🇭 Zonen:') + ' ' + r.swiss_climate_zones.join(', '));
+  if (r.best_for_slope) meta.push(_t('forest_slope','⛰ Hang:') + ' ' + r.best_for_slope);
+  if (r.water_management) meta.push(_t('forest_water','💧 Wasser:') + ' ' + r.water_management);
+  if (Array.isArray(r.beneficial_animals) && r.beneficial_animals.length) meta.push(_t('forest_animals','🐝 Nutztiere:') + ' ' + r.beneficial_animals.join(', '));
   if (meta.length) html += '<div style="margin-top:8px;font-size:11.5px;color:var(--text2);line-height:1.6;padding:9px 11px;background:var(--surface2);border-radius:9px;">' + ed(meta.join(' · ')) + '</div>';
   // Plan-Übernehmen-Button
-  html += '<button onclick="gsForestAdoptPlan(\'' + ed(r.slug) + '\')" style="width:100%;margin-top:14px;padding:13px;background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border:none;border-radius:11px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">✨ Diesen Plan übernehmen → garden_plan</button>';
-  if (r.source) html += '<div style="margin-top:10px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(r.source) + '</div>';
+  html += '<button onclick="gsForestAdoptPlan(\'' + ed(r.slug) + '\')" style="width:100%;margin-top:14px;padding:13px;background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border:none;border-radius:11px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' + _t('forest_adopt','✨ Diesen Plan übernehmen → garden_plan') + '</button>';
+  if (r.source) html += '<div style="margin-top:10px;font-size:10.5px;color:var(--muted);text-align:right;">' + _t('mush_source','Quelle:') + ' ' + ed(r.source) + '</div>';
 
   detailEl.innerHTML = html;
   detailEl.style.display = 'block';
@@ -57005,6 +57068,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.57', date: '08.06.2026',
+    headline: '🌍 Garten-Tagebuch, Waldgarten & Saison-Kalender mehrsprachig',
+    summary: 'Vollübersetzung Batch G abgeschlossen: Das Garten-Tagebuch (Eingabe-Felder für Ernte/Schädling/Dünger/Wasser/Symptom), der Waldgarten-Designer (7-Schichten-System, Pläne) und der Saison-Kalender (Erntezeit/Wildsammlung/Auspflanzen/Aussaat) werden jetzt mit der Sprache mit-übersetzt. Bei EN/FR/IT/ES automatisch.',
+    user_summary: '🌍 Garten-Tagebuch, Waldgarten-Designer und Saison-Kalender sind jetzt mehrsprachig.',
+    user_items: [
+      { emoji: '📔', text: 'Garten-Tagebuch-Felder (Ernte/Schädling/Dünger/Wasser) mehrsprachig' },
+      { emoji: '🌳', text: 'Waldgarten 7-Schichten + Saison-Kalender mehrsprachig' },
+      { emoji: '🤖', text: 'EN/FR/IT/ES automatisch via Übersetzungs-Edge-Fn' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'54 neue Keys:', text:' gsDiaryRenderConditional + gsForestRender/OpenDetail + renderGardenLibrary + renderSeasonList auf gsI18n.t.'},
+      {emoji:'⚡', bold:'Live-Detail mitgenommen:', text:' gsForestOpenDetail (war nicht voll im Audit) komplett lokalisiert.'},
+      {emoji:'📋', bold:'Audit-Roadmap:', text:' 8/9 Batches ✅ (A/D/C/E/F/B/G) — offen nur noch Profil (I) + Farm (H).'},
+    ]
+  },
+  {
     v: 'v28.56', date: '08.06.2026',
     headline: '🌍 Pflanzungs-Detailseite (Garten) jetzt mehrsprachig',
     summary: 'Weiter mit der Vollübersetzung (Batch G, Teil 1): Die Detailseite einer Garten-Pflanzung — Mondkalender-Empfehlung, Pflanzinfos (Tiefe/Abstand/Saattiefe), Keimung, Mischkultur (gute/schlechte Nachbarn), Fruchtfolge, Wachstums-Fortschritt, Bodeneignung, Notizen — wird jetzt mit der Sprache mit-übersetzt. Bei EN/FR/IT/ES automatisch.',
@@ -60850,7 +60929,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.56';
+var GS_VERSION = 'v28.57';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
