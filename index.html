@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.47.20260608">
+<meta name="app-version" content="28.48.20260608">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10786,6 +10786,75 @@ window.GS_I18N_JS_STRINGS = {
   'tm_active':                 'Aktiv',
   'tm_last':                   'Zuletzt:',
   'btn_done_now':              '✓ Jetzt erledigt',
+  // ── v28.48: Arten-Kategorien (getCatLabel, geteilt) ────────────
+  'spcat_gemuese':             'Gemüse',
+  'spcat_wildpflanze':         'Wildpflanze',
+  'spcat_baum':                'Baum/Strauch',
+  'spcat_kraut':               'Heilkraut',
+  'spcat_pilz':                'Pilz',
+  'spcat_moos':                'Moos',
+  'spcat_flechte':             'Flechte',
+  'spcat_alge':                'Alge',
+  // ── v28.48: Arten-Detail (openDetail) ──────────────────────────
+  'detail_not_found':          'Art nicht gefunden:',
+  'tag_edible':                'Essbar',
+  'tag_medicinal':             'Heilpflanze',
+  'tag_protected':             'Geschützt',
+  'tag_nontoxic':              'Ungiftig',
+  'tag_toxic':                 'GIFTIG',
+  'detail_season_ch':          '📅 Saison in der Schweiz',
+  'eco_color':                 'Blütenfarbe',
+  'eco_alt':                   'Höhenverbreitung',
+  'eco_habitat':               'Lebensraum',
+  'eco_season':                'Saison/Blüte',
+  'class_category':            'Kategorie',
+  'class_family':              'Familie',
+  'class_latin':               'Lateinisch',
+  'light_guideline_label':     'Richtwerte',
+  'light_habitat_based':       'Habitat-basiert',
+  'light_last_measure':        'Deine letzte Messung:',
+  'detail_light_need':         '☀️ Lichtbedarf',
+  'light_min':                 'MIN',
+  'light_optimal':             'OPTIMAL',
+  'light_max':                 'MAX',
+  'unit_lux':                  'Lux',
+  'detail_description':        '📖 Beschreibung',
+  'detail_toxicity':           '☠️ Toxizität & Sicherheit',
+  'tox_scale':                 'Skala 0–5 · Stufe',
+  'detail_uses':               '🍽️ Verwendung (Küche & Alltag)',
+  'detail_medicinal':          '💊 Heilwirkung & Medizin',
+  'detail_watering':           '💧 Giessintervall',
+  'water_every':               'Alle',
+  'unit_days':                 'Tage',
+  'water_dry_hint':            'giessen. Erde leicht antrocknen lassen.',
+  'detail_care':               '🪴 Pflege & Standort',
+  'tox_strong':                'STARK GIFTIG',
+  'tox_caution':               'VORSICHT: GIFTIG',
+  'tox_warn_default':          'Nicht essen. Bei Vergiftung: Tox Info Suisse 145',
+  'pct_complete':              '% vollständig',
+  'detail_confusion':          '👀 Verwechslungsgefahr',
+  'lookalike_wild':            'Ähnliche Wildpflanzen möglich. Im Zweifel Experten fragen.',
+  'lookalike_pilz':            'Viele Pilzarten ähnlich! Nur essen wenn 100% sicher. Vergiftung: Tox 145.',
+  'lookalike_baum':            'Ähnliche Baumarten. Auf Rinde, Blatt und Früchte achten.',
+  'lookalike_kraut':           'Ähnliche Kräuter möglich. Geruch und Struktur prüfen.',
+  'lookalike_heilkraut':       'Verwechslung möglich. Vorsicht bei der Ernte.',
+  'lookalike_haus':            'Ähnliche Zierpflanzen möglich. Auf Blattform achten.',
+  'lookalike_default':         'Auf ähnliche Arten achten.',
+  'detail_db_ref':             'GreenScan Datenbank · Ref.',
+  'btn_add_to_garden':         'Zu meinem Garten hinzufügen',
+  'ai_ask_pre':                'KI über',
+  'ai_ask_post':               'befragen',
+  'btn_add_collection':        'Zu Sammlung hinzufügen',
+  'btn_recipes':               '🍲 Rezepte',
+  'btn_remedies':              '🌿 Heilmittel',
+  'btn_share':                 'Teilen',
+  'fav_remove':                '⭐ Entfernen',
+  'fav_add':                   '☆ Favorit',
+  'fav_remove_long':           '⭐ Aus Favoriten entfernen',
+  'fav_add_long':              '☆ Zu Favoriten hinzufügen',
+  'pct_data':                  '% Daten',
+  'detail_similar':            '🔎 Ähnliche Arten',
+  'modal_close':               'Schliessen',
   // ── Offline / Sync ──────────────────────────────────────────────
   'toast_offline_saved':       '📵 Offline gespeichert',
   'toast_offline_synced':      '🔄 Online — Sync abgeschlossen',
@@ -17675,7 +17744,17 @@ function getEmoji(sp){
   return sp.emoji || '🌿';
 }
 function getCatLabel(c){
-  return {gemuese:'Gemüse',wildpflanze:'Wildpflanze',baum:'Baum/Strauch',kraut:'Heilkraut',pilz:'Pilz',moos:'Moos',flechte:'Flechte',alge:'Alge'}[c]||c;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+  return {
+    gemuese:     _t('spcat_gemuese','Gemüse'),
+    wildpflanze: _t('spcat_wildpflanze','Wildpflanze'),
+    baum:        _t('spcat_baum','Baum/Strauch'),
+    kraut:       _t('spcat_kraut','Heilkraut'),
+    pilz:        _t('spcat_pilz','Pilz'),
+    moos:        _t('spcat_moos','Moos'),
+    flechte:     _t('spcat_flechte','Flechte'),
+    alge:        _t('spcat_alge','Alge')
+  }[c] || c;
 }
 
 // ═══ NAVIGATION ═══════════════════════════════════════
@@ -23338,6 +23417,7 @@ const _origGetFiltered = getFiltered;
 
 // ═══ DETAIL MODAL ════════════════════════════════════
 function openDetail(id){
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   // Strong input validation
   if(id===undefined||id===null||id==='undefined'||id==='null'||id==='') return;
   const idStr = String(id).trim();
@@ -23345,7 +23425,7 @@ function openDetail(id){
   const sp = DB.find(s => s && s.id && s.id===idStr);
   if(!sp || !sp.id){
     console.warn('openDetail: not found:',idStr);
-    showProfileToast('Art nicht gefunden: ' + idStr, 'error');
+    showProfileToast(_t('detail_not_found','Art nicht gefunden:') + ' ' + idStr, 'error');
     return;
   }
   const t = toxInfo(sp.tox);
@@ -23365,11 +23445,11 @@ function openDetail(id){
 
   // Tags
   const tags = [];
-  if(sp.edible) tags.push({label:'Essbar',bg:'#e8f5e9',col:'#2e7d32',icon:'🍽️'});
-  if(sp.medicinal) tags.push({label:'Heilpflanze',bg:'#e3f2fd',col:'#1565c0',icon:'💊'});
-  if(sp.protected) tags.push({label:'Geschützt',bg:'#fce4ec',col:'#c2185b',icon:'🛡️'});
-  if(sp.tox===0 && !sp.toxic) tags.push({label:'Ungiftig',bg:'#e8f5e9',col:'#2e7d32',icon:'✅'});
-  if(sp.tox>=4) tags.push({label:'GIFTIG',bg:'#ffebee',col:'#c62828',icon:'☠️'});
+  if(sp.edible) tags.push({label:_t('tag_edible','Essbar'),bg:'#e8f5e9',col:'#2e7d32',icon:'🍽️'});
+  if(sp.medicinal) tags.push({label:_t('tag_medicinal','Heilpflanze'),bg:'#e3f2fd',col:'#1565c0',icon:'💊'});
+  if(sp.protected) tags.push({label:_t('tag_protected','Geschützt'),bg:'#fce4ec',col:'#c2185b',icon:'🛡️'});
+  if(sp.tox===0 && !sp.toxic) tags.push({label:_t('tag_nontoxic','Ungiftig'),bg:'#e8f5e9',col:'#2e7d32',icon:'✅'});
+  if(sp.tox>=4) tags.push({label:_t('tag_toxic','GIFTIG'),bg:'#ffebee',col:'#c62828',icon:'☠️'});
   const tagsHtml = tags.map(tg=>'<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;background:'+tg.bg+';color:'+tg.col+';">'+tg.icon+' '+tg.label+'</span>').join(' ');
 
   // Saisonkalender-Streifen
@@ -23378,7 +23458,7 @@ function openDetail(id){
   let seasonBar = '';
   if(sp.season && sp.season !== '–'){
     seasonBar = '<div style="margin-bottom:9px;">' +
-      '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:5px;">📅 Saison in der Schweiz</div>' +
+      '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:5px;">' + _t('detail_season_ch','📅 Saison in der Schweiz') + '</div>' +
       (typeof gsBuildSeasonBar==='function' ? gsBuildSeasonBar(sp.season) : '') +
       '<div style="display:flex;gap:2px;">' +
       monthNames.map((m,i)=>{
@@ -23392,10 +23472,10 @@ function openDetail(id){
   // Ökologie
   let ecoHtml = '';
   const ecoItems = [];
-  if(sp.color && sp.color!=='–') ecoItems.push({icon:'🎨',label:'Blütenfarbe',val:sp.color});
-  if(sp.alt && sp.alt!=='–') ecoItems.push({icon:'⛰️',label:'Höhenverbreitung',val:sp.alt});
-  if(sp.habitat && sp.habitat!=='–') ecoItems.push({icon:'🗺️',label:'Lebensraum',val:sp.habitat});
-  if(sp.season && sp.season!=='–') ecoItems.push({icon:'📅',label:'Saison/Blüte',val:sp.season});
+  if(sp.color && sp.color!=='–') ecoItems.push({icon:'🎨',label:_t('eco_color','Blütenfarbe'),val:sp.color});
+  if(sp.alt && sp.alt!=='–') ecoItems.push({icon:'⛰️',label:_t('eco_alt','Höhenverbreitung'),val:sp.alt});
+  if(sp.habitat && sp.habitat!=='–') ecoItems.push({icon:'🗺️',label:_t('eco_habitat','Lebensraum'),val:sp.habitat});
+  if(sp.season && sp.season!=='–') ecoItems.push({icon:'📅',label:_t('eco_season','Saison/Blüte'),val:sp.season});
   if(ecoItems.length){
     ecoHtml = '<div class="dgrid" style="margin-bottom:9px;">' +
       ecoItems.map(e=>'<div class="di"><div class="dil">'+e.icon+' '+e.label+'</div><div class="div2">'+e.val+'</div></div>').join('') +
@@ -23404,9 +23484,9 @@ function openDetail(id){
 
   // Klassifikation
   const classItems = [];
-  if(sp.cat) classItems.push({icon:'📂',label:'Kategorie',val:getCatLabel(sp.cat)});
-  if(sp.fam && sp.fam!=='–') classItems.push({icon:'🧬',label:'Familie',val:sp.fam});
-  if(sp.lat && sp.lat!=='–') classItems.push({icon:'🔬',label:'Lateinisch',val:'<em>'+sp.lat+'</em>'});
+  if(sp.cat) classItems.push({icon:'📂',label:_t('class_category','Kategorie'),val:getCatLabel(sp.cat)});
+  if(sp.fam && sp.fam!=='–') classItems.push({icon:'🧬',label:_t('class_family','Familie'),val:sp.fam});
+  if(sp.lat && sp.lat!=='–') classItems.push({icon:'🔬',label:_t('class_latin','Lateinisch'),val:'<em>'+sp.lat+'</em>'});
   const classHtml = classItems.length ? '<div class="dgrid" style="margin-bottom:9px;">' +
     classItems.map(e=>'<div class="di"><div class="dil">'+e.icon+' '+e.label+'</div><div class="div2">'+e.val+'</div></div>').join('') + '</div>' : '';
 
@@ -23416,7 +23496,7 @@ function openDetail(id){
   if(lightRange){
     const lMin = lightRange.min||0, lOpt = lightRange.optimal||500, lMax = lightRange.max||5000;
     var sourceHint = lightRange.source === 'default'
-      ? '<div style="font-size:10px;color:var(--muted);margin-top:6px;">ℹ️ Richtwerte (' + getCatLabel(sp.cat) + ', Habitat-basiert)</div>'
+      ? '<div style="font-size:10px;color:var(--muted);margin-top:6px;">ℹ️ ' + _t('light_guideline_label','Richtwerte') + ' (' + getCatLabel(sp.cat) + ', ' + _t('light_habitat_based','Habitat-basiert') + ')</div>'
       : '';
     // Aktueller Lux-Vergleich (wenn vor kurzem gemessen)
     var lastLux = 0; try { lastLux = +(sessionStorage.getItem('gs_lux_last_calibrated') || sessionStorage.getItem('gs_lux_last_raw') || 0); } catch(e) {}
@@ -23425,15 +23505,15 @@ function openDetail(id){
       var fit = gsLuxFitScore(lastLux, lightRange);
       if (fit) {
         fitHtml = '<div style="margin-top:6px;padding:7px 10px;background:' + fit.color + '22;border-left:3px solid ' + fit.color + ';border-radius:6px;font-size:11.5px;color:var(--text);">' +
-          '<b style="color:' + fit.color + ';">' + fit.icon + ' ' + fit.label + '</b> · Deine letzte Messung: ' + lastLux.toLocaleString('de-CH') + ' lx' +
+          '<b style="color:' + fit.color + ';">' + fit.icon + ' ' + fit.label + '</b> · ' + _t('light_last_measure','Deine letzte Messung:') + ' ' + lastLux.toLocaleString('de-CH') + ' lx' +
         '</div>';
       }
     }
-    lightHtml = '<div class="dsec" style="margin-bottom:9px;"><h3>☀️ Lichtbedarf</h3>' +
+    lightHtml = '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_light_need','☀️ Lichtbedarf') + '</h3>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;margin-bottom:8px;">' +
-        '<div style="background:#f9fafb;border-radius:8px;padding:7px 5px;"><div style="font-size:10px;color:var(--muted);font-weight:700;">MIN</div><div style="font-size:13px;font-weight:800;color:var(--text);">'+lMin.toLocaleString()+'</div><div style="font-size:9px;color:var(--muted);">Lux</div></div>' +
-        '<div style="background:#e8f5e9;border-radius:8px;padding:7px 5px;"><div style="font-size:10px;color:var(--g-main);font-weight:700;">OPTIMAL</div><div style="font-size:13px;font-weight:800;color:var(--g-dark);">'+lOpt.toLocaleString()+'</div><div style="font-size:9px;color:var(--g-main);">Lux</div></div>' +
-        '<div style="background:#f9fafb;border-radius:8px;padding:7px 5px;"><div style="font-size:10px;color:var(--muted);font-weight:700;">MAX</div><div style="font-size:13px;font-weight:800;color:var(--text);">'+lMax.toLocaleString()+'</div><div style="font-size:9px;color:var(--muted);">Lux</div></div>' +
+        '<div style="background:#f9fafb;border-radius:8px;padding:7px 5px;"><div style="font-size:10px;color:var(--muted);font-weight:700;">' + _t('light_min','MIN') + '</div><div style="font-size:13px;font-weight:800;color:var(--text);">'+lMin.toLocaleString()+'</div><div style="font-size:9px;color:var(--muted);">' + _t('unit_lux','Lux') + '</div></div>' +
+        '<div style="background:#e8f5e9;border-radius:8px;padding:7px 5px;"><div style="font-size:10px;color:var(--g-main);font-weight:700;">' + _t('light_optimal','OPTIMAL') + '</div><div style="font-size:13px;font-weight:800;color:var(--g-dark);">'+lOpt.toLocaleString()+'</div><div style="font-size:9px;color:var(--g-main);">' + _t('unit_lux','Lux') + '</div></div>' +
+        '<div style="background:#f9fafb;border-radius:8px;padding:7px 5px;"><div style="font-size:10px;color:var(--muted);font-weight:700;">' + _t('light_max','MAX') + '</div><div style="font-size:13px;font-weight:800;color:var(--text);">'+lMax.toLocaleString()+'</div><div style="font-size:9px;color:var(--muted);">' + _t('unit_lux','Lux') + '</div></div>' +
       '</div>' + fitHtml + sourceHint + '</div>';
   }
 
@@ -23451,7 +23531,7 @@ function openDetail(id){
       // Warnbox zuerst bei giftigen
       wH,
       // Beschreibung
-      '<div class="dsec" style="margin-bottom:9px;"><h3>📖 Beschreibung</h3><p>'+(sp.desc||'–')+'</p></div>',
+      '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_description','📖 Beschreibung') + '</h3><p>'+(sp.desc||'–')+'</p></div>',
       // Saison-Streifen
       seasonBar,
       // Ökologie Grid
@@ -23459,32 +23539,32 @@ function openDetail(id){
       // Klassifikation
       classHtml,
       // Toxizität
-      '<div class="dsec" style="margin-bottom:9px;"><h3>☠️ Toxizität & Sicherheit</h3>',
+      '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_toxicity','☠️ Toxizität & Sicherheit') + '</h3>',
         '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">',
           '<span style="font-size:28px;">'+t.sym+'</span>',
           '<div><div style="font-weight:800;font-size:15px;color:'+t.color+';">'+t.label+'</div>',
-          '<div style="font-size:11.5px;color:var(--muted);">Skala 0–5 · Stufe '+sp.tox+'</div></div>',
+          '<div style="font-size:11.5px;color:var(--muted);">' + _t('tox_scale','Skala 0–5 · Stufe') + ' '+sp.tox+'</div></div>',
         '</div>',
         '<div class="tox-scale">'+dots+'</div>',
       '</div>',
       // Verwendung in der Küche
-      sp.uses && sp.uses!=='–' && sp.uses!=='Keine Nutzung bekannt' ? '<div class="dsec" style="margin-bottom:9px;"><h3>🍽️ Verwendung (Küche & Alltag)</h3><p>'+(sp.uses)+'</p></div>' : '',
+      sp.uses && sp.uses!=='–' && sp.uses!=='Keine Nutzung bekannt' ? '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_uses','🍽️ Verwendung (Küche & Alltag)') + '</h3><p>'+(sp.uses)+'</p></div>' : '',
       // Heilwirkung
-      sp.medicinalUse && sp.medicinalUse!=='–' && sp.medicinalUse!=='Keine bekannte Heilwirkung' && sp.medicinalUse!=='Keine – giftig' ? '<div class="dsec" style="margin-bottom:9px;"><h3>💊 Heilwirkung & Medizin</h3><p>'+sp.medicinalUse+'</p></div>' : '',
+      sp.medicinalUse && sp.medicinalUse!=='–' && sp.medicinalUse!=='Keine bekannte Heilwirkung' && sp.medicinalUse!=='Keine – giftig' ? '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_medicinal','💊 Heilwirkung & Medizin') + '</h3><p>'+sp.medicinalUse+'</p></div>' : '',
       // Licht (Hauspflanzen)
       lightHtml,
       // Giessintervall
-      sp.waterFrequency ? '<div class="dsec" style="margin-bottom:9px;"><h3>💧 Giessintervall</h3><p>Alle <strong>'+sp.waterFrequency+' Tage</strong> giessen. Erde leicht antrocknen lassen.</p></div>' : '',
+      sp.waterFrequency ? '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_watering','💧 Giessintervall') + '</h3><p>' + _t('water_every','Alle') + ' <strong>'+sp.waterFrequency+' ' + _t('unit_days','Tage') + '</strong> ' + _t('water_dry_hint','giessen. Erde leicht antrocknen lassen.') + '</p></div>' : '',
       // Pflege
-      sp.care ? '<div class="dsec" style="margin-bottom:9px;"><h3>🪴 Pflege & Standort</h3><p>'+sp.care+'</p></div>' : '',
+      sp.care ? '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_care','🪴 Pflege & Standort') + '</h3><p>'+sp.care+'</p></div>' : '',
       // Giftwarnung
       (function(){
         if(sp.tox < 3) return '';
         var isFatal = sp.tox >= 4;
         return '<div style="background:'+(isFatal?'#ffebee':'#fff8e1')+';border:2px solid '+(isFatal?'#ef9a9a':'#ffe082')+';border-radius:12px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:flex-start;gap:10px;">' +
           '<span style="font-size:20px;flex-shrink:0;">'+(isFatal?'☠️':'⚠️')+'</span>' +
-          '<div><div style="font-size:13px;font-weight:800;color:'+(isFatal?'#c62828':'#e65100')+';margin-bottom:2px;">'+(isFatal?'STARK GIFTIG':'VORSICHT: GIFTIG')+'</div>' +
-          '<div style="font-size:11.5px;color:var(--text2);line-height:1.5;">'+(sp.warning&&sp.warning!=='–'?sp.warning:'Nicht essen. Bei Vergiftung: Tox Info Suisse 145')+'</div>' +
+          '<div><div style="font-size:13px;font-weight:800;color:'+(isFatal?'#c62828':'#e65100')+';margin-bottom:2px;">'+(isFatal?_t('tox_strong','STARK GIFTIG'):_t('tox_caution','VORSICHT: GIFTIG'))+'</div>' +
+          '<div style="font-size:11.5px;color:var(--text2);line-height:1.5;">'+(sp.warning&&sp.warning!=='–'?sp.warning:_t('tox_warn_default','Nicht essen. Bei Vergiftung: Tox Info Suisse 145'))+'</div>' +
           '</div></div>';
       })(),
       // Vollständigkeits-Indikator
@@ -23495,29 +23575,29 @@ function openDetail(id){
           '<div style="flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden;">' +
             '<div style="width:'+pct+'%;height:100%;background:'+(pct>=70?'var(--g-main)':'#f9a825')+';border-radius:2px;"></div>' +
           '</div>' +
-          '<div style="font-size:9.5px;font-weight:700;color:var(--muted);flex-shrink:0;">'+pct+'% vollständig</div>' +
+          '<div style="font-size:9.5px;font-weight:700;color:var(--muted);flex-shrink:0;">'+pct+_t('pct_complete','% vollständig')+'</div>' +
         '</div>';
       })(),
       // Verwechslungen
       (function(){
   var lk = (sp.lookalike && sp.lookalike!=='–' && sp.lookalike!=='') ? sp.lookalike :
-    ({'wildpflanze':'Ähnliche Wildpflanzen möglich. Im Zweifel Experten fragen.',
-      'pilz':'Viele Pilzarten ähnlich! Nur essen wenn 100% sicher. Vergiftung: Tox 145.',
-      'baum':'Ähnliche Baumarten. Auf Rinde, Blatt und Früchte achten.',
-      'kraut':'Ähnliche Kräuter möglich. Geruch und Struktur prüfen.',
-      'heilkraut':'Verwechslung möglich. Vorsicht bei der Ernte.',
-      'hauspflanze':'Ähnliche Zierpflanzen möglich. Auf Blattform achten.'
-    }[sp.cat] || 'Auf ähnliche Arten achten.');
-  return '<div class="dsec" style="margin-bottom:9px;background:#fff3e0;"><h3>👀 Verwechslungsgefahr</h3><p style="color:#e65100;font-weight:600;">'+lk+'</p></div>';
+    ({'wildpflanze':_t('lookalike_wild','Ähnliche Wildpflanzen möglich. Im Zweifel Experten fragen.'),
+      'pilz':_t('lookalike_pilz','Viele Pilzarten ähnlich! Nur essen wenn 100% sicher. Vergiftung: Tox 145.'),
+      'baum':_t('lookalike_baum','Ähnliche Baumarten. Auf Rinde, Blatt und Früchte achten.'),
+      'kraut':_t('lookalike_kraut','Ähnliche Kräuter möglich. Geruch und Struktur prüfen.'),
+      'heilkraut':_t('lookalike_heilkraut','Verwechslung möglich. Vorsicht bei der Ernte.'),
+      'hauspflanze':_t('lookalike_haus','Ähnliche Zierpflanzen möglich. Auf Blattform achten.')
+    }[sp.cat] || _t('lookalike_default','Auf ähnliche Arten achten.'));
+  return '<div class="dsec" style="margin-bottom:9px;background:#fff3e0;"><h3>' + _t('detail_confusion','👀 Verwechslungsgefahr') + '</h3><p style="color:#e65100;font-weight:600;">'+lk+'</p></div>';
 })(),
       // Bookmark / Buch
-      sp.bookRef && sp.bookRef!=='–' ? '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#f0f7ee;border-radius:8px;margin-bottom:9px;"><span style="font-size:18px;">📚</span><div style="font-size:12px;color:var(--g-dark);font-weight:600;">GreenScan Datenbank · Ref. '+sp.bookRef+'</div></div>' : '',
+      sp.bookRef && sp.bookRef!=='–' ? '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#f0f7ee;border-radius:8px;margin-bottom:9px;"><span style="font-size:18px;">📚</span><div style="font-size:12px;color:var(--g-dark);font-weight:600;">' + _t('detail_db_ref','GreenScan Datenbank · Ref.') + ' '+sp.bookRef+'</div></div>' : '',
       // Favoriten-Button
       // KI-Fragen Button
-      '<button onclick="gsAddSpeciesToGarden(\'' + id + '\')" style="width:100%;padding:11px;background:#e8f5e9;color:#1b5e20;border:1.5px solid var(--g-light);border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;"><span>🌱</span> <span>Zu meinem Garten hinzufügen</span></button>',
-      '<button onclick="openDetailChat(\''+id+'\',\''+escHtml(sp.name)+'\',\''+escHtml(sp.lat||'')+'\','+sp.tox+')" style="width:100%;padding:11px;background:var(--surface2);color:var(--g-dark);border:1px solid var(--g-light);border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px;"><span>🤖</span> <span>KI über '+escHtml(sp.name)+' befragen</span></button>',
+      '<button onclick="gsAddSpeciesToGarden(\'' + id + '\')" style="width:100%;padding:11px;background:#e8f5e9;color:#1b5e20;border:1.5px solid var(--g-light);border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;"><span>🌱</span> <span>' + _t('btn_add_to_garden','Zu meinem Garten hinzufügen') + '</span></button>',
+      '<button onclick="openDetailChat(\''+id+'\',\''+escHtml(sp.name)+'\',\''+escHtml(sp.lat||'')+'\','+sp.tox+')" style="width:100%;padding:11px;background:var(--surface2);color:var(--g-dark);border:1px solid var(--g-light);border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px;"><span>🤖</span> <span>' + _t('ai_ask_pre','KI über') + ' '+escHtml(sp.name)+' ' + _t('ai_ask_post','befragen') + '</span></button>',
       // v28.25: Art zu Sammlung hinzufügen (Wrapper, nur ID im onclick = Hard-Lesson #12)
-      '<button onclick="if(typeof gsAddSpeciesToCollection===\'function\')gsAddSpeciesToCollection(\''+id+'\')" style="width:100%;padding:11px;background:#ede7f6;color:#4527a0;border:1.5px solid #b39ddb;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;"><span>📁</span> <span>Zu Sammlung hinzufügen</span></button>',
+      '<button onclick="if(typeof gsAddSpeciesToCollection===\'function\')gsAddSpeciesToCollection(\''+id+'\')" style="width:100%;padding:11px;background:#ede7f6;color:#4527a0;border:1.5px solid #b39ddb;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;"><span>📁</span> <span>' + _t('btn_add_collection','Zu Sammlung hinzufügen') + '</span></button>',
       // Rezept-Link wenn vorhanden
       (function(){
         var hasRecipe = (typeof DEFAULT_RECIPES !== 'undefined' && DEFAULT_RECIPES.some(function(r){ return r.plant === sp.name || r.plantId === sp.id; })) ||
@@ -23525,14 +23605,14 @@ function openDetail(id){
         var hasRemedy = (typeof DEFAULT_REMEDIES !== 'undefined' && DEFAULT_REMEDIES.some(function(r){ return r.plant === sp.name || r.plantId === sp.id; })) ||
                         (typeof remediesData !== 'undefined' && remediesData.some(function(r){ return r.plant === sp.name || r.plantId === sp.id; }));
         var btns = '';
-        if (hasRecipe) btns += '<button onclick="closeModal(\'detail-modal\');menuNav(\'recipes\')" style="flex:1;padding:10px;background:#fff3e0;color:#e65100;border:1px solid #ffcc80;border-radius:10px;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;">🍲 Rezepte</button>';
-        if (hasRemedy) btns += '<button onclick="closeModal(\'detail-modal\');menuNav(\'remedies\')" style="flex:1;padding:10px;background:#e8f5e9;color:var(--g-dark);border:1px solid var(--g-light);border-radius:10px;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;">🌿 Heilmittel</button>';
+        if (hasRecipe) btns += '<button onclick="closeModal(\'detail-modal\');menuNav(\'recipes\')" style="flex:1;padding:10px;background:#fff3e0;color:#e65100;border:1px solid #ffcc80;border-radius:10px;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;">' + _t('btn_recipes','🍲 Rezepte') + '</button>';
+        if (hasRemedy) btns += '<button onclick="closeModal(\'detail-modal\');menuNav(\'remedies\')" style="flex:1;padding:10px;background:#e8f5e9;color:var(--g-dark);border:1px solid var(--g-light);border-radius:10px;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;">' + _t('btn_remedies','🌿 Heilmittel') + '</button>';
         return btns ? '<div style="display:flex;gap:6px;margin-bottom:6px;">' + btns + '</div>' : '';
       })(),
       '<div style="display:flex;gap:6px;">',
-        '<button onclick="gsShareSpecies(\''+escHtml(sp.name)+'\',\''+escHtml(sp.lat||'')+'\')" style="padding:11px 14px;background:var(--surface2);color:var(--g-dark);border:1px solid var(--border);border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;"><span style="font-size:15px;">↑</span>Teilen</button>',
+        '<button onclick="gsShareSpecies(\''+escHtml(sp.name)+'\',\''+escHtml(sp.lat||'')+'\')" style="padding:11px 14px;background:var(--surface2);color:var(--g-dark);border:1px solid var(--border);border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;"><span style="font-size:15px;">↑</span>' + _t('btn_share','Teilen') + '</button>',
         '<button class="fav-btn'+(isFav?' added':'')+'" id="fav-btn" onclick="toggleFav(this.dataset.fid)" data-fid="'+id+'" style="flex:1;">',
-          isFav?'⭐ Entfernen':'☆ Favorit',
+          isFav?_t('fav_remove','⭐ Entfernen'):_t('fav_add','☆ Favorit'),
         '</button>',
       '</div>',
       // Vollständigkeits-Indikator
@@ -23542,7 +23622,7 @@ function openDetail(id){
           '<div style="flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden;">' +
             '<div style="width:'+pct+'%;height:100%;background:'+(pct>=80?'#27ae60':pct>=50?'#f9a825':'#ef5350')+';border-radius:3px;transition:width 1s;"></div>' +
           '</div>' +
-          '<div style="font-size:10px;font-weight:700;color:var(--muted);flex-shrink:0;">'+pct+'% Daten</div>' +
+          '<div style="font-size:10px;font-weight:700;color:var(--muted);flex-shrink:0;">'+pct+_t('pct_data','% Daten')+'</div>' +
         '</div>';
         return '';
       })(),
@@ -23552,7 +23632,7 @@ function openDetail(id){
         var sim = gsFindSimilar(sp, 4);
         if(!sim.length) return '';
         return '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">' +
-          '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:8px;">🔎 Ähnliche Arten</div>' +
+          '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:8px;">' + _t('detail_similar','🔎 Ähnliche Arten') + '</div>' +
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
           sim.map(function(s){
             return '<div onclick="closeModal(\'detail-modal\');setTimeout(function(){openDetail(\''+s.id+'\');},100)" style="background:var(--g-bg);border:1px solid var(--border);border-radius:12px;padding:10px;cursor:pointer;display:flex;align-items:center;gap:8px;-webkit-tap-highlight-color:transparent;">' +
@@ -23566,7 +23646,7 @@ function openDetail(id){
     '</div>',
   ].join('');
 
-  html = '<button class="modal-close-btn" onclick="closeModal(\'detail-modal\')" title="Schliessen">✕</button>' + html;
+  html = '<button class="modal-close-btn" onclick="closeModal(\'detail-modal\')" title="' + _t('modal_close','Schliessen') + '">✕</button>' + html;
   // v26.26: Heilpflanzen-Hook — async-Container fuer medicinal_plants_register-Match.
   // Wird unter dem normalen Detail eingefuegt; gsLoadMedicinalProfile injectet das HTML.
   html += '<div id="medicinal-profile-host-' + sp.id + '" data-medicinal-lat="' + (sp.lat ? String(sp.lat).replace(/"/g,'&quot;') : '') + '"></div>';
@@ -23611,7 +23691,7 @@ function toggleFav(id){
   localStorage.setItem('ps_favs',JSON.stringify(favs));
   document.getElementById('stat-favs').textContent = myPlants.length;
   const btn = document.getElementById('fav-btn');
-  if(btn){btn.textContent=favs.includes(id)?'⭐ Aus Favoriten entfernen':'☆ Zu Favoriten hinzufügen';btn.classList.toggle('added',favs.includes(id));}
+  if(btn){var _t=(window.gsI18n&&gsI18n.t)?gsI18n.t:function(k,f){return f;};btn.textContent=favs.includes(id)?_t('fav_remove_long','⭐ Aus Favoriten entfernen'):_t('fav_add_long','☆ Zu Favoriten hinzufügen');btn.classList.toggle('added',favs.includes(id));}
 
   profileTrackFav(favs.length);
 }
@@ -56571,6 +56651,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.48', date: '08.06.2026',
+    headline: '🌍 Arten-Detailseite jetzt vollständig mehrsprachig',
+    summary: 'Die meistgenutzte Detailseite — die Arten-Ansicht (Beschreibung, Toxizität, Verwendung, Heilwirkung, Lichtbedarf, Giessintervall, Pflege, Verwechslungsgefahr, ähnliche Arten, alle Tags wie Essbar/Giftig/Geschützt und alle Knöpfe) — wird jetzt komplett mit der Sprache mit-übersetzt. Auch die Arten-Kategorien (Gemüse/Wildpflanze/Baum…) greifen damit überall. Bei EN/FR/IT/ES automatisch.',
+    user_summary: '🌍 Die Arten-Detailseite ist jetzt komplett mehrsprachig (Tags, Sektionen, Knöpfe).',
+    user_items: [
+      { emoji: '🔬', text: 'Arten-Detail: Beschreibung, Toxizität, Pflege, Verwechslung, Tags + Knöpfe mehrsprachig' },
+      { emoji: '🏷️', text: 'Arten-Kategorien (Gemüse/Wildpflanze/Baum…) überall mehrsprachig' },
+      { emoji: '🤖', text: 'EN/FR/IT/ES automatisch via Übersetzungs-Edge-Fn' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'70 gsI18n.t-Keys:', text:' openDetail (~55 Strings) + geteiltes getCatLabel (8 Kategorien) auf gsI18n.t umgestellt + Keys registriert.'},
+      {emoji:'🔍', bold:'Erschöpfender Audit:', text:' 9-Agenten-Workflow fand 398 unübersetzte Strings in ~45 weiteren Renders → I18N_DYNAMIC_AUDIT.md als Roadmap.'},
+      {emoji:'📋', bold:'Fortschritt:', text:' Karte/Community/Markt/Meine-Pflanzen/Aufgaben/Arten-Detail ✅ — als nächstes Wissen/Rezepte/Markt-Detail.'},
+    ]
+  },
+  {
     v: 'v28.47', date: '08.06.2026',
     headline: '🌍 „Meine Pflanzen" + Aufgaben jetzt mehrsprachig',
     summary: 'Weiter mit der Vollübersetzung: Der Bildschirm „Meine Pflanzen" (leerer Zustand, „Heute fällig"-Karten mit Jetzt/Bald fällig + Erledigt-Knopf, Erinnerungs-Banner) und der Aufgaben-Manager (Aktiv, Zuletzt, Jetzt erledigt) werden jetzt mit der Sprache mit-übersetzt. Die geteilten Fälligkeits-Texte (Jetzt fällig / Morgen fällig / In X Tagen) greifen damit überall — auch auf der Startseite und in den Pflanzen-Karten. Bei EN/FR/IT/ES automatisch.',
@@ -60272,7 +60368,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.47';
+var GS_VERSION = 'v28.48';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
