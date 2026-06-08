@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.63.20260609">
+<meta name="app-version" content="28.64.20260609">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -57327,6 +57327,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.64', date: '09.06.2026',
+    headline: '📊 Admin-Live-Metriken (Block F.2 Start)',
+    summary: 'Start des grossen App-Verwaltung-Updates: das Admin-Panel zeigt jetzt oben eine Live-Metriken-Sektion mit Echtzeit-Kennzahlen (User-Zahl, aktive Nutzer, Tier-Verteilung Free/Pro/Lifetime, Scan-Volumen, aktive Abos, Webhook-Fehler). Reines internes Monitoring — nur für Admins sichtbar.',
+    user_summary: '📊 Admin-Panel hat jetzt Live-Metriken (nur für Admins).',
+    user_items: [
+      { emoji: '📊', text: 'Live-Metriken: User-Zahl, aktive Nutzer, Tiers, Scans, Abos, Webhook-Fehler' },
+      { emoji: '🔒', text: 'Nur für Admins — server-seitig abgesichert (is_admin_user-Gate)' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'RPC fn_admin_metrics:', text:' SECURITY DEFINER + interner is_admin_user()-Gate, REVOKE FROM PUBLIC/anon + GRANT authenticated (HL#13).'},
+      {emoji:'🧪', bold:'Schema-ehrlich (HL#14):', text:' scan_events leer → user_scans; last_login NULL → updated_at/Scan-Aktivität; Error-Rate aus scan_events weggelassen (fake-0) → echtes Webhook-Fehler-Signal.'},
+      {emoji:'📋', bold:'Block F nach F.1-Audit:', text:' Reihenfolge F.2 Metriken → F.2 Stripe-Tab → F.3 Plan-Sammlungen → Cleanup (DB-Editor löschen).'},
+    ]
+  },
+  {
     v: 'v28.63', date: '09.06.2026',
     headline: '🎮 BlattFänger jetzt mehrsprachig + Admin-Editor-Fix',
     summary: 'Abschluss der App-weiten Übersetzung: das BlattFänger-Garten-Spiel (Felder, Tiere, Gebäude, Shop, Quests, Pflanzen-Namen, Level) wird jetzt komplett mit der Sprache mit-übersetzt. Damit ist die gesamte i18n-Übersetzungs-Roadmap zu 100% durch. Zusätzlich ein über die automatische Code-Prüfung gefundener Bug behoben: die ✏️/🗑️-Knöpfe im Admin-Arten-Editor funktionierten nicht.',
@@ -61285,7 +61300,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.63';
+var GS_VERSION = 'v28.64';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -68724,6 +68739,50 @@ async function gsAdminListUsers() {
   } catch(e) { return []; }
 }
 
+// v28.64 Block F.2: Live-Metriken laden (Admin) — RPC fn_admin_metrics (admin-gated, jsonb)
+async function gsAdminFetchMetrics() {
+  if (!gsIsAdmin()) return null;
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_admin_metrics', { method:'POST', body: JSON.stringify({}) });
+    if (r && r.error) return null;
+    var d = (r && r.data !== undefined) ? r.data : r;
+    return (d && typeof d === 'object') ? d : null;
+  } catch(e) { return null; }
+}
+
+// v28.64: Metriken-Karte rendern (Admin-intern, Deutsch). m = jsonb von fn_admin_metrics
+function _gsAdminMetricsHtml(m) {
+  if (!m) {
+    return '<div style="margin-bottom:14px;padding:11px 13px;background:#fff8e1;border-radius:8px;font-size:11.5px;color:#5d4037;">📊 Live-Metriken konnten nicht geladen werden (RPC fn_admin_metrics).</div>';
+  }
+  var n = function(k){ var v = m[k]; return (typeof v === 'number') ? v : (v != null ? v : 0); };
+  function card(emoji, label, big, sub, color){
+    return '<div style="background:#fff;border:1px solid #e6ece6;border-radius:10px;padding:9px 11px;min-width:0;">' +
+      '<div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.3px;text-transform:uppercase;">' + emoji + ' ' + label + '</div>' +
+      '<div style="font-size:19px;font-weight:800;color:' + (color||'var(--g-dark)') + ';line-height:1.1;margin-top:2px;">' + big + '</div>' +
+      (sub ? '<div style="font-size:10.5px;color:var(--muted);margin-top:1px;">' + sub + '</div>' : '') +
+    '</div>';
+  }
+  var whColor = n('webhook_errors_7d') === 0 ? '#2e7d32' : '#c62828';
+  var ts = '';
+  try { ts = m.generated_at ? new Date(m.generated_at).toLocaleTimeString('de-CH', {hour:'2-digit',minute:'2-digit'}) : ''; } catch(_){}
+  return '<div style="margin-bottom:14px;">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+      '<div style="font-size:13px;font-weight:800;color:var(--g-dark);">📊 Live-Metriken</div>' +
+      '<button onclick="openAdminPanel()" style="padding:4px 10px;background:var(--surface2);border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text);">🔄 Aktualisieren</button>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:7px;">' +
+      card('👥','User gesamt', n('users_total'), 'neu 7T: ' + n('users_new_7d') + ' · 30T: ' + n('users_new_30d')) +
+      card('🟢','Aktiv (Scanner)', n('active_scanners_30d'), '7T: ' + n('active_scanners_7d') + ' · Profile 7T: ' + n('active_profiles_7d')) +
+      card('💎','Tiers', n('tier_free') + ' / ' + n('tier_pro') + ' / ' + n('tier_lifetime'), 'Free / Pro / Lifetime') +
+      card('🔍','Scans gesamt', n('scans_total'), '30T: ' + n('scans_30d') + ' · 7T: ' + n('scans_7d')) +
+      card('💳','Abos aktiv', n('subs_active'), 'Trial: ' + n('subs_trialing') + ' · gekündigt: ' + n('subs_canceled')) +
+      card('⚠','Webhook-Fehler 7T', n('webhook_errors_7d'), 'von ' + n('webhook_total_7d') + ' Events', whColor) +
+    '</div>' +
+    (ts ? '<div style="font-size:10px;color:var(--muted);margin-top:6px;">Stand: ' + ts + ' · Quelle: profiles + user_scans + stripe_subscriptions</div>' : '') +
+  '</div>';
+}
+
 // Admin-Panel rendern
 async function openAdminPanel() {
   if (!gsIsAdmin()) {
@@ -68731,6 +68790,7 @@ async function openAdminPanel() {
     return;
   }
   var users = await gsAdminListUsers();
+  var metrics = await gsAdminFetchMetrics();
   var existing = document.getElementById('modal-admin-panel');
   if (existing) existing.remove();
   var m = document.createElement('div');
@@ -68781,6 +68841,7 @@ async function openAdminPanel() {
     '<div class="modal-content">' +
       '<h2 style="margin:0 0 6px;font-size:19px;color:var(--g-dark);">👑 Admin-Panel · Rollen verwalten</h2>' +
       '<p style="margin:0 0 14px;font-size:12px;color:var(--muted);">Hierarchie: <b>Admin</b> > <b>Mitarbeiter</b> > <b>Experte</b> > <b>Nutzer</b> > <b>Gesperrt</b></p>' +
+      _gsAdminMetricsHtml(metrics) +
       '<div>' + rows + '</div>' +
       diagBlock +
       '<div style="margin-top:14px;padding:10px 12px;background:#fff8e1;border-left:3px solid #ffa000;font-size:11.5px;color:#5d4037;border-radius:0 6px 6px 0;line-height:1.5;">' +
