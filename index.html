@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.64.20260609">
+<meta name="app-version" content="28.65.20260609">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -57327,6 +57327,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.65', date: '09.06.2026',
+    headline: '💳 Admin-Stripe-Übersicht (Block F.2)',
+    summary: 'Internes Finanz-Monitoring im Admin-Panel: MRR, aktive Abos, Pro-/Lifetime-Zahlen, Preis-Katalog und Webhook-Health auf einen Blick. Damit lässt sich die Kostendeckung direkt in der App im Auge behalten. Rein intern, nur für Admins — keine Verkaufs-Elemente.',
+    user_summary: '💳 Admin-Panel zeigt jetzt eine Stripe-Finanz-Übersicht (nur für Admins).',
+    user_items: [
+      { emoji: '💰', text: 'MRR + ARR, aktive Abos, Pro-/Lifetime-Zahlen, Preis-Katalog' },
+      { emoji: '🔔', text: 'Webhook-Health (Fehler/unverarbeitet/letzte Events)' },
+      { emoji: '🌱', text: 'Mission-konform: internes Monitoring, kein Sales-UI' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'RPC fn_admin_stripe_overview:', text:' SECURITY DEFINER + is_admin_user()-Gate, REVOKE PUBLIC/anon + GRANT authenticated (HL#13).'},
+      {emoji:'🧪', bold:'MRR robust (HL#14):', text:' direkt aus stripe_subscriptions JOIN stripe_prices (v_admin_subscriptions ist leer); monatlich=as-is, jährlich/12, lifetime=0, nur active. Webhook-Tabelle leer → ehrlicher Hinweis statt fake-Daten.'},
+      {emoji:'📋', bold:'Block F:', text:' F.2 Metriken ✅ Stripe ✅ → nächst F.3 Plan-Sammlungen → Cleanup.'},
+    ]
+  },
+  {
     v: 'v28.64', date: '09.06.2026',
     headline: '📊 Admin-Live-Metriken (Block F.2 Start)',
     summary: 'Start des grossen App-Verwaltung-Updates: das Admin-Panel zeigt jetzt oben eine Live-Metriken-Sektion mit Echtzeit-Kennzahlen (User-Zahl, aktive Nutzer, Tier-Verteilung Free/Pro/Lifetime, Scan-Volumen, aktive Abos, Webhook-Fehler). Reines internes Monitoring — nur für Admins sichtbar.',
@@ -61300,7 +61316,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.64';
+var GS_VERSION = 'v28.65';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -68783,6 +68799,74 @@ function _gsAdminMetricsHtml(m) {
   '</div>';
 }
 
+// v28.65 Block F.2: Stripe-Übersicht laden (Admin) — RPC fn_admin_stripe_overview (admin-gated, jsonb)
+async function gsAdminFetchStripe() {
+  if (!gsIsAdmin()) return null;
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_admin_stripe_overview', { method:'POST', body: JSON.stringify({}) });
+    if (r && r.error) return null;
+    var d = (r && r.data !== undefined) ? r.data : r;
+    return (d && typeof d === 'object') ? d : null;
+  } catch(e) { return null; }
+}
+
+// v28.65: Stripe-Übersicht rendern (Admin-intern, Deutsch). Internes Monitoring, KEIN Sales-UI.
+function _gsAdminStripeHtml(s) {
+  if (!s) {
+    return '<div style="margin-bottom:14px;padding:11px 13px;background:#fff8e1;border-radius:8px;font-size:11.5px;color:#5d4037;">💳 Stripe-Übersicht konnte nicht geladen werden (RPC fn_admin_stripe_overview).</div>';
+  }
+  var n = function(k){ var v = s[k]; return (typeof v === 'number') ? v : 0; };
+  var cur = (s.currency || 'chf').toUpperCase();
+  function money(cents){ return (typeof cents === 'number' ? (cents/100).toFixed(2) : '0.00') + ' ' + cur; }
+  function card(emoji, label, big, sub, color){
+    return '<div style="background:#fff;border:1px solid #e6ece6;border-radius:10px;padding:9px 11px;min-width:0;">' +
+      '<div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.3px;text-transform:uppercase;">' + emoji + ' ' + label + '</div>' +
+      '<div style="font-size:18px;font-weight:800;color:' + (color||'var(--g-dark)') + ';line-height:1.1;margin-top:2px;">' + big + '</div>' +
+      (sub ? '<div style="font-size:10.5px;color:var(--muted);margin-top:1px;">' + sub + '</div>' : '') +
+    '</div>';
+  }
+  // Preis-Katalog
+  var catalog = Array.isArray(s.catalog) ? s.catalog : [];
+  var catTxt = catalog.map(function(c){
+    var lbl = (c.key||'').replace('pro_','Pro ').replace('monthly','Monatlich').replace('yearly','Jährlich').replace('lifetime','Lifetime');
+    return '<span style="display:inline-block;background:#f0f4f0;border-radius:7px;padding:3px 8px;margin:2px 3px 0 0;font-size:11px;color:var(--text);">' + (typeof escHtml==='function'?escHtml(lbl):lbl) + ': <b>' + ((c.amount||0)/100).toFixed(2) + ' ' + ((c.cur||cur).toUpperCase()) + '</b></span>';
+  }).join('');
+  // Webhook-Block
+  var whErr = n('webhook_errors');
+  var whColor = whErr === 0 ? '#2e7d32' : '#c62828';
+  var whBody;
+  if (n('webhook_total') === 0) {
+    whBody = '<div style="font-size:11px;color:var(--muted);">Noch keine Webhook-Events in der DB gespeichert.</div>';
+  } else {
+    var recent = Array.isArray(s.recent_webhooks) ? s.recent_webhooks : [];
+    whBody = '<div style="font-size:11.5px;color:var(--text);">' +
+        n('webhook_total') + ' Events · <b style="color:' + whColor + ';">' + whErr + ' Fehler</b> · ' + n('webhook_unprocessed') + ' unverarbeitet</div>' +
+      recent.slice(0,8).map(function(w){
+        var ok = w.error ? '❌' : (w.processed ? '✅' : '⏳');
+        var t = '';
+        try { t = w.created_at ? new Date(w.created_at).toLocaleString('de-CH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : ''; } catch(_){}
+        return '<div style="font-size:10.5px;color:var(--muted);margin-top:2px;">' + ok + ' ' + (typeof escHtml==='function'?escHtml(w.type||'?'):(w.type||'?')) + ' · ' + t + '</div>';
+      }).join('');
+  }
+  var ts = '';
+  try { ts = s.generated_at ? new Date(s.generated_at).toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'}) : ''; } catch(_){}
+  var mrr = n('mrr_cents');
+  return '<div style="margin-bottom:14px;">' +
+    '<div style="font-size:13px;font-weight:800;color:var(--g-dark);margin-bottom:8px;">💳 Stripe-Übersicht <span style="font-size:10px;font-weight:600;color:var(--muted);">· internes Monitoring</span></div>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:7px;">' +
+      card('💰','MRR', money(mrr), 'ARR: ' + money(mrr*12), mrr>0?'#1b5e20':'var(--g-dark)') +
+      card('💳','Abos aktiv', n('subs_active'), 'Trial: ' + n('subs_trialing') + ' · überfällig: ' + n('subs_past_due')) +
+      card('💎','Pro / Lifetime', n('pro_active') + ' / ' + n('lifetime_total'), 'gekündigt z. Periodenende: ' + n('cancel_at_period_end')) +
+      card('🚫','Beendet', n('subs_canceled'), 'von ' + n('subs_total') + ' Abos gesamt') +
+    '</div>' +
+    (catTxt ? '<div style="margin-top:8px;font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.3px;">Preis-Katalog</div><div style="margin-top:3px;">' + catTxt + '</div>' : '') +
+    '<div style="margin-top:10px;padding:9px 11px;background:#f3f4f6;border-radius:8px;">' +
+      '<div style="font-size:11px;font-weight:800;color:#1a1a1a;margin-bottom:4px;">🔔 Webhook-Health</div>' + whBody +
+    '</div>' +
+    (ts ? '<div style="font-size:10px;color:var(--muted);margin-top:6px;">Stand: ' + ts + ' · MRR aus active-Abos (Trial zählt nicht) · keine Sales-Optimierung</div>' : '') +
+  '</div>';
+}
+
 // Admin-Panel rendern
 async function openAdminPanel() {
   if (!gsIsAdmin()) {
@@ -68791,6 +68875,7 @@ async function openAdminPanel() {
   }
   var users = await gsAdminListUsers();
   var metrics = await gsAdminFetchMetrics();
+  var stripe = await gsAdminFetchStripe();
   var existing = document.getElementById('modal-admin-panel');
   if (existing) existing.remove();
   var m = document.createElement('div');
@@ -68842,6 +68927,7 @@ async function openAdminPanel() {
       '<h2 style="margin:0 0 6px;font-size:19px;color:var(--g-dark);">👑 Admin-Panel · Rollen verwalten</h2>' +
       '<p style="margin:0 0 14px;font-size:12px;color:var(--muted);">Hierarchie: <b>Admin</b> > <b>Mitarbeiter</b> > <b>Experte</b> > <b>Nutzer</b> > <b>Gesperrt</b></p>' +
       _gsAdminMetricsHtml(metrics) +
+      _gsAdminStripeHtml(stripe) +
       '<div>' + rows + '</div>' +
       diagBlock +
       '<div style="margin-top:14px;padding:10px 12px;background:#fff8e1;border-left:3px solid #ffa000;font-size:11.5px;color:#5d4037;border-radius:0 6px 6px 0;line-height:1.5;">' +
