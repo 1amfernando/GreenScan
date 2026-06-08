@@ -4,13 +4,37 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-06-08 · **Branch**: `claude/lucid-cerf-o5b8ie` · **Version**: `v28.53` (gepusht, Live nicht pruefbar wegen CF-Bot-Block) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-06-08 (a) — Code-Daily + Code-Weekly (Montag, KW 24)
+
+- **Health:** ✅ 33/33 Edge-Fns ACTIVE (kein ERRORED) · Supabase ACTIVE_HEALTHY · Stripe-Webhook 0 Events/0 Errors letzte 24h (normal — keine aktiven Sub-Events) · Live-Version nicht pruefbar (Cloudflare blockiert Datacenter-IPs mit 403, keine echte Stoerung)
+- **DB-Counts (alle ueber Min-Threshold):**
+  - recipes 181 ✅ · plant_diseases 125 ✅ · garden_techniques 138 ✅ · pollinators 117 ✅
+  - garden_tasks_catalog 158 ✅ · plant_companion_matrix 113 ✅ · remedies 155 ✅ · folk_lore 154 ✅
+  - daily_quizzes 179 ✅ · swiss_climate_zones 83 ✅ · garden_problems 96 ✅ · harvest_preservation 105 ✅
+  - seed_starting_calendar 94 ✅ · seasonal_tips 102 ✅ · **seasonal_highlights 58** (min 40 ✅, target 80 — Wachstumspotenzial) · did_you_know_facts 142 ✅
+  - Kein bulk-gen-Trigger noetig heute.
+- **Smoke-Test:** Chrome-MCP nicht verfuegbar; HTTP-Smoke via curl nicht moeglich (CF-Bot-Block 403). Nur Backend pruefbar.
+- **Feedback-Items (30 Tage):** 2 total — beide Testeintraege ("test test test", "Test Test."), 0 echtes User-Feedback, ki_rationale leer → kein Action-Item.
+- **Versions-Sync:** ✅ GS_VERSION=v28.53 / sw.js=v28.53 / meta=28.53.20260608 — alle synced.
+
+**Weekly Audit (Montag-Block):**
+
+- **TODO/FIXME:** 2 gefunden — beide harmlos: (1) L30384 Code-Kommentar «TODO spaeter Storage-Upload» (legitimes Deferral), (2) L59134 in GS_RELEASES-Changelog-Text (kein aktiver Code). Kein Fix noetig.
+- **Plus-Legacy Strings:** 2 gefunden — beide ausschliesslich in historischem GS_RELEASES-Changelog (L59263, L59714). Kein aktiver UI-Pfad betroffen. Kein Fix noetig.
+- **z-index >=99990:** 11 Stellen (Ziel <5). Alle intentional: 1× Mushroom-Danger-Vollbild (999999/9999999 — sicherheitskritisch), 5× Modal-Overlays (99999), 3× Modal-Backdrops (99998), 2× in GS_RELEASES-Text. Kein Stack-Konflikt bekannt, kein Fix noetig.
+- **console.log:** 73 Stellen — alle durch `_gsConsoleCleanup` in Production silenced (by Design seit v26.5).
+- **i18n-Coverage:** 395 data-i18n Keys in HTML · 169 JS-Keys via gsI18n.t() · DB: FR 321 / IT 313 Translations. Gap: ~74 FR / ~82 IT noch offen (neue Keys aus i18n-Sprint-12 v28.44-v28.53, werden auto-übersetzt bei naechstem App-Boot via i18n-translate Edge-Fn). Offene Audit-Batches laut I18N_DYNAMIC_AUDIT.md: F-2 (Scan-History) / B (Wissen) / G (Garten) / I (Profil) / H (Farm).
+- **AUFTRAG-Files:** 7 alte AUFTRAG_CODE_v26.x_*.md vorhanden (v26.6 bis v26.20) — alle bearbeitet/abgeschlossen (Repo steht jetzt auf v28.53). Kein offener Auftrag mit Vorrang.
+- **Backups/Branches:** Kein Cleanup noetig (nur aktive Feature-Branch claude/lucid-cerf-o5b8ie).
+- **Naechste Prioritaet:** i18n-Sprint Batch F-2 (Scan-History) dann B/G/I/H.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
