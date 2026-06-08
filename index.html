@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.48.20260608">
+<meta name="app-version" content="28.49.20260608">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10855,6 +10855,31 @@ window.GS_I18N_JS_STRINGS = {
   'pct_data':                  '% Daten',
   'detail_similar':            '🔎 Ähnliche Arten',
   'modal_close':               'Schliessen',
+  // ── v28.49: Arten-Suchliste (renderList) ───────────────────────
+  'unit_species':              'Arten',
+  'search_no_hits':            'Keine Treffer',
+  'search_empty_title':        'Keine Einträge gefunden',
+  'search_empty_hint':         'Versuche einen anderen Begriff<br>oder wähle eine andere Kategorie.',
+  'badge_giftig':              'Giftig',
+  'load_more_species':         'weitere Arten laden',
+  // ── v28.49: Garten-Übersicht (gsFavsRenderOutdoor) ─────────────
+  'garden_empty_title':        'Noch kein Garten',
+  'garden_empty_hint':         'Lege einen Garten oder ein Beet an, um Outdoor-Pflanzen, Pflege-Plan und Ernte-Kalender zu nutzen.',
+  'btn_add_garden':            'Garten anlegen',
+  'garden_default_name':       'Mein Garten',
+  'garden_no_location':        'Kein Standort',
+  'unit_plants':               'Pflanzen',
+  'planting_date_label':       'Gepflanzt:',
+  'view_all_pre':              'Alle',
+  'view_all_in_garden':        'in „Mein Garten" →',
+  'garden_empty_plantings':    'Noch nichts gepflanzt.',
+  'btn_plant_now':             'Einsetzen',
+  'btn_add_planting':          '🌱 Pflanze hinzufügen',
+  // ── v28.49: Pflanzenfriedhof (renderCemetery) ──────────────────
+  'cemetery_empty':            'Noch keine verstorbenen Pflanzen.',
+  'cemetery_unknown_date':     'Unbekannt',
+  'cemetery_unknown_cause':    'Unbekannte Ursache',
+  'btn_restore_plant':         '♻️ Wiederherstellen',
   // ── Offline / Sync ──────────────────────────────────────────────
   'toast_offline_saved':       '📵 Offline gespeichert',
   'toast_offline_synced':      '🔄 Online — Sync abgeschlossen',
@@ -23295,6 +23320,7 @@ var _listPage = 1;
 var _LIST_PAGE_SIZE = 80;
 
 function renderList(){
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   const res = getFiltered();
   const total = res.length;
   const validRes = res.filter(sp=>sp&&sp.id);
@@ -23309,11 +23335,11 @@ function renderList(){
   var rcEl = document.getElementById('search-status');
   if (rcEl) {
     if (total === DB.length && !searchText && !currentFilter) {
-      rcEl.textContent = DB.length + ' Arten';
+      rcEl.textContent = DB.length + ' ' + _t('unit_species','Arten');
     } else if (total === 0) {
-      rcEl.textContent = 'Keine Treffer';
+      rcEl.textContent = _t('search_no_hits','Keine Treffer');
     } else {
-      rcEl.textContent = total + ' Treffer' + (currentFilter ? ' · ' + currentFilter : '') + (searchText ? ' · "' + searchText + '"' : '');
+      rcEl.textContent = total + ' ' + _t('market_hits','Treffer') + (currentFilter ? ' · ' + currentFilter : '') + (searchText ? ' · "' + searchText + '"' : '');
     }
   }
   
@@ -23321,8 +23347,8 @@ function renderList(){
     document.getElementById('results-list').innerHTML =
       '<div style="text-align:center;padding:50px 20px;">' +
       '<div style="font-size:44px;margin-bottom:12px;">🔍</div>' +
-      '<div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;">Keine Einträge gefunden</div>' +
-      '<div style="font-size:13px;color:var(--muted);">Versuche einen anderen Begriff<br>oder wähle eine andere Kategorie.</div></div>';
+      '<div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;">' + _t('search_empty_title','Keine Einträge gefunden') + '</div>' +
+      '<div style="font-size:13px;color:var(--muted);">' + _t('search_empty_hint','Versuche einen anderen Begriff<br>oder wähle eine andere Kategorie.') + '</div></div>';
     return;
   }
   
@@ -23330,10 +23356,10 @@ function renderList(){
     const t = toxInfo(sp.tox);
     // Tags: max 2 anzeigen (Karte bleibt gleich hoch)
     const tags = [];
-    if (sp.tox >= 3)    tags.push('<span class="tag t">'+t.sym+' Giftig</span>');
-    else if (sp.edible) tags.push('<span class="tag e">✅ Essbar</span>');
-    if (sp.medicinal)   tags.push('<span class="tag m">💊 Heilpflanze</span>');
-    if (sp.protected)   tags.push('<span class="tag p">🛡️ Geschützt</span>');
+    if (sp.tox >= 3)    tags.push('<span class="tag t">'+t.sym+' ' + _t('badge_giftig','Giftig') + '</span>');
+    else if (sp.edible) tags.push('<span class="tag e">✅ ' + _t('tag_edible','Essbar') + '</span>');
+    if (sp.medicinal)   tags.push('<span class="tag m">💊 ' + _t('tag_medicinal','Heilpflanze') + '</span>');
+    if (sp.protected)   tags.push('<span class="tag p">🛡️ ' + _t('tag_protected','Geschützt') + '</span>');
     const tagsHtml = tags.slice(0,2).join(''); // Max 2 Tags
     const latName = sp.lat ? sp.lat : '​'; // Zero-width space wenn leer → Höhe bleibt
     var toxBorder = sp.tox >= 4 ? '#c62828' : sp.tox >= 2 ? '#f57f17' : sp.tox === 0 && sp.edible ? '#2e7d32' : 'transparent';
@@ -23355,7 +23381,7 @@ function renderList(){
     const remaining = validRes.length - slice.length;
     cards.push(
       '<div data-loadmore="1" onclick="loadMoreList()">' +
-        '<span style="font-size:16px;">⬇️</span> ' + remaining + ' weitere Arten laden' +
+        '<span style="font-size:16px;">⬇️</span> ' + remaining + ' ' + _t('load_more_species','weitere Arten laden') +
       '</div>'
     );
   }
@@ -23736,14 +23762,15 @@ window.gsFavsSwitchSub = function(mode, btn){
 function gsFavsRenderOutdoor(){
   var list = document.getElementById('favs-garden-inline-list');
   if (!list) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s||''); };
   // Kein Garten → Empty-State mit Anlegen-CTA
   if (typeof gardens === 'undefined' || !Array.isArray(gardens) || !gardens.length) {
     list.innerHTML = '<div class="gs-empty" style="padding:32px 20px;text-align:center;">' +
       '<div class="gs-empty-icon" style="font-size:54px;">🌳</div>' +
-      '<div class="gs-empty-title" style="font-size:19px;font-weight:900;margin:6px 0;">Noch kein Garten</div>' +
-      '<div class="gs-empty-sub" style="font-size:13.5px;margin:0 auto 18px;max-width:340px;line-height:1.5;">Lege einen Garten oder ein Beet an, um Outdoor-Pflanzen, Pflege-Plan und Ernte-Kalender zu nutzen.</div>' +
-      '<button onclick="if(typeof openAddGarden===\'function\'){openAddGarden();}else if(typeof openModal===\'function\'){openModal(\'modal-add-garden\');}" style="display:inline-flex;align-items:center;gap:8px;padding:14px 22px;background:linear-gradient(135deg,#2d8a2d,#1a6a1a);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(45,138,45,.35);-webkit-tap-highlight-color:transparent;"><span style="font-size:20px;">＋</span> Garten anlegen</button>' +
+      '<div class="gs-empty-title" style="font-size:19px;font-weight:900;margin:6px 0;">' + _t('garden_empty_title','Noch kein Garten') + '</div>' +
+      '<div class="gs-empty-sub" style="font-size:13.5px;margin:0 auto 18px;max-width:340px;line-height:1.5;">' + _t('garden_empty_hint','Lege einen Garten oder ein Beet an, um Outdoor-Pflanzen, Pflege-Plan und Ernte-Kalender zu nutzen.') + '</div>' +
+      '<button onclick="if(typeof openAddGarden===\'function\'){openAddGarden();}else if(typeof openModal===\'function\'){openModal(\'modal-add-garden\');}" style="display:inline-flex;align-items:center;gap:8px;padding:14px 22px;background:linear-gradient(135deg,#2d8a2d,#1a6a1a);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(45,138,45,.35);-webkit-tap-highlight-color:transparent;"><span style="font-size:20px;">＋</span> ' + _t('btn_add_garden','Garten anlegen') + '</button>' +
       '</div>';
     return;
   }
@@ -23758,8 +23785,8 @@ function gsFavsRenderOutdoor(){
     html += '<div class="garden-card-hdr" onclick="if(typeof switchTab===\'function\')switchTab(\'garden\')">';
     html += '<div class="garden-card-icon">🌻</div>';
     html += '<div class="garden-card-info">';
-    html += '<div class="garden-card-name">' + esc(garden.name||'Mein Garten') + '</div>';
-    html += '<div class="garden-card-meta">' + esc(garden.location||'Kein Standort') + ' · ' + gPlantings.length + ' Pflanzen</div>';
+    html += '<div class="garden-card-name">' + esc(garden.name||_t('garden_default_name','Mein Garten')) + '</div>';
+    html += '<div class="garden-card-meta">' + esc(garden.location||_t('garden_no_location','Kein Standort')) + ' · ' + gPlantings.length + ' ' + _t('unit_plants','Pflanzen') + '</div>';
     html += '</div>';
     html += '<div class="mpcard-chevron">›</div></div>';
     html += '<div style="padding:8px 14px;">';
@@ -23771,16 +23798,16 @@ function gsFavsRenderOutdoor(){
         try { if (p.date) dStr = new Date(p.date).toLocaleDateString('de-CH'); } catch(_){}
         html += '<div class="planting-row" onclick="if(typeof openPlantingDetail===\'function\')openPlantingDetail(\'' + p.id + '\')">';
         html += '<div class="planting-emoji">' + emoji + '</div>';
-        html += '<div class="planting-info"><div class="planting-name">' + esc(p.name||'') + '</div><div class="planting-meta">' + (dStr ? 'Gepflanzt: ' + dStr : '') + '</div></div>';
+        html += '<div class="planting-info"><div class="planting-name">' + esc(p.name||'') + '</div><div class="planting-meta">' + (dStr ? _t('planting_date_label','Gepflanzt:') + ' ' + dStr : '') + '</div></div>';
         html += '</div>';
       });
       if (gPlantings.length > 5) {
-        html += '<div style="text-align:center;padding:6px 0;"><a href="#" onclick="event.preventDefault();if(typeof switchTab===\'function\')switchTab(\'garden\');" style="color:var(--g-main);font-size:12.5px;font-weight:700;text-decoration:none;">Alle ' + gPlantings.length + ' in „Mein Garten" →</a></div>';
+        html += '<div style="text-align:center;padding:6px 0;"><a href="#" onclick="event.preventDefault();if(typeof switchTab===\'function\')switchTab(\'garden\');" style="color:var(--g-main);font-size:12.5px;font-weight:700;text-decoration:none;">' + _t('view_all_pre','Alle') + ' ' + gPlantings.length + ' ' + _t('view_all_in_garden','in „Mein Garten" →') + '</a></div>';
       }
     } else {
-      html += '<div style="padding:10px 0;text-align:center;font-size:12.5px;color:var(--muted);">Noch nichts gepflanzt. <a href="#" onclick="event.preventDefault();if(typeof openAddPlanting===\'function\')openAddPlanting(\'' + gid + '\');" style="color:var(--g-main);font-weight:700;text-decoration:none;">＋ Einsetzen</a></div>';
+      html += '<div style="padding:10px 0;text-align:center;font-size:12.5px;color:var(--muted);">' + _t('garden_empty_plantings','Noch nichts gepflanzt.') + ' <a href="#" onclick="event.preventDefault();if(typeof openAddPlanting===\'function\')openAddPlanting(\'' + gid + '\');" style="color:var(--g-main);font-weight:700;text-decoration:none;">＋ ' + _t('btn_plant_now','Einsetzen') + '</a></div>';
     }
-    html += '<button class="mp-action-btn" onclick="if(typeof openAddPlanting===\'function\')openAddPlanting(\'' + gid + '\')" style="width:100%;margin-top:6px;">🌱 Pflanze hinzufügen</button>';
+    html += '<button class="mp-action-btn" onclick="if(typeof openAddPlanting===\'function\')openAddPlanting(\'' + gid + '\')" style="width:100%;margin-top:6px;">' + _t('btn_add_planting','🌱 Pflanze hinzufügen') + '</button>';
     html += '</div></div>';
   }
   list.innerHTML = html;
@@ -27364,10 +27391,11 @@ function restoreFromCemetery(plantId) {
 function renderCemetery() {
   const list = document.getElementById('cemetery-list');
   if (!list) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   const cntEl = document.getElementById('cnt-dead');
   if (cntEl) cntEl.textContent = deadPlants.length;
   if (!deadPlants.length) {
-    list.innerHTML = '<div class="mp-empty"><span>😊</span><p>Noch keine verstorbenen Pflanzen.</p></div>';
+    list.innerHTML = '<div class="mp-empty"><span>😊</span><p>' + _t('cemetery_empty','Noch keine verstorbenen Pflanzen.') + '</p></div>';
     return;
   }
   list.innerHTML = deadPlants.map(p => {
@@ -27378,11 +27406,11 @@ function renderCemetery() {
         '<span style="font-size:30px;">' + (p.emoji || '🌿') + '</span>' +
         '<div style="flex:1;">' +
           '<div class="cemetery-name">' + escHtml(p.name) + ' ' + rarityBadge + '</div>' +
-          '<div class="cemetery-date">✝ ' + (p.diedAt ? new Date(p.diedAt).toLocaleDateString('de-CH') : 'Unbekannt') + (p.nick ? ' · ' + escHtml(p.nick) : '') + '</div>' +
-          '<div class="cemetery-cause">' + escHtml(p.deathCause || 'Unbekannte Ursache') + '</div>' +
+          '<div class="cemetery-date">✝ ' + (p.diedAt ? new Date(p.diedAt).toLocaleDateString('de-CH') : _t('cemetery_unknown_date','Unbekannt')) + (p.nick ? ' · ' + escHtml(p.nick) : '') + '</div>' +
+          '<div class="cemetery-cause">' + escHtml(p.deathCause || _t('cemetery_unknown_cause','Unbekannte Ursache')) + '</div>' +
         '</div>' +
       '</div>' +
-      '<button class="cemetery-restore-btn" onclick="restoreFromCemetery(\'' + p.id + '\')">♻️ Wiederherstellen</button>' +
+      '<button class="cemetery-restore-btn" onclick="restoreFromCemetery(\'' + p.id + '\')">' + _t('btn_restore_plant','♻️ Wiederherstellen') + '</button>' +
       '</div>';
   }).join('');
 }
@@ -56651,6 +56679,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.49', date: '08.06.2026',
+    headline: '🌍 Arten-Suchliste, Garten-Übersicht & Friedhof mehrsprachig',
+    summary: 'Weiter mit der Vollübersetzung (Batch A der Audit-Roadmap): Die Arten-Suchliste (Trefferanzeige, leerer Zustand, Tag-Badges Giftig/Essbar/Heilpflanze/Geschützt), die Garten-Übersicht (leerer Zustand, Karten, „Pflanze hinzufügen") und der Pflanzenfriedhof (leerer Zustand, Wiederherstellen) werden jetzt mit der Sprache mit-übersetzt. Bei EN/FR/IT/ES automatisch.',
+    user_summary: '🌍 Arten-Suchliste, Garten-Übersicht und Pflanzenfriedhof sind jetzt mehrsprachig.',
+    user_items: [
+      { emoji: '🔍', text: 'Arten-Suchliste: Trefferanzeige, leerer Zustand, Tag-Badges mehrsprachig' },
+      { emoji: '🌳', text: 'Garten-Übersicht + Pflanzenfriedhof mehrsprachig' },
+      { emoji: '🤖', text: 'EN/FR/IT/ES automatisch via Übersetzungs-Edge-Fn' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'23 neue + 4 reuse Keys:', text:' renderList + gsFavsRenderOutdoor + renderCemetery auf gsI18n.t (tag_*/market_hits wiederverwendet).'},
+      {emoji:'🧹', bold:'Toter Code erkannt:', text:' buildPlantCard übersprungen (nie aufgerufen — Live-Pfad ist gsNewPlantCard).'},
+      {emoji:'📋', bold:'Audit-Roadmap:', text:' Batch A ✅ — als nächstes Markt-Detail/Rezepte/Quiz (I18N_DYNAMIC_AUDIT.md).'},
+    ]
+  },
+  {
     v: 'v28.48', date: '08.06.2026',
     headline: '🌍 Arten-Detailseite jetzt vollständig mehrsprachig',
     summary: 'Die meistgenutzte Detailseite — die Arten-Ansicht (Beschreibung, Toxizität, Verwendung, Heilwirkung, Lichtbedarf, Giessintervall, Pflege, Verwechslungsgefahr, ähnliche Arten, alle Tags wie Essbar/Giftig/Geschützt und alle Knöpfe) — wird jetzt komplett mit der Sprache mit-übersetzt. Auch die Arten-Kategorien (Gemüse/Wildpflanze/Baum…) greifen damit überall. Bei EN/FR/IT/ES automatisch.',
@@ -60368,7 +60412,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.48';
+var GS_VERSION = 'v28.49';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
