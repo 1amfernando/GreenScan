@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.59.20260608">
+<meta name="app-version" content="28.60.20260608">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11095,6 +11095,47 @@ window.GS_I18N_JS_STRINGS = {
   'scan_in_db':                'in DB',
   'scan_delete_all':           '🗑 Alle',
   'scan_sync':                 '🔄 Sync',
+  // ── v28.60: Profil-Auth (renderProfileLogin + profileDoLogin/Register/ForgotPw) ─
+  'btn_login':                 '🔑 Anmelden',
+  'btn_register':              '✨ Registrieren',
+  'login_subtitle':            'Melde dich an und speichere deine Entdeckungen,<br>Level und Meilensteine',
+  'ph_email':                  'E-Mail-Adresse',
+  'ph_password':               'Passwort',
+  'forgot_password':           'Passwort vergessen?',
+  'ph_name':                   'Dein Name (optional)',
+  'ph_password_new':           'Passwort (mind. 8 Zeichen)',
+  'ph_password_confirm':       'Passwort bestätigen',
+  'btn_register_free':         '✨ Kostenlos registrieren',
+  'register_terms_pre':        'Durch die Registrierung stimmst du unserer ',
+  'privacy_policy':            'Datenschutzerklärung',
+  'register_terms_post':       ' zu.',
+  'continue_without_account':  'Ohne Konto fortfahren →',
+  'err_email_pw_required':     'E-Mail und Passwort erforderlich.',
+  'btn_login_loading':         '⏳ Anmelden…',
+  'err_pw_min':                'Passwort mind. 8 Zeichen.',
+  'btn_register_loading':      '⏳ Registrieren…',
+  'account_exists_hint':       '✅ Konto existiert bereits — bitte melde dich an.',
+  'welcome_title':             'Willkommen!',
+  'now_logged_in':             'Du bist jetzt eingeloggt.',
+  'btn_lets_go':               '✅ Los geht es!',
+  'almost_done':               'Fast geschafft!',
+  'confirm_email_pre':         'Wir haben eine Bestätigungs-E-Mail an',
+  'confirm_email_post':        'gesendet.',
+  'next_steps':                'Nächste Schritte:',
+  'reg_step_1':                '1️⃣ Öffne dein E-Mail-Postfach',
+  'reg_step_2':                '2️⃣ Prüfe auch den Spam-Ordner',
+  'reg_step_3':                '3️⃣ Klicke auf den Bestätigungslink',
+  'reg_step_4':                '4️⃣ Komme zurück und melde dich an',
+  'sender_label':              'Absender:',
+  'btn_to_login':              '🔑 Zum Login',
+  'help_contact':              'Hilfe? Kontakt: info@greenscan.ch',
+  'pw_reset_prompt':           'E-Mail für Passwort-Reset:',
+  'btn_sending':               '⏳ Sende…',
+  'toast_pw_reset_sending':    '⏳ Passwort-Reset-E-Mail wird gesendet…',
+  'reset_failed':              'Reset fehlgeschlagen',
+  'email_sent':                'E-Mail gesendet',
+  'check_email_pre':           'Bitte',
+  'check_email_post':          'prüfen — auch Spam-Ordner.',
   'scan_no_scans':             'Noch keine Scans',
   'scan_change_filter':        'Filter ändern oder Suche zurücksetzen',
   'scan_first_scan':           'Scanne deine erste Pflanze mit der KI!',
@@ -57063,6 +57104,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.60', date: '08.06.2026',
+    headline: '🌍 Anmelden & Registrieren jetzt mehrsprachig',
+    summary: 'Weiter mit der Vollübersetzung (Batch I, Teil 1/3): Der komplette Anmelde-, Registrierungs- und Passwort-vergessen-Ablauf — inkl. aller Eingabefelder, Knöpfe, Fehlermeldungen und der Bestätigungs-Mail-Anleitung — wird jetzt mit der Sprache mit-übersetzt. Bei EN/FR/IT/ES automatisch.',
+    user_summary: '🌍 Login, Registrierung & Passwort-Reset sind jetzt mehrsprachig.',
+    user_items: [
+      { emoji: '🔑', text: 'Anmelden/Registrieren: Felder, Knöpfe, Fehler, Datenschutz-Hinweis mehrsprachig' },
+      { emoji: '📧', text: 'Bestätigungs-Mail-Anleitung + Passwort-Reset mehrsprachig' },
+      { emoji: '🤖', text: 'EN/FR/IT/ES automatisch via Übersetzungs-Edge-Fn' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'~40 neue Keys:', text:' renderProfileLogin + profileDoLogin/Register/ForgotPw — inkl. dynamischer Button-Reverts (sonst Revert auf DE nach Fehler).'},
+      {emoji:'🧩', bold:'Batch I gesplittet:', text:' I-1 Profil-Auth ✅ — I-2 Wetter+Mond, I-3 Feedback+Support+Lina folgen.'},
+      {emoji:'📋', bold:'Deferred:', text:' renderProfileLoggedIn (Vollprofil, war nicht im Audit) als eigener Schritt.'},
+    ]
+  },
+  {
     v: 'v28.59', date: '08.06.2026',
     headline: '🕘 Scan-Verlauf jetzt direkt im Scanner',
     summary: 'Der Scan-Verlauf war bisher nur im „Mehr"-Menü versteckt — jetzt erreichst du ihn mit einem Tipp direkt oben im Scanner (🕘-Knopf), wo er hingehört. Ausserdem zeigt die App nur noch EINE einheitliche Verlaufs-Ansicht (mit Suche, Filter, Statistik & Cloud-Sync) statt zwei verschiedener.',
@@ -60955,7 +61012,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.59';
+var GS_VERSION = 'v28.60';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -64555,12 +64612,13 @@ function openUserProfile() {
 // ── Nicht eingeloggt: Login/Register Form ────────────────────
 function renderProfileLogin(mc) {
   var isRegTab = false;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   mc.innerHTML = [
     // Header
     '<div style="text-align:center;padding:14px 0 18px;">',
       '<div style="font-size:48px;margin-bottom:8px;">🌿</div>',
       '<div style="font-size:20px;font-weight:800;font-family:\'Playfair Display\',serif;color:var(--g-dark);">GreenScan</div>',
-      '<div style="font-size:12.5px;color:var(--muted);margin-top:5px;line-height:1.5;">Melde dich an und speichere deine Entdeckungen,<br>Level und Meilensteine</div>',
+      '<div style="font-size:12.5px;color:var(--muted);margin-top:5px;line-height:1.5;">' + _t('login_subtitle','Melde dich an und speichere deine Entdeckungen,<br>Level und Meilensteine') + '</div>',
     '</div>',
 
     // Tab-Bar: nur Anmelden / Registrieren
@@ -64568,22 +64626,22 @@ function renderProfileLogin(mc) {
       '<button id="prof-tab-login" onclick="profSwitchTab(\'login\')" ',
         'style="flex:1;padding:11px;background:var(--g-main);color:#fff;border:none;',
         'font-weight:800;font-size:13.5px;cursor:pointer;font-family:inherit;transition:all .2s;">',
-        '🔑 Anmelden</button>',
+        _t('btn_login','🔑 Anmelden') + '</button>',
       '<button id="prof-tab-reg" onclick="profSwitchTab(\'register\')" ',
         'style="flex:1;padding:11px;background:var(--surface2);color:var(--text);border:none;',
         'font-weight:600;font-size:13.5px;cursor:pointer;font-family:inherit;transition:all .2s;">',
-        '✨ Registrieren</button>',
+        _t('btn_register','✨ Registrieren') + '</button>',
     '</div>',
 
     // ── LOGIN ──
     '<div id="prof-login-section">',
-      '<input id="prof-email" type="email" maxlength="254" placeholder="E-Mail-Adresse" autocomplete="email" ',
+      '<input id="prof-email" type="email" maxlength="254" placeholder="' + _t('ph_email','E-Mail-Adresse') + '" autocomplete="email" ',
         'style="width:100%;padding:13px 14px;border:1.5px solid var(--border);border-radius:11px;',
         'font-size:14px;font-family:inherit;background:var(--surface);color:var(--text);',
         'box-sizing:border-box;margin-bottom:10px;outline:none;" ',
         'onfocus="this.style.borderColor=\'var(--g-main)\'" ',
         'onblur="this.style.borderColor=\'var(--border)\'">',
-      '<input id="prof-pw" type="password" maxlength="128" placeholder="Passwort" autocomplete="current-password" ',
+      '<input id="prof-pw" type="password" maxlength="128" placeholder="' + _t('ph_password','Passwort') + '" autocomplete="current-password" ',
         'style="width:100%;padding:13px 14px;border:1.5px solid var(--border);border-radius:11px;',
         'font-size:14px;font-family:inherit;background:var(--surface);color:var(--text);',
         'box-sizing:border-box;margin-bottom:8px;outline:none;" ',
@@ -64593,7 +64651,7 @@ function renderProfileLogin(mc) {
       '<div style="text-align:right;margin-bottom:12px;">',
         '<button onclick="profForgotPw()" style="background:none;border:none;color:var(--g-main);',
           'font-size:12px;cursor:pointer;font-family:inherit;padding:0;">',
-          'Passwort vergessen?</button>',
+          _t('forgot_password','Passwort vergessen?') + '</button>',
       '</div>',
       '<div id="prof-err" style="color:#c62828;font-size:12.5px;margin-bottom:10px;display:none;',
         'padding:10px 12px;background:#ffebee;border-radius:9px;border-left:3px solid #c62828;"></div>',
@@ -64601,30 +64659,30 @@ function renderProfileLogin(mc) {
         'style="width:100%;padding:14px;background:linear-gradient(135deg,var(--g-forest),var(--g-main));',
         'color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;',
         'font-family:inherit;box-shadow:0 4px 16px rgba(45,138,45,0.28);transition:opacity .15s;">',
-        '🔑 Anmelden</button>',
+        _t('btn_login','🔑 Anmelden') + '</button>',
     '</div>',
 
     // ── REGISTRIEREN ──
     '<div id="prof-reg-section" style="display:none;">',
-      '<input id="prof-name" type="text" placeholder="Dein Name (optional)" autocomplete="name" ',
+      '<input id="prof-name" type="text" placeholder="' + _t('ph_name','Dein Name (optional)') + '" autocomplete="name" ',
         'style="width:100%;padding:13px 14px;border:1.5px solid var(--border);border-radius:11px;',
         'font-size:14px;font-family:inherit;background:var(--surface);color:var(--text);',
         'box-sizing:border-box;margin-bottom:10px;outline:none;" ',
         'onfocus="this.style.borderColor=\'var(--g-main)\'" ',
         'onblur="this.style.borderColor=\'var(--border)\'">',
-      '<input id="prof-email2" type="email" maxlength="254" placeholder="E-Mail-Adresse" autocomplete="email" ',
+      '<input id="prof-email2" type="email" maxlength="254" placeholder="' + _t('ph_email','E-Mail-Adresse') + '" autocomplete="email" ',
         'style="width:100%;padding:13px 14px;border:1.5px solid var(--border);border-radius:11px;',
         'font-size:14px;font-family:inherit;background:var(--surface);color:var(--text);',
         'box-sizing:border-box;margin-bottom:10px;outline:none;" ',
         'onfocus="this.style.borderColor=\'var(--g-main)\'" ',
         'onblur="this.style.borderColor=\'var(--border)\'">',
-      '<input id="prof-pw2" type="password" maxlength="128" placeholder="Passwort (mind. 8 Zeichen)" autocomplete="new-password" ',
+      '<input id="prof-pw2" type="password" maxlength="128" placeholder="' + _t('ph_password_new','Passwort (mind. 8 Zeichen)') + '" autocomplete="new-password" ',
         'style="width:100%;padding:13px 14px;border:1.5px solid var(--border);border-radius:11px;',
         'font-size:14px;font-family:inherit;background:var(--surface);color:var(--text);',
         'box-sizing:border-box;margin-bottom:10px;outline:none;" ',
         'onfocus="this.style.borderColor=\'var(--g-main)\'" ',
         'onblur="this.style.borderColor=\'var(--border)\'">',
-      '<input id="prof-pw2b" type="password" maxlength="128" placeholder="Passwort bestätigen" autocomplete="new-password" ',
+      '<input id="prof-pw2b" type="password" maxlength="128" placeholder="' + _t('ph_password_confirm','Passwort bestätigen') + '" autocomplete="new-password" ',
         'style="width:100%;padding:13px 14px;border:1.5px solid var(--border);border-radius:11px;',
         'font-size:14px;font-family:inherit;background:var(--surface);color:var(--text);',
         'box-sizing:border-box;margin-bottom:12px;outline:none;" ',
@@ -64637,11 +64695,11 @@ function renderProfileLogin(mc) {
         'style="width:100%;padding:14px;background:linear-gradient(135deg,var(--g-forest),var(--g-main));',
         'color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;',
         'font-family:inherit;box-shadow:0 4px 16px rgba(45,138,45,0.28);">',
-        '✨ Kostenlos registrieren</button>',
+        _t('btn_register_free','✨ Kostenlos registrieren') + '</button>',
       '<div style="text-align:center;margin-top:10px;font-size:11px;color:var(--muted);line-height:1.5;">',
-        'Durch die Registrierung stimmst du unserer ',
+        _t('register_terms_pre','Durch die Registrierung stimmst du unserer '),
         '<span onclick="showRechtliches()" style="color:var(--g-main);cursor:pointer;text-decoration:underline;">',
-          'Datenschutzerklärung</span> zu.',
+          _t('privacy_policy','Datenschutzerklärung') + '</span>' + _t('register_terms_post',' zu.'),
       '</div>',
     '</div>',
 
@@ -64649,7 +64707,7 @@ function renderProfileLogin(mc) {
     '<div style="text-align:center;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">',
       '<button onclick="closeModal(\'modal-profile\')" ',
         'style="background:none;border:none;color:var(--muted);font-size:12.5px;cursor:pointer;',
-        'font-family:inherit;">Ohne Konto fortfahren →</button>',
+        'font-family:inherit;">' + _t('continue_without_account','Ohne Konto fortfahren →') + '</button>',
     '</div>',
   ].join('');
 
@@ -64698,14 +64756,15 @@ function profSwitchTab(tab) {
 }
 
 async function profileDoLogin() {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var email = (document.getElementById('prof-email')||{}).value || '';
   var pw    = (document.getElementById('prof-pw')||{}).value || '';
   var errEl = document.getElementById('prof-err');
-  if (!email || !pw) { if(errEl){errEl.textContent='E-Mail und Passwort erforderlich.';errEl.style.display='block';} return; }
+  if (!email || !pw) { if(errEl){errEl.textContent=_t('err_email_pw_required','E-Mail und Passwort erforderlich.');errEl.style.display='block';} return; }
   var btn = document.getElementById('prof-login-btn');
-  if (btn) { btn.textContent = '⏳ Anmelden…'; btn.disabled = true; }
+  if (btn) { btn.textContent = _t('btn_login_loading','⏳ Anmelden…'); btn.disabled = true; }
   var res = await sbLogin(email, pw);
-  if (btn) { btn.textContent = '🔑 Anmelden'; btn.disabled = false; }
+  if (btn) { btn.textContent = _t('btn_login','🔑 Anmelden'); btn.disabled = false; }
   if (res.error) {
     if (errEl) { errEl.textContent = res.error.message; errEl.style.display = 'block'; }
     return;
@@ -64713,23 +64772,24 @@ async function profileDoLogin() {
   await sbLoadProfile();
   await checkAndUpdateStreak();
   closeModal('modal-profile');
-  showProfileToast('✅ Willkommen zurück!');
+  showProfileToast(_t('toast_login_success','🌿 Willkommen zurück!'));
   setTimeout(openUserProfile, 500);
 }
 
 async function profileDoRegister() {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var name  = (document.getElementById('prof-name')||{}).value || '';
   var email = (document.getElementById('prof-email2')||{}).value || '';
   var pw    = (document.getElementById('prof-pw2')||{}).value || '';
   var pw2   = (document.getElementById('prof-pw2b')||{}).value || '';
   var errEl = document.getElementById('prof-err2');
-  if (!email || !pw) { if(errEl){errEl.textContent='E-Mail und Passwort erforderlich.';errEl.style.display='block';} return; }
-  if (pw.length < 8) { if(errEl){errEl.textContent='Passwort mind. 8 Zeichen.';errEl.style.display='block';} return; }
-  if (pw !== pw2) { if(errEl){errEl.textContent='Passwörter stimmen nicht überein.';errEl.style.display='block';} return; }
+  if (!email || !pw) { if(errEl){errEl.textContent=_t('err_email_pw_required','E-Mail und Passwort erforderlich.');errEl.style.display='block';} return; }
+  if (pw.length < 8) { if(errEl){errEl.textContent=_t('err_pw_min','Passwort mind. 8 Zeichen.');errEl.style.display='block';} return; }
+  if (pw !== pw2) { if(errEl){errEl.textContent=_t('err_pw_mismatch','Passwörter stimmen nicht überein');errEl.style.display='block';} return; }
   var btn = document.getElementById('prof-reg-btn');
-  if (btn) { btn.textContent = '⏳ Registrieren…'; btn.disabled = true; }
+  if (btn) { btn.textContent = _t('btn_register_loading','⏳ Registrieren…'); btn.disabled = true; }
   var res = await sbRegister(email, pw, name || email.split('@')[0]);
-  if (btn) { btn.textContent = '✨ Registrieren'; btn.disabled = false; }
+  if (btn) { btn.textContent = _t('btn_register','✨ Registrieren'); btn.disabled = false; }
   if (res.error) {
     if (errEl) { errEl.textContent = res.error.message; errEl.style.display = 'block'; }
     // Duplikat → automatisch zu Login wechseln mit Hinweis
@@ -64741,7 +64801,7 @@ async function profileDoRegister() {
         if (loginEmailEl) loginEmailEl.value = email;
         var loginErrEl = document.getElementById('prof-err');
         if (loginErrEl) {
-          loginErrEl.textContent = '✅ Konto existiert bereits — bitte melde dich an.';
+          loginErrEl.textContent = _t('account_exists_hint','✅ Konto existiert bereits — bitte melde dich an.');
           loginErrEl.style.display = 'block';
           loginErrEl.style.background = '#e8f5e9';
           loginErrEl.style.color = '#2e7d32';
@@ -64759,9 +64819,9 @@ async function profileDoRegister() {
     var mc0 = document.getElementById('profile-modal-content');
     if (mc0) mc0.innerHTML = '<div style="text-align:center;padding:30px 0;">' +
       '<div style="font-size:60px;margin-bottom:14px;">🌿</div>' +
-      '<div style="font-size:22px;font-weight:800;color:var(--g-dark);">Willkommen!</div>' +
-      '<div style="font-size:14px;color:var(--muted);margin-top:8px;">Du bist jetzt eingeloggt.</div>' +
-      '<button onclick="closeModal(\'modal-profile\')" style="margin-top:20px;width:100%;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">&#x2705; Los geht es!</button>' +
+      '<div style="font-size:22px;font-weight:800;color:var(--g-dark);">' + _t('welcome_title','Willkommen!') + '</div>' +
+      '<div style="font-size:14px;color:var(--muted);margin-top:8px;">' + _t('now_logged_in','Du bist jetzt eingeloggt.') + '</div>' +
+      '<button onclick="closeModal(\'modal-profile\')" style="margin-top:20px;width:100%;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">' + _t('btn_lets_go','✅ Los geht es!') + '</button>' +
       '</div>';
     return;
   }
@@ -64770,23 +64830,23 @@ async function profileDoRegister() {
   if (mc) mc.innerHTML = [
     '<div style="text-align:center;padding:20px 0;">',
       '<div style="font-size:56px;margin-bottom:12px;">📧</div>',
-      '<div style="font-size:20px;font-weight:800;font-family:\'Playfair Display\',serif;margin-bottom:10px;color:var(--g-dark);">Fast geschafft!</div>',
+      '<div style="font-size:20px;font-weight:800;font-family:\'Playfair Display\',serif;margin-bottom:10px;color:var(--g-dark);">' + _t('almost_done','Fast geschafft!') + '</div>',
       '<div style="font-size:14px;color:var(--text2);line-height:1.7;margin-bottom:16px;">',
-        'Wir haben eine Bestätigungs-E-Mail an<br><strong style="color:var(--g-dark);">' + email + '</strong><br>gesendet.',
+        _t('confirm_email_pre','Wir haben eine Bestätigungs-E-Mail an') + '<br><strong style="color:var(--g-dark);">' + email + '</strong><br>' + _t('confirm_email_post','gesendet.'),
       '</div>',
       '<div style="background:var(--g-bg);border:1.5px solid var(--g-light);border-radius:12px;padding:14px;font-size:13px;color:var(--g-dark);line-height:1.7;margin-bottom:14px;text-align:left;">',
-        '<strong>Nächste Schritte:</strong><br>',
-        '1️⃣ Öffne dein E-Mail-Postfach<br>',
-        '2️⃣ Prüfe auch den Spam-Ordner<br>',
-        '3️⃣ Klicke auf den Bestätigungslink<br>',
-        '4️⃣ Komme zurück und melde dich an',
+        '<strong>' + _t('next_steps','Nächste Schritte:') + '</strong><br>',
+        _t('reg_step_1','1️⃣ Öffne dein E-Mail-Postfach') + '<br>',
+        _t('reg_step_2','2️⃣ Prüfe auch den Spam-Ordner') + '<br>',
+        _t('reg_step_3','3️⃣ Klicke auf den Bestätigungslink') + '<br>',
+        _t('reg_step_4','4️⃣ Komme zurück und melde dich an'),
       '</div>',
       '<div style="font-size:11.5px;color:var(--muted);margin-bottom:16px;">',
-        'Absender: <strong>info@greenscan.ch</strong>',
+        _t('sender_label','Absender:') + ' <strong>info@greenscan.ch</strong>',
       '</div>',
     '</div>',
-    '<button onclick="profSwitchTab(\'login\'); var e=document.getElementById(\'prof-email\'); if(e) e.value=\''+email+'\'" style="width:100%;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:8px;">🔑 Zum Login</button>',
-    '<a href="mailto:info@greenscan.ch?subject=Hilfe%20bei%20Registrierung" style="display:block;text-align:center;font-size:12px;color:var(--muted);text-decoration:none;padding:6px;">Hilfe? Kontakt: info@greenscan.ch</a>',
+    '<button onclick="profSwitchTab(\'login\'); var e=document.getElementById(\'prof-email\'); if(e) e.value=\''+email+'\'" style="width:100%;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:8px;">' + _t('btn_to_login','🔑 Zum Login') + '</button>',
+    '<a href="mailto:info@greenscan.ch?subject=Hilfe%20bei%20Registrierung" style="display:block;text-align:center;font-size:12px;color:var(--muted);text-decoration:none;padding:6px;">' + _t('help_contact','Hilfe? Kontakt: info@greenscan.ch') + '</a>',
   ].join('');
 }
 
@@ -64797,21 +64857,22 @@ function profSwitchTabModal(tab) {
 
 async function profForgotPw() {
   // v23.72: Robuster Reset-Flow mit User-Feedback
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var emailField = document.getElementById('prof-email');
-  var email = (emailField && emailField.value) || prompt('E-Mail für Passwort-Reset:');
+  var email = (emailField && emailField.value) || prompt(_t('pw_reset_prompt','E-Mail für Passwort-Reset:'));
   if (!email) return;
   email = String(email).trim();
   if (!email) return;
   var btn = document.querySelector('[onclick="profForgotPw()"]');
   var origTxt = btn ? btn.textContent : '';
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Sende…'; }
+  if (btn) { btn.disabled = true; btn.textContent = _t('btn_sending','⏳ Sende…'); }
   try {
-    showProfileToast('⏳ Passwort-Reset-E-Mail wird gesendet…');
+    showProfileToast(_t('toast_pw_reset_sending','⏳ Passwort-Reset-E-Mail wird gesendet…'));
     var res = await sbResetPassword(email);
     if (res.error) {
-      showProfileToast({type:'error', icon:'❌', title:'Reset fehlgeschlagen', body: res.error.message});
+      showProfileToast({type:'error', icon:'❌', title:_t('reset_failed','Reset fehlgeschlagen'), body: res.error.message});
     } else {
-      showProfileToast({type:'success', icon:'📧', title:'E-Mail gesendet', body:'Bitte ' + email + ' prüfen — auch Spam-Ordner.', duration:5000});
+      showProfileToast({type:'success', icon:'📧', title:_t('email_sent','E-Mail gesendet'), body:_t('check_email_pre','Bitte') + ' ' + email + ' ' + _t('check_email_post','prüfen — auch Spam-Ordner.'), duration:5000});
     }
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = origTxt; }
