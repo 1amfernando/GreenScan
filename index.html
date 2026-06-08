@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.58.20260608">
+<meta name="app-version" content="28.59.20260608">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2079,6 +2079,10 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
         </button>
         <button class="sr-topbtn" onclick="gsShowScanTips()" aria-label="Tipps zum Scannen" style="padding:8px 12px;" title="Tipps">
           <span class="sr-ico">💡</span>
+        </button>
+        <!-- v28.59 Block D-Rest: Scan-Verlauf direkt vom Scanner erreichbar (vorher nur im Mehr-Menü versteckt) -->
+        <button class="sr-topbtn" onclick="if(typeof openScanHistoryFull==='function')openScanHistoryFull()" aria-label="Scan-Verlauf anzeigen" style="padding:8px 12px;" title="Scan-Verlauf">
+          <span class="sr-ico">🕘</span>
         </button>
         <button id="sr-flash-btn" class="sr-topbtn" onclick="gsToggleTorch()" aria-label="Blitzlicht ein/aus" style="padding:8px 12px;" title="Blitzlicht">
           <span id="sr-flash-ico" class="sr-ico">🔦</span>
@@ -11090,6 +11094,7 @@ window.GS_I18N_JS_STRINGS = {
   'unit_scans':                'Scans',
   'scan_in_db':                'in DB',
   'scan_delete_all':           '🗑 Alle',
+  'scan_sync':                 '🔄 Sync',
   'scan_no_scans':             'Noch keine Scans',
   'scan_change_filter':        'Filter ändern oder Suche zurücksetzen',
   'scan_first_scan':           'Scanne deine erste Pflanze mit der KI!',
@@ -14341,7 +14346,9 @@ function renderScanHistFull() {
         '<div style="background:var(--surface2);padding:5px 10px;border-radius:8px;"><b style="color:var(--text);">' + totalScans + '</b> ' + _t('unit_scans','Scans') + '</div>' +
         '<div style="background:var(--surface2);padding:5px 10px;border-radius:8px;"><b style="color:var(--text);">' + uniqueSpecies + '</b> ' + _t('unit_species','Arten') + '</div>' +
         '<div style="background:#e8f5e9;color:#2e7d32;padding:5px 10px;border-radius:8px;font-weight:700;"><b>' + inDb + '</b> ' + _t('scan_in_db','in DB') + '</div>' +
-        (totalScans > 0 ? '<button onclick="gsScanHistDeleteAll()" style="margin-left:auto;padding:5px 10px;background:transparent;border:1px solid #c62828;color:#c62828;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">' + _t('scan_delete_all','🗑 Alle') + '</button>' : '') +
+        // v28.59: ☁️-Cloud-Sync aus der alten openScanHistory hierher gerettet (nur eingeloggt).
+        (((typeof sbIsLoggedIn==='function') && sbIsLoggedIn()) ? '<button onclick="gsScanHistorySync()" id="gs-scan-sync-btn" style="margin-left:auto;padding:5px 10px;background:linear-gradient(135deg,#1565c0,#0d47a1);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' + _t('scan_sync','🔄 Sync') + '</button>' : '') +
+        (totalScans > 0 ? '<button onclick="gsScanHistDeleteAll()" style="' + (((typeof sbIsLoggedIn==='function') && sbIsLoggedIn()) ? '' : 'margin-left:auto;') + 'padding:5px 10px;background:transparent;border:1px solid #c62828;color:#c62828;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">' + _t('scan_delete_all','🗑 Alle') + '</button>' : '') +
         '</div>'
       : '';
   }
@@ -23432,51 +23439,11 @@ function updateScanHistoryBadge() {
   if (badge) { badge.textContent = hist.length; badge.style.display = hist.length ? '' : 'none'; }
 }
 
+// v28.59 Block D-Rest: dedupliziert — die alte einfache Liste wurde durch die
+// reiche openScanHistoryFull (Stats/Suche/Filter/Detail + ☁️-Sync) ersetzt.
+// Bleibt als Alias, damit alle Alt-Aufrufer (Hauptmenü etc.) eine View teilen.
 function openScanHistory() {
-  var hist = getScanHistory();
-  var modal = document.getElementById('scan-history-modal');
-  var content = document.getElementById('scan-history-content');
-  if (!modal || !content) return;
-
-  // v24.05: Sync-Button für eingeloggte User — holt Cloud-Scans manuell
-  var loggedIn = (typeof sbIsLoggedIn === 'function') && sbIsLoggedIn();
-  var syncBar = loggedIn
-    ? '<div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface2);">' +
-        '<div style="font-size:11.5px;color:var(--muted);">☁️ Multi-Device-Sync aktiv</div>' +
-        '<button onclick="gsScanHistorySync()" id="gs-scan-sync-btn" style="background:linear-gradient(135deg,#1565c0,#0d47a1);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🔄 Sync</button>' +
-      '</div>'
-    : '';
-
-  if (!hist.length) {
-    content.innerHTML = syncBar + '<div style="text-align:center;padding:40px 20px;color:var(--muted);"><div style="font-size:48px;margin-bottom:12px;">📷</div><p>Noch keine Scans gespeichert.<br>Fotografiere deine erste Pflanze!' + (loggedIn ? '<br><br><span style="font-size:12px;">Tipp: oben „🔄 Sync" lädt Scans von anderen Geräten.</span>' : '') + '</p></div>';
-  } else {
-    var tinfo = toxInfo;
-    content.innerHTML = hist.map(function(e, idx) {
-      var t = tinfo ? tinfo(e.tox) : {sym:'', color:'#666', bg:'#eee'};
-      var dt = new Date(e.ts);
-      var ts = dt.toLocaleDateString('de-CH', {day:'2-digit',month:'short'}) + ' ' +
-               dt.toLocaleTimeString('de-CH', {hour:'2-digit',minute:'2-digit'});
-      var confCol = e.conf>=80?'#27ae60':e.conf>=55?'#f9a825':'#ef5350';
-      return '<div style="display:flex;gap:10px;padding:12px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;" onclick="openScanHistoryDetail(' + idx + ')">' +
-        '<div style="width:44px;height:44px;border-radius:10px;overflow:hidden;flex-shrink:0;background:var(--surface2);display:flex;align-items:center;justify-content:center;">' +
-          (e.thumb ? '<img alt="" src="' + e.thumb + '" style="width:100%;height:100%;object-fit:cover;">' : '<span style="font-size:22px;">' + (e.emoji||'🌿') + '</span>') +
-        '</div>' +
-        '<div style="flex:1;min-width:0;">' +
-          '<div style="font-weight:800;font-size:13.5px;color:var(--text);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">' + e.name + '</div>' +
-          '<div style="font-size:11px;color:var(--muted);font-style:italic;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">' + (e.latin||'') + '</div>' +
-          '<div style="font-size:10.5px;color:var(--muted);margin-top:2px;">' + ts + '</div>' +
-        '</div>' +
-        '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">' +
-          '<span style="font-size:11px;font-weight:800;color:' + confCol + ';">' + e.conf + '%</span>' +
-          '<span style="font-size:11px;font-weight:700;color:' + t.color + ';">' + t.sym + '</span>' +
-        '</div>' +
-      '</div>';
-    }).join('');
-    // Sync-Bar PRE-pend (vor der Liste)
-    content.innerHTML = syncBar + content.innerHTML;
-  }
-
-  modal.classList.add('open');
+  if (typeof openScanHistoryFull === 'function') return openScanHistoryFull();
 }
 
 // v24.05: Manueller Sync der Scan-History aus user_scans-Cloud
@@ -57096,6 +57063,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.59', date: '08.06.2026',
+    headline: '🕘 Scan-Verlauf jetzt direkt im Scanner',
+    summary: 'Der Scan-Verlauf war bisher nur im „Mehr"-Menü versteckt — jetzt erreichst du ihn mit einem Tipp direkt oben im Scanner (🕘-Knopf), wo er hingehört. Ausserdem zeigt die App nur noch EINE einheitliche Verlaufs-Ansicht (mit Suche, Filter, Statistik & Cloud-Sync) statt zwei verschiedener.',
+    user_summary: '🕘 Scan-Verlauf jetzt direkt vom Scanner erreichbar — eine einheitliche Ansicht.',
+    user_items: [
+      { emoji: '🕘', text: 'Neuer Verlauf-Knopf oben im Scanner' },
+      { emoji: '🔎', text: 'Eine Ansicht mit Suche, Filter, Statistik & ☁️-Sync' },
+    ],
+    items: [
+      {emoji:'📷', bold:'Scanner-Top-Bar:', text:' 🕘-Button → openScanHistoryFull direkt vom Kamera-Screen (Mehr-Menü-Eintrag bleibt).'},
+      {emoji:'🧹', bold:'Dedup:', text:' alte einfache openScanHistory → 1-Zeilen-Alias auf die reiche openScanHistoryFull (alle Aufrufer teilen eine View).'},
+      {emoji:'☁️', bold:'Sync gerettet:', text:' Cloud-Sync-Button aus der alten View in die reiche Stats-Bar übernommen (kein Feature-Verlust).'},
+    ]
+  },
+  {
     v: 'v28.58', date: '08.06.2026',
     headline: '🗂️ Automatische Sammlungen — sortieren sich selbst',
     summary: 'Neu: GreenScan legt automatisch 8 clevere Sammlungen für dich an und hält sie immer aktuell — Giftige, Essbare, Heilpflanzen, Geschützte, Pilze, Bäume, Kräuter und Wildpflanzen. Sobald du eine Pflanze hinzufügst oder eine Art sammelst, landet sie automatisch in der passenden Sammlung. Deine eigenen Sammlungen bleiben davon völlig unberührt.',
@@ -60973,7 +60955,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.58';
+var GS_VERSION = 'v28.59';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
