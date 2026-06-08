@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.46.20260608">
+<meta name="app-version" content="28.47.20260608">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10766,6 +10766,26 @@ window.GS_I18N_JS_STRINGS = {
   'time_std_short':            'Std.',
   'time_tag':                  'Tag',
   'time_tage':                 'Tagen',
+  // ── v28.47: Meine Pflanzen (renderMyPlants + getDueLabel) ───────
+  'due_now':                   'Jetzt fällig!',
+  'due_tomorrow':              'Morgen fällig',
+  'due_in':                    'In',
+  'due_soon':                  'Bald fällig',
+  'days_unit':                 'Tagen',
+  'btn_done':                  '✓ Erledigt',
+  'task_never_done':           'Noch nie erledigt',
+  'mp_notif_enable':           '🔔 Erinnerungen aktivieren — nie eine Pflege vergessen',
+  'mp_empty_title':            'Noch keine Pflanzen',
+  'mp_empty_sub':              'Füge deine erste Pflanze hinzu — am einfachsten per Foto-Scan. Wir merken uns Bestimmung, Foto und Pflege.',
+  'btn_scan_plant':            'Pflanze scannen',
+  'badge_recommended':         'empfohlen',
+  'btn_add_manual':            'Manuell hinzufügen',
+  // ── v28.47: Aufgaben-Manager (openTaskManager) ─────────────────
+  'tm_subtitle':               'Aufgaben & Erinnerungen',
+  'tm_hint':                   'Tippe auf eine Aufgabe um sie zu aktivieren/deaktivieren und den Intervall anzupassen.',
+  'tm_active':                 'Aktiv',
+  'tm_last':                   'Zuletzt:',
+  'btn_done_now':              '✓ Jetzt erledigt',
   // ── Offline / Sync ──────────────────────────────────────────────
   'toast_offline_saved':       '📵 Offline gespeichert',
   'toast_offline_synced':      '🔄 Online — Sync abgeschlossen',
@@ -23724,10 +23744,12 @@ function getDaysUntilDue(lastDone, intervalDays){
 }
 
 function getDueLabel(daysUntil){
-  if(daysUntil <= 0) return {text:'Jetzt fällig!', cls:'overdue'};
-  if(daysUntil === 1) return {text:'Morgen fällig', cls:'soon'};
-  if(daysUntil <= 3) return {text:'In ' + daysUntil + ' Tagen', cls:'soon'};
-  return {text:'In ' + daysUntil + ' Tagen', cls:'ok'};
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+  if(daysUntil <= 0) return {text:_t('due_now','Jetzt fällig!'), cls:'overdue'};
+  if(daysUntil === 1) return {text:_t('due_tomorrow','Morgen fällig'), cls:'soon'};
+  var inDays = _t('due_in','In') + ' ' + daysUntil + ' ' + _t('days_unit','Tagen');
+  if(daysUntil <= 3) return {text:inDays, cls:'soon'};
+  return {text:inDays, cls:'ok'};
 }
 
 function countOverdueTasks(){
@@ -23766,6 +23788,7 @@ function initPlantListDelegation(){
 function renderMyPlants() {
   var list = document.getElementById('mp-list');
   if (!list) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
 
   // Stats aktualisieren
   var overdue = [], soon = [], ok = [];
@@ -23808,10 +23831,10 @@ function renderMyPlants() {
             '<div class="due-card-name">' + escHtml(p.name) + '</div>' +
             '<div class="due-card-task">' + (TASK_DEFS[t.key]?TASK_DEFS[t.key].icon:'') + ' ' +
               (TASK_DEFS[t.key]?TASK_DEFS[t.key].name:t.key) + ' · ' +
-              (isDue ? '<span style="color:#c62828;font-weight:800;">Jetzt fällig!</span>' : 'Bald fällig') +
+              (isDue ? '<span style="color:#c62828;font-weight:800;">' + _t('due_now','Jetzt fällig!') + '</span>' : _t('due_soon','Bald fällig')) +
             '</div>' +
           '</div>' +
-          '<button class="due-card-btn" onclick="event.stopPropagation();gsQuickDone(\''+p.id+'\',\''+t.key+'\')">✓ Erledigt</button>' +
+          '<button class="due-card-btn" onclick="event.stopPropagation();gsQuickDone(\''+p.id+'\',\''+t.key+'\')">' + _t('btn_done','✓ Erledigt') + '</button>' +
         '</div>';
       }).join('');
     } else {
@@ -23824,7 +23847,7 @@ function renderMyPlants() {
   if (nb && typeof Notification !== 'undefined') {
     if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
       nb.innerHTML = '<div style="background:#fff8e1;border-bottom:1px solid #ffe082;padding:8px 16px;font-size:12px;font-weight:700;color:#e65100;cursor:pointer;display:flex;align-items:center;gap:8px;" onclick="gsRequestNotifications()">' +
-        '🔔 Erinnerungen aktivieren — nie eine Pflege vergessen</div>';
+        _t('mp_notif_enable','🔔 Erinnerungen aktivieren — nie eine Pflege vergessen') + '</div>';
     }
   }
 
@@ -23839,11 +23862,11 @@ function renderMyPlants() {
     // Klarer Senior-Friendly-Text + grössere Buttons (Min-Touch 48px).
     list.innerHTML = '<div class="gs-empty" style="padding:32px 20px;">' +
       '<div class="gs-empty-icon" style="font-size:54px;">🌱</div>' +
-      '<div class="gs-empty-title" style="font-size:20px;font-weight:900;margin-bottom:6px;">Noch keine Pflanzen</div>' +
-      '<div class="gs-empty-sub" style="font-size:14px;line-height:1.5;margin-bottom:20px;max-width:340px;margin-left:auto;margin-right:auto;">Füge deine erste Pflanze hinzu — am einfachsten per Foto-Scan. Wir merken uns Bestimmung, Foto und Pflege.</div>' +
+      '<div class="gs-empty-title" style="font-size:20px;font-weight:900;margin-bottom:6px;">' + _t('mp_empty_title','Noch keine Pflanzen') + '</div>' +
+      '<div class="gs-empty-sub" style="font-size:14px;line-height:1.5;margin-bottom:20px;max-width:340px;margin-left:auto;margin-right:auto;">' + _t('mp_empty_sub','Füge deine erste Pflanze hinzu — am einfachsten per Foto-Scan. Wir merken uns Bestimmung, Foto und Pflege.') + '</div>' +
       '<div style="display:flex;flex-direction:column;gap:10px;max-width:340px;margin:0 auto;">' +
-        '<button onclick="if(typeof switchTab===\'function\')switchTab(\'scanner\');" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:56px;padding:14px;background:linear-gradient(135deg,#2d8a2d,#1a6a1a);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:900;cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(45,138,45,.35);"><span style="font-size:24px;">📷</span> Pflanze scannen <span style="font-size:11px;background:rgba(255,255,255,.22);padding:3px 8px;border-radius:8px;margin-left:4px;">empfohlen</span></button>' +
-        '<button onclick="openAddPlant()" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:56px;padding:14px;background:var(--card);color:var(--text);border:1.5px solid var(--border);border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;"><span style="font-size:22px;">✍️</span> Manuell hinzufügen</button>' +
+        '<button onclick="if(typeof switchTab===\'function\')switchTab(\'scanner\');" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:56px;padding:14px;background:linear-gradient(135deg,#2d8a2d,#1a6a1a);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:900;cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(45,138,45,.35);"><span style="font-size:24px;">📷</span> ' + _t('btn_scan_plant','Pflanze scannen') + ' <span style="font-size:11px;background:rgba(255,255,255,.22);padding:3px 8px;border-radius:8px;margin-left:4px;">' + _t('badge_recommended','empfohlen') + '</span></button>' +
+        '<button onclick="openAddPlant()" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:56px;padding:14px;background:var(--card);color:var(--text);border:1.5px solid var(--border);border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;"><span style="font-size:22px;">✍️</span> ' + _t('btn_add_manual','Manuell hinzufügen') + '</button>' +
       '</div></div>';
     return;
   }
@@ -24544,13 +24567,14 @@ function doneTask(plantId, taskKey){
 
 // ─── Aufgaben-Manager ─────────────────────────────────────
 function openTaskManager(plantId){
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   const p = myPlants.find(x => x.id === plantId);
   if(!p) return;
   document.getElementById('pd-emoji').textContent = p.emoji || '🌿';
   document.getElementById('pd-name').textContent = p.name;
-  document.getElementById('pd-sub').textContent = p.nick || 'Aufgaben & Erinnerungen';
+  document.getElementById('pd-sub').textContent = p.nick || _t('tm_subtitle','Aufgaben & Erinnerungen');
 
-  var html = '<div style="margin-bottom:10px;font-size:12.5px;color:var(--muted);">Tippe auf eine Aufgabe um sie zu aktivieren/deaktivieren und den Intervall anzupassen.</div>';
+  var html = '<div style="margin-bottom:10px;font-size:12.5px;color:var(--muted);">' + _t('tm_hint','Tippe auf eine Aufgabe um sie zu aktivieren/deaktivieren und den Intervall anzupassen.') + '</div>';
   Object.entries(TASK_DEFS).forEach(([key, def]) => {
     const task = (p.tasks && p.tasks[key]) || {active:false, intervalDays: def.intervals[0].v, lastDone:null};
     const active = task.active;
@@ -24559,7 +24583,7 @@ function openTaskManager(plantId){
       '<option value="' + o.v + '"' + (o.v===iv?' selected':'') + '>' + o.l + '</option>'
     ).join('');
     const daysLeft = task.lastDone ? getDaysUntilDue(task.lastDone, iv) : 0;
-    const due = task.lastDone ? getDueLabel(daysLeft) : {text:'Noch nie erledigt', cls:'overdue'};
+    const due = task.lastDone ? getDueLabel(daysLeft) : {text:_t('task_never_done','Noch nie erledigt'), cls:'overdue'};
     html += '<div class="dsec" style="margin-bottom:8px;opacity:' + (active?'1':'.55') + '">' +
       '<div style="display:flex;align-items:center;gap:9px;margin-bottom:7px;">' +
         '<span style="font-size:22px">' + def.icon + '</span>' +
@@ -24567,12 +24591,12 @@ function openTaskManager(plantId){
           '<div class="mp-task-due ' + due.cls + '" style="font-size:11.5px;">' + due.text + '</div></div>' +
         '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;">' +
           '<input type="checkbox" ' + (active?'checked':'') + ' onchange="toggleTask(\'' + plantId + '\',\'' + key + '\',this.checked)" style="width:17px;height:17px;accent-color:var(--g-main)">' +
-          '<span style="font-size:11.5px;font-weight:700;color:var(--g-main)">Aktiv</span>' +
+          '<span style="font-size:11.5px;font-weight:700;color:var(--g-main)">' + _t('tm_active','Aktiv') + '</span>' +
         '</label>' +
       '</div>' +
       '<select class="mp-select" onchange="setTaskInterval(\'' + plantId + '\',\'' + key + '\',this.value)" ' + (!active?'disabled':'') + ' style="font-size:12.5px;padding:7px 10px;">' + opts + '</select>' +
-      (task.lastDone ? '<div style="font-size:11px;color:var(--muted);margin-top:5px;">Zuletzt: ' + new Date(task.lastDone).toLocaleDateString('de-CH') + '</div>' : '') +
-      '<button style="margin-top:7px;padding:7px;width:100%;border:1.5px solid var(--g-light);border-radius:8px;background:transparent;font-size:12.5px;font-weight:700;color:var(--g-main);cursor:pointer;font-family:inherit;" onclick="doneTask(\'' + plantId + '\',\'' + key + '\');document.getElementById(\x27modal-plant-detail\x27).querySelector(\x27.mbody\x27).innerHTML=\x27\';">✓ Jetzt erledigt</button>' +
+      (task.lastDone ? '<div style="font-size:11px;color:var(--muted);margin-top:5px;">' + _t('tm_last','Zuletzt:') + ' ' + new Date(task.lastDone).toLocaleDateString('de-CH') + '</div>' : '') +
+      '<button style="margin-top:7px;padding:7px;width:100%;border:1.5px solid var(--g-light);border-radius:8px;background:transparent;font-size:12.5px;font-weight:700;color:var(--g-main);cursor:pointer;font-family:inherit;" onclick="doneTask(\'' + plantId + '\',\'' + key + '\');document.getElementById(\x27modal-plant-detail\x27).querySelector(\x27.mbody\x27).innerHTML=\x27\';">' + _t('btn_done_now','✓ Jetzt erledigt') + '</button>' +
     '</div>';
   });
 
@@ -56547,6 +56571,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.47', date: '08.06.2026',
+    headline: '🌍 „Meine Pflanzen" + Aufgaben jetzt mehrsprachig',
+    summary: 'Weiter mit der Vollübersetzung: Der Bildschirm „Meine Pflanzen" (leerer Zustand, „Heute fällig"-Karten mit Jetzt/Bald fällig + Erledigt-Knopf, Erinnerungs-Banner) und der Aufgaben-Manager (Aktiv, Zuletzt, Jetzt erledigt) werden jetzt mit der Sprache mit-übersetzt. Die geteilten Fälligkeits-Texte (Jetzt fällig / Morgen fällig / In X Tagen) greifen damit überall — auch auf der Startseite und in den Pflanzen-Karten. Bei EN/FR/IT/ES automatisch.',
+    user_summary: '🌍 „Meine Pflanzen" + Aufgaben/Fälligkeiten werden jetzt mit der Sprache mit-übersetzt.',
+    user_items: [
+      { emoji: '🪴', text: '„Meine Pflanzen": leerer Zustand, Fällig-Karten, Erinnerungs-Banner mehrsprachig' },
+      { emoji: '⏰', text: 'Fälligkeits-Texte (Jetzt/Morgen fällig, In X Tagen) überall mehrsprachig' },
+      { emoji: '🤖', text: 'EN/FR/IT/ES automatisch via Übersetzungs-Edge-Fn' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'19 gsI18n.t-Keys:', text:' renderMyPlants + openTaskManager + geteiltes getDueLabel (4 Call-Sites) auf gsI18n.t umgestellt + Keys registriert.'},
+      {emoji:'⚡', bold:'High-Leverage:', text:' getDueLabel wirkt in Home-Widget, Pflanzen-Karte, Aufgaben-Manager + Detail.'},
+      {emoji:'📋', bold:'Fortschritt dyn. Renders:', text:' Pflanzen-Karte/Community/Markt/Meine-Pflanzen ✅ — offen: Arten-Detail + Rezepte.'},
+    ]
+  },
+  {
     v: 'v28.46', date: '08.06.2026',
     headline: '🌍 Marktplatz + Community jetzt mehrsprachig (dynamische Inhalte)',
     summary: 'Weiter mit der dynamischen Übersetzung: Auch die JS-generierten Listen im Marktplatz (Kategorien, Preis-/Status-Badges wie Verkauft/Reserviert/Archiviert, Bio/Pestizid-frei, Zeit-Angaben „vor X Min.", Treffer-Zähler, leere Zustände) und im Community-Feed (Zeit-Labels, Experte/Verifiziert-Badges, Verifizieren/Weitere-laden-Buttons, leerer Feed) werden jetzt mit der Sprache mit-übersetzt. Bei EN/FR/IT/ES automatisch.',
@@ -60232,7 +60272,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.46';
+var GS_VERSION = 'v28.47';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
