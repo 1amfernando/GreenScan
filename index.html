@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.49.20260608">
+<meta name="app-version" content="28.50.20260608">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10880,6 +10880,57 @@ window.GS_I18N_JS_STRINGS = {
   'cemetery_unknown_date':     'Unbekannt',
   'cemetery_unknown_cause':    'Unbekannte Ursache',
   'btn_restore_plant':         '♻️ Wiederherstellen',
+  // ── v28.50: Marktplatz-Status (geteilt: gsMarketShowDetail + gsMktSetStatus) ─
+  'status_active_txt':         'Aktiv',
+  'status_reserved_txt':       'Reserviert',
+  'status_sold_txt':           'Verkauft',
+  'status_archived_txt':       'Archiviert',
+  // ── v28.50: Marktplatz-Detail (gsMarketShowDetail, Live-Pfad) ──
+  'listing_owner_status':      'Dein Inserat · Status',
+  'listing_sold_autoarchive':  'Verkaufte Inserate werden nach 30 Tagen automatisch archiviert.',
+  'badge_verified_short':      '✓ verifiziert',
+  'listing_provider':          'Anbieter',
+  'unknown_seller':            'Unbekannt',
+  'btn_contact_seller':        '💬 Kontakt aufnehmen',
+  'btn_rate_listing':          '⭐ Bewerten',
+  'detail_modal_missing':      'Detail-Modal nicht gefunden',
+  'toast_please_login':        '🔑 Bitte einloggen',
+  'err_own_listings_only':     'Nur eigene Inserate',
+  'status_prefix':             'Status:',
+  'toast_network_short':       '⚠️ Netzwerkfehler',
+  'err_generic':               'Fehler',
+  // ── v28.50: Marktplatz-Detail Legacy (openListingDetail) ───────
+  'auction_running':           '🔨 Auktion läuft',
+  'current_highest_bid':       'Aktuelles Höchstgebot',
+  'bids_unit':                 'Gebote',
+  'min_increment':             'Mindesterhöhung CHF',
+  'remaining':                 'verbleibend',
+  'buynow_for':                '💳 Sofortkauf möglich für CHF',
+  'btn_place_bid':             '🔨 Gebot abgeben',
+  'btn_buy_now_short':         '💳 Sofort kaufen',
+  'btn_buy_now':               '💳 Jetzt kaufen',
+  'tutti_style_hint':          '💡 Tutti-Style: Verkäufer akzeptiert nur direkte Kontaktaufnahme. Bezahlung privat (TWINT/Bargeld) und Übergabe nach Absprache.',
+  'label_price':               'Preis',
+  'badge_online_payment':      '💳 Online-Zahlung',
+  'badge_private':             '🤝 Privat',
+  'exchange_offer':            '🔄 Tauschangebot',
+  'offer_label':               'Biete:',
+  'want_label':                'Suche:',
+  'request_fallback':          'Anfrage',
+  'send_exchange_offer':       '💬 Tauschangebot senden',
+  'free_label':                'GRATIS 🎁',
+  'express_interest':          '📩 Interesse melden',
+  'seller_shipping_heading':   'Verkäufer & Lieferung',
+  'ship_local':                '📍 Abholung möglich',
+  'ship_post':                 '📦 Versand möglich',
+  // ── v28.50: Marktplatz-Chat + Käufe (renderChatMessages, renderPurchases) ─
+  'no_messages_yet':           'Noch keine Nachrichten. Schreib als Erster! 💬',
+  'nothing_here_yet':          'Noch nichts hier.',
+  'status_leading':            '🥇 Führend',
+  'status_outbid':             '🔴 Überboten',
+  'status_won':                '🏆 Gewonnen!',
+  'status_bought':             '💳 Gekauft',
+  'my_bid_label':              'Mein Gebot',
   // ── Offline / Sync ──────────────────────────────────────────────
   'toast_offline_saved':       '📵 Offline gespeichert',
   'toast_offline_synced':      '🔄 Online — Sync abgeschlossen',
@@ -31731,6 +31782,7 @@ function formatCountdown(endTime) {
 // v23.98: Detail-Funktion für gsMarketLoad-Listings — mit Bilder-Galerie + Kontakt + Bewertung
 function gsMarketShowDetail(l) {
   if (!l) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var esc = (typeof _esc === 'function') ? _esc : function(s){ return String(s||''); };
   var imgs = Array.isArray(l.images) ? l.images.filter(Boolean) : [];
   var ratings = (typeof gsRatingsLoad === 'function') ? gsRatingsLoad() : {};
@@ -31741,10 +31793,10 @@ function gsMarketShowDetail(l) {
   var myUid = (typeof gsStore !== 'undefined') ? gsStore.get('gs_sb_uid', null) : null;
   var isOwner = myUid && l.sellerId === myUid;
   var statusMeta = {
-    active:   { label: 'Aktiv',      emoji: '🟢', bg: '#e8f5e9', fg: '#2e7d32' },
-    reserved: { label: 'Reserviert', emoji: '🟡', bg: '#fff8e1', fg: '#ef6c00' },
-    sold:     { label: 'Verkauft',   emoji: '✅', bg: '#eceff1', fg: '#455a64' },
-    archived: { label: 'Archiviert', emoji: '📦', bg: '#f5f5f5', fg: '#90a4ae' }
+    active:   { label: _t('status_active_txt','Aktiv'),      emoji: '🟢', bg: '#e8f5e9', fg: '#2e7d32' },
+    reserved: { label: _t('status_reserved_txt','Reserviert'), emoji: '🟡', bg: '#fff8e1', fg: '#ef6c00' },
+    sold:     { label: _t('status_sold_txt','Verkauft'),   emoji: '✅', bg: '#eceff1', fg: '#455a64' },
+    archived: { label: _t('status_archived_txt','Archiviert'), emoji: '📦', bg: '#f5f5f5', fg: '#90a4ae' }
   };
   var st = statusMeta[l.status] || null;
   var statusChip = (st && l.status !== 'active')
@@ -31753,14 +31805,14 @@ function gsMarketShowDetail(l) {
   var ownerCtrl = '';
   if (isOwner) {
     ownerCtrl = '<div style="background:var(--surface2);border-radius:10px;padding:11px 13px;margin-bottom:14px;">' +
-      '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px;">Dein Inserat · Status</div>' +
+      '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px;">' + _t('listing_owner_status','Dein Inserat · Status') + '</div>' +
       '<div style="display:flex;gap:5px;flex-wrap:wrap;">' +
       ['active','reserved','sold','archived'].map(function(s){
         var m = statusMeta[s]; var sel = (l.status || 'active') === s;
         return '<button onclick="gsMktSetStatus(\'' + l.id + '\',\'' + s + '\')" style="flex:1;min-width:68px;padding:8px 6px;border-radius:9px;border:1.5px solid ' + (sel ? m.fg : 'var(--border)') + ';background:' + (sel ? m.bg : 'var(--card)') + ';color:' + (sel ? m.fg : 'var(--text2)') + ';font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' + m.emoji + ' ' + m.label + '</button>';
       }).join('') +
       '</div>' +
-      '<div style="font-size:10.5px;color:var(--muted);margin-top:7px;line-height:1.4;">Verkaufte Inserate werden nach 30 Tagen automatisch archiviert.</div>' +
+      '<div style="font-size:10.5px;color:var(--muted);margin-top:7px;line-height:1.4;">' + _t('listing_sold_autoarchive','Verkaufte Inserate werden nach 30 Tagen automatisch archiviert.') + '</div>' +
     '</div>';
   }
 
@@ -31782,7 +31834,7 @@ function gsMarketShowDetail(l) {
 
   var mc = document.getElementById('modal-content');
   if (!mc) {
-    if (typeof showProfileToast === 'function') showProfileToast('Detail-Modal nicht gefunden');
+    if (typeof showProfileToast === 'function') showProfileToast(_t('detail_modal_missing','Detail-Modal nicht gefunden'));
     return;
   }
   mc.innerHTML = '<div style="padding:0;">' +
@@ -31798,19 +31850,19 @@ function gsMarketShowDetail(l) {
       '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">' +
         '<span style="background:var(--surface2);padding:4px 10px;border-radius:14px;font-size:11.5px;font-weight:700;">' + (typeof _catEmoji==='function' ? _catEmoji(l.cat) : '') + ' ' + (typeof _catLabel==='function' ? _catLabel(l.cat) : esc(l.cat||'')) + '</span>' +
         (l.region ? '<span style="background:var(--surface2);padding:4px 10px;border-radius:14px;font-size:11.5px;font-weight:700;">📍 ' + esc(l.region) + '</span>' +'' : '') +
-        (l.verified ? '<span style="background:#e8f5e9;color:#2e7d32;padding:4px 10px;border-radius:14px;font-size:11.5px;font-weight:700;">✓ verifiziert</span>' : '') +
+        (l.verified ? '<span style="background:#e8f5e9;color:#2e7d32;padding:4px 10px;border-radius:14px;font-size:11.5px;font-weight:700;">' + _t('badge_verified_short','✓ verifiziert') + '</span>' : '') +
         statusChip +
       '</div>' +
       (l.desc ? '<div style="font-size:13.5px;color:var(--text2);line-height:1.65;margin-bottom:14px;white-space:pre-wrap;">' + esc(l.desc) + '</div>' : '') +
       '<div style="background:var(--surface2);border-radius:10px;padding:11px 13px;margin-bottom:14px;">' +
-        '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:5px;">Anbieter</div>' +
-        '<div style="font-size:14px;font-weight:800;color:var(--text);">' + esc(l.sellerName || 'Unbekannt') + '</div>' +
+        '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:5px;">' + _t('listing_provider','Anbieter') + '</div>' +
+        '<div style="font-size:14px;font-weight:800;color:var(--text);">' + esc(l.sellerName || _t('unknown_seller','Unbekannt')) + '</div>' +
       '</div>' +
       ownerCtrl +
       '<div style="display:flex;gap:8px;">' +
-        '<button onclick="contactSeller(\'' + l.id + '\')" style="flex:2;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">💬 Kontakt aufnehmen</button>' +
-        '<button onclick="openRateListing(\'' + l.id + '\')" style="flex:1;padding:13px;background:#fff3e0;color:#e65100;border:1px solid #ffcc80;border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">⭐ Bewerten</button>' +
-        '<button onclick="gsAddListingToCollection(\'' + l.id + '\')" title="Zu Sammlung hinzufügen" aria-label="Zu Sammlung hinzufügen" style="flex:0 0 auto;padding:13px 14px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:11px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📁</button>' +
+        '<button onclick="contactSeller(\'' + l.id + '\')" style="flex:2;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' + _t('btn_contact_seller','💬 Kontakt aufnehmen') + '</button>' +
+        '<button onclick="openRateListing(\'' + l.id + '\')" style="flex:1;padding:13px;background:#fff3e0;color:#e65100;border:1px solid #ffcc80;border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' + _t('btn_rate_listing','⭐ Bewerten') + '</button>' +
+        '<button onclick="gsAddListingToCollection(\'' + l.id + '\')" title="' + _t('btn_add_collection','Zu Sammlung hinzufügen') + '" aria-label="' + _t('btn_add_collection','Zu Sammlung hinzufügen') + '" style="flex:0 0 auto;padding:13px 14px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:11px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📁</button>' +
       '</div>' +
     '</div>' +
   '</div>';
@@ -31827,9 +31879,10 @@ function gsMarketShowDetail(l) {
 
 // v26.92: Listing-Status setzen (Owner-only via fn_marketplace_set_status RPC)
 async function gsMktSetStatus(lid, status) {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   if (!lid || !status) return;
   if (typeof sbIsLoggedIn === 'function' && !sbIsLoggedIn()) {
-    if (typeof gsToast === 'function') gsToast('🔑 Bitte einloggen', 'error');
+    if (typeof gsToast === 'function') gsToast(_t('toast_please_login','🔑 Bitte einloggen'), 'error');
     return;
   }
   if (typeof gsHaptic === 'function') gsHaptic('tap');
@@ -31840,8 +31893,8 @@ async function gsMktSetStatus(lid, status) {
     });
     var res = r && r.data ? r.data : null;
     if (!res || res.ok !== true) {
-      var err = res && res.error ? res.error : (r && r.error ? r.error.message : 'Fehler');
-      if (typeof gsToast === 'function') gsToast('⚠️ ' + (err === 'forbidden' ? 'Nur eigene Inserate' : err), 'error');
+      var err = res && res.error ? res.error : (r && r.error ? r.error.message : _t('err_generic','Fehler'));
+      if (typeof gsToast === 'function') gsToast('⚠️ ' + (err === 'forbidden' ? _t('err_own_listings_only','Nur eigene Inserate') : err), 'error');
       return;
     }
     // Lokalen Pool aktualisieren
@@ -31852,18 +31905,19 @@ async function gsMktSetStatus(lid, status) {
       hit.soldAt = (status === 'sold') ? (hit.soldAt || Date.now()) : (status === 'active' ? null : hit.soldAt);
       window._gsMarket = pool; try { gsMarketSave(); } catch(_){}
     }
-    var labels = { active:'🟢 Aktiv', reserved:'🟡 Reserviert', sold:'✅ Verkauft', archived:'📦 Archiviert' };
-    if (typeof gsToast === 'function') gsToast('Status: ' + (labels[status] || status), 'success');
+    var labels = { active:'🟢 ' + _t('status_active_txt','Aktiv'), reserved:'🟡 ' + _t('status_reserved_txt','Reserviert'), sold:'✅ ' + _t('status_sold_txt','Verkauft'), archived:'📦 ' + _t('status_archived_txt','Archiviert') };
+    if (typeof gsToast === 'function') gsToast(_t('status_prefix','Status:') + ' ' + (labels[status] || status), 'success');
     // Detail-Modal mit neuem Status neu rendern + Liste aktualisieren
     if (hit && typeof gsMarketShowDetail === 'function') gsMarketShowDetail(hit);
     if (typeof renderMarket === 'function') renderMarket();
   } catch(e) {
-    if (typeof gsToast === 'function') gsToast('⚠️ Netzwerkfehler', 'error');
+    if (typeof gsToast === 'function') gsToast(_t('toast_network_short','⚠️ Netzwerkfehler'), 'error');
   }
 }
 window.gsMktSetStatus = gsMktSetStatus;
 
 function openListingDetail(lid) {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   // v25.30: Views-Counter inkrementieren (Fire-and-Forget, ohne Detail-Open zu blockieren).
   // Nutzt fn_mkt_increment_views RPC — funktioniert für jedes Cloud-Listing.
   try {
@@ -31892,21 +31946,21 @@ function openListingDetail(lid) {
   if (l.type === 'auction') {
     priceSection =
       '<div style="background:linear-gradient(135deg,#ffebee,#fff);border-radius:12px;padding:14px 16px;margin-bottom:12px;">' +
-        '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#e53935;margin-bottom:4px;">🔨 Auktion läuft</div>' +
+        '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#e53935;margin-bottom:4px;">' + _t('auction_running','🔨 Auktion läuft') + '</div>' +
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
           '<div>' +
-            '<div style="font-size:11px;color:var(--muted);">Aktuelles Höchstgebot</div>' +
+            '<div style="font-size:11px;color:var(--muted);">' + _t('current_highest_bid','Aktuelles Höchstgebot') + '</div>' +
             '<div style="font-size:28px;font-weight:800;color:var(--g-dark);font-family:\'Playfair Display\',serif;">CHF ' + (l.currentBid||l.startBid||0).toFixed(2) + '</div>' +
-            '<div style="font-size:11px;color:var(--muted);">' + (l.bidCount||0) + ' Gebote · Mindesterhöhung CHF ' + (l.bidStep||1).toFixed(2) + '</div>' +
+            '<div style="font-size:11px;color:var(--muted);">' + (l.bidCount||0) + ' ' + _t('bids_unit','Gebote') + ' · ' + _t('min_increment','Mindesterhöhung CHF') + ' ' + (l.bidStep||1).toFixed(2) + '</div>' +
           '</div>' +
-          '<div style="text-align:right;"><div class="market-auction-timer" style="font-size:14px;">⏱️ ' + countdown + '</div><div style="font-size:10px;color:var(--muted);margin-top:3px;">verbleibend</div></div>' +
+          '<div style="text-align:right;"><div class="market-auction-timer" style="font-size:14px;">⏱️ ' + countdown + '</div><div style="font-size:10px;color:var(--muted);margin-top:3px;">' + _t('remaining','verbleibend') + '</div></div>' +
         '</div>' +
         '<div class="auction-progress" style="height:8px;"><div class="auction-progress-bar" style="width:' + Math.min(95,(l.bidCount||0)/20*100) + '%;"></div></div>' +
-        (l.buyNowPrice ? '<div style="margin-top:10px;font-size:12.5px;color:var(--g-dark);">💳 Sofortkauf möglich für CHF ' + l.buyNowPrice.toFixed(2) + '</div>' : '') +
+        (l.buyNowPrice ? '<div style="margin-top:10px;font-size:12.5px;color:var(--g-dark);">' + _t('buynow_for','💳 Sofortkauf möglich für CHF') + ' ' + l.buyNowPrice.toFixed(2) + '</div>' : '') +
       '</div>' +
       '<div style="display:flex;gap:8px;margin-bottom:12px;">' +
-        '<button class="market-btn-bid" onclick="placeBid(\'' + l.id + '\')" style="flex:2;">🔨 Gebot abgeben</button>' +
-        (l.buyNowPrice ? '<button class="market-btn-buy" onclick="buyNow(\'' + l.id + '\')" style="flex:2;">💳 Sofort kaufen</button>' : '') +
+        '<button class="market-btn-bid" onclick="placeBid(\'' + l.id + '\')" style="flex:2;">' + _t('btn_place_bid','🔨 Gebot abgeben') + '</button>' +
+        (l.buyNowPrice ? '<button class="market-btn-buy" onclick="buyNow(\'' + l.id + '\')" style="flex:2;">' + _t('btn_buy_now_short','💳 Sofort kaufen') + '</button>' : '') +
         '<button class="market-btn-wish" onclick="wishlistToggle(\'' + l.id + '\')">❤️</button>' +
       '<button class="market-btn-wish" onclick="openMarketChat(\'' + l.id + '\')" style="background:#e3f2fd;">💬</button>' +
       '</div>';
@@ -31914,13 +31968,13 @@ function openListingDetail(lid) {
     // v26.70 Tutti-Style: Online-Payment optional — wenn nicht aktiviert, Contact-Button statt Kaufen
     var canPayOnline = l.allow_online_payment === true;
     var primaryBtn = canPayOnline
-      ? '<button class="market-btn-buy" onclick="buyNow(\'' + l.id + '\')">💳 Jetzt kaufen</button>'
-      : '<button class="market-btn-buy" onclick="contactSeller(\'' + l.id + '\')" style="background:linear-gradient(135deg,#1565c0,#0d47a1);color:#fff;">💬 Kontakt aufnehmen</button>';
-    var tuttiHint = canPayOnline ? '' : '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;padding:7px 10px;background:#f9fafb;border-radius:8px;line-height:1.4;">💡 Tutti-Style: Verkäufer akzeptiert nur direkte Kontaktaufnahme. Bezahlung privat (TWINT/Bargeld) und Übergabe nach Absprache.</div>';
+      ? '<button class="market-btn-buy" onclick="buyNow(\'' + l.id + '\')">' + _t('btn_buy_now','💳 Jetzt kaufen') + '</button>'
+      : '<button class="market-btn-buy" onclick="contactSeller(\'' + l.id + '\')" style="background:linear-gradient(135deg,#1565c0,#0d47a1);color:#fff;">' + _t('btn_contact_seller','💬 Kontakt aufnehmen') + '</button>';
+    var tuttiHint = canPayOnline ? '' : '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;padding:7px 10px;background:#f9fafb;border-radius:8px;line-height:1.4;">' + _t('tutti_style_hint','💡 Tutti-Style: Verkäufer akzeptiert nur direkte Kontaktaufnahme. Bezahlung privat (TWINT/Bargeld) und Übergabe nach Absprache.') + '</div>';
     priceSection =
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;background:#e8f5e9;border-radius:12px;padding:12px 14px;">' +
-        '<div><div style="font-size:11px;color:var(--g-main);font-weight:700;">Preis</div><div style="font-size:26px;font-weight:800;color:var(--g-dark);font-family:\'Playfair Display\',serif;">CHF ' + (l.price||0).toFixed(2) + '</div></div>' +
-        (canPayOnline ? '<div style="background:#fff;border:1px solid #c8e6c9;color:#1b5e20;padding:4px 9px;border-radius:7px;font-size:11px;font-weight:700;">💳 Online-Zahlung</div>' : '<div style="background:#fff;border:1px solid #b0bec5;color:#37474f;padding:4px 9px;border-radius:7px;font-size:11px;font-weight:700;">🤝 Privat</div>') +
+        '<div><div style="font-size:11px;color:var(--g-main);font-weight:700;">' + _t('label_price','Preis') + '</div><div style="font-size:26px;font-weight:800;color:var(--g-dark);font-family:\'Playfair Display\',serif;">CHF ' + (l.price||0).toFixed(2) + '</div></div>' +
+        (canPayOnline ? '<div style="background:#fff;border:1px solid #c8e6c9;color:#1b5e20;padding:4px 9px;border-radius:7px;font-size:11px;font-weight:700;">' + _t('badge_online_payment','💳 Online-Zahlung') + '</div>' : '<div style="background:#fff;border:1px solid #b0bec5;color:#37474f;padding:4px 9px;border-radius:7px;font-size:11px;font-weight:700;">' + _t('badge_private','🤝 Privat') + '</div>') +
       '</div>' +
       tuttiHint +
       '<div style="display:flex;gap:8px;margin-bottom:12px;">' +
@@ -31931,24 +31985,24 @@ function openListingDetail(lid) {
   } else if (l.type === 'exchange') {
     priceSection =
       '<div style="background:#e8f5e9;border-radius:12px;padding:12px 14px;margin-bottom:12px;">' +
-        '<div style="font-size:11px;color:var(--g-main);font-weight:700;margin-bottom:4px;">🔄 Tauschangebot</div>' +
-        '<div style="font-size:13px;color:var(--text2);">Biete: <strong>' + escHtml(l.title) + '</strong></div>' +
-        '<div style="font-size:13px;color:var(--text2);">Suche: <strong>' + escHtml(l.exchangeWant||'Anfrage') + '</strong></div>' +
+        '<div style="font-size:11px;color:var(--g-main);font-weight:700;margin-bottom:4px;">' + _t('exchange_offer','🔄 Tauschangebot') + '</div>' +
+        '<div style="font-size:13px;color:var(--text2);">' + _t('offer_label','Biete:') + ' <strong>' + escHtml(l.title) + '</strong></div>' +
+        '<div style="font-size:13px;color:var(--text2);">' + _t('want_label','Suche:') + ' <strong>' + escHtml(l.exchangeWant||_t('request_fallback','Anfrage')) + '</strong></div>' +
       '</div>' +
       '<div style="display:flex;gap:8px;margin-bottom:12px;">' +
-        '<button class="market-btn-buy" onclick="contactSeller(\'' + l.id + '\')">💬 Tauschangebot senden</button>' +
+        '<button class="market-btn-buy" onclick="contactSeller(\'' + l.id + '\')">' + _t('send_exchange_offer','💬 Tauschangebot senden') + '</button>' +
         '<button class="market-btn-wish" onclick="wishlistToggle(\'' + l.id + '\')">❤️</button>' +
       '</div>';
   } else {
     priceSection =
       '<div style="background:#e8f5e9;border-radius:12px;padding:12px 14px;margin-bottom:12px;">' +
-        '<div style="font-size:22px;font-weight:800;color:var(--g-dark);">GRATIS 🎁</div>' +
+        '<div style="font-size:22px;font-weight:800;color:var(--g-dark);">' + _t('free_label','GRATIS 🎁') + '</div>' +
       '</div>' +
-      '<button class="market-btn-buy" onclick="contactSeller(\'' + l.id + '\')" style="width:100%;margin-bottom:12px;">📩 Interesse melden</button>';
+      '<button class="market-btn-buy" onclick="contactSeller(\'' + l.id + '\')" style="width:100%;margin-bottom:12px;">' + _t('express_interest','📩 Interesse melden') + '</button>';
   }
 
   const tagHtml = (l.tags||[]).map(t => '<span class="market-tag" style="background:#e8f5e9;color:#2e7d32;">' + escHtml(t) + '</span>').join('');
-  const shipText = (l.shipping||[]).map(s => s === 'local' ? '📍 Abholung möglich' : '📦 Versand möglich').join(' · ');
+  const shipText = (l.shipping||[]).map(s => s === 'local' ? _t('ship_local','📍 Abholung möglich') : _t('ship_post','📦 Versand möglich')).join(' · ');
 
   document.getElementById('listing-detail-body').innerHTML =
     '<div style="padding:14px 16px 0;">' +
@@ -31957,7 +32011,7 @@ function openListingDetail(lid) {
       priceSection +
       '<div style="font-size:13.5px;color:var(--text2);line-height:1.7;margin-bottom:12px;">' + escHtml(l.desc) + '</div>' +
       '<div style="background:#f9fafb;border-radius:10px;padding:11px 13px;margin-bottom:10px;">' +
-        '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Verkäufer & Lieferung</div>' +
+        '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">' + _t('seller_shipping_heading','Verkäufer & Lieferung') + '</div>' +
         '<div style="display:flex;align-items:center;gap:9px;">' +
           '<div class="post-avatar">' + (l.sellerAvatar||'🌿') + '</div>' +
           '<div>' +
@@ -32453,9 +32507,10 @@ window._gsConvOpen = _gsConvOpen;
 function renderChatMessages(lid) {
   const msgs = document.getElementById('mkt-chat-msgs');
   if (!msgs) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   const chat = marketChats[lid] || [];
   if (!chat.length) {
-    msgs.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;font-size:13px;">Noch keine Nachrichten. Schreib als Erster! 💬</div>';
+    msgs.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;font-size:13px;">' + _t('no_messages_yet','Noch keine Nachrichten. Schreib als Erster! 💬') + '</div>';
     return;
   }
   const myName = socialUserName || 'Ich';
@@ -32521,6 +32576,7 @@ function switchPurchaseTab(tab, btn) {
 function renderPurchases() {
   const list = document.getElementById('purchases-list');
   if (!list) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
 
   var items = [];
   if (currentPurchaseTab === 'active') {
@@ -32550,7 +32606,7 @@ function renderPurchases() {
   }
 
   if (!items.length) {
-    list.innerHTML = '<div class="mp-empty"><span>' + (currentPurchaseTab==='active'?'⏳':currentPurchaseTab==='won'?'🏆':'🛍️') + '</span><p>Noch nichts hier.</p></div>';
+    list.innerHTML = '<div class="mp-empty"><span>' + (currentPurchaseTab==='active'?'⏳':currentPurchaseTab==='won'?'🏆':'🛍️') + '</span><p>' + _t('nothing_here_yet','Noch nichts hier.') + '</p></div>';
     return;
   }
 
@@ -32559,19 +32615,19 @@ function renderPurchases() {
     let statusHtml = '';
     if (item.type === 'bid') {
       statusHtml = item.isLeading
-        ? '<span class="purchase-status status-won">🥇 Führend</span>'
-        : '<span class="purchase-status" style="background:#ffebee;color:#c62828;">🔴 Überboten</span>';
+        ? '<span class="purchase-status status-won">' + _t('status_leading','🥇 Führend') + '</span>'
+        : '<span class="purchase-status" style="background:#ffebee;color:#c62828;">' + _t('status_outbid','🔴 Überboten') + '</span>';
     } else if (item.type === 'won') {
-      statusHtml = '<span class="purchase-status status-won">🏆 Gewonnen!</span>';
+      statusHtml = '<span class="purchase-status status-won">' + _t('status_won','🏆 Gewonnen!') + '</span>';
     } else {
-      statusHtml = '<span class="purchase-status status-bought">💳 Gekauft</span>';
+      statusHtml = '<span class="purchase-status status-bought">' + _t('status_bought','💳 Gekauft') + '</span>';
     }
     const amount = item.bid?.amount || item.purchase?.amount || 0;
     return '<div class="purchase-card">' +
       '<span style="font-size:28px;flex-shrink:0;">' + (l.emoji||'🌿') + '</span>' +
       '<div style="flex:1;min-width:0;">' +
         '<div style="font-size:13.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(l.title||'') + '</div>' +
-        '<div style="font-size:11.5px;color:var(--muted);margin-top:2px;">' + (item.type==='bid'?'Mein Gebot':'Preis') + ': <strong>CHF ' + amount.toFixed(2) + '</strong></div>' +
+        '<div style="font-size:11.5px;color:var(--muted);margin-top:2px;">' + (item.type==='bid'?_t('my_bid_label','Mein Gebot'):_t('label_price','Preis')) + ': <strong>CHF ' + amount.toFixed(2) + '</strong></div>' +
       '</div>' +
       statusHtml +
       '<button onclick="openMarketChat(\'' + (item.bid?.listingId||item.purchase?.listingId) + '\')" style="padding:6px 10px;background:#e8f5e9;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;flex-shrink:0;">💬</button>' +
@@ -56679,6 +56735,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.50', date: '08.06.2026',
+    headline: '🌍 Marktplatz-Detail, Chat & Käufe jetzt mehrsprachig',
+    summary: 'Weiter mit der Vollübersetzung (Batch D): Die Inserat-Detailansicht (Status Aktiv/Reserviert/Verkauft/Archiviert, Anbieter, Kontakt/Bewerten, Auktion/Tausch/Gratis-Sektionen, Versand/Abholung), der Marktplatz-Chat und die „Meine Käufe"-Übersicht (Führend/Überboten/Gewonnen/Gekauft) werden jetzt mit der Sprache mit-übersetzt. Bei EN/FR/IT/ES automatisch.',
+    user_summary: '🌍 Inserat-Detail, Marktplatz-Chat und „Meine Käufe" sind jetzt mehrsprachig.',
+    user_items: [
+      { emoji: '🛒', text: 'Inserat-Detail: Status, Anbieter, Kontakt/Bewerten, Auktion/Tausch/Gratis mehrsprachig' },
+      { emoji: '💬', text: 'Marktplatz-Chat + „Meine Käufe" (Führend/Überboten/Gewonnen) mehrsprachig' },
+      { emoji: '🤖', text: 'EN/FR/IT/ES automatisch via Übersetzungs-Edge-Fn' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'45 neue Keys:', text:' gsMarketShowDetail + openListingDetail + gsMktSetStatus + renderChatMessages + renderPurchases auf gsI18n.t.'},
+      {emoji:'⚡', bold:'Live-Pfad mitgenommen:', text:' gsMarketShowDetail (war nicht im Audit) zusätzlich zum Legacy openListingDetail — keine halbe Sache.'},
+      {emoji:'📋', bold:'Audit-Roadmap:', text:' Batch A+D ✅ — als nächstes Rezepte/Quiz/Doktor (I18N_DYNAMIC_AUDIT.md).'},
+    ]
+  },
+  {
     v: 'v28.49', date: '08.06.2026',
     headline: '🌍 Arten-Suchliste, Garten-Übersicht & Friedhof mehrsprachig',
     summary: 'Weiter mit der Vollübersetzung (Batch A der Audit-Roadmap): Die Arten-Suchliste (Trefferanzeige, leerer Zustand, Tag-Badges Giftig/Essbar/Heilpflanze/Geschützt), die Garten-Übersicht (leerer Zustand, Karten, „Pflanze hinzufügen") und der Pflanzenfriedhof (leerer Zustand, Wiederherstellen) werden jetzt mit der Sprache mit-übersetzt. Bei EN/FR/IT/ES automatisch.',
@@ -60412,7 +60484,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.49';
+var GS_VERSION = 'v28.50';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
