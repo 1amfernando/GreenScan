@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.54.20260608">
+<meta name="app-version" content="28.55.20260608">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11087,6 +11087,44 @@ window.GS_I18N_JS_STRINGS = {
   'scan_report_wrong':         '⚠️ Falsch erkannt',
   'scan_delete_history':       '🗑️ Aus History löschen',
   'scan_note_saved':           'Notiz gespeichert',
+  // ── v28.55: Wissen — Bodentypen (renderBodenTypen) ─────────────
+  'bodentypen_intro':          'Wähle deinen Bodentyp um zu sehen, welche Pflanzen passen und wie du ihn verbessern kannst.',
+  'boden_ideal':               'Ideal',
+  'boden_advantages':          '✅ Vorteile',
+  'boden_disadvantages':       '⚠️ Nachteile',
+  'boden_improvement':         '💊 Verbesserung:',
+  'boden_suitable':            '🌱 Gut geeignet für diese Arten',
+  // ── v28.55: Wissen — Lexikon (renderLexikon) ───────────────────
+  'lexikon_med':               'Heilkraft',
+  'lexikon_intro':             'Kompakte Grundlagen —',
+  'lexikon_terms':             'Fachbegriffe',
+  'lexikon_intro_suffix':      'für selbstbewusstes Gärtnern.',
+  // ── v28.55: Wissen — Schädlinge (renderSchaedlinge/Items/filter) ─
+  'schaedlinge_search':        '🔍 Schädling oder Pflanze suchen…',
+  'schaedling_krankheit':      'Krankheit',
+  'schaedling_pest':           'Schädling',
+  'schaedling_recognition':    '🔍 Erkennung:',
+  'schaedling_measures':       '💊 Massnahmen:',
+  'schaedling_affected':       'Betrifft folgende Arten',
+  'schaedling_in_db':          'in Datenbank',
+  'schaedling_no_results':     'Nichts gefunden.',
+  // ── v28.55: Wissen — Aussaatkalender (renderAussaat) ───────────
+  'aussaat_now':               'Jetzt',
+  // ── v28.55: Wissen — Pflanztafel (renderPflanzentafel) ─────────
+  'pflanzentafel_intro':       'Alle Angaben in cm. Tracht: I=Starkzehrer, II=Mittelzehrer, III=Schwachzehrer',
+  'pft_plant':                 'Pflanze',
+  'pft_distance':              'Abst.',
+  'pft_row':                   'Reihe',
+  'pft_seed':                  'Saat',
+  'pft_moon':                  'Mond',
+  'pft_tracht':                'Tr.',
+  // ── v28.55: Wissen — Boden-Info-Card (renderBodenInfoCard) ─────
+  'boden_good_for':            'Boden gut geeignet für',
+  'boden_ph_optimal':          'pH optimal:',
+  'boden_warning':             'Boden-Warnung:',
+  'boden_on':                  'auf',
+  'boden_what_todo':           '💡 Was tun?',
+  'boden_ideal_for':           '🌍 Idealer Boden für',
   // ── Offline / Sync ──────────────────────────────────────────────
   'toast_offline_saved':       '📵 Offline gespeichert',
   'toast_offline_synced':      '🔄 Online — Sync abgeschlossen',
@@ -38258,7 +38296,8 @@ function editGarden(id) {
 
 // Add Bodentyp-Sektion in Wissensbereich
 function renderBodenTypen() {
-  return '<div style="margin-bottom:8px;font-size:13px;color:var(--text2);line-height:1.6;">Wähle deinen Bodentyp um zu sehen, welche Pflanzen passen und wie du ihn verbessern kannst.</div>' +
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+  return '<div style="margin-bottom:8px;font-size:13px;color:var(--text2);line-height:1.6;">' + _t('bodentypen_intro','Wähle deinen Bodentyp um zu sehen, welche Pflanzen passen und wie du ihn verbessern kannst.') + '</div>' +
     Object.entries(BODENTYPEN).map(([key, b]) => {
       const isGood = key === 'humusreich';
       return '<details style="background:var(--card);border-radius:var(--r);margin-bottom:8px;box-shadow:var(--shadow-sm);overflow:hidden;">' +
@@ -38268,23 +38307,23 @@ function renderBodenTypen() {
             '<div style="font-size:14px;font-weight:800;color:var(--text);">' + b.label + '</div>' +
             '<div style="font-size:12px;color:var(--muted);margin-top:1px;">' + b.beschreibung + '</div>' +
           '</div>' +
-          (isGood ? '<span style="font-size:10.5px;background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:6px;font-weight:700;">Ideal</span>' : '') +
+          (isGood ? '<span style="font-size:10.5px;background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:6px;font-weight:700;">' + _t('boden_ideal','Ideal') + '</span>' : '') +
         '</summary>' +
         '<div style="padding:0 14px 13px;">' +
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">' +
             '<div style="background:#e8f5e9;border-radius:8px;padding:8px 10px;">' +
-              '<div style="font-size:10px;font-weight:700;color:var(--g-main);text-transform:uppercase;margin-bottom:4px;">✅ Vorteile</div>' +
+              '<div style="font-size:10px;font-weight:700;color:var(--g-main);text-transform:uppercase;margin-bottom:4px;">' + _t('boden_advantages','✅ Vorteile') + '</div>' +
               b.vorteile.map(v => '<div style="font-size:11.5px;color:var(--g-dark);">• ' + v + '</div>').join('') +
             '</div>' +
             '<div style="background:#ffebee;border-radius:8px;padding:8px 10px;">' +
-              '<div style="font-size:10px;font-weight:700;color:#c62828;text-transform:uppercase;margin-bottom:4px;">⚠️ Nachteile</div>' +
+              '<div style="font-size:10px;font-weight:700;color:#c62828;text-transform:uppercase;margin-bottom:4px;">' + _t('boden_disadvantages','⚠️ Nachteile') + '</div>' +
               b.nachteile.map(n => '<div style="font-size:11.5px;color:#c62828;">• ' + n + '</div>').join('') +
             '</div>' +
           '</div>' +
-          '<div style="font-size:11.5px;font-weight:700;color:var(--g-dark);margin-bottom:4px;">💊 Verbesserung:</div>' +
+          '<div style="font-size:11.5px;font-weight:700;color:var(--g-dark);margin-bottom:4px;">' + _t('boden_improvement','💊 Verbesserung:') + '</div>' +
           b.verbesserung.slice(0,3).map(v => '<div style="font-size:11.5px;color:var(--text2);margin-bottom:2px;">• ' + v + '</div>').join('') +
           '<div style="margin-top:7px;background:#f0f7ee;border-radius:7px;padding:8px 10px;">' +
-            '<div style="font-size:10.5px;font-weight:800;color:var(--g-main);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px;">🌱 Gut geeignet für diese Arten</div>' +
+            '<div style="font-size:10.5px;font-weight:800;color:var(--g-main);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px;">' + _t('boden_suitable','🌱 Gut geeignet für diese Arten') + '</div>' +
             '<div style="display:flex;flex-wrap:wrap;gap:3px;">' + (b.geeignet||[]).map(function(p){ return gsWissenPlantChip(p); }).join('') + '</div>' +
           '</div>' +
         '</div></details>';
@@ -38466,16 +38505,17 @@ function gsWissenSearch(q) {
 }
 // v23.56: Lexikon — Grundlagen kompakt + DB-Statistik
 function renderLexikon() {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   // DB-Live-Stats als Intro-Bar
   var dbTotal = (typeof DB !== 'undefined' && Array.isArray(DB)) ? DB.length : 0;
   var edibleCount = gsWissenDBCount(function(s){ return s && s.edible === true; });
   var toxicCount  = gsWissenDBCount(function(s){ return s && (s.tox === 2 || s.tox === 3); });
   var medCount    = gsWissenDBCount(function(s){ return s && s.medicinal === true; });
   var lexStats = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px;">'
-    + '<div style="background:var(--card);border-radius:10px;padding:9px 8px;text-align:center;box-shadow:var(--shadow-sm);border-left:3px solid var(--g-main);"><div style="font-size:18px;font-weight:800;color:var(--g-dark);">'+dbTotal+'</div><div style="font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;font-weight:700;">Arten</div></div>'
-    + '<div style="background:var(--card);border-radius:10px;padding:9px 8px;text-align:center;box-shadow:var(--shadow-sm);border-left:3px solid #43a047;"><div style="font-size:18px;font-weight:800;color:#2e7d32;">'+edibleCount+'</div><div style="font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;font-weight:700;">Essbar</div></div>'
-    + '<div style="background:var(--card);border-radius:10px;padding:9px 8px;text-align:center;box-shadow:var(--shadow-sm);border-left:3px solid #c62828;"><div style="font-size:18px;font-weight:800;color:#c62828;">'+toxicCount+'</div><div style="font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;font-weight:700;">Giftig</div></div>'
-    + '<div style="background:var(--card);border-radius:10px;padding:9px 8px;text-align:center;box-shadow:var(--shadow-sm);border-left:3px solid #8e24aa;"><div style="font-size:18px;font-weight:800;color:#6a1b9a;">'+medCount+'</div><div style="font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;font-weight:700;">Heilkraft</div></div>'
+    + '<div style="background:var(--card);border-radius:10px;padding:9px 8px;text-align:center;box-shadow:var(--shadow-sm);border-left:3px solid var(--g-main);"><div style="font-size:18px;font-weight:800;color:var(--g-dark);">'+dbTotal+'</div><div style="font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;font-weight:700;">' + _t('unit_species','Arten') + '</div></div>'
+    + '<div style="background:var(--card);border-radius:10px;padding:9px 8px;text-align:center;box-shadow:var(--shadow-sm);border-left:3px solid #43a047;"><div style="font-size:18px;font-weight:800;color:#2e7d32;">'+edibleCount+'</div><div style="font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;font-weight:700;">' + _t('tag_edible','Essbar') + '</div></div>'
+    + '<div style="background:var(--card);border-radius:10px;padding:9px 8px;text-align:center;box-shadow:var(--shadow-sm);border-left:3px solid #c62828;"><div style="font-size:18px;font-weight:800;color:#c62828;">'+toxicCount+'</div><div style="font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;font-weight:700;">' + _t('badge_giftig','Giftig') + '</div></div>'
+    + '<div style="background:var(--card);border-radius:10px;padding:9px 8px;text-align:center;box-shadow:var(--shadow-sm);border-left:3px solid #8e24aa;"><div style="font-size:18px;font-weight:800;color:#6a1b9a;">'+medCount+'</div><div style="font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;font-weight:700;">' + _t('lexikon_med','Heilkraft') + '</div></div>'
     + '</div>';
   var terms = [
     {t:'pH-Wert',     d:'Sauer-Basen-Skala 0-14. 7 = neutral. Die meisten Pflanzen lieben 6-7 (leicht sauer bis neutral). Heidelbeeren: 4-5. Rhabarber: 6-7.'},
@@ -38500,7 +38540,7 @@ function renderLexikon() {
     {t:'Substrat',    d:'Pflanzenmedium im Topf. Mischung aus Kompost, Torf (oder Alternativen), Sand, Perlite. Durchlüftung wichtig!'}
   ];
   return lexStats +
-    '<div style="font-size:13px;color:var(--text2);margin-bottom:12px;line-height:1.5;">Kompakte Grundlagen — <b>' + terms.length + ' Fachbegriffe</b> für selbstbewusstes Gärtnern.</div>' +
+    '<div style="font-size:13px;color:var(--text2);margin-bottom:12px;line-height:1.5;">' + _t('lexikon_intro','Kompakte Grundlagen —') + ' <b>' + terms.length + ' ' + _t('lexikon_terms','Fachbegriffe') + '</b> ' + _t('lexikon_intro_suffix','für selbstbewusstes Gärtnern.') + '</div>' +
     terms.map(function(x){
       return '<details style="background:var(--card);border-radius:10px;box-shadow:var(--shadow-sm);margin-bottom:7px;overflow:hidden;border-left:3px solid var(--g-main);">'
         + '<summary style="padding:11px 14px;cursor:pointer;list-style:none;font-size:14px;font-weight:800;color:var(--g-dark);">📖 ' + x.t + '</summary>'
@@ -40254,11 +40294,12 @@ function renderTrachten() {
 }
 
 function renderSchaedlinge() {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   const items = GARDEN_KNOWLEDGE.schaedlinge.items;
-  
+
   // Search bar
   let html = '<div style="margin-bottom:10px;position:relative;">' +
-    '<input class="mp-input" id="schaedling-search" placeholder="🔍 Schädling oder Pflanze suchen…" oninput="filterSchaedlinge(this.value)">' +
+    '<input class="mp-input" id="schaedling-search" placeholder="' + _t('schaedlinge_search','🔍 Schädling oder Pflanze suchen…') + '" oninput="filterSchaedlinge(this.value)">' +
   '</div><div id="schaedling-list">';
   
   html += renderSchaedlingItems(items);
@@ -40267,6 +40308,7 @@ function renderSchaedlinge() {
 }
 
 function renderSchaedlingItems(items) {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   return items.map(item => {
     const isKrankheit = item.typ === 'krankheit';
     const borderColor = isKrankheit ? '#6a1b9a' : '#c62828';
@@ -40281,18 +40323,18 @@ function renderSchaedlingItems(items) {
           '<div style="font-size:14px;font-weight:800;color:var(--text);">' + item.name + '</div>' +
           '<div style="font-size:11px;color:var(--muted);margin-top:1px;">' + item.kategorie + '</div>' +
         '</div>' +
-        '<span style="font-size:10.5px;padding:2px 8px;border-radius:6px;background:' + bg + ';color:' + borderColor + ';font-weight:700;">' + (isKrankheit?'Krankheit':'Schädling') + '</span>' +
+        '<span style="font-size:10.5px;padding:2px 8px;border-radius:6px;background:' + bg + ';color:' + borderColor + ';font-weight:700;">' + (isKrankheit?_t('schaedling_krankheit','Krankheit'):_t('schaedling_pest','Schädling')) + '</span>' +
       '</summary>' +
       '<div style="padding:0 14px 13px;">' +
         '<div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:8px;">' + item.beschreibung + '</div>' +
-        '<div style="font-size:12px;font-weight:700;color:' + borderColor + ';margin-bottom:4px;">🔍 Erkennung:</div>' +
+        '<div style="font-size:12px;font-weight:700;color:' + borderColor + ';margin-bottom:4px;">' + _t('schaedling_recognition','🔍 Erkennung:') + '</div>' +
         '<div style="font-size:12.5px;color:var(--text2);margin-bottom:8px;">' + item.erkennung + '</div>' +
-        '<div style="font-size:12px;font-weight:700;color:var(--g-dark);margin-bottom:5px;">💊 Massnahmen:</div>' +
+        '<div style="font-size:12px;font-weight:700;color:var(--g-dark);margin-bottom:5px;">' + _t('schaedling_measures','💊 Massnahmen:') + '</div>' +
         '<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;">' +
           item.massnahmen.map(m => '<div style="display:flex;gap:6px;font-size:12px;"><span style="color:var(--g-main);font-weight:800;">•</span><span>' + m + '</span></div>').join('') +
         '</div>' +
         '<div style="background:' + bg + ';border-radius:7px;padding:8px 10px;">' +
-          '<div style="font-size:10.5px;font-weight:800;color:' + borderColor + ';text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px;">Betrifft folgende Arten' + (linkedCount ? ' · '+linkedCount+' in Datenbank' : '') + '</div>' +
+          '<div style="font-size:10.5px;font-weight:800;color:' + borderColor + ';text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px;">' + _t('schaedling_affected','Betrifft folgende Arten') + (linkedCount ? ' · '+linkedCount+' ' + _t('schaedling_in_db','in Datenbank') : '') + '</div>' +
           '<div style="display:flex;flex-wrap:wrap;gap:3px;">' + betroffeneHtml + '</div>' +
         '</div>' +
       '</div></details>';
@@ -40302,15 +40344,17 @@ function renderSchaedlingItems(items) {
 function filterSchaedlinge(query) {
   const list = document.getElementById('schaedling-list');
   if (!list) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   const q = query.toLowerCase();
   const items = GARDEN_KNOWLEDGE.schaedlinge.items.filter(i =>
     !q || i.name.toLowerCase().includes(q) || i.beschreibung.toLowerCase().includes(q) ||
     (i.betroffene||[]).some(b => b.toLowerCase().includes(q))
   );
-  list.innerHTML = items.length ? renderSchaedlingItems(items) : '<div class="mp-empty"><span>🔍</span><p>Nichts gefunden.</p></div>';
+  list.innerHTML = items.length ? renderSchaedlingItems(items) : '<div class="mp-empty"><span>🔍</span><p>' + _t('schaedling_no_results','Nichts gefunden.') + '</p></div>';
 }
 
 function renderAussaat() {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   const cal = GARDEN_KNOWLEDGE.aussaatkalender;
   const curMonth = new Date().getMonth();
   const monthKeys = Object.keys(cal.monate);
@@ -40349,7 +40393,7 @@ function renderAussaat() {
 
     html += '<div style="background:var(--card);border-radius:var(--r);margin-bottom:9px;box-shadow:var(--shadow-sm);' + (isCurrentApprox ? 'outline:3px solid var(--g-main);' : '') + '">' +
       '<div style="padding:10px 14px 8px;background:' + (isCurrentApprox ? 'var(--g-main)' : '#f5f5f5') + ';color:' + (isCurrentApprox ? '#fff' : 'var(--text)') + ';border-radius:var(--r) var(--r) 0 0;display:flex;align-items:center;justify-content:space-between;">' +
-        '<div style="font-family:\'Playfair Display\',serif;font-size:15px;font-weight:800;">' + mKey + (isCurrentApprox ? ' ← Jetzt' : '') + '</div>' +
+        '<div style="font-family:\'Playfair Display\',serif;font-size:15px;font-weight:800;">' + mKey + (isCurrentApprox ? ' ← ' + _t('aussaat_now','Jetzt') : '') + '</div>' +
       '</div>' +
       '<div style="padding:10px 14px;">' +
         '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;">' +
@@ -40362,9 +40406,10 @@ function renderAussaat() {
 }
 
 function renderPflanzentafel() {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   const plants = Object.entries(PLANT_DB).filter(([k,v]) => v.pflanzabstand && v.category !== 'hauspflanze');
-  
-  let html = '<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Alle Angaben in cm. Tracht: I=Starkzehrer, II=Mittelzehrer, III=Schwachzehrer</div>';
+
+  let html = '<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">' + _t('pflanzentafel_intro','Alle Angaben in cm. Tracht: I=Starkzehrer, II=Mittelzehrer, III=Schwachzehrer') + '</div>';
   
   // Group by category
   const groups = {};
@@ -45020,6 +45065,7 @@ function getBodenTipp(pflanzName, gardenBoden) {
 }
 
 function renderBodenInfoCard(pflanzName, gardenSoil) {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   const result = getBodenTipp(pflanzName, gardenSoil);
   if (!result) return '';
   
@@ -45032,17 +45078,17 @@ function renderBodenInfoCard(pflanzName, gardenSoil) {
   if (isIdeal || !problem) {
     html += '<div style="background:#e8f5e9;border-radius:9px;padding:9px 12px;margin-bottom:8px;display:flex;align-items:center;gap:8px;">' +
       '<span style="font-size:18px;">✅</span>' +
-      '<div><div style="font-size:12.5px;font-weight:800;color:#2e7d32;">Boden gut geeignet für ' + pflanzName + '</div>' +
-      '<div style="font-size:11.5px;color:#2e7d32;margin-top:1px;">pH optimal: ' + info.pH + '</div></div>' +
+      '<div><div style="font-size:12.5px;font-weight:800;color:#2e7d32;">' + _t('boden_good_for','Boden gut geeignet für') + ' ' + pflanzName + '</div>' +
+      '<div style="font-size:11.5px;color:#2e7d32;margin-top:1px;">' + _t('boden_ph_optimal','pH optimal:') + ' ' + info.pH + '</div></div>' +
     '</div>';
   } else if (problem) {
     html += '<div style="background:#fff3e0;border-radius:9px;padding:9px 12px;margin-bottom:8px;">' +
       '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">' +
         '<span style="font-size:18px;">⚠️</span>' +
-        '<div style="font-size:12.5px;font-weight:800;color:#e65100;">Boden-Warnung: ' + pflanzName + ' auf ' + (currentBodenInfo?.label||bodenKey) + '</div>' +
+        '<div style="font-size:12.5px;font-weight:800;color:#e65100;">' + _t('boden_warning','Boden-Warnung:') + ' ' + pflanzName + ' ' + _t('boden_on','auf') + ' ' + (currentBodenInfo?.label||bodenKey) + '</div>' +
       '</div>' +
       '<div style="font-size:12px;color:#e65100;line-height:1.5;margin-bottom:7px;">' + problem.problem + '</div>' +
-      '<div style="font-size:11.5px;font-weight:700;color:#bf360c;margin-bottom:4px;">💡 Was tun?</div>' +
+      '<div style="font-size:11.5px;font-weight:700;color:#bf360c;margin-bottom:4px;">' + _t('boden_what_todo','💡 Was tun?') + '</div>' +
       '<div style="display:flex;flex-direction:column;gap:3px;">' +
         problem.loesung.map(l => '<div style="display:flex;gap:5px;font-size:11.5px;color:#bf360c;"><span>•</span><span>' + l + '</span></div>').join('') +
       '</div>' +
@@ -45052,7 +45098,7 @@ function renderBodenInfoCard(pflanzName, gardenSoil) {
   // Ideal-Boden Info
   if (idealInfo) {
     html += '<div style="background:#f9fafb;border-radius:8px;padding:8px 11px;margin-bottom:5px;">' +
-      '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">🌍 Idealer Boden für ' + pflanzName + '</div>' +
+      '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">' + _t('boden_ideal_for','🌍 Idealer Boden für') + ' ' + pflanzName + '</div>' +
       '<div style="font-size:12.5px;color:var(--text2);">' + idealInfo.emoji + ' <strong>' + idealInfo.label + '</strong> · pH ' + info.pH + '</div>' +
       '<div style="font-size:12px;color:var(--text2);margin-top:3px;">' + info.bodenbeschreibung + '</div>' +
     '</div>';
@@ -56909,6 +56955,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.55', date: '08.06.2026',
+    headline: '🌍 Wissens-Bereich (Lexikon, Bodentypen, Schädlinge) mehrsprachig',
+    summary: 'Weiter mit der Vollübersetzung (Batch B): Der Wissens-Bereich — Lexikon (Fachbegriffe + Statistik), Bodentypen (Vorteile/Nachteile/Verbesserung), Schädlinge & Krankheiten (Erkennung/Massnahmen), Aussaatkalender und Pflanztafel — wird jetzt mit der Sprache mit-übersetzt. Bei EN/FR/IT/ES automatisch.',
+    user_summary: '🌍 Der Wissens-Bereich (Lexikon, Bodentypen, Schädlinge, Aussaat, Pflanztafel) ist jetzt mehrsprachig.',
+    user_items: [
+      { emoji: '📖', text: 'Lexikon + Bodentypen mehrsprachig' },
+      { emoji: '🐛', text: 'Schädlinge/Krankheiten + Aussaatkalender + Pflanztafel mehrsprachig' },
+      { emoji: '🤖', text: 'EN/FR/IT/ES automatisch via Übersetzungs-Edge-Fn' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'32 neue Keys:', text:' renderBodenTypen/Lexikon/Schaedlinge/Items/Aussaat/Pflanzentafel/BodenInfoCard auf gsI18n.t.'},
+      {emoji:'🧱', bold:'Daten getrennt:', text:' BODENTYPEN/terms/GARDEN_KNOWLEDGE-Inhalte bleiben Daten-Objekte (separater Schritt).'},
+      {emoji:'📋', bold:'Audit-Roadmap:', text:' Batch A+D+C+E+F+B ✅ — als nächstes Garten (G) + Profil (I).'},
+    ]
+  },
+  {
     v: 'v28.54', date: '08.06.2026',
     headline: '🌍 Scan-Historie & Raum-Lichtscan jetzt mehrsprachig',
     summary: 'Weiter mit der Vollübersetzung (Batch F, Teil 2): Die Scan-Historie (Statistik, Suche, Filter, Detail mit Notiz/Wikipedia/„In DB öffnen") und der Raum-Lichtscan (Lichtkarte, Empfehlungen für hellste/schattigste Plätze) werden jetzt mit der Sprache mit-übersetzt. Bei EN/FR/IT/ES automatisch. Damit ist der ganze Pflanzendoktor-/Scan-Bereich fertig.',
@@ -60722,7 +60784,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.54';
+var GS_VERSION = 'v28.55';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
