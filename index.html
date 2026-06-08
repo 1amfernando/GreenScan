@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.57.20260608">
+<meta name="app-version" content="28.58.20260608">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -6667,19 +6667,11 @@ window.gsAddListingToCollection = function(lid){
   gsAddToCollection('listing', l.id, l.title || 'Inserat', emoji);
 };
 
-// ── v28.28: Smart-Ordner — rule-basierte Auto-Sortierung ──────────────────
-// Berechnet LIVE Auto-Ordner aus den eigenen Pflanzen (myPlants, Name→DB-Match)
-// + gesammelten Arten — read-only, keine Persistenz. "Als Sammlung speichern"
-// materialisiert einen Auto-Ordner in eine echte, bearbeitbare Sammlung.
-// Der "intelligente Verfahren"-Kern: sortiert nach botanischen Attributen.
-window._gsSmartRules = [
-  { key:'giftig', emoji:'☠️', name:'Giftige',      test:function(sp){ return !!sp && sp.tox >= 4; } },
-  { key:'essbar', emoji:'🍽️', name:'Essbare',      test:function(sp){ return !!sp && !!sp.edible; } },
-  { key:'heil',   emoji:'💊', name:'Heilpflanzen', test:function(sp){ return !!sp && !!sp.medicinal; } },
-  { key:'pilz',   emoji:'🍄', name:'Pilze',        test:function(sp){ return !!sp && sp.cat === 'pilz'; } },
-  { key:'baum',   emoji:'🌳', name:'Bäume',        test:function(sp){ return !!sp && sp.cat === 'baum'; } },
-  { key:'kraut',  emoji:'🌿', name:'Kräuter',      test:function(sp){ return !!sp && sp.cat === 'kraut'; } }
-];
+// ── Smart-Ordner-Helfer (v28.28) — DB-Match + Emoji für Auto-Sortierung ───
+// v28.58: Die alte LIVE-Chip-Engine (_gsSmartRules/gsComputeSmartFolders/
+// _gsSmartFoldersHtml/gsOpenSmartFolder/gsMaterializeSmartFolder) wurde durch
+// die persistenten System-Sammlungen (GS_SYSTEM_COLLECTIONS + gsCollectionsAutoVacuum,
+// Block C) ersetzt und entfernt. Diese zwei Helfer bleiben — sie speisen den Gather.
 function _gsSmartSpeciesEmoji(sp){
   if (!sp) return '🌿';
   return (sp.tox >= 4) ? '☠️' : (sp.edible ? '🍽️' : (sp.medicinal ? '💊' : (sp.cat==='pilz' ? '🍄' : (sp.cat==='baum' ? '🌳' : '🌿'))));
@@ -6690,9 +6682,9 @@ function _gsSmartMatchDB(name){
   if (!n) return null;
   return DB.find(function(s){ return s && (s.name||'').toLowerCase().trim() === n; }) || null;
 }
-// Sammelt die Quell-Items (eigene Pflanzen + gesammelte Arten), reichert sie mit
-// DB-Attributen an und bucketet sie nach _gsSmartRules. Liefert nur nicht-leere Ordner.
-window.gsComputeSmartFolders = async function(){
+// v28.58: Gemeinsamer Quell-Item-Sammler (eigene Pflanzen + gesammelte Arten, DB-angereichert).
+// Genutzt von gsCollectionsAutoVacuum (Block C, System-Sammlungen). DRY: eine Sammel-Logik.
+window._gsCollGatherSourceItems = async function(){
   var items = []; // {type, ref, label, emoji, sp}
   try {
     var mp = (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) ? myPlants : [];
@@ -6712,80 +6704,106 @@ window.gsComputeSmartFolders = async function(){
       });
     }
   } catch(_){}
-  var folders = window._gsSmartRules.map(function(rule){
-    return { key:rule.key, emoji:rule.emoji, name:rule.name, members:items.filter(function(it){ return rule.test(it.sp); }) };
-  }).filter(function(f){ return f.members.length > 0; });
-  window._gsSmartFolders = folders;
-  window._gsSmartItemsTotal = items.length;
-  return folders;
+  return items;
 };
-// Render-Helfer: Smart-Ordner-Sektion (HTML-String) für den Sammlungen-Manager.
-window._gsSmartFoldersHtml = function(folders){
-  if (!folders || !folders.length) return '';
-  var chips = folders.map(function(f){
-    return '<button onclick="gsOpenSmartFolder(\''+f.key+'\')" style="display:flex;align-items:center;gap:7px;padding:9px 12px;background:var(--card);border:1px solid var(--border);border-radius:11px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' +
-      '<span style="font-size:18px;">'+f.emoji+'</span>' +
-      '<span style="font-size:13px;font-weight:700;color:var(--text);">'+f.name+'</span>' +
-      '<span style="font-size:11px;color:var(--muted);background:var(--surface2);border-radius:999px;padding:1px 7px;">'+f.members.length+'</span></button>';
-  }).join('');
-  return '<div style="margin-bottom:14px;">' +
-    '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);font-weight:700;margin-bottom:6px;">🤖 Auto-Ordner <span style="font-weight:400;">· automatisch sortiert</span></div>' +
-    '<div style="display:flex;gap:7px;flex-wrap:wrap;">'+chips+'</div></div>';
-};
-// Auto-Ordner-Inhalt anzeigen (read-only, Mitglieder anklickbar) + Materialisieren-Button.
-window.gsOpenSmartFolder = function(key){
-  var body = document.getElementById('gs-coll-body'); if (!body) return;
-  var f = (window._gsSmartFolders||[]).find(function(x){ return x.key===key; });
-  if (!f){ gsCollectionsRefresh(); return; }
-  var html = '<button onclick="gsCollectionsRefresh()" style="background:none;border:none;color:var(--g-main);font-size:13px;font-weight:700;cursor:pointer;padding:0 0 8px;font-family:inherit;">‹ Zurück</button>' +
-    '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;">' +
-      '<div style="font-size:15px;font-weight:800;color:var(--text);">'+f.emoji+' '+f.name+' <span style="font-size:11px;color:var(--muted);font-weight:600;">· Auto-Ordner</span></div></div>' +
-    '<div style="font-size:11.5px;color:var(--muted);margin-bottom:10px;">Automatisch zusammengestellt aus deinen Pflanzen &amp; Arten. Live berechnet — nichts gespeichert.</div>' +
-    '<button onclick="gsMaterializeSmartFolder(\''+f.key+'\')" style="width:100%;padding:10px;margin-bottom:12px;background:var(--g-light);color:var(--g-dark);border:1.5px dashed var(--g-main);border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📌 Als feste Sammlung speichern</button>';
-  html += f.members.map(function(m){
-    return '<div onclick="gsSmartOpenMember(\''+m.type+'\',\''+m.ref+'\')" role="button" tabindex="0" style="display:flex;align-items:center;gap:10px;padding:9px;border:1px solid var(--border);border-radius:10px;margin-bottom:6px;cursor:pointer;background:var(--card);-webkit-tap-highlight-color:transparent;">' +
-      '<div style="font-size:20px;">'+(m.emoji||'🌿')+'</div>' +
-      '<div style="flex:1;min-width:0;font-size:13px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+_gsCollEsc(m.label)+'<span style="font-size:10px;color:var(--muted);font-weight:400;"> · '+(m.type==='plant'?'Pflanze':'Art')+'</span></div>' +
-      '<div style="color:var(--muted);font-size:16px;">›</div></div>';
-  }).join('');
-  body.innerHTML = html;
-};
-// Mitglied öffnen: Sammlungen-Modal schliessen, dann Arten-Detail bzw. Pflanzen-Dossier.
-window.gsSmartOpenMember = function(type, ref){
-  try { if (typeof closeModal==='function') closeModal('gs-nl-modal'); } catch(_){}
-  setTimeout(function(){
-    try {
-      if (type==='species' && typeof openDetail==='function') openDetail(ref);
-      else if (type==='plant' && typeof gsOpenPlantDossier==='function') gsOpenPlantDossier(ref);
-    } catch(_){}
-  }, 220);
-};
-// "Verdrahten": Auto-Ordner in eine echte, bearbeitbare Sammlung materialisieren.
-window.gsMaterializeSmartFolder = async function(key){
-  if (!_gsCollReady()){ if (typeof gsToast==='function') gsToast('Bitte anmelden','info'); return; }
-  var f = (window._gsSmartFolders||[]).find(function(x){ return x.key===key; });
-  if (!f || !f.members.length) return;
-  var ok = (typeof gsConfirmModal==='function')
-    ? await gsConfirmModal({ title:f.emoji+' „'+f.name+'" speichern?', text:'Erstellt eine feste Sammlung mit '+f.members.length+' Einträgen, die du danach frei bearbeiten kannst.', okText:'Speichern', cancelText:'Abbrechen' })
-    : true;
-  if (!ok) return;
+
+// ── v28.58 Block C: Sammlungen-Auto-Vacuum ────────────────────────────────
+// Hintergrund-Engine: hält 8 SYSTEM-Sammlungen automatisch synchron mit den
+// eigenen Pflanzen + gesammelten Arten. Fasst AUSSCHLIESSLICH Sammlungen mit
+// system_key an (DB-Spalte v28.58) — manuelle Sammlungen werden NIE berührt.
+// "Vacuum": fügt neue Mitglieder hinzu, entfernt verschwundene, löscht leere
+// System-Sammlungen. Debounced, idempotent, läuft bei Boot + nach Mutationen.
+window.GS_SYSTEM_COLLECTIONS = [
+  { key:'sys_giftig',     emoji:'☠️', name:'Giftige',        test:function(sp){ return !!sp && sp.tox >= 4; } },
+  { key:'sys_essbar',     emoji:'🍽️', name:'Essbare',        test:function(sp){ return !!sp && !!sp.edible; } },
+  { key:'sys_heil',       emoji:'💊', name:'Heilpflanzen',   test:function(sp){ return !!sp && !!sp.medicinal; } },
+  { key:'sys_geschuetzt', emoji:'🛡️', name:'Geschützte',     test:function(sp){ return !!sp && !!sp.protected; } },
+  { key:'sys_pilz',       emoji:'🍄', name:'Pilze',          test:function(sp){ return !!sp && sp.cat === 'pilz'; } },
+  { key:'sys_baum',       emoji:'🌳', name:'Bäume',          test:function(sp){ return !!sp && sp.cat === 'baum'; } },
+  { key:'sys_kraut',      emoji:'🌿', name:'Kräuter',        test:function(sp){ return !!sp && sp.cat === 'kraut'; } },
+  { key:'sys_wild',       emoji:'🌼', name:'Wildpflanzen',   test:function(sp){ return !!sp && sp.cat === 'wildpflanze'; } }
+];
+window._gsVacuumRunning = false;
+window.gsCollectionsAutoVacuum = async function(){
+  if (!_gsCollReady() || window._gsVacuumRunning) return;
+  // Opt-out: Setting gs_auto_collections (Default an).
+  var enabled = true; try { enabled = gsStore.get('gs_auto_collections', true) !== false; } catch(_){}
+  if (!enabled) return;
+  window._gsVacuumRunning = true;
+  var changed = false;
   var uid = gsStore.get('gs_sb_uid', null);
   try {
-    var rc = await sbFetch('/rest/v1/user_collections', {method:'POST', headers:{'Content-Type':'application/json','Prefer':'return=representation'}, body: JSON.stringify({ user_id: uid, name: f.name, emoji: f.emoji })});
-    var col = (rc && rc.data && rc.data[0]) ? rc.data[0] : null;
-    if (!col || !col.id) throw new Error('no-id');
-    var rows = f.members.map(function(m){ return { collection_id: col.id, user_id: uid, item_type: m.type, item_ref: m.ref, label: m.label||null, emoji: m.emoji||null }; });
-    await sbFetch('/rest/v1/user_collection_items', {method:'POST', headers:{'Content-Type':'application/json','Prefer':'resolution=ignore-duplicates,return=minimal'}, body: JSON.stringify(rows)});
-    if (typeof gsHaptic==='function') gsHaptic('light');
-    if (typeof gsToast==='function') gsToast(f.emoji+' „'+f.name+'" gespeichert ('+rows.length+' Einträge)', 'success');
-    gsCollectionsRefresh();
-  } catch(e){ if (typeof gsToast==='function') gsToast('Konnte nicht speichern','warn'); }
+    var items = await window._gsCollGatherSourceItems();
+    // Bestehende System-Sammlungen laden (NUR system_key not null).
+    var sysCols = {};
+    try {
+      var rc = await sbFetch('/rest/v1/user_collections?select=id,system_key&system_key=not.is.null', {method:'GET'});
+      ((rc&&rc.data)||[]).forEach(function(c){ if (c && c.system_key) sysCols[c.system_key] = c.id; });
+    } catch(_){}
+    for (var i=0; i<window.GS_SYSTEM_COLLECTIONS.length; i++){
+      var rule = window.GS_SYSTEM_COLLECTIONS[i];
+      var members = items.filter(function(it){ return rule.test(it.sp); });
+      var colId = sysCols[rule.key];
+      // Leerer Bucket → leere System-Sammlung wegräumen (falls vorhanden).
+      if (!members.length){
+        if (colId){
+          try { await sbFetch('/rest/v1/user_collections?id=eq.'+encodeURIComponent(colId), {method:'DELETE'}); changed = true; } catch(_){}
+        }
+        continue;
+      }
+      // System-Sammlung anlegen falls fehlt.
+      if (!colId){
+        try {
+          var cr = await sbFetch('/rest/v1/user_collections', {method:'POST', headers:{'Content-Type':'application/json','Prefer':'return=representation'}, body: JSON.stringify({ user_id: uid, name: rule.name, emoji: rule.emoji, system_key: rule.key })});
+          colId = (cr && cr.data && cr.data[0]) ? cr.data[0].id : null;
+          changed = true;
+        } catch(_){}
+        if (!colId) continue;
+      }
+      // Ist-Items dieser System-Sammlung holen + gegen Soll diffen.
+      var cur = [];
+      try { var ri = await sbFetch('/rest/v1/user_collection_items?collection_id=eq.'+encodeURIComponent(colId)+'&select=id,item_type,item_ref', {method:'GET'}); cur = (ri&&ri.data)||[]; } catch(_){}
+      var curSet = {}; cur.forEach(function(it){ curSet[it.item_type+'|'+it.item_ref] = it.id; });
+      var wantSet = {}; members.forEach(function(m){ wantSet[m.type+'|'+m.ref] = m; });
+      // Hinzufügen: Soll ohne Ist.
+      var toAdd = members.filter(function(m){ return !curSet[m.type+'|'+m.ref]; }).map(function(m){
+        return { collection_id: colId, user_id: uid, item_type: m.type, item_ref: m.ref, label: m.label||null, emoji: m.emoji||null };
+      });
+      if (toAdd.length){
+        try { await sbFetch('/rest/v1/user_collection_items', {method:'POST', headers:{'Content-Type':'application/json','Prefer':'resolution=ignore-duplicates,return=minimal'}, body: JSON.stringify(toAdd)}); changed = true; } catch(_){}
+      }
+      // Entfernen: Ist ohne Soll (nur innerhalb dieser System-Sammlung).
+      var toRemove = cur.filter(function(it){ return !wantSet[it.item_type+'|'+it.item_ref]; }).map(function(it){ return it.id; });
+      if (toRemove.length){
+        try { await sbFetch('/rest/v1/user_collection_items?id=in.('+toRemove.map(encodeURIComponent).join(',')+')', {method:'DELETE'}); changed = true; } catch(_){}
+      }
+    }
+  } catch(e){ /* still */ }
+  finally { window._gsVacuumRunning = false; }
+  // Offenen Sammlungen-Manager aktualisieren, wenn etwas geändert wurde.
+  if (changed){ try { if (document.getElementById('gs-coll-body') && typeof gsCollectionsRefresh==='function') gsCollectionsRefresh(); } catch(_){} }
+  return changed;
 };
+window._gsVacuumTimer = null;
+window.gsCollectionsAutoVacuumDebounced = function(){
+  if (window._gsVacuumTimer) clearTimeout(window._gsVacuumTimer);
+  window._gsVacuumTimer = setTimeout(function(){ try { gsCollectionsAutoVacuum(); } catch(_){} }, 1500);
+};
+// v28.58: Boot-Vacuum — einmal ~9s nach Load, wenn eingeloggt + Arten-DB bereit.
+(function(){
+  function _vkick(){ setTimeout(function(){
+    try { if (_gsCollReady() && typeof DB!=='undefined' && Array.isArray(DB) && DB.length) gsCollectionsAutoVacuum(); } catch(_){}
+  }, 9000); }
+  if (document.readyState === 'complete') _vkick();
+  else window.addEventListener('load', _vkick);
+})();
 
 window.gsOpenCollections = function(){
   if (typeof _gsNlOpen !== 'function') return;
   _gsNlOpen('<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><div style="font-size:32px;">📁</div><div><h3 style="margin:0;color:var(--g-dark);">Meine Sammlungen</h3><div style="font-size:12px;color:var(--muted);">Eigene Ordner für Pflanzen, Arten &amp; mehr</div></div></div><div id="gs-coll-body"><div style="color:var(--muted);font-size:13px;padding:14px;text-align:center;">⏳ Lade…</div></div>');
   gsCollectionsRefresh();
+  // v28.58: Auto-Vacuum im Hintergrund anstossen → System-Sammlungen frisch (re-rendert bei Änderung).
+  try { gsCollectionsAutoVacuum(); } catch(_){}
 };
 window.gsCollectionsRefresh = async function(){
   var body = document.getElementById('gs-coll-body'); if (!body) return;
@@ -6796,29 +6814,37 @@ window.gsCollectionsRefresh = async function(){
   var html = '<div style="display:flex;gap:6px;margin-bottom:10px;">' +
     '<input id="gs-coll-new" placeholder="Neue Sammlung…" maxlength="60" style="flex:1;padding:9px 11px;border:1px solid var(--border);border-radius:10px;font-size:13px;font-family:inherit;background:var(--card);color:var(--text);">' +
     '<button onclick="gsCollectionCreateFromInput()" style="padding:9px 14px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">+ Anlegen</button></div>';
-  // v28.28: Auto-Ordner (rule-basierte Smart-Sortierung) live berechnen + oben anzeigen
-  try {
-    var smart = await gsComputeSmartFolders();
-    if (typeof window._gsSmartFoldersHtml === 'function') html += window._gsSmartFoldersHtml(smart);
-  } catch(_){}
-  if (rows.length < 3){
+  // v28.58: Live-Smart-Chips ENTFERNT — durch persistente System-Sammlungen (Auto-Vacuum) ersetzt.
+  // System-Sammlungen (system_key) erscheinen unten als normale Zeilen mit 🤖-Badge.
+  var sysRows = rows.filter(function(c){ return !!c.system_key; });
+  var manRows = rows.filter(function(c){ return !c.system_key; });
+  if (manRows.length < 3){
     var existing = {}; rows.forEach(function(c){ existing[(c.name||'').toLowerCase()]=1; });
-    var sugg = [['⭐','Wunschliste'],['☠️','Giftige'],['🍽️','Essbare'],['🌳','Mein Garten 2026']].filter(function(s){ return !existing[s[1].toLowerCase()]; });
+    var sugg = [['⭐','Wunschliste'],['🌳','Mein Garten 2026']].filter(function(s){ return !existing[s[1].toLowerCase()]; });
     if (sugg.length){
       html += '<div style="font-size:11px;color:var(--muted);font-weight:700;margin-bottom:5px;">💡 Vorschläge</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">' +
         sugg.map(function(s){ return '<button onclick="gsCollectionCreate(\''+s[1]+'\',\''+s[0]+'\')" style="padding:6px 11px;background:var(--surface2);border:1px solid var(--border);border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text);-webkit-tap-highlight-color:transparent;">'+s[0]+' '+s[1]+'</button>'; }).join('') + '</div>';
     }
   }
+  function _gsCollRow(c){
+    var isSys = !!c.system_key;
+    var badge = isSys ? '<span style="font-size:9.5px;font-weight:800;color:var(--g-main);background:var(--g-light);border-radius:999px;padding:1px 7px;margin-left:6px;vertical-align:middle;">🤖 Auto</span>' : '';
+    var del = isSys
+      ? '<span title="Automatisch verwaltet" style="color:var(--muted);font-size:13px;padding:4px;opacity:.6;">🔒</span>'
+      : '<button onclick="event.stopPropagation();gsCollectionDelete(\''+c.id+'\')" aria-label="Sammlung löschen" style="background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:4px;">🗑️</button>';
+    return '<div onclick="gsOpenCollectionItems(\''+c.id+'\')" role="button" tabindex="0" style="display:flex;align-items:center;gap:10px;padding:11px;border:1px solid var(--border);border-radius:12px;margin-bottom:7px;cursor:pointer;background:var(--card);-webkit-tap-highlight-color:transparent;">' +
+      '<div style="font-size:24px;">'+(c.emoji||'📁')+'</div>' +
+      '<div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:700;color:var(--text);">'+_gsCollEsc(c.name)+badge+'</div>' +
+      '<div style="font-size:11px;color:var(--muted);">'+(c.item_count||0)+' Einträge</div></div>' +
+      del + '<div style="color:var(--muted);font-size:18px;">›</div></div>';
+  }
   if (!rows.length){ html += '<div style="color:var(--muted);font-size:13px;padding:10px 4px;">Noch keine Sammlungen — lege oben eine an oder nutze einen Vorschlag.</div>'; }
   else {
-    html += rows.map(function(c){
-      return '<div onclick="gsOpenCollectionItems(\''+c.id+'\')" role="button" tabindex="0" style="display:flex;align-items:center;gap:10px;padding:11px;border:1px solid var(--border);border-radius:12px;margin-bottom:7px;cursor:pointer;background:var(--card);-webkit-tap-highlight-color:transparent;">' +
-        '<div style="font-size:24px;">'+(c.emoji||'📁')+'</div>' +
-        '<div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:700;color:var(--text);">'+_gsCollEsc(c.name)+'</div>' +
-        '<div style="font-size:11px;color:var(--muted);">'+(c.item_count||0)+' Einträge</div></div>' +
-        '<button onclick="event.stopPropagation();gsCollectionDelete(\''+c.id+'\')" aria-label="Sammlung löschen" style="background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:4px;">🗑️</button>' +
-        '<div style="color:var(--muted);font-size:18px;">›</div></div>';
-    }).join('');
+    html += manRows.map(_gsCollRow).join('');
+    if (sysRows.length){
+      html += '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);font-weight:700;margin:12px 0 6px;">🤖 Automatisch sortiert <span style="font-weight:400;">· hält sich selbst aktuell</span></div>';
+      html += sysRows.map(_gsCollRow).join('');
+    }
   }
   body.innerHTML = html;
 };
@@ -6909,6 +6935,8 @@ window.gsCollectionToggleItem = async function(collectionId, currentlyOn){
     }
     if (typeof gsHaptic==='function') gsHaptic('light');
     gsAddToCollection(pk.itemType, pk.itemRef, pk.label, pk.emoji); // re-render Picker mit aktualisiertem Status
+    // v28.58: manuelles Arten-Sammeln ändert die System-Bucket-Quelle → Vacuum nachziehen.
+    if (pk.itemType === 'species') { try { gsCollectionsAutoVacuumDebounced(); } catch(_){} }
   } catch(_){ if (typeof gsToast==='function') gsToast('Aktion fehlgeschlagen','warn'); }
 };
 
@@ -57068,6 +57096,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.58', date: '08.06.2026',
+    headline: '🗂️ Automatische Sammlungen — sortieren sich selbst',
+    summary: 'Neu: GreenScan legt automatisch 8 clevere Sammlungen für dich an und hält sie immer aktuell — Giftige, Essbare, Heilpflanzen, Geschützte, Pilze, Bäume, Kräuter und Wildpflanzen. Sobald du eine Pflanze hinzufügst oder eine Art sammelst, landet sie automatisch in der passenden Sammlung. Deine eigenen Sammlungen bleiben davon völlig unberührt.',
+    user_summary: '🗂️ 8 automatische Sammlungen (Giftige, Essbare, Pilze…) sortieren sich jetzt von selbst.',
+    user_items: [
+      { emoji: '🤖', text: '8 Auto-Sammlungen halten sich selbst aktuell — nichts manuell sortieren' },
+      { emoji: '🔒', text: 'Deine eigenen Sammlungen bleiben unangetastet' },
+      { emoji: '☁️', text: 'Geräteübergreifend synchron' },
+    ],
+    items: [
+      {emoji:'🗄️', bold:'Migration:', text:' user_collections.system_key + partial-unique-Index + View — markiert automatisch verwaltete Sammlungen (verifiziert).'},
+      {emoji:'⚙️', bold:'gsCollectionsAutoVacuum:', text:' INSERT neue / DELETE verschwundene / leere wegräumen — fasst NUR System-Sammlungen an (Daten-Sicherheit), single-flight, Opt-out gs_auto_collections.'},
+      {emoji:'🧹', bold:'Aufgeräumt:', text:' alte LIVE-Chip-Engine entfernt (von persistenten System-Sammlungen abgelöst — kein Doppel-Code).'},
+    ]
+  },
+  {
     v: 'v28.57', date: '08.06.2026',
     headline: '🌍 Garten-Tagebuch, Waldgarten & Saison-Kalender mehrsprachig',
     summary: 'Vollübersetzung Batch G abgeschlossen: Das Garten-Tagebuch (Eingabe-Felder für Ernte/Schädling/Dünger/Wasser/Symptom), der Waldgarten-Designer (7-Schichten-System, Pläne) und der Saison-Kalender (Erntezeit/Wildsammlung/Auspflanzen/Aussaat) werden jetzt mit der Sprache mit-übersetzt. Bei EN/FR/IT/ES automatisch.',
@@ -60929,7 +60973,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.57';
+var GS_VERSION = 'v28.58';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
