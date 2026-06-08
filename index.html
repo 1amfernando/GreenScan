@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.65.20260609">
+<meta name="app-version" content="28.66.20260609">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -6708,6 +6708,17 @@ window._gsCollGatherSourceItems = async function(){
       });
     }
   } catch(_){}
+  // v28.66 Block F.3: gespeicherte Garten-Pläne (garden_plans, RLS own-only) als Plan-Items.
+  // Speist die System-Sammlung „Garten-Pläne" (sys_plans). ref = 'gp_'+id (gsPPloadSavedPlan-kompatibel).
+  try {
+    if (_gsCollReady()){
+      var rp = await sbFetch('/rest/v1/garden_plans?select=id,title&order=created_at.desc&limit=50', {method:'GET'});
+      ((rp&&rp.data)||[]).forEach(function(pl){
+        if (!pl || pl.id == null) return;
+        items.push({ type:'plan', ref:'gp_'+pl.id, label:pl.title||'Garten-Plan', emoji:'🪴', sp:null });
+      });
+    }
+  } catch(_){}
   return items;
 };
 
@@ -6725,7 +6736,10 @@ window.GS_SYSTEM_COLLECTIONS = [
   { key:'sys_pilz',       emoji:'🍄', name:'Pilze',          test:function(sp){ return !!sp && sp.cat === 'pilz'; } },
   { key:'sys_baum',       emoji:'🌳', name:'Bäume',          test:function(sp){ return !!sp && sp.cat === 'baum'; } },
   { key:'sys_kraut',      emoji:'🌿', name:'Kräuter',        test:function(sp){ return !!sp && sp.cat === 'kraut'; } },
-  { key:'sys_wild',       emoji:'🌼', name:'Wildpflanzen',   test:function(sp){ return !!sp && sp.cat === 'wildpflanze'; } }
+  { key:'sys_wild',       emoji:'🌼', name:'Wildpflanzen',   test:function(sp){ return !!sp && sp.cat === 'wildpflanze'; } },
+  // v28.66 Block F.3: Garten-Pläne (KI-Planer + Forest-Garden + Balkon-Wizard via _gsSaveGardenPlanCloud).
+  // Test bekommt das ganze Item (2. Arg) statt nur sp — Pläne haben kein sp.
+  { key:'sys_plans',      emoji:'🪴', name:'Garten-Pläne',   test:function(sp, it){ return !!it && it.type === 'plan'; } }
 ];
 window._gsVacuumRunning = false;
 window.gsCollectionsAutoVacuum = async function(){
@@ -6746,7 +6760,7 @@ window.gsCollectionsAutoVacuum = async function(){
     } catch(_){}
     for (var i=0; i<window.GS_SYSTEM_COLLECTIONS.length; i++){
       var rule = window.GS_SYSTEM_COLLECTIONS[i];
-      var members = items.filter(function(it){ return rule.test(it.sp); });
+      var members = items.filter(function(it){ return rule.test(it.sp, it); });
       var colId = sysCols[rule.key];
       // Leerer Bucket → leere System-Sammlung wegräumen (falls vorhanden).
       if (!members.length){
@@ -6884,16 +6898,58 @@ window.gsOpenCollectionItems = async function(id){
   var box = document.getElementById('gs-coll-items'); if (!box) return;
   if (!items.length){ box.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:12px 4px;">Noch leer. Füge Inhalte über die 📁-Buttons in Pflanzen/Arten hinzu.</div>'; return; }
   box.innerHTML = items.map(function(it){
+    // v28.66: Item klickbar → Open-Dispatch (Plan/Art direkt, Rest graceful). item_ref quote-bereinigt (HL#12).
+    var refSafe = String(it.item_ref||'').replace(/'/g,'');
+    var typeSafe = String(it.item_type||'').replace(/'/g,'');
     return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border);">' +
-      '<div style="font-size:20px;">'+(it.emoji||'🌿')+'</div>' +
-      '<div style="flex:1;min-width:0;font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+_gsCollEsc(it.label||it.item_ref)+'<span style="font-size:10px;color:var(--muted);font-weight:400;"> · '+_gsCollEsc(it.item_type)+'</span></div>' +
-      '<button onclick="gsCollectionRemoveItem(\''+it.id+'\',\''+id+'\')" aria-label="Entfernen" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:4px;">✕</button></div>';
+      '<div onclick="gsCollItemOpen(\''+typeSafe+'\',\''+refSafe+'\')" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;cursor:pointer;-webkit-tap-highlight-color:transparent;">' +
+        '<div style="font-size:20px;flex-shrink:0;">'+(it.emoji||'🌿')+'</div>' +
+        '<div style="flex:1;min-width:0;font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+_gsCollEsc(it.label||it.item_ref)+'<span style="font-size:10px;color:var(--muted);font-weight:400;"> · '+_gsCollEsc(it.item_type)+'</span></div>' +
+      '</div>' +
+      '<button onclick="gsCollectionRemoveItem(\''+it.id+'\',\''+id+'\')" aria-label="Entfernen" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:4px;flex-shrink:0;">✕</button></div>';
   }).join('');
 };
 window.gsCollectionRemoveItem = async function(itemId, collectionId){
   if (!itemId) return;
   try { await sbFetch('/rest/v1/user_collection_items?id=eq.'+encodeURIComponent(itemId), {method:'DELETE'}); if (typeof gsHaptic==='function') gsHaptic('tap'); gsOpenCollectionItems(collectionId); } catch(_){}
 };
+// v28.66 Block F.3: einen Garten-Plan aus einer Sammlung öffnen (ref = 'gp_'+id).
+// Reuse gsPPloadSavedPlan (liest LS gs_garden_plans). Fehlt der Plan lokal (frisches Gerät),
+// wird er einzeln aus garden_plans nachgeladen, gemappt + in LS injiziert, dann geöffnet.
+window.gsCollOpenPlan = async function(ref){
+  if (!ref) return;
+  try {
+    var arr = JSON.parse(localStorage.getItem('gs_garden_plans') || '[]');
+    if (Array.isArray(arr) && arr.some(function(x){ return x && x.id === ref; })) { gsPPloadSavedPlan(ref); return; }
+  } catch(_){}
+  try {
+    if (ref.indexOf('gp_') !== 0 || typeof sbFetch !== 'function') { gsPPloadSavedPlan(ref); return; }
+    var realId = ref.slice(3);
+    var r = await sbFetch('/rest/v1/garden_plans?id=eq.' + encodeURIComponent(realId) + '&select=id,title,ai_analysis,created_at&limit=1', {method:'GET'});
+    var row = (r && r.data && r.data[0]) ? r.data[0] : null;
+    if (!row) { gsPPloadSavedPlan(ref); return; }
+    var an = (typeof _gsSanitizeGardenPlan === 'function') ? _gsSanitizeGardenPlan(row.ai_analysis || {}) : (row.ai_analysis || {});
+    var sa = an.site_analysis || {}, lg = an.layout_grid || {};
+    var mapped = { id:'gp_'+row.id, created:row.created_at, title:row.title || 'KI-Plan',
+      plan:{ summary:sa.summary || an.summary || '', plants:an.recommended_plants || [],
+        bed:{ width_m:Number(lg.width_m)||0, length_m:Number(lg.depth_m)||0 }, climateZone:sa.climate_zone || sa.climateZone || '' },
+      source:'garden_plans', _origId:row.id, _proAnalysis:an };
+    var arr2 = []; try { arr2 = JSON.parse(localStorage.getItem('gs_garden_plans') || '[]'); } catch(_){}
+    if (!Array.isArray(arr2)) arr2 = [];
+    arr2 = arr2.filter(function(x){ return x && x.id !== mapped.id; }); arr2.unshift(mapped);
+    try { localStorage.setItem('gs_garden_plans', JSON.stringify(arr2.slice(0,30))); } catch(_){}
+    gsPPloadSavedPlan(mapped.id);
+  } catch(e){ try { gsPPloadSavedPlan(ref); } catch(_){} }
+};
+// v28.66: Sammlungs-Item öffnen (Dispatch nach item_type). Plan + Art direkt, Rest graceful.
+window.gsCollItemOpen = function(itemType, itemRef){
+  try {
+    if (itemType === 'plan') { gsCollOpenPlan(itemRef); return; }
+    if (itemType === 'species' && typeof openDetail === 'function') { openDetail(itemRef); return; }
+    if (typeof gsToast === 'function') gsToast('Dieses Element lässt sich hier (noch) nicht direkt öffnen.', 'info');
+  } catch(_){}
+};
+
 // Add-to-Collection-Picker (von Pflanzen/Arten/Inseraten aus aufrufbar)
 window.gsAddToCollection = async function(itemType, itemRef, label, emoji){
   if (!_gsCollReady()){ if (typeof gsToast==='function') gsToast('Bitte anmelden','info'); return; }
@@ -49705,7 +49761,11 @@ async function _gsSaveGardenPlanCloud(title, analysis, scanInput, extra){
       status: 'active'
     }, extra || {});
     var r = await sbFetch('/rest/v1/garden_plans', { method:'POST', headers:{'Content-Type':'application/json','Prefer':'return=representation'}, body: JSON.stringify(row) });
-    if (r && !r.error && r.data && r.data[0] && r.data[0].id) return r.data[0].id;
+    if (r && !r.error && r.data && r.data[0] && r.data[0].id) {
+      // v28.66 Block F.3: neuer Plan → System-Sammlung „Garten-Pläne" im Hintergrund auto-syncen.
+      try { if (typeof gsCollectionsAutoVacuumDebounced === 'function') gsCollectionsAutoVacuumDebounced(); } catch(_){}
+      return r.data[0].id;
+    }
     if (r && r.error) console.warn('[_gsSaveGardenPlanCloud]', r.error);
   } catch(e){ console.warn('[_gsSaveGardenPlanCloud]', e && e.message); }
   return null;
@@ -53793,6 +53853,8 @@ async function gsPPdeletePlan(id) {
       }
     }
   } catch(e) { console.warn('[gsPPdeletePlan] cloud-delete:', e); }
+  // v28.66 Block F.3: gelöschten Plan auch aus System-Sammlung „Garten-Pläne" räumen.
+  try { if (typeof gsCollectionsAutoVacuumDebounced === 'function') gsCollectionsAutoVacuumDebounced(); } catch(_){}
   if (typeof showProfileToast === 'function') showProfileToast('🗑 Plan gelöscht');
   gsPPopenSavedPlans(); // re-render
 }
@@ -57326,6 +57388,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v28.66', date: '09.06.2026',
+    headline: '🪴 Garten-Pläne jetzt in Sammlungen (Block F.3)',
+    summary: 'Deine Garten-Pläne (aus dem KI-Planer, Waldgarten und Balkon-Wizard) landen jetzt automatisch in der Sammlung „🪴 Garten-Pläne" — und du kannst sie von dort mit einem Tippen wieder öffnen. Damit sind Pläne genauso auffindbar wie Pflanzen, Arten und Funde.',
+    user_summary: '🪴 Garten-Pläne erscheinen automatisch in deinen Sammlungen — antippen öffnet sie wieder.',
+    user_items: [
+      { emoji: '🪴', text: 'Neue Auto-Sammlung „Garten-Pläne" — KI-Planer + Waldgarten + Balkon-Pläne' },
+      { emoji: '👆', text: 'Sammlungs-Einträge sind jetzt antippbar → Plan/Art direkt öffnen' },
+      { emoji: '🔄', text: 'Hält sich automatisch aktuell (neuer Plan rein, gelöschter raus)' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'item_type=plan (HL#14):', text:' CHECK-Constraint vor Code geprüft + erweitert (sonst INSERT 400). 9. System-Sammlung sys_plans, Vacuum-Test rule.test(sp,it).'},
+      {emoji:'🌱', bold:'1 Eingriff, 3 Tools:', text:' Auto-Trigger im geteilten _gsSaveGardenPlanCloud → KI-Planer + Forest + Balkon profitieren gemeinsam. Manuelle Sammlungen unberührt.'},
+      {emoji:'📋', bold:'Block F:', text:' F.1 Audit + F.2 Metriken+Stripe + F.3 Plan-Sammlungen ✅ → nächst Cleanup (DB-Editor löschen).'},
+    ]
+  },
   {
     v: 'v28.65', date: '09.06.2026',
     headline: '💳 Admin-Stripe-Übersicht (Block F.2)',
@@ -61316,7 +61394,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.65';
+var GS_VERSION = 'v28.66';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
