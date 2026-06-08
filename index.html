@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.50.20260608">
+<meta name="app-version" content="28.51.20260608">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10931,6 +10931,38 @@ window.GS_I18N_JS_STRINGS = {
   'status_won':                '🏆 Gewonnen!',
   'status_bought':             '💳 Gekauft',
   'my_bid_label':              'Mein Gebot',
+  // ── v28.51: Rezepte/Heilmittel-Karten + Stats (buildRecipeCard, gsRenderRecipesStatsBar) ─
+  'recipe_card_favorite':      'Favorit',
+  'recipe_save_favorite':      'Als Favorit speichern',
+  'remedy_healing_badge':      '💊 Heilwirkung',
+  'unit_recipes':              'Rezepte',
+  'unit_remedies':             'Heilmittel',
+  'favorites_label':           'Favoriten',
+  'btn_random':                '🎲 Zufall',
+  'load_more_label':           'Lade weitere',
+  'word_of':                   'von',
+  // ── v28.51: Rezepte/Heilmittel Empty-States (renderRecipes/renderRemedies) ─
+  'recipes_no_favorites':      'Noch keine Favoriten',
+  'recipes_no_category':       'Keine Rezepte in dieser Kategorie',
+  'recipes_hint_save_fav':     'Tippe ♡ auf einem Rezept um es zu speichern',
+  'recipes_hint_show_all':     'Wähle "Alle" um alle anzuzeigen',
+  'remedies_no_favorites':     'Noch keine Favoriten.',
+  'remedies_hint_favorite':    'Tippe ♡ auf einem Heilmittel',
+  'remedies_no_remedies':      'Noch keine Heilmittel.',
+  'remedies_hint_add':         'Füge dein erstes Rezept hinzu!',
+  // ── v28.51: Rezept/Heilmittel-Detail (openRecipeDetail) ────────
+  'ing_card_tooltip':          'Infokarte:',
+  'plant_card_link':           'Infokarte →',
+  'remedy_effect_heading':     '💊 Wirkung & Anwendung',
+  'remedy_warning_heading':    '⚠️ Warnhinweis',
+  'recipe_ingredients_heading':'🧂 Zutaten',
+  'recipe_preparation_heading':'👨‍🍳 Zubereitung',
+  'recipe_tips_heading':       '💡 Tipps & Hinweise',
+  'btn_delete':                '🗑️ Löschen',
+  'btn_add_photo':             '📷 Foto hinzufügen',
+  'btn_saved':                 '❤️ Gespeichert',
+  'btn_save':                  '🤍 Speichern',
+  'recipe_default_title':      'Rezept',
   // ── Offline / Sync ──────────────────────────────────────────────
   'toast_offline_saved':       '📵 Offline gespeichert',
   'toast_offline_synced':      '🔄 Online — Sync abgeschlossen',
@@ -37556,6 +37588,7 @@ const DIFF_LABELS = {easy:'🟢 Einfach', medium:'🟡 Mittel', hard:'🔴 Anspr
 
 function buildRecipeCard(r, isRemedy) {
   if (!r || !r.id) return '';
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   const cats = isRemedy ? REMEDY_CATS : RECIPE_CATS;
   const catInfo = cats[r.cat] || {emoji:'🌿', bg:'#e8f5e9', color:'#2e7d32'};
   var preview = '';
@@ -37566,10 +37599,10 @@ function buildRecipeCard(r, isRemedy) {
   var isFav = (typeof isRecipeFav === 'function') && isRecipeFav(r.id);
   var heart = '<button data-rfav="' + r.id + '" onclick="event.stopPropagation();toggleRecipeFav(\'' + r.id + '\',event)" '
     + 'style="position:absolute;top:8px;right:8px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.92);border:none;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.15);color:' + (isFav ? '#e53935' : '#9e9e9e') + ';z-index:2;" '
-    + 'aria-label="Favorit" title="Als Favorit speichern">' + (isFav ? '♥' : '♡') + '</button>';
+    + 'aria-label="' + _t('recipe_card_favorite','Favorit') + '" title="' + _t('recipe_save_favorite','Als Favorit speichern') + '">' + (isFav ? '♥' : '♡') + '</button>';
   // v23.56: Heilwirkung Badge — nur wenn kein Heart da ist (Heilmittel hat eh Wirkung-Info im Detail)
   var remedyBadge = (isRemedy && r.wirkung)
-    ? '<div style="position:absolute;bottom:8px;right:8px;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;background:rgba(227,242,253,.95);color:#1565c0;box-shadow:0 1px 3px rgba(0,0,0,.08);">💊 Heilwirkung</div>'
+    ? '<div style="position:absolute;bottom:8px;right:8px;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;background:rgba(227,242,253,.95);color:#1565c0;box-shadow:0 1px 3px rgba(0,0,0,.08);">' + _t('remedy_healing_badge','💊 Heilwirkung') + '</div>'
     : '';
 
   return '<div class="recipe-card" onclick="openRecipeDetail(\'' + r.id + '\')">' +
@@ -37627,19 +37660,20 @@ function gsOpenRandomRecipe(fromRemedies) {
 }
 
 function gsRenderRecipesStatsBar(filtered, isRemedy) {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var total = isRemedy ? remediesData.length : recipesData.length;
   var favCount = _recipeFavs.length;
   var favOnly = isRemedy ? _gsRemedyFavsOnly : _gsRecipeFavsOnly;
   var toggleFn = isRemedy ? 'gsToggleRemedyFavs()' : 'gsToggleRecipeFavs()';
   var randFn = isRemedy ? 'gsOpenRandomRecipe(true)' : 'gsOpenRandomRecipe(false)';
-  var label = isRemedy ? 'Heilmittel' : 'Rezepte';
+  var label = isRemedy ? _t('unit_remedies','Heilmittel') : _t('unit_recipes','Rezepte');
   return '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">'
     + '<div style="background:linear-gradient(135deg,rgba(46,125,50,.12),rgba(46,125,50,.03));border:1px solid rgba(46,125,50,.22);border-radius:10px;padding:7px 12px;font-size:12px;font-weight:800;color:var(--g-dark);">'
       + '📚 ' + filtered.length + ' / ' + total + ' ' + label + '</div>'
     + '<button onclick="' + toggleFn + '" style="background:' + (favOnly ? 'linear-gradient(135deg,#e53935,#c62828)' : 'var(--card)') + ';color:' + (favOnly ? '#fff' : 'var(--text)') + ';border:1px solid ' + (favOnly ? '#c62828' : 'var(--border)') + ';border-radius:10px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:5px;">'
-      + (favOnly ? '♥ Favoriten (' + favCount + ')' : '♡ Favoriten (' + favCount + ')')
+      + (favOnly ? '♥ ' + _t('favorites_label','Favoriten') + ' (' + favCount + ')' : '♡ ' + _t('favorites_label','Favoriten') + ' (' + favCount + ')')
       + '</button>'
-    + '<button onclick="' + randFn + '" style="background:var(--card);color:var(--g-dark);border:1px solid var(--border);border-radius:10px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:5px;">🎲 Zufall</button>'
+    + '<button onclick="' + randFn + '" style="background:var(--card);color:var(--g-dark);border:1px solid var(--border);border-radius:10px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:5px;">' + _t('btn_random','🎲 Zufall') + '</button>'
     + '</div>';
 }
 
@@ -37649,6 +37683,7 @@ window._gsRecipesState  = { filtered: [], shown: 0, observer: null, isRemedy: fa
 window._gsRemediesState = { filtered: [], shown: 0, observer: null, isRemedy: true };
 
 function _gsRecipesLazyAppend(state, listId, sentinelId, batchSize) {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var list = document.getElementById(listId);
   if (!list) return;
   // Sentinel entfernen
@@ -37666,7 +37701,7 @@ function _gsRecipesLazyAppend(state, listId, sentinelId, batchSize) {
     list.insertAdjacentHTML('beforeend',
       '<div id="' + sentinelId + '" data-loadmore="' + listId + '" style="text-align:center;padding:18px 14px;color:var(--muted);font-size:12px;font-weight:600;border:2px dashed var(--border);border-radius:12px;margin:8px 0;">' +
         '<span class="gs-spin" style="display:inline-block;width:14px;height:14px;border:2px solid var(--g-light);border-top-color:var(--g-main);border-radius:50%;animation:gs-spin 1s linear infinite;vertical-align:middle;margin-right:6px;"></span>' +
-        'Lade weitere ' + Math.min(batchSize, remaining) + ' von ' + remaining + '…' +
+        _t('load_more_label','Lade weitere') + ' ' + Math.min(batchSize, remaining) + ' ' + _t('word_of','von') + ' ' + remaining + '…' +
       '</div>');
     var newSent = document.getElementById(sentinelId);
     if (newSent && state.observer) state.observer.observe(newSent);
@@ -37691,6 +37726,7 @@ function _gsRecipesInitObserver(state, listId, sentinelId, batchSize) {
 function renderRecipes() {
   const list = document.getElementById('recipes-list');
   if (!list) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
 
   // Rezepte-Count im Header aktualisieren
   var cntEl = document.getElementById('recipes-total-count');
@@ -37700,12 +37736,12 @@ function renderRecipes() {
   if (_gsRecipeFavsOnly) filtered = filtered.filter(function(r){ return isRecipeFav(r.id); });
 
   var filterCntEl = document.getElementById('recipes-filter-count');
-  if (filterCntEl) filterCntEl.textContent = filtered.length + ' von ' + recipesData.length;
+  if (filterCntEl) filterCntEl.textContent = filtered.length + ' ' + _t('word_of','von') + ' ' + recipesData.length;
 
   var statsBar = gsRenderRecipesStatsBar(filtered, false);
 
   if (!filtered.length) {
-    list.innerHTML = statsBar + '<div class="mp-empty" style="text-align:center;padding:40px 20px;color:var(--muted);"><div style="font-size:42px;opacity:.3;margin-bottom:10px;">🍲</div><div style="font-size:14px;font-weight:700;color:var(--text2);margin-bottom:4px;">' + (_gsRecipeFavsOnly ? 'Noch keine Favoriten' : 'Keine Rezepte in dieser Kategorie') + '</div><div style="font-size:12px;">' + (_gsRecipeFavsOnly ? 'Tippe ♡ auf einem Rezept um es zu speichern' : 'Wähle "Alle" um alle anzuzeigen') + '</div></div>';
+    list.innerHTML = statsBar + '<div class="mp-empty" style="text-align:center;padding:40px 20px;color:var(--muted);"><div style="font-size:42px;opacity:.3;margin-bottom:10px;">🍲</div><div style="font-size:14px;font-weight:700;color:var(--text2);margin-bottom:4px;">' + (_gsRecipeFavsOnly ? _t('recipes_no_favorites','Noch keine Favoriten') : _t('recipes_no_category','Keine Rezepte in dieser Kategorie')) + '</div><div style="font-size:12px;">' + (_gsRecipeFavsOnly ? _t('recipes_hint_save_fav','Tippe ♡ auf einem Rezept um es zu speichern') : _t('recipes_hint_show_all','Wähle "Alle" um alle anzuzeigen')) + '</div></div>';
     if (_gsRecipesState.observer) { try { _gsRecipesState.observer.disconnect(); } catch(_){} _gsRecipesState.observer = null; }
     return;
   }
@@ -37724,7 +37760,7 @@ function renderRecipes() {
     sentinelHtml =
       '<div id="recipes-sentinel" data-loadmore="recipes-list" style="text-align:center;padding:18px 14px;color:var(--muted);font-size:12px;font-weight:600;border:2px dashed var(--border);border-radius:12px;margin:8px 0;">' +
         '<span class="gs-spin" style="display:inline-block;width:14px;height:14px;border:2px solid var(--g-light);border-top-color:var(--g-main);border-radius:50%;animation:gs-spin 1s linear infinite;vertical-align:middle;margin-right:6px;"></span>' +
-        'Lade weitere ' + Math.min(BATCH, remaining) + ' von ' + remaining + '…' +
+        _t('load_more_label','Lade weitere') + ' ' + Math.min(BATCH, remaining) + ' ' + _t('word_of','von') + ' ' + remaining + '…' +
       '</div>';
   }
   list.innerHTML = statsBar + initialChunk + sentinelHtml;
@@ -37753,11 +37789,12 @@ function gsRecipesShowAll() {
 function renderRemedies() {
   const list = document.getElementById('remedies-list');
   if (!list) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var filtered = remedyFilter === 'all' ? remediesData : remediesData.filter(r => r.cat === remedyFilter);
   if (_gsRemedyFavsOnly) filtered = filtered.filter(function(r){ return isRecipeFav(r.id); });
   var statsBar = gsRenderRecipesStatsBar(filtered, true);
   if (!filtered.length) {
-    list.innerHTML = statsBar + '<div class="mp-empty"><span>🌿</span><p>' + (_gsRemedyFavsOnly ? 'Noch keine Favoriten.<br>Tippe ♡ auf einem Heilmittel' : 'Noch keine Heilmittel.<br>Füge dein erstes Rezept hinzu!') + '</p></div>';
+    list.innerHTML = statsBar + '<div class="mp-empty"><span>🌿</span><p>' + (_gsRemedyFavsOnly ? _t('remedies_no_favorites','Noch keine Favoriten.') + '<br>' + _t('remedies_hint_favorite','Tippe ♡ auf einem Heilmittel') : _t('remedies_no_remedies','Noch keine Heilmittel.') + '<br>' + _t('remedies_hint_add','Füge dein erstes Rezept hinzu!')) + '</p></div>';
     if (_gsRemediesState.observer) { try { _gsRemediesState.observer.disconnect(); } catch(_){} _gsRemediesState.observer = null; }
     return;
   }
@@ -37775,7 +37812,7 @@ function renderRemedies() {
     sentinelHtml =
       '<div id="remedies-sentinel" data-loadmore="remedies-list" style="text-align:center;padding:18px 14px;color:var(--muted);font-size:12px;font-weight:600;border:2px dashed var(--border);border-radius:12px;margin:8px 0;">' +
         '<span class="gs-spin" style="display:inline-block;width:14px;height:14px;border:2px solid var(--g-light);border-top-color:var(--g-main);border-radius:50%;animation:gs-spin 1s linear infinite;vertical-align:middle;margin-right:6px;"></span>' +
-        'Lade weitere ' + Math.min(BATCH, remaining) + ' von ' + remaining + '…' +
+        _t('load_more_label','Lade weitere') + ' ' + Math.min(BATCH, remaining) + ' ' + _t('word_of','von') + ' ' + remaining + '…' +
       '</div>';
   }
   list.innerHTML = statsBar + initialChunk + sentinelHtml;
@@ -37788,6 +37825,7 @@ function renderRemedies() {
 }
 
 function openRecipeDetail(id) {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   // Find in both collections
   const r = recipesData.find(x=>x.id===id) || remediesData.find(x=>x.id===id);
   if (!r) return;
@@ -37812,7 +37850,7 @@ function openRecipeDetail(id) {
     for (var k in GS_ING_LINK_MAP) {
       if (name.toLowerCase().indexOf(k.toLowerCase()) >= 0) {
         var pid = GS_ING_LINK_MAP[k];
-        return '<span onclick="_gsOpenIngCard(\''+pid+'\',\''+escHtml(r.id)+'\')" style="color:#2d8a2d;font-weight:800;text-decoration:underline dotted;cursor:pointer;" title="Infokarte: '+escHtml(k)+'">'+escHtml(name)+'</span>';
+        return '<span onclick="_gsOpenIngCard(\''+pid+'\',\''+escHtml(r.id)+'\')" style="color:#2d8a2d;font-weight:800;text-decoration:underline dotted;cursor:pointer;" title="'+_t('ing_card_tooltip','Infokarte:')+' '+escHtml(k)+'">'+escHtml(name)+'</span>';
       }
     }
     return escHtml(name);
@@ -37853,31 +37891,31 @@ function openRecipeDetail(id) {
         '</div></div>' +
       '</div>' +
       _photoHtml +
-      (r.plant ? '<div onclick="_openPlantFromRecipe((r.plantId)||(window.GS_ING_LINK_MAP&&window.GS_ING_LINK_MAP[r.plant])||r.plant)" style="background:#f0f7ee;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12.5px;color:var(--g-dark);font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:space-between;">🌿 ' + escHtml(r.plant) + '<span style="font-size:10px;color:var(--g-main);font-weight:600;">Infokarte →</span></div>' : '') +
+      (r.plant ? '<div onclick="_openPlantFromRecipe((r.plantId)||(window.GS_ING_LINK_MAP&&window.GS_ING_LINK_MAP[r.plant])||r.plant)" style="background:#f0f7ee;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12.5px;color:var(--g-dark);font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:space-between;">🌿 ' + escHtml(r.plant) + '<span style="font-size:10px;color:var(--g-main);font-weight:600;">' + _t('plant_card_link','Infokarte →') + '</span></div>' : '') +
       // Heilwirkung (nur für Heilmittel)
-      (isRemedy && r.wirkung ? '<div style="background:#e3f2fd;border-radius:8px;padding:11px 13px;margin-bottom:10px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#1565c0;margin-bottom:4px;">💊 Wirkung & Anwendung</div><div style="font-size:13px;color:#1565c0;line-height:1.55;">' + escHtml(r.wirkung) + '</div></div>' : '') +
-      (isRemedy && r.warning ? '<div style="background:#ffebee;border-radius:8px;padding:11px 13px;margin-bottom:10px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#c62828;margin-bottom:4px;">⚠️ Warnhinweis</div><div style="font-size:13px;color:#c62828;line-height:1.55;">' + escHtml(r.warning) + '</div></div>' : '') +
+      (isRemedy && r.wirkung ? '<div style="background:#e3f2fd;border-radius:8px;padding:11px 13px;margin-bottom:10px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#1565c0;margin-bottom:4px;">' + _t('remedy_effect_heading','💊 Wirkung & Anwendung') + '</div><div style="font-size:13px;color:#1565c0;line-height:1.55;">' + escHtml(r.wirkung) + '</div></div>' : '') +
+      (isRemedy && r.warning ? '<div style="background:#ffebee;border-radius:8px;padding:11px 13px;margin-bottom:10px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#c62828;margin-bottom:4px;">' + _t('remedy_warning_heading','⚠️ Warnhinweis') + '</div><div style="font-size:13px;color:#c62828;line-height:1.55;">' + escHtml(r.warning) + '</div></div>' : '') +
       // Zutaten
-      '<div style="font-size:13px;font-weight:800;color:var(--g-dark);margin-bottom:8px;">🧂 Zutaten</div>' +
+      '<div style="font-size:13px;font-weight:800;color:var(--g-dark);margin-bottom:8px;">' + _t('recipe_ingredients_heading','🧂 Zutaten') + '</div>' +
       '<div style="background:var(--card);border-radius:10px;padding:6px 12px;margin-bottom:14px;box-shadow:var(--shadow-sm);">' + ingHtml + '</div>' +
       // Zubereitung
-      '<div style="font-size:13px;font-weight:800;color:var(--g-dark);margin-bottom:8px;">👨‍🍳 Zubereitung</div>' +
+      '<div style="font-size:13px;font-weight:800;color:var(--g-dark);margin-bottom:8px;">' + _t('recipe_preparation_heading','👨‍🍳 Zubereitung') + '</div>' +
       '<div style="background:var(--card);border-radius:10px;padding:8px 12px;margin-bottom:14px;box-shadow:var(--shadow-sm);">' + stepsHtml + '</div>' +
       // Tipps
-      (r.notes ? '<div style="background:#f9fafb;border-radius:8px;padding:11px 13px;margin-bottom:14px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">💡 Tipps & Hinweise</div><div style="font-size:12.5px;color:var(--text2);line-height:1.55;">' + escHtml(r.notes) + '</div></div>' : '') +
+      (r.notes ? '<div style="background:#f9fafb;border-radius:8px;padding:11px 13px;margin-bottom:14px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">' + _t('recipe_tips_heading','💡 Tipps & Hinweise') + '</div><div style="font-size:12.5px;color:var(--text2);line-height:1.55;">' + escHtml(r.notes) + '</div></div>' : '') +
       // Actions
       (gsIsAdmin() ? '<div style="display:flex;gap:8px;margin-bottom:10px;">' +
-        '<button onclick="editRecipe(\'' + r.id + '\')" style="flex:1;padding:10px;background:#f0f7ee;border:1.5px solid var(--g-light);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;">✏️ Bearbeiten</button>' +
-        '<button onclick="deleteRecipe(\'' + r.id + '\')" style="flex:1;padding:10px;background:#ffebee;border:1.5px solid #ffcdd2;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;color:#c62828;font-family:inherit;">🗑️ Löschen</button>' +
+        '<button onclick="editRecipe(\'' + r.id + '\')" style="flex:1;padding:10px;background:#f0f7ee;border:1.5px solid var(--g-light);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;">' + _t('btn_edit','✏️ Bearbeiten') + '</button>' +
+        '<button onclick="deleteRecipe(\'' + r.id + '\')" style="flex:1;padding:10px;background:#ffebee;border:1.5px solid #ffcdd2;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;color:#c62828;font-family:inherit;">' + _t('btn_delete','🗑️ Löschen') + '</button>' +
       '</div>' +
-      '<button onclick="gsRecipePhotoUpload(\'' + r.id + '\')" style="width:100%;padding:10px;background:#e8eaf6;border:1.5px solid #c5cae9;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;color:#283593;font-family:inherit;margin-bottom:10px;">📷 Foto hinzufügen</button>' : '') +
+      '<button onclick="gsRecipePhotoUpload(\'' + r.id + '\')" style="width:100%;padding:10px;background:#e8eaf6;border:1.5px solid #c5cae9;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;color:#283593;font-family:inherit;margin-bottom:10px;">' + _t('btn_add_photo','📷 Foto hinzufügen') + '</button>' : '') +
     '</div>';
 
   var isFav = typeof isRecipeFav==='function' && isRecipeFav(r.id);
-  var rTitle = (r.title||r.plant||'Rezept').replace(/'/g,'');
+  var rTitle = (r.title||r.plant||_t('recipe_default_title','Rezept')).replace(/'/g,'');
   var actionBar = '<div style="display:flex;gap:8px;padding:12px 14px 0;">' +
     '<button data-rfav="'+r.id+'" onclick="toggleRecipeFav(this.getAttribute(\'data-rfav\'),event)" style="flex:1;padding:11px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface2);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">' +
-    (isFav ? '❤️ Gespeichert' : '🤍 Speichern') +
+    (isFav ? _t('btn_saved','❤️ Gespeichert') : _t('btn_save','🤍 Speichern')) +
     '</button>' +
     '<button data-share="'+rTitle+'" onclick="if(typeof gsShareApp===\'function\')gsShareApp()" style="padding:11px 16px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface2);font-size:16px;cursor:pointer;font-family:inherit;">↑</button>' +
     '</div>';
@@ -56735,6 +56773,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.51', date: '08.06.2026',
+    headline: '🌍 Rezepte & Heilmittel jetzt mehrsprachig',
+    summary: 'Weiter mit der Vollübersetzung (Batch C): Die Rezept- und Heilmittel-Karten, die Statistik-Leiste (Favoriten/Zufall), die leeren Zustände und die komplette Detail-Ansicht (Wirkung & Anwendung, Warnhinweis, Zutaten, Zubereitung, Tipps, Speichern/Bearbeiten/Löschen) werden jetzt mit der Sprache mit-übersetzt. Bei EN/FR/IT/ES automatisch.',
+    user_summary: '🌍 Rezepte und Heilmittel (Karten, Detail, Zutaten/Zubereitung) sind jetzt mehrsprachig.',
+    user_items: [
+      { emoji: '🍲', text: 'Rezept-/Heilmittel-Karten + Statistik-Leiste mehrsprachig' },
+      { emoji: '📋', text: 'Detail: Wirkung, Warnhinweis, Zutaten, Zubereitung, Tipps mehrsprachig' },
+      { emoji: '🤖', text: 'EN/FR/IT/ES automatisch via Übersetzungs-Edge-Fn' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'29 neue Keys:', text:' buildRecipeCard + gsRenderRecipesStatsBar + Lazy-Loader + renderRecipes/Remedies + openRecipeDetail auf gsI18n.t.'},
+      {emoji:'⚡', bold:'Audit-übersehen mitgenommen:', text:' gsRenderRecipesStatsBar (war nicht im Audit) zusätzlich lokalisiert.'},
+      {emoji:'📋', bold:'Audit-Roadmap:', text:' Batch A+D+C ✅ — als nächstes Quiz/Doktor/Wissen (I18N_DYNAMIC_AUDIT.md).'},
+    ]
+  },
+  {
     v: 'v28.50', date: '08.06.2026',
     headline: '🌍 Marktplatz-Detail, Chat & Käufe jetzt mehrsprachig',
     summary: 'Weiter mit der Vollübersetzung (Batch D): Die Inserat-Detailansicht (Status Aktiv/Reserviert/Verkauft/Archiviert, Anbieter, Kontakt/Bewerten, Auktion/Tausch/Gratis-Sektionen, Versand/Abholung), der Marktplatz-Chat und die „Meine Käufe"-Übersicht (Führend/Überboten/Gewonnen/Gekauft) werden jetzt mit der Sprache mit-übersetzt. Bei EN/FR/IT/ES automatisch.',
@@ -60484,7 +60538,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.50';
+var GS_VERSION = 'v28.51';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
