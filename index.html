@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.51.20260608">
+<meta name="app-version" content="28.52.20260608">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10963,6 +10963,42 @@ window.GS_I18N_JS_STRINGS = {
   'btn_saved':                 '❤️ Gespeichert',
   'btn_save':                  '🤍 Speichern',
   'recipe_default_title':      'Rezept',
+  // ── v28.52: Tages-Quiz-Teaser (renderDailyQuizTeaser) ──────────
+  'quiz_battle_1v1':           'Quiz-Battle (1v1)',
+  'quiz_points_today':         'Punkte heute',
+  'quiz_timeout':              'Zeit abgelaufen',
+  'quiz_incorrect':            'Nicht ganz richtig',
+  'quiz_already_answered':     'Heute schon beantwortet',
+  'quiz_next_in':              'Nächste Frage in',
+  'unit_h':                    'h',
+  'unit_min':                  'min',
+  'quiz_ready':                'Tägliche Frage bereit',
+  'btn_start_now':             'Jetzt starten',
+  'quiz_20s':                  '20 Sek',
+  'quiz_rules':                'Keine zweite Chance · Nicht schummeln · App verlassen = verloren',
+  // ── v28.52: Quiz-Battles (gsBattleRenderList/Round/Result) ─────
+  'battle_title':              'Quiz-Battles',
+  'battle_your_elo':           'Dein ELO:',
+  'btn_new_battle_random':     'Neues Battle (Zufalls-Gegner)',
+  'empty_nothing_here':        'Nichts hier.',
+  'battle_random_opponent':    'Zufalls-Gegner',
+  'battle_opponent':           'Gegner',
+  'battle_verdict_win':        'Sieg',
+  'battle_verdict_loss':       'Niederlage',
+  'battle_verdict_draw':       'Unentschieden',
+  'battle_elo_label':          'ELO',
+  'battle_your_turn':          'Du bist dran!',
+  'battle_type_random':        'Zufall',
+  'battle_type_friend':        'Freund',
+  'battle_waiting_opponent':   'Warte auf Gegner…',
+  'battle_open':               'Offen',
+  'battle_section_your_turn':  'Du bist dran',
+  'battle_section_past':       'Vergangen',
+  'battle_round':              'Runde',
+  'battle_done':               'Geschafft!',
+  'battle_your_score':         'Dein Score:',
+  'battle_waiting_result_hint':'Warte auf deinen Gegner. Schau später wieder rein — das ⚔️-Badge zeigt dir an, sobald das Ergebnis da ist.',
+  'battle_result_win':         'Sieg!',
   // ── Offline / Sync ──────────────────────────────────────────────
   'toast_offline_saved':       '📵 Offline gespeichert',
   'toast_offline_synced':      '🔄 Online — Sync abgeschlossen',
@@ -16836,14 +16872,15 @@ function renderDailyQuizTeaser() {
     var rEl = document.getElementById('quiz-result');
     var stEl = document.getElementById('quiz-streak');
     if (!qEl || !oEl) return;
+    var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
 
     // v26.97: Quiz-Battle-Einstieg (1v1 async) — in beiden Zuständen anbieten
-    var battleBtn = '<button onclick="if(typeof gsOpenBattles===\'function\')gsOpenBattles()" style="position:relative;width:100%;padding:11px 14px;margin-top:8px;background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.45);border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">⚔️ Quiz-Battle (1v1)<span id="quiz-battle-badge" style="display:none;position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 5px;align-items:center;justify-content:center;background:#e53935;color:#fff;border-radius:10px;font-size:11px;font-weight:900;"></span></button>';
+    var battleBtn = '<button onclick="if(typeof gsOpenBattles===\'function\')gsOpenBattles()" style="position:relative;width:100%;padding:11px 14px;margin-top:8px;background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.45);border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">⚔️ ' + _t('quiz_battle_1v1','Quiz-Battle (1v1)') + '<span id="quiz-battle-badge" style="display:none;position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 5px;align-items:center;justify-content:center;background:#e53935;color:#fff;border-radius:10px;font-size:11px;font-weight:900;"></span></button>';
 
     // Streak + Punkte-Anzeige
     var stats = (typeof dqGetStats === 'function') ? dqGetStats() : {streak:0, points:0};
     if (stEl) {
-      stEl.textContent = stats.streak > 0 ? ('🔥 ' + stats.streak + ' Tage') : '';
+      stEl.textContent = stats.streak > 0 ? ('🔥 ' + stats.streak + ' ' + _t('unit_days','Tage')) : '';
     }
 
     // Heute schon beantwortet? (via dqGetToday — nutzt per-Tag-Key)
@@ -16860,12 +16897,12 @@ function renderDailyQuizTeaser() {
       var min = Math.floor((ms % 3600000) / 60000);
       var icon = todayData.correct ? '✅' : '⏱️';
       var status = todayData.correct
-        ? '+' + (todayData.points||0) + ' Punkte heute'
-        : (todayData.timeout ? 'Zeit abgelaufen' : 'Nicht ganz richtig');
-      qEl.innerHTML = icon + ' Heute schon beantwortet';
+        ? '+' + (todayData.points||0) + ' ' + _t('quiz_points_today','Punkte heute')
+        : (todayData.timeout ? _t('quiz_timeout','Zeit abgelaufen') : _t('quiz_incorrect','Nicht ganz richtig'));
+      qEl.innerHTML = icon + ' ' + _t('quiz_already_answered','Heute schon beantwortet');
       oEl.innerHTML =
         '<div style="padding:9px 12px;background:rgba(255,255,255,.12);border-radius:10px;font-size:12.5px;font-weight:700;opacity:.92;">' + status + '</div>' +
-        '<div style="font-size:11.5px;opacity:.85;margin-top:6px;">Nächste Frage in ' + hrs + 'h ' + min + 'min</div>' +
+        '<div style="font-size:11.5px;opacity:.85;margin-top:6px;">' + _t('quiz_next_in','Nächste Frage in') + ' ' + hrs + _t('unit_h','h') + ' ' + min + _t('unit_min','min') + '</div>' +
         battleBtn;
       if (rEl) rEl.style.display = 'none';
       try { if (typeof gsBattleBadgeRefresh === 'function') gsBattleBadgeRefresh(); } catch(_){}
@@ -16873,12 +16910,12 @@ function renderDailyQuizTeaser() {
     }
 
     // Teaser: großer Start-Button öffnet das Quizduell-Modal
-    qEl.innerHTML = '🎯 Tägliche Frage bereit';
+    qEl.innerHTML = '🎯 ' + _t('quiz_ready','Tägliche Frage bereit');
     oEl.innerHTML =
       '<button onclick="openDailyQuiz()" style="width:100%;padding:13px 16px;background:rgba(255,255,255,.95);color:#4527a0;border:none;border-radius:11px;font-size:14px;font-weight:900;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:0 2px 8px rgba(0,0,0,.18);">' +
-        '▶ Jetzt starten <span style="opacity:.6;font-weight:700;margin-left:6px;">20 Sek</span>' +
+        '▶ ' + _t('btn_start_now','Jetzt starten') + ' <span style="opacity:.6;font-weight:700;margin-left:6px;">' + _t('quiz_20s','20 Sek') + '</span>' +
       '</button>' +
-      '<div style="font-size:10.5px;opacity:.8;margin-top:6px;text-align:center;">Keine zweite Chance · Nicht schummeln · App verlassen = verloren</div>' +
+      '<div style="font-size:10.5px;opacity:.8;margin-top:6px;text-align:center;">' + _t('quiz_rules','Keine zweite Chance · Nicht schummeln · App verlassen = verloren') + '</div>' +
       battleBtn;
     if (rEl) rEl.style.display = 'none';
     try { if (typeof gsBattleBadgeRefresh === 'function') gsBattleBadgeRefresh(); } catch(_){}
@@ -28676,6 +28713,7 @@ window.gsOpenBattles = gsOpenBattles;
 
 function gsBattleRenderList(rows){
   var esc = _gsBtlEsc;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var active = [], open = [], past = [];
   (rows || []).forEach(function(b, i){
     b._i = i;
@@ -28688,29 +28726,29 @@ function gsBattleRenderList(rows){
 
   var h = '';
   h += '<div style="text-align:center;margin-bottom:14px;">';
-  h += '<div style="font-size:19px;font-weight:900;color:var(--text);">⚔️ Quiz-Battles</div>';
-  h += '<div style="font-size:12.5px;color:var(--muted);margin-top:3px;">Dein ELO: <b style="color:#5e35b1;">' + (myElo|0) + '</b></div>';
+  h += '<div style="font-size:19px;font-weight:900;color:var(--text);">⚔️ ' + _t('battle_title','Quiz-Battles') + '</div>';
+  h += '<div style="font-size:12.5px;color:var(--muted);margin-top:3px;">' + _t('battle_your_elo','Dein ELO:') + ' <b style="color:#5e35b1;">' + (myElo|0) + '</b></div>';
   h += '</div>';
-  h += '<button onclick="gsBattleNewRandom()" style="width:100%;padding:14px;background:linear-gradient(135deg,#7e57c2,#4527a0);color:#fff;border:none;border-radius:13px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:0 3px 12px rgba(69,39,160,.35);margin-bottom:16px;">🎲 Neues Battle (Zufalls-Gegner)</button>';
+  h += '<button onclick="gsBattleNewRandom()" style="width:100%;padding:14px;background:linear-gradient(135deg,#7e57c2,#4527a0);color:#fff;border:none;border-radius:13px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:0 3px 12px rgba(69,39,160,.35);margin-bottom:16px;">🎲 ' + _t('btn_new_battle_random','Neues Battle (Zufalls-Gegner)') + '</button>';
 
   function section(title, list, kind){
     var s = '<div style="font-size:12px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin:6px 0 8px;">' + title + ' (' + list.length + ')</div>';
-    if (!list.length) { s += '<div style="padding:10px 12px;color:var(--muted);font-size:12.5px;opacity:.8;margin-bottom:14px;">Nichts hier.</div>'; return s; }
+    if (!list.length) { s += '<div style="padding:10px 12px;color:var(--muted);font-size:12.5px;opacity:.8;margin-bottom:14px;">' + _t('empty_nothing_here','Nichts hier.') + '</div>'; return s; }
     list.forEach(function(b){
-      var name = esc(b.opponent_name || (b.is_random_match ? 'Zufalls-Gegner' : 'Gegner'));
+      var name = esc(b.opponent_name || (b.is_random_match ? _t('battle_random_opponent','Zufalls-Gegner') : _t('battle_opponent','Gegner')));
       var emoji = esc(b.opponent_emoji || '🌿');
       var sub = '';
       var border = 'var(--border,#e0e0e0)';
       if (kind === 'past') {
-        var verdict = b.you_won === 1 ? '🏆 Sieg' : (b.you_won === -1 ? '💔 Niederlage' : '🤝 Unentschieden');
+        var verdict = b.you_won === 1 ? '🏆 ' + _t('battle_verdict_win','Sieg') : (b.you_won === -1 ? '💔 ' + _t('battle_verdict_loss','Niederlage') : '🤝 ' + _t('battle_verdict_draw','Unentschieden'));
         var dlt = (b.elo_delta > 0 ? '+' : '') + (b.elo_delta || 0);
         border = b.you_won === 1 ? '#43a047' : (b.you_won === -1 ? '#e53935' : '#9e9e9e');
-        sub = verdict + ' · ' + (b.your_score|0) + ':' + (b.their_score|0) + ' · ELO ' + dlt;
+        sub = verdict + ' · ' + (b.your_score|0) + ':' + (b.their_score|0) + ' · ' + _t('battle_elo_label','ELO') + ' ' + dlt;
       } else if (kind === 'active') {
-        sub = '▶ Du bist dran! · ' + (b.is_random_match ? 'Zufall' : 'Freund');
+        sub = '▶ ' + _t('battle_your_turn','Du bist dran!') + ' · ' + (b.is_random_match ? _t('battle_type_random','Zufall') : _t('battle_type_friend','Freund'));
         border = '#7e57c2';
       } else {
-        sub = b.you_answered ? '⏳ Warte auf Gegner…' : '⏳ Offen';
+        sub = b.you_answered ? '⏳ ' + _t('battle_waiting_opponent','Warte auf Gegner…') : '⏳ ' + _t('battle_open','Offen');
       }
       var clickable = (kind === 'active');
       s += '<div ' + (clickable ? 'onclick="gsBattleOpenFromList(' + b._i + ')" ' : '') + 'style="display:flex;align-items:center;gap:11px;padding:11px 13px;border:1.5px solid ' + border + ';border-radius:12px;margin-bottom:9px;' + (clickable ? 'cursor:pointer;' : '') + 'background:var(--card-bg,#fff);">';
@@ -28722,9 +28760,9 @@ function gsBattleRenderList(rows){
     });
     return s;
   }
-  h += section('▶ Du bist dran', active, 'active');
-  h += section('⏳ Offen', open, 'open');
-  h += section('📜 Vergangen', past, 'past');
+  h += section('▶ ' + _t('battle_section_your_turn','Du bist dran'), active, 'active');
+  h += section('⏳ ' + _t('battle_open','Offen'), open, 'open');
+  h += section('📜 ' + _t('battle_section_past','Vergangen'), past, 'past');
   _gsNlOpen(h);
 }
 window.gsBattleRenderList = gsBattleRenderList;
@@ -28846,11 +28884,12 @@ function gsBattleRenderRound(){
   var q = b.questions[b.idx];
   if (!q) { gsBattleSubmit(); return; }
   var esc = _gsBtlEsc;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   b.timeLeft = 30; b.qStart = Date.now();
 
   var h = '';
   h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
-  h += '<div style="font-size:12.5px;font-weight:900;color:#5e35b1;">Runde ' + (b.idx + 1) + ' / ' + b.questions.length + '</div>';
+  h += '<div style="font-size:12.5px;font-weight:900;color:#5e35b1;">' + _t('battle_round','Runde') + ' ' + (b.idx + 1) + ' / ' + b.questions.length + '</div>';
   h += '<div id="gs-btl-timer" style="font-size:13px;font-weight:900;color:#43a047;">30s</div>';
   h += '</div>';
   h += '<div style="height:5px;background:rgba(126,87,194,.15);border-radius:3px;overflow:hidden;margin-bottom:16px;"><div id="gs-btl-bar" style="height:100%;width:100%;background:linear-gradient(90deg,#43a047,#7e57c2);transition:width 1s linear;"></div></div>';
@@ -28914,22 +28953,23 @@ window.gsBattleSubmit = gsBattleSubmit;
 
 function gsBattleRenderResult(res){
   var esc = _gsBtlEsc;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var h = '<div style="padding:24px 18px;text-align:center;">';
   if (!res.resolved) {
     // Gegner noch nicht fertig
     h += '<div style="font-size:48px;">⏳</div>';
-    h += '<div style="font-size:19px;font-weight:900;margin:12px 0 6px;color:var(--text);">Geschafft!</div>';
-    h += '<div style="font-size:14px;color:var(--muted);">Dein Score: <b style="color:#5e35b1;">' + (res.your_score|0) + '</b></div>';
-    h += '<div style="font-size:13px;color:var(--muted);margin-top:10px;">Warte auf deinen Gegner. Schau später wieder rein — das ⚔️-Badge zeigt dir an, sobald das Ergebnis da ist.</div>';
+    h += '<div style="font-size:19px;font-weight:900;margin:12px 0 6px;color:var(--text);">' + _t('battle_done','Geschafft!') + '</div>';
+    h += '<div style="font-size:14px;color:var(--muted);">' + _t('battle_your_score','Dein Score:') + ' <b style="color:#5e35b1;">' + (res.your_score|0) + '</b></div>';
+    h += '<div style="font-size:13px;color:var(--muted);margin-top:10px;">' + _t('battle_waiting_result_hint','Warte auf deinen Gegner. Schau später wieder rein — das ⚔️-Badge zeigt dir an, sobald das Ergebnis da ist.') + '</div>';
   } else {
     var won = res.you_won;
-    var verdict = won === 1 ? '🏆 Sieg!' : (won === -1 ? '💔 Niederlage' : '🤝 Unentschieden');
+    var verdict = won === 1 ? '🏆 ' + _t('battle_result_win','Sieg!') : (won === -1 ? '💔 ' + _t('battle_verdict_loss','Niederlage') : '🤝 ' + _t('battle_verdict_draw','Unentschieden'));
     var col = won === 1 ? '#43a047' : (won === -1 ? '#e53935' : '#9e9e9e');
     h += '<div style="font-size:54px;">' + (won === 1 ? '🏆' : (won === -1 ? '💔' : '🤝')) + '</div>';
     h += '<div style="font-size:23px;font-weight:900;margin:10px 0;color:' + col + ';">' + verdict + '</div>';
-    h += '<div style="font-size:15px;color:var(--text);font-weight:800;">Dein Score: ' + (res.your_score|0) + '</div>';
+    h += '<div style="font-size:15px;color:var(--text);font-weight:800;">' + _t('battle_your_score','Dein Score:') + ' ' + (res.your_score|0) + '</div>';
     var dlt = (res.elo_delta > 0 ? '+' : '') + (res.elo_delta || 0);
-    h += '<div style="font-size:14px;color:var(--muted);margin-top:8px;">ELO ' + dlt + ' → <b style="color:#5e35b1;">' + (res.your_elo|0) + '</b></div>';
+    h += '<div style="font-size:14px;color:var(--muted);margin-top:8px;">' + _t('battle_elo_label','ELO') + ' ' + dlt + ' → <b style="color:#5e35b1;">' + (res.your_elo|0) + '</b></div>';
     // Achievement-Hooks (idempotent via p_set=true)
     try {
       if (typeof gsAchBump === 'function') {
@@ -28939,7 +28979,7 @@ function gsBattleRenderResult(res){
     } catch(_){}
     if (won === 1) { try { if (typeof window._gsConfetti === 'function') window._gsConfetti(); } catch(_){} if (typeof gsHaptic === 'function') gsHaptic('success'); }
   }
-  h += '<button onclick="gsOpenBattles()" style="margin-top:20px;padding:12px 26px;background:linear-gradient(135deg,#7e57c2,#4527a0);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;">Weiter</button>';
+  h += '<button onclick="gsOpenBattles()" style="margin-top:20px;padding:12px 26px;background:linear-gradient(135deg,#7e57c2,#4527a0);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;">' + _t('confirm_continue','Weiter') + '</button>';
   h += '</div>';
   _gsNlOpen(h);
 }
@@ -56773,6 +56813,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.52', date: '08.06.2026',
+    headline: '🌍 Tages-Quiz & Quiz-Battles jetzt mehrsprachig',
+    summary: 'Weiter mit der Vollübersetzung (Batch E): Das tägliche Quiz auf der Startseite (Start-Knopf, „Heute schon beantwortet", Countdown, Regeln) und die Quiz-Battles (Liste mit ELO, Sieg/Niederlage/Unentschieden, „Du bist dran", Runden-Anzeige, Ergebnis-Screen) werden jetzt mit der Sprache mit-übersetzt. Bei EN/FR/IT/ES automatisch.',
+    user_summary: '🌍 Tägliches Quiz und Quiz-Battles (ELO, Ergebnisse, Runden) sind jetzt mehrsprachig.',
+    user_items: [
+      { emoji: '🎯', text: 'Tägliches Quiz: Start, Countdown, Regeln mehrsprachig' },
+      { emoji: '⚔️', text: 'Quiz-Battles: Liste, Sieg/Niederlage, Runden, Ergebnis mehrsprachig' },
+      { emoji: '🤖', text: 'EN/FR/IT/ES automatisch via Übersetzungs-Edge-Fn' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'34 neue Keys:', text:' renderDailyQuizTeaser + gsBattleRenderList/Round/Result auf gsI18n.t.'},
+      {emoji:'♻️', bold:'Reuse:', text:' unit_days + confirm_continue (Weiter) wiederverwendet.'},
+      {emoji:'📋', bold:'Audit-Roadmap:', text:' Batch A+D+C+E ✅ — als nächstes Doktor/Wissen/Garten (I18N_DYNAMIC_AUDIT.md).'},
+    ]
+  },
+  {
     v: 'v28.51', date: '08.06.2026',
     headline: '🌍 Rezepte & Heilmittel jetzt mehrsprachig',
     summary: 'Weiter mit der Vollübersetzung (Batch C): Die Rezept- und Heilmittel-Karten, die Statistik-Leiste (Favoriten/Zufall), die leeren Zustände und die komplette Detail-Ansicht (Wirkung & Anwendung, Warnhinweis, Zutaten, Zubereitung, Tipps, Speichern/Bearbeiten/Löschen) werden jetzt mit der Sprache mit-übersetzt. Bei EN/FR/IT/ES automatisch.',
@@ -60538,7 +60594,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.51';
+var GS_VERSION = 'v28.52';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
