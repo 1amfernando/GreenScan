@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.41.20260607">
+<meta name="app-version" content="28.42.20260607">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2065,8 +2065,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
           <div class="sr-loading-ring"></div>
           <div class="sr-loading-icon">🌿</div>
         </div>
-        <div class="sr-loading-text" id="sr-loading-text">Kamera wird vorbereitet…</div>
-        <div class="sr-loading-sub" id="sr-loading-sub">Einen Moment — gleich kannst du eine Art bestimmen.</div>
+        <div class="sr-loading-text" id="sr-loading-text" data-i18n="sr_loading_text" data-i18n-fallback="Kamera wird vorbereitet…">Kamera wird vorbereitet…</div>
+        <div class="sr-loading-sub" id="sr-loading-sub" data-i18n="sr_loading_sub" data-i18n-fallback="Einen Moment — gleich kannst du eine Art bestimmen.">Einen Moment — gleich kannst du eine Art bestimmen.</div>
       </div>
 
       <!-- Top-Bar · v23.83: Home + Hochladen + Tips + Flash -->
@@ -2075,7 +2075,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
           <span class="sr-ico">🏠</span>
         </button>
         <button class="sr-topbtn" onclick="uploadImage()" aria-label="Foto aus Galerie hochladen">
-          <span class="sr-ico">🖼️</span><span>Hochladen</span>
+          <span class="sr-ico">🖼️</span><span data-i18n="btn_upload" data-i18n-fallback="Hochladen">Hochladen</span>
         </button>
         <button class="sr-topbtn" onclick="gsShowScanTips()" aria-label="Tipps zum Scannen" style="padding:8px 12px;" title="Tipps">
           <span class="sr-ico">💡</span>
@@ -2122,7 +2122,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <!-- Tipp-Hinweis (fade-in/out) · v23.67: kein "Scan"-Jargon -->
       <div id="scan-tip" class="scan-tip">
         <span>💡</span>
-        <span>Art ruhig im Zentrum halten</span>
+        <span data-i18n="sr_tip_center" data-i18n-fallback="Art ruhig im Zentrum halten">Art ruhig im Zentrum halten</span>
       </div>
     </div>
 
@@ -2162,10 +2162,10 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   <div id="upload-section" style="display:none;padding:40px 20px;">
     <div class="upload-zone" onclick="uploadImage()" style="cursor:pointer;">
       <div class="uz-icon">🌿</div>
-      <div class="uz-title">Foto aus Galerie wählen</div>
-      <div class="uz-sub">Tippe hier um eine Pflanze, einen Pilz oder ein Kraut<br>aus deinen Fotos bestimmen zu lassen</div>
+      <div class="uz-title" data-i18n="uz_title" data-i18n-fallback="Foto aus Galerie wählen">Foto aus Galerie wählen</div>
+      <div class="uz-sub" data-i18n="uz_sub" data-i18n-html data-i18n-fallback="Tippe hier um eine Pflanze, einen Pilz oder ein Kraut<br>aus deinen Fotos bestimmen zu lassen">Tippe hier um eine Pflanze, einen Pilz oder ein Kraut<br>aus deinen Fotos bestimmen zu lassen</div>
     </div>
-    <button onclick="initScanner()" style="display:block;width:100%;margin-top:14px;padding:13px;background:linear-gradient(135deg,#2d8a2d,#1b5e20);color:#fff;border:none;border-radius:12px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🔄 Kamera erneut öffnen</button>
+    <button onclick="initScanner()" data-i18n="btn_reopen_camera" data-i18n-fallback="🔄 Kamera erneut öffnen" style="display:block;width:100%;margin-top:14px;padding:13px;background:linear-gradient(135deg,#2d8a2d,#1b5e20);color:#fff;border:none;border-radius:12px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🔄 Kamera erneut öffnen</button>
   </div>
   
   <!-- File-Input (unsichtbar) — v25.1: capture="environment" entfernt, sonst forciert iOS/Android nur Kamera statt Datei-Picker -->
@@ -56479,6 +56479,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.42', date: '07.06.2026',
+    headline: '🌍 Scanner-Screen jetzt mehrsprachig',
+    summary: 'Erster Schritt der schrittweisen Vollübersetzung: Der Scanner-Bildschirm (Lade-Texte, „Hochladen", Tipps, Galerie-Auswahl) ist jetzt mehrsprachig — bei Sprachwechsel auf EN/FR/IT/ES werden diese Texte automatisch übersetzt (kein Deutsch mehr stehengeblieben). Die übrigen Bildschirme folgen demselben Muster Schritt für Schritt.',
+    user_summary: '🌍 Scanner-Texte werden jetzt mit der Sprache mit-übersetzt. Weitere Screens folgen.',
+    user_items: [
+      { emoji: '📸', text: 'Scanner-Texte (Laden/Hochladen/Tipp/Galerie) mehrsprachig' },
+      { emoji: '🤖', text: 'EN/FR/IT/ES automatisch generiert (Edge-Fn)' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'7 data-i18n-Keys:', text:' sr_loading_text/sub, btn_upload, sr_tip_center, uz_title/sub, btn_reopen_camera mit DE-Fallback.'},
+      {emoji:'🌐', bold:'Auto-Übersetzung:', text:' i18n-translate-Edge-Fn erzeugt EN/FR/IT/ES aus DE-Fallbacks beim ersten Sprachwechsel.'},
+      {emoji:'📋', bold:'Muster etabliert', text:' für restliche Screens + dynamische Renders (SETTINGS_I18N_AUDIT.md).'},
+    ]
+  },
+  {
     v: 'v28.41', date: '07.06.2026',
     headline: '🌍 Sprache greift jetzt auch geräteübergreifend sofort',
     summary: 'Wenn du die Sprache auf einem Gerät änderst, wird sie jetzt auch auf deinen anderen Geräten sofort angewendet (vorher erst nach Neuladen). Die Sprach-Umschaltung selbst arbeitet zuverlässig in Echtzeit für die ganze Oberfläche. Wir haben ausserdem die App systematisch auf noch nicht übersetzte Bereiche geprüft und einen klaren Plan, diese Schritt für Schritt sauber nachzuziehen.',
@@ -60090,7 +60105,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.41';
+var GS_VERSION = 'v28.42';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
