@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.45.20260607">
+<meta name="app-version" content="28.46.20260608">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10726,6 +10726,46 @@ window.GS_I18N_JS_STRINGS = {
   'toast_market_published':    '✅ Live im Marketplace!',
   'toast_market_error':        'Fehler beim Veröffentlichen',
   'toast_market_network_error':'⚠️ Netzwerkfehler — versuche es erneut',
+  // ── v28.46: Community-Feed (renderSocialFeed) dynamische Renders ─
+  'feed_empty':                'Noch keine Posts. Tippe auf + und teile deine Entdeckung!',
+  'time_now':                  'Gerade',
+  'time_min':                  'Min',
+  'time_hrs':                  'Std',
+  'time_days':                 'd',
+  'community_anon':            'Naturfreund',
+  'badge_expert':              '✓ EXPERTE',
+  'badge_verified':            '✅ Verifiziert',
+  'profile_view':              'Profil ansehen',
+  'btn_verify':                '✅ Verifizieren',
+  'btn_request_verify':        '🎓 Verifikation anfragen',
+  'btn_load_more':             '⬇️ Weitere laden',
+  // ── v28.46: Marktplatz (renderMarket + Helfer) dynamische Renders ─
+  'market_empty_title':        'Noch keine Angebote',
+  'market_empty_sub':          'Sei der/die Erste! Erstelle ein Inserat.',
+  'market_empty_btn':          '+ Erstes Angebot erstellen',
+  'market_no_results':         'Keine Treffer mit diesen Filtern',
+  'market_hits':               'Treffer',
+  'status_sold':               '✅ Verkauft',
+  'status_reserved':           '🟡 Reserviert',
+  'status_archived':           '📦 Archiviert',
+  'badge_reported':            '⚠️ Gemeldet',
+  'badge_bio':                 '🌱 Bio',
+  'badge_pestfree':            '🚫 Pestizid-frei',
+  'cat_produkte':              'Naturprodukte',
+  'cat_samen':                 'Samen & Setzlinge',
+  'cat_zubehor':               'Garten-Zubehör',
+  'cat_dienst':                'Dienstleistung',
+  'cat_tausch':                'Tausch',
+  'cat_all':                   'Alle',
+  'price_gratis':              'Gratis',
+  'price_tausch':              'Tausch',
+  'price_vb':                  'VB',
+  'time_jetzt':                'jetzt',
+  'time_vor':                  'vor',
+  'time_min_short':            'Min.',
+  'time_std_short':            'Std.',
+  'time_tag':                  'Tag',
+  'time_tage':                 'Tagen',
   // ── Offline / Sync ──────────────────────────────────────────────
   'toast_offline_saved':       '📵 Offline gespeichert',
   'toast_offline_synced':      '🔄 Online — Sync abgeschlossen',
@@ -17667,6 +17707,7 @@ function gsMarketUser() {
 
 // ── HAUPTRENDERER ────────────────────────────────────────────────
 function renderMarket() {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   try { if (typeof gsMktRefreshUnreadBadge === 'function') gsMktRefreshUnreadBadge(); } catch(_){}  // v28.17: Inbox-Badge
   var listings = gsMarketLoad();
   var listEl = document.getElementById('market-listings');
@@ -17776,7 +17817,7 @@ function renderMarket() {
     if (filtered.length === listings.length && !search && cat === 'all' && region === 'all') {
       statusEl.textContent = '';
     } else {
-      statusEl.textContent = filtered.length + ' Treffer' + (cat !== 'all' ? ' · ' + _catLabel(cat) : '') + (search ? ' · "' + search + '"' : '');
+      statusEl.textContent = filtered.length + ' ' + _t('market_hits','Treffer') + (cat !== 'all' ? ' · ' + _catLabel(cat) : '') + (search ? ' · "' + search + '"' : '');
     }
   }
 
@@ -17785,14 +17826,14 @@ function renderMarket() {
     if (!listings.length) {
       listEl.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--muted);">' +
         '<div style="font-size:48px;opacity:.25;margin-bottom:10px;">🛒</div>' +
-        '<div style="font-size:14px;font-weight:700;color:var(--text2);margin-bottom:4px;">Noch keine Angebote</div>' +
-        '<div style="font-size:12px;">Sei der/die Erste! Erstelle ein Inserat.</div>' +
-        '<button onclick="openNewListing()" style="margin-top:14px;padding:10px 20px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">+ Erstes Angebot erstellen</button>' +
+        '<div style="font-size:14px;font-weight:700;color:var(--text2);margin-bottom:4px;">' + _t('market_empty_title','Noch keine Angebote') + '</div>' +
+        '<div style="font-size:12px;">' + _t('market_empty_sub','Sei der/die Erste! Erstelle ein Inserat.') + '</div>' +
+        '<button onclick="openNewListing()" style="margin-top:14px;padding:10px 20px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' + _t('market_empty_btn','+ Erstes Angebot erstellen') + '</button>' +
         '</div>';
     } else {
       listEl.innerHTML = '<div style="text-align:center;padding:30px 20px;color:var(--muted);">' +
         '<div style="font-size:36px;opacity:.3;margin-bottom:8px;">🔍</div>' +
-        '<div style="font-size:13px;">Keine Treffer mit diesen Filtern</div>' +
+        '<div style="font-size:13px;">' + _t('market_no_results','Keine Treffer mit diesen Filtern') + '</div>' +
         '</div>';
     }
     return;
@@ -17806,17 +17847,17 @@ function renderMarket() {
     var catEmoji = _catEmoji(l.cat);
     var catLabel = _catLabel(l.cat);
     var verifiedBadge = l.verified ? '<span style="color:#2e7d32;font-size:11px;margin-left:3px;" title="Verifiziert">✓</span>' : '';
-    var reportBadge = (l.reports||0) >= 3 ? '<span style="background:#fff3e0;color:#e65100;font-size:9px;padding:1px 5px;border-radius:4px;font-weight:800;margin-left:4px;">⚠️ Gemeldet</span>' : '';
+    var reportBadge = (l.reports||0) >= 3 ? '<span style="background:#fff3e0;color:#e65100;font-size:9px;padding:1px 5px;border-radius:4px;font-weight:800;margin-left:4px;">' + _t('badge_reported','⚠️ Gemeldet') + '</span>' : '';
     // v26.36: Bio + Pestizid-frei-Badges
-    var bioBadge = l.organic_certified ? '<span style="background:#e8f5e9;color:#1b5e20;font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;" title="Bio-zertifiziert' + (l.certification_label ? ': ' + l.certification_label : '') + '">🌱 Bio' + (l.certification_label ? ' (' + _esc(l.certification_label) + ')' : '') + '</span>' : '';
-    var pfBadge = (!l.organic_certified && l.pesticide_free) ? '<span style="background:#fff8e1;color:#bf360c;font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;" title="Pestizid-frei (eigene Aussage)">🚫 Pestizid-frei</span>' : '';
+    var bioBadge = l.organic_certified ? '<span style="background:#e8f5e9;color:#1b5e20;font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;" title="Bio-zertifiziert' + (l.certification_label ? ': ' + l.certification_label : '') + '">' + _t('badge_bio','🌱 Bio') + (l.certification_label ? ' (' + _esc(l.certification_label) + ')' : '') + '</span>' : '';
+    var pfBadge = (!l.organic_certified && l.pesticide_free) ? '<span style="background:#fff8e1;color:#bf360c;font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;" title="Pestizid-frei (eigene Aussage)">' + _t('badge_pestfree','🚫 Pestizid-frei') + '</span>' : '';
     var regionText = l.region && l.region !== 'other' ? l.region : '';
     var timeAgo = _timeAgo(l.createdAt);
     // v26.92: Status-Badge (reserved / sold / archived)
     var statusBadge = '';
-    if (l.status === 'sold')        statusBadge = '<span style="background:#eceff1;color:#455a64;font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;">✅ Verkauft</span>';
-    else if (l.status === 'reserved') statusBadge = '<span style="background:#fff8e1;color:#ef6c00;font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;">🟡 Reserviert</span>';
-    else if (l.status === 'archived') statusBadge = '<span style="background:#f5f5f5;color:#90a4ae;font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;">📦 Archiviert</span>';
+    if (l.status === 'sold')        statusBadge = '<span style="background:#eceff1;color:#455a64;font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;">' + _t('status_sold','✅ Verkauft') + '</span>';
+    else if (l.status === 'reserved') statusBadge = '<span style="background:#fff8e1;color:#ef6c00;font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;">' + _t('status_reserved','🟡 Reserviert') + '</span>';
+    else if (l.status === 'archived') statusBadge = '<span style="background:#f5f5f5;color:#90a4ae;font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;">' + _t('status_archived','📦 Archiviert') + '</span>';
     var cardDim = (l.status === 'sold' || l.status === 'archived') ? 'opacity:.62;' : '';
 
     html += '<div class="mk-card" onclick="openListingDetail(\'' + l.id + '\')" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px;margin-bottom:8px;cursor:pointer;-webkit-tap-highlight-color:transparent;display:flex;gap:11px;' + cardDim + '">' +
@@ -17847,23 +17888,34 @@ function renderMarket() {
 // Helpers
 function _esc(s) { return String(s||'').replace(/[<>&]/g, function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;'}[c];}); }
 function _catEmoji(c) { return {produkte:'🍅',samen:'🌰',zubehor:'🔧',dienst:'🤝',tausch:'🔄'}[c] || '🌿'; }
-function _catLabel(c) { return {produkte:'Naturprodukte',samen:'Samen & Setzlinge',zubehor:'Garten-Zubehör',dienst:'Dienstleistung',tausch:'Tausch'}[c] || 'Alle'; }
+function _catLabel(c) {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+  return {
+    produkte: _t('cat_produkte','Naturprodukte'),
+    samen:    _t('cat_samen','Samen & Setzlinge'),
+    zubehor:  _t('cat_zubehor','Garten-Zubehör'),
+    dienst:   _t('cat_dienst','Dienstleistung'),
+    tausch:   _t('cat_tausch','Tausch')
+  }[c] || _t('cat_all','Alle');
+}
 function _priceLabel(l) {
-  if (l.priceMode === 'gratis') return 'Gratis';
-  if (l.priceMode === 'tausch') return 'Tausch';
-  if (l.priceMode === 'vb') return 'CHF ' + (l.price||'VB') + ' VB';
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+  if (l.priceMode === 'gratis') return _t('price_gratis','Gratis');
+  if (l.priceMode === 'tausch') return _t('price_tausch','Tausch');
+  if (l.priceMode === 'vb') return 'CHF ' + (l.price || _t('price_vb','VB')) + ' ' + _t('price_vb','VB');
   return 'CHF ' + (l.price || '?');
 }
 function _timeAgo(ts) {
   if (!ts) return '';
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var diff = Date.now() - ts;
   var m = Math.floor(diff/60000);
-  if (m < 1) return 'jetzt';
-  if (m < 60) return 'vor ' + m + ' Min.';
+  if (m < 1) return _t('time_jetzt','jetzt');
+  if (m < 60) return _t('time_vor','vor') + ' ' + m + ' ' + _t('time_min_short','Min.');
   var h = Math.floor(m/60);
-  if (h < 24) return 'vor ' + h + ' Std.';
+  if (h < 24) return _t('time_vor','vor') + ' ' + h + ' ' + _t('time_std_short','Std.');
   var d = Math.floor(h/24);
-  if (d < 30) return 'vor ' + d + ' Tag' + (d>1?'en':'');
+  if (d < 30) return _t('time_vor','vor') + ' ' + d + ' ' + (d>1 ? _t('time_tage','Tagen') : _t('time_tag','Tag'));
   return new Date(ts).toLocaleDateString('de-CH');
 }
 
@@ -27443,6 +27495,7 @@ let socialUserName = localStorage.getItem('gs_social_name') || '';
 function renderSocialFeed() {
   var feed = document.getElementById('social-feed');
   if (!feed) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var uid = gsStore.get('gs_sb_uid', null);
 
   var filtered = currentSocialFilter === 'all' ? socialPosts :
@@ -27451,7 +27504,7 @@ function renderSocialFeed() {
   if (!filtered.length) {
     feed.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--muted);">' +
       '<div style="font-size:48px;margin-bottom:12px;">🌿</div>' +
-      '<p>Noch keine Posts. Tippe auf + und teile deine Entdeckung!</p></div>';
+      '<p>' + _t('feed_empty','Noch keine Posts. Tippe auf + und teile deine Entdeckung!') + '</p></div>';
     return;
   }
 
@@ -27460,10 +27513,10 @@ function renderSocialFeed() {
 
   function timeAgo(ts) {
     var d = Math.floor((now - new Date(ts).getTime()) / 1000);
-    if (d < 60) return 'Gerade';
-    if (d < 3600) return Math.floor(d/60) + ' Min';
-    if (d < 86400) return Math.floor(d/3600) + ' Std';
-    return Math.floor(d/86400) + ' d';
+    if (d < 60) return _t('time_now','Gerade');
+    if (d < 3600) return Math.floor(d/60) + ' ' + _t('time_min','Min');
+    if (d < 86400) return Math.floor(d/3600) + ' ' + _t('time_hrs','Std');
+    return Math.floor(d/86400) + ' ' + _t('time_days','d');
   }
 
   var out = '';
@@ -27478,9 +27531,9 @@ function renderSocialFeed() {
     if (p.role && typeof gsRoleBadge === 'function') {
       exp = gsRoleBadge(p.role, {size:'sm'});
     } else if (p.is_expert) {
-      exp = '<span style="background:#2e7d32;color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:4px;margin-left:4px;">✓ EXPERTE</span>';
+      exp = '<span style="background:#2e7d32;color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:4px;margin-left:4px;">' + _t('badge_expert','✓ EXPERTE') + '</span>';
     }
-    var name  = escHtml(p.author_name || p.author || 'Naturfreund');
+    var name  = escHtml(p.author_name || p.author || _t('community_anon','Naturfreund'));
     var av    = p.author_avatar || p.avatar || '🌿';
     var plant = p.plant_name || p.plant || '';
     var text  = escHtml(p.content || p.text || '');
@@ -27489,16 +27542,16 @@ function renderSocialFeed() {
     // Header
     out += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">';
     // v28.34 B-021: Avatar klickbar → Profil öffnen (nur user_id im onclick = Hard-Lesson #12-sicher)
-    out += '<div ' + (p.user_id ? 'onclick="event.stopPropagation();if(typeof gsOpenProfile===\'function\')gsOpenProfile(\'' + p.user_id + '\')" role="button" tabindex="0" title="Profil ansehen" ' : '') + 'style="font-size:28px;flex-shrink:0;' + (p.user_id ? 'cursor:pointer;' : '') + '">' + av + '</div>';
+    out += '<div ' + (p.user_id ? 'onclick="event.stopPropagation();if(typeof gsOpenProfile===\'function\')gsOpenProfile(\'' + p.user_id + '\')" role="button" tabindex="0" title="' + _t('profile_view','Profil ansehen') + '" ' : '') + 'style="font-size:28px;flex-shrink:0;' + (p.user_id ? 'cursor:pointer;' : '') + '">' + av + '</div>';
     out += '<div style="flex:1;min-width:0;">';
     // v25.29: Expert-Verifikations-Badge wenn Post von einem Experten verifiziert wurde
     var vBadge = '';
     if (p.is_expert_verified) {
       var vCount = p.verification_count || 1;
-      vBadge = '<span title="Von Experten verifiziert" style="background:linear-gradient(135deg,#1b5e20,#43a047);color:#fff;font-size:9px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:6px;letter-spacing:.2px;">✅ Verifiziert' + (vCount > 1 ? ' ' + vCount + 'x' : '') + '</span>';
+      vBadge = '<span title="Von Experten verifiziert" style="background:linear-gradient(135deg,#1b5e20,#43a047);color:#fff;font-size:9px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:6px;letter-spacing:.2px;">' + _t('badge_verified','✅ Verifiziert') + (vCount > 1 ? ' ' + vCount + 'x' : '') + '</span>';
     }
     // v28.34 B-021: Name klickbar → Profil (via _gsProfileChip, escaped + #12-sicher). Badges bleiben außerhalb.
-    var nameHtml = (p.user_id && typeof _gsProfileChip === 'function') ? _gsProfileChip(p.user_id, (p.author_name || p.author || 'Naturfreund')) : name;
+    var nameHtml = (p.user_id && typeof _gsProfileChip === 'function') ? _gsProfileChip(p.user_id, (p.author_name || p.author || _t('community_anon','Naturfreund'))) : name;
     out += '<div style="font-weight:800;font-size:13.5px;color:var(--text);">' + nameHtml + exp + vBadge + '</div>';
     out += '<div style="font-size:11px;color:var(--muted);">' + dt + (plant ? ' · 🌿 ' + escHtml(plant) : '') + '</div>';
     out += '</div>';
@@ -27531,14 +27584,14 @@ function renderSocialFeed() {
       out += '<button data-pid="' + pid + '" onclick="gsOpenVerifyModal(this.dataset.pid)" ';
       out += 'style="display:flex;align-items:center;gap:5px;padding:6px 12px;background:linear-gradient(135deg,#1b5e20,#2e7d32);';
       out += 'border:none;border-radius:20px;font-size:12px;font-weight:800;cursor:pointer;color:#fff;font-family:inherit;">';
-      out += '✅ Verifizieren</button>';
+      out += _t('btn_verify','✅ Verifizieren') + '</button>';
     }
     // v25.29: Verifikation-anfragen-Button (nur eigener Post, PRO-User, noch nicht verifiziert)
     if (isOwn && !p.is_expert_verified && typeof gsHasProPlan === 'function' && gsHasProPlan()) {
       out += '<button data-pid="' + pid + '" onclick="gsRequestExpertVerification(this.dataset.pid)" ';
       out += 'style="display:flex;align-items:center;gap:5px;padding:6px 10px;background:#fff8e1;';
       out += 'border:1.5px solid #fbc02d;border-radius:20px;font-size:11.5px;font-weight:700;cursor:pointer;color:#e65100;font-family:inherit;">';
-      out += '🎓 Verifikation anfragen</button>';
+      out += _t('btn_request_verify','🎓 Verifikation anfragen') + '</button>';
     }
     if (isOwn) {
       out += '<button data-pid="' + pid + '" onclick="deletePost(this.dataset.pid)" ';
@@ -27550,7 +27603,7 @@ function renderSocialFeed() {
 
   // Weitere laden Button
   if (socialPosts.length >= _communityPage * 20 && socialPosts.length > 0) {
-    out += '<div onclick="loadSocialPosts(false)" style="text-align:center;padding:14px;color:var(--g-main);font-weight:700;cursor:pointer;border:2px dashed var(--border);border-radius:12px;margin:4px 0 20px;">⬇️ Weitere laden</div>';
+    out += '<div onclick="loadSocialPosts(false)" style="text-align:center;padding:14px;color:var(--g-main);font-weight:700;cursor:pointer;border:2px dashed var(--border);border-radius:12px;margin:4px 0 20px;">' + _t('btn_load_more','⬇️ Weitere laden') + '</div>';
   }
 
   feed.innerHTML = out;
@@ -56494,6 +56547,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.46', date: '08.06.2026',
+    headline: '🌍 Marktplatz + Community jetzt mehrsprachig (dynamische Inhalte)',
+    summary: 'Weiter mit der dynamischen Übersetzung: Auch die JS-generierten Listen im Marktplatz (Kategorien, Preis-/Status-Badges wie Verkauft/Reserviert/Archiviert, Bio/Pestizid-frei, Zeit-Angaben „vor X Min.", Treffer-Zähler, leere Zustände) und im Community-Feed (Zeit-Labels, Experte/Verifiziert-Badges, Verifizieren/Weitere-laden-Buttons, leerer Feed) werden jetzt mit der Sprache mit-übersetzt. Bei EN/FR/IT/ES automatisch.',
+    user_summary: '🌍 Marktplatz- und Community-Texte (Kategorien, Badges, Zeit-Angaben) werden jetzt mit der Sprache mit-übersetzt.',
+    user_items: [
+      { emoji: '🛒', text: 'Marktplatz: Kategorien, Status-/Preis-Badges, Zeit-Angaben mehrsprachig' },
+      { emoji: '🌿', text: 'Community-Feed: Zeit-Labels, Badges, Buttons mehrsprachig' },
+      { emoji: '🤖', text: 'EN/FR/IT/ES automatisch via Übersetzungs-Edge-Fn' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'38 gsI18n.t-Keys:', text:' renderSocialFeed + renderMarket + geteilte Helfer (_catLabel/_priceLabel/_timeAgo) auf gsI18n.t umgestellt + Keys in GS_I18N_JS_STRINGS registriert.'},
+      {emoji:'⚡', bold:'High-Leverage:', text:' Markt-Helfer wirken auch in Inserat-Detail + anderen Call-Sites.'},
+      {emoji:'📋', bold:'Fortschritt dyn. Renders:', text:' Pflanzen-Karte ✅ Community ✅ Markt ✅ — offen: Detail/Meine-Pflanzen/Rezepte.'},
+    ]
+  },
+  {
     v: 'v28.45', date: '07.06.2026',
     headline: '🌍 Pflanzen-Karte jetzt mehrsprachig (dynamische Inhalte)',
     summary: 'Start der dynamischen Übersetzung: Auch JS-generierte Inhalte werden jetzt mehrsprachig — den Anfang macht die Pflanzen-Karte in „Meine Pflanzen" (Wasser/Licht/Hinzugefügt, die Werte Wenig/Mittel/Viel + Schatten/Halbschatten/Sonne, sowie die Buttons KI-Pflegeberatung/Aufgaben/Bearbeiten). Bei EN/FR/IT/ES wird das automatisch übersetzt. Die übrigen dynamischen Listen (Markt, Community) folgen demselben Muster.',
@@ -60163,7 +60232,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.45';
+var GS_VERSION = 'v28.46';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
