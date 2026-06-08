@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.60.20260608">
+<meta name="app-version" content="28.61.20260609">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -8809,13 +8809,14 @@ function openWeatherDetail() {
     gsRenderWeatherDetail(_gsWeatherData);
   } else {
     // Zeige Ladeindikator
+    var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
     var hourlyEl = document.getElementById('wd-hourly');
-    if (hourlyEl) hourlyEl.innerHTML = '<div style="padding:20px;color:var(--muted);text-align:center;">🌤️ Wetterdaten laden…</div>';
+    if (hourlyEl) hourlyEl.innerHTML = '<div style="padding:20px;color:var(--muted);text-align:center;">' + _t('wd_loading','🌤️ Wetterdaten laden…') + '</div>';
     loadGardenWeather(false).then(function() {
       if (_gsWeatherData) gsRenderWeatherDetail(_gsWeatherData);
     }).catch(function() {
       var hourlyEl = document.getElementById('wd-hourly');
-      if (hourlyEl) hourlyEl.innerHTML = '<div style="padding:20px;color:var(--muted);text-align:center;">⚠️ Keine Verbindung</div>';
+      if (hourlyEl) hourlyEl.innerHTML = '<div style="padding:20px;color:var(--muted);text-align:center;">' + _t('wd_no_connection','⚠️ Keine Verbindung') + '</div>';
     });
   }
 }
@@ -8823,6 +8824,7 @@ function openWeatherDetail() {
 function gsRenderWeatherDetail(data) {
   var cw = data.current_weather;
   if (!cw) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var hour = new Date().getHours();
   var hourly = data.hourly || {};
   var daily  = data.daily  || {};
@@ -8845,16 +8847,16 @@ function gsRenderWeatherDetail(data) {
   var wind = Math.round(cw.windspeed);
   var uvNow = (hourly.uv_index && hourly.uv_index[hour]) ? Math.round(hourly.uv_index[hour]) : 0;
   var tips = [];
-  if (temp < 2) tips.push('❄️ Frostgefahr unter 2°C — empfindliche Pflanzen und Kübelpflanzen reinholen oder abdecken!');
-  else if (temp > 30) tips.push('🥵 Sehr heiss — Pflanzen morgens früh oder abends nach Sonnenuntergang giessen. Mulchen schützt den Boden.');
-  if (cw.weathercode >= 61 && cw.weathercode <= 67) tips.push('🌧️ Regen erwartet — kein Giessen nötig. Gute Zeit für Umpflanzen.');
-  if (cw.weathercode === 0 && temp > 15 && temp < 25) tips.push('🌱 Ideales Wetter zum Pflanzen, Säen und Umtopfen.');
-  if (wind > 40) tips.push('💨 Starker Wind — Klettergewächse und hohe Pflanzen sichern.');
-  if (uvNow >= 8) tips.push('☀️ Hoher UV-Index — Pflanzen giessen wenn Sonne tief steht, nicht mittags.');
+  if (temp < 2) tips.push(_t('wtip_frost','❄️ Frostgefahr unter 2°C — empfindliche Pflanzen und Kübelpflanzen reinholen oder abdecken!'));
+  else if (temp > 30) tips.push(_t('wtip_hot','🥵 Sehr heiss — Pflanzen morgens früh oder abends nach Sonnenuntergang giessen. Mulchen schützt den Boden.'));
+  if (cw.weathercode >= 61 && cw.weathercode <= 67) tips.push(_t('wtip_rain','🌧️ Regen erwartet — kein Giessen nötig. Gute Zeit für Umpflanzen.'));
+  if (cw.weathercode === 0 && temp > 15 && temp < 25) tips.push(_t('wtip_ideal','🌱 Ideales Wetter zum Pflanzen, Säen und Umtopfen.'));
+  if (wind > 40) tips.push(_t('wtip_wind','💨 Starker Wind — Klettergewächse und hohe Pflanzen sichern.'));
+  if (uvNow >= 8) tips.push(_t('wtip_uv','☀️ Hoher UV-Index — Pflanzen giessen wenn Sonne tief steht, nicht mittags.'));
   var rain24h = 0;
   if (daily.precipitation_sum && daily.precipitation_sum[0]) rain24h = daily.precipitation_sum[0];
-  if (rain24h > 5) tips.push('💧 ' + rain24h.toFixed(1) + 'mm Regen heute erwartet — Balkonpflanzen prüfen ob Wasser abläuft.');
-  if (!tips.length) tips.push('🌿 Gute Bedingungen für den Garten. Regelmässig kontrollieren und bedarfsgerecht giessen.');
+  if (rain24h > 5) tips.push('💧 ' + rain24h.toFixed(1) + _t('wtip_rain_amount','mm Regen heute erwartet — Balkonpflanzen prüfen ob Wasser abläuft.'));
+  if (!tips.length) tips.push(_t('wtip_good','🌿 Gute Bedingungen für den Garten. Regelmässig kontrollieren und bedarfsgerecht giessen.'));
 
   var tipBox = document.getElementById('wd-garden-tip');
   var tipText = document.getElementById('wd-tip-text');
@@ -8868,9 +8870,9 @@ function gsRenderWeatherDetail(data) {
   var warnText = document.getElementById('wd-warning-text');
   if (warnBox && warnText) {
     var warn = '';
-    if (temp < 0) warn = '⚠️ Frost: ' + temp + '°C — Gefrierschutz für Leitungen und empfindliche Pflanzen!';
-    else if (cw.weathercode >= 95) warn = '⛈️ Gewitter erwartet — nicht im Freien arbeiten!';
-    else if (wind > 60) warn = '💨 Sturm: ' + wind + ' km/h — Gewächshaus und Folientunnel sichern!';
+    if (temp < 0) warn = _t('wwarn_frost_pre','⚠️ Frost:') + ' ' + temp + _t('wwarn_frost_post','°C — Gefrierschutz für Leitungen und empfindliche Pflanzen!');
+    else if (cw.weathercode >= 95) warn = _t('wwarn_thunder','⛈️ Gewitter erwartet — nicht im Freien arbeiten!');
+    else if (wind > 60) warn = _t('wwarn_storm_pre','💨 Sturm:') + ' ' + wind + ' ' + _t('wwarn_storm_post','km/h — Gewächshaus und Folientunnel sichern!');
     if (warn) {
       warnText.textContent = warn;
       warnBox.style.display = 'block';
@@ -8886,7 +8888,7 @@ function gsRenderWeatherDetail(data) {
     var html_h = '';
     for (var i = hour; i < hour + 24 && i < hourly.temperature_2m.length; i++) {
       var h = i % 24;
-      var hTime = now.getHours() === h ? 'Jetzt' : h + ':00';
+      var hTime = now.getHours() === h ? _t('wx_now','Jetzt') : h + ':00';
       var hTemp = Math.round(hourly.temperature_2m[i]);
       var hIcon = WMO_ICONS[hourly.weathercode ? hourly.weathercode[i] : cw.weathercode] || '🌡️';
       var hPrec = hourly.precipitation_probability ? (hourly.precipitation_probability[i] || 0) : 0;
@@ -11136,6 +11138,37 @@ window.GS_I18N_JS_STRINGS = {
   'email_sent':                'E-Mail gesendet',
   'check_email_pre':           'Bitte',
   'check_email_post':          'prüfen — auch Spam-Ordner.',
+  // ── v28.61: Wetter-Detail (openWeatherDetail + gsRenderWeatherDetail) ─
+  'wd_loading':                '🌤️ Wetterdaten laden…',
+  'wd_no_connection':          '⚠️ Keine Verbindung',
+  'wtip_frost':                '❄️ Frostgefahr unter 2°C — empfindliche Pflanzen und Kübelpflanzen reinholen oder abdecken!',
+  'wtip_hot':                  '🥵 Sehr heiss — Pflanzen morgens früh oder abends nach Sonnenuntergang giessen. Mulchen schützt den Boden.',
+  'wtip_rain':                 '🌧️ Regen erwartet — kein Giessen nötig. Gute Zeit für Umpflanzen.',
+  'wtip_ideal':                '🌱 Ideales Wetter zum Pflanzen, Säen und Umtopfen.',
+  'wtip_wind':                 '💨 Starker Wind — Klettergewächse und hohe Pflanzen sichern.',
+  'wtip_uv':                   '☀️ Hoher UV-Index — Pflanzen giessen wenn Sonne tief steht, nicht mittags.',
+  'wtip_rain_amount':          'mm Regen heute erwartet — Balkonpflanzen prüfen ob Wasser abläuft.',
+  'wtip_good':                 '🌿 Gute Bedingungen für den Garten. Regelmässig kontrollieren und bedarfsgerecht giessen.',
+  'wwarn_frost_pre':           '⚠️ Frost:',
+  'wwarn_frost_post':          '°C — Gefrierschutz für Leitungen und empfindliche Pflanzen!',
+  'wwarn_thunder':             '⛈️ Gewitter erwartet — nicht im Freien arbeiten!',
+  'wwarn_storm_pre':           '💨 Sturm:',
+  'wwarn_storm_post':          'km/h — Gewächshaus und Folientunnel sichern!',
+  'wx_now':                    'Jetzt',
+  // ── v28.61: Mondkalender (renderMoonWidget + openMoonCalendar) ──
+  'moon_widget_today':         '🌙 Mondkalender · Heute',
+  'moon_age':                  'Alter:',
+  'moon_illuminated':          '% beleuchtet',
+  'moon_today_cal':            'Heute ·',
+  'moon_alt':                  'alt',
+  'moon_14day':                '📅 14-Tage Mondkalender',
+  'moon_today_marker':         '← heute',
+  'moon_types':                '📖 Mondtypen',
+  // ── v28.61: Wetter-Warnungen (gsWxRender) ──────────────────────
+  'wx_alerts_title':           '🌦️ Wetter-Warnungen',
+  'wx_no_alerts':              'Keine aktiven Warnungen. GreenScan prüft deinen Standort alle 3 Stunden auf Frost, Hitze und Sturm.',
+  'wx_seen':                   '✓ Gesehen',
+  'wx_remove':                 '🗑️ Entfernen',
   'scan_no_scans':             'Noch keine Scans',
   'scan_change_filter':        'Filter ändern oder Suche zurücksetzen',
   'scan_first_scan':           'Scanne deine erste Pflanze mit der KI!',
@@ -55336,6 +55369,7 @@ const MOON_TYPES = {
 function renderMoonWidget() {
   const widget = document.getElementById('moon-widget');
   if (!widget) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   const moon = getMoonPhase(new Date());
   const typeInfo = MOON_TYPES[moon.type] || MOON_TYPES.frucht;
 
@@ -55344,9 +55378,9 @@ function renderMoonWidget() {
       '<div style="display:flex;align-items:center;gap:12px;">' +
         '<div style="font-size:42px;">' + moon.icon + '</div>' +
         '<div style="flex:1;">' +
-          '<div style="font-size:10px;font-weight:700;text-transform:uppercase;opacity:.75;letter-spacing:.5px;">🌙 Mondkalender · Heute</div>' +
+          '<div style="font-size:10px;font-weight:700;text-transform:uppercase;opacity:.75;letter-spacing:.5px;">' + _t('moon_widget_today','🌙 Mondkalender · Heute') + '</div>' +
           '<div style="font-family:\'Playfair Display\',serif;font-size:16px;font-weight:800;">' + moon.phase + '</div>' +
-          '<div style="font-size:11px;opacity:.8;margin-top:2px;">Alter: ' + moon.age + ' Tage · ' + moon.illumination + '% beleuchtet</div>' +
+          '<div style="font-size:11px;opacity:.8;margin-top:2px;">' + _t('moon_age','Alter:') + ' ' + moon.age + ' ' + _t('unit_days','Tage') + ' · ' + moon.illumination + _t('moon_illuminated','% beleuchtet') + '</div>' +
         '</div>' +
         '<div style="text-align:right;">' +
           '<div style="background:rgba(255,255,255,.2);border-radius:9px;padding:5px 9px;font-size:11px;font-weight:800;">' + typeInfo.label + '</div>' +
@@ -55359,6 +55393,7 @@ function renderMoonWidget() {
 function openMoonCalendar() {
   const body = document.getElementById('moon-cal-body');
   if (!body) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
 
   const today = new Date();
   const moon = getMoonPhase(today);
@@ -55369,12 +55404,12 @@ function openMoonCalendar() {
 
   // Heute
   calHtml += '<div style="background:linear-gradient(135deg,#0d1b2a,#1a237e);border-radius:12px;padding:14px;color:#fff;margin-bottom:12px;">' +
-    '<div style="font-size:10px;font-weight:700;text-transform:uppercase;opacity:.75;margin-bottom:4px;">Heute · ' + today.toLocaleDateString('de-CH',{weekday:'long',day:'numeric',month:'long'}) + '</div>' +
+    '<div style="font-size:10px;font-weight:700;text-transform:uppercase;opacity:.75;margin-bottom:4px;">' + _t('moon_today_cal','Heute ·') + ' ' + today.toLocaleDateString('de-CH',{weekday:'long',day:'numeric',month:'long'}) + '</div>' +
     '<div style="display:flex;align-items:center;gap:10px;">' +
       '<span style="font-size:44px;">' + moon.icon + '</span>' +
       '<div>' +
         '<div style="font-family:\'Playfair Display\',serif;font-size:18px;font-weight:800;">' + moon.phase + '</div>' +
-        '<div style="font-size:12px;opacity:.8;">' + moon.age + ' Tage alt · ' + moon.illumination + '% beleuchtet</div>' +
+        '<div style="font-size:12px;opacity:.8;">' + moon.age + ' ' + _t('unit_days','Tage') + ' ' + _t('moon_alt','alt') + ' · ' + moon.illumination + _t('moon_illuminated','% beleuchtet') + '</div>' +
         '<div style="margin-top:6px;background:rgba(255,255,255,.2);border-radius:7px;padding:4px 9px;font-size:12px;font-weight:700;">' + typeInfo.label + '</div>' +
       '</div>' +
     '</div>' +
@@ -55388,7 +55423,7 @@ function openMoonCalendar() {
   '</div>';
 
   // 14-Tage Übersicht
-  calHtml += '<div style="font-size:13px;font-weight:700;color:var(--g-dark);margin-bottom:8px;">📅 14-Tage Mondkalender</div>';
+  calHtml += '<div style="font-size:13px;font-weight:700;color:var(--g-dark);margin-bottom:8px;">' + _t('moon_14day','📅 14-Tage Mondkalender') + '</div>';
   calHtml += '<div style="display:flex;flex-direction:column;gap:4px;">';
   for (let i = 0; i < 14; i++) {
     const d = new Date(today); d.setDate(d.getDate() + i);
@@ -55398,7 +55433,7 @@ function openMoonCalendar() {
     calHtml += '<div style="display:flex;align-items:center;gap:8px;padding:8px 11px;border-radius:9px;background:' + (isToday ? 'var(--g-light)' : 'var(--card)') + ';box-shadow:' + (isToday?'0 0 0 2px var(--g-main)':'var(--shadow-sm)') + ';">' +
       '<div style="font-size:22px;flex-shrink:0;">' + m.icon + '</div>' +
       '<div style="min-width:80px;">' +
-        '<div style="font-size:11px;font-weight:700;color:var(--muted);">' + d.toLocaleDateString('de-CH',{weekday:'short',day:'numeric',month:'numeric'}) + (isToday?' ← heute':'') + '</div>' +
+        '<div style="font-size:11px;font-weight:700;color:var(--muted);">' + d.toLocaleDateString('de-CH',{weekday:'short',day:'numeric',month:'numeric'}) + (isToday?' ' + _t('moon_today_marker','← heute'):'') + '</div>' +
         '<div style="font-size:12px;font-weight:700;color:var(--text);">' + m.phase + '</div>' +
       '</div>' +
       '<div style="flex:1;font-size:10.5px;color:' + ti.color + ';background:' + ti.bg + ';padding:3px 8px;border-radius:6px;font-weight:700;">' + ti.label + '</div>' +
@@ -55407,7 +55442,7 @@ function openMoonCalendar() {
   calHtml += '</div>';
 
   // Mondtypen Legende
-  calHtml += '<div style="margin-top:12px;font-size:13px;font-weight:700;color:var(--g-dark);margin-bottom:6px;">📖 Mondtypen</div>';
+  calHtml += '<div style="margin-top:12px;font-size:13px;font-weight:700;color:var(--g-dark);margin-bottom:6px;">' + _t('moon_types','📖 Mondtypen') + '</div>';
   calHtml += '<div style="display:flex;flex-direction:column;gap:6px;">';
   Object.entries(MOON_TYPES).forEach(([k,v]) => {
     calHtml += '<div style="background:' + v.bg + ';border-radius:8px;padding:9px 12px;">' +
@@ -57103,6 +57138,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v28.61', date: '09.06.2026',
+    headline: '🌍 Wetter-Detail & Mondkalender jetzt mehrsprachig',
+    summary: 'Weiter mit der Vollübersetzung (Batch I, Teil 2/3): Die Wetter-Detailansicht (Garten-Wettertipps, Frost-/Gewitter-/Sturm-Warnungen, Stundenvorhersage), der Mondkalender (14-Tage-Übersicht, Mondtypen) und das Wetter-Warnungen-Panel werden jetzt mit der Sprache mit-übersetzt. Bei EN/FR/IT/ES automatisch.',
+    user_summary: '🌍 Wetter-Detail, Mondkalender und Wetter-Warnungen sind jetzt mehrsprachig.',
+    user_items: [
+      { emoji: '🌤️', text: 'Wetter-Detail: Garten-Tipps + Frost/Gewitter/Sturm-Warnungen mehrsprachig' },
+      { emoji: '🌙', text: 'Mondkalender (14 Tage) + Wetter-Warnungen mehrsprachig' },
+      { emoji: '🤖', text: 'EN/FR/IT/ES automatisch via Übersetzungs-Edge-Fn' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'28 neue Keys:', text:' openWeatherDetail/gsRenderWeatherDetail + renderMoonWidget/openMoonCalendar + gsWxRender auf gsI18n.t.'},
+      {emoji:'♻️', bold:'4 reuse:', text:' unit_days/modal_close/time_vor (moon_today war belegt → moon_widget_today).'},
+      {emoji:'📋', bold:'Batch I 2/3:', text:' Profil-Auth ✅ Wetter+Mond ✅ — offen I-3 (Feedback/Support/Lina).'},
+    ]
+  },
   {
     v: 'v28.60', date: '08.06.2026',
     headline: '🌍 Anmelden & Registrieren jetzt mehrsprachig',
@@ -61012,7 +61063,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.60';
+var GS_VERSION = 'v28.61';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -68128,28 +68179,29 @@ window.gsCloseWeatherAlerts = gsCloseWeatherAlerts;
 function gsWxRender(){
   var panel = document.getElementById('gs-wx-panel');
   if (!panel) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var rows = window._gsWxAlerts || [];
   var head = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
-    + '<div style="font-size:17px;font-weight:800;">🌦️ Wetter-Warnungen</div>'
-    + '<button onclick="gsCloseWeatherAlerts()" aria-label="Schliessen" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1;">×</button></div>';
+    + '<div style="font-size:17px;font-weight:800;">' + _t('wx_alerts_title','🌦️ Wetter-Warnungen') + '</div>'
+    + '<button onclick="gsCloseWeatherAlerts()" aria-label="' + _t('modal_close','Schliessen') + '" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1;">×</button></div>';
   if (!rows.length) {
     panel.innerHTML = head + '<div style="text-align:center;padding:34px 10px;color:var(--muted);">'
-      + '<div style="font-size:34px;margin-bottom:8px;">☀️</div>Keine aktiven Warnungen. '
-      + 'GreenScan prüft deinen Standort alle 3 Stunden auf Frost, Hitze und Sturm.</div>';
+      + '<div style="font-size:34px;margin-bottom:8px;">☀️</div>'
+      + _t('wx_no_alerts','Keine aktiven Warnungen. GreenScan prüft deinen Standort alle 3 Stunden auf Frost, Hitze und Sturm.') + '</div>';
     return;
   }
   var cards = rows.map(function(a, i){
     var st = _GS_WX_STYLE[a.severity] || _GS_WX_STYLE.warning;
-    var ackTxt = a.acknowledged ? '✓ Gesehen' : '✓ Gesehen';
+    var ackTxt = _t('wx_seen','✓ Gesehen');
     return '<div style="border:1px solid ' + st.br + ';background:' + st.bg + ';border-radius:14px;padding:12px 13px;margin-bottom:10px;'
       + (a.acknowledged ? 'opacity:.62;' : '') + '">'
       + '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;">'
       + '<div style="font-weight:800;font-size:14px;color:#1a1a1a;">' + st.ic + ' ' + _gsWxEsc(a.title) + '</div>'
-      + '<div style="font-size:11px;color:#555;white-space:nowrap;">vor ' + _gsWxEsc(_gsWxAgo(a.created_at)) + '</div></div>'
+      + '<div style="font-size:11px;color:#555;white-space:nowrap;">' + _t('time_vor','vor') + ' ' + _gsWxEsc(_gsWxAgo(a.created_at)) + '</div></div>'
       + '<div style="font-size:12.5px;color:#333;margin-top:4px;line-height:1.45;">' + _gsWxEsc(a.body) + '</div>'
       + '<div style="display:flex;gap:8px;margin-top:10px;">'
       + (a.acknowledged ? '' : '<button onclick="gsWxAck(' + i + ',false)" style="flex:1;padding:7px;border:1px solid ' + st.br + ';background:transparent;color:#1a1a1a;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">' + ackTxt + '</button>')
-      + '<button onclick="gsWxAck(' + i + ',true)" style="flex:1;padding:7px;border:none;background:' + st.br + ';color:#fff;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">🗑️ Entfernen</button>'
+      + '<button onclick="gsWxAck(' + i + ',true)" style="flex:1;padding:7px;border:none;background:' + st.br + ';color:#fff;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">' + _t('wx_remove','🗑️ Entfernen') + '</button>'
       + '</div></div>';
   }).join('');
   panel.innerHTML = head + cards;
