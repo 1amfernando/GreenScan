@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.53.20260608">
+<meta name="app-version" content="28.54.20260608">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11045,6 +11045,48 @@ window.GS_I18N_JS_STRINGS = {
   'mush_toxic_warning':        'NICHT ESSEN. Bei Symptomen umgehend Tox-Info anrufen.',
   'mush_toxinfo_145':          '☎️ Tox-Info: 145',
   'mush_understood':           'Verstanden — Details anzeigen',
+  // ── v28.54: Raum-Lichtscan (renderRoomScanResult) ──────────────
+  'room_light_map':            '📊 Raum-Lichtkarte',
+  'room_deep_shadow':          '🌑 Tiefer Schatten',
+  'room_shadow':               '🌤 Schatten',
+  'room_indirect':             '⛅ Indirektes Licht',
+  'room_bright':               '☀️ Helles Licht',
+  'room_full_sun':             '🌞 Volle Sonne',
+  'room_ideal_for':            'Ideal für:',
+  'room_recommendation':       '🏆 Empfehlung',
+  'room_brightest':            'Hellster Spot:',
+  'room_light_loving':         'ideal für lichtliebende Pflanzen.',
+  'room_shadiest':             'Schattigster Spot:',
+  'room_shade_tolerant':       'ideal für Schattenverträgliche.',
+  // ── v28.54: Scan-Historie (renderScanHistFull + openScanHistoryFull) ─
+  'unit_scans':                'Scans',
+  'scan_in_db':                'in DB',
+  'scan_delete_all':           '🗑 Alle',
+  'scan_no_scans':             'Noch keine Scans',
+  'scan_change_filter':        'Filter ändern oder Suche zurücksetzen',
+  'scan_first_scan':           'Scanne deine erste Pflanze mit der KI!',
+  'scan_delete_aria':          'Scan löschen',
+  'scan_search_placeholder':   '🔍 Nach Name oder lateinisch suchen…',
+  'scan_filter_all':           'Alle',
+  'scan_filter_indb':          '✓ in DB',
+  'scan_filter_unknown':       '? unbekannt',
+  'scan_filter_high':          '≥85%',
+  // ── v28.54: Scan-Detail (openScanHistoryDetail) ────────────────
+  'tox_strong_short':          '☠️ Stark giftig',
+  'tox_mid_short':             '⚠️ Giftig',
+  'tox_light':                 '🟡 Leicht giftig',
+  'scan_edible':               '🥗 Essbar',
+  'scan_date_label':           '📅 Datum:',
+  'scan_location_label':       '📍 Standort:',
+  'scan_own_note':             '📝 Eigene Notiz',
+  'scan_note_placeholder':     'z.B. „Gesehen am Bachufer", „nochmal prüfen"…',
+  'scan_save_note':            '💾 Notiz speichern',
+  'scan_open_in_db':           '📖 In DB öffnen',
+  'scan_not_in_db':            'Nicht in DB',
+  'scan_wikipedia':            '🌐 Wikipedia',
+  'scan_report_wrong':         '⚠️ Falsch erkannt',
+  'scan_delete_history':       '🗑️ Aus History löschen',
+  'scan_note_saved':           'Notiz gespeichert',
   // ── Offline / Sync ──────────────────────────────────────────────
   'toast_offline_saved':       '📵 Offline gespeichert',
   'toast_offline_synced':      '🔄 Online — Sync abgeschlossen',
@@ -14111,6 +14153,7 @@ function renderScanHistFull() {
   var content = document.getElementById('scan-history-list');
   var statsEl = document.getElementById('scan-history-stats');
   if (!content) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
 
   var all = _gsBuildScanHistList();
   var totalScans = all.length;
@@ -14122,10 +14165,10 @@ function renderScanHistFull() {
   if (statsEl) {
     statsEl.innerHTML = totalScans
       ? '<div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11.5px;">' +
-        '<div style="background:var(--surface2);padding:5px 10px;border-radius:8px;"><b style="color:var(--text);">' + totalScans + '</b> Scans</div>' +
-        '<div style="background:var(--surface2);padding:5px 10px;border-radius:8px;"><b style="color:var(--text);">' + uniqueSpecies + '</b> Arten</div>' +
-        '<div style="background:#e8f5e9;color:#2e7d32;padding:5px 10px;border-radius:8px;font-weight:700;"><b>' + inDb + '</b> in DB</div>' +
-        (totalScans > 0 ? '<button onclick="gsScanHistDeleteAll()" style="margin-left:auto;padding:5px 10px;background:transparent;border:1px solid #c62828;color:#c62828;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">🗑 Alle</button>' : '') +
+        '<div style="background:var(--surface2);padding:5px 10px;border-radius:8px;"><b style="color:var(--text);">' + totalScans + '</b> ' + _t('unit_scans','Scans') + '</div>' +
+        '<div style="background:var(--surface2);padding:5px 10px;border-radius:8px;"><b style="color:var(--text);">' + uniqueSpecies + '</b> ' + _t('unit_species','Arten') + '</div>' +
+        '<div style="background:#e8f5e9;color:#2e7d32;padding:5px 10px;border-radius:8px;font-weight:700;"><b>' + inDb + '</b> ' + _t('scan_in_db','in DB') + '</div>' +
+        (totalScans > 0 ? '<button onclick="gsScanHistDeleteAll()" style="margin-left:auto;padding:5px 10px;background:transparent;border:1px solid #c62828;color:#c62828;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">' + _t('scan_delete_all','🗑 Alle') + '</button>' : '') +
         '</div>'
       : '';
   }
@@ -14149,8 +14192,8 @@ function renderScanHistFull() {
   if (!filtered.length) {
     content.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);"><div style="font-size:44px;margin-bottom:12px;">' +
       (totalScans ? '🔍' : '📷') + '</div><div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;">' +
-      (totalScans ? 'Keine Treffer' : 'Noch keine Scans') + '</div><div style="font-size:13px;">' +
-      (totalScans ? 'Filter ändern oder Suche zurücksetzen' : 'Scanne deine erste Pflanze mit der KI!') + '</div></div>';
+      (totalScans ? _t('search_no_hits','Keine Treffer') : _t('scan_no_scans','Noch keine Scans')) + '</div><div style="font-size:13px;">' +
+      (totalScans ? _t('scan_change_filter','Filter ändern oder Suche zurücksetzen') : _t('scan_first_scan','Scanne deine erste Pflanze mit der KI!')) + '</div></div>';
     return;
   }
 
@@ -14184,7 +14227,7 @@ function renderScanHistFull() {
           '</div>' +
         '</div>' +
       '</div>' +
-      '<button onclick="event.stopPropagation();gsScanHistDelete(\'' + item.uid + '\')" aria-label="Scan löschen" style="background:transparent;border:none;color:var(--muted);font-size:16px;width:30px;height:30px;border-radius:50%;cursor:pointer;flex-shrink:0;font-family:inherit;-webkit-tap-highlight-color:transparent;">🗑</button>' +
+      '<button onclick="event.stopPropagation();gsScanHistDelete(\'' + item.uid + '\')" aria-label="' + _t('scan_delete_aria','Scan löschen') + '" style="background:transparent;border:none;color:var(--muted);font-size:16px;width:30px;height:30px;border-radius:50%;cursor:pointer;flex-shrink:0;font-family:inherit;-webkit-tap-highlight-color:transparent;">🗑</button>' +
     '</div>';
   }).join('');
 }
@@ -14194,15 +14237,16 @@ function openScanHistoryFull() {
   if (!modal) return;
   var content = document.getElementById('scan-history-list');
   if (!content) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
 
   // v23.98: Header mit Stats + Suche + Filter dynamisch einfügen wenn fehlt
   if (!document.getElementById('scan-history-header')) {
     var headerHtml =
       '<div id="scan-history-header" style="position:sticky;top:0;background:var(--card);z-index:5;padding:10px 14px;border-bottom:1px solid var(--border);">' +
         '<div id="scan-history-stats" style="margin-bottom:8px;"></div>' +
-        '<input type="search" id="scan-history-search" placeholder="🔍 Nach Name oder lateinisch suchen…" oninput="gsScanHistSetQuery(this.value)" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;font-family:inherit;background:var(--surface2);color:var(--text);box-sizing:border-box;margin-bottom:8px;">' +
+        '<input type="search" id="scan-history-search" placeholder="' + _t('scan_search_placeholder','🔍 Nach Name oder lateinisch suchen…') + '" oninput="gsScanHistSetQuery(this.value)" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;font-family:inherit;background:var(--surface2);color:var(--text);box-sizing:border-box;margin-bottom:8px;">' +
         '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
-          ['all|Alle','indb|✓ in DB','unknown|? unbekannt','high|≥85%'].map(function(pair){
+          ['all|' + _t('scan_filter_all','Alle'),'indb|' + _t('scan_filter_indb','✓ in DB'),'unknown|' + _t('scan_filter_unknown','? unbekannt'),'high|' + _t('scan_filter_high','≥85%')].map(function(pair){
             var p = pair.split('|');
             return '<button onclick="gsScanHistSetFilter(\'' + p[0] + '\')" id="scanhist-chip-' + p[0] + '" style="padding:5px 10px;font-size:11px;font-weight:700;border-radius:14px;cursor:pointer;font-family:inherit;border:1px solid var(--border);background:var(--card);color:var(--text2);">' + p[1] + '</button>';
           }).join('') +
@@ -23292,6 +23336,7 @@ function openScanHistoryDetail(idx) {
   var hist = getScanHistory();
   var e = hist[idx];
   if (!e) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var esc = (typeof escHtml === 'function') ? escHtml : function(s){return String(s||'').replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});};
   var sp = (Array.isArray(DB)) ? DB.find(function(s){
     return (s.name||'').toLowerCase() === (e.name||'').toLowerCase()
@@ -23300,7 +23345,7 @@ function openScanHistoryDetail(idx) {
   var dt = new Date(e.ts || Date.now());
   var dtStr = dt.toLocaleDateString('de-CH',{day:'2-digit',month:'long',year:'numeric'}) + ' · ' + dt.toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'});
   var confCol = e.conf>=80 ? 'var(--c-success)' : e.conf>=55 ? 'var(--c-warn)' : 'var(--c-danger)';
-  var toxLabel = e.tox>=3 ? '☠️ Stark giftig' : e.tox===2 ? '⚠️ Giftig' : e.tox===1 ? '🟡 Leicht giftig' : '';
+  var toxLabel = e.tox>=3 ? _t('tox_strong_short','☠️ Stark giftig') : e.tox===2 ? _t('tox_mid_short','⚠️ Giftig') : e.tox===1 ? _t('tox_light','🟡 Leicht giftig') : '';
   var ctx = e.context || {};
   var loc = (ctx.lat && ctx.lon) ? (Number(ctx.lat).toFixed(4) + ', ' + Number(ctx.lon).toFixed(4)) : '';
   var note = e.note || '';
@@ -23323,7 +23368,7 @@ function openScanHistoryDetail(idx) {
           '<h2 style="margin:0;font-size:16px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(e.name) + '</h2>' +
           '<div style="font-size:11.5px;opacity:.85;font-style:italic;margin-top:2px;">' + esc(e.latin||'') + '</div>' +
         '</div>' +
-        '<button onclick="document.getElementById(\'scan-detail-modal\').style.display=\'none\'" aria-label="Schliessen" style="background:rgba(255,255,255,.18);color:#fff;border:none;width:32px;height:32px;border-radius:8px;font-size:18px;cursor:pointer;flex-shrink:0;">×</button>' +
+        '<button onclick="document.getElementById(\'scan-detail-modal\').style.display=\'none\'" aria-label="' + _t('modal_close','Schliessen') + '" style="background:rgba(255,255,255,.18);color:#fff;border:none;width:32px;height:32px;border-radius:8px;font-size:18px;cursor:pointer;flex-shrink:0;">×</button>' +
       '</div>' +
       '<div style="overflow-y:auto;flex:1;padding:0 0 14px;background:var(--bg);">' +
         // Foto — v24.11: photoUrl (Cloud-Storage, voller Auflösung) hat Vorrang vor thumb
@@ -23336,28 +23381,28 @@ function openScanHistoryDetail(idx) {
           '</div>' +
           // Badges
           (toxLabel ? '<div style="display:inline-block;background:var(--bg-danger-soft);color:var(--c-danger-d);padding:4px 10px;border-radius:8px;font-size:12px;font-weight:700;margin-right:6px;margin-bottom:8px;">' + toxLabel + '</div>' : '') +
-          (e.edible ? '<div style="display:inline-block;background:var(--bg-success-soft);color:var(--c-success-d);padding:4px 10px;border-radius:8px;font-size:12px;font-weight:700;margin-right:6px;margin-bottom:8px;">🥗 Essbar</div>' : '') +
+          (e.edible ? '<div style="display:inline-block;background:var(--bg-success-soft);color:var(--c-success-d);padding:4px 10px;border-radius:8px;font-size:12px;font-weight:700;margin-right:6px;margin-bottom:8px;">' + _t('scan_edible','🥗 Essbar') + '</div>' : '') +
           // Meta
           '<div style="background:var(--card);border:1.5px solid var(--border);border-radius:10px;padding:12px;margin-top:8px;font-size:12.5px;line-height:1.7;">' +
-            '<div><span style="color:var(--muted);">📅 Datum:</span> ' + dtStr + '</div>' +
-            (loc ? '<div><span style="color:var(--muted);">📍 Standort:</span> <a href="https://www.openstreetmap.org/?mlat=' + ctx.lat + '&mlon=' + ctx.lon + '#map=15/' + ctx.lat + '/' + ctx.lon + '" target="_blank" rel="noopener" style="color:var(--c-info);text-decoration:underline;">' + loc + '</a></div>' : '') +
+            '<div><span style="color:var(--muted);">' + _t('scan_date_label','📅 Datum:') + '</span> ' + dtStr + '</div>' +
+            (loc ? '<div><span style="color:var(--muted);">' + _t('scan_location_label','📍 Standort:') + '</span> <a href="https://www.openstreetmap.org/?mlat=' + ctx.lat + '&mlon=' + ctx.lon + '#map=15/' + ctx.lat + '/' + ctx.lon + '" target="_blank" rel="noopener" style="color:var(--c-info);text-decoration:underline;">' + loc + '</a></div>' : '') +
             (e.warning ? '<div style="color:var(--c-danger-d);margin-top:4px;">⚠️ ' + esc(e.warning) + '</div>' : '') +
           '</div>' +
           // Notiz
           '<div style="margin-top:12px;">' +
-            '<label style="display:block;font-size:11.5px;font-weight:700;color:var(--text2);margin-bottom:4px;">📝 Eigene Notiz</label>' +
-            '<textarea id="sh-note" rows="2" placeholder="z.B. „Gesehen am Bachufer", „nochmal prüfen"…" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit;background:var(--input-bg);color:var(--text);box-sizing:border-box;resize:vertical;">' + esc(note) + '</textarea>' +
-            '<button onclick="gsScanHistorySaveNote(' + idx + ')" style="margin-top:6px;padding:6px 12px;background:var(--c-info-d);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">💾 Notiz speichern</button>' +
+            '<label style="display:block;font-size:11.5px;font-weight:700;color:var(--text2);margin-bottom:4px;">' + _t('scan_own_note','📝 Eigene Notiz') + '</label>' +
+            '<textarea id="sh-note" rows="2" placeholder="' + _t('scan_note_placeholder','z.B. „Gesehen am Bachufer", „nochmal prüfen"…') + '" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit;background:var(--input-bg);color:var(--text);box-sizing:border-box;resize:vertical;">' + esc(note) + '</textarea>' +
+            '<button onclick="gsScanHistorySaveNote(' + idx + ')" style="margin-top:6px;padding:6px 12px;background:var(--c-info-d);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">' + _t('scan_save_note','💾 Notiz speichern') + '</button>' +
           '</div>' +
           // Aktionen
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;">' +
-            (sp ? '<button onclick="document.getElementById(\'scan-detail-modal\').style.display=\'none\';closeScanHistory();openDetail(\'' + sp.id + '\')" style="padding:10px;background:linear-gradient(135deg,var(--c-success-d),var(--c-success));color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;">📖 In DB öffnen</button>' :
-                   '<button disabled style="padding:10px;background:var(--surface2);color:var(--muted);border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:not-allowed;font-family:inherit;">Nicht in DB</button>') +
-            '<a href="https://de.wikipedia.org/wiki/Spezial:Suche?search=' + wikiName + '" target="_blank" rel="noopener" style="padding:10px;background:var(--card);border:1.5px solid var(--border);color:var(--text);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center;">🌐 Wikipedia</a>' +
+            (sp ? '<button onclick="document.getElementById(\'scan-detail-modal\').style.display=\'none\';closeScanHistory();openDetail(\'' + sp.id + '\')" style="padding:10px;background:linear-gradient(135deg,var(--c-success-d),var(--c-success));color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;">' + _t('scan_open_in_db','📖 In DB öffnen') + '</button>' :
+                   '<button disabled style="padding:10px;background:var(--surface2);color:var(--muted);border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:not-allowed;font-family:inherit;">' + _t('scan_not_in_db','Nicht in DB') + '</button>') +
+            '<a href="https://de.wikipedia.org/wiki/Spezial:Suche?search=' + wikiName + '" target="_blank" rel="noopener" style="padding:10px;background:var(--card);border:1.5px solid var(--border);color:var(--text);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center;">' + _t('scan_wikipedia','🌐 Wikipedia') + '</a>' +
           '</div>' +
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">' +
-            '<button onclick="gsScanHistoryReportWrong(' + idx + ')" style="padding:10px;background:var(--card);border:1.5px solid var(--c-warn);color:var(--c-warn-d);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">⚠️ Falsch erkannt</button>' +
-            '<button onclick="gsScanHistoryDelete(' + idx + ')" style="padding:10px;background:var(--card);border:1.5px solid var(--c-danger);color:var(--c-danger);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">🗑️ Aus History löschen</button>' +
+            '<button onclick="gsScanHistoryReportWrong(' + idx + ')" style="padding:10px;background:var(--card);border:1.5px solid var(--c-warn);color:var(--c-warn-d);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">' + _t('scan_report_wrong','⚠️ Falsch erkannt') + '</button>' +
+            '<button onclick="gsScanHistoryDelete(' + idx + ')" style="padding:10px;background:var(--card);border:1.5px solid var(--c-danger);color:var(--c-danger);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">' + _t('scan_delete_history','🗑️ Aus History löschen') + '</button>' +
           '</div>' +
         '</div>' +
       '</div>' +
@@ -23376,7 +23421,8 @@ window.gsScanHistorySaveNote = function(idx) {
     hist[idx].note = note;
     localStorage.setItem(SCAN_HISTORY_KEY, JSON.stringify(hist));
     if (typeof showProfileToast === 'function') {
-      showProfileToast({type:'success', icon:'✅', title:'Notiz gespeichert', body:'', duration:2500});
+      var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+      showProfileToast({type:'success', icon:'✅', title:_t('scan_note_saved','Notiz gespeichert'), body:'', duration:2500});
     }
   } catch(e) {}
 };
@@ -26331,6 +26377,7 @@ function cancelRoomScan() {
 function renderRoomScanResult(results) {
   const el = document.getElementById('room-scan-result');
   if (!el) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
 
   const PLANTS_EXTENDED = [
     {name:'Bogenhanf',   emoji:'🌿',min:50,  opt:600,  max:2500,  cat:'hauspflanze'},
@@ -26347,10 +26394,10 @@ function renderRoomScanResult(results) {
     {name:'Geldbaum',    emoji:'💰',min:1000,opt:5000, max:20000, cat:'hauspflanze'},
   ];
 
-  let html = '<div style="font-weight:700;font-size:13px;color:var(--g-dark);margin-bottom:10px;">📊 Raum-Lichtkarte</div>';
+  let html = '<div style="font-weight:700;font-size:13px;color:var(--g-dark);margin-bottom:10px;">' + _t('room_light_map','📊 Raum-Lichtkarte') + '</div>';
 
   results.forEach(r => {
-    var cat = r.lux < 300 ? '🌑 Tiefer Schatten' : r.lux < 1000 ? '🌤 Schatten' : r.lux < 5000 ? '⛅ Indirektes Licht' : r.lux < 20000 ? '☀️ Helles Licht' : '🌞 Volle Sonne';
+    var cat = r.lux < 300 ? _t('room_deep_shadow','🌑 Tiefer Schatten') : r.lux < 1000 ? _t('room_shadow','🌤 Schatten') : r.lux < 5000 ? _t('room_indirect','⛅ Indirektes Licht') : r.lux < 20000 ? _t('room_bright','☀️ Helles Licht') : _t('room_full_sun','🌞 Volle Sonne');
     // Best plants for this spot
     const bestPlants = PLANTS_EXTENDED.map(p => {
       var s = r.lux < p.min ? Math.max(0, r.lux/p.min*60) : r.lux <= p.opt ? 60+(r.lux-p.min)/(p.opt-p.min)*40 : r.lux <= p.max ? 100-(r.lux-p.opt)/(p.max-p.opt)*35 : Math.max(0, 65-(r.lux-p.max)/p.max*80);
@@ -26360,10 +26407,10 @@ function renderRoomScanResult(results) {
     html += '<div style="background:var(--card);border-radius:10px;padding:10px 12px;margin-bottom:7px;box-shadow:0 2px 6px rgba(0,0,0,.06);">';
     html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">';
     html += '<span style="font-weight:700;font-size:13px;">' + r.emoji + ' ' + r.position + '</span>';
-    html += '<span style="font-size:11px;font-weight:700;background:#e8f5e9;color:var(--g-dark);padding:2px 8px;border-radius:6px;">' + r.lux.toLocaleString() + ' Lux</span>';
+    html += '<span style="font-size:11px;font-weight:700;background:#e8f5e9;color:var(--g-dark);padding:2px 8px;border-radius:6px;">' + r.lux.toLocaleString() + ' ' + _t('unit_lux','Lux') + '</span>';
     html += '</div>';
     html += '<div style="font-size:11.5px;color:var(--muted);margin-bottom:6px;">' + cat + '</div>';
-    html += '<div style="font-size:11px;color:var(--g-dark);font-weight:600;">Ideal für: ' + bestPlants.map(p => p.emoji + ' ' + p.name + ' (' + p.score + '%)').join(' · ') + '</div>';
+    html += '<div style="font-size:11px;color:var(--g-dark);font-weight:600;">' + _t('room_ideal_for','Ideal für:') + ' ' + bestPlants.map(p => p.emoji + ' ' + p.name + ' (' + p.score + '%)').join(' · ') + '</div>';
     html += '</div>';
 
     roomScanPoints.push(r);
@@ -26372,9 +26419,9 @@ function renderRoomScanResult(results) {
   // Overall best spots
   const sorted = [...results].sort((a,b)=>b.lux-a.lux);
   html += '<div style="margin-top:8px;padding:10px 12px;background:#e8f5e9;border-radius:10px;">';
-  html += '<div style="font-weight:700;font-size:12.5px;color:var(--g-dark);margin-bottom:4px;">🏆 Empfehlung</div>';
-  html += '<div style="font-size:12px;color:var(--g-dark);">Hellster Spot: <strong>' + sorted[0].emoji + ' ' + sorted[0].position + '</strong> (' + sorted[0].lux.toLocaleString() + ' Lux) → ideal für lichtliebende Pflanzen.</div>';
-  html += '<div style="font-size:12px;color:var(--g-dark);margin-top:3px;">Schattigster Spot: <strong>' + sorted[sorted.length-1].emoji + ' ' + sorted[sorted.length-1].position + '</strong> (' + sorted[sorted.length-1].lux.toLocaleString() + ' Lux) → ideal für Schattenverträgliche.</div>';
+  html += '<div style="font-weight:700;font-size:12.5px;color:var(--g-dark);margin-bottom:4px;">' + _t('room_recommendation','🏆 Empfehlung') + '</div>';
+  html += '<div style="font-size:12px;color:var(--g-dark);">' + _t('room_brightest','Hellster Spot:') + ' <strong>' + sorted[0].emoji + ' ' + sorted[0].position + '</strong> (' + sorted[0].lux.toLocaleString() + ' ' + _t('unit_lux','Lux') + ') → ' + _t('room_light_loving','ideal für lichtliebende Pflanzen.') + '</div>';
+  html += '<div style="font-size:12px;color:var(--g-dark);margin-top:3px;">' + _t('room_shadiest','Schattigster Spot:') + ' <strong>' + sorted[sorted.length-1].emoji + ' ' + sorted[sorted.length-1].position + '</strong> (' + sorted[sorted.length-1].lux.toLocaleString() + ' ' + _t('unit_lux','Lux') + ') → ' + _t('room_shade_tolerant','ideal für Schattenverträgliche.') + '</div>';
   html += '</div>';
 
   el.innerHTML = html;
@@ -56862,6 +56909,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.54', date: '08.06.2026',
+    headline: '🌍 Scan-Historie & Raum-Lichtscan jetzt mehrsprachig',
+    summary: 'Weiter mit der Vollübersetzung (Batch F, Teil 2): Die Scan-Historie (Statistik, Suche, Filter, Detail mit Notiz/Wikipedia/„In DB öffnen") und der Raum-Lichtscan (Lichtkarte, Empfehlungen für hellste/schattigste Plätze) werden jetzt mit der Sprache mit-übersetzt. Bei EN/FR/IT/ES automatisch. Damit ist der ganze Pflanzendoktor-/Scan-Bereich fertig.',
+    user_summary: '🌍 Scan-Historie und Raum-Lichtscan sind jetzt mehrsprachig.',
+    user_items: [
+      { emoji: '📷', text: 'Scan-Historie: Statistik, Suche, Filter, Detail-Ansicht mehrsprachig' },
+      { emoji: '💡', text: 'Raum-Lichtscan: Lichtkarte + Pflanzen-Empfehlungen mehrsprachig' },
+      { emoji: '🤖', text: 'EN/FR/IT/ES automatisch via Übersetzungs-Edge-Fn' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'39 neue Keys:', text:' renderRoomScanResult + renderScanHistFull + openScanHistoryFull + openScanHistoryDetail auf gsI18n.t.'},
+      {emoji:'♻️', bold:'4 reuse:', text:' unit_lux/unit_species/search_no_hits/modal_close wiederverwendet.'},
+      {emoji:'📋', bold:'Audit-Roadmap:', text:' Batch A+D+C+E+F ✅ — als nächstes Wissen/Lexikon (B) + Garten (G).'},
+    ]
+  },
+  {
     v: 'v28.53', date: '08.06.2026',
     headline: '🌍 Pflanzendoktor & Pilz-Scanner jetzt mehrsprachig',
     summary: 'Weiter mit der Vollübersetzung (Batch F, Teil 1): Die Schädlings-Diagnose (Schweregrad, Bio-Behandlung, Vorbeugen, natürliche Feinde) und der sicherheitskritische Pilz-Scanner (Essbarkeits-Warnungen TÖDLICH/GIFTIG, Verwechslungs-Risiko, VAPKO-Hinweise, das rote Lebensgefahr-Vollbild) werden jetzt mit der Sprache mit-übersetzt. Bei EN/FR/IT/ES automatisch.',
@@ -60659,7 +60722,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.53';
+var GS_VERSION = 'v28.54';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
