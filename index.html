@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.55.20260608">
+<meta name="app-version" content="28.56.20260608">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11125,6 +11125,55 @@ window.GS_I18N_JS_STRINGS = {
   'boden_on':                  'auf',
   'boden_what_todo':           '💡 Was tun?',
   'boden_ideal_for':           '🌍 Idealer Boden für',
+  // ── v28.56: Pflanzungs-Detail (openPlantingDetail) ─────────────
+  'pd_sun_full':               '☀️ Vollsonne',
+  'pd_sun_part':               '⛅ Halbschatten',
+  'pd_sun_shade':              '🌑 Schatten',
+  'pd_water_high':             '💧💧💧 Viel',
+  'pd_water_mid':              '💧💧 Mittel',
+  'pd_water_low':              '💧 Wenig',
+  'moon_fruit':                '🍎 Fruchttag',
+  'moon_leaf':                 '🥬 Blatttag',
+  'moon_root':                 '🥕 Wurzeltag',
+  'moon_flower':               '🌸 Blütentag',
+  'moon_today':                '🌙 Heute:',
+  'ideal_day_for':             '✅ Heute idealer Tag für',
+  'not_optimal_pre':           'Heute nicht optimal – besser an',
+  'not_optimal_suffix':        'pflanzen',
+  'pd_planting_info':          '📐 Pflanzinformationen',
+  'pd_planting_depth':         'Pflanztiefe',
+  'pd_surface':                'Oberflächennah',
+  'pd_planting_distance':      'Pflanzabstand',
+  'pd_row_distance':           'Reihenabstand',
+  'pd_sowing_depth':           'Saattiefe',
+  'pd_light_germ_note':        'Lichtkeimer – nicht bedecken',
+  'pd_germination':            '🌡️ Keimung',
+  'pd_light_germ':             '☀️ Lichtkeimer',
+  'pd_dark_germ':              '🌑 Dunkelkeimer',
+  'pd_germ_temp':              '🌡️ Keimtemp.',
+  'pd_soil_min':               '🌍 Boden min.',
+  'pd_intercropping':          '🤝 Mischkultur',
+  'pd_good_neighbors':         'Gute Nachbarn:',
+  'pd_bad_neighbors':          'Schlechte Nachbarn:',
+  'pd_crop_rotation':          '🔄 Fruchtfolge',
+  'pd_pause_pre':              '⏳ Pause: mindestens',
+  'pd_year':                   'Jahr',
+  'pd_years':                  'Jahre',
+  'pd_same_location':          'am gleichen Standort',
+  'pd_good_predecessors':      '👍 Gute Vorgänger:',
+  'pd_avoid_after':            '👎 Nicht nach:',
+  'pd_growth':                 '🌱 Wachstum:',
+  'pd_harvest_ready':          '🌟 Erntebereit!',
+  'pd_harvest':                'Ernte:',
+  'pd_light_label':            '☀️ Licht',
+  'pd_water_label':            '💧 Wasser',
+  'pd_moontype':               '🌙 Mondtyp',
+  'pd_frost':                  '❄️ Frost',
+  'pd_frost_tolerant':         '✅ Frosttolerant',
+  'pd_frost_sensitive':        '❌ Frostempfindlich',
+  'pd_soil_suitability':       '🌍 Bodeneignung',
+  'pd_notes':                  '📝 Notizen',
+  'pd_delete_planting':        '🗑️ Pflanzung entfernen',
   // ── Offline / Sync ──────────────────────────────────────────────
   'toast_offline_saved':       '📵 Offline gespeichert',
   'toast_offline_synced':      '🔄 Online — Sync abgeschlossen',
@@ -55283,64 +55332,65 @@ function openPlantingDetail(plantingId) {
   const harv = calcHarvestDate(p, null);
   const moon = getMoonPhase(new Date());
 
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   document.getElementById('pd2-emoji').textContent = info.emoji;
   document.getElementById('pd2-name').textContent = p.name + (p.variety ? ' (' + p.variety + ')' : '');
-  document.getElementById('pd2-sub').textContent = (garden ? garden.name : '') + ' · ' + p.count + ' Pflanzen';
+  document.getElementById('pd2-sub').textContent = (garden ? garden.name : '') + ' · ' + p.count + ' ' + _t('unit_plants','Pflanzen');
 
   const harvestDateStr = harv.harvestDate.toLocaleDateString('de-CH', {day:'numeric', month:'long', year:'numeric'});
-  const sunLabel = {full_sun:'☀️ Vollsonne', part_sun:'⛅ Halbschatten', shade:'🌑 Schatten'};
-  const waterLabel = {high:'💧💧💧 Viel', medium:'💧💧 Mittel', low:'💧 Wenig'};
-  const mondLabel = {frucht:'🍎 Fruchttag', blatt:'🥬 Blatttag', wurzel:'🥕 Wurzeltag', blüte:'🌸 Blütentag'};
+  const sunLabel = {full_sun:_t('pd_sun_full','☀️ Vollsonne'), part_sun:_t('pd_sun_part','⛅ Halbschatten'), shade:_t('pd_sun_shade','🌑 Schatten')};
+  const waterLabel = {high:_t('pd_water_high','💧💧💧 Viel'), medium:_t('pd_water_mid','💧💧 Mittel'), low:_t('pd_water_low','💧 Wenig')};
+  const mondLabel = {frucht:_t('moon_fruit','🍎 Fruchttag'), blatt:_t('moon_leaf','🥬 Blatttag'), wurzel:_t('moon_root','🥕 Wurzeltag'), blüte:_t('moon_flower','🌸 Blütentag')};
 
   // Mondempfehlung heute
   const isMoonGoodToday = info.mondtyp === moon.type;
   const moonTodayHtml = '<div style="background:' + (isMoonGoodToday?'#e8f5e9':'#f9fafb') + ';border-radius:10px;padding:10px 12px;margin-bottom:9px;display:flex;align-items:center;gap:8px;">' +
     '<span style="font-size:22px;">' + moon.icon + '</span>' +
     '<div style="flex:1;">' +
-      '<div style="font-size:11px;font-weight:700;color:var(--muted);">🌙 Heute: ' + moon.phase + '</div>' +
+      '<div style="font-size:11px;font-weight:700;color:var(--muted);">' + _t('moon_today','🌙 Heute:') + ' ' + moon.phase + '</div>' +
       '<div style="font-size:12.5px;font-weight:800;color:' + (isMoonGoodToday?'#2e7d32':'var(--text)') + ';">' +
-        (isMoonGoodToday ? '✅ Heute idealer Tag für ' + p.name + '!' : 'Heute nicht optimal – besser an ' + (mondLabel[info.mondtyp]||'') + ' pflanzen') +
+        (isMoonGoodToday ? _t('ideal_day_for','✅ Heute idealer Tag für') + ' ' + p.name + '!' : _t('not_optimal_pre','Heute nicht optimal – besser an') + ' ' + (mondLabel[info.mondtyp]||'') + ' ' + _t('not_optimal_suffix','pflanzen')) +
       '</div>' +
     '</div>' +
   '</div>';
 
   // Saattiefe / Pflanzabstand Grid
   const plantingInfoHtml = (info.pflanzabstand || info.saattiefe !== undefined) ? (
-    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:6px;letter-spacing:.4px;">📐 Pflanzinformationen</div>' +
+    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:6px;letter-spacing:.4px;">' + _t('pd_planting_info','📐 Pflanzinformationen') + '</div>' +
     '<div class="plant-info-grid">' +
-      (info.pflanztiefe !== undefined   ? '<div class="plant-info-card"><div class="plant-info-icon">📏</div><div class="plant-info-label">Pflanztiefe</div><div class="plant-info-val">' + (info.pflanztiefe>0?info.pflanztiefe+' cm':'Oberflächennah') + '</div></div>' : '') +
-      (info.pflanzabstand !== undefined  ? '<div class="plant-info-card"><div class="plant-info-icon">↔️</div><div class="plant-info-label">Pflanzabstand</div><div class="plant-info-val">' + info.pflanzabstand + ' cm</div></div>' : '') +
-      (info.reihenabstand !== undefined  ? '<div class="plant-info-card"><div class="plant-info-icon">↕️</div><div class="plant-info-label">Reihenabstand</div><div class="plant-info-val">' + info.reihenabstand + ' cm</div></div>' : '') +
-      (info.saattiefe !== undefined      ? '<div class="plant-info-card"><div class="plant-info-icon">🌱</div><div class="plant-info-label">Saattiefe</div><div class="plant-info-val">' + (info.saattiefe>0?info.saattiefe+' cm':'Lichtkeimer – nicht bedecken') + '</div></div>' : '') +
+      (info.pflanztiefe !== undefined   ? '<div class="plant-info-card"><div class="plant-info-icon">📏</div><div class="plant-info-label">' + _t('pd_planting_depth','Pflanztiefe') + '</div><div class="plant-info-val">' + (info.pflanztiefe>0?info.pflanztiefe+' cm':_t('pd_surface','Oberflächennah')) + '</div></div>' : '') +
+      (info.pflanzabstand !== undefined  ? '<div class="plant-info-card"><div class="plant-info-icon">↔️</div><div class="plant-info-label">' + _t('pd_planting_distance','Pflanzabstand') + '</div><div class="plant-info-val">' + info.pflanzabstand + ' cm</div></div>' : '') +
+      (info.reihenabstand !== undefined  ? '<div class="plant-info-card"><div class="plant-info-icon">↕️</div><div class="plant-info-label">' + _t('pd_row_distance','Reihenabstand') + '</div><div class="plant-info-val">' + info.reihenabstand + ' cm</div></div>' : '') +
+      (info.saattiefe !== undefined      ? '<div class="plant-info-card"><div class="plant-info-icon">🌱</div><div class="plant-info-label">' + _t('pd_sowing_depth','Saattiefe') + '</div><div class="plant-info-val">' + (info.saattiefe>0?info.saattiefe+' cm':_t('pd_light_germ_note','Lichtkeimer – nicht bedecken')) + '</div></div>' : '') +
     '</div>'
   ) : '';
 
   // Keiminfos
   const keimHtml = (info.keimtyp || info.keimtemp) ? (
-    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:6px;letter-spacing:.4px;">🌡️ Keimung</div>' +
+    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:6px;letter-spacing:.4px;">' + _t('pd_germination','🌡️ Keimung') + '</div>' +
     '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:9px;">' +
-      (info.keimtyp ? '<span class="keimtyp-badge keimtyp-' + info.keimtyp + '">' + (info.keimtyp==='licht'?'☀️ Lichtkeimer':'🌑 Dunkelkeimer') + '</span>' : '') +
-      (info.keimtemp  ? '<span style="background:#e3f2fd;color:#1565c0;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:700;">🌡️ Keimtemp. ' + info.keimtemp + '</span>' : '') +
-      (info.bodentemp ? '<span style="background:#fff3e0;color:#e65100;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:700;">🌍 Boden min. ' + info.bodentemp + '°C</span>' : '') +
+      (info.keimtyp ? '<span class="keimtyp-badge keimtyp-' + info.keimtyp + '">' + (info.keimtyp==='licht'?_t('pd_light_germ','☀️ Lichtkeimer'):_t('pd_dark_germ','🌑 Dunkelkeimer')) + '</span>' : '') +
+      (info.keimtemp  ? '<span style="background:#e3f2fd;color:#1565c0;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:700;">' + _t('pd_germ_temp','🌡️ Keimtemp.') + ' ' + info.keimtemp + '</span>' : '') +
+      (info.bodentemp ? '<span style="background:#fff3e0;color:#e65100;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:700;">' + _t('pd_soil_min','🌍 Boden min.') + ' ' + info.bodentemp + '°C</span>' : '') +
     '</div>'
   ) : '';
 
   // Mischkultur
   const mischHtml = (info.gut_mit && info.gut_mit.length) ? (
-    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:6px;letter-spacing:.4px;">🤝 Mischkultur</div>' +
-    '<div style="margin-bottom:4px;font-size:11.5px;color:var(--muted);">Gute Nachbarn:</div>' +
+    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:6px;letter-spacing:.4px;">' + _t('pd_intercropping','🤝 Mischkultur') + '</div>' +
+    '<div style="margin-bottom:4px;font-size:11.5px;color:var(--muted);">' + _t('pd_good_neighbors','Gute Nachbarn:') + '</div>' +
     '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:7px;">' + (info.gut_mit||[]).map(n=>'<span class="companion-chip chip-good">✅ '+n+'</span>').join('') + '</div>' +
-    (info.schlecht_mit && info.schlecht_mit.length ? '<div style="font-size:11.5px;color:var(--muted);">Schlechte Nachbarn:</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">' + (info.schlecht_mit||[]).map(n=>'<span class="companion-chip chip-bad">❌ '+n+'</span>').join('') + '</div>' : '') +
+    (info.schlecht_mit && info.schlecht_mit.length ? '<div style="font-size:11.5px;color:var(--muted);">' + _t('pd_bad_neighbors','Schlechte Nachbarn:') + '</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">' + (info.schlecht_mit||[]).map(n=>'<span class="companion-chip chip-bad">❌ '+n+'</span>').join('') + '</div>' : '') +
     '<div style="height:1px;background:#f0f0f0;margin:9px 0;"></div>'
   ) : '';
 
   // Fruchtfolge
   const fruchtfolgeHtml = info.fruchtfolge ? (
-    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:6px;letter-spacing:.4px;">🔄 Fruchtfolge</div>' +
+    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:6px;letter-spacing:.4px;">' + _t('pd_crop_rotation','🔄 Fruchtfolge') + '</div>' +
     '<div style="background:#f9fafb;border-radius:9px;padding:10px 12px;margin-bottom:9px;">' +
-      '<div style="font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:4px;">⏳ Pause: mindestens <strong>' + info.fruchtfolge + ' Jahr' + (info.fruchtfolge>1?'e':'') + '</strong> am gleichen Standort</div>' +
-      (info.fruchtfolge_nach && info.fruchtfolge_nach.length ? '<div style="font-size:11.5px;color:#2e7d32;margin-top:3px;">👍 Gute Vorgänger: ' + (info.fruchtfolge_nach||[]).join(', ') + '</div>' : '') +
-      (info.fruchtfolge_nicht && info.fruchtfolge_nicht.length ? '<div style="font-size:11.5px;color:#c62828;margin-top:3px;">👎 Nicht nach: ' + (info.fruchtfolge_nicht||[]).join(', ') + '</div>' : '') +
+      '<div style="font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:4px;">' + _t('pd_pause_pre','⏳ Pause: mindestens') + ' <strong>' + info.fruchtfolge + ' ' + (info.fruchtfolge>1?_t('pd_years','Jahre'):_t('pd_year','Jahr')) + '</strong> ' + _t('pd_same_location','am gleichen Standort') + '</div>' +
+      (info.fruchtfolge_nach && info.fruchtfolge_nach.length ? '<div style="font-size:11.5px;color:#2e7d32;margin-top:3px;">' + _t('pd_good_predecessors','👍 Gute Vorgänger:') + ' ' + (info.fruchtfolge_nach||[]).join(', ') + '</div>' : '') +
+      (info.fruchtfolge_nicht && info.fruchtfolge_nicht.length ? '<div style="font-size:11.5px;color:#c62828;margin-top:3px;">' + _t('pd_avoid_after','👎 Nicht nach:') + ' ' + (info.fruchtfolge_nicht||[]).join(', ') + '</div>' : '') +
     '</div>'
   ) : '';
 
@@ -55348,15 +55398,15 @@ function openPlantingDetail(plantingId) {
     // Progress bar
     '<div style="background:#f0f7ee;border-radius:10px;padding:12px;margin-bottom:10px;">' +
       '<div style="display:flex;justify-content:space-between;margin-bottom:4px;">' +
-        '<span style="font-size:11px;font-weight:700;color:var(--g-dark);">🌱 Wachstum: ' + harv.progress + '%</span>' +
-        '<span style="font-size:11px;color:var(--muted);">' + harv.daysGrown + ' / ' + harv.adjustedDays + ' Tage</span>' +
+        '<span style="font-size:11px;font-weight:700;color:var(--g-dark);">' + _t('pd_growth','🌱 Wachstum:') + ' ' + harv.progress + '%</span>' +
+        '<span style="font-size:11px;color:var(--muted);">' + harv.daysGrown + ' / ' + harv.adjustedDays + ' ' + _t('unit_days','Tage') + '</span>' +
       '</div>' +
       '<div style="height:8px;background:#c8e6c9;border-radius:4px;overflow:hidden;">' +
         '<div style="height:100%;width:' + harv.progress + '%;background:linear-gradient(90deg,#4caf50,#8bc34a);border-radius:4px;"></div>' +
       '</div>' +
       '<div style="display:flex;justify-content:space-between;margin-top:5px;">' +
-        '<span style="font-size:11px;color:var(--muted);">Gepflanzt: ' + new Date(p.date).toLocaleDateString('de-CH') + '</span>' +
-        '<span style="font-size:11px;font-weight:700;color:' + (harv.daysLeft===0?'#2e7d32':'var(--muted)') + ';">' + (harv.daysLeft===0?'🌟 Erntebereit!':'Ernte: ' + harvestDateStr) + '</span>' +
+        '<span style="font-size:11px;color:var(--muted);">' + _t('planting_date_label','Gepflanzt:') + ' ' + new Date(p.date).toLocaleDateString('de-CH') + '</span>' +
+        '<span style="font-size:11px;font-weight:700;color:' + (harv.daysLeft===0?'#2e7d32':'var(--muted)') + ';">' + (harv.daysLeft===0?_t('pd_harvest_ready','🌟 Erntebereit!'):_t('pd_harvest','Ernte:') + ' ' + harvestDateStr) + '</span>' +
       '</div>' +
     '</div>' +
     // Mond heute
@@ -55367,21 +55417,21 @@ function openPlantingDetail(plantingId) {
     keimHtml +
     // Basis-Grid
     '<div class="dgrid" style="margin-bottom:9px;">' +
-      '<div class="di"><div class="dil">☀️ Licht</div><div class="div2">' + (sunLabel[info.sun]||'⛅') + '</div></div>' +
-      '<div class="di"><div class="dil">💧 Wasser</div><div class="div2">' + (waterLabel[info.water]||'Mittel') + '</div></div>' +
-      '<div class="di"><div class="dil">🌙 Mondtyp</div><div class="div2">' + (mondLabel[info.mondtyp]||'–') + '</div></div>' +
-      '<div class="di"><div class="dil">❄️ Frost</div><div class="div2">' + (info.frost>0?'✅ Frosttolerant':'❌ Frostempfindlich') + '</div></div>' +
+      '<div class="di"><div class="dil">' + _t('pd_light_label','☀️ Licht') + '</div><div class="div2">' + (sunLabel[info.sun]||'⛅') + '</div></div>' +
+      '<div class="di"><div class="dil">' + _t('pd_water_label','💧 Wasser') + '</div><div class="div2">' + (waterLabel[info.water]||_t('water_mid','Mittel')) + '</div></div>' +
+      '<div class="di"><div class="dil">' + _t('pd_moontype','🌙 Mondtyp') + '</div><div class="div2">' + (mondLabel[info.mondtyp]||'–') + '</div></div>' +
+      '<div class="di"><div class="dil">' + _t('pd_frost','❄️ Frost') + '</div><div class="div2">' + (info.frost>0?_t('pd_frost_tolerant','✅ Frosttolerant'):_t('pd_frost_sensitive','❌ Frostempfindlich')) + '</div></div>' +
     '</div>' +
     // Boden-Info Card
-    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:6px;letter-spacing:.4px;">🌍 Bodeneignung</div>' +
+    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:6px;letter-spacing:.4px;">' + _t('pd_soil_suitability','🌍 Bodeneignung') + '</div>' +
     renderBodenInfoCard(p.name, garden ? garden.soil : '') +
     // Mischkultur
     mischHtml +
     // Fruchtfolge
     fruchtfolgeHtml +
     // Notizen
-    (p.notes ? '<div style="background:#f9fafb;border-radius:9px;padding:10px 12px;margin-bottom:9px;"><div style="font-size:11px;font-weight:700;color:var(--muted);">📝 Notizen</div><div style="font-size:13px;color:var(--text2);margin-top:4px;">' + escHtml(p.notes) + '</div></div>' : '') +
-    '<button onclick="deletePlantingById(this)" data-pid="' + escHtml(p.id) + '" style="width:100%;padding:11px;background:transparent;border:1.5px solid #ffcdd2;border-radius:10px;color:#c62828;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;">🗑️ Pflanzung entfernen</button>';
+    (p.notes ? '<div style="background:#f9fafb;border-radius:9px;padding:10px 12px;margin-bottom:9px;"><div style="font-size:11px;font-weight:700;color:var(--muted);">' + _t('pd_notes','📝 Notizen') + '</div><div style="font-size:13px;color:var(--text2);margin-top:4px;">' + escHtml(p.notes) + '</div></div>' : '') +
+    '<button onclick="deletePlantingById(this)" data-pid="' + escHtml(p.id) + '" style="width:100%;padding:11px;background:transparent;border:1.5px solid #ffcdd2;border-radius:10px;color:#c62828;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;">' + _t('pd_delete_planting','🗑️ Pflanzung entfernen') + '</button>';
 
   openModal('modal-planting-detail');
 }
@@ -56954,6 +57004,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v28.56', date: '08.06.2026',
+    headline: '🌍 Pflanzungs-Detailseite (Garten) jetzt mehrsprachig',
+    summary: 'Weiter mit der Vollübersetzung (Batch G, Teil 1): Die Detailseite einer Garten-Pflanzung — Mondkalender-Empfehlung, Pflanzinfos (Tiefe/Abstand/Saattiefe), Keimung, Mischkultur (gute/schlechte Nachbarn), Fruchtfolge, Wachstums-Fortschritt, Bodeneignung, Notizen — wird jetzt mit der Sprache mit-übersetzt. Bei EN/FR/IT/ES automatisch.',
+    user_summary: '🌍 Die Pflanzungs-Detailseite im Garten ist jetzt mehrsprachig.',
+    user_items: [
+      { emoji: '🌱', text: 'Pflanzinfos, Keimung, Mischkultur, Fruchtfolge mehrsprachig' },
+      { emoji: '🌙', text: 'Mondkalender-Empfehlung + Wachstums-Fortschritt mehrsprachig' },
+      { emoji: '🤖', text: 'EN/FR/IT/ES automatisch via Übersetzungs-Edge-Fn' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'48 neue Keys:', text:' openPlantingDetail (33 Audit-Strings + Maps) komplett auf gsI18n.t.'},
+      {emoji:'♻️', bold:'4 reuse:', text:' unit_plants/unit_days/planting_date_label/water_mid wiederverwendet.'},
+      {emoji:'📋', bold:'Audit-Roadmap:', text:' A+D+C+E+F+B + G-1 ✅ — als nächstes G-2 (Diary/Forest/Saison) + Profil.'},
+    ]
+  },
   {
     v: 'v28.55', date: '08.06.2026',
     headline: '🌍 Wissens-Bereich (Lexikon, Bodentypen, Schädlinge) mehrsprachig',
@@ -60784,7 +60850,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.55';
+var GS_VERSION = 'v28.56';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
