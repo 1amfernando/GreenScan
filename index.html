@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.44.20260607">
+<meta name="app-version" content="28.45.20260607">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -6470,6 +6470,8 @@ function gsGetMostUrgentTask(p) {
 
 function gsNewPlantCard(p) {
   if (!p || !p.id) return '';
+  // v28.45 i18n dynamische Renders: _t = guarded gsI18n.t (bricht Render nie, falls gsI18n nicht bereit).
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var urgent = gsGetMostUrgentTask(p);
   var statusClass = 'plant-card-status-new';
   if (urgent) {
@@ -6535,23 +6537,23 @@ function gsNewPlantCard(p) {
       '<div class="plant-expand-grid">' +
         '<div class="plant-expand-stat">' +
           '<div class="stat-icon">💧</div>' +
-          '<div class="stat-val">' + (['','Wenig','Mittel','Viel'][p.water||1]) + '</div>' +
-          '<div class="stat-lbl">Wasser</div>' +
+          '<div class="stat-val">' + (['', _t('water_low','Wenig'), _t('water_mid','Mittel'), _t('water_high','Viel')][p.water||1]) + '</div>' +
+          '<div class="stat-lbl">' + _t('stat_water','Wasser') + '</div>' +
         '</div>' +
         '<div class="plant-expand-stat">' +
           '<div class="stat-icon">☀️</div>' +
-          '<div class="stat-val">' + (['','Schatten','Halbschatten','Sonne'][p.sun||1]) + '</div>' +
-          '<div class="stat-lbl">Licht</div>' +
+          '<div class="stat-val">' + (['', _t('light_shade','Schatten'), _t('light_part','Halbschatten'), _t('light_full','Sonne')][p.sun||1]) + '</div>' +
+          '<div class="stat-lbl">' + _t('stat_light','Licht') + '</div>' +
         '</div>' +
         '<div class="plant-expand-stat">' +
           '<div class="stat-icon">📅</div>' +
           '<div class="stat-val">' + (p.added ? new Date(p.added).toLocaleDateString('de-CH',{day:'numeric',month:'short',year:'2-digit'}) : '–') + '</div>' +
-          '<div class="stat-lbl">Hinzugefügt</div>' +
+          '<div class="stat-lbl">' + _t('stat_added','Hinzugefügt') + '</div>' +
         '</div>' +
       '</div>' +
       // AI + Aktionen
       '<div style="display:flex;gap:7px;margin-bottom:8px;">' +
-        '<button style="flex:1;padding:9px;background:#e8f5e9;border:1.5px solid var(--g-light);border-radius:10px;font-size:12.5px;font-weight:800;color:var(--g-dark);cursor:pointer;font-family:inherit;" data-action="ai" data-id="' + p.id + '">🤖 KI-Pflegeberatung</button>' +
+        '<button style="flex:1;padding:9px;background:#e8f5e9;border:1.5px solid var(--g-light);border-radius:10px;font-size:12.5px;font-weight:800;color:var(--g-dark);cursor:pointer;font-family:inherit;" data-action="ai" data-id="' + p.id + '">' + _t('btn_ai_care','🤖 KI-Pflegeberatung') + '</button>' +
         '<button style="padding:9px 12px;background:#fff3e0;border:1.5px solid #ffcc80;border-radius:10px;font-size:12.5px;font-weight:800;color:#e65100;cursor:pointer;font-family:inherit;" onclick="event.stopPropagation();openDiagnosisCamera()">🔬</button>' +
       '</div>' +
       '<div id="ai-result-' + p.id + '" style="display:none;" class="mp-ai-result"></div>' +
@@ -6562,8 +6564,8 @@ function gsNewPlantCard(p) {
       '</div>' +
       // Edit / Delete
       '<div style="display:flex;gap:7px;">' +
-        '<button style="flex:1;padding:9px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;font-size:12.5px;font-weight:700;color:var(--text);cursor:pointer;font-family:inherit;" data-action="tasks" data-id="' + p.id + '">⚙️ Aufgaben</button>' +
-        '<button style="flex:1;padding:9px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;font-size:12.5px;font-weight:700;color:var(--text);cursor:pointer;font-family:inherit;" data-action="edit" data-id="' + p.id + '">✏️ Bearbeiten</button>' +
+        '<button style="flex:1;padding:9px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;font-size:12.5px;font-weight:700;color:var(--text);cursor:pointer;font-family:inherit;" data-action="tasks" data-id="' + p.id + '">' + _t('btn_tasks','⚙️ Aufgaben') + '</button>' +
+        '<button style="flex:1;padding:9px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;font-size:12.5px;font-weight:700;color:var(--text);cursor:pointer;font-family:inherit;" data-action="edit" data-id="' + p.id + '">' + _t('btn_edit','✏️ Bearbeiten') + '</button>' +
         '<button style="padding:9px 11px;background:#ffebee;border:1.5px solid #ffcdd2;border-radius:10px;font-size:13px;cursor:pointer;font-family:inherit;" data-action="cemetery" data-id="' + p.id + '">🪦</button>' +
       '</div>' +
     '</div>' +
@@ -10672,6 +10674,19 @@ window.GS_I18N_JS_STRINGS = {
   'toast_garden_saved':        '✅ Garten gespeichert',
   'toast_planting_saved':      '🌱 Pflanzung gespeichert',
   'toast_companion_warning':   '⚠️ Mischkultur-Konflikt!',
+  // ── v28.45: Pflanzen-Karte (gsNewPlantCard) dynamische Renders ──
+  'stat_water':                'Wasser',
+  'stat_light':                'Licht',
+  'stat_added':                'Hinzugefügt',
+  'water_low':                 'Wenig',
+  'water_mid':                 'Mittel',
+  'water_high':                'Viel',
+  'light_shade':               'Schatten',
+  'light_part':                'Halbschatten',
+  'light_full':                'Sonne',
+  'btn_ai_care':               '🤖 KI-Pflegeberatung',
+  'btn_tasks':                 '⚙️ Aufgaben',
+  'btn_edit':                  '✏️ Bearbeiten',
   // ── Scanner / KI ────────────────────────────────────────────────
   'toast_scan_saved':          '📷 Scan gespeichert',
   'toast_scan_failed':         '❌ Scan fehlgeschlagen — bitte erneut',
@@ -56479,6 +56494,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.45', date: '07.06.2026',
+    headline: '🌍 Pflanzen-Karte jetzt mehrsprachig (dynamische Inhalte)',
+    summary: 'Start der dynamischen Übersetzung: Auch JS-generierte Inhalte werden jetzt mehrsprachig — den Anfang macht die Pflanzen-Karte in „Meine Pflanzen" (Wasser/Licht/Hinzugefügt, die Werte Wenig/Mittel/Viel + Schatten/Halbschatten/Sonne, sowie die Buttons KI-Pflegeberatung/Aufgaben/Bearbeiten). Bei EN/FR/IT/ES wird das automatisch übersetzt. Die übrigen dynamischen Listen (Markt, Community) folgen demselben Muster.',
+    user_summary: '🌍 Pflanzen-Karten-Texte (Wasser/Licht/Buttons) werden jetzt mit der Sprache mit-übersetzt.',
+    user_items: [
+      { emoji: '🪴', text: 'Pflanzen-Karte (Labels + Werte + Buttons) mehrsprachig' },
+      { emoji: '🤖', text: 'EN/FR/IT/ES automatisch via Übersetzungs-Edge-Fn' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'12 gsI18n.t-Keys:', text:' gsNewPlantCard auf gsI18n.t umgestellt + 12 Keys in GS_I18N_JS_STRINGS registriert (werden vom Edge-Fn gesammelt+übersetzt).'},
+      {emoji:'🛡️', bold:'_t-Guard:', text:' bricht den Render nie, falls gsI18n nicht bereit.'},
+      {emoji:'📋', bold:'Muster etabliert', text:' für renderMarket/renderSocialFeed/openDetail/renderMyPlants/renderRecipes.'},
+    ]
+  },
+  {
     v: 'v28.44', date: '07.06.2026',
     headline: '🌍 Saisonkalender + KI-Assistent jetzt mehrsprachig',
     summary: 'Nächster Schritt der Vollübersetzung: Der Saisonkalender (Titel, Filter wie Gemüse/Obst/Kräuter, Legende) und der KI-Assistent-Bildschirm (Beispiel-Fragen + Begrüssung) sind jetzt mehrsprachig — bei EN/FR/IT/ES automatisch übersetzt. Scanner, Karte, Saisonkalender und KI-Assistent sind damit fertig.',
@@ -60133,7 +60163,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.44';
+var GS_VERSION = 'v28.45';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
