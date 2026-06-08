@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.43.20260607">
+<meta name="app-version" content="28.44.20260607">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2322,14 +2322,14 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <div class="screen" id="screen-ai" style="overflow:hidden;">
   <div class="ai-screen" style="height:100%;">
     <div class="ai-suggestions" id="ai-sugs">
-      <div class="ai-sug" onclick="sendSug(this)">Was ist der giftigste Pilz der Schweiz?</div>
-      <div class="ai-sug" onclick="sendSug(this)">Welche Pflanzen blühen im April?</div>
-      <div class="ai-sug" onclick="sendSug(this)">Bärlauch richtig bestimmen</div>
-      <div class="ai-sug" onclick="sendSug(this)">Steinpilz Verwechslungen</div>
-      <div class="ai-sug" onclick="sendSug(this)">Beste Heilkräuter Schweiz</div>
+      <div class="ai-sug" onclick="sendSug(this)" data-i18n="ai_sug_1" data-i18n-fallback="Was ist der giftigste Pilz der Schweiz?">Was ist der giftigste Pilz der Schweiz?</div>
+      <div class="ai-sug" onclick="sendSug(this)" data-i18n="ai_sug_2" data-i18n-fallback="Welche Pflanzen blühen im April?">Welche Pflanzen blühen im April?</div>
+      <div class="ai-sug" onclick="sendSug(this)" data-i18n="ai_sug_3" data-i18n-fallback="Bärlauch richtig bestimmen">Bärlauch richtig bestimmen</div>
+      <div class="ai-sug" onclick="sendSug(this)" data-i18n="ai_sug_4" data-i18n-fallback="Steinpilz Verwechslungen">Steinpilz Verwechslungen</div>
+      <div class="ai-sug" onclick="sendSug(this)" data-i18n="ai_sug_5" data-i18n-fallback="Beste Heilkräuter Schweiz">Beste Heilkräuter Schweiz</div>
     </div>
     <div class="ai-messages" id="ai-messages">
-      <div class="ai-msg bot">Hallo! 🌿 Ich bin dein Natur-Assistent für die Schweizer Flora und Fauna. Ich beantworte Fragen zu Pflanzen, Pilzen, Kräutern, Giftpflanzen und Heilpflanzen.<br><br>Was möchtest du wissen?</div>
+      <div class="ai-msg bot" data-i18n="ai_greeting" data-i18n-html data-i18n-fallback="Hallo! 🌿 Ich bin dein Natur-Assistent für die Schweizer Flora und Fauna. Ich beantworte Fragen zu Pflanzen, Pilzen, Kräutern, Giftpflanzen und Heilpflanzen.<br><br>Was möchtest du wissen?">Hallo! 🌿 Ich bin dein Natur-Assistent für die Schweizer Flora und Fauna. Ich beantworte Fragen zu Pflanzen, Pilzen, Kräutern, Giftpflanzen und Heilpflanzen.<br><br>Was möchtest du wissen?</div>
     </div>
     <div class="ai-input-row">
       <input class="ai-input" id="ai-input" type="text" placeholder="Frage zu Pflanzen, Pilzen, Natur…" onkeydown="if(event.key==='Enter')sendAI()" autocomplete="off">
@@ -2789,29 +2789,29 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
   <div style="background:var(--hero-bg);padding:10px 16px 12px;color:#fff;display:flex;align-items:center;gap:12px;"><button onclick="gsGoBack()" aria-label="Zurück" style="width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent;">&#8249;</button><div style="flex:1;">
     <div style="position:absolute;right:-10px;top:-10px;font-size:100px;opacity:.07;">📅</div></div>
-    <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:800;">📅 Saisonkalender
+    <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:800;"><span data-i18n="season_title" data-i18n-fallback="📅 Saisonkalender">📅 Saisonkalender</span>
 <div id="season-calendar-content" style="overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1;"></div>
 </div>
-    <div style="font-size:12px;opacity:.85;margin-top:2px;">Schweiz · Was jetzt Saison hat</div>
+    <div style="font-size:12px;opacity:.85;margin-top:2px;" data-i18n="season_subtitle" data-i18n-fallback="Schweiz · Was jetzt Saison hat">Schweiz · Was jetzt Saison hat</div>
     <!-- Monats-Schieberegler -->
     <div style="display:flex;gap:4px;margin-top:12px;overflow-x:auto;scrollbar-width:none;" id="month-tabs">
     </div>
   </div>
   <!-- Filter Chips -->
   <div style="display:flex;gap:6px;overflow-x:auto;padding:10px 16px 4px;scrollbar-width:none;">
-    <button class="chip active" onclick="filterSeason('all',this)" id="sf-all">Alle</button>
-    <button class="chip" onclick="filterSeason('gemüse',this)">🥦 Gemüse</button>
-    <button class="chip" onclick="filterSeason('obst',this)">🍓 Obst</button>
-    <button class="chip" onclick="filterSeason('kräuter',this)">🌿 Kräuter</button>
-    <button class="chip" onclick="filterSeason('wildpflanze',this)">🌸 Wildpflanzen</button>
-    <button class="chip" onclick="filterSeason('pilze',this)">🍄 Pilze</button>
+    <button class="chip active" onclick="filterSeason('all',this)" id="sf-all" data-i18n="season_filter_all" data-i18n-fallback="Alle">Alle</button>
+    <button class="chip" onclick="filterSeason('gemüse',this)" data-i18n="season_filter_vegetables" data-i18n-fallback="🥦 Gemüse">🥦 Gemüse</button>
+    <button class="chip" onclick="filterSeason('obst',this)" data-i18n="season_filter_fruit" data-i18n-fallback="🍓 Obst">🍓 Obst</button>
+    <button class="chip" onclick="filterSeason('kräuter',this)" data-i18n="season_filter_herbs" data-i18n-fallback="🌿 Kräuter">🌿 Kräuter</button>
+    <button class="chip" onclick="filterSeason('wildpflanze',this)" data-i18n="season_filter_wild" data-i18n-fallback="🌸 Wildpflanzen">🌸 Wildpflanzen</button>
+    <button class="chip" onclick="filterSeason('pilze',this)" data-i18n="season_filter_mushrooms" data-i18n-fallback="🍄 Pilze">🍄 Pilze</button>
   </div>
   <!-- Legende -->
   <div style="display:flex;gap:8px;padding:2px 16px 8px;font-size:10.5px;color:var(--muted);flex-wrap:wrap;">
-    <span style="display:flex;align-items:center;gap:3px;"><span style="width:10px;height:10px;border-radius:2px;background:#4caf50;display:inline-block;"></span>Erntezeit</span>
-    <span style="display:flex;align-items:center;gap:3px;"><span style="width:10px;height:10px;border-radius:2px;background:#81c784;display:inline-block;"></span>Aussaatzeit</span>
-    <span style="display:flex;align-items:center;gap:3px;"><span style="width:10px;height:10px;border-radius:2px;background:#2196f3;display:inline-block;"></span>Pflanzen</span>
-    <span style="display:flex;align-items:center;gap:3px;"><span style="width:10px;height:10px;border-radius:2px;background:#ff9800;display:inline-block;"></span>Wildsammlung</span>
+    <span style="display:flex;align-items:center;gap:3px;"><span style="width:10px;height:10px;border-radius:2px;background:#4caf50;display:inline-block;"></span><span data-i18n="season_legend_harvest" data-i18n-fallback="Erntezeit">Erntezeit</span></span>
+    <span style="display:flex;align-items:center;gap:3px;"><span style="width:10px;height:10px;border-radius:2px;background:#81c784;display:inline-block;"></span><span data-i18n="season_legend_sowing" data-i18n-fallback="Aussaatzeit">Aussaatzeit</span></span>
+    <span style="display:flex;align-items:center;gap:3px;"><span style="width:10px;height:10px;border-radius:2px;background:#2196f3;display:inline-block;"></span><span data-i18n="season_legend_planting" data-i18n-fallback="Pflanzen">Pflanzen</span></span>
+    <span style="display:flex;align-items:center;gap:3px;"><span style="width:10px;height:10px;border-radius:2px;background:#ff9800;display:inline-block;"></span><span data-i18n="season_legend_wild" data-i18n-fallback="Wildsammlung">Wildsammlung</span></span>
   </div>
   <div id="season-list" style="padding:0 16px 24px;"></div>
 </div>
@@ -56479,6 +56479,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.44', date: '07.06.2026',
+    headline: '🌍 Saisonkalender + KI-Assistent jetzt mehrsprachig',
+    summary: 'Nächster Schritt der Vollübersetzung: Der Saisonkalender (Titel, Filter wie Gemüse/Obst/Kräuter, Legende) und der KI-Assistent-Bildschirm (Beispiel-Fragen + Begrüssung) sind jetzt mehrsprachig — bei EN/FR/IT/ES automatisch übersetzt. Scanner, Karte, Saisonkalender und KI-Assistent sind damit fertig.',
+    user_summary: '🌍 Saisonkalender + KI-Assistent-Texte werden jetzt mit der Sprache mit-übersetzt.',
+    user_items: [
+      { emoji: '📅', text: 'Saisonkalender (Filter + Legende) mehrsprachig' },
+      { emoji: '🤖', text: 'KI-Assistent (Beispiel-Fragen + Begrüssung) mehrsprachig' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'18 data-i18n-Keys:', text:' Season (12: Titel/Subtitle/6 Filter/4 Legende) + AI (6: 5 Vorschläge + Greeting). Struktur-Fallen (verschachtelte Spans) sauber gewrappt.'},
+      {emoji:'⏭️', bold:'Offen:', text:' Rezepte/Heilmittel/Farm/Modals + dynamische Renders (Pflanzen/Markt/Community).'},
+    ]
+  },
+  {
     v: 'v28.43', date: '07.06.2026',
     headline: '🌍 Karten-Screen jetzt mehrsprachig',
     summary: 'Weiter mit der schrittweisen Vollübersetzung: Der Karten-Bildschirm (Titel, Karten-Ebenen wie Swisstopo/Wanderwege/Satellit, Filter wie Pilze/Beeren/Heil) ist jetzt mehrsprachig — bei EN/FR/IT/ES werden diese Texte automatisch übersetzt. Scanner + Karte sind damit fertig; weitere Screens folgen.',
@@ -60119,7 +60133,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.43';
+var GS_VERSION = 'v28.44';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
