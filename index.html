@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.62.20260609">
+<meta name="app-version" content="28.63.20260609">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2693,19 +2693,19 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 </div>
 
 <div class="screen" id="screen-farm">
-<div style="background:#1b5e20;display:flex;align-items:center;padding:10px 14px;position:sticky;top:0;z-index:50;flex-shrink:0;"><button onclick="gsGoBack()" aria-label="Zurück" style="width:36px;height:36px;border-radius:50%;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:24px;font-weight:300;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent;">&#8249;</button><span style="font-size:15px;font-weight:800;color:#fff;margin-left:10px;">🎮 BlattFänger</span></div>
+<div style="background:#1b5e20;display:flex;align-items:center;padding:10px 14px;position:sticky;top:0;z-index:50;flex-shrink:0;"><button onclick="gsGoBack()" aria-label="Zurück" style="width:36px;height:36px;border-radius:50%;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:24px;font-weight:300;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent;">&#8249;</button><span data-i18n="farm_brand" style="font-size:15px;font-weight:800;color:#fff;margin-left:10px;">🎮 BlattFänger</span></div>
 
   <!-- Farm Header -->
   <div id="farm-header" style="background:var(--hero-bg);padding:14px 16px 10px;color:#fff;position:relative;overflow:hidden;">
     <div style="position:absolute;right:-20px;top:-20px;font-size:100px;opacity:.08;">🌾</div>
     <div style="display:flex;align-items:center;justify-content:space-between;">
       <div>
-        <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:800;">🚜 Mein BlattFänger</div>
-        <div id="farm-level-label" style="font-size:12px;opacity:.85;margin-top:2px;">Level 1 · Anfänger-Garten</div>
+        <div data-i18n="farm_title" style="font-family:'Playfair Display',serif;font-size:18px;font-weight:800;">🚜 Mein BlattFänger</div>
+        <div id="farm-level-label" data-i18n="farm_level_init" style="font-size:12px;opacity:.85;margin-top:2px;">Level 1 · Anfänger-Garten</div>
       </div>
       <div style="text-align:right;">
         <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;"><div id="farm-combo" style="display:none;background:#ff6f00;color:#fff;padding:3px 8px;border-radius:8px;font-size:12px;font-weight:800;"></div><div style="font-size:20px;font-weight:800;font-family:'Playfair Display',serif;" id="farm-coins">🌾 0</div></div>
-        <div style="font-size:10px;opacity:.8;">Ernte-Punkte</div>
+        <div data-i18n="farm_harvest_points" style="font-size:10px;opacity:.8;">Ernte-Punkte</div>
       </div>
     </div>
     <!-- XP Bar -->
@@ -2714,7 +2714,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     </div>
     <div style="display:flex;justify-content:space-between;margin-top:3px;font-size:10px;opacity:.75;">
       <span id="farm-xp-label">0 XP</span>
-      <span id="farm-xp-next">100 XP zum nächsten Level</span>
+      <span id="farm-xp-next" data-i18n="farm_xp_next_init">100 XP zum nächsten Level</span>
     </div>
   </div>
 
@@ -2730,8 +2730,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   <!-- Farm Grid -->
   <div style="padding:10px 12px 4px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-      <span style="font-size:13px;font-weight:700;color:var(--g-dark);">🌱 Meine Felder</span>
-      <button onclick="addFarmPlot()" style="padding:5px 12px;background:var(--g-main);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">+ Feld</button>
+      <span data-i18n="farm_my_fields" style="font-size:13px;font-weight:700;color:var(--g-dark);">🌱 Meine Felder</span>
+      <button onclick="addFarmPlot()" data-i18n="farm_add_field" style="padding:5px 12px;background:var(--g-main);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">+ Feld</button>
     </div>
     <div id="farm-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;"></div>
   </div>
@@ -2739,21 +2739,21 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   <!-- Animals Section -->
   <div style="padding:8px 12px 4px;margin-top:4px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-      <span style="font-size:13px;font-weight:700;color:var(--g-dark);">🐔 Meine Tiere</span>
-      <button onclick="openAnimalShop()" style="padding:5px 12px;background:#fff3e0;color:#bf5600;border:1.5px solid #ffcc80;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">+ Tier kaufen</button>
+      <span data-i18n="farm_my_animals" style="font-size:13px;font-weight:700;color:var(--g-dark);">🐔 Meine Tiere</span>
+      <button onclick="openAnimalShop()" data-i18n="farm_buy_animal_btn" style="padding:5px 12px;background:#fff3e0;color:#bf5600;border:1.5px solid #ffcc80;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">+ Tier kaufen</button>
     </div>
     <div id="farm-animals" style="display:flex;gap:7px;flex-wrap:wrap;"></div>
   </div>
 
   <!-- Buildings -->
   <div style="padding:8px 12px 4px;margin-top:4px;">
-    <div style="font-size:13px;font-weight:700;color:var(--g-dark);margin-bottom:6px;">🏠 Gebäude</div>
+    <div data-i18n="farm_buildings" style="font-size:13px;font-weight:700;color:var(--g-dark);margin-bottom:6px;">🏠 Gebäude</div>
     <div id="farm-buildings" style="display:flex;gap:7px;overflow-x:auto;padding-bottom:6px;scrollbar-width:none;"></div>
   </div>
 
   <!-- Quests -->
   <div style="padding:8px 12px 20px;margin-top:4px;">
-    <div style="font-size:13px;font-weight:700;color:var(--g-dark);margin-bottom:6px;">📋 Tägliche Aufgaben</div>
+    <div data-i18n="farm_daily_quests" style="font-size:13px;font-weight:700;color:var(--g-dark);margin-bottom:6px;">📋 Tägliche Aufgaben</div>
     <div id="farm-quests"></div>
   </div>
 </div>
@@ -2765,7 +2765,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <button class="modal-close-btn" onclick="closeModal('modal-farm-shop')" aria-label="Schliessen">&#x2715;</button>
     <div class="mhdr">
       <span class="memoji">🏪</span>
-      <div><h2>Farm-Shop</h2><p>Kaufe Samen, Tiere &amp; mehr</p></div>
+      <div><h2 data-i18n="farm_shop_title">Farm-Shop</h2><p data-i18n="farm_shop_sub">Kaufe Samen, Tiere &amp; mehr</p></div>
     </div>
     <div class="mbody" id="farm-shop-body" style="max-height:65vh;overflow-y:auto;"></div>
   </div>
@@ -2781,7 +2781,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <h2 id="harvest-title" style="font-family:'Playfair Display',serif;color:var(--g-dark);font-size:22px;margin-bottom:6px;"></h2>
       <p id="harvest-msg" style="color:var(--muted);font-size:14px;line-height:1.5;"></p>
       <div id="harvest-reward" style="margin:16px 0;padding:12px;background:#e8f5e9;border-radius:10px;font-size:16px;font-weight:700;color:var(--g-dark);"></div>
-      <button onclick="closeModal('modal-farm-harvest')" style="width:100%;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">🎉 Super!</button>
+      <button onclick="closeModal('modal-farm-harvest')" data-i18n="farm_harvest_super" style="width:100%;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">🎉 Super!</button>
     </div>
   </div>
 </div>
@@ -11448,7 +11448,125 @@ window.GS_I18N_JS_STRINGS = {
   // ── v25.31 Erntekalender ───────────────────────────────────────
   'harvest_no_amount':         'Bitte Menge angeben',
   'harvest_save_error':        '⚠️ Konnte nicht speichern',
-  'harvest_saved':             '✅ Ernte gespeichert!'
+  'harvest_saved':             '✅ Ernte gespeichert!',
+  // ── v28.63 BlattFänger (Farm-Spiel) — Batch H_Farm, voll ──────────
+  // Statisches screen-farm HTML
+  'farm_brand':                '🎮 BlattFänger',
+  'farm_title':                '🚜 Mein BlattFänger',
+  'farm_harvest_points':       'Ernte-Punkte',
+  'farm_my_fields':            '🌱 Meine Felder',
+  'farm_add_field':            '+ Feld',
+  'farm_my_animals':           '🐔 Meine Tiere',
+  'farm_buy_animal_btn':       '+ Tier kaufen',
+  'farm_buildings':            '🏠 Gebäude',
+  'farm_daily_quests':         '📋 Tägliche Aufgaben',
+  'farm_shop_title':           'Farm-Shop',
+  'farm_shop_sub':             'Kaufe Samen, Tiere & mehr',
+  'farm_harvest_super':        '🎉 Super!',
+  // HUD / Level
+  'farm_levelup_title':        'Level Up!',
+  'farm_levelup_now':          'Du bist jetzt',
+  'farm_levelup_reward':       '+1 Level · Neue Inhalte freigeschaltet!',
+  'farm_level_word':           'Level',
+  'farm_xp_label':             'XP',
+  'farm_xp_until':             'XP bis Level',
+  'farm_level_init':           'Level 1 · Anfänger-Garten',
+  'farm_xp_next_init':         '100 XP zum nächsten Level',
+  // Felder
+  'farm_not_enough_cost':      'Nicht genug Münzen! Kosten:',
+  'farm_max_fields':           'Maximale Feldanzahl (12) erreicht!',
+  'farm_grid_empty':           'Klicke "+ Feld" um dein erstes Feld anzulegen.',
+  'farm_plot_empty':           'Leer',
+  'farm_wait_pre':             'Noch',
+  'farm_minutes_harvest':      'Minuten bis zur Ernte!',
+  'farm_seed_select_title':    '🌱 Welche Pflanze einsetzen?',
+  'farm_unit_min':             'Min',
+  'farm_no_seeds':             'Keine Samen mehr! Kaufe im Shop.',
+  // Ernte
+  'farm_combo':                'COMBO',
+  'farm_harvested':            'geerntet!',
+  'farm_rare_plant':           '⭐ SELTENE PFLANZE!',
+  'farm_good_harvest':         'Gute Ernte!',
+  'farm_combo_x':              'Combo!',
+  'farm_quest_done_title':     'Quest abgeschlossen!',
+  // Tiere
+  'farm_animals_empty':        'Noch keine Tiere. Kaufe dein erstes Tier im Shop!',
+  'farm_minutes_production':   'Minuten bis zur nächsten Produktion!',
+  'farm_animal_tended':        'versorgt!',
+  'farm_collected':            'wurde gesammelt!',
+  'farm_lv':                   'Lv.',
+  // Shop
+  'farm_shop_resources':       '🛒 Ressourcen kaufen',
+  'farm_shop_animals':         '🐾 Tiere kaufen',
+  'farm_owned':                'Besitz',
+  'farm_res_seeds':            'Samen (×5)',
+  'farm_res_water':            'Wasser (×10)',
+  'farm_res_fert':             'Dünger (×3)',
+  'farm_res_tools':            'Werkzeug (×2)',
+  'farm_not_enough':           'Nicht genug Münzen!',
+  'farm_not_enough_need':      'Nicht genug Münzen! Benötigt:',
+  'farm_bought':               'gekauft!',
+  'farm_new_animal':           'Du hast ein neues Tier!',
+  'farm_collect_every_pre':    'Sammle',
+  'farm_every':                'alle',
+  'farm_minutes':              'Minuten',
+  // Quests (Daten)
+  'farm_quest_harvest3_name':  'Erntezeit',
+  'farm_quest_harvest3_desc':  'Ernte 3 Felder',
+  'farm_quest_harvest3_reward':'+30 🌾 +15 XP',
+  'farm_quest_water5_name':    'Wassermangel',
+  'farm_quest_water5_desc':    'Giesse 5x (Ressource verwenden)',
+  'farm_quest_water5_reward':  '+20 🌾 +10 XP',
+  'farm_quest_collect2_name':  'Tierfreund',
+  'farm_quest_collect2_desc':  'Sammle 2x von Tieren',
+  'farm_quest_collect2_reward':'+25 🌾 +12 XP',
+  'farm_quest_plant5_name':    'Grüner Daumen',
+  'farm_quest_plant5_desc':    'Pflanze 5 Felder',
+  'farm_quest_plant5_reward':  '+35 🌾 +20 XP',
+  'farm_quest_earn50_name':    'Händler',
+  'farm_quest_earn50_desc':    'Verdiene 50 🌾 Münzen',
+  'farm_quest_earn50_reward':  '+15 XP +5 Samen',
+  // Level-Namen (Daten)
+  'farm_level_1':              'Anfänger',
+  'farm_level_2':              'Lehrling',
+  'farm_level_3':              'Gärtner',
+  'farm_level_4':              'Experte',
+  'farm_level_5':              'Meister',
+  'farm_level_6':              'Profi',
+  'farm_level_7':              'Veteran',
+  'farm_level_8':              'Legende',
+  'farm_level_9':              'Champion',
+  'farm_level_10':             'Grandmaster',
+  // Pflanzen (Daten)
+  'farm_crop_wheat':           'Weizen',
+  'farm_crop_corn':            'Mais',
+  'farm_crop_carrot':          'Karotte',
+  'farm_crop_strawberry':      'Erdbeere',
+  'farm_crop_tomato':          'Tomate',
+  'farm_crop_pumpkin':         'Kürbis',
+  'farm_crop_sunflower':       'Sonnenblume',
+  'farm_crop_potato':          'Kartoffel',
+  'farm_crop_pepper':          'Paprika',
+  'farm_crop_watermelon':      'Wassermelone',
+  'farm_crop_mushroom':        'Pilz',
+  'farm_crop_blueberry':       'Blaubeere',
+  // Tiere (Daten) — Name + Produkt
+  'farm_animal_chicken':       'Huhn',
+  'farm_animalprod_chicken':   '🥚 Ei',
+  'farm_animal_cow':           'Kuh',
+  'farm_animalprod_cow':       '🥛 Milch',
+  'farm_animal_sheep':         'Schaf',
+  'farm_animalprod_sheep':     '🧶 Wolle',
+  'farm_animal_bee':           'Biene',
+  'farm_animalprod_bee':       '🍯 Honig',
+  'farm_animal_pig':           'Schwein',
+  'farm_animalprod_pig':       '🥓 Fleisch',
+  // Gebäude (Daten) — nur Name (desc wird nie gerendert)
+  'farm_bldg_well':            'Brunnen',
+  'farm_bldg_silo':            'Silo',
+  'farm_bldg_bakery':          'Bäckerei',
+  'farm_bldg_market':          'Markt',
+  'farm_bldg_greenhouse':      'Gewächshaus'
 };
 
 // Sammelt alle data-i18n Strings aus DOM + ergänzt durch JS-Map
@@ -55687,6 +55805,14 @@ function getXPForNextLevel(level) { return XP_FOR_LEVEL[Math.min(level, XP_FOR_L
 
 const LEVEL_NAMES = ['','Anfänger','Lehrling','Gärtner','Experte','Meister','Profi','Veteran','Legende','Champion','Grandmaster'];
 
+// v28.63: i18n-Helfer für Farm-Daten-Objekte (zentral → DRY, übersetzt Crops/Tiere/Gebäude/Level)
+function _farmT(k, f){ return (window.gsI18n && gsI18n.t) ? gsI18n.t(k, f) : f; }
+function _farmCropName(key){ var c = FARM_CROPS[key]; return c ? _farmT('farm_crop_'+key, c.name) : ''; }
+function _farmAnimalName(key){ var a = FARM_ANIMALS[key]; return a ? _farmT('farm_animal_'+key, a.name) : ''; }
+function _farmAnimalProd(key){ var a = FARM_ANIMALS[key]; return a ? _farmT('farm_animalprod_'+key, a.produces) : ''; }
+function _farmBldgName(key){ var b = FARM_BUILDINGS[key]; return b ? _farmT('farm_bldg_'+key, b.name) : ''; }
+function _farmLevelName(level){ return _farmT('farm_level_'+level, LEVEL_NAMES[level] || ('Level '+level)); }
+
 // Farm state
 
 // ═══ ADMIN MODE ══════════════════════════════════════════════
@@ -55866,8 +55992,8 @@ function admRenderTable() {
       '<td class="adm-td">' + (CAT_L[e.cat]||'') + ' ' + (e.cat||'') + '</td>' +
       '<td class="adm-td">' + (TOX_IC[e.tox||0]||'') + ' ' + (e.tox||0) + '</td>' +
       '<td class="adm-td"><div style="display:flex;gap:4px;">' +
-        '<button onclick="admOpenEdit(\'+idx+\')" style="padding:4px 10px;background:rgba(45,138,45,.2);border:none;border-radius:5px;color:#4caf50;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">✏️</button>' +
-        '<button onclick="admConfirmDel(\'+idx+\')" style="padding:4px 10px;background:rgba(239,68,68,.15);border:none;border-radius:5px;color:#f87171;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">🗑️</button>' +
+        '<button onclick="admOpenEdit(' + idx + ')" style="padding:4px 10px;background:rgba(45,138,45,.2);border:none;border-radius:5px;color:#4caf50;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">✏️</button>' +
+        '<button onclick="admConfirmDel(' + idx + ')" style="padding:4px 10px;background:rgba(239,68,68,.15);border:none;border-radius:5px;color:#f87171;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">🗑️</button>' +
       '</div></td>' +
     '</tr>';
   });
@@ -56081,7 +56207,7 @@ function addXP(n) {
   const newLevel = getLevelFromXP(farmState.xp);
   updateFarmHUD();
   if (newLevel > oldLevel) {
-    showHarvest('🎉', 'Level Up!', 'Du bist jetzt ' + (LEVEL_NAMES[newLevel]||'Level '+newLevel) + '!', '+1 Level · Neue Inhalte freigeschaltet!');
+    showHarvest('🎉', _farmT('farm_levelup_title','Level Up!'), _farmT('farm_levelup_now','Du bist jetzt') + ' ' + _farmLevelName(newLevel) + '!', _farmT('farm_levelup_reward','+1 Level · Neue Inhalte freigeschaltet!'));
   }
   saveFarmState();
 }
@@ -56100,10 +56226,10 @@ function updateFarmHUD() {
   } else if (comboEl) {
     comboEl.style.display = 'none';
   }
-  document.getElementById('farm-level-label').textContent = 'Level ' + level + ' · ' + (LEVEL_NAMES[level]||'Level '+level);
+  document.getElementById('farm-level-label').textContent = _farmT('farm_level_word','Level') + ' ' + level + ' · ' + _farmLevelName(level);
   document.getElementById('farm-xp-bar').style.width = pct + '%';
-  document.getElementById('farm-xp-label').textContent = farmState.xp + ' XP';
-  document.getElementById('farm-xp-next').textContent = (nextXP - farmState.xp) + ' XP bis Level ' + (level+1);
+  document.getElementById('farm-xp-label').textContent = farmState.xp + ' ' + _farmT('farm_xp_label','XP');
+  document.getElementById('farm-xp-next').textContent = (nextXP - farmState.xp) + ' ' + _farmT('farm_xp_until','XP bis Level') + ' ' + (level+1);
   document.getElementById('farm-water').textContent = farmState.resources.water;
   document.getElementById('farm-fert').textContent = farmState.resources.fertilizer;
   document.getElementById('farm-seeds').textContent = farmState.resources.seeds;
@@ -56115,11 +56241,11 @@ function addFarmPlot() {
   const level = getLevelFromXP(farmState.xp);
   const cost = farmState.plots.length * 10;
   if (farmState.coins < cost) {
-    gsToast('Nicht genug Münzen! Kosten: ' + cost + ' 🌾', 'warn');
+    gsToast(_farmT('farm_not_enough_cost','Nicht genug Münzen! Kosten:') + ' ' + cost + ' 🌾', 'warn');
     return;
   }
   if (farmState.plots.length >= 12) {
-    gsToast('Maximale Feldanzahl (12) erreicht!', 'warn');
+    gsToast(_farmT('farm_max_fields','Maximale Feldanzahl (12) erreicht!'), 'warn');
     return;
   }
   if (cost > 0) farmState.coins -= cost;
@@ -56134,7 +56260,7 @@ function renderFarmGrid() {
   if (!grid) return;
 
   if (!farmState.plots.length) {
-    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--muted);font-size:13px;">Klicke "+ Feld" um dein erstes Feld anzulegen.</div>';
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--muted);font-size:13px;">' + _farmT('farm_grid_empty','Klicke "+ Feld" um dein erstes Feld anzulegen.') + '</div>';
     return;
   }
 
@@ -56142,7 +56268,7 @@ function renderFarmGrid() {
     let cropInfo = plot.crop ? FARM_CROPS[plot.crop] : null;
     var statusClass = 'empty';
     var emoji = '🟫';
-    var name = 'Leer';
+    var name = _farmT('farm_plot_empty','Leer');
     let timerHtml = '';
     let progHtml = '';
 
@@ -56154,12 +56280,12 @@ function renderFarmGrid() {
       if (progress >= 100) {
         statusClass = 'ready';
         emoji = cropInfo?.emoji || '🌾';
-        name = cropInfo?.name || '';
+        name = _farmCropName(plot.crop);
         timerHtml = '';
       } else {
         statusClass = 'growing';
         emoji = cropInfo?.emoji || '🌱';
-        name = cropInfo?.name || '';
+        name = _farmCropName(plot.crop);
         const remaining = Math.ceil((growMs - elapsed) / 60000);
         timerHtml = '<div class="farm-plot-timer">' + (remaining < 60 ? remaining + 'm' : Math.ceil(remaining/60) + 'h') + '</div>';
         progHtml = '<div class="farm-plot-prog"><div class="farm-plot-prog-bar" style="width:' + progress + '%;"></div></div>';
@@ -56193,7 +56319,7 @@ function clickPlot(idx) {
       harvestPlot(idx);
     } else {
       const remaining = Math.ceil((growMs - elapsed) / 60000);
-      gsToast('Noch ' + remaining + ' Minuten bis zur Ernte!', 'info');
+      gsToast(_farmT('farm_wait_pre','Noch') + ' ' + remaining + ' ' + _farmT('farm_minutes_harvest','Minuten bis zur Ernte!'), 'info');
     }
   }
 }
@@ -56202,14 +56328,14 @@ function openSeedSelector(plotIdx) {
   const level = getLevelFromXP(farmState.xp);
   const crops = Object.entries(FARM_CROPS).filter(([k, v]) => farmState.resources.seeds > 0);
 
-  let html = '<div class="shop-section-title">🌱 Welche Pflanze einsetzen?</div>';
+  let html = '<div class="shop-section-title">' + _farmT('farm_seed_select_title','🌱 Welche Pflanze einsetzen?') + '</div>';
   html += '<div class="shop-grid">';
   Object.entries(FARM_CROPS).forEach(([key, crop]) => {
     const canAfford = farmState.resources.seeds >= 1;
     html += '<div class="shop-item' + (!canAfford?' disabled':'') + '" onclick="plantCrop(' + plotIdx + ',\'' + key + '\')" style="' + (!canAfford?'opacity:.5;':'') + '">' +
       '<span class="shop-item-emoji">' + crop.emoji + '</span>' +
-      '<div class="shop-item-name">' + crop.name + '</div>' +
-      '<div class="shop-item-price">⏱️ ' + (crop.growMinutes < 60 ? crop.growMinutes + ' Min' : (crop.growMinutes/60).toFixed(1) + 'h') + ' · +' + crop.xp + ' XP · +' + crop.coins + ' 🌾</div>' +
+      '<div class="shop-item-name">' + _farmCropName(key) + '</div>' +
+      '<div class="shop-item-price">⏱️ ' + (crop.growMinutes < 60 ? crop.growMinutes + ' ' + _farmT('farm_unit_min','Min') : (crop.growMinutes/60).toFixed(1) + 'h') + ' · +' + crop.xp + ' XP · +' + crop.coins + ' 🌾</div>' +
       '</div>';
   });
   html += '</div>';
@@ -56221,7 +56347,7 @@ function openSeedSelector(plotIdx) {
 
 function plantCrop(plotIdx, cropKey) {
   if (farmState.resources.seeds < 1) {
-    gsToast('Keine Samen mehr! Kaufe im Shop.', 'warn');
+    gsToast(_farmT('farm_no_seeds','Keine Samen mehr! Kaufe im Shop.'), 'warn');
     return;
   }
   farmState.plots[plotIdx].crop = cropKey;
@@ -56266,10 +56392,10 @@ function harvestPlot(plotIdx) {
   saveFarmState();
   renderFarmGrid();
 
-  const comboText = farmState.combo > 1 ? ' 🔥 COMBO x' + farmState.combo + '!' : '';
-  showHarvest(crop.emoji, crop.name + ' geerntet!' + comboText,
-    crop.rarity === 'rare' ? '⭐ SELTENE PFLANZE!' : 'Gute Ernte!',
-    '+' + coinsEarned + ' 🌾' + (comboMultiplier > 1 ? ' (' + comboMultiplier + 'x Combo!)' : '') + ' · +' + xpEarned + ' XP');
+  const comboText = farmState.combo > 1 ? ' 🔥 ' + _farmT('farm_combo','COMBO') + ' x' + farmState.combo + '!' : '';
+  showHarvest(crop.emoji, _farmCropName(plot.crop) + ' ' + _farmT('farm_harvested','geerntet!') + comboText,
+    crop.rarity === 'rare' ? _farmT('farm_rare_plant','⭐ SELTENE PFLANZE!') : _farmT('farm_good_harvest','Gute Ernte!'),
+    '+' + coinsEarned + ' 🌾' + (comboMultiplier > 1 ? ' (' + comboMultiplier + 'x ' + _farmT('farm_combo_x','Combo!') + ')' : '') + ' · +' + xpEarned + ' XP');
 }
 
 function updateQuestProgress(questId, amount) {
@@ -56286,7 +56412,7 @@ function updateQuestProgress(questId, amount) {
       if (r.xp) addXP(r.xp);
       if (r.seeds) { farmState.resources.seeds = (farmState.resources.seeds||0) + r.seeds; }
       saveFarmState();
-      setTimeout(() => showHarvest('📋', 'Quest abgeschlossen!', q.name, q.reward), 1000);
+      setTimeout(() => showHarvest('📋', _farmT('farm_quest_done_title','Quest abgeschlossen!'), _farmT('farm_quest_'+q.id+'_name', q.name), _farmT('farm_quest_'+q.id+'_reward', q.reward)), 1000);
     }
   }
   saveFarmState();
@@ -56308,7 +56434,7 @@ function renderFarmAnimals() {
 
   const owned = Object.entries(farmState.animals);
   if (!owned.length) {
-    container.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:10px 0;">Noch keine Tiere. Kaufe dein erstes Tier im Shop!</div>';
+    container.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:10px 0;">' + _farmT('farm_animals_empty','Noch keine Tiere. Kaufe dein erstes Tier im Shop!') + '</div>';
     return;
   }
 
@@ -56321,8 +56447,8 @@ function renderFarmAnimals() {
 
     return '<div class="farm-animal' + (isReady?' ready':'') + '" onclick="collectAnimal(\'' + key + '\')">' +
       '<span class="farm-animal-emoji">' + def.emoji + '</span>' +
-      '<div class="farm-animal-name">' + def.name + '</div>' +
-      '<div class="farm-animal-prod">' + (isReady ? def.produces + ' ✓' : '⏳') + '</div>' +
+      '<div class="farm-animal-name">' + _farmAnimalName(key) + '</div>' +
+      '<div class="farm-animal-prod">' + (isReady ? _farmAnimalProd(key) + ' ✓' : '⏳') + '</div>' +
       '</div>';
   }).join('');
 }
@@ -56336,7 +56462,7 @@ function collectAnimal(key) {
   const interval = def.intervalMinutes * 60 * 1000;
   if ((Date.now() - lastCollect) < interval) {
     const remaining = Math.ceil((interval - (Date.now() - lastCollect)) / 60000);
-    gsToast('Noch ' + remaining + ' Minuten bis zur nächsten Produktion!', 'info');
+    gsToast(_farmT('farm_wait_pre','Noch') + ' ' + remaining + ' ' + _farmT('farm_minutes_production','Minuten bis zur nächsten Produktion!'), 'info');
     return;
   }
 
@@ -56346,7 +56472,7 @@ function collectAnimal(key) {
   addXP(def.xp);
   saveFarmState();
   renderFarmAnimals();
-  showHarvest(def.emoji, def.name + ' versorgt!', def.produces + ' wurde gesammelt!', '+' + coins + ' 🌾 · +' + def.xp + ' XP');
+  showHarvest(def.emoji, _farmAnimalName(key) + ' ' + _farmT('farm_animal_tended','versorgt!'), _farmAnimalProd(key) + ' ' + _farmT('farm_collected','wurde gesammelt!'), '+' + coins + ' 🌾 · +' + def.xp + ' XP');
 }
 
 // ── Farm Buildings ─────────────────────────────────────────
@@ -56360,8 +56486,8 @@ function renderFarmBuildings() {
     if (!def) return '';
     return '<div class="farm-building">' +
       '<span class="farm-building-emoji">' + def.emoji + '</span>' +
-      '<div class="farm-building-name">' + def.name + '</div>' +
-      '<div class="farm-building-lvl">Lv.' + (b.level||1) + '</div>' +
+      '<div class="farm-building-name">' + _farmBldgName(key) + '</div>' +
+      '<div class="farm-building-lvl">' + _farmT('farm_lv','Lv.') + (b.level||1) + '</div>' +
       '</div>';
   }).join('');
 }
@@ -56372,13 +56498,13 @@ function openFarmShop() {
   let html = '';
 
   // Resources
-  html += '<div class="shop-section-title">🛒 Ressourcen kaufen</div>';
+  html += '<div class="shop-section-title">' + _farmT('farm_shop_resources','🛒 Ressourcen kaufen') + '</div>';
   html += '<div class="shop-grid">';
   const resources = [
-    {key:'seeds',   emoji:'🌰', name:'Samen (×5)',    coins:5,  gives:{seeds:5}},
-    {key:'water',   emoji:'💧', name:'Wasser (×10)',  coins:8,  gives:{water:10}},
-    {key:'fert',    emoji:'🌱', name:'Dünger (×3)',   coins:10, gives:{fertilizer:3}},
-    {key:'tools',   emoji:'🔧', name:'Werkzeug (×2)', coins:15, gives:{tools:2}},
+    {key:'seeds',   emoji:'🌰', name:_farmT('farm_res_seeds','Samen (×5)'),    coins:5,  gives:{seeds:5}},
+    {key:'water',   emoji:'💧', name:_farmT('farm_res_water','Wasser (×10)'),  coins:8,  gives:{water:10}},
+    {key:'fert',    emoji:'🌱', name:_farmT('farm_res_fert','Dünger (×3)'),   coins:10, gives:{fertilizer:3}},
+    {key:'tools',   emoji:'🔧', name:_farmT('farm_res_tools','Werkzeug (×2)'), coins:15, gives:{tools:2}},
   ];
   resources.forEach(r => {
     const canAfford = farmState.coins >= r.coins;
@@ -56390,7 +56516,7 @@ function openFarmShop() {
   html += '</div>';
 
   // Animals
-  html += '<div class="shop-section-title">🐾 Tiere kaufen</div>';
+  html += '<div class="shop-section-title">' + _farmT('farm_shop_animals','🐾 Tiere kaufen') + '</div>';
   html += '<div class="shop-grid">';
   Object.entries(FARM_ANIMALS).forEach(([key, animal]) => {
     const locked = level < animal.unlockLevel;
@@ -56398,21 +56524,21 @@ function openFarmShop() {
     const canAfford = !owned && !locked && farmState.coins >= animal.cost;
     html += '<div class="shop-item" onclick="' + (!owned && !locked ? 'buyAnimal(\'' + key + '\')' : '') + '" style="' + (locked||owned?'opacity:.55;':'') + '">' +
       '<span class="shop-item-emoji">' + animal.emoji + '</span>' +
-      '<div class="shop-item-name">' + animal.name + (owned?' ✓':'') + '</div>' +
-      '<div class="shop-item-price">' + (locked ? '🔒 Lv.' + animal.unlockLevel : owned ? 'Besitz' : animal.cost + ' 🌾') + '</div></div>';
+      '<div class="shop-item-name">' + _farmAnimalName(key) + (owned?' ✓':'') + '</div>' +
+      '<div class="shop-item-price">' + (locked ? '🔒 ' + _farmT('farm_lv','Lv.') + animal.unlockLevel : owned ? _farmT('farm_owned','Besitz') : animal.cost + ' 🌾') + '</div></div>';
   });
   html += '</div>';
 
   // Buildings
-  html += '<div class="shop-section-title">🏠 Gebäude</div>';
+  html += '<div class="shop-section-title">' + _farmT('farm_buildings','🏠 Gebäude') + '</div>';
   html += '<div class="shop-grid">';
   Object.entries(FARM_BUILDINGS).forEach(([key, building]) => {
     const locked = level < building.unlockLevel;
     const owned = !!farmState.buildings[key];
     html += '<div class="shop-item" onclick="' + (!owned && !locked && building.cost > 0 ? 'buyBuilding(\'' + key + '\')' : '') + '" style="' + (locked||owned?'opacity:.55;':'') + '">' +
       '<span class="shop-item-emoji">' + building.emoji + '</span>' +
-      '<div class="shop-item-name">' + building.name + (owned?' ✓':'') + '</div>' +
-      '<div class="shop-item-price">' + (locked ? '🔒 Lv.' + building.unlockLevel : owned ? 'Besitz' : building.cost + ' 🌾') + '</div></div>';
+      '<div class="shop-item-name">' + _farmBldgName(key) + (owned?' ✓':'') + '</div>' +
+      '<div class="shop-item-price">' + (locked ? '🔒 ' + _farmT('farm_lv','Lv.') + building.unlockLevel : owned ? _farmT('farm_owned','Besitz') : building.cost + ' 🌾') + '</div></div>';
   });
   html += '</div>';
 
@@ -56425,7 +56551,7 @@ function openAnimalShop() { openFarmShop(); }
 function buyResource(rJson) {
   var r;
   try { r = JSON.parse(rJson); } catch(e) { return; }
-  if (farmState.coins < r.coins) { gsToast('Nicht genug Münzen!', 'warn'); return; }
+  if (farmState.coins < r.coins) { gsToast(_farmT('farm_not_enough','Nicht genug Münzen!'), 'warn'); return; }
   farmState.coins -= r.coins;
   Object.entries(r.gives).forEach(([k, v]) => { farmState.resources[k] = (farmState.resources[k]||0) + v; });
   saveFarmState();
@@ -56436,20 +56562,20 @@ function buyResource(rJson) {
 function buyAnimal(key) {
   const def = FARM_ANIMALS[key];
   if (!def) return;
-  if (farmState.coins < def.cost) { gsToast('Nicht genug Münzen! Benötigt: ' + def.cost + ' 🌾', 'warn'); return; }
+  if (farmState.coins < def.cost) { gsToast(_farmT('farm_not_enough_need','Nicht genug Münzen! Benötigt:') + ' ' + def.cost + ' 🌾', 'warn'); return; }
   farmState.coins -= def.cost;
   farmState.animals[key] = {lastCollect: null, level: 1};
   saveFarmState();
   updateFarmHUD();
   renderFarmAnimals();
   closeModal('modal-farm-shop');
-  showHarvest(def.emoji, def.name + ' gekauft!', 'Du hast ein neues Tier!', 'Sammle ' + def.produces + ' alle ' + def.intervalMinutes + ' Minuten');
+  showHarvest(def.emoji, _farmAnimalName(key) + ' ' + _farmT('farm_bought','gekauft!'), _farmT('farm_new_animal','Du hast ein neues Tier!'), _farmT('farm_collect_every_pre','Sammle') + ' ' + _farmAnimalProd(key) + ' ' + _farmT('farm_every','alle') + ' ' + def.intervalMinutes + ' ' + _farmT('farm_minutes','Minuten'));
 }
 
 function buyBuilding(key) {
   const def = FARM_BUILDINGS[key];
   if (!def) return;
-  if (farmState.coins < def.cost) { gsToast('Nicht genug Münzen! Benötigt: ' + def.cost + ' 🌾', 'warn'); return; }
+  if (farmState.coins < def.cost) { gsToast(_farmT('farm_not_enough_need','Nicht genug Münzen! Benötigt:') + ' ' + def.cost + ' 🌾', 'warn'); return; }
   farmState.coins -= def.cost;
   farmState.buildings[key] = {level: 1};
   saveFarmState();
@@ -56488,9 +56614,9 @@ function renderFarmQuests() {
     return '<div class="farm-quest">' +
       '<div class="farm-quest-icon">' + q.icon + '</div>' +
       '<div class="farm-quest-info">' +
-        '<div class="farm-quest-name">' + q.name + '</div>' +
-        '<div class="farm-quest-desc">' + q.desc + ' (' + q.progress + '/' + q.target + ')</div>' +
-        '<div class="farm-quest-reward">' + q.reward + '</div>' +
+        '<div class="farm-quest-name">' + _farmT('farm_quest_'+q.id+'_name', q.name) + '</div>' +
+        '<div class="farm-quest-desc">' + _farmT('farm_quest_'+q.id+'_desc', q.desc) + ' (' + q.progress + '/' + q.target + ')</div>' +
+        '<div class="farm-quest-reward">' + _farmT('farm_quest_'+q.id+'_reward', q.reward) + '</div>' +
         '<div class="farm-quest-prog"><div class="farm-quest-prog-bar" style="width:' + prog + '%;"></div></div>' +
       '</div>' +
       (done ? '<div class="farm-quest-done">✅</div>' : '') +
@@ -57200,6 +57326,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v28.63', date: '09.06.2026',
+    headline: '🎮 BlattFänger jetzt mehrsprachig + Admin-Editor-Fix',
+    summary: 'Abschluss der App-weiten Übersetzung: das BlattFänger-Garten-Spiel (Felder, Tiere, Gebäude, Shop, Quests, Pflanzen-Namen, Level) wird jetzt komplett mit der Sprache mit-übersetzt. Damit ist die gesamte i18n-Übersetzungs-Roadmap zu 100% durch. Zusätzlich ein über die automatische Code-Prüfung gefundener Bug behoben: die ✏️/🗑️-Knöpfe im Admin-Arten-Editor funktionierten nicht.',
+    user_summary: '🎮 Das BlattFänger-Spiel ist jetzt mehrsprachig — die App-weite Übersetzung ist komplett.',
+    user_items: [
+      { emoji: '🌾', text: 'BlattFänger: Felder, Tiere, Gebäude, Shop, Quests & Pflanzennamen mehrsprachig' },
+      { emoji: '🏆', text: 'Level-Namen (Anfänger → Grandmaster) & alle Spiel-Meldungen mehrsprachig' },
+      { emoji: '🤖', text: 'EN/FR/IT/ES automatisch via Übersetzungs-Edge-Fn' },
+      { emoji: '🔧', text: 'Bugfix: Admin-Arten-Editor Bearbeiten/Löschen-Knöpfe wieder funktionsfähig' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'104 neue Keys:', text:' BlattFänger in 3 Schichten — statisches HTML (12 data-i18n) + dynamische UI (~45 _farmT) + Daten-Objekte (52 via zentrale Helfer).'},
+      {emoji:'🐛', bold:'Hard-Lesson #12:', text:' admBuildForm onclick-Escapes ergaben literalen Text statt idx → ReferenceError beim Klick; auf echte Konkatenation gefixt (app-weiter grep: nur 2 Instanzen).'},
+      {emoji:'✅', bold:'i18n-Roadmap KOMPLETT:', text:' A+D+C+E+F+B+G+I+H — alle 9 Batches durch. Adversarial via Workflow verifiziert.'},
+    ]
+  },
   {
     v: 'v28.62', date: '09.06.2026',
     headline: '🌍 Feedback, Hilfe & Lina jetzt mehrsprachig — Übersetzung komplett',
@@ -61142,7 +61285,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.62';
+var GS_VERSION = 'v28.63';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
