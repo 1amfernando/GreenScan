@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.68.20260609">
+<meta name="app-version" content="28.69.20260609">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -57094,8 +57094,17 @@ window.gsOpenGlobalKeyAdmin = async function() {
 window.gsGlobalKeyTestInput = async function() {
   var input = document.getElementById('gs-gk-input');
   if (!input) return;
+  // v28.69 Q4: Ratelimit — jeder Test walkt bis zu 3 Anthropic-Modelle (= bis 3 API-Calls).
+  // 10s-Cooldown schützt das API-Kontingent (Mission: Kostendeckung) vor versehentlichem Spam.
+  var _ktNow = Date.now();
+  if (window._gsKeyTestLast && (_ktNow - window._gsKeyTestLast) < 10000) {
+    var _ktWait = Math.ceil((10000 - (_ktNow - window._gsKeyTestLast)) / 1000);
+    showProfileToast && showProfileToast({type:'info', icon:'⏱️', title:'Kurz warten', body:'Noch ' + _ktWait + ' Sek. bis zum nächsten Key-Test (schützt das API-Kontingent).', duration:3000});
+    return;
+  }
   var k = (input.value || '').trim();
   if (!k.startsWith('sk-ant-')) { showProfileToast && showProfileToast('⚠️ Muss mit sk-ant- beginnen'); return; }
+  window._gsKeyTestLast = _ktNow;
   showProfileToast && showProfileToast({type:'info', icon:'⏳', title:'Teste Key …', body:'Walke Modell-Fallback-Chain', duration:2500});
   // v24.22: Walker statt pinned model — verhindert 404 wenn Anthropic ein Modell ausphased hat
   var h = await _gsKeyHealthWalker(k);
@@ -57174,6 +57183,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v28.69', date: '09.06.2026',
+    headline: '⚡ Quick-Wins: Admin-Suche + Key-Test-Schutz',
+    summary: 'Zwei kleine, gezielte Verbesserungen: Im Admin-Panel kann man Nutzer jetzt durchsuchen (Name, E-Mail, Rolle), und der Anthropic-Key-Test hat eine kurze Wartezeit bekommen, damit das API-Kontingent nicht versehentlich durch wiederholtes Testen verbraucht wird. Beides nur für Admins.',
+    user_summary: '⚡ Admin-Panel: Nutzer-Suche + Schutz des API-Kontingents beim Key-Test (nur Admins).',
+    user_items: [
+      { emoji: '🔍', text: 'Admin-Panel: Nutzer-Suchfeld (Name/E-Mail/Rolle), client-seitig — skaliert auf viele Nutzer' },
+      { emoji: '⏱️', text: 'Key-Test: 10s-Cooldown schützt das Anthropic-API-Kontingent (Mission: Kostendeckung)' },
+    ],
+    items: [
+      {emoji:'🧪', bold:'HL#14 erneut:', text:' Audit-„Quick-Wins" Q1/Q2/Q6 waren ungenau (fn_photo_diff_list/fn_plant_diagnoses_for_plant existieren NICHT; _gsSanitizeGardenPlan-Shape-Mismatch) → nur die echt-sauberen Q3/Q4 umgesetzt.'},
+      {emoji:'⏭️', bold:'Deferred:', text:' Q1 Foto-Diff-Verlauf + Q2 Doktor-LS-Cross-Device brauchen direkte Tabellen-Query-Integration (own-only RLS vorhanden) — eigene Version.'},
+    ]
+  },
   {
     v: 'v28.68', date: '09.06.2026',
     headline: '🧹 Toten Admin-DB-Editor entfernt (Code-Hygiene)',
@@ -61211,7 +61234,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.68';
+var GS_VERSION = 'v28.69';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -68762,6 +68785,23 @@ function _gsAdminStripeHtml(s) {
   '</div>';
 }
 
+// v28.69 Q3: Client-seitige User-Filterung im Admin-Panel (kein Re-Fetch, kein Skalierungs-Knick).
+window.gsAdminFilterUsers = function(q){
+  try {
+    var needle = (q||'').toLowerCase().trim();
+    var rows = document.querySelectorAll('#gs-admin-user-list .gs-admin-user-row');
+    var shown = 0;
+    rows.forEach(function(r){
+      var hay = r.getAttribute('data-search') || '';
+      var match = !needle || hay.indexOf(needle) !== -1;
+      r.style.display = match ? '' : 'none';
+      if (match) shown++;
+    });
+    var empty = document.getElementById('gs-admin-user-empty');
+    if (empty) empty.style.display = (shown === 0 && rows.length > 0) ? 'block' : 'none';
+  } catch(_){}
+};
+
 // Admin-Panel rendern
 async function openAdminPanel() {
   if (!gsIsAdmin()) {
@@ -68784,7 +68824,9 @@ async function openAdminPanel() {
     var bg = u.role === 'admin' ? '#fff3e0' : u.role === 'staff' ? '#e3f2fd' : u.role === 'expert' ? '#e8f5e9' : u.role === 'banned' ? '#ffebee' : '#fafafa';
     var safeName = (typeof escHtml==='function') ? escHtml(u.display_name || '—') : (u.display_name || '—');
     var safeEmail = (typeof escHtml==='function') ? escHtml(u.email || '—') : (u.email || '—');
-    return '<div style="background:' + bg + ';padding:10px 12px;border-radius:8px;margin-bottom:6px;display:flex;align-items:center;gap:10px;">' +
+    // v28.69 Q3: data-search für Client-seitige Filterung (Name+Email+Rolle, lowercased, attr-escaped)
+    var srch = ((u.display_name||'') + ' ' + (u.email||'') + ' ' + (u.role||'')).toLowerCase().replace(/"/g,'');
+    return '<div class="gs-admin-user-row" data-search="' + srch + '" style="background:' + bg + ';padding:10px 12px;border-radius:8px;margin-bottom:6px;display:flex;align-items:center;gap:10px;">' +
       '<div style="font-size:24px;flex-shrink:0;">' + (u.avatar_emoji || '🌿') + '</div>' +
       '<div style="flex:1;min-width:0;">' +
         '<div style="font-size:13px;font-weight:800;color:var(--text);">' + safeName + gsRoleBadge(u.role, {size:'sm'}) + '</div>' +
@@ -68823,7 +68865,9 @@ async function openAdminPanel() {
       '<p style="margin:0 0 14px;font-size:12px;color:var(--muted);">Hierarchie: <b>Admin</b> > <b>Mitarbeiter</b> > <b>Experte</b> > <b>Nutzer</b> > <b>Gesperrt</b></p>' +
       _gsAdminMetricsHtml(metrics) +
       _gsAdminStripeHtml(stripe) +
-      '<div>' + rows + '</div>' +
+      '<input type="text" oninput="gsAdminFilterUsers(this.value)" placeholder="🔍 Nutzer suchen (Name, E-Mail, Rolle)…" style="width:100%;box-sizing:border-box;padding:9px 12px;margin-bottom:8px;border:1px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit;">' +
+      '<div id="gs-admin-user-list">' + rows + '</div>' +
+      '<div id="gs-admin-user-empty" style="display:none;text-align:center;padding:14px;color:var(--muted);font-size:12px;">Keine Nutzer gefunden.</div>' +
       diagBlock +
       '<div style="margin-top:14px;padding:10px 12px;background:#fff8e1;border-left:3px solid #ffa000;font-size:11.5px;color:#5d4037;border-radius:0 6px 6px 0;line-height:1.5;">' +
         '⚠ <b>Vorsicht:</b> Rollen-Wechsel sendet automatisch eine Notification. Audit-Log wird geschrieben. Letzter Admin kann sich nicht selbst degradieren.' +
