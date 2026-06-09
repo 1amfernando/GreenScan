@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.66.20260609">
+<meta name="app-version" content="28.67.20260609">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5134,6 +5134,15 @@ html, body{ scroll-behavior: smooth; }
         <div class="settings-label">
           <div class="settings-label-title" style="color:#0d47a1;" data-i18n="settings_global_key" data-i18n-fallback="Globaler Claude-Key (für alle User)">Globaler Claude-Key (für alle User)</div>
           <div class="settings-label-sub" data-i18n="settings_global_key_hint" data-i18n-fallback="Anthropic sk-ant-… · Status, Health, 6-Monats-Reminder">Anthropic sk-ant-… · Status, Health, 6-Monats-Reminder</div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);">›</div>
+      </div>
+      <!-- v28.67: Admin-Dashboard-Entry (Live-Metriken + Stripe + Rollen) — war zuvor unerreichbar -->
+      <div class="settings-row admin-only-row" id="settings-admin-dashboard-row" style="display:none;cursor:pointer;" onclick="openAdminPanel()">
+        <div class="settings-icon" style="background:#fff3e0;">👑</div>
+        <div class="settings-label">
+          <div class="settings-label-title" style="color:#bf5600;">Admin-Dashboard</div>
+          <div class="settings-label-sub">Live-Metriken · Stripe · Rollen verwalten</div>
         </div>
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
@@ -41396,11 +41405,18 @@ function importUserData() {
   input.onchange = e => {
     const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
-    reader.onload = evt => {
+    reader.onload = async evt => {
       try {
         const data = JSON.parse(evt.target.result);
         if (data.version && data.exportDate) {
-          if (confirm('Backup vom ' + new Date(data.exportDate).toLocaleDateString('de-CH') + ' importieren?\n\nAlle aktuellen Daten werden überschrieben!')) {
+          // v28.67 HL#2: bare confirm() → gsConfirmModal (iOS-PWA-safe). Tolerante Helper-API.
+          var _impOk;
+          if (typeof gsConfirmModal === 'function') {
+            _impOk = await gsConfirmModal({ title: 'Backup importieren?', message: 'Backup vom ' + new Date(data.exportDate).toLocaleDateString('de-CH') + ' importieren? Alle aktuellen Daten werden überschrieben!', ok: '📥 Importieren', cancel: 'Abbrechen', kind: 'danger' });
+          } else {
+            _impOk = confirm('Backup vom ' + new Date(data.exportDate).toLocaleDateString('de-CH') + ' importieren?\n\nAlle aktuellen Daten werden überschrieben!');
+          }
+          if (_impOk) {
             if (data.gardens) { gardens = data.gardens; }
             if (data.plantings) { plantings = data.plantings; }
             if (data.myPlants) { myPlants = data.myPlants; }
@@ -57034,9 +57050,16 @@ function gsAdminSaveSbKey() {
     showProfileToast('⚠️ Key muss mit "sb_" beginnen.');
     return;
   }
-  localStorage.setItem('gs_sb_key', newKey);
-  if (newUrl && newUrl.startsWith('https://')) {
-    localStorage.setItem('gs_sb_url', newUrl);
+  // v28.67 HL#10: setItem in try/catch — bei vollem Speicher (QuotaExceededError) klares
+  // Feedback statt stillem Abbruch mit falschem ✅.
+  try {
+    localStorage.setItem('gs_sb_key', newKey);
+    if (newUrl && newUrl.startsWith('https://')) {
+      localStorage.setItem('gs_sb_url', newUrl);
+    }
+  } catch(e) {
+    showProfileToast('⚠️ Speicher voll — Key konnte nicht gespeichert werden.');
+    return;
   }
   // Sofort aktivieren
   SB_KEY = newKey;
@@ -57388,6 +57411,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v28.67', date: '09.06.2026',
+    headline: '👑 Admin-Dashboard erreichbar + 2 Härtungen',
+    summary: 'Beim Aufräumen entdeckt: das Admin-Dashboard (Live-Metriken + Stripe-Übersicht + Rollenverwaltung) hatte gar keinen Knopf zum Öffnen — jetzt gibt es eine eigene Zeile in den Einstellungen (nur für Admins). Plus: der Backup-Import-Dialog nutzt jetzt den App-eigenen Bestätigungs-Dialog (statt des nativen, der in der iOS-App hängen blieb), und das Speichern des Server-Keys fängt vollen Speicher sauber ab.',
+    user_summary: '👑 Admin-Dashboard ist jetzt aus den Einstellungen erreichbar (nur Admins) + 2 Stabilitäts-Fixes.',
+    user_items: [
+      { emoji: '👑', text: 'Neue Einstellungs-Zeile „Admin-Dashboard" → Metriken + Stripe + Rollen' },
+      { emoji: '📥', text: 'Backup-Import-Bestätigung iOS-PWA-sicher (gsConfirmModal statt confirm)' },
+      { emoji: '💾', text: 'Server-Key-Speichern fängt vollen Speicher mit klarer Meldung ab' },
+    ],
+    items: [
+      {emoji:'🔎', bold:'Cleanup-Fund:', text:' openAdminPanel-Panel (v28.64/65 Metriken+Stripe) war ohne Entry unerreichbar → admin-only-row ergänzt. DB-Editor @55979 (shadowed/tot) → Löschung in v28.68.'},
+      {emoji:'🛡️', bold:'HL#2 + HL#10:', text:' importUserData confirm→gsConfirmModal (async onload); gsAdminSaveSbKey setItem in try/catch.'},
+      {emoji:'📋', bold:'Bewusst gelassen:', text:' gsIsAdmin-Stub @61490 ist dokumentierte Forward-Declaration — Löschen wäre Risiko für Kosmetik.'},
+    ]
+  },
   {
     v: 'v28.66', date: '09.06.2026',
     headline: '🪴 Garten-Pläne jetzt in Sammlungen (Block F.3)',
@@ -61394,7 +61433,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.66';
+var GS_VERSION = 'v28.67';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
