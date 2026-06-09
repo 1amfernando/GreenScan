@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.78.20260609">
+<meta name="app-version" content="28.79.20260609">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19504,6 +19504,20 @@ function openModal(id){
   // v24.44: Focus-Trap aktivieren (WCAG 2.1.2)
   try { gsTrapFocus(m); } catch(_){}
 }
+// v28.79 FIX (HIGH): WebGL-Context-Leak — die 3 Three.js-Szenen (Garten-Scan-3D + KI-Planer
+// inline + Vollbild) hatten zwar je eine dispose()-Methode, die wurde aber NUR bei Re-Init
+// aufgerufen, nie beim Modal-Schliessen. Folge: requestAnimationFrame-Loop + miniMapTimer +
+// window-Listener liefen endlos weiter, WebGL-Context blieb aktiv → nach ~16× Öffnen/Schliessen
+// force-lost der Browser den ältesten Context → 3D blieb schwarz. Fix: zentral disponieren sobald
+// KEIN Modal mehr offen ist (idempotent; dispose nullt die Handles selbst).
+function gsDispose3DScenes(){
+  ['_gsGardenScan3DScene','_gsPP3DInlineState','_gsPP3DState'].forEach(function(k){
+    try { var s = window[k]; if (s && typeof s.dispose === 'function') s.dispose(); } catch(_){}
+    try { window[k] = null; } catch(_){}
+  });
+}
+window.gsDispose3DScenes = gsDispose3DScenes;
+
 function closeModal(id){
   const m = document.getElementById(id);
   if(!m){
@@ -19520,6 +19534,9 @@ function closeModal(id){
   // Body-Overflow nur dann freigeben, wenn kein anderes Modal mehr offen ist
   if(!document.querySelector('.modal-overlay.open, .overlay-modal.open')){
     document.body.style.overflow = '';
+    // v28.79 FIX (HIGH): kein Modal mehr offen → 3D-WebGL-Szenen freigeben (Context-Leak/Black-Screen).
+    // Guard schützt vor „Toast über offenem Planer schliessen" (Planer bleibt offen → kein Dispose).
+    try { gsDispose3DScenes(); } catch(_){}
   }
   if(window._gsLastOpenModal === id) window._gsLastOpenModal = null;
 }
@@ -50962,8 +50979,11 @@ function gsRenderGardenScan3D(container, analysis) {
       if (typeof sbFetch !== 'function') return;
       var lats = rp.map(function(p){ return (p && (p.scientific_name || p.latin || p.lat || '')+'').toLowerCase().trim(); }).filter(Boolean);
       if (!lats.length) return;
-      var quoted = lats.map(function(s){ return '"' + s.replace(/"/g,'\\"') + '"'; }).join(',');
-      var qs = '/rest/v1/plant_companion_matrix?or=(species_a_lat.in.(' + quoted + '),species_b_lat.in.(' + quoted + '))&relationship=in.(schlecht,kritisch_schlecht)&select=species_a_lat,species_b_lat,relationship&limit=200';
+      // v28.79 FIX: KEIN species_a_lat.in.(...)-Namensfilter mehr. PostgREST in.() ist CASE-SENSITIV,
+      // die DB speichert Title-Case ("Solanum lycopersicum"), wir lowercasen aber → 0 Treffer → Glow
+      // feuerte NIE. Die Matrix hat nur ~30 antagonistische Paare (schlecht+kritisch_schlecht) → wir
+      // holen ALLE (≤200) und matchen client-seitig case-insensitiv gegen conflictMap (lowercase Keys).
+      var qs = '/rest/v1/plant_companion_matrix?relationship=in.(schlecht,kritisch_schlecht)&select=species_a_lat,species_b_lat,relationship&limit=200';
       var r = await sbFetch(qs, { method: 'GET' });
       var rows = (r && Array.isArray(r.data)) ? r.data : [];
       rows.forEach(function(row){
@@ -57304,6 +57324,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.79', date: '09.06.2026',
+    headline: '🌳 3D-Planer: schwarzer Bildschirm + Nachbar-Warnung repariert',
+    summary: 'Zwei echte Fehler im 3D-Garten-Planer behoben: (1) Nach mehrmaligem Öffnen/Schliessen blieb die 3D-Ansicht schwarz (der Grafik-Speicher wurde nie freigegeben) — jetzt wird die 3D-Szene beim Schliessen sauber aufgeräumt. (2) Die Warnung vor schlechten Pflanzen-Nachbarn (rotes Leuchten im 3D-Beet) funktionierte nie, weil Gross-/Kleinschreibung nicht zusammenpasste — jetzt leuchten konfliktreiche Nachbarn korrekt rot.',
+    user_summary: '🌳 3D-Planer-Fixes: kein schwarzer Bildschirm mehr nach mehrmaligem Öffnen + Nachbar-Konflikt-Warnung (rotes Leuchten) funktioniert wieder.',
+    user_items: [
+      { emoji: '🖥️', text: '3D-Ansicht bleibt nach mehrmaligem Öffnen/Schliessen nutzbar (kein schwarzer Screen)' },
+      { emoji: '🚥', text: 'Schlechte Pflanzen-Nachbarn leuchten im 3D-Beet jetzt korrekt rot' },
+      { emoji: '🔋', text: 'Weniger Akku-/CPU-Last (3D-Render-Schleife stoppt beim Schliessen)' },
+    ],
+    items: [
+      {emoji:'🔍', bold:'Verifiziert (Workflow, 5 Agenten):', text:' 3D-Planer Ph.2 war bereits gebaut — Mini-Map ✅, Companion-Glow ✅, GLB bewusst prozedural (kein Rebuild). Adversarialer Bug-Hunter fand 2 reale Bugs.'},
+      {emoji:'🩹', bold:'HIGH WebGL-Leak:', text:' 3 Three.js-Szenen wurden beim Modal-Schliessen nie disposed → nach ~16× Context force-lost → schwarz. Fix: zentrale gsDispose3DScenes() in closeModal (Guard: nur wenn kein Modal offen).'},
+      {emoji:'🚥', bold:'Companion-Glow Case-Bug:', text:' Query lowercased Namen, DB Title-Case, PostgREST in.() case-sensitiv → 0 Treffer. Fix: Namensfilter raus, alle ~30 Antagonisten-Paare + client-seitig matchen.'},
+    ]
+  },
+  {
     v: 'v28.78', date: '09.06.2026',
     headline: '🎚️ Ein einheitliches Level-System überall',
     summary: 'Dein Level wurde bisher je nach Bildschirm unterschiedlich angezeigt — auf der Startseite ein anderer Name als im Menü oder Profil. Ab jetzt gibt es EINE einheitliche Level-Leiter (20 Stufen) mit denselben Namen, Symbolen und Fortschritt überall: Startseite, Menü, Profil und Rangliste stimmen endlich überein. Durch die feinere 20-Stufen-Leiter steigst du auch häufiger auf. Hinweis: Dein angezeigtes Level/dein Titel kann sich dadurch einmalig ändern.',
@@ -61475,7 +61511,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.78';
+var GS_VERSION = 'v28.79';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
