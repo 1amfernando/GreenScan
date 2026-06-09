@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.83.20260609">
+<meta name="app-version" content="28.84.20260609">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28180,15 +28180,21 @@ function switchPlantsTab(tab, btn) {
 function moveToCemetery(plantId) {
   const p = myPlants.find(x => x.id === plantId);
   if (!p) return;
-  const cause = prompt('Was war die Todesursache? (optional)') || 'Unbekannte Ursache';
-  p.diedAt = new Date().toISOString();
-  p.deathCause = cause;
-  deadPlants.unshift(p);
-  myPlants = myPlants.filter(x => x.id !== plantId);
-  savePlantsToStorage();
-  gsStore.set('gs_dead_plants', JSON.stringify(deadPlants));
-  renderMyPlants();
-  closeModal('modal-addplant');
+  // v28.84 HL#2: natives prompt() → gsPromptModal (iOS-PWA-Webview-Blocker)
+  (typeof gsPromptModal === 'function'
+    ? gsPromptModal({ title:'Todesursache?', text:'Optional — hilft dir beim nächsten Mal.', placeholder:'z.B. zu wenig Wasser' })
+    : Promise.resolve(prompt('Was war die Todesursache? (optional)'))
+  ).then(function(_c){
+    const cause = (_c && String(_c).trim()) || 'Unbekannte Ursache';
+    p.diedAt = new Date().toISOString();
+    p.deathCause = cause;
+    deadPlants.unshift(p);
+    myPlants = myPlants.filter(x => x.id !== plantId);
+    savePlantsToStorage();
+    gsStore.set('gs_dead_plants', JSON.stringify(deadPlants));
+    renderMyPlants();
+    closeModal('modal-addplant');
+  });
 }
 
 function restoreFromCemetery(plantId) {
@@ -41710,9 +41716,13 @@ function selectIgPlant(name, emoji) {
 }
 
 function showNameInput() {
-  const name = prompt('Dein Name in der Community:', socialUserName || '');
-  if (name !== null) {
-    socialUserName = name.trim() || 'Anonym';
+  // v28.84 HL#2: natives prompt() → gsPromptModal (iOS-PWA-Webview-Blocker)
+  (typeof gsPromptModal === 'function'
+    ? gsPromptModal({ title:'Dein Name in der Community', value: socialUserName || '', placeholder:'Name' })
+    : Promise.resolve(prompt('Dein Name in der Community:', socialUserName || ''))
+  ).then(function(name){
+    if (name === null || name === false || name === undefined) return;
+    socialUserName = String(name).trim() || 'Anonym';
     localStorage.setItem('gs_social_name', socialUserName);
     // Update avatar with initials hint
     const avEl = document.getElementById('compose-avatar');
@@ -41721,7 +41731,7 @@ function showNameInput() {
       const idx = Math.abs((socialUserName).split('').reduce((a,c)=>a+c.charCodeAt(0),0)) % avatars.length;
       avEl.textContent = avatars[idx];
     }
-  }
+  });
 }
 
 async function submitInlinePost() {
@@ -57381,6 +57391,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.84', date: '09.06.2026',
+    headline: '📱 Weitere In-App-Dialoge (Community & Garten)',
+    summary: 'Audit-Sprint B fortgesetzt: Die Namens-Eingabe in der Community und die „Todesursache"-Abfrage beim Verschieben einer Pflanze auf den Friedhof nutzen jetzt In-App-Dialoge statt nativer System-Popups.',
+    user_summary: '📱 Community-Namen & Pflanzen-Friedhof: In-App-Dialoge statt System-Popups.',
+    user_items: [
+      { emoji: '✍️', text: 'Community-Namen setzen: sauberer In-App-Dialog' },
+      { emoji: '🪦', text: 'Pflanze auf Friedhof verschieben: In-App-Eingabe der Ursache' },
+    ],
+    items: [
+      {emoji:'📱', bold:'HL#2:', text:' showNameInput + moveToCemetery prompt() → gsPromptModal. Verifiziert: api-key/org-leave-confirm waren bereits Modal-primär (kein Eingriff).'},
+    ]
+  },
+  {
     v: 'v28.83', date: '09.06.2026',
     headline: '📱 Keine blockierenden System-Dialoge mehr',
     summary: 'Audit-Sprint B: Drei native Browser-Dialoge, die auf dem iPhone das App-Fenster einfrieren konnten, durch saubere In-App-Dialoge ersetzt — Sensor-Anbindung (iOS), Passwort-Zurücksetzen und „Cache leeren".',
@@ -61628,7 +61651,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.83';
+var GS_VERSION = 'v28.84';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
