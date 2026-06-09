@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.93.20260610">
+<meta name="app-version" content="28.94.20260610">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -21550,6 +21550,28 @@ window._gsNextClaudeModel = function(current){
 // Aktuelles Modell beim Start setzen
 window._gsClaudeModel = window._gsPickClaudeModel();
 
+// v28.94 Finanz-Analyse Befund #1: Client-seitiges AI-Kosten-Logging.
+// callAI/callVisionAI gehen client-direkt zu Anthropic → ohne diesen Hook landet 0 Kosten
+// in ai_daily_usage und das Cost-Monitoring (Admin-Dashboard + FINANZ_STRATEGIE) ist nach
+// dem Launch blind. Fire-and-forget: blockiert/wirft NIE im AI-Flow. RPC fn_log_ai_usage
+// rechnet die CHF-Kosten aus Modell+Tokens selbst (Preis-Tabelle in der DB). Nur eingeloggt
+// (RPC = authenticated; anon-Scanner werden bewusst nicht geloggt, HL#13).
+function _gsLogAiUsage(edgeFn, usage, model){
+  try {
+    if (!usage) return;
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
+    if (typeof sbFetch !== 'function') return;
+    var tin = (usage.input_tokens||0) + (usage.cache_read_input_tokens||0) + (usage.cache_creation_input_tokens||0);
+    var tout = usage.output_tokens||0;
+    if (!tin && !tout) return;
+    sbFetch('/rest/v1/rpc/fn_log_ai_usage', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ p_edge_fn: String(edgeFn||'client_ai').slice(0,40), p_tokens_in: tin, p_tokens_out: tout, p_cost_chf: null, p_model: model||null })
+    }).catch(function(){});
+  } catch(_){}
+}
+window._gsLogAiUsage = _gsLogAiUsage;
+
 async function callAI(messages, systemPrompt, maxTokens, opts){
   // v23.97: opts.timeout konfigurierbar — komplexe Aufgaben (Plan-Generation) brauchen mehr Zeit
   opts = opts || {};
@@ -21618,6 +21640,7 @@ async function callAI(messages, systemPrompt, maxTokens, opts){
           if (opts.quotaFeature) { try { gsQuotaConsume(opts.quotaFeature); } catch(_){} }
           else if (typeof gsAboTrackAICall === 'function') gsAboTrackAICall();
         }
+        try { _gsLogAiUsage((opts && (opts.logLabel||opts.quotaFeature||opts.brain)) || 'client_callAI', data && data.usage, tryModel); } catch(_){}
         return (data.content||[]).map(c=>c.text||'').join('');
       }
       // Model nicht gefunden → nächsten Fallback versuchen
@@ -21723,6 +21746,7 @@ async function callVisionAI(b64, mediaType, prompt, extraImages, opts){
           if (_visQf) { try { gsQuotaConsume(_visQf); } catch(_){} }
           else if (typeof gsAboTrackAICall === 'function') gsAboTrackAICall();
         }
+        try { _gsLogAiUsage((opts && (opts.logLabel||_visQf)) || 'client_scan', data && data.usage, tryModel); } catch(_){}
         return (data.content||[]).map(c=>c.text||'').join('');
       }
       var errMsg = (data.error && data.error.message) || '';
@@ -57669,6 +57693,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.94', date: '10.06.2026',
+    headline: '📊 KI-Kosten-Telemetrie (internes Monitoring)',
+    summary: 'Aus der Finanz-Analyse: die KI-Aufrufe (Scan, Lina, Doktor) laufen direkt zur KI und wurden bisher nicht für die Kosten-Übersicht erfasst — das interne Cost-Monitoring war blind. Jetzt meldet jeder KI-Aufruf Tokens + berechnete Kosten ans Admin-Dashboard (fire-and-forget, kein Einfluss auf Tempo/Funktion). Keine sichtbare Änderung für dich als User.',
+    user_summary: '📊 Internes KI-Kosten-Monitoring vervollständigt (kein sichtbarer App-Effekt).',
+    user_items: [
+      { emoji: '🛠️', text: 'Reine Backend-/Monitoring-Verbesserung — App-Verhalten unverändert' },
+    ],
+    items: [
+      {emoji:'📊', bold:'Telemetrie:', text:' callAI/callVisionAI rufen jetzt fire-and-forget fn_log_ai_usage mit Anthropic-usage-Tokens + Modell. RPC um p_model erweitert → berechnet CHF-Kosten selbst (Preis-Tabelle als Single-Source in der DB; Haiku/Sonnet/Opus). authenticated-grant (HL#13, kein anon). Schliesst Finanz-Analyse-Befund #1 (ai_daily_usage.total_cost_chf war 0 + User-Scans loggten nicht). 7/7 node --check.'},
+    ]
+  },
+  {
     v: 'v28.93', date: '10.06.2026',
     headline: '🔒 QA-Härtung: Einladungs-Code-Kopieren',
     summary: 'Nach adversarialer QA-Verifikation der letzten Updates: der „Code kopieren"-Button (Org-Einladung) bettete den Code direkt in den Klick-Handler ein (Hard-Lesson #12-Muster) — jetzt über sicheren State-Bridge gelöst, und die Kopier-Bestätigung ist nun ebenfalls mehrsprachig.',
@@ -62046,7 +62082,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.93';
+var GS_VERSION = 'v28.94';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
