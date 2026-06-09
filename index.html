@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.85.20260609">
+<meta name="app-version" content="28.86.20260609">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -6831,22 +6831,24 @@ window.gsCollectionsAutoVacuumDebounced = function(){
   else window.addEventListener('load', _vkick);
 })();
 
+// v28.86 i18n: gemeinsamer Übersetzungs-Helfer fürs Sammlungen-Modul (re-checkt gsI18n je Call).
+function _gsCollT(k,f){ return (window.gsI18n && gsI18n.t) ? gsI18n.t(k,f) : f; }
 window.gsOpenCollections = function(){
   if (typeof _gsNlOpen !== 'function') return;
-  _gsNlOpen('<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><div style="font-size:32px;">📁</div><div><h3 style="margin:0;color:var(--g-dark);">Meine Sammlungen</h3><div style="font-size:12px;color:var(--muted);">Eigene Ordner für Pflanzen, Arten &amp; mehr</div></div></div><div id="gs-coll-body"><div style="color:var(--muted);font-size:13px;padding:14px;text-align:center;">⏳ Lade…</div></div>');
+  _gsNlOpen('<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><div style="font-size:32px;">📁</div><div><h3 style="margin:0;color:var(--g-dark);">'+_gsCollT('coll_title','Meine Sammlungen')+'</h3><div style="font-size:12px;color:var(--muted);">'+_gsCollT('coll_subtitle','Eigene Ordner für Pflanzen, Arten &amp; mehr')+'</div></div></div><div id="gs-coll-body"><div style="color:var(--muted);font-size:13px;padding:14px;text-align:center;">'+_gsCollT('coll_loading','⏳ Lade…')+'</div></div>');
   gsCollectionsRefresh();
   // v28.58: Auto-Vacuum im Hintergrund anstossen → System-Sammlungen frisch (re-rendert bei Änderung).
   try { gsCollectionsAutoVacuum(); } catch(_){}
 };
 window.gsCollectionsRefresh = async function(){
   var body = document.getElementById('gs-coll-body'); if (!body) return;
-  if (!_gsCollReady()){ body.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:16px;text-align:center;">Melde dich an, um Sammlungen anzulegen.</div>'; return; }
+  if (!_gsCollReady()){ body.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:16px;text-align:center;">'+_gsCollT('coll_login_hint','Melde dich an, um Sammlungen anzulegen.')+'</div>'; return; }
   var rows = [];
   try { var r = await sbFetch('/rest/v1/v_user_collections?select=*&order=sort_order.asc,created_at.desc', {method:'GET'}); rows = (r&&r.data)||[]; } catch(_){}
   window._gsCollList = rows;
   var html = '<div style="display:flex;gap:6px;margin-bottom:10px;">' +
-    '<input id="gs-coll-new" placeholder="Neue Sammlung…" maxlength="60" style="flex:1;padding:9px 11px;border:1px solid var(--border);border-radius:10px;font-size:13px;font-family:inherit;background:var(--card);color:var(--text);">' +
-    '<button onclick="gsCollectionCreateFromInput()" style="padding:9px 14px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">+ Anlegen</button></div>';
+    '<input id="gs-coll-new" placeholder="'+_gsCollT('coll_new_placeholder','Neue Sammlung…')+'" maxlength="60" style="flex:1;padding:9px 11px;border:1px solid var(--border);border-radius:10px;font-size:13px;font-family:inherit;background:var(--card);color:var(--text);">' +
+    '<button onclick="gsCollectionCreateFromInput()" style="padding:9px 14px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">'+_gsCollT('coll_create_btn','+ Anlegen')+'</button></div>';
   // v28.58: Live-Smart-Chips ENTFERNT — durch persistente System-Sammlungen (Auto-Vacuum) ersetzt.
   // System-Sammlungen (system_key) erscheinen unten als normale Zeilen mit 🤖-Badge.
   var sysRows = rows.filter(function(c){ return !!c.system_key; });
@@ -6855,27 +6857,29 @@ window.gsCollectionsRefresh = async function(){
     var existing = {}; rows.forEach(function(c){ existing[(c.name||'').toLowerCase()]=1; });
     var sugg = [['⭐','Wunschliste'],['🌳','Mein Garten 2026']].filter(function(s){ return !existing[s[1].toLowerCase()]; });
     if (sugg.length){
-      html += '<div style="font-size:11px;color:var(--muted);font-weight:700;margin-bottom:5px;">💡 Vorschläge</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">' +
+      html += '<div style="font-size:11px;color:var(--muted);font-weight:700;margin-bottom:5px;">'+_gsCollT('coll_suggestions','💡 Vorschläge')+'</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">' +
         sugg.map(function(s){ return '<button onclick="gsCollectionCreate(\''+s[1]+'\',\''+s[0]+'\')" style="padding:6px 11px;background:var(--surface2);border:1px solid var(--border);border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text);-webkit-tap-highlight-color:transparent;">'+s[0]+' '+s[1]+'</button>'; }).join('') + '</div>';
     }
   }
   function _gsCollRow(c){
     var isSys = !!c.system_key;
-    var badge = isSys ? '<span style="font-size:9.5px;font-weight:800;color:var(--g-main);background:var(--g-light);border-radius:999px;padding:1px 7px;margin-left:6px;vertical-align:middle;">🤖 Auto</span>' : '';
+    var badge = isSys ? '<span style="font-size:9.5px;font-weight:800;color:var(--g-main);background:var(--g-light);border-radius:999px;padding:1px 7px;margin-left:6px;vertical-align:middle;">'+_gsCollT('coll_auto_badge','🤖 Auto')+'</span>' : '';
     var del = isSys
-      ? '<span title="Automatisch verwaltet" style="color:var(--muted);font-size:13px;padding:4px;opacity:.6;">🔒</span>'
-      : '<button onclick="event.stopPropagation();gsCollectionDelete(\''+c.id+'\')" aria-label="Sammlung löschen" style="background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:4px;">🗑️</button>';
+      ? '<span title="'+_gsCollT('coll_auto_managed','Automatisch verwaltet')+'" style="color:var(--muted);font-size:13px;padding:4px;opacity:.6;">🔒</span>'
+      : '<button onclick="event.stopPropagation();gsCollectionDelete(\''+c.id+'\')" aria-label="'+_gsCollT('coll_delete_aria','Sammlung löschen')+'" style="background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:4px;">🗑️</button>';
+    // v28.86 i18n: System-Sammlungs-Namen (Giftige/Essbare/…) beim Render übersetzen (DB-Name = Fallback).
+    var _cName = isSys ? _gsCollT('coll_'+c.system_key, c.name) : c.name;
     return '<div onclick="gsOpenCollectionItems(\''+c.id+'\')" role="button" tabindex="0" style="display:flex;align-items:center;gap:10px;padding:11px;border:1px solid var(--border);border-radius:12px;margin-bottom:7px;cursor:pointer;background:var(--card);-webkit-tap-highlight-color:transparent;">' +
       '<div style="font-size:24px;">'+(c.emoji||'📁')+'</div>' +
-      '<div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:700;color:var(--text);">'+_gsCollEsc(c.name)+badge+'</div>' +
-      '<div style="font-size:11px;color:var(--muted);">'+(c.item_count||0)+' Einträge</div></div>' +
+      '<div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:700;color:var(--text);">'+_gsCollEsc(_cName)+badge+'</div>' +
+      '<div style="font-size:11px;color:var(--muted);">'+(c.item_count||0)+' '+_gsCollT('coll_entries','Einträge')+'</div></div>' +
       del + '<div style="color:var(--muted);font-size:18px;">›</div></div>';
   }
-  if (!rows.length){ html += '<div style="color:var(--muted);font-size:13px;padding:10px 4px;">Noch keine Sammlungen — lege oben eine an oder nutze einen Vorschlag.</div>'; }
+  if (!rows.length){ html += '<div style="color:var(--muted);font-size:13px;padding:10px 4px;">'+_gsCollT('coll_empty','Noch keine Sammlungen — lege oben eine an oder nutze einen Vorschlag.')+'</div>'; }
   else {
     html += manRows.map(_gsCollRow).join('');
     if (sysRows.length){
-      html += '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);font-weight:700;margin:12px 0 6px;">🤖 Automatisch sortiert <span style="font-weight:400;">· hält sich selbst aktuell</span></div>';
+      html += '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);font-weight:700;margin:12px 0 6px;">'+_gsCollT('coll_auto_sorted','🤖 Automatisch sortiert')+' <span style="font-weight:400;">'+_gsCollT('coll_auto_sorted_hint','· hält sich selbst aktuell')+'</span></div>';
       html += sysRows.map(_gsCollRow).join('');
     }
   }
@@ -6889,29 +6893,30 @@ window.gsCollectionCreate = async function(name, emoji){
     if (r && r.error) throw new Error(r.error.message||'fail');
     if (typeof gsHaptic==='function') gsHaptic('light');
     gsCollectionsRefresh();
-  } catch(e){ if (typeof gsToast==='function') gsToast('Konnte Sammlung nicht anlegen','warn'); }
+  } catch(e){ if (typeof gsToast==='function') gsToast(_gsCollT('coll_create_fail','Konnte Sammlung nicht anlegen'),'warn'); }
 };
 window.gsCollectionCreateFromInput = function(){
   var el = document.getElementById('gs-coll-new'); var v = el && el.value ? el.value.trim() : '';
-  if (!v){ if (typeof gsToast==='function') gsToast('Bitte Namen eingeben','info'); return; }
+  if (!v){ if (typeof gsToast==='function') gsToast(_gsCollT('coll_name_required','Bitte Namen eingeben'),'info'); return; }
   gsCollectionCreate(v, '📁');
 };
 window.gsCollectionDelete = async function(id){
   if (!id) return;
-  var ok = (typeof gsConfirmModal==='function') ? await gsConfirmModal({title:'Sammlung löschen?', text:'Die Sammlung wird entfernt (die Pflanzen/Arten selbst bleiben erhalten).', okText:'Löschen', cancelText:'Abbrechen', danger:true}) : confirm('Sammlung löschen?');
+  var ok = (typeof gsConfirmModal==='function') ? await gsConfirmModal({title:_gsCollT('coll_delete_title','Sammlung löschen?'), text:_gsCollT('coll_delete_body','Die Sammlung wird entfernt (die Pflanzen/Arten selbst bleiben erhalten).'), okText:_gsCollT('btn_delete','Löschen'), cancelText:_gsCollT('btn_cancel_generic','Abbrechen'), danger:true}) : confirm('Sammlung löschen?');
   if (!ok) return;
   try { await sbFetch('/rest/v1/user_collections?id=eq.'+encodeURIComponent(id), {method:'DELETE'}); gsCollectionsRefresh(); } catch(_){}
 };
 window.gsOpenCollectionItems = async function(id){
   var body = document.getElementById('gs-coll-body'); if (!body) return;
   var c = (window._gsCollList||[]).find(function(x){ return x.id===id; }) || {name:'Sammlung', emoji:'📁'};
-  body.innerHTML = '<button onclick="gsCollectionsRefresh()" style="background:none;border:none;color:var(--g-main);font-size:13px;font-weight:700;cursor:pointer;padding:0 0 8px;font-family:inherit;">‹ Zurück</button>' +
-    '<div style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:8px;">'+(c.emoji||'📁')+' '+_gsCollEsc(c.name)+'</div>' +
-    '<div id="gs-coll-items"><div style="color:var(--muted);font-size:13px;padding:10px;">⏳ Lade…</div></div>';
+  var _ciName = c.system_key ? _gsCollT('coll_'+c.system_key, c.name) : c.name;
+  body.innerHTML = '<button onclick="gsCollectionsRefresh()" style="background:none;border:none;color:var(--g-main);font-size:13px;font-weight:700;cursor:pointer;padding:0 0 8px;font-family:inherit;">'+_gsCollT('coll_back','‹ Zurück')+'</button>' +
+    '<div style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:8px;">'+(c.emoji||'📁')+' '+_gsCollEsc(_ciName)+'</div>' +
+    '<div id="gs-coll-items"><div style="color:var(--muted);font-size:13px;padding:10px;">'+_gsCollT('coll_loading','⏳ Lade…')+'</div></div>';
   var items = [];
   try { var r = await sbFetch('/rest/v1/user_collection_items?collection_id=eq.'+encodeURIComponent(id)+'&select=*&order=added_at.desc', {method:'GET'}); items = (r&&r.data)||[]; } catch(_){}
   var box = document.getElementById('gs-coll-items'); if (!box) return;
-  if (!items.length){ box.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:12px 4px;">Noch leer. Füge Inhalte über die 📁-Buttons in Pflanzen/Arten hinzu.</div>'; return; }
+  if (!items.length){ box.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:12px 4px;">'+_gsCollT('coll_items_empty','Noch leer. Füge Inhalte über die 📁-Buttons in Pflanzen/Arten hinzu.')+'</div>'; return; }
   var _colIdSafe = String(id||'').replace(/[^a-zA-Z0-9_-]/g,'');  // v28.71 A3
   box.innerHTML = items.map(function(it){
     // v28.66/v28.71: Item klickbar → Open-Dispatch. Alle onclick-Werte auf sichere Zeichen begrenzt (HL#12-Klasse).
@@ -6923,7 +6928,7 @@ window.gsOpenCollectionItems = async function(id){
         '<div style="font-size:20px;flex-shrink:0;">'+(it.emoji||'🌿')+'</div>' +
         '<div style="flex:1;min-width:0;font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+_gsCollEsc(it.label||it.item_ref)+'<span style="font-size:10px;color:var(--muted);font-weight:400;"> · '+_gsCollEsc(it.item_type)+'</span></div>' +
       '</div>' +
-      '<button onclick="gsCollectionRemoveItem(\''+idSafe+'\',\''+_colIdSafe+'\')" aria-label="Entfernen" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:4px;flex-shrink:0;">✕</button></div>';
+      '<button onclick="gsCollectionRemoveItem(\''+idSafe+'\',\''+_colIdSafe+'\')" aria-label="'+_gsCollT('coll_remove_aria','Entfernen')+'" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:4px;flex-shrink:0;">✕</button></div>';
   }).join('');
 };
 window.gsCollectionRemoveItem = async function(itemId, collectionId){
@@ -10994,6 +10999,37 @@ window.GS_I18N_JS_STRINGS = {
   'seller_disabled_title':    'Verkäufer-Konto deaktiviert',
   'seller_disabled_body':     'Dein Konto wurde deaktiviert. Bei Fragen erreichst du uns unter www.greenscan@gmail.com.',
   'seller_support_btn':       '📧 Support kontaktieren',
+  // ── v28.86: Sammlungen (gsOpenCollections / gsCollectionsRefresh / gsOpenCollectionItems) ──
+  'coll_title':               'Meine Sammlungen',
+  'coll_subtitle':            'Eigene Ordner für Pflanzen, Arten &amp; mehr',
+  'coll_loading':             '⏳ Lade…',
+  'coll_login_hint':          'Melde dich an, um Sammlungen anzulegen.',
+  'coll_new_placeholder':     'Neue Sammlung…',
+  'coll_create_btn':          '+ Anlegen',
+  'coll_suggestions':         '💡 Vorschläge',
+  'coll_auto_badge':          '🤖 Auto',
+  'coll_auto_managed':        'Automatisch verwaltet',
+  'coll_delete_aria':         'Sammlung löschen',
+  'coll_entries':             'Einträge',
+  'coll_empty':               'Noch keine Sammlungen — lege oben eine an oder nutze einen Vorschlag.',
+  'coll_auto_sorted':         '🤖 Automatisch sortiert',
+  'coll_auto_sorted_hint':    '· hält sich selbst aktuell',
+  'coll_create_fail':         'Konnte Sammlung nicht anlegen',
+  'coll_name_required':       'Bitte Namen eingeben',
+  'coll_delete_title':        'Sammlung löschen?',
+  'coll_delete_body':         'Die Sammlung wird entfernt (die Pflanzen/Arten selbst bleiben erhalten).',
+  'coll_back':                '‹ Zurück',
+  'coll_items_empty':         'Noch leer. Füge Inhalte über die 📁-Buttons in Pflanzen/Arten hinzu.',
+  'coll_remove_aria':         'Entfernen',
+  'coll_sys_giftig':          'Giftige',
+  'coll_sys_essbar':          'Essbare',
+  'coll_sys_heil':            'Heilpflanzen',
+  'coll_sys_geschuetzt':      'Geschützte',
+  'coll_sys_pilz':            'Pilze',
+  'coll_sys_baum':            'Bäume',
+  'coll_sys_kraut':           'Kräuter',
+  'coll_sys_wild':            'Wildpflanzen',
+  'coll_sys_plans':           'Garten-Pläne',
   'water_dry_hint':            'giessen. Erde leicht antrocknen lassen.',
   'detail_care':               '🪴 Pflege & Standort',
   'tox_strong':                'STARK GIFTIG',
@@ -57415,6 +57451,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.86', date: '09.06.2026',
+    headline: '🌍 Sammlungen jetzt mehrsprachig',
+    summary: 'Audit-i18n Sprint 2: Das ganze Sammlungen-Feature (eigene Ordner + automatisch sortierte System-Sammlungen wie „Giftige", „Essbare", „Pilze") war noch fest auf Deutsch — jetzt vollständig auf Englisch, Spanisch, Französisch und Italienisch, inklusive der automatischen Sammlungs-Namen.',
+    user_summary: '🌍 Sammlungen (inkl. Auto-Sammlungen wie Giftige/Essbare) jetzt auf EN/ES/FR/IT.',
+    user_items: [
+      { emoji: '📁', text: 'Sammlungen-Übersicht, Anlegen, Einträge — alles übersetzt' },
+      { emoji: '🤖', text: 'Auto-Sammlungs-Namen (Giftige→Toxic/Tóxicas, Pilze→Fungi …) übersetzt' },
+    ],
+    items: [
+      {emoji:'🔤', bold:'i18n:', text:' Sammlungen-Modul → gemeinsamer _gsCollT()-Helfer; System-Namen via _gsCollT(coll_+system_key, dbName) beim Render (kein Schema-Eingriff). 30 Keys, EN/ES/FR/IT geseedet.'},
+    ]
+  },
+  {
     v: 'v28.85', date: '09.06.2026',
     headline: '🌍 Verkäufer-Bereich jetzt mehrsprachig',
     summary: 'Audit-Sprint i18n: Der Marktplatz-Verkäufer-Bereich (Stripe-Connect-Onboarding mit allen Status-Anzeigen) war noch fest auf Deutsch — jetzt vollständig auf Englisch, Spanisch, Französisch und Italienisch übersetzt. Plus: im Backend wurden veraltete Tier-/Sprach-Werte bereinigt und überflüssige Tabellen-Rechte entzogen.',
@@ -61689,7 +61738,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.85';
+var GS_VERSION = 'v28.86';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
