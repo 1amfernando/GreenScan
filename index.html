@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.76.20260609">
+<meta name="app-version" content="28.77.20260609">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15731,8 +15731,6 @@ function gsAddXP(amount, reason) {
     if (typeof gsStore !== 'undefined' && gsStore.set) gsStore.set(GS_XP_KEY, String(next));
     else localStorage.setItem(GS_XP_KEY, String(next));
   } catch(e) { console.warn('[GS] XP storage quota:', e && e.message); }
-  // (Cross-Device-XP-Sync = FIX-6b: lokal↔profiles.xp-Merge mit atomarem fn_add_xp — bewusst separat,
-  //  da gs_xp NICHT in STATE_KEYS ist und ein naiver State-Sync mit profiles.xp kollidieren würde.)
   var oldLvl = gsGetLevel(prev);
   var newLvl = gsGetLevel(next);
   if (newLvl.lvl > oldLvl.lvl) {
@@ -15743,8 +15741,75 @@ function gsAddXP(amount, reason) {
   gsUpdateXPBar();
   // v23.70: Badge nach Level-Up aktualisieren
   try { if (typeof gsRenderNotifBadge === 'function') gsRenderNotifBadge(); } catch(_){}
+  // v28.77 FIX-6b Phase A: gsAddXP ist die EINE Add-Funktion. Jeder Gewinn wird (debounced)
+  // atomar in profiles.xp gespiegelt (Single-Source → cross-device + Leaderboards). profileAddXp
+  // delegiert hierher. Lokales gs_xp bleibt sofortiger Mirror (offline/ausgeloggt + Instant-UI).
+  try { gsXpCloudQueue(amount||0); } catch(_){}
   return next;
 }
+
+// v28.77 FIX-6b: debounced atomarer Cloud-Mirror via fn_add_xp.
+// Sammelt Deltas (z.B. view=+1 feuert oft) und flusht gebündelt → wenig RPC-Last.
+// Reconcile = max(lokal, cloud) → verliert NIE offline-verdiente XP (Boot-Sync pusht Differenz nach).
+window._gsXpPending = window._gsXpPending || 0;
+window._gsXpFlushTimer = window._gsXpFlushTimer || null;
+function gsXpCloudQueue(amount) {
+  if (!amount) return;
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
+  window._gsXpPending += amount;
+  if (window._gsXpFlushTimer) clearTimeout(window._gsXpFlushTimer);
+  window._gsXpFlushTimer = setTimeout(gsXpCloudFlush, 1500);
+}
+async function gsXpCloudFlush() {
+  if (window._gsXpFlushTimer) { clearTimeout(window._gsXpFlushTimer); window._gsXpFlushTimer = null; }
+  var amt = window._gsXpPending || 0;
+  window._gsXpPending = 0;
+  if (!amt) return;
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn() || typeof sbFetch !== 'function') { window._gsXpPending += amt; return; }
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_add_xp', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ p_amount: amt })
+    });
+    if (r && !r.error && r.data) {
+      var row = Array.isArray(r.data) ? r.data[0] : r.data;
+      if (row && row.xp != null) {
+        // Authoritative Cloud-Wert; lokal auf max(lokal, cloud) ziehen (keine offline-XP verlieren)
+        try { gsStore.set(GS_XP_KEY, String(Math.max(gsGetXP(), row.xp))); } catch(_){}
+        if (window._sbProfile) { window._sbProfile.xp = row.xp; if (row.level != null) window._sbProfile.level = row.level; }
+        try { gsUpdateXPBar({animate:false}); } catch(_){}
+        try { if (typeof updateMenuProfileBar === 'function') updateMenuProfileBar(); } catch(_){}
+      }
+    } else if (r && r.error) {
+      window._gsXpPending += amt; // Fehler → Delta zurücklegen, Boot-Sync/nächster Flush holt es nach
+    }
+  } catch(e) {
+    window._gsXpPending += amt;
+    console.warn('[GS] fn_add_xp:', e && e.message);
+  }
+}
+// Beim Verlassen ungeflushte Deltas noch wegschreiben (best-effort; sonst holt Boot-Sync sie).
+try { window.addEventListener('pagehide', function(){ if (window._gsXpPending) gsXpCloudFlush(); }); } catch(_){}
+
+// v28.77 FIX-6b: Boot/Login-Reconcile zwischen lokalem gs_xp und cloud profiles.xp.
+// local>cloud (offline verdient) → Differenz atomar pushen; cloud>local → cloud lokal übernehmen.
+async function gsXpBootSync() {
+  try {
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
+    var profile = (window._sbProfile) || (typeof sbLoadProfile === 'function' ? await sbLoadProfile() : null);
+    if (!profile) return;
+    var cloud = profile.xp || 0;
+    var local = gsGetXP();
+    if (local > cloud) {
+      window._gsXpPending = (window._gsXpPending || 0) + (local - cloud);
+      await gsXpCloudFlush();
+    } else if (cloud > local) {
+      try { gsStore.set(GS_XP_KEY, String(cloud)); } catch(_){}
+    }
+    try { gsUpdateXPBar({animate:false}); } catch(_){}
+  } catch(e) { console.warn('[GS] gsXpBootSync:', e && e.message); }
+}
+window.gsXpBootSync = gsXpBootSync;
 
 // v23.95: XP-Bar mit Smooth-Counter + Pulse-Effekt beim XP-Gewinn
 // Single-Source-of-Truth für Home + Mehr-Screen + Menü-Profil-Bar
@@ -57230,6 +57295,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.77', date: '09.06.2026',
+    headline: '⭐ XP zählt jetzt überall & geräteübergreifend',
+    summary: 'Deine Erfahrungspunkte (XP) waren bisher in zwei getrennten Systemen gespeichert — manche Aktionen (Scannen, Favoriten, Wissen lesen) zählten nur lokal auf dem Gerät, andere (Quiz, Login-Serie) nur in der Cloud. Ab jetzt landet JEDE XP in einer einzigen, geräteübergreifenden Quelle: dein Fortschritt folgt dir aufs Handy/den Mac, und die Ranglisten zeigen endlich deine echten Punkte. Level-Namen/-Stufen bleiben unverändert.',
+    user_summary: '⭐ Alle XP zählen jetzt zusammen & geräteübergreifend — Ranglisten zeigen deine echten Punkte.',
+    user_items: [
+      { emoji: '☁️', text: 'XP folgt dir über alle Geräte (Handy ↔ Mac)' },
+      { emoji: '🏆', text: 'Ranglisten bekommen jetzt auch Scan-/Favoriten-/Wissens-XP' },
+      { emoji: '🔒', text: 'Kein doppeltes Zählen, kein XP-Verlust mehr (auch offline verdiente XP)' },
+    ],
+    items: [
+      {emoji:'🔍', bold:'Befund:', text:' 2 getrennte XP-Zähler (lokal gs_xp ↔ cloud profiles.xp) — gsAddXP-Gewinne (Scan/Fav/Rezept/Daily-Quiz/Licht/Wissen) erreichten Cloud + Leaderboards NIE; profileAddXp/Streak non-atomar (Lost-Update-Race).'},
+      {emoji:'⚛️', bold:'Phase A — Single-Source:', text:' RPC fn_add_xp (atomarer Increment, SECURITY DEFINER, anon-revoked, HL#13) + gsAddXP spiegelt debounced in profiles.xp (max-Reconcile → kein Verlust) + profileAddXp/Streak delegieren → profiles.xp wird NUR von fn_add_xp geschrieben.'},
+      {emoji:'🔁', bold:'Cross-Device:', text:' gsXpBootSync bei Boot+Login (local>cloud→push, cloud>local→pull). Doppel-Zähl-sicher verifiziert. Leiter-Vereinheitlichung folgt als Phase B.'},
+    ]
+  },
+  {
     v: 'v28.76', date: '09.06.2026',
     headline: '🔬 KI kennt jetzt deine letzten Scans',
     summary: 'Lina (KI-Coach) und der KI-Garten-Planer beziehen jetzt wirklich deine zuletzt gescannten Arten in ihre Antworten ein. Bisher lasen beide aus einem leeren Speicher-Schlüssel und sahen deine Scans nie — die Empfehlungen werden damit treffsicherer und persönlicher.',
@@ -61369,7 +61450,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.76';
+var GS_VERSION = 'v28.77';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -62918,23 +62999,13 @@ function profileXpProgress(xp) {
 }
 
 async function profileAddXp(amount, reason) {
-  var profile = _sbProfile || await sbLoadProfile();
-  if (!profile) return;
-  var oldXp  = profile.xp || 0;
-  var newXp  = oldXp + (amount || 0);
-  var oldLvl = profileGetLevel(oldXp);
-  var newLvl = profileGetLevel(newXp);
-  var updates = {xp: newXp};
-  if (newLvl > oldLvl) {
-    showProfileToast('🎉 Level Up! Du bist jetzt ' + PROFILE_LEVEL_ICONS[newLvl] + ' ' + PROFILE_LEVEL_NAMES[newLvl]);
-    updates.max_level_reached = newLvl;
-  }
-  await sbSaveProfile(updates);
-  // v28.39 FIX-6: nach Cloud-XP-Änderung ALLE Anzeige-Stellen sofort refreshen (Echtzeit-Verdrahtung) —
-  // vorher zeigten Menü-Profil-Bar + More-Screen stale XP/Level bis zum nächsten manuellen Trigger.
+  // v28.77 FIX-6b Phase A: vereinheitlicht auf die Single-Source gsAddXP (atomarer Cloud-Mirror
+  // via fn_add_xp + sofortiger lokaler Mirror). KEIN eigener sbSaveProfile({xp}) mehr — würde sonst
+  // den von gsAddXP/fn_add_xp atomar inkrementierten Wert doppelt zählen. (Profil-Ladder-Level-Up-
+  // Toast folgt in Phase B bei der Leiter-Vereinheitlichung; max_level_reached war write-only.)
+  gsAddXP(amount || 0, reason);
   try { if (typeof updateMenuProfileBar === 'function') updateMenuProfileBar(); } catch(_){}
   try { if (typeof gsUpdateMoreStats === 'function') gsUpdateMoreStats(); } catch(_){}
-  try { if (typeof gsUpdateXPBar === 'function') gsUpdateXPBar(); } catch(_){}
 }
 
 // ── Streak-System ─────────────────────────────────────────────
@@ -62961,9 +63032,11 @@ async function checkAndUpdateStreak() {
     last_login_date: today,
     login_streak: streak,
     longest_streak: longestStreak,
-    total_logins: (profile.total_logins||0) + 1,
-    xp: (profile.xp||0) + xpBonus
+    total_logins: (profile.total_logins||0) + 1
   });
+  // v28.77 FIX-6b: XP-Bonus über die Single-Source (atomar via fn_add_xp + lokaler Mirror) statt
+  // non-atomarem read-modify-write — behebt Lost-Update-Race bei gleichzeitigen XP-Gewinnen.
+  if (xpBonus) { try { gsAddXP(xpBonus, null); } catch(_){} }
 
   if (streak > 1) {
     setTimeout(function(){
@@ -63195,6 +63268,8 @@ async function sbInit() {
     if (profile && typeof updateMenuProfileBar === 'function') {
       updateMenuProfileBar();
     }
+    // v28.77 FIX-6b: XP-Cross-Device-Reconcile VOR dem Streak-Bonus (lokal↔profiles.xp angleichen).
+    if (typeof gsXpBootSync === 'function') { try { await gsXpBootSync(); } catch(e){} }
     if (profile && profile.stats && typeof checkAndUpdateStreak === 'function') {
       try { await checkAndUpdateStreak(); } catch(e){}
     }
@@ -65127,6 +65202,8 @@ async function profileDoLogin() {
     return;
   }
   await sbLoadProfile();
+  // v28.77 FIX-6b: XP-Cross-Device-Reconcile direkt nach Login.
+  if (typeof gsXpBootSync === 'function') { try { await gsXpBootSync(); } catch(e){} }
   await checkAndUpdateStreak();
   closeModal('modal-profile');
   showProfileToast(_t('toast_login_success','🌿 Willkommen zurück!'));
@@ -65655,7 +65732,9 @@ function profileTrackScan(cat) {
   }
   if (_sbProfile) _sbProfile.stats = stats;
   checkMilestones(stats);
-  sbSaveProfile({stats: stats, xp: ((_sbProfile&&_sbProfile.xp)||0)+5});
+  // v28.77 FIX-6b: kein direktes xp+5 mehr — die Scan-XP läuft über gsTrackAction('scan')→gsAddXP
+  // (spiegelt lokal+cloud atomar). Sonst hätte der Scan die Cloud-XP doppelt gezählt (+10/Scan).
+  sbSaveProfile({stats: stats});
 }
 
 function profileTrackView() {
