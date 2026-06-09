@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.82.20260609">
+<meta name="app-version" content="28.83.20260609">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -55241,13 +55241,18 @@ async function gsPPtryBluetooth() {
       '2. Token + Anleitung kopieren\n' +
       '3. In den ESP32/Pi-Code einfügen\n\n' +
       'Möchtest du das Sensor-Setup jetzt öffnen?';
-    if (confirm(setupHtml)) {
+    // v28.83 HL#2: natives confirm() → gsConfirmModal (iOS-PWA-Webview-Blocker). Promise-basiert, kein async nötig.
+    (typeof gsConfirmModal === 'function'
+      ? gsConfirmModal({ title:'Live-Sensoren anbinden', text:setupHtml, okText:'Sensor-Setup öffnen', cancelText:'Abbrechen' })
+      : Promise.resolve(confirm(setupHtml))
+    ).then(function(_go){
+      if (!_go) return;
       try { closeModal && closeModal('modal-planner-pro'); } catch(_){}
       setTimeout(function(){
         if (typeof openDevicesModal === 'function') openDevicesModal();
         else gsToast('Sensor-Modal nicht verfügbar — bitte Menü → Sensoren öffnen.', 'warn');
       }, 250);
-    }
+    });
     return;
   }
   // Prüfe, ob bereits verbundene Sensoren Daten haben
@@ -57375,6 +57380,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v28.83', date: '09.06.2026',
+    headline: '📱 Keine blockierenden System-Dialoge mehr',
+    summary: 'Audit-Sprint B: Drei native Browser-Dialoge, die auf dem iPhone das App-Fenster einfrieren konnten, durch saubere In-App-Dialoge ersetzt — Sensor-Anbindung (iOS), Passwort-Zurücksetzen und „Cache leeren".',
+    user_summary: '📱 Sensor-Setup, Passwort-Reset & Cache-Leeren nutzen jetzt In-App-Dialoge statt blockierender System-Popups.',
+    user_items: [
+      { emoji: '🔧', text: 'Sensor-Anbindung (iOS): In-App-Dialog statt System-Popup' },
+      { emoji: '🔑', text: 'Passwort-Zurücksetzen: sauberer Eingabe-Dialog + Längen-Hinweis' },
+      { emoji: '🗑️', text: '„Cache leeren": In-App-Bestätigung statt blockierendem confirm()' },
+    ],
+    items: [
+      {emoji:'📱', bold:'HL#2:', text:' 3 vom Audit geflaggte native confirm/prompt (iOS-PWA-Webview-Blocker) → Promise-basierte gsConfirmModal/gsPromptModal. Bewusste Fallback-Branches bleiben.'},
+    ]
+  },
   {
     v: 'v28.82', date: '09.06.2026',
     headline: '🛠️ Voll-Audit: versteckte Live-Bugs behoben',
@@ -61609,7 +61628,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.82';
+var GS_VERSION = 'v28.83';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -62101,18 +62120,25 @@ async function gsHandleAuthRedirect(){
         localStorage.setItem('gs_sb_expires', String(Date.now() + expSec*1000));
         // Dialog zum neuen Passwort
         setTimeout(function(){
-          var newPw = prompt('🔑 Neues Passwort setzen (min. 8 Zeichen):');
-          if (newPw && newPw.length >= 8) {
-            sbChangePassword(newPw).then(function(r){
-              if (r && !r.error) {
-                gsToast('✅ Passwort erfolgreich geändert. Du kannst dich jetzt einloggen.', 'success');
-                sbClearSession();
-                history.replaceState(null, '', location.pathname);
-              } else {
-                gsToast('⚠️ Fehler: ' + (r && r.error && r.error.message || 'unbekannt'), 'error');
-              }
-            });
-          }
+          // v28.83 HL#2: natives prompt() → gsPromptModal (iOS-PWA-Webview-Blocker), Promise-basiert.
+          (typeof gsPromptModal === 'function'
+            ? gsPromptModal({ title:'Neues Passwort setzen', text:'Mindestens 8 Zeichen.', placeholder:'Neues Passwort' })
+            : Promise.resolve(prompt('🔑 Neues Passwort setzen (min. 8 Zeichen):'))
+          ).then(function(newPw){
+            if (newPw && newPw.length >= 8) {
+              sbChangePassword(newPw).then(function(r){
+                if (r && !r.error) {
+                  gsToast('✅ Passwort erfolgreich geändert. Du kannst dich jetzt einloggen.', 'success');
+                  sbClearSession();
+                  history.replaceState(null, '', location.pathname);
+                } else {
+                  gsToast('⚠️ Fehler: ' + (r && r.error && r.error.message || 'unbekannt'), 'error');
+                }
+              });
+            } else if (newPw != null && newPw !== false) {
+              gsToast('⚠️ Passwort zu kurz (min. 8 Zeichen).', 'warn');
+            }
+          });
         }, 400);
         return;
       }
@@ -63959,6 +63985,21 @@ function gsRegisterServiceWorker() {
     } catch(e){ console.warn('[clearCaches]', e); return false; }
   };
 
+  // v28.83 HL#2: Cache-Leeren-Bestätigung aus inline-onclick-confirm in benannte Fn (gsConfirmModal
+  // statt nativem confirm() — natives confirm im onclick blockiert iOS-PWA-Webview).
+  window.gsClearCachesConfirm = function(){
+    (typeof gsConfirmModal === 'function'
+      ? gsConfirmModal({ title:'Cache komplett leeren?', text:'Du brauchst danach kurz Internet zum Reload.', okText:'Leeren', cancelText:'Abbrechen', danger:true })
+      : Promise.resolve(confirm('Cache wirklich leeren?'))
+    ).then(function(_go){
+      if (!_go) return;
+      window.gsClearAllCaches().then(function(){
+        if (typeof showProfileToast === 'function') showProfileToast({type:'success',icon:'🗑️',title:'Cache geleert'});
+        setTimeout(function(){ location.reload(); }, 1200);
+      });
+    });
+  };
+
   // Storage-Modal (Settings → „Speicher")
   window.gsShowStorageModal = async function(){
     var existing = document.getElementById('gs-storage-modal');
@@ -63990,7 +64031,7 @@ function gsRegisterServiceWorker() {
           '<div style="font-size:12px;color:var(--text2);display:flex;justify-content:space-between;border-top:1px solid var(--border);padding:8px 0;"><span>Offline-Queue</span><span><b>' + pending + '</b> Items</span></div>' +
           (info && !info.persisted ?
             '<button onclick="window.gsRequestPersistentStorage().then(function(ok){document.getElementById(\'gs-storage-modal\').remove();if(typeof showProfileToast===\'function\')showProfileToast({type:ok?\'success\':\'warn\',icon:ok?\'✅\':\'⚠️\',title:ok?\'Persistent aktiviert\':\'Vom Browser abgelehnt\',body:ok?\'Cache wird nicht mehr automatisch gelöscht.\':\'Browser hat Anfrage abgelehnt — kein Problem, Cache funktioniert trotzdem.\'})})" style="display:block;width:100%;padding:11px;margin-top:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit;">🛡️ Persistent-Storage anfragen</button>' : '') +
-          '<button onclick="if(confirm(\'Cache wirklich leeren? Du brauchst danach kurz Internet zum Reload.\')){window.gsClearAllCaches().then(function(){if(typeof showProfileToast===\'function\')showProfileToast({type:\'success\',icon:\'🗑️\',title:\'Cache geleert\'});setTimeout(function(){location.reload()},1200);})}" style="display:block;width:100%;padding:11px;margin-top:8px;background:transparent;color:#c62828;border:1.5px solid #c62828;border-radius:10px;font-weight:700;font-size:12.5px;cursor:pointer;font-family:inherit;">🗑️ Cache komplett leeren</button>' +
+          '<button onclick="gsClearCachesConfirm()" style="display:block;width:100%;padding:11px;margin-top:8px;background:transparent;color:#c62828;border:1.5px solid #c62828;border-radius:10px;font-weight:700;font-size:12.5px;cursor:pointer;font-family:inherit;">🗑️ Cache komplett leeren</button>' +
           '<button onclick="document.getElementById(\'gs-storage-modal\').remove()" style="display:block;width:100%;padding:9px;margin-top:6px;background:transparent;color:var(--muted);border:none;font-size:12px;cursor:pointer;font-family:inherit;">Schliessen</button>' +
         '</div>' +
       '</div>';
