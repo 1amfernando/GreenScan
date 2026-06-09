@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.71.20260609">
+<meta name="app-version" content="28.72.20260609">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10213,7 +10213,7 @@ async function dqAskKIExplain() {
     } else if (msg.toLowerCase().indexOf('key') >= 0) {
       msg = '⚠️ KI temporär nicht verfügbar — versuche es später nochmal.';
     }
-    block.innerHTML = '<div style="color:#ef9a9a;font-size:12px;">❌ ' + msg + '</div>';
+    block.innerHTML = '<div style="color:#ef9a9a;font-size:12px;">❌ ' + (typeof escHtml==='function'?escHtml(msg):msg) + '</div>';  // v28.72 B9: Error-Msg escapen
     if (btn) { btn.textContent = '🔄 Nochmal versuchen'; btn.disabled = false; }
   }
 }
@@ -28579,18 +28579,10 @@ async function gsLoadUserExpertStatus() {
   }
 }
 
-// Synchroner Quick-Check für UI-Render (verwendet Cache). Bei Cache-Miss
-// triggert er den Load im Hintergrund + Feed-Re-Render.
-function gsIsExpert() {
-  if (window._gsExpertStatusCache.value !== null) return !!window._gsExpertStatusCache.value;
-  // Async-Lazy-Load + Re-Render
-  gsLoadUserExpertStatus().then(function(v){
-    if (v && typeof renderSocialFeed === 'function') {
-      try { renderSocialFeed(); } catch(_){}
-    }
-  });
-  return false;
-}
+// v28.72 B1 (Block-G): tote gsIsExpert-Cache-Version entfernt (war via Hoisting von der
+// rollenbasierten gsIsExpert @~68614 [gsRoleAtLeast('expert')] geshadowt = nie aktiv).
+// Die Helfer gsLoadUserExpertStatus/_gsExpertStatusCache bleiben (harmlose Orphans,
+// _gsExpertStatusCache-Reset bei Logout referenziert sie noch).
 
 // Pro/Lifetime-Check via gs_abo_plan-Cache (Source-of-Truth: v_user_entitlements).
 function gsHasProPlan() {
@@ -57190,6 +57182,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.72', date: '09.06.2026',
+    headline: '🧹 Code-Hygiene (Audit-Aufräumen)',
+    summary: 'Kleine interne Aufräumarbeiten aus dem Full-Stack-Audit: ein toter, doppelt definierter Experten-Check wurde entfernt und eine Fehlermeldung sauber abgesichert. Für Nutzer unsichtbar, reine Wartbarkeit.',
+    user_summary: '🧹 Internes Code-Aufräumen — keine sichtbare Änderung.',
+    user_items: [
+      { emoji: '🧹', text: 'Toter doppelter Experten-Check entfernt (HL#9)' },
+      { emoji: '🛡️', text: 'Fehlermeldung in der Anzeige abgesichert (escape)' },
+    ],
+    items: [
+      {emoji:'🗑️', bold:'B1:', text:' tote gsIsExpert-Cache-Version (geshadowt von gsRoleAtLeast-Variante) entfernt → gsIsExpert eindeutig. Helfer bleiben (harmlose Orphans).'},
+      {emoji:'🛡️', bold:'B9:', text:' Error-Message in innerHTML mit escHtml() geescapt.'},
+      {emoji:'⏭️', bold:'Bewusst deferred:', text:' B7 CSP unsafe-eval (braucht Browser-Test wg. pdf.js, near-zero Gewinn) · B8 Tap-Targets (eigener UX-Pass).'},
+    ]
+  },
+  {
     v: 'v28.71', date: '09.06.2026',
     headline: '🛡️ Frontend-Härtung (Defense-in-Depth)',
     summary: 'Zweite Umsetzung aus dem Full-Stack-Audit: drei kleine Sicherheits-Härtungen im Frontend (Foto-Anzeige, Pflanzen-Karten, Sammlungs-Knöpfe) + ein Speicher-Schutz im Ernte-Tracker. Reine Vorsichtsmassnahmen — kein bekanntes Leck, aber strukturell sauber.',
@@ -61270,7 +61277,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.71';
+var GS_VERSION = 'v28.72';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
