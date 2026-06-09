@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.75.20260609">
+<meta name="app-version" content="28.76.20260609">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1624,7 +1624,9 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   // v23.61 — Storage-Integrity-Sweep: prüft JSON-Keys auf Korruption, räumt auf ohne Datenverlust
   // Wird einmal beim Laden ausgeführt. Defekte Einträge werden als Backup gesichert, dann entfernt.
   window.gsStorageIntegrityCheck = function() {
-    var jsonKeys = ['ps_feedback','ps_votes','ps_myplants','scan_history','gs_ki_analyses',
+    // v28.76 C2-1: kanonischer Scan-History-Key ist 'gs_scan_history' (SCAN_HISTORY_KEY).
+    // Der bare 'scan_history' wurde NIE geschrieben → Integrity-Check schützte den falschen Key.
+    var jsonKeys = ['ps_feedback','ps_votes','ps_myplants','gs_scan_history','gs_ki_analyses',
                     'gs_scan_corrections','ps_diary','gs_garden_plan_current','gs_streak','userLocation'];
     var fixed = 0, backedUp = 0;
     for (var i=0; i<jsonKeys.length; i++) {
@@ -27003,7 +27005,8 @@ function gsChatBuildContext(){
     } catch(e){}
     // 5. Letzte Scans
     try {
-      var scans = JSON.parse(localStorage.getItem('scan_history') || '[]');
+      // v28.76 C2-1: kanonischer Key ist gs_scan_history — Lina sah die Scans bisher NIE (toter 'scan_history').
+      var scans = JSON.parse(localStorage.getItem('gs_scan_history') || '[]');
       if (Array.isArray(scans) && scans.length) {
         var recent = scans.slice(0,5).map(function(s){ return s.name || s.topMatch || ''; }).filter(Boolean).join(', ');
         if (recent) ctx.push('🔬 Letzte Scans: ' + recent);
@@ -47226,7 +47229,8 @@ function gsPPbuildUserContext() {
       ctx.lastPlants = (saved[0].plan && saved[0].plan.plants ? saved[0].plan.plants.map(function(p){return p.name;}).slice(0,10) : []);
     }
     if (typeof gardens !== 'undefined' && Array.isArray(gardens) && gardens.length > 0) ctx.hasGarden = true;
-    var history = JSON.parse(localStorage.getItem('scan_history') || '[]');
+    // v28.76 C2-1: kanonischer Key ist gs_scan_history — der KI-Planer-Kontext war bisher leer (toter 'scan_history').
+    var history = JSON.parse(localStorage.getItem('gs_scan_history') || '[]');
     ctx.recentScans = history.slice(0, 8).map(function(h){ return h.name || h.title || ''; }).filter(Boolean);
   } catch(e) {}
   return ctx;
@@ -57226,6 +57230,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.76', date: '09.06.2026',
+    headline: '🔬 KI kennt jetzt deine letzten Scans',
+    summary: 'Lina (KI-Coach) und der KI-Garten-Planer beziehen jetzt wirklich deine zuletzt gescannten Arten in ihre Antworten ein. Bisher lasen beide aus einem leeren Speicher-Schlüssel und sahen deine Scans nie — die Empfehlungen werden damit treffsicherer und persönlicher.',
+    user_summary: '🔬 Lina + KI-Planer berücksichtigen jetzt deine letzten Scans für bessere, persönlichere Tipps.',
+    user_items: [
+      { emoji: '🤖', text: 'Lina kennt deine zuletzt gescannten Arten → relevantere Antworten' },
+      { emoji: '🌱', text: 'KI-Garten-Planer bezieht deine Scan-Historie in Pflanz-Vorschläge ein' },
+      { emoji: '🛡️', text: 'Scan-Verlauf jetzt vom Speicher-Integritäts-Check geschützt' },
+    ],
+    items: [
+      {emoji:'🐛', bold:'C2-1 Dual-Key-Bug:', text:' 3 Konsumenten (Lina-Kontext @27006, KI-Planer gsPPbuildUserContext @47229, Integrity-Check @1627) lasen den toten Bare-Key scan_history (NIE geschrieben) statt des kanonischen gs_scan_history/SCAN_HISTORY_KEY → KI-Kontext war immer leer.'},
+      {emoji:'✅', bold:'Cloud-Sync verifiziert SOLID:', text:' gsLoadCloudScans-Merge ist union-safe (concat+dedupe per name+ts/60s, bewahrt lokales thumb) — kein Clobber/Race. Map-Funde (map_user_finds) seit v27.01 gehärtet. Audit-Verdacht „Sync-Race" = kein echter Bug.'},
+      {emoji:'📋', bold:'Reihenfolge:', text:' Fernando „zuerst 1 dann 2 dann 3" → C2 ✅ · nächst FIX-6b XP-Single-Source · dann neue Feature-Welle.'},
+    ]
+  },
+  {
     v: 'v28.75', date: '09.06.2026',
     headline: '👆 Grössere Tipp-Flächen (Handy-Bedienung)',
     summary: 'Die Zurück- und Schliessen-Knöpfe (und weitere Icon-Knöpfe) haben jetzt eine grössere Tipp-Fläche (mind. 44×44px) — leichter zu treffen auf dem Handy, gemäss Barrierefreiheits-Standard. Die Symbole selbst bleiben gleich gross.',
@@ -61349,7 +61369,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.75';
+var GS_VERSION = 'v28.76';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
