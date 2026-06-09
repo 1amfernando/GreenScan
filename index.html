@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.72.20260609">
+<meta name="app-version" content="28.73.20260609">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -53142,6 +53142,8 @@ function gsOpenPhotoTimeline(plantId) {
 
   m.innerHTML = gsBuildPhotoTimelineContent();
   document.body.appendChild(m);
+  // v28.73 Q1: Verlauf früherer KI-Analysen im Hintergrund laden (rendert in Compare-Modus).
+  try { gsPhotoDiffLoadHistory(plantId); } catch(_){}
 
   if (typeof gsBrain !== 'undefined' && gsBrain && typeof gsBrain.observe === 'function') {
     try { gsBrain.observe('photo_timeline_open', { plant: p.name, count: photos.length }); } catch(_){}
@@ -53205,7 +53207,9 @@ function gsBuildPhotoTimelineContent() {
       '</div>' +
       // v26.98: KI-Wachstums-Analyse-Button + Ergebnis-Container
       '<button id="photo-diff-btn" onclick="gsPhotoDiffAnalyze()"' + (s.diffBusy ? ' disabled' : '') + ' style="margin-top:12px;width:100%;padding:11px;background:' + (s.diffBusy ? 'rgba(255,255,255,.25)' : 'linear-gradient(135deg,#1b5e20,#43a047)') + ';color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:' + (s.diffBusy ? 'wait' : 'pointer') + ';font-family:inherit;">' + (s.diffBusy ? '⏳ KI analysiert…' : '🤖 KI-Wachstums-Analyse') + '</button>' +
-      '<div id="photo-diff-result">' + gsBuildPhotoDiffResult(s.diff) + '</div>';
+      '<div id="photo-diff-result">' + gsBuildPhotoDiffResult(s.diff) + '</div>' +
+      // v28.73 Q1: Verlauf früherer KI-Analysen (fn_photo_diff_list). state-gecacht → überlebt Mode-Switch.
+      '<div id="gs-pdiff-history" style="margin-top:10px;">' + (s.historyHtml || '') + '</div>';
   } else {
     // Single + Slider
     var cur = photos[idx];
@@ -53382,6 +53386,44 @@ function gsPhotoDiffPersist(plantId, a, b, days, diff) {
   } catch(_){}
 }
 
+// v28.73 Q1: Verlauf früherer KI-Wachstums-Analysen laden (fn_photo_diff_list, own-only).
+// Macht das bisher write-only-Feature sichtbar. state-gecacht (s.historyHtml).
+async function gsPhotoDiffLoadHistory(plantId) {
+  if (!plantId || typeof sbFetch !== 'function') return;
+  if (typeof sbIsLoggedIn === 'function' && !sbIsLoggedIn()) return;
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_photo_diff_list', { method:'POST', body: JSON.stringify({ p_plant_id: String(plantId), p_lim: 10 }) });
+    if (r && r.error) return;
+    var rows = (r && r.data !== undefined) ? r.data : r;
+    if (!Array.isArray(rows)) rows = [];
+    var html = _gsPhotoDiffHistoryHtml(rows);
+    if (window._gsPhotoTimelineState) window._gsPhotoTimelineState.historyHtml = html;
+    var box = document.getElementById('gs-pdiff-history');
+    if (box) box.innerHTML = html;
+  } catch(_){}
+}
+function _gsPhotoDiffHistoryHtml(rows) {
+  if (!rows || !rows.length) return '';  // kein Verlauf → nichts anzeigen
+  var fmt = function(t){ try { return t ? new Date(t).toLocaleDateString('de-CH',{day:'2-digit',month:'short',year:'2-digit'}) : '?'; } catch(_){ return '?'; } };
+  var items = rows.slice(0,10).map(function(row){
+    var an = row.analysis || {};
+    var gp = (typeof an.growth_pct === 'number' && isFinite(an.growth_pct)) ? Math.round(an.growth_pct) : null;
+    var gpColor = gp == null ? '#cfd8dc' : (gp > 3 ? '#69f0ae' : (gp < -3 ? '#ff8a80' : '#ffd54f'));
+    var gpTxt = gp == null ? '–' : (gp > 0 ? '+' : '') + gp + '%';
+    var range = fmt(row.taken_at_a) + ' → ' + fmt(row.taken_at_b);
+    var days = (typeof row.days_between === 'number') ? (' · ' + row.days_between + ' T') : '';
+    var sum = an.summary ? gsEscHtml(String(an.summary).slice(0,90)) : '';
+    return '<div style="background:rgba(255,255,255,.08);border-radius:9px;padding:8px 10px;margin-bottom:6px;">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">' +
+        '<div style="font-size:11px;color:#fff;opacity:.85;">' + range + days + '</div>' +
+        '<div style="font-size:13px;font-weight:900;color:' + gpColor + ';flex-shrink:0;">' + gpTxt + '</div>' +
+      '</div>' +
+      (sum ? '<div style="font-size:11px;color:#fff;opacity:.7;line-height:1.45;margin-top:3px;">' + sum + '</div>' : '') +
+    '</div>';
+  }).join('');
+  return '<div style="font-size:11px;font-weight:800;color:#fff;opacity:.75;text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px;">📜 Frühere Analysen (' + rows.length + ')</div>' + items;
+}
+
 // Haupt-Funktion: zwei Fotos via callVisionAI vergleichen lassen
 async function gsPhotoDiffAnalyze() {
   var s = window._gsPhotoTimelineState;
@@ -53434,6 +53476,8 @@ async function gsPhotoDiffAnalyze() {
     // Persist nur wenn eingeloggt
     if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
       gsPhotoDiffPersist(s.plantId, pa, pb, days, diff);
+      // v28.73 Q1: Verlauf nach kurzer Verzögerung neu laden (neue Analyse erscheint).
+      setTimeout(function(){ try { gsPhotoDiffLoadHistory(s.plantId); } catch(_){} }, 1200);
     }
     if (typeof gsBrain !== 'undefined' && gsBrain && typeof gsBrain.observe === 'function') {
       try { gsBrain.observe('photo_diff_analyzed', { plant: plantName, growth: diff.growth_pct, days: days }); } catch(_){}
@@ -57181,6 +57225,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v28.73', date: '09.06.2026',
+    headline: '📜 Foto-Wachstums-Verlauf sichtbar',
+    summary: 'Deine KI-Wachstums-Analysen (Vorher/Nachher-Fotovergleich) wurden bisher gespeichert, aber nie wieder angezeigt. Jetzt siehst du im Foto-Verlauf (Vergleichs-Modus) eine Liste deiner früheren Analysen mit Zeitraum, Wachstums-% und Kurz-Zusammenfassung.',
+    user_summary: '📜 Frühere Foto-Wachstums-Analysen werden jetzt im Foto-Verlauf angezeigt.',
+    user_items: [
+      { emoji: '📜', text: 'Foto-Verlauf zeigt deine früheren KI-Analysen (Zeitraum, Wachstum-%, Zusammenfassung)' },
+      { emoji: '🔄', text: 'Aktualisiert sich automatisch nach einer neuen Analyse' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'gsPhotoDiffLoadHistory:', text:' ruft die bestehende, auth-gesicherte fn_photo_diff_list (own-only) — war write-only (nur create wurde aufgerufen). Frontend-only, kein Backend.'},
+      {emoji:'🧪', bold:'HL#14:', text:' fn_photo_diff_list existiert doch (mein früherer "fehlt"-Schluss war ein Query-Artefakt). Q2 (Doktor-Sync) = Falschalarm — synct bereits via State-Blob.'},
+    ]
+  },
   {
     v: 'v28.72', date: '09.06.2026',
     headline: '🧹 Code-Hygiene (Audit-Aufräumen)',
@@ -61277,7 +61335,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.72';
+var GS_VERSION = 'v28.73';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
