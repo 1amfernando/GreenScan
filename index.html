@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.79.20260609">
+<meta name="app-version" content="28.80.20260609">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10647,10 +10647,18 @@ window.gsI18n = (function(){
           if (srcMap[de]) keyBundle[k] = srcMap[de];
         });
       } catch(_){}
-      bundles[lang] = keyBundle;
-      bundleTs[lang] = Date.now();
-      _persist();
-      return true;
+      // v28.80 FIX: ein LEERES Bundle NICHT als Erfolg melden. Vorher gab loadFromDb auch bei 0
+      // Treffern `true` zurück → der gsBuildI18n-Anthropic-Fallback (Boot @_bootI18n + Lang-Switch
+      // @gsHandleLangChange) feuerte nie UND ein leeres Bundle wurde 24h gecacht → EN/ES-User sahen
+      // überall Deutsch. Jetzt: nur ein nicht-leeres Bundle committen + true; sonst false → Fallback.
+      var _n = Object.keys(keyBundle).length;
+      if (_n > 0) {
+        bundles[lang] = keyBundle;
+        bundleTs[lang] = Date.now();
+        _persist();
+        return true;
+      }
+      return false;
     } catch(_) { return false; }
   }
 
@@ -57324,6 +57332,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.80', date: '09.06.2026',
+    headline: '🌍 Englisch & Spanisch funktionieren jetzt wirklich',
+    summary: 'Bisher zeigte die App trotz Sprachwahl „English" oder „Español" praktisch alles auf Deutsch — die Übersetzungen fehlten komplett in der Datenbank, und ein Speicher-Filter blockierte Spanisch ganz. Behoben: alle ~1163 App-Texte sind jetzt auf Englisch und Spanisch übersetzt und werden für alle Nutzer sofort geladen. Wer Englisch oder Spanisch wählt, sieht die App ab jetzt vollständig in seiner Sprache.',
+    user_summary: '🌍 Englisch & Spanisch sind jetzt vollständig übersetzt (waren vorher fälschlich auf Deutsch).',
+    user_items: [
+      { emoji: '🇬🇧', text: 'Englische Übersetzung jetzt vollständig (1163 Texte)' },
+      { emoji: '🇪🇸', text: 'Spanische Übersetzung jetzt vollständig (war komplett blockiert)' },
+      { emoji: '⚡', text: 'Übersetzungen laden sofort für alle — kein Warten, keine zusätzlichen Kosten' },
+    ],
+    items: [
+      {emoji:'🔍', bold:'Befund (3 Ursachen):', text:' EN+ES zur Laufzeit komplett auf DE — (1) i18n_translations 0 en/0 es Zeilen (das DE-Set hat 1163 Strings), (2) CHECK-Constraint blockierte „es" (gsw statt es), (3) loadFromDb gab bei 0 Treffern fälschlich Erfolg → Anthropic-Fallback feuerte nie.'},
+      {emoji:'🛠️', bold:'Fix:', text:' CHECK-Migration (es erlaubt) + 1163 Strings EN+ES via i18n-translate-Edge-Fn geseedet (persistent, gratis für alle) + loadFromDb: leeres Bundle → Fallback.'},
+      {emoji:'📋', bold:'Hinweis:', text:' „i18n 100%" früherer Sprints meinte nur die DE-String-Abdeckung (Wrapping); die echten EN/ES-Übersetzungen fehlten. Jetzt beides.'},
+    ]
+  },
+  {
     v: 'v28.79', date: '09.06.2026',
     headline: '🌳 3D-Planer: schwarzer Bildschirm + Nachbar-Warnung repariert',
     summary: 'Zwei echte Fehler im 3D-Garten-Planer behoben: (1) Nach mehrmaligem Öffnen/Schliessen blieb die 3D-Ansicht schwarz (der Grafik-Speicher wurde nie freigegeben) — jetzt wird die 3D-Szene beim Schliessen sauber aufgeräumt. (2) Die Warnung vor schlechten Pflanzen-Nachbarn (rotes Leuchten im 3D-Beet) funktionierte nie, weil Gross-/Kleinschreibung nicht zusammenpasste — jetzt leuchten konfliktreiche Nachbarn korrekt rot.',
@@ -61511,7 +61535,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.79';
+var GS_VERSION = 'v28.80';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
