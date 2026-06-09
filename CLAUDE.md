@@ -57,7 +57,7 @@ GreenScan/
 | Auth-Token | `localStorage.gs_sb_token` | nicht in Code zwischenspeichern |
 | User-Plan/Tier | Supabase `v_user_entitlements` | NICHT auf `localStorage` für Server-Decisions vertrauen |
 | KI-Modell | `localStorage.gs_claude_model` | wird auto-bestimmt durch Fallback-Chain |
-| Brain-Memory | `localStorage.gs_brain_memory` | über `gsBrain.observe()` schreiben |
+| Lina-Gedächtnis | Supabase `coach_conversations` / `coach_messages` | (gsBrain/`gs_brain_memory` ENTFERNT — siehe §4) |
 
 ### 3.4 · KI-Calls
 **IMMER** über `callAI(messages, systemPrompt, maxTokens, opts)` oder
@@ -112,23 +112,22 @@ GreenScan/
   - `sb*` — Supabase-Layer
   - `dq*` — Daily-Quiz-Layer
 
-## 4 · gsBrain (das „Gehirn" der App, seit v23.87)
+## 4 · gsBrain — ENTFERNT (Stand v28.75, ehemals „Gehirn" der App)
 
-Zentraler Kontext-/Lern-/Empfehlungs-Hub. **Nutze das immer**, wenn du:
-- einen KI-Call machst → `callAI(..., {brain:'<rolle>'})`
-- ein User-Event hast, aus dem die App lernen sollte →
-  `gsBrain.observe('event_name', {data})`
-- eine Empfehlung anzeigen willst → `gsBrain.recommend('next_plant')` oder
-  `gsBrain.dailyTip()`
-
-API-Referenz im Code (Zeile ~18495): `index.html` → Suche nach
-`window.gsBrain = (function(){`.
-
-Memory-Schema (`gs_brain_memory`, LRU 200):
-```json
-{ "ts": 1714000000000, "date": "2026-04-29", "event": "scan_added",
-  "data": { "name": "Bärlauch", "category": "wildpflanze" } }
-```
+> ⚠️ **VERALTET:** `gsBrain` ist in der aktuellen Codebasis **NICHT mehr definiert**
+> (keine `window.gsBrain = …`-Definition, kein `gs_brain_memory`-Key, keine
+> `observe`/`recommend`/`dailyTip`-Methoden). Es existieren nur noch ~31 historische
+> `gsBrain.observe(...)`-Aufrufe — ALLE per `if (typeof gsBrain !== 'undefined' && …)`
+> geschützt → harmlose **No-Ops**. Verlasse dich NICHT auf gsBrain; rufe es nicht neu auf.
+>
+> **KI-Kontext heute:** `callAI(messages, systemPrompt, maxTokens, opts)` /
+> `callVisionAI(...)` direkt (siehe §3.4). Linas Gedächtnis = Supabase-Tabellen
+> `coach_conversations` + `coach_messages` (RLS own-only, **geräteübergreifend**;
+> `gsOpenLina` lädt die letzte Konversation aus der Cloud, `gsLinaSend` persistiert).
+> Pflanzen-/Garten-Kontext kommt aus `myPlants`/`gardens` (bereits cloud-synced).
+>
+> Die historischen No-Op-`gsBrain.observe`-Call-Sites können bei Gelegenheit
+> ersatzlos entfernt werden (reine Hygiene, kein funktionaler Effekt).
 
 ## 5 · Multi-Agent-Sync
 
@@ -172,4 +171,5 @@ Mehrere Sessions arbeiten parallel an diesem Repo. Damit kein Knoten platzt:
 - Suchst du eine Funktion? `grep -nE "function <name>" index.html`
 - Suchst du einen localStorage-Key? `grep -nE "<key>" index.html`
 - Suchst du eine Call-Site einer KI? `grep -n "callAI(\|callVisionAI(" index.html`
-- Brain testen: in DevTools-Console `gsBrain.context()` / `gsBrain.dailyTip()`.
+- Lina testen: App öffnen → KI-Coach-Tab; Gedächtnis liegt in Supabase
+  `coach_messages` (cross-device). gsBrain existiert nicht mehr (§4).
