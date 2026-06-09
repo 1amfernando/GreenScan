@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.87.20260609">
+<meta name="app-version" content="28.88.20260609">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11068,6 +11068,68 @@ window.GS_I18N_JS_STRINGS = {
   'comm_search_ph':           'Nutzername…',
   'comm_loading':             'Lädt…',
   'comm_title':               '🌿 Community',
+  // v28.88 i18n — Lehrer-Dashboard / Klassen-Modul
+  'cls_task_scan':            'Pflanzen scannen',
+  'cls_task_read':           'Artikel lesen',
+  'cls_task_quiz':           'Quiz-Duelle',
+  'cls_task_ach':            'Erfolg freischalten',
+  'cls_task_manual':         'Manuell',
+  'cls_login':               'Bitte zuerst einloggen.',
+  'cls_loading':             '⏳ Lade Klassen…',
+  'cls_title':               '🎓 Klassen',
+  'cls_subtitle':            'Klassen deiner Schulen, Kurse &amp; Vereine. Schüler:innen sehen ihre Aufgaben, Lehrkräfte den Klassen-Fortschritt.',
+  'cls_empty':               'Noch keine Klasse. Tritt mit einem Klassen-Code bei — oder erstelle eine (als Lehrkraft in einer Organisation).',
+  'cls_default_name':        'Klasse',
+  'cls_students':            'Schüler:innen',
+  'cls_tasks_n':             'Aufgabe(n)',
+  'cls_code_label':          'Code:',
+  'cls_join_btn':            '➕ Beitreten',
+  'cls_new_btn':             '🧑‍🏫 Neue Klasse',
+  'cls_join_title':          '➕ Klasse beitreten',
+  'cls_join_hint':           'Gib den Klassen-Code deiner Lehrkraft ein. (Du musst bereits Mitglied der Organisation sein.)',
+  'cls_join_ph':             'z.B. 8F1E0B',
+  'cls_join_submit':         'Beitreten',
+  'cls_back':                'Zurück',
+  'cls_need_code':           'Bitte Code eingeben.',
+  'cls_joined':              'Beigetreten:',
+  'cls_join_fail':           'Beitritt fehlgeschlagen.',
+  'cls_net_err':             'Netzwerkfehler.',
+  'cls_loading_orgs':        '⏳ Lade Organisationen…',
+  'cls_need_org_title':      'Erst eine Organisation',
+  'cls_need_org_text':       'Klassen gehören zu einer Organisation. Erstelle/tritt zuerst einer Schule, einem Kurs oder Verein bei (Einstellungen → 🏢 Organisationen). Nur Lehrkräfte/Admins können Klassen anlegen.',
+  'cls_org_default':         'Organisation',
+  'cls_org_label':           'Organisation',
+  'cls_name_label':          'Klassen-Name',
+  'cls_name_ph':             'z.B. Bio 1a',
+  'cls_desc_ph':             'Beschreibung (optional)',
+  'cls_create_submit':       'Klasse erstellen',
+  'cls_need_org_name':       'Organisation + Name nötig.',
+  'cls_created':             'Klasse erstellt! Code:',
+  'cls_create_fail':         'Erstellen nicht möglich (Lehrkraft-Rolle nötig).',
+  'cls_loading_one':         '⏳ Lade Klasse…',
+  'cls_load_fail':           '⚠️ Klasse konnte nicht geladen werden.',
+  'cls_new_task':            '➕ Neue Aufgabe',
+  'cls_tasks_header':        'Aufgaben',
+  'cls_target':              'Ziel',
+  'cls_no_tasks':            'Noch keine Aufgaben.',
+  'cls_progress_header':     'Klassen-Fortschritt',
+  'cls_student_default':     'Schüler:in',
+  'cls_no_students':         'Noch keine Schüler:innen. Teile den Klassen-Code aus der Klassen-Übersicht.',
+  'cls_my_tasks_sub':        'Deine Aufgaben &amp; dein Fortschritt',
+  'cls_no_tasks_student':    'Noch keine Aufgaben in dieser Klasse.',
+  'cls_auto_progress_hint':  'Dein Fortschritt aktualisiert sich automatisch beim Scannen, Quizzen &amp; Lesen.',
+  'cls_load_err':            '⚠️ Fehler beim Laden.',
+  'cls_title_label':         'Titel',
+  'cls_title_ph':            'z.B. Scanne 5 Wildpflanzen',
+  'cls_type_label':          'Typ (Auto-Fortschritt)',
+  'cls_opt_quiz':            'Quiz-Duelle spielen',
+  'cls_opt_read':            'Wissens-Artikel lesen',
+  'cls_opt_manual':          'Manuell (ich hake ab)',
+  'cls_target_label':        'Ziel-Anzahl',
+  'cls_task_submit':         'Aufgabe erstellen',
+  'cls_need_title':          'Titel nötig.',
+  'cls_task_created':        'Aufgabe erstellt.',
+  'cls_failed':              'Fehlgeschlagen.',
   'water_dry_hint':            'giessen. Erde leicht antrocknen lassen.',
   'detail_care':               '🪴 Pflege & Standort',
   'tox_strong':                'STARK GIFTIG',
@@ -57489,6 +57551,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.88', date: '09.06.2026',
+    headline: '🎓 Lehrer-Dashboard & Klassen jetzt mehrsprachig',
+    summary: 'Audit-i18n Sprint 4: Das Lehrer-Dashboard (Klassen anlegen/beitreten, Klassen-Code, Aufgaben mit Auto-Fortschritt, Schüler-Fortschritt) war noch fest auf Deutsch — jetzt vollständig auf Englisch, Spanisch, Französisch und Italienisch.',
+    user_summary: '🎓 Klassen & Aufgaben (Lehrer-Dashboard) jetzt auf EN/ES/FR/IT.',
+    user_items: [
+      { emoji: '🧑‍🏫', text: 'Klassen erstellen/beitreten, Klassen-Code & Aufgaben-Typen übersetzt' },
+      { emoji: '📊', text: 'Schüler- & Klassen-Fortschritt mehrsprachig' },
+    ],
+    items: [
+      {emoji:'🔤', bold:'i18n:', text:' Klassen-/Lehrer-Modul → gemeinsamer _gsClsT()-Helfer. 61 cls_*-Keys (Titel/Buttons/Toasts/Aufgaben-Typen/Empty-States) + EN/ES/FR/IT geseedet (240 fetched + 4 cache). 7/7 node --check.'},
+    ]
+  },
+  {
     v: 'v28.87', date: '09.06.2026',
     headline: '🌍 Community & Profile jetzt mehrsprachig',
     summary: 'Audit-i18n Sprint 3: Der Community-Bereich (fremde Profile ansehen, Folgen/Entfolgen, Blockieren, Melden, Personen-Suche, Feed/Meilensteine-Tabs) war noch fest auf Deutsch — jetzt vollständig auf Englisch, Spanisch, Französisch und Italienisch.',
@@ -61789,7 +61864,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.87';
+var GS_VERSION = 'v28.88';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -68118,12 +68193,14 @@ window.gsOrgOnboardingDone = gsOrgOnboardingDone;
 // ═══ v28.06 · LEHRER-DASHBOARD: Klassen + Aufgaben + Auto-Progress (FREE) ════════
 // Hard-Lesson #12: in onclick NUR UUIDs (keine Namen-Strings mit Quotes). Klassen-Meta
 // (Name/Lehrer-Flag) wird in window._gsClassMap zwischengespeichert + per ID nachgeschlagen.
-function gsClassTaskLabel(t){ return ({scan_count:'Pflanzen scannen',knowledge_read:'Artikel lesen',quiz_play:'Quiz-Duelle',achievement:'Erfolg freischalten',manual:'Manuell'})[t] || t; }
+// v28.88 i18n: gemeinsamer Übersetzungs-Helfer fürs Lehrer-Dashboard/Klassen-Modul.
+function _gsClsT(k,f){ return (window.gsI18n && gsI18n.t) ? gsI18n.t(k,f) : f; }
+function gsClassTaskLabel(t){ return ({scan_count:_gsClsT('cls_task_scan','Pflanzen scannen'),knowledge_read:_gsClsT('cls_task_read','Artikel lesen'),quiz_play:_gsClsT('cls_task_quiz','Quiz-Duelle'),achievement:_gsClsT('cls_task_ach','Erfolg freischalten'),manual:_gsClsT('cls_task_manual','Manuell')})[t] || t; }
 
 async function gsOpenClasses(){
   if (typeof _gsNlOpen !== 'function') return;
-  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) { _gsNlOpen('<div style="padding:30px;text-align:center;color:var(--muted);">Bitte zuerst einloggen.</div>'); return; }
-  _gsNlOpen('<div style="padding:30px;text-align:center;color:var(--muted);">⏳ Lade Klassen…</div>');
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) { _gsNlOpen('<div style="padding:30px;text-align:center;color:var(--muted);">'+_gsClsT('cls_login','Bitte zuerst einloggen.')+'</div>'); return; }
+  _gsNlOpen('<div style="padding:30px;text-align:center;color:var(--muted);">'+_gsClsT('cls_loading','⏳ Lade Klassen…')+'</div>');
   var list = [];
   try {
     var r = await sbFetch('/rest/v1/rpc/fn_class_list', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_org_id: null })});
@@ -68131,24 +68208,24 @@ async function gsOpenClasses(){
   } catch(_){}
   window._gsClassMap = {}; list.forEach(function(c){ window._gsClassMap[c.id] = { name: c.name, is_teacher: !!c.is_teacher }; });
   var h = '<div style="padding:20px;max-width:480px;margin:0 auto;">';
-  h += '<div style="font-size:22px;font-weight:900;color:var(--text);margin-bottom:4px;">🎓 Klassen</div>';
-  h += '<div style="font-size:12.5px;color:var(--muted);margin-bottom:16px;">Klassen deiner Schulen, Kurse &amp; Vereine. Schüler:innen sehen ihre Aufgaben, Lehrkräfte den Klassen-Fortschritt.</div>';
+  h += '<div style="font-size:22px;font-weight:900;color:var(--text);margin-bottom:4px;">'+_gsClsT('cls_title','🎓 Klassen')+'</div>';
+  h += '<div style="font-size:12.5px;color:var(--muted);margin-bottom:16px;">'+_gsClsT('cls_subtitle','Klassen deiner Schulen, Kurse &amp; Vereine. Schüler:innen sehen ihre Aufgaben, Lehrkräfte den Klassen-Fortschritt.')+'</div>';
   if (!list.length) {
-    h += '<div style="background:var(--surface2);border-radius:12px;padding:18px;font-size:13.5px;color:var(--muted);text-align:center;margin-bottom:14px;">Noch keine Klasse. Tritt mit einem Klassen-Code bei — oder erstelle eine (als Lehrkraft in einer Organisation).</div>';
+    h += '<div style="background:var(--surface2);border-radius:12px;padding:18px;font-size:13.5px;color:var(--muted);text-align:center;margin-bottom:14px;">'+_gsClsT('cls_empty','Noch keine Klasse. Tritt mit einem Klassen-Code bei — oder erstelle eine (als Lehrkraft in einer Organisation).')+'</div>';
   } else {
     list.forEach(function(c){
       h += '<div onclick="gsOpenClassDetail(\'' + c.id + '\')" style="cursor:pointer;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;">'
         + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-        + '<div style="font-weight:800;color:var(--text);font-size:15px;">' + (c.is_teacher?'🧑‍🏫 ':'🎒 ') + escHtml(c.name||'Klasse') + '</div>'
-        + '<div style="font-size:11px;color:var(--muted);">' + (c.is_teacher ? ((c.member_count||0)+' Schüler:innen') : '') + '</div></div>'
+        + '<div style="font-weight:800;color:var(--text);font-size:15px;">' + (c.is_teacher?'🧑‍🏫 ':'🎒 ') + escHtml(c.name||_gsClsT('cls_default_name','Klasse')) + '</div>'
+        + '<div style="font-size:11px;color:var(--muted);">' + (c.is_teacher ? ((c.member_count||0)+' '+_gsClsT('cls_students','Schüler:innen')) : '') + '</div></div>'
         + (c.description ? '<div style="font-size:12px;color:var(--muted);margin-top:4px;">' + escHtml(c.description) + '</div>' : '')
-        + '<div style="font-size:11px;color:var(--muted);margin-top:6px;">' + (c.assignment_count||0) + ' Aufgabe(n)' + (c.is_teacher && c.join_code ? ' · Code: <b style="letter-spacing:1px;">'+escHtml(c.join_code)+'</b>' : '') + '</div>'
+        + '<div style="font-size:11px;color:var(--muted);margin-top:6px;">' + (c.assignment_count||0) + ' ' + _gsClsT('cls_tasks_n','Aufgabe(n)') + (c.is_teacher && c.join_code ? ' · '+_gsClsT('cls_code_label','Code:')+' <b style="letter-spacing:1px;">'+escHtml(c.join_code)+'</b>' : '') + '</div>'
         + '</div>';
     });
   }
   h += '<div style="display:flex;gap:8px;margin-top:8px;">'
-    + '<button onclick="gsClassJoin()" style="flex:1;padding:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;font-size:13px;">➕ Beitreten</button>'
-    + '<button onclick="gsClassCreate()" style="flex:1;padding:12px;background:#37474f;color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;font-size:13px;">🧑‍🏫 Neue Klasse</button>'
+    + '<button onclick="gsClassJoin()" style="flex:1;padding:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;font-size:13px;">'+_gsClsT('cls_join_btn','➕ Beitreten')+'</button>'
+    + '<button onclick="gsClassCreate()" style="flex:1;padding:12px;background:#37474f;color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;font-size:13px;">'+_gsClsT('cls_new_btn','🧑‍🏫 Neue Klasse')+'</button>'
     + '</div></div>';
   _gsNlOpen(h);
 }
@@ -68156,94 +68233,94 @@ window.gsOpenClasses = gsOpenClasses;
 
 function gsClassJoin(){
   _gsNlOpen('<div style="padding:24px;max-width:380px;margin:0 auto;">'
-    + '<div style="font-size:18px;font-weight:900;color:var(--text);margin-bottom:10px;">➕ Klasse beitreten</div>'
-    + '<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px;">Gib den Klassen-Code deiner Lehrkraft ein. (Du musst bereits Mitglied der Organisation sein.)</div>'
-    + '<input id="gs-cls-join-code" maxlength="6" placeholder="z.B. 8F1E0B" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;font-size:16px;text-transform:uppercase;letter-spacing:2px;text-align:center;font-family:inherit;box-sizing:border-box;">'
-    + '<button onclick="gsClassDoJoin()" style="width:100%;margin-top:12px;padding:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">Beitreten</button>'
-    + '<button onclick="gsOpenClasses()" style="width:100%;margin-top:8px;padding:10px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">Zurück</button>'
+    + '<div style="font-size:18px;font-weight:900;color:var(--text);margin-bottom:10px;">'+_gsClsT('cls_join_title','➕ Klasse beitreten')+'</div>'
+    + '<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px;">'+_gsClsT('cls_join_hint','Gib den Klassen-Code deiner Lehrkraft ein. (Du musst bereits Mitglied der Organisation sein.)')+'</div>'
+    + '<input id="gs-cls-join-code" maxlength="6" placeholder="'+_gsClsT('cls_join_ph','z.B. 8F1E0B')+'" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;font-size:16px;text-transform:uppercase;letter-spacing:2px;text-align:center;font-family:inherit;box-sizing:border-box;">'
+    + '<button onclick="gsClassDoJoin()" style="width:100%;margin-top:12px;padding:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">'+_gsClsT('cls_join_submit','Beitreten')+'</button>'
+    + '<button onclick="gsOpenClasses()" style="width:100%;margin-top:8px;padding:10px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">'+_gsClsT('cls_back','Zurück')+'</button>'
     + '</div>');
 }
 window.gsClassJoin = gsClassJoin;
 async function gsClassDoJoin(){
   var el = document.getElementById('gs-cls-join-code');
   var code = el ? (el.value||'').trim() : '';
-  if (!code) { if(typeof gsToast==='function') gsToast('Bitte Code eingeben.','warning'); return; }
+  if (!code) { if(typeof gsToast==='function') gsToast(_gsClsT('cls_need_code','Bitte Code eingeben.'),'warning'); return; }
   try {
     var r = await sbFetch('/rest/v1/rpc/fn_class_join', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_join_code: code })});
-    if (r && !r.error && r.data && r.data.joined) { if(typeof gsToast==='function') gsToast('Beigetreten: '+(r.data.name||'Klasse'),'success'); gsOpenClasses(); }
-    else { var m=(r&&r.error&&r.error.message)||'Beitritt fehlgeschlagen.'; if(typeof gsToast==='function') gsToast(m,'warning'); }
-  } catch(_){ if(typeof gsToast==='function') gsToast('Netzwerkfehler.','warning'); }
+    if (r && !r.error && r.data && r.data.joined) { if(typeof gsToast==='function') gsToast(_gsClsT('cls_joined','Beigetreten:')+' '+(r.data.name||_gsClsT('cls_default_name','Klasse')),'success'); gsOpenClasses(); }
+    else { var m=(r&&r.error&&r.error.message)||_gsClsT('cls_join_fail','Beitritt fehlgeschlagen.'); if(typeof gsToast==='function') gsToast(m,'warning'); }
+  } catch(_){ if(typeof gsToast==='function') gsToast(_gsClsT('cls_net_err','Netzwerkfehler.'),'warning'); }
 }
 window.gsClassDoJoin = gsClassDoJoin;
 
 async function gsClassCreate(){
-  _gsNlOpen('<div style="padding:30px;text-align:center;color:var(--muted);">⏳ Lade Organisationen…</div>');
+  _gsNlOpen('<div style="padding:30px;text-align:center;color:var(--muted);">'+_gsClsT('cls_loading_orgs','⏳ Lade Organisationen…')+'</div>');
   var orgs = [];
   try {
     var r = await sbFetch('/rest/v1/rpc/fn_my_orgs', {method:'POST', headers:{'Content-Type':'application/json'}, body: '{}'});
     orgs = (r && r.data) || []; if (!Array.isArray(orgs)) orgs = [];
   } catch(_){}
   if (!orgs.length) {
-    _gsNlOpen('<div style="padding:24px;max-width:380px;margin:0 auto;text-align:center;"><div style="font-size:40px;">🏢</div><div style="font-weight:800;color:var(--text);margin:10px 0;">Erst eine Organisation</div><div style="font-size:13px;color:var(--muted);line-height:1.6;">Klassen gehören zu einer Organisation. Erstelle/tritt zuerst einer Schule, einem Kurs oder Verein bei (Einstellungen → 🏢 Organisationen). Nur Lehrkräfte/Admins können Klassen anlegen.</div><button onclick="gsOpenClasses()" style="margin-top:16px;padding:10px 20px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">Zurück</button></div>');
+    _gsNlOpen('<div style="padding:24px;max-width:380px;margin:0 auto;text-align:center;"><div style="font-size:40px;">🏢</div><div style="font-weight:800;color:var(--text);margin:10px 0;">'+_gsClsT('cls_need_org_title','Erst eine Organisation')+'</div><div style="font-size:13px;color:var(--muted);line-height:1.6;">'+_gsClsT('cls_need_org_text','Klassen gehören zu einer Organisation. Erstelle/tritt zuerst einer Schule, einem Kurs oder Verein bei (Einstellungen → 🏢 Organisationen). Nur Lehrkräfte/Admins können Klassen anlegen.')+'</div><button onclick="gsOpenClasses()" style="margin-top:16px;padding:10px 20px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">'+_gsClsT('cls_back','Zurück')+'</button></div>');
     return;
   }
-  var opts = orgs.map(function(o){ return '<option value="'+(o.id||o.org_id)+'">'+escHtml(o.name||o.org_name||'Organisation')+'</option>'; }).join('');
+  var opts = orgs.map(function(o){ return '<option value="'+(o.id||o.org_id)+'">'+escHtml(o.name||o.org_name||_gsClsT('cls_org_default','Organisation'))+'</option>'; }).join('');
   _gsNlOpen('<div style="padding:24px;max-width:400px;margin:0 auto;">'
-    + '<div style="font-size:18px;font-weight:900;color:var(--text);margin-bottom:12px;">🧑‍🏫 Neue Klasse</div>'
-    + '<label style="font-size:12px;color:var(--muted);">Organisation</label>'
+    + '<div style="font-size:18px;font-weight:900;color:var(--text);margin-bottom:12px;">'+_gsClsT('cls_new_btn','🧑‍🏫 Neue Klasse')+'</div>'
+    + '<label style="font-size:12px;color:var(--muted);">'+_gsClsT('cls_org_label','Organisation')+'</label>'
     + '<select id="gs-cls-org" style="width:100%;padding:11px;margin:4px 0 12px;border:1px solid var(--border);border-radius:10px;font-family:inherit;font-size:14px;box-sizing:border-box;">'+opts+'</select>'
-    + '<label style="font-size:12px;color:var(--muted);">Klassen-Name</label>'
-    + '<input id="gs-cls-name" maxlength="60" placeholder="z.B. Bio 1a" style="width:100%;padding:11px;margin:4px 0 10px;border:1px solid var(--border);border-radius:10px;font-family:inherit;font-size:14px;box-sizing:border-box;">'
-    + '<input id="gs-cls-desc" maxlength="120" placeholder="Beschreibung (optional)" style="width:100%;padding:11px;margin:0 0 12px;border:1px solid var(--border);border-radius:10px;font-family:inherit;font-size:14px;box-sizing:border-box;">'
-    + '<button onclick="gsClassDoCreate()" style="width:100%;padding:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">Klasse erstellen</button>'
-    + '<button onclick="gsOpenClasses()" style="width:100%;margin-top:8px;padding:10px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">Zurück</button>'
+    + '<label style="font-size:12px;color:var(--muted);">'+_gsClsT('cls_name_label','Klassen-Name')+'</label>'
+    + '<input id="gs-cls-name" maxlength="60" placeholder="'+_gsClsT('cls_name_ph','z.B. Bio 1a')+'" style="width:100%;padding:11px;margin:4px 0 10px;border:1px solid var(--border);border-radius:10px;font-family:inherit;font-size:14px;box-sizing:border-box;">'
+    + '<input id="gs-cls-desc" maxlength="120" placeholder="'+_gsClsT('cls_desc_ph','Beschreibung (optional)')+'" style="width:100%;padding:11px;margin:0 0 12px;border:1px solid var(--border);border-radius:10px;font-family:inherit;font-size:14px;box-sizing:border-box;">'
+    + '<button onclick="gsClassDoCreate()" style="width:100%;padding:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">'+_gsClsT('cls_create_submit','Klasse erstellen')+'</button>'
+    + '<button onclick="gsOpenClasses()" style="width:100%;margin-top:8px;padding:10px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">'+_gsClsT('cls_back','Zurück')+'</button>'
     + '</div>');
 }
 window.gsClassCreate = gsClassCreate;
 async function gsClassDoCreate(){
   var org=document.getElementById('gs-cls-org'), nm=document.getElementById('gs-cls-name'), ds=document.getElementById('gs-cls-desc');
   var orgId=org?org.value:null; var name=nm?(nm.value||'').trim():''; var desc=ds?(ds.value||'').trim():'';
-  if (!orgId || !name) { if(typeof gsToast==='function') gsToast('Organisation + Name nötig.','warning'); return; }
+  if (!orgId || !name) { if(typeof gsToast==='function') gsToast(_gsClsT('cls_need_org_name','Organisation + Name nötig.'),'warning'); return; }
   try {
     var r = await sbFetch('/rest/v1/rpc/fn_class_create', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_org_id: orgId, p_name: name, p_description: desc||null })});
-    if (r && !r.error && r.data && r.data.id) { if(typeof gsToast==='function') gsToast('Klasse erstellt! Code: '+(r.data.join_code||''),'success'); gsOpenClasses(); }
-    else { var m=(r&&r.error&&r.error.message)||'Erstellen nicht möglich (Lehrkraft-Rolle nötig).'; if(typeof gsToast==='function') gsToast(m,'warning'); }
-  } catch(_){ if(typeof gsToast==='function') gsToast('Netzwerkfehler.','warning'); }
+    if (r && !r.error && r.data && r.data.id) { if(typeof gsToast==='function') gsToast(_gsClsT('cls_created','Klasse erstellt! Code:')+' '+(r.data.join_code||''),'success'); gsOpenClasses(); }
+    else { var m=(r&&r.error&&r.error.message)||_gsClsT('cls_create_fail','Erstellen nicht möglich (Lehrkraft-Rolle nötig).'); if(typeof gsToast==='function') gsToast(m,'warning'); }
+  } catch(_){ if(typeof gsToast==='function') gsToast(_gsClsT('cls_net_err','Netzwerkfehler.'),'warning'); }
 }
 window.gsClassDoCreate = gsClassDoCreate;
 
 async function gsOpenClassDetail(classId){
   if (typeof _gsNlOpen !== 'function') return;
   var info = (window._gsClassMap||{})[classId] || {};
-  var isTeacher = !!info.is_teacher; var name = info.name || 'Klasse';
-  _gsNlOpen('<div style="padding:30px;text-align:center;color:var(--muted);">⏳ Lade Klasse…</div>');
+  var isTeacher = !!info.is_teacher; var name = info.name || _gsClsT('cls_default_name','Klasse');
+  _gsNlOpen('<div style="padding:30px;text-align:center;color:var(--muted);">'+_gsClsT('cls_loading_one','⏳ Lade Klasse…')+'</div>');
   try {
     if (isTeacher) {
       var r = await sbFetch('/rest/v1/rpc/fn_class_roster', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_class_id: classId })});
-      if (!r || r.error || !r.data) { _gsNlOpen('<div style="padding:24px;text-align:center;color:#c62828;">⚠️ Klasse konnte nicht geladen werden.</div>'); return; }
+      if (!r || r.error || !r.data) { _gsNlOpen('<div style="padding:24px;text-align:center;color:#c62828;">'+_gsClsT('cls_load_fail','⚠️ Klasse konnte nicht geladen werden.')+'</div>'); return; }
       var d = r.data; var total = d.assignment_total || 0;
       var h = '<div style="padding:20px;max-width:480px;margin:0 auto;">';
       h += '<div style="font-size:20px;font-weight:900;color:var(--text);margin-bottom:2px;">🧑‍🏫 '+escHtml(name)+'</div>';
-      h += '<div style="font-size:12px;color:var(--muted);margin-bottom:14px;">'+(d.students?d.students.length:0)+' Schüler:innen · '+total+' Aufgabe(n)</div>';
-      h += '<button onclick="gsClassAssignmentCreate(\''+classId+'\')" style="width:100%;padding:11px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:14px;">➕ Neue Aufgabe</button>';
-      h += '<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:6px;">Aufgaben</div>';
+      h += '<div style="font-size:12px;color:var(--muted);margin-bottom:14px;">'+(d.students?d.students.length:0)+' '+_gsClsT('cls_students','Schüler:innen')+' · '+total+' '+_gsClsT('cls_tasks_n','Aufgabe(n)')+'</div>';
+      h += '<button onclick="gsClassAssignmentCreate(\''+classId+'\')" style="width:100%;padding:11px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:14px;">'+_gsClsT('cls_new_task','➕ Neue Aufgabe')+'</button>';
+      h += '<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:6px;">'+_gsClsT('cls_tasks_header','Aufgaben')+'</div>';
       if (d.assignments && d.assignments.length) d.assignments.forEach(function(a){
-        h += '<div style="background:var(--surface2);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:12.5px;color:var(--text);">📋 '+escHtml(a.title)+' <span style="color:var(--muted);">('+gsClassTaskLabel(a.task_type)+' · Ziel '+a.target_count+')</span></div>';
-      }); else h += '<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Noch keine Aufgaben.</div>';
-      h += '<div style="font-size:13px;font-weight:800;color:var(--text);margin:14px 0 6px;">Klassen-Fortschritt</div>';
+        h += '<div style="background:var(--surface2);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:12.5px;color:var(--text);">📋 '+escHtml(a.title)+' <span style="color:var(--muted);">('+gsClassTaskLabel(a.task_type)+' · '+_gsClsT('cls_target','Ziel')+' '+a.target_count+')</span></div>';
+      }); else h += '<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">'+_gsClsT('cls_no_tasks','Noch keine Aufgaben.')+'</div>';
+      h += '<div style="font-size:13px;font-weight:800;color:var(--text);margin:14px 0 6px;">'+_gsClsT('cls_progress_header','Klassen-Fortschritt')+'</div>';
       if (d.students && d.students.length) d.students.forEach(function(s){
         var pct = total ? Math.round((s.completed||0)/total*100) : 0;
-        h += '<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--text);margin-bottom:3px;"><span>'+escHtml(s.name||'Schüler:in')+'</span><span style="color:var(--muted);">'+(s.completed||0)+'/'+total+'</span></div><div style="height:6px;background:var(--surface2);border-radius:6px;overflow:hidden;"><div style="width:'+pct+'%;height:100%;background:linear-gradient(90deg,var(--g-main),var(--g-dark));"></div></div></div>';
-      }); else h += '<div style="font-size:12px;color:var(--muted);">Noch keine Schüler:innen. Teile den Klassen-Code aus der Klassen-Übersicht.</div>';
-      h += '<button onclick="gsOpenClasses()" style="width:100%;margin-top:14px;padding:10px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">Zurück</button></div>';
+        h += '<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--text);margin-bottom:3px;"><span>'+escHtml(s.name||_gsClsT('cls_student_default','Schüler:in'))+'</span><span style="color:var(--muted);">'+(s.completed||0)+'/'+total+'</span></div><div style="height:6px;background:var(--surface2);border-radius:6px;overflow:hidden;"><div style="width:'+pct+'%;height:100%;background:linear-gradient(90deg,var(--g-main),var(--g-dark));"></div></div></div>';
+      }); else h += '<div style="font-size:12px;color:var(--muted);">'+_gsClsT('cls_no_students','Noch keine Schüler:innen. Teile den Klassen-Code aus der Klassen-Übersicht.')+'</div>';
+      h += '<button onclick="gsOpenClasses()" style="width:100%;margin-top:14px;padding:10px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">'+_gsClsT('cls_back','Zurück')+'</button></div>';
       _gsNlOpen(h);
     } else {
       var r2 = await sbFetch('/rest/v1/rpc/fn_class_sync_my_progress', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_class_id: classId })});
       var asg = (r2 && r2.data) || []; if (!Array.isArray(asg)) asg = [];
       var h2 = '<div style="padding:20px;max-width:460px;margin:0 auto;">';
       h2 += '<div style="font-size:20px;font-weight:900;color:var(--text);margin-bottom:2px;">🎒 '+escHtml(name)+'</div>';
-      h2 += '<div style="font-size:12px;color:var(--muted);margin-bottom:14px;">Deine Aufgaben &amp; dein Fortschritt</div>';
-      if (!asg.length) h2 += '<div style="font-size:13px;color:var(--muted);text-align:center;padding:20px;">Noch keine Aufgaben in dieser Klasse.</div>';
+      h2 += '<div style="font-size:12px;color:var(--muted);margin-bottom:14px;">'+_gsClsT('cls_my_tasks_sub','Deine Aufgaben &amp; dein Fortschritt')+'</div>';
+      if (!asg.length) h2 += '<div style="font-size:13px;color:var(--muted);text-align:center;padding:20px;">'+_gsClsT('cls_no_tasks_student','Noch keine Aufgaben in dieser Klasse.')+'</div>';
       else asg.forEach(function(a){
         var pct = a.target_count ? Math.min(100, Math.round((a.progress||0)/a.target_count*100)) : (a.completed?100:0);
         h2 += '<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;">'
@@ -68253,42 +68330,42 @@ async function gsOpenClassDetail(classId){
           + '<div style="height:7px;background:var(--surface2);border-radius:6px;overflow:hidden;"><div style="width:'+pct+'%;height:100%;background:linear-gradient(90deg,var(--g-main),var(--g-dark));"></div></div>'
           + '</div>';
       });
-      h2 += '<div style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px;">Dein Fortschritt aktualisiert sich automatisch beim Scannen, Quizzen &amp; Lesen.</div>';
-      h2 += '<button onclick="gsOpenClasses()" style="width:100%;margin-top:14px;padding:10px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">Zurück</button></div>';
+      h2 += '<div style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px;">'+_gsClsT('cls_auto_progress_hint','Dein Fortschritt aktualisiert sich automatisch beim Scannen, Quizzen &amp; Lesen.')+'</div>';
+      h2 += '<button onclick="gsOpenClasses()" style="width:100%;margin-top:14px;padding:10px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">'+_gsClsT('cls_back','Zurück')+'</button></div>';
       _gsNlOpen(h2);
     }
-  } catch(_){ _gsNlOpen('<div style="padding:24px;text-align:center;color:#c62828;">⚠️ Fehler beim Laden.</div>'); }
+  } catch(_){ _gsNlOpen('<div style="padding:24px;text-align:center;color:#c62828;">'+_gsClsT('cls_load_err','⚠️ Fehler beim Laden.')+'</div>'); }
 }
 window.gsOpenClassDetail = gsOpenClassDetail;
 
 function gsClassAssignmentCreate(classId){
   _gsNlOpen('<div style="padding:24px;max-width:420px;margin:0 auto;">'
-    + '<div style="font-size:18px;font-weight:900;color:var(--text);margin-bottom:12px;">➕ Neue Aufgabe</div>'
-    + '<label style="font-size:12px;color:var(--muted);">Titel</label>'
-    + '<input id="gs-asg-title" maxlength="80" placeholder="z.B. Scanne 5 Wildpflanzen" style="width:100%;padding:11px;margin:4px 0 10px;border:1px solid var(--border);border-radius:10px;font-family:inherit;font-size:14px;box-sizing:border-box;">'
-    + '<label style="font-size:12px;color:var(--muted);">Typ (Auto-Fortschritt)</label>'
+    + '<div style="font-size:18px;font-weight:900;color:var(--text);margin-bottom:12px;">'+_gsClsT('cls_new_task','➕ Neue Aufgabe')+'</div>'
+    + '<label style="font-size:12px;color:var(--muted);">'+_gsClsT('cls_title_label','Titel')+'</label>'
+    + '<input id="gs-asg-title" maxlength="80" placeholder="'+_gsClsT('cls_title_ph','z.B. Scanne 5 Wildpflanzen')+'" style="width:100%;padding:11px;margin:4px 0 10px;border:1px solid var(--border);border-radius:10px;font-family:inherit;font-size:14px;box-sizing:border-box;">'
+    + '<label style="font-size:12px;color:var(--muted);">'+_gsClsT('cls_type_label','Typ (Auto-Fortschritt)')+'</label>'
     + '<select id="gs-asg-type" style="width:100%;padding:11px;margin:4px 0 10px;border:1px solid var(--border);border-radius:10px;font-family:inherit;font-size:14px;box-sizing:border-box;">'
-      + '<option value="scan_count">Pflanzen scannen</option>'
-      + '<option value="quiz_play">Quiz-Duelle spielen</option>'
-      + '<option value="knowledge_read">Wissens-Artikel lesen</option>'
-      + '<option value="manual">Manuell (ich hake ab)</option>'
+      + '<option value="scan_count">'+_gsClsT('cls_task_scan','Pflanzen scannen')+'</option>'
+      + '<option value="quiz_play">'+_gsClsT('cls_opt_quiz','Quiz-Duelle spielen')+'</option>'
+      + '<option value="knowledge_read">'+_gsClsT('cls_opt_read','Wissens-Artikel lesen')+'</option>'
+      + '<option value="manual">'+_gsClsT('cls_opt_manual','Manuell (ich hake ab)')+'</option>'
     + '</select>'
-    + '<label style="font-size:12px;color:var(--muted);">Ziel-Anzahl</label>'
+    + '<label style="font-size:12px;color:var(--muted);">'+_gsClsT('cls_target_label','Ziel-Anzahl')+'</label>'
     + '<input id="gs-asg-target" type="number" min="1" value="5" style="width:100%;padding:11px;margin:4px 0 12px;border:1px solid var(--border);border-radius:10px;font-family:inherit;font-size:14px;box-sizing:border-box;">'
-    + '<button onclick="gsClassDoAssignmentCreate(\''+classId+'\')" style="width:100%;padding:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">Aufgabe erstellen</button>'
-    + '<button onclick="gsOpenClassDetail(\''+classId+'\')" style="width:100%;margin-top:8px;padding:10px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">Zurück</button>'
+    + '<button onclick="gsClassDoAssignmentCreate(\''+classId+'\')" style="width:100%;padding:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">'+_gsClsT('cls_task_submit','Aufgabe erstellen')+'</button>'
+    + '<button onclick="gsOpenClassDetail(\''+classId+'\')" style="width:100%;margin-top:8px;padding:10px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">'+_gsClsT('cls_back','Zurück')+'</button>'
     + '</div>');
 }
 window.gsClassAssignmentCreate = gsClassAssignmentCreate;
 async function gsClassDoAssignmentCreate(classId){
   var t=document.getElementById('gs-asg-title'), ty=document.getElementById('gs-asg-type'), tg=document.getElementById('gs-asg-target');
   var title=t?(t.value||'').trim():''; var type=ty?ty.value:'manual'; var target=tg?parseInt(tg.value||'1',10):1;
-  if (!title) { if(typeof gsToast==='function') gsToast('Titel nötig.','warning'); return; }
+  if (!title) { if(typeof gsToast==='function') gsToast(_gsClsT('cls_need_title','Titel nötig.'),'warning'); return; }
   try {
     var r = await sbFetch('/rest/v1/rpc/fn_class_assignment_create', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_class_id:classId, p_title:title, p_description:null, p_task_type:type, p_target_count:(target>0?target:1), p_target_ref:null, p_due_at:null })});
-    if (r && !r.error && r.data) { if(typeof gsToast==='function') gsToast('Aufgabe erstellt.','success'); gsOpenClassDetail(classId); }
-    else { var m=(r&&r.error&&r.error.message)||'Fehlgeschlagen.'; if(typeof gsToast==='function') gsToast(m,'warning'); }
-  } catch(_){ if(typeof gsToast==='function') gsToast('Netzwerkfehler.','warning'); }
+    if (r && !r.error && r.data) { if(typeof gsToast==='function') gsToast(_gsClsT('cls_task_created','Aufgabe erstellt.'),'success'); gsOpenClassDetail(classId); }
+    else { var m=(r&&r.error&&r.error.message)||_gsClsT('cls_failed','Fehlgeschlagen.'); if(typeof gsToast==='function') gsToast(m,'warning'); }
+  } catch(_){ if(typeof gsToast==='function') gsToast(_gsClsT('cls_net_err','Netzwerkfehler.'),'warning'); }
 }
 window.gsClassDoAssignmentCreate = gsClassDoAssignmentCreate;
 
