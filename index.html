@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.81.20260609">
+<meta name="app-version" content="28.82.20260609">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15110,8 +15110,7 @@ async function dqPushToSupabase(pts,correct,timeMs){
     var user=(await supabase.auth.getUser()).data.user;
     if(!user) return;
     var stats=typeof dqGetStats==='function'?dqGetStats():{};
-    var prof={};try{prof=JSON.parse(localStorage.getItem('gs_profile')||'{}');}catch(e){}
-    var nm=prof.name||prof.username||(user.email||'').split('@')[0]||'Anonym';
+    var nm=localStorage.getItem('gs_sb_display_name')||localStorage.getItem('gs_social_name')||(user.email||'').split('@')[0]||'Anonym'; // v28.82: gs_profile tot → kanonisch
     await supabase.from('quiz_ranking').upsert({
       user_id:user.id,username:nm,total_points:stats.points||0,
       correct_answers:stats.correct||0,total_answers:stats.total||0,
@@ -15302,8 +15301,7 @@ function dqUpdateRanking(totalPoints, todayPts, correct) {
   // Lokales Ranking (alle User auf diesem Gerät = Test, für Supabase-User)
   var name = '';
   try {
-    var profile = JSON.parse(localStorage.getItem('gs_profile') || '{}');
-    name = profile.name || profile.username || profile.email || 'Anonym';
+    name = localStorage.getItem('gs_sb_display_name') || localStorage.getItem('gs_social_name') || (gsStore.get('gs_sb_email', null) || '').split('@')[0] || 'Anonym'; // v28.82: gs_profile tot → kanonisch
   } catch(e) { name = 'Anonym'; }
 
   var key = 'gs_dq_ranking_v1';
@@ -15739,8 +15737,10 @@ function gsGetXPProgress() {
 function gsCheckAchievement() {
   // Simple achievement-check placeholder — erweiterbar
   try {
-    var scans = parseInt(localStorage.getItem('gs_scan_count') || '0');
-    var favs = (localStorage.getItem('gs_favorites') || '').split(',').filter(Boolean).length;
+    // v28.82 FIX: tote Keys gs_scan_count/gs_favorites (0 Writes) → kanonische Quellen
+    // gs_scan_history (SCAN_HISTORY_KEY) + ps_favs. Vorher zeigten Achievement-Hints immer 0.
+    var scans = (function(){ try { return JSON.parse(localStorage.getItem('gs_scan_history')||'[]').length; } catch(_){ return 0; } })();
+    var favs = (function(){ try { return JSON.parse(localStorage.getItem('ps_favs')||'[]').length; } catch(_){ return 0; } })();
     // v28.39 FIX-6: war 'gs_xp_total' (wird NIE geschrieben) → xp_100/xp_500-Achievements triggerten nie.
     // Korrekt: gsGetXP() liest den echten Key GS_XP_KEY ('gs_xp').
     var xp = (typeof gsGetXP === 'function') ? gsGetXP() : parseInt(localStorage.getItem(GS_XP_KEY) || '0');
@@ -15891,8 +15891,10 @@ function gsUpdateXPBar(opts) {
   var achievementHint = '';
   try {
     var unlocked = JSON.parse(localStorage.getItem('gs_achievements') || '[]');
-    var scans = parseInt(localStorage.getItem('gs_scan_count') || '0');
-    var favs = (localStorage.getItem('gs_favorites') || '').split(',').filter(Boolean).length;
+    // v28.82 FIX: tote Keys gs_scan_count/gs_favorites (0 Writes) → kanonische Quellen
+    // gs_scan_history (SCAN_HISTORY_KEY) + ps_favs. Vorher zeigten Achievement-Hints immer 0.
+    var scans = (function(){ try { return JSON.parse(localStorage.getItem('gs_scan_history')||'[]').length; } catch(_){ return 0; } })();
+    var favs = (function(){ try { return JSON.parse(localStorage.getItem('ps_favs')||'[]').length; } catch(_){ return 0; } })();
     var milestones = [
       {id:'first_scan',  cond: 1,    cur: scans, label:'🎯 Erster Scan'},
       {id:'scan_10',     cond: 10,   cur: scans, label:'📸 10 Scans'},
@@ -18243,7 +18245,7 @@ window._gsHomeWeatherInterval = setInterval(loadHomeWeather, 2 * 60 * 60 * 1000)
 function gsUpdateHomeGreeting() {
   try {
     var h = new Date().getHours();
-    var name = (localStorage.getItem('gs_profile_name') || '').trim();
+    var name = (localStorage.getItem('gs_sb_display_name') || localStorage.getItem('gs_social_name') || '').trim(); // v28.82: gs_profile_name tot → kanonisch
     var firstname = name ? name.split(' ')[0].split('@')[0] : '';
     
     var greeting, emoji;
@@ -18649,7 +18651,7 @@ function gsRatingsSave() {
 // Aktueller User (für Verified-Badge)
 function gsMarketUser() {
   var email = gsStore.get('gs_sb_email', null) || '';
-  var name  = localStorage.getItem('gs_profile_name') || '';
+  var name  = localStorage.getItem('gs_sb_display_name') || localStorage.getItem('gs_social_name') || ''; // v28.82: gs_profile_name tot → kanonisch
   var verified = !!email; // Email vorhanden = basis-verifiziert
   return { email: email, name: name || email.split('@')[0] || 'Anonym', verified: verified };
 }
@@ -43148,9 +43150,16 @@ document.addEventListener('visibilitychange', function(){
       var age = Date.now() - (data.lastSave || data.start || 0);
       if (age > 30*60*1000) { localStorage.removeItem(_GS_TRACK_LIVE_KEY); return; }
       if (!data.points || data.points.length < 3) { localStorage.removeItem(_GS_TRACK_LIVE_KEY); return; }
-      // User fragen ob fortsetzen
-      setTimeout(function(){
-        if (!confirm('🎯 Letzter Track wurde unterbrochen (' + data.points.length + ' Punkte, vor ' + Math.round(age/60000) + ' min). Als beendet speichern?')) {
+      // User fragen ob fortsetzen — v28.82 HL#2: gsConfirmModal statt nativem confirm()
+      // (feuerte 2.5s nach Boot → blockierte iOS-PWA-Webview automatisch).
+      setTimeout(async function(){
+        var _go = false;
+        try {
+          _go = (typeof gsConfirmModal === 'function')
+            ? await gsConfirmModal({ title:'Track wiederherstellen?', text:'🎯 Letzter Track wurde unterbrochen (' + data.points.length + ' Punkte, vor ' + Math.round(age/60000) + ' min). Als beendet speichern?', okText:'Speichern', cancelText:'Verwerfen' })
+            : false;
+        } catch(_){ _go = false; }
+        if (!_go) {
           localStorage.removeItem(_GS_TRACK_LIVE_KEY);
           return;
         }
@@ -46571,9 +46580,10 @@ function openGardenAI() {
 
   // Pre-fill location aus Profile
   try {
-    var prof = JSON.parse(localStorage.getItem('gs_profile') || '{}');
+    var _ul = JSON.parse(localStorage.getItem('gs_user_location') || '{}'); // v28.82: gs_profile tot → echte Standort-Quelle
+    var _city = (_ul && (_ul.city || _ul.name)) || '';
     var locEl = document.getElementById('pp-location');
-    if (locEl && prof && prof.city && !locEl.value) locEl.value = prof.city;
+    if (locEl && _city && !locEl.value) locEl.value = _city;
   } catch(e) {}
 
   // Pre-fill last lux
@@ -57366,6 +57376,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.82', date: '09.06.2026',
+    headline: '🛠️ Voll-Audit: versteckte Live-Bugs behoben',
+    summary: 'Start eines kompletten App-Audits (v28.00 bis heute). Drei reale, bisher unsichtbare Fehler behoben: (1) Beim App-Start konnte ein nativer System-Dialog (unterbrochene GPS-Aufzeichnung) das App-Fenster auf dem iPhone blockieren — jetzt In-App-Dialog. (2) Die Achievement-Vorschau in der XP-Leiste zeigte allen Nutzern fälschlich 0 Scans/Favoriten. (3) Dein Vorname fehlte an mehreren Stellen (Startseiten-Begrüssung, Marktplatz-Verkäufername, Quiz-Rangliste) — wurde aus einem leeren Speicher gelesen.',
+    user_summary: '🛠️ Audit-Fixes: kein Start-Blocker mehr, korrekte Scan-/Favoriten-Zahlen, Vorname überall sichtbar.',
+    user_items: [
+      { emoji: '📱', text: 'Kein nativer Dialog mehr beim App-Start (iPhone-Blocker behoben)' },
+      { emoji: '🎯', text: 'XP-Achievements zeigen echte Scan-/Favoriten-Zahlen' },
+      { emoji: '👤', text: 'Dein Name erscheint wieder bei Begrüssung, Marktplatz & Quiz-Rangliste' },
+    ],
+    items: [
+      {emoji:'🔍', bold:'Audit:', text:' 9-Agenten-Workflow über v28.00-v28.81, 44 verifizierte Befunde (BE+FE). Sprint A = die HIGH-Live-Bugs.'},
+      {emoji:'🐛', bold:'HL#2:', text:' GPX-Recovery-confirm() feuerte 2.5s nach Boot → iOS-PWA-Blocker → gsConfirmModal.'},
+      {emoji:'🔑', bold:'Tote Keys:', text:' gs_scan_count/gs_favorites + gs_profile/gs_profile_name (0 Writes) → kanonische Quellen.'},
+    ]
+  },
+  {
     v: 'v28.81', date: '09.06.2026',
     headline: '🌍 Lichtscan & Profil jetzt auch auf EN/ES',
     summary: 'Abschluss der Sprach-Vervollständigung: Der Lichtscan (Lichtstärke-Kategorien + Pflanzen-Empfehlungen) und die Profil-Vollansicht (Statistiken, Streak, Meilensteine, Konto-Einstellungen) waren als letzte Bereiche noch fest auf Deutsch — jetzt vollständig auf Englisch und Spanisch übersetzt.',
@@ -61583,7 +61609,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.81';
+var GS_VERSION = 'v28.82';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -66198,7 +66224,8 @@ async function onbDoLogin() {
       // Normaler Re-Login: Welcome-Back-Toast mit Display-Name
       var displayName = '';
       try {
-        displayName = localStorage.getItem('gs_profile_name') ||
+        displayName = localStorage.getItem('gs_sb_display_name') ||
+                      localStorage.getItem('gs_social_name') ||
                       (gsStore.get('gs_sb_email', '') || '').split('@')[0] || '';
       } catch(_){}
       if (typeof showProfileToast === 'function') {
