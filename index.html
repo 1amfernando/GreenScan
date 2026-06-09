@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.91.20260610">
+<meta name="app-version" content="28.92.20260610">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11219,6 +11219,16 @@ window.GS_I18N_JS_STRINGS = {
   'org_onb_step3':           '3️⃣ <b>Klasse erstellen</b> → Aufgaben stellen (🎓 Klassen)',
   'org_onb_cta':             'Zu meinen Organisationen',
   'org_onb_cta2':            '🎓 Direkt zu Klassen',
+  // v28.92 i18n — user-facing Eingabe-Dialoge (gsPromptModal-Titel/Messages)
+  'prompt_scan_correct_title':'Korrektur melden',
+  'prompt_scan_correct_msg': 'Was hätte korrekt erkannt werden sollen?\n(deutscher oder lateinischer Name)\n\nKI hatte erkannt:',
+  'prompt_pp_min_points':    'Mindestens 3 Punkte setzen.',
+  'prompt_pp_width_title':   'Garten-Breite',
+  'prompt_pp_width_msg':     'Welche Breite hat dein Garten (m)?\n(Die Zeichnung wird entsprechend skaliert)',
+  'prompt_pwreset_title':    'Passwort zurücksetzen',
+  'prompt_name_title':       'Namen ändern',
+  'prompt_name_msg':         'Neuer Name:',
+  'prompt_name_empty':       '❌ Name darf nicht leer sein',
   'water_dry_hint':            'giessen. Erde leicht antrocknen lassen.',
   'detail_care':               '🪴 Pflege & Standort',
   'tox_strong':                'STARK GIFTIG',
@@ -24278,10 +24288,12 @@ window.gsScanHistoryReportWrong = async function(idx) {
   var hist = getScanHistory();
   var e = hist[idx];
   if (!e) return;
-  // v28.90 HL#2: native prompt() friert iOS-PWA ein → gsPromptModal (Promise-API).
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+  // v28.90 HL#2: native prompt() friert iOS-PWA ein → gsPromptModal (Promise-API). v28.92 i18n.
+  var _scMsg = _t('prompt_scan_correct_msg','Was hätte korrekt erkannt werden sollen?\n(deutscher oder lateinischer Name)\n\nKI hatte erkannt:') + ' ' + e.name;
   var correctName = (typeof gsPromptModal === 'function')
-    ? await gsPromptModal({title:'Korrektur melden', message:'Was hätte korrekt erkannt werden sollen?\n(deutscher oder lateinischer Name)\n\nKI hatte erkannt: ' + e.name})
-    : prompt('Was hätte korrekt erkannt werden sollen?\n(deutscher oder lateinischer Name)\n\nKI hatte erkannt: ' + e.name);
+    ? await gsPromptModal({title:_t('prompt_scan_correct_title','Korrektur melden'), message:_scMsg})
+    : prompt(_scMsg);
   if (!correctName || !correctName.trim()) return;
   if (typeof sbFetch === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
     var uid = gsStore.get('gs_sb_uid', null);
@@ -47286,17 +47298,19 @@ function gsPPcanvasDraw() {
 function gsPPcanvasUndo() { _gsPP.canvasPoints.pop(); gsPPcanvasDraw(); }
 function gsPPcanvasReset() { _gsPP.canvasPoints = []; gsPPcanvasDraw(); }
 async function gsPPcanvasDone() {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var pts = _gsPP.canvasPoints;
-  if (pts.length < 3) { gsToast('Mindestens 3 Punkte setzen.', 'warn'); return; }
+  if (pts.length < 3) { gsToast(_t('prompt_pp_min_points','Mindestens 3 Punkte setzen.'), 'warn'); return; }
   // Bounding Box + ungefähre Fläche (Shoelace-Formel)
   var minX = Math.min.apply(null, pts.map(function(p){return p.x;}));
   var maxX = Math.max.apply(null, pts.map(function(p){return p.x;}));
   var minY = Math.min.apply(null, pts.map(function(p){return p.y;}));
   var maxY = Math.max.apply(null, pts.map(function(p){return p.y;}));
-  // v28.90 HL#2: native prompt() friert iOS-PWA ein → gsPromptModal.
+  // v28.90 HL#2: native prompt() friert iOS-PWA ein → gsPromptModal. v28.92 i18n.
+  var _pwMsg = _t('prompt_pp_width_msg','Welche Breite hat dein Garten (m)?\n(Die Zeichnung wird entsprechend skaliert)');
   var ask = (typeof gsPromptModal === 'function')
-    ? await gsPromptModal({title:'Garten-Breite', message:'Welche Breite hat dein Garten (m)?\n(Die Zeichnung wird entsprechend skaliert)', value:'5'})
-    : prompt('Welche Breite hat dein Garten (m)?\n(Die Zeichnung wird entsprechend skaliert)', '5');
+    ? await gsPromptModal({title:_t('prompt_pp_width_title','Garten-Breite'), message:_pwMsg, value:'5'})
+    : prompt(_pwMsg, '5');
   var widthM = parseFloat(ask) || 5;
   var scale = widthM / (maxX - minX || 1);
   var lengthM = Math.round((maxY - minY) * scale * 10) / 10;
@@ -57654,6 +57668,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.92', date: '10.06.2026',
+    headline: '🌍 Eingabe-Dialoge jetzt mehrsprachig',
+    summary: 'i18n-Abschluss: Die letzten 4 user-seitigen Eingabe-Fenster (Scan-Korrektur melden, Garten-Breite im KI-Planer, Passwort zurücksetzen, Namen ändern) waren noch fest auf Deutsch — jetzt auf Englisch, Spanisch, Französisch und Italienisch. Damit ist der gesamte v28-Audit (Frontend + Backend) abgeschlossen.',
+    user_summary: '🌍 Eingabe-Dialoge (Scan-Korrektur, Garten-Breite, Passwort-Reset, Namen ändern) jetzt auf EN/ES/FR/IT.',
+    user_items: [
+      { emoji: '✏️', text: 'Eingabe-Fenster im Scanner, Garten-Planer & Profil übersetzt' },
+    ],
+    items: [
+      {emoji:'🔤', bold:'i18n:', text:' 9 prompt_*-Keys (Titel/Messages/Validierung von gsScanHistoryReportWrong, gsPPcanvasDone, profForgotPw, profEditName) + EN/ES/FR/IT geseedet (36 fetched). Admin/Dev-Prompts (Feedback-Triage, Sensor-Setup) bewusst DE. 7/7 node --check. ⇒ v28-Voll-Audit komplett.'},
+    ]
+  },
+  {
     v: 'v28.91', date: '10.06.2026',
     headline: '💾 Speicher-Warnung & sauberes Abmelden',
     summary: 'Audit-Robustheit: (1) Wenn der Gerätespeicher voll ist, erscheint jetzt eine klare Warnung („Speicher voll — bitte alte Fotos/Einträge löschen") statt dass ein Speichern still fehlschlägt. (2) Beim Abmelden werden Marktplatz-Chat-Verbindung und Hintergrund-Abfragen sauber beendet (kein Daten-/Verbindungs-Leak mehr).',
@@ -62007,7 +62033,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.91';
+var GS_VERSION = 'v28.92';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -65877,7 +65903,7 @@ async function profForgotPw() {
   var email = (emailField && emailField.value);
   if (!email) {
     email = (typeof gsPromptModal === 'function')
-      ? await gsPromptModal({title:'Passwort zurücksetzen', message:_t('pw_reset_prompt','E-Mail für Passwort-Reset:'), placeholder:'name@example.com'})
+      ? await gsPromptModal({title:_t('prompt_pwreset_title','Passwort zurücksetzen'), message:_t('pw_reset_prompt','E-Mail für Passwort-Reset:'), placeholder:'name@example.com'})
       : prompt(_t('pw_reset_prompt','E-Mail für Passwort-Reset:'));
   }
   if (!email) return;
@@ -66055,14 +66081,16 @@ async function profSetAvatar(avatar, popupEl) {
 }
 
 async function profEditName() {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var profile = _sbProfile;
   var current = (profile && profile.display_name) || '';
-  // v28.90 HL#2: native prompt() friert iOS-PWA ein → gsPromptModal.
+  // v28.90 HL#2: native prompt() friert iOS-PWA ein → gsPromptModal. v28.92 i18n.
+  var _nMsg = _t('prompt_name_msg','Neuer Name:');
   var newName = (typeof gsPromptModal === 'function')
-    ? await gsPromptModal({title:'Namen ändern', message:'Neuer Name:', value:current})
-    : prompt('Neuer Name:', current);
+    ? await gsPromptModal({title:_t('prompt_name_title','Namen ändern'), message:_nMsg, value:current})
+    : prompt(_nMsg, current);
   if (newName === null) return;
-  if (!newName.trim()) { showProfileToast('❌ Name darf nicht leer sein'); return; }
+  if (!newName.trim()) { showProfileToast(_t('prompt_name_empty','❌ Name darf nicht leer sein')); return; }
   await sbSaveProfile({display_name: newName.trim()});
   localStorage.setItem('gs_sb_display_name', newName.trim());
   var mc = document.getElementById('profile-modal-content');
