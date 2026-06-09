@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.90.20260610">
+<meta name="app-version" content="28.91.20260610">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -6235,6 +6235,20 @@ function gsIsValidEmail(email) {
     try { return _origSet(k, v); }
     catch(e) {
       console.warn('localStorage.setItem quota/fail for "' + k + '":', e.message);
+      // v28.91 HL#10: zentraler Choke-Point → throttled User-Feedback bei Quota.
+      // Schützt ALLE setItem-Calls (305+) ohne Einzel-Eingriffe. Toast max 1×/60s,
+      // ts VOR gsToast-Call gesetzt → keine Rekursion falls gsToast intern speichert.
+      try {
+        var _qe = (e && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || (e.code === 22) || (e.code === 1014)));
+        if (_qe) {
+          try { window.gsStoreQuotaHits = (window.gsStoreQuotaHits||0) + 1; } catch(__){}
+          var _now = (new Date()).getTime();
+          if (typeof gsToast === 'function' && (!window._gsQuotaToastTs || (_now - window._gsQuotaToastTs) > 60000)) {
+            window._gsQuotaToastTs = _now;
+            gsToast('⚠️ Gerätespeicher voll — bitte alte Fotos/Einträge löschen, damit neue gespeichert werden können.', 'warning', 6000);
+          }
+        }
+      } catch(__){}
       return undefined;
     }
   };
@@ -57640,6 +57654,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.91', date: '10.06.2026',
+    headline: '💾 Speicher-Warnung & sauberes Abmelden',
+    summary: 'Audit-Robustheit: (1) Wenn der Gerätespeicher voll ist, erscheint jetzt eine klare Warnung („Speicher voll — bitte alte Fotos/Einträge löschen") statt dass ein Speichern still fehlschlägt. (2) Beim Abmelden werden Marktplatz-Chat-Verbindung und Hintergrund-Abfragen sauber beendet (kein Daten-/Verbindungs-Leak mehr).',
+    user_summary: '💾 Klare Warnung bei vollem Speicher · sauberes Beenden von Chat-Verbindungen beim Abmelden.',
+    user_items: [
+      { emoji: '⚠️', text: 'Bei vollem Speicher: sichtbare Warnung statt stillem Daten-Verlust' },
+      { emoji: '🔌', text: 'Abmelden beendet Chat-Live-Verbindung & Hintergrund-Polling sauber' },
+    ],
+    items: [
+      {emoji:'💾', bold:'HL#10:', text:' Globaler localStorage.setItem-Wrapper (1 Choke-Point, deckt 305+ Calls) zeigt bei QuotaExceededError einen throttled User-Toast (max 1×/60s, ts-vor-Toast → rekursionssicher). Einzel-Site-Eingriffe unnötig — Wrapper fängt bereits alle Quota-Errors ab (verifiziert).'},
+      {emoji:'🔌', bold:'Leak-Fix:', text:' sbLogout stoppt jetzt _gsChat.pollId (5s-Poll) + _gsRealtimeChat.unsubscribe(). Vorher entfernte der Logout nur display:none (nicht .open-Klasse) → Poll+WS liefen mit stale Session weiter. 7/7 node --check.'},
+    ]
+  },
+  {
     v: 'v28.90', date: '10.06.2026',
     headline: '📲 Eingabe-Dialoge iOS-PWA-sicher',
     summary: 'Audit-Härtung (Hard-Lesson #2): Die letzten 7 nativen Eingabe-Fenster (prompt()) — die auf iPhone-Apps im Standalone-Modus die ganze App einfrieren konnten — wurden durch das app-eigene, sichere Eingabe-Modal ersetzt. Betrifft u.a. Scan-Korrektur, Garten-Breite (KI-Planer), Passwort-Reset und Namen ändern.',
@@ -61979,7 +62007,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.90';
+var GS_VERSION = 'v28.91';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -63340,6 +63368,12 @@ async function sbLogout() {
     }, 10000).catch(function(){});
   }
   sbClearSession();
+  // v28.91 Leak-Fix: Marktplatz-Chat-Poll + Realtime-WS beim Logout stoppen.
+  // sbLogout setzt unten nur display:none (entfernt NICHT die .open-Klasse) → der
+  // 5s-Poll @_gsChat.pollId erkennt den Logout sonst nie → Poll + WS liefen mit
+  // stale Session weiter. Hier explizit beenden.
+  try { if (window._gsChat && window._gsChat.pollId) { clearInterval(window._gsChat.pollId); window._gsChat.pollId = null; } } catch(_){}
+  try { if (window._gsRealtimeChat && window._gsRealtimeChat.unsubscribe) window._gsRealtimeChat.unsubscribe(); } catch(_){}
   if (typeof gsOnLogout === 'function') gsOnLogout();
   // v25.4 A1: Sofort Onboarding zeigen — User soll nicht auf der letzten Seite
   // hängen bleiben. Wrapper sichtbar machen + Sub-View auf onb-start zurücksetzen.
