@@ -1,0 +1,20 @@
+-- ============================================================================
+-- v28_74_rls_perf_drop_redundant_harvest_insert — Block-G B2 (Perf, LIVE-Spiegel).
+-- Einzige nach voller Verifikation sichere multiple_permissive-Konsolidierung.
+--
+-- harvest_log.harvest_insert_own (INSERT {authenticated} WC=user_id=auth.uid()) ist
+-- EXAKT redundant zu harvest_owner_all (ALL {public} WC=auth.uid()=user_id):
+--   • {public} ⊇ {authenticated}  • Bedingung identisch (nur kommutativ a=b vs b=a)
+-- → Drop entfernt 1 multiple_permissive ohne Zugriffs-Änderung (authenticated insertet
+--   eigene Zeilen weiterhin via owner_all). Muster wie v28.18 (5 redundante insert_own).
+--
+-- WARUM NICHT MEHR: der Rest der 76 multiple_permissive-Advisor-Treffer ist NICHT sicher:
+--   • verschiedene Rollen = kein echter Overlap (z.B. ai_daily_usage: ALL=service_role
+--     vs SELECT=authenticated → Droppen würde User-Reads BRECHEN — NICHT anfassen).
+--   • admin/owner-ALL + public/own-SELECT (folk_lore/recipes/quiz_leaderboard/social_posts
+--     /post_comments …): "Fix" = ALL-Policy in INSERT/UPDATE/DELETE splitten = viel Churn +
+--     echtes Zugriffs-Risiko auf Live-Payment-DB für INFO-Level-Gewinn → bleibt DEFERRED
+--     (wie in CLAUDE.md vermerkt). FK-Indizes: bereits vollständig (v28.13).
+-- Verifiziert: harvest_log behält owner_all:ALL → Owner-INSERT weiter gedeckt.
+-- ============================================================================
+DROP POLICY IF EXISTS harvest_insert_own ON public.harvest_log;
