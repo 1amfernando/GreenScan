@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.89.20260609">
+<meta name="app-version" content="28.90.20260610">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -24260,11 +24260,14 @@ window.gsScanHistorySaveNote = function(idx) {
 };
 
 // v24.10: Falsch-erkannt-Korrektur (öffnet einfacher Prompt + sendet an scan_corrections)
-window.gsScanHistoryReportWrong = function(idx) {
+window.gsScanHistoryReportWrong = async function(idx) {
   var hist = getScanHistory();
   var e = hist[idx];
   if (!e) return;
-  var correctName = prompt('Was hätte korrekt erkannt werden sollen?\n(deutscher oder lateinischer Name)\n\nKI hatte erkannt: ' + e.name);
+  // v28.90 HL#2: native prompt() friert iOS-PWA ein → gsPromptModal (Promise-API).
+  var correctName = (typeof gsPromptModal === 'function')
+    ? await gsPromptModal({title:'Korrektur melden', message:'Was hätte korrekt erkannt werden sollen?\n(deutscher oder lateinischer Name)\n\nKI hatte erkannt: ' + e.name})
+    : prompt('Was hätte korrekt erkannt werden sollen?\n(deutscher oder lateinischer Name)\n\nKI hatte erkannt: ' + e.name);
   if (!correctName || !correctName.trim()) return;
   if (typeof sbFetch === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
     var uid = gsStore.get('gs_sb_uid', null);
@@ -28106,7 +28109,10 @@ window.gsFbMarkDone = async function(id){
   if (!Array.isArray(feedbackItems)) return;
   var fb = feedbackItems.find(function(f){ return f.id === id; });
   if (!fb) { if (typeof showProfileToast === 'function') showProfileToast('⚠️ Feedback nicht gefunden'); return; }
-  var note = prompt('Kurze Erklärung was umgesetzt/entschieden wurde (wird den Usern angezeigt):', fb.ki_action || '');
+  // v28.90 HL#2: native prompt() friert iOS-PWA ein → gsPromptModal.
+  var note = (typeof gsPromptModal === 'function')
+    ? await gsPromptModal({title:'Als erledigt markieren', message:'Kurze Erklärung was umgesetzt/entschieden wurde (wird den Usern angezeigt):', value: fb.ki_action || '', multiline:true})
+    : prompt('Kurze Erklärung was umgesetzt/entschieden wurde (wird den Usern angezeigt):', fb.ki_action || '');
   if (note === null) return; // User cancelled
   note = String(note || '').trim();
   if (!note) { if (typeof showProfileToast === 'function') showProfileToast('⚠️ Bitte eine Erklärung angeben'); return; }
@@ -47265,7 +47271,7 @@ function gsPPcanvasDraw() {
 }
 function gsPPcanvasUndo() { _gsPP.canvasPoints.pop(); gsPPcanvasDraw(); }
 function gsPPcanvasReset() { _gsPP.canvasPoints = []; gsPPcanvasDraw(); }
-function gsPPcanvasDone() {
+async function gsPPcanvasDone() {
   var pts = _gsPP.canvasPoints;
   if (pts.length < 3) { gsToast('Mindestens 3 Punkte setzen.', 'warn'); return; }
   // Bounding Box + ungefähre Fläche (Shoelace-Formel)
@@ -47273,7 +47279,10 @@ function gsPPcanvasDone() {
   var maxX = Math.max.apply(null, pts.map(function(p){return p.x;}));
   var minY = Math.min.apply(null, pts.map(function(p){return p.y;}));
   var maxY = Math.max.apply(null, pts.map(function(p){return p.y;}));
-  var ask = prompt('Welche Breite hat dein Garten (m)?\n(Die Zeichnung wird entsprechend skaliert)', '5');
+  // v28.90 HL#2: native prompt() friert iOS-PWA ein → gsPromptModal.
+  var ask = (typeof gsPromptModal === 'function')
+    ? await gsPromptModal({title:'Garten-Breite', message:'Welche Breite hat dein Garten (m)?\n(Die Zeichnung wird entsprechend skaliert)', value:'5'})
+    : prompt('Welche Breite hat dein Garten (m)?\n(Die Zeichnung wird entsprechend skaliert)', '5');
   var widthM = parseFloat(ask) || 5;
   var scale = widthM / (maxX - minX || 1);
   var lengthM = Math.round((maxY - minY) * scale * 10) / 10;
@@ -55112,10 +55121,15 @@ async function gsDevAddCloudSensor() {
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) {
     showProfileToast && showProfileToast('🔐 Bitte einloggen'); return;
   }
-  var name = prompt('Wie heißt der Sensor? (z.B. "Tomatenbeet ESP32")');
+  // v28.90 HL#2: native prompt() friert iOS-PWA ein → gsPromptModal.
+  var name = (typeof gsPromptModal === 'function')
+    ? await gsPromptModal({title:'Sensor hinzufügen', message:'Wie heißt der Sensor?', placeholder:'z.B. Tomatenbeet ESP32'})
+    : prompt('Wie heißt der Sensor? (z.B. "Tomatenbeet ESP32")');
   if (!name) return;
   var kindOpts = 'soil, light, temp, humidity, generic, multi';
-  var kind = prompt('Sensor-Typ?\n(' + kindOpts + ')', 'multi');
+  var kind = (typeof gsPromptModal === 'function')
+    ? await gsPromptModal({title:'Sensor-Typ', message:'Sensor-Typ?\n(' + kindOpts + ')', value:'multi'})
+    : prompt('Sensor-Typ?\n(' + kindOpts + ')', 'multi');
   if (!kind) kind = 'generic';
   var uid = gsStore.get('gs_sb_uid', null);
   try {
@@ -57625,6 +57639,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v28.90', date: '10.06.2026',
+    headline: '📲 Eingabe-Dialoge iOS-PWA-sicher',
+    summary: 'Audit-Härtung (Hard-Lesson #2): Die letzten 7 nativen Eingabe-Fenster (prompt()) — die auf iPhone-Apps im Standalone-Modus die ganze App einfrieren konnten — wurden durch das app-eigene, sichere Eingabe-Modal ersetzt. Betrifft u.a. Scan-Korrektur, Garten-Breite (KI-Planer), Passwort-Reset und Namen ändern.',
+    user_summary: '📲 Eingabe-Fenster (Scan-Korrektur, Garten-Breite, Namen ändern …) friert iOS-App nicht mehr ein.',
+    user_items: [
+      { emoji: '🛡️', text: 'Keine nativen prompt()-Fenster mehr — iOS-PWA bleibt bedienbar' },
+      { emoji: '✏️', text: 'Schönere, einheitliche Eingabe-Dialoge mit Abbrechen' },
+    ],
+    items: [
+      {emoji:'🛡️', bold:'HL#2:', text:' 7 native prompt() → gsPromptModal (Promise-API + defensiver Fallback): gsScanHistoryReportWrong, gsFbMarkDone, gsPPcanvasDone, gsDevAddCloudSensor (2×), profForgotPw, profEditName. 2 SYNC-Funktionen zu async umgebaut (nur onclick-Caller, verifiziert). Dead-Code-Audit: gsTrackEvent/gsRedeemVoucher = staged Features mit Backend-Bezug → behalten; _gsAutoSyncInterval-Clear verworfen (innerer sbIsLoggedIn-Guard macht ihn benigne; naives Clear hätte Re-Login-Sync regressiert). 7/7 node --check.'},
+    ]
+  },
   {
     v: 'v28.89', date: '10.06.2026',
     headline: '🏢 Organisationen jetzt mehrsprachig',
@@ -61952,7 +61979,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.89';
+var GS_VERSION = 'v28.90';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -65812,7 +65839,13 @@ async function profForgotPw() {
   // v23.72: Robuster Reset-Flow mit User-Feedback
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var emailField = document.getElementById('prof-email');
-  var email = (emailField && emailField.value) || prompt(_t('pw_reset_prompt','E-Mail für Passwort-Reset:'));
+  // v28.90 HL#2: native prompt() friert iOS-PWA ein → gsPromptModal.
+  var email = (emailField && emailField.value);
+  if (!email) {
+    email = (typeof gsPromptModal === 'function')
+      ? await gsPromptModal({title:'Passwort zurücksetzen', message:_t('pw_reset_prompt','E-Mail für Passwort-Reset:'), placeholder:'name@example.com'})
+      : prompt(_t('pw_reset_prompt','E-Mail für Passwort-Reset:'));
+  }
   if (!email) return;
   email = String(email).trim();
   if (!email) return;
@@ -65990,7 +66023,10 @@ async function profSetAvatar(avatar, popupEl) {
 async function profEditName() {
   var profile = _sbProfile;
   var current = (profile && profile.display_name) || '';
-  var newName = prompt('Neuer Name:', current);
+  // v28.90 HL#2: native prompt() friert iOS-PWA ein → gsPromptModal.
+  var newName = (typeof gsPromptModal === 'function')
+    ? await gsPromptModal({title:'Namen ändern', message:'Neuer Name:', value:current})
+    : prompt('Neuer Name:', current);
   if (newName === null) return;
   if (!newName.trim()) { showProfileToast('❌ Name darf nicht leer sein'); return; }
   await sbSaveProfile({display_name: newName.trim()});
