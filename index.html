@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.77.20260609">
+<meta name="app-version" content="28.78.20260609">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14524,7 +14524,7 @@ function gsUpdateMoreStats() {
   if (typeof gsGetLevel === 'function') {
     var lvl = gsGetLevel(xp);
     var lvlEl = document.getElementById('more-level-name');
-    if (lvlEl) lvlEl.textContent = (lvl.icon||'🌱') + ' ' + (lvl.name||'Naturentdecker');
+    if (lvlEl) lvlEl.textContent = (lvl.icon||'🌱') + ' ' + (lvl.name||'Naturbeobachter');
   }
 }
 
@@ -15640,17 +15640,32 @@ function safeGetItem(key, fallback) {
 
 // ══ XP & LEVEL SYSTEM ══════════════════════════════════════════
 var GS_XP_KEY = 'gs_xp';
+// v28.78 FIX-6b Phase B: GS_LEVELS ist die EINE kanonische Level-Leiter (vorher 3 divergente:
+// GS_LEVELS 10-stufig, PROFILE_XP_TABLE 20-stufig, inline LVL_NAMES). Schwellen/Namen/Icons =
+// PROFILE-Set, weil die DB-Spalte profiles.level (via fn_add_xp) bereits darauf basiert → Home-Bar,
+// Menü-Bar, Profil und Leaderboard zeigen jetzt überall denselben Level + Namen. PROFILE_XP_TABLE/
+// PROFILE_LEVEL_NAMES/PROFILE_LEVEL_ICONS leiten weiter unten aus diesem Array ab (Single-Source).
 var GS_LEVELS = [
-  {lvl:1,  name:'Naturentdecker',   xp:0,     icon:'🌱', color:'#81c784'},
-  {lvl:2,  name:'Wildpflanzen-Fan', xp:50,    icon:'🌿', color:'#66bb6a'},
-  {lvl:3,  name:'Kräuterkenner',    xp:150,   icon:'🌾', color:'#4caf50'},
-  {lvl:4,  name:'Pilzsucher',       xp:300,   icon:'🍄', color:'#43a047'},
-  {lvl:5,  name:'Botaniker',        xp:600,   icon:'🌸', color:'#388e3c'},
-  {lvl:6,  name:'Waldwanderer',     xp:1000,  icon:'🌲', color:'#2e7d32'},
-  {lvl:7,  name:'Naturexperte',     xp:1800,  icon:'🦋', color:'#1b5e20'},
-  {lvl:8,  name:'Schweizer Ranger', xp:3000,  icon:'🏔', color:'#1a3d1a'},
-  {lvl:9,  name:'Naturschützer',    xp:5000,  icon:'🦅', color:'#0d2e0d'},
-  {lvl:10, name:'GreenScan Legende',xp:10000, icon:'⭐', color:'#f9a825'},
+  {lvl:1,  name:'Naturbeobachter',          xp:0,     icon:'🌱', color:'#81c784'},
+  {lvl:2,  name:'Pflanzenfreund',           xp:100,   icon:'🌿', color:'#66bb6a'},
+  {lvl:3,  name:'Kräuterkenner',            xp:250,   icon:'🍃', color:'#4caf50'},
+  {lvl:4,  name:'Waldwanderer',             xp:450,   icon:'🌲', color:'#43a047'},
+  {lvl:5,  name:'Botanik-Lehrling',         xp:700,   icon:'🌳', color:'#388e3c'},
+  {lvl:6,  name:'Pilzsucher',               xp:1000,  icon:'🍄', color:'#2e7d32'},
+  {lvl:7,  name:'Wildkräuter-Experte',      xp:1400,  icon:'🌺', color:'#1b5e20'},
+  {lvl:8,  name:'Naturdetektiv',            xp:1900,  icon:'🔬', color:'#155d27'},
+  {lvl:9,  name:'Schweizer Naturführer',    xp:2500,  icon:'🗺️', color:'#1a3d1a'},
+  {lvl:10, name:'Mykologie-Meister',        xp:3200,  icon:'🧬', color:'#0d2e0d'},
+  {lvl:11, name:'Flora-Experte',            xp:4000,  icon:'🎓', color:'#00695c'},
+  {lvl:12, name:'Fauna-Kenner',             xp:5000,  icon:'🔭', color:'#00838f'},
+  {lvl:13, name:'Alpen-Botaniker',          xp:6200,  icon:'⛰️', color:'#0277bd'},
+  {lvl:14, name:'Naturschutz-Botschafter',  xp:7600,  icon:'🛡️', color:'#1565c0'},
+  {lvl:15, name:'Biodiversitäts-Hüter',     xp:9200,  icon:'🌍', color:'#283593'},
+  {lvl:16, name:'Wissenschafts-Naturalist', xp:11000, icon:'📚', color:'#4527a0'},
+  {lvl:17, name:'Schweizer Naturlegende',   xp:13000, icon:'👑', color:'#6a1b9a'},
+  {lvl:18, name:'Ökosystem-Wächter',        xp:15500, icon:'🌟', color:'#8e24aa'},
+  {lvl:19, name:'Grossmeister der Natur',   xp:18500, icon:'⭐', color:'#ad1457'},
+  {lvl:20, name:'GreenScan-Legende',        xp:22000, icon:'🏆', color:'#f9a825'},
 ];
 
 function gsGetXP() { return parseInt(localStorage.getItem(GS_XP_KEY)||'0'); }
@@ -15678,16 +15693,8 @@ function gsGetXPProgress() {
 }
 
 
-// Level-Namen nach XP-Stufen
-function gsLevelName(level) {
-  var names = [
-    'Naturentdecker', 'Wanderer', 'Kenner', 'Sammler', 'Experte',
-    'Förster', 'Botaniker', 'Wildhüter', 'Meister', 'Naturforscher',
-    'Ranger', 'Alpenhüter', 'Weiser', 'Legende'
-  ];
-  var idx = Math.max(0, Math.min(level - 1, names.length - 1));
-  return names[idx];
-}
+// v28.78 FIX-6b Phase B: gsLevelName (tote 5. Namens-Leiter, 0 Aufrufer) entfernt —
+// kanonische Level-Namen kommen aus GS_LEVELS / PROFILE_LEVEL_NAMES (Single-Source).
 
 function gsCheckAchievement() {
   // Simple achievement-check placeholder — erweiterbar
@@ -19894,8 +19901,10 @@ function updateMenuProfileBar() {
   var xpBarEl  = document.getElementById('menu-profile-xpbar');
   if (!nameEl) return;
 
-  var LVL_ICONS = ['','🌱','🌿','🍃','🌲','🌳','🍄','🌺','🔬','🗺','🧬','🎓','🔭','⛰','🛡','🌍','📚','👑','🌟','⭐','🏆'];
-  var LVL_NAMES = ['','Entdecker','Natur-Fan','Sammler','Kenner','Experte','Meister','Botaniker','Forscher','Navigator','Biologe','Professor','Alpinist','Hüter','Weltbürger','Gelehrter','Legende','Superstar','Champion','Naturheld'];
+  // v28.78 FIX-6b Phase B: kanonische Leiter (aus GS_LEVELS abgeleitet) statt eigener inline-Sets,
+  // damit die Menü-Bar denselben Level + Namen zeigt wie Home/Profil/Leaderboard.
+  var LVL_ICONS = (typeof PROFILE_LEVEL_ICONS !== 'undefined' && PROFILE_LEVEL_ICONS.length) ? PROFILE_LEVEL_ICONS : ['','🌱','🌿','🍃','🌲','🌳','🍄','🌺','🔬','🗺️','🧬','🎓','🔭','⛰️','🛡️','🌍','📚','👑','🌟','⭐','🏆'];
+  var LVL_NAMES = (typeof PROFILE_LEVEL_NAMES !== 'undefined' && PROFILE_LEVEL_NAMES.length) ? PROFILE_LEVEL_NAMES : ['','Naturbeobachter','Pflanzenfreund','Kräuterkenner','Waldwanderer','Botanik-Lehrling','Pilzsucher','Wildkräuter-Experte','Naturdetektiv','Schweizer Naturführer','Mykologie-Meister','Flora-Experte','Fauna-Kenner','Alpen-Botaniker','Naturschutz-Botschafter','Biodiversitäts-Hüter','Wissenschafts-Naturalist','Schweizer Naturlegende','Ökosystem-Wächter','Grossmeister der Natur','GreenScan-Legende'];
 
   if (sbIsLoggedIn && sbIsLoggedIn()) {
     // Profil still im Hintergrund laden (kein sichtbarer Lade-Zustand)
@@ -57295,6 +57304,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.78', date: '09.06.2026',
+    headline: '🎚️ Ein einheitliches Level-System überall',
+    summary: 'Dein Level wurde bisher je nach Bildschirm unterschiedlich angezeigt — auf der Startseite ein anderer Name als im Menü oder Profil. Ab jetzt gibt es EINE einheitliche Level-Leiter (20 Stufen) mit denselben Namen, Symbolen und Fortschritt überall: Startseite, Menü, Profil und Rangliste stimmen endlich überein. Durch die feinere 20-Stufen-Leiter steigst du auch häufiger auf. Hinweis: Dein angezeigtes Level/dein Titel kann sich dadurch einmalig ändern.',
+    user_summary: '🎚️ Einheitliche Level-Leiter (20 Stufen) — überall derselbe Level, Name & Fortschritt.',
+    user_items: [
+      { emoji: '🎚️', text: 'Ein Level-System für Startseite, Menü, Profil & Rangliste (20 Stufen)' },
+      { emoji: '✨', text: 'Feinere Stufen = häufiger Level-Up' },
+      { emoji: 'ℹ️', text: 'Einmalige Änderung deines angezeigten Levels/Titels möglich' },
+    ],
+    items: [
+      {emoji:'🔍', bold:'Befund:', text:' 3 (real 5) divergente Level-Leitern — GS_LEVELS (10), PROFILE_XP_TABLE (20), inline LVL_NAMES (Menü) + tote gsLevelName/LVL_ICONS. Bei 600 XP: "Botaniker" (Home) ≠ "Experte" (Menü) ≠ "Botanik-Lehrling" (Profil).'},
+      {emoji:'🎚️', bold:'Vereinheitlicht:', text:' GS_LEVELS = die EINE kanonische Leiter (20 Stufen, = PROFILE-Schwellen, auf denen die DB-profiles.level via fn_add_xp basiert). PROFILE_XP_TABLE/NAMES/ICONS leiten daraus ab; Menü-Bar nutzt sie; tote Leitern entfernt.'},
+      {emoji:'📋', bold:'FIX-6b komplett:', text:' Phase A (Zähler-Sync v28.77) + Phase B (Leiter v28.78) = XP & Level jetzt vollständig Single-Source + cross-device.'},
+    ]
+  },
+  {
     v: 'v28.77', date: '09.06.2026',
     headline: '⭐ XP zählt jetzt überall & geräteübergreifend',
     summary: 'Deine Erfahrungspunkte (XP) waren bisher in zwei getrennten Systemen gespeichert — manche Aktionen (Scannen, Favoriten, Wissen lesen) zählten nur lokal auf dem Gerät, andere (Quiz, Login-Serie) nur in der Cloud. Ab jetzt landet JEDE XP in einer einzigen, geräteübergreifenden Quelle: dein Fortschritt folgt dir aufs Handy/den Mac, und die Ranglisten zeigen endlich deine echten Punkte. Level-Namen/-Stufen bleiben unverändert.',
@@ -61450,7 +61475,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.77';
+var GS_VERSION = 'v28.78';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -62973,16 +62998,11 @@ async function sbIncrementStat(key, delta) {
 }
 
 // ── Level & XP System (Natur-Profil, getrennt vom Farm-System) ─
-var PROFILE_XP_TABLE = [0,100,250,450,700,1000,1400,1900,2500,3200,4000,5000,6200,7600,9200,11000,13000,15500,18500,22000];
-var PROFILE_LEVEL_NAMES = [
-  '','Naturbeobachter','Pflanzenfreund','Kräuterkenner','Waldwanderer',
-  'Botanik-Lehrling','Pilzsucher','Wildkräuter-Experte','Naturdetektiv',
-  'Schweizer Naturführer','Mykologie-Meister','Flora-Experte','Fauna-Kenner',
-  'Alpen-Botaniker','Naturschutz-Botschafter','Biodiversitäts-Hüter',
-  'Wissenschafts-Naturalist','Schweizer Naturlegende','Ökosystem-Wächter',
-  'Grossmeister der Natur','🏆 GreenScan-Legende'
-];
-var PROFILE_LEVEL_ICONS = ['','🌱','🌿','🍃','🌲','🌳','🍄','🌺','🔬','🗺️','🧬','🎓','🔭','⛰️','🛡️','🌍','📚','👑','🌟','⭐','🏆'];
+// v28.78 FIX-6b Phase B: aus der kanonischen GS_LEVELS-Leiter abgeleitet (Single-Source).
+// 0-index = Schwellen-Array (profileGetLevel), 1-index = Namen/Icons (NAMES[lvl], lvl ist 1-basiert).
+var PROFILE_XP_TABLE    = GS_LEVELS.map(function(l){ return l.xp; });
+var PROFILE_LEVEL_NAMES = [''].concat(GS_LEVELS.map(function(l){ return l.name; }));
+var PROFILE_LEVEL_ICONS = [''].concat(GS_LEVELS.map(function(l){ return l.icon; }));
 
 function profileGetLevel(xp) {
   for (var i = PROFILE_XP_TABLE.length-1; i >= 0; i--) {
