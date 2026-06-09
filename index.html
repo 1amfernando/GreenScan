@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.92.20260610">
+<meta name="app-version" content="28.93.20260610">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11197,6 +11197,7 @@ window.GS_I18N_JS_STRINGS = {
   'org_invite_code_title':   '🔑 Einladungs-Code',
   'org_invite_code_hint':    'Gültig 14 Tage · Rolle: Schüler. Teile diesen Code:',
   'org_copy_btn':            '📋 Kopieren',
+  'org_code_copied':         'Code kopiert',
   'org_role_changed':        '✓ Rolle geändert',
   'org_role_denied':         'Rollenänderung nicht erlaubt.',
   'org_left':                'Org verlassen.',
@@ -57668,6 +57669,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.93', date: '10.06.2026',
+    headline: '🔒 QA-Härtung: Einladungs-Code-Kopieren',
+    summary: 'Nach adversarialer QA-Verifikation der letzten Updates: der „Code kopieren"-Button (Org-Einladung) bettete den Code direkt in den Klick-Handler ein (Hard-Lesson #12-Muster) — jetzt über sicheren State-Bridge gelöst, und die Kopier-Bestätigung ist nun ebenfalls mehrsprachig.',
+    user_summary: '🔒 Org-Einladungscode-Kopieren gehärtet (HL#12) + Bestätigung mehrsprachig.',
+    user_items: [
+      { emoji: '📋', text: 'Code-Kopieren robuster & in allen Sprachen' },
+    ],
+    items: [
+      {emoji:'🔒', bold:'HL#12:', text:' gsOrgInviteCreate Copy-Button → State-Bridge (window._gsPendingInviteCopy + window.gsCopyInviteCode) statt Variable im onclick-String. org_code_copied EN/ES/FR/IT geseedet. QA-Pass bestätigt: prompt-async-Konvertierungen, Quota-Wrapper, Logout-Leak-Fix, i18n-Verdrahtung (206/206 DE-Werte 4-Sprach-Coverage) alle sauber; c.id/orgId-onclick = HL#12-sanktioniertes UUID-Muster (kein Bug). 7/7 node --check.'},
+    ]
+  },
+  {
     v: 'v28.92', date: '10.06.2026',
     headline: '🌍 Eingabe-Dialoge jetzt mehrsprachig',
     summary: 'i18n-Abschluss: Die letzten 4 user-seitigen Eingabe-Fenster (Scan-Korrektur melden, Garten-Breite im KI-Planer, Passwort zurücksetzen, Namen ändern) waren noch fest auf Deutsch — jetzt auf Englisch, Spanisch, Französisch und Italienisch. Damit ist der gesamte v28-Audit (Frontend + Backend) abgeschlossen.',
@@ -62033,7 +62046,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.92';
+var GS_VERSION = 'v28.93';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -68297,15 +68310,25 @@ async function gsOrgInviteCreate(orgId){
     var r = await sbFetch('/rest/v1/rpc/fn_org_invite_create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_org_id: orgId, p_role: 'student' }) });
     if (r && r.error) { if(typeof gsToast==='function') gsToast(_gsOrgT('org_invite_fail','Einladung fehlgeschlagen.'),'error'); return; }
     var code = r.data;
+    window._gsPendingInviteCopy = code; // v28.93 HL#12: State-Bridge statt Variable im onclick (Quote-Injection-safe)
     var h = '<div style="text-align:center;padding:10px;"><div style="font-size:14px;font-weight:800;margin-bottom:8px;">'+_gsOrgT('org_invite_code_title','🔑 Einladungs-Code')+'</div>'
       + '<div style="font-size:11px;color:var(--muted);margin-bottom:12px;">'+_gsOrgT('org_invite_code_hint','Gültig 14 Tage · Rolle: Schüler. Teile diesen Code:')+'</div>'
       + '<div style="font-size:30px;font-weight:900;letter-spacing:4px;color:var(--g-dark);background:var(--card);border:2px dashed var(--g-light);border-radius:12px;padding:16px;margin-bottom:12px;">'+_gsCEsc(code)+'</div>'
-      + '<button onclick="(function(){try{navigator.clipboard.writeText(\''+code+'\');if(typeof gsToast===\'function\')gsToast(\'Code kopiert\',\'success\');}catch(_){}})()" style="padding:10px 18px;border:none;border-radius:10px;background:var(--g-dark);color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">'+_gsOrgT('org_copy_btn','📋 Kopieren')+'</button>'
+      + '<button onclick="gsCopyInviteCode()" style="padding:10px 18px;border:none;border-radius:10px;background:var(--g-dark);color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">'+_gsOrgT('org_copy_btn','📋 Kopieren')+'</button>'
       + '<button onclick="gsOpenOrgDetail(\''+orgId+'\')" style="display:block;width:100%;margin-top:10px;padding:9px;border:none;background:transparent;color:var(--muted);font-size:13px;cursor:pointer;font-family:inherit;">'+_gsOrgT('org_back','‹ Zurück')+'</button></div>';
     _gsNlOpen(h);
   } catch(e){ console.warn('[gsOrgInviteCreate]', e && e.message); }
 }
 window.gsOrgInviteCreate = gsOrgInviteCreate;
+// v28.93 HL#12: Kopier-Handler liest den Code aus globalem State (keine Variable im onclick-String).
+window.gsCopyInviteCode = function(){
+  try {
+    var c = window._gsPendingInviteCopy || '';
+    if (!c) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(c);
+    if (typeof gsToast === 'function') gsToast(_gsOrgT('org_code_copied','Code kopiert'), 'success');
+  } catch(_){}
+};
 async function gsOrgSetRole(orgId, userId, role){
   try {
     var r = await sbFetch('/rest/v1/rpc/fn_org_member_set_role', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_org_id: orgId, p_target_user: userId, p_new_role: role }) });
