@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.70.20260609">
+<meta name="app-version" content="28.71.20260609">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -6485,6 +6485,8 @@ function gsNewPlantCard(p) {
   if (!p || !p.id) return '';
   // v28.45 i18n dynamische Renders: _t = guarded gsI18n.t (bricht Render nie, falls gsI18n nicht bereit).
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+  // v28.71 A3: id für onclick-Einbettung säubern (Defense-in-Depth, HL#12-Klasse).
+  var _pidSafe = String(p.id).replace(/[^a-zA-Z0-9_-]/g, '');
   var urgent = gsGetMostUrgentTask(p);
   var statusClass = 'plant-card-status-new';
   if (urgent) {
@@ -6529,8 +6531,10 @@ function gsNewPlantCard(p) {
   // v26.57: Plant-Card zeigt p.photo (URL ODER base64) wenn vorhanden — sonst Emoji-Fallback.
   // p.photo wurde seit v23.91 gespeichert aber nirgends im Listen-Render gezeigt.
   var headerVisual = '<div class="plant-card-emoji">' + (p.emoji||'🌿') + '</div>';
-  if (p.photo && typeof p.photo === 'string' && p.photo.length > 8) {
-    headerVisual = '<div class="plant-card-photo" style="width:42px;height:42px;border-radius:8px;background:#f0f0f0 center/cover no-repeat url(\'' + p.photo.replace(/'/g, "\\'") + '\');flex-shrink:0;"></div>';
+  // v28.71 A3: CSS-url()-Injection härten — nur valide Bild-Schemata + breaking-chars strippen (quote-strip allein reicht nicht).
+  if (p.photo && typeof p.photo === 'string' && p.photo.length > 8 && /^(https?:\/\/|data:image\/|blob:)/i.test(p.photo)) {
+    var _safePhoto = p.photo.replace(/['"()\\\s<>]/g, '');
+    headerVisual = '<div class="plant-card-photo" style="width:42px;height:42px;border-radius:8px;background:#f0f0f0 center/cover no-repeat url(\'' + _safePhoto + '\');flex-shrink:0;"></div>';
   }
   return '<div class="plant-card ' + statusClass + '" id="mpcard-' + p.id + '">' +
     // Header: tippen = expandieren
@@ -6572,8 +6576,8 @@ function gsNewPlantCard(p) {
       '<div id="ai-result-' + p.id + '" style="display:none;" class="mp-ai-result"></div>' +
       // v28.23/v28.24: Pflanzen-Dossier (alle verknüpften Inhalte) + Zu Sammlung hinzufügen
       '<div style="display:flex;gap:7px;margin-bottom:8px;">' +
-        '<button style="flex:1;padding:9px;background:#ede7f6;border:1.5px solid #b39ddb;border-radius:10px;font-size:12.5px;font-weight:800;color:#4527a0;cursor:pointer;font-family:inherit;" onclick="event.stopPropagation();if(typeof gsOpenPlantDossier===\'function\')gsOpenPlantDossier(\''+p.id+'\')">📂 Dossier</button>' +
-        '<button style="flex:1;padding:9px;background:#e8f5e9;border:1.5px solid var(--g-light);border-radius:10px;font-size:12.5px;font-weight:800;color:var(--g-dark);cursor:pointer;font-family:inherit;" onclick="event.stopPropagation();if(typeof gsAddPlantToCollection===\'function\')gsAddPlantToCollection(\''+p.id+'\')">📁 Sammlung</button>' +
+        '<button style="flex:1;padding:9px;background:#ede7f6;border:1.5px solid #b39ddb;border-radius:10px;font-size:12.5px;font-weight:800;color:#4527a0;cursor:pointer;font-family:inherit;" onclick="event.stopPropagation();if(typeof gsOpenPlantDossier===\'function\')gsOpenPlantDossier(\''+_pidSafe+'\')">📂 Dossier</button>' +
+        '<button style="flex:1;padding:9px;background:#e8f5e9;border:1.5px solid var(--g-light);border-radius:10px;font-size:12.5px;font-weight:800;color:var(--g-dark);cursor:pointer;font-family:inherit;" onclick="event.stopPropagation();if(typeof gsAddPlantToCollection===\'function\')gsAddPlantToCollection(\''+_pidSafe+'\')">📁 Sammlung</button>' +
       '</div>' +
       // Edit / Delete
       '<div style="display:flex;gap:7px;">' +
@@ -6906,16 +6910,18 @@ window.gsOpenCollectionItems = async function(id){
   try { var r = await sbFetch('/rest/v1/user_collection_items?collection_id=eq.'+encodeURIComponent(id)+'&select=*&order=added_at.desc', {method:'GET'}); items = (r&&r.data)||[]; } catch(_){}
   var box = document.getElementById('gs-coll-items'); if (!box) return;
   if (!items.length){ box.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:12px 4px;">Noch leer. Füge Inhalte über die 📁-Buttons in Pflanzen/Arten hinzu.</div>'; return; }
+  var _colIdSafe = String(id||'').replace(/[^a-zA-Z0-9_-]/g,'');  // v28.71 A3
   box.innerHTML = items.map(function(it){
-    // v28.66: Item klickbar → Open-Dispatch (Plan/Art direkt, Rest graceful). item_ref quote-bereinigt (HL#12).
-    var refSafe = String(it.item_ref||'').replace(/'/g,'');
-    var typeSafe = String(it.item_type||'').replace(/'/g,'');
+    // v28.66/v28.71: Item klickbar → Open-Dispatch. Alle onclick-Werte auf sichere Zeichen begrenzt (HL#12-Klasse).
+    var refSafe = String(it.item_ref||'').replace(/[^a-zA-Z0-9_:\/.-]/g,'');
+    var typeSafe = String(it.item_type||'').replace(/[^a-z_]/gi,'');
+    var idSafe = String(it.id||'').replace(/[^a-zA-Z0-9_-]/g,'');
     return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border);">' +
       '<div onclick="gsCollItemOpen(\''+typeSafe+'\',\''+refSafe+'\')" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;cursor:pointer;-webkit-tap-highlight-color:transparent;">' +
         '<div style="font-size:20px;flex-shrink:0;">'+(it.emoji||'🌿')+'</div>' +
         '<div style="flex:1;min-width:0;font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+_gsCollEsc(it.label||it.item_ref)+'<span style="font-size:10px;color:var(--muted);font-weight:400;"> · '+_gsCollEsc(it.item_type)+'</span></div>' +
       '</div>' +
-      '<button onclick="gsCollectionRemoveItem(\''+it.id+'\',\''+id+'\')" aria-label="Entfernen" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:4px;flex-shrink:0;">✕</button></div>';
+      '<button onclick="gsCollectionRemoveItem(\''+idSafe+'\',\''+_colIdSafe+'\')" aria-label="Entfernen" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:4px;flex-shrink:0;">✕</button></div>';
   }).join('');
 };
 window.gsCollectionRemoveItem = async function(itemId, collectionId){
@@ -8115,7 +8121,7 @@ function openErnteTracking() {
 }
 
 function gsErnteSetYear(y) {
-  localStorage.setItem('gs_ernte_year', y);
+  try { localStorage.setItem('gs_ernte_year', y); } catch(_){}  // v28.71 HL#10: QuotaExceededError abfangen
   gsHaptic('tap');
   openErnteTracking();
 }
@@ -57184,6 +57190,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.71', date: '09.06.2026',
+    headline: '🛡️ Frontend-Härtung (Defense-in-Depth)',
+    summary: 'Zweite Umsetzung aus dem Full-Stack-Audit: drei kleine Sicherheits-Härtungen im Frontend (Foto-Anzeige, Pflanzen-Karten, Sammlungs-Knöpfe) + ein Speicher-Schutz im Ernte-Tracker. Reine Vorsichtsmassnahmen — kein bekanntes Leck, aber strukturell sauber.',
+    user_summary: '🛡️ Kleine interne Sicherheits- und Stabilitäts-Härtungen (unsichtbar).',
+    user_items: [
+      { emoji: '🛡️', text: 'Foto-Anzeige + Knöpfe gegen mögliche Einschleusung gehärtet (Defense-in-Depth)' },
+      { emoji: '💾', text: 'Ernte-Tracker fängt vollen Speicher sauber ab' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'A3 (XSS-Best-Practice):', text:' gsNewPlantCard p.photo CSS-url() Scheme-Validierung + breaking-chars raus; p.id/it.id/collection-id in onclick auf [a-zA-Z0-9_-] begrenzt (HL#12-Klasse). Real-Exploit gering (Server-UUIDs/eigene Daten).'},
+      {emoji:'💾', bold:'A4 (HL#10):', text:' gsErnteSetYear localStorage.setItem in try/catch.'},
+      {emoji:'📋', bold:'Block-G:', text:' A1 ✅ A3/A4 ✅ → v28.72 Hygiene (gsIsExpert-Dead-Code, CSP unsafe-eval, Tap-Targets).'},
+    ]
+  },
+  {
     v: 'v28.70', date: '09.06.2026',
     headline: '🔒 Datenschutz: Feedback-Feed ohne E-Mail-Preisgabe',
     summary: 'Erste Umsetzung aus dem Full-Stack-Audit: Der Community-Feedback-Feed war bisher für alle (auch nicht-eingeloggt) inkl. der E-Mail-Adresse des Verfassers lesbar. Jetzt zeigt der Feed nur noch einen maskierten Nick — keine E-Mail mehr nach aussen. Schweizer Datenschutz (nDSG) sauber. Der Feed bleibt für alle sichtbar.',
@@ -61249,7 +61270,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.70';
+var GS_VERSION = 'v28.71';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
