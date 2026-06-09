@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.69.20260609">
+<meta name="app-version" content="28.70.20260609">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27416,13 +27416,11 @@ function renderFeedback(){
     // v23.65: Author + Source-Badge
     var authorLabel = '';
     try {
-      var authorEmail = fb.author_email || '';
-      var nick = '';
-      if (authorEmail) {
-        var at = authorEmail.indexOf('@');
-        nick = at>0 ? authorEmail.slice(0,at) : authorEmail;
-        nick = nick.length > 14 ? (nick.slice(0,12)+'…') : nick;
-        authorLabel = '<span title="'+escHtml(authorEmail)+'" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--muted);background:#f5f5f5;padding:2px 7px;border-radius:8px;">👤 '+escHtml(nick)+'</span>';
+      // v28.70 nDSG: nutzt den server-seitig maskierten author_nick (kein author_email mehr im Payload).
+      var nick = fb.author_nick || '';
+      if (nick) {
+        if (nick.length > 14) nick = nick.slice(0,12)+'…';
+        authorLabel = '<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--muted);background:#f5f5f5;padding:2px 7px;border-radius:8px;">👤 '+escHtml(nick)+'</span>';
       } else if (fb._global) {
         authorLabel = '<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--muted);background:#f5f5f5;padding:2px 7px;border-radius:8px;">👥 Community</span>';
       }
@@ -27618,7 +27616,8 @@ async function gsRefreshGlobalFeedback(showToast){
     // v23.73: DEFENSIVE SELECT — nur garantierte Spalten.
     // Wenn DB-Schema noch alte ki_status/ki_priority-Felder nicht hat, läuft's trotzdem.
     // Vollständiges Schema kommt via Migration gs_migration_v23_73.sql (siehe Settings → Admin).
-    var resp = await sbFetch('/rest/v1/feedback_items?select=*&order=created_at.desc&limit=100', {
+    // v28.70 nDSG: liest die PII-Masking-View (kein author_email anon-lesbar) statt der Basis-Tabelle.
+    var resp = await sbFetch('/rest/v1/v_feedback_public?select=*&order=created_at.desc&limit=100', {
       method: 'GET',
       headers: { 'Prefer':'return=representation' }
     });
@@ -27669,7 +27668,8 @@ async function gsRefreshGlobalFeedback(showToast){
         type: fbType,
         title: titlePrefix + text.slice(0,60) + (text.length>60?'…':''),
         body: text,
-        author_email: ctx.author_email || '',
+        author_email: '',
+        author_nick: r.author_nick || '',
         date: (r.created_at||'').slice(0,10),
         ts:   r.created_at ? new Date(r.created_at).getTime() : Date.now(),
         votes: { up: Number(r && r.votes_up || 0), down: Number(r && r.votes_down || 0) },
@@ -57184,6 +57184,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.70', date: '09.06.2026',
+    headline: '🔒 Datenschutz: Feedback-Feed ohne E-Mail-Preisgabe',
+    summary: 'Erste Umsetzung aus dem Full-Stack-Audit: Der Community-Feedback-Feed war bisher für alle (auch nicht-eingeloggt) inkl. der E-Mail-Adresse des Verfassers lesbar. Jetzt zeigt der Feed nur noch einen maskierten Nick — keine E-Mail mehr nach aussen. Schweizer Datenschutz (nDSG) sauber. Der Feed bleibt für alle sichtbar.',
+    user_summary: '🔒 Community-Feedback zeigt keine E-Mail-Adressen mehr nach aussen (nDSG).',
+    user_items: [
+      { emoji: '🔒', text: 'Feedback-Feed: nur maskierter Nick statt E-Mail (auch für nicht-eingeloggte)' },
+      { emoji: '🛡️', text: 'Experten-Verifikationen nicht mehr ohne Login lesbar (Badges bleiben)' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'PII-Masking-View:', text:' v_feedback_public (security_definer) entfernt author_email aus context + liefert server-seitigen author_nick. Basis-Tabelle SELECT → Owner+Staff. Frontend liest die View.'},
+      {emoji:'🧪', bold:'HL#14 ×3:', text:' author_email steckt im context-jsonb (nicht Spalte); garden_harvests-„Orphans" = Falschalarm (v28.15-by-design, Test-Daten) → NICHT gelöscht. Verifikation verhinderte Datenverlust.'},
+      {emoji:'📋', bold:'Block-G-Roadmap:', text:' A1 ✅ → v28.71 Frontend-Härtung (XSS-data-attr + setItem) → v28.72 Hygiene (gsIsExpert/CSP/Tap-Targets).'},
+    ]
+  },
+  {
     v: 'v28.69', date: '09.06.2026',
     headline: '⚡ Quick-Wins: Admin-Suche + Key-Test-Schutz',
     summary: 'Zwei kleine, gezielte Verbesserungen: Im Admin-Panel kann man Nutzer jetzt durchsuchen (Name, E-Mail, Rolle), und der Anthropic-Key-Test hat eine kurze Wartezeit bekommen, damit das API-Kontingent nicht versehentlich durch wiederholtes Testen verbraucht wird. Beides nur für Admins.',
@@ -61234,7 +61249,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.69';
+var GS_VERSION = 'v28.70';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
