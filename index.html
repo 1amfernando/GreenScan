@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.67.20260609">
+<meta name="app-version" content="28.68.20260609">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -55988,243 +55988,6 @@ async function doAdminLogin() {
   }
 }
 
-// ── EMBEDDED ADMIN PANEL — Hauptlogik ─────────────────────
-var ADM_PAGE = 1, ADM_PAGE_SIZE = 40;
-var admEditIdx = -1, admCurrentTox = 0;
-
-function openAdminPanel() {
-  var modal = document.getElementById('admin-panel-modal');
-  if (!modal) return;
-  modal.style.cssText = 'display:flex!important;flex-direction:column;position:fixed;inset:0;z-index:9998;';
-  admShowTab('species');
-  admUpdateStats();
-}
-
-function closeAdminPanel() {
-  var m = document.getElementById('admin-panel-modal');
-  if (m) m.style.display='none';
-}
-
-function admShowTab(tab) {
-  ['species','add','dupes','export','pw'].forEach(function(t){
-    var v = document.getElementById('adm-view-'+t);
-    var b = document.getElementById('adm-tab-'+t);
-    if(v) v.style.display = t===tab ? 'flex' : 'none';
-    if(b) { b.classList.remove('adm-tab-active'); if(t===tab) b.classList.add('adm-tab-active'); }
-  });
-  if(tab==='species') admRenderTable();
-  if(tab==='dupes')   admRenderDupes();
-  if(tab==='add')     admBuildForm();
-}
-
-function admUpdateStats() {
-  var t = document.getElementById('adm-stat-total');
-  var d = document.getElementById('adm-stat-dupes');
-  if(t) t.textContent = DB.length + ' Arten';
-  if(d) {
-    var seen={},dupes=0;
-    DB.forEach(function(s){var k=((s.name||'').toLowerCase())+'|||'+((s.lat||'').toLowerCase());if(seen[k])dupes++;else seen[k]=true;});
-    d.textContent = dupes>0 ? dupes+' Duplikate' : '✅ Keine Duplikate';
-  }
-}
-
-// ── Tabelle rendern ────────────────────────────────────────
-function admGetFiltered() {
-  var q = (document.getElementById('adm-search').value||'').toLowerCase();
-  var cat = document.getElementById('adm-cat-filter').value;
-  return DB.filter(function(e){
-    var mCat = !cat || e.cat===cat;
-    var mQ = !q || (e.name||'').toLowerCase().includes(q)||(e.lat||'').toLowerCase().includes(q)||(e.id||'').toLowerCase().includes(q);
-    return mCat && mQ;
-  });
-}
-
-var TOX_IC=['✅','🟡','⚠️','🔴','☠️','💀'];
-var CAT_L={wildpflanze:'🌿',pilz:'🍄',baum:'🌳',kraut:'🌱',hauspflanze:'🪴',moos:'🔬',flechte:'🔘',alge:'💧',gemuese:'🥦',frucht:'🍎'};
-
-function admRenderTable() {
-  var filtered = admGetFiltered();
-  var pages = Math.ceil(filtered.length/ADM_PAGE_SIZE);
-  if(ADM_PAGE>pages) ADM_PAGE=1;
-  var slice = filtered.slice((ADM_PAGE-1)*ADM_PAGE_SIZE, ADM_PAGE*ADM_PAGE_SIZE);
-  var cnt = document.getElementById('adm-count');
-  if(cnt) cnt.textContent = filtered.length + ' / ' + DB.length + ' Arten';
-  var wrap = document.getElementById('adm-table-wrap');
-  if(!wrap) return;
-  if(!slice.length){wrap.innerHTML='<div style="text-align:center;padding:40px;color:#5a8a5a;">Keine Treffer</div>';return;}
-  var html='<table style="width:100%;border-collapse:collapse;font-size:12px;">' +
-    '<thead><tr style="position:sticky;top:0;background:#111c11;">' +
-    '<th class="adm-td" style="color:#5a8a5a;font-weight:700;text-align:left;">ID</th>' +
-    '<th class="adm-td" style="color:#5a8a5a;font-weight:700;text-align:left;">Name</th>' +
-    '<th class="adm-td" style="color:#5a8a5a;font-weight:700;text-align:left;">Latein</th>' +
-    '<th class="adm-td" style="color:#5a8a5a;font-weight:700;text-align:left;">Kat.</th>' +
-    '<th class="adm-td" style="color:#5a8a5a;font-weight:700;text-align:left;">Tox</th>' +
-    '<th class="adm-td" style="color:#5a8a5a;font-weight:700;text-align:left;">Aktionen</th>' +
-    '</tr></thead><tbody>';
-  slice.forEach(function(e){
-    var idx=DB.indexOf(e);
-    html+='<tr class="adm-row">' +
-      '<td class="adm-td" style="font-family:monospace;color:#5a8a5a;">' + (e.id||'') + '</td>' +
-      '<td class="adm-td" style="font-weight:700;color:#c8e8c8;">' + (e.emoji||'') + ' ' + (e.name||'') + '</td>' +
-      '<td class="adm-td" style="font-style:italic;color:#5a8a5a;">' + (e.lat||'–') + '</td>' +
-      '<td class="adm-td">' + (CAT_L[e.cat]||'') + ' ' + (e.cat||'') + '</td>' +
-      '<td class="adm-td">' + (TOX_IC[e.tox||0]||'') + ' ' + (e.tox||0) + '</td>' +
-      '<td class="adm-td"><div style="display:flex;gap:4px;">' +
-        '<button onclick="admOpenEdit(' + idx + ')" style="padding:4px 10px;background:rgba(45,138,45,.2);border:none;border-radius:5px;color:#4caf50;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">✏️</button>' +
-        '<button onclick="admConfirmDel(' + idx + ')" style="padding:4px 10px;background:rgba(239,68,68,.15);border:none;border-radius:5px;color:#f87171;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">🗑️</button>' +
-      '</div></td>' +
-    '</tr>';
-  });
-  html+='</tbody></table>';
-  wrap.innerHTML=html;
-
-  // Pagination
-  var pag=document.getElementById('adm-pagination');
-  if(pag){
-    pag.style.display='flex';
-    var pi='<span style="font-size:11px;color:#5a8a5a;">Seite '+ADM_PAGE+'/'+Math.max(1,pages)+'</span>';
-    pi+='<div style="display:flex;gap:4px;">';
-    pi+='<button onclick="admGoPage('+(ADM_PAGE-1)+')" '+(ADM_PAGE<=1?'disabled':'')+' style="padding:4px 10px;background:#1e2e1e;border:1px solid #2a3f2a;border-radius:5px;color:#8aaa8a;cursor:pointer;font-family:inherit;">‹</button>';
-    for(var p=Math.max(1,ADM_PAGE-2);p<=Math.min(pages,ADM_PAGE+2);p++){
-      pi+='<button onclick="admGoPage('+p+')" style="padding:4px 10px;background:'+(p===ADM_PAGE?'#2d8a2d':'#1e2e1e')+';border:1px solid '+(p===ADM_PAGE?'#2d8a2d':'#2a3f2a')+';border-radius:5px;color:'+(p===ADM_PAGE?'#fff':'#8aaa8a')+';cursor:pointer;font-family:inherit;">'+p+'</button>';
-    }
-    pi+='<button onclick="admGoPage('+(ADM_PAGE+1)+')" '+(ADM_PAGE>=pages?'disabled':'')+' style="padding:4px 10px;background:#1e2e1e;border:1px solid #2a3f2a;border-radius:5px;color:#8aaa8a;cursor:pointer;font-family:inherit;">›</button>';
-    pi+='</div>';
-    pag.innerHTML=pi;
-  }
-}
-
-function admFilter(){ADM_PAGE=1;admRenderTable();}
-function admGoPage(p){var f=admGetFiltered();var pages=Math.ceil(f.length/ADM_PAGE_SIZE);ADM_PAGE=Math.max(1,Math.min(pages,p));admRenderTable();}
-
-// ── Form bauen ─────────────────────────────────────────────
-function admBuildForm(entry) {
-  var e=entry||{};
-  var cats=['wildpflanze','pilz','baum','kraut','hauspflanze','moos','flechte','alge','gemuese','frucht'];
-  var catLabels={wildpflanze:'🌿 Wildpflanze',pilz:'🍄 Pilz',baum:'🌳 Baum',kraut:'🌱 Kraut',hauspflanze:'🪴 Hauspflanze',moos:'🔬 Moos',flechte:'🔘 Flechte',alge:'💧 Alge',gemuese:'🥦 Gemüse',frucht:'🍎 Frucht'};
-  admCurrentTox = e.tox||0;
-  function inp(id,label,val,req,ph){return '<div style="margin-bottom:12px;"><label class="adm-label">'+label+(req?' <span style="color:#ef4444;">*</span>':'')+' </label><input id="af-'+id+'" class="adm-input" value="'+((val||'').replace(/"/g,'&quot;'))+'" placeholder="'+(ph||'')+'"></div>';}
-  function ta(id,label,val,ph){return '<div style="margin-bottom:12px;"><label class="adm-label">'+label+'</label><textarea id="af-'+id+'" class="adm-input adm-textarea" placeholder="'+(ph||'')+'">'+((val||'').replace(/</g,'&lt;'))+'</textarea></div>';}
-  function chk(id,label,checked){return '<label style="display:flex;align-items:center;gap:8px;padding:8px 11px;background:#111c11;border:1px solid #2a3f2a;border-radius:8px;cursor:pointer;margin-bottom:8px;font-size:13px;color:#c8e8c8;"><input type="checkbox" id="af-'+id+'" '+(checked?'checked':'')+'style="accent-color:#2d8a2d;width:15px;height:15px;"> '+label+'</label>';}
-  var catSel='<div style="margin-bottom:12px;"><label class="adm-label">Kategorie <span style="color:#ef4444;">*</span></label><select id="af-cat" class="adm-input">';
-  cats.forEach(function(c){catSel+='<option value="'+c+'"'+(e.cat===c?' selected':'')+'>'+catLabels[c]+'</option>';});
-  catSel+='</select></div>';
-  var toxSel='<div style="margin-bottom:14px;"><label class="adm-label">Toxizität</label><div style="display:flex;gap:5px;">';
-  ['✅ 0','🟡 1','⚠️ 2','🔴 3','☠️ 4','💀 5'].forEach(function(t,i){
-    toxSel+='<button onclick="admSetTox('+i+')" id="af-tox-'+i+'" style="flex:1;padding:7px 4px;border:1.5px solid '+(admCurrentTox===i?'#2d8a2d':'#2a3f2a')+';border-radius:6px;background:'+(admCurrentTox===i?'rgba(45,138,45,.2)':'#111c11')+';color:'+(admCurrentTox===i?'#4caf50':'#5a8a5a')+';font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">'+t+'</button>';
-  });
-  toxSel+='</div></div>';
-  var html='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">' +
-    '<div>'+inp('id','ID',e.id,true,'P001')+'</div><div>'+inp('emoji','Emoji',e.emoji,false,'🌿')+'</div>' +
-    '<div>'+inp('name','Name (Deutsch)',e.name,true,'Bärlauch')+'</div><div>'+inp('lat','Latein',e.lat,false,'Allium ursinum')+'</div>' +
-    '<div>'+inp('fam','Familie',e.fam,false,'Amaryllidaceae')+'</div><div>'+inp('season','Saison',e.season,false,'Apr–Jun')+'</div>' +
-    '</div>'+catSel+toxSel+
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">'+
-      chk('edible','Essbar',e.edible)+chk('medicinal','Medizinisch',e.medicinal)+
-      chk('protected','Geschützt',e.protected)+chk('toxic','Giftig',e.toxic)+
-    '</div>'+
-    inp('habitat','Habitat',e.habitat,false,'Feuchte Laubwälder')+
-    ta('desc','Beschreibung',e.desc,'Vollständige Beschreibung der Art…')+
-    ta('uses','Verwendung (uses)',e.uses,'Kulinarische und andere Verwendungen…')+
-    ta('medicinalUse','Medizinische Nutzung',e.medicinalUse,'Heilkundliche Anwendungen…')+
-    ta('warning','Warnhinweise',e.warning,'Verwechslung, Risiken…')+
-    ta('lookalike','Lookalike',e.lookalike,'Ähnliche Arten und Unterschiede…')+
-    inp('bookRef','Buch-Referenz',e.bookRef,false,'W.42');
-  document.getElementById('adm-form-container').innerHTML=html;
-}
-
-function admSetTox(v) {
-  admCurrentTox=v;
-  for(var i=0;i<=5;i++){
-    var btn=document.getElementById('af-tox-'+i);
-    if(btn){btn.style.borderColor=i===v?'#2d8a2d':'#2a3f2a';btn.style.background=i===v?'rgba(45,138,45,.2)':'#111c11';btn.style.color=i===v?'#4caf50':'#5a8a5a';}
-  }
-}
-
-function admGetFormVal(id){return (document.getElementById('af-'+id)||{}).value||'';}
-function admGetChk(id){return !!(document.getElementById('af-'+id)||{}).checked;}
-
-function admSaveNew() {
-  var id=admGetFormVal('id').trim(), name=admGetFormVal('name').trim(), desc=admGetFormVal('desc').trim();
-  if(!id||!name||!desc){gsToast('ID, Name und Beschreibung sind Pflichtfelder!', 'warn');return;}
-  var entry={id:id,name:name,lat:admGetFormVal('lat'),fam:admGetFormVal('fam'),cat:admGetFormVal('cat')||'wildpflanze',emoji:admGetFormVal('emoji')||'🌿',edible:admGetChk('edible'),toxic:admGetChk('toxic'),tox:admCurrentTox,medicinal:admGetChk('medicinal'),protected:admGetChk('protected'),season:admGetFormVal('season'),habitat:admGetFormVal('habitat'),desc:desc,uses:admGetFormVal('uses'),medicinalUse:admGetFormVal('medicinalUse'),warning:admGetFormVal('warning'),lookalike:admGetFormVal('lookalike'),bookRef:admGetFormVal('bookRef')};
-  if(admEditIdx>=0){DB[admEditIdx]=entry;admEditIdx=-1;}
-  else {if(DB.some(function(e){return e.id===id;})){gsToast('ID '+id+' existiert bereits!', 'warn');return;}DB.unshift(entry);}
-  admUpdateStats();
-  if(typeof renderList==='function') renderList(DB);
-  admShowTab('species');
-}
-
-function admClearForm(){admEditIdx=-1;admBuildForm();}
-function admOpenEdit(idx){admEditIdx=idx;admBuildForm(DB[idx]);admShowTab('add');document.getElementById('adm-tab-add').textContent='✏️ Bearbeiten';}
-
-async function admConfirmDel(idx) {
-  var e=DB[idx];
-  if(!(await gsConfirmModal('Art "'+e.name+'" ('+e.id+') wirklich löschen?'))) return;
-  DB.splice(idx,1);
-  admUpdateStats();
-  if(typeof renderList==='function') renderList(DB);
-  admRenderTable();
-}
-
-function admRenderDupes() {
-  var groups={};
-  DB.forEach(function(s){var k=((s.name||'').toLowerCase())+'|||'+((s.lat||'').toLowerCase());if(!groups[k])groups[k]=[];groups[k].push(s);});
-  var dg=Object.values(groups).filter(function(g){return g.length>1;});
-  dg.sort(function(a,b){return b.length-a.length;});
-  var dupeCount=dg.reduce(function(s,g){return s+g.length-1;},0);
-  var html=dupeCount===0
-    ?'<div style="text-align:center;padding:40px;color:#4caf50;font-size:16px;font-weight:700;">✅ Keine Duplikate!</div>'
-    :'<div style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;"><span style="font-size:13px;color:#f59e0b;">'+dg.length+' Gruppen · '+dupeCount+' Duplikate</span><button onclick="admApplyDedup()" style="padding:8px 16px;background:#7f1d1d;border:none;border-radius:8px;color:#fca5a5;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">🧹 Alle entfernen</button></div>';
-  dg.forEach(function(g){
-    
-    var sorted=g.slice().sort(function(a,b){return sc(b)-sc(a);});
-    html+='<div style="background:#111c11;border:1px solid #2a3f2a;border-radius:10px;margin-bottom:8px;overflow:hidden;">' +
-      '<div style="padding:8px 12px;background:#162016;display:flex;justify-content:space-between;align-items:center;">' +
-        '<span style="font-weight:700;color:#c8e8c8;">'+(g[0].emoji||'')+' '+g[0].name+'</span>' +
-        '<span style="background:#ef4444;color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:7px;">'+g.length+'×</span>' +
-      '</div>' +
-      sorted.map(function(e,i){return '<div style="display:flex;align-items:center;gap:10px;padding:6px 12px;border-top:1px solid #1e2e1e;background:'+(i===0?'rgba(45,138,45,.06)':'rgba(239,68,68,.04)')+'"><span style="font-family:monospace;font-size:11px;color:#5a8a5a;width:55px;">'+e.id+'</span><span style="font-size:11px;color:#5a8a5a;flex:1;">'+e.cat+'</span><span style="font-size:11px;font-weight:700;color:'+(i===0?'#4caf50':'#ef4444')+';">'+(i===0?'✅ Behalten':'🗑️ Entfernen')+'</span></div>';}).join('') +
-    '</div>';
-  });
-  document.getElementById('adm-dupes-content').innerHTML=html;
-}
-
-function admApplyDedup() {
-  function sc(e){var s=0;['desc','uses','medicinalUse','warning','lookalike'].forEach(function(f){if(e[f]&&e[f].length>10)s+=e[f].length;});return s;}
-  var groups={},toRemove=new Set();
-  DB.forEach(function(s){var k=((s.name||'').toLowerCase())+'|||'+((s.lat||'').toLowerCase());if(!groups[k])groups[k]=[];groups[k].push(s);});
-  Object.values(groups).forEach(function(g){if(g.length<=1)return;g.sort(function(a,b){return sc(b)-sc(a);});g.slice(1).forEach(function(e){toRemove.add(e.id);});});
-  for(var i=DB.length-1;i>=0;i--){if(toRemove.has(DB[i].id))DB.splice(i,1);}
-  if(typeof renderList==='function') renderList(DB);
-  admUpdateStats();
-  admRenderDupes();
-}
-
-function admExportJSON() {
-  var blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json;charset=utf-8'});
-  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='greenscan_db.json';a.click();
-}
-function admExportCSV() {
-  var fields=['id','name','lat','fam','cat','tox','edible','medicinal','season','habitat','desc','uses','medicinalUse','warning','lookalike','bookRef'];
-  var lines=[fields.join(';')];
-  DB.forEach(function(e){lines.push(fields.map(function(f){var v=e[f]!==undefined?String(e[f]):'';return '"'+v.replace(/"/g,'""')+'"';}).join(';'));});
-  var blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
-  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='greenscan_db.csv';a.click();
-}
-
-async function admChangePw() {
-  var pw1=document.getElementById('adm-new-pw').value;
-  var pw2=document.getElementById('adm-new-pw2').value;
-  var msg=document.getElementById('adm-pw-msg');
-  if(!pw1||pw1.length<6){msg.textContent='Passwort zu kurz!';msg.style.color='#f87171';msg.style.display='block';return;}
-  if(pw1!==pw2){msg.textContent='Passwörter stimmen nicht überein!';msg.style.color='#f87171';msg.style.display='block';return;}
-  var hash=await gsHashPw(pw1);
-  localStorage.setItem(GS_ADMIN_PW_KEY,hash);
-  msg.textContent='✅ Passwort gespeichert!';msg.style.color='#4caf50';msg.style.display='block';
-  document.getElementById('adm-new-pw').value='';document.getElementById('adm-new-pw2').value='';
-  setTimeout(function(){msg.style.display='none';},3000);
-}
 
 function checkAdminMode() {
   if (!IS_ADMIN) return;
@@ -57411,6 +57174,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v28.68', date: '09.06.2026',
+    headline: '🧹 Toten Admin-DB-Editor entfernt (Code-Hygiene)',
+    summary: 'Aufräum-Release: der alte, seit langem unerreichbare Admin-Arten-Editor (ein verstecktes Doppel-Panel) wurde ersatzlos entfernt — 353 Zeilen toter Code raus. Keine Funktion geht verloren: das aktive Admin-Dashboard (Metriken, Stripe, Rollen — seit v28.67 erreichbar) bleibt vollständig. Reine Wartbarkeit, für Nutzer unsichtbar.',
+    user_summary: '🧹 Internes Code-Aufräumen — toter Admin-Editor entfernt, keine sichtbare Änderung.',
+    user_items: [
+      { emoji: '🧹', text: 'Toter, doppelter Admin-Arten-Editor ersatzlos entfernt (353 Zeilen)' },
+      { emoji: '✅', text: 'Aktives Admin-Dashboard (Metriken/Stripe/Rollen) unverändert nutzbar' },
+    ],
+    items: [
+      {emoji:'🗑️', bold:'Entfernt:', text:' openAdminPanel @55979 (shadowed) + closeAdminPanel + 19 adm*-Funktionen + admin-panel-modal-HTML + adm-* CSS.'},
+      {emoji:'🛡️', bold:'Sicher gelöscht:', text:' Reference-Mapping vorab — 0 externe Aufrufer. Passwort-Login (toggleAdminMode/openAdminLogin/doAdminLogin) + checkAdminMode (Farm) bleiben. openAdminPanel jetzt eindeutig (1 Definition).'},
+      {emoji:'📋', bold:'Block F:', text:' F.1 Audit + F.2 + F.3 + Cleanup ✅ → nächst Quick-Wins (Foto-Diff-Verlauf, Doktor-Sync, Admin-Suche) dann Block G/H.'},
+    ]
+  },
   {
     v: 'v28.67', date: '09.06.2026',
     headline: '👑 Admin-Dashboard erreichbar + 2 Härtungen',
@@ -61433,7 +61211,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.67';
+var GS_VERSION = 'v28.68';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -70164,143 +69942,9 @@ async function gsOpenWeatherWarn(){
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════ -->
-<!-- GREENSCAN EMBEDDED ADMIN — Haupt-Panel                      -->
-<!-- ═══════════════════════════════════════════════════════════ -->
-<div id="admin-panel-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9998;flex-direction:column;">
-  <!-- Admin Topbar -->
-  <div style="background:#111c11;border-bottom:1px solid #2a3f2a;padding:0 16px;height:52px;display:flex;align-items:center;gap:12px;flex-shrink:0;">
-    <span style="font-size:16px;font-weight:800;color:#4caf50;">🌿 Admin</span>
-    <span id="adm-stat-total" style="font-size:11px;background:#1e2e1e;color:#4caf50;padding:2px 8px;border-radius:5px;font-family:monospace;"></span>
-    <span id="adm-stat-dupes" style="font-size:11px;background:#1e2e1e;color:#f59e0b;padding:2px 8px;border-radius:5px;font-family:monospace;"></span>
-    <div style="flex:1;"></div>
-    <!-- Admin Tabs -->
-    <div style="display:flex;gap:2px;">
-      <button onclick="admShowTab('species')" id="adm-tab-species" class="adm-tab adm-tab-active">📋 Arten</button>
-      <button onclick="admShowTab('add')"     id="adm-tab-add"     class="adm-tab">➕ Neue Art</button>
-      <button onclick="admShowTab('dupes')"   id="adm-tab-dupes"   class="adm-tab">🔍 Duplikate</button>
-      <button onclick="admShowTab('export')"  id="adm-tab-export"  class="adm-tab">📤 Export</button>
-      <button onclick="admShowTab('pw')"      id="adm-tab-pw"      class="adm-tab">🔑 Passwort</button>
-    </div>
-    <button onclick="closeAdminPanel()"
-      style="background:#7f1d1d;border:none;color:#fca5a5;font-size:13px;font-weight:700;padding:6px 14px;border-radius:8px;cursor:pointer;font-family:inherit;">
-      ✕ Schliessen
-    </button>
-  </div>
-
-  <!-- Admin Content -->
-  <div style="flex:1;overflow:hidden;display:flex;flex-direction:column;background:#0d1f0d;">
-
-    <!-- TAB: ARTEN -->
-    <div id="adm-view-species" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
-      <!-- Search + Filter -->
-      <div style="padding:10px 16px;background:#111c11;border-bottom:1px solid #2a3f2a;display:flex;gap:8px;align-items:center;">
-        <input id="adm-search" type="text" placeholder="🔍 Name, Latein, ID …" oninput="admFilter()"
-          style="flex:1;padding:9px 13px;background:#1e2e1e;border:1.5px solid #2a3f2a;border-radius:8px;color:#e2f0e2;font-size:13px;font-family:inherit;outline:none;">
-        <select id="adm-cat-filter" onchange="admFilter()"
-          style="padding:9px 12px;background:#1e2e1e;border:1.5px solid #2a3f2a;border-radius:8px;color:#8aaa8a;font-size:12px;font-family:inherit;outline:none;">
-          <option value="">Alle Kategorien</option>
-          <option value="wildpflanze">🌿 Wildpflanzen</option>
-          <option value="pilz">🍄 Pilze</option>
-          <option value="baum">🌳 Bäume</option>
-          <option value="kraut">🌱 Kräuter</option>
-          <option value="hauspflanze">🪴 Hauspflanzen</option>
-          <option value="moos">🔬 Moose</option>
-          <option value="flechte">🔘 Flechten</option>
-          <option value="alge">💧 Algen</option>
-        </select>
-        <span id="adm-count" style="font-size:11px;color:#5a8a5a;white-space:nowrap;"></span>
-      </div>
-      <!-- Table -->
-      <div id="adm-table-wrap" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;"></div>
-      <!-- Pagination -->
-      <div id="adm-pagination" style="display:none;padding:10px 16px;background:#111c11;border-top:1px solid #2a3f2a;display:flex;align-items:center;justify-content:space-between;">
-      </div>
-    </div>
-
-    <!-- TAB: NEUE ART -->
-    <div id="adm-view-add" style="display:none;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px;">
-      <div style="max-width:640px;margin:0 auto;">
-        <div style="font-size:15px;font-weight:800;color:#e2f0e2;margin-bottom:16px;">➕ Neue Art hinzufügen</div>
-        <div id="adm-form-container"></div>
-        <div style="display:flex;gap:8px;margin-top:20px;">
-          <button onclick="admSaveNew()"
-            style="flex:2;padding:12px;background:#2d8a2d;border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">
-            ✅ Speichern
-          </button>
-          <button onclick="admClearForm()"
-            style="flex:1;padding:12px;background:#1e2e1e;border:1.5px solid #2a3f2a;border-radius:10px;color:#5a8a5a;font-size:13px;cursor:pointer;font-family:inherit;">
-            Leeren
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB: DUPLIKATE -->
-    <div id="adm-view-dupes" style="display:none;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px;">
-      <div id="adm-dupes-content"></div>
-    </div>
-
-    <!-- TAB: EXPORT -->
-    <div id="adm-view-export" style="display:none;flex:1;overflow-y:auto;padding:20px;">
-      <div style="max-width:480px;display:flex;flex-direction:column;gap:12px;">
-        <div style="font-size:14px;font-weight:800;color:#e2f0e2;margin-bottom:4px;">📤 Datenbank exportieren</div>
-        <div style="font-size:12px;color:#5a8a5a;line-height:1.7;padding:12px;background:#111c11;border-radius:10px;border:1px solid #2a3f2a;">
-          ⚠️ Der JSON-Export speichert nur die <em>aktive DB</em> im RAM. Um die GreenScan HTML-Datei zu aktualisieren, verwende <strong>admin.html</strong> (separates File) — dieses kann die HTML-Datei vollständig importieren und exportieren.
-        </div>
-        <button onclick="admExportJSON()"
-          style="padding:13px;background:#2d8a2d;border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">
-          { } JSON exportieren (aktive DB)
-        </button>
-        <button onclick="admExportCSV()"
-          style="padding:13px;background:#1e2e1e;border:1.5px solid #2a3f2a;border-radius:10px;color:#8aaa8a;font-size:13px;cursor:pointer;font-family:inherit;">
-          📊 CSV exportieren
-        </button>
-        <div style="padding:12px;background:#111c11;border:1px solid #2a3f2a;border-radius:10px;font-size:12px;color:#5a8a5a;line-height:1.8;">
-          💡 <strong style="color:#4caf50;">Tipp:</strong> Für volle Import/Export-Funktionalität (inklusive HTML-Export) öffne <code style="color:#4caf50;">admin.html</code>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB: PASSWORT -->
-    <div id="adm-view-pw" style="display:none;flex:1;overflow-y:auto;padding:20px;">
-      <div style="max-width:360px;">
-        <div style="font-size:14px;font-weight:800;color:#e2f0e2;margin-bottom:16px;">🔑 Passwort ändern</div>
-        <input id="adm-new-pw" type="password" placeholder="Neues Passwort (mind. 6 Zeichen)"
-          style="width:100%;padding:11px 14px;background:#1e2e1e;border:1.5px solid #2a3f2a;border-radius:8px;color:#e2f0e2;font-size:14px;font-family:monospace;outline:none;margin-bottom:10px;box-sizing:border-box;">
-        <input id="adm-new-pw2" type="password" placeholder="Passwort wiederholen"
-          style="width:100%;padding:11px 14px;background:#1e2e1e;border:1.5px solid #2a3f2a;border-radius:8px;color:#e2f0e2;font-size:14px;font-family:monospace;outline:none;margin-bottom:10px;box-sizing:border-box;">
-        <button onclick="admChangePw()"
-          style="width:100%;padding:12px;background:#2d8a2d;border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">
-          ✅ Passwort speichern
-        </button>
-        <div id="adm-pw-msg" style="display:none;margin-top:10px;font-size:12.5px;text-align:center;"></div>
-      </div>
-    </div>
-
-  </div>
-</div>
 
 <style>
-.adm-tab {
-  padding:8px 14px;border:none;background:none;color:#5a8a5a;
-  font-size:12px;font-weight:700;cursor:pointer;border-radius:6px;
-  font-family:inherit;transition:.12s;
-}
-.adm-tab:hover { color:#8aaa8a; background:#1e2e1e; }
-.adm-tab-active { background:#1e2e1e!important; color:#4caf50!important; }
-.adm-row { border-bottom:1px solid #1e2e1e; }
-.adm-row:hover td { background:#162016; }
-.adm-td { padding:8px 12px; font-size:12px; color:#c8e8c8; }
-.adm-input {
-  width:100%;padding:9px 11px;background:#111c11;border:1.5px solid #2a3f2a;
-  border-radius:8px;color:#e2f0e2;font-size:13px;font-family:inherit;outline:none;
-  margin-bottom:10px;box-sizing:border-box;
-}
-.adm-input:focus { border-color:#2d8a2d; }
-.adm-textarea { min-height:70px;resize:vertical;line-height:1.6; }
-.adm-label { font-size:10.5px;font-weight:700;color:#5a8a5a;text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px;display:block; }
-
+/* v28.68: adm-* CSS (DB-Editor) entfernt — Feature ersatzlos gelöscht. */
 
 @keyframes bounce {
   0%,100% { transform: translateY(0); }
