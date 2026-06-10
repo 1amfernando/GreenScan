@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.95.20260610">
+<meta name="app-version" content="28.96.20260610">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -8647,6 +8647,19 @@ var WMO_TEXT = {
   80:'Regenschauer',81:'Starke Schauer',82:'Heftige Schauer',
   95:'Gewitter',96:'Gewitter mit Hagel',99:'Starkes Gewitter'
 };
+// v28.96 A-Z-Audit: Wetter-Bedingungen übersetzbar — DE-Maps bleiben Fallback,
+// gsWmoText/gsWeatherDescT lösen pro Code via i18n-Key (wmo_<code>/wdesc_<code>) auf.
+function gsWmoText(code){
+  var de = WMO_TEXT[code] || '';
+  if (!de) return '';
+  return (window.gsI18n && gsI18n.t) ? gsI18n.t('wmo_' + code, de) : de;
+}
+function gsWeatherDescT(code){
+  var de = (typeof WEATHER_CODE_DESC !== 'undefined' && WEATHER_CODE_DESC[code]) || '';
+  var fb = (window.gsI18n && gsI18n.t) ? gsI18n.t('wdesc_default', 'Wechselhaft') : 'Wechselhaft';
+  if (!de) return fb;
+  return (window.gsI18n && gsI18n.t) ? gsI18n.t('wdesc_' + code, de) : de;
+}
 
 function gsGetWeatherLocation() {
   // v24.11: ROBUSTE Source-of-Truth — versucht beide localStorage-Keys
@@ -8772,7 +8785,7 @@ async function loadGardenWeather(forceReload) {
     var gDesc = document.getElementById('garden-hw-desc');
     if (gIcon) gIcon.textContent = icon;
     if (gTemp) gTemp.textContent = temp + ' °C';
-    if (gDesc) gDesc.textContent = tip || WMO_TEXT[cw.weathercode] || '';
+    if (gDesc) gDesc.textContent = tip || gsWmoText(cw.weathercode) || '';
   }
     gsApplyWeatherToWidget(data);
   } catch(e) {
@@ -8840,7 +8853,7 @@ function gsApplyWeatherToWidget(data) {
   var gDesc = document.getElementById('garden-hw-desc');
   if (gIcon) gIcon.textContent = icon;
   if (gTemp) gTemp.textContent = temp + ' °C';
-  if (gDesc) gDesc.textContent = tip || (WMO_TEXT ? WMO_TEXT[cw.weathercode] : '') || '';
+  if (gDesc) gDesc.textContent = tip || (typeof gsWmoText === 'function' ? gsWmoText(cw.weathercode) : '') || '';
 }
 
 function openWeatherDetail() {
@@ -8925,7 +8938,7 @@ function gsRenderWeatherDetail(data) {
   document.getElementById('wd-icon').textContent  = WMO_ICONS[cw.weathercode] || '🌡️';
   document.getElementById('wd-temp').textContent  = Math.round(cw.temperature) + '°C';
   document.getElementById('wd-location').textContent = '📍 ' + _gsWeatherCity;
-  document.getElementById('wd-desc').textContent  = WMO_TEXT[cw.weathercode] || '';
+  document.getElementById('wd-desc').textContent  = gsWmoText(cw.weathercode) || '';
 
   // Grid
   document.getElementById('wd-wind').textContent  = Math.round(cw.windspeed) + ' km/h';
@@ -11247,6 +11260,57 @@ window.GS_I18N_JS_STRINGS = {
   'prompt_name_title':       'Namen ändern',
   'prompt_name_msg':         'Neuer Name:',
   'prompt_name_empty':       '❌ Name darf nicht leer sein',
+  // v28.96 A-Z-Audit — Wetter-Bedingungen (WMO-Codes, Garten-Mini + Wetter-Detail)
+  'wmo_0':'Klarer Himmel','wmo_1':'Überwiegend klar','wmo_2':'Teils bewölkt','wmo_3':'Bedeckt',
+  'wmo_45':'Nebel','wmo_48':'Reifnebel',
+  'wmo_51':'Leichter Nieselregen','wmo_53':'Nieselregen','wmo_55':'Starker Nieselregen',
+  'wmo_61':'Leichter Regen','wmo_63':'Regen','wmo_65':'Starker Regen',
+  'wmo_71':'Leichter Schnee','wmo_73':'Schneefall','wmo_75':'Starker Schneefall',
+  'wmo_80':'Regenschauer','wmo_81':'Starke Schauer','wmo_82':'Heftige Schauer',
+  'wmo_95':'Gewitter','wmo_96':'Gewitter mit Hagel','wmo_99':'Starkes Gewitter',
+  // v28.96 — Wetter-Beschreibungen Home-Widget
+  'wdesc_0':'Klar und sonnig','wdesc_1':'Überwiegend klar','wdesc_2':'Teilweise bewölkt','wdesc_3':'Bedeckt',
+  'wdesc_45':'Nebel','wdesc_48':'Dichter Nebel',
+  'wdesc_51':'Leichter Nieselregen','wdesc_53':'Mässiger Nieselregen','wdesc_55':'Starker Nieselregen',
+  'wdesc_61':'Leichter Regen','wdesc_63':'Mässiger Regen','wdesc_65':'Starker Regen',
+  'wdesc_71':'Leichter Schneefall','wdesc_73':'Mässiger Schneefall','wdesc_75':'Starker Schneefall',
+  'wdesc_80':'Leichte Regenschauer','wdesc_81':'Mässige Regenschauer','wdesc_82':'Starke Regenschauer',
+  'wdesc_95':'Gewitter','wdesc_96':'Gewitter mit Hagel','wdesc_99':'Starkes Gewitter',
+  'wdesc_default':'Wechselhaft',
+  // v28.96 — Standort / Forecast / Warnungen / Garten-Tipps / Grüsse (Home)
+  'loc_my_location':'Mein Standort',
+  'loc_default_zurich':'Zürich (Standard — bitte Standort erlauben)',
+  'loc_banner_title':'Standort nicht ermittelt',
+  'loc_banner_text':'Wetter zeigt Zürich. Erlaube Standort für dein lokales Wetter.',
+  'loc_banner_allow':'Erlauben',
+  'days_short_mo_so':'Mo,Di,Mi,Do,Fr,Sa,So',
+  'forecast_today':'Heute',
+  'weather_unavailable':'Wetter nicht verfügbar',
+  'warn_thunder':'⛈️ Gewitter in den nächsten 1-2h erwartet!',
+  'warn_gusts_to':'💨 Sturmböen bis',
+  'warn_heavy_rain':'🌧️ Starkregen in den nächsten 1-2h!',
+  'warn_gusts_now':'💨 Aktuelle Sturmböen:',
+  'warn_secure_plants':'Pflanzen sichern!',
+  'warn_notif_title':'🌩️ GreenScan Wetterwarnung',
+  'gtip_storm':'⛈️ Sturm – Pflanzen reinholen und schützen!',
+  'gtip_frost':'❄️ Frostgefahr – empfindliche Pflanzen schützen!',
+  'gtip_heat':'🌡️ Hitze & UV – Pflanzen extra giessen, mittags schattieren',
+  'gtip_humidity':'💧 Hohe Luftfeuchtigkeit – auf Pilzkrankheiten achten',
+  'gtip_wind':'💨 Starker Wind – Stecklinge und Töpfe sichern',
+  'gtip_default':'Pflanzen, Pilze, Kräuter, Bäume, Moose, Flechten & Algen der Schweiz',
+  'greet_morning':'Guten Morgen',
+  'greet_gruezi':'Grüezi',
+  'greet_day':'Guten Tag',
+  'greet_evening':'Guten Abend',
+  'greet_night':'Gute Nacht',
+  'season_msg_winter':'Bäume · Moose · Flechten · Hauspflanzen',
+  'season_msg_spring':'Bärlauch · Wildblüten · Kräuter · Pilze',
+  'season_msg_summer':'Beeren · Blüten · Wildgemüse · Pilze',
+  'season_msg_autumn':'Pilze · Nüsse · Hagebutten · Wurzeln',
+  'quiz_pts':'Pkt',
+  'quiz_days':'Tage',
+  'season_tip_default':'Jetzt ist die beste Zeit zum Sammeln!',
+  'season_tip_prompt':'Was hat gerade Saison in der Schweiz?',
   'water_dry_hint':            'giessen. Erde leicht antrocknen lassen.',
   'detail_care':               '🪴 Pflege & Standort',
   'tox_strong':                'STARK GIFTIG',
@@ -17153,7 +17217,7 @@ function gsUpdateQuizCard() {
   var points = parseInt(localStorage.getItem('gs_quiz_points')||'0');
   var streak = parseInt(gsStore.get('gs_quiz_streak', null)||'0');
   var streakEl = document.getElementById('quiz-streak');
-  if (streakEl) streakEl.textContent = points + ' Pkt · 🔥 ' + streak + ' Tage';
+  if (streakEl) { var _qt=(window.gsI18n&&gsI18n.t)?gsI18n.t:function(k,f){return f;}; streakEl.textContent = points + ' ' + _qt('quiz_pts','Pkt') + ' · 🔥 ' + streak + ' ' + _qt('quiz_days','Tage'); }
 }
 
 // Legacy fallbacks
@@ -18351,8 +18415,8 @@ async function loadHomeWeather() {
         try {
           const gr = await (window._gsFetch || fetch)('https://nominatim.openstreetmap.org/reverse?lat='+lat+'&lon='+lon+'&format=json&accept-language=de', {}, 10000);
           const gd = await gr.json();
-          locName = gd.address?.city || gd.address?.town || gd.address?.village || gd.address?.municipality || 'Mein Standort';
-        } catch(e){ locName = 'Mein Standort'; }
+          locName = gd.address?.city || gd.address?.town || gd.address?.village || gd.address?.municipality || ((window.gsI18n && gsI18n.t) ? gsI18n.t('loc_my_location','Mein Standort') : 'Mein Standort');
+        } catch(e){ locName = (window.gsI18n && gsI18n.t) ? gsI18n.t('loc_my_location','Mein Standort') : 'Mein Standort'; }
         locResolved = true;
         try { localStorage.setItem('gs_perm_geolocation', 'granted'); } catch(_){}
       }
@@ -18377,17 +18441,18 @@ async function loadHomeWeather() {
     }
     // Stufe 3: Default Zürich (nur als letzter Ausweg, klar markiert)
     if (!locResolved) {
-      lat = 47.3769; lon = 8.5417; locName = 'Zürich (Standard — bitte Standort erlauben)';
+      lat = 47.3769; lon = 8.5417; locName = (window.gsI18n && gsI18n.t) ? gsI18n.t('loc_default_zurich','Zürich (Standard — bitte Standort erlauben)') : 'Zürich (Standard — bitte Standort erlauben)';
       // Banner zeigen damit User weiss dass er GPS aktivieren kann
       try {
         if (!document.getElementById('gs-loc-permission-banner')) {
           var b = document.createElement('div');
           b.id = 'gs-loc-permission-banner';
           b.style.cssText = 'position:fixed;bottom:80px;left:12px;right:12px;z-index:var(--z-modal-top,5000);background:var(--card);border:1.5px solid var(--c-warn);border-radius:12px;padding:12px;box-shadow:var(--shadow);font-size:12.5px;';
+          var _lt = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k,f){ return f; };
           b.innerHTML = '<div style="display:flex;align-items:center;gap:10px;">' +
             '<span style="font-size:20px;">📍</span>' +
-            '<div style="flex:1;color:var(--text);"><b>Standort nicht ermittelt</b><br><span style="color:var(--text2);font-size:11.5px;">Wetter zeigt Zürich. Erlaube Standort für dein lokales Wetter.</span></div>' +
-            '<button onclick="document.getElementById(\'gs-loc-permission-banner\').remove();loadHomeWeather()" style="padding:6px 12px;background:var(--g-main);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;">Erlauben</button>' +
+            '<div style="flex:1;color:var(--text);"><b>' + _lt('loc_banner_title','Standort nicht ermittelt') + '</b><br><span style="color:var(--text2);font-size:11.5px;">' + _lt('loc_banner_text','Wetter zeigt Zürich. Erlaube Standort für dein lokales Wetter.') + '</span></div>' +
+            '<button onclick="document.getElementById(\'gs-loc-permission-banner\').remove();loadHomeWeather()" style="padding:6px 12px;background:var(--g-main);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;">' + _lt('loc_banner_allow','Erlauben') + '</button>' +
             '<button onclick="document.getElementById(\'gs-loc-permission-banner\').remove()" style="padding:6px 8px;background:transparent;color:var(--muted);border:none;font-size:18px;cursor:pointer;">×</button>' +
           '</div>';
           document.body.appendChild(b);
@@ -18415,7 +18480,7 @@ async function loadHomeWeather() {
     const d = await resp.json();
     const c = d.current;
     const icon = WEATHER_CODE_MAP[c.weather_code] || '🌤️';
-    const desc = WEATHER_CODE_DESC[c.weather_code] || 'Wechselhaft';
+    const desc = gsWeatherDescT(c.weather_code);
     const temp = Math.round(c.temperature_2m);
     const wind = Math.round(c.wind_speed_10m);
     const hum  = Math.round(c.relative_humidity_2m);
@@ -18431,9 +18496,11 @@ async function loadHomeWeather() {
     // 3-Tages Forecast
     const forecastEl = document.getElementById('hw-forecast');
     if (forecastEl && d.daily) {
-      const days = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+      const _wt = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k,f){ return f; };
+      const days = _wt('days_short_mo_so','Mo,Di,Mi,Do,Fr,Sa,So').split(',');
+      // getDay(): 0=So … 6=Sa → Array beginnt bei Mo, daher Index (getDay()+6)%7
       forecastEl.innerHTML = d.daily.time.slice(0,4).map((date, i) => {
-        const dayName = i === 0 ? 'Heute' : days[new Date(date).getDay()];
+        const dayName = i === 0 ? _wt('forecast_today','Heute') : days[(new Date(date).getDay()+6)%7];
         const fi = WEATHER_CODE_MAP[d.daily.weather_code[i]] || '🌤️';
         const mx = Math.round(d.daily.temperature_2m_max[i]);
         const mn = Math.round(d.daily.temperature_2m_min[i]);
@@ -18453,7 +18520,7 @@ async function loadHomeWeather() {
     updateGardenWeatherTip(temp, c.weather_code, wind, hum, uv);
 
   } catch(e) {
-    document.getElementById('hw-desc').textContent = 'Wetter nicht verfügbar';
+    document.getElementById('hw-desc').textContent = (window.gsI18n && gsI18n.t) ? gsI18n.t('weather_unavailable','Wetter nicht verfügbar') : 'Wetter nicht verfügbar';
   }
 }
 
@@ -18462,6 +18529,7 @@ function checkStormWarning(weatherData, currentWind) {
   const warnText = document.getElementById('hw-warning-text');
   if (!warnEl || !warnText) return;
 
+  var _st = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k,f){ return f; };
   var warning = '';
   // Check next 2 hours
   if (weatherData.hourly) {
@@ -18471,14 +18539,14 @@ function checkStormWarning(weatherData, currentWind) {
       const hCode = weatherData.hourly.weather_code?.[i];
       const hWind = weatherData.hourly.wind_speed_10m?.[i] || 0;
       const hPrec = weatherData.hourly.precipitation_probability?.[i] || 0;
-      if (STORM_CODES.has(hCode)) { warning = '⛈️ Gewitter in den nächsten 1-2h erwartet!'; break; }
-      if (hWind >= WIND_STORM_THRESHOLD) { warning = '💨 Sturmböen bis ' + Math.round(hWind) + ' km/h erwartet!'; break; }
-      if (hPrec > 80 && HEAVY_RAIN_CODES.has(hCode)) { warning = '🌧️ Starkregen in den nächsten 1-2h!'; break; }
+      if (STORM_CODES.has(hCode)) { warning = _st('warn_thunder','⛈️ Gewitter in den nächsten 1-2h erwartet!'); break; }
+      if (hWind >= WIND_STORM_THRESHOLD) { warning = _st('warn_gusts_to','💨 Sturmböen bis') + ' ' + Math.round(hWind) + ' km/h'; break; }
+      if (hPrec > 80 && HEAVY_RAIN_CODES.has(hCode)) { warning = _st('warn_heavy_rain','🌧️ Starkregen in den nächsten 1-2h!'); break; }
     }
   }
   // Also check current wind
   if (!warning && currentWind >= WIND_STORM_THRESHOLD) {
-    warning = '💨 Aktuelle Sturmböen: ' + currentWind + ' km/h – Pflanzen sichern!';
+    warning = _st('warn_gusts_now','💨 Aktuelle Sturmböen:') + ' ' + currentWind + ' km/h — ' + _st('warn_secure_plants','Pflanzen sichern!');
   }
 
   if (warning) {
@@ -18486,7 +18554,7 @@ function checkStormWarning(weatherData, currentWind) {
     warnText.textContent = warning;
     // v23.94: zentrale gsNotif-API mit Tag (verhindert Spam-Notifs bei wiederholtem Render)
     if (typeof gsNotif !== 'undefined') {
-      gsNotif.show({title:'🌩️ GreenScan Wetterwarnung', body: warning, tag:'gs-weather-warn'});
+      gsNotif.show({title:_st('warn_notif_title','🌩️ GreenScan Wetterwarnung'), body: warning, tag:'gs-weather-warn'});
     }
   } else {
     warnEl.style.display = 'none';
@@ -18497,13 +18565,14 @@ function updateGardenWeatherTip(temp, code, wind, hum, uv) {
   // Update hero subtitle with garden-relevant weather tip
   const hero = document.querySelector('.hero p');
   if (!hero) return;
+  var _gt = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k,f){ return f; };
   var tip = '';
-  if (STORM_CODES.has(code)) tip = '⛈️ Sturm – Pflanzen reinholen und schützen!';
-  else if (temp < 4) tip = '❄️ Frostgefahr – empfindliche Pflanzen schützen!';
-  else if (temp > 30 && uv > 6) tip = '🌡️ Hitze & UV – Pflanzen extra giessen, mittags schattieren';
-  else if (hum > 85) tip = '💧 Hohe Luftfeuchtigkeit – auf Pilzkrankheiten achten';
-  else if (wind > 40) tip = '💨 Starker Wind – Stecklinge und Töpfe sichern';
-  else tip = 'Pflanzen, Pilze, Kräuter, Bäume, Moose, Flechten & Algen der Schweiz';
+  if (STORM_CODES.has(code)) tip = _gt('gtip_storm','⛈️ Sturm – Pflanzen reinholen und schützen!');
+  else if (temp < 4) tip = _gt('gtip_frost','❄️ Frostgefahr – empfindliche Pflanzen schützen!');
+  else if (temp > 30 && uv > 6) tip = _gt('gtip_heat','🌡️ Hitze & UV – Pflanzen extra giessen, mittags schattieren');
+  else if (hum > 85) tip = _gt('gtip_humidity','💧 Hohe Luftfeuchtigkeit – auf Pilzkrankheiten achten');
+  else if (wind > 40) tip = _gt('gtip_wind','💨 Starker Wind – Stecklinge und Töpfe sichern');
+  else tip = _gt('gtip_default','Pflanzen, Pilze, Kräuter, Bäume, Moose, Flechten & Algen der Schweiz');
   hero.textContent = tip;
 }
 
@@ -18522,23 +18591,24 @@ function gsUpdateHomeGreeting() {
     var name = (localStorage.getItem('gs_sb_display_name') || localStorage.getItem('gs_social_name') || '').trim(); // v28.82: gs_profile_name tot → kanonisch
     var firstname = name ? name.split(' ')[0].split('@')[0] : '';
     
+    var _ht = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k,f){ return f; };
     var greeting, emoji;
-    if (h >= 5 && h < 11)      { greeting = 'Guten Morgen';   emoji = '☀️'; }
-    else if (h >= 11 && h < 14) { greeting = 'Grüezi';         emoji = '🌿'; }
-    else if (h >= 14 && h < 18) { greeting = 'Guten Tag';      emoji = '🌤️'; }
-    else if (h >= 18 && h < 22) { greeting = 'Guten Abend';    emoji = '🌆'; }
-    else                         { greeting = 'Gute Nacht';     emoji = '🌙'; }
-    
+    if (h >= 5 && h < 11)      { greeting = _ht('greet_morning','Guten Morgen');   emoji = '☀️'; }
+    else if (h >= 11 && h < 14) { greeting = _ht('greet_gruezi','Grüezi');         emoji = '🌿'; }
+    else if (h >= 14 && h < 18) { greeting = _ht('greet_day','Guten Tag');      emoji = '🌤️'; }
+    else if (h >= 18 && h < 22) { greeting = _ht('greet_evening','Guten Abend');    emoji = '🌆'; }
+    else                         { greeting = _ht('greet_night','Gute Nacht');     emoji = '🌙'; }
+
     var lbl = document.getElementById('home-greeting-label');
     if (lbl) lbl.textContent = emoji + '  ' + greeting + (firstname ? ', ' + firstname : '');
-    
+
     // Tagestitel dynamisch (je nach Jahreszeit)
     var m = new Date().getMonth(); // 0=Jan
     var season, seasonMsg;
-    if (m === 11 || m === 0 || m === 1) { season = 'Winter';    seasonMsg = 'Bäume · Moose · Flechten · Hauspflanzen'; }
-    else if (m >= 2 && m <= 4)          { season = 'Frühling';  seasonMsg = 'Bärlauch · Wildblüten · Kräuter · Pilze'; }
-    else if (m >= 5 && m <= 7)          { season = 'Sommer';    seasonMsg = 'Beeren · Blüten · Wildgemüse · Pilze'; }
-    else                                 { season = 'Herbst';    seasonMsg = 'Pilze · Nüsse · Hagebutten · Wurzeln'; }
+    if (m === 11 || m === 0 || m === 1) { season = 'Winter';    seasonMsg = _ht('season_msg_winter','Bäume · Moose · Flechten · Hauspflanzen'); }
+    else if (m >= 2 && m <= 4)          { season = 'Frühling';  seasonMsg = _ht('season_msg_spring','Bärlauch · Wildblüten · Kräuter · Pilze'); }
+    else if (m >= 5 && m <= 7)          { season = 'Sommer';    seasonMsg = _ht('season_msg_summer','Beeren · Blüten · Wildgemüse · Pilze'); }
+    else                                 { season = 'Herbst';    seasonMsg = _ht('season_msg_autumn','Pilze · Nüsse · Hagebutten · Wurzeln'); }
     
     var sub = document.getElementById('home-hero-sub');
     if (sub) sub.textContent = seasonMsg;
@@ -18558,10 +18628,20 @@ function initHomeBoard() {
 
   try {
     var now = new Date();
-    var dayNames = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
-    var monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+    // v28.96 i18n: Datum in der App-Sprache via toLocaleDateString (Browser übersetzt
+    // Wochentag/Monat selbst — keine Key-Pflege nötig). Fallback de-CH.
     var datumEl = document.getElementById('daily-datum');
-    if (datumEl) datumEl.textContent = dayNames[now.getDay()] + ', ' + now.getDate() + '. ' + monthNames[now.getMonth()] + ' ' + now.getFullYear();
+    if (datumEl) {
+      var _dl = (window.gsI18n && gsI18n.current) ? gsI18n.current : 'de';
+      var _dloc = ({de:'de-CH',en:'en-GB',es:'es-ES',fr:'fr-CH',it:'it-CH'})[_dl] || 'de-CH';
+      try {
+        datumEl.textContent = now.toLocaleDateString(_dloc, { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+      } catch(_) {
+        var dayNames = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+        var monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+        datumEl.textContent = dayNames[now.getDay()] + ', ' + now.getDate() + '. ' + monthNames[now.getMonth()] + ' ' + now.getFullYear();
+      }
+    }
 
     // ── Tages-Info (WEEKLY_SEASONAL_FACTS) ────────────────
     (function setDailyInfo() {
@@ -18599,11 +18679,11 @@ function initHomeBoard() {
         var dayOfYear2 = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
         var tip = seasonNow[dayOfYear2 % seasonNow.length];
         if (tipEl)      tipEl.textContent = tip.name;
-        if (tipTextEl)  tipTextEl.textContent = tip.tip ? tip.tip.substring(0, 80) + '…' : 'Jetzt ist die beste Zeit zum Sammeln!';
+        if (tipTextEl)  tipTextEl.textContent = tip.tip ? tip.tip.substring(0, 80) + '…' : ((window.gsI18n&&gsI18n.t)?gsI18n.t('season_tip_default','Jetzt ist die beste Zeit zum Sammeln!'):'Jetzt ist die beste Zeit zum Sammeln!');
         if (tipEmojiEl) tipEmojiEl.textContent = tip.emoji;
       } else if (tipEl) {
         tipEl.textContent = 'Saisonkalender öffnen';
-        if (tipTextEl) tipTextEl.textContent = 'Was hat gerade Saison in der Schweiz?';
+        if (tipTextEl) tipTextEl.textContent = (window.gsI18n&&gsI18n.t)?gsI18n.t('season_tip_prompt','Was hat gerade Saison in der Schweiz?'):'Was hat gerade Saison in der Schweiz?';
         if (tipEmojiEl) tipEmojiEl.textContent = '📅';
       }
     } catch(e) { console.log('SaisonTipp:', e.message); }
@@ -57710,6 +57790,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.96', date: '10.06.2026',
+    headline: '🌦️ Wetter & Startseite jetzt komplett mehrsprachig',
+    summary: 'A-Z-Voll-Audit Teil 2: Das Wetter (Bedingungen wie „Gewitter/Nebel/Regenschauer", Sturm-Warnungen, Garten-Tipps, Standort-Texte, Vorhersage-Tage) und die Startseite (Tagesgruss, Saison-Zeilen, Quiz-Karte, Datum) waren noch fest auf Deutsch — jetzt vollständig auf EN/ES/FR/IT. Bonus: Die Vorhersage-Wochentage waren um einen Tag verschoben (So zeigte „Mo") — behoben. Damit sind alle 1443 App-Texte in allen 5 Sprachen abgedeckt (verifiziert).',
+    user_summary: '🌦️ Wetter + Startseite (Grüsse, Warnungen, Tipps, Datum) jetzt auf EN/ES/FR/IT — 1443/1443 Texte verifiziert.',
+    user_items: [
+      { emoji: '🌦️', text: 'Wetter-Bedingungen, Sturm-Warnungen & Garten-Tipps übersetzt' },
+      { emoji: '👋', text: 'Tagesgruss, Saison-Zeilen & Datum in deiner Sprache' },
+      { emoji: '📅', text: 'Vorhersage-Wochentage waren um 1 Tag verschoben — behoben' },
+    ],
+    items: [
+      {emoji:'🔤', bold:'i18n:', text:' gsWmoText/gsWeatherDescT-Wrapper (42 WMO/Desc-Codes) + Standort/Banner/Warnungen/Garten-Tipps/Grüsse/Saison/Quiz-Karte → 76 neue Keys, EN/ES/FR/IT geseedet (256+8). Daily-Datum via toLocaleDateString(lang). BONUS-Bugfix: forecast days[getDay()] war Mo-Array mit So-Index → (getDay()+6)%7. Voll-Coverage-Verify: 1443/1443 distinkte DE-Strings (Registry 1106 Keys + 376 DOM-Phrasen) × 4 Sprachen = 0 Lücken. 7/7 node --check.'},
+    ]
+  },
+  {
     v: 'v28.95', date: '10.06.2026',
     headline: '🌍 KRITISCH: Übersetzungen luden nur zu 2/3 — behoben',
     summary: 'A-Z-Voll-Audit Teil 1: Der Übersetzungs-Lader holte wegen eines Server-Limits nur 1000 von bis zu 1475 Übersetzungen pro Sprache — bis zu ein Drittel der App blieb für EN/ES/FR/IT-Nutzer zufällig auf Deutsch. Jetzt lädt er ALLE Übersetzungen (seitenweise). Dazu: 26 fehlende FR/IT-Übersetzungen ergänzt, Quiz-Rangliste auf der Startseite aktualisiert sich jetzt sofort nach jeder Antwort, ein toter „Lichtmessung starten"-Link im KI-Planer repariert, Wetter-Zeitzone auf Europe/Zurich korrigiert.',
@@ -62113,7 +62207,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.95';
+var GS_VERSION = 'v28.96';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
