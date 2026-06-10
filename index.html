@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.04.20260611">
+<meta name="app-version" content="29.05.20260611">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10848,6 +10848,19 @@ window.gsI18nCoverage = function(){ try { return window.gsI18n.coverage(); } cat
 // v25.28: ausgebaut auf ~80 Top-Keys (Toasts, Errors, Confirms, gsConfirmModal-Buttons).
 // Verwendung: gsI18n.t('key', 'Fallback-Text-DE')
 window.GS_I18N_JS_STRINGS = {
+  // ── v29.05 Settings: Plan-Karte (dynamisch, Paid) + Sync-Status-Zeile ──
+  'settings_plan_word':        'Plan',
+  'settings_plan_sub_lifetime':'Lebenslang aktiv · Vielen Dank fürs Unterstützen!',
+  'settings_plan_sub_active':  'Aktiv',
+  'sync_status_unknown':       'Sync-Status unbekannt',
+  'sync_not_logged_in':        'Nicht eingeloggt — kein Cloud-Sync',
+  'sync_just_now':             'gerade eben synchronisiert',
+  'sync_last_prefix':          'zuletzt synchronisiert vor',
+  'sync_not_yet':              'noch nicht synchronisiert',
+  'sync_pending':              'ausstehend',
+  'sync_backup_prefix':        'Backup vor',
+  'sync_min':                  'Min',
+  'sync_hour':                 'h',
   // ── Login / Logout / Account ────────────────────────────────────
   'toast_login_success':       '🌿 Willkommen zurück!',
   'toast_login_welcome_new':   '🎉 Willkommen bei GreenScan!',
@@ -12223,7 +12236,11 @@ function gsI18nRerenderDynamic(){
     function(){ if (typeof gsRenderSeasonalInline === 'function') gsRenderSeasonalInline(); },
     function(){ window._gsMktHomeCache = null; if (typeof gsHomeRenderTopPicks === 'function') gsHomeRenderTopPicks(); },
     function(){ if (typeof updateMenuProfileBar === 'function') updateMenuProfileBar(); },
-    function(){ if (typeof gsUpdateXPBar === 'function') gsUpdateXPBar({animate:false}); }
+    function(){ if (typeof gsUpdateXPBar === 'function') gsUpdateXPBar({animate:false}); },
+    // v29.05: Settings-Plan-Karte NACH applyToDOM erneut setzen (applyToDOM clobbert die data-i18n-Werte
+    // settings_plan_title_free/upgrade_hint → Pro/Lifetime würde sonst als 'Gratis-Plan' erscheinen).
+    function(){ if (typeof gsUpdateSettingsPlanCard === 'function') gsUpdateSettingsPlanCard(); },
+    function(){ if (typeof _gsUpdateSyncStatusEl === 'function') _gsUpdateSyncStatusEl(); }
   ];
   calls.forEach(function(fn){ try { fn(); } catch(_){} });
 }
@@ -12629,14 +12646,20 @@ function gsUpdateSettingsPlanCard() {
   try {
     var plan = localStorage.getItem('gs_abo_plan') || 'free';
     var p = GS_PLANS[plan] || GS_PLANS.free;
+    var T = (window.gsI18n && gsI18n.t) ? function(k,f){ return gsI18n.t(k,f); } : function(k,f){ return f; };
     var title = document.getElementById('settings-plan-title');
     var sub   = document.getElementById('settings-plan-sub');
     var portal= document.getElementById('settings-portal-row');
-    if (title) title.textContent = (p.badge ? p.badge + ' ' : '') + p.name + '-Plan';
+    // v29.05: nach Sprachwechsel überschreibt applyToDOM die data-i18n-Werte (settings_plan_title_free /
+    // settings_plan_upgrade_hint) — daher MUSS gsUpdateSettingsPlanCard im Rerender-Set laufen UND seine
+    // Strings über gsI18n.t führen, sonst sieht ein Pro/Lifetime-User sich als 'Gratis-Plan' (bzw. DE bei EN/ES).
+    if (title) title.textContent = (plan === 'free')
+      ? T('settings_plan_title_free','Gratis-Plan')
+      : (p.badge ? p.badge + ' ' : '') + p.name + '-' + T('settings_plan_word','Plan');
     if (sub) {
-      if (plan === 'free') sub.textContent = 'Upgrade auf Pro — 7 Tage gratis testen';
-      else if (plan === 'lifetime') sub.textContent = 'Lebenslang aktiv · Vielen Dank fürs Unterstützen!';
-      else sub.textContent = 'Aktiv · ' + (p.price || '');
+      if (plan === 'free') sub.textContent = T('settings_plan_upgrade_hint','Upgrade auf Pro — 7 Tage gratis testen');
+      else if (plan === 'lifetime') sub.textContent = T('settings_plan_sub_lifetime','Lebenslang aktiv · Vielen Dank fürs Unterstützen!');
+      else sub.textContent = T('settings_plan_sub_active','Aktiv') + ' · ' + (p.price || '');
     }
     if (portal) portal.style.display = (plan !== 'free' && plan !== 'lifetime') ? 'flex' : 'none';
   } catch(e) {}
@@ -57876,6 +57899,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.05', date: '11.06.2026',
+    headline: '🌍 Sprachwechsel-Fix: Abo-Plan-Karte zeigt Pro/Lifetime korrekt',
+    summary: 'Aus einem systematischen Mehr-Dimensionen-Audit: Beim Sprachwechsel zeigte die Abo-Karte in den Einstellungen Pro-/Lifetime-Nutzern fälschlich „Gratis-Plan" an — weil die generische Übersetzung den dynamischen Plan-Text überschrieb und nicht neu gesetzt wurde. Behoben. Zusätzlich übersetzen sich Plan-Karte und die Cloud-Sync-Status-Zeile jetzt vollständig in alle Sprachen (DE/EN/ES/FR/IT).',
+    user_summary: '🌍 Abo-Karte & Sync-Status wechseln jetzt korrekt die Sprache (Pro/Lifetime wird nicht mehr als Gratis angezeigt).',
+    user_items: [
+      { emoji: '💎', text: 'Pro/Lifetime-Nutzer sehen nach Sprachwechsel ihren echten Plan statt „Gratis-Plan"' },
+      { emoji: '🌍', text: 'Abo-Karte + Cloud-Sync-Status vollständig in DE/EN/ES/FR/IT' },
+    ],
+    items: [
+      {emoji:'💎', bold:'Plan-Karte Sprachwechsel:', text:' gsUpdateSettingsPlanCard ist jetzt im gsI18nRerenderDynamic-Set — vorher überschrieb applyToDOM beim Sprachwechsel die dynamischen Paid-Texte mit dem statischen data-i18n-FREE-Key, ohne dass der Renderer nachlief → Pro/Lifetime erschien als „Gratis-Plan". Strings zusätzlich über gsI18n.t geführt (3 neue Keys).'},
+      {emoji:'☁️', bold:'Sync-Status-Zeile:', text:' gsSyncStatusText lokalisiert (9 neue Keys) + _gsUpdateSyncStatusEl ins Rerender-Set — die Zeile „Cloud-Backup & Sync" blieb sonst nach Sprachwechsel deutsch. Alle 12 Keys nach EN/ES/FR/IT geseedet + DB-verifiziert.'},
+      {emoji:'🔎', bold:'Quelle:', text:' adversarial verifizierter 5-Dimensionen-Sweep (17 Funde, 0 Falschmeldungen). Dies ist der erste von mehreren Fix-Releases. 7/7 node --check + sw.js OK.'},
+    ]
+  },
+  {
     v: 'v29.04', date: '11.06.2026',
     headline: '🛠️ Kritischer Update-Mechanismus-Fix + Wissens-Offline-Speicher repariert',
     summary: 'Zwei Stabilitäts-Fixes: (1) KRITISCH — eine seit 9 Versionen unbemerkte Fehlerstelle im Service-Worker-Code hätte beim nächsten Update bewirkt, dass die App-Updates, der Offline-Modus und die Push-Benachrichtigungen bei allen Nutzern nicht mehr funktioniert hätten. Rechtzeitig vor dem Aufschalten gefunden und behoben. (2) Der Offline-Speicher hat Heilmittel, alte Natur-/Bauernweisheiten (Folklore) und Garten-Techniken still nie gespeichert (die Abfrage fragte nach Feldern, die es in der Datenbank nicht gibt) — jetzt korrekt verdrahtet und in der Wissens-Suche auffindbar.',
@@ -62399,7 +62437,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.04';
+var GS_VERSION = 'v29.05';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -68212,17 +68250,19 @@ window.gsSnapshotMaybeOfferRestore = gsSnapshotMaybeOfferRestore;
 // Sync-Status-Text für Settings („Zuletzt synchronisiert vor X Min")
 function gsSyncStatusText(){
   try {
+    var T = (window.gsI18n && gsI18n.t) ? function(k,f){ return gsI18n.t(k,f); } : function(k,f){ return f; };
+    var _min = T('sync_min','Min');
     var s = (window.gsCloudSync && gsCloudSync.status) ? gsCloudSync.status() : null;
-    if (!s) return 'Sync-Status unbekannt';
-    if (!s.canPush) return 'Nicht eingeloggt — kein Cloud-Sync';
+    if (!s) return T('sync_status_unknown','Sync-Status unbekannt');
+    if (!s.canPush) return T('sync_not_logged_in','Nicht eingeloggt — kein Cloud-Sync');
     var parts = [];
     if (s.lastPushAgeSec != null) {
       var m = Math.round(s.lastPushAgeSec/60);
-      parts.push(m <= 0 ? 'gerade eben synchronisiert' : ('zuletzt synchronisiert vor ' + m + ' Min'));
-    } else parts.push('noch nicht synchronisiert');
-    if (!s.ok) parts.push('· ' + (s.dirty.length + s.pendingOps) + ' ausstehend');
+      parts.push(m <= 0 ? T('sync_just_now','gerade eben synchronisiert') : (T('sync_last_prefix','zuletzt synchronisiert vor') + ' ' + m + ' ' + _min));
+    } else parts.push(T('sync_not_yet','noch nicht synchronisiert'));
+    if (!s.ok) parts.push('· ' + (s.dirty.length + s.pendingOps) + ' ' + T('sync_pending','ausstehend'));
     var snap = null; try { snap = localStorage.getItem('gs_snapshot_last'); } catch(_){}
-    if (snap) { var sm = Math.round((Date.now()-new Date(snap).getTime())/60000); parts.push('· Backup vor ' + (sm<60? sm+' Min' : Math.round(sm/60)+' h')); }
+    if (snap) { var sm = Math.round((Date.now()-new Date(snap).getTime())/60000); parts.push('· ' + T('sync_backup_prefix','Backup vor') + ' ' + (sm<60? sm+' '+_min : Math.round(sm/60)+' '+T('sync_hour','h'))); }
     return parts.join(' ');
   } catch(_){ return 'Sync-Status unbekannt'; }
 }
