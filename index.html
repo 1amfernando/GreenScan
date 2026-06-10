@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.00.20260610">
+<meta name="app-version" content="29.01.20260610">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -21310,7 +21310,8 @@ async function gsMarketplaceStartConnect() {
   }
   if (typeof gsToast === 'function') gsToast('🔐 Stripe-Onboarding wird geöffnet…', 'info', 2500);
   try {
-    var token = (window.gsStore && typeof gsStore.get === 'function') ? gsStore.get('gs_sb_token', null) : null;
+    // v29.01 WIRE-1: frischen Token holen (Auto-Refresh) — stale 1h-JWT führte zu 401 bis Reload.
+    var token = (typeof _gsFreshToken === 'function') ? (await _gsFreshToken() || '') : ((window.gsStore && typeof gsStore.get === 'function') ? (gsStore.get('gs_sb_token', null) || '') : '');
     var fetchFn = window._gsFetch || fetch;
     var resp = await fetchFn(SB_URL + '/functions/v1/stripe-create-connect-account', {
       method: 'POST',
@@ -29254,7 +29255,8 @@ async function gsRequestExpertVerification(postId) {
   if (typeof gsHaptic === 'function') gsHaptic('medium');
   if (typeof showProfileToast === 'function') showProfileToast('⏳ Checkout wird vorbereitet …', 'info');
   var uid = gsStore.get('gs_sb_uid', null);
-  var token = gsStore.get('gs_sb_token', null) || '';
+  // v29.01 WIRE-1: frischen Token holen (Auto-Refresh) — stale 1h-JWT führte zu 401 bis Reload.
+  var token = (typeof _gsFreshToken === 'function') ? (await _gsFreshToken() || '') : (gsStore.get('gs_sb_token', null) || '');
   var base = (typeof SB_URL !== 'undefined') ? SB_URL : (localStorage.getItem('gs_sb_url') || '');
   var apikey = (typeof SB_KEY !== 'undefined') ? SB_KEY : '';
   try {
@@ -29420,7 +29422,8 @@ async function gsRunDiagnose() {
     'info');
 
   try {
-    var token = (window.gsStore && typeof gsStore.get === 'function') ? gsStore.get('gs_sb_token', null) : null;
+    // v29.01 WIRE-1: frischen Token holen (Auto-Refresh) — stale 1h-JWT führte zu 401 bis Reload.
+    var token = (typeof _gsFreshToken === 'function') ? (await _gsFreshToken() || '') : ((window.gsStore && typeof gsStore.get === 'function') ? (gsStore.get('gs_sb_token', null) || '') : '');
     var fetchFn = window._gsFetch || fetch;
     var photoB64 = String(window._gsDoctorPhotoB64).replace(/^data:image\/\w+;base64,/, '');
     var resp = await fetchFn(SB_URL + '/functions/v1/plant-doctor-diagnose', {
@@ -30199,7 +30202,8 @@ async function gsPestRunScan() {
     'info');
 
   try {
-    var token = (window.gsStore && typeof gsStore.get === 'function') ? gsStore.get('gs_sb_token', null) : null;
+    // v29.01 WIRE-1: frischen Token holen (Auto-Refresh) — stale 1h-JWT führte zu 401 bis Reload.
+    var token = (typeof _gsFreshToken === 'function') ? (await _gsFreshToken() || '') : ((window.gsStore && typeof gsStore.get === 'function') ? (gsStore.get('gs_sb_token', null) || '') : '');
     var fetchFn = window._gsFetch || fetch;
     var photoB64 = String(window._gsPestPhotoB64).replace(/^data:image\/\w+;base64,/, '');
     var resp = await fetchFn(SB_URL + '/functions/v1/pest-identify', {
@@ -30397,7 +30401,8 @@ async function gsMushroomRunScan() {
   if (typeof showProfileToast === 'function') showProfileToast('🔬 KI analysiert (Sicherheit vor Präzision)…', 'info');
 
   try {
-    var token = (window.gsStore && typeof gsStore.get === 'function') ? gsStore.get('gs_sb_token', null) : null;
+    // v29.01 WIRE-1: frischen Token holen (Auto-Refresh) — stale 1h-JWT führte zu 401 bis Reload.
+    var token = (typeof _gsFreshToken === 'function') ? (await _gsFreshToken() || '') : ((window.gsStore && typeof gsStore.get === 'function') ? (gsStore.get('gs_sb_token', null) || '') : '');
     var fetchFn = window._gsFetch || fetch;
     var photoB64 = String(window._gsMushroomPhotoB64).replace(/^data:image\/\w+;base64,/, '');
     var resp = await fetchFn(SB_URL + '/functions/v1/mushroom-identify', {
@@ -50264,7 +50269,8 @@ async function gsRunGardenScan(photos, metadata, opts) {
   if (typeof sbIsLoggedIn === 'function' && !sbIsLoggedIn()) {
     return { ok: false, error: { code: 'not_authenticated', message: 'Bitte zuerst anmelden für KI-Planer.' } };
   }
-  var token = gsStore.get('gs_sb_token', null) || '';
+  // v29.01 WIRE-1: frischen Token holen (Auto-Refresh) — stale 1h-JWT führte zu 401 bis Reload.
+  var token = (typeof _gsFreshToken === 'function') ? (await _gsFreshToken() || '') : (gsStore.get('gs_sb_token', null) || '');
   var base = (typeof SB_URL !== 'undefined') ? SB_URL : (localStorage.getItem('gs_sb_url') || '');
   var apikey = (typeof SB_KEY !== 'undefined') ? SB_KEY : '';
   if (!base || !token) {
@@ -52523,7 +52529,8 @@ async function gsIteratePlan(planId, message) {
   if (typeof sbIsLoggedIn === 'function' && !sbIsLoggedIn()) {
     return { ok: false, error: { code: 'not_authenticated', message: 'Bitte anmelden.' } };
   }
-  var token = gsStore.get('gs_sb_token', null) || '';
+  // v29.01 WIRE-1: frischen Token holen (Auto-Refresh) — stale 1h-JWT führte zu 401 bis Reload.
+  var token = (typeof _gsFreshToken === 'function') ? (await _gsFreshToken() || '') : (gsStore.get('gs_sb_token', null) || '');
   var base = (typeof SB_URL !== 'undefined') ? SB_URL : (localStorage.getItem('gs_sb_url') || '');
   var apikey = (typeof SB_KEY !== 'undefined') ? SB_KEY : '';
   try {
@@ -57820,6 +57827,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.01', date: '10.06.2026',
+    headline: '🔑 KI & Bezahlen: keine Abmelde-Fehler mehr nach 1 Stunde',
+    summary: 'A-Z-Audit-Nachzügler (WIRE-1): Sieben Funktionen (Garten-Scan, KI-Planer, Pflanzendoktor, Schädlings-/Pilz-Erkennung, Experten-Check, Verkäufer-Konto) nutzten beim Server-Aufruf den gespeicherten Anmelde-Token, ohne ihn vorher aufzufrischen. Folge: Wer die App länger als 1 Stunde offen hatte, bekam scheinbar grundlos Fehler — bis zum Neuladen. Jetzt wird der Token vor jedem dieser Aufrufe automatisch erneuert.',
+    user_summary: '🔑 Kein „bitte neu laden"-Fehler mehr bei Scan/Doktor/Planer nach längerer Nutzung.',
+    user_items: [
+      { emoji: '🔑', text: 'Anmelde-Token wird vor KI-/Bezahl-Aufrufen automatisch erneuert' },
+      { emoji: '🩹', text: 'Betrifft: Garten-Scan, KI-Planer, Pflanzendoktor, Pilz-/Schädlings-Scan, Experten-Check' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'WIRE-1:', text:' 7 Edge-Fn-Call-Sites (stripe-create-connect-account, stripe-expert-checkout, plant-doctor-diagnose, pest-identify, mushroom-identify, garden-scan-analyze, plan-iterate) von gsStore.get(gs_sb_token) auf _gsFreshToken() (v28.02-Helper mit Auto-Refresh) umgestellt — Muster identisch zu stripe-checkout/portal/marketplace-publish. Alle 7 Sites async-verifiziert (node --check fängt await-Fehler). WIRE-2 (Bearer null) durch Ursachen-Fix subsumiert. 7/7 node --check.'},
+    ]
+  },
+  {
     v: 'v29.00', date: '10.06.2026',
     headline: '🩺 Stabilitäts-Telemetrie (interne Fehler-Überwachung)',
     summary: 'GreenScan überwacht jetzt aktiv die eigene Stabilität: Tritt bei dir ein technischer Fehler auf, wird er (anonym auf das Nötigste beschränkt, max. 5 pro Sitzung) intern gemeldet, damit wir ihn beheben können, bevor du ihn überhaupt melden musst. Für dich ändert sich nichts Sichtbares — die App wird dadurch von Version zu Version zuverlässiger.',
@@ -62287,7 +62307,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.00';
+var GS_VERSION = 'v29.01';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
