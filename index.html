@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.05.20260611">
+<meta name="app-version" content="29.06.20260611">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -9043,12 +9043,13 @@ function gsRenderWeatherDetail(data) {
   }
 
   // ── 7-TAGE FORECAST ──────────────────────────────────────
+  // v29.06: Wochentage über echte Locale statt fixem DE-Array (kein Seed nötig, 100% korrekt).
+  var _wxloc = ({de:'de-CH',en:'en-GB',es:'es-ES',fr:'fr-CH',it:'it-CH'})[(window.gsI18n&&gsI18n.current)||'de'] || 'de-CH';
   var dailyEl = document.getElementById('wd-daily');
   if (dailyEl && daily.time) {
-    var dayNames = ['So','Mo','Di','Mi','Do','Fr','Sa'];
     dailyEl.innerHTML = daily.time.slice(0,7).map(function(d, i) {
       var date = new Date(d);
-      var dn = i===0?'Heute':i===1?'Morgen':dayNames[date.getDay()];
+      var dn = i===0?_t('forecast_today','Heute'):i===1?_t('forecast_tomorrow','Morgen'):date.toLocaleDateString(_wxloc,{weekday:'short'});
       var dateStr = date.getDate() + '.' + (date.getMonth()+1) + '.';
       var dIcon = WMO_ICONS[daily.weathercode[i]] || '🌡️';
       var dMax  = Math.round(daily.temperature_2m_max[i]);
@@ -9083,7 +9084,7 @@ function gsRenderWeatherDetail(data) {
 
   // Zeitstempel
   var updEl = document.getElementById('wd-updated');
-  if (updEl) updEl.textContent = 'Aktualisiert: ' + new Date().toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'}) + ' · open-meteo.com';
+  if (updEl) updEl.textContent = _t('wx_updated','Aktualisiert') + ': ' + new Date().toLocaleTimeString(_wxloc,{hour:'2-digit',minute:'2-digit'}) + ' · open-meteo.com';
 }
 
 function closeWeatherDetail() {
@@ -10861,6 +10862,20 @@ window.GS_I18N_JS_STRINGS = {
   'sync_backup_prefix':        'Backup vor',
   'sync_min':                  'Min',
   'sync_hour':                 'h',
+  // ── v29.06 Menü-Profil-Bar + Wetter-Detail + SW-Update-Banner ──
+  'lvl_abbr':                  'Lv.',
+  'prof_day':                  'Tag',
+  'prof_days':                 'Tage',
+  'prof_xp_left_prefix':       'Noch',
+  'prof_signup_cta':           'Jetzt kostenlos anmelden',
+  'prof_signup_sub':           '🌱 XP sammeln · Levels · Community',
+  'forecast_tomorrow':         'Morgen',
+  'wx_updated':                'Aktualisiert',
+  'sw_update_title':           'Neue Version verfügbar',
+  'sw_update_sub':             'Sicherheits- &amp; Feature-Updates bereit.',
+  'sw_reload':                 'Neu laden',
+  'sw_later':                  'Später',
+  'sw_saving':                 'Sichere…',
   // ── Login / Logout / Account ────────────────────────────────────
   'toast_login_success':       '🌿 Willkommen zurück!',
   'toast_login_welcome_new':   '🎉 Willkommen bei GreenScan!',
@@ -20420,6 +20435,8 @@ function updateMenuProfileBar() {
   // damit die Menü-Bar denselben Level + Namen zeigt wie Home/Profil/Leaderboard.
   var LVL_ICONS = (typeof PROFILE_LEVEL_ICONS !== 'undefined' && PROFILE_LEVEL_ICONS.length) ? PROFILE_LEVEL_ICONS : ['','🌱','🌿','🍃','🌲','🌳','🍄','🌺','🔬','🗺️','🧬','🎓','🔭','⛰️','🛡️','🌍','📚','👑','🌟','⭐','🏆'];
   var LVL_NAMES = (typeof PROFILE_LEVEL_NAMES !== 'undefined' && PROFILE_LEVEL_NAMES.length) ? PROFILE_LEVEL_NAMES : ['','Naturbeobachter','Pflanzenfreund','Kräuterkenner','Waldwanderer','Botanik-Lehrling','Pilzsucher','Wildkräuter-Experte','Naturdetektiv','Schweizer Naturführer','Mykologie-Meister','Flora-Experte','Fauna-Kenner','Alpen-Botaniker','Naturschutz-Botschafter','Biodiversitäts-Hüter','Wissenschafts-Naturalist','Schweizer Naturlegende','Ökosystem-Wächter','Grossmeister der Natur','GreenScan-Legende'];
+  // v29.06: UI-Chrome lokalisieren (Level-Namen bleiben bewusst DE — kohärentes Rang-System).
+  var T = (window.gsI18n && gsI18n.t) ? function(k,f){ return gsI18n.t(k,f); } : function(k,f){ return f; };
 
   if (sbIsLoggedIn && sbIsLoggedIn()) {
     // Profil still im Hintergrund laden (kein sichtbarer Lade-Zustand)
@@ -20456,9 +20473,10 @@ function updateMenuProfileBar() {
     nameEl.textContent = (nm.length > 22 ? nm.slice(0,20) + '…' : nm) + (isAdm ? '  🛡️' : '');
 
     // Tagesinfos: Level · Streak · XP zum nächsten Level
-    var infoParts = [icon + ' ' + lvNm + ' · Lv.' + lv];
-    if (str > 0) infoParts.push('🔥 ' + str + (str === 1 ? ' Tag' : ' Tage'));
-    if (xp > 0 && xpLeft > 0) infoParts.push('⭐ Noch ' + (xpLeft >= 1000 ? (Math.round(xpLeft/100)/10)+'k' : xpLeft) + ' XP → Lv.' + (lv+1));
+    var _lvAbbr = T('lvl_abbr','Lv.');
+    var infoParts = [icon + ' ' + lvNm + ' · ' + _lvAbbr + lv];
+    if (str > 0) infoParts.push('🔥 ' + str + ' ' + (str === 1 ? T('prof_day','Tag') : T('prof_days','Tage')));
+    if (xp > 0 && xpLeft > 0) infoParts.push('⭐ ' + T('prof_xp_left_prefix','Noch') + ' ' + (xpLeft >= 1000 ? (Math.round(xpLeft/100)/10)+'k' : xpLeft) + ' XP → ' + _lvAbbr + (lv+1));
     subEl.textContent = infoParts.join('  ·  ');
 
     // Avatar
@@ -20478,8 +20496,8 @@ function updateMenuProfileBar() {
   }
 
   // Nicht eingeloggt
-  nameEl.textContent   = 'Jetzt kostenlos anmelden';
-  subEl.textContent    = '🌱 XP sammeln · Levels · Community';
+  nameEl.textContent   = T('prof_signup_cta','Jetzt kostenlos anmelden');
+  subEl.textContent    = T('prof_signup_sub','🌱 XP sammeln · Levels · Community');
   avatarEl.textContent = '👤';
   if (xpBarEl) xpBarEl.style.display = 'none';
 }
@@ -57899,6 +57917,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.06', date: '11.06.2026',
+    headline: '🌍 Sprach-Lücken geschlossen: Menü-Profil, Wetter-Vorhersage, Update-Banner',
+    summary: 'Fix 2/4 aus dem Audit: Drei Oberflächen blieben für EN/ES/FR/IT-Nutzer teilweise deutsch — die Menü-Profil-Leiste (Streak „Tage", XP-Hinweis, „Jetzt anmelden"), die 7-Tage-Wetter-Vorhersage (Wochentage, „Heute/Morgen", „Aktualisiert") und der „Neue Version"-Update-Banner. Alle drei jetzt vollständig übersetzt; die Wochentage kommen direkt aus der echten Sprach-Region (immer korrekt).',
+    user_summary: '🌍 Menü-Profil, Wetter-Vorhersage & Update-Banner jetzt vollständig in allen Sprachen.',
+    user_items: [
+      { emoji: '📋', text: 'Menü-Profil-Leiste (Level/Streak/XP) übersetzt' },
+      { emoji: '🌤️', text: 'Wetter-Vorhersage: Wochentage & „Heute/Morgen" in deiner Sprache' },
+      { emoji: '🆕', text: '„Neue Version"-Banner übersetzt' },
+    ],
+    items: [
+      {emoji:'📋', bold:'updateMenuProfileBar:', text:' Renderer lief zwar im Rerender-Set, gab aber DE-Literale aus (Tag/Tage, „Noch X XP → Lv.", „Jetzt kostenlos anmelden", Sub-Text) → über gsI18n.t geführt (6 Keys). Level-Namen bleiben bewusst DE (kohärentes Rang-System app-weit).'},
+      {emoji:'🌤️', bold:'gsRenderWeatherDetail:', text:' Wochentage statt fixem DE-Array jetzt via date.toLocaleDateString mit echter Sprach-Locale (kein Seed nötig, 100% korrekt) + „Heute/Morgen" (forecast_today/tomorrow) + „Aktualisiert" über gsI18n.t; Uhrzeit-Locale dynamisch statt fix de-CH.'},
+      {emoji:'🆕', bold:'SW-Update-Banner:', text:' Titel/Text/Buttons/„Sichere…" über gsI18n.t (5 Keys) — war komplett hartcodiert deutsch. 13 neue Keys nach EN/ES/FR/IT geseedet. 7/7 node --check + sw.js OK.'},
+    ]
+  },
+  {
     v: 'v29.05', date: '11.06.2026',
     headline: '🌍 Sprachwechsel-Fix: Abo-Plan-Karte zeigt Pro/Lifetime korrekt',
     summary: 'Aus einem systematischen Mehr-Dimensionen-Audit: Beim Sprachwechsel zeigte die Abo-Karte in den Einstellungen Pro-/Lifetime-Nutzern fälschlich „Gratis-Plan" an — weil die generische Übersetzung den dynamischen Plan-Text überschrieb und nicht neu gesetzt wurde. Behoben. Zusätzlich übersetzen sich Plan-Karte und die Cloud-Sync-Status-Zeile jetzt vollständig in alle Sprachen (DE/EN/ES/FR/IT).',
@@ -62437,7 +62471,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.05';
+var GS_VERSION = 'v29.06';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -64357,6 +64391,7 @@ function gsRegisterServiceWorker() {
         // Update-Banner: zeigt sich wenn neuer SW „installed" + alter SW noch controller ist
         function showUpdateBanner(newSw){
           if (document.getElementById('gs-sw-update-banner')) return;
+          var T = (window.gsI18n && gsI18n.t) ? function(k,f){ return gsI18n.t(k,f); } : function(k,f){ return f; }; // v29.06
           var b = document.createElement('div');
           b.id = 'gs-sw-update-banner';
           // v24.49: --z-toast (9999) — Update-Banner muss über jedem Modal/Toast liegen.
@@ -64369,10 +64404,10 @@ function gsRegisterServiceWorker() {
           b.innerHTML =
             '<div style="font-size:24px;flex-shrink:0;">🆕</div>' +
             '<div style="flex:1;min-width:0;font-size:13px;line-height:1.35;">' +
-              '<b>Neue Version verfügbar</b><br><span style="opacity:.85;font-size:11.5px;">Sicherheits- &amp; Feature-Updates bereit.</span>' +
+              '<b>' + T('sw_update_title','Neue Version verfügbar') + '</b><br><span style="opacity:.85;font-size:11.5px;">' + T('sw_update_sub','Sicherheits- &amp; Feature-Updates bereit.') + '</span>' +
             '</div>' +
-            '<button id="gs-sw-reload-btn" style="background:#fff;color:#1565c0;border:none;border-radius:8px;padding:8px 14px;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit;flex-shrink:0;">Neu laden</button>' +
-            '<button id="gs-sw-later-btn" aria-label="Später" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:8px;width:30px;height:30px;font-size:16px;cursor:pointer;flex-shrink:0;font-family:inherit;">×</button>';
+            '<button id="gs-sw-reload-btn" style="background:#fff;color:#1565c0;border:none;border-radius:8px;padding:8px 14px;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit;flex-shrink:0;">' + T('sw_reload','Neu laden') + '</button>' +
+            '<button id="gs-sw-later-btn" aria-label="' + T('sw_later','Später') + '" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:8px;width:30px;height:30px;font-size:16px;cursor:pointer;flex-shrink:0;font-family:inherit;">×</button>';
           document.body.appendChild(b);
           document.getElementById('gs-sw-reload-btn').onclick = function(){
             var _go = function(){
@@ -64389,7 +64424,7 @@ function gsRegisterServiceWorker() {
             // als 2.5s blockieren — Snapshot ist best-effort.
             try {
               var _rb = document.getElementById('gs-sw-reload-btn');
-              if (_rb) { _rb.textContent = 'Sichere…'; _rb.disabled = true; }
+              if (_rb) { _rb.textContent = T('sw_saving','Sichere…'); _rb.disabled = true; }
             } catch(_){}
             try {
               if (typeof gsSnapshotCreate === 'function') {
