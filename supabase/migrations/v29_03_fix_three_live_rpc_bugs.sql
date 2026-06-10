@@ -1,0 +1,7 @@
+-- v29.03 LIVE-BUG-SWEEP (3 RPCs via simuliertem Admin-JWT-Test gefunden):
+-- A) fn_assign_role: GRANT EXECUTE authenticated fehlte (nur service_role) ->
+--    Rollen-Wechsel im Admin-Panel = permission denied 42501. Interner role=admin-Check bleibt.
+-- B) launch_offer_available: launch_offer_usage.offer_key existiert nicht (42703) ->
+--    EXISTS nur ueber user_id (1 Launch-Offer/User).
+-- C) fn_get_daily_quiz: war STABLE, macht INSERT (0A000 beim 1. Abruf/Tag) -> VOLATILE.
+-- Voller Inhalt: DB-Migration v29_03_fix_three_live_rpc_bugs.

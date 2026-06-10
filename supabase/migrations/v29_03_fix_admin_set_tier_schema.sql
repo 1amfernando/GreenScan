@@ -1,0 +1,4 @@
+-- v29.03 LIVE-BUG (Fernando 'Tier-Wechsel fehlgeschlagen'): fn_admin_set_tier
+-- referenzierte profiles.stripe_customer_id (existiert NICHT, HL#14-Verstoss v28.98)
+-- -> 'column does not exist' 400. Fix: Sub-Check via stripe_subscriptions.user_id.
+-- Voller Inhalt: DB-Migration v29_03_fix_admin_set_tier_schema.

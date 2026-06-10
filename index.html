@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.02.20260610">
+<meta name="app-version" content="29.03.20260610">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12199,7 +12199,35 @@ async function gsHandleLangChange(val){
   gsI18n.setLang(val);
   var disp = document.getElementById('i18n-current-display');
   if (disp) disp.textContent = val.toUpperCase();
+  // v29.03 LIVE-BUG-FIX (Fernando: 'Widgets + Wetter ändern Sprache nicht'):
+  // setLang/applyToDOM übersetzt nur [data-i18n]-DOM — alle JS-GERENDERTEN Inhalte
+  // (Wetter-Widget inkl. Warnungen/Tipps/Forecast, Grüsse, Daily-Card, Saison-Tipp,
+  // Quiz-Card, Pilz-Saison, Bauernregel, Leaderboard-Empty-Text) blieben in der
+  // alten Sprache bis Reload/Intervall. Jetzt: zentraler Re-Render aller bekannten
+  // dynamischen Renderer (jeder Name HL#9-verifiziert; defensiv + idempotent).
+  gsI18nRerenderDynamic();
 }
+
+// v29.03: Re-Render aller JS-gerenderten, übersetzbaren UI-Teile nach Sprachwechsel.
+// Auch von aussen aufrufbar (window-Export) falls künftige Renderer dazukommen.
+function gsI18nRerenderDynamic(){
+  var calls = [
+    function(){ if (typeof gsUpdateHomeGreeting === 'function') gsUpdateHomeGreeting(); },
+    function(){ if (typeof initHomeBoard === 'function') initHomeBoard(); },           // Daily-Card + Saison-Tipp + Stats (idempotent, nur Text-Setzen)
+    function(){ if (typeof loadHomeWeather === 'function') loadHomeWeather(); },       // Wetter inkl. Desc/Forecast/Warnung/Garten-Tipp (1 Open-Meteo-Fetch)
+    function(){ if (typeof gsUpdateQuizCard === 'function') gsUpdateQuizCard(); },     // Pkt/Tage
+    function(){ if (typeof gsInitWeekFacts === 'function') gsInitWeekFacts(); },       // Wusstest-du
+    function(){ if (typeof gsLoadTodaysWisdom === 'function') gsLoadTodaysWisdom(); }, // Bauernregel
+    function(){ if (typeof gsLoadTodaysMushroomSeason === 'function') gsLoadTodaysMushroomSeason(); }, // Pilz-Saison-Karte
+    function(){ var hl = document.getElementById('home-lb-preview'); if (hl) { hl._gsFilled = false; if (typeof gsHomeFillLeaderboard === 'function') gsHomeFillLeaderboard(); } },
+    function(){ if (typeof gsRenderSeasonalInline === 'function') gsRenderSeasonalInline(); },
+    function(){ window._gsMktHomeCache = null; if (typeof gsHomeRenderTopPicks === 'function') gsHomeRenderTopPicks(); },
+    function(){ if (typeof updateMenuProfileBar === 'function') updateMenuProfileBar(); },
+    function(){ if (typeof gsUpdateXPBar === 'function') gsUpdateXPBar({animate:false}); }
+  ];
+  calls.forEach(function(fn){ try { fn(); } catch(_){} });
+}
+window.gsI18nRerenderDynamic = gsI18nRerenderDynamic;
 
 // Settings-Picker initialisieren (zeigt aktuelle Sprache).
 function gsInitLangPicker(){
@@ -57848,6 +57876,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.03', date: '10.06.2026',
+    headline: '🌍 Sprachwechsel wirkt sofort überall + 4 Fehler behoben',
+    summary: 'Wichtige Korrekturen: (1) Beim Sprachwechsel werden jetzt auch Wetter-Anzeige, Tagesgruss, Startseiten-Widgets, Quiz-Karte usw. sofort übersetzt (vorher nur Menü/Buttons — der Rest blieb bis zum Neuladen deutsch). (2) Vier Server-Funktionen, die nach internen Änderungen Fehler warfen, sind behoben — u.a. die Admin-Verwaltung, das Tagesquiz und das Lifetime-Angebot.',
+    user_summary: '🌍 Sprachwechsel übersetzt jetzt sofort ALLES (Wetter/Widgets/Grüsse) + 4 Backend-Fehler behoben.',
+    user_items: [
+      { emoji: '🌍', text: 'Sprachwechsel wirkt sofort auch auf Wetter, Grüsse, Startseiten-Widgets' },
+      { emoji: '🩹', text: 'Tagesquiz, Lifetime-Angebot & interne Verwaltung laufen wieder fehlerfrei' },
+    ],
+    items: [
+      {emoji:'🌍', bold:'i18n-Rerender:', text:' gsHandleLangChange ruft nach setLang() neu gsI18nRerenderDynamic() — zentraler Re-Render aller 12 JS-gerenderten Renderer (Wetter inkl. Forecast/Warnung/Tipp, Grüsse, Daily-Card, Saison, Quiz-Card, Pilz-Saison, Bauernregel, Leaderboard, Top-Picks, Menü-/XP-Bar). Vorher übersetzte setLang nur [data-i18n]-DOM.'},
+      {emoji:'🐛', bold:'4 RPC-Bugs (Admin-JWT-simuliert getestet):', text:' fn_admin_set_tier (profiles.stripe_customer_id existiert nicht → user_id-Pfad), fn_assign_role (GRANT authenticated fehlte → permission denied beim Rollen-Wechsel), launch_offer_available (Spalte offer_key existiert nicht), fn_get_daily_quiz (STABLE+INSERT → VOLATILE). Voll-Sweep aller 72 FE-RPCs als Admin-JWT: 0 weitere Schema-Fehler. 7/7 node --check.'},
+    ]
+  },
+  {
     v: 'v29.02', date: '10.06.2026',
     headline: '✨ Letzter Audit-Polish: Startseite reagiert noch schneller',
     summary: 'Abschluss des grossen A-Z-Audits: Neue Marktplatz-Inserate erscheinen jetzt sofort auf der Startseite (vorher bis zu 60 Sek. Verzögerung), die Tagesinfo-Karte zeigt einen freundlichen Hinweis statt ewigem „Lade…", und das Wetter-Alert-Widget unterscheidet sauber zwischen „keine Warnungen" und „Verbindungsfehler". Damit ist jeder Punkt aus dem Voll-Audit abgearbeitet.',
@@ -62342,7 +62384,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.02';
+var GS_VERSION = 'v29.03';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
