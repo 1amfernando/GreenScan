@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.06.20260611">
+<meta name="app-version" content="29.07.20260611">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -7914,7 +7914,7 @@ function openErnteTracking() {
     var totalKg = 0, totalStueck = 0;
     
     filtered.forEach(function(e) {
-      var unit = e.unit || 'kg';
+      var unit = gsErnteUnitDb(e.unit); // v29.07: legacy 'Stück'/'Bund' + neue 'stk'/'bund' robust
       var qty = parseFloat(e.menge) || 0;
       var key = (e.pflanze || '').toLowerCase();
       if (!byPlant[key]) byPlant[key] = { name: e.pflanze, kg:0, stueck:0, count:0, emoji:e.emoji||'🧺', entries:[] };
@@ -7929,7 +7929,7 @@ function openErnteTracking() {
         byPlant[key].kg += kgValue;
         totalKg += kgValue;
       }
-      if (unit === 'Stück' || unit === 'Bund') {
+      if (unit === 'stk' || unit === 'bund') {
         byPlant[key].stueck += qty;
         totalStueck += qty;
       }
@@ -7973,11 +7973,11 @@ function openErnteTracking() {
   yearSwitcher += '</div>';
   
   // ── Units-Picker + Eingabe ──
-  var unit = localStorage.getItem('gs_ernte_unit') || 'kg';
-  var UNITS = ['kg','g','Stück','Bund'];
+  var unit = gsErnteUnitDb(localStorage.getItem('gs_ernte_unit') || 'kg'); // v29.07: kanonischer DB-Wert
+  var UNITS = [{v:'kg',l:'kg'},{v:'g',l:'g'},{v:'stk',l:'Stück'},{v:'bund',l:'Bund'}];
   var unitPicker = UNITS.map(function(u) {
-    var sel = u === unit;
-    return '<button type="button" onclick="gsErnteSetUnit(\'' + u + '\',this)" data-unit="' + u + '" style="padding:5px 10px;border-radius:7px;border:1.5px solid ' + (sel?'var(--g-main)':'var(--border)') + ';background:' + (sel?'var(--g-main)':'var(--card)') + ';color:' + (sel?'#fff':'var(--text2)') + ';font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' + u + '</button>';
+    var sel = u.v === unit;
+    return '<button type="button" onclick="gsErnteSetUnit(\'' + u.v + '\',this)" data-unit="' + u.v + '" style="padding:5px 10px;border-radius:7px;border:1.5px solid ' + (sel?'var(--g-main)':'var(--border)') + ';background:' + (sel?'var(--g-main)':'var(--card)') + ';color:' + (sel?'#fff':'var(--text2)') + ';font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' + u.l + '</button>';
   }).join('');
   
   // ── Header-Stats ──
@@ -8106,7 +8106,7 @@ function openErnteTracking() {
         '<span style="font-size:18px;">' + (e.emoji || '🧺') + '</span>' +
         '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;color:var(--text);">' + (e.pflanze||'').replace(/</g,'&lt;') + '</div>' +
         '<div style="font-size:10.5px;color:var(--muted);">' + (e.ts||'').slice(0,10) + '</div></div>' +
-        '<div style="font-size:12.5px;font-weight:800;color:var(--g-dark);">' + (e.menge||0) + ' ' + (e.unit||'kg') + '</div>' +
+        '<div style="font-size:12.5px;font-weight:800;color:var(--g-dark);">' + (e.menge||0) + ' ' + gsErnteUnitLabel(e.unit) + '</div>' +
         '<button onclick="gsErnteDelete(\'' + e.id + '\')" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:2px 4px;opacity:.4;-webkit-tap-highlight-color:transparent;">✕</button>' +
       '</div>';
     });
@@ -8184,7 +8184,7 @@ function gsErnteSetView(v) {
 }
 
 function gsErnteSetUnit(unit, btn) {
-  localStorage.setItem('gs_ernte_unit', unit);
+  localStorage.setItem('gs_ernte_unit', (typeof gsErnteUnitDb==='function'?gsErnteUnitDb(unit):unit)); // v29.07: DB-Enum speichern
   var container = btn.parentNode;
   Array.prototype.forEach.call(container.querySelectorAll('button'), function(b) {
     var isSel = b === btn;
@@ -8194,8 +8194,21 @@ function gsErnteSetUnit(unit, btn) {
   });
   // Placeholder vom Menge-Feld aktualisieren
   var m = document.getElementById('ernte-menge');
-  if (m) m.placeholder = unit;
+  if (m) m.placeholder = (typeof gsErnteUnitLabel==='function'?gsErnteUnitLabel(unit):unit); // v29.07: Anzeige-Label
 }
+
+// v29.07 (Bug-Sweep): garden_harvests.unit-CHECK ist (g,kg,stk,bund,ml,l). Anzeige-Labels
+// 'Stück'/'Bund' verletzten den CHECK (23514) → Cloud-INSERT schlug STILL fehl (.then ohne
+// Fehler-Branch) → Ernte synct nie auf andere Geräte. Helper trennt Anzeige-Label vom DB-Wert.
+function gsErnteUnitDb(u){
+  var x = String(u==null?'':u).toLowerCase().trim();
+  if (x==='stück'||x==='stueck'||x==='stk'||x==='stk.') return 'stk';
+  if (x==='bund') return 'bund';
+  if (x==='kg'||x==='g'||x==='ml'||x==='l') return x;
+  return (['g','kg','stk','bund','ml','l'].indexOf(x)>=0) ? x : 'kg';
+}
+function gsErnteUnitLabel(u){ var m={kg:'kg',g:'g',stk:'Stück',bund:'Bund',ml:'ml',l:'l'}; return m[gsErnteUnitDb(u)] || 'kg'; }
+window.gsErnteUnitDb = gsErnteUnitDb; window.gsErnteUnitLabel = gsErnteUnitLabel;
 
 function gsErnteAdd() {
   if (gsAsyncLock('ernteAdd', 600)) return; // v26.57: Double-Submit-Schutz
@@ -8209,7 +8222,7 @@ function gsErnteAdd() {
     if (typeof showProfileToast === 'function') showProfileToast('Menge eintragen', 'info');
     return;
   }
-  var unit = localStorage.getItem('gs_ernte_unit') || 'kg';
+  var unit = gsErnteUnitDb(localStorage.getItem('gs_ernte_unit') || 'kg'); // v29.07: kanonischer DB-Enum-Wert
 
   var emoji = '🧺';
   var match = GS_SAE_DB.find(function(p){ return p.n.toLowerCase() === pfl.value.toLowerCase().trim(); });
@@ -23309,11 +23322,13 @@ function gsSaveConfirmedScan(r) {
   // In Supabase user_scans speichern
   var uid = gsStore.get('gs_sb_uid', null);
   if (uid && typeof sbFetch === 'function') {
+    // v29.07 (Bug-Sweep): 'description' + 'scanned_at' existieren NICHT in user_scans → PostgREST 400
+    // (PGRST204) → bestätigte Scans landeten NIE in der Cloud. Reale Spalten + description in context (jsonb),
+    // created_at hat now()-Default. Konsistent zu gsScanPersistToCloud.
     sbFetch('/rest/v1/user_scans', {method:'POST',
-      headers:{'Prefer':'return=minimal'},
+      headers:{'Content-Type':'application/json','Prefer':'return=minimal'},
       body:JSON.stringify({user_id:uid, species_name:r.name, species_latin:r.latin||'',
-        confidence:r.confidence, description:r.description||'',
-        scanned_at:new Date().toISOString()})
+        confidence:r.confidence, context:{description:r.description||''}})
     }).catch(function(){});
   }
 }
@@ -24543,13 +24558,15 @@ window.gsScanHistoryReportWrong = async function(idx) {
     sbFetch('/rest/v1/scan_corrections', {
       method:'POST',
       headers:{'Content-Type':'application/json','Prefer':'return=minimal'},
+      // v29.07 (Bug-Sweep): 'correct_name'/'scan_ts' existieren NICHT; user_name ist NOT NULL.
+      // Korrektur ging sonst IMMER verloren (trotz 'Danke'-Toast). Reale Spalten + scan_ts in context.
       body: JSON.stringify({
         user_id: uid,
         ai_name: e.name,
         ai_latin: e.latin || null,
-        correct_name: correctName.trim(),
+        user_name: correctName.trim(),
         ai_confidence: e.conf || null,
-        scan_ts: e.ts ? new Date(e.ts).toISOString() : null
+        context: e.ts ? { scan_ts: new Date(e.ts).toISOString() } : {}
       })
     }).then(function(){
       if (typeof showProfileToast === 'function') {
@@ -28227,24 +28244,32 @@ function vote(id, dir){
   localStorage.setItem('ps_feedback', JSON.stringify(feedbackItems));
   localStorage.setItem('ps_votes', JSON.stringify(myVotes));
   renderFeedback();
-  // v23.65: Vote ebenfalls an Supabase senden (als context-Update)
+  // v29.07 (Bug-Sweep): korrekt an feedback_votes syncen. Spalte heisst 'dir' (CHECK up/down) — NICHT
+  // 'direction'; bei Vote-Rücknahme DELETE statt 'none' (sonst CHECK-23514). voter_key MUSS auth.uid()::text
+  // sein (eingeloggt) bzw. 'anon:'-Präfix (ausgeloggt) — sonst greift die INSERT-Policy nicht (403).
+  // Vorher: 'direction'+'v_'-Key+'none' → 3-fach kaputt, Votes wurden NIE in der Cloud gespeichert.
   try {
     if (fb.sb_id && typeof sbFetch === 'function' && typeof sbGetConfig === 'function' && sbGetConfig()) {
-      sbFetch('/rest/v1/feedback_votes', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json', 'Prefer':'resolution=merge-duplicates,return=minimal' },
-        body: JSON.stringify({
-          item_id: fb.sb_id,
-          direction: myVotes[id] || 'none',
-          voter_key: (function(){
-            try {
-              var k = localStorage.getItem('gs_voter_key');
-              if (!k) { k = 'v_'+Math.random().toString(36).slice(2,10)+Date.now().toString(36); localStorage.setItem('gs_voter_key', k); }
-              return k;
-            } catch(_){ return 'anon'; }
-          })()
-        })
-      }).catch(function(){});
+      var _uid = null; try { _uid = (typeof gsStore !== 'undefined') ? gsStore.get('gs_sb_uid', null) : localStorage.getItem('gs_sb_uid'); } catch(_){}
+      var _vk;
+      if (_uid) { _vk = String(_uid); }
+      else {
+        try {
+          var k = localStorage.getItem('gs_voter_key');
+          if (!k || k.indexOf('anon:') !== 0) { k = 'anon:' + Math.random().toString(36).slice(2,10) + Date.now().toString(36); localStorage.setItem('gs_voter_key', k); }
+          _vk = k;
+        } catch(_){ _vk = 'anon:fallback'; }
+      }
+      var _cur = myVotes[id]; // 'up' | 'down' | undefined (zurückgenommen)
+      if (_cur === 'up' || _cur === 'down') {
+        sbFetch('/rest/v1/feedback_votes', {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json', 'Prefer':'resolution=merge-duplicates,return=minimal' },
+          body: JSON.stringify({ item_id: fb.sb_id, dir: _cur, voter_key: _vk })
+        }).catch(function(){});
+      } else {
+        sbFetch('/rest/v1/feedback_votes?item_id=eq.' + encodeURIComponent(fb.sb_id) + '&voter_key=eq.' + encodeURIComponent(_vk), { method: 'DELETE', headers: { 'Prefer':'return=minimal' } }).catch(function(){});
+      }
     }
   } catch(_){}
 }
@@ -57917,6 +57942,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.07', date: '11.06.2026',
+    headline: '💾 Stille Speicher-Fehler behoben: Ernte, Scans, Korrekturen & Votes landen jetzt in der Cloud',
+    summary: 'Fix 3/4 aus dem Audit — die wichtigste Runde: Vier Speicher-Vorgänge brachen still ab (du sahst „gespeichert!", aber die Daten kamen NIE in der Cloud an): Ernte-Einträge mit Einheit „Stück/Bund", bestätigte Scans, gemeldete Scan-Korrekturen und Feedback-Stimmen. Alle vier senden jetzt das korrekte Datenformat und synchronisieren zuverlässig auf alle Geräte. (Jeder Fix wurde direkt gegen die echte Datenbank als echter Nutzer getestet.)',
+    user_summary: '💾 Ernte (Stück/Bund), Scans, Scan-Korrekturen & Feedback-Stimmen werden jetzt zuverlässig gespeichert/synchronisiert.',
+    user_items: [
+      { emoji: '🧺', text: 'Ernte mit Einheit „Stück/Bund" synct jetzt (vorher still verloren)' },
+      { emoji: '📸', text: 'Bestätigte Scans & gemeldete Korrekturen landen jetzt in der Cloud' },
+      { emoji: '👍', text: 'Feedback-Stimmen werden gespeichert statt verworfen' },
+    ],
+    items: [
+      {emoji:'🧺', bold:'garden_harvests Einheit:', text:' „Stück/Bund" verletzten den DB-CHECK (g/kg/stk/bund/ml/l) → Ernte synchronisierte nie. Anzeige-Label jetzt vom DB-Wert getrennt (gsErnteUnitDb/Label) + Normalisierung im Cloud-Sync-Chokepoint (deckt ALLE Ernte-Pfade ab, auch Pflanzen-Dossier). Legacy-Einträge robust.'},
+      {emoji:'📸', bold:'user_scans + scan_corrections:', text:' addToConfirmed sendete nicht-existente Spalten (description/scanned_at) → 400; gsScanHistoryReportWrong sendete correct_name/scan_ts (existieren nicht) + liess NOT-NULL user_name weg → Korrekturen IMMER verloren trotz „Danke"-Toast. Beide auf reale Spalten + context(jsonb) umgestellt.'},
+      {emoji:'👍', bold:'feedback_votes:', text:' Spalte hiess „direction" statt „dir", Wert „none" verletzte CHECK, voter_key verletzte die INSERT-Policy → Votes nie gespeichert. Jetzt dir(up/down), voter_key=auth.uid()/anon:-Präfix, DELETE bei Rücknahme. Alle 4 Fixes als echter authenticated-JWT gegen die Live-DB getestet (INSERT/UPDATE/DELETE OK). 7/7 node --check + sw.js OK.'},
+    ]
+  },
+  {
     v: 'v29.06', date: '11.06.2026',
     headline: '🌍 Sprach-Lücken geschlossen: Menü-Profil, Wetter-Vorhersage, Update-Banner',
     summary: 'Fix 2/4 aus dem Audit: Drei Oberflächen blieben für EN/ES/FR/IT-Nutzer teilweise deutsch — die Menü-Profil-Leiste (Streak „Tage", XP-Hinweis, „Jetzt anmelden"), die 7-Tage-Wetter-Vorhersage (Wochentage, „Heute/Morgen", „Aktualisiert") und der „Neue Version"-Update-Banner. Alle drei jetzt vollständig übersetzt; die Wochentage kommen direkt aus der echten Sprach-Region (immer korrekt).',
@@ -62471,7 +62512,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.06';
+var GS_VERSION = 'v29.07';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -67866,10 +67907,13 @@ window.gsCloudSync = (function(){
     try {
       switch (op.kind){
         case 'harvest_add': {
+          // v29.07: unit IMMER auf DB-CHECK-Enum normalisieren (Chokepoint für ALLE pushHarvestAdd-Caller).
+          var _hrow = Object.assign({user_id: _uid()}, op.row);
+          try { if (typeof gsErnteUnitDb === 'function') _hrow.unit = gsErnteUnitDb(_hrow.unit); } catch(_){}
           var r = await sbFetch('/rest/v1/garden_harvests', {
             method:'POST',
             headers:{'Content-Type':'application/json','Prefer':'return=minimal'},
-            body: JSON.stringify(Object.assign({user_id: _uid()}, op.row))
+            body: JSON.stringify(_hrow)
           });
           return !!(r && !r.error);
         }
