@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.97.20260610">
+<meta name="app-version" content="28.98.20260610">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -57790,6 +57790,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.98', date: '10.06.2026',
+    headline: '🔒 Sicherheits-Härtung + interne Verwaltung',
+    summary: 'Die Server-Konfiguration wurde härter abgeschottet (Zugriffsrechte enger gefasst) und die interne App-Verwaltung ausgebaut. Für dich als Nutzer ändert sich nichts Sichtbares — die App wird dadurch sicherer und stabiler betreut.',
+    user_summary: '🔒 Sicherheits-Härtung der Server-Konfiguration (nichts Sichtbares, aber wichtig).',
+    user_items: [
+      { emoji: '🔒', text: 'Zugriffsrechte auf Server-Einstellungen enger gefasst' },
+    ],
+    items: [
+      {emoji:'🛡️', bold:'P0-Fix:', text:' app_settings-SELECT-Policy von USING(true) auf 4-Key-Whitelist + flag_* (authenticated) — Secrets sind nicht mehr public-lesbar. Admin-Ausbau: fn_admin_set_tier (Tier-Vergabe + audit_log + Stripe-Warnung), Feature-Flags (fn_admin_flags_list/_set, nur flag_-Prefix), i18n-Coverage-Karte, Maintenance-Banner (flag_maintenance_banner → Live-Banner ohne Deploy, XSS-safe via textContent). Alles hinter is_admin_user, für User unsichtbar. 7/7 node --check.'},
+    ]
+  },
+  {
     v: 'v28.97', date: '10.06.2026',
     headline: '📱 Menü mehrsprachig + intelligenterer Speicher-Sync',
     summary: 'A-Z-Voll-Audit Teil 3: Das Hauptmenü (38 Labels & Sektionen) ist jetzt mehrsprachig. Der Speicher-Sync wurde intelligenter: Region-Auswahl, Push-Vorlieben und Ernte-Jahr wandern jetzt mit aufs nächste Gerät, und ein neuer Schutz verhindert, dass ein frisch eingerichtetes Gerät deine Favoriten/Erfolge mit leeren Listen überschreibt. Im Backend wurden 3 fehlende Tabellen sauber angelegt (Analytics opt-in & Gutschein-System).',
@@ -62221,7 +62233,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.97';
+var GS_VERSION = 'v28.98';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -69744,6 +69756,111 @@ async function gsAdminListUsers() {
   } catch(e) { return []; }
 }
 
+// v28.98 Admin-Ausbau: Tier vergeben (free/pro/lifetime) — RPC admin-gated + audit_log.
+// Admin-internes Tool (Deutsch ok). stripe_warning=true → User hat aktives Abo, der
+// Stripe-Webhook kann das Tier beim nächsten Event wieder überschreiben.
+async function gsAdminSetTier(userId, tier) {
+  if (!gsIsAdmin() || !tier) return;
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_admin_set_tier', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_user_id: userId, p_tier: tier }) });
+    var d = (r && r.data) || {};
+    if (d.ok) {
+      if (typeof gsToast === 'function') gsToast('💎 Tier gesetzt: ' + tier + (d.stripe_warning ? ' — ⚠️ User hat aktives Stripe-Abo, Webhook kann überschreiben' : ''), d.stripe_warning ? 'warning' : 'success', 4000);
+    } else {
+      if (typeof gsToast === 'function') gsToast('Tier-Wechsel fehlgeschlagen: ' + (d.error || 'unbekannt'), 'error');
+    }
+  } catch(e) { if (typeof gsToast === 'function') gsToast('Netzwerkfehler.', 'error'); }
+}
+window.gsAdminSetTier = gsAdminSetTier;
+
+// v28.98 Admin-Ausbau: Feature-Flags (nur flag_*-Keys — Secrets unerreichbar, RPC-erzwungen)
+async function gsAdminFetchFlags() {
+  if (!gsIsAdmin()) return [];
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_admin_flags_list', { method:'POST', headers:{'Content-Type':'application/json'}, body: '{}' });
+    return (r && Array.isArray(r.data)) ? r.data : [];
+  } catch(e) { return []; }
+}
+async function gsAdminEditFlag(key, currentValue) {
+  if (!gsIsAdmin()) return;
+  var nv = (typeof gsPromptModal === 'function')
+    ? await gsPromptModal({ title: '🚩 ' + key, message: 'Neuer Wert (leer = aus/deaktiviert):', value: currentValue || '' })
+    : prompt('Neuer Wert für ' + key + ':', currentValue || '');
+  if (nv === null) return;
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_admin_flag_set', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_key: key, p_value: String(nv) }) });
+    var d = (r && r.data) || {};
+    if (d.ok) { if (typeof gsToast === 'function') gsToast('🚩 Flag gespeichert.', 'success'); openAdminPanel(); }
+    else { if (typeof gsToast === 'function') gsToast('Fehler: ' + (d.error || 'unbekannt'), 'error'); }
+  } catch(e) { if (typeof gsToast === 'function') gsToast('Netzwerkfehler.', 'error'); }
+}
+window.gsAdminEditFlag = gsAdminEditFlag;
+function _gsAdminFlagsHtml(flags) {
+  var inner = (flags && flags.length) ? flags.map(function(f){
+    var k = (typeof escHtml === 'function') ? escHtml(f.key) : f.key;
+    var v = (typeof escHtml === 'function') ? escHtml(f.value || '') : (f.value || '');
+    // HL#12: key ist RPC-validiert (flag_-Prefix, kein Quote möglich) → onclick-safe;
+    // value geht NIE ins onclick (Edit-Funktion liest aus data-Attribut nicht nötig — Re-Fetch im Modal).
+    return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;">' +
+      '<code style="flex:1;color:var(--text);">' + k + '</code>' +
+      '<span style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + (f.value ? '#2e7d32' : 'var(--muted)') + ';font-weight:700;">' + (v || '(aus)') + '</span>' +
+      '<button onclick="gsAdminEditFlag(\'' + f.key + '\', this.getAttribute(\'data-v\'))" data-v="' + v.replace(/"/g,'&quot;') + '" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card);font-size:11px;cursor:pointer;font-family:inherit;">✏️</button>' +
+    '</div>';
+  }).join('') : '<div style="color:var(--muted);font-size:12px;padding:6px 0;">Keine Flags.</div>';
+  return '<div style="margin-top:14px;padding:11px 13px;background:#ede7f6;border-radius:8px;">' +
+    '<div style="font-weight:800;font-size:12.5px;margin-bottom:4px;color:#4527a0;">🚩 Feature-Flags (live, ohne Deploy)</div>' +
+    '<div style="font-size:10.5px;color:#5e35b1;margin-bottom:6px;">flag_maintenance_banner: Text eintragen = Banner für alle User · leer = aus</div>' +
+    inner + '</div>';
+}
+// v28.98 Admin-Ausbau: Maintenance-Banner — Admin setzt flag_maintenance_banner (Text),
+// alle eingeloggten User sehen den Banner beim nächsten Boot (kein Deploy nötig).
+// Dismiss gilt pro Session+Text (neuer Text → Banner erscheint wieder).
+(function _gsMaintenanceBannerBoot(){
+  try {
+    document.addEventListener('DOMContentLoaded', function(){
+      setTimeout(async function(){
+        try {
+          if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn() || typeof sbFetch !== 'function') return;
+          var r = await sbFetch('/rest/v1/app_settings?key=eq.flag_maintenance_banner&select=value', { method:'GET' });
+          var txt = (r && Array.isArray(r.data) && r.data[0] && r.data[0].value) ? String(r.data[0].value).trim() : '';
+          if (!txt) return;
+          var dismissed = '';
+          try { dismissed = sessionStorage.getItem('gs_maint_dismissed') || ''; } catch(_){}
+          if (dismissed === txt) return;
+          if (document.getElementById('gs-maint-banner')) return;
+          var b = document.createElement('div');
+          b.id = 'gs-maint-banner';
+          b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999998;background:#fff8e1;border-bottom:2px solid #ffa000;padding:9px 38px 9px 12px;font-size:12.5px;color:#5d4037;text-align:center;font-family:inherit;';
+          var span = document.createElement('span');
+          span.textContent = '📢 ' + txt; // textContent → kein HTML-Injection-Vektor
+          var x = document.createElement('button');
+          x.textContent = '✕';
+          x.style.cssText = 'position:absolute;right:8px;top:50%;transform:translateY(-50%);border:none;background:transparent;font-size:15px;cursor:pointer;color:#5d4037;';
+          x.onclick = function(){ try { sessionStorage.setItem('gs_maint_dismissed', txt); } catch(_){} b.remove(); };
+          b.appendChild(span); b.appendChild(x);
+          document.body.appendChild(b);
+        } catch(_){}
+      }, 4000);
+    });
+  } catch(_){}
+})();
+
+// v28.98: i18n-Coverage-Karte (nutzt bestehenden gsI18nCoverage-Helper @10814)
+function _gsAdminI18nHtml() {
+  try {
+    var c = (typeof window.gsI18nCoverage === 'function') ? window.gsI18nCoverage() : null;
+    if (!c) return '';
+    var langs = ['en','es','fr','it'].map(function(l){
+      var n = c[l] || 0; var pct = c.expected ? Math.round(n / c.expected * 100) : 0;
+      var col = pct >= 95 ? '#2e7d32' : pct >= 70 ? '#ef6c00' : '#c62828';
+      return '<span style="margin-right:10px;">' + l.toUpperCase() + ' <b style="color:' + col + ';">' + pct + '%</b> <span style="color:var(--muted);">(' + n + ')</span></span>';
+    }).join('');
+    return '<div style="margin-top:10px;padding:11px 13px;background:#e8f5e9;border-radius:8px;font-size:11.5px;">' +
+      '<div style="font-weight:800;margin-bottom:4px;">🌍 i18n-Bundles (dieses Gerät · erwartet ' + (c.expected||0) + ' Keys)</div>' + langs +
+      '<div style="font-size:10px;color:var(--muted);margin-top:4px;">Bundle lädt pro Sprache beim Sprachwechsel/Boot (24h-Cache) — 0% heisst nur: auf diesem Gerät noch nicht geladen.</div></div>';
+  } catch(_) { return ''; }
+}
+
 // v28.64 Block F.2: Live-Metriken laden (Admin) — RPC fn_admin_metrics (admin-gated, jsonb)
 async function gsAdminFetchMetrics() {
   if (!gsIsAdmin()) return null;
@@ -69882,6 +69999,7 @@ async function openAdminPanel() {
   var users = await gsAdminListUsers();
   var metrics = await gsAdminFetchMetrics();
   var stripe = await gsAdminFetchStripe();
+  var flags = await gsAdminFetchFlags(); // v28.98 Admin-Ausbau
   var existing = document.getElementById('modal-admin-panel');
   if (existing) existing.remove();
   var m = document.createElement('div');
@@ -69911,6 +70029,13 @@ async function openAdminPanel() {
         '<option value="user"' + (u.role==='user'?' selected':'') + '>👤 Nutzer</option>' +
         '<option value="banned"' + (u.role==='banned'?' selected':'') + '>🚫 Gesperrt</option>' +
       '</select>' +
+      // v28.98 Admin-Ausbau: Tier vergeben (Comp/Tester) — RPC fn_admin_set_tier (audit-geloggt)
+      '<select onchange="gsAdminSetTier(\'' + u.id + '\', this.value).then(function(){openAdminPanel();})" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:11.5px;font-family:inherit;">' +
+        '<option value="">— Tier —</option>' +
+        '<option value="free"' + (u.tier==='free'?' selected':'') + '>🌱 Free</option>' +
+        '<option value="pro"' + (u.tier==='pro'?' selected':'') + '>💎 Pro</option>' +
+        '<option value="lifetime"' + (u.tier==='lifetime'?' selected':'') + '>♾️ Lifetime</option>' +
+      '</select>' +
     '</div>';
   }).join('') || '<div style="text-align:center;padding:20px;color:var(--muted);">Keine User gefunden.</div>';
 
@@ -69936,6 +70061,8 @@ async function openAdminPanel() {
       '<p style="margin:0 0 14px;font-size:12px;color:var(--muted);">Hierarchie: <b>Admin</b> > <b>Mitarbeiter</b> > <b>Experte</b> > <b>Nutzer</b> > <b>Gesperrt</b></p>' +
       _gsAdminMetricsHtml(metrics) +
       _gsAdminStripeHtml(stripe) +
+      _gsAdminFlagsHtml(flags) +
+      _gsAdminI18nHtml() +
       '<input type="text" oninput="gsAdminFilterUsers(this.value)" placeholder="🔍 Nutzer suchen (Name, E-Mail, Rolle)…" style="width:100%;box-sizing:border-box;padding:9px 12px;margin-bottom:8px;border:1px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit;">' +
       '<div id="gs-admin-user-list">' + rows + '</div>' +
       '<div id="gs-admin-user-empty" style="display:none;text-align:center;padding:14px;color:var(--muted);font-size:12px;">Keine Nutzer gefunden.</div>' +

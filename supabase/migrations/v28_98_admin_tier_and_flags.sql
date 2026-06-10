@@ -1,0 +1,7 @@
+-- v28.98 Admin-Ausbau Schritt 1 (2026-06-10): fn_admin_set_tier (free/pro/lifetime,
+-- is_admin_user-Gate, audit_log, stripe_warning bei aktivem Abo) + Feature-Flags
+-- fn_admin_flags_list/fn_admin_flag_set (NUR flag_-Prefix erlaubt -> Secrets im selben
+-- Table unerreichbar; audit_log) + SELECT-Policy um flag_* erweitert (User lesen z.B.
+-- flag_maintenance_banner) + Initial-Flag flag_maintenance_banner (leer = aus).
+-- Alle RPCs: SECURITY DEFINER + search_path public + REVOKE anon + GRANT authenticated
+-- (HL#13). Voller Inhalt: DB-Migration v28_98_admin_tier_and_flags (apply_migration).
