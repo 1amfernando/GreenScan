@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.01.20260610">
+<meta name="app-version" content="29.02.20260610">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11341,6 +11341,9 @@ window.GS_I18N_JS_STRINGS = {
   'quiz_days':'Tage',
   'season_tip_default':'Jetzt ist die beste Zeit zum Sammeln!',
   'season_tip_prompt':'Was hat gerade Saison in der Schweiz?',
+  // v29.02 — Daily-Card-Fallback (HOME-12)
+  'daily_info_unavail_title':'🌿 Tagesinfo',
+  'daily_info_unavail':'Heute keine Tagesinfo verfügbar — schau später wieder vorbei.',
   'water_dry_hint':            'giessen. Erde leicht antrocknen lassen.',
   'detail_care':               '🪴 Pflege & Standort',
   'tox_strong':                'STARK GIFTIG',
@@ -17730,6 +17733,9 @@ async function gsLoadGardenWeatherAlerts() {
       // typical_months ist int-Array → contains-Match {month}
       var q = '/rest/v1/garden_weather_alerts?typical_months=cs.{' + month + '}&select=*&limit=20';
       var r = await sbFetch(q, { method:'GET' });
+      // v29.02 GARDEN-1: API-Fehler von "keine Alerts" unterscheiden — bei Fehler Widget
+      // still lassen + NICHT cachen (sonst klebt der Fehl-Zustand für die ganze TTL).
+      if (r && r.error) { console.warn('[gsWeatherAlerts] fetch:', r.error.message || r.error); return; }
       var allRows = (r && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : []);
       // Region-Filter client-side (typical_regions ist Text-Array mit unstrukturierten Werten)
       if (regionTokens && allRows.length) {
@@ -18675,15 +18681,27 @@ function initHomeBoard() {
 
     // ── Tages-Info (WEEKLY_SEASONAL_FACTS) ────────────────
     (function setDailyInfo() {
+      // v29.02 HOME-12: wenn keine Tagesinfo verfügbar, Fallback-Text statt ewigem
+      // 'Lade Tagesinfo…'-Platzhalter (vorher: silent return false → Karte blieb leer).
+      function _dailyFallback() {
+        try {
+          var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k,f){ return f; };
+          var tEl = document.getElementById('daily-title');
+          var xEl = document.getElementById('daily-text');
+          if (tEl) tEl.textContent = _t('daily_info_unavail_title','🌿 Tagesinfo');
+          if (xEl) xEl.textContent = _t('daily_info_unavail','Heute keine Tagesinfo verfügbar — schau später wieder vorbei.');
+        } catch(_){}
+        return false;
+      }
       try {
         var facts = (typeof WEEKLY_SEASONAL_FACTS !== 'undefined') ? WEEKLY_SEASONAL_FACTS : (window.WEEKLY_SEASONAL_FACTS || []);
-        if (!facts || !facts.length) return false;
+        if (!facts || !facts.length) return _dailyFallback();
         var kw = (typeof gsGetKW === 'function') ? gsGetKW() : Math.ceil(((now - new Date(now.getFullYear(),0,1))/(7*86400000)));
         var dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
         var weekFacts = facts.filter(function(f) { return f.kw === kw; });
         if (!weekFacts.length) weekFacts = facts.slice(0, 10);
         var info = weekFacts[dayOfYear % weekFacts.length];
-        if (!info) return false;
+        if (!info) return _dailyFallback();
         var titleEl = document.getElementById('daily-title');
         var textEl  = document.getElementById('daily-text');
         var factEl  = document.getElementById('daily-fact');
@@ -19645,6 +19663,9 @@ async function saveListing() {
       return;
     }
     gsHaptic('success');
+    // v29.02 HOME-11: Home-Marktplatz-Widget-Cache invalidieren — neues Inserat soll
+    // sofort auf der Startseite erscheinen statt bis zu 60s alten Snapshot zu zeigen.
+    try { window._gsMktHomeCache = null; if (typeof gsHomeRenderTopPicks === 'function') gsHomeRenderTopPicks(); } catch(_){}
     // v26.36: Bio / Pestizid-frei nachträglich PATCHen wenn aktiviert (Edge-Fn kennt diese Spalten noch nicht)
     if ((nlOrganic || nlPestfree) && j.id && typeof sbFetch === 'function') {
       try {
@@ -57827,6 +57848,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.02', date: '10.06.2026',
+    headline: '✨ Letzter Audit-Polish: Startseite reagiert noch schneller',
+    summary: 'Abschluss des grossen A-Z-Audits: Neue Marktplatz-Inserate erscheinen jetzt sofort auf der Startseite (vorher bis zu 60 Sek. Verzögerung), die Tagesinfo-Karte zeigt einen freundlichen Hinweis statt ewigem „Lade…", und das Wetter-Alert-Widget unterscheidet sauber zwischen „keine Warnungen" und „Verbindungsfehler". Damit ist jeder Punkt aus dem Voll-Audit abgearbeitet.',
+    user_summary: '✨ Neue Inserate sofort auf der Startseite + sauberere Tagesinfo- und Wetter-Karten.',
+    user_items: [
+      { emoji: '🛒', text: 'Dein neues Inserat erscheint sofort auf der Startseite' },
+      { emoji: '🌿', text: 'Tagesinfo-Karte: freundlicher Hinweis statt Dauer-„Lade…"' },
+      { emoji: '⛈️', text: 'Wetter-Alerts: Verbindungsfehler wird nicht mehr als „keine Warnungen" gecacht' },
+    ],
+    items: [
+      {emoji:'🧹', bold:'A-Z-Abschluss:', text:' HOME-11 _gsMktHomeCache-Invalidierung nach Publish-Success + Sofort-Rerender; HOME-12 _dailyFallback (2 i18n-Keys, EN/ES/FR/IT geseedet) statt silent return false; GARDEN-1 r.error-Check vor Cache (Fehl-Zustand klebte sonst die ganze TTL). HOME-10 verifiziert-verworfen (gsUpdateXPBar bedient home-* UND more-*-Widget bereits zentral, v28.39). ⇒ A-Z-Report 44/44 Findings abgearbeitet (fixed/verworfen-mit-Beleg/dokumentiert-deferred). 7/7 node --check.'},
+    ]
+  },
+  {
     v: 'v29.01', date: '10.06.2026',
     headline: '🔑 KI & Bezahlen: keine Abmelde-Fehler mehr nach 1 Stunde',
     summary: 'A-Z-Audit-Nachzügler (WIRE-1): Sieben Funktionen (Garten-Scan, KI-Planer, Pflanzendoktor, Schädlings-/Pilz-Erkennung, Experten-Check, Verkäufer-Konto) nutzten beim Server-Aufruf den gespeicherten Anmelde-Token, ohne ihn vorher aufzufrischen. Folge: Wer die App länger als 1 Stunde offen hatte, bekam scheinbar grundlos Fehler — bis zum Neuladen. Jetzt wird der Token vor jedem dieser Aufrufe automatisch erneuert.',
@@ -62307,7 +62342,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.01';
+var GS_VERSION = 'v29.02';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
