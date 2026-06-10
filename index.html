@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.98.20260610">
+<meta name="app-version" content="28.99.20260610">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -57790,6 +57790,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.99', date: '10.06.2026',
+    headline: '🛠️ Interne Verwaltung ausgebaut',
+    summary: 'Weitere interne Verwaltungs-Werkzeuge für einen stabilen Betrieb (Benachrichtigungs-Verwaltung, Aktivitäts-Protokoll). Für dich als Nutzer ändert sich nichts Sichtbares.',
+    user_summary: '🛠️ Interner Verwaltungs-Ausbau (nichts Sichtbares).',
+    user_items: [
+      { emoji: '🛠️', text: 'Stabilerer Betrieb durch bessere interne Werkzeuge' },
+    ],
+    items: [
+      {emoji:'📣', bold:'Admin Schritt 2:', text:' send-push v2 deployed (Admin-Broadcast: profiles.role=admin server-seitig geprüft, broadcast_admin_only sonst, Cap 500 Subs, per-User-Log; anon-Negativ-Test 401 ✓) + Panel-Sektion Broadcast (gsConfirmModal-Bestätigung, Mission-Hinweis kein Spam). fn_admin_audit_recent (admin-gated, Limit 1-100) + Audit-Log-Viewer im Panel (letzte 15 Aktionen). 7/7 node --check.'},
+    ]
+  },
+  {
     v: 'v28.98', date: '10.06.2026',
     headline: '🔒 Sicherheits-Härtung + interne Verwaltung',
     summary: 'Die Server-Konfiguration wurde härter abgeschottet (Zugriffsrechte enger gefasst) und die interne App-Verwaltung ausgebaut. Für dich als Nutzer ändert sich nichts Sichtbares — die App wird dadurch sicherer und stabiler betreut.',
@@ -62233,7 +62245,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.98';
+var GS_VERSION = 'v28.99';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -69861,6 +69873,64 @@ function _gsAdminI18nHtml() {
   } catch(_) { return ''; }
 }
 
+// v28.99 Admin-Ausbau Schritt 2: Push-Broadcast an ALLE Subscriber.
+// send-push v2 prüft server-seitig profiles.role='admin' (broadcast_admin_only sonst).
+async function gsAdminSendBroadcast() {
+  if (!gsIsAdmin()) return;
+  var tEl = document.getElementById('gs-adm-bc-title');
+  var bEl = document.getElementById('gs-adm-bc-body');
+  var title = tEl ? (tEl.value||'').trim() : '';
+  var text = bEl ? (bEl.value||'').trim() : '';
+  if (!title || !text) { if (typeof gsToast === 'function') gsToast('Titel + Text nötig.', 'warning'); return; }
+  var ok = (typeof gsConfirmModal === 'function')
+    ? await gsConfirmModal({ title: '📣 An ALLE senden?', text: 'Push geht an alle Geräte mit aktiven Benachrichtigungen:\n\n„' + title + '“\n' + text, okText: 'Jetzt senden', danger: true })
+    : confirm('Broadcast an alle senden?');
+  if (!ok) return;
+  try {
+    var r = await sbFetch('/functions/v1/send-push', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ broadcast: true, category: 'broadcast', title: title.slice(0,120), body: text.slice(0,200), url: '/', tag: 'gs-broadcast' })
+    });
+    var d = (r && r.data) || {};
+    if (d.sent > 0 || d.ok) {
+      if (typeof gsToast === 'function') gsToast('📣 Gesendet: ' + (d.sent||0) + ' Push(es) an ' + (d.users||0) + ' Nutzer (' + (d.failed||0) + ' fehlgeschlagen).', 'success', 5000);
+      if (tEl) tEl.value = ''; if (bEl) bEl.value = '';
+    } else {
+      if (typeof gsToast === 'function') gsToast('Broadcast: ' + (d.error || 'keine Empfänger/Fehler'), 'warning', 4000);
+    }
+  } catch(e) { if (typeof gsToast === 'function') gsToast('Netzwerkfehler.', 'error'); }
+}
+window.gsAdminSendBroadcast = gsAdminSendBroadcast;
+function _gsAdminBroadcastHtml() {
+  return '<div style="margin-top:10px;padding:11px 13px;background:#fff3e0;border-radius:8px;">' +
+    '<div style="font-weight:800;font-size:12.5px;margin-bottom:6px;color:#e65100;">📣 Push-Broadcast (an alle Abonnenten)</div>' +
+    '<input id="gs-adm-bc-title" maxlength="120" placeholder="Titel (z.B. 🌿 Neues Update ist da!)" style="width:100%;box-sizing:border-box;padding:8px 10px;margin-bottom:6px;border:1px solid var(--border);border-radius:7px;font-size:12px;font-family:inherit;">' +
+    '<textarea id="gs-adm-bc-body" maxlength="200" rows="2" placeholder="Nachricht (max. 200 Zeichen)" style="width:100%;box-sizing:border-box;padding:8px 10px;margin-bottom:6px;border:1px solid var(--border);border-radius:7px;font-size:12px;font-family:inherit;resize:vertical;"></textarea>' +
+    '<button onclick="gsAdminSendBroadcast()" style="padding:8px 16px;background:#e65100;color:#fff;border:none;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit;">📣 An alle senden</button>' +
+    '<span style="font-size:10px;color:#bf360c;margin-left:8px;">Mit Bedacht nutzen — Mission: kein Spam.</span></div>';
+}
+
+// v28.99: Audit-Log-Viewer (letzte Admin-Aktionen — Rollen/Tier/Flags)
+async function gsAdminFetchAudit() {
+  if (!gsIsAdmin()) return [];
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_admin_audit_recent', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_limit: 15 }) });
+    return (r && Array.isArray(r.data)) ? r.data : [];
+  } catch(e) { return []; }
+}
+function _gsAdminAuditHtml(audit) {
+  if (!audit || !audit.length) return '';
+  var rows = audit.map(function(a){
+    var when = a.created_at ? new Date(a.created_at).toLocaleString('de-CH', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+    var who = (typeof escHtml==='function') ? escHtml((a.actor_email||'?').split('@')[0]) : '?';
+    var what = (typeof escHtml==='function') ? escHtml(a.action + ' → ' + (a.target_type||'') + ' ' + String(a.target_id||'').slice(0,12)) : '';
+    var diff = a.diff ? ((typeof escHtml==='function') ? escHtml(JSON.stringify(a.diff).slice(0,60)) : '') : '';
+    return '<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;color:var(--text);"><b>' + when + '</b> · ' + who + ' · ' + what + (diff ? ' <span style="color:var(--muted);">' + diff + '</span>' : '') + '</div>';
+  }).join('');
+  return '<div style="margin-top:10px;padding:11px 13px;background:#eceff1;border-radius:8px;">' +
+    '<div style="font-weight:800;font-size:12.5px;margin-bottom:4px;color:#37474f;">📜 Letzte Admin-Aktionen (audit_log)</div>' + rows + '</div>';
+}
+
 // v28.64 Block F.2: Live-Metriken laden (Admin) — RPC fn_admin_metrics (admin-gated, jsonb)
 async function gsAdminFetchMetrics() {
   if (!gsIsAdmin()) return null;
@@ -70000,6 +70070,7 @@ async function openAdminPanel() {
   var metrics = await gsAdminFetchMetrics();
   var stripe = await gsAdminFetchStripe();
   var flags = await gsAdminFetchFlags(); // v28.98 Admin-Ausbau
+  var audit = await gsAdminFetchAudit(); // v28.99 Audit-Viewer
   var existing = document.getElementById('modal-admin-panel');
   if (existing) existing.remove();
   var m = document.createElement('div');
@@ -70062,7 +70133,9 @@ async function openAdminPanel() {
       _gsAdminMetricsHtml(metrics) +
       _gsAdminStripeHtml(stripe) +
       _gsAdminFlagsHtml(flags) +
+      _gsAdminBroadcastHtml() +
       _gsAdminI18nHtml() +
+      _gsAdminAuditHtml(audit) +
       '<input type="text" oninput="gsAdminFilterUsers(this.value)" placeholder="🔍 Nutzer suchen (Name, E-Mail, Rolle)…" style="width:100%;box-sizing:border-box;padding:9px 12px;margin-bottom:8px;border:1px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit;">' +
       '<div id="gs-admin-user-list">' + rows + '</div>' +
       '<div id="gs-admin-user-empty" style="display:none;text-align:center;padding:14px;color:var(--muted);font-size:12px;">Keine Nutzer gefunden.</div>' +

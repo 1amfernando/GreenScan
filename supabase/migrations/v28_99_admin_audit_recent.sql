@@ -1,0 +1,4 @@
+-- v28.99 Admin-Ausbau Schritt 2 (2026-06-10): fn_admin_audit_recent(p_limit) —
+-- letzte Admin-Aktionen (Rollen-/Tier-Wechsel, Flag-Aenderungen) fuers Panel.
+-- SECURITY DEFINER + is_admin_user-Gate + REVOKE anon + GRANT authenticated (HL#13).
+-- Limit geclamped 1..100. Voller Inhalt: DB-Migration v28_99_admin_audit_recent.
