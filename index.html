@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.94.20260610">
+<meta name="app-version" content="28.95.20260610">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -9178,6 +9178,12 @@ window.dqRefreshLeaderboards = function(){
     var rm = document.getElementById('modal-dq-ranking');
     if (rm && rm.style.display === 'flex' && typeof openDqRanking === 'function') openDqRanking();
   } catch(_){}
+  // v28.95 A-Z-Audit HOME-9: auch die Home-Card (home-lb-preview) refreshen — der
+  // _gsFilled-Once-Guard hielt sie sonst bis zum Reload auf dem Boot-Stand.
+  try {
+    var hl = document.getElementById('home-lb-preview');
+    if (hl) { hl._gsFilled = false; if (typeof gsHomeFillLeaderboard === 'function') gsHomeFillLeaderboard(); }
+  } catch(_){}
 };
 async function dqLoadMyRank() {
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return null;
@@ -10638,15 +10644,26 @@ window.gsI18n = (function(){
     if (lang === 'de' || SUPPORTED.indexOf(lang) < 0) return false;
     if (typeof sbFetch !== 'function') return false;
     try {
-      var r = await sbFetch(
-        '/rest/v1/i18n_translations?source_lang=eq.de&target_lang=eq.' +
-        encodeURIComponent(lang) + '&select=source_text,translated_text&limit=2000',
-        { method: 'GET' }
-      );
-      if (!r || !Array.isArray(r.data)) return false;
+      // v28.95 KRITISCH-FIX: Supabase cappt serverseitig bei max-rows=1000 — das frühere
+      // limit=2000 war wirkungslos. Bei 1475 fr/it-Zeilen wurden nur 1000 geladen →
+      // ~1/3 der Übersetzungen fiel STILL auf Deutsch zurück (und welche, war zufällig,
+      // da unsortiert). Fix: offset-Pagination mit stabiler Sortierung, bis eine Seite
+      // weniger als 1000 Zeilen liefert (Cap 10 Seiten als Runaway-Schutz).
+      var allRows = [];
+      for (var page = 0; page < 10; page++) {
+        var r = await sbFetch(
+          '/rest/v1/i18n_translations?source_lang=eq.de&target_lang=eq.' +
+          encodeURIComponent(lang) + '&select=source_text,translated_text' +
+          '&order=source_text.asc&limit=1000&offset=' + (page * 1000),
+          { method: 'GET' }
+        );
+        if (!r || !Array.isArray(r.data)) { if (page === 0) return false; break; }
+        allRows = allRows.concat(r.data);
+        if (r.data.length < 1000) break;
+      }
       // source_text → translated_text Map
       var srcMap = {};
-      r.data.forEach(function(row){
+      allRows.forEach(function(row){
         if (row && row.source_text) srcMap[row.source_text] = row.translated_text;
       });
       // data-i18n keys → translated lookup via data-i18n-fallback Phrase
@@ -18392,7 +18409,7 @@ async function loadHomeWeather() {
     const resp = await (window._gsFetch || fetch)(
       'https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+
       '&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m,uv_index'+
-      '&hourly=weather_code,wind_speed_10m,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Europe/Berlin&forecast_days=4&models=best_match',
+      '&hourly=weather_code,wind_speed_10m,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Europe/Zurich&forecast_days=4&models=best_match',
       {}, 12000
     );
     const d = await resp.json();
@@ -47566,7 +47583,7 @@ function gsPPloadLastLux() {
       // v24.24: Lux-Wert als data-Attribut für späteren Zugriff im Prompt (numerisch)
       if (txt) txt.setAttribute('data-lux', String(Math.round(lux)));
     } else {
-      txt.innerHTML = '❌ Keine Messung gefunden. Tipp: <a href="#" onclick="event.preventDefault();closeModal(\'modal-planner-pro\');setTimeout(function(){if(typeof openLichtmessung===\'function\')openLichtmessung();},250);" style="color:var(--g-main);text-decoration:underline;">jetzt Lichtmessung starten →</a>';
+      txt.innerHTML = '❌ Keine Messung gefunden. Tipp: <a href="#" onclick="event.preventDefault();closeModal(\'modal-planner-pro\');setTimeout(function(){if(typeof openLightMeter===\'function\')openLightMeter();},250);" style="color:var(--g-main);text-decoration:underline;">jetzt Lichtmessung starten →</a>';
     }
   } catch(e) {}
 }
@@ -55707,7 +55724,7 @@ async function fetchWeather(location) {
       '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,sunshine_duration,uv_index_max' +
       '&hourly=weather_code,precipitation_probability,temperature_2m,wind_speed_10m' +
       '&current=temperature_2m,precipitation,weather_code,wind_speed_10m' +
-      '&timezone=Europe%2FBerlin&forecast_days=14&models=best_match',
+      '&timezone=Europe%2FZurich&forecast_days=14&models=best_match',
       {}, 15000
     );
     if (!weatherResp.ok) {
@@ -57692,6 +57709,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v28.95', date: '10.06.2026',
+    headline: '🌍 KRITISCH: Übersetzungen luden nur zu 2/3 — behoben',
+    summary: 'A-Z-Voll-Audit Teil 1: Der Übersetzungs-Lader holte wegen eines Server-Limits nur 1000 von bis zu 1475 Übersetzungen pro Sprache — bis zu ein Drittel der App blieb für EN/ES/FR/IT-Nutzer zufällig auf Deutsch. Jetzt lädt er ALLE Übersetzungen (seitenweise). Dazu: 26 fehlende FR/IT-Übersetzungen ergänzt, Quiz-Rangliste auf der Startseite aktualisiert sich jetzt sofort nach jeder Antwort, ein toter „Lichtmessung starten"-Link im KI-Planer repariert, Wetter-Zeitzone auf Europe/Zurich korrigiert.',
+    user_summary: '🌍 Sprachen laden jetzt zu 100% (vorher Server-Limit) + Start-Rangliste live + Lichtmessung-Link repariert.',
+    user_items: [
+      { emoji: '🌍', text: 'EN/ES/FR/IT: ALLE Übersetzungen werden geladen (vorher max. 1000)' },
+      { emoji: '🏆', text: 'Quiz-Rangliste auf der Startseite aktualisiert sich sofort' },
+      { emoji: '☀️', text: 'Lichtmessung-Link im KI-Planer funktioniert wieder' },
+    ],
+    items: [
+      {emoji:'🛠️', bold:'A-Z-Audit Teil 1:', text:' loadFromDb offset-Pagination (Supabase max-rows=1000 cappte limit=2000 still → bis zu 475 Übersetzungen/Sprache fehlten zufällig); 26 lux_*/prof_*-Strings FR/IT nachgeseedet (52) → 1411/1411 Strings × 4 Sprachen voll; HOME-9 dqRefreshLeaderboards resettet _gsFilled-Guard der Home-Card; openLichtmessung→openLightMeter (HL#9-Phantom, typeof-Guard schluckte Tippfehler); timezone Europe/Berlin→Europe/Zurich (2×). Deterministische Checks: 629 onclick-Handler (1 Phantom), 68/68 RPCs ✓, 90/93 Tabellen (3 fehlende → v28.97-Backend). 7/7 node --check.'},
+    ]
+  },
   {
     v: 'v28.94', date: '10.06.2026',
     headline: '📊 KI-Kosten-Telemetrie (internes Monitoring)',
@@ -62082,7 +62113,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.94';
+var GS_VERSION = 'v28.95';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
