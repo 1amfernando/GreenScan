@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.99.20260610">
+<meta name="app-version" content="29.00.20260610">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1591,6 +1591,35 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 // für Diagnose. Sichtbar via admin panel → "Error Log anzeigen"
 (function() {
   var MAX_LOGS = 50;
+  // v29.00 Admin-Ausbau: Fehler zusätzlich server-seitig melden (client_errors) —
+  // Admin sieht Produktions-Fehler ALLER User im Panel statt nur lokal.
+  // Schutz: max 5 Reports/Session, gleiche Message nur 1×, nur eingeloggt,
+  // fire-and-forget (Report-Fehler werden geschluckt, NIE re-thrown → keine Schleife).
+  var _reported = {}; var _reportCount = 0;
+  function reportErrorToServer(entry) {
+    try {
+      if (_reportCount >= 5) return;
+      var key = String(entry.msg || '').slice(0, 100);
+      if (!key || _reported[key]) return;
+      if (typeof sbFetch !== 'function' || typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
+      var uid = (typeof gsStore !== 'undefined' && gsStore.get) ? gsStore.get('gs_sb_uid', null) : null;
+      if (!uid) return;
+      _reported[key] = 1; _reportCount++;
+      sbFetch('/rest/v1/client_errors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+        body: JSON.stringify({
+          user_id: uid,
+          err_type: entry.type === 'promise' ? 'promise' : 'error',
+          message: String(entry.msg || 'unknown').slice(0, 300),
+          context: String(entry.ctx || '').slice(0, 200),
+          stack_head: entry.stack ? String(entry.stack).slice(0, 500) : null,
+          app_version: (typeof GS_VERSION !== 'undefined') ? GS_VERSION : null,
+          platform: /iPad|iPhone|iPod/.test(navigator.userAgent) ? 'ios' : /Android/.test(navigator.userAgent) ? 'android' : 'web'
+        })
+      }).catch(function(){});
+    } catch(_) {}
+  }
   function persistError(entry) {
     try {
       var list = JSON.parse(localStorage.getItem('gs_error_log') || '[]');
@@ -1598,6 +1627,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       if (list.length > MAX_LOGS) list = list.slice(-MAX_LOGS);
       localStorage.setItem('gs_error_log', JSON.stringify(list));
     } catch(_) {}
+    try { reportErrorToServer(entry); } catch(_) {}
   }
   window.addEventListener('error', function(e) {
     var msg = e.message || 'Unknown error';
@@ -57790,6 +57820,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.00', date: '10.06.2026',
+    headline: '🩺 Stabilitäts-Telemetrie (interne Fehler-Überwachung)',
+    summary: 'GreenScan überwacht jetzt aktiv die eigene Stabilität: Tritt bei dir ein technischer Fehler auf, wird er (anonym auf das Nötigste beschränkt, max. 5 pro Sitzung) intern gemeldet, damit wir ihn beheben können, bevor du ihn überhaupt melden musst. Für dich ändert sich nichts Sichtbares — die App wird dadurch von Version zu Version zuverlässiger.',
+    user_summary: '🩺 Interne Fehler-Überwachung: Probleme werden erkannt und behoben, bevor du sie melden musst.',
+    user_items: [
+      { emoji: '🩺', text: 'Technische Fehler werden automatisch intern gemeldet (datensparsam)' },
+    ],
+    items: [
+      {emoji:'🐛', bold:'Admin Schritt 3:', text:' client_errors-Tabelle (INSERT own-only, SELECT admin-only, Längen-CHECKs) + Report-Hook in persistError (max 5/Session, dedupe per Message, nur eingeloggt, fire-and-forget — nie re-thrown). fn_admin_client_errors (gruppiert message+version, Top 25, users-Count) + 🐛-Panel-Sektion. pg_cron GC 30 Tage. ⇒ Admin-Panel komplett: Metriken·Stripe·Flags·Broadcast·i18n·Errors·Audit·User(Rolle+Tier)·Storage. 7/7 node --check.'},
+    ]
+  },
+  {
     v: 'v28.99', date: '10.06.2026',
     headline: '🛠️ Interne Verwaltung ausgebaut',
     summary: 'Weitere interne Verwaltungs-Werkzeuge für einen stabilen Betrieb (Benachrichtigungs-Verwaltung, Aktivitäts-Protokoll). Für dich als Nutzer ändert sich nichts Sichtbares.',
@@ -62245,7 +62287,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.99';
+var GS_VERSION = 'v29.00';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -69931,6 +69973,27 @@ function _gsAdminAuditHtml(audit) {
     '<div style="font-weight:800;font-size:12.5px;margin-bottom:4px;color:#37474f;">📜 Letzte Admin-Aktionen (audit_log)</div>' + rows + '</div>';
 }
 
+// v29.00 Admin-Ausbau Schritt 3: Server-seitiges Client-Error-Log (alle User, gruppiert)
+async function gsAdminFetchClientErrors() {
+  if (!gsIsAdmin()) return [];
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_admin_client_errors', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_days: 7 }) });
+    return (r && Array.isArray(r.data)) ? r.data : [];
+  } catch(e) { return []; }
+}
+function _gsAdminClientErrorsHtml(errs) {
+  var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s||''); };
+  var rows = (errs && errs.length) ? errs.map(function(e){
+    var last = e.last_seen ? new Date(e.last_seen).toLocaleString('de-CH', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+    return '<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:11px;">' +
+      '<div style="color:#c62828;font-weight:700;">' + esc(String(e.message||'').slice(0,90)) + '</div>' +
+      '<div style="color:var(--muted);">' + (e.n||0) + '× · ' + (e.users||0) + ' Nutzer · ' + esc(e.app_version||'?') + ' · ' + esc(e.err_type||'') + ' · zuletzt ' + last + (e.last_context ? ' · ' + esc(String(e.last_context).slice(0,50)) : '') + '</div>' +
+    '</div>';
+  }).join('') : '<div style="color:#2e7d32;font-size:12px;padding:6px 0;">✅ Keine Client-Fehler in den letzten 7 Tagen.</div>';
+  return '<div style="margin-top:10px;padding:11px 13px;background:#fce4ec;border-radius:8px;">' +
+    '<div style="font-weight:800;font-size:12.5px;margin-bottom:4px;color:#880e4f;">🐛 Client-Fehler (alle Nutzer · 7 Tage · server-seitig)</div>' + rows + '</div>';
+}
+
 // v28.64 Block F.2: Live-Metriken laden (Admin) — RPC fn_admin_metrics (admin-gated, jsonb)
 async function gsAdminFetchMetrics() {
   if (!gsIsAdmin()) return null;
@@ -70071,6 +70134,7 @@ async function openAdminPanel() {
   var stripe = await gsAdminFetchStripe();
   var flags = await gsAdminFetchFlags(); // v28.98 Admin-Ausbau
   var audit = await gsAdminFetchAudit(); // v28.99 Audit-Viewer
+  var cerrs = await gsAdminFetchClientErrors(); // v29.00 Error-Log
   var existing = document.getElementById('modal-admin-panel');
   if (existing) existing.remove();
   var m = document.createElement('div');
@@ -70135,6 +70199,7 @@ async function openAdminPanel() {
       _gsAdminFlagsHtml(flags) +
       _gsAdminBroadcastHtml() +
       _gsAdminI18nHtml() +
+      _gsAdminClientErrorsHtml(cerrs) +
       _gsAdminAuditHtml(audit) +
       '<input type="text" oninput="gsAdminFilterUsers(this.value)" placeholder="🔍 Nutzer suchen (Name, E-Mail, Rolle)…" style="width:100%;box-sizing:border-box;padding:9px 12px;margin-bottom:8px;border:1px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit;">' +
       '<div id="gs-admin-user-list">' + rows + '</div>' +

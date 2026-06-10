@@ -1,0 +1,6 @@
+-- v29.00 Admin-Ausbau Schritt 3 (2026-06-10): Server-seitiges Client-Error-Log.
+-- client_errors (INSERT own-only authenticated, SELECT admin-only; CHECKs auf Laengen
+-- + err_type + platform) + fn_admin_client_errors(p_days 1-30, gruppiert message+version,
+-- Top 25 nach Haeufigkeit, users-Count, last_seen/last_context; admin-gated HL#13)
+-- + pg_cron 'client-errors-gc' 04:40 UTC (DELETE > 30 Tage).
+-- Voller Inhalt: DB-Migration v29_00_client_error_telemetry (apply_migration).
