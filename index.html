@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.03.20260610">
+<meta name="app-version" content="29.04.20260611">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -57876,6 +57876,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.04', date: '11.06.2026',
+    headline: '🛠️ Kritischer Update-Mechanismus-Fix + Wissens-Offline-Speicher repariert',
+    summary: 'Zwei Stabilitäts-Fixes: (1) KRITISCH — eine seit 9 Versionen unbemerkte Fehlerstelle im Service-Worker-Code hätte beim nächsten Update bewirkt, dass die App-Updates, der Offline-Modus und die Push-Benachrichtigungen bei allen Nutzern nicht mehr funktioniert hätten. Rechtzeitig vor dem Aufschalten gefunden und behoben. (2) Der Offline-Speicher hat Heilmittel, alte Natur-/Bauernweisheiten (Folklore) und Garten-Techniken still nie gespeichert (die Abfrage fragte nach Feldern, die es in der Datenbank nicht gibt) — jetzt korrekt verdrahtet und in der Wissens-Suche auffindbar.',
+    user_summary: '🛠️ App-Updates & Offline-Modus bleiben zuverlässig + Heilmittel/Folklore/Garten-Tipps wieder offline verfügbar.',
+    user_items: [
+      { emoji: '🛠️', text: 'App-Updates, Offline-Modus & Push laufen weiter zuverlässig (kritischen Fehler vor dem Aufschalten abgefangen)' },
+      { emoji: '📥', text: 'Heilmittel, Folklore & Garten-Techniken wieder offline verfügbar und in der Suche auffindbar' },
+    ],
+    items: [
+      {emoji:'🛠️', bold:'Service-Worker-Syntaxfehler (kritisch):', text:' der v28.95-Changelog enthielt eine Asterisk-Slash-Sequenz, die den Block-Kommentar vorzeitig schloss → sw.js war seit 9 Versionen syntaktisch ungültig → beim nächsten Deploy hätte sich der SW bei keinem User registriert (kein Update-Banner, kein Offline-Cache, kein Push). Nur noch nicht live, weil seit vor v28.95 kein Deploy lief. Behoben; node-Syntax-Check von sw.js jetzt fester Teil des Verify (zuvor wurde nur index.html geprüft).'},
+      {emoji:'📥', bold:'gsKnowledgePull Spalten-Fix:', text:' 3 Offline-Cache-Selects referenzierten nicht-existente Spalten (remedies.steps, folk_lore.description, garden_techniques.description) → PostgREST 400, von Promise.allSettled still verschluckt → diese 3 Stores cacheten nie. Fix: reale Spalten + PostgREST-Alias auf description (folk_lore.body, garden_techniques.short_desc/body), remedies.steps→preparation/dosage. Online-Render war nie betroffen (select=* + echte Feld-Reads).'},
+      {emoji:'🔎', bold:'REST-Spalten-Sweep:', text:' alle 222 direkten REST-Spalten-Referenzen über 78 Tabellen gegen information_schema geprüft — exakt diese 3 waren falsch, jetzt 0. Bug-Klasse vollständig abgedeckt. 7/7 node --check + sw.js OK.'},
+    ]
+  },
+  {
     v: 'v29.03', date: '10.06.2026',
     headline: '🌍 Sprachwechsel wirkt sofort überall + 4 Fehler behoben',
     summary: 'Wichtige Korrekturen: (1) Beim Sprachwechsel werden jetzt auch Wetter-Anzeige, Tagesgruss, Startseiten-Widgets, Quiz-Karte usw. sofort übersetzt (vorher nur Menü/Buttons — der Rest blieb bis zum Neuladen deutsch). (2) Vier Server-Funktionen, die nach internen Änderungen Fehler warfen, sind behoben — u.a. die Admin-Verwaltung, das Tagesquiz und das Lifetime-Angebot.',
@@ -62384,7 +62399,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.03';
+var GS_VERSION = 'v29.04';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -64878,9 +64893,9 @@ function gsRegisterServiceWorker() {
       var pulls = [
         sbFetch('/rest/v1/species?select=id,name,lat,fam,cat,emoji,description,habitat,season,uses,edible,tox,medicinal,warning&order=name.asc&limit=300', {method:'GET'}),
         sbFetch('/rest/v1/recipes?select=id,title,description,ingredients,steps,category,tags,sources&order=title.asc&limit=200', {method:'GET'}),
-        sbFetch('/rest/v1/remedies?select=id,title,description,ingredients,steps,evidence_level,category,tags,sources&order=title.asc&limit=200', {method:'GET'}),
-        sbFetch('/rest/v1/folk_lore?select=id,title,description,region,category,sources&order=title.asc&limit=200', {method:'GET'}),
-        sbFetch('/rest/v1/garden_techniques?select=id,title,description,steps,category,difficulty,sources&order=title.asc&limit=200', {method:'GET'})
+        sbFetch('/rest/v1/remedies?select=id,title,description,ingredients,preparation,dosage,evidence_level,category,tags,sources&order=title.asc&limit=200', {method:'GET'}),
+        sbFetch('/rest/v1/folk_lore?select=id,title,description:body,region,category,sources&order=title.asc&limit=200', {method:'GET'}),
+        sbFetch('/rest/v1/garden_techniques?select=id,title,description:short_desc,body,steps,category,difficulty,sources&order=title.asc&limit=200', {method:'GET'})
       ];
       var results = await Promise.allSettled(pulls);
       var stores = ['species', 'recipes', 'remedies', 'folk_lore', 'garden_techniques'];
