@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.07.20260611">
+<meta name="app-version" content="29.08.20260611">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23228,8 +23228,8 @@ async function gsAutoEnrichNewSpecies(r){
     // In Haupt-DB einfügen (Runtime) damit Suche/Detail funktioniert
     if (typeof DB !== 'undefined' && Array.isArray(DB)) {
       DB.push(enriched);
-      // Stats aktualisieren
-      try { if (typeof updateStats === 'function') updateStats(); } catch(_){}
+      // Stats aktualisieren — v29.08: war updateStats (Phantom, HL#9)
+      try { if (typeof gsUpdateMoreStats === 'function') gsUpdateMoreStats(); } catch(_){}
     }
 
     // Supabase-Sync (optional — falls eingeloggt)
@@ -32621,7 +32621,7 @@ async function submitPost() {
       try { loadSocialPosts && loadSocialPosts(true); } catch(_){}
     }
     showProfileToast('✅ Post veröffentlicht!');
-    if (typeof profileTrackPost==='function') profileTrackPost();
+    // v29.08: profileTrackPost-Aufruf entfernt (Funktion nie implementiert → silent No-Op, HL#9)
   } else {
     // FAIL: optimistic rollback + echter Fehler-Toast
     if (typeof socialPosts !== 'undefined') {
@@ -41710,8 +41710,8 @@ function _gsApplyPref(key, val) {
   // v23.91: Bei Wechsel der Masseinheiten alle Anzeigen neu rendern
   if (key === 'units') {
     try { if (typeof loadHomeWeather === 'function') loadHomeWeather(); } catch(_){}
-    try { if (typeof updateGardenWeather === 'function') updateGardenWeather(); } catch(_){}
-    try { if (typeof refreshWeatherDetail === 'function') refreshWeatherDetail(); } catch(_){}
+    try { if (typeof loadGardenWeather === 'function') loadGardenWeather(); } catch(_){} // v29.08: war updateGardenWeather (Phantom)
+    // v29.08: refreshWeatherDetail entfernt (Phantom-Funktion) — das Wetter-Detail-Modal rendert bei jedem Öffnen via openWeatherDetail neu.
     if (typeof showProfileToast === 'function') {
       var lbl = val === 'imperial' ? '°F · ft · lb' : '°C · cm · kg';
       showProfileToast({title:'📐 Masseinheiten umgestellt', body: lbl, kind:'success', duration: 2200});
@@ -42371,7 +42371,7 @@ async function submitInlinePost() {
         }
       }
       showMarketNotif && showMarketNotif('Post veröffentlicht! 🌿', '✅', '#2e7d32');
-      if (typeof profileTrackPost === 'function') profileTrackPost();
+      // v29.08: profileTrackPost-Aufruf entfernt (Funktion nie implementiert → silent No-Op, HL#9)
     } else {
       // Rollback
       socialPosts = socialPosts.filter(p => p.id !== tempId);
@@ -47983,9 +47983,9 @@ async function gsPPrun(opts) {
   // Wetter auto-laden falls noch nicht geschehen — zentraler Standort
   if (!_gsPP.weather) {
     try {
-      if (typeof gsPPloadWeather === 'function') {
+      if (typeof gsPPfetchWeather === 'function') { // v29.08: war gsPPloadWeather (existiert nicht, HL#9)
         await Promise.race([
-          gsPPloadWeather(),
+          gsPPfetchWeather(),
           new Promise(function(resolve){ setTimeout(resolve, 4000); })
         ]);
       }
@@ -57942,6 +57942,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.08', date: '11.06.2026',
+    headline: '🔧 Sensor-Alarme + 6 stille Funktions-Fehler behoben (Audit-Abschluss)',
+    summary: 'Fix 4/4 — Abschluss des Audits: (1) Sensor-Alarme wurden wegen einer fehlenden Datenbank-Berechtigung nie in der Cloud-Historie gespeichert (jetzt per Migration behoben). (2) Sechs Stellen riefen Funktionen auf, die es gar nicht gab (Tippfehler hinter Sicherheits-Hüllen, die den Fehler still schluckten) — u.a. der Registrierungs-Dialog nach Account-Löschung, die Wetter-Aktualisierung bei Einheiten-Wechsel und ein Stats-Refresh. Alle korrigiert oder ehrlich entfernt.',
+    user_summary: '🔧 Sensor-Alarm-Historie speichert wieder + 6 stille Funktions-Fehler behoben (Audit abgeschlossen).',
+    user_items: [
+      { emoji: '🔔', text: 'Sensor-Alarme landen wieder in der Cloud-Historie' },
+      { emoji: '🔁', text: 'Re-Registrierung nach Account-Löschung öffnet jetzt korrekt das Anmelde-Fenster' },
+      { emoji: '🌡️', text: 'Garten-Wetter aktualisiert sich beim Wechsel der Einheiten' },
+    ],
+    items: [
+      {emoji:'🔔', bold:'sensor_alerts INSERT-Policy (Migration):', text:' Tabelle hatte RLS aktiv, aber keine INSERT-Policy → jeder Alarm-Log wurde silent (403) abgelehnt. Policy ergänzt (own-user, HL#6-Wrap), als authenticated-JWT verifiziert (eigene ok, fremde abgelehnt). FE war bereits korrekt.'},
+      {emoji:'🧩', bold:'6 Phantom-Calls (HL#9):', text:' gsPPloadWeather→gsPPfetchWeather (Planer-Wetter), openProfileModal→openLoginModal (Re-Signup nach Account-Löschung), updateGardenWeather→loadGardenWeather + redundante Wetter-Detail-Zeile entfernt (Einheiten-Wechsel), updateStats→gsUpdateMoreStats (Arten-Stats), sysLog→console.log (Boot-Log). profileTrackPost (2×) + showReviewPrompt waren nie implementiert → tote No-Op-Aufrufe ehrlich entfernt. 7/7 node --check + sw.js OK.'},
+      {emoji:'✅', bold:'Audit abgeschlossen:', text:' Alle 17 adversarial bestätigten Funde aus dem 5-Dimensionen-Sweep über v29.05–v29.08 behoben (7×P2, 10×P3). Frontend + Backend + DB konsistent.'},
+    ]
+  },
+  {
     v: 'v29.07', date: '11.06.2026',
     headline: '💾 Stille Speicher-Fehler behoben: Ernte, Scans, Korrekturen & Votes landen jetzt in der Cloud',
     summary: 'Fix 3/4 aus dem Audit — die wichtigste Runde: Vier Speicher-Vorgänge brachen still ab (du sahst „gespeichert!", aber die Daten kamen NIE in der Cloud an): Ernte-Einträge mit Einheit „Stück/Bund", bestätigte Scans, gemeldete Scan-Korrekturen und Feedback-Stimmen. Alle vier senden jetzt das korrekte Datenformat und synchronisieren zuverlässig auf alle Geräte. (Jeder Fix wurde direkt gegen die echte Datenbank als echter Nutzer getestet.)',
@@ -62512,7 +62528,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.07';
+var GS_VERSION = 'v29.08';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -66077,7 +66093,7 @@ function gsHandleShortcutUrl() {
     if (params.get('signup') === '1') {
       setTimeout(function(){
         try {
-          if (typeof openProfileModal === 'function') openProfileModal();
+          if (typeof openLoginModal === 'function') openLoginModal(); // v29.08: war openProfileModal (existiert nicht) → Re-Signup nach Account-Löschung öffnete kein Modal
           // Tab zu "signup" wechseln
           setTimeout(function(){
             if (typeof profSwitchTab === 'function') profSwitchTab('signup');
@@ -70626,11 +70642,9 @@ function gsRunSplash(onDone) {
       pct: 100,
       msg: '',
       fn: function() {
-        // Final-Log
-        if (typeof sysLog === 'function') {
-          sysLog('info', 'System', 'GreenScan bereit · ' + (typeof DB !== 'undefined' ? DB.length : 0) + ' Arten · ' +
-            (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() ? 'Eingeloggt' : 'Gast-Modus'));
-        }
+        // Final-Log — v29.08: sysLog existierte nie (HL#9) → console.log (echtes Boot-Diagnose-Log)
+        try { console.log('[GreenScan] bereit · ' + (typeof DB !== 'undefined' ? DB.length : 0) + ' Arten · ' +
+          (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() ? 'Eingeloggt' : 'Gast-Modus')); } catch(_){}
         return true;
       }
     }
@@ -70885,7 +70899,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     // Review-Tracking
     var opens = parseInt(localStorage.getItem('gs_open_count')||'0')+1;
     localStorage.setItem('gs_open_count', opens);
-    if(opens===3||opens===10||opens===30){ setTimeout(function(){ if(typeof showReviewPrompt==='function') showReviewPrompt(); }, 3000); }
+    // v29.08: showReviewPrompt-Trigger entfernt (Funktion nie implementiert → silent No-Op bei Start 3/10/30, HL#9). gs_open_count bleibt für spätere Nutzung erhalten.
   });
 })
 
