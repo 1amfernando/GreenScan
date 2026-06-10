@@ -1,0 +1,7 @@
+-- v28.97 A-Z-Audit Teil 3a (2026-06-10): 3 vom Frontend referenzierte, fehlende Tabellen.
+-- gsTrackEvent (consent-gated, revDSG-Opt-in client-seitig) + gsRedeemVoucher liefen sonst 404.
+-- analytics_events = MAU-Quelle fuer Finanz-Monitoring. Voller Inhalt siehe DB-Migration
+-- v28_97_analytics_vouchers_tables (apply_migration): analytics_events (INSERT own-only
+-- authenticated, SELECT admin-only) + vouchers (SELECT auth, Write admin) +
+-- voucher_redemptions (own-only, UNIQUE code+user) + trg_voucher_count (used_count-Pflege,
+-- SECURITY DEFINER + REVOKE, HL#13).

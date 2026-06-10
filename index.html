@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="28.96.20260610">
+<meta name="app-version" content="28.97.20260610">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5487,65 +5487,65 @@ html, body{ scroll-behavior: smooth; }
       <div style="font-size:18px;opacity:.7;">›</div>
     </div>
 
-    <div class="menu-section">Hauptfunktionen</div>
+    <div class="menu-section" data-i18n="msec_hauptfunktionen" data-i18n-fallback="Hauptfunktionen">Hauptfunktionen</div>
     <div class="menu-grid">
       <button class="menu-item" onclick="menuNav('home')" id="mi-home">
         <div class="menu-item-icon" style="background:#e8f5e9;">🏠</div>
-        <span class="menu-item-label">Home</span>
+        <span class="menu-item-label" data-i18n="menu_home" data-i18n-fallback="Home">Home</span>
       </button>
       <button class="menu-item" onclick="menuNav('scanner')" id="mi-scanner">
         <div class="menu-item-icon" style="background:#e3f2fd;">📷</div>
-        <span class="menu-item-label">Scanner</span>
+        <span class="menu-item-label" data-i18n="menu_scanner" data-i18n-fallback="Scanner">Scanner</span>
       </button>
       <button class="menu-item" onclick="menuNav('search')" id="mi-search">
         <div class="menu-item-icon" style="background:#f3e5f5;">🔍</div>
-        <span class="menu-item-label">Suche</span>
+        <span class="menu-item-label" data-i18n="menu_suche" data-i18n-fallback="Suche">Suche</span>
       </button>
       <button class="menu-item" onclick="if(typeof gsOpenLina==='function')gsOpenLina()" id="mi-ai">
         <div class="menu-item-icon" style="background:#e8f5e9;">🌿</div>
-        <span class="menu-item-label">Lina · Coach</span>
+        <span class="menu-item-label" data-i18n="menu_lina_coach" data-i18n-fallback="Lina · Coach">Lina · Coach</span>
       </button>
     </div>
 
-    <div class="menu-section">Meine Welt</div>
+    <div class="menu-section" data-i18n="msec_meine_welt" data-i18n-fallback="Meine Welt">Meine Welt</div>
     <div class="menu-grid">
       <button class="menu-item" onclick="menuNav('favs')" id="mi-favs">
         <div class="menu-item-icon" style="background:#e8f5e9;">🌱</div>
-        <span class="menu-item-label">Meine Pflanzen</span>
+        <span class="menu-item-label" data-i18n="menu_meine_pflanzen" data-i18n-fallback="Meine Pflanzen">Meine Pflanzen</span>
       </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){if(typeof gsOpenCollections==='function')gsOpenCollections();},200)" id="mi-collections">
         <div class="menu-item-icon" style="background:#ede7f6;">📁</div>
-        <span class="menu-item-label">Sammlungen</span>
+        <span class="menu-item-label" data-i18n="menu_sammlungen" data-i18n-fallback="Sammlungen">Sammlungen</span>
       </button>
       <button class="menu-item" onclick="menuNav('garden')" id="mi-garden">
         <div class="menu-item-icon" style="background:#f9fbe7;">🌻</div>
-        <span class="menu-item-label">Mein Garten</span>
+        <span class="menu-item-label" data-i18n="menu_mein_garten" data-i18n-fallback="Mein Garten">Mein Garten</span>
       </button>
 
       <button class="menu-item" onclick="menuNav('season')" id="mi-season">
         <div class="menu-item-icon" style="background:#e8f5e9;">📅</div>
-        <span class="menu-item-label">Saisonkalender</span>
+        <span class="menu-item-label" data-i18n="menu_saisonkalender" data-i18n-fallback="Saisonkalender">Saisonkalender</span>
       </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(openLightMeter,200)" id="mi-light">
         <div class="menu-item-icon" style="background:#fffde7;">💡</div>
-        <span class="menu-item-label">Licht</span>
+        <span class="menu-item-label" data-i18n="menu_licht" data-i18n-fallback="Licht">Licht</span>
       </button>
     </div>
 
-    <div class="menu-section">Wissen</div>
+    <div class="menu-section" data-i18n="msec_wissen" data-i18n-fallback="Wissen">Wissen</div>
     <div class="menu-grid">
       <button class="menu-item" onclick="menuNav('wissen')" id="mi-wissen">
         <div class="menu-item-icon" style="background:#efebe9;">📚</div>
-        <span class="menu-item-label">Gartenwissen</span>
+        <span class="menu-item-label" data-i18n="menu_gartenwissen" data-i18n-fallback="Gartenwissen">Gartenwissen</span>
       </button>
       <button class="menu-item" onclick="menuNav('map')" id="mi-map">
         <div class="menu-item-icon" style="background:#e8eaf6;">🗺️</div>
-        <span class="menu-item-label">Karte</span>
+        <span class="menu-item-label" data-i18n="menu_karte" data-i18n-fallback="Karte">Karte</span>
       </button>
     </div>
     <!-- v24.33: PWA-Install-Button (sichtbar wenn App noch nicht installiert) -->
     <div id="gs-install-section" style="display:none;">
-      <div class="menu-section">App</div>
+      <div class="menu-section" data-i18n="msec_app" data-i18n-fallback="App">App</div>
       <div class="menu-grid">
         <button class="menu-item" onclick="gsInstallApp()" id="mi-install" style="grid-column:span 2;background:linear-gradient(135deg,rgba(46,125,50,.10),rgba(46,125,50,.02));border:1.5px solid var(--g-main);">
           <div class="menu-item-icon" style="background:var(--g-main);color:#fff;">📱</div>
@@ -5557,94 +5557,94 @@ html, body{ scroll-behavior: smooth; }
       </div>
     </div>
     <!-- v24.36+v24.38: App-Verwaltung (Speicher, Verbindung, Export) -->
-    <div class="menu-section">App-Verwaltung</div>
+    <div class="menu-section" data-i18n="msec_app_verwaltung" data-i18n-fallback="App-Verwaltung">App-Verwaltung</div>
     <div class="menu-grid">
       <button class="menu-item" onclick="window.gsShowStorageModal && window.gsShowStorageModal()" id="mi-storage">
         <div class="menu-item-icon" style="background:#e3f2fd;">💾</div>
-        <span class="menu-item-label">Speicher</span>
+        <span class="menu-item-label" data-i18n="menu_speicher" data-i18n-fallback="Speicher">Speicher</span>
       </button>
       <button class="menu-item" onclick="window.gsShowConnDetail && window.gsShowConnDetail()" id="mi-conn">
         <div class="menu-item-icon" style="background:#e8f5e9;">🌐</div>
-        <span class="menu-item-label">Verbindung</span>
+        <span class="menu-item-label" data-i18n="menu_verbindung" data-i18n-fallback="Verbindung">Verbindung</span>
       </button>
       <button class="menu-item" onclick="window.gsShowExportModal && window.gsShowExportModal()" id="mi-export">
         <div class="menu-item-icon" style="background:#fff3e0;">📊</div>
-        <span class="menu-item-label">Daten exportieren</span>
+        <span class="menu-item-label" data-i18n="menu_daten_exportieren" data-i18n-fallback="Daten exportieren">Daten exportieren</span>
       </button>
     </div>
-    <div class="menu-section">Küche & Gesundheit</div>
+    <div class="menu-section" data-i18n="msec_kueche_gesundheit" data-i18n-fallback="Küche & Gesundheit">Küche & Gesundheit</div>
     <div class="menu-grid">
       <button class="menu-item" onclick="menuNav('recipes')" id="mi-recipes">
         <div class="menu-item-icon" style="background:#fbe9e7;">🍲</div>
-        <span class="menu-item-label">Rezepte</span>
+        <span class="menu-item-label" data-i18n="menu_rezepte" data-i18n-fallback="Rezepte">Rezepte</span>
       </button>
       <button class="menu-item" onclick="menuNav('remedies')" id="mi-remedies">
         <div class="menu-item-icon" style="background:#e8eaf6;">🌿</div>
-        <span class="menu-item-label">Heilmittel</span>
+        <span class="menu-item-label" data-i18n="menu_heilmittel" data-i18n-fallback="Heilmittel">Heilmittel</span>
       </button>
     </div>
     <!-- v23.57: Next-Level-Tools — neue Experten-Werkzeuge -->
-    <div class="menu-section">✨ Next-Level-Tools</div>
+    <div class="menu-section" data-i18n="msec_next_level_tools" data-i18n-fallback="✨ Next-Level-Tools">✨ Next-Level-Tools</div>
     <div class="menu-grid">
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){gsOpenPlantDoctor();},200)" id="mi-doctor">
         <div class="menu-item-icon" style="background:#ffebee;">🩺</div>
-        <span class="menu-item-label">Pflanzendoktor</span>
+        <span class="menu-item-label" data-i18n="menu_pflanzendoktor" data-i18n-fallback="Pflanzendoktor">Pflanzendoktor</span>
       </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){gsOpenHarvestTracker();},200)" id="mi-harvest">
         <div class="menu-item-icon" style="background:#fff8e1;">🧺</div>
-        <span class="menu-item-label">Ernte-Tracker</span>
+        <span class="menu-item-label" data-i18n="menu_ernte_tracker" data-i18n-fallback="Ernte-Tracker">Ernte-Tracker</span>
       </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){gsOpenSeedInventory();},200)" id="mi-seeds">
         <div class="menu-item-icon" style="background:#fff3e0;">🌰</div>
-        <span class="menu-item-label">Saatgut-Inventar</span>
+        <span class="menu-item-label" data-i18n="menu_saatgut_inventar" data-i18n-fallback="Saatgut-Inventar">Saatgut-Inventar</span>
       </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){gsOpenBiodiversity();},200)" id="mi-bio">
         <div class="menu-item-icon" style="background:#e8f5e9;">🐝</div>
-        <span class="menu-item-label">Biodiversität</span>
+        <span class="menu-item-label" data-i18n="menu_biodiversitaet" data-i18n-fallback="Biodiversität">Biodiversität</span>
       </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){gsOpenGardenTimeline();},200)" id="mi-timeline">
         <div class="menu-item-icon" style="background:#ede7f6;">📆</div>
-        <span class="menu-item-label">Garten-Timeline</span>
+        <span class="menu-item-label" data-i18n="menu_garten_timeline" data-i18n-fallback="Garten-Timeline">Garten-Timeline</span>
       </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){gsOpenWeatherWarn();},200)" id="mi-weatherwarn">
         <div class="menu-item-icon" style="background:#e1f5fe;">⚠️</div>
-        <span class="menu-item-label">Wetter-Warnung</span>
+        <span class="menu-item-label" data-i18n="menu_wetter_warnung" data-i18n-fallback="Wetter-Warnung">Wetter-Warnung</span>
       </button>
     </div>
 
-    <div class="menu-section">Community</div>
+    <div class="menu-section" data-i18n="msec_community" data-i18n-fallback="Community">Community</div>
     <div class="menu-grid">
       <button class="menu-item" onclick="menuNav('social')" id="mi-social">
         <div class="menu-item-icon" style="background:#e8f5e9;">🌿</div>
-        <span class="menu-item-label">Community</span>
+        <span class="menu-item-label" data-i18n="menu_community" data-i18n-fallback="Community">Community</span>
       </button>
       <button class="menu-item" onclick="menuNav('market')" id="mi-market">
         <div class="menu-item-icon" style="background:#fff3e0;">🛒</div>
-        <span class="menu-item-label">Marktplatz</span>
+        <span class="menu-item-label" data-i18n="menu_marktplatz" data-i18n-fallback="Marktplatz">Marktplatz</span>
       </button>
       <button class="menu-item" onclick="menuNav('settings')" id="mi-settings">
         <div class="menu-item-icon" style="background:#f0f0f0;">⚙️</div>
-        <span class="menu-item-label">Einstellungen</span>
+        <span class="menu-item-label" data-i18n="menu_einstellungen" data-i18n-fallback="Einstellungen">Einstellungen</span>
       </button>
       <button class="menu-item" onclick="menuNav('more')" id="mi-more">
         <div class="menu-item-icon" style="background:#fce4ec;">💬</div>
-        <span class="menu-item-label">Feedback &amp; Hilfe</span>
+        <span class="menu-item-label" data-i18n="menu_feedback_amp_hilfe" data-i18n-fallback="Feedback &amp; Hilfe">Feedback &amp; Hilfe</span>
       </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(openAbout,200)" id="mi-about">
         <div class="menu-item-icon" style="background:#e8f5e9;">ℹ️</div>
-        <span class="menu-item-label">Über GreenScan</span>
+        <span class="menu-item-label" data-i18n="menu_ueber_greenscan" data-i18n-fallback="Über GreenScan">Über GreenScan</span>
       </button>
       <button class="menu-item" id="mi-apikey" style="display:none;" onclick="closeMainMenu();openApiKey()">
         <div class="menu-item-icon" style="background:#e8eaf6;">🔑</div>
-        <span class="menu-item-label">API-Key</span>
+        <span class="menu-item-label" data-i18n="menu_api_key" data-i18n-fallback="API-Key">API-Key</span>
       </button>
       <button class="menu-item admin-only-row" id="mi-book-ingest" style="display:none;" onclick="closeMainMenu();setTimeout(openBookIngest,200)">
         <div class="menu-item-icon" style="background:#fff3e0;">📚</div>
-        <span class="menu-item-label">Buch einlesen (Experten)</span>
+        <span class="menu-item-label" data-i18n="menu_buch_einlesen_experten" data-i18n-fallback="Buch einlesen (Experten)">Buch einlesen (Experten)</span>
       </button>
       <button class="menu-item" onclick="closeMainMenu()">
         <div class="menu-item-icon" style="background:#f5f5f5;">✕</div>
-        <span class="menu-item-label">Schliessen</span>
+        <span class="menu-item-label" data-i18n="menu_schliessen" data-i18n-fallback="Schliessen">Schliessen</span>
       </button>
     </div>
 
@@ -57790,6 +57790,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v28.97', date: '10.06.2026',
+    headline: '📱 Menü mehrsprachig + intelligenterer Speicher-Sync',
+    summary: 'A-Z-Voll-Audit Teil 3: Das Hauptmenü (38 Labels & Sektionen) ist jetzt mehrsprachig. Der Speicher-Sync wurde intelligenter: Region-Auswahl, Push-Vorlieben und Ernte-Jahr wandern jetzt mit aufs nächste Gerät, und ein neuer Schutz verhindert, dass ein frisch eingerichtetes Gerät deine Favoriten/Erfolge mit leeren Listen überschreibt. Im Backend wurden 3 fehlende Tabellen sauber angelegt (Analytics opt-in & Gutschein-System).',
+    user_summary: '📱 Menü auf EN/ES/FR/IT + Speicher-Sync intelligenter (Region/Push-Prefs wandern mit, Favoriten-Schutz).',
+    user_items: [
+      { emoji: '📱', text: 'Hauptmenü komplett übersetzt (38 Labels)' },
+      { emoji: '🔄', text: 'Region, Push-Vorlieben & Ernte-Jahr syncen jetzt zwischen Geräten' },
+      { emoji: '🛡️', text: 'Neuer Schutz: leere Cloud-Listen überschreiben deine Daten nicht mehr' },
+    ],
+    items: [
+      {emoji:'🛠️', bold:'A-Z Teil 3:', text:' Backend: analytics_events (INSERT own/SELECT admin, consent-gated, MAU-Quelle) + vouchers/voucher_redemptions (+used_count-Trigger) — 3 vom FE referenzierte Tabellen waren 404. Menü: 38 data-i18n-Attribute + 37 Phrasen geseedet (102+46). Persistenz: gs_region/gs_push_settings/gs_ernte_year in STATE_KEYS+Blob+Pull (gs_notif_enabled bewusst NICHT — Browser-Permission ist pro Gerät); PERS-12-Guard: leeres Cloud-Array ersetzt nie nicht-leere lokale Liste (+Repair-Push nach dirty-Clear). PERS-13/14 dokumentiert-deferred (Snapshot-/Boot-Umbau braucht eigenen Test-Sprint). 7/7 node --check.'},
+    ]
+  },
+  {
     v: 'v28.96', date: '10.06.2026',
     headline: '🌦️ Wetter & Startseite jetzt komplett mehrsprachig',
     summary: 'A-Z-Voll-Audit Teil 2: Das Wetter (Bedingungen wie „Gewitter/Nebel/Regenschauer", Sturm-Warnungen, Garten-Tipps, Standort-Texte, Vorhersage-Tage) und die Startseite (Tagesgruss, Saison-Zeilen, Quiz-Karte, Datum) waren noch fest auf Deutsch — jetzt vollständig auf EN/ES/FR/IT. Bonus: Die Vorhersage-Wochentage waren um einen Tag verschoben (So zeigte „Mo") — behoben. Damit sind alle 1443 App-Texte in allen 5 Sprachen abgedeckt (verifiziert).',
@@ -62207,7 +62221,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v28.96';
+var GS_VERSION = 'v28.97';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -67219,7 +67233,11 @@ async function gsSyncUserDataOnLogin(){
             if (gp.tb_cat_selected) stateMap['gs_tb_cat_selected'] = gp.tb_cat_selected;
             if (gp.ernte_unit) stateMap['gs_ernte_unit'] = gp.ernte_unit;
             if (gp.ernte_view) stateMap['gs_ernte_view'] = gp.ernte_view;
+            if (gp.ernte_year) stateMap['gs_ernte_year'] = gp.ernte_year;
           }
+          // v28.97 A-Z-Audit PERS-2/4: Region + Push-Kategorien-Prefs Cross-Device
+          if (sd.region) stateMap['gs_region'] = sd.region;
+          if (sd.push_settings && typeof sd.push_settings === 'object' && Object.keys(sd.push_settings).length) stateMap['gs_push_settings'] = sd.push_settings;
           // Wichtig: temporär den setItem-Patch umgehen damit Pull nicht sofort wieder Push triggert.
           // Nutzen Storage.prototype.setItem direkt via _origSet wenn vorhanden.
           var origSet = Object.getPrototypeOf(localStorage).setItem;
@@ -67233,6 +67251,20 @@ async function gsSyncUserDataOnLogin(){
               if (Object.prototype.hasOwnProperty.call(stateMap, k)) {
                 var v = stateMap[k];
                 if (v == null) continue;
+                // v28.97 A-Z-Audit PERS-12: LEERES Cloud-Array darf eine nicht-leere lokale
+                // Liste NIE ersetzen (Boot-Race: frisches Gerät pusht leeren State bevor es
+                // pullt → Favoriten/Achievements weg). Lokal behalten + Repair-Push mergen.
+                // Analogon zum v28.22-Count-Guard für plants, hier für state-Arrays.
+                if (Array.isArray(v) && v.length === 0) {
+                  try {
+                    var _locArr = JSON.parse(localStorage.getItem(k) || 'null');
+                    if (Array.isArray(_locArr) && _locArr.length > 0) {
+                      window._gsStateRepairNeeded = true;
+                      console.warn('[gsSync] v28.97 state-guard: cloud ' + k + ' leer, lokal ' + _locArr.length + ' Einträge — lokal behalten + Cloud reparieren');
+                      continue;
+                    }
+                  } catch(_){}
+                }
                 try {
                   if (typeof v === 'string') localStorage.setItem(k, v);
                   else localStorage.setItem(k, JSON.stringify(v));
@@ -67253,6 +67285,12 @@ async function gsSyncUserDataOnLogin(){
           var dd = JSON.parse(localStorage.getItem('gs_sync_dirty')||'{}'); delete dd.state;
           try { localStorage.setItem('gs_sync_dirty', JSON.stringify(dd)); } catch(_){}
           if (sUpdated) try { localStorage.setItem('gs_sync_synced_at_state', sUpdated); } catch(_){}
+          // v28.97 PERS-12: wenn der state-guard lokale Listen vor leeren Cloud-Arrays
+          // geschützt hat → Repair-Push anstossen (NACH dem dirty-Clear, sonst sofort weg).
+          if (window._gsStateRepairNeeded) {
+            window._gsStateRepairNeeded = false;
+            try { if (window.gsCloudSync && gsCloudSync.markDirty) gsCloudSync.markDirty('state'); } catch(_){}
+          }
         }
       }
     } catch(_){}
@@ -67516,7 +67554,11 @@ window.gsCloudSync = (function(){
     try { gartenPrefs.tb_cat_selected = localStorage.getItem('gs_tb_cat_selected') || ''; } catch(_){}
     try { gartenPrefs.ernte_unit = localStorage.getItem('gs_ernte_unit') || ''; } catch(_){}
     try { gartenPrefs.ernte_view = localStorage.getItem('gs_ernte_view') || ''; } catch(_){}
+    try { gartenPrefs.ernte_year = localStorage.getItem('gs_ernte_year') || ''; } catch(_){}
     data.garten_prefs = gartenPrefs;
+    // v28.97 A-Z-Audit PERS-2/4: Region-Kontext + Push-Kategorien-Prefs Cross-Device
+    try { data.region = localStorage.getItem('gs_region') || ''; } catch(_){}
+    try { data.push_settings = JSON.parse(localStorage.getItem('gs_push_settings')||'{}'); } catch(_){ data.push_settings = {}; }
     return data;
   }
 
@@ -67669,6 +67711,10 @@ window.gsCloudSync = (function(){
         'gs_bl_month':'state','gs_bl_tab':'state','gs_bl_bee':'state',  // Blühkalender View-Prefs
         'gs_tb_filter':'state','gs_tb_search':'state','gs_tb_cat_selected':'state', // Tagebuch UI-State
         'gs_ernte_unit':'state','gs_ernte_view':'state',  // Ernte-Prefs
+        // v28.97 A-Z-Audit PERS-2/4/7: Region + Push-Kategorien-Prefs + Ernte-Jahr Cross-Device.
+        // BEWUSST NICHT gesynct: gs_notif_enabled/gs_notif_state (Browser-Permission ist PRO
+        // GERÄT — Sync würde auf Gerät B "an" anzeigen ohne echte Permission).
+        'gs_region':'state','gs_push_settings':'state','gs_ernte_year':'state',
         'gs_weather_lastfetch':'state', // Wetter-Cache-Stamp (Daten-Cache extra)
         // plants-Scope (zusätzlich zu existing markDirty-Calls — doppeltes Tracken ist safe)
         'ps_myplants':'plants','gs_gartentagebuch':'plants',
