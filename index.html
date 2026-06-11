@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.14.20260611">
+<meta name="app-version" content="29.15.20260612">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -57955,6 +57955,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.15', date: '12.06.2026',
+    headline: '🔧 Admin-Panel stabilisiert (Moderation · Gutscheine · Aktionen)',
+    summary: 'Fernando meldete: Admin-Panel-Sektionen „Moderation", „Gutscheine" und „Letzte Admin-Aktionen" instabil/funktionieren nicht. Ursache (Backend war intakt, alles im Frontend): (1) nach jeder Aktion wurde das GANZE Panel neu aufgebaut (8 Server-Abfragen, Scroll springt hoch, Eingaben weg) → jetzt wird nur die betroffene Sektion neu geladen; (2) Admin-Sichtbarkeit hing an 3 widersprüchlichen Pfaden (mal sichtbar, mal nicht) → eine einzige Quelle (gsIsAdmin, Rolle ODER E-Mail); (3) abgelaufene Sitzung zeigte stumm leere Sektionen → jetzt klare „Sitzung abgelaufen"-Meldung; (4) Audit-Log war kryptisch (rohe Codes/UUIDs) → lesbar (Klartext + relative Zeit); (5) Gutschein-Codes mit Apostroph machten den An/Aus-Knopf unklickbar → behoben.',
+    user_summary: '🔧 (Admin) Panel stabiler: Moderation/Gutscheine laden nur ihre Sektion neu, lesbares Audit-Log, klare Sitzungs-Meldung.',
+    user_items: [
+      { emoji: '🔧', text: '(Admin) Moderation & Gutscheine: Aktionen ohne Panel-Neuaufbau, kein Scroll-Sprung' },
+      { emoji: '📜', text: '(Admin) „Letzte Admin-Aktionen" jetzt im Klartext + relative Zeit' },
+    ],
+    items: [
+      {emoji:'🔧', bold:'Per-Sektion-Refresh:', text:' Backend (alle 6 RPCs) war als echter Admin-JWT verifiziert intakt — der Bug lag im Frontend. gsAdminModerate/CreateVoucher/ToggleVoucher riefen pauschal openAdminPanel() (8 sequentielle RPCs, Scroll-Reset, Eingabe-Verlust). Neu: _gsAdminRefreshSection() lädt nur die betroffene Sektion (Container-id), Fallback auf Voll-Render. openAdminPanel lädt die 8 Sektionen jetzt parallel (Promise.all).'},
+      {emoji:'👁️', bold:'Sichtbarkeit + Session + Lesbarkeit:', text:' Admin-Sichtbarkeit auf Single-Source gsIsAdmin() (beide Login-Pfade nutzten nur E-Mail-Whitelist → Race/„mal weg"). openAdminPanel prüft jetzt _gsFreshToken → klare „Sitzung abgelaufen"-Meldung statt leerer Sektionen. Audit-Log: Action-Codes → DE-Klartext + relative Zeit + sprechende Zusammenfassung. Gutschein-Toggle via data-Attribute (Apostroph-Codes, HL#12). 7/7 node --check + sw.js OK.'},
+    ]
+  },
+  {
     v: 'v29.14', date: '11.06.2026',
     headline: '🧠 Admin: Wissens-DB-Editor (Admin-Ausbau abgeschlossen)',
     summary: 'Admin-Ausbau (4 von 4 — fertig): Wissens-Inhalte (Heilmittel, Rezepte, Folklore, Garten-Techniken, „Wusstest-du") können jetzt direkt im Admin-Panel angelegt, bearbeitet, freigegeben/versteckt und gelöscht werden — ohne Edge-Funktion oder Bulk-Generator. Alles server-seitig admin-gesichert und audit-protokolliert. Damit ist Fernandos Admin-Ausbau („mehr sehen, einstellen, machen — unsichtbar für Nutzer") komplett.',
@@ -62625,7 +62639,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.14';
+var GS_VERSION = 'v29.15';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -63962,7 +63976,9 @@ async function sbLogin(email, password) {
   // Profil laden und Menu-Bar sofort + nach Laden aktualisieren
   if (typeof updateMenuProfileBar === 'function') updateMenuProfileBar();
   // Admin-only Settings Rows aktualisieren
-  var isAdminNow = (GS_ADMINS||[]).includes((data.user&&data.user.email||'').toLowerCase());
+  // v29.15: Single-Source gsIsAdmin() (Rolle ODER E-Mail) statt nur E-Mail-Whitelist — sonst sah ein
+  // per Server-Rolle befoerderter Admin das Panel nie + Race mit initSettingsScreen (B-ADM-1).
+  var isAdminNow = (typeof gsIsAdmin==='function') ? gsIsAdmin() : (GS_ADMINS||[]).includes((data.user&&data.user.email||'').toLowerCase());
   document.querySelectorAll('.admin-only-row').forEach(function(el){
     el.style.display = isAdminNow ? '' : 'none';
   });
@@ -67425,8 +67441,9 @@ function gsOnLoginSuccess() {
   var banner = document.getElementById('gs-guest-banner');
   if (banner) banner.style.display = 'none';
   // Admin-Status sofort anwenden
+  // v29.15: Single-Source gsIsAdmin() (Rolle ODER E-Mail) — konsistent mit Settings/Login-Pfad-1 (B-ADM-1).
   var email = (gsStore.get('gs_sb_email', null)||'').toLowerCase();
-  var isAdmin = GS_ADMINS.includes(email);
+  var isAdmin = (typeof gsIsAdmin==='function') ? gsIsAdmin() : GS_ADMINS.includes(email);
   document.querySelectorAll('.admin-only-row').forEach(function(el) {
     el.style.display = isAdmin ? '' : 'none';
   });
@@ -70331,17 +70348,54 @@ async function gsAdminFetchAudit() {
     return (r && Array.isArray(r.data)) ? r.data : [];
   } catch(e) { return []; }
 }
+// v29.15: relative Zeit ("vor X Min/Std/Tg"), ab >7 Tagen absolutes Datum MIT Jahr.
+function _gsAdminRelTime(ts){
+  try {
+    var d = new Date(ts), diff = (Date.now() - d.getTime())/1000;
+    if (diff < 0) diff = 0;
+    if (diff < 60) return 'gerade eben';
+    if (diff < 3600) return 'vor ' + Math.floor(diff/60) + ' Min';
+    if (diff < 86400) return 'vor ' + Math.floor(diff/3600) + ' Std';
+    if (diff < 604800) return 'vor ' + Math.floor(diff/86400) + ' Tg';
+    return d.toLocaleDateString('de-CH', {day:'2-digit',month:'2-digit',year:'numeric'});
+  } catch(_){ return ''; }
+}
+// v29.15: Audit-Log lesbar — Action-Code → DE-Text + relative Zeit + sprechende Zusammenfassung
+// statt roher action/target_type/UUID/JSON. (Fernando: "muss verbessert werden".)
 function _gsAdminAuditHtml(audit) {
   if (!audit || !audit.length) return '';
+  var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s||''); };
+  var ACT = {
+    admin_moderate:'🛡️ Moderation', admin_set_tier:'💎 Tier vergeben', role_assign:'👑 Rolle geändert',
+    voucher_create:'🎟️ Gutschein erstellt', voucher_toggle:'🎟️ Gutschein an/aus',
+    global_api_key_change:'🔑 API-Key geändert', knowledge_growth_daily:'📚 Wissens-Wachstum',
+    delete_user:'🗑️ Nutzer gelöscht', knowledge_save:'📝 Wissen gespeichert', knowledge_delete:'🗑️ Wissen gelöscht'
+  };
+  var TT = { profile:'Profil', user:'Nutzer', post:'Post', listing:'Inserat', comment:'Kommentar', voucher:'Gutschein', edge_function:'System', stripe_customer:'Stripe' };
+  function summ(a){
+    var d = a.diff || {};
+    try {
+      if (a.action==='admin_moderate') return ({hide:'versteckt',unhide:'eingeblendet',delete:'gelöscht'}[d.action] || esc(String(d.action||'')));
+      if (a.action==='admin_set_tier') return 'auf ' + esc(String(d.tier||d.new||'?'));
+      if (a.action==='role_assign')   return '→ ' + esc(String(d.new||d.role||'?'));
+      if (a.action==='voucher_create')return esc(String(d.reward_tier||'')) + (d.max_uses?(' · '+d.max_uses+'×'):'');
+      if (a.action==='voucher_toggle')return (d.is_active?'aktiviert':'deaktiviert');
+      if (a.action==='knowledge_growth_daily') return esc(String(d.topic||''));
+      var s = JSON.stringify(d); return (s && s !== '{}') ? esc(s.slice(0,48)) : '';
+    } catch(_){ return ''; }
+  }
   var rows = audit.map(function(a){
-    var when = a.created_at ? new Date(a.created_at).toLocaleString('de-CH', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
-    var who = (typeof escHtml==='function') ? escHtml((a.actor_email||'?').split('@')[0]) : '?';
-    var what = (typeof escHtml==='function') ? escHtml(a.action + ' → ' + (a.target_type||'') + ' ' + String(a.target_id||'').slice(0,12)) : '';
-    var diff = a.diff ? ((typeof escHtml==='function') ? escHtml(JSON.stringify(a.diff).slice(0,60)) : '') : '';
-    return '<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;color:var(--text);"><b>' + when + '</b> · ' + who + ' · ' + what + (diff ? ' <span style="color:var(--muted);">' + diff + '</span>' : '') + '</div>';
+    var label = ACT[a.action] || esc(String(a.action||''));
+    var tt = TT[a.target_type] || (a.target_type ? esc(String(a.target_type)) : '');
+    var sm = summ(a);
+    var who = esc((a.actor_email||'System').split('@')[0]);
+    return '<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:11.5px;color:var(--text);line-height:1.4;">' +
+      '<span style="font-weight:700;">' + label + '</span>' + (tt ? (' <span style="color:var(--muted);">'+tt+'</span>') : '') + (sm ? (' · ' + sm) : '') +
+      '<div style="font-size:10px;color:var(--muted);">' + who + ' · ' + _gsAdminRelTime(a.created_at) + '</div>' +
+    '</div>';
   }).join('');
-  return '<div style="margin-top:10px;padding:11px 13px;background:#eceff1;border-radius:8px;">' +
-    '<div style="font-weight:800;font-size:12.5px;margin-bottom:4px;color:#37474f;">📜 Letzte Admin-Aktionen (audit_log)</div>' + rows + '</div>';
+  return '<div id="gs-admin-audit-sec" style="margin-top:10px;padding:11px 13px;background:#eceff1;border-radius:8px;">' +
+    '<div style="font-weight:800;font-size:12.5px;margin-bottom:4px;color:#37474f;">📜 Letzte Admin-Aktionen</div>' + rows + '</div>';
 }
 
 // v29.00 Admin-Ausbau Schritt 3: Server-seitiges Client-Error-Log (alle User, gruppiert)
@@ -70399,7 +70453,7 @@ function _gsAdminModerationHtml(feed) {
       '<div style="flex-shrink:0;white-space:nowrap;">' + btns + '</div>' +
     '</div>';
   }).join('') : '<div style="color:var(--muted);font-size:12px;padding:6px 0;">Kein Inhalt vorhanden.</div>';
-  return '<div style="margin-top:10px;padding:11px 13px;background:#fff3e0;border-radius:8px;">' +
+  return '<div id="gs-admin-moderation-sec" style="margin-top:10px;padding:11px 13px;background:#fff3e0;border-radius:8px;">' +
     '<div style="font-weight:800;font-size:12.5px;margin-bottom:4px;color:#e65100;">🛡️ Moderation (Posts · Inserate · Kommentare · neueste 30)</div>' + rows + '</div>';
 }
 async function gsAdminModerate(type, id, action) {
@@ -70416,7 +70470,7 @@ async function gsAdminModerate(type, id, action) {
     if (res && res.ok) { if (typeof gsToast==='function') gsToast('✅ ' + (action==='delete'?'Gelöscht':action==='hide'?'Versteckt':'Eingeblendet'), 'success'); }
     else { if (typeof gsToast==='function') gsToast('⚠️ ' + ((res && res.error) || 'Fehler'), 'error'); }
   } catch(e) { if (typeof gsToast==='function') gsToast('⚠️ ' + (e && e.message || 'Fehler'), 'error'); }
-  try { openAdminPanel(); } catch(_){}
+  await _gsAdminRefreshSection('gs-admin-moderation-sec', gsAdminFetchModerationFeed, _gsAdminModerationHtml);
 }
 
 // v29.12 Admin-Ausbau #2: Nutzer-Detailansicht (Profil + Abo + Aktivität an einem Ort)
@@ -70496,10 +70550,10 @@ function _gsAdminVouchersHtml(vouchers) {
     return '<div style="padding:6px 0;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;font-size:11.5px;">' +
       '<div style="flex:1;min-width:0;"><b style="font-family:monospace;">' + esc(v.code) + '</b> · ' + rew + ' · ' + uses + ' · bis ' + until +
         (active ? '' : ' <span style="color:#c62828;font-weight:700;">(inaktiv)</span>') + '</div>' +
-      '<button onclick="gsAdminToggleVoucher(\'' + esc(v.code) + '\',' + (active?'false':'true') + ')" style="padding:3px 8px;border:1px solid var(--border);border-radius:6px;background:var(--card);font-size:11px;cursor:pointer;font-family:inherit;flex-shrink:0;">' + (active?'⏸️ Aus':'▶️ An') + '</button>' +
+      '<button data-vc-code="' + esc(v.code) + '" data-vc-next="' + (active?'0':'1') + '" onclick="gsAdminToggleVoucher(this.getAttribute(\'data-vc-code\'), this.getAttribute(\'data-vc-next\')===\'1\')" style="padding:3px 8px;border:1px solid var(--border);border-radius:6px;background:var(--card);font-size:11px;cursor:pointer;font-family:inherit;flex-shrink:0;">' + (active?'⏸️ Aus':'▶️ An') + '</button>' +
     '</div>';
   }).join('') : '<div style="color:var(--muted);font-size:12px;padding:4px 0;">Noch keine Gutscheine.</div>';
-  return '<div style="margin-top:10px;padding:11px 13px;background:#ede7f6;border-radius:8px;">' +
+  return '<div id="gs-admin-vouchers-sec" style="margin-top:10px;padding:11px 13px;background:#ede7f6;border-radius:8px;">' +
     '<div style="font-weight:800;font-size:12.5px;margin-bottom:6px;color:#4527a0;">🎟️ Gutscheine (Pro/Lifetime verschenken)</div>' +
     '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;align-items:center;">' +
       '<input id="gs-vc-code" placeholder="CODE" style="flex:1;min-width:90px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:monospace;">' +
@@ -70523,14 +70577,14 @@ async function gsAdminCreateVoucher() {
     if (res && res.ok) { if (typeof gsToast==='function') gsToast('✅ Gutschein ' + res.code + ' erstellt', 'success'); }
     else { var E={code_exists:'Code existiert bereits',invalid_reward:'Ungültige Belohnung',no_code:'Kein Code',forbidden:'Keine Berechtigung'}; if (typeof gsToast==='function') gsToast('⚠️ ' + (E[res&&res.error]||(res&&res.error)||'Fehler'), 'error'); }
   } catch(e){ if (typeof gsToast==='function') gsToast('⚠️ ' + (e&&e.message||'Fehler'), 'error'); }
-  try { openAdminPanel(); } catch(_){}
+  await _gsAdminRefreshSection('gs-admin-vouchers-sec', gsAdminFetchVouchers, _gsAdminVouchersHtml);
 }
 async function gsAdminToggleVoucher(code, active) {
   if (!gsIsAdmin()) return;
   try {
     await sbFetch('/rest/v1/rpc/fn_admin_voucher_toggle', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_code: code, p_active: !!active }) });
   } catch(_){}
-  try { openAdminPanel(); } catch(_){}
+  await _gsAdminRefreshSection('gs-admin-vouchers-sec', gsAdminFetchVouchers, _gsAdminVouchersHtml);
 }
 
 // v29.14 Admin-Ausbau #4: Wissens-DB-Editor (anlegen/editieren/freigeben)
@@ -70756,20 +70810,38 @@ window.gsAdminFilterUsers = function(q){
   } catch(_){}
 };
 
+// v29.15: Nur die betroffene Admin-Sektion neu rendern statt das ganze Panel (kein Scroll-Sprung,
+// keine verlorenen Eingaben, 1 statt 8 RPCs). Fallback auf openAdminPanel() wenn Container weg/Fehler.
+// htmlFn MUSS einen Root-Container mit derselben id liefern, damit der nächste Refresh wieder greift.
+async function _gsAdminRefreshSection(secId, fetchFn, htmlFn) {
+  try {
+    var el = document.getElementById(secId);
+    if (!el) { try { openAdminPanel(); } catch(_){} return; }
+    var data = await fetchFn();
+    el.outerHTML = htmlFn(data);
+  } catch(_) { try { openAdminPanel(); } catch(e){} }
+}
+
 // Admin-Panel rendern
 async function openAdminPanel() {
   if (!gsIsAdmin()) {
     showProfileToast && showProfileToast('🔐 Nur Admins haben Zugriff');
     return;
   }
-  var users = await gsAdminListUsers();
-  var metrics = await gsAdminFetchMetrics();
-  var stripe = await gsAdminFetchStripe();
-  var flags = await gsAdminFetchFlags(); // v28.98 Admin-Ausbau
-  var audit = await gsAdminFetchAudit(); // v28.99 Audit-Viewer
-  var cerrs = await gsAdminFetchClientErrors(); // v29.00 Error-Log
-  var moderation = await gsAdminFetchModerationFeed(); // v29.11 Content-Moderation
-  var vouchers = await gsAdminFetchVouchers(); // v29.13 Gutschein-Verwaltung
+  // v29.15: Session aktiv prüfen — sonst liefern alle Helfer still leere Sektionen → wirkt "kaputt" (B-ADM-2).
+  try {
+    if (typeof _gsFreshToken === 'function') {
+      var _tk = await _gsFreshToken();
+      if (!_tk) { if (typeof gsToast==='function') gsToast('🔐 Sitzung abgelaufen — bitte neu einloggen.', 'error', 4500); return; }
+    }
+  } catch(_){}
+  // v29.15: parallel statt 8× seriell (jeder Helfer hat eigenes try/catch + Fallback → kein Crash-Risiko).
+  var _ad = await Promise.all([
+    gsAdminListUsers(), gsAdminFetchMetrics(), gsAdminFetchStripe(), gsAdminFetchFlags(),
+    gsAdminFetchAudit(), gsAdminFetchClientErrors(), gsAdminFetchModerationFeed(), gsAdminFetchVouchers()
+  ]);
+  var users = _ad[0], metrics = _ad[1], stripe = _ad[2], flags = _ad[3],
+      audit = _ad[4], cerrs = _ad[5], moderation = _ad[6], vouchers = _ad[7];
   var existing = document.getElementById('modal-admin-panel');
   if (existing) existing.remove();
   var m = document.createElement('div');
