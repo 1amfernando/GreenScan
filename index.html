@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.09.20260611">
+<meta name="app-version" content="29.10.20260611">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12486,7 +12486,7 @@ function gsAboCanUse(feature) {
     // Pro-only Features
     if (feature === 'ai_unlimited' || feature === 'offline' || feature === 'export_pro') {
       var pl = localStorage.getItem('gs_abo_plan');
-      return pl === 'pro';
+      return pl === 'pro' || pl === 'lifetime'; // v29.10: Lifetime hat Vollzugang (war fälschlich pro-only)
     }
     return true;
   }
@@ -57942,6 +57942,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.10', date: '11.06.2026',
+    headline: '💳 Abo-Korrektheit + Garten-Datenschutz (Sweep #2 Abschluss)',
+    summary: 'Abschluss des zweiten Audits: (1) Beim Geräte-/Konto-Wechsel blieb der alte Abo-Status zwischengespeichert — der nächste (Gratis-)Nutzer auf demselben Gerät hätte kurz fälschlich Pro-Funktionen sehen können. Behoben (Abo-Cache wird bei Logout/Wechsel geleert). (2) Lifetime-Nutzer wurden in einer internen Prüfung fälschlich wie Gratis behandelt — korrigiert (Lifetime hat Vollzugang). (3) Garten/Tagebuch/Ernte konnten beim Hintergrund-Sync aus leeren Server-Tabellen lokal überschrieben werden (Datenverlust-Risiko) — jetzt durch Leer-Schutz + Zusammenführen abgesichert.',
+    user_summary: '💳 Abo-Status sauber bei Konto-Wechsel + Lifetime-Vollzugang + Garten/Ernte-Datenverlust-Schutz.',
+    user_items: [
+      { emoji: '🔁', text: 'Abo-Status wird bei Logout/Konto-Wechsel korrekt zurückgesetzt' },
+      { emoji: '🏆', text: 'Lifetime-Nutzer haben überall Vollzugang' },
+      { emoji: '🛡️', text: 'Garten, Tagebuch & Ernte werden nicht mehr durch leeren Sync überschrieben' },
+    ],
+    items: [
+      {emoji:'💳', bold:'Stale-Entitlement-Fix:', text:' gs_abo_plan + gs_ent_*-Cache überlebten Logout → nächster Free-User auf demselben Gerät sah stale Pro/Lifetime-Gates (gsIsPaid/gsAboCanUse) bis Entitlements neu luden. Jetzt in GS_USER_KEYS → bei Logout/User-Switch geleert (default free).'},
+      {emoji:'🏆', bold:'Lifetime-Gating:', text:' gsAboCanUse(ai_unlimited/offline/export_pro) gab für Lifetime fälschlich false (war pl===\'pro\') → auf pro||lifetime erweitert (v_user_entitlements gibt Lifetime Vollzugang).'},
+      {emoji:'🛡️', bold:'Persistenz-Härtung (PERS-12):', text:' gsGardenSync.pullAll überschrieb gardens/plantings/Tagebuch/Ernte unconditional aus leeren Row-Tabellen (live 0 Zeilen) → Empty-Guards (leere Cloud-Antwort klobbert populated local nie). gsSyncUserDataOnLogin-Ernte-Pull: Union-Merge statt blind, damit gerade angelegte, noch nicht gepushte Ernte nicht aus der UI verschwindet. ⇒ Sweep #2 (12 Funde) komplett abgearbeitet. 7/7 node --check + sw.js OK.'},
+    ]
+  },
+  {
     v: 'v29.09', date: '11.06.2026',
     headline: '🔒 Sicherheits-Härtung: 7 XSS-Lücken + 4 Daten-Lecks geschlossen',
     summary: 'Aus einem zweiten, tiefen Sicherheits-Audit (12 bestätigte Funde, 0 Fehlalarme): Sieben Stellen renderten Nutzer-Eingaben (Profil-Avatar/-Name) ungefiltert — ein Angreifer hätte damit fremde Sitzungen kapern können. Behoben. Zusätzlich gaben vier Datenbank-Regeln zu viel preis: E-Mail-Adressen aller Nutzer, Stripe-Zahlungs-IDs, gescannte Arten anderer und Gutschein-Codes waren quer lesbar — alle jetzt streng auf den Eigentümer/Admin beschränkt. Social-Features (Profil-Suche, Feed, Verifizierungs-Badges) wurden als echter Nutzer gegengetestet und funktionieren unverändert.',
@@ -62543,7 +62559,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.09';
+var GS_VERSION = 'v29.10';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -67419,7 +67435,10 @@ var GS_USER_KEYS = [
   'gs_dq_archive','gs_dq_stats','gs_quiz_points','gs_quiz_streak','gs_quiz_lastday',
   'gs_notif_state','gs_lux_calib','gs_lux_calib_points','gs_light_pro10_latest',
   'gs_dead_plants','gs_social_posts','gs_my_bids','gs_purchases',
-  'gs_garden_sync_queue','gs_garden_sync_last'
+  'gs_garden_sync_queue','gs_garden_sync_last',
+  // v29.10 SECURITY/Payment: Abo-/Entitlement-Cache MUSS bei Logout/User-Switch weg, sonst
+  // sieht der nächste (Free-)User auf demselben Gerät stale Pro/Lifetime-Gates (gsIsPaid/gsAboCanUse).
+  'gs_abo_plan','gs_ent_scans_per_month','gs_ent_ai_herbalist','gs_ent_offline_mode','gs_ent_recipes_export'
 ];
 function gsClearUserDataKeys(){
   try {
@@ -67673,6 +67692,17 @@ async function gsSyncUserDataOnLogin(){
             species_lat: row.species_lat || null
           };
         });
+        // v29.10 (PERS): nicht-gepushte lokale Ernten per Union erhalten (Cloud-wins bei id-Kollision),
+        // statt gs_ernte_log blind zu überschreiben — sonst verschwindet eine gerade angelegte, noch
+        // nicht gepushte Ernte aus der UI bis zum nächsten Pull (leere Cloud-Antwort = kein Clobber).
+        try {
+          var _localH = JSON.parse(localStorage.getItem('gs_ernte_log') || '[]');
+          if (Array.isArray(_localH) && _localH.length) {
+            var _seenH = {}; mapped.forEach(function(e){ if (e && e.id != null) _seenH[String(e.id)] = true; });
+            _localH.forEach(function(e){ if (e && e.id != null && !_seenH[String(e.id)]) mapped.push(e); });
+            mapped.sort(function(a,b){ return String(b.ts||'').localeCompare(String(a.ts||'')); });
+          }
+        } catch(_){}
         try { localStorage.setItem('gs_ernte_log', JSON.stringify(mapped.slice(0,1000))); } catch(_){}
       }
     } catch(_){}
@@ -74437,33 +74467,33 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
     if (!loggedIn() || !isOnline()) return;
     setStatus('⬇️ Laden…');
     try {
-      // Diary
+      // Diary — v29.10: Empty-Guard (leere Cloud-Antwort darf populated local NIE überschreiben; PERS-12)
       var d = await supaGet('garden_diary', 'select=*&order=ts.desc&limit=500');
-      if (d && d.data) {
+      if (d && d.data && d.data.length) {
         var remoteDiary = d.data.map(function(r){
           return { id: r.id, ts: r.ts, text: r.text, emoji: r.emoji || '🌱', date: new Date(r.ts).toLocaleDateString('de-CH'), title: r.title, tag: r.tag, garden_id: r.garden_id, photo_url: r.photo_url };
         });
         try { localStorage.setItem('gs_gartentagebuch', JSON.stringify(remoteDiary.slice(0,200))); } catch(e){}
         if (typeof _gsTagebuch !== 'undefined') { try { window._gsTagebuch = null; } catch(e){} }
       }
-      // Harvests
+      // Harvests — v29.10: Empty-Guard (PERS-12)
       var h = await supaGet('garden_harvests', 'select=*&order=ts.desc&limit=500');
-      if (h && h.data) {
+      if (h && h.data && h.data.length) {
         var remoteLog = h.data.map(function(r){
           return { id: r.id, ts: r.ts, plant: r.species_name, menge: r.menge, unit: r.unit, garden_id: r.garden_id, emoji: r.emoji, planting_id: r.planting_id };
         });
         try { localStorage.setItem('gs_ernte_log', JSON.stringify(remoteLog)); } catch(e){}
         try { window._gsErnteLog = null; } catch(e){}
       }
-      // Gardens
+      // Gardens — v29.10: Empty-Guard (gardens-Tabelle live 0 Zeilen wipte sonst lokale Gärten; PERS-12)
       var g = await supaGet('gardens', 'select=*&is_archived=eq.false&order=created_at.asc');
-      if (g && g.data) {
+      if (g && g.data && g.data.length) {
         try { localStorage.setItem('gs_gardens', JSON.stringify(g.data)); } catch(e){}
         try { window.gardens = g.data; } catch(e){}
       }
-      // Plantings
+      // Plantings — v29.10: Empty-Guard (PERS-12)
       var p = await supaGet('garden_plantings', 'select=*&order=planted_at.desc');
-      if (p && p.data) {
+      if (p && p.data && p.data.length) {
         try { gsStore.set('gs_plantings', JSON.stringify(p.data)); } catch(e){}
         try { window.plantings = p.data; } catch(e){}
       }
