@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.13.20260611">
+<meta name="app-version" content="29.14.20260611">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -57955,6 +57955,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.14', date: '11.06.2026',
+    headline: '🧠 Admin: Wissens-DB-Editor (Admin-Ausbau abgeschlossen)',
+    summary: 'Admin-Ausbau (4 von 4 — fertig): Wissens-Inhalte (Heilmittel, Rezepte, Folklore, Garten-Techniken, „Wusstest-du") können jetzt direkt im Admin-Panel angelegt, bearbeitet, freigegeben/versteckt und gelöscht werden — ohne Edge-Funktion oder Bulk-Generator. Alles server-seitig admin-gesichert und audit-protokolliert. Damit ist Fernandos Admin-Ausbau („mehr sehen, einstellen, machen — unsichtbar für Nutzer") komplett.',
+    user_summary: '🧠 (Admin) Neuer Wissens-Editor: Heilmittel/Rezepte/Folklore/Garten-Tipps/Fakten anlegen & freigeben.',
+    user_items: [
+      { emoji: '🧠', text: 'Admin-Panel: Wissens-Inhalte direkt anlegen/bearbeiten/freigeben/löschen' },
+    ],
+    items: [
+      {emoji:'🧠', bold:'Generischer Editor:', text:' fn_admin_knowledge_list/_save/_set_published/_delete (DEFINER + is_admin_user()-Gate + audit) über eine SERVER-SEITIGE Tabellen-Whitelist (5 Wissens-Tabellen) + Spalten-Config (Text=description bzw. body, Publish=is_published bzw. is_active) mit format/%I-Quoting (kein client-gesteuerter Tabellenname). category optional (leer→NULL, CHECK-konform; ungültige Kategorie → freundlicher Fehler). Publish-Umschaltung schreibt nur die Flag (kein Text-Rewrite).'},
+      {emoji:'✅', bold:'Panel-Editor + Abschluss:', text:' Tabellen-Picker + Formular (Titel/Inhalt/Kategorie-Vorschläge/Freigeben) + Liste mit Bearbeiten/Freigeben/Löschen (alles escaped). Als echter Admin/Non-Admin-JWT verifiziert (forbidden/invalid_table/invalid_category abgefangen, create/list/update/publish/delete korrekt). ⇒ ADMIN-AUSBAU 4/4 KOMPLETT (Moderation · Nutzer-Detail · Gutscheine · Wissens-Editor). 7/7 node --check + sw.js OK.'},
+    ]
+  },
+  {
     v: 'v29.13', date: '11.06.2026',
     headline: '🎟️ Gutscheine: Pro/Lifetime verschenken + sichere Einlösung',
     summary: 'Admin-Ausbau (3 von 4): Im Admin-Panel können jetzt Gutschein-Codes erstellt werden, die Pro oder Lifetime freischalten (mit optionalem Maximal-Limit und Ablaufdatum, ein-/ausschaltbar) — ideal, um treue Early-Adopter zu belohnen. Nutzer lösen Codes über Einstellungen → „Gutschein einlösen" ein. Die Einlösung läuft komplett server-seitig: Codes werden nie an die App geliefert, Doppel-Einlösung ist ausgeschlossen, das Tier wird sofort gesetzt. (Schließt zugleich eine Sicherheitslücke aus dem letzten Audit.)',
@@ -62612,7 +62625,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.13';
+var GS_VERSION = 'v29.14';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -70520,6 +70533,100 @@ async function gsAdminToggleVoucher(code, active) {
   try { openAdminPanel(); } catch(_){}
 }
 
+// v29.14 Admin-Ausbau #4: Wissens-DB-Editor (anlegen/editieren/freigeben)
+var GS_KN_TABLES = [
+  { t:'remedies', l:'💊 Heilmittel' }, { t:'recipes', l:'🍲 Rezepte' },
+  { t:'folk_lore', l:'📜 Folklore' }, { t:'garden_techniques', l:'🌱 Garten-Techniken' },
+  { t:'did_you_know_facts', l:'💡 Wusstest-du' }
+];
+async function gsAdminKnowledgeList(table) {
+  if (!gsIsAdmin()) return [];
+  try { var r = await sbFetch('/rest/v1/rpc/fn_admin_knowledge_list', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_table: table, p_limit: 80 }) }); return (r && Array.isArray(r.data)) ? r.data : []; } catch(e) { return []; }
+}
+async function gsAdminKnowledgeSave(table, id, title, text, category, published) {
+  var r = await sbFetch('/rest/v1/rpc/fn_admin_knowledge_save', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_table:table, p_id:id||'', p_title:title, p_text:text, p_category:category, p_published:!!published }) });
+  return r && r.data;
+}
+async function gsAdminKnowledgeDelete(table, id) {
+  var r = await sbFetch('/rest/v1/rpc/fn_admin_knowledge_delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_table:table, p_id:id }) });
+  return r && r.data;
+}
+async function gsAdminKnowledgeSetPublished(table, id, published) {
+  var r = await sbFetch('/rest/v1/rpc/fn_admin_knowledge_set_published', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_table:table, p_id:id, p_published:!!published }) });
+  return r && r.data;
+}
+function _gsKnErr(r){ var M={invalid_category:'Kategorie ungültig',no_title:'Titel fehlt',not_found:'Nicht gefunden',missing_required:'Pflichtfeld fehlt',forbidden:'Keine Berechtigung',invalid_table:'Tabelle ungültig'}; return M[r&&r.error]||(r&&r.error)||'Fehler'; }
+async function gsAdminOpenKnowledgeEditor(table) {
+  if (!gsIsAdmin()) return;
+  table = table || (window._gsKn && window._gsKn.table) || 'remedies';
+  var entries = await gsAdminKnowledgeList(table);
+  window._gsKn = { table: table, entries: entries };
+  var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s||''); };
+  var cats = []; entries.forEach(function(e){ if (e.category && cats.indexOf(e.category)<0) cats.push(e.category); });
+  var picker = GS_KN_TABLES.map(function(x){ return '<option value="'+x.t+'"'+(x.t===table?' selected':'')+'>'+x.l+'</option>'; }).join('');
+  var datalist = '<datalist id="gs-kn-catlist">' + cats.map(function(c){ return '<option value="'+esc(c)+'">'; }).join('') + '</datalist>';
+  var list = entries.length ? entries.map(function(e){
+    var badge = e.published ? '<span style="background:#c8e6c9;color:#1b5e20;font-size:9px;font-weight:800;padding:1px 5px;border-radius:4px;">LIVE</span>' : '<span style="background:#eee;color:#777;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;">Entwurf</span>';
+    return '<div style="padding:6px 0;border-bottom:1px solid var(--border);display:flex;gap:6px;align-items:center;font-size:11.5px;">' +
+      '<div style="flex:1;min-width:0;"><b>' + esc(e.title||'(ohne Titel)') + '</b> ' + badge + (e.category?' <span style="color:var(--muted);">· '+esc(e.category)+'</span>':'') + '</div>' +
+      '<button onclick="gsAdminKnEdit(\'' + e.id + '\')" title="Bearbeiten" style="padding:3px 7px;border:1px solid var(--border);border-radius:6px;background:var(--card);cursor:pointer;font-size:12px;flex-shrink:0;">✏️</button>' +
+      '<button onclick="gsAdminKnTogglePublish(\'' + e.id + '\',' + (e.published?'true':'false') + ')" title="' + (e.published?'Verstecken':'Freigeben') + '" style="padding:3px 7px;border:1px solid var(--border);border-radius:6px;background:var(--card);cursor:pointer;font-size:12px;flex-shrink:0;">' + (e.published?'🙈':'📢') + '</button>' +
+      '<button onclick="gsAdminKnDelete(\'' + e.id + '\')" title="Löschen" style="padding:3px 7px;border:none;border-radius:6px;background:#c62828;color:#fff;cursor:pointer;font-size:12px;flex-shrink:0;">🗑️</button>' +
+    '</div>';
+  }).join('') : '<div style="color:var(--muted);font-size:12px;padding:6px 0;">Noch keine Einträge.</div>';
+  var existing = document.getElementById('modal-admin-knowledge'); if (existing) existing.remove();
+  var m = document.createElement('div');
+  m.id = 'modal-admin-knowledge'; m.className = 'modal-overlay'; m.style.cssText = 'display:flex;z-index:100000;';
+  m.onclick = function(ev){ if (ev.target === m) m.remove(); };
+  m.innerHTML = '<div class="modal" style="max-width:520px;max-height:90vh;overflow-y:auto;"><button class="modal-close-btn" onclick="document.getElementById(\'modal-admin-knowledge\').remove()">&#x2715;</button><div class="modal-content">' +
+    '<h2 style="margin:0 0 8px;font-size:17px;color:var(--g-dark);">🧠 Wissens-Editor</h2>' +
+    '<select onchange="gsAdminOpenKnowledgeEditor(this.value)" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:10px;">' + picker + '</select>' +
+    '<div style="background:#f3f4f6;border-radius:8px;padding:10px;margin-bottom:10px;">' +
+      '<input type="hidden" id="gs-kn-id" value="">' +
+      '<input id="gs-kn-title" placeholder="Titel *" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px;margin-bottom:6px;">' +
+      '<textarea id="gs-kn-text" placeholder="Inhalt / Beschreibung" rows="4" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:12.5px;font-family:inherit;margin-bottom:6px;"></textarea>' +
+      '<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">' +
+        '<input id="gs-kn-cat" list="gs-kn-catlist" placeholder="Kategorie (optional)" style="flex:1;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:12.5px;">' + datalist +
+        '<label style="font-size:12px;display:flex;align-items:center;gap:4px;white-space:nowrap;"><input type="checkbox" id="gs-kn-pub"> freigeben</label>' +
+      '</div>' +
+      '<div style="display:flex;gap:6px;"><button onclick="gsAdminKnSubmit()" style="flex:1;padding:8px;background:var(--g-main);color:#fff;border:none;border-radius:7px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;">💾 Speichern</button>' +
+      '<button onclick="gsAdminKnClear()" style="padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:7px;font-size:12.5px;cursor:pointer;font-family:inherit;">Neu</button></div>' +
+    '</div>' +
+    '<div style="font-size:11.5px;font-weight:800;color:var(--muted);margin-bottom:4px;">Einträge (' + entries.length + ')</div>' + list +
+  '</div></div>';
+  document.body.appendChild(m);
+}
+function gsAdminKnEdit(id){
+  var e = ((window._gsKn&&window._gsKn.entries)||[]).find(function(x){ return x.id===id; });
+  if (!e) return;
+  try { document.getElementById('gs-kn-id').value = e.id; document.getElementById('gs-kn-title').value = e.title||''; document.getElementById('gs-kn-text').value = e.snippet||''; document.getElementById('gs-kn-cat').value = e.category||''; document.getElementById('gs-kn-pub').checked = !!e.published; document.getElementById('gs-kn-title').scrollIntoView({block:'center'}); } catch(_){}
+}
+function gsAdminKnClear(){ try { ['gs-kn-id','gs-kn-title','gs-kn-text','gs-kn-cat'].forEach(function(i){ var el=document.getElementById(i); if(el) el.value=''; }); var p=document.getElementById('gs-kn-pub'); if(p) p.checked=false; } catch(_){} }
+async function gsAdminKnSubmit(){
+  var t = (window._gsKn&&window._gsKn.table)||'remedies';
+  var id=(document.getElementById('gs-kn-id')||{}).value||'', title=(document.getElementById('gs-kn-title')||{}).value||'', text=(document.getElementById('gs-kn-text')||{}).value||'', cat=(document.getElementById('gs-kn-cat')||{}).value||'', pub=!!((document.getElementById('gs-kn-pub')||{}).checked);
+  if (!title.trim()) { if (typeof gsToast==='function') gsToast('Titel eingeben','warning'); return; }
+  var r = await gsAdminKnowledgeSave(t, id, title, text, cat, pub);
+  if (r && r.ok) { if (typeof gsToast==='function') gsToast('✅ Gespeichert','success'); }
+  else { if (typeof gsToast==='function') gsToast('⚠️ ' + _gsKnErr(r), 'error'); return; }
+  gsAdminOpenKnowledgeEditor(t);
+}
+async function gsAdminKnDelete(id){
+  var t = (window._gsKn&&window._gsKn.table)||'remedies';
+  var ok = (typeof gsConfirmModal==='function') ? await gsConfirmModal({ title:'Löschen?', message:'Diesen Wissens-Eintrag löschen?' }) : (typeof confirm==='function'?confirm('Löschen?'):true);
+  if (!ok) return;
+  var r = await gsAdminKnowledgeDelete(t, id);
+  if (typeof gsToast==='function') gsToast(r&&r.ok?'🗑️ Gelöscht':'⚠️ '+_gsKnErr(r), r&&r.ok?'success':'error');
+  gsAdminOpenKnowledgeEditor(t);
+}
+async function gsAdminKnTogglePublish(id, cur){
+  var t = (window._gsKn&&window._gsKn.table)||'remedies';
+  var r = await gsAdminKnowledgeSetPublished(t, id, !cur);
+  if (typeof gsToast==='function') gsToast(r&&r.ok?(!cur?'📢 Freigegeben':'🙈 Versteckt'):'⚠️ '+_gsKnErr(r), r&&r.ok?'success':'error');
+  gsAdminOpenKnowledgeEditor(t);
+}
+window.gsAdminOpenKnowledgeEditor = gsAdminOpenKnowledgeEditor;
+
 // v28.64 Block F.2: Live-Metriken laden (Admin) — RPC fn_admin_metrics (admin-gated, jsonb)
 async function gsAdminFetchMetrics() {
   if (!gsIsAdmin()) return null;
@@ -70732,6 +70839,10 @@ async function openAdminPanel() {
       _gsAdminClientErrorsHtml(cerrs) +
       _gsAdminModerationHtml(moderation) +
       _gsAdminVouchersHtml(vouchers) +
+      '<div style="margin-top:10px;padding:11px 13px;background:#e8eaf6;border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:10px;">' +
+        '<div style="font-weight:800;font-size:12.5px;color:#283593;">🧠 Wissens-DB-Editor</div>' +
+        '<button onclick="gsAdminOpenKnowledgeEditor()" style="padding:7px 13px;background:#3949ab;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Öffnen ›</button>' +
+      '</div>' +
       _gsAdminAuditHtml(audit) +
       '<input type="text" oninput="gsAdminFilterUsers(this.value)" placeholder="🔍 Nutzer suchen (Name, E-Mail, Rolle)…" style="width:100%;box-sizing:border-box;padding:9px 12px;margin-bottom:8px;border:1px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit;">' +
       '<div id="gs-admin-user-list">' + rows + '</div>' +
