@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.11.20260611">
+<meta name="app-version" content="29.12.20260611">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -57942,6 +57942,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.12', date: '11.06.2026',
+    headline: '👤 Admin: Nutzer-Detailansicht (Profil · Abo · Aktivität · Aktionen)',
+    summary: 'Admin-Ausbau (2 von 4): Im Admin-Panel öffnet ein ℹ️-Button pro Nutzer eine Detailansicht — alles über die Person an einem Ort: Tier, Stripe-Abo-Status & Laufzeit, Level/XP/Streak, Quiz-ELO, Aktivitäts-Zähler (Scans/Funde/Posts/Inserate/Ernten/Follower) und wichtige Daten. Plus direkte Aktionen: Tier setzen/schenken (Free/Pro/Lifetime) und sperren/entsperren. Server-seitig admin-gesichert, unsichtbar für Nutzer.',
+    user_summary: '👤 (Admin) Neue Nutzer-Detailansicht mit allen Infos + Tier-/Sperr-Aktionen an einem Ort.',
+    user_items: [
+      { emoji: '👤', text: 'Admin-Panel: ℹ️ pro Nutzer → volle Detailansicht (Abo, Aktivität) + Tier schenken/sperren' },
+    ],
+    items: [
+      {emoji:'👤', bold:'fn_admin_user_detail(uuid):', text:' DEFINER + is_admin_user()-Gate, liefert Profil (inkl. email, Tier, Rolle, Level/XP/Streak/ELO, Daten) + neuestes Stripe-Abo (status/tier/Laufzeit/Trial/Kündigung) + Aktivitäts-Zähler (Funde/Posts/Inserate/Ernten/Follower/Following). Read-only; Aktionen via fn_admin_set_tier/fn_assign_role.'},
+      {emoji:'✅', bold:'Panel:', text:' ℹ️-Button pro Nutzer-Zeile → Detail-Modal (alles escaped) mit Tier-Buttons (schenken) + Sperren/Entsperren, refresht Liste. Als echter Admin-JWT verifiziert (non-admin→forbidden, Profil+6 Counts+email, unbekannt→user_not_found). 7/7 node --check + sw.js OK. Admin-Ausbau 2/4 (danach Gutscheine, Wissens-Editor).'},
+    ]
+  },
+  {
     v: 'v29.11', date: '11.06.2026',
     headline: '🛡️ Admin: Content-Moderation (Posts/Inserate/Kommentare)',
     summary: 'Admin-Ausbau (1 von 4): Im Admin-Panel gibt es jetzt einen Moderations-Bereich, der die neuesten Community-Posts, Marktplatz-Inserate und Kommentare zeigt — mit Verstecken/Einblenden/Löschen direkt aus der Liste. Alles server-seitig admin-gesichert (RPC mit Admin-Prüfung), audit-protokolliert und für normale Nutzer unsichtbar.',
@@ -62572,7 +62585,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.11';
+var GS_VERSION = 'v29.12';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -70353,6 +70366,65 @@ async function gsAdminModerate(type, id, action) {
   try { openAdminPanel(); } catch(_){}
 }
 
+// v29.12 Admin-Ausbau #2: Nutzer-Detailansicht (Profil + Abo + Aktivität an einem Ort)
+async function gsAdminUserDetail(userId) {
+  if (!gsIsAdmin()) return null;
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_admin_user_detail', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_user_id: userId }) });
+    return (r && r.data) ? r.data : null;
+  } catch(e) { return null; }
+}
+async function gsAdminOpenUserDetail(userId) {
+  if (!gsIsAdmin()) return;
+  var d = await gsAdminUserDetail(userId);
+  if (!d || d.error) { if (typeof gsToast==='function') gsToast('⚠️ ' + ((d && d.error) || 'Fehler'), 'error'); return; }
+  var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s||''); };
+  var p = d.profile || {}, s = d.subscription || null, c = d.counts || {};
+  var fmt = function(x){ try { return x ? new Date(x).toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit',year:'numeric'}) : '—'; } catch(_){ return '—'; } };
+  var tierBadge = { free:'🌱 Free', pro:'💎 Pro', lifetime:'♾️ Lifetime' }[p.tier] || esc(p.tier||'?');
+  var subTxt = s ? (esc(s.status||'?') + (s.tier?(' · '+esc(s.tier)):'') + (s.current_period_end?(' · bis '+fmt(s.current_period_end)):'') + (s.cancel_at_period_end?' · kündigt z. Periodenende':'') + (s.trial_end?(' · Trial bis '+fmt(s.trial_end)):'')) : '— kein Stripe-Abo';
+  var row = function(label, val){ return '<div style="display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:12px;"><span style="color:var(--muted);">' + label + '</span><span style="color:var(--text);font-weight:600;text-align:right;">' + val + '</span></div>'; };
+  var isBanned = (p.role === 'banned');
+  var existing = document.getElementById('modal-admin-userdetail');
+  if (existing) existing.remove();
+  var m = document.createElement('div');
+  m.id = 'modal-admin-userdetail';
+  m.className = 'modal-overlay';
+  m.style.cssText = 'display:flex;z-index:100000;';
+  m.onclick = function(e){ if (e.target === m) m.remove(); };
+  m.innerHTML = '<div class="modal" style="max-width:460px;max-height:88vh;overflow-y:auto;">' +
+    '<button class="modal-close-btn" onclick="document.getElementById(\'modal-admin-userdetail\').remove()">&#x2715;</button>' +
+    '<div class="modal-content">' +
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">' +
+        '<span style="font-size:32px;">' + esc(p.avatar_emoji || '🌿') + '</span>' +
+        '<div style="min-width:0;"><div style="font-size:16px;font-weight:800;color:var(--g-dark);">' + esc(p.display_name || '—') + '</div>' +
+          '<div style="font-size:11.5px;color:var(--muted);word-break:break-all;">' + esc(p.email || '—') + '</div></div>' +
+      '</div>' +
+      '<div style="padding:10px 12px;background:#f3f4f6;border-radius:8px;margin-bottom:10px;">' +
+        row('Tier', tierBadge) + row('Rolle', esc(p.role||'user') + (p.is_admin?' 🛡️':'') + (p.is_expert?' ✓':'')) +
+        row('Abo (Stripe)', subTxt) +
+        row('Level / XP', (p.level||1) + ' · ' + (p.xp||0) + ' XP') +
+        row('Login-Streak', (p.login_streak||0) + ' (max ' + (p.longest_streak||0) + ')') +
+        row('Quiz-ELO', (p.quiz_elo||'—') + ' · ' + (p.battles_won||0) + 'S/' + (p.battles_lost||0) + 'N') +
+        row('Region', esc(p.region||'—')) +
+        row('Registriert', fmt(p.created_at)) + row('Letzter Login', fmt(p.last_login)) +
+        row('Letzter Scan', fmt(p.last_scan_at)) +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px;text-align:center;">' +
+        ['📷 ' + (p.scan_count||0) + '<br>Scans', '📍 ' + (c.finds||0) + '<br>Funde', '📝 ' + (c.posts||0) + '<br>Posts',
+         '🛒 ' + (c.listings||0) + '<br>Inserate', '🧺 ' + (c.harvests||0) + '<br>Ernten', '👥 ' + (c.followers||0) + '/' + (c.following||0) + '<br>Folg.'
+        ].map(function(x){ return '<div style="background:#fafafa;border:1px solid var(--border);border-radius:8px;padding:7px 4px;font-size:11px;color:var(--text);">' + x + '</div>'; }).join('') +
+      '</div>' +
+      '<div style="font-size:11.5px;font-weight:800;color:var(--muted);margin-bottom:5px;">Tier vergeben / schenken</div>' +
+      '<div style="display:flex;gap:6px;margin-bottom:10px;">' +
+        ['free','pro','lifetime'].map(function(t){ var lbl={free:'🌱 Free',pro:'💎 Pro',lifetime:'♾️ Lifetime'}[t];
+          return '<button onclick="gsAdminSetTier(\'' + p.id + '\',\'' + t + '\').then(function(){gsAdminOpenUserDetail(\'' + p.id + '\');try{openAdminPanel();}catch(_){}})" style="flex:1;padding:8px 4px;border:1.5px solid ' + (p.tier===t?'var(--g-main)':'var(--border)') + ';background:' + (p.tier===t?'var(--g-main)':'var(--card)') + ';color:' + (p.tier===t?'#fff':'var(--text2)') + ';border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;">' + lbl + '</button>'; }).join('') +
+      '</div>' +
+      '<button onclick="gsAdminAssignRole(\'' + p.id + '\',\'' + (isBanned?'user':'banned') + '\').then(function(){gsAdminOpenUserDetail(\'' + p.id + '\');try{openAdminPanel();}catch(_){}})" style="width:100%;padding:9px;border:none;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;background:' + (isBanned?'#2e7d32':'#c62828') + ';color:#fff;">' + (isBanned?'✅ Entsperren':'🚫 Nutzer sperren') + '</button>' +
+    '</div></div>';
+  document.body.appendChild(m);
+}
+
 // v28.64 Block F.2: Live-Metriken laden (Admin) — RPC fn_admin_metrics (admin-gated, jsonb)
 async function gsAdminFetchMetrics() {
   if (!gsIsAdmin()) return null;
@@ -70531,6 +70603,8 @@ async function openAdminPanel() {
         '<option value="pro"' + (u.tier==='pro'?' selected':'') + '>💎 Pro</option>' +
         '<option value="lifetime"' + (u.tier==='lifetime'?' selected':'') + '>♾️ Lifetime</option>' +
       '</select>' +
+      // v29.12: Nutzer-Detailansicht (Profil + Abo + Aktivität + Aktionen)
+      '<button onclick="gsAdminOpenUserDetail(\'' + u.id + '\')" title="Details" style="padding:6px 9px;border:1px solid var(--border);border-radius:6px;background:var(--card);font-size:13px;cursor:pointer;font-family:inherit;flex-shrink:0;">ℹ️</button>' +
     '</div>';
   }).join('') || '<div style="text-align:center;padding:20px;color:var(--muted);">Keine User gefunden.</div>';
 
