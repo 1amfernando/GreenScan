@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.12.20260611">
+<meta name="app-version" content="29.13.20260611">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4653,6 +4653,14 @@ html, body{ scroll-behavior: smooth; }
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_manage_sub" data-i18n-fallback="Abo verwalten">Abo verwalten</div>
           <div class="settings-label-sub" data-i18n="settings_manage_sub_hint" data-i18n-fallback="Zahlung, Rechnungen, kündigen">Zahlung, Rechnungen, kündigen</div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);">›</div>
+      </div>
+      <div class="settings-row" onclick="gsOpenRedeemVoucher()" style="cursor:pointer;">
+        <div class="settings-icon" style="background:#ede7f6;">🎟️</div>
+        <div class="settings-label">
+          <div class="settings-label-title" data-i18n="settings_redeem_voucher" data-i18n-fallback="Gutschein einlösen">Gutschein einlösen</div>
+          <div class="settings-label-sub" data-i18n="settings_redeem_voucher_hint" data-i18n-fallback="Code für Pro/Lifetime eingeben">Code für Pro/Lifetime eingeben</div>
         </div>
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
@@ -10889,6 +10897,11 @@ window.GS_I18N_JS_STRINGS = {
   'sw_reload':                 'Neu laden',
   'sw_later':                  'Später',
   'sw_saving':                 'Sichere…',
+  // ── v29.13 Gutschein einlösen ──
+  'voucher_redeem_title':      '🎟️ Gutschein einlösen',
+  'voucher_redeem_msg':        'Gutschein-Code eingeben:',
+  'voucher_redeem_ok':         '🎉 Eingelöst!',
+  'voucher_login_first':       'Bitte zuerst einloggen.',
   // ── Login / Logout / Account ────────────────────────────────────
   'toast_login_success':       '🌿 Willkommen zurück!',
   'toast_login_welcome_new':   '🎉 Willkommen bei GreenScan!',
@@ -57942,6 +57955,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.13', date: '11.06.2026',
+    headline: '🎟️ Gutscheine: Pro/Lifetime verschenken + sichere Einlösung',
+    summary: 'Admin-Ausbau (3 von 4): Im Admin-Panel können jetzt Gutschein-Codes erstellt werden, die Pro oder Lifetime freischalten (mit optionalem Maximal-Limit und Ablaufdatum, ein-/ausschaltbar) — ideal, um treue Early-Adopter zu belohnen. Nutzer lösen Codes über Einstellungen → „Gutschein einlösen" ein. Die Einlösung läuft komplett server-seitig: Codes werden nie an die App geliefert, Doppel-Einlösung ist ausgeschlossen, das Tier wird sofort gesetzt. (Schließt zugleich eine Sicherheitslücke aus dem letzten Audit.)',
+    user_summary: '🎟️ Gutschein-Codes für Pro/Lifetime — Admin erstellt, Nutzer lösen via Einstellungen sicher ein.',
+    user_items: [
+      { emoji: '🎟️', text: 'Einstellungen → Abo: „Gutschein einlösen" schaltet Pro/Lifetime frei' },
+      { emoji: '👑', text: '(Admin) Gutscheine erstellen/verwalten im Admin-Panel' },
+    ],
+    items: [
+      {emoji:'🎟️', bold:'Server-sichere Einlösung:', text:' fn_redeem_voucher(code) DEFINER — validiert (aktiv/Ablauf/Limit/nicht-schon-eingelöst), schreibt Einlösung (Trigger zählt used_count, KEIN Doppel-Increment), setzt profiles.tier. Codes werden NIE an den Client geliefert (vouchers-SELECT admin-only). gsRedeemVoucher auf RPC umgestellt + Settings-Zeile „Gutschein einlösen" (i18n DE/EN/ES/FR/IT).'},
+      {emoji:'👑', bold:'Admin-Verwaltung:', text:' fn_admin_create_voucher/_vouchers_list/_voucher_toggle (DEFINER, is_admin_user-gated, audit) + Panel-Sektion (Code/Tier/Limit/Tage → Erstellen, Liste mit Nutzung + An/Aus). Voller Lebenszyklus als echter JWT verifiziert (create/redeem/doppelt→already_redeemed/exhausted/toggle, used_count exakt). 7/7 node --check + sw.js OK. Admin-Ausbau 3/4 (danach Wissens-Editor).'},
+    ]
+  },
+  {
     v: 'v29.12', date: '11.06.2026',
     headline: '👤 Admin: Nutzer-Detailansicht (Profil · Abo · Aktivität · Aktionen)',
     summary: 'Admin-Ausbau (2 von 4): Im Admin-Panel öffnet ein ℹ️-Button pro Nutzer eine Detailansicht — alles über die Person an einem Ort: Tier, Stripe-Abo-Status & Laufzeit, Level/XP/Streak, Quiz-ELO, Aktivitäts-Zähler (Scans/Funde/Posts/Inserate/Ernten/Follower) und wichtige Daten. Plus direkte Aktionen: Tier setzen/schenken (Free/Pro/Lifetime) und sperren/entsperren. Server-seitig admin-gesichert, unsichtbar für Nutzer.',
@@ -62585,7 +62612,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.12';
+var GS_VERSION = 'v29.13';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -69989,26 +70016,39 @@ window.gsTrackEvent = function(event, props){
 async function gsRedeemVoucher(code){
   if (!code) return {error:'no_code'};
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return {error:'not_logged_in'};
-  var uid = gsStore.get('gs_sb_uid', null);
-  if (!uid || typeof sbFetch !== 'function') return {error:'no_sb'};
+  if (typeof sbFetch !== 'function') return {error:'no_sb'};
   try {
-    // Voucher holen (public-read)
-    var vr = await sbFetch('/rest/v1/vouchers?code=eq.' + encodeURIComponent(code) + '&select=*', {method:'GET'});
-    var voucher = vr && vr.data && vr.data[0];
-    if (!voucher) return {error:'not_found'};
-    if (!voucher.is_active) return {error:'inactive'};
-    if (voucher.valid_until && new Date(voucher.valid_until) < new Date()) return {error:'expired'};
-    if (voucher.max_uses && voucher.used_count >= voucher.max_uses) return {error:'exhausted'};
-    // Redemption einfügen (unique user+code)
-    var rr = await sbFetch('/rest/v1/voucher_redemptions', {
-      method:'POST',
-      headers:{'Content-Type':'application/json','Prefer':'return=representation'},
-      body: JSON.stringify({voucher_code: code, user_id: uid})
-    });
-    if (rr && rr.error) return {error: rr.error.message || 'redeem_failed'};
-    return {ok:true, voucher: voucher};
-  } catch(e){ return {error:e.message}; }
+    // v29.13: server-sichere Einlösung via RPC (validiert + zählt + setzt Tier serverseitig;
+    // Gutschein-Codes werden NIE an den Client geliefert, vouchers-SELECT ist admin-only).
+    var r = await sbFetch('/rest/v1/rpc/fn_redeem_voucher', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_code: String(code).trim() }) });
+    var res = r && r.data;
+    if (res && res.ok) {
+      // lokalen Abo-Status sofort spiegeln (Server hat profiles.tier gesetzt)
+      try { if (res.tier) localStorage.setItem('gs_abo_plan', res.tier); if (typeof gsLoadEntitlements==='function') gsLoadEntitlements(); if (typeof gsUpdateSettingsPlanCard==='function') gsUpdateSettingsPlanCard(); } catch(_){}
+      return { ok:true, reward: res.reward, tier: res.tier };
+    }
+    return { error: (res && res.error) || (r && r.error && r.error.message) || 'redeem_failed' };
+  } catch(e){ return { error: e && e.message || 'error' }; }
 }
+// v29.13: User-Einstieg zum Einlösen (Settings-Zeile „Gutschein einlösen")
+async function gsOpenRedeemVoucher(){
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k,f){ return f; };
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) { if (typeof gsToast==='function') gsToast('🔐 ' + _t('voucher_login_first','Bitte zuerst einloggen.'),'warning'); return; }
+  var code = (typeof gsPromptModal === 'function')
+    ? await gsPromptModal({ title: _t('voucher_redeem_title','🎟️ Gutschein einlösen'), message: _t('voucher_redeem_msg','Gutschein-Code eingeben:') })
+    : (typeof prompt==='function' ? prompt(_t('voucher_redeem_msg','Gutschein-Code:')) : null);
+  if (!code || !String(code).trim()) return;
+  var r = await gsRedeemVoucher(String(code).trim());
+  if (r && r.ok) {
+    var t = (r.tier === 'lifetime') ? 'Lifetime' : (r.tier === 'pro' ? 'Pro' : '');
+    if (typeof gsToast==='function') gsToast(_t('voucher_redeem_ok','🎉 Eingelöst!') + (t ? ' · ' + t : ''), 'success', 5000);
+    try { if (typeof gsHaptic==='function') gsHaptic('success'); } catch(_){}
+  } else {
+    var MSG = { not_found:'Code nicht gefunden', inactive:'Code inaktiv', expired:'Code abgelaufen', exhausted:'Code aufgebraucht', already_redeemed:'Schon eingelöst', not_authenticated:'Bitte einloggen', not_logged_in:'Bitte einloggen', no_code:'Kein Code' };
+    if (typeof gsToast==='function') gsToast('⚠️ ' + (MSG[r && r.error] || (r && r.error) || 'Fehler'), 'error', 4000);
+  }
+}
+window.gsOpenRedeemVoucher = gsOpenRedeemVoucher;
 
 // ═══ ERWEITERT: gsSyncUserDataOnLogin zieht jetzt ALLES ═══
 var _gsOrigSyncOnLogin = window.gsSyncUserDataOnLogin;
@@ -70425,6 +70465,61 @@ async function gsAdminOpenUserDetail(userId) {
   document.body.appendChild(m);
 }
 
+// v29.13 Admin-Ausbau #3: Gutschein-Verwaltung (Pro/Lifetime verschenken)
+async function gsAdminFetchVouchers() {
+  if (!gsIsAdmin()) return [];
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_admin_vouchers_list', { method:'POST', headers:{'Content-Type':'application/json'}, body: '{}' });
+    return (r && Array.isArray(r.data)) ? r.data : [];
+  } catch(e) { return []; }
+}
+function _gsAdminVouchersHtml(vouchers) {
+  var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s||''); };
+  var rows = (vouchers && vouchers.length) ? vouchers.map(function(v){
+    var rew = (v.reward && v.reward.tier) ? ({pro:'💎 Pro',lifetime:'♾️ Lifetime'}[v.reward.tier] || esc(v.reward.tier)) : '—';
+    var uses = (v.used_count||0) + (v.max_uses ? ('/' + v.max_uses) : '/∞');
+    var until = v.valid_until ? new Date(v.valid_until).toLocaleDateString('de-CH') : '∞';
+    var active = !!v.is_active;
+    return '<div style="padding:6px 0;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;font-size:11.5px;">' +
+      '<div style="flex:1;min-width:0;"><b style="font-family:monospace;">' + esc(v.code) + '</b> · ' + rew + ' · ' + uses + ' · bis ' + until +
+        (active ? '' : ' <span style="color:#c62828;font-weight:700;">(inaktiv)</span>') + '</div>' +
+      '<button onclick="gsAdminToggleVoucher(\'' + esc(v.code) + '\',' + (active?'false':'true') + ')" style="padding:3px 8px;border:1px solid var(--border);border-radius:6px;background:var(--card);font-size:11px;cursor:pointer;font-family:inherit;flex-shrink:0;">' + (active?'⏸️ Aus':'▶️ An') + '</button>' +
+    '</div>';
+  }).join('') : '<div style="color:var(--muted);font-size:12px;padding:4px 0;">Noch keine Gutscheine.</div>';
+  return '<div style="margin-top:10px;padding:11px 13px;background:#ede7f6;border-radius:8px;">' +
+    '<div style="font-weight:800;font-size:12.5px;margin-bottom:6px;color:#4527a0;">🎟️ Gutscheine (Pro/Lifetime verschenken)</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;align-items:center;">' +
+      '<input id="gs-vc-code" placeholder="CODE" style="flex:1;min-width:90px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:monospace;">' +
+      '<select id="gs-vc-tier" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;"><option value="pro">💎 Pro</option><option value="lifetime">♾️ Lifetime</option></select>' +
+      '<input id="gs-vc-max" type="number" min="1" placeholder="Anz." title="Max. Einlösungen (leer = unbegrenzt)" style="width:62px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;">' +
+      '<input id="gs-vc-days" type="number" min="1" placeholder="Tage" title="Gültig für X Tage (leer = unbegrenzt)" style="width:62px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;">' +
+      '<button onclick="gsAdminCreateVoucher()" style="padding:7px 12px;background:#5e35b1;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">+ Erstellen</button>' +
+    '</div>' + rows + '</div>';
+}
+async function gsAdminCreateVoucher() {
+  if (!gsIsAdmin()) return;
+  var code = (document.getElementById('gs-vc-code')||{}).value || '';
+  var tier = (document.getElementById('gs-vc-tier')||{}).value || 'pro';
+  var maxV = (document.getElementById('gs-vc-max')||{}).value || '';
+  var days = (document.getElementById('gs-vc-days')||{}).value || '';
+  if (!code.trim()) { if (typeof gsToast==='function') gsToast('Code eingeben','warning'); return; }
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_admin_create_voucher', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ p_code: code.trim(), p_reward_tier: tier, p_max_uses: (maxV?parseInt(maxV,10):null), p_valid_days: (days?parseInt(days,10):null), p_description: null }) });
+    var res = r && r.data;
+    if (res && res.ok) { if (typeof gsToast==='function') gsToast('✅ Gutschein ' + res.code + ' erstellt', 'success'); }
+    else { var E={code_exists:'Code existiert bereits',invalid_reward:'Ungültige Belohnung',no_code:'Kein Code',forbidden:'Keine Berechtigung'}; if (typeof gsToast==='function') gsToast('⚠️ ' + (E[res&&res.error]||(res&&res.error)||'Fehler'), 'error'); }
+  } catch(e){ if (typeof gsToast==='function') gsToast('⚠️ ' + (e&&e.message||'Fehler'), 'error'); }
+  try { openAdminPanel(); } catch(_){}
+}
+async function gsAdminToggleVoucher(code, active) {
+  if (!gsIsAdmin()) return;
+  try {
+    await sbFetch('/rest/v1/rpc/fn_admin_voucher_toggle', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_code: code, p_active: !!active }) });
+  } catch(_){}
+  try { openAdminPanel(); } catch(_){}
+}
+
 // v28.64 Block F.2: Live-Metriken laden (Admin) — RPC fn_admin_metrics (admin-gated, jsonb)
 async function gsAdminFetchMetrics() {
   if (!gsIsAdmin()) return null;
@@ -70567,6 +70662,7 @@ async function openAdminPanel() {
   var audit = await gsAdminFetchAudit(); // v28.99 Audit-Viewer
   var cerrs = await gsAdminFetchClientErrors(); // v29.00 Error-Log
   var moderation = await gsAdminFetchModerationFeed(); // v29.11 Content-Moderation
+  var vouchers = await gsAdminFetchVouchers(); // v29.13 Gutschein-Verwaltung
   var existing = document.getElementById('modal-admin-panel');
   if (existing) existing.remove();
   var m = document.createElement('div');
@@ -70635,6 +70731,7 @@ async function openAdminPanel() {
       _gsAdminI18nHtml() +
       _gsAdminClientErrorsHtml(cerrs) +
       _gsAdminModerationHtml(moderation) +
+      _gsAdminVouchersHtml(vouchers) +
       _gsAdminAuditHtml(audit) +
       '<input type="text" oninput="gsAdminFilterUsers(this.value)" placeholder="🔍 Nutzer suchen (Name, E-Mail, Rolle)…" style="width:100%;box-sizing:border-box;padding:9px 12px;margin-bottom:8px;border:1px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit;">' +
       '<div id="gs-admin-user-list">' + rows + '</div>' +
