@@ -3,7 +3,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const ADMIN_SECRET = "a217d1a3674f91e99c1f66b25794f8301ae8a231a906bbe3b1cfd137b4bc061b";
+// v29 (HL#19): Admin-Secret NICHT mehr hardcodiert (war im public Repo lesbar) — wird zur Laufzeit
+// aus app_settings.knowledge_gen_secret gelesen (nur admin/service-role lesbar, nie im Repo).
 
 async function getAnthropicKey(admin: any): Promise<string | null> {
   const fromEnv = Deno.env.get("ANTHROPIC_API_KEY");
@@ -74,11 +75,14 @@ function salvageJsonArray(raw: string): any[] {
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
-  if (req.headers.get("X-Admin-Secret") !== ADMIN_SECRET) return new Response("Forbidden", { status: 403 });
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const svcKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const admin = createClient(supabaseUrl, svcKey);
+  // v29 (HL#19): Admin-Secret aus app_settings statt hardcoded (war im public Repo lesbar).
+  const { data: _sec } = await admin.from("app_settings").select("value").eq("key", "knowledge_gen_secret").maybeSingle();
+  const expectedSecret = _sec?.value || "";
+  if (!expectedSecret || req.headers.get("X-Admin-Secret") !== expectedSecret) return new Response("Forbidden", { status: 403 });
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const svcKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const admin = createClient(supabaseUrl, svcKey);
     const apiKey = await getAnthropicKey(admin);
     if (!apiKey) return new Response(JSON.stringify({ error: "No Anthropic key" }), { status: 503, headers: { "Content-Type": "application/json" } });
     const { topic, count = 12, focus_topics, model = "claude-haiku-4-5-20251001" } = await req.json();
