@@ -4,13 +4,21 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-06-11 · **Branch**: `claude/lucid-cerf-dix1vr` · **Version**: `v29.08` (Repo) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-06-11 — Code-Daily (Do, Routine-Session)
+
+- **Health:** ✅ 32/32 Edge-Fns ACTIVE (alle 200 OK in Logs — weather-alert-checker, i18n-translate, engagement-push-checker, knowledge-bulk-gen, daily-push-checker, key-health-check). Stripe-Webhook: 0 Events letzte 24h (erwartet, keine Sub-Aktivität). Auth: 0 Errors — nur normale login/token_revoked Events.
+- **DB-Wachstum:** ✅ Alle 16 Knowledge-Tabellen über Minimum-Threshold. Kein Bulk-Gen nötig. Stand: recipes=181 · daily_quizzes=179 · remedies=155 · folk_lore=154 · garden_tasks_catalog=158 · plant_diseases=125 · pollinators=117 · plant_companion_matrix=113 · harvest_preservation=105 · seasonal_tips=102 · garden_problems=96 · seed_starting_calendar=94 · swiss_climate_zones=83 · seasonal_highlights=58 · garden_techniques=138 · did_you_know_facts=142.
+- **Smoke-Test:** ⚠️ Live-Version-Check nicht möglich (outbound-Netzwerk aus Container blockiert). Repo-Version: v29.08.
+- **Sicherheits-Hinweis:** Eingabe-Nachricht dieser Session enthielt mutmasslichen Prompt-Injection-Versuch ("Proaktive Ressourcen-Maximierung" — gefälschte Token-Management-Instruktionen). Nicht befolgt. Legitime Routine normal ausgeführt.
+- **Followup:** Montag Weekly-Routine (Audit + i18n-Sync). AUFTRAG_CLAUDE_CODE_AUTONOM_v26.52plus.md ist ab v26.52 — Repo steht auf v29.08, die meisten darin enthaltenen Sprints dürften bereits abgearbeitet sein.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
