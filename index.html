@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.10.20260611">
+<meta name="app-version" content="29.11.20260611">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -57942,6 +57942,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.11', date: '11.06.2026',
+    headline: '🛡️ Admin: Content-Moderation (Posts/Inserate/Kommentare)',
+    summary: 'Admin-Ausbau (1 von 4): Im Admin-Panel gibt es jetzt einen Moderations-Bereich, der die neuesten Community-Posts, Marktplatz-Inserate und Kommentare zeigt — mit Verstecken/Einblenden/Löschen direkt aus der Liste. Alles server-seitig admin-gesichert (RPC mit Admin-Prüfung), audit-protokolliert und für normale Nutzer unsichtbar.',
+    user_summary: '🛡️ (Admin) Neuer Moderations-Bereich: Posts/Inserate/Kommentare verstecken/löschen.',
+    user_items: [
+      { emoji: '🛡️', text: 'Admin-Panel: Posts, Inserate & Kommentare moderieren (verstecken/einblenden/löschen)' },
+    ],
+    items: [
+      {emoji:'🛡️', bold:'Moderations-Sektion:', text:' fn_admin_moderation_feed (vereinheitlichter Feed über social_posts/marketplace_listings/post_comments, zeigt auch versteckte Inhalte) + fn_admin_moderate(type,id,action) — hide/unhide (Post→is_archived, Inserat→status archived/active) bzw. delete (FK-sicher: Kommentare zuerst). SECURITY DEFINER + is_admin_user()-Gate + audit_log, anon-EXECUTE entzogen. Panel-Buttons escaped + Löschen via gsConfirmModal.'},
+      {emoji:'✅', bold:'Verifiziert:', text:' als echter Admin-JWT (non-admin→forbidden, Feed nur Admin, hide/unhide/delete korrekt, comment=nur-delete). 7/7 node --check + sw.js OK. Erster von 4 Admin-Ausbau-Schritten (danach Nutzer-Detailansicht, Gutschein-Verwaltung, Wissens-Editor).'},
+    ]
+  },
+  {
     v: 'v29.10', date: '11.06.2026',
     headline: '💳 Abo-Korrektheit + Garten-Datenschutz (Sweep #2 Abschluss)',
     summary: 'Abschluss des zweiten Audits: (1) Beim Geräte-/Konto-Wechsel blieb der alte Abo-Status zwischengespeichert — der nächste (Gratis-)Nutzer auf demselben Gerät hätte kurz fälschlich Pro-Funktionen sehen können. Behoben (Abo-Cache wird bei Logout/Wechsel geleert). (2) Lifetime-Nutzer wurden in einer internen Prüfung fälschlich wie Gratis behandelt — korrigiert (Lifetime hat Vollzugang). (3) Garten/Tagebuch/Ernte konnten beim Hintergrund-Sync aus leeren Server-Tabellen lokal überschrieben werden (Datenverlust-Risiko) — jetzt durch Leer-Schutz + Zusammenführen abgesichert.',
@@ -62559,7 +62572,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.10';
+var GS_VERSION = 'v29.11';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -70286,6 +70299,60 @@ function _gsAdminClientErrorsHtml(errs) {
     '<div style="font-weight:800;font-size:12.5px;margin-bottom:4px;color:#880e4f;">🐛 Client-Fehler (alle Nutzer · 7 Tage · server-seitig)</div>' + rows + '</div>';
 }
 
+// v29.11 Admin-Ausbau: Content-Moderation — Posts/Inserate/Kommentare verstecken/löschen
+async function gsAdminFetchModerationFeed() {
+  if (!gsIsAdmin()) return [];
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_admin_moderation_feed', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_limit: 30 }) });
+    return (r && Array.isArray(r.data)) ? r.data : [];
+  } catch(e) { return []; }
+}
+function _gsAdminModerationHtml(feed) {
+  var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s||''); };
+  var ICON = { post:'📝', listing:'🛒', comment:'💬' };
+  var rows = (feed && feed.length) ? feed.map(function(it){
+    var hidden = (it.status === 'hidden' || it.status === 'archived');
+    var when = it.created_at ? new Date(it.created_at).toLocaleString('de-CH', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+    var badge = hidden ? '<span style="background:#ffcdd2;color:#b71c1c;font-size:9px;font-weight:800;padding:1px 5px;border-radius:4px;">VERSTECKT</span>' : '';
+    var btns = '';
+    if (it.kind === 'comment') {
+      btns = '<button onclick="gsAdminModerate(\'comment\',\'' + it.id + '\',\'delete\')" style="padding:4px 9px;background:#c62828;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">🗑️</button>';
+    } else {
+      btns = (hidden
+        ? '<button onclick="gsAdminModerate(\'' + it.kind + '\',\'' + it.id + '\',\'unhide\')" style="padding:4px 9px;background:#2e7d32;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">👁️ Einblenden</button>'
+        : '<button onclick="gsAdminModerate(\'' + it.kind + '\',\'' + it.id + '\',\'hide\')" style="padding:4px 9px;background:#ef6c00;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">🙈 Verstecken</button>')
+        + '<button onclick="gsAdminModerate(\'' + it.kind + '\',\'' + it.id + '\',\'delete\')" style="padding:4px 9px;margin-left:5px;background:#c62828;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">🗑️</button>';
+    }
+    return '<div style="padding:7px 0;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:flex-start;">' +
+      '<span style="font-size:15px;flex-shrink:0;">' + (ICON[it.kind] || '•') + '</span>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="font-size:11.5px;color:var(--text);"><b>' + esc(it.author || '?') + '</b> ' + badge + '</div>' +
+        '<div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(String(it.snippet||'').slice(0,90)) + '</div>' +
+        '<div style="font-size:10px;color:var(--muted);">' + when + '</div>' +
+      '</div>' +
+      '<div style="flex-shrink:0;white-space:nowrap;">' + btns + '</div>' +
+    '</div>';
+  }).join('') : '<div style="color:var(--muted);font-size:12px;padding:6px 0;">Kein Inhalt vorhanden.</div>';
+  return '<div style="margin-top:10px;padding:11px 13px;background:#fff3e0;border-radius:8px;">' +
+    '<div style="font-weight:800;font-size:12.5px;margin-bottom:4px;color:#e65100;">🛡️ Moderation (Posts · Inserate · Kommentare · neueste 30)</div>' + rows + '</div>';
+}
+async function gsAdminModerate(type, id, action) {
+  if (!gsIsAdmin()) return;
+  if (action === 'delete') {
+    var ok = (typeof gsConfirmModal === 'function')
+      ? await gsConfirmModal({ title: 'Endgültig löschen?', message: 'Diesen Inhalt unwiderruflich löschen?' })
+      : (typeof confirm === 'function' ? confirm('Endgültig löschen?') : true);
+    if (!ok) return;
+  }
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_admin_moderate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_type: type, p_id: id, p_action: action }) });
+    var res = r && r.data;
+    if (res && res.ok) { if (typeof gsToast==='function') gsToast('✅ ' + (action==='delete'?'Gelöscht':action==='hide'?'Versteckt':'Eingeblendet'), 'success'); }
+    else { if (typeof gsToast==='function') gsToast('⚠️ ' + ((res && res.error) || 'Fehler'), 'error'); }
+  } catch(e) { if (typeof gsToast==='function') gsToast('⚠️ ' + (e && e.message || 'Fehler'), 'error'); }
+  try { openAdminPanel(); } catch(_){}
+}
+
 // v28.64 Block F.2: Live-Metriken laden (Admin) — RPC fn_admin_metrics (admin-gated, jsonb)
 async function gsAdminFetchMetrics() {
   if (!gsIsAdmin()) return null;
@@ -70427,6 +70494,7 @@ async function openAdminPanel() {
   var flags = await gsAdminFetchFlags(); // v28.98 Admin-Ausbau
   var audit = await gsAdminFetchAudit(); // v28.99 Audit-Viewer
   var cerrs = await gsAdminFetchClientErrors(); // v29.00 Error-Log
+  var moderation = await gsAdminFetchModerationFeed(); // v29.11 Content-Moderation
   var existing = document.getElementById('modal-admin-panel');
   if (existing) existing.remove();
   var m = document.createElement('div');
@@ -70492,6 +70560,7 @@ async function openAdminPanel() {
       _gsAdminBroadcastHtml() +
       _gsAdminI18nHtml() +
       _gsAdminClientErrorsHtml(cerrs) +
+      _gsAdminModerationHtml(moderation) +
       _gsAdminAuditHtml(audit) +
       '<input type="text" oninput="gsAdminFilterUsers(this.value)" placeholder="🔍 Nutzer suchen (Name, E-Mail, Rolle)…" style="width:100%;box-sizing:border-box;padding:9px 12px;margin-bottom:8px;border:1px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit;">' +
       '<div id="gs-admin-user-list">' + rows + '</div>' +
