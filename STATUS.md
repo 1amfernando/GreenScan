@@ -12,6 +12,17 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-06-12 — Code-Daily (Do, KW 24)
+
+- **Health:** ✅ 33/33 Edge-Fns ACTIVE · ✅ Cron-Jobs OK (daily-push-checker 200, engagement-push-checker 200, weather-alert-checker 200) · ✅ Stripe-Webhook 0 Events / 0 Fehler (keine Abo-Aktivitaet — erwartet) · ✅ Auth-Errors: 0 in 24h
+- **DB-Counts:** Alle Tabellen ÜBER Mindestschwelle. Kein Bulk-Gen noetig. Targets noch nicht voll erreicht: seed_starting_calendar 94/130 · pollinators 117/150 · garden_problems 96/100 · seasonal_highlights 58/80. Bei naechster Bandbreite bulk-gen triggern.
+- **Supabase Advisors:** 0 ERROR (Security) · 0 ERROR (Perf). 132 WARN-Security: alle fn_admin_*-Funktionen haben interne `is_admin_user()`-Pruefung → keine echten Luecken. 186 Perf-INFO: ungenutzte Indexes (Low-Prio-Cleanup). Status: sauber.
+- **Edge-Fn-Logs:** 2× 403 auf knowledge-bulk-gen + 1× 403 auf i18n-translate — erwartet nach Secret-Rotation (v29) + Admin-Gate-Haertung (v29). Kein echter Fehler.
+- **Live-Smoke-Test:** curl greenscan.ch/green-scan.ch → Cloudflare 403 „host_not_allowed" (Remote-Environment IP geblockt). Keine Browser-MCP verfuegbar → Smoke-Test nicht moeglich. App laeuft laut Cron-Job-Responses regulaer.
+- **Branch-Status:** `claude/lucid-cerf-dfxwv7` ist 20 Commits vor `main` (v29.15 vs main ≈ v26.51). Grosses Versionspaket (v27–v29) wartet auf PR + Merge.
+- **Actionable:** `CODE_ROUTINE_MASTER.md` enthaelt noch den alten (rotierten) ADMIN_SECRET `a217d1a3...` — bei naechster Session bereinigen oder durch Platzhalter ersetzen.
+- **Followup:** Bulk-Gen fuer seed_starting_calendar + pollinators bei naechster Session · PR fuer v29.15-Branch eroeffnen wenn Fernando bereit.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
