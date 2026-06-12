@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.16.20260612">
+<meta name="app-version" content="29.17.20260612">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -57955,6 +57955,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.17', date: '12.06.2026',
+    headline: '🛡️ Moderation: User-Archiv von Admin-Hide getrennt',
+    summary: 'Feinschliff der Admin-Moderation: Bisher wurde ein vom NUTZER selbst archiviertes/verkauftes Inserat im Moderations-Feed fälschlich als „versteckt" angezeigt — und ein Admin-„Einblenden" hätte es ungewollt wieder öffentlich gemacht. Jetzt ist die Admin-Moderation (moderation_status) sauber vom Nutzer-Lebenszyklus (aktiv/archiviert/verkauft) getrennt: Admin-Verstecken blendet ein Inserat öffentlich aus (auch in der Suche, und der Nutzer kann es nicht durch Re-Aktivieren umgehen), ohne den Nutzer-Status zu verändern. User-archivierte/verkaufte Inserate zeigen ihr echtes Label und haben keinen Republish-Knopf.',
+    user_summary: '🛡️ (Admin) Moderation sauberer: vom Nutzer archivierte/verkaufte Inserate werden nicht mehr als „versteckt" verwechselt.',
+    user_items: [
+      { emoji: '🛡️', text: '(Admin) Inserat-Verstecken getrennt von Nutzer-Archiv/Verkauf' },
+    ],
+    items: [
+      {emoji:'🛡️', bold:'Moderation orthogonal (Migration):', text:' marketplace_listings.moderation_status getrennt vom Lifecycle-status. fn_admin_moderate Inserat-hide setzt nur moderation_status=hidden (status unberührt); Sichtbarkeit schliesst hidden aus in RLS marketplace_select_active UND fn_marketplace_search (DEFINER) → Admin-Hide öffentlich + suchunsichtbar, vom Nutzer nicht durch Re-Aktivieren umgehbar; Owner sieht eigenes weiter. fn_admin_moderation_feed zeigt Inserat-status nur als hidden bei Admin-Moderation, sonst echten Lifecycle. Als echter JWT 8/8 verifiziert.'},
+      {emoji:'✅', bold:'Feed-Frontend:', text:' Admin-versteckt → „VERSTECKT" + Einblenden; user-archiviert/verkauft → neutrales Label (ARCHIVIERT/VERKAUFT/RESERVIERT) + nur Verstecken/Löschen (kein Republish). 7/7 node --check + sw.js OK.'},
+    ]
+  },
+  {
     v: 'v29.16', date: '12.06.2026',
     headline: '💎 Pro/Lifetime-Vergabe schaltet Features zuverlässig frei',
     summary: 'Fernando-Report: „Wenn ich jemandem Pro umschalte, muss das erkannt werden und die Funktionen freischalten." Wurzel (4-Agenten-Diagnose): Admin-Tier-Vergabe UND Gutschein-Einlösung setzten nur profiles.tier — aber die Entitlement-Quelle (v_user_entitlements) gab Pro/Lifetime nur bei aktivem Stripe-Abo ODER is_lifetime frei. Folge: admin-/gutschein-vergebenes Pro/Lifetime blieb komplett funktionslos (4 reale Konten betroffen). Zusätzlich latenter Bug auch für echte Zahler entdeckt (View las profiles.tier statt des Stripe-Abo-Tiers). Fix: neuer Stripe-unabhängiger „Comp-Grant"-Pfad — Admin/Gutschein setzen comp_tier, die View schaltet damit sofort frei; echtes Stripe liest jetzt den Abo-Tier; Kündigung sperrt weiter; kein Self-Grant möglich (Spalten-Guard). Die 4 bestehenden Konten wurden migriert und haben ihre Features zurück.',
@@ -62653,7 +62666,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.16';
+var GS_VERSION = 'v29.17';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -70449,9 +70462,15 @@ function _gsAdminModerationHtml(feed) {
   var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s||''); };
   var ICON = { post:'📝', listing:'🛒', comment:'💬' };
   var rows = (feed && feed.length) ? feed.map(function(it){
-    var hidden = (it.status === 'hidden' || it.status === 'archived');
+    // v29.17: 'hidden' = NUR Admin-moderiert (fn_admin_moderation_feed liefert 'hidden' wenn moderation_status='hidden').
+    // User-Lifecycle (archived/sold/reserved) ist KEIN Admin-Hide → nur neutrales Label, KEIN Einblenden-Button
+    // (sonst würde Admin-„Einblenden" ein vom Nutzer bewusst archiviertes/verkauftes Inserat republishen).
+    var hidden = (it.status === 'hidden');
+    var lifecycle = (it.kind === 'listing' && (it.status === 'archived' || it.status === 'sold' || it.status === 'reserved')) ? it.status : '';
     var when = it.created_at ? new Date(it.created_at).toLocaleString('de-CH', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
-    var badge = hidden ? '<span style="background:#ffcdd2;color:#b71c1c;font-size:9px;font-weight:800;padding:1px 5px;border-radius:4px;">VERSTECKT</span>' : '';
+    var badge = hidden
+      ? '<span style="background:#ffcdd2;color:#b71c1c;font-size:9px;font-weight:800;padding:1px 5px;border-radius:4px;">VERSTECKT</span>'
+      : (lifecycle ? '<span style="background:#e0e0e0;color:#424242;font-size:9px;font-weight:800;padding:1px 5px;border-radius:4px;">' + ({archived:'ARCHIVIERT',sold:'VERKAUFT',reserved:'RESERVIERT'}[lifecycle] || '') + '</span>' : '');
     var btns = '';
     if (it.kind === 'comment') {
       btns = '<button onclick="gsAdminModerate(\'comment\',\'' + it.id + '\',\'delete\')" style="padding:4px 9px;background:#c62828;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">🗑️</button>';
