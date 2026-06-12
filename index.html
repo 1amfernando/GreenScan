@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.15.20260612">
+<meta name="app-version" content="29.16.20260612">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12498,7 +12498,7 @@ function gsAboCanUse(feature) {
   if (gsIsPaid()) {
     // Pro-only Features
     if (feature === 'ai_unlimited' || feature === 'offline' || feature === 'export_pro') {
-      var pl = localStorage.getItem('gs_abo_plan');
+      var pl = String(localStorage.getItem('gs_abo_plan') || '').toLowerCase(); // v29.16: case-insensitiv (Defense-in-Depth)
       return pl === 'pro' || pl === 'lifetime'; // v29.10: Lifetime hat Vollzugang (war fälschlich pro-only)
     }
     return true;
@@ -57955,6 +57955,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.16', date: '12.06.2026',
+    headline: '💎 Pro/Lifetime-Vergabe schaltet Features zuverlässig frei',
+    summary: 'Fernando-Report: „Wenn ich jemandem Pro umschalte, muss das erkannt werden und die Funktionen freischalten." Wurzel (4-Agenten-Diagnose): Admin-Tier-Vergabe UND Gutschein-Einlösung setzten nur profiles.tier — aber die Entitlement-Quelle (v_user_entitlements) gab Pro/Lifetime nur bei aktivem Stripe-Abo ODER is_lifetime frei. Folge: admin-/gutschein-vergebenes Pro/Lifetime blieb komplett funktionslos (4 reale Konten betroffen). Zusätzlich latenter Bug auch für echte Zahler entdeckt (View las profiles.tier statt des Stripe-Abo-Tiers). Fix: neuer Stripe-unabhängiger „Comp-Grant"-Pfad — Admin/Gutschein setzen comp_tier, die View schaltet damit sofort frei; echtes Stripe liest jetzt den Abo-Tier; Kündigung sperrt weiter; kein Self-Grant möglich (Spalten-Guard). Die 4 bestehenden Konten wurden migriert und haben ihre Features zurück.',
+    user_summary: '💎 (Admin) Pro/Lifetime verschenken funktioniert jetzt zuverlässig — Features schalten beim Nutzer frei (Kaltstart, Vordergrund-Wechsel oder „Kauf wiederherstellen").',
+    user_items: [
+      { emoji: '💎', text: '(Admin) Tier-Vergabe + Gutschein schalten Pro/Lifetime-Features wirklich frei' },
+      { emoji: '🔄', text: 'Frischer Tier kommt beim nächsten App-Öffnen/Vordergrund-Wechsel an' },
+    ],
+    items: [
+      {emoji:'🔑', bold:'Comp-Grant-Pfad (Backend, Migration):', text:' profiles.comp_tier/comp_expires_at als 3., Stripe-unabhängige Entitlement-Quelle. v_user_entitlements neu: effektiver Tier = Lifetime > aktives Stripe-Abo (liest jetzt sub.tier, behebt Latent-Zahler-Bug) > gültiger Comp > free. fn_admin_set_tier + fn_redeem_voucher setzen comp_tier (free→geleert). comp_tier/_expires_at im HL#18-Guard (kein Self-Grant). Backfill der 4 gestrandeten Konten. Als echter JWT verifiziert: Admin-Grant→unlock, free→lock, Voucher→unlock, echtes Stripe→unverändert, Kündigung→free, Lifetime→voll, abgelaufener Comp→free, Self-Grant→blockiert. Server-Quota (fn_quota_peek) honoriert comp ebenfalls.'},
+      {emoji:'🔄', bold:'Frontend-Zuverlässigkeit:', text:' Entitlements werden jetzt auch beim Vordergrund-Wechsel nachgeladen (vorher nur Kaltstart/Login) → frisch vergebener Tier kommt ohne Neustart an. Voucher-Tier + Pro-Gate case-insensitiv gehärtet. Admin-Tier-Toast korrigiert (comp wird NICHT von Stripe überschrieben). 7/7 node --check + sw.js OK.'},
+    ]
+  },
+  {
     v: 'v29.15', date: '12.06.2026',
     headline: '🔧 Admin-Panel stabilisiert (Moderation · Gutscheine · Aktionen)',
     summary: 'Fernando meldete: Admin-Panel-Sektionen „Moderation", „Gutscheine" und „Letzte Admin-Aktionen" instabil/funktionieren nicht. Ursache (Backend war intakt, alles im Frontend): (1) nach jeder Aktion wurde das GANZE Panel neu aufgebaut (8 Server-Abfragen, Scroll springt hoch, Eingaben weg) → jetzt wird nur die betroffene Sektion neu geladen; (2) Admin-Sichtbarkeit hing an 3 widersprüchlichen Pfaden (mal sichtbar, mal nicht) → eine einzige Quelle (gsIsAdmin, Rolle ODER E-Mail); (3) abgelaufene Sitzung zeigte stumm leere Sektionen → jetzt klare „Sitzung abgelaufen"-Meldung; (4) Audit-Log war kryptisch (rohe Codes/UUIDs) → lesbar (Klartext + relative Zeit); (5) Gutschein-Codes mit Apostroph machten den An/Aus-Knopf unklickbar → behoben.',
@@ -62639,7 +62653,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.15';
+var GS_VERSION = 'v29.16';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -63633,8 +63647,11 @@ window.gsInstallApp = async function(){
     if (Date.now() - _lastAutoSync < 30000) return;
     _lastAutoSync = Date.now();
     try {
-      if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof gsSyncUserDataOnLogin === 'function') {
-        gsSyncUserDataOnLogin();
+      if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
+        if (typeof gsSyncUserDataOnLogin === 'function') gsSyncUserDataOnLogin();
+        // v29.16: Entitlements mit-nachladen, damit ein vom Admin/Gutschein frisch gesetzter
+        // Tier auch ohne Kaltstart beim Vordergrund-Wechsel ankommt (teilt den 30s-Cooldown).
+        if (typeof gsLoadEntitlements === 'function') gsLoadEntitlements();
       }
     } catch(_){}
   });
@@ -70054,7 +70071,7 @@ async function gsRedeemVoucher(code){
     var res = r && r.data;
     if (res && res.ok) {
       // lokalen Abo-Status sofort spiegeln (Server hat profiles.tier gesetzt)
-      try { if (res.tier) localStorage.setItem('gs_abo_plan', res.tier); if (typeof gsLoadEntitlements==='function') gsLoadEntitlements(); if (typeof gsUpdateSettingsPlanCard==='function') gsUpdateSettingsPlanCard(); } catch(_){}
+      try { if (res.tier) localStorage.setItem('gs_abo_plan', String(res.tier).toLowerCase()); if (typeof gsLoadEntitlements==='function') gsLoadEntitlements(); if (typeof gsUpdateSettingsPlanCard==='function') gsUpdateSettingsPlanCard(); } catch(_){}
       return { ok:true, reward: res.reward, tier: res.tier };
     }
     return { error: (res && res.error) || (r && r.error && r.error.message) || 'redeem_failed' };
@@ -70199,15 +70216,16 @@ async function gsAdminListUsers() {
 }
 
 // v28.98 Admin-Ausbau: Tier vergeben (free/pro/lifetime) — RPC admin-gated + audit_log.
-// Admin-internes Tool (Deutsch ok). stripe_warning=true → User hat aktives Abo, der
-// Stripe-Webhook kann das Tier beim nächsten Event wieder überschreiben.
+// v29.16: setzt jetzt einen Stripe-UNABHÄNGIGEN comp-Grant (comp_tier) → v_user_entitlements
+// schaltet Features sofort frei (greift beim nächsten Boot/Vordergrund/Restore des Nutzers).
+// stripe_warning=true → User hat bereits ein aktives Stripe-Abo (Comp ist dann nur zusätzlich/redundant).
 async function gsAdminSetTier(userId, tier) {
   if (!gsIsAdmin() || !tier) return;
   try {
     var r = await sbFetch('/rest/v1/rpc/fn_admin_set_tier', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_user_id: userId, p_tier: tier }) });
     var d = (r && r.data) || {};
     if (d.ok) {
-      if (typeof gsToast === 'function') gsToast('💎 Tier gesetzt: ' + tier + (d.stripe_warning ? ' — ⚠️ User hat aktives Stripe-Abo, Webhook kann überschreiben' : ''), d.stripe_warning ? 'warning' : 'success', 4000);
+      if (typeof gsToast === 'function') gsToast('💎 Tier gesetzt: ' + tier + (d.stripe_warning ? ' — ℹ️ User hat bereits ein aktives Stripe-Abo (Comp zusätzlich)' : ' — schaltet beim nächsten Öffnen frei'), d.stripe_warning ? 'info' : 'success', 4000);
     } else {
       if (typeof gsToast === 'function') gsToast('Tier-Wechsel fehlgeschlagen: ' + (d.error || 'unbekannt'), 'error');
     }
