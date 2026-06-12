@@ -1,12 +1,10 @@
-// stripe-admin-extend-webhook v1 — erweitert den greenscan-Webhook-Endpoint um account.* Events
-// Sicher: Admin-Secret-Auth + idempotent. Cowork-Auftrag Phase-3 Audit.
-//
-// NOTE: ADMIN_SECRET ist hardcoded. Beim manuellen Aufruf X-Admin-Secret-Header mit Wert aus
-//       diesem File mitschicken. Sollte langfristig auf is_admin_user() RPC umgestellt werden.
+// stripe-admin-extend-webhook v2 — erweitert den greenscan-Webhook-Endpoint um account.* Events.
+// v29 (HL#19): Admin-Secret NICHT mehr hardcodiert (war im public Repo lesbar) — zur Laufzeit aus
+// app_settings.stripe_admin_secret gelesen (nur admin/service-role lesbar, nie im Repo).
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import Stripe from "npm:stripe@17";
+import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const ADMIN_SECRET = "a217d1a3674f91e99c1f66b25794f8301ae8a231a906bbe3b1cfd137b4bc061b";
 const REQUIRED_EVENTS = [
   "account.updated",
   "account.application.deauthorized",
@@ -14,7 +12,12 @@ const REQUIRED_EVENTS = [
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
-  if (req.headers.get("X-Admin-Secret") !== ADMIN_SECRET) return new Response("Forbidden", { status: 403 });
+
+  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const { data: _sec } = await admin.from("app_settings").select("value").eq("key", "stripe_admin_secret").maybeSingle();
+  const expectedSecret = _sec?.value || "";
+  if (!expectedSecret || req.headers.get("X-Admin-Secret") !== expectedSecret) return new Response("Forbidden", { status: 403 });
+
   const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
   if (!stripeKey) return new Response(JSON.stringify({ error: "No STRIPE_SECRET_KEY" }), { status: 503, headers: { "Content-Type": "application/json" } });
   const stripe = new Stripe(stripeKey, { apiVersion: "2024-12-18.acacia" });

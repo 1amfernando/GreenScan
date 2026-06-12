@@ -109,10 +109,12 @@ UNION ALL SELECT 'did_you_know_facts', COUNT(*) FROM did_you_know_facts;
 
 Bulk-Gen Pattern (via `pg_net.http_post` ODER direkter Edge-Fn-Call):
 ```sql
+-- v29 (HL#19): Admin-Secret NICHT mehr hardcoden — aus app_settings lesen (rotiert, nie im Repo).
 SELECT net.http_post(
   url := 'https://vowbiueikwrauuceilhc.supabase.co/functions/v1/knowledge-bulk-gen',
   body := '{"topic":"<TABLE>","count":12,"focus_topics":["<spez1>","<spez2>"]}'::jsonb,
-  headers := '{"Content-Type":"application/json","X-Admin-Secret":"a217d1a3674f91e99c1f66b25794f8301ae8a231a906bbe3b1cfd137b4bc061b"}'::jsonb,
+  headers := jsonb_build_object('Content-Type','application/json',
+             'X-Admin-Secret', (SELECT value FROM app_settings WHERE key = 'knowledge_gen_secret')),
   timeout_milliseconds := 120000
 );
 ```
