@@ -4,11 +4,24 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-06-12 · **Branch**: `claude/lucid-cerf-hm13q0` (v29.17) / `main` (v28.21) · **⚠️ Branch-Divergenz — kein gemeinsamer Ancestor, kein offener PR**
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
+
+### 2026-06-12 — Code-Daily (Fr, KW 24)
+
+- **Health:** ✅ 35/35 Edge-Fns ACTIVE · 0 Stripe-Webhook-Errors · 0 Auth-Errors (24h)
+- **Cron-Logs:** daily-push-checker ✅ 200 · engagement-push-checker ✅ 200 · weather-alert-checker ✅ 200 · knowledge-bulk-gen ✅ 200 (1 run). 403s bei stripe-bootstrap/stripe-admin-extend-webhook/knowledge-bulk-gen/i18n-translate = erwartete Secret-Rotations-Verifikation (HL#19).
+- **DB-Wachstum:** ✅ Alle 16 Tabellen über Min-Threshold. Counts: recipes=181, daily_quizzes=179, folk_lore=155, remedies=155, garden_tasks_catalog=158, garden_techniques=138, did_you_know_facts=142, plant_diseases=125, pollinators=117, plant_companion_matrix=113, harvest_preservation=105, seasonal_tips=102, garden_problems=96, seed_starting_calendar=94, swiss_climate_zones=83, seasonal_highlights=58.
+- **Smoke-Test:** 🚫 Chrome-MCP nicht verfügbar — kein Browser-Test möglich.
+- **Code-Audit:** 2× TODO/FIXME in index.html (minor).
+- **🔴 KRITISCHE BEFUNDE:**
+  1. **Branch-Divergenz ohne gemeinsamen Ancestor**: `claude/lucid-cerf-hm13q0` (v29.17) und `main` (v28.21) teilen keinen gemeinsamen Commit (`git merge-base` liefert Fehler). Kein offener PR existiert.
+  2. **Sicherheits-Fixes NICHT in Production**: Dev-Branch enthält 7× Stored-XSS-Fix + 4× RLS-Read-Leck + Self-Escalation/Badge-Spoofing-Fix + Admin-Panel + Bug-Sweep (v29.03–v29.17) — alles NICHT in `main`/Produktion.
+  3. HL#19 (ADMIN_SECRET) auf Dev-Branch bereinigt + rotiert — `main` enthält noch den alten Code (Secret ist aber bereits wertlos = rotiert).
+- **Followup:** Fernando muss entscheiden wie die Branches zusammengeführt werden. Optionen: (A) Dev-Branch als neues `main` (history-replace via force-push), (B) Cherry-Pick der Security-Commits auf main, (C) neuer Merge-Branch der beide Historien via `--allow-unrelated-histories` zusammenführt.
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
