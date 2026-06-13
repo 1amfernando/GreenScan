@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.20.20260614">
+<meta name="app-version" content="29.21.20260614">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4750,8 +4750,7 @@ html, body{ scroll-behavior: smooth; }
           <span class="settings-toggle-slider"></span>
         </label>
       </div>
-      <!-- Schriftgrösse -->
-
+      <!-- Schriftgrösse → in den Senioren-Modus integriert (v28.19) -->
       <!-- Farbe Thema -->
       <div class="settings-row">
         <div class="settings-icon" style="background:#e8f5e9;">🎨</div>
@@ -4797,50 +4796,8 @@ html, body{ scroll-behavior: smooth; }
     <!-- BENACHRICHTIGUNGEN -->
     <div class="settings-group-title" data-i18n="settings_group_notif" data-i18n-fallback="🔔 Benachrichtigungen">🔔 Benachrichtigungen</div>
     <div class="settings-card">
-      <div class="settings-row">
-        <div class="settings-icon" style="background:#fff3e0;">💧</div>
-        <div class="settings-label">
-          <div class="settings-label-title" data-i18n="settings_water_notif" data-i18n-fallback="Giess-Erinnerungen">Giess-Erinnerungen</div>
-          <div class="settings-label-sub" data-i18n="settings_water_notif_hint" data-i18n-fallback="Benachrichtigung wenn Giessen fällig">Benachrichtigung wenn Giessen fällig</div>
-        </div>
-        <label class="settings-toggle">
-          <input type="checkbox" id="toggle-water-notif" onchange="savePref('waterNotif',this.checked)">
-          <span class="settings-toggle-slider"></span>
-        </label>
-      </div>
-      <div class="settings-row">
-        <div class="settings-icon" style="background:#ffebee;">⛈️</div>
-        <div class="settings-label">
-          <div class="settings-label-title" data-i18n="settings_weather_notif" data-i18n-fallback="Wetter-Warnungen">Wetter-Warnungen</div>
-          <div class="settings-label-sub" data-i18n="settings_weather_notif_hint" data-i18n-fallback="Sturm / Frost / Hitze-Warnungen">Sturm / Frost / Hitze-Warnungen</div>
-        </div>
-        <label class="settings-toggle">
-          <input type="checkbox" id="toggle-weather-notif" onchange="savePref('weatherNotif',this.checked)" checked>
-          <span class="settings-toggle-slider"></span>
-        </label>
-      </div>
-      <div class="settings-row">
-        <div class="settings-icon" style="background:#e8f5e9;">🛒</div>
-        <div class="settings-label">
-          <div class="settings-label-title" data-i18n="settings_market_alerts" data-i18n-fallback="Marktplatz-Alerts">Marktplatz-Alerts</div>
-          <div class="settings-label-sub" data-i18n="settings_market_alerts_hint" data-i18n-fallback="Überboten, neue Angebote">Überboten, neue Angebote</div>
-        </div>
-        <label class="settings-toggle">
-          <input type="checkbox" id="toggle-market-notif" onchange="savePref('marketNotif',this.checked)" checked>
-          <span class="settings-toggle-slider"></span>
-        </label>
-      </div>
-      <div class="settings-row">
-        <div class="settings-icon" style="background:#f3e5f5;">🌿</div>
-        <div class="settings-label">
-          <div class="settings-label-title" data-i18n="settings_social_notif" data-i18n-fallback="Community-Nachrichten">Community-Nachrichten</div>
-          <div class="settings-label-sub" data-i18n="settings_social_notif_hint" data-i18n-fallback="Antworten auf deine Posts">Antworten auf deine Posts</div>
-        </div>
-        <label class="settings-toggle">
-          <input type="checkbox" id="toggle-social-notif" onchange="savePref('socialNotif',this.checked)" checked>
-          <span class="settings-toggle-slider"></span>
-        </label>
-      </div>
+      <!-- v29.21 SET-01: 4 tote In-App-Notif-Toggles (waterNotif/weatherNotif/marketNotif/socialNotif)
+           entfernt — sie schrieben ins Leere und duplizierten das echte Smart-Push-Panel weiter unten. -->
       <div class="settings-row" onclick="gsRequestNotifications()" style="cursor:pointer;">
         <div class="settings-icon" style="background:#e8f5e9;">📲</div>
         <div class="settings-label">
@@ -4949,28 +4906,8 @@ html, body{ scroll-behavior: smooth; }
           <span class="settings-toggle-slider"></span>
         </label>
       </div>
-      <div class="settings-row">
-        <div class="settings-icon" style="background:#fff8e1;">📅</div>
-        <div class="settings-label">
-          <div class="settings-label-title" data-i18n="settings_harvest_notif" data-i18n-fallback="Ernte-Benachrichtigungen">Ernte-Benachrichtigungen</div>
-          <div class="settings-label-sub" data-i18n="settings_harvest_notif_hint" data-i18n-fallback="Wann Gemüse erntebereit ist">Wann Gemüse erntebereit ist</div>
-        </div>
-        <label class="settings-toggle">
-          <input type="checkbox" id="toggle-harvest-notif" onchange="savePref('harvestNotif',this.checked)" checked>
-          <span class="settings-toggle-slider"></span>
-        </label>
-      </div>
-      <div class="settings-row">
-        <div class="settings-icon" style="background:#efebe9;">🪱</div>
-        <div class="settings-label">
-          <div class="settings-label-title" data-i18n="settings_pest_tips" data-i18n-fallback="Schädlings-Tipps">Schädlings-Tipps</div>
-          <div class="settings-label-sub" data-i18n="settings_pest_tips_hint" data-i18n-fallback="Saisonale Schädlings-Hinweise">Saisonale Schädlings-Hinweise</div>
-        </div>
-        <label class="settings-toggle">
-          <input type="checkbox" id="toggle-pest-tips" onchange="savePref('pestTips',this.checked)" checked>
-          <span class="settings-toggle-slider"></span>
-        </label>
-      </div>
+      <!-- v29.21 SET-04: tote Toggles Ernte-Benachrichtigungen (harvestNotif) + Schädlings-Tipps (pestTips)
+           entfernt — kein dahinterliegendes Feature, schrieben ins Leere. -->
     </div>
 
     <!-- KI & SCANNER -->
@@ -5016,17 +4953,8 @@ html, body{ scroll-behavior: smooth; }
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
 
-      <div class="settings-row">
-        <div class="settings-icon" style="background:#fff3e0;">⚠️</div>
-        <div class="settings-label">
-          <div class="settings-label-title" data-i18n="settings_safety" data-i18n-fallback="Sicherheits-Warnungen">Sicherheits-Warnungen</div>
-          <div class="settings-label-sub" data-i18n="settings_safety_hint" data-i18n-fallback="Giftige Arten beim Scannen hervorheben">Giftige Arten beim Scannen hervorheben</div>
-        </div>
-        <label class="settings-toggle">
-          <input type="checkbox" id="toggle-safety" onchange="savePref('safetyWarnings',this.checked)" checked>
-          <span class="settings-toggle-slider"></span>
-        </label>
-      </div>
+      <!-- v29.21 SET-02: Toggle 'Sicherheits-Warnungen' entfernt — er tat nichts (toter savePref-Key)
+           UND ein Sicherheitsfeature (Giftwarnung beim Scannen) soll nicht abschaltbar sein → immer an. -->
       <div class="settings-row">
         <div class="settings-icon" style="background:#e8f5e9;">💾</div>
         <div class="settings-label">
@@ -15489,6 +15417,8 @@ async function gsScanPersistToCloud(r) {
 // Beide alten Writer routen jetzt durch diesen Helper mit gemeinsamer window._gsCurrentScanId.
 function gsAddScanHistory(item) {
   if (!item) return;
+  // v29.21 SET-03: Datenschutz-Opt-out respektieren — wenn 'Scan-Verlauf speichern' AUS ist, nichts merken.
+  try { if (typeof userPrefs !== 'undefined' && userPrefs && userPrefs.scanHistory === false) return; } catch(_){}
   var hist = [];
   try { hist = JSON.parse(gsStore.get(SCAN_HISTORY_KEY, null) || '[]'); } catch(e){}
   // Dedup: wenn item.id bereits da → UPDATE (Field-Merge), sonst INSERT.
@@ -50919,8 +50849,8 @@ function gsFormatChf(v) {
 
 async function openTokenCostModal() {
   // v29.20 E-3: interner Admin/Mitarbeiter-Guard (Defense-in-Depth; bisher nur via .admin-only-row-Sichtbarkeit).
-  if (!(typeof gsRoleAtLeast === 'function' ? gsRoleAtLeast('staff') : (typeof gsIsAdmin==='function' && gsIsAdmin()))) {
-    if (typeof showProfileToast === 'function') showProfileToast('⛔ Nur für Admins/Mitarbeiter'); return;
+  if (!(typeof gsIsAdmin==='function' && gsIsAdmin())) { // v29.21 E-2: admin-only (Fernando-Entscheidung)
+    if (typeof showProfileToast === 'function') showProfileToast('⛔ Nur Admins'); return;
   }
   if (typeof openModal === 'function') openModal('modal-token-cost');
   else document.getElementById('modal-token-cost').classList.add('open');
@@ -57792,17 +57722,8 @@ async function gsAdminSetGlobalApiKey(newKey, providerArg, enabledArg) {
     return false;
   }
 }
-// v24.19: dummy old-call-stub — wenn alter Pfad einen Anthropic-Key direkt setzt, leite weiter
-async function _gsAdminSetGlobalApiKey_legacyStub(newKey) {
-  if (!newKey) return;
-  // Wenn alter Caller einen NICHT-Anthropic-Key übergibt, abblocken
-  if (!newKey.startsWith('sk-ant-')) {
-    showProfileToast && showProfileToast('⚠️ Bitte Anthropic-Key (sk-ant-…) eingeben.');
-    return;
-  }
-  return gsAdminSetGlobalApiKey(newKey);
-}
-// (alter Direct-Fetch-Pfad in v24.19 entfernt — RPC fn_set_global_api_key ist die Single Source of Truth)
+// v29.21 D2: toter _gsAdminSetGlobalApiKey_legacyStub entfernt (kein Aufrufer seit v24.19).
+// RPC fn_set_global_api_key ist die Single Source of Truth (via gsAdminSetGlobalApiKey).
 
 // v24.20: Dediziertes Admin-Modal für globalen API-Key — Status + One-Click-Setzen + Test
 window.gsOpenGlobalKeyAdmin = async function() {
@@ -57967,6 +57888,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v29.21', date: '14.06.2026',
+    headline: '⚙️ Einstellungen aufgeräumt + ehrlicher gemacht',
+    summary: 'Settings-Voll-Audit umgesetzt: 7 Schalter, die NICHTS taten (sie schrieben in einen ungelesenen Speicher), wurden entfernt — 6 Benachrichtigungs-Toggles, die das echte Smart-Push-Panel doppelten, plus ein wirkungsloser „Sicherheits-Warnungen"-Schalter (Giftwarnung ist jetzt fest an, statt scheinbar abschaltbar). Der „Scan-Verlauf speichern"-Schalter funktioniert jetzt WIRKLICH (respektiert dein Opt-out, Datenschutz). Dazu etwas Code-Hygiene (toter API-Key-Helfer entfernt) und die zwei in v29.20 ergänzten Admin-Guards auf admin-only eingeengt.',
+    user_summary: '⚙️ Einstellungen ehrlicher: tote Schalter raus, „Scan-Verlauf speichern" funktioniert jetzt echt, Giftwarnung ist fest an.',
+    user_items: [
+      { emoji: '🧹', text: 'Einstellungen: 7 wirkungslose Schalter entfernt (Doppel zum Smart-Push)' },
+      { emoji: '🔒', text: '„Scan-Verlauf speichern" respektiert jetzt dein Opt-out (Datenschutz)' },
+    ],
+    items: [
+      {emoji:'🧹', bold:'SET-01/04 (tote Toggles raus):', text:' Giess-Erinnerungen, Wetter-Warnungen, Marktplatz-Alerts, Community-Nachrichten, Ernte-Benachrichtigungen, Schädlings-Tipps — alle schrieben nur in userPrefs, das nirgends gelesen wird; das echte Smart-Push-Panel darunter steuert diese Kategorien real. Entfernt → keine Fake-Schalter mehr.'},
+      {emoji:'🛡️', bold:'SET-02 (Sicherheit fest an):', text:' Toggle „Sicherheits-Warnungen" war wirkungslos → entfernt; Giftwarnung beim Scannen ist nicht abschaltbar (Sicherheit).'},
+      {emoji:'🔒', bold:'SET-03 (Scan-Verlauf verdrahtet):', text:' „Scan-Verlauf speichern"-Toggle steuert jetzt wirklich, ob Scans gemerkt werden (gsAddScanHistory respektiert das Opt-out) — vorher tat der Schalter nichts (nDSG).'},
+      {emoji:'🧼', bold:'Hygiene:', text:' leerer Schriftgrößen-Kommentar raus; toter API-Key-Helfer _gsAdminSetGlobalApiKey_legacyStub entfernt; Admin-Guards (Buch-Einlesen/KI-Kosten) auf admin-only eingeengt (deine E-2-Entscheidung). 7/7 node --check + sw.js OK.'},
+    ]
+  },
   {
     v: 'v29.20', date: '14.06.2026',
     headline: '🛠️ Fernando-Fixes: Kommentar-Zähler · Moderation-Löschen · Admin-Schutz',
@@ -62725,7 +62662,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.20';
+var GS_VERSION = 'v29.21';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -75235,8 +75172,8 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
   window.openBookIngest = function() {
     // v29.20 E-1: Admin/Mitarbeiter-Gate. Ohne Guard war Buch-Einlesen über die Schnellsuche ("buch")
     // für JEDEN Nutzer erreichbar (Befehls-Palette filtert nicht nach Rolle). Admin-Funktion.
-    if (!(typeof gsRoleAtLeast === 'function' ? gsRoleAtLeast('staff') : (typeof gsIsAdmin==='function' && gsIsAdmin()))) {
-      if (typeof gsToast === 'function') gsToast('🔐 Nur für Admins/Mitarbeiter.', 'info'); return;
+    if (!(typeof gsIsAdmin==='function' && gsIsAdmin())) { // v29.21 E-2: admin-only (Fernando-Entscheidung)
+      if (typeof gsToast === 'function') gsToast('🔐 Nur für Admins.', 'info'); return;
     }
     var modal = document.getElementById('book-ingest-modal');
     if (!modal) return;
