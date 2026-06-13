@@ -57973,19 +57973,6 @@ window.GS_RELEASES = [
     ]
   },
   {
-    v: 'v29.19', date: '14.06.2026',
-    headline: '🔒 Privacy: persönliche Daten beim Geräte-Wechsel sauber geleert',
-    summary: 'Audit-Durchgang 2 (Wiring · Persistenz · i18n). Wiring app-weit sauber (0 Phantom-Buttons), i18n im Wesentlichen vollständig. Realer Fund: persönliche GPS-Track-Historie und der Community-Anzeigename wurden beim Logout/User-Wechsel auf demselben Gerät NICHT geleert → ein nachfolgender Nutzer hätte fremde Tracks/Namen sehen können. Behoben (in die Aufräum-Liste aufgenommen).',
-    user_summary: '🔒 Wenn sich auf einem Gerät jemand anderes anmeldet, werden persönliche GPS-Tracks + Anzeigename jetzt zuverlässig entfernt.',
-    user_items: [
-      { emoji: '🔒', text: 'GPS-Track-Historie + Anzeigename werden beim Konto-Wechsel geleert' },
-    ],
-    items: [
-      {emoji:'🔒', bold:'Stale-Leak (Audit-2):', text:' gs_gpx_tracks (persönliche GPS-Track-Historie) + gs_social_name (Community-Anzeigename) zu GS_USER_KEYS hinzugefügt → werden bei Logout/User-Switch geleert (gsClearUserDataKeys). Vorher persistierten sie geräteweit. Reine Cleanup-Erweiterung, kann nichts brechen.'},
-      {emoji:'✅', bold:'Audit-2-Fazit:', text:' Dead-End-UI/Wiring deterministisch geprüft (alle onclick-Handler) → 0 Phantome (alle Buttons real verdrahtet). i18n: Farm-Minigame nutzt _farmT (44×); 4 Shop-Label-Bagatellen deferred. 7/7 node --check + sw.js OK.'},
-    ]
-  },
-  {
     v: 'v29.18', date: '13.06.2026',
     headline: '🔧 Full-Stack-Audit: 3 stille Bugs + Datenverlust-Fix',
     summary: 'Frischer mehrdimensionaler Code-Audit (Duplikate · Bug-Risiken · Schema/Daten-Konsistenz) fand 8 bestätigte Probleme — die wichtigsten: (1) Garten-Tagebuch-Einträge wurden NIE in der Cloud gespeichert (DB-Regel verbot alle Tagebuch-Kategorien des Frontends). (2) Offline angelegte Karten-Funde wurden beim Login nie hochgeladen (fehlende User-Kennung) → verloren bei Cache-Löschen. (3) Im Farm-Spiel funktionierte kein einziger „Ressource kaufen"-Knopf. Plus: Live-GPS-Marker folgte der Position nicht, Marktplatz-Kontakt-Kopieren brach bei Sonderzeichen, Garten-Plan-Speichern zeigte bei Cloud-Fehler eine irreführende Meldung. Alle gefixt + verifiziert.',
