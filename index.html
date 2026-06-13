@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.18.20260613">
+<meta name="app-version" content="29.19.20260614">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -57960,6 +57960,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.19', date: '14.06.2026',
+    headline: '🔒 Privacy: GPS-Track-Verlauf bei Abmeldung leeren',
+    summary: 'Audit-Durchgang 2 (Wiring · Persistenz · i18n): Wiring (alle Buttons) und i18n bestätigt sauber, ein echter Privacy-Fund behoben — auf einem geteilten Gerät blieben persönliche GPS-Track-Aufzeichnungen + Community-Anzeigename nach dem Abmelden erhalten und waren für den nächsten Nutzer sichtbar. Beide werden jetzt bei Logout/Konto-Wechsel mitgelöscht.',
+    user_summary: '🔒 Persönliche GPS-Tracks + Anzeigename werden beim Abmelden zuverlässig entfernt (kein Übertrag auf den nächsten Nutzer auf geteilten Geräten).',
+    user_items: [
+      { emoji: '🔒', text: 'GPS-Track-Verlauf + Anzeigename werden bei Abmeldung/Konto-Wechsel geleert' },
+    ],
+    items: [
+      {emoji:'🔒', bold:'Stale-Leak-Fix:', text:' gs_gpx_tracks (persönliche GPS-Track-Historie) + gs_social_name in GS_USER_KEYS aufgenommen → gsClearUserDataKeys (Logout + User-Switch) entfernt sie. Vorher überlebten sie auf demselben Gerät zum nächsten Nutzer.'},
+      {emoji:'✅', bold:'Audit-2 sonst sauber:', text:' Deterministischer app-weiter onclick-Phantom-Sweep = 0 tote/kaputte Buttons. i18n-Stichprobe (Farm-Spiel u.a.) korrekt verdrahtet (_farmT/gsI18n). Speicher-Pfade gehärtet. 7/7 node --check + sw.js OK.'},
+    ]
+  },
+  {
     v: 'v29.18', date: '13.06.2026',
     headline: '🔧 Full-Stack-Audit: 3 stille Bugs + Datenverlust-Fix',
     summary: 'Frischer mehrdimensionaler Code-Audit (Duplikate · Bug-Risiken · Schema/Daten-Konsistenz) fand 8 bestätigte Probleme — die wichtigsten: (1) Garten-Tagebuch-Einträge wurden NIE in der Cloud gespeichert (DB-Regel verbot alle Tagebuch-Kategorien des Frontends). (2) Offline angelegte Karten-Funde wurden beim Login nie hochgeladen (fehlende User-Kennung) → verloren bei Cache-Löschen. (3) Im Farm-Spiel funktionierte kein einziger „Ressource kaufen"-Knopf. Plus: Live-GPS-Marker folgte der Position nicht, Marktplatz-Kontakt-Kopieren brach bei Sonderzeichen, Garten-Plan-Speichern zeigte bei Cloud-Fehler eine irreführende Meldung. Alle gefixt + verifiziert.',
@@ -62687,7 +62700,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.18';
+var GS_VERSION = 'v29.19';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -67570,6 +67583,9 @@ var GS_USER_KEYS = [
   'gs_notif_state','gs_lux_calib','gs_lux_calib_points','gs_light_pro10_latest',
   'gs_dead_plants','gs_social_posts','gs_my_bids','gs_purchases',
   'gs_garden_sync_queue','gs_garden_sync_last',
+  // v29.19 Stale-Leak (Audit-2): persönliche GPS-Track-Historie + Community-Anzeigename MÜSSEN bei
+  // Logout/User-Switch weg (sonst sieht der nächste User auf demselben Gerät fremde Tracks/Namen).
+  'gs_gpx_tracks','gs_social_name',
   // v29.10 SECURITY/Payment: Abo-/Entitlement-Cache MUSS bei Logout/User-Switch weg, sonst
   // sieht der nächste (Free-)User auf demselben Gerät stale Pro/Lifetime-Gates (gsIsPaid/gsAboCanUse).
   'gs_abo_plan','gs_ent_scans_per_month','gs_ent_ai_herbalist','gs_ent_offline_mode','gs_ent_recipes_export'
