@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.19.20260614">
+<meta name="app-version" content="29.20.20260614">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14430,11 +14430,13 @@ async function loadMarketFromSupabase() {
           reports: 0
         };
       });
-      // Merge: Cloud-Listings haben Vorrang, lokale Drafts (z.B. offline) ergänzen.
-      var local = [];
-      try { local = JSON.parse(gsStore.get('gs_market_listings', null)||'[]'); } catch(e){}
-      var cloudIds = new Set(cloud.map(function(l){ return l.id; }));
-      var merged = cloud.concat(local.filter(function(l){ return !cloudIds.has(l.id); }));
+      // v29.20 B-MOD-1-FIX: KEIN local-Re-Merge mehr. saveListing schreibt seit v25.30 NICHT mehr
+      // lokal (geht direkt über die marketplace-publish-Edge-Fn in die Cloud) → gs_market_listings ist
+      // reiner Cloud-Cache, KEINE echten Offline-Drafts. Der frühere Merge (local.filter(!cloudIds))
+      // mischte admin-/server-gelöschte Inserate aus dem Cache WIEDER ein → sie tauchten dauerhaft
+      // erneut auf (Fernandos Bug). Dieser Block läuft nur bei ERFOLGREICHEM Cloud-Fetch (else-if oben)
+      // → cloud ist autoritativ; bei Offline/Fehler greift der error-Branch + Cache bleibt unangetastet.
+      var merged = cloud;
       try { gsStore.set('gs_market_listings', JSON.stringify(merged)); } catch(e){}
       // v28.32 B-017 P0-FIX: In-Memory-Cache MIT aktualisieren — sonst rendert renderMarket()
       // via gsMarketLoad() weiter die stale window._gsMarket (frisch geladene Inserate erschienen
@@ -29029,7 +29031,7 @@ function renderSocialFeed() {
     var pid   = String(p.id || '');
     var dt    = timeAgo(p.created_at || p.time || Date.now());
     var emoji = TYPE_LABELS[p.type || p.category] || '🌿';
-    var cnt   = p.comment_count || (p.comments && p.comments.length) || 0;
+    var cnt   = p.comments_count || p.comment_count || (p.comments && p.comments.length) || 0; // v29.20 A-1: DB-Feld heisst comments_count (mit s)
     // v23.76: Rollen-Badge (admin/staff/expert) — überschreibt altes is_expert-Pattern
     var exp = '';
     if (p.role && typeof gsRoleBadge === 'function') {
@@ -32567,6 +32569,8 @@ async function addComment() {
       created_at:new Date().toISOString()})});
   if (!res.error) {
     if (input) input.value='';
+    // v29.20 A-2: Kommentar-Zähler im Feed sofort hochzählen (sonst erst nach nächstem Feed-Reload sichtbar)
+    try { var _pp = (typeof socialPosts!=='undefined') && socialPosts.find(function(p){ return String(p.id) === String(currentCommentPostId); }); if (_pp) { _pp.comments_count = (_pp.comments_count || 0) + 1; if (typeof renderSocialFeed==='function') renderSocialFeed(); } } catch(_){}
     openComments(currentCommentPostId);
     showProfileToast('✅ Kommentar gepostet!');
   } else { showProfileToast('❌ '+(res.error.message||'Fehler')); }
@@ -50914,6 +50918,10 @@ function gsFormatChf(v) {
 }
 
 async function openTokenCostModal() {
+  // v29.20 E-3: interner Admin/Mitarbeiter-Guard (Defense-in-Depth; bisher nur via .admin-only-row-Sichtbarkeit).
+  if (!(typeof gsRoleAtLeast === 'function' ? gsRoleAtLeast('staff') : (typeof gsIsAdmin==='function' && gsIsAdmin()))) {
+    if (typeof showProfileToast === 'function') showProfileToast('⛔ Nur für Admins/Mitarbeiter'); return;
+  }
   if (typeof openModal === 'function') openModal('modal-token-cost');
   else document.getElementById('modal-token-cost').classList.add('open');
   window._gsTokenCostState.tab = 'today';
@@ -57960,6 +57968,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.20', date: '14.06.2026',
+    headline: '🛠️ Fernando-Fixes: Kommentar-Zähler · Moderation-Löschen · Admin-Schutz',
+    summary: 'Mehrere von Fernando gemeldete Fixes (6-Agenten-Audit): (1) Community-Kommentar-Button zeigt jetzt die Kommentar-Anzahl (wie bei Likes) — las das falsche DB-Feld. (2) Admin→Moderation→Löschen wirkt jetzt SOFORT + dauerhaft im Marktplatz/Feed — vorher löschte die DB korrekt, aber der lokale Cache holte das gelöschte Inserat wieder zurück. (3) „Buch hochladen" + KI-Kosten sind jetzt admin-geschützt (waren für normale Nutzer über die Suche erreichbar). (4) Globaler-API-Key-Speichern (Admin) funktioniert wieder (fehlender DB-Grant). Abo/Pro/Lifetime-Freischaltung wurde end-to-end als robust verifiziert.',
+    user_summary: '🛠️ Kommentar-Anzahl wird angezeigt · gelöschte Inhalte verschwinden wirklich · Admin-Funktionen sind vor normalen Nutzern geschützt.',
+    user_items: [
+      { emoji: '💬', text: 'Community: Anzahl Kommentare steht jetzt am Kommentar-Button' },
+      { emoji: '🗑️', text: 'Admin-Moderation: Gelöschtes verschwindet sofort + dauerhaft' },
+    ],
+    items: [
+      {emoji:'💬', bold:'A-1/A-2 Kommentar-Zähler:', text:' renderSocialFeed las p.comment_count, das DB/View-Feld heisst comments_count (mit s) → Zähler war immer 0. Gefixt + optimistisches Hochzählen nach dem Posten.'},
+      {emoji:'🗑️', bold:'B-MOD Moderation-Löschen:', text:' Backend löschte korrekt (als JWT verifiziert), aber loadMarketFromSupabase merge-te das gelöschte Inserat aus dem LS-Cache WIEDER ein → merged=cloud (saveListing schreibt seit v25.30 nur Cloud). + gsAdminModerate zieht die Quelle nach jeder Aktion frisch.'},
+      {emoji:'🔐', bold:'E-1/E-3 Admin-Schutz:', text:' openBookIngest (über Schnellsuche erreichbar) + openTokenCostModal bekamen internen Admin/Mitarbeiter-Guard. Normale Nutzer erreichen sie nicht mehr.'},
+      {emoji:'🔑', bold:'D5 Admin-Key-Speichern:', text:' fn_set_global_api_key fehlte der authenticated-Grant → Admin-Button war tot. Grant erteilt (RPC self-guarded; Nicht-Admin weiter abgelehnt, JWT-verifiziert).'},
+      {emoji:'✅', bold:'F Abo robust:', text:' v_user_entitlements + alle FE-Gates als JWT verifiziert (comp/free/lifetime), Quota honoriert comp. Keine Fixes nötig. 7/7 node --check + sw.js OK.'},
+    ]
+  },
+  {
     v: 'v29.19', date: '14.06.2026',
     headline: '🔒 Privacy: GPS-Track-Verlauf bei Abmeldung leeren',
     summary: 'Audit-Durchgang 2 (Wiring · Persistenz · i18n): Wiring (alle Buttons) und i18n bestätigt sauber, ein echter Privacy-Fund behoben — auf einem geteilten Gerät blieben persönliche GPS-Track-Aufzeichnungen + Community-Anzeigename nach dem Abmelden erhalten und waren für den nächsten Nutzer sichtbar. Beide werden jetzt bei Logout/Konto-Wechsel mitgelöscht.',
@@ -62700,7 +62725,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.19';
+var GS_VERSION = 'v29.20';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -70541,7 +70566,16 @@ async function gsAdminModerate(type, id, action) {
   try {
     var r = await sbFetch('/rest/v1/rpc/fn_admin_moderate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_type: type, p_id: id, p_action: action }) });
     var res = r && r.data;
-    if (res && res.ok) { if (typeof gsToast==='function') gsToast('✅ ' + (action==='delete'?'Gelöscht':action==='hide'?'Versteckt':'Eingeblendet'), 'success'); }
+    if (res && res.ok) {
+      if (typeof gsToast==='function') gsToast('✅ ' + (action==='delete'?'Gelöscht':action==='hide'?'Versteckt':'Eingeblendet'), 'success');
+      // v29.20 B-MOD-2: betroffene Quelle frisch aus der Cloud ziehen, damit Löschen/Verstecken/
+      // Einblenden SOFORT + dauerhaft im Marktplatz/Feed wirkt (vorher nur im Admin-Panel gerefresht
+      // → gelöschtes Inserat blieb im Marktplatz sichtbar). Re-Pull reflektiert die DB-Wahrheit (RLS).
+      try {
+        if (type === 'listing' && typeof loadMarketFromSupabase === 'function') loadMarketFromSupabase();
+        else if ((type === 'post' || type === 'comment') && typeof loadSocialPosts === 'function') loadSocialPosts(true);
+      } catch(_){}
+    }
     else { if (typeof gsToast==='function') gsToast('⚠️ ' + ((res && res.error) || 'Fehler'), 'error'); }
   } catch(e) { if (typeof gsToast==='function') gsToast('⚠️ ' + (e && e.message || 'Fehler'), 'error'); }
   await _gsAdminRefreshSection('gs-admin-moderation-sec', gsAdminFetchModerationFeed, _gsAdminModerationHtml);
@@ -75199,6 +75233,11 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
   }
 
   window.openBookIngest = function() {
+    // v29.20 E-1: Admin/Mitarbeiter-Gate. Ohne Guard war Buch-Einlesen über die Schnellsuche ("buch")
+    // für JEDEN Nutzer erreichbar (Befehls-Palette filtert nicht nach Rolle). Admin-Funktion.
+    if (!(typeof gsRoleAtLeast === 'function' ? gsRoleAtLeast('staff') : (typeof gsIsAdmin==='function' && gsIsAdmin()))) {
+      if (typeof gsToast === 'function') gsToast('🔐 Nur für Admins/Mitarbeiter.', 'info'); return;
+    }
     var modal = document.getElementById('book-ingest-modal');
     if (!modal) return;
     modal.style.display = 'flex';
