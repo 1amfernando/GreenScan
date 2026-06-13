@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.17.20260612">
+<meta name="app-version" content="29.18.20260613">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19828,6 +19828,9 @@ function contactSeller(id) {
     return;
   }
   // Sonst: Kontakt anzeigen
+  // v29.18 BUG-2 (HL#12): Kontakt via State-Bridge — _esc escaped kein " → onclick brach bei " im Kontakt
+  // + kopierte &amp; statt & (HTML-escaped). Roh-Wert global ablegen, onclick liest ihn (kopiert exakt).
+  window._gsMktCopyContact = l.contact;
   var mc = document.getElementById('modal-content');
   if (mc) {
     mc.innerHTML = '<div style="padding:16px;">' +
@@ -19836,7 +19839,7 @@ function contactSeller(id) {
         '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:4px;">' + (typeof _gsProfileChip==='function' ? _gsProfileChip(l.sellerId, l.sellerName||'Anbieter') : _esc(l.sellerName||'Anbieter')) + '</div>' +
         '<div style="font-size:15px;font-weight:800;color:var(--text);word-break:break-all;">' + _esc(l.contact) + '</div>' +
       '</div>' +
-      '<button onclick="navigator.clipboard&&navigator.clipboard.writeText(\'' + _esc(l.contact).replace(/'/g,"\\'") + '\');gsHaptic(\'success\');showProfileToast(\'Kopiert ✅\',\'success\');" style="width:100%;padding:11px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📋 Kontakt kopieren</button>' +
+      '<button onclick="navigator.clipboard&&navigator.clipboard.writeText(window._gsMktCopyContact||\'\');gsHaptic(\'success\');showProfileToast(\'Kopiert ✅\',\'success\');" style="width:100%;padding:11px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📋 Kontakt kopieren</button>' +
       '</div>';
     openModal('detail-modal');
   }
@@ -43220,7 +43223,12 @@ window.gsMapFinds = {
     for (var i = 0; i < items.length; i++) {
       var m = items[i];
       try {
+        // v29.18 SCHEMA-02: user_id war im Offline-Nachzieh-Payload vergessen (NOT NULL + RLS with_check
+        // user_id=auth.uid()) → jeder Offline-Fund-Upload 400, Funde gingen bei Cache-Clear verloren.
+        var __uluid = (typeof gsStore !== 'undefined' && gsStore.get) ? gsStore.get('gs_sb_uid', null) : null;
+        if (!__uluid) { continue; }
         var payload = {
+          user_id: __uluid,
           species_name: m.name || 'Fundort',
           category: catMap[m.cat] || 'sonstiges',
           lat: Number(m.lat), lng: Number(m.lng),
@@ -46285,25 +46293,18 @@ function saveUserLocation(locObj) {
 function gsBroadcastLocationChange() {
   // Home-Wetter
   if (typeof loadHomeWeather === 'function') { try { loadHomeWeather(); } catch(e){} }
-  // Garten-Wetter
-  if (typeof gsLoadGardenWeather === 'function') { try { gsLoadGardenWeather(); } catch(e){} }
+  // Garten-Wetter (v27.03 HL#9: echter Name ist gsLoadGardenWeatherAlerts) + Karten-Funde
   if (typeof loadGardenWeather === 'function') { try { loadGardenWeather(); } catch(e){} }
-  if (typeof renderGardenWeatherBanner === 'function') { try { renderGardenWeatherBanner(); } catch(e){} }
-  // v27.03 Hard-Lesson #9: echter Name ist gsLoadGardenWeatherAlerts (gsLoadGardenWeather existierte nie
-  // → Wetter-Alerts refreshten bisher NICHT bei Standort-Wechsel). + Karten-Funde neu laden.
   if (typeof gsLoadGardenWeatherAlerts === 'function') { try { gsLoadGardenWeatherAlerts(); } catch(e){} }
   if (typeof gsLoadMarkersFromCloud === 'function') { try { gsLoadMarkersFromCloud(); } catch(e){} }
-  // Farm-Wetter
-  if (typeof gsLoadFarmWeather === 'function') { try { gsLoadFarmWeather(); } catch(e){} }
-  // Saison / Blühkalender (regional)
-  if (typeof renderBluehkalender === 'function') { try { renderBluehkalender(); } catch(e){} }
-  if (typeof renderSaekalender === 'function') { try { renderSaekalender(); } catch(e){} }
-  // Moon-Calendar
-  if (typeof renderMoonCalendar === 'function') { try { renderMoonCalendar(); } catch(e){} }
+  // v29.18 DUP-02: tote Phantom-Refresh-Hooks (HL#9) entfernt — gsLoadGardenWeather/renderGardenWeatherBanner/
+  // gsLoadFarmWeather/renderBluehkalender/renderSaekalender/renderMoonCalendar existier(t)en nie (typeof-Guard
+  // schluckte sie still). Mond-Widget hat einen echten In-Place-Refresher:
+  if (typeof renderMoonWidget === 'function') { try { renderMoonWidget(); } catch(e){} }
   // Frost-Warnung
   if (typeof gsCheckFrostWarning === 'function') { try { gsCheckFrostWarning(); } catch(e){} }
-  // Map
-  if (typeof gsMapRefreshUserLocation === 'function') { try { gsMapRefreshUserLocation(); } catch(e){} }
+  // Map: User-Marker neu setzen (v29.18 DUP-01: gsMapRefreshUserLocation existierte nie → gsSetUserMarker)
+  if (typeof gsSetUserMarker === 'function' && typeof userLocation !== 'undefined' && userLocation) { try { gsSetUserMarker(userLocation.lat, userLocation.lon); } catch(e){} }
   // Allen anderen Screens signalisieren
   try { window.dispatchEvent(new CustomEvent('gs-location-changed', {detail: userLocation})); } catch(e){}
   // Toast feedback
@@ -46655,7 +46656,8 @@ function gsLiveTrackingStart() {
             userLocation.lat = lat; userLocation.lon = lon;
             localStorage.setItem('gs_user_location', JSON.stringify(userLocation));
             localStorage.setItem('gs_user_location_ts', String(Date.now()));
-            if (typeof gsMapRefreshUserLocation === 'function') gsMapRefreshUserLocation();
+            // v29.18 DUP-01: gsMapRefreshUserLocation existierte nie (HL#9) → Live-GPS-Marker folgte nicht.
+            if (typeof gsSetUserMarker === 'function') { try { gsSetUserMarker(lat, lon); } catch(_){} }
           }
         } catch(e){}
       },
@@ -50305,6 +50307,9 @@ async function gsPPsavePlan() {
           return;
         }
         console.warn('[gsPPsavePlan] cloud-sync failed:', res.error);
+        // v29.18 BUG-3: eingeloggter User + Cloud-Fehler → ehrliche Meldung statt irreführendem
+        // "(Login für Cloud-Sync)"-Fallback. Lokaler Save ist bereits erfolgt (kein Datenverlust).
+        if (typeof showProfileToast === 'function') { showProfileToast({title:'⚠️ Nur auf diesem Gerät', body:'Cloud-Sync fehlgeschlagen — Plan ist lokal gesichert, erneuter Versuch beim nächsten Sync', kind:'warning', duration:4500}); return; }
       }
     }
   } catch(e) { console.warn('[gsPPsavePlan] cloud-sync exception:', e); }
@@ -57120,7 +57125,7 @@ function openFarmShop() {
   ];
   resources.forEach(r => {
     const canAfford = farmState.coins >= r.coins;
-    html += '<div class="shop-item" onclick="buyResource(\'' + JSON.stringify(r).replace(/'/g,"") + '\')" style="' + (!canAfford?'opacity:.55;':'') + '">' +
+    html += '<div class="shop-item" onclick="buyResource(\'' + JSON.stringify(r).replace(/'/g,"\\'").replace(/"/g,'&quot;') + '\')" style="' + (!canAfford?'opacity:.55;':'') + '">' +
       '<span class="shop-item-emoji">' + r.emoji + '</span>' +
       '<div class="shop-item-name">' + r.name + '</div>' +
       '<div class="shop-item-price">' + r.coins + ' 🌾</div></div>';
@@ -57954,6 +57959,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v29.18', date: '13.06.2026',
+    headline: '🔧 Full-Stack-Audit: 3 stille Bugs + Datenverlust-Fix',
+    summary: 'Frischer mehrdimensionaler Code-Audit (Duplikate · Bug-Risiken · Schema/Daten-Konsistenz) fand 8 bestätigte Probleme — die wichtigsten: (1) Garten-Tagebuch-Einträge wurden NIE in der Cloud gespeichert (DB-Regel verbot alle Tagebuch-Kategorien des Frontends). (2) Offline angelegte Karten-Funde wurden beim Login nie hochgeladen (fehlende User-Kennung) → verloren bei Cache-Löschen. (3) Im Farm-Spiel funktionierte kein einziger „Ressource kaufen"-Knopf. Plus: Live-GPS-Marker folgte der Position nicht, Marktplatz-Kontakt-Kopieren brach bei Sonderzeichen, Garten-Plan-Speichern zeigte bei Cloud-Fehler eine irreführende Meldung. Alle gefixt + verifiziert.',
+    user_summary: '🔧 Stille Fehler behoben: Garten-Tagebuch speichert wieder, Offline-Funde gehen nicht verloren, Farm-Shop-Käufe funktionieren, Live-GPS-Marker folgt.',
+    user_items: [
+      { emoji: '📔', text: 'Garten-Tagebuch-Einträge werden wieder zuverlässig gespeichert' },
+      { emoji: '📍', text: 'Offline angelegte Funde syncen jetzt beim Login (kein Verlust mehr)' },
+      { emoji: '🛒', text: 'Farm-Shop: Ressourcen-Kauf-Buttons funktionieren wieder' },
+    ],
+    items: [
+      {emoji:'📔', bold:'SCHEMA-01 (P1, Datenverlust):', text:' garden_diary_tag_check verbot ALLE Frontend-Tagebuch-Tags (general/pest/harvest…), DB erlaubte nur saat/pflanz/… → jeder Eintrag scheiterte silent (23514), garden_diary=0 Zeilen. Fix: CHECK auf FE-Vokabular erweitert (Migration). Als JWT verifiziert.'},
+      {emoji:'📍', bold:'SCHEMA-02 (P1, Datenverlust):', text:' Offline-Funde-Nachzieh-Upload (_uploadLocalOnly) ließ user_id weg (NOT NULL + RLS) → 400 silent → Funde gingen bei Cache-Clear verloren (v27.01-Bug im Nebenpfad). Fix: user_id ergänzt.'},
+      {emoji:'🛒', bold:'BUG-1 (P1) + 5 weitere:', text:' Farm-Shop buyResource JSON-in-onclick (HL#12, " → &quot;); Live-GPS-Marker gsMapRefreshUserLocation→gsSetUserMarker (HL#9-Phantom, 2 Sites); Kontakt-Kopieren via State-Bridge (HL#12); Plan-Save Cloud-Fehler ehrliche Meldung; tote Phantom-Refresh-Hooks + Kamera-Fallbacks bereinigt. 7/7 node --check + sw.js OK.'},
+    ]
+  },
   {
     v: 'v29.17', date: '12.06.2026',
     headline: '🛡️ Moderation: User-Archiv von Admin-Hide getrennt',
@@ -62666,7 +62687,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.17';
+var GS_VERSION = 'v29.18';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -71667,9 +71688,8 @@ function startCamera() {
     window.gsWakeLockAcquire && window.gsWakeLockAcquire();
   } catch(e){}
   if (typeof tryStartCamera === 'function') return tryStartCamera();
-  if (typeof initCameraStream === 'function') return initCameraStream();
-  if (typeof gsStartCamera === 'function') return gsStartCamera();
-  if (typeof initCamera === 'function') return initCamera();
+  // v29.18 DUP-03: tote Phantom-Fallbacks (initCameraStream/gsStartCamera/initCamera, alle DEF=0) entfernt —
+  // tryStartCamera oben returnt; darunter folgt der echte getUserMedia-Direkt-Fallback.
   // Fallback: Direkt getUserMedia aufrufen
   var vid = document.getElementById('video');
   if (!vid) return;
