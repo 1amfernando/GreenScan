@@ -65,7 +65,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.21.20260614">
+<meta name="app-version" content="29.22.20260614">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4648,6 +4648,15 @@ html, body{ scroll-behavior: smooth; }
         </div>
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
+      <!-- v29.22 SET-05: 'Mein Plan' aus der Datenschutz-Gruppe hierher in die Abo-Karte verschoben (Struktur) -->
+      <div class="settings-row" id="settings-myplan-row" style="cursor:pointer;" onclick="if(typeof gsOpenMyPlan==='function')gsOpenMyPlan()">
+        <div class="settings-icon" style="background:#ede7f6;">💎</div>
+        <div class="settings-label">
+          <div class="settings-label-title" data-i18n="settings_myplan" data-i18n-fallback="Mein Plan">Mein Plan</div>
+          <div class="settings-label-sub" data-i18n="settings_myplan_hint" data-i18n-fallback="Dein Tarif &amp; deine heutigen Frei-Kontingente">Dein Tarif &amp; deine heutigen Frei-Kontingente</div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);">›</div>
+      </div>
       <div class="settings-row" id="settings-portal-row" onclick="gsOpenBillingPortal()" style="cursor:pointer;display:none;">
         <div class="settings-icon" style="background:#e3f2fd;">💳</div>
         <div class="settings-label">
@@ -5006,15 +5015,6 @@ html, body{ scroll-behavior: smooth; }
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_lina" data-i18n-fallback="Lina — dein Garten-Coach">Lina — dein Garten-Coach</div>
           <div class="settings-label-sub" data-i18n="settings_lina_hint" data-i18n-fallback="Stell deine Garten- &amp; Natur-Fragen — kostenlos">Stell deine Garten- &amp; Natur-Fragen — kostenlos</div>
-        </div>
-        <div style="font-size:18px;color:var(--muted);">›</div>
-      </div>
-      <!-- v28.05: Mein Plan (Tier + Tagesquota — warm, kein Verkaufsdruck) -->
-      <div class="settings-row" id="settings-myplan-row" style="cursor:pointer;" onclick="if(typeof gsOpenMyPlan==='function')gsOpenMyPlan()">
-        <div class="settings-icon" style="background:#ede7f6;">💎</div>
-        <div class="settings-label">
-          <div class="settings-label-title" data-i18n="settings_myplan" data-i18n-fallback="Mein Plan">Mein Plan</div>
-          <div class="settings-label-sub" data-i18n="settings_myplan_hint" data-i18n-fallback="Dein Tarif &amp; deine heutigen Frei-Kontingente">Dein Tarif &amp; deine heutigen Frei-Kontingente</div>
         </div>
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
@@ -57889,6 +57889,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.22', date: '14.06.2026',
+    headline: '⚙️ Einstellungen: „Mein Plan" in die Abo-Karte',
+    summary: 'Kleiner Struktur-Feinschliff: Die Zeile „Mein Plan" (dein Tarif + heutige Frei-Kontingente) war in der Datenschutz-Gruppe versteckt — sie steht jetzt logisch in der Abo & Premium-Karte oben bei den anderen Abo-Zeilen. Ein zusammenhängender Abo-Block statt verstreut.',
+    user_summary: '⚙️ „Mein Plan" steht jetzt oben bei den Abo-Einstellungen, nicht mehr versteckt unter Datenschutz.',
+    user_items: [
+      { emoji: '💎', text: '„Mein Plan" in die Abo & Premium-Karte verschoben' },
+    ],
+    items: [
+      {emoji:'⚙️', bold:'SET-05:', text:' settings-myplan-row aus der Datenschutz-Gruppe in die Abo-Karte (nach der Plan-Zeile) verschoben — Abo-bezogene Einstellungen jetzt an einem Ort. Reines Verschieben (Handler unverändert). 7/7 node --check + sw.js OK. Abschluss des Settings-Audits.'},
+    ]
+  },
+  {
     v: 'v29.21', date: '14.06.2026',
     headline: '⚙️ Einstellungen aufgeräumt + ehrlicher gemacht',
     summary: 'Settings-Voll-Audit umgesetzt: 7 Schalter, die NICHTS taten (sie schrieben in einen ungelesenen Speicher), wurden entfernt — 6 Benachrichtigungs-Toggles, die das echte Smart-Push-Panel doppelten, plus ein wirkungsloser „Sicherheits-Warnungen"-Schalter (Giftwarnung ist jetzt fest an, statt scheinbar abschaltbar). Der „Scan-Verlauf speichern"-Schalter funktioniert jetzt WIRKLICH (respektiert dein Opt-out, Datenschutz). Dazu etwas Code-Hygiene (toter API-Key-Helfer entfernt) und die zwei in v29.20 ergänzten Admin-Guards auf admin-only eingeengt.',
@@ -62662,7 +62674,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.21';
+var GS_VERSION = 'v29.22';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
