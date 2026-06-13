@@ -1,7 +1,10 @@
 // Stripe Checkout Session creator
-// v6 (2026-05-13): Trial-Cap von max 30 auf max 7 Tage (Fernando-Wunsch). Default-Trial 7 wenn first-sub und kein expliziter trial_days gesetzt.
-// v5 (2026-05-10): trial_days-Support fuer First-Subscription
-// v4 (2026-05-09): Schema-Fix interval/is_launch_offer, green-scan.ch URLs
+// v8 (2026-06-14): automatic_payment_methods statt expliziter Liste — eine im Dashboard NICHT aktivierte
+//   Methode bricht den Checkout nicht mehr ab; aktivierte Methoden (Karte, TWINT für CHF, …) erscheinen
+//   automatisch ohne Code-Änderung. Früher: payment_method_types ['card','twint'] → wenn TWINT nicht
+//   aktiviert war, schlug der GANZE CHF-Checkout fehl. payment_method_collection='always' für Abos
+//   (Karte auch während Trial hinterlegen → nahtlose Verlängerung).
+// v6 (2026-05-13): Trial-Cap max 7 Tage. v5: trial_days. v4: Schema-Fix interval/is_launch_offer.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import Stripe from "npm:stripe@17";
 import { createClient } from "jsr:@supabase/supabase-js@2";
@@ -12,8 +15,8 @@ const corsHeaders = {
 };
 
 const APP_URL = "https://green-scan.ch";
-const MAX_TRIAL_DAYS = 7;        // v6: gecappt von 30 auf 7
-const DEFAULT_TRIAL_DAYS = 7;    // v6: Default fuer First-Sub
+const MAX_TRIAL_DAYS = 7;
+const DEFAULT_TRIAL_DAYS = 7;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -67,11 +70,6 @@ Deno.serve(async (req) => {
                        || (priceRec?.metadata as any)?.is_launch_offer === "1";
     const mode = interval === "lifetime" ? "payment" : "subscription";
 
-    const currency = (priceRec?.currency || "chf").toLowerCase();
-    let payment_method_types: string[] = ["card"];
-    if (currency === "chf") payment_method_types.push("twint");
-    if (currency === "eur") payment_method_types.push("sepa_debit");
-
     // v6: Trial-Logic — first-sub-only, Cap auf MAX_TRIAL_DAYS (7)
     let safeTrialDays = 0;
     if (mode === "subscription") {
@@ -85,7 +83,6 @@ Deno.serve(async (req) => {
         if (typeof trial_days === "number" && trial_days > 0) {
           safeTrialDays = Math.min(trial_days, MAX_TRIAL_DAYS);
         } else if (trial_days === undefined || trial_days === null) {
-          // Default: 7 Tage Trial fuer alle First-Subs (v6 Fernando-Wunsch)
           safeTrialDays = DEFAULT_TRIAL_DAYS;
         }
       }
@@ -106,10 +103,12 @@ Deno.serve(async (req) => {
       metadata: { supabase_user_id: user.id, claim_launch_offer: claim_launch_offer ? "1" : "0" },
       allow_promotion_codes: true,
       locale: "de",
-      payment_method_types,
+      // v8: Stripe zeigt automatisch alle im Dashboard aktivierten + passenden Methoden (Karte immer,
+      // TWINT bei CHF sobald aktiviert, SEPA bei EUR, …). Eine inaktive Methode bricht den Checkout NICHT ab.
+      automatic_payment_methods: { enabled: true },
     };
-
-    if (payment_method_types.includes("sepa_debit") && mode === "subscription") {
+    // Abos: Zahlungsmethode auch bei Gratis-Trial hinterlegen → nahtlose Verlängerung nach Trial-Ende.
+    if (mode === "subscription") {
       sessionParams.payment_method_collection = "always";
     }
 
@@ -119,7 +118,7 @@ Deno.serve(async (req) => {
       url: session.url,
       session_id: session.id,
       mode,
-      payment_methods: payment_method_types,
+      payment_methods: "automatic",
       trial_days: safeTrialDays,
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {

@@ -81,4 +81,4 @@ User-agent: *
 Allow: /
 Crawl-delay: 10
 
-Sitemap: https://greenscan.ch/sitemap.xml
+Sitemap: https://green-scan.ch/sitemap.xml

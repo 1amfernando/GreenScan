@@ -7,6 +7,8 @@
 <link rel="alternate" hreflang="fr" href="https://green-scan.ch/?lang=fr">
 <link rel="alternate" hreflang="it" href="https://green-scan.ch/?lang=it">
 <link rel="alternate" hreflang="x-default" href="https://green-scan.ch/">
+<!-- v29.23: explizite Canonical-URL (vorher nur hreflang) — vereinheitlicht SEO-Signal auf green-scan.ch -->
+<link rel="canonical" href="https://green-scan.ch/">
 <!-- v24.34: Echte Icon-Files (statt nur data-URI) für maximale PWA-Installability -->
 <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
@@ -65,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.22.20260614">
+<meta name="app-version" content="29.23.20260614">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -57889,6 +57891,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.23', date: '14.06.2026',
+    headline: '✅ Checkout robuster + SEO/Launch-Feinschliff',
+    summary: 'Zahlungs-Checkout abgesichert: Stripe zeigt jetzt automatisch alle aktivierten Methoden (Karte immer, TWINT für CHF sobald im Dashboard aktiviert) — eine nicht-aktivierte Methode kann den Checkout nicht mehr blockieren (früher brach der ganze CHF-Checkout ab, wenn TWINT fehlte). Bei Abos wird die Karte auch während der Gratis-Testphase hinterlegt, damit die Verlängerung nahtlos läuft. Dazu Launch-Readiness-Durchsicht: Sitemap, robots.txt und die Installations-Anleitung zeigten versehentlich auf die falsche Domain (greenscan.ch statt green-scan.ch) — korrigiert; zusätzlich eine explizite Canonical-URL ergänzt, damit Suchmaschinen klar eine Adresse sehen.',
+    user_summary: '✅ Bezahlen robuster: alle aktiven Zahlungsmethoden erscheinen automatisch. Plus SEO-Korrekturen für den Launch.',
+    user_items: [
+      { emoji: '💳', text: 'Checkout zeigt automatisch alle aktivierten Zahlungsmethoden (Karte, TWINT…)' },
+      { emoji: '🔁', text: 'Abo-Karte auch im Trial hinterlegt → nahtlose Verlängerung' },
+      { emoji: '🔎', text: 'Suchmaschinen-Adresse vereinheitlicht (green-scan.ch)' },
+    ],
+    items: [
+      {emoji:'💳', bold:'Checkout:', text:' stripe-checkout v8 deployed — automatic_payment_methods statt expliziter [card,twint]-Liste. Inaktive Methode bricht Checkout nicht mehr ab; aktivierte erscheinen ohne Code-Change. payment_method_collection=always für Abos (Karte im Trial hinterlegt). Source ins Repo gespiegelt.'},
+      {emoji:'🔎', bold:'SEO L-1:', text:' sitemap.xml (7×) + robots.txt + install.html (3×) nutzten falsch greenscan.ch statt canonical green-scan.ch (og:url/hreflang/Stripe). Cross-Domain-Sitemap → Google verwirft Einträge. Korrigiert. Kontakt-Mails (separate Mail-Domain) bewusst unangetastet.'},
+      {emoji:'🔎', bold:'SEO L-2:', text:' explizites <link rel="canonical" href="https://green-scan.ch/"> ergänzt (vorher nur hreflang).'},
+      {emoji:'🩺', bold:'Launch-Check:', text:' Manifest, SW-Precache+offline, Onboarding, Consent (revDSG), Error-Telemetrie (window error+unhandledrejection→client_errors), _headers CSP/HSTS verifiziert — alle solide. 7/7 node --check + sw.js OK.'},
+    ]
+  },
+  {
     v: 'v29.22', date: '14.06.2026',
     headline: '⚙️ Einstellungen: „Mein Plan" in die Abo-Karte',
     summary: 'Kleiner Struktur-Feinschliff: Die Zeile „Mein Plan" (dein Tarif + heutige Frei-Kontingente) war in der Datenschutz-Gruppe versteckt — sie steht jetzt logisch in der Abo & Premium-Karte oben bei den anderen Abo-Zeilen. Ein zusammenhängender Abo-Block statt verstreut.',
@@ -62674,7 +62693,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.22';
+var GS_VERSION = 'v29.23';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
