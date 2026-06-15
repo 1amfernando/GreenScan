@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.28.20260615">
+<meta name="app-version" content="29.29.20260615">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12881,7 +12881,8 @@ function gsToast(msg, type){
   try {
     if (typeof showProfileToast === 'function') return showProfileToast(msg, type || 'info');
   } catch(_){}
-  try { alert(msg); } catch(__){}
+  // v29.29 (Audit-P3): Objekt-Form im alert-Fallback in Text wandeln (sonst "[object Object]").
+  try { alert((msg && typeof msg === 'object') ? ((msg.title ? msg.title + ' · ' : '') + (msg.body || msg.message || '')) : msg); } catch(__){}
 }
 window.gsToast = gsToast;
 
@@ -15643,9 +15644,14 @@ async function gsLoadSpeciesImage(spId, lat, cid){
         var primary = rows.filter(function(r){ return r.is_primary; })[0] || rows[0];
         var c = document.getElementById(cid);
         if (!c) return;
-        var attr = primary.attribution ? ('<div style="font-size:9.5px;color:var(--muted);margin-top:3px;text-align:right;">📸 ' + String(primary.attribution).replace(/</g,'&lt;') + '</div>') : '';
+        // v29.29 (Audit-P3): kanonisches escHtml statt manuellem 1-Zeichen-replace (escapt & < > "
+        // → zukunftssicher gegen Attribut-/Kontext-Wechsel; matcht Rest der App).
+        var _esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s==null?'':s).replace(/[<>&"]/g,function(c){return{'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+        var _u = _esc(String(primary.url || ''));
+        var _a = _esc(String(primary.attribution || ''));
+        var attr = primary.attribution ? ('<div style="font-size:9.5px;color:var(--muted);margin-top:3px;text-align:right;">📸 ' + _a + '</div>') : '';
         c.style.cssText = '';
-        c.innerHTML = '<img src="' + String(primary.url).replace(/"/g,'&quot;') + '" alt="" style="width:100%;height:170px;object-fit:cover;border-radius:12px;display:block;" onerror="this.parentElement.style.display=\'none\'">' + attr;
+        c.innerHTML = '<img src="' + _u + '" alt="" style="width:100%;height:170px;object-fit:cover;border-radius:12px;display:block;" onerror="this.parentElement.style.display=\'none\'">' + attr;
         return;
       }
     }
@@ -58058,6 +58064,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.29', date: '15.06.2026',
+    headline: '🔒 Voll-Audit + Härtung — Foto-Beiträge & Fundorte privat, Code zukunftssicher',
+    summary: 'Eine erneute Sicherheits-Durchsicht über alles, was diese Woche dazukam (Arten-Fotos, Cloud-Sync), mit einem Live-Red-Team gegen die neuen Server-Funktionen. Ergebnis: keine echte Lücke in den Funktionen (alle Angriffe abgewehrt — Fremd-Zugriff, Moderations-Umgehung, Rechte-Eskalation blockiert). Ein Punkt wurde gehärtet: zwei Foto-Speicher (Arten-Foto-Beiträge inkl. noch-nicht-geprüfter, und Karten-Fundort-Fotos) ließen sich von außen auflisten/durchstöbern — das ist jetzt zu (nur noch der Besitzer sieht die Liste; das Anzeigen freigegebener Bilder funktioniert unverändert). Dazu etwas Code-Politur (einheitliches Escaping).',
+    user_summary: '🔒 Sicherheits-Audit bestanden: deine Foto-Beiträge und Fundort-Fotos sind jetzt privat (nicht mehr von außen auflistbar).',
+    user_items: [
+      { emoji: '🛡️', text: 'Red-Team-Audit der neuen Funktionen: alle Angriffe abgewehrt' },
+      { emoji: '🔐', text: 'Foto-Beiträge & Fundort-Fotos nicht mehr von außen auflistbar' },
+      { emoji: '🧹', text: 'Code-Härtung: einheitliches Escaping (zukunftssicher)' },
+    ],
+    items: [
+      {emoji:'🔐', bold:'P2 Storage-Listing (Migration v29_29 LIVE, HL#19):', text:' species-images (inkl. pending Beiträge) + map-find-photos erlaubten anon-LISTING → fremde/un-moderierte Dateien enumerierbar (red-team-bestätigt). Fix: SELECT-Policy owner-only ((storage.foldername(name))[1]=auth.uid); Bucket bleibt public → CDN-GET bekannter URLs (Anzeige) unverändert. anon-Listing jetzt 0.'},
+      {emoji:'🧹', bold:'P3 escHtml-Idiomatik:', text:' gsLoadSpeciesImage nutzt jetzt das kanonische escHtml (& < > ") statt manuellem 1-Zeichen-replace — zukunftssicher gegen Kontext-Wechsel (nicht aktuell exploitierbar, aber Best-Practice).'},
+      {emoji:'🧹', bold:'P3 gsToast-Fallback:', text:' alert-Fallback wandelt Objekt-Toasts in Text statt „[object Object]" (unerreichbarer Edge-Case, defensiv).'},
+      {emoji:'✅', bold:'Audit-Ergebnis (3-Agenten + Red-Team):', text:' XSS-UGC: kein exploitable Vektor (admin-queue + detail-render sauber escaped). Wiring: alle 18 Session-Funktionen ohne Phantom-Calls/HL#12. Red-Team: anon→privilegierte Fns denied, non-admin self-approve→„admin only", RLS cross-user reads=0, direct INSERT self-approved→RLS-Verstoß, snapshot kann nicht fremden user_id targeten. Advisor 0 ERROR. node-check 7/7. Build clean + origin synchron.'},
+    ]
+  },
+  {
     v: 'v29.28', date: '15.06.2026',
     headline: '🛡️ Cloud-Sync gehärtet — Backup-Schutz + sauberer 2-Wege-Abgleich (Review-Fixes)',
     summary: 'Ein gründlicher Sicherheits-Review des neuen Cloud-Syncs (v29.27) hat vier Schwachstellen gefunden, alle behoben. Die wichtigste: Das häufige Auto-Backup hätte bei nur 3 Backup-Plätzen die wertvollen älteren Sicherungen (Tages-Backup, Vor-Update-Backup) zu schnell verdrängt — genau die, die man nach einem Problem braucht. Jetzt sind 6 Plätze da und die wichtigen Anker-Backups sind dauerhaft geschützt. Außerdem: der periodische Abgleich lädt nicht mehr unnötig die gerade geholten Daten wieder hoch, aktualisiert die Liste nur bei echten Änderungen (kein Scroll-Sprung mehr), und ein manueller Sync wartet jetzt korrekt auf einen laufenden Abgleich.',
@@ -62950,7 +62973,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.28';
+var GS_VERSION = 'v29.29';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
