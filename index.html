@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.25.20260615">
+<meta name="app-version" content="29.26.20260615">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15621,6 +15621,87 @@ function gsLoadWikiImage(lat,cid){
     .catch(function(){_wCache[lat]='none'; var c=document.getElementById(cid); if(c) c.style.display='none';});
 }
 
+// ══ v29.26 Block A: ARTEN-BILD (Community-Beitrag bevorzugt, Wikipedia-Fallback) ══
+var _spImgCache = {};
+async function gsLoadSpeciesImage(spId, lat, cid){
+  if (!cid) return;
+  var el = document.getElementById(cid);
+  if (!el) return;
+  // 1) Community-Bild (approved) via fn_species_images
+  try {
+    if (typeof sbFetch === 'function') {
+      var rows = _spImgCache[spId];
+      if (!rows) {
+        var res = await sbFetch('/rest/v1/rpc/fn_species_images', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ p_species_id: spId })
+        });
+        rows = (res && res.data) || [];
+        _spImgCache[spId] = rows;
+      }
+      if (rows && rows.length) {
+        var primary = rows.filter(function(r){ return r.is_primary; })[0] || rows[0];
+        var c = document.getElementById(cid);
+        if (!c) return;
+        var attr = primary.attribution ? ('<div style="font-size:9.5px;color:var(--muted);margin-top:3px;text-align:right;">📸 ' + String(primary.attribution).replace(/</g,'&lt;') + '</div>') : '';
+        c.style.cssText = '';
+        c.innerHTML = '<img src="' + String(primary.url).replace(/"/g,'&quot;') + '" alt="" style="width:100%;height:170px;object-fit:cover;border-radius:12px;display:block;" onerror="this.parentElement.style.display=\'none\'">' + attr;
+        return;
+      }
+    }
+  } catch(_){}
+  // 2) Fallback: Wikipedia (revived — vorher toter wi--Container)
+  if (lat && typeof gsLoadWikiImage === 'function') gsLoadWikiImage(lat, cid);
+  else el.style.display = 'none';
+}
+
+// Eigenes Foto zu einer Art beitragen (Opt-in + Admin-Moderation). Nutzt das letzte
+// Scan-Foto wenn vorhanden, sonst Galerie/Kamera. Wird erst nach Admin-Freigabe gezeigt.
+async function gsContributeSpeciesPhoto(spId){
+  if (typeof gsRequire === 'function' && !gsRequire('contribute_photo', 'Bitte anmelden um ein Foto beizutragen.')) return;
+  var sp = (typeof DB !== 'undefined') ? DB.find(function(s){ return s && s.id === spId; }) : null;
+  var name = sp ? sp.name : 'dieser Art';
+  var useScan = false;
+  if (window._gsLastScanB64 && typeof gsConfirmModal === 'function') {
+    useScan = await gsConfirmModal({ title:'Foto beitragen', message:'Dein zuletzt gescanntes Foto zu „'+name+'" beitragen? Es wird nach kurzer Prüfung als Arten-Bild gezeigt.', ok:'Scan-Foto nutzen', cancel:'Anderes Foto wählen', kind:'info' });
+  }
+  if (useScan) { _gsDoContributePhoto(spId, window._gsLastScanB64); return; }
+  var inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = function(ev){
+    var f = ev.target.files && ev.target.files[0];
+    if (!f) return;
+    if (typeof gsCompressImage === 'function') {
+      gsCompressImage(f, { maxDim: 1280, quality: 0.85 })
+        .then(function(r){ _gsDoContributePhoto(spId, r.b64); })
+        .catch(function(){ try { gsToast('Foto konnte nicht verarbeitet werden.', 'error'); } catch(_){} });
+    }
+  };
+  inp.click();
+}
+async function _gsDoContributePhoto(spId, b64){
+  if (!b64) return;
+  try { gsToast('⏳ Lade Foto hoch …', 'info'); } catch(_){}
+  try {
+    var url = (typeof gsUploadImage === 'function') ? await gsUploadImage(b64, 'species-images', 'jpg') : null;
+    if (!url) { try { gsToast('Upload fehlgeschlagen — bitte erneut versuchen.', 'error'); } catch(_){} return; }
+    var storagePath = null;
+    try { storagePath = url.split('/species-images/')[1] || null; } catch(_){}
+    var res = await sbFetch('/rest/v1/rpc/fn_contribute_species_image', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ p_species_id: spId, p_url: url, p_storage_path: storagePath, p_confidence: null })
+    });
+    if (res && res.error) {
+      var em = String((res.error && res.error.message) || '');
+      var msg = em.indexOf('already pending') >= 0 ? 'Du hast für diese Art bereits ein Foto eingereicht (in Prüfung).'
+              : em.indexOf('too many pending') >= 0 ? 'Zu viele offene Beiträge — bitte warte auf die Prüfung.'
+              : 'Beitrag fehlgeschlagen — bitte erneut versuchen.';
+      try { gsToast(msg, 'warn'); } catch(_){} return;
+    }
+    try { gsToast('✅ Danke! Dein Foto wird geprüft und dann als Arten-Bild gezeigt.', 'success'); } catch(_){}
+  } catch(e){ try { gsToast('Beitrag fehlgeschlagen — bitte erneut versuchen.', 'error'); } catch(_){} }
+}
+
 var _recipeFavs=[];
 try{_recipeFavs=JSON.parse(localStorage.getItem('gs_recipe_favs')||'[]');}catch(e){}
 function isRecipeFav(id){return _recipeFavs.indexOf(id)>=0;}
@@ -24887,7 +24968,8 @@ function openDetail(id){
       '</div>',
     '</div>',
     '<div class="mbody">',
-      // Warnbox zuerst bei giftigen
+      // v29.26 Block A: Arten-Foto (Community-Beitrag bevorzugt, Wikipedia-Fallback).
+      '<div id="sp-img-'+sp.id+'" style="margin-bottom:10px;"></div>',
       wH,
       // Beschreibung
       '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_description','📖 Beschreibung') + '</h3><p>'+(sp.desc||'–')+'</p></div>',
@@ -24974,6 +25056,8 @@ function openDetail(id){
           isFav?_t('fav_remove','⭐ Entfernen'):_t('fav_add','☆ Favorit'),
         '</button>',
       '</div>',
+      // v29.26 Block A: Eigenes Foto zu dieser Art beitragen (Opt-in, Admin-Moderation).
+      '<button onclick="if(typeof gsContributeSpeciesPhoto===\'function\')gsContributeSpeciesPhoto(\''+id+'\')" style="width:100%;padding:11px;background:#e8f5e9;color:var(--g-dark);border:1.5px solid var(--g-light);border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;-webkit-tap-highlight-color:transparent;"><span>📸</span> <span>' + _t('btn_contribute_photo','Eigenes Foto zu dieser Art beitragen') + '</span></button>',
       // Vollständigkeits-Indikator
       (function(){
         var pct = typeof gsGetCompleteness==='function' ? gsGetCompleteness(sp) : 0;
@@ -25012,7 +25096,8 @@ function openDetail(id){
   try {
     document.getElementById('modal-content').innerHTML = html;
     openModal('detail-modal');
-    if(sp.lat&&typeof gsLoadWikiImage==='function') setTimeout(function(){gsLoadWikiImage(sp.lat,'wi-'+sp.id);},150);
+    // v29.26 Block A: Community-Bild (approved) bevorzugt, sonst Wikipedia-Fallback.
+    if(typeof gsLoadSpeciesImage==='function') setTimeout(function(){gsLoadSpeciesImage(sp.id, sp.lat, 'sp-img-'+sp.id);},150);
     // v26.26: Heilpflanzen-Profil async laden falls Pflanze als Heilpflanze gelistet
     if (sp.lat) { try { gsLoadMedicinalProfile(sp.id, sp.lat); } catch(_){} }
   } catch(e) {
@@ -57973,6 +58058,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.26', date: '15.06.2026',
+    headline: '📸 Arten-Fotos: echte Bilder im Detail + dein Foto beitragen (Community baut die DB auf)',
+    summary: 'Block A der neuen Feature-Welle (Fernando-Punkte 1+2): Die Arten-Detailansicht zeigt jetzt ein echtes Foto statt nur Emoji — bevorzugt ein von der Community beigetragenes (freigegebenes) Bild, sonst ein Wikipedia-Bild als Fallback. Und du kannst selbst beitragen: Beim Öffnen einer Art gibt es „📸 Eigenes Foto zu dieser Art beitragen" — wahlweise dein zuletzt gescanntes Foto oder eines aus der Galerie/Kamera. So bauen wir gemeinsam die Bild-Datenbank auf. Fotos erscheinen erst nach kurzer Prüfung (Moderation) — keine falschen/unscharfen Bilder, Datenschutz gewahrt (Opt-in). Admins haben dafür eine neue „Foto-Beiträge"-Sektion im Admin-Panel.',
+    user_summary: '📸 Arten zeigen jetzt echte Fotos — und du kannst dein eigenes Foto beitragen (erscheint nach kurzer Prüfung).',
+    user_items: [
+      { emoji: '🖼️', text: 'Arten-Detail zeigt echtes Foto (Community-Bild bevorzugt, sonst Wikipedia)' },
+      { emoji: '📸', text: '„Eigenes Foto beitragen" — dein Scan-Foto oder aus der Galerie' },
+      { emoji: '✅', text: 'Moderiert: Fotos erscheinen erst nach kurzer Prüfung (Opt-in, Datenschutz)' },
+    ],
+    items: [
+      {emoji:'🗄️', bold:'Backend (Migration LIVE, separat committet):', text:' species_images +contributed_by/review_status/scan_confidence/admin_note/reviewed_by/at. RLS: public SELECT nur approved (+own-pending). 4 RPCs (SECURITY DEFINER, search_path-pinned, REVOKE public/anon): fn_species_images (anon+auth) · fn_contribute_species_image (auth, dedupe+spam-cap 30) · fn_admin_species_image_queue + fn_admin_review_species_image (is_admin_user-gated). storage: authenticated-Upload in species-images/<uid>/. HL#16 als echter JWT verifiziert + Advisor 0 ERROR.'},
+      {emoji:'🖼️', bold:'gsLoadSpeciesImage:', text:' lädt im Arten-Detail (#sp-img-<id>) zuerst das approved Community-Bild via fn_species_images (mit Attribution), Fallback auf Wikipedia. Belebt den toten wi--Container (HL#9) wieder — vorher zeigte das Detail GAR kein Bild.'},
+      {emoji:'📸', bold:'gsContributeSpeciesPhoto:', text:' Button im Arten-Detail → bietet das letzte Scan-Foto an (gsConfirmModal) oder Galerie/Kamera-Picker → gsCompressImage → gsUploadImage(species-images) → fn_contribute_species_image → pending. Login-Pflicht, freundliche Fehler (already/too-many pending).'},
+      {emoji:'👑', bold:'Admin-Review:', text:' Neue „📸 Foto-Beiträge (N)"-Sektion im Admin-Panel (gsAdminFetchSpeciesImageQueue/_gsAdminSpeciesImageHtml) mit Thumbnail + ✓ Freigeben(+Hauptbild)/✕ Ablehnen (gsAdminReviewSpeciesImage), per-Sektion-Refresh.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check + sw.js OK · Preview-Boot grün (v29.26, 0 Konsolen-Fehler): alle 6 Funktionen definiert, openDetail rendert Bild-Host + Beitrag-Button, Admin-HTML rendert. Entscheidung Fernando: Opt-in + Moderation.'},
+    ]
+  },
+  {
     v: 'v29.25', date: '15.06.2026',
     headline: '🌳 Garten-Speichern endgültig gefixt — „Garten"-Button landet jetzt WIRKLICH im Garten',
     summary: 'Nachschlag zu v29.24: Ein adversarialer Code-Audit hat die EIGENTLICHE (deterministische) Ursache gefunden, warum Gemüse/Kräuter „nicht im Garten gespeichert" wurden. Der Button „🌳 Garten" auf einer Art öffnete das Hinzufügen-Formular, liess den Standort-Schalter aber auf 🏠 Wohnung stehen — die Pflanze landete dann in „Meine Pflanzen" statt im Garten. Und selbst wer den Garten korrekt wählte, bekam ein leeres Namensfeld (Vorbefüllung schrieb in ein nicht existierendes Feld) → das Speichern brach mit „Bitte Pflanzennamen eingeben" ab. Beide jetzt behoben: der Garten-Button wählt den Garten vor, und der Name wird korrekt übernommen. Plus kleinere Politur an v29.24 (Toast-Dauer, Speicher-Parität, API-Anzeige-Übersetzung, Abo-Refresh-Entdoppelung).',
@@ -62812,7 +62915,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.25';
+var GS_VERSION = 'v29.26';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -71008,6 +71111,46 @@ window.gsAdminFilterUsers = function(q){
 // v29.15: Nur die betroffene Admin-Sektion neu rendern statt das ganze Panel (kein Scroll-Sprung,
 // keine verlorenen Eingaben, 1 statt 8 RPCs). Fallback auf openAdminPanel() wenn Container weg/Fehler.
 // htmlFn MUSS einen Root-Container mit derselben id liefern, damit der nächste Refresh wieder greift.
+// ══ v29.26 Block A: Admin — Arten-Foto-Beiträge moderieren ══
+async function gsAdminFetchSpeciesImageQueue(){
+  try {
+    var res = await sbFetch('/rest/v1/rpc/fn_admin_species_image_queue', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_limit: 50 })
+    });
+    return (res && res.data) || [];
+  } catch(_) { return []; }
+}
+function _gsAdminSpeciesImageHtml(queue){
+  queue = Array.isArray(queue) ? queue : [];
+  var items = queue.map(function(q){
+    var url = String(q.url||'').replace(/"/g,'&quot;');
+    var sidLabel = (typeof escHtml==='function') ? escHtml(q.species_id||'—') : (q.species_id||'—');
+    return '<div style="display:flex;gap:9px;align-items:center;padding:8px;background:var(--card);border-radius:8px;margin-bottom:6px;">' +
+      '<img src="'+url+'" alt="" style="width:54px;height:54px;object-fit:cover;border-radius:8px;flex-shrink:0;" onerror="this.style.display=\'none\'">' +
+      '<div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+sidLabel+'</div>' +
+        '<div style="font-size:10px;color:var(--muted);">Konfidenz: '+(q.scan_confidence!=null?q.scan_confidence+'%':'—')+'</div></div>' +
+      '<button onclick="gsAdminReviewSpeciesImage(\''+q.id+'\',true)" title="Freigeben + als Hauptbild" style="padding:6px 10px;border:none;border-radius:6px;background:#2e7d32;color:#fff;font-size:14px;cursor:pointer;flex-shrink:0;">✓</button>' +
+      '<button onclick="gsAdminReviewSpeciesImage(\''+q.id+'\',false)" title="Ablehnen" style="padding:6px 10px;border:none;border-radius:6px;background:#c62828;color:#fff;font-size:14px;cursor:pointer;flex-shrink:0;">✕</button>' +
+    '</div>';
+  }).join('');
+  return '<div id="gs-admin-simg-sec" style="margin-top:10px;padding:11px 13px;background:#e8f5e9;border-radius:8px;">' +
+    '<div style="font-weight:800;font-size:12.5px;color:var(--g-dark);margin-bottom:8px;">📸 Foto-Beiträge ' + (queue.length?('('+queue.length+')'):'') + '</div>' +
+    (queue.length ? items : '<div style="font-size:11.5px;color:var(--muted);">Keine offenen Foto-Beiträge.</div>') +
+  '</div>';
+}
+async function gsAdminReviewSpeciesImage(id, approve){
+  try {
+    var res = await sbFetch('/rest/v1/rpc/fn_admin_review_species_image', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ p_id: id, p_approve: !!approve, p_make_primary: !!approve })
+    });
+    if (res && res.error) { try { gsToast('Aktion fehlgeschlagen.', 'error'); } catch(_){} return; }
+    try { gsToast(approve ? '✅ Freigegeben — wird als Arten-Bild gezeigt.' : '🗑️ Abgelehnt.', 'success'); } catch(_){}
+    try { _spImgCache = {}; } catch(_){}
+    await _gsAdminRefreshSection('gs-admin-simg-sec', gsAdminFetchSpeciesImageQueue, _gsAdminSpeciesImageHtml);
+  } catch(_) { try { gsToast('Aktion fehlgeschlagen.', 'error'); } catch(__){} }
+}
+
 async function _gsAdminRefreshSection(secId, fetchFn, htmlFn) {
   try {
     var el = document.getElementById(secId);
@@ -71033,10 +71176,11 @@ async function openAdminPanel() {
   // v29.15: parallel statt 8× seriell (jeder Helfer hat eigenes try/catch + Fallback → kein Crash-Risiko).
   var _ad = await Promise.all([
     gsAdminListUsers(), gsAdminFetchMetrics(), gsAdminFetchStripe(), gsAdminFetchFlags(),
-    gsAdminFetchAudit(), gsAdminFetchClientErrors(), gsAdminFetchModerationFeed(), gsAdminFetchVouchers()
+    gsAdminFetchAudit(), gsAdminFetchClientErrors(), gsAdminFetchModerationFeed(), gsAdminFetchVouchers(),
+    gsAdminFetchSpeciesImageQueue()
   ]);
   var users = _ad[0], metrics = _ad[1], stripe = _ad[2], flags = _ad[3],
-      audit = _ad[4], cerrs = _ad[5], moderation = _ad[6], vouchers = _ad[7];
+      audit = _ad[4], cerrs = _ad[5], moderation = _ad[6], vouchers = _ad[7], simgQueue = _ad[8];
   var existing = document.getElementById('modal-admin-panel');
   if (existing) existing.remove();
   var m = document.createElement('div');
@@ -71105,6 +71249,7 @@ async function openAdminPanel() {
       _gsAdminI18nHtml() +
       _gsAdminClientErrorsHtml(cerrs) +
       _gsAdminModerationHtml(moderation) +
+      _gsAdminSpeciesImageHtml(simgQueue) +
       _gsAdminVouchersHtml(vouchers) +
       '<div style="margin-top:10px;padding:11px 13px;background:#e8eaf6;border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:10px;">' +
         '<div style="font-weight:800;font-size:12.5px;color:#283593;">🧠 Wissens-DB-Editor</div>' +
