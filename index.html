@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.30.20260616">
+<meta name="app-version" content="29.31.20260616">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -58064,6 +58064,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.31', date: '16.06.2026',
+    headline: '🩺 Backend-Upgrade Schicht 2: Selbstüberwachung (Self-Healing-Monitor)',
+    summary: 'Schicht 2 des Backend-Upgrades: ein neuer Monitor-Job läuft jede Stunde und überwacht die anderen Hintergrund-Jobs — schlägt ein Job fehl, wird das automatisch in einem strukturierten System-Ereignis-Protokoll festgehalten (statt unbemerkt zu bleiben). Im Admin-Panel gibt es dazu „🩺 System-Ereignisse". Modernes Must-have: die App merkt selbst, wenn im Hintergrund etwas klemmt, und führt Buch darüber. Komplett im Hintergrund, für normale Nutzer unsichtbar, additiv (kein Eingriff in bestehende Abläufe).',
+    user_summary: '🩺 Die App überwacht sich jetzt selbst: stündlicher Monitor protokolliert automatisch, falls ein Hintergrund-Job fehlschlägt.',
+    user_items: [
+      { emoji: '🩺', text: 'Stündlicher Self-Healing-Monitor protokolliert Job-Fehler automatisch' },
+      { emoji: '📋', text: 'Admin: „System-Ereignisse" — strukturiertes Ops-Log auf einen Blick' },
+    ],
+    items: [
+      {emoji:'🗄️', bold:'system_events (Migration v29_31 LIVE):', text:' strukturiertes Ops-Log (severity/source/event/detail jsonb), RLS ohne public-Zugriff (nur service_role + SECURITY DEFINER). + fn_log_system_event (internes Primitive für künftige Sicherheits-/Ops-Events).'},
+      {emoji:'🩺', bold:'fn_monitor_health + Cron health-monitor-hourly:', text:' läuft stündlich (5 * * * *), scannt cron.job_run_details der letzten 75 Min auf Fehlläufe + protokolliert jeden einmal (dedupe) in system_events; GC der Events >30 Tage. Verifiziert: läuft, Cron aktiv.'},
+      {emoji:'📋', bold:'fn_admin_system_events + Admin-Sektion „🩺 System-Ereignisse":', text:' admin-gated (is_admin_user, JWT-verifiziert), letzte 30 Events mit Severity-Icon + relativer Zeit + Detail-Auszug (escaped). REVOKE public/anon.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check + sw.js OK + Preview-Boot grün (0 Konsolen-Fehler). Read-only/additiv für die Anzeige; Monitor läuft service-seitig. Live-Payment-DB unberührt.'},
+    ]
+  },
+  {
     v: 'v29.30', date: '16.06.2026',
     headline: '⚙️ Backend-Upgrade Schicht 1: Hintergrund-Job-Überwachung (Observability)',
     summary: 'Start des schichtweisen Backend-Upgrades. Schicht 1 = Observability: die App hat 17 automatische Hintergrund-Jobs (Backups, Erinnerungen, Wissens-Wachstum, Aufräumen, Push…), aber bisher konnte niemand sehen, ob sie wirklich laufen. Jetzt überwacht ein neuer Cron-Health-Monitor alle Jobs (letzter Lauf, Erfolg/Fehler, Fehler pro 24h) — sichtbar im Admin-Panel als „⚙️ Hintergrund-Jobs" mit Ampel (🟢/🟡/🔴). Modernes Must-have: man sieht sofort, wenn eine Automatisierung klemmt. Read-only, admin-only, additiv — kein Eingriff in bestehende Abläufe.',
@@ -62988,7 +63004,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.30';
+var GS_VERSION = 'v29.31';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -71365,6 +71381,34 @@ function _gsAdminCronHealthHtml(jobs){
   '</div>';
 }
 
+// ══ v29.31 Schicht 2 (Self-Healing): Admin — System-Ereignisse ══
+async function gsAdminFetchSystemEvents(){
+  try {
+    var res = await sbFetch('/rest/v1/rpc/fn_admin_system_events', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({p_limit:30}) });
+    return (res && res.data) || [];
+  } catch(_) { return []; }
+}
+function _gsAdminSystemEventsHtml(events){
+  events = Array.isArray(events) ? events : [];
+  var esc = (typeof escHtml==='function') ? escHtml : function(s){ return String(s==null?'':s); };
+  function _age(ts){ try { var m=Math.round((Date.now()-new Date(ts).getTime())/60000); if(m<60)return 'vor '+m+'m'; if(m<1440)return 'vor '+Math.round(m/60)+'h'; return 'vor '+Math.round(m/1440)+'d'; }catch(_){return '?';} }
+  var rows = events.map(function(e){
+    var ic = e.severity==='error'?'🔴':e.severity==='warn'?'🟡':'🔵';
+    var dt = ''; try { dt = e.detail ? esc(JSON.stringify(e.detail).slice(0,90)) : ''; } catch(_){}
+    return '<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;">' +
+      ic+' <b style="color:var(--text);">'+esc(e.source)+'</b> · '+esc(e.event)+' <span style="color:var(--muted);">'+_age(e.created_at)+'</span>' +
+      (dt ? '<div style="font-size:9.5px;color:var(--muted);font-family:monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+dt+'</div>' : '') +
+    '</div>';
+  }).join('');
+  return '<div id="gs-admin-sysevents-sec" style="margin-top:10px;padding:11px 13px;background:#f3f4f6;border-radius:8px;">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
+      '<div style="font-weight:800;font-size:12.5px;color:var(--g-dark);">🩺 System-Ereignisse ('+events.length+')</div>' +
+      '<button onclick="_gsAdminRefreshSection(\'gs-admin-sysevents-sec\', gsAdminFetchSystemEvents, _gsAdminSystemEventsHtml)" title="Aktualisieren" style="padding:4px 9px;border:1px solid var(--border);border-radius:6px;background:var(--card);font-size:11px;cursor:pointer;font-family:inherit;">↻</button>' +
+    '</div>' +
+    (events.length ? rows : '<div style="font-size:11.5px;color:#2e7d32;">✅ Keine Ereignisse — alles ruhig.</div>') +
+  '</div>';
+}
+
 async function _gsAdminRefreshSection(secId, fetchFn, htmlFn) {
   try {
     var el = document.getElementById(secId);
@@ -71391,10 +71435,10 @@ async function openAdminPanel() {
   var _ad = await Promise.all([
     gsAdminListUsers(), gsAdminFetchMetrics(), gsAdminFetchStripe(), gsAdminFetchFlags(),
     gsAdminFetchAudit(), gsAdminFetchClientErrors(), gsAdminFetchModerationFeed(), gsAdminFetchVouchers(),
-    gsAdminFetchSpeciesImageQueue(), gsAdminFetchCronHealth()
+    gsAdminFetchSpeciesImageQueue(), gsAdminFetchCronHealth(), gsAdminFetchSystemEvents()
   ]);
   var users = _ad[0], metrics = _ad[1], stripe = _ad[2], flags = _ad[3],
-      audit = _ad[4], cerrs = _ad[5], moderation = _ad[6], vouchers = _ad[7], simgQueue = _ad[8], cronHealth = _ad[9];
+      audit = _ad[4], cerrs = _ad[5], moderation = _ad[6], vouchers = _ad[7], simgQueue = _ad[8], cronHealth = _ad[9], sysEvents = _ad[10];
   var existing = document.getElementById('modal-admin-panel');
   if (existing) existing.remove();
   var m = document.createElement('div');
@@ -71465,6 +71509,7 @@ async function openAdminPanel() {
       _gsAdminModerationHtml(moderation) +
       _gsAdminSpeciesImageHtml(simgQueue) +
       _gsAdminCronHealthHtml(cronHealth) +
+      _gsAdminSystemEventsHtml(sysEvents) +
       _gsAdminVouchersHtml(vouchers) +
       '<div style="margin-top:10px;padding:11px 13px;background:#e8eaf6;border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:10px;">' +
         '<div style="font-weight:800;font-size:12.5px;color:#283593;">🧠 Wissens-DB-Editor</div>' +
