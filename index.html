@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.35.20260616">
+<meta name="app-version" content="29.36.20260616">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1304,18 +1304,18 @@ body.dark .menu-search-wrap{background:var(--card);}
 .garden-card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow-sm);margin-bottom:10px;overflow:hidden;}
 .garden-card-hdr{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;}
 .garden-card-icon{font-size:28px;flex-shrink:0;}
-.garden-card-info{flex:1;}
-.garden-card-name{font-size:15px;font-weight:700;color:var(--g-dark);font-family:'Playfair Display',serif;}
+.garden-card-info{flex:1;min-width:0;}
+.garden-card-name{font-size:15px;font-weight:700;color:var(--g-dark);font-family:'Playfair Display',serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .garden-card-meta{font-size:11.5px;color:var(--muted);margin-top:1px;}
 .garden-card-badges{display:flex;gap:5px;margin-top:4px;flex-wrap:wrap;}
 .garden-weather-strip{background:linear-gradient(90deg,#1565c0,#1976d2);color:#fff;padding:11px 14px;display:flex;align-items:center;gap:12px;border-radius:var(--r);font-size:13px;}
 .planting-row{display:flex;align-items:center;gap:9px;padding:9px 14px;border-top:1px solid #f5f5f5;cursor:pointer;}
 .planting-row:active{background:#f9fafb;}
 .planting-emoji{font-size:22px;flex-shrink:0;}
-.planting-info{flex:1;}
-.planting-name{font-size:13.5px;font-weight:700;color:var(--text);}
+.planting-info{flex:1;min-width:0;}
+.planting-name{font-size:13.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .planting-meta{font-size:11px;color:var(--muted);margin-top:1px;}
-.planting-status{font-size:11px;font-weight:700;padding:3px 8px;border-radius:7px;}
+.planting-status{font-size:11px;font-weight:700;padding:3px 8px;border-radius:7px;flex-shrink:0;white-space:nowrap;}
 .status-growing{background:#e3f2fd;color:#1565c0;}
 .status-ready{background:#e8f5e9;color:#2e7d32;animation:readyPulse 1.5s infinite;}
 .status-late{background:#ffebee;color:#c62828;}
@@ -19452,10 +19452,12 @@ function _catLabel(c) {
 }
 function _priceLabel(l) {
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+  // v29.36: Preis ist User-Eingabe → escapen (wird via innerHTML gerendert).
+  var _esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s==null?'':s); };
   if (l.priceMode === 'gratis') return _t('price_gratis','Gratis');
   if (l.priceMode === 'tausch') return _t('price_tausch','Tausch');
-  if (l.priceMode === 'vb') return 'CHF ' + (l.price || _t('price_vb','VB')) + ' ' + _t('price_vb','VB');
-  return 'CHF ' + (l.price || '?');
+  if (l.priceMode === 'vb') return 'CHF ' + _esc(l.price || _t('price_vb','VB')) + ' ' + _t('price_vb','VB');
+  return 'CHF ' + _esc(l.price || '?');
 }
 function _timeAgo(ts) {
   if (!ts) return '';
@@ -24958,7 +24960,8 @@ function openDetail(id){
   if(sp.season && sp.season !== '–'){
     seasonBar = '<div style="margin-bottom:9px;">' +
       '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:5px;">' + _t('detail_season_ch','📅 Saison in der Schweiz') + '</div>' +
-      (typeof gsBuildSeasonBar==='function' ? gsBuildSeasonBar(sp.season) : '') +
+      /* v29.36: doppelten Saison-Streifen entfernt — gsBuildSeasonBar war redundant zum
+         beschrifteten Monats-Streifen unten (zwei 12-Monats-Bars untereinander). */
       '<div style="display:flex;gap:2px;">' +
       monthNames.map((m,i)=>{
         const inSeason = isMonthInSeason(sp.season, i);
@@ -25021,17 +25024,19 @@ function openDetail(id){
     // Header
     '<div class="mhdr" style="position:relative;">',
       '<span class="memoji">'+getEmoji(sp)+'</span>',
-      '<div style="flex:1;"><h2>'+sp.name+'</h2>',
-        '<p style="font-style:italic;font-size:12px;color:var(--muted);">'+sp.lat+'</p>',
+      // v29.36: min-width:0 + Escaping + Overflow-Schutz (langer Name umbricht, Latin-Zeile ellipsis).
+      '<div style="flex:1;min-width:0;"><h2 style="overflow-wrap:anywhere;">'+escHtml(sp.name)+'</h2>',
+        '<p style="font-style:italic;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+escHtml(sp.lat||'')+'</p>',
         tagsHtml ? '<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">'+tagsHtml+'</div>' : '',
       '</div>',
     '</div>',
     '<div class="mbody">',
       // v29.26 Block A: Arten-Foto (Community-Beitrag bevorzugt, Wikipedia-Fallback).
-      '<div id="sp-img-'+sp.id+'" style="margin-bottom:10px;"></div>',
+      // v29.36: min-height reserviert Platz vor Async-Load → kein Layout-Sprung (Loader setzt display:none wenn kein Bild).
+      '<div id="sp-img-'+sp.id+'" style="margin-bottom:10px;min-height:170px;border-radius:12px;background:var(--surface2);"></div>',
       wH,
       // Beschreibung
-      '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_description','📖 Beschreibung') + '</h3><p>'+(sp.desc||'–')+'</p></div>',
+      '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_description','📖 Beschreibung') + '</h3><p>'+escHtml(sp.desc||'–')+'</p></div>',
       // Saison-Streifen
       seasonBar,
       // Ökologie Grid
@@ -56268,8 +56273,8 @@ async function renderGarden() {
     html += '<div class="garden-card-hdr" onclick="toggleGardenCard(\'' + garden.id + '\')">';
     html += '<div class="garden-card-icon">🌻</div>';
     html += '<div class="garden-card-info">';
-    html += '<div class="garden-card-name">' + garden.name + '</div>';
-    html += '<div class="garden-card-meta">' + (garden.location||'Kein Standort') + ' · ' + gPlantings.length + ' Pflanzen</div>';
+    html += '<div class="garden-card-name">' + escHtml(garden.name) + '</div>';
+    html += '<div class="garden-card-meta">' + escHtml(garden.location||'Kein Standort') + ' · ' + gPlantings.length + ' Pflanzen</div>';
     html += '<div class="garden-card-badges">';
     html += '<span class="mpbadge">' + (sizeLabels[garden.size]||'Mittel') + '</span>';
     html += '<span class="mpbadge">' + (lightLabels[garden.light]||'⛅') + '</span>';
@@ -56290,7 +56295,7 @@ async function renderGarden() {
         html += '<div class="planting-row" onclick="openPlantingDetail(\'' + p.id + '\')">';
         html += '<div class="planting-emoji">' + info.emoji + '</div>';
         html += '<div class="planting-info">';
-        html += '<div class="planting-name">' + p.name + (p.variety?' <span style="font-size:10px;color:var(--muted)">(' + p.variety + ')</span>':'') + '</div>';
+        html += '<div class="planting-name">' + escHtml(p.name) + (p.variety?' <span style="font-size:10px;color:var(--muted)">(' + escHtml(p.variety) + ')</span>':'') + '</div>';
         html += '<div class="planting-meta">Gepflanzt: ' + new Date(p.date).toLocaleDateString('de-CH') + ' · ' + p.count + 'x</div>';
         html += '</div>';
         html += '<span class="planting-status ' + statusCls + '">' + statusTxt + '</span>';
@@ -56356,7 +56361,7 @@ async function refreshGardenWeather(gardenId) {
     const statusTxt = harv.daysLeft === 0 ? '🌟 Erntebereit!' : 'Noch ' + harv.daysLeft + ' Tage';
     return '<div class="planting-row" onclick="openPlantingDetail(\'' + p.id + '\')">' +
       '<div class="planting-emoji">' + info.emoji + '</div>' +
-      '<div class="planting-info"><div class="planting-name">' + p.name + '</div>' +
+      '<div class="planting-info"><div class="planting-name">' + escHtml(p.name) + '</div>' +
       '<div class="planting-meta">Gepflanzt: ' + new Date(p.date).toLocaleDateString('de-CH') + '</div></div>' +
       '<span class="planting-status ' + statusCls + '">' + statusTxt + '</span></div>';
   }).join('');
@@ -58116,6 +58121,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v29.36', date: '16.06.2026',
+    headline: '🛡️ KI-Doktor-Rate-Limit + Audit-Fixes (XSS-Härtung + Politur)',
+    summary: 'Zwei Stränge: (A) Der Pflanzen-Doktor (KI) hat jetzt serverseitig ein Stunden-Limit (Kostenschutz) — sauber mirror-first deployed + getestet. (B) Ein Code-Audit der Haupt-Screens fand mehrere Schönheitsfehler + Sicherheitslücken, die alle behoben wurden: u.a. wurden im „Mein Garten"-Bereich Garten- und Pflanzennamen ungeschützt angezeigt (Layout-Bruch + XSS-Risiko bei Sonderzeichen) — jetzt sauber escaped. Dazu ein doppelter Saison-Streifen in der Arten-Detailansicht entfernt, Texte gegen Überlauf abgesichert, und das Arten-Foto reserviert jetzt Platz (kein Layout-Sprung beim Laden).',
+    user_summary: '🛡️ KI-Doktor mit Stunden-Limit (Kostenschutz) + viele Politur-/Sicherheits-Fixes in Garten & Arten-Detail.',
+    user_items: [
+      { emoji: '🩺', text: 'Pflanzen-Doktor: serverseitiges Stunden-Limit (Kostenschutz)' },
+      { emoji: '🔒', text: 'Garten: Namen mit Sonderzeichen brechen die Anzeige nicht mehr (XSS-Härtung)' },
+      { emoji: '✨', text: 'Doppelter Saison-Streifen entfernt, kein Layout-Sprung beim Bild-Laden' },
+    ],
+    items: [
+      {emoji:'🩺', bold:'plant-doctor-diagnose v5 (mirror-first deployed):', text:' Server-Rate-Limit 30 Diagnosen/Stunde/User via fn_check_rate_limit (Migration v29_36 grant service_role; fail-open). Source erst ins Repo gemirrored, Struktur-geprüft, deployed + smoke-getestet (OPTIONS 200, no-auth 401).'},
+      {emoji:'🔒', bold:'XSS/Layout (P1):', text:' renderGarden + refreshGardenWeather escapen jetzt garden.name/location + p.name/variety (waren als einzige Renderer ungeschützt → Layout-Bruch/Stored-XSS); openDetail-Header (name/lat/desc) escaped + min-width:0; _priceLabel escaped den User-Preis. Live verifiziert: <img onerror>/<script> werden neutralisiert.'},
+      {emoji:'✨', bold:'Kosmetik (P1/P2):', text:' doppelter Saison-Streifen in openDetail entfernt; Garten-/Pflanz-Karten mit Ellipsis + min-width:0 + Status-Badge flex-shrink:0 (lange Namen brechen die Zeile nicht mehr); #sp-img-Host reserviert 170px → kein Layout-Sprung beim Async-Bild-Laden.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check + sw.js OK + Preview-Boot grün (0 Konsolen-Fehler); Escaping + Render live getestet. (Audit-P3-Reste — i18n im Garten-Voll-Render, Empty-State-Angleich — bewusst als Folge-Politur offen.)'},
+    ]
+  },
   {
     v: 'v29.35', date: '16.06.2026',
     headline: '✨ Kein Login-Flash mehr + smoothere Übergänge',
@@ -63121,7 +63143,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.35';
+var GS_VERSION = 'v29.36';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
