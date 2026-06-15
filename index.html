@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.34.20260616">
+<meta name="app-version" content="29.35.20260616">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -770,6 +770,21 @@ body.gs-scanner-active #screen-scanner { bottom: 0 !important; }
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:var(--z-modal);display:none;align-items:flex-end;}
 .modal-overlay.open{display:flex;}
 .modal{background:var(--card);border-radius:22px 22px 0 0;width:100%;max-height:90vh;overflow-y:auto;padding-bottom:calc(var(--sb)+20px);}
+/* v29.35: smoothere Modal-Übergänge (Öffnen + Schliessen). Nur GPU-Properties (opacity/
+   transform) → kein Layout-Reflow. gs-closing hält display:flex während des Fade-out
+   (closeModal entfernt .open sofort für die Logik, verzögert display:none um 200ms).
+   prefers-reduced-motion: keine Animation (Accessibility-Must-have). */
+.modal-overlay.gs-closing{display:flex!important;}
+@media (prefers-reduced-motion: no-preference){
+  .modal-overlay.open{animation:gsOverlayIn .2s ease;}
+  .modal-overlay.open > .modal{animation:gsSheetIn .28s cubic-bezier(.16,1,.3,1);}
+  .modal-overlay.gs-closing{animation:gsOverlayOut .2s ease forwards;}
+  .modal-overlay.gs-closing > .modal{animation:gsSheetOut .2s ease forwards;}
+}
+@keyframes gsOverlayIn{from{opacity:0}to{opacity:1}}
+@keyframes gsOverlayOut{from{opacity:1}to{opacity:0}}
+@keyframes gsSheetIn{from{transform:translateY(8%);opacity:.5}to{transform:translateY(0);opacity:1}}
+@keyframes gsSheetOut{from{transform:translateY(0);opacity:1}to{transform:translateY(7%);opacity:0}}
 
 
 
@@ -1546,6 +1561,23 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
        synchron. Bei spaeter Migration auf async-DB-Load: gsLoadDB() Helper bauen. -->
   <script src="data/plants.v1.js?v=1"></script>
 <script>
+// ── v29.35 LOGIN-FLASH-GUARD (allererstes, VOR dem ersten Paint) ──────────
+// Bug: ohne eingeloggten Token paintete die App-Shell (#app/Home) kurz, BEVOR das
+// Onboarding per JS drübergelegt wurde → sichtbares Aufblitzen der Startseite.
+// Fix: ist KEIN Auth-Token da, synchron #app verstecken + #gs-onboarding zeigen
+// (per CSS-Klasse + injiziertem <style>) — passiert vor dem ersten Frame, kein Flash.
+// Eingeloggte (Token vorhanden) sehen #app sofort ohne Verzögerung. gsOnboardingHide/
+// Done entfernt die Klasse nach erfolgreichem Login wieder.
+(function _gsLoginFlashGuard(){
+  try {
+    if (!localStorage.getItem('gs_sb_token')) {
+      document.documentElement.classList.add('gs-preauth');
+      var s = document.createElement('style');
+      s.textContent = 'html.gs-preauth #app{display:none!important}html.gs-preauth #gs-onboarding{display:block!important;opacity:1!important}';
+      (document.head || document.documentElement).appendChild(s);
+    }
+  } catch(_){}
+})();
 // ── v26.5 Console-Cleanup (vor allem anderen) ─────────────
 // Silenced console.log / console.debug / console.info in Production
 // (= alles ausser localhost). Aktivierbar via:
@@ -20146,25 +20178,42 @@ function closeModal(id){
   }
   // v24.44: Focus-Trap freigeben + Vor-Fokus restaurieren
   try { gsReleaseFocusTrap(m); } catch(_){}
+  // v29.35: .open SOFORT entfernen (Logik/Queries sehen es als geschlossen) — display:none
+  // aber smooth verzögern (Fade-out-Animation). Reopen-Guard verhindert das Verstecken,
+  // falls das Modal innerhalb der 200ms wieder geöffnet wird.
   m.classList.remove('open');
-  m.style.display = 'none';
-  // Body-Overflow nur dann freigeben, wenn kein anderes Modal mehr offen ist
-  if(!document.querySelector('.modal-overlay.open, .overlay-modal.open')){
-    document.body.style.overflow = '';
-    // v28.79 FIX (HIGH): kein Modal mehr offen → 3D-WebGL-Szenen freigeben (Context-Leak/Black-Screen).
-    // Guard schützt vor „Toast über offenem Planer schliessen" (Planer bleibt offen → kein Dispose).
-    try { gsDispose3DScenes(); } catch(_){}
-  }
   if(window._gsLastOpenModal === id) window._gsLastOpenModal = null;
+  var _finish = function(){
+    if (m.classList.contains('open')) return; // wurde wieder geöffnet → nicht verstecken
+    m.classList.remove('gs-closing');
+    m.style.display = 'none';
+    if(!document.querySelector('.modal-overlay.open, .overlay-modal.open')){
+      document.body.style.overflow = '';
+      // v28.79: kein Modal mehr offen → 3D-WebGL-Szenen freigeben (Context-Leak/Black-Screen).
+      try { gsDispose3DScenes(); } catch(_){}
+    }
+  };
+  var _reduce = false;
+  try { _reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(_){}
+  if (_reduce || m.classList.contains('overlay-modal')) {
+    // reduced-motion ODER Nicht-Bottom-Sheet → sofort schliessen (kein Animations-Risiko)
+    m.style.display = 'none';
+    _finish();
+  } else {
+    m.classList.add('gs-closing');
+    setTimeout(function(){ _finish(); }, 200);
+  }
 }
 
 // Close any open modal on Escape key
 document.addEventListener('keydown', e => {
   if(e.key==='Escape'){
+    // v29.35: über closeModal schliessen → smoothe Fade-out statt abruptem display:none.
     document.querySelectorAll('.modal-overlay.open,.overlay-modal.open').forEach(m => {
+      if (m.id && typeof closeModal === 'function') { try { closeModal(m.id); return; } catch(_){} }
       m.classList.remove('open'); m.style.display='none';
     });
-    document.body.style.overflow='';
+    if(!document.querySelector('.modal-overlay.open, .overlay-modal.open')) document.body.style.overflow='';
   }
 });
 
@@ -58068,6 +58117,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.35', date: '16.06.2026',
+    headline: '✨ Kein Login-Flash mehr + smoothere Übergänge',
+    summary: 'Zwei spürbare Politur-Fixes. (1) Login-Flash: Vor dem Login blitzte kurz die App-Startseite auf, bevor das Onboarding drüberkam — weil die App-Oberfläche zuerst gezeichnet wurde und das Onboarding erst per Script danach. Jetzt entscheidet die App schon VOR dem ersten Bild (synchron): kein Konto → App-Oberfläche bleibt verborgen, Onboarding sofort sichtbar. Kein Aufblitzen mehr. (2) Übergänge: Fenster/Dialoge gleiten jetzt sanft auf und wieder zu (vorher sprangen sie hart auf/zu) — inklusive Respekt für „Bewegung reduzieren" (Systemeinstellung).',
+    user_summary: '✨ Kein kurzes Aufblitzen der Startseite vor dem Login mehr, und Dialoge öffnen/schliessen jetzt sanft.',
+    user_items: [
+      { emoji: '🚫', text: 'Login-Flash behoben: keine Startseite mehr vor dem Login sichtbar' },
+      { emoji: '🪄', text: 'Dialoge gleiten sanft auf + zu (statt hartem Springen)' },
+      { emoji: '♿', text: '„Bewegung reduzieren" wird respektiert (Accessibility)' },
+    ],
+    items: [
+      {emoji:'🚫', bold:'Login-Flash-Guard:', text:' synchroner <head>-Check VOR dem ersten Paint — ohne gs_sb_token wird per Klasse gs-preauth #app versteckt + #gs-onboarding sofort gezeigt (injiziertes <style>). Eingeloggte sehen #app ohne Verzögerung. gsOnboardingHide/Done entfernt die Klasse nach Login. Live verifiziert: kein-Token→app hidden+onboarding; Token→app sofort sichtbar.'},
+      {emoji:'🪄', bold:'Modal-Übergänge:', text:' Öffnen (Overlay-Fade + Sheet-Slide-up) + Schliessen (Fade-out) per GPU-Animation (opacity/transform, kein Reflow). closeModal entfernt .open SOFORT (Logik sieht geschlossen) + verzögert display:none um 200ms für den Fade; Reopen-Guard verhindert Verstecken bei Schliessen→sofort-Öffnen (live getestet). Escape-Taste nutzt jetzt auch closeModal.'},
+      {emoji:'♿', bold:'prefers-reduced-motion:', text:' Animationen nur bei no-preference; bei „Bewegung reduzieren" wird sofort/ohne Animation geschlossen.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check + sw.js OK + Preview-Boot grün (0 Konsolen-Fehler); Flash-Guard + Modal-Open/Close/Reopen live verifiziert.'},
+    ]
+  },
+  {
     v: 'v29.34', date: '16.06.2026',
     headline: '🛡️ Backend-Upgrade Schicht 4: Missbrauchs-Schutz (Rate-Limiting) + Auto-Aufräumen',
     summary: 'Schicht 4: vorhandene Rate-Limiting-Infrastruktur jetzt verdrahtet + automatisches Aufräumen verwaister Daten. Das Foto-Beitrag-System ist jetzt zusätzlich pro Stunde gedeckelt (Anti-Spam), und das Einlösen von Gutschein-Codes ist gegen Brute-Force/Enumeration geschützt (max. 12 Versuche/Stunde). Ein neuer täglicher Aufräum-Job entfernt abgelehnte Foto-Beiträge + abgelehnte Arten-Vorschläge automatisch. Alles im Hintergrund, additiv.',
@@ -63055,7 +63121,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.34';
+var GS_VERSION = 'v29.35';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -67792,6 +67858,8 @@ async function onbForgotPw() {
   }
 }
 function gsOnboardingHide() {
+  // v29.35: Flash-Guard-Klasse entfernen → App-Shell wird sichtbar, Onboarding kann faden.
+  try { document.documentElement.classList.remove('gs-preauth'); } catch(_){}
   var el = document.getElementById('gs-onboarding');
   if (!el) return;
   el.style.opacity = '0';
@@ -67818,6 +67886,7 @@ function gsOnboardingHide() {
 }
 
 function gsOnboardingDone(showBanner) {
+  try { document.documentElement.classList.remove('gs-preauth'); } catch(_){}
   var el = document.getElementById('gs-onboarding');
   if (el) {
     el.style.opacity = '0';
