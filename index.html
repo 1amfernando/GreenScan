@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.26.20260615">
+<meta name="app-version" content="29.27.20260615">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -58058,6 +58058,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.27', date: '15.06.2026',
+    headline: '☁️ Cloud-Sync rundum: konstant, automatisch, in beide Richtungen + sichtbarer Status',
+    summary: 'Block B der Feature-Welle (Fernando-Punkt 6: „Cloud Backup & Sync konstant + automatisch"). Bisher liefen das Hochladen deiner Daten konstant — aber Änderungen von ANDEREN Geräten kamen erst beim Neustart der App an. Jetzt synchronisiert die App in beide Richtungen, automatisch: sobald du die App in den Vordergrund holst und zusätzlich alle 2 Minuten, werden Änderungen von deinen anderen Geräten geholt. Der Sync-Status ist jetzt live sichtbar („Synchronisiere…", „zuletzt vor X Min", „Offline", „Backup vor X"). Der Backup-/Sync-Knopf in den Einstellungen macht jetzt einen vollen 2-Wege-Sync + Sicherung. Und es wird konstant ein frischer Wiederherstellungspunkt angelegt (alle ~3h statt nur 1×/Tag).',
+    user_summary: '☁️ Deine Daten gleichen sich jetzt automatisch in beide Richtungen ab — beim App-Öffnen + alle 2 Min. Live-Status + häufigeres Backup.',
+    user_items: [
+      { emoji: '🔄', text: '2-Wege-Sync: Änderungen anderer Geräte kommen automatisch (Fokus + alle 2 Min)' },
+      { emoji: '👁️', text: 'Sichtbarer Live-Status: „Synchronisiere… / zuletzt vor X / Offline"' },
+      { emoji: '💾', text: 'Konstanteres Backup: frischer Wiederherstellungspunkt alle ~3h' },
+    ],
+    items: [
+      {emoji:'🔄', bold:'Periodischer + Fokus-PULL (Kern):', text:' gsSyncPullNow + _gsSetupConstantSync — Pull bei visibilitychange=visible / window.focus / online + alle 2 Min (nur sichtbar), 25s-Cooldown, Concurrency-Guard. LWW-safe (gsSyncUserDataOnLogin schützt lokal-neuere Daten + Empty-Clobber-Guards PERS-12). _gsSyncPullInProgress unterdrückt Re-Push der gepullten Daten. Nach Pull: renderMyPlants/renderGarden (nur wenn KEIN Modal offen → kein Disrupt). Vorher lief PULL nur bei Login/Boot.'},
+      {emoji:'👁️', bold:'Live-Status:', text:' gsSyncStatusText um „Synchronisiere…" + „Offline" erweitert; _gsUpdateSyncStatusEl alle 15s + nach jedem Sync. Settings-Zeile „Cloud-Backup & Sync" zeigt den echten Live-Zustand.'},
+      {emoji:'💾', bold:'2-Wege-Backup-Button + konstanteres Backup:', text:' gsManualSnapshotBackup macht jetzt flushNow + Pull + Snapshot (echter 2-Wege-Sync per Tap). Auto-Sync legt zusätzlich zum Tages-Snapshot alle ~3h einen auto_periodic-Snapshot an (server-seitig auf 3/User gekappt → rotiert).'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check + sw.js OK · Preview-Boot grün (v29.27, 0 Konsolen-Fehler): gsSyncPullNow/_gsSetupConstantSync definiert, Setup läuft + Interval gesetzt, Status-Text korrekt, kein Throw. PUSH-Engine (30s-when-dirty + Events) unverändert beibehalten.'},
+    ]
+  },
+  {
     v: 'v29.26', date: '15.06.2026',
     headline: '📸 Arten-Fotos: echte Bilder im Detail + dein Foto beitragen (Community baut die DB auf)',
     summary: 'Block A der neuen Feature-Welle (Fernando-Punkte 1+2): Die Arten-Detailansicht zeigt jetzt ein echtes Foto statt nur Emoji — bevorzugt ein von der Community beigetragenes (freigegebenes) Bild, sonst ein Wikipedia-Bild als Fallback. Und du kannst selbst beitragen: Beim Öffnen einer Art gibt es „📸 Eigenes Foto zu dieser Art beitragen" — wahlweise dein zuletzt gescanntes Foto oder eines aus der Galerie/Kamera. So bauen wir gemeinsam die Bild-Datenbank auf. Fotos erscheinen erst nach kurzer Prüfung (Moderation) — keine falschen/unscharfen Bilder, Datenschutz gewahrt (Opt-in). Admins haben dafür eine neue „Foto-Beiträge"-Sektion im Admin-Panel.',
@@ -62915,7 +62932,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.26';
+var GS_VERSION = 'v29.27';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -68760,6 +68777,9 @@ function gsSyncStatusText(){
     var s = (window.gsCloudSync && gsCloudSync.status) ? gsCloudSync.status() : null;
     if (!s) return T('sync_status_unknown','Sync-Status unbekannt');
     if (!s.canPush) return T('sync_not_logged_in','Nicht eingeloggt — kein Cloud-Sync');
+    // v29.27: Live-Zustand
+    if (window._gsSyncSyncing) return T('sync_syncing','Synchronisiere…');
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return T('sync_offline','Offline — Änderungen werden bei Verbindung synchronisiert');
     var parts = [];
     if (s.lastPushAgeSec != null) {
       var m = Math.round(s.lastPushAgeSec/60);
@@ -68776,8 +68796,10 @@ window.gsSyncStatusText = gsSyncStatusText;
 async function gsManualSnapshotBackup(){
   try {
     if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) { if (typeof gsToast==='function') gsToast('🔐 Bitte einloggen für Cloud-Backup.','warning'); return; }
-    if (typeof gsToast==='function') gsToast('💾 Sichere Daten…','info',1800);
+    if (typeof gsToast==='function') gsToast('💾 Synchronisiere & sichere…','info',1800);
     try { if (window.gsCloudSync && gsCloudSync.flushNow) await gsCloudSync.flushNow(); } catch(_){}
+    // v29.27: auch ziehen → echter 2-Wege-Sync (Änderungen anderer Geräte holen) vor dem Backup.
+    try { if (typeof gsSyncPullNow === 'function') await gsSyncPullNow('manual'); } catch(_){}
     var id = await gsSnapshotCreate('manual');
     _gsUpdateSyncStatusEl();
     if (id) { if (typeof gsHaptic==='function') { try { gsHaptic('success'); } catch(_){} } if (typeof gsToast==='function') gsToast('✅ Backup in der Cloud gesichert.','success'); }
@@ -68789,6 +68811,67 @@ function _gsUpdateSyncStatusEl(){
   try { var el = document.getElementById('gs-sync-status'); if (el) el.textContent = '☁️ ' + gsSyncStatusText(); } catch(_){}
 }
 
+// ═══ v29.27 Block B: KONSTANTER 2-WEGE-SYNC — periodischer + fokus-getriggerter PULL ═══
+// Vorher lief der PUSH konstant (30s-when-dirty + beforeunload/pagehide/visibility/online),
+// aber der PULL nur bei Login/Boot → Änderungen von anderen Geräten kamen erst beim Neustart.
+// Jetzt: Pull bei App-Fokus + alle 2 Min (nur sichtbar), cooldown-guarded. LWW-safe, weil
+// gsSyncUserDataOnLogin lokale (neuere) Änderungen schützt + Empty-Clobber-Guards hat.
+function _gsSetSyncSyncing(on){ try { window._gsSyncSyncing = !!on; _gsUpdateSyncStatusEl(); } catch(_){} }
+async function gsSyncPullNow(reason){
+  try {
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
+    if (reason !== 'manual' && document.visibilityState !== 'visible') return;
+    if (window._gsPullInFlight) return;
+    var now = Date.now();
+    if (reason !== 'manual' && (now - (window._gsLastPullTs||0)) < 25000) return; // 25s Cooldown
+    window._gsPullInFlight = true;
+    window._gsLastPullTs = now;
+    _gsSetSyncSyncing(true);
+    window._gsSyncPullInProgress = true; // unterdrückt Re-Push der gerade gepullten Daten
+    try {
+      if (typeof gsSyncUserDataOnLogin === 'function') await gsSyncUserDataOnLogin();
+    } finally {
+      setTimeout(function(){ window._gsSyncPullInProgress = false; }, 0);
+    }
+    try { localStorage.setItem('gs_last_pull', new Date().toISOString()); } catch(_){}
+    // Sichtbare Listen aktualisieren — aber NICHT während ein Modal offen ist (kein Disrupt).
+    try {
+      var modalOpen = !!document.querySelector('.modal-overlay[style*="flex"], #detail-modal.open, .modal.open, .modal-overlay.open');
+      if (!modalOpen) {
+        if (typeof renderMyPlants === 'function') { try { renderMyPlants(); } catch(_){} }
+        if (typeof renderGarden === 'function') { try { renderGarden(); } catch(_){} }
+      }
+    } catch(_){}
+  } catch(_){}
+  finally {
+    window._gsPullInFlight = false;
+    _gsSetSyncSyncing(false);
+    try { _gsUpdateSyncStatusEl(); } catch(_){}
+  }
+}
+window.gsSyncPullNow = gsSyncPullNow;
+
+// Idempotenter Setup: Fokus-Pull + 2-Min-Pull (sichtbar) + 15s Live-Status-Refresh.
+function _gsSetupConstantSync(){
+  if (window._gsConstantSyncSetup) return;
+  window._gsConstantSyncSetup = true;
+  try {
+    // App kommt in den Vordergrund → sofort ziehen (Cross-Device-Frische).
+    document.addEventListener('visibilitychange', function(){
+      if (document.visibilityState === 'visible') { try { gsSyncPullNow('focus'); } catch(_){} }
+    });
+    window.addEventListener('focus', function(){ try { gsSyncPullNow('focus'); } catch(_){} });
+    window.addEventListener('online', function(){ try { gsSyncPullNow('online'); } catch(_){} });
+    // Periodischer Pull alle 2 Min (Cooldown + Visible-Check greifen intern).
+    if (window._gsConstPullInterval) clearInterval(window._gsConstPullInterval);
+    window._gsConstPullInterval = setInterval(function(){ try { gsSyncPullNow('periodic'); } catch(_){} }, 120000);
+    // Live-Status alle 15s aktualisieren („zuletzt vor X").
+    if (window._gsSyncStatusInterval) clearInterval(window._gsSyncStatusInterval);
+    window._gsSyncStatusInterval = setInterval(function(){ try { _gsUpdateSyncStatusEl(); } catch(_){} }, 15000);
+  } catch(_){}
+}
+window._gsSetupConstantSync = _gsSetupConstantSync;
+
 // Auto-Sync alle 5 Min: Flush + 1×/Tag auto_daily-Snapshot + Status-Indikator. Idempotent.
 function _gsSnapshotSetupAutoSync(){
   if (window._gsAutoSyncSetup) return;
@@ -68798,6 +68881,8 @@ function _gsSnapshotSetupAutoSync(){
       try {
         if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
         if (window.gsCloudSync && gsCloudSync.flushNow) gsCloudSync.flushNow();
+        // v29.27: auch periodisch PULLen (Cross-Device) — Cooldown/Visible-Check intern.
+        try { if (typeof gsSyncPullNow === 'function') gsSyncPullNow('periodic'); } catch(_){}
         // 1× pro Tag einen auto_daily-Snapshot
         var today = new Date().toISOString().slice(0,10);
         var last = null; try { last = localStorage.getItem('gs_snapshot_auto_day'); } catch(_){}
@@ -68806,6 +68891,14 @@ function _gsSnapshotSetupAutoSync(){
             if (id) { try { localStorage.setItem('gs_snapshot_auto_day', today); } catch(_){} }
           });
         }
+        // v29.27 konstanteres Backup: zusätzlich alle ~3h ein Snapshot (immer ein frischer
+        // Wiederherstellungspunkt; server-seitig auf 3/User gekappt → rotiert von selbst).
+        try {
+          var snapLast = localStorage.getItem('gs_snapshot_last');
+          if (!snapLast || (Date.now() - new Date(snapLast).getTime()) > 3*3600*1000) {
+            gsSnapshotCreate('auto_periodic');
+          }
+        } catch(_){}
         _gsUpdateSyncStatusEl();
       } catch(_){}
     }, 300000); // 5 Min
@@ -68816,6 +68909,7 @@ try {
   document.addEventListener('DOMContentLoaded', function(){
     setTimeout(function(){
       try { _gsSnapshotSetupAutoSync(); } catch(_){}
+      try { _gsSetupConstantSync(); } catch(_){} // v29.27: konstanter 2-Wege-Sync (Fokus + 2-Min-Pull)
       try { gsSnapshotMaybeOfferRestore(); } catch(_){}
       try { _gsUpdateSyncStatusEl(); } catch(_){}
       try { if (typeof _gsBattleMaybeOfferResume === 'function') _gsBattleMaybeOfferResume(); } catch(_){}
