@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.31.20260616">
+<meta name="app-version" content="29.32.20260616">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1563,17 +1563,20 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     try { if (localStorage.getItem('gs_debug') === '1') isDev = true; } catch(_){}
     window._gsDevMode = isDev;
     // Originale aufheben fuer Notfall-Restore
-    window._gsConsoleOrig = { log: console.log.bind(console), debug: console.debug.bind(console), info: console.info.bind(console) };
+    // v29.32 (Schicht 3 — Hintergrund verstecken): warn zusätzlich aufheben + in Prod stilllegen.
+    window._gsConsoleOrig = { log: console.log.bind(console), debug: console.debug.bind(console), info: console.info.bind(console), warn: console.warn.bind(console) };
     if (!isDev) {
       // Silent no-ops fuer Production
       console.log = function(){};
       console.debug = function(){};
       console.info = function(){};
+      console.warn = function(){};   // v29.32: warn auch still — versteckt internen Flow ([gsSync]…). error bleibt aktiv.
       // Helper: console.gsRestore() um wieder einzuschalten ohne Reload
       window.gsConsoleRestore = function(){
         console.log = window._gsConsoleOrig.log;
         console.debug = window._gsConsoleOrig.debug;
         console.info = window._gsConsoleOrig.info;
+        if (window._gsConsoleOrig.warn) console.warn = window._gsConsoleOrig.warn;
         try { localStorage.setItem('gs_debug','1'); } catch(_){}
         window._gsDevMode = true;
         console.warn('[gs] Dev-Mode aktiviert — console restored. Reload um persistent zu machen.');
@@ -58064,6 +58067,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.32', date: '16.06.2026',
+    headline: '🕶️ Backend-Upgrade Schicht 3: Hintergrund noch besser versteckt',
+    summary: 'Schicht 3: die internen Abläufe der App sind in der veröffentlichten Version jetzt noch unsichtbarer. Schon bisher waren die Entwickler-Logs (log/debug/info) in Produktion stumm — jetzt zusätzlich auch die internen Warn-/Ablauf-Meldungen (z.B. Sync-Schritte). Und der technische Diagnose-Befehl gibt im Normalbetrieb keine internen Details (wie Nutzer-ID oder Sync-Warteschlange) mehr preis. Im Entwickler-Modus (für dich) bleibt alles voll sichtbar — per gs_debug oder gsConsoleRestore().',
+    user_summary: '🕶️ Die internen Abläufe sind in der Live-Version noch besser versteckt (Konsole + Diagnose), für dich im Dev-Modus weiterhin voll einsehbar.',
+    user_items: [
+      { emoji: '🕶️', text: 'Auch interne Warn-/Ablauf-Logs in Produktion stumm (error bleibt für Telemetrie)' },
+      { emoji: '🔒', text: 'Diagnose-Befehl gibt im Normalbetrieb keine Internals (Nutzer-ID etc.) preis' },
+    ],
+    items: [
+      {emoji:'🕶️', bold:'_gsConsoleCleanup erweitert:', text:' console.warn wird in Prod zusätzlich zu log/debug/info stillgelegt (versteckt internen Flow wie [gsSync]…). console.error bleibt aktiv (Fehler-Telemetrie). Dev-Escape: ?gs_debug=1 / localStorage gs_debug / gsConsoleRestore() (restored jetzt auch warn).'},
+      {emoji:'🔒', bold:'gsCloudSync.debug() gated:', text:' gibt im Prod-Modus (kein _gsDevMode) nur noch {hidden:true, online} zurück statt uid/dirty-Scopes/Queue — Konsolen-Poking enthüllt keine Internals mehr. Im Dev-Mode unverändert voll.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check + sw.js OK + Preview-Boot grün (0 Fehler). Prod-Pfad getestet (_gsDevMode=false → debug() versteckt uid; warn-Original gesichert + restorebar). Reine Frontend-Härtung, keine Funktions-Änderung.'},
+    ]
+  },
+  {
     v: 'v29.31', date: '16.06.2026',
     headline: '🩺 Backend-Upgrade Schicht 2: Selbstüberwachung (Self-Healing-Monitor)',
     summary: 'Schicht 2 des Backend-Upgrades: ein neuer Monitor-Job läuft jede Stunde und überwacht die anderen Hintergrund-Jobs — schlägt ein Job fehl, wird das automatisch in einem strukturierten System-Ereignis-Protokoll festgehalten (statt unbemerkt zu bleiben). Im Admin-Panel gibt es dazu „🩺 System-Ereignisse". Modernes Must-have: die App merkt selbst, wenn im Hintergrund etwas klemmt, und führt Buch darüber. Komplett im Hintergrund, für normale Nutzer unsichtbar, additiv (kein Eingriff in bestehende Abläufe).',
@@ -63004,7 +63022,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.31';
+var GS_VERSION = 'v29.32';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -68497,6 +68515,9 @@ window.gsCloudSync = (function(){
   }
 
   function debug(){
+    // v29.32 (Schicht 3): Internals (uid, dirty-Scopes, Queue) nur im Dev-Mode preisgeben —
+    // im Prod-Konsolen-Poking nur ein minimaler, nicht-sensibler Status.
+    if (!window._gsDevMode) return { hidden: true, online: (typeof navigator!=='undefined' ? navigator.onLine : true) };
     return {
       dirty: _getDirty(),
       queue: _getQueue(),
