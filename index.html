@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.23.20260614">
+<meta name="app-version" content="29.24.20260615">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13764,6 +13764,13 @@ async function gsOpenBillingPortal(flow) {
         if (popup.closed) {
           clearInterval(chk);
           if (typeof gsLoadEntitlements === 'function') gsLoadEntitlements();
+          // v29.24 Bug-4: Abo-Karte mit Retry neu rendern (Webhook-Lag) + Status-Hinweis,
+          // damit Kündigung/Reaktivierung sofort sichtbar wird statt stillem "Aktiv".
+          if (typeof gsRefreshSubInfoCardRetry === 'function') gsRefreshSubInfoCardRetry();
+          try {
+            if (flow === 'cancel') gsToast('Kündigung wird verarbeitet — der Status aktualisiert sich in wenigen Sekunden.', 'info', 5000);
+            else if (flow === 'reactivate') gsToast('Reaktivierung wird verarbeitet — gleich aktualisiert.', 'info', 4000);
+          } catch(_){}
         }
       }, 800);
     } else {
@@ -13810,6 +13817,25 @@ async function gsLoadSubInfo() {
   } catch(e) {
     return null;
   }
+}
+
+// v29.24 Bug-4: Abo-Info-Karte (#abo-sub-info-host-inline) frisch aus der Cloud
+// neu rendern. Vorher rief der Portal-Return nur gsLoadEntitlements() (Tier) auf —
+// die Karte blieb auf dem alten "Aktiv"-Stand → nach einer Kündigung sah der Nutzer
+// NICHT, dass gekündigt wurde ("klappt nicht ganz, wird nicht angezeigt").
+function gsRefreshSubInfoCard(){
+  var host = document.getElementById('abo-sub-info-host-inline');
+  if (!host) return; // Abo-Screen nicht offen → nichts zu tun
+  gsLoadSubInfo().then(function(sub){
+    var h = document.getElementById('abo-sub-info-host-inline');
+    if (h) h.innerHTML = gsRenderSubInfo(sub);
+  }).catch(function(){});
+}
+// Mehrfach nachladen — der Stripe-Webhook setzt cancel_at_period_end erst nach
+// Verarbeitung in der DB (bis ~8s). Sofort + 2s/5s/9s fängt den Lag zuverlässig ab.
+function gsRefreshSubInfoCardRetry(){
+  gsRefreshSubInfoCard();
+  [2000, 5000, 9000].forEach(function(ms){ setTimeout(gsRefreshSubInfoCard, ms); });
 }
 
 // Rendert die Subscription-Info-Card als HTML-String. Bei null → Free-Plan-Card
@@ -13996,7 +14022,11 @@ function gsTrialSkip() {
     } else if (b === 'cancel') {
       setTimeout(function(){ try { gsToast('Zahlung abgebrochen', 'error'); } catch(e){} }, 400);
     } else if (b === 'return') {
-      setTimeout(function(){ if (typeof gsLoadEntitlements === 'function') gsLoadEntitlements(); }, 600);
+      // v29.24 Bug-4: nach Stripe-Portal-Return auch die Abo-Karte neu rendern (nicht nur Tier).
+      setTimeout(function(){
+        if (typeof gsLoadEntitlements === 'function') gsLoadEntitlements();
+        if (typeof gsRefreshSubInfoCardRetry === 'function') gsRefreshSubInfoCardRetry();
+      }, 600);
     }
     // URL-Parameter wegputzen
     try {
@@ -14027,6 +14057,10 @@ window.addEventListener('message', function(ev) {
       if (m) { m.classList.remove('open'); m.style.display='none'; document.body.style.overflow=''; }
     } else if (result === 'cancel') {
       if (typeof showProfileToast === 'function') showProfileToast('Zahlung abgebrochen — kein Abo aktiviert', 'error');
+    } else if (result === 'return') {
+      // v29.24 Bug-4: Portal-Return (Kündigung/Reaktivierung/Verwaltung) → Tier + Abo-Karte refreshen.
+      if (typeof gsLoadEntitlements === 'function') gsLoadEntitlements();
+      if (typeof gsRefreshSubInfoCardRetry === 'function') gsRefreshSubInfoCardRetry();
     }
   } catch(e){}
 });
@@ -25109,12 +25143,14 @@ window.gsFavsInitSub = gsFavsInitSub;
 // MEINE PFLANZEN – Kernfunktionen
 
 function savePlantsToStorage(){
-  gsStore.set('ps_myplants', JSON.stringify(myPlants));
+  // v29.24: Return-Wert (true/false) für Erfolgs-/Fehler-Feedback in savePlant.
+  var ok = gsStore.set('ps_myplants', JSON.stringify(myPlants));
   // v23.73: User-Account-Sync (debounced)
   try { if (typeof gsPushPlantsNow === 'function') gsPushPlantsNow(); } catch(_){}
   // v26.57: doppel-defensiv — direkt markDirty falls gsPushPlantsNow fehlschlägt
   // (z.B. wenn gsCloudSync noch nicht boot-fertig ist beim ersten Save)
   try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('plants'); } catch(_){}
+  return ok;
 }
 
 function getDaysUntilDue(lastDone, intervalDays){
@@ -25769,12 +25805,19 @@ async function savePlant(){
     };
     myPlants.push(newPlant);
   }
-  savePlantsToStorage();
+  var _wasEdit = !!editingPlantId;
+  var _okPlant = savePlantsToStorage();
   closeModal('modal-addplant');
   // v23.91: Photo-State zurücksetzen für nächsten Add
   try { gsClearPlantPhoto(); } catch(_){}
   renderMyPlants();
   scheduleAllNotifications();
+  // v29.24 Bug-3: explizites Feedback inkl. Ziel-Hinweis (Pflanze landet in
+  // „Meine Pflanzen" — Garten-Pflanzungen laufen über savePlanting). Vorher kein Toast.
+  try {
+    if (_okPlant) gsToast(_wasEdit ? '✅ Aktualisiert.' : '✅ Zu „Meine Pflanzen" hinzugefügt.', 'success');
+    else gsToast('⚠️ Speicher fast voll — bitte alte Fotos/Scans löschen. Eintrag evtl. nicht gesichert.', 'error', 6000);
+  } catch(_){}
   // v26.61: Milestones triggern
   try {
     if (typeof window.gsCheckMilestone === 'function') {
@@ -41910,8 +41953,11 @@ function initSettingsScreen() {
   const apiEl = document.getElementById('settings-api-status');
   if (apiEl) {
     const hasKey = !!(localStorage.getItem('ps_api_key'));
-    apiEl.textContent = hasKey ? '✅ API Key gesetzt' : '❌ Kein API Key – tippen zum Einrichten';
-    apiEl.style.color = hasKey ? '#2e7d32' : '#c62828';
+    // v29.24 Item-5: "❌ Kein API Key" (rot) war ein Fehlalarm — der persönliche Anthropic-Key
+    // ist OPTIONAL. Standardmässig läuft die KI über den globalen GreenScan-Schlüssel; ein
+    // eigener Key ist nur für Power-User, die die geteilte Quota umgehen wollen. (Admin-only-Row.)
+    apiEl.textContent = hasKey ? '✅ Eigener KI-Schlüssel aktiv' : '🌐 Standard-Schlüssel aktiv · eigener optional';
+    apiEl.style.color = hasKey ? '#2e7d32' : 'var(--muted)';
   }
   // v26.6 Marketplace-Connect: Verkaeufer-Row dynamisch aktualisieren.
   try { if (typeof gsMarketplaceRefreshSettingsRow === 'function') gsMarketplaceRefreshSettingsRow(); } catch(_){}
@@ -55811,10 +55857,18 @@ async function gsPPtryBluetooth() {
 }
 
 function saveGardenData() {
-  localStorage.setItem('gs_gardens', JSON.stringify(gardens));
-  gsStore.set('gs_plantings', JSON.stringify(plantings));
-  // v23.73: User-Account-Sync (debounced)
+  // v29.24 Bug-3 (HL#10): beide Writes quota-safe via gsStore (wirft NICHT) + unabhängig —
+  // ein fehlgeschlagener Write darf den anderen + den Cloud-Push nicht mehr killen.
+  // Vorher: raw localStorage.setItem('gs_gardens') OHNE try/catch → QuotaExceededError
+  // brach die ganze Funktion ab, plantings wurden nie persistiert + markDirty lief nie
+  // → "im Garten nicht gespeichert" (silent). gsStore.setJSON gibt false statt zu werfen.
+  var okG = gsStore.setJSON('gs_gardens', gardens);
+  var okP = gsStore.setJSON('gs_plantings', plantings);
+  // v23.73 + v29.24: User-Account-Sync (debounced) + doppel-defensiv markDirty
+  // (wie savePlantsToStorage — falls gsPushGardenNow zu früh im Boot läuft).
   try { if (typeof gsPushGardenNow === 'function') gsPushGardenNow(); } catch(_){}
+  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('garden'); } catch(_){}
+  return okG && okP;
 }
 
 // ── Wetter abrufen via Open-Meteo (kostenlos, kein Key nötig!) ──
@@ -56288,7 +56342,7 @@ function savePlanting() {
     notes: document.getElementById('plant-notes').value.trim(),
     added: new Date().toISOString(),
   });
-  saveGardenData();
+  var _ok = saveGardenData();
   closeModal('modal-add-planting');
   renderGarden();
   // v26.90: Sub-Tab-Counts + Inline-Garten-Liste (falls sichtbar) aktualisieren
@@ -56296,6 +56350,12 @@ function savePlanting() {
   try {
     var _oc = document.getElementById('favs-content-outdoor');
     if (_oc && _oc.style.display !== 'none' && typeof gsFavsRenderOutdoor === 'function') gsFavsRenderOutdoor();
+  } catch(_){}
+  // v29.24 Bug-3: explizites Erfolgs-/Fehler-Feedback (vorher KEIN Toast → Nutzer
+  // wusste nicht, ob gespeichert wurde → "wird nicht im Garten gespeichert").
+  try {
+    if (_ok) gsToast('✅ Im Garten gespeichert.', 'success');
+    else gsToast('⚠️ Speicher fast voll — Eintrag konnte evtl. nicht dauerhaft gesichert werden. Bitte alte Fotos/Scans löschen.', 'error', 6000);
   } catch(_){}
 }
 
@@ -57890,6 +57950,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v29.24', date: '15.06.2026',
+    headline: '🐛 3 Fixes: Garten-Speichern · Abo-Kündigung sichtbar · API-Key-Anzeige',
+    summary: 'Drei von dir gemeldete Probleme behoben. (1) Pflanzen/Gemüse/Kräuter im Garten speichern: Das Speichern war bei vollem Geräte-Speicher still fehlgeschlagen (eine ungeschützte Speicher-Operation brach den ganzen Vorgang ab) — jetzt speicherfest, plus eine klare Erfolgs-/Fehlermeldung („✅ Im Garten gespeichert"), damit du immer weisst, ob es geklappt hat. (2) Abo kündigen: Nach dem Kündigen im Stripe-Portal hat die App den neuen Status nicht angezeigt — jetzt aktualisiert sich die Abo-Karte automatisch (mit kurzem „wird verarbeitet"-Hinweis), sodass „Endet am …" + „Kündigung zurücknehmen" sofort sichtbar werden. (3) API-Schlüssel-Anzeige (nur Admin) zeigte fälschlich rotes „❌ Kein API Key" — der eigene Schlüssel ist optional, die KI läuft über den Standard-Schlüssel; jetzt ehrlich beschriftet.',
+    user_summary: '🐛 Garten-Speichern wieder zuverlässig (mit Bestätigung), Abo-Kündigung wird jetzt sofort angezeigt, und die API-Schlüssel-Anzeige ist ehrlicher.',
+    user_items: [
+      { emoji: '🌱', text: 'Garten: Pflanzen/Gemüse/Kräuter speichern zuverlässig + klare Bestätigung' },
+      { emoji: '✅', text: 'Kündigung wird sofort sichtbar („Endet am …" statt scheinbar nichts)' },
+      { emoji: '🔑', text: 'Kein falscher „Kein API Key"-Fehler mehr (eigener Schlüssel ist optional)' },
+    ],
+    items: [
+      {emoji:'🌱', bold:'Bug-3 Garten-Save (HL#10):', text:' saveGardenData nutzte raw localStorage.setItem(gs_gardens) OHNE try/catch → bei vollem Speicher (QuotaExceededError) brach die Funktion ab, plantings wurden nie persistiert + Cloud-markDirty lief nie → silent „nicht gespeichert". Fix: beide Writes quota-safe via gsStore.setJSON (wirft nicht) + unabhängig + doppel-defensiv markDirty(garden). Plus Erfolgs-/Fehler-Toast in savePlanting UND savePlant (vorher KEIN Feedback). savePlantsToStorage gibt jetzt true/false zurück.'},
+      {emoji:'✅', bold:'Bug-4 Abo-Kündigung-Anzeige:', text:' Nach Stripe-Portal-Cancel rief der Popup-Close/Return nur gsLoadEntitlements() (Tier) — die Abo-Karte #abo-sub-info-host-inline wurde NIE neu gerendert → Kündigung unsichtbar. Fix: gsRefreshSubInfoCard() + Retry-Polling (0/2/5/9s) gegen Webhook-Lag, eingehängt in Popup-Close + billing=return + postMessage(result=return, vorher ignoriert). Plus „Kündigung wird verarbeitet"-Hinweis-Toast.'},
+      {emoji:'🔑', bold:'Item-5 API-Key-Status:', text:' Admin-only-Row settings-api-status zeigte rotes „❌ Kein API Key" wenn kein PERSÖNLICHER ps_api_key gesetzt — Fehlalarm, denn die KI läuft über den globalen Schlüssel. Jetzt neutral „🌐 Standard-Schlüssel aktiv · eigener optional" (muted statt rot). Eigener Key bleibt optionales Power-User-Feature.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check + sw.js OK · Preview-Boot grün (v29.24, 0 Konsolen-Fehler): saveGardenData→true+persistiert, savePlantsToStorage→boolean, gsRefreshSubInfoCard rendert (946 Z. Free-Card), api-row admin-only bestätigt.'},
+    ]
+  },
   {
     v: 'v29.23', date: '14.06.2026',
     headline: '✅ Checkout robuster + SEO/Launch-Feinschliff',
@@ -62693,7 +62770,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.23';
+var GS_VERSION = 'v29.24';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
