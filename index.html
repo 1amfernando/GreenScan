@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.32.20260616">
+<meta name="app-version" content="29.33.20260616">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -58067,6 +58067,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.33', date: '16.06.2026',
+    headline: '🔎 Audit der neuen Schichten — Red-Team bestanden, 3 Schönheitsfehler poliert',
+    summary: 'Audit der drei neuen Backend-Schichten (v29.30-32). Der Live-Red-Team-Test der neuen Funktionen war komplett sauber: keine Sicherheits- oder Funktionslücke (anon/Nicht-Admin überall abgewiesen, interne Service-Funktionen nicht von aussen erreichbar, Ereignis-Log default-dicht, 0 Advisor-Fehler). Gefunden + behoben wurden nur drei kleine Schönheitsfehler in den neuen Admin-Ansichten (lange Texte ohne Abschneiden, identische Kachelfarbe) plus eine Least-Privilege-Hygiene aufs Ereignis-Log.',
+    user_summary: '🔎 Audit bestanden: keine Funktions-/Sicherheitsfehler, nur 3 kleine kosmetische Politur-Fixes in den Admin-Ansichten.',
+    user_items: [
+      { emoji: '✅', text: 'Red-Team der neuen Funktionen: keine Lücke (Sicherheit + Funktion sauber)' },
+      { emoji: '🎨', text: '3 Schönheitsfehler in den Admin-Ansichten poliert' },
+    ],
+    items: [
+      {emoji:'✅', bold:'Audit-Ergebnis:', text:' Red-Team (echte Rollen-Impersonation) der v29.30-32-Schichten = 0 exploitable Funde — Admin-Fns anon→denied/non-admin→admin-only, Service-Fns (fn_monitor_health/fn_log_system_event) für anon+authenticated REVOKEd, system_events RLS default-deny (Lesen=0, INSERT→RLS-Verstoß), is_admin_user Email-Forge nicht möglich, Advisor 0 ERROR. Wiring sauber (Promise.all-Indizes/Render/Felder, warn-Silencing + debug-Gating brechen keinen Caller).'},
+      {emoji:'🎨', bold:'Schönheitsfehler (P3, behoben):', text:' (1) System-Ereignisse-Hauptzeile (source · event) jetzt mit Ellipsis statt Mehrzeilen-Umbruch. (2) Cron-Schedule-Code mit max-width+Ellipsis (drückte sonst den Job-Namen). (3) System-Ereignisse-Kachel eigene Tönung (#eef2ff) statt identisch mit Storage-Diagnostics (#f3f4f6).'},
+      {emoji:'🔒', bold:'Hygiene (Migration v29_33, HL#17):', text:' system_events least-privilege — breite Default-Tabellen-Grants für anon/authenticated entzogen (RLS war bereits dicht; defense-in-depth). Verifiziert: keine anon/authenticated-Grants mehr.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check + sw.js OK + Preview-Boot grün (0 Konsolen-Fehler); alle 3 Fixes im gerenderten HTML bestätigt.'},
+    ]
+  },
+  {
     v: 'v29.32', date: '16.06.2026',
     headline: '🕶️ Backend-Upgrade Schicht 3: Hintergrund noch besser versteckt',
     summary: 'Schicht 3: die internen Abläufe der App sind in der veröffentlichten Version jetzt noch unsichtbarer. Schon bisher waren die Entwickler-Logs (log/debug/info) in Produktion stumm — jetzt zusätzlich auch die internen Warn-/Ablauf-Meldungen (z.B. Sync-Schritte). Und der technische Diagnose-Befehl gibt im Normalbetrieb keine internen Details (wie Nutzer-ID oder Sync-Warteschlange) mehr preis. Im Entwickler-Modus (für dich) bleibt alles voll sichtbar — per gs_debug oder gsConsoleRestore().',
@@ -63022,7 +63038,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.32';
+var GS_VERSION = 'v29.33';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -71389,7 +71405,7 @@ function _gsAdminCronHealthHtml(jobs){
       '<span style="flex-shrink:0;">'+dot+'</span>' +
       '<div style="flex:1;min-width:0;"><div style="font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(j.jobname)+'</div>' +
         '<div style="font-size:10px;color:var(--muted);">'+_fmtAge(j.last_run)+' · '+esc(j.last_status||'—')+(j.fails_24h>0?(' · '+j.fails_24h+' Fehler/24h'):'')+'</div></div>' +
-      '<code style="font-size:9.5px;color:var(--muted);flex-shrink:0;">'+esc(j.schedule)+'</code>' +
+      '<code style="font-size:9.5px;color:var(--muted);flex-shrink:0;max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(j.schedule)+'</code>' +
     '</div>';
   }).join('');
   return '<div id="gs-admin-cron-sec" style="margin-top:10px;padding:11px 13px;background:#eceff1;border-radius:8px;">' +
@@ -71417,11 +71433,11 @@ function _gsAdminSystemEventsHtml(events){
     var ic = e.severity==='error'?'🔴':e.severity==='warn'?'🟡':'🔵';
     var dt = ''; try { dt = e.detail ? esc(JSON.stringify(e.detail).slice(0,90)) : ''; } catch(_){}
     return '<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;">' +
-      ic+' <b style="color:var(--text);">'+esc(e.source)+'</b> · '+esc(e.event)+' <span style="color:var(--muted);">'+_age(e.created_at)+'</span>' +
+      '<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+ic+' <b style="color:var(--text);">'+esc(e.source)+'</b> · '+esc(e.event)+' <span style="color:var(--muted);">'+_age(e.created_at)+'</span></div>' +
       (dt ? '<div style="font-size:9.5px;color:var(--muted);font-family:monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+dt+'</div>' : '') +
     '</div>';
   }).join('');
-  return '<div id="gs-admin-sysevents-sec" style="margin-top:10px;padding:11px 13px;background:#f3f4f6;border-radius:8px;">' +
+  return '<div id="gs-admin-sysevents-sec" style="margin-top:10px;padding:11px 13px;background:#eef2ff;border-radius:8px;">' +
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
       '<div style="font-weight:800;font-size:12.5px;color:var(--g-dark);">🩺 System-Ereignisse ('+events.length+')</div>' +
       '<button onclick="_gsAdminRefreshSection(\'gs-admin-sysevents-sec\', gsAdminFetchSystemEvents, _gsAdminSystemEventsHtml)" title="Aktualisieren" style="padding:4px 9px;border:1px solid var(--border);border-radius:6px;background:var(--card);font-size:11px;cursor:pointer;font-family:inherit;">↻</button>' +
