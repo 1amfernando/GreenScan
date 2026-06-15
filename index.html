@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.33.20260616">
+<meta name="app-version" content="29.34.20260616">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15704,6 +15704,7 @@ async function _gsDoContributePhoto(spId, b64){
       var em = String((res.error && res.error.message) || '');
       var msg = em.indexOf('already pending') >= 0 ? 'Du hast für diese Art bereits ein Foto eingereicht (in Prüfung).'
               : em.indexOf('too many pending') >= 0 ? 'Zu viele offene Beiträge — bitte warte auf die Prüfung.'
+              : em.indexOf('rate_limited') >= 0 ? 'Zu schnell — bitte ein, zwei Minuten warten und erneut versuchen.'
               : 'Beitrag fehlgeschlagen — bitte erneut versuchen.';
       try { gsToast(msg, 'warn'); } catch(_){} return;
     }
@@ -58067,6 +58068,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.34', date: '16.06.2026',
+    headline: '🛡️ Backend-Upgrade Schicht 4: Missbrauchs-Schutz (Rate-Limiting) + Auto-Aufräumen',
+    summary: 'Schicht 4: vorhandene Rate-Limiting-Infrastruktur jetzt verdrahtet + automatisches Aufräumen verwaister Daten. Das Foto-Beitrag-System ist jetzt zusätzlich pro Stunde gedeckelt (Anti-Spam), und das Einlösen von Gutschein-Codes ist gegen Brute-Force/Enumeration geschützt (max. 12 Versuche/Stunde). Ein neuer täglicher Aufräum-Job entfernt abgelehnte Foto-Beiträge + abgelehnte Arten-Vorschläge automatisch. Alles im Hintergrund, additiv.',
+    user_summary: '🛡️ Mehr Missbrauchs-Schutz im Hintergrund (Rate-Limits) + täglicher Auto-Aufräum-Job für abgelehnte Daten.',
+    user_items: [
+      { emoji: '🛡️', text: 'Gutschein-Einlösung gegen Brute-Force geschützt (max. 12/Stunde)' },
+      { emoji: '📸', text: 'Foto-Beiträge zusätzlich pro Stunde gedeckelt (Anti-Spam)' },
+      { emoji: '🧹', text: 'Täglicher Auto-Aufräum-Job für abgelehnte Beiträge/Vorschläge' },
+    ],
+    items: [
+      {emoji:'🛡️', bold:'Rate-Limiting verdrahtet (Migration v29_34):', text:' fn_check_rate_limit (existierte ungenutzt) jetzt in fn_redeem_voucher (12/h → Anti-Brute-Force, JWT-verifiziert: 13. Versuch → rate_limited) + fn_contribute_species_image (15/h, zusätzlich zu dedupe + 30-pending-Cap). In-RPC PERFORM (DEFINER→DEFINER, kein Grant nötig). Frontend zeigt freundliche „zu schnell"-Meldung.'},
+      {emoji:'🧹', bold:'fn_cleanup_orphans + Cron cleanup-orphans-daily (25 4 * * *):', text:' löscht abgelehnte species_images >14d + abgelehnte species_proposals >30d (DB-only; Storage-Datei-GC bräuchte Edge-Fn, deferred — rejected-Dateien sind owner-only gelistet + URL nie publiziert). Verifiziert: GC läuft, Cron aktiv.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check + sw.js OK + Preview-Boot grün (0 Konsolen-Fehler). Voucher-Rate-Limit live als JWT getestet, Test-Daten bereinigt. Additiv → Live-Payment-DB unberührt.'},
+    ]
+  },
+  {
     v: 'v29.33', date: '16.06.2026',
     headline: '🔎 Audit der neuen Schichten — Red-Team bestanden, 3 Schönheitsfehler poliert',
     summary: 'Audit der drei neuen Backend-Schichten (v29.30-32). Der Live-Red-Team-Test der neuen Funktionen war komplett sauber: keine Sicherheits- oder Funktionslücke (anon/Nicht-Admin überall abgewiesen, interne Service-Funktionen nicht von aussen erreichbar, Ereignis-Log default-dicht, 0 Advisor-Fehler). Gefunden + behoben wurden nur drei kleine Schönheitsfehler in den neuen Admin-Ansichten (lange Texte ohne Abschneiden, identische Kachelfarbe) plus eine Least-Privilege-Hygiene aufs Ereignis-Log.',
@@ -63038,7 +63055,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.33';
+var GS_VERSION = 'v29.34';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
