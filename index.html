@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.27.20260615">
+<meta name="app-version" content="29.28.20260615">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -58058,6 +58058,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.28', date: '15.06.2026',
+    headline: '🛡️ Cloud-Sync gehärtet — Backup-Schutz + sauberer 2-Wege-Abgleich (Review-Fixes)',
+    summary: 'Ein gründlicher Sicherheits-Review des neuen Cloud-Syncs (v29.27) hat vier Schwachstellen gefunden, alle behoben. Die wichtigste: Das häufige Auto-Backup hätte bei nur 3 Backup-Plätzen die wertvollen älteren Sicherungen (Tages-Backup, Vor-Update-Backup) zu schnell verdrängt — genau die, die man nach einem Problem braucht. Jetzt sind 6 Plätze da und die wichtigen Anker-Backups sind dauerhaft geschützt. Außerdem: der periodische Abgleich lädt nicht mehr unnötig die gerade geholten Daten wieder hoch, aktualisiert die Liste nur bei echten Änderungen (kein Scroll-Sprung mehr), und ein manueller Sync wartet jetzt korrekt auf einen laufenden Abgleich.',
+    user_summary: '🛡️ Cloud-Sync abgesichert: mehr geschützte Backups, kein unnötiges Hochladen, keine störenden Listen-Sprünge mehr.',
+    user_items: [
+      { emoji: '💾', text: 'Backups geschützt: 6 Plätze + wichtige Anker-Backups bleiben erhalten' },
+      { emoji: '🔁', text: 'Periodischer Abgleich lädt geholte Daten nicht mehr unnötig wieder hoch' },
+      { emoji: '🧘', text: 'Listen aktualisieren nur bei echten Änderungen (kein Scroll-Sprung)' },
+    ],
+    items: [
+      {emoji:'💾', bold:'P1 Backup-Retention (Migration v29_28 LIVE):', text:' 3-Slot-Cap hätte den v29.27-3h-Snapshot die daily/pre_migration-Snapshots binnen ~9h verdrängen lassen. Fix: Cap 3→6 + trigger-aware Retention (neuester pre_migration/auto_daily/pre_logout IMMER geschützt) + auto_periodic im CHECK & fn_user_snapshot_create whitelisted (wurde vorher silent zu „manual" coerced). JWT-verifiziert: Label jetzt korrekt „auto_periodic".'},
+      {emoji:'🔁', bold:'P2 Re-Push behoben:', text:' Der innere _gsSyncPullInProgress-Block in gsSyncUserDataOnLogin setzte das Flag zu früh auf false → nachfolgende Writebacks (gpx/diary/ernte) markierten dirty → jeder Pull pushte die gerade geholten Daten zurück. Fix: save/restore statt hart-false + gsSyncPullNow setzt das Flag synchron für den GANZEN Pull.'},
+      {emoji:'🧘', bold:'P2 Render-Disrupt behoben:', text:' Nach dem Pull wird nur noch re-gerendert, wenn sich die Daten WIRKLICH geändert haben (Signatur-Vergleich) UND der Nutzer nicht tippt / kein Modal offen ist — kein Scroll-Sprung, kein Karten-Kollaps beim 2-Min-Pull.'},
+      {emoji:'🔒', bold:'P3 Race + manueller Sync:', text:' Asynchrone Pushes werden während eines Pulls aufgeschoben (beforeunload-Push läuft weiter → kein Datenverlust beim Schliessen). Manueller Backup-Tap wartet jetzt auf einen laufenden Pull, statt veraltete Daten zu sichern.'},
+      {emoji:'✅', bold:'Verify:', text:' Adversarialer 2-Agenten-Review → 4 Funde, alle gefixt. Backend-Migration als echter JWT verifiziert. 7/7 node --check + sw.js OK + Preview-Boot grün (v29.28, 0 Konsolen-Fehler).'},
+    ]
+  },
+  {
     v: 'v29.27', date: '15.06.2026',
     headline: '☁️ Cloud-Sync rundum: konstant, automatisch, in beide Richtungen + sichtbarer Status',
     summary: 'Block B der Feature-Welle (Fernando-Punkt 6: „Cloud Backup & Sync konstant + automatisch"). Bisher liefen das Hochladen deiner Daten konstant — aber Änderungen von ANDEREN Geräten kamen erst beim Neustart der App an. Jetzt synchronisiert die App in beide Richtungen, automatisch: sobald du die App in den Vordergrund holst und zusätzlich alle 2 Minuten, werden Änderungen von deinen anderen Geräten geholt. Der Sync-Status ist jetzt live sichtbar („Synchronisiere…", „zuletzt vor X Min", „Offline", „Backup vor X"). Der Backup-/Sync-Knopf in den Einstellungen macht jetzt einen vollen 2-Wege-Sync + Sicherung. Und es wird konstant ein frischer Wiederherstellungspunkt angelegt (alle ~3h statt nur 1×/Tag).',
@@ -62932,7 +62950,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.27';
+var GS_VERSION = 'v29.28';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -67969,6 +67987,11 @@ async function gsSyncUserDataOnLogin(){
           // (Der Patch wrapt Storage.prototype.setItem; aber unser _shouldOverwriteLocal hat
           // schon entschieden dass Cloud autoritativ ist, daher kein Re-Push nötig.)
           // Workaround: temp-flag prevents re-mark
+          // v29.28 (Review-P2): save/restore statt hart-false — sonst flippt dieser innere
+          // Block das von gsSyncPullNow gesetzte globale Flag zu früh auf false, und die
+          // NACHFOLGENDEN Writebacks (gpx/diary/ernte) re-marken dirty → Re-Push der gerade
+          // gepullten Daten bei JEDEM Pull-Tick.
+          var _prevPullState = window._gsSyncPullInProgress;
           window._gsSyncPullInProgress = true;
           try {
             for (var k in stateMap) {
@@ -68002,7 +68025,7 @@ async function gsSyncUserDataOnLogin(){
               if (sd.ui.lang) try { localStorage.setItem('gs_lang', sd.ui.lang); } catch(_){}
             }
           } finally {
-            window._gsSyncPullInProgress = false;
+            window._gsSyncPullInProgress = _prevPullState; // v29.28: vorigen Wert wiederherstellen
           }
           // Re-Mark dirty Stand zurücksetzen (falls Patch trotz Flag durchschlug)
           try { localStorage.removeItem('gs_sync_dirty_at_state'); } catch(_){}
@@ -68168,6 +68191,10 @@ window.gsCloudSync = (function(){
     if (debounceTimer){ clearTimeout(debounceTimer); debounceTimer = null; }
     if (!_canPush()) return;
     if (inFlight) return;
+    // v29.28 (Review-P3): während eines laufenden Pulls keine asynchronen Pushes (Pull/Push-Race
+    // vermeiden — der Pull entscheidet LWW). sync=true (beforeunload/pagehide) läuft trotzdem,
+    // sonst droht Datenverlust beim App-Schliessen. dirty bleibt erhalten → Flush nach dem Pull.
+    if (!sync && window._gsPullInFlight) return;
     inFlight = true;
     try {
       var d = _getDirty();
@@ -68817,34 +68844,55 @@ function _gsUpdateSyncStatusEl(){
 // Jetzt: Pull bei App-Fokus + alle 2 Min (nur sichtbar), cooldown-guarded. LWW-safe, weil
 // gsSyncUserDataOnLogin lokale (neuere) Änderungen schützt + Empty-Clobber-Guards hat.
 function _gsSetSyncSyncing(on){ try { window._gsSyncSyncing = !!on; _gsUpdateSyncStatusEl(); } catch(_){} }
-async function gsSyncPullNow(reason){
+// v29.28 (Review-P2): leichte Daten-Signatur, um nach einem Pull NUR bei echter Änderung
+// neu zu rendern (sonst stört der 2-Min-Pull alle paar Sekunden die Liste).
+function _gsDataSig(){
   try {
-    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
-    if (reason !== 'manual' && document.visibilityState !== 'visible') return;
-    if (window._gsPullInFlight) return;
-    var now = Date.now();
-    if (reason !== 'manual' && (now - (window._gsLastPullTs||0)) < 25000) return; // 25s Cooldown
-    window._gsPullInFlight = true;
-    window._gsLastPullTs = now;
-    _gsSetSyncSyncing(true);
-    window._gsSyncPullInProgress = true; // unterdrückt Re-Push der gerade gepullten Daten
-    try {
-      if (typeof gsSyncUserDataOnLogin === 'function') await gsSyncUserDataOnLogin();
-    } finally {
-      setTimeout(function(){ window._gsSyncPullInProgress = false; }, 0);
-    }
+    var s = '';
+    if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) s += 'P' + myPlants.map(function(x){ return x.id+':'+(x.name||'')+':'+(x.photo?1:0); }).join(',');
+    if (typeof plantings !== 'undefined' && Array.isArray(plantings)) s += 'L' + plantings.map(function(x){ return x.id+':'+(x.name||''); }).join(',');
+    if (typeof gardens !== 'undefined' && Array.isArray(gardens)) s += 'G' + gardens.map(function(x){ return x.id+':'+(x.name||''); }).join(',');
+    return s;
+  } catch(_){ return 'sig-err'; }
+}
+async function gsSyncPullNow(reason){
+  // Guards VOR dem try — damit das finally (Flag-Restore) nicht bei Early-Return feuert.
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
+  if (reason !== 'manual' && document.visibilityState !== 'visible') return;
+  if (window._gsPullInFlight) {
+    // v29.28 (Review-P3): manueller Sync wartet auf den laufenden Pull, statt still zu no-op'en
+    // (sonst sichert das Backup ggf. veraltete Daten vor dem Merge).
+    if (reason === 'manual' && window._gsPullPromise) { try { await window._gsPullPromise; } catch(_){} }
+    return;
+  }
+  var now = Date.now();
+  if (reason !== 'manual' && (now - (window._gsLastPullTs||0)) < 25000) return; // 25s Cooldown
+  window._gsPullInFlight = true;
+  window._gsLastPullTs = now;
+  var _prevPull = window._gsSyncPullInProgress;
+  window._gsSyncPullInProgress = true; // unterdrückt Re-Push der gerade gepullten Daten (ganzer Pull)
+  _gsSetSyncSyncing(true);
+  var sigBefore = _gsDataSig();
+  var pp = (async function(){ try { if (typeof gsSyncUserDataOnLogin === 'function') await gsSyncUserDataOnLogin(); } catch(_){} })();
+  window._gsPullPromise = pp;
+  try {
+    await pp;
     try { localStorage.setItem('gs_last_pull', new Date().toISOString()); } catch(_){}
-    // Sichtbare Listen aktualisieren — aber NICHT während ein Modal offen ist (kein Disrupt).
-    try {
-      var modalOpen = !!document.querySelector('.modal-overlay[style*="flex"], #detail-modal.open, .modal.open, .modal-overlay.open');
-      if (!modalOpen) {
-        if (typeof renderMyPlants === 'function') { try { renderMyPlants(); } catch(_){} }
-        if (typeof renderGarden === 'function') { try { renderGarden(); } catch(_){} }
-      }
-    } catch(_){}
+    // v29.28 (Review-P2): nur re-rendern wenn sich Daten WIRKLICH geändert haben UND der Nutzer
+    // gerade nicht tippt / kein Modal offen ist → kein Scroll-Sprung / kein Karten-Kollaps.
+    var sigAfter = _gsDataSig();
+    var ae = document.activeElement;
+    var typing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable);
+    var modalOpen = !!document.querySelector('.modal-overlay[style*="flex"], .modal-overlay.open, .overlay-modal.open, #detail-modal.open, .modal.open');
+    if (sigBefore !== sigAfter && !typing && !modalOpen) {
+      if (typeof renderMyPlants === 'function') { try { renderMyPlants(); } catch(_){} }
+      if (typeof renderGarden === 'function') { try { renderGarden(); } catch(_){} }
+    }
   } catch(_){}
   finally {
+    window._gsSyncPullInProgress = _prevPull; // synchron + immer zurücksetzen
     window._gsPullInFlight = false;
+    window._gsPullPromise = null;
     _gsSetSyncSyncing(false);
     try { _gsUpdateSyncStatusEl(); } catch(_){}
   }
