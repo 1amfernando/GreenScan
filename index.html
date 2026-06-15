@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.24.20260615">
+<meta name="app-version" content="29.25.20260615">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4928,7 +4928,7 @@ html, body{ scroll-behavior: smooth; }
         <div class="settings-icon" style="background:#e8eaf6;">🔑</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_api_key" data-i18n-fallback="API-Schlüssel">API-Schlüssel</div>
-          <div class="settings-label-sub" id="settings-api-status" data-i18n="settings_api_checking" data-i18n-fallback="Wird geprüft…">Wird geprüft…</div>
+          <div class="settings-label-sub" id="settings-api-status">Wird geprüft…</div>
         </div>
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
@@ -13834,6 +13834,13 @@ function gsRefreshSubInfoCard(){
 // Mehrfach nachladen — der Stripe-Webhook setzt cancel_at_period_end erst nach
 // Verarbeitung in der DB (bis ~8s). Sofort + 2s/5s/9s fängt den Lag zuverlässig ab.
 function gsRefreshSubInfoCardRetry(){
+  // v29.25: De-dupe — Popup-Close + postMessage('return') feuern beide; verhindert
+  // doppeltes Retry-Polling (war harmlos, aber ~8 redundante GETs in 9s).
+  try {
+    var now = Date.now();
+    if (window._gsSubRefreshTs && (now - window._gsSubRefreshTs) < 2000) return;
+    window._gsSubRefreshTs = now;
+  } catch(_){}
   gsRefreshSubInfoCard();
   [2000, 5000, 9000].forEach(function(ms){ setTimeout(gsRefreshSubInfoCard, ms); });
 }
@@ -14804,9 +14811,18 @@ function gsAddSpeciesToGarden(speciesId) {
   closeModal('detail-modal');
   setTimeout(function() {
     switchTab('favs');
-    setTimeout(function() { openModal('modal-addplant'); }, 300);
+    setTimeout(function() {
+      openModal('modal-addplant');
+      // v29.25 Bug-3 P1-A: Der Button heisst „Garten" → Standort-Toggle auf 🌳 Garten
+      // vorwählen. Vorher blieb der Toggle sticky auf 🏠 Wohnung → savePlant nahm den
+      // Indoor-Zweig → die Pflanze landete in „Meine Pflanzen" statt im Garten (Fernando-Bug).
+      try {
+        var rad = document.querySelector('input[name="mp-location"][value="outdoor"]');
+        if (rad) { rad.checked = true; rad.dispatchEvent(new Event('change', {bubbles:true})); }
+      } catch(_){}
+    }, 300);
   }, 150);
-  showProfileToast('Pflanze vorgefüllt — Details anpassen!', 'info');
+  showProfileToast('🌳 Für den Garten vorgewählt — Details anpassen!', 'info');
 }
 
 function favSearchFilter(q) {
@@ -25143,8 +25159,9 @@ window.gsFavsInitSub = gsFavsInitSub;
 // MEINE PFLANZEN – Kernfunktionen
 
 function savePlantsToStorage(){
-  // v29.24: Return-Wert (true/false) für Erfolgs-/Fehler-Feedback in savePlant.
-  var ok = gsStore.set('ps_myplants', JSON.stringify(myPlants));
+  // v29.24/v29.25: Return-Wert (true/false) für Feedback + setJSON-Parität (stringify
+  // im try/catch → durchgehend wurf-sicher wie saveGardenData).
+  var ok = gsStore.setJSON('ps_myplants', myPlants);
   // v23.73: User-Account-Sync (debounced)
   try { if (typeof gsPushPlantsNow === 'function') gsPushPlantsNow(); } catch(_){}
   // v26.57: doppel-defensiv — direkt markDirty falls gsPushPlantsNow fehlschlägt
@@ -25727,8 +25744,13 @@ async function savePlant(){
         setTimeout(function(){
           try {
             var pf = window._gsPrefillPlanting;
-            var fName = document.getElementById('pl-name') || document.querySelector('#modal-add-planting input[name="name"]');
+            // v29.25 Bug-3 P1-B: echtes Feld ist id="plant-name" (NICHT "pl-name" — das
+            // existierte nie, der Fallback input[name=name] auch nicht) → Name kam nach dem
+            // Redirect nie an → savePlanting brach mit „Bitte Pflanzennamen eingeben" ab.
+            var fName = document.getElementById('plant-name');
             if (fName && pf && pf.name) { fName.value = pf.name; fName.dispatchEvent(new Event('input', {bubbles:true})); }
+            var fNotes = document.getElementById('plant-notes');
+            if (fNotes && pf && pf.notes) { fNotes.value = pf.notes; }
           } catch(_){}
           window._gsPrefillPlanting = null;
         }, 350);
@@ -25816,7 +25838,7 @@ async function savePlant(){
   // „Meine Pflanzen" — Garten-Pflanzungen laufen über savePlanting). Vorher kein Toast.
   try {
     if (_okPlant) gsToast(_wasEdit ? '✅ Aktualisiert.' : '✅ Zu „Meine Pflanzen" hinzugefügt.', 'success');
-    else gsToast('⚠️ Speicher fast voll — bitte alte Fotos/Scans löschen. Eintrag evtl. nicht gesichert.', 'error', 6000);
+    else gsToast({body:'⚠️ Speicher fast voll — bitte alte Fotos/Scans löschen. Eintrag evtl. nicht gesichert.', type:'error', duration:6000});
   } catch(_){}
   // v26.61: Milestones triggern
   try {
@@ -56355,7 +56377,7 @@ function savePlanting() {
   // wusste nicht, ob gespeichert wurde → "wird nicht im Garten gespeichert").
   try {
     if (_ok) gsToast('✅ Im Garten gespeichert.', 'success');
-    else gsToast('⚠️ Speicher fast voll — Eintrag konnte evtl. nicht dauerhaft gesichert werden. Bitte alte Fotos/Scans löschen.', 'error', 6000);
+    else gsToast({body:'⚠️ Speicher fast voll — Eintrag konnte evtl. nicht dauerhaft gesichert werden. Bitte alte Fotos/Scans löschen.', type:'error', duration:6000});
   } catch(_){}
 }
 
@@ -57950,6 +57972,26 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v29.25', date: '15.06.2026',
+    headline: '🌳 Garten-Speichern endgültig gefixt — „Garten"-Button landet jetzt WIRKLICH im Garten',
+    summary: 'Nachschlag zu v29.24: Ein adversarialer Code-Audit hat die EIGENTLICHE (deterministische) Ursache gefunden, warum Gemüse/Kräuter „nicht im Garten gespeichert" wurden. Der Button „🌳 Garten" auf einer Art öffnete das Hinzufügen-Formular, liess den Standort-Schalter aber auf 🏠 Wohnung stehen — die Pflanze landete dann in „Meine Pflanzen" statt im Garten. Und selbst wer den Garten korrekt wählte, bekam ein leeres Namensfeld (Vorbefüllung schrieb in ein nicht existierendes Feld) → das Speichern brach mit „Bitte Pflanzennamen eingeben" ab. Beide jetzt behoben: der Garten-Button wählt den Garten vor, und der Name wird korrekt übernommen. Plus kleinere Politur an v29.24 (Toast-Dauer, Speicher-Parität, API-Anzeige-Übersetzung, Abo-Refresh-Entdoppelung).',
+    user_summary: '🌳 „In Garten" speichert jetzt wirklich in den Garten (nicht versehentlich in „Meine Pflanzen"), und der Name wird automatisch übernommen.',
+    user_items: [
+      { emoji: '🌳', text: '„Garten"-Button wählt jetzt den Garten vor (vorher landete es in „Meine Pflanzen")' },
+      { emoji: '✍️', text: 'Pflanzenname wird automatisch ins Garten-Formular übernommen' },
+      { emoji: '✨', text: 'Kleinere Politur an den v29.24-Fixes' },
+    ],
+    items: [
+      {emoji:'🌳', bold:'Bug-3 P1-A (deterministisch):', text:' gsAddSpeciesToGarden öffnete modal-addplant, setzte den mp-location-Toggle aber NIE auf outdoor → sticky auf Wohnung → savePlant-Indoor-Zweig → Pflanze in myPlants statt Garten. Fix: nach openModal wird der outdoor-Radio vorgewählt (change-Event). Ein Button namens „Garten" geht jetzt in den Garten.'},
+      {emoji:'✍️', bold:'Bug-3 P1-B (deterministisch):', text:' Der Outdoor-Redirect-Prefill schrieb in getElementById("pl-name") — dieses Feld existiert nicht (echtes Feld: id="plant-name"; Fallback input[name=name] auch nicht vorhanden) → Name kam nach dem Redirect nie an → savePlanting brach mit „Bitte Pflanzennamen eingeben" ab. Fix: korrektes Feld plant-name (+ plant-notes) befüllen, nach openAddPlanting-Reset sequenziert.'},
+      {emoji:'⏱️', bold:'P3 Toast-Dauer:', text:' Die Speicher-voll-Fehler-Toasts nutzten gsToast(msg,"error",6000) — die 6000ms wurden verworfen (positionale Form forwardet keine duration). Jetzt Objekt-Form gsToast({body,type,duration:6000}).'},
+      {emoji:'🛡️', bold:'P3 Speicher-Parität:', text:' savePlantsToStorage nutzt jetzt gsStore.setJSON (stringify im try/catch) — durchgehend wurf-sicher wie saveGardenData.'},
+      {emoji:'🌐', bold:'P3 Item-5 i18n:', text:' data-i18n von der dynamischen API-Status-Zeile entfernt, damit ein Sprachwechsel den Live-Status nicht mit „Wird geprüft…" überschreibt.'},
+      {emoji:'🔁', bold:'P3 Bug-4 Entdoppelung:', text:' gsRefreshSubInfoCardRetry hat jetzt einen 2s-De-dupe-Guard — Popup-Close + postMessage(return) feuerten beide (harmlos, aber ~8 redundante GETs in 9s).'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check + sw.js OK · Preview-Boot grün (v29.25, 0 Konsolen-Fehler): outdoor-Radio nach „Garten"-Button vorgewählt, Name „Bärlauch" prefilled, plant-name existiert + pl-name weg. Adversarialer 3-Agenten-Audit der v29.24-Fixes: alle correct (high confidence).'},
+    ]
+  },
   {
     v: 'v29.24', date: '15.06.2026',
     headline: '🐛 3 Fixes: Garten-Speichern · Abo-Kündigung sichtbar · API-Key-Anzeige',
@@ -62770,7 +62812,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.24';
+var GS_VERSION = 'v29.25';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
