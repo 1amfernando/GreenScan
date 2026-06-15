@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.29.20260615">
+<meta name="app-version" content="29.30.20260616">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -58064,6 +58064,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.30', date: '16.06.2026',
+    headline: '⚙️ Backend-Upgrade Schicht 1: Hintergrund-Job-Überwachung (Observability)',
+    summary: 'Start des schichtweisen Backend-Upgrades. Schicht 1 = Observability: die App hat 17 automatische Hintergrund-Jobs (Backups, Erinnerungen, Wissens-Wachstum, Aufräumen, Push…), aber bisher konnte niemand sehen, ob sie wirklich laufen. Jetzt überwacht ein neuer Cron-Health-Monitor alle Jobs (letzter Lauf, Erfolg/Fehler, Fehler pro 24h) — sichtbar im Admin-Panel als „⚙️ Hintergrund-Jobs" mit Ampel (🟢/🟡/🔴). Modernes Must-have: man sieht sofort, wenn eine Automatisierung klemmt. Read-only, admin-only, additiv — kein Eingriff in bestehende Abläufe.',
+    user_summary: '⚙️ Neue Hintergrund-Job-Überwachung (Admin): sofort sichtbar, ob alle 17 Automatik-Jobs laufen.',
+    user_items: [
+      { emoji: '⚙️', text: 'Cron-Health-Monitor: alle 17 Hintergrund-Jobs mit Ampel-Status (Admin)' },
+      { emoji: '🟢', text: 'Letzter Lauf, Erfolg/Fehler, Fehler/24h pro Job auf einen Blick' },
+    ],
+    items: [
+      {emoji:'⚙️', bold:'fn_admin_cron_health (Migration v29_30 LIVE):', text:' SECURITY DEFINER, admin-gated (is_admin_user), liest cron.job + cron.job_run_details (40-Tage-Fenster deckt monatliche Jobs). Liefert pro Job: schedule, last_run, last_status, last_duration_s, runs_24h, fails_24h, healthy. REVOKE public/anon. JWT-verifiziert: admin → 17/17 healthy; non-admin → „admin only".'},
+      {emoji:'🖥️', bold:'Admin-Panel-Sektion „⚙️ Hintergrund-Jobs":', text:' Ampel 🟢 gesund / 🟡 unbekannt / 🔴 Fehler, relative Zeit, Schedule, Fehlerzähler + ↻-Refresh. Job-Namen escaped (XSS-safe).'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check + sw.js OK + Preview-Boot grün (0 Konsolen-Fehler). Read-only/additiv — Live-Payment-DB unberührt. Nächste Schichten: Rate-Limiting-Verdrahtung, System-Events, Auto-Hygiene.'},
+    ]
+  },
+  {
     v: 'v29.29', date: '15.06.2026',
     headline: '🔒 Voll-Audit + Härtung — Foto-Beiträge & Fundorte privat, Code zukunftssicher',
     summary: 'Eine erneute Sicherheits-Durchsicht über alles, was diese Woche dazukam (Arten-Fotos, Cloud-Sync), mit einem Live-Red-Team gegen die neuen Server-Funktionen. Ergebnis: keine echte Lücke in den Funktionen (alle Angriffe abgewehrt — Fremd-Zugriff, Moderations-Umgehung, Rechte-Eskalation blockiert). Ein Punkt wurde gehärtet: zwei Foto-Speicher (Arten-Foto-Beiträge inkl. noch-nicht-geprüfter, und Karten-Fundort-Fotos) ließen sich von außen auflisten/durchstöbern — das ist jetzt zu (nur noch der Besitzer sieht die Liste; das Anzeigen freigegebener Bilder funktioniert unverändert). Dazu etwas Code-Politur (einheitliches Escaping).',
@@ -62973,7 +62988,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.29';
+var GS_VERSION = 'v29.30';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -71316,6 +71331,40 @@ async function gsAdminReviewSpeciesImage(id, approve){
   } catch(_) { try { gsToast('Aktion fehlgeschlagen.', 'error'); } catch(__){} }
 }
 
+// ══ v29.30 Schicht 1 (Observability): Admin — Hintergrund-Jobs (Cron-Health) ══
+async function gsAdminFetchCronHealth(){
+  try {
+    var res = await sbFetch('/rest/v1/rpc/fn_admin_cron_health', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+    return (res && res.data) || [];
+  } catch(_) { return []; }
+}
+function _gsAdminCronHealthHtml(jobs){
+  jobs = Array.isArray(jobs) ? jobs : [];
+  var unhealthy = jobs.filter(function(j){ return !j.healthy; }).length;
+  function _fmtAge(ts){
+    if (!ts) return 'nie';
+    try { var m = Math.round((Date.now()-new Date(ts).getTime())/60000); if (m<60) return 'vor '+m+'m'; if (m<1440) return 'vor '+Math.round(m/60)+'h'; return 'vor '+Math.round(m/1440)+'d'; } catch(_){ return '?'; }
+  }
+  var esc = (typeof escHtml==='function') ? escHtml : function(s){ return String(s==null?'':s); };
+  var rows = jobs.map(function(j){
+    var dot = j.healthy ? '🟢' : (j.fails_24h>0 ? '🔴' : '🟡');
+    return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:11.5px;">' +
+      '<span style="flex-shrink:0;">'+dot+'</span>' +
+      '<div style="flex:1;min-width:0;"><div style="font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(j.jobname)+'</div>' +
+        '<div style="font-size:10px;color:var(--muted);">'+_fmtAge(j.last_run)+' · '+esc(j.last_status||'—')+(j.fails_24h>0?(' · '+j.fails_24h+' Fehler/24h'):'')+'</div></div>' +
+      '<code style="font-size:9.5px;color:var(--muted);flex-shrink:0;">'+esc(j.schedule)+'</code>' +
+    '</div>';
+  }).join('');
+  return '<div id="gs-admin-cron-sec" style="margin-top:10px;padding:11px 13px;background:#eceff1;border-radius:8px;">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
+      '<div style="font-weight:800;font-size:12.5px;color:var(--g-dark);">⚙️ Hintergrund-Jobs ('+jobs.length+')</div>' +
+      '<button onclick="_gsAdminRefreshSection(\'gs-admin-cron-sec\', gsAdminFetchCronHealth, _gsAdminCronHealthHtml)" title="Aktualisieren" style="padding:4px 9px;border:1px solid var(--border);border-radius:6px;background:var(--card);font-size:11px;cursor:pointer;font-family:inherit;">↻</button>' +
+    '</div>' +
+    (unhealthy>0 ? '<div style="font-size:11px;color:#c62828;font-weight:700;margin-bottom:6px;">⚠️ '+unhealthy+' Job(s) ohne aktuellen Erfolg</div>' : '<div style="font-size:11px;color:#2e7d32;margin-bottom:6px;">✅ Alle Jobs laufen</div>') +
+    (jobs.length ? rows : '<div style="font-size:11.5px;color:var(--muted);">Keine Job-Daten.</div>') +
+  '</div>';
+}
+
 async function _gsAdminRefreshSection(secId, fetchFn, htmlFn) {
   try {
     var el = document.getElementById(secId);
@@ -71342,10 +71391,10 @@ async function openAdminPanel() {
   var _ad = await Promise.all([
     gsAdminListUsers(), gsAdminFetchMetrics(), gsAdminFetchStripe(), gsAdminFetchFlags(),
     gsAdminFetchAudit(), gsAdminFetchClientErrors(), gsAdminFetchModerationFeed(), gsAdminFetchVouchers(),
-    gsAdminFetchSpeciesImageQueue()
+    gsAdminFetchSpeciesImageQueue(), gsAdminFetchCronHealth()
   ]);
   var users = _ad[0], metrics = _ad[1], stripe = _ad[2], flags = _ad[3],
-      audit = _ad[4], cerrs = _ad[5], moderation = _ad[6], vouchers = _ad[7], simgQueue = _ad[8];
+      audit = _ad[4], cerrs = _ad[5], moderation = _ad[6], vouchers = _ad[7], simgQueue = _ad[8], cronHealth = _ad[9];
   var existing = document.getElementById('modal-admin-panel');
   if (existing) existing.remove();
   var m = document.createElement('div');
@@ -71415,6 +71464,7 @@ async function openAdminPanel() {
       _gsAdminClientErrorsHtml(cerrs) +
       _gsAdminModerationHtml(moderation) +
       _gsAdminSpeciesImageHtml(simgQueue) +
+      _gsAdminCronHealthHtml(cronHealth) +
       _gsAdminVouchersHtml(vouchers) +
       '<div style="margin-top:10px;padding:11px 13px;background:#e8eaf6;border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:10px;">' +
         '<div style="font-weight:800;font-size:12.5px;color:#283593;">🧠 Wissens-DB-Editor</div>' +
