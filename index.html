@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.37.20260616">
+<meta name="app-version" content="29.38.20260616">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -9983,6 +9983,18 @@ function openDailyQuizFromSupa(quiz) {
   if (!quiz || !Array.isArray(quiz.options) || quiz.options.length < 2) {
     showProfileToast && showProfileToast('Quiz-Frage konnte nicht geladen werden — bitte später nochmal','error');
     return;
+  }
+  // v29.38 P0-FIX: openDailyQuiz/RPC liefert options als String-Array (= options.choices)
+  // + correct_idx. Diese Funktion erwartet aber Objekte {text,is_correct,explanation}.
+  // Ohne Normalisierung findet die correctOpt-Suche nichts → Quiz brach für ALLE
+  // eingeloggten User mit „keine richtige Antwort markiert" ab. Strings → Objekte mappen.
+  if (typeof quiz.options[0] === 'string') {
+    var _ci = (typeof quiz.correct_idx === 'number') ? quiz.correct_idx
+            : (typeof quiz.correct === 'number') ? quiz.correct : -1;
+    var _qExpl = quiz.explanation || '';
+    quiz.options = quiz.options.map(function(s, i){
+      return { text: String(s), is_correct: (i === _ci), explanation: (i === _ci ? _qExpl : '') };
+    });
   }
   // v23.81: Format-Tolerant — sowohl is_correct/label (DB) als auch correct/text (normalisiert)
   var correctOpt = quiz.options.find(function(o){ return o.is_correct === true || o.correct === true; });
@@ -58124,6 +58136,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.38', date: '16.06.2026',
+    headline: '🚑 Tägliches Quiz repariert (P0-Hotfix)',
+    summary: 'Das Tägliche Quiz lud die Frage nicht mehr und brach mit „keine richtige Antwort markiert" ab — für alle eingeloggten User. Ursache: ein Format-Mismatch zwischen Quiz-Laden und Quiz-Anzeige (die Antworten kamen als reine Texte + Index, die Anzeige erwartete aber Objekte). Behoben: die Anzeige normalisiert jetzt beide Formate. Fragen aus der DB, die 4 Antwort-Optionen, die richtige Antwort, Punkte/Streak und die Rangliste funktionieren wieder wie vorher. (Hinweis: kein Daten-Verlust — die 179 Quiz-Fragen waren immer in der DB; es war reiner Anzeige-Bug, KEIN „Cleanup", der Inhalte gelöscht hat.)',
+    user_summary: '🚑 Tägliches Quiz funktioniert wieder — alle Fragen, Antworten, Punkte & Rangliste wie vorher.',
+    user_items: [
+      { emoji: '🧩', text: 'Quiz-Frage + 4 Antworten laden wieder' },
+      { emoji: '🏆', text: 'Punkte, Streak & Rangliste wieder aktiv' },
+      { emoji: '🛡️', text: 'Kein Daten-Verlust — war ein reiner Anzeige-Bug' },
+    ],
+    items: [
+      {emoji:'🐛', bold:'Root-Cause:', text:' openDailyQuiz/RPC fn_get_daily_quiz liefert options als String-Array (options.choices) + correct_idx; openDailyQuizFromSupa erwartete aber Objekte {text,is_correct}. correctOpt-Suche fand nichts → früher Return mit Fehler-Toast, bevor die Frage gesetzt wurde. Betraf JEDEN eingeloggten User (RPC-Pfad).'},
+      {emoji:'🔧', bold:'Fix:', text:' openDailyQuizFromSupa normalisiert String-Optionen + correct_idx → {text,is_correct,explanation}-Objekte (Objekt-Format weiter unterstützt). Live verifiziert: Frage gesetzt, 4 Antwort-Buttons, richtige Antwort markiert, kein Früh-Abbruch.'},
+      {emoji:'🔍', bold:'Diagnose:', text:' DB 179 Quiz-Fragen + Rangliste intakt, RPC liefert gültige Frage, keine Cleanup-Funktion löscht Quiz-Daten — reiner Frontend-Format-Bug.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check + sw.js OK + Preview-Boot grün (0 Konsolen-Fehler).'},
+    ]
+  },
+  {
     v: 'v29.37', date: '16.06.2026',
     headline: '🌐 Garten-Ansicht übersetzt + Detail-Politur + KI-Garten-Planer Rate-Limit',
     summary: 'Abschluss-Politur. (1) Der „Mein Garten"-Voll-Render war als einziger Bereich noch fest deutsch — jetzt durchgängig übersetzbar (EN/ES), konsistent mit den Schwester-Ansichten. (2) Im Arten-Detail brechen lange Lebensraum-/Höhen-Angaben nicht mehr aus dem Raster. (3) Backend: der KI-Garten-Planer hat jetzt — wie der Pflanzen-Doktor — ein serverseitiges Stunden-Limit (Kostenschutz).',
@@ -63162,7 +63191,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.37';
+var GS_VERSION = 'v29.38';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
