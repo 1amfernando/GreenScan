@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.41.20260617">
+<meta name="app-version" content="29.42.20260617">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -58225,6 +58225,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.42', date: '17.06.2026',
+    headline: '💰 Hintergrund-Schicht 7: Kostendeckung im Blick (Admin)',
+    summary: 'GreenScan behält jetzt automatisch im Auge, ob die Kosten gedeckt sind — ganz im Sinne der Mission „Mensch und Natur verbinden, nicht geldgierig, aber kostendeckend". Ein täglicher Hintergrund-Snapshot stellt die wiederkehrenden Einnahmen (echte Abos) den KI-Kosten gegenüber und meldet automatisch, wenn ein Defizit droht oder die App den 5000-Nutzer-Meilenstein erreicht. Für Admins als „💰 Kostendeckung"-Karte sichtbar. Für normale Nutzer ändert sich nichts — reine Hintergrund-Schicht.',
+    user_summary: '💰 Neue Hintergrund-Schicht: automatische Kostendeckungs-Überwachung (Einnahmen vs. KI-Kosten) — Admin-Ansicht, mission-konform.',
+    user_items: [
+      { emoji: '💰', text: 'Tägliche Kostendeckungs-Übersicht (MRR vs. KI-Kosten) für Admins' },
+      { emoji: '🎯', text: 'Automatische Warnung bei Defizit-Risiko + 5000-Nutzer-Meilenstein' },
+      { emoji: '🌱', text: 'Mission-konform: kostendeckend statt geldgierig, keine Sales-Tricks' },
+    ],
+    items: [
+      {emoji:'💰', bold:'Schicht 7 — fn_finance_snapshot() (Migration v29_42 LIVE):', text:' read-only SECURITY DEFINER, Cron finance-snapshot-daily 04:45 UTC + Admin-On-Demand (fn_admin_finance_snapshot, is_admin_user-gated). Vereint reale AI-Kosten (ai_daily_usage CHF) mit echter MRR (stripe_subscriptions — NICHT profiles.tier, das comp/admin-Grants enthält, HL#20) → Deckungsgrad, aktive Pro/Trial/Lifetime, total Users → loggt nach system_events, severity=warn bei Defizit (AI 30d > MRR, ab 5 CHF) oder 5000-User-Marker (Mission-Trigger). Admin-Panel: neue „💰 Kostendeckung"-Karte. JWT-verifiziert: anon=0, non-admin→admin only. Baseline: 1 echtes Pro-Abo = MRR 7.90 CHF, AI 0.20 CHF/30d, Deckung 40×.'},
+      {emoji:'📒', bold:'FINANZ_STRATEGIE_v1.md:', text:' Living-Doc (Mission-Auftrag) um die Automatisierung ergänzt — das monatliche MRR-vs-Infra-Monitoring ist jetzt maschinell gestützt statt manuell.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check + sw.js OK + Preview-Boot grün. Backend: Cron aktiv, system_events geschrieben, Red-Team-Privilegien sauber.'},
+    ]
+  },
+  {
     v: 'v29.41', date: '17.06.2026',
     headline: '🏪 App-Store-Vorbereitung + neue Hintergrund-Schicht (Daten-Integrität)',
     summary: 'Zwei Dinge auf einmal: (1) GreenScan ist jetzt bereit, als echte App in Google Play und den Apple App Store zu gehen — die ganze Technik-Seite (Digital Asset Links, öffentliche Datenschutz-Seite, korrekte Auslieferung) ist vorbereitet, plus eine Schritt-für-Schritt-Anleitung für die Konto-Schritte. (2) Eine weitere Hintergrund-Schicht: ein täglicher Daten-Integritäts-Scan prüft Speicher-Verwaiste, Backup-Stände und Bucket-Größen und schreibt das ins System-Protokoll — die App passt noch besser auf sich selbst auf. Alles im Hintergrund, für normale Nutzer unsichtbar.',
@@ -63328,7 +63344,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.41';
+var GS_VERSION = 'v29.42';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -71768,6 +71784,44 @@ async function gsAdminRunIntegrityScan(){
   } catch(e){ if (typeof gsToast==='function') gsToast('Integritäts-Check fehlgeschlagen','error',4000); }
 }
 
+// ══ v29.42 Schicht 7 (Kostendeckung): Finanz-Snapshot (MRR vs AI-Kosten) — Mission ══
+async function gsAdminFetchFinance(){
+  try {
+    var res = await sbFetch('/rest/v1/rpc/fn_admin_finance_snapshot', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+    return (res && res.data) || null;
+  } catch(_) { return null; }
+}
+function _gsAdminFinanceHtml(fin){
+  var esc = (typeof escHtml==='function') ? escHtml : function(s){ return String(s==null?'':s); };
+  if (!fin) {
+    return '<div id="gs-admin-finance-sec" style="margin-top:10px;padding:11px 13px;background:#ecfdf5;border-radius:8px;">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
+        '<div style="font-weight:800;font-size:12.5px;color:var(--g-dark);">💰 Kostendeckung</div>' +
+        '<button onclick="_gsAdminRefreshSection(\'gs-admin-finance-sec\', gsAdminFetchFinance, _gsAdminFinanceHtml)" title="Aktualisieren" style="padding:4px 9px;border:1px solid var(--border);border-radius:6px;background:var(--card);font-size:11px;cursor:pointer;font-family:inherit;">↻</button>' +
+      '</div>' +
+      '<div style="font-size:11.5px;color:var(--muted);">Keine Daten verfügbar.</div></div>';
+  }
+  var cov = (fin.coverage_ratio_mrr_over_ai==null) ? '–' : (fin.coverage_ratio_mrr_over_ai + '×');
+  var anomalies = (fin.anomalies && fin.anomalies.length)
+    ? '<div style="margin-top:6px;font-size:11px;color:#b45309;">⚠️ ' + esc(fin.anomalies.join(' · ')) + '</div>'
+    : '<div style="margin-top:6px;font-size:11px;color:#2e7d32;">✅ Kostendeckung im grünen Bereich</div>';
+  function cell(lbl, val){ return '<div style="flex:1;min-width:84px;"><div style="font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">'+lbl+'</div><div style="font-size:14px;font-weight:800;color:var(--text);">'+val+'</div></div>'; }
+  return '<div id="gs-admin-finance-sec" style="margin-top:10px;padding:11px 13px;background:#ecfdf5;border-radius:8px;">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+      '<div style="font-weight:800;font-size:12.5px;color:var(--g-dark);">💰 Kostendeckung (MRR vs AI-Kosten)</div>' +
+      '<button onclick="_gsAdminRefreshSection(\'gs-admin-finance-sec\', gsAdminFetchFinance, _gsAdminFinanceHtml)" title="Aktualisieren" style="padding:4px 9px;border:1px solid var(--border);border-radius:6px;background:var(--card);font-size:11px;cursor:pointer;font-family:inherit;">↻</button>' +
+    '</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:8px;">' +
+      cell('MRR', (fin.est_mrr_chf||0)+' CHF') +
+      cell('AI-Kosten 30d', (fin.ai_cost_chf_30d||0)+' CHF') +
+      cell('Deckung', cov) +
+      cell('Pro · Trial', (fin.active_pro_subs||0)+' · '+(fin.trialing_subs||0)) +
+      cell('Lifetime', (fin.lifetime_holders||0)) +
+      cell('User total', (fin.total_users||0)) +
+    '</div>' + anomalies +
+  '</div>';
+}
+
 // Admin-Panel rendern
 async function openAdminPanel() {
   if (!gsIsAdmin()) {
@@ -71785,10 +71839,10 @@ async function openAdminPanel() {
   var _ad = await Promise.all([
     gsAdminListUsers(), gsAdminFetchMetrics(), gsAdminFetchStripe(), gsAdminFetchFlags(),
     gsAdminFetchAudit(), gsAdminFetchClientErrors(), gsAdminFetchModerationFeed(), gsAdminFetchVouchers(),
-    gsAdminFetchSpeciesImageQueue(), gsAdminFetchCronHealth(), gsAdminFetchSystemEvents()
+    gsAdminFetchSpeciesImageQueue(), gsAdminFetchCronHealth(), gsAdminFetchSystemEvents(), gsAdminFetchFinance()
   ]);
   var users = _ad[0], metrics = _ad[1], stripe = _ad[2], flags = _ad[3],
-      audit = _ad[4], cerrs = _ad[5], moderation = _ad[6], vouchers = _ad[7], simgQueue = _ad[8], cronHealth = _ad[9], sysEvents = _ad[10];
+      audit = _ad[4], cerrs = _ad[5], moderation = _ad[6], vouchers = _ad[7], simgQueue = _ad[8], cronHealth = _ad[9], sysEvents = _ad[10], finance = _ad[11];
   var existing = document.getElementById('modal-admin-panel');
   if (existing) existing.remove();
   var m = document.createElement('div');
@@ -71859,6 +71913,7 @@ async function openAdminPanel() {
       _gsAdminModerationHtml(moderation) +
       _gsAdminSpeciesImageHtml(simgQueue) +
       _gsAdminCronHealthHtml(cronHealth) +
+      _gsAdminFinanceHtml(finance) +
       _gsAdminSystemEventsHtml(sysEvents) +
       _gsAdminVouchersHtml(vouchers) +
       '<div style="margin-top:10px;padding:11px 13px;background:#e8eaf6;border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:10px;">' +
