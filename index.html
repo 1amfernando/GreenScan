@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.36.20260616">
+<meta name="app-version" content="29.37.20260616">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -822,9 +822,9 @@ details > summary::marker { content: ''; }
 .dsec h3{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:7px;}
 .dsec p{font-size:13.5px;color:var(--text2);line-height:1.6;}
 .dgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:9px;}
-.di{background:#f9fafb;border-radius:var(--r-sm);padding:11px;}
+.di{background:#f9fafb;border-radius:var(--r-sm);padding:11px;min-width:0;}
 .dil{font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.3px;}
-.div2{font-size:13px;font-weight:700;color:var(--text);margin-top:2px;}
+.div2{font-size:13px;font-weight:700;color:var(--text);margin-top:2px;overflow-wrap:anywhere;}
 .tox-scale{display:flex;gap:7px;margin-top:8px;}
 .td{width:32px;height:32px;border-radius:50%;background:#eee;display:flex;align-items:center;justify-content:center;font-size:15px;}
 .td.act{box-shadow:0 2px 8px rgba(0,0,0,.2);}
@@ -56253,9 +56253,11 @@ async function renderGarden() {
   try { if (typeof gsFavsUpdateSubCounts === 'function') gsFavsUpdateSubCounts(); } catch(_){}
   const list = document.getElementById('garden-list');
   if (!list) return;
+  // v29.37: i18n im Garten-Voll-Render (war als einziger Renderer fest deutsch). Fallback=Deutsch.
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k,f){ return f; };
 
   if (!gardens.length) {
-    list.innerHTML = '<div class="mp-empty"><span>🌻</span><p>Noch kein Garten angelegt.<br>Erstelle deinen ersten Garten!</p></div>';
+    list.innerHTML = '<div class="mp-empty"><span>🌻</span><p>' + _t('garden_empty_title','Noch kein Garten angelegt.') + '<br>' + _t('garden_empty_sub','Erstelle deinen ersten Garten!') + '</p></div>';
     return;
   }
 
@@ -56274,7 +56276,7 @@ async function renderGarden() {
     html += '<div class="garden-card-icon">🌻</div>';
     html += '<div class="garden-card-info">';
     html += '<div class="garden-card-name">' + escHtml(garden.name) + '</div>';
-    html += '<div class="garden-card-meta">' + escHtml(garden.location||'Kein Standort') + ' · ' + gPlantings.length + ' Pflanzen</div>';
+    html += '<div class="garden-card-meta">' + escHtml(garden.location|| _t('garden_no_location','Kein Standort')) + ' · ' + gPlantings.length + ' ' + _t('unit_plants','Pflanzen') + '</div>';
     html += '<div class="garden-card-badges">';
     html += '<span class="mpbadge">' + (sizeLabels[garden.size]||'Mittel') + '</span>';
     html += '<span class="mpbadge">' + (lightLabels[garden.light]||'⛅') + '</span>';
@@ -56290,25 +56292,25 @@ async function renderGarden() {
         const info = getPlantInfo(p.name);
         const harvestInfo = calcHarvestDate(p, null); // no weather yet
         const statusCls = harvestInfo.daysLeft === 0 ? 'status-ready' : harvestInfo.daysGrown > harvestInfo.adjustedDays * 1.1 ? 'status-late' : 'status-growing';
-        const statusTxt = harvestInfo.daysLeft === 0 ? '🌟 Erntebereit!' : 'Noch ' + harvestInfo.daysLeft + ' Tage';
+        const statusTxt = harvestInfo.daysLeft === 0 ? _t('garden_harvest_ready','🌟 Erntebereit!') : _t('garden_days_left_prefix','Noch') + ' ' + harvestInfo.daysLeft + ' ' + _t('unit_days','Tage');
 
         html += '<div class="planting-row" onclick="openPlantingDetail(\'' + p.id + '\')">';
         html += '<div class="planting-emoji">' + info.emoji + '</div>';
         html += '<div class="planting-info">';
         html += '<div class="planting-name">' + escHtml(p.name) + (p.variety?' <span style="font-size:10px;color:var(--muted)">(' + escHtml(p.variety) + ')</span>':'') + '</div>';
-        html += '<div class="planting-meta">Gepflanzt: ' + new Date(p.date).toLocaleDateString('de-CH') + ' · ' + p.count + 'x</div>';
+        html += '<div class="planting-meta">' + _t('planting_date_label','Gepflanzt:') + ' ' + new Date(p.date).toLocaleDateString('de-CH') + ' · ' + p.count + 'x</div>';
         html += '</div>';
         html += '<span class="planting-status ' + statusCls + '">' + statusTxt + '</span>';
         html += '</div>';
       });
     } else {
-      html += '<div style="padding:14px 16px;font-size:13px;color:var(--muted);text-align:center;">Noch nichts gepflanzt.<br><button onclick="openAddPlanting(\'' + garden.id + '\')" style="margin-top:8px;padding:7px 14px;background:var(--g-main);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">🌱 Pflanze einsetzen</button></div>';
+      html += '<div style="padding:14px 16px;font-size:13px;color:var(--muted);text-align:center;">' + _t('garden_no_plantings','Noch nichts gepflanzt.') + '<br><button onclick="openAddPlanting(\'' + garden.id + '\')" style="margin-top:8px;padding:7px 14px;background:var(--g-main);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">🌱 ' + _t('garden_plant_now','Pflanze einsetzen') + '</button></div>';
     }
 
     // Actions · v23.81: Wetter-Button raus, Einpflanzen nur 1× pro Garden
     html += '<div class="mp-actions" style="border-top:1px solid #f5f5f5;margin-top:4px;">';
-    html += '<button class="mp-action-btn" onclick="openAddPlanting(\'' + garden.id + '\')">🌱 Pflanze hinzufügen</button>';
-    html += '<button class="mp-action-btn" onclick="editGarden(\'' + garden.id + '\')">✏️ Bearbeiten</button>';
+    html += '<button class="mp-action-btn" onclick="openAddPlanting(\'' + garden.id + '\')">🌱 ' + _t('garden_add_plant','Pflanze hinzufügen') + '</button>';
+    html += '<button class="mp-action-btn" onclick="editGarden(\'' + garden.id + '\')">✏️ ' + _t('action_edit','Bearbeiten') + '</button>';
     html += '<button class="mp-action-btn del" onclick="deleteGarden(\'' + garden.id + '\')">🗑️</button>';
     html += '</div>';
 
@@ -58121,6 +58123,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v29.37', date: '16.06.2026',
+    headline: '🌐 Garten-Ansicht übersetzt + Detail-Politur + KI-Garten-Planer Rate-Limit',
+    summary: 'Abschluss-Politur. (1) Der „Mein Garten"-Voll-Render war als einziger Bereich noch fest deutsch — jetzt durchgängig übersetzbar (EN/ES), konsistent mit den Schwester-Ansichten. (2) Im Arten-Detail brechen lange Lebensraum-/Höhen-Angaben nicht mehr aus dem Raster. (3) Backend: der KI-Garten-Planer hat jetzt — wie der Pflanzen-Doktor — ein serverseitiges Stunden-Limit (Kostenschutz).',
+    user_summary: '🌐 „Mein Garten" jetzt voll übersetzbar (EN/ES) + Detail-Politur. KI-Garten-Planer mit Kostenschutz-Limit.',
+    user_items: [
+      { emoji: '🌐', text: '„Mein Garten" durchgängig übersetzbar (war als einziges noch deutsch)' },
+      { emoji: '📐', text: 'Arten-Detail: lange Werte brechen das Raster nicht mehr' },
+      { emoji: '🛡️', text: 'KI-Garten-Planer: serverseitiges Stunden-Limit (Kostenschutz)' },
+    ],
+    items: [
+      {emoji:'🌐', bold:'renderGarden i18n:', text:' alle sichtbaren Strings (Standort/Pflanzen-Anzahl/Status/Gepflanzt/Empty-States/Buttons) über _t() mit Deutsch-Fallback — Garten-Voll-Render war der letzte fest-deutsche Renderer. Live verifiziert (Fallback ok, kein undefined).'},
+      {emoji:'📐', bold:'Eco/Klassen-Raster Overflow:', text:' .di {min-width:0} + .div2 {overflow-wrap:anywhere} → lange Habitat-/Höhen-Strings im Arten-Detail brechen das 2-Spalten-Raster nicht mehr.'},
+      {emoji:'🛡️', bold:'garden-scan-analyze v10 (Backend, mirror-first):', text:' Server-Rate-Limit 20/h/User via fn_check_rate_limit (fail-open). Mirror-first ins Repo, struktur-geprüft, smoke-getestet (OPTIONS 200/no-auth 401), volles Prompt-Schema. Zweite KI-Edge-Fn mit Rate-Limit (nach plant-doctor v5).'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check + sw.js OK + Preview-Boot grün (0 Konsolen-Fehler); renderGarden live gerendert. Offene Mini-P3 (Empty-State-Pattern-Angleich, Saison-Tipp-Clamp, doppelte CSS-Def) bewusst als spätere Politur.'},
+    ]
+  },
   {
     v: 'v29.36', date: '16.06.2026',
     headline: '🛡️ KI-Doktor-Rate-Limit + Audit-Fixes (XSS-Härtung + Politur)',
@@ -63143,7 +63162,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.36';
+var GS_VERSION = 'v29.37';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
