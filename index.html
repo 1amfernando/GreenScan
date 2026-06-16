@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.38.20260616">
+<meta name="app-version" content="29.39.20260616">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5519,6 +5519,10 @@ html, body{ scroll-behavior: smooth; }
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){if(typeof gsOpenCollections==='function')gsOpenCollections();},200)" id="mi-collections">
         <div class="menu-item-icon" style="background:#ede7f6;">📁</div>
         <span class="menu-item-label" data-i18n="menu_sammlungen" data-i18n-fallback="Sammlungen">Sammlungen</span>
+      </button>
+      <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){if(typeof gsOpenNaturjahr==='function')gsOpenNaturjahr();},200)" id="mi-naturjahr">
+        <div class="menu-item-icon" style="background:#e1f5fe;">🗓️</div>
+        <span class="menu-item-label" data-i18n="menu_naturjahr" data-i18n-fallback="Mein Naturjahr">Mein Naturjahr</span>
       </button>
       <button class="menu-item" onclick="menuNav('garden')" id="mi-garden">
         <div class="menu-item-icon" style="background:#f9fbe7;">🌻</div>
@@ -15538,6 +15542,84 @@ function gsAddScanHistory(item) {
   return item.id;
 }
 window.gsAddScanHistory = gsAddScanHistory;
+
+// ══ v29.39: „MEIN NATURJAHR" — persönliche Jahres-Übersicht ════════════════════════
+// Verbindet Mensch & Natur (Mission): aggregiert AUSSCHLIESSLICH bereits vorhandene,
+// gesyncte Daten (Scans/Funde/Garten/Ernte/Quiz/Erfolge) zu einer schönen Jahres-Story.
+// Kein neues Tracking, kein Backend, voll offline. Defensiv (alle Quellen optional).
+function _gsNjArr(key){ try { var v=(window.gsStore&&gsStore.get)?gsStore.get(key,null):localStorage.getItem(key); var a=JSON.parse(v||'[]'); return Array.isArray(a)?a:[]; } catch(_){ return []; } }
+function _gsNjDate(ts){ if(ts==null) return null; try { var d=new Date(ts); return isNaN(d.getTime())?null:d; } catch(_){ return null; } }
+function gsOpenNaturjahr(){
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k,f){ return f; };
+  var esc = (typeof escHtml==='function') ? escHtml : function(s){ return String(s==null?'':s); };
+  var YEAR = new Date().getFullYear(), CURM = new Date().getMonth();
+  var monNames = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  var months = [0,0,0,0,0,0,0,0,0,0,0,0];
+  function bump(d){ if(d && d.getFullYear()===YEAR) months[d.getMonth()]++; }
+
+  // Scans (gs_scan_history: {name, createdAt ms})
+  var scanYear=0, speciesCount={};
+  _gsNjArr('gs_scan_history').forEach(function(s){
+    var d=_gsNjDate(s.createdAt||s.ts||s.time); if(d&&d.getFullYear()===YEAR){ scanYear++; bump(d); }
+    var nm=(s.name||'').trim(); if(nm) speciesCount[nm]=(speciesCount[nm]||0)+1;
+  });
+  var uniqueSpecies=Object.keys(speciesCount).length;
+  var topSpecies=Object.keys(speciesCount).sort(function(a,b){return speciesCount[b]-speciesCount[a];}).slice(0,5);
+
+  // Karten-Funde (greenscan_markers)
+  var findYear=0;
+  _gsNjArr('greenscan_markers').forEach(function(f){ var d=_gsNjDate(f.ts||f.time||f.found_at||f.created_at); if(d&&d.getFullYear()===YEAR){ findYear++; bump(d); } });
+
+  // Garten-Pflanzungen (gs_plantings: {date, added}) + Meine Pflanzen
+  var plantYear=0;
+  _gsNjArr('gs_plantings').forEach(function(p){ var d=_gsNjDate(p.date||p.added); if(d&&d.getFullYear()===YEAR){ plantYear++; bump(d); } });
+
+  // Ernte (gs_ernte_log: {ts, menge, unit})
+  var ernteCount=0, ernteKg=0;
+  _gsNjArr('gs_ernte_log').forEach(function(e){ var d=_gsNjDate(e.ts); if(d&&d.getFullYear()===YEAR){ ernteCount++; bump(d); var m=parseFloat(e.menge)||0, u=String(e.unit||'').toLowerCase(); if(u==='kg')ernteKg+=m; else if(u==='g')ernteKg+=m/1000; } });
+
+  // Quiz (gs_dq_stats) + Achievements (gs_achievements: Array ODER Object)
+  var dq={}; try { dq=JSON.parse(localStorage.getItem('gs_dq_stats')||'{}')||{}; } catch(_){}
+  var achRaw=null; try { achRaw=JSON.parse(localStorage.getItem('gs_achievements')||'null'); } catch(_){}
+  var achN = Array.isArray(achRaw) ? achRaw.filter(function(a){return a&&(a.unlocked||a.done||a.earned||a.tier||a.level);}).length
+           : (achRaw&&typeof achRaw==='object') ? Object.keys(achRaw).length : 0;
+
+  var totalActivity = scanYear+findYear+plantYear+ernteCount;
+  var maxMonth = Math.max.apply(null, months.concat([1]));
+  var empty = (totalActivity===0 && uniqueSpecies===0 && !(dq.points>0) && achN===0);
+
+  function tile(icon,val,label,bg){ return '<div style="flex:1;min-width:0;background:'+bg+';border-radius:14px;padding:11px 8px;text-align:center;">'+
+    '<div style="font-size:21px;">'+icon+'</div><div style="font-size:19px;font-weight:900;color:var(--g-dark);line-height:1.1;margin-top:2px;">'+val+'</div>'+
+    '<div style="font-size:9.5px;color:var(--muted);font-weight:600;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+label+'</div></div>'; }
+
+  var bars = months.map(function(v,i){ var h=Math.round((v/maxMonth)*44)+2; var cur=(i===CURM);
+    return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">'+
+      '<div style="width:100%;max-width:16px;height:'+h+'px;background:'+(v>0?'linear-gradient(180deg,#66bb6a,#1b5e20)':'var(--border)')+';border-radius:4px;'+(cur?'outline:2px solid #43a047;outline-offset:1px;':'')+'"></div>'+
+      '<div style="font-size:8px;color:'+(cur?'#43a047':'var(--muted)')+';font-weight:'+(cur?'800':'400')+';">'+monNames[i]+'</div></div>'; }).join('');
+
+  var topHtml = topSpecies.length ? ('<div style="margin-top:14px;"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px;">'+_t('nj_top_species','🌟 Deine Top-Arten')+'</div>'+
+    topSpecies.map(function(nm,i){ return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;"><span style="font-weight:800;color:#43a047;flex-shrink:0;">'+(i+1)+'.</span><span style="flex:1;min-width:0;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(nm)+'</span><span style="color:var(--muted);font-size:11px;flex-shrink:0;">'+speciesCount[nm]+'×</span></div>'; }).join('')+'</div>') : '';
+
+  var mc=document.getElementById('modal-content'); if(!mc) return;
+  mc.innerHTML='<button class="modal-close-btn" onclick="closeModal(\'detail-modal\')" title="'+_t('modal_close','Schliessen')+'">✕</button>'+
+    '<div style="padding:18px;">'+
+      '<div style="text-align:center;margin-bottom:14px;">'+
+        '<div style="font-size:40px;">🗓️</div>'+
+        '<div style="font-family:\'Playfair Display\',serif;font-size:22px;font-weight:900;color:var(--g-dark);">'+_t('nj_title','Mein Naturjahr')+' '+YEAR+'</div>'+
+        '<div style="font-size:12px;color:var(--muted);">'+_t('nj_sub','Deine Reise durch die Natur')+'</div>'+
+      '</div>'+
+      (empty
+        ? '<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px;line-height:1.6;">🌱 '+_t('nj_empty','Noch keine Aktivität dieses Jahr. Scanne Pflanzen, lege einen Garten an oder spiele das Quiz — dein Naturjahr füllt sich von selbst.')+'</div>'
+        : ('<div style="display:flex;gap:7px;margin-bottom:7px;">'+tile('🔍',scanYear,_t('nj_scans','Scans'),'#e8f5e9')+tile('🌿',uniqueSpecies,_t('nj_species','Arten'),'#f1f8e9')+tile('📍',findYear,_t('nj_finds','Funde'),'#e3f2fd')+tile('🌱',plantYear,_t('nj_plantings','Pflanzungen'),'#f9fbe7')+'</div>'+
+           '<div style="display:flex;gap:7px;margin-bottom:14px;">'+tile('🧺',(ernteKg>0?(Math.round(ernteKg*10)/10)+'kg':ernteCount),_t('nj_harvest','Ernte'),'#fff8e1')+tile('🏆',achN,_t('nj_achievements','Erfolge'),'#fff3e0')+tile('🧩',(dq.bestStreak||0),_t('nj_streak','Streak'),'#ede7f6')+tile('⭐',(dq.points||0),_t('nj_points','Quiz-Pkt'),'#e0f7fa')+'</div>'+
+           '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px;">'+_t('nj_activity','📈 Aktivität pro Monat')+'</div>'+
+           '<div style="display:flex;align-items:flex-end;gap:3px;height:62px;background:var(--surface2);border-radius:12px;padding:8px 6px;">'+bars+'</div>'+
+           topHtml)
+      )+
+    '</div>';
+  openModal('detail-modal');
+}
+window.gsOpenNaturjahr = gsOpenNaturjahr;
 
 // Generiert eine Scan-ID die für die aktuelle Scan-Session gilt. Wird von
 // gsAddToScanHistory und saveScanToHistory geteilt, damit beide Push-Pfade
@@ -58136,6 +58218,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.39', date: '16.06.2026',
+    headline: '🗓️ Neu: „Mein Naturjahr" — deine Natur-Reise auf einen Blick',
+    summary: 'Eine neue persönliche Jahres-Übersicht, die deine ganze Natur-Aktivität zu einer schönen Story verbindet: gescannte Arten, Karten-Funde, Garten-Pflanzungen, Ernte-Kilos, Quiz-Streak/-Punkte und Erfolge — plus eine Aktivitäts-Grafik pro Monat und deine Top-Arten des Jahres. Alles aus deinen bereits gespeicherten Daten (kein neues Tracking, funktioniert offline). Zu finden im Menü unter „Meine Welt → Mein Naturjahr".',
+    user_summary: '🗓️ Neu: „Mein Naturjahr" — Scans, Funde, Garten, Ernte, Quiz & Erfolge des Jahres in einer schönen Übersicht (Menü → Meine Welt).',
+    user_items: [
+      { emoji: '🗓️', text: '„Mein Naturjahr": persönliche Jahres-Übersicht deiner Natur-Aktivität' },
+      { emoji: '📈', text: 'Aktivitäts-Grafik pro Monat + deine Top-Arten' },
+      { emoji: '🔒', text: 'Nur aus deinen vorhandenen Daten — kein neues Tracking, offline' },
+    ],
+    items: [
+      {emoji:'🗓️', bold:'gsOpenNaturjahr():', text:' aggregiert client-seitig aus gs_scan_history (Scans+Arten+Top-5), greenscan_markers (Funde), gs_plantings (Pflanzungen), gs_ernte_log (Ernte-kg), gs_dq_stats (Quiz-Streak/-Punkte), gs_achievements (Erfolge) für das laufende Jahr. 8 Stat-Kacheln + 12-Monats-Aktivitäts-Balken (aktueller Monat hervorgehoben) + Top-Arten-Liste. Defensiv (alle Quellen optional, ts ms ODER ISO), escHtml für Namen, i18n via _t (Deutsch-Fallback).'},
+      {emoji:'🧭', bold:'Einstieg:', text:' Menü → „Meine Welt" → 🗓️ Mein Naturjahr (mi-naturjahr). Modal über detail-modal, kein Backend, kein neues Tracking — rein additiv.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check + sw.js OK + Preview-Boot grün (0 Konsolen-Fehler). Live getestet: populiert (Tiles/Monats-Bars/Top-Arten/Quiz korrekt) + Empty-State + Menü-Eintrag vorhanden.'},
+    ]
+  },
+  {
     v: 'v29.38', date: '16.06.2026',
     headline: '🚑 Tägliches Quiz repariert (P0-Hotfix)',
     summary: 'Das Tägliche Quiz lud die Frage nicht mehr und brach mit „keine richtige Antwort markiert" ab — für alle eingeloggten User. Ursache: ein Format-Mismatch zwischen Quiz-Laden und Quiz-Anzeige (die Antworten kamen als reine Texte + Index, die Anzeige erwartete aber Objekte). Behoben: die Anzeige normalisiert jetzt beide Formate. Fragen aus der DB, die 4 Antwort-Optionen, die richtige Antwort, Punkte/Streak und die Rangliste funktionieren wieder wie vorher. (Hinweis: kein Daten-Verlust — die 179 Quiz-Fragen waren immer in der DB; es war reiner Anzeige-Bug, KEIN „Cleanup", der Inhalte gelöscht hat.)',
@@ -63191,7 +63289,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.38';
+var GS_VERSION = 'v29.39';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
