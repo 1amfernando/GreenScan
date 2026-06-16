@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.40.20260616">
+<meta name="app-version" content="29.41.20260617">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -58225,6 +58225,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.41', date: '17.06.2026',
+    headline: '🏪 App-Store-Vorbereitung + neue Hintergrund-Schicht (Daten-Integrität)',
+    summary: 'Zwei Dinge auf einmal: (1) GreenScan ist jetzt bereit, als echte App in Google Play und den Apple App Store zu gehen — die ganze Technik-Seite (Digital Asset Links, öffentliche Datenschutz-Seite, korrekte Auslieferung) ist vorbereitet, plus eine Schritt-für-Schritt-Anleitung für die Konto-Schritte. (2) Eine weitere Hintergrund-Schicht: ein täglicher Daten-Integritäts-Scan prüft Speicher-Verwaiste, Backup-Stände und Bucket-Größen und schreibt das ins System-Protokoll — die App passt noch besser auf sich selbst auf. Alles im Hintergrund, für normale Nutzer unsichtbar.',
+    user_summary: '🏪 Bereit für Google Play & Apple App Store (Technik vorbereitet) + neue Hintergrund-Schicht: täglicher Daten-Integritäts-Scan.',
+    user_items: [
+      { emoji: '📲', text: 'App-Installation überall: Android, iOS (Home-Bildschirm), Desktop' },
+      { emoji: '🏪', text: 'Store-Vorbereitung komplett (Asset-Links, Datenschutz-Seite, Anleitung)' },
+      { emoji: '🩺', text: 'Neue Hintergrund-Schicht: täglicher Daten-Integritäts-Scan (Admin)' },
+    ],
+    items: [
+      {emoji:'🩺', bold:'Layer 5 — fn_data_integrity_scan() (Migration v29_41 LIVE):', text:' read-only SECURITY DEFINER, taeglich 04:35 UTC (Cron data-integrity-daily) + Admin-On-Demand-Button (fn_admin_data_integrity, is_admin_user-gated). Zaehlt Storage-Orphans (species-images via storage_path-Mapping), rejected-Backlog, Snapshot-Retention (Cap 6) + Per-Bucket-Objekt-Counts (Kosten-Sicht) → loggt nach system_events (erster echter Writer der v29.31-Tabelle), severity warn bei Anomalien. KEIN DELETE (loeschende Storage-GC folgt, sobald echte Orphans auftreten — species-images aktuell leer). JWT-verifiziert: anon=0, non-admin→admin only, 108 Objekte/0 Orphans.'},
+      {emoji:'🏪', bold:'Store-Readiness:', text:' /.well-known/assetlinks.json (Android-TWA Digital Asset Links, package ch.greenscan.app, Platzhalter-Fingerprints) + _headers application/json + _redirects schuetzt /.well-known/* vorm SPA-Fallback. Neue oeffentliche Datenschutz-Seite privacy.html unter /privacy & /datenschutz (Store-Pflicht, ohne Login). Manifest/Icons/Splash/Install-Flow waren bereits store-tauglich. STORE_SUBMISSION_GUIDE.md mit allen Fernando-Schritten (Play 25$ einmalig · App Store 99$/Jahr · Signing-Fingerprint-Falle · Guideline 4.2 · Data-Safety).'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check + sw.js OK + Preview-Boot grün. Backend: Cron aktiv, system_events geschrieben, Red-Team-Privilegien sauber.'},
+    ]
+  },
+  {
     v: 'v29.40', date: '16.06.2026',
     headline: '📸 Deine Fotos: jetzt sicher in der Cloud gespeichert',
     summary: 'Die Fotos, die du von deinen Pflanzen und im Garten-Tagebuch machst, werden ab jetzt zuverlässig in deinem privaten Cloud-Speicher abgelegt — nicht mehr nur auf dem Gerät. Das heißt: Sie sind auf allen deinen Geräten verfügbar, gehen beim Cache-Leeren nicht verloren und belegen keinen Browser-Speicher mehr. Bereits vorhandene Fotos, die noch lokal hingen, werden beim nächsten Login automatisch hochgeladen. Deine Fotos bleiben privat — nur du kannst sie auflisten.',
@@ -63312,7 +63328,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.40';
+var GS_VERSION = 'v29.41';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -71717,7 +71733,10 @@ function _gsAdminSystemEventsHtml(events){
   return '<div id="gs-admin-sysevents-sec" style="margin-top:10px;padding:11px 13px;background:#eef2ff;border-radius:8px;">' +
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
       '<div style="font-weight:800;font-size:12.5px;color:var(--g-dark);">🩺 System-Ereignisse ('+events.length+')</div>' +
-      '<button onclick="_gsAdminRefreshSection(\'gs-admin-sysevents-sec\', gsAdminFetchSystemEvents, _gsAdminSystemEventsHtml)" title="Aktualisieren" style="padding:4px 9px;border:1px solid var(--border);border-radius:6px;background:var(--card);font-size:11px;cursor:pointer;font-family:inherit;">↻</button>' +
+      '<div style="display:flex;gap:5px;flex-shrink:0;">' +
+        '<button onclick="gsAdminRunIntegrityScan()" title="Daten-Integrität jetzt prüfen" style="padding:4px 9px;border:1px solid var(--border);border-radius:6px;background:var(--card);font-size:11px;cursor:pointer;font-family:inherit;">🔍 Integrität</button>' +
+        '<button onclick="_gsAdminRefreshSection(\'gs-admin-sysevents-sec\', gsAdminFetchSystemEvents, _gsAdminSystemEventsHtml)" title="Aktualisieren" style="padding:4px 9px;border:1px solid var(--border);border-radius:6px;background:var(--card);font-size:11px;cursor:pointer;font-family:inherit;">↻</button>' +
+      '</div>' +
     '</div>' +
     (events.length ? rows : '<div style="font-size:11.5px;color:#2e7d32;">✅ Keine Ereignisse — alles ruhig.</div>') +
   '</div>';
@@ -71730,6 +71749,23 @@ async function _gsAdminRefreshSection(secId, fetchFn, htmlFn) {
     var data = await fetchFn();
     el.outerHTML = htmlFn(data);
   } catch(_) { try { openAdminPanel(); } catch(e){} }
+}
+
+// ══ v29.41 Schicht 5 (Daten-Integrität): On-Demand-Scan → loggt nach system_events ══
+async function gsAdminRunIntegrityScan(){
+  try {
+    if (typeof gsToast==='function') gsToast('🔍 Prüfe Daten-Integrität…','info',2000);
+    var res = await sbFetch('/rest/v1/rpc/fn_admin_data_integrity', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+    var d = (res && res.data) || null;
+    if (d) {
+      var an = (d.anomalies && d.anomalies.length) ? ('⚠️ '+d.anomalies.join(', ')) : '✅ Keine Anomalien';
+      if (typeof gsToast==='function') gsToast(an+' · '+(d.total_storage_objects||0)+' Dateien','success',5000);
+    } else if (typeof gsToast==='function') {
+      gsToast('Integritäts-Check ohne Resultat','error',4000);
+    }
+    // System-Ereignisse-Sektion neu laden → der neue Scan erscheint sofort
+    if (typeof _gsAdminRefreshSection==='function') _gsAdminRefreshSection('gs-admin-sysevents-sec', gsAdminFetchSystemEvents, _gsAdminSystemEventsHtml);
+  } catch(e){ if (typeof gsToast==='function') gsToast('Integritäts-Check fehlgeschlagen','error',4000); }
 }
 
 // Admin-Panel rendern

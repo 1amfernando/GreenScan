@@ -6,5 +6,13 @@
 /offline    /offline.html   200
 /app        /index.html     301!
 
+# v29.41: Datenschutz-Seite (Store-Pflicht, ohne Login erreichbar)
+/privacy        /privacy.html   200
+/datenschutz    /privacy.html   200
+
+# v29.41: Digital Asset Links (Android TWA) — NIE vom SPA-Fallback überschreiben,
+# sonst liefert /.well-known/assetlinks.json HTML statt JSON → TWA-Verifikation scheitert.
+/.well-known/*  /.well-known/:splat   200
+
 # SPA-Fallback: alle nicht-existierenden Pfade → App
 /*          /index.html     200
