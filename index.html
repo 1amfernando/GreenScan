@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.39.20260616">
+<meta name="app-version" content="29.40.20260616">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12992,23 +12992,30 @@ window.gsUploadPhotoToBucket = async function(bucket, b64) {
 // v26.58: Ein-Pass-Migration für existing base64-Photos in myPlants[].photo
 // Läuft beim ersten Boot nach v26.58. Idempotent via gs_photos_migrated_v26_58-Flag.
 window.gsMigrateBase64Photos = async function() {
-  if (localStorage.getItem('gs_photos_migrated_v26_58')) return { skipped: 'already_migrated' };
+  // v29.40: Flag-Key gebumpt (v26_58 → v29_40) → läuft EINMAL erneut, jetzt mit funktionierender
+  // user-plant-photos-INSERT-Policy (vorher schlugen alle Uploads fehl, base64 hing fest). UND:
+  // das „done"-Flag wird nur bei failed===0 gesetzt → retry bis ALLE base64-Fotos in Storage sind.
+  if (localStorage.getItem('gs_photos_migrated_v29_40')) return { skipped: 'already_migrated' };
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return { skipped: 'not_logged_in' };
   if (typeof myPlants === 'undefined' || !Array.isArray(myPlants)) return { skipped: 'no_plants' };
   var migrated = 0, failed = 0;
   for (var i = 0; i < myPlants.length; i++) {
     var p = myPlants[i];
-    if (p && p.photo && typeof p.photo === 'string' && p.photo.indexOf('data:image') === 0) {
+    // photo ODER photoUrl kann base64 sein (Fallback-Pfade in savePlant)
+    var b64src = (p && typeof p.photo === 'string' && p.photo.indexOf('data:image') === 0) ? p.photo
+               : (p && typeof p.photoUrl === 'string' && p.photoUrl.indexOf('data:image') === 0) ? p.photoUrl : null;
+    if (b64src) {
       try {
-        var b64 = p.photo.split(',')[1];
+        var b64 = b64src.split(',')[1];
         var url = await gsUploadPhotoToBucket('user-plant-photos', b64);
-        p.photo = url;
+        p.photo = url; p.photoUrl = url;
         migrated++;
-      } catch (e) { failed++; /* skip, base64 bleibt */ }
+      } catch (e) { failed++; /* skip, base64 bleibt — retry beim nächsten Login */ }
     }
   }
   if (migrated > 0 && typeof savePlantsToStorage === 'function') savePlantsToStorage();
-  localStorage.setItem('gs_photos_migrated_v26_58', '1');
+  // Flag NUR setzen wenn nichts fehlschlug → sonst nächster Login versucht die Reste erneut.
+  if (failed === 0) { try { localStorage.setItem('gs_photos_migrated_v29_40', '1'); } catch(_){} }
   return { migrated: migrated, failed: failed };
 };
 
@@ -58218,6 +58225,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.40', date: '16.06.2026',
+    headline: '📸 Deine Fotos: jetzt sicher in der Cloud gespeichert',
+    summary: 'Die Fotos, die du von deinen Pflanzen und im Garten-Tagebuch machst, werden ab jetzt zuverlässig in deinem privaten Cloud-Speicher abgelegt — nicht mehr nur auf dem Gerät. Das heißt: Sie sind auf allen deinen Geräten verfügbar, gehen beim Cache-Leeren nicht verloren und belegen keinen Browser-Speicher mehr. Bereits vorhandene Fotos, die noch lokal hingen, werden beim nächsten Login automatisch hochgeladen. Deine Fotos bleiben privat — nur du kannst sie auflisten.',
+    user_summary: '📸 Deine Pflanzen- & Tagebuch-Fotos werden jetzt sicher in deinem privaten Cloud-Speicher abgelegt — auf allen Geräten verfügbar, kein Datenverlust beim Cache-Leeren.',
+    user_items: [
+      { emoji: '📸', text: 'Pflanzen- & Garten-Tagebuch-Fotos landen jetzt im robusten Cloud-Speicher' },
+      { emoji: '🔄', text: 'Auf allen Geräten verfügbar — und sicher vor Cache-Leeren/Quota' },
+      { emoji: '🔒', text: 'Privat: nur du kannst deine Fotos auflisten (Anzeige via sicheres CDN)' },
+    ],
+    items: [
+      {emoji:'🗄️', bold:'Storage-Policies:', text:' user-plant-photos + garden-diary-photos hatten KEINE INSERT-Policy → jeder Upload 403 → Frontend fiel still auf base64-localStorage zurück (fragil, kein Cross-Device, Quota-Risiko). v29_40-Migration: je 3 owner-folder-Policies (INSERT/UPDATE/DELETE, Pattern (storage.foldername(name))[1]=auth.uid(), (SELECT …)-gewrappt). SELECT bewusst ohne Policy = privates Listing (HL#19); Anzeige via public CDN-GET.'},
+      {emoji:'🔁', bold:'gsMigrateBase64Photos:', text:' Flag-Key v26_58→v29_40 (läuft einmal erneut, jetzt mit funktionierender Policy) + done-Flag nur bei failed===0 (retry bis alle base64-Fotos in Storage) + erfasst photo UND photoUrl.'},
+      {emoji:'✅', bold:'Verify:', text:' JWT-Test: own_folder_upload_ok=true | other_folder_blocked=true. 7/7 node --check + sw.js OK + Preview-Boot grün.'},
+    ]
+  },
+  {
     v: 'v29.39', date: '16.06.2026',
     headline: '🗓️ Neu: „Mein Naturjahr" — deine Natur-Reise auf einen Blick',
     summary: 'Eine neue persönliche Jahres-Übersicht, die deine ganze Natur-Aktivität zu einer schönen Story verbindet: gescannte Arten, Karten-Funde, Garten-Pflanzungen, Ernte-Kilos, Quiz-Streak/-Punkte und Erfolge — plus eine Aktivitäts-Grafik pro Monat und deine Top-Arten des Jahres. Alles aus deinen bereits gespeicherten Daten (kein neues Tracking, funktioniert offline). Zu finden im Menü unter „Meine Welt → Mein Naturjahr".',
@@ -63289,7 +63312,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.39';
+var GS_VERSION = 'v29.40';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
