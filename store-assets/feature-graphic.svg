@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d2b0d"/>
+      <stop offset="0.5" stop-color="#1a3d1a"/>
+      <stop offset="1" stop-color="#2e7d32"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.78" cy="0.30" r="0.6">
+      <stop offset="0" stop-color="#81c784" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#81c784" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1024" height="500" fill="url(#bg)"/>
+  <rect width="1024" height="500" fill="url(#glow)"/>
+
+  <!-- dezente Blatt-/Scan-Motive rechts, ausserhalb der Text-Zone -->
+  <g opacity="0.16" fill="none" stroke="#c8e6c9" stroke-width="6">
+    <circle cx="830" cy="250" r="150"/>
+    <circle cx="830" cy="250" r="100"/>
+  </g>
+  <g transform="translate(770 170)" opacity="0.9">
+    <path d="M60 160 C60 70 130 20 200 10 C190 90 130 150 60 160 Z" fill="#81c784"/>
+    <path d="M60 160 C60 70 130 20 200 10" fill="none" stroke="#0d2b0d" stroke-width="4" opacity="0.4"/>
+    <line x1="60" y1="160" x2="170" y2="45" stroke="#0d2b0d" stroke-width="4" opacity="0.4"/>
+  </g>
+  <!-- Scanner-Rahmen-Ecken -->
+  <g stroke="#a5d6a7" stroke-width="7" fill="none" opacity="0.85" transform="translate(700 120)">
+    <path d="M0 26 V0 H26"/>
+    <path d="M234 0 H260 V26"/>
+    <path d="M260 234 V260 H234"/>
+    <path d="M26 260 H0 V234"/>
+  </g>
+
+  <!-- Wortmarke + Claim, in der linken sicheren Zone -->
+  <text x="70" y="205" font-family="Helvetica, Arial, sans-serif" font-size="92" font-weight="800" fill="#ffffff">GreenScan</text>
+  <text x="73" y="262" font-family="Helvetica, Arial, sans-serif" font-size="30" font-weight="600" fill="#c8e6c9">Schweizer Pflanzen, Pilze &amp; Natur</text>
+  <text x="73" y="316" font-family="Helvetica, Arial, sans-serif" font-size="26" font-weight="400" fill="#a5d6a7">KI-Scanner für 4'342 Arten · offline · Garten-Tagebuch</text>
+
+  <!-- kleine Feature-Pills -->
+  <g font-family="Helvetica, Arial, sans-serif" font-size="20" font-weight="700">
+    <rect x="73" y="360" width="150" height="44" rx="22" fill="#ffffff" opacity="0.12"/>
+    <text x="148" y="389" fill="#ffffff" text-anchor="middle">📷 Scannen</text>
+    <rect x="237" y="360" width="160" height="44" rx="22" fill="#ffffff" opacity="0.12"/>
+    <text x="317" y="389" fill="#ffffff" text-anchor="middle">🌱 Garten</text>
+    <rect x="411" y="360" width="150" height="44" rx="22" fill="#ffffff" opacity="0.12"/>
+    <text x="486" y="389" fill="#ffffff" text-anchor="middle">🍄 Pilze</text>
+  </g>
+</svg>

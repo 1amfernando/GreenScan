@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="ibg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a3d1a"/>
+      <stop offset="1" stop-color="#2e7d32"/>
+    </linearGradient>
+  </defs>
+  <!-- VOLLE opake Fläche (kein Alpha, keine Rundung — Apple/Play runden selbst) -->
+  <rect width="1024" height="1024" fill="url(#ibg)"/>
+
+  <!-- Scanner-Rahmen -->
+  <g stroke="#a5d6a7" stroke-width="26" fill="none" stroke-linecap="round">
+    <path d="M250 360 V300 a50 50 0 0 1 50 -50 H360"/>
+    <path d="M664 250 H724 a50 50 0 0 1 50 50 V360"/>
+    <path d="M774 664 V724 a50 50 0 0 1 -50 50 H664"/>
+    <path d="M360 774 H300 a50 50 0 0 1 -50 -50 V664"/>
+  </g>
+
+  <!-- Blatt-Motiv zentriert -->
+  <g transform="translate(512 512)">
+    <path d="M-120 150 C-150 0 -60 -150 130 -160 C120 30 10 150 -120 150 Z" fill="#81c784"/>
+    <path d="M-120 150 C-150 0 -60 -150 130 -160" fill="none" stroke="#0d2b0d" stroke-width="10" opacity="0.35"/>
+    <line x1="-120" y1="150" x2="95" y2="-120" stroke="#0d2b0d" stroke-width="10" opacity="0.35"/>
+    <line x1="-55" y1="70" x2="20" y2="-5" stroke="#0d2b0d" stroke-width="7" opacity="0.3"/>
+    <line x1="-15" y1="105" x2="60" y2="30" stroke="#0d2b0d" stroke-width="7" opacity="0.3"/>
+  </g>
+</svg>
