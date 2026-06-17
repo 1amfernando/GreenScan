@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.55.20260618">
+<meta name="app-version" content="29.56.20260618">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1753,22 +1753,84 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
 
 <!-- ═══ ONBOARDING / WILLKOMMEN ══════════════════════════════════════ -->
+<style id="gs-onb-css">
+/* v29.56 Login-Redesign — Politur, a11y, Übergänge, animierter botanischer Hintergrund. Scoped auf #gs-onboarding. */
+#gs-onboarding{ -webkit-font-smoothing:antialiased; }
+#gs-onboarding > div:not(.onb-bg){ position:relative; z-index:1; }
+/* Animierter Hintergrund: zwei langsam driftende Glow-Blobs + aufsteigende Blätter (nur transform/opacity → GPU) */
+#gs-onboarding .onb-bg{ position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:0; }
+#gs-onboarding .onb-blob{ position:absolute; border-radius:50%; filter:blur(72px); opacity:.4; will-change:transform; }
+#gs-onboarding .onb-blob.b1{ width:260px; height:260px; top:-60px; left:-60px; background:radial-gradient(circle,#2e7d32,transparent 70%); animation:onbDrift1 18s ease-in-out infinite; }
+#gs-onboarding .onb-blob.b2{ width:320px; height:320px; bottom:-80px; right:-70px; background:radial-gradient(circle,#43a047,transparent 70%); animation:onbDrift2 22s ease-in-out infinite; }
+@keyframes onbDrift1{ 0%,100%{ transform:translate(0,0) scale(1) } 50%{ transform:translate(40px,30px) scale(1.18) } }
+@keyframes onbDrift2{ 0%,100%{ transform:translate(0,0) scale(1) } 50%{ transform:translate(-46px,-30px) scale(1.12) } }
+#gs-onboarding .onb-leaf{ position:absolute; bottom:-50px; opacity:0; will-change:transform,opacity; animation:onbFloat linear infinite; }
+@keyframes onbFloat{ 0%{ transform:translateY(0) rotate(0); opacity:0 } 12%{ opacity:.16 } 88%{ opacity:.16 } 100%{ transform:translateY(-118vh) rotate(240deg); opacity:0 } }
+/* View-Übergang (fade + sanftes Hochgleiten) */
+#gs-onboarding .onb-anim-in{ animation:onbViewIn .42s cubic-bezier(.22,.7,.3,1) both; }
+@keyframes onbViewIn{ from{ opacity:0; transform:translateY(14px) scale(.985) } to{ opacity:1; transform:none } }
+/* Inputs: lesbarer + sichtbarer Fokus (WCAG 2.4.7) */
+#gs-onboarding input[type=text],#gs-onboarding input[type=email],#gs-onboarding input[type=password]{ background:rgba(255,255,255,.11)!important; border-color:rgba(255,255,255,.2)!important; transition:border-color .2s, box-shadow .2s, background .2s; }
+#gs-onboarding input::placeholder{ color:rgba(255,255,255,.52); }
+#gs-onboarding input:focus,#gs-onboarding input:focus-visible{ outline:none!important; border-color:#81c784!important; background:rgba(255,255,255,.15)!important; box-shadow:0 0 0 3px rgba(129,199,132,.22)!important; }
+/* Sichtbarer Tastatur-Fokus für Buttons/Links */
+#gs-onboarding button:focus-visible,#gs-onboarding a:focus-visible{ outline:2px solid #a5d6a7!important; outline-offset:2px; border-radius:10px; }
+/* Button-Politur: Druck-Feedback, Hover-Lift, Loading-/Disabled-State */
+#gs-onboarding button{ transition:transform .12s ease, box-shadow .2s ease, opacity .2s ease, filter .2s ease; }
+#gs-onboarding button:active{ transform:translateY(1px) scale(.995); }
+#gs-onboarding button[disabled]{ opacity:.6; cursor:not-allowed; }
+#gs-onboarding button[aria-busy="true"]{ color:transparent!important; position:relative; }
+#gs-onboarding button[aria-busy="true"]::after{ content:''; position:absolute; width:18px; height:18px; top:50%; left:50%; margin:-9px 0 0 -9px; border:2.5px solid rgba(255,255,255,.4); border-top-color:#fff; border-radius:50%; animation:onbSpin .6s linear infinite; }
+@keyframes onbSpin{ to{ transform:rotate(360deg) } }
+/* Mindest-Tap-Ziel für sekundäre/Ghost-Buttons */
+#gs-onboarding #onb-register button:not(#onb-reg-pw-toggle),#gs-onboarding #onb-login button:not(#onb-login-pw-toggle){ min-height:46px; }
+/* Fehler-/Erfolgs-Meldung: weicher Einzug */
+#gs-onboarding .onb-msg-in{ animation:onbMsgIn .35s ease both; }
+@keyframes onbMsgIn{ from{ opacity:0; transform:translateY(-6px) } to{ opacity:1; transform:none } }
+/* Caps-Lock: weiches Ein-/Ausblenden statt hartem Sprung */
+#gs-onboarding .onb-caps{ display:block!important; overflow:hidden; max-height:0; opacity:0; margin-bottom:0!important; transition:max-height .25s ease, opacity .2s ease, margin .25s ease; }
+#gs-onboarding .onb-caps.show{ max-height:64px; opacity:1; margin-bottom:10px!important; }
+/* Highlights-Karussell auf dem Start-Screen */
+#gs-onboarding .onb-hl{ position:relative; min-height:84px; }
+#gs-onboarding .onb-hl-item{ display:flex; gap:13px; align-items:center; }
+#gs-onboarding .onb-hl-item.in{ animation:onbHlIn .5s ease both; }
+@keyframes onbHlIn{ from{ opacity:0; transform:translateY(8px) } to{ opacity:1; transform:none } }
+#gs-onboarding .onb-hl-emoji{ font-size:30px; flex-shrink:0; filter:drop-shadow(0 2px 6px rgba(0,0,0,.3)); }
+#gs-onboarding .onb-hl-dots{ display:flex; gap:5px; justify-content:center; margin-top:12px; }
+#gs-onboarding .onb-hl-dot{ width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,.22); transition:width .3s, background .3s; }
+#gs-onboarding .onb-hl-dot.on{ background:#81c784; width:18px; border-radius:3px; }
+@media (prefers-reduced-motion: reduce){ #gs-onboarding .onb-leaf,#gs-onboarding .onb-blob,#gs-onboarding .onb-anim-in,#gs-onboarding .onb-hl-item.in,#gs-onboarding .onb-msg-in{ animation:none!important } }
+</style>
 <div id="gs-onboarding" style="display:none;position:fixed;inset:0;z-index:9999999;background:linear-gradient(145deg,#071a07 0%,#0d2e0d 50%,#0a1f0a 100%);overflow-y:auto;-webkit-overflow-scrolling:touch;">
+  <div class="onb-bg" aria-hidden="true">
+    <div class="onb-blob b1"></div><div class="onb-blob b2"></div>
+    <div class="onb-leaf" style="left:8%;font-size:22px;animation-duration:17s;animation-delay:0s;">🍃</div>
+    <div class="onb-leaf" style="left:24%;font-size:15px;animation-duration:23s;animation-delay:5s;">🌿</div>
+    <div class="onb-leaf" style="left:46%;font-size:26px;animation-duration:20s;animation-delay:9s;">🍃</div>
+    <div class="onb-leaf" style="left:63%;font-size:17px;animation-duration:26s;animation-delay:3s;">🌿</div>
+    <div class="onb-leaf" style="left:80%;font-size:21px;animation-duration:19s;animation-delay:12s;">🍃</div>
+    <div class="onb-leaf" style="left:92%;font-size:14px;animation-duration:24s;animation-delay:7s;">🌿</div>
+  </div>
   <div style="max-width:420px;margin:0 auto;padding:40px 24px 60px;min-height:100dvh;display:flex;flex-direction:column;justify-content:center;">
     
     <!-- Logo -->
     <div style="text-align:center;margin-bottom:28px;">
-      <div style="font-size:68px;margin-bottom:10px;filter:drop-shadow(0 4px 16px rgba(45,138,45,.5));">🌿</div>
+      <div style="font-size:68px;margin-bottom:10px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.3)) drop-shadow(0 2px 12px rgba(45,138,45,.4));">🌿</div>
       <div style="font-family:'Playfair Display',serif;font-size:30px;font-weight:900;color:#fff;letter-spacing:-0.5px;">GreenScan</div>
       <div style="font-size:13px;color:rgba(165,214,167,.7);margin-top:4px;">Schweizer Natur · Pflanzen & Pilze</div>
     </div>
 
     <!-- START-VIEW: Buttons -->
     <div id="onb-start">
+      <!-- v29.56: rotierendes Highlights-Karussell (DB-gestützt: onboarding_highlights, mit Bundled-Fallback) -->
       <div style="background:rgba(45,138,45,.12);border:1px solid rgba(45,138,45,.25);border-radius:14px;padding:16px 18px;margin-bottom:24px;">
-        <div style="font-size:13px;color:rgba(255,255,255,.85);line-height:1.6;">
-          GreenScan kennt <strong style="color:#81c784;">4342 Schweizer Arten</strong>. Mit einem kostenlosen Konto speicherst du Pflanzen, planst deinen Garten und sammelst Level.
+        <div id="onb-highlights" class="onb-hl">
+          <div class="onb-hl-item in">
+            <div class="onb-hl-emoji">🔍</div>
+            <div><div style="font-size:14px;font-weight:800;color:#fff;line-height:1.3;">4342 Schweizer Arten</div><div style="font-size:12px;color:rgba(255,255,255,.7);line-height:1.4;margin-top:2px;">Pflanzen, Pilze, Bäume &amp; Kräuter per Foto bestimmen</div></div>
+          </div>
         </div>
+        <div id="onb-hl-dots" class="onb-hl-dots"></div>
       </div>
 
       <button onclick="onbShowRegister()" style="width:100%;padding:16px;background:linear-gradient(135deg,#2d8a2d,#1a5c1a);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px;box-shadow:0 4px 20px rgba(45,138,45,.4);-webkit-tap-highlight-color:transparent;">
@@ -1803,7 +1865,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       </div>
 
       <!-- Caps-Lock Warnung -->
-      <div id="onb-reg-caps" style="display:none;background:rgba(255,193,7,.15);border-left:3px solid #ffc107;color:#ffd54f;padding:7px 10px;border-radius:6px;font-size:11.5px;margin-bottom:10px;">⚠️ Caps-Lock ist aktiv</div>
+      <div id="onb-reg-caps" class="onb-caps" style="display:none;background:rgba(255,193,7,.15);border-left:3px solid #ffc107;color:#ffd54f;padding:7px 10px;border-radius:6px;font-size:11.5px;margin-bottom:10px;">⚠️ Caps-Lock ist aktiv</div>
 
       <!-- Datenschutz-Checkbox -->
       <label style="display:flex;gap:10px;align-items:flex-start;margin-bottom:14px;cursor:pointer;-webkit-tap-highlight-color:transparent;">
@@ -1813,7 +1875,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
         </span>
       </label>
 
-      <div id="onb-reg-err" style="display:none;background:rgba(198,40,40,.15);border-left:3px solid #e57373;color:#ff8a80;padding:10px 12px;border-radius:8px;font-size:12.5px;margin-bottom:12px;line-height:1.5;"></div>
+      <div id="onb-reg-err" role="alert" aria-live="polite" style="display:none;background:rgba(198,40,40,.15);border-left:3px solid #e57373;color:#ff8a80;padding:10px 12px;border-radius:8px;font-size:12.5px;margin-bottom:12px;line-height:1.5;"></div>
 
       <button id="onb-reg-btn" data-i18n="btn_onb_register" data-i18n-fallback="✨ Registrieren" onclick="onbDoRegister()" style="width:100%;padding:15px;background:linear-gradient(135deg,#2d8a2d,#1a5c1a);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px;box-shadow:0 4px 20px rgba(45,138,45,.4);-webkit-tap-highlight-color:transparent;">
         ✨ Registrieren
@@ -1839,7 +1901,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       </div>
 
       <!-- Caps-Lock Warnung -->
-      <div id="onb-login-caps" style="display:none;background:rgba(255,193,7,.15);border-left:3px solid #ffc107;color:#ffd54f;padding:7px 10px;border-radius:6px;font-size:11.5px;margin-bottom:10px;">⚠️ Caps-Lock ist aktiv</div>
+      <div id="onb-login-caps" class="onb-caps" style="display:none;background:rgba(255,193,7,.15);border-left:3px solid #ffc107;color:#ffd54f;padding:7px 10px;border-radius:6px;font-size:11.5px;margin-bottom:10px;">⚠️ Caps-Lock ist aktiv</div>
 
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;-webkit-tap-highlight-color:transparent;">
@@ -1849,7 +1911,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
         <button data-i18n="btn_onb_forgot_pw" data-i18n-fallback="Passwort vergessen?" onclick="onbForgotPw()" style="background:none;border:none;color:rgba(165,214,167,.85);font-size:12px;cursor:pointer;font-family:inherit;padding:0;-webkit-tap-highlight-color:transparent;">Passwort vergessen?</button>
       </div>
 
-      <div id="onb-login-err" style="display:none;background:rgba(198,40,40,.15);border-left:3px solid #e57373;color:#ff8a80;padding:10px 12px;border-radius:8px;font-size:12.5px;margin-bottom:12px;line-height:1.5;"></div>
+      <div id="onb-login-err" role="alert" aria-live="polite" style="display:none;background:rgba(198,40,40,.15);border-left:3px solid #e57373;color:#ff8a80;padding:10px 12px;border-radius:8px;font-size:12.5px;margin-bottom:12px;line-height:1.5;"></div>
 
       <button id="onb-login-btn" data-i18n="btn_onb_login" data-i18n-fallback="🔑 Anmelden" onclick="onbDoLogin()" style="width:100%;padding:15px;background:linear-gradient(135deg,#2d8a2d,#1a5c1a);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px;box-shadow:0 4px 20px rgba(45,138,45,.4);-webkit-tap-highlight-color:transparent;">
         🔑 Anmelden
@@ -11955,6 +12017,19 @@ window.GS_I18N_JS_STRINGS = {
   'season_why_pre_frost2':     'Frostempfindliches (Tomaten, Bohnen, Basilikum) noch drinnen vorziehen.',
   'season_why_at_frost':       'Frostgrenze um',
   'season_why_at_frost2':      'Eisheilige abwarten, dann darf Wärmeliebendes raus.',
+  // ── v29.56 Login-Highlights (onboarding_highlights, rotierendes Karussell) ──
+  'onb_hl_identify_t':  '4342 Schweizer Arten',
+  'onb_hl_identify_s':  'Pflanzen, Pilze, Bäume & Kräuter per Foto bestimmen',
+  'onb_hl_mushroom_t':  'Pilze sicher bestimmen',
+  'onb_hl_mushroom_s':  'Mit VAPKO-Verzeichnis & Verwechsler-Warnungen',
+  'onb_hl_garden_t':    'Deinen Garten planen',
+  'onb_hl_garden_s':    'KI-Gartenplaner, Saisonkalender & Pflege-Erinnerungen',
+  'onb_hl_journal_t':   'Sammlung & Tagebuch',
+  'onb_hl_journal_s':   'Funde speichern, Fortschritt sehen, Level sammeln',
+  'onb_hl_weather_t':   'Wetter & Saison für deine Region',
+  'onb_hl_weather_s':   'Lokale Tipps, Frostwarnungen & Bauernregeln',
+  'onb_hl_community_t': 'Naturfreunde-Community',
+  'onb_hl_community_s': 'Tausche dich aus, teile Funde, lerne gemeinsam',
   // ── Offline / Sync ──────────────────────────────────────────────
   'toast_offline_saved':       '📵 Offline gespeichert',
   'toast_offline_synced':      '🔄 Online — Sync abgeschlossen',
@@ -58547,6 +58622,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.56', date: '18.06.2026',
+    headline: '🔐 Login rundum erneuert — eleganter, schneller, sicherer',
+    summary: 'Der Login-Bildschirm wurde komplett überarbeitet: ein ruhiger animierter Natur-Hintergrund, sanfte Übergänge, ein rotierendes Highlights-Karussell, das zeigt was GreenScan kann, und durchgehend sichtbare Tastatur-Fokus-Ringe. Im Hintergrund haben wir einen Bug behoben, der dazu führte, dass bei neuen Konten die E-Mail-Adresse nicht gespeichert wurde, und Lade-Zustände, Doppelklick-Schutz & Barrierefreiheit verbessert.',
+    user_summary: '🔐 Neuer, eleganter Login: animierter Hintergrund, sanfte Übergänge, rotierende Highlights, bessere Barrierefreiheit — plus E-Mail-Speicher-Bug bei neuen Konten behoben.',
+    user_items: [
+      { emoji: '✨', text: 'Eleganterer Login mit ruhigem animiertem Hintergrund & sanften Übergängen' },
+      { emoji: '🎠', text: 'Rotierende Highlights zeigen, was du mit GreenScan alles machen kannst' },
+      { emoji: '♿', text: 'Sichtbarer Fokus, Lade-Spinner, Doppelklick-Schutz & Screenreader-Hinweise' },
+    ],
+    items: [
+      {emoji:'🐛', bold:'Backend-Bug behoben (Migration v29_56):', text:' Zwei doppelte Datenbank-Trigger beim Konto-Anlegen führten dazu, dass die E-Mail-Adresse neuer Nutzer nicht im Profil gespeichert wurde (6 von 11 betroffen). Auf einen sauberen Trigger konsolidiert + bestehende Profile nachgefüllt. Verifiziert: 0 fehlende E-Mails.'},
+      {emoji:'🎨', bold:'Login-Redesign + „etwas Cooles":', text:' Animierter botanischer Hintergrund (driftende Glühpunkte + aufsteigende Blätter, respektiert „Bewegung reduzieren"), weiche View-Übergänge, weicheres Logo, neues DB-gestütztes Highlights-Karussell (Tabelle onboarding_highlights, anon-lesbar, EN/ES/FR/IT übersetzt).'},
+      {emoji:'♿', bold:'Barrierefreiheit & Politur:', text:' Sichtbare Tastatur-Fokus-Ringe (WCAG 2.4.7), bessere Kontraste, grössere Tap-Ziele, Button-Lade-Spinner, weiches Caps-Lock-Ein/Ausblenden, Fehler-Boxen mit aria-live. Doppel-Submit-Schutz + Fix eines Fehler-Farb-Bugs.'},
+      {emoji:'✅', bold:'Verify:', text:' 3-Agenten-Audit (Look/a11y, Flow/Übergänge, Core/Security). Live im Preview geprüft: botanischer Hintergrund, rotierendes Karussell (6 Items/Dots, DB-Load OK), View-Übergang, Focus-Regel im Stylesheet, 0 Console-Fehler. Auth-Core-Härtung (Token-Refresh-Race, Redirect-Stripping, Token-Expiry) folgt in v29.57. 7/7 node --check + sw.js OK. v-Bump 5-fach v29.55 nach v29.56.'},
+    ]
+  },
+  {
     v: 'v29.55', date: '18.06.2026',
     headline: '📅 Saisonkalender: regional, persönlich & „warum jetzt"',
     summary: 'Der Saisonkalender ist jetzt auf deine Schweizer Region zugeschnitten: Wähle deine Region und du siehst Frostdaten, Wachstumssaison und die konkreten Garten-Aufgaben für deinen Monat (aus AGFF/Bioterra-Daten). Jede Pflanze zeigt zudem ein „warum jetzt"-Signal (erste Ernte, letzte Aussaat-Chance …), und was du selbst anbaust wird mit ⭐ markiert und nach oben sortiert.',
@@ -63887,7 +63979,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.55';
+var GS_VERSION = 'v29.56';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -68316,13 +68408,19 @@ function gsOnboardingGuest() {
 function _onbShowView(viewId) {
   ['onb-start','onb-register','onb-login'].forEach(function(id){
     var el = document.getElementById(id);
-    if (el) el.style.display = (id === viewId) ? '' : 'none';
+    if (!el) return;
+    var show = (id === viewId);
+    el.style.display = show ? '' : 'none';
+    // v29.56: weicher View-Übergang (fade + sanftes Hochgleiten), bei jedem Wechsel neu triggern
+    if (show) { el.classList.remove('onb-anim-in'); void el.offsetWidth; el.classList.add('onb-anim-in'); }
   });
   // Fehler zurücksetzen
   var e1 = document.getElementById('onb-reg-err'); if (e1) e1.style.display = 'none';
   var e2 = document.getElementById('onb-login-err'); if (e2) e2.style.display = 'none';
   // Scroll top
   try { window.scrollTo(0, 0); } catch(e){}
+  // v29.56: Highlights-Karussell auf dem Start-Screen (an)starten
+  if (viewId === 'onb-start') { try { gsOnbRenderHighlights(); } catch(_){ } }
 }
 
 // v23.50: Passwort-Stärke (0-4) + Label + Farbe
@@ -68366,8 +68464,9 @@ function gsOnbCapsLockCheck(ev) {
     var on = ev.getModifierState && ev.getModifierState('CapsLock');
     var loginW = document.getElementById('onb-login-caps');
     var regW = document.getElementById('onb-reg-caps');
-    if (loginW) loginW.style.display = (on && ev.target && ev.target.id === 'onb-login-pw') ? 'block' : 'none';
-    if (regW) regW.style.display = (on && ev.target && ev.target.id === 'onb-reg-pw') ? 'block' : 'none';
+    // v29.56: weiches Ein-/Ausblenden via .show statt hartem display-Sprung
+    if (loginW) loginW.classList.toggle('show', !!(on && ev.target && ev.target.id === 'onb-login-pw'));
+    if (regW) regW.classList.toggle('show', !!(on && ev.target && ev.target.id === 'onb-reg-pw'));
   } catch(e){}
 }
 
@@ -68424,15 +68523,88 @@ function _onbShowErr(viewId, msg) {
   var elId = viewId === 'register' ? 'onb-reg-err' : 'onb-login-err';
   var el = document.getElementById(elId);
   if (!el) return;
+  // v29.56: Fehler-Styling zurücksetzen — Magic-Link/Forgot-PW färben das Element grün; ohne Reset
+  // erschiene ein echter Fehler danach mit grünem Erfolgs-Look.
+  el.style.background = 'rgba(198,40,40,.15)';
+  el.style.borderLeftColor = '#e57373';
+  el.style.color = '#ff8a80';
   el.textContent = msg;
   el.style.display = '';
+  el.classList.remove('onb-msg-in'); void el.offsetWidth; el.classList.add('onb-msg-in');
 }
+
+// v29.56: Button Loading-/Disabled-State (Spinner via CSS [aria-busy]) + Screenreader-Ansage
+function _onbBtnBusy(btn, busy, label){
+  if (!btn) return;
+  btn.disabled = !!busy;
+  if (busy) btn.setAttribute('aria-busy','true'); else btn.removeAttribute('aria-busy');
+  if (label != null) btn.textContent = label;
+}
+
+// v29.56: rotierendes Login-Highlights-Karussell — DB (onboarding_highlights, anon-lesbar)
+// mit Bundled-Fallback (zeigt sofort etwas, auch offline/erste Ladung). Mission-konform: zeigt
+// was die App kann (informativ), kein Upsell. Strings via i18n-Key (key+'_t' / key+'_s').
+var _GS_ONB_HL_DEFAULT = [
+  { key:'onb_hl_identify',  emoji:'🔍', title:'4342 Schweizer Arten',              subtitle:'Pflanzen, Pilze, Bäume & Kräuter per Foto bestimmen' },
+  { key:'onb_hl_mushroom',  emoji:'🍄', title:'Pilze sicher bestimmen',            subtitle:'Mit VAPKO-Verzeichnis & Verwechsler-Warnungen' },
+  { key:'onb_hl_garden',    emoji:'🌱', title:'Deinen Garten planen',              subtitle:'KI-Gartenplaner, Saisonkalender & Pflege-Erinnerungen' },
+  { key:'onb_hl_journal',   emoji:'📓', title:'Sammlung & Tagebuch',               subtitle:'Funde speichern, Fortschritt sehen, Level sammeln' },
+  { key:'onb_hl_weather',   emoji:'☀️', title:'Wetter & Saison für deine Region',  subtitle:'Lokale Tipps, Frostwarnungen & Bauernregeln' },
+  { key:'onb_hl_community', emoji:'🤝', title:'Naturfreunde-Community',            subtitle:'Tausche dich aus, teile Funde, lerne gemeinsam' }
+];
+var _gsOnbHlState = null;
+function _gsOnbHlPaint(){
+  var st = _gsOnbHlState; if (!st) return;
+  var host = document.getElementById('onb-highlights'); if (!host) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k,f){ return f; };
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s==null?'':s)) : String(s==null?'':s).replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+  var it = st.items[st.idx] || st.items[0]; if (!it) return;
+  host.innerHTML = '<div class="onb-hl-item in">' +
+      '<div class="onb-hl-emoji">' + ed(it.emoji) + '</div>' +
+      '<div><div style="font-size:14px;font-weight:800;color:#fff;line-height:1.3;">' + ed(_t(it.key + '_t', it.title)) + '</div>' +
+      '<div style="font-size:12px;color:rgba(255,255,255,.72);line-height:1.4;margin-top:2px;">' + ed(_t(it.key + '_s', it.subtitle)) + '</div></div>' +
+    '</div>';
+  var dots = document.getElementById('onb-hl-dots');
+  if (dots) dots.innerHTML = st.items.map(function(_, i){ return '<div class="onb-hl-dot' + (i === st.idx ? ' on' : '') + '"></div>'; }).join('');
+}
+function gsOnbRenderHighlights(){
+  var host = document.getElementById('onb-highlights'); if (!host) return;
+  if (!_gsOnbHlState) _gsOnbHlState = { items: _GS_ONB_HL_DEFAULT.slice(), idx: 0, timer: 0, loaded: false };
+  // einmalig aus der DB nachladen (anon RLS) — bei Erfolg Bundled ersetzen, sonst Fallback behalten
+  if (!_gsOnbHlState.loaded && typeof sbFetch === 'function') {
+    _gsOnbHlState.loaded = true;
+    try {
+      sbFetch('/rest/v1/onboarding_highlights?select=key,emoji,title,subtitle&active=eq.true&order=sort_order.asc', { method:'GET' })
+        .then(function(r){ var rows = (r && Array.isArray(r.data)) ? r.data : []; if (rows.length) { _gsOnbHlState.items = rows; if (_gsOnbHlState.idx >= rows.length) _gsOnbHlState.idx = 0; _gsOnbHlPaint(); } })
+        .catch(function(){});
+    } catch(_){}
+  }
+  _gsOnbHlPaint();
+  if (_gsOnbHlState.timer) { try { clearInterval(_gsOnbHlState.timer); } catch(_){} }
+  _gsOnbHlState.timer = setInterval(function(){
+    var st = _gsOnbHlState; if (!st) return;
+    var startEl = document.getElementById('onb-start');
+    if (!document.getElementById('onb-highlights') || !startEl || startEl.style.display === 'none') return; // pausiert wenn Start-View nicht sichtbar
+    st.idx = (st.idx + 1) % st.items.length;
+    _gsOnbHlPaint();
+  }, 3800);
+}
+window.gsOnbRenderHighlights = gsOnbRenderHighlights;
+// Boot: wenn der User (noch) nicht eingeloggt ist, Highlights starten
+setTimeout(function(){
+  try {
+    var ob = document.getElementById('gs-onboarding');
+    var pre = document.documentElement.classList.contains('gs-preauth');
+    if (ob && (pre || (ob.style.display !== 'none' && getComputedStyle(ob).display !== 'none'))) gsOnbRenderHighlights();
+  } catch(_){}
+}, 500);
 async function onbDoRegister() {
   var name = (document.getElementById('onb-reg-name')||{}).value || '';
   var email = ((document.getElementById('onb-reg-email')||{}).value || '').trim().toLowerCase();
   var pw = (document.getElementById('onb-reg-pw')||{}).value || '';
   var btn = document.getElementById('onb-reg-btn');
   var termsCb = document.getElementById('onb-reg-terms');
+  if (btn && btn.disabled) return; // v29.56 Doppel-Submit-Schutz
 
   if (!name.trim()) { _onbShowErr('register','Bitte gib deinen Namen ein.'); return; }
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { _onbShowErr('register','Bitte gib eine gültige E-Mail-Adresse ein.'); return; }
@@ -68441,12 +68613,12 @@ async function onbDoRegister() {
   if (s.score < 2) { _onbShowErr('register','🔒 Passwort zu schwach. Nutze Groß+Kleinbuchstaben, Zahl & Sonderzeichen.'); return; }
   if (termsCb && !termsCb.checked) { _onbShowErr('register','📜 Bitte bestätige die Datenschutzerklärung.'); return; }
 
-  if (btn) { btn.textContent = '⏳ Konto wird erstellt…'; btn.disabled = true; }
+  _onbBtnBusy(btn, true, '⏳ Konto wird erstellt…');
   try {
     var res = await sbRegister(email, pw, name.trim());
     if (res.error) {
       _onbShowErr('register', gsTranslateAuthError(res.error.message));
-      if (btn) { btn.textContent = '✨ Registrieren'; btn.disabled = false; }
+      _onbBtnBusy(btn, false, '✨ Registrieren');
       return;
     }
     // Erfolg: direkt einloggen (falls Auto-Confirm an)
@@ -68464,7 +68636,7 @@ async function onbDoRegister() {
       // der First-Login-Welcome-Pfad triggert
       try { gsStore.set('gs_first_login', '1'); } catch(_){}
       _onbShowErr('register', '📧 Bitte prüfe deine E-Mail zur Bestätigung. Danach kannst du dich anmelden.');
-      if (btn) { btn.textContent = '✨ Registrieren'; btn.disabled = false; }
+      _onbBtnBusy(btn, false, '✨ Registrieren');
       // Auto-switch zu Login nach 2.5s
       setTimeout(function(){
         onbShowLogin();
@@ -68474,13 +68646,14 @@ async function onbDoRegister() {
     }
   } catch(e) {
     _onbShowErr('register', 'Fehler: ' + (e.message || 'Unbekannt'));
-    if (btn) { btn.textContent = '✨ Registrieren'; btn.disabled = false; }
+    _onbBtnBusy(btn, false, '✨ Registrieren');
   }
 }
 async function onbDoLogin() {
   var email = ((document.getElementById('onb-login-email')||{}).value || '').trim().toLowerCase();
   var pw = (document.getElementById('onb-login-pw')||{}).value || '';
   var btn = document.getElementById('onb-login-btn');
+  if (btn && btn.disabled) return; // v29.56 Doppel-Submit-Schutz
 
   if (!email || !pw) { _onbShowErr('login','E-Mail und Passwort erforderlich.'); return; }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { _onbShowErr('login','📧 Bitte gib eine gültige E-Mail-Adresse ein.'); return; }
@@ -68489,13 +68662,13 @@ async function onbDoLogin() {
   var lock = gsCheckLoginLock();
   if (lock.locked) { _onbShowErr('login','⏳ Zu viele Versuche. Bitte warte ' + lock.sec + ' Sekunden.'); return; }
 
-  if (btn) { btn.textContent = '⏳ Anmelden…'; btn.disabled = true; }
+  _onbBtnBusy(btn, true, '⏳ Anmelden…');
   try {
     var res = await sbLogin(email, pw);
     if (res.error) {
       gsRegisterFailedLogin();
       _onbShowErr('login', gsTranslateAuthError(res.error.message));
-      if (btn) { btn.textContent = '🔑 Anmelden'; btn.disabled = false; }
+      _onbBtnBusy(btn, false, '🔑 Anmelden');
       return;
     }
     // Erfolg
@@ -68542,7 +68715,7 @@ async function onbDoLogin() {
     }
   } catch(e) {
     _onbShowErr('login', gsTranslateAuthError(e.message || 'Unbekannt'));
-    if (btn) { btn.textContent = '🔑 Anmelden'; btn.disabled = false; }
+    _onbBtnBusy(btn, false, '🔑 Anmelden');
   }
 }
 
@@ -68564,7 +68737,8 @@ async function onbMagicLink() {
     return;
   }
   var btn = document.getElementById('onb-magic-btn');
-  if (btn) { btn.textContent = '⏳ Sende Link…'; btn.disabled = true; }
+  if (btn && btn.disabled) return; // v29.56 Doppel-Submit-Schutz
+  _onbBtnBusy(btn, true, '⏳ Sende Link…');
   try {
     var res = await sbMagicLink(email);
     if (res && res.error) {
@@ -68582,7 +68756,7 @@ async function onbMagicLink() {
   } catch(e) {
     _onbShowErr('login', gsTranslateAuthError(e.message));
   } finally {
-    if (btn) { btn.textContent = '✨ Magic-Link senden'; btn.disabled = false; }
+    _onbBtnBusy(btn, false, '✨ Magic-Link senden');
   }
 }
 async function onbForgotPw() {
@@ -68611,6 +68785,8 @@ async function onbForgotPw() {
 function gsOnboardingHide() {
   // v29.35: Flash-Guard-Klasse entfernen → App-Shell wird sichtbar, Onboarding kann faden.
   try { document.documentElement.classList.remove('gs-preauth'); } catch(_){}
+  // v29.56: Highlights-Rotation stoppen (Onboarding wird ausgeblendet)
+  try { if (_gsOnbHlState && _gsOnbHlState.timer) { clearInterval(_gsOnbHlState.timer); _gsOnbHlState.timer = 0; } } catch(_){}
   var el = document.getElementById('gs-onboarding');
   if (!el) return;
   el.style.opacity = '0';
