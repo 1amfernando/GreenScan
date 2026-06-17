@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.54.20260618">
+<meta name="app-version" content="29.55.20260618">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2887,6 +2887,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <span style="display:flex;align-items:center;gap:3px;"><span style="width:10px;height:10px;border-radius:2px;background:#2196f3;display:inline-block;"></span><span data-i18n="season_legend_planting" data-i18n-fallback="Pflanzen">Pflanzen</span></span>
     <span style="display:flex;align-items:center;gap:3px;"><span style="width:10px;height:10px;border-radius:2px;background:#ff9800;display:inline-block;"></span><span data-i18n="season_legend_wild" data-i18n-fallback="Wildsammlung">Wildsammlung</span></span>
   </div>
+  <!-- v29.55: Regionaler Kontext (regional_garden_calendars) + "warum jetzt" -->
+  <div id="season-region-panel" style="padding:0 16px;"></div>
   <div id="season-list" style="padding:0 16px 24px;"></div>
 </div>
 
@@ -11928,6 +11930,31 @@ window.GS_I18N_JS_STRINGS = {
   'season_wild':               '🌿 Wildsammlung',
   'season_plant':              '🪴 Auspflanzen',
   'season_sow':                '🌱 Aussaat',
+  // ── v29.55 Saisonkalender regional + "warum jetzt" + eigener Anbau ──
+  'season_last_sow':           'Letzte Aussaat-Chance',
+  'season_sow_open':           'Aussaat-Fenster beginnt',
+  'season_last_plant':         'Letzte Pflanz-Chance',
+  'season_plant_open':         'Pflanzzeit beginnt',
+  'season_harvest_start':      'Erste Ernte',
+  'season_harvest_last':       'Letzte Ernte — bald vorbei',
+  'season_harvest_peak':       'Volle Erntezeit',
+  'season_wild_open':          'Sammelzeit beginnt',
+  'season_wild_last':          'Letzte Sammeltage',
+  'season_you_grow':           'dein Anbau',
+  'season_region_cta_title':   'Lokale Saison-Tipps',
+  'season_region_cta_body':    'Wähle deine Schweizer Region — dann zeigt der Kalender Frostdaten, Wachstumssaison und was genau bei dir gerade dran ist.',
+  'season_region_cta_btn':     'Region wählen',
+  'season_region_change':      'wechseln',
+  'season_last_frost':         'Letzter Frost',
+  'season_grow_days':          'Tage Saison',
+  'season_region_in':          'in',
+  'season_region_best':        'Gut hier',
+  'season_region_hard':        'Schwierig',
+  'season_source':             'Quelle',
+  'season_why_pre_frost':      'Letzter Frost meist um',
+  'season_why_pre_frost2':     'Frostempfindliches (Tomaten, Bohnen, Basilikum) noch drinnen vorziehen.',
+  'season_why_at_frost':       'Frostgrenze um',
+  'season_why_at_frost2':      'Eisheilige abwarten, dann darf Wärmeliebendes raus.',
   // ── Offline / Sync ──────────────────────────────────────────────
   'toast_offline_saved':       '📵 Offline gespeichert',
   'toast_offline_synced':      '🔄 Online — Sync abgeschlossen',
@@ -28908,6 +28935,7 @@ function initSeasonCalendar() {
     (i === currentSeasonMonth ? '#1a3d1a' : '#fff') + ';" id="sm-' + i + '">' + m + '</button>'
   ).join('');
   renderSeasonList();
+  gsRenderSeasonRegionPanel();
 }
 
 function selectSeasonMonth(idx, btn) {
@@ -28917,6 +28945,7 @@ function selectSeasonMonth(idx, btn) {
     b.style.color = i === idx ? '#1a3d1a' : '#fff';
   });
   renderSeasonList();
+  gsRenderSeasonRegionPanel();
   btn.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
 }
 
@@ -28932,6 +28961,15 @@ function renderSeasonList() {
   if (!list) return;
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   const m = currentSeasonMonth;
+
+  // v29.55 persönlich: was der Nutzer selbst anbaut (Match auf myPlants-Namen, normalisiert)
+  var _norm = function(s){ return String(s==null?'':s).toLowerCase().trim().replace(/\s*\(.*?\)\s*/g,'').replace(/(en|n)$/,''); };
+  var _userGrows = {};
+  try {
+    var _mp = (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) ? myPlants : [];
+    _mp.forEach(function(p){ if (p && p.name) { var k = _norm(p.name); if (k) _userGrows[k] = 1; } });
+  } catch(_){}
+  var _grows = function(nm){ var k = _norm(nm); return !!(k && _userGrows[k]); };
 
   const filtered = SEASON_DATA.filter(item => {
     if (currentSeasonFilter !== 'all' && item.cat !== currentSeasonFilter) return false;
@@ -28964,6 +29002,9 @@ function renderSeasonList() {
     if (item.sow     && item.sow[m])     categories.sow.items.push(item);
   });
 
+  // Eigene Pflanzen zuerst in jeder Gruppe
+  Object.keys(categories).forEach(function(ck){ categories[ck].items.sort(function(a,b){ return (_grows(b.name)?1:0) - (_grows(a.name)?1:0); }); });
+
   let html = '<div style="font-family:\'Playfair Display\',serif;font-size:17px;font-weight:800;color:var(--g-dark);margin-bottom:12px;">' + MONTH_FULL[m] + ' ' + _t('season_in_ch','in der Schweiz') + '</div>';
 
   Object.entries(categories).forEach(([key, cat]) => {
@@ -28984,16 +29025,29 @@ function renderSeasonList() {
         return '<div style="flex:1;height:6px;border-radius:2px;background:' + (active ? cat.color : (mi === m ? '#ccc' : '#eee')) + ';' + (mi === m ? 'outline:2px solid ' + cat.color + ';outline-offset:1px;' : '') + '"></div>';
       }).join('');
 
-      html += '<div onclick="toggleSeasonDetail(\'' + item.name.replace(/'/g,"\\'") + '\')" style="background:var(--card);border-radius:12px;padding:11px 13px;box-shadow:var(--shadow-sm);cursor:pointer;">' +
+      // v29.55 "warum jetzt" — rein aus den Bool-Arrays des aktuellen Aktivitäts-Keys (geerdet, keine Erfindung)
+      var _arr = item[key];
+      var _why = '', _whyCol = cat.color;
+      if (_arr) {
+        var _prev = m > 0 ? _arr[m-1] : 0, _next = m < 11 ? _arr[m+1] : 0;
+        if (key === 'sow')          { if (!_next) { _why = '⏳ ' + _t('season_last_sow','Letzte Aussaat-Chance'); _whyCol = '#e65100'; } else if (!_prev) _why = '🌱 ' + _t('season_sow_open','Aussaat-Fenster beginnt'); }
+        else if (key === 'plant')   { if (!_next) { _why = '⏳ ' + _t('season_last_plant','Letzte Pflanz-Chance'); _whyCol = '#e65100'; } else if (!_prev) _why = '🪴 ' + _t('season_plant_open','Pflanzzeit beginnt'); }
+        else if (key === 'harvest') { if (!_prev) _why = '🌾 ' + _t('season_harvest_start','Erste Ernte'); else if (!_next) { _why = '🧺 ' + _t('season_harvest_last','Letzte Ernte — bald vorbei'); _whyCol = '#e65100'; } else _why = '✅ ' + _t('season_harvest_peak','Volle Erntezeit'); }
+        else if (key === 'wild')    { if (!_prev) _why = '🌿 ' + _t('season_wild_open','Sammelzeit beginnt'); else if (!_next) { _why = '🍂 ' + _t('season_wild_last','Letzte Sammeltage'); _whyCol = '#e65100'; } }
+      }
+      var _star = _grows(item.name) ? ' <span style="font-size:9px;background:#fff8e1;color:#e65100;padding:1px 6px;border-radius:6px;font-weight:800;vertical-align:middle;white-space:nowrap;">⭐ ' + _t('season_you_grow','dein Anbau') + '</span>' : '';
+
+      html += '<div onclick="toggleSeasonDetail(\'' + item.name.replace(/'/g,"\\'") + '\')" style="background:var(--card);border-radius:12px;padding:11px 13px;box-shadow:var(--shadow-sm);cursor:pointer;' + (_grows(item.name) ? 'border:1.5px solid #ffd54f;' : '') + '">' +
         '<div style="display:flex;align-items:center;gap:9px;margin-bottom:7px;">' +
           '<span style="font-size:24px;">' + item.emoji + '</span>' +
           '<div style="flex:1;">' +
-            '<div style="font-size:13.5px;font-weight:700;color:var(--text);">' + item.name + '</div>' +
+            '<div style="font-size:13.5px;font-weight:700;color:var(--text);">' + item.name + _star + '</div>' +
             '<div style="font-size:10.5px;color:var(--muted);text-transform:capitalize;">' + item.cat + '</div>' +
           '</div>' +
           '<div style="font-size:9px;font-weight:700;background:' + cat.color + '22;color:' + cat.color + ';padding:3px 8px;border-radius:6px;">' + MONTH_NAMES[m] + '</div>' +
         '</div>' +
         '<div style="display:flex;gap:2px;">' + monthBar + '</div>' +
+        (_why ? '<div style="margin-top:6px;font-size:10.5px;font-weight:700;color:' + _whyCol + ';">' + _why + '</div>' : '') +
         '<div id="sd-' + item.name.replace(/[^a-z]/gi,'') + '" style="display:none;margin-top:8px;font-size:12px;color:var(--text2);line-height:1.5;padding-top:7px;border-top:1px solid #f0f0f0;">💡 ' + item.tip + '</div>' +
         '</div>';
     });
@@ -29008,6 +29062,74 @@ function toggleSeasonDetail(name) {
   const el = document.getElementById(id);
   if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
+
+// v29.55 — Regionaler Kontext im Saisonkalender (regional_garden_calendars, AGFF/Bioterra).
+// Bringt die autoritativen 7-Zonen-Daten (Frostdaten, Wachstumssaison, Monats-Tasks inkl. Winter,
+// best/challenging veg) in den prominenten Saisonkalender + ein geerdetes "warum jetzt"-Frostsignal.
+// Kein Upsell, kein FOMO — sanfte Region-Einladung wenn nichts gewählt.
+async function gsRenderSeasonRegionPanel() {
+  var host = document.getElementById('season-region-panel');
+  if (!host) return;
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+  var ed = function(s){ return (typeof gsHTMLEscape === 'function') ? gsHTMLEscape(String(s==null?'':s)) : String(s==null?'':s).replace(/[<>&"]/g, function(c){ return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]; }); };
+
+  var slug = null;
+  try { slug = localStorage.getItem('gs_region'); } catch(_){}
+
+  // Keine Region → sanfte Einladung (kein Druck)
+  if (!slug) {
+    host.innerHTML = '<div style="background:linear-gradient(135deg,#e8f5e9,#f1f8e9);border:1.5px dashed #81c784;border-radius:13px;padding:13px 15px;margin-bottom:14px;">' +
+      '<div style="font-size:13px;font-weight:800;color:#1b5e20;margin-bottom:3px;">📍 ' + ed(_t('season_region_cta_title','Lokale Saison-Tipps')) + '</div>' +
+      '<div style="font-size:11.5px;color:#33691e;line-height:1.5;margin-bottom:9px;">' + ed(_t('season_region_cta_body','Wähle deine Schweizer Region — dann zeigt der Kalender Frostdaten, Wachstumssaison und was genau bei dir gerade dran ist.')) + '</div>' +
+      '<button onclick="openRegionalCalendarModal()" style="background:#2e7d32;color:#fff;border:none;border-radius:9px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' + ed(_t('season_region_cta_btn','Region wählen')) + ' ›</button>' +
+    '</div>';
+    return;
+  }
+
+  // Region gesetzt → autoritative Daten laden
+  var r = null;
+  try { r = (typeof gsGetRegionContext === 'function') ? await gsGetRegionContext() : null; } catch(_){}
+  if (!r) { host.innerHTML = ''; return; } // DB nicht erreichbar → still, Rest des Kalenders bleibt nutzbar
+
+  var months = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+  var mi = (typeof currentSeasonMonth === 'number') ? currentSeasonMonth : new Date().getMonth();
+  var curTasks = (r[months[mi] + '_tasks'] && r[months[mi] + '_tasks'].length) ? r[months[mi] + '_tasks'] : [];
+
+  // "warum jetzt": Frost-/Eisheiligen-Kontext aus last_frost_avg + aktuellem Monat (geerdet)
+  var whyNow = '';
+  var lf = String(r.last_frost_avg || '').toLowerCase();
+  var frostMonth = (lf.indexOf('mai') > -1) ? 4 : (lf.indexOf('april') > -1) ? 3 : (lf.indexOf('märz') > -1 || lf.indexOf('maerz') > -1) ? 2 : (lf.indexOf('juni') > -1) ? 5 : -1;
+  if (frostMonth > -1) {
+    if (mi < frostMonth) whyNow = '❄️ ' + _t('season_why_pre_frost','Letzter Frost meist um') + ' ' + ed(r.last_frost_avg) + ' — ' + _t('season_why_pre_frost2','Frostempfindliches (Tomaten, Bohnen, Basilikum) noch drinnen vorziehen.');
+    else if (mi === frostMonth) whyNow = '⚠️ ' + _t('season_why_at_frost','Frostgrenze um') + ' ' + ed(r.last_frost_avg) + ' — ' + _t('season_why_at_frost2','Eisheilige abwarten, dann darf Wärmeliebendes raus.');
+  }
+
+  var h = '<div style="background:var(--card);border:1px solid var(--border);border-radius:13px;padding:13px 15px;margin-bottom:14px;box-shadow:var(--shadow-sm);">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">' +
+       '<div style="font-size:13px;font-weight:800;color:var(--g-dark);">📍 ' + ed(r.region_name) + '</div>' +
+       '<button onclick="openRegionalCalendarModal()" style="background:none;border:none;color:#2e7d32;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;padding:2px 0;-webkit-tap-highlight-color:transparent;">' + ed(_t('season_region_change','wechseln')) + ' ›</button>' +
+       '</div>';
+  // Klima-Fakten als Chips
+  h += '<div style="display:flex;flex-wrap:wrap;gap:5px;">';
+  if (r.altitude_m_min != null && r.altitude_m_max != null) h += '<span style="font-size:10.5px;background:#e8f5e9;color:#1b5e20;padding:3px 8px;border-radius:7px;">⛰️ ' + ed(r.altitude_m_min) + '–' + ed(r.altitude_m_max) + ' m</span>';
+  if (r.last_frost_avg) h += '<span style="font-size:10.5px;background:#e3f2fd;color:#01579b;padding:3px 8px;border-radius:7px;">❄️ ' + _t('season_last_frost','Letzter Frost') + ': ' + ed(r.last_frost_avg) + '</span>';
+  if (r.growing_season_days) h += '<span style="font-size:10.5px;background:#fff8e1;color:#e65100;padding:3px 8px;border-radius:7px;">🌱 ' + ed(r.growing_season_days) + ' ' + _t('season_grow_days','Tage Saison') + '</span>';
+  if (r.rainfall_mm_year) h += '<span style="font-size:10.5px;background:#e1f5fe;color:#0277bd;padding:3px 8px;border-radius:7px;">☔ ' + ed(r.rainfall_mm_year) + ' mm/J</span>';
+  h += '</div>';
+  if (whyNow) h += '<div style="margin-top:10px;font-size:11.5px;color:var(--text2);line-height:1.5;background:var(--surface2);border-radius:9px;padding:8px 10px;">' + whyNow + '</div>';
+  if (curTasks.length) {
+    h += '<div style="margin-top:10px;font-size:11px;font-weight:800;color:#e65100;letter-spacing:.3px;margin-bottom:5px;">🌟 ' + ed(MONTH_FULL[mi]) + ' ' + _t('season_region_in','in') + ' ' + ed(r.region_name) + '</div>';
+    h += '<ul style="margin:0;padding-left:17px;font-size:12px;line-height:1.6;color:var(--text);">';
+    curTasks.forEach(function(t){ h += '<li>' + ed(String(t)) + '</li>'; });
+    h += '</ul>';
+  }
+  if (r.best_vegetables && r.best_vegetables.length) h += '<div style="margin-top:9px;font-size:11px;color:#1b5e20;line-height:1.5;"><b>✅ ' + _t('season_region_best','Gut hier') + ':</b> ' + ed(r.best_vegetables.slice(0,8).join(', ')) + '</div>';
+  if (r.challenging_plants && r.challenging_plants.length) h += '<div style="margin-top:4px;font-size:11px;color:#bf360c;line-height:1.5;"><b>⚠️ ' + _t('season_region_hard','Schwierig') + ':</b> ' + ed(r.challenging_plants.slice(0,5).join(', ')) + '</div>';
+  if (r.source) h += '<div style="margin-top:8px;font-size:9.5px;color:var(--muted);text-align:right;">' + _t('season_source','Quelle') + ': ' + ed(r.source) + '</div>';
+  h += '</div>';
+  host.innerHTML = h;
+}
+window.gsRenderSeasonRegionPanel = gsRenderSeasonRegionPanel;
 
 // PFLANZENFRIEDHOF & RARITÄT
 
@@ -58425,6 +58547,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.55', date: '18.06.2026',
+    headline: '📅 Saisonkalender: regional, persönlich & „warum jetzt"',
+    summary: 'Der Saisonkalender ist jetzt auf deine Schweizer Region zugeschnitten: Wähle deine Region und du siehst Frostdaten, Wachstumssaison und die konkreten Garten-Aufgaben für deinen Monat (aus AGFF/Bioterra-Daten). Jede Pflanze zeigt zudem ein „warum jetzt"-Signal (erste Ernte, letzte Aussaat-Chance …), und was du selbst anbaust wird mit ⭐ markiert und nach oben sortiert.',
+    user_summary: '📅 Saisonkalender jetzt regional (Frost, Wachstumssaison, Monats-Aufgaben deiner Region), mit „warum jetzt"-Signalen und ⭐ für deine eigenen Pflanzen.',
+    user_items: [
+      { emoji: '📍', text: 'Regionaler Kontext: Frostdaten, Wachstumssaison & Monats-Aufgaben für deine CH-Region' },
+      { emoji: '⏳', text: '„Warum jetzt": erste/volle/letzte Ernte, letzte Aussaat- & Pflanz-Chance' },
+      { emoji: '⭐', text: 'Eigene Pflanzen werden markiert und zuerst angezeigt' },
+    ],
+    items: [
+      {emoji:'📍', bold:'Regionaler Kontext (gsRenderSeasonRegionPanel):', text:' Über der Saison-Liste erscheint nun ein Panel mit deiner Region — Klima-Chips (Höhe, letzter Frost, Wachstumssaison-Tage, Niederschlag), die autoritativen Monats-Aufgaben deiner Region (regional_garden_calendars, Quelle AGFF/Bioterra, inkl. Winter), sowie gut geeignete und schwierige Kulturen. Ohne gewählte Region: sanfte Einladung „Region wählen" (kein Druck, kein Upsell).'},
+      {emoji:'⏳', bold:'„Warum jetzt" + eigener Anbau:', text:' Jedes Item zeigt ein aus den echten Saison-Fenstern berechnetes Signal (Erste/Volle/Letzte Ernte, Letzte Aussaat-/Pflanz-Chance, Sammelzeit — nichts erfunden). Pflanzen aus „Meine Pflanzen" bekommen ⭐ „dein Anbau", einen Rahmen und werden in jeder Gruppe zuerst gelistet. Plus Frost-/Eisheiligen-Hinweis je nach Region und Monat.'},
+      {emoji:'✅', bold:'Verify:', text:' Live im Preview geprüft — Kein-Region-Einladung, Region Mittelland (Klima-Chips + Mai-Aufgaben „Eisheilige 11-15.5 beachten!"), ⭐-Markierung + Sortierung, „warum jetzt"-Signale, 0 Console-Fehler. 24 neue i18n-Keys + EN/ES/FR/IT geseedet (Migration v29_55). 7/7 node --check + sw.js OK. v-Bump 5-fach v29.54 nach v29.55.'},
+    ]
+  },
+  {
     v: 'v29.54', date: '18.06.2026',
     headline: '📄 KI-Gartenplaner: PDF-Export jetzt vollständig',
     summary: 'Der PDF-Export des KI-Gartenplaners enthält jetzt ALLE Inhalte, die die KI erstellt: eine Schritt-für-Schritt-Anleitung, einen Zeitplan nach Kalenderwoche (mit Mondphasen), einen Pflegeplan, die Mischkultur (welche Pflanzen sich vertragen), biologischen Pflanzenschutz mit Begleitpflanzen und eine Biodiversitäts-Bewertung. Bisher fehlten diese sechs Abschnitte im PDF — der Plan war damit nur halb so nützlich.',
@@ -63749,7 +63887,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.54';
+var GS_VERSION = 'v29.55';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
