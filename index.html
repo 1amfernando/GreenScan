@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.44.20260617">
+<meta name="app-version" content="29.45.20260617">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4256,7 +4256,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
         </div>
 
         <div id="pp-sensor-hint" style="background:linear-gradient(135deg,rgba(2,119,189,.08),rgba(2,119,189,.02));border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:11px;color:var(--text2);line-height:1.5;border-left:3px solid #0277bd;">
-          📶 <b>Geräte-Integration (in Kürze):</b> Verbinde GreenScan-kompatible Bluetooth-Sensoren — Boden-Feuchte, Temperatur, Licht werden live einfließen.
+          📶 <b>Geräte-Integration:</b> Verbinde GreenScan-kompatible Bluetooth-Sensoren — Boden-Feuchte, Temperatur und Licht fließen live ein.
           <button onclick="gsPPtryBluetooth()" style="margin-top:6px;font-size:11px;padding:5px 10px;background:#0277bd;color:#fff;border:none;border-radius:6px;cursor:pointer;">Sensor verbinden</button>
         </div>
 
@@ -6047,7 +6047,7 @@ html, body{ scroll-behavior: smooth; }
           <li>🗺️ <b>SVG-Skizze:</b> KI liefert Beet-Koordinaten zurück → Aufsicht mit 1m-Grid, farbigen Rechtecken, Emoji-Icons und Namen pro Art</li>
           <li>📋 <b>Strukturierter Plan:</b> Pflanzenliste (Name, Bot., Anzahl, Note), Mischkultur-Regeln, Zeitplan nach KW, Tipps, Häufige Fehler, Ernte-Prognose (Datum + kg)</li>
           <li>📥 Plan-Download als JSON + lokale Historie (letzte 20 Pläne in <code>gs_garden_plans</code>)</li>
-          <li>📶 <b>Bluetooth-Ready:</b> Vorbereitung für Sensor-Integration (Task #40) via Web Bluetooth API — Boden-Feuchte/Temp/Licht-Sensoren können in Kürze live einfließen</li>
+          <li>📶 <b>Bluetooth-Sensoren:</b> Sensor-Integration via Web Bluetooth API — Boden-Feuchte/Temp/Licht-Sensoren fließen live ein (Button „Sensor verbinden")</li>
         </ul>
       </div>
 
@@ -20523,7 +20523,7 @@ function switchTab(t, btn) {
     if (typeof renderList === 'function') setTimeout(renderList, 50);
     if (typeof gsRenderRecentSearches === 'function') gsRenderRecentSearches();
   }
-  if (t === 'favs') { renderFavs(); updatePlantStat(); }
+  if (t === 'favs') { try { renderFavs(); updatePlantStat(); } catch(_){} }
   if (t === 'home') {
     initHomeBoard();
     // v23.66: XP-Bar + Context-Badge bei jedem Home-Öffnen refreshen (Sync mit Menü)
@@ -43425,8 +43425,17 @@ window.gsMapFinds = {
         var uid = gsStore.get('gs_sb_uid', null);
         var r = await sbFetch('/rest/v1/map_user_finds?user_id=eq.' + uid + '&select=*&order=found_at.desc&limit=500', {method:'GET'});
         if (r && Array.isArray(r.data)) {
+          var _tomb = []; try { _tomb = JSON.parse(localStorage.getItem('gs_marker_tombstones')||'[]'); } catch(_){}
           r.data.forEach(function(row){
-            if (row && row.id) { cloudIds.add(row.id); out.push(row); }
+            if (!row || !row.id) return;
+            // v29.45: offline gelöschte Marker nicht wieder aufleben lassen + Cloud-Delete nachholen
+            if (_tomb.indexOf(row.id) !== -1) {
+              try { sbFetch('/rest/v1/map_user_finds?id=eq.' + row.id, {method:'DELETE'}).then(function(rr){
+                if (rr && !rr.error) { try { var t2 = (JSON.parse(localStorage.getItem('gs_marker_tombstones')||'[]')||[]).filter(function(x){return x!==row.id;}); localStorage.setItem('gs_marker_tombstones', JSON.stringify(t2)); } catch(_){} }
+              }); } catch(_){}
+              return;
+            }
+            cloudIds.add(row.id); out.push(row);
           });
         }
       } catch(_){}
@@ -43535,8 +43544,17 @@ window.gsMapFinds = {
   },
   // Delete (Cloud + LS-Mirror)
   delete: async function(findId){
+    var _deleted = false;
     if (typeof sbFetch === 'function') {
-      try { await sbFetch('/rest/v1/map_user_finds?id=eq.' + findId, {method:'DELETE'}); } catch(_){}
+      try { var _r = await sbFetch('/rest/v1/map_user_finds?id=eq.' + findId, {method:'DELETE'}); _deleted = !(_r && _r.error); } catch(_){}
+    }
+    // v29.45: Cloud-Delete fehlgeschlagen (offline) → Tombstone setzen, damit der nächste Pull den
+    // Marker NICHT wieder aufleben lässt; Retry holt der Pull beim nächsten Online-Zustand nach.
+    if (!_deleted) {
+      try {
+        var _tomb = JSON.parse(localStorage.getItem('gs_marker_tombstones')||'[]');
+        if (_tomb.indexOf(findId) === -1) { _tomb.push(findId); localStorage.setItem('gs_marker_tombstones', JSON.stringify(_tomb.slice(-500))); }
+      } catch(_){}
     }
     // LS auch räumen
     try {
@@ -56371,6 +56389,8 @@ async function renderGarden() {
   // Render each garden card
   let html = '';
   for (const garden of gardens) {
+   var _htmlLen = html.length; // v29.45: Rollback-Anker — ein defektes Garten-Objekt blankt nicht die ganze Liste
+   try {
     // Get plantings for this garden
     const gPlantings = plantings.filter(p => p.gardenId === garden.id);
 
@@ -56427,6 +56447,7 @@ async function renderGarden() {
     if (garden.location) {
       setTimeout(() => refreshGardenWeather(garden.id), 500);
     }
+   } catch(_){ html = html.slice(0, _htmlLen); continue; }
   }
   list.innerHTML = html;
 }
@@ -57069,7 +57090,9 @@ function checkAdminMode() {
   saveFarmState();
 }
 
-var farmState = JSON.parse(localStorage.getItem('gs_farm') || JSON.stringify({
+// v29.45 P1-Resilienz: korruptes gs_farm darf NICHT JSON.parse auf Modul-Ebene werfen
+// (sonst stirbt das ganze Haupt-<script> → App tot). Safe-Parse mit Default-Fallback.
+function _gsFarmDefault(){ return {
   coins: 0,
   xp: 0,
   resources: {water:10, fertilizer:5, seeds:3, tools:2},
@@ -57078,7 +57101,13 @@ var farmState = JSON.parse(localStorage.getItem('gs_farm') || JSON.stringify({
   buildings: {well:{level:1}},
   quests: [],
   lastSave: null,
-}));
+}; }
+var farmState;
+try {
+  var _gsFarmRaw = localStorage.getItem('gs_farm');
+  farmState = _gsFarmRaw ? JSON.parse(_gsFarmRaw) : _gsFarmDefault();
+  if (!farmState || typeof farmState !== 'object') farmState = _gsFarmDefault();
+} catch(_) { farmState = _gsFarmDefault(); }
 
 function saveFarmState() {
   farmState.lastSave = new Date().toISOString();
@@ -58230,6 +58259,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v29.45', date: '17.06.2026',
+    headline: '🛡️ Fundament-Härtung: Daten-Sicherheit, Crash-Schutz & Resilienz',
+    summary: 'Ein tiefer 4-Säulen-Audit (Boot, Cloud-Sync, Fehler-Resilienz, Vollständigkeit) hat das Fundament der App geprüft — Ergebnis: solide, mit ein paar Härtungs-Punkten, die jetzt alle gefixt sind. Wichtigste: ein beschädigter Browser-Speicher kann die App nicht mehr lahmlegen; der Cloud-Sync schützt deine Daten jetzt auf ALLEN Wegen vor versehentlichem Überschreiben (nicht nur beim manuellen Sync); und ein einzelner kaputter Eintrag kann keine ganze Liste mehr leeren.',
+    user_summary: '🛡️ Fundament gehärtet: Crash-Schutz bei beschädigtem Speicher, lückenloser Daten-Sync-Schutz (alle Pfade), robustere Listen — kein Datenverlust.',
+    user_items: [
+      { emoji: '💥', text: 'Beschädigter Browser-Speicher legt die App nicht mehr lahm' },
+      { emoji: '☁️', text: 'Cloud-Sync schützt deine Daten auf allen Wegen vor Überschreiben' },
+      { emoji: '🧱', text: 'Ein defekter Eintrag blankt keine ganze Liste mehr' },
+    ],
+    items: [
+      {emoji:'💥', bold:'P1 Crash-Schutz:', text:' farmState las gs_farm mit JSON.parse auf Modul-Ebene — korruptes localStorage hätte das GANZE Haupt-Script (77k Zeilen) getötet → ganze App tot. Jetzt Safe-Parse mit Default-Fallback.'},
+      {emoji:'☁️', bold:'P1 Sync-Daten-Sicherheit:', text:' gsSyncUserDataOnLogin (Boot/Login/Visibility-Pull) setzte die v29.28-Race-Guards NICHT (nur gsSyncPullNow tat das) → ein paralleler Push konnte gerade-gepullte Daten re-pushen. Jetzt setzen ALLE Pull-Pfade _gsPullInFlight + _gsSyncPullInProgress (nesting-safe finally). Plus: Account-Wechsel setzt das Suppression-Flag VOR dem Cache-Clear (sonst Clobber der neuen Cloud mit leer) + re-armt den Boot-Race-Guard. Plus: State-Blob (Achievements/Favs/Streak/Quiz) bekam den gleichen Empty/Boot-Race-Guard wie plants/garden.'},
+      {emoji:'🧱', bold:'P2/P3 Resilienz:', text:' renderGarden wrappt jede Garten-Karte (Rollback-Anker — ein defektes Objekt blankt nicht die ganze Liste); renderFavs in switchTab try-gecatcht; Karten-Fund-Löschung offline → Tombstone (lebt nicht beim nächsten Pull wieder auf, Retry online).'},
+      {emoji:'🧹', bold:'Vollständigkeit:', text:' Bluetooth-Sensor-Texte „(in Kürze)" → „live" korrigiert (Feature ist verdrahtet); repo CLAUDE.md kanonische Domain green-scan.ch. Audit-Fazit: Boot/Sync/Resilienz alle „solide", 0 P0. 7/7 node --check + sw.js OK + Preview-Boot grün. v-Bump 5-fach v29.44 nach v29.45.'},
+    ]
+  },
   {
     v: 'v29.44', date: '17.06.2026',
     headline: '🐛 App-Qualität: Bug-Fixes aus dem Pre-Launch-Audit',
@@ -63384,7 +63430,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.44';
+var GS_VERSION = 'v29.45';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -68302,11 +68348,21 @@ async function gsSyncUserDataOnLogin(){
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
   var uid = gsStore.get('gs_sb_uid', null);
   if (!uid || typeof sbFetch !== 'function') return;
+  // v29.45 Race-Guard: JEDER Pull-Pfad (Boot/Login/Visibility — nicht nur gsSyncPullNow) muss
+  // konkurrierende async-Pushes unterdrücken (sonst Re-Push gerade gepullter Daten, v29.28-Klasse)
+  // UND verhindern, dass der User-Switch-Clear unten dirty markiert → leere neue Cloud (Clobber).
+  // Nesting-safe save/restore (wenn gsSyncPullNow die Flags schon setzte, bleiben sie danach gesetzt).
+  var _prevPullFlight = window._gsPullInFlight, _prevPullProg = window._gsSyncPullInProgress;
+  window._gsPullInFlight = true; window._gsSyncPullInProgress = true;
   // PRIVACY: User-ID-Switch erkennen → Cache des vorigen Users löschen
   var lastUid = localStorage.getItem('gs_last_active_uid');
   if (lastUid && lastUid !== uid) {
     console.log('[gsSync] User changed:', lastUid, '→', uid, '— clearing previous user data');
+    window._gsInitialSyncDone = false; // v29.45: Boot-Race-Empty-Guard für den NEUEN User re-armen
     if (typeof gsClearUserDataKeys === 'function') gsClearUserDataKeys();
+    // v29.45: der Clear erzeugt via setItem-Patch dirty-Marker → wegräumen, sonst pusht der leere
+    // neue Stand die frisch zu pullenden Daten weg, bevor der Pull schreibt.
+    try { localStorage.removeItem('gs_sync_dirty'); } catch(_){}
   }
   localStorage.setItem('gs_last_active_uid', uid);
   try {
@@ -68569,6 +68625,11 @@ async function gsSyncUserDataOnLogin(){
     // v27.01: nach erfolgreichem Pull eventuell zurückgehaltene Repair-Pushes ausführen
     try { if (window.gsCloudSync && gsCloudSync.flushNow) gsCloudSync.flushNow(); } catch(_){}
   } catch(e){ console.warn('[gsSyncUserDataOnLogin]', e); }
+  finally {
+    // v29.45: Race-Guards nesting-safe zurücksetzen — gilt für ALLE Pull-Pfade (Boot/Login/Visibility)
+    window._gsPullInFlight = _prevPullFlight;
+    window._gsSyncPullInProgress = _prevPullProg;
+  }
 }
 window.gsSyncUserDataOnLogin = gsSyncUserDataOnLogin;
 
@@ -68668,8 +68729,24 @@ window.gsCloudSync = (function(){
       }
       // v24.24: Push State-Blob
       if (d.state) {
-        var ok3 = await _pushBlob('user_app_state', _buildStateBlob(), sync);
-        if (!ok3) stillDirty.state = d.state;
+        // v29.45 BOOT-RACE-GUARD (symmetrisch zu plants/garden): vor dem ersten erfolgreichen Pull
+        // keinen LEEREN State-Blob pushen — sonst überschreibt ein frisches Gerät die Cloud-Achievements/
+        // Favs/Streak/Quiz mit Leerwerten (Datenverlust). Bei echtem lokalem Inhalt → normal pushen.
+        var _sblob = _buildStateBlob();
+        var _stEmpty = !(
+          (_sblob.favs && _sblob.favs.length) ||
+          (_sblob.confirmed_species && _sblob.confirmed_species.length) ||
+          (_sblob.chat_history && _sblob.chat_history.length) ||
+          (_sblob.doctor_history && _sblob.doctor_history.length) ||
+          (_sblob.dq_archive && _sblob.dq_archive.length) ||
+          _sblob.streak || _sblob.dq_stats
+        );
+        if (!window._gsInitialSyncDone && _stEmpty) {
+          stillDirty.state = d.state; // dirty behalten → nach dem Pull erneut versuchen
+        } else {
+          var ok3 = await _pushBlob('user_app_state', _sblob, sync);
+          if (!ok3) stillDirty.state = d.state;
+        }
       }
       // Drain Pending-Queue (granulare Operationen: harvest_add/del, tb_add/del)
       var q = _getQueue();

@@ -8,7 +8,7 @@
 ## 1 · Was ist GreenScan?
 
 Schweizer PWA für Naturbestimmung — 4'342 Arten (Pflanzen, Pilze, Bäume,
-Kräuter, Moose, Flechten, Algen). Live unter `https://greenscan.ch/`. Hosting:
+Kräuter, Moose, Flechten, Algen). Live unter `https://green-scan.ch/` (kanonisch MIT Bindestrich; `greenscan.ch` ohne Bindestrich ist nur die Mail-Domain). Hosting:
 **Cloudflare Pages**. Backend: **Supabase** (Auth, Storage, Postgres mit RLS).
 KI: **Claude (Anthropic)** — User bringt eigenen API-Key oder Admin hinterlegt
 einen globalen Key in Supabase (`fn_get_global_api_key` RPC).
