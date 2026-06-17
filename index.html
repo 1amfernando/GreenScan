@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.46.20260617">
+<meta name="app-version" content="29.47.20260617">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -7417,6 +7417,8 @@ function openGartenTagebuch() {
           '<div style="flex:1;min-width:0;">' +
             (e.plant ? '<div style="font-size:11px;font-weight:800;color:' + cat.c + ';margin-bottom:1px;">' + escHtml(e.plant) + '</div>' : '') +
             '<div style="font-size:12.5px;color:var(--text);line-height:1.45;word-wrap:break-word;">' + escHtml(e.text) + '</div>' +
+            // v29.47: Tagebuch-Foto anzeigen (photo_url aus garden-diary-photos-Bucket; vorher gar nicht gerendert)
+            (e.photo_url ? '<div style="margin-top:6px;"><img src="' + ((typeof gsHTMLEscape==='function')?gsHTMLEscape(e.photo_url):e.photo_url) + '" loading="lazy" onclick="window.open(this.src,\'_blank\')" style="max-width:100%;max-height:160px;border-radius:8px;object-fit:cover;cursor:zoom-in;" alt="">' + '</div>' : '') +
             '<div style="font-size:10.5px;color:var(--muted);margin-top:3px;">' + escHtml(e.date||'') + (e.weather ? ' · ' + escHtml(e.weather) : '') + '</div>' +
           '</div>' +
           '<button onclick="gsTbDelete(' + (Number(e.id) || 0) + ')" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:2px 4px;opacity:.4;-webkit-tap-highlight-color:transparent;">✕</button>' +
@@ -31863,8 +31865,21 @@ async function gsDiarySubmitEntry() {
     // Disease
     var dsEl = document.getElementById('diary-disease');
     if (dsEl && dsEl.value) opts.metadata.disease = String(dsEl.value).trim();
-    // Photo (b64 — TODO später Storage-Upload; jetzt im metadata.photo_b64 falls vorhanden)
-    if (window._gsDiaryState.photoB64) opts.metadata.photo_b64 = window._gsDiaryState.photoB64;
+    // v29.47: Foto in den garden-diary-photos-Bucket hochladen statt base64 im metadata-jsonb
+    // (Quota-/Row-Size-Risiko HL#10/#21). Bucket hat seit v29.40 owner-folder INSERT-Policy.
+    // gsUploadPhotoToBucket macht atob OHNE Prefix-Strip → rohes base64 übergeben (wie Caller 24315).
+    if (window._gsDiaryState.photoB64) {
+      var _dPhotoUrl = null;
+      try {
+        if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof window.gsUploadPhotoToBucket === 'function') {
+          var _draw = window._gsDiaryState.photoB64;
+          _draw = (_draw.indexOf(',') > 0) ? _draw.split(',')[1] : _draw;
+          _dPhotoUrl = await window.gsUploadPhotoToBucket('garden-diary-photos', _draw);
+        }
+      } catch(e){ console.warn('[diary] photo upload failed, fallback base64', e && e.message); }
+      if (_dPhotoUrl) opts.photo_url = _dPhotoUrl;       // → garden_diary.photo_url (cross-device, kein Bloat)
+      else opts.metadata.photo_b64 = window._gsDiaryState.photoB64; // Fallback offline/Gast: Foto nicht verlieren
+    }
 
     if (typeof gsDiaryAddEntry !== 'function') {
       if (typeof showProfileToast === 'function') showProfileToast('Diary-API nicht verfügbar', 'error');
@@ -58288,6 +58303,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.47', date: '17.06.2026',
+    headline: '📷 Tagebuch-Fotos: sicher gespeichert & jetzt sichtbar',
+    summary: 'Fotos im Garten-Tagebuch werden jetzt richtig gespeichert — im sicheren Cloud-Speicher statt als großer Datenblock im Eintrag (das konnte den Browser-Speicher sprengen). Und: dein Tagebuch zeigt das Foto jetzt auch wirklich an (vorher wurde es gespeichert, aber nie angezeigt). Auf allen Geräten verfügbar.',
+    user_summary: '📷 Garten-Tagebuch-Fotos landen jetzt im sicheren Cloud-Speicher (kein Speicher-Bloat mehr) UND werden in der Timeline angezeigt (vorher unsichtbar).',
+    user_items: [
+      { emoji: '📷', text: 'Tagebuch-Foto wird im Eintrag angezeigt (vorher nie gerendert)' },
+      { emoji: '☁️', text: 'Foto landet im garden-diary-photos-Bucket statt als base64-Blob' },
+      { emoji: '🔄', text: 'Geräteübergreifend (photo_url in garden_diary) + offline-Fallback' },
+    ],
+    items: [
+      {emoji:'📷', bold:'Deferred-TODO erledigt:', text:' gsDiarySubmitEntry legte das Foto als base64 in metadata.photo_b64 (Quota-/Row-Size-Risiko HL#10/#21) — und es wurde NIE gerendert. Jetzt: Upload in garden-diary-photos (owner-folder INSERT-Policy seit v29.40) → opts.photo_url → garden_diary.photo_url (Spalte existiert). Rohes base64 (Prefix-Strip wie Caller 24315), sbIsLoggedIn-Gate, base64-Fallback offline/Gast → kein Foto-Verlust.'},
+      {emoji:'🖼️', bold:'Timeline-Render:', text:' openGartenTagebuch zeigt jetzt e.photo_url als Thumbnail (klick → Vollbild). photo_url kommt cross-device via gsGardenSync-Mapping (garden_diary → gs_gartentagebuch). gsHTMLEscape auf die URL.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check + sw.js OK + Preview-Boot grün. Pfad uid/<uuid>.jpg = v29.40-Policy; garden_diary.photo_url-Spalte bestätigt. v-Bump 5-fach v29.46 nach v29.47.'},
+    ]
+  },
+  {
     v: 'v29.46', date: '17.06.2026',
     headline: '✏️ Neu: Inserate bearbeiten (vorher nur löschen/neu)',
     summary: 'Du kannst deine Marktplatz-Inserate jetzt direkt bearbeiten — Titel, Beschreibung, Preis, Kategorie, Region und Kontakt ändern, ohne löschen und neu erstellen zu müssen. Ein „✏️ Inserat bearbeiten"-Knopf erscheint in deinem eigenen Inserat. Sicher gebaut: der Server prüft, dass es wirklich dein Inserat ist, und ändert nur die erlaubten Felder (Status, Verkauft-Markierung und Meldungen bleiben unangetastet).',
@@ -63474,7 +63505,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.46';
+var GS_VERSION = 'v29.47';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
