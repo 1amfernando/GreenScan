@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.49.20260617">
+<meta name="app-version" content="29.50.20260617">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18029,16 +18029,18 @@ window._gsWeatherAlertCache = null; // {key, data, ts}
 window._gsWeatherAlertIdx = 0;
 var GS_WA_TTL_MS = 4 * 60 * 60 * 1000;
 
-// User-Region-Slug → grobe Match-Tokens für typical_regions text-Array
+// User-Region-Slug → grobe Match-Tokens für typical_regions text-Array.
+// v29.50 FIX: Keys an die ECHTEN regional_garden_calendars-Slugs angeglichen — vorher hießen sie
+// mittelland_basic/wallis/tessin/alpen (existieren NICHT) → GS_WA_REGION_TOKENS[gs_region] war für
+// fast jede reale Auswahl null → Region-Filter der Wetter-Warnung lief still ins Leere (nation-wide).
 var GS_WA_REGION_TOKENS = {
-  mittelland_basic:   ['Mittelland', 'ganz CH'],
-  mittelland_mittel:  ['Mittelland', 'ganz CH'],
-  mittelland_zh_be:   ['Mittelland', 'ganz CH'],
-  voralpen:           ['Voralpen', 'Berg-Regionen', 'ganz CH'],
-  alpen:              ['Berg-Regionen', 'Voralpen', 'ganz CH'],
-  wallis:             ['Wallis', 'Wallis Talkern', 'ganz CH'],
-  tessin:             ['Tessin', 'ganz CH'],
-  jura:               ['ganz CH', 'Mittelland']
+  mittelland:        ['Mittelland', 'ganz CH'],
+  basel_rhein:       ['Mittelland', 'ganz CH'],
+  jura:              ['ganz CH', 'Mittelland'],
+  voralpen:          ['Voralpen', 'Berg-Regionen', 'ganz CH'],
+  graubuenden_hoch:  ['Berg-Regionen', 'Voralpen', 'ganz CH'],
+  walliserkern:      ['Wallis', 'Wallis Talkern', 'ganz CH'],
+  tessin_sued:       ['Tessin', 'ganz CH']
 };
 
 async function gsLoadGardenWeatherAlerts() {
@@ -30949,11 +30951,19 @@ function gsMushroomRenderResult(j) {
     html += '<div style="margin-top:12px;padding:12px 14px;background:#fff3e0;border:2px solid #e65100;border-radius:12px;">';
     html += '<div style="font-size:12.5px;font-weight:900;color:#bf360c;margin-bottom:6px;letter-spacing:.3px;">' + _t('mush_confusion_risk','⚠️ VERWECHSLUNGS-RISIKO') + '</div>';
     j.lookalikes.forEach(function(la){
-      var otherSlug = (la.edible_slug === j.matched_slug) ? la.lookalike_slug : la.edible_slug;
+      // v29.50 SAFETY: die tödlichste Stufe 'sehr_hoch_lebensgefahr' fehlte im Farb-Mapping → fiel auf
+      // das harmloseste Oliv (#827717) → ein lebensgefährliches Verwechsler-Paar wirkte HARMLOSER als
+      // ein bloss 'hoch'-Paar. Jetzt stärkstes Schwarz-Rot + klares Label. Plus: lesbarer Name statt DB-Slug.
       var risk = String(la.confusion_risk || 'mittel');
-      var riskBg = risk === 'hoch' ? '#c62828' : risk === 'mittel' ? '#e65100' : '#827717';
+      var isLethal = (risk === 'sehr_hoch_lebensgefahr' || risk === 'lebensgefahr');
+      var riskBg = isLethal ? '#7f0000' : risk === 'hoch' ? '#c62828' : risk === 'mittel' ? '#e65100' : '#827717';
+      var riskLbl = isLethal ? '☠️ LEBENSGEFAHR' : risk === 'hoch' ? '🔴 HOCH' : risk === 'mittel' ? '🟠 MITTEL' : risk.toUpperCase();
+      var otherRaw = (la.edible_slug === j.matched_slug)
+        ? (la.lookalike_common_name || la.lookalike_name || la.lookalike_slug)
+        : (la.edible_common_name || la.edible_name || la.edible_slug);
+      var otherName = String(otherRaw||'').replace(/_/g,' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); });
       html += '<div style="padding:7px 0;border-top:1px dashed rgba(0,0,0,.1);">' +
-        '<div style="font-size:12.5px;color:#bf360c;"><span style="background:' + riskBg + ';color:#fff;padding:1px 7px;border-radius:5px;font-size:10.5px;font-weight:800;margin-right:6px;">' + ed(risk.toUpperCase()) + '</span><b>' + ed(otherSlug) + '</b></div>';
+        '<div style="font-size:12.5px;color:#bf360c;"><span style="background:' + riskBg + ';color:#fff;padding:1px 7px;border-radius:5px;font-size:10.5px;font-weight:800;margin-right:6px;">' + ed(riskLbl) + '</span><b>' + ed(otherName) + '</b></div>';
       if (la.visual_differences) html += '<div style="font-size:11.5px;color:#bf360c;margin-top:3px;line-height:1.5;"><b>' + _t('mush_visual','👁️ Visuell:') + '</b> ' + ed(la.visual_differences) + '</div>';
       if (la.smell_differences) html += '<div style="font-size:11.5px;color:#bf360c;margin-top:2px;"><b>' + _t('mush_smell','👃 Geruch:') + '</b> ' + ed(la.smell_differences) + '</div>';
       if (la.spore_print_differences) html += '<div style="font-size:11.5px;color:#bf360c;margin-top:2px;"><b>' + _t('mush_spores','🔬 Sporen:') + '</b> ' + ed(la.spore_print_differences) + '</div>';
@@ -58338,6 +58348,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.50', date: '17.06.2026',
+    headline: '🍄 Pilz-Scanner: Sicherheits-Fixes bei Verwechslern',
+    summary: 'Wichtige Sicherheits-Korrekturen am Pilz-Scanner: Im Verwechslungs-Risiko-Kasten wurde die GEFÄHRLICHSTE Stufe (Lebensgefahr) bisher in der HARMLOSESTEN Farbe angezeigt — ein lebensgefährliches Verwechsler-Paar wirkte ungefährlicher als ein bloss „hoch"-Paar. Das ist behoben (stärkstes Warnrot + klares „☠️ LEBENSGEFAHR"-Label). Ausserdem werden Verwechsler-Pilze jetzt mit lesbarem Namen statt technischem Datenbank-Kürzel angezeigt. Und der Regions-Filter der Garten-Wetter-Warnung funktioniert wieder (die Regions-Kürzel passten vorher nicht zusammen).',
+    user_summary: '🍄 Pilz-Scanner-Sicherheit: tödliche Verwechsler werden jetzt korrekt im stärksten Warnrot + „☠️ LEBENSGEFAHR" angezeigt (vorher harmlos-oliv), lesbare Namen, Regions-Filter repariert.',
+    user_items: [
+      { emoji: '☠️', text: 'Lebensgefährliche Pilz-Verwechsler jetzt im stärksten Warnrot (war fälschlich harmlos-oliv)' },
+      { emoji: '🍄', text: 'Verwechsler werden mit lesbarem Namen statt DB-Kürzel angezeigt' },
+      { emoji: '📍', text: 'Regions-Filter der Wetter-Warnung repariert (Slug-Mismatch)' },
+    ],
+    items: [
+      {emoji:'☠️', bold:'SAFETY — Verwechsler-Farb-Inversion:', text:' die tödlichste Risiko-Stufe „sehr_hoch_lebensgefahr" fehlte im Farb-Mapping (Z.30954) → fiel auf das harmloseste Oliv → ein lebensgefährliches Verwechsler-Paar wirkte SCHWÄCHER als ein „hoch"-Paar. Jetzt stärkstes Schwarz-Rot (#7f0000) + Label „☠️ LEBENSGEFAHR". Verifiziert: alle bekannt-tödlichen Arten (Amanita phalloides/virosa, Cortinarius orellanus, Gyromitra) sind korrekt toedlich/giftig klassifiziert — KEINE Giftart fälschlich essbar.'},
+      {emoji:'🍄', bold:'Lesbare Namen:', text:' Verwechsler-Pilz wurde als roher DB-Slug („steinpilz_boletus") gezeigt → jetzt menschenlesbar (Unterstriche raus, Namensfeld bevorzugt).'},
+      {emoji:'📍', bold:'Region-Token-Fix:', text:' GS_WA_REGION_TOKENS-Keys (mittelland_basic/wallis/tessin/alpen) matchten die echten Slugs (mittelland/walliserkern/tessin_sued/graubuenden_hoch/basel_rhein) nicht → Wetter-Warnungs-Regionsfilter lief ins Leere. Auf echte Slugs angeglichen.'},
+      {emoji:'🛡️', bold:'Datenqualität (für VAPKO-Review geflaggt, NICHT auto-editiert):', text:' mushroom_register hat Duplikate, garbled Namen + eine widersprüchliche Essbarkeit (Xerocomellus chrysenteron) — aber keine Giftart als essbar (kein Kill-Risiko). Mushroom-DB-Ausbau (Arten/Regionen/VAPKO-Kontakte) braucht authoritative Quellen (VAPKO/SwissFungi), wird NICHT per LLM generiert.'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check + sw.js OK + Preview-Boot grün. v-Bump 5-fach v29.49 nach v29.50.'},
+    ]
+  },
+  {
     v: 'v29.49', date: '17.06.2026',
     headline: '🏠 Home & Wetter spürbar besser + 💳 Checkout-Feinschliff',
     summary: 'Viele Verbesserungen am Start- und Wetter-Bereich plus Hänger-Fixes: Das Wetter-Fenster lässt sich jetzt sauber nach unten wegwischen (statt versehentlich neu zu laden). Bauernregel & Garten-Wetter-Warnung wechseln nur noch einmal pro Tag (kein neues Sprüchlein mehr beim Antippen). Der Saison-Filter (Gemüse/Obst/Kräuter/Pilze) funktioniert wieder. XP-Profil und „Kauf wiederherstellen" reagieren sofort statt scheinbar zu hängen. Dazu drei Bezahl-Korrekturen (robuster Stripe-Rückkehr-Handler, „Karte aktualisieren" öffnet das Portal, Abo-Karte & Warnbanner zeigen dieselbe Subscription).',
@@ -63581,7 +63609,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.49';
+var GS_VERSION = 'v29.50';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
