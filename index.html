@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.43.20260617">
+<meta name="app-version" content="29.44.20260617">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -6599,8 +6599,8 @@ function gsNewPlantCard(p) {
       '<div id="ai-result-' + p.id + '" style="display:none;" class="mp-ai-result"></div>' +
       // v28.23/v28.24: Pflanzen-Dossier (alle verknüpften Inhalte) + Zu Sammlung hinzufügen
       '<div style="display:flex;gap:7px;margin-bottom:8px;">' +
-        '<button style="flex:1;padding:9px;background:#ede7f6;border:1.5px solid #b39ddb;border-radius:10px;font-size:12.5px;font-weight:800;color:#4527a0;cursor:pointer;font-family:inherit;" onclick="event.stopPropagation();if(typeof gsOpenPlantDossier===\'function\')gsOpenPlantDossier(\''+_pidSafe+'\')">📂 Dossier</button>' +
-        '<button style="flex:1;padding:9px;background:#e8f5e9;border:1.5px solid var(--g-light);border-radius:10px;font-size:12.5px;font-weight:800;color:var(--g-dark);cursor:pointer;font-family:inherit;" onclick="event.stopPropagation();if(typeof gsAddPlantToCollection===\'function\')gsAddPlantToCollection(\''+_pidSafe+'\')">📁 Sammlung</button>' +
+        '<button style="flex:1;padding:9px;background:#ede7f6;border:1.5px solid #b39ddb;border-radius:10px;font-size:12.5px;font-weight:800;color:#4527a0;cursor:pointer;font-family:inherit;" onclick="event.stopPropagation();if(typeof gsOpenPlantDossier===\'function\')gsOpenPlantDossier(\''+_pidSafe+'\')">' + _t('btn_dossier','📂 Dossier') + '</button>' +
+        '<button style="flex:1;padding:9px;background:#e8f5e9;border:1.5px solid var(--g-light);border-radius:10px;font-size:12.5px;font-weight:800;color:var(--g-dark);cursor:pointer;font-family:inherit;" onclick="event.stopPropagation();if(typeof gsAddPlantToCollection===\'function\')gsAddPlantToCollection(\''+_pidSafe+'\')">' + _t('btn_collection','📁 Sammlung') + '</button>' +
       '</div>' +
       // Edit / Delete
       '<div style="display:flex;gap:7px;">' +
@@ -10916,6 +10916,10 @@ window.GS_I18N_JS_STRINGS = {
   'btn_ai_care':               '🤖 KI-Pflegeberatung',
   'btn_tasks':                 '⚙️ Aufgaben',
   'btn_edit':                  '✏️ Bearbeiten',
+  'btn_dossier':               '📂 Dossier',
+  'btn_collection':            '📁 Sammlung',
+  'listing_price_free':        'Preis (0 = Gratis)',
+  'listing_price_chf':         'Preis (CHF) *',
   // ── Scanner / KI ────────────────────────────────────────────────
   'toast_scan_saved':          '📷 Scan gespeichert',
   'toast_scan_failed':         '❌ Scan fehlgeschlagen — bitte erneut',
@@ -24969,6 +24973,7 @@ function renderList(){
 }
 
 function loadMoreList() {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var list = document.getElementById('results-list');
   if (!list) { _listPage++; renderList(); return; }
   var scrollEl = document.getElementById('screen-search');
@@ -24983,10 +24988,10 @@ function loadMoreList() {
   var cards = slice.map(function(sp) {
     var t = toxInfo(sp.tox || 0);
     var tags = [];
-    if (sp.tox >= 3)    tags.push('<span class="tag t">'+t.sym+' Giftig</span>');
-    else if (sp.edible) tags.push('<span class="tag e">\u2705 Essbar</span>');
-    if (sp.medicinal)   tags.push('<span class="tag m">\ud83d\udc8a Heilpflanze</span>');
-    if (sp.protected)   tags.push('<span class="tag p">\ud83d\udee1\ufe0f Gesch\u00fctzt</span>');
+    if (sp.tox >= 3)    tags.push('<span class="tag t">'+t.sym+' ' + _t('badge_giftig','Giftig') + '</span>');
+    else if (sp.edible) tags.push('<span class="tag e">\u2705 ' + _t('tag_edible','Essbar') + '</span>');
+    if (sp.medicinal)   tags.push('<span class="tag m">\ud83d\udc8a ' + _t('tag_medicinal','Heilpflanze') + '</span>');
+    if (sp.protected)   tags.push('<span class="tag p">\ud83d\udee1\ufe0f ' + _t('tag_protected','Gesch\u00fctzt') + '</span>');
     var tagsHtml = tags.slice(0,2).join('');
     var latName = sp.lat ? sp.lat : '\u200b';
     var toxBorder = sp.tox >= 4 ? '#c62828' : sp.tox >= 2 ? '#f57f17' : sp.tox === 0 && sp.edible ? '#2e7d32' : 'transparent';
@@ -25006,7 +25011,7 @@ function loadMoreList() {
   });
   var remaining = validRes.length - (_listPage * _LIST_PAGE_SIZE);
   if (remaining > 0) {
-    cards.push('<div data-loadmore="1" onclick="loadMoreList()" style="text-align:center;padding:14px;color:var(--g-main);font-weight:700;cursor:pointer;border:2px dashed var(--border);border-radius:12px;margin:8px 0;font-size:13.5px;">\u2b07\ufe0f ' + remaining + ' weitere Arten</div>');
+    cards.push('<div data-loadmore="1" onclick="loadMoreList()" style="text-align:center;padding:14px;color:var(--g-main);font-weight:700;cursor:pointer;border:2px dashed var(--border);border-radius:12px;margin:8px 0;font-size:13.5px;">\u2b07\ufe0f ' + remaining + ' ' + _t('load_more_species','weitere Arten laden') + '</div>');
   }
   var tmp = document.createElement('div');
   tmp.innerHTML = cards.join('');
@@ -34232,6 +34237,7 @@ function wishlistToggle(lid) {
 
 // Listing form
 function selectListingType(btn) {
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   document.querySelectorAll('.listing-type-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   currentListingType = btn.dataset.type;
@@ -34245,8 +34251,8 @@ function selectListingType(btn) {
   auctionSection.style.display = currentListingType === 'auction' ? '' : 'none';
   exchangeSection.style.display = currentListingType === 'exchange' ? '' : 'none';
 
-  if (currentListingType === 'free' && priceLabel) priceLabel.textContent = 'Preis (0 = Gratis)';
-  else if (priceLabel) priceLabel.textContent = 'Preis (CHF) *';
+  if (currentListingType === 'free' && priceLabel) priceLabel.textContent = _t('listing_price_free','Preis (0 = Gratis)');
+  else if (priceLabel) priceLabel.textContent = _t('listing_price_chf','Preis (CHF) *');
 }
 
 function selectListingPhoto(source) {
@@ -58225,6 +58231,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.44', date: '17.06.2026',
+    headline: '🐛 App-Qualität: Bug-Fixes aus dem Pre-Launch-Audit',
+    summary: 'Ein 4-Agenten-Audit hat den echten App-Code durchsucht und konkrete Fehler gefunden — alle gefixt: Dein Garten aktualisiert sich jetzt sofort, wenn du auf einem anderen Gerät etwas änderst. Mehrere private Daten (Marktplatz-Chats, GPS-Funde, Garten-Standort) werden beim Abmelden zuverlässig gelöscht, damit auf einem geteilten Gerät niemand deine Daten sieht. Und drei Stellen, die nur auf Deutsch angezeigt wurden, sind jetzt auf Englisch & Spanisch übersetzt.',
+    user_summary: '🐛 Pre-Launch-Audit-Fixes: Garten-Sync re-rendert sofort, private Daten werden beim Logout gelöscht (geteiltes Gerät), 3 Stellen jetzt EN/ES.',
+    user_items: [
+      { emoji: '🔄', text: 'Garten aktualisiert sich sofort nach Cross-Device-Sync' },
+      { emoji: '🔒', text: 'Private Daten (Chats, GPS-Funde, Standort) beim Logout gelöscht' },
+      { emoji: '🌍', text: 'Pflanzen-Tags, Dossier/Sammlung & Marktplatz-Preis jetzt EN/ES' },
+    ],
+    items: [
+      {emoji:'🔄', bold:'Wiring (HL#9):', text:' Cloud-Garten-Sync rief renderGardenList() — existiert nicht → Garten-Liste re-renderte nach Cross-Device-Sync NIE (nur Widgets). Fix: echte Funktion renderGarden(). Plus: Admin-Log-Toast (HL#12 escaped-quote → ReferenceError) repariert + toter initAuth()-Boot-Guard entfernt.'},
+      {emoji:'🔒', bold:'Persistenz/Privacy (Stale-Leak):', text:' 10 per-User-Keys fehlten in GS_USER_KEYS → überlebten Logout/User-Switch auf geteiltem Gerät: gs_market_chats (private Chats), greenscan_markers (private GPS-Funde), gs_expert_application (PII Email/Bio/Diplome), gs_soil_profile/gs_pp_garden_location (Garten-Kontext), gs_market_reported/ratings, gs_wissen_read/recipe_favs/recent_searches. Jetzt bei Logout geleert (alle cloud-restored bzw. PII).'},
+      {emoji:'🌍', bold:'i18n (DE→EN/ES):', text:' loadMoreList (Arten-Tags + Mehr-laden), gsNewPlantCard (📂 Dossier / 📁 Sammlung), selectListingType (Marktplatz-Preis-Label) waren hartcodiert Deutsch → via _t() + 4 neue Keys in GS_I18N_JS_STRINGS + EN/ES/FR/IT in i18n_translations geseedet.'},
+      {emoji:'✅', bold:'Audit-Fazit:', text:' iOS-PWA sauber (alle nativen Dialoge guarded, keepalive-fetch korrekt), 0 Phantom-Handler von 519, Persistenz-Hauptpfade quota-safe. 7/7 node --check + sw.js OK + Preview-Boot grün. v-Bump 5-fach v29.43 nach v29.44.'},
+    ]
+  },
+  {
     v: 'v29.43', date: '17.06.2026',
     headline: '🩺 Ops-Cockpit + Store-Assets + Audit der Hintergrund-Schichten',
     summary: 'Drei Dinge zusammen: (1) Ein neues „Ops-Cockpit" im Admin-Bereich bündelt alle Hintergrund-Wächter (Daten-Integrität, Kostendeckung, Sicherheit, Hintergrund-Jobs) zu EINER Ampel-Übersicht — ein Blick zeigt, ob alles gesund läuft. (2) Die App-Store-Grafiken (Feature-Grafik + Icon) sind erstellt. (3) Ein unabhängiger 3-Agenten-Audit hat alle 9 Hintergrund-Schichten geprüft: 0 echte Fehler, sauber gehärtet. Für normale Nutzer unsichtbar — reine Hintergrund- & Admin-Arbeit.',
@@ -63361,7 +63384,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.43';
+var GS_VERSION = 'v29.44';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -68252,7 +68275,14 @@ var GS_USER_KEYS = [
   'gs_gpx_tracks','gs_social_name',
   // v29.10 SECURITY/Payment: Abo-/Entitlement-Cache MUSS bei Logout/User-Switch weg, sonst
   // sieht der nächste (Free-)User auf demselben Gerät stale Pro/Lifetime-Gates (gsIsPaid/gsAboCanUse).
-  'gs_abo_plan','gs_ent_scans_per_month','gs_ent_ai_herbalist','gs_ent_offline_mode','gs_ent_recipes_export'
+  'gs_abo_plan','gs_ent_scans_per_month','gs_ent_ai_herbalist','gs_ent_offline_mode','gs_ent_recipes_export',
+  // v29.44 Stale-Leak (App-Audit): weitere per-User-Daten, die auf geteiltem Gerät zum nächsten Nutzer
+  // durchsickerten (cloud-restored bzw. PII) → bei Logout/User-Switch leeren.
+  'gs_market_chats','gs_market_reported','gs_market_ratings',  // private 1:1-Marktplatz-Chats/Reports/Ratings
+  'greenscan_markers',          // private GPS-Funde (is_private, cloud map_user_finds)
+  'gs_expert_application',      // PII: Email + Biografie + Diplome
+  'gs_soil_profile','gs_pp_garden_location',  // per-User Garten-Kontext (Boden/Standort)
+  'gs_wissen_read','gs_recipe_favs','gs_recent_searches'  // Lese-Fortschritt / Favoriten / Suchverlauf (cloud-restored)
 ];
 function gsClearUserDataKeys(){
   try {
@@ -72431,8 +72461,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(typeof gsUpdateStreak==="function") gsUpdateStreak();
     if(typeof gsInitSmartNotifications==="function") setTimeout(gsInitSmartNotifications, 3000);
     if(typeof updateScanHistoryBadge==='function') updateScanHistoryBadge();
-    // Auth im Hintergrund
-    setTimeout(function(){ if(typeof initAuth==='function') initAuth(); }, 100);
+    // v29.44 HL#9: toter initAuth()-Guard entfernt (Funktion existiert nicht → war No-Op; Auth bootstrappt via sbInit()).
     // Onboarding prüfen (nach Splash — gsCheckOnboarding wartet intern auf sbInit)
     if (typeof gsCheckOnboarding === 'function') gsCheckOnboarding();
     // Review-Tracking
@@ -72564,7 +72593,7 @@ function renderAdminSettingsSection() {
   return '<div style="background:#ffebee;border-radius:12px;padding:14px;margin-top:12px;">' +
     '<div style="font-size:13px;font-weight:800;color:#c62828;margin-bottom:10px;">🛡️ Admin-Bereich</div>' +
     '<button onclick="closeModal(\'modal-profile\');openLegalModal(\'agb\')" style="width:100%;text-align:left;padding:8px 10px;background:var(--card);border:1px solid #ffcdd2;border-radius:8px;margin-bottom:6px;font-size:13px;cursor:pointer;font-family:inherit;">📜 AGB / Rechtliches</button>' +
-    '<button onclick="showProfileToast(\'Admin-Log: \'+log.length+\' Einträge\')" style="width:100%;text-align:left;padding:8px 10px;background:var(--card);border:1px solid #ffcdd2;border-radius:8px;margin-bottom:6px;font-size:13px;cursor:pointer;font-family:inherit;">📋 Admin-Log (' + log.length + ' Einträge)</button>' +
+    '<button onclick="showProfileToast(\'Admin-Log: ' + log.length + ' Einträge\')" style="width:100%;text-align:left;padding:8px 10px;background:var(--card);border:1px solid #ffcdd2;border-radius:8px;margin-bottom:6px;font-size:13px;cursor:pointer;font-family:inherit;">📋 Admin-Log (' + log.length + ' Einträge)</button>' +
     '<button onclick="gsOpenExpertApplication()" style="width:100%;text-align:left;padding:8px 10px;background:var(--card);border:1px solid #ffcdd2;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit;">🎓 Experten-Antrag prüfen</button>' +
     '</div>';
 }
@@ -75990,8 +76019,8 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
         try { gsStore.set('gs_plantings', JSON.stringify(p.data)); } catch(e){}
         try { window.plantings = p.data; } catch(e){}
       }
-      // Trigger re-render if app already showing garden
-      if (typeof renderGardenList === 'function') { try { renderGardenList(); } catch(e){} }
+      // Trigger re-render if app already showing garden (v29.44 HL#9: war renderGardenList — existiert nicht → No-Op; echte Fn ist renderGarden)
+      if (typeof renderGarden === 'function') { try { renderGarden(); } catch(e){} }
       if (typeof gsUpdateGartenWidgets === 'function') { try { gsUpdateGartenWidgets(); } catch(e){} }
       setStatus('✅ synced');
       setTimeout(function(){ setStatus(''); }, 2500);
