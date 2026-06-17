@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.45.20260617">
+<meta name="app-version" content="29.46.20260617">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10920,6 +10920,9 @@ window.GS_I18N_JS_STRINGS = {
   'btn_collection':            '📁 Sammlung',
   'listing_price_free':        'Preis (0 = Gratis)',
   'listing_price_chf':         'Preis (CHF) *',
+  'btn_edit_listing':          '✏️ Inserat bearbeiten',
+  'btn_save_changes':          '💾 Änderungen speichern',
+  'toast_market_updated':      '✅ Inserat aktualisiert',
   // ── Scanner / KI ────────────────────────────────────────────────
   'toast_scan_saved':          '📷 Scan gespeichert',
   'toast_scan_failed':         '❌ Scan fehlgeschlagen — bitte erneut',
@@ -19796,12 +19799,16 @@ function openNewListing() {
     '</div>' +
 
     // Submit
-    '<button onclick="saveListing()" style="width:100%;padding:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📢 Angebot veröffentlichen</button>' +
+    '<button id="nl-submit-btn" onclick="saveListing()" style="width:100%;padding:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📢 Angebot veröffentlichen</button>' +
     '</div>';
 
   // State leeren
   localStorage.setItem('gs_nl_cat', '');
   localStorage.setItem('gs_nl_pmode', '');
+  // v29.46: gs_nl_edit_id zurücksetzen → ein frisch geöffnetes Formular ist KEIN Edit. editListing()
+  // ruft openNewListing() und setzt gs_nl_edit_id erst danach per setTimeout → hier sicher zu löschen.
+  // Verhindert, dass ein späteres „neues Angebot" versehentlich ein altes Inserat updatet.
+  try { localStorage.removeItem('gs_nl_edit_id'); } catch(_){}
   openModal('detail-modal');
 }
 
@@ -19913,6 +19920,8 @@ async function saveListing() {
   var nlOrganic = !!document.getElementById('nl-organic')?.checked;
   var nlPestfree = !!document.getElementById('nl-pestfree')?.checked;
   var nlCertLabel = nlOrganic ? (document.getElementById('nl-cert-label')?.value || '') : '';
+  // v29.46: Edit-Modus — wenn gs_nl_edit_id gesetzt (via editListing), UPDATE statt CREATE.
+  var _editId = ''; try { _editId = localStorage.getItem('gs_nl_edit_id') || ''; } catch(_){}
 
   if (!title) { if (typeof showProfileToast === 'function') showProfileToast('Titel fehlt', 'info'); return; }
   if (!cat) { if (typeof showProfileToast === 'function') showProfileToast('Kategorie wählen', 'info'); return; }
@@ -19957,7 +19966,10 @@ async function saveListing() {
         currency: 'CHF',
         region: region,
         contact: contact.slice(0, 80),
-        photos_b64: (window._gsNlPhotos || []).slice(0, 5)
+        photos_b64: (window._gsNlPhotos || []).slice(0, 5),
+        // v29.46: im Edit-Modus mitgeben → marketplace-publish v4 macht ownership-geprüftes UPDATE
+        // (nur title/desc/category/price/region/contact/price_mode; status/reports/views unberührt).
+        listing_id: _editId || null
       })
     }, 60000);  // 60s für Foto-Upload
 
@@ -19986,8 +19998,11 @@ async function saveListing() {
         });
       } catch(_){}
     }
+    try { localStorage.removeItem('gs_nl_edit_id'); } catch(_){} // v29.46: Edit abgeschlossen
     if (typeof showProfileToast === 'function') showProfileToast(
-      (window.gsI18n ? gsI18n.t('toast_market_published', '✅ Live im Marketplace!') : '✅ Live im Marketplace!') +
+      (_editId
+        ? (window.gsI18n ? gsI18n.t('toast_market_updated', '✅ Inserat aktualisiert') : '✅ Inserat aktualisiert')
+        : (window.gsI18n ? gsI18n.t('toast_market_published', '✅ Live im Marketplace!') : '✅ Live im Marketplace!')) +
       ' (' + (j.photo_count || 0) + ' Foto)' + (nlOrganic ? ' · 🌱 Bio' : nlPestfree ? ' · 🚫 Pestizid-frei' : ''),
       'success');
     try { gsNlClearPhotos(); } catch(_){}
@@ -20161,17 +20176,27 @@ function editListing(id) {
   if (!l) return;
   openNewListing();
   setTimeout(function() {
-    document.getElementById('nl-title').value = l.title || '';
-    document.getElementById('nl-desc').value = l.desc || '';
-    document.getElementById('nl-region').value = l.region || '';
-    document.getElementById('nl-contact').value = l.contact || '';
-    document.getElementById('nl-price').value = l.price || '';
-    var catBtn = document.querySelector('#nl-cat-row [data-cat="' + l.cat + '"]');
-    if (catBtn) gsNlSelectCat(l.cat, catBtn);
-    var pmBtn = document.querySelector('[data-pmode="' + l.priceMode + '"]');
-    if (pmBtn) gsNlSelectPmode(l.priceMode, pmBtn);
-    // Mark für Update statt Neu
-    localStorage.setItem('gs_nl_edit_id', id);
+    try {
+      var _set = function(fid, v){ var el = document.getElementById(fid); if (el) el.value = v; };
+      _set('nl-title', l.title || '');
+      _set('nl-desc', l.desc || '');
+      _set('nl-region', l.region || '');
+      _set('nl-contact', l.contact || '');
+      _set('nl-price', l.price || '');
+      var catBtn = document.querySelector('#nl-cat-row [data-cat="' + l.cat + '"]');
+      if (catBtn) gsNlSelectCat(l.cat, catBtn);
+      var pmBtn = document.querySelector('[data-pmode="' + l.priceMode + '"]');
+      if (pmBtn) gsNlSelectPmode(l.priceMode, pmBtn);
+      // Bio/Pestizid-frei nur vorbelegen wenn das Listing-Objekt die Flags trägt (sonst unverändert
+      // lassen — saveListing PATCHt diese Spalten nur wenn aktiviert, leert sie also nie versehentlich).
+      var org = document.getElementById('nl-organic'); if (org && typeof l.organic_certified !== 'undefined') org.checked = !!l.organic_certified;
+      var pf = document.getElementById('nl-pestfree'); if (pf && typeof l.pesticide_free !== 'undefined') pf.checked = !!l.pesticide_free;
+      // Submit-Button auf Edit-Modus umbeschriften
+      var btn = document.getElementById('nl-submit-btn');
+      if (btn) btn.textContent = (window.gsI18n ? gsI18n.t('btn_save_changes','💾 Änderungen speichern') : '💾 Änderungen speichern');
+      // Mark für Update statt Neu (NACH openNewListing, das gs_nl_edit_id zurücksetzt)
+      localStorage.setItem('gs_nl_edit_id', id);
+    } catch(_){}
   }, 50);
 }
 
@@ -33394,6 +33419,9 @@ function gsMarketShowDetail(l) {
         return '<button onclick="gsMktSetStatus(\'' + l.id + '\',\'' + s + '\')" style="flex:1;min-width:68px;padding:8px 6px;border-radius:9px;border:1.5px solid ' + (sel ? m.fg : 'var(--border)') + ';background:' + (sel ? m.bg : 'var(--card)') + ';color:' + (sel ? m.fg : 'var(--text2)') + ';font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' + m.emoji + ' ' + m.label + '</button>';
       }).join('') +
       '</div>' +
+      // v29.46: Inserat bearbeiten — editListing füllt das Formular + saveListing macht ownership-
+      // geprüftes UPDATE (marketplace-publish listing_id). l.id ist Cloud-UUID (quote-safe wie gsMktSetStatus).
+      '<button onclick="editListing(\'' + l.id + '\')" style="width:100%;margin-top:8px;padding:9px;border-radius:9px;border:1.5px solid var(--g-main);background:var(--card);color:var(--g-dark);font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' + _t('btn_edit_listing','✏️ Inserat bearbeiten') + '</button>' +
       '<div style="font-size:10.5px;color:var(--muted);margin-top:7px;line-height:1.4;">' + _t('listing_sold_autoarchive','Verkaufte Inserate werden nach 30 Tagen automatisch archiviert.') + '</div>' +
     '</div>';
   }
@@ -58260,6 +58288,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.46', date: '17.06.2026',
+    headline: '✏️ Neu: Inserate bearbeiten (vorher nur löschen/neu)',
+    summary: 'Du kannst deine Marktplatz-Inserate jetzt direkt bearbeiten — Titel, Beschreibung, Preis, Kategorie, Region und Kontakt ändern, ohne löschen und neu erstellen zu müssen. Ein „✏️ Inserat bearbeiten"-Knopf erscheint in deinem eigenen Inserat. Sicher gebaut: der Server prüft, dass es wirklich dein Inserat ist, und ändert nur die erlaubten Felder (Status, Verkauft-Markierung und Meldungen bleiben unangetastet).',
+    user_summary: '✏️ Marktplatz: Inserate direkt bearbeiten (Titel/Preis/Beschreibung/…) statt löschen & neu — mit „Inserat bearbeiten"-Knopf im eigenen Inserat.',
+    user_items: [
+      { emoji: '✏️', text: 'Eigene Inserate bearbeiten — Knopf im Inserat-Detail' },
+      { emoji: '🔒', text: 'Server prüft Eigentümerschaft + ändert nur erlaubte Felder' },
+      { emoji: '🌍', text: 'Edit-Texte auf Deutsch/Englisch/Spanisch' },
+    ],
+    items: [
+      {emoji:'✏️', bold:'editListing fertiggebaut:', text:' war Dead-Code (gs_nl_edit_id wurde gesetzt, aber nie gelesen → saveListing erzeugte ein DUPLIKAT statt Update). Jetzt: saveListing liest gs_nl_edit_id und sendet listing_id an die marketplace-publish-Edge-Fn v4 → server-seitig ownership-geprüftes UPDATE (Whitelist title/desc/category/price/region/contact/price_mode; status/reports/views/user_id/created_at unberührt = sicher per Konstruktion). Kein ungeguardetes direktes PATCH.'},
+      {emoji:'🖱️', bold:'UI:', text:' „✏️ Inserat bearbeiten"-Button im Owner-Control-Block (gsMarketShowDetail); editListing füllt das Formular (null-safe), belegt Bio/Pestizid-frei nur wenn vorhanden (leert sie nie versehentlich), beschriftet den Button auf „💾 Änderungen speichern". gs_nl_edit_id wird in openNewListing (frisches Inserat) + nach erfolgreichem Speichern geleert → kein versehentliches Update.'},
+      {emoji:'✅', bold:'Verify:', text:' Edit-Flow im Preview end-to-end getestet (Formular-Populate, edit_id-Set, Button-Label, Clear-on-new). Edge-Fn-Vertrag (v4 listing_id-UPDATE, 403 bei Fremd-Inserat) bestätigt. 3 i18n-Keys + 12 Übersetzungen (EN/ES/FR/IT). 7/7 node --check + sw.js OK. v-Bump 5-fach v29.45 nach v29.46.'},
+    ]
+  },
+  {
     v: 'v29.45', date: '17.06.2026',
     headline: '🛡️ Fundament-Härtung: Daten-Sicherheit, Crash-Schutz & Resilienz',
     summary: 'Ein tiefer 4-Säulen-Audit (Boot, Cloud-Sync, Fehler-Resilienz, Vollständigkeit) hat das Fundament der App geprüft — Ergebnis: solide, mit ein paar Härtungs-Punkten, die jetzt alle gefixt sind. Wichtigste: ein beschädigter Browser-Speicher kann die App nicht mehr lahmlegen; der Cloud-Sync schützt deine Daten jetzt auf ALLEN Wegen vor versehentlichem Überschreiben (nicht nur beim manuellen Sync); und ein einzelner kaputter Eintrag kann keine ganze Liste mehr leeren.',
@@ -63430,7 +63474,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.45';
+var GS_VERSION = 'v29.46';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
