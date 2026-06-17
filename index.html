@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.56.20260618">
+<meta name="app-version" content="29.57.20260618">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -58622,6 +58622,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.57', date: '18.06.2026',
+    headline: '🔒 Login-Stabilität: Schluss mit zufälligen Abmeldungen',
+    summary: 'Wir haben einen Fehler behoben, der dazu führen konnte, dass man beim App-Start unerwartet abgemeldet wurde: Wenn mehrere Anfragen gleichzeitig den Anmelde-Token erneuerten, hob sich das gegenseitig auf. Jetzt läuft die Token-Erneuerung gebündelt und sicher. Ausserdem wird der Token aus Passwort-Reset-Links sofort aus der Adresszeile entfernt.',
+    user_summary: '🔒 Behebt zufällige Abmeldungen beim App-Start (Token-Erneuerung gebündelt) + Passwort-Reset-Token wird sofort aus der URL entfernt.',
+    user_items: [
+      { emoji: '🔄', text: 'Keine zufälligen Abmeldungen mehr durch gleichzeitige Token-Erneuerung' },
+      { emoji: '🛡️', text: 'Passwort-Reset-Token wird sofort aus URL & Verlauf entfernt' },
+      { emoji: '✅', text: 'Abmeldung nur noch wenn die Sitzung wirklich abgelaufen ist' },
+    ],
+    items: [
+      {emoji:'🔄', bold:'Token-Refresh-Race behoben:', text:' Beim Start laden mehrere Anfragen parallel (Profil, Sync, Streak) — lief der Anmelde-Token aus, erneuerten ihn alle gleichzeitig mit demselben Einmal-Token; der zweite scheiterte (400) und löste eine Abmeldung aus. Neuer geteilter Refresh-Mutex (_gsRefreshShared): alle Erneuerungen laufen durch EINE Anfrage, parallele warten auf dasselbe Ergebnis. Abmeldung nur noch wenn der Token danach wirklich noch abgelaufen ist (race-sicher).'},
+      {emoji:'🛡️', bold:'Recovery-Token-Härtung:', text:' Der Zugangs-Token aus Passwort-Reset-Links wird jetzt sofort aus URL & Browser-Verlauf entfernt (vorher erst nach erfolgreichem Wechsel) + Gültigkeits-Sanity-Check.'},
+      {emoji:'✅', bold:'Verify:', text:' Live geprüft — 5 parallele Refreshes → nur 1 Netzwerk-Aufruf (Bündelung), 6. nach Freigabe → neuer Aufruf; 400 + frischer Token → KEINE Abmeldung, 400 + abgelaufen → Abmeldung. 0 Console-Fehler. Offen (Roadmap): HttpOnly-Cookies, server-seitiges Rate-Limit, „Leaked Password Protection". 7/7 node --check + sw.js OK. v-Bump 5-fach v29.56 nach v29.57.'},
+    ]
+  },
+  {
     v: 'v29.56', date: '18.06.2026',
     headline: '🔐 Login rundum erneuert — eleganter, schneller, sicherer',
     summary: 'Der Login-Bildschirm wurde komplett überarbeitet: ein ruhiger animierter Natur-Hintergrund, sanfte Übergänge, ein rotierendes Highlights-Karussell, das zeigt was GreenScan kann, und durchgehend sichtbare Tastatur-Fokus-Ringe. Im Hintergrund haben wir einen Bug behoben, der dazu führte, dass bei neuen Konten die E-Mail-Adresse nicht gespeichert wurde, und Lade-Zustände, Doppelklick-Schutz & Barrierefreiheit verbessert.',
@@ -63979,7 +63995,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.56';
+var GS_VERSION = 'v29.57';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -64374,24 +64390,39 @@ async function sbFetch(path, opts) {
   }
 }
 
-async function sbRefresh() {
-  var rt = localStorage.getItem('gs_sb_refresh');
-  if (!rt || !sbGetConfig()) return;
-  try {
-    // v24.46: _gsFetch mit 15s Timeout für Auth-Refresh
-    var resp = await (window._gsFetch || fetch)(SB_URL + '/auth/v1/token?grant_type=refresh_token', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json','apikey':SB_KEY},
-      body: JSON.stringify({refresh_token: rt})
-    }, 15000);
-    var parsed2 = await sbParseResponse(resp);
-    var data = parsed2.data || {};
-    if (data.access_token) {
-      gsStore.set('gs_sb_token',data.access_token);
-      localStorage.setItem('gs_sb_refresh', data.refresh_token);
-      localStorage.setItem('gs_sb_expires', String(Date.now() + (data.expires_in||3600)*1000));
+// v29.57: Geteilter Refresh-Mutex. Ohne ihn lösten parallele Aufrufe (Boot: Profil+Sync+Streak
+// gleichzeitig via sbFetch + sbInit) denselben SINGLE-USE refresh_token mehrfach ein → der zweite
+// bekam 400 (rt verbraucht) → sbRefreshToken rief sbClearSession() → ZUFÄLLIGE LOGOUTS. Jetzt laufen
+// ALLE Refresh-Pfade durch EINE In-Flight-Promise; sequentielle Refreshes nutzen den rotierten rt.
+var _gsRefreshPromise = null;
+function _gsRefreshShared() {
+  if (_gsRefreshPromise) return _gsRefreshPromise;
+  var p = (async function(){
+    var rt = localStorage.getItem('gs_sb_refresh');
+    if (!rt || !sbGetConfig()) return { ok:false, status:0, hardFail:false };
+    try {
+      var res = await (window._gsFetch || fetch)(SB_URL + '/auth/v1/token?grant_type=refresh_token', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','apikey':SB_KEY},
+        body: JSON.stringify({ refresh_token: rt })
+      }, 15000);
+      var data = await res.json().catch(function(){ return {}; });
+      if (res.ok && data && data.access_token) { sbSaveSession(data); return { ok:true, status:res.status, data:data }; }
+      return { ok:false, status:(res.status||0), hardFail:(res.status===400 || res.status===401) };
+    } catch(e) {
+      return { ok:false, status:0, hardFail:false }; // Netzwerkfehler → NIE Logout
     }
-  } catch(e) {}
+  })();
+  _gsRefreshPromise = p;
+  // In-Flight-Flag freigeben, sobald fertig (nächster echte-Refresh darf wieder, mit rotiertem rt)
+  p.then(function(){ if (_gsRefreshPromise === p) _gsRefreshPromise = null; },
+         function(){ if (_gsRefreshPromise === p) _gsRefreshPromise = null; });
+  return p;
+}
+
+// Token-Refresh (best-effort, kein Logout bei Fehler) — delegiert an den Mutex.
+async function sbRefresh() {
+  try { await _gsRefreshShared(); } catch(e) {}
 }
 
 
@@ -64423,34 +64454,24 @@ async function _gsFreshToken() {
 }
 window._gsFreshToken = _gsFreshToken;
 
-// Token-Refresh (wenn access_token abgelaufen)
+// Token-Refresh mit hartem Logout — aber NUR bei wirklich ungültigem Token. v29.57: race-sicher
+// über den geteilten Mutex; clearen nur wenn der Token danach immer noch abgelaufen ist (ein
+// paralleler Refresh könnte ihn erneuert haben → dann war das 400 bloss der verbrauchte rt).
 async function sbRefreshToken() {
   if (!sbGetConfig || !sbGetConfig()) return {error:{message:'Supabase nicht konfiguriert'}};
-  var refreshToken = localStorage.getItem('gs_sb_refresh');
-  if (!refreshToken) return {error:{message:'Kein Refresh-Token'}};
-  try {
-    // v24.46: _gsFetch mit 15s Timeout
-    var res = await (window._gsFetch || fetch)(SB_URL + '/auth/v1/token?grant_type=refresh_token', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},
-      body: JSON.stringify({refresh_token: refreshToken})
-    }, 15000);
-    if (!res.ok) {
-      // Refresh fehlgeschlagen — Session löschen
-      if (res.status === 400 || res.status === 401) {
-        sbClearSession();
-      }
-      return {error:{message:'Refresh fehlgeschlagen ('+res.status+')'}};
-    }
-    var data = await res.json();
-    if (data && data.access_token) {
-      sbSaveSession(data);
-      return {data: data};
-    }
-    return {error:{message:'Ungültige Antwort'}};
-  } catch(e) {
-    return {error:{message:e.message || 'Netzwerkfehler'}};
+  if (!localStorage.getItem('gs_sb_refresh')) return {error:{message:'Kein Refresh-Token'}};
+  var r = await _gsRefreshShared();
+  if (r.ok) return { data: r.data };
+  if (r.hardFail) {
+    var stillExpired = true;
+    try {
+      var tok = gsStore.get('gs_sb_token', null) || '';
+      var p = JSON.parse(atob((tok.split('.')[1]||'').replace(/-/g,'+').replace(/_/g,'/')));
+      if (p && p.exp && (p.exp * 1000) > Date.now() + 5000) stillExpired = false; // inzwischen erneuert
+    } catch(_){}
+    if (stillExpired) sbClearSession();
   }
+  return { error:{ message:'Refresh fehlgeschlagen (' + r.status + ')' } };
 }
 
 // v23.73: Handler für Return-URLs aus Email-Bestätigung / Passwort-Reset
@@ -64467,8 +64488,12 @@ async function gsHandleAuthRedirect(){
         // Token kurz in Session schreiben damit Password-Update möglich
         var expM = hash.match(/expires_in=(\d+)/);
         var expSec = expM ? parseInt(expM[1]) : 3600;
+        if (!(expSec > 0)) expSec = 3600; // v29.57: Expiry-Sanity (kein NaN/0/negatives Fenster)
         gsStore.set('gs_sb_token',m[1]);
         localStorage.setItem('gs_sb_expires', String(Date.now() + expSec*1000));
+        // v29.57: Recovery-Token SOFORT aus URL/History entfernen (vorher erst nach PW-Wechsel) —
+        // sonst bleibt der access_token im Browser-Verlauf/Referrer wenn der User abbricht.
+        try { history.replaceState(null, '', location.pathname); } catch(_){}
         // Dialog zum neuen Passwort
         setTimeout(function(){
           // v28.83 HL#2: natives prompt() → gsPromptModal (iOS-PWA-Webview-Blocker), Promise-basiert.
