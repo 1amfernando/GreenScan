@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.52.20260618">
+<meta name="app-version" content="29.53.20260618">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16099,11 +16099,13 @@ async function openDqRanking() {
   var medals = ['🥇','🥈','🥉'];
   // v29.48: kein „Premium-Abo gratis"-Versprechen mehr — der Grant wurde NIE vergeben (nur Stub).
   // Ehrliche Anerkennung statt falschem Versprechen (Mission: ehrlich, nicht geldgierig).
-  var rewards = ['👑 Jahres-Champion','✨ Vize-Champion','✨ Dritter Platz'];
+  // v29.53: echtes Reward — Top-3 erhalten am Jahresende 1 Jahr Pro gratis (Backend: fn_grant_quiz_top3_pro
+  // via Cron quiz-top3-yearend 31.12., comp_tier-Grant). Kein leeres Versprechen mehr (vgl. v29.48).
+  var rewards = ['👑 1 Jahr Pro gratis','🥈 1 Jahr Pro gratis','🥉 1 Jahr Pro gratis'];
 
   content.innerHTML = 
     '<div style="padding:8px 16px 4px;font-size:11px;color:rgba(255,255,255,.5);font-weight:700;">Jahresrangliste ' + yr + ' · Top 50</div>' +
-    '<div style="padding:6px 16px 8px;font-size:11px;color:rgba(255,255,255,.5);">Wird am 31.12.' + yr + ' zurückgesetzt · Top 3 kommen in die Jahres-Ehrenliste</div>' +
+    '<div style="padding:6px 16px 8px;font-size:11px;color:rgba(255,255,255,.5);">Wird am 31.12.' + yr + ' zurückgesetzt · Top 3 erhalten 1 Jahr Pro gratis 🎁</div>' +
     entries.slice(0,50).map(function(e,i) {
       var rank = i+1;
       var isTop3 = rank <= 3;
@@ -58393,6 +58395,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.53', date: '18.06.2026',
+    headline: '🏆 Quiz-Jahres-Top-3 gewinnen 1 Jahr Pro gratis',
+    summary: 'Neu: Die drei besten Spieler der jährlichen Quiz-Rangliste erhalten am Jahresende automatisch 1 Jahr Pro gratis — ganz ohne Bezahlung, als Dankeschön fürs Mitmachen. Die Rangliste zeigt das jetzt ehrlich an (vorher stand dort kein echtes Reward). Die Freischaltung läuft automatisch am 31.12. und gilt 12 Monate.',
+    user_summary: '🏆 Quiz-Jahres-Top-3 erhalten am 31.12. automatisch 1 Jahr Pro gratis (echtes Reward, automatische Freischaltung).',
+    user_items: [
+      { emoji: '🏆', text: 'Top 3 der Jahres-Quiz-Rangliste: 1 Jahr Pro gratis' },
+      { emoji: '🎁', text: 'Automatische Freischaltung am Jahresende (31.12.), 12 Monate gültig' },
+      { emoji: '🌱', text: 'Geschenk fürs Mitmachen — keine Zahlung, mission-konform' },
+    ],
+    items: [
+      {emoji:'🏆', bold:'fn_grant_quiz_top3_pro (Migration v29_53 LIVE):', text:' SECURITY DEFINER, Cron quiz-top3-yearend (31.12. 23:00 UTC) + Admin-Wrapper. Wählt Top-3 aus quiz_leaderboard (nach total_correct, wie das Frontend rankt) → setzt comp_tier=pro + comp_expires_at=now()+1 Jahr (NUR comp_*, tier unberührt → kein Downgrade von lifetime/stripe; lifetime-comp wird nicht überschrieben). v_user_entitlements gibt dann pro für 12 Monate. Loggt nach system_events.'},
+      {emoji:'🎯', bold:'Reward-Anzeige ehrlich:', text:' Rangliste zeigt jetzt „👑/🥈/🥉 1 Jahr Pro gratis" + „Top 3 erhalten 1 Jahr Pro gratis 🎁" (vorher entferntes leeres Versprechen v29.48 → jetzt echtes, hinterlegtes Reward).'},
+      {emoji:'✅', bold:'Verify:', text:' Grant-Mechanismus reversibel live getestet (comp-pro → v_user_entitlements.tier=pro, lifetime-Skip korrekt); Test fing uuid-Bug bei comp_granted_by ab (→ NULL). Cron aktiv, Privileg-Matrix sauber, KEIN echter Grant vorzeitig ausgeführt. 7/7 node --check + sw.js OK + Preview-Boot grün. v-Bump 5-fach v29.52 nach v29.53.'},
+    ]
+  },
+  {
     v: 'v29.52', date: '18.06.2026',
     headline: '🪴 KI-Gartenplaner: 3D-Pflanzen sauber konstruiert (kein Überlappen mehr)',
     summary: 'Im 3D-Garten-Plan überlappten sich Gemüse/Pflanzen oft oder ragten über den Beet-Rand hinaus — die KI lieferte Koordinaten, die roh und ohne Korrektur gerendert wurden. Jetzt sorgt ein neuer Layout-Schritt dafür, dass alle Pflanzen-Felder sauber ins Beet einpassen, sich nie überlappen und ordentlich in Reihen angeordnet sind — sowohl in der 3D-Ansicht als auch im PDF-Plan. Zusätzlich werden bei dichter Bepflanzung keine Einzelpflanzen mehr verschluckt.',
@@ -63685,7 +63703,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.52';
+var GS_VERSION = 'v29.53';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
