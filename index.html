@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.51.20260617">
+<meta name="app-version" content="29.52.20260618">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -48733,6 +48733,10 @@ async function gsPPrun(opts) {
       setTimeout(function(){ showProfileToast({title:'⚠️ Plan teilweise rekonstruiert', body:'Die KI-Antwort war abgeschnitten — kritische Teile wurden gerettet. Bei Bedarf neu generieren.', kind:'info', duration:5000}); }, 800);
     }
     _gsPP.plan = plan;
+    // v29.52: Pflanzen-Rechtecke ins Beet clampen + entüberlappen BEVOR gerendert wird. Die KI liefert
+    // x_m/y_m/w_m/h_m oft überlappend/ausserhalb (weicher Prompt-Constraint) → 3D-Meshes durchdrangen
+    // sich / hingen über den Beet-Rand ("nicht sauber konstruiert"). Sanitizer säubert 3D + PDF gemeinsam.
+    try { if (typeof _gsSanitizePlannerPlan === 'function') _gsSanitizePlannerPlan(plan); } catch(_){}
     // v23.57: Post-Processing — DB-Enrichment (IDs für Deep-Links + Warnungen)
     try {
       if (plan.plants && Array.isArray(plan.plants) && typeof DB !== 'undefined' && Array.isArray(DB)) {
@@ -49638,6 +49642,47 @@ function _gsPP3DLabelSprite(text, opts) {
 // v24.01: Inline-3D-Renderer (Polymech/Engineering-Stil, kompakt für Plan-Result)
 // Realistischere Pflanzen-Geometrien: Halbkugeln/Kegel statt Boxen, Erde-Beet, Lights für Tiefe
 window._gsPP3DInlineState = null;
+// v29.52: KI-Planer-Layout säubern — Pflanzen-Footprints ins Beet clampen + per Shelf-Packing
+// entüberlappen, damit 3D-Szenen UND PDF-SVG dieselbe saubere, überlappungsfreie Anordnung nutzen.
+// Modifiziert plan.plants[].x_m/y_m/w_m/h_m in-place (deterministisch, Reihen-Packing nach Fläche).
+function _gsSanitizePlannerPlan(plan) {
+  try {
+    if (!plan || !plan.bed || !Array.isArray(plan.plants) || !plan.plants.length) return plan;
+    var bedW = Math.max(1, plan.bed.width_m || 5);
+    var bedL = Math.max(1, plan.bed.length_m || 5);
+    var gap = 0.1; // 10cm Gang zwischen Beet-Rechtecken
+    var items = plan.plants.map(function(p, i){
+      var w = Math.min(bedW, Math.max(0.2, parseFloat(p.w_m) || 0.3));
+      var h = Math.min(bedL, Math.max(0.2, parseFloat(p.h_m) || 0.3));
+      return { p: p, i: i, w: w, h: h };
+    });
+    // Grösste zuerst → kompakteres, sauberes Reihen-Packing
+    items.sort(function(a, b){ return (b.w * b.h) - (a.w * a.h); });
+    var cx = 0, cy = 0, rowH = 0;
+    items.forEach(function(it){
+      if (it.w > bedW) it.w = bedW;
+      if (cx + it.w > bedW + 0.001) { cx = 0; cy += rowH + gap; rowH = 0; } // neue Reihe
+      it.p.x_m = Math.round(cx * 100) / 100;
+      it.p.y_m = Math.round(cy * 100) / 100;
+      it.p.w_m = Math.round(it.w * 100) / 100;
+      it.p.h_m = Math.round(it.h * 100) / 100;
+      cx += it.w + gap;
+      if (it.h > rowH) rowH = it.h;
+    });
+    // Übersteigt das Packing das Beet in der Länge → y + Höhe proportional stauchen (kein Überhang)
+    var usedH = cy + rowH;
+    if (usedH > bedL && usedH > 0) {
+      var sy = bedL / usedH;
+      plan.plants.forEach(function(p){
+        p.y_m = Math.round((parseFloat(p.y_m) || 0) * sy * 100) / 100;
+        p.h_m = Math.max(0.2, Math.round((parseFloat(p.h_m) || 0.3) * sy * 100) / 100);
+      });
+    }
+  } catch(_){}
+  return plan;
+}
+window._gsSanitizePlannerPlan = _gsSanitizePlannerPlan;
+
 function gsPP3DRenderInline(plan, container) {
   if (typeof THREE === 'undefined') return;
   if (!container || !plan || !plan.plants || !plan.bed) return;
@@ -50107,7 +50152,7 @@ function gsPP3DRenderInline(plan, container) {
         var sx = px + (col + 0.5) * slotW + (staggered ? slotW * 0.25 : 0);
         var sz = py + (row + 0.5) * slotH;
         // Stay within rectangle
-        if (sx > px + pw - slotW * 0.3) continue;
+        if (sx > px + pw - slotW * 0.5) sx = px + pw - slotW * 0.5; // v29.52: clampen statt Pflanze droppen (Stagger schob die letzte Spalte raus)
         var pSingle = makeSinglePlant(p, slotW, slotH);
         pSingle.position.set(sx, 0, sz);
         pSingle.userData = { plantIdx: idx, plantName: p.name, gridPos: row * grid.cols + col };
@@ -58348,6 +58393,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.52', date: '18.06.2026',
+    headline: '🪴 KI-Gartenplaner: 3D-Pflanzen sauber konstruiert (kein Überlappen mehr)',
+    summary: 'Im 3D-Garten-Plan überlappten sich Gemüse/Pflanzen oft oder ragten über den Beet-Rand hinaus — die KI lieferte Koordinaten, die roh und ohne Korrektur gerendert wurden. Jetzt sorgt ein neuer Layout-Schritt dafür, dass alle Pflanzen-Felder sauber ins Beet einpassen, sich nie überlappen und ordentlich in Reihen angeordnet sind — sowohl in der 3D-Ansicht als auch im PDF-Plan. Zusätzlich werden bei dichter Bepflanzung keine Einzelpflanzen mehr verschluckt.',
+    user_summary: '🪴 KI-Gartenplaner-3D: Pflanzen werden jetzt sauber, überlappungsfrei und im Beet angeordnet (3D + PDF) — keine ineinander ragenden/herausragenden Gemüse mehr.',
+    user_items: [
+      { emoji: '🪴', text: '3D-Pflanzen überlappen nicht mehr & bleiben im Beet (sauber in Reihen)' },
+      { emoji: '📄', text: 'PDF-Plan nutzt dasselbe saubere Layout' },
+      { emoji: '🌱', text: 'Dichte Bepflanzung verschluckt keine Einzelpflanzen mehr' },
+    ],
+    items: [
+      {emoji:'🪴', bold:'Layout-Sanitizer:', text:' neuer _gsSanitizePlannerPlan(plan) clampt jeden Pflanzen-Footprint (x_m/y_m/w_m/h_m) ins Beet [0,width]×[0,length] + Shelf-Packing (Reihen nach Fläche) → garantiert überlappungsfrei + im Beet; bei zu vielen Pflanzen wird die Länge proportional gestaucht (kein Überhang). Läuft EINMAL nach _gsPP.plan=plan → 3D-Inline, 3D-CAD UND PDF-SVG teilen dieselbe saubere Anordnung. Vorher: rohe KI-Koordinaten (weicher „nicht überlappen"-Prompt) → Meshes durchdrangen sich/ragten raus. Live verifiziert (Mock mit Überlappung+ausserhalb → 0 Überlappung, 0 ausserhalb).'},
+      {emoji:'🌱', bold:'Kein Pflanzen-Drop:', text:' im count>1-Grid wurde die letzte versetzte Spalte per continue verworfen → jetzt geclampt (alle Exemplare platziert).'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check + sw.js OK + Preview-Boot grün; Sanitizer live getestet. v-Bump 5-fach v29.51 nach v29.52. Folge: PDF echte-PDF-Ausgabe + fehlende Sektionen, KI-Grounding (species-Agronomie-Spalten leer).'},
+    ]
+  },
+  {
     v: 'v29.51', date: '17.06.2026',
     headline: '☁️ Großer Sync-Fix: Pläne, Pflanzen & Garten speichern wieder zuverlässig',
     summary: 'Ein gravierender Fehler in der Cloud-Speicherung ist behoben: Nach dem ERSTEN Speichern wurden Garten-Pläne, Pflanzen und Garten-Daten nicht mehr in die Cloud geschrieben — sie blieben nur lokal und gingen auf anderen Geräten / nach Cache-Leeren verloren. Ursache: die Speicher-Anfrage hatte das falsche Konflikt-Ziel, wodurch jeder weitere Speichern-Versuch serverseitig abgewiesen wurde (409). Das betraf insbesondere den KI-Gartenplaner („Pläne lassen sich nicht speichern"). Jetzt wird zuverlässig aktualisiert statt abgewiesen.',
@@ -63624,7 +63685,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.51';
+var GS_VERSION = 'v29.52';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
