@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.50.20260617">
+<meta name="app-version" content="29.51.20260617">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -50656,7 +50656,7 @@ async function gsPPsavePlan() {
         if (!data.plans) data.plans = [];
         data.plans.unshift(planEntry);
         while (data.plans.length > 30) data.plans.pop();
-        var res = await sbFetch('/rest/v1/user_gardens', {
+        var res = await sbFetch('/rest/v1/user_gardens?on_conflict=user_id', {  // v29.51 P0-SYNC-FIX: ohne on_conflict 409 bei wiederkehrenden Usern → Plan-Speichern schlug fehl
           method: 'POST',
           headers: {'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
           body: JSON.stringify({user_id: uid, data: data, updated_at: new Date().toISOString()})
@@ -54996,7 +54996,7 @@ async function gsPPdeletePlan(id) {
         if (ugRows[0] && ugRows[0].data && Array.isArray(ugRows[0].data.plans)) {
           var data = ugRows[0].data;
           data.plans = data.plans.filter(function(p){ return p.id !== id; });
-          await sbFetch('/rest/v1/user_gardens', {
+          await sbFetch('/rest/v1/user_gardens?on_conflict=user_id', {  // v29.51 P0-SYNC-FIX (on_conflict)
             method: 'POST',
             headers: {'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
             body: JSON.stringify({user_id: uid, data: data, updated_at: new Date().toISOString()})
@@ -58347,6 +58347,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v29.51', date: '17.06.2026',
+    headline: '☁️ Großer Sync-Fix: Pläne, Pflanzen & Garten speichern wieder zuverlässig',
+    summary: 'Ein gravierender Fehler in der Cloud-Speicherung ist behoben: Nach dem ERSTEN Speichern wurden Garten-Pläne, Pflanzen und Garten-Daten nicht mehr in die Cloud geschrieben — sie blieben nur lokal und gingen auf anderen Geräten / nach Cache-Leeren verloren. Ursache: die Speicher-Anfrage hatte das falsche Konflikt-Ziel, wodurch jeder weitere Speichern-Versuch serverseitig abgewiesen wurde (409). Das betraf insbesondere den KI-Gartenplaner („Pläne lassen sich nicht speichern"). Jetzt wird zuverlässig aktualisiert statt abgewiesen.',
+    user_summary: '☁️ Großer Speicher-Fix: KI-Pläne, Pflanzen & Garten landen wieder zuverlässig in der Cloud (vorher nach dem 1. Mal nur lokal) — gilt auf allen Geräten.',
+    user_items: [
+      { emoji: '💾', text: 'KI-Gartenpläne speichern wieder (war: nach dem 1. Mal abgewiesen)' },
+      { emoji: '🌱', text: 'Pflanzen & Garten-Daten syncen wieder zuverlässig in die Cloud' },
+      { emoji: '🔁', text: 'Geräteübergreifend & nach Cache-Leeren erhalten' },
+    ],
+    items: [
+      {emoji:'☁️', bold:'P0 Sync-Root-Cause:', text:' user_gardens & user_plants haben id als PK + user_id nur als UNIQUE. Die Upsert-POSTs (_pushBlob Haupt-Sync, gsPPsavePlan, Plan-Löschen) nutzten Prefer:resolution=merge-duplicates OHNE on_conflict → PostgREST löste auf der PK (id) auf, der Body sendet kein id → frische UUID → kein Match → plain INSERT → 409 auf user_id-UNIQUE. Folge: nach dem 1. Insert syncten Pflanzen/Garten/Pläne für wiederkehrende User NIE mehr. Fix: ?on_conflict=user_id an allen 3 Stellen → korrektes UPDATE-on-conflict. Live verifiziert (ON CONFLICT user_id DO UPDATE = kein 409, Daten erhalten). (user_app_state war ok — dort ist user_id die PK.)'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check + sw.js OK + Preview-Boot grün; Upsert-Pfad live gegen die echte UNIQUE-Constraint getestet. v-Bump 5-fach v29.50 nach v29.51.'},
+    ]
+  },
   {
     v: 'v29.50', date: '17.06.2026',
     headline: '🍄 Pilz-Scanner: Sicherheits-Fixes bei Verwechslern',
@@ -63609,7 +63624,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.50';
+var GS_VERSION = 'v29.51';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -69013,7 +69028,12 @@ window.gsCloudSync = (function(){
     var uid = _uid();
     var pushTs = new Date().toISOString();
     var body = JSON.stringify({user_id: uid, data: data, updated_at: pushTs});
-    var url = '/rest/v1/' + table;
+    // v29.51 P0-SYNC-FIX: on_conflict=user_id ist PFLICHT. user_gardens & user_plants haben id als PK +
+    // user_id nur als UNIQUE → ohne on_conflict löst PostgREST merge-duplicates auf der PK (id) auf;
+    // der Body sendet kein id → frische UUID → kein Match → plain INSERT → 409 auf user_id-UNIQUE.
+    // Folge: nach dem ERSTEN Insert syncten Pflanzen/Garten NIE mehr (returning user). user_app_state
+    // hat user_id ALS PK (lief schon) — on_conflict=user_id ist dort ebenfalls korrekt.
+    var url = '/rest/v1/' + table + '?on_conflict=user_id';
     // v24.23: bei Erfolg speichern wir den Push-Timestamp + clearen den dirty-Marker
     var scope = (table === 'user_plants') ? 'plants' : (table === 'user_gardens' ? 'garden' : (table === 'user_app_state' ? 'state' : null));
     var _markSuccess = function(){
