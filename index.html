@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.48.20260617">
+<meta name="app-version" content="29.49.20260617">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2048,7 +2048,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     </div>
 
     <!-- v26.49: Wetter-Alert-Widget (region+month aus garden_weather_alerts) — pulsiert bei katastrophal -->
-    <div id="weather-alert-card" style="display:none;background:linear-gradient(135deg,#c62828,#7f0000);border-radius:var(--r);padding:13px 15px;color:#fff;margin-bottom:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;" onclick="gsShowNextWeatherAlert()">
+    <!-- v29.49: Tap öffnet die Live-Wetter-Warnungen (kein Re-Roll mehr); Tages-Auswahl date-stabil -->
+    <div id="weather-alert-card" style="display:none;background:linear-gradient(135deg,#c62828,#7f0000);border-radius:var(--r);padding:13px 15px;color:#fff;margin-bottom:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;" onclick="if(typeof gsOpenWeatherAlerts==='function')gsOpenWeatherAlerts()">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
         <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;opacity:.9;">⚠️ Wetter-Warnung Garten</div>
         <span id="wa-severity-badge" style="background:rgba(255,255,255,.22);font-size:9.5px;padding:2px 7px;border-radius:7px;font-weight:800;"></span>
@@ -2057,8 +2058,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <div id="wa-region-line" style="font-size:11.5px;opacity:.92;margin-bottom:7px;"></div>
       <div id="wa-actions" style="background:rgba(0,0,0,.22);padding:8px 11px;border-radius:8px;font-size:11.5px;line-height:1.55;margin-bottom:7px;display:none;"></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-        <a id="wa-meteo-link" href="#" target="_blank" rel="noopener" style="flex:1;min-width:160px;padding:8px 10px;background:rgba(255,255,255,.92);border-radius:9px;font-size:12px;font-weight:800;color:#b71c1c;text-align:center;text-decoration:none;-webkit-tap-highlight-color:transparent;">🛰 MeteoSchweiz</a>
-        <button onclick="event.stopPropagation();gsShowNextWeatherAlert();" style="padding:8px 12px;background:transparent;border:1.5px solid rgba(255,255,255,.45);color:#fff;border-radius:9px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">Nächste ›</button>
+        <a id="wa-meteo-link" href="#" target="_blank" rel="noopener" onclick="event.stopPropagation();" style="flex:1;min-width:160px;padding:8px 10px;background:rgba(255,255,255,.92);border-radius:9px;font-size:12px;font-weight:800;color:#b71c1c;text-align:center;text-decoration:none;-webkit-tap-highlight-color:transparent;">🛰 MeteoSchweiz</a>
       </div>
     </div>
 
@@ -2079,7 +2079,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     </div>
 
     <!-- v26.35: Bauernregel des Tages (traditional_garden_wisdom Daily-Rotation) -->
-    <div id="wisdom-card" style="display:none;background:linear-gradient(135deg,#f9f5e8,#f5ecd0);border:1.5px solid #c4a572;border-radius:var(--r);padding:13px 15px;margin-bottom:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;" onclick="gsShowNextWisdom()">
+    <!-- v29.49: Re-Roll beim Tippen entfernt — stabile Tages-Bauernregel (Tag-genau geseedet, neue Regel nur alle 24h) -->
+    <div id="wisdom-card" style="display:none;background:linear-gradient(135deg,#f9f5e8,#f5ecd0);border:1.5px solid #c4a572;border-radius:var(--r);padding:13px 15px;margin-bottom:12px;-webkit-tap-highlight-color:transparent;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6d4c41;">🌾 Bauernregel des Tages</div>
         <span id="wisdom-validity-badge" style="font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:7px;"></span>
@@ -2873,11 +2874,11 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   <!-- Filter Chips -->
   <div style="display:flex;gap:6px;overflow-x:auto;padding:10px 16px 4px;scrollbar-width:none;">
     <button class="chip active" onclick="filterSeason('all',this)" id="sf-all" data-i18n="season_filter_all" data-i18n-fallback="Alle">Alle</button>
-    <button class="chip" onclick="filterSeason('gemüse',this)" data-i18n="season_filter_vegetables" data-i18n-fallback="🥦 Gemüse">🥦 Gemüse</button>
-    <button class="chip" onclick="filterSeason('obst',this)" data-i18n="season_filter_fruit" data-i18n-fallback="🍓 Obst">🍓 Obst</button>
-    <button class="chip" onclick="filterSeason('kräuter',this)" data-i18n="season_filter_herbs" data-i18n-fallback="🌿 Kräuter">🌿 Kräuter</button>
+    <button class="chip" onclick="filterSeason('gemuese',this)" data-i18n="season_filter_vegetables" data-i18n-fallback="🥦 Gemüse">🥦 Gemüse</button>
+    <button class="chip" onclick="filterSeason('frucht',this)" data-i18n="season_filter_fruit" data-i18n-fallback="🍓 Obst">🍓 Obst</button>
+    <button class="chip" onclick="filterSeason('kraut',this)" data-i18n="season_filter_herbs" data-i18n-fallback="🌿 Kräuter">🌿 Kräuter</button>
     <button class="chip" onclick="filterSeason('wildpflanze',this)" data-i18n="season_filter_wild" data-i18n-fallback="🌸 Wildpflanzen">🌸 Wildpflanzen</button>
-    <button class="chip" onclick="filterSeason('pilze',this)" data-i18n="season_filter_mushrooms" data-i18n-fallback="🍄 Pilze">🍄 Pilze</button>
+    <button class="chip" onclick="filterSeason('pilz',this)" data-i18n="season_filter_mushrooms" data-i18n-fallback="🍄 Pilze">🍄 Pilze</button>
   </div>
   <!-- Legende -->
   <div style="display:flex;gap:8px;padding:2px 16px 8px;font-size:10.5px;color:var(--muted);flex-wrap:wrap;">
@@ -8906,10 +8907,13 @@ function openWeatherDetail() {
       sCurY = e.touches[0].clientY;
       var dy = sCurY - sStartY;
       if (dy < 0) { sBox.style.transform = ''; return; }
+      // v29.49: native Pull-to-Refresh während des Schliessen-Wischens unterdrücken (Bug: Wisch-zu-
+      // schliessen löste Reload aus). Non-passive + preventDefault nur beim Abwärts-Drag am oberen Rand.
+      if (e.cancelable) e.preventDefault();
       sBox.style.transform = 'translateY(' + Math.min(dy * 0.6, 300) + 'px)';
       sBox.style.transition = 'none';
       modal.style.backgroundColor = 'rgba(0,0,0,' + Math.max(0.15, 0.6 - dy/500) + ')';
-    }, {passive:true});
+    }, {passive:false});
     modal.addEventListener('touchend', function(){
       if (!sDragging) return;
       var dy = sCurY - sStartY;
@@ -12646,12 +12650,12 @@ async function gsLoadEntitlements() {
 async function gsCheckPastDueBanner() {
   try {
     if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
-    if (typeof sbFetch !== 'function') return;
-    var uid = (typeof gsStore !== 'undefined') ? gsStore.get('gs_sb_uid', null) : null;
-    if (!uid) return;
-    var res = await sbFetch('/rest/v1/stripe_subscriptions?user_id=eq.' + uid + '&select=status,current_period_end&order=current_period_end.desc&limit=1', {method:'GET'});
-    var row = null;
-    if (res && res.data && Array.isArray(res.data) && res.data.length) row = res.data[0];
+    // v29.49 P3: Banner liest dieselbe "current sub" wie die Abo-Karte — beide gehen
+    // jetzt über gsLoadSubInfo() (eine deterministische Quelle, order=created_at.desc
+    // limit 1). Vorher fetchte das Banner separat mit order=current_period_end.desc →
+    // bei >1 Sub-Zeile/User konnten Karte und Banner unterschiedliche Subs anzeigen.
+    if (typeof gsLoadSubInfo !== 'function') return;
+    var row = await gsLoadSubInfo();
     var isPastDue = row && row.status === 'past_due';
     var bannerHost = document.getElementById('gs-past-due-banner');
     if (!isPastDue) {
@@ -12669,7 +12673,12 @@ async function gsCheckPastDueBanner() {
       '<button id="gs-past-due-cta" style="background:#fff;color:#bf360c;border:none;padding:7px 14px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;">Karte aktualisieren</button>';
     document.body.appendChild(b);
     var cta = document.getElementById('gs-past-due-cta');
-    if (cta) cta.onclick = function(){ if (typeof gsOpenBillingPortal === 'function') gsOpenBillingPortal('payment_method_update'); };
+    // v29.49 P3: gsOpenBillingPortal() OHNE Arg → Standard-Stripe-Portal (dort lässt
+    // sich die Zahlungsmethode aktualisieren). Der frühere Arg 'payment_method_update'
+    // wurde still verworfen: gsOpenBillingPortal reicht nur 'cancel'/'reactivate' als
+    // flow_data an stripe-portal v3 weiter — einen payment_method_update-Flow gibt es
+    // dort nicht → toter Arg. Standard-Portal deckt den Karten-Wechsel ab.
+    if (cta) cta.onclick = function(){ if (typeof gsOpenBillingPortal === 'function') gsOpenBillingPortal(); };
   } catch(_){}
 }
 
@@ -13857,6 +13866,8 @@ async function gsRestorePurchases() {
     gsToast('Bitte zuerst mit deinem Konto anmelden, unter dem du gekauft hast.', 'error');
     return;
   }
+  // v29.49: Sofort-Feedback — der await ohne Anzeige fühlte sich wie ein Hänger an.
+  try { gsToast('⏳ Wiederherstelle…', 'info', 2500); } catch(_){}
   var row = await gsLoadEntitlements();
   if (row && row.tier && row.tier !== 'free') {
     gsToast('✅ Wiederhergestellt: ' + String(row.tier).toUpperCase() + '-Plan aktiv.', 'success');
@@ -18080,8 +18091,16 @@ async function gsLoadGardenWeatherAlerts() {
       rows = allRows;
     }
     if (!rows.length) { card.style.display = 'none'; return; }
-    window._gsWeatherAlertIdx = 0;
-    gsRenderWeatherAlert(rows[0]);
+    // v29.49: höchste Severity gewinnt weiterhin (katastrophal nie verdeckt), aber bei mehreren
+    // gleich-schweren Warnungen wird tag-stabil gewählt → kein Wechsel bei Re-Render, neue Auswahl
+    // nur alle 24h (Tap re-rollt nicht mehr, sondern öffnet die Live-Warnungen).
+    var _topSev = String(rows[0].damage_severity||'').toLowerCase();
+    var _topGroup = rows.filter(function(r){ return String(r.damage_severity||'').toLowerCase() === _topSev; });
+    var _d = new Date();
+    var _doy = Math.floor((_d.getTime() - new Date(_d.getFullYear(),0,1).getTime())/86400000);
+    var _pick = _topGroup.length ? _topGroup[_doy % _topGroup.length] : rows[0];
+    window._gsWeatherAlertIdx = Math.max(0, rows.indexOf(_pick));
+    gsRenderWeatherAlert(_pick);
   } catch(_){}
 }
 window.gsLoadGardenWeatherAlerts = gsLoadGardenWeatherAlerts;
@@ -58319,6 +58338,29 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.49', date: '17.06.2026',
+    headline: '🏠 Home & Wetter spürbar besser + 💳 Checkout-Feinschliff',
+    summary: 'Viele Verbesserungen am Start- und Wetter-Bereich plus Hänger-Fixes: Das Wetter-Fenster lässt sich jetzt sauber nach unten wegwischen (statt versehentlich neu zu laden). Bauernregel & Garten-Wetter-Warnung wechseln nur noch einmal pro Tag (kein neues Sprüchlein mehr beim Antippen). Der Saison-Filter (Gemüse/Obst/Kräuter/Pilze) funktioniert wieder. XP-Profil und „Kauf wiederherstellen" reagieren sofort statt scheinbar zu hängen. Dazu drei Bezahl-Korrekturen (robuster Stripe-Rückkehr-Handler, „Karte aktualisieren" öffnet das Portal, Abo-Karte & Warnbanner zeigen dieselbe Subscription).',
+    user_summary: '🏠 Wetter sauber wegwischbar, Bauernregel & Wetter-Warnung nur 1×/Tag, Saison-Filter repariert, XP/Restore reagieren sofort — plus Bezahl-Feinschliff.',
+    user_items: [
+      { emoji: '👆', text: 'Wetter-Fenster sauber nach unten wegwischbar (kein Reload mehr)' },
+      { emoji: '🌾', text: 'Bauernregel & Wetter-Warnung wechseln nur 1×/Tag (kein Re-Roll beim Tippen)' },
+      { emoji: '🗓️', text: 'Saison-Filter (Gemüse/Obst/Kräuter/Pilze) repariert' },
+      { emoji: '⚡', text: 'XP-Profil & „Kauf wiederherstellen" reagieren sofort (kein Hänger)' },
+      { emoji: '💳', text: 'Bezahl-Feinschliff: Portal, Rückkehr-Handler, Abo-Anzeige konsistent' },
+    ],
+    items: [
+      {emoji:'👆', bold:'Wetter-Swipe-Close:', text:' Wisch-nach-unten löste statt Schliessen einen Reload aus — Ursache: dem Wetter-Modal fehlte overscroll-behavior:contain → der Abwärts-Zug kettete zum Dokument → native Pull-to-Refresh. Fix: overscroll-behavior:contain + touchmove non-passive mit preventDefault beim Dismiss-Drag.'},
+      {emoji:'🌾', bold:'24h-Rotation (kein Re-Roll):', text:' Bauernregel (gsShowNextWisdom-Tap entfernt — Tages-Seed bleibt) + Garten-Wetter-Warnung (Tap öffnet jetzt die Live-Warnungen statt zu re-rollen; höchste Severity gewinnt, Gleichstand date-stabil) zeigen nur noch alle 24h einen neuen Inhalt.'},
+      {emoji:'🗓️', bold:'Saison-Filter:', text:' Chips sendeten gemüse/obst/kräuter/pilze, die Daten-Kategorien heissen aber gemuese/frucht/kraut/pilz → 4 von 5 Filtern zeigten nichts. Slugs angeglichen.'},
+      {emoji:'⚡', bold:'Hänger-Fixes:', text:' XP-Balken→Profil zeigte ein leeres Modal bis sbLoadProfile geantwortet hatte (await vor Render) → Sofort-Skeleton. „Kauf wiederherstellen" hatte kein Feedback vor dem await → Sofort-Toast „⏳ Wiederherstelle…".'},
+      {emoji:'🔁', bold:'P2 Doppel-Handler:', text:' Eine parse-time-IIFE strippte ?billing= sofort → der billing-Branch in gsHandleAuthRedirect (Boot, +500ms) lief NIE. Auf EINEN Handler konsolidiert: die IIFE (robust, mit Entitlement-Retry-Poll seit v29.48 P1) bleibt aktiv, der tote zweite Branch entfernt.'},
+      {emoji:'💳', bold:'P3 Past-due-CTA:', text:' „Karte aktualisieren" rief gsOpenBillingPortal(\'payment_method_update\') — der Arg wurde still verworfen (nur cancel/reactivate gehen als flow_data an stripe-portal v3). Jetzt gsOpenBillingPortal() ohne Arg → Standard-Portal deckt den Karten-Wechsel ab.'},
+      {emoji:'🎯', bold:'P3 Current-Sub:', text:' Abo-Karte (gsLoadSubInfo, order=created_at.desc) und Past-due-Banner (order=current_period_end.desc) wählten potenziell verschiedene Sub-Zeilen. Banner liest jetzt dieselbe Quelle (gsLoadSubInfo) → nie divergent.'},
+      {emoji:'✅', bold:'Verify:', text:' node --check index.html + sw.js OK + Preview-Boot grün. Stripe-Test-Mode (4242), Live-Code nicht berührt. v-Bump 5-fach v29.48 nach v29.49.'},
+    ]
+  },
+  {
     v: 'v29.48', date: '17.06.2026',
     headline: '🔧 Kern-Flow-Audit: Scanner, Lina, Quiz & Checkout gehärtet',
     summary: 'Ein adversarialer Audit der wichtigsten App-Abläufe hat mehrere echte Probleme aufgedeckt — alle gefixt: Ein Scan mit ungewöhnlicher KI-Antwort verschwendet keinen Gratis-Scan mehr. Lina (der KI-Coach) bewirbt am Tageslimit kein Abo mehr (sie bleibt gratis und verkauft nie). Die Quiz-Rangliste verspricht kein „Gratis-Premium" mehr, das es nie gab — stattdessen ehrliche Ehrenränge. Und zahlende Nutzer auf dem iPhone bleiben nach dem Kauf nicht mehr auf „Gratis" hängen.',
@@ -63539,7 +63581,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.48';
+var GS_VERSION = 'v29.49';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -64071,31 +64113,13 @@ async function gsHandleAuthRedirect(){
         }
       }, 800);
     }
-    // v25.2 Bug #2: Stripe-Billing-Return — Top-Level (NICHT Popup-Mode).
-    // stripe-checkout v4 (Cowork 2026-05-09) setzt success_url/cancel_url auf
-    // green-scan.ch/?billing=... — der Popup-Modus hat zusätzlich popup=1 und
-    // wird in Z.9187 via postMessage gehandelt; hier nur die direkte Redirect-
-    // Variante (Mobile-Browser ohne window.opener).
-    if (search.includes('billing=') && !search.includes('popup=1')) {
-      setTimeout(function(){
-        if (search.includes('billing=success')) {
-          if (typeof showProfileToast === 'function') {
-            showProfileToast({type:'success', icon:'✅', title:'Zahlung erfolgreich', body:'Dein Plan ist aktiv. Premium-Funktionen sind freigeschaltet.', duration:6000});
-          }
-          // Entitlements neu laden (Server-State pullen)
-          try { if (typeof gsRestorePurchases === 'function') gsRestorePurchases(); } catch(_){}
-        } else if (search.includes('billing=cancel')) {
-          if (typeof showProfileToast === 'function') {
-            showProfileToast({type:'info', icon:'↩️', title:'Zahlung abgebrochen', body:'Kein Problem — du kannst es jederzeit erneut versuchen.', duration:5000});
-          }
-        } else if (search.includes('billing=return')) {
-          // Portal-Return (Subscription verwaltet) — Entitlements refresh
-          try { if (typeof gsRestorePurchases === 'function') gsRestorePurchases(); } catch(_){}
-        }
-        // URL clean — billing-Param weg, sonst triggert sich beim Reload erneut
-        try { history.replaceState(null, '', location.pathname); } catch(_){}
-      }, 800);
-    }
+    // v29.49 P2: Stripe-Billing-Return wird AUSSCHLIESSLICH von der parse-time-IIFE
+    // (~Z.14063) gehandelt — das ist der robuste Pfad (Entitlement-Retry-Poll seit
+    // v29.48 P1 + Popup-postMessage). Sie strippt den ?billing=-Param sofort beim
+    // Script-Parse, lange bevor gsHandleAuthRedirect (Boot, +500ms) läuft → der
+    // frühere billing-Branch hier konnte NIE feuern (Query schon weg) und war zudem
+    // die weniger robuste Variante (gsRestorePurchases ohne Retry-Poll). Entfernt, um
+    // auf EINEN Billing-Return-Handler zu konsolidieren (Doppel-Handler-Audit v29.48 P2).
     // v25.29: Expert-Verification-Payment-Return (stripe-expert-checkout v1).
     // ev_payment=success → fee_paid_chf+at wurde vom Webhook v7 gesetzt,
     // Verifikation wird automatisch ausgeloest beim Webhook. UI bestaetigt nur.
@@ -67443,6 +67467,9 @@ async function renderProfileLoggedIn(mc) {
   var _t=(window.gsI18n&&gsI18n.t)?gsI18n.t:function(k,f){return f;};
   // Onboarding-Status nach erfolgreichem Login aktualisieren
   if (typeof gsOnLoginSuccess === 'function') gsOnLoginSuccess();
+  // v29.49: Sofort-Skeleton BEVOR auf sbLoadProfile() gewartet wird — sonst öffnet das Profil-Modal
+  // (XP-Balken-Klick) leer/weiss bis das Netzwerk antwortet → fühlte sich wie ein Hänger an.
+  try { if (mc && !_sbProfile) mc.innerHTML = '<div style="padding:44px 16px;text-align:center;color:var(--muted);font-size:13px;">⏳ ' + _t('profile_loading','Profil wird geladen…') + '</div>'; } catch(_){}
   var profile = _sbProfile || await sbLoadProfile();
   var email = gsStore.get('gs_sb_email', null) || '';
   var name  = (profile && profile.display_name) || email.split('@')[0] || 'Naturfreund';
@@ -75546,7 +75573,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
   data-gs-swipe="1"
   style="display:none;opacity:0;position:fixed;inset:0;z-index:5200;background:rgba(0,0,0,.6);
   backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
-  transition:opacity .2s;overflow-y:auto;-webkit-overflow-scrolling:touch;"
+  transition:opacity .2s;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;"
   onclick="if(event.target===this)closeWeatherDetail()">
   <div style="background:var(--card);border-radius:20px 20px 0 0;margin-top:60px;min-height:calc(100dvh - 60px);padding-bottom:40px;">
     <!-- Header -->
