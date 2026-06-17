@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.53.20260618">
+<meta name="app-version" content="29.54.20260618">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -55368,6 +55368,36 @@ async function gsPPexportPDF() {
       'Erwartung: <b>' + (plan.harvest.est_kg_total||'?') + ' kg</b>' +
       (plan.harvest.est_value_chf ? ' (≈ CHF ' + plan.harvest.est_value_chf + ')' : '') +
     '</div>' : '') +
+    (plan.stepByStep && plan.stepByStep.length ? '<h2>🔨 Schritt-für-Schritt-Anleitung</h2><ol class="steps">' +
+      plan.stepByStep.slice().sort(function(a,b){return (a.step||0)-(b.step||0);}).map(function(s){
+        return '<li><b>' + esc(s.title||'') + '</b>' +
+          (s.duration_min ? ' <span style="color:#888;font-size:10px;">(≈ ' + s.duration_min + ' Min)</span>' : '') +
+          (s.tools && s.tools.length ? '<br><span style="color:#666;font-size:10px;">🧰 ' + s.tools.map(esc).join(', ') + '</span>' : '') +
+          (s.details ? '<br>' + esc(s.details) : '') +
+        '</li>';
+      }).join('') + '</ol>' : '') +
+    (plan.timeline && plan.timeline.length ? '<h2>📅 Zeitplan (nach Kalenderwoche)</h2><table><thead><tr><th>KW</th><th>Aktion</th><th>Art/Sorte</th><th>Mondphase</th></tr></thead><tbody>' +
+      plan.timeline.slice().sort(function(a,b){return (a.week||0)-(b.week||0);}).map(function(t){
+        var mp = t.moon_phase||''; var mpTxt = mp==='günstig'?'🌑 günstig':(mp==='meiden'?'🌕 meiden':(mp?'🌓 '+esc(mp):'-'));
+        return '<tr><td>KW ' + (t.week||'-') + '</td><td>' + esc(t.action||'-') + '</td><td>' + esc(t.who||'-') + '</td><td>' + mpTxt + '</td></tr>';
+      }).join('') + '</tbody></table>' : '') +
+    (plan.careSchedule && plan.careSchedule.length ? '<h2>🧤 Pflegeplan</h2><table><thead><tr><th>Häufigkeit</th><th>Aufgabe</th><th>Monate</th></tr></thead><tbody>' +
+      plan.careSchedule.map(function(c){ return '<tr><td>' + esc(c.freq||'-') + '</td><td>' + esc(c.task||'-') + '</td><td>' + esc(c.months||'-') + '</td></tr>'; }).join('') +
+    '</tbody></table>' : '') +
+    (plan.mixedCulture ? '<h2>🤝 Mischkultur</h2><div class="box">' +
+      (typeof plan.mixedCulture.score === 'number' ? '<b>Verträglichkeits-Score: ' + plan.mixedCulture.score + '/100</b><br>' : '') +
+      (plan.mixedCulture.good && plan.mixedCulture.good.length ? '<b style="color:#2e7d32;">✅ Gute Nachbarn:</b> ' + plan.mixedCulture.good.map(esc).join(', ') + '<br>' : '') +
+      (plan.mixedCulture.bad && plan.mixedCulture.bad.length ? '<b style="color:#c62828;">⛔ Meiden:</b> ' + plan.mixedCulture.bad.map(esc).join(', ') + '<br>' : '') +
+      (plan.mixedCulture.explanation ? '<i>' + esc(plan.mixedCulture.explanation) + '</i>' : '') +
+    '</div>' : '') +
+    (plan.pestControl && plan.pestControl.length ? '<h2>🐛 Pflanzenschutz (biologisch)</h2><table><thead><tr><th>Schädling</th><th>Betrifft</th><th>Vorbeugung</th><th>Behandlung</th><th>Begleitpflanze</th></tr></thead><tbody>' +
+      plan.pestControl.map(function(pc){ return '<tr><td><b>' + esc(pc.pest||'-') + '</b></td><td>' + ((pc.affects&&pc.affects.length)?pc.affects.map(esc).join(', '):'-') + '</td><td>' + esc(pc.prevention||'-') + '</td><td>' + esc(pc.treatment||'-') + '</td><td>' + esc(pc.companion_repellent||'-') + '</td></tr>'; }).join('') +
+    '</tbody></table>' : '') +
+    (plan.biodiversity ? '<h2>🦋 Biodiversität</h2><div class="box">' +
+      (typeof plan.biodiversity.score === 'number' ? '<b>Biodiversitäts-Score: ' + plan.biodiversity.score + '/100</b><br>' : '') +
+      (plan.biodiversity.hint ? esc(plan.biodiversity.hint) + '<br>' : '') +
+      (plan.biodiversity.pollinators && plan.biodiversity.pollinators.length ? '<b>🐝 Für Bestäuber:</b> ' + plan.biodiversity.pollinators.map(esc).join(', ') : '') +
+    '</div>' : '') +
     '<div class="footer">Erstellt mit GreenScan PRO · green-scan.ch · KI-Gartenplaner</div>' +
   '</body></html>';
 
@@ -58394,6 +58424,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v29.54', date: '18.06.2026',
+    headline: '📄 KI-Gartenplaner: PDF-Export jetzt vollständig',
+    summary: 'Der PDF-Export des KI-Gartenplaners enthält jetzt ALLE Inhalte, die die KI erstellt: eine Schritt-für-Schritt-Anleitung, einen Zeitplan nach Kalenderwoche (mit Mondphasen), einen Pflegeplan, die Mischkultur (welche Pflanzen sich vertragen), biologischen Pflanzenschutz mit Begleitpflanzen und eine Biodiversitäts-Bewertung. Bisher fehlten diese sechs Abschnitte im PDF — der Plan war damit nur halb so nützlich.',
+    user_summary: '📄 Gartenplaner-PDF jetzt komplett: Schritt-für-Schritt, Zeitplan mit Mondphasen, Pflegeplan, Mischkultur, biologischer Pflanzenschutz & Biodiversität.',
+    user_items: [
+      { emoji: '🔨', text: 'Schritt-für-Schritt-Anleitung mit Dauer & Werkzeug im PDF' },
+      { emoji: '📅', text: 'Zeitplan nach Kalenderwoche inkl. Mondphasen' },
+      { emoji: '🤝', text: 'Mischkultur, biologischer Pflanzenschutz & Biodiversität jetzt enthalten' },
+    ],
+    items: [
+      {emoji:'📄', bold:'PDF-Export vervollständigt (gsPPexportPDF):', text:' Die KI generiert in PRO sechs reiche Sektionen (stepByStep, timeline, careSchedule, mixedCulture, pestControl, biodiversity), die der PDF-Builder bisher komplett weggelassen hat. Jetzt alle eingefügt: Schritt-für-Schritt (nach Schritt sortiert, Dauer/Werkzeug/Details), Zeitplan-Tabelle (nach KW sortiert, Mondphasen-Mapping günstig/meiden/ok), Pflegeplan, Mischkultur-Box (Score + gute/schlechte Nachbarn), Pflanzenschutz-Tabelle (biologisch, mit Begleitpflanze), Biodiversitäts-Box (Score + Bestäuberpflanzen).'},
+      {emoji:'🛡️', bold:'Robust gebaut:', text:' Alle Sektionen via Präsenz-Guards (kein Crash bei fehlenden Feldern), alle Texte esc()-escaped (XSS-sicher), Sortierungen auf slice()-Kopie (mutiert das Plan-Objekt nicht).'},
+      {emoji:'✅', bold:'Verify:', text:' 9 isolierte Render-Assertions bestehen (Sortierung aufsteigend, XSS-Escaping bei Sortennamen, Mondphasen-Icons, Scores, Begleitpflanze, Bestäuber). OFFEN (Batch 3 Rest): echte-PDF-Ausgabe statt .html-Download, KI-Grounding (species-Spalten 0 befüllt). 7/7 node --check + sw.js OK. v-Bump 5-fach v29.53 nach v29.54.'},
+    ]
+  },
   {
     v: 'v29.53', date: '18.06.2026',
     headline: '🏆 Quiz-Jahres-Top-3 gewinnen 1 Jahr Pro gratis',
@@ -63703,7 +63749,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.53';
+var GS_VERSION = 'v29.54';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
