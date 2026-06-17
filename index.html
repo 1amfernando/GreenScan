@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.47.20260617">
+<meta name="app-version" content="29.48.20260617">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14090,10 +14090,19 @@ function gsTrialSkip() {
 
     // Normaler (non-popup) Flow
     if (b === 'success') {
-      setTimeout(function(){
-        if (typeof gsLoadEntitlements === 'function') gsLoadEntitlements();
-        try { gsToast('✅ Zahlung erfolgreich — Abo wird aktiviert…', 'success'); } catch(e){}
-      }, 800);
+      try { gsToast('✅ Zahlung erfolgreich — Abo wird aktiviert…', 'success'); } catch(e){}
+      // v29.48 P1: Redirect-Return (iOS-PWA / popup-blockiert via location.href-Fallback) braucht
+      // DASSELBE Retry-Polling wie der Popup-Pfad — sonst sieht ein zahlender User bis zum App-Neustart
+      // Free (Stripe-Webhook-Lag bis ~5s). Reines Tier-Refresh (gsLoadEntitlements liest v_user_entitlements),
+      // keine Geld-/Checkout-Logik berührt.
+      if (typeof gsLoadEntitlements === 'function') { try { gsLoadEntitlements(); } catch(e){} }
+      var _bTries = 0;
+      var _bPoll = setInterval(function(){
+        _bTries++;
+        if (typeof gsLoadEntitlements === 'function') { try { gsLoadEntitlements(); } catch(e){} }
+        if (_bTries === 1 && typeof gsRefreshSubInfoCardRetry === 'function') { try { gsRefreshSubInfoCardRetry(); } catch(e){} }
+        if (_bTries > 6) clearInterval(_bPoll);
+      }, 2000);
     } else if (b === 'cancel') {
       setTimeout(function(){ try { gsToast('Zahlung abgebrochen', 'error'); } catch(e){} }, 400);
     } else if (b === 'return') {
@@ -16077,11 +16086,13 @@ async function openDqRanking() {
   }
 
   var medals = ['🥇','🥈','🥉'];
-  var rewards = ['Premium-Abo 1 Monat gratis','Premium-Abo 2 Wochen gratis','Premium-Abo 1 Woche gratis'];
+  // v29.48: kein „Premium-Abo gratis"-Versprechen mehr — der Grant wurde NIE vergeben (nur Stub).
+  // Ehrliche Anerkennung statt falschem Versprechen (Mission: ehrlich, nicht geldgierig).
+  var rewards = ['👑 Jahres-Champion','✨ Vize-Champion','✨ Dritter Platz'];
 
   content.innerHTML = 
     '<div style="padding:8px 16px 4px;font-size:11px;color:rgba(255,255,255,.5);font-weight:700;">Jahresrangliste ' + yr + ' · Top 50</div>' +
-    '<div style="padding:6px 16px 8px;font-size:11px;color:rgba(255,255,255,.5);">Wird am 31.12.' + yr + ' zurückgesetzt · Top 3 werden belohnt</div>' +
+    '<div style="padding:6px 16px 8px;font-size:11px;color:rgba(255,255,255,.5);">Wird am 31.12.' + yr + ' zurückgesetzt · Top 3 kommen in die Jahres-Ehrenliste</div>' +
     entries.slice(0,50).map(function(e,i) {
       var rank = i+1;
       var isTop3 = rank <= 3;
@@ -19300,7 +19311,7 @@ const TOX = [
   {sym:'🔴',label:'Stark giftig',    color:'#b71c1c',bg:'#ffcdd2'},
   {sym:'☠️', label:'Tödlich giftig', color:'#4a0000',bg:'#d32f2f'},
 ];
-function toxInfo(l){return TOX[Math.max(0,Math.min(5,l||0))];}
+function toxInfo(l){var n=Math.round(Number(l));if(!isFinite(n))n=0;return TOX[Math.max(0,Math.min(5,n))];} // v29.48: KI liefert toxicity gelegentlich als String ("hoch"/"3/5") → numerisch coercen, sonst TOX[NaN]=undefined → Render-Crash + verschwendeter Gratis-Scan
 function getEmoji(sp){
   if(typeof gsCatEmoji==='function') return gsCatEmoji(sp);
   if(!sp) return '🌿';
@@ -22109,7 +22120,10 @@ async function callAI(messages, systemPrompt, maxTokens, opts){
       if (qpk && qpk.allowed === false && !qpk.unlimited) {
         var qErrF = new Error(gsQuotaMsg(opts.quotaFeature, qpk));
         qErrF.code = 'free_quota_reached'; qErrF.quota = qpk; qErrF.feature = opts.quotaFeature;
-        try { gsShowQuotaCountdown(opts.quotaFeature, qpk); } catch(_){}
+        // v29.48 MISSION: Lina darf NIE nach Geld fragen / Pro-Lifetime bewerben. Der upsellende
+        // Quota-Countdown-Toast wird für 'lina' unterdrückt — gsLinaSend zeigt eine eigene warme,
+        // verkaufsfreie Bubble. (Pro-Quota ist Kosten-Bremse, keine Sales-Bremse.)
+        if (opts.quotaFeature !== 'lina') { try { gsShowQuotaCountdown(opts.quotaFeature, qpk); } catch(_){} }
         throw qErrF;
       }
     } else if (typeof gsAboCanUse === 'function' && !gsAboCanUse('ai_call')) {
@@ -23585,7 +23599,9 @@ function gsSaveConfirmedScan(r) {
 
   confirmed.unshift(newSpecies);
   if (confirmed.length > 100) confirmed = confirmed.slice(0, 100);
-  localStorage.setItem(KEY, JSON.stringify(confirmed));
+  // v29.48 HL#10: quota-safe schreiben — ein bares setItem würde bei QuotaExceededError werfen und
+  // den Rest von showScanResult (saveScanToHistory!) abbrechen → 95%-Scan nicht in History.
+  try { (typeof gsStore !== 'undefined' && gsStore.set) ? gsStore.set(KEY, JSON.stringify(confirmed)) : localStorage.setItem(KEY, JSON.stringify(confirmed)); } catch(_){}
 
   // Auch in DB einfügen falls nicht vorhanden
   if (!already && DB) {
@@ -23981,7 +23997,7 @@ function showScanResult(r){
   if (r && r.name) profileTrackScan(r.category || '');
   // Bei >= 95% Konfidenz: Infokarte automatisch speichern
   if ((r.confidence || 0) >= 95) {
-    gsSaveConfirmedScan(r);
+    try { gsSaveConfirmedScan(r); } catch(_){} // v29.48 HL#10: darf den Rest von showScanResult (saveScanToHistory) nie abbrechen
   }
   // v23.66: Schwelle auf ≥65 gesenkt — Scanner lernt breiter (auch Tiere, exotische Arten, Neophyten)
   if ((r.confidence || 0) >= 65 && typeof gsAutoEnrichNewSpecies === 'function') {
@@ -58303,6 +58319,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.48', date: '17.06.2026',
+    headline: '🔧 Kern-Flow-Audit: Scanner, Lina, Quiz & Checkout gehärtet',
+    summary: 'Ein adversarialer Audit der wichtigsten App-Abläufe hat mehrere echte Probleme aufgedeckt — alle gefixt: Ein Scan mit ungewöhnlicher KI-Antwort verschwendet keinen Gratis-Scan mehr. Lina (der KI-Coach) bewirbt am Tageslimit kein Abo mehr (sie bleibt gratis und verkauft nie). Die Quiz-Rangliste verspricht kein „Gratis-Premium" mehr, das es nie gab — stattdessen ehrliche Ehrenränge. Und zahlende Nutzer auf dem iPhone bleiben nach dem Kauf nicht mehr auf „Gratis" hängen.',
+    user_summary: '🔧 Audit-Fixes: Scanner robuster (kein verschwendeter Scan), Lina verkauft nie (Mission), Quiz-Rangliste ehrlich, iPhone-Zahler bleiben nicht auf Free hängen.',
+    user_items: [
+      { emoji: '🌿', text: 'Lina bleibt gratis & bewirbt nie ein Abo — auch am Tageslimit nicht' },
+      { emoji: '📷', text: 'Scanner: ungewöhnliche KI-Antwort verschwendet keinen Gratis-Scan mehr' },
+      { emoji: '💳', text: 'iPhone-Zahler werden nach dem Kauf zuverlässig freigeschaltet' },
+    ],
+    items: [
+      {emoji:'🌿', bold:'Lina P1 (Mission):', text:' am Tageslimit feuerte callAI den Pro/Lifetime-Quota-Toast auch für Lina → Mission-Verstoss (Lina darf NIE upsellen). Jetzt für quotaFeature=lina unterdrückt (Lina zeigt ihre eigene warme, verkaufsfreie Bubble). Plus: Doppel-Send-Guard (kein doppelter Quota-Abzug) + dezenter Hinweis wenn Cloud-Speicherung fehlschlägt.'},
+      {emoji:'📷', bold:'Scanner P2/P3:', text:' nicht-numerische KI-toxicity (z.B. "hoch"/"3/5") crashte den Scan-Render → falsches „Scan fehlgeschlagen" + verbrauchter Gratis-Scan. toxInfo coerct jetzt numerisch. Plus gsSaveConfirmedScan quota-safe (HL#10) → 95%-Scan landet auch bei vollem Speicher in der History.'},
+      {emoji:'🏆', bold:'Quiz P2 (ehrlich):', text:' Jahres-Rangliste versprach Top-3 ein „Premium-Abo gratis", das NIE vergeben wurde (nur Stub) → falsches Versprechen entfernt, ersetzt durch ehrliche Ehrenränge (👑 Jahres-Champion / Vize / Dritter).'},
+      {emoji:'💳', bold:'Checkout P1:', text:' Popup-Kauf pollte Entitlements 7×, der Redirect-Pfad (iOS-PWA / popup-blockiert) aber nur 1× → Webhook-Lag ließ Zahler bis App-Neustart auf Free. Jetzt dasselbe Retry-Polling (reines Tier-Refresh, keine Geld-Logik). Weitere Checkout-Edge-Cases (P2/P3) für Fernando geflaggt (Payment-Risiko).'},
+      {emoji:'✅', bold:'Verify:', text:' 7/7 node --check + sw.js OK + Preview-Boot grün. v-Bump 5-fach v29.47 nach v29.48.'},
+    ]
+  },
+  {
     v: 'v29.47', date: '17.06.2026',
     headline: '📷 Tagebuch-Fotos: sicher gespeichert & jetzt sichtbar',
     summary: 'Fotos im Garten-Tagebuch werden jetzt richtig gespeichert — im sicheren Cloud-Speicher statt als großer Datenblock im Eintrag (das konnte den Browser-Speicher sprengen). Und: dein Tagebuch zeigt das Foto jetzt auch wirklich an (vorher wurde es gespeichert, aber nie angezeigt). Auf allen Geräten verfügbar.',
@@ -63505,7 +63539,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.47';
+var GS_VERSION = 'v29.48';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -70331,10 +70365,12 @@ function gsLinaNew(){ window._gsLinaConvId = null; window._gsLinaMsgs = []; gsLi
 window.gsLinaNew = gsLinaNew;
 
 async function gsLinaSend(){
+  if (window._gsLinaSending) return; // v29.48: Doppel-Send-Guard — sonst 2 parallele callAI → doppelter Quota-Abzug
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var inp = document.getElementById('gs-lina-input');
   var text = inp ? (inp.value||'').trim() : '';
   if (!text) return;
+  window._gsLinaSending = true;
   if (inp) inp.value = '';
   window._gsLinaMsgs = window._gsLinaMsgs || [];
   window._gsLinaMsgs.push({ role:'user', content:text });
@@ -70345,6 +70381,7 @@ async function gsLinaSend(){
       var rc = await sbFetch('/rest/v1/coach_conversations', {method:'POST', headers:{'Content-Type':'application/json','Prefer':'return=representation'}, body: JSON.stringify({ user_id: uid, title: text.slice(0,40) })});
       var conv = (rc && rc.data && rc.data[0]) || null;
       if (conv) window._gsLinaConvId = conv.id;
+      else if (typeof gsToast === 'function') gsToast(_t('lina_local_only','Verlauf wird gerade nur lokal geführt (Cloud nicht erreichbar).'), 'info', 3500); // v29.48: Conv-Anlage fehlgeschlagen → Nutzer dezent informieren
     }
     if (window._gsLinaConvId) {
       sbFetch('/rest/v1/coach_messages', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ conversation_id: window._gsLinaConvId, user_id: uid, role:'user', content:text })});
@@ -70367,6 +70404,7 @@ async function gsLinaSend(){
     }
     gsLinaRender(false);
   }
+  finally { window._gsLinaSending = false; } // v29.48: Doppel-Send-Guard freigeben
 }
 window.gsLinaSend = gsLinaSend;
 
