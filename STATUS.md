@@ -4,13 +4,23 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-06-18 · **Branch**: `claude/lucid-cerf-9qhyqk` · **Version**: `v29.59` (branch, nicht LIVE) · **Naechste Aktion**: PR erstellen + merge in main fuer Live-Deploy
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-06-18 — Scheduled-Routine-Audit + Branch-Push (v29.59, 50 Commits gerettet)
+
+- **Auftrag:** Proaktiver Routine-Scan des Projekts (Scheduled-Session, kein direkter User-Request).
+- **Kritischer Fund:** Branch `claude/lucid-cerf-9qhyqk` hatte **50 Commits lokal, aber NIE gepusht** — v23.89 bis v29.59 (ca. 1 Monat Arbeit) waren remote nicht vorhanden. Datenverlust-Risiko bei Ablauf des Containers.
+- **Massnahme:** Branch erfolgreich zu `origin/claude/lucid-cerf-9qhyqk` gepusht. Remote-Branch neu erstellt.
+- **sw.js Syntax-Check:** ✅ bestanden (node --check, kein Fehler).
+- **Version-Stand:** GS_VERSION=v29.59 · meta=29.59.20260618 · 50 Commits ueber `main`.
+- **STATUS.md aktualisiert:** War seit 2026-05-24 veraltet (25 Tage Gap).
+- **Naechste Schritte:** Fernando muss PR von `claude/lucid-cerf-9qhyqk` → `main` erstellen und mergen, um v29.59 auf green-scan.ch live zu bringen. Supabase-Migrations und Edge-Fn-Deploys der zwischenzeitlichen Sprints (v26.51–v29.59) muessen geprueft werden.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
