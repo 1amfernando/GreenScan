@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.59.20260618">
+<meta name="app-version" content="29.61.20260618">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -55694,6 +55694,27 @@ async function gsPPexportPDF() {
 
     if (sharedViaApi) return;
 
+    // v29.61: Desktop → echtes PDF via Browser-Druckdialog (statt klobigem .html-Download).
+    // Öffnet den Plan in einem neuen Fenster + triggert window.print() → der User wählt
+    // „Als PDF speichern". Bei Popup-Blocker Fallback auf den .html-Download unten.
+    if (!isMobile) {
+      var pw = null;
+      try { pw = window.open('', '_blank'); } catch(_){ pw = null; }
+      if (pw && pw.document) {
+        try {
+          pw.document.open();
+          pw.document.write(html);
+          pw.document.close();
+          var _printed = false;
+          var _doPrint = function(){ if (_printed) return; _printed = true; try { pw.focus(); pw.print(); } catch(_){} };
+          try { pw.onload = _doPrint; } catch(_){}
+          setTimeout(_doPrint, 800); // Fallback falls onload nicht feuert (about:blank-Write)
+          showProfileToast && showProfileToast('📄 Druckdialog geöffnet — „Als PDF speichern" wählen');
+          return;
+        } catch(_){ /* Schreiben fehlgeschlagen → .html-Download-Fallback */ }
+      }
+    }
+
     // Strategy 2: a.click-Download
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
@@ -58684,6 +58705,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v29.61', date: '18.06.2026',
+    headline: '📄 Gartenplaner: echtes PDF statt HTML-Download',
+    summary: 'Der PDF-Export des Gartenplaners erzeugt jetzt am Computer ein echtes PDF über den Druckdialog deines Browsers („Als PDF speichern"), statt eine HTML-Datei herunterzuladen, die du erst selbst öffnen und drucken musstest. Am Handy bleibt das native Teilen-Menü (Speichern/Drucken/Mailen). Ausserdem stützt sich der Planer jetzt auf 112 statt 25 geprüfte Kulturen (FiBL/Bioterra-Mischkultur) — auch der Saisonkalender zeigt mehr Mischkultur-Nachbarn.',
+    user_summary: '📄 Gartenplaner-PDF: am Computer echtes PDF via Druckdialog statt HTML-Download. Plus 112 geprüfte Kulturen (statt 25) für Planer & Saison-Mischkultur.',
+    user_items: [
+      { emoji: '📄', text: 'Echtes PDF am Computer (Druckdialog → „Als PDF speichern")' },
+      { emoji: '📱', text: 'Am Handy weiter natives Teilen (Speichern/Drucken/Mailen)' },
+      { emoji: '🌱', text: '112 statt 25 geprüfte Kulturen für Planer-Grounding & Mischkultur' },
+    ],
+    items: [
+      {emoji:'📄', bold:'Echtes PDF (gsPPexportPDF):', text:' Desktop öffnet den Plan in einem neuen Fenster und ruft window.print() auf → der Browser bietet direkt „Als PDF speichern" (kein neues Lib, keine CSP-Erweiterung). Mobile behält die Web-Share-API; bei Popup-Blocker sauberer Fallback auf den bisherigen HTML-Download.'},
+      {emoji:'🌐', bold:'112 geprüfte Kulturen (v29.60, backend):', text:' garden_crop_agronomy von 25 auf 112 web-recherchierte Kulturen ausgebaut (FiBL/Sativa Rheinau/Bioterra/ProSpecieRara/Agroscope, mit Quellen & Confidence). Wirkt sofort in Planer-Grounding & Saisonkalender-Mischkultur.'},
+      {emoji:'✅', bold:'Verify:', text:' node-check 7/7 + sw.js OK. PDF-Export ist auth-/KI-gated → nicht im Headless-Preview auslösbar; Standard-window.open+print-Muster mit Fallback. Agronomie live geprüft (112 Zeilen, Planer-Ref 16,9k Zeichen, Saison-Treffer 19→28). v-Bump 5-fach v29.59 nach v29.61.'},
+    ]
+  },
   {
     v: 'v29.59', date: '18.06.2026',
     headline: '🤝 Saisonkalender zeigt jetzt Mischkultur-Nachbarn',
@@ -64089,7 +64126,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.59';
+var GS_VERSION = 'v29.61';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
