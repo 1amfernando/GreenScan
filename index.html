@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.65.20260618">
+<meta name="app-version" content="29.66.20260618">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -31787,9 +31787,178 @@ async function gsRenderRegionalContent(slug) {
   if (r.notes) html += '<div style="margin-top:12px;padding:10px 12px;background:#e3f2fd;border-radius:10px;font-size:11.5px;color:#01579b;line-height:1.55;"><b>📝 Hinweis:</b> ' + ed(r.notes) + '</div>';
   if (r.source) html += '<div style="margin-top:8px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(r.source) + '</div>';
 
+  // v29.66: Host für den regionalen Pilz-Sammelkalender (ch_regions + mushroom_register)
+  html += '<div id="region-cal-mushrooms" style="margin-top:16px;"></div>';
+
   content.innerHTML = html;
+  // Pilz-Sammelkalender async nachladen (bricht den Garten-Kalender nie)
+  try { gsRenderRegionalMushrooms(r); } catch(_){}
 }
 window.gsRenderRegionalContent = gsRenderRegionalContent;
+
+// ═════════════════════════════════════════════════════════════════════
+// v29.66 REGIONALER PILZ-SAMMELKALENDER (Schweiz-Geo-DB ch_regions + mushroom_register)
+// Macht den Regional-Kalender für Pilzsammler lukrativ: matched die ch_regions
+// der gewählten Zone (Kanton-Overlap + Höhenband), zeigt pro Region Landschaft,
+// good_mushrooms, foraging_notes, highlights — PLUS eine 12-Monats-Pilz-
+// Verfügbarkeit (welche Speisepilze welchen Monat sammelbar, aus
+// mushroom_register.season_months) + VAPKO-Pflichtbox + Tox-Info 145.
+// Additiv & defensiv — rein lesend (anon-Tabellen).
+// ═════════════════════════════════════════════════════════════════════
+window._gsMushRegistryCache = null; // { rows, byNorm, ts }
+
+async function gsLoadMushRegistry() {
+  var c = window._gsMushRegistryCache;
+  if (c && (Date.now() - c.ts) < 60 * 60 * 1000) return c;
+  if (typeof sbFetch !== 'function') return { rows: [], byNorm: {}, ts: Date.now() };
+  var rows = [];
+  try {
+    var r = await sbFetch('/rest/v1/mushroom_register?select=common_name_de,scientific_name,edibility,vapko_klasse,season_months,habitat,altitude_m_min,altitude_m_max&limit=300', { method:'GET' });
+    rows = (r && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : []);
+  } catch(_){}
+  var byNorm = {};
+  rows.forEach(function(m){ if (m.common_name_de) byNorm[_gsNorm(m.common_name_de)] = m; });
+  var obj = { rows: rows, byNorm: byNorm, ts: Date.now() };
+  window._gsMushRegistryCache = obj;
+  return obj;
+}
+
+// Tolerantes Auflösen eines Region-Pilz-Tokens auf eine Registry-Zeile
+function _gsMatchRegistry(token, reg) {
+  var n = _gsNorm(token);
+  if (reg.byNorm[n]) return reg.byNorm[n];
+  for (var k in reg.byNorm) {
+    if (k.length >= 5 && (k.indexOf(n) !== -1 || n.indexOf(k) !== -1)) return reg.byNorm[k];
+  }
+  return null;
+}
+
+async function gsRenderRegionalMushrooms(zone) {
+  var host = document.getElementById('region-cal-mushrooms');
+  if (!host || typeof sbFetch !== 'function') return;
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+  host.innerHTML = '<div style="padding:12px;text-align:center;color:var(--muted);font-size:12px;">⏳ Lade Pilz-Sammelkalender…</div>';
+  try {
+    // Kantone der Zone (Fallback: aus gs_user_location nächste Gemeinde)
+    var cantons = (zone && Array.isArray(zone.canton_codes) && zone.canton_codes.length) ? zone.canton_codes.slice() : null;
+    var zMin = (zone && zone.altitude_m_min != null) ? zone.altitude_m_min : null;
+    var zMax = (zone && zone.altitude_m_max != null) ? zone.altitude_m_max : null;
+    if (!cantons) {
+      try {
+        var res = await gsResolveChRegions();
+        if (res && res.cantons) cantons = res.cantons;
+      } catch(_){}
+    }
+    if (!cantons || !cantons.length) { host.innerHTML = ''; return; }
+    // ch_regions für Kanton(e), nach Höhenband-Überlappung mit der Zone priorisieren
+    var rq = '/rest/v1/ch_regions?select=slug,name,canton_codes,region_type,altitude_min_m,altitude_max_m,landscape,good_mushrooms,foraging_notes,highlights,source'
+      + '&canton_codes=ov.{' + cantons.join(',') + '}&limit=40';
+    var rr = await sbFetch(rq, { method:'GET' });
+    var regions = (rr && Array.isArray(rr.data)) ? rr.data : (Array.isArray(rr) ? rr : []);
+    if (zMin != null && zMax != null) {
+      var zMid = (zMin + zMax) / 2;
+      regions.forEach(function(rg){
+        var hasB = (rg.altitude_min_m != null && rg.altitude_max_m != null);
+        var overlap = hasB && (rg.altitude_min_m <= zMax && rg.altitude_max_m >= zMin);
+        rg._ov = overlap ? 0 : 1;
+        // Tiebreaker: Region-Höhenmitte näher an der Zonen-Höhenmitte → repräsentativer
+        // (verhindert dass eine alpine Riesenband-Region eine Tieflandzone dominiert)
+        rg._mid = hasB ? Math.abs(((rg.altitude_min_m + rg.altitude_max_m) / 2) - zMid) : 99999;
+      });
+      regions.sort(function(a,b){ return (a._ov - b._ov) || (a._mid - b._mid); });
+    }
+    regions = regions.slice(0, 3);
+    if (!regions.length) { host.innerHTML = ''; return; }
+
+    var reg = await gsLoadMushRegistry();
+    var monthNamesDe = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+    var curIdx = new Date().getMonth();
+    var EDI = { speisepilz:{e:'🍽️',l:'Speisepilz'}, speisepilz_jung:{e:'🍽️',l:'Speisepilz (jung)'}, bedingt_essbar:{e:'⚠️',l:'bedingt essbar'} };
+
+    // good_mushrooms aller Regionen vereinigen + auf Registry mappen
+    var seen = {}, shrooms = [];
+    regions.forEach(function(rg){
+      (Array.isArray(rg.good_mushrooms) ? rg.good_mushrooms : []).forEach(function(g){
+        var k = _gsNorm(g); if (!g || seen[k]) return; seen[k] = 1;
+        var m = _gsMatchRegistry(g, reg);
+        shrooms.push({ name: String(g), reg: m, months: (m && Array.isArray(m.season_months)) ? m.season_months.map(Number) : [] });
+      });
+    });
+
+    var html = '';
+    // Header
+    html += '<div style="display:flex;align-items:center;gap:8px;margin:6px 0 10px;border-top:2px solid #6a1b9a;padding-top:14px;">';
+    html += '<span style="font-size:24px;">🍄</span><div style="font-family:\'Playfair Display\',serif;font-size:17px;font-weight:900;color:#6a1b9a;">Pilz-Sammelkalender</div></div>';
+
+    // Region-Karten
+    regions.forEach(function(rg){
+      html += '<div style="margin-bottom:10px;padding:11px 13px;background:linear-gradient(135deg,#f3e5f5,#ede7f6);border:1.5px solid #ba68c8;border-radius:12px;">';
+      html += '<div style="font-size:13.5px;font-weight:900;color:#4a148c;">📍 ' + ed(rg.name) + '</div>';
+      var sub = [];
+      if (rg.altitude_min_m != null && rg.altitude_max_m != null) sub.push(ed(rg.altitude_min_m) + '–' + ed(rg.altitude_max_m) + ' m');
+      if (rg.region_type) sub.push(ed(rg.region_type));
+      if (sub.length) html += '<div style="font-size:11px;color:#6a1b9a;margin:2px 0 6px;font-weight:700;">' + sub.join(' · ') + '</div>';
+      if (rg.landscape) html += '<div style="font-size:11.5px;color:#4e342e;line-height:1.5;margin-bottom:6px;">🌲 ' + ed(rg.landscape) + '</div>';
+      // good_mushrooms-Chips
+      var chips = (Array.isArray(rg.good_mushrooms) ? rg.good_mushrooms : []).map(function(g){
+        var m = _gsMatchRegistry(g, reg);
+        var inSeason = m && Array.isArray(m.season_months) && m.season_months.map(Number).indexOf(curIdx+1) !== -1;
+        var st = inSeason ? 'background:#81c784;color:#1b5e20;font-weight:800;' : 'background:#fff;color:#6a1b9a;font-weight:600;border:1px solid #ce93d8;';
+        return '<span style="display:inline-block;' + st + 'padding:2px 8px;border-radius:8px;margin:2px 3px 2px 0;font-size:11px;white-space:nowrap;">' + (inSeason?'🟢 ':'') + ed(g) + '</span>';
+      }).join('');
+      if (chips) html += '<div style="margin-bottom:6px;">' + chips + '</div>';
+      if (rg.foraging_notes) html += '<div style="font-size:11px;color:#4e342e;line-height:1.5;background:rgba(255,255,255,.6);padding:6px 9px;border-radius:8px;">🧺 ' + ed(rg.foraging_notes) + '</div>';
+      if (rg.highlights) html += '<div style="font-size:10.5px;color:#6a1b9a;line-height:1.45;margin-top:5px;">⭐ ' + ed(rg.highlights) + '</div>';
+      html += '</div>';
+    });
+
+    // 12-Monats-Pilz-Verfügbarkeit (welche Speisepilze welchen Monat)
+    html += '<div style="font-size:11.5px;font-weight:800;color:#6a1b9a;margin:14px 0 8px;letter-spacing:.4px;">📅 Wann welcher Pilz? (12 Monate)</div>';
+    for (var mo = 1; mo <= 12; mo++) {
+      var inMo = shrooms.filter(function(s){ return s.months.indexOf(mo) !== -1; });
+      var isCur = (mo === curIdx + 1);
+      var label = inMo.length ? inMo.length + ' Art' + (inMo.length>1?'en':'') : '—';
+      html += '<details ' + (isCur ? 'open' : '') + ' style="margin-bottom:5px;background:' + (isCur ? '#f3e5f5' : 'var(--surface2)') + ';border-radius:9px;' + (isCur ? 'border:1.5px solid #ba68c8;' : '') + '">' +
+        '<summary style="padding:8px 12px;cursor:pointer;font-size:12.5px;font-weight:700;color:var(--text);list-style:none;display:flex;justify-content:space-between;align-items:center;">' +
+          '<span>' + (isCur?'🌟 ':'') + ed(monthNamesDe[mo-1]) + '</span>' +
+          '<span style="font-size:10.5px;color:var(--muted);font-weight:600;">' + label + '</span></summary>';
+      if (inMo.length) {
+        html += '<div style="padding:4px 12px 10px 12px;">';
+        inMo.forEach(function(s){
+          var edi = s.reg && EDI[s.reg.edibility];
+          var badge = edi ? '<span style="opacity:.85;font-size:10px;">' + edi.e + '</span> ' : '';
+          var vk = (s.reg && s.reg.vapko_klasse) ? ' <span style="font-size:9.5px;color:var(--muted);">VAPKO ' + ed(s.reg.vapko_klasse) + '</span>' : '';
+          html += '<div style="font-size:12px;color:var(--text2);line-height:1.7;">' + badge + ed(s.name) + vk + '</div>';
+        });
+        html += '</div>';
+      } else {
+        html += '<div style="padding:4px 12px 10px 12px;font-size:11px;color:var(--muted);font-style:italic;">— in diesen Regionen kein typischer Speisepilz in Saison —</div>';
+      }
+      html += '</details>';
+    }
+
+    // VAPKO-Box pro Kanton + Tox-Info
+    try {
+      var vq = '/rest/v1/vapko_control_stations?canton_code=in.(' + cantons.join(',') + ')&select=canton_code,region_name,station,phone,url&limit=10';
+      var vr = await sbFetch(vq, { method:'GET' });
+      var vst = (vr && Array.isArray(vr.data)) ? vr.data : (Array.isArray(vr) ? vr : []);
+      var vlines = vst.filter(function(v){ return v.station || v.phone; }).slice(0,4).map(function(v){
+        var tel = v.phone ? ' · ☎️ <a href="tel:' + ed(String(v.phone).replace(/\s/g,'')) + '" style="color:#fff;text-decoration:underline;font-weight:800;">' + ed(v.phone) + '</a>' : '';
+        return '🔒 <b>' + ed(v.canton_code) + '</b> ' + ed(v.station || 'VAPKO-Pilzkontrolle') + tel;
+      });
+      html += '<div style="margin-top:14px;padding:12px 14px;background:linear-gradient(135deg,#4a148c,#6a1b9a);border-radius:12px;color:#fff;">';
+      html += '<div style="font-size:12px;font-weight:900;margin-bottom:6px;">🔒 Vor dem Essen: VAPKO-Pilzkontrolle</div>';
+      html += '<div style="font-size:11px;line-height:1.6;opacity:.95;">Lass JEDEN gesammelten Pilz von einer offiziellen Pilzkontrollstelle prüfen, bevor du ihn isst. Diese App ist Information, keine Verzehr-Garantie.</div>';
+      if (vlines.length) html += '<div style="font-size:11px;line-height:1.8;margin-top:7px;">' + vlines.join('<br>') + '</div>';
+      else html += '<div style="font-size:11px;margin-top:7px;">Kontrollstellen-Verzeichnis: <a href="https://vapko.ch" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline;font-weight:800;">vapko.ch</a></div>';
+      html += '<div style="font-size:11px;margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.25);">☎️ Vergiftungsnotfall: <a href="tel:145" style="color:#fff;text-decoration:underline;font-weight:900;">145</a> (Tox Info Suisse, 24h)</div>';
+      html += '</div>';
+    } catch(_){}
+
+    host.innerHTML = html;
+  } catch(e){ console.warn('[region-mushrooms-cal]', e && e.message); host.innerHTML = ''; }
+}
+window.gsRenderRegionalMushrooms = gsRenderRegionalMushrooms;
 
 // ═════════════════════════════════════════════════════════════════════
 // v26.29 DÜNGEPLAN-COACH (fertilization_schedules-DB, 15 Eintraege)
@@ -58883,6 +59052,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.66', date: '18.06.2026',
+    headline: '🍄 Regional-Kalender: jetzt mit Pilz-Sammelkalender',
+    summary: 'Der Regional-Kalender wurde für Pilzsammler massiv ausgebaut: Wenn du deine Region wählst, erscheint neu ein kompletter Pilz-Sammelkalender — welche Speisepilze in den Wäldern deiner Region gut sammelbar sind, in welcher Landschaft (Kalk-Buchenwald, Fichten-Bergwald, Kastanienselven …), dazu konkrete Sammel-Tipps pro Region. Eine 12-Monats-Übersicht zeigt, wann welcher Pilz Saison hat (der aktuelle Monat ist aufgeklappt). Und die zuständige VAPKO-Pilzkontrollstelle deines Kantons steht direkt dabei. Alle Pilzdaten stammen aus dem kuratierten Register (nie geraten) — und immer gilt: jeden Fund vor dem Essen kontrollieren lassen.',
+    user_summary: '🍄 Der Regional-Kalender hat jetzt einen Pilz-Sammelkalender: region-typische Speisepilze, Landschaft & Sammel-Tipps, eine 12-Monats-Saison-Übersicht und die VAPKO-Kontrollstelle deines Kantons.',
+    user_items: [
+      { emoji: '🍄', text: 'Region-typische Speisepilze + wo (Landschaft) sie wachsen' },
+      { emoji: '📅', text: '12-Monats-Übersicht: wann welcher Pilz Saison hat' },
+      { emoji: '🧺', text: 'Konkrete Sammel-Tipps pro Region' },
+      { emoji: '🔒', text: 'VAPKO-Pilzkontrollstelle deines Kantons + Notfall 145' },
+    ],
+    items: [
+      {emoji:'🍄', bold:'Pilz-Sammelkalender (gsRenderRegionalMushrooms):', text:' Additiv unter dem bestehenden Garten-Regional-Kalender. Matched die ch_regions der gewählten Zone (Kanton-Overlap + Höhenband, repräsentativste zuerst via Höhenmitten-Distanz) und zeigt pro Region (bis 3) Landschaft, good_mushrooms-Chips (🟢 = aktueller Monat in Saison), foraging_notes und highlights.'},
+      {emoji:'📅', bold:'12-Monats-Verfügbarkeit:', text:' Kreuzt die good_mushrooms der Regionen mit mushroom_register.season_months → pro Monat aufklappbar, welche Speisepilze sammelbar sind (mit Essbarkeits-Emoji + VAPKO-Klasse). Aktueller Monat offen + hervorgehoben.'},
+      {emoji:'🔒', bold:'VAPKO + Sicherheit:', text:' VAPKO-Kontrollstellen der Zonen-Kantone (vapko_control_stations) mit Telefon-Link, plus Tox Info Suisse 145. Essbarkeit nur aus kuratiertem mushroom_register (nie LLM); jede Box mit Pflicht-Hinweis „vor dem Essen kontrollieren lassen".'},
+      {emoji:'✅', bold:'Verify:', text:' Im Preview 3 Zonen end-to-end: Mittelland → Fricktal/Berner Seeland/Zürcher Weinland, Tessin → Malcantone/Mendrisiotto/Misox, Graubünden → Surselva/Misox/Prättigau — je 12-Monats-Akkordeon + VAPKO + 145, Saison-Marker korrekt (Eierschwamm/Morchel grün im Juni, Steinpilz nicht). 7/7 node --check + sw.js OK.'},
+    ],
+  },
+  {
     v: 'v29.65', date: '18.06.2026',
     headline: '🍄 Pilz-Scanner: was wächst HIER gut?',
     summary: 'Das Saison-Pilz-Widget auf dem Start zeigt jetzt eine neue Schweiz-Geo-Datenbank: Es erkennt deine Region (über deinen Standort → nächste Gemeinde → Kanton & Höhenlage) und nennt die Pilze, die genau dort gut sammelbar sind. Was gerade Saison hat, ist grün markiert. Dahinter steckt eine neue Datenbank mit allen 26 Kantonen, 2164 Gemeinden (mit Höhe) und 72 Schweizer Regionen — mit geprüften Angaben aus amtlichen Quellen. Wie immer gilt: jeden Fund vor dem Essen bei einer VAPKO-Pilzkontrolle prüfen lassen.',
@@ -64321,7 +64508,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.65';
+var GS_VERSION = 'v29.66';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
