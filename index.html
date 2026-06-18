@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.71.20260618">
+<meta name="app-version" content="29.72.20260618">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12243,7 +12243,35 @@ window.GS_I18N_JS_STRINGS = {
   'lrn_tab_pilze':             'Pilze',
   'lrn_tab_garten':            'Garten',
   'lrn_menu_label':            'Lernen',
-  'lrn_menu_sub':              'Pilze und Garten — Anfänger-Lektionen'
+  'lrn_menu_sub':              'Pilze und Garten — Anfänger-Lektionen',
+  // v29.72 Pilz-Steckbrief-Chrome (Labels; Prosa bleibt DE für separaten Safety-Pass)
+  'mush_ed_toedlich':          'TÖDLICH GIFTIG · NICHT ESSEN',
+  'mush_ed_giftig':            'GIFTIG · NICHT ESSEN',
+  'mush_ed_bedingt':           'NUR BEDINGT ESSBAR',
+  'mush_ed_jung':              'NUR JUNG GENIESSBAR',
+  'mush_ed_speise':            'Speisepilz',
+  'mush_ed_ungeniessbar':      'Ungeniessbar',
+  'mush_l_habitat':            'Habitat',
+  'mush_l_symbiose':           'Symbiose',
+  'mush_l_saison':             'Saison',
+  'mush_l_monate':             'Monate',
+  'mush_l_hoehe':              'Höhe',
+  'mush_l_erkennen':           'Erkennen',
+  'mush_l_merkmale':           'Merkmale',
+  'mush_l_toxine':             'Toxine',
+  'mush_l_symptome':           'Symptome',
+  'mush_l_notfall':            'Notfall',
+  'mush_l_zubereitung':        'Zubereitung',
+  'mush_l_konservieren':       'Konservieren',
+  'mush_l_kultur':             'Kultur',
+  'mush_l_quelle':             'Quelle',
+  'mush_l_verwechslung':       'VERWECHSLUNGS-RISIKO',
+  'mush_l_visuell':            'Visuell',
+  'mush_l_geruch':             'Geruch',
+  'mush_l_sporen':             'Sporen',
+  'mush_l_protip':             'Profi-Tipp',
+  'mush_l_toxinfo':            'Tox-Info 145',
+  'mush_vapko_footer':         'Diese App ersetzt keine offizielle Pilzkontrolle. Im Zweifel: nie essen. Bei Verzehr-Verdacht ☎️ 145.'
 };
 
 // Sammelt alle data-i18n Strings aus DOM + ergänzt durch JS-Map
@@ -31910,6 +31938,13 @@ var GS_BEGINNER_AMPEL = {
 };
 // v29.70 i18n-Helper für die Pilz-/Lern-UI (lazy, lang-switch-fähig)
 function _lt(k, f){ return (window.gsI18n && gsI18n.t) ? gsI18n.t(k, f) : f; }
+// v29.72 lokalisierter Pilz-Name: common_name_<lang> aus DB (nur de/fr/it existieren),
+// sonst DE-Name, sonst wissenschaftlicher Name. Latein wird im Steckbrief separat als Anker gezeigt.
+function _gsMushName(r){
+  if (!r) return '';
+  var lang = (window.gsI18n && gsI18n.getLang && gsI18n.getLang()) || 'de';
+  return r['common_name_' + lang] || r.common_name_de || r.scientific_name || '';
+}
 
 // v29.67 Lern-Steckbrief: öffnet das bestehende Pilz-Detail (_gsWave9RenderMushroom)
 // für einen Pilz (per Name aus good_mushrooms oder slug) + Anfänger-Ampel oben.
@@ -41660,21 +41695,21 @@ function _gsWave9RenderMushroom(r, ed) {
               : isEdible ? 'linear-gradient(135deg,#2e7d32,#1b5e20)'
               : 'linear-gradient(135deg,#6a1b9a,#4a148c)';
   var lblMap = {
-    toedlich: '☠️ TÖDLICH GIFTIG · NICHT ESSEN',
-    giftig:   '⚠️ GIFTIG · NICHT ESSEN',
-    bedingt_essbar: '⚠️ NUR BEDINGT ESSBAR',
-    speisepilz_jung: '⚠️ NUR JUNG GENIESSBAR',
-    speisepilz: '✅ Speisepilz',
-    ungeniessbar: '⊘ Ungeniessbar'
+    toedlich: '☠️ ' + _lt('mush_ed_toedlich','TÖDLICH GIFTIG · NICHT ESSEN'),
+    giftig:   '⚠️ ' + _lt('mush_ed_giftig','GIFTIG · NICHT ESSEN'),
+    bedingt_essbar: '⚠️ ' + _lt('mush_ed_bedingt','NUR BEDINGT ESSBAR'),
+    speisepilz_jung: '⚠️ ' + _lt('mush_ed_jung','NUR JUNG GENIESSBAR'),
+    speisepilz: '✅ ' + _lt('mush_ed_speise','Speisepilz'),
+    ungeniessbar: '⊘ ' + _lt('mush_ed_ungeniessbar','Ungeniessbar')
   };
   var ediLbl = lblMap[r.edibility] || (r.edibility || '?');
 
-  var html = _gsWave9HeaderHtml('🍄', r.common_name_de, r.scientific_name + (r.family ? ' · ' + r.family : ''), gradient, ed);
+  var html = _gsWave9HeaderHtml('🍄', _gsMushName(r), r.scientific_name + (r.family ? ' · ' + r.family : ''), gradient, ed);
 
   // Lebensgefahr-Banner ZUERST bei toedlich/giftig
   if (isDanger) {
     html += '<div style="margin:0;padding:14px 18px;background:#b71c1c;color:#fff;text-align:center;font-weight:900;font-size:14px;letter-spacing:.3px;">' +
-      ediLbl + ' · ☎️ <a href="tel:145" style="color:#fff;text-decoration:underline;">Tox-Info 145</a> (24/7)' +
+      ediLbl + ' · ☎️ <a href="tel:145" style="color:#fff;text-decoration:underline;">' + _lt('mush_l_toxinfo','Tox-Info 145') + '</a> (24/7)' +
     '</div>';
   }
 
@@ -41688,16 +41723,16 @@ function _gsWave9RenderMushroom(r, ed) {
   '</div>';
 
   // Habitat + Saison
-  if (Array.isArray(r.habitat) && r.habitat.length) html += '<div style="font-size:12px;color:var(--text2);margin-bottom:6px;"><b>🌲 Habitat:</b> ' + ed(r.habitat.join(', ')) + '</div>';
-  if (Array.isArray(r.symbiosis_partners) && r.symbiosis_partners.length) html += '<div style="font-size:12px;color:var(--text2);margin-bottom:6px;"><b>🤝 Symbiose:</b> ' + ed(r.symbiosis_partners.join(', ')) + '</div>';
-  if (Array.isArray(r.season_months) && r.season_months.length) html += '<div style="font-size:12px;color:var(--text2);margin-bottom:6px;"><b>📅 Saison:</b> Monate ' + ed(r.season_months.join(', ')) + '</div>';
+  if (Array.isArray(r.habitat) && r.habitat.length) html += '<div style="font-size:12px;color:var(--text2);margin-bottom:6px;"><b>🌲 ' + _lt('mush_l_habitat','Habitat') + ':</b> ' + ed(r.habitat.join(', ')) + '</div>';
+  if (Array.isArray(r.symbiosis_partners) && r.symbiosis_partners.length) html += '<div style="font-size:12px;color:var(--text2);margin-bottom:6px;"><b>🤝 ' + _lt('mush_l_symbiose','Symbiose') + ':</b> ' + ed(r.symbiosis_partners.join(', ')) + '</div>';
+  if (Array.isArray(r.season_months) && r.season_months.length) html += '<div style="font-size:12px;color:var(--text2);margin-bottom:6px;"><b>📅 ' + _lt('mush_l_saison','Saison') + ':</b> ' + _lt('mush_l_monate','Monate') + ' ' + ed(r.season_months.join(', ')) + '</div>';
   var alt = '';
   if (r.altitude_m_min != null) alt += r.altitude_m_min;
   if (r.altitude_m_max != null) alt += (alt ? '-' : '') + r.altitude_m_max + ' m';
-  if (alt) html += '<div style="font-size:12px;color:var(--text2);margin-bottom:6px;"><b>⛰ Höhe:</b> ' + ed(alt) + '</div>';
+  if (alt) html += '<div style="font-size:12px;color:var(--text2);margin-bottom:6px;"><b>⛰ ' + _lt('mush_l_hoehe','Höhe') + ':</b> ' + ed(alt) + '</div>';
 
   // Identifying Features
-  if (r.identifying_features) html += '<div style="margin-top:10px;padding:10px 12px;background:#fff8e1;border-left:3px solid #fbc02d;border-radius:9px;font-size:12.5px;color:#827717;line-height:1.55;"><b>👁 Erkennen:</b> ' + ed(r.identifying_features) + '</div>';
+  if (r.identifying_features) html += '<div style="margin-top:10px;padding:10px 12px;background:#fff8e1;border-left:3px solid #fbc02d;border-radius:9px;font-size:12.5px;color:#827717;line-height:1.55;"><b>👁 ' + _lt('mush_l_erkennen','Erkennen') + ':</b> ' + ed(r.identifying_features) + '</div>';
 
   // Hut + Lamellen + Stiel kompakt
   var morph = [];
@@ -41709,28 +41744,30 @@ function _gsWave9RenderMushroom(r, ed) {
   if (r.stem_color) morph.push('Stiel ' + r.stem_color);
   if (r.smell) morph.push('Geruch ' + r.smell);
   if (r.taste) morph.push('Geschmack ' + r.taste);
-  if (morph.length) html += '<div style="margin-top:8px;font-size:11.5px;color:var(--text2);line-height:1.55;"><b>📐 Merkmale:</b> ' + ed(morph.join(' · ')) + '</div>';
+  if (morph.length) html += '<div style="margin-top:8px;font-size:11.5px;color:var(--text2);line-height:1.55;"><b>📐 ' + _lt('mush_l_merkmale','Merkmale') + ':</b> ' + ed(morph.join(' · ')) + '</div>';
 
   // Bei Gift: Toxine + Symptome + Emergency PROMINENT
   if (isDanger) {
-    if (r.toxic_compounds) html += '<div style="margin-top:10px;padding:10px 12px;background:#ffebee;border:1px solid #c62828;border-radius:10px;font-size:12px;color:#b71c1c;"><b>☣ Toxine:</b> ' + ed(r.toxic_compounds) + '</div>';
-    if (r.symptoms_if_toxic) html += '<div style="margin-top:6px;padding:10px 12px;background:#ffebee;border:1px solid #c62828;border-radius:10px;font-size:12px;color:#b71c1c;line-height:1.55;"><b>🤢 Symptome:</b> ' + ed(r.symptoms_if_toxic) + '</div>';
-    if (r.emergency_action) html += '<div style="margin-top:6px;padding:10px 12px;background:#b71c1c;color:#fff;border-radius:10px;font-size:12.5px;line-height:1.55;font-weight:700;"><b>🆘 Notfall:</b> ' + ed(r.emergency_action) + '</div>';
+    if (r.toxic_compounds) html += '<div style="margin-top:10px;padding:10px 12px;background:#ffebee;border:1px solid #c62828;border-radius:10px;font-size:12px;color:#b71c1c;"><b>☣ ' + _lt('mush_l_toxine','Toxine') + ':</b> ' + ed(r.toxic_compounds) + '</div>';
+    if (r.symptoms_if_toxic) html += '<div style="margin-top:6px;padding:10px 12px;background:#ffebee;border:1px solid #c62828;border-radius:10px;font-size:12px;color:#b71c1c;line-height:1.55;"><b>🤢 ' + _lt('mush_l_symptome','Symptome') + ':</b> ' + ed(r.symptoms_if_toxic) + '</div>';
+    if (r.emergency_action) html += '<div style="margin-top:6px;padding:10px 12px;background:#b71c1c;color:#fff;border-radius:10px;font-size:12.5px;line-height:1.55;font-weight:700;"><b>🆘 ' + _lt('mush_l_notfall','Notfall') + ':</b> ' + ed(r.emergency_action) + '</div>';
   }
   // Speisepilz: Zubereitung + Konservieren
   if (isEdible) {
-    if (r.cooking_preparation) html += '<div style="margin-top:10px;padding:10px 12px;background:#e8f5e9;border-radius:10px;font-size:12px;color:#1b5e20;line-height:1.55;"><b>🍳 Zubereitung:</b> ' + ed(r.cooking_preparation) + '</div>';
-    if (Array.isArray(r.conservation_methods) && r.conservation_methods.length) html += '<div style="margin-top:6px;font-size:11.5px;color:var(--text2);"><b>📦 Konservieren:</b> ' + ed(r.conservation_methods.join(', ')) + '</div>';
+    if (r.cooking_preparation) html += '<div style="margin-top:10px;padding:10px 12px;background:#e8f5e9;border-radius:10px;font-size:12px;color:#1b5e20;line-height:1.55;"><b>🍳 ' + _lt('mush_l_zubereitung','Zubereitung') + ':</b> ' + ed(r.cooking_preparation) + '</div>';
+    if (Array.isArray(r.conservation_methods) && r.conservation_methods.length) html += '<div style="margin-top:6px;font-size:11.5px;color:var(--text2);"><b>📦 ' + _lt('mush_l_konservieren','Konservieren') + ':</b> ' + ed(r.conservation_methods.join(', ')) + '</div>';
   }
 
-  if (r.cultural_notes) html += '<div style="margin-top:10px;padding:9px 11px;background:#fff3e0;border-radius:9px;font-size:11.5px;color:#bf360c;"><b>🏛 Kultur:</b> ' + ed(r.cultural_notes) + '</div>';
+  if (r.cultural_notes) html += '<div style="margin-top:10px;padding:9px 11px;background:#fff3e0;border-radius:9px;font-size:11.5px;color:#bf360c;"><b>🏛 ' + _lt('mush_l_kultur','Kultur') + ':</b> ' + ed(r.cultural_notes) + '</div>';
 
   // Async-Slots fuer Lookalikes + Recipes (gefüllt durch _gsMushroomLoadDetailExtras)
   html += '<div id="gs-mushroom-lookalikes-' + ed(r.slug) + '" style="margin-top:14px;"></div>';
   if (isEdible) html += '<div id="gs-mushroom-recipes-' + ed(r.slug) + '" style="margin-top:10px;"></div>';
-  // VAPKO-Footer immer
-  html += '<div style="margin-top:14px;padding:10px 12px;background:#ede7f6;border:1.5px solid #5e35b1;border-radius:11px;font-size:11.5px;color:#311b92;line-height:1.5;"><b>🔒 VAPKO:</b> Diese App ersetzt keine offizielle Pilzkontrolle. Im Zweifel: nie essen. Bei Verzehr-Verdacht ☎️ <a href="tel:145" style="color:#311b92;">145</a>.</div>';
-  if (r.source) html += '<div style="margin-top:8px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(r.source) + '</div>';
+  // VAPKO-Footer immer (Prosa lokalisiert; 145 als tel-Link nach Escaping re-injiziert)
+  var _vapkoFoot = ed(_lt('mush_vapko_footer','Diese App ersetzt keine offizielle Pilzkontrolle. Im Zweifel: nie essen. Bei Verzehr-Verdacht ☎️ 145.'))
+    .replace('145', '<a href="tel:145" style="color:#311b92;">145</a>');
+  html += '<div style="margin-top:14px;padding:10px 12px;background:#ede7f6;border:1.5px solid #5e35b1;border-radius:11px;font-size:11.5px;color:#311b92;line-height:1.5;"><b>🔒 VAPKO:</b> ' + _vapkoFoot + '</div>';
+  if (r.source) html += '<div style="margin-top:8px;font-size:10.5px;color:var(--muted);text-align:right;">' + _lt('mush_l_quelle','Quelle') + ': ' + ed(r.source) + '</div>';
   html += '</div>';
 
   // Triggert async Lookalikes + Recipes Sub-Load
@@ -41748,19 +41785,32 @@ async function _gsMushroomLoadDetailExtras(slug, isEdible) {
     var laRows = (r1 && Array.isArray(r1.data)) ? r1.data : (Array.isArray(r1) ? r1 : []);
     var laBox = document.getElementById('gs-mushroom-lookalikes-' + slug);
     if (laBox && laRows.length) {
+      // v29.72: Verwechsler-Slugs → lokalisierte Pilznamen (statt nacktem Slug)
+      var otherSlugs = [];
+      laRows.forEach(function(la){ var o = (la.edible_slug === slug) ? la.lookalike_slug : la.edible_slug; if (o && otherSlugs.indexOf(o) < 0) otherSlugs.push(o); });
+      var nameBySlug = {};
+      try {
+        if (otherSlugs.length) {
+          var rn = await sbFetch('/rest/v1/mushroom_register?slug=in.(' + otherSlugs.map(encodeURIComponent).join(',') + ')&select=slug,common_name_de,common_name_fr,common_name_it,scientific_name', { method:'GET' });
+          var nameRows = (rn && Array.isArray(rn.data)) ? rn.data : (Array.isArray(rn) ? rn : []);
+          nameRows.forEach(function(n){ if (n.slug) nameBySlug[n.slug] = _gsMushName(n); });
+        }
+      } catch(_){}
+      var _prettySlug = function(s){ return String(s||'').replace(/_/g,' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); }); };
       var html = '<div style="padding:12px 14px;background:#fff3e0;border:2px solid #e65100;border-radius:12px;">';
-      html += '<div style="font-size:12.5px;font-weight:900;color:#bf360c;margin-bottom:8px;letter-spacing:.3px;">⚠️ VERWECHSLUNGS-RISIKO (' + laRows.length + ')</div>';
+      html += '<div style="font-size:12.5px;font-weight:900;color:#bf360c;margin-bottom:8px;letter-spacing:.3px;">⚠️ ' + _lt('mush_l_verwechslung','VERWECHSLUNGS-RISIKO') + ' (' + laRows.length + ')</div>';
       laRows.forEach(function(la){
         var other = (la.edible_slug === slug) ? la.lookalike_slug : la.edible_slug;
+        var otherName = nameBySlug[other] || _prettySlug(other);
         var risk = String(la.confusion_risk || 'mittel');
         var riskBg = risk === 'hoch' ? '#c62828' : risk === 'mittel' ? '#e65100' : '#827717';
         html += '<div style="padding:7px 0;border-top:1px dashed rgba(0,0,0,.1);">' +
-          '<div style="font-size:12.5px;color:#bf360c;"><span style="background:' + riskBg + ';color:#fff;padding:1px 7px;border-radius:5px;font-size:10.5px;font-weight:800;margin-right:6px;">' + ed(risk.toUpperCase()) + '</span><b>' + ed(other) + '</b></div>';
-        if (la.visual_differences) html += '<div style="font-size:11.5px;color:#bf360c;margin-top:3px;line-height:1.5;"><b>👁 Visuell:</b> ' + ed(la.visual_differences) + '</div>';
-        if (la.smell_differences) html += '<div style="font-size:11.5px;color:#bf360c;margin-top:2px;"><b>👃 Geruch:</b> ' + ed(la.smell_differences) + '</div>';
-        if (la.habitat_differences) html += '<div style="font-size:11.5px;color:#bf360c;margin-top:2px;"><b>🌲 Habitat:</b> ' + ed(la.habitat_differences) + '</div>';
-        if (la.spore_print_differences) html += '<div style="font-size:11.5px;color:#bf360c;margin-top:2px;"><b>🔬 Sporen:</b> ' + ed(la.spore_print_differences) + '</div>';
-        if (la.pro_tip) html += '<div style="font-size:11.5px;color:#1b5e20;margin-top:3px;background:#e8f5e9;padding:3px 7px;border-radius:5px;display:inline-block;"><b>💡 Profi-Tipp:</b> ' + ed(la.pro_tip) + '</div>';
+          '<div style="font-size:12.5px;color:#bf360c;"><span style="background:' + riskBg + ';color:#fff;padding:1px 7px;border-radius:5px;font-size:10.5px;font-weight:800;margin-right:6px;">' + ed(risk.toUpperCase()) + '</span><b>' + ed(otherName) + '</b></div>';
+        if (la.visual_differences) html += '<div style="font-size:11.5px;color:#bf360c;margin-top:3px;line-height:1.5;"><b>👁 ' + _lt('mush_l_visuell','Visuell') + ':</b> ' + ed(la.visual_differences) + '</div>';
+        if (la.smell_differences) html += '<div style="font-size:11.5px;color:#bf360c;margin-top:2px;"><b>👃 ' + _lt('mush_l_geruch','Geruch') + ':</b> ' + ed(la.smell_differences) + '</div>';
+        if (la.habitat_differences) html += '<div style="font-size:11.5px;color:#bf360c;margin-top:2px;"><b>🌲 ' + _lt('mush_l_habitat','Habitat') + ':</b> ' + ed(la.habitat_differences) + '</div>';
+        if (la.spore_print_differences) html += '<div style="font-size:11.5px;color:#bf360c;margin-top:2px;"><b>🔬 ' + _lt('mush_l_sporen','Sporen') + ':</b> ' + ed(la.spore_print_differences) + '</div>';
+        if (la.pro_tip) html += '<div style="font-size:11.5px;color:#1b5e20;margin-top:3px;background:#e8f5e9;padding:3px 7px;border-radius:5px;display:inline-block;"><b>💡 ' + _lt('mush_l_protip','Profi-Tipp') + ':</b> ' + ed(la.pro_tip) + '</div>';
         html += '</div>';
       });
       html += '</div>';
@@ -59307,6 +59357,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.72', date: '18.06.2026',
+    headline: '🍄 Pilz-Steckbrief: Namen & Etiketten in 5 Sprachen',
+    summary: 'Der Pilz-Steckbrief spricht jetzt auch für die französisch- und italienischsprachige Schweiz die richtige Sprache: Pilznamen erscheinen in deiner App-Sprache (z. B. „Amanite phalloïde", „Cèpe", „Bolet jaune"), und alle Etiketten — Essbarkeits-Warnungen, Abschnitts-Titel (Habitat, Erkennen, Symptome, Notfall …), die Verwechsler-Box und der VAPKO-Sicherheitshinweis — sind auf DE/EN/ES/FR/IT übersetzt. Der wissenschaftliche (lateinische) Name bleibt immer sichtbar als sicherer Anker, und der Notruf 145 bleibt antippbar. Die ausführlichen Beschreibungstexte folgen in einem späteren, sorgfältig geprüften Schritt auf Deutsch.',
+    user_summary: '🍄 Pilz-Steckbriefe zeigen Namen & Etiketten jetzt in deiner App-Sprache (DE/EN/ES/FR/IT) — wichtig für die Romandie & das Tessin.',
+    user_items: [
+      { emoji: '🏷️', text: 'Pilznamen in deiner Sprache (Latein bleibt als Anker sichtbar)' },
+      { emoji: '⚠️', text: 'Essbarkeits- & Gefahren-Warnungen + VAPKO-Hinweis übersetzt' },
+      { emoji: '🔀', text: 'Verwechsler-Box: Doppelgänger mit echtem Namen statt Code' },
+      { emoji: '🇨🇭', text: 'FR & IT als Schweizer Landessprachen abgedeckt' },
+    ],
+    items: [
+      {emoji:'🏷️', bold:'Lokalisierte Namen:', text:' neuer _gsMushName-Helper nutzt common_name_fr/it aus der DB (alle 85 Pilze), wissenschaftlicher Name bleibt als sprachunabhängiger Anker. Verwechsler-Doppelgänger zeigen jetzt den echten lokalisierten Namen (z. B. „Bolet jaune") statt des nackten DB-Slugs.'},
+      {emoji:'🗣️', bold:'108 Etiketten-Übersetzungen:', text:' 27 Steckbrief-Labels × EN/ES/FR/IT (Essbarkeits-Pillen, Abschnitts-Titel, Verwechsler-Box, VAPKO-Footer). Sicherheits-Phrasen via adversarial-safety-Workflow geprüft — „MORTEL · NE PAS CONSOMMER", 145 & VAPKO überall erhalten.'},
+      {emoji:'📝', bold:'Bewusste Grenze:', text:' die ausführlichen Beschreibungstexte (Merkmale, Symptome, Verwechsler-Details) bleiben vorerst Deutsch — ihre sichere Übersetzung folgt als eigener, sorgfältig geprüfter Schritt.'},
+      {emoji:'✅', bold:'Verify:', text:' Preview FR: „Amanite phalloïde" + „MORTEL · NE PAS CONSOMMER" + Toxines/Urgence/Symptômes + VAPKO-FR; „Cèpe" + „Champignon comestible"; Verwechsler „RISQUE DE CONFUSION" + „Bolet jaune". 7/7 node --check + sw.js OK.'},
+    ],
+  },
+  {
     v: 'v29.71', date: '18.06.2026',
     headline: '📚 Lern-Inhalte komplett auf 5 Sprachen',
     summary: 'Die ausführlichen Lern-Inhalte selbst sprechen jetzt alle App-Sprachen: alle 16 Lernkarten (7 Pilze + 9 Garten) — Titel, Texte, Merkpunkte, Praxis-Tipps und Sicherheitshinweise — sind nun auf Deutsch, Englisch, Spanisch, Französisch und Italienisch verfügbar. Sicherheitskritische Pilz-Inhalte (Knollenblätterpilz-Warnungen, VAPKO-Pflicht, Notruf 145) wurden dabei adversarial gegengeprüft, damit beim Übersetzen keine lebenswichtige Nuance verloren geht. Lateinische Artnamen und Schweizer Institutionen (VAPKO, SwissFungi, FiBL) bleiben unverändert.',
@@ -64837,7 +64905,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.71';
+var GS_VERSION = 'v29.72';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
