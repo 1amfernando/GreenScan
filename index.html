@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.72.20260618">
+<meta name="app-version" content="29.73.20260618">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -31945,6 +31945,22 @@ function _gsMushName(r){
   var lang = (window.gsI18n && gsI18n.getLang && gsI18n.getLang()) || 'de';
   return r['common_name_' + lang] || r.common_name_de || r.scientific_name || '';
 }
+// v29.73 lokalisierte Steckbrief-Prosa: mergt mushroom_register_i18n der aktiven Sprache
+// auf einen KLON der Row (DE bleibt Quelle/Fallback je Feld). Async, defensiv.
+async function _gsMergeMushI18n(row){
+  if (!row || !row.slug) return row;
+  var lang = (window.gsI18n && gsI18n.getLang && gsI18n.getLang()) || 'de';
+  if (lang === 'de' || typeof sbFetch !== 'function') return row;
+  try {
+    var q = '/rest/v1/mushroom_register_i18n?slug=eq.' + encodeURIComponent(row.slug) + '&lang=eq.' + encodeURIComponent(lang) + '&select=identifying_features,symptoms_if_toxic,emergency_action,cooking_preparation,cultural_notes&limit=1';
+    var r = await sbFetch(q, { method:'GET' });
+    var t = (r && Array.isArray(r.data) && r.data[0]) ? r.data[0] : ((Array.isArray(r) && r[0]) ? r[0] : null);
+    if (!t) return row;
+    var o = {}; for (var k in row) o[k] = row[k];
+    ['identifying_features','symptoms_if_toxic','emergency_action','cooking_preparation','cultural_notes'].forEach(function(f){ if (t[f]) o[f] = t[f]; });
+    return o;
+  } catch(_){ return row; }
+}
 
 // v29.67 Lern-Steckbrief: öffnet das bestehende Pilz-Detail (_gsWave9RenderMushroom)
 // für einen Pilz (per Name aus good_mushrooms oder slug) + Anfänger-Ampel oben.
@@ -31971,6 +31987,7 @@ async function gsOpenMushroomLearnCard(nameOrSlug) {
         + (m.has_deadly_lookalike ? '<div style="font-size:10.5px;color:#c62828;font-weight:800;margin-top:1px;">☠️ ' + ed(_lt('mush_has_deadly','Hat einen tödlichen Doppelgänger — unbedingt Verwechslungs-Risiko unten lesen')) + '</div>' : '<div style="font-size:10.5px;color:' + a.c + ';opacity:.85;margin-top:1px;">' + ed(_lt('mush_vapko_check_each','Jeden Fund vor dem Essen bei der VAPKO prüfen lassen')) + '</div>')
         + '</div></div>';
     }
+    row = await _gsMergeMushI18n(row); // v29.73: lokalisierte Prosa der aktiven Sprache
     mc.innerHTML = '<div style="padding:0;">' + ampHtml + _gsWave9RenderMushroom(row, ed) + '</div>';
     if (typeof openModal === 'function') openModal('detail-modal');
   } catch(e){ console.warn('[mush-learn-card]', e && e.message); }
@@ -41608,6 +41625,15 @@ window.gsWave9OpenDetail = function(section, slug) {
     html += _gsWave9RenderSeedSaving(r, ed);
   } else if (section === 'pilze') {
     html += _gsWave9RenderMushroom(r, ed);
+    // v29.73: lokalisierte Prosa async nachladen + neu rendern (DE→Lang; kein Flash bei DE)
+    (async function(){
+      try {
+        var rr = await _gsMergeMushI18n(r);
+        if (rr === r) return;
+        var mc2 = document.getElementById('modal-content');
+        if (mc2) mc2.innerHTML = '<div style="padding:0;">' + _gsWave9RenderMushroom(rr, ed) + '</div>';
+      } catch(_){}
+    })();
   } else if (section === 'wasser') {
     html += _gsWave9RenderWater(r, ed);
   } else if (section === 'voegel') {
@@ -59357,6 +59383,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.73', date: '18.06.2026',
+    headline: '🍄 Pilz-Steckbrief-Texte in 5 Sprachen + Notruf-Sicherheitsfix',
+    summary: 'Jetzt sprechen auch die ausführlichen Pilz-Steckbrief-Texte deine App-Sprache: Erkennungsmerkmale, Vergiftungs-Symptome, Notfall-Hinweise, Zubereitung und Kultur-Notizen aller Pilze sind auf DE/EN/ES/FR/IT verfügbar — wichtig für die französisch- und italienischsprachige Schweiz. Die medizinischen Texte wurden mehrstufig sicherheitsgeprüft (Latenzzeiten, Organe, Notfall-Schritte, Notrufnummern, lateinische Namen exakt erhalten). Dabei kam ein echter Fehler ans Licht: vier der tödlichsten Pilze nannten versehentlich die falsche Notrufnummer (144 statt der Vergiftungs-Nummer 145) — das ist jetzt überall korrigiert, auch in der deutschen App.',
+    user_summary: '🍄 Die kompletten Pilz-Steckbrief-Texte (Merkmale, Symptome, Notfall, Zubereitung) sind jetzt auf DE/EN/ES/FR/IT — plus ein Notrufnummer-Sicherheitsfix.',
+    user_items: [
+      { emoji: '📖', text: 'Erkennungsmerkmale & Vergiftungs-Symptome aller Pilze übersetzt' },
+      { emoji: '🆘', text: 'Notfall-Hinweise mit korrekter Tox-Info-Nummer 145' },
+      { emoji: '🛡️', text: 'Medizinische Texte mehrstufig sicherheitsgeprüft (0 Lücken)' },
+      { emoji: '🇨🇭', text: 'FR & IT als Schweizer Landessprachen abgedeckt' },
+    ],
+    items: [
+      {emoji:'📚', bold:'340 Steckbrief-Texte:', text:' 5 Prosa-Felder (Merkmale, Symptome, Notfall, Zubereitung, Kultur) × 85 Pilze × EN/ES/FR/IT in neuer Tabelle mushroom_register_i18n. Async _gsMergeMushI18n mergt die aktive Sprache in beide Steckbrief-Pfade (DE-Fallback je Feld).'},
+      {emoji:'🆘', bold:'Notrufnummer-Sicherheitsfix:', text:' der Übersetzungs-Pass deckte auf, dass 4 tödliche Pilze (Knollenblätterpilz, Panther, Fliegenpilz, Orellanus) fälschlich „144 Tox-Info" nannten — Tox Info Suisse ist 145. In DE + allen Sprachen korrigiert.'},
+      {emoji:'🛡️', bold:'Mehrstufige Sicherheit:', text:' adversarialer Safety-Verify gegen die DE-Originale (Latenzfenster/Organe/Notfall-Schritte/145/144/Silibinin/lat. Namen erhalten) + Daten-Audit, das 25-37 fehlende Symptom-/Notfall-Übersetzungen fand und nachfüllte → 0 Lücken.'},
+      {emoji:'📝', bold:'Nächster Schritt:', text:' die Verwechsler-Differenz-Texte folgen in einem weiteren geprüften Durchgang.'},
+    ],
+  },
+  {
     v: 'v29.72', date: '18.06.2026',
     headline: '🍄 Pilz-Steckbrief: Namen & Etiketten in 5 Sprachen',
     summary: 'Der Pilz-Steckbrief spricht jetzt auch für die französisch- und italienischsprachige Schweiz die richtige Sprache: Pilznamen erscheinen in deiner App-Sprache (z. B. „Amanite phalloïde", „Cèpe", „Bolet jaune"), und alle Etiketten — Essbarkeits-Warnungen, Abschnitts-Titel (Habitat, Erkennen, Symptome, Notfall …), die Verwechsler-Box und der VAPKO-Sicherheitshinweis — sind auf DE/EN/ES/FR/IT übersetzt. Der wissenschaftliche (lateinische) Name bleibt immer sichtbar als sicherer Anker, und der Notruf 145 bleibt antippbar. Die ausführlichen Beschreibungstexte folgen in einem späteren, sorgfältig geprüften Schritt auf Deutsch.',
@@ -64905,7 +64949,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.72';
+var GS_VERSION = 'v29.73';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
