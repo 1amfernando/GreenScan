@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.73.20260618">
+<meta name="app-version" content="29.74.20260619">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -41822,6 +41822,19 @@ async function _gsMushroomLoadDetailExtras(slug, isEdible) {
           nameRows.forEach(function(n){ if (n.slug) nameBySlug[n.slug] = _gsMushName(n); });
         }
       } catch(_){}
+      // v29.74: lokalisierte Verwechsler-Differenztexte der aktiven Sprache mergen (DE-Fallback je Feld)
+      try {
+        var _llang = (window.gsI18n && gsI18n.getLang && gsI18n.getLang()) || 'de';
+        if (_llang !== 'de') {
+          var ri = await sbFetch('/rest/v1/mushroom_lookalikes_i18n?lang=eq.' + encodeURIComponent(_llang) + '&or=(edible_slug.eq.' + encodeURIComponent(slug) + ',lookalike_slug.eq.' + encodeURIComponent(slug) + ')&select=edible_slug,lookalike_slug,visual_differences,smell_differences,habitat_differences,spore_print_differences,pro_tip', { method:'GET' });
+          var iRows = (ri && Array.isArray(ri.data)) ? ri.data : (Array.isArray(ri) ? ri : []);
+          var iMap = {}; iRows.forEach(function(t){ iMap[t.edible_slug + '|' + t.lookalike_slug] = t; });
+          laRows.forEach(function(la){
+            var t = iMap[la.edible_slug + '|' + la.lookalike_slug]; if (!t) return;
+            ['visual_differences','smell_differences','habitat_differences','spore_print_differences','pro_tip'].forEach(function(f){ if (t[f]) la[f] = t[f]; });
+          });
+        }
+      } catch(_){}
       var _prettySlug = function(s){ return String(s||'').replace(/_/g,' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); }); };
       var html = '<div style="padding:12px 14px;background:#fff3e0;border:2px solid #e65100;border-radius:12px;">';
       html += '<div style="font-size:12.5px;font-weight:900;color:#bf360c;margin-bottom:8px;letter-spacing:.3px;">⚠️ ' + _lt('mush_l_verwechslung','VERWECHSLUNGS-RISIKO') + ' (' + laRows.length + ')</div>';
@@ -59383,6 +59396,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.74', date: '19.06.2026',
+    headline: '🍄 Verwechsler-Texte in 5 Sprachen — Steckbrief jetzt komplett mehrsprachig',
+    summary: 'Die letzte deutschsprachige Lücke im Pilz-Steckbrief ist geschlossen: Die Verwechsler-Texte — wie du einen Speisepilz von seinem (oft tödlichen) Doppelgänger unterscheidest — sind jetzt auf DE/EN/ES/FR/IT verfügbar. Damit ist der gesamte Pilz-Steckbrief mehrsprachig (Namen, Etiketten, Beschreibungen und Verwechsler-Hinweise). Diese Unterscheidungs-Texte sind besonders sicherheitskritisch, daher wurde gezielt geprüft, dass die Zuordnung (welcher Pilz welches Merkmal hat) beim Übersetzen niemals vertauscht wird. Zusätzlich wurde das Backend mit dem Sicherheits-Advisor durchgecheckt und eine versehentlich offene Trigger-Funktion bereinigt.',
+    user_summary: '🍄 Die Verwechsler-Unterscheidungs-Texte sind jetzt auf DE/EN/ES/FR/IT — der Pilz-Steckbrief ist damit vollständig mehrsprachig.',
+    user_items: [
+      { emoji: '🔀', text: 'Verwechsler-Texte (Speisepilz vs. Doppelgänger) in 5 Sprachen' },
+      { emoji: '🛡️', text: 'Zuordnung der Merkmale geprüft — beim Übersetzen nie vertauscht' },
+      { emoji: '✅', text: 'Pilz-Steckbrief jetzt komplett mehrsprachig (Namen + Texte + Verwechsler)' },
+      { emoji: '🔒', text: 'Backend-Security-Check + Trigger-Funktion bereinigt' },
+    ],
+    items: [
+      {emoji:'🔀', bold:'184 Verwechsler-Übersetzungen:', text:' 6 Differenz-Felder (Aussehen/Geruch/Habitat/Sporen/Profi-Tipp/Merkmale) × 46 Paare × EN/ES/FR/IT in neuer Tabelle mushroom_lookalikes_i18n. Async-Merge in die Verwechsler-Box (DE-Fallback je Feld).'},
+      {emoji:'🛡️', bold:'Zuordnungs-Sicherheit:', text:' adversarialer Verify prüfte gezielt, dass die Merkmal-Zuordnung nie invertiert wird (Austernpilz↔Galerina Sporée weiß vs. braun, Perlpilz rötet↔Panther rötet nie). 0 Lücken, lat. Namen/VAPKO/145 erhalten.'},
+      {emoji:'🔒', bold:'Backend-Check:', text:' Supabase-Security-Advisor (147 Lints) durchgegangen — meiste by-design; korrekt erkannt, dass die anon-Rollen-Helfer RLS-erforderlich sind (Revoke hätte den Gast-Modus gebrochen). Eine offene Trigger-Funktion (fn_force_author_role) bereinigt.'},
+      {emoji:'✅', bold:'Steckbrief komplett:', text:' v29.72 Namen+Etiketten · v29.73 Beschreibungs-Prosa · v29.74 Verwechsler-Texte — alles DE/EN/ES/FR/IT.'},
+    ],
+  },
+  {
     v: 'v29.73', date: '18.06.2026',
     headline: '🍄 Pilz-Steckbrief-Texte in 5 Sprachen + Notruf-Sicherheitsfix',
     summary: 'Jetzt sprechen auch die ausführlichen Pilz-Steckbrief-Texte deine App-Sprache: Erkennungsmerkmale, Vergiftungs-Symptome, Notfall-Hinweise, Zubereitung und Kultur-Notizen aller Pilze sind auf DE/EN/ES/FR/IT verfügbar — wichtig für die französisch- und italienischsprachige Schweiz. Die medizinischen Texte wurden mehrstufig sicherheitsgeprüft (Latenzzeiten, Organe, Notfall-Schritte, Notrufnummern, lateinische Namen exakt erhalten). Dabei kam ein echter Fehler ans Licht: vier der tödlichsten Pilze nannten versehentlich die falsche Notrufnummer (144 statt der Vergiftungs-Nummer 145) — das ist jetzt überall korrigiert, auch in der deutschen App.',
@@ -64949,7 +64980,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.73';
+var GS_VERSION = 'v29.74';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
