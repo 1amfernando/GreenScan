@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.66.20260618">
+<meta name="app-version" content="29.67.20260618">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18125,12 +18125,12 @@ async function gsAttachRegionMushrooms(card) {
       var st = it.season
         ? 'background:rgba(129,199,132,.35);font-weight:800;'
         : 'background:rgba(255,255,255,.12);font-weight:600;opacity:.85;';
-      return '<span style="display:inline-block;' + st + 'padding:2px 8px;border-radius:8px;margin:2px 3px 2px 0;font-size:11px;white-space:nowrap;">' + dot + ed(it.name) + '</span>';
+      return '<span data-mush="' + ed(it.name) + '" style="cursor:pointer;display:inline-block;' + st + 'padding:2px 8px;border-radius:8px;margin:2px 3px 2px 0;font-size:11px;white-space:nowrap;-webkit-tap-highlight-color:transparent;">' + dot + ed(it.name) + ' ›</span>';
     }).join('');
     var anyInSeason = items.some(function(it){ return it.season; });
-    var legend = anyInSeason ? '<div style="opacity:.82;font-size:10.5px;margin-top:5px;">🟢 = jetzt in Saison · alle Funde vor dem Essen bei der VAPKO-Pilzkontrolle prüfen lassen</div>'
-      : '<div style="opacity:.82;font-size:10.5px;margin-top:5px;">Saisonzeiten beachten · alle Funde vor dem Essen bei der VAPKO-Pilzkontrolle prüfen lassen</div>';
-    box.innerHTML = hdr + subLine + '<div style="margin-top:2px;">' + (chips || '<span style="opacity:.8;">—</span>') + '</div>' + legend;
+    var legend = (anyInSeason ? '🟢 = jetzt in Saison · ' : '') + 'tippe einen Pilz für den Steckbrief (Erkennen, Verwechsler, Anfänger-Ampel) · alle Funde vor dem Essen bei der VAPKO-Pilzkontrolle prüfen lassen';
+    box.innerHTML = hdr + subLine + '<div style="margin-top:2px;">' + (chips || '<span style="opacity:.8;">—</span>') + '</div>' + '<div style="opacity:.82;font-size:10.5px;margin-top:5px;">' + legend + '</div>';
+    gsWireMushChips(box);
     box.style.display = 'block';
   } catch(e){ console.warn('[region-mushrooms]', e && e.message); box.style.display = 'none'; }
 }
@@ -31813,15 +31813,126 @@ async function gsLoadMushRegistry() {
   if (typeof sbFetch !== 'function') return { rows: [], byNorm: {}, ts: Date.now() };
   var rows = [];
   try {
-    var r = await sbFetch('/rest/v1/mushroom_register?select=common_name_de,scientific_name,edibility,vapko_klasse,season_months,habitat,altitude_m_min,altitude_m_max&limit=300', { method:'GET' });
+    var r = await sbFetch('/rest/v1/mushroom_register?select=slug,common_name_de,scientific_name,edibility,vapko_klasse,season_months,habitat,altitude_m_min,altitude_m_max&limit=300', { method:'GET' });
     rows = (r && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : []);
   } catch(_){}
+  // v29.67: Anfänger-Ampel (v_mushroom_beginner) per slug mergen — kein LLM, aus kuratierten Daten
+  var levelBySlug = {};
+  try {
+    var b = await sbFetch('/rest/v1/v_mushroom_beginner?select=slug,beginner_level,has_deadly_lookalike&limit=300', { method:'GET' });
+    var brows = (b && Array.isArray(b.data)) ? b.data : (Array.isArray(b) ? b : []);
+    brows.forEach(function(x){ if (x.slug) levelBySlug[x.slug] = x; });
+  } catch(_){}
   var byNorm = {};
-  rows.forEach(function(m){ if (m.common_name_de) byNorm[_gsNorm(m.common_name_de)] = m; });
+  rows.forEach(function(m){
+    if (m.slug && levelBySlug[m.slug]) { m.beginner_level = levelBySlug[m.slug].beginner_level; m.has_deadly_lookalike = levelBySlug[m.slug].has_deadly_lookalike; }
+    if (m.common_name_de) byNorm[_gsNorm(m.common_name_de)] = m;
+  });
   var obj = { rows: rows, byNorm: byNorm, ts: Date.now() };
   window._gsMushRegistryCache = obj;
   return obj;
 }
+
+// v29.67 Anfänger-Ampel-Stufen (aus v_mushroom_beginner; deterministisch, sichere Fehlerrichtung)
+var GS_BEGINNER_AMPEL = {
+  anfaenger:       { e:'🟢', l:'Anfänger-geeignet',     c:'#2e7d32', bg:'#e8f5e9' },
+  fortgeschritten: { e:'🟡', l:'Für Fortgeschrittene',  c:'#e65100', bg:'#fff3e0' },
+  gefahr:          { e:'🔴', l:'Giftig / gefährlich',   c:'#c62828', bg:'#ffebee' },
+  ungeniessbar:    { e:'⚪', l:'Ungeniessbar',           c:'#616161', bg:'#f5f5f5' },
+  unbekannt:       { e:'❔', l:'Einstufung offen',       c:'#616161', bg:'#f5f5f5' }
+};
+
+// v29.67 Lern-Steckbrief: öffnet das bestehende Pilz-Detail (_gsWave9RenderMushroom)
+// für einen Pilz (per Name aus good_mushrooms oder slug) + Anfänger-Ampel oben.
+async function gsOpenMushroomLearnCard(nameOrSlug) {
+  if (typeof sbFetch !== 'function') return;
+  try { if (typeof gsHaptic === 'function') gsHaptic('light'); } catch(_){}
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+  try {
+    var reg = await gsLoadMushRegistry();
+    var m = reg.byNorm[_gsNorm(nameOrSlug)] || _gsMatchRegistry(nameOrSlug, reg);
+    var slug = (m && m.slug) ? m.slug : null;
+    if (!slug) { if (typeof gsToast === 'function') gsToast('Kein Steckbrief für „' + nameOrSlug + '" gefunden'); return; }
+    var rr = await sbFetch('/rest/v1/mushroom_register?slug=eq.' + encodeURIComponent(slug) + '&select=*&limit=1', { method:'GET' });
+    var row = (rr && Array.isArray(rr.data) && rr.data[0]) ? rr.data[0] : ((Array.isArray(rr) && rr[0]) ? rr[0] : null);
+    if (!row) { if (typeof gsToast === 'function') gsToast('Kein Steckbrief gefunden'); return; }
+    var mc = document.getElementById('modal-content'); if (!mc) return;
+    var ampHtml = '';
+    var lvl = m && m.beginner_level;
+    if (lvl && GS_BEGINNER_AMPEL[lvl]) {
+      var a = GS_BEGINNER_AMPEL[lvl];
+      ampHtml = '<div style="padding:10px 16px;background:' + a.bg + ';border-bottom:2px solid ' + a.c + ';display:flex;align-items:center;gap:10px;">'
+        + '<span style="font-size:20px;">' + a.e + '</span>'
+        + '<div><div style="font-size:13px;font-weight:900;color:' + a.c + ';">' + a.l + '</div>'
+        + (m.has_deadly_lookalike ? '<div style="font-size:10.5px;color:#c62828;font-weight:800;margin-top:1px;">☠️ Hat einen tödlichen Doppelgänger — unbedingt Verwechslungs-Risiko unten lesen</div>' : '<div style="font-size:10.5px;color:' + a.c + ';opacity:.85;margin-top:1px;">Trotzdem: jeden Fund vor dem Essen bei der VAPKO prüfen lassen</div>')
+        + '</div></div>';
+    }
+    mc.innerHTML = '<div style="padding:0;">' + ampHtml + _gsWave9RenderMushroom(row, ed) + '</div>';
+    if (typeof openModal === 'function') openModal('detail-modal');
+  } catch(e){ console.warn('[mush-learn-card]', e && e.message); }
+}
+window.gsOpenMushroomLearnCard = gsOpenMushroomLearnCard;
+
+// v29.67 Chip-Klick-Delegation (HL#12-sicher: keine \' in onclick, data-mush + Listener)
+function gsWireMushChips(container) {
+  if (!container) return;
+  try {
+    container.querySelectorAll('[data-mush]').forEach(function(el){
+      if (el.dataset.mushWired === '1') return;
+      el.dataset.mushWired = '1';
+      el.addEventListener('click', function(e){ e.stopPropagation(); gsOpenMushroomLearnCard(el.getAttribute('data-mush')); });
+    });
+  } catch(_){}
+}
+window.gsWireMushChips = gsWireMushChips;
+
+// v29.67 Lernfreundliche Anfänger-Lektionen (nature_learning_cards, geerdet + adversarial geprüft)
+window._gsLearnCardsCache = null;
+async function gsLoadLearningCards(category) {
+  category = category || 'pilze_basics';
+  var c = window._gsLearnCardsCache;
+  if (c && c.cat === category && (Date.now() - c.ts) < 60 * 60 * 1000) return c.rows;
+  if (typeof sbFetch !== 'function') return [];
+  try {
+    var r = await sbFetch('/rest/v1/nature_learning_cards?category=eq.' + encodeURIComponent(category) + '&select=*&order=sort_order.asc&limit=30', { method:'GET' });
+    var rows = (r && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : []);
+    window._gsLearnCardsCache = { cat: category, rows: rows, ts: Date.now() };
+    return rows;
+  } catch(_){ return []; }
+}
+window.gsLoadLearningCards = gsLoadLearningCards;
+
+async function gsRenderLearningCards(host, category) {
+  if (!host || typeof sbFetch !== 'function') return;
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+  try {
+    var rows = await gsLoadLearningCards(category || 'pilze_basics');
+    if (!rows.length) { host.innerHTML = ''; return; }
+    var html = '<div style="display:flex;align-items:center;gap:8px;margin:6px 0 8px;border-top:2px solid #2e7d32;padding-top:14px;">'
+      + '<span style="font-size:24px;">🎓</span><div style="font-family:\'Playfair Display\',serif;font-size:17px;font-weight:900;color:#2e7d32;">Pilze sicher lernen</div></div>';
+    html += '<div style="font-size:11.5px;color:var(--text2);margin-bottom:9px;line-height:1.5;">Kurze Lektionen für sicheres Sammeln — geprüft an VAPKO, SwissFungi &amp; Tox Info Suisse. Tippe eine Lektion an.</div>';
+    rows.forEach(function(card){
+      var kp = Array.isArray(card.key_points) ? card.key_points : [];
+      var src = Array.isArray(card.sources) ? card.sources : [];
+      html += '<details style="margin-bottom:6px;background:var(--surface2);border-radius:10px;border:1px solid rgba(46,125,50,.18);">'
+        + '<summary style="padding:10px 12px;cursor:pointer;font-size:13px;font-weight:800;color:var(--text);list-style:none;display:flex;align-items:center;gap:8px;-webkit-tap-highlight-color:transparent;">'
+        + '<span style="font-size:17px;">' + ed(card.icon) + '</span><span style="flex:1;">' + ed(card.title) + '</span><span style="font-size:12px;color:var(--muted);">▾</span></summary>';
+      html += '<div style="padding:0 13px 12px;">';
+      html += '<div style="font-size:12.5px;color:var(--text2);line-height:1.62;margin-bottom:8px;">' + ed(card.body) + '</div>';
+      if (kp.length) {
+        html += '<ul style="margin:0 0 8px;padding-left:18px;font-size:12px;line-height:1.6;color:var(--text2);">';
+        kp.forEach(function(p){ html += '<li style="margin-bottom:4px;">' + ed(p) + '</li>'; });
+        html += '</ul>';
+      }
+      if (card.safety_caveat) html += '<div style="padding:8px 11px;background:#fff3e0;border-left:3px solid #e65100;border-radius:8px;font-size:11.5px;color:#bf360c;line-height:1.55;"><b>🔒 Sicherheit:</b> ' + ed(card.safety_caveat) + '</div>';
+      if (src.length) html += '<div style="margin-top:6px;font-size:10px;color:var(--muted);line-height:1.4;">Quellen: ' + ed(src.join(' · ')) + '</div>';
+      html += '</div></details>';
+    });
+    html += '<div style="margin-top:8px;padding:9px 12px;background:#ffebee;border:1px solid #c62828;border-radius:10px;font-size:11px;color:#b71c1c;line-height:1.5;text-align:center;">☎️ Vergiftungsnotfall: <a href="tel:145" style="color:#b71c1c;font-weight:900;">145</a> · Tox Info Suisse (24h, gratis)</div>';
+    host.innerHTML = html;
+  } catch(e){ console.warn('[learning-cards]', e && e.message); host.innerHTML = ''; }
+}
+window.gsRenderLearningCards = gsRenderLearningCards;
 
 // Tolerantes Auflösen eines Region-Pilz-Tokens auf eine Registry-Zeile
 function _gsMatchRegistry(token, reg) {
@@ -31899,18 +32010,21 @@ async function gsRenderRegionalMushrooms(zone) {
       if (rg.region_type) sub.push(ed(rg.region_type));
       if (sub.length) html += '<div style="font-size:11px;color:#6a1b9a;margin:2px 0 6px;font-weight:700;">' + sub.join(' · ') + '</div>';
       if (rg.landscape) html += '<div style="font-size:11.5px;color:#4e342e;line-height:1.5;margin-bottom:6px;">🌲 ' + ed(rg.landscape) + '</div>';
-      // good_mushrooms-Chips
+      // good_mushrooms-Chips: Anfänger-Ampel-Farbe + tappbar (Steckbrief) + Saison-Marker
       var chips = (Array.isArray(rg.good_mushrooms) ? rg.good_mushrooms : []).map(function(g){
         var m = _gsMatchRegistry(g, reg);
+        var lvl = (m && m.beginner_level) || 'unbekannt';
+        var amp = (typeof GS_BEGINNER_AMPEL !== 'undefined' && GS_BEGINNER_AMPEL[lvl]) ? GS_BEGINNER_AMPEL[lvl] : { e:'❔', c:'#6a1b9a', bg:'#fff' };
         var inSeason = m && Array.isArray(m.season_months) && m.season_months.map(Number).indexOf(curIdx+1) !== -1;
-        var st = inSeason ? 'background:#81c784;color:#1b5e20;font-weight:800;' : 'background:#fff;color:#6a1b9a;font-weight:600;border:1px solid #ce93d8;';
-        return '<span style="display:inline-block;' + st + 'padding:2px 8px;border-radius:8px;margin:2px 3px 2px 0;font-size:11px;white-space:nowrap;">' + (inSeason?'🟢 ':'') + ed(g) + '</span>';
+        return '<span data-mush="' + ed(g) + '" style="cursor:pointer;display:inline-block;background:' + amp.bg + ';color:' + amp.c + ';border:1px solid ' + amp.c + '55;padding:2px 8px;border-radius:8px;margin:2px 3px 2px 0;font-size:11px;white-space:nowrap;font-weight:' + (inSeason?'800':'600') + ';-webkit-tap-highlight-color:transparent;">' + amp.e + ' ' + ed(g) + (inSeason ? ' · jetzt' : '') + ' ›</span>';
       }).join('');
       if (chips) html += '<div style="margin-bottom:6px;">' + chips + '</div>';
       if (rg.foraging_notes) html += '<div style="font-size:11px;color:#4e342e;line-height:1.5;background:rgba(255,255,255,.6);padding:6px 9px;border-radius:8px;">🧺 ' + ed(rg.foraging_notes) + '</div>';
       if (rg.highlights) html += '<div style="font-size:10.5px;color:#6a1b9a;line-height:1.45;margin-top:5px;">⭐ ' + ed(rg.highlights) + '</div>';
       html += '</div>';
     });
+    // Ampel-Legende
+    html += '<div style="font-size:10.5px;color:#6a1b9a;margin:-2px 0 10px;line-height:1.55;">🟢 Anfänger-geeignet · 🟡 für Fortgeschrittene · 🔴 giftig/Vorsicht · ⚪ ungeniessbar · „· jetzt" = aktuell in Saison · <b>tippe einen Pilz</b> für den Steckbrief (Erkennen, Verwechsler, Zubereitung)</div>';
 
     // 12-Monats-Pilz-Verfügbarkeit (welche Speisepilze welchen Monat)
     html += '<div style="font-size:11.5px;font-weight:800;color:#6a1b9a;margin:14px 0 8px;letter-spacing:.4px;">📅 Wann welcher Pilz? (12 Monate)</div>';
@@ -31928,7 +32042,7 @@ async function gsRenderRegionalMushrooms(zone) {
           var edi = s.reg && EDI[s.reg.edibility];
           var badge = edi ? '<span style="opacity:.85;font-size:10px;">' + edi.e + '</span> ' : '';
           var vk = (s.reg && s.reg.vapko_klasse) ? ' <span style="font-size:9.5px;color:var(--muted);">VAPKO ' + ed(s.reg.vapko_klasse) + '</span>' : '';
-          html += '<div style="font-size:12px;color:var(--text2);line-height:1.7;">' + badge + ed(s.name) + vk + '</div>';
+          html += '<div data-mush="' + ed(s.name) + '" style="cursor:pointer;font-size:12px;color:var(--text2);line-height:1.7;-webkit-tap-highlight-color:transparent;">' + badge + ed(s.name) + vk + ' ›</div>';
         });
         html += '</div>';
       } else {
@@ -31955,7 +32069,11 @@ async function gsRenderRegionalMushrooms(zone) {
       html += '</div>';
     } catch(_){}
 
+    // v29.67 Lernfreundliche Anfänger-Lektionen direkt im Sammelkalender
+    html += '<div id="region-cal-learning" style="margin-top:16px;"></div>';
     host.innerHTML = html;
+    gsWireMushChips(host);
+    try { gsRenderLearningCards(document.getElementById('region-cal-learning'), 'pilze_basics'); } catch(_){}
   } catch(e){ console.warn('[region-mushrooms-cal]', e && e.message); host.innerHTML = ''; }
 }
 window.gsRenderRegionalMushrooms = gsRenderRegionalMushrooms;
@@ -59052,6 +59170,25 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.67', date: '18.06.2026',
+    headline: '🎓 Pilze sicher lernen + Anfänger-Ampel + tappbare Steckbriefe',
+    summary: 'Die Pilz-Funktionen werden lernfreundlich: In den Region-Pilz-Boxen kannst du jetzt jeden Pilz antippen und bekommst einen vollständigen Steckbrief (Erkennen, Merkmale, Verwechsler-Risiko, Zubereitung). Jeder Pilz trägt eine Anfänger-Ampel — 🟢 anfänger-geeignet, 🟡 für Fortgeschrittene, 🔴 giftig/Vorsicht — automatisch hergeleitet aus geprüfter Essbarkeit und Verwechslergefahr (tödlich verwechselbare Arten sind nie grün). Neu gibt es ausserdem ein kleines Lern-Curriculum „Pilze sicher lernen" mit 7 kurzen Lektionen (Röhrlinge vs. Lamellen, Sporenabdruck, die tödlichen Arten, gute Einsteiger-Pilze, häufige Fehler, Sammelregeln, VAPKO) — recherchiert und mehrfach sicherheitsgeprüft an VAPKO, SwissFungi und Tox Info Suisse. Und im Hintergrund kennt die App jetzt für über 1000 Gemeinden die genaue Region.',
+    user_summary: '🎓 Tippe einen Pilz für den Steckbrief, sieh die Anfänger-Ampel (🟢/🟡/🔴) und lerne in 7 kurzen, sicherheitsgeprüften Lektionen sicheres Sammeln.',
+    user_items: [
+      { emoji: '👆', text: 'Jeden Region-Pilz antippen → voller Steckbrief (Erkennen, Verwechsler, Küche)' },
+      { emoji: '🚦', text: 'Anfänger-Ampel 🟢/🟡/🔴 — tödlich verwechselbare Arten sind nie grün' },
+      { emoji: '🎓', text: '7 Lektionen „Pilze sicher lernen" (VAPKO/SwissFungi/Tox Info geprüft)' },
+      { emoji: '📍', text: 'Über 1000 Gemeinden kennen jetzt ihre genaue Region' },
+    ],
+    items: [
+      {emoji:'🚦', bold:'Anfänger-Ampel (v_mushroom_beginner):', text:' Deterministische DB-View — leitet je Pilz aus geprüfter edibility + schlimmster Verwechslergefahr (mushroom_lookalikes) eine Stufe ab (anfaenger/fortgeschritten/gefahr/ungeniessbar). KEIN LLM, sichere Fehlerrichtung: ein Speisepilz mit tödlichem Doppelgänger (z.B. Parasol) ist nie „anfaenger". Chips im Sammelkalender sind entsprechend gefärbt.'},
+      {emoji:'👆', bold:'Tappbare Steckbriefe (gsOpenMushroomLearnCard):', text:' Pilz-Chips in Pilz-Scanner-Box & Regional-Kalender öffnen das bestehende reiche Detail (Merkmale, bidirektionale Verwechsler aus mushroom_lookalikes, Zubereitung) mit Ampel-Badge oben. HL#12-sicher (data-mush + Delegation statt onclick-Escapes).'},
+      {emoji:'🎓', bold:'Lern-Curriculum (nature_learning_cards):', text:' 7 Anfänger-Lektionen via Research-+adversarial-Verify-Workflow. Der Sicherheits-Pass fing lebenswichtige False-Safe-Signale (z.B. „brauner Sporenabdruck schliesst Knollenblätterpilz aus" ist wegen Galerina tödlich falsch; Parasol-jung vs. Knollenblätterpilz-Lücke). Essbarkeit nur aus autoritativen Quellen, je Karte VAPKO-Pflicht + Tox 145.'},
+      {emoji:'📍', bold:'region_slug-Backfill:', text:' 1007/2164 Gemeinden via pro-Kanton-Workflow geografisch ihrer ch_region zugeordnet (konservativ NULL bei Unsicherheit). Spot-checks korrekt (Zermatt→Mattertal, St. Moritz→Oberengadin, Bern→NULL).'},
+      {emoji:'✅', bold:'Verify:', text:' Preview end-to-end: Steinpilz=🟢 + Verwechsler + VAPKO, Parasol=🟡 + Todesgefahr-Doppelgänger; 7 Lektionen + 145-Footer; Sammelkalender mit 62 tappbaren Ampel-Chips. 7/7 node --check + sw.js OK.'},
+    ],
+  },
+  {
     v: 'v29.66', date: '18.06.2026',
     headline: '🍄 Regional-Kalender: jetzt mit Pilz-Sammelkalender',
     summary: 'Der Regional-Kalender wurde für Pilzsammler massiv ausgebaut: Wenn du deine Region wählst, erscheint neu ein kompletter Pilz-Sammelkalender — welche Speisepilze in den Wäldern deiner Region gut sammelbar sind, in welcher Landschaft (Kalk-Buchenwald, Fichten-Bergwald, Kastanienselven …), dazu konkrete Sammel-Tipps pro Region. Eine 12-Monats-Übersicht zeigt, wann welcher Pilz Saison hat (der aktuelle Monat ist aufgeklappt). Und die zuständige VAPKO-Pilzkontrollstelle deines Kantons steht direkt dabei. Alle Pilzdaten stammen aus dem kuratierten Register (nie geraten) — und immer gilt: jeden Fund vor dem Essen kontrollieren lassen.',
@@ -64508,7 +64645,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.66';
+var GS_VERSION = 'v29.67';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
