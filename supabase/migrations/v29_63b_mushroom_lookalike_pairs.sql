@@ -1,0 +1,7 @@
+-- v29.63b — Verwechsler-Paare (mushroom_lookalikes) für die neuen Arten (task_a8692b11 Item 6).
+-- Die gefährlichsten/tödlichen Doppelgänger-Paare; alle referenzierten Slugs existieren im Register.
+-- Idempotent via NOT EXISTS auf (edible_slug, lookalike_slug). Nach Migration: 9->19 Paare (9 lebensgefährlich), 0 verwaiste Slugs.
+-- Paare (edible -> lookalike): Stockschwämmchen->Gifthäubling(Galerina), Maipilz->Ziegelroter Risspilz,
+-- Perlpilz->Pantherpilz, Grüngefelderter/Frauen-Täubling->Grüner Knollenblätterpilz, Spitzmorchel->Frühjahrslorchel,
+-- Parasol->Gift-Safranschirmling, Riesen-Champignon->Karbol-Champignon, Steinpilz->Gallenröhrling, Pfifferling->Falscher Pfifferling.
+-- (Voller INSERT identisch zur angewandten Migration v29_63b_mushroom_lookalike_pairs — siehe Supabase-Migrationsverlauf.)
