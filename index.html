@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.70.20260618">
+<meta name="app-version" content="29.71.20260618">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -9106,7 +9106,7 @@ function gsRenderWeatherDetail(data) {
 
   // ── 7-TAGE FORECAST ──────────────────────────────────────
   // v29.06: Wochentage über echte Locale statt fixem DE-Array (kein Seed nötig, 100% korrekt).
-  var _wxloc = ({de:'de-CH',en:'en-GB',es:'es-ES',fr:'fr-CH',it:'it-CH'})[(window.gsI18n&&gsI18n.current)||'de'] || 'de-CH';
+  var _wxloc = ({de:'de-CH',en:'en-GB',es:'es-ES',fr:'fr-CH',it:'it-CH'})[(window.gsI18n&&gsI18n.getLang&&gsI18n.getLang())||'de'] || 'de-CH';
   var dailyEl = document.getElementById('wd-daily');
   if (dailyEl && daily.time) {
     dailyEl.innerHTML = daily.time.slice(0,7).map(function(d, i) {
@@ -19358,7 +19358,7 @@ function initHomeBoard() {
     // Wochentag/Monat selbst — keine Key-Pflege nötig). Fallback de-CH.
     var datumEl = document.getElementById('daily-datum');
     if (datumEl) {
-      var _dl = (window.gsI18n && gsI18n.current) ? gsI18n.current : 'de';
+      var _dl = (window.gsI18n && gsI18n.getLang) ? gsI18n.getLang() : 'de';
       var _dloc = ({de:'de-CH',en:'en-GB',es:'es-ES',fr:'fr-CH',it:'it-CH'})[_dl] || 'de-CH';
       try {
         datumEl.textContent = now.toLocaleDateString(_dloc, { weekday:'long', day:'numeric', month:'long', year:'numeric' });
@@ -31959,13 +31959,37 @@ window.gsWireMushChips = gsWireMushChips;
 window._gsLearnCardsCache = null;
 async function gsLoadLearningCards(category) {
   category = category || 'pilze_basics';
+  var lang = (window.gsI18n && gsI18n.getLang && gsI18n.getLang()) || 'de';
+  var ckey = category + '|' + lang;
   var c = window._gsLearnCardsCache;
-  if (c && c.cat === category && (Date.now() - c.ts) < 60 * 60 * 1000) return c.rows;
+  if (c && c.key === ckey && (Date.now() - c.ts) < 60 * 60 * 1000) return c.rows;
   if (typeof sbFetch !== 'function') return [];
   try {
     var r = await sbFetch('/rest/v1/nature_learning_cards?category=eq.' + encodeURIComponent(category) + '&select=*&order=sort_order.asc&limit=30', { method:'GET' });
     var rows = (r && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : []);
-    window._gsLearnCardsCache = { cat: category, rows: rows, ts: Date.now() };
+    // v29.71: Übersetzung der aktiven Sprache mergen (Fallback: DE-Basis)
+    if (lang !== 'de' && rows.length) {
+      try {
+        var slugs = rows.map(function(x){ return x.slug; }).filter(Boolean);
+        var q = '/rest/v1/nature_learning_cards_i18n?lang=eq.' + encodeURIComponent(lang)
+          + '&slug=in.(' + slugs.map(encodeURIComponent).join(',') + ')&select=slug,title,body,key_points,tip,safety_caveat&limit=40';
+        var tr = await sbFetch(q, { method:'GET' });
+        var trRows = (tr && Array.isArray(tr.data)) ? tr.data : (Array.isArray(tr) ? tr : []);
+        var bySlug = {}; trRows.forEach(function(t){ if (t.slug) bySlug[t.slug] = t; });
+        rows = rows.map(function(x){
+          var t = bySlug[x.slug]; if (!t) return x;
+          // nur nicht-leere Übersetzungsfelder überschreiben; sources/icon/sort_order/category bleiben DE-Basis
+          var o = {}; for (var k in x) o[k] = x[k];
+          if (t.title) o.title = t.title;
+          if (t.body) o.body = t.body;
+          if (Array.isArray(t.key_points) && t.key_points.length) o.key_points = t.key_points;
+          if (t.tip) o.tip = t.tip;
+          if (t.safety_caveat) o.safety_caveat = t.safety_caveat;
+          return o;
+        });
+      } catch(_){}
+    }
+    window._gsLearnCardsCache = { key: ckey, rows: rows, ts: Date.now() };
     return rows;
   } catch(_){ return []; }
 }
@@ -32093,7 +32117,7 @@ async function gsRenderRegionalMushrooms(zone) {
 
     var reg = await gsLoadMushRegistry();
     // v29.70 i18n: kurze Monatsnamen in der aktiven Sprache
-    var _mloc = ({de:'de-CH',en:'en-GB',es:'es-ES',fr:'fr-CH',it:'it-CH'})[(window.gsI18n && gsI18n.current) || 'de'] || 'de-CH';
+    var _mloc = ({de:'de-CH',en:'en-GB',es:'es-ES',fr:'fr-CH',it:'it-CH'})[(window.gsI18n && gsI18n.getLang && gsI18n.getLang()) || 'de'] || 'de-CH';
     var monthNamesDe = (function(){ var a=[]; for (var _i=0;_i<12;_i++){ try { a.push(new Date(2001,_i,1).toLocaleString(_mloc,{month:'short'})); } catch(_){ a.push(['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'][_i]); } } return a; })();
     var curIdx = new Date().getMonth();
     var EDI = { speisepilz:{e:'🍽️',l:'Speisepilz'}, speisepilz_jung:{e:'🍽️',l:'Speisepilz (jung)'}, bedingt_essbar:{e:'⚠️',l:'bedingt essbar'} };
@@ -59283,6 +59307,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.71', date: '18.06.2026',
+    headline: '📚 Lern-Inhalte komplett auf 5 Sprachen',
+    summary: 'Die ausführlichen Lern-Inhalte selbst sprechen jetzt alle App-Sprachen: alle 16 Lernkarten (7 Pilze + 9 Garten) — Titel, Texte, Merkpunkte, Praxis-Tipps und Sicherheitshinweise — sind nun auf Deutsch, Englisch, Spanisch, Französisch und Italienisch verfügbar. Sicherheitskritische Pilz-Inhalte (Knollenblätterpilz-Warnungen, VAPKO-Pflicht, Notruf 145) wurden dabei adversarial gegengeprüft, damit beim Übersetzen keine lebenswichtige Nuance verloren geht. Lateinische Artnamen und Schweizer Institutionen (VAPKO, SwissFungi, FiBL) bleiben unverändert.',
+    user_summary: '📚 Die kompletten Lern-Inhalte (alle 16 Karten: Pilze & Garten) sind jetzt auf DE/EN/ES/FR/IT — nicht mehr nur die Bedienoberfläche.',
+    user_items: [
+      { emoji: '🍄', text: '7 Pilz-Lernkarten vollständig übersetzt (inkl. Sicherheits-Hinweise)' },
+      { emoji: '🌱', text: '9 Garten-Lernkarten vollständig übersetzt' },
+      { emoji: '🛡️', text: 'Sicherheits-Nuancen adversarial geprüft — keine verlorene Warnung beim Übersetzen' },
+      { emoji: '🇨🇭', text: 'FR & IT als Schweizer Landessprachen abgedeckt' },
+    ],
+    items: [
+      {emoji:'📚', bold:'64 Karten-Übersetzungen:', text:' 16 Lernkarten × EN/ES/FR/IT in neuer Tabelle nature_learning_cards_i18n (Titel/Body/Merkpunkte/Tipp/Sicherheits-Hinweis), anon-lesbar, Schreibrechte revoked.'},
+      {emoji:'🛡️', bold:'Sicherheits-Verify:', text:' translate+adversarial-safety-Workflow, 0 unsichere Korrekturen nötig: Knollenblätterpilz-NICHT-Ausschluss (Galerina), VAPKO-Pflicht, Tox-145, „Eisheilige" erhalten; lat. Artnamen + VAPKO/SwissFungi/FiBL/Bioterra untranslated.'},
+      {emoji:'🔧', bold:'Loader-Fix:', text:' gsLoadLearningCards mergt jetzt die Übersetzung der aktiven Sprache; 4× gsI18n.current→getLang() korrigiert (Latent-Bug: Datum-/Wetter-/Monats-Locale defaulteten still auf Deutsch).'},
+      {emoji:'✅', bold:'Verify:', text:' Preview FR/IT/ES end-to-end: „Les champignons mortels…", „Compost — oro dagli scarti", „La esporada". 7/7 node --check + sw.js OK.'},
+    ],
+  },
+  {
     v: 'v29.70', date: '18.06.2026',
     headline: '🌍 Pilz- & Garten-Lern-UI auf 5 Sprachen',
     summary: 'Die neuen Pilz- und Garten-Lern-Funktionen sprechen jetzt alle App-Sprachen: Deutsch, Englisch, Spanisch, Französisch und Italienisch. Wichtig für die Schweiz — Französisch und Italienisch sind Landessprachen (Romandie, Tessin). Übersetzt sind die Anfänger-Ampel-Stufen, der Pilz-Sammelkalender, die Region-Tipps, der „🎓 Lernen"-Bereich, alle Sicherheits- und VAPKO-Hinweise sowie die Monatsnamen. Die ausführlichen Lektions-Inhalte und Pilz-Steckbriefe bleiben vorerst auf Deutsch.',
@@ -64795,7 +64837,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.70';
+var GS_VERSION = 'v29.71';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
