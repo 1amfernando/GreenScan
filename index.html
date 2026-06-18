@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.58.20260618">
+<meta name="app-version" content="29.59.20260618">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12003,6 +12003,9 @@ window.GS_I18N_JS_STRINGS = {
   'season_wild_open':          'Sammelzeit beginnt',
   'season_wild_last':          'Letzte Sammeltage',
   'season_you_grow':           'dein Anbau',
+  'season_companions_good':    'Gute Nachbarn',
+  'season_companions_bad':     'Meiden',
+  'season_companions_src':     'Mischkultur: FiBL/Bioterra',
   'season_region_cta_title':   'Lokale Saison-Tipps',
   'season_region_cta_body':    'Wähle deine Schweizer Region — dann zeigt der Kalender Frostdaten, Wachstumssaison und was genau bei dir gerade dran ist.',
   'season_region_cta_btn':     'Region wählen',
@@ -29011,6 +29014,8 @@ function initSeasonCalendar() {
   ).join('');
   renderSeasonList();
   gsRenderSeasonRegionPanel();
+  // v29.59: Mischkultur-Daten laden, dann mit Companion-Hinweisen neu rendern
+  try { if (typeof gsPPloadAgronomy === 'function') gsPPloadAgronomy().then(function(){ renderSeasonList(); }).catch(function(){}); } catch(_){}
 }
 
 function selectSeasonMonth(idx, btn) {
@@ -29038,13 +29043,32 @@ function renderSeasonList() {
   const m = currentSeasonMonth;
 
   // v29.55 persönlich: was der Nutzer selbst anbaut (Match auf myPlants-Namen, normalisiert)
-  var _norm = function(s){ return String(s==null?'':s).toLowerCase().trim().replace(/\s*\(.*?\)\s*/g,'').replace(/(en|n)$/,''); };
+  var _norm = function(s){ return String(s==null?'':s).toLowerCase().trim().replace(/\s*\(.*?\)\s*/g,'').replace(/(en|n|e)$/,''); }; // v29.59: auch trailing -e → Plural/Singular-Match (Tomaten↔Tomate)
   var _userGrows = {};
   try {
     var _mp = (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) ? myPlants : [];
     _mp.forEach(function(p){ if (p && p.name) { var k = _norm(p.name); if (k) _userGrows[k] = 1; } });
   } catch(_){}
   var _grows = function(nm){ var k = _norm(nm); return !!(k && _userGrows[k]); };
+
+  // v29.59: Mischkultur-Hinweise aus garden_crop_agronomy (geerdete Companion-Daten aus v29.58)
+  var _agroMap = {};
+  try {
+    var _ac = window._gsPPagroCache && window._gsPPagroCache.rows;
+    if (Array.isArray(_ac)) _ac.forEach(function(a){ var k = _norm(a.crop); if (k) _agroMap[k] = a; });
+  } catch(_){}
+  var _agroHint = function(nm){
+    var a = _agroMap[_norm(nm)]; if (!a) return '';
+    var g = (a.companion_good||[]).slice(0,6).join(', ');
+    var b = (a.companion_bad||[]).slice(0,5).join(', ');
+    if (!g && !b) return '';
+    var _e = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||''); };
+    return '<div style="margin-top:7px;padding-top:7px;border-top:1px dashed #e0e0e0;">' +
+      (g ? '<div style="color:#2e7d32;"><b>🤝 ' + _t('season_companions_good','Gute Nachbarn') + ':</b> ' + _e(g) + '</div>' : '') +
+      (b ? '<div style="color:#c62828;margin-top:2px;"><b>⛔ ' + _t('season_companions_bad','Meiden') + ':</b> ' + _e(b) + '</div>' : '') +
+      '<div style="color:var(--muted);font-size:10px;margin-top:3px;">' + _t('season_companions_src','Mischkultur: FiBL/Bioterra') + '</div>' +
+    '</div>';
+  };
 
   const filtered = SEASON_DATA.filter(item => {
     if (currentSeasonFilter !== 'all' && item.cat !== currentSeasonFilter) return false;
@@ -29123,7 +29147,7 @@ function renderSeasonList() {
         '</div>' +
         '<div style="display:flex;gap:2px;">' + monthBar + '</div>' +
         (_why ? '<div style="margin-top:6px;font-size:10.5px;font-weight:700;color:' + _whyCol + ';">' + _why + '</div>' : '') +
-        '<div id="sd-' + item.name.replace(/[^a-z]/gi,'') + '" style="display:none;margin-top:8px;font-size:12px;color:var(--text2);line-height:1.5;padding-top:7px;border-top:1px solid #f0f0f0;">💡 ' + item.tip + '</div>' +
+        '<div id="sd-' + item.name.replace(/[^a-z]/gi,'') + '" style="display:none;margin-top:8px;font-size:12px;color:var(--text2);line-height:1.5;padding-top:7px;border-top:1px solid #f0f0f0;">💡 ' + item.tip + _agroHint(item.name) + '</div>' +
         '</div>';
     });
     html += '</div></div>';
@@ -58661,6 +58685,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.59', date: '18.06.2026',
+    headline: '🤝 Saisonkalender zeigt jetzt Mischkultur-Nachbarn',
+    summary: 'Im Saisonkalender erscheinen beim Aufklappen einer Pflanze jetzt geprüfte Mischkultur-Hinweise: welche Nachbarn gut zusammenpassen und welche du meiden solltest (FiBL/Bioterra-Standard). So planst du direkt beim „Was hat Saison" auch gleich gute Beet-Nachbarschaften.',
+    user_summary: '🤝 Saisonkalender-Details zeigen jetzt gute & zu meidende Beet-Nachbarn (Mischkultur, FiBL/Bioterra).',
+    user_items: [
+      { emoji: '🤝', text: 'Gute Nachbarn & zu meidende Kombinationen pro Pflanze im Saison-Detail' },
+      { emoji: '📚', text: 'Geprüfte Mischkultur-Daten (FiBL/Bioterra) statt Schätzung' },
+    ],
+    items: [
+      {emoji:'🤝', bold:'Mischkultur im Saisonkalender:', text:' renderSeasonList baut eine Lookup-Map aus garden_crop_agronomy (v29.58); das Item-Detail zeigt 🤝 Gute Nachbarn / ⛔ Meiden für gängige Kulturen. initSeasonCalendar lädt die Agronomie und rendert mit Hinweisen neu.'},
+      {emoji:'🐛', bold:'Normalisierer-Fix:', text:' _norm strippte „en/n" → „Tomaten" (tomat) matchte „Tomate" (tomate) nicht; jetzt auch trailing „e" → Plural/Singular treffen sich (verbessert auch das ⭐-„dein Anbau"-Matching).'},
+      {emoji:'✅', bold:'Verify:', text:' Live geprüft — Tomate zeigt 🤝 Basilikum + ⛔ Kartoffel, Karotte 🤝 Zwiebel, 19 Treffer, 0 Console-Fehler. 3 i18n-Keys EN/ES/FR/IT geseedet. 7/7 node --check + sw.js OK. v-Bump 5-fach v29.58 nach v29.59.'},
+    ]
+  },
+  {
     v: 'v29.58', date: '18.06.2026',
     headline: '🌱 KI-Gartenplaner intelligenter — auf geprüften Daten',
     summary: 'Der KI-Gartenplaner stützt sich jetzt auf eine geprüfte Agronomie-Referenz (FiBL/Bioterra-Standard) für 25 gängige Schweizer Gartenkulturen, statt Mischkultur, Fruchtfolge und Aussaat-/Erntezeiten frei zu schätzen. So sind „gute & schlechte Nachbarn", die Fruchtfolge-Familie und das Timing für die häufigen Gemüse jetzt faktenbasiert statt geraten.',
@@ -64050,7 +64089,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.58';
+var GS_VERSION = 'v29.59';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
