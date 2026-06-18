@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.68.20260618">
+<meta name="app-version" content="29.70.20260618">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12205,7 +12205,45 @@ window.GS_I18N_JS_STRINGS = {
   'farm_bldg_silo':            'Silo',
   'farm_bldg_bakery':          'Bäckerei',
   'farm_bldg_market':          'Markt',
-  'farm_bldg_greenhouse':      'Gewächshaus'
+  'farm_bldg_greenhouse':      'Gewächshaus',
+  // ── v29.70 Pilz-/Garten-Lern-UI (Anfänger-Ampel, Steckbrief, Sammelkalender, Lern-Hub) ──
+  'amp_anfaenger':             'Anfänger-geeignet',
+  'amp_fortgeschritten':       'Für Fortgeschrittene',
+  'amp_gefahr':                'Giftig / gefährlich',
+  'amp_ungeniessbar':          'Ungeniessbar',
+  'amp_unbekannt':             'Einstufung offen',
+  'mush_has_deadly':           'Hat einen tödlichen Doppelgänger — unbedingt Verwechslungs-Risiko unten lesen',
+  'mush_vapko_check_each':     'Jeden Fund vor dem Essen bei der VAPKO prüfen lassen',
+  'mush_no_steckbrief':        'Kein Steckbrief gefunden',
+  'mush_good_collect_in':      'Gut sammelbar im',
+  'mush_good_collect_region':  'Gut sammelbar in deiner Region',
+  'mush_region_empty':         'Für diese Region sind noch keine typischen Speisepilze hinterlegt.',
+  'mush_region_hint_title':    'Region für lokale Pilz-Tipps',
+  'mush_region_hint_body':     'Setze Standort oder Region — dann zeigen wir, welche Pilze hier gut sammelbar sind.',
+  'mush_region_pick':          'Region wählen',
+  'mush_season_now':           'jetzt in Saison',
+  'mush_box_legend_tap':       'tippe einen Pilz für den Steckbrief (Erkennen, Verwechsler, Anfänger-Ampel) · alle Funde vor dem Essen bei der VAPKO-Pilzkontrolle prüfen lassen',
+  'mush_cal_title':            'Pilz-Sammelkalender',
+  'mush_cal_when':             'Wann welcher Pilz?',
+  'mush_cal_ampel_legend':     '🟢 Anfänger-geeignet · 🟡 für Fortgeschrittene · 🔴 giftig/Vorsicht · ⚪ ungeniessbar · tippe einen Pilz für den Steckbrief',
+  'mush_cal_no_season':        'in diesen Regionen kein typischer Speisepilz in Saison',
+  'mush_vapko_title':          'Vor dem Essen: VAPKO-Pilzkontrolle',
+  'mush_vapko_body':           'Lass JEDEN gesammelten Pilz von einer offiziellen Pilzkontrollstelle prüfen, bevor du ihn isst. Diese App ist Information, keine Verzehr-Garantie.',
+  'mush_emergency':            'Vergiftungsnotfall',
+  'lrn_head_pilze':            'Pilze sicher lernen',
+  'lrn_head_garten':           'Garten für Einsteiger',
+  'lrn_intro_pilze':           'Kurze Lektionen für sicheres Sammeln — geprüft an VAPKO, SwissFungi und Tox Info Suisse. Tippe eine Lektion an.',
+  'lrn_intro_garten':          'Kurze, geerdete Lektionen für deinen naturnahen Garten — Quellen u.a. FiBL, Bioterra, Agroscope, ProSpecieRara. Tippe eine Lektion an.',
+  'lrn_safety_label':          'Sicherheit',
+  'lrn_tip_label':             'Praxis-Tipp',
+  'lrn_sources_label':         'Quellen',
+  'lrn_emergency_footer':      'Vergiftungsnotfall: 145 · Tox Info Suisse (24h, gratis)',
+  'lrn_hub_title':             'Naturwissen lernen',
+  'lrn_hub_sub':               'Kurze, geerdete Lektionen — sammle sicher, gärtnere naturnah.',
+  'lrn_tab_pilze':             'Pilze',
+  'lrn_tab_garten':            'Garten',
+  'lrn_menu_label':            'Lernen',
+  'lrn_menu_sub':              'Pilze und Garten — Anfänger-Lektionen'
 };
 
 // Sammelt alle data-i18n Strings aus DOM + ergänzt durch JS-Map
@@ -18119,15 +18157,15 @@ async function gsAttachRegionMushrooms(card) {
     var month = res ? res.month : (new Date().getMonth() + 1);
     if (!res || !res.regions || !res.regions.length) {
       // Keine Region auflösbar → dezenter Hinweis + Region-Picker
-      box.innerHTML = '📍 <b>Region für lokale Pilz-Tipps</b><br>'
-        + '<span style="opacity:.9;">Setze Standort/Region — dann zeigen wir, welche Pilze hier gut sammelbar sind.</span>'
-        + '<button onclick="event.stopPropagation();openRegionalCalendarModal()" style="margin-top:6px;padding:5px 10px;background:rgba(255,255,255,.92);border:none;color:#4a148c;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;">Region wählen</button>';
+      box.innerHTML = '📍 <b>' + ed(_lt('mush_region_hint_title','Region für lokale Pilz-Tipps')) + '</b><br>'
+        + '<span style="opacity:.9;">' + ed(_lt('mush_region_hint_body','Setze Standort oder Region — dann zeigen wir, welche Pilze hier gut sammelbar sind.')) + '</span>'
+        + '<button onclick="event.stopPropagation();openRegionalCalendarModal()" style="margin-top:6px;padding:5px 10px;background:rgba(255,255,255,.92);border:none;color:#4a148c;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;">' + ed(_lt('mush_region_pick','Region wählen')) + '</button>';
       box.style.display = 'block';
       return;
     }
     var seasonMap = await _gsMushSeasonMap(month);
     var r0 = res.regions[0];
-    var hdr = '🍄 <b>Gut sammelbar' + (r0.name ? ' im ' + ed(r0.name) : ' in deiner Region') + '</b>';
+    var hdr = '🍄 <b>' + (r0.name ? ed(_lt('mush_good_collect_in','Gut sammelbar im')) + ' ' + ed(r0.name) : ed(_lt('mush_good_collect_region','Gut sammelbar in deiner Region'))) + '</b>';
     var sub = [];
     if (r0.altitude_min_m != null && r0.altitude_max_m != null) sub.push(ed(r0.altitude_min_m) + '–' + ed(r0.altitude_max_m) + ' m');
     if (r0.landscape) sub.push(ed(String(r0.landscape).split(/[.;]/)[0]).slice(0,70));
@@ -18147,14 +18185,14 @@ async function gsAttachRegionMushrooms(card) {
       var st = it.season
         ? 'background:rgba(129,199,132,.35);font-weight:800;'
         : 'background:rgba(255,255,255,.12);font-weight:600;opacity:.85;';
-      return '<span data-mush="' + ed(it.name) + '" style="cursor:pointer;display:inline-flex;align-items:center;min-height:34px;box-sizing:border-box;' + st + 'padding:4px 11px;border-radius:8px;margin:4px 4px 4px 0;font-size:11px;white-space:nowrap;-webkit-tap-highlight-color:transparent;">' + ed(it.name) + (it.season ? ' · jetzt' : '') + ' ›</span>';
+      return '<span data-mush="' + ed(it.name) + '" style="cursor:pointer;display:inline-flex;align-items:center;min-height:34px;box-sizing:border-box;' + st + 'padding:4px 11px;border-radius:8px;margin:4px 4px 4px 0;font-size:11px;white-space:nowrap;-webkit-tap-highlight-color:transparent;">' + ed(it.name) + (it.season ? ' · ' + ed(_lt('mush_season_now','jetzt in Saison')) : '') + ' ›</span>';
     }).join('');
     var anyInSeason = items.some(function(it){ return it.season; });
     if (!items.length) {
       // v29.68 F4: sinnvoller Leerzustand statt nacktem "—"
-      box.innerHTML = hdr + subLine + '<div style="opacity:.85;margin-top:4px;font-size:11.5px;">Für diese Region sind noch keine typischen Speisepilze hinterlegt.</div>';
+      box.innerHTML = hdr + subLine + '<div style="opacity:.85;margin-top:4px;font-size:11.5px;">' + ed(_lt('mush_region_empty','Für diese Region sind noch keine typischen Speisepilze hinterlegt.')) + '</div>';
     } else {
-      var legend = (anyInSeason ? '„· jetzt" = aktuell in Saison · ' : '') + 'tippe einen Pilz für den Steckbrief (Erkennen, Verwechsler, Anfänger-Ampel) · alle Funde vor dem Essen bei der VAPKO-Pilzkontrolle prüfen lassen';
+      var legend = ed(_lt('mush_box_legend_tap','tippe einen Pilz für den Steckbrief (Erkennen, Verwechsler, Anfänger-Ampel) · alle Funde vor dem Essen bei der VAPKO-Pilzkontrolle prüfen lassen'));
       box.innerHTML = hdr + subLine + '<div style="margin-top:2px;">' + chips + '</div>' + '<div style="opacity:.82;font-size:10.5px;margin-top:5px;">' + legend + '</div>';
     }
     gsWireMushChips(box);
@@ -31864,12 +31902,14 @@ async function gsLoadMushRegistry() {
 
 // v29.67 Anfänger-Ampel-Stufen (aus v_mushroom_beginner; deterministisch, sichere Fehlerrichtung)
 var GS_BEGINNER_AMPEL = {
-  anfaenger:       { e:'🟢', l:'Anfänger-geeignet',     c:'#2e7d32', bg:'#e8f5e9' },
-  fortgeschritten: { e:'🟡', l:'Für Fortgeschrittene',  c:'#e65100', bg:'#fff3e0' },
-  gefahr:          { e:'🔴', l:'Giftig / gefährlich',   c:'#c62828', bg:'#ffebee' },
-  ungeniessbar:    { e:'⚪', l:'Ungeniessbar',           c:'#616161', bg:'#f5f5f5' },
-  unbekannt:       { e:'❔', l:'Einstufung offen',       c:'#616161', bg:'#f5f5f5' }
+  anfaenger:       { e:'🟢', l:'Anfänger-geeignet',     k:'amp_anfaenger',       c:'#2e7d32', bg:'#e8f5e9' },
+  fortgeschritten: { e:'🟡', l:'Für Fortgeschrittene',  k:'amp_fortgeschritten', c:'#e65100', bg:'#fff3e0' },
+  gefahr:          { e:'🔴', l:'Giftig / gefährlich',   k:'amp_gefahr',          c:'#c62828', bg:'#ffebee' },
+  ungeniessbar:    { e:'⚪', l:'Ungeniessbar',           k:'amp_ungeniessbar',    c:'#616161', bg:'#f5f5f5' },
+  unbekannt:       { e:'❔', l:'Einstufung offen',       k:'amp_unbekannt',       c:'#616161', bg:'#f5f5f5' }
 };
+// v29.70 i18n-Helper für die Pilz-/Lern-UI (lazy, lang-switch-fähig)
+function _lt(k, f){ return (window.gsI18n && gsI18n.t) ? gsI18n.t(k, f) : f; }
 
 // v29.67 Lern-Steckbrief: öffnet das bestehende Pilz-Detail (_gsWave9RenderMushroom)
 // für einen Pilz (per Name aus good_mushrooms oder slug) + Anfänger-Ampel oben.
@@ -31881,10 +31921,10 @@ async function gsOpenMushroomLearnCard(nameOrSlug) {
     var reg = await gsLoadMushRegistry();
     var m = reg.byNorm[_gsNorm(nameOrSlug)] || _gsMatchRegistry(nameOrSlug, reg);
     var slug = (m && m.slug) ? m.slug : null;
-    if (!slug) { if (typeof gsToast === 'function') gsToast('Kein Steckbrief für „' + nameOrSlug + '" gefunden'); return; }
+    if (!slug) { if (typeof gsToast === 'function') gsToast(_lt('mush_no_steckbrief','Kein Steckbrief gefunden')); return; }
     var rr = await sbFetch('/rest/v1/mushroom_register?slug=eq.' + encodeURIComponent(slug) + '&select=*&limit=1', { method:'GET' });
     var row = (rr && Array.isArray(rr.data) && rr.data[0]) ? rr.data[0] : ((Array.isArray(rr) && rr[0]) ? rr[0] : null);
-    if (!row) { if (typeof gsToast === 'function') gsToast('Kein Steckbrief gefunden'); return; }
+    if (!row) { if (typeof gsToast === 'function') gsToast(_lt('mush_no_steckbrief','Kein Steckbrief gefunden')); return; }
     var mc = document.getElementById('modal-content'); if (!mc) return;
     var ampHtml = '';
     var lvl = m && m.beginner_level;
@@ -31892,8 +31932,8 @@ async function gsOpenMushroomLearnCard(nameOrSlug) {
       var a = GS_BEGINNER_AMPEL[lvl];
       ampHtml = '<div style="padding:10px 16px;background:' + a.bg + ';border-bottom:2px solid ' + a.c + ';display:flex;align-items:center;gap:10px;">'
         + '<span style="font-size:20px;">' + a.e + '</span>'
-        + '<div><div style="font-size:13px;font-weight:900;color:' + a.c + ';">' + a.l + '</div>'
-        + (m.has_deadly_lookalike ? '<div style="font-size:10.5px;color:#c62828;font-weight:800;margin-top:1px;">☠️ Hat einen tödlichen Doppelgänger — unbedingt Verwechslungs-Risiko unten lesen</div>' : '<div style="font-size:10.5px;color:' + a.c + ';opacity:.85;margin-top:1px;">Trotzdem: jeden Fund vor dem Essen bei der VAPKO prüfen lassen</div>')
+        + '<div><div style="font-size:13px;font-weight:900;color:' + a.c + ';">' + ed(_lt(a.k, a.l)) + '</div>'
+        + (m.has_deadly_lookalike ? '<div style="font-size:10.5px;color:#c62828;font-weight:800;margin-top:1px;">☠️ ' + ed(_lt('mush_has_deadly','Hat einen tödlichen Doppelgänger — unbedingt Verwechslungs-Risiko unten lesen')) + '</div>' : '<div style="font-size:10.5px;color:' + a.c + ';opacity:.85;margin-top:1px;">' + ed(_lt('mush_vapko_check_each','Jeden Fund vor dem Essen bei der VAPKO prüfen lassen')) + '</div>')
         + '</div></div>';
     }
     mc.innerHTML = '<div style="padding:0;">' + ampHtml + _gsWave9RenderMushroom(row, ed) + '</div>';
@@ -31932,8 +31972,8 @@ async function gsLoadLearningCards(category) {
 window.gsLoadLearningCards = gsLoadLearningCards;
 
 var GS_LEARN_CATS = {
-  pilze_basics: { head:'Pilze sicher lernen', intro:'Kurze Lektionen für sicheres Sammeln — geprüft an VAPKO, SwissFungi &amp; Tox Info Suisse. Tippe eine Lektion an.', accent:'#2e7d32', footer:true },
-  garten_basics: { head:'Garten für Einsteiger', intro:'Kurze, geerdete Lektionen für deinen naturnahen Garten — Quellen u.a. FiBL, Bioterra, Agroscope, ProSpecieRara. Tippe eine Lektion an.', accent:'#2e7d32', footer:false },
+  pilze_basics: { head:'Pilze sicher lernen', headKey:'lrn_head_pilze', intro:'Kurze Lektionen für sicheres Sammeln — geprüft an VAPKO, SwissFungi und Tox Info Suisse. Tippe eine Lektion an.', introKey:'lrn_intro_pilze', accent:'#2e7d32', footer:true },
+  garten_basics: { head:'Garten für Einsteiger', headKey:'lrn_head_garten', intro:'Kurze, geerdete Lektionen für deinen naturnahen Garten — Quellen u.a. FiBL, Bioterra, Agroscope, ProSpecieRara. Tippe eine Lektion an.', introKey:'lrn_intro_garten', accent:'#2e7d32', footer:false },
 };
 async function gsRenderLearningCards(host, category) {
   if (!host || typeof sbFetch !== 'function') return;
@@ -31944,8 +31984,8 @@ async function gsRenderLearningCards(host, category) {
     var rows = await gsLoadLearningCards(category);
     if (!rows.length) { host.innerHTML = ''; return; }
     var html = '<div style="display:flex;align-items:center;gap:8px;margin:6px 0 8px;border-top:2px solid ' + cat.accent + ';padding-top:14px;">'
-      + '<span style="font-size:24px;">🎓</span><div style="font-family:\'Playfair Display\',serif;font-size:17px;font-weight:900;color:' + cat.accent + ';">' + ed(cat.head) + '</div></div>';
-    html += '<div style="font-size:11.5px;color:var(--text2);margin-bottom:9px;line-height:1.5;">' + cat.intro + '</div>';
+      + '<span style="font-size:24px;">🎓</span><div style="font-family:\'Playfair Display\',serif;font-size:17px;font-weight:900;color:' + cat.accent + ';">' + ed(_lt(cat.headKey, cat.head)) + '</div></div>';
+    html += '<div style="font-size:11.5px;color:var(--text2);margin-bottom:9px;line-height:1.5;">' + ed(_lt(cat.introKey, cat.intro)) + '</div>';
     rows.forEach(function(card){
       var kp = Array.isArray(card.key_points) ? card.key_points : [];
       var src = Array.isArray(card.sources) ? card.sources : [];
@@ -31959,12 +31999,12 @@ async function gsRenderLearningCards(host, category) {
         kp.forEach(function(p){ html += '<li style="margin-bottom:4px;">' + ed(p) + '</li>'; });
         html += '</ul>';
       }
-      if (card.safety_caveat) html += '<div style="padding:8px 11px;background:#fff3e0;border-left:3px solid #e65100;border-radius:8px;font-size:11.5px;color:#bf360c;line-height:1.55;margin-bottom:6px;"><b>🔒 Sicherheit:</b> ' + ed(card.safety_caveat) + '</div>';
-      if (card.tip) html += '<div style="padding:8px 11px;background:#e8f5e9;border-left:3px solid #2e7d32;border-radius:8px;font-size:11.5px;color:#1b5e20;line-height:1.55;"><b>💡 Praxis-Tipp:</b> ' + ed(card.tip) + '</div>';
-      if (src.length) html += '<div style="margin-top:6px;font-size:10px;color:var(--muted);line-height:1.4;">Quellen: ' + ed(src.join(' · ')) + '</div>';
+      if (card.safety_caveat) html += '<div style="padding:8px 11px;background:#fff3e0;border-left:3px solid #e65100;border-radius:8px;font-size:11.5px;color:#bf360c;line-height:1.55;margin-bottom:6px;"><b>🔒 ' + ed(_lt('lrn_safety_label','Sicherheit')) + ':</b> ' + ed(card.safety_caveat) + '</div>';
+      if (card.tip) html += '<div style="padding:8px 11px;background:#e8f5e9;border-left:3px solid #2e7d32;border-radius:8px;font-size:11.5px;color:#1b5e20;line-height:1.55;"><b>💡 ' + ed(_lt('lrn_tip_label','Praxis-Tipp')) + ':</b> ' + ed(card.tip) + '</div>';
+      if (src.length) html += '<div style="margin-top:6px;font-size:10px;color:var(--muted);line-height:1.4;">' + ed(_lt('lrn_sources_label','Quellen')) + ': ' + ed(src.join(' · ')) + '</div>';
       html += '</div></details>';
     });
-    if (cat.footer) html += '<div style="margin-top:8px;padding:9px 12px;background:#ffebee;border:1px solid #c62828;border-radius:10px;font-size:11px;color:#b71c1c;line-height:1.5;text-align:center;">☎️ Vergiftungsnotfall: <a href="tel:145" style="color:#b71c1c;font-weight:900;">145</a> · Tox Info Suisse (24h, gratis)</div>';
+    if (cat.footer) html += '<div style="margin-top:8px;padding:9px 12px;background:#ffebee;border:1px solid #c62828;border-radius:10px;font-size:11px;color:#b71c1c;line-height:1.5;text-align:center;">☎️ ' + ed(_lt('mush_emergency','Vergiftungsnotfall')) + ': <a href="tel:145" style="color:#b71c1c;font-weight:900;">145</a> · Tox Info Suisse (24h)</div>';
     host.innerHTML = html;
   } catch(e){ console.warn('[learning-cards]', e && e.message); host.innerHTML = ''; }
 }
@@ -31976,11 +32016,11 @@ async function gsOpenLearnHub(initialCat) {
   try { if (typeof gsHaptic === 'function') gsHaptic('light'); } catch(_){}
   mc.innerHTML = '<div style="padding:16px 16px 8px;">'
     + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:2px;"><span style="font-size:30px;">🎓</span>'
-    + '<div><div style="font-family:\'Playfair Display\',serif;font-size:20px;font-weight:900;color:var(--text);">Naturwissen lernen</div>'
-    + '<div style="font-size:11.5px;color:var(--text2);line-height:1.45;">Kurze, geerdete Lektionen — sammle sicher, gärtnere naturnah.</div></div></div>'
+    + '<div><div style="font-family:\'Playfair Display\',serif;font-size:20px;font-weight:900;color:var(--text);">' + ((typeof gsHTMLEscape==='function'?gsHTMLEscape:String)(_lt('lrn_hub_title','Naturwissen lernen'))) + '</div>'
+    + '<div style="font-size:11.5px;color:var(--text2);line-height:1.45;">' + ((typeof gsHTMLEscape==='function'?gsHTMLEscape:String)(_lt('lrn_hub_sub','Kurze, geerdete Lektionen — sammle sicher, gärtnere naturnah.'))) + '</div></div></div>'
     + '<div style="display:flex;gap:8px;margin:14px 0 2px;">'
-    +   '<button id="lh-tab-pilze" onclick="gsLearnHubTab(\'pilze_basics\')" style="flex:1;padding:9px;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🍄 Pilze</button>'
-    +   '<button id="lh-tab-garten" onclick="gsLearnHubTab(\'garten_basics\')" style="flex:1;padding:9px;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🌱 Garten</button>'
+    +   '<button id="lh-tab-pilze" onclick="gsLearnHubTab(\'pilze_basics\')" style="flex:1;padding:9px;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🍄 ' + ((typeof gsHTMLEscape==='function'?gsHTMLEscape:String)(_lt('lrn_tab_pilze','Pilze'))) + '</button>'
+    +   '<button id="lh-tab-garten" onclick="gsLearnHubTab(\'garten_basics\')" style="flex:1;padding:9px;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🌱 ' + ((typeof gsHTMLEscape==='function'?gsHTMLEscape:String)(_lt('lrn_tab_garten','Garten'))) + '</button>'
     + '</div>'
     + '<div id="lh-content" style="padding:2px 0 16px;"></div></div>';
   if (typeof openModal === 'function') openModal('detail-modal');
@@ -32052,7 +32092,9 @@ async function gsRenderRegionalMushrooms(zone) {
     if (!regions.length) { host.innerHTML = ''; return; }
 
     var reg = await gsLoadMushRegistry();
-    var monthNamesDe = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+    // v29.70 i18n: kurze Monatsnamen in der aktiven Sprache
+    var _mloc = ({de:'de-CH',en:'en-GB',es:'es-ES',fr:'fr-CH',it:'it-CH'})[(window.gsI18n && gsI18n.current) || 'de'] || 'de-CH';
+    var monthNamesDe = (function(){ var a=[]; for (var _i=0;_i<12;_i++){ try { a.push(new Date(2001,_i,1).toLocaleString(_mloc,{month:'short'})); } catch(_){ a.push(['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'][_i]); } } return a; })();
     var curIdx = new Date().getMonth();
     var EDI = { speisepilz:{e:'🍽️',l:'Speisepilz'}, speisepilz_jung:{e:'🍽️',l:'Speisepilz (jung)'}, bedingt_essbar:{e:'⚠️',l:'bedingt essbar'} };
 
@@ -32069,7 +32111,7 @@ async function gsRenderRegionalMushrooms(zone) {
     var html = '';
     // Header
     html += '<div style="display:flex;align-items:center;gap:8px;margin:6px 0 10px;border-top:2px solid #6a1b9a;padding-top:14px;">';
-    html += '<span style="font-size:24px;">🍄</span><div style="font-family:\'Playfair Display\',serif;font-size:17px;font-weight:900;color:#6a1b9a;">Pilz-Sammelkalender</div></div>';
+    html += '<span style="font-size:24px;">🍄</span><div style="font-family:\'Playfair Display\',serif;font-size:17px;font-weight:900;color:#6a1b9a;">' + ed(_lt('mush_cal_title','Pilz-Sammelkalender')) + '</div></div>';
 
     // Region-Karten
     regions.forEach(function(rg){
@@ -32086,7 +32128,7 @@ async function gsRenderRegionalMushrooms(zone) {
         var lvl = (m && m.beginner_level) || 'unbekannt';
         var amp = (typeof GS_BEGINNER_AMPEL !== 'undefined' && GS_BEGINNER_AMPEL[lvl]) ? GS_BEGINNER_AMPEL[lvl] : { e:'❔', c:'#6a1b9a', bg:'#fff' };
         var inSeason = m && Array.isArray(m.season_months) && m.season_months.map(Number).indexOf(curIdx+1) !== -1;
-        return '<span data-mush="' + ed(g) + '" style="cursor:pointer;display:inline-flex;align-items:center;min-height:34px;box-sizing:border-box;background:' + amp.bg + ';color:' + amp.c + ';border:1px solid ' + amp.c + '55;padding:4px 11px;border-radius:8px;margin:4px 4px 4px 0;font-size:11px;white-space:nowrap;font-weight:' + (inSeason?'800':'600') + ';-webkit-tap-highlight-color:transparent;">' + amp.e + ' ' + ed(g) + (inSeason ? ' · jetzt' : '') + ' ›</span>';
+        return '<span data-mush="' + ed(g) + '" style="cursor:pointer;display:inline-flex;align-items:center;min-height:34px;box-sizing:border-box;background:' + amp.bg + ';color:' + amp.c + ';border:1px solid ' + amp.c + '55;padding:4px 11px;border-radius:8px;margin:4px 4px 4px 0;font-size:11px;white-space:nowrap;font-weight:' + (inSeason?'800':'600') + ';-webkit-tap-highlight-color:transparent;">' + amp.e + ' ' + ed(g) + (inSeason ? ' · ' + ed(_lt('mush_season_now','jetzt in Saison')) : '') + ' ›</span>';
       }).join('');
       if (chips) html += '<div style="margin-bottom:6px;">' + chips + '</div>';
       if (rg.foraging_notes) html += '<div style="font-size:11px;color:#4e342e;line-height:1.5;background:rgba(255,255,255,.6);padding:6px 9px;border-radius:8px;">🧺 ' + ed(rg.foraging_notes) + '</div>';
@@ -32094,10 +32136,10 @@ async function gsRenderRegionalMushrooms(zone) {
       html += '</div>';
     });
     // Ampel-Legende
-    html += '<div style="font-size:10.5px;color:#6a1b9a;margin:-2px 0 10px;line-height:1.55;">🟢 Anfänger-geeignet · 🟡 für Fortgeschrittene · 🔴 giftig/Vorsicht · ⚪ ungeniessbar · „· jetzt" = aktuell in Saison · <b>tippe einen Pilz</b> für den Steckbrief (Erkennen, Verwechsler, Zubereitung)</div>';
+    html += '<div style="font-size:10.5px;color:#6a1b9a;margin:-2px 0 10px;line-height:1.55;">' + ed(_lt('mush_cal_ampel_legend','🟢 Anfänger-geeignet · 🟡 für Fortgeschrittene · 🔴 giftig/Vorsicht · ⚪ ungeniessbar · tippe einen Pilz für den Steckbrief')) + '</div>';
 
     // 12-Monats-Pilz-Verfügbarkeit (welche Speisepilze welchen Monat)
-    html += '<div style="font-size:11.5px;font-weight:800;color:#6a1b9a;margin:14px 0 8px;letter-spacing:.4px;">📅 Wann welcher Pilz? (12 Monate)</div>';
+    html += '<div style="font-size:11.5px;font-weight:800;color:#6a1b9a;margin:14px 0 8px;letter-spacing:.4px;">📅 ' + ed(_lt('mush_cal_when','Wann welcher Pilz?')) + '</div>';
     for (var mo = 1; mo <= 12; mo++) {
       var inMo = shrooms.filter(function(s){ return s.months.indexOf(mo) !== -1; });
       var isCur = (mo === curIdx + 1);
@@ -32116,7 +32158,7 @@ async function gsRenderRegionalMushrooms(zone) {
         });
         html += '</div>';
       } else {
-        html += '<div style="padding:4px 12px 10px 12px;font-size:11px;color:var(--muted);font-style:italic;">— in diesen Regionen kein typischer Speisepilz in Saison —</div>';
+        html += '<div style="padding:4px 12px 10px 12px;font-size:11px;color:var(--muted);font-style:italic;">— ' + ed(_lt('mush_cal_no_season','in diesen Regionen kein typischer Speisepilz in Saison')) + ' —</div>';
       }
       html += '</details>';
     }
@@ -32131,11 +32173,11 @@ async function gsRenderRegionalMushrooms(zone) {
         return '🔒 <b>' + ed(v.canton_code) + '</b> ' + ed(v.station || 'VAPKO-Pilzkontrolle') + tel;
       });
       html += '<div style="margin-top:14px;padding:12px 14px;background:linear-gradient(135deg,#4a148c,#6a1b9a);border-radius:12px;color:#fff;">';
-      html += '<div style="font-size:12px;font-weight:900;margin-bottom:6px;">🔒 Vor dem Essen: VAPKO-Pilzkontrolle</div>';
-      html += '<div style="font-size:11px;line-height:1.6;opacity:.95;">Lass JEDEN gesammelten Pilz von einer offiziellen Pilzkontrollstelle prüfen, bevor du ihn isst. Diese App ist Information, keine Verzehr-Garantie.</div>';
+      html += '<div style="font-size:12px;font-weight:900;margin-bottom:6px;">🔒 ' + ed(_lt('mush_vapko_title','Vor dem Essen: VAPKO-Pilzkontrolle')) + '</div>';
+      html += '<div style="font-size:11px;line-height:1.6;opacity:.95;">' + ed(_lt('mush_vapko_body','Lass JEDEN gesammelten Pilz von einer offiziellen Pilzkontrollstelle prüfen, bevor du ihn isst. Diese App ist Information, keine Verzehr-Garantie.')) + '</div>';
       if (vlines.length) html += '<div style="font-size:11px;line-height:1.8;margin-top:7px;">' + vlines.join('<br>') + '</div>';
       else html += '<div style="font-size:11px;margin-top:7px;">Kontrollstellen-Verzeichnis: <a href="https://vapko.ch" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline;font-weight:800;">vapko.ch</a></div>';
-      html += '<div style="font-size:11px;margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.25);">☎️ Vergiftungsnotfall: <a href="tel:145" style="color:#fff;text-decoration:underline;font-weight:900;">145</a> (Tox Info Suisse, 24h)</div>';
+      html += '<div style="font-size:11px;margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.25);">☎️ ' + ed(_lt('mush_emergency','Vergiftungsnotfall')) + ': <a href="tel:145" style="color:#fff;text-decoration:underline;font-weight:900;">145</a> (Tox Info Suisse, 24h)</div>';
       html += '</div>';
     } catch(_){}
 
@@ -59241,6 +59283,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.70', date: '18.06.2026',
+    headline: '🌍 Pilz- & Garten-Lern-UI auf 5 Sprachen',
+    summary: 'Die neuen Pilz- und Garten-Lern-Funktionen sprechen jetzt alle App-Sprachen: Deutsch, Englisch, Spanisch, Französisch und Italienisch. Wichtig für die Schweiz — Französisch und Italienisch sind Landessprachen (Romandie, Tessin). Übersetzt sind die Anfänger-Ampel-Stufen, der Pilz-Sammelkalender, die Region-Tipps, der „🎓 Lernen"-Bereich, alle Sicherheits- und VAPKO-Hinweise sowie die Monatsnamen. Die ausführlichen Lektions-Inhalte und Pilz-Steckbriefe bleiben vorerst auf Deutsch.',
+    user_summary: '🌍 Die Pilz- & Garten-Lern-UI (Anfänger-Ampel, Sammelkalender, „Lernen"-Bereich, Sicherheits-Hinweise) ist jetzt auf DE/EN/ES/FR/IT verfügbar.',
+    user_items: [
+      { emoji: '🚦', text: 'Anfänger-Ampel & Sicherheits-/VAPKO-Hinweise in 5 Sprachen' },
+      { emoji: '🍄', text: 'Pilz-Sammelkalender + Region-Tipps übersetzt (inkl. lokalisierte Monatsnamen)' },
+      { emoji: '🎓', text: '„Lernen"-Bereich (Pilze & Garten) mit übersetzter Chrome' },
+      { emoji: '🇨🇭', text: 'FR & IT als Schweizer Landessprachen abgedeckt' },
+    ],
+    items: [
+      {emoji:'🌍', bold:'38 neue i18n-Keys:', text:' GS_BEGINNER_AMPEL-Labels, Steckbrief-Badge (inkl. „tödlicher Doppelgänger"), Region-Box, Pilz-Sammelkalender (Titel/Legende/VAPKO-Box), Lern-Hub + Lernkarten-Chrome (Header/Intro/Sicherheit/Tipp/Quellen/Notfall) via _t()/gsI18n.t verdrahtet; Monatsnamen via toLocaleString lokalisiert.'},
+      {emoji:'🗣️', bold:'136 Übersetzungen geseedet (i18n_translations):', text:' 34 Phrasen × EN/ES/FR/IT, kuratiert + sicherheitsbewusst (Ampel-Stufen, VAPKO-Pflicht, Notruf 145), source_hash via digest, idempotent.'},
+      {emoji:'📝', bold:'Grenze:', text:' DB-Inhalte (Lektions-Bodies, Pilznamen, Verwechsler-Texte) bleiben DE — eine sichere, separate Übersetzung dieser sicherheitskritischen Inhalte folgt später.'},
+      {emoji:'✅', bold:'Verify:', text:' Preview FR end-to-end: Ampel „Adapté aux débutants", Hub „Apprendre la nature", VAPKO „Avant de manger : contrôle des champignons VAPKO", Notfall „Urgence empoisonnement". 7/7 node --check + sw.js OK.'},
+    ],
+  },
+  {
     v: 'v29.68', date: '18.06.2026',
     headline: '🌱 Garten-Lernkarten + Sicherheits-Härtung der Pilz-Ampel',
     summary: 'Zwei Dinge: mehr lernen und sicherer lernen. NEU lernst du auch deinen Garten — 9 geerdete Einsteiger-Lektionen (Standort, Boden, Mischkultur, Fruchtfolge, Aussaat, Giessen, Kompost, natürlicher Pflanzenschutz, Biodiversität) erscheinen im Saisonkalender, und ein neuer „🎓 Lernen"-Bereich (über die Suche) bündelt Pilze + Garten an einem Ort. Quellen u.a. FiBL, Bioterra, Agroscope, ProSpecieRara. WICHTIG für die Sicherheit: Eine interne Prüfung hat einen Fehler in der Anfänger-Ampel gefunden und behoben — einige lamellige Speisepilze mit gefährlichem Doppelgänger (z.B. Champignons, Nelkenschwindling) wurden fälschlich grün („anfänger-geeignet") angezeigt. Neu sind nur Pilze ohne tödlichen Doppelgänger grün (vor allem Röhrlinge); alles andere ist mindestens gelb. Ausserdem zeigt das Region-Pilz-Widget jetzt im ganzen Mittelland die richtige Region.',
@@ -64735,7 +64795,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.68';
+var GS_VERSION = 'v29.70';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
