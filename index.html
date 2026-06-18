@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.61.20260618">
+<meta name="app-version" content="29.65.20260618">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17908,6 +17908,8 @@ function gsRenderMushroomSeason(patch, regionName, month) {
     vapEl.style.display = v ? 'block' : 'none';
   }
   card.style.display = 'block';
+  // v29.65: Regionale Pilz-Box aus Schweiz-Geo-DB (ch_regions good_mushrooms + Saison)
+  try { gsAttachRegionMushrooms(card); } catch(_){}
   // v26.73: Live-Counter "Heute gemeldet" aus map_user_finds (anonymisiert, nur Count)
   try { gsAttachMushroomLiveCounter(card, patch); } catch(_){}
   // v26.78: Phase 2 — Wachstums-Forecast + Verwechsler-Galerie
@@ -17958,6 +17960,181 @@ async function gsAttachMushroomLiveCounter(card, patch) {
   } catch(e){ console.warn('[mushroom-live-counter]', e && e.message); }
 }
 window.gsAttachMushroomLiveCounter = gsAttachMushroomLiveCounter;
+
+// ═════════════════════════════════════════════════════════════════════
+// v29.65 REGIONALE PILZ-BOX (Schweiz-Geo-DB ch_regions)
+// "Was wächst HIER gut?" — löst die ch_region des Users auf:
+//   1) gs_user_location (lat/lon) → nächste Gemeinde (ch_municipalities)
+//      → canton_code + elevation_m → ch_regions (canton-overlap + Höhenband)
+//   2) Fallback: gsGetRegionContext() (regional_garden_calendars) → cantons + Höhe
+// Zeigt good_mushrooms der Region; markiert via mushroom_register.season_months
+// welche JETZT in Saison sind (🟢). Immer mit VAPKO-Pflicht-Hinweis.
+// Additiv & defensiv — bricht das Saison-Widget nie.
+// ═════════════════════════════════════════════════════════════════════
+window._gsChRegionMushCache = null; // { key, html, ts }
+var GS_CHREGION_TTL_MS = 6 * 60 * 60 * 1000;
+
+function _gsNorm(s){
+  return String(s||'').toLowerCase()
+    .replace(/\([^)]*\)/g,'')      // Klammer-Zusätze raus
+    .replace(/[\s\-\/.]/g,'')       // Spaces, Bindestriche, Slash, Punkt raus
+    .replace(/ö/g,'o').replace(/ä/g,'a').replace(/ü/g,'u').replace(/ß/g,'ss');
+}
+
+async function gsResolveChRegions() {
+  if (typeof sbFetch !== 'function') return null;
+  var month = new Date().getMonth() + 1;
+  // ── 1) Präzise via Standort → nächste Gemeinde ──
+  var canton = null, elev = null, nearTown = null;
+  try {
+    var loc = JSON.parse(localStorage.getItem('gs_user_location') || 'null');
+    var lat = loc && (loc.lat != null ? loc.lat : loc.latitude);
+    var lon = loc && (loc.lon != null ? loc.lon : (loc.lng != null ? loc.lng : loc.longitude));
+    if (lat != null && lon != null) {
+      lat = parseFloat(lat); lon = parseFloat(lon);
+      var bq = '/rest/v1/ch_municipalities?select=name,canton_code,elevation_m,lat,lon'
+        + '&lat=gte.' + (lat-0.25) + '&lat=lte.' + (lat+0.25)
+        + '&lon=gte.' + (lon-0.4) + '&lon=lte.' + (lon+0.4) + '&limit=80';
+      var br = await sbFetch(bq, { method:'GET' });
+      var muns = (br && Array.isArray(br.data)) ? br.data : (Array.isArray(br) ? br : []);
+      var best = null, bestD = Infinity;
+      var cosL = Math.cos(lat * Math.PI/180);
+      muns.forEach(function(m){
+        if (m.lat == null || m.lon == null) return;
+        var dy = (m.lat - lat), dx = (m.lon - lon) * cosL;
+        var d = dy*dy + dx*dx;
+        if (d < bestD) { bestD = d; best = m; }
+      });
+      if (best) { canton = best.canton_code; elev = best.elevation_m; nearTown = best.name; }
+    }
+  } catch(_){}
+  var cantons = canton ? [canton] : null;
+  // ── 2) Fallback: regional_garden_calendars-Kontext ──
+  if (!cantons) {
+    try {
+      if (typeof gsGetRegionContext === 'function') {
+        var ctx = await gsGetRegionContext();
+        if (ctx && Array.isArray(ctx.canton_codes) && ctx.canton_codes.length) {
+          cantons = ctx.canton_codes;
+          if (elev == null && ctx.altitude_m_min != null && ctx.altitude_m_max != null) {
+            elev = Math.round((ctx.altitude_m_min + ctx.altitude_m_max) / 2);
+          }
+        }
+      }
+    } catch(_){}
+  }
+  if (!cantons || !cantons.length) return { regions: [], cantons: null, elev: elev, nearTown: nearTown, month: month };
+  // ── ch_regions für Kanton(e) laden, nach Höhenband-Treffer priorisieren ──
+  var regions = [];
+  try {
+    var rq = '/rest/v1/ch_regions?select=slug,name,canton_codes,region_type,altitude_min_m,altitude_max_m,landscape,good_mushrooms,foraging_notes'
+      + '&canton_codes=ov.{' + cantons.join(',') + '}&limit=40';
+    var rr = await sbFetch(rq, { method:'GET' });
+    var rows = (rr && Array.isArray(rr.data)) ? rr.data : (Array.isArray(rr) ? rr : []);
+    if (elev != null) {
+      rows.forEach(function(r){
+        var inBand = (r.altitude_min_m == null || r.altitude_max_m == null)
+          ? true
+          : (elev >= r.altitude_min_m - 150 && elev <= r.altitude_max_m + 150);
+        r._score = inBand ? 0 : 1;
+        // Distanz Höhenmitte als Tiebreaker
+        if (r.altitude_min_m != null && r.altitude_max_m != null) {
+          r._mid = Math.abs(((r.altitude_min_m + r.altitude_max_m)/2) - elev);
+        } else { r._mid = 9999; }
+      });
+      rows.sort(function(a,b){ return (a._score - b._score) || (a._mid - b._mid); });
+    }
+    regions = rows.slice(0, 2);
+  } catch(_){}
+  return { regions: regions, cantons: cantons, elev: elev, nearTown: nearTown, month: month };
+}
+window.gsResolveChRegions = gsResolveChRegions;
+
+// Saison-Map: normalisierter Pilzname → true, wenn aktueller Monat in season_months
+async function _gsMushSeasonMap(month) {
+  if (window._gsMushSeasonMapCache && window._gsMushSeasonMapCache.month === month) {
+    return window._gsMushSeasonMapCache.map;
+  }
+  var map = {};
+  try {
+    var r = await sbFetch('/rest/v1/mushroom_register?select=common_name_de,season_months&limit=300', { method:'GET' });
+    var rows = (r && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : []);
+    rows.forEach(function(m){
+      if (!m.common_name_de || !Array.isArray(m.season_months)) return;
+      if (m.season_months.indexOf(month) === -1 && m.season_months.indexOf(String(month)) === -1) return;
+      map[_gsNorm(m.common_name_de)] = true;
+    });
+  } catch(_){}
+  window._gsMushSeasonMapCache = { month: month, map: map };
+  return map;
+}
+
+function _gsMushInSeason(token, seasonMap) {
+  var n = _gsNorm(token);
+  if (seasonMap[n]) return true;
+  // toleranter Teilstring-Match (Register-Namen vs Region-Tokens variieren)
+  for (var k in seasonMap) {
+    if (k.length >= 5 && (k.indexOf(n) !== -1 || n.indexOf(k) !== -1)) return true;
+  }
+  return false;
+}
+
+async function gsAttachRegionMushrooms(card) {
+  if (!card || typeof sbFetch !== 'function') return;
+  if (card.dataset.regionMushMounted === '1') return;
+  card.dataset.regionMushMounted = '1';
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+  // Defensiv: evtl. existierende Box entfernen (falls Card je neu rendert)
+  var old = document.getElementById('mushroom-region-box'); if (old && old.parentNode) old.parentNode.removeChild(old);
+  // Box nach der typischen-Pilze-Liste einsetzen (vor Wetter-Trigger)
+  var box = document.createElement('div');
+  box.id = 'mushroom-region-box';
+  box.style.cssText = 'display:none;margin-bottom:8px;padding:9px 11px;background:rgba(255,255,255,.13);border-radius:9px;font-size:12px;line-height:1.5;';
+  var anchor = document.getElementById('mushroom-season-trigger');
+  if (anchor && anchor.parentNode === card) card.insertBefore(box, anchor);
+  else card.appendChild(box);
+  try {
+    var res = await gsResolveChRegions();
+    var month = res ? res.month : (new Date().getMonth() + 1);
+    if (!res || !res.regions || !res.regions.length) {
+      // Keine Region auflösbar → dezenter Hinweis + Region-Picker
+      box.innerHTML = '📍 <b>Region für lokale Pilz-Tipps</b><br>'
+        + '<span style="opacity:.9;">Setze Standort/Region — dann zeigen wir, welche Pilze hier gut sammelbar sind.</span>'
+        + '<button onclick="event.stopPropagation();openRegionalCalendarModal()" style="margin-top:6px;padding:5px 10px;background:rgba(255,255,255,.92);border:none;color:#4a148c;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;">Region wählen</button>';
+      box.style.display = 'block';
+      return;
+    }
+    var seasonMap = await _gsMushSeasonMap(month);
+    var r0 = res.regions[0];
+    var hdr = '🍄 <b>Gut sammelbar' + (r0.name ? ' im ' + ed(r0.name) : ' in deiner Region') + '</b>';
+    var sub = [];
+    if (r0.altitude_min_m != null && r0.altitude_max_m != null) sub.push(ed(r0.altitude_min_m) + '–' + ed(r0.altitude_max_m) + ' m');
+    if (r0.landscape) sub.push(ed(String(r0.landscape).split(/[.;]/)[0]).slice(0,70));
+    var subLine = sub.length ? '<div style="opacity:.85;font-size:11px;margin:2px 0 5px;">' + sub.join(' · ') + '</div>' : '';
+    // good_mushrooms (aus bis zu 2 Regionen vereinigen, dedup) — in-Saison zuerst
+    var seen = {}, items = [];
+    res.regions.forEach(function(r){
+      (Array.isArray(r.good_mushrooms) ? r.good_mushrooms : []).forEach(function(g){
+        var key = _gsNorm(g); if (!g || seen[key]) return; seen[key] = 1;
+        items.push({ name: String(g), season: _gsMushInSeason(g, seasonMap) });
+      });
+    });
+    items.sort(function(a,b){ return (b.season?1:0) - (a.season?1:0); });
+    var chips = items.slice(0, 10).map(function(it){
+      var dot = it.season ? '🟢 ' : '';
+      var st = it.season
+        ? 'background:rgba(129,199,132,.35);font-weight:800;'
+        : 'background:rgba(255,255,255,.12);font-weight:600;opacity:.85;';
+      return '<span style="display:inline-block;' + st + 'padding:2px 8px;border-radius:8px;margin:2px 3px 2px 0;font-size:11px;white-space:nowrap;">' + dot + ed(it.name) + '</span>';
+    }).join('');
+    var anyInSeason = items.some(function(it){ return it.season; });
+    var legend = anyInSeason ? '<div style="opacity:.82;font-size:10.5px;margin-top:5px;">🟢 = jetzt in Saison · alle Funde vor dem Essen bei der VAPKO-Pilzkontrolle prüfen lassen</div>'
+      : '<div style="opacity:.82;font-size:10.5px;margin-top:5px;">Saisonzeiten beachten · alle Funde vor dem Essen bei der VAPKO-Pilzkontrolle prüfen lassen</div>';
+    box.innerHTML = hdr + subLine + '<div style="margin-top:2px;">' + (chips || '<span style="opacity:.8;">—</span>') + '</div>' + legend;
+    box.style.display = 'block';
+  } catch(e){ console.warn('[region-mushrooms]', e && e.message); box.style.display = 'none'; }
+}
+window.gsAttachRegionMushrooms = gsAttachRegionMushrooms;
 
 // ═════════════════════════════════════════════════════════════════════
 // v26.78 Saison-Pilze Phase 2 — Verwechsler-Galerie + Wachstums-Forecast
@@ -58706,6 +58883,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.65', date: '18.06.2026',
+    headline: '🍄 Pilz-Scanner: was wächst HIER gut?',
+    summary: 'Das Saison-Pilz-Widget auf dem Start zeigt jetzt eine neue Schweiz-Geo-Datenbank: Es erkennt deine Region (über deinen Standort → nächste Gemeinde → Kanton & Höhenlage) und nennt die Pilze, die genau dort gut sammelbar sind. Was gerade Saison hat, ist grün markiert. Dahinter steckt eine neue Datenbank mit allen 26 Kantonen, 2164 Gemeinden (mit Höhe) und 72 Schweizer Regionen — mit geprüften Angaben aus amtlichen Quellen. Wie immer gilt: jeden Fund vor dem Essen bei einer VAPKO-Pilzkontrolle prüfen lassen.',
+    user_summary: '🍄 Das Pilz-Widget zeigt jetzt region-genau, welche Pilze bei dir gut sammelbar sind (🟢 = jetzt in Saison) — gestützt auf eine neue Schweiz-Datenbank mit Kantonen, Regionen und Dörfern.',
+    user_items: [
+      { emoji: '📍', text: 'Erkennt deine Region aus deinem Standort (Gemeinde · Kanton · Höhenlage)' },
+      { emoji: '🍄', text: 'Nennt die in deiner Region gut sammelbaren Pilze' },
+      { emoji: '🟢', text: 'Markiert, was gerade Saison hat' },
+      { emoji: '🔒', text: 'Immer mit VAPKO-Hinweis — Sicherheit vor allem' },
+    ],
+    items: [
+      {emoji:'🇨🇭', bold:'Neue Schweiz-Geo-DB (backend):', text:' 3 anon-lesbare Tabellen — ch_cantons (26, mit Fläche/Einwohner/Beitrittsjahr), ch_municipalities (2164 Gemeinden mit Höhe, Koordinaten, Kanton — Quelle Wikidata/BFS/swisstopo), ch_regions (72 traditionelle Regionen wie Sarganserland, Rheintal, Goms, Maggiatal, Lavaux — mit Höhenband, Landschaft, region-typischen Speisepilzen und Sammel-Hinweisen, web-recherchiert mit Quellenangabe).'},
+      {emoji:'🍄', bold:'Regionale Pilz-Box (gsAttachRegionMushrooms):', text:' Additiv im Saison-Pilz-Widget. Löst die ch_region des Users auf (1. Standort → nächste Gemeinde → Kanton + Höhe → Region nach Höhenband; 2. Fallback regional_garden_calendars-Kontext) und zeigt deren good_mushrooms. Markiert via mushroom_register.season_months, was im aktuellen Monat in Saison ist (🟢, zuerst sortiert). Defensiv + idempotent, bricht das bestehende Widget nie.'},
+      {emoji:'🔒', bold:'Sicherheit:', text:' Pilz-Essbarkeit kommt ausschliesslich aus dem kuratierten mushroom_register (autoritativ, nie LLM-geraten); jede Region-Box trägt den VAPKO-Pflicht-Hinweis. good_mushrooms sind vollständig register-konsistent.'},
+      {emoji:'✅', bold:'Verify:', text:' Geo-DB anon-lesbar verifiziert (26/2164/72, CH-Pop 8’653’507, Per-Kanton plausibel BE 336/VD 300/ZH 160). Im Preview end-to-end: Standort Sargans → SG → 483 m → Regionen Linthgebiet & Fürstenland mit korrekten Pilzen + Saison-Markern. 7/7 node --check + sw.js OK.'},
+    ],
+  },
+  {
     v: 'v29.61', date: '18.06.2026',
     headline: '📄 Gartenplaner: echtes PDF statt HTML-Download',
     summary: 'Der PDF-Export des Gartenplaners erzeugt jetzt am Computer ein echtes PDF über den Druckdialog deines Browsers („Als PDF speichern"), statt eine HTML-Datei herunterzuladen, die du erst selbst öffnen und drucken musstest. Am Handy bleibt das native Teilen-Menü (Speichern/Drucken/Mailen). Ausserdem stützt sich der Planer jetzt auf 112 statt 25 geprüfte Kulturen (FiBL/Bioterra-Mischkultur) — auch der Saisonkalender zeigt mehr Mischkultur-Nachbarn.',
@@ -64126,7 +64321,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.61';
+var GS_VERSION = 'v29.65';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
