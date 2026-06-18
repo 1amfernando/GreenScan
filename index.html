@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.74.20260619">
+<meta name="app-version" content="29.75.20260619">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -31368,7 +31368,7 @@ async function gsMushroomRunScan() {
 }
 window.gsMushroomRunScan = gsMushroomRunScan;
 
-function gsMushroomRenderResult(j) {
+async function gsMushroomRenderResult(j) {
   var box = document.getElementById('mushroom-result');
   if (!box) return;
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
@@ -31399,6 +31399,21 @@ function gsMushroomRenderResult(j) {
     return;
   }
 
+  // v29.75: lokalisierte Prosa (Symptome/Notfall/Zubereitung) + Verwechsler-Differenzen
+  // der aktiven Sprache in das Scan-Resultat mergen (DE-Fallback je Feld; Name via _gsMushName).
+  try {
+    var _rlang = (window.gsI18n && gsI18n.getLang && gsI18n.getLang()) || 'de';
+    if (m && _rlang !== 'de') {
+      m = (await _gsMergeMushI18n(m)) || m;
+      if (Array.isArray(j.lookalikes) && j.lookalikes.length && j.matched_slug && typeof sbFetch === 'function') {
+        var rli = await sbFetch('/rest/v1/mushroom_lookalikes_i18n?lang=eq.' + encodeURIComponent(_rlang) + '&or=(edible_slug.eq.' + encodeURIComponent(j.matched_slug) + ',lookalike_slug.eq.' + encodeURIComponent(j.matched_slug) + ')&select=edible_slug,lookalike_slug,visual_differences,smell_differences,spore_print_differences,pro_tip', { method:'GET' });
+        var rliRows = (rli && Array.isArray(rli.data)) ? rli.data : (Array.isArray(rli) ? rli : []);
+        var rliMap = {}; rliRows.forEach(function(t){ rliMap[t.edible_slug + '|' + t.lookalike_slug] = t; });
+        j.lookalikes.forEach(function(la){ var t = rliMap[(la.edible_slug||'') + '|' + (la.lookalike_slug||'')]; if (!t) return; ['visual_differences','smell_differences','spore_print_differences','pro_tip'].forEach(function(f){ if (t[f]) la[f] = t[f]; }); });
+      }
+    }
+  } catch(_){}
+
   // ============= Match-Card =============
   // safety_color aus v_mushroom_safety: red/orange/yellow/green
   var safety = String(j.safety_color || 'yellow');
@@ -31413,7 +31428,7 @@ function gsMushroomRenderResult(j) {
   var html = '<div style="margin-top:14px;border-radius:14px;overflow:hidden;border:2px solid ' + sm.border + ';background:var(--card);">';
   html += '<div style="background:' + sm.bg + ';color:' + sm.col + ';padding:11px 16px;font-size:13.5px;font-weight:900;text-align:center;border-bottom:1px solid ' + sm.border + ';">' + sm.lbl + ' · ' + _t('confidence','Confidence') + ' ' + conf + '%</div>';
   html += '<div style="padding:14px 16px;">';
-  html += '<div style="font-size:18px;font-weight:900;color:var(--text);margin-bottom:2px;">' + ed(m.common_name_de) + '</div>';
+  html += '<div style="font-size:18px;font-weight:900;color:var(--text);margin-bottom:2px;">' + ed(_gsMushName(m)) + '</div>';
   if (m.scientific_name) html += '<div style="font-size:12px;font-style:italic;color:var(--muted);margin-bottom:6px;">' + ed(m.scientific_name) + (m.family ? ' · ' + ed(m.family) : '') + '</div>';
   // VAPKO-Klasse
   if (m.vapko_klasse) html += '<div style="display:inline-block;background:#ede7f6;color:#311b92;padding:3px 10px;border-radius:7px;font-size:11px;font-weight:800;margin-bottom:8px;">' + _t('mush_vapko_class','VAPKO-Klasse:') + ' ' + ed(m.vapko_klasse) + '</div>';
@@ -31484,9 +31499,10 @@ window.gsMushroomRenderResult = gsMushroomRenderResult;
 function gsMushroomVapkoBox(j, ed) {
   if (!j) return '';
   if (!j.vapko_required && !j.vapko_kontrollstelle) return '';
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   var html = '<div style="margin-top:10px;padding:11px 13px;background:#ede7f6;border:1.5px solid #5e35b1;border-radius:11px;">';
-  html += '<div style="font-size:12px;font-weight:800;color:#311b92;margin-bottom:4px;">🔒 VAPKO-Kontrolle empfohlen</div>';
-  if (j.vapko_kontrollstelle) html += '<div style="font-size:11.5px;color:#311b92;line-height:1.5;"><b>Kontrollstelle:</b> ' + ed(j.vapko_kontrollstelle) + '</div>';
+  html += '<div style="font-size:12px;font-weight:800;color:#311b92;margin-bottom:4px;">' + _t('mush_vapko_recommended','🔒 VAPKO-Kontrolle empfohlen') + '</div>';
+  if (j.vapko_kontrollstelle) html += '<div style="font-size:11.5px;color:#311b92;line-height:1.5;"><b>' + _t('mush_control_station','Kontrollstelle:') + '</b> ' + ed(j.vapko_kontrollstelle) + '</div>';
   if (j.vapko_phone) html += '<div style="font-size:13px;color:#311b92;margin-top:4px;"><b>☎️ <a href="tel:' + ed(j.vapko_phone).replace(/\s/g,'') + '" style="color:#311b92;text-decoration:underline;">' + ed(j.vapko_phone) + '</a></b></div>';
   if (j.vapko_link) html += '<div style="font-size:11px;margin-top:3px;"><a href="' + ed(j.vapko_link) + '" target="_blank" rel="noopener" style="color:#5e35b1;">' + ed(j.vapko_link) + '</a></div>';
   html += '</div>';
@@ -31521,7 +31537,7 @@ function gsShowMushroomDangerOverlay(j) {
       (isToedlich ? _t('mush_deadly_toxic','TÖDLICH GIFTIG') : _t('tag_toxic','GIFTIG')) +
     '</div>' +
     '<div style="font-size:14px;font-weight:700;line-height:1.5;max-width:400px;margin-bottom:10px;">' +
-      _t('mush_ai_suspects','KI vermutet:') + ' <b>' + ed(m.common_name_de) + '</b>' +
+      _t('mush_ai_suspects','KI vermutet:') + ' <b>' + ed(_gsMushName(m)) + '</b>' +
       (m.scientific_name ? '<br><i>' + ed(m.scientific_name) + '</i>' : '') +
     '</div>' +
     '<div style="font-size:13px;line-height:1.55;max-width:400px;margin-bottom:18px;background:rgba(0,0,0,.25);padding:11px 14px;border-radius:12px;">' +
@@ -59396,6 +59412,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.75', date: '19.06.2026',
+    headline: '🍄 Pilz-Scanner-Resultat & Gefahren-Warnung in deiner Sprache',
+    summary: 'Jetzt spricht auch der Scan→Resultat-Flow deine App-Sprache: Wenn du einen Pilz fotografierst, erscheinen der Name, die Vergiftungs-Symptome, der Notfall-Hinweis und die Verwechsler-Unterschiede auf DE/EN/ES/FR/IT — inklusive der roten Lebensgefahr-Vollbild-Warnung, die bei einem giftigen Treffer sofort aufpoppt. Damit ist der gesamte Pilz-Weg von der Aufnahme bis zum Steckbrief mehrsprachig. (Die individuell von der KI pro Scan erzeugte Begründung bleibt vorerst Deutsch.)',
+    user_summary: '🍄 Pilz-Scan-Resultat & Lebensgefahr-Warnung jetzt auf DE/EN/ES/FR/IT — der ganze Scan-Weg ist mehrsprachig.',
+    user_items: [
+      { emoji: '📸', text: 'Scan-Resultat (Name, Symptome, Notfall) in deiner Sprache' },
+      { emoji: '☠️', text: 'Rote Lebensgefahr-Warnung mit übersetztem Namen & Hinweis' },
+      { emoji: '🔀', text: 'Verwechsler-Unterschiede im Scan-Resultat übersetzt' },
+      { emoji: '🇨🇭', text: 'FR & IT als Schweizer Landessprachen abgedeckt' },
+    ],
+    items: [
+      {emoji:'📸', bold:'Scan-Resultat lokalisiert:', text:' gsMushroomRenderResult mergt jetzt die übersetzte Prosa (Symptome/Notfall/Zubereitung) + Verwechsler-Differenzen der aktiven Sprache; Pilzname via _gsMushName. Nutzt die safety-geprüften Daten aus v29.73/74 — kein neuer Inhalt.'},
+      {emoji:'☠️', bold:'Lebensgefahr-Overlay:', text:' das rote Vollbild-Overlay zeigt den Pilznamen sofort in deiner Sprache (ohne Verzögerung), Warntext + Notruf 145 bereits übersetzt.'},
+      {emoji:'📝', bold:'Grenze:', text:' die pro Scan von der KI erzeugten Texte (Begründung, Sicherheits-Einschätzung) bleiben vorerst Deutsch — ihre Übersetzung braucht ein Update der Scan-Funktion im Backend.'},
+      {emoji:'✅', bold:'Verify:', text:' Preview FR (Knollenblätterpilz-Scan): Overlay „Amanite phalloïde / MORTEL", Resultat „Tempête gastro-intestinale", Notfall 145 + Silibinin, „Classe VAPKO". 7/7 node --check + sw.js OK.'},
+    ],
+  },
+  {
     v: 'v29.74', date: '19.06.2026',
     headline: '🍄 Verwechsler-Texte in 5 Sprachen — Steckbrief jetzt komplett mehrsprachig',
     summary: 'Die letzte deutschsprachige Lücke im Pilz-Steckbrief ist geschlossen: Die Verwechsler-Texte — wie du einen Speisepilz von seinem (oft tödlichen) Doppelgänger unterscheidest — sind jetzt auf DE/EN/ES/FR/IT verfügbar. Damit ist der gesamte Pilz-Steckbrief mehrsprachig (Namen, Etiketten, Beschreibungen und Verwechsler-Hinweise). Diese Unterscheidungs-Texte sind besonders sicherheitskritisch, daher wurde gezielt geprüft, dass die Zuordnung (welcher Pilz welches Merkmal hat) beim Übersetzen niemals vertauscht wird. Zusätzlich wurde das Backend mit dem Sicherheits-Advisor durchgecheckt und eine versehentlich offene Trigger-Funktion bereinigt.',
@@ -64980,7 +65014,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.74';
+var GS_VERSION = 'v29.75';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
