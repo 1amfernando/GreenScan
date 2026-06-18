@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.75.20260619">
+<meta name="app-version" content="29.76.20260619">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -59412,6 +59412,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.76', date: '19.06.2026',
+    headline: '🌼 Neues App-Icon — das Edelweiss',
+    summary: 'GreenScan hat ein neues App-Icon: ein weisses Edelweiss mit goldenem Zentrum auf dunkelgrünem Forest-Hintergrund — die Schweizer Alpenblume als Markenzeichen. Das Icon erscheint auf dem Home-Screen, im Browser-Tab und beim App-Start in allen Grössen (inkl. randloser Android-Variante). Falls dein Home-Screen noch das alte Icon zeigt: App einmal neu installieren — Handys cachen Icons hartnäckig.',
+    user_summary: '🌼 Neues App-Icon: das Edelweiss (weisse Alpenblume auf Forest-Grün) auf Home-Screen, Tab und Splash-Screen.',
+    user_items: [
+      { emoji: '🌼', text: 'Edelweiss-Markenzeichen — weisse Alpenblume, goldenes Zentrum' },
+      { emoji: '📱', text: 'Alle Grössen: Home-Screen, Tab, randlose Android-Kachel' },
+      { emoji: '🔄', text: 'Home-Screen zeigt altes Icon? App neu installieren' },
+    ],
+    items: [
+      {emoji:'🌼', bold:'Edelweiss-Icon:', text:' weisses Edelweiss mit goldenem Zentrum auf Forest-Gradient. Komplettes Set ersetzt (any + maskable + Apple-Touch + Favicons), exakte Pixelgrössen, Edelweiss in der Safe-Zone für randlose Masken.'},
+      {emoji:'⚙️', bold:'Drop-in:', text:' manifest & <head> waren bereits korrekt verdrahtet — reine Asset-Ersetzung, kein Code-Change. Service-Worker-Bump bustet den Icon-Cache.'},
+      {emoji:'🔄', bold:'Hinweis:', text:' iOS/Android cachen Home-Screen-Icons hartnäckig — bei altem Icon die PWA einmal neu installieren.'},
+    ],
+  },
+  {
     v: 'v29.75', date: '19.06.2026',
     headline: '🍄 Pilz-Scanner-Resultat & Gefahren-Warnung in deiner Sprache',
     summary: 'Jetzt spricht auch der Scan→Resultat-Flow deine App-Sprache: Wenn du einen Pilz fotografierst, erscheinen der Name, die Vergiftungs-Symptome, der Notfall-Hinweis und die Verwechsler-Unterschiede auf DE/EN/ES/FR/IT — inklusive der roten Lebensgefahr-Vollbild-Warnung, die bei einem giftigen Treffer sofort aufpoppt. Damit ist der gesamte Pilz-Weg von der Aufnahme bis zum Steckbrief mehrsprachig. (Die individuell von der KI pro Scan erzeugte Begründung bleibt vorerst Deutsch.)',
@@ -65014,7 +65030,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.75';
+var GS_VERSION = 'v29.76';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
