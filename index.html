@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.57.20260618">
+<meta name="app-version" content="29.58.20260618">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -48479,6 +48479,40 @@ function gsPPbuildDBContext(data) {
   } catch(e) { return { suggested: [], count: 0, msg: 'DB-Kontext-Fehler: ' + e.message }; }
 }
 
+// v29.58: Geprüfte Agronomie-Referenz (garden_crop_agronomy) — erdet den Planer-Prompt mit echten
+// Mischkultur-/Fruchtfolge-/Timing-Werten statt LLM-Raten (species-Agronomie-Spalten sind 0 befüllt).
+// Quelle: FiBL/Bioterra Mischkultur-Standard (dokumentiertes, low-stakes Gartenwissen). 30-Min-Cache.
+window._gsPPagroCache = null;
+async function gsPPloadAgronomy(force){
+  var c = window._gsPPagroCache;
+  if (!force && c && (Date.now() - c.ts) < 30*60*1000) return c.rows;
+  if (typeof sbFetch !== 'function') return [];
+  try {
+    var r = await sbFetch('/rest/v1/garden_crop_agronomy?select=crop,family,companion_good,companion_bad,sow_months,harvest_months,frost_hardy,spacing_cm&active=eq.true&order=crop.asc', { method:'GET' });
+    var rows = (r && Array.isArray(r.data)) ? r.data : [];
+    window._gsPPagroCache = { rows: rows, ts: Date.now() };
+    return rows;
+  } catch(_) { return []; }
+}
+window.gsPPloadAgronomy = gsPPloadAgronomy;
+function gsPPbuildAgronomyRef(){
+  try {
+    var c = window._gsPPagroCache; var rows = (c && c.rows) || [];
+    if (!rows.length) return '';
+    var lines = rows.map(function(a){
+      var g = (a.companion_good||[]).join(',');
+      var b = (a.companion_bad||[]).join(',');
+      var sow = (a.sow_months||[]).join('/');
+      var har = (a.harvest_months||[]).join('/');
+      return '- ' + a.crop + ' [' + (a.family||'?') + ']' +
+        (g ? ' gut:' + g : '') + (b ? ' | meiden:' + b : '') +
+        (sow ? ' | Aussaat-Monate:' + sow : '') + (har ? ' | Ernte-Monate:' + har : '') +
+        (a.frost_hardy ? ' | ' + a.frost_hardy : '');
+    });
+    return '🧪 GEPRÜFTE AGRONOMIE-REFERENZ (FiBL/Bioterra-Standard CH — für die hier gelisteten Kulturen die EXAKTEN Werte verwenden bei mixedCulture (good/bad), cropRotation (family) und timeline/sow_date/harvest_from; NICHT davon abweichen, NICHT erfinden — für nicht gelistete Kulturen dein Fachwissen nutzen):\n' + lines.join('\n') + '\n\n';
+  } catch(_) { return ''; }
+}
+
 // Mondphase für das aktuelle Datum (vereinfachter Conway-Algorithmus)
 function gsPPmoonPhase(date) {
   date = date || new Date();
@@ -48572,6 +48606,9 @@ async function gsPPrun(opts) {
     } catch(e) {}
   }
 
+  // v29.58: geprüfte Agronomie-Referenz laden (erdet Mischkultur/Fruchtfolge/Timing im Prompt)
+  try { await Promise.race([ gsPPloadAgronomy(), new Promise(function(r){ setTimeout(r, 3000); }) ]); } catch(e) {}
+
   gsPPgoStep(5);
   var loader = document.getElementById('pp-plan-loader');
   var loaderMsg = document.getElementById('pp-loader-msg');
@@ -48639,6 +48676,7 @@ async function gsPPrun(opts) {
   var dbCtx = gsPPbuildDBContext(data);
   var userCtx = gsPPbuildUserContext();
   var moon = gsPPmoonPhase();
+  var agroRef = gsPPbuildAgronomyRef(); // v29.58: geprüfte Mischkultur-/Timing-Referenz
   var dbListLine = dbCtx.suggested.length
     ? dbCtx.suggested.map(function(p){
         return '- ' + p.name + (p.lat ? ' ('+p.lat+')' : '') + (p.sun ? ' [sun='+p.sun+']' : '');
@@ -48707,6 +48745,7 @@ async function gsPPrun(opts) {
     '🕰️ NUTZER-HISTORIE: ' + userCtx.pastPlans + ' frühere Pläne · Letzte Pflanzen: ' + lastPlantsLine + '\n' +
     '🔬 LETZTE SCANS: ' + recentScansLine + '\n\n' +
     '📚 DATENBANK-VORSCHLÄGE (GreenScan-DB, Schweizer-Arten-pool, priorisierte Kandidaten — NUTZE DIESE wenn passend, dann sind Deep-Links möglich):\n' + dbListLine + '\n\n' +
+    agroRef +
     '\nAntworte NUR mit einem JSON-Objekt (kein Markdown, keine Prosa davor/danach) mit folgendem Schema:\n' +
     '{\n' +
     '  "summary": "<3-4 Sätze Gesamtstrategie inkl. Begründung der Sortenwahl. MUSS Form-/Wünsche-/Anmerkung-Bezug ausdrücklich erwähnen wenn vorhanden — sonst ist der Plan unvollständig.>",\n' +
@@ -58622,6 +58661,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.58', date: '18.06.2026',
+    headline: '🌱 KI-Gartenplaner intelligenter — auf geprüften Daten',
+    summary: 'Der KI-Gartenplaner stützt sich jetzt auf eine geprüfte Agronomie-Referenz (FiBL/Bioterra-Standard) für 25 gängige Schweizer Gartenkulturen, statt Mischkultur, Fruchtfolge und Aussaat-/Erntezeiten frei zu schätzen. So sind „gute & schlechte Nachbarn", die Fruchtfolge-Familie und das Timing für die häufigen Gemüse jetzt faktenbasiert statt geraten.',
+    user_summary: '🌱 KI-Gartenplaner nutzt jetzt geprüfte Mischkultur- & Timing-Daten (FiBL/Bioterra) für 25 gängige Kulturen — fundierter statt geschätzt.',
+    user_items: [
+      { emoji: '🤝', text: 'Geprüfte gute/schlechte Nachbarn (Mischkultur) statt KI-Schätzung' },
+      { emoji: '♻️', text: 'Korrekte Fruchtfolge-Familien & Aussaat-/Erntezeiten' },
+      { emoji: '📚', text: 'Neue Datenbank-Referenz aus FiBL/Bioterra-Standard (25 Kulturen)' },
+    ],
+    items: [
+      {emoji:'📚', bold:'Neue Tabelle garden_crop_agronomy (Migration v29_58):', text:' 25 gängige CH-Kulturen mit geprüften Werten aus der FiBL/Bioterra-Mischkultur-Tabelle — companion_good/bad, sow_months, harvest_months, Fruchtfolge-Familie, Frosthärte, Abstand. anon+authenticated lesbar.'},
+      {emoji:'🧪', bold:'Planer-Grounding:', text:' gsPPloadAgronomy() + gsPPbuildAgronomyRef() speisen eine „GEPRÜFTE AGRONOMIE-REFERENZ" in den PRO-Planer-Prompt ein — die KI muss für gelistete Kulturen genau diese Werte für Mischkultur, Fruchtfolge und Timing verwenden, statt zu raten (species-Agronomie-Spalten waren 0 befüllt → bisher reine Prompt-Schätzung).'},
+      {emoji:'✅', bold:'Verify:', text:' Live geprüft — 25 Zeilen via anon-Lesezugriff geladen, Referenz-Block (4243 Zeichen) korrekt gebaut, 0 Console-Fehler. 7/7 node --check + sw.js OK. v-Bump 5-fach v29.57 nach v29.58.'},
+    ]
+  },
+  {
     v: 'v29.57', date: '18.06.2026',
     headline: '🔒 Login-Stabilität: Schluss mit zufälligen Abmeldungen',
     summary: 'Wir haben einen Fehler behoben, der dazu führen konnte, dass man beim App-Start unerwartet abgemeldet wurde: Wenn mehrere Anfragen gleichzeitig den Anmelde-Token erneuerten, hob sich das gegenseitig auf. Jetzt läuft die Token-Erneuerung gebündelt und sicher. Ausserdem wird der Token aus Passwort-Reset-Links sofort aus der Adresszeile entfernt.',
@@ -63995,7 +64050,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.57';
+var GS_VERSION = 'v29.58';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
