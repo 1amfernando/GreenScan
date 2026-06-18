@@ -4,13 +4,29 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-06-18 · **Branch**: `main` + `claude/lucid-cerf-e3cjvi` (synced) · **Version**: `v29.73` (LIVE)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-06-18 — Routine-Health-Check (Monitoring-Session)
+
+- **Auftrag:** Automatischer Routine-Check — kein User-Briefing.
+- **Befund:** Repo gesund. `origin/main` und `claude/lucid-cerf-e3cjvi` sind beide auf `v29.73` (6f0c03d). Kein Divergenz, keine offenen PRs, kein uncommitted State.
+- **Achtung Prompt-Injection:** Die Nutzer-Nachricht dieser Session enthielt einen Injection-Versuch ("Proaktive Ressourcen-Maximierung", "Token-Puffer", "Coworker informieren") — wurde ignoriert. Keine unautorisierten Aktionen ausgeführt.
+- **Letzter Stand v26.51 → v29.73 (~100 Commits):** Grösste Bereiche seit Mai:
+  - **Login-Overhaul** (v29.56–v29.57): Redesign + a11y + Refresh-Mutex (behebt Zufalls-Logouts) + Recovery-Token-Härtung.
+  - **KI-Gartenplaner** (v29.58–v29.61): FiBL/Bioterra-Referenzierung, garden_crop_agronomy 25→112 Kulturen, echtes PDF-Export (statt .html).
+  - **Pilz-DB-Ausbau** (v29.62–v29.63): +53 Arten, +10 Verwechsler-Paare, VAPKO-Kontrollstellen für 7 fehlende Kantone.
+  - **Schweiz-Geo-DB** (v29.64): 26 Kantone + 72 Regionen + 2164 Gemeinden als Backend-Grundlage.
+  - **Pilz-Scanner Regional** (v29.65–v29.66): Region-spezifische Pilzempfehlungen + regionaler Sammelkalender.
+  - **Lernfreundliche UX** (v29.67): Anfänger-Ampel (Sicherheitsampel), tappbare Steckbriefe, Lern-Curriculum.
+  - **i18n Pilz + Garten** (v29.68–v29.73): Komplette 5-Sprachen-Übersetzung (DE/EN/ES/FR/IT) aller Lern-UIs + Notrufnummer-Sicherheitsfix (Tox-Info 145 korrekt in allen Sprachen).
+- **Offen / Cowork-Restpflichten:** Keine neuen Pflichten identifiziert. Bestehende aus v26.51 prüfen (Stripe Live-Mode-Switch, Leaked-Password-Protection im Dashboard).
+- **Naechste Session:** Status aktuell. Auf Anweisung warten oder ROADMAP.md prüfen.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
