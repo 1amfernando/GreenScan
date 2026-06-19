@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.80.20260619">
+<meta name="app-version" content="29.81.20260619">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18240,12 +18240,14 @@ async function gsAttachRegionMushrooms(card) {
       return '<span data-mush="' + ed(it.name) + '" style="cursor:pointer;display:inline-flex;align-items:center;min-height:34px;box-sizing:border-box;' + st + 'padding:4px 11px;border-radius:8px;margin:4px 4px 4px 0;font-size:11px;white-space:nowrap;-webkit-tap-highlight-color:transparent;">' + ed(it.name) + (it.season ? ' · ' + ed(_lt('mush_season_now','jetzt in Saison')) : '') + ' ›</span>';
     }).join('');
     var anyInSeason = items.some(function(it){ return it.season; });
+    // v29.81 #4: Entry-Button in den dedizierten Vollbild-Saison-Pilz-Bereich
+    var _spBtn = '<button onclick="event.stopPropagation();if(typeof gsOpenSaisonPilze===\'function\')gsOpenSaisonPilze()" style="margin-top:9px;width:100%;padding:9px 12px;background:rgba(255,255,255,.94);border:none;color:#4a148c;border-radius:10px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🍄 ' + ed(_lt('sp_open_area','Saison-Pilze-Bereich öffnen')) + ' ›</button>';
     if (!items.length) {
       // v29.68 F4: sinnvoller Leerzustand statt nacktem "—"
-      box.innerHTML = hdr + subLine + '<div style="opacity:.85;margin-top:4px;font-size:11.5px;">' + ed(_lt('mush_region_empty','Für diese Region sind noch keine typischen Speisepilze hinterlegt.')) + '</div>';
+      box.innerHTML = hdr + subLine + '<div style="opacity:.85;margin-top:4px;font-size:11.5px;">' + ed(_lt('mush_region_empty','Für diese Region sind noch keine typischen Speisepilze hinterlegt.')) + '</div>' + _spBtn;
     } else {
       var legend = ed(_lt('mush_box_legend_tap','tippe einen Pilz für den Steckbrief (Erkennen, Verwechsler, Anfänger-Ampel) · alle Funde vor dem Essen bei der VAPKO-Pilzkontrolle prüfen lassen'));
-      box.innerHTML = hdr + subLine + '<div style="margin-top:2px;">' + chips + '</div>' + '<div style="opacity:.82;font-size:10.5px;margin-top:5px;">' + legend + '</div>';
+      box.innerHTML = hdr + subLine + '<div style="margin-top:2px;">' + chips + '</div>' + '<div style="opacity:.82;font-size:10.5px;margin-top:5px;">' + legend + '</div>' + _spBtn;
     }
     gsWireMushChips(box);
     box.style.display = 'block';
@@ -31965,7 +31967,7 @@ async function gsLoadMushRegistry() {
   if (typeof sbFetch !== 'function') return { rows: [], byNorm: {}, ts: Date.now() };
   var rows = [];
   try {
-    var r = await sbFetch('/rest/v1/mushroom_register?select=slug,common_name_de,scientific_name,edibility,vapko_klasse,season_months,habitat,altitude_m_min,altitude_m_max&limit=300', { method:'GET' });
+    var r = await sbFetch('/rest/v1/mushroom_register?select=slug,common_name_de,common_name_fr,common_name_it,scientific_name,edibility,vapko_klasse,season_months,habitat,symbiosis_partners,identifying_features,altitude_m_min,altitude_m_max&limit=300', { method:'GET' });
     rows = (r && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : []);
   } catch(_){}
   // v29.67: Anfänger-Ampel (v_mushroom_beginner) per slug mergen — kein LLM, aus kuratierten Daten
@@ -31984,6 +31986,96 @@ async function gsLoadMushRegistry() {
   window._gsMushRegistryCache = obj;
   return obj;
 }
+
+// v29.81 #4: Dedizierter Vollbild-Saison-Pilz-Bereich (region-aware, reich) — „vergrössert wie der Scanner".
+// Reiche Karten je Pilz: Anfänger-Ampel, lokalisierter Name, inline Verwechsler-Gefahr
+// (v_mushroom_lookalike_summary), Habitat/Symbiose, Wachstums-Hint (mushroom_growth_conditions),
+// tap → voller Steckbrief. Nutzt nur bestehende + neue read-only Daten.
+async function gsOpenSaisonPilze() {
+  var scr = document.getElementById('saison-pilze-screen');
+  if (!scr) { scr = document.createElement('div'); scr.id = 'saison-pilze-screen'; document.body.appendChild(scr); }
+  scr.style.cssText = 'position:fixed;inset:0;z-index:7000;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;';
+  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||''); };
+  var MONN = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  scr.innerHTML = '<div style="background:linear-gradient(135deg,#4a148c,#6a1b9a);color:#fff;padding:calc(14px + env(safe-area-inset-top)) 16px 14px;display:flex;align-items:center;gap:12px;flex-shrink:0;">'
+    + '<button onclick="var s=document.getElementById(\'saison-pilze-screen\');if(s)s.style.display=\'none\';" aria-label="' + ed(_lt('modal_close','Schliessen')) + '" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:34px;height:34px;border-radius:9px;font-size:18px;cursor:pointer;flex-shrink:0;">‹</button>'
+    + '<div style="flex:1;min-width:0;"><div style="font-size:18px;font-weight:900;">🍄 ' + ed(_lt('sp_title','Saison-Pilze in deiner Region')) + '</div><div id="sp-subhdr" style="font-size:11.5px;opacity:.9;margin-top:2px;"></div></div></div>'
+    + '<div id="sp-body" style="flex:1;overflow-y:auto;padding:14px 14px 40px;"><div style="text-align:center;padding:48px 16px;color:var(--muted);">⏳ ' + ed(_lt('sp_loading','Lade Region & Pilze…')) + '</div></div>';
+  scr.style.display = 'flex';
+  try {
+    var res = await gsResolveChRegions();
+    var month = (res && res.month) ? res.month : (new Date().getMonth()+1);
+    var body = document.getElementById('sp-body'); var subEl = document.getElementById('sp-subhdr');
+    if (!res || !res.regions || !res.regions.length) {
+      if (body) body.innerHTML = '<div style="text-align:center;padding:40px 16px;color:var(--text2);"><div style="font-size:40px;">📍</div><div style="font-weight:800;margin:8px 0;">' + ed(_lt('sp_no_region','Keine Region erkannt')) + '</div><div style="font-size:13px;color:var(--muted);">' + ed(_lt('sp_no_region_body','Setze deinen Standort oder wähle eine Region, dann zeigen wir die regional sammelbaren Pilze.')) + '</div><button onclick="if(typeof openRegionalCalendarModal===\'function\')openRegionalCalendarModal()" style="margin-top:14px;padding:9px 16px;background:#6a1b9a;color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">' + ed(_lt('mush_region_pick','Region wählen')) + '</button></div>';
+      return;
+    }
+    var reg = await gsLoadMushRegistry();
+    var seasonMap = await _gsMushSeasonMap(month);
+    var r0 = res.regions[0];
+    var sub = [];
+    if (r0.altitude_min_m != null && r0.altitude_max_m != null) sub.push(r0.altitude_min_m + '–' + r0.altitude_max_m + ' m');
+    sub.push(_lt('sp_month','Monat') + ' ' + MONN[month-1]);
+    if (subEl) subEl.textContent = (r0.name ? r0.name + ' · ' : '') + sub.join(' · ');
+    var seen = {}, matched = [];
+    res.regions.forEach(function(r){
+      (Array.isArray(r.good_mushrooms)?r.good_mushrooms:[]).forEach(function(g){
+        var key = _gsNorm(g); if (!g || seen[key]) return; seen[key]=1;
+        var m = (reg.byNorm && reg.byNorm[key]) || (typeof _gsMatchRegistry==='function' ? _gsMatchRegistry(g, reg) : null);
+        matched.push({ raw:String(g), m:m, season:_gsMushInSeason(g, seasonMap) });
+      });
+    });
+    matched.sort(function(a,b){ return (b.season?1:0)-(a.season?1:0); });
+    var slugs = matched.map(function(x){ return x.m && x.m.slug; }).filter(Boolean);
+    var laSum = {}, growth = {};
+    if (slugs.length) {
+      try { var lr = await sbFetch('/rest/v1/v_mushroom_lookalike_summary?slug=in.(' + slugs.map(encodeURIComponent).join(',') + ')&select=slug,total_lookalikes,deadly_count,high_count,has_deadly_lookalike', {method:'GET'}); ((lr&&lr.data)||(Array.isArray(lr)?lr:[])).forEach(function(x){ if(x.slug) laSum[x.slug]=x; }); } catch(_){}
+      try { var gr = await sbFetch('/rest/v1/mushroom_growth_conditions?slug=in.(' + slugs.map(encodeURIComponent).join(',') + ')&select=slug,best_after,microhabitat,foraging_difficulty,foraging_tips', {method:'GET'}); ((gr&&gr.data)||(Array.isArray(gr)?gr:[])).forEach(function(x){ if(x.slug) growth[x.slug]=x; }); } catch(_){}
+    }
+    var inSeasonCount = matched.filter(function(x){return x.season;}).length;
+    var html = '';
+    if (r0.landscape) html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:12.5px;color:var(--text2);line-height:1.55;">🏔 ' + ed(String(r0.landscape).slice(0,180)) + '</div>';
+    html += '<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:10px;">' + (inSeasonCount? ('🟢 ' + inSeasonCount + ' ' + ed(_lt('sp_now_collectable','jetzt sammelbar'))) : ed(_lt('sp_region_overview','Pilze deiner Region'))) + '</div>';
+    html += '<div style="display:flex;flex-direction:column;gap:10px;">';
+    matched.forEach(function(x){
+      var m = x.m;
+      var nm = m ? _gsMushName(m) : (x.raw.charAt(0).toUpperCase()+x.raw.slice(1));
+      var lvl = m && m.beginner_level;
+      var amp = (lvl && GS_BEGINNER_AMPEL[lvl]) ? GS_BEGINNER_AMPEL[lvl] : null;
+      var dataMush = ed(m ? (m.common_name_de||x.raw) : x.raw);
+      var border = amp ? amp.c : 'var(--border)';
+      var la = m && laSum[m.slug]; var gw = m && growth[m.slug];
+      html += '<div data-mush="' + dataMush + '" style="cursor:pointer;background:var(--card);border:1.5px solid ' + border + '55;border-left:4px solid ' + border + ';border-radius:12px;padding:12px 13px;-webkit-tap-highlight-color:transparent;">';
+      html += '<div style="display:flex;align-items:center;gap:8px;">';
+      if (amp) html += '<span style="font-size:17px;flex-shrink:0;">' + amp.e + '</span>';
+      html += '<div style="flex:1;min-width:0;"><div style="font-size:14.5px;font-weight:800;color:var(--text);">' + ed(nm) + (x.season ? ' <span style="font-size:10px;font-weight:800;color:#2e7d32;background:#e8f5e9;padding:1px 6px;border-radius:6px;vertical-align:middle;">' + ed(_lt('mush_season_now','jetzt in Saison')) + '</span>':'') + '</div>';
+      if (m && m.scientific_name) html += '<div style="font-size:11px;font-style:italic;color:var(--muted);">' + ed(m.scientific_name) + (m.vapko_klasse ? ' · VAPKO ' + ed(m.vapko_klasse) : '') + '</div>';
+      html += '</div><span style="color:var(--muted);font-size:16px;flex-shrink:0;">›</span></div>';
+      if (la && la.has_deadly_lookalike) html += '<div style="margin-top:7px;font-size:11.5px;color:#b71c1c;font-weight:700;background:#ffebee;border-radius:7px;padding:5px 8px;">☠️ ' + ed(_lt('sp_deadly_lookalike','Tödlicher Doppelgänger')) + (la.deadly_count>1?(' ('+la.deadly_count+')'):'') + ' — ' + ed(_lt('sp_read_steckbrief','Steckbrief lesen!')) + '</div>';
+      else if (la && la.total_lookalikes>0) html += '<div style="margin-top:7px;font-size:11px;color:#bf360c;background:#fff3e0;border-radius:7px;padding:4px 8px;">⚠️ ' + la.total_lookalikes + ' ' + ed(_lt('sp_lookalikes','Verwechsler')) + '</div>';
+      var hb = [];
+      if (m && Array.isArray(m.habitat) && m.habitat.length) hb.push('🌲 ' + ed(m.habitat.slice(0,2).join(', ')));
+      if (m && Array.isArray(m.symbiosis_partners) && m.symbiosis_partners.length) hb.push('🤝 ' + ed(m.symbiosis_partners.slice(0,2).join(', ')));
+      if (hb.length) html += '<div style="margin-top:6px;font-size:11.5px;color:var(--text2);">' + hb.join(' · ') + '</div>';
+      if (gw && (gw.best_after || gw.microhabitat)) {
+        html += '<div style="margin-top:6px;font-size:11.5px;color:var(--g-dark);background:var(--g-bg,rgba(46,125,50,.08));border-radius:7px;padding:5px 8px;line-height:1.5;">';
+        if (gw.best_after) html += '⏱ ' + ed(gw.best_after);
+        if (gw.microhabitat) html += (gw.best_after?'<br>':'') + '📍 ' + ed(gw.microhabitat);
+        html += '</div>';
+      }
+      html += '</div>';
+    });
+    html += '</div>';
+    if (!matched.length) html += '<div style="text-align:center;color:var(--muted);padding:30px;">' + ed(_lt('sp_empty','Für diese Region sind noch keine Pilze hinterlegt.')) + '</div>';
+    html += '<div style="margin-top:18px;padding:12px 14px;background:#ede7f6;border:1.5px solid #5e35b1;border-radius:12px;font-size:12px;color:#311b92;line-height:1.5;"><b>🔒 VAPKO</b> · ' + ed(_lt('sp_vapko_note','Lass jeden Fund vor dem Essen bei einer offiziellen Pilzkontrolle prüfen. Im Zweifel: nie essen.')) + '<br>☎️ <a href="tel:145" style="color:#311b92;font-weight:800;">' + ed(_lt('mush_emergency','Vergiftungsnotfall')) + ' 145</a></div>';
+    if (body) body.innerHTML = html;
+    if (typeof gsWireMushChips === 'function') gsWireMushChips(body);
+    else if (body) body.querySelectorAll('[data-mush]').forEach(function(el){ el.addEventListener('click', function(){ if(typeof gsOpenMushroomLearnCard==='function') gsOpenMushroomLearnCard(el.getAttribute('data-mush')); }); });
+  } catch(e) {
+    var b2 = document.getElementById('sp-body'); if (b2) b2.innerHTML = '<div style="padding:30px;text-align:center;color:#c62828;">⚠️ ' + ed(String(e && e.message || e)) + '</div>';
+  }
+}
+window.gsOpenSaisonPilze = gsOpenSaisonPilze;
 
 // v29.67 Anfänger-Ampel-Stufen (aus v_mushroom_beginner; deterministisch, sichere Fehlerrichtung)
 var GS_BEGINNER_AMPEL = {
@@ -59453,6 +59545,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.81', date: '19.06.2026',
+    headline: '🍄 Neuer Saison-Pilz-Bereich — gross, regional & mit Wachstums-Wissen',
+    summary: 'Der regionale Saison-Pilz-Teil ist zu einem eigenen, grossen Bereich ausgebaut: Öffne ihn über die „Saison-Pilze in deiner Region"-Karte und du siehst alle für deine Region & Höhenlage sammelbaren Pilze als übersichtliche Karten — mit Anfänger-Ampel, Lebensraum, Verwechsler-Warnung (☠️ bei tödlichen Doppelgängern direkt sichtbar) und neu: Wachstums-Wissen für 54 Speisepilze (wann sie wachsen, nach welchem Wetter, wo genau suchen — recherchiert und faktengeprüft). Tippe einen Pilz für den vollen Steckbrief. Im Zweifel immer zur VAPKO-Pilzkontrolle.',
+    user_summary: '🍄 Neuer grosser Saison-Pilz-Bereich pro Region: Karten mit Ampel, Verwechsler-Warnung & Wachstums-Wissen (wann/wo welcher Pilz).',
+    user_items: [
+      { emoji: '🗺️', text: 'Eigener Bereich mit allen Pilzen deiner Region & Höhe' },
+      { emoji: '⏱️', text: 'Wachstums-Wissen: wann & nach welchem Wetter, wo suchen' },
+      { emoji: '☠️', text: 'Tödliche Doppelgänger direkt auf der Karte markiert' },
+      { emoji: '🚦', text: 'Anfänger-Ampel + Tap für vollen Steckbrief' },
+    ],
+    items: [
+      {emoji:'🍄', bold:'Vollbild-Saison-Pilz-Bereich:', text:' region-aware (Höhenband, Monat), reiche Karten je Pilz (Ampel, Name, VAPKO, jetzt-in-Saison, Lebensraum, Mykorrhiza-Partner, inline Verwechsler-Gefahr), tap → voller Steckbrief.'},
+      {emoji:'⏱️', bold:'Wachstums-Wissen (54 Speisepilze):', text:' wann sie fruchten, nach welchem Wetter, konkreter Suchort — recherchiert aus mykologischen Quellen + Faktencheck. Erscheint je Pilz auf der Karte.'},
+      {emoji:'🔒', bold:'Sicherheit:', text:' tödliche Doppelgänger sind direkt markiert; jeder Fund vor dem Essen zur VAPKO-Pilzkontrolle, Notruf 145.'},
+    ],
+  },
+  {
     v: 'v29.80', date: '19.06.2026',
     headline: '📸 Scan-Foto wird gespeichert — sieh, wie es aussah',
     summary: 'Ab jetzt wird das Foto, das beim Scannen zur Analyse genutzt wird, zusammen mit dem Scan im Verlauf gespeichert. So kannst du in der Scan-Historie immer nachsehen, wie die Pflanze beim Scan ausgesehen hat — bisher gab es dort nur ein winziges Vorschaubild. Funktioniert für Kamera- und Galerie-Scans, speicherschonend (die letzten Scans behalten das volle Foto).',
@@ -65132,7 +65241,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.80';
+var GS_VERSION = 'v29.81';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
