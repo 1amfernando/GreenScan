@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.81.20260619">
+<meta name="app-version" content="29.82.20260619">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12260,7 +12260,20 @@ window.GS_I18N_JS_STRINGS = {
   'mush_l_sporen':             'Sporen',
   'mush_l_protip':             'Profi-Tipp',
   'mush_l_toxinfo':            'Tox-Info 145',
-  'mush_vapko_footer':         'Diese App ersetzt keine offizielle Pilzkontrolle. Im Zweifel: nie essen. Bei Verzehr-Verdacht ☎️ 145.'
+  'mush_vapko_footer':         'Diese App ersetzt keine offizielle Pilzkontrolle. Im Zweifel: nie essen. Bei Verzehr-Verdacht ☎️ 145.',
+  // v29.82 Saison-Pilz-Vollbild-Screen (gsOpenSaisonPilze) Chrome
+  'sp_title':                  'Saison-Pilze in deiner Region',
+  'sp_loading':                'Lade Region & Pilze…',
+  'sp_no_region':              'Keine Region erkannt',
+  'sp_no_region_body':         'Setze deinen Standort oder wähle eine Region, dann zeigen wir die regional sammelbaren Pilze.',
+  'sp_month':                  'Monat',
+  'sp_now_collectable':        'jetzt sammelbar',
+  'sp_region_overview':        'Pilze deiner Region',
+  'sp_deadly_lookalike':       'Tödlicher Doppelgänger',
+  'sp_read_steckbrief':        'Steckbrief lesen!',
+  'sp_lookalikes':             'Verwechsler',
+  'sp_vapko_note':             'Lass jeden Fund vor dem Essen bei einer offiziellen Pilzkontrolle prüfen. Im Zweifel: nie essen.',
+  'sp_open_area':              'Saison-Pilze-Bereich öffnen'
 };
 
 // Sammelt alle data-i18n Strings aus DOM + ergänzt durch JS-Map
@@ -59545,6 +59558,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.82', date: '19.06.2026',
+    headline: '🌍 Saison-Pilz-Bereich jetzt in allen 5 Sprachen',
+    summary: 'Der neue Saison-Pilz-Bereich spricht jetzt vollständig deine App-Sprache (DE/EN/ES/FR/IT) — auch die Bedien-Texte wie „Saison-Pilze in deiner Region", die Verwechsler-Warnung und der VAPKO-Hinweis. Damit ist der ganze Pilz-Bereich durchgängig mehrsprachig.',
+    user_summary: '🌍 Der Saison-Pilz-Bereich ist jetzt komplett auf DE/EN/ES/FR/IT (inkl. Sicherheits-Hinweise).',
+    user_items: [
+      { emoji: '🌍', text: 'Bedien-Texte des Pilz-Bereichs in 5 Sprachen' },
+      { emoji: '☠️', text: '„Tödlicher Doppelgänger" & VAPKO-Hinweis übersetzt' },
+    ],
+    items: [
+      {emoji:'🌍', bold:'12 neue Chrome-Strings × 4 Sprachen:', text:' der Saison-Pilz-Vollbild-Bereich nutzt jetzt durchgängig die App-Sprache. Sicherheits-Texte treu übersetzt.'},
+    ],
+  },
+  {
     v: 'v29.81', date: '19.06.2026',
     headline: '🍄 Neuer Saison-Pilz-Bereich — gross, regional & mit Wachstums-Wissen',
     summary: 'Der regionale Saison-Pilz-Teil ist zu einem eigenen, grossen Bereich ausgebaut: Öffne ihn über die „Saison-Pilze in deiner Region"-Karte und du siehst alle für deine Region & Höhenlage sammelbaren Pilze als übersichtliche Karten — mit Anfänger-Ampel, Lebensraum, Verwechsler-Warnung (☠️ bei tödlichen Doppelgängern direkt sichtbar) und neu: Wachstums-Wissen für 54 Speisepilze (wann sie wachsen, nach welchem Wetter, wo genau suchen — recherchiert und faktengeprüft). Tippe einen Pilz für den vollen Steckbrief. Im Zweifel immer zur VAPKO-Pilzkontrolle.',
@@ -65241,7 +65267,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.81';
+var GS_VERSION = 'v29.82';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
