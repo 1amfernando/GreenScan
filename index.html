@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.77.20260619">
+<meta name="app-version" content="29.78.20260619">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2111,18 +2111,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
     <!-- v26.49: Wetter-Alert-Widget (region+month aus garden_weather_alerts) — pulsiert bei katastrophal -->
     <!-- v29.49: Tap öffnet die Live-Wetter-Warnungen (kein Re-Roll mehr); Tages-Auswahl date-stabil -->
-    <div id="weather-alert-card" style="display:none;background:linear-gradient(135deg,#c62828,#7f0000);border-radius:var(--r);padding:13px 15px;color:#fff;margin-bottom:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;" onclick="if(typeof gsOpenWeatherAlerts==='function')gsOpenWeatherAlerts()">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;opacity:.9;">⚠️ Wetter-Warnung Garten</div>
-        <span id="wa-severity-badge" style="background:rgba(255,255,255,.22);font-size:9.5px;padding:2px 7px;border-radius:7px;font-weight:800;"></span>
-      </div>
-      <div id="wa-title" style="font-family:'Playfair Display',serif;font-size:16px;font-weight:900;line-height:1.3;margin-bottom:4px;"></div>
-      <div id="wa-region-line" style="font-size:11.5px;opacity:.92;margin-bottom:7px;"></div>
-      <div id="wa-actions" style="background:rgba(0,0,0,.22);padding:8px 11px;border-radius:8px;font-size:11.5px;line-height:1.55;margin-bottom:7px;display:none;"></div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-        <a id="wa-meteo-link" href="#" target="_blank" rel="noopener" onclick="event.stopPropagation();" style="flex:1;min-width:160px;padding:8px 10px;background:rgba(255,255,255,.92);border-radius:9px;font-size:12px;font-weight:800;color:#b71c1c;text-align:center;text-decoration:none;-webkit-tap-highlight-color:transparent;">🛰 MeteoSchweiz</a>
-      </div>
-    </div>
+    <!-- v29.78: Home-Unwetter-Card entfernt (Fernando: unnötig im Home). Wetter-Warnungen-Inbox + Push-Alerts bleiben unabhängig erhalten. -->
 
     <!-- v26.39: Mushroom-Saison-Widget (Bonus B-A, region-aware aus mushroom_seasonal_patches) -->
     <div id="mushroom-season-card" style="display:none;background:linear-gradient(135deg,#4a148c,#6a1b9a);border-radius:var(--r);padding:13px 15px;color:#fff;margin-bottom:12px;-webkit-tap-highlight-color:transparent;">
@@ -19225,13 +19214,23 @@ async function loadHomeWeather() {
   }
 
   try {
-    const resp = await (window._gsFetch || fetch)(
-      'https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+
-      '&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m,uv_index'+
-      '&hourly=weather_code,wind_speed_10m,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Europe/Zurich&forecast_days=4&models=best_match',
-      {}, 12000
-    );
-    const d = await resp.json();
+    // v29.78: Erst-Load-Fix — Forecast-Fetch mit Retry (transienter 1.-Versuch-Fehler zeigte sonst
+    // "Wetter nicht verfügbar" bis manuellem Refresh). 3 Versuche, 0/700/1400ms Backoff.
+    var d = null;
+    for (var _wtry = 0; _wtry < 3 && !d; _wtry++) {
+      try {
+        if (_wtry > 0) await new Promise(function(r){ setTimeout(r, 700 * _wtry); });
+        const resp = await (window._gsFetch || fetch)(
+          'https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+
+          '&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m,uv_index'+
+          '&hourly=weather_code,wind_speed_10m,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Europe/Zurich&forecast_days=4&models=best_match',
+          {}, 12000
+        );
+        const dd = await resp.json();
+        if (dd && dd.current) d = dd;
+      } catch(_wErr){ /* transient → retry */ }
+    }
+    if (!d || !d.current) throw new Error('weather unavailable after retries');
     const c = d.current;
     const icon = WEATHER_CODE_MAP[c.weather_code] || '🌤️';
     const desc = gsWeatherDescT(c.weather_code);
@@ -19486,12 +19485,7 @@ function initHomeBoard() {
       }
     } catch(e) { console.log('SBMushSeason:', e.message); }
 
-    // ── v26.49: Wetter-Alert-Widget (region+month, garden_weather_alerts) ──
-    try {
-      if (typeof gsLoadGardenWeatherAlerts === 'function') {
-        setTimeout(function(){ gsLoadGardenWeatherAlerts(); }, 350);
-      }
-    } catch(e) { console.log('SBWeatherAlert:', e.message); }
+    // v29.78: Home-Unwetter-Card-Loader entfernt (Card raus). Push-Alerts laufen unabhängig weiter.
 
     // ── Animierte Zahlen ──────────────────────────────────
     setTimeout(function() {
@@ -47590,7 +47584,7 @@ function gsBroadcastLocationChange() {
   if (typeof loadHomeWeather === 'function') { try { loadHomeWeather(); } catch(e){} }
   // Garten-Wetter (v27.03 HL#9: echter Name ist gsLoadGardenWeatherAlerts) + Karten-Funde
   if (typeof loadGardenWeather === 'function') { try { loadGardenWeather(); } catch(e){} }
-  if (typeof gsLoadGardenWeatherAlerts === 'function') { try { gsLoadGardenWeatherAlerts(); } catch(e){} }
+  // v29.78: gsLoadGardenWeatherAlerts-Call entfernt (Home-Unwetter-Card raus)
   if (typeof gsLoadMarkersFromCloud === 'function') { try { gsLoadMarkersFromCloud(); } catch(e){} }
   // v29.18 DUP-02: tote Phantom-Refresh-Hooks (HL#9) entfernt — gsLoadGardenWeather/renderGardenWeatherBanner/
   // gsLoadFarmWeather/renderBluehkalender/renderSaekalender/renderMoonCalendar existier(t)en nie (typeof-Guard
@@ -47639,7 +47633,7 @@ function gsSetWeatherLocMode(mode){
   var lbl = mode==='garden' ? 'Mein Garten' : (mode==='manual' ? 'Manuell' : 'Automatisch (Live)');
   if (typeof gsToast==='function') gsToast('🌦️ Wetter-Standort: ' + lbl, 'success', 2000);
   try { if (typeof loadHomeWeather === 'function') loadHomeWeather(); } catch(_){}
-  try { if (typeof gsLoadGardenWeatherAlerts === 'function') gsLoadGardenWeatherAlerts(); } catch(_){}
+  // v29.78: gsLoadGardenWeatherAlerts-Call entfernt (Home-Unwetter-Card raus)
 }
 window.gsSetWeatherLocMode = gsSetWeatherLocMode;
 // v28.03: Settings-Picker für den Wetter-Standort-Modus
@@ -59412,6 +59406,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.78', date: '19.06.2026',
+    headline: '🌦️ Home aufgeräumt: Unwetter-Card raus + Wetter lädt zuverlässig',
+    summary: 'Zwei Verbesserungen am Home-Wetter: Die rote Unwetter-Warn-Card im Home ist entfernt (auf Wunsch — die Wetter-Warnungen kommen weiterhin als Push-Benachrichtigung). Und der nervige Wetter-Fehler beim ersten Öffnen ist behoben: Bisher erschien oft kurz „Wetter nicht verfügbar" und man musste neu laden — jetzt versucht die App den Abruf automatisch mehrfach, sodass Standort und Wetter direkt erscheinen.',
+    user_summary: '🌦️ Unwetter-Card im Home entfernt + „Wetter nicht verfügbar"-Fehler beim Start behoben (kein Neuladen mehr nötig).',
+    user_items: [
+      { emoji: '🧹', text: 'Unwetter-Warn-Card aus dem Home entfernt' },
+      { emoji: '🔁', text: 'Wetter lädt jetzt zuverlässig beim ersten Öffnen (Auto-Retry)' },
+      { emoji: '🔔', text: 'Wetter-Warnungen kommen weiterhin als Push' },
+    ],
+    items: [
+      {emoji:'🧹', bold:'Unwetter-Card entfernt:', text:' das #weather-alert-card im Home + die Loader-Calls raus. Die Wetter-Warnungen-Inbox + Push-Alerts bleiben unabhängig erhalten.'},
+      {emoji:'🔁', bold:'Wetter-Erst-Load-Fix:', text:' der Forecast-Abruf hatte keinen Retry — ein transienter Fehler beim Start zeigte sofort „Wetter nicht verfügbar". Jetzt 3 Versuche mit Backoff, Fehler erst danach.'},
+    ],
+  },
+  {
     v: 'v29.77', date: '19.06.2026',
     headline: '🌼 Startbildschirm & Shortcuts im neuen Look',
     summary: 'Passend zum neuen Edelweiss-App-Icon (v29.76) sind jetzt auch der Startbildschirm (Splash-Screen) und die Schnellzugriff-Symbole erneuert. Der Startbildschirm zeigt das Edelweiss mit „GreenScan" und „Schweizer Pflanzen & Natur" auf Forest-Grün — und behebt ein altes Anzeige-Problem, bei dem statt des Logos ein leeres Kästchen erschien. Die vier Schnellzugriffe (langes Tippen aufs App-Icon) zeigen jetzt klare Symbole: 🔍 Scannen, 🌱 Garten, ❓ Tagesfrage, 📚 Wissen.',
@@ -65046,7 +65055,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.77';
+var GS_VERSION = 'v29.78';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
