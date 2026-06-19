@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.76.20260619">
+<meta name="app-version" content="29.77.20260619">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -59412,6 +59412,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.77', date: '19.06.2026',
+    headline: '🌼 Startbildschirm & Shortcuts im neuen Look',
+    summary: 'Passend zum neuen Edelweiss-App-Icon (v29.76) sind jetzt auch der Startbildschirm (Splash-Screen) und die Schnellzugriff-Symbole erneuert. Der Startbildschirm zeigt das Edelweiss mit „GreenScan" und „Schweizer Pflanzen & Natur" auf Forest-Grün — und behebt ein altes Anzeige-Problem, bei dem statt des Logos ein leeres Kästchen erschien. Die vier Schnellzugriffe (langes Tippen aufs App-Icon) zeigen jetzt klare Symbole: 🔍 Scannen, 🌱 Garten, ❓ Tagesfrage, 📚 Wissen.',
+    user_summary: '🌼 Startbildschirm & App-Schnellzugriffe im neuen Edelweiss-Look (altes leeres Logo-Kästchen behoben).',
+    user_items: [
+      { emoji: '🖼️', text: 'Startbildschirm mit Edelweiss + „GreenScan" (alle Geräte)' },
+      { emoji: '⚡', text: 'Schnellzugriffe mit klaren Symbolen: 🔍 🌱 ❓ 📚' },
+      { emoji: '🐛', text: 'Altes leeres Logo-Kästchen auf dem Startbildschirm behoben' },
+    ],
+    items: [
+      {emoji:'🖼️', bold:'11 Startbildschirme:', text:' Forest-Gradient + Edelweiss + Titel + Tagline, in jeder exakten Geräte-Auflösung (iPhone & iPad). Behebt den alten Tofu-Kästchen-Bug (Emoji-Logo wurde nie gerendert).'},
+      {emoji:'⚡', bold:'4 Schnellzugriff-Icons:', text:' Scanner 🔍 / Garten 🌱 / Tagesfrage ❓ / Wissen 📚 auf Forest-Tile passend zum App-Icon (waren ebenfalls leere Kästchen).'},
+      {emoji:'⚙️', bold:'Drop-in:', text:' manifest & Startbild-Verweise unverändert — reine Asset-Ersetzung. Icon-Familie jetzt komplett konsistent (Icon + Splash + Shortcuts).'},
+    ],
+  },
+  {
     v: 'v29.76', date: '19.06.2026',
     headline: '🌼 Neues App-Icon — das Edelweiss',
     summary: 'GreenScan hat ein neues App-Icon: ein weisses Edelweiss mit goldenem Zentrum auf dunkelgrünem Forest-Hintergrund — die Schweizer Alpenblume als Markenzeichen. Das Icon erscheint auf dem Home-Screen, im Browser-Tab und beim App-Start in allen Grössen (inkl. randloser Android-Variante). Falls dein Home-Screen noch das alte Icon zeigt: App einmal neu installieren — Handys cachen Icons hartnäckig.',
@@ -65030,7 +65046,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.76';
+var GS_VERSION = 'v29.77';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
