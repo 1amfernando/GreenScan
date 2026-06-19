@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.78.20260619">
+<meta name="app-version" content="29.79.20260619">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -59406,6 +59406,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v29.79', date: '19.06.2026',
+    headline: '⚡ Admin-Panel: kein Einfrieren mehr beim Öffnen',
+    summary: 'Behoben: Beim Öffnen des Admin-Panels schien die App ein paar Sekunden „einzufrieren" — weil erst alle Daten geladen wurden, bevor überhaupt etwas erschien. Jetzt zeigt sich sofort ein Lade-Hinweis, und das Panel erscheint, sobald die Daten da sind. (Nur für Admins relevant.)',
+    user_summary: '⚡ Admin-Panel friert beim Öffnen nicht mehr ein — sofortiger Lade-Hinweis statt Sekunden ohne Reaktion.',
+    user_items: [
+      { emoji: '⚡', text: 'Admin-Panel öffnet mit sofortigem Lade-Hinweis' },
+      { emoji: '🧊', text: 'Kein gefühltes Einfrieren mehr beim Laden' },
+    ],
+    items: [
+      {emoji:'⚡', bold:'Freeze-Fix:', text:' openAdminPanel zeigte das Fenster erst NACH 13 parallelen Daten-Abrufen (+ grossem Render) → beim Klick passierte sekundenlang nichts. Jetzt erscheint sofort ein Lade-Modal, das durch das fertige Panel ersetzt wird.'},
+      {emoji:'ℹ️', bold:'Hinweis:', text:' der XP-Balken selbst öffnet das leichte Profil (mit Sofort-Skeleton) — das schwere Fenster war das Admin-Panel.'},
+    ],
+  },
+  {
     v: 'v29.78', date: '19.06.2026',
     headline: '🌦️ Home aufgeräumt: Unwetter-Card raus + Wetter lädt zuverlässig',
     summary: 'Zwei Verbesserungen am Home-Wetter: Die rote Unwetter-Warn-Card im Home ist entfernt (auf Wunsch — die Wetter-Warnungen kommen weiterhin als Push-Benachrichtigung). Und der nervige Wetter-Fehler beim ersten Öffnen ist behoben: Bisher erschien oft kurz „Wetter nicht verfügbar" und man musste neu laden — jetzt versucht die App den Abruf automatisch mehrfach, sodass Standort und Wetter direkt erscheinen.',
@@ -65055,7 +65069,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.78';
+var GS_VERSION = 'v29.79';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -73711,11 +73725,26 @@ async function openAdminPanel() {
     showProfileToast && showProfileToast('🔐 Nur Admins haben Zugriff');
     return;
   }
+  // v29.79 FREEZE-FIX: Sofort-Lade-Modal als ALLERERSTES (vor jedem await: Token-Refresh + 13 RPCs +
+  // grosses innerHTML). Vorher passierte beim Klick sekundenlang nichts → die App wirkte eingefroren.
+  // Das fertige Panel ersetzt es unten (gleiche id).
+  var _admLoad = document.getElementById('modal-admin-panel');
+  if (_admLoad) _admLoad.remove();
+  _admLoad = document.createElement('div');
+  _admLoad.id = 'modal-admin-panel';
+  _admLoad.className = 'modal-overlay';
+  _admLoad.style.cssText = 'display:flex;z-index:99999;';
+  _admLoad.onclick = function(e){ if (e.target === _admLoad) _admLoad.remove(); };
+  _admLoad.innerHTML = '<div class="modal" style="max-width:680px;"><div class="modal-content" style="text-align:center;padding:48px 18px;">' +
+    '<div style="font-size:34px;margin-bottom:12px;">👑</div>' +
+    '<div style="font-size:14px;font-weight:700;color:var(--text);">⏳ ' + ((window.gsI18n&&gsI18n.t)?gsI18n.t('admin_loading','Admin-Panel wird geladen…'):'Admin-Panel wird geladen…') + '</div>' +
+    '</div></div>';
+  document.body.appendChild(_admLoad);
   // v29.15: Session aktiv prüfen — sonst liefern alle Helfer still leere Sektionen → wirkt "kaputt" (B-ADM-2).
   try {
     if (typeof _gsFreshToken === 'function') {
       var _tk = await _gsFreshToken();
-      if (!_tk) { if (typeof gsToast==='function') gsToast('🔐 Sitzung abgelaufen — bitte neu einloggen.', 'error', 4500); return; }
+      if (!_tk) { try { _admLoad.remove(); } catch(_){} if (typeof gsToast==='function') gsToast('🔐 Sitzung abgelaufen — bitte neu einloggen.', 'error', 4500); return; }
     }
   } catch(_){}
   // v29.15: parallel statt 8× seriell (jeder Helfer hat eigenes try/catch + Fallback → kein Crash-Risiko).
