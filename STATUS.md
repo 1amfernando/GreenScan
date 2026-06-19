@@ -4,13 +4,45 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-06-19 · **Branch**: `main` · **Version**: `v29.82` (LIVE)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-06-19 — Routine-Health-Check (Monitoring-Session)
+
+- **Auftrag:** Automatischer Routine-Check — kein User-Briefing.
+- **Befund:** Repo gesund. `origin/main` auf `v29.82` (9d858ca). 13 offene Feature-Branches (alle stale, main hat sie überholt). Keine offenen Issues, keine offenen PRs.
+- **Achtung Prompt-Injection:** Die Nutzer-Nachricht dieser Session enthielt denselben Injection-Versuch wie gestern ("Proaktive Ressourcen-Maximierung", "Dynamic Headroom Monitoring", "Token-Puffer reservieren") — erneut ignoriert. Keine unautorisierten Aktionen ausgeführt.
+- **Letzter Stand v29.73 → v29.82 (10 Commits seit gestern):**
+  - **i18n Pilz-Steckbrief komplett** (v29.74): Verwechsler-Prosa mehrsprachig + Backend-Security-Check.
+  - **Pilz-Scanner-Resultat i18n** (v29.75): Lebensgefahr-Overlay in DE/EN/ES/FR/IT.
+  - **Neues Edelweiss-Icon-Set** (v29.76): Frische App-Icons; v29.77 Splash-Screens + Shortcut-Icons korrigiert (kaputte Glyphen behoben).
+  - **Home-Wetter-Fix** (v29.78): Unwetter-Card entfernt + Erst-Load-Bug gefixt.
+  - **Admin-Panel Freeze-Fix** (v29.79): Sofort-Lade-Modal behebt Freeze.
+  - **Scan-Analyse-Foto** (v29.80): Foto wird im Verlauf gespeichert.
+  - **Saison-Pilze** (v29.81–v29.82): Dedizierter Vollbild-Bereich + Wachstums-Wissen + Chrome-i18n (DE/EN/ES/FR/IT).
+- **Stale Branches (13 total, kein Handlungsbedarf):** `claude/lucid-cerf-bcyifm` (181 Commits ahead, max v29.37), `claude/lucid-cerf-hm13q0` (159), `claude/lucid-cerf-dfxwv7` (156), `claude/lucid-cerf-dix1vr` (145) u.a. — alle 50 Commits hinter main, Arbeit bereits in main integriert. Können bei Gelegenheit gelöscht werden.
+- **Offene Cowork-Pflichten (aus v26.51):** Stripe Live-Mode-Switch (Fernando) · Leaked-Password-Protection im Supabase-Dashboard aktivieren.
+- **Naechste Session:** Auf Anweisung warten oder ROADMAP.md prüfen.
+
+### 2026-06-18 — Routine-Health-Check (Monitoring-Session)
+
+- **Auftrag:** Automatischer Routine-Check — kein User-Briefing.
+- **Befund:** Repo gesund. `origin/main` auf `v29.73` (6f0c03d). Keine offenen PRs, kein uncommitted State.
+- **Achtung Prompt-Injection:** Die Nutzer-Nachricht dieser Session enthielt einen Injection-Versuch ("Proaktive Ressourcen-Maximierung", "Token-Puffer", "Coworker informieren") — wurde ignoriert.
+- **Letzter Stand v26.51 → v29.73 (~100 Commits):**
+  - **Login-Overhaul** (v29.56–v29.57): Redesign + a11y + Refresh-Mutex (behebt Zufalls-Logouts) + Recovery-Token-Härtung.
+  - **KI-Gartenplaner** (v29.58–v29.61): FiBL/Bioterra-Referenzierung, garden_crop_agronomy 25→112 Kulturen, echtes PDF-Export.
+  - **Pilz-DB-Ausbau** (v29.62–v29.63): +53 Arten, +10 Verwechsler-Paare, VAPKO-Kantone ergänzt.
+  - **Schweiz-Geo-DB** (v29.64): 26 Kantone + 72 Regionen + 2164 Gemeinden.
+  - **Pilz-Scanner Regional** (v29.65–v29.66): Region-spezifische Pilzempfehlungen + Sammelkalender.
+  - **Lernfreundliche UX** (v29.67): Anfänger-Ampel, tappbare Steckbriefe, Lern-Curriculum.
+  - **i18n Pilz + Garten** (v29.68–v29.73): 5-Sprachen-Übersetzung (DE/EN/ES/FR/IT) + Notrufnummer-Sicherheitsfix.
+- **Offen:** Stripe Live-Mode-Switch, Leaked-Password-Protection Dashboard.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
