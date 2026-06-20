@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="29.82.20260619">
+<meta name="app-version" content="30.01.20260620">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4131,6 +4131,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <!-- v25.11: Neuer KI-Garten-Scan (3-Foto-Wizard via Edge-Fn garden-scan-analyze) -->
       <button onclick="gsOpenGardenScan()" style="background:linear-gradient(135deg,#1b5e20,#2e7d32);border:none;color:#fff;padding:7px 11px;border-radius:9px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;flex-shrink:0;margin-right:6px;" title="Neuer KI-Garten-Scan mit 3 Fotos">✨ KI-Scan</button>
       <button onclick="gsPPopenSavedPlans()" style="background:rgba(27,94,32,.15);border:1px solid rgba(27,94,32,.3);color:var(--g-dark);padding:7px 11px;border-radius:9px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;flex-shrink:0;" title="Gespeicherte Pläne ansehen">📂 Meine Pläne</button>
+      <button onclick="gsOpenTreePlanner()" style="background:linear-gradient(135deg,#2e7d32,#43a047);border:none;color:#fff;padding:7px 11px;border-radius:9px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;flex-shrink:0;margin-left:6px;" title="Baum pflanzen — Planer">🌳 Bäume</button>
     </div>
 
     <!-- Step Progress Bar -->
@@ -59558,6 +59559,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v30.01', date: '20.06.2026',
+    headline: '🌳 Neuer Baum-Pflanz-Planer',
+    summary: 'Der KI-Planer kann jetzt auch Bäume & Gehölze: wähle deinen Standort und einen von 76 häufigen Schweizer Pflanzbäumen — die App berechnet Grenzabstand, Pflanzloch, Pfahl, Verbissschutz, Mulch und Bewässerung, zeigt eine Material-Stückliste mit Kosten, eine Schritt-für-Schritt-Anleitung und ein 3D-Modell mit Wuchs-Vorschau und Grenzabstand-Check. Inkl. Gift- und Bestäubungs-Hinweisen.',
+    user_summary: '🌳 Neu: Baum-Pflanz-Planer mit Grenzabstand, Zaun/Material/Kosten, Pflanz-Anleitung und 3D-Wuchsvorschau.',
+    user_items: [
+      { emoji: '🌳', text: '76 Schweizer Pflanzbäume mit vollem Steckbrief' },
+      { emoji: '📏', text: 'Grenzabstand, Pflanzloch, Pfahl, Mulch & Kosten — alles berechnet' },
+      { emoji: '🧊', text: '3D-Vorschau mit Wuchs-Slider & Grenzabstand-Check' },
+    ],
+    items: [
+      {emoji:'🌳', bold:'Baum-Pflanz-Modus:', text:' 76 häufige CH-Pflanzbäume (Obst/Hecke/Hausbaum/Beeren/Zier/Wild/Nadel), autoritativ recherchiert + sicherheitsgeprüft (Giftigkeit/Wurzelrisiko).'},
+      {emoji:'📐', bold:'Alles mitberechnet:', text:' Grenzabstand (CH-Faustregel + Disclaimer), Pflanzloch, Substrat, Pfahl, Verbissschutz, Mulch, Bewässerung — Material-Stückliste mit CHF-Spanne.'},
+      {emoji:'🧊', bold:'3D + Wuchs-Vorschau:', text:' drehbares 3D-Modell, Slider von heute bis Endgrösse, roter/grüner Grenzabstand-Ring.'},
+    ],
+  },
+  {
     v: 'v29.82', date: '19.06.2026',
     headline: '🌍 Saison-Pilz-Bereich jetzt in allen 5 Sprachen',
     summary: 'Der neue Saison-Pilz-Bereich spricht jetzt vollständig deine App-Sprache (DE/EN/ES/FR/IT) — auch die Bedien-Texte wie „Saison-Pilze in deiner Region", die Verwechsler-Warnung und der VAPKO-Hinweis. Damit ist der ganze Pilz-Bereich durchgängig mehrsprachig.',
@@ -65267,7 +65284,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v29.82';
+var GS_VERSION = 'v30.01';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -79276,6 +79293,374 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
 })();
 </script>
 <!-- ═══ ENDE SMART-HOME-DASHBOARD ═══════════════════════════════ -->
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   KI-BAUM-PFLANZ-PLANER (v30.01) — Welle 1
+   Dedizierter Vollbild-Bereich: Standort → Baumwahl → 3D-Pflanzplan mit
+   Wuchs-Vorschau + Grenzabstand-Glow, Material/Kosten-Stückliste,
+   Schritt-für-Schritt-Anleitung, Sicherheit + Bestäubung.
+   Backend: tree_planting_specs(+i18n), ch_planting_distance_rules, planting_materials.
+   Reuse: sbFetch, _gsLoadThree, _lt, gsHTMLEscape, callAI (brain:'dendrologe').
+   ═══════════════════════════════════════════════════════════════════════ */
+(function(){
+if (window._gsTreePlannerInit) return; window._gsTreePlannerInit = true;
+
+var TP = window._gsTP = {
+  specs:null, rules:null, materials:null, i18nBySlug:{},
+  plot:{ len:10, wid:8, soil:'lehmig', light:'sonnig', wild:false, building:false, buildDist:5 },
+  sel:null, age:1.0, _3d:null
+};
+function ed(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s==null?'':s)) : String(s==null?'':s); }
+function L(k,f){ return (typeof _lt==='function') ? _lt(k,f) : f; }
+function num(x,d){ var n=Number(x); return isFinite(n)?n:(d==null?0:d); }
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function r1(x){ return Math.round(x*10)/10; }
+function r2(x){ return Math.round(x*100)/100; }
+function curLang(){ try{ return (window.gsI18n && gsI18n.getLang) ? gsI18n.getLang() : 'de'; }catch(_){ return 'de'; } }
+
+/* ── Daten laden (anon read via sbFetch) ── */
+async function tpLoadAll(){
+  if (TP.specs && TP.rules && TP.materials) return true;
+  if (typeof sbFetch !== 'function') return false;
+  try {
+    var a = await sbFetch('/rest/v1/tree_planting_specs?select=*&order=common_name_de.asc&limit=300', { method:'GET' });
+    TP.specs = (a && Array.isArray(a.data)) ? a.data : (Array.isArray(a)?a:[]);
+    var b = await sbFetch('/rest/v1/ch_planting_distance_rules?select=*', { method:'GET' });
+    var rrows = (b && Array.isArray(b.data)) ? b.data : (Array.isArray(b)?b:[]);
+    TP.rules = {}; rrows.forEach(function(x){ TP.rules[x.height_class] = x; });
+    var c = await sbFetch('/rest/v1/planting_materials?select=*', { method:'GET' });
+    TP.materials = (c && Array.isArray(c.data)) ? c.data : (Array.isArray(c)?c:[]);
+  } catch(e){ console.warn('[TP] load failed', e); return false; }
+  return Array.isArray(TP.specs) && TP.specs.length > 0;
+}
+async function tpLoadI18n(slug){
+  var lang = curLang();
+  if (lang === 'de') return null;
+  var key = slug + '_' + lang;
+  if (TP.i18nBySlug[key] !== undefined) return TP.i18nBySlug[key];
+  try {
+    var r = await sbFetch('/rest/v1/tree_planting_specs_i18n?select=*&slug=eq.'+encodeURIComponent(slug)+'&lang=eq.'+encodeURIComponent(lang), { method:'GET' });
+    var rows = (r && Array.isArray(r.data)) ? r.data : (Array.isArray(r)?r:[]);
+    TP.i18nBySlug[key] = rows[0] || null;
+  } catch(_){ TP.i18nBySlug[key] = null; }
+  return TP.i18nBySlug[key];
+}
+function tpName(t){ var lang=curLang(); return t['common_name_'+lang] || t.common_name_de || t.scientific_name; }
+
+/* ── Rechen-Engine (deterministisch, nicht KI) ── */
+function tpCalc(t){
+  var hMax = num(t.mature_height_m_max, 8), wMax = num(t.mature_width_m_max, 4);
+  var ballW = clamp(0.4 + hMax*0.02, 0.4, 0.9), ballH = clamp(0.35 + hMax*0.015, 0.35, 0.7);
+  var holeW = Math.max(0.8, ballW * num(t.planting_hole_width_factor, 2));
+  var holeD = ballH * num(t.planting_hole_depth_factor, 1.5);
+  var holeVolL = Math.PI*Math.pow(holeW/2,2)*holeD*1000;
+  var ballVolL = Math.PI*Math.pow(ballW/2,2)*ballH*1000;
+  var substratL = Math.max(0, holeVolL - ballVolL);
+  var stakeCount = t.needs_stake ? Math.max(1, num(t.stake_count, 1)) : 0;
+  var scheibeR = Math.max(0.6, wMax*0.25);
+  var mulchAreaM2 = Math.PI*scheibeR*scheibeR;
+  var mulchL = mulchAreaM2 * 0.07 * 1000;
+  var wkey = String(t.water_need||'').toLowerCase();
+  var waterLwk = /hoch/.test(wkey) ? 30 : (/gering|niedrig|trocken/.test(wkey) ? 12 : 20);
+  return { hMax:hMax, wMax:wMax, ballW:r2(ballW), ballH:r2(ballH), holeW:r2(holeW), holeD:r2(holeD),
+    substratL:Math.round(substratL), substratSacks:Math.max(1,Math.ceil(substratL/40)),
+    stakeCount:stakeCount, stakeLen:r1(2.0+0.5), scheibeR:r2(scheibeR), mulchAreaM2:r1(mulchAreaM2),
+    mulchL:Math.round(mulchL), mulchSacks:Math.max(1,Math.ceil(mulchL/40)), waterLwk:waterLwk };
+}
+function tpDistances(t){
+  var hc = t.height_class || 'mittel';
+  var rule = (TP.rules && (TP.rules[hc] || TP.rules['mittel'])) || { min_boundary_distance_m:2 };
+  return { boundary:num(rule.min_boundary_distance_m,2), boundaryLabel:rule.label_de||'', disclaimer:rule.disclaimer||'',
+    building:num(t.min_distance_to_building_m,3), neighbor:num(t.min_distance_to_neighbor_m,3), rootRisk:t.root_risk||'gering' };
+}
+function tpMaterials(t, calc){
+  var byCat={}; (TP.materials||[]).forEach(function(m){ (byCat[m.category]=byCat[m.category]||[]).push(m); });
+  function pick(cat){ return (byCat[cat]||[])[0]; }
+  function pickName(re){ var all=[].concat.apply([],Object.keys(byCat).map(function(k){return byCat[k];})); for(var i=0;i<all.length;i++){ if(re.test(all[i].item_de||'')||re.test(all[i].item_key||'')) return all[i]; } return null; }
+  var items=[];
+  function add(m, qty, qtyLabel){ if(!m||qty<=0) return; items.push({ name:m.item_de, qty:(qtyLabel||qty+' '+(m.unit||'Stk')), min:num(m.price_chf_min,0)*qty, max:num(m.price_chf_max,0)*qty }); }
+  if (calc.stakeCount>0){ add(pick('pfahl'), calc.stakeCount, calc.stakeCount+'× Pfahl'); add(pickName(/band|anbind|kokos/i), 1, '1 Set'); }
+  add(pick('substrat'), calc.substratSacks, calc.substratSacks+' Sack à 40 l');
+  add(pick('mulch'), calc.mulchSacks, calc.mulchSacks+' Sack');
+  if (t.needs_browse_protection || TP.plot.wild){ add(pickName(/verbiss|manschette|drahthose|wildschutz/i)||pick('schutz'), 1, '1×'); }
+  add(pick('duenger'), 1, '1 kg');
+  add(pick('drainage'), 1, '1 Sack');
+  var totMin=0, totMax=0; items.forEach(function(i){ totMin+=i.min; totMax+=i.max; });
+  return { items:items, totMin:Math.round(totMin), totMax:Math.round(totMax) };
+}
+
+/* ── 3D (Three.js, spherical orbit + Wuchs-Vorschau + Grenz-Glow) ── */
+function tpMakeTree(t, ageFactor){
+  var grp = new THREE.Group();
+  var hMax = num(t.mature_height_m_max, 8), wMax = num(t.mature_width_m_max, 4);
+  var h = Math.max(0.8, hMax * ageFactor);
+  var cw = Math.max(0.5, wMax * ageFactor);
+  var evergreen = (t.deciduous_evergreen==='immergruen');
+  var cf = String(t.crown_form||'').toLowerCase();
+  var trunkH = h * (cf.indexOf('saeul')>=0||/säul/.test(cf) ? 0.18 : 0.32);
+  var trunkR = Math.max(0.04, h*0.025);
+  var trunkMat = new THREE.MeshStandardMaterial({ color:0x6b4a2b, roughness:0.9 });
+  var trunk = new THREE.Mesh(new THREE.CylinderGeometry(trunkR*0.7, trunkR, trunkH, 8), trunkMat);
+  trunk.position.y = trunkH/2; trunk.castShadow = true; grp.add(trunk);
+  var leafCol = evergreen ? 0x2f5d34 : 0x4f8f3a;
+  var cat = String(t.category||'');
+  if (cat==='obstbaum') leafCol = 0x6aa84f;
+  var leafMat = new THREE.MeshStandardMaterial({ color:leafCol, roughness:0.85 });
+  var canopy;
+  var cTop = trunkH;
+  if (/saeul|säul/.test(cf)){
+    canopy = new THREE.Mesh(new THREE.CylinderGeometry(cw*0.5, cw*0.55, h-trunkH, 10), leafMat);
+    canopy.position.y = trunkH + (h-trunkH)/2;
+  } else if (/kegel|pyram/.test(cf) || cat==='nadelbaum'){
+    canopy = new THREE.Mesh(new THREE.ConeGeometry(cw*0.6, h-trunkH, 12), leafMat);
+    canopy.position.y = trunkH + (h-trunkH)/2;
+  } else if (/haeng|häng/.test(cf)){
+    canopy = new THREE.Mesh(new THREE.SphereGeometry(cw*0.55, 14, 12), leafMat);
+    canopy.scale.y = 0.75; canopy.position.y = trunkH + (h-trunkH)*0.5;
+  } else {
+    canopy = new THREE.Mesh(new THREE.SphereGeometry(cw*0.55, 14, 12), leafMat);
+    canopy.scale.y = 0.85; canopy.position.y = trunkH + (h-trunkH)*0.5;
+  }
+  canopy.castShadow = true; grp.add(canopy);
+  // Obst-Tupfer
+  if (cat==='obstbaum' && ageFactor>0.6){
+    var fruitMat = new THREE.MeshStandardMaterial({ color:0xd23b3b, roughness:0.5 });
+    for (var i=0;i<8;i++){
+      var fr = new THREE.Mesh(new THREE.SphereGeometry(Math.max(0.04,cw*0.04),6,6), fruitMat);
+      var a = (i/8)*Math.PI*2, rr = cw*0.4;
+      fr.position.set(Math.cos(a)*rr, cTop + (h-trunkH)*0.5 + Math.sin(i)*0.2, Math.sin(a)*rr);
+      grp.add(fr);
+    }
+  }
+  grp.userData.height = h; grp.userData.cw = cw;
+  return grp;
+}
+async function tpRender3D(container, t, calc, dist){
+  if (typeof _gsLoadThree === 'function' && typeof THREE === 'undefined'){ try{ await _gsLoadThree(); }catch(_){ } }
+  if (typeof THREE === 'undefined'){ container.innerHTML = '<div style="padding:30px;text-align:center;color:var(--muted);font-size:12px;">'+ed(L('tp_no3d','3D benötigt eine Internet-Verbindung (Three.js).'))+'</div>'; return; }
+  if (TP._3d && TP._3d.dispose){ try{ TP._3d.dispose(); }catch(_){ } }
+  var W = container.clientWidth || 340, H = 300;
+  var plotL = clamp(num(TP.plot.len,10),2,40), plotW = clamp(num(TP.plot.wid,8),2,40);
+  var maxD = Math.max(plotL, plotW);
+  var scene = new THREE.Scene();
+  var bg = document.createElement('canvas'); bg.width=2; bg.height=256; var bx=bg.getContext('2d');
+  var g=bx.createLinearGradient(0,0,0,256); g.addColorStop(0,'#bcd8f0'); g.addColorStop(1,'#e8f3e0'); bx.fillStyle=g; bx.fillRect(0,0,2,256);
+  scene.background = new THREE.CanvasTexture(bg);
+  var camera = new THREE.PerspectiveCamera(42, W/H, 0.1, 200);
+  var renderer = new THREE.WebGLRenderer({ antialias:true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+  renderer.setSize(W, H); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  container.innerHTML=''; container.appendChild(renderer.domElement);
+  // Boden (Grundstück)
+  var ground = new THREE.Mesh(new THREE.PlaneGeometry(plotW, plotL), new THREE.MeshStandardMaterial({ color:0x6fae54, roughness:0.95 }));
+  ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; scene.add(ground);
+  // Grenze (rote gestrichelte Linie an einer Kante = Grundstücksgrenze, bei z = -plotL/2)
+  var boundY = -plotL/2;
+  var bgeo = new THREE.BufferGeometry().setFromPoints([ new THREE.Vector3(-plotW/2,0.02,boundY), new THREE.Vector3(plotW/2,0.02,boundY) ]);
+  var bmat = new THREE.LineDashedMaterial({ color:0xd32f2f, dashSize:0.3, gapSize:0.2, linewidth:2 });
+  var bline = new THREE.Line(bgeo, bmat); bline.computeLineDistances(); scene.add(bline);
+  // Lichter
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x5a6a4a, 0.75));
+  var sun = new THREE.DirectionalLight(0xfff4e0, 1.0); sun.position.set(maxD*1.2, maxD*2, maxD*0.8);
+  sun.castShadow = true; sun.shadow.mapSize.width=1024; sun.shadow.mapSize.height=1024;
+  sun.shadow.camera.left=-maxD; sun.shadow.camera.right=maxD; sun.shadow.camera.top=maxD; sun.shadow.camera.bottom=-maxD;
+  scene.add(sun); scene.add(new THREE.AmbientLight(0x88aa88, 0.45));
+  // Baum platzieren: an Grenze-Mitte, mit dem geforderten Grenzabstand nach innen
+  var treeZ = boundY + Math.max(dist.boundary, 0.5);
+  var maxInner = plotL/2 - 0.3;
+  var ok = treeZ <= maxInner; if (treeZ > maxInner) treeZ = maxInner;
+  function buildTree(){
+    if (TP._3d && TP._3d.treeGrp){ scene.remove(TP._3d.treeGrp); }
+    var grp = tpMakeTree(t, TP.age); grp.position.set(0, 0, treeZ); scene.add(grp);
+    // Grenz-Glow-Ring: rot wenn Abstand unterschritten, sonst grün
+    var ringCol = ok ? 0x2e7d32 : 0xd32f2f;
+    var ring = new THREE.Mesh(new THREE.RingGeometry(dist.boundary*0.92, dist.boundary, 32),
+      new THREE.MeshBasicMaterial({ color:ringCol, transparent:true, opacity:0.5, side:THREE.DoubleSide }));
+    ring.rotation.x = -Math.PI/2; ring.position.set(0,0.03,treeZ); grp.add(ring);
+    if (TP._3d) TP._3d.treeGrp = grp;
+    return grp;
+  }
+  // Spherical orbit
+  var azimuth=0.7, polar=Math.PI*0.36, radius=maxD*1.7, dragging=false, lx=0, ly=0, pinch=0;
+  function pd(ts){ var dx=ts[0].clientX-ts[1].clientX, dy=ts[0].clientY-ts[1].clientY; return Math.sqrt(dx*dx+dy*dy); }
+  function applyCam(){ var r=clamp(radius,3,maxD*4), p=clamp(polar,0.15,Math.PI*0.49);
+    camera.position.x = r*Math.sin(p)*Math.cos(azimuth); camera.position.z = r*Math.sin(p)*Math.sin(azimuth);
+    camera.position.y = r*Math.cos(p); camera.lookAt(0, Math.min(3,maxD*0.2), Math.max(0,treeZ*0.3)); }
+  applyCam();
+  var cvs = renderer.domElement;
+  function onDown(e){ dragging=true; var t0=e.touches?e.touches[0]:e; lx=t0.clientX; ly=t0.clientY; if(e.touches&&e.touches.length===2) pinch=pd(e.touches); }
+  function onMove(e){ if(e.touches&&e.touches.length===2){ var d=pd(e.touches); if(pinch>0){ radius*=pinch/d; pinch=d; applyCam(); } e.preventDefault(); return; }
+    if(!dragging) return; var t0=e.touches?e.touches[0]:e; azimuth -= (t0.clientX-lx)*0.01; polar -= (t0.clientY-ly)*0.01; lx=t0.clientX; ly=t0.clientY; applyCam(); if(e.touches) e.preventDefault(); }
+  function onUp(){ dragging=false; pinch=0; }
+  function onWheel(e){ radius *= (e.deltaY>0?1.1:0.9); applyCam(); e.preventDefault(); }
+  cvs.addEventListener('mousedown',onDown); cvs.addEventListener('mousemove',onMove); window.addEventListener('mouseup',onUp);
+  cvs.addEventListener('touchstart',onDown,{passive:false}); cvs.addEventListener('touchmove',onMove,{passive:false}); cvs.addEventListener('touchend',onUp);
+  cvs.addEventListener('wheel',onWheel,{passive:false});
+  var raf=0, alive=true;
+  function loop(){ if(!alive) return; renderer.render(scene,camera); raf=requestAnimationFrame(loop); }
+  TP._3d = { treeGrp:null, rebuild:buildTree, dispose:function(){ alive=false; cancelAnimationFrame(raf); try{ window.removeEventListener('mouseup',onUp); renderer.dispose(); }catch(_){ } container.innerHTML=''; } };
+  buildTree(); loop();
+  return ok;
+}
+
+/* ── UI ── */
+window.gsOpenTreePlanner = async function(){
+  var scr = document.getElementById('tree-planner-screen');
+  if (!scr){ scr = document.createElement('div'); scr.id='tree-planner-screen'; document.body.appendChild(scr); }
+  scr.style.cssText = 'position:fixed;inset:0;z-index:7000;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;';
+  scr.style.display = 'flex';
+  scr.innerHTML = '<div style="background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;padding:calc(14px + env(safe-area-inset-top)) 16px 14px;display:flex;align-items:center;gap:12px;flex-shrink:0;">'
+    + '<button onclick="var s=document.getElementById(\'tree-planner-screen\');if(s)s.style.display=\'none\';if(window._gsTP&&_gsTP._3d&&_gsTP._3d.dispose)_gsTP._3d.dispose();" aria-label="'+ed(L('modal_close','Schliessen'))+'" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:34px;height:34px;border-radius:9px;font-size:18px;cursor:pointer;flex-shrink:0;">‹</button>'
+    + '<div style="flex:1;min-width:0;"><div style="font-size:18px;font-weight:900;">🌳 '+ed(L('tp_title','Baum pflanzen — Planer'))+'</div><div style="font-size:11.5px;opacity:.9;margin-top:2px;">'+ed(L('tp_sub','Standort, Grenzabstand, Zaun, Material & Kosten — alles berechnet'))+'</div></div></div>'
+    + '<div id="tp-body" style="flex:1;overflow-y:auto;padding:14px 14px 48px;"><div style="text-align:center;padding:48px 16px;color:var(--muted);">⏳ '+ed(L('tp_loading','Lade Baum-Daten…'))+'</div></div>';
+  var ok = await tpLoadAll();
+  if (!ok){ document.getElementById('tp-body').innerHTML = '<div style="text-align:center;padding:40px 16px;color:var(--muted);font-size:13px;">'+ed(L('tp_load_err','Baum-Daten konnten nicht geladen werden. Bitte später erneut versuchen.'))+'</div>'; return; }
+  tpRenderInput();
+};
+
+function tpRenderInput(){
+  var body = document.getElementById('tp-body'); if(!body) return;
+  var p = TP.plot;
+  var soils=['lehmig','sandig','tonig','humos','kalkhaltig','feucht'];
+  var lights=['vollsonnig','sonnig','halbschattig','schattig'];
+  var cats=[['','Alle'],['obstbaum','🍎 Obst'],['beerenstrauch','🫐 Beeren'],['hecke','🌿 Hecke'],['hausbaum','🌳 Hausbaum'],['zierbaum','🌸 Zierbaum'],['wildgehoelz','🐝 Wildgehölz'],['nadelbaum','🌲 Nadelbaum']];
+  var h = '<div style="background:var(--card);border-radius:14px;padding:14px;margin-bottom:12px;">'
+    + '<div style="font-size:14px;font-weight:800;color:var(--g-dark);margin-bottom:10px;">📐 '+ed(L('tp_site','Dein Standort'))+'</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'
+    + '<label style="font-size:11px;font-weight:700;">'+ed(L('tp_len','Länge (m)'))+'<input id="tp-len" type="number" inputmode="decimal" value="'+ed(p.len)+'" min="2" max="40" class="mp-input" style="width:100%;"></label>'
+    + '<label style="font-size:11px;font-weight:700;">'+ed(L('tp_wid','Breite (m)'))+'<input id="tp-wid" type="number" inputmode="decimal" value="'+ed(p.wid)+'" min="2" max="40" class="mp-input" style="width:100%;"></label></div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'
+    + '<label style="font-size:11px;font-weight:700;">'+ed(L('tp_soil','Boden'))+'<select id="tp-soil" class="mp-input" style="width:100%;">'+soils.map(function(s){return '<option'+(s===p.soil?' selected':'')+'>'+ed(s)+'</option>';}).join('')+'</select></label>'
+    + '<label style="font-size:11px;font-weight:700;">'+ed(L('tp_light','Licht'))+'<select id="tp-light" class="mp-input" style="width:100%;">'+lights.map(function(s){return '<option'+(s===p.light?' selected':'')+'>'+ed(s)+'</option>';}).join('')+'</select></label></div>'
+    + '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;font-weight:600;margin-top:4px;">'
+    + '<label style="display:flex;align-items:center;gap:5px;"><input id="tp-wild" type="checkbox"'+(p.wild?' checked':'')+'> 🦌 '+ed(L('tp_wild','Wild (Reh/Hase)'))+'</label>'
+    + '<label style="display:flex;align-items:center;gap:5px;"><input id="tp-build" type="checkbox"'+(p.building?' checked':'')+'> 🏠 '+ed(L('tp_building','Gebäude in der Nähe'))+'</label></div>'
+    + '</div>';
+  // Baumwahl
+  h += '<div style="background:var(--card);border-radius:14px;padding:14px;">'
+    + '<div style="font-size:14px;font-weight:800;color:var(--g-dark);margin-bottom:8px;">🌳 '+ed(L('tp_choose','Was möchtest du pflanzen?'))+'</div>'
+    + '<input id="tp-search" type="search" placeholder="'+ed(L('tp_search','Suchen…'))+'" class="mp-input" style="width:100%;margin-bottom:8px;" oninput="window._gsTPfilter&&_gsTPfilter()">'
+    + '<div id="tp-cats" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:8px;">'
+    + cats.map(function(c,i){ return '<button data-cat="'+ed(c[0])+'" class="tp-cat" onclick="window._gsTPcat&&_gsTPcat(this)" style="flex-shrink:0;padding:6px 11px;border-radius:20px;border:1.5px solid '+(i===0?'#2e7d32':'rgba(0,0,0,.15)')+';background:'+(i===0?'#2e7d32':'var(--bg)')+';color:'+(i===0?'#fff':'var(--text)')+';font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;">'+ed(c[1])+'</button>'; }).join('')
+    + '</div><div id="tp-list" style="max-height:46vh;overflow-y:auto;"></div></div>';
+  body.innerHTML = h;
+  TP._filter = { cat:'', q:'' };
+  ['len','wid'].forEach(function(k){ var el=document.getElementById('tp-'+k); if(el) el.onchange=function(){ TP.plot[k]=num(el.value, TP.plot[k]); }; });
+  ['soil','light'].forEach(function(k){ var el=document.getElementById('tp-'+k); if(el) el.onchange=function(){ TP.plot[k]=el.value; }; });
+  var w=document.getElementById('tp-wild'); if(w) w.onchange=function(){ TP.plot.wild=w.checked; };
+  var bb=document.getElementById('tp-build'); if(bb) bb.onchange=function(){ TP.plot.building=bb.checked; };
+  window._gsTPcat = function(btn){ TP._filter.cat = btn.getAttribute('data-cat')||''; Array.prototype.forEach.call(document.querySelectorAll('.tp-cat'), function(b){ var on=b===btn; b.style.background=on?'#2e7d32':'var(--bg)'; b.style.color=on?'#fff':'var(--text)'; b.style.borderColor=on?'#2e7d32':'rgba(0,0,0,.15)'; }); tpRenderList(); };
+  window._gsTPfilter = function(){ var s=document.getElementById('tp-search'); TP._filter.q=(s&&s.value||'').toLowerCase().trim(); tpRenderList(); };
+  tpRenderList();
+}
+function tpRenderList(){
+  var el = document.getElementById('tp-list'); if(!el) return;
+  var f = TP._filter || { cat:'', q:'' };
+  var list = (TP.specs||[]).filter(function(t){
+    if (f.cat && t.category!==f.cat) return false;
+    if (f.q){ var hay=(tpName(t)+' '+t.scientific_name+' '+(t.common_name_de||'')).toLowerCase(); if(hay.indexOf(f.q)<0) return false; }
+    return true;
+  });
+  if (!list.length){ el.innerHTML='<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px;">'+ed(L('tp_none','Keine Treffer'))+'</div>'; return; }
+  var TOXEMO={keine:'', leicht:'⚠️', stark:'☣️', toedlich:'☠️'};
+  el.innerHTML = list.map(function(t){
+    var slug=ed(t.slug);
+    var tox = TOXEMO[t.toxicity]||'';
+    var hM = (t.mature_height_m_min!=null?t.mature_height_m_min+'–':'')+(t.mature_height_m_max!=null?t.mature_height_m_max+' m':'');
+    return '<div onclick="window._gsTPpick&&_gsTPpick(\''+slug+'\')" style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;cursor:pointer;border-bottom:1px solid rgba(0,0,0,.06);">'
+      + '<div style="font-size:22px;flex-shrink:0;">'+(t.category==='nadelbaum'?'🌲':(t.category==='obstbaum'?'🍎':(t.category==='beerenstrauch'?'🫐':'🌳')))+'</div>'
+      + '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:800;color:var(--text);">'+ed(tpName(t))+' '+tox+'</div>'
+      + '<div style="font-size:10.5px;color:var(--muted);font-style:italic;">'+ed(t.scientific_name)+' · '+ed(hM)+'</div></div>'
+      + '<div style="font-size:16px;opacity:.4;">›</div></div>';
+  }).join('');
+  window._gsTPpick = function(slug){ var t=(TP.specs||[]).filter(function(x){return x.slug===slug;})[0]; if(t){ TP.sel=t; TP.age=1.0; tpRenderPlan(); } };
+}
+
+async function tpRenderPlan(){
+  var body=document.getElementById('tp-body'); if(!body||!TP.sel) return;
+  var t=TP.sel, calc=tpCalc(t), dist=tpDistances(t), mat=tpMaterials(t, calc);
+  var i18n = await tpLoadI18n(t.slug);
+  var careTxt = (i18n && i18n.care_notes) || t.care_notes || '';
+  var swissTxt = (i18n && i18n.swiss_notes) || t.swiss_notes || '';
+  var toxNote = (i18n && i18n.toxicity_note) || t.toxic_parts || '';
+  body.scrollTop = 0;
+  function box(title, inner, bg){ return '<div style="background:'+(bg||'var(--card)')+';border-radius:14px;padding:14px;margin-bottom:12px;"><div style="font-size:13.5px;font-weight:800;color:var(--g-dark);margin-bottom:8px;">'+title+'</div>'+inner+'</div>'; }
+  var h = '<button onclick="window._gsTPback&&_gsTPback()" style="background:none;border:none;color:var(--g-main);font-weight:700;font-size:13px;cursor:pointer;margin-bottom:8px;padding:0;">‹ '+ed(L('tp_back','Andere Wahl'))+'</button>';
+  // Header-Karte
+  var TOXLBL={keine:L('tp_tox_none','ungiftig'),leicht:L('tp_tox_light','leicht giftig'),stark:L('tp_tox_strong','stark giftig'),toedlich:L('tp_tox_deadly','TÖDLICH giftig')};
+  h += '<div style="background:linear-gradient(135deg,rgba(27,94,32,.10),rgba(46,125,50,.03));border-radius:14px;padding:14px;margin-bottom:12px;">'
+    + '<div style="font-size:17px;font-weight:900;color:var(--g-dark);">'+ed(tpName(t))+'</div>'
+    + '<div style="font-size:11.5px;color:var(--muted);font-style:italic;margin-bottom:6px;">'+ed(t.scientific_name)+'</div>'
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap;font-size:10.5px;">'
+    + '<span style="background:#e8f5e9;color:#1b5e20;padding:3px 8px;border-radius:8px;font-weight:700;">📏 '+ed((t.mature_height_m_max||'?'))+' m</span>'
+    + '<span style="background:#e8f5e9;color:#1b5e20;padding:3px 8px;border-radius:8px;font-weight:700;">↔ '+ed((t.mature_width_m_max||'?'))+' m</span>'
+    + '<span style="background:#e8f5e9;color:#1b5e20;padding:3px 8px;border-radius:8px;font-weight:700;">🌱 '+ed(t.root_type||'')+'</span>'
+    + '<span style="background:#e8f5e9;color:#1b5e20;padding:3px 8px;border-radius:8px;font-weight:700;">☀️ '+ed(t.light_need||'')+'</span>'
+    + '</div></div>';
+  // 3D
+  h += box('🧊 '+ed(L('tp_3d','3D-Vorschau & Grenzabstand')),
+      '<div id="tp-3d" style="width:100%;height:300px;border-radius:12px;overflow:hidden;background:#bcd8f0;"></div>'
+      + '<div style="margin-top:8px;"><label style="font-size:11px;font-weight:700;display:block;margin-bottom:2px;">⏱ '+ed(L('tp_growth','Wuchs-Vorschau'))+': <span id="tp-age-lbl"></span></label>'
+      + '<input id="tp-age" type="range" min="20" max="100" value="100" style="width:100%;" oninput="window._gsTPage&&_gsTPage(this.value)"></label></div>'
+      + '<div id="tp-3d-warn" style="font-size:11px;margin-top:6px;"></div>');
+  // Abstand & Recht
+  var dRows = [
+    ['📐 '+L('tp_d_boundary','Grenzabstand'), dist.boundary+' m', dist.boundaryLabel],
+    ['🏠 '+L('tp_d_building','Abstand Gebäude'), dist.building+' m', dist.rootRisk==='hoch'?('⚠️ '+L('tp_root_hoch','Wurzelrisiko hoch — Leitungen/Beläge!')):''],
+    ['🌳 '+L('tp_d_neighbor','Abstand nächster Baum'), dist.neighbor+' m', '']
+  ];
+  h += box('📏 '+ed(L('tp_dist','Abstände & Recht')),
+      dRows.map(function(r){ return '<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.05);font-size:12px;"><span>'+ed(r[0])+'</span><b>'+ed(r[1])+'</b></div>'+(r[2]?'<div style="font-size:10.5px;color:var(--muted);margin:-2px 0 4px;">'+ed(r[2])+'</div>':''); }).join('')
+      + '<div style="font-size:10.5px;color:#8a6d00;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:8px;margin-top:8px;">ℹ️ '+ed(dist.disclaimer||L('tp_disc','Richtwert — kantonal geregelt, im Zweifel Gemeinde fragen.'))+'</div>');
+  // Sicherheit
+  if (t.toxicity && t.toxicity!=='keine'){
+    var sevBg = (t.toxicity==='toedlich'||t.toxicity==='stark')?'#ffebee':'#fff8e1';
+    var sevCol= (t.toxicity==='toedlich'||t.toxicity==='stark')?'#b71c1c':'#8a6d00';
+    h += '<div style="background:'+sevBg+';border:1px solid '+sevCol+'33;border-radius:14px;padding:14px;margin-bottom:12px;">'
+      + '<div style="font-size:13.5px;font-weight:800;color:'+sevCol+';margin-bottom:6px;">'+(t.toxicity==='toedlich'?'☠️':'⚠️')+' '+ed(L('tp_safety','Sicherheit'))+': '+ed(TOXLBL[t.toxicity]||'')+'</div>'
+      + (toxNote?'<div style="font-size:11.5px;color:var(--text);line-height:1.5;margin-bottom:4px;">'+ed(toxNote)+'</div>':'')
+      + (t.child_pet_safe===false?'<div style="font-size:11px;font-weight:700;color:'+sevCol+';">👶🐕 '+ed(L('tp_notsafe','Nicht geeignet bei Kindern/Haustieren'))+'</div>':'')
+      + '</div>';
+  }
+  // Bestäubung
+  if (t.needs_pollination_partner){
+    var pp=(Array.isArray(t.pollination_partners)?t.pollination_partners:[]).join(', ');
+    h += box('🐝 '+ed(L('tp_pollin','Bestäubung')), '<div style="font-size:11.5px;line-height:1.5;">'+ed(L('tp_pollin_need','Braucht eine zweite Sorte zur Befruchtung.'))+(pp?'<br><b>'+ed(L('tp_pollin_part','Befruchter'))+':</b> '+ed(pp):'')+'</div>', '#fffde7');
+  }
+  // Stückliste + Kosten
+  h += box('🧾 '+ed(L('tp_materials','Material & Kosten — alles was du brauchst')),
+      mat.items.map(function(it){ return '<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.05);font-size:12px;"><span>'+ed(it.name)+' <span style="color:var(--muted);">('+ed(it.qty)+')</span></span><b style="white-space:nowrap;">'+(it.max>0?('CHF '+Math.round(it.min)+'–'+Math.round(it.max)):'–')+'</b></div>'; }).join('')
+      + '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:13.5px;font-weight:900;color:var(--g-dark);"><span>'+ed(L('tp_total','Total (Richtwert)'))+'</span><span>CHF '+mat.totMin+'–'+mat.totMax+'</span></div>');
+  // Pflanz-Anleitung
+  var steps = [
+    [L('tp_s1','Pflanzloch graben'), L('tp_s1d','Loch ca. ')+calc.holeW+' m breit × '+calc.holeD+' m tief (2× Ballenbreite). Sohle lockern.'],
+    [L('tp_s2','Drainage'), L('tp_s2d','Bei schwerem/nassem Boden eine Kiesschicht einbringen.')],
+    [L('tp_s3','Substrat'), L('tp_s3d','Aushub mit ca. ')+calc.substratSacks+' Sack Pflanzerde/Kompost (~'+calc.substratL+' l) mischen.'],
+    [L('tp_s4','Baum einsetzen'), L('tp_s4d','Veredelungsstelle bleibt über dem Boden; Wurzelhals nicht zu tief.')],
+    calc.stakeCount>0 ? [L('tp_s5','Pfahl & Anbinden'), calc.stakeCount+'× '+L('tp_s5d','Pfahl (~')+calc.stakeLen+' m) windseitig setzen, locker mit Kokosband anbinden.'] : null,
+    [L('tp_s6','Gießrand & Angießen'), L('tp_s6d','Gießrand formen, kräftig einschlämmen. 1. Jahr ~')+calc.waterLwk+' l/Woche.'],
+    [L('tp_s7','Mulchen'), L('tp_s7d','Baumscheibe (Ø ~')+r1(calc.scheibeR*2)+' m) mit ~'+calc.mulchSacks+' Sack Rindenmulch abdecken (Stamm frei lassen).'],
+    (t.needs_browse_protection||TP.plot.wild) ? [L('tp_s8','Verbissschutz'), L('tp_s8d','Stamm-Manschette oder Wildschutz anbringen (Reh/Hase).')] : null
+  ].filter(Boolean);
+  h += box('🪴 '+ed(L('tp_guide','Schritt-für-Schritt pflanzen')),
+      steps.map(function(s,i){ return '<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid rgba(0,0,0,.05);"><div style="width:22px;height:22px;border-radius:50%;background:#2e7d32;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'+(i+1)+'</div><div style="flex:1;"><div style="font-size:12.5px;font-weight:700;">'+ed(s[0])+'</div><div style="font-size:11px;color:var(--text2);line-height:1.45;">'+ed(s[1])+'</div></div></div>'; }).join(''));
+  // Pflege + Bemerkung
+  if (careTxt||swissTxt) h += box('🌿 '+ed(L('tp_care','Pflege & Hinweise')), '<div style="font-size:11.5px;line-height:1.55;color:var(--text);">'+(careTxt?ed(careTxt):'')+(swissTxt?'<div style="margin-top:6px;color:var(--muted);">🇨🇭 '+ed(swissTxt)+'</div>':'')+'</div>');
+  // Beste Pflanzzeit
+  var months=['','Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  var bm=(Array.isArray(t.best_planting_months)?t.best_planting_months:[]).map(function(m){return months[m]||'';}).filter(Boolean).join(', ');
+  if (bm) h += '<div style="text-align:center;font-size:11.5px;color:var(--muted);margin-bottom:8px;">📅 '+ed(L('tp_best','Beste Pflanzzeit'))+': <b>'+ed(bm)+'</b></div>';
+  body.innerHTML = h;
+  // 3D + Slider
+  window._gsTPback = function(){ if(TP._3d&&TP._3d.dispose){try{TP._3d.dispose();}catch(_){}} tpRenderInput(); };
+  window._gsTPage = function(v){ TP.age = clamp(num(v,100)/100, 0.2, 1.0); var lbl=document.getElementById('tp-age-lbl'); if(lbl) lbl.textContent = (TP.age>=0.99?L('tp_mature','Endgrösse'):Math.round(TP.age*100)+'% / ~'+Math.round((t.years_to_mature||20)*TP.age)+' J'); if(TP._3d&&TP._3d.rebuild) TP._3d.rebuild(); };
+  var lbl0=document.getElementById('tp-age-lbl'); if(lbl0) lbl0.textContent = L('tp_mature','Endgrösse');
+  var cont=document.getElementById('tp-3d');
+  if (cont){ tpRender3D(cont, t, calc, dist).then(function(ok){ var wn=document.getElementById('tp-3d-warn'); if(wn) wn.innerHTML = ok ? '<span style="color:#2e7d32;">✅ '+ed(L('tp_fits','Baum passt mit empfohlenem Grenzabstand auf die Fläche.'))+'</span>' : '<span style="color:#d32f2f;font-weight:700;">⚠️ '+ed(L('tp_tooclose','Fläche knapp — Grenzabstand '+dist.boundary+' m kaum einhaltbar. Kleinere Art wählen oder anders platzieren.'))+'</span>'; }); }
+}
+})();
+</script>
 
 </body>
 </html>
