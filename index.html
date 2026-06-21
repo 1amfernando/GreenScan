@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.04.20260621">
+<meta name="app-version" content="30.05.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12350,6 +12350,38 @@ window.GS_I18N_JS_STRINGS = {
     tp_tox_strong: 'stark giftig',
     tp_wid: 'Breite (m)',
     tp_wild: 'Wild (Reh/Hase)',
+    // v30.05 Kategorie-/Boden-/Licht-/Schritt-i18n
+    tp_cat_all: 'Alle',
+    tp_cat_obst: 'Obst',
+    tp_cat_beeren: 'Beeren',
+    tp_cat_hecke: 'Hecke',
+    tp_cat_hausbaum: 'Hausbaum',
+    tp_cat_zier: 'Zierbaum',
+    tp_cat_wild: 'Wildgehölz',
+    tp_cat_nadel: 'Nadelbaum',
+    tp_soil_lehmig: 'lehmig',
+    tp_soil_sandig: 'sandig',
+    tp_soil_tonig: 'tonig',
+    tp_soil_humos: 'humos',
+    tp_soil_kalkhaltig: 'kalkhaltig',
+    tp_soil_feucht: 'feucht',
+    tp_light_vollsonnig: 'vollsonnig',
+    tp_light_sonnig: 'sonnig',
+    tp_light_halbschattig: 'halbschattig',
+    tp_light_schattig: 'schattig',
+    tp_s1d: 'Loch ca. 2× Ballenbreite graben, Sohle lockern.',
+    tp_s2d: 'Bei schwerem/nassem Boden eine Kiesschicht einbringen.',
+    tp_s3d: 'Aushub mit Pflanzerde/Kompost mischen.',
+    tp_s4d: 'Veredelungsstelle bleibt über dem Boden; Wurzelhals nicht zu tief.',
+    tp_s5d: 'Pfahl windseitig setzen, locker mit Kokosband anbinden.',
+    tp_s6d: 'Gießrand formen, kräftig einschlämmen.',
+    tp_s7d: 'Baumscheibe mit Rindenmulch abdecken, Stamm frei lassen.',
+    tp_s8d: 'Stamm-Manschette oder Wildschutz anbringen (Reh/Hase).',
+    tp_tooclose: 'Fläche knapp — empfohlener Grenzabstand kaum einhaltbar. Kleinere Art wählen oder anders platzieren.',
+    tp_save_sum: 'Baum-Pflanzplan',
+    tp_u_sack: 'Sack',
+    tp_u_week: 'Woche',
+    tp_u_year1: '1. Jahr',
 };
 
 // Sammelt alle data-i18n Strings aus DOM + ergänzt durch JS-Map
@@ -65390,7 +65422,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.04';
+var GS_VERSION = 'v30.05';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -79866,7 +79898,7 @@ function tpRenderInput(){
   var p = TP.plot;
   var soils=['lehmig','sandig','tonig','humos','kalkhaltig','feucht'];
   var lights=['vollsonnig','sonnig','halbschattig','schattig'];
-  var cats=[['','Alle'],['obstbaum','🍎 Obst'],['beerenstrauch','🫐 Beeren'],['hecke','🌿 Hecke'],['hausbaum','🌳 Hausbaum'],['zierbaum','🌸 Zierbaum'],['wildgehoelz','🐝 Wildgehölz'],['nadelbaum','🌲 Nadelbaum']];
+  var cats=[['',L('tp_cat_all','Alle')],['obstbaum','🍎 '+L('tp_cat_obst','Obst')],['beerenstrauch','🫐 '+L('tp_cat_beeren','Beeren')],['hecke','🌿 '+L('tp_cat_hecke','Hecke')],['hausbaum','🌳 '+L('tp_cat_hausbaum','Hausbaum')],['zierbaum','🌸 '+L('tp_cat_zier','Zierbaum')],['wildgehoelz','🐝 '+L('tp_cat_wild','Wildgehölz')],['nadelbaum','🌲 '+L('tp_cat_nadel','Nadelbaum')]];
   // Welle 2: Foto-Karte
   var h = '<div style="background:linear-gradient(135deg,#e8f5e9,#f1f8e9);border:1px solid #a5d6a7;border-radius:14px;padding:14px;margin-bottom:12px;">'
     + '<div style="font-size:13.5px;font-weight:800;color:var(--g-dark);margin-bottom:4px;">📷 '+ed(L('tp_photo_title','Aus Fotos einen 3D-Plan'))+'</div>'
@@ -79890,8 +79922,8 @@ function tpRenderInput(){
     + '<label style="font-size:11px;font-weight:700;">'+ed(L('tp_len','Länge (m)'))+'<input id="tp-len" type="number" inputmode="decimal" value="'+ed(p.len)+'" min="2" max="40" class="mp-input" style="width:100%;"></label>'
     + '<label style="font-size:11px;font-weight:700;">'+ed(L('tp_wid','Breite (m)'))+'<input id="tp-wid" type="number" inputmode="decimal" value="'+ed(p.wid)+'" min="2" max="40" class="mp-input" style="width:100%;"></label></div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'
-    + '<label style="font-size:11px;font-weight:700;">'+ed(L('tp_soil','Boden'))+'<select id="tp-soil" class="mp-input" style="width:100%;">'+soils.map(function(s){return '<option'+(s===p.soil?' selected':'')+'>'+ed(s)+'</option>';}).join('')+'</select></label>'
-    + '<label style="font-size:11px;font-weight:700;">'+ed(L('tp_light','Licht'))+'<select id="tp-light" class="mp-input" style="width:100%;">'+lights.map(function(s){return '<option'+(s===p.light?' selected':'')+'>'+ed(s)+'</option>';}).join('')+'</select></label></div>'
+    + '<label style="font-size:11px;font-weight:700;">'+ed(L('tp_soil','Boden'))+'<select id="tp-soil" class="mp-input" style="width:100%;">'+soils.map(function(s){return '<option value="'+ed(s)+'"'+(s===p.soil?' selected':'')+'>'+ed(L('tp_soil_'+s,s))+'</option>';}).join('')+'</select></label>'
+    + '<label style="font-size:11px;font-weight:700;">'+ed(L('tp_light','Licht'))+'<select id="tp-light" class="mp-input" style="width:100%;">'+lights.map(function(s){return '<option value="'+ed(s)+'"'+(s===p.light?' selected':'')+'>'+ed(L('tp_light_'+s,s))+'</option>';}).join('')+'</select></label></div>'
     + '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;font-weight:600;margin-top:4px;">'
     + '<label style="display:flex;align-items:center;gap:5px;"><input id="tp-wild" type="checkbox"'+(p.wild?' checked':'')+'> 🦌 '+ed(L('tp_wild','Wild (Reh/Hase)'))+'</label>'
     + '<label style="display:flex;align-items:center;gap:5px;"><input id="tp-build" type="checkbox"'+(p.building?' checked':'')+'> 🏠 '+ed(L('tp_building','Gebäude in der Nähe'))+'</label></div>'
@@ -79998,20 +80030,20 @@ async function tpRenderPlan(){
       mat.items.map(function(it){ return '<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.05);font-size:12px;"><span>'+ed(it.name)+' <span style="color:var(--muted);">('+ed(it.qty)+')</span></span><b style="white-space:nowrap;">'+(it.max>0?('CHF '+Math.round(it.min)+'–'+Math.round(it.max)):'–')+'</b></div>'; }).join('')
       + '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:13.5px;font-weight:900;color:var(--g-dark);"><span>'+ed(L('tp_total','Total (Richtwert)'))+'</span><span>CHF '+mat.totMin+'–'+mat.totMax+'</span></div>');
   var steps = [
-    [L('tp_s1','Pflanzloch graben'), L('tp_s1d','Loch ca. ')+calc.holeW+' m breit × '+calc.holeD+' m tief (2× Ballenbreite). Sohle lockern.'],
+    [L('tp_s1','Pflanzloch graben'), L('tp_s1d','Loch ca. 2× Ballenbreite graben, Sohle lockern.')+' ('+calc.holeW+'×'+calc.holeD+' m)'],
     [L('tp_s2','Drainage'), L('tp_s2d','Bei schwerem/nassem Boden eine Kiesschicht einbringen.')],
-    [L('tp_s3','Substrat'), L('tp_s3d','Aushub mit ca. ')+calc.substratSacks+' Sack Pflanzerde/Kompost (~'+calc.substratL+' l) mischen.'],
+    [L('tp_s3','Substrat'), L('tp_s3d','Aushub mit Pflanzerde/Kompost mischen.')+' ('+calc.substratSacks+' '+L('tp_u_sack','Sack')+' ~'+calc.substratL+' l)'],
     [L('tp_s4','Baum einsetzen'), L('tp_s4d','Veredelungsstelle bleibt über dem Boden; Wurzelhals nicht zu tief.')],
-    calc.stakeCount>0 ? [L('tp_s5','Pfahl & Anbinden'), calc.stakeCount+'× '+L('tp_s5d','Pfahl (~')+calc.stakeLen+' m) windseitig setzen, locker mit Kokosband anbinden.'] : null,
-    [L('tp_s6','Gießrand & Angießen'), L('tp_s6d','Gießrand formen, kräftig einschlämmen. 1. Jahr ~')+calc.waterLwk+' l/Woche.'],
-    [L('tp_s7','Mulchen'), L('tp_s7d','Baumscheibe (Ø ~')+r1(calc.scheibeR*2)+' m) mit ~'+calc.mulchSacks+' Sack Rindenmulch abdecken (Stamm frei lassen).'],
+    calc.stakeCount>0 ? [L('tp_s5','Pfahl & Anbinden'), L('tp_s5d','Pfahl windseitig setzen, locker mit Kokosband anbinden.')+' ('+calc.stakeCount+'× ~'+calc.stakeLen+' m)'] : null,
+    [L('tp_s6','Gießrand & Angießen'), L('tp_s6d','Gießrand formen, kräftig einschlämmen.')+' ('+L('tp_u_year1','1. Jahr')+' ~'+calc.waterLwk+' l/'+L('tp_u_week','Woche')+')'],
+    [L('tp_s7','Mulchen'), L('tp_s7d','Baumscheibe mit Rindenmulch abdecken, Stamm frei lassen.')+' (Ø ~'+r1(calc.scheibeR*2)+' m, ~'+calc.mulchSacks+' '+L('tp_u_sack','Sack')+')'],
     (t.needs_browse_protection||TP.plot.wild) ? [L('tp_s8','Verbissschutz'), L('tp_s8d','Stamm-Manschette oder Wildschutz anbringen (Reh/Hase).')] : null
   ].filter(Boolean);
   h += box('🪴 '+ed(L('tp_guide','Schritt-für-Schritt pflanzen')),
       steps.map(function(s,i){ return '<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid rgba(0,0,0,.05);"><div style="width:22px;height:22px;border-radius:50%;background:#2e7d32;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'+(i+1)+'</div><div style="flex:1;"><div style="font-size:12.5px;font-weight:700;">'+ed(s[0])+'</div><div style="font-size:11px;color:var(--text2);line-height:1.45;">'+ed(s[1])+'</div></div></div>'; }).join(''));
   if (careTxt||swissTxt) h += box('🌿 '+ed(L('tp_care','Pflege & Hinweise')), '<div style="font-size:11.5px;line-height:1.55;color:var(--text);">'+(careTxt?ed(careTxt):'')+(swissTxt?'<div style="margin-top:6px;color:var(--muted);">🇨🇭 '+ed(swissTxt)+'</div>':'')+'</div>');
-  var months=['','Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-  var bm=(Array.isArray(t.best_planting_months)?t.best_planting_months:[]).map(function(m){return months[m]||'';}).filter(Boolean).join(', ');
+  function _monA(m){ try{ return new Date(2021,(m||1)-1,1).toLocaleDateString(curLang(),{month:'short'}); }catch(_){ return ''+m; } }
+  var bm=(Array.isArray(t.best_planting_months)?t.best_planting_months:[]).map(function(m){return _monA(m);}).filter(Boolean).join(', ');
   if (bm) h += '<div style="text-align:center;font-size:11.5px;color:var(--muted);margin-bottom:8px;">📅 '+ed(L('tp_best','Beste Pflanzzeit'))+': <b>'+ed(bm)+'</b></div>';
   h += '<button id="tp-save-btn" onclick="window._gsTPsave&&_gsTPsave(this)" style="width:100%;background:linear-gradient(135deg,#1b5e20,#2e7d32);border:none;color:#fff;padding:13px;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;margin:4px 0 10px;">💾 '+ed(L('tp_save','Diesen Plan speichern'))+'</button>';
   body.innerHTML = h;
@@ -80019,7 +80051,7 @@ async function tpRenderPlan(){
   window._gsTPage = function(v){ TP.age = clamp(num(v,100)/100, 0.2, 1.0); var lbl=document.getElementById('tp-age-lbl'); if(lbl) lbl.textContent = (TP.age>=0.99?L('tp_mature','Endgrösse'):Math.round(TP.age*100)+'% / ~'+Math.round((t.years_to_mature||20)*TP.age)+' J'); if(TP._3d&&TP._3d.rebuild) TP._3d.rebuild(); };
   var lbl0=document.getElementById('tp-age-lbl'); if(lbl0) lbl0.textContent = L('tp_mature','Endgrösse');
   var cont=document.getElementById('tp-3d');
-  if (cont){ tpRender3D(cont, t, calc, dist).then(function(ok){ var wn=document.getElementById('tp-3d-warn'); if(wn) wn.innerHTML = ok ? '<span style="color:#2e7d32;">✅ '+ed(L('tp_fits','Baum passt mit empfohlenem Grenzabstand auf die Fläche.'))+'</span>' : '<span style="color:#d32f2f;font-weight:700;">⚠️ '+ed(L('tp_tooclose','Fläche knapp — Grenzabstand '+dist.boundary+' m kaum einhaltbar. Kleinere Art wählen oder anders platzieren.'))+'</span>'; }); }
+  if (cont){ tpRender3D(cont, t, calc, dist).then(function(ok){ var wn=document.getElementById('tp-3d-warn'); if(wn) wn.innerHTML = ok ? '<span style="color:#2e7d32;">✅ '+ed(L('tp_fits','Baum passt mit empfohlenem Grenzabstand auf die Fläche.'))+'</span>' : '<span style="color:#d32f2f;font-weight:700;">⚠️ '+ed(L('tp_tooclose','Fläche knapp — empfohlener Grenzabstand kaum einhaltbar. Kleinere Art wählen oder anders platzieren.'))+' ('+dist.boundary+' m)</span>'; }); }
 }
 window._gsTPsave = async function(btn){
   if(!TP.sel) return; var t=TP.sel;
