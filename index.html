@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.12.20260621">
+<meta name="app-version" content="30.13.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -7744,7 +7744,7 @@ function openSaekalender() {
           yearBar(p) +
         '</div>' +
         '<span style="font-size:10px;font-weight:800;color:' + badge.c + ';background:' + badge.bg + ';padding:3px 8px;border-radius:6px;white-space:nowrap;">' + badge.t + '</span>' +
-        '<button onclick="event.stopPropagation();gsSaeToggleMerk(\'' + p.n.replace(/'/g,"\\'") + '\',this)" title="Merken" style="background:none;border:none;font-size:18px;cursor:pointer;padding:2px 6px;opacity:' + (onMerkliste ? '1' : '.4') + ';-webkit-tap-highlight-color:transparent;">' + (onMerkliste ? '⭐' : '☆') + '</button>' +
+        '<button onclick="event.stopPropagation();gsSaeToggleMerk(\'' + _gsOcArg(p.n) + '\',this)" title="Merken" style="background:none;border:none;font-size:18px;cursor:pointer;padding:2px 6px;opacity:' + (onMerkliste ? '1' : '.4') + ';-webkit-tap-highlight-color:transparent;">' + (onMerkliste ? '⭐' : '☆') + '</button>' +
       '</div>' +
       '</div>';
   }
@@ -7860,7 +7860,7 @@ function gsSaeDetail(el) {
     '</div>' +
     '<div style="padding:8px 11px;background:var(--g-bg);border-radius:8px;color:var(--g-dark);font-weight:600;font-size:12px;">💡 ' + p.tip + '</div>' +
     '<div style="display:flex;gap:6px;margin-top:8px;">' +
-      '<button onclick="gsSaeLogAsSowed(\'' + p.n.replace(/'/g,"\\'") + '\')" style="flex:1;padding:7px 10px;background:var(--g-main);color:#fff;border:none;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🌱 Heute gesät</button>' +
+      '<button onclick="gsSaeLogAsSowed(\'' + _gsOcArg(p.n) + '\')" style="flex:1;padding:7px 10px;background:var(--g-main);color:#fff;border:none;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🌱 Heute gesät</button>' +
     '</div>';
   el.parentNode.insertBefore(detail, el.nextSibling);
 }
@@ -18219,7 +18219,7 @@ function initDailyQuiz() {
 
   qEl.textContent = questionText;
   oEl.innerHTML = allOptions.map(function(opt) {
-    return '<button onclick="gsAnswerQuiz(this,\'' + opt.replace(/'/g, "\\'") + '\',\'' + correctAnswer.replace(/'/g, "\\'") + '\')" ' +
+    return '<button onclick="gsAnswerQuiz(this,\'' + _gsOcArg(opt) + '\',\'' + _gsOcArg(correctAnswer) + '\')" ' +
       'style="padding:9px 12px;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.3);border-radius:10px;color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;text-align:left;-webkit-tap-highlight-color:transparent;">' +
       opt + '</button>';
   }).join('');
@@ -20906,6 +20906,7 @@ async function saveListing() {
     // erschien erst nach Reload, weil es weder in window._gsMarket noch LS gepusht wurde.
     if (typeof loadMarketFromSupabase === 'function') loadMarketFromSupabase();
     else if (typeof renderMarket === 'function') renderMarket();
+    try { if (typeof gsCollectionsAutoVacuumDebounced === 'function') gsCollectionsAutoVacuumDebounced(); } catch(_){} // v30.13 Block C
   } catch(e) {
     if (typeof showProfileToast === 'function') showProfileToast(
       (window.gsI18n ? gsI18n.t('toast_market_network_error', '⚠️ Netzwerkfehler — versuche es erneut') : '⚠️ Netzwerkfehler — versuche es erneut'),
@@ -21925,7 +21926,7 @@ function gsRenderNotifPanelInMenu(){
     // v24.26: Snooze-Button nur für plant_task / plant_task_pre Notifs (alle anderen behalten Standard-Click)
     var isPlantTask = n.kind === 'plant_task' || n.kind === 'plant_task_pre';
     var snoozeBtn = (isPlantTask && n.dedupKey)
-      ? '<button type="button" class="gs-notif-snooze" onclick="event.stopPropagation();gsSnoozePlantReminder(\'' + (n.dedupKey||'').replace(/\'/g,'') + '\',1);setTimeout(gsRenderNotifPanelInMenu,200);" title="1 Tag verschieben">⏰</button>'
+      ? '<button type="button" class="gs-notif-snooze" onclick="event.stopPropagation();gsSnoozePlantReminder(\'' + _gsOcArg(n.dedupKey||'') + '\',1);setTimeout(gsRenderNotifPanelInMenu,200);" title="1 Tag verschieben">⏰</button>'
       : '';
     return '<div class="gs-notif-item-wrap" style="position:relative;">' +
       '<button type="button" class="gs-notif-item" onclick="' + n.action.replace(/"/g,'&quot;') + '">' +
@@ -26590,6 +26591,7 @@ function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&l
 // v27.03 Hard-Lesson #9: gsHTMLEscape war als „Kurz-Alias" dokumentiert, aber NIE definiert
 // → alle `typeof gsHTMLEscape==='function' ? gsHTMLEscape(x) : fallback`-Sites (8+) nahmen
 // immer den Fallback. Jetzt definiert (voller Escaper inkl. Single-Quote) → konsistentes Escaping.
+window._gsOcArg = function(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/"/g,'&quot;').replace(/'/g,"\\'"); };  // v30.13 HL#12: sicheres Onclick-Arg-Escape (Backslash, "->&quot;, '->\')
 window.gsHTMLEscape = function(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
 
 function togglePlantCard(id){
@@ -27042,6 +27044,7 @@ async function savePlant(){
     // v26.95: Achievements-Bump (SET auf aktuelle Pflanzen-Anzahl)
     if (typeof gsAchBump === 'function') gsAchBump('plant_count', (Array.isArray(myPlants) ? myPlants.length : 1), true);
   } catch(_){}
+  try { if (typeof gsCollectionsAutoVacuumDebounced === 'function') gsCollectionsAutoVacuumDebounced(); } catch(_){} // v30.13 Block C
 }
 
 // v23.91: Tagebuch-Modal für eine Pflanze öffnen
@@ -29903,7 +29906,7 @@ function renderSeasonList() {
       }
       var _star = _grows(item.name) ? ' <span style="font-size:9px;background:#fff8e1;color:#e65100;padding:1px 6px;border-radius:6px;font-weight:800;vertical-align:middle;white-space:nowrap;">⭐ ' + _t('season_you_grow','dein Anbau') + '</span>' : '';
 
-      html += '<div onclick="toggleSeasonDetail(\'' + item.name.replace(/'/g,"\\'") + '\')" style="background:var(--card);border-radius:12px;padding:11px 13px;box-shadow:var(--shadow-sm);cursor:pointer;' + (_grows(item.name) ? 'border:1.5px solid #ffd54f;' : '') + '">' +
+      html += '<div onclick="toggleSeasonDetail(\'' + _gsOcArg(item.name) + '\')" style="background:var(--card);border-radius:12px;padding:11px 13px;box-shadow:var(--shadow-sm);cursor:pointer;' + (_grows(item.name) ? 'border:1.5px solid #ffd54f;' : '') + '">' +
         '<div style="display:flex;align-items:center;gap:9px;margin-bottom:7px;">' +
           '<span style="font-size:24px;">' + item.emoji + '</span>' +
           '<div style="flex:1;">' +
@@ -34968,7 +34971,7 @@ function gsMarketShowDetail(l) {
         '<img id="mklist-main-img" src="' + imgs[0] + '" alt="" style="width:100%;max-height:320px;object-fit:cover;background:var(--surface2);" loading="lazy">' +
         (imgs.length > 1 ? '<div style="display:flex;gap:6px;padding:8px 16px 0;overflow-x:auto;-webkit-overflow-scrolling:touch;">' +
           imgs.map(function(src, i){
-            return '<img onclick="document.getElementById(\'mklist-main-img\').src=\'' + src.replace(/'/g,"\\'") + '\'" src="' + src + '" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:8px;cursor:pointer;flex-shrink:0;border:2px solid ' + (i===0?'var(--g-main)':'transparent') + ';" loading="lazy">';
+            return '<img onclick="document.getElementById(\'mklist-main-img\').src=\'' + _gsOcArg(src) + '\'" src="' + src + '" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:8px;cursor:pointer;flex-shrink:0;border:2px solid ' + (i===0?'var(--g-main)':'transparent') + ';" loading="lazy">';
           }).join('') +
         '</div>' : '') +
       '</div>'
@@ -44826,6 +44829,7 @@ async function gsAddMarker(lat, lng) {
   }
 
   updateMapCount();
+  try { if (typeof gsCollectionsAutoVacuumDebounced === 'function') gsCollectionsAutoVacuumDebounced(); } catch(_){} // v30.13 Block C
 
   // v26.81: Cloud-Sync via map_user_finds EXPLIZIT awaited + Status-Toast (vorher fire-and-forget mit nur console.warn).
   // Categories der Marker-UI auf map_user_finds.category-Enum ('pilz','pflanze','baum','kraut','sonstiges') mappen.
@@ -58519,6 +58523,7 @@ function savePlanting() {
     if (_ok) gsToast('✅ Im Garten gespeichert.', 'success');
     else gsToast({body:'⚠️ Speicher fast voll — Eintrag konnte evtl. nicht dauerhaft gesichert werden. Bitte alte Fotos/Scans löschen.', type:'error', duration:6000});
   } catch(_){}
+  try { if (typeof gsCollectionsAutoVacuumDebounced === 'function') gsCollectionsAutoVacuumDebounced(); } catch(_){} // v30.13 Block C
 }
 
 // MONDKALENDER – Exakte astronomische Berechnung
@@ -65875,7 +65880,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.12';
+var GS_VERSION = 'v30.13';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
