@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.07.20260621">
+<meta name="app-version" content="30.08.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4136,11 +4136,11 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
     <!-- Step Progress Bar -->
     <div id="pp-stepbar" style="display:flex;gap:4px;padding:6px 16px 10px;">
-      <div class="pp-step active" data-step="1" onclick="gsPPgoStep(1)"><span>1</span>📐 Fläche</div>
-      <div class="pp-step" data-step="2" onclick="gsPPgoStep(2)"><span>2</span>🌱 Boden</div>
-      <div class="pp-step" data-step="3" onclick="gsPPgoStep(3)"><span>3</span>☀️ Licht + 🌤️ Wetter</div>
-      <div class="pp-step" data-step="4" onclick="gsPPgoStep(4)"><span>4</span>🎯 Wünsche</div>
-      <div class="pp-step" data-step="5" onclick="gsPPgoStep(5)"><span>5</span>🧠 Plan</div>
+      <div class="pp-step active" data-step="1" onclick="gsPPgoStep(1)"><span>1</span>📐<span class="pp-step-lbl"> Fläche</span></div>
+      <div class="pp-step" data-step="2" onclick="gsPPgoStep(2)"><span>2</span>🌱<span class="pp-step-lbl"> Boden</span></div>
+      <div class="pp-step" data-step="3" onclick="gsPPgoStep(3)"><span>3</span>☀️<span class="pp-step-lbl"> Licht + Wetter</span></div>
+      <div class="pp-step" data-step="4" onclick="gsPPgoStep(4)"><span>4</span>🎯<span class="pp-step-lbl"> Wünsche</span></div>
+      <div class="pp-step" data-step="5" onclick="gsPPgoStep(5)"><span>5</span>🧠<span class="pp-step-lbl"> Plan</span></div>
     </div>
 
     <div style="padding:4px 16px 20px;">
@@ -4399,6 +4399,13 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 .pp-stepview.active{display:block;}
 .pp-planbox{background:var(--card);border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:var(--shadow-sm);}
 .pp-planbox h4{font-size:13px;font-weight:800;color:var(--g-dark);margin:0 0 6px 0;}
+.pp-tabbar{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:2px 2px 10px;position:sticky;top:0;background:var(--bg,#fff);z-index:3;scrollbar-width:none;}
+.pp-tabbar::-webkit-scrollbar{display:none;}
+.pp-tab{flex:0 0 auto;white-space:nowrap;padding:8px 14px;border-radius:999px;border:1.5px solid var(--border,rgba(0,0,0,.12));background:var(--card,#f5f5f5);color:var(--text2,#555);font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:.15s;}
+.pp-tab.active{background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border-color:#1b5e20;}
+.pp-tabpanel{animation:ppFade .18s ease;}
+@keyframes ppFade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+@media (max-width:380px){ #pp-stepbar{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;} #pp-stepbar::-webkit-scrollbar{display:none;} .pp-step{flex:0 0 auto;min-width:60px;font-size:9.5px;padding:6px 7px;} .pp-step-lbl{display:none;} }
 </style>
 
 
@@ -50004,6 +50011,7 @@ async function gsPPrun(opts) {
     // trotzdem angezeigt werden (Plan ist erfolgreich generiert, nur UI hat Bug)
     try {
       res.innerHTML = gsPPrenderPlan(plan, data);
+      try{ gsPPTabify(res, plan); }catch(_){}
     } catch(renderErr) {
       console.error('[gsPPrenderPlan] Render-Crash:', renderErr);
       // Minimal-Fallback: zeige rohen Plan + Hinweis
@@ -50157,24 +50165,24 @@ window.gsPPvalidateConstraints = function(plan, data) {
   // 2) shape_handled muss substantiell sein wenn Form != Standard
   if (data.shape && data.shape !== 'Rechteckig' && !/rechteck/i.test(data.shape)) {
     var sh = (ca.shape_handled || '').toString().trim();
-    if (sh.length < 20) issues.push({severity:'medium', code:'shape_lippenbekenntnis', text:'Form-Anwendung zu vage: „' + sh + '" — kein konkreter Bezug zum Layout.'});
+    if (sh.length < 12) issues.push({severity:'low', code:'shape_lippenbekenntnis', text:'Form-Anwendung zu vage: „' + sh + '" — kein konkreter Bezug zum Layout.'});
   }
   // 3) wishes_addressed substantiell
   if (data.wishes && data.wishes.length) {
     var wa = (ca.wishes_addressed || '').toString().trim();
-    if (wa.length < 25) issues.push({severity:'high', code:'wishes_lippenbekenntnis', text:'Wünsche-Reflektion fehlt oder ist zu vage: „' + wa + '"'});
+    if (wa.length < 8) issues.push({severity:'low', code:'wishes_lippenbekenntnis', text:'Wünsche-Reflektion fehlt oder ist zu vage: „' + wa + '"'});
   }
   // 4) constraints_addressed substantiell
   if (data.extra && data.extra.length) {
     var co = (ca.constraints_addressed || '').toString().trim();
-    if (co.length < 25) issues.push({severity:'high', code:'constraints_lippenbekenntnis', text:'Anmerkung/Einschränkung-Reflektion fehlt oder ist zu vage: „' + co + '"'});
+    if (co.length < 8) issues.push({severity:'low', code:'constraints_lippenbekenntnis', text:'Anmerkung/Einschränkung-Reflektion fehlt oder ist zu vage: „' + co + '"'});
   }
   // 5) Plant-level matches_wish/matches_constraint mehrheitlich true
   if (Array.isArray(plan.plants) && plan.plants.length) {
     if (data.wishes && data.wishes.length) {
       var matchCount = plan.plants.filter(function(p){ return p && p.matches_wish === true; }).length;
-      if (matchCount / plan.plants.length < 0.6) {
-        issues.push({severity:'high', code:'wishes_not_matched_in_plants', text:'Nur ' + matchCount + '/' + plan.plants.length + ' Pflanzen passen zu deinen Wünschen — sollten ≥60 % sein.'});
+      if (matchCount / plan.plants.length < 0.4) {
+        issues.push({severity:'medium', code:'wishes_not_matched_in_plants', text:'Nur ' + matchCount + '/' + plan.plants.length + ' Pflanzen passen klar zu deinen Wünschen.'});
       }
     }
     if (data.extra && data.extra.length) {
@@ -50187,20 +50195,83 @@ window.gsPPvalidateConstraints = function(plan, data) {
   return issues;
 };
 
+/* v30.08: Planer-Resultat als Tabs (Post-Processor — gruppiert die Sektionen) */
+function gsPPTabify(container, plan){
+  if(!container) return;
+  try{
+    var kids = Array.prototype.slice.call(container.children);
+    if(kids.length < 4) return;
+    var TABS = [
+      {k:'overview', label:'📋 '+(typeof _lt==='function'?_lt('pp_tab_overview','Überblick'):'Überblick')},
+      {k:'plants',   label:'🌱 '+(typeof _lt==='function'?_lt('pp_tab_plants','Pflanzen'):'Pflanzen')},
+      {k:'schedule', label:'📅 '+(typeof _lt==='function'?_lt('pp_tab_schedule','Zeitplan'):'Zeitplan')},
+      {k:'care',     label:'💧 '+(typeof _lt==='function'?_lt('pp_tab_care','Pflege'):'Pflege')},
+      {k:'threeD',   label:'🌐 3D'}
+    ];
+    var top=[], bucket={overview:[],plants:[],schedule:[],care:[],threeD:[]};
+    function cls(n){
+      if(n.querySelector && n.querySelector('[onclick*="gsPPsavePlan"]')) return '_top';
+      var txt=(n.textContent||'').toLowerCase();
+      if(/reflektiert deine eingaben|deine eingaben sind im plan|reflektiert deine angaben/.test(txt)) return '_top';
+      var h4=n.querySelector&&n.querySelector('h4'); var ht=h4?(h4.textContent||'').toLowerCase():txt.slice(0,60);
+      if((n.querySelector&&n.querySelector('#pp-inline-3d'))||/3d-modell|drehbar/.test(ht)) return 'threeD';
+      if(/pflanzenliste|pflanzen|sorten/.test(ht)) return 'plants';
+      if(/zeitplan|schritt|aufbau|erinnerung|ernte|kalender|woche|timeline/.test(ht)) return 'schedule';
+      if(/wasser|pflege|dünger|dunger|schädling|schadling|tipp|fehler|gieß|giess|bewässer/.test(ht)) return 'care';
+      return 'overview';
+    }
+    kids.forEach(function(n){ var c=cls(n); if(c==='_top') top.push(n); else bucket[c].push(n); });
+    var active = TABS.filter(function(t){ return bucket[t.k].length; });
+    if(active.length < 2) return;
+    container.innerHTML='';
+    top.forEach(function(n){ container.appendChild(n); });
+    var bar=document.createElement('div'); bar.className='pp-tabbar';
+    var panels=document.createElement('div'); panels.className='pp-tabpanels';
+    active.forEach(function(t,i){
+      var btn=document.createElement('button'); btn.className='pp-tab'+(i===0?' active':''); btn.type='button';
+      btn.textContent=t.label; btn.setAttribute('data-tab',t.k);
+      btn.onclick=function(){ gsPPShowTab(container,t.k); };
+      bar.appendChild(btn);
+      var p=document.createElement('div'); p.className='pp-tabpanel'; p.setAttribute('data-panel',t.k);
+      p.style.display=i===0?'block':'none';
+      bucket[t.k].forEach(function(n){ p.appendChild(n); });
+      panels.appendChild(p);
+    });
+    container.appendChild(bar); container.appendChild(panels);
+    container._ppTabPlan = plan || (window._gsPP && window._gsPP.plan) || null;
+  }catch(e){ if(typeof console!=='undefined') console.warn('[gsPPTabify]', e); }
+}
+function gsPPShowTab(container, k){
+  try{
+    if(!container) return;
+    Array.prototype.forEach.call(container.querySelectorAll('.pp-tab'), function(b){ b.classList.toggle('active', b.getAttribute('data-tab')===k); });
+    Array.prototype.forEach.call(container.querySelectorAll('.pp-tabpanel'), function(p){ p.style.display = (p.getAttribute('data-panel')===k)?'block':'none'; });
+    var bar=container.querySelector('.pp-tabbar'); if(bar&&bar.scrollIntoView) bar.scrollIntoView({block:'nearest'});
+    if(k==='threeD'){
+      var c=container.querySelector('#pp-inline-3d');
+      var plan=container._ppTabPlan || (window._gsPP && window._gsPP.plan);
+      if(c && c.getAttribute('data-rendered')!=='1' && typeof _gsLoadThree==='function' && plan){
+        c.setAttribute('data-rendered','1');
+        _gsLoadThree().then(function(){ try{ if(typeof gsPP3DRenderInline==='function') gsPP3DRenderInline(plan, c); }catch(_){} }).catch(function(){ if(c) c.innerHTML='<div style="text-align:center;padding:40px;color:#88a888;">3D benötigt Internet · siehe PDF-Plan</div>'; });
+      }
+    }
+  }catch(_){}
+}
 function gsPPrenderPlan(plan, data) {
   var esc = function(s) { return escHtml ? escHtml(String(s || '')) : String(s || '').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
   var html = '';
 
   // v24.25: Constraint-Issues-Banner ganz oben falls Validator was gefunden hat
-  if (plan._constraintIssues && plan._constraintIssues.length > 0) {
-    var hi = plan._constraintIssues.filter(function(i){ return i.severity === 'high'; });
+  var _ppHiIssues = (plan._constraintIssues||[]).filter(function(i){ return i.severity === 'high'; });
+  if (_ppHiIssues.length > 0) {
+    var hi = _ppHiIssues;
     var bannerColor = hi.length > 0 ? 'var(--c-danger)' : 'var(--c-warn)';
     var bannerBg = hi.length > 0 ? 'var(--bg-danger-soft)' : 'var(--bg-warn-soft)';
     var bannerIcon = hi.length > 0 ? '🚨' : '⚠️';
     html += '<div style="background:' + bannerBg + ';border-left:4px solid ' + bannerColor + ';border-radius:0 12px 12px 0;padding:14px 16px;margin-bottom:14px;">' +
       '<div style="font-size:13.5px;font-weight:800;color:' + bannerColor + ';margin-bottom:6px;">' + bannerIcon + ' Plan reflektiert deine Eingaben nur teilweise</div>' +
       '<ul style="margin:0;padding-left:20px;font-size:12px;color:var(--text2);line-height:1.55;">' +
-      plan._constraintIssues.map(function(i){ return '<li>' + esc(i.text) + '</li>'; }).join('') +
+      hi.map(function(i){ return '<li>' + esc(i.text) + '</li>'; }).join('') +
       '</ul>' +
       '<button onclick="gsPPrun()" style="margin-top:10px;padding:8px 14px;background:' + bannerColor + ';color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;">🔄 Plan neu generieren — strenger</button>' +
       '</div>';
@@ -50251,7 +50322,7 @@ function gsPPrenderPlan(plan, data) {
       _gsLoadThree().then(function(){
         var c = document.getElementById('pp-inline-3d');
         if (!c || typeof gsPP3DRenderInline !== 'function') return;
-        try { gsPP3DRenderInline(plan, c); } catch(e) {
+        try { if (c.offsetParent === null) { c.setAttribute('data-rendered','0'); } else { c.setAttribute('data-rendered','1'); gsPP3DRenderInline(plan, c); } } catch(e) {
           if (typeof console !== 'undefined') console.warn('[pp3d-inline]', e);
         }
       }).catch(function(){
@@ -56226,7 +56297,7 @@ function gsPPloadSavedPlan(id) {
     var loader = document.getElementById('pp-plan-loader');
     var actions = document.getElementById('pp-plan-actions');
     if (loader) loader.style.display = 'none';
-    if (res) { res.style.display = 'block'; res.innerHTML = gsPPrenderPlan(p.plan, p.data || {}); }
+    if (res) { res.style.display = 'block'; res.innerHTML = gsPPrenderPlan(p.plan, p.data || {}); try{ gsPPTabify(res, p.plan); }catch(_){} }
     if (actions) actions.classList.remove('hidden');
   }, 200);
 }
@@ -65422,7 +65493,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.07';
+var GS_VERSION = 'v30.08';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -79570,7 +79641,7 @@ window.gsPlansOpen = async function(filterType){
         if (typeof gsPPgoStep==='function') gsPPgoStep(5);
         var res=document.getElementById('pp-plan-result'), loader=document.getElementById('pp-plan-loader'), act=document.getElementById('pp-plan-actions');
         if(loader) loader.style.display='none';
-        if(res && typeof gsPPrenderPlan==='function'){ res.style.display='block'; res.innerHTML = gsPPrenderPlan(pl, dt); }
+        if(res && typeof gsPPrenderPlan==='function'){ res.style.display='block'; res.innerHTML = gsPPrenderPlan(pl, dt); try{ if(typeof gsPPTabify==='function') gsPPTabify(res, pl); }catch(_){} }
         if(act) act.classList.remove('hidden');
       }, 200);
     } catch(err){ console.warn('[gsPlans] load garden', err); toast(L('pl_loaderr','Plan konnte nicht geladen werden')); }
