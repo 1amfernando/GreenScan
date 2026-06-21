@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.11.20260621">
+<meta name="app-version" content="30.12.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12309,6 +12309,22 @@ window.GS_I18N_JS_STRINGS = {
   'pp_scn_wet':      'nasser Sommer',
   'pp_scn_cold':     'kühler / Spätfrost',
   'pp_refine_done':  'Plan angepasst',
+  // v30.12 Galerie-Intelligenz (gal_)
+  'gal_view_all':    '🖼️ Alle',
+  'gal_view_species':'📚 Nach Art',
+  'gal_timeline':    '📅 Verlauf (alt → neu)',
+  'gal_compare':     'Wachstum vergleichen (KI)',
+  'gal_compare_hint':'Vergleicht das älteste mit dem neuesten Foto.',
+  'gal_compare_again':'Erneut vergleichen',
+  'gal_need_two':    'Sobald du diese Art mehrmals scannst, kann die KI das Wachstum vergleichen.',
+  'gal_analyzing':   'KI analysiert …',
+  'gal_img_fail':    'Fotos konnten nicht geladen werden.',
+  'gal_cmp_fail':    'Analyse fehlgeschlagen.',
+  'gal_growth_result':'Wachstums-Analyse',
+  'gal_size':        'Größe',
+  'gal_leaves':      'Blätter/Triebe',
+  'gal_health':      'Farbe/Gesundheit',
+  'gal_days':        'Tage',
   // v30.04 Baum-Planer + gsPlans Chrome (tp_/pl_)
     pl_del: 'Löschen',
     pl_del_m: 'Wird auf allen Geräten entfernt.',
@@ -15807,6 +15823,7 @@ function gsGalleryRender(){
     c.style.background=on?'#1b5e20':'var(--card)'; c.style.color=on?'#fff':'var(--text2)'; c.style.borderColor=on?'#1b5e20':'var(--border)';
   });
   var cnt=document.getElementById('gs-gal-count'); if(cnt) cnt.textContent=all.length;
+  if((window._gsGalView||'grid')==='species'){ return _gsGalRenderSpeciesView(grid, items, _t, esc); }
   if(!items.length){
     grid.style.display='block';
     grid.innerHTML='<div style="padding:48px 20px;text-align:center;color:var(--muted);"><div style="font-size:52px;margin-bottom:14px;">🖼️</div>'
@@ -15860,6 +15877,7 @@ function gsOpenPhotoGallery(){
        +'<div style="font-size:11px;color:var(--muted);"><b id="gs-gal-count">0</b> '+_t('gal_photos','Fotos')+'</div></div>'
        +(loggedIn?'<button id="gs-gal-sync" onclick="gsGallerySync()" title="'+_t('gal_sync_t','Mit Cloud synchronisieren')+'" style="background:linear-gradient(135deg,#1565c0,#0d47a1);color:#fff;border:none;width:34px;height:34px;border-radius:10px;font-size:15px;cursor:pointer;flex-shrink:0;">🔄</button>':'')
      +'</div>'
+     +'<div style="display:flex;gap:6px;margin-bottom:8px;">'+'<button id="gs-gal-view-grid" onclick="gsGalSetView(\'grid\')" style="flex:1;padding:7px;font-size:12px;font-weight:800;border-radius:10px;cursor:pointer;font-family:inherit;border:1px solid var(--border);background:'+((window._gsGalView||'grid')==='grid'?'#1b5e20':'var(--card)')+';color:'+((window._gsGalView||'grid')==='grid'?'#fff':'var(--text2)')+';">'+_t('gal_view_all','🖼️ Alle')+'</button>'+'<button id="gs-gal-view-species" onclick="gsGalSetView(\'species\')" style="flex:1;padding:7px;font-size:12px;font-weight:800;border-radius:10px;cursor:pointer;font-family:inherit;border:1px solid var(--border);background:'+((window._gsGalView)==='species'?'#1b5e20':'var(--card)')+';color:'+((window._gsGalView)==='species'?'#fff':'var(--text2)')+';">'+_t('gal_view_species','📚 Nach Art')+'</button>'+'</div>'
      +'<div style="display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;">'
        +chips.map(function(c){ return '<button id="gs-gal-chip-'+c[0]+'" onclick="gsGalSetFilter(\''+c[0]+'\')" style="flex:0 0 auto;padding:6px 12px;font-size:12px;font-weight:700;border-radius:16px;cursor:pointer;font-family:inherit;border:1px solid var(--border);background:var(--card);color:var(--text2);white-space:nowrap;-webkit-tap-highlight-color:transparent;">'+c[1]+'</button>'; }).join('')
      +'</div>'
@@ -15872,6 +15890,143 @@ function gsOpenPhotoGallery(){
 }
 function gsClosePhotoGallery(){ var ov=document.getElementById('gs-gallery-overlay'); if(ov) ov.style.display='none'; }
 window.gsOpenPhotoGallery=gsOpenPhotoGallery; window.gsClosePhotoGallery=gsClosePhotoGallery; window.gsGalleryRender=gsGalleryRender;
+/* v30.12: Galerie INTELLIGENTER — Arten-Gruppierung + Wachstums-Timeline + KI-Vorher/Nachher-Vergleich */
+function gsGalSetView(v){
+  window._gsGalView=v;
+  ['grid','species'].forEach(function(k){ var btn=document.getElementById('gs-gal-view-'+k); if(btn){ var on=(v===k); btn.style.background=on?'#1b5e20':'var(--card)'; btn.style.color=on?'#fff':'var(--text2)'; } });
+  if(typeof gsGalleryRender==='function') gsGalleryRender();
+  if(typeof gsHaptic==='function')gsHaptic('light');
+}
+function _gsGalGroupBySpecies(items){
+  var map={}, order=[];
+  items.forEach(function(x){
+    var key=(x.name||'Unbekannt');
+    if(!map[key]){ map[key]={ name:key, lat:x.lat||'', photos:[], cover:x.img, newest:x.ts||0, oldest:x.ts||0, cloud:false }; order.push(key); }
+    var g=map[key]; g.photos.push(x);
+    if((x.ts||0)>=g.newest){ g.newest=x.ts||0; g.cover=x.img; }
+    if((x.ts||0)<g.oldest||g.oldest===0) g.oldest=x.ts||0;
+    if(x.cloud) g.cloud=true;
+    if(!g.lat&&x.lat) g.lat=x.lat;
+  });
+  return order.map(function(k){ return map[k]; }).sort(function(a,b){ return (b.newest||0)-(a.newest||0); });
+}
+function _gsGalRenderSpeciesView(grid, items, _t, esc){
+  var groups=_gsGalGroupBySpecies(items);
+  if(!groups.length){
+    grid.style.display='block';
+    grid.innerHTML='<div style="padding:48px 20px;text-align:center;color:var(--muted);"><div style="font-size:52px;margin-bottom:14px;">📚</div>'
+      +'<div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:6px;">'+_t('gal_empty','Noch keine Bilder')+'</div></div>';
+    return;
+  }
+  grid.style.display='grid';
+  grid.innerHTML=groups.map(function(g){
+    var rng='';
+    try{
+      if(g.oldest&&g.newest&&g.newest!==g.oldest){
+        rng=new Date(g.oldest).toLocaleDateString('de-CH',{month:'short',year:'2-digit'})+' – '+new Date(g.newest).toLocaleDateString('de-CH',{month:'short',year:'2-digit'});
+      } else if(g.newest){ rng=new Date(g.newest).toLocaleDateString('de-CH',{day:'numeric',month:'short'}); }
+    }catch(_){}
+    var multi=g.photos.length>1;
+    return '<button onclick="gsGalOpenSpecies('+JSON.stringify(g.name).replace(/"/g,'&quot;')+')" '
+      +'style="position:relative;aspect-ratio:1/1;border:none;border-radius:12px;overflow:hidden;padding:0;cursor:pointer;background:var(--surface2);font-family:inherit;-webkit-tap-highlight-color:transparent;">'
+      +'<img src="'+esc(g.cover)+'" alt="'+esc(g.name)+'" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;">'
+      +'<span style="position:absolute;top:5px;right:5px;background:rgba(27,94,32,.92);color:#fff;font-size:10px;padding:1px 6px;border-radius:8px;font-weight:800;">'+g.photos.length+' 📷</span>'
+      +(multi?'<span style="position:absolute;top:5px;left:5px;background:rgba(245,127,23,.92);color:#fff;font-size:9.5px;padding:1px 5px;border-radius:7px;font-weight:800;">📈</span>':'')
+      +'<span style="position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,rgba(0,0,0,.78));color:#fff;padding:16px 7px 5px;text-align:left;">'
+        +'<span style="display:block;font-size:11px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(g.name)+'</span>'
+        +(rng?'<span style="display:block;font-size:9px;opacity:.85;">'+rng+'</span>':'')+'</span>'
+      +'</button>';
+  }).join('');
+}
+function gsGalOpenSpecies(name){
+  var _t=(window.gsI18n&&gsI18n.t)?gsI18n.t:function(k,f){return f;};
+  var esc=(typeof escHtml==='function')?escHtml:function(s){return String(s==null?'':s);};
+  var items=(typeof _gsGalleryItems==='function')?_gsGalleryItems():[];
+  var ph=items.filter(function(x){ return (x.name||'Unbekannt')===name; }).sort(function(a,b){ return (a.ts||0)-(b.ts||0); }); // alt → neu
+  window._gsGalSpecies={ name:name, photos:ph };
+  var ov=document.getElementById('gs-gal-species-ov');
+  if(!ov){ ov=document.createElement('div'); ov.id='gs-gal-species-ov'; ov.style.cssText='position:fixed;inset:0;z-index:5950;background:var(--bg);display:flex;flex-direction:column;'; document.body.appendChild(ov); }
+  var canCompare=ph.length>1 && (typeof callVisionAI==='function');
+  var strip=ph.map(function(x,i){
+    var d=''; try{ if(x.ts) d=new Date(x.ts).toLocaleDateString('de-CH',{day:'numeric',month:'short',year:'2-digit'}); }catch(_){}
+    return '<div style="flex:0 0 auto;width:150px;">'
+      +'<button onclick="if(typeof openScanHistoryDetail===\'function\')openScanHistoryDetail('+x.idx+')" style="border:none;padding:0;background:none;cursor:pointer;width:100%;">'
+      +'<img src="'+esc(x.img)+'" loading="lazy" style="width:150px;height:150px;object-fit:cover;border-radius:12px;display:block;background:var(--surface2);"></button>'
+      +'<div style="font-size:10.5px;color:var(--muted);font-weight:700;text-align:center;margin-top:4px;">'+(i===0?'🌱 ':(i===ph.length-1?'🌿 ':''))+(d||'—')+'</div></div>';
+  }).join('');
+  ov.innerHTML=
+    '<div style="flex-shrink:0;background:var(--card);border-bottom:1px solid var(--border);padding:12px 14px;display:flex;align-items:center;gap:10px;">'
+     +'<button onclick="gsGalCloseSpecies()" style="background:var(--surface2);border:none;width:34px;height:34px;border-radius:10px;font-size:19px;cursor:pointer;color:var(--text);flex-shrink:0;">←</button>'
+     +'<div style="flex:1;min-width:0;"><div style="font-size:16px;font-weight:900;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(name)+'</div>'
+       +'<div style="font-size:11px;color:var(--muted);">'+ph.length+' '+_t('gal_photos','Fotos')+'</div></div>'
+    +'</div>'
+    +'<div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px;">'
+      +'<div style="font-size:12.5px;font-weight:800;color:var(--text);margin-bottom:8px;">'+_t('gal_timeline','📅 Verlauf (alt → neu)')+'</div>'
+      +'<div style="display:flex;gap:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;">'+strip+'</div>'
+      +(canCompare
+        ? '<button id="gs-gal-cmp-btn" onclick="gsGalCompareGrowth()" style="margin-top:16px;width:100%;padding:13px;background:linear-gradient(135deg,#1b5e20,#43a047);color:#fff;border:none;border-radius:12px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📈 '+_t('gal_compare','Wachstum vergleichen (KI)')+'</button>'
+          +'<div style="font-size:10.5px;color:var(--muted);text-align:center;margin-top:6px;">'+_t('gal_compare_hint','Vergleicht das älteste mit dem neuesten Foto.')+'</div>'
+        : (ph.length<2 ? '<div style="margin-top:16px;padding:14px;background:var(--surface2);border-radius:12px;font-size:12px;color:var(--muted);text-align:center;">'+_t('gal_need_two','Sobald du diese Art mehrmals scannst, kann die KI das Wachstum vergleichen.')+'</div>' : ''))
+      +'<div id="gs-gal-cmp-result" style="margin-top:14px;"></div>'
+    +'</div>';
+  ov.style.display='flex';
+  if(typeof gsHaptic==='function')gsHaptic('light');
+}
+function gsGalCloseSpecies(){ var ov=document.getElementById('gs-gal-species-ov'); if(ov) ov.style.display='none'; }
+async function gsGalCompareGrowth(){
+  var _t=(window.gsI18n&&gsI18n.t)?gsI18n.t:function(k,f){return f;};
+  var s=window._gsGalSpecies; if(!s||!s.photos||s.photos.length<2) return;
+  var btn=document.getElementById('gs-gal-cmp-btn');
+  var res=document.getElementById('gs-gal-cmp-result');
+  var a=s.photos[0], b=s.photos[s.photos.length-1]; // alt, neu
+  if(btn){ btn.disabled=true; btn.textContent='⏳ '+_t('gal_analyzing','KI analysiert …'); }
+  if(res) res.innerHTML='';
+  try{
+    if(typeof _gsPhotoToB64!=='function'||typeof callVisionAI!=='function') throw new Error('KI hier nicht verfügbar');
+    var iA=await _gsPhotoToB64(a.img), iB=await _gsPhotoToB64(b.img);
+    if(!iA||!iB) throw new Error(_t('gal_img_fail','Fotos konnten nicht geladen werden.'));
+    var dA=a.ts?new Date(a.ts).toLocaleDateString('de-CH'):'?', dB=b.ts?new Date(b.ts).toLocaleDateString('de-CH'):'?';
+    var days=(a.ts&&b.ts)?Math.max(0,Math.round((b.ts-a.ts)/86400000)):null;
+    var prompt='Du bist ein erfahrener Pflanzen-Experte. Vergleiche zwei Fotos derselben Art ('+(s.name||'Pflanze')+'). '
+      +'Foto 1 (Vorher) am '+dA+', Foto 2 (Nachher) am '+dB+(days!=null?' ('+days+' Tage später)':'')+'. '
+      +'Analysiere die sichtbare Veränderung (Größe, Blattanzahl, Farbe, Gesundheit, Schädlinge). '
+      +'Antworte AUSSCHLIESSLICH mit gültigem JSON in genau diesem Schema, ohne Markdown:\n'
+      +'{"growth_pct": <ganze Zahl Prozent, negativ wenn geschrumpft>, "new_leaves": <ganze Zahl, 0 wenn keine>, '
+      +'"color_health": "<genau einer von: besser | gleich | schlechter>", "summary": "<1-2 Sätze auf Deutsch>", '
+      +'"highlights": ["<positive Beobachtung>"], "concerns": ["<Problem/Warnung, leer wenn keine>"]}';
+    var resp=await callVisionAI(iA.b64, iA.mt, prompt, [{ b64:iB.b64, mt:iB.mt, label:'Nachher ('+dB+')' }], { quotaFeature:'foto_diff' });
+    var diff;
+    try{ var clean=String(resp).replace(/```json|```/g,'').trim(); var js=clean.indexOf('{'), je=clean.lastIndexOf('}'); if(js>=0&&je>js) clean=clean.slice(js,je+1); diff=JSON.parse(clean); }
+    catch(e){ diff={ summary:String(resp).slice(0,300), highlights:[], concerns:[] }; }
+    if(res) res.innerHTML=_gsGalDiffHtml(diff, days, _t, (typeof escHtml==='function')?escHtml:function(x){return String(x==null?'':x);});
+    if(typeof gsHaptic==='function')gsHaptic('success');
+  }catch(e){
+    var msg=(e&&e.message)?e.message:_t('gal_cmp_fail','Analyse fehlgeschlagen.');
+    if(res) res.innerHTML='<div style="padding:13px;background:var(--bg-danger-soft,rgba(198,40,40,.08));border:1px solid var(--c-danger,#c62828);border-radius:10px;font-size:12.5px;color:var(--c-danger-d,#b71c1c);">⚠️ '+msg+'</div>';
+    if(e&&e.code==='free_quota_reached'&&typeof gsToast==='function') gsToast(msg,'warn');
+  }finally{ if(btn){ btn.disabled=false; btn.textContent='📈 '+_t('gal_compare_again','Erneut vergleichen'); } }
+}
+function _gsGalDiffHtml(diff, days, _t, esc){
+  if(!diff) return '';
+  var gp=(typeof diff.growth_pct==='number'&&isFinite(diff.growth_pct))?Math.round(diff.growth_pct):null;
+  var nl=(typeof diff.new_leaves==='number'&&isFinite(diff.new_leaves))?Math.round(diff.new_leaves):null;
+  var health=String(diff.color_health||'').toLowerCase();
+  var hCol=health==='besser'?'#2e7d32':health==='schlechter'?'#c62828':'#f57f17';
+  var chips='';
+  if(gp!=null) chips+='<span style="background:'+(gp>=0?'#e8f5e9':'#ffebee')+';color:'+(gp>=0?'#2e7d32':'#c62828')+';padding:4px 10px;border-radius:9px;font-size:12px;font-weight:800;">'+(gp>=0?'+':'')+gp+'% '+_t('gal_size','Größe')+'</span>';
+  if(nl!=null&&nl>0) chips+='<span style="background:#e8f5e9;color:#2e7d32;padding:4px 10px;border-radius:9px;font-size:12px;font-weight:800;">+'+nl+' '+_t('gal_leaves','Blätter/Triebe')+'</span>';
+  if(health) chips+='<span style="background:'+hCol+'22;color:'+hCol+';padding:4px 10px;border-radius:9px;font-size:12px;font-weight:800;">'+_t('gal_health','Farbe/Gesundheit')+': '+esc(diff.color_health)+'</span>';
+  var hl=(Array.isArray(diff.highlights)?diff.highlights:[]).filter(Boolean);
+  var co=(Array.isArray(diff.concerns)?diff.concerns:[]).filter(Boolean);
+  return '<div style="background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:14px;">'
+    +'<div style="font-size:13px;font-weight:900;color:var(--text);margin-bottom:8px;">📈 '+_t('gal_growth_result','Wachstums-Analyse')+(days!=null?' · '+days+' '+_t('gal_days','Tage'):'')+'</div>'
+    +(chips?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">'+chips+'</div>':'')
+    +(diff.summary?'<div style="font-size:13px;line-height:1.5;color:var(--text);margin-bottom:'+((hl.length||co.length)?'10px':'0')+';">'+esc(diff.summary)+'</div>':'')
+    +(hl.length?'<div style="margin-bottom:6px;">'+hl.map(function(h){ return '<div style="font-size:12px;color:#2e7d32;">✓ '+esc(h)+'</div>'; }).join('')+'</div>':'')
+    +(co.length?'<div>'+co.map(function(c){ return '<div style="font-size:12px;color:#c62828;">⚠️ '+esc(c)+'</div>'; }).join('')+'</div>':'')
+    +'</div>';
+}
+window.gsGalSetView=gsGalSetView; window.gsGalOpenSpecies=gsGalOpenSpecies; window.gsGalCloseSpecies=gsGalCloseSpecies; window.gsGalCompareGrowth=gsGalCompareGrowth;
 /* v30.10: zuverlässiges Foto-Re-Sync — lokal vorhandene Medium-Fotos (480px) ohne Cloud-URL nachladen */
 async function gsRetryPhotoUploads(){
   try{
@@ -65720,7 +65875,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.11';
+var GS_VERSION = 'v30.12';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
