@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.05.20260621">
+<meta name="app-version" content="30.06.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -65422,7 +65422,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.05';
+var GS_VERSION = 'v30.06';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -79674,13 +79674,13 @@ function tpMaterials(t, calc){
   function pick(cat){ return (byCat[cat]||[])[0]; }
   function pickName(re){ var all=[].concat.apply([],Object.keys(byCat).map(function(k){return byCat[k];})); for(var i=0;i<all.length;i++){ if(re.test(all[i].item_de||'')||re.test(all[i].item_key||'')) return all[i]; } return null; }
   var items=[];
-  function add(m, qty, qtyLabel){ if(!m||qty<=0) return; items.push({ name:m.item_de, qty:(qtyLabel||qty+' '+(m.unit||'Stk')), min:num(m.price_chf_min,0)*qty, max:num(m.price_chf_max,0)*qty }); }
-  if (calc.stakeCount>0){ add(pick('pfahl'), calc.stakeCount, calc.stakeCount+'× Pfahl'); add(pickName(/band|anbind|kokos/i), 1, '1 Set'); }
-  add(pick('substrat'), calc.substratSacks, calc.substratSacks+' Sack à 40 l');
-  add(pick('mulch'), calc.mulchSacks, calc.mulchSacks+' Sack');
+  function add(m, qty, qtyLabel){ if(!m||qty<=0) return; items.push({ name:(m['item_'+curLang()]||m.item_de), qty:(qtyLabel||qty+' '+(m.unit||'Stk')), min:num(m.price_chf_min,0)*qty, max:num(m.price_chf_max,0)*qty }); }
+  if (calc.stakeCount>0){ add(pick('pfahl'), calc.stakeCount, calc.stakeCount+'×'); add(pickName(/band|anbind|kokos/i), 1, '1 Set'); }
+  add(pick('substrat'), calc.substratSacks, calc.substratSacks+' '+L('tp_u_sack','Sack')+' à 40 l');
+  add(pick('mulch'), calc.mulchSacks, calc.mulchSacks+' '+L('tp_u_sack','Sack'));
   if (t.needs_browse_protection || TP.plot.wild){ add(pickName(/verbiss|manschette|drahthose|wildschutz/i)||pick('schutz'), 1, '1×'); }
   add(pick('duenger'), 1, '1 kg');
-  add(pick('drainage'), 1, '1 Sack');
+  add(pick('drainage'), 1, '1 '+L('tp_u_sack','Sack'));
   var totMin=0, totMax=0; items.forEach(function(i){ totMin+=i.min; totMax+=i.max; });
   return { items:items, totMin:Math.round(totMin), totMax:Math.round(totMax) };
 }
