@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.01.20260620">
+<meta name="app-version" content="30.02.20260620">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -59559,6 +59559,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v30.02', date: '20.06.2026',
+    headline: '📷 Baum-Planer: aus Fotos einen 3D-Plan',
+    summary: 'Welle 2 des Baum-Pflanz-Planers: fotografiere deinen Garten (1–4 Bilder) — die KI schätzt Grundstücksgrösse, Grenzen, Himmelsrichtung und vorhandene Bäume/Gebäude und baut daraus eine 3D-Szene, die du danach korrigierst. Dann platzierst du deinen Wunschbaum wie gewohnt mit allen Berechnungen.',
+    user_summary: '📷 Neu: Garten fotografieren → die KI schätzt Grundstück & Umgebung und baut einen 3D-Plan, den du anpasst.',
+    user_items: [
+      { emoji: '📷', text: 'Foto(s) → KI-Schätzung von Grösse, Grenzen & vorhandenen Bäumen' },
+      { emoji: '🧊', text: '3D-Szene aus dem Foto — frei anpassbar' },
+    ],
+    items: [
+      {emoji:'📷', bold:'Bild→3D (Welle 2):', text:' callVisionAI schätzt aus 1–4 Gartenfotos Plot-Masse/Himmelsrichtung/Hang/Boden + vorhandene Objekte (Baum/Gebäude/Weg/Hecke/Zaun) mit ungefährer Position → strukturierte Szene.'},
+      {emoji:'🔧', bold:'Anpassbar:', text:' Schätzung füllt die Standort-Felder + zeigt eine 3D-Vorschau der erkannten Umgebung; alles editierbar, klar als KI-Schätzung gekennzeichnet.'},
+    ],
+  },
+  {
     v: 'v30.01', date: '20.06.2026',
     headline: '🌳 Neuer Baum-Pflanz-Planer',
     summary: 'Der KI-Planer kann jetzt auch Bäume & Gehölze: wähle deinen Standort und einen von 76 häufigen Schweizer Pflanzbäumen — die App berechnet Grenzabstand, Pflanzloch, Pfahl, Verbissschutz, Mulch und Bewässerung, zeigt eine Material-Stückliste mit Kosten, eine Schritt-für-Schritt-Anleitung und ein 3D-Modell mit Wuchs-Vorschau und Grenzabstand-Check. Inkl. Gift- und Bestäubungs-Hinweisen.',
@@ -65284,7 +65298,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.01';
+var GS_VERSION = 'v30.02';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -79296,12 +79310,12 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
 
 <script>
 /* ═══════════════════════════════════════════════════════════════════════
-   KI-BAUM-PFLANZ-PLANER (v30.01) — Welle 1
-   Dedizierter Vollbild-Bereich: Standort → Baumwahl → 3D-Pflanzplan mit
-   Wuchs-Vorschau + Grenzabstand-Glow, Material/Kosten-Stückliste,
+   KI-BAUM-PFLANZ-PLANER (v30.02) — Welle 1 + Welle 2 (Bild→3D)
+   Dedizierter Vollbild-Bereich: Standort (oder Foto→KI-Schätzung) → Baumwahl →
+   3D-Pflanzplan mit Wuchs-Vorschau + Grenzabstand-Glow, Material/Kosten,
    Schritt-für-Schritt-Anleitung, Sicherheit + Bestäubung.
    Backend: tree_planting_specs(+i18n), ch_planting_distance_rules, planting_materials.
-   Reuse: sbFetch, _gsLoadThree, _lt, gsHTMLEscape, callAI (brain:'dendrologe').
+   Reuse: sbFetch, _gsLoadThree, _lt, gsHTMLEscape, callVisionAI (Bild→Szene).
    ═══════════════════════════════════════════════════════════════════════ */
 (function(){
 if (window._gsTreePlannerInit) return; window._gsTreePlannerInit = true;
@@ -79309,7 +79323,7 @@ if (window._gsTreePlannerInit) return; window._gsTreePlannerInit = true;
 var TP = window._gsTP = {
   specs:null, rules:null, materials:null, i18nBySlug:{},
   plot:{ len:10, wid:8, soil:'lehmig', light:'sonnig', wild:false, building:false, buildDist:5 },
-  sel:null, age:1.0, _3d:null
+  scene:null, analyzing:false, sel:null, age:1.0, _3d:null
 };
 function ed(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s==null?'':s)) : String(s==null?'':s); }
 function L(k,f){ return (typeof _lt==='function') ? _lt(k,f) : f; }
@@ -79390,7 +79404,7 @@ function tpMaterials(t, calc){
   return { items:items, totMin:Math.round(totMin), totMax:Math.round(totMax) };
 }
 
-/* ── 3D (Three.js, spherical orbit + Wuchs-Vorschau + Grenz-Glow) ── */
+/* ── 3D (Three.js, spherical orbit + Wuchs-Vorschau + Grenz-Glow + Foto-Szene) ── */
 function tpMakeTree(t, ageFactor){
   var grp = new THREE.Group();
   var hMax = num(t.mature_height_m_max, 8), wMax = num(t.mature_width_m_max, 4);
@@ -79398,7 +79412,7 @@ function tpMakeTree(t, ageFactor){
   var cw = Math.max(0.5, wMax * ageFactor);
   var evergreen = (t.deciduous_evergreen==='immergruen');
   var cf = String(t.crown_form||'').toLowerCase();
-  var trunkH = h * (cf.indexOf('saeul')>=0||/säul/.test(cf) ? 0.18 : 0.32);
+  var trunkH = h * (/saeul|säul/.test(cf) ? 0.18 : 0.32);
   var trunkR = Math.max(0.04, h*0.025);
   var trunkMat = new THREE.MeshStandardMaterial({ color:0x6b4a2b, roughness:0.9 });
   var trunk = new THREE.Mesh(new THREE.CylinderGeometry(trunkR*0.7, trunkR, trunkH, 8), trunkMat);
@@ -79408,33 +79422,57 @@ function tpMakeTree(t, ageFactor){
   if (cat==='obstbaum') leafCol = 0x6aa84f;
   var leafMat = new THREE.MeshStandardMaterial({ color:leafCol, roughness:0.85 });
   var canopy;
-  var cTop = trunkH;
   if (/saeul|säul/.test(cf)){
     canopy = new THREE.Mesh(new THREE.CylinderGeometry(cw*0.5, cw*0.55, h-trunkH, 10), leafMat);
     canopy.position.y = trunkH + (h-trunkH)/2;
   } else if (/kegel|pyram/.test(cf) || cat==='nadelbaum'){
     canopy = new THREE.Mesh(new THREE.ConeGeometry(cw*0.6, h-trunkH, 12), leafMat);
     canopy.position.y = trunkH + (h-trunkH)/2;
-  } else if (/haeng|häng/.test(cf)){
-    canopy = new THREE.Mesh(new THREE.SphereGeometry(cw*0.55, 14, 12), leafMat);
-    canopy.scale.y = 0.75; canopy.position.y = trunkH + (h-trunkH)*0.5;
   } else {
     canopy = new THREE.Mesh(new THREE.SphereGeometry(cw*0.55, 14, 12), leafMat);
-    canopy.scale.y = 0.85; canopy.position.y = trunkH + (h-trunkH)*0.5;
+    canopy.scale.y = (/haeng|häng/.test(cf)?0.75:0.85); canopy.position.y = trunkH + (h-trunkH)*0.5;
   }
   canopy.castShadow = true; grp.add(canopy);
-  // Obst-Tupfer
   if (cat==='obstbaum' && ageFactor>0.6){
     var fruitMat = new THREE.MeshStandardMaterial({ color:0xd23b3b, roughness:0.5 });
     for (var i=0;i<8;i++){
       var fr = new THREE.Mesh(new THREE.SphereGeometry(Math.max(0.04,cw*0.04),6,6), fruitMat);
       var a = (i/8)*Math.PI*2, rr = cw*0.4;
-      fr.position.set(Math.cos(a)*rr, cTop + (h-trunkH)*0.5 + Math.sin(i)*0.2, Math.sin(a)*rr);
+      fr.position.set(Math.cos(a)*rr, trunkH + (h-trunkH)*0.5 + Math.sin(i)*0.2, Math.sin(a)*rr);
       grp.add(fr);
     }
   }
-  grp.userData.height = h; grp.userData.cw = cw;
   return grp;
+}
+function tpAddScene(scene, plotW, plotL){
+  // Vorhandene Features aus der Foto-Schätzung (TP.scene) als einfache Meshes
+  if (!TP.scene || !Array.isArray(TP.scene.features)) return;
+  TP.scene.features.forEach(function(f){
+    try {
+      var x = (clamp(num(f.x_rel,0.5),0,1)-0.5)*plotW;
+      var z = (clamp(num(f.y_rel,0.5),0,1)-0.5)*plotL;
+      var sz = clamp(num(f.size_m,2),0.5,Math.max(plotW,plotL));
+      var typ = String(f.type||'').toLowerCase();
+      var mesh;
+      if (/baum|hecke|busch|strauch/.test(typ)){
+        mesh = new THREE.Group();
+        var tr = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.08,sz*0.4,6), new THREE.MeshStandardMaterial({color:0x6b4a2b}));
+        tr.position.y = sz*0.2; mesh.add(tr);
+        var cr = new THREE.Mesh(new THREE.SphereGeometry(sz*0.45,10,8), new THREE.MeshStandardMaterial({color:0x5a8f4a, roughness:0.9}));
+        cr.position.y = sz*0.55; cr.scale.y=0.8; mesh.add(cr);
+      } else if (/gebaeude|gebäude|haus|mauer|schopf|garage/.test(typ)){
+        mesh = new THREE.Mesh(new THREE.BoxGeometry(sz, sz*0.8, sz*0.7), new THREE.MeshStandardMaterial({color:0xb9b1a6, roughness:0.95}));
+        mesh.position.y = sz*0.4;
+      } else if (/weg|platz|terrasse|belag/.test(typ)){
+        mesh = new THREE.Mesh(new THREE.BoxGeometry(sz, 0.05, sz*0.6), new THREE.MeshStandardMaterial({color:0xc9c2b4}));
+        mesh.position.y = 0.03;
+      } else {
+        mesh = new THREE.Mesh(new THREE.BoxGeometry(sz*0.6, 0.3, sz*0.6), new THREE.MeshStandardMaterial({color:0x9a9a8a, transparent:true, opacity:0.6}));
+        mesh.position.y = 0.15;
+      }
+      mesh.position.x = x; mesh.position.z = z; scene.add(mesh);
+    } catch(_){}
+  });
 }
 async function tpRender3D(container, t, calc, dist){
   if (typeof _gsLoadThree === 'function' && typeof THREE === 'undefined'){ try{ await _gsLoadThree(); }catch(_){ } }
@@ -79452,28 +79490,25 @@ async function tpRender3D(container, t, calc, dist){
   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
   renderer.setSize(W, H); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   container.innerHTML=''; container.appendChild(renderer.domElement);
-  // Boden (Grundstück)
   var ground = new THREE.Mesh(new THREE.PlaneGeometry(plotW, plotL), new THREE.MeshStandardMaterial({ color:0x6fae54, roughness:0.95 }));
   ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; scene.add(ground);
-  // Grenze (rote gestrichelte Linie an einer Kante = Grundstücksgrenze, bei z = -plotL/2)
   var boundY = -plotL/2;
   var bgeo = new THREE.BufferGeometry().setFromPoints([ new THREE.Vector3(-plotW/2,0.02,boundY), new THREE.Vector3(plotW/2,0.02,boundY) ]);
-  var bmat = new THREE.LineDashedMaterial({ color:0xd32f2f, dashSize:0.3, gapSize:0.2, linewidth:2 });
+  var bmat = new THREE.LineDashedMaterial({ color:0xd32f2f, dashSize:0.3, gapSize:0.2 });
   var bline = new THREE.Line(bgeo, bmat); bline.computeLineDistances(); scene.add(bline);
-  // Lichter
   scene.add(new THREE.HemisphereLight(0xffffff, 0x5a6a4a, 0.75));
   var sun = new THREE.DirectionalLight(0xfff4e0, 1.0); sun.position.set(maxD*1.2, maxD*2, maxD*0.8);
   sun.castShadow = true; sun.shadow.mapSize.width=1024; sun.shadow.mapSize.height=1024;
   sun.shadow.camera.left=-maxD; sun.shadow.camera.right=maxD; sun.shadow.camera.top=maxD; sun.shadow.camera.bottom=-maxD;
   scene.add(sun); scene.add(new THREE.AmbientLight(0x88aa88, 0.45));
-  // Baum platzieren: an Grenze-Mitte, mit dem geforderten Grenzabstand nach innen
-  var treeZ = boundY + Math.max(dist.boundary, 0.5);
+  tpAddScene(scene, plotW, plotL);
+  var treeZ = boundY + Math.max((dist?dist.boundary:1), 0.5);
   var maxInner = plotL/2 - 0.3;
-  var ok = treeZ <= maxInner; if (treeZ > maxInner) treeZ = maxInner;
+  var ok = !t || treeZ <= maxInner; if (treeZ > maxInner) treeZ = maxInner;
   function buildTree(){
     if (TP._3d && TP._3d.treeGrp){ scene.remove(TP._3d.treeGrp); }
+    if (!t){ if(TP._3d) TP._3d.treeGrp=null; return null; }
     var grp = tpMakeTree(t, TP.age); grp.position.set(0, 0, treeZ); scene.add(grp);
-    // Grenz-Glow-Ring: rot wenn Abstand unterschritten, sonst grün
     var ringCol = ok ? 0x2e7d32 : 0xd32f2f;
     var ring = new THREE.Mesh(new THREE.RingGeometry(dist.boundary*0.92, dist.boundary, 32),
       new THREE.MeshBasicMaterial({ color:ringCol, transparent:true, opacity:0.5, side:THREE.DoubleSide }));
@@ -79481,7 +79516,6 @@ async function tpRender3D(container, t, calc, dist){
     if (TP._3d) TP._3d.treeGrp = grp;
     return grp;
   }
-  // Spherical orbit
   var azimuth=0.7, polar=Math.PI*0.36, radius=maxD*1.7, dragging=false, lx=0, ly=0, pinch=0;
   function pd(ts){ var dx=ts[0].clientX-ts[1].clientX, dy=ts[0].clientY-ts[1].clientY; return Math.sqrt(dx*dx+dy*dy); }
   function applyCam(){ var r=clamp(radius,3,maxD*4), p=clamp(polar,0.15,Math.PI*0.49);
@@ -79502,6 +79536,64 @@ async function tpRender3D(container, t, calc, dist){
   TP._3d = { treeGrp:null, rebuild:buildTree, dispose:function(){ alive=false; cancelAnimationFrame(raf); try{ window.removeEventListener('mouseup',onUp); renderer.dispose(); }catch(_){ } container.innerHTML=''; } };
   buildTree(); loop();
   return ok;
+}
+
+/* ── Welle 2: Bild → 3D (callVisionAI schätzt Grundstück + Features) ── */
+function tpResizeImg(file, cb){
+  var fr = new FileReader();
+  fr.onload = function(){
+    var img = new Image();
+    img.onload = function(){
+      var max = 1024, w = img.width, h = img.height;
+      if (w > h && w > max){ h = Math.round(h*max/w); w = max; } else if (h >= w && h > max){ w = Math.round(w*max/h); h = max; }
+      var c = document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      var dataUrl = c.toDataURL('image/jpeg', 0.82);
+      cb(dataUrl.split(',')[1], 'image/jpeg');
+    };
+    img.onerror = function(){ cb(null); };
+    img.src = fr.result;
+  };
+  fr.onerror = function(){ cb(null); };
+  fr.readAsDataURL(file);
+}
+window._gsTPphoto = function(){
+  var inp = document.createElement('input');
+  inp.type='file'; inp.accept='image/*'; inp.multiple = true; inp.setAttribute('capture','environment');
+  inp.onchange = function(){
+    var files = Array.prototype.slice.call(inp.files||[]).slice(0,4);
+    if (!files.length) return;
+    var imgs = [], done = 0;
+    files.forEach(function(f){ tpResizeImg(f, function(b64,mt){ if(b64) imgs.push({b64:b64, mt:mt}); if(++done===files.length) tpAnalyzePhotos(imgs); }); });
+  };
+  inp.click();
+};
+async function tpAnalyzePhotos(imgs){
+  if (!imgs || !imgs.length) return;
+  if (typeof callVisionAI !== 'function'){ if(typeof gsToast==='function') gsToast(L('tp_no_ai','KI-Foto-Analyse hier nicht verfügbar.')); return; }
+  TP.analyzing = true;
+  var note = document.getElementById('tp-photo-note');
+  if (note) note.innerHTML = '<div style="padding:10px;text-align:center;color:var(--g-main);font-size:12px;">⏳ '+ed(L('tp_analyzing','KI analysiert deine Gartenfotos…'))+'</div>';
+  var sys = 'Du bist Landschaftsgärtner. Analysiere die Gartenfotos und schätze das Grundstück für einen Pflanzplan. Antworte NUR mit JSON (keine Erklärung), Schema: {"plot_length_m":Zahl,"plot_width_m":Zahl,"shape":"Rechteck|L-Form|unregelmässig","sun_direction":"kurzer DE-Hinweis","slope":"eben|leicht|steil","soil_hint":"lehmig|sandig|tonig|humos|kalkhaltig|feucht","light_hint":"vollsonnig|sonnig|halbschattig|schattig","features":[{"type":"baum|gebaeude|weg|hecke|beet|zaun","label":"DE","x_rel":0..1,"y_rel":0..1,"size_m":Zahl}],"boundaries":[{"edge":"vorne|hinten|links|rechts","type":"zaun|hecke|mauer|offen"}],"confidence":"hoch|mittel|niedrig","note":"kurzer DE-Hinweis, dass dies eine Schätzung ist"}. x_rel=0 links/1 rechts, y_rel=0 vorne/1 hinten. Schätze konservativ. Masse in Metern.';
+  var prompt = 'Schätze aus diesen ' + imgs.length + ' Gartenfoto(s) die Grundstücksmasse, Himmelsrichtung, Hangneigung, Bodentyp und vorhandene Objekte (Bäume, Gebäude, Wege, Hecken, Zäune) mit ungefährer Position. Nur JSON.';
+  var first = imgs[0], extra = imgs.slice(1).map(function(x){ return { b64:x.b64, mt:x.mt, label:'Garten' }; });
+  var resp = null;
+  try { resp = await callVisionAI(first.b64, first.mt, prompt, extra, { systemPrompt: sys, quotaFeature:'garden', logLabel:'tree_photo_3d' }); }
+  catch(e){ console.warn('[TP] vision failed', e); }
+  TP.analyzing = false;
+  var est = null;
+  try {
+    var txt = (typeof resp==='string') ? resp : (resp && (resp.text||resp.content||JSON.stringify(resp)));
+    var i = txt.indexOf('{'), j = txt.lastIndexOf('}');
+    if (i>=0 && j>i) est = JSON.parse(txt.slice(i, j+1));
+  } catch(e){ console.warn('[TP] parse failed', e); }
+  if (!est || !est.plot_length_m){ if(note) note.innerHTML = '<div style="padding:8px;color:#b71c1c;font-size:11.5px;">'+ed(L('tp_analyze_err','Konnte das Foto nicht auswerten — bitte Masse manuell eingeben.'))+'</div>'; return; }
+  TP.scene = est;
+  TP.plot.len = clamp(num(est.plot_length_m, TP.plot.len), 2, 40);
+  TP.plot.wid = clamp(num(est.plot_width_m, TP.plot.wid), 2, 40);
+  if (est.soil_hint) TP.plot.soil = est.soil_hint;
+  if (est.light_hint) TP.plot.light = est.light_hint;
+  tpRenderInput();
 }
 
 /* ── UI ── */
@@ -79525,8 +79617,25 @@ function tpRenderInput(){
   var soils=['lehmig','sandig','tonig','humos','kalkhaltig','feucht'];
   var lights=['vollsonnig','sonnig','halbschattig','schattig'];
   var cats=[['','Alle'],['obstbaum','🍎 Obst'],['beerenstrauch','🫐 Beeren'],['hecke','🌿 Hecke'],['hausbaum','🌳 Hausbaum'],['zierbaum','🌸 Zierbaum'],['wildgehoelz','🐝 Wildgehölz'],['nadelbaum','🌲 Nadelbaum']];
-  var h = '<div style="background:var(--card);border-radius:14px;padding:14px;margin-bottom:12px;">'
-    + '<div style="font-size:14px;font-weight:800;color:var(--g-dark);margin-bottom:10px;">📐 '+ed(L('tp_site','Dein Standort'))+'</div>'
+  // Welle 2: Foto-Karte
+  var h = '<div style="background:linear-gradient(135deg,#e8f5e9,#f1f8e9);border:1px solid #a5d6a7;border-radius:14px;padding:14px;margin-bottom:12px;">'
+    + '<div style="font-size:13.5px;font-weight:800;color:var(--g-dark);margin-bottom:4px;">📷 '+ed(L('tp_photo_title','Aus Fotos einen 3D-Plan'))+'</div>'
+    + '<div style="font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:8px;">'+ed(L('tp_photo_desc','Fotografiere deinen Garten (1–4 Bilder) — die KI schätzt Grundstück, Grenzen und vorhandene Bäume/Gebäude. Du kannst alles danach korrigieren.'))+'</div>'
+    + '<button onclick="window._gsTPphoto&&_gsTPphoto()" style="background:linear-gradient(135deg,#2e7d32,#43a047);border:none;color:#fff;padding:9px 14px;border-radius:10px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;">📷 '+ed(L('tp_photo_btn','Garten fotografieren'))+'</button>'
+    + '<div id="tp-photo-note"></div>';
+  if (TP.scene){
+    var feats = (Array.isArray(TP.scene.features)?TP.scene.features:[]).map(function(f){ return ed(f.label||f.type); }).filter(Boolean).slice(0,8).join(', ');
+    h += '<div style="margin-top:10px;background:#fff;border-radius:10px;padding:10px;font-size:11.5px;line-height:1.55;">'
+      + '<div style="font-weight:700;color:var(--g-dark);">🤖 '+ed(L('tp_est','KI-Schätzung'))+' ('+ed(TP.scene.confidence||'?')+'):</div>'
+      + '~'+ed(r1(TP.plot.wid))+' × '+ed(r1(TP.plot.len))+' m'+(TP.scene.slope?' · '+ed(L('tp_slope','Hang'))+': '+ed(TP.scene.slope):'')+(TP.scene.sun_direction?' · ☀️ '+ed(TP.scene.sun_direction):'')
+      + (feats?'<br>'+ed(L('tp_detected','Erkannt'))+': '+feats:'')
+      + (TP.scene.note?'<div style="color:var(--muted);margin-top:4px;font-style:italic;">⚠️ '+ed(TP.scene.note)+'</div>':'')
+      + '</div><div id="tp-scene3d" style="width:100%;height:200px;border-radius:10px;overflow:hidden;background:#bcd8f0;margin-top:8px;"></div>';
+  }
+  h += '</div>';
+  // Standort
+  h += '<div style="background:var(--card);border-radius:14px;padding:14px;margin-bottom:12px;">'
+    + '<div style="font-size:14px;font-weight:800;color:var(--g-dark);margin-bottom:10px;">📐 '+ed(L('tp_site','Dein Standort'))+(TP.scene?' <span style="font-size:10px;font-weight:600;color:var(--muted);">('+ed(L('tp_adjust','anpassen'))+')</span>':'')+'</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'
     + '<label style="font-size:11px;font-weight:700;">'+ed(L('tp_len','Länge (m)'))+'<input id="tp-len" type="number" inputmode="decimal" value="'+ed(p.len)+'" min="2" max="40" class="mp-input" style="width:100%;"></label>'
     + '<label style="font-size:11px;font-weight:700;">'+ed(L('tp_wid','Breite (m)'))+'<input id="tp-wid" type="number" inputmode="decimal" value="'+ed(p.wid)+'" min="2" max="40" class="mp-input" style="width:100%;"></label></div>'
@@ -79537,7 +79646,6 @@ function tpRenderInput(){
     + '<label style="display:flex;align-items:center;gap:5px;"><input id="tp-wild" type="checkbox"'+(p.wild?' checked':'')+'> 🦌 '+ed(L('tp_wild','Wild (Reh/Hase)'))+'</label>'
     + '<label style="display:flex;align-items:center;gap:5px;"><input id="tp-build" type="checkbox"'+(p.building?' checked':'')+'> 🏠 '+ed(L('tp_building','Gebäude in der Nähe'))+'</label></div>'
     + '</div>';
-  // Baumwahl
   h += '<div style="background:var(--card);border-radius:14px;padding:14px;">'
     + '<div style="font-size:14px;font-weight:800;color:var(--g-dark);margin-bottom:8px;">🌳 '+ed(L('tp_choose','Was möchtest du pflanzen?'))+'</div>'
     + '<input id="tp-search" type="search" placeholder="'+ed(L('tp_search','Suchen…'))+'" class="mp-input" style="width:100%;margin-bottom:8px;" oninput="window._gsTPfilter&&_gsTPfilter()">'
@@ -79553,6 +79661,8 @@ function tpRenderInput(){
   window._gsTPcat = function(btn){ TP._filter.cat = btn.getAttribute('data-cat')||''; Array.prototype.forEach.call(document.querySelectorAll('.tp-cat'), function(b){ var on=b===btn; b.style.background=on?'#2e7d32':'var(--bg)'; b.style.color=on?'#fff':'var(--text)'; b.style.borderColor=on?'#2e7d32':'rgba(0,0,0,.15)'; }); tpRenderList(); };
   window._gsTPfilter = function(){ var s=document.getElementById('tp-search'); TP._filter.q=(s&&s.value||'').toLowerCase().trim(); tpRenderList(); };
   tpRenderList();
+  // Foto-Szene 3D-Vorschau (ohne Baum)
+  if (TP.scene){ var sc=document.getElementById('tp-scene3d'); if(sc){ tpRender3D(sc, null, null, null); } }
 }
 function tpRenderList(){
   var el = document.getElementById('tp-list'); if(!el) return;
@@ -79587,7 +79697,6 @@ async function tpRenderPlan(){
   body.scrollTop = 0;
   function box(title, inner, bg){ return '<div style="background:'+(bg||'var(--card)')+';border-radius:14px;padding:14px;margin-bottom:12px;"><div style="font-size:13.5px;font-weight:800;color:var(--g-dark);margin-bottom:8px;">'+title+'</div>'+inner+'</div>'; }
   var h = '<button onclick="window._gsTPback&&_gsTPback()" style="background:none;border:none;color:var(--g-main);font-weight:700;font-size:13px;cursor:pointer;margin-bottom:8px;padding:0;">‹ '+ed(L('tp_back','Andere Wahl'))+'</button>';
-  // Header-Karte
   var TOXLBL={keine:L('tp_tox_none','ungiftig'),leicht:L('tp_tox_light','leicht giftig'),stark:L('tp_tox_strong','stark giftig'),toedlich:L('tp_tox_deadly','TÖDLICH giftig')};
   h += '<div style="background:linear-gradient(135deg,rgba(27,94,32,.10),rgba(46,125,50,.03));border-radius:14px;padding:14px;margin-bottom:12px;">'
     + '<div style="font-size:17px;font-weight:900;color:var(--g-dark);">'+ed(tpName(t))+'</div>'
@@ -79598,13 +79707,11 @@ async function tpRenderPlan(){
     + '<span style="background:#e8f5e9;color:#1b5e20;padding:3px 8px;border-radius:8px;font-weight:700;">🌱 '+ed(t.root_type||'')+'</span>'
     + '<span style="background:#e8f5e9;color:#1b5e20;padding:3px 8px;border-radius:8px;font-weight:700;">☀️ '+ed(t.light_need||'')+'</span>'
     + '</div></div>';
-  // 3D
   h += box('🧊 '+ed(L('tp_3d','3D-Vorschau & Grenzabstand')),
       '<div id="tp-3d" style="width:100%;height:300px;border-radius:12px;overflow:hidden;background:#bcd8f0;"></div>'
       + '<div style="margin-top:8px;"><label style="font-size:11px;font-weight:700;display:block;margin-bottom:2px;">⏱ '+ed(L('tp_growth','Wuchs-Vorschau'))+': <span id="tp-age-lbl"></span></label>'
       + '<input id="tp-age" type="range" min="20" max="100" value="100" style="width:100%;" oninput="window._gsTPage&&_gsTPage(this.value)"></label></div>'
       + '<div id="tp-3d-warn" style="font-size:11px;margin-top:6px;"></div>');
-  // Abstand & Recht
   var dRows = [
     ['📐 '+L('tp_d_boundary','Grenzabstand'), dist.boundary+' m', dist.boundaryLabel],
     ['🏠 '+L('tp_d_building','Abstand Gebäude'), dist.building+' m', dist.rootRisk==='hoch'?('⚠️ '+L('tp_root_hoch','Wurzelrisiko hoch — Leitungen/Beläge!')):''],
@@ -79613,7 +79720,6 @@ async function tpRenderPlan(){
   h += box('📏 '+ed(L('tp_dist','Abstände & Recht')),
       dRows.map(function(r){ return '<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.05);font-size:12px;"><span>'+ed(r[0])+'</span><b>'+ed(r[1])+'</b></div>'+(r[2]?'<div style="font-size:10.5px;color:var(--muted);margin:-2px 0 4px;">'+ed(r[2])+'</div>':''); }).join('')
       + '<div style="font-size:10.5px;color:#8a6d00;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:8px;margin-top:8px;">ℹ️ '+ed(dist.disclaimer||L('tp_disc','Richtwert — kantonal geregelt, im Zweifel Gemeinde fragen.'))+'</div>');
-  // Sicherheit
   if (t.toxicity && t.toxicity!=='keine'){
     var sevBg = (t.toxicity==='toedlich'||t.toxicity==='stark')?'#ffebee':'#fff8e1';
     var sevCol= (t.toxicity==='toedlich'||t.toxicity==='stark')?'#b71c1c':'#8a6d00';
@@ -79623,16 +79729,13 @@ async function tpRenderPlan(){
       + (t.child_pet_safe===false?'<div style="font-size:11px;font-weight:700;color:'+sevCol+';">👶🐕 '+ed(L('tp_notsafe','Nicht geeignet bei Kindern/Haustieren'))+'</div>':'')
       + '</div>';
   }
-  // Bestäubung
   if (t.needs_pollination_partner){
     var pp=(Array.isArray(t.pollination_partners)?t.pollination_partners:[]).join(', ');
     h += box('🐝 '+ed(L('tp_pollin','Bestäubung')), '<div style="font-size:11.5px;line-height:1.5;">'+ed(L('tp_pollin_need','Braucht eine zweite Sorte zur Befruchtung.'))+(pp?'<br><b>'+ed(L('tp_pollin_part','Befruchter'))+':</b> '+ed(pp):'')+'</div>', '#fffde7');
   }
-  // Stückliste + Kosten
   h += box('🧾 '+ed(L('tp_materials','Material & Kosten — alles was du brauchst')),
       mat.items.map(function(it){ return '<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.05);font-size:12px;"><span>'+ed(it.name)+' <span style="color:var(--muted);">('+ed(it.qty)+')</span></span><b style="white-space:nowrap;">'+(it.max>0?('CHF '+Math.round(it.min)+'–'+Math.round(it.max)):'–')+'</b></div>'; }).join('')
       + '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:13.5px;font-weight:900;color:var(--g-dark);"><span>'+ed(L('tp_total','Total (Richtwert)'))+'</span><span>CHF '+mat.totMin+'–'+mat.totMax+'</span></div>');
-  // Pflanz-Anleitung
   var steps = [
     [L('tp_s1','Pflanzloch graben'), L('tp_s1d','Loch ca. ')+calc.holeW+' m breit × '+calc.holeD+' m tief (2× Ballenbreite). Sohle lockern.'],
     [L('tp_s2','Drainage'), L('tp_s2d','Bei schwerem/nassem Boden eine Kiesschicht einbringen.')],
@@ -79645,14 +79748,11 @@ async function tpRenderPlan(){
   ].filter(Boolean);
   h += box('🪴 '+ed(L('tp_guide','Schritt-für-Schritt pflanzen')),
       steps.map(function(s,i){ return '<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid rgba(0,0,0,.05);"><div style="width:22px;height:22px;border-radius:50%;background:#2e7d32;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'+(i+1)+'</div><div style="flex:1;"><div style="font-size:12.5px;font-weight:700;">'+ed(s[0])+'</div><div style="font-size:11px;color:var(--text2);line-height:1.45;">'+ed(s[1])+'</div></div></div>'; }).join(''));
-  // Pflege + Bemerkung
   if (careTxt||swissTxt) h += box('🌿 '+ed(L('tp_care','Pflege & Hinweise')), '<div style="font-size:11.5px;line-height:1.55;color:var(--text);">'+(careTxt?ed(careTxt):'')+(swissTxt?'<div style="margin-top:6px;color:var(--muted);">🇨🇭 '+ed(swissTxt)+'</div>':'')+'</div>');
-  // Beste Pflanzzeit
   var months=['','Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
   var bm=(Array.isArray(t.best_planting_months)?t.best_planting_months:[]).map(function(m){return months[m]||'';}).filter(Boolean).join(', ');
   if (bm) h += '<div style="text-align:center;font-size:11.5px;color:var(--muted);margin-bottom:8px;">📅 '+ed(L('tp_best','Beste Pflanzzeit'))+': <b>'+ed(bm)+'</b></div>';
   body.innerHTML = h;
-  // 3D + Slider
   window._gsTPback = function(){ if(TP._3d&&TP._3d.dispose){try{TP._3d.dispose();}catch(_){}} tpRenderInput(); };
   window._gsTPage = function(v){ TP.age = clamp(num(v,100)/100, 0.2, 1.0); var lbl=document.getElementById('tp-age-lbl'); if(lbl) lbl.textContent = (TP.age>=0.99?L('tp_mature','Endgrösse'):Math.round(TP.age*100)+'% / ~'+Math.round((t.years_to_mature||20)*TP.age)+' J'); if(TP._3d&&TP._3d.rebuild) TP._3d.rebuild(); };
   var lbl0=document.getElementById('tp-age-lbl'); if(lbl0) lbl0.textContent = L('tp_mature','Endgrösse');
