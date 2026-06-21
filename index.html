@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.02.20260620">
+<meta name="app-version" content="30.03.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4130,7 +4130,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <!-- v24.03: „Meine Pläne"-Direkt-Zugang im Header -->
       <!-- v25.11: Neuer KI-Garten-Scan (3-Foto-Wizard via Edge-Fn garden-scan-analyze) -->
       <button onclick="gsOpenGardenScan()" style="background:linear-gradient(135deg,#1b5e20,#2e7d32);border:none;color:#fff;padding:7px 11px;border-radius:9px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;flex-shrink:0;margin-right:6px;" title="Neuer KI-Garten-Scan mit 3 Fotos">✨ KI-Scan</button>
-      <button onclick="gsPPopenSavedPlans()" style="background:rgba(27,94,32,.15);border:1px solid rgba(27,94,32,.3);color:var(--g-dark);padding:7px 11px;border-radius:9px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;flex-shrink:0;" title="Gespeicherte Pläne ansehen">📂 Meine Pläne</button>
+      <button onclick="(window.gsPlansOpen?gsPlansOpen():gsPPopenSavedPlans())" style="background:rgba(27,94,32,.15);border:1px solid rgba(27,94,32,.3);color:var(--g-dark);padding:7px 11px;border-radius:9px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;flex-shrink:0;" title="Gespeicherte Pläne ansehen">📂 Meine Pläne</button>
       <button onclick="gsOpenTreePlanner()" style="background:linear-gradient(135deg,#2e7d32,#43a047);border:none;color:#fff;padding:7px 11px;border-radius:9px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;flex-shrink:0;margin-left:6px;" title="Baum pflanzen — Planer">🌳 Bäume</button>
     </div>
 
@@ -49885,6 +49885,8 @@ async function gsPPrun(opts) {
       var store = { plan: plan, data: data, created: new Date().toISOString(), version: 'v23.57', refinements: [] };
       localStorage.setItem('gs_garden_plan_current', JSON.stringify(store));
     } catch(e) {}
+    // v30.03: Auto-Save in unified gsPlans (LS immer + Cloud) — fixt „Pläne verschwinden"
+    try{ if(window.gsPlans){ gsPlans.save({type:'garden', title:String((plan&&plan.summary)||'KI-Garten-Plan').slice(0,70), summary:String((plan&&plan.summary)||''), payload:{plan:plan,data:data}}); } }catch(_){}
     // Notifications planen (lokal via gsAgentScheduleNotifications)
     try { if (typeof gsAgentScheduleNotifications === 'function') gsAgentScheduleNotifications(plan); } catch(e) {}
 
@@ -59559,6 +59561,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v30.03', date: '21.06.2026',
+    headline: '💾 Pläne speichern — zuverlässig, mit „Meine Pläne"',
+    summary: 'Großer Fix: KI-Garten- und Baum-Pläne verschwinden nicht mehr. Jeder Plan wird automatisch gespeichert (auf dem Gerät immer, in der Cloud wenn eingeloggt) und erscheint unter „Meine Pläne" — auf allen Geräten, mit Stern-Favoriten und Löschen. Der Baum-Planer ist zudem schöner und schlägt dir jetzt passende Bäume für deinen Standort vor.',
+    user_summary: '💾 Pläne verschwinden nicht mehr — alles landet zuverlässig in „Meine Pläne". Baum-Planer mit Standort-Empfehlungen.',
+    user_items: [
+      { emoji: '💾', text: 'Auto-Speichern aller Pläne (Gerät + Cloud) + „Meine Pläne"-Liste' },
+      { emoji: '⭐', text: 'Favoriten, Löschen, geräteübergreifend' },
+      { emoji: '🌟', text: 'Baum-Planer schlägt passende Bäume für deinen Standort vor' },
+    ],
+    items: [
+      {emoji:'💾', bold:'Unified Persistenz (gsPlans):', text:' eine robuste Speicher-Schicht ersetzt die zerfaserten Alt-Systeme. localStorage IMMER zuerst (nie verlierbar) + Cloud garden_plans (eingeloggt). „Meine Pläne" liest alle Quellen inkl. Legacy, lädt je Typ (Garten/Baum) korrekt zurück.'},
+      {emoji:'🌳', bold:'Baum-Planer v30.03:', text:' Auto-Save + Speichern-Button + Meine-Pläne, Standort-Fit-Empfehlungen (deterministischer Score) + Fit-Badge, schönere Liste.'},
+    ],
+  },
+  {
     v: 'v30.02', date: '20.06.2026',
     headline: '📷 Baum-Planer: aus Fotos einen 3D-Plan',
     summary: 'Welle 2 des Baum-Pflanz-Planers: fotografiere deinen Garten (1–4 Bilder) — die KI schätzt Grundstücksgrösse, Grenzen, Himmelsrichtung und vorhandene Bäume/Gebäude und baut daraus eine 3D-Szene, die du danach korrigierst. Dann platzierst du deinen Wunschbaum wie gewohnt mit allen Berechnungen.',
@@ -65298,7 +65315,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.02';
+var GS_VERSION = 'v30.03';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -79310,7 +79327,156 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
 
 <script>
 /* ═══════════════════════════════════════════════════════════════════════
-   KI-BAUM-PFLANZ-PLANER (v30.02) — Welle 1 + Welle 2 (Bild→3D)
+   gsPlans (v30.03) — EINE robuste Plan-Persistenz für alle Planer.
+   Fixt „Pläne verschwinden": Auto-Save in localStorage (nie verlierbar) +
+   Cloud (garden_plans, eingeloggt), unified „Meine Pläne"-Liste die ALLE
+   Quellen liest (neu + Legacy user_gardens/gs_garden_plans), zuverlässiges
+   Zurückladen je Plan-Typ (garden/tree). Genutzt von Gemüse- + Baum-Planer.
+   ═══════════════════════════════════════════════════════════════════════ */
+(function(){
+if (window.gsPlans) return;
+var LS = 'gs_plans_v2';
+function ed(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s==null?'':s)) : String(s==null?'':s); }
+function L(k,f){ return (typeof _lt==='function') ? _lt(k,f) : f; }
+function loggedIn(){ try{ return typeof sbIsLoggedIn==='function' && sbIsLoggedIn() && typeof sbFetch==='function'; }catch(_){ return false; } }
+function uid(){ try{ return (typeof gsStore!=='undefined'&&gsStore.get)?gsStore.get('gs_sb_uid',null):null; }catch(_){ return null; } }
+function readLS(){ try{ var a=JSON.parse(localStorage.getItem(LS)||'[]'); return Array.isArray(a)?a:[]; }catch(_){ return []; } }
+function writeLS(a){ try{ localStorage.setItem(LS, JSON.stringify(a.slice(0,60))); return true; }catch(e){ try{ localStorage.setItem(LS, JSON.stringify(a.slice(0,20))); }catch(_){} return false; } }
+function toast(t){ try{ if(typeof gsToast==='function') gsToast(t); else if(typeof showProfileToast==='function') showProfileToast({title:t}); }catch(_){} }
+
+var _lastList = [];
+
+async function save(p){
+  p = p || {};
+  var ts = Date.now();
+  var entry = { localId:'l'+ts+'_'+Math.floor((window.performance&&performance.now?performance.now():ts)%100000),
+    id:null, type:p.type||'garden', title:String(p.title||L('pl_untitled','Mein Plan')).slice(0,120),
+    summary:String(p.summary||'').slice(0,400), payload:p.payload||{}, created:new Date(ts).toISOString(),
+    starred:false, cloud:false };
+  entry.id = entry.localId;
+  // 1) localStorage IMMER zuerst (nie verlierbar)
+  var list = readLS(); list.unshift(entry); writeLS(list);
+  // 2) Cloud best-effort
+  if (loggedIn() && uid()){
+    try {
+      var row = { user_id:uid(), title:entry.title, plan_type:entry.type, summary:entry.summary, ai_analysis:entry.payload, status:'active' };
+      var r = await sbFetch('/rest/v1/garden_plans', { method:'POST', headers:{'Content-Type':'application/json','Prefer':'return=representation'}, body:JSON.stringify(row) });
+      if (r && !r.error && r.data && r.data[0] && r.data[0].id){
+        var cloudId = r.data[0].id;
+        var l2 = readLS(); var i = -1; l2.forEach(function(x,k){ if(x.localId===entry.localId) i=k; });
+        if (i>=0){ l2[i].id = cloudId; l2[i].cloud = true; writeLS(l2); }
+        entry.id = cloudId; entry.cloud = true;
+      } else if (r && r.error){ console.warn('[gsPlans] cloud save err', r.error); }
+    } catch(e){ console.warn('[gsPlans] cloud save', e && e.message); }
+  }
+  return entry;
+}
+
+async function list(){
+  var byKey = {};
+  readLS().forEach(function(e){ if(e) byKey[e.id||e.localId] = e; });
+  if (loggedIn() && uid()){
+    try {
+      var r = await sbFetch('/rest/v1/garden_plans?user_id=eq.'+uid()+'&select=id,title,plan_type,summary,ai_analysis,starred,created_at&order=created_at.desc&limit=80', { method:'GET' });
+      var rows = (r && Array.isArray(r.data)) ? r.data : [];
+      rows.forEach(function(x){ byKey[x.id] = { id:x.id, localId:x.id, type:x.plan_type||'garden', title:x.title||L('pl_untitled','Mein Plan'), summary:x.summary||'', payload:x.ai_analysis||{}, created:x.created_at, starred:!!x.starred, cloud:true }; });
+    } catch(_){}
+    try {
+      var ug = await sbFetch('/rest/v1/user_gardens?user_id=eq.'+uid()+'&select=data&limit=1', { method:'GET' });
+      var ugr = (ug && Array.isArray(ug.data)) ? ug.data : [];
+      var legacy = (ugr[0] && ugr[0].data && Array.isArray(ugr[0].data.plans)) ? ugr[0].data.plans : [];
+      legacy.forEach(function(p){ var k='ug_'+(p.id||p.created); if(p && !byKey[k] && p.plan){ byKey[k]={ id:k, type:'garden', title:p.title||L('pl_garden','Garten-Plan'), summary:(p.plan&&p.plan.summary)||'', payload:{plan:p.plan,data:p.data}, created:p.created||p.created_at, cloud:true, legacy:true }; } });
+    } catch(_){}
+  }
+  try {
+    JSON.parse(localStorage.getItem('gs_garden_plans')||'[]').forEach(function(p){ var k='leg_'+(p.id||p.created); if(p && p.plan && !byKey[k]){ byKey[k]={ id:k, type:'garden', title:p.title||L('pl_garden','Garten-Plan'), summary:(p.plan&&p.plan.summary)||'', payload:{plan:p.plan,data:p.data}, created:p.created||p.created_at, cloud:false, legacy:true }; } });
+  } catch(_){}
+  _lastList = Object.keys(byKey).map(function(k){ return byKey[k]; }).sort(function(a,b){ return new Date(b.created||0) - new Date(a.created||0); });
+  return _lastList;
+}
+
+function loadEntry(id){
+  var e = null; _lastList.forEach(function(x){ if(x.id===id) e=x; });
+  if (!e){ readLS().forEach(function(x){ if((x.id||x.localId)===id) e=x; }); }
+  return e;
+}
+
+async function del(id){
+  var e = loadEntry(id);
+  try { var l = readLS().filter(function(x){ return (x.id||x.localId)!==id && x.localId!==id; }); writeLS(l); } catch(_){}
+  // Cloud: echte UUID (kein l/leg_/ug_ Prefix)
+  if (e && e.cloud && !e.legacy && typeof id==='string' && !/^(l|leg_|ug_)/.test(id) && loggedIn()){
+    try { await sbFetch('/rest/v1/garden_plans?id=eq.'+encodeURIComponent(id), { method:'DELETE' }); } catch(_){}
+  }
+  _lastList = _lastList.filter(function(x){ return x.id!==id; });
+}
+
+async function star(id, on){
+  var l = readLS(); l.forEach(function(x){ if((x.id||x.localId)===id) x.starred=!!on; }); writeLS(l);
+  if (typeof id==='string' && !/^(l|leg_|ug_)/.test(id) && loggedIn()){
+    try { await sbFetch('/rest/v1/garden_plans?id=eq.'+encodeURIComponent(id), { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({starred:!!on}) }); } catch(_){}
+  }
+}
+
+window.gsPlans = { save:save, list:list, load:loadEntry, del:del, star:star };
+
+/* ── Unified „Meine Pläne" Vollbild-Liste ── */
+window.gsPlansOpen = async function(filterType){
+  var scr = document.getElementById('gs-plans-screen');
+  if (!scr){ scr = document.createElement('div'); scr.id='gs-plans-screen'; document.body.appendChild(scr); }
+  scr.style.cssText = 'position:fixed;inset:0;z-index:7100;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;';
+  scr.style.display='flex';
+  scr.innerHTML = '<div style="background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;padding:calc(14px + env(safe-area-inset-top)) 16px 14px;display:flex;align-items:center;gap:12px;flex-shrink:0;">'
+    + '<button onclick="document.getElementById(\'gs-plans-screen\').style.display=\'none\';" aria-label="'+ed(L('modal_close','Schliessen'))+'" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:34px;height:34px;border-radius:9px;font-size:18px;cursor:pointer;">‹</button>'
+    + '<div style="flex:1;"><div style="font-size:18px;font-weight:900;">📂 '+ed(L('pl_title','Meine Pläne'))+'</div><div style="font-size:11.5px;opacity:.9;">'+ed(L('pl_sub','Alle gespeicherten Garten- & Baum-Pläne'))+'</div></div></div>'
+    + '<div id="gs-plans-body" style="flex:1;overflow-y:auto;padding:14px 14px 40px;"><div style="text-align:center;padding:40px;color:var(--muted);">⏳</div></div>';
+  var items = [];
+  try { items = await list(); } catch(_){}
+  if (filterType) items = items.filter(function(x){ return x.type===filterType; });
+  var body = document.getElementById('gs-plans-body');
+  if (!items.length){ body.innerHTML = '<div style="text-align:center;padding:48px 20px;color:var(--muted);font-size:13px;">'+ed(L('pl_empty','Noch keine gespeicherten Pläne. Erstelle einen Plan und speichere ihn — er erscheint hier auf all deinen Geräten.'))+'</div>'; return; }
+  var ICON = { tree:'🌳', garden:'🥕', forest:'🌲', balcony:'🪴' };
+  body.innerHTML = items.map(function(p){
+    var d = '';
+    try { d = new Date(p.created).toLocaleDateString('de-CH',{day:'2-digit',month:'short',year:'numeric'}); } catch(_){}
+    return '<div style="background:var(--card);border-radius:14px;padding:12px 14px;margin-bottom:10px;display:flex;gap:12px;align-items:flex-start;">'
+      + '<div onclick="window._gsPlansLoad(\''+ed(p.id)+'\')" style="font-size:26px;flex-shrink:0;cursor:pointer;">'+(ICON[p.type]||'📋')+'</div>'
+      + '<div onclick="window._gsPlansLoad(\''+ed(p.id)+'\')" style="flex:1;min-width:0;cursor:pointer;">'
+      + '<div style="font-size:13.5px;font-weight:800;color:var(--text);">'+ed(p.title)+(p.cloud?' <span title="Cloud" style="font-size:10px;">☁️</span>':'')+'</div>'
+      + (p.summary?'<div style="font-size:11px;color:var(--text2);line-height:1.45;max-height:32px;overflow:hidden;">'+ed(p.summary)+'</div>':'')
+      + '<div style="font-size:10px;color:var(--muted);margin-top:3px;">'+ed(d)+'</div></div>'
+      + '<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">'
+      + '<button onclick="window._gsPlansStar(\''+ed(p.id)+'\',this)" style="background:none;border:none;font-size:16px;cursor:pointer;opacity:'+(p.starred?'1':'.35')+';">⭐</button>'
+      + '<button onclick="window._gsPlansDel(\''+ed(p.id)+'\')" style="background:none;border:none;font-size:15px;cursor:pointer;opacity:.5;">🗑</button>'
+      + '</div></div>';
+  }).join('');
+  window._gsPlansLoad = function(id){ var e = loadEntry(id); if(!e){ toast(L('pl_notfound','Plan nicht gefunden')); return; }
+    document.getElementById('gs-plans-screen').style.display='none';
+    if (e.type==='tree' && typeof window._gsTPloadSaved==='function'){ window._gsTPloadSaved(e.payload); return; }
+    // garden/legacy → Gemüse-Planer rendern
+    try {
+      var pl = e.payload && (e.payload.plan || e.payload);
+      var dt = e.payload && e.payload.data || {};
+      if (window._gsPP) { window._gsPP.plan = pl; window._gsPP.data = dt; }
+      if (typeof openModal==='function') openModal('modal-planner-pro');
+      setTimeout(function(){
+        if (typeof gsPPgoStep==='function') gsPPgoStep(5);
+        var res=document.getElementById('pp-plan-result'), loader=document.getElementById('pp-plan-loader'), act=document.getElementById('pp-plan-actions');
+        if(loader) loader.style.display='none';
+        if(res && typeof gsPPrenderPlan==='function'){ res.style.display='block'; res.innerHTML = gsPPrenderPlan(pl, dt); }
+        if(act) act.classList.remove('hidden');
+      }, 200);
+    } catch(err){ console.warn('[gsPlans] load garden', err); toast(L('pl_loaderr','Plan konnte nicht geladen werden')); }
+  };
+  window._gsPlansStar = async function(id, btn){ var on = btn.style.opacity!=='1'; btn.style.opacity = on?'1':'.35'; try{ await star(id,on); }catch(_){} };
+  window._gsPlansDel = async function(id){ var ok=true; try{ if(typeof gsConfirmModal==='function') ok = await gsConfirmModal({title:L('pl_del_t','Plan löschen?'), message:L('pl_del_m','Wird auf allen Geräten entfernt.'), ok:'🗑 '+L('pl_del','Löschen'), cancel:L('modal_cancel','Abbrechen'), kind:'danger'}); }catch(_){}
+    if(!ok) return; try{ await del(id); }catch(_){} gsPlansOpen(filterType); };
+};
+})();
+</script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   KI-BAUM-PFLANZ-PLANER (v30.03) — Welle 1 + Welle 2 + Speichern + Standort-Empfehlungen
    Dedizierter Vollbild-Bereich: Standort (oder Foto→KI-Schätzung) → Baumwahl →
    3D-Pflanzplan mit Wuchs-Vorschau + Grenzabstand-Glow, Material/Kosten,
    Schritt-für-Schritt-Anleitung, Sicherheit + Bestäubung.
@@ -79361,6 +79527,14 @@ async function tpLoadI18n(slug){
   return TP.i18nBySlug[key];
 }
 function tpName(t){ var lang=curLang(); return t['common_name_'+lang] || t.common_name_de || t.scientific_name; }
+function tpFit(t){ var sc=55; var lt=String(t.light_need||'').toLowerCase(); var pl=TP.plot.light;
+  if(pl==='vollsonnig'||pl==='sonnig'){ if(/sonnig|vollsonn/.test(lt)) sc+=18; else if(/^schatt/.test(lt)) sc-=12; }
+  else if(pl==='halbschattig'){ if(/halbschatt/.test(lt)) sc+=18; else if(/vollsonn/.test(lt)) sc-=8; }
+  else if(pl==='schattig'){ if(/schatt/.test(lt)) sc+=18; else if(/vollsonn/.test(lt)) sc-=18; }
+  var w=num(t.mature_width_m_max,4); var pm=Math.min(num(TP.plot.len,10),num(TP.plot.wid,8));
+  if(w>pm*0.9) sc-=18; else if(w<pm*0.45) sc+=8;
+  if(t.category==='wildgehoelz'||t.category==='beerenstrauch') sc+=6; if(t.toxicity==='toedlich') sc-=4;
+  return clamp(Math.round(sc),8,99); }
 
 /* ── Rechen-Engine (deterministisch, nicht KI) ── */
 function tpCalc(t){
@@ -79604,7 +79778,8 @@ window.gsOpenTreePlanner = async function(){
   scr.style.display = 'flex';
   scr.innerHTML = '<div style="background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;padding:calc(14px + env(safe-area-inset-top)) 16px 14px;display:flex;align-items:center;gap:12px;flex-shrink:0;">'
     + '<button onclick="var s=document.getElementById(\'tree-planner-screen\');if(s)s.style.display=\'none\';if(window._gsTP&&_gsTP._3d&&_gsTP._3d.dispose)_gsTP._3d.dispose();" aria-label="'+ed(L('modal_close','Schliessen'))+'" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:34px;height:34px;border-radius:9px;font-size:18px;cursor:pointer;flex-shrink:0;">‹</button>'
-    + '<div style="flex:1;min-width:0;"><div style="font-size:18px;font-weight:900;">🌳 '+ed(L('tp_title','Baum pflanzen — Planer'))+'</div><div style="font-size:11.5px;opacity:.9;margin-top:2px;">'+ed(L('tp_sub','Standort, Grenzabstand, Zaun, Material & Kosten — alles berechnet'))+'</div></div></div>'
+    + '<div style="flex:1;min-width:0;"><div style="font-size:18px;font-weight:900;">🌳 '+ed(L('tp_title','Baum pflanzen — Planer'))+'</div><div style="font-size:11.5px;opacity:.9;margin-top:2px;">'+ed(L('tp_sub','Standort, Grenzabstand, Zaun, Material & Kosten — alles berechnet'))+'</div></div>'
+    + '<button onclick="if(window.gsPlansOpen)gsPlansOpen();" aria-label="'+ed(L('pl_title','Meine Pläne'))+'" style="background:rgba(255,255,255,.2);border:none;color:#fff;padding:7px 11px;border-radius:9px;font-size:13px;font-weight:800;cursor:pointer;flex-shrink:0;">📂</button></div>'
     + '<div id="tp-body" style="flex:1;overflow-y:auto;padding:14px 14px 48px;"><div style="text-align:center;padding:48px 16px;color:var(--muted);">⏳ '+ed(L('tp_loading','Lade Baum-Daten…'))+'</div></div>';
   var ok = await tpLoadAll();
   if (!ok){ document.getElementById('tp-body').innerHTML = '<div style="text-align:center;padding:40px 16px;color:var(--muted);font-size:13px;">'+ed(L('tp_load_err','Baum-Daten konnten nicht geladen werden. Bitte später erneut versuchen.'))+'</div>'; return; }
@@ -79674,7 +79849,18 @@ function tpRenderList(){
   });
   if (!list.length){ el.innerHTML='<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px;">'+ed(L('tp_none','Keine Treffer'))+'</div>'; return; }
   var TOXEMO={keine:'', leicht:'⚠️', stark:'☣️', toedlich:'☠️'};
-  el.innerHTML = list.map(function(t){
+  var recHtml='';
+  if(!f.q && !f.cat){
+    var scored=(TP.specs||[]).map(function(t){return {t:t,s:tpFit(t)};}).sort(function(a,b){return b.s-a.s;}).slice(0,5);
+    recHtml='<div style="font-size:11.5px;font-weight:800;color:var(--g-dark);margin-bottom:6px;">🌟 '+ed(L('tp_rec','Top für deinen Standort'))+'</div>'
+      +'<div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:10px;">'
+      +scored.map(function(x){return '<div onclick="window._gsTPpick&&_gsTPpick(\''+ed(x.t.slug)+'\')" style="flex-shrink:0;width:118px;background:linear-gradient(135deg,#e8f5e9,#f1f8e9);border:1px solid #a5d6a7;border-radius:12px;padding:10px;cursor:pointer;">'
+        +'<div style="font-size:22px;">'+(x.t.category==='nadelbaum'?'🌲':(x.t.category==='obstbaum'?'🍎':(x.t.category==='beerenstrauch'?'🫐':'🌳')))+'</div>'
+        +'<div style="font-size:11.5px;font-weight:800;color:var(--g-dark);line-height:1.2;margin:3px 0;max-height:28px;overflow:hidden;">'+ed(tpName(x.t))+'</div>'
+        +'<div style="font-size:10px;color:#2e7d32;font-weight:800;">'+x.s+'% '+ed(L('tp_fit','Fit'))+'</div></div>';}).join('')
+      +'</div>';
+  }
+  el.innerHTML = recHtml + list.map(function(t){
     var slug=ed(t.slug);
     var tox = TOXEMO[t.toxicity]||'';
     var hM = (t.mature_height_m_min!=null?t.mature_height_m_min+'–':'')+(t.mature_height_m_max!=null?t.mature_height_m_max+' m':'');
@@ -79682,7 +79868,7 @@ function tpRenderList(){
       + '<div style="font-size:22px;flex-shrink:0;">'+(t.category==='nadelbaum'?'🌲':(t.category==='obstbaum'?'🍎':(t.category==='beerenstrauch'?'🫐':'🌳')))+'</div>'
       + '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:800;color:var(--text);">'+ed(tpName(t))+' '+tox+'</div>'
       + '<div style="font-size:10.5px;color:var(--muted);font-style:italic;">'+ed(t.scientific_name)+' · '+ed(hM)+'</div></div>'
-      + '<div style="font-size:16px;opacity:.4;">›</div></div>';
+      + '<div style="text-align:right;flex-shrink:0;"><div style="font-size:9.5px;font-weight:800;color:#2e7d32;">'+tpFit(t)+'%</div><div style="font-size:16px;opacity:.4;">›</div></div></div>';
   }).join('');
   window._gsTPpick = function(slug){ var t=(TP.specs||[]).filter(function(x){return x.slug===slug;})[0]; if(t){ TP.sel=t; TP.age=1.0; tpRenderPlan(); } };
 }
@@ -79752,6 +79938,7 @@ async function tpRenderPlan(){
   var months=['','Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
   var bm=(Array.isArray(t.best_planting_months)?t.best_planting_months:[]).map(function(m){return months[m]||'';}).filter(Boolean).join(', ');
   if (bm) h += '<div style="text-align:center;font-size:11.5px;color:var(--muted);margin-bottom:8px;">📅 '+ed(L('tp_best','Beste Pflanzzeit'))+': <b>'+ed(bm)+'</b></div>';
+  h += '<button id="tp-save-btn" onclick="window._gsTPsave&&_gsTPsave(this)" style="width:100%;background:linear-gradient(135deg,#1b5e20,#2e7d32);border:none;color:#fff;padding:13px;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;margin:4px 0 10px;">💾 '+ed(L('tp_save','Diesen Plan speichern'))+'</button>';
   body.innerHTML = h;
   window._gsTPback = function(){ if(TP._3d&&TP._3d.dispose){try{TP._3d.dispose();}catch(_){}} tpRenderInput(); };
   window._gsTPage = function(v){ TP.age = clamp(num(v,100)/100, 0.2, 1.0); var lbl=document.getElementById('tp-age-lbl'); if(lbl) lbl.textContent = (TP.age>=0.99?L('tp_mature','Endgrösse'):Math.round(TP.age*100)+'% / ~'+Math.round((t.years_to_mature||20)*TP.age)+' J'); if(TP._3d&&TP._3d.rebuild) TP._3d.rebuild(); };
@@ -79759,6 +79946,22 @@ async function tpRenderPlan(){
   var cont=document.getElementById('tp-3d');
   if (cont){ tpRender3D(cont, t, calc, dist).then(function(ok){ var wn=document.getElementById('tp-3d-warn'); if(wn) wn.innerHTML = ok ? '<span style="color:#2e7d32;">✅ '+ed(L('tp_fits','Baum passt mit empfohlenem Grenzabstand auf die Fläche.'))+'</span>' : '<span style="color:#d32f2f;font-weight:700;">⚠️ '+ed(L('tp_tooclose','Fläche knapp — Grenzabstand '+dist.boundary+' m kaum einhaltbar. Kleinere Art wählen oder anders platzieren.'))+'</span>'; }); }
 }
+window._gsTPsave = async function(btn){
+  if(!TP.sel) return; var t=TP.sel;
+  var title = tpName(t)+' · '+r1(TP.plot.wid)+'×'+r1(TP.plot.len)+' m';
+  var summary = (L('tp_save_sum','Baum-Pflanzplan'))+': '+tpName(t)+' — '+(t.mature_height_m_max||'?')+' m, '+(L('tp_d_boundary','Grenzabstand'))+' '+tpDistances(t).boundary+' m.';
+  if(btn){ btn.disabled=true; btn.textContent='⏳ '+L('tp_saving','Speichern…'); }
+  try{ if(window.gsPlans) await gsPlans.save({type:'tree', title:title, summary:summary, payload:{ slug:t.slug, plot:TP.plot, age:TP.age }}); }catch(e){ console.warn('[TP] save', e); }
+  if(btn){ btn.disabled=false; btn.textContent='✅ '+L('tp_saved','Gespeichert — in „Meine Pläne"'); btn.style.background='#2e7d32'; }
+  try{ if(typeof gsToast==='function') gsToast('✅ '+L('tp_saved_toast','Plan gespeichert')); }catch(_){}
+};
+window._gsTPloadSaved = async function(payload){
+  if(!payload||!payload.slug) return;
+  await gsOpenTreePlanner();
+  var t=(TP.specs||[]).filter(function(x){return x.slug===payload.slug;})[0]; if(!t) return;
+  if(payload.plot) TP.plot = Object.assign({}, TP.plot, payload.plot);
+  TP.age = clamp(num(payload.age,1.0),0.2,1.0); TP.sel = t; tpRenderPlan();
+};
 })();
 </script>
 
