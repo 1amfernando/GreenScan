@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.13.20260621">
+<meta name="app-version" content="30.14.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12325,6 +12325,10 @@ window.GS_I18N_JS_STRINGS = {
   'gal_leaves':      'Blätter/Triebe',
   'gal_health':      'Farbe/Gesundheit',
   'gal_days':        'Tage',
+  // v30.14 Mischkultur-Notiz (comp_)
+  'comp_to_note':    'Als Notiz übernehmen',
+  'comp_note_added': 'Mischkultur in die Notiz übernommen',
+  'comp_note_already':'Schon in der Notiz',
   // v30.04 Baum-Planer + gsPlans Chrome (tp_/pl_)
     pl_del: 'Löschen',
     pl_del_m: 'Wird auf allen Geräten entfernt.',
@@ -55860,9 +55864,18 @@ function gsBuildCompanionScoreBlock(score, plantName) {
       '</div>' +
     '</div>';
   }
+  // v30.14: Mischkultur-Rat speicherbar machen — kompakte Zusammenfassung stashen + „Als Notiz übernehmen"-Button
+  var _ccParts = [];
+  try {
+    if (score.good && score.good.length) _ccParts.push('gut zu ' + score.good.slice(0,5).map(function(p){ return gsNameForLat(p.other); }).join(', '));
+    if (score.bad && score.bad.length) _ccParts.push('schlecht zu ' + score.bad.slice(0,5).map(function(p){ return gsNameForLat(p.other); }).join(', '));
+  } catch(_){}
+  window._gsLastCompanionSummary = _ccParts.length ? ('🌱 Mischkultur (' + plantName + '): ' + _ccParts.join(' · ')) : '';
+  var _ccT = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k,f){ return f; };
   return '<div style="margin-top:4px;">' +
     '<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px;">🌱 Mischkultur-Check für „' + gsEscHtml(plantName) + '"</div>' +
     html +
+    (window._gsLastCompanionSummary ? '<button type="button" onclick="gsCompanionToNote()" style="margin-top:2px;width:100%;padding:8px;background:var(--card);border:1.5px solid #2e7d32;color:#1b5e20;border-radius:9px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📌 ' + _ccT('comp_to_note','Als Notiz übernehmen') + '</button>' : '') +
   '</div>';
 }
 
@@ -55898,6 +55911,20 @@ function gsCompanionLiveCheck() {
     host.innerHTML = gsBuildCompanionScoreBlock(score, name);
   }, 800);
 }
+
+// v30.14: Mischkultur-Rat in das Notiz-Feld der neuen Pflanze übernehmen (speicherbar via savePlant→mp-notes)
+function gsCompanionToNote(){
+  var t = document.getElementById('mp-notes');
+  var sum = window._gsLastCompanionSummary || '';
+  if (!t || !sum) return;
+  var cur = (t.value || '').trim();
+  if (cur.indexOf(sum) >= 0) { if (typeof gsToast === 'function') gsToast('📌 ' + ((window.gsI18n && gsI18n.t) ? gsI18n.t('comp_note_already','Schon in der Notiz') : 'Schon in der Notiz')); return; }
+  t.value = cur ? (cur + '\n' + sum) : sum;
+  try { t.dispatchEvent(new Event('input')); } catch(_){}
+  if (typeof gsToast === 'function') gsToast('📌 ' + ((window.gsI18n && gsI18n.t) ? gsI18n.t('comp_note_added','Mischkultur in die Notiz übernommen') : 'Mischkultur in die Notiz übernommen'));
+  if (typeof gsHaptic === 'function') gsHaptic('light');
+}
+window.gsCompanionToNote = gsCompanionToNote;
 
 // ═════════════════════════════════════════════════════════════════════
 // Ende v25.21 Mischkultur-Score-Block
@@ -65880,7 +65907,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.13';
+var GS_VERSION = 'v30.14';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
