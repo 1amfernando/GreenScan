@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.03.20260621">
+<meta name="app-version" content="30.04.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12274,7 +12274,82 @@ window.GS_I18N_JS_STRINGS = {
   'sp_read_steckbrief':        'Steckbrief lesen!',
   'sp_lookalikes':             'Verwechsler',
   'sp_vapko_note':             'Lass jeden Fund vor dem Essen bei einer offiziellen Pilzkontrolle prüfen. Im Zweifel: nie essen.',
-  'sp_open_area':              'Saison-Pilze-Bereich öffnen'
+  'sp_open_area':              'Saison-Pilze-Bereich öffnen',
+  // v30.04 Baum-Planer + gsPlans Chrome (tp_/pl_)
+    pl_del: 'Löschen',
+    pl_del_m: 'Wird auf allen Geräten entfernt.',
+    pl_del_t: 'Plan löschen?',
+    pl_empty: 'Noch keine gespeicherten Pläne. Erstelle einen Plan und speichere ihn — er erscheint hier auf all deinen Geräten.',
+    pl_garden: 'Garten-Plan',
+    pl_loaderr: 'Plan konnte nicht geladen werden',
+    pl_notfound: 'Plan nicht gefunden',
+    pl_sub: 'Alle gespeicherten Garten- & Baum-Pläne',
+    pl_title: 'Meine Pläne',
+    pl_untitled: 'Mein Plan',
+    tp_3d: '3D-Vorschau & Grenzabstand',
+    tp_adjust: 'anpassen',
+    tp_analyze_err: 'Konnte das Foto nicht auswerten — bitte Masse manuell eingeben.',
+    tp_analyzing: 'KI analysiert deine Gartenfotos…',
+    tp_back: 'Andere Wahl',
+    tp_best: 'Beste Pflanzzeit',
+    tp_building: 'Gebäude in der Nähe',
+    tp_care: 'Pflege & Hinweise',
+    tp_choose: 'Was möchtest du pflanzen?',
+    tp_d_boundary: 'Grenzabstand',
+    tp_d_building: 'Abstand Gebäude',
+    tp_d_neighbor: 'Abstand nächster Baum',
+    tp_detected: 'Erkannt',
+    tp_disc: 'Richtwert — kantonal geregelt, im Zweifel Gemeinde fragen.',
+    tp_dist: 'Abstände & Recht',
+    tp_est: 'KI-Schätzung',
+    tp_fit: 'Fit',
+    tp_fits: 'Baum passt mit empfohlenem Grenzabstand auf die Fläche.',
+    tp_growth: 'Wuchs-Vorschau',
+    tp_guide: 'Schritt-für-Schritt pflanzen',
+    tp_len: 'Länge (m)',
+    tp_light: 'Licht',
+    tp_load_err: 'Baum-Daten konnten nicht geladen werden. Bitte später erneut versuchen.',
+    tp_loading: 'Lade Baum-Daten…',
+    tp_materials: 'Material & Kosten — alles was du brauchst',
+    tp_mature: 'Endgrösse',
+    tp_no3d: '3D benötigt eine Internet-Verbindung (Three.js).',
+    tp_no_ai: 'KI-Foto-Analyse hier nicht verfügbar.',
+    tp_none: 'Keine Treffer',
+    tp_notsafe: 'Nicht geeignet bei Kindern/Haustieren',
+    tp_photo_btn: 'Garten fotografieren',
+    tp_photo_desc: 'Fotografiere deinen Garten (1–4 Bilder) — die KI schätzt Grundstück, Grenzen und vorhandene Bäume/Gebäude. Du kannst alles danach korrigieren.',
+    tp_photo_title: 'Aus Fotos einen 3D-Plan',
+    tp_pollin: 'Bestäubung',
+    tp_pollin_need: 'Braucht eine zweite Sorte zur Befruchtung.',
+    tp_pollin_part: 'Befruchter',
+    tp_rec: 'Top für deinen Standort',
+    tp_root_hoch: 'Wurzelrisiko hoch — Leitungen/Beläge!',
+    tp_s1: 'Pflanzloch graben',
+    tp_s2: 'Drainage',
+    tp_s3: 'Substrat',
+    tp_s4: 'Baum einsetzen',
+    tp_s5: 'Pfahl & Anbinden',
+    tp_s6: 'Gießrand & Angießen',
+    tp_s7: 'Mulchen',
+    tp_s8: 'Verbissschutz',
+    tp_safety: 'Sicherheit',
+    tp_save: 'Diesen Plan speichern',
+    tp_saved: 'Gespeichert — in „Meine Pläne"',
+    tp_saved_toast: 'Plan gespeichert',
+    tp_saving: 'Speichern…',
+    tp_search: 'Suchen…',
+    tp_site: 'Dein Standort',
+    tp_slope: 'Hang',
+    tp_soil: 'Boden',
+    tp_sub: 'Standort, Grenzabstand, Zaun, Material & Kosten — alles berechnet',
+    tp_title: 'Baum pflanzen — Planer',
+    tp_total: 'Total (Richtwert)',
+    tp_tox_deadly: 'TÖDLICH giftig',
+    tp_tox_light: 'leicht giftig',
+    tp_tox_none: 'ungiftig',
+    tp_tox_strong: 'stark giftig',
+    tp_wid: 'Breite (m)',
+    tp_wild: 'Wild (Reh/Hase)',
 };
 
 // Sammelt alle data-i18n Strings aus DOM + ergänzt durch JS-Map
@@ -65315,7 +65390,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.03';
+var GS_VERSION = 'v30.04';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
