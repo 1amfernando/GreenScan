@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.14.20260621">
+<meta name="app-version" content="30.15.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15868,7 +15868,7 @@ function gsOpenPhotoGallery(){
   var ov=document.getElementById('gs-gallery-overlay');
   if(!ov){
     ov=document.createElement('div'); ov.id='gs-gallery-overlay';
-    ov.style.cssText='position:fixed;inset:0;z-index:5900;background:var(--bg);display:flex;flex-direction:column;';
+    ov.style.cssText='position:fixed;inset:0;z-index:5900;background:var(--g-bg,#eef7ee);display:flex;flex-direction:column;';
     document.body.appendChild(ov);
   }
   var loggedIn=(typeof sbIsLoggedIn==='function')&&sbIsLoggedIn();
@@ -15949,7 +15949,7 @@ function gsGalOpenSpecies(name){
   var ph=items.filter(function(x){ return (x.name||'Unbekannt')===name; }).sort(function(a,b){ return (a.ts||0)-(b.ts||0); }); // alt → neu
   window._gsGalSpecies={ name:name, photos:ph };
   var ov=document.getElementById('gs-gal-species-ov');
-  if(!ov){ ov=document.createElement('div'); ov.id='gs-gal-species-ov'; ov.style.cssText='position:fixed;inset:0;z-index:5950;background:var(--bg);display:flex;flex-direction:column;'; document.body.appendChild(ov); }
+  if(!ov){ ov=document.createElement('div'); ov.id='gs-gal-species-ov'; ov.style.cssText='position:fixed;inset:0;z-index:5950;background:var(--g-bg,#eef7ee);display:flex;flex-direction:column;'; document.body.appendChild(ov); }
   var canCompare=ph.length>1 && (typeof callVisionAI==='function');
   var strip=ph.map(function(x,i){
     var d=''; try{ if(x.ts) d=new Date(x.ts).toLocaleDateString('de-CH',{day:'numeric',month:'short',year:'2-digit'}); }catch(_){}
@@ -50541,7 +50541,7 @@ function gsPPRenderRefineBar(){
   return '<div class="pp-planbox" id="pp-refine-box" style="background:linear-gradient(135deg,rgba(27,94,32,.10),rgba(46,125,50,.03));border-left:3px solid #2e7d32;">'
     + '<h4>🤖 '+L('pp_refine_title','Plan anpassen & Was-wäre-wenn')+'</h4>'
     + '<div style="display:flex;gap:6px;margin-bottom:8px;">'
-    + '<input id="pp-refine-input" type="text" placeholder="'+L('pp_refine_ph','z. B. mehr schneckenresistent, ohne Kürbis, bienenfreundlicher')+'" style="flex:1;min-width:0;padding:9px 11px;border:1.5px solid var(--border,rgba(0,0,0,.15));border-radius:9px;font-size:12.5px;font-family:inherit;background:var(--bg);color:var(--text);" onkeydown="if(event.key===\'Enter\'){event.preventDefault();gsPPRefine();}">'
+    + '<input id="pp-refine-input" type="text" placeholder="'+L('pp_refine_ph','z. B. mehr schneckenresistent, ohne Kürbis, bienenfreundlicher')+'" style="flex:1;min-width:0;padding:9px 11px;border:1.5px solid var(--border,rgba(0,0,0,.15));border-radius:9px;font-size:12.5px;font-family:inherit;background:var(--card,#fff);color:var(--text);" onkeydown="if(event.key===\'Enter\'){event.preventDefault();gsPPRefine();}">'
     + '<button onclick="gsPPRefine()" style="flex-shrink:0;background:linear-gradient(135deg,#1b5e20,#2e7d32);border:none;color:#fff;padding:9px 14px;border-radius:9px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;">'+L('pp_refine_go','Anpassen')+'</button></div>'
     + '<div style="font-size:10.5px;color:var(--muted);font-weight:700;margin-bottom:5px;">'+L('pp_climate','Was-wäre-wenn-Klima:')+'</div>'
     + '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
@@ -65907,7 +65907,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.14';
+var GS_VERSION = 'v30.15';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
