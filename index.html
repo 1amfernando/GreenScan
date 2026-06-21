@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.09.20260621">
+<meta name="app-version" content="30.10.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12283,6 +12283,23 @@ window.GS_I18N_JS_STRINGS = {
   'sp_lookalikes':             'Verwechsler',
   'sp_vapko_note':             'Lass jeden Fund vor dem Essen bei einer offiziellen Pilzkontrolle prüfen. Im Zweifel: nie essen.',
   'sp_open_area':              'Saison-Pilze-Bereich öffnen',
+  // v30.10 Bilder-Galerie (gal_)
+  'gal_title':       '🖼️ Bilder-Galerie',
+  'gal_open':        '🖼️ Galerie',
+  'gal_photos':      'Fotos',
+  'gal_all':         'Alle',
+  'gal_plants':      '🌿 Pflanzen',
+  'gal_fungi':       '🍄 Pilze',
+  'gal_trees':       '🌳 Bäume',
+  'gal_cloud':       '☁️ Cloud',
+  'gal_local':       '📱 Lokal',
+  'gal_empty':       'Noch keine Bilder',
+  'gal_empty_sub':   'Scanne Pflanzen oder Pilze — die Fotos erscheinen hier.',
+  'gal_change_filter':'Filter ändern, um andere Bilder zu sehen.',
+  'gal_needs_sync':  'Wartet auf Cloud',
+  'gal_sync_t':      'Mit Cloud synchronisieren',
+  'gal_synced':      'Galerie synchronisiert',
+  'scan_photo_sync_later':'Foto lokal gespeichert — Cloud-Sync folgt',
   // v30.04 Baum-Planer + gsPlans Chrome (tp_/pl_)
     pl_del: 'Löschen',
     pl_del_m: 'Wird auf allen Geräten entfernt.',
@@ -15532,6 +15549,7 @@ function renderScanHistFull() {
         '<div style="background:var(--surface2);padding:5px 10px;border-radius:8px;"><b style="color:var(--text);">' + totalScans + '</b> ' + _t('unit_scans','Scans') + '</div>' +
         '<div style="background:var(--surface2);padding:5px 10px;border-radius:8px;"><b style="color:var(--text);">' + uniqueSpecies + '</b> ' + _t('unit_species','Arten') + '</div>' +
         '<div style="background:#e8f5e9;color:#2e7d32;padding:5px 10px;border-radius:8px;font-weight:700;"><b>' + inDb + '</b> ' + _t('scan_in_db','in DB') + '</div>' +
+        '<button onclick="gsOpenPhotoGallery()" style="margin-left:auto;padding:5px 10px;background:linear-gradient(135deg,#2e7d32,#1b5e20);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' + _t('gal_open','🖼️ Galerie') + '</button>' +
         // v28.59: ☁️-Cloud-Sync aus der alten openScanHistory hierher gerettet (nur eingeloggt).
         (((typeof sbIsLoggedIn==='function') && sbIsLoggedIn()) ? '<button onclick="gsScanHistorySync()" id="gs-scan-sync-btn" style="margin-left:auto;padding:5px 10px;background:linear-gradient(135deg,#1565c0,#0d47a1);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' + _t('scan_sync','🔄 Sync') + '</button>' : '') +
         (totalScans > 0 ? '<button onclick="gsScanHistDeleteAll()" style="' + (((typeof sbIsLoggedIn==='function') && sbIsLoggedIn()) ? '' : 'margin-left:auto;') + 'padding:5px 10px;background:transparent;border:1px solid #c62828;color:#c62828;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">' + _t('scan_delete_all','🗑 Alle') + '</button>' : '') +
@@ -15740,6 +15758,133 @@ function closeScanDetail(){
   if (m) m.remove();
 }
 
+/* v30.10: Bilder-Galerie — alle gespeicherten Scan-Fotos als Grid wieder anschauen (Fernando-Wunsch: Bilder speichern + wieder anschauen) */
+function _gsGalleryItems(){
+  var hist=[]; try{ hist=JSON.parse(localStorage.getItem(SCAN_HISTORY_KEY)||'[]'); }catch(_){ hist=[]; }
+  var out=[];
+  for(var i=0;i<hist.length;i++){
+    var h=hist[i]; if(!h) continue;
+    var img=h.photoUrl||h.photo||h.thumb||'';
+    if(!img) continue;
+    var ts=h.ts||h.createdAt||0; if(!ts&&h.timestamp){ try{ ts=Date.parse(h.timestamp); }catch(_){ ts=0; } }
+    out.push({ idx:i, name:h.name||'Unbekannt', lat:h.latin||'', img:img,
+      cloud:!!(h.photoUrl||h._cloud), needsSync:!!h._needsPhotoSync,
+      conf:(typeof h.conf==='number'?h.conf:(h.confidence||0)),
+      ts:ts||0, cat:String(h.category||'').toLowerCase(), emoji:h.emoji||'🔬' });
+  }
+  out.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
+  return out;
+}
+function _gsGalCat(cat){
+  if(/pilz|fung|champ|hongo|mushroom/.test(cat)) return 'fungi';
+  if(/baum|baeum|bäum|tree|gehölz|gehoelz|arbre|albero|árbol|arbol/.test(cat)) return 'trees';
+  return 'plants';
+}
+function gsGalleryRender(){
+  var grid=document.getElementById('gs-gallery-grid'); if(!grid) return;
+  var _t=(window.gsI18n&&gsI18n.t)?gsI18n.t:function(k,f){return f;};
+  var esc=(typeof escHtml==='function')?escHtml:function(s){return String(s==null?'':s);};
+  var f=window._gsGalFilter||'all';
+  var all=_gsGalleryItems();
+  var items=all.filter(function(x){
+    if(f==='all') return true;
+    if(f==='cloud') return x.cloud;
+    if(f==='local') return !x.cloud;
+    return _gsGalCat(x.cat)===f;
+  });
+  ['all','plants','fungi','trees','cloud','local'].forEach(function(k){
+    var c=document.getElementById('gs-gal-chip-'+k); if(!c) return;
+    var on=(f===k);
+    c.style.background=on?'#1b5e20':'var(--card)'; c.style.color=on?'#fff':'var(--text2)'; c.style.borderColor=on?'#1b5e20':'var(--border)';
+  });
+  var cnt=document.getElementById('gs-gal-count'); if(cnt) cnt.textContent=all.length;
+  if(!items.length){
+    grid.style.display='block';
+    grid.innerHTML='<div style="padding:48px 20px;text-align:center;color:var(--muted);"><div style="font-size:52px;margin-bottom:14px;">🖼️</div>'
+      +'<div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:6px;">'+_t('gal_empty','Noch keine Bilder')+'</div>'
+      +'<div style="font-size:13px;line-height:1.5;">'+(all.length?_t('gal_change_filter','Filter ändern, um andere Bilder zu sehen.'):_t('gal_empty_sub','Scanne Pflanzen oder Pilze — die Fotos erscheinen hier.'))+'</div></div>';
+    return;
+  }
+  grid.style.display='grid';
+  grid.innerHTML=items.map(function(x){
+    var badge = x.needsSync
+      ? '<span title="'+_t('gal_needs_sync','Wartet auf Cloud')+'" style="position:absolute;top:5px;right:5px;background:rgba(245,127,23,.92);color:#fff;font-size:10px;padding:1px 5px;border-radius:6px;font-weight:800;">⚠</span>'
+      : (x.cloud
+        ? '<span style="position:absolute;top:5px;right:5px;background:rgba(21,101,192,.9);color:#fff;font-size:10px;padding:1px 5px;border-radius:6px;font-weight:800;">☁️</span>'
+        : '<span style="position:absolute;top:5px;right:5px;background:rgba(0,0,0,.5);color:#fff;font-size:10px;padding:1px 5px;border-radius:6px;font-weight:800;">📱</span>');
+    var conf = x.conf>0 ? '<span style="position:absolute;bottom:5px;left:5px;background:'+(x.conf>=85?'rgba(46,125,50,.92)':x.conf>=65?'rgba(245,127,23,.92)':'rgba(198,40,40,.92)')+';color:#fff;font-size:9.5px;padding:1px 5px;border-radius:6px;font-weight:800;">'+x.conf+'%</span>' : '';
+    return '<button onclick="if(typeof openScanHistoryDetail===\'function\')openScanHistoryDetail('+x.idx+');" '
+      +'style="position:relative;aspect-ratio:1/1;border:none;border-radius:12px;overflow:hidden;padding:0;cursor:pointer;background:var(--surface2);font-family:inherit;-webkit-tap-highlight-color:transparent;">'
+      +'<img src="'+esc(x.img)+'" alt="'+esc(x.name)+'" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;">'
+      +badge+conf
+      +'<span style="position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,rgba(0,0,0,.72));color:#fff;font-size:10.5px;font-weight:700;padding:14px 6px 5px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(x.name)+'</span>'
+      +'</button>';
+  }).join('');
+}
+function gsGalSetFilter(f){ window._gsGalFilter=f; gsGalleryRender(); if(typeof gsHaptic==='function')gsHaptic('light'); }
+async function gsGallerySync(){
+  var btn=document.getElementById('gs-gal-sync'); var _t=(window.gsI18n&&gsI18n.t)?gsI18n.t:function(k,f){return f;};
+  if(btn){ btn.disabled=true; btn.textContent='⏳'; }
+  try{
+    if(typeof gsLoadCloudScans==='function') await gsLoadCloudScans();
+    var fixed=0; if(typeof gsRetryPhotoUploads==='function') fixed=await gsRetryPhotoUploads();
+    gsGalleryRender();
+    if(typeof gsToast==='function') gsToast('✅ '+_t('gal_synced','Galerie synchronisiert')+(fixed?(' · '+fixed+'↑'):''));
+  }catch(e){ if(typeof gsToast==='function') gsToast('⚠️ '+((e&&e.message)||'Sync-Fehler')); }
+  finally{ if(btn){ btn.disabled=false; btn.textContent='🔄'; } }
+}
+function gsOpenPhotoGallery(){
+  var _t=(window.gsI18n&&gsI18n.t)?gsI18n.t:function(k,f){return f;};
+  var ov=document.getElementById('gs-gallery-overlay');
+  if(!ov){
+    ov=document.createElement('div'); ov.id='gs-gallery-overlay';
+    ov.style.cssText='position:fixed;inset:0;z-index:5900;background:var(--bg);display:flex;flex-direction:column;';
+    document.body.appendChild(ov);
+  }
+  var loggedIn=(typeof sbIsLoggedIn==='function')&&sbIsLoggedIn();
+  var chips=[['all',_t('gal_all','Alle')],['plants',_t('gal_plants','🌿 Pflanzen')],['fungi',_t('gal_fungi','🍄 Pilze')],['trees',_t('gal_trees','🌳 Bäume')],['cloud',_t('gal_cloud','☁️ Cloud')],['local',_t('gal_local','📱 Lokal')]];
+  ov.innerHTML=
+    '<div style="flex-shrink:0;background:var(--card);border-bottom:1px solid var(--border);padding:12px 14px 10px;">'
+     +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
+       +'<button onclick="gsClosePhotoGallery()" aria-label="'+_t('modal_close','Schliessen')+'" style="background:var(--surface2);border:none;width:34px;height:34px;border-radius:10px;font-size:19px;cursor:pointer;color:var(--text);flex-shrink:0;">←</button>'
+       +'<div style="flex:1;min-width:0;"><div style="font-size:16px;font-weight:900;color:var(--text);">'+_t('gal_title','🖼️ Bilder-Galerie')+'</div>'
+       +'<div style="font-size:11px;color:var(--muted);"><b id="gs-gal-count">0</b> '+_t('gal_photos','Fotos')+'</div></div>'
+       +(loggedIn?'<button id="gs-gal-sync" onclick="gsGallerySync()" title="'+_t('gal_sync_t','Mit Cloud synchronisieren')+'" style="background:linear-gradient(135deg,#1565c0,#0d47a1);color:#fff;border:none;width:34px;height:34px;border-radius:10px;font-size:15px;cursor:pointer;flex-shrink:0;">🔄</button>':'')
+     +'</div>'
+     +'<div style="display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;">'
+       +chips.map(function(c){ return '<button id="gs-gal-chip-'+c[0]+'" onclick="gsGalSetFilter(\''+c[0]+'\')" style="flex:0 0 auto;padding:6px 12px;font-size:12px;font-weight:700;border-radius:16px;cursor:pointer;font-family:inherit;border:1px solid var(--border);background:var(--card);color:var(--text2);white-space:nowrap;-webkit-tap-highlight-color:transparent;">'+c[1]+'</button>'; }).join('')
+     +'</div>'
+    +'</div>'
+    +'<div id="gs-gallery-grid" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;align-content:start;"></div>';
+  ov.style.display='flex';
+  if(!window._gsGalFilter) window._gsGalFilter='all';
+  gsGalleryRender();
+  if(typeof gsHaptic==='function')gsHaptic('light');
+}
+function gsClosePhotoGallery(){ var ov=document.getElementById('gs-gallery-overlay'); if(ov) ov.style.display='none'; }
+window.gsOpenPhotoGallery=gsOpenPhotoGallery; window.gsClosePhotoGallery=gsClosePhotoGallery; window.gsGalleryRender=gsGalleryRender;
+/* v30.10: zuverlässiges Foto-Re-Sync — lokal vorhandene Medium-Fotos (480px) ohne Cloud-URL nachladen */
+async function gsRetryPhotoUploads(){
+  try{
+    if(typeof sbIsLoggedIn!=='function'||!sbIsLoggedIn()) return 0;
+    if(typeof gsUploadImage!=='function') return 0;
+    var hist=[]; try{ hist=JSON.parse(localStorage.getItem(SCAN_HISTORY_KEY)||'[]'); }catch(_){ return 0; }
+    var fixed=0;
+    for(var i=0;i<hist.length;i++){
+      var e=hist[i]; if(!e) continue;
+      if(e.photoUrl){ if(e._needsPhotoSync) delete e._needsPhotoSync; continue; }
+      var src=e.photo||''; if(!src||String(src).indexOf('base64,')<0) continue;
+      var raw=String(src).split(',').pop(); var url=null;
+      try{ url=await gsUploadImage(raw,'scan-images','jpg'); }catch(_){ url=null; }
+      if(url){ e.photoUrl=url; if(!e.thumb) e.thumb=url; if(e._needsPhotoSync) delete e._needsPhotoSync; fixed++; }
+      if(fixed>=8) break;
+    }
+    if(fixed){ try{ localStorage.setItem(SCAN_HISTORY_KEY,JSON.stringify(hist)); }catch(_){} }
+    return fixed;
+  }catch(_){ return 0; }
+}
+window.gsRetryPhotoUploads=gsRetryPhotoUploads;
+
 function closeScanHistoryFull() {
   var modal = document.getElementById('modal-scan-history-full');
   if (modal) { modal.style.opacity='0'; setTimeout(function(){ modal.style.display='none'; },200); }
@@ -15768,7 +15913,10 @@ async function gsScanPersistToCloud(r) {
     // Foto zu Storage hochladen (falls vorhanden)
     var photoUrl = null;
     if (window._gsLastScanB64 && typeof gsUploadImage === 'function') {
-      try { photoUrl = await gsUploadImage(window._gsLastScanB64, 'scan-images', 'jpg'); } catch(_){}
+      // v30.10: 2 Versuche — gsUploadImage returnt null statt zu werfen, deshalb Schleife + Fehler-Markierung
+      for (var _ua = 0; _ua < 2 && !photoUrl; _ua++) {
+        try { photoUrl = await gsUploadImage(window._gsLastScanB64, 'scan-images', 'jpg'); } catch(_){}
+      }
     }
     // v24.11: photoUrl zurück in die lokale Scan-History schreiben damit Detail-View
     // das volle Bild zeigen kann (nicht nur das kleine Thumbnail)
@@ -15777,9 +15925,20 @@ async function gsScanPersistToCloud(r) {
         var hist = JSON.parse(localStorage.getItem(SCAN_HISTORY_KEY) || '[]');
         if (hist.length && hist[0] && hist[0].name === r.name && (Date.now() - (hist[0].ts||0) < 60000)) {
           hist[0].photoUrl = photoUrl;
+          if (hist[0]._needsPhotoSync) delete hist[0]._needsPhotoSync;
           localStorage.setItem(SCAN_HISTORY_KEY, JSON.stringify(hist));
         }
       } catch(_){}
+    } else if (window._gsLastScanB64) {
+      // v30.10: Upload fehlgeschlagen — Foto bleibt lokal (Medium 480px), Eintrag fuer spaeteren Re-Sync markieren (gsRetryPhotoUploads / Galerie-Sync)
+      try {
+        var histF = JSON.parse(localStorage.getItem(SCAN_HISTORY_KEY) || '[]');
+        if (histF.length && histF[0] && histF[0].name === r.name && (Date.now() - (histF[0].ts||0) < 60000)) {
+          histF[0]._needsPhotoSync = true;
+          localStorage.setItem(SCAN_HISTORY_KEY, JSON.stringify(histF));
+        }
+      } catch(_){}
+      try { if (typeof gsToast === 'function') gsToast('⚠️ ' + ((window.gsI18n&&gsI18n.t)?gsI18n.t('scan_photo_sync_later','Foto lokal gespeichert — Cloud-Sync folgt'):'Foto lokal gespeichert — Cloud-Sync folgt')); } catch(_){}
     }
     // user_scans Insert
     var conf = r.confidence != null ? r.confidence : null;
@@ -65552,7 +65711,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.09';
+var GS_VERSION = 'v30.10';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
