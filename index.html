@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.08.20260621">
+<meta name="app-version" content="30.09.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4403,6 +4403,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 .pp-tabbar::-webkit-scrollbar{display:none;}
 .pp-tab{flex:0 0 auto;white-space:nowrap;padding:8px 14px;border-radius:999px;border:1.5px solid var(--border,rgba(0,0,0,.12));background:var(--card,#f5f5f5);color:var(--text2,#555);font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:.15s;}
 .pp-tab.active{background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border-color:#1b5e20;}
+.pp-scn{flex:0 0 auto;background:var(--bg,#f5f5f5);border:1.5px solid var(--border,rgba(0,0,0,.15));color:var(--text,#333);padding:7px 11px;border-radius:999px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;}
 .pp-tabpanel{animation:ppFade .18s ease;}
 @keyframes ppFade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
 @media (max-width:380px){ #pp-stepbar{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;} #pp-stepbar::-webkit-scrollbar{display:none;} .pp-step{flex:0 0 auto;min-width:60px;font-size:9.5px;padding:6px 7px;} .pp-step-lbl{display:none;} }
@@ -49523,7 +49524,7 @@ function gsPPmoonPhase(date) {
 
 // Nutzer-Kontext für den Planer: bisherige Gärten + letzte Scans
 function gsPPbuildUserContext() {
-  var ctx = { pastPlans: 0, lastPlants: [], hasGarden: false, trackedDays: 0 };
+  var ctx = { pastPlans: 0, lastPlants: [], hasGarden: false, trackedDays: 0, myPlants: [], myFamilies: [], harvests: [] };
   try {
     var saved = JSON.parse(localStorage.getItem('gs_garden_plans') || '[]');
     ctx.pastPlans = saved.length;
@@ -49534,6 +49535,11 @@ function gsPPbuildUserContext() {
     // v28.76 C2-1: kanonischer Key ist gs_scan_history — der KI-Planer-Kontext war bisher leer (toter 'scan_history').
     var history = JSON.parse(localStorage.getItem('gs_scan_history') || '[]');
     ctx.recentScans = history.slice(0, 8).map(function(h){ return h.name || h.title || ''; }).filter(Boolean);
+    // v30.09: aktueller Garten (myPlants) + Ernte-Erfahrung → echte Fruchtfolge/Mischkultur
+    try{ if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) {
+      ctx.myPlants = myPlants.map(function(p){ return (p && (p.name||p.commonName||p.title||p.label)) || ''; }).filter(Boolean).slice(0,25);
+      ctx.myFamilies = Array.from(new Set(myPlants.map(function(p){ return p && (p.family||p.fam); }).filter(Boolean))).slice(0,12);
+    } var _ernte = JSON.parse(localStorage.getItem('gs_ernte_log')||'[]'); if (Array.isArray(_ernte)) ctx.harvests = _ernte.slice(0,12).map(function(h){ return (h && (h.name||h.crop||h.plant)) || ''; }).filter(Boolean); }catch(_e){}
   } catch(e) {}
   return ctx;
 }
@@ -49683,7 +49689,7 @@ async function gsPPrun(opts) {
     : 'Du bist Dr. Greta Hofmann, Diplom-Agronomin ETH Zürich mit 40 Jahren Praxis im Schweizer Bio-Gemüsebau (Klimazonen H1–H7), zertifizierte Permakultur-Designerin, Mitglied der Schweizerischen Gesellschaft für Gartenbau und Autorin mehrerer Standardwerke zu Mischkultur & Fruchtfolge. '
       + 'Deine Expertise umfasst: (a) ALLE Schweizer Klimazonen inkl. Mikroklima (Alpennordseite vs Tessin), (b) präzise Aussaat-/Pflanzzeiten nach Schweizer Kalender, (c) >300 Mischkultur-Kombinationen inkl. Forschungsergebnisse aus Frick/Lindau/Wädenswil, (d) biologische Schädlings-Regulation, (e) Mondkalender (Maria Thun, Aussaattage), (f) Hochbeet/Mischkultur/Fruchtfolge-Planung, (g) realistische Ertragsdaten aus FiBL/BLW-Studien, (h) Bewässerungsberechnung nach Kc-Werten (FAO-56), (i) präzise NPK-Düngung (Horn/Kompost/Steinmehl). '
       + 'WICHTIG: Wenn Angaben fehlen, nutze realistische Schweizer Defaults (Mittelland, H4, humusreicher Lehmboden, pH 6.5, Halbschatten, gemässigte Niederschläge ~1100 mm/Jahr). Erstelle IMMER einen vollständigen, umsetzbaren Plan. '
-      + 'PRIORITÄTEN-REIHENFOLGE (v24.24, strikt): (1) NUTZER-WÜNSCHE und NUTZER-ANMERKUNG/EINSCHRÄNKUNGEN — ABSOLUTE PRIORITÄT. Wenn der Nutzer „nur essbar" oder „bienenfreundlich" oder „kindersicher" oder „keine Stachelgewächse" oder eine spezifische Form angibt, MUSS jede einzelne Pflanze + das Layout darauf geprüft werden. Kein Plan darf User-Wünsche/Anmerkungen ignorieren oder verwässern. (2) FORM des Beets bestimmt das x/y/w/h-Layout — bei „L-Form" oder „rund" oder „Hochbeet" entsprechend platzieren, nicht starr Rechteck-Grid. (3) gemessener Lux-Wert wenn vorhanden (numerisch, nicht nur Kategorie). (4) Schweizer Arten-DB (vorgeschlagene Liste). (5) bisherige Pflanzen für Fruchtfolge (nicht gleiche Familie). (6) Mondphase + biodynamische Prinzipien wo sinnvoll. '
+      + 'PRIORITÄTEN-REIHENFOLGE (v24.24, strikt): (1) NUTZER-WÜNSCHE und NUTZER-ANMERKUNG/EINSCHRÄNKUNGEN — ABSOLUTE PRIORITÄT. Wenn der Nutzer „nur essbar" oder „bienenfreundlich" oder „kindersicher" oder „keine Stachelgewächse" oder eine spezifische Form angibt, MUSS jede einzelne Pflanze + das Layout darauf geprüft werden. Kein Plan darf User-Wünsche/Anmerkungen ignorieren oder verwässern. (2) FORM des Beets bestimmt das x/y/w/h-Layout — bei „L-Form" oder „rund" oder „Hochbeet" entsprechend platzieren, nicht starr Rechteck-Grid. (3) gemessener Lux-Wert wenn vorhanden (numerisch, nicht nur Kategorie). (4) Schweizer Arten-DB (vorgeschlagene Liste). (5) DEIN AKTUELLER GARTEN (myPlants) — vermeide Familien-Wiederholung (Fruchtfolge!), waehle gute Mischkultur-Nachbarn zu den bestehenden Pflanzen, nutze die Ernte-Erfahrung. (6) BODEN-ADAPTIV: die Sortenwahl MUSS zum Bodentyp/pH/Feuchte passen; bei anspruchsvollem Boden (tonig/staunass/sauer/alkalisch) gehoeren KONKRETE Bodenverbesserungs-Schritte mit Timing in stepByStep + ein Hinweis im summary. (7) Mondphase + biodynamische Prinzipien wo sinnvoll. '
       + 'Antworte STRIKT als valides JSON nach dem vorgegebenen Schema. Keine Markdown-Blöcke, kein Prosa davor/danach.';
 
   var userPrompt = isCompact ?
@@ -49734,7 +49740,10 @@ async function gsPPrun(opts) {
     (data.extra ? '⚠️ ANMERKUNG / EINSCHRÄNKUNGEN (PFLICHT — jede Pflanzenwahl darauf prüfen): ' + data.extra + '\n' : '') +
     '🌙 MONDPHASE heute: ' + moon.phase + ' — ' + moon.advice + '\n' +
     '🕰️ NUTZER-HISTORIE: ' + userCtx.pastPlans + ' frühere Pläne · Letzte Pflanzen: ' + lastPlantsLine + '\n' +
-    '🔬 LETZTE SCANS: ' + recentScansLine + '\n\n' +
+    '🔬 LETZTE SCANS: ' + recentScansLine + '\n' +
+    '🪴 DEIN AKTUELLER GARTEN (myPlants — PFLICHTBEZUG für Fruchtfolge & Mischkultur): ' + (userCtx.myPlants && userCtx.myPlants.length ? userCtx.myPlants.join(', ') + (userCtx.myFamilies && userCtx.myFamilies.length ? ' [Familien: '+userCtx.myFamilies.join(', ')+']' : '') : '—') + '\n' +
+    (userCtx.harvests && userCtx.harvests.length ? '🧺 BISHERIGE ERNTEN (Erfahrung nutzen): ' + userCtx.harvests.join(', ') + '\n' : '') +
+    '\n' +
     '📚 DATENBANK-VORSCHLÄGE (GreenScan-DB, Schweizer-Arten-pool, priorisierte Kandidaten — NUTZE DIESE wenn passend, dann sind Deep-Links möglich):\n' + dbListLine + '\n\n' +
     agroRef +
     '\nAntworte NUR mit einem JSON-Objekt (kein Markdown, keine Prosa davor/danach) mit folgendem Schema:\n' +
@@ -50195,6 +50204,54 @@ window.gsPPvalidateConstraints = function(plan, data) {
   return issues;
 };
 
+/* v30.09: Planer-Intelligenz — Nachfragen/Verfeinern + Was-wäre-wenn-Klima (nutzt callAI auf bestehendem Plan) */
+function gsPPRenderRefineBar(){
+  var L=(typeof _lt==='function')?_lt:function(k,f){return f;};
+  return '<div class="pp-planbox" id="pp-refine-box" style="background:linear-gradient(135deg,rgba(27,94,32,.10),rgba(46,125,50,.03));border-left:3px solid #2e7d32;">'
+    + '<h4>🤖 '+L('pp_refine_title','Plan anpassen & Was-wäre-wenn')+'</h4>'
+    + '<div style="display:flex;gap:6px;margin-bottom:8px;">'
+    + '<input id="pp-refine-input" type="text" placeholder="'+L('pp_refine_ph','z. B. „mehr schneckenresistent", „ohne Kürbis", „bienenfreundlicher"')+'" style="flex:1;min-width:0;padding:9px 11px;border:1.5px solid var(--border,rgba(0,0,0,.15));border-radius:9px;font-size:12.5px;font-family:inherit;background:var(--bg);color:var(--text);" onkeydown="if(event.key===\'Enter\'){event.preventDefault();gsPPRefine();}">'
+    + '<button onclick="gsPPRefine()" style="flex-shrink:0;background:linear-gradient(135deg,#1b5e20,#2e7d32);border:none;color:#fff;padding:9px 14px;border-radius:9px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;">'+L('pp_refine_go','Anpassen')+'</button></div>'
+    + '<div style="font-size:10.5px;color:var(--muted);font-weight:700;margin-bottom:5px;">'+L('pp_climate','Was-wäre-wenn-Klima:')+'</div>'
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+    + '<button onclick="gsPPClimateScenario(\'warm\')" class="pp-scn">🌡️ '+L('pp_scn_warm','+2 °C trockener')+'</button>'
+    + '<button onclick="gsPPClimateScenario(\'wet\')" class="pp-scn">🌧️ '+L('pp_scn_wet','nasser Sommer')+'</button>'
+    + '<button onclick="gsPPClimateScenario(\'cold\')" class="pp-scn">❄️ '+L('pp_scn_cold','kühler / Spätfrost')+'</button>'
+    + '</div><div id="pp-refine-status" style="font-size:11px;margin-top:7px;"></div></div>';
+}
+function gsPPClimateScenario(k){
+  var M={ warm:'Passe den Plan an ein deutlich WÄRMERES, TROCKENERES Klima an (Szenario +2 °C, ~20 % weniger Niederschlag): welche Kulturen halten das aus, welche durch hitze-/trockenheitstolerante Sorten ersetzen, Bewässerung + Mulch anpassen. Begründe die Änderungen kurz im summary.',
+    wet:'Passe den Plan an einen deutlich NASSEREN Sommer an (mehr Niederschlag, Staunässe- und Pilzdruck-Risiko): robuste/feuchtetolerante Sorten wählen, Drainage-/Hochbeet-Hinweise, verstärkte Pilz-/Schnecken-Vorbeugung. Begründe im summary.',
+    cold:'Passe den Plan an ein KÜHLERES Jahr mit SPÄTFROST-Risiko an: frosttolerante/kühletolerante Sorten, spätere Aussaat bzw. Vlies-/Tunnel-Schutz, kürzere Kulturen. Begründe im summary.' };
+  var msg=M[k]; if(!msg) return;
+  var inp=document.getElementById('pp-refine-input'); if(inp) inp.value=msg;
+  gsPPRefine(msg);
+}
+async function gsPPRefine(presetMsg){
+  var inp=document.getElementById('pp-refine-input');
+  var msg=(presetMsg||(inp&&inp.value)||'').trim();
+  var st=document.getElementById('pp-refine-status');
+  var plan=window._gsPP&&window._gsPP.plan, data=(window._gsPP&&window._gsPP.data)||{};
+  if(!msg){ if(st) st.innerHTML='<span style="color:var(--muted);">Bitte Wunsch eingeben.</span>'; return; }
+  if(!plan){ return; }
+  if(typeof callAI!=='function'){ if(st) st.innerHTML='<span style="color:#b71c1c;">KI hier nicht verfügbar.</span>'; return; }
+  if(st) st.innerHTML='<span style="color:var(--g-main);">⏳ KI passt den Plan an …</span>';
+  var sys='Du bist Dr. Greta Hofmann, Schweizer Bio-Gemüsebau-Agronomin. Du passt einen BESTEHENDEN Gartenplan gemäss dem Nutzer-Wunsch an. Behalte das JSON-Schema EXAKT bei (gleiche Felder/Struktur), ändere nur was der Wunsch erfordert, und aktualisiere abhängige Felder (z. B. mixedCulture, pestControl, summary). Antworte STRIKT NUR mit dem vollständigen aktualisierten JSON-Objekt — kein Markdown, keine Prosa.';
+  var p='BESTEHENDER PLAN (JSON):\n'+JSON.stringify(plan)+'\n\nNUTZER-WUNSCH ZUR ANPASSUNG:\n'+msg+'\n\nGib den VOLLSTÄNDIGEN angepassten Plan als EIN JSON-Objekt mit demselben Schema zurück.';
+  var resp=null;
+  try{ resp=await callAI([{role:'user',content:p}], sys, 4096, {brain:'gaertner', quotaFeature:'garden', logLabel:'pp_refine'}); }
+  catch(e){ if(st) st.innerHTML='<span style="color:#b71c1c;">Fehler: '+((e&&e.message)||'')+'</span>'; return; }
+  var txt=(typeof resp==='string')?resp:(resp&&(resp.text||resp.content||''));
+  var np=null;
+  try{ var i=txt.indexOf('{'), j=txt.lastIndexOf('}'); if(i>=0&&j>i) np=JSON.parse(txt.slice(i,j+1)); }catch(_){}
+  if(!np||!np.plants){ if(st) st.innerHTML='<span style="color:#b71c1c;">Konnte die Anpassung nicht lesen — bitte anders formulieren.</span>'; return; }
+  np._refinedFrom=(plan._refinedFrom||0)+1;
+  window._gsPP.plan=np;
+  var res=document.getElementById('pp-plan-result');
+  if(res&&typeof gsPPrenderPlan==='function'){ res.innerHTML=gsPPrenderPlan(np,data); if(typeof gsPPTabify==='function') gsPPTabify(res,np); }
+  try{ if(window.gsPlans) gsPlans.save({type:'garden', title:String((np.summary||'KI-Garten-Plan')).slice(0,70), summary:String(np.summary||''), payload:{plan:np,data:data}}); }catch(_){}
+  try{ if(typeof gsToast==='function') gsToast('✅ '+((typeof _lt==='function')?_lt('pp_refine_done','Plan angepasst'):'Plan angepasst')); }catch(_){}
+}
 /* v30.08: Planer-Resultat als Tabs (Post-Processor — gruppiert die Sektionen) */
 function gsPPTabify(container, plan){
   if(!container) return;
@@ -50210,6 +50267,7 @@ function gsPPTabify(container, plan){
     ];
     var top=[], bucket={overview:[],plants:[],schedule:[],care:[],threeD:[]};
     function cls(n){
+      if(n.id==='pp-refine-box') return '_top';
       if(n.querySelector && n.querySelector('[onclick*="gsPPsavePlan"]')) return '_top';
       var txt=(n.textContent||'').toLowerCase();
       if(/reflektiert deine eingaben|deine eingaben sind im plan|reflektiert deine angaben/.test(txt)) return '_top';
@@ -50303,6 +50361,7 @@ function gsPPrenderPlan(plan, data) {
     '<button onclick="gsPPsavePlan()" style="padding:14px;background:linear-gradient(135deg,#f57c00,#e65100);color:#fff;border:none;border-radius:12px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 4px 12px rgba(245,124,0,.30);-webkit-tap-highlight-color:transparent;">💾 Plan speichern</button>' +
     '<button onclick="gsPPexportPDF()" style="padding:14px;background:linear-gradient(135deg,#c62828,#b71c1c);color:#fff;border:none;border-radius:12px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 4px 12px rgba(198,40,40,.30);-webkit-tap-highlight-color:transparent;">📄 PDF Export</button>' +
   '</div>';
+  html += gsPPRenderRefineBar();
 
   // v24.01: 3D-Modell INLINE statt 2D-Skizze — Polymech-Stil, 360° drehbar, exakte Maße
   if (plan.plants && plan.plants.length && plan.bed) {
@@ -65493,7 +65552,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.08';
+var GS_VERSION = 'v30.09';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
