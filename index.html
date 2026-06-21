@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.15.20260621">
+<meta name="app-version" content="30.16.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -32453,7 +32453,7 @@ async function gsLoadMushRegistry() {
 async function gsOpenSaisonPilze() {
   var scr = document.getElementById('saison-pilze-screen');
   if (!scr) { scr = document.createElement('div'); scr.id = 'saison-pilze-screen'; document.body.appendChild(scr); }
-  scr.style.cssText = 'position:fixed;inset:0;z-index:7000;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;';
+  scr.style.cssText = 'position:fixed;inset:0;z-index:7000;background:var(--g-bg,#eef7ee);display:flex;flex-direction:column;overflow:hidden;';
   var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||''); };
   var MONN = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
   scr.innerHTML = '<div style="background:linear-gradient(135deg,#4a148c,#6a1b9a);color:#fff;padding:calc(14px + env(safe-area-inset-top)) 16px 14px;display:flex;align-items:center;gap:12px;flex-shrink:0;">'
@@ -65907,7 +65907,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.15';
+var GS_VERSION = 'v30.16';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -80016,7 +80016,7 @@ window.gsPlans = { save:save, list:list, load:loadEntry, del:del, star:star };
 window.gsPlansOpen = async function(filterType){
   var scr = document.getElementById('gs-plans-screen');
   if (!scr){ scr = document.createElement('div'); scr.id='gs-plans-screen'; document.body.appendChild(scr); }
-  scr.style.cssText = 'position:fixed;inset:0;z-index:7100;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;';
+  scr.style.cssText = 'position:fixed;inset:0;z-index:7100;background:var(--g-bg,#eef7ee);display:flex;flex-direction:column;overflow:hidden;';
   scr.style.display='flex';
   scr.innerHTML = '<div style="background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;padding:calc(14px + env(safe-area-inset-top)) 16px 14px;display:flex;align-items:center;gap:12px;flex-shrink:0;">'
     + '<button onclick="document.getElementById(\'gs-plans-screen\').style.display=\'none\';" aria-label="'+ed(L('modal_close','Schliessen'))+'" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:34px;height:34px;border-radius:9px;font-size:18px;cursor:pointer;">‹</button>'
@@ -80366,7 +80366,7 @@ async function tpAnalyzePhotos(imgs){
 window.gsOpenTreePlanner = async function(){
   var scr = document.getElementById('tree-planner-screen');
   if (!scr){ scr = document.createElement('div'); scr.id='tree-planner-screen'; document.body.appendChild(scr); }
-  scr.style.cssText = 'position:fixed;inset:0;z-index:7000;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;';
+  scr.style.cssText = 'position:fixed;inset:0;z-index:7000;background:var(--g-bg,#eef7ee);display:flex;flex-direction:column;overflow:hidden;';
   scr.style.display = 'flex';
   scr.innerHTML = '<div style="background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;padding:calc(14px + env(safe-area-inset-top)) 16px 14px;display:flex;align-items:center;gap:12px;flex-shrink:0;">'
     + '<button onclick="var s=document.getElementById(\'tree-planner-screen\');if(s)s.style.display=\'none\';if(window._gsTP&&_gsTP._3d&&_gsTP._3d.dispose)_gsTP._3d.dispose();" aria-label="'+ed(L('modal_close','Schliessen'))+'" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:34px;height:34px;border-radius:9px;font-size:18px;cursor:pointer;flex-shrink:0;">‹</button>'
