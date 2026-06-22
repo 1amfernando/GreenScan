@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.20.20260621">
+<meta name="app-version" content="30.21.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1535,6 +1535,9 @@ body.dark .menu-search-wrap{background:var(--card);}
   .splash-bar-wrap, .splash-bar, .splash-check, #gs-splash::before, #gs-splash::after { animation: none !important; }
   .splash-logo-tile::after { display:none; }
 }
+/* v30.20: Onboarding-Hero-Logo (Edelweiss) — sanftes Atmen, konsistent zum Splash */
+#gs-onboarding .onb-logo { animation: splBreathe 4.8s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { #gs-onboarding .onb-logo { animation: none; } }
 
 </style>
 
@@ -1859,7 +1862,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     
     <!-- Logo -->
     <div style="text-align:center;margin-bottom:28px;">
-      <div style="font-size:68px;margin-bottom:10px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.3)) drop-shadow(0 2px 12px rgba(45,138,45,.4));">🌿</div>
+      <img class="onb-logo" src="icons/icon.svg" alt="GreenScan" width="80" height="80" style="display:block;margin:0 auto 12px;border-radius:19px;filter:drop-shadow(0 8px 24px rgba(0,0,0,.45)) drop-shadow(0 0 18px rgba(102,187,106,.35));">
       <div style="font-family:'Playfair Display',serif;font-size:30px;font-weight:900;color:#fff;letter-spacing:-0.5px;">GreenScan</div>
       <div style="font-size:13px;color:rgba(165,214,167,.7);margin-top:4px;">Schweizer Natur · Pflanzen & Pilze</div>
     </div>
@@ -65974,7 +65977,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.20';
+var GS_VERSION = 'v30.21';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
