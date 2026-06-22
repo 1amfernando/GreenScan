@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.16.20260621">
+<meta name="app-version" content="30.17.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -82,6 +82,8 @@
   --g-dark:#1a3d1a;--g-main:#2d8a2d;--g-mid:#3d9e3d;--g-light:#b8ddb8;--g-bg:#eef7ee;
   --text:#111111;--text2:#3a3a3a;--muted:#6b6b6b;
   --card:#ffffff;--surface2:#f4faf4;--border:#c8e0c8;
+  /* v30.17: bisher NIE definierte, aber benutzte Theme-Vars (--bg 19×, --surface 14×, --g-forest 2×) — Fix der Transparenz/Gradient-Bug-Klasse */
+  --bg:#eef7ee;--surface:#f4faf4;--g-forest:#1a3d1a;
   --shadow:0 4px 20px rgba(0,0,0,.10);--shadow-sm:0 2px 8px rgba(0,0,0,.07);
   --r:16px;--r-sm:10px;--r-xs:8px;
   --tab-h:64px;--top-h:56px;
@@ -152,6 +154,7 @@ body.dark{
   --g-dark:#a5d6a7;--g-main:#66bb6a;--g-mid:#81c784;--g-light:#1a3a1a;--g-bg:#0c170c;
   --text:#f0f9f0;--text2:#c8e6c8;--muted:#7ab87a;
   --card:#162816;--surface2:#1e3a1e;--border:#2d4f2d;
+  --bg:#0c170c;--surface:#1e3a1e;--g-forest:#a5d6a7; /* v30.17 Dark-Pendants der bisher undefinierten Theme-Vars */
   --shadow:0 4px 20px rgba(0,0,0,.5);--shadow-sm:0 2px 8px rgba(0,0,0,.4);
   --text-on-green:#ffffff;
   --text-subtle:#b0d0b0;
@@ -65907,7 +65910,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.16';
+var GS_VERSION = 'v30.17';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
