@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.17.20260621">
+<meta name="app-version" content="30.18.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10703,6 +10703,8 @@ window.gsI18n = (function(){
   var current = DEFAULT;
   // v26.20: per-lang Timestamps fuer 24h-TTL-Check.
   var bundleTs = { de: 0, en: 0, fr: 0, it: 0, es: 0 };
+  // v30.18: source_text→translated (kurze Strings <120) für gsI18n.tText — übersetzt hardcodierte Toasts by-source-text
+  var srcMaps = { de: {}, en: {}, fr: {}, it: {}, es: {} };
   var TTL_MS = 24 * 3600 * 1000;
 
   // Sprache aus Order: localStorage > URL ?lang= > navigator.language > DEFAULT
@@ -10745,6 +10747,7 @@ window.gsI18n = (function(){
         }
       }
     } catch(_){}
+    try { var _sm = localStorage.getItem('gs_i18n_srcmaps'); if (_sm) { var _smp = JSON.parse(_sm); SUPPORTED.forEach(function(l){ if (_smp[l] && typeof _smp[l] === 'object') srcMaps[l] = _smp[l]; }); } } catch(_){}
     current = detectLang();
   }
 
@@ -10810,6 +10813,13 @@ window.gsI18n = (function(){
       if (_n > 0) {
         bundles[lang] = keyBundle;
         bundleTs[lang] = Date.now();
+        // v30.18: kurzen source_text→translated-Map für gsI18n.tText (Toasts) ableiten + persistieren (quota-tolerant)
+        try {
+          var _short = {};
+          Object.keys(srcMap).forEach(function(k){ if (k && k.length < 120) _short[k] = srcMap[k]; });
+          srcMaps[lang] = _short;
+          localStorage.setItem('gs_i18n_srcmaps', JSON.stringify(srcMaps));
+        } catch(_){}
         _persist();
         return true;
       }
@@ -10833,6 +10843,14 @@ window.gsI18n = (function(){
     if (b[key]) return b[key];
     // Fallback: DE-Bundle ODER fallback-String ODER key
     return (bundles.de && bundles.de[key]) || fallback || key;
+  }
+
+  // v30.18: Übersetze beliebigen DE-Text per source_text-Lookup (Toasts/hardcodierte Strings).
+  // current==='de' oder kein Treffer → Original unverändert (Fallback).
+  function tText(s){
+    if (!s || typeof s !== 'string' || current === 'de') return s;
+    var m = srcMaps[current];
+    return (m && m[s]) || s;
   }
 
   // v26.8/v26.14: DevTools-Helper fuer i18n-Coverage. In DevTools-Console
@@ -10901,6 +10919,7 @@ window.gsI18n = (function(){
     SUPPORTED: SUPPORTED,
     hydrate: hydrate,
     t: t,
+    tText: tText,
     applyToDOM: applyToDOM,
     setLang: setLang,
     getLang: getLang,
@@ -65910,7 +65929,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.17';
+var GS_VERSION = 'v30.18';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -67581,11 +67600,21 @@ function showProfileToast(msg, type) {
   var toastType = opts ? opts.type : type;
   var dur = opts && opts.duration ? opts.duration : 3500;
 
-  // Auto-detect Type aus Text wenn nicht explizit
+  // v30.18: Anzeige-Texte by-source-text in die aktuelle Sprache übersetzen (Toasts). DE/unbekannt/kein Treffer → unverändert.
+  var rawOrig = raw;
+  try {
+    if (window.gsI18n && typeof gsI18n.tText === 'function') {
+      raw = gsI18n.tText(raw);
+      if (title) title = gsI18n.tText(title);
+      if (body) body = gsI18n.tText(body);
+    }
+  } catch(_){}
+
+  // Auto-detect Type aus Text wenn nicht explizit (auf ORIGINAL-DE-Text — Schlüsselwörter sprachunabhängig nur via Emoji)
   if (!toastType){
-    if (/✅|✓|erfolg|gespeichert|aktiv|danke/i.test(raw)) toastType = 'success';
-    else if (/❌|⚠️|⚠|fehl|error|ungültig|abgelehnt/i.test(raw)) toastType = 'error';
-    else if (/🔔|info|hinweis|🔑/i.test(raw)) toastType = 'info';
+    if (/✅|✓|erfolg|gespeichert|aktiv|danke/i.test(rawOrig)) toastType = 'success';
+    else if (/❌|⚠️|⚠|fehl|error|ungültig|abgelehnt/i.test(rawOrig)) toastType = 'error';
+    else if (/🔔|info|hinweis|🔑/i.test(rawOrig)) toastType = 'info';
   }
 
   // Auto-detect Icon: erstes Emoji vom Text, sonst Type-Default
