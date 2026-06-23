@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.21.20260621">
+<meta name="app-version" content="30.22.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1992,7 +1992,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
 <div class="topbar">
   <div style="display:flex;align-items:center;gap:10px;">
-    <h1 style="font-size:17px;">🌿 GreenScan</h1>
+    <h1 style="font-size:17px;display:flex;align-items:center;gap:7px;"><img src="icons/icon.svg" alt="" width="22" height="22" style="border-radius:6px;flex-shrink:0;">GreenScan</h1>
   </div>
   <div class="tb-right">
     <button class="ib" id="dark-btn" onclick="toggleDark()" aria-label="Dark Mode umschalten" title="Dark Mode">🌙</button>
@@ -3000,7 +3000,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   <!-- Header -->
   <div style="background:var(--hero-bg);padding:14px 16px 10px;color:#fff;display:flex;align-items:center;gap:12px;position:relative;overflow:hidden;"><button onclick="gsGoBack()" aria-label="Zurück" style="width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent;">&#8249;</button><div style="flex:1;">
     <div style="position:absolute;right:-5px;top:-8px;font-size:90px;opacity:.07;">🌿</div></div>
-    <div data-i18n="social_title" data-i18n-fallback="🌿 GreenScan Community" style="font-family:'Playfair Display',serif;font-size:19px;font-weight:800;">🌿 GreenScan Community</div>
+    <div style="display:flex;align-items:center;gap:8px;font-family:'Playfair Display',serif;font-size:19px;font-weight:800;"><img src="icons/icon.svg" alt="" width="24" height="24" style="border-radius:7px;flex-shrink:0;"><span data-i18n="social_title" data-i18n-fallback="GreenScan Community">GreenScan Community</span></div>
     <div data-i18n="social_sub" data-i18n-fallback="Teile · Lerne · Hilf anderen" style="font-size:12px;opacity:.8;margin-top:2px;">Teile · Lerne · Hilf anderen</div>
   </div>
   <!-- v28.02: Following-zentrische Community (kein Mitglieder-Massentab mehr) -->
@@ -5573,7 +5573,7 @@ html, body{ scroll-behavior: smooth; }
 <div class="menu-overlay" id="main-menu" onclick="if(event.target===this)closeMainMenu()">
   <div class="menu-panel">
     <div class="menu-handle"></div>
-    <div class="menu-title">🌿 GreenScan</div>
+    <div class="menu-title" style="display:flex;align-items:center;gap:8px;"><img src="icons/icon.svg" alt="" width="24" height="24" style="border-radius:7px;flex-shrink:0;">GreenScan</div>
     <!-- Menu Search -->
     <div class="menu-search-wrap">
       <input class="menu-search-inp" id="menu-search-inp" type="text" 
@@ -5902,7 +5902,7 @@ html, body{ scroll-behavior: smooth; }
     <!-- Header -->
     <div class="modal-header" style="background:var(--hero-bg);color:#fff;padding:18px 20px;border-radius:22px 22px 0 0;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
       <div>
-        <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:800;">🌿 GreenScan</div>
+        <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:800;display:flex;align-items:center;gap:8px;"><img src="icons/icon.svg" alt="" width="24" height="24" style="border-radius:7px;flex-shrink:0;">GreenScan</div>
         <div style="font-size:12px;opacity:.9;margin-top:2px;">Version <span id="modal-about-ver">24.03</span> · <span id="modal-about-arten">4342</span> Arten</div>
       </div>
       <button class="modal-close-btn" aria-label="Schliessen" onclick="closeModal('about-modal')" style="background:rgba(255,255,255,.2);color:#fff;border:none;width:34px;height:34px;border-radius:50%;font-size:18px;cursor:pointer;">&#x2715;</button>
@@ -65977,7 +65977,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.21';
+var GS_VERSION = 'v30.22';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
