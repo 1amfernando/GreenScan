@@ -4,13 +4,37 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-06-24 · **Branch**: `main` · **Version**: `v30.23` (LIVE) · **Release**: ✅ v30.23 (Edelweiss-Logo + KI-Gartenplaner + Baum-Planer + Toast-i18n)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-06-24 — Scheduled-Routine-Audit (Proaktiver Health-Check v30.23)
+
+- **Auftrag:** Automatisierte Scheduled-Routine — Status-Sync, Supabase-Security-Audit, Branch-Health.
+- **Git-State:** `main` = v30.23 (`4c12591`). Kein offener PR. 14 `claude/*`-Branches remote vorhanden. Kein Branch `claude/lucid-cerf-3c3hmw` remote → Branch existiert nur lokal (Session-Branch).
+- **Version-Verify:** GS_VERSION=v30.23 · sw.js CACHE_VERSION=v30.23 · Supabase Projekt `Green-scan` (vowbiueikwrauuceilhc) ACTIVE_HEALTHY · Region eu-north-1 · Postgres 17.6.
+- **Supabase Security-Advisors:** 0 ERROR · 135 WARN · 5 INFO.
+  - 135 WARN-Breakdown: 115× `authenticated_security_definer_function_executable` (by-design RPCs; Frontend ruft via `callAI/sbFetch`), 16× `anon_security_definer_function_executable`, 3× `extension_in_public` (pg_trgm/vector/citext), 1× `auth_leaked_password_protection` (HaveIBeenPwned-Check deaktiviert).
+  - **Offene Schwachstelle (mittel):** `fn_quiz_record_answer()` ist für `anon`-Rolle ausführbar → unauthentifizierte User können Leaderboard manipulieren. Empfehlung: `REVOKE EXECUTE ON FUNCTION fn_quiz_record_answer FROM anon;`
+  - **By-design (bekannt):** `fn_get_global_api_key()` für `authenticated` ausführbar — bewusste Architektur-Entscheidung (User ohne eigenen Key nutzen globalen Key via RPC).
+  - **5 INFO:** 5 Tabellen mit RLS enabled aber 0 Policies (book_ocr_pages, species_import_queue, species_search_cache, system_events, weather_forecast_cache) → gesperrt (kein Daten-Leak, aber ggf. broken reads).
+- **Performance-Advisors:** Mehrere unused_index-Findings (INFO) — species_climate_zones_idx, idx_sensor_readings_device_id, idx_diary_garden, idx_garden_plantings_garden/_status. Kandidaten für Cleanup bei nächster DB-Wave.
+- **Entwicklungs-Delta seit v26.51 (2026-05-24 → 2026-06-24):** Hauptbereiche lt. Commit-Log:
+  - v27.x–v29.x: Extensive i18n-Arbeit (alle Screens DE/EN/ES/FR/IT), Full-Stack-Audits (v28.03, v28.22, v28.32, v28.95), Persistence-Audit, I18N-Dynamic-Audit, App-Management-Tools-Audit.
+  - v29.87–v30.00: Pilz-Steckbriefe vollständig (5 Tabellen), Backend Baum-Pflanz-Planer-Fundament (tree_planting_specs 76 Arten + Grenzabstand + Material).
+  - v30.01–v30.09: Baum-Pflanz-Planer Frontend (3D-Baum-Modus, Welle 2 Foto→3D-Plan, Pläne-Speichern-Fix).
+  - v30.10–v30.16: Bild-Galerie (Arten-Gruppierung + Wachstums-Timeline), KI-Gartenplaner Phase 1+2 (kennt Garten + Klima + Boden), Chrome-i18n für Galerie + Planer.
+  - v30.17: Bugfix — undefinierte Theme-Variablen (--bg/--surface/--g-forest).
+  - v30.18–v30.23: Toast-i18n-Infrastruktur (tText By-Source-Text), Dialog-i18n, Init-Ladebildschirm, Edelweiss-Logo-Rebranding (Onboarding + App-Chrome + Cache-Busting).
+- **Naechste Empfehlungen:**
+  - 🔴 `REVOKE EXECUTE ON FUNCTION fn_quiz_record_answer FROM anon;` (Leaderboard-Schutz)
+  - 🟡 Leaked-Password-Protection im Supabase Auth-Dashboard aktivieren
+  - 🟡 STATUS.md und ROADMAP.md Review (viele P0/P1-Items seit v26.51 abgehakt aber nicht dokumentiert)
+  - 🟡 Unused indexes bei nächster DB-Wave droppen
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
