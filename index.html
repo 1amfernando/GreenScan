@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.30.20260621">
+<meta name="app-version" content="30.31.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25328,7 +25328,8 @@ async function sendScanChat() {
 
 // ══ SCAN-HISTORY ══════════════════════════════════════════════
 var SCAN_HISTORY_KEY = 'gs_scan_history';
-var MAX_SCAN_HISTORY = 50;
+var MAX_SCAN_HISTORY = 50; // Cloud-Fetch-Limit (nur die jüngsten Cloud-Scans ziehen)
+var SCAN_HISTORY_LOCAL_CAP = 200; // v30.31: lokaler Write-back-Cap = identisch zu gsAddScanHistory (sonst kürzte jeder Cloud-Pull den lokalen Verlauf auf 50 → Datenverlust bei lokal-only Scans + Notizen)
 var _lastScanResult  = null;
 // v26.86: Thumb vom letzten Scan-Foto für 1-Klick "Zu meinen Pflanzen"
 var _lastScanThumb   = null;
@@ -25576,38 +25577,12 @@ async function gsProposeNewSpeciesFromScan(result, imageB64thumb) {
     localStorage.setItem('gs_proposal_queue', JSON.stringify(q));
   } catch(e){}
 
-  // KI-Enrichment (falls API-Key da ist)
-  var enriched = null;
-  try {
-    enriched = await gsEnrichSpeciesViaAI(payload);
-  } catch(e) { console.log('[GS Propose] enrichment failed:', e.message); }
-
-  // Supabase-Insert
-  try {
-    if (typeof sbFetch === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
-      var uid = gsStore.get('gs_sb_uid', null);
-      var row = {
-        user_id: uid || null,
-        scan_name: payload.name,
-        scan_latin: payload.latin || null,
-        scan_confidence: Math.round(payload.conf),
-        scan_thumb: payload.thumb || null,
-        scan_context: payload.scan_context || {},
-        proposed_payload: enriched || {},
-        ai_model: enriched ? 'claude-sonnet-4-20250514' : null,
-        status: enriched ? 'ready_for_review' : 'pending'
-      };
-      await sbFetch('/rest/v1/species_proposals', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json','Prefer':'return=minimal'},
-        body: JSON.stringify(row)
-      });
-      console.log('[GS Propose] submitted to species_proposals:', payload.name);
-      if (typeof showProfileToast === 'function') {
-        showProfileToast('✨ Neue Art „'+payload.name+'" wurde zur Prüfung eingereicht');
-      }
-    }
-  } catch(e) { console.log('[GS Propose] supabase insert failed:', e.message); }
+  // v30.31 (Bug-Fix): Der frühere Supabase-Insert HIER nutzte 7 nicht-existente Spalten
+  // (scan_name/scan_latin/scan_thumb/scan_context/proposed_payload/ai_model/status) → 400 PGRST204 bei JEDEM
+  // unbekannten Scan (>=70%), plus ein irreführender „zur Prüfung eingereicht"-Toast TROTZ Fehlschlag.
+  // Der korrekte species_proposals-Insert (richtige Spalten name/latin/family/category/data/scan_confidence)
+  // läuft bereits in gsScanPersistToCloud für denselben Scan. Daher hier nur noch die lokale Queue (oben) —
+  // kein doppelter/kaputter Cloud-Write, kein wasted gsEnrichSpeciesViaAI-Call, kein falscher Erfolgs-Toast mehr.
 }
 
 // KI-Anreicherung: Claude generiert einen vollständigen Species-Record
@@ -25722,8 +25697,11 @@ async function gsLoadCloudScans() {
     [].concat(cloudEntries, local).forEach(function(e) {
       var k = keyOf(e);
       if (seen[k]) {
-        // Wenn lokaler Eintrag mehr Daten hat (warning, thumb), nicht überschreiben
+        // v30.31: lokale-only Felder auf den behaltenen (Cloud-)Eintrag retten — sonst gehen Notiz/Warnung
+        // verloren, weil die Cloud (user_scans hat KEINE note-Spalte) den note-tragenden lokalen Eintrag im Dedup verdrängt.
         if (e.thumb && !seen[k].thumb) seen[k].thumb = e.thumb;
+        if (e.note && !seen[k].note) seen[k].note = e.note;
+        if (e.warning && !seen[k].warning) seen[k].warning = e.warning;
         return;
       }
       seen[k] = e;
@@ -25731,7 +25709,7 @@ async function gsLoadCloudScans() {
     });
     // Sortieren nach ts desc, kürzen
     merged.sort(function(a,b){ return (b.ts||0) - (a.ts||0); });
-    if (merged.length > MAX_SCAN_HISTORY) merged = merged.slice(0, MAX_SCAN_HISTORY);
+    if (merged.length > SCAN_HISTORY_LOCAL_CAP) merged = merged.slice(0, SCAN_HISTORY_LOCAL_CAP); // v30.31: 200 statt 50 → kein Truncation-Datenverlust beim periodischen Pull
     try { localStorage.setItem(SCAN_HISTORY_KEY, JSON.stringify(merged)); } catch(_) {}
     if (typeof updateScanHistoryBadge === 'function') updateScanHistoryBadge();
     var added = merged.length - local.length;
@@ -66074,7 +66052,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.30';
+var GS_VERSION = 'v30.31';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
