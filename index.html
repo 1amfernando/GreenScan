@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.38.20260625">
+<meta name="app-version" content="30.39.20260625">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16287,6 +16287,22 @@ function _gsMakeMediumPhoto(b64, cb){
 }
 window._gsMakeMediumPhoto = _gsMakeMediumPhoto;
 
+// v30.39: Scan-Kategorie → Sammler-Achievement-Metrik. pilz/baum/kraut sauber; wildpflanze→flower (Wildblumen).
+// (hauspflanze/moos/flechte/alge haben kein Achievement → ignoriert.) Zählt DISTINCT Arten je Kategorie (isSet).
+var _GS_SCAN_CAT_METRIC = { pilz:'mushroom_count', baum:'tree_count', kraut:'herb_count', wildpflanze:'flower_count' };
+function _gsBumpScanCatAch(hist, newCat){
+  try {
+    var c = (newCat || '').toLowerCase();
+    var metric = _GS_SCAN_CAT_METRIC[c];
+    if (!metric || typeof gsAchBump !== 'function') return;
+    var seen = {};
+    (hist || []).forEach(function(h){
+      if (h && (h.category || '').toLowerCase() === c && h.name) seen[(h.name || '').toLowerCase()] = 1;
+    });
+    var n = Object.keys(seen).length;
+    if (n > 0) gsAchBump(metric, n, true); // isSet = distinct-Arten dieser Kategorie (idempotent, kein Re-Scan-Doppelzählen)
+  } catch(_){}
+}
 function gsAddScanHistory(item) {
   if (!item) return;
   // v29.21 SET-03: Datenschutz-Opt-out respektieren — wenn 'Scan-Verlauf speichern' AUS ist, nichts merken.
@@ -16303,6 +16319,7 @@ function gsAddScanHistory(item) {
     hist.unshift(item);
     // v26.95: Achievements-Bump nur bei echtem NEU-Scan (INC), nicht bei Field-Merge/Re-Add
     try { if (typeof gsAchBump === 'function') gsAchBump('scan_count', 1, false); } catch(_){}
+    try { _gsBumpScanCatAch(hist, item && item.category); } catch(_){} // v30.39: mushroom/tree/herb/flower_count
   }
   if (hist.length > 200) hist = hist.slice(0, 200);
   // v29.80: Scan-Foto (photo) nur auf den 24 jüngsten Einträgen behalten (Quota-Schutz HL#10) —
@@ -25494,7 +25511,8 @@ function saveScanToHistory(result, imageB64thumb) {
     // Kamera-Scan: _lastScanThumb (480px) liegt bereits vor. Galerie/Upload: async-Fallback unten.
     photo:    (typeof _lastScanThumb !== 'undefined' && _lastScanThumb) ? _lastScanThumb : '',
     note:     '',                   // User-editable
-    context:  ctx                   // {lat, lon, locName}
+    context:  ctx,                  // {lat, lon, locName}
+    category: result.category || '' // v30.39: für Kategorie-Achievements (mushroom/tree/herb/flower_count)
   };
   gsAddScanHistory(entry);
   // v29.80: Falls kein Kamera-Thumb (z.B. Galerie-Upload), volles Scan-Foto async auf Medium
@@ -41132,6 +41150,7 @@ function openRecipeDetail(id) {
   const r = recipesData.find(x=>x.id===id) || remediesData.find(x=>x.id===id);
   if (!r) return;
   const isRemedy = !!remediesData.find(x=>x.id===id);
+  try { if (typeof gsAchBump === 'function') gsAchBump(isRemedy ? 'remedy_used' : 'recipe_used', 1, false); } catch(_){} // v30.39: first_recipe/first_remedy
   const cats = isRemedy ? REMEDY_CATS : RECIPE_CATS;
   const catInfo = cats[r.cat] || {emoji:'🌿', bg:'#e8f5e9', color:'#2e7d32', label:''};
 
@@ -45755,6 +45774,15 @@ function gsTrackStop() {
       });
       if (saved.length > 30) saved = saved.slice(-30);
       localStorage.setItem('gs_gpx_tracks', JSON.stringify(saved));
+      // v30.39: Wander-Achievements — track_count (Anzahl) + track_distance_km (kumulierte km via gsTrackComputeStats)
+      try {
+        if (typeof gsAchBump === 'function') {
+          gsAchBump('track_count', saved.length, true);
+          var _trkM = 0;
+          saved.forEach(function(t){ try { _trkM += ((typeof gsTrackComputeStats === 'function' ? (gsTrackComputeStats(t).distM || 0) : 0)); } catch(_){} });
+          gsAchBump('track_distance_km', Math.round(_trkM / 1000), true);
+        }
+      } catch(_){}
       showProfileToast('🎉 Track gespeichert · '+_gsTrack.points.length+' Punkte','success');
       // v23.93: nach 800ms automatisch 3D-Detail anzeigen (Index = letzter Eintrag)
       var newIdx = saved.length - 1;
@@ -66111,7 +66139,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.38';
+var GS_VERSION = 'v30.39';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
