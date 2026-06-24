@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.25.20260621">
+<meta name="app-version" content="30.26.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16545,8 +16545,16 @@ async function gsLoadSpeciesImage(spId, lat, cid){
         var _u = _esc(String(primary.url || ''));
         var _a = _esc(String(primary.attribution || ''));
         var attr = primary.attribution ? ('<div style="font-size:9.5px;color:var(--muted);margin-top:3px;text-align:right;">📸 ' + _a + '</div>') : '';
+        // v30.26 Teil B: Community-Galerie — fn_species_images liefert bis 12 approved Bilder; vorher nur das Primär-Bild.
+        var mainImg = '<img src="' + _u + '" alt="" style="width:100%;height:200px;object-fit:cover;border-radius:12px;display:block;" onerror="this.style.display=\'none\'">';
+        var strip = '';
+        if (rows.length > 1) {
+          var thumbs = rows.map(function(rw){ var tu = _esc(String(rw.url || '')); return '<img src="' + tu + '" alt="" loading="lazy" onclick="var m=this.parentElement.parentElement.querySelector(\'img\'); if(m) m.src=this.src;" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex:0 0 auto;cursor:pointer;" onerror="this.style.display=\'none\'">'; }).join('');
+          strip = '<div style="display:flex;gap:6px;overflow-x:auto;margin-top:6px;padding-bottom:2px;-webkit-overflow-scrolling:touch;">' + thumbs + '</div>' +
+                  '<div style="font-size:9.5px;color:var(--muted);margin-top:2px;">🌿 ' + rows.length + ' Community-Fotos</div>';
+        }
         c.style.cssText = '';
-        c.innerHTML = '<img src="' + _u + '" alt="" style="width:100%;height:170px;object-fit:cover;border-radius:12px;display:block;" onerror="this.parentElement.style.display=\'none\'">' + attr;
+        c.innerHTML = mainImg + strip + attr;
         return;
       }
     }
@@ -16566,7 +16574,7 @@ async function gsContributeSpeciesPhoto(spId){
   if (window._gsLastScanB64 && typeof gsConfirmModal === 'function') {
     useScan = await gsConfirmModal({ title:'Foto beitragen', message:'Dein zuletzt gescanntes Foto zu „'+name+'" beitragen? Es wird nach kurzer Prüfung als Arten-Bild gezeigt.', ok:'Scan-Foto nutzen', cancel:'Anderes Foto wählen', kind:'info' });
   }
-  if (useScan) { _gsDoContributePhoto(spId, window._gsLastScanB64); return; }
+  if (useScan) { _gsDoContributePhoto(spId, window._gsLastScanB64, (typeof _lastScanResult !== 'undefined' && _lastScanResult) ? _lastScanResult.confidence : null); return; }
   var inp = document.createElement('input');
   inp.type = 'file'; inp.accept = 'image/*';
   inp.onchange = function(ev){
@@ -16580,7 +16588,7 @@ async function gsContributeSpeciesPhoto(spId){
   };
   inp.click();
 }
-async function _gsDoContributePhoto(spId, b64){
+async function _gsDoContributePhoto(spId, b64, conf){
   if (!b64) return;
   try { gsToast('⏳ Lade Foto hoch …', 'info'); } catch(_){}
   try {
@@ -16590,7 +16598,7 @@ async function _gsDoContributePhoto(spId, b64){
     try { storagePath = url.split('/species-images/')[1] || null; } catch(_){}
     var res = await sbFetch('/rest/v1/rpc/fn_contribute_species_image', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ p_species_id: spId, p_url: url, p_storage_path: storagePath, p_confidence: null })
+      body: JSON.stringify({ p_species_id: spId, p_url: url, p_storage_path: storagePath, p_confidence: (conf != null && isFinite(conf)) ? Math.round(conf) : null })
     });
     if (res && res.error) {
       var em = String((res.error && res.error.message) || '');
@@ -16603,6 +16611,21 @@ async function _gsDoContributePhoto(spId, b64){
     try { gsToast('✅ Danke! Dein Foto wird geprüft und dann als Arten-Bild gezeigt.', 'success'); } catch(_){}
   } catch(e){ try { gsToast('Beitrag fehlgeschlagen — bitte erneut versuchen.', 'error'); } catch(_){} }
 }
+// v30.26: Scan-Foto direkt aus dem Resultat zur erkannten Art beitragen (mit AI-Konfidenz für die Admin-Moderation).
+async function gsContributeScanPhoto(spId, conf){
+  if (typeof gsRequire === 'function' && !gsRequire('contribute_photo', 'Bitte anmelden um dein Foto beizutragen.')) return;
+  var b64 = window._gsLastScanB64 || null;
+  if (!b64) { try { gsToast('Kein Scan-Foto verfügbar.', 'warn'); } catch(_){} return; }
+  var sp = (typeof DB !== 'undefined') ? DB.find(function(s){ return s && s.id === spId; }) : null;
+  var nm = sp ? sp.name : 'dieser Art';
+  var ok = true;
+  if (typeof gsConfirmModal === 'function') {
+    ok = await gsConfirmModal({ title:'📸 Foto zur Art beitragen', message:'Dein Scan-Foto wird nach kurzer Prüfung öffentlich als Community-Arten-Bild von „'+nm+'" gezeigt. Bitte nur eigene Fotos beitragen, auf denen die Art klar erkennbar ist.', ok:'Ja, beitragen', cancel:'Abbrechen', kind:'info' });
+  }
+  if (!ok) return;
+  _gsDoContributePhoto(spId, b64, conf);
+}
+window.gsContributeScanPhoto = gsContributeScanPhoto;
 
 var _recipeFavs=[];
 try{_recipeFavs=JSON.parse(localStorage.getItem('gs_recipe_favs')||'[]');}catch(e){}
@@ -24800,7 +24823,14 @@ function showScanResult(r){
   var dbSp = typeof gsLinkScanToDb==='function' ? gsLinkScanToDb(r.name||r.plant, r.latin) : null;
   var heroCls = 'sr2-hero' + (conf >= 85 ? ' rr-premium' : '');
   var premiumChip = conf >= 85 ? '<span class="rr-signature" style="margin-left:8px;vertical-align:middle;">Top-Treffer</span>' : '';
+  // v30.26 Teil A: das aufgenommene Scan-Foto direkt in der Resultat-Karte zeigen.
+  // Quelle = window._gsLastScanB64 (in analyzeImage VOR showScanResult gesetzt, gilt für Kamera UND Galerie;
+  // _lastScanThumb ist an dieser Stelle noch der vorige Scan → bewusst NICHT verwenden).
+  var _scanPhotoSrc = '';
+  try { if (window._gsLastScanB64) _scanPhotoSrc = 'data:' + (window._gsLastScanMt || 'image/jpeg') + ';base64,' + window._gsLastScanB64; } catch(_){}
+  var heroPhoto = _scanPhotoSrc ? '<div style="margin:0 0 12px;"><img src="' + _scanPhotoSrc + '" alt="Dein Scan-Foto" loading="lazy" style="width:100%;max-height:210px;object-fit:cover;border-radius:14px;box-shadow:0 4px 14px rgba(0,0,0,.18);display:block;"></div>' : '';
   var hero = '<div class="' + heroCls + '">' +
+    heroPhoto +
     '<div class="sr2-hero-cat">' + catEmoji + ' ' + esc(catLabel) + premiumChip + '</div>' +
     '<div class="sr2-hero-name">' + esc(r.name || 'Unbekannt') + '</div>' +
     (r.latin ? '<div class="sr2-hero-lat">' + esc(r.latin) + (r.family ? ' · ' + esc(r.family) : '') + '</div>' : '') +
@@ -25009,6 +25039,16 @@ function showScanResult(r){
     _extra.innerHTML = '<button class="sr2-cta sr2-cta-primary" onclick="openDetail(\''+_dbMatch.id+'\')">📖 Vollständiger Eintrag</button>' +
       '<button class="sr2-cta sr2-cta-secondary" onclick="openScanChat()">🤖 KI fragen</button>';
     _container.appendChild(_extra);
+    // v30.26 Teil B: Scan-Foto zur erkannten Art beitragen — nur bei hoher Konfidenz (>=80, weniger Fehl-IDs),
+    // eingeloggt + vorhandenem Foto. Beitrag geht moderiert (review_status='pending') + mit AI-Konfidenz an die Admin-Queue.
+    try {
+      if ((r.confidence||0) >= 80 && window._gsLastScanB64 && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
+        var _contribBtn = document.createElement('div');
+        _contribBtn.style.cssText = 'margin-top:10px;';
+        _contribBtn.innerHTML = '<button class="sr2-cta sr2-cta-secondary" style="width:100%;" onclick="gsContributeScanPhoto(\''+_dbMatch.id+'\','+(r.confidence||0)+')">📸 Dein Foto zur Art beitragen</button>';
+        _container.appendChild(_contribBtn);
+      }
+    } catch(_){}
   } else {
     var _extra2 = document.createElement('div');
     _extra2.style.cssText = 'margin-top:12px;';
@@ -66008,7 +66048,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.25';
+var GS_VERSION = 'v30.26';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
