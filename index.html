@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.31.20260621">
+<meta name="app-version" content="30.32.20260624">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -66052,7 +66052,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.31';
+var GS_VERSION = 'v30.32';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -73050,7 +73050,7 @@ async function gsSensorSync(){
   var uid = gsStore.get('gs_sb_uid', null);
   if (!uid || typeof sbFetch !== 'function') return null;
   try {
-    var r = await sbFetch('/rest/v1/sensor_devices?user_id=eq.' + uid + '&select=*&order=last_seen.desc.nullslast', {method:'GET'});
+    var r = await sbFetch('/rest/v1/sensor_devices?user_id=eq.' + uid + '&select=*&order=last_seen_at.desc.nullslast', {method:'GET'}); // v30.32: last_seen → last_seen_at
     if (r && !r.error && Array.isArray(r.data)) {
       try {
         var registry = {};
@@ -73078,7 +73078,7 @@ async function gsRegisterSensorDevice(device){
     serial: device.serial || null,
     firmware_version: device.firmware || null,
     config: device.config || {},
-    last_seen: new Date().toISOString()
+    last_seen_at: new Date().toISOString() // v30.32: last_seen → last_seen_at (matches DB schema)
   }, device.extra || {});
   try {
     var r = await sbFetch('/rest/v1/sensor_devices', {
@@ -78753,6 +78753,13 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
   function saveQueue(q) {
     try { localStorage.setItem(LS_QUEUE, JSON.stringify(q.slice(0, 500))); } catch(e) {}
   }
+  // v30.32: UUID-Guard — verhindert, dass Nicht-UUID-Werte (z.B. 'gard_default') als
+  // garden_id / id in die DB geschrieben werden und endlose Postgres-ERROR-Floods erzeugen.
+  function isValidUUID(id) {
+    return typeof id === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+  }
+  }
   function enqueue(op) {
     if (!loggedIn()) return;
     var q = loadQueue();
@@ -78803,6 +78810,15 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
   async function flushQueue() {
     if (_syncing || !loggedIn() || !isOnline()) return;
     var q = loadQueue();
+    if (!q.length) return;
+    // v30.32: Bereinigung — nicht-UUID-IDs aus der Queue entfernen (verhindert Retry-Endlosschleifen)
+    var before = q.length;
+    q = q.filter(function(op) {
+      if (!op || !op.row) return true;
+      if (op.action === 'upsert' && op.table === 'gardens' && !isValidUUID(op.row.id)) return false;
+      return true;
+    });
+    if (q.length < before) saveQueue(q);
     if (!q.length) return;
     _syncing = true;
     setStatus('🔄 Sync…');
@@ -78905,6 +78921,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
   function pushGarden(garden) {
     if (!loggedIn()) return;
     var u = uid(); if (!u) return;
+    if (!isValidUUID(garden.id)) return; // v30.32: 'gard_default' u.ä. → kein DB-Push
     enqueue({ action: 'upsert', table: 'gardens', row: {
       id: garden.id, user_id: u, name: garden.name || 'Garten',
       location: garden.location || null, size_m2: garden.size || garden.size_m2 || null,
@@ -78914,8 +78931,9 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
   function pushPlanting(pl) {
     if (!loggedIn()) return;
     var u = uid(); if (!u) return;
+    var rawGId = pl.gardenId || pl.garden_id;
     enqueue({ action: 'upsert', table: 'garden_plantings', row: {
-      id: pl.id, user_id: u, garden_id: pl.gardenId || pl.garden_id,
+      id: pl.id, user_id: u, garden_id: isValidUUID(rawGId) ? rawGId : null, // v30.32: 'gard_default' → null
       species_name: pl.plantName || pl.species_name || '?', emoji: pl.emoji || null,
       planted_at: pl.planted_at || pl.plantedAt || new Date().toISOString().slice(0,10),
       harvested_at: pl.harvested_at || null,
