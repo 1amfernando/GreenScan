@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.29.20260621">
+<meta name="app-version" content="30.30.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16142,19 +16142,21 @@ function closeScanHistoryFull() {
 // 3) Wenn nicht in species-DB: species_proposals (Admin-Review)
 window._gsLastScanB64 = null;  // wird in analyzeImage gesetzt
 async function gsScanPersistToCloud(r) {
-  if (!r || !r.name) return;
+  // v30.30: gibt true zurück NUR bei erfolgreichem Cloud-Insert (oder nichts-zu-tun); false = bitte später erneut
+  // versuchen. Der Offline-Flush löscht ein Queue-Item nur bei true → kein stiller Scan-Verlust bei 401/RLS/5xx.
+  if (!r || !r.name) return true;
   // v24.35: Engagement-Tracking — Scan zählt 20 Punkte → triggert Auto-Install
   try { window.gsTrackEngagement && window.gsTrackEngagement('scan'); } catch(e){}
   // v24.35: Wenn offline → in IndexedDB-Queue statt direkt zu Supabase
   if (!navigator.onLine && typeof window.gsQueueOffline === 'function') {
     await window.gsQueueOffline('scan', r);
     if (typeof showProfileToast === 'function') showProfileToast({type:'info', icon:'📡', title:'Offline gespeichert', body:'Scan wird synchronisiert sobald online.', duration:3500});
-    return;
+    return true;
   }
-  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
-  if (typeof sbFetch !== 'function') return;
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return false; // v30.30: noch nicht eingeloggt → im Flush queued lassen
+  if (typeof sbFetch !== 'function') return false;
   var uid = gsStore.get('gs_sb_uid', null);
-  if (!uid) return;
+  if (!uid) return false;
   try {
     // Foto zu Storage hochladen (falls vorhanden)
     var photoUrl = null;
@@ -16207,11 +16209,12 @@ async function gsScanPersistToCloud(r) {
       thumb: photoUrl,
       context: ctx
     };
-    await sbFetch('/rest/v1/user_scans', {
+    var _scanRes = await sbFetch('/rest/v1/user_scans', {
       method: 'POST',
       headers: {'Content-Type':'application/json','Prefer':'return=minimal'},
       body: JSON.stringify(payload)
-    }).catch(function(e){ console.warn('[gsScanPersistToCloud] user_scans:', e); });
+    });
+    var _scanOk = !(_scanRes && _scanRes.error); // v30.30: Insert-Erfolg erfassen (sbFetch wirft nicht, returnt {error})
 
     // Wenn species nicht in DB → species_proposals
     var inDB = (typeof DB !== 'undefined' && Array.isArray(DB))
@@ -16242,7 +16245,8 @@ async function gsScanPersistToCloud(r) {
         })
       }).catch(function(e){ console.warn('[gsScanPersistToCloud] proposals:', e); });
     }
-  } catch(e) { console.warn('[gsScanPersistToCloud]', e); }
+    return _scanOk; // v30.30: Flush-Gate — nur true bei erfolgreichem user_scans-Insert
+  } catch(e) { console.warn('[gsScanPersistToCloud]', e); return false; }
 }
 
 // v25.33 Fernando-Bug-Fix: Unified Scan-History-Writer mit Dedup-by-id.
@@ -45010,9 +45014,10 @@ async function gsAddMarker(lat, lng) {
         is_private: true
       };
       if (!navigator.onLine) {
-        // v30.24: offline → Fund queuen (gsFlushOfflineQueue Typ 'find' inserted ihn sobald wieder online). Kein Datenverlust mehr.
-        try { if (typeof window.gsQueueOffline === 'function') await window.gsQueueOffline('find', payload); } catch(_){}
-        cloudMsg = '📡 Offline gesichert — Cloud-Sync folgt sobald online';
+        // v30.30 (Bug-Fix): offline NICHT in die Queue legen. Der LS-Marker (oben bereits gespeichert) wird beim
+        // nächsten Öffnen des Funde-Screens via gsMapFinds._uploadLocalOnly hochgeladen und schreibt cloud_id zurück.
+        // Das v30.24-gsQueueOffline('find') war ein ZWEITER, unkoordinierter Upload-Pfad → Duplikat-Fund + doppelte Cloud-Row (HIGH-Bug).
+        cloudMsg = '📡 Offline gespeichert — wird synchronisiert, sobald du wieder online bist';
       } else {
       var r = await sbFetch('/rest/v1/map_user_finds', {
         method:'POST',
@@ -66069,7 +66074,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.29';
+var GS_VERSION = 'v30.30';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -68119,6 +68124,8 @@ function gsRegisterServiceWorker() {
   // Public API: gsFlushOfflineQueue — alle pending Items abarbeiten (wenn online)
   window.gsFlushOfflineQueue = async function(){
     if (!navigator.onLine) return;
+    if (window._gsFlushing) return; // v30.30: Re-Entrancy-Guard — SW-'sync'-Event + window-'online' feuern parallel → sonst Doppel-Insert
+    window._gsFlushing = true;
     try {
       var db = await _open();
       for (var i = 0; i < STORES.length; i++) {
@@ -68136,15 +68143,15 @@ function gsRegisterServiceWorker() {
           try {
             // Routing nach Typ
             if (it.type === 'scan' && typeof window.gsScanPersistToCloud === 'function') {
-              await window.gsScanPersistToCloud(it.data); ok = true;
-            } else if (it.type === 'diary' && typeof window.gsAddDiaryEntry === 'function') {
-              await window.gsAddDiaryEntry(it.data); ok = true;
-            } else if (it.type === 'find' && typeof sbFetch === 'function' && it.data) {
-              // v30.24: offline gequeueter Karten-Fund → jetzt in map_user_finds inserten
-              var fr = await sbFetch('/rest/v1/map_user_finds', { method:'POST', headers:{'Content-Type':'application/json','Prefer':'return=minimal'}, body: JSON.stringify(it.data) });
-              if (!fr || !fr.error) ok = true;
+              // v30.30: nur aus der Queue entfernen, wenn der Cloud-Insert WIRKLICH gelang (sonst stiller Scan-Verlust bei 401/RLS/5xx)
+              ok = (await window.gsScanPersistToCloud(it.data) === true);
+            } else if (it.type === 'find') {
+              // v30.30 (Bug-Fix): Funde NICHT mehr separat inserten — der LS-Marker wird vom Finds-Screen
+              // (_uploadLocalOnly) hochgeladen und schreibt cloud_id zurück; ein zweiter Insert hier erzeugte
+              // Duplikate (doppelter Fund + doppelte Cloud-Row). Alt-Queue-Items (v30.24–29) nur entfernen.
+              ok = true;
             } else {
-              // v30.24-Fix: korrekter Sync-Trigger (gsCloudSyncPushNow existierte NIE → generic-Items blieben ewig pending). Jetzt gsCloudSync.flushNow().
+              // generischer Dirty-Sync-Trigger (das nie-existente gsCloudSyncPushNow war der ursprüngliche Bug)
               if (window.gsCloudSync && typeof window.gsCloudSync.flushNow === 'function') { await window.gsCloudSync.flushNow(); ok = true; }
               else { ok = true; } // kein Sync-Layer → Item trotzdem entfernen (kein endloses Wachstum)
             }
@@ -68160,6 +68167,7 @@ function gsRegisterServiceWorker() {
       }
       console.log('[gsFlushOfflineQueue] ✅ Done');
     } catch(e) { console.warn('[gsFlushOfflineQueue]', e); }
+    finally { window._gsFlushing = false; } // v30.30: Guard immer freigeben
   };
 
   // Public API: gsCountOfflineQueue — Anzahl pending Items (für UI)
