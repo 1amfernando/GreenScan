@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.33.20260621">
+<meta name="app-version" content="30.34.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -21176,6 +21176,13 @@ async function reportListing(id) {
   try { localStorage.setItem('gs_market_reported', JSON.stringify(reported)); } catch(e) {}
   l.reports = (l.reports || 0) + 1;
   gsMarketSave();
+  // v30.34: Meldung serverseitig persistieren (vorher NUR lokal → kein Admin sah je etwas). Geht in user_reports.
+  try {
+    if (typeof sbFetch === 'function') {
+      await sbFetch('/rest/v1/rpc/fn_report', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ p_target_type:'listing', p_target_ref: String(id), p_reason: null }) });
+    }
+  } catch(_){}
   gsHaptic('success');
   if (typeof showProfileToast === 'function') showProfileToast('🚩 Meldung gesendet', 'success');
   closeModal('detail-modal');
@@ -35154,6 +35161,8 @@ function gsMarketShowDetail(l) {
         '<button onclick="contactSeller(\'' + l.id + '\')" style="flex:2;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' + _t('btn_contact_seller','💬 Kontakt aufnehmen') + '</button>' +
         '<button onclick="openRateListing(\'' + l.id + '\')" style="flex:1;padding:13px;background:#fff3e0;color:#e65100;border:1px solid #ffcc80;border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' + _t('btn_rate_listing','⭐ Bewerten') + '</button>' +
         '<button onclick="gsAddListingToCollection(\'' + l.id + '\')" title="' + _t('btn_add_collection','Zu Sammlung hinzufügen') + '" aria-label="' + _t('btn_add_collection','Zu Sammlung hinzufügen') + '" style="flex:0 0 auto;padding:13px 14px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:11px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📁</button>' +
+        /* v30.34: Report-Button verdrahtet (reportListing war definiert, aber an KEINE UI gebunden → tote Funktion). Persistiert jetzt via fn_report. */
+        '<button onclick="reportListing(\'' + l.id + '\')" title="' + _t('btn_report','Melden') + '" aria-label="' + _t('btn_report','Melden') + '" style="flex:0 0 auto;padding:13px 14px;background:var(--surface2);color:var(--muted);border:1px solid var(--border);border-radius:11px;font-size:15px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🚩</button>' +
       '</div>' +
     '</div>' +
   '</div>';
@@ -66057,7 +66066,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.33';
+var GS_VERSION = 'v30.34';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -74590,6 +74599,47 @@ async function gsAdminReviewSpeciesImage(id, approve){
   } catch(_) { try { gsToast('Aktion fehlgeschlagen.', 'error'); } catch(__){} }
 }
 
+// ══ v30.34: Admin — Nutzer-Meldungen (user_reports) moderieren ══
+async function gsAdminFetchReports(){
+  try {
+    var res = await sbFetch('/rest/v1/rpc/fn_admin_reports_list', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_limit: 100 })
+    });
+    return (res && res.data) || [];
+  } catch(_) { return []; }
+}
+function _gsAdminReportsHtml(list){
+  list = Array.isArray(list) ? list : [];
+  var _e = (typeof escHtml==='function') ? escHtml : function(s){ return String(s==null?'':s); };
+  var typeLabel = { user:'👤 Nutzer', listing:'🛒 Inserat', post:'📝 Beitrag', comment:'💬 Kommentar' };
+  var items = list.map(function(r){
+    var dt = ''; try { dt = r.created_at ? new Date(r.created_at).toLocaleDateString('de-CH') : ''; } catch(_){}
+    return '<div style="display:flex;gap:9px;align-items:center;padding:8px;background:var(--card);border-radius:8px;margin-bottom:6px;">' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="font-size:12px;font-weight:700;color:var(--text);">' + (typeLabel[r.target_type] || _e(r.target_type)) + '</div>' +
+        '<div style="font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + _e(r.target_ref||'') + (r.reason?(' · '+_e(r.reason)):'') + (dt?(' · '+dt):'') + '</div>' +
+      '</div>' +
+      '<button onclick="gsAdminReviewReport(\''+r.id+'\',\'reviewed\')" title="Erledigt" style="padding:6px 10px;border:none;border-radius:6px;background:#2e7d32;color:#fff;font-size:13px;cursor:pointer;flex-shrink:0;">✓</button>' +
+      '<button onclick="gsAdminReviewReport(\''+r.id+'\',\'dismissed\')" title="Verwerfen" style="padding:6px 10px;border:none;border-radius:6px;background:#9e9e9e;color:#fff;font-size:13px;cursor:pointer;flex-shrink:0;">✕</button>' +
+    '</div>';
+  }).join('');
+  return '<div id="gs-admin-reports-sec" style="margin-top:10px;padding:11px 13px;background:#fff3e0;border-radius:8px;">' +
+    '<div style="font-weight:800;font-size:12.5px;color:#e65100;margin-bottom:8px;">🚩 Nutzer-Meldungen ' + (list.length?('('+list.length+')'):'') + '</div>' +
+    (list.length ? items : '<div style="font-size:11.5px;color:var(--muted);">Keine offenen Meldungen.</div>') +
+  '</div>';
+}
+async function gsAdminReviewReport(id, status){
+  try {
+    var res = await sbFetch('/rest/v1/user_reports?id=eq.' + encodeURIComponent(id), {
+      method:'PATCH', headers:{'Content-Type':'application/json','Prefer':'return=minimal'},
+      body: JSON.stringify({ status: status, reviewed_at: new Date().toISOString() })
+    });
+    if (res && res.error) { try { gsToast('Aktion fehlgeschlagen.', 'error'); } catch(_){} return; }
+    try { gsToast(status==='reviewed' ? '✅ Als erledigt markiert.' : '🗑️ Verworfen.', 'success'); } catch(_){}
+    await _gsAdminRefreshSection('gs-admin-reports-sec', gsAdminFetchReports, _gsAdminReportsHtml);
+  } catch(_) { try { gsToast('Aktion fehlgeschlagen.', 'error'); } catch(__){} }
+}
+
 // ══ v29.30 Schicht 1 (Observability): Admin — Hintergrund-Jobs (Cron-Health) ══
 async function gsAdminFetchCronHealth(){
   try {
@@ -74799,10 +74849,10 @@ async function openAdminPanel() {
     gsAdminListUsers(), gsAdminFetchMetrics(), gsAdminFetchStripe(), gsAdminFetchFlags(),
     gsAdminFetchAudit(), gsAdminFetchClientErrors(), gsAdminFetchModerationFeed(), gsAdminFetchVouchers(),
     gsAdminFetchSpeciesImageQueue(), gsAdminFetchCronHealth(), gsAdminFetchSystemEvents(), gsAdminFetchFinance(),
-    gsAdminFetchOpsDigest()
+    gsAdminFetchOpsDigest(), gsAdminFetchReports()
   ]);
   var users = _ad[0], metrics = _ad[1], stripe = _ad[2], flags = _ad[3],
-      audit = _ad[4], cerrs = _ad[5], moderation = _ad[6], vouchers = _ad[7], simgQueue = _ad[8], cronHealth = _ad[9], sysEvents = _ad[10], finance = _ad[11], opsDigest = _ad[12];
+      audit = _ad[4], cerrs = _ad[5], moderation = _ad[6], vouchers = _ad[7], simgQueue = _ad[8], cronHealth = _ad[9], sysEvents = _ad[10], finance = _ad[11], opsDigest = _ad[12], reports = _ad[13];
   var existing = document.getElementById('modal-admin-panel');
   if (existing) existing.remove();
   var m = document.createElement('div');
@@ -74871,6 +74921,7 @@ async function openAdminPanel() {
       _gsAdminI18nHtml() +
       _gsAdminClientErrorsHtml(cerrs) +
       _gsAdminModerationHtml(moderation) +
+      _gsAdminReportsHtml(reports) +
       _gsAdminSpeciesImageHtml(simgQueue) +
       _gsAdminOpsCockpitHtml(opsDigest) +
       _gsAdminCronHealthHtml(cronHealth) +
