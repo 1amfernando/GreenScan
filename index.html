@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.32.20260621">
+<meta name="app-version" content="30.33.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13250,7 +13250,7 @@ function gsShowAboScreen() {
         '<div style="font-size:15px;font-weight:900;">🌱 Gratis</div>' +
         (plan==='free' ? '<span style="background:var(--g-main);color:#fff;padding:2px 9px;border-radius:8px;font-size:11px;font-weight:800;">Aktiv</span>' : '') +
       '</div>' +
-      '<div style="font-size:12px;color:var(--muted);line-height:1.6;">5 Scans/Tag · Alle 4342 Arten · Community · Karte</div>' +
+      '<div style="font-size:12px;color:var(--muted);line-height:1.6;">15 Scans/Tag · Alle 4342 Arten · Community · Karte</div>' +
     '</div>';
 
   var proCard =
@@ -14354,7 +14354,7 @@ function gsRenderSubInfo(sub) {
     return '<div style="text-align:center;padding:24px 20px;background:linear-gradient(135deg,#f5f5f5,#eaeaea);border-radius:14px;margin-bottom:14px;">' +
       '<div style="font-size:48px;margin-bottom:8px;">🌱</div>' +
       '<div style="font-size:18px;font-weight:900;color:var(--g-dark);margin-bottom:6px;">Free-Plan aktiv</div>' +
-      '<div style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.5;">5 Scans/Tag · Kein Cloud-Sync · Keine KI-Doctor-Analyse</div>' +
+      '<div style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.5;">15 Scans/Tag · Kein Cloud-Sync · Keine KI-Doctor-Analyse</div>' +
       '<button onclick="gsShowFirstTrialModal()" style="background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;padding:14px 24px;border:none;border-radius:12px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 14px rgba(26,35,126,.3);">' +
         '⬆️ Pro 7 Tage gratis testen' +
       '</button>' +
@@ -14466,7 +14466,7 @@ function gsShowFirstTrialModal() {
         '</div>' +
       '</button>' +
       // Free-Plan
-      '<button onclick="gsTrialSkip()" style="width:100%;display:block;padding:13px;background:transparent;color:var(--muted);border:1.5px solid var(--border);border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:6px;">🌱 Mit Free-Plan starten (5 Scans/Tag)</button>' +
+      '<button onclick="gsTrialSkip()" style="width:100%;display:block;padding:13px;background:transparent;color:var(--muted);border:1.5px solid var(--border);border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:6px;">🌱 Mit Free-Plan starten (15 Scans/Tag)</button>' +
       '<div style="font-size:10.5px;color:var(--muted);text-align:center;margin-top:14px;line-height:1.55;">' +
         '7-Tage-Trial: Du behältst alle Pro-Features bis zum Ende der Trial-Woche.<br>Sichere Zahlung über Stripe.' +
       '</div>' +
@@ -27039,11 +27039,8 @@ async function savePlant(){
   // v26.58: async für gsUploadPhotoToBucket (base64 → Storage-Bucket).
   // Nur für eingeloggte Nutzer
   if (!gsRequire('save_plant', 'Bitte anmelden um Pflanzen zu speichern.')) return;
-  // Abo-Check
-  if (typeof window.gsAboCanUse === 'function' && !window.gsAboCanUse('save')) {
-    showProfileToast('⭐ Pro-Feature — jetzt abonnieren');
-    setTimeout(gsOpenAboTab, 600); return;
-  }
+  // v30.33: Dead-Code entfernt — gsAboCanUse('save') gab IMMER true zurück (Pflanzen-Speichern ist per
+  // Mission ein Free-Feature). Der unerreichbare „Pro-Feature"-Toast + Abo-Redirect waren irreführende Schuld.
   const name = document.getElementById('mp-name').value.trim();
   if(!name){ try { gsToast('Bitte einen Namen eingeben.', 'warn'); } catch(_){ } return; }
 
@@ -66060,7 +66057,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.32';
+var GS_VERSION = 'v30.33';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -72358,10 +72355,25 @@ async function gsBlockToggleProfile(uid){
   } catch(e){ console.warn('[gsBlockToggle]', e && e.message); }
 }
 window.gsBlockToggleProfile = gsBlockToggleProfile;
-function gsReportUser(uid){
-  // Leichtgewichtig: Report via Toast-Bestätigung (Moderation server-seitig später).
-  if (typeof gsToast==='function') gsToast(_gsCommT('comm_report_thanks','🚩 Danke — Meldung übermittelt. Wir prüfen das.'),'success');
-  if (typeof closeModal==='function') closeModal('gs-nl-modal');
+async function gsReportUser(uid){
+  // v30.33 (Bug-Fix): ECHTE Persistenz via fn_report. Vorher nur ein Fake-Erfolgs-Toast ohne jeden
+  // Server-Write → Meldungen gingen verloren, Admin sah nie etwas (Sicherheits-Kontroll-Fake).
+  try {
+    var r = await sbFetch('/rest/v1/rpc/fn_report', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ p_target_type:'user', p_target_ref: uid, p_reason: null }) });
+    if (r && r.error) {
+      var em = String((r.error && r.error.message) || '');
+      var msg = /rate_limited/.test(em) ? 'Zu viele Meldungen — bitte später erneut.'
+              : /cannot report self/.test(em) ? 'Du kannst dich nicht selbst melden.'
+              : /auth required/.test(em) ? 'Bitte zuerst anmelden.'
+              : 'Meldung fehlgeschlagen — bitte erneut versuchen.';
+      if (typeof gsToast==='function') gsToast(msg, 'warning');
+      return;
+    }
+    if (typeof gsHaptic==='function') { try { gsHaptic('light'); } catch(_){} }
+    if (typeof gsToast==='function') gsToast(_gsCommT('comm_report_thanks','🚩 Danke — Meldung übermittelt. Wir prüfen das.'),'success');
+    if (typeof closeModal==='function') closeModal('gs-nl-modal');
+  } catch(e){ if (typeof gsToast==='function') gsToast('Meldung fehlgeschlagen — bitte erneut versuchen.', 'warning'); }
 }
 window.gsReportUser = gsReportUser;
 
