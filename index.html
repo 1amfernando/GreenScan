@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.31.20260621">
+<meta name="app-version" content="30.32.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -9753,6 +9753,25 @@ function dqCalcPoints(correct, timeUsed, streak) {
   return base + speedBonus + streakBonus;
 }
 
+// v30.32 (Bug-Fix): Tagesquiz-Optionen tolerant normalisieren. Vorher akzeptierte der Loader NUR die
+// choices-shape {choices,correct}; die 114 von 179 kuratierten Fragen in answers-shape {answers,correct}
+// fielen still auf eine lokal-generierte Frage zurück (und wurden in daily_quiz_history für 730 Tage
+// verbrannt, OHNE je gezeigt zu werden) — dieselbe Loader/Renderer-Mismatch-Klasse wie HL#22, partiell.
+// Akzeptiert jetzt {choices,correct}, {answers,correct} und bare-array [{label,is_correct}].
+function _gsQuizToSupaShape(q){
+  if (!q || !q.options) return null;
+  var o = q.options, opts = null, ci = null, expl = null;
+  if (Array.isArray(o)) {                    // bare-array [{label,is_correct,explanation}]
+    opts = o; ci = null;
+    try { var c = o.find(function(x){ return x && x.is_correct; }); expl = (c && c.explanation) || ''; } catch(_){}
+  } else if (Array.isArray(o.choices)) {     // {choices, correct}
+    opts = o.choices; ci = o.correct; expl = o.explanation;
+  } else if (Array.isArray(o.answers)) {     // {answers, correct}  ← war degraded (114/179)
+    opts = o.answers; ci = o.correct; expl = o.explanation;
+  } else { return null; }
+  if (!Array.isArray(opts) || opts.length < 2) return null;
+  return { id:q.id, question:q.question, options:opts, correct_idx:ci, explanation:expl, category:q.category, xp_reward:q.xp_reward };
+}
 function openDailyQuiz() {
   // Prüfe ob heute schon gespielt (Anti-Cheat: keine zweite Chance)
   var todayData = dqGetToday();
@@ -9782,39 +9801,19 @@ function openDailyQuiz() {
               localStorage.setItem('gs_dq_today_cache', JSON.stringify(quizObj));
             } catch(_){}
             window._gsTodayQuiz = quizObj;
-            // Quiz-Format an openDailyQuizFromSupa anpassen
-            if (q.options && Array.isArray(q.options.choices)) {
-              var supaQuiz = {
-                id: q.id,
-                question: q.question,
-                options: q.options.choices,
-                correct_idx: q.options.correct,
-                explanation: q.options.explanation,
-                category: q.category,
-                xp_reward: q.xp_reward
-              };
-              openDailyQuizFromSupa(supaQuiz);
-              return;
-            }
+            // v30.32: alle 3 Shapes tolerant normalisieren (vorher nur choices-shape → 114 Fragen degraded)
+            var supaQuiz = _gsQuizToSupaShape(q);
+            if (supaQuiz) { openDailyQuizFromSupa(supaQuiz); return; }
           }
           // Fallback bei leerem Result
           _openDailyQuizLocal();
         })
         .catch(function(e){ console.warn('[openDailyQuiz] RPC failed', e); _openDailyQuizLocal(); });
       return;
-    } else if (cachedQuiz && cachedQuiz.options && Array.isArray(cachedQuiz.options.choices)) {
-      // Cache: heute schon gepullt
-      var supaQuiz2 = {
-        id: cachedQuiz.id,
-        question: cachedQuiz.question,
-        options: cachedQuiz.options.choices,
-        correct_idx: cachedQuiz.options.correct,
-        explanation: cachedQuiz.options.explanation,
-        category: cachedQuiz.category,
-        xp_reward: cachedQuiz.xp_reward
-      };
-      openDailyQuizFromSupa(supaQuiz2);
-      return;
+    } else if (cachedQuiz) {
+      // Cache: heute schon gepullt — v30.32: alle 3 Shapes normalisieren
+      var supaQuiz2 = _gsQuizToSupaShape(cachedQuiz);
+      if (supaQuiz2) { openDailyQuizFromSupa(supaQuiz2); return; }
     }
   }
   return _openDailyQuizLocal();
@@ -9823,10 +9822,9 @@ function openDailyQuiz() {
 // v24.33: Lokaler Fallback (alte Logik)
 function _openDailyQuizLocal() {
   // ── Supabase-Quiz bevorzugen, falls schon geladen ──────────────────────────
-  if (window._gsTodayQuiz && Array.isArray(window._gsTodayQuiz.options) && window._gsTodayQuiz.options.length >= 2) {
-    openDailyQuizFromSupa(window._gsTodayQuiz);
-    return;
-  }
+  // v30.32: auch im lokalen Fallback alle 3 Shapes normalisieren (answers-shape kam sonst nicht durch)
+  var _sqLocal = _gsQuizToSupaShape(window._gsTodayQuiz);
+  if (_sqLocal) { openDailyQuizFromSupa(_sqLocal); return; }
 
   // ── Fallback: DB-generierte Frage ────────────────────────────────────
   if (typeof DB === 'undefined' || !DB.length) {
@@ -10829,9 +10827,19 @@ window.gsI18n = (function(){
         if (r.data.length < 1000) break;
       }
       // source_text → translated_text Map
+      // v30.32 (Bug-Fix): Key UND Wert HTML-DEKODIEREN. getAttribute('data-i18n-fallback') liefert dekodiert
+      // ('Hilfe & FAQ'), die DB speichert aber encodiert ('Hilfe &amp; FAQ') → der Lookup verfehlte 15 high-traffic
+      // Labels (rendern Deutsch trotz vorhandener EN/ES-Übersetzung). Wert ebenfalls dekodieren, sonst zeigen
+      // textContent-Zeilen literal '&amp;'. Entity-freie Phrasen bleiben unverändert (kein Regress). &amp; ZULETZT.
+      var _i18nDec = function(s){
+        return String(s == null ? '' : s)
+          .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+          .replace(/&#0*39;/g, "'").replace(/&#x0*27;/gi, "'")
+          .replace(/&amp;/g, '&');
+      };
       var srcMap = {};
       allRows.forEach(function(row){
-        if (row && row.source_text) srcMap[row.source_text] = row.translated_text;
+        if (row && row.source_text) srcMap[_i18nDec(row.source_text)] = _i18nDec(row.translated_text);
       });
       // data-i18n keys → translated lookup via data-i18n-fallback Phrase
       var keyBundle = {};
@@ -66052,7 +66060,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.31';
+var GS_VERSION = 'v30.32';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
