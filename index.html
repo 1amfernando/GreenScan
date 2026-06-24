@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.34.20260621">
+<meta name="app-version" content="30.35.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -7941,11 +7941,13 @@ function gsSaeToggleMerk(name, btn) {
     btn.textContent = '☆';
     btn.style.opacity = '.4';
   } else {
+    if (merk.length >= 30) { if (typeof gsToast === 'function') gsToast('Merkliste voll (max 30) — bitte erst etwas entfernen.', 'warning'); return; } // v30.35: kein stiller Drop des 31. Eintrags (vorher: Stern leuchtete, Eintrag verschwand)
     merk.push(name);
     btn.textContent = '⭐';
     btn.style.opacity = '1';
   }
   try { localStorage.setItem('gs_sae_merkliste', JSON.stringify(merk.slice(0,30))); } catch(e) {}
+  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('state'); } catch(_){} // v30.35 HL#32: expliziter markDirty
 }
 
 function gsSaeLogAsSowed(name) {
@@ -16359,9 +16361,10 @@ function gsOpenNaturjahr(){
 
   // Quiz (gs_dq_stats) + Achievements (gs_achievements: Array ODER Object)
   var dq={}; try { dq=JSON.parse(localStorage.getItem('gs_dq_stats')||'{}')||{}; } catch(_){}
-  var achRaw=null; try { achRaw=JSON.parse(localStorage.getItem('gs_achievements')||'null'); } catch(_){}
-  var achN = Array.isArray(achRaw) ? achRaw.filter(function(a){return a&&(a.unlocked||a.done||a.earned||a.tier||a.level);}).length
-           : (achRaw&&typeof achRaw==='object') ? Object.keys(achRaw).length : 0;
+  // v30.35 (Bug-Fix): aus dem LIVE-DB-System lesen (window._gsAchOverview, gefüllt von openAchievementsModal),
+  // nicht aus dem toten localStorage-Key gs_achievements (wird vom aktuellen Achievement-System nie geschrieben
+  // → Kachel zeigte IMMER 0). Wenn die Übersicht in dieser Session noch nicht geladen wurde → 0 (statt falscher Daten).
+  var achN = (window._gsAchOverview || []).filter(function(r){ return r && r.unlocked; }).length;
 
   var totalActivity = scanYear+findYear+plantYear+ernteCount;
   var maxMonth = Math.max.apply(null, months.concat([1]));
@@ -16663,6 +16666,7 @@ function toggleRecipeFav(id,ev){
   if(isRecipeFav(id)){_recipeFavs=_recipeFavs.filter(function(f){return f!==id;});showProfileToast('Rezept entfernt','info');}
   else{_recipeFavs.push(id);showProfileToast('Rezept gespeichert!');if(typeof gsTrackAction==='function')gsTrackAction('recipe');}
   try{localStorage.setItem('gs_recipe_favs',JSON.stringify(_recipeFavs));}catch(e){}
+  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('state'); } catch(_){} // v30.35 HL#32: expliziter markDirty (Auto-Track ist geshadowed)
   // v23.56: Alle Hearts mit diesem data-rfav aktualisieren (Karten + Detail-Modal)
   document.querySelectorAll('[data-rfav="'+id+'"]').forEach(function(b){
     var fav = isRecipeFav(id);
@@ -27286,7 +27290,7 @@ function gsDiaryClearPhoto() {
   var f = document.getElementById('diary-photo-file'); if (f) f.value = '';
 }
 
-function gsAddDiaryEntry(plantId) {
+async function gsAddDiaryEntry(plantId) {
   if (gsAsyncLock('diaryAdd_' + plantId, 600)) return; // v26.57: Double-Submit-Schutz
   // v24.35: Engagement-Tracking — Garten-Action zählt 10 Punkte
   try { window.gsTrackEngagement && window.gsTrackEngagement('garden'); } catch(e){}
@@ -27295,7 +27299,15 @@ function gsAddDiaryEntry(plantId) {
   if (!Array.isArray(p.diary)) p.diary = [];
   var action = (document.getElementById('diary-action')||{}).value || 'note';
   var note = ((document.getElementById('diary-note')||{}).value || '').trim();
-  var photo = window._gsDiaryPhotoB64 ? ('data:image/jpeg;base64,' + window._gsDiaryPhotoB64) : null;
+  // v30.35 (HL#10/#21): Foto in den Bucket laden statt base64 in den gesyncten user_plants-Blob zu legen
+  // (sonst Quota-Bloat + jeder Plant-Edit re-pusht alle base64). Fallback base64 nur offline/guest/Upload-Fehler.
+  var photo = null;
+  if (window._gsDiaryPhotoB64) {
+    if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof window.gsUploadPhotoToBucket === 'function') {
+      try { photo = await window.gsUploadPhotoToBucket('garden-diary-photos', window._gsDiaryPhotoB64); } catch(_){}
+    }
+    if (!photo) photo = 'data:image/jpeg;base64,' + window._gsDiaryPhotoB64;
+  }
   if (!note && !photo && action === 'note') {
     if (typeof showProfileToast==='function') showProfileToast('Bitte Notiz oder Foto hinzufügen', 'warn');
     return;
@@ -27308,6 +27320,7 @@ function gsAddDiaryEntry(plantId) {
     note: note || null,
     photo: photo
   });
+  if (p.diary.length > 200) p.diary = p.diary.slice(-200); // v30.35: Cap (neueste 200) gegen Blob-Bloat
   // Auch lastDone der entsprechenden Aufgabe updaten falls action eine Pflege-Aktion ist
   if (p.tasks && p.tasks[action]) {
     p.tasks[action].lastDone = new Date().toISOString();
@@ -41206,8 +41219,20 @@ async function gsRecipePhotoUpload(localId){
     var file = input.files && input.files[0]; if (!file) return;
     try {
       if (typeof gsToast==='function') gsToast('⏳ Foto wird hochgeladen…','info');
+      // v30.35 (Bug-Fix): gsCompressImage erwartet ein Options-OBJEKT + returnt {b64,mt} — der frühere positionale
+      // Call (file,1280,0.82) ignorierte die Args UND schickte das Result-Objekt als fetch-Body → "[object Object]"
+      // (15-Byte-Textdatei) statt JPEG. Jetzt: komprimieren → b64 → echtes Blob; Fallback auf das Original-File-Blob.
       var blob = file;
-      if (typeof gsCompressImage === 'function') { try { blob = await gsCompressImage(file, 1280, 0.82); } catch(_){} }
+      try {
+        if (typeof gsCompressImage === 'function') {
+          var _rc = await gsCompressImage(file, { maxDim: 1280, quality: 0.82 });
+          if (_rc && _rc.b64) {
+            var _bin = atob(_rc.b64), _u8 = new Uint8Array(_bin.length);
+            for (var _i = 0; _i < _bin.length; _i++) _u8[_i] = _bin.charCodeAt(_i);
+            blob = new Blob([_u8], { type: 'image/jpeg' });
+          }
+        }
+      } catch(_){}
       var token = (typeof _gsFreshToken==='function') ? await _gsFreshToken() : (gsStore.get('gs_sb_token',null));
       if (!token) { if(typeof gsToast==='function') gsToast('🔑 Sitzung abgelaufen — neu einloggen.','error'); return; }
       var path = r._cloud_id + '/' + Date.now() + '.jpg';
@@ -66066,7 +66091,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.34';
+var GS_VERSION = 'v30.35';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -67104,7 +67129,9 @@ function sbSaveSession(data) {
 }
 
 function sbClearSession() {
-  ['gs_sb_token','gs_sb_refresh','gs_sb_expires','gs_sb_uid','gs_sb_email'].forEach(function(k){
+  // v30.35 SECURITY: auch den Rollen-Cache leeren — sonst sah der nächste User auf einem geteilten Gerät
+  // kurz (synchron beim Login, bis zum async Server-Sync) die Admin/Experten-UI des Vorgängers (HL: Stale-Role-Leak).
+  ['gs_sb_token','gs_sb_refresh','gs_sb_expires','gs_sb_uid','gs_sb_email','gs_user_role','gs_is_admin'].forEach(function(k){
     localStorage.removeItem(k);
   });
   // v23.90 SECURITY: Beim Logout immer Admin-Flag entfernen
@@ -71037,6 +71064,7 @@ var GS_KEEP_ON_LOGOUT = [
 
 // v23.74: User-Data-Keys-Liste zentral (Login + Logout teilen sie)
 var GS_USER_KEYS = [
+  'gs_user_role','gs_is_admin', // v30.35 SECURITY: Rollen-Cache pro User (Stale-Role-Leak auf geteiltem Gerät)
   'gs_garden_plans','gs_garden_plan_current','gs_gardens','gs_plantings',
   'ps_myplants','gs_gartentagebuch','gs_ernte_log','gs_harvest_log',
   'gs_doctor_history','gs_seed_inventory','gs_chat_history','gs_ki_analyses',
@@ -73199,6 +73227,13 @@ async function gsRegisterPushSubscription(subscription){
         notify_water: s.water !== false,
         notify_seasonal: s.seasonal !== false,
         notify_quiz_streak: s.quiz !== false,
+        // v30.35: die 5 jüngeren Kategorien fehlten im Erst-Subscribe-Body → DB-Default true überschrieb eine
+        // frühere (cross-device gesyncte) Abwahl. Jetzt mitgeben, damit Gerät B die Wahl von Gerät A respektiert.
+        notify_heat: s.heat !== false,
+        notify_storm: s.storm !== false,
+        notify_classes: s.classes !== false,
+        notify_doctor: s.doctor !== false,
+        notify_battle: s.battle !== false,
         quiet_start_hour: (typeof s.quietStart === 'number') ? s.quietStart : 22,
         quiet_end_hour:   (typeof s.quietEnd === 'number')   ? s.quietEnd   : 7
       })
