@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.23.20260621">
+<meta name="app-version" content="30.24.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13357,6 +13357,12 @@ function gsToast(msg, type){
   try { alert((msg && typeof msg === 'object') ? ((msg.title ? msg.title + ' · ' : '') + (msg.body || msg.message || '')) : msg); } catch(__){}
 }
 window.gsToast = gsToast;
+// v30.24: zentraler Offline-Guard — true wenn online, sonst Toast + false. Für Netz-Pflicht-Features (Scanner/Lina/Community/Marktplatz) statt 45s-Timeout.
+window.gsRequireOnline = function(feature){
+  if (typeof navigator === 'undefined' || navigator.onLine) return true;
+  try { if (typeof gsToast === 'function') gsToast('📡 ' + (feature || 'Diese Funktion') + ' braucht eine Internet-Verbindung.', 'warning'); } catch(_){}
+  return false;
+};
 
 // v26.57: gsAsyncLock — Double-Submit-Prävention für Async-Buttons
 // Usage: am Anfang der Submit-Function:  if (gsAsyncLock('myKey', 800)) return;
@@ -20905,6 +20911,7 @@ async function saveListing() {
     return;
   }
 
+  if (!navigator.onLine) { if (typeof showProfileToast === 'function') showProfileToast({type:'warning', icon:'📡', title:'Offline', body:'Inserate brauchen Internet (Foto-Upload + Veröffentlichung). Dein Entwurf bleibt im Formular — bitte online erneut auf Veröffentlichen tippen.', duration:5500}); return; } /* v30.24 Marktplatz-Offline-Guard */
   if (typeof showProfileToast === 'function') showProfileToast(
     (window.gsI18n ? gsI18n.t('toast_market_publishing', '⏳ Veröffentliche…') : '⏳ Veröffentliche…'),
     'info');
@@ -24250,6 +24257,7 @@ async function analyzeImage(b64, mt, organContext, extraImages){
   }
 
   try{
+    if (!navigator.onLine) { var _offErr = new Error('offline'); _offErr.code = 'offline'; throw _offErr; } // v30.24: offline sofort statt 45s-Timeout (Cache-Hit oben lief bereits)
     const text = await callVisionAI(b64, mt, prompt, extraImages, { systemPrompt: SCAN_SYSTEM_PROMPT, quotaFeature: 'scan' });
     clearInterval(stageTimer);
     if(!text) throw new Error('Keine Antwort von der KI erhalten.');
@@ -24278,6 +24286,18 @@ async function analyzeImage(b64, mt, organContext, extraImages){
   }catch(err){
     clearInterval(stageTimer);
     var errMsg = (err && err.message) || 'Unbekannter Fehler';
+    // v30.24: Offline → sofortige, ruhige Offline-Karte statt rotem Fehler (Scanner braucht Netz für die KI)
+    if (err && err.code === 'offline') {
+      var ord = document.getElementById('scan-result');
+      if (ord) {
+        ord.style.display = 'block';
+        ord.innerHTML = '<div style="text-align:center;padding:34px 22px;">'
+          + '<div style="font-size:52px;margin-bottom:10px;">📡</div>'
+          + '<div style="font-size:18px;font-weight:900;color:var(--g-dark);margin-bottom:8px;">Offline</div>'
+          + '<div style="font-size:13.5px;color:var(--text2);line-height:1.6;max-width:340px;margin:0 auto;">Der KI-Scanner braucht eine Internet-Verbindung. Deine bereits gespeicherten Arten, Pflanzen und Funde bleiben offline verfügbar — die Bestimmung klappt wieder, sobald du online bist.</div></div>';
+      }
+      return;
+    }
     // v28.05: Tagesquota erreicht → WARME Karte (kein rotes „fehlgeschlagen", kein Verkaufsdruck).
     if (err && err.code === 'free_quota_reached') {
       var qrd = document.getElementById('scan-result');
@@ -44928,6 +44948,11 @@ async function gsAddMarker(lat, lng) {
         found_at: new Date().toISOString(),
         is_private: true
       };
+      if (!navigator.onLine) {
+        // v30.24: offline → Fund queuen (gsFlushOfflineQueue Typ 'find' inserted ihn sobald wieder online). Kein Datenverlust mehr.
+        try { if (typeof window.gsQueueOffline === 'function') await window.gsQueueOffline('find', payload); } catch(_){}
+        cloudMsg = '📡 Offline gesichert — Cloud-Sync folgt sobald online';
+      } else {
       var r = await sbFetch('/rest/v1/map_user_finds', {
         method:'POST',
         headers:{'Content-Type':'application/json','Prefer':'return=representation'},
@@ -44953,6 +44978,7 @@ async function gsAddMarker(lat, lng) {
         console.warn('[v26.84] gsAddMarker cloud: kein Row zurück', r);
         cloudMsg = '⚠ Cloud-Sync unklar — nur lokal gespeichert';
       }
+      } /* v30.24: Ende online-Zweig (offline-Zweig oben hat den Fund gequeued) */
     } else {
       cloudMsg = lsOk ? '📍 Lokal gespeichert (nicht eingeloggt — kein Cloud-Sync)' : '';
     }
@@ -65977,7 +66003,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.23';
+var GS_VERSION = 'v30.24';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -68047,9 +68073,14 @@ function gsRegisterServiceWorker() {
               await window.gsScanPersistToCloud(it.data); ok = true;
             } else if (it.type === 'diary' && typeof window.gsAddDiaryEntry === 'function') {
               await window.gsAddDiaryEntry(it.data); ok = true;
+            } else if (it.type === 'find' && typeof sbFetch === 'function' && it.data) {
+              // v30.24: offline gequeueter Karten-Fund → jetzt in map_user_finds inserten
+              var fr = await sbFetch('/rest/v1/map_user_finds', { method:'POST', headers:{'Content-Type':'application/json','Prefer':'return=minimal'}, body: JSON.stringify(it.data) });
+              if (!fr || !fr.error) ok = true;
             } else {
-              // Generic: einfach lokalen Sync triggern
-              if (typeof window.gsCloudSyncPushNow === 'function') { await window.gsCloudSyncPushNow(); ok = true; }
+              // v30.24-Fix: korrekter Sync-Trigger (gsCloudSyncPushNow existierte NIE → generic-Items blieben ewig pending). Jetzt gsCloudSync.flushNow().
+              if (window.gsCloudSync && typeof window.gsCloudSync.flushNow === 'function') { await window.gsCloudSync.flushNow(); ok = true; }
+              else { ok = true; } // kein Sync-Layer → Item trotzdem entfernen (kein endloses Wachstum)
             }
           } catch(e){ console.warn('[flush] item failed', e); }
           if (ok) {
@@ -71295,7 +71326,7 @@ window.gsCloudSync = (function(){
   function _setQueue(q){ try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q.slice(-200))); } catch(_){} } // max 200
 
   function _uid(){ return gsStore.get('gs_sb_uid', null) || ''; }
-  function _canPush(){ return (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) && !!_uid() && (typeof sbFetch === 'function'); }
+  function _canPush(){ return (typeof navigator === 'undefined' || navigator.onLine !== false) && (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) && !!_uid() && (typeof sbFetch === 'function'); } /* v30.24: navigator.onLine-Guard — offline KEIN Push-Versuch (dirty-Flag bleibt, wird online nachgepusht). Verhindert 30s-Retry-Storm + spart Akku/Logs. */
 
   function markDirty(scope){
     var d = _getDirty();
@@ -71644,6 +71675,9 @@ window.gsCloudSync = (function(){
         // BEWUSST NICHT gesynct: gs_notif_enabled/gs_notif_state (Browser-Permission ist PRO
         // GERÄT — Sync würde auf Gerät B "an" anzeigen ohne echte Permission).
         'gs_region':'state','gs_push_settings':'state','gs_ernte_year':'state',
+        // v30.24: Standort cross-device (sonst Wetter/Regional-Pilze/Saison leer auf neuem Gerät — grösste echte Sync-Lücke). LWW; lokales GPS überschreibt beim nächsten App-Start.
+        'gs_user_location':'state',
+        'gs_sae_search':'state','gs_sae_cat':'state', // v30.24: Säkalender Such-/Filter-State (resettete sonst pro Gerät)
         'gs_weather_lastfetch':'state', // Wetter-Cache-Stamp (Daten-Cache extra)
         // plants-Scope (zusätzlich zu existing markDirty-Calls — doppeltes Tracken ist safe)
         'ps_myplants':'plants','gs_gartentagebuch':'plants',
@@ -72294,6 +72328,7 @@ function gsCommunitySearchDebounced(q){
 window.gsCommunitySearchDebounced = gsCommunitySearchDebounced;
 async function gsCommunitySearch(q){
   var body = document.getElementById('gs-community-body'); if (!body) return;
+  if (!navigator.onLine) { body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:24px;font-size:12.5px;">📡 Die Community-Suche braucht eine Internet-Verbindung.</div>'; return; } /* v30.24 Offline-Guard */
   // v28.02: kein Auto-Discover-Listing mehr — bei zu kurzer Eingabe nur Hinweis (Privacy).
   if (!q || q.trim().length < 2) { body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;font-size:12.5px;">Tippe mindestens 2 Zeichen, um nach einem Namen zu suchen.</div>'; return; }
   try {
@@ -72307,6 +72342,7 @@ window.gsCommunitySearch = gsCommunitySearch;
 // der gefolgten User (kein anonymes Durchblättern fremder Profile).
 async function gsCommunityLoadMilestones(){
   var body = document.getElementById('gs-community-body'); if (!body) return;
+  if (!navigator.onLine) { body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:24px;font-size:12.5px;">📡 Braucht Internet — sobald du online bist, lädt der Community-Feed.</div>'; return; } /* v30.24 Offline-Guard */
   try {
     var r = await sbFetch('/rest/v1/rpc/fn_following_feed', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_limit: 60 }) });
     var rows = (r && !r.error && Array.isArray(r.data)) ? r.data.filter(function(f){ return f.kind==='achievement'; }) : [];
@@ -72330,6 +72366,7 @@ function _gsUserCardHtml(u){
 }
 async function gsCommunityLoadFeed(){
   var body = document.getElementById('gs-community-body'); if (!body) return;
+  if (!navigator.onLine) { body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:24px;font-size:12.5px;">📡 Braucht Internet — sobald du online bist, lädt der Community-Feed.</div>'; return; } /* v30.24 Offline-Guard */
   try {
     var r = await sbFetch('/rest/v1/rpc/fn_following_feed', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_limit: 40 }) });
     var rows = (r && !r.error && Array.isArray(r.data)) ? r.data : [];
@@ -72901,6 +72938,8 @@ async function gsLinaSend(){
   var inp = document.getElementById('gs-lina-input');
   var text = inp ? (inp.value||'').trim() : '';
   if (!text) return;
+  // v30.24: offline → sofortiger Hinweis statt 45s-Timeout (Eingabe bleibt erhalten)
+  if (!navigator.onLine) { if (typeof gsToast === 'function') gsToast('📡 Lina braucht Internet — sobald du online bist, bin ich wieder da. 🌿', 'warning'); return; }
   window._gsLinaSending = true;
   if (inp) inp.value = '';
   window._gsLinaMsgs = window._gsLinaMsgs || [];
