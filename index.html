@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.24.20260621">
+<meta name="app-version" content="30.25.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -7914,6 +7914,7 @@ function gsSaeDetail(el) {
 
 function gsSaeFilterCat(cat) {
   localStorage.setItem('gs_sae_cat', cat);
+  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('state'); } catch(_){} // v30.24 cross-device
   gsHaptic('tap');
   openSaekalender();
 }
@@ -48253,6 +48254,8 @@ function saveUserLocation(locObj) {
   // v24.11: in BEIDE bekannte localStorage-Keys schreiben — verschiedene Code-Pfade lesen unterschiedlich
   try { localStorage.setItem('gs_user_location', JSON.stringify(locObj)); } catch(e){}
   try { localStorage.setItem('userLocation',     JSON.stringify(locObj)); } catch(e){}
+  // v30.24: Standort cross-device — expliziter markDirty (Auto-Track ist durch den Quota-Wrapper geshadowed)
+  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('state'); } catch(_){}
   // ALTE Weather-Caches für diesen Ort invalidieren (damit fresh abgerufen wird)
   try {
     weatherCache = {}; // kompletter Wetter-Cache weg
@@ -48568,6 +48571,8 @@ function gsGetPosition(onSuccess, onError, opts) {
                   userLocation.lat = pos.coords.latitude;
                   userLocation.lon = pos.coords.longitude;
                   localStorage.setItem('gs_user_location', JSON.stringify(userLocation));
+                  // v30.24: einmal-pro-Start GPS-Refresh → Standort cross-device syncen (Reisende)
+                  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('state'); } catch(_){}
                 }
               } catch(e){}
             },
@@ -66003,7 +66008,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.24';
+var GS_VERSION = 'v30.25';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -71146,6 +71151,10 @@ async function gsSyncUserDataOnLogin(){
           // v28.97 A-Z-Audit PERS-2/4: Region + Push-Kategorien-Prefs Cross-Device
           if (sd.region) stateMap['gs_region'] = sd.region;
           if (sd.push_settings && typeof sd.push_settings === 'object' && Object.keys(sd.push_settings).length) stateMap['gs_push_settings'] = sd.push_settings;
+          // v30.24: Standort + Säkalender-Filter cross-device
+          if (sd.user_location) stateMap['gs_user_location'] = sd.user_location;
+          if (sd.sae_search) stateMap['gs_sae_search'] = sd.sae_search;
+          if (sd.sae_cat) stateMap['gs_sae_cat'] = sd.sae_cat;
           // Wichtig: temporär den setItem-Patch umgehen damit Pull nicht sofort wieder Push triggert.
           // Nutzen Storage.prototype.setItem direkt via _origSet wenn vorhanden.
           var origSet = Object.getPrototypeOf(localStorage).setItem;
@@ -71508,6 +71517,11 @@ window.gsCloudSync = (function(){
     // v28.97 A-Z-Audit PERS-2/4: Region-Kontext + Push-Kategorien-Prefs Cross-Device
     try { data.region = localStorage.getItem('gs_region') || ''; } catch(_){}
     try { data.push_settings = JSON.parse(localStorage.getItem('gs_push_settings')||'{}'); } catch(_){ data.push_settings = {}; }
+    // v30.24: Standort + Säkalender-Filter cross-device (STATE_KEYS-Auto-Track ist durch den Quota-Wrapper
+    // geshadowed → echte Sync läuft NUR über diesen Blob + Pull-stateMap + explizite markDirty-Calls)
+    try { data.user_location = localStorage.getItem('gs_user_location') || ''; } catch(_){}
+    try { data.sae_search = localStorage.getItem('gs_sae_search') || ''; } catch(_){}
+    try { data.sae_cat = localStorage.getItem('gs_sae_cat') || ''; } catch(_){}
     return data;
   }
 
