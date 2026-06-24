@@ -1,0 +1,16 @@
+{
+  "appId": "ch.greenscan.app",
+  "appName": "GreenScan",
+  "webDir": "www",
+  "backgroundColor": "#1a3d1a",
+  "server": {
+    "url": "https://green-scan.ch",
+    "cleartext": false
+  },
+  "ios": {
+    "contentInset": "always",
+    "backgroundColor": "#1a3d1a",
+    "scrollEnabled": true,
+    "limitsNavigationsToAppBoundDomains": false
+  }
+}

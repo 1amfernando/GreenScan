@@ -1,0 +1,19 @@
+{
+  "name": "greenscan-ios",
+  "version": "30.31.0",
+  "private": true,
+  "description": "GreenScan iOS-Wrapper (Capacitor) — verpackt die green-scan.ch PWA als native App für den Apple App Store.",
+  "scripts": {
+    "init:www": "mkdir -p www && printf '<!doctype html><meta http-equiv=refresh content=\"0;url=https://green-scan.ch\">GreenScan' > www/index.html",
+    "ios:add": "cap add ios",
+    "ios:sync": "cap sync ios",
+    "ios:open": "cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.1.0",
+    "@capacitor/ios": "^6.1.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.0"
+  }
+}

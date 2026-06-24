@@ -1,55 +1,47 @@
-# GreenScan → Android-APK / Google Play (TWA) — Anleitung für Fernando
+# GreenScan → App Stores — Übersicht (Android + Apple)
 
-> Die App ist eine PWA und kann ohne Code-Umbau als **echte Android-App (APK/AAB)**
-> über eine **Trusted Web Activity (TWA)** verpackt werden. manifest.json + _headers
-> sind bereits TWA-tauglich. Der **einzige Blocker** sind die Platzhalter-Fingerprints
-> in `.well-known/assetlinks.json` — die kennt man erst **nach** dem Signieren, daher
-> muss die Reihenfolge eingehalten werden.
->
-> Stand 22.06.2026 · Package-Name (fest): **ch.greenscan.app** · Domain: green-scan.ch
+Die App ist eine PWA. Alles für eine **echte App** ist im Repo vorbereitet; übrig bleiben
+nur die unvermeidbar manuellen Schritte (Signing-Key, Store-Accounts, Xcode-Build).
+
+| Plattform | Weg | Aufwand | Status |
+|---|---|---|---|
+| **iPhone/iPad (sofort)** | PWA → Home-Bildschirm (Safari → Teilen) | 0 — funktioniert jetzt | ✅ fertig |
+| **Android-APK / Play Store** | TWA via Bubblewrap **oder** PWABuilder | ~15–30 Min | ⏳ Build + Fingerprint durch dich |
+| **Apple App Store** | Capacitor-Wrapper + Xcode | groß (Mac + $99/J + Review) | ⏳ Scaffold liegt bereit |
+
+Detail-Anleitungen:
+- **Android:** [`store/android/BUILD_ANDROID.md`](store/android/BUILD_ANDROID.md) (+ fertige `store/android/twa-manifest.json`)
+- **Apple/iOS:** [`store/ios/BUILD_IOS.md`](store/ios/BUILD_IOS.md) (+ `store/ios/capacitor.config.json` + `package.json`)
 
 ---
 
-## Voraussetzungen (einmalig)
-- **Google Play Developer Account** (einmalig ~25 USD): https://play.google.com/console
-- Kein Mac/Android-Studio nötig, wenn du **PWABuilder** nimmst (Web-UI).
+## Schnellster Android-Weg (kein Setup): PWABuilder
+1. [pwabuilder.com](https://www.pwabuilder.com) → `https://green-scan.ch` → **Android**.
+2. Package-ID exakt **`ch.greenscan.app`** (steht so in assetlinks.json).
+3. Download: `.aab` (Play Store) + `.apk` (Direkt-Test) + `signing.keystore` + Fingerprint.
+4. **Signing-Keystore + Passwort sicher sichern** (Verlust = keine Updates mehr).
 
-## Schritt 1 — APK/AAB bauen (einfachster Weg: PWABuilder)
-1. https://www.pwabuilder.com öffnen → `https://green-scan.ch` eingeben → **Start**.
-2. „Package for Stores" → **Android**.
-3. **Package-ID exakt `ch.greenscan.app`** setzen (MUSS so heissen — steht fest in assetlinks.json).
-4. Herunterladen: du bekommst ein **`.aab`** (für Play Store) + ein **`.apk`** (zum Direkt-Testen) + einen **`signing.keystore`** + ein **`assetlinks.json`**-Snippet.
-5. **WICHTIG: den Signing-Keystore + das Passwort sicher aufbewahren** — Verlust = keine App-Updates mehr möglich.
+## Reproduzierbarer Android-Weg: Bubblewrap
+`store/android/twa-manifest.json` ist fertig konfiguriert → siehe `store/android/BUILD_ANDROID.md`.
 
-*(Alternative für Profis: Bubblewrap CLI — `npx @bubblewrap/cli init --manifest https://green-scan.ch/manifest.json` dann `bubblewrap build`.)*
+## Der EINE Schritt, den ich danach übernehme
+Beide Wege geben dir einen **SHA-256-Fingerprint**. **Schick ihn mir** — ich ersetze die
+Platzhalter in `.well-known/assetlinks.json`
+(`REPLACE_WITH_PLAY_APP_SIGNING_SHA256_FINGERPRINT` /
+`REPLACE_WITH_UPLOAD_KEY_SHA256_FINGERPRINT`) und deploye. Erst danach läuft die
+Android-App ohne Browser-Adressleiste (Domain-Verknüpfung verifiziert via
+digitalassetlinks).
 
-## Schritt 2 — Den SHA-256-Fingerprint holen
-- **PWABuilder zeigt ihn dir direkt** in der heruntergeladenen `assetlinks.json` (Feld `sha256_cert_fingerprints`). Das ist der einfachste Fall.
-- **ODER aus der Play Console** (wenn du Play-App-Signing nutzt): App → *Test und Veröffentlichung* → *App-Integrität* → *Play-App-Signatur* → SHA-256 des **App-Signaturzertifikats** kopieren (Format `AB:CD:EF:…`).
-- Hast du einen separaten Upload-Key: dessen Fingerprint zusätzlich via `keytool -list -v -keystore <pfad>`.
+---
 
-## Schritt 3 — assetlinks.json im Repo aktualisieren (→ Claude/Cowork erledigt das)
-In `.well-known/assetlinks.json` die zwei Platzhalter
-`REPLACE_WITH_PLAY_APP_SIGNING_SHA256_FINGERPRINT` und
-`REPLACE_WITH_UPLOAD_KEY_SHA256_FINGERPRINT` durch die echten SHA-256-Werte ersetzen.
-→ **Schick mir den/die Fingerprint(s), dann trage ich sie ein, committe + deploye.**
-(Wenn nur ein Play-Managed-Fingerprint existiert: beide Einträge mit demselben Wert
-füllen oder den zweiten entfernen.)
+## Apple — kurz
+- **Jetzt nutzbar:** PWA auf den Home-Bildschirm (Vollbild, Splash, Push iOS 16.4+). Alle
+  `<head>`-Tags + 11 Splash-Screens + manifest sind gesetzt.
+- **App Store:** braucht Mac + Xcode + Apple Developer ($99/J). Scaffold + Schritte in
+  `store/ios/BUILD_IOS.md`. ⚠️ Apple lehnt reine WebView-Wrapper oft ab (Regel 4.2) — die
+  App sollte nativen Mehrwert bieten (native Push/Kamera/Offline-Bundle).
 
-## Schritt 4 — Verknüpfung verifizieren
-Nach dem Deploy diese URL aufrufen — muss ein „verified" Statement mit `ch.greenscan.app` zeigen:
-```
-https://digitalassetlinks.googleapis.com/v1/statements:list?source.web.site=https://green-scan.ch&relation=delegate_permission/common.handle_all_urls
-```
-Auf dem Android-Gerät die TWA installieren → **keine Browser-Adressleiste sichtbar = Verknüpfung ok**.
-(Chrome cached Asset-Links bis ~24 h — ggf. etwas Geduld.)
-
-## Schritt 5 — Direkt testen oder in den Play Store
-- **Nur testen:** die `.apk` aufs Android-Gerät kopieren + installieren (Quelle „unbekannte Apps" erlauben).
-- **Play Store:** `.aab` in der Play Console → *Interner Test* hochladen → nach Smoke-Test (Kamera-, Standort-, Push-Prompt prüfen) → *Produktion* promoten.
-- **Data-Safety-Formular** ausfüllen: Kamera (Scanner), Standort (Wetter/Regional-Pilze), Benachrichtigungen (Reminder). Screenshots + IARC-Einstufung ergänzen.
-
-## Hinweise
-- Reine WebView-Wrapper können von Google abgelehnt werden — eine **TWA mit echtem PWA-Funktionsumfang** (Offline, Push, Scanner) ist i.d.R. unkritisch.
-- **iOS:** Es gibt keine „APK". Dort ist die PWA per Safari → „Zum Home-Bildschirm" die native-ähnliche Lösung; ein echter App-Store-Build bräuchte einen Mac + Xcode-Wrapper (separater Aufwand, optional später).
-- Nach jedem App-Update musst du NICHTS neu bauen — die TWA lädt immer die aktuelle green-scan.ch (PWA-Updates kommen automatisch).
+## Assets (schon vorhanden in `icons/`)
+- Android adaptive: `icon-maskable-512.png` · Android/Web: `icon-192/512.png`
+- **Apple App Store Marketing-Icon: `icon-1024.png`** (1024×1024, opak, kein Alpha — Apple-konform)
+- iOS Home-Icon: `apple-touch-icon.png` · 11× `apple-splash-*` · Shortcuts · Screenshots

@@ -1,0 +1,67 @@
+{
+  "packageId": "ch.greenscan.app",
+  "host": "green-scan.ch",
+  "name": "GreenScan – Schweizer Pflanzen, Pilze & Natur",
+  "launcherName": "GreenScan",
+  "display": "standalone",
+  "orientation": "portrait",
+  "themeColor": "#1a3d1a",
+  "themeColorDark": "#0e2814",
+  "navigationColor": "#1a3d1a",
+  "navigationColorDark": "#0e2814",
+  "navigationDividerColor": "#1a3d1a",
+  "navigationDividerColorDark": "#0e2814",
+  "backgroundColor": "#1a3d1a",
+  "enableNotifications": true,
+  "startUrl": "/?source=twa",
+  "iconUrl": "https://green-scan.ch/icons/icon-512.png?v=2",
+  "maskableIconUrl": "https://green-scan.ch/icons/icon-maskable-512.png?v=2",
+  "monochromeIconUrl": "",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android-signing.keystore",
+    "alias": "greenscan-upload"
+  },
+  "appVersionName": "30.31",
+  "appVersionCode": 303100,
+  "shellApkVersion": 0,
+  "webManifestUrl": "https://green-scan.ch/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": { "enabled": false },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://green-scan.ch/",
+  "minSdkVersion": 23,
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "appVersion": "30.31",
+  "shortcuts": [
+    {
+      "name": "Pflanze scannen",
+      "shortName": "Scanner",
+      "url": "/?screen=scanner&source=twa-shortcut",
+      "chosenIconUrl": "https://green-scan.ch/icons/shortcut-scanner.png?v=2"
+    },
+    {
+      "name": "Mein Garten",
+      "shortName": "Garten",
+      "url": "/?screen=garten&source=twa-shortcut",
+      "chosenIconUrl": "https://green-scan.ch/icons/shortcut-garden.png?v=2"
+    },
+    {
+      "name": "Tagesfrage",
+      "shortName": "Quiz",
+      "url": "/?screen=quiz&source=twa-shortcut",
+      "chosenIconUrl": "https://green-scan.ch/icons/shortcut-quiz.png?v=2"
+    },
+    {
+      "name": "Gartenwissen",
+      "shortName": "Wissen",
+      "url": "/?screen=knowledge&source=twa-shortcut",
+      "chosenIconUrl": "https://green-scan.ch/icons/shortcut-knowledge.png?v=2"
+    }
+  ]
+}
