@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.39.20260625">
+<meta name="app-version" content="30.40.20260625">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -6408,16 +6408,23 @@ function gsIsActuallyAdmin() {
 var IS_ADMIN = gsIsActuallyAdmin();
 // Bei jedem Account-Wechsel/Auth-Event: IS_ADMIN re-evaluieren und gs_admin löschen falls User kein Admin
 window.gsRefreshAdminFlag = function() {
-  var actual = gsIsActuallyAdmin();
+  var email = (gsStore.get('gs_sb_email', null) || '').toLowerCase();
+  var isWhitelisted = typeof GS_ADMINS !== 'undefined' && Array.isArray(GS_ADMINS) && GS_ADMINS.includes(email);
+  // v30.40 FIX (Admin-Flicker): IS_ADMIN konstant für ECHTE Admins. Vorher nur gsIsActuallyAdmin() (= gs_admin-
+  // Passwort-Flag, das beim normalen Login NIE gesetzt ist) → IS_ADMIN wurde bei JEDEM Token-Refresh
+  // (sbSaveSession→gsRefreshAdminFlag, ~stündlich) auf false zurückgesetzt = "Admin-Modus schaltet sich aus".
+  // Jetzt: Passwort-Flag ODER E-Mail-Whitelist ODER server-Rollen-Cache. Echte Admin-Aktionen bleiben server-
+  // seitig via is_admin_user gegated → kein Privileg-Gewinn, nur stabile UI.
+  var roleAdmin = false;
+  try { roleAdmin = (localStorage.getItem('gs_user_role') === 'admin') || (localStorage.getItem('gs_is_admin') === '1') || (localStorage.getItem('gs_is_admin') === 'true'); } catch(_){}
+  var actual = gsIsActuallyAdmin() || isWhitelisted || roleAdmin;
   if (!actual && localStorage.getItem('gs_admin') === 'true') {
-    // Stale Admin-Flag — User hat Account gewechselt zu Non-Admin → cleanup
+    // Stale Admin-Flag — Account wirklich kein Admin (keine Whitelist/Rolle) → cleanup
     localStorage.removeItem('gs_admin');
     console.warn('[security] Admin-Flag entfernt — aktueller Account ist kein Admin');
   }
   IS_ADMIN = actual;
   try {
-    var email = (gsStore.get('gs_sb_email', null) || '').toLowerCase();
-    var isWhitelisted = typeof GS_ADMINS !== 'undefined' && Array.isArray(GS_ADMINS) && GS_ADMINS.includes(email);
     var badge = document.getElementById('admin-badge');
     if (badge) {
       badge.style.display = isWhitelisted ? '' : 'none';
@@ -13613,6 +13620,12 @@ window.gsAchBump = function(metric, value, isSet) {
         var d = r && r.data;
         if (Array.isArray(d)) d = d[0];
         if (d && Array.isArray(d.unlocked) && d.unlocked.length) window.gsAchUnlockCelebrate(d.unlocked);
+        // v30.40 FIX: fn_achievements_bump addiert xp_gain server-seitig auf profiles.xp — lokal spiegeln +
+        // Balken neu rendern, sonst zeigt Home/Profil (gs_xp) den alten, das Menü (Cloud) den neuen Wert → "springt".
+        if (d && d.xp_gain > 0) {
+          if (typeof gsXpBootSync === 'function') { try { gsXpBootSync(); } catch(_){} }
+          else if (typeof gsUpdateXPBar === 'function') { try { gsUpdateXPBar(); } catch(_){} }
+        }
       } catch(_){}
     }).catch(function(){});
   } catch(_){}
@@ -21793,7 +21806,7 @@ function updateMenuProfileBar() {
               || (gsStore.get('gs_sb_email', null) || '').split('@')[0]
               || 'Naturfreund';
     var av  = (_sbProfile && _sbProfile.avatar_emoji) || '🌿';
-    var xp  = (_sbProfile && _sbProfile.xp)           || 0;
+    var xp  = (typeof gsGetXP === 'function') ? gsGetXP() : ((_sbProfile && _sbProfile.xp) || 0); // v30.40 FIX: Single-Source gs_xp (wie Home/Profil) statt Cloud-direkt → kein Springen Menü≠Home
     var str = (_sbProfile && _sbProfile.login_streak)  || 0;
     var lv  = typeof profileGetLevel === 'function' ? profileGetLevel(xp) : 1;
     var isAdm = typeof gsIsAdmin === 'function' && gsIsAdmin();
@@ -25104,6 +25117,7 @@ function showScanResult(r){
   saveScanToHistory(r, _thumb);
   // In DB suchen und Direktlink zeigen
   var _dbMatch = DB ? DB.find(function(s){ return (s.name||'').toLowerCase() === (r.name||'').toLowerCase() || (s.lat||'').toLowerCase() === (r.latin||'').toLowerCase(); }) : null;
+  if (!_dbMatch && dbSp) _dbMatch = dbSp; // v30.40: Fuzzy-Fallback (gsLinkScanToDb) → Eintrag-/Foto-Beitrag-Button auch bei leichter Namens-Abweichung
   // Appender: in sr2-body einhängen wenn möglich (konsistentes Styling)
   var _container = document.querySelector('#scan-result .sr2-body') || document.getElementById('scan-result');
   if (_dbMatch) {
@@ -66139,7 +66153,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.39';
+var GS_VERSION = 'v30.40';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -75043,7 +75057,7 @@ var GS_PERMISSIONS = {
   PUBLIC:   ['search', 'view_species', 'view_recipes', 'view_map', 'scan',
              'view_community', 'view_wissen', 'light_measure'],
   USER:     ['save_plant', 'save_garden', 'post_community', 'comment',
-             'like', 'view_profile', 'edit_profile'],
+             'like', 'view_profile', 'edit_profile', 'contribute_photo'],
   ADMIN:    ['edit_recipe', 'delete_recipe', 'api_key', 'export_data',
              'import_data', 'set_expert_level', 'ban_user', 'sb_key_change'],
 };
