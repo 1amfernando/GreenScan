@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.28.20260621">
+<meta name="app-version" content="30.29.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16060,6 +16060,7 @@ async function gsGalCompareGrowth(){
   var btn=document.getElementById('gs-gal-cmp-btn');
   var res=document.getElementById('gs-gal-cmp-result');
   var a=s.photos[0], b=s.photos[s.photos.length-1]; // alt, neu
+  if(!navigator.onLine){ if(res){ res.innerHTML='<div style="text-align:center;padding:20px;color:var(--muted);">📡 '+_t('gal_offline','Der Foto-Vergleich braucht eine Internet-Verbindung für die KI-Analyse. Sobald du online bist, klappt es.')+'</div>'; } return; } // v30.29 Offline-Guard
   if(btn){ btn.disabled=true; btn.textContent='⏳ '+_t('gal_analyzing','KI analysiert …'); }
   if(res) res.innerHTML='';
   try{
@@ -30359,6 +30360,11 @@ async function runDiagnosis() {
   const selPlant = document.getElementById('diag-plant-sel');
   const plantName = selPlant?.options[selPlant.selectedIndex]?.text || '';
 
+  // v30.29: Offline-Guard — der Pflanzendoktor braucht Netz für die KI (sonst 45s-Timeout statt klarer Meldung)
+  if (!navigator.onLine) {
+    if (resultEl) { resultEl.style.display = 'block'; resultEl.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);">📡 Der Pflanzendoktor braucht eine Internet-Verbindung für die KI-Diagnose. Sobald du wieder online bist, klappt es.</div>'; }
+    return;
+  }
   if (runBtn) { runBtn.disabled = true; runBtn.textContent = '⏳ KI analysiert…'; }
   resultEl.style.display = 'block';
   resultEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);">🔬 KI analysiert das Bild…</div>';
@@ -56441,6 +56447,7 @@ async function gsPhotoDiffAnalyze() {
   // Chronologisch sortieren: A = früher, B = später
   if ((photos[ai].ts || 0) > (photos[bi].ts || 0)) { var tmp = ai; ai = bi; bi = tmp; }
   var pa = photos[ai], pb = photos[bi];
+  if (!navigator.onLine) { if (typeof gsToast === 'function') gsToast('📡 Der Foto-Vergleich braucht eine Internet-Verbindung.', 'warning'); return; } // v30.29 Offline-Guard
   s.diffBusy = true; s.diff = null;
   if (typeof gsHaptic === 'function') gsHaptic('light');
   var redraw = function(){ var m = document.getElementById('photo-timeline-modal'); if (m) m.innerHTML = gsBuildPhotoTimelineContent(); };
@@ -66062,7 +66069,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.28';
+var GS_VERSION = 'v30.29';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
