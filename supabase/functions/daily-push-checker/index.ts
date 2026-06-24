@@ -2,13 +2,11 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 
-// daily-push-checker v4 (v26.57 — 2026-05-28 LIVE deployed)
-// - v2: Frost / Seasonal / Quiz-Streak
-// - v3: + Trial-End 24-25h
-// - v4: + Trial-End 72-73h + Trial-End 1-2h (3 Stages für besseren Conversion-Funnel)
-//
-// Stages haben eigene categories (trial_end_72h, trial_end_24h, trial_end_1h)
-// damit alreadySentToday-Dedup je Stage greift.
+// daily-push-checker v7 (v30.36 — 2026-06-24)
+// - v6: Frost / Seasonal / Quiz-Streak / Trial-End (3 Stages) / Pflanzen-Tasks / Wochen-Vorschau
+// - v7 (Audit-Welle 3 #5): Quiet-Hours + Morgen-/Abend-Gating gegen Europe/Zurich statt UTC.
+//   Bei Default-Ruhefenster (22-7) + Cron 07/19 UTC unkritisch, aber für eigene Ruhefenster korrekt.
+// Cron: daily-push-morning 07:00 UTC, daily-push-evening 19:00 UTC.
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -36,10 +34,19 @@ async function loadSettings() {
   };
 }
 
-function inQuietHours(hourUtc: number, qs: number, qe: number) {
+function inQuietHours(hour: number, qs: number, qe: number) {
   if (qs === qe) return false;
-  if (qs < qe) return hourUtc >= qs && hourUtc < qe;
-  return hourUtc >= qs || hourUtc < qe;
+  if (qs < qe) return hour >= qs && hour < qe;
+  return hour >= qs || hour < qe;
+}
+
+// v30.36 #5: aktuelle Stunde in Europe/Zurich (DST-sicher), Fallback UTC.
+function zurichHour(): number {
+  try {
+    return Number(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hour12: false, timeZone: "Europe/Zurich" }).format(new Date())) % 24;
+  } catch (_) {
+    return new Date().getUTCHours();
+  }
 }
 
 async function checkFrost(lat: number, lng: number) {
@@ -72,7 +79,7 @@ async function logSend(
   });
 }
 
-async function sendPush(sub: any, title: string, body: string, url: string, vapid: any) {
+async function sendPush(sub: any, title: string, body: string, url: string, vapid: any, tag?: string) {
   try {
     webpush.setVapidDetails(vapid.subject, vapid.publicKey, vapid.privateKey);
     const pushSub = { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_secret } };
@@ -80,7 +87,8 @@ async function sendPush(sub: any, title: string, body: string, url: string, vapi
       title, body, url,
       icon: "https://green-scan.ch/icons/icon-192.png",
       badge: "https://green-scan.ch/icons/icon-96.png",
-      tag: "gs-" + Date.now()
+      tag: tag || ("gs-" + Date.now()),
+      data: { url }
     });
     const res = await webpush.sendNotification(pushSub, payload, { TTL: 3600 });
     return { ok: true, status: res.statusCode };
@@ -89,14 +97,21 @@ async function sendPush(sub: any, title: string, body: string, url: string, vapi
   }
 }
 
+async function deleteIfGone(sub: any, status?: number) {
+  if (status === 410 || status === 404) {
+    await sb.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
+  }
+}
+
 async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
   const userId = sub.user_id;
   const nowUtc = new Date();
-  const hourUtc = nowUtc.getUTCHours();
+  const hourLocal = zurichHour();        // v30.36 #5
+  const dow = nowUtc.getUTCDay();        // 0=Sonntag (Cron 07/19 UTC = gleicher Kalendertag in CH)
   const month = nowUtc.getUTCMonth() + 1;
 
-  if (inQuietHours(hourUtc, sub.quiet_start_hour ?? 22, sub.quiet_end_hour ?? 7)) {
-    await logSend(userId, "frost", "", "", { hourUtc }, "suppressed_quiet");
+  if (inQuietHours(hourLocal, sub.quiet_start_hour ?? 22, sub.quiet_end_hour ?? 7)) {
+    await logSend(userId, "frost", "", "", { hourLocal }, "suppressed_quiet");
     return { suppressed: true };
   }
 
@@ -110,15 +125,15 @@ async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
         const body = `Min. ${f.minTempC.toFixed(1)}°C — kälteempfindliche Pflanzen schützen!`;
         if (dryRun) sent.push("frost(dry)");
         else {
-          const r = await sendPush(sub, title, body, "/?tab=garden", vapid);
+          const r = await sendPush(sub, title, body, "/?screen=garden", vapid);
           await logSend(userId, "frost", title, body, f, r.ok ? "sent" : "failed", r.status, r.error);
-          if (r.ok) sent.push("frost");
+          if (r.ok) sent.push("frost"); else await deleteIfGone(sub, r.status);
         }
       }
     }
   }
 
-  if (sub.notify_seasonal && hourUtc < 12) {
+  if (sub.notify_seasonal && hourLocal < 12) {
     if (!(await alreadySentToday(userId, "seasonal"))) {
       const { data: tasks } = await sb
         .from("garden_tasks_catalog")
@@ -132,15 +147,68 @@ async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
         const body = (t.task_description || "").slice(0, 120);
         if (dryRun) sent.push("seasonal(dry)");
         else {
-          const r = await sendPush(sub, title, body, "/?tab=garden", vapid);
+          const r = await sendPush(sub, title, body, "/?screen=garden", vapid);
           await logSend(userId, "seasonal", title, body, { task: t.task_title }, r.ok ? "sent" : "failed", r.status, r.error);
-          if (r.ok) sent.push("seasonal");
+          if (r.ok) sent.push("seasonal"); else await deleteIfGone(sub, r.status);
         }
       }
     }
   }
 
-  if (sub.notify_quiz_streak && hourUtc >= 17) {
+  // v6: Pflanzen-Pflege-Tasks (morgens) — gated notify_water, aus v_plant_tasks_due
+  if (sub.notify_water && hourLocal < 12) {
+    if (!(await alreadySentToday(userId, "plant_tasks"))) {
+      const { data: due } = await sb
+        .from("v_plant_tasks_due")
+        .select("plant_name, task_label")
+        .eq("user_id", userId)
+        .eq("is_due_now", true)
+        .limit(20);
+      if (due && due.length) {
+        let title: string, body: string;
+        if (due.length === 1) {
+          title = `${due[0].task_label}: ${due[0].plant_name}`;
+          body = `Diese Pflanzen-Aufgabe ist heute fällig.`;
+        } else {
+          const names = Array.from(new Set(due.map((d: any) => d.plant_name))).slice(0, 3).join(", ");
+          title = `🌱 ${due.length} Pflanzen-Aufgaben fällig`;
+          body = `${names}${due.length > 3 ? " u.a." : ""} — jetzt erledigen.`;
+        }
+        if (dryRun) sent.push("plant_tasks(dry)");
+        else {
+          const r = await sendPush(sub, title, body, "/?screen=favs", vapid, "gs-plant_tasks");
+          await logSend(userId, "plant_tasks", title, body, { count: due.length }, r.ok ? "sent" : "failed", r.status, r.error);
+          if (r.ok) sent.push("plant_tasks"); else await deleteIfGone(sub, r.status);
+        }
+      }
+    }
+  }
+
+  // v6: Sonntag-Wochen-Vorschau — gated notify_water, kommende 7 Tage
+  if (sub.notify_water && dow === 0 && hourLocal < 12) {
+    if (!(await alreadySentToday(userId, "weekly_summary"))) {
+      const in7 = new Date(nowUtc.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: wk } = await sb
+        .from("v_plant_tasks_due")
+        .select("plant_name")
+        .eq("user_id", userId)
+        .gte("next_due_at", nowUtc.toISOString())
+        .lt("next_due_at", in7)
+        .limit(50);
+      if (wk && wk.length) {
+        const title = `📋 Deine Garten-Woche: ${wk.length} Aufgaben`;
+        const body = `Diese Woche stehen ${wk.length} Pflege-Aufgaben an — plane sie ein!`;
+        if (dryRun) sent.push("weekly_summary(dry)");
+        else {
+          const r = await sendPush(sub, title, body, "/?screen=favs", vapid, "gs-weekly_summary");
+          await logSend(userId, "weekly_summary", title, body, { count: wk.length }, r.ok ? "sent" : "failed", r.status, r.error);
+          if (r.ok) sent.push("weekly_summary"); else await deleteIfGone(sub, r.status);
+        }
+      }
+    }
+  }
+
+  if (sub.notify_quiz_streak && hourLocal >= 17) {
     if (!(await alreadySentToday(userId, "quiz_streak"))) {
       const { data: q } = await sb.from("daily_quizzes").select("id").limit(1);
       if (q && q.length) {
@@ -148,9 +216,9 @@ async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
         const body = `Spiele heute noch dein Quiz und halte deine Streak am Leben!`;
         if (dryRun) sent.push("quiz(dry)");
         else {
-          const r = await sendPush(sub, title, body, "/?tab=wissen", vapid);
+          const r = await sendPush(sub, title, body, "/?screen=wissen", vapid);
           await logSend(userId, "quiz_streak", title, body, {}, r.ok ? "sent" : "failed", r.status, r.error);
-          if (r.ok) sent.push("quiz_streak");
+          if (r.ok) sent.push("quiz_streak"); else await deleteIfGone(sub, r.status);
         }
       }
     }
@@ -165,6 +233,7 @@ async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
   return { suppressed: false, sent };
 }
 
+// 3-Stage Trial-End-Reminder (72h, 24h, 1h) — ms-relativ, TZ-unabhängig (NICHT angetastet).
 async function notifyTrialEnd_stage(
   windowLoHours: number, windowHiHours: number,
   category: string, title: string, body: string,
@@ -213,18 +282,24 @@ async function notifyTrialEnd_stage(
 
 async function notifyTrialEndingSoon(vapid: any, dryRun: boolean) {
   let total = 0;
-  total += await notifyTrialEnd_stage(72, 73, "trial_end_72h",
+  total += await notifyTrialEnd_stage(
+    72, 73, "trial_end_72h",
     "⏰ Dein GreenScan-Pro endet in 3 Tagen",
     "Karte hinterlegen und KI-Doctor, Buch-Wissen, Familien-Konto behalten.",
-    vapid, dryRun);
-  total += await notifyTrialEnd_stage(24, 25, "trial_end_24h",
+    vapid, dryRun
+  );
+  total += await notifyTrialEnd_stage(
+    24, 25, "trial_end_24h",
     "⏰ Dein GreenScan-Pro endet morgen",
     "Jetzt verlängern und alle Pro-Features behalten.",
-    vapid, dryRun);
-  total += await notifyTrialEnd_stage(1, 2, "trial_end_1h",
+    vapid, dryRun
+  );
+  total += await notifyTrialEnd_stage(
+    1, 2, "trial_end_1h",
     "⏰ Letzte Stunde — Trial endet gleich",
     "Karte hinterlegen damit's nahtlos weitergeht (sonst zurück auf Free).",
-    vapid, dryRun);
+    vapid, dryRun
+  );
   return total;
 }
 
@@ -277,7 +352,7 @@ Deno.serve(async (req: Request) => {
 
     return new Response(JSON.stringify({
       ok: true, dry_run: dryRun,
-      version: 4,
+      version: 7,
       total_subs: subs?.length || 0,
       pushed_count: totalSent,
       suppressed_count: totalSuppressed,
