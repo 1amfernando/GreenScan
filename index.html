@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.27.20260621">
+<meta name="app-version" content="30.28.20260621">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16574,7 +16574,21 @@ async function gsContributeSpeciesPhoto(spId){
   if (window._gsLastScanB64 && typeof gsConfirmModal === 'function') {
     useScan = await gsConfirmModal({ title:'Foto beitragen', message:'Dein zuletzt gescanntes Foto zu „'+name+'" beitragen? Es wird nach kurzer Prüfung als Arten-Bild gezeigt.', ok:'Scan-Foto nutzen', cancel:'Anderes Foto wählen', kind:'info' });
   }
-  if (useScan) { _gsDoContributePhoto(spId, window._gsLastScanB64, (typeof _lastScanResult !== 'undefined' && _lastScanResult) ? _lastScanResult.confidence : null); return; }
+  if (useScan) {
+    // v30.28-Fix: Konfidenz NUR durchreichen, wenn der letzte Scan wirklich zu DIESER Art gehört.
+    // Sonst würde die Konfidenz eines fremden Scans — oder die in openDetailChat hartcodierte 100 —
+    // der Art falsch zugeordnet und den Moderator (v30.27 nutzt scan_confidence als Sicherheits-Signal) täuschen.
+    var _scanConf = null;
+    try {
+      if (typeof _lastScanResult !== 'undefined' && _lastScanResult && sp &&
+          ((_lastScanResult.name||'').toLowerCase() === (sp.name||'').toLowerCase() ||
+           (_lastScanResult.latin||'').toLowerCase() === (sp.lat||'').toLowerCase())) {
+        _scanConf = _lastScanResult.confidence;
+      }
+    } catch(_){}
+    _gsDoContributePhoto(spId, window._gsLastScanB64, _scanConf);
+    return;
+  }
   var inp = document.createElement('input');
   inp.type = 'file'; inp.accept = 'image/*';
   inp.onchange = function(ev){
@@ -66048,7 +66062,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.27';
+var GS_VERSION = 'v30.28';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
