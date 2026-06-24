@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.37.20260625">
+<meta name="app-version" content="30.38.20260625">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25318,7 +25318,7 @@ async function sendScanChat() {
   var inp = document.getElementById('scan-chat-input');
   var msg = inp ? inp.value.trim() : '';
   if (!msg) return;
-  var {key} = getApiConfig();
+  var {key, source} = getApiConfig();
   if (!key) { gsToast('API-Key nötig', 'warn'); return; }
   
   inp.value = '';
@@ -25340,9 +25340,10 @@ async function sendScanChat() {
   
   try {
     var fetchFn = (typeof _gsApiFetch === 'function') ? _gsApiFetch : fetch;
-    var resp = await fetchFn('https://api.anthropic.com/v1/messages', {
+    var _tgtC = _gsAiTarget(key, source); // v30.38: Proxy (Flag) oder direkt an Anthropic
+    var resp = await fetchFn(_tgtC.url, {
       method: 'POST',
-      headers: {'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      headers: _tgtC.headers,
       body: JSON.stringify({
         model: (window._gsClaudeModel || 'claude-sonnet-4-5'),
         max_tokens: 600,
@@ -66110,7 +66111,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.37';
+var GS_VERSION = 'v30.38';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
