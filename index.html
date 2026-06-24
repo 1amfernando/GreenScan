@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.35.20260621">
+<meta name="app-version" content="30.37.20260625">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23113,6 +23113,23 @@ function _gsLogAiUsage(edgeFn, usage, model){
 }
 window._gsLogAiUsage = _gsLogAiUsage;
 
+// v30.37: AI-Call-Ziel — Proxy (Edge-Fn ai-proxy, hält den Anthropic-Key server-seitig + erzwingt Quota)
+// NUR wenn Feature-Flag gs_feat_aiproxy='1' + globaler Key + eingeloggt; sonst direkt an Anthropic (bisher).
+// Flag DEFAULT AUS → null Verhaltensänderung, bis nach Preview-Test geflippt. Schliesst dann den Roh-Key-
+// Kosten-Leak (Audit task_bb4fd480). Der Proxy gibt die Anthropic-Antwort 1:1 zurück → Parsing unverändert.
+function _gsAiTarget(key, source){
+  try {
+    if (source === 'global' && localStorage.getItem('gs_feat_aiproxy') === '1'
+        && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
+      var tok = (window.gsStore && gsStore.get) ? gsStore.get('gs_sb_token', null) : null;
+      if (tok) {
+        var base = String(window.SB_URL || window.SB_URL_DEFAULT || '').replace(/\/$/, '');
+        return { url: base + '/functions/v1/ai-proxy', headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + tok } };
+      }
+    }
+  } catch(_){}
+  return { url: 'https://api.anthropic.com/v1/messages', headers: {'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'} };
+}
 async function callAI(messages, systemPrompt, maxTokens, opts){
   // v23.97: opts.timeout konfigurierbar — komplexe Aufgaben (Plan-Generation) brauchen mehr Zeit
   opts = opts || {};
@@ -23165,9 +23182,10 @@ async function callAI(messages, systemPrompt, maxTokens, opts){
     // Anthropic — mit Auto-Modell-Fallback (v23.64)
     var tryModel = window._gsPickClaudeModel();
     for (var attempts = 0; attempts < 4; attempts++){
-      var resp = await _gsApiFetch('https://api.anthropic.com/v1/messages',{
+      var _tgt = _gsAiTarget(key, source); // v30.37: Proxy (Flag) oder direkt an Anthropic
+      var resp = await _gsApiFetch(_tgt.url,{
         method:'POST',
-        headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        headers: _tgt.headers,
         body: JSON.stringify({
           model: tryModel,
           max_tokens: maxTokens||1200,
@@ -23276,9 +23294,10 @@ async function callVisionAI(b64, mediaType, prompt, extraImages, opts){
     for (var attempts = 0; attempts < 4; attempts++){
       var _reqBody = { model: tryModel, max_tokens:2500, messages:[{ role:'user', content:content }] };
       if (_sysPrompt) _reqBody.system = [{ type:'text', text:_sysPrompt, cache_control:{ type:'ephemeral' } }];
-      var resp = await _gsApiFetch('https://api.anthropic.com/v1/messages',{
+      var _tgtV = _gsAiTarget(key, source); // v30.37: Proxy (Flag) oder direkt an Anthropic
+      var resp = await _gsApiFetch(_tgtV.url,{
         method:'POST',
-        headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        headers: _tgtV.headers,
         body: JSON.stringify(_reqBody)
       }, { timeout: 60000, retries: 1 });
       var data = await resp.json().catch(()=>({error:{message:'Ungültige Server-Antwort'}}));
@@ -66091,7 +66110,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.35';
+var GS_VERSION = 'v30.37';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
