@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.41.20260625">
+<meta name="app-version" content="30.42.20260625">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -8274,12 +8274,14 @@ function openErnteTracking() {
 
 function gsErnteSetYear(y) {
   try { localStorage.setItem('gs_ernte_year', y); } catch(_){}  // v28.71 HL#10: QuotaExceededError abfangen
+  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty==='function') gsCloudSync.markDirty('state'); } catch(_){} // v30.42 FIX: HL#32
   gsHaptic('tap');
   openErnteTracking();
 }
 
 function gsErnteSetView(v) {
-  localStorage.setItem('gs_ernte_view', v);
+  try { localStorage.setItem('gs_ernte_view', v); } catch(_){} // v30.42: HL#10 try/catch ergänzt
+  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty==='function') gsCloudSync.markDirty('state'); } catch(_){} // v30.42 FIX: HL#32
   gsHaptic('tap');
   openErnteTracking();
 }
@@ -10863,7 +10865,7 @@ window.gsI18n = (function(){
       try {
         var jsMap = window.GS_I18N_JS_STRINGS || {};
         Object.keys(jsMap).forEach(function(k){
-          var de = jsMap[k];
+          var de = _i18nDec(jsMap[k]); // v30.42 FIX: dekodieren (symmetrisch zum data-i18n-Pfad oben) — sonst matchen 7 Werte mit literalem &amp; nicht gegen srcMap → EN/ES blieben DE
           if (srcMap[de]) keyBundle[k] = srcMap[de];
         });
       } catch(_){}
@@ -32548,8 +32550,12 @@ async function openRegionalCalendarModal() {
 window.openRegionalCalendarModal = openRegionalCalendarModal;
 
 function gsRegionPickChange(slug) {
-  if (!slug) { localStorage.removeItem('gs_region'); return; }
+  // v30.42 FIX: markDirty('state') nötig — STATE_KEYS-Auto-Track ist durch den Quota-Wrapper geshadowed (HL#32);
+  // ohne dies wurde gs_region nie eigenständig cross-device gepusht trotz "gespeichert"-Toast (HL#33).
+  var _md = function(){ try { if (window.gsCloudSync && typeof gsCloudSync.markDirty==='function') gsCloudSync.markDirty('state'); } catch(_){} };
+  if (!slug) { localStorage.removeItem('gs_region'); _md(); return; }
   try { localStorage.setItem('gs_region', slug); } catch(_){}
+  _md();
   gsRenderRegionalContent(slug);
   if (typeof showProfileToast === 'function') showProfileToast('📍 Region gespeichert', 'success', 2000);
 }
@@ -41648,6 +41654,7 @@ function gsWissenMarkRead(section) {
     if (!rd[section]) {
       rd[section] = Date.now();
       localStorage.setItem('gs_wissen_read', JSON.stringify(rd));
+      try { if (window.gsCloudSync && typeof gsCloudSync.markDirty==='function') gsCloudSync.markDirty('state'); } catch(_){} // v30.42 FIX (G.7): HL#32 — sonst kein Cross-Device-Push
       try { if (typeof gsAddXP === 'function') gsAddXP(5, 'Gartenwissen gelesen'); } catch(e){}
     }
   } catch(e){}
@@ -66168,7 +66175,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.41';
+var GS_VERSION = 'v30.42';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -66762,9 +66769,7 @@ async function gsHandleAuthRedirect(){
             setTimeout(function(){
               if (typeof openLoginModal === 'function') {
                 try { openLoginModal({mode:'signup'}); } catch(_) { try { openLoginModal(); } catch(__){} }
-              } else if (typeof gsOpenAuthModal === 'function') {
-                try { gsOpenAuthModal(); } catch(_){}
-              }
+              } // v30.42: toter gsOpenAuthModal-Fallback entfernt (Funktion existiert nicht; openLoginModal ist immer hoisted)
             }, 900);
           }, 800);
         }
@@ -71321,6 +71326,12 @@ async function gsSyncUserDataOnLogin(){
           if (sd.user_location) stateMap['gs_user_location'] = sd.user_location;
           if (sd.sae_search) stateMap['gs_sae_search'] = sd.sae_search;
           if (sd.sae_cat) stateMap['gs_sae_cat'] = sd.sae_cat;
+          // v30.42 FIX (G.7): Wissen-Lesefortschritt MERGEN (additive Kapitel-Flags nie überschreiben)
+          if (sd.wissen_read && typeof sd.wissen_read === 'object') {
+            try { var _wr = JSON.parse(localStorage.getItem('gs_wissen_read')||'{}');
+              Object.keys(sd.wissen_read).forEach(function(kk){ if (!_wr[kk]) _wr[kk] = sd.wissen_read[kk]; });
+              stateMap['gs_wissen_read'] = _wr; } catch(_){ stateMap['gs_wissen_read'] = sd.wissen_read; }
+          }
           // Wichtig: temporär den setItem-Patch umgehen damit Pull nicht sofort wieder Push triggert.
           // Nutzen Storage.prototype.setItem direkt via _origSet wenn vorhanden.
           var origSet = Object.getPrototypeOf(localStorage).setItem;
@@ -71648,6 +71659,7 @@ window.gsCloudSync = (function(){
     // Rezepte/Suchen
     try { data.recipe_favs = JSON.parse(localStorage.getItem('gs_recipe_favs')||'[]'); } catch(_){}
     try { data.recent_searches = JSON.parse(localStorage.getItem('gs_recent_searches')||'[]'); } catch(_){}
+    try { data.wissen_read = JSON.parse(localStorage.getItem('gs_wissen_read')||'{}'); } catch(_){} // v30.42 FIX: Wissen-Lesefortschritt war lokal-only trotz "cloud-restored"-Kommentar (G.7)
     // Pflanzen-Interaktionen
     try { data.favs = JSON.parse(localStorage.getItem('ps_favs')||'[]'); } catch(_){}
     try { data.votes = JSON.parse(localStorage.getItem('ps_votes')||'{}'); } catch(_){}
@@ -71841,7 +71853,7 @@ window.gsCloudSync = (function(){
         'gs_last_active_day_iso':'state',
         'gs_chat_history':'state','gs_doctor_history':'state','gs_ki_analyses':'state',
         'gs_dq_archive':'state','gs_dq_stats':'state','gs_quiz_streak':'state',
-        'gs_recipe_favs':'state','gs_recent_searches':'state',
+        'gs_recipe_favs':'state','gs_recent_searches':'state','gs_wissen_read':'state',
         'ps_favs':'state','ps_votes':'state','gs_confirmed_species':'state',
         'gs_dark':'state','gs_theme_color':'state','gs_lang':'state',
         'gs_achievements':'state',
@@ -75958,12 +75970,14 @@ function gsSeedAdd(){
   var items = _gsNlSafeItems('gs_seed_inventory');
   items.push({ name:n, qty:q, expires:e||null, ts: Date.now() });
   try { gsStore.set('gs_seed_inventory', JSON.stringify(items)); } catch(er){}
+  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty==='function') gsCloudSync.markDirty('plants'); } catch(_){} // v30.42 FIX: HL#32 — sonst kein Cross-Device-Push
   gsOpenSeedInventory();
 }
 function gsSeedDel(idx){
   var items = _gsNlSafeItems('gs_seed_inventory');
   items.splice(idx,1);
   try { gsStore.set('gs_seed_inventory', JSON.stringify(items)); } catch(e){}
+  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty==='function') gsCloudSync.markDirty('plants'); } catch(_){} // v30.42 FIX: HL#32
   gsOpenSeedInventory();
 }
 
