@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.47.20260625">
+<meta name="app-version" content="30.48.20260625">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11961,6 +11961,7 @@ window.GS_I18N_JS_STRINGS = {
   'scan_wikipedia':            '🌐 Wikipedia',
   'scan_report_wrong':         '⚠️ Falsch erkannt',
   'scan_add_to_plants':        '🌱 Zu meinen Pflanzen hinzufügen',
+  'scan_ref_image':            'Referenzbild dieser Art',
   'scan_delete_history':       '🗑️ Aus History löschen',
   'scan_note_saved':           'Notiz gespeichert',
   // ── v28.55: Wissen — Bodentypen (renderBodenTypen) ─────────────
@@ -25964,6 +25965,8 @@ function openScanHistoryDetail(idx) {
       '<div style="overflow-y:auto;flex:1;padding:0 0 14px;background:var(--bg);">' +
         // Foto — Priorität: photoUrl (Cloud, voll) > photo (v29.80 lokal Medium 480px) > thumb (64px)
         ((e.photoUrl || e.photo || e.thumb) ? '<div style="background:#000;text-align:center;"><img alt="Scan-Foto" src="' + (e.photoUrl || e.photo || e.thumb) + '" style="max-width:100%;max-height:340px;display:inline-block;"/></div>' : '') +
+        // v30.48 FIX: approved Community-/Referenzbild der erkannten Art zeigen (vorher nur in der Arten-Detail-View).
+        (sp ? '<div style="padding:10px 16px 0;"><div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;">📷 ' + _t('scan_ref_image','Referenzbild dieser Art') + '</div><div id="shd-spimg" style="min-height:120px;border-radius:10px;background:var(--surface2);overflow:hidden;"></div></div>' : '') +
         '<div style="padding:14px 16px;">' +
           // Confidence-Bar
           '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">' +
@@ -26002,6 +26005,8 @@ function openScanHistoryDetail(idx) {
     '</div>';
   modal.innerHTML = html;
   modal.style.display = 'flex';
+  // v30.48: approved Community-Bild (Fallback Wikipedia) der erkannten Art laden — wie in der Arten-Detail-View.
+  if (sp && typeof gsLoadSpeciesImage === 'function') { setTimeout(function(){ try { gsLoadSpeciesImage(sp.id, sp.lat, 'shd-spimg'); } catch(_){} }, 120); }
 }
 
 // v24.10: Notiz speichern (lokal + cloud)
@@ -66346,7 +66351,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.47';
+var GS_VERSION = 'v30.48';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -74854,8 +74859,29 @@ async function gsAdminFetchSpeciesImageQueue(){
     var res = await sbFetch('/rest/v1/rpc/fn_admin_species_image_queue', {
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_limit: 50 })
     });
-    return (res && res.data) || [];
+    var q = (res && res.data) || [];
+    try { window._gsAdminImgQueue = q; } catch(_){} // v30.48: für 2×-KI-Verify (Lookup url+species_id by id)
+    return q;
   } catch(_) { return []; }
+}
+// v30.48: Beim Freigeben das Beitrags-Foto 2× von der KI gegenprüfen, dass es EINDEUTIG die Art zeigt
+// (Sicherheit, HL24/25 — ein falsches Foto an einer Giftart ist gefährlich). true NUR bei 2× JA;
+// null = Verify nicht möglich (Netz/Key) → Admin entscheidet selbst.
+async function _gsVerifySpeciesImage(url, speciesName, lat){
+  try {
+    if (!url || typeof callVisionAI !== 'function') return null;
+    var resp = await fetch(url); if (!resp.ok) return null;
+    var blob = await resp.blob();
+    var b64 = await new Promise(function(res, rej){ var rd = new FileReader(); rd.onload = function(){ res(String(rd.result).split(',')[1]); }; rd.onerror = rej; rd.readAsDataURL(blob); });
+    var mt = blob.type || 'image/jpeg';
+    var q = 'Zeigt dieses Foto EINDEUTIG die Art "' + speciesName + '"' + (lat ? (' (' + lat + ')') : '') + '? Antworte NUR mit einem Wort: JA oder NEIN. Bei Unsicherheit, falscher oder anderer Art: NEIN.';
+    var yes = 0;
+    for (var i = 0; i < 2; i++){
+      var a = String(await callVisionAI(b64, mt, q, null, { maxTokens: 8 }) || '');
+      if (/\bja\b/i.test(a) && !/\bnein\b/i.test(a)) yes++;
+    }
+    return yes >= 2;
+  } catch(_){ return null; }
 }
 function _gsAdminSpeciesImageHtml(queue){
   queue = Array.isArray(queue) ? queue : [];
@@ -74886,6 +74912,24 @@ function _gsAdminSpeciesImageHtml(queue){
 }
 async function gsAdminReviewSpeciesImage(id, approve){
   try {
+    // v30.48: Vor dem FREIGEBEN 2×-KI-Gegencheck, dass das Foto wirklich die Art zeigt.
+    if (approve) {
+      var item = (window._gsAdminImgQueue || []).find(function(x){ return x && x.id === id; });
+      if (item && item.url) {
+        var sp = (typeof DB !== 'undefined' && DB) ? DB.find(function(s){ return s && s.id === item.species_id; }) : null;
+        var nm = sp ? sp.name : (item.species_id || 'diese Art');
+        try { gsToast('🔍 KI prüft das Foto 2×…', 'info', 4000); } catch(_){}
+        var ok = await _gsVerifySpeciesImage(item.url, nm, sp && sp.lat);
+        if (ok === false) {
+          var force = false;
+          try {
+            force = await gsConfirmModal({ title:'⚠️ KI-Zweifel', message:'Die KI hat NICHT 2× bestätigt, dass das Foto „'+nm+'" zeigt. Trotzdem freigeben?', ok:'Trotzdem freigeben', cancel:'Abbrechen', kind:'danger' });
+          } catch(_){ force = false; }
+          if (!force) { try { gsToast('Freigabe abgebrochen (KI-Zweifel).', 'warn'); } catch(__){} return; }
+        }
+        // ok===true (2× JA) oder ok===null (Verify nicht möglich → Admin-Entscheidung) → weiter
+      }
+    }
     var res = await sbFetch('/rest/v1/rpc/fn_admin_review_species_image', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ p_id: id, p_approve: !!approve, p_make_primary: !!approve })
