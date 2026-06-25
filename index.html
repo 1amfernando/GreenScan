@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.49.20260625">
+<meta name="app-version" content="30.50.20260626">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -66351,7 +66351,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.49';
+var GS_VERSION = 'v30.50';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -67729,6 +67729,13 @@ async function sbLogin(email, password) {
 }
 
 async function sbLogout() {
+  // v30.50: pre_logout-Voll-Backup VOR dem Clear (Token noch da) — sichert lokale/ungepushte Daten,
+  // besonders auf geteilten Geräten. 2.5s-Timeout-Race, damit der Logout nie hängt.
+  try {
+    if (typeof gsSnapshotCreate === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
+      await Promise.race([ gsSnapshotCreate('pre_logout'), new Promise(function(r){ setTimeout(r, 2500); }) ]);
+    }
+  } catch(_){}
   if (gsStore.get('gs_sb_token', null) && sbGetConfig()) {
     // v24.46: _gsFetch mit 10s — Logout ist Fire-and-Forget, kürzeres Timeout OK
     (window._gsFetch || fetch)(SB_URL + '/auth/v1/logout', {
@@ -71907,6 +71914,9 @@ window.gsCloudSync = (function(){
     try { data.sae_cat = localStorage.getItem('gs_sae_cat') || ''; } catch(_){}
     return data;
   }
+  // v30.50: für das einheitliche Voll-Backup exponieren — der Snapshot renutzt EXAKT diesen State-Builder
+  // (DRY + zukunftssicher: neue State-Keys landen automatisch auch im Backend-Snapshot).
+  try { window._gsBuildStateBlob = _buildStateBlob; } catch(_){}
 
   async function _pushBlob(table, data, sync){
     var uid = _uid();
@@ -72237,7 +72247,18 @@ function gsSnapshotBuildState(){
   function _j(k, fb){ try { return JSON.parse((typeof gsStore!=='undefined'&&gsStore.get? gsStore.get(k,null): localStorage.getItem(k)) || fb); } catch(_){ try { return JSON.parse(fb); } catch(__){ return null; } } }
   function _s(k){ try { return localStorage.getItem(k) || null; } catch(_){ return null; } }
   return {
-    _v: 'v27.01', _ts: new Date().toISOString(),
+    _v: 'v30.50', _ts: new Date().toISOString(),
+    // v30.50: kompletter State-Blob (alle gesyncten state-Keys: streak/region/recipe_favs/recent_searches/
+    // wissen_read/reminder_prefs/user_location/garten_prefs/votes/ki_analyses/push_settings…) → der Snapshot
+    // ist jetzt ein VOLLES Backend-Backup, nicht nur eine Teilmenge. Restore via _gsApplyStateBlob.
+    state:               (typeof window._gsBuildStateBlob === 'function' ? window._gsBuildStateBlob() : null),
+    // v30.50: bisher LS-only Domänen ohne Cloud-Home → bekommen im Snapshot einen Backend-Speicherort.
+    soil_profile:        _j('gs_soil_profile','null'),
+    pp_garden_location:  _j('gs_pp_garden_location','null'),
+    scan_corrections:    _j('gs_scan_corrections','[]'),
+    purchases:           _j('gs_purchases','[]'),
+    my_bids:             _j('gs_my_bids','[]'),
+    action_counts:       _j('gs_action_counts','null'),
     plants:              _j('ps_myplants','[]'),
     diary:               _j('gs_gartentagebuch','[]'),
     ernte:               _j('gs_ernte_log','[]'),
@@ -72311,6 +72332,29 @@ function _gsRestoreKey(lsKey, snapVal){
   }
   try { localStorage.setItem(lsKey, typeof snapVal === 'string' ? snapVal : JSON.stringify(snapVal)); } catch(_){}
 }
+// v30.50: State-Blob aus dem Snapshot zurück in localStorage (Inverse von _buildStateBlob), non-destruktiv
+// via _gsRestoreKey (nur wenn lokal leer / id-Array-Merge). Greift nur im Katastrophen-Fall (auch user_app_state
+// leer); im Normalfall stellt der Cloud-Pull diese Keys ohnehin her.
+function _gsApplyStateBlob(b){
+  if (!b || typeof b !== 'object') return;
+  var map = {
+    streak:'gs_streak', login_streak:'gs_login_streak', streak_sig:'gs_streak_sig', streak_stamp:'gs_streak_stamp',
+    last_active_day_iso:'gs_last_active_day_iso', chat_history:'gs_chat_history', doctor_history:'gs_doctor_history',
+    ki_analyses:'gs_ki_analyses', dq_archive:'gs_dq_archive', dq_stats:'gs_dq_stats', quiz_streak:'gs_quiz_streak',
+    recipe_favs:'gs_recipe_favs', recent_searches:'gs_recent_searches', wissen_read:'gs_wissen_read',
+    favs:'ps_favs', votes:'ps_votes', confirmed_species:'gs_confirmed_species', achievements:'gs_achievements',
+    reminder_prefs:'gs_reminder_prefs', sae_merkliste:'gs_sae_merkliste', region:'gs_region',
+    push_settings:'gs_push_settings', user_location:'gs_user_location', sae_search:'gs_sae_search', sae_cat:'gs_sae_cat'
+  };
+  try { Object.keys(map).forEach(function(f){ if (b[f] != null) _gsRestoreKey(map[f], b[f]); }); } catch(_){}
+  try { if (b.ui && typeof b.ui==='object') ['dark','theme_color','lang'].forEach(function(k){ if (b.ui[k]!=null) _gsRestoreKey('gs_'+k, b.ui[k]); }); } catch(_){}
+  try {
+    if (b.garten_prefs && typeof b.garten_prefs==='object'){
+      var gp=b.garten_prefs, gk={bl_month:'gs_bl_month',bl_tab:'gs_bl_tab',bl_bee:'gs_bl_bee',tb_filter:'gs_tb_filter',tb_search:'gs_tb_search',tb_cat_selected:'gs_tb_cat_selected',ernte_unit:'gs_ernte_unit',ernte_view:'gs_ernte_view',ernte_year:'gs_ernte_year'};
+      Object.keys(gk).forEach(function(f){ if (gp[f]!=null && gp[f]!=='') _gsRestoreKey(gk[f], gp[f]); });
+    }
+  } catch(_){}
+}
 async function gsSnapshotRestore(){
   try {
     if (typeof sbFetch !== 'function') return false;
@@ -72338,6 +72382,17 @@ async function gsSnapshotRestore(){
     _gsRestoreKey('gs_dq_archive', st.dq_archive);
     _gsRestoreKey('ps_favs', st.favs);
     _gsRestoreKey('gs_sae_merkliste', st.sae_merkliste);
+    // v30.50: bisher gebaute aber NICHT restaurierte Keys (Asymmetrie behoben) + LS-only-Domänen + State-Blob.
+    _gsRestoreKey('gs_dq_stats', st.dq_stats);
+    _gsRestoreKey('gs_prefs', st.prefs);
+    if (st.ui && typeof st.ui==='object'){ _gsRestoreKey('gs_dark', st.ui.dark); _gsRestoreKey('gs_theme_color', st.ui.theme_color); _gsRestoreKey('gs_lang', st.ui.lang); }
+    _gsRestoreKey('gs_soil_profile', st.soil_profile);
+    _gsRestoreKey('gs_pp_garden_location', st.pp_garden_location);
+    _gsRestoreKey('gs_scan_corrections', st.scan_corrections);
+    _gsRestoreKey('gs_purchases', st.purchases);
+    _gsRestoreKey('gs_my_bids', st.my_bids);
+    _gsRestoreKey('gs_action_counts', st.action_counts);
+    try { if (st.state) _gsApplyStateBlob(st.state); } catch(_){}
     // Globals neu laden + Cloud reparieren + UI rendern
     try { if (typeof myPlants !== 'undefined') myPlants = JSON.parse(localStorage.getItem('ps_myplants')||'[]'); } catch(_){}
     try { if (window.gsCloudSync){ gsCloudSync.markDirty('plants'); gsCloudSync.markDirty('garden'); gsCloudSync.markDirty('state'); } } catch(_){}
