@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.42.20260625">
+<meta name="app-version" content="30.43.20260625">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -6839,7 +6839,8 @@ function _gsSmartMatchDB(name){
   if (!name || typeof DB === 'undefined' || !Array.isArray(DB)) return null;
   var n = String(name).toLowerCase().trim();
   if (!n) return null;
-  return DB.find(function(s){ return s && (s.name||'').toLowerCase().trim() === n; }) || null;
+  // v30.43: EXAKT-Match auf Name ODER Latein (kein Fuzzy/startsWith → kein Falsch-Art-Risiko, vgl. v30.40-Lesson).
+  return DB.find(function(s){ return s && ((s.name||'').toLowerCase().trim() === n || (s.lat||'').toLowerCase().trim() === n); }) || null;
 }
 // v28.58: Gemeinsamer Quell-Item-Sammler (eigene Pflanzen + gesammelte Arten, DB-angereichert).
 // Genutzt von gsCollectionsAutoVacuum (Block C, System-Sammlungen). DRY: eine Sammel-Logik.
@@ -6849,8 +6850,34 @@ window._gsCollGatherSourceItems = async function(){
     var mp = (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) ? myPlants : [];
     mp.forEach(function(p){
       if (!p || !p.name || p.id == null) return;
-      items.push({ type:'plant', ref:String(p.id), label:p.name, emoji:p.emoji||'🌿', sp:_gsSmartMatchDB(p.name) });
+      // v30.43: Wenn die Pflanze einer DB-Art entspricht → als 'species' (ref=sp.id) einsammeln, damit sie
+      // in die Eigenschafts-Buckets fällt UND mit Scan/Fund derselben Art dedupt (UNIQUE collection_id+type+ref).
+      var sp = _gsSmartMatchDB(p.name);
+      if (sp) items.push({ type:'species', ref:String(sp.id), label:(sp.name||sp.lat||p.name), emoji:_gsSmartSpeciesEmoji(sp), sp:sp });
+      else items.push({ type:'plant', ref:String(p.id), label:p.name, emoji:p.emoji||'🌿', sp:null });
     });
+  } catch(_){}
+  // v30.43 Block C-Reparatur: GESCANNTE Arten (lokale Scan-Historie) automatisch einsammeln — der Kern von
+  // Fernandos Wunsch „gescannte Sachen automatisch einsortieren". Über exakten DB-Match in die Eigenschafts-Buckets.
+  // ref = sp.id (stabil) → Re-Scans erzeugen KEINE Duplikate (UNIQUE-Dedup). Keine DB-Auflösung → übersprungen.
+  try {
+    var sh = []; try { sh = JSON.parse(gsStore.get('gs_scan_history', null) || '[]'); } catch(_){ sh = []; }
+    if (Array.isArray(sh)) sh.forEach(function(s){
+      if (!s || !s.name) return;
+      var sp = _gsSmartMatchDB(s.name) || _gsSmartMatchDB(s.latin);
+      if (sp) items.push({ type:'species', ref:String(sp.id), label:(sp.name||sp.lat||s.name), emoji:_gsSmartSpeciesEmoji(sp), sp:sp });
+    });
+  } catch(_){}
+  // v30.43: KARTEN-FUNDE (Cloud map_user_finds) automatisch einsammeln — über exakten DB-Match in die Buckets.
+  try {
+    if (_gsCollReady()){
+      var rf = await sbFetch('/rest/v1/map_user_finds?select=id,species_name&order=found_at.desc&limit=200', {method:'GET'});
+      ((rf&&rf.data)||[]).forEach(function(f){
+        if (!f || !f.species_name) return;
+        var sp = _gsSmartMatchDB(f.species_name);
+        if (sp) items.push({ type:'species', ref:String(sp.id), label:(sp.name||sp.lat||f.species_name), emoji:_gsSmartSpeciesEmoji(sp), sp:sp });
+      });
+    }
   } catch(_){}
   try {
     if (_gsCollReady()){
@@ -16365,6 +16392,7 @@ function gsAddScanHistory(item) {
     try { for (var _qi = 0; _qi < hist.length; _qi++){ if (hist[_qi]) delete hist[_qi].photo; } gsStore.set(SCAN_HISTORY_KEY, JSON.stringify(hist)); } catch(_){}
   }
   if (typeof updateScanHistoryBadge === 'function') updateScanHistoryBadge();
+  try { if (typeof gsCollectionsAutoVacuumDebounced === 'function') gsCollectionsAutoVacuumDebounced(); } catch(_){} // v30.43: gescannte Art → Auto-Sammlung
   return item.id;
 }
 window.gsAddScanHistory = gsAddScanHistory;
@@ -45080,7 +45108,6 @@ async function gsAddMarker(lat, lng) {
   }
 
   updateMapCount();
-  try { if (typeof gsCollectionsAutoVacuumDebounced === 'function') gsCollectionsAutoVacuumDebounced(); } catch(_){} // v30.13 Block C
 
   // v26.81: Cloud-Sync via map_user_finds EXPLIZIT awaited + Status-Toast (vorher fire-and-forget mit nur console.warn).
   // Categories der Marker-UI auf map_user_finds.category-Enum ('pilz','pflanze','baum','kraut','sonstiges') mappen.
@@ -45146,6 +45173,8 @@ async function gsAddMarker(lat, lng) {
   }
 
   showMarketNotif('Fundort gespeichert! ' + catMeta.emoji, '📍', catMeta.color);
+  // v30.43: Auto-Sammlung NACH dem Cloud-Insert (Fund liegt jetzt in map_user_finds → Vacuum-Gather findet ihn).
+  try { if (typeof gsCollectionsAutoVacuumDebounced === 'function') gsCollectionsAutoVacuumDebounced(); } catch(_){}
   if (cloudMsg && typeof gsToast === 'function') {
     gsToast(cloudMsg, cloudMsg.charAt(0) === '⚠' ? 'warning' : 'success');
   }
@@ -66175,7 +66204,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.42';
+var GS_VERSION = 'v30.43';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
