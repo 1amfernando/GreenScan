@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.43.20260625">
+<meta name="app-version" content="30.44.20260625">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11958,6 +11958,7 @@ window.GS_I18N_JS_STRINGS = {
   'scan_not_in_db':            'Nicht in DB',
   'scan_wikipedia':            '🌐 Wikipedia',
   'scan_report_wrong':         '⚠️ Falsch erkannt',
+  'scan_add_to_plants':        '🌱 Zu meinen Pflanzen hinzufügen',
   'scan_delete_history':       '🗑️ Aus History löschen',
   'scan_note_saved':           'Notiz gespeichert',
   // ── v28.55: Wissen — Bodentypen (renderBodenTypen) ─────────────
@@ -25946,6 +25947,8 @@ function openScanHistoryDetail(idx) {
                    '<button disabled style="padding:10px;background:var(--surface2);color:var(--muted);border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:not-allowed;font-family:inherit;">' + _t('scan_not_in_db','Nicht in DB') + '</button>') +
             '<a href="https://de.wikipedia.org/wiki/Spezial:Suche?search=' + wikiName + '" target="_blank" rel="noopener" style="padding:10px;background:var(--card);border:1.5px solid var(--border);color:var(--text);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center;">' + _t('scan_wikipedia','🌐 Wikipedia') + '</a>' +
           '</div>' +
+          // v30.44 Block D-Rest (D.2.4): aus dem Scan direkt zur eigenen Pflanzen-Liste hinzufügen (nur bei DB-Treffer).
+          (sp ? '<button onclick="document.getElementById(\'scan-detail-modal\').style.display=\'none\';if(typeof closeScanHistory===\'function\')closeScanHistory();if(typeof gsAddSpeciesToGarden===\'function\')gsAddSpeciesToGarden(\'' + sp.id + '\')" style="width:100%;padding:11px;margin-top:8px;background:linear-gradient(135deg,#2e7d32,#43a047);color:#fff;border:none;border-radius:8px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;">' + _t('scan_add_to_plants','🌱 Zu meinen Pflanzen hinzufügen') + '</button>' : '') +
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">' +
             '<button onclick="gsScanHistoryReportWrong(' + idx + ')" style="padding:10px;background:var(--card);border:1.5px solid var(--c-warn);color:var(--c-warn-d);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">' + _t('scan_report_wrong','⚠️ Falsch erkannt') + '</button>' +
             '<button onclick="gsScanHistoryDelete(' + idx + ')" style="padding:10px;background:var(--card);border:1.5px solid var(--c-danger);color:var(--c-danger);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">' + _t('scan_delete_history','🗑️ Aus History löschen') + '</button>' +
@@ -66204,7 +66207,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.43';
+var GS_VERSION = 'v30.44';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
