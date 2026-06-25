@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.44.20260625">
+<meta name="app-version" content="30.45.20260625">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -56959,7 +56959,11 @@ async function gsPPopenSavedPlans() {
               '<div style="font-size:13.5px;font-weight:800;color:var(--text);line-height:1.25;">' + (typeof escHtml==='function'?escHtml(p.title || ('Plan ' + (idx+1))):p.title) + '</div>' +
               '<div style="font-size:11px;color:var(--muted);margin-top:2px;">' + dateStr + '</div>' +
             '</div>' +
-            '<button onclick="gsPPdeletePlan(\'' + p.id + '\')" aria-label="Plan löschen" style="background:transparent;border:none;color:var(--muted);font-size:16px;width:30px;height:30px;cursor:pointer;font-family:inherit;flex-shrink:0;">🗑</button>' +
+            '<div style="display:flex;gap:2px;flex-shrink:0;">' +
+              '<button onclick="gsPPrenamePlan(\'' + p.id + '\')" aria-label="Plan umbenennen" title="Umbenennen" style="background:transparent;border:none;color:var(--muted);font-size:15px;width:32px;height:32px;cursor:pointer;font-family:inherit;">✏️</button>' +
+              '<button onclick="gsPPduplicatePlan(\'' + p.id + '\')" aria-label="Plan duplizieren" title="Duplizieren" style="background:transparent;border:none;color:var(--muted);font-size:15px;width:32px;height:32px;cursor:pointer;font-family:inherit;">🔁</button>' +
+              '<button onclick="gsPPdeletePlan(\'' + p.id + '\')" aria-label="Plan löschen" title="Löschen" style="background:transparent;border:none;color:var(--muted);font-size:16px;width:32px;height:32px;cursor:pointer;font-family:inherit;">🗑</button>' +
+            '</div>' +
           '</div>' +
           (summary ? '<div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:8px;">' + (typeof escHtml==='function'?escHtml(summary):summary) + (pl.summary && pl.summary.length > 90 ? '…' : '') + '</div>' : '') +
           '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-bottom:10px;">' +
@@ -57063,6 +57067,84 @@ async function gsPPdeletePlan(id) {
   if (typeof showProfileToast === 'function') showProfileToast('🗑 Plan gelöscht');
   gsPPopenSavedPlans(); // re-render
 }
+
+// ── v30.45 Block F.3: Plan UMBENENNEN (Cross-Device: garden_plans + user_gardens.data.plans + LS) ──
+async function gsPPrenamePlan(id){
+  var cur = null;
+  try { var arr0 = JSON.parse(localStorage.getItem('gs_garden_plans')||'[]'); cur = (Array.isArray(arr0)?arr0:[]).find(function(x){ return x && x.id===id; }); } catch(_){}
+  var oldTitle = (cur && cur.title) || '';
+  var name;
+  try { name = await gsPromptModal({ title:'✏️ Plan umbenennen', placeholder:'Neuer Name', value: oldTitle, ok:'Speichern' }); } catch(_){ return; }
+  if (name == null) return;
+  name = String(name).trim().slice(0,80);
+  if (!name || name === oldTitle) return;
+  // LS
+  try { var s = JSON.parse(localStorage.getItem('gs_garden_plans')||'[]'); s.forEach(function(p){ if(p&&p.id===id) p.title=name; }); localStorage.setItem('gs_garden_plans', JSON.stringify(s)); } catch(_){}
+  // Cloud
+  try {
+    if (typeof sbIsLoggedIn==='function' && sbIsLoggedIn() && typeof sbFetch==='function'){
+      var uid = gsStore.get('gs_sb_uid', null);
+      if (uid){
+        if (typeof id==='string' && id.indexOf('gp_')===0){
+          await sbFetch('/rest/v1/garden_plans?id=eq.'+encodeURIComponent(id.slice(3))+'&user_id=eq.'+uid, {method:'PATCH', headers:{'Content-Type':'application/json','Prefer':'return=minimal'}, body: JSON.stringify({title:name})});
+        }
+        var ug = await sbFetch('/rest/v1/user_gardens?user_id=eq.'+uid+'&select=data&limit=1', {method:'GET'});
+        var ugRows=(ug&&ug.data&&Array.isArray(ug.data))?ug.data:[];
+        if (ugRows[0] && ugRows[0].data && Array.isArray(ugRows[0].data.plans)){
+          var data=ugRows[0].data; var hit=false;
+          data.plans.forEach(function(p){ if(p&&p.id===id){ p.title=name; hit=true; } });
+          if (hit) await sbFetch('/rest/v1/user_gardens?on_conflict=user_id', {method:'POST', headers:{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'}, body: JSON.stringify({user_id:uid, data:data, updated_at:new Date().toISOString()})});
+        }
+      }
+    }
+  } catch(e){ console.warn('[gsPPrenamePlan] cloud:', e); }
+  try { if (typeof gsCollectionsAutoVacuumDebounced==='function') gsCollectionsAutoVacuumDebounced(); } catch(_){}
+  if (typeof showProfileToast==='function') showProfileToast('✏️ Plan umbenannt');
+  gsPPopenSavedPlans();
+}
+window.gsPPrenamePlan = gsPPrenamePlan;
+
+// ── v30.45 Block F.3: Plan DUPLIZIEREN (gp_ → neue garden_plans-Row; LS-only → Kopie in LS + user_gardens) ──
+async function gsPPduplicatePlan(id){
+  var cur = null;
+  try { var arr1 = JSON.parse(localStorage.getItem('gs_garden_plans')||'[]'); cur = (Array.isArray(arr1)?arr1:[]).find(function(x){ return x && x.id===id; }); } catch(_){}
+  if (!cur){ if (typeof gsToast==='function') gsToast('Plan nicht gefunden','warn'); return; }
+  var newTitle = String((cur.title||'Plan')+' (Kopie)').slice(0,80);
+  var nowIso = new Date().toISOString();
+  var newPlan = null;
+  var uid = (typeof gsStore!=='undefined'&&gsStore.get) ? gsStore.get('gs_sb_uid', null) : null;
+  var online = (typeof sbIsLoggedIn==='function' && sbIsLoggedIn() && typeof sbFetch==='function' && uid);
+  // (a) Cloud garden_plans-Plan → echte neue Row (Cross-Device)
+  try {
+    if (online && cur.source==='garden_plans' && cur._proAnalysis){
+      var ins = await sbFetch('/rest/v1/garden_plans', {method:'POST', headers:{'Content-Type':'application/json','Prefer':'return=representation'}, body: JSON.stringify({ user_id: uid, title: newTitle, ai_analysis: cur._proAnalysis })});
+      var row = (ins && ins.data && ins.data[0]) ? ins.data[0] : null;
+      if (row && row.id) newPlan = Object.assign({}, cur, { id:'gp_'+row.id, title:newTitle, created: row.created_at||nowIso, _origId: row.id });
+    }
+  } catch(e){ console.warn('[gsPPduplicatePlan] cloud:', e); }
+  // (b) Fallback / LS-only-Plan → lokale Kopie + user_gardens.data.plans (Cross-Device best-effort)
+  if (!newPlan){
+    try { newPlan = JSON.parse(JSON.stringify(cur)); } catch(_){ newPlan = Object.assign({}, cur); }
+    newPlan.id = 'plan_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    newPlan.title = newTitle; newPlan.created = nowIso; newPlan.source = 'local';
+    try {
+      if (online){
+        var ug2 = await sbFetch('/rest/v1/user_gardens?user_id=eq.'+uid+'&select=data&limit=1', {method:'GET'});
+        var ugRows2=(ug2&&ug2.data&&Array.isArray(ug2.data))?ug2.data:[];
+        var data2 = (ugRows2[0] && ugRows2[0].data && typeof ugRows2[0].data==='object') ? ugRows2[0].data : {};
+        if (!Array.isArray(data2.plans)) data2.plans = [];
+        data2.plans.unshift(newPlan); data2.plans = data2.plans.slice(0,30);
+        await sbFetch('/rest/v1/user_gardens?on_conflict=user_id', {method:'POST', headers:{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'}, body: JSON.stringify({user_id:uid, data:data2, updated_at:nowIso})});
+      }
+    } catch(e){ console.warn('[gsPPduplicatePlan] ug:', e); }
+  }
+  // LS einfügen (vorn, Cap 30)
+  try { var s2 = JSON.parse(localStorage.getItem('gs_garden_plans')||'[]'); if(!Array.isArray(s2)) s2=[]; s2.unshift(newPlan); localStorage.setItem('gs_garden_plans', JSON.stringify(s2.slice(0,30))); } catch(_){}
+  try { if (typeof gsCollectionsAutoVacuumDebounced==='function') gsCollectionsAutoVacuumDebounced(); } catch(_){}
+  if (typeof showProfileToast==='function') showProfileToast('🔁 Plan dupliziert');
+  gsPPopenSavedPlans();
+}
+window.gsPPduplicatePlan = gsPPduplicatePlan;
 
 // v23.98: PDF-Export mit Web Share API (Mobile-first) → a.click → Print-Modal Fallback
 async function gsPPexportPDF() {
@@ -66207,7 +66289,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.44';
+var GS_VERSION = 'v30.45';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
