@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.45.20260625">
+<meta name="app-version" content="30.46.20260625">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -9294,6 +9294,7 @@ function dqGetStats() {
 }
 function dqSaveStats(s) {
   try { localStorage.setItem('gs_dq_stats', JSON.stringify(s)); } catch(e) {}
+  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty==='function') gsCloudSync.markDirty('state'); } catch(_){} // v30.46: HL#32 cross-device
   // v26.72: Quiz-Leaderboard Cloud-Sync (debounced 2s, fire-and-forget)
   try { if (typeof dqPushLeaderboardDebounced === 'function') dqPushLeaderboardDebounced(s); } catch(_){}
 }
@@ -10067,6 +10068,7 @@ function dqYearlyReset(oldStats) {
     var archive = JSON.parse(localStorage.getItem('gs_dq_archive') || '[]');
     archive.push({year: year, points: oldStats.points, correct: oldStats.correct, total: oldStats.total, bestStreak: oldStats.bestStreak});
     localStorage.setItem('gs_dq_archive', JSON.stringify(archive.slice(-5)));
+    try { if (window.gsCloudSync && typeof gsCloudSync.markDirty==='function') gsCloudSync.markDirty('state'); } catch(_){} // v30.46: HL#32 cross-device
   } catch(e) {}
   // Neue Statistik
   var fresh = {points:0, correct:0, total:0, streak:oldStats.streak, bestStreak:oldStats.bestStreak, year: new Date().getFullYear()};
@@ -15385,6 +15387,26 @@ function gsAddSpeciesToGarden(speciesId) {
   }, 150);
   showProfileToast('🌳 Für den Garten vorgewählt — Details anpassen!', 'info');
 }
+
+// v30.46: Gescannte Art OHNE DB-Treffer zu Garten/Wohnung hinzufügen — öffnet das Add-Plant-Modal mit den
+// Scan-Rohdaten (window._gsLastScanForAdd), ohne DB-id. Nutzer wählt Garten/Wohnung im Modal selbst.
+function gsAddScanToGarden(){
+  var d = (window._gsLastScanForAdd && typeof window._gsLastScanForAdd === 'object') ? window._gsLastScanForAdd : null;
+  var nm = (d && d.name) ? String(d.name) : '';
+  if (!nm) { if (typeof gsToast === 'function') gsToast('Kein Art-Name zum Hinzufügen.', 'warn'); return; }
+  gsHaptic('medium');
+  try { var nameEl = document.getElementById('mp-name'); if (nameEl) nameEl.value = nm; } catch(_){}
+  try { var emojiEl = document.getElementById('mp-emoji'); if (emojiEl) emojiEl.value = (d.emoji || '🌿'); } catch(_){}
+  try { var notesEl = document.getElementById('mp-notes'); if (notesEl) notesEl.value = d.latin || ''; } catch(_){}
+  try { closeModal('detail-modal'); } catch(_){}
+  try { closeModal('scan-detail-modal'); } catch(_){}
+  setTimeout(function(){
+    if (typeof switchTab === 'function') switchTab('favs');
+    setTimeout(function(){ if (typeof openModal === 'function') openModal('modal-addplant'); }, 300);
+  }, 150);
+  if (typeof showProfileToast === 'function') showProfileToast('🌱 Details anpassen + 🏠/🌳 wählen, dann speichern.', 'info', 3500);
+}
+window.gsAddScanToGarden = gsAddScanToGarden;
 
 function favSearchFilter(q) {
   var items = document.querySelectorAll('#mp-list [data-pid], #mp-list .plant-card, #mp-list > div');
@@ -25022,12 +25044,14 @@ function showScanResult(r){
   }
 
   // ── 3) ACTIONS (DB + Garten) — primärer Call-to-Action ────
-  if (dbSp) {
-    body += '<div class="sr2-cta-row" style="margin-top:0;margin-bottom:14px;">' +
-      '<button class="sr2-cta sr2-cta-primary" onclick="openDetail(\'' + dbSp.id + '\')">🌿 Details &amp; mehr</button>' +
-      '<button class="sr2-cta sr2-cta-secondary" onclick="gsAddSpeciesToGarden(\'' + dbSp.id + '\')">🌱 Garten</button>' +
-    '</div>';
-  }
+  // v30.46 FIX: Garten/Wohnung-Button IMMER anbieten (vorher nur bei DB-Treffer → bei nicht-gematchter KI-Art
+  // gab es GAR KEINEN Hinzufügen-Button). State-Bridge statt r.name in onclick (HL#12).
+  try { window._gsLastScanForAdd = { name: (r.name||r.plant||''), latin: (r.latin||''), emoji: (r.emoji||'🌿') }; } catch(_){}
+  body += '<div class="sr2-cta-row" style="margin-top:0;margin-bottom:14px;">' +
+    (dbSp ? '<button class="sr2-cta sr2-cta-primary" onclick="openDetail(\'' + dbSp.id + '\')">🌿 Details &amp; mehr</button>' +
+            '<button class="sr2-cta sr2-cta-secondary" onclick="gsAddSpeciesToGarden(\'' + dbSp.id + '\')">🌱 Garten/Wohnung</button>'
+          : '<button class="sr2-cta sr2-cta-primary" onclick="if(typeof gsAddScanToGarden===\'function\')gsAddScanToGarden()">🌱 Zu Garten/Wohnung</button>') +
+  '</div>';
 
   // ── 4) BESCHREIBUNG ──────────────────────────────────────
   if (r.description) {
@@ -26490,7 +26514,11 @@ function isMonthInSeason(seasonStr, monthIdx) {
 }
 function toggleFav(id){
   favs = favs.includes(id) ? favs.filter(f=>f!==id) : [...favs,id];
-  localStorage.setItem('ps_favs',JSON.stringify(favs));
+  // v30.46 FIX: HL#10 try/catch + HL#32 markDirty('state') — ps_favs ist im State-Blob, synct sonst NICHT
+  // cross-device; bei vollem Speicher (Quota) brach der Write vorher kommentarlos ab.
+  try { localStorage.setItem('ps_favs',JSON.stringify(favs)); }
+  catch(_){ if (typeof gsToast==='function') gsToast('Speicher voll — Favorit evtl. nicht gesichert.','warn'); }
+  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty==='function') gsCloudSync.markDirty('state'); } catch(_){}
   document.getElementById('stat-favs').textContent = myPlants.length;
   const btn = document.getElementById('fav-btn');
   if(btn){var _t=(window.gsI18n&&gsI18n.t)?gsI18n.t:function(k,f){return f;};btn.textContent=favs.includes(id)?_t('fav_remove_long','⭐ Aus Favoriten entfernen'):_t('fav_add_long','☆ Zu Favoriten hinzufügen');btn.classList.toggle('added',favs.includes(id));}
@@ -27149,7 +27177,14 @@ function gsClearPlantPhoto() {
 async function savePlant(){
   // v26.58: async für gsUploadPhotoToBucket (base64 → Storage-Bucket).
   // Nur für eingeloggte Nutzer
-  if (!gsRequire('save_plant', 'Bitte anmelden um Pflanzen zu speichern.')) return;
+  // v30.46 FIX: Login-Hinweis SICHTBAR machen. Vorher öffnete gsRequire den Login-Dialog 800ms später UNTER dem
+  // noch offenen Add-Modal → aus Nutzersicht „ich speichere und es passiert nichts". Jetzt erst das Add-Modal
+  // schließen, dann den Prompt zeigen, damit er nicht verdeckt wird.
+  if (typeof gsCanDo === 'function' && !gsCanDo('save_plant')) {
+    try { closeModal('modal-addplant'); } catch(_){}
+    try { gsRequire('save_plant', 'Bitte anmelden um Pflanzen zu speichern.'); } catch(_){}
+    return;
+  }
   // v30.33: Dead-Code entfernt — gsAboCanUse('save') gab IMMER true zurück (Pflanzen-Speichern ist per
   // Mission ein Free-Feature). Der unerreichbare „Pro-Feature"-Toast + Abo-Redirect waren irreführende Schuld.
   const name = document.getElementById('mp-name').value.trim();
@@ -29091,6 +29126,7 @@ DU LERNST MIT DER APP MIT:
 
 function gsChatSaveHistory(){
   try { localStorage.setItem('gs_chat_history', JSON.stringify(aiHistory.slice(-20))); } catch(e){}
+  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty==='function') gsCloudSync.markDirty('state'); } catch(_){} // v30.46: HL#32 cross-device
 }
 
 function gsChatClearHistory(){
@@ -29707,8 +29743,9 @@ function vote(id, dir){
     fb.votes[dir] = (fb.votes[dir]||0)+1;
     myVotes[id] = dir;
   }
-  localStorage.setItem('ps_feedback', JSON.stringify(feedbackItems));
-  localStorage.setItem('ps_votes', JSON.stringify(myVotes));
+  try { localStorage.setItem('ps_feedback', JSON.stringify(feedbackItems)); } catch(_){} // v30.46: HL#10
+  try { localStorage.setItem('ps_votes', JSON.stringify(myVotes)); } catch(_){}
+  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty==='function') gsCloudSync.markDirty('state'); } catch(_){} // v30.46: HL#32 cross-device
   renderFeedback();
   // v29.07 (Bug-Sweep): korrekt an feedback_votes syncen. Spalte heisst 'dir' (CHECK up/down) — NICHT
   // 'direction'; bei Vote-Rücknahme DELETE statt 'none' (sonst CHECK-23514). voter_key MUSS auth.uid()::text
@@ -66289,7 +66326,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.45';
+var GS_VERSION = 'v30.46';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -75980,6 +76017,7 @@ async function gsDoctorRun(file){
           hist.push({ date: new Date().toISOString().slice(0,10), summary: firstLine.replace(/\*\*/g,'').slice(0,100), html: replyHtml, ts: Date.now() });
           if (hist.length > 50) hist = hist.slice(-50);
           localStorage.setItem('gs_doctor_history', JSON.stringify(hist));
+          try { if (window.gsCloudSync && typeof gsCloudSync.markDirty==='function') gsCloudSync.markDirty('state'); } catch(_){} // v30.46: HL#32 cross-device
         } catch(e){}
       } catch(err){
         out.innerHTML = '<div style="padding:12px;background:#ffebee;color:#c62828;border-radius:10px;">❌ ' + (err.message||'Fehler') + ' — API-Key prüfen.</div>';
