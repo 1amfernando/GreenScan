@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.46.20260625">
+<meta name="app-version" content="30.47.20260625">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17218,6 +17218,7 @@ function gsAddRecentSearch(term) {
   _gsRecentSearches.unshift(term);
   _gsRecentSearches = _gsRecentSearches.slice(0, 8);
   try { localStorage.setItem('gs_recent_searches', JSON.stringify(_gsRecentSearches)); } catch(e){}
+  try { if (window.gsCloudSync && typeof gsCloudSync.markDirty==='function') gsCloudSync.markDirty('state'); } catch(_){} // v30.47: HL#32 — „zuletzt gesucht" cross-device
 }
 
 function gsRenderRecentSearches() {
@@ -23388,7 +23389,7 @@ async function callVisionAI(b64, mediaType, prompt, extraImages, opts){
     var _sysPrompt = (opts && typeof opts.systemPrompt === 'string' && opts.systemPrompt) ? opts.systemPrompt : null;
     var tryModel = window._gsPickClaudeModel();
     for (var attempts = 0; attempts < 4; attempts++){
-      var _reqBody = { model: tryModel, max_tokens:2500, messages:[{ role:'user', content:content }] };
+      var _reqBody = { model: tryModel, max_tokens: (opts && opts.maxTokens) || 2500, messages:[{ role:'user', content:content }] }; // v30.47: pro-Call überschreibbar (Scan nutzt 900 → kürzere Generierung)
       if (_sysPrompt) _reqBody.system = [{ type:'text', text:_sysPrompt, cache_control:{ type:'ephemeral' } }];
       var _tgtV = _gsAiTarget(key, source); // v30.37: Proxy (Flag) oder direkt an Anthropic
       var resp = await _gsApiFetch(_tgtV.url,{
@@ -23751,10 +23752,16 @@ function uploadImage(){
 async function handleUpload(e){
   const file = e.target.files[0];
   if(!file) return;
-  // Show preview
-  const url = URL.createObjectURL(file);
   document.getElementById('scan-status').textContent = 'Bild geladen – analysiere…';
   e.target.value = '';
+  // v30.47 Scanner-Speed: Galerie-Foto komprimieren (maxDim 1280, q0.8) wie alle anderen Upload-Pfade —
+  // ein 12MP-Foto roh an die Vision-API ist der zweitgrößte Latenz-Treiber. Fallback: roher FileReader.
+  try {
+    if (typeof gsCompressImage === 'function') {
+      var c = await gsCompressImage(file, { maxDim: 1280, quality: 0.8 });
+      if (c && c.b64) { await analyzeImage(c.b64, c.mt || 'image/jpeg'); return; }
+    }
+  } catch(_){}
   const reader = new FileReader();
   reader.onload = async function(ev) {
     const parts = ev.target.result.split(',');
@@ -23767,14 +23774,16 @@ async function handleUpload(e){
 async function captureAndAnalyze(){
   const video = document.getElementById('video');
   if(!video.srcObject){ uploadImage(); return; }
+  // v30.47 Scanner-Speed: maxDim 1280 + q0.8 (wie _gsGrabFrame) — kein Qualitätsverlust, schnellerer Upload.
+  var _vw = video.videoWidth||1280, _vh = video.videoHeight||720;
+  var _ratio = Math.min(1280/_vw, 1280/_vh, 1);
   const canvas = document.createElement('canvas');
-  canvas.width = video.videoWidth||1280;
-  canvas.height = video.videoHeight||720;
-  canvas.getContext('2d').drawImage(video,0,0);
+  canvas.width = Math.max(1, Math.round(_vw*_ratio));
+  canvas.height = Math.max(1, Math.round(_vh*_ratio));
+  canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);
   // Kein organContext mehr — KI erkennt selbst
   if(typeof gsStartScanStatus==='function') gsStartScanStatus();
-  if(typeof gsStartScanStatus==='function') gsStartScanStatus();
-  await analyzeImage(canvas.toDataURL('image/jpeg',.92).split(',')[1], 'image/jpeg', '');
+  await analyzeImage(canvas.toDataURL('image/jpeg',.8).split(',')[1], 'image/jpeg', '');
 }
 
 // Shutter: Foto schiessen + sofort scannen mit visueller Animation
@@ -23793,10 +23802,13 @@ function _gsGrabFrame(){
   flash.style.cssText = 'position:absolute;inset:0;background:var(--card);opacity:0.7;z-index:200;pointer-events:none;border-radius:inherit;transition:opacity 0.3s;';
   var wrap = document.querySelector('.scan-wrap');
   if(wrap){ wrap.appendChild(flash); setTimeout(function(){ flash.style.opacity='0'; setTimeout(function(){ flash.remove(); }, 300); }, 80); }
-  // Foto schiessen (mit echten Video-Dimensionen)
+  // v30.47 Scanner-Speed: auf maxDim 1280 runterskalieren. Anthropic cappt Bilder ohnehin bei ~1568px →
+  // alles darüber kostet NUR Upload-Bytes/Zeit, KEINE Erkennungs-Qualität. q0.8 statt 0.92. Upload bis ~10× kleiner.
+  var _vw = video.videoWidth, _vh = video.videoHeight;
+  var _ratio = Math.min(1280 / _vw, 1280 / _vh, 1);
   const canvas = document.createElement('canvas');
-  canvas.width  = video.videoWidth;
-  canvas.height = video.videoHeight;
+  canvas.width  = Math.max(1, Math.round(_vw * _ratio));
+  canvas.height = Math.max(1, Math.round(_vh * _ratio));
   try {
     canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
   } catch(e){
@@ -23804,7 +23816,7 @@ function _gsGrabFrame(){
     return null;
   }
   var dataUrl;
-  try { dataUrl = canvas.toDataURL('image/jpeg', .92); } catch(e){ return null; }
+  try { dataUrl = canvas.toDataURL('image/jpeg', .8); } catch(e){ return null; }
   if (!dataUrl || dataUrl.length < 100) return null;
   return dataUrl.split(',')[1];
 }
@@ -24435,7 +24447,7 @@ async function analyzeImage(b64, mt, organContext, extraImages){
 
   try{
     if (!navigator.onLine) { var _offErr = new Error('offline'); _offErr.code = 'offline'; throw _offErr; } // v30.24: offline sofort statt 45s-Timeout (Cache-Hit oben lief bereits)
-    const text = await callVisionAI(b64, mt, prompt, extraImages, { systemPrompt: SCAN_SYSTEM_PROMPT, quotaFeature: 'scan' });
+    const text = await callVisionAI(b64, mt, prompt, extraImages, { systemPrompt: SCAN_SYSTEM_PROMPT, quotaFeature: 'scan', maxTokens: 900 }); // v30.47: Scan-JSON braucht ~400-600 Tok → 900 reicht, kürzere Generierung
     clearInterval(stageTimer);
     if(!text) throw new Error('Keine Antwort von der KI erhalten.');
     // v23.68: Robuster JSON-Extractor — behandelt Markdown-Fences, Prose-Einleitung,
@@ -24948,7 +24960,15 @@ function showScanResult(r){
   if(typeof gsTrackAction==='function') gsTrackAction('scan');
   if(typeof gsAddToScanHistory==='function') gsAddToScanHistory(r);
   // v23.86: Scan zu Cloud persistieren — Bild + Metadata für DB-Wachstum
-  try { if (typeof gsScanPersistToCloud === 'function') gsScanPersistToCloud(r); } catch(_){}
+  // v30.47 FIX (Rhythmus): Return behandeln — bei Online-Fehler (RLS/5xx/noch-nicht-eingeloggt) in die durable
+  // Offline-Queue legen, sonst wird der fehlgeschlagene user_scans-Insert NIE retried (Scan blieb nur lokal).
+  try {
+    if (typeof gsScanPersistToCloud === 'function') {
+      Promise.resolve(gsScanPersistToCloud(r)).then(function(ok){
+        if (ok === false && typeof window.gsQueueOffline === 'function') { try { window.gsQueueOffline('scan', r); } catch(_){} }
+      }).catch(function(){});
+    }
+  } catch(_){}
   if(typeof gsHaptic==='function') gsHaptic(conf>=75?'success':'medium');
   // v24.36: Vibration-Feedback bei Scan-Erfolg (zusätzlich zu gsHaptic)
   try {
@@ -66326,7 +66346,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.46';
+var GS_VERSION = 'v30.47';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -72472,6 +72492,9 @@ function _gsSnapshotSetupAutoSync(){
         if (window.gsCloudSync && gsCloudSync.flushNow) gsCloudSync.flushNow();
         // v29.27: auch periodisch PULLen (Cross-Device) — Cooldown/Visible-Check intern.
         try { if (typeof gsSyncPullNow === 'function') gsSyncPullNow('periodic'); } catch(_){}
+        // v30.47 (Rhythmus): durable Offline-Queue periodisch leeren — vorher nur bei online-Event/Boot/Reload.
+        // Deckt jetzt auch online-fehlgeschlagene Scans (v30.47 Fix) ab → „gescannte Sachen" werden zuverlässig nachgepusht.
+        try { if (navigator.onLine && typeof window.gsFlushOfflineQueue === 'function') window.gsFlushOfflineQueue(); } catch(_){}
         // 1× pro Tag einen auto_daily-Snapshot
         var today = new Date().toISOString().slice(0,10);
         var last = null; try { last = localStorage.getItem('gs_snapshot_auto_day'); } catch(_){}
