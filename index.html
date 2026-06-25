@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.40.20260625">
+<meta name="app-version" content="30.41.20260625">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13620,11 +13620,17 @@ window.gsAchBump = function(metric, value, isSet) {
         var d = r && r.data;
         if (Array.isArray(d)) d = d[0];
         if (d && Array.isArray(d.unlocked) && d.unlocked.length) window.gsAchUnlockCelebrate(d.unlocked);
-        // v30.40 FIX: fn_achievements_bump addiert xp_gain server-seitig auf profiles.xp — lokal spiegeln +
-        // Balken neu rendern, sonst zeigt Home/Profil (gs_xp) den alten, das Menü (Cloud) den neuen Wert → "springt".
+        // v30.41 FIX: fn_achievements_bump hat xp_gain bereits server-seitig auf profiles.xp addiert. Den BETRAG
+        // direkt lokal anwenden (gsXpBootSync las den stale _sbProfile-Cache → zeigte den alten Wert bis zum
+        // nächsten Boot). KEIN Cloud-Push hier (Server hat schon geschrieben → kein Doppelzählen).
         if (d && d.xp_gain > 0) {
-          if (typeof gsXpBootSync === 'function') { try { gsXpBootSync(); } catch(_){} }
-          else if (typeof gsUpdateXPBar === 'function') { try { gsUpdateXPBar(); } catch(_){} }
+          try {
+            var _ngXp = (typeof gsGetXP === 'function' ? gsGetXP() : 0) + d.xp_gain;
+            if (typeof gsStore !== 'undefined' && gsStore.set) gsStore.set('gs_xp', String(_ngXp));
+            if (window._sbProfile) window._sbProfile.xp = (window._sbProfile.xp || 0) + d.xp_gain;
+            if (typeof gsUpdateXPBar === 'function') gsUpdateXPBar();
+            if (typeof updateMenuProfileBar === 'function') updateMenuProfileBar();
+          } catch(_){}
         }
       } catch(_){}
     }).catch(function(){});
@@ -16300,20 +16306,27 @@ function _gsMakeMediumPhoto(b64, cb){
 }
 window._gsMakeMediumPhoto = _gsMakeMediumPhoto;
 
-// v30.39: Scan-Kategorie → Sammler-Achievement-Metrik. pilz/baum/kraut sauber; wildpflanze→flower (Wildblumen).
-// (hauspflanze/moos/flechte/alge haben kein Achievement → ignoriert.) Zählt DISTINCT Arten je Kategorie (isSet).
-var _GS_SCAN_CAT_METRIC = { pilz:'mushroom_count', baum:'tree_count', kraut:'herb_count', wildpflanze:'flower_count' };
+// v30.41 FIX: Der Scanner liefert FREIEN Kategorie-Text (zimmerpflanze, küchenkraut, kulturpflanze, zierpflanze…),
+// NICHT das DB-Vokabular — die v30.39-Map traf daher fast nie → mushroom/tree/herb bumpten nie, Capstone unmöglich.
+// Jetzt Synonym-Normalisierung auf 4 Metriken; zählt DISTINCT Arten ÜBER ALLE Kategorien, die auf dieselbe Metrik
+// mappen (kraut+küchenkraut+heilkraut → herb_count zusammen). hauspflanze/zimmerpflanze/kulturpflanze/gemuese/
+// moos/flechte/alge → kein Achievement (kein Eintrag). isSet=idempotent (kein Re-Scan-Doppelzählen).
+var _GS_SCAN_CAT_METRIC = {
+  pilz:'mushroom_count', speisepilz:'mushroom_count', giftpilz:'mushroom_count',
+  baum:'tree_count', nadelbaum:'tree_count', laubbaum:'tree_count',
+  kraut:'herb_count', 'küchenkraut':'herb_count', kuechenkraut:'herb_count', heilkraut:'herb_count', 'gewürz':'herb_count', gewuerz:'herb_count',
+  wildpflanze:'flower_count', blume:'flower_count', wildblume:'flower_count', zierpflanze:'flower_count'
+};
 function _gsBumpScanCatAch(hist, newCat){
   try {
-    var c = (newCat || '').toLowerCase();
-    var metric = _GS_SCAN_CAT_METRIC[c];
+    var metric = _GS_SCAN_CAT_METRIC[(newCat || '').toLowerCase()];
     if (!metric || typeof gsAchBump !== 'function') return;
     var seen = {};
     (hist || []).forEach(function(h){
-      if (h && (h.category || '').toLowerCase() === c && h.name) seen[(h.name || '').toLowerCase()] = 1;
+      if (h && h.name && _GS_SCAN_CAT_METRIC[(h.category || '').toLowerCase()] === metric) seen[(h.name || '').toLowerCase()] = 1;
     });
     var n = Object.keys(seen).length;
-    if (n > 0) gsAchBump(metric, n, true); // isSet = distinct-Arten dieser Kategorie (idempotent, kein Re-Scan-Doppelzählen)
+    if (n > 0) gsAchBump(metric, n, true); // isSet = distinct-Arten dieser Metrik (idempotent, kein Re-Scan-Doppelzählen)
   } catch(_){}
 }
 function gsAddScanHistory(item) {
@@ -25116,8 +25129,10 @@ function showScanResult(r){
   } catch(e) { _lastScanThumb = null; }
   saveScanToHistory(r, _thumb);
   // In DB suchen und Direktlink zeigen
+  // v30.41 SICHERHEIT: _dbMatch bleibt EXAKT (name=== ODER lat===). Der v30.40-Fuzzy-Fallback (startsWith via
+  // gsLinkScanToDb) wurde entfernt — er konnte den persistenten, moderierten Foto-Beitrag an die FALSCHE Art
+  // hängen (z.B. "Gefleckter Aronstab" → "Gefleckter Schierling" tödlich). Fuzzy-Direktlink bleibt separat (dbSp).
   var _dbMatch = DB ? DB.find(function(s){ return (s.name||'').toLowerCase() === (r.name||'').toLowerCase() || (s.lat||'').toLowerCase() === (r.latin||'').toLowerCase(); }) : null;
-  if (!_dbMatch && dbSp) _dbMatch = dbSp; // v30.40: Fuzzy-Fallback (gsLinkScanToDb) → Eintrag-/Foto-Beitrag-Button auch bei leichter Namens-Abweichung
   // Appender: in sr2-body einhängen wenn möglich (konsistentes Styling)
   var _container = document.querySelector('#scan-result .sr2-body') || document.getElementById('scan-result');
   if (_dbMatch) {
@@ -66153,7 +66168,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.40';
+var GS_VERSION = 'v30.41';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
