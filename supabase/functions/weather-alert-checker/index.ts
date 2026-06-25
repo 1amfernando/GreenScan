@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 
-// weather-alert-checker v2 (v30.36 — 2026-06-24)
+// weather-alert-checker v3 (v30.42 — 2026-06-25)
 // 3-stündlicher Wetter-Checker: Frost / Hitze / Sturm aus Open-Meteo.
 // - Schreibt persistente Alerts in weather_alerts (Inbox, RLS own-only).
 // - Sendet Web-Push (VAPID aus app_settings), respektiert Stille-Zeit
@@ -268,7 +268,7 @@ async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
       }
     } else if (!dryRun) {
       await logSend(sub.user_id, a.category, a.title, a.body,
-        { severity: a.severity, quiet }, quiet ? "suppressed_quiet" : "suppressed_dup");
+        { severity: a.severity, quiet }, quiet ? "suppressed_quiet" : "suppressed_dedup");
     }
 
     if (!dryRun) {

@@ -4,13 +4,28 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-06-25 · **Branch**: `claude/lucid-cerf-sx0ll5` · **Version**: `v30.42` (branch) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-06-25 — Routine-Audit v30.42 (push_send_log-Constraint-Bugfix + Typo-Fix)
+
+- **Auftrag:** Autonomer Routine-Audit (Scheduled Session).
+- **Gefundene Bugs:** Postgres-Log zeigte täglich Constraint-Verletzungen auf `push_send_log`.
+  1. `push_send_log_category_check` fehlten: `heat`, `storm` (weather-alert-checker), `trial_end_72h/24h/1h` (daily-push-checker), `doctor_followup`, `class_new`, `class_submissions`, `battle_reply` (engagement-push-checker). Alle neuen Push-Checker nach v23.96 wurden nie in der Constraint-Liste ergänzt.
+  2. **Typo in weather-alert-checker:** `"suppressed_dup"` → `"suppressed_dedup"` (nicht in `push_send_log_result_check` erlaubt).
+  3. Auswirkung: heat/storm/trial_end/doctor/class/battle Push-Dedup-Logging schlug täglich fehl → Dedup-Schutz für diese Typen nicht garantiert (konnte theoretisch Doppel-Pushes senden).
+- **Fixes (live):**
+  - Migration `v30_42_push_send_log_categories` LIVE applied: Constraint um 9 fehlende Kategorien erweitert.
+  - `weather-alert-checker` v3 deployed (typo fix `suppressed_dup`→`suppressed_dedup`).
+- **Security-Advisor-Check:** 0 ERRORs (alle 14 aus v26.51 behoben), 136 WARNs (alle by-design: Extensions in public, Frontend-RPCs, 1× leaked_password_protection Dashboard-Setting).
+- **Edge-Fn-Health:** weather-alert-checker, daily-push-checker, engagement-push-checker, knowledge-bulk-gen — alle 200 OK.
+- **Auth-Log:** Nur fernando.rankwiler1997@gmail.com aktiv (normale Token-Refreshes), keine Anomalien.
+- **Naechste:** `auth_leaked_password_protection` in Supabase-Dashboard aktivieren (1-Click) · weitere Postgres-Errors aus Health-Monitor prüfen (achievements, daily_quiz_questions — evtl. ausstehende Migrations).
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
