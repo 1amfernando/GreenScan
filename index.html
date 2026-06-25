@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.48.20260625">
+<meta name="app-version" content="30.49.20260625">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -49640,7 +49640,7 @@ window.gsUploadImage = window.gsUploadImage || async function(b64, bucket, ext) 
     for (var i=0; i<bin.length; i++) u8[i] = bin.charCodeAt(i);
     var fileName = uid + '/' + Date.now() + '_' + Math.random().toString(36).slice(2,8) + '.' + ext;
     var url = (window.SB_URL || window.SB_URL_DEFAULT) + '/storage/v1/object/' + bucket + '/' + fileName;
-    var token = gsStore.get('gs_sb_token', null) || '';
+    var token = (typeof _gsFreshToken === 'function') ? (await _gsFreshToken() || '') : (gsStore.get('gs_sb_token', null) || ''); // v30.49: frischen JWT (Storage-Upload, sonst 401 bei abgelaufenem Token nach Ruhe)
     var apikey = window.SB_KEY || window.SB_KEY_DEFAULT;
     var resp = await (window._gsFetch || fetch)(url, {
       method: 'POST',
@@ -66351,7 +66351,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.48';
+var GS_VERSION = 'v30.49';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -66809,6 +66809,33 @@ async function _gsFreshToken() {
   } catch(_) { return null; }
 }
 window._gsFreshToken = _gsFreshToken;
+
+// v30.49: PROAKTIVER Token-Refresh — hält die Session während Inaktivität frisch, damit rohe Token-Call-Sites
+// nach langer Ruhe keinen abgelaufenen JWT sehen (Symptom: Save bricht via gsRequire ab / „plötzlich ausgeloggt").
+// Läuft AUSSCHLIESSLICH durch sbRefresh → _gsRefreshShared (single-flight Mutex, NIE Logout — v29.57-Lesson).
+// Kein neuer Refresh-Call-Site, kein 401-Logout, keine Schwellen-Änderung.
+function _gsTokenExpiresWithin(ms){
+  try {
+    var expires = parseInt(localStorage.getItem('gs_sb_expires') || '0');
+    if (expires) return Date.now() > (expires - ms);
+    var token = gsStore.get('gs_sb_token', null) || '';
+    var p = JSON.parse(atob((token.split('.')[1]||'').replace(/-/g,'+').replace(/_/g,'/')));
+    return !!(p && p.exp && (p.exp*1000 - Date.now()) < ms);
+  } catch(_){ return false; }
+}
+(function _gsProactiveRefreshSetup(){
+  if (window._gsProactiveRefreshTimer) return;
+  function _tick(){
+    try {
+      if (typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()
+          && _gsTokenExpiresWithin(6*60*1000) && typeof sbRefresh === 'function') {
+        sbRefresh(); // best-effort, durch den Mutex; loggt nie aus
+      }
+    } catch(_){}
+  }
+  window._gsProactiveRefreshTimer = setInterval(_tick, 4*60*1000); // alle 4 Min prüfen
+  try { document.addEventListener('visibilitychange', function(){ if (!document.hidden) _tick(); }); } catch(_){}
+})();
 
 // Token-Refresh mit hartem Logout — aber NUR bei wirklich ungültigem Token. v29.57: race-sicher
 // über den geteilten Mutex; clearen nur wenn der Token danach immer noch abgelaufen ist (ein
@@ -67374,7 +67401,9 @@ function sbSaveSession(data) {
     localStorage.removeItem('gs_admin');
   }
   gsStore.set('gs_sb_token',  data.access_token || '');
-  localStorage.setItem('gs_sb_refresh', data.refresh_token || '');
+  // v30.49 FIX: refresh_token NUR überschreiben wenn vorhanden — eine Refresh-/Auth-Antwort ohne neuen RT
+  // würde den gespeicherten RT sonst auf '' setzen → Refresh dauerhaft tot → späterer Silent-Logout.
+  if (data.refresh_token) localStorage.setItem('gs_sb_refresh', data.refresh_token);
   localStorage.setItem('gs_sb_expires', String(Date.now() + (data.expires_in||3600)*1000));
   gsStore.set('gs_sb_uid',    (data.user && data.user.id) || '');
   gsStore.set('gs_sb_email',  (data.user && data.user.email) || '');
