@@ -137,18 +137,18 @@ async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
     if (!(await alreadySentToday(userId, "seasonal"))) {
       const { data: tasks } = await sb
         .from("garden_tasks_catalog")
-        .select("task_title,task_description,priority")
+        .select("title,description,priority")
         .lte("month_start", month).gte("month_end", month)
         .eq("priority", "high")
         .limit(1);
       if (tasks && tasks.length) {
         const t: any = tasks[0];
-        const title = `📅 Saisonale Aufgabe: ${t.task_title}`;
-        const body = (t.task_description || "").slice(0, 120);
+        const title = `📅 Saisonale Aufgabe: ${t.title}`;
+        const body = (t.description || "").slice(0, 120);
         if (dryRun) sent.push("seasonal(dry)");
         else {
           const r = await sendPush(sub, title, body, "/?screen=garden", vapid);
-          await logSend(userId, "seasonal", title, body, { task: t.task_title }, r.ok ? "sent" : "failed", r.status, r.error);
+          await logSend(userId, "seasonal", title, body, { task: t.title }, r.ok ? "sent" : "failed", r.status, r.error);
           if (r.ok) sent.push("seasonal"); else await deleteIfGone(sub, r.status);
         }
       }
