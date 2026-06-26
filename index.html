@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.51.20260626">
+<meta name="app-version" content="30.52.20260626">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11927,7 +11927,7 @@ window.GS_I18N_JS_STRINGS = {
   'support_faq4_q':            'Wie bekomme ich einen API Key?',
   'support_faq4_a':            'Anthropic: console.anthropic.com → API Keys. Tipp: meist hat der App-Admin bereits einen globalen Key hinterlegt — dann brauchst du keinen eigenen.',
   'support_faq5_q':            'Kann ich die App ohne Internet nutzen?',
-  'support_faq5_a':            'Die Datenbank mit 542 Arten funktioniert offline. Der KI-Scanner und Lina (Garten-Coach) benötigen Internetverbindung.',
+  'support_faq5_a':            'Die Datenbank mit über 4\'300 Arten funktioniert offline. Der KI-Scanner und Lina (Garten-Coach) benötigen Internetverbindung.',
   'support_faq6_q':            'Wie melde ich einen Datenfehler?',
   'support_faq6_a':            'Tippe auf "Feedback" und wähle "Datenfehler". Beschreibe was falsch ist (Pflanzname, fehlerhafte Info etc.).',
   'support_emergency':         '📞 Notfall-Kontakte',
@@ -60129,7 +60129,7 @@ function renderSupport(){
     {q:_t('support_faq2_q','Warum öffnet sich die Kamera nicht?'),a:_t('support_faq2_a','Browser erlauben Kamerazugriff nur über HTTPS oder localhost. Wenn du die Datei lokal öffnest (file://), verwende bitte die Galerie-Funktion. Auf iPhone: Safari verwenden.')},
     {q:_t('support_faq3_q','Was bedeuten die Toxizitätsstufen?'),a:_t('support_faq3_a','✅ Ungiftig · 🟡 Leicht giftig · 🟠 Mässig giftig · ⚠️ Giftig · 🔴 Stark giftig · ☠️ Tödlich. Bei Vergiftung: Sofort Tox Info Suisse 145 anrufen!')},
     {q:_t('support_faq4_q','Wie bekomme ich einen API Key?'),a:_t('support_faq4_a','Anthropic: console.anthropic.com → API Keys. Tipp: meist hat der App-Admin bereits einen globalen Key hinterlegt — dann brauchst du keinen eigenen.')},
-    {q:_t('support_faq5_q','Kann ich die App ohne Internet nutzen?'),a:_t('support_faq5_a','Die Datenbank mit 542 Arten funktioniert offline. Der KI-Scanner und Lina (Garten-Coach) benötigen Internetverbindung.')},
+    {q:_t('support_faq5_q','Kann ich die App ohne Internet nutzen?'),a:_t('support_faq5_a','Die Datenbank mit über 4\'300 Arten funktioniert offline. Der KI-Scanner und Lina (Garten-Coach) benötigen Internetverbindung.')},
     {q:_t('support_faq6_q','Wie melde ich einen Datenfehler?'),a:_t('support_faq6_a','Tippe auf "Feedback" und wähle "Datenfehler". Beschreibe was falsch ist (Pflanzname, fehlerhafte Info etc.).')},
   ];
   document.getElementById('support-content').innerHTML =
@@ -66349,7 +66349,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.51';
+var GS_VERSION = 'v30.52';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -72259,6 +72259,10 @@ function gsSnapshotBuildState(){
     action_counts:       _j('gs_action_counts','null'),
     market_ratings:      _j('gs_market_ratings','{}'),   // v30.51: User-Bewertungen (keine Server-Tabelle → Snapshot=einziges Backend-Home)
     market_reported:     _j('gs_market_reported','[]'),  // v30.51: gemeldete Inserate (Button-State)
+    // v30.52 (Cowork-Audit §3.1): NUR eigene Rezepte/Heilmittel (id r_<ts>/rem_<ts> aus saveRecipe) sichern —
+    // Defaults/Cloud nicht (re-pullbar, sonst Bloat). Eigene haben keine Server-Tabelle → Snapshot = Backend-Home.
+    user_recipes:        (function(){ try { return (typeof recipesData!=='undefined'&&Array.isArray(recipesData)?recipesData:[]).filter(function(r){ return r && typeof r.id==='string' && /^r_\d+$/.test(r.id); }); } catch(_){ return []; } })(),
+    user_remedies:       (function(){ try { return (typeof remediesData!=='undefined'&&Array.isArray(remediesData)?remediesData:[]).filter(function(r){ return r && typeof r.id==='string' && /^rem_\d+$/.test(r.id); }); } catch(_){ return []; } })(),
     plants:              _j('ps_myplants','[]'),
     diary:               _j('gs_gartentagebuch','[]'),
     ernte:               _j('gs_ernte_log','[]'),
@@ -72394,6 +72398,18 @@ async function gsSnapshotRestore(){
     _gsRestoreKey('gs_action_counts', st.action_counts);
     _gsRestoreKey('gs_market_ratings', st.market_ratings);
     _gsRestoreKey('gs_market_reported', st.market_reported);
+    // v30.52: eigene Rezepte/Heilmittel additiv in gs_recipes/gs_remedies mergen (dedup by id) — Defaults/Cloud
+    // bleiben unberührt, eigene kommen zurück (greifen beim nächsten Load via recipesData-IIFE). Non-destruktiv.
+    try {
+      [['gs_recipes', st.user_recipes], ['gs_remedies', st.user_remedies]].forEach(function(pair){
+        var arr = pair[1]; if (!Array.isArray(arr) || !arr.length) return;
+        var cur = []; try { cur = JSON.parse(localStorage.getItem(pair[0])||'[]'); } catch(_){}
+        if (!Array.isArray(cur)) cur = [];
+        var seen = {}; cur.forEach(function(r){ if (r && r.id) seen[r.id] = 1; });
+        arr.forEach(function(r){ if (r && r.id && !seen[r.id]) cur.unshift(r); });
+        try { localStorage.setItem(pair[0], JSON.stringify(cur)); } catch(_){}
+      });
+    } catch(_){}
     try { if (st.state) _gsApplyStateBlob(st.state); } catch(_){}
     // Globals neu laden + Cloud reparieren + UI rendern
     try { if (typeof myPlants !== 'undefined') myPlants = JSON.parse(localStorage.getItem('ps_myplants')||'[]'); } catch(_){}
@@ -76891,7 +76907,11 @@ button {
 .modal-close-btn,
 button[aria-label="Zurück"],
 button[aria-label="Schliessen"],
-button[aria-label="Schließen"]{ min-width:44px; min-height:44px; }
+button[aria-label="Schließen"],
+/* v30.52 (Cowork-Audit §3.2): übersetzte Close/Back-aria-labels (EN/ES/FR/IT) — die Regel matchte vorher nur
+   DE → Close-Buttons mit dynamischem _t('modal_close')-Label blieben in anderen Sprachen 32-34px (WCAG 2.5.5). */
+button[aria-label="Close"], button[aria-label="Cerrar"], button[aria-label="Fermer"], button[aria-label="Chiudi"],
+button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retour"], button[aria-label="Indietro"]{ min-width:44px; min-height:44px; }
 
 #home-xp-widget {
   transition: transform .12s;
