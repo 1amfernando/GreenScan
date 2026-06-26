@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.55.20260626">
+<meta name="app-version" content="30.59.20260626">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -9811,8 +9811,35 @@ function _gsQuizToSupaShape(q){
   if (!Array.isArray(opts) || opts.length < 2) return null;
   return { id:q.id, question:q.question, options:opts, correct_idx:ci, explanation:expl, category:q.category, xp_reward:q.xp_reward };
 }
+// v30.59: Server-autoritatives "heute schon gespielt"-Gate. Das localStorage-Gate (gs_dq_<datum>)
+// greift auf einem 2. Gerät NICHT (kein Key vorhanden) → User konnte das Quiz pro Gerät neu spielen.
+// quiz_answers hat UNIQUE(user_id,quiz_id) + RLS select_own → eigener Tages-Eintrag ist lesbar.
+function _dqServerPlayed(quizId, cb){
+  try {
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn() || !quizId || typeof sbFetch !== 'function') { cb(false); return; }
+    var uid = (typeof gsStore!=='undefined' && gsStore.get) ? gsStore.get('gs_sb_uid', null) : null;
+    if (!uid) { cb(false); return; }
+    sbFetch('/rest/v1/quiz_answers?select=is_correct&user_id=eq.'+encodeURIComponent(uid)+'&quiz_id=eq.'+encodeURIComponent(quizId), { method:'GET' })
+      .then(function(r){
+        var rows = (r && r.data) || (Array.isArray(r)?r:[]);
+        if (Array.isArray(rows) && rows.length > 0) cb(true, !!rows[0].is_correct); else cb(false);
+      })
+      .catch(function(){ cb(false); });
+  } catch(_){ cb(false); }
+}
+function _dqGateThenOpen(quizObj, openFn){
+  _dqServerPlayed(quizObj && quizObj.id, function(played, correct){
+    if (played) {
+      try { dqSaveToday({ answered:true, correct: !!correct, quizId: (quizObj&&quizObj.id) }); } catch(_){}
+      try { showDqResult(dqGetToday() || { answered:true, correct: !!correct }); } catch(_){}
+      try { if (typeof gsToast==='function') gsToast('Du hast das heutige Quiz schon gespielt 🌿', 'info', 3000); } catch(_){}
+      return;
+    }
+    openFn();
+  });
+}
 function openDailyQuiz() {
-  // Prüfe ob heute schon gespielt (Anti-Cheat: keine zweite Chance)
+  // Prüfe ob heute schon gespielt (Anti-Cheat: keine zweite Chance) — lokaler Fast-Path
   var todayData = dqGetToday();
   if (todayData && todayData.answered) {
     showDqResult(todayData);
@@ -9842,7 +9869,8 @@ function openDailyQuiz() {
             window._gsTodayQuiz = quizObj;
             // v30.32: alle 3 Shapes tolerant normalisieren (vorher nur choices-shape → 114 Fragen degraded)
             var supaQuiz = _gsQuizToSupaShape(q);
-            if (supaQuiz) { openDailyQuizFromSupa(supaQuiz); return; }
+            // v30.59: vor dem Öffnen serverseitig prüfen ob heute schon gespielt (Cross-Device)
+            if (supaQuiz) { _dqGateThenOpen(quizObj, function(){ openDailyQuizFromSupa(supaQuiz); }); return; }
           }
           // Fallback bei leerem Result
           _openDailyQuizLocal();
@@ -9852,7 +9880,8 @@ function openDailyQuiz() {
     } else if (cachedQuiz) {
       // Cache: heute schon gepullt — v30.32: alle 3 Shapes normalisieren
       var supaQuiz2 = _gsQuizToSupaShape(cachedQuiz);
-      if (supaQuiz2) { openDailyQuizFromSupa(supaQuiz2); return; }
+      // v30.59: auch im Cache-Pfad serverseitig prüfen (Cross-Device-Gate)
+      if (supaQuiz2) { _dqGateThenOpen(cachedQuiz, function(){ openDailyQuizFromSupa(supaQuiz2); }); return; }
     }
   }
   return _openDailyQuizLocal();
@@ -16983,8 +17012,8 @@ async function openDqRanking() {
   var rewards = ['👑 1 Jahr Pro gratis','🥈 1 Jahr Pro gratis','🥉 1 Jahr Pro gratis'];
 
   content.innerHTML = 
-    '<div style="padding:8px 16px 4px;font-size:11px;color:rgba(255,255,255,.5);font-weight:700;">Jahresrangliste ' + yr + ' · Top 50</div>' +
-    '<div style="padding:6px 16px 8px;font-size:11px;color:rgba(255,255,255,.5);">Wird am 31.12.' + yr + ' zurückgesetzt · Top 3 erhalten 1 Jahr Pro gratis 🎁</div>' +
+    '<div style="padding:8px 16px 4px;font-size:11px;color:rgba(255,255,255,.5);font-weight:700;">Rangliste (gesamt) · Top 50</div>' +
+    '<div style="padding:6px 16px 8px;font-size:11px;color:rgba(255,255,255,.5);">Top 3 erhalten am Jahresende (31.12.) 1 Jahr Pro gratis 🎁</div>' +
     entries.slice(0,50).map(function(e,i) {
       var rank = i+1;
       var isTop3 = rank <= 3;
@@ -17010,7 +17039,7 @@ async function openDqRanking() {
         '</div>' +
       '</div>';
     }).join('') +
-    '<div style="padding:12px 16px;text-align:center;font-size:11px;color:rgba(255,255,255,.4);">🔄 Rangliste wird jedes Jahr am 1. Januar zurückgesetzt</div>';
+    '<div style="padding:12px 16px;text-align:center;font-size:11px;color:rgba(255,255,255,.4);">🏆 Gesamt-Rangliste · laufend aktualisiert</div>';
 }
 
 function closeDqRanking() {
@@ -22065,10 +22094,26 @@ function gsCollectNotifs(){
               : n.kind === 'sensor_alert' ? '⚠️'
               : '🔔';
         }
+        // v30.59: kind→Aktion-Router — admin/scan/etc.-Notifs sollen direkt zur passenden Seite führen.
+        // Vorher: admin_proposals/admin_report/system hatten link=NULL → Klick schloss nur das Menü (toter Klick).
+        // Alle Ziel-Funktionen sind verifiziert vorhanden (openAdminPanel/openScanHistory/openAchievementsModal/switchTab).
+        var _k = n.kind || '';
+        var kindAction = null;
+        if (_k === 'admin_proposals' || _k === 'admin_report' || _k === 'admin_submission' || _k === 'admin') {
+          kindAction = "closeMainMenu();setTimeout(function(){if(typeof openAdminPanel==='function')openAdminPanel();},250);";
+        } else if (_k === 'scan' || _k === 'scan_result' || _k === 'species_proposal') {
+          kindAction = "closeMainMenu();setTimeout(function(){if(typeof openScanHistory==='function')openScanHistory();},250);";
+        } else if (_k === 'achievement') {
+          kindAction = "closeMainMenu();setTimeout(function(){if(typeof openAchievementsModal==='function')openAchievementsModal();},250);";
+        } else if (_k === 'marketplace') {
+          kindAction = "closeMainMenu();setTimeout(function(){if(typeof switchTab==='function')switchTab('market');},250);";
+        }
         // v24.26: link → Deep-Link-Routing
         var link = n.link || n.action_url || '';
         var action;
-        if (link.startsWith('#')) {
+        if (kindAction) {
+          action = kindAction;
+        } else if (link.startsWith('#')) {
           // Tab-Anker: #favs / #garden / #scanner / #search
           var tab = link.slice(1);
           action = "closeMainMenu();setTimeout(function(){if(typeof switchTab==='function')switchTab('" + tab.replace(/'/g,'') + "');},250);";
@@ -66356,7 +66401,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.55';
+var GS_VERSION = 'v30.59';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -75130,7 +75175,12 @@ async function gsAdminReviewSpeciesProposal(id, approve){
       body: JSON.stringify({ p_id: id, p_approve: !!approve, p_note: null })
     });
     if (res && res.error) { try { gsToast('Aktion fehlgeschlagen.', 'error'); } catch(_){} return; }
-    try { gsToast(approve ? '✅ Vorschlag übernommen — in der Arten-DB gespeichert.' : '🗑️ Vorschlag abgelehnt.', 'success'); } catch(_){}
+    // v30.59: ehrliches Feedback je nach RPC-Ergebnis (neu aufgenommen vs. war bereits in der DB).
+    var rd = (res && res.data) || {};
+    var msg = !approve ? '🗑️ Vorschlag abgelehnt.'
+            : (rd.inserted === false ? '✅ War bereits in der Arten-DB — als geprüft markiert.'
+                                     : '✅ Neu in die Arten-DB aufgenommen.');
+    try { gsToast(msg, 'success'); } catch(_){}
     await _gsAdminRefreshSection('gs-admin-prop-sec', gsAdminFetchSpeciesProposalQueue, _gsAdminSpeciesProposalHtml);
   } catch(_) { try { gsToast('Aktion fehlgeschlagen.', 'error'); } catch(__){} }
 }
