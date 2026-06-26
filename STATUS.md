@@ -4,13 +4,39 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-06-26 · **Branch**: `claude/lucid-cerf-qvze58` · **Version**: `v30.55` (LIVE auf Branch) · **Main**: v28.21
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-06-26 — Routine-Audit v30.55 (proaktiver Stand-Sync)
+
+- **Kontext:** Autonome Routine-Session. Branch `claude/lucid-cerf-qvze58` steht auf v30.55; `main` auf v28.21. STATUS.md war seit 2026-05-24 / v26.51 unaktualisiert — ca. 1 Monat / ~35 Commits fehlend.
+- **App-Gesundheit (gem. FULL_STACK_AUDIT_v30.51_COWORK.md, 26.06.2026):** Backend 0 Security-ERRORs, RLS auf allen public-Tabellen, 0 Perf-ERRORs. Frontend node --check 9/9 sauber.
+- **Security-Fixes seit v26.51 (alle live auf Branch):**
+  - HIGH gefixt v30.42: `quiz_leaderboard` self-write → Jahresend-Auto-Pro-Grant (Entitlement-Exploit). Fix: `total_correct` zählt jetzt autoritativ aus `quiz_answers`; Direkt-PATCH entzogen.
+  - MEDIUM gefixt v30.42: `profiles`-Guard schützt jetzt auch `quiz_elo/battles_won/lost/tied/level/xp` (vorher Battle-ELO fälschbar).
+  - HIGH gefixt v30.51: `saveMarket()` ungewrappt → App fror bei vollem Speicher. Jetzt try/catch.
+  - MED gefixt v30.51: 5 weitere ungewrappte List-Saves (saveMarketChats, saveMyBids, saveMyPurchases, saveRecipesData, saveFarmState).
+  - MED gefixt v30.51: Support-Mail war `www.greenscan@gmail.com` (kaputt) → jetzt `info@greenscan.ch` an 10 Stellen.
+  - MED gefixt v30.49: Session-Härtung — kein unbemerktes Ausloggen mehr.
+  - MED gefixt v30.52: `species_images` SELECT-Policy konsolidiert (2 überlappende Policies → 1).
+- **Wichtige neue Features seit v26.51 (Branch):**
+  - Pilz-Scanner v26.33 · Tagebuch-UI v26.34 · Bauernregeln-Widget v26.35 · Marketplace Bio-Filter v26.36 · Pollinator/Vogel/Alpine/Indoor-Wissen-Tabs v26.37–v26.51 · Quiz-Battles 1v1 ELO v26.97 · Achievements Bump-Engine v26.95 · Pflanzendoktor v2 v26.96 · Web-Push komplett v26.93 · Marktplatz-Chat Realtime v28.17 · AR-View MVP v26.22 · Admin-Moderation-UI v30.34 · Report-System v30.33 · Scan-Datenintegrität v30.31 · Admin-Verifizierung Arten-Vorschläge v30.55.
+- **⚠️ PENDING — Fernando muss manuell handeln (kein Code, nur Klicks):**
+  1. **Pro-Tier-Entscheidung** (§2 FULL_STACK_AUDIT_v30.51): Pro-Karte bewirbt Features die nicht wirklich gegated sind (Familien-Konto existiert nicht, Offline/Export ungegated). Weg A (ehrlich kürzen) oder B (echt gaten) wählen. Empfehlung: A.
+  2. **Supabase-Dashboard:** 7 obsolete Stripe-Edge-Fns löschen (`create-checkout`, `customer-portal`, `stripe-restructure-pro-only`, `stripe-import-fernando-sub`, `stripe-complete-setup`, `stripe-final-audit`, `stripe-setup-webhook`). Live-Pfad nutzt `stripe-checkout` v8 + `stripe-webhook` v12 + `stripe-portal` v5.
+  3. **Supabase Auth-Settings:** `leaked_password_protection` (HaveIBeenPwned) aktivieren — 1 Klick.
+  4. **Stripe-Dashboard:** TWINT aktivieren (seit Wochen offen).
+  5. **Branch → main mergen** sobald bereit (Branch hat ~35 Commits + alle Security-Fixes).
+- **Offene Code-Backlogs (LOW, kein Notfall):**
+  - Close/Back-Buttons <44px für nicht-DE-Sprachen (aria-label-Selektor nur DE): Fix via `[data-close]`-Hook.
+  - Foto-Entfernen-✕-Overlays 22–30px → `.gs-photo-x{min-width:44px;min-height:44px}`.
+  - `gs_recipes`/`gs_remedies` syncen nicht cross-device.
+- **Verify:** node --check 9/9 OK · GS_VERSION=v30.55 · sw.js gs-v30.55 · meta=30.55.20260626.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
@@ -562,11 +588,18 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
 |---|---|---|---|---|
 | B1 | HIGH | `index.html` ~31 KB JWT-Storage | Auth-Token in localStorage. Mit CSP entschärft, aber XSS-Hijack theoretisch möglich. | P2: HttpOnly-Cookies |
 | B2 | MEDIUM | `index.html` 299× innerHTML | `gsSafeHTML`-Helper steht ab v24.02 bereit. Migration iterativ pro Modul (eigene Mini-Sprints) | P2: safeHTML-Migration (Helper ✓, Code-Migration pending) |
+| B8 | LOW | Close/Back-Buttons | Tap-Target <44px für nicht-DE-Sprachen (aria-label-CSS-Selektor nur DE). Fix: `[data-close]`-Hook. | Backlog |
+| B9 | LOW | Foto-Entfernen-✕ | 22–30px auf 6+ Stellen. Fix: `.gs-photo-x{min-width:44px;min-height:44px}` | Backlog |
+| B10 | MEDIUM | Cross-Device | `gs_recipes`/`gs_remedies` (selbst-erstellte Inhalte) syncen nicht cross-device. kein markDirty, keine User-Tabelle. | Backlog |
+| B11 | MEDIUM | Pro-Tier | Pro-Karte bewirbt Features die nicht wirklich gegated sind (Familien-Konto existiert nicht, Offline/Export ungegated) → Mis-Selling. Fernando: Entscheidung Weg A (ehrlich kürzen) vs B (echt gaten) | Entscheidung pending |
 | ~~B3~~ | ~~MEDIUM~~ | ~~`localStorage` Quota~~ | ~~`safeSetItem` schluckt Quota-Errors still~~ | **erledigt v23.89** (Auto-Rotation) |
 | ~~B5~~ | ~~LOW~~ | ~~`book-ingest`~~ | **falsch eingestuft v24.11**: ist ein Admin-Feature mit `admin-only-row`-Class (Z. 4401), nicht Dead-Code. Auch im Search-Index (Z. 31802). Keine Aktion nötig. |
 | ~~B6~~ | ~~LOW~~ | ~~PLANT_DB inline 4.5 MB~~ | | **erledigt v24.03** (extrahiert in `data/plants.v1.js`, immutable-cached) |
 | ~~B4~~ | ~~MEDIUM~~ | ~~Stripe-Entitlement~~ | ~~`GS_PLANS[plan].scans` aus localStorage manipulierbar~~ | **erledigt v23.92** (entitlements Edge Fn = SoT) |
 | ~~B7~~ | ~~INFO~~ | ~~`callAIWithOfflineFallback`~~ | | **erledigt v23.88** (brain-aware) |
+| ~~quiz_lb~~ | ~~HIGH~~ | ~~quiz_leaderboard self-write~~ | ~~Entitlement-Exploit: Free-User konnte sich Pro erschleichen~~ | **erledigt v30.42** (autoritativ aus quiz_answers) |
+| ~~profiles_guard~~ | ~~MEDIUM~~ | ~~profiles ELO/XP~~ | ~~quiz_elo/battles/level/xp waren self-writable~~ | **erledigt v30.42** (Guard erweitert) |
+| ~~saveMarket~~ | ~~HIGH~~ | ~~saveMarket() ungewrappt~~ | ~~App fror bei vollem Speicher~~ | **erledigt v30.51** (try/catch) |
 
 ---
 
@@ -577,7 +610,7 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
 
 | Datum | Agent | Bereich | Erwartete Dauer |
 |---|---|---|---|
-| 2026-04-29 | claude-code (Cloud) | Boot-Audit, Brain, Doku-Sync | abgeschlossen (gepusht) |
+| 2026-06-26 | claude-code (Routine) | STATUS.md-Sync + Routine-Audit | abgeschlossen |
 
 ---
 
@@ -599,9 +632,10 @@ Bereiche, die nicht gleichzeitig editiert werden sollten:
 - ✅ **revDSG**: Datenschutz-Erklärung verlinkt, EDÖB-Verweis, Opt-In Analytics
 - ✅ **VAPKO**: Pilz-Warnung im Scanner (Tox-Info Suisse 145 prominent)
 - ✅ **swisstopo**: Default-Karten-Layer
-- ⚠️ **FR/IT/RM**: nur DE-CH — eigene Roadmap-Punkte (P1)
-- ⚠️ **iNaturalist-Bridge**: nicht vorhanden (P1)
+- ✅ **FR/IT/GSW**: i18n mit DB-Bulk-Übersetzung (316 Keys DE→FR/IT, ~321 FR, ~313 IT ab v26.x) + Schweizerdeutsch v24.06
+- ✅ **iNaturalist-Bridge**: PKCE-OAuth + publishObservation ab v24.04 (Client-ID-Setup durch Owner)
 - ⚠️ **Kantonale Schutzlisten**: nicht eingebunden (P2)
+- ⚠️ **HaveIBeenPwned (leaked_password_protection)**: aus — Fernando: Supabase Auth-Settings → aktivieren (1 Klick)
 
 ---
 
