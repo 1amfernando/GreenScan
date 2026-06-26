@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.62.20260626">
+<meta name="app-version" content="30.63.20260626">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5174,6 +5174,15 @@ html, body{ scroll-behavior: smooth; }
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_faq" data-i18n-fallback="Hilfe &amp; FAQ">Hilfe &amp; FAQ</div>
           <div class="settings-label-sub" data-i18n="settings_faq_hint" data-i18n-fallback="Häufige Fragen &amp; Antworten">Häufige Fragen &amp; Antworten</div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);">›</div>
+      </div>
+      <!-- v30.63: Onboarding-Tour erneut starten -->
+      <div class="settings-row" id="settings-tour-row" style="cursor:pointer;" onclick="if(window.gsTutorial&&gsTutorial.start)gsTutorial.start()">
+        <div class="settings-icon" style="background:#e8f5e9;">🧭</div>
+        <div class="settings-label">
+          <div class="settings-label-title" data-i18n="settings_tour" data-i18n-fallback="App-Tour wiederholen">App-Tour wiederholen</div>
+          <div class="settings-label-sub" data-i18n="settings_tour_hint" data-i18n-fallback="Die Einführung erneut ansehen">Die Einführung erneut ansehen</div>
         </div>
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
@@ -14585,6 +14594,63 @@ function gsTrialSkip() {
     showProfileToast('🌱 Free-Plan aktiv — viel Spass beim Scannen!', 'info');
   }
 }
+
+// ══ v30.63: Onboarding-Tutorial für neue Nutzer (spielartige Einführung) ══
+// Vorher rief der First-Login-Pfad die nie definierte gsWelcomeTour (toter No-Op, HL#34).
+// Mission-konform: die Tour ist die Erstnutzer-Erfahrung (kein Upsell-Modal zuerst).
+var GS_TUTORIAL_KEY = 'gs_onboarded_v1';
+var _GS_TUT_STEPS = [
+  {emoji:'🌿', title:'Willkommen bei GreenScan', body:'In 30 Sekunden zeige ich dir, wie du Schweizer Pflanzen, Pilze, Bäume & Kräuter bestimmst und deinen Garten pflegst. Du kannst jederzeit überspringen.'},
+  {emoji:'📷', title:'1 · Scannen', body:'Tippe unten auf „Scanner" und fotografiere eine Pflanze oder einen Pilz. Die KI bestimmt die Art und zeigt Giftigkeit, Pflege & Verwechsler.', tab:'scanner'},
+  {emoji:'🌱', title:'2 · Meine Pflanzen', body:'Im Tab „Pflanzen" sammelst du deine Funde, führst ein Tagebuch und bekommst Giess- & Pflege-Erinnerungen.', tab:'favs'},
+  {emoji:'🏠', title:'3 · Start & Saison', body:'Die Startseite zeigt Wetter, Saisonkalender, Saison-Pilze deiner Region, das Tagesquiz und „Jetzt gute Zeit für…"-Tipps.', tab:'home'},
+  {emoji:'🤝', title:'4 · Community & Lina', body:'Im Tab „Community" tauschst du dich mit Naturfreunden aus. Und Lina, deine KI-Coachin, hilft dir kostenlos bei jeder Frage — sie kennt die ganze App.', tab:'social'},
+  {emoji:'🎉', title:'Los geht\'s!', body:'Alles Weitere findest du im Menü (⋯) und in den Einstellungen. Diese Tour kannst du dort jederzeit neu starten. Viel Freude mit der Natur! 🌱'}
+];
+window.gsTutorial = {
+  start: function(){
+    try {
+      var ex = document.getElementById('gs-tutorial'); if (ex) ex.remove();
+      var ov = document.createElement('div');
+      ov.id = 'gs-tutorial';
+      ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.62);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;align-items:flex-end;justify-content:center;';
+      ov.innerHTML = '<div id="gs-tut-card" style="background:var(--card,#fff);color:var(--text,#111);border:1px solid var(--border);border-radius:20px 20px 0 0;max-width:480px;width:100%;padding:24px 22px calc(22px + env(safe-area-inset-bottom));box-shadow:0 -8px 36px rgba(0,0,0,.3);"></div>';
+      document.body.appendChild(ov);
+      try { if (typeof gsTrapFocus==='function') gsTrapFocus(ov); } catch(_){}
+      window.gsTutorial._render(0);
+      try { if (typeof gsHaptic==='function') gsHaptic('tap'); } catch(_){}
+    } catch(_){}
+  },
+  _render: function(i){
+    try {
+      var steps = _GS_TUT_STEPS;
+      if (i < 0) i = 0;
+      if (i >= steps.length) { window.gsTutorial._close(true); return; }
+      window._gsTutIdx = i;
+      var s = steps[i];
+      var esc = (typeof gsHTMLEscape==='function') ? gsHTMLEscape : function(x){ return String(x==null?'':x); };
+      var card = document.getElementById('gs-tut-card'); if (!card) return;
+      if (s.tab && typeof switchTab==='function') { try { switchTab(s.tab); } catch(_){} }
+      var dots = steps.map(function(_x,j){ return '<span style="width:7px;height:7px;border-radius:50%;background:'+(j===i?'var(--g-main,#2d8a2d)':'var(--border,#ccc)')+';display:inline-block;margin:0 3px;"></span>'; }).join('');
+      var last = (i === steps.length-1);
+      card.innerHTML =
+        '<div style="text-align:center;font-size:44px;margin-bottom:8px;">'+esc(s.emoji)+'</div>' +
+        '<div style="text-align:center;font-family:\'Playfair Display\',serif;font-size:20px;font-weight:800;margin-bottom:8px;color:var(--text);">'+esc(s.title)+'</div>' +
+        '<div style="text-align:center;font-size:13.5px;line-height:1.55;color:var(--muted,#666);margin-bottom:16px;">'+esc(s.body)+'</div>' +
+        '<div style="text-align:center;margin-bottom:16px;">'+dots+'</div>' +
+        '<div style="display:flex;gap:10px;align-items:center;">' +
+          (last ? '' : '<button onclick="window.gsTutorial._close(true)" style="flex:0 0 auto;padding:12px 14px;background:transparent;border:none;color:var(--muted,#888);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Überspringen</button>') +
+          '<button onclick="window.gsTutorial._render('+(i+1)+')" style="flex:1;padding:13px;background:var(--g-main,#2d8a2d);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">'+(last?'Los geht\'s 🌱':'Weiter →')+'</button>' +
+        '</div>';
+    } catch(_){}
+  },
+  _close: function(){
+    try { var ov=document.getElementById('gs-tutorial'); if (ov) ov.remove(); } catch(_){}
+    try { if (typeof gsReleaseFocusTrap==='function') gsReleaseFocusTrap(); } catch(_){}
+    try { if (typeof gsStore!=='undefined' && gsStore.set) gsStore.set(GS_TUTORIAL_KEY, '1'); else localStorage.setItem(GS_TUTORIAL_KEY,'1'); } catch(_){}
+    try { if (typeof switchTab==='function') switchTab('home'); } catch(_){}
+  }
+};
 
 // ── Billing-Return-Handler: nach Stripe-Redirect Plan aktualisieren
 // v23.50: Wenn im Popup → Parent informieren & Popup schließen
@@ -66429,7 +66495,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.62';
+var GS_VERSION = 'v30.63';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -71219,14 +71285,15 @@ async function onbDoLogin() {
       // v25.7 A3: Trial-Modal nach First-Login zeigen — User wählt Plus/Pro
       // mit 1-Monat-Trial oder Free-Plan. Nur wenn noch kein paid plan.
       // Verzögerung 1.6s: Welcome-Toast erst sehen, dann Modal.
+      // v30.63: Erstnutzer-Tour statt Upsell-Modal (Mission: nicht geldgierig, keine Verkaufs-Sprache).
+      // Die spielartige Einführung erklärt die App; Pro/Lifetime bleiben in Einstellungen auffindbar.
       setTimeout(function(){
         try {
-          var plan = localStorage.getItem('gs_abo_plan') || 'free';
-          if (plan === 'free' && typeof gsShowFirstTrialModal === 'function') {
-            gsShowFirstTrialModal();
-          } else if (typeof gsWelcomeTour !== 'undefined' && gsWelcomeTour && typeof gsWelcomeTour.start === 'function') {
-            // Bereits paid (z.B. Lifetime via separater Pfad) — dann lieber die Tour
-            gsWelcomeTour.start();
+          if (typeof gsTutorial !== 'undefined' && gsTutorial && typeof gsTutorial.start === 'function') {
+            gsTutorial.start();
+          } else {
+            var plan = localStorage.getItem('gs_abo_plan') || 'free';
+            if (plan === 'free' && typeof gsShowFirstTrialModal === 'function') gsShowFirstTrialModal();
           }
         } catch(_){}
       }, 1600);
