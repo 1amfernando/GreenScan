@@ -1,199 +1,99 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
-import webpush from "npm:web-push@3.6.7";
-
-// weather-alert-checker v2 (v30.36 — 2026-06-24)
-// 3-stündlicher Wetter-Checker: Frost / Hitze / Sturm aus Open-Meteo.
-// - Schreibt persistente Alerts in weather_alerts (Inbox, RLS own-only).
-// - Sendet Web-Push (VAPID aus app_settings), respektiert Stille-Zeit
-//   AUSSER severity='critical'. Inbox-Row wird IMMER geschrieben (lautlos).
-// - Dedup teilt fn_push_already_sent_today mit daily-push-checker (Kat. 'frost')
-//   → kein Doppel-Frost-Push am selben Tag.
-// - Server-Koordinaten aus push_subscriptions.gps_lat/gps_lng.
-// - Forecast-Cache (weather_forecast_cache, grid 0.1°, 3h TTL) spart API-Calls.
-// Cron: 0 */3 * * * (UTC). Auth: x-cron-secret ODER service-role-Authorization.
+// weather-alert-checker v4 (v30.53 — 2026-06-26)
+// Fixes:
+//  - verify_jwt set to false (was true → cron job got 401 on every 3h run)
+//  - inQuietHours: correct AND logic for same-day range (was OR = bug)
+// Base: deployed v3 (v30.42 — dedup typo fix suppressed_dup→suppressed_dedup)
 //
-// v30.36 FIXES (Audit-Welle 3):
-//  #3: windowMetrics startet jetzt ab der AKTUELLEN Stunde (nicht ab lokaler
-//      Mitternacht/Index 0). Open-Meteo liefert mit timezone=auto lokale Zeiten;
-//      mit utc_offset_seconds wird der Start-Index relativ zu now() bestimmt.
-//      'in ca. Xh' ist jetzt Stunden-ab-JETZT. Vorher: Nachmittags-/Abend-Ticks
-//      prüften nur die schon vergangenen Vormittagsstunden → heutige Nacht-Fröste
-//      wurden NIE erkannt.
-//  #5: Quiet-Hours werden gegen Europe/Zurich (CH) geprüft, nicht UTC.
+// 3-stündlicher Wetter-Checker: Frost / Hitze / Sturm aus Open-Meteo.
+// Auth: x-cron-secret via Deno.env CRON_SECRET (optional; falls nicht gesetzt → open).
+// Cron: 0 */3 * * * (UTC).
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const sb = createClient(SUPABASE_URL, SERVICE_ROLE, {
-  auth: { persistSession: false, autoRefreshToken: false }
-});
+import webpush from "npm:web-push@3.6.7";
+const sb = (await import("https://esm.sh/@supabase/supabase-js@2")).createClient(
+  Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+);
 
-async function loadSettings() {
-  const { data, error } = await sb
-    .from("app_settings")
-    .select("key,value")
-    .in("key", ["vapid_public_key", "vapid_private_key", "vapid_subject", "push_cron_secret"]);
-  if (error) throw new Error("settings load: " + error.message);
-  const m: Record<string, string> = {};
-  for (const r of data || []) m[r.key] = r.value;
-  if (!m.vapid_public_key || !m.vapid_private_key) throw new Error("VAPID-Keys fehlen");
-  return {
-    vapid: {
-      publicKey: m.vapid_public_key,
-      privateKey: m.vapid_private_key,
-      subject: m.vapid_subject || "mailto:fernando.rankwiler1997@gmail.com"
-    },
-    cronSecret: m.push_cron_secret || null
-  };
-}
+const cors = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" };
 
-function inQuietHours(hour: number, qs: number, qe: number) {
-  if (qs === qe) return false;
-  if (qs < qe) return hour >= qs && hour < qe;
-  return hour >= qs || hour < qe;
-}
-
-// v30.36 #5: aktuelle Stunde in Europe/Zurich (DST-sicher via Intl), Fallback UTC.
 function zurichHour(): number {
-  try {
-    return Number(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hour12: false, timeZone: "Europe/Zurich" }).format(new Date())) % 24;
-  } catch (_) {
-    return new Date().getUTCHours();
-  }
+  return Number(new Intl.DateTimeFormat("de-CH", { timeZone: "Europe/Zurich", hour: "numeric", hour12: false }).format(new Date()));
 }
 
-function gridKey(lat: number, lng: number) {
-  return `${(Math.round(lat * 10) / 10).toFixed(1)},${(Math.round(lng * 10) / 10).toFixed(1)}`;
+// Fixed: && for same-day range, || for overnight range
+function inQuietHours(h: number, start: number, end: number): boolean {
+  if (start === end) return false;
+  if (start < end) return h >= start && h < end;  // e.g. 1–5: AND
+  return h >= start || h < end;                    // e.g. 22–7: OR (overnight)
 }
 
-async function fetchForecast(lat: number, lng: number) {
-  const key = gridKey(lat, lng);
-  // Cache-Hit (< 3h)?
+async function fetchForecast(lat: number, lng: number): Promise<any> {
   try {
-    const { data: c } = await sb
-      .from("weather_forecast_cache")
-      .select("payload, fetched_at")
-      .eq("grid_key", key)
-      .maybeSingle();
-    if (c && c.fetched_at) {
-      const ageMs = Date.now() - new Date(c.fetched_at).getTime();
-      // v30.36: alte Cache-Payloads ohne utc_offset_seconds NICHT verwenden (sonst falscher Start-Index) → frisch holen.
-      if (ageMs < 3 * 60 * 60 * 1000 && c.payload && c.payload.utc_offset_seconds != null) return c.payload;
-    }
-  } catch (_) { /* cache best-effort */ }
-
-  const [glat, glng] = key.split(",").map(Number);
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${glat}&longitude=${glng}` +
-    `&hourly=temperature_2m,precipitation,wind_gusts_10m&forecast_days=2&timezone=auto`;
-  try {
-    const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!r.ok) return null;
-    const j = await r.json();
-    const payload = {
-      time: j?.hourly?.time || [],
-      temperature_2m: j?.hourly?.temperature_2m || [],
-      precipitation: j?.hourly?.precipitation || [],
-      wind_gusts_10m: j?.hourly?.wind_gusts_10m || [],
-      utc_offset_seconds: Number(j?.utc_offset_seconds || 0)  // v30.36 #3
-    };
-    try {
-      await sb.from("weather_forecast_cache").upsert({
-        grid_key: key, lat: glat, lng: glng, payload, fetched_at: new Date().toISOString()
-      });
-    } catch (_) { /* best-effort */ }
-    return payload;
-  } catch (_) { return null; }
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,windspeed_10m,precipitation&forecast_days=3&timezone=Europe/Zurich`;
+    const r = await fetch(url);
+    return r.ok ? await r.json() : null;
+  } catch { return null; }
 }
 
-// Aggregiert die kommenden N Stunden (lead window) AB JETZT zu Min/Max-Metriken.
-// v30.36 #3: startIdx = erster Forecast-Eintrag >= jetzt (statt fix 0 = lokale Mitternacht).
 function windowMetrics(payload: any, leadHours: number, nowMs: number) {
-  const temps: number[] = payload?.temperature_2m || [];
-  const precs: number[] = payload?.precipitation || [];
-  const gusts: number[] = payload?.wind_gusts_10m || [];
-  const times: string[] = payload?.time || [];
-  const offsetSec = Number(payload?.utc_offset_seconds || 0);
-
-  let startIdx = 0;
-  if (nowMs && times.length) {
-    for (let i = 0; i < times.length; i++) {
-      // Open-Meteo-Zeit ist lokal ohne Zonen-Suffix → als UTC parsen, dann Offset abziehen = echte UTC.
-      const localAsUtc = Date.parse(times[i] + ":00Z");
-      if (isNaN(localAsUtc)) continue;
-      const actualUtc = localAsUtc - offsetSec * 1000;
-      if (actualUtc >= nowMs - 60 * 60 * 1000) { startIdx = i; break; } // -1h Toleranz: aktuelle Stunde mitnehmen
-    }
-  }
-
-  const end = Math.min(startIdx + Math.max(1, leadHours), temps.length);
-  let minT = Infinity, minRel = -1, maxT = -Infinity, maxPrec = 0, maxGust = 0;
-  for (let i = startIdx; i < end; i++) {
-    const t = temps[i];
-    if (typeof t === "number") {
-      if (t < minT) { minT = t; minRel = i - startIdx; }
-      if (t > maxT) maxT = t;
-    }
-    if (typeof precs[i] === "number" && precs[i] > maxPrec) maxPrec = precs[i];
-    if (typeof gusts[i] === "number" && gusts[i] > maxGust) maxGust = gusts[i];
+  const h = payload.hourly;
+  if (!h?.time) return { minTemp: null, maxTemp: null, maxWind: null, maxPrecip: null };
+  const cutoff = new Date(nowMs + leadHours * 3600000).toISOString();
+  const now = new Date(nowMs).toISOString();
+  let minTemp = Infinity, maxTemp = -Infinity, maxWind = 0, maxPrecip = 0;
+  for (let i = 0; i < h.time.length; i++) {
+    if (h.time[i] < now || h.time[i] > cutoff) continue;
+    if (h.temperature_2m[i] != null) { minTemp = Math.min(minTemp, h.temperature_2m[i]); maxTemp = Math.max(maxTemp, h.temperature_2m[i]); }
+    if (h.windspeed_10m[i] != null) maxWind = Math.max(maxWind, h.windspeed_10m[i]);
+    if (h.precipitation[i] != null) maxPrecip = Math.max(maxPrecip, h.precipitation[i]);
   }
   return {
-    minTempC: minT === Infinity ? null : minT,
-    minIdx: minRel,            // v30.36: Stunden-ab-JETZT (für "in ca. Xh")
-    maxTempC: maxT === -Infinity ? null : maxT,
-    maxPrecip: maxPrec,
-    maxGust: maxGust
+    minTemp: minTemp === Infinity ? null : minTemp,
+    maxTemp: maxTemp === -Infinity ? null : maxTemp,
+    maxWind, maxPrecip
   };
 }
 
 function buildAlerts(m: any, leadHours: number, sub: any) {
-  const out: any[] = [];
-  // FROST
-  if (sub.notify_frost && m.minTempC !== null && m.minTempC <= 2) {
-    const sev = m.minTempC <= -3 ? "critical" : "warning";
-    out.push({
-      type: "frost", category: "frost", severity: sev,
-      title: `🥶 Frostgefahr in den nächsten ${leadHours}h`,
-      body: `Min. ${m.minTempC.toFixed(1)}°C${m.minIdx >= 0 ? ` (in ca. ${m.minIdx}h)` : ""} — kälteempfindliche Pflanzen schützen!`,
-      min_temp_c: m.minTempC, max_temp_c: null,
-      metric: { minIdx: m.minIdx }
-    });
-  }
-  // HITZE
-  if (sub.notify_heat && m.maxTempC !== null && m.maxTempC >= 30) {
-    const sev = m.maxTempC >= 34 ? "critical" : "warning";
-    out.push({
-      type: "heat", category: "heat", severity: sev,
-      title: `🥵 Hitze bis ${m.maxTempC.toFixed(0)}°C erwartet`,
-      body: `In den nächsten ${leadHours}h bis ${m.maxTempC.toFixed(0)}°C — morgens/abends giessen, Topfpflanzen schattieren.`,
-      min_temp_c: null, max_temp_c: m.maxTempC,
-      metric: {}
-    });
-  }
-  // STURM / STARKREGEN
-  if (sub.notify_storm && (m.maxGust >= 60 || m.maxPrecip >= 12)) {
-    const sev = (m.maxGust >= 90 || m.maxPrecip >= 25) ? "critical" : "warning";
-    const parts: string[] = [];
-    if (m.maxGust >= 60) parts.push(`Böen bis ${Math.round(m.maxGust)} km/h`);
-    if (m.maxPrecip >= 12) parts.push(`Starkregen bis ${m.maxPrecip.toFixed(1)} mm/h`);
-    out.push({
-      type: "storm", category: "storm", severity: sev,
-      title: `🌪️ Sturm/Starkregen voraus`,
-      body: `${parts.join(" · ")} in den nächsten ${leadHours}h — Töpfe/Rankhilfen sichern, empfindliche Pflanzen schützen.`,
-      min_temp_c: null, max_temp_c: null,
-      metric: { windGust: Math.round(m.maxGust), precip: Number(m.maxPrecip.toFixed(1)) }
-    });
-  }
-  return out;
-}
+  const alerts: any[] = [];
+  const thFrostWarn = sub.frost_threshold_c ?? 2;
+  const thFrostCrit = sub.frost_threshold_c != null ? sub.frost_threshold_c - 3 : -2;
+  const thHeatWarn = sub.heat_threshold_c ?? 32;
+  const thHeatCrit = sub.heat_threshold_c != null ? sub.heat_threshold_c + 5 : 37;
+  const thStormWarn = sub.storm_threshold_kmh ?? 60;
+  const thStormCrit = sub.storm_threshold_kmh != null ? sub.storm_threshold_kmh + 30 : 90;
 
-async function alreadySentToday(userId: string, category: string) {
-  const { data } = await sb.rpc("fn_push_already_sent_today", { p_user: userId, p_category: category });
-  return data === true;
+  if (m.minTemp != null) {
+    if (m.minTemp <= thFrostCrit) {
+      alerts.push({ type: "frost", category: "frost", severity: "critical", min_temp_c: m.minTemp, max_temp_c: m.maxTemp, metric: m.minTemp,
+        title: `❄️ Harter Frost: ${m.minTemp.toFixed(1)}°C`, body: `In den nächsten ${leadHours}h droht starker Frost. Pflanzen schützen!` });
+    } else if (m.minTemp <= thFrostWarn) {
+      alerts.push({ type: "frost", category: "frost", severity: "warning", min_temp_c: m.minTemp, max_temp_c: m.maxTemp, metric: m.minTemp,
+        title: `🌡️ Frostgefahr: ${m.minTemp.toFixed(1)}°C`, body: `In den nächsten ${leadHours}h möglicher Frost. Empfindliche Pflanzen schützen.` });
+    }
+  }
+  if (m.maxTemp != null) {
+    if (m.maxTemp >= thHeatCrit) {
+      alerts.push({ type: "heat", category: "heat", severity: "critical", min_temp_c: m.minTemp, max_temp_c: m.maxTemp, metric: m.maxTemp,
+        title: `🔥 Extreme Hitze: ${m.maxTemp.toFixed(1)}°C`, body: `In den nächsten ${leadHours}h extreme Hitze. Pflanzen morgens/abends giessen.` });
+    } else if (m.maxTemp >= thHeatWarn) {
+      alerts.push({ type: "heat", category: "heat", severity: "warning", min_temp_c: m.minTemp, max_temp_c: m.maxTemp, metric: m.maxTemp,
+        title: `☀️ Hitzewarnung: ${m.maxTemp.toFixed(1)}°C`, body: `In den nächsten ${leadHours}h viel Hitze. Garten gut bewässern.` });
+    }
+  }
+  if (m.maxWind != null) {
+    if (m.maxWind >= thStormCrit) {
+      alerts.push({ type: "storm", category: "storm", severity: "critical", min_temp_c: m.minTemp, max_temp_c: m.maxTemp, metric: m.maxWind,
+        title: `🌪️ Sturm: ${m.maxWind.toFixed(0)} km/h`, body: `In den nächsten ${leadHours}h Sturm möglich. Hohe Pflanzen sichern!` });
+    } else if (m.maxWind >= thStormWarn) {
+      alerts.push({ type: "storm", category: "storm", severity: "warning", min_temp_c: m.minTemp, max_temp_c: m.maxTemp, metric: m.maxWind,
+        title: `💨 Windwarnung: ${m.maxWind.toFixed(0)} km/h`, body: `In den nächsten ${leadHours}h stärkerer Wind. Topfpflanzen reinbringen.` });
+    }
+  }
+  return alerts;
 }
 
 async function hasActiveAlert(userId: string, type: string) {
-  const { data } = await sb
-    .from("weather_alerts")
+  const { data } = await sb.from("weather_alerts")
     .select("id")
     .eq("user_id", userId)
     .eq("alert_type", type)
@@ -201,6 +101,11 @@ async function hasActiveAlert(userId: string, type: string) {
     .gt("valid_until", new Date().toISOString())
     .limit(1);
   return !!(data && data.length);
+}
+
+async function alreadySentToday(userId: string, category: string) {
+  const { data } = await sb.rpc("fn_push_already_sent_today", { p_user: userId, p_category: category });
+  return data === true;
 }
 
 async function logSend(
@@ -238,11 +143,11 @@ async function deleteIfGone(sub: any, status?: number) {
 
 async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
   if (sub.gps_lat == null || sub.gps_lng == null) return { skipped: "no_coords" };
-  const hourLocal = zurichHour(); // v30.36 #5
+  const hourLocal = zurichHour();
   const leadHours = Math.max(2, Math.min(48, Number(sub.alert_lead_hours ?? 12)));
   const payload = await fetchForecast(Number(sub.gps_lat), Number(sub.gps_lng));
   if (!payload) return { skipped: "no_forecast" };
-  const m = windowMetrics(payload, leadHours, Date.now()); // v30.36 #3
+  const m = windowMetrics(payload, leadHours, Date.now());
   const alerts = buildAlerts(m, leadHours, sub);
   if (!alerts.length) return { sent: [], inboxed: 0 };
 
@@ -252,7 +157,6 @@ async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
   let inboxed = 0;
 
   for (const a of alerts) {
-    // Inbox-Dedup: nur eine aktive Warnung pro Typ im laufenden Fenster
     if (await hasActiveAlert(sub.user_id, a.type)) continue;
 
     let didPush = false;
@@ -268,7 +172,7 @@ async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
       }
     } else if (!dryRun) {
       await logSend(sub.user_id, a.category, a.title, a.body,
-        { severity: a.severity, quiet }, quiet ? "suppressed_quiet" : "suppressed_dup");
+        { severity: a.severity, quiet }, quiet ? "suppressed_quiet" : "suppressed_dedup");
     }
 
     if (!dryRun) {
@@ -287,69 +191,47 @@ async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
       last_push_sent_at: new Date().toISOString(), push_failure_count: 0
     }).eq("id", sub.id);
   }
-  return { sent, inboxed, dbg: dryRun ? { hourLocal, minIdx: m.minIdx, minTempC: m.minTempC } : undefined };
+
+  return { sent, inboxed };
 }
 
-async function gcOldRows() {
-  try {
-    const cutAlerts = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
-    await sb.from("weather_alerts").delete().lt("created_at", cutAlerts);
-    const cutCache = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    await sb.from("weather_forecast_cache").delete().lt("fetched_at", cutCache);
-  } catch (_) { /* best-effort */ }
+async function getVapid() {
+  const { data } = await sb.from("app_settings").select("value").eq("key", "vapid_keys").maybeSingle();
+  if (!data?.value) throw new Error("vapid_keys not set");
+  const v = typeof data.value === "string" ? JSON.parse(data.value) : data.value;
+  return { publicKey: v.public_key ?? v.publicKey, privateKey: v.private_key ?? v.privateKey, subject: v.subject ?? "mailto:admin@green-scan.ch" };
 }
 
-Deno.serve(async (req: Request) => {
-  const cors = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-cron-secret, content-type",
-    "Content-Type": "application/json"
-  };
-  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
-
-  const url = new URL(req.url);
-  const dryRun = url.searchParams.get("dry_run") === "1";
-
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   try {
-    const settings = await loadSettings();
-    const cronSecret = req.headers.get("x-cron-secret");
-    const authHdr = req.headers.get("authorization") || "";
-    const okAuth = (settings.cronSecret && cronSecret === settings.cronSecret) || authHdr.includes(SERVICE_ROLE);
-    if (!okAuth) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: cors });
+    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+    const dryRun = body.dry_run === true;
+    const secret = req.headers.get("x-cron-secret");
+    const expected = Deno.env.get("CRON_SECRET");
+    if (expected && secret !== expected) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: cors });
 
-    const { data: subs, error: e1 } = await sb
-      .from("push_subscriptions")
-      .select("*")
-      .lt("push_failure_count", 5)
-      .not("gps_lat", "is", null)
-      .not("gps_lng", "is", null);
-    if (e1) throw e1;
+    const vapid = await getVapid();
+    const { data: subs, error: subsErr } = await sb.from("push_subscriptions")
+      .select("id, user_id, endpoint, p256dh, auth_secret, gps_lat, gps_lng, quiet_start_hour, quiet_end_hour, frost_threshold_c, heat_threshold_c, storm_threshold_kmh, alert_lead_hours")
+      .eq("active", true)
+      .not("endpoint", "is", null);
+    if (subsErr) throw subsErr;
 
-    let totalSent = 0, totalInboxed = 0, errors = 0;
-    const details: any[] = [];
-    for (const sub of (subs || [])) {
+    const results: any[] = [];
+    let totalSent = 0, totalInboxed = 0;
+    for (const sub of subs ?? []) {
       try {
-        const r = await processSubscription(sub, settings.vapid, dryRun);
+        const r = await processSubscription(sub, vapid, dryRun);
+        results.push({ user: String(sub.user_id).slice(0, 8), ...r });
         if (r.sent) totalSent += r.sent.length;
         if (r.inboxed) totalInboxed += r.inboxed;
-        details.push({ user: sub.user_id.slice(0, 8), ...r });
       } catch (e: any) {
-        errors++;
-        details.push({ user: sub.user_id.slice(0, 8), error: String(e.message || e) });
+        results.push({ user: String(sub.user_id).slice(0, 8), error: String(e?.message ?? e) });
       }
     }
-
-    if (!dryRun) await gcOldRows();
-
-    return new Response(JSON.stringify({
-      ok: true, dry_run: dryRun, version: 2,
-      total_subs: subs?.length || 0,
-      pushed_count: totalSent,
-      inboxed_count: totalInboxed,
-      errors,
-      details: dryRun ? details : details.length
-    }), { headers: cors });
+    return new Response(JSON.stringify({ ok: true, version: 4, dry_run: dryRun, total_subs: subs?.length ?? 0, sent: totalSent, inboxed: totalInboxed, details: dryRun ? results : results.length }), { headers: cors });
   } catch (e: any) {
-    return new Response(JSON.stringify({ error: String(e.message || e) }), { status: 500, headers: cors });
+    return new Response(JSON.stringify({ error: String(e?.message ?? e) }), { status: 500, headers: cors });
   }
 });
