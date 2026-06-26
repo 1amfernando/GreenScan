@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.70.20260627">
+<meta name="app-version" content="30.71.20260627">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26344,19 +26344,84 @@ function doSearch(query){
   }, 100);
 }
 
+// v30.71: bessere Arten-Suche — diakritik-tolerant (Bärlauch=barlauch), Relevanz-Ranking
+// (exakt > Prefix > Slash-Segment > enthält > Latein > Familie > Volltext) + Tippfehler-Fallback.
+// Index 1× vorberechnet (rebuild bei DB-Längenänderung, z.B. Community-Merge).
+function _gsSearchNorm(s){
+  return String(s||'').toLowerCase()
+    .replace(/ä/g,'a').replace(/ö/g,'o').replace(/ü/g,'u').replace(/ß/g,'ss')
+    .normalize('NFD').replace(/[̀-ͯ]/g,'');
+}
+function _gsBuildSearchIdx(){
+  try {
+    if (!Array.isArray(DB)) { window._gsSearchIdx = []; return; }
+    window._gsSearchIdx = DB.map(function(sp){
+      var nm = _gsSearchNorm(sp.name);
+      return { sp:sp, name:nm,
+        segs: nm.split('/').map(function(x){ return x.trim(); }).filter(Boolean),
+        lat:_gsSearchNorm(sp.lat), fam:_gsSearchNorm(sp.fam),
+        blob:_gsSearchNorm([sp.name,sp.lat,sp.fam,sp.desc,sp.habitat,sp.uses,sp.medicinalUse,sp.lookalike].join(' ')) };
+    });
+  } catch(_){ window._gsSearchIdx = []; }
+}
+function _gsLeven(a,b,max){
+  var la=a.length, lb=b.length;
+  if (Math.abs(la-lb) > max) return max+1;
+  var prev=[], cur=[], i, j;
+  for (j=0;j<=lb;j++) prev[j]=j;
+  for (i=1;i<=la;i++){
+    cur[0]=i; var best=cur[0];
+    for (j=1;j<=lb;j++){
+      var cost = a.charCodeAt(i-1)===b.charCodeAt(j-1)?0:1;
+      cur[j]=Math.min(prev[j]+1, cur[j-1]+1, prev[j-1]+cost);
+      if (cur[j]<best) best=cur[j];
+    }
+    if (best>max) return max+1;
+    var tmp=prev; prev=cur; cur=tmp;
+  }
+  return prev[lb];
+}
+function _gsPassCat(sp){
+  var t=currentFilter;
+  if(t==='essbar'     && !sp.edible) return false;
+  if(t==='giftig'     && !sp.toxic) return false;
+  if(t==='ungiftig'   && (sp.toxic||sp.tox>0)) return false;
+  if(t==='geschuetzt' && !sp.protected) return false;
+  if(t==='heilpflanze'&& !sp.medicinal) return false;
+  if(t && !['essbar','giftig','ungiftig','geschuetzt','heilpflanze'].includes(t) && sp.cat!==t) return false;
+  return true;
+}
 function getFiltered(){
   _listPage = 1; // Reset Pagination bei neuer Suche
-  return DB.filter(sp=>{
-    const t=currentFilter;
-    if(t==='essbar'     &&!sp.edible) return false;
-    if(t==='giftig'     &&!sp.toxic) return false;
-    if(t==='ungiftig'   &&(sp.toxic||sp.tox>0)) return false;
-    if(t==='geschuetzt' &&!sp.protected) return false;
-    if(t==='heilpflanze'&&!sp.medicinal) return false;
-    if(t&&!['essbar','giftig','ungiftig','geschuetzt','heilpflanze'].includes(t)&&sp.cat!==t) return false;
-    if(!searchText) return true;
-    return [sp.name,sp.lat,sp.fam,sp.desc||'',sp.habitat||'',sp.uses||'',sp.medicinalUse||''].some(v=>(v||'').toLowerCase().includes(searchText));
-  }).sort((a,b)=>a.name.localeCompare(b.name,'de'));
+  if(!searchText){
+    return DB.filter(_gsPassCat).sort(function(a,b){ return a.name.localeCompare(b.name,'de'); });
+  }
+  if(!window._gsSearchIdx || window._gsSearchIdx.length!==DB.length) _gsBuildSearchIdx();
+  var idx = window._gsSearchIdx || [];
+  var q = _gsSearchNorm(searchText);
+  var scored = [];
+  for (var i=0;i<idx.length;i++){
+    var e=idx[i]; if(!_gsPassCat(e.sp)) continue;
+    var sc=0;
+    if (e.name===q) sc=1000;
+    else if (e.name.indexOf(q)===0) sc=800;
+    else if (e.segs.some(function(s){ return s.indexOf(q)===0; })) sc=700;
+    else if (e.name.indexOf(q)>=0) sc=500;
+    else if (e.lat.indexOf(q)===0) sc=400;
+    else if (e.lat.indexOf(q)>=0) sc=300;
+    else if (e.fam.indexOf(q)>=0) sc=200;
+    else if (e.blob.indexOf(q)>=0) sc=100;
+    if (sc>0){ sc -= Math.min(50, e.name.length); scored.push({sp:e.sp, sc:sc}); }
+  }
+  if (!scored.length && q.length>=4){  // Tippfehler-Fallback nur bei 0 Treffern
+    for (var k=0;k<idx.length;k++){
+      var e2=idx[k]; if(!_gsPassCat(e2.sp)) continue;
+      var d=_gsLeven(q, e2.name, 2);
+      if (d<=2) scored.push({sp:e2.sp, sc:(50-d)});
+    }
+  }
+  scored.sort(function(a,b){ return (b.sc-a.sc) || a.sp.name.localeCompare(b.sp.name,'de'); });
+  return scored.map(function(x){ return x.sp; });
 }
 
 var _listPage = 1;
@@ -66606,7 +66671,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.70';
+var GS_VERSION = 'v30.71';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
