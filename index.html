@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.60.20260626">
+<meta name="app-version" content="30.61.20260626">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2161,18 +2161,19 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <!-- v29.78: Home-Unwetter-Card entfernt (Fernando: unnötig im Home). Wetter-Warnungen-Inbox + Push-Alerts bleiben unabhängig erhalten. -->
 
     <!-- v26.39: Mushroom-Saison-Widget (Bonus B-A, region-aware aus mushroom_seasonal_patches) -->
-    <div id="mushroom-season-card" style="display:none;background:linear-gradient(135deg,#4a148c,#6a1b9a);border-radius:var(--r);padding:13px 15px;color:#fff;margin-bottom:12px;-webkit-tap-highlight-color:transparent;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+    <!-- v30.61: kompakter — Paddings/Margins/Font gestrafft (Card brauchte zuvor viel Home-Platz) -->
+    <div id="mushroom-season-card" style="display:none;background:linear-gradient(135deg,#4a148c,#6a1b9a);border-radius:var(--r);padding:10px 13px;color:#fff;margin-bottom:10px;-webkit-tap-highlight-color:transparent;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
         <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;opacity:.85;">🍄 Saison-Pilze in deiner Region</div>
         <span id="mushroom-season-difficulty" style="background:rgba(255,255,255,.2);font-size:9.5px;padding:2px 7px;border-radius:7px;font-weight:800;"></span>
       </div>
-      <div id="mushroom-season-region" style="font-size:11.5px;opacity:.92;margin-bottom:6px;"></div>
-      <div id="mushroom-season-list" style="font-family:'Playfair Display',serif;font-size:14px;font-weight:800;line-height:1.5;margin-bottom:6px;"></div>
-      <div id="mushroom-season-trigger" style="font-size:11.5px;opacity:.88;background:rgba(0,0,0,.18);padding:6px 9px;border-radius:7px;margin-bottom:8px;line-height:1.4;"></div>
-      <div id="mushroom-season-vapko" style="font-size:11px;opacity:.92;margin-bottom:8px;"></div>
+      <div id="mushroom-season-region" style="font-size:11px;opacity:.92;margin-bottom:3px;"></div>
+      <div id="mushroom-season-list" style="font-family:'Playfair Display',serif;font-size:13px;font-weight:800;line-height:1.4;margin-bottom:4px;"></div>
+      <div id="mushroom-season-trigger" style="font-size:11px;opacity:.88;background:rgba(0,0,0,.18);padding:5px 8px;border-radius:7px;margin-bottom:6px;line-height:1.35;"></div>
+      <div id="mushroom-season-vapko" style="font-size:10.5px;opacity:.92;margin-bottom:6px;"></div>
       <div style="display:flex;gap:6px;">
-        <button onclick="openMushroomModal()" style="flex:1;padding:8px 10px;background:rgba(255,255,255,.9);border:none;color:#4a148c;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🔍 Pilz-Scanner</button>
-        <button onclick="openRegionalCalendarModal()" style="flex:1;padding:8px 10px;background:transparent;border:1.5px solid rgba(255,255,255,.45);color:#fff;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🗓️ Region wechseln</button>
+        <button onclick="openMushroomModal()" style="flex:1;padding:7px 10px;background:rgba(255,255,255,.9);border:none;color:#4a148c;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🔍 Pilz-Scanner</button>
+        <button onclick="openRegionalCalendarModal()" style="flex:1;padding:7px 10px;background:transparent;border:1.5px solid rgba(255,255,255,.45);color:#fff;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🗓️ Region wechseln</button>
       </div>
     </div>
 
@@ -32825,7 +32826,16 @@ async function gsLoadMushRegistry() {
   var byNorm = {};
   rows.forEach(function(m){
     if (m.slug && levelBySlug[m.slug]) { m.beginner_level = levelBySlug[m.slug].beginner_level; m.has_deadly_lookalike = levelBySlug[m.slug].has_deadly_lookalike; }
-    if (m.common_name_de) byNorm[_gsNorm(m.common_name_de)] = m;
+    if (m.common_name_de) {
+      byNorm[_gsNorm(m.common_name_de)] = m;  // Vollform behält Vorrang
+      // v30.61: zusätzlich Alias-Segmente exakt indexieren ('Pfifferling / Eierschwamm' → 'pfifferling' + 'eierschwamm';
+      // 'Parasol / Riesenschirmling'; 'Herbst-Trompete / Totentrompete') — sonst „Steckbrief nicht gefunden" für
+      // gängige Compound-/Alias-Namen aus good_mushrooms. NUR exakte Segmente, keine unscharfe Suche (HL#24).
+      String(m.common_name_de).split(/[\/,()]+/).forEach(function(seg){
+        var k = _gsNorm(seg);
+        if (k && k.length >= 4 && !byNorm[k]) byNorm[k] = m;  // erste Row gewinnt bei Kollision
+      });
+    }
   });
   var obj = { rows: rows, byNorm: byNorm, ts: Date.now() };
   window._gsMushRegistryCache = obj;
@@ -33112,6 +33122,10 @@ window.gsLearnHubTab = gsLearnHubTab;
 function _gsMatchRegistry(token, reg) {
   var n = _gsNorm(token);
   if (reg.byNorm[n]) return reg.byNorm[n];
+  // v30.61: Compound-Token in Segmente zerlegen ('Eierschwamm/Pfifferling', 'Eierschwamm (Pfifferling)')
+  // und jedes Segment EXAKT gegen byNorm prüfen — keine unscharfe Lockerung (HL#24: Verwechsler-Sicherheit).
+  var segs = String(token).split(/[\/,()]+/);
+  for (var si = 0; si < segs.length; si++) { var sk = _gsNorm(segs[si]); if (sk && sk.length >= 4 && reg.byNorm[sk]) return reg.byNorm[sk]; }
   var best = null, bestKey = null;
   for (var k in reg.byNorm) {
     if (k.length < 5) continue;
@@ -66415,7 +66429,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.60';
+var GS_VERSION = 'v30.61';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
