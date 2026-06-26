@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.59.20260626">
+<meta name="app-version" content="30.60.20260626">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5212,6 +5212,39 @@ html, body{ scroll-behavior: smooth; }
         </div>
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
+      <!-- v30.60: aus dem Menü hierher verschoben (Sammlungen + App-Verwaltung) — alle Funktionen verifiziert funktionsfähig -->
+      <div class="settings-row" id="settings-collections-row" style="cursor:pointer;" onclick="if(typeof gsOpenCollections==='function')gsOpenCollections()">
+        <div class="settings-icon" style="background:#ede7f6;">📁</div>
+        <div class="settings-label">
+          <div class="settings-label-title" data-i18n="settings_collections" data-i18n-fallback="Meine Sammlungen">Meine Sammlungen</div>
+          <div class="settings-label-sub" data-i18n="settings_collections_hint" data-i18n-fallback="Eigene Ordner für Pflanzen, Arten &amp; Funde">Eigene Ordner für Pflanzen, Arten &amp; Funde</div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);">›</div>
+      </div>
+      <div class="settings-row" id="settings-storage-row" style="cursor:pointer;" onclick="window.gsShowStorageModal && window.gsShowStorageModal()">
+        <div class="settings-icon" style="background:#e3f2fd;">💾</div>
+        <div class="settings-label">
+          <div class="settings-label-title" data-i18n="settings_storage" data-i18n-fallback="Speicher">Speicher</div>
+          <div class="settings-label-sub" data-i18n="settings_storage_hint" data-i18n-fallback="Cache, belegter Platz &amp; gespeicherte Daten">Cache, belegter Platz &amp; gespeicherte Daten</div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);">›</div>
+      </div>
+      <div class="settings-row" id="settings-conn-row" style="cursor:pointer;" onclick="window.gsShowConnDetail && window.gsShowConnDetail()">
+        <div class="settings-icon" style="background:#e8f5e9;">🌐</div>
+        <div class="settings-label">
+          <div class="settings-label-title" data-i18n="settings_conn" data-i18n-fallback="Verbindung">Verbindung</div>
+          <div class="settings-label-sub" data-i18n="settings_conn_hint" data-i18n-fallback="Online-Status &amp; ausstehende Synchronisierung">Online-Status &amp; ausstehende Synchronisierung</div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);">›</div>
+      </div>
+      <div class="settings-row" id="settings-export-csv-row" style="cursor:pointer;" onclick="window.gsShowExportModal && window.gsShowExportModal()">
+        <div class="settings-icon" style="background:#fff3e0;">📊</div>
+        <div class="settings-label">
+          <div class="settings-label-title" data-i18n="settings_export_csv" data-i18n-fallback="Daten exportieren">Daten exportieren</div>
+          <div class="settings-label-sub" data-i18n="settings_export_csv_hint" data-i18n-fallback="Pflanzen &amp; Tagebuch als CSV">Pflanzen &amp; Tagebuch als CSV</div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);">›</div>
+      </div>
       <div class="settings-row admin-only-row" id="settings-export-row" style="display:none;cursor:pointer;" onclick="exportUserData()">
         <div class="settings-icon" style="background:#e8f5e9;">📤</div>
         <div class="settings-label">
@@ -5628,10 +5661,6 @@ html, body{ scroll-behavior: smooth; }
         <div class="menu-item-icon" style="background:#e8f5e9;">🌱</div>
         <span class="menu-item-label" data-i18n="menu_meine_pflanzen" data-i18n-fallback="Meine Pflanzen">Meine Pflanzen</span>
       </button>
-      <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){if(typeof gsOpenCollections==='function')gsOpenCollections();},200)" id="mi-collections">
-        <div class="menu-item-icon" style="background:#ede7f6;">📁</div>
-        <span class="menu-item-label" data-i18n="menu_sammlungen" data-i18n-fallback="Sammlungen">Sammlungen</span>
-      </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){if(typeof gsOpenNaturjahr==='function')gsOpenNaturjahr();},200)" id="mi-naturjahr">
         <div class="menu-item-icon" style="background:#e1f5fe;">🗓️</div>
         <span class="menu-item-label" data-i18n="menu_naturjahr" data-i18n-fallback="Mein Naturjahr">Mein Naturjahr</span>
@@ -5675,22 +5704,7 @@ html, body{ scroll-behavior: smooth; }
         </button>
       </div>
     </div>
-    <!-- v24.36+v24.38: App-Verwaltung (Speicher, Verbindung, Export) -->
-    <div class="menu-section" data-i18n="msec_app_verwaltung" data-i18n-fallback="App-Verwaltung">App-Verwaltung</div>
-    <div class="menu-grid">
-      <button class="menu-item" onclick="window.gsShowStorageModal && window.gsShowStorageModal()" id="mi-storage">
-        <div class="menu-item-icon" style="background:#e3f2fd;">💾</div>
-        <span class="menu-item-label" data-i18n="menu_speicher" data-i18n-fallback="Speicher">Speicher</span>
-      </button>
-      <button class="menu-item" onclick="window.gsShowConnDetail && window.gsShowConnDetail()" id="mi-conn">
-        <div class="menu-item-icon" style="background:#e8f5e9;">🌐</div>
-        <span class="menu-item-label" data-i18n="menu_verbindung" data-i18n-fallback="Verbindung">Verbindung</span>
-      </button>
-      <button class="menu-item" onclick="window.gsShowExportModal && window.gsShowExportModal()" id="mi-export">
-        <div class="menu-item-icon" style="background:#fff3e0;">📊</div>
-        <span class="menu-item-label" data-i18n="menu_daten_exportieren" data-i18n-fallback="Daten exportieren">Daten exportieren</span>
-      </button>
-    </div>
+    <!-- v30.60: App-Verwaltung (Speicher/Verbindung/Export) + Sammlungen → in die Einstellungen verschoben (Datenschutz & Daten) -->
     <div class="menu-section" data-i18n="msec_kueche_gesundheit" data-i18n-fallback="Küche & Gesundheit">Küche & Gesundheit</div>
     <div class="menu-grid">
       <button class="menu-item" onclick="menuNav('recipes')" id="mi-recipes">
@@ -66401,7 +66415,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.59';
+var GS_VERSION = 'v30.60';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
