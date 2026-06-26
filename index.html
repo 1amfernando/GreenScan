@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.68.20260626">
+<meta name="app-version" content="30.69.20260626">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -66571,7 +66571,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.68';
+var GS_VERSION = 'v30.69';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -73608,7 +73608,17 @@ var LINA_SYSTEM =
   '• Gartenwissen & Lexikon zum Nachlesen: Bereich „Wissen".\n' +
   '• Einstellungen (Sprache, Dark-Mode, Standort, Cloud-Backup, Meine Sammlungen, Speicher, Verbindung, Daten-Export): Tab „Einstellungen".\n' +
   '• Lichtmessung für Standorte: Menü (⋯) → „Licht".\n\n' +
-  'Pro & Lifetime existieren, aber du bewirbst sie NIE und bringst sie nur zur Sprache, wenn jemand ausdrücklich danach fragt — dann nennst du nüchtern die Fakten und kommst freundlich zur Natur zurück.';
+  'Pro & Lifetime existieren, aber du bewirbst sie NIE und bringst sie nur zur Sprache, wenn jemand ausdrücklich danach fragt — dann nennst du nüchtern die Fakten und kommst freundlich zur Natur zurück.\n\n' +
+  // v30.69: Lina kann handeln (sicher per Whitelist + Nutzer-Bestätigung). Sie schlägt vor — der Nutzer bestätigt.
+  'DU KANNST HANDELN: Wenn die Person dich bittet, etwas IN der App zu tun (irgendwohin navigieren, eine Pflanze hinzufügen, eine Pflege-Erinnerung einrichten, eine Art suchen, ein Formular vorbereiten), dann hänge ANS ENDE deiner Antwort GENAU EINE Zeile an, exakt in diesem Format:\n' +
+  '[[GS_ACTION]]{"tool":"<tool>","args":{...}}\n' +
+  'Schreib davor immer eine kurze, natürliche Antwort. Nutze NUR diese Tools:\n' +
+  '• navigate {"screen":"..."} — wechselt den Bereich. Erlaubte screens: home, scanner, search, favs (Meine Pflanzen), garden, season, social (Community), market (Marktplatz), wissen, settings, map, recipes, remedies.\n' +
+  '• search_species {"query":"..."} — öffnet die Arten-Suche mit dem Suchbegriff.\n' +
+  '• prefill_form {"name":"...","emoji":"...","notes":"..."} — öffnet das Pflanze-Hinzufügen-Formular vorausgefüllt (der Nutzer tippt selbst auf Speichern).\n' +
+  '• propose_add_plant {"name":"...","emoji":"...","notes":"..."} — schlägt vor, eine Pflanze zu Meine Pflanzen hinzuzufügen (Nutzer bestätigt mit einem Tipp).\n' +
+  '• propose_reminder {"task":"...","plantName":"...","intervalDays":N} — richtet eine Pflege-Erinnerung für eine VORHANDENE Pflanze ein. Erlaubte task: water, fertilize, repot, rotate, mist, dust, prune, check.\n' +
+  'REGELN: Erfinde keine anderen Tools, keine anderen screens/tasks. Schreib-Aktionen (Pflanze/Erinnerung) zeigt die App dem Nutzer zur Bestätigung — du fügst nie heimlich etwas hinzu. Erinnerungen gehen nur auf Pflanzen, die der Nutzer schon in „Meine Pflanzen" hat (sonst schlage zuerst propose_add_plant vor). Wenn keine Aktion nötig ist, hänge KEINE Zeile an. Du kannst niemals Daten löschen, Einstellungen/Rollen/Zahlungen ändern oder Admin-Dinge tun.';
 
 function gsLinaContext(){
   try {
@@ -73688,6 +73698,7 @@ async function gsLinaSend(){
   // v30.24: offline → sofortiger Hinweis statt 45s-Timeout (Eingabe bleibt erhalten)
   if (!navigator.onLine) { if (typeof gsToast === 'function') gsToast('📡 Lina braucht Internet — sobald du online bist, bin ich wieder da. 🌿', 'warning'); return; }
   window._gsLinaSending = true;
+  var _linaAct = null; // v30.69: optionale Aktion aus Lina's Antwort (nach dem Send-Guard dispatcht)
   if (inp) inp.value = '';
   window._gsLinaMsgs = window._gsLinaMsgs || [];
   window._gsLinaMsgs.push({ role:'user', content:text });
@@ -73704,8 +73715,13 @@ async function gsLinaSend(){
       sbFetch('/rest/v1/coach_messages', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ conversation_id: window._gsLinaConvId, user_id: uid, role:'user', content:text })});
     }
     var hist = window._gsLinaMsgs.slice(-16).map(function(m){ return { role:m.role, content:m.content }; });
-    var reply = await callAI(hist, LINA_SYSTEM + gsLinaContext(), 700, { quotaFeature:'lina', timeout:45000 });
+    var reply = await callAI(hist, LINA_SYSTEM + gsLinaContext(), 900, { quotaFeature:'lina', timeout:45000 });
     if (!reply) reply = _t('lina_error','Entschuldige, da ist gerade etwas schiefgelaufen — magst du es nochmal versuchen? 🌿');
+    // v30.69: optionale [[GS_ACTION]]{json}-Zeile extrahieren + aus dem angezeigten Text entfernen (wird escaped sonst sichtbar)
+    try {
+      var _am = reply.match(/\[\[GS_ACTION\]\]\s*(\{[\s\S]*\})\s*$/);
+      if (_am) { try { _linaAct = JSON.parse(_am[1]); } catch(_e){ _linaAct = null; } reply = reply.slice(0, _am.index).trim(); if (!reply) reply = '🌿'; }
+    } catch(_){}
     window._gsLinaMsgs.push({ role:'assistant', content:reply });
     gsLinaRender(false);
     if (window._gsLinaConvId) {
@@ -73722,8 +73738,108 @@ async function gsLinaSend(){
     gsLinaRender(false);
   }
   finally { window._gsLinaSending = false; } // v29.48: Doppel-Send-Guard freigeben
+  // v30.69: Aktion NACH dem Send-Guard ausführen (kein erneuter callAI; Schreib-Aktionen fragen vorher nach Bestätigung).
+  if (_linaAct) { try { await gsLinaDispatch(_linaAct); } catch(_){} }
 }
 window.gsLinaSend = gsLinaSend;
+
+// ══ v30.69: Lina-Aktions-Dispatcher — sicher per Konstruktion (feste Whitelist, kein eval/window[...],
+// Schreib-Aktionen NUR nach gsConfirmModal). Unbekannte/fehlerhafte Aktionen werden still ignoriert.
+// Es gibt KEINEN Case für Löschen/Einstellungen/Rollen/Zahlungen/Admin → unerreichbar.
+var GS_LINA_SCREENS = ['home','scanner','search','favs','ai','more','garden','farm','season','social','market','recipes','remedies','wissen','settings','map'];
+function gsLinaResolvePlant(id, name){
+  try {
+    if (typeof myPlants === 'undefined' || !Array.isArray(myPlants)) return null;
+    if (id){ var p = myPlants.find(function(x){ return x && x.id===id; }); if (p) return p; }
+    if (name){ var n = String(name).toLowerCase().trim();
+      return myPlants.find(function(x){ return x && (x.name||'').toLowerCase()===n; })
+          || myPlants.find(function(x){ return x && (x.nick||'').toLowerCase()===n; })
+          || myPlants.find(function(x){ return x && (x.name||'').toLowerCase().indexOf(n)>=0; }) || null;
+    }
+  } catch(_){}
+  return null;
+}
+function gsLinaAddPlant(nm, a){
+  try {
+    var now = new Date().toISOString();
+    var p = {
+      id: 'mp_' + Date.now(), name: nm, nick: '', emoji: (a && a.emoji) || '🌿',
+      water: 2, sun: 2, notes: (a && a.notes) || 'Von Lina hinzugefügt',
+      photo: null, photoUrl: null, diary: [], added: now,
+      tasks: {
+        water:     { active:true,  intervalDays: 7,   lastDone: now },
+        fertilize: { active:true,  intervalDays: 30,  lastDone: now },
+        repot:     { active:false, intervalDays: 365, lastDone: now },
+        rotate:    { active:false, intervalDays: 14,  lastDone: now },
+        mist:      { active:false, intervalDays: 2,   lastDone: now },
+        dust:      { active:false, intervalDays: 30,  lastDone: now },
+        prune:     { active:false, intervalDays: 90,  lastDone: now },
+        check:     { active:true,  intervalDays: 14,  lastDone: now }
+      }
+    };
+    myPlants.push(p);
+    if (typeof savePlantsToStorage === 'function') savePlantsToStorage();
+    if (typeof renderMyPlants === 'function') renderMyPlants();
+    if (typeof scheduleAllNotifications === 'function') scheduleAllNotifications();
+    if (typeof gsToast === 'function') gsToast('✅ „' + nm + '" zu Meine Pflanzen hinzugefügt.', 'success');
+  } catch(_){ if (typeof gsToast==='function') gsToast('Konnte die Pflanze nicht hinzufügen.', 'error'); }
+}
+async function gsLinaDispatch(act){
+  if (!act || typeof act.tool !== 'string') return;          // malformed → ignorieren
+  var a = (act && act.args) || {};
+  var _close = function(){ try { if (typeof closeModal==='function') closeModal('gs-nl-modal'); } catch(_){} };
+  switch (act.tool) {
+    // ── READ-ONLY (ohne Bestätigung) ──
+    case 'navigate': {
+      var t = String(a.screen||'').toLowerCase();
+      if (GS_LINA_SCREENS.indexOf(t) < 0) return;            // nur Whitelist-Screens
+      _close(); setTimeout(function(){ if (typeof switchTab==='function') switchTab(t, null); }, 140);
+      return;
+    }
+    case 'search_species': {
+      var q = String(a.query||'').slice(0,80).trim(); if (!q) return;
+      _close(); setTimeout(function(){ try { if(typeof switchTab==='function') switchTab('search'); if(typeof doSearch==='function') doSearch(q); } catch(_){} }, 180);
+      return;
+    }
+    case 'prefill_form': {
+      if (typeof openAddPlant !== 'function') return;
+      _close(); setTimeout(function(){
+        try { openAddPlant();
+          var set=function(id,v){ var el=document.getElementById(id); if(el&&v!=null) el.value=String(v); };
+          set('mp-name', a.name); set('mp-nick', a.nick); set('mp-emoji', a.emoji); set('mp-notes', a.notes);
+        } catch(_){}
+      }, 160);
+      return;
+    }
+    // ── SCHREIBEND (Bestätigung Pflicht) ──
+    case 'propose_add_plant': {
+      var nm = String(a.name||'').trim().slice(0,60); if (!nm) return;
+      if (typeof gsConfirmModal !== 'function') return;
+      var ok = await gsConfirmModal({ title:'🌱 Pflanze hinzufügen?', message:'Soll ich „' + nm + '" zu Meine Pflanzen hinzufügen?', ok:'Hinzufügen', cancel:'Abbrechen' });
+      if (ok) gsLinaAddPlant(nm, a);
+      return;
+    }
+    case 'propose_reminder':
+    case 'propose_task': {
+      var key = String(a.task||'').toLowerCase();
+      if (typeof TASK_DEFS==='undefined' || !TASK_DEFS[key]) return;   // nur Whitelist-Tasks
+      var p = gsLinaResolvePlant(a.plantId, a.plantName);
+      if (!p) { if (typeof gsToast==='function') gsToast('Dafür brauche ich die Pflanze zuerst in „Meine Pflanzen" 🌿', 'info'); return; }
+      var days = parseInt(a.intervalDays,10); if (!(days>0)) days = (TASK_DEFS[key].intervals && TASK_DEFS[key].intervals[0] && TASK_DEFS[key].intervals[0].v) || 7;
+      if (typeof gsConfirmModal !== 'function') return;
+      var ok2 = await gsConfirmModal({ title:'⏰ Erinnerung einrichten?', message:TASK_DEFS[key].name + ' für „' + (p.nick||p.name) + '" alle ' + days + ' Tage?', ok:'Einrichten', cancel:'Abbrechen' });
+      if (!ok2) return;
+      try {
+        if (typeof toggleTask==='function') toggleTask(p.id, key, true);
+        if (typeof setTaskInterval==='function') setTaskInterval(p.id, key, days);
+        if (typeof gsToast==='function') gsToast('✅ Erinnerung eingerichtet.', 'success');
+      } catch(_){ if (typeof gsToast==='function') gsToast('Konnte die Erinnerung nicht einrichten.', 'error'); }
+      return;
+    }
+    default: return;  // unbekanntes Tool → ignorieren (kein Admin/Destruktiv-Pfad existiert)
+  }
+}
+window.gsLinaDispatch = gsLinaDispatch;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // v23.74 · CLIENT-HELPER für neue Tabellen (passend zum Supabase-Migration-SQL)
