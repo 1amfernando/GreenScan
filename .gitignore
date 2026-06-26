@@ -28,6 +28,10 @@ store/ios/package-lock.json
 
 # --- Node (Repo ist build-step-frei; node_modules nie committen) ---
 /node_modules/
+# v30.51: lokales Test-Tooling (jsdom). NIE nach main — Cloudflare Pages würde sonst
+# einen npm-Build triggern und den statischen Deploy brechen.
+/package.json
+/package-lock.json
 
 # --- OS / Editor ---
 .DS_Store
