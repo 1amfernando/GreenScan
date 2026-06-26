@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.64.20260626">
+<meta name="app-version" content="30.65.20260626">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22200,6 +22200,12 @@ function gsCollectNotifs(){
           action = "closeMainMenu();setTimeout(function(){if(typeof switchTab==='function')switchTab('" + tab.replace(/'/g,'') + "');},250);";
         } else if (link.startsWith('http')) {
           action = "closeMainMenu();setTimeout(function(){window.open('" + link.replace(/'/g,'') + "','_blank');},250);";
+        } else if (link.indexOf('screen=') >= 0) {
+          // v30.65: /?screen=…-Links (z.B. reminder → Garten) IN-APP navigieren statt harter PWA-Reload (location.href).
+          var _sm = {garten:'garden',garden:'garden',scanner:'scanner',quiz:'home',wissen:'wissen',knowledge:'wissen',home:'home',map:'map',search:'search',favs:'favs',recipes:'recipes',remedies:'remedies',social:'social',market:'market',season:'season'};
+          var _scr = ''; try { _scr = (link.split('screen=')[1] || '').split('&')[0].split('#')[0]; } catch(_e){}
+          var _tab = (_sm[_scr] || _scr || 'home').replace(/[^a-z]/gi,'');
+          action = "closeMainMenu();setTimeout(function(){if(typeof switchTab==='function')switchTab('" + _tab + "');},250);";
         } else if (link) {
           action = "closeMainMenu();setTimeout(function(){location.href='" + link.replace(/'/g,'') + "';},250);";
         } else {
@@ -66495,7 +66501,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.64';
+var GS_VERSION = 'v30.65';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
