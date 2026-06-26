@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.54.20260626">
+<meta name="app-version" content="30.55.20260626">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15894,7 +15894,7 @@ function gsScanHistoryOpen(uidOrIdx) {
   if (dbMatch) {
     actions = '<button onclick="closeScanDetail();closeScanHistoryFull();setTimeout(function(){openDetail(\'' + dbMatch.id + '\');},200);" style="flex:1;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:12px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;">📖 In Datenbank öffnen</button>';
   } else {
-    actions = '<div style="flex:1;padding:13px;background:var(--surface2);border:1.5px dashed var(--border);border-radius:12px;font-size:12px;color:var(--muted);text-align:center;line-height:1.45;">Diese Art ist noch nicht in der Datenbank — wenn du sie verifizierst, wird sie nach Admin-Review aufgenommen.</div>';
+    actions = '<div style="flex:1;padding:13px;background:var(--surface2);border:1.5px dashed var(--border);border-radius:12px;font-size:12px;color:var(--muted);text-align:center;line-height:1.45;">🧬 Diese Art ist noch nicht in der Datenbank. Dein Scan wurde automatisch zur Prüfung vorgeschlagen — nach Freigabe durch das Team wird sie aufgenommen.</div>';
   }
 
   var html =
@@ -66356,7 +66356,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.54';
+var GS_VERSION = 'v30.55';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -75067,6 +75067,74 @@ async function gsAdminReviewSpeciesImage(id, approve){
   } catch(_) { try { gsToast('Aktion fehlgeschlagen.', 'error'); } catch(__){} }
 }
 
+// ══ v30.55: Admin — Arten-Vorschläge (species_proposals) verifizieren ══
+// 20 Vorschläge lagen 7 Wochen ungesehen (kein Admin-Pfad existierte). Jetzt: Queue + 1-Klick-Übernahme
+// (→ species-Tabelle via fn_admin_review_species_proposal). HL#24: Tox/Essbarkeit werden NICHT aus dem
+// KI-Vorschlag übernommen (nur Text); approve-te Art erscheint nach DB-Update/Boot-Merge in der App.
+async function gsAdminFetchSpeciesProposalQueue(){
+  try {
+    var res = await sbFetch('/rest/v1/rpc/fn_admin_species_proposal_queue', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_limit: 50 })
+    });
+    var q = (res && res.data) || [];
+    try { window._gsAdminPropQueue = q; } catch(_){} // für 2×-KI-Foto-Gegencheck (Lookup by id)
+    return q;
+  } catch(_) { return []; }
+}
+function _gsAdminSpeciesProposalHtml(queue){
+  queue = Array.isArray(queue) ? queue : [];
+  var _e = (typeof escHtml==='function') ? escHtml : function(s){ return String(s==null?'':s); };
+  var items = queue.map(function(p){
+    var d = p.data || {};
+    var url = String(d.photo_url||'').replace(/"/g,'&quot;');
+    var img = url
+      ? '<img src="'+url+'" alt="" style="width:54px;height:54px;object-fit:cover;border-radius:8px;flex-shrink:0;" onerror="this.style.display=\'none\'">'
+      : '<div style="width:54px;height:54px;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">🌿</div>';
+    var warnBadge = (d.ai_warning && String(d.ai_warning).trim())
+      ? '<span style="background:#ef6c00;color:#fff;border-radius:5px;padding:1px 5px;font-size:9px;font-weight:800;margin-left:5px;">⚠️ Warnhinweis</span>' : '';
+    var conf = (p.scan_confidence!=null) ? (p.scan_confidence+'%') : '—';
+    return '<div style="display:flex;gap:9px;align-items:center;padding:8px;background:var(--card);border-radius:8px;margin-bottom:6px;">' +
+      img +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+_e(p.name||'—')+warnBadge+'</div>' +
+        '<div style="font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(p.latin?('<i>'+_e(p.latin)+'</i> · '):'')+_e(p.category||'')+' · KI '+conf+'</div>' +
+      '</div>' +
+      '<button onclick="gsAdminReviewSpeciesProposal(\''+p.id+'\',true)" title="Übernehmen (in die Arten-DB aufnehmen)" style="padding:6px 10px;border:none;border-radius:6px;background:#2e7d32;color:#fff;font-size:14px;cursor:pointer;flex-shrink:0;">✓</button>' +
+      '<button onclick="gsAdminReviewSpeciesProposal(\''+p.id+'\',false)" title="Ablehnen" style="padding:6px 10px;border:none;border-radius:6px;background:#c62828;color:#fff;font-size:14px;cursor:pointer;flex-shrink:0;">✕</button>' +
+    '</div>';
+  }).join('');
+  return '<div id="gs-admin-prop-sec" style="margin-top:10px;padding:11px 13px;background:#e8f5e9;border-radius:8px;">' +
+    '<div style="font-weight:800;font-size:12.5px;color:var(--g-dark);margin-bottom:8px;">🧬 Arten-Vorschläge ' + (queue.length?('('+queue.length+')'):'') + '</div>' +
+    (queue.length ? items : '<div style="font-size:11.5px;color:var(--muted);">Keine offenen Vorschläge.</div>') +
+  '</div>';
+}
+async function gsAdminReviewSpeciesProposal(id, approve){
+  try {
+    if (approve) {
+      // HL#24/#25: vor dem Aufnehmen das Vorschlags-Foto 2× von der KI gegenprüfen (falls vorhanden).
+      var item = (window._gsAdminPropQueue || []).find(function(x){ return x && x.id === id; });
+      var d = (item && item.data) || {};
+      var nm = (item && item.name) || 'diese Art';
+      if (d.photo_url) {
+        try { gsToast('🔍 KI prüft das Foto 2×…', 'info', 4000); } catch(_){}
+        var ok = await _gsVerifySpeciesImage(d.photo_url, nm, item && item.latin);
+        if (ok === false) {
+          var force = false;
+          try { force = await gsConfirmModal({ title:'⚠️ KI-Zweifel', message:'Die KI hat NICHT 2× bestätigt, dass das Foto „'+nm+'" zeigt. Trotzdem aufnehmen?', ok:'Trotzdem aufnehmen', cancel:'Abbrechen', kind:'danger' }); } catch(_){ force=false; }
+          if (!force) { try { gsToast('Aufnahme abgebrochen (KI-Zweifel).', 'warn'); } catch(__){} return; }
+        }
+      }
+    }
+    var res = await sbFetch('/rest/v1/rpc/fn_admin_review_species_proposal', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ p_id: id, p_approve: !!approve, p_note: null })
+    });
+    if (res && res.error) { try { gsToast('Aktion fehlgeschlagen.', 'error'); } catch(_){} return; }
+    try { gsToast(approve ? '✅ Vorschlag übernommen — in der Arten-DB gespeichert.' : '🗑️ Vorschlag abgelehnt.', 'success'); } catch(_){}
+    await _gsAdminRefreshSection('gs-admin-prop-sec', gsAdminFetchSpeciesProposalQueue, _gsAdminSpeciesProposalHtml);
+  } catch(_) { try { gsToast('Aktion fehlgeschlagen.', 'error'); } catch(__){} }
+}
+
 // ══ v30.34: Admin — Nutzer-Meldungen (user_reports) moderieren ══
 async function gsAdminFetchReports(){
   try {
@@ -75317,10 +75385,10 @@ async function openAdminPanel() {
     gsAdminListUsers(), gsAdminFetchMetrics(), gsAdminFetchStripe(), gsAdminFetchFlags(),
     gsAdminFetchAudit(), gsAdminFetchClientErrors(), gsAdminFetchModerationFeed(), gsAdminFetchVouchers(),
     gsAdminFetchSpeciesImageQueue(), gsAdminFetchCronHealth(), gsAdminFetchSystemEvents(), gsAdminFetchFinance(),
-    gsAdminFetchOpsDigest(), gsAdminFetchReports()
+    gsAdminFetchOpsDigest(), gsAdminFetchReports(), gsAdminFetchSpeciesProposalQueue()
   ]);
   var users = _ad[0], metrics = _ad[1], stripe = _ad[2], flags = _ad[3],
-      audit = _ad[4], cerrs = _ad[5], moderation = _ad[6], vouchers = _ad[7], simgQueue = _ad[8], cronHealth = _ad[9], sysEvents = _ad[10], finance = _ad[11], opsDigest = _ad[12], reports = _ad[13];
+      audit = _ad[4], cerrs = _ad[5], moderation = _ad[6], vouchers = _ad[7], simgQueue = _ad[8], cronHealth = _ad[9], sysEvents = _ad[10], finance = _ad[11], opsDigest = _ad[12], reports = _ad[13], propQueue = _ad[14];
   var existing = document.getElementById('modal-admin-panel');
   if (existing) existing.remove();
   var m = document.createElement('div');
@@ -75391,6 +75459,7 @@ async function openAdminPanel() {
       _gsAdminModerationHtml(moderation) +
       _gsAdminReportsHtml(reports) +
       _gsAdminSpeciesImageHtml(simgQueue) +
+      _gsAdminSpeciesProposalHtml(propQueue) +
       _gsAdminOpsCockpitHtml(opsDigest) +
       _gsAdminCronHealthHtml(cronHealth) +
       _gsAdminFinanceHtml(finance) +
