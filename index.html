@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.67.20260626">
+<meta name="app-version" content="30.68.20260626">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10217,6 +10217,13 @@ function openDailyQuizFromSupa(quiz) {
   }
 
   _dqCorrect = correctOpt.text || correctOpt.label || '';
+  // v30.68: KI-Erklärung (dqAskKIExplain) + Ergebnis brauchen Arten-Kontext — im Supa-Pfad war _dqSpecies null,
+  // daher erklärte die KI ohne Artdaten. Aus der richtigen Antwort gegen die DB auflösen (Fallback: Name+Kategorie).
+  try {
+    var _qsp = (typeof DB!=='undefined' && DB) ? DB.find(function(s){ return s && (s.name===_dqCorrect || s.lat===_dqCorrect); }) : null;
+    _dqSpecies = _qsp || { name:_dqCorrect, cat:(quiz.category||'') };
+    window._dqSpecies = _dqSpecies;
+  } catch(_){}
   _dqAnswered = false;
   _dqTimeLeft = 20;
   _dqStartTime = Date.now();
@@ -31876,6 +31883,8 @@ async function gsBattleNewRandom(){
       await gsBattleLoadAndPlay(d.battle_id);   // als Gegner: Fragen vom Server (ohne correct_idx)
     } else {
       gsBattleStartPlay(d.battle_id, 'challenger', qs);  // als Herausforderer: eigene Fragen
+      // v30.68: ehrliches Feedback — kein Live-Gegner gefunden; Ergebnis kommt, sobald jemand annimmt.
+      try { if (typeof gsToast==='function') setTimeout(function(){ gsToast('🔍 Gerade kein Gegner online — du spielst vor, das Ergebnis kommt sobald jemand annimmt.', 'info', 5000); }, 700); } catch(_){}
     }
   } catch(e) {
     _gsNlOpen('<div style="padding:24px;text-align:center;color:#c62828;">⚠️ Match fehlgeschlagen. Bitte erneut versuchen.</div>');
@@ -32055,6 +32064,8 @@ function gsBattleRenderResult(res){
     if (won === 1) { try { if (typeof window._gsConfetti === 'function') window._gsConfetti(); } catch(_){} if (typeof gsHaptic === 'function') gsHaptic('success'); }
   }
   h += '<button onclick="gsOpenBattles()" style="margin-top:20px;padding:12px 26px;background:linear-gradient(135deg,#7e57c2,#4527a0);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;">' + _t('confirm_continue','Weiter') + '</button>';
+  // v30.68: Revanche — direkt ein neues Zufalls-Battle starten (nur wenn das aktuelle abgeschlossen ist).
+  if (res.resolved) h += '<button onclick="if(window.gsBattleNewRandom)gsBattleNewRandom()" style="margin-top:10px;display:block;width:100%;padding:11px;background:transparent;border:1.5px solid #7e57c2;color:#7e57c2;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">' + _t('battle_rematch','🔄 Revanche – neues Battle') + '</button>';
   h += '</div>';
   _gsNlOpen(h);
 }
@@ -66560,7 +66571,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.67';
+var GS_VERSION = 'v30.68';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
