@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.52.20260626">
+<meta name="app-version" content="30.53.20260626">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -66349,7 +66349,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.52';
+var GS_VERSION = 'v30.53';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -72259,10 +72259,11 @@ function gsSnapshotBuildState(){
     action_counts:       _j('gs_action_counts','null'),
     market_ratings:      _j('gs_market_ratings','{}'),   // v30.51: User-Bewertungen (keine Server-Tabelle → Snapshot=einziges Backend-Home)
     market_reported:     _j('gs_market_reported','[]'),  // v30.51: gemeldete Inserate (Button-State)
-    // v30.52 (Cowork-Audit §3.1): NUR eigene Rezepte/Heilmittel (id r_<ts>/rem_<ts> aus saveRecipe) sichern —
-    // Defaults/Cloud nicht (re-pullbar, sonst Bloat). Eigene haben keine Server-Tabelle → Snapshot = Backend-Home.
-    user_recipes:        (function(){ try { return (typeof recipesData!=='undefined'&&Array.isArray(recipesData)?recipesData:[]).filter(function(r){ return r && typeof r.id==='string' && /^r_\d+$/.test(r.id); }); } catch(_){ return []; } })(),
-    user_remedies:       (function(){ try { return (typeof remediesData!=='undefined'&&Array.isArray(remediesData)?remediesData:[]).filter(function(r){ return r && typeof r.id==='string' && /^rem_\d+$/.test(r.id); }); } catch(_){ return []; } })(),
+    // v30.52 (Cowork-Audit §3.1): NUR eigene Rezepte/Heilmittel sichern. v30.53 FIX: id auf 13-stelligen
+    // Date.now()-Stempel ankern (r_<13> / rem_<13> aus saveRecipe) — \d+ hätte auch die 105 Default-Rezepte
+    // r_001…r_NNN erfasst (Bloat + Default-Shadowing beim Restore). Defaults/Cloud bleiben draußen (re-pullbar).
+    user_recipes:        (function(){ try { return (typeof recipesData!=='undefined'&&Array.isArray(recipesData)?recipesData:[]).filter(function(r){ return r && typeof r.id==='string' && /^r_\d{13}$/.test(r.id); }); } catch(_){ return []; } })(),
+    user_remedies:       (function(){ try { return (typeof remediesData!=='undefined'&&Array.isArray(remediesData)?remediesData:[]).filter(function(r){ return r && typeof r.id==='string' && /^rem_\d{13}$/.test(r.id); }); } catch(_){ return []; } })(),
     plants:              _j('ps_myplants','[]'),
     diary:               _j('gs_gartentagebuch','[]'),
     ernte:               _j('gs_ernte_log','[]'),
