@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.53.20260626">
+<meta name="app-version" content="30.54.20260626">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15660,8 +15660,9 @@ function _gsBuildScanHistList() {
       uid: 'h_'+idx, source: 'hist',
       name: h.name || 'Unbekannt',
       lat: h.latin || '',
-      conf: h.confidence || 0,
-      time: h.timestamp || h.scannedAt || '',
+      // v30.54 FIX: tolerant lesen — Writer/Cloud-Loader schreiben conf/ts, alte/andere Pfade confidence/timestamp.
+      conf: (typeof h.conf === 'number' ? h.conf : (typeof h.confidence === 'number' ? h.confidence : 0)),
+      time: h.ts || h.timestamp || h.scannedAt || h.createdAt || '',
       emoji: h.emoji || '🔬',
       thumb: h.thumb || null,
       category: h.category || '',
@@ -15672,15 +15673,15 @@ function _gsBuildScanHistList() {
       uid: 'c_'+idx, source: 'confirmed',
       name: c.name || 'Unbekannt',
       lat: c.lat || '',
-      conf: c.confidence || 0,
-      time: c.scannedAt || '',
+      conf: (typeof c.conf === 'number' ? c.conf : (typeof c.confidence === 'number' ? c.confidence : 0)),
+      time: c.ts || c.scannedAt || c.timestamp || '',
       emoji: c.emoji || '🔬',
       thumb: c.thumb || null,
       dbId: c.id || null,
     });
   });
   // KEIN hartes Dedup — User soll alle Scans sehen können (z.B. mehrere Tomaten-Scans)
-  all.sort(function(a,b){ return (b.time||'').localeCompare(a.time||''); });
+  all.sort(function(a,b){ var _m=function(t){ return typeof t==='number'?t:(t?(Date.parse(t)||0):0); }; return _m(b.time)-_m(a.time); }); // v30.54: typ-tolerant (time = ts-Zahl ODER ISO-String)
   return all;
 }
 
@@ -15852,9 +15853,9 @@ function gsScanHistoryOpen(uidOrIdx) {
     var confirmed = [];
     try { confirmed = JSON.parse(localStorage.getItem('gs_confirmed_species')||'[]'); } catch(e){}
     all = [];
-    hist.forEach(function(h, i){ all.push({uid:'h_'+i, name:h.name, lat:h.latin||'', conf:h.confidence||0, time:h.timestamp||h.scannedAt||'', emoji:h.emoji||'🔬', category:h.category||'', thumb:h.thumb||null}); });
-    confirmed.forEach(function(c, i){ all.push({uid:'c_'+i, name:c.name, lat:c.lat||'', conf:c.confidence||0, time:c.scannedAt||'', emoji:c.emoji||'🔬', dbId:c.id}); });
-    all.sort(function(a,b){ return (b.time||'').localeCompare(a.time||''); });
+    hist.forEach(function(h, i){ all.push({uid:'h_'+i, name:h.name, lat:h.latin||'', conf:(typeof h.conf==='number'?h.conf:(h.confidence||0)), time:h.ts||h.timestamp||h.scannedAt||'', emoji:h.emoji||'🔬', category:h.category||'', thumb:h.thumb||null}); }); // v30.54: tolerant conf/ts
+    confirmed.forEach(function(c, i){ all.push({uid:'c_'+i, name:c.name, lat:c.lat||'', conf:(typeof c.conf==='number'?c.conf:(c.confidence||0)), time:c.ts||c.scannedAt||c.timestamp||'', emoji:c.emoji||'🔬', dbId:c.id}); });
+    all.sort(function(a,b){ var _m=function(t){ return typeof t==='number'?t:(t?(Date.parse(t)||0):0); }; return _m(b.time)-_m(a.time); }); // v30.54: typ-tolerant (time = ts-Zahl ODER ISO-String)
   }
 
   var item;
@@ -22187,7 +22188,12 @@ window.updateScanHistoryBadge = function(){ try { gsRenderNotifBadge(); } catch(
 
 // Beim Seitenstart initial rendern
 (function _gsNotifInit(){
-  function boot(){ try { gsRenderNotifBadge(); } catch(_){} }
+  function boot(){
+    try { gsRenderNotifBadge(); } catch(_){}
+    // v30.54: Server-Notifs schon beim Start ziehen (vorher erst beim Menü-Öffnen → Glocke zeigte beim Boot nichts).
+    // gsNotifPull self-gated (Login) + aktualisiert das Badge selbst.
+    try { if (typeof gsNotifPull === 'function') setTimeout(function(){ try { gsNotifPull(); } catch(_){} }, 1800); } catch(_){}
+  }
   if (document.readyState === 'complete' || document.readyState === 'interactive') {
     setTimeout(boot, 200);
   } else {
@@ -25835,6 +25841,7 @@ async function gsLoadCloudScans() {
         latin:    c.species_latin || '',
         emoji:    emojiFor(c.category, c.edible, c.toxicity),
         conf:     typeof c.confidence === 'number' ? c.confidence : 0,
+        category: c.category || '',   // v30.54 FIX: Cloud-Map ließ category weg → Scan-Historie zeigte "unbekannt"
         tox:      typeof c.toxicity === 'number' ? c.toxicity : 0,
         edible:   !!c.edible,
         warning:  '',
@@ -66349,7 +66356,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.53';
+var GS_VERSION = 'v30.54';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -68792,6 +68799,21 @@ function gsRegisterServiceWorker() {
       '<div style="font-size:11px;color:var(--muted);margin-top:4px;">' + info.percent.toFixed(1) + '% des verfügbaren Speichers</div>' +
       '<div style="font-size:12px;color:var(--text2);margin-top:8px;display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:8px;"><span>Persistent-Storage</span><span>' + (info.persisted ? '✅ ja (löschsicher)' : '⚠️ nein') + '</span></div>'
     ) : '<div style="font-size:12px;color:var(--muted);">Storage-Estimate nicht verfügbar.</div>';
+    // v30.54 (Bug A): „Gespeicherte Daten"-Zähler — vorher zeigte das Modal nur MB + leere Offline-Queue,
+    // darum wirkte es als „sammelt sich nichts an". Counts beweisen, dass Daten da sind.
+    var _cntArr = function(k){ try { var a = JSON.parse((window.gsStore&&gsStore.get?gsStore.get(k,null):localStorage.getItem(k))||'[]'); return Array.isArray(a)?a.length:0; } catch(_){ return 0; } };
+    var _scanN  = _cntArr(typeof SCAN_HISTORY_KEY!=='undefined'?SCAN_HISTORY_KEY:'gs_scan_history');
+    var _plantN = (typeof myPlants!=='undefined' && Array.isArray(myPlants)) ? myPlants.length : _cntArr('ps_myplants');
+    var _findN  = _cntArr('greenscan_markers');
+    var _planN  = _cntArr('gs_garden_plans');
+    var _lsKB   = (function(){ try { return (window.gsStore && typeof gsStore.usageBytes==='function') ? Math.round(gsStore.usageBytes()/1024) : null; } catch(_){ return null; } })();
+    var _row = function(label, val){ return '<div style="font-size:12px;color:var(--text2);display:flex;justify-content:space-between;padding:3px 0;"><span>'+label+'</span><span><b>'+val+'</b></span></div>'; };
+    var dataBlock =
+      '<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px;">' +
+        '<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Gespeicherte Daten</div>' +
+        _row('📷 Scans', _scanN) + _row('🌱 Pflanzen', _plantN) + _row('📍 Funde', _findN) + _row('🪴 Garten-Pläne', _planN) +
+        (_lsKB!=null ? _row('💾 Lokal belegt', _lsKB+' KB') : '') +
+      '</div>';
     var m = document.createElement('div');
     m.id = 'gs-storage-modal';
     m.style.cssText = 'position:fixed;inset:0;z-index:9050;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:18px;';
@@ -68805,8 +68827,9 @@ function gsRegisterServiceWorker() {
         '</div>' +
         '<div style="padding:16px 20px;">' +
           infoBlock +
+          dataBlock +
           '<div style="font-size:12px;color:var(--text2);margin-top:10px;display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:8px;"><span>Service Worker</span><span>' + swStatus + '</span></div>' +
-          '<div style="font-size:12px;color:var(--text2);display:flex;justify-content:space-between;border-top:1px solid var(--border);padding:8px 0;"><span>Offline-Queue</span><span><b>' + pending + '</b> Items</span></div>' +
+          '<div style="font-size:12px;color:var(--text2);display:flex;justify-content:space-between;border-top:1px solid var(--border);padding:8px 0;"><span>Wartet auf Cloud-Sync</span><span><b>' + pending + '</b>' + (pending===0?' (alles sync.)':' Items') + '</span></div>' +
           (info && !info.persisted ?
             '<button onclick="window.gsRequestPersistentStorage().then(function(ok){document.getElementById(\'gs-storage-modal\').remove();if(typeof showProfileToast===\'function\')showProfileToast({type:ok?\'success\':\'warn\',icon:ok?\'✅\':\'⚠️\',title:ok?\'Persistent aktiviert\':\'Vom Browser abgelehnt\',body:ok?\'Cache wird nicht mehr automatisch gelöscht.\':\'Browser hat Anfrage abgelehnt — kein Problem, Cache funktioniert trotzdem.\'})})" style="display:block;width:100%;padding:11px;margin-top:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit;">🛡️ Persistent-Storage anfragen</button>' : '') +
           '<button onclick="gsClearCachesConfirm()" style="display:block;width:100%;padding:11px;margin-top:8px;background:transparent;color:#c62828;border:1.5px solid #c62828;border-radius:10px;font-weight:700;font-size:12.5px;cursor:pointer;font-family:inherit;">🗑️ Cache komplett leeren</button>' +
