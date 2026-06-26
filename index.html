@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.71.20260627">
+<meta name="app-version" content="30.72.20260627">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12963,6 +12963,13 @@ function gsMatchScanToDb(name, latin) {
   var segs = String(name||'').split(/[\/,()]+/).map(function(x){ return _gsNorm(x); }).filter(function(x){ return x && x.length>=5; });
   var lat = _gsNormLat(latin);
   var hit = null;
+  // 0) Trivialnamen-Synonym (v30.72): nur ADDITIV — wenn der Scan-Name ein bekanntes Synonym ist, per Latein finden.
+  try {
+    if (window.GS_SYNONYMS && typeof _gsSearchNorm === 'function') {
+      var _syn = window.GS_SYNONYMS[_gsSearchNorm(name)];
+      if (_syn) { hit = DB.find(function(sp){ return sp && sp.lat && _gsSearchNorm(sp.lat).indexOf(_syn) >= 0; }); if (hit) return hit; }
+    }
+  } catch(_){}
   // 1) exakter deutscher Name
   if (n) { hit = DB.find(function(sp){ return sp && sp.name && sp.name.toLowerCase().trim() === n; }); if (hit) return hit; }
   // 2) deutsches Namens-Segment exakt (beide Seiten zerlegen, volle normalisierte Tokens)
@@ -24550,7 +24557,7 @@ var SCAN_SYSTEM_PROMPT =
     '- Antworte AUSSCHLIESSLICH als EIN JSON-Objekt (kein Text davor/danach, keine Markdown-Fences).\n' +
     '- confidence = Zahl 0..100 für den Top-1 Kandidaten.\n' +
     '- edible/toxic = true|false · toxicity = Zahl 0..5 (0=ungiftig, 5=tödlich).\n' +
-    '- alternatives = IMMER 2 weitere Kandidaten mit Name/Latin/confidence/distinguishing_feature.\n' +
+    '- alternatives = IMMER 2 weitere Kandidaten mit name/latin/confidence/distinguishing_feature SOWIE toxicity(0..5)+edible(true|false) je Alternative — konservativ schätzen (im Zweifel giftig / nicht essbar).\n' +
     '- diagnostic_features = Array visueller Merkmale, die du im Foto SIEHST.\n' +
     '- next_photo_hint = konkreter Vorschlag was ein zusätzliches Foto absichern würde (leer wenn Konfidenz ≥ 90).\n' +
     '- season_match = true/false (passt Jahreszeit/Region zum Top-Kandidaten?).\n\n' +
@@ -24564,8 +24571,8 @@ var SCAN_SYSTEM_PROMPT =
       '"tips":"Knoblauchgeruch beim Reiben ist sicherstes Merkmal",' +
       '"diagnostic_features":["Breite Einzelblätter","Glänzend grün","Langer schmaler Stiel direkt aus Boden"],' +
       '"alternatives":[' +
-        '{"name":"Maiglöckchen","latin":"Convallaria majalis","confidence":28,"distinguishing_feature":"Zwei Blätter an gemeinsamem Stiel, KEIN Knoblauchgeruch, giftig"},' +
-        '{"name":"Herbstzeitlose","latin":"Colchicum autumnale","confidence":12,"distinguishing_feature":"Herbstblüte, breitere Blätter, hoch giftig"}' +
+        '{"name":"Maiglöckchen","latin":"Convallaria majalis","confidence":28,"distinguishing_feature":"Zwei Blätter an gemeinsamem Stiel, KEIN Knoblauchgeruch, giftig","toxicity":4,"edible":false},' +
+        '{"name":"Herbstzeitlose","latin":"Colchicum autumnale","confidence":12,"distinguishing_feature":"Herbstblüte, breitere Blätter, hoch giftig","toxicity":5,"edible":false}' +
       '],' +
       '"lookalike_warning":"Giftiges Maiglöckchen & Herbstzeitlose — im Zweifel nicht verzehren!",' +
       '"next_photo_hint":"Foto von Blattunterseite + Reibtest für Knoblauchgeruch",' +
@@ -25062,12 +25069,9 @@ function gsPickAlternative(altKey) {
     // Felder aus DB anreichern falls Art existiert
     _userPicked: true
   });
-  // DB-Match für die neue Art suchen und Felder übernehmen
+  // DB-Match für die neue Art suchen und Felder übernehmen (v30.72: einheitlicher latein-verankerter Matcher)
   try {
-    var dbMatch = DB && DB.find(function(s){
-      return (s.name||'').toLowerCase() === (alt.name||'').toLowerCase()
-          || (s.lat||'').toLowerCase() === (alt.latin||'').toLowerCase();
-    });
+    var dbMatch = (typeof gsMatchScanToDb === 'function') ? gsMatchScanToDb(alt.name, alt.latin) : null;
     if (dbMatch) {
       newRes.category   = dbMatch.cat || newRes.category;
       newRes.description= dbMatch.desc || newRes.description;
@@ -25079,6 +25083,16 @@ function gsPickAlternative(altKey) {
       newRes.toxicity   = (dbMatch.tox != null) ? dbMatch.tox : newRes.toxicity;
       newRes.edible     = (dbMatch.edible != null) ? dbMatch.edible : newRes.edible;
       newRes.family     = dbMatch.fam || newRes.family;
+    } else {
+      // v30.72 SICHERHEIT (HL#24): KEINE DB-Bestätigung → das Sicherheitsprofil der VORIGEN Art darf NICHT
+      // weitervererbt werden (sonst würde eine giftige Alternative als „essbar" der alten Art erscheinen).
+      // Beschreibende Felder der alten Art entfernen + konservativ als „ungeprüft" markieren.
+      newRes.toxicity = (alt.toxicity != null) ? alt.toxicity : null;
+      newRes.edible   = (alt.edible != null) ? alt.edible : undefined;
+      newRes.toxic    = (alt.toxicity != null) ? (alt.toxicity >= 3) : undefined;
+      delete newRes.description; delete newRes.habitat; delete newRes.season; delete newRes.uses; delete newRes.tips;
+      newRes.warning = '';
+      newRes.lookalike_warning = 'Unbestätigte Alternative — Essbarkeit & Giftigkeit nicht geprüft. Im Zweifel NICHT verzehren.';
     }
   } catch(e){}
   // Alternativen rotieren
@@ -26344,6 +26358,22 @@ function doSearch(query){
   }, 100);
 }
 
+// v30.72: kuratierte Trivialnamen-Synonyme (normalisierter Synonym → normalisiertes Latein) für Arten,
+// deren deutschen Trivialnamen die DB nicht listet (Suche „glücksfeder" fand sonst 0). Keys in _gsSearchNorm-Form
+// (Umlaute gefaltet, keine Akzente). Werte = Latein (Gattung genügt → alle Arten der Gattung). Synonyme ADDIEREN
+// nur Treffer, sie ändern NIE Tox/Essbarkeit (HL#24). Bestätigte echte Lücken (Ziel in DB + heute 0 Treffer).
+window.GS_SYNONYMS = {
+  'glucksfeder':'zamioculcas zamiifolia', 'zz pflanze':'zamioculcas zamiifolia',
+  'schwiegermutterzunge':'sansevieria', 'flaschenbaum':'beaucarnea recurvata',
+  'kostliches fensterblatt':'monstera deliciosa', 'kentiapalme':'howea forsteriana',
+  'pfennigbaum':'crassula ovata', 'flammendes kathchen':'kalanchoe blossfeldiana',
+  'fleissiges lieschen':'impatiens walleriana', 'usambaraveilchen':'saintpaulia ionantha',
+  'frauenhaarfarn':'adiantum capillus', 'kanonierblume':'pilea', 'gluckstaler':'pilea peperomioides',
+  'ufopflanze':'pilea peperomioides', 'zwergpfeffer':'peperomia', 'korbmarante':'calathea',
+  'kopfchentragende marante':'maranta leuconeura', 'gebetspflanze':'maranta leuconeura',
+  'schmetterlingsorchidee':'phalaenopsis', 'porzellanblume':'hoya carnosa'
+};
+
 // v30.71: bessere Arten-Suche — diakritik-tolerant (Bärlauch=barlauch), Relevanz-Ranking
 // (exakt > Prefix > Slash-Segment > enthält > Latein > Familie > Volltext) + Tippfehler-Fallback.
 // Index 1× vorberechnet (rebuild bei DB-Längenänderung, z.B. Community-Merge).
@@ -26399,6 +26429,7 @@ function getFiltered(){
   if(!window._gsSearchIdx || window._gsSearchIdx.length!==DB.length) _gsBuildSearchIdx();
   var idx = window._gsSearchIdx || [];
   var q = _gsSearchNorm(searchText);
+  var synLat = (window.GS_SYNONYMS && window.GS_SYNONYMS[q]) || null; // v30.72: Trivialnamen-Synonym → Latein
   var scored = [];
   for (var i=0;i<idx.length;i++){
     var e=idx[i]; if(!_gsPassCat(e.sp)) continue;
@@ -26411,6 +26442,8 @@ function getFiltered(){
     else if (e.lat.indexOf(q)>=0) sc=300;
     else if (e.fam.indexOf(q)>=0) sc=200;
     else if (e.blob.indexOf(q)>=0) sc=100;
+    // v30.72: Synonym-Boost (ergänzt, überschreibt keinen stärkeren echten Namens-Treffer)
+    if (synLat && e.lat){ var _sl = e.lat.indexOf(synLat); if (_sl===0) sc=Math.max(sc,620); else if (_sl>0) sc=Math.max(sc,600); }
     if (sc>0){ sc -= Math.min(50, e.name.length); scored.push({sp:e.sp, sc:sc}); }
   }
   if (!scored.length && q.length>=4){  // Tippfehler-Fallback nur bei 0 Treffern
@@ -66671,7 +66704,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.71';
+var GS_VERSION = 'v30.72';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
