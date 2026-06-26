@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.69.20260626">
+<meta name="app-version" content="30.70.20260627">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12941,16 +12941,48 @@ function gsInitSmartNotifications() {
 function gsRequestNotifications() { return gsNotif.request(); }
 
 // ══ SCAN → DB LINK ════════════════════════════════════════════
-function gsLinkScanToDb(name, latin) {
-  if (!DB || !name) return null;
-  var nl = name.toLowerCase();
-  var ll = (latin||'').toLowerCase();
-  return DB.find(function(sp) {
-    return sp.name.toLowerCase() === nl ||
-           (sp.lat && sp.lat.toLowerCase() === ll) ||
-           sp.name.toLowerCase().startsWith(nl.split(' ')[0]);
-  }) || null;
+// v30.70: EIN sicherer, einheitlicher Scan→DB-Matcher (ersetzt 3 inkonsistente Matcher, u.a. den
+// gefährlichen startsWith(firstWord)-Fallback: "Weisser Germer"/tödlich → "Weisserklee"/essbar, HL#24).
+// Reihenfolge, latein-verankert, NIE deutscher Namens-Präfix:
+//   1) exakter deutscher Name  2) deutsches Namens-SEGMENT exakt (Split auf /,() — _gsNorm strippt Spaces,
+//      vergleicht also VOLLE normalisierte Namen / Slash-Segmente, kein Adjektiv-Matching)  3) normalisierte
+//      lateinische Gattung+Art (Autoren-Zusatz/Qualifier/Hybrid-Marker entfernt; nur bei Gattung+Art, nie genus-only).
+function _gsNormLat(s){
+  return String(s||'').toLowerCase()
+    .replace(/\([^)]*\)/g,' ')                                 // (Lodd.) Engl. raus
+    .replace(/\b(ssp|subsp|var|f|agg|cv|sp|spp)\.?\b/g,' ')    // Qualifier raus
+    .replace(/[×x]\s/g,' ')                                     // Hybrid-Marker "× "/"x "
+    .replace(/[^a-zäöü ]/g,' ')
+    .replace(/ö/g,'o').replace(/ä/g,'a').replace(/ü/g,'u').replace(/ß/g,'ss')
+    .replace(/\s+/g,' ').trim()
+    .split(' ').slice(0,2).join(' ');                          // Gattung + Art
 }
+function gsMatchScanToDb(name, latin) {
+  if (!DB || !Array.isArray(DB) || (!name && !latin)) return null;
+  var n = String(name||'').toLowerCase().trim();
+  var segs = String(name||'').split(/[\/,()]+/).map(function(x){ return _gsNorm(x); }).filter(function(x){ return x && x.length>=5; });
+  var lat = _gsNormLat(latin);
+  var hit = null;
+  // 1) exakter deutscher Name
+  if (n) { hit = DB.find(function(sp){ return sp && sp.name && sp.name.toLowerCase().trim() === n; }); if (hit) return hit; }
+  // 2) deutsches Namens-Segment exakt (beide Seiten zerlegen, volle normalisierte Tokens)
+  if (segs.length) {
+    hit = DB.find(function(sp){
+      if (!sp || !sp.name) return false;
+      var dbsegs = String(sp.name).split(/[\/,()]+/).map(function(x){ return _gsNorm(x); }).filter(function(x){ return x && x.length>=5; });
+      for (var i=0;i<segs.length;i++){ if (dbsegs.indexOf(segs[i])>=0) return true; }
+      return false;
+    });
+    if (hit) return hit;
+  }
+  // 3) lateinische Gattung+Art (nur wenn beide vorhanden → kein zu unscharfer genus-only-Match)
+  if (lat && lat.indexOf(' ') > 0) {
+    hit = DB.find(function(sp){ return sp && sp.lat && _gsNormLat(sp.lat) === lat; });
+    if (hit) return hit;
+  }
+  return null;
+}
+function gsLinkScanToDb(name, latin) { return gsMatchScanToDb(name, latin); }
 
 // ══ LAZY LIST RENDERING ══════════════════════════════════════
 var _lazyListObserver = null;
@@ -16413,9 +16445,10 @@ async function gsScanPersistToCloud(r) {
     });
     var _scanOk = !(_scanRes && _scanRes.error); // v30.30: Insert-Erfolg erfassen (sbFetch wirft nicht, returnt {error})
 
-    // Wenn species nicht in DB → species_proposals
+    // Wenn species nicht in DB → species_proposals. v30.70: einheitlicher Matcher (Name-only-Exakt erzeugte
+    // sonst Fehl-Vorschläge für längst vorhandene Arten wie Zamioculcas → „Glücksfeder / ZZ-Pflanze").
     var inDB = (typeof DB !== 'undefined' && Array.isArray(DB))
-      ? DB.find(function(s){ return (s.name||'').toLowerCase() === (r.name||'').toLowerCase(); })
+      ? gsMatchScanToDb(r.name, r.latin)
       : null;
     if (!inDB && (conf == null || conf >= 60)) {
       var proposalData = {
@@ -23356,6 +23389,7 @@ function _gsFriendlyApiError(status, msg){
 // Wenn das primäre Modell 404 liefert (existiert nicht für diesen Account),
 // wird der nächste Kandidat getestet und der erfolgreiche dauerhaft gemerkt.
 window._gsClaudeFallbacks = [
+  'claude-sonnet-4-6',          // v30.70: neueres/schnelleres Erstpass-Modell (Vision); 4-5 bleibt Sofort-Fallback
   'claude-sonnet-4-5',
   'claude-sonnet-4-5-20250929',
   'claude-sonnet-4-20250514',
@@ -25395,10 +25429,11 @@ function showScanResult(r){
   } catch(e) { _lastScanThumb = null; }
   saveScanToHistory(r, _thumb);
   // In DB suchen und Direktlink zeigen
-  // v30.41 SICHERHEIT: _dbMatch bleibt EXAKT (name=== ODER lat===). Der v30.40-Fuzzy-Fallback (startsWith via
-  // gsLinkScanToDb) wurde entfernt — er konnte den persistenten, moderierten Foto-Beitrag an die FALSCHE Art
-  // hängen (z.B. "Gefleckter Aronstab" → "Gefleckter Schierling" tödlich). Fuzzy-Direktlink bleibt separat (dbSp).
-  var _dbMatch = DB ? DB.find(function(s){ return (s.name||'').toLowerCase() === (r.name||'').toLowerCase() || (s.lat||'').toLowerCase() === (r.latin||'').toLowerCase(); }) : null;
+  // v30.70 SICHERHEIT: _dbMatch nutzt jetzt den einheitlichen gsMatchScanToDb — der ist latein-verankert
+  // (exakter Name → Namens-Segment → normalisierte Gattung+Art), NIE deutscher Namens-Präfix. Damit bleibt
+  // die v30.41-Sicherheitsabsicht gewahrt (kein "Gefleckter Aronstab"→"Gefleckter Schierling"-Fehlhang),
+  // aber Autoren-Zusätze/Hybrid-Marker/Slash-Namen matchen jetzt korrekt.
+  var _dbMatch = DB ? gsMatchScanToDb(r.name, r.latin) : null;
   // Appender: in sr2-body einhängen wenn möglich (konsistentes Styling)
   var _container = document.querySelector('#scan-result .sr2-body') || document.getElementById('scan-result');
   if (_dbMatch) {
@@ -66571,7 +66606,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.69';
+var GS_VERSION = 'v30.70';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
