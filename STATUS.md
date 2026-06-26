@@ -4,13 +4,22 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-06-26 · **Branch**: `claude/lucid-cerf-fzugkf` · **Version**: `v30.69` (Branch, nicht main) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-06-26 — Automatischer Routine-Audit (Autonomous Claude Session)
+
+- **Auftrag:** Proaktiver Health-Check ohne externes Briefing (scheduled routine).
+- **Code-Stand:** Branch `claude/lucid-cerf-fzugkf` ist bei v30.69 (20+ Commits vor `main`). STATUS.md war auf v26.51 veraltet — Header aktualisiert.
+- **Supabase Security-Advisor:** 0 ERRORs (seit v26.51-Audit sauber, kein Rückschritt). 141 WARNs (alle by-design: SECURITY DEFINER RPCs für Frontend, Storage-Bucket-Listing, Extension-in-public). Kein Handlungsbedarf.
+- **KRITISCHER FUND & FIX — weather-alert-checker HTTP 500:** Edge-Fn lief seit mind. 24h auf jeder 3h-Cron-Invocation in HTTP 500. Root-Cause: Deployed v5 (code "v4") verwendete `getVapid()` der nach `app_settings WHERE key='vapid_keys'` (kombiniertes JSON-Objekt) suchte — DB hat aber separate Zeilen `vapid_public_key`/`vapid_private_key`. Zusätzlich filterte deployed v5 `push_subscriptions` mit `.eq("active", true)` auf nicht-existierender Spalte. Repo-Version (code "v2", v30.36) hat korrektes `loadSettings()` das einzelne Schlüssel-Zeilen liest. **FIX: Repo-Version als Supabase v6 deployed → weather-alert-checker ist jetzt wieder aktiv.**
+- **Edge-Fn Status nach Fix:** daily-push-checker ✅ 200 · engagement-push-checker ✅ 200 · weather-alert-checker ✅ v6 deployed (nächste Cron-Run in max. 3h verifizierbar).
+- **Keine weiteren Aktion nötig** in dieser Session. Nächste offene Punkte: Stripe Live-Mode-Switch (Fernando-Action) · PR-Merge claude/lucid-cerf-fzugkf → main.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
