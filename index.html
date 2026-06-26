@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.66.20260626">
+<meta name="app-version" content="30.67.20260626">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18792,6 +18792,20 @@ function gsRenderMushroomSeason(patch, regionName, month) {
     vapEl.style.display = v ? 'block' : 'none';
   }
   card.style.display = 'block';
+  // v30.67: die 4 schweren Lauf-Boxen (Region/Live/Forecast/Verwechsler) hinter EINEN Collapse-Toggle,
+  // default zugeklappt → Home-Pilz-Karte ~155px statt ~731px. Alle Infos bleiben über „Mehr" erreichbar.
+  var extra = document.getElementById('mushroom-season-extra');
+  if (!extra) {
+    var _mm = function(k,f){ return (typeof _lt==='function') ? _lt(k,f) : f; };
+    var tgl = document.createElement('button');
+    tgl.id = 'mushroom-season-toggle'; tgl.type = 'button';
+    tgl.style.cssText = 'width:100%;margin-top:8px;padding:6px 10px;background:rgba(255,255,255,.16);border:none;color:#fff;border-radius:9px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;';
+    tgl.textContent = '▾ ' + _mm('mush_more','Region, Forecast & Verwechsler');
+    extra = document.createElement('div');
+    extra.id = 'mushroom-season-extra'; extra.style.cssText = 'display:none;';
+    tgl.onclick = function(e){ e.stopPropagation(); var open = extra.style.display==='none'; extra.style.display = open?'block':'none'; tgl.textContent = (open?'▴ ':'▾ ') + (open ? _mm('mush_less','Weniger anzeigen') : _mm('mush_more','Region, Forecast & Verwechsler')); };
+    card.appendChild(tgl); card.appendChild(extra);
+  }
   // v29.65: Regionale Pilz-Box aus Schweiz-Geo-DB (ch_regions good_mushrooms + Saison)
   try { gsAttachRegionMushrooms(card); } catch(_){}
   // v26.73: Live-Counter "Heute gemeldet" aus map_user_finds (anonymisiert, nur Count)
@@ -18814,7 +18828,7 @@ async function gsAttachMushroomLiveCounter(card, patch) {
   var counterEl = document.createElement('div');
   counterEl.id = 'mushroom-season-live';
   counterEl.style.cssText = 'display:none;margin-top:8px;padding:8px 12px;background:rgba(255,255,255,.13);border-radius:9px;font-size:12px;font-weight:700;line-height:1.45;';
-  card.appendChild(counterEl);
+  (document.getElementById('mushroom-season-extra')||card).appendChild(counterEl); // v30.67: in Collapse-Wrapper
   try {
     var now = new Date();
     var monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -18994,8 +19008,7 @@ async function gsAttachRegionMushrooms(card) {
   box.id = 'mushroom-region-box';
   box.style.cssText = 'display:none;margin-bottom:8px;padding:9px 11px;background:rgba(255,255,255,.13);border-radius:9px;font-size:12px;line-height:1.5;';
   var anchor = document.getElementById('mushroom-season-trigger');
-  if (anchor && anchor.parentNode === card) card.insertBefore(box, anchor);
-  else card.appendChild(box);
+  (document.getElementById('mushroom-season-extra')||card).appendChild(box); // v30.67: in Collapse-Wrapper (kein insertBefore mehr)
   try {
     var res = await gsResolveChRegions();
     var month = res ? res.month : (new Date().getMonth() + 1);
@@ -19099,7 +19112,7 @@ async function gsAttachMushroomLookalikeWarn(card, patch) {
     }
 
     container.innerHTML = html;
-    card.appendChild(container);
+    (document.getElementById('mushroom-season-extra')||card).appendChild(container); // v30.67: in Collapse-Wrapper
   } catch(e) { console.warn('[mushroom-lookalike]', e && e.message); }
 }
 window.gsAttachMushroomLookalikeWarn = gsAttachMushroomLookalikeWarn;
@@ -19163,7 +19176,7 @@ async function gsAttachMushroomForecast(card, patch) {
   container.id = 'mushroom-season-forecast';
   container.style.cssText = 'margin-top:8px;padding:10px 12px;background:rgba(76,175,80,.18);border:1px solid rgba(76,175,80,.4);border-radius:9px;font-size:12px;line-height:1.5;';
   container.innerHTML = '<div style="opacity:.7;">⏳ Wachstums-Forecast wird berechnet…</div>';
-  card.appendChild(container);
+  (document.getElementById('mushroom-season-extra')||card).appendChild(container); // v30.67: in Collapse-Wrapper
   try {
     // Open-Meteo: letzte 3 Tage past + heute current
     var u = 'https://api.open-meteo.com/v1/forecast?latitude=' + loc.lat + '&longitude=' + loc.lng
@@ -66547,7 +66560,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.66';
+var GS_VERSION = 'v30.67';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
