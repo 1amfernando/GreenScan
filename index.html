@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.76.20260627">
+<meta name="app-version" content="30.77.20260627">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27207,10 +27207,39 @@ function initPlantListDelegation(){
     else if (action==='donetask') doneTask(pid, tkey);
   });
 }
+// v30.77: prüft (async, gecacht) ob bereits eine Web-Push-Subscription besteht — steuert den Opt-in-Prompt.
+function _gsRefreshPushSubState(){
+  try {
+    if (!('serviceWorker' in navigator) || !navigator.serviceWorker.ready) return;
+    navigator.serviceWorker.ready
+      .then(function(reg){ return reg.pushManager.getSubscription(); })
+      .then(function(sub){ window._gsHasPushSub = !!sub; })
+      .catch(function(){});
+  } catch(_){}
+}
+// v30.77: Smart-Push-Opt-in-Prompt — erscheint bei fälligen Aufgaben, wenn Push unterstützt + noch nicht
+// abonniert + nicht weggetippt. Treibt die Push-Adoption (Recon: nur 1 Abonnent = Hauptgrund für „unzuverlässig").
+function _gsPushPromptHtml(){
+  try {
+    if (localStorage.getItem('gs_push_prompt_dismissed') === '1') return '';
+    if (window._gsHasPushSub) return '';
+    if (typeof gsSubscribeWebPush !== 'function') return '';
+    if (typeof gsPushSupportStatus !== 'function' || !gsPushSupportStatus().ok) return '';
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return '';
+    return '<div id="gs-push-prompt" style="display:flex;align-items:center;gap:10px;padding:11px 13px;margin-bottom:10px;background:linear-gradient(135deg,rgba(46,138,45,.12),rgba(46,138,45,.03));border:1px solid var(--g-light,#a5d6a7);border-radius:12px;">' +
+      '<span style="font-size:22px;flex-shrink:0;">🔔</span>' +
+      '<div style="flex:1;min-width:0;font-size:12.5px;line-height:1.4;color:var(--text);"><b>Erinnerungen aufs Handy?</b><br><span style="color:var(--muted);">Werde benachrichtigt, wenn Pflege ansteht — auch wenn die App zu ist.</span></div>' +
+      '<button onclick="event.stopPropagation();gsSubscribeWebPush();" style="flex-shrink:0;padding:8px 12px;background:var(--g-main,#2d8a2d);color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;">Aktivieren</button>' +
+      '<button onclick="event.stopPropagation();try{localStorage.setItem(\'gs_push_prompt_dismissed\',\'1\');}catch(_){};var e=document.getElementById(\'gs-push-prompt\');if(e)e.remove();" title="Schliessen" style="flex-shrink:0;padding:6px 8px;background:transparent;border:none;color:var(--muted);font-size:16px;cursor:pointer;font-family:inherit;">✕</button>' +
+    '</div>';
+  } catch(_){ return ''; }
+}
+
 function renderMyPlants() {
   var list = document.getElementById('mp-list');
   if (!list) return;
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+  try { _gsRefreshPushSubState(); } catch(_){}
 
   // v30.76: Stats + flache "Heute fällig"-Liste über ALLE aktiven Aufgaben (vorher nur die dringendste pro Pflanze
   // → zweite überfällige Aufgabe derselben Pflanze blieb versteckt). Sortiert nach Dringlichkeit.
@@ -27254,7 +27283,7 @@ function renderMyPlants() {
   if (dueSection && dueList) {
     if (allDue.length > 0) {
       dueSection.style.display = 'block';
-      dueList.innerHTML = allDue.map(function(item) {
+      dueList.innerHTML = _gsPushPromptHtml() + allDue.map(function(item) {
         var p = item.plant, k = item.key, isDue = item.days <= 0;
         var def = TASK_DEFS[k] || { icon:'', name:k };
         return '<div class="due-card' + (isDue?'':' soon') + '">' +
@@ -49032,6 +49061,21 @@ function saveUserLocation(locObj) {
   try { localStorage.setItem('userLocation',     JSON.stringify(locObj)); } catch(e){}
   // v30.24: Standort cross-device — expliziter markDirty (Auto-Track ist durch den Quota-Wrapper geshadowed)
   try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('state'); } catch(_){}
+  // v30.77: Wetter-Pushes (Frost/Hitze/Sturm) lesen die GPS-Koordinaten der Push-Subscription, die bisher NUR
+  // beim Abonnieren gesetzt wurden → bei Standort-Wechsel veraltet (oder NULL, wenn vor dem Standort abonniert).
+  // Jetzt die Subscription-GPS best-effort mitziehen, damit Wetter-Warnungen für den AKTUELLEN Ort kommen.
+  try {
+    if (locObj && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof sbFetch === 'function') {
+      var _glat = parseFloat(locObj.lat), _glng = parseFloat(locObj.lng != null ? locObj.lng : locObj.lon);
+      var _guid = (typeof gsStore !== 'undefined' && gsStore.get) ? gsStore.get('gs_sb_uid', null) : null;
+      if (isFinite(_glat) && isFinite(_glng) && _guid) {
+        sbFetch('/rest/v1/push_subscriptions?user_id=eq.' + encodeURIComponent(_guid), {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+          body: JSON.stringify({ gps_lat: _glat, gps_lng: _glng })
+        }).then(function(){}, function(){});
+      }
+    }
+  } catch(_){}
   // ALTE Weather-Caches für diesen Ort invalidieren (damit fresh abgerufen wird)
   try {
     weatherCache = {}; // kompletter Wetter-Cache weg
@@ -66867,7 +66911,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.76';
+var GS_VERSION = 'v30.77';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
