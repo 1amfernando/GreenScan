@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.78.20260627">
+<meta name="app-version" content="30.79.20260627">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2753,38 +2753,12 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <span data-i18n="btn_saved_plans" data-i18n-fallback="📂 Meine gespeicherten Garten-Pläne">📂 Meine gespeicherten Garten-Pläne</span><span style="color:var(--muted);font-size:18px;">›</span>
   </button>
 </div>
-<!-- v25.16: Bee-Friendly-Garden-Modal (nutzt pollinators-Tabelle) -->
-<div style="padding:0 16px 8px;">
-  <button onclick="gsBeeFriendlyOpen()" title="Bestäuber-freundlicher Garten" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#fff8e1,#fffbd0);border:1.5px solid #fbc02d;color:#e65100;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_bee_friendly" data-i18n-fallback="🐝 Bestäuber-Garten · Wildbienen fördern">🐝 Bestäuber-Garten · Wildbienen fördern</span><span style="color:#e65100;font-size:18px;">›</span>
-  </button>
-</div>
-<!-- v25.17: Krankheits-Lexikon (nutzt plant_diseases-Tabelle) -->
-<div style="padding:0 16px 8px;">
-  <button onclick="gsDiseaseOpen()" title="Krankheits-Lexikon — Symptome erkennen + behandeln" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#ffebee,#ffcdd2);border:1.5px solid #ef5350;color:#c62828;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_disease_lexicon" data-i18n-fallback="🦠 Krankheits-Lexikon · Symptome + Treatment">🦠 Krankheits-Lexikon · Symptome + Treatment</span><span style="color:#c62828;font-size:18px;">›</span>
-  </button>
-</div>
+<!-- v30.79: Garten-Werkzeuge in ausklappbare Gruppen gebündelt (rein optisch, alle Funktionen unverändert/erreichbar) -->
 <!-- v25.18: Saisonkalender-Inline-Host (wird via gsRenderSeasonalInline gefüllt) -->
 <div id="seasonal-tasks-host" style="padding:0 16px 8px;"></div>
-<!-- v25.18: Saisonkalender-Modal-Trigger (Voll-Jahres-Übersicht) -->
-<div style="padding:0 16px 8px;">
-  <button onclick="gsSeasonalOpen()" title="Saisonkalender — alle 12 Monate" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#e8f5e9,#c5e1a5);border:1.5px solid #66bb6a;color:#1b5e20;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_seasonal_cal" data-i18n-fallback="📅 Saisonkalender · Voll-Jahres-Übersicht">📅 Saisonkalender · Voll-Jahres-Übersicht</span><span style="color:#1b5e20;font-size:18px;">›</span>
-  </button>
-</div>
-<!-- v25.20: Garten-Insights-Dashboard (aggregiert pollinators + diseases + tasks + myPlants) -->
-<div style="padding:0 16px 8px;">
-  <button onclick="gsInsightsOpen()" title="Garten-Insights — Bestaeuber-Score + Risiken + DB-Stats" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#e3f2fd,#bbdefb);border:1.5px solid #0277bd;color:#01579b;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_garden_insights" data-i18n-fallback="📊 Garten-Insights · Score + Risiken">📊 Garten-Insights · Score + Risiken</span><span style="color:#01579b;font-size:18px;">›</span>
-  </button>
-</div>
-<!-- v25.24: Voice-Mode-Trigger (Web Speech API) -->
-<div style="padding:0 16px 12px;">
-  <button onclick="gsVoiceOpen()" title="Hey GreenScan — sprich mit deiner Garten-App" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#1a237e,#3949ab);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_voice_mode" data-i18n-fallback="🎙️ Hey GreenScan · Voice-Mode">🎙️ Hey GreenScan · Voice-Mode</span><span style="font-size:18px;opacity:.85;">›</span>
-  </button>
-</div>
+<details style="margin:0 0 8px;border-top:1px solid var(--border);">
+  <summary style="padding:12px 16px;font-size:13px;font-weight:800;color:var(--text);cursor:pointer;">🩺 Pflege & Diagnose</summary>
+  <div style="padding-top:2px;">
 <!-- v25.31: KI-Pflanzendoktor (Vision-AI via plant-doctor-diagnose Edge-Fn) -->
 <div style="padding:0 16px 12px;">
   <button onclick="openDoctorModal()" title="KI-Pflanzendoktor — Symptome diagnostizieren + Behandlungsplan" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#00897b,#00695c);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
@@ -2797,12 +2771,10 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <span data-i18n="btn_pest_open" data-i18n-fallback="🪲 Schädling-Scanner · Foto → Bio-Behandlung">🪲 Schädling-Scanner · Foto → Bio-Behandlung</span><span style="font-size:18px;opacity:.85;">›</span>
   </button>
 </div>
-<!-- v30.78: Pilz-Scanner-Button hier entfernt — 3-fach redundant (Home-Pilzkarte + Scanner-Tab + Saison-Filter).
-     openMushroomModal bleibt voll erreichbar; nur dieser doppelte Einstieg im Garten ist weg (Deklutter). -->
-<!-- v25.31: Erntekalender-Trigger (Statistik aller Ernten dieses Jahr) -->
-<div style="padding:0 16px 12px;">
-  <button onclick="openHarvestStatsModal()" title="Erntekalender — Jahres-Statistik aller Ernten" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#f57c00,#e65100);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_harvest_open" data-i18n-fallback="🥕 Erntekalender · Jahres-Statistik">🥕 Erntekalender · Jahres-Statistik</span><span style="font-size:18px;opacity:.85;">›</span>
+<!-- v25.17: Krankheits-Lexikon (nutzt plant_diseases-Tabelle) -->
+<div style="padding:0 16px 8px;">
+  <button onclick="gsDiseaseOpen()" title="Krankheits-Lexikon — Symptome erkennen + behandeln" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#ffebee,#ffcdd2);border:1.5px solid #ef5350;color:#c62828;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_disease_lexicon" data-i18n-fallback="🦠 Krankheits-Lexikon · Symptome + Treatment">🦠 Krankheits-Lexikon · Symptome + Treatment</span><span style="color:#c62828;font-size:18px;">›</span>
   </button>
 </div>
 <!-- v26.25: Bodenverbesserer-Recommender (soil_amendments-DB) -->
@@ -2811,16 +2783,27 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <span data-i18n="btn_soil_amend_open" data-i18n-fallback="🪨 Boden verbessern · NPK + pH-Empfehlung">🪨 Boden verbessern · NPK + pH-Empfehlung</span><span style="font-size:18px;opacity:.85;">›</span>
   </button>
 </div>
-<!-- v26.27: Regional-Calendar (7 CH-Höhenzonen) -->
-<div style="padding:0 16px 12px;">
-  <button onclick="openRegionalCalendarModal()" title="Regional-Kalender — Monats-Tasks für deine CH-Region" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#0277bd,#01579b);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_region_cal_open" data-i18n-fallback="🗓️ Regional-Kalender · Monats-Tasks deiner CH-Zone">🗓️ Regional-Kalender · Monats-Tasks deiner CH-Zone</span><span style="font-size:18px;opacity:.85;">›</span>
-  </button>
-</div>
 <!-- v26.29: Düngeplan-Coach (fertilization_schedules-DB) -->
 <div style="padding:0 16px 12px;">
   <button onclick="openFertilizerModal()" title="Düngeplan für deine Pflanze nach Wachstumsphase" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#2e7d32,#1b5e20);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
     <span data-i18n="btn_fertilizer_open" data-i18n-fallback="🌱 Düngeplan-Coach · Phase + Menge + Bio-Tipp">🌱 Düngeplan-Coach · Phase + Menge + Bio-Tipp</span><span style="font-size:18px;opacity:.85;">›</span>
+  </button>
+</div>
+  </div>
+</details>
+<details style="margin:0 0 8px;border-top:1px solid var(--border);">
+  <summary style="padding:12px 16px;font-size:13px;font-weight:800;color:var(--text);cursor:pointer;">🗓️ Planen & Gestalten</summary>
+  <div style="padding-top:2px;">
+<!-- v25.18: Saisonkalender-Modal-Trigger (Voll-Jahres-Übersicht) -->
+<div style="padding:0 16px 8px;">
+  <button onclick="gsSeasonalOpen()" title="Saisonkalender — alle 12 Monate" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#e8f5e9,#c5e1a5);border:1.5px solid #66bb6a;color:#1b5e20;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_seasonal_cal" data-i18n-fallback="📅 Saisonkalender · Voll-Jahres-Übersicht">📅 Saisonkalender · Voll-Jahres-Übersicht</span><span style="color:#1b5e20;font-size:18px;">›</span>
+  </button>
+</div>
+<!-- v26.27: Regional-Calendar (7 CH-Höhenzonen) -->
+<div style="padding:0 16px 12px;">
+  <button onclick="openRegionalCalendarModal()" title="Regional-Kalender — Monats-Tasks für deine CH-Region" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#0277bd,#01579b);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_region_cal_open" data-i18n-fallback="🗓️ Regional-Kalender · Monats-Tasks deiner CH-Zone">🗓️ Regional-Kalender · Monats-Tasks deiner CH-Zone</span><span style="font-size:18px;opacity:.85;">›</span>
   </button>
 </div>
 <!-- v26.31: Beet-Layout-Designer (garden_layouts-DB) -->
@@ -2829,16 +2812,45 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <span data-i18n="btn_layouts_open" data-i18n-fallback="📐 Beet-Layouts · 10 fertige Vorlagen">📐 Beet-Layouts · 10 fertige Vorlagen</span><span style="font-size:18px;opacity:.85;">›</span>
   </button>
 </div>
+<!-- v26.44: Forest-Garden Designer (Permakultur 7-Schichten + 8 Designs aus forest_garden_design) -->
+<div style="padding:0 16px 12px;">
+  <button onclick="openForestGardenModal()" title="Forest-Garden — Permakultur 7-Schichten-Designs" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#33691e,#1b5e20);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_forest_open" data-i18n-fallback="🌳 Forest-Garden planen · 7-Schichten + 8 Vorlagen">🌳 Forest-Garden planen · 7-Schichten + 8 Vorlagen</span><span style="font-size:18px;opacity:.85;">›</span>
+  </button>
+</div>
+<!-- v25.16: Bee-Friendly-Garden-Modal (nutzt pollinators-Tabelle) -->
+<div style="padding:0 16px 8px;">
+  <button onclick="gsBeeFriendlyOpen()" title="Bestäuber-freundlicher Garten" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#fff8e1,#fffbd0);border:1.5px solid #fbc02d;color:#e65100;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_bee_friendly" data-i18n-fallback="🐝 Bestäuber-Garten · Wildbienen fördern">🐝 Bestäuber-Garten · Wildbienen fördern</span><span style="color:#e65100;font-size:18px;">›</span>
+  </button>
+</div>
+  </div>
+</details>
+<details style="margin:0 0 8px;border-top:1px solid var(--border);">
+  <summary style="padding:12px 16px;font-size:13px;font-weight:800;color:var(--text);cursor:pointer;">📚 Wissen & Werkzeuge</summary>
+  <div style="padding-top:2px;">
+<!-- v25.20: Garten-Insights-Dashboard (aggregiert pollinators + diseases + tasks + myPlants) -->
+<div style="padding:0 16px 8px;">
+  <button onclick="gsInsightsOpen()" title="Garten-Insights — Bestaeuber-Score + Risiken + DB-Stats" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#e3f2fd,#bbdefb);border:1.5px solid #0277bd;color:#01579b;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_garden_insights" data-i18n-fallback="📊 Garten-Insights · Score + Risiken">📊 Garten-Insights · Score + Risiken</span><span style="color:#01579b;font-size:18px;">›</span>
+  </button>
+</div>
+<!-- v25.31: Erntekalender-Trigger (Statistik aller Ernten dieses Jahr) -->
+<div style="padding:0 16px 12px;">
+  <button onclick="openHarvestStatsModal()" title="Erntekalender — Jahres-Statistik aller Ernten" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#f57c00,#e65100);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_harvest_open" data-i18n-fallback="🥕 Erntekalender · Jahres-Statistik">🥕 Erntekalender · Jahres-Statistik</span><span style="font-size:18px;opacity:.85;">›</span>
+  </button>
+</div>
 <!-- v26.34: Garten-Tagebuch UI-Form + Saison-Statistik (User-Form für 11 entry_types aus v26.32-Migration) -->
 <div style="padding:0 16px 12px;">
   <button onclick="openDiaryEntryModal()" title="Tagebuch-Eintrag — 11 Typen mit Saison-Statistik" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#558b2f,#33691e);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
     <span data-i18n="btn_diary_open" data-i18n-fallback="📔 Tagebuch-Eintrag · 11 Typen + Saison-Stats">📔 Tagebuch-Eintrag · 11 Typen + Saison-Stats</span><span style="font-size:18px;opacity:.85;">›</span>
   </button>
 </div>
-<!-- v26.44: Forest-Garden Designer (Permakultur 7-Schichten + 8 Designs aus forest_garden_design) -->
+<!-- v25.24: Voice-Mode-Trigger (Web Speech API) -->
 <div style="padding:0 16px 12px;">
-  <button onclick="openForestGardenModal()" title="Forest-Garden — Permakultur 7-Schichten-Designs" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#33691e,#1b5e20);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_forest_open" data-i18n-fallback="🌳 Forest-Garden planen · 7-Schichten + 8 Vorlagen">🌳 Forest-Garden planen · 7-Schichten + 8 Vorlagen</span><span style="font-size:18px;opacity:.85;">›</span>
+  <button onclick="gsVoiceOpen()" title="Hey GreenScan — sprich mit deiner Garten-App" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#1a237e,#3949ab);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_voice_mode" data-i18n-fallback="🎙️ Hey GreenScan · Voice-Mode">🎙️ Hey GreenScan · Voice-Mode</span><span style="font-size:18px;opacity:.85;">›</span>
   </button>
 </div>
 <!-- v24.06: Smart-Home Sensor-Dashboard -->
@@ -2854,6 +2866,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <span id="gs-sh-livedot" style="background:var(--c-live-pulse);color:var(--c-info-d);font-size:10px;font-weight:800;padding:3px 8px;border-radius:10px;display:none;">● LIVE</span>
   </button>
 </div>
+  </div>
+</details>
 
 </div>
 
@@ -66901,7 +66915,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.78';
+var GS_VERSION = 'v30.79';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
