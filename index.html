@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.74.20260627">
+<meta name="app-version" content="30.75.20260627">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -6740,10 +6740,10 @@ function gsNewPlantCard(p) {
         '<button style="padding:9px 12px;background:#fff3e0;border:1.5px solid #ffcc80;border-radius:10px;font-size:12.5px;font-weight:800;color:#e65100;cursor:pointer;font-family:inherit;" onclick="event.stopPropagation();openDiagnosisCamera()">🔬</button>' +
       '</div>' +
       '<div id="ai-result-' + p.id + '" style="display:none;" class="mp-ai-result"></div>' +
-      // v28.23/v28.24: Pflanzen-Dossier (alle verknüpften Inhalte) + Zu Sammlung hinzufügen
+      // v28.23: Pflanzen-Dossier (alle verknüpften Inhalte). v30.75: „📁 Sammlung"-Button entfernt (funktionslos
+      // in der Wohnung-Ansicht; Sammlungen leben seit v30.60 in den Einstellungen → gsOpenCollections).
       '<div style="display:flex;gap:7px;margin-bottom:8px;">' +
         '<button style="flex:1;padding:9px;background:#ede7f6;border:1.5px solid #b39ddb;border-radius:10px;font-size:12.5px;font-weight:800;color:#4527a0;cursor:pointer;font-family:inherit;" onclick="event.stopPropagation();if(typeof gsOpenPlantDossier===\'function\')gsOpenPlantDossier(\''+_pidSafe+'\')">' + _t('btn_dossier','📂 Dossier') + '</button>' +
-        '<button style="flex:1;padding:9px;background:#e8f5e9;border:1.5px solid var(--g-light);border-radius:10px;font-size:12.5px;font-weight:800;color:var(--g-dark);cursor:pointer;font-family:inherit;" onclick="event.stopPropagation();if(typeof gsAddPlantToCollection===\'function\')gsAddPlantToCollection(\''+_pidSafe+'\')">' + _t('btn_collection','📁 Sammlung') + '</button>' +
       '</div>' +
       // Edit / Delete
       '<div style="display:flex;gap:7px;">' +
@@ -15544,7 +15544,7 @@ function gsAddSpeciesToGarden(speciesId) {
 
 // v30.46: Gescannte Art OHNE DB-Treffer zu Garten/Wohnung hinzufügen — öffnet das Add-Plant-Modal mit den
 // Scan-Rohdaten (window._gsLastScanForAdd), ohne DB-id. Nutzer wählt Garten/Wohnung im Modal selbst.
-function gsAddScanToGarden(){
+function gsAddScanToGarden(preferOutdoor){
   var d = (window._gsLastScanForAdd && typeof window._gsLastScanForAdd === 'object') ? window._gsLastScanForAdd : null;
   var nm = (d && d.name) ? String(d.name) : '';
   if (!nm) { if (typeof gsToast === 'function') gsToast('Kein Art-Name zum Hinzufügen.', 'warn'); return; }
@@ -15556,9 +15556,13 @@ function gsAddScanToGarden(){
   try { closeModal('scan-detail-modal'); } catch(_){}
   setTimeout(function(){
     if (typeof switchTab === 'function') switchTab('favs');
-    setTimeout(function(){ if (typeof openModal === 'function') openModal('modal-addplant'); }, 300);
+    setTimeout(function(){
+      if (typeof openModal === 'function') openModal('modal-addplant');
+      // v30.75: wenn explizit „Garten" gewählt → Standort-Toggle auf 🌳 Garten vorwählen (Muster gsAddSpeciesToGarden)
+      if (preferOutdoor) { try { var rad = document.querySelector('input[name="mp-location"][value="outdoor"]'); if (rad) { rad.checked = true; rad.dispatchEvent(new Event('change', {bubbles:true})); } } catch(_){} }
+    }, 300);
   }, 150);
-  if (typeof showProfileToast === 'function') showProfileToast('🌱 Details anpassen + 🏠/🌳 wählen, dann speichern.', 'info', 3500);
+  if (typeof showProfileToast === 'function') showProfileToast(preferOutdoor ? '🌳 Für den Garten — Beet & Datum wählen, dann speichern.' : '🌱 Details anpassen + 🏠/🌳 wählen, dann speichern.', 'info', 3500);
 }
 window.gsAddScanToGarden = gsAddScanToGarden;
 
@@ -25817,6 +25821,37 @@ var _lastScanThumb   = null;
 // v26.86: 1-Klick "Zu meinen Pflanzen" aus dem Scan-Result-Screen.
 // Nutzt _lastScanResult (Name, Latin, Cat, Emoji) + _lastScanThumb (480x480 JPEG b64).
 // Baut ein myPlants-Objekt mit sinnvollen Defaults, lädt Foto in Storage-Bucket (eingeloggt) und navigiert zu "Meine Pflanzen".
+// v30.75: Standort-Wahl beim Hinzufügen einer gescannten Art (Wohnung vs Garten), kategorie-smart vorgeschlagen.
+// Gibt Promise<'indoor'|'outdoor'|null> zurück (null = abgebrochen). Bottom-Sheet, theme-sicher (HL#31).
+function gsPickScanLocation(cat){
+  return new Promise(function(resolve){
+    var isGarden = /^(gemuese|gemüse|kraut|frucht|beere|baum|strauch|wildpflanze|blume)$/i.test(String(cat||'').trim());
+    var ov = document.createElement('div');
+    ov.id = 'gs-loc-pick';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.55);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);display:flex;align-items:flex-end;justify-content:center;';
+    var done = function(v){ try{ ov.remove(); }catch(_){} try{ if(typeof gsReleaseFocusTrap==='function') gsReleaseFocusTrap(ov); }catch(_){} resolve(v); };
+    var card = document.createElement('div');
+    card.style.cssText = 'background:var(--card,#fff);color:var(--text,#111);border:1px solid var(--border);border-radius:20px 20px 0 0;max-width:480px;width:100%;padding:22px 20px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -8px 36px rgba(0,0,0,.3);';
+    var btn = function(loc, emoji, label, hint, primary){
+      return '<button type="button" data-loc="'+loc+'" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;margin-bottom:10px;border-radius:14px;border:2px solid '+(primary?'var(--g-main,#2d8a2d)':'var(--border,#ccc)')+';background:'+(primary?'rgba(46,138,45,.08)':'transparent')+';cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">'+
+        '<span style="font-size:30px;flex-shrink:0;">'+emoji+'</span>'+
+        '<span style="flex:1;min-width:0;"><span style="display:block;font-size:15px;font-weight:800;color:var(--text);">'+label+(primary?' <span style="font-size:11px;color:var(--g-main,#2d8a2d);font-weight:700;">· empfohlen</span>':'')+'</span>'+
+        '<span style="display:block;font-size:12px;color:var(--muted,#777);">'+hint+'</span></span></button>';
+    };
+    card.innerHTML =
+      '<div style="text-align:center;font-size:16px;font-weight:800;margin-bottom:4px;color:var(--text);">Wohin hinzufügen?</div>'+
+      '<div style="text-align:center;font-size:12.5px;color:var(--muted,#777);margin-bottom:16px;">Wo lebt diese Pflanze?</div>'+
+      btn('indoor','🏠','Wohnung','Zimmer- &amp; Topfpflanzen', !isGarden)+
+      btn('outdoor','🌳','Garten','Beet, Balkon, Gemüse &amp; Bäume', isGarden)+
+      '<button type="button" data-loc="" style="width:100%;padding:11px;background:transparent;border:none;color:var(--muted,#888);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Abbrechen</button>';
+    ov.appendChild(card);
+    ov.addEventListener('click', function(e){ if (e.target===ov) { done(null); return; } var b=e.target.closest('button[data-loc]'); if (b) done(b.getAttribute('data-loc')||null); });
+    document.body.appendChild(ov);
+    try{ if(typeof gsTrapFocus==='function') gsTrapFocus(ov); }catch(_){}
+  });
+}
+window.gsPickScanLocation = gsPickScanLocation;
+
 window.gsAddScanToMyPlants = async function(){
   try {
     var r = _lastScanResult;
@@ -25836,10 +25871,19 @@ window.gsAddScanToMyPlants = async function(){
         return sameLat || (sameName && recent);
       });
       if (dup) {
-        if (typeof gsToast === 'function') gsToast('„' + r.name + '" ist schon in deinem Garten 🌱', 'info');
+        if (typeof gsToast === 'function') gsToast('„' + r.name + '" ist schon bei deinen Pflanzen 🌱', 'info');
         if (typeof switchTab === 'function') switchTab('favs');
         return;
       }
+    }
+    // v30.75: Standort-Wahl — Wohnung (myPlants) ODER Garten (Beet/Planting). Vorher landete alles in Wohnung.
+    var _loc = await gsPickScanLocation(r.category);
+    if (!_loc) return; // abgebrochen
+    if (_loc === 'outdoor') {
+      // Garten-Zweig: bewährten Pflanz-Flow nutzen (Modal mit Beet/Datum, savePlanting → user_gardens).
+      try { window._gsLastScanForAdd = { name: (r.name||''), latin: (r.latin||''), emoji: (r.emoji||'🌿') }; } catch(_){}
+      if (typeof gsAddScanToGarden === 'function') { gsAddScanToGarden(true); return; }
+      // Fallback: falls Garten-Flow fehlt, weiter als Wohnung (kein Datenverlust)
     }
     // Foto: bevorzugt in Storage (eingeloggt), sonst base64 inline (Quota-bewusst).
     var photoVal = null;
@@ -66788,7 +66832,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.74';
+var GS_VERSION = 'v30.75';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
