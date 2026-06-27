@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.77.20260627">
+<meta name="app-version" content="30.78.20260627">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2797,12 +2797,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <span data-i18n="btn_pest_open" data-i18n-fallback="🪲 Schädling-Scanner · Foto → Bio-Behandlung">🪲 Schädling-Scanner · Foto → Bio-Behandlung</span><span style="font-size:18px;opacity:.85;">›</span>
   </button>
 </div>
-<!-- v26.33: Pilz-Scanner (mushroom-identify Edge-Fn + VAPKO-Compliance) -->
-<div style="padding:0 16px 12px;">
-  <button onclick="openMushroomModal()" title="Pilz-Scanner — KI + VAPKO-Hinweis · Tox-Info 145 bei toedlich" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#6a1b9a,#4a148c);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_mushroom_open" data-i18n-fallback="🍄 Pilz-Scanner · KI + VAPKO-Hinweis">🍄 Pilz-Scanner · KI + VAPKO-Hinweis</span><span style="font-size:18px;opacity:.85;">›</span>
-  </button>
-</div>
+<!-- v30.78: Pilz-Scanner-Button hier entfernt — 3-fach redundant (Home-Pilzkarte + Scanner-Tab + Saison-Filter).
+     openMushroomModal bleibt voll erreichbar; nur dieser doppelte Einstieg im Garten ist weg (Deklutter). -->
 <!-- v25.31: Erntekalender-Trigger (Statistik aller Ernten dieses Jahr) -->
 <div style="padding:0 16px 12px;">
   <button onclick="openHarvestStatsModal()" title="Erntekalender — Jahres-Statistik aller Ernten" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#f57c00,#e65100);border:none;color:#fff;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
@@ -8996,15 +8992,9 @@ async function loadGardenWeather(forceReload) {
       }
     } catch(_){}
   if(typeof gsCheckFrostWarning==='function') setTimeout(gsCheckFrostWarning, 300);
-  // Garden Wetter-Mini syncen
-  if (cw) {
-    var gIcon = document.getElementById('garden-hw-icon');
-    var gTemp = document.getElementById('garden-hw-temp');
-    var gDesc = document.getElementById('garden-hw-desc');
-    if (gIcon) gIcon.textContent = icon;
-    if (gTemp) gTemp.textContent = temp + ' °C';
-    if (gDesc) gDesc.textContent = tip || gsWmoText(cw.weathercode) || '';
-  }
+  // v30.78: toter Copy-Paste-Block entfernt (referenzierte undefinierte cw/icon/temp/tip → ReferenceError →
+  // catch schluckte ihn → der echte Render-Call darunter wurde nie erreicht → Garten-Wetterkarte blieb leer).
+  // gsApplyWeatherToWidget(data) synct die Garten-Mini-Karte bereits korrekt (Z. ~9069).
     gsApplyWeatherToWidget(data);
   } catch(e) {
     var descEl = document.getElementById('hw-desc');
@@ -66911,7 +66901,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.77';
+var GS_VERSION = 'v30.78';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
