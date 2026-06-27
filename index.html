@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.73.20260627">
+<meta name="app-version" content="30.74.20260627">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -24581,6 +24581,18 @@ var SCAN_SYSTEM_PROMPT =
     '}';
 
 async function analyzeImage(b64, mt, organContext, extraImages){
+  // v30.74: Low-Confidence-Re-Scan — der Nutzer hat „Weiteres Foto hinzufügen" getippt; das vorige Bild wird als
+  // Multi-Shot mit dem neuen kombiniert (höhere Genauigkeit). Eine Stelle → greift für Kamera UND Galerie.
+  // Frische-Guard (3 Min) verhindert, dass ein verwaister Re-Scan-Intent einen späteren, fremden Scan kombiniert.
+  try {
+    if (window._gsRescanMode && window._gsRescanPrior && window._gsRescanPrior.b64) {
+      var _fresh = window._gsRescanTs && (Date.now() - window._gsRescanTs < 180000);
+      if (_fresh && (!extraImages || !extraImages.length)) {
+        extraImages = [{ b64: window._gsRescanPrior.b64, mt: window._gsRescanPrior.mt || 'image/jpeg' }];
+      }
+      window._gsRescanMode = false; window._gsRescanPrior = null; window._gsRescanTs = 0;
+    }
+  } catch(_){}
   // v23.86: Bild für Cloud-Persist merken (gsScanPersistToCloud nach Identifikation)
   try { window._gsLastScanB64 = b64 || null; window._gsLastScanMt = mt || 'image/jpeg'; } catch(_){}
   // v28.05: Früher LS-Scan-Gate (5/Tag) ENTFERNT — die server-authoritative Per-Feature-Quota
@@ -25231,6 +25243,24 @@ function gsShowScanSteckbrief(){
 }
 window.gsShowScanSteckbrief = gsShowScanSteckbrief;
 
+// v30.74: Bei niedriger Konfidenz ein ZWEITES Foto kombinieren (Multi-Shot) statt nur neu zu scannen.
+// Sichert das vorige Bild, schaltet in den Re-Scan-Modus und führt zurück zur Aufnahme. Das nächste Foto
+// (Kamera ODER Galerie) wird in analyzeImage automatisch mit dem vorigen kombiniert → genauere Bestimmung.
+function gsAddPhotoForRescan(){
+  try {
+    var prior = window._gsLastScanB64;
+    if (!prior) { if (typeof showProfileToast==='function') showProfileToast('Kein vorheriges Foto gespeichert.', 'error'); return; }
+    window._gsRescanPrior = { b64: prior, mt: window._gsLastScanMt || 'image/jpeg' };
+    window._gsRescanMode = true;
+    window._gsRescanTs = Date.now();
+    var rd = document.getElementById('scan-result'); if (rd) { rd.style.display='none'; rd.innerHTML=''; }
+    if (typeof gsResetScanner === 'function') gsResetScanner();
+    if (typeof gsHaptic === 'function') gsHaptic('medium');
+    if (typeof showProfileToast==='function') showProfileToast('📷 Nimm jetzt EIN Foto aus anderem Blickwinkel (z.B. Blatt + Blüte) — beide werden für eine sicherere Bestimmung kombiniert.', 'info');
+  } catch(_){ if (typeof showProfileToast==='function') showProfileToast('Konnte nicht starten.', 'error'); }
+}
+window.gsAddPhotoForRescan = gsAddPhotoForRescan;
+
 function showScanResult(r){
   const t = toxInfo(r.toxicity||0);
   const conf = r.confidence||0;
@@ -25434,12 +25464,14 @@ function showScanResult(r){
     body += '</div>';
   }
 
-  // Nächstes Foto Empfehlung
-  if (r.next_photo_hint && conf < 85) {
+  // Nächstes Foto Empfehlung — v30.74: bei niedriger Konfidenz ein 2. Foto KOMBINIEREN (nicht nur neu scannen).
+  if ((r.next_photo_hint && conf < 85) || (conf > 0 && conf < 60)) {
+    var _hintTxt = r.next_photo_hint || 'Ein zusätzliches Foto aus anderem Blickwinkel (z.B. Blatt + Blüte, Rinde, Standort) macht die Bestimmung deutlich sicherer.';
+    var _canRescan = !!window._gsLastScanB64;
     body += '<div class="sr2-card" style="background:linear-gradient(135deg,rgba(255,193,7,.12),rgba(255,193,7,.02));border-left:3px solid #ffa000;">' +
-      '<div class="sr2-card-lbl" style="color:#8d6e00;">📸 Tipp für bessere Bestimmung</div>' +
-      '<div class="sr2-card-body">' + esc(r.next_photo_hint) +
-        '<button onclick="gsResetScanner();showProfileToast(\'Multi-Shot: nimm jetzt das zusätzliche Foto\');" style="margin-top:8px;padding:8px 14px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;">➕ Zweites Foto machen</button>' +
+      '<div class="sr2-card-lbl" style="color:#8d6e00;">📸 Sicherere Bestimmung</div>' +
+      '<div class="sr2-card-body">' + esc(_hintTxt) +
+        (_canRescan ? '<button onclick="gsAddPhotoForRescan()" style="margin-top:8px;padding:9px 14px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;">📷 Weiteres Foto hinzufügen (kombinieren)</button>' : '') +
       '</div></div>';
   }
 
@@ -66756,7 +66788,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.73';
+var GS_VERSION = 'v30.74';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
