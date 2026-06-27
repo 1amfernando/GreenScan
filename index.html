@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.72.20260627">
+<meta name="app-version" content="30.73.20260627">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25186,6 +25186,51 @@ function gsResetScanner() {
   }
 }
 
+// v30.73: KI-Steckbrief für gescannte Arten, die (noch) NICHT in der DB sind — reiche Karte aus den Scan-Daten,
+// SICHER gerahmt (HL#24): „KI-Einschätzung, nicht fachlich geprüft"; bei Giftverdacht klare rote Warnung;
+// Essbarkeit NIE als grünes „Essbar" — immer „im Zweifel nicht verzehren". Ist die Art doch in der DB → openDetail.
+function gsShowScanSteckbrief(){
+  var r = (typeof _lastScanResult !== 'undefined' && _lastScanResult) || window._lastScanResult;
+  if (!r || !(r.name||r.latin)) { if (typeof gsToast==='function') gsToast('Kein Scan-Ergebnis vorhanden.', 'info'); return; }
+  try { var real = (typeof gsMatchScanToDb==='function') ? gsMatchScanToDb(r.name, r.latin) : null; if (real && real.id) { openDetail(real.id); return; } } catch(_){}
+  var esc = (typeof escHtml==='function') ? escHtml : function(s){ return String(s==null?'':s); };
+  var tox = (typeof r.toxicity==='number') ? r.toxicity : (r.toxic ? 4 : null);
+  var ti  = (typeof toxInfo==='function' && tox!=null) ? toxInfo(tox) : null;
+  var sec = function(title, body){ return (body && String(body).trim() && body!=='–') ? ('<div class="dsec" style="margin-bottom:9px;"><h3>'+title+'</h3><p>'+esc(body)+'</p></div>') : ''; };
+  var dangerous = (tox!=null && tox>=3) || r.toxic===true || r.edible===false;
+  var safetyBox = dangerous
+    ? ('<div style="background:#ffebee;border:2px solid #ef9a9a;border-radius:12px;padding:11px 14px;margin-bottom:10px;">' +
+        '<div style="font-size:13px;font-weight:800;color:#c62828;margin-bottom:3px;">☠️ KI-Einschätzung: giftig / nicht essbar</div>' +
+        '<div style="font-size:11.5px;color:var(--text2);line-height:1.5;">'+(ti?('Geschätzte Stufe: '+esc(ti.label)+' ('+tox+'/5). '):'')+'NICHT verzehren. KI-generiert, nicht fachlich geprüft.</div></div>')
+    : ('<div style="background:#fff8e1;border:2px solid #ffe082;border-radius:12px;padding:11px 14px;margin-bottom:10px;">' +
+        '<div style="font-size:13px;font-weight:800;color:#e65100;margin-bottom:3px;">🤖 KI-Einschätzung · nicht fachlich geprüft</div>' +
+        '<div style="font-size:11.5px;color:var(--text2);line-height:1.5;">Essbarkeit &amp; Giftigkeit sind nicht verifiziert — verlass dich nicht darauf. Im Zweifel nicht verzehren. Bei Pilzen: Pilzkontrolle (VAPKO).</div></div>');
+  var feats = (Array.isArray(r.diagnostic_features) && r.diagnostic_features.length)
+    ? ('<div class="dsec" style="margin-bottom:9px;"><h3>🔍 Merkmale</h3><ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.5;">'+r.diagnostic_features.slice(0,6).map(function(f){return '<li>'+esc(f)+'</li>';}).join('')+'</ul></div>') : '';
+  var confTxt = (typeof r.confidence==='number') ? (' · '+r.confidence+'%') : '';
+  var html =
+    '<div style="max-width:520px;margin:0 auto;padding:4px 2px 16px;">' +
+      '<div style="text-align:center;margin-bottom:10px;">' +
+        '<div style="font-size:42px;">'+esc((typeof gsCatEmoji==='function'?gsCatEmoji(r.category):'🌿'))+'</div>' +
+        '<div style="font-family:\'Playfair Display\',serif;font-size:21px;font-weight:800;color:var(--text);">'+esc(r.name||r.latin)+'</div>' +
+        (r.latin?('<div style="font-style:italic;font-size:13px;color:var(--muted);">'+esc(r.latin)+(r.family?(' · '+esc(r.family)):'')+'</div>'):'') +
+        '<div style="font-size:11px;color:var(--muted);margin-top:2px;">'+esc(r.category||'')+confTxt+'</div>' +
+      '</div>' +
+      safetyBox +
+      sec('📖 Beschreibung', r.description) +
+      feats +
+      sec('🌍 Lebensraum', r.habitat) +
+      sec('📅 Saison', r.season) +
+      sec('🍽️ Verwendung', r.uses) +
+      (r.lookalike_warning ? ('<div class="dsec" style="margin-bottom:9px;"><h3>⚠️ Verwechslungsgefahr</h3><p>'+esc(r.lookalike_warning)+'</p></div>') : '') +
+      sec('💡 Tipp', r.tips) +
+      '<button class="sr2-cta sr2-cta-secondary" style="width:100%;margin-top:6px;" onclick="if(typeof openScanChat===\'function\')openScanChat()">🤖 Lina zu dieser Art fragen</button>' +
+    '</div>';
+  if (typeof _gsNlOpen==='function') _gsNlOpen(html);
+  else if (typeof gsToast==='function') gsToast('Steckbrief nicht verfügbar.', 'error');
+}
+window.gsShowScanSteckbrief = gsShowScanSteckbrief;
+
 function showScanResult(r){
   const t = toxInfo(r.toxicity||0);
   const conf = r.confidence||0;
@@ -25468,9 +25513,12 @@ function showScanResult(r){
       }
     } catch(_){}
   } else {
+    // v30.73: Nicht-in-DB-Arten bekommen trotzdem einen vollen KI-Steckbrief (Google-Lens-Gefühl) — sicher gerahmt.
     var _extra2 = document.createElement('div');
-    _extra2.style.cssText = 'margin-top:12px;';
-    _extra2.innerHTML = '<button class="sr2-cta sr2-cta-secondary" style="width:100%;" onclick="openScanChat()">🤖 KI fragen</button>';
+    _extra2.className = 'sr2-cta-row';
+    _extra2.style.marginTop = '12px';
+    _extra2.innerHTML = '<button class="sr2-cta sr2-cta-primary" onclick="gsShowScanSteckbrief()">📋 Steckbrief</button>' +
+      '<button class="sr2-cta sr2-cta-secondary" onclick="openScanChat()">🤖 KI fragen</button>';
     _container.appendChild(_extra2);
   }
   // v26.86: "Zu meinen Pflanzen hinzufügen" — prominent, vor allen anderen CTAs
@@ -26600,11 +26648,14 @@ function openDetail(id){
   // toxInfo(null) würde sonst GRÜN „Ungiftig" zeigen (HL#24-Falle) → neutrale „nicht geprüft"-Anzeige + Caveat.
   var t = toxInfo(sp.tox);
   var _unv = !!sp._unverified;
-  if (_unv) t = { sym:'❔', label:'Noch nicht geprüft', color:'#8a7600' };
+  // v30.66/v30.73: nicht-verifizierte Arten (Community-Merge ODER KI-Scan-Steckbrief). Nur wenn KEINE Tox-Zahl
+  // vorliegt neutral „Noch nicht geprüft" zeigen; liegt eine KI-Tox-Schätzung vor, diese SICHTBAR lassen (eine
+  // giftige Art soll gewarnt sein) — die Essbarkeit wird aber nie als grün „Essbar" gezeigt (Edit unten).
+  if (_unv && typeof sp.tox !== 'number') t = { sym:'❔', label:'Noch nicht geprüft', color:'#8a7600' };
   var unvBox = _unv ? ('<div style="background:#fff8e1;border:2px solid #ffe082;border-radius:12px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:flex-start;gap:10px;">' +
     '<span style="font-size:20px;flex-shrink:0;">⚠️</span><div>' +
-    '<div style="font-size:13px;font-weight:800;color:#e65100;margin-bottom:2px;">Noch nicht geprüft</div>' +
-    '<div style="font-size:11.5px;color:var(--text2);line-height:1.5;">Diese Art wurde aus einem Scan vorgeschlagen und noch nicht fachlich verifiziert. Essbarkeit &amp; Giftigkeit sind <b>unbekannt</b> — im Zweifel <b>nicht verzehren</b>. Bei Pilzen: Pilzkontrolle (VAPKO).</div>' +
+    '<div style="font-size:13px;font-weight:800;color:#e65100;margin-bottom:2px;">KI-Einschätzung · nicht fachlich geprüft</div>' +
+    '<div style="font-size:11.5px;color:var(--text2);line-height:1.5;">Diese Angaben stammen aus einer KI-Bestimmung und sind <b>nicht fachlich verifiziert</b>. Verlass dich bei Essbarkeit &amp; Giftigkeit nicht darauf — im Zweifel <b>nicht verzehren</b>. Bei Pilzen: Pilzkontrolle (VAPKO).</div>' +
     '</div></div>') : '';
   const isFav = favs.includes(id);
 
@@ -26622,10 +26673,11 @@ function openDetail(id){
 
   // Tags
   const tags = [];
-  if(sp.edible) tags.push({label:_t('tag_edible','Essbar'),bg:'#e8f5e9',col:'#2e7d32',icon:'🍽️'});
+  // v30.73: bei _unverified (KI-Scan/Community) KEIN grünes „Essbar"/„Ungiftig" — Essbarkeit ist ungeprüft (HL#24).
+  if(sp.edible && !_unv) tags.push({label:_t('tag_edible','Essbar'),bg:'#e8f5e9',col:'#2e7d32',icon:'🍽️'});
   if(sp.medicinal) tags.push({label:_t('tag_medicinal','Heilpflanze'),bg:'#e3f2fd',col:'#1565c0',icon:'💊'});
   if(sp.protected) tags.push({label:_t('tag_protected','Geschützt'),bg:'#fce4ec',col:'#c2185b',icon:'🛡️'});
-  if(sp.tox===0 && !sp.toxic) tags.push({label:_t('tag_nontoxic','Ungiftig'),bg:'#e8f5e9',col:'#2e7d32',icon:'✅'});
+  if(sp.tox===0 && !sp.toxic && !_unv) tags.push({label:_t('tag_nontoxic','Ungiftig'),bg:'#e8f5e9',col:'#2e7d32',icon:'✅'});
   if(sp.tox>=4) tags.push({label:_t('tag_toxic','GIFTIG'),bg:'#ffebee',col:'#c62828',icon:'☠️'});
   const tagsHtml = tags.map(tg=>'<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;background:'+tg.bg+';color:'+tg.col+';">'+tg.icon+' '+tg.label+'</span>').join(' ');
 
@@ -66704,7 +66756,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.72';
+var GS_VERSION = 'v30.73';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
