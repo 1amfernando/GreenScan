@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.75.20260627">
+<meta name="app-version" content="30.76.20260627">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -7313,6 +7313,7 @@ function gsQuickDone(plantId, taskKey) {
     if (p.diary.length > 200) p.diary = p.diary.slice(0, 200);
   } catch(_){}
   savePlantsToStorage();
+  try { if (typeof scheduleAllNotifications === 'function') scheduleAllNotifications(); } catch(_){} // v30.76: konsistent mit doneTask
   // v24.25: Server-Cron-Reminder als gelesen markieren
   try { gsMarkPlantReminderRead(plantId, taskKey); } catch(_){}
   // Button-Animation
@@ -7327,6 +7328,24 @@ function gsQuickDone(plantId, taskKey) {
   setTimeout(function(){ renderMyPlants(); }, 800);
 }
 
+// v30.76: Aufgabe verschieben (Snooze) — lastDone so setzen, dass sie in `days` Tagen wieder fällig wird.
+// Synct über den Blob (user_plants.data → v_plant_tasks_due); kein gsRpcTaskDone (das wäre „erledigt").
+function gsSnoozeTask(plantId, taskKey, days) {
+  try {
+    gsHaptic('light');
+    var p = myPlants.find(function(x){ return x && x.id === plantId; });
+    if (!p || !p.tasks || !p.tasks[taskKey]) return;
+    var iv = parseInt(p.tasks[taskKey].intervalDays, 10) || 7;
+    var d = parseInt(days, 10) || 1;
+    p.tasks[taskKey].lastDone = new Date(Date.now() - Math.max(0, (iv - d)) * 86400000).toISOString();
+    savePlantsToStorage();
+    try { if (typeof scheduleAllNotifications === 'function') scheduleAllNotifications(); } catch(_){}
+    if (typeof showProfileToast === 'function') showProfileToast('⏰ Um ' + d + ' Tag' + (d > 1 ? 'e' : '') + ' verschoben', 'info');
+    setTimeout(function(){ renderMyPlants(); }, 300);
+  } catch(_){}
+}
+window.gsSnoozeTask = gsSnoozeTask;
+
 // Alle fälligen auf einmal erledigen
 function gsDoneAllDue() {
   gsHaptic('medium');
@@ -7338,6 +7357,7 @@ function gsDoneAllDue() {
       var t = p.tasks[k];
       if (t && t.active && getDaysUntilDue(t.lastDone, t.intervalDays) <= 0) {
         t.lastDone = nowIso;
+        try { if (typeof gsRpcTaskDone === 'function') gsRpcTaskDone(p.id, k); } catch(_){} // v30.76: Server-Sync (sonst Re-Push erledigter Tasks)
         count++;
         // v26.51: Done-Verlauf persistent (Bulk)
         try {
@@ -7351,6 +7371,7 @@ function gsDoneAllDue() {
   });
   if (count > 0) {
     savePlantsToStorage();
+    try { if (typeof scheduleAllNotifications === 'function') scheduleAllNotifications(); } catch(_){}
     showProfileToast(count + ' Aufgabe' + (count>1?'n':'') + ' als erledigt markiert! 🎉', 'success');
     setTimeout(renderMyPlants, 300);
   }
@@ -27191,53 +27212,67 @@ function renderMyPlants() {
   if (!list) return;
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
 
-  // Stats aktualisieren
-  var overdue = [], soon = [], ok = [];
+  // v30.76: Stats + flache "Heute fällig"-Liste über ALLE aktiven Aufgaben (vorher nur die dringendste pro Pflanze
+  // → zweite überfällige Aufgabe derselben Pflanze blieb versteckt). Sortiert nach Dringlichkeit.
+  var allDue = [];   // {plant, key, days}
+  var okCount = 0;
   myPlants.forEach(function(p) {
-    var urgent = gsGetMostUrgentTask(p);
-    if (!urgent) { ok.push(p); return; }
-    if (urgent.days <= 0) overdue.push({plant:p, task:urgent});
-    else if (urgent.days <= 2) soon.push({plant:p, task:urgent});
-    else ok.push(p);
+    if (!p) return;
+    var anyDue = false;
+    if (p.tasks) {
+      Object.keys(p.tasks).forEach(function(k){
+        var t = p.tasks[k];
+        if (!t || !t.active || !TASK_DEFS[k]) return;
+        var d = getDaysUntilDue(t.lastDone, t.intervalDays);
+        if (d <= 2) { allDue.push({ plant:p, key:k, days:d }); anyDue = true; }
+      });
+    }
+    if (!anyDue) okCount++;
   });
+  allDue.sort(function(a,b){ return a.days - b.days; });
+  var overdueCount = allDue.filter(function(x){ return x.days <= 0; }).length;
+  var soonCount = allDue.length - overdueCount;
 
   var totalEl = document.getElementById('plants-stat-total');
   var dueEl   = document.getElementById('plants-due-count');
   var okEl    = document.getElementById('plants-ok-count');
   if (totalEl) totalEl.querySelector('div').textContent = myPlants.length;
-  if (dueEl) dueEl.textContent = overdue.length + soon.length;
-  if (okEl) okEl.textContent = ok.length;
+  if (dueEl) dueEl.textContent = allDue.length;
+  if (okEl) okEl.textContent = okCount;
   // v26.90: Sub-Tab-Badge-Counts mitziehen
   try { if (typeof gsFavsUpdateSubCounts === 'function') gsFavsUpdateSubCounts(); } catch(_){}
 
   // Stat-Box Farbe wenn fällig
   var dueBox = document.getElementById('plants-stat-due');
-  if (dueBox) dueBox.style.background = (overdue.length > 0)
-    ? 'rgba(244,67,54,.3)' : (soon.length > 0)
+  if (dueBox) dueBox.style.background = (overdueCount > 0)
+    ? 'rgba(244,67,54,.3)' : (soonCount > 0)
     ? 'rgba(255,152,0,.25)' : 'rgba(255,255,255,.15)';
 
-  // "Heute fällig" Section
+  // "Heute fällig" Section — flache Liste, je Aufgabe ✓ Erledigt + ⏰ Snooze
   var dueSection = document.getElementById('plants-due-section');
   var dueList    = document.getElementById('plants-due-list');
-  var allDue = overdue.concat(soon);
   if (dueSection && dueList) {
     if (allDue.length > 0) {
       dueSection.style.display = 'block';
       dueList.innerHTML = allDue.map(function(item) {
-        var p = item.plant, t = item.task;
-        var isDue = t.days <= 0;
-        return '<div class="due-card' + (isDue?'':' soon') + '" onclick="gsQuickDone(\''+p.id+'\',\''+t.key+'\')">' +
+        var p = item.plant, k = item.key, isDue = item.days <= 0;
+        var def = TASK_DEFS[k] || { icon:'', name:k };
+        return '<div class="due-card' + (isDue?'':' soon') + '">' +
           '<div class="due-card-emoji">' + (p.emoji||'🌿') + '</div>' +
-          '<div class="due-card-info">' +
+          '<div class="due-card-info" style="cursor:pointer;" onclick="gsQuickDone(\''+p.id+'\',\''+k+'\')">' +
             '<div class="due-card-name">' + escHtml(p.name) + '</div>' +
-            '<div class="due-card-task">' + (TASK_DEFS[t.key]?TASK_DEFS[t.key].icon:'') + ' ' +
-              (TASK_DEFS[t.key]?TASK_DEFS[t.key].name:t.key) + ' · ' +
+            '<div class="due-card-task">' + (def.icon||'') + ' ' + (def.name||k) + ' · ' +
               (isDue ? '<span style="color:#c62828;font-weight:800;">' + _t('due_now','Jetzt fällig!') + '</span>' : _t('due_soon','Bald fällig')) +
             '</div>' +
           '</div>' +
-          '<button class="due-card-btn" onclick="event.stopPropagation();gsQuickDone(\''+p.id+'\',\''+t.key+'\')">' + _t('btn_done','✓ Erledigt') + '</button>' +
+          '<button class="due-card-btn" title="' + _t('btn_snooze','Verschieben') + '" onclick="event.stopPropagation();gsSnoozeTask(\''+p.id+'\',\''+k+'\',1)" style="background:transparent;border:1.5px solid var(--border);color:var(--muted);padding:7px 9px;margin-right:6px;">⏰</button>' +
+          '<button class="due-card-btn" onclick="event.stopPropagation();gsQuickDone(\''+p.id+'\',\''+k+'\')">' + _t('btn_done','✓ Erledigt') + '</button>' +
         '</div>';
       }).join('');
+    } else if (myPlants.length > 0) {
+      // v30.76: schöner "alles erledigt"-Zustand statt die Sektion ganz auszublenden
+      dueSection.style.display = 'block';
+      dueList.innerHTML = '<div style="text-align:center;padding:16px 12px;color:var(--g-dark);font-weight:700;font-size:13.5px;background:rgba(46,125,50,.07);border-radius:12px;">✅ ' + _t('tasks_all_done','Alles erledigt für heute') + ' 🎉</div>';
     } else {
       dueSection.style.display = 'none';
     }
@@ -66832,7 +66867,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.75';
+var GS_VERSION = 'v30.76';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
