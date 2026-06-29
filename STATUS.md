@@ -4,13 +4,35 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-06-29 · **Branch**: `main` · **Version**: `v30.79` (LIVE) · **Release**: ✅ v30.x Produktions-stabil
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-06-29 (a) — Proaktiver Routine-Audit (claude/lucid-cerf-weor3t)
+
+- **Auftrag:** Scheduled Routine — proaktiver Deep-Scan des aktuellen Projektstands.
+- **Versionsstand:** main @ v30.79 (0266bff, 2026-06-27) · index.html 82.064 Zeilen / 5.4 MB · sw.js aktiv mit v30.79-History.
+- **STATUS-Gap:** STATUS.md war seit v26.51 (2026-05-24) nicht mehr aktualisiert. Aktuell korrigiert (Header v30.79, heute-Eintrag).
+- **Wesentliche Entwicklungen v26.51→v30.79 (aus sw.js-Changelog):**
+  - v27.00 Mega-Sprint: Wetter-Infrastruktur komplett (weather_forecast_cache, Edge-Fn, Cron weather-alert-3h).
+  - v28.04 NVIDIA komplett raus (Default-Provider-Bug gefixt), Scan-Cache (pHash + fn_scan_cache_put), Prompt-Caching (~90% Kosten ab 2. Scan).
+  - v28.11 Push-Pause / Stille Tage (pause_until in push_subscriptions).
+  - v29.00 Admin-Panel komplett: Client-Fehler-Telemetrie (client_errors-Tabelle + fn_admin_client_errors + pg_cron-GC).
+  - v29.50 SAFETY-FIX (kritisch): confusion_risk 'sehr_hoch_lebensgefahr' fehlte im Farb-Mapping im Scanner-Renderer → wurde auf schwächstes Oliv gemappt. Behoben: stärkstes #7f0000 + ☠️ LEBENSGEFAHR-Label.
+  - v30.x Mein-Garten-Aufräumen: 15 Werkzeug-Buttons in 3 ausklappbare Gruppen, Garten-Wetterkarte repariert, Benachrichtigungen robuster, Aufgaben-UI professioneller, Scan→Wohnung/Garten-Wahl.
+- **Security-Audit-Findings (heute):**
+  - ✅ 0 hardcoded API-Keys / Secrets.
+  - ✅ 0 eval()-Calls.
+  - ✅ 0 direkte fetch()-Calls an api.anthropic.com ausserhalb gsTestApiKey().
+  - ✅ 15 alert()-Calls — alle im gsAlert-Helper (Fallback für lange Texte) oder Kommentare; keine user-facing raw alert() in kritischen Pfaden.
+  - ⚠️ LOW: 667 innerHTML-Assignments — die Mehrheit nutzt DB-/System-Daten (kein direkter User-Input). gsSafeHTML-Helper steht bereit, Migration iterativ (B2 aus §4).
+  - ⚠️ LOW: Verwechsler-Galerie-Modal (Z.19217, gsMushroomLookalikesModal) nutzt '#c62828' für 'sehr_hoch_lebensgefahr'-Badge — inkonsistent mit dem v29.50-Fix im Scanner-Renderer (#7f0000). Visuelle Differenz minimal (beide klar rot), aber bewusst nicht auto-editiert (Sicherheitskontext → Cowork/Owner-Entscheid).
+- **Lina/Coach-Gedaechtnis:** Supabase coach_conversations + coach_messages (RLS own-only). gsBrain (Suchbegriff) ist seit v28.75 entfernt — keine window.gsBrain-Definition.
+- **Naechste empfohlene Aktionen:** (1) Verwechsler-Galerie-Farb-Inkonsistenz beheben (Z.19217 → #7f0000). (2) B2 safeHTML-Migration iterativ weiterführen. (3) mushroom_register Datenqualitaet (Duplikate + inkonsistente Essbarkeit flagged in v29.50 — braucht VAPKO/SwissFungi-Quellen, NICHT LLM-generiert).
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
