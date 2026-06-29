@@ -4,13 +4,32 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-06-29 · **Branch**: `claude/lucid-cerf-dje9sn` · **Version**: `v30.79` (Branch) · **Release**: v30.x aktiv in Entwicklung
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-06-29 — Proaktiver Routine-Security-Audit (autonome Session)
+
+- **Auftrag:** Geplante autonome Routine — vollständiger Security-Audit des Projekts (Frontend + Supabase Backend).
+- **App-Stand:** v30.79 auf Branch `claude/lucid-cerf-dje9sn`. STATUS.md war seit 2026-05-24 veraltet (jetzt aktualisiert).
+- **Supabase Security-Advisor:** 0 ERROR (wie nach v26.51-Hardening) · 141 WARN (alle untersucht, s.u.) · 5 INFO (RLS-enabled-no-policy auf Staging-Tabellen, by-design).
+- **WARN-Analyse:**
+  - 3× `extension_in_public` (pg_trgm/vector/citext in public schema) — KEIN akutes Risiko, Supabase empfiehlt migration zu extensions-Schema (P3, kein User-Impact).
+  - 1× `auth_leaked_password_protection` disabled — **OFFEN: Fernando soll im Supabase-Dashboard Auth → Password Security → HaveIBeenPwned aktivieren (1 Toggle, 30 Sekunden).**
+  - 16× `anon_security_definer_function_executable` — untersucht: alle außer fn_quiz_record_answer haben interne Guards; fn_quiz_record_answer hatte anon-Grant (nur no-op durch internen Guard, aber unnötig) → **GEFIXT (v30_80_migration, s.u.)**.
+  - 121× `authenticated_security_definer_function_executable` — alle fn_admin_* geprüft: haben interne `is_admin_user()`-Guards; fn_assign_role hat `_caller_role='admin'`-Check; fn_get_global_api_key ist intentional accessible (feature: global key für auth. User) — keine echten Schwachstellen, Advisor-Meldungen sind by-design.
+- **Frontend-Audit:** 677× innerHTML — untersucht: user-controlled Content geht durch `escHtml()` oder `ed()` (beide korrekt implementiert). Community-Comments, Social-Feed, Marketplace alle escaped. Keine neuen XSS-Vektoren gefunden. Verbleibende Raw-innerHTML-Meldungen sind für statische Strings/KI-Antworten/admin-only Features (book-ingest `file.name` unescaped — admin-only, LOW).
+- **alert()-Audit:** 0 user-facing alert() — nur noch 1 Instanz in gsAlert-Fallback-Helper (korrekt).
+- **Migration v30_80 LIVE:** `REVOKE EXECUTE ON fn_quiz_record_answer FROM anon` — Defense-in-depth, kein Behavior-Change (internem Guard blieb).
+- **Supabase Performance-Advisor:** 0 ERROR · 0 WARN · 147 INFO (146 unused_index INFO + 1 Auth-Connection-Strategie auf fixed-cap-10 statt prozentual — kein akutes Problem, relevant erst bei Instance-Upsizing).
+- **Offene Punkte nach Audit:**
+  - 🟡 **Fernando-Action:** Supabase Dashboard → Authentication → Password Security → „Enable leaked password detection" (HaveIBeenPwned) aktivieren.
+  - 🟡 P3: Extensions pg_trgm/vector/citext von public → extensions Schema (keine Eile).
+  - 🟡 P3: book-ingest `file.name` in innerHTML escapen (admin-only, LOW risk).
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
