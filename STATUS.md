@@ -12,6 +12,15 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-06-30 — Routine-Check v30.80 (Supabase-Advisor-Re-Scan, 1 Regression gefixt)
+
+- **Auftrag:** Geplante Routine-Session, kein spezifisches Briefing. Health-Check nach dem etablierten "Code-Daily"-Muster: Live-Sync-Check + Supabase-Advisor-Re-Scan.
+- **Performance-Advisors:** 147 Lints, alle INFO (unused indexes) — nichts Kritisches.
+- **Security-Advisors:** 146 Lints (0 ERROR, 141 WARN, 5 INFO) — gleiche Kategorien wie beim letzten Audit (v26.51, 2026-05-24), Volumen gewachsen weil seither viele neue Domain-Features (Orgs/Classes, Quiz-Battles, Marketplace, etc.) je eigene SECURITY DEFINER RPCs mitbringen. Keine neuen Lint-Kategorien, keine RLS-disabled-Tabellen, keine SECURITY-DEFINER-Views.
+- **Regression gefunden:** `fn_assign_role` (Admin-Role-Assignment-RPC) war in v26_51b explizit für `authenticated`/`anon`/`PUBLIC` gesperrt (nur `service_role`). Re-Scan zeigte: `authenticated` konnte die Funktion wieder ausführen — vermutlich durch ein späteres `CREATE OR REPLACE` zurückgesetzt (Postgres-Default-Privileges). **Kein aktiver Exploit** (Funktion prüft intern `profiles.role = 'admin'` und wirft sonst eine Exception), aber Defense-in-Depth-Regression. `fn_cleanup_old_data` + `fn_set_global_api_key` weiterhin korrekt gesperrt. `is_admin_user` für `authenticated` ist by-design (siehe v26_51b-Kommentar), keine Regression.
+- **Fix LIVE applied:** Migration `v30_80_refix_fn_assign_role_grant` — `REVOKE EXECUTE ... FROM PUBLIC, anon, authenticated` + `GRANT ... TO service_role`. Verifiziert via `has_function_privilege()`.
+- **Naechste:** Stichprobenartig pruefen ob weitere admin-only Functions (die ~33 `fn_admin_*`) durch spätere `CREATE OR REPLACE`-Migrationen ebenfalls Default-Privileges zurückbekommen haben — aktuell nicht einzeln verifiziert, nur `fn_assign_role` war im Advisor-Diff auffällig.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
