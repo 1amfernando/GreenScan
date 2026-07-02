@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.79.20260627">
+<meta name="app-version" content="30.80.20260702">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27427,6 +27427,27 @@ function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&l
 // immer den Fallback. Jetzt definiert (voller Escaper inkl. Single-Quote) → konsistentes Escaping.
 window._gsOcArg = function(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/"/g,'&quot;').replace(/'/g,"\\'"); };  // v30.13 HL#12: sicheres Onclick-Arg-Escape (Backslash, "->&quot;, '->\')
 window.gsHTMLEscape = function(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+// CLAUDE.md §3.6 dokumentiert gsSafeHTML als Pflicht-Pattern seit v24.02, aber window.gsSafeHTML
+// wurde nie definiert — nur 2 defensive `window.gsSafeHTML && ...`-Checks existierten und fielen
+// darum immer auf den manuellen Fallback zurück (gleiche Fehlerklasse wie Hard-Lesson #9 bei gsHTMLEscape).
+function gsSafeHTML(strings) {
+  var values = Array.prototype.slice.call(arguments, 1);
+  var out = strings[0];
+  for (var i = 0; i < values.length; i++) {
+    var v = values[i];
+    out += (v && typeof v === 'object' && v.__gsSafe) ? v.html : gsHTMLEscape(v);
+    out += strings[i + 1];
+  }
+  return out;
+}
+gsSafeHTML.escape = function(s){ return gsHTMLEscape(s); };
+gsSafeHTML.attr = function(s){ return gsHTMLEscape(s); };
+gsSafeHTML.url = function(s){
+  s = String(s == null ? '' : s);
+  return /^(https?:|mailto:)/i.test(s) || /^[./]/.test(s) ? s : '';
+};
+gsSafeHTML.unsafe = function(html){ return { __gsSafe: true, html: String(html == null ? '' : html) }; };
+window.gsSafeHTML = gsSafeHTML;
 
 function togglePlantCard(id){
   const expand = document.getElementById('expand-' + id);
@@ -61161,6 +61182,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v30.80', date: '02.07.2026',
+    headline: '🔒 Self-Audit: gsSafeHTML nachgeliefert (Hard-Lesson #9-Klasse)',
+    summary: 'Interner Sicherheits-Audit fand, dass die seit CLAUDE.md §3.6 dokumentierte gsSafeHTML-Tagged-Template-API nie implementiert war (gleiche Fehlerklasse wie Hard-Lesson #9 bei gsHTMLEscape) — nur 2 defensive Existenz-Checks fielen still auf manuelles Escaping zurück. gsSafeHTML ist jetzt implementiert (Tagged-Template + .escape/.attr/.url/.unsafe), rein additiv, kein Verhaltens-Change an bestehenden Call-Sites.',
+    user_summary: '🔒 Interner Sicherheits-Fix — keine sichtbaren Änderungen für dich.',
+    user_items: [],
+    items: [
+      {emoji:'🔒', bold:'gsSafeHTML implementiert:', text:' window.gsSafeHTML war seit v24.02 in CLAUDE.md §3.6 als Pflicht-Pattern dokumentiert, aber nie definiert — die 2 Stellen mit `window.gsSafeHTML && ...`-Guard nahmen darum immer den manuellen Escape-Fallback. Jetzt echtes Tagged-Template (Auto-Escape via gsHTMLEscape) + `.escape`/`.attr`/`.url` (nur https/http/mailto/relative)/`.unsafe` (Bypass für Sub-Templates).'},
+      {emoji:'✅', bold:'Verify:', text:' Rein additiv, keine bestehende Call-Site geändert · 9/9 Inline-Scripts node --check OK · sw.js gs-v30.80 · GS_VERSION=v30.80 · _headers v30.80 · meta=30.80.20260702.'},
+    ]
+  },
+  {
     v: 'v30.03', date: '21.06.2026',
     headline: '💾 Pläne speichern — zuverlässig, mit „Meine Pläne"',
     summary: 'Großer Fix: KI-Garten- und Baum-Pläne verschwinden nicht mehr. Jeder Plan wird automatisch gespeichert (auf dem Gerät immer, in der Cloud wenn eingeloggt) und erscheint unter „Meine Pläne" — auf allen Geräten, mit Stern-Favoriten und Löschen. Der Baum-Planer ist zudem schöner und schlägt dir jetzt passende Bäume für deinen Standort vor.',
@@ -66915,7 +66947,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.79';
+var GS_VERSION = 'v30.80';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

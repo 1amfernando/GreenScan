@@ -4,13 +4,30 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-07-02 · **Branch**: `claude/lucid-cerf-xqr8p4` · **Version**: `v30.80` (Branch, ungepusht auf `main`) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+
+> ⚠️ **Hinweis:** Dieser Snapshot-Block (0) wurde zuletzt am 2026-05-24 bei `v26.51` fortlaufend
+> gepflegt. `main`/Code liegen mittlerweile bei `v30.79` (viele Sessions dazwischen, siehe
+> `git log`) — die Einträge v26.52–v30.79 fehlen hier. Diese Session ergänzt nur ihren eigenen
+> Eintrag unten, ohne die Lücke rückwirkend zu rekonstruieren (Risiko falscher Fakten ohne
+> Einsicht in die tatsächlichen Zwischen-Commits). Nächste Session sollte den Rückstand per
+> `git log --oneline` gegen die letzten Einträge in `GS_RELEASES` (index.html) aufholen.
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-07-02 — Self-Audit v30.80 (gsSafeHTML nachgeliefert, Hard-Lesson #9-Klasse)
+
+- **Auftrag:** Scheduled Routine ohne konkretes Briefing — proaktiver Sicherheits-Audit im Sinne von CLAUDE.md §3.6/§5, bewusst eng begrenzt (kein Vollzeit-Deep-Scan, keine spekulativen Refactors).
+- **Finding:** `gsSafeHTML` (Tagged-Template-API, seit v24.02 in CLAUDE.md §3.6 als Pflicht-Pattern dokumentiert) war nie implementiert — nur 2 defensive `window.gsSafeHTML && ...`-Checks existierten und fielen daher immer auf manuelles Escaping zurück. Gleiche Fehlerklasse wie das bereits dokumentierte Hard-Lesson #9 (`gsHTMLEscape` war ebenfalls nie definiert, siehe v27.03-Eintrag in `GS_RELEASES`).
+- **Fix (`index.html`):** `window.gsSafeHTML` jetzt echtes Tagged-Template mit Auto-Escape (nutzt bestehendes `gsHTMLEscape`) + `.escape`/`.attr`/`.url` (Whitelist https/http/mailto/relative)/`.unsafe` (Bypass für Sub-Templates). Rein additiv — keine bestehende Call-Site verändert, kein Verhaltens-Change.
+- **Keine kritischen Findings sonst:** kein hardcodeter API-Key/Secret gefunden, keine rohen `fetch('https://api.anthropic.com/...')`-Calls ausserhalb der erlaubten Stelle, Versions-Marker (`GS_VERSION`/`sw.js`/`_headers`/meta) waren bereits synchron auf `v30.79` vor dieser Session.
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · sw.js `gs-v30.80` · GS_VERSION=v30.80 · _headers v30.80 · meta=30.80.20260702 · manifest.json valid.
+- **Bekannter Rückstand (nicht in dieser Session behoben):** STATUS.md-Snapshot-Block war 4+ Minor-Versionen veraltet (siehe Hinweis oben) — reine Doku-Lücke, kein Code-Bug.
+- **Naechste:** STATUS.md-Rückstand v26.52→v30.79 aufholen · Branch `claude/lucid-cerf-xqr8p4` gegen `main` reviewen/mergen falls gewünscht.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
