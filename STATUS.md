@@ -12,6 +12,15 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-07-18 — Scheduled Security-Scan v30.80 (Plant-Diary innerHTML-Hardening)
+
+- **Auftrag:** Automatisierte Scheduled-Session, Security-fokussierter Code-Audit gegen CLAUDE.md §3.6-Regeln (kein hardcoded Secret, `gsSafeHTML`/`gsHTMLEscape` bei innerHTML mit User-Input, `callAI`-only für AI-Calls, CSP-Allowlist).
+- **High-Finding gefixt (`5016db9`):** `openPlantDiary()` (Z.~27911/27918) setzte `p.photo` (Hero-Background via CSS `url()`) und `e.photo` (Tagebuch-Eintrag `<img src>`) ungeschützt in `innerHTML` — nur Single-Quote-Escape beim Hero-Bild, gar keins beim Eintrags-Foto. Ein Foto-Wert mit `"` oder `<` konnte aus dem Attribut ausbrechen. Gefixt analog zum bereits gehärteten `gsNewPlantCard()`-Pattern (v28.71 HL#12: Schema-Whitelist `https?://|data:image/|blob:` + Zeichen-Strip) bzw. `gsHTMLEscape()` für den `<img src>`-Fall.
+- **Nicht gefixt, dokumentiert:** `gsEnrichSpeciesViaAI` (Z.~26139) macht direkten `fetch('https://api.anthropic.com/...')` statt über `callAI` + liest Key aus nicht-sanktionierten localStorage-Keys (`gs_anthropic_key`/`anthropic_key`) — laut Audit aktuell **dead code** (keine Call-Site gefunden), daher nicht angefasst, aber als Cowork-Restpflicht vermerkt falls die Funktion je reaktiviert wird. `_gsKeyHealthWalker` (Z.~60843) macht ebenfalls direkten Anthropic-fetch außerhalb `gsTestApiKey`, ist aber ein legitimer Key-Validierungs-Pfad (gleicher Zweck, anderer Name) — nur Konventions-Nit, kein Risiko.
+- **Sonst clean:** keine hardcoded Secrets/Keys, keine CSP-Lücken (alle externen fetch/connect-Domains in `_headers` allowlisted), Auth-Token ausschließlich über `gs_sb_token`.
+- **Verify:** 9/9 inline-scripts `node --check`-äquivalent (via `new Function`) OK · GS_VERSION=v30.80 · sw.js gs-v30.80 · meta=30.80.20260718.
+- **Naechste:** `gsEnrichSpeciesViaAI` bei Gelegenheit entfernen oder auf `callAI` umstellen, falls reaktiviert.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
