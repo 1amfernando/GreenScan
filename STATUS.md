@@ -4,13 +4,23 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-07-18 · **Branch**: `claude/lucid-cerf-zvj2jt` (Pending Push) · **Version**: `v30.80` · **Release**: ✅ v30.79 zuvor auf `main`/LIVE
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-07-18 — Scheduled-Self-Audit v30.80 (Lina-Action-XSS gefixt)
+
+- **Auftrag:** Automatisierte Scheduled-Routine — proaktiver Deep-Scan bei Leerlauf-Kapazität ("vollständige Code-Reviews auf Logikfehler und Sicherheitslücken"). Letzter dokumentierter Self-Audit war v26.51 (2026-05-24); Codebase war seither auf v30.79 gewachsen (~430 Versions-Bumps), ohne dass ein neuer Security-Pass gelaufen ist.
+- **Supabase-Advisor-Check:** 0 ERROR-Level Security-Lints (weiterhin sauber seit v26.51-Hardening). 140 WARN, davon 136× SECURITY-DEFINER-Functions (by-design für Frontend-RPCs, wie in v26.51 dokumentiert), 5× `rls_enabled_no_policy` auf reinen Backend-Cache/Queue-Tabellen (`book_ocr_pages`, `species_import_queue`, `species_search_cache`, `system_events`, `weather_forecast_cache` — RLS-enabled-ohne-Policy heisst deny-all für anon/authenticated, ist der sichere Default, kein Fix nötig), 1× `auth_leaked_password_protection` (Dashboard-Setting, bereits aus v26.51 bekannt). Keine neuen Backend-Findings.
+- **Gefundene + gefixte Sicherheitslücke (Frontend, kritisch):** `v30.69` führte den Lina-Aktions-Dispatcher ein (`gsLinaDispatch`/`gsLinaAddPlant`). Der Tool-Call `propose_add_plant` übernahm `args.emoji` von der KI-Antwort ungeprüft in `myPlants` (`localStorage` + Cloud-Sync). `p.emoji` wird an mehreren Stellen unescaped in `innerHTML` gerendert (`mpcard-emoji`, `due-card-emoji`, `plant-card-emoji`, …) — die manuelle `#mp-emoji`-Eingabe ist zwar über `maxlength="4"` abgesichert, aber `gsLinaAddPlant` schreibt direkt und umgeht das. Der Bestätigungs-Dialog (`gsConfirmModal`) zeigt dabei NUR den Pflanzennamen, nie das Emoji-Feld — der Nutzer bestätigt also blind ein potenziell bösartiges Payload. Ergebnis: **Stored XSS**, auslösbar über eine vom Nutzer bestätigte "Pflanze hinzufügen"-Lina-Aktion, persistent über Cloud-Sync, mit Zugriff auf den App-Origin-Kontext (u.a. `localStorage.gs_sb_token`, siehe CLAUDE.md §3.3).
+- **Fix:** Neuer Helper `_gsLinaSafeEmoji(e)` (index.html, direkt vor `gsLinaAddPlant`) erzwingt dieselbe Grenze wie das manuelle Feld — max. 4 Zeichen, keine `<>&"'`-Zeichen, sonst Fallback `''`/🌿. Angewendet in `gsLinaAddPlant` (Quelle des Stored-XSS) UND im `prefill_form`-Tool-Case (dort umgeht `el.value = String(v)` das HTML-`maxlength`-Attribut ebenfalls bei programmatischem Setzen). `name`/`notes` waren bereits an allen Render-Stellen `escHtml()`-escaped — kein Fix nötig.
+- **Verify:** 9/9 Inline-`<script>`-Blöcke `node --check` OK · `sw.js` OK · `GS_VERSION=v30.80` · `sw.js gs-v30.80` · `_headers v30.80` · `meta app-version=30.80.20260718` — alle synced.
+- **Noch offen (nicht in diesem Sprint, ausserhalb Scope):** `p.emoji` wird app-weit an vielen weiteren Stellen unescaped gerendert (systemisches Pattern, nicht v30.69-spezifisch) — nur über die manuelle UI (maxlength=4) bislang praktisch unerreichbar mit Markup. Bei Gelegenheit: Render-Stellen zusätzlich per `escHtml()`/`gsSafeHTML` absichern (Defense-in-Depth), plus Review ob weitere Backup-Import/Cloud-Merge-Pfade `p.emoji` ohne Längen-Guard übernehmen.
+- **Naechste:** Push auf `claude/lucid-cerf-zvj2jt` + PR nur falls User das ausdrücklich anfragt (Scheduled-Routine erstellt keine PRs autonom). STATUS.md-Kopfzeile war vor diesem Eintrag seit v26.51 nicht mehr aktualisiert — Versions-Historie zwischen v26.51 und v30.79 existiert nur in den Commit-Messages/index.html-Changelog, nicht hier.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 

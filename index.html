@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.79.20260627">
+<meta name="app-version" content="30.80.20260718">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -66915,7 +66915,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.79';
+var GS_VERSION = 'v30.80';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -74103,11 +74103,21 @@ function gsLinaResolvePlant(id, name){
   } catch(_){}
   return null;
 }
+// v30.80: Sicherheits-Fix — a.emoji kam ungeprüft von Lina (KI-Antwort) und landet unescaped
+// in mehreren innerHTML-Renderern (mpcard-emoji, due-card-emoji, plant-card-emoji, …). Die manuelle
+// #mp-emoji-Eingabe ist über maxlength="4" abgesichert, aber gsLinaAddPlant/prefill_form schreiben
+// direkt und umgehen das → Stored-XSS über eine bestätigte "Pflanze hinzufügen"-Aktion (der Bestätigungs-
+// Dialog zeigt nur den Namen, nicht das Emoji). Gleiche Grenze wie das manuelle Feld erzwingen.
+function _gsLinaSafeEmoji(e){
+  var s = String(e || '').trim();
+  if (!s || s.length > 4 || /[<>&"']/.test(s)) return '';
+  return s;
+}
 function gsLinaAddPlant(nm, a){
   try {
     var now = new Date().toISOString();
     var p = {
-      id: 'mp_' + Date.now(), name: nm, nick: '', emoji: (a && a.emoji) || '🌿',
+      id: 'mp_' + Date.now(), name: nm, nick: '', emoji: _gsLinaSafeEmoji(a && a.emoji) || '🌿',
       water: 2, sun: 2, notes: (a && a.notes) || 'Von Lina hinzugefügt',
       photo: null, photoUrl: null, diary: [], added: now,
       tasks: {
@@ -74150,7 +74160,7 @@ async function gsLinaDispatch(act){
       _close(); setTimeout(function(){
         try { openAddPlant();
           var set=function(id,v){ var el=document.getElementById(id); if(el&&v!=null) el.value=String(v); };
-          set('mp-name', a.name); set('mp-nick', a.nick); set('mp-emoji', a.emoji); set('mp-notes', a.notes);
+          set('mp-name', a.name); set('mp-nick', a.nick); set('mp-emoji', _gsLinaSafeEmoji(a.emoji) || '🌿'); set('mp-notes', a.notes);
         } catch(_){}
       }, 160);
       return;
