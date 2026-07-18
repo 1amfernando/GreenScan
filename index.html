@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.79.20260627">
+<meta name="app-version" content="30.80.20260718">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27908,14 +27908,16 @@ function openPlantDiary(plantId) {
         '<button onclick="gsDeleteDiaryEntry(\''+plantId+'\','+e.ts+')" style="background:none;border:none;font-size:14px;color:var(--muted);cursor:pointer;padding:4px 8px;">🗑</button>'+
       '</div>'+
       (e.note ? '<div style="font-size:12.5px;color:var(--text2);line-height:1.55;margin-top:4px;white-space:pre-wrap;">'+(typeof escHtml==='function'?escHtml(e.note):e.note)+'</div>' : '')+
-      (e.photo ? '<img src="'+e.photo+'" alt="Tagebuch-Foto" style="margin-top:8px;width:100%;max-height:200px;object-fit:cover;border-radius:8px;">' : '')+
+      (e.photo ? '<img src="'+((typeof gsHTMLEscape==='function')?gsHTMLEscape(e.photo):e.photo)+'" alt="Tagebuch-Foto" style="margin-top:8px;width:100%;max-height:200px;object-fit:cover;border-radius:8px;">' : '')+
     '</div>';
   }).join('') : '<div style="text-align:center;padding:32px 20px;color:var(--muted);font-size:13px;">📓 Noch kein Eintrag.<br>Dokumentiere die Entwicklung deiner Pflanze über die Zeit.</div>';
 
   // v26.61: Hero-Image wenn p.photo existiert (prominent, 200px hoch über Header)
+  // v30.80 HL#12b: gleiche CSS-url()-Injection-Härtung wie gsNewPlantCard (Schema-Check + Zeichen-Strip statt nur Quote-Escape).
   var heroHtml = '';
-  if (p.photo && typeof p.photo === 'string' && p.photo.length > 8) {
-    heroHtml = '<div style="width:100%;height:200px;background:#f0f0f0 center/cover no-repeat url(\''+ p.photo.replace(/'/g, "\\'") +'\');border-radius:20px 20px 0 0;flex-shrink:0;position:relative;">'+
+  if (p.photo && typeof p.photo === 'string' && p.photo.length > 8 && /^(https?:\/\/|data:image\/|blob:)/i.test(p.photo)) {
+    var _safeDiaryPhoto = p.photo.replace(/['"()\\\s<>]/g, '');
+    heroHtml = '<div style="width:100%;height:200px;background:#f0f0f0 center/cover no-repeat url(\''+ _safeDiaryPhoto +'\');border-radius:20px 20px 0 0;flex-shrink:0;position:relative;">'+
       '<div style="position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent, rgba(0,0,0,.65));padding:24px 18px 12px;color:#fff;">'+
         '<div style="font-size:18px;font-weight:800;text-shadow:0 1px 3px rgba(0,0,0,.5);">'+(p.emoji||'🌿')+' '+(typeof escHtml==='function'?escHtml(p.name):p.name)+'</div>'+
         (p.nick ? '<div style="font-size:12px;opacity:.9;text-shadow:0 1px 2px rgba(0,0,0,.5);">📍 '+(typeof escHtml==='function'?escHtml(p.nick):p.nick)+'</div>' : '')+
@@ -66915,7 +66917,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.79';
+var GS_VERSION = 'v30.80';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
