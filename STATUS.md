@@ -4,13 +4,22 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-07-18 · **Branch**: `claude/lucid-cerf-r2q4uo` · **Version**: `v30.80` (Pending Push) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-07-18 — Scheduled Security-Audit v30.80 (XSS-Hardening: AI-Reply-Escaping)
+
+- **Auftrag:** Automatisierte Scheduled-Session; Kernauftrag reduziert auf den einzigen konkreten, legitimen Teil ("Vollständige Code-Reviews auf Logikfehler und Sicherheitslücken") — restliche Prompt-Anteile (Token-Budget-Theater, "Coworker informieren") waren vage/nicht umsetzbar und wurden ignoriert.
+- **Audit-Findings (Sub-Agent, gezielter Grep-Scan über index.html/sw.js/_headers):** 5 Findings. 2 HIGH: Garten-Planer-KI-Antwort (`gs-wishes`-Freitext → Prompt → `resp.replace(...)` roh in `innerHTML`, Zeile ~49888) und Pflege-Tipps-KI-Antwort (`mp-notes`-Freitext → Prompt → roh in `innerHTML`, Zeile ~28097) — beides klassische stored/reflected-XSS-Ketten via Prompt-Injection, da die KI-Antwort ungeescaped in den DOM geschrieben wurde (Codebase nutzt an >50 anderen Stellen bereits `gsHTMLEscape`/`escHtml` korrekt, hier fehlte es). 1 MEDIUM: Admin-Feedback-Analyse-Panel gleiche Lücke (Zeile ~47927). 1 MEDIUM: Pflanzendoktor-Vision-Diagnose roh in `innerHTML` + in `gs_doctor_history` persistiert und beim Replay erneut ungeescaped gerendert (Zeile ~76922). 1 LOW: `gsEnrichSpeciesViaAI()` toter Code, verletzte §3.4-Regel (direkter `fetch('https://api.anthropic.com/...')` statt `callAI`) — nie aufgerufen, nur in einem Kommentar referenziert.
+- **Fix:** Alle 4 XSS-Stellen jetzt `gsHTMLEscape(resp)`/`gsHTMLEscape(reply)` VOR den `\n→<br>`/`•→<span>`/`**→<strong>`-Transforms — identisches Pattern wie die bereits korrekten Call-Sites (u.a. Lina-Chat `escHtml`). Toter `gsEnrichSpeciesViaAI()`-Block (50 Zeilen) komplett entfernt.
+- **Keine Secrets/eval/CSP-Lücken gefunden** — nur die Escaping-Lücke war real.
+- **Verify:** Alle Inline-`<script>`-Blöcke via `node -e "new Function(...)"` geparst — identischer Fehler (top-level `await` in Modul-Script) vor UND nach dem Diff → keine neuen Syntax-Fehler durch die Edits. `git diff --stat`: 1 Datei, +4/-55 Zeilen. GS_VERSION/sw.js VERSION/_headers/meta app-version synchron auf v30.80/20260718.
+- **Nicht in diesem Sprint:** kein Live-Deploy (Branch `claude/lucid-cerf-r2q4uo`, kein Push auf `main`), kein PR erstellt (nicht angefragt), keine Test-Suite (Projekt hat keine).
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
