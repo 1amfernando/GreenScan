@@ -8,6 +8,17 @@
 
 ---
 
+### 2026-07-21 — v30.80 Security-Audit (Stored-XSS Community-Feed + CSP-Hardening)
+
+- **Auftrag:** Proaktiver Security-Audit (Scheduled Task, kein externes Briefing). Bounded Scope: Hardcoded-Secrets-Scan, innerHTML-Sampling, direkte Anthropic-fetch-Calls, CSP-Review.
+- **Fund 1 (Medium, gefixt):** `renderSocialFeed()` — `p.type||p.category` unescaped in `title`-Attribut interpoliert (index.html:31227), während alle Sibling-Felder in derselben Funktion (`author_name`, `author_avatar`, `content`) bereits `escHtml()`-gewrappt sind (inkl. vorherigem P0-Fix für `author_avatar`). RLS auf `social_posts` schützt nur `user_id`, nicht Content-Shape → authentifizierter User könnte via direktem REST-Insert `category` mit `"` breaken und Markup in den Feed aller Viewer injecten. Fix: `escHtml()` ergänzt.
+- **Fund 2 (Medium, gefixt):** `_headers` CSP `script-src` enthielt `'unsafe-eval'` ohne Grund — Repo-weiter Scan (`eval(`, `new Function(`) ergab 0 Treffer in index.html/sw.js. Directive entfernt, `'unsafe-inline'` bleibt (Monolith-Inline-Scripts).
+- **Fund 3 (Low, nicht gefixt — dead code):** `gsEnrichSpeciesViaAI()` (index.html:26139) macht direkten `fetch('https://api.anthropic.com/...')` statt über `callAI()` (§3.4-Verstoss) und liest den API-Key aus dem deprecateten `gs_anthropic_key`. Keine Call-Sites gefunden → unreachable, kein akuter Fix, kann bei Gelegenheit entfernt werden.
+- **Verify:** 9/9 Inline-Scripts node --check OK · GS_VERSION=v30.80 · sw.js gs-v30.80 · _headers v30.80 · meta=30.80.20260721.
+- **Naechste:** Fund 3 (dead code) bei Gelegenheit entfernen.
+
+---
+
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
