@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.79.20260627">
+<meta name="app-version" content="30.80.20260721">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14958,7 +14958,7 @@ function gsCheckWaterNeeded() {
       '<div style="flex:1;"><div style="font-size:13px;font-weight:800;">' +
         needy.length + ' Pflanze' + (needy.length>1?'n':'') + ' giessen!' +
       '</div><div style="font-size:11px;opacity:.8;">' +
-        needy.map(function(p){return p.name||p.nick||p.emoji||'🌿';}).slice(0,3).join(', ') +
+        needy.map(function(p){return (typeof gsHTMLEscape==='function'?gsHTMLEscape:String)(p.name||p.nick||p.emoji||'🌿');}).slice(0,3).join(', ') +
       '</div></div>' +
       '<button onclick="document.getElementById(\'garden-water-banner\').style.display=\'none\'" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;">✕</button>';
   } else {
@@ -66915,7 +66915,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.79';
+var GS_VERSION = 'v30.80';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -69656,9 +69656,10 @@ function gsRegisterServiceWorker() {
     plants.forEach(function(p){
       var hay = (p.name || '') + ' ' + (p.lat || '') + ' ' + (p.fam || '');
       var s = fuzzyScore(q, hay);
+      var _esc = (typeof gsHTMLEscape==='function') ? gsHTMLEscape : String;
       if (s > 30) hits.push({
-        type:'plant', label:(p.emoji || '🌿') + ' ' + (p.name || 'Pflanze'),
-        sub:(p.nick ? p.nick : '') + (p.lat ? (p.nick ? ' · ' : '') + p.lat : ''),
+        type:'plant', label:(p.emoji || '🌿') + ' ' + _esc(p.name || 'Pflanze'),
+        sub:_esc((p.nick ? p.nick : '') + (p.lat ? (p.nick ? ' · ' : '') + p.lat : '')),
         score:s + 5, badge:'Mein Garten',
         // v24.41 BUGFIX: openDetail nimmt id (existiert bei L22211), openPlantDetail gibt's nicht.
         // Plant-IDs sind 'mp_<ts>'-prefixed — openDetail erwartet aber Species-ID.
@@ -69698,8 +69699,9 @@ function gsRegisterServiceWorker() {
     var box = document.getElementById('gs-univ-results');
     if (!box) return;
     if (!hits.length) {
+      var _escQ = (typeof gsHTMLEscape==='function') ? gsHTMLEscape : String;
       box.innerHTML = '<div style="padding:30px 14px;text-align:center;color:var(--muted);font-size:13px;">' +
-        (q ? 'Keine Treffer für „' + q + '"' : 'Tippe um zu suchen — Pflanzen, Wissen, Funktionen') + '</div>';
+        (q ? 'Keine Treffer für „' + _escQ(q) + '"' : 'Tippe um zu suchen — Pflanzen, Wissen, Funktionen') + '</div>';
       return;
     }
     box.innerHTML = hits.map(function(h, i){

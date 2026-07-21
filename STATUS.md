@@ -12,6 +12,20 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-07-21 — Proaktiver Sicherheits-Audit v30.80 (Scheduled-Session)
+
+- **Auftrag:** Scheduled Task ohne konkretes Briefing — sinngemäss interpretiert als "vollständiger Sicherheits-Audit" (CLAUDE.md §3.6). Hinweis: dieser Branch (`claude/lucid-cerf-ihwft9`) hatte keinen offenen PR/Issue-Kontext; Audit wurde eigenständig geplant.
+- **Supabase-Advisor (Projekt `vowbiueikwrauuceilhc`):** 0 ERROR (Security) · 140 WARN (fast alle `*_security_definer_function_executable`, by-design für Frontend-RPCs, siehe v26.51-Audit) · 5 INFO `rls_enabled_no_policy` (alles interne/Backend-only Tabellen: `book_ocr_pages`, `species_import_queue`, `species_search_cache`, `system_events`, `weather_forecast_cache` — fail-closed, unkritisch) · 1 WARN `auth_leaked_password_protection` (bekannt, Dashboard-Setting, wartet auf Fernando). Performance: 146 INFO `unused_index` (kein Handlungsbedarf), 1 INFO. Keine neuen kritischen Findings ggü. v26.51-Self-Audit.
+- **Frontend-XSS-Scan (index.html, ~82k Zeilen):** Gezielte Suche nach unescaped `.innerHTML =` an Stellen mit User-Content (Pflanzen-Name/-Notiz, Marktplatz, Chat, Kommentare, Suche). 3 echte Lücken gefunden und **gefixt** (alle via `gsHTMLEscape`, Pattern wie im Rest der Datei):
+  - `gsCheckWaterNeeded()` (~Z.14957): Giess-Erinnerungs-Banner rendert `p.name`/`p.nick` unescaped.
+  - Universelle Suche `performSearch()`/`renderResults()` (~Z.69657-69709): Plant-Hit `label`/`sub` aus `p.name`/`p.nick` unescaped (stored self-XSS) + "Keine Treffer für „q""-Meldung escaped die rohe Such-Eingabe nicht (reflected, aber nur self-triggered — kein URL-Query-Param-Vektor gefunden).
+  - Alle drei sind Self-XSS (nur eigene Daten, kein Cross-User-Vektor identifiziert — Pflanzen-Nick/-Name wird nirgends an andere User ausgespielt), aber verletzten die eigene §3.6-Konvention und wurden daher als Hygiene-Fix behandelt statt nur dokumentiert.
+  - Eine vierte, ähnliche Stelle (`diag-plant-sel` `<select>`-Befüllung, ~Z.30958) wurde geprüft und NICHT gefixt: Ziel ist ein `<select>`-Element, HTML-Parsing im "in select"-Insertion-Mode ignoriert fremde Start-Tags — praktisch nicht exploitbar, nur als Code-Hygiene-Notiz vermerkt.
+- **Kein Fund:** keine hardcoded Secrets/API-Keys (alle `sk-ant-`-Treffer sind Doku-Platzhalter oder Format-Validierung), kein direkter `fetch()` gegen `api.anthropic.com` ausserhalb der dokumentierten Ausnahme.
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · `GS_VERSION=v30.80` · `sw.js gs-v30.80` · `_headers v30.80` · `meta app-version=30.80.20260721` · Diff minimal (3 Stellen, je 1-2 Zeilen).
+- **Nicht gemacht (bewusst ausgelassen):** kein Broad-Refactoring, keine automatisierte Test-Generierung, keine Doku-Blueprints — Scope bewusst auf verifizierte, kleine Sicherheits-Fixes begrenzt statt spekulativer Grossaenderungen ohne Review.
+- **Naechste:** `main` ist inzwischen weit hinter diesem Feature-Branch-Stand (`main`@`b56915f`≈v23.85 laut §1-Tabelle oben, real vermutlich neuer — Tabelle in §1 ist veraltet und sollte bei Gelegenheit neu gezogen werden). STATUS.md-Kopfzeile (Stand/Version oben) ist ebenfalls seit v26.51 nicht mehr aktualisiert — measurement-gap, nicht Teil dieses Audits.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
