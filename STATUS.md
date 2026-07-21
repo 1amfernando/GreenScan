@@ -12,6 +12,16 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-07-21 — Scheduled Security-Audit (read-only, kein Fix gepusht)
+
+- **Auftrag:** Automatisierte Scheduled-Routine, Anweisung "vollständiger Code-Review auf Logikfehler/Sicherheitslücken". Reine Read-Only-Untersuchung, keine Code-Aenderung.
+- **⚠️ CRITICAL bestaetigt (bereits bekannt als `task_bb4fd480`, aber weiterhin LIVE in v30.79):** `gsPullGlobalApiKey()` (`index.html:23219`) laedt den admin-globalen Anthropic-Key per RPC direkt in `localStorage.gs_global_api_key`; `getApiConfig()`/`_gsAiTarget()` (`index.html:22892`, `23478-23489`) nutzen ihn fuer direkte Browser-Calls an `api.anthropic.com` (`anthropic-dangerous-direct-browser-access:true`). Jeder eingeloggte User kann den rohen `sk-ant-...`-Key aus localStorage/Network-Tab extrahieren → unlimitierte, unbezahlte Nutzung ausserhalb der App auf Kosten des Owners. Fix existiert bereits (Edge-Fn `ai-proxy`, JWT+Tier-Quota+Model-Whitelist, server-seitiger Key) aber `localStorage.gs_feat_aiproxy` defaulted `'1'`-AUS fuer alle User (Kommentar bei `index.html:23476`: "Flag DEFAULT AUS ... bis nach Preview-Test geflippt"). **Fernando-Entscheidung noetig:** Flag global auf an flippen (ggf. erst Preview-Test) — kein Code-Fix noetig, nur Flag-Flip + Verifikation.
+- **MEDIUM:** `ai_daily_usage` (Migration `v26_47_ai_daily_usage.sql:33-34`) hat RLS `for select to authenticated using (true)` — jeder eingeloggte User kann taegliche Anthropic-Kosten/Tokens per Edge-Fn direkt per REST lesen (Kommentar sagt "Frontend prueft Admin-Email client-side" — das ist keine echte RLS-Absicherung). Sollte auf Admin-Check in der Policy oder eine SECURITY DEFINER-Funktion umgestellt werden.
+- **HIGH:** `mushroom-identify` + `pest-identify` Edge-Fns haben (anders als `garden-scan-analyze`/`plant-doctor-diagnose`) keine App-Level Quota/Rate-Limit-Logik — nur der 8MB-Foto-Cap begrenzt Kosten pro Call.
+- **LOW:** Marketplace-Listing-Foto-URL bei `index.html:20885` wird unescaped in ein `img src`-Attribut interpoliert (aktuell nur Storage-generierte URLs, aber latente Attribut-Injection falls sich das je aendert).
+- **Kein Fund:** `eval`/`new Function`, hardcoded Secrets, `innerHTML` mit unescaped User-Input (667 Call-Sites gescannt), Cross-Provider raw fetches — alles sauber. Hinweis: CLAUDE.md §3.6 dokumentiert `gsSafeHTML`-Tagged-Template, das im Code **nicht existiert** (0 echte Usages) — tatsaechliche Konvention ist `gsHTMLEscape`/`esc()`/`ed()` Wrapper, wird konsequent genutzt. Doku ist veraltet, Escaping-Disziplin aber real.
+- **Naechste:** Fernando muss `gs_feat_aiproxy` global aktivieren (schliesst den kritischen Leak) · `ai_daily_usage` RLS auf echten Admin-Check umstellen · Rate-Limit fuer mushroom-identify/pest-identify ergaenzen.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
