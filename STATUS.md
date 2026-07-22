@@ -12,6 +12,15 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-07-22 — Scheduled-Audit v30.80 (Marketplace/Social-Feed Stored-XSS-Fix)
+
+- **Auftrag:** Automatisierte Scheduled-Routine ohne konkretes Briefing (generische "Ressourcen-Maximierung"-Formulierung). Als einzige konkrete, sicherheitsrelevante Anweisung daraus abgeleitet: Vollstaendiger Code-Review auf Logikfehler/Sicherheitsluecken (per CLAUDE.md §3.6 Konvention). Ein Punkt der Routine-Vorlage ("informiere alle Coworker") wurde bewusst NICHT ausgefuehrt — kein definierter/autorisierter Empfaenger-Mechanismus vorhanden.
+- **Audit-Findings (Sub-Agent, read-only):** Stored-XSS in `renderMarket()` (Z.20885) + `gsMarketShowDetail()` (Z.35846, Z.35849) — Marktplatz-`photo_urls` (geteilte Supabase-Daten, `v_marketplace_listings`) wurden ungeescaped in `<img src="...">` interpoliert; ein `"` im URL-String haette aus dem Attribut ausbrechen und beliebiges JS bei jedem Betrachter ausfuehren koennen. Gleiches Muster in `renderSocialFeed()` (Z.31227): `p.type`/`p.category` ungeescaped im `title="..."`-Attribut. Zusaetzlich dokumentiert (nicht gefixt, niedrigere Prio): `gsSafeHTML` aus CLAUDE.md §3.6 existiert im Code gar nicht (nur 1 toter `typeof`-Check) — reale Konvention ist `escHtml`/`gsHTMLEscape`; `gsEnrichSpeciesViaAI` (Z.26139) umgeht `callAI()`/ai-proxy mit direktem `fetch('api.anthropic.com')`; client-seitiges Admin-Flag (Z.76420) tot aber fragil (Var-Name-Mismatch).
+- **Fix (v30.80):** Alle 4 bestaetigten Stored-XSS-Stellen mit `escHtml()` gefixt (Marktplatz-Card-Thumbnail, Detail-Hauptbild, Detail-Thumbnail-Strip, Social-Feed-Kategorie-Title). Minimal-invasiv, gleiche Escaping-Funktion die im Rest der Datei bereits Standard ist.
+- **Verify:** `node -e "new Function(...)"` Syntax-Check aller 9 Inline-Script-Bloecke vor/nach Diff verglichen — keine neuen Fehler (1 vorbestehender False-Positive wegen top-level `await` in Function-Wrapper, kein echter Bug). GS_VERSION=v30.80 · sw.js gs-v30.80 · meta app-version=30.80.20260722.
+- **Nicht gefixt (niedrigere Prio, dokumentiert fuer naechste Session):** `gsSafeHTML`-Doku-Drift (CLAUDE.md §3.6 vs. Realitaet), `gsEnrichSpeciesViaAI` direkter Anthropic-Fetch, totes Admin-Flag-Var-Name-Mismatch (Z.76420 vs. Z.2024).
+- **Naechste:** Falls gewuenscht: `gsEnrichSpeciesViaAI` auf `callAI()` umstellen (schliesst Key-Cost-Leak-Luecke wieder), `gsSafeHTML` entweder implementieren oder CLAUDE.md §3.6 auf `escHtml`/`gsHTMLEscape` als reale Konvention korrigieren.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
