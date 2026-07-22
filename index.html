@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.79.20260627">
+<meta name="app-version" content="30.80.20260722">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26930,7 +26930,7 @@ function openDetail(id){
       // Favoriten-Button
       // KI-Fragen Button
       '<button onclick="gsAddSpeciesToGarden(\'' + id + '\')" style="width:100%;padding:11px;background:#e8f5e9;color:#1b5e20;border:1.5px solid var(--g-light);border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;"><span>🌱</span> <span>' + _t('btn_add_to_garden','Zu meinem Garten hinzufügen') + '</span></button>',
-      '<button onclick="openDetailChat(\''+id+'\',\''+escHtml(sp.name)+'\',\''+escHtml(sp.lat||'')+'\','+sp.tox+')" style="width:100%;padding:11px;background:var(--surface2);color:var(--g-dark);border:1px solid var(--g-light);border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px;"><span>🤖</span> <span>' + _t('ai_ask_pre','KI über') + ' '+escHtml(sp.name)+' ' + _t('ai_ask_post','befragen') + '</span></button>',
+      '<button onclick="openDetailChat(\''+id+'\',\''+_gsOcArg(sp.name)+'\',\''+_gsOcArg(sp.lat||'')+'\','+sp.tox+')" style="width:100%;padding:11px;background:var(--surface2);color:var(--g-dark);border:1px solid var(--g-light);border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px;"><span>🤖</span> <span>' + _t('ai_ask_pre','KI über') + ' '+escHtml(sp.name)+' ' + _t('ai_ask_post','befragen') + '</span></button>',
       // v28.25: Art zu Sammlung hinzufügen (Wrapper, nur ID im onclick = Hard-Lesson #12)
       '<button onclick="if(typeof gsAddSpeciesToCollection===\'function\')gsAddSpeciesToCollection(\''+id+'\')" style="width:100%;padding:11px;background:#ede7f6;color:#4527a0;border:1.5px solid #b39ddb;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;"><span>📁</span> <span>' + _t('btn_add_collection','Zu Sammlung hinzufügen') + '</span></button>',
       // Rezept-Link wenn vorhanden
@@ -26945,7 +26945,7 @@ function openDetail(id){
         return btns ? '<div style="display:flex;gap:6px;margin-bottom:6px;">' + btns + '</div>' : '';
       })(),
       '<div style="display:flex;gap:6px;">',
-        '<button onclick="gsShareSpecies(\''+escHtml(sp.name)+'\',\''+escHtml(sp.lat||'')+'\')" style="padding:11px 14px;background:var(--surface2);color:var(--g-dark);border:1px solid var(--border);border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;"><span style="font-size:15px;">↑</span>' + _t('btn_share','Teilen') + '</button>',
+        '<button onclick="gsShareSpecies(\''+_gsOcArg(sp.name)+'\',\''+_gsOcArg(sp.lat||'')+'\')" style="padding:11px 14px;background:var(--surface2);color:var(--g-dark);border:1px solid var(--border);border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;"><span style="font-size:15px;">↑</span>' + _t('btn_share','Teilen') + '</button>',
         '<button class="fav-btn'+(isFav?' added':'')+'" id="fav-btn" onclick="toggleFav(this.dataset.fid)" data-fid="'+id+'" style="flex:1;">',
           isFav?_t('fav_remove','⭐ Entfernen'):_t('fav_add','☆ Favorit'),
         '</button>',
@@ -66915,7 +66915,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.79';
+var GS_VERSION = 'v30.80';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

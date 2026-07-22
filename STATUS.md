@@ -12,6 +12,16 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-07-22 — Proaktiver Self-Audit v30.80 (Stored-XSS Fix bei Art-Detail-Buttons)
+
+- **Auftrag:** Scheduled-Task ohne konkretes Briefing ("Deep-Scan des Projekts"). Interpretiert als proaktiver Security-Audit analog v26.51-Konvention (§5 Multi-Agent-Sync: Befund hier dokumentieren statt externe Broadcasts).
+- **Audit-Scope:** innerHTML/XSS-Grep, alert()-Grep, raw-fetch-Grep, Hardcoded-Secret-Grep über index.html (read-only Subagent-Pass).
+- **Fund (Medium, gefixt):** `escHtml()` (index.html:27429) escaped kein `'` (nur `& < > "`), wurde aber an 2 Stellen benutzt um `sp.name`/`sp.lat` in **einfach-gequotete** `onclick`-JS-String-Args einzubetten — Art-Name mit Apostroph bricht aus dem String aus und injiziert Skript. Betroffen: Detail-Modal-Buttons `openDetailChat(...)` (index.html:26933) und `gsShareSpecies(...)` (index.html:26948). Risiko war erhöht, weil `sp`-Records laut Commit-History (v30.66 „nicht-verifizierte Community-Arten", v30.73 „Jeder Scan liefert vollen Steckbrief") inzwischen auch aus KI-Scan-Output/Community-Merges stammen können, nicht nur Admin-kuratiert.
+- **Fix:** Beide Stellen von `escHtml(...)` auf das bereits im Code etablierte `_gsOcArg(...)` (window._gsOcArg, definiert index.html:27424 — escaped Backslash/Quote/Single-Quote korrekt für Onclick-Args, siehe Hard-Lesson #12) umgestellt. Sichtbarer Text (`_t('ai_ask_pre',...) + escHtml(sp.name)`) unverändert gelassen, da reiner HTML-Text-Content kein Quote-Escape braucht.
+- **Weitere Funde (nicht gefixt, geringes/kein Risiko):** `gsEnrichSpeciesViaAI()` (index.html:26162) macht raw `fetch('https://api.anthropic.com/...')` statt über `callAI()` zu gehen (CLAUDE.md §3.4-Verstoss) — aber **dead code**, 0 Call-Sites, kein aktives Risiko. `gsSafeHTML`-Helper aus CLAUDE.md §3.6 existiert im Code nirgends (nur ein defensiver `window.gsSafeHTML &&`-Check) — Doku ist aspirational, Ist-Zustand nutzt konsistent `escHtml`/`gsHTMLEscape`/`gsEscHtml`/`_gsOcArg` je nach Kontext. Keine hardcoded Secrets gefunden.
+- **Verify:** 8/8 relevante Inline-Scripts `new Function()`-Parse OK (9. Block ist `<script type="module">` mit legitimem top-level `await import` — kein `node --check`-kompatibles Target, vorbestehend unverändert) · GS_VERSION=v30.80 · sw.js gs-v30.80 · _headers v30.80 · meta=30.80.20260722.
+- **Naechste:** `escHtml` vs `gsHTMLEscape` vs `gsEscHtml` vs `_gsOcArg` konsolidieren (4 Escape-Helper parallel ist Verwechslungsgefahr) · CLAUDE.md §3.6 `gsSafeHTML`-Referenz entweder implementieren oder aus der Doku entfernen · `gsEnrichSpeciesViaAI` entweder anbinden (über callAI) oder als totes Feature entfernen.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
