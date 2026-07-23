@@ -4,13 +4,25 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-07-23 · **Branch**: `claude/lucid-cerf-az6r2a` · **Version**: `v30.80` (Pending Push) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-07-23 — Scheduled Self-Audit v30.80 (2× XSS gefixt, gsSafeHTML-Diskrepanz gefunden)
+
+- **Auftrag:** Automatisierte Routine — Deep-Scan des Frontends auf Logikfehler/Sicherheitslücken (kein explizites User-Briefing).
+- **Audit-Scope:** Alle 667 `.innerHTML =`-Sites in `index.html` gegrept, ~107 mit Variablen-Interpolation manuell auf Escaping-Herkunft getraced.
+- **2 echte XSS-Lücken gefunden + gefixt:**
+  - `gsDoctorRun()` (index.html ~76973): KI-Vision-Antwort (`callVisionAI`) landete **ungeschätzt** in `innerHTML` — UND wurde unescaped in `localStorage.gs_doctor_history` + Cloud-Sync (`gsCloudSync.markDirty`) persistiert → geräteübergreifend persistente Injection möglich, falls das Modell (oder ein Prompt-Injection-Versuch über das fotografierte Bild) rohes HTML zurückgibt. Fix: `escHtml(reply)` vor der `\n→<br>`/`**→<strong>`-Transformation.
+  - `gsPPcapturePhoto()` (index.html ~50183): `r.description`/`r.confidence` aus KI-Vision-JSON (Flächenschätzung) ebenfalls ungeschätzt in `innerHTML`. Fix: beide Felder durch `escHtml()`.
+- **Wichtige Diskrepanz dokumentiert:** `gsSafeHTML` (CLAUDE.md §3.6 als Pflicht-Helper für neue innerHTML-Sites dokumentiert) **existiert nicht im Code** — nur ein toter `window.gsSafeHTML && ...`-Check (immer false). Der tatsächlich verwendete Escaper ist `escHtml()` (Zeile 27424), an ~90% der interpolierten Sites korrekt im Einsatz. CLAUDE.md sollte bei Gelegenheit auf `escHtml()` korrigiert werden, oder `gsSafeHTML` muss real implementiert werden — bis dahin: **`escHtml()` benutzen**, nicht `gsSafeHTML`.
+- **Sonstige Findings (nicht kritisch):** `gsShowQuickActions()` (Zeile 16981) hat unescaped `name`-Interpolation, ist aber **dead code** (kein Call-Site) — bei Gelegenheit fixen oder entfernen. Buch-Upload-Progress (Zeile ~80573) zeigt unescaped `file.name`, aber nur dem hochladenden User selbst (Self-XSS, vernachlässigbar).
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · GS_VERSION=v30.80 · sw.js gs-v30.80 · _headers v30.80 · meta=30.80.20260723. Keine hardcoded Secrets gefunden (Grep auf `sk-ant-`/API-Key-Patterns — nur UI-Platzhaltertexte).
+- **Naechste:** `gsSafeHTML` real implementieren ODER CLAUDE.md §3.6 auf `escHtml()` umschreiben · dead-code `gsShowQuickActions` entfernen · Buch-Upload-Progress escapen (niedrige Prio).
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
