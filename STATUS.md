@@ -4,13 +4,25 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-05-24 (Sprint-Log) / 2026-07-23 (Audit-Eintrag oben) · **Branch**: `main` (HEAD `v30.79`) · **Version**: `v26.51` (Sprint-Log stale, siehe Audit-Hinweis oben) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-07-23 — Scheduled Read-Only Security-Audit (index.html gegen CLAUDE.md §3.4/§3.6)
+
+- **Hinweis:** Diese Datei war zuletzt am 2026-05-24 (v26.51) aktualisiert, Repo-HEAD ist inzwischen bei `v30.79` (`0266bff`). Kein Backfill der Luecke versucht (out of scope für diesen Audit) — Folge-Session sollte die History-Luecke schliessen.
+- **Auftrag:** Automatisierter Scheduled-Task, read-only Audit gegen 5 konkrete CLAUDE.md-Regeln (hardcoded Secrets, `gsSafeHTML` bei innerHTML, `callAI`/`callVisionAI`-only für Anthropic-Calls, CSP-Zustand, localStorage-Rotation). Kein Code geändert.
+- **Findings (niedrige Severity, keine aktive Vuln):**
+  - `_gsKeyHealthWalker` (`index.html:60843`) macht raw `fetch('https://api.anthropic.com/...')` und wird von 3 Stellen ausserhalb `gsTestApiKey()` aufgerufen (`gsPPTestConnection` L51371, Admin-Wrapper L60890, `gsGlobalKeyTestInput` L61087) — alle 4 Call-Sites sind reine Key-Validierung (kein Inference), verstossen aber wörtlich gegen die "nur in gsTestApiKey"-Regel. Zwei parallele Direct-Fetch-Pfade für Key-Tests statt einem.
+  - `gsEnrichSpeciesViaAI` (`index.html:26139-26162`) liest Key aus non-canonical `localStorage.gs_anthropic_key`/`anthropic_key` statt `getApiConfig()` und macht eigenen raw fetch — aber keine Caller gefunden, laut Kommentar bewusst toter Code (superseded). Sollte bei Gelegenheit geloescht werden.
+  - `gsSafeHTML` (CLAUDE.md §3.6 als Pflicht-Helper dokumentiert) ist im Code **nirgends definiert** — nur 1 defensiver Usage (`index.html:74650`, `if (window.gsSafeHTML && ...)`) mit sicherem Fallback. Doku ist aspirational/stale; keine aktive Vuln, da der einzige Call-Site sicher degradiert.
+- **False positives (geprüft, unauffällig):** keine hardcoded Secrets (`sk-ant-`-Treffer sind alles Prefix-Validierung); ~15 innerHTML-Sites mit User-Input (Lina-Chat, Social-Feed, Display-Names, Suche) sind über `escHtml()`/`gsHTMLEscape()`/Inline-Regex escaped (funktional äquivalent zu `gsSafeHTML`, nur nicht das dokumentierte Tagged-Template); alle rotations-kritischen localStorage-Listen (`gs_scan_history`, `gs_ernte_log`, `gs_proposal_queue`, `gs_doctor_history`) sind gecappt; globaler `QuotaExceededError`-Catch-Patch vorhanden.
+- **CSP-Zustand (`_headers`, nur reported):** aktiv, `script-src` enthält `'unsafe-inline' 'unsafe-eval'` + `unpkg.com`/`cdnjs.cloudflare.com`/`cdn.jsdelivr.net`; `connect-src` ist explizite Domain-Allowlist (nicht wildcarded).
+- **Naechste (optional, keine Prio):** `_gsKeyHealthWalker`-Fetches ggf. durch `callAI`/gemeinsame Helper-Funktion konsolidieren · toten `gsEnrichSpeciesViaAI`-Pfad entfernen · CLAUDE.md §3.6 entweder `gsSafeHTML` tatsächlich implementieren oder die bestehenden Escape-Helper als offizielle Alternative dokumentieren.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
