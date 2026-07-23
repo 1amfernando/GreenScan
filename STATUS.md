@@ -4,13 +4,30 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-07-23 · **Branch**: `main` · **Version**: `v30.80` · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+
+> ⚠️ Diese Datei war seit v26.51 (2026-05-24) nicht mehr aktualisiert worden,
+> obwohl main inzwischen bis v30.79 gelaufen ist (viele Sessions dazwischen
+> haben §5 „Nach dem Edit" nicht befolgt). Abschnitt 1 (Commit-Tabelle) und
+> ältere Sprint-Historie unten sind entsprechend nicht lückenlos — nur der
+> neue Eintrag ganz oben + der Versionsstand in der Kopfzeile sind aktuell
+> verifiziert.
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-07-23 — Scheduled Self-Audit v30.80 (XSS-Hardening im KI-Garten-Plan-Header)
+
+- **Auftrag:** Automatisierte Routine-Session (kein Live-User-Briefing) — proaktiver Security-/Logik-Audit des Gesamtprojekts.
+- **Audit-Scope:** Hardcoded Secrets, direkte `fetch()`-Calls gegen `api.anthropic.com` ausserhalb `callAI`/`callVisionAI`, `innerHTML`-XSS-Sinks, `alert()`/`confirm()` in User-Flows, `eval`/`new Function`, RLS/Migrations, CSP in `_headers`.
+- **Fund + Fix:** `gsBuildGardenScanResultPreview` (Modal-Header, ~Zeile 55256) interpolierte `sa.size_m2`/`sa.shape`/`sa.light.level` — Felder aus der Claude-JSON-Antwort von `garden-scan-analyze` — unescaped in `innerHTML`, waehrend die Schwesterfunktion `gsBuildPlanOverview` dieselben Analyse-Daten bereits ueber `_gsPlanEsc()` escaped. Enum-Constraint fuer `shape`/`light.level` ist nur Prompt-seitig, nicht serverseitig validiert → theoretisches Prompt-Injection-→-Stored-HTML-Risiko bei manipuliertem Scan-Foto. Fix: alle 3 Felder jetzt durch `_gsPlanEsc()` (bestehender Helper, gleiche Datei, per Hoisting sicher aufrufbar vor Deklaration).
+- **Weitere Findings (kein Fix noetig):** CSP (`_headers`) erlaubt weiterhin `unsafe-eval` + 3 CDN-Origins (unpkg/cdnjs/jsdelivr) — bestehende, bewusste Altlast, keine Regression; Architektur-Entscheidung fuer eine andere Session/Fernando, nicht in diesem Scope geaendert. Toter Direkt-`fetch`-Call gegen `api.anthropic.com` in `gsEnrichSpeciesViaAI` (Zeile ~26139) ist unreachable Legacy-Code — Hygiene-Kandidat, kein Sicherheitsrisiko, nicht in diesem Take entfernt. Alte `USING (true)`-Policy auf `app_settings` in `v28_18_consolidate_permissive_policies.sql` ist durch spaetere Migrationen (`v28_98_p0_app_settings_secret_leak.sql`, `v29_perf_consolidate_permissive_policies.sql`) bereits ueberschrieben — kein Live-Risiko.
+- **Sonst clean:** keine Hardcoded-Keys, keine strayen Anthropic-fetch-Calls in aktiven Pfaden, `eval`/`new Function` = 0 Treffer, `document.write` nur mit bereits escapetem Print/PDF-HTML, verbleibende `alert()/confirm()` sind dokumentierte Fallback-Zweige.
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · GS_VERSION=v30.80 · sw.js gs-v30.80 · _headers v30.80 · meta=30.80.20260723.
+- **Naechste:** Optional — toten Anthropic-fetch-Call in `gsEnrichSpeciesViaAI` entfernen · CSP-CDN-Allowlist auf tatsaechlich genutzte Origins pruefen (Leaflet/pdf.js) · STATUS.md-Pflege zwischen v26.51 und v30.79 nachtragen falls jemand Zeit hat.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
