@@ -12,6 +12,14 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-07-23 — Scheduled Security-Audit (read-only, kein Fix gepusht) — Re-Bestätigung task_bb4fd480
+
+- **Auftrag:** Automatisierte Scheduled-Routine ("vollständiger Code-Review auf Logikfehler/Sicherheitslücken"). Reine Read-Only-Untersuchung, keine Code-Änderung. Baut auf Befund von 2026-07-21 (Branch `claude/lucid-cerf-2yldel`, dort nie gemerged) auf.
+- **⚠️ CRITICAL weiterhin LIVE in v30.79 (main, `0266bff`):** `gsPullGlobalApiKey()` (`index.html:23221`) schreibt den rohen admin-globalen Anthropic-Key (`sk-ant-...`) in `localStorage.gs_global_api_key`. `_gsAiTarget()` (`index.html:23478-23489`) nutzt ihn weiterhin für direkte Browser-Calls an `api.anthropic.com` mit `anthropic-dangerous-direct-browser-access:true`, weil `localStorage.getItem('gs_feat_aiproxy') === '1'` **nirgends im Code auf `'1'` gesetzt wird** (verifiziert: einziger Treffer für `gs_feat_aiproxy` ist der Read-Check selbst) → Flag ist für 100% der User AUS. Jeder eingeloggte User kann den Key aus localStorage/Network-Tab extrahieren → unlimitierte, unbezahlte Nutzung außerhalb der App auf Kosten des Owners.
+- **Fix existiert bereits, ist aber nicht aktiv:** Edge-Fn `ai-proxy` ist im Repo vorhanden und deployed (`supabase/functions/ai-proxy/`), hält den Key server-seitig + erzwingt JWT+Tier-Quota+Model-Whitelist. Es fehlt nur der Flag-Flip (`gs_feat_aiproxy` default auf `'1'`) + kurzer Preview-Verify — kein weiterer Code-Fix nötig.
+- **Befund seit 2 Tagen offen, Ursache vermutlich fehlende Sichtbarkeit:** Die 2026-07-21-Analyse landete auf einem eigenen Scheduled-Branch, der nie in `main`/PR gemergt wurde → Fernando hat den Fund wahrscheinlich nie gesehen. Push-Notification zu diesem Fund wurde jetzt separat verschickt.
+- **Naechste:** Fernando muss `gs_feat_aiproxy`-Default auf `'1'` setzen (ggf. erst Preview-Test) — der aktive Key-Leak läuft, bis das passiert.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
