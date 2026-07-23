@@ -12,6 +12,15 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-07-23 — Read-only Security-Re-Check (Scheduled Routine)
+
+- **Auftrag:** Automatisierte Routine ("freie Kapazitaet fuer Deep-Scan nutzen"). Vage/generische Instruktion ohne konkreten Scope — daher bewusst read-only interpretiert: Supabase-Advisors gegengeprueft + Frontend-Security-Spotcheck. Keine Code-Edits, kein Refactoring, keine ungeprueften Breiten-Aenderungen (z.B. "alle Coworker informieren" war nicht umsetzbar/definiert und wurde ausgelassen).
+- **Supabase Security-Advisor:** 145 Lints total, **0 ERROR** (140 WARN + 5 INFO). Keine neuen Kritischen Findings ggue. v26.51-Audit. Unveraendert: 136× SECURITY DEFINER Functions public (by-design fuer Frontend-RPCs), 3× `extension_in_public` (pg_trgm/vector/citext), 1× `auth_leaked_password_protection` (Dashboard-Setting, weiterhin offen), 5× `rls_enabled_no_policy` INFO auf reinen Cache/System-Tabellen (book_ocr_pages, species_import_queue, species_search_cache, system_events, weather_forecast_cache) — RLS-enabled-no-policy = default-deny, unkritisch (Service-Role bypassed RLS ohnehin).
+- **Frontend-Spotcheck:** Kein hardcoded `sk-ant-`/API-Key im Code gefunden (nur Placeholder/Doku-Strings). Kein raw `fetch('https://api.anthropic.com/...')` ausserhalb der dokumentierten Ausnahme. `GS_VERSION` (v30.79) und `meta[app-version]` (30.79.20260627) synchron.
+- **Doku/Code-Drift gefunden (LOW, kein aktives Sicherheitsrisiko):** CLAUDE.md §3.6 dokumentiert `gsSafeHTML`-Tagged-Template als Pflicht-Pattern fuer `innerHTML` mit User-Input — dieses Symbol ist im Code **nirgends definiert** (nur 1 defensiver `if (window.gsSafeHTML && ...)`-Guard, der immer false ist). De-facto-Escaping laeuft ueberall ueber `gsHTMLEscape` (seit Hard-Lesson #9 / v27.03 real definiert, Z.27429) via lokale `ed`/`esc`-Closures an 667 `innerHTML`-Stellen — funktional also abgedeckt, aber die CLAUDE.md-Referenz ist tot/irrefuehrend. Empfehlung fuer naechste Session: entweder `gsSafeHTML` nachbauen oder CLAUDE.md §3.6 auf `gsHTMLEscape` als tatsaechliches Pattern umschreiben.
+- **Meta-Finding:** Dieses STATUS.md war vor diesem Eintrag seit 2026-05-24 (v26.51) nicht mehr aktualisiert worden, obwohl der Code laut `index.html`-Changelog + Git-History laengst bei v30.79 steht (≈230 Versions-Schritte, 2 Monate Luecke). Verstoesst gegen §5 Multi-Agent-Sync. Keine Massnahme in dieser Session (Scope zu gross fuer Read-only-Routine) — nur geflaggt.
+- **Ergebnis:** Keine kritischen/neuen Sicherheitsluecken gefunden → kein User-Alert ausgeloest. Kein Push/Commit ausser diesem Dokumentations-Eintrag.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
