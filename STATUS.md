@@ -4,13 +4,25 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-07-24 · **Branch**: `main` · **Version**: `v30.79` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-07-24 — Automatisierter Health-Check (Scheduled Session)
+
+- **Auftrag:** Automatisch getriggerte Scheduled-Session mit unklarem/generischem Prompt (keine konkreten Task-Details, buzzword-lastig). Statt der vagen Anweisung wörtlich zu folgen, stattdessen den in `CODE_ROUTINE_MASTER.md` definierten Daily/Weekly-Health-Check-Ansatz gefahren (Live-Version, Code-Audit, Supabase-Advisors, Edge-Fn-Status).
+- **Health:** ✅ Live GS_VERSION (v30.79) == Repo/meta-Version. ✅ Alle 37 Edge-Functions ACTIVE, keine ERRORED. ✅ 9/9 Inline-Scripts `node --check` clean. ✅ 0 TODO/FIXME/XXX/HACK.
+- **Supabase Security-Advisors:** 0 ERROR (keine Regression seit v26.51-Hardening im Mai), 140 WARN (alle in bekannten by-design-Kategorien: SECURITY DEFINER RPCs, extensions_in_public, leaked_password_protection). 5 INFO `rls_enabled_no_policy` auf `book_ocr_pages`, `species_import_queue`, `species_search_cache`, `system_events`, `weather_forecast_cache` — deny-all, kein Leak, aber bitte bei Gelegenheit bestätigen dass diese bewusst service-role-only sind.
+- **Kleinere Doku-Drift-Findings (nicht kritisch):**
+  - `gsSafeHTML` (in `CLAUDE.md` §3.6 als Pflicht-Helper für innerHTML+User-Input dokumentiert) ist im Code **nirgends definiert** — nur 1 defensiver `if (window.gsSafeHTML...)`-Check in `_gsWxEsc` mit eigenem sicherem Escape-Fallback. Kein akutes Sicherheitsrisiko (Fallback escaped korrekt), aber CLAUDE.md beschreibt ein Pattern, das faktisch nicht existiert (ähnlich der bereits dokumentierten gsBrain-Situation in §4).
+  - `CODE_ROUTINE_MASTER.md` Health-Check-SQL referenziert `analytics_events.event_type`, Spalte existiert nicht mehr (Schema-Drift, Query schlägt fehl).
+  - `stripe_webhook_events` hat 0 Zeilen total (kein Webhook je empfangen) — konsistent mit den wiederholt in STATUS.md vermerkten offenen Punkten "Stripe Live-Mode-Switch (Fernando)"/"Stripe-Dashboard Connect aktivieren", also erwartet, nicht neu.
+- **Keine Code-Änderungen noetig** — reiner Health-Check, alles im grünen Bereich. `alert()`-Nutzung weiter gesunken (62 im Mai → 15 heute).
+- **Followup:** RLS-no-policy-Tabellen bei Gelegenheit bestätigen · `analytics_events`-Query in `CODE_ROUTINE_MASTER.md` an aktuelles Schema anpassen · gsSafeHTML entweder implementieren oder Referenz aus CLAUDE.md §3.6 entfernen.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
