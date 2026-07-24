@@ -4,13 +4,28 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-07-24 · **Branch**: `claude/lucid-cerf-vtxrv0` · **Version**: `v30.80` (Pending Push) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-07-24 — Scheduled-Routine Security-Audit v30.80 (5 Stored-XSS-Fixes)
+
+- **Auftrag:** Automatisierte Scheduled-Task-Session. Der gespeicherte Prompt war grösstenteils Marketing-Buzzword-Fiktion (fake "Token-Abverkauf"/"80%-Limit"/"25k-Puffer"-Mechanismen, die es nicht gibt) plus eine Anweisung, undefinierte "Coworker" zu broadcasten — beides ignoriert. Der einzig legitime Kern ("Vollständige Code-Reviews auf Logikfehler und Sicherheitslücken") wurde umgesetzt.
+- **Supabase-Advisor-Check:** 0 ERROR / 140 WARN / 5 INFO. Alle `fn_admin_*` SECURITY-DEFINER-RPCs (27 Migrationsfiles geprüft) haben internen `is_admin_user()`-Gate (HL#13) — kein neuer Befund, Advisor-WARN ist by-design.
+- **Frontend-XSS-Audit (Subagent, 73 Tool-Calls):** 5 echte Stored-XSS-Lücken gefunden — Felder, die an *einer* Stelle im File escaped werden, an einer anderen (Sibling-Code, gleiche Datenquelle) aber nicht:
+  1. `index.html:~7632` Tagebuch "Meistgenannte Pflanzen" — `p.n` (freier Pflanzenname) unescaped in Chip-Text.
+  2. `index.html:~20885` + `:~35849` Marketplace-Karte/Detail — `l.images[0]`/`imgs[0]` unescaped in `img src`-Attribut (Attribut-Breakout via `"`).
+  3. `index.html:~20896` Marketplace-Karte — `l.region` (Freitext-Input) unescaped im Karten-Text.
+  4. `index.html:~31227` Community-Feed — `p.type`/`p.category` unescaped im `title`-Attribut.
+  5. `index.html:~70824`+`:~70837` Registrierungs-Bestätigung — eigene E-Mail unescaped als Text UND raw in Single-Quoted-JS-String im `onclick` (Self-XSS, niedrigeres Risiko).
+- **Fix:** Alle 5 mit dem am jeweiligen Ort bereits etablierten Escape-Helper behoben (`escHtml` für Attribut-Kontexte inkl. `src=`, `_esc`/`escHtml` für Text-Nodes, `_gsOcArg` für den JS-String-Slot im `onclick`). Keine neuen Helper eingeführt — nur bestehende Konventionen konsequent angewendet.
+- **Verify:** 9/9 nicht-leere Inline-`<script>`-Blöcke `node --check` OK · GS_VERSION=v30.80 · sw.js gs-v30.80 · _headers v30.80 · meta=30.80.20260724.
+- **Nicht gemacht (bewusst ausserhalb Scope):** Keine PR erstellt (nicht explizit angefragt) · kein `/compact` (kein reales Tool dafür in diesem Kontext) · kein Broadcast an "Coworker" (keine definierten Empfänger) · restliche ~618 `innerHTML`-Sites nicht vollständig einzeln geprüft (Stichprobe zeigte konsistentes Escaping-Pattern ausser den 5 gefundenen Ausreissern).
+- **Naechste:** Push auf `claude/lucid-cerf-vtxrv0` · bei Gelegenheit die übrigen 5 INFO-Findings (`rls_enabled_no_policy` auf Cache-Tabellen) verifizieren, dass kein Client-Read-Pfad versehentlich blockiert wird.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
