@@ -4,13 +4,22 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-07-25 · **Branch**: `main` · **Version**: `v30.80` · **Hinweis**: Dieses File wurde zwischen 2026-05-24 und 2026-07-25 von parallelen Sessions nicht durchgehend aktualisiert (Code lief v26.51→v30.79 ohne STATUS.md-Einträge) — History unten hat eine Lücke.
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-07-25 — Self-Audit v30.80 (Marketplace-Bild-XSS gefixt)
+
+- **Auftrag:** Automatisierte Routine-Session, proaktiver Security-Scan ohne externes Briefing (kein offener Diff/PR vorhanden — Branch war identisch zu `main`).
+- **Audit-Scope:** Grep-Sweep über `index.html` (innerHTML-Sinks, hardcoded Secrets, `fetch()` zu api.anthropic.com außerhalb `gsTestApiKey`, `eval()`, `alert()`-Regressionen) + `sw.js` + `_headers`.
+- **Fix (v30.80):** Marktplatz-Bild-`src` wurde an 3 Stellen (`renderMarket` Card-Thumbnail, `gsMarketShowDetail` Hauptbild + Galerie-Thumbnails) ungeschützt aus `l.images`/`imgs` (fremde User-Daten) in ein HTML-Attribut interpoliert — Stored-XSS-Risiko analog zum bereits gefixten Community-Foto-Feld (`.replace(/"/g,'&quot;')`, siehe v29.09-Fix bei `photo_url`). Gleiche Escaping-Methode jetzt konsistent auf alle 3 Marketplace-Bild-Sites angewendet.
+- **Nicht gefixt (dokumentiert, kein Push-Blocker):** `gsEnrichSpeciesViaAI()` (~Zeile 26139) ist toter Code der `fetch()` direkt gegen Anthropic aufruft statt über `callAI` — verstößt gegen CLAUDE.md §3.4, aber unreferenziert/nicht aufrufbar. Kandidat für spätere Hygiene-Entfernung (wie gsBrain-No-Ops, §4). `_gsKeyHealthWalker()` macht ebenfalls einen direkten Ping-Fetch außerhalb `gsTestApiKey` — funktional äquivalent (Key-Health-Check, kein Content), technisch aber außerhalb des dokumentierten Allowlist-Musters.
+- **Verify:** 9/9 inline-scripts `node --check` OK · `sw.js` OK · GS_VERSION=v30.80 · meta=30.80.20260725 · `_headers` v30.80. Keine Migration nötig (reiner Frontend-Fix).
+- **Naechste:** `gsEnrichSpeciesViaAI` toten Code entfernen · Inkonsistente `err.message`-Escaping-Stellen (mehrere `innerHTML`-Sites lassen `escHtml()` auf Error-Messages weg) in einem Folge-Sweep angleichen.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
