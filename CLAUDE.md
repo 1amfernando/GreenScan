@@ -81,15 +81,23 @@ GreenScan/
   pack ihn hinter einen Server-Proxy.
 - **CSP** ist aktiv (siehe `_headers`). Wenn du externe URLs einbaust,
   Allowlist erweitern. Inline-Scripts sind erlaubt, weil Monolith.
-- **innerHTML mit User-Input**: ab v24.02 nutze `gsSafeHTML`-Tagged-Template
-  (auto-escape):
+- **innerHTML mit User-Input**: nutze `gsHTMLEscape(s)` (definiert einmal,
+  global, `window.gsHTMLEscape`) auf jedem interpolierten Wert:
   ```js
-  el.innerHTML = gsSafeHTML`<div>${userName} sagt: ${msg}</div>`;
+  el.innerHTML = '<div>' + gsHTMLEscape(userName) + ' sagt: ' + gsHTMLEscape(msg) + '</div>';
   ```
-  Helpers: `gsSafeHTML.escape(s)`, `.attr(s)`, `.url(s)` (nur https/http/
-  mailto/relative), `.unsafe(html)` (bypass für bereits-escapte Sub-
-  Templates). `gsHTMLEscape` als Kurz-Alias. Für reine Text-Inserts
-  weiterhin `textContent` bevorzugen.
+  Die meisten Render-Funktionen definieren sich lokal einen kurzen
+  `esc`/`ed`/`escHtml`-Wrapper, der auf `gsHTMLEscape` zurückfällt — folge
+  diesem Pattern in neuem Code. Für reine Text-Inserts weiterhin
+  `textContent` bevorzugen.
+  > Korrektur (2026-07-25 Self-Audit): Die vorherige Version dieses
+  > Abschnitts dokumentierte ein `gsSafeHTML`-Tagged-Template, das **nie
+  > implementiert wurde** — es gab nur einen toten `typeof`-Check an einer
+  > Stelle, der immer auf den Regex-Fallback zurückfiel. Kein Codepfad war
+  > dadurch unescaped (der reale `gsHTMLEscape`-Pfad lief überall korrekt),
+  > aber jeder Agent, der dem Doku-Beispiel gefolgt wäre, hätte einen
+  > `TypeError` produziert. Dieser Abschnitt beschreibt jetzt das tatsächlich
+  > existierende Pattern.
 - **localStorage für Auth**: bewusst akzeptiert, weil mit CSP
   `frame-ancestors 'none'` + `strict-origin-when-cross-origin` Risiko klein
   ist. JWT-Migration in HttpOnly-Cookies ist Roadmap-Punkt P2.

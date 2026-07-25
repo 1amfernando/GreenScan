@@ -4,13 +4,23 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-07-25 · **Branch**: `claude/lucid-cerf-xywbpg` (main auf `v30.79`) · **Version**: `v30.80` (pending push)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-07-25 — v30.80 Self-Audit (Scheduled Routine): Doku-Drift + 1 totes Dead-Code-Fundstück behoben
+
+- **Auftrag:** Scheduled/automatisierte Routine ("proaktive Ressourcen-Maximierung"). Die im Prompt beschriebenen Punkte (Token-Budget-Selbststeuerung, Puffer-Reservierung, Broadcast an "alle Coworker") sind mit den vorhandenen Tools nicht sinnvoll/sicher umsetzbar (kein Ziel-System, keine Autorisierung für Broadcasts) und wurden nicht ausgeführt. Stattdessen: bounded Security-Self-Audit nach CLAUDE.md §3.6-Konvention (Präzedenzfall: 2026-05-24 (c) Self-Audit-Sprint), read-only Sub-Agent-Scan von `index.html`/`sw.js`/`_headers`.
+- **Audit-Ergebnis:** Keine hardcodierten Secrets, keine unescaped `innerHTML`-Sites mit User-Input, kein `eval`/`Function`/riskantes `document.write`. 2 reale Findings, beide behoben:
+  1. **Doku/Code-Drift:** CLAUDE.md §3.6 dokumentierte ein `gsSafeHTML`-Tagged-Template, das **nie implementiert wurde** (nur ein toter `typeof`-Check an einer Stelle, `_gsWxEsc`, der immer auf Regex-Fallback zurückfiel — kein realer Escaping-Bug, da der tatsächlich verwendete `gsHTMLEscape`-Pfad überall korrekt lief). §3.6 jetzt auf das reale Pattern korrigiert; `_gsWxEsc` vereinfacht (ruft jetzt direkt `gsHTMLEscape`).
+  2. **Totes, konventionswidriges Code-Fundstück:** `gsEnrichSpeciesViaAI()` (ehemals ~L26139) machte einen direkten `fetch('https://api.anthropic.com/...')` mit Key aus veralteten localStorage-Keys (`gs_anthropic_key`/`anthropic_key`), bypassed `callAI()` komplett (keine Persona, kein Usage-Logging, keine Quota) — verstiess gegen §3.4. Bestätigt unreachable (0 Call-Sites, nur eine Kommentar-Erwähnung an der ehemaligen Insert-Stelle). Ersatzlos entfernt.
+- **Verify:** `node --check` auf allen 9 extrahierten Inline-Script-Blöcken OK · GS_VERSION=v30.80 · sw.js gs-v30.80 · _headers v30.80 · meta app-version=30.80.20260725.
+- **Nicht ausgeführt (bewusst):** keine Nachrichten an "Coworker" verschickt, kein Token-Budget-Auto-Throttling — beides ausserhalb des Werkzeug-/Autorisierungs-Rahmens dieser Session.
+
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
