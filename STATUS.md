@@ -12,6 +12,14 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-07-25 — Scheduled Security-Audit (read-only, kein Fix gepusht) — 3. Re-Bestätigung desselben Befunds
+
+- **Auftrag:** Automatisierte Scheduled-Routine ("vollständiger Code-Review auf Sicherheitslücken"). Reine Read-Only-Verifikation gegen aktuellen `main` (`0266bff`, v30.79) — baut auf den Befunden vom 2026-07-21 (Branch `claude/lucid-cerf-2yldel`, nie gemerged) und der Re-Bestätigung vom 2026-07-23 (`claude/lucid-cerf-...`, ebenfalls nie gemerged) auf. Dies ist die dritte Bestätigung desselben offenen Findings.
+- **⚠️ CRITICAL weiterhin LIVE:** `gsPullGlobalApiKey()` (`index.html:23221`) schreibt den rohen admin-globalen Anthropic-Key in `localStorage.gs_global_api_key`. `_gsAiTarget()` (`index.html:23480`) nutzt den Proxy nur, wenn `localStorage.gs_feat_aiproxy === '1'` — verifiziert per grep: dieser Wert wird **nirgends im Code gesetzt** (einziger Treffer im gesamten Repo ist der Read-Check selbst), also ist das Flag für 100% der User dauerhaft AUS. Jeder eingeloggte User kann den Key aus `localStorage`/Network-Tab extrahieren → unlimitierte, unbezahlte Nutzung auf Kosten des Owners.
+- **Fix existiert weiterhin unverändert im Repo:** Edge-Fn `ai-proxy` (`supabase/functions/ai-proxy/`) hält den Key server-seitig + erzwingt JWT+Tier-Quota+Model-Whitelist. Es fehlt nur der Flag-Flip (`gs_feat_aiproxy` default `'1'`) + kurzer Preview-Verify.
+- **Befund jetzt seit 4 Tagen offen über 3 Scheduled-Sessions hinweg, weil alle 3 Fund-Branches nie in `main` gemerged wurden** → Fernando hat den Fund vermutlich nie in einem PR/Diff gesehen, nur (laut Vorgänger-Commits) separate Push-Notifications. Push-Notification zu diesem erneuten Fund wird jetzt nochmal verschickt.
+- **Naechste:** `gs_feat_aiproxy`-Default auf `'1'` setzen (kurzer Preview-Test reicht) — der aktive Key-Leak läuft weiter, bis das passiert. Diese Session hat bewusst **keine** Code-Änderung gepusht, um nicht unautorisiert das AI-Call-Routing für alle User in Produktion umzuschalten — das sollte Fernando bewusst freigeben.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
