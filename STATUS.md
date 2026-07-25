@@ -4,13 +4,25 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-07-25 · **Branch**: `claude/lucid-cerf-ubcnrv` · **Version**: `v30.80` · **Hinweis**: Dieses File war seit v26.51-Eintrag (2026-05-24) nicht mehr aktualisiert worden, obwohl Code/Commits bis v30.79 fortgeschritten sind (§5-Konvention nicht durchgängig befolgt) — History-Lücke v26.52–v30.79 nicht rekonstruiert, nur neuer Eintrag ergänzt.
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-07-25 — v30.80 Security-Audit-Sprint (Scan-Chat-XSS-Fix)
+
+- **Auftrag:** Scheduled-Routine-Task forderte pauschale "Ressourcen-Maximierung" (Token-Budget-Theater, Auto-`/compact`, "informiere alle Coworker") ohne konkreten Scope — diese Teile ohne reale Entsprechung im Harness wurden ignoriert. Als einzig konkreter, legitimer Kern wurde daraus ein fokussierter Sicherheits-Review von `index.html` abgeleitet (deckt sich mit §3.6-Pflicht).
+- **Audit-Scope:** Gezielter Grep+Read-Review (nicht alle 670 `innerHTML`-Stellen) auf: ungeschütztes `innerHTML` mit User-/KI-Content, hardcodierte Secrets, direkte `fetch('https://api.anthropic.com...')` außerhalb `gsTestApiKey`, `eval`/`document.write`, Client-seitige Server-Decisions (§3.3).
+- **Fix v30.80 (dieser Commit):** `openScanChat`/`addScanChatMsg` (Scan-Chat-Init-Message) interpolierte `r.name`/`r.latin` (KI-Vision-Response-Felder) **ungeschützt** in `innerHTML` (isHtml=true-Pfad) — inkonsistent zu allen anderen Stellen im File, die dieselben Felder mit `esc()`/`escHtml()` behandeln. Exploit-Pfad: Prompt-Injection im Foto könnte Vision-Modell zu HTML-Payload in `name`/`latin` verleiten → Stored-XSS im Scan-Chat-Modal. Fix: neue lokale `_scanChatEsc()` (gleiches Fallback-Pattern wie Rest des Files) escaped beide Felder vor Interpolation. Verify: 9/9 Inline-Scripts `node --check` OK.
+- **Nicht in diesem Commit behoben — braucht Produkt-/Security-Entscheidung von Fernando, nicht autonom gefixt:**
+  - 🔴 **HIGH:** `fn_get_global_api_key`-RPC liefert den echten globalen Anthropic-Key im Klartext an jeden eingeloggten User (auch Free-Trial-Accounts) via `gsPullGlobalApiKey` (`index.html:23221`+). Tier-/Quota-Gating davor ist rein `localStorage`-basiert (`gsIsPaid`/`gsAboCanUse`, `index.html:13064`+, `22892`+) und trivial per DevTools umgehbar (`localStorage.setItem('gs_abo_plan','lifetime')`). Verstößt gegen die eigene §3.3-Regel ("User-Plan/Tier NICHT auf localStorage für Server-Decisions vertrauen"). Ohne aktivierten AI-Proxy-Flag (`gs_feat_aiproxy`) geht der Key direkt im Browser-Network-Tab sichtbar an `api.anthropic.com` raus — extrahierbar und außerhalb der App nutzbar.
+  - 🟠 **MEDIUM:** `sendScanChat` (`index.html:25787`+) und `gsEnrichSpeciesViaAI` (`index.html:26139`+, vermutlich Dead-Code — kein aktiver Call-Site mehr gefunden) umgehen `callAI()` komplett (§3.4-Verstoß) und damit auch jedes Quota-Tracking — `sendScanChat` ist live und hat **keinerlei** Call-Cap.
+  - Empfehlung: Quota/Tier serverseitig (RPC/Edge-Fn) statt Client prüfen, `fn_get_global_api_key`-Zugriff auf tatsächlich berechtigte Tier-Stufen serverseitig einschränken oder ganz auf AI-Proxy (`gs_feat_aiproxy`) umstellen, `sendScanChat`/`gsEnrichSpeciesViaAI` auf `callAI()` migrieren oder entfernen.
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · GS_VERSION=v30.80 · sw.js gs-v30.80 · _headers v30.80 · meta=30.80.20260725.
+- **Naechste:** Fernando-Entscheidung zu HIGH-Finding (API-Key-Distribution-Architektur) abwarten, dann Migration/RPC-Hardening + `sendScanChat`/`gsEnrichSpeciesViaAI`-Migration auf `callAI()`.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
