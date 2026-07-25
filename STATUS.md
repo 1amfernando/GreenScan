@@ -561,7 +561,7 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
 | ID | Severity | Wo | Beschreibung | ROADMAP |
 |---|---|---|---|---|
 | B1 | HIGH | `index.html` ~31 KB JWT-Storage | Auth-Token in localStorage. Mit CSP entschärft, aber XSS-Hijack theoretisch möglich. | P2: HttpOnly-Cookies |
-| B2 | MEDIUM | `index.html` 299× innerHTML | `gsSafeHTML`-Helper steht ab v24.02 bereit. Migration iterativ pro Modul (eigene Mini-Sprints) | P2: safeHTML-Migration (Helper ✓, Code-Migration pending) |
+| B2 | MEDIUM | `index.html` 677× innerHTML | Korrektur (2026-07-25): `gsSafeHTML` (Tagged-Template) ist entgegen CLAUDE.md §3.6 **nirgends definiert** — nur 1 defensiver `window.gsSafeHTML`-Check (Z. 74650, fällt safe zurück). Reale Absicherung läuft über `window.gsHTMLEscape` (Z. 27429, definiert + in ~59 Call-Sites genutzt). Kein akuter Crash-Risk, da alle Stellen defensiv auf `typeof` prüfen — aber CLAUDE.md-Anleitung ist irreführend, falls jemand `gsSafeHTML\`...\`` tatsächlich aufruft (würde ReferenceError werfen). | P2: entweder `gsSafeHTML`-Helper nachbauen ODER CLAUDE.md/STATUS.md auf `gsHTMLEscape` als tatsächlichen Standard korrigieren |
 | ~~B3~~ | ~~MEDIUM~~ | ~~`localStorage` Quota~~ | ~~`safeSetItem` schluckt Quota-Errors still~~ | **erledigt v23.89** (Auto-Rotation) |
 | ~~B5~~ | ~~LOW~~ | ~~`book-ingest`~~ | **falsch eingestuft v24.11**: ist ein Admin-Feature mit `admin-only-row`-Class (Z. 4401), nicht Dead-Code. Auch im Search-Index (Z. 31802). Keine Aktion nötig. |
 | ~~B6~~ | ~~LOW~~ | ~~PLANT_DB inline 4.5 MB~~ | | **erledigt v24.03** (extrahiert in `data/plants.v1.js`, immutable-cached) |
