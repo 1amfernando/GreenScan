@@ -12,6 +12,14 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-07-25 (b) — Scheduled Security-Audit (read-only, kein Fix gepusht) — 4. Re-Bestätigung desselben Befunds
+
+- **Auftrag:** Automatisierte Scheduled-Routine. Reine Read-Only-Verifikation gegen aktuellen `main` (`0266bff`, v30.79) — vierte unabhängige Bestätigung nach 2026-07-21 (`claude/lucid-cerf-2yldel`), 2026-07-23 (`claude/lucid-cerf-hb0ckz`) und 2026-07-25 vormittags (`claude/lucid-cerf-1pl7bc`). Alle drei Vorgänger-Branches wurden nie in `main` gemerged — der Befund ist unverändert offen.
+- **⚠️ CRITICAL weiterhin LIVE (task_bb4fd480):** `gsPullGlobalApiKey()` (`index.html:23221`) legt den rohen admin-globalen Anthropic-Key in `localStorage.gs_global_api_key` ab und wird direkt an api.anthropic.com gesendet. `_gsAiTarget()` (`index.html:23478`) würde stattdessen über die bereits deployte Edge-Fn `ai-proxy` routen, aber nur wenn `localStorage.gs_feat_aiproxy === '1'` — per grep über den gesamten Repo bestätigt: dieser Wert wird **nirgends gesetzt**, nur an dieser einen Stelle gelesen. Flag ist für 100% der User dauerhaft AUS. Jeder eingeloggte User kann den globalen Key aus localStorage/Network-Tab extrahieren → unlimitierte, unbezahlte Anthropic-Nutzung auf Kosten des Owners.
+- **Fix liegt weiterhin fertig im Repo, ungenutzt:** `supabase/functions/ai-proxy/index.ts` hält den Key server-seitig, erzwingt JWT + Tier-Quota + Modell-Whitelist. Laut `sw.js`-Changelog (v30.37/v30.38) sind bereits ALLE User-KI-Pfade (callAI/callVisionAI/sendScanChat) proxy-fähig verdrahtet — es fehlt nur noch: (1) kurzer Preview-Test mit Flag `'1'`, (2) `gs_feat_aiproxy` Default auf `'1'` setzen, (3) `fn_get_global_api_key` so anpassen, dass der Roh-Key gar nicht mehr an den Browser geht.
+- **Befund jetzt seit 4 Tagen über 4 Scheduled-Sessions unverändert offen, weil keiner der 4 Fund-Branches gemerged wurde.** Diese Session hat wie die Vorgänger bewusst **keinen** Code-Fix gepusht (Flag-Flip ändert Produktions-KI-Routing für alle User — das braucht Fernandos bewusstes Go, kein automatisches Umschalten). Push-Notification wird erneut verschickt.
+- **Naechste:** Fernando entscheidet über den Flag-Flip (`gs_feat_aiproxy` Default `'1'`) + kurzen Preview-Verify — danach ist der Kosten-Leak geschlossen.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
