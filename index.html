@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.79.20260627">
+<meta name="app-version" content="30.80.20260725">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27427,6 +27427,11 @@ function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&l
 // immer den Fallback. Jetzt definiert (voller Escaper inkl. Single-Quote) → konsistentes Escaping.
 window._gsOcArg = function(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/"/g,'&quot;').replace(/'/g,"\\'"); };  // v30.13 HL#12: sicheres Onclick-Arg-Escape (Backslash, "->&quot;, '->\')
 window.gsHTMLEscape = function(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+// v30.80 Hard-Lesson: AI-Antworten (callAI/callVisionAI) wurden roh per .replace(/\n/g,'<br>') in innerHTML
+// gerendert — ohne HTML-Escaping. Da Prompts User-Notizen einbetten und Vision-Calls User-Fotos verarbeiten
+// (Prompt-Injection-Vektor), konnte KI-Output theoretisch HTML/Script injizieren. gsAiHtml() escaped IMMER
+// zuerst, wandelt danach nur noch \n und **bold** in Markup um — sicher gegen injizierte Tags.
+window.gsAiHtml = function(s){ return escHtml(s).replace(/\n/g,'<br>').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>'); };
 
 function togglePlantCard(id){
   const expand = document.getElementById('expand-' + id);
@@ -28145,7 +28150,7 @@ async function aiAnalyzePlant(plantId){
   try {
     const resp = await callAI([{role:'user', content:prompt}], '', 400);
     resultEl.innerHTML = resp
-      ? resp.replace(/\n/g,'<br>').replace(/•/g,'<span style="color:var(--g-main);font-weight:800">•</span>')
+      ? gsAiHtml(resp).replace(/•/g,'<span style="color:var(--g-main);font-weight:800">•</span>')
       : '❌ Keine Antwort erhalten.';
   } catch(e) {
     resultEl.textContent = '❌ Fehler: ' + e.message;
@@ -47975,8 +47980,7 @@ async function runKiImprove(){
       result.innerHTML =
         '<strong style="color:var(--g-dark)">📊 '+scored.length+' Feedbacks bewertet:</strong>'+
         badgesHtml +
-        resp.replace(/\n/g,'<br>')
-            .replace(/• /g,'<span style="color:var(--g-main);font-weight:800">• </span>');
+        gsAiHtml(resp).replace(/• /g,'<span style="color:var(--g-main);font-weight:800">• </span>');
       result.style.display = 'block';
       status.textContent = '✅ Analyse abgeschlossen';
       const analyses = (typeof safeGetItem==='function') ? safeGetItem('gs_ki_analyses', []) : [];
@@ -49889,7 +49893,7 @@ Format: Kurze, klare Bullet-Points mit •. Auf Deutsch. Max 200 Wörter.`;
         '<div style="background:var(--card);border-radius:12px;padding:14px;box-shadow:var(--shadow-sm);">' +
           '<div style="font-size:13px;font-weight:800;color:var(--g-dark);margin-bottom:8px;">🌿 KI-Bepflanzungsplan</div>' +
           '<div style="font-size:13px;color:var(--text2);line-height:1.7;">' +
-            resp.replace(/\n/g,'<br>').replace(/•\s?/g,'<span style="color:var(--g-main);font-weight:800">• </span>') +
+            gsAiHtml(resp).replace(/•\s?/g,'<span style="color:var(--g-main);font-weight:800">• </span>') +
           '</div>' +
           '<button onclick="saveGardenFromAI(this.previousSibling.textContent)" style="margin-top:10px;width:100%;padding:10px;background:#e8f5e9;border:1.5px solid var(--g-light);border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;">💾 Plan speichern &amp; Garten erstellen</button>' +
         '</div>';
@@ -66915,7 +66919,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.79';
+var GS_VERSION = 'v30.80';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -76931,7 +76935,9 @@ function gsOpenPlantDoctor(){
       history.slice().reverse().slice(0,5).map(function(h){
         return '<details style="background:var(--card);border-radius:10px;padding:8px 11px;margin-bottom:6px;border-left:3px solid #ef5350;">' +
           '<summary style="cursor:pointer;font-size:12.5px;color:var(--text);font-weight:700;">' + escHtml(h.date||'') + ' · ' + escHtml((h.summary||'Diagnose').slice(0,60)) + '</summary>' +
-          '<div style="margin-top:6px;font-size:12px;color:var(--text2);line-height:1.55;">' + (h.html||'').replace(/<script[^>]*>[\s\S]*?<\/script>/gi,'') + '</div>' +
+          // v30.80: raw-Text (falls vorhanden) wird beim Replay frisch escaped statt dem alten
+          // gespeicherten HTML zu vertrauen — der alte <script>-Strip-Regex fing kein onerror=/onload=/svg.
+          '<div style="margin-top:6px;font-size:12px;color:var(--text2);line-height:1.55;">' + (h.raw ? gsAiHtml(h.raw) : (h.html||'').replace(/<script[^>]*>[\s\S]*?<\/script>/gi,'')) + '</div>' +
           '</details>';
       }).join('') +
       '<button onclick="gsDoctorClearHistory()" style="margin-top:6px;width:100%;padding:8px;background:none;border:1px solid var(--border);border-radius:8px;font-size:11.5px;color:var(--muted);cursor:pointer;font-family:inherit;">🗑️ Historie löschen</button>' +
@@ -76970,13 +76976,15 @@ async function gsDoctorRun(file){
         // Jetzt über callVisionAI, das Provider-spezifisch korrekt rausrendert (image für Anthropic, image_url für NVIDIA).
         var prompt = 'Du bist Dr. phil. nat. Regina Bollinger — Phytopathologin am Agroscope Wädenswil, Expertin für Pflanzen-Krankheiten, Schädlingsbefall und Mangelerscheinungen im Schweizer Kontext. Diagnostiziere präzise anhand der sichtbaren Symptome auf dem Foto. Strukturiere die Antwort als:\n1. **Diagnose:** (1 Satz)\n2. **Wahrscheinliche Ursache:** (Krankheit/Schädling/Mangel + lat. Name wenn möglich)\n3. **Sofortmassnahmen:** (3 Bulletpoints)\n4. **Bio-Behandlung:** (Schweiz-geeignet, FiBL-konform)\n5. **Vorbeugung:** (kurz)\nWenn unsicher: sage es und nenne Alternativen.';
         var reply = await callVisionAI(b64, mt, prompt);
-        var replyHtml = (reply || 'Keine Antwort').replace(/\n/g,'<br>').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+        var replyHtml = gsAiHtml(reply || 'Keine Antwort');
         out.innerHTML = '<div style="padding:12px;background:#f1f8e9;border-radius:10px;">' + replyHtml + '</div>';
         // v23.58: In Historie speichern
         try {
           var hist = _gsNlSafeItems('gs_doctor_history');
           var firstLine = String(reply||'').split('\n').find(function(l){ return l.trim().length > 5; }) || 'Diagnose';
-          hist.push({ date: new Date().toISOString().slice(0,10), summary: firstLine.replace(/\*\*/g,'').slice(0,100), html: replyHtml, ts: Date.now() });
+          // v30.80: raw-Text zusätzlich speichern (statt nur pre-gerenderten HTML) — beim Replay wird
+          // damit IMMER frisch escaped statt einem alten, evtl. unsicheren gespeicherten HTML-Snapshot vertraut.
+          hist.push({ date: new Date().toISOString().slice(0,10), summary: firstLine.replace(/\*\*/g,'').slice(0,100), html: replyHtml, raw: String(reply||''), ts: Date.now() });
           if (hist.length > 50) hist = hist.slice(-50);
           localStorage.setItem('gs_doctor_history', JSON.stringify(hist));
           try { if (window.gsCloudSync && typeof gsCloudSync.markDirty==='function') gsCloudSync.markDirty('state'); } catch(_){} // v30.46: HL#32 cross-device

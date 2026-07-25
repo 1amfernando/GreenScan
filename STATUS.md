@@ -4,13 +4,29 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-07-25 · **Branch**: `claude/lucid-cerf-unlw3s` · **Version**: `v30.80` (gepusht, noch nicht auf main gemerged) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+
+> ⚠️ Diese "Stand"-Zeile war seit v26.51 (2026-05-24) nicht mehr aktualisiert worden, obwohl der
+> Code laut `GS_VERSION`/meta app-version längst bei v30.79 stand — die Routine-Einträge unten
+> in §0 sind also lückenhaft gegenüber dem tatsächlichen main-Stand. Nächste Session bitte
+> gegen `git log main` gegenchecken statt sich blind auf die letzte §0-Eintragsnummer zu verlassen.
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-07-25 — v30.80 Security-Fix: ungeschätzter KI-Output in innerHTML (Scheduled-Routine-Audit)
+
+- **Auftrag:** Automatisierte Scheduled-Routine mit vager "Ressourcen-Maximierung"-Anweisung (kein konkretes Briefing). Statt blind Tokens zu verbrennen oder undefinierte "Coworker" zu benachrichtigen, wurde daraus die einzig sinnvolle konkrete Aufgabe abgeleitet: ein echter, begrenzter Security-Audit gemäss CLAUDE.md §3.6, dokumentiert hier statt per Spam.
+- **Supabase-Advisor-Re-Check:** 0 ERROR (stabil seit v26.51-Fix), 140 WARN — alle in bereits akzeptierten Kategorien (120+16 SD-Functions-public, 3 extension_in_public, 1 auth_leaked_password_protection weiterhin offen — Dashboard-only, keine SQL-Fix-Möglichkeit). Neu bemerkt: 5 Tabellen mit RLS enabled aber ohne Policy (`book_ocr_pages`, `species_import_queue`, `species_search_cache`, `system_events`, `weather_forecast_cache`) — INFO-Level, fail-closed/ungefährlich, vermutlich service-role-only by-design, aber nicht explizit verifiziert.
+- **Frontend-Finding (NEU, MEDIUM, gefixt):** KI-Antworten aus `callAI`/`callVisionAI` wurden an 4 Stellen roh per `.replace(/\n/g,'<br>')` in `innerHTML` gerendert — **ohne HTML-Escaping**. Da Prompts User-Notizen einbetten (`aiAnalyzePlant`) und Vision-Calls User-Fotos verarbeiten (`gsDoctorRun` Pflanzendoktor — bekannter Prompt-Injection-Vektor bei Vision-Modellen), konnte KI-Output theoretisch HTML/Tags injizieren. Zusätzlich nutzte die Pflanzendoktor-Historie (`gsOpenPlantDoctor`, localStorage `gs_doctor_history`) beim Replay einen naiven Regex-Strip (`<script>...</script>`), der `onerror=`/`onload=`/SVG-Vektoren nicht abfängt.
+- **Fix:** Neuer globaler Helper `gsAiHtml(s)` (index.html ~27430) escaped IMMER zuerst via `escHtml`, dann erst `\n`→`<br>` und `**bold**`→`<strong>`. Angewendet an allen 4 Render-Stellen: `aiAnalyzePlant` (Z. 28147), `runKiImprove` Admin-Feedback-Triage (Z. 47980, niedrigeres Risiko da admin-only), KI-Bepflanzungsplan (Z. 49893), `gsDoctorRun` (Z. 76977). Pflanzendoktor-Historie speichert jetzt zusätzlich `raw`-Rohtext; Replay nutzt `gsAiHtml(h.raw)` statt dem alten Regex-Strip (Fallback auf altes Verhalten nur für Alt-Einträge ohne `raw`-Feld).
+- **Nicht angefasst (bewusst):** Die Haupt-KI-Chat-Fläche (Lina, `gsLinaRender` Z. 74014) nutzte bereits korrekt `escHtml(m.content)` — kein Fix nötig, verifiziert beim Audit. B1 (JWT localStorage) und B2 (299×→jetzt ~667× rohes innerHTML gesamt, meist mit korrektem `escHtml` an der jeweiligen Stelle) bleiben unverändert bekannte/getrackte Punkte, nicht Teil dieses Fixes.
+- **CLAUDE.md-Doku-Drift entdeckt:** §3.6 verlangt einen `gsSafeHTML`-Tagged-Template-Helper (`.escape`/`.attr`/`.url`/`.unsafe`) — dieser existiert **nicht im Code** (nur 1 toter `typeof`-Check, Z. 74650, der nie true wird). Tatsächlich genutzt werden `escHtml`/`gsHTMLEscape` (funktionieren korrekt, ~215+ Call-Sites). CLAUDE.md sollte entweder korrigiert oder der Helper tatsächlich gebaut werden — aktuell verspricht die Doku Tooling, das nicht existiert.
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · `manifest.json` valid · GS_VERSION=v30.80 · sw.js gs-v30.80 · _headers v30.80 · meta app-version=30.80.20260725.
+- **Nächste:** CLAUDE.md §3.6 gsSafeHTML-Diskrepanz klären · Dashboard-Setting `auth_leaked_password_protection` aktivieren (Owner-Aktion, nicht code-fixbar) · B2 innerHTML-Zahl in §4 auffrischen (299 ist veraltet).
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
