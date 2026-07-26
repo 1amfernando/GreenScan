@@ -4,9 +4,19 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-07-26 · **Branch**: `main` · **Version**: `v30.80` · **Hinweis**: Dieses File war seit v26.51 (2026-05-24) nicht mehr aktualisiert worden, obwohl main inzwischen bei v30.79 stand — die Einträge unten ab „2026-07-26" sind der erste Sync seither und lassen die Lücke dazwischen (v26.52–v30.79) unbeschrieben. Nachtrag/Vollständigkeit wäre ein separater Task.
 
 ---
+
+### 2026-07-26 — Proaktiver Audit-Sprint v30.80 (Scheduled Routine, Backend + Frontend Hygiene)
+
+- **Auftrag:** Automatisierte Scheduled-Task-Routine ("Proaktive Ressourcen-Maximierung") — vollständiger Security-/Logik-Review ohne externes Briefing, analog zu früheren Self-Audit-Sprints (siehe v26.51 oben).
+- **Backend-Check (Supabase Advisors):** 0 ERROR-Level Security-Lints (140 WARN + 5 INFO, alle bekannte/by-design Kategorien: 136× security_definer_function_executable public-by-design, 5× rls_enabled_no_policy auf reinen Service-Role-Tabellen — book_ocr_pages/species_import_queue/species_search_cache/system_events/weather_forecast_cache — fail-closed und unproblematisch, 3× extension_in_public, 1× auth_leaked_password_protection — Dashboard-Setting, weiterhin offen seit Mai). Keine neuen kritischen Findings.
+- **Frontend-Check:** Kein hardcoded API-Key gefunden. alert()-Nutzung 62→15 (weiter runter seit v26.51, guter Trend). Raw-fetch-Sweep auf `api.anthropic.com` zeigte 1 echten CLAUDE.md-§3.4-Verstoss: `gsEnrichSpeciesViaAI()` (Zeile ~26139) ging direkt per fetch an die Anthropic-API statt über `callAI()`, las den Key nur aus dem persönlichen `localStorage`-Key (kein Fallback auf globalen Admin-Key), und wurde **von keiner Stelle im Code mehr aufgerufen** (toter Code seit v30.31 — `gsProposeNewSpeciesFromScan` ruft sie laut eigenem Kommentar dort nicht mehr auf).
+- **Fix v30.80:** `gsEnrichSpeciesViaAI()` ersatzlos entfernt (unreachable + Architektur-Verstoss). Kein Verhaltensunterschied für User, da nie aufgerufen.
+- **Verify:** 9/9 inline `<script>`-Blöcke `node --check` OK · `sw.js` `node --check` OK · GS_VERSION=v30.80 · sw.js gs-v30.80 · _headers v30.80 · meta=30.80.20260726.
+- **Bekannter Rest-Punkt (nicht kritisch):** Dashboard-Setting "Leaked Password Protection" seit Mai offen (kein Code-Fix möglich, nur Supabase-Dashboard). `innerHTML`-Sweep zeigt weiterhin ~623 Call-Sites ohne `gsSafeHTML` (bekanntes, grosses Tech-Debt-Item seit v24.02-Einführung — zu gross für diesen Pass, keine akuten XSS-Funde dabei geprüft).
+- **Naechste:** STATUS.md-Lücke v26.52–v30.79 nachpflegen (separater Task) · innerHTML→gsSafeHTML-Migration schrittweise angehen.
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
