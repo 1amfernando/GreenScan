@@ -12,6 +12,15 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-07-27 — Self-Audit v30.80 (Security-Review index.html, kein neues Finding kritisch)
+
+- **Auftrag:** Scheduled Routine — Security-/Logik-Audit gegen `CLAUDE.md` §3.6-Konventionen (gsSafeHTML/Escaping, keine hardcoded Secrets, callAI/callVisionAI-Pflicht, kein raw fetch zu api.anthropic.com, localStorage-Auth-Wrapper).
+- **Audit-Scope:** ~670 `innerHTML`-Sites gescannt, gezielte Deep-Reads in Chat/Social/Marketplace/Auth-Pfaden. Ergebnis: Escaping-Disziplin durchgängig konsistent (`esc`/`ed`/`_gsCEsc`/`escHtml` → alle auf `gsHTMLEscape` zurückfallend). Keine hardcoded Secrets, kein `eval`/`new Function`, kein raw-fetch zu Anthropic außerhalb `gsTestApiKey()`, `gs_sb_token` durchgängig via `gsStore`-Wrapper.
+- **1 Fund (medium, aktuell nicht ausnutzbar):** `gsMarketShowDetail` (Marketplace-Detail-Galerie) interpolierte `imgs[0]`/`src` unescaped in `img src="..."`-Attribute, während derselbe Wert im `onclick`-Handler bereits korrekt über `_gsOcArg` escaped wurde. Aktuell nicht triggerbar, da `images`/`photo_urls` serverseitig aus Supabase-Storage-UUID-Pfaden stammen (keine attacker-controlled Zeichen) — trotzdem Defense-in-Depth-Lücke, jetzt behoben: beide `src`-Attribute nutzen jetzt `esc()` (lokaler `gsHTMLEscape`-Fallback), analog zum bestehenden Escaping-Pattern.
+- **Dokumentations-Hinweis (kein Fix nötig):** `CLAUDE.md` §3.6 dokumentiert `gsSafeHTML` als Tagged-Template — ist im Code nie definiert (nur defensiv referenziert, faellt immer auf Fallback zurück). Reale Konvention ist Funktions-basiertes Escaping (`gsHTMLEscape`/`escHtml`). Sollte bei Gelegenheit in CLAUDE.md korrigiert werden (analog zum bereits dokumentierten gsBrain-Mismatch in §4).
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · `GS_VERSION=v30.80` · `sw.js gs-v30.80` · `_headers v30.80` · `meta app-version=30.80.20260727`.
+- **Naechste:** CLAUDE.md §3.6 gsSafeHTML-Referenz auf reale `gsHTMLEscape`/`escHtml`-Konvention aktualisieren (Doku-only, kein funktionaler Task).
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
