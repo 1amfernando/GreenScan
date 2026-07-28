@@ -12,6 +12,19 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-07-28 — Scheduled Security-Audit v30.79 (Findings only, kein Code-Fix)
+
+- **Auftrag:** Automatisierter Scheduled-Task (kein Live-User), angefordert als "proaktiver Deep-Scan/Audit". Read-only Review — bewusst keine Code-Änderungen ohne Browser-Verifikation durch eine Session mit Live-User.
+- **Supabase-Advisor (Security):** 0 ERROR, 145 WARN/INFO. 136× SD-Functions public (by-design, wie seit v26.51 bekannt). **5× `rls_enabled_no_policy`** (NEU im Report, nicht in v26.51 erwähnt) — `book_ocr_pages`, `species_import_queue`, `species_search_cache`, `system_events`, `weather_forecast_cache` haben RLS an, aber 0 Policies (= aktuell für `authenticated`/`anon` komplett unlesbar/unschreibbar, nur Service-Role kommt durch RLS-Bypass ran). Falls das Backend-only-Tabellen sind, ist das OK (fail-closed); falls Frontend darauf lesen soll, fehlt eine Policy — **TODO: prüfen**. 3× `extension_in_public` (pg_trgm/vector/citext) + 1× `auth_leaked_password_protection` — beide bereits seit v26.51 akzeptiert/Dashboard-Setting.
+- **Frontend-Findings (NEU seit v26.51, nicht gefixt):**
+  1. **`gsSafeHTML` (CLAUDE.md §3.6 Pflicht-Helper) ist auf diesem Branch/`main` NICHT definiert.** Nur ein Guard `if(window.gsSafeHTML && …)` bei `index.html:74650`, fällt also immer auf den Fallback zurück. Ein Fix existiert bereits auf Sibling-Branch `claude/lucid-cerf-lc6cex` (Commit `92f509b`, "v30.80: gsSafeHTML nachgeliefert") — noch nicht in `main` gemerged.
+  2. **4 Stellen mit KI-Response direkt in `.innerHTML` ohne HTML-Escaping** (nur `\n`→`<br>`, `**`→`<strong>`, kein `<`-Escaping) — Prompt-Injection→Script-Injection-Risiko falls Claude je HTML-artigen Text echot: `index.html:28147` (`aiAnalyzePlant`, User-`notes` im Prompt), `47978` (Admin-Feedback-Triage, User-Feedback im Prompt), `49891` (KI-Garten-Plan, User-Wünsche im Prompt), `76972` (`gsDoctorRun`, zusätzlich unescaped in `gs_doctor_history` localStorage persistiert). Korrektes Muster (`escHtml()` vor `<br>`-Ersetzung) existiert bereits an anderen Stellen (u.a. 29896, 31130-31134, 10445, 10517) — nur nicht konsistent auf diese 4 angewendet.
+  3. `gsEnrichSpeciesViaAI()` (`26139-26187`): raw `fetch(api.anthropic.com)` statt `callAI()` — verstösst gegen §3.4, aber laut Kommentar seit v30.31 ohne Call-Sites mehr (Dead Code) → Hygiene-Cleanup, kein akutes Risiko.
+  4. `_gsKeyHealthWalker()` (`60843`) + 3 Caller (`51371`/`60890`/`61087`): weitere raw-fetch-zu-anthropic.com-Stellen ausserhalb `gsTestApiKey()`, Zweck ist Key-Validierung (Connection-Test-UI) — niedriges Risiko, aber technisch ausserhalb der dokumentierten Konvention.
+- **Bewusst nicht gefixt:** Automatisierter Run ohne Live-User zur Freigabe/zum Browser-Test; Änderungen an KI-Response-Rendering und ein Branch-Merge sollten vor Push verifiziert werden.
+- **Nächste Session:** `claude/lucid-cerf-lc6cex` (gsSafeHTML) nach `main` mergen · `escHtml()` an den 4 genannten Stellen nachziehen · Dead-Code `gsEnrichSpeciesViaAI` entfernen · `rls_enabled_no_policy` bei den 5 Tabellen klären (Service-Role-only bestätigen oder Policy ergänzen).
+- **Verify:** Nur `STATUS.md` geändert in diesem Lauf, kein `index.html`/Backend-Change. GS_VERSION unverändert `v30.79`.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
