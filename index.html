@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.79.20260627">
+<meta name="app-version" content="30.80.20260728">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -8206,7 +8206,7 @@ function openErnteTracking() {
       '</div>' +
       '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px;">' +
         '<div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);">Top-Pflanze</div>' +
-        '<div style="font-size:15px;font-weight:900;color:var(--text);margin-top:3px;">' + (stats.top[0] ? stats.top[0].emoji + ' ' + stats.top[0].name : '–') + '</div>' +
+        '<div style="font-size:15px;font-weight:900;color:var(--text);margin-top:3px;">' + (stats.top[0] ? stats.top[0].emoji + ' ' + escHtml(stats.top[0].name) : '–') + '</div>' +
         '<div style="font-size:11.5px;color:var(--muted);">' + (stats.top[0] ? stats.top[0].kg.toFixed(1) + ' kg' : '') + '</div>' +
       '</div>' +
       '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px;">' +
@@ -8270,7 +8270,7 @@ function openErnteTracking() {
         '<div style="font-size:12px;font-weight:900;color:var(--muted);width:22px;text-align:center;">' + (i+1) + '</div>' +
         '<span style="font-size:22px;">' + p.emoji + '</span>' +
         '<div style="flex:1;min-width:0;">' +
-          '<div style="font-size:13px;font-weight:700;color:var(--text);">' + p.name + '</div>' +
+          '<div style="font-size:13px;font-weight:700;color:var(--text);">' + escHtml(p.name) + '</div>' +
           '<div style="height:4px;background:var(--surface2);border-radius:2px;margin-top:3px;overflow:hidden;">' +
             '<div style="height:100%;width:' + barLen + '%;background:var(--g-main);border-radius:2px;"></div>' +
           '</div>' +
@@ -20882,7 +20882,7 @@ function renderMarket() {
     html += '<div class="mk-card" onclick="openListingDetail(\'' + l.id + '\')" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px;margin-bottom:8px;cursor:pointer;-webkit-tap-highlight-color:transparent;display:flex;gap:11px;' + cardDim + '">' +
       // Bild/Icon
       '<div style="width:64px;height:64px;background:var(--g-bg);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:34px;flex-shrink:0;overflow:hidden;">' +
-        (l.images && l.images[0] ? '<img src="' + l.images[0] + '" alt="" style="width:100%;height:100%;object-fit:cover;">' : catEmoji) +
+        (l.images && l.images[0] ? '<img src="' + escHtml(l.images[0]) + '" alt="" style="width:100%;height:100%;object-fit:cover;">' : catEmoji) +
       '</div>' +
       // Info
       '<div style="flex:1;min-width:0;">' +
@@ -30956,7 +30956,7 @@ function openDiagnosisCamera() {
   const sel = document.getElementById('diag-plant-sel');
   if (sel) {
     sel.innerHTML = '<option value="">Unbekannte Pflanze</option>' +
-      myPlants.map(p => '<option value="' + p.id + '">' + p.name + (p.nick ? ' – ' + p.nick : '') + '</option>').join('');
+      myPlants.map(p => '<option value="' + p.id + '">' + escHtml(p.name) + (p.nick ? ' – ' + escHtml(p.nick) : '') + '</option>').join('');
   }
   diagImageData = null;
   const runBtn = document.getElementById('diag-run-btn');
@@ -35843,10 +35843,10 @@ function gsMarketShowDetail(l) {
   // Bilder-Galerie (1 großes Bild + Thumbnails)
   var galleryHtml = imgs.length
     ? '<div style="margin:0 -16px 14px;">' +
-        '<img id="mklist-main-img" src="' + imgs[0] + '" alt="" style="width:100%;max-height:320px;object-fit:cover;background:var(--surface2);" loading="lazy">' +
+        '<img id="mklist-main-img" src="' + escHtml(imgs[0]) + '" alt="" style="width:100%;max-height:320px;object-fit:cover;background:var(--surface2);" loading="lazy">' +
         (imgs.length > 1 ? '<div style="display:flex;gap:6px;padding:8px 16px 0;overflow-x:auto;-webkit-overflow-scrolling:touch;">' +
           imgs.map(function(src, i){
-            return '<img onclick="document.getElementById(\'mklist-main-img\').src=\'' + _gsOcArg(src) + '\'" src="' + src + '" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:8px;cursor:pointer;flex-shrink:0;border:2px solid ' + (i===0?'var(--g-main)':'transparent') + ';" loading="lazy">';
+            return '<img onclick="document.getElementById(\'mklist-main-img\').src=\'' + _gsOcArg(src) + '\'" src="' + escHtml(src) + '" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:8px;cursor:pointer;flex-shrink:0;border:2px solid ' + (i===0?'var(--g-main)':'transparent') + ';" loading="lazy">';
           }).join('') +
         '</div>' : '') +
       '</div>'
@@ -66915,7 +66915,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.79';
+var GS_VERSION = 'v30.80';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

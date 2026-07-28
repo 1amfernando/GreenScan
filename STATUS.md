@@ -12,6 +12,18 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-07-28 — Scheduled-Audit v30.80 (Stored-XSS-Fixes, gezielter innerHTML-Scan)
+
+- **Auftrag:** Automatisierte Scheduled-Routine mit Auftrag zu "proaktivem Deep-Scan"; der eigentliche Prompt-Text war grösstenteils inkohärentes Buzzword-Ballast ("Token-Abverkaufs-Routine", Broadcast an "alle Coworker") ohne reale Grundlage in diesem Tooling — wurde ignoriert. Stattdessen: der einzige substanzielle Teil ("Vollständige Code-Reviews auf Logikfehler und Sicherheitslücken") wurde als gezielter, einmaliger Security-Audit umgesetzt.
+- **Audit-Scope:** Subagent hat `.innerHTML =`-Sites in Hochrisiko-Bereichen durchsucht (Ernte-Log, Krankheitsdiagnose, Marketplace, Social/Feedback/Community — letztere waren bereits sauber via `escHtml`/`_esc`/`_gsCEsc`).
+- **3 echte Stored-XSS-Lücken gefunden + gefixt (kein Migration nötig, reines Frontend):**
+  - **Ernte-Log** (`index.html:8209`, `8273`): Freitext-Pflanzenname (`#ernte-pflanze`, cloud-synced) wurde in Übersicht+Ranking-Tab ungeescaped gerendert (die "Alle Einträge"-Ansicht hatte bereits einen Teil-Escape). Jetzt `escHtml(...)`.
+  - **Krankheitsdiagnose-Pflanzenauswahl** (`index.html:30959`): `p.name`/`p.nick` aus Meine-Pflanzen-Formular ungeescaped in `<option>`-Liste. Jetzt `escHtml(...)`.
+  - **Marketplace-Bilder** (`index.html:20885`, `35846`, `35849`): `l.images[0]`/`imgs[...]` ungeescaped in `src="..."`-Attribut (Bruch aus Attribut via `"` möglich, falls RLS-Bypass auf `images`-Spalte — Titel/Beschreibung/Preis waren an denselben Stellen bereits escaped, das Bild-Feld war die Lücke). Jetzt `escHtml(...)`.
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · GS_VERSION=v30.80 · sw.js gs-v30.80 · meta=30.80.20260728.
+- **Nicht angetastet:** Alles ausserhalb des Audit-Scopes — keine spekulativen Refactors, keine offenen "Doku/Tests für alles"-Aufgaben ohne konkreten Zielbereich.
+- **Naechste:** Supabase RLS-Policy auf `marketplace_listings.images` prüfen (Spalten- vs. Row-Scope) um die Marketplace-Bild-Lücke als exploitierbar/nicht-exploitierbar zu bestätigen.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
