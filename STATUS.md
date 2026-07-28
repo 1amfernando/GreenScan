@@ -12,6 +12,15 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-07-28 — Automatisierter Security-Scan v30.80 (Stored-XSS in Community-Feed gefixt)
+
+- **Auftrag:** Geplante Routine-Session (Scheduled Task), scope auf Sicherheits-Review reduziert.
+- **Finding:** `renderSocialFeed()` (index.html) rendert `p.type||p.category` roh in ein `title="..."`-Attribut. Insert läuft direkt via `sbFetch('/rest/v1/social_posts', ...)` mit dem eigenen User-JWT — die RLS-Insert-Policy prüft nur `auth.uid()=user_id`, nicht den Wert von `category`. Ein authentifizierter User kann also per direktem REST-Call (Browser-Devtools/curl, UI-`<select>` umgangen) einen beliebigen String in `category` schreiben → Attribut-Escape (`"`) → Stored-XSS gegen JEDEN Betrachter des Feeds. CSP mitigiert nicht (`script-src 'unsafe-inline'`). Gleiche Bug-Klasse wie der bereits gefixte `author_avatar`-Fund aus v29.09.
+- **Fix:** `escHtml(p.type||p.category||'fund')` — 1-Zeilen-Change, sonst 0 Verhaltensänderung.
+- **Verify:** Inline-Script-Syntax-Check (node `new Function` über alle 9 `<script>`-Blöcke) vor/nach Diff identisch (1 vorbestehender false-positive bei top-level `await`, unverändert). Keine hardcoded Secrets gefunden (Grep über `sk-ant-`/`AIzaSy`/generic api_key — alle Treffer sind Platzhalter/UI-Hints). Kein direkter `fetch()` gegen `api.anthropic.com` außerhalb der erlaubten Health-Check-Pfade gefunden.
+- **Verify:** GS_VERSION=v30.80 · sw.js gs-v30.80 · meta=30.80.20260728.
+- **Nicht geprüft (Scope bewusst klein gehalten):** volle Deep-Scan aller 667 `innerHTML`-Sinks, Backend-RLS-Policies via Supabase-Advisor, `post_comments`/`marketplace_listings` auf dieselbe Bug-Klasse (Stichprobe an `openComments`/`addComment` zeigte durchgängig korrektes `escHtml`, kein weiterer Fund).
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
