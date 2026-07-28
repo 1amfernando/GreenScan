@@ -12,6 +12,14 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-07-28 — Scheduled Security-Audit (read-only, kein Fix gepusht) — 4. Re-Bestätigung desselben Befunds
+
+- **Auftrag:** Automatisierte Scheduled-Routine. Reine Read-Only-Verifikation gegen aktuellen `main` (`0266bff`, v30.79, unverändert seit der 3. Bestätigung vom 2026-07-25).
+- **⚠️ CRITICAL weiterhin LIVE, seit 7 Tagen unadressiert über 4 Scheduled-Sessions hinweg (2026-07-21 / 07-23 / 07-25 / 07-28):** `gsPullGlobalApiKey()` (`index.html:23221`) schreibt den rohen admin-globalen Anthropic-Key weiterhin in `localStorage.gs_global_api_key`. Verifiziert per grep: `gs_feat_aiproxy` wird im **gesamten Repo nirgends** auf `'1'` gesetzt (einziger Treffer ist der Read-Check selbst bei `index.html:23480`) → das Proxy-Flag ist für 100% der User dauerhaft AUS. Jeder eingeloggte User kann den globalen Key aus `localStorage`/Network-Tab extrahieren → unlimitierte, unbezahlte Anthropic-Nutzung auf Kosten des Owners.
+- **Fix weiterhin unverändert im Repo vorhanden, nur nicht aktiviert:** Edge-Fn `ai-proxy` (`supabase/functions/ai-proxy/`) hält den Key server-seitig + erzwingt JWT+Tier-Quota+Model-Whitelist. Es fehlt nur der Flag-Flip (`gs_feat_aiproxy` default `'1'`) + kurzer Preview-Verify.
+- **Diese Session hat wie die 3 Vorgänger-Sessions bewusst keine Code-Änderung gepusht** (Flag-Flip ändert AI-Call-Routing für alle User in Produktion — bewusste Owner-Freigabe nötig). Push-Notification wird erneut verschickt, da die vorherigen 3 Fund-Branches nie gemerged wurden und der Leak seit einer Woche aktiv finanziellen Schaden verursachen kann.
+- **Naechste:** `gs_feat_aiproxy`-Default auf `'1'` setzen (kurzer Preview-Test reicht) — der aktive Key-Leak läuft weiter, bis das passiert.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
