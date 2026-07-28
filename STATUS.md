@@ -12,6 +12,17 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-07-28 — Scheduled Security-Audit-Sprint v30.80 (Marketplace Stored-XSS gefixt)
+
+- **Auftrag:** Automatisierte Scheduled-Routine (kein Live-User) — proaktiver Deep-Scan mit Fokus Sicherheitslücken + Logikfehler, analog zum Self-Audit-Sprint v26.51.
+- **Hinweis:** Dieses STATUS.md war seit 2026-05-24 (v26.51) nicht mehr aktualisiert worden, obwohl der Branch inzwischen bei v30.79 stand (Header oben ist entsprechend veraltet — bitte bei Gelegenheit auf den echten LIVE-Stand nachziehen).
+- **Frontend-Audit (Explore-Agent, index.html/sw.js):** Keine hardcoded Secrets, kein `eval`/`new Function`, keine unerlaubten direkten `api.anthropic.com`-Fetches außerhalb `gsTestApiKey()`. **1 echter Fund:** Marketplace-Bildergalerie (`renderMarket` L20885, `gsMarketShowDetail` L35846+35849) interpolierte `l.images[0]`/`imgs[0]`/`src` (aus `marketplace_listings.photo_urls`, von anderen Usern befüllbar) roh in `src="..."` ohne Escaping → Attribut-Escape via `"` möglich → gespeichertes XSS für jeden Betrachter des Inserats (CSP erlaubt `unsafe-inline`, siehe CLAUDE.md). **Wichtig:** die dort naheliegende `_esc()`-Funktion (global, L20908) escaped NUR `< > &`, NICHT `"` — für Attribut-Kontexte unzureichend. Fix nutzt stattdessen `gsHTMLEscape` (escaped auch `"`/`'`), analog zum bereits sicheren Pattern in L7622.
+- **Fix v30.80:** Alle 3 Fundstellen auf `(typeof gsHTMLEscape==='function')?gsHTMLEscape(x):x` umgestellt. 9/9 Inline-Scripts `node --check` OK danach. GS_VERSION/sw.js VERSION/_headers/meta app-version auf v30.80 synced.
+- **Backend-Audit (Supabase-Advisor, via MCP):** 0 ERROR (weiterhin, seit v26.51-Fix), 140 WARN (vs. 98 gesamt/75 WARN bei v26.51 — Anstieg großteils SECURITY DEFINER Functions 35→136, alles anon-seitig nur Read-RPCs, keine admin-Fn im anon-Grant). Kein `security_definer_view`- oder `rls_disabled_in_public`-Lint (die kritische Bug-Klasse von v26.51 ist nicht zurückgekehrt). 5 neue INFO-Lints `rls_enabled_no_policy` auf `book_ocr_pages`/`species_import_queue`/`species_search_cache`/`system_events`/`weather_forecast_cache` — harmlos (default-deny), aber gegenprüfen ob das so gewollt ist.
+- **Nicht gefixt / offen:** `auth_leaked_password_protection` (1 WARN, Dashboard-Setting, kein Code-Fix) · `extension_in_public` ×3 (by-design) · SECURITY DEFINER Function-Wachstum 35→136 nicht Zeile-für-Zeile gegen `is_admin_user()`-Check verifiziert, nur Anon/Authenticated-Grant-Liste geprüft.
+- **Branch:** `claude/lucid-cerf-fuqvte` (nicht main — PR-Merge steht noch aus).
+- **Naechste:** PR review + merge · STATUS-Header (Zeile 7) auf echten LIVE-Stand aktualisieren · SECURITY DEFINER Function-Audit stichprobenartig vertiefen.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
