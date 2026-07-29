@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.79.20260627">
+<meta name="app-version" content="30.80.20260729">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -7634,7 +7634,7 @@ function openGartenTagebuch() {
     topHtml = '<div style="margin-top:14px;padding:10px 12px;background:var(--surface2);border-radius:10px;">' +
       '<div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px;">🌿 Meistgenannte Pflanzen</div>' +
       topPlants.map(function(p){
-        return '<span style="display:inline-block;margin:2px 4px 2px 0;padding:4px 9px;background:var(--card);border:1px solid var(--border);border-radius:999px;font-size:11.5px;color:var(--text);">' + p.n + ' <strong style="color:var(--g-main);">' + p.c + '×</strong></span>';
+        return '<span style="display:inline-block;margin:2px 4px 2px 0;padding:4px 9px;background:var(--card);border:1px solid var(--border);border-radius:999px;font-size:11.5px;color:var(--text);">' + escHtml(p.n) + ' <strong style="color:var(--g-main);">' + p.c + '×</strong></span>';
       }).join('') + '</div>';
   }
   
@@ -8270,7 +8270,7 @@ function openErnteTracking() {
         '<div style="font-size:12px;font-weight:900;color:var(--muted);width:22px;text-align:center;">' + (i+1) + '</div>' +
         '<span style="font-size:22px;">' + p.emoji + '</span>' +
         '<div style="flex:1;min-width:0;">' +
-          '<div style="font-size:13px;font-weight:700;color:var(--text);">' + p.name + '</div>' +
+          '<div style="font-size:13px;font-weight:700;color:var(--text);">' + escHtml(p.name) + '</div>' +
           '<div style="height:4px;background:var(--surface2);border-radius:2px;margin-top:3px;overflow:hidden;">' +
             '<div style="height:100%;width:' + barLen + '%;background:var(--g-main);border-radius:2px;"></div>' +
           '</div>' +
@@ -8287,7 +8287,7 @@ function openErnteTracking() {
     stats.entries.forEach(function(e) {
       contentHtml += '<div style="display:flex;align-items:center;gap:10px;padding:8px 11px;background:var(--card);border:1px solid var(--border);border-radius:9px;margin-bottom:4px;">' +
         '<span style="font-size:18px;">' + (e.emoji || '🧺') + '</span>' +
-        '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;color:var(--text);">' + (e.pflanze||'').replace(/</g,'&lt;') + '</div>' +
+        '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;color:var(--text);">' + escHtml(e.pflanze||'') + '</div>' +
         '<div style="font-size:10.5px;color:var(--muted);">' + (e.ts||'').slice(0,10) + '</div></div>' +
         '<div style="font-size:12.5px;font-weight:800;color:var(--g-dark);">' + (e.menge||0) + ' ' + gsErnteUnitLabel(e.unit) + '</div>' +
         '<button onclick="gsErnteDelete(\'' + e.id + '\')" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:2px 4px;opacity:.4;-webkit-tap-highlight-color:transparent;">✕</button>' +
@@ -66915,7 +66915,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.79';
+var GS_VERSION = 'v30.80';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -74865,10 +74865,13 @@ async function gsAddGardenTask(task){
 // ── ANALYTICS (anonymisiert, nur bei User-Consent) ──────────────────────────
 window.gsTrackEvent = function(event, props){
   try {
-    // Nur tracken wenn Consent vorhanden (user_preferences.analytics === true)
+    // Nur tracken wenn Consent vorhanden (opt-in, revDSG §3.7 — niemals opt-out)
     var prefs = {};
     try { prefs = JSON.parse(gsStore.get('gs_prefs', null)||'{}'); } catch(_){}
-    if (prefs && prefs.privacy && prefs.privacy.analytics === false) return;
+    var consent = {};
+    try { consent = JSON.parse(gsStore.get('gs_consent', null)||'{}'); } catch(_){}
+    var hasConsent = (consent && consent.analytics === true) || (prefs && prefs.privacy && prefs.privacy.analytics === true);
+    if (!hasConsent) return;
     if (typeof sbFetch !== 'function') return;
     var uid = gsStore.get('gs_sb_uid', null) || null;
     sbFetch('/rest/v1/analytics_events', {

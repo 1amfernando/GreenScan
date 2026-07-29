@@ -12,6 +12,17 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-07-29 — Self-Audit v30.80 (2× Stored-XSS-Fix + Analytics-Consent-Fail-Open-Fix)
+
+- **Auftrag:** Automatisierte Routine, proaktiver Security-Audit ohne konkretes externes Briefing. Fokus laut CLAUDE.md §3.6/§3.7: hardcoded secrets, ungesichertes innerHTML, direkte Anthropic-fetch-Calls, Consent-Gating bei Analytics.
+- **Audit-Methode:** Gezielte Suche nach `.innerHTML =`-Interpolationen ohne `escHtml`/`gsSafeHTML`, direkten `fetch('...api.anthropic.com...')`-Calls außerhalb `gsTestApiKey`, sowie Analytics-Writes ohne Consent-Check.
+- **Fund #1 (Stored XSS):** `openGartenTagebuch()` "Meistgenannte Pflanzen"-Widget (Zeile ~7637) rendert `p.n` (Pflanzenname aus Freitext-Feld `#tb-plant`, ungefiltert) ohne Escaping — während der Einzeleintrag zwei Blöcke darüber (`e.plant`) korrekt `escHtml()` nutzt. Fix: `escHtml(p.n)`.
+- **Fund #2 (Stored XSS):** `openErnteTracking()` Pflanzen-Ranking (Zeile ~8273) rendert `p.name` (aus Freitext-Feld `#ernte-pflanze`) ungefiltert; die "Alle Einträge"-Ansicht (Zeile ~8290) hatte nur ein partielles `<`-only-Escaping. Fix: beide auf `escHtml()` vereinheitlicht.
+- **Fund #3 (revDSG Fail-Open):** `gsTrackEvent()` (Zeile ~74866) skippte Tracking nur bei `privacy.analytics === false`, statt Opt-In (`=== true`) zu verlangen — Default/undefined-State hätte getrackt. Aktuell 0 Call-Sites (totes Feature), aber Fix jetzt macht es sicher, bevor es verdrahtet wird. Prüft neu zusätzlich `gs_consent.analytics === true`.
+- **Nicht behoben (bewusst, niedriges Risiko):** `gsEnrichSpeciesViaAI()` (Zeile ~26162) und `_gsKeyHealthWalker()` (Zeile ~60854) nutzen direkten Anthropic-fetch statt `callAI`/`gsTestApiKey` — beide Konvention-Drift, aber verifiziert unkritisch (erstere tot, letztere reine Key-Health-Checks ohne User-Daten). `gsSafeHTML` selbst ist trotz CLAUDE.md-§3.6-Erwähnung nirgends definiert (nur ein `typeof`-Guard mit Fallback) — Doku/Code-Diskrepanz, kein akuter Exploit.
+- **Verify:** 9/9 inline-scripts + sw.js `node --check` OK · GS_VERSION=v30.80 · sw.js gs-v30.80 · _headers v30.80 · meta=30.80.20260729.
+- **Naechste:** `gsSafeHTML` entweder implementieren oder CLAUDE.md §3.6 auf den tatsächlichen `escHtml`/Fallback-Mechanismus korrigieren · optionale Hygiene: 2 tote direkte-fetch-Stellen entfernen.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
