@@ -12,6 +12,18 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-07-29 — Scheduled Security-Scan v30.80 (XSS-Fix in AI-Result-Renderern)
+
+- **Auftrag:** Automatisierte Scheduled-Session — proaktiver Security-Deep-Scan des Repos.
+- **Audit-Findings (general-purpose Agent):** 3 reale unescaped-innerHTML-Stellen gefunden, jeweils AI-Output (Text- oder Vision-Modell) ungefiltert in `innerHTML` gerendert, im Gegensatz zum sonst durchgehend genutzten `escHtml()`/`esc()`-Pattern. Keine hardcoded Secrets, kein `eval`, Token-Handling sauber zentralisiert — sonst nichts Kritisches gefunden.
+  1. `aiAnalyzePlant()` (index.html:28147) — Claude-Textantwort nur `\n`→`<br>` ersetzt, kein Escape → Stored-XSS via Pflanzenname/Notizen falls vom Modell geechot.
+  2. `gsPPcapturePhoto()` (index.html:50183) — Vision-JSON-Feld `description`/`confidence` ungefiltert → Indirect-Prompt-Injection-XSS via manipuliertem Garten-Foto.
+  3. `gsPPcaptureSoil()` (index.html:50462) — Vision-JSON-Felder `typeLabel`/`description`/`recommendation` ungefiltert, gleiches Muster.
+- **Fix:** Alle 3 Stellen mit `escHtml()` gewrappt, konsistent mit `gsPestRenderResult`/`gsMushroomRenderResult` im gleichen File. GS_VERSION/CACHE_VERSION/app-version → v30.80.
+- **Nicht angefasst (bewusst):** `_headers` CSP (`img-src https:` Wildcard, `unsafe-eval` in script-src) — echte Findings, aber sitegewichtiges Config-Risiko ohne Live-Browser-Test (Map-Tiles/Storage-Bilder könnten brechen). Empfehlung an Owner: img-src-Allowlist verifizieren, unsafe-eval-Notwendigkeit für Leaflet/pdf.js prüfen bevor entfernen.
+- **Verify:** `node -e "new Function(...)"` Syntax-Check OK · Commit `f3e20f7` gepusht auf `claude/lucid-cerf-2ps7vr`.
+- **Naechste:** CSP `_headers` manuell härten (img-src Allowlist, unsafe-eval Bedarf prüfen).
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
