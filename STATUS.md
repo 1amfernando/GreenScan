@@ -12,6 +12,17 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-07-29 — Self-Audit-Sprint v30.81 (gsEnrichSpeciesViaAI war dead code — falscher localStorage-Key)
+
+- **Auftrag:** Geplanter Routine-Audit (Scheduled Task), proaktiv ohne externes Briefing — Fokus Sicherheits-/Logik-Review. Basis war `main` (`v30.79`), da dieser Branch von `main` aus neu gestartet wurde.
+- **Finding:** `gsEnrichSpeciesViaAI()` (Zeile ~26139, KI-Anreicherung für unbekannte Scan-Arten) las den Key aus `localStorage.getItem('gs_anthropic_key') || localStorage.getItem('anthropic_key')`. Beide Keys werden **nirgends sonst im Repo gesetzt** — `getApiConfig()` (Single Source of Truth, CLAUDE.md §3.3) nutzt `gs_global_api_key`/`ps_api_key`. Für **jeden** User (Personal- wie Global-Key) war `key` also immer leer → die Funktion returnte seit Einführung immer `null`, silent-failing ohne Fehlermeldung. War kein Stil-Nit, sondern ein real totes Feature.
+- **Fix (v30.81):** Rohen `fetch()`-Block durch `callAI(messages, systemPrompt, 700, {logLabel:'species_enrich'})` ersetzt (CLAUDE.md §3.4) → nutzt jetzt automatisch den korrekt aufgelösten Key (personal/global, proxy-fähig über `_gsAiTarget`) und bekommt Quota/Usage-Logging gratis mit.
+- **Bewusst nicht angefasst:** `_gsKeyHealthWalker()` (Zeile ~60843) bleibt roher Fetch — er testet beliebige, teils noch nicht gespeicherte Kandidaten-Keys (z.B. beim Admin-Key-Eintragen), was `callAI()` strukturell nicht kann (Key kommt dort immer aus `getApiConfig()`). Fällt unter die in CLAUDE.md §3.4 dokumentierte Ausnahme für Key-Validierung.
+- **Weiterhin offen (mehrfach bestätigt):** `gs_feat_aiproxy`-Flag wird im gesamten Repo **nirgends** auf `'1'` gesetzt (nur der Read-Check in `_gsAiTarget`, Zeile ~23480) — der Roh-Anthropic-Key beim globalen Key läuft also weiterhin durchs Frontend statt durch den bereits fertigen `ai-proxy`-Edge-Fn. Laut Code-Kommentar (v30.37) bewusst "Flag DEFAULT AUS bis nach Preview-Test geflippt" — keine Regression, sondern eine seit Monaten offene Test-/Entscheidungsaufgabe für Fernando.
+- **Prozess-Beobachtung:** Auf dem Remote liegen ~59 `claude/lucid-cerf-*`-Branches aus wiederholten Scheduled-Audit-Läufen, aktuell 0 offene PRs im Repo. Falls andere Audit-Branches (z.B. mit weiteren Sicherheits-Fixes) dort unmerged liegen, lohnt sich ein manueller Review + PR, damit die Arbeit dieser Routine nicht ungenutzt verpufft.
+- **Verify:** 9/9 inline-scripts `node --check` OK · `sw.js` gs-v30.81 · `GS_VERSION`=v30.81 · `_headers` v30.81 · meta=30.81.20260729.
+- **Naechste:** `gs_feat_aiproxy` Preview-Test + Flip-Entscheidung bei Fernando einholen · iterative `innerHTML`→`gsSafeHTML`-Migration (ROADMAP P2-8) fortsetzen, falls dieser Helper bereits auf main existiert.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.

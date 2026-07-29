@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.79.20260627">
+<meta name="app-version" content="30.81.20260729">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26137,8 +26137,6 @@ async function gsProposeNewSpeciesFromScan(result, imageB64thumb) {
 
 // KI-Anreicherung: Claude generiert einen vollständigen Species-Record
 async function gsEnrichSpeciesViaAI(p) {
-  var key = localStorage.getItem('gs_anthropic_key') || localStorage.getItem('anthropic_key');
-  if (!key) return null;
   var systemPrompt =
     'Du bist Botanik/Mykologie-Datenbank-Assistent bei GreenScan (Schweizer Flora). ' +
     'Du erhältst eine User-Scan-Erkennung einer potenziell neuen Art. ' +
@@ -26156,29 +26154,8 @@ async function gsEnrichSpeciesViaAI(p) {
     'Saison: ' + (p.scan_context.season || '?') + '\n' +
     'Merkmale: ' + (Array.isArray(p.scan_context.diagnostic_features) ? p.scan_context.diagnostic_features.join(', ') : '?') + '\n\n' +
     'Bitte einen GreenScan-DB-Eintrag für diese Art vorbereiten.';
-  var resp;
   try {
-    var fetchFn = (typeof _gsApiFetch === 'function') ? _gsApiFetch : fetch;
-    resp = await fetchFn('https://api.anthropic.com/v1/messages', {
-      method:'POST',
-      headers: {
-        'Content-Type':'application/json',
-        'x-api-key': key,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true'
-      },
-      body: JSON.stringify({
-        model: (window._gsClaudeModel || 'claude-sonnet-4-5'),
-        max_tokens: 700,
-        system: systemPrompt,
-        messages: [{role:'user', content: userMsg}]
-      })
-    }, { timeout: 30000, retries: 1 });
-  } catch(e) { return null; }
-  if (!resp.ok) return null;
-  try {
-    var data = await resp.json();
-    var txt = (data.content && data.content[0] && data.content[0].text) || '';
+    var txt = await callAI([{role:'user', content: userMsg}], systemPrompt, 700, { timeout: 30000, retries: 1, logLabel: 'species_enrich' });
     // JSON-Cleanup (nur das {…}-Teil extrahieren)
     var m = txt.match(/\{[\s\S]*\}/);
     if (!m) return null;
@@ -66915,7 +66892,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.79';
+var GS_VERSION = 'v30.81';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
