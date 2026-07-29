@@ -12,6 +12,18 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-07-29 — Self-Audit-Sprint v30.80 (gsSafeHTML-Phantom-Helper gefixt)
+
+- **Auftrag:** Geplanter Routine-Audit (Scheduled Task), proaktiv ohne externes Briefing — Fokus Sicherheits-/Logik-Review.
+- **Finding:** `gsSafeHTML` (Tagged-Template HTML-Escape-Helper) ist seit v24.02 in `CLAUDE.md` §3.6 + `ROADMAP.md` P2-8 als "erledigt" dokumentiert, war aber im Code **nirgends definiert** — nur 1 defensiver Call-Site (`_gsWxEsc`, Zeile ~74650) mit eigenem Fallback, der das Fehlen verdeckte. Identische Bug-Klasse wie **Hard-Lesson #9** (`gsHTMLEscape` war ebenso "Alias dokumentiert, nie definiert", gefixt v27.03 — siehe Zeile 27425-27429). Jeder Code, der dem dokumentierten Pattern `gsSafeHTML\`...\`` wörtlich folgt (z.B. ein Agent, der CLAUDE.md befolgt), hätte einen `ReferenceError` geworfen.
+- **Fix (v30.80):** `window.gsSafeHTML` real implementiert direkt neben `gsHTMLEscape` (Zeile ~27430) — Tagged-Template + `.escape()`/`.attr()`/`.url()` (nur http/https/mailto/relativ)/`.unsafe()` (Bypass für Sub-Templates), gleiches Escaping wie `gsHTMLEscape`.
+- **Migration der 677 bestehenden `innerHTML`-Hotspots auf `gsSafeHTML`/`gsHTMLEscape` bleibt weiterhin offen** (ROADMAP P2-8, iterativ) — dieser Fix schliesst nur die Doku/Implementierungs-Lücke des Helpers selbst, keine bestehenden Call-Sites wurden migriert.
+- **Sonstiger Scan:** keine hardcodeten Secrets in `supabase/functions/*` gefunden (nur Env-Var-Referenzen + README-Platzhalter). `_headers` CSP unverändert plausibel.
+- **XSS-Deep-Dive (671 innerHTML-Sites mit potenziell User-Content geprüft):** keine High-Confidence-Findings. Leaderboard-Namen, Marketplace-Listings/Chat, Post-Kommentare, Social-Feed, Lina-Coach-Chat, Profil-Bio, Tagebuch-Notes — alle bereits über `gsHTMLEscape`/`escHtml`/lokale `_gs*Esc`-Wrapper escaped (mehrere `v29.09 SECURITY: Stored-XSS`-Fixes bereits historisch drin). Einzige Soft-Findings: `e.message` in ein paar Dutzend catch-Blöcken landet unescaped in innerHTML — aber lokale JS-Error-Strings, kein Attacker-Input, daher nur Hygiene-Kandidat.
+- **Convention-Findings (CLAUDE.md §3.4, "IMMER über callAI() gehen"):** 2 Stellen rufen `fetch('https://api.anthropic.com/...')` direkt statt über `callAI()`: `gsEnrichSpeciesViaAI()` (Zeile ~26162) und `_gsKeyHealthWalker()` (Zeile ~60883). Beide nutzen nur den eigenen User-Key (kein Secret-Leak), aber umgehen Quota-Tracking/Persona-Injection — Konsistenz-Fix für Folge-Sprint, nicht sicherheitskritisch.
+- **Verify:** 9/9 inline-scripts node --check OK · sw.js gs-v30.80 · GS_VERSION=v30.80 · _headers v30.80 · meta=30.80.20260729.
+- **Naechste:** Iterative Migration einzelner `innerHTML`-Hotspots (Marketplace/Diary/Coach zuerst, da User-Freitext) auf `gsSafeHTML`. Plus die 2 Anthropic-Direct-Fetch-Stellen auf `callAI()` umstellen.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.

@@ -66,7 +66,6 @@
 | P2-5 | **Schutzstatus + Rote Liste** in DB integrieren | BAFU-Liste der nationalen Prioritäten. UI-Icon pro Art. |
 | P2-6 | **Spaced-Repetition für Quiz** | SM-2-Algorithmus lokal. Fokus auf Schwächen aus `gsBrain.recommend('quiz_focus')`. |
 | P2-7 | **Echte Tests** (Vitest + Playwright Smoke-Suite) | Endlich automatische Regression. Mindest-Pfade: Scan-Flow, Garten-Plan, Stripe-Webhook, Offline-Boot. |
-| P2-8 | **innerHTML → safeHTML-Migration** (Bug B2) | Tagged Template `safeHTML\`...\``, ersetzt 299 Hotspots. |
 
 ---
 
@@ -83,7 +82,7 @@
 | ~~P2-3~~ | ~~MeteoSwiss OGD-Integration~~ | **erledigt v24.00** (`gsMeteo` leitet aus open-meteo Schweizer Warnungen ab + verlinkt offizielle MeteoSwiss-Seite) |
 | ~~P2-5~~ | ~~Schutzstatus + Rote Liste~~ | **erledigt v24.00** (`gsRedList` mit ~80 Arten IUCN Schweiz) |
 | ~~P2-6~~ | ~~Spaced-Repetition für Quiz~~ | **erledigt v24.01** (`gsSRS` SM-2 + Auto-Bridge zu Brain-Events) |
-| ~~P2-8~~ | ~~innerHTML → safeHTML-Migration~~ | **Helper erledigt v24.02** (`gsSafeHTML` Tagged-Template + CLAUDE.md-Pattern); Code-Migration iterativ in Folge-Sprints |
+| ~~P2-8~~ | ~~innerHTML → safeHTML-Migration~~ | **Helper WIRKLICH erledigt v30.80** (v24.02 hatte nur das CLAUDE.md-Pattern dokumentiert — `gsSafeHTML` war nie definiert, gleiche Klasse Bug wie Hard-Lesson #9/gsHTMLEscape; jetzt real implementiert). Code-Migration der 677 innerHTML-Hotspots weiter iterativ in Folge-Sprints |
 | ~~P1-8~~ | ~~PLANT_DB-Split~~ | **erledigt v24.03** (`data/plants.v1.js`, -2.16 MB Initial-Size, immutable-cached) |
 | ~~P2-1~~ | ~~iNaturalist-OAuth-Bridge~~ | **erledigt v24.04** (`gsINaturalist` mit PKCE-Flow + publishObservation; Client-ID-Setup durch Owner pending) |
 | ~~P3-8~~ | ~~Brain-Recommend in der Cloud~~ | **erledigt v24.05** (`gsBrain.smartRecommend` mit 6h-Cache + Hintergrund-Hydration; min. 30 Events nötig) |
