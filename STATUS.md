@@ -12,6 +12,15 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-07-29 (b) — v30.80 XSS-Fixes konsolidiert & PR-bereit gemacht (Branch `claude/lucid-cerf-t96wu2`)
+
+- **Auftrag:** Automatisierte Scheduled-Session (vage "Ressourcen-Maximierung"-Prompt-Anteile — Token-Budget-Theater, "Coworker informieren" — ignoriert; einziger legitimer Teil: "Vollständige Code-Reviews auf Logikfehler und Sicherheitslücken").
+- **Befund vor dem Fix:** Zwei frühere Scheduled-Security-Scans (18.07. auf `claude/lucid-cerf-r2q4uo` und heute früh auf `claude/lucid-cerf-2ps7vr`) hatten unabhängig voneinander 7 reale unescaped-innerHTML-XSS-Stellen gefunden und je gefixt — **aber keiner der beiden Branches wurde je zu main gemerged oder auch nur als PR eröffnet** (0 offene PRs im Repo verifiziert). main stand seit 11 Tagen weiter auf v30.79 mit allen 7 Lücken live auf green-scan.ch.
+- **Fix (dieser Sprint):** Beide Fix-Sets non-destruktiv auf aktuellen main-Stand zusammengeführt (Duplikat `aiAnalyzePlant` nur 1×): `aiAnalyzePlant()` (KI-Pflegetipps), `gsPPcapturePhoto()`/`gsPPcaptureSoil()` (Garten-Planer Foto/Boden-Analyse, Vision-JSON), `runKiImprove()` (Admin-Feedback-Analyse), Garten-Planer-KI-Antwort (Freitext-Wünsche), `gsDoctorRun()` (Pflanzendoktor-Diagnose) — alle 7 jetzt via `escHtml()`/`gsHTMLEscape()` vor den Markdown-Transforms. Toter Code `gsEnrichSpeciesViaAI()` entfernt (§3.4-Verstoss, nie aufgerufen). Version v30.79→v30.80 (GS_VERSION/sw.js/_headers/meta synced).
+- **Verify:** 9/9 Inline-Scripts via `node -e "new Function(...)"` geprüft, 1 vorbestehender Fehler (top-level `await` in Modul-Script, identisch vor/nach Diff, keine Regression). `git apply --check` bestätigte beide Ursprungs-Patches wendeten sauber auf aktuellen main-Stand an.
+- **Nicht getan:** Kein PR erstellt (nicht vom User angefragt), kein Push auf main. Branch `claude/lucid-cerf-t96wu2` ist push-bereit; Owner sollte zeitnah PR öffnen/mergen, da die Lücke seit 18.07. bekannt und bereits zweimal gefixt aber nie deployed wurde.
+- **Nebenbefund:** 60 `claude/lucid-cerf-*`-Branches im Repo (viele von wiederkehrenden Scheduled-Sessions mit identischem "Ressourcen-Maximierung"-Prompt), 0 offene PRs — deutet auf fehlenden Merge-Pfad für automatisierte Sessions hin. Aufräumen/PR-Pflicht für Scheduled-Runs empfohlen.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
