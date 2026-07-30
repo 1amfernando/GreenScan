@@ -12,6 +12,15 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-07-30 — Scheduled Security-Audit (read-only, kein Fix gepusht) — 5. Re-Bestätigung desselben Befunds, User per Push benachrichtigt
+
+- **Auftrag:** Automatisierte Scheduled-Routine. Read-Only-Verifikation gegen aktuellen `main` (v30.79) — baut auf den Befunden vom 2026-07-21 (`claude/lucid-cerf-2yldel`), 2026-07-23, 2026-07-25 (`claude/lucid-cerf-1pl7bc`) und 2026-07-28 (`claude/lucid-cerf-hwwmpd`) auf. Alle vier Fund-Branches wurden bis heute nie gemerged. Dies ist die fünfte Bestätigung desselben offenen Findings, jetzt 9 Tage offen.
+- **⚠️ CRITICAL weiterhin LIVE:** `gsPullGlobalApiKey()` (`index.html:23221`) liefert den rohen admin-globalen Anthropic-Key an den Browser. `_gsAiTarget()` (`index.html:23478`) routet nur über den sicheren Proxy, wenn `localStorage.gs_feat_aiproxy === '1'` — per grep gegen `main` erneut verifiziert: dieser Wert wird nirgends im Code gesetzt, das Flag ist für 100% der User weiterhin dauerhaft AUS. Jeder eingeloggte User kann den Key aus `localStorage`/Network-Tab extrahieren → unlimitierte, unbezahlte Nutzung auf Kosten des Owners.
+- **Fix existiert weiterhin unverändert im Repo:** Edge-Fn `ai-proxy` (`supabase/functions/ai-proxy/`) + `AI_PROXY_ACTIVATION_RUNBOOK.md` mit der genauen Flip-Anleitung (Schritt 1 = Fernandos Preview-Test mit echter Login-Session, danach Schritt 2+3 Code-seitig). Nichts fehlt außer Fernandos Freigabe/Test.
+- **Diese Session hat den User aktiv per Push-Notification informiert** (nicht nur STATUS.md-Log wie die vorherigen 4 Male) — vorherige Re-Bestätigungen blieben offenbar unbemerkt, weil sie in unmerged Branches vergraben waren.
+- **Neben-Befund (Repo-Hygiene, weiterhin ungelöst):** 62 `claude/lucid-cerf-*`-Branches offen (Stand heute), 0 offene PRs, 1 einziger PR jemals gemerged (#1, 2026-04-30). Mehrere dieser Branches enthalten bereits fertige, unabhängige Stored-XSS-Fixes (Marketplace-Bildergalerie, Community-Feed, Registrierungs-E-Mail, Tagebuch-Pflanzennamen u.a.), die real in `main` noch offen sind, weil sie nie gemerged wurden.
+- **Naechste:** `gs_feat_aiproxy`-Runbook Schritt 1 (Fernandos Preview-Test) — der aktive Key-Leak läuft weiter, bis das passiert. Zusätzlich: Branch-Aufräumung/Triage der 62 offenen `claude/lucid-cerf-*`-Branches, insbesondere Konsolidierung der bereits gefixten Stored-XSS-Stellen in einen PR.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
