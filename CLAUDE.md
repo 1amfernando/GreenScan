@@ -81,14 +81,18 @@ GreenScan/
   pack ihn hinter einen Server-Proxy.
 - **CSP** ist aktiv (siehe `_headers`). Wenn du externe URLs einbaust,
   Allowlist erweitern. Inline-Scripts sind erlaubt, weil Monolith.
-- **innerHTML mit User-Input**: ab v24.02 nutze `gsSafeHTML`-Tagged-Template
-  (auto-escape):
+- **innerHTML mit User-Input**: nutze `gsHTMLEscape(s)` (`window.gsHTMLEscape`,
+  definiert `index.html:27429`) bzw. den Kurz-Alias `escHtml(s)`
+  (`index.html:27424`):
   ```js
-  el.innerHTML = gsSafeHTML`<div>${userName} sagt: ${msg}</div>`;
+  el.innerHTML = '<div>' + gsHTMLEscape(userName) + ' sagt: ' + gsHTMLEscape(msg) + '</div>';
   ```
-  Helpers: `gsSafeHTML.escape(s)`, `.attr(s)`, `.url(s)` (nur https/http/
-  mailto/relative), `.unsafe(html)` (bypass für bereits-escapte Sub-
-  Templates). `gsHTMLEscape` als Kurz-Alias. Für reine Text-Inserts
+  ⚠️ **Korrektur (Self-Audit 2026-07-30):** Ein früher hier dokumentiertes
+  `gsSafeHTML`-Tagged-Template (`.escape/.attr/.url/.unsafe`) existiert
+  **nicht** im Code (nur 1 toter `if (window.gsSafeHTML...)`-Guard,
+  `index.html:74650`, der nie greift). De-facto-Standard im gesamten Monolith
+  sind `gsHTMLEscape`/`escHtml` — ~40+ Call-Sites, durchgängig verifiziert
+  bei den Comment-/Marketplace-Chat-/Feed-Render-Pfaden. Für reine Text-Inserts
   weiterhin `textContent` bevorzugen.
 - **localStorage für Auth**: bewusst akzeptiert, weil mit CSP
   `frame-ancestors 'none'` + `strict-origin-when-cross-origin` Risiko klein

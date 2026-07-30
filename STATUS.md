@@ -10,6 +10,13 @@
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
+### 2026-07-30 — Self-Audit (Security-Grep, ohne externes Briefing)
+
+- **Scope:** Hardcoded Secrets, raw `fetch()` außerhalb `callAI`/`sbFetch`, native `alert()`, unescaped `innerHTML`, CSP-Sanity in `_headers`.
+- **Ergebnis:** Keine neuen kritischen Findings. Alles deckt sich mit bereits dokumentierten/akzeptierten Mustern aus früheren Audit-Sprints (v26.51 etc.) — 0 Secrets, raw-fetch-Sites alle by-design (Wrapper-Impl selbst / eigene Supabase-Storage-URLs / Stripe-Edge-Fn mit Timeout-Wrapper), nur 1 verbleibender `alert()` als dokumentierter Fallback in `gsToast` selbst, `innerHTML`-Stichprobe (Kommentare/Marketplace-Chat/Feed) durchgängig escaped.
+- **Doku-Fix:** `CLAUDE.md` §3.6 beschrieb ein `gsSafeHTML`-Tagged-Template, das im Code nie existierte (nur 1 toter Guard, `index.html:74650`). De-facto-Standard ist `gsHTMLEscape`/`escHtml` (`index.html:27424/27429`) — Doku korrigiert.
+- **Bekannter Gap (nicht behoben):** Dieses STATUS.md-Datum/Version (`v26.51`, 2026-05-24) hinkt dem tatsächlichen Repo-Stand (`v30.79`, siehe `git log`) deutlich hinterher — mehrere Sessions haben offenbar ohne STATUS.md-Update gepusht. Nachtrag der fehlenden Einträge wäre ein eigener, größerer Recherche-Task.
+
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
