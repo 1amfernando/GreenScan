@@ -4,13 +4,24 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-07-30 · **Branch**: `claude/lucid-cerf-xy4dj4` · **Version**: `v30.80` (Pending Push, aktuell auf `main` synced bis v30.79) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-07-30 — Scheduled-Routine Self-Audit v30.80 (bounded Security-Scan, kein neuer Fund kritisch)
+
+- **Auftrag:** Automatisierte Scheduled-Task mit vager „Ressourcen-Maximierung"-Formulierung ohne konkreten Auftrag. Statt ungebremstem Dauer-Scan / Fake-Broadcasts an „Coworker" (beides nicht sinnvoll umsetzbar) wurde ein bounded Security-Review durchgefuehrt, wie in CLAUDE.md §3.6 vorgesehen.
+- **Audit-Scope:** Hardcoded Secrets, unsafe innerHTML/XSS, direkte `api.anthropic.com`-Fetches außerhalb `gsTestApiKey`, Auth/Token-Handling, postMessage/CORS. Abgeglichen mit letztem dokumentierten Audit (v26.51, 2026-05-24) um keine bekannten False-Positives erneut zu melden.
+- **Ergebnis:** Keine neuen exploitierbaren Vulnerabilities. **0 CRITICAL/HIGH/MED.**
+- **2 LOW-Findings gefixt:**
+  - `gsEnrichSpeciesViaAI` (war index.html:26139-26187): totes Code — einziger Call-Site bereits in v30.31 entfernt (Kommentar an der Stelle bestätigte das), las Key aus veraltetem `localStorage.gs_anthropic_key`/`anthropic_key` statt aktueller SoT, bypasste `callAI`/Quota/Proxy komplett via raw fetch. Ersatzlos geloescht (CLAUDE.md §4 sanktioniert das explizit für historisches No-Op-Cruft).
+  - Marketplace-Card-Bild (index.html:20885, `renderMarket`): `l.images[0]` lief unescaped in `<img src="...">`. Aktuell nur Supabase-Storage-URLs, aber defense-in-depth via `gsHTMLEscape` ergaenzt (Pattern wie an anderen `img src`-Stellen im File, z.B. Z.41826).
+- **Verify:** 9/9 inline-scripts node --check OK · GS_VERSION=v30.80 · sw.js gs-v30.80 · _headers v30.80 · meta=30.80.20260730.
+- **Naechste:** Keine offenen Follow-ups aus diesem Audit. STATUS.md-Datum war vor diesem Eintrag stark veraltet (zeigte v26.51 obwohl Repo bei v30.79 stand) — bitte künftige Sessions Kopfzeile + diesen Abschnitt konsistent pflegen.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
