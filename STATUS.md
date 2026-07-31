@@ -4,13 +4,25 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-07-31 · **Branch**: `claude/lucid-cerf-3mawdg` · **Version**: `v30.80` (Pending Push) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-07-31 — Scheduled-Security-Scan v30.80 (Stored-XSS in 4 AI-Response-Rendern gefixt)
+
+- **Auftrag:** Automatisierte Scheduled-Task-Session. Kernanfrage war vage/unbrauchbar formuliert (Pseudo-Token-Budget-Jargon, "Multicast an Coworker"), enthielt aber legitim "Vollständige Code-Reviews auf Logikfehler und Sicherheitslücken" — darauf wurde fokussiert, Rest ignoriert (keine erfundenen Reports, keine Broadcasts an nicht-existente Empfänger).
+- **Security-Audit-Subagent:** Scan von `index.html`/`sw.js`/`supabase/functions/**`/`supabase/migrations/*.sql` gegen CLAUDE.md §3.6 (Secrets, `innerHTML` ohne `gsSafeHTML`/`escHtml`, Direct-Fetch-Bypass, SECURITY DEFINER-Regressionen). Keine Secrets, kein Direct-Fetch-Bypass, keine RLS-Regression gefunden — aber **5 Stored/Reflected-XSS-Stellen** (4 Call-Sites): rohe KI-Antwort (`callAI`/`callVisionAI`) wurde ungeschützt in `innerHTML` geschrieben, entgegen dem in CLAUDE.md §3.6 vorgeschriebenen Pattern.
+- **Gefixt (alle 4 mit `escHtml()` vor den Markdown→HTML-Replaces):**
+  - `gsDoctorRun()` (KI-Pflanzendoktor, Foto-Diagnose) — Zeile ~76973, plus persistiert in `gs_doctor_history` → beim Re-Render (~76934) jetzt ebenfalls sauber, da Quelle escaped ist.
+  - `aiAnalyzePlant()` (Pflegetipps pro Pflanze) — Zeile ~28147.
+  - `analyzeGardenWithAI()` (KI-Bepflanzungsplan) — Zeile ~49892.
+  - Admin-Feedback-Triage (`callAI` über User-Feedback-Text) — Zeile ~47978. **Wichtigste Stelle:** User-Feedback → KI-Prompt → KI-Antwort ungeschützt im Admin-Panel gerendert = potenzielle Admin-Session-XSS-Kette via Prompt-Injection im Feedback-Text.
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · GS_VERSION=v30.80 · sw.js gs-v30.80 · _headers v30.80 · meta=30.80.20260731.
+- **Nächste:** Push auf `claude/lucid-cerf-3mawdg` + STATUS.md-Sync bereits in diesem Commit.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
