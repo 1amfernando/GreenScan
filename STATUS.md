@@ -567,6 +567,8 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
 | ~~B6~~ | ~~LOW~~ | ~~PLANT_DB inline 4.5 MB~~ | | **erledigt v24.03** (extrahiert in `data/plants.v1.js`, immutable-cached) |
 | ~~B4~~ | ~~MEDIUM~~ | ~~Stripe-Entitlement~~ | ~~`GS_PLANS[plan].scans` aus localStorage manipulierbar~~ | **erledigt v23.92** (entitlements Edge Fn = SoT) |
 | ~~B7~~ | ~~INFO~~ | ~~`callAIWithOfflineFallback`~~ | | **erledigt v23.88** (brain-aware) |
+| ~~B8~~ | ~~HIGH~~ | ~~`gsAttachMushroomLiveCounter` (Pilz-Live-Counter)~~ | ~~Stored XSS: `species_name` aus öffentlich lesbaren `map_user_finds` ungeescaped in `innerHTML`~~ | **erledigt v30.80** (`escHtml()` ergänzt) |
+| B9 | MEDIUM | `_headers` CSP `script-src` | `unsafe-eval` ist gesetzt, aber kein `eval`/`new Function` im Code gefunden (0 Treffer) — vergrössert Angriffsfläche ohne Nutzen. Nicht selbst entfernt: Risiko, dass `pdf.js`@cdnjs (PDF-Export) intern darauf angewiesen ist, ohne Browser-Test nicht sicher verifizierbar. | P2: `unsafe-eval` entfernen + PDF-Export end-to-end testen |
 
 ---
 
@@ -578,6 +580,7 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
 | Datum | Agent | Bereich | Erwartete Dauer |
 |---|---|---|---|
 | 2026-04-29 | claude-code (Cloud) | Boot-Audit, Brain, Doku-Sync | abgeschlossen (gepusht) |
+| 2026-07-31 | claude-code (Cloud, scheduled) | Sicherheits-Audit (`index.html`, `sw.js`, `_headers`) | abgeschlossen (gepusht als v30.80, siehe §4 B8) |
 
 ---
 
