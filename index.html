@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.79.20260627">
+<meta name="app-version" content="30.80.20260731">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18927,7 +18927,7 @@ async function gsAttachMushroomLiveCounter(card, patch) {
     var freq = {};
     rows.forEach(function(x){ var k = String(x.species_name||'').trim(); if (!k) return; freq[k] = (freq[k]||0) + 1; });
     var top = Object.entries(freq).sort(function(a,b){ return b[1]-a[1]; }).slice(0,3)
-      .map(function(p){ return p[0] + ' (' + p[1] + ')'; });
+      .map(function(p){ return escHtml(p[0]) + ' (' + p[1] + ')'; });
     counterEl.innerHTML = '🐾 <b>' + rows.length + '</b> Community-Funde diesen Monat'
       + (top.length ? '<br><span style="opacity:.92;font-weight:500;">Top: ' + top.join(' · ') + '</span>' : '');
     counterEl.style.display = 'block';
@@ -66915,7 +66915,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.79';
+var GS_VERSION = 'v30.80';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -76416,24 +76416,6 @@ function gsRunSplash(onDone) {
   // Start mit kleiner Verzögerung
   setTimeout(nextStep, 150);
 }
-
-// ── Admin-Konfiguration (verschlüsselt) ──────────────────────
-(function() {
-  var _a = atob('ZmVybmFuZG8ucmFua3dpbGVyMTk5N0BnbWFpbC5jb218d3d3LkdyZWVuU2NhbkBnbWFpbC5jb20=').split('|');
-  var _adm = _a;
-  // Admin-Check: nur bestätigte Accounts können IS_ADMIN aktivieren
-  var _sess = localStorage.getItem('gs_auth_session');
-  if (_sess) {
-    try {
-      var _uid = JSON.parse(_sess).uid;
-      var _db = JSON.parse(localStorage.getItem('gs_auth_db') || '{}');
-      var _acct = _db[_uid];
-      if (_acct && _adm.indexOf(_acct.email) >= 0) {
-        window._gsIsAdmin = true;
-      }
-    } catch(e) {}
-  }
-})();
 
 // ══ GreenScan Error Log & Known Fixes ════════════════════════
 // Dieses Objekt dokumentiert alle bekannten Bugs und deren Fixes.
