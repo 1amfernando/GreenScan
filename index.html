@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.79.20260627">
+<meta name="app-version" content="30.80.20260801">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20882,7 +20882,7 @@ function renderMarket() {
     html += '<div class="mk-card" onclick="openListingDetail(\'' + l.id + '\')" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px;margin-bottom:8px;cursor:pointer;-webkit-tap-highlight-color:transparent;display:flex;gap:11px;' + cardDim + '">' +
       // Bild/Icon
       '<div style="width:64px;height:64px;background:var(--g-bg);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:34px;flex-shrink:0;overflow:hidden;">' +
-        (l.images && l.images[0] ? '<img src="' + l.images[0] + '" alt="" style="width:100%;height:100%;object-fit:cover;">' : catEmoji) +
+        (l.images && l.images[0] ? '<img src="' + ((typeof gsHTMLEscape==='function')?gsHTMLEscape(l.images[0]):l.images[0]) + '" alt="" style="width:100%;height:100%;object-fit:cover;">' : catEmoji) +
       '</div>' +
       // Info
       '<div style="flex:1;min-width:0;">' +
@@ -35843,10 +35843,10 @@ function gsMarketShowDetail(l) {
   // Bilder-Galerie (1 großes Bild + Thumbnails)
   var galleryHtml = imgs.length
     ? '<div style="margin:0 -16px 14px;">' +
-        '<img id="mklist-main-img" src="' + imgs[0] + '" alt="" style="width:100%;max-height:320px;object-fit:cover;background:var(--surface2);" loading="lazy">' +
+        '<img id="mklist-main-img" src="' + ((typeof gsHTMLEscape==='function')?gsHTMLEscape(imgs[0]):imgs[0]) + '" alt="" style="width:100%;max-height:320px;object-fit:cover;background:var(--surface2);" loading="lazy">' +
         (imgs.length > 1 ? '<div style="display:flex;gap:6px;padding:8px 16px 0;overflow-x:auto;-webkit-overflow-scrolling:touch;">' +
           imgs.map(function(src, i){
-            return '<img onclick="document.getElementById(\'mklist-main-img\').src=\'' + _gsOcArg(src) + '\'" src="' + src + '" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:8px;cursor:pointer;flex-shrink:0;border:2px solid ' + (i===0?'var(--g-main)':'transparent') + ';" loading="lazy">';
+            return '<img onclick="document.getElementById(\'mklist-main-img\').src=\'' + _gsOcArg(src) + '\'" src="' + ((typeof gsHTMLEscape==='function')?gsHTMLEscape(src):src) + '" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:8px;cursor:pointer;flex-shrink:0;border:2px solid ' + (i===0?'var(--g-main)':'transparent') + ';" loading="lazy">';
           }).join('') +
         '</div>' : '') +
       '</div>'
@@ -50180,7 +50180,8 @@ function gsPPcapturePhoto() {
         var corrNote = (lensFactor !== 1.0)
           ? '<div style="margin-top:6px;font-size:10.5px;color:#1b5e20;background:#e8f5e9;border-radius:6px;padding:6px 8px;">✓ Linsen-Korrektur angewendet (×'+lensFactor+')</div>'
           : '';
-        out.innerHTML = '✅ ' + (r.description || 'Analyse abgeschlossen') + (r.confidence ? '<br><span style="font-size:10px;color:var(--muted);">Konfidenz: ' + r.confidence + '%</span>' : '') + corrNote;
+        var descSafe = (typeof escHtml==='function') ? escHtml(r.description || 'Analyse abgeschlossen') : (r.description || 'Analyse abgeschlossen');
+        out.innerHTML = '✅ ' + descSafe + (r.confidence ? '<br><span style="font-size:10px;color:var(--muted);">Konfidenz: ' + r.confidence + '%</span>' : '') + corrNote;
       } else {
         out.innerHTML = '<span style="color:#c62828;">Keine Analyse möglich — bitte Masse manuell eingeben.</span>';
       }
@@ -66915,7 +66916,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.79';
+var GS_VERSION = 'v30.80';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

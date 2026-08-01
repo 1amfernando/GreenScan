@@ -12,6 +12,16 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-08-01 — Scheduled-Audit-Sprint v30.80 (Marketplace Stored-XSS + Doctor-KI-Output ungeescaped)
+
+- **Auftrag:** Geplante Routine-Session — proaktiver Security-/Logik-Audit ohne externes Briefing (Supabase-Advisors + Frontend-Scan auf CLAUDE.md §3.6-Verstösse: Secrets, Raw-Fetch außerhalb gsTestApiKey, innerHTML ohne Escaping).
+- **Supabase-Advisor:** 0 ERROR (Security), 140 WARN (120+16 SECURITY DEFINER Functions by-design, 5× rls_enabled_no_policy auf reinen Backend-Cache/Queue-Tabellen ohne Client-Zugriff — unkritisch, kein Client kann sie ohnehin lesen), 1 INFO offen seit v26.51 (auth_leaked_password_protection — Dashboard-Setting, kein Code-Fix möglich). Performance: 147 Lints, alle INFO (unused_index etc.) — nichts Dringendes.
+- **Frontend-Findings (Subagent-Scan):** `gsSafeHTML` aus CLAUDE.md §3.6 existiert **nicht im Code** (nur ein toter Existenz-Check bei :74650) — reale Eskapier-Mechanik ist `window.gsHTMLEscape` (:27429) + lokale `escHtml`/`_esc`/`esc`-Closures, meist korrekt aber inkonsistent verwendet. CLAUDE.md-Doku ist damit veraltet (Follow-up: entweder gsSafeHTML nachbauen oder §3.6 auf gsHTMLEscape umschreiben).
+- **Fix 1 (Stored-XSS, Marketplace):** `renderMarket` (:20885) + `gsMarketShowDetail` (:35846, :35849) bauten `<img src="...">` aus `l.images[0]`/`imgs[0]` OHNE Escaping, während title/desc auf denselben Objekten via `_esc`/`esc` escaped wurden — ein präpariertes Bild-URL-Feld mit `"` hätte aus dem Attribut ausbrechen können (persistenter XSS, sichtbar für jeden Marketplace-Browser). Fix: `gsHTMLEscape` (bereits etabliertes Pattern, siehe :7622-Präzedenzfall) auf allen 3 Stellen ergänzt.
+- **Fix 2 (KI-Output ungeescaped):** Pflanzendoktor-Flächenmessung (:50183) rendert `r.description` (Claude-Vision-Ausgabe) direkt in innerHTML ohne Escaping — inkonsistent zum eigenen catch-Block 5 Zeilen drunter, der `e.message` escaped. Fix: `escHtml` ergänzt (schützt vor Prompt-Injection-via-Bild, die das Modell zu HTML/Script-artiger Ausgabe verleitet).
+- **Verify:** 8/8 inline-scripts node --check OK · sw.js gs-v30.80 · GS_VERSION=v30.80 · _headers v30.80 · meta=30.80.20260801 · keine Migration nötig (reiner Frontend-Fix).
+- **Naechste:** §3.6 in CLAUDE.md an reale gsHTMLEscape-Mechanik anpassen (gsSafeHTML ist Fiktion) · restliche innerHTML-Stellen stichprobenartig auf denselben Inkonsistenz-Pattern (escaped Text-Felder, unescaped URL-Felder) prüfen · Dashboard-Settings Leaked-Password-Protection weiterhin offen.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
