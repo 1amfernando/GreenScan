@@ -12,6 +12,16 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-08-01 — Scheduled Routine: gsSafeHTML real implementiert (PR, noch nicht gemerged) + Branch-Sprawl-Eskalation
+
+- **Auftrag:** Automatisierte Scheduled-Routine. Vor einem weiteren Self-Audit zuerst Bestandsaufnahme der 69 offenen `claude/lucid-cerf-*`-Branches (Stand heute; 62 am 2026-07-30, 69 heute — **wächst weiter, +7 in 2 Tagen**), da vorherige Sessions wiederholt denselben Befund re-bestätigt hatten, ohne dass je gemerged wurde.
+- **Befund bestätigt sich:** 0 offene PRs, 1 einziger PR jemals gemerged (#1, 2026-04-30, unmerged geschlossen). Main steht weiterhin auf v30.79 (2026-06-27) — 5 Wochen ohne Merge, obwohl >30 Branches unabhängig fertige v30.80-Fixes enthalten (viele davon überlappende/konkurrierende Stored-XSS-Fixes an denselben Code-Stellen — Konsolidierung braucht menschliches Review wegen Konflikt-Risiko, wurde deshalb NICHT blind zusammengeführt).
+- **⚠️ CRITICAL weiterhin LIVE (6. Bestätigung, unverändert seit 2026-07-21):** `gsPullGlobalApiKey()`/`_gsAiTarget()` — `localStorage.gs_feat_aiproxy` wird auf `main` nirgends auf `'1'` gesetzt → roher globaler Anthropic-Key läuft weiter unverschlüsselt an jeden eingeloggten Browser. Fix (`ai-proxy` Edge-Fn + `AI_PROXY_ACTIVATION_RUNBOOK.md`) existiert weiterhin unverändert, wartet auf Fernandos Preview-Test (Runbook Schritt 1). **Nicht erneut per Push gemeldet** — User wurde am 2026-07-30 bereits aktiv informiert, Status unverändert seither.
+- **Diese Session (statt erneutem redundanten Audit) hat 1 real verifizierten, risikoarmen Fix aus Branch `claude/lucid-cerf-8lppv9` (2026-07-29) übernommen:** `gsSafeHTML` war seit v24.02 in CLAUDE.md §3.6 als existierender Helper dokumentiert, aber nie im Code definiert (wie schon `gsHTMLEscape` vor v27.03 Hard-Lesson #9) — jede wörtliche Nutzung von `gsSafeHTML\`...\`` hätte einen ReferenceError geworfen. Rein additiv neben `gsHTMLEscape` definiert (Tagged-Template + `.escape()`/`.attr()`/`.url()`/`.unsafe()`), keine bestehenden Call-Sites geändert.
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · `sw.js` gs-v30.80 OK · `manifest.json` valid OK · `GS_VERSION=v30.80` OK · `_headers` v30.80 OK · meta app-version=30.80.20260801 OK.
+- **Nicht gemacht (bewusst):** Kein Merge/Cherry-Pick der zahlreichen überlappenden Stored-XSS-Branches — zu hohes Konflikt-/Regressions-Risiko ohne Testsuite für einen 46k-Zeilen-Monolithen, braucht menschliche Triage. Kein neuer Fix-Versuch am AI-Key-Leak — der bekannte Fix ist bereits fertig und wartet nur auf Fernandos manuellen Schritt.
+- **Naechste:** (1) Fernando: `gs_feat_aiproxy`-Runbook Schritt 1 — kritisch, 12 Tage offen. (2) Branch-Aufräumung: 69 offene `claude/lucid-cerf-*`-Branches triagen/schließen, echte Fixes (v.a. Stored-XSS-Konsolidierung) in einen sauberen PR überführen. (3) Diese PR (`claude/lucid-cerf-vy1v0v`) reviewen & mergen.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
