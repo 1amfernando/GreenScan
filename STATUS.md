@@ -4,13 +4,34 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-08-02 · **Branch**: `main` · **Version**: `v30.80` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+
+> ⚠️ Die Routine-Einträge unten (0 ·) enden bei v26.51 (2026-05-24) — die App ist seit
+> dem bei v30.80. Zwischen-Sessions haben STATUS.md nicht konsequent nachgeführt.
+> Diese Datei ist als Log unvollständig; verlasse dich für den IST-Zustand primär auf
+> `git log` + Code-Grep, nicht auf die Lückenlosigkeit dieses Logs.
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-08-02 — v30.80 Stored-XSS-Fixes im Marketplace (Scheduled-Audit)
+
+- **Auftrag:** Automatisierte Routine-Session mit Auftrag zu proaktivem Security-Audit. Gezielter Scan von `innerHTML`-Sinks (677 Vorkommen in index.html) auf ungeeschapte user-/seller-kontrollierte Daten.
+- **Kontext-Korrektur:** `gsSafeHTML` (CLAUDE.md §3.6) existiert **nicht** im Code — nur ein no-op Guard bei Zeile 74650. Die tatsächliche Escaping-Konvention ist `escHtml()`/`gsHTMLEscape()` (Zeile 27424/27429) + lokale `_esc`/`esc`/`ed`-Wrapper. CLAUDE.md sollte hier korrigiert werden (separater Follow-up, nicht in diesem Sprint geändert um Scope klein zu halten).
+- **2 echte, live-exploitable Stored-XSS-Sinks gefixt** (beide: Marketplace-Bild-URLs werden roh in `src="..."`-Attribute interpoliert, während Titel/Beschreibung/Verkäufername in denselben Funktionen bereits escaped waren — reines "ein Feld vergessen"-Muster):
+  - `renderMarket()` Card-Thumbnail — `index.html:20885` — `l.images[0]` jetzt via `escHtml()`.
+  - `gsMarketShowDetail()` Bild-Galerie — `index.html:35846` + `35849` — `imgs[0]`/`src` jetzt via `escHtml()` (onclick-Argument war via `_gsOcArg` bereits sicher, nur das `src`-Attribut selbst fehlte).
+  - Angriffsvektor: Verkäufer setzt `photo_urls` per direktem PATCH auf `marketplace_sellers`/Listing-API (JWT reicht, UI-Upload nicht nötig) auf z.B. `" onerror=alert(document.cookie)//` → triggert für jeden Betrachter des Marktplatz-Tabs bzw. der Listing-Detailansicht.
+- **2 kleinere Härtungen** (niedrigeres Risiko, aber gleiches Muster, im selben Sprint mitgezogen):
+  - `renderSocialFeed()` — `index.html:31227` `title`-Attribut (`p.type`/`category`) jetzt `escHtml()`; war zuvor komplett ungeescaped (nur durch UI-Enum de-facto safe, nicht durch Server-Validierung).
+  - `renderSocialFeed()` — `index.html:31233` Post-Foto-`src` hatte nur ad-hoc `"`-Replace statt volles `escHtml()` — vereinheitlicht.
+  - `openGartenTagebuch()` "Meistgenannte Pflanzen"-Chips — `index.html:7637` `e.plant`/`p.n` war ungeescaped (aber RLS own-only → nur Self-XSS) — für Konsistenz mit Timeline-View (Zeile 7619) ebenfalls `escHtml()`.
+- **Nicht verändert:** `gsHTMLEscape`-Aufrufe waren an allen anderen gesampleten Stellen (~150 Cluster durchsucht von 677 Treffern) bereits korrekt — kein systemisches Problem, siehe Audit-Fazit.
+- **Verify:** `node --check` auf alle 9 inline `<script>`-Blöcke grün. GS_VERSION/meta/sw.js VERSION/_headers auf v30.80 gesynct.
+- **Nicht in diesem Sprint:** CLAUDE.md §3.6 auf `escHtml`/`gsHTMLEscape` statt `gsSafeHTML` korrigieren · verbleibende ~500 ungesampelte `innerHTML`-Sites stichprobenartig nachprüfen · serverseitige Validierung von `photo_urls` (aktuell nur Client-Escaping, kein Format-Check in DB/RLS) als Defense-in-Depth erwägen.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 

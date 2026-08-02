@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.79.20260627">
+<meta name="app-version" content="30.80.20260802">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -7634,7 +7634,7 @@ function openGartenTagebuch() {
     topHtml = '<div style="margin-top:14px;padding:10px 12px;background:var(--surface2);border-radius:10px;">' +
       '<div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px;">🌿 Meistgenannte Pflanzen</div>' +
       topPlants.map(function(p){
-        return '<span style="display:inline-block;margin:2px 4px 2px 0;padding:4px 9px;background:var(--card);border:1px solid var(--border);border-radius:999px;font-size:11.5px;color:var(--text);">' + p.n + ' <strong style="color:var(--g-main);">' + p.c + '×</strong></span>';
+        return '<span style="display:inline-block;margin:2px 4px 2px 0;padding:4px 9px;background:var(--card);border:1px solid var(--border);border-radius:999px;font-size:11.5px;color:var(--text);">' + escHtml(p.n) + ' <strong style="color:var(--g-main);">' + p.c + '×</strong></span>';
       }).join('') + '</div>';
   }
   
@@ -20882,7 +20882,7 @@ function renderMarket() {
     html += '<div class="mk-card" onclick="openListingDetail(\'' + l.id + '\')" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px;margin-bottom:8px;cursor:pointer;-webkit-tap-highlight-color:transparent;display:flex;gap:11px;' + cardDim + '">' +
       // Bild/Icon
       '<div style="width:64px;height:64px;background:var(--g-bg);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:34px;flex-shrink:0;overflow:hidden;">' +
-        (l.images && l.images[0] ? '<img src="' + l.images[0] + '" alt="" style="width:100%;height:100%;object-fit:cover;">' : catEmoji) +
+        (l.images && l.images[0] ? '<img src="' + escHtml(l.images[0]) + '" alt="" style="width:100%;height:100%;object-fit:cover;">' : catEmoji) +
       '</div>' +
       // Info
       '<div style="flex:1;min-width:0;">' +
@@ -31224,13 +31224,13 @@ function renderSocialFeed() {
     out += '<div style="font-weight:800;font-size:13.5px;color:var(--text);">' + nameHtml + exp + vBadge + '</div>';
     out += '<div style="font-size:11px;color:var(--muted);">' + dt + (plant ? ' · 🌿 ' + escHtml(plant) : '') + '</div>';
     out += '</div>';
-    out += '<span style="font-size:16px;" title="' + (p.type||p.category||'fund') + '">' + emoji + '</span>';
+    out += '<span style="font-size:16px;" title="' + escHtml(p.type||p.category||'fund') + '">' + emoji + '</span>';
     out += '</div>';
     // v23.74: Foto (von Storage oder optimistic-base64)
     var photo = p.photo_url || p.image || null;
     if (photo) {
       out += '<div style="margin:0 -2px 12px;border-radius:12px;overflow:hidden;background:#000;">';
-      out += '<img loading="lazy" src="' + photo.replace(/"/g,'&quot;') + '" alt="" style="width:100%;display:block;max-height:520px;object-fit:cover;' + (p._pending ? 'opacity:.7;' : '') + '">';
+      out += '<img loading="lazy" src="' + escHtml(photo) + '" alt="" style="width:100%;display:block;max-height:520px;object-fit:cover;' + (p._pending ? 'opacity:.7;' : '') + '">';
       out += '</div>';
     }
     // Inhalt
@@ -35843,10 +35843,10 @@ function gsMarketShowDetail(l) {
   // Bilder-Galerie (1 großes Bild + Thumbnails)
   var galleryHtml = imgs.length
     ? '<div style="margin:0 -16px 14px;">' +
-        '<img id="mklist-main-img" src="' + imgs[0] + '" alt="" style="width:100%;max-height:320px;object-fit:cover;background:var(--surface2);" loading="lazy">' +
+        '<img id="mklist-main-img" src="' + escHtml(imgs[0]) + '" alt="" style="width:100%;max-height:320px;object-fit:cover;background:var(--surface2);" loading="lazy">' +
         (imgs.length > 1 ? '<div style="display:flex;gap:6px;padding:8px 16px 0;overflow-x:auto;-webkit-overflow-scrolling:touch;">' +
           imgs.map(function(src, i){
-            return '<img onclick="document.getElementById(\'mklist-main-img\').src=\'' + _gsOcArg(src) + '\'" src="' + src + '" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:8px;cursor:pointer;flex-shrink:0;border:2px solid ' + (i===0?'var(--g-main)':'transparent') + ';" loading="lazy">';
+            return '<img onclick="document.getElementById(\'mklist-main-img\').src=\'' + _gsOcArg(src) + '\'" src="' + escHtml(src) + '" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:8px;cursor:pointer;flex-shrink:0;border:2px solid ' + (i===0?'var(--g-main)':'transparent') + ';" loading="lazy">';
           }).join('') +
         '</div>' : '') +
       '</div>'
@@ -66915,7 +66915,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.79';
+var GS_VERSION = 'v30.80';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
