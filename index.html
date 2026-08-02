@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.79.20260627">
+<meta name="app-version" content="30.80.20260802">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -66915,7 +66915,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.79';
+var GS_VERSION = 'v30.80';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -80664,19 +80664,19 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
         } catch(e){ return null; }
       }
       list.innerHTML = cands.map(function(c) {
-        var cat = c.category || '—';
+        var cat = escHtml(c.category || '—');
         var conf = Math.round((c.confidence || 0) * 100);
         var dup = _biDupCheck(c);
         var dupBadge = dup ? '<span title="Schon in der Bibliothek vorhanden" style="background:#f3e5f5;color:#6a1b9a;font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px;margin-left:5px;">🔁 DUP</span>' : '';
         var badge = c.toxic ? '<span style="background:#c62828;color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px;margin-left:5px;">GIFTIG</span>' :
                     c.edible ? '<span style="background:#2e7d32;color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px;margin-left:5px;">ESSBAR</span>' : '';
-        var desc = (c.description || '').slice(0, 160);
+        var desc = escHtml((c.description || '').slice(0, 160));
         return '<div style="border:1.5px solid ' + (dup?'#ce93d8':'var(--border)') + ';border-radius:10px;padding:11px 13px;background:' + (dup?'#faf5fb':'var(--card)') + ';">' +
           '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px;">' +
-            '<strong style="font-size:14px;color:var(--text);">' + (c.name_de || '(ohne dt. Name)') + '</strong>' + badge + dupBadge +
+            '<strong style="font-size:14px;color:var(--text);">' + escHtml(c.name_de || '(ohne dt. Name)') + '</strong>' + badge + dupBadge +
           '</div>' +
-          (dup ? '<div style="font-size:11px;color:#6a1b9a;margin-bottom:4px;">Bereits in der Bibliothek: <b>' + (dup.name||'') + '</b>. Übernahme wird als Update behandelt.</div>' : '') +
-          '<div style="font-size:11.5px;color:var(--muted);font-style:italic;margin-bottom:6px;">' + (c.name_lat || '') + ' · ' + cat + ' · S.' + c.page_number + ' · ' + conf + '% sicher</div>' +
+          (dup ? '<div style="font-size:11px;color:#6a1b9a;margin-bottom:4px;">Bereits in der Bibliothek: <b>' + escHtml(dup.name||'') + '</b>. Übernahme wird als Update behandelt.</div>' : '') +
+          '<div style="font-size:11.5px;color:var(--muted);font-style:italic;margin-bottom:6px;">' + escHtml(c.name_lat || '') + ' · ' + cat + ' · S.' + c.page_number + ' · ' + conf + '% sicher</div>' +
           (desc ? '<div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:8px;">' + desc + (c.description && c.description.length > 160 ? '…' : '') + '</div>' : '') +
           '<div style="display:flex;gap:6px;">' +
             '<button onclick="gsBookIngestDecide(' + c.id + ', \'approve\')\" style="flex:1;padding:7px;background:var(--g-main);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;">✓ Übernehmen</button>' +

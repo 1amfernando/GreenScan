@@ -12,6 +12,15 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-08-02 — Scheduled-Routine Security-Scan v30.80 (Stored-XSS im Book-Ingest Admin-Panel)
+
+- **Auftrag:** Automatisierte Scheduled-Task ("Ressourcen-Maximierung"-Prompt war grösstenteils vage/nicht umsetzbar — kein Token-Budget-Introspektions-Tool, keine "Coworker"-Broadcast-Möglichkeit vorhanden; daraus den einzig konkreten, legitimen Teil extrahiert: periodischer Security-Audit gemäß CLAUDE.md §3.6).
+- **Finding:** `gsBookIngestLoadCandidates` (`index.html`, Book-Ingest Review-Panel) rendert `c.name_de`, `c.name_lat`, `c.category`, `c.description` und `dup.name` per `list.innerHTML =` OHNE Escaping. Diese Felder kommen aus `book_species_candidates` (Supabase), befüllt via Claude-PDF-Text-Extraktion — ein präparierter Buchscan könnte HTML/Script einschleusen, das im Admin-Review-UI ausgeführt wird (Stored-XSS gegen Admin-Session).
+- **Fix:** Alle 5 Felder mit vorhandenem globalem `escHtml()`-Helper escaped (analog zum bereits gefixten Muster bei `author_avatar`/`display_name`/`avatar_emoji`).
+- **Zusätzlich gefunden, NICHT verändert (niedrige Prio):** `gsEnrichSpeciesViaAI` (dead code, nirgends aufgerufen) und `_gsKeyHealthWalker` (reiner Key-Health-Ping) rufen `fetch('api.anthropic.com/...')` direkt statt über `callAI`/`gsTestApiKey` — funktional harmlos (kein Content-Routing/Brain-Persona betroffen), aber Namenskonvention verletzt. Für spätere Aufräum-Session vorgemerkt, nicht Teil dieses Fixes.
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · `sw.js` OK · GS_VERSION=v30.80 · sw.js gs-v30.80 · meta=30.80.20260802 · keine hardcoded Secrets gefunden · CSP unverändert (unsafe-inline/unsafe-eval bereits durch Monolith-Struktur begründet).
+- **Naechste:** `gsEnrichSpeciesViaAI` entweder auf `callAI`-Routing umstellen oder als totes Backup entfernen · `_gsKeyHealthWalker` ggf. umbenennen oder in `gsTestApiKey`-Familie aufnehmen.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
