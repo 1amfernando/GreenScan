@@ -12,6 +12,14 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-08-03 — Scheduled Routine: Bestandsaufnahme, kein neuer Audit-Branch
+
+- **Auftrag:** Automatisierte Scheduled-Routine (vage "Ressourcen-Maximierung"-Vorgabe). Vor einem weiteren Self-Audit zuerst Repo-Zustand geprüft, da vorherige Sessions wiederholt denselben Branch-Sprawl-Befund re-bestätigt hatten.
+- **Befund unverändert/verschärft:** 74 offene `claude/lucid-cerf-*`-Branches (69 am 2026-08-01, 62 am 2026-07-30 — weiter wachsend), weiterhin nur 1 offener PR (#4, `claude/lucid-cerf-vy1v0v`, seit 2026-08-01 unreviewt). `main` weiterhin auf v30.79, obwohl mehrere Branches fertige, teils überlappende Fixes enthalten.
+- **⚠️ CRITICAL weiterhin LIVE (7. Bestätigung, unverändert seit 2026-07-21, jetzt 13 Tage offen):** `gsPullGlobalApiKey()`/`_gsAiTarget()` — `localStorage.gs_feat_aiproxy` auf `main` nirgends auf `'1'` gesetzt → roher globaler Anthropic-Key läuft weiterhin unverschlüsselt an jeden eingeloggten Browser. Fix (`ai-proxy` Edge-Fn) fertig, wartet weiter auf Fernandos Preview-Test (`AI_PROXY_ACTIVATION_RUNBOOK.md` Schritt 1). Per Push erneut gemeldet (zuletzt 2026-07-30).
+- **Bewusst nicht gemacht:** Kein neuer Audit-Branch/PR — würde den bereits kritisierten Branch-Sprawl (74→75) nur vergrössern, ohne echten Mehrwert gegenüber den bestehenden unreviewten Fixes. Kein Merge/Cherry-Pick der überlappenden Stored-XSS-Branches (unverändert: braucht menschliche Triage, kein Testsuite-Schutz für 46k-Zeilen-Monolith).
+- **Naechste:** (1) Fernando: `gs_feat_aiproxy`-Runbook Schritt 1 — kritisch, 13 Tage offen. (2) PR #4 reviewen & mergen. (3) Branch-Aufräumung: 74 offene Branches triagen/schließen.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
