@@ -12,6 +12,15 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-08-03 — Scheduled Self-Audit (Security-Scan, read-only) + CLAUDE.md-Doku-Fix
+
+- **Auftrag:** Automatisierte Scheduled-Routine (kein konkretes User-Briefing) — als sinnvollste Interpretation wurde ein bounded Security-Audit gefahren, analog zu früheren Self-Audit-Sprints (siehe v26.51 unten).
+- **Audit-Scope:** index.html, sw.js, manifest.json, _headers, _redirects. Geprüft: hardcoded Secrets, `.innerHTML`-Sinks ohne Escaping (Sample ~40 Stellen), direkte `fetch('https://api.anthropic.com...')` außerhalb `gsTestApiKey()`, CSP-Konfiguration.
+- **Ergebnis: keine kritischen/aktiven Findings.** Kein hardcoded Secret gefunden. innerHTML-Sample zeigt konsistentes Escaping via `gsHTMLEscape`/`escHtml`/`esc`/`ed`/`_gsCEsc`.
+- **Doku-Fix (dieser Commit):** CLAUDE.md §3.6 referenzierte `gsSafeHTML` als Tagged-Template-Escaper — dieser existiert im Code NICHT (Phantom-Helper, gleiches Muster wie `gsBrain` in §4). Der real verwendete Escaper ist `window.gsHTMLEscape` (index.html:27429). §3.6 korrigiert, damit künftige Agenten nicht `gsSafeHTML\`...\`` schreiben und einen ReferenceError produzieren.
+- **Nicht behoben (niedrige Priorität, kein Fix in diesem Sprint):** `gsEnrichSpeciesViaAI()` (index.html ~26139) macht direkten Anthropic-`fetch()` statt über `callAI()` — aber **0 Call-Sites**, toter Code. `_gsKeyHealthWalker` (index.html ~60843) macht ebenfalls direkten fetch, ist aber funktional Key-Validierung (3 aktive Call-Sites) — CLAUDE.md §3.4 Allowlist könnte ihn explizit nennen. `_headers` CSP grants `unsafe-eval` ohne erkennbaren `eval()`-Call-Site im Code — ggf. entfernbar, nicht dringend.
+- **Nebenbeobachtung:** STATUS.md-Kopfzeile sagt „Stand 2026-05-24 · v26.51", aber `git log` zeigt aktuellen Stand v30.79 — STATUS.md wurde seit Mai nicht mehr aktualisiert trotz vieler Pushes. Empfehlung an nächste Session: Kopfzeile + fehlende Zwischen-Einträge nachtragen, falls Zeit.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.

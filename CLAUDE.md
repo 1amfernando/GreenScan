@@ -81,15 +81,16 @@ GreenScan/
   pack ihn hinter einen Server-Proxy.
 - **CSP** ist aktiv (siehe `_headers`). Wenn du externe URLs einbaust,
   Allowlist erweitern. Inline-Scripts sind erlaubt, weil Monolith.
-- **innerHTML mit User-Input**: ab v24.02 nutze `gsSafeHTML`-Tagged-Template
-  (auto-escape):
-  ```js
-  el.innerHTML = gsSafeHTML`<div>${userName} sagt: ${msg}</div>`;
-  ```
-  Helpers: `gsSafeHTML.escape(s)`, `.attr(s)`, `.url(s)` (nur https/http/
-  mailto/relative), `.unsafe(html)` (bypass für bereits-escapte Sub-
-  Templates). `gsHTMLEscape` als Kurz-Alias. Für reine Text-Inserts
-  weiterhin `textContent` bevorzugen.
+- **innerHTML mit User-Input**: `gsSafeHTML` ist NICHT definiert (Phantom-
+  Helper, gleiches Muster wie `gsBrain` in §4 — nicht neu aufrufen, sonst
+  `ReferenceError`). Der tatsächlich verwendete Escaper ist
+  `window.gsHTMLEscape(s)` (index.html:27429, seit v27.03 HL#9 fix definiert;
+  vorher jahrelang nur dokumentiert-aber-fehlend, siehe Kommentar dort). An
+  den meisten Call-Sites lokal gewrappt als `escHtml`/`esc`/`ed`/`_gsCEsc`.
+  Für neue Stellen: `el.innerHTML = '<div>' + gsHTMLEscape(userName) + ' sagt: ' + gsHTMLEscape(msg) + '</div>';`
+  Für Onclick-Attribut-Args: `window._gsOcArg(s)` (Backslash/Quote-Escape,
+  index.html:27428). Für reine Text-Inserts weiterhin `textContent`
+  bevorzugen.
 - **localStorage für Auth**: bewusst akzeptiert, weil mit CSP
   `frame-ancestors 'none'` + `strict-origin-when-cross-origin` Risiko klein
   ist. JWT-Migration in HttpOnly-Cookies ist Roadmap-Punkt P2.
