@@ -12,6 +12,15 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-08-03 — Proaktiver Security-/Logik-Audit (Scheduled Routine, keine Funde)
+
+- **Auftrag:** Automatisierte Scheduled-Routine — Deep-Scan des Projekts auf Sicherheitsluecken + Logikfehler, analog zum v26.51 Self-Audit-Sprint-Muster.
+- **Scope:** `index.html` (670× `.innerHTML`, Spot-Check aller User-Content-Sinks: Lina-Chat, Marketplace-Chat, Social-Comments, Rezept-/Pflanzen-/Listing-Cards), `sw.js`, `supabase/functions/**` (Secrets, SQL-Injection, Auth/CORS), letzte 5 Commits (v30.75-v30.79) auf Logikfehler.
+- **Ergebnis:** 0 CRITICAL + 0 HIGH + 0 MEDIUM. 2 LOW/informational (beide by-design, kein Handlungsbedarf): (1) 12 Edge-Functions mit `Access-Control-Allow-Origin: "*"` — unkritisch da alle Bearer-JWT/service-role-gated, kein Cookie-Auth; (2) Rezept-/Listing-IDs unescaped in `onclick`-Attributen — stammen aus kuratierten DB-Slugs/UUIDs, kein Freitext.
+- **False-Positives geprueft & verworfen** (nicht erneut flaggen): keine Hardcoded-Secrets (alle Anthropic-Keys ueber `Deno.env`/`app_settings`-RPC), keine direkten `fetch()` zu Anthropic/Supabase ausserhalb `callAI`/`sbFetch`, nur 1 verbleibender `alert()`-Call (im `gsNotif`-Fallback-Helper selbst, kein User-facing Call-Site), keine SQL-Injection (durchgehend Supabase-Query-Builder), `delete-user` Auth korrekt `jwtUid === targetUid`-gated.
+- **Logik-Review letzte 5 Commits:** keine neuen Bugs. v30.78 hat einen echten Bug (unhandled ReferenceError durch catch verschluckt) korrekt gefixt.
+- **Naechste:** Keine offenen Findings — kein Fix-Commit noetig. Naechster Scheduled-Run kann false-positive-Liste oben als Baseline nutzen.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
