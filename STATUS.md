@@ -12,6 +12,14 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-08-04 — Scheduled Security-Audit (read-only) — 4. Re-Bestätigung desselben kritischen Befunds
+
+- **Auftrag:** Automatisierte Scheduled-Routine ("vollständiger Code-Review auf Sicherheitslücken"). Read-Only-Verifikation gegen aktuellen `main` (`0266bff`, v30.79).
+- **⚠️ CRITICAL weiterhin LIVE, unverändert seit 2026-07-21:** `gsPullGlobalApiKey()` (`index.html:23221`) schreibt den rohen admin-globalen Anthropic-Key nach wie vor in `localStorage.gs_global_api_key`. `_gsAiTarget()` (`index.html:23480`) routet nur über den serverseitigen Proxy, wenn `localStorage.gs_feat_aiproxy === '1'` — per grep verifiziert: dieses Flag wird weiterhin **an keiner Stelle im Code gesetzt** (die einzigen 2 Treffer im Repo sind der Read-Check selbst, `index.html:23475` + `:23480`). D.h. der Proxy-Pfad ist für 100% der User weiterhin permanent inaktiv; jeder eingeloggte User kann den globalen Key via localStorage/Network-Tab extrahieren.
+- **Fix liegt weiterhin fertig im Repo:** Edge-Fn `ai-proxy` (`supabase/functions/ai-proxy/`) — JWT + Tier-Quota + Model-Whitelist serverseitig. Es fehlt nach wie vor nur der Flag-Flip (`gs_feat_aiproxy` Default `'1'`) + kurzer Preview-Verify.
+- **Befund jetzt seit 14 Tagen offen über 4 Scheduled-Sessions hinweg** (2026-07-21 `claude/lucid-cerf-2yldel`, 2026-07-23, 2026-07-25 `claude/lucid-cerf-1pl7bc`, heute). Alle bisherigen Fund-Branches wurden nie in `main` gemerged — einziger offener PR (#4, `claude/lucid-cerf-vy1v0v`) betrifft `gsSafeHTML`, nicht diesen Fund. Diese Session pusht bewusst wieder **keine** Code-Änderung (Flag-Flip ist ein produktionsweiter Routing-Change für alle User, braucht Fernandos bewusste Freigabe) — stattdessen erneute Push-Notification an Fernando.
+- **Naechste:** `gs_feat_aiproxy` Default auf `'1'` setzen + kurzer Preview-Test. Solange das nicht passiert, bleibt der Key-Leak aktiv.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
