@@ -12,6 +12,14 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-08-04 — Scheduled-Routine Re-Check (read-only) — AI-Key-Leak seit 14 Tagen offen + Branch-Sprawl jetzt 78
+
+- **Auftrag:** Automatisierte Scheduled-Routine (vage "Ressourcen-Maximierung"-Prompt ohne konkretes Ziel). Statt sinnlosem Token-Verbrauch: read-only Re-Verifikation des seit 2026-07-21 wiederholt bestätigten kritischen Findings.
+- **⚠️ CRITICAL weiterhin LIVE auf `main` (v30.79, HEAD `0266bff`):** `localStorage.gs_feat_aiproxy` wird im gesamten Code nur gelesen (`index.html:23480`), nirgends gesetzt → der globale Anthropic-Key läuft weiterhin unverschlüsselt an jeden eingeloggten Browser (`gsPullGlobalApiKey`). Das ist die **6. Bestätigung** desselben Befunds seit 2026-07-21 (14 Tage offen), trotz mind. einer vorherigen Push-Benachrichtigung an den User (2026-07-30). Fix ist seit v30.38 fertig und wartet nur auf Fernandos 5-Minuten-Preview-Test — siehe `AI_PROXY_ACTIVATION_RUNBOOK.md` Schritt 1.
+- **Repo-Hygiene eskaliert:** 78 offene `claude/lucid-cerf-*`-Branches (Stand heute, vs. 62 am 2026-07-30), weiterhin nur 1 PR jemals gemerged (#1, 2026-04-30). `main`s `STATUS.md` selbst ist dadurch seit v26.51 (2026-05-24) nicht mehr aktuell — alle neueren Log-Einträge (inkl. dieser Serie von Re-Bestätigungen) stecken in unmerged Branches fest. Mehrere Branches enthalten fertige, unabhängige Stored-XSS-Fixes, die real in `main` offen bleiben, weil sie nie gemerged wurden.
+- **Keine Code-Änderung diese Session** — bewusst kein Flag-Flip ohne Fernandos Freigabe (Runbook verlangt explizit seinen Preview-Test zuerst). User erneut per Push informiert.
+- **Naechste:** (1) Fernando: Runbook Schritt 1 (Preview-Test, ~5 Min). (2) Danach Code-Schritte 2+3. (3) Unabhängig davon: Branch-Triage der 78 offenen Branches — insbesondere die bereits fertigen Stored-XSS-Fixes in einen PR konsolidieren, statt weiter neue Branches anzuhäufen.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
