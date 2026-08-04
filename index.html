@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.79.20260627">
+<meta name="app-version" content="30.80.20260804">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -55258,9 +55258,9 @@ function gsBuildGardenScanResultPreview(analysis, planId) {
       '<button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:20px;cursor:pointer;">×</button>' +
       '<div style="font-size:18px;font-weight:900;font-family:\'Playfair Display\',serif;">✨ Dein KI-Garten-Plan</div>' +
       '<div style="font-size:11.5px;opacity:.9;margin-top:4px;">' +
-        (sa.size_m2 ? sa.size_m2 + ' m² · ' : '') +
-        (sa.shape ? sa.shape + ' · ' : '') +
-        (sa.light && sa.light.level ? sa.light.level : '') +
+        (sa.size_m2 ? _gsPlanEsc(sa.size_m2) + ' m² · ' : '') +
+        (sa.shape ? _gsPlanEsc(sa.shape) + ' · ' : '') +
+        (sa.light && sa.light.level ? _gsPlanEsc(sa.light.level) : '') +
       '</div>' +
       (intentLbl ? '<div style="display:inline-block;margin-top:6px;font-size:11.5px;padding:3px 9px;background:rgba(255,255,255,.18);border-radius:7px;font-weight:800;">' + intentLbl + '</div>' : '') +
     '</div>' +
@@ -55911,10 +55911,10 @@ function gsGardenScanExportPDF() {
     var entries = cal[m] || cal[monthLabels[i].toLowerCase()] || [];
     if (!Array.isArray(entries)) entries = [];
     if (!entries.length) return '';
-    return '<tr><td style="font-weight:700;padding:4px 8px;border-bottom:1px solid #ddd;">' + monthLabels[i] + '</td><td style="padding:4px 8px;border-bottom:1px solid #ddd;">' + entries.join(' · ') + '</td></tr>';
+    return '<tr><td style="font-weight:700;padding:4px 8px;border-bottom:1px solid #ddd;">' + monthLabels[i] + '</td><td style="padding:4px 8px;border-bottom:1px solid #ddd;">' + _gsPlanEsc(entries.join(' · ')) + '</td></tr>';
   }).filter(Boolean).join('');
   var plantsList = rp.map(function(pl){
-    return '<li><strong>' + (pl.name||'') + '</strong>' + (pl.lat?' <em>('+pl.lat+')</em>':'') + (pl.qty?' · '+pl.qty+'x':'') + (pl.position?' · Pos. '+(pl.position.x||0)+','+(pl.position.y||0)+'m':'') + '</li>';
+    return '<li><strong>' + _gsPlanEsc(pl.name||'') + '</strong>' + (pl.lat?' <em>('+_gsPlanEsc(pl.lat)+')</em>':'') + (pl.qty?' · '+_gsPlanEsc(pl.qty)+'x':'') + (pl.position?' · Pos. '+_gsPlanEsc(pl.position.x||0)+','+_gsPlanEsc(pl.position.y||0)+'m':'') + '</li>';
   }).join('');
   var svgBlock = (typeof gsBuildGardenScanSvg === 'function') ? gsBuildGardenScanSvg(s.analysis) : '';
   var iframe = document.createElement('iframe');
@@ -55934,12 +55934,12 @@ function gsGardenScanExportPDF() {
     '@media print { body{padding:8px;} h1{page-break-after:avoid;} h2{page-break-after:avoid;} svg{max-width:100%;height:auto;page-break-inside:avoid;} }' +
     '</style></head><body>' +
     '<h1>🌱 GreenScan — KI-Garten-Plan</h1>' +
-    '<div class="meta">Erstellt: ' + new Date().toLocaleDateString('de-CH') + ' · ' + (sa.size_m2?sa.size_m2+' m²':'') + (sa.shape?' · '+sa.shape:'') + (sa.light&&sa.light.level?' · '+sa.light.level:'') + (s.plan_id?' · ID: '+String(s.plan_id).slice(0,8):'') + '</div>' +
+    '<div class="meta">Erstellt: ' + new Date().toLocaleDateString('de-CH') + ' · ' + (sa.size_m2?_gsPlanEsc(sa.size_m2)+' m²':'') + (sa.shape?' · '+_gsPlanEsc(sa.shape):'') + (sa.light&&sa.light.level?' · '+_gsPlanEsc(sa.light.level):'') + (s.plan_id?' · ID: '+_gsPlanEsc(String(s.plan_id).slice(0,8)):'') + '</div>' +
     (svgBlock ? '<h2>📐 Plan-Skizze</h2>' + svgBlock.replace(/onclick="[^"]*"/g, '') : '') +
     '<h2>🌿 Empfohlene Pflanzen (' + rp.length + ')</h2><ol>' + plantsList + '</ol>' +
     (calRows ? '<h2>📅 Monatskalender</h2><table>' + calRows + '</table>' : '') +
-    (tools.length ? '<h2>🔧 Werkzeuge</h2><ul>' + tools.map(function(t){return '<li>'+t+'</li>';}).join('') + '</ul>' : '') +
-    (warns.length ? '<h2>⚠️ Warnungen</h2><ul>' + warns.map(function(w){return '<li>'+w+'</li>';}).join('') + '</ul>' : '') +
+    (tools.length ? '<h2>🔧 Werkzeuge</h2><ul>' + tools.map(function(t){return '<li>'+_gsPlanEsc(t)+'</li>';}).join('') + '</ul>' : '') +
+    (warns.length ? '<h2>⚠️ Warnungen</h2><ul>' + warns.map(function(w){return '<li>'+_gsPlanEsc(w)+'</li>';}).join('') + '</ul>' : '') +
     '<div class="meta" style="margin-top:30px;text-align:center;">https://green-scan.ch · KI-generiert</div>' +
     '</body></html>'
   );
@@ -66915,7 +66915,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.79';
+var GS_VERSION = 'v30.80';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
