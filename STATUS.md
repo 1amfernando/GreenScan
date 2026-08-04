@@ -12,6 +12,14 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-08-04 — Scheduled Security-Audit v30.80 (KI-Garten-Plan-Export XSS)
+
+- **Auftrag:** Automatisierte Scheduled-Session, proaktiver Security-Deep-Scan (Fokus: hardcoded secrets, innerHTML-XSS ohne `gsSafeHTML`/`escHtml`, direkte `fetch()` zu api.anthropic.com außerhalb `gsTestApiKey`, Edge-Fn-Auth, Token-Leaks in console.log). Subagent-Audit über `index.html` (82k Zeilen), `sw.js`, alle 22 `supabase/functions/*/index.ts`.
+- **Ergebnis:** 4 von 5 Kategorien clean (keine hardcoded Secrets, keine verbotenen direkten Anthropic-fetch-Calls, keine Token-Leaks in console.log, Edge-Fn-Auth korrekt via `auth.getUser()`/`x-cron-secret`). **1 echter Fund:** `gsBuildGardenScanResultPreview` (Zeile ~55261) und `gsGardenScanExportPDF` (Zeile ~55908-55943) interpolierten KI-generierte Felder aus `garden-scan-analyze` (`site_analysis.shape/light.level`, `recommended_plants[].name/lat`, `monthly_calendar`-Einträge, `tools_needed`, `warnings`) ungeescaped in `innerHTML` bzw. via `doc.write()` in ein same-origin iframe — bei erfolgreicher Prompt-Injection gegen den Vision-Call ein XSS mit potenziellem Zugriff auf `localStorage.gs_sb_token`. Sibling-Code (`gsBuildPlanTabsWrap`) escapte dieselben Felder bereits korrekt via `_gsPlanEsc()`.
+- **v30.80 Fix** (`8302825`): Beide Stellen nutzen jetzt `_gsPlanEsc()` (bereits vorhandenes Helper, wrapped `escHtml`) für alle KI-generierten Interpolationen — konsistent mit dem Rest der Garden-Plan-Codebase.
+- **Verify:** 12/12 Inline-Scripts `node --check` OK · `sw.js` gs-v30.80 · `GS_VERSION=v30.80` · `_headers` v30.80 · `meta app-version=30.80.20260804`.
+- **Hinweis:** Branch `claude/lucid-cerf-ev1hno` war zu Sessionsbeginn bereits bei v30.79 (nicht in diesem STATUS.md-Log dokumentiert — mehrere Sessions seit v26.51 haben offenbar nicht in dieses File geschrieben). Dieser Log-Sprung (v26.51 → v30.80) ist bekannt, keine Aktion nötig.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
