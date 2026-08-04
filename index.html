@@ -74166,7 +74166,7 @@ async function gsLinaDispatch(act){
     case 'propose_reminder':
     case 'propose_task': {
       var key = String(a.task||'').toLowerCase();
-      if (typeof TASK_DEFS==='undefined' || !TASK_DEFS[key]) return;   // nur Whitelist-Tasks
+      if (typeof TASK_DEFS==='undefined' || !Object.prototype.hasOwnProperty.call(TASK_DEFS, key)) return;   // nur Whitelist-Tasks
       var p = gsLinaResolvePlant(a.plantId, a.plantName);
       if (!p) { if (typeof gsToast==='function') gsToast('Dafür brauche ich die Pflanze zuerst in „Meine Pflanzen" 🌿', 'info'); return; }
       var days = parseInt(a.intervalDays,10); if (!(days>0)) days = (TASK_DEFS[key].intervals && TASK_DEFS[key].intervals[0] && TASK_DEFS[key].intervals[0].v) || 7;

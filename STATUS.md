@@ -4,7 +4,7 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-08-04 · **Branch**: `claude/lucid-cerf-6xpgnu` · **Version**: `v30.79` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
 
 ---
 
@@ -12,7 +12,16 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
-### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
+### 2026-08-04 — Scheduled Self-Audit (Diff v30.51→v30.79 + Lina-Action-Sicherheit)
+
+- **Auftrag:** Automatisierte Scheduled-Task, proaktiver Audit ohne externes Briefing (analog 2026-05-24 (c) Self-Audit-Sprint-Konvention).
+- **Scope:** 2 parallele Audit-Agenten — (1) `git diff fb98690..HEAD` (v30.51-Audit-Basis → aktueller HEAD, 28 Commits, ~1200 geänderte Zeilen index.html) gegen die 6 bekannten Fehlerklassen aus vorherigen Audits (ungewrappte localStorage-Writes/HL#10, innerHTML-XSS ohne gsSafeHTML, hardcoded Secrets, toter switchTab-Ziele, Logikfehler, raw-fetch-zu-Anthropic). (2) Dedizierter Sicherheits-Review von `v30.69 "Lina kann jetzt HANDELN"` (Whitelist/Confirm/kein-eval-Claims).
+- **Diff-Audit-Ergebnis (fb98690..HEAD):** Sauber. Kein neuer HL#10-Fall, kein neuer innerHTML-XSS-Fall (ein Soft-Note zu `_gsAdminSpeciesProposalHtml:75784` — spiegelt aber nur das etablierte Pattern der Sibling-Funktion, `photo_url` ist server-generiert, kein User-Freitext), keine neuen Secrets, keine toten Nav-Targets, keine Logikfehler in den riskanteren neuen Flows (`gsMatchScanToDb`, `gsSnoozeTask`, `gsPickAlternative`), keine raw-Anthropic-fetch-Calls.
+- **Lina-Action-Audit-Ergebnis:** Die 3 Sicherheits-Claims aus dem v30.69-Commit halten grundsätzlich — kein `eval`/`new Function`, Tool-Dispatch ist ein fixer `switch` über 5 literale Strings (kein `window[...]`-Dynamic-Dispatch), beide schreibenden Tools (`propose_add_plant`, `propose_reminder`/`propose_task`) blocken echt auf `gsConfirmModal` mit HTML-Escaping. Kein Pfad gefunden, über den Lina Daten löschen, fremde Daten anfassen, Daten exfiltrieren oder eine Zahlung auslösen könnte — diese Tool-Cases existieren schlicht nicht im Switch.
+- **1 Fix LIVE (kein v-Bump, MID-RANGE-Pattern):** `index.html:74169` — Whitelist-Check für `propose_reminder`/`propose_task` nutzte `!TASK_DEFS[key]` (plain Object-Lookup) statt `hasOwnProperty`. Inherited `Object.prototype`-Keys (`constructor`, `toString`, `__proto__`, …) wären fälschlich als "whitelisted" durchgerutscht — degradierte bisher zu einem sauber vom try/catch aufgefangenen Fehler (kein Datenverlust), ist aber ein echter Whitelist-Enforcement-Bug. Fix: `Object.prototype.hasOwnProperty.call(TASK_DEFS, key)`. 9/9 Inline-Scripts `node --check` OK.
+- **Bewusst nicht angefasst (Doku statt Fix):** `gsConfirmModal`s Enter-Key-Handler (`index.html:14136-14138`) bestätigt bei JEDEM Enter-Keydown ohne `stopPropagation()` — bei Lina-vorgeschlagenen Schreib-Aktionen (Pflanze hinzufügen/Erinnerung) könnte ein reflexartiges Enter (Gewohnheit vom Chat-Senden) die Aktion ohne bewusstes Lesen bestätigen. Pre-existing, app-weites `gsConfirmModal`-Verhalten (nicht neu in diesem Diff) — gated jetzt aber erstmals eine LLM-initiierte Aktion. Empfehlung für spätere Session: `stopPropagation()` + ggf. kurzer Delay vor Enter-Aktivierung, aber Änderung am globalen Modal-Handler verdient eigene Review (viele Call-Sites app-weit).
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · kein Migrations-Bedarf · working tree sonst clean.
+- **Naechste:** Enter-Key-Confirm-Härtung (siehe oben) bei Gelegenheit als eigener, isolierter Sprint.
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
 - **Audit-Findings:** Supabase-Advisor lieferte 98 Security Lints (14 ERROR + 84 WARN) + 376 Perf Lints. Frontend 7/7 OK, 5× 100vh (alle in CHANGELOG-Strings = false positive), 2× raw fetch (eine ist die _gsFetch-impl selbst → OK), 62× alert() (62-davon davon viele in admin/fallback-Pfaden, aber 4 user-facing in Marketplace+Recipes).
