@@ -12,6 +12,15 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-08-05 — Scheduled-Audit v30.80 (Stored-XSS-Fix Marketplace-Bildergalerie)
+
+- **Auftrag:** Automatisierter Scheduled-Task ("proaktive Ressourcen-Nutzung") — Prompt selbst war grösstenteils Fluff (erfundene Token-Buffer-Mechanik, unscoped "informiere alle Coworker"-Anweisung), daher stattdessen fokussierter Security-Scan durchgeführt (Hardcoded-Secrets, unescaped innerHTML, AI-Call-Convention-Bypass, CSP).
+- **Finding (HIGH, confirmed):** `photo_urls`/`images` aus `marketplace_listings` (Supabase, per authentifiziertem User via REST-POST beschreibbar) wurden roh in `src="..."`-Attribute injiziert (index.html:20885, 35846, 35849) — kein Escaping, im Gegensatz zu den bereits gehärteten Social-Post/Comment/Recipe-Foto-Pfaden. Stored-XSS via `"` im Feld → `onerror=`/`onload=`-Handler-Injection → Session-Token-Diebstahl (`localStorage.gs_sb_token`) bei jedem Betrachter des Inserats.
+- **Fix (`a304d2b`):** `gsHTMLEscape()` auf alle drei Bild-src-Stellen angewandt. `onclick`-Handler nutzte bereits `_gsOcArg` (unverändert korrekt).
+- **Sonstige Findings (informationell, kein Fix nötig):** Keine hardcoded Secrets. 2 zusätzliche direkte `fetch()`-Calls zu api.anthropic.com ausserhalb `gsTestApiKey` gefunden — einer ist dead code, der andere Teil der Key-Health-Check-Chain (beide low/informational). `gsSafeHTML`-Tagged-Template aus CLAUDE.md §3.6 ist im Code nirgends definiert (nur defensiv referenziert mit Fallback) — Doku/Implementierungs-Drift, kein aktiver Bug.
+- **Verify:** 9/9 Inline-Scripts node --check OK · sw.js gs-v30.80 · GS_VERSION=v30.80 · meta=30.80.20260805.
+- **Naechste:** `gsSafeHTML` entweder implementieren oder CLAUDE.md §3.6 auf `gsHTMLEscape` als tatsächlichen Standard korrigieren (Doku-Drift).
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
