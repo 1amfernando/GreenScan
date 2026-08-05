@@ -12,6 +12,16 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-08-05 — Proaktiver Health-Check (autonome Routine-Session, keine App-Version-Aenderung)
+
+- **Auftrag:** Geplante autonome Routine-Session ("Ressourcen-Maximierung"-Prompt) — als bodenständiger Health-Check + Audit ausgelegt statt als reines Token-Verbrauchs-Ziel; keine "Broadcast an Coworker" ausserhalb dieses Files (kein definierter Empfaenger, kein Auftrag dafuer).
+- **Health:** `git status` clean auf `claude/lucid-cerf-5azxuj` (identisch zu `origin/main` + 1 lokaler Branch dahinter). Versions-Sync OK: `GS_VERSION='v30.79'` (index.html) = `meta app-version=30.79.20260627` = `sw.js`-Header v30.79. 9/9 inline `<script>`-Bloecke `node --check` OK.
+- **Supabase-Advisors:** Security 0 ERROR / 145 WARN (alle bekannte by-design-Kategorien: 120× `authenticated_security_definer_function_executable`, 16× `anon_security_definer_function_executable`, 3× `extension_in_public`, 1× `auth_leaked_password_protection` — Dashboard-Setting, unveraendert seit v26.51-Audit) / 5 INFO. Performance 0 ERROR / 147 INFO. Keine neuen Findings gegenueber letztem dokumentierten Audit.
+- **Frontend-Spot-Check:** kein hardcoded `sk-ant-`-Key (nur Validierungs-/Placeholder-Strings), kein direkter `fetch('https://api.anthropic.com/...')` ausserhalb `gsTestApiKey`. `alert()`-Migration praktisch abgeschlossen — nur noch 1 defensiver Fallback-Call (Z. 13529, try/catch-gewrappt), Rest sind Changelog-Textstrings.
+- **Dokumentations-Fund (CLAUDE.md korrigiert):** §3.6 behauptete, `gsSafeHTML`-Tagged-Template (`.escape/.attr/.url/.unsafe`) sei seit v24.02 der Pflicht-Pattern — das Objekt ist aber an keiner Stelle im Repo definiert (0 Treffer ausser 1 defensivem `typeof`-Guard in `_gsWxEsc`, der sicher auf manuelles Escaping zurueckfaellt → kein aktives Sicherheitsloch an dieser Stelle). Real vorhanden ist nur `gsHTMLEscape(s)`, das selbst bis v27.03 verwaist war (Hard-Lesson #9) und dort echt definiert wurde. CLAUDE.md §3.6 aktualisiert, damit kuenftige Agenten nicht auf ein nicht-existentes `gsSafeHTML` bauen.
+- **Kein kritischer Befund** — daher kein App-Code-Fix, kein Version-Bump, keine Nutzer-Benachrichtigung noetig.
+- **Naechste:** Falls `.attr()`/`.url()`-Differenzierung fuer innerHTML-Escaping mal gebraucht wird (z.B. URL-Attribute mit `javascript:`-Filter) → `gsSafeHTML` als echtes Tagged-Template nachbauen statt nur zu dokumentieren.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
