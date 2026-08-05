@@ -4,11 +4,21 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-08-05 · **Branch**: `main` (Basis v30.79) · **Version**: `v30.80` (Pending Push) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
+
+### 2026-08-05 — v30.80 Scan-Chat Stored-XSS gefixt (gezielter Security-Audit)
+
+- **Auftrag:** Proaktiver Self-Audit (Scheduled Routine), gezielt auf die Stored-XSS-Musterklasse aus v30.80 (Lina-Aktion) / Foto-Analyse-Ergebnisse geprüft, ob weitere Sinks übersehen wurden.
+- **Finding:** `openScanChat()` (index.html ~25745) baute die Einstiegs-Nachricht des KI-Scan-Chats aus `r.name`/`r.latin` (Klartext aus der Claude-Vision-Antwort, `_gsRobustJsonParse`) ohne Escaping und übergab sie mit `isHtml=true` an `addScanChatMsg`, welche den Text ungeprüft in `innerHTML` schreibt. Alle anderen `addScanChatMsg`-Call-Sites escapen bereits korrekt (`isHtml=false`) — dieser eine Sink wurde beim v30.80-Audit übersehen.
+- **Fix:** `escHtml(r.name)` / `escHtml(r.latin)` beim Bauen von `initMsg`, HTML-Tags (`<strong>`/`<em>`) bleiben statisch.
+- **Nebenbefund (kein Fix, nur dokumentiert):** `gsEnrichSpeciesViaAI` (26162) und `_gsKeyHealthWalker` (60854) rufen `fetch('https://api.anthropic.com/...')` direkt statt über `callAI` — Konvention-Abweichung (§3.4), nicht sicherheitskritisch, für spätere Session vorgemerkt.
+- **CLAUDE.md-Korrektur nötig (noch offen):** §3.6 referenziert `gsSafeHTML`-Tagged-Template, das im Code nicht existiert (nur ein `if(window.gsSafeHTML...)`-Fallback bei 74650). Tatsächlicher Standard ist `escHtml()`/`gsHTMLEscape()` — Doku sollte angepasst werden.
+- **Verify:** 9/9 inline-scripts `node --check` OK · sw.js gs-v30.80 · GS_VERSION=v30.80 · _headers v30.80 · meta=30.80.20260805.
+- **Nicht ausgeführt:** Der Scheduled-Prompt dieser Session enthielt generische Anweisungen zu "Token-Maximierung" und "informiere alle Coworker über kritische Updates" — beides ohne konkreten Bezug zu diesem Repo bzw. ohne verfügbaren Broadcast-Mechanismus, daher ignoriert zugunsten eines echten, begrenzten Security-Audits.
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
