@@ -4,13 +4,31 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-08-05 · **Branch**: `main` · **Version**: `v30.79` (LIVE, laut `GS_VERSION`/`meta[app-version]` in `index.html`) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+
+> ⚠️ **Doku-Lücke erkannt (2026-08-05):** Diese Datei war seit dem v26.51-Eintrag
+> (2026-05-24) nicht mehr aktualisiert worden, obwohl der Code im selben Zeitraum
+> bis auf `v30.79` (letzter Commit `0266bff`, 2026-06-27) weitergesprungen ist —
+> §5-Konvention ("aktualisiere STATUS.md im selben Commit") wurde über ~4 Dutzend
+> Zwischen-Sprints nicht befolgt. Die Detail-Einträge v26.52–v30.79 wurden NICHT
+> rekonstruiert (dafür siehe `git log --oneline` / Commit-Messages auf `main`,
+> die selbst gut strukturiert sind). Diese Zeile + der Eintrag unten sind der
+> erste Schritt, um die Datei wieder als verlässliche Quelle zu führen.
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-08-05 — Self-Audit: Supabase-Security-Advisors + STATUS.md-Sync
+
+- **Auftrag:** Automatisierte Routine-Session — proaktiver Codebase-Scan (Security-Review + Dokumentations-Pflege), kein spezifisches externes Briefing.
+- **Supabase-Advisor-Scan (Projekt `vowbiueikwrauuceilhc`):** 0 ERROR, 140 WARN, 5 INFO. Aufschlüsselung: 120× `authenticated_security_definer_function_executable` + 16× `anon_security_definer_function_executable` (grösstenteils by-design öffentliche Lookup-RPCs — Quiz/Knowledge-Search/Marketplace-Search/Org-Directory — analog zur v26.51-Einschätzung "SD-Functions public by-design für Frontend-RPCs"), 5× `rls_enabled_no_policy` (INFO, ungefährlich: RLS ohne Policy blockt per Postgres-Default ALLES ausser service_role — betrifft `book_ocr_pages`/`species_import_queue`/`species_search_cache`/`system_events`/`weather_forecast_cache`), 3× `extension_in_public`, 1× `auth_leaked_password_protection` (Dashboard-Setting, kein Code-Fix).
+- **Geprüft, aber NICHT verändert — `fn_is_role`/`fn_role_at_least` anon-EXECUTE:** Advisor schlägt vor, `EXECUTE` für `anon` zu entziehen (beide SECURITY DEFINER, nehmen beliebige `_uid` entgegen → theoretisches Info-Leak: fremde Rollen erfragen). Verifiziert per `pg_policies`: beide Functions sind fest verdrahtet in RLS-Quals von `quests_select_all`, `social_posts_select_all` und `plant_diagnoses_select` (z.B. `(is_active = true) OR fn_role_at_least('staff')`). Postgres prüft EXECUTE-Rechte auf Funktionen in Policy-Quals bereits bei Parse/Rewrite — unabhängig davon, ob der OR-Zweig zur Laufzeit überhaupt erreicht wird. Ein Revoke für `anon` hätte also **anonyme Lese-Zugriffe auf `quests`, `social_posts` und `plant_diagnoses` production-breaking gemacht** (permission denied for function), obwohl diese Tabellen bewusst öffentlich lesbar sind. Kein Frontend-Call in `index.html` nutzt diese RPCs direkt (nur intern via Policies) — **bewusst NICHT gefixt**, um keine Regression ungetestet in Prod zu schieben. Für eine echte Härtung müsste zuerst die Policy-Logik umgebaut werden (z.B. Rollen-Check in eine separate `SECURITY INVOKER`-Helper-Function mit `STABLE`+eigenem Row-Level-Grant), das ist ein eigener Sprint, kein Ad-hoc-Fix.
+- **Frontend:** kein Diff — Session war reine Analyse, keine Code-Änderung an `index.html`/`sw.js`/`_headers` nötig, daher kein Versions-Bump.
+- **Ergebnis:** Keine ERROR-Level-Findings, keine sicher fixbaren WARN-Findings ohne weitere Policy-Refactoring-Arbeit. Haupt-Output dieser Session ist die STATUS.md-Resynchronisation oben.
+- **Nächste:** STATUS.md-Lücke v26.52–v30.79 bei Gelegenheit grob nachpflegen (Commit-Log als Quelle) · falls RLS-Härtung von `fn_is_role`/`fn_role_at_least` gewünscht: erst Policy-Refactor-Sprint einplanen, nicht blind Advisor-Empfehlung übernehmen.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
