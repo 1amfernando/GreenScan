@@ -12,6 +12,56 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-08-07 — Scheduled-Audit v30.80 (B2 innerHTML/XSS: 5 bestätigte Stored-XSS-Lücken gefixt)
+
+Automatisierter Security-Audit (Sicherheitslücken-Scan, siehe §3.6/B2) fand, dass
+der `.innerHTML =`-Bestand seit dem letzten Audit von 299 auf 637 gewachsen ist,
+während der in §3.6/B2 dokumentierte `gsSafeHTML`-Helfer im aktuellen Code
+**gar nicht mehr existiert** (nur ein `window.gsSafeHTML && …`-Guard) — die
+§3.6-Doku ist insofern veraltet, Escaping läuft heute ausschliesslich über
+lokale `escHtml`/`esc`-Closures pro Funktion, uneinheitlich.
+
+5 konkret bestätigte Stored-XSS-Stellen gefixt (alle: fehlendes `escHtml()` auf
+Feldern, die im selben Funktions-Scope bei Schwester-Feldern bereits escaped
+wurden — kein bewusster Trust-Entscheid, sondern Lücke):
+
+1. **`openDetail` (Arten-Detail-Modal, Z. ~26804-26991)** — HÖCHSTE Priorität:
+   `sp.habitat/season/color/alt/fam/lat/uses/medicinalUse/care/warning/lookalike`
+   unescaped gerendert. Diese Felder kommen für `_community`-Arten 1:1 aus
+   `gsMergeCommunitySpecies()` (Z. 20449) aus User-eingereichten
+   `species_proposals`/`species(source='community')` — und die Admin-Freigabe-UI
+   (`_gsAdminSpeciesProposalHtml`, Z. 75779) previewt `warning/uses/habitat/lookalike`
+   NICHT vor der Freigabe. D.h. ein Payload in diesen Feldern übersteht die
+   Moderation und feuert Stored XSS auf dem meistgenutzten Screen der App, für
+   JEDEN Nutzer, der die Art öffnet. Alle Felder jetzt via `escHtml()`.
+2. **`openGartenTagebuch` „Meistgenannte Pflanzen"** (Z. ~7637) — freier
+   Pflanzenname (`#tb-plant`, max 50 Zeichen, ungefiltert) unescaped.
+3. **`openScanChat`/`addScanChatMsg`** (Z. ~25746/25782) — KI-Scan-Ergebnis
+   (`r.name`/`r.latin`) unescaped mit `isHtml=true` in `innerHTML`; ein per
+   Prompt-Injection manipuliertes Vision-Ergebnis könnte hier ausführen.
+4. **`gsPPcaptureSoil`-Ergebnis-Render** (Z. ~50462) — KI-Bodenanalyse-Felder
+   unescaped, obwohl die fast identische `gsBuildPhotoDiffResult` konsequent
+   escaped.
+5. **`openErnteTracking`** (Z. ~8209, 8273, 8290) — freier Pflanzenname
+   (`#ernte-pflanze`) in Übersicht/Ranking unescaped; die „Alle Einträge"-Ansicht
+   hatte nur ein unvollständiges `<`-only-Replace, jetzt einheitlich `escHtml()`.
+
+Alle Fixes nutzen das im jeweiligen Funktions-Scope bereits vorhandene lokale
+`escHtml`, keine neue Abstraktion. `node -c`-Äquivalenzprüfung (Function-Parse
+aller 9 Inline-Script-Blöcke) vor/nach Diff verglichen — keine neuen Syntax-Fehler
+(der 1 vorbestehende „await outside async"-Parse-Fehler in Block 3 ist
+Function-Constructor-bedingt und unverändert). v-Bump v30.79→v30.80 (GS_VERSION,
+sw.js VERSION, `_headers`-Header-Kommentar, `app-version`-Meta synchronisiert).
+
+**Restarbeit (nicht in diesem Fix, siehe B2 unten):** Rest des `.innerHTML =`-Bestands
+(637 minus die 5 oben) ist NICHT vollständig re-auditiert — nur breit gesampelt.
+Bekannte gute Abdeckung: neuere (v26+) KI-/Social-Features (Lina-Coach,
+Gartenplaner, Pflanzendoktor, Photo-Diff, Community-Feed, Kommentare,
+Marktplatz-Chat) escapen konsequent über lokale Helfer. Empfehlung: nächster
+Agent sollte gezielt `_gsAdminSpeciesProposalHtml` (Z. 75779) erweitern, damit
+`warning/uses/habitat/lookalike` VOR der Freigabe im Admin-Preview sichtbar sind
+(Moderations-Lücke bleibt bestehen, auch mit dem Render-Fix oben).
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
@@ -561,7 +611,7 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
 | ID | Severity | Wo | Beschreibung | ROADMAP |
 |---|---|---|---|---|
 | B1 | HIGH | `index.html` ~31 KB JWT-Storage | Auth-Token in localStorage. Mit CSP entschärft, aber XSS-Hijack theoretisch möglich. | P2: HttpOnly-Cookies |
-| B2 | MEDIUM | `index.html` 299× innerHTML | `gsSafeHTML`-Helper steht ab v24.02 bereit. Migration iterativ pro Modul (eigene Mini-Sprints) | P2: safeHTML-Migration (Helper ✓, Code-Migration pending) |
+| B2 | MEDIUM (5 Stellen HIGH, siehe 2026-08-07-Eintrag) | `index.html` 637× innerHTML | KORRIGIERT 2026-08-07: `gsSafeHTML` existiert entgegen der alten Doku NICHT im Code (nur ein `window.gsSafeHTML &&`-Guard) — Escaping läuft ausschliesslich über lokale `escHtml`/`esc`-Closures, uneinheitlich. 5 bestätigte Stored-XSS-Stellen (u.a. Community-Arten-Detail, Scan-Chat, Boden-KI, Tagebuch, Erntetracker) v30.80 gefixt. Rest des Bestands nur breit gesampelt, nicht vollständig re-auditiert. | P1: `_gsAdminSpeciesProposalHtml`-Preview um warning/uses/habitat/lookalike erweitern (Moderations-Lücke); P2: Rest-Migration iterativ pro Modul |
 | ~~B3~~ | ~~MEDIUM~~ | ~~`localStorage` Quota~~ | ~~`safeSetItem` schluckt Quota-Errors still~~ | **erledigt v23.89** (Auto-Rotation) |
 | ~~B5~~ | ~~LOW~~ | ~~`book-ingest`~~ | **falsch eingestuft v24.11**: ist ein Admin-Feature mit `admin-only-row`-Class (Z. 4401), nicht Dead-Code. Auch im Search-Index (Z. 31802). Keine Aktion nötig. |
 | ~~B6~~ | ~~LOW~~ | ~~PLANT_DB inline 4.5 MB~~ | | **erledigt v24.03** (extrahiert in `data/plants.v1.js`, immutable-cached) |

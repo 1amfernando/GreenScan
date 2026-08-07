@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.79.20260627">
+<meta name="app-version" content="30.80.20260807">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -7634,7 +7634,7 @@ function openGartenTagebuch() {
     topHtml = '<div style="margin-top:14px;padding:10px 12px;background:var(--surface2);border-radius:10px;">' +
       '<div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px;">🌿 Meistgenannte Pflanzen</div>' +
       topPlants.map(function(p){
-        return '<span style="display:inline-block;margin:2px 4px 2px 0;padding:4px 9px;background:var(--card);border:1px solid var(--border);border-radius:999px;font-size:11.5px;color:var(--text);">' + p.n + ' <strong style="color:var(--g-main);">' + p.c + '×</strong></span>';
+        return '<span style="display:inline-block;margin:2px 4px 2px 0;padding:4px 9px;background:var(--card);border:1px solid var(--border);border-radius:999px;font-size:11.5px;color:var(--text);">' + escHtml(p.n) + ' <strong style="color:var(--g-main);">' + p.c + '×</strong></span>';
       }).join('') + '</div>';
   }
   
@@ -8206,7 +8206,7 @@ function openErnteTracking() {
       '</div>' +
       '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px;">' +
         '<div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);">Top-Pflanze</div>' +
-        '<div style="font-size:15px;font-weight:900;color:var(--text);margin-top:3px;">' + (stats.top[0] ? stats.top[0].emoji + ' ' + stats.top[0].name : '–') + '</div>' +
+        '<div style="font-size:15px;font-weight:900;color:var(--text);margin-top:3px;">' + (stats.top[0] ? stats.top[0].emoji + ' ' + escHtml(stats.top[0].name) : '–') + '</div>' +
         '<div style="font-size:11.5px;color:var(--muted);">' + (stats.top[0] ? stats.top[0].kg.toFixed(1) + ' kg' : '') + '</div>' +
       '</div>' +
       '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px;">' +
@@ -8270,7 +8270,7 @@ function openErnteTracking() {
         '<div style="font-size:12px;font-weight:900;color:var(--muted);width:22px;text-align:center;">' + (i+1) + '</div>' +
         '<span style="font-size:22px;">' + p.emoji + '</span>' +
         '<div style="flex:1;min-width:0;">' +
-          '<div style="font-size:13px;font-weight:700;color:var(--text);">' + p.name + '</div>' +
+          '<div style="font-size:13px;font-weight:700;color:var(--text);">' + escHtml(p.name) + '</div>' +
           '<div style="height:4px;background:var(--surface2);border-radius:2px;margin-top:3px;overflow:hidden;">' +
             '<div style="height:100%;width:' + barLen + '%;background:var(--g-main);border-radius:2px;"></div>' +
           '</div>' +
@@ -8287,7 +8287,7 @@ function openErnteTracking() {
     stats.entries.forEach(function(e) {
       contentHtml += '<div style="display:flex;align-items:center;gap:10px;padding:8px 11px;background:var(--card);border:1px solid var(--border);border-radius:9px;margin-bottom:4px;">' +
         '<span style="font-size:18px;">' + (e.emoji || '🧺') + '</span>' +
-        '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;color:var(--text);">' + (e.pflanze||'').replace(/</g,'&lt;') + '</div>' +
+        '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;color:var(--text);">' + escHtml(e.pflanze||'') + '</div>' +
         '<div style="font-size:10.5px;color:var(--muted);">' + (e.ts||'').slice(0,10) + '</div></div>' +
         '<div style="font-size:12.5px;font-weight:800;color:var(--g-dark);">' + (e.menge||0) + ' ' + gsErnteUnitLabel(e.unit) + '</div>' +
         '<button onclick="gsErnteDelete(\'' + e.id + '\')" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:2px 4px;opacity:.4;-webkit-tap-highlight-color:transparent;">✕</button>' +
@@ -25743,7 +25743,7 @@ function openScanChat() {
   
   // Erster KI-Satz: Kontext setzen
   var initMsg = r && r.name
-    ? 'Ich habe soeben <strong>' + r.name + '</strong>' + (r.latin?' (<em>'+r.latin+'</em>)':'') + ' identifiziert (Sicherheit: ' + (r.confidence||0) + '%). Was möchtest du wissen?'
+    ? 'Ich habe soeben <strong>' + escHtml(r.name) + '</strong>' + (r.latin?' (<em>'+escHtml(r.latin)+'</em>)':'') + ' identifiziert (Sicherheit: ' + (r.confidence||0) + '%). Was möchtest du wissen?'
     : 'Was hast du fotografiert? Ich helfe dir bei der Bestimmung.';
   
   addScanChatMsg('assistant', initMsg, true);
@@ -26809,15 +26809,15 @@ function openDetail(id){
   if(sp.season && sp.season!=='–') ecoItems.push({icon:'📅',label:_t('eco_season','Saison/Blüte'),val:sp.season});
   if(ecoItems.length){
     ecoHtml = '<div class="dgrid" style="margin-bottom:9px;">' +
-      ecoItems.map(e=>'<div class="di"><div class="dil">'+e.icon+' '+e.label+'</div><div class="div2">'+e.val+'</div></div>').join('') +
+      ecoItems.map(e=>'<div class="di"><div class="dil">'+e.icon+' '+e.label+'</div><div class="div2">'+escHtml(e.val)+'</div></div>').join('') +
       '</div>';
   }
 
   // Klassifikation
   const classItems = [];
   if(sp.cat) classItems.push({icon:'📂',label:_t('class_category','Kategorie'),val:getCatLabel(sp.cat)});
-  if(sp.fam && sp.fam!=='–') classItems.push({icon:'🧬',label:_t('class_family','Familie'),val:sp.fam});
-  if(sp.lat && sp.lat!=='–') classItems.push({icon:'🔬',label:_t('class_latin','Lateinisch'),val:'<em>'+sp.lat+'</em>'});
+  if(sp.fam && sp.fam!=='–') classItems.push({icon:'🧬',label:_t('class_family','Familie'),val:escHtml(sp.fam)});
+  if(sp.lat && sp.lat!=='–') classItems.push({icon:'🔬',label:_t('class_latin','Lateinisch'),val:'<em>'+escHtml(sp.lat)+'</em>'});
   const classHtml = classItems.length ? '<div class="dgrid" style="margin-bottom:9px;">' +
     classItems.map(e=>'<div class="di"><div class="dil">'+e.icon+' '+e.label+'</div><div class="div2">'+e.val+'</div></div>').join('') + '</div>' : '';
 
@@ -26883,15 +26883,15 @@ function openDetail(id){
         '<div class="tox-scale">'+dots+'</div>',
       '</div>',
       // Verwendung in der Küche
-      sp.uses && sp.uses!=='–' && sp.uses!=='Keine Nutzung bekannt' ? '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_uses','🍽️ Verwendung (Küche & Alltag)') + '</h3><p>'+(sp.uses)+'</p></div>' : '',
+      sp.uses && sp.uses!=='–' && sp.uses!=='Keine Nutzung bekannt' ? '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_uses','🍽️ Verwendung (Küche & Alltag)') + '</h3><p>'+escHtml(sp.uses)+'</p></div>' : '',
       // Heilwirkung
-      sp.medicinalUse && sp.medicinalUse!=='–' && sp.medicinalUse!=='Keine bekannte Heilwirkung' && sp.medicinalUse!=='Keine – giftig' ? '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_medicinal','💊 Heilwirkung & Medizin') + '</h3><p>'+sp.medicinalUse+'</p></div>' : '',
+      sp.medicinalUse && sp.medicinalUse!=='–' && sp.medicinalUse!=='Keine bekannte Heilwirkung' && sp.medicinalUse!=='Keine – giftig' ? '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_medicinal','💊 Heilwirkung & Medizin') + '</h3><p>'+escHtml(sp.medicinalUse)+'</p></div>' : '',
       // Licht (Hauspflanzen)
       lightHtml,
       // Giessintervall
       sp.waterFrequency ? '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_watering','💧 Giessintervall') + '</h3><p>' + _t('water_every','Alle') + ' <strong>'+sp.waterFrequency+' ' + _t('unit_days','Tage') + '</strong> ' + _t('water_dry_hint','giessen. Erde leicht antrocknen lassen.') + '</p></div>' : '',
       // Pflege
-      sp.care ? '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_care','🪴 Pflege & Standort') + '</h3><p>'+sp.care+'</p></div>' : '',
+      sp.care ? '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_care','🪴 Pflege & Standort') + '</h3><p>'+escHtml(sp.care)+'</p></div>' : '',
       // Giftwarnung
       (function(){
         if(sp.tox < 3) return '';
@@ -26899,7 +26899,7 @@ function openDetail(id){
         return '<div style="background:'+(isFatal?'#ffebee':'#fff8e1')+';border:2px solid '+(isFatal?'#ef9a9a':'#ffe082')+';border-radius:12px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:flex-start;gap:10px;">' +
           '<span style="font-size:20px;flex-shrink:0;">'+(isFatal?'☠️':'⚠️')+'</span>' +
           '<div><div style="font-size:13px;font-weight:800;color:'+(isFatal?'#c62828':'#e65100')+';margin-bottom:2px;">'+(isFatal?_t('tox_strong','STARK GIFTIG'):_t('tox_caution','VORSICHT: GIFTIG'))+'</div>' +
-          '<div style="font-size:11.5px;color:var(--text2);line-height:1.5;">'+(sp.warning&&sp.warning!=='–'?sp.warning:_t('tox_warn_default','Nicht essen. Bei Vergiftung: Tox Info Suisse 145'))+'</div>' +
+          '<div style="font-size:11.5px;color:var(--text2);line-height:1.5;">'+(sp.warning&&sp.warning!=='–'?escHtml(sp.warning):_t('tox_warn_default','Nicht essen. Bei Vergiftung: Tox Info Suisse 145'))+'</div>' +
           '</div></div>';
       })(),
       // Vollständigkeits-Indikator
@@ -26923,7 +26923,7 @@ function openDetail(id){
       'heilkraut':_t('lookalike_heilkraut','Verwechslung möglich. Vorsicht bei der Ernte.'),
       'hauspflanze':_t('lookalike_haus','Ähnliche Zierpflanzen möglich. Auf Blattform achten.')
     }[sp.cat] || _t('lookalike_default','Auf ähnliche Arten achten.'));
-  return '<div class="dsec" style="margin-bottom:9px;background:#fff3e0;"><h3>' + _t('detail_confusion','👀 Verwechslungsgefahr') + '</h3><p style="color:#e65100;font-weight:600;">'+lk+'</p></div>';
+  return '<div class="dsec" style="margin-bottom:9px;background:#fff3e0;"><h3>' + _t('detail_confusion','👀 Verwechslungsgefahr') + '</h3><p style="color:#e65100;font-weight:600;">'+escHtml(lk)+'</p></div>';
 })(),
       // Bookmark / Buch
       sp.bookRef && sp.bookRef!=='–' ? '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#f0f7ee;border-radius:8px;margin-bottom:9px;"><span style="font-size:18px;">📚</span><div style="font-size:12px;color:var(--g-dark);font-weight:600;">' + _t('detail_db_ref','GreenScan Datenbank · Ref.') + ' '+sp.bookRef+'</div></div>' : '',
@@ -50459,8 +50459,8 @@ function gsPPcaptureSoil() {
           var ps = document.getElementById('pp-soil-ph');
           if (ps && [].some.call(ps.options, function(o){return o.value===r.ph;})) ps.value = r.ph;
         }
-        out.innerHTML = '✅ <b>' + (r.typeLabel || '—') + '</b> · ' + (r.description || '') +
-          (r.recommendation ? '<br><span style="color:var(--g-main);">💡 ' + r.recommendation + '</span>' : '');
+        out.innerHTML = '✅ <b>' + escHtml(r.typeLabel || '—') + '</b> · ' + escHtml(r.description || '') +
+          (r.recommendation ? '<br><span style="color:var(--g-main);">💡 ' + escHtml(r.recommendation) + '</span>' : '');
       } else {
         out.innerHTML = '<span style="color:#c62828;">Keine Analyse möglich — bitte manuell auswählen.</span>';
       }
@@ -66915,7 +66915,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.79';
+var GS_VERSION = 'v30.80';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
