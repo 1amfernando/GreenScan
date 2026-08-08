@@ -81,15 +81,19 @@ GreenScan/
   pack ihn hinter einen Server-Proxy.
 - **CSP** ist aktiv (siehe `_headers`). Wenn du externe URLs einbaust,
   Allowlist erweitern. Inline-Scripts sind erlaubt, weil Monolith.
-- **innerHTML mit User-Input**: ab v24.02 nutze `gsSafeHTML`-Tagged-Template
-  (auto-escape):
+- **innerHTML mit User-Input**: nutze `escHtml(s)` (index.html, definiert bei
+  `function escHtml`) zum Escapen von User-/AI-/DB-Werten vor dem Einbau in
+  `innerHTML`-Strings:
   ```js
-  el.innerHTML = gsSafeHTML`<div>${userName} sagt: ${msg}</div>`;
+  el.innerHTML = '<div>' + escHtml(userName) + ' sagt: ' + escHtml(msg) + '</div>';
   ```
-  Helpers: `gsSafeHTML.escape(s)`, `.attr(s)`, `.url(s)` (nur https/http/
-  mailto/relative), `.unsafe(html)` (bypass für bereits-escapte Sub-
-  Templates). `gsHTMLEscape` als Kurz-Alias. Für reine Text-Inserts
-  weiterhin `textContent` bevorzugen.
+  Das ist der tatsächlich im Code verwendete Pattern (Lina-Chat,
+  Community-Posts/-Kommentare, etc.). **Hinweis:** Frühere CLAUDE.md-Versionen
+  dokumentierten ein `gsSafeHTML`-Tagged-Template mit `.escape/.attr/.url/.unsafe`
+  — dieses existiert **nicht** im Code (nur ein toter Defensiv-Guard bei
+  `window.gsSafeHTML &&`, der nie greift, da nie zugewiesen). Nicht darauf
+  verlassen oder neu aufrufen. Für reine Text-Inserts weiterhin `textContent`
+  bevorzugen.
 - **localStorage für Auth**: bewusst akzeptiert, weil mit CSP
   `frame-ancestors 'none'` + `strict-origin-when-cross-origin` Risiko klein
   ist. JWT-Migration in HttpOnly-Cookies ist Roadmap-Punkt P2.

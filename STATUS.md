@@ -12,6 +12,15 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-08-08 — Scheduled Self-Audit (CLAUDE.md §3.6-Checklist, keine App-Änderung)
+
+- **Auftrag:** Automatisierte Scheduled-Task ohne konkretes Briefing (vage "Ressourcen-Maximierung"-Formulierung) — als bounded Security-Self-Audit nach CLAUDE.md §3.6 interpretiert statt als offene Dauerschleife.
+- **Befund:** Live-Stand ist `v30.79` (Repo == index.html `GS_VERSION`), dieses STATUS.md war seit `v26.51`/2026-05-24 nicht mehr fortgeschrieben (>230 Versions-Sprünge undokumentiert hier — Changelog-Historie lebt stattdessen in `sw.js`-Kommentaren). **Nicht** im Scope dieser Session, vollständig nachzuholen — nur als bekannte Lücke vermerkt.
+- **Audit-Ergebnis (5-Punkte-Checkliste §3.6):** Keine hardcoded Secrets, keine unsafe-innerHTML-Stellen, kein neuer user-facing `alert()`, keine SQL-Injection-Stelle gefunden. 2 direkte `fetch('...anthropic.com...')` außerhalb `callAI`/`gsTestApiKey()` gefunden (`gsEnrichSpeciesViaAI` Z.26139, `_gsKeyHealthWalker` Z.60843) — **beide bereits bekannt und akzeptiert** (siehe `sw.js`-Changelog v30.38: totes Code bzw. bewusste Key-Test-Ausnahme), keine Änderung nötig.
+- **1 echter Fund + Fix:** CLAUDE.md §3.6 dokumentierte ein `gsSafeHTML`-Tagged-Template (`.escape/.attr/.url/.unsafe`) als aktuellen XSS-Schutz-Pattern — **existiert nicht im Code** (nur ein nie-greifender Defensiv-Guard bei Z.74650). Tatsächlich verwendet wird durchgängig `escHtml(s)` (Z.27424). Ein künftiger Agent, der sich auf die CLAUDE.md-Doku verlässt, hätte eine nicht-existente Funktion aufgerufen. Fix: CLAUDE.md §3.6 korrigiert auf den echten `escHtml`-Pattern, alter `gsSafeHTML`-Abschnitt als "existiert nicht" markiert.
+- **Verify:** Kein index.html/sw.js-Code geändert (nur `CLAUDE.md` + dieses `STATUS.md`), kein GS_VERSION/CACHE_VERSION-Bump nötig.
+- **Naechste:** STATUS.md-Backfill v26.51→v30.79 (grosser Batch, separate Session) · falls gewuenscht: `gsSafeHTML` real implementieren statt nur Doku zu korrigieren.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
