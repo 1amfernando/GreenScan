@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.79.20260627">
+<meta name="app-version" content="30.80.20260810">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -36039,7 +36039,7 @@ function openListingDetail(lid) {
       '<div style="background:#f9fafb;border-radius:10px;padding:11px 13px;margin-bottom:10px;">' +
         '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">' + _t('seller_shipping_heading','Verkäufer & Lieferung') + '</div>' +
         '<div style="display:flex;align-items:center;gap:9px;">' +
-          '<div class="post-avatar">' + (l.sellerAvatar||'🌿') + '</div>' +
+          '<div class="post-avatar">' + escHtml(l.sellerAvatar||'🌿') + '</div>' +
           '<div>' +
             '<div style="font-size:13px;font-weight:800;color:var(--text);">' + escHtml(l.seller||'') + '</div>' +
             '<div style="font-size:11.5px;color:var(--muted);">📍 ' + escHtml(l.region||'CH') + ' · ' + shipText + '</div>' +
@@ -66915,7 +66915,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.79';
+var GS_VERSION = 'v30.80';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
