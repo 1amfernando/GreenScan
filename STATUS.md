@@ -4,13 +4,34 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-08-11 · **Branch**: `claude/lucid-cerf-qkoumg` (v30.80, not yet merged to `main`) · **Version**: `v30.79` (LIVE, main) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+
+> ⚠️ **Doku-Lücke gefunden 2026-08-11:** Dieses File hatte seit dem `v26.51`-Eintrag
+> (2026-05-24) keinen neuen Routine-Eintrag mehr, obwohl `git log` zeigt, dass in der
+> Zwischenzeit bis `v30.79` gepusht wurde (main). §5 „Nach dem Edit: STATUS.md
+> aktualisieren" wurde also über ~2.5 Monate / 90+ Versionsschritte nicht befolgt.
+> Andere Agenten, die sich hier orientieren, sahen einen veralteten Stand. Bitte ab
+> jetzt wieder konsequent oben anhängen.
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-08-11 — Scheduled-Audit v30.80 (XSS-Fixes: 3 ungeschützte innerHTML-Sites mit KI-/User-Input)
+
+- **Auftrag:** Automatisierte Scheduled-Routine (proaktiver Deep-Scan). Backend-Security via Supabase-Advisor geprüft + Frontend-Scan auf hardcoded Secrets + `innerHTML`-Sites ohne Escaping, da seit `v26.51` (letzter dokumentierter Audit) kein Re-Audit mehr geloggt war.
+- **Supabase-Advisor (security):** 0 ERROR (weiterhin, seit v26.51-Fix stabil). 140 WARN, davon 136 erwartete `*_security_definer_function_executable` (RPC-by-design) + 3 `extension_in_public` (kein User-Action) + 1 `auth_leaked_password_protection` (Dashboard-Setting, wie schon 2026-05-24 notiert) + 5 `rls_enabled_no_policy` auf internen Cache-/Queue-Tabellen (`book_ocr_pages`, `species_import_queue`, `species_search_cache`, `system_events`, `weather_forecast_cache` — RLS an, keine Policy = fail-closed, nur service_role-Zugriff, by-design). Keine neuen kritischen Backend-Findings.
+- **Hardcoded Secrets:** keine gefunden. `SB_KEY_DEFAULT` ist der neue Supabase-**publishable**-Key-Typ (client-safe by RLS). Zwei historische, bereits behobene Leaks (`app_settings`-RLS-Loch v28.98, hardcoded `ADMIN_SECRET` v29) sind nur noch als Migrations-Historie sichtbar, keine aktiven Reste.
+- **Frontend-Finding (echt, gefixt):** `gsSafeHTML` (in CLAUDE.md §3.6 seit v24.02 als Pflicht-Helper dokumentiert) **existiert im Code nicht** — nur eine tote `if (window.gsSafeHTML && …)`-Prüfung, die nie true wird. Tatsächliche Konvention ist das globale `escHtml()`/`window.gsHTMLEscape`. 3 Stellen fehlte jegliches Escaping bei dynamischem Content:
+  1. `gsDoctorRun` (KI-Pflanzendoktor, Zeile ~76973): Vision-KI-Antwort ging ungeschützt in `out.innerHTML` — nur ein triviales `<script>`-Tag-Strip beim Re-Render aus der Historie, umgehbar via `onerror=`/`<svg onload>` etc. Wird zusätzlich in `gs_doctor_history` persistiert.
+  2. `gsPPcapturePhoto` (Flächenmessung Foto-Analyse, Zeile ~50183): KI-JSON-Feld `r.description` ungeschützt in `innerHTML`, während der Error-Pfad 5 Zeilen tiefer bereits `escHtml` nutzte (Inkonsistenz).
+  3. Buch-Ingest-Fortschrittsanzeige (Zeile ~80573): `file.name` (vom User frei wählbar) ungeschützt in `innerHTML`.
+  - **Fix:** alle 3 Stellen mit dem bestehenden `escHtml()` abgesichert (Escaping vor der eigenen `\n→<br>`/`**bold**`-Transformation bei #1, damit die eigene Formatierung nicht mit-escaped wird). 4. Fundstelle (`gsShowQuickActions`, Zeile ~16981) ist aktuell unreferenzierter toter Code — nicht gefixt, da nicht live, aber vorgemerkt falls reaktiviert.
+- **Verify:** 12/12 Inline-Scripts `node --check` OK · `sw.js` OK · `GS_VERSION=v30.80` · `sw.js` `gs-v30.80` · `_headers` v30.80 · `meta app-version=30.80.20260811`.
+- **Nicht behoben (bewusst ausserhalb Scope):** `gsSafeHTML` vs. `escHtml`-Doku-Drift in CLAUDE.md §3.6 (Doku verweist auf einen nie existierenden Helper) — sollte in einem eigenen Doku-Sprint korrigiert werden, damit künftige Agenten nicht nach einer Funktion suchen, die es nicht gibt.
+- **Naechste:** CLAUDE.md §3.6 auf tatsächliche `escHtml`/`gsHTMLEscape`-Konvention korrigieren · ggf. gezielter Nachscan auf weitere `innerHTML =`-Stellen mit KI-/DB-Content (dieser Audit war stichprobenartig, kein vollständiger Grep über alle ~46k Zeilen).
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 

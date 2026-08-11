@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.79.20260627">
+<meta name="app-version" content="30.80.20260811">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -50180,7 +50180,7 @@ function gsPPcapturePhoto() {
         var corrNote = (lensFactor !== 1.0)
           ? '<div style="margin-top:6px;font-size:10.5px;color:#1b5e20;background:#e8f5e9;border-radius:6px;padding:6px 8px;">✓ Linsen-Korrektur angewendet (×'+lensFactor+')</div>'
           : '';
-        out.innerHTML = '✅ ' + (r.description || 'Analyse abgeschlossen') + (r.confidence ? '<br><span style="font-size:10px;color:var(--muted);">Konfidenz: ' + r.confidence + '%</span>' : '') + corrNote;
+        out.innerHTML = '✅ ' + escHtml(r.description || 'Analyse abgeschlossen') + (r.confidence ? '<br><span style="font-size:10px;color:var(--muted);">Konfidenz: ' + escHtml(String(r.confidence)) + '%</span>' : '') + corrNote;
       } else {
         out.innerHTML = '<span style="color:#c62828;">Keine Analyse möglich — bitte Masse manuell eingeben.</span>';
       }
@@ -66915,7 +66915,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.79';
+var GS_VERSION = 'v30.80';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -76970,7 +76970,7 @@ async function gsDoctorRun(file){
         // Jetzt über callVisionAI, das Provider-spezifisch korrekt rausrendert (image für Anthropic, image_url für NVIDIA).
         var prompt = 'Du bist Dr. phil. nat. Regina Bollinger — Phytopathologin am Agroscope Wädenswil, Expertin für Pflanzen-Krankheiten, Schädlingsbefall und Mangelerscheinungen im Schweizer Kontext. Diagnostiziere präzise anhand der sichtbaren Symptome auf dem Foto. Strukturiere die Antwort als:\n1. **Diagnose:** (1 Satz)\n2. **Wahrscheinliche Ursache:** (Krankheit/Schädling/Mangel + lat. Name wenn möglich)\n3. **Sofortmassnahmen:** (3 Bulletpoints)\n4. **Bio-Behandlung:** (Schweiz-geeignet, FiBL-konform)\n5. **Vorbeugung:** (kurz)\nWenn unsicher: sage es und nenne Alternativen.';
         var reply = await callVisionAI(b64, mt, prompt);
-        var replyHtml = (reply || 'Keine Antwort').replace(/\n/g,'<br>').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+        var replyHtml = escHtml(reply || 'Keine Antwort').replace(/\n/g,'<br>').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
         out.innerHTML = '<div style="padding:12px;background:#f1f8e9;border-radius:10px;">' + replyHtml + '</div>';
         // v23.58: In Historie speichern
         try {
@@ -80570,7 +80570,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
         if (fileStats.remedies > 0) fileSummary.push(fileStats.remedies + ' Heilmittel');
         if (fileStats.folk_lore > 0) fileSummary.push(fileStats.folk_lore + ' Folklore');
         if (fileStats.techniques > 0) fileSummary.push(fileStats.techniques + ' Techniken');
-        prog.innerHTML = (totalFiles > 1 ? '[' + (fi+1) + '/' + totalFiles + '] ' : '') + '✓ „' + file.name + '" — <strong>' + (fileSummary.join(' · ') || '0 Items') + '</strong>';
+        prog.innerHTML = (totalFiles > 1 ? '[' + (fi+1) + '/' + totalFiles + '] ' : '') + '✓ „' + escHtml(file.name) + '" — <strong>' + (fileSummary.join(' · ') || '0 Items') + '</strong>';
       }
 
       bar.style.width = '100%';
