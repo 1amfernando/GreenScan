@@ -4,13 +4,23 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-08-11 · **Branch**: `claude/lucid-cerf-adjkb2` · **Version**: `v30.80` · **Hinweis**: Dieser Header war bis heute auf v26.51/2026-05-24 stehengeblieben (>4 Minor-Versionen + 2.5 Monate hinter tatsächlichem HEAD `0266bff` v30.79) — Verstoss gegen §5 Multi-Agent-Sync. Die Einträge unten zwischen v26.51 und v30.79 wurden von anderen Sessions offenbar nicht hier protokolliert; siehe `git log` für die tatsächliche Historie in diesem Zeitraum.
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-08-11 — Scheduled Security-Audit-Sprint v30.80
+
+- **Auftrag:** Automatisierte Routine-Session, Kernauftrag reduziert auf den einzig konkret umsetzbaren Teil: Sicherheits-/Code-Audit von `index.html` + `supabase/functions/*`.
+- **Audit-Findings:** Keine hardcoded Secrets. `eval`/`new Function`/`document.write` unauffällig (3× document.write nur in Popup-Fenstern, keine User-Daten). Edge-Fns sauber Secret-gated. **1 echter Fund (MED):** `renderSocialFeed()` interpolierte `p.type`/`p.category` roh in ein `title`-Attribut (`index.html:31227`) — stored-XSS-Lücke, da das Feld per REST-API frei beschreibbar ist (UI-Select schützt nicht vor direktem API-Write). Alle Sibling-Felder in derselben Funktion (author_name/avatar/content) waren bereits korrekt mit `escHtml()` escaped, dieses eine nicht.
+- **Fix (dieser Commit):** `escHtml()` um `p.type||p.category||'fund'` ergänzt. Zusätzlich `gsEnrichSpeciesViaAI()` (index.html, tote Funktion seit v30.31, 0 Call-Sites) entfernt — verstiess gegen §3.4 (raw `fetch('https://api.anthropic.com...')` statt `callAI`), war aber bereits unerreichbar.
+- **Doku-Drift notiert (nicht gefixt, INFO):** CLAUDE.md §3.6 dokumentiert `gsSafeHTML` als Escaping-Pattern — diese Funktion existiert nicht im Code (nur `escHtml`/`gsHTMLEscape`, funktional äquivalent). Sollte bei Gelegenheit in CLAUDE.md korrigiert werden.
+- **STATUS.md-Header korrigiert** (siehe Hinweis oben) — war 2.5 Monate stale.
+- **Verify:** 9/9 inline-scripts syntax-check OK (1 erwarteter top-level-`await`-Parse-Hinweis, pre-existing, kein Bug) · GS_VERSION=v30.80 · sw.js gs-v30.80 · meta=30.80.20260811.
+- **Naechste:** gsSafeHTML-Doku-Drift in CLAUDE.md korrigieren · STATUS.md-Lücke (v26.51→v30.79) bei Gelegenheit aus `git log` rekonstruieren, falls für Multi-Agent-Koordination relevant.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
