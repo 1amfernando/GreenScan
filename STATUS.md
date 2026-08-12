@@ -12,6 +12,15 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-08-12 — Scheduled Security-Audit (read-only) — AI-Key-Leak weiterhin offen (22 Tage) + gsSafeHTML-Fix wartet als PR #4
+
+- **Auftrag:** Automatisierte Scheduled-Routine ("vollständiger Code-Review auf Sicherheitslücken"). Read-Only-Verifikation gegen aktuellen `main` (`0266bff`, v30.79, unverändert seit 2026-06-27).
+- **⚠️ CRITICAL weiterhin LIVE, unverändert seit 2026-07-21 (22 Tage, jetzt 5. Re-Bestätigung):** `gsPullGlobalApiKey()` schreibt den globalen Anthropic-Key weiterhin nach `localStorage.gs_global_api_key`. `gs_feat_aiproxy` wird per grep verifiziert weiterhin an keiner Stelle im Code gesetzt → Server-Proxy-Pfad (`supabase/functions/ai-proxy/`) bleibt für 100% der User inaktiv, jeder eingeloggte User kann den globalen Key extrahieren. Fix liegt fertig im Repo, braucht nur den Flag-Flip (`gs_feat_aiproxy` Default `'1'`) + Preview-Verify — das ist Fernandos bewusste Freigabe, keine Code-Änderung diese Session.
+- **gsSafeHTML-Doku-Lücke bestätigt gefixt, aber nicht gemerged:** Eigene Verifikation zeigt `window.gsSafeHTML` existiert auf `main` nicht (nur 1 defensiver `if (window.gsSafeHTML...)`-Guard, der immer auf den Fallback fällt). Fix bereits umgesetzt in PR #4 (`claude/lucid-cerf-vy1v0v`, seit 2026-08-01 offen, 11 Tage ohne Review/Merge) — rein additiv, kein Konfliktrisiko erkennbar.
+- **Branch-Sprawl eskaliert weiter:** 93 offene `claude/lucid-cerf-*`-Branches (Stand heute), nur 1 davon als PR (#4) sichtbar. `main` seit 6 Wochen unverändert trotz vieler unabhängiger Fixes in Branches.
+- **Keine Code-Änderung gepusht** (nur STATUS.md) — Flag-Flip und PR-Merge brauchen Fernandos Entscheidung. User wurde erneut per Push informiert.
+- **Naechste:** (1) `gs_feat_aiproxy` Default auf `'1'` setzen + kurzer Preview-Test — solange offen bleibt der Key-Leak aktiv. (2) PR #4 reviewen/mergen. (3) Branch-Sprawl aufräumen (93 offene Branches, nur 1 PR).
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
