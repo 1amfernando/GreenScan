@@ -81,15 +81,26 @@ GreenScan/
   pack ihn hinter einen Server-Proxy.
 - **CSP** ist aktiv (siehe `_headers`). Wenn du externe URLs einbaust,
   Allowlist erweitern. Inline-Scripts sind erlaubt, weil Monolith.
-- **innerHTML mit User-Input**: ab v24.02 nutze `gsSafeHTML`-Tagged-Template
-  (auto-escape):
+- **innerHTML mit User-Input**: ⚠️ `gsSafeHTML`-Tagged-Template (unten
+  ursprünglich für v24.02 dokumentiert) wurde **nie implementiert** — es
+  existiert im Code nur eine tote, immer-false Guard-Referenz
+  (`window.gsSafeHTML && …`, index.html:74653). **Nicht darauf verlassen.**
+  Der tatsächlich verwendete Pattern (150+ Call-Sites) ist:
   ```js
-  el.innerHTML = gsSafeHTML`<div>${userName} sagt: ${msg}</div>`;
+  var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s==null?'':s); };
+  el.innerHTML = '<div>' + esc(userName) + ' sagt: ' + esc(msg) + '</div>';
   ```
-  Helpers: `gsSafeHTML.escape(s)`, `.attr(s)`, `.url(s)` (nur https/http/
-  mailto/relative), `.unsafe(html)` (bypass für bereits-escapte Sub-
-  Templates). `gsHTMLEscape` als Kurz-Alias. Für reine Text-Inserts
-  weiterhin `textContent` bevorzugen.
+  `escHtml(s)` (index.html:27424) ist die kanonische Escape-Funktion.
+  `gsHTMLEscape(s)` (index.html:27429) escaped zusätzlich `'` und ist
+  funktional äquivalent — beide sind real, `gsSafeHTML` ist es nicht. Für
+  reine Text-Inserts weiterhin `textContent` bevorzugen.
+  **Gilt auch für KI-Antworten** (`callAI`/`callVisionAI`-Resultate)! Ein
+  Audit (2026-08-12) fand 4 Stellen, an denen `resp`/`reply` ungeescaped in
+  `innerHTML` liefen (28147, 49888, 47975, 76973 — gefixt) — Prompt-Injection
+  im User-Input (z.B. Feedback-Text, Pflanzennotizen) könnte die KI dazu
+  bringen, HTML/`<script>` in ihrer Antwort auszugeben, das dann unescaped
+  rendert. Escape IMMER vor dem `\n`→`<br>`/Markdown-Ersatz, nicht danach
+  (Reihenfolge ist sicher, da `escHtml` nur `&<>"` ersetzt).
 - **localStorage für Auth**: bewusst akzeptiert, weil mit CSP
   `frame-ancestors 'none'` + `strict-origin-when-cross-origin` Risiko klein
   ist. JWT-Migration in HttpOnly-Cookies ist Roadmap-Punkt P2.

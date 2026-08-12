@@ -12,6 +12,18 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-08-12 — Scheduled Self-Audit v30.79 (KI-Antwort-XSS gefixt + CLAUDE.md-Doku-Drift korrigiert)
+
+- **Auftrag:** Automatisierte Scheduled-Task (kein Live-User) — bounded Security/Code-Audit, angelehnt an die bisherigen Self-Audit-Sprints (siehe 2026-05-24 c unten). Branch: `claude/lucid-cerf-kl27po`.
+- **Hinweis:** Diese Datei war seit v26.51 (2026-05-24) nicht mehr fortgeschrieben, obwohl `index.html`/`sw.js` inzwischen bei v30.79 stehen (GS_VERSION/CACHE_VERSION/_headers sind alle korrekt sync, nur dieses Log hat die Sprints seit v26.51 nicht mitgeschrieben). Kein Scope dieses Audits, nur zur Kenntnis.
+- **Audit-Findings (General-Purpose-Subagent, grep-basiert + Stichproben-Read):**
+  - 🔴 **HIGH (gefixt):** 4 Stellen, an denen rohe KI-Antworten (`callAI`/`callVisionAI`-Resultate) ungeescaped in `innerHTML` liefen — `index.html:28147` (Pflanzenpflege-Tipps), `:49888` (KI-Bepflanzungsplan), `:47975` (Admin-Feedback-Analyse), `:76973` (Pflanzendoktor-Diagnose). Risiko: Prompt-Injection über User-Input (Feedback-Text, Notizen, Fotos) könnte die KI dazu bringen, HTML/`<script>` in ihrer Antwort auszugeben → Stored/Reflected-XSS im eigenen bzw. Admin-Browser (Feedback-Panel ist admin-only). Fix: `escHtml(resp)` vor dem `\n`→`<br>`/Markdown-Ersatz (Reihenfolge ist sicher, `escHtml` ersetzt nur `&<>"`, keine der Markdown-Marker). `gs_doctor_history` (localStorage) speichert jetzt automatisch die escaped Variante.
+  - 🟡 **INFO (Doku korrigiert):** `CLAUDE.md` §3.6 dokumentierte ein `gsSafeHTML`-Tagged-Template als Pflicht-Pattern seit v24.02 — das existiert im Code **nicht** (nur eine tote Guard-Referenz `window.gsSafeHTML && …` in `index.html:74653`, die nie true wird). Der real verwendete Pattern (150+ Sites) ist `escHtml(s)` (`index.html:27424`) bzw. `gsHTMLEscape(s)` (`:27429`) mit `typeof===  'function'`-Guard. CLAUDE.md §3.6 jetzt korrigiert, inkl. Hinweis auf den KI-Antwort-Fall.
+  - 🟡 **MEDIUM (nicht gefixt, für Cowork/Fernando):** 2 Funktionen umgehen den Pflicht-Wrapper `callAI` mit direktem `fetch('https://api.anthropic.com/...')` — `gsEnrichSpeciesViaAI` (`:26162`) und `_gsKeyHealthWalker` (`:60854`), contra CLAUDE.md §3.4. `gsEnrichSpeciesViaAI` liest zudem den seit v26.67 admin-only `localStorage.gs_anthropic_key` → no-opt für normale User. Nicht angefasst (Risiko, Admin-Key-Semantik ohne mehr Kontext zu brechen) — bitte gezielt nachziehen.
+  - ✅ Keine hardcodeten Secrets, kein `eval`/`new Function`, `document.write` nur mit bereits-escapetem/statischem Content. Migrationen (~15 neueste) sauber: keine `USING(true)` auf Write-Policies, `SECURITY DEFINER` mit gepinntem `search_path`. Version-Sync GS_VERSION/CACHE_VERSION/_headers/meta bei v30.79 bestätigt in-sync.
+- **Verify:** 9/9 inline-`<script>`-Blöcke `node --check` OK nach den 4 Edits.
+- **Nicht gemacht (bewusst out of scope für unbeaufsichtigten Scheduled-Run):** LOW-Finding (inkonsistentes `e.message`-Escaping, mehrere Stellen) und das MEDIUM `fetch`-Bypass-Finding — beides dokumentiert statt blind gefixt, da either kosmetisch oder Kontext-bedürftig.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.

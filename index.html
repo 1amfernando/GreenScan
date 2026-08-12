@@ -28144,8 +28144,9 @@ async function aiAnalyzePlant(plantId){
 
   try {
     const resp = await callAI([{role:'user', content:prompt}], '', 400);
+    const _e = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s==null?'':s); };
     resultEl.innerHTML = resp
-      ? resp.replace(/\n/g,'<br>').replace(/•/g,'<span style="color:var(--g-main);font-weight:800">•</span>')
+      ? _e(resp).replace(/\n/g,'<br>').replace(/•/g,'<span style="color:var(--g-main);font-weight:800">•</span>')
       : '❌ Keine Antwort erhalten.';
   } catch(e) {
     resultEl.textContent = '❌ Fehler: ' + e.message;
@@ -47972,10 +47973,11 @@ async function runKiImprove(){
           '<span style="background:#f3e5f5;color:#6a1b9a;padding:3px 8px;border-radius:7px;font-size:11px;font-weight:700;">🔗 '+badgeCounts.duplicate+'</span>'+
           (badgeCounts.implemented?'<span style="background:#c8e6c9;color:#1b5e20;padding:3px 8px;border-radius:7px;font-size:11px;font-weight:700;">🎉 '+badgeCounts.implemented+'</span>':'')+
         '</div>';
+      const _e = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s==null?'':s); };
       result.innerHTML =
         '<strong style="color:var(--g-dark)">📊 '+scored.length+' Feedbacks bewertet:</strong>'+
         badgesHtml +
-        resp.replace(/\n/g,'<br>')
+        _e(resp).replace(/\n/g,'<br>')
             .replace(/• /g,'<span style="color:var(--g-main);font-weight:800">• </span>');
       result.style.display = 'block';
       status.textContent = '✅ Analyse abgeschlossen';
@@ -49885,11 +49887,12 @@ Format: Kurze, klare Bullet-Points mit •. Auf Deutsch. Max 200 Wörter.`;
     }
 
     if (resp) {
+      const _e = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s==null?'':s); };
       result.innerHTML =
         '<div style="background:var(--card);border-radius:12px;padding:14px;box-shadow:var(--shadow-sm);">' +
           '<div style="font-size:13px;font-weight:800;color:var(--g-dark);margin-bottom:8px;">🌿 KI-Bepflanzungsplan</div>' +
           '<div style="font-size:13px;color:var(--text2);line-height:1.7;">' +
-            resp.replace(/\n/g,'<br>').replace(/•\s?/g,'<span style="color:var(--g-main);font-weight:800">• </span>') +
+            _e(resp).replace(/\n/g,'<br>').replace(/•\s?/g,'<span style="color:var(--g-main);font-weight:800">• </span>') +
           '</div>' +
           '<button onclick="saveGardenFromAI(this.previousSibling.textContent)" style="margin-top:10px;width:100%;padding:10px;background:#e8f5e9;border:1.5px solid var(--g-light);border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;">💾 Plan speichern &amp; Garten erstellen</button>' +
         '</div>';
@@ -76970,7 +76973,8 @@ async function gsDoctorRun(file){
         // Jetzt über callVisionAI, das Provider-spezifisch korrekt rausrendert (image für Anthropic, image_url für NVIDIA).
         var prompt = 'Du bist Dr. phil. nat. Regina Bollinger — Phytopathologin am Agroscope Wädenswil, Expertin für Pflanzen-Krankheiten, Schädlingsbefall und Mangelerscheinungen im Schweizer Kontext. Diagnostiziere präzise anhand der sichtbaren Symptome auf dem Foto. Strukturiere die Antwort als:\n1. **Diagnose:** (1 Satz)\n2. **Wahrscheinliche Ursache:** (Krankheit/Schädling/Mangel + lat. Name wenn möglich)\n3. **Sofortmassnahmen:** (3 Bulletpoints)\n4. **Bio-Behandlung:** (Schweiz-geeignet, FiBL-konform)\n5. **Vorbeugung:** (kurz)\nWenn unsicher: sage es und nenne Alternativen.';
         var reply = await callVisionAI(b64, mt, prompt);
-        var replyHtml = (reply || 'Keine Antwort').replace(/\n/g,'<br>').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+        var _e = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s==null?'':s); };
+        var replyHtml = _e(reply || 'Keine Antwort').replace(/\n/g,'<br>').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
         out.innerHTML = '<div style="padding:12px;background:#f1f8e9;border-radius:10px;">' + replyHtml + '</div>';
         // v23.58: In Historie speichern
         try {
