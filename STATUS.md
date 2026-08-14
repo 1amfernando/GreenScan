@@ -12,6 +12,15 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-08-14 — Security-Audit v30.79 (`AUDIT_v30.79_SECURITY.md`)
+
+- **Auftrag:** Scheduled-Session — Security-/Logik-Review von `index.html` gegen CLAUDE.md §3.6 + CODE_ROUTINE_MASTER.md Weekly-Audit-Checkliste.
+- **Ergebnis:** 0 XSS (670 innerHTML-Sites geprüft, alle escaped/gsSafeHTML), 0 hardcoded Secrets, 0 TODO/FIXME, 0 Auth/Rollen-Logikfehler (`==` vs `===`). Keine kritischen Funde.
+- **Follow-ups (niedrig/mittel Priorität, kein Hotfix):** 2× direkter `fetch()` zu api.anthropic.com außerhalb `callAI()`/`gsTestApiKey()` (`gsEnrichSpeciesViaAI` Zeile 26162, `_gsKeyHealthWalker` Zeile 60854) · 14× z-index Magic-Numbers statt `var(--z-*)` (Routine-Ziel < 5).
+- **Naechste:** Bei Gelegenheit callAI-Migration für die 2 Bypass-Stellen; z-index-Cleanup als Hygiene-Task einplanen.
+
+> **Hinweis:** STATUS.md-Verlauf zwischen 2026-05-24 und heute (2026-08-14) fehlt trotz vielen Commits bis v30.79 (Repo-Historie zeigt aktive Weiterentwicklung, aber keine durchgehenden Status-Einträge) — Lücke zur Kenntnisnahme für nächste Session, kein Fix-Bedarf.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
