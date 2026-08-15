@@ -12,6 +12,14 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-08-15 — Code-Daily (Health-Check, automatisierte Routine-Session)
+
+- **Log-Lücke:** Letzter Routine-Eintrag war 2026-05-24 (v26.51) — Repo ist seither auf **v30.79** gewachsen (`GS_VERSION`/`meta[app-version]` konsistent), aber ohne durchgängige Daily-Einträge dazwischen. Dieser Eintrag holt nur den Health-Check nach, nicht die fehlenden ~3 Monate Changelog (siehe Git-Log für Details).
+- **Health:** ✅ 37/37 Supabase Edge-Functions `ACTIVE` (keine `ERRORED`). ✅ Security-Advisors: **0 ERROR**, 140 WARN (alle bekannte by-design-Kategorien: 136× `security_definer_function_executable` public-RPCs, 3× `extension_in_public`, 1× `auth_leaked_password_protection` = Dashboard-Setting) + 5 INFO. Keine neuen kritischen Advisor-Findings ggü. letztem dokumentierten Stand.
+- **Code-Hygiene:** 0 TODO/FIXME/XXX/HACK in `index.html`, 0 direkte `fetch('https://api.anthropic.com/...')`-Calls ausserhalb der dokumentierten Ausnahme.
+- **Nicht durchführbar in dieser Session:** Live-Smoke-Test gegen `https://green-scan.ch/` (Sandbox hat keinen Netzwerk-Zugriff auf die Domain) — bitte bei nächster interaktiver Session nachholen.
+- **Ergebnis:** Keine Aktion nötig, nichts Kritisches gefunden. Kein Push an Fernando ausgelöst.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
