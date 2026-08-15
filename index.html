@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.79.20260627">
+<meta name="app-version" content="30.80.20260815">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26135,57 +26135,6 @@ async function gsProposeNewSpeciesFromScan(result, imageB64thumb) {
   // kein doppelter/kaputter Cloud-Write, kein wasted gsEnrichSpeciesViaAI-Call, kein falscher Erfolgs-Toast mehr.
 }
 
-// KI-Anreicherung: Claude generiert einen vollständigen Species-Record
-async function gsEnrichSpeciesViaAI(p) {
-  var key = localStorage.getItem('gs_anthropic_key') || localStorage.getItem('anthropic_key');
-  if (!key) return null;
-  var systemPrompt =
-    'Du bist Botanik/Mykologie-Datenbank-Assistent bei GreenScan (Schweizer Flora). ' +
-    'Du erhältst eine User-Scan-Erkennung einer potenziell neuen Art. ' +
-    'Erstelle einen JSON-Eintrag mit folgenden Feldern (alle Werte in deutsch, außer "lat"): ' +
-    '{"name":"","lat":"","cat":"wildpflanze|kraut|baum|pilz|hauspflanze|moos|flechte|alge",' +
-    '"emoji":"","habitat":"","season":"","height":"","edibility":"essbar|bedingt essbar|ungenießbar|giftig|tödlich",' +
-    '"tox":0-4,"warning":"","uses":"","lookalikes":"","medicinal":"","lightMin":N,"lightOptimal":N,"lightMax":N}. ' +
-    'Wenn unsicher: Felder leer lassen statt raten. Antworte NUR mit dem JSON, ohne Markdown-Code-Block.';
-  var userMsg = 'Scan-Erkennung:\n' +
-    'Name: ' + p.name + '\n' +
-    'Latein: ' + (p.latin || '?') + '\n' +
-    'Konfidenz: ' + p.conf + '%\n' +
-    'Kategorie (Hinweis): ' + (p.scan_context.category || '?') + '\n' +
-    'Habitat (Hinweis): ' + (p.scan_context.habitat || '?') + '\n' +
-    'Saison: ' + (p.scan_context.season || '?') + '\n' +
-    'Merkmale: ' + (Array.isArray(p.scan_context.diagnostic_features) ? p.scan_context.diagnostic_features.join(', ') : '?') + '\n\n' +
-    'Bitte einen GreenScan-DB-Eintrag für diese Art vorbereiten.';
-  var resp;
-  try {
-    var fetchFn = (typeof _gsApiFetch === 'function') ? _gsApiFetch : fetch;
-    resp = await fetchFn('https://api.anthropic.com/v1/messages', {
-      method:'POST',
-      headers: {
-        'Content-Type':'application/json',
-        'x-api-key': key,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true'
-      },
-      body: JSON.stringify({
-        model: (window._gsClaudeModel || 'claude-sonnet-4-5'),
-        max_tokens: 700,
-        system: systemPrompt,
-        messages: [{role:'user', content: userMsg}]
-      })
-    }, { timeout: 30000, retries: 1 });
-  } catch(e) { return null; }
-  if (!resp.ok) return null;
-  try {
-    var data = await resp.json();
-    var txt = (data.content && data.content[0] && data.content[0].text) || '';
-    // JSON-Cleanup (nur das {…}-Teil extrahieren)
-    var m = txt.match(/\{[\s\S]*\}/);
-    if (!m) return null;
-    return JSON.parse(m[0]);
-  } catch(e) { return null; }
-}
-
 function getScanHistory() {
   try { return JSON.parse(localStorage.getItem(SCAN_HISTORY_KEY) || '[]'); } catch(e) { return []; }
 }
@@ -30955,8 +30904,13 @@ function openDiagnosisCamera() {
   // Fill plant selector
   const sel = document.getElementById('diag-plant-sel');
   if (sel) {
-    sel.innerHTML = '<option value="">Unbekannte Pflanze</option>' +
-      myPlants.map(p => '<option value="' + p.id + '">' + p.name + (p.nick ? ' – ' + p.nick : '') + '</option>').join('');
+    sel.innerHTML = '<option value="">Unbekannte Pflanze</option>';
+    myPlants.forEach(function(p){
+      var o = document.createElement('option');
+      o.value = p.id;
+      o.textContent = p.name + (p.nick ? ' – ' + p.nick : '');
+      sel.appendChild(o);
+    });
   }
   diagImageData = null;
   const runBtn = document.getElementById('diag-run-btn');
@@ -66915,7 +66869,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.79';
+var GS_VERSION = 'v30.80';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
