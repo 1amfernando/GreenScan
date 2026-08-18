@@ -12,6 +12,15 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-08-18 — Code-Daily (Scheduled-Session-Health-Check)
+
+- **Hinweis:** Dieser Routine-Log war seit 2026-05-24 nicht mehr gepflegt worden, obwohl der Code zwischenzeitlich bis v30.79 weiterentwickelt wurde (Header-Zeile oben in §Stand ebenfalls veraltet: zeigt noch v26.51/2026-05-24). Empfehlung: nächste Session sollte die Header-Metadaten (Zeile 7) auf den aktuellen Stand aktualisieren.
+- **Health:** ✅ Alle 37 Supabase Edge-Functions `ACTIVE` (keine ERRORED/THROTTLED). ✅ Stripe-Webhook 24h: 0 OK / 0 Errors (keine Sub-Aktivität, konsistent mit früheren ruhigen Tagen). ✅ Auth-Error-Events (`analytics_events` ILIKE '%auth%error%') 24h: keine. ✅ Security-Advisors: **0 ERROR**, 140 WARN (136× SECURITY DEFINER RPC-Funktionen public/anon-executable — bereits als by-design dokumentiert in v26.51-Audit; 3× extension_in_public; 1× `auth_leaked_password_protection` disabled — bekanntes offenes Dashboard-Setting, Fernando-Action), 5 INFO (`rls_enabled_no_policy` auf 5 Tabellen ohne Policies = faktisch komplett gesperrt, kein Exposure).
+- **DB-Wachstum:** Alle 16 Knowledge-Tabellen komfortabel über Min-Threshold (z.B. recipes 194/150, daily_quizzes 203/150, seasonal_highlights 76/40, swiss_climate_zones 107/60) — kein bulk-gen-Trigger nötig.
+- **Smoke-Test:** ⚠️ Nicht durchführbar — Live-Domain `green-scan.ch` ist vom Netzwerk-Policy dieser Sandbox-Session geblockt (Proxy 403 auf CONNECT). REPO GS_VERSION=v30.79, SW VERSION=gs-v30.79 (synced). Live-Vergleich muss aus einer Session mit Netzwerkzugriff nachgeholt werden.
+- **Code-Hygiene:** 0 TODO/FIXME/XXX/HACK in `index.html`. Branch `claude/lucid-cerf-jp0mmc` = `main` (0 ahead/behind), working tree clean.
+- **Followup:** STATUS.md-Header (Zeile 7) veraltet — Version/Datum aktualisieren. `auth_leaked_password_protection` weiterhin Dashboard-Pflicht (Fernando).
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
