@@ -12,6 +12,15 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-08-18 — Scheduled Self-Audit (Frontend-XSS-Sweep, keine neuen Findings)
+
+- **Auftrag:** Automatisierte Scan-Routine (kein spezifisches Briefing). Fokus: `index.html` (aktuell v30.79) auf Sicherheits-Lücken gemäss CLAUDE.md §3.6 (innerHTML/XSS, hardcoded Secrets, unsanktionierte KI-Calls).
+- **Geprüft:** ~588 `.innerHTML =`-Zuweisungen gesichtet (Grossteil statisches Markup ohne Interpolation) · alle Template-Literal-Interpolationen (`${...}`) in innerHTML-Kontext bereits via `gsSafeHTML` abgesichert · User-Content-Felder (`display_name`, `avatar_emoji`, `author_avatar`, `l.title`/`l.desc` im Marketplace, Kommentare) durchgehend via `escHtml`/`esc`/`_esc`/`_gsCEsc`/`_gsProfileChip` escaped · kein `eval(` · keine hardcoded API-Keys (`sk-ant-…`, `AIza…`) in `index.html`/`sw.js` · keine unsanktionierten `fetch('https://api.anthropic.com/...')` ausserhalb `gsTestApiKey()`.
+- **1 geprüfter Grenzfall, kein Fix nötig:** `_gsProfileChip`/inline-`onclick="...gsOpenProfile('"+userId+"')"` (Zeilen 31214, 35629, 73249, 73424, 73433, 73448) interpoliert `user_id` ungeschützt in ein Attribut — bereits als **Hard-Lesson #12** dokumentiert/reviewed (Zeile 63422): Wert kommt ausschliesslich aus Supabase `user_id`-FKs (UUID, nie Freitext), daher kein Angriffsvektor. Bewusst unverändert gelassen.
+- **Befund:** Bestehende Härtung aus früheren Self-Audit-Sprints (v26.51 u.a.) weiterhin intakt, keine neuen Stored-XSS-Sinks gefunden. Keine Code-Änderung in diesem Durchlauf.
+- **Hygiene-Hinweis:** Kopfzeile oben („Stand 2026-05-24 · v26.51") ist veraltet — Code steht real bei `v30.79`. Nicht in diesem Audit nachgezogen (History seit Mai nicht rekonstruierbar ohne Datenverlust-Risiko); nächste Session mit vollem Kontext sollte den Header aktualisieren.
+- **Naechste:** Backend/Supabase-Advisor-Re-Audit steht aus (letzter bekannter Stand: v26.51, seither ~4 Monate/vier Versionssprünge Code-Änderungen ungeprüft) · STATUS.md-Header nachziehen.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
