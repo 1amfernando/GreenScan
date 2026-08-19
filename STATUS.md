@@ -4,13 +4,29 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-08-19 · **Branch**: `main` · **Version**: `v30.79` (LIVE, laut `git log`/`GS_VERSION`) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+
+> ⚠️ Diese Datei hing seit 2026-05-24 (v26.51) fest, obwohl `main` inzwischen bei v30.79 steht —
+> viele Sessions dazwischen haben §5 (STATUS.md-Update nach jedem Edit) nicht befolgt. Die Eintraege
+> 2026-05-24 (a-c) und aelter unten sind daher die letzte verlaessliche Historie; alles zwischen
+> v26.51 und v30.79 ist nur ueber `git log` rekonstruierbar, nicht ueber dieses File.
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-08-19 — Automatisierter Security-Self-Audit (Supabase-Advisors + Admin-RPC-Guard-Verifikation)
+
+- **Auftrag:** Scheduled Deep-Scan-Routine (keine Live-User-Session). Fokus: Supabase Security-Advisors pruefen + die ~30 `fn_admin_*`-RPCs, die der Linter als "SECURITY DEFINER + von `authenticated` aufrufbar" flaggt, tatsaechlich auf einen internen Admin-Guard verifizieren (Linter sieht keine Function-Bodies).
+- **Advisor-Scan:** 0 ERROR (haelt seit v26.51-Fix), 140 WARN (75→140, fast alles neue `*_security_definer_function_executable`-Warnungen fuer die stark gewachsene `fn_*`-RPC-Flaeche seit v26.51 — architektonisch erwartet), 5 INFO (`rls_enabled_no_policy` auf Cache/Queue-Tabellen, fail-closed, kein Risiko).
+- **Guard-Verifikation (28/30 `fn_admin_*` + `is_admin_user` per Source-Read, Rest live via `pg_get_functiondef` bestaetigt):** Alle 32 Functions inkl. der hoechst-riskanten (`fn_admin_finance_snapshot`, `fn_admin_set_tier`, `fn_admin_stripe_overview`, `fn_admin_user_detail`) haben einen korrekten `IF NOT is_admin_user() THEN ... END IF`-Guard VOR jedem privilegierten Read/Write. **Keine Privilege-Escalation gefunden.**
+- **`fn_org_directory`** (anon-callable): sauber — nur kuratierte oeffentliche Org-Discovery-Felder, keine Member-Liste/Emails.
+- **`fn_quiz_record_answer`** (anon-callable, SECURITY DEFINER): sauber — `auth.uid() IS NULL → RETURN` No-Op, kann ohne gueltigen JWT nichts schreiben.
+- **Repo-Hygiene-Fund (behoben):** 5 Function-Bodies (`fn_admin_audit_recent`, `fn_admin_client_errors`, `fn_admin_flag_set`, `fn_admin_flags_list`, `fn_quiz_record_answer`) waren nur als Stub-Kommentar ("Voller Inhalt: DB-Migration ... apply_migration") committed — echte SQL nur live in Supabase, nie ins Repo zurückgeschrieben. Verstoss gegen CLAUDE.md "Repo = Source of Truth". **Fix:** `supabase/migrations/v30_80_backfill_missing_admin_fn_defs.sql` holt alle 5 Bodies 1:1 aus der Live-DB nach (reines No-Op-`CREATE OR REPLACE`, kein Verhaltens-Change, nicht separat re-appliziert da bereits identisch live).
+- **Nicht behoben (kein Scope dieser Session):** STATUS.md-Nachpflege-Luecke v26.51→v30.79 (s. Warnbox oben) — reine Doku-Schuld, kein Code-Risiko. `auth_leaked_password_protection` WARN (Dashboard-Toggle, kein Code-Fix moeglich) weiterhin offen.
+- **Kein PushNotification an User:** keine kritischen/ausnutzbaren Findings — Audit kam sauber zurueck, einzige Aenderung ist der Migrations-Backfill.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
