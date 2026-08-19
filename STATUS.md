@@ -4,13 +4,22 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-08-19 · **Branch**: `main` · **Version**: `v30.80` (Pending Push auf `claude/lucid-cerf-uloi3q`) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-08-19 — Scheduled Self-Audit v30.80 (XSS-Hardening + Dead-Code-Cleanup)
+
+- **Auftrag:** Scheduled-Routine-Task (kein externes Briefing), fokussiert auf §3.6-Security-Konventionen aus `CLAUDE.md`. Scope bewusst auf konkrete, verifizierbare Findings begrenzt statt offenem Vollaudit.
+- **Audit-Findings (General-Purpose-Agent, read-only Scan):** Keine hardcodeten Secrets/Keys gefunden (nur Placeholder-Texte + Validierungs-Checks). Marketplace-Chat/Listing-Rendering durchgehend escaped. `callAI`/`callVisionAI` fast überall zentral genutzt. 3 kleinere Gaps gefunden: (1) 10× `catch(e){...}.innerHTML = ... + e.message + ...}` ohne Escaping — Risiko: PostgREST/sbFetch/callAI-Fehler können User-eingegebene Werte ungefiltert zurück-echoen (z.B. Unique-Constraint-Meldungen). (2) `gsEnrichSpeciesViaAI` — totes Code (0 Call-Sites, per Kommentar bei L26130 selbst bestätigt), umging `callAI` (§3.4-Verstoss) und las nie gesetzte localStorage-Keys. (3) `_gsKeyHealthWalker` — zweiter direkter Anthropic-fetch-Pfad neben `gsTestApiKey`, funktional unkritisch (sendet nur den gerade eingegebenen Key), aber in CLAUDE.md §3.4 nicht als Ausnahme dokumentiert — bewusst NICHT verändert, nur hier vermerkt für spätere Doku-Ergänzung.
+- **Fixes applied:** Alle 10 innerHTML-Sites mit `escHtml(...)` gehärtet (Zeilen u.a. in gsCompareGrowthPhotos, Bibliothek-Loader, Forest-Garden-Loader, Lichtmessung, Plan-Refine-Flow, 2× Admin-Box, Steckbrief-KI-Modal) — konsistent zum bereits etablierten Pattern im selben File (z.B. L16348). `gsEnrichSpeciesViaAI` ersatzlos entfernt (kein funktionaler Impact, unreachable).
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · sw.js OK · GS_VERSION=v30.80 · sw.js gs-v30.80 · _headers v30.80 · meta=30.80.20260819.
+- **Nicht angefasst:** `_gsKeyHealthWalker` (Doku-Gap, kein Sicherheitsrisiko) — nächste Session kann CLAUDE.md §3.4 um diese Ausnahme ergänzen oder die Funktion in `gsTestApiKey` konsolidieren.
+- **Hinweis für andere Sessions:** STATUS.md „Stand"-Header war seit 2026-05-24/v26.51 nicht mehr aktualisiert worden, obwohl App bereits bei v30.79 lief (viele Sessions dazwischen haben offenbar direkt gepusht ohne STATUS.md-Sync). Header oben jetzt auf aktuellen Stand gebracht.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 

@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.79.20260627">
+<meta name="app-version" content="30.80.20260819">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16349,7 +16349,7 @@ async function gsGalCompareGrowth(){
     if(typeof gsHaptic==='function')gsHaptic('success');
   }catch(e){
     var msg=(e&&e.message)?e.message:_t('gal_cmp_fail','Analyse fehlgeschlagen.');
-    if(res) res.innerHTML='<div style="padding:13px;background:var(--bg-danger-soft,rgba(198,40,40,.08));border:1px solid var(--c-danger,#c62828);border-radius:10px;font-size:12.5px;color:var(--c-danger-d,#b71c1c);">⚠️ '+msg+'</div>';
+    if(res) res.innerHTML='<div style="padding:13px;background:var(--bg-danger-soft,rgba(198,40,40,.08));border:1px solid var(--c-danger,#c62828);border-radius:10px;font-size:12.5px;color:var(--c-danger-d,#b71c1c);">⚠️ '+escHtml(msg)+'</div>';
     if(e&&e.code==='free_quota_reached'&&typeof gsToast==='function') gsToast(msg,'warn');
   }finally{ if(btn){ btn.disabled=false; btn.textContent='📈 '+_t('gal_compare_again','Erneut vergleichen'); } }
 }
@@ -26135,57 +26135,6 @@ async function gsProposeNewSpeciesFromScan(result, imageB64thumb) {
   // kein doppelter/kaputter Cloud-Write, kein wasted gsEnrichSpeciesViaAI-Call, kein falscher Erfolgs-Toast mehr.
 }
 
-// KI-Anreicherung: Claude generiert einen vollständigen Species-Record
-async function gsEnrichSpeciesViaAI(p) {
-  var key = localStorage.getItem('gs_anthropic_key') || localStorage.getItem('anthropic_key');
-  if (!key) return null;
-  var systemPrompt =
-    'Du bist Botanik/Mykologie-Datenbank-Assistent bei GreenScan (Schweizer Flora). ' +
-    'Du erhältst eine User-Scan-Erkennung einer potenziell neuen Art. ' +
-    'Erstelle einen JSON-Eintrag mit folgenden Feldern (alle Werte in deutsch, außer "lat"): ' +
-    '{"name":"","lat":"","cat":"wildpflanze|kraut|baum|pilz|hauspflanze|moos|flechte|alge",' +
-    '"emoji":"","habitat":"","season":"","height":"","edibility":"essbar|bedingt essbar|ungenießbar|giftig|tödlich",' +
-    '"tox":0-4,"warning":"","uses":"","lookalikes":"","medicinal":"","lightMin":N,"lightOptimal":N,"lightMax":N}. ' +
-    'Wenn unsicher: Felder leer lassen statt raten. Antworte NUR mit dem JSON, ohne Markdown-Code-Block.';
-  var userMsg = 'Scan-Erkennung:\n' +
-    'Name: ' + p.name + '\n' +
-    'Latein: ' + (p.latin || '?') + '\n' +
-    'Konfidenz: ' + p.conf + '%\n' +
-    'Kategorie (Hinweis): ' + (p.scan_context.category || '?') + '\n' +
-    'Habitat (Hinweis): ' + (p.scan_context.habitat || '?') + '\n' +
-    'Saison: ' + (p.scan_context.season || '?') + '\n' +
-    'Merkmale: ' + (Array.isArray(p.scan_context.diagnostic_features) ? p.scan_context.diagnostic_features.join(', ') : '?') + '\n\n' +
-    'Bitte einen GreenScan-DB-Eintrag für diese Art vorbereiten.';
-  var resp;
-  try {
-    var fetchFn = (typeof _gsApiFetch === 'function') ? _gsApiFetch : fetch;
-    resp = await fetchFn('https://api.anthropic.com/v1/messages', {
-      method:'POST',
-      headers: {
-        'Content-Type':'application/json',
-        'x-api-key': key,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true'
-      },
-      body: JSON.stringify({
-        model: (window._gsClaudeModel || 'claude-sonnet-4-5'),
-        max_tokens: 700,
-        system: systemPrompt,
-        messages: [{role:'user', content: userMsg}]
-      })
-    }, { timeout: 30000, retries: 1 });
-  } catch(e) { return null; }
-  if (!resp.ok) return null;
-  try {
-    var data = await resp.json();
-    var txt = (data.content && data.content[0] && data.content[0].text) || '';
-    // JSON-Cleanup (nur das {…}-Teil extrahieren)
-    var m = txt.match(/\{[\s\S]*\}/);
-    if (!m) return null;
-    return JSON.parse(m[0]);
-  } catch(e) { return null; }
-}
-
 function getScanHistory() {
   try { return JSON.parse(localStorage.getItem(SCAN_HISTORY_KEY) || '[]'); } catch(e) { return []; }
 }
@@ -29360,7 +29309,7 @@ async function gsLightPro10Measure() {
     if (typeof gsHaptic === 'function') gsHaptic('tick');
     gsLightPro10Render();
   } catch(err) {
-    if (statusEl) statusEl.innerHTML = '<span style="color:#c62828;">❌ ' + (err.name === 'NotAllowedError' ? 'Kamera verweigert' : (err.message || 'Fehler')) + '</span>';
+    if (statusEl) statusEl.innerHTML = '<span style="color:#c62828;">❌ ' + (err.name === 'NotAllowedError' ? 'Kamera verweigert' : escHtml(err.message || 'Fehler')) + '</span>';
     try { if (lightStream) { lightStream.getTracks().forEach(function(t){t.stop();}); lightStream = null; } } catch(e){}
   }
 }
@@ -33016,7 +32965,7 @@ async function gsRunSoilRecommend() {
     if (box) box.innerHTML = html;
     try { box.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(_){}
   } catch(e) {
-    if (box) box.innerHTML = '<div style="margin-top:14px;padding:14px;background:#ffebee;border-radius:10px;color:#c62828;text-align:center;">⚠️ Konnte nicht laden — ' + (e.message || '') + '</div>';
+    if (box) box.innerHTML = '<div style="margin-top:14px;padding:14px;background:#ffebee;border-radius:10px;color:#c62828;text-align:center;">⚠️ Konnte nicht laden — ' + escHtml(e.message || '') + '</div>';
   }
 }
 window.gsRunSoilRecommend = gsRunSoilRecommend;
@@ -34397,7 +34346,7 @@ async function gsForestLoad() {
       var rows = (r && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : []);
       window._gsForestCache = { rows: rows, ts: now };
     } catch(e) {
-      listEl.innerHTML = '<div style="padding:24px;color:#bf360c;text-align:center;">Fehler: ' + String(e.message || e) + '</div>';
+      listEl.innerHTML = '<div style="padding:24px;color:#bf360c;text-align:center;">Fehler: ' + escHtml(String(e.message || e)) + '</div>';
       return;
     }
   }
@@ -42659,7 +42608,7 @@ window.gsRenderBibliothek = async function() {
     '</div>' : '';
     el.innerHTML = introHtml + statsHtml + filterHtml + itemsHtml + booksHtml;
   } catch(e) {
-    el.innerHTML = introHtml + '<div style="padding:18px;background:#fee;border-radius:10px;color:#c62828;font-size:13px;">❌ Bibliothek konnte nicht geladen werden: ' + (e.message||e) + '</div>';
+    el.innerHTML = introHtml + '<div style="padding:18px;background:#fee;border-radius:10px;color:#c62828;font-size:13px;">❌ Bibliothek konnte nicht geladen werden: ' + escHtml(e.message||e) + '</div>';
   }
 };
 
@@ -50595,7 +50544,7 @@ async function gsPPmeasureLuxInline() {
     if (typeof showProfileToast === 'function') showProfileToast('☀️ Lichtmessung übernommen: ' + lux.toLocaleString('de-CH') + ' lx');
   } catch(e) {
     try { if (stream) stream.getTracks().forEach(function(t){ t.stop(); }); } catch(_){}
-    if (txt) txt.innerHTML = '❌ Messung fehlgeschlagen: ' + (e.message || 'Kamera-Zugriff verweigert');
+    if (txt) txt.innerHTML = '❌ Messung fehlgeschlagen: ' + escHtml(e.message || 'Kamera-Zugriff verweigert');
     if (typeof showProfileToast === 'function') showProfileToast('❌ Lichtmessung: ' + (e.message || 'Kamera nicht verfügbar'), 'error');
   }
 }
@@ -51496,7 +51445,7 @@ async function gsPPRefine(presetMsg){
   var p='BESTEHENDER PLAN (JSON):\n'+JSON.stringify(plan)+'\n\nNUTZER-WUNSCH ZUR ANPASSUNG:\n'+msg+'\n\nGib den VOLLSTÄNDIGEN angepassten Plan als EIN JSON-Objekt mit demselben Schema zurück.';
   var resp=null;
   try{ resp=await callAI([{role:'user',content:p}], sys, 4096, {brain:'gaertner', quotaFeature:'garden', logLabel:'pp_refine'}); }
-  catch(e){ if(st) st.innerHTML='<span style="color:#b71c1c;">Fehler: '+((e&&e.message)||'')+'</span>'; return; }
+  catch(e){ if(st) st.innerHTML='<span style="color:#b71c1c;">Fehler: '+escHtml((e&&e.message)||'')+'</span>'; return; }
   var txt=(typeof resp==='string')?resp:(resp&&(resp.text||resp.content||''));
   var np=null;
   try{ var i=txt.indexOf('{'), j=txt.lastIndexOf('}'); if(i>=0&&j>i) np=JSON.parse(txt.slice(i,j+1)); }catch(_){}
@@ -54025,7 +53974,7 @@ async function gsTokenCostLoadToday() {
     '</div>';
     box.innerHTML = html;
   } catch(e) {
-    box.innerHTML = '<div style="padding:20px;color:#b71c1c;text-align:center;">Fehler: ' + String(e.message || e) + '</div>';
+    box.innerHTML = '<div style="padding:20px;color:#b71c1c;text-align:center;">Fehler: ' + escHtml(String(e.message || e)) + '</div>';
   }
 }
 window.gsTokenCostLoadToday = gsTokenCostLoadToday;
@@ -54103,7 +54052,7 @@ async function gsTokenCostLoad7d() {
     '</div>';
     box.innerHTML = html;
   } catch(e) {
-    box.innerHTML = '<div style="padding:20px;color:#b71c1c;text-align:center;">Fehler: ' + String(e.message || e) + '</div>';
+    box.innerHTML = '<div style="padding:20px;color:#b71c1c;text-align:center;">Fehler: ' + escHtml(String(e.message || e)) + '</div>';
   }
 }
 window.gsTokenCostLoad7d = gsTokenCostLoad7d;
@@ -66915,7 +66864,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.79';
+var GS_VERSION = 'v30.80';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -76982,7 +76931,7 @@ async function gsDoctorRun(file){
           try { if (window.gsCloudSync && typeof gsCloudSync.markDirty==='function') gsCloudSync.markDirty('state'); } catch(_){} // v30.46: HL#32 cross-device
         } catch(e){}
       } catch(err){
-        out.innerHTML = '<div style="padding:12px;background:#ffebee;color:#c62828;border-radius:10px;">❌ ' + (err.message||'Fehler') + ' — API-Key prüfen.</div>';
+        out.innerHTML = '<div style="padding:12px;background:#ffebee;color:#c62828;border-radius:10px;">❌ ' + escHtml(err.message||'Fehler') + ' — API-Key prüfen.</div>';
       }
     };
     reader.readAsDataURL(file);
