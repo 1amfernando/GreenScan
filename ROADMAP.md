@@ -83,7 +83,7 @@
 | ~~P2-3~~ | ~~MeteoSwiss OGD-Integration~~ | **erledigt v24.00** (`gsMeteo` leitet aus open-meteo Schweizer Warnungen ab + verlinkt offizielle MeteoSwiss-Seite) |
 | ~~P2-5~~ | ~~Schutzstatus + Rote Liste~~ | **erledigt v24.00** (`gsRedList` mit ~80 Arten IUCN Schweiz) |
 | ~~P2-6~~ | ~~Spaced-Repetition für Quiz~~ | **erledigt v24.01** (`gsSRS` SM-2 + Auto-Bridge zu Brain-Events) |
-| ~~P2-8~~ | ~~innerHTML → safeHTML-Migration~~ | **Helper erledigt v24.02** (`gsSafeHTML` Tagged-Template + CLAUDE.md-Pattern); Code-Migration iterativ in Folge-Sprints |
+| P2-8 | **innerHTML → safeHTML-Migration** | **Helper wirklich erledigt v30.80.** Achtung: v24.02 hatte den Helper nur *dokumentiert* (CLAUDE.md §3.6, STATUS.md, dieser Eintrag) — `gsSafeHTML` war bis v30.80 **nirgends definiert**, jeder Aufruf waere ein ReferenceError gewesen. Seit v30.80 real implementiert (index.html, neben `gsHTMLEscape`) inkl. Tagged-Template, `.escape/.attr/.url/.unsafe`, Nesting ohne Doppel-Escape. Code-Migration der ~667 innerHTML-Sites weiterhin iterativ in Folge-Sprints. |
 | ~~P1-8~~ | ~~PLANT_DB-Split~~ | **erledigt v24.03** (`data/plants.v1.js`, -2.16 MB Initial-Size, immutable-cached) |
 | ~~P2-1~~ | ~~iNaturalist-OAuth-Bridge~~ | **erledigt v24.04** (`gsINaturalist` mit PKCE-Flow + publishObservation; Client-ID-Setup durch Owner pending) |
 | ~~P3-8~~ | ~~Brain-Recommend in der Cloud~~ | **erledigt v24.05** (`gsBrain.smartRecommend` mit 6h-Cache + Hintergrund-Hydration; min. 30 Events nötig) |

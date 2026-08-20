@@ -425,15 +425,26 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
   Cache-Bust per URL-Versionierung (`plants.v2.js` bei DB-Update).
   Service Worker precacht das File (CACHE_VERSION → `v24.03`) und
   unterstützt Offline-Boot. **Bug B6 erledigt.**
-- ✅ **gsSafeHTML — Auto-Escape Tagged-Template** (v24.02): Pattern für
-  alle neuen DOM-Konstruktionen mit User-Input.
+- ✅ **gsSafeHTML — Auto-Escape Tagged-Template** (dokumentiert v24.02,
+  **real implementiert erst v30.80**): Pattern für alle neuen
+  DOM-Konstruktionen mit User-Input.
   `gsSafeHTML\`<div>${userInput}</div>\`` escaped automatisch. Helpers:
   `.escape`, `.attr`, `.url` (whitelist https/http/mailto/relative),
-  `.unsafe` (bypass für bereits-escapte Sub-Templates), `.raw` (Variant
-  ohne Auto-Escape). `gsHTMLEscape` als Kurz-Alias. CLAUDE.md
-  §3.6 dokumentiert das Pattern. **Bestehende 299 innerHTML-Stellen
-  bleiben unverändert** (mit `gsSanitize` und CSP gehärtet) — Migration
-  iterativ in Folge-Sprints, modul-weise, mit Browser-Test.
+  `.unsafe` (bypass für bereits-escapte Sub-Templates).
+  `gsHTMLEscape` als Kurz-Alias. CLAUDE.md §3.6 dokumentiert das Pattern.
+  ⚠️ **Wiederholungsfall Hard-Lesson #9:** v24.02 hat den Helper NUR
+  dokumentiert (CLAUDE.md, STATUS.md, ROADMAP P2-8 „erledigt") — im Code
+  war `gsSafeHTML` **nie definiert**. Der einzige Aufruf war defensiv
+  (`if (window.gsSafeHTML && …)`) und nahm immer den Fallback; jeder
+  Aufruf gemäss CLAUDE.md-Beispiel wäre ein ReferenceError gewesen.
+  Exakt derselbe Fehler wie zuvor bei `gsHTMLEscape` (v27.03).
+  Seit v30.80 real implementiert + 29 Unit-Tests (Escaping, Nesting ohne
+  Doppel-Escape, Arrays, `javascript:`-Obfuskation via Tab/NBSP/U+2028/
+  BOM/Null-Byte, protocol-relative URLs). **Bestehende ~667
+  innerHTML-Stellen bleiben unverändert** (mit lokalen `esc`-Wrappern und
+  CSP gehärtet) — Migration iterativ in Folge-Sprints, modul-weise.
+  *Lehre: „Helper erledigt" in einem Doku-File ist kein Beleg — vor dem
+  Abhaken `grep` auf die Definition.*
 - ✅ **gsSRS — Spaced-Repetition (SM-2)** (v24.01): Adaptives Lernen
   statt Zufalls-Quiz. SM-2-Algorithmus (SuperMemo, Goldstandard).
   `gsSRS.review(cardId, q)` mit q∈[0..5] aktualisiert Karten-State
@@ -578,6 +589,7 @@ vorbereitet, aber blockiert bis App-Store-Readiness P0/P1 abgeschlossen.
 | Datum | Agent | Bereich | Erwartete Dauer |
 |---|---|---|---|
 | 2026-04-29 | claude-code (Cloud) | Boot-Audit, Brain, Doku-Sync | abgeschlossen (gepusht) |
+| 2026-08-20 | claude-code (Cloud, Routine-Deep-Scan) | v30.80: `gsSafeHTML` real implementiert + Doku-Sync | abgeschlossen (gepusht) |
 
 ---
 

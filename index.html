@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.79.20260627">
+<meta name="app-version" content="30.80.20260820">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27427,6 +27427,51 @@ function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&l
 // immer den Fallback. Jetzt definiert (voller Escaper inkl. Single-Quote) → konsistentes Escaping.
 window._gsOcArg = function(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/"/g,'&quot;').replace(/'/g,"\\'"); };  // v30.13 HL#12: sicheres Onclick-Arg-Escape (Backslash, "->&quot;, '->\')
 window.gsHTMLEscape = function(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+
+// v30.80 Hard-Lesson #9 (Wiederholungsfall): gsSafeHTML war seit v24.02 in CLAUDE.md §3.6,
+// STATUS.md und ROADMAP.md P2-8 („Helper erledigt") als DAS Pattern fuer innerHTML+User-Input
+// dokumentiert — aber NIE definiert. Jeder Aufruf `el.innerHTML = gsSafeHTML`...`` waere ein
+// ReferenceError gewesen (im Monolith = toter Render-Pfad). Jetzt real implementiert.
+(function(){
+  function GsSafeString(html){ this._h = html; }
+  GsSafeString.prototype.toString = function(){ return this._h; };
+
+  function esc(s){ return window.gsHTMLEscape(s); }
+
+  // Interpolation -> HTML. Bereits-sichere Werte (gsSafeHTML-Ergebnis, .unsafe()) roh
+  // durchreichen, Arrays elementweise (sonst wuerden verschachtelte Sub-Templates
+  // doppelt escaped und der User saehe &lt;div&gt; im UI).
+  function interp(v){
+    if (v == null) return '';
+    if (v instanceof GsSafeString) return v._h;
+    if (Array.isArray(v)) return v.map(interp).join('');
+    return esc(v);
+  }
+
+  function gsSafeHTML(strings, ...values){
+    var out = strings[0];
+    for (var i = 0; i < values.length; i++) out += interp(values[i]) + strings[i + 1];
+    return new GsSafeString(out);
+  }
+
+  gsSafeHTML.escape = esc;
+  gsSafeHTML.attr = esc;  // & < > " ' gedeckt -> sicher in quoted attributes
+  gsSafeHTML.unsafe = function(html){ return new GsSafeString(String(html == null ? '' : html)); };
+
+  // Nur http/https/mailto/relativ. Steuerzeichen raus, BEVOR das Schema geprueft wird
+  // (\x00-\x20 in "java\tscript:..." wuerde der Browser sonst ignorieren und ausfuehren).
+  gsSafeHTML.url = function(u){
+    var raw = String(u == null ? '' : u);
+    var probe = raw.replace(/[\x00-\x20\u00a0\u2028\u2029\ufeff]/g, '');
+    var scheme = probe.match(/^([a-zA-Z][a-zA-Z0-9+.-]*):/);
+    if (scheme && !/^(https?|mailto)$/i.test(scheme[1])) return '';
+    if (/^\/\//.test(probe)) return '';  // protocol-relative erbt evtl. fremdes Schema
+    return esc(raw);
+  };
+
+  gsSafeHTML.GsSafeString = GsSafeString;
+  window.gsSafeHTML = gsSafeHTML;
+})();
 
 function togglePlantCard(id){
   const expand = document.getElementById('expand-' + id);
@@ -66915,7 +66960,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.79';
+var GS_VERSION = 'v30.80';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
