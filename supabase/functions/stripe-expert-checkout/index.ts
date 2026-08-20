@@ -58,6 +58,17 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ error: "post_id + expert_id required" }), { status: 400, headers: cors });
     }
 
+    // v30.80 SECURITY: expert_id war NUR gegen profiles.is_expert geprueft, nie gegen den
+    // JWT-Caller. Der Client sendet immer die EIGENE uid (gsRequestExpertVerification:
+    // `expert_id: uid`) — der Server akzeptierte aber jede fremde Expert-ID. Damit konnte
+    // jeder eingeloggte User fuer CHF 0.50 eine Verifikation im Namen eines beliebigen
+    // verifizierten Experten erzeugen (stripe-webhook setzt sie danach auf 'verified').
+    // Bei einer Pilz-/Pflanzen-Bestimmungs-App ist eine gefaelschte Experten-Freigabe
+    // sicherheitsrelevant, nicht bloss kosmetisch.
+    if (expertId !== userId) {
+      return new Response(JSON.stringify({ error: "expert_id must match authenticated user" }), { status: 403, headers: cors });
+    }
+
     // Sanity-Check: Post existiert? Expert ist tatsächlich Expert?
     const { data: postData } = await sbAdmin
       .from("social_posts")

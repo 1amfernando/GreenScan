@@ -471,6 +471,21 @@ function isHTMLNav(req) {
 }
 
 // Fetch-Strategien
+// v30.80 BUGFIX: install() schreibt ALLE SHELL_URLS in SHELL_CACHE, der fetch-Handler
+// liest aber je nach Typ aus STATIC_/IMAGE_/RUNTIME_CACHE (Route 3-6). Da jede Strategie
+// nur ihren EINEN Cache per cache.match() befragte, waren 20 der 23 vorgecachten Eintraege
+// nie auffindbar: /data/plants.v1.js?v=1 (2.1 MB), leaflet.js/.css, three.min.js, alle
+// Icons, manifest.json wurden beim Install geladen (~4.5 MB) und nie ausgeliefert.
+// Offline direkt nach Install hiess das: window.DB undefined + tote Karte.
+// Fix: bei Miss im Routen-Cache global ueber ALLE Caches suchen (findet SHELL_CACHE).
+// ignoreSearch deckt zusaetzlich den Query-Drift ab (Icons werden mit '?v=2' angefragt,
+// stehen aber ohne Query in SHELL_URLS).
+async function cacheLookup(cache, req) {
+  return (await cache.match(req))
+      || (await caches.match(req))
+      || (await caches.match(req, { ignoreSearch: true }));
+}
+
 async function networkFirst(req, cacheName) {
   const cache = await caches.open(cacheName);
   try {
@@ -480,7 +495,7 @@ async function networkFirst(req, cacheName) {
     }
     return fresh;
   } catch (err) {
-    const cached = await cache.match(req);
+    const cached = await cacheLookup(cache, req);
     if (cached) return cached;
     // Final fallback für HTML-Navigation: index.html → offline.html
     if (isHTMLNav(req)) {
@@ -497,7 +512,7 @@ async function networkFirst(req, cacheName) {
 
 async function cacheFirst(req, cacheName) {
   const cache = await caches.open(cacheName);
-  const cached = await cache.match(req);
+  const cached = await cacheLookup(cache, req);
   if (cached) return cached;
   try {
     const fresh = await fetch(req);
@@ -513,7 +528,7 @@ async function cacheFirst(req, cacheName) {
 
 async function staleWhileRevalidate(req, cacheName) {
   const cache = await caches.open(cacheName);
-  const cached = await cache.match(req);
+  const cached = await cacheLookup(cache, req);
   const fetchPromise = fetch(req).then((res) => {
     if (res && res.status === 200 && res.type !== 'opaqueredirect') {
       cache.put(req, res.clone()).catch(() => {});
