@@ -4,11 +4,18 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-08-20 · **Branch**: `main` · **Version**: `v30.79` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
+
+### 2026-08-20 — Automatisierter Routine-Sicherheitscheck (Supabase Advisors, keine Code-Änderung)
+
+- **Auftrag:** Scheduled Routine-Lauf ohne konkretes Briefing — als Baseline-Kontrolle Supabase Security- + Performance-Advisors abgefragt statt eines unbegrenzten Vollaudits des 46k-Zeilen-Monolithen (letzterer wurde bereits mehrfach dokumentiert, siehe `V28_FULL_AUDIT_FINDINGS.md`, `FULL_STACK_AUDIT_v30.51_COWORK.md` u.a.).
+- **Befund Security-Advisors:** 0 ERROR-Level-Lints. 145 total (140 WARN + 5 INFO): 120× `authenticated_security_definer_function_executable` + 16× `anon_security_definer_function_executable` (by-design für Frontend-RPC-Pattern, §3.4 CLAUDE.md) + 3× `extension_in_public` + 1× `auth_leaked_password_protection` (weiterhin offen — Dashboard-Setting, seit v26.51-Audit bekannt, kein Code-Fix möglich) + 5× `rls_enabled_no_policy` (INFO, fail-safe/kein Zugriffsrisiko). Performance-Advisors: 147 INFO, 0 WARN/ERROR. Keine neue kritische Kategorie ggü. letztem dokumentierten Audit.
+- **Hygiene-Hinweis:** Dieser „Stand"-Header war seit dem v26.51-Eintrag (2026-05-24) eingefroren, obwohl `GS_VERSION` in `index.html` und `main` bereits bei `v30.79` stehen (Commit `0266bff`, 2026-06-27). Zwischen v26.52 und v30.79 wurden offenbar keine STATUS.md-Einträge nachgetragen — Multi-Agent-Sync-Konvention (§5 CLAUDE.md) hat für diesen Zeitraum eine Lücke. Header oben synced, keine sonstigen Einträge rekonstruiert (nicht Aufgabe dieses Laufs).
+- **Keine Code-/Migration-Änderungen** in diesem Lauf.
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
