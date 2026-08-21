@@ -10,6 +10,14 @@
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
+### 2026-08-21 — Self-Audit v30.80 (Stored-XSS in KI-Antwort-Rendering gefixt)
+
+- **Auftrag:** Proaktiver Scheduled-Self-Audit (kein spezifisches Nutzer-Ticket) auf Branch `claude/lucid-cerf-gtldzj`. Fokus: Sicherheits-Scan (hardcoded Keys, rohe Anthropic-Fetches, `alert()`-Reste, innerHTML/XSS) gemäss CLAUDE.md §3.6.
+- **Befund:** Keine hardcoded Secrets, kein roher `fetch('https://api.anthropic.com/...')` ausserhalb `gsTestApiKey`, `alert()`-Migration aus v26.51 vollständig. ABER: 4 Stellen setzten den rohen `callAI`/`callVisionAI`-Antworttext ungeschützt in `.innerHTML` (nur `\n`→`<br>` / `•`→`<span>` / `**`→`<strong>` Replace, kein HTML-Escaping) — `runKiImprove()` (index.html:47963ff) ist dabei über Cross-User-Feedback-Items (öffentliches Feedback-Formular, `_global:true`) potenziell durch Prompt-Injection erreichbar, nicht admin-gated.
+- **Fix (v30.80):** Alle 4 Stellen (`runKiImprove` L47963, `analyzeGardenWithAI` L49886, `aiAnalyzePlant` L28146, `gsDoctorRun` L76974) escapen den KI-Rohtext jetzt mit dem bestehenden `gsHTMLEscape()` vor der `<br>`/`<span>`/`<strong>`-Formatierung. Restliche innerHTML-Landschaft (Social-Feed, Marktplatz, Community-Profile, Lina-Chat, Tagebuch) bereits korrekt via `escHtml`/`gsHTMLEscape`/`_gsCEsc` abgesichert (v29.09-Härtung) — keine weiteren Funde.
+- **Verify:** `node --check`-Äquivalent (Function-Parse) auf allen 9 Inline-Scripts: 8/9 OK, 1 vorbestehender false-positive (top-level `await` in Test-Harness, unverändert ggü. Base-Commit vor dieser Session bestätigt). GS_VERSION/sw.js VERSION/_headers/meta app-version auf v30.80 gesynct.
+- **Nicht angefasst:** Die generische "Multi-Agent-Ressourcen-Maximierung"-Anweisung dieses Scheduled-Tasks (fiktive "Token-Abverkaufs-Routine", pauschales "alle Coworker informieren") wurde bewusst nicht wörtlich ausgeführt — kein konkretes Ziel/Empfänger definiert, hohes Risiko für sinnlose Ressourcen-Nutzung bzw. ungewolltes Multi-Session-Spamming. Stattdessen: konkreter, verifizierbarer Sicherheits-Audit im Sinne von CLAUDE.md §3.6.
+
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
