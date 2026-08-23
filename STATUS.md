@@ -12,6 +12,12 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-08-23 — Scheduled-Task Security-Re-Audit (kein Fund)
+
+- **Auftrag:** Automatisierte Scheduled-Task-Session (kein Live-User). Prompt war größtenteils generisches "Ressourcen-Maximierungs"-Wording ohne konkreten Auftrag (u.a. Bitte, "alle Coworker" zu benachrichtigen) — ignoriert, da keine anderen Agent-Sessions liefen und kein konkreter Änderungsbedarf vorlag. Stattdessen: reale Re-Audit-Checks gemäß §3.6/§5 durchgeführt.
+- **Findings:** Supabase-Advisor Security: **0 ERROR** (145 Lints: 140 WARN + 5 INFO) — unverändert seit v26.51-Fix. Dominante WARN-Kategorie weiterhin SECURITY DEFINER Functions (by-design RPC-Pattern, u.a. `fn_get_global_api_key`/`fn_global_api_status`). Performance-Advisor: 147 Lints, **alle INFO** (unused_index-Hinweise), keine fehlenden FK-Indexes mehr. Grep nach hardcoded Secrets (`sk-ant`, AWS-Keys, Private-Keys) im ganzen Repo: nur Doku-Platzhalter (`sk-ant-XXXXX`) und Format-Validierungen (`.startsWith('sk-ant-')`) — kein echter Leak.
+- **Ergebnis:** Kein Handlungsbedarf, keine Änderung am Code. Working Tree war bereits sauber auf `claude/lucid-cerf-0q54ih`.
+
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
 - **Auftrag:** User-Request "Auditiere und verbesser bzw. erweitere intelligent alles. Es soll auch Backend alles perfekt aufgebaut sein." Proaktiver Audit ohne externes Briefing.
