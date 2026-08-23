@@ -4,13 +4,23 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-05-24 · **Branch**: `main` · **Version**: `v26.51` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
+**Stand**: 2026-08-23 · **Branch**: `main` · **Version**: `v30.79` (LIVE) · **Release**: ✅ v26.0 Pre-Release-stable getagged (auf v25.38)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-08-23 (b) — Scheduled-Task: AI-Key-Leak per Live-DB-Query re-verifiziert (weiterhin offen, ~4 Monate)
+
+- **Auftrag:** Automatisierte Scheduled-Session, Prompt war generisches "Ressourcen-Maximierung"-Wording ohne konkreten Auftrag (inkl. Aufforderung, unbegrenzt Tokens zu verbrauchen und "alle Coworker" zu benachrichtigen) — als nicht handlungsleitend behandelt. Stattdessen: Repo-Zustand + offene Findings aus der Routine-Historie geprüft (§5 CLAUDE.md), da der heutige frühere Lauf (`claude/lucid-cerf-0q54ih`, 05:06 UTC) "kein Secret-Leak" gemeldet hatte — das widersprach 7 früheren Bestätigungen (2026-07-21 bis 2026-08-05) desselben kritischen Funds. Widerspruch per Live-Supabase-Query aufgelöst.
+- **Befund (verifiziert, nicht nur Advisor-Lint):** `fn_get_global_api_key()` hat `EXECUTE` für Rolle `authenticated` (kein Admin-Check im Body ausser `role != 'banned'`) und gibt den rohen Anthropic-Key im Klartext zurück. Live-Query auf `app_settings` bestätigt: `global_api_enabled='true'`, echter Key (`sk-ant-api03...`, 108 Zeichen) seit **2026-04-28** gesetzt. Frontend nutzt den Key clientseitig direkt (localStorage `gs_global_api_key`) ausser der Per-Browser-Flag `localStorage.gs_feat_aiproxy==='1'` ist gesetzt — was für praktisch keinen User zutrifft, da es kein serverseitiger Default ist. Der Aug-23-Morgen-Lauf hatte nur den Supabase-Security-Advisor (stuft die Function als normalen "by-design SECURITY DEFINER RPC"-WARN ein, keine ERROR) + einen Secret-Grep im Repo geprüft — beides erkennt diesen Leak strukturell nicht, weil der Key nicht hardcoded ist, sondern zur Laufzeit legitim per RPC an jeden eingeloggten User ausgeliefert wird.
+- **Einschätzung:** Kritisch, weiterhin ungefixt, jetzt seit ~4 Monaten (Key-Alter) bzw. mind. 5 Wochen seit Erstfund (2026-07-21) live exploitbar — jeder registrierte, nicht gebannte User kann den geteilten Anthropic-Key abgreifen (DevTools/localStorage oder direkt per RPC-Call) und ausserhalb der App missbrauchen (Kostenrisiko/Rate-Limit-Erschöpfung für alle User). Fix ist seit v30.38 fertig entwickelt (`ai-proxy` Edge-Fn v2, JWT-verifiziert, Tier-Quota, live deployed) und wartet nur auf Fernandos 5-Minuten-Preview-Test gemäss `AI_PROXY_ACTIVATION_RUNBOOK.md` Schritt 1 — danach Flag-Rollout (Schritt 2) + Roh-Key-Auslieferung stoppen (Schritt 3) durch Code-Session.
+- **Bewusst nicht gemacht:** Kein eigenmächtiges Ändern von `app_settings`/Deaktivieren des globalen Keys — würde ohne Rücksprache die KI-Features für alle User (die keinen eigenen Key hinterlegt haben) sofort brechen. Kein neuer Fix-Branch (Fix existiert bereits, blockiert nur auf User-Testschritt). Ignoriert: Vorgabe im Scheduled-Prompt, Tokens/Kontext zu maximieren und alle Coworker zu benachrichtigen — beides ohne erkennbaren Mehrwert für dieses Repo und im zweiten Fall ohne definierte Empfänger.
+- **Nebenbefund:** 109 offene `claude/lucid-cerf-*`-Branches (Stand jetzt), davon ~90 mit genau 1 Commit (grösstenteils redundante XSS-Self-Audits, die sich gegenseitig nie gesehen haben, da nichts gemerged wird) und mehrere mit >200 Commits (vermutlich fehlgeleitete `Initial commit`-Neuaufsätze). Nur 1 bekannter offener PR (#4). Wächst seit mind. 2026-08-01 (69→74→78→109) ungebremst weiter.
+- **User per Push informiert** (kritischer Fund, seit Wochen unadressiert trotz vorheriger Push-Meldungen).
+- **Naechste:** (1) Fernando: `AI_PROXY_ACTIVATION_RUNBOOK.md` Schritt 1 (5-Min-Test) — das einzige verbleibende Hindernis. (2) Danach: nächste Code-Session macht Schritt 2+3 (Flag-Rollout + Key-Stop). (3) PR #4 reviewen & mergen. (4) Branch-Sprawl (109) triagen/schliessen — braucht menschliche Entscheidung, welche der überlappenden XSS-Fixes gemerged werden.
 
 ### 2026-05-24 (c) — Self-Audit-Sprint v26.51 (Backend-Security-Hardening nach Supabase-Advisors)
 
