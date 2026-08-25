@@ -2,11 +2,15 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 
-// daily-push-checker v7 (v30.36 — 2026-06-24)
-// - v6: Frost / Seasonal / Quiz-Streak / Trial-End (3 Stages) / Pflanzen-Tasks / Wochen-Vorschau
-// - v7 (Audit-Welle 3 #5): Quiet-Hours + Morgen-/Abend-Gating gegen Europe/Zurich statt UTC.
-//   Bei Default-Ruhefenster (22-7) + Cron 07/19 UTC unkritisch, aber für eigene Ruhefenster korrekt.
-// Cron: daily-push-morning 07:00 UTC, daily-push-evening 19:00 UTC.
+// daily-push-checker v9 (2026-08-25)
+// Fix: plant_tasks-Gate um Abend-Fenster erweitert (hourLocal<12 || hourLocal>=17).
+// Cron laeuft 07:00 + 19:00 UTC (Zurich ~20/21 Uhr je nach DST) -> die Abend-Ausfuehrung
+// hatte fuer plant_tasks bisher IMMER hourLocal>=12 -> Gate nie erfuellt -> 0 Effekt.
+// Nur quiz_streak nutzte bereits hourLocal>=17 und feuerte abends korrekt.
+// Catch-up-Verhalten: alreadySentToday("plant_tasks") verhindert Doppel-Push falls
+// der Nutzer den Morgen-Push schon bekommen hat -> Abend ist reine Nachhol-Chance
+// fuer User die morgens offline/nicht erreichbar waren.
+// Base: v8 (v30.53 -- 2026-06-26, task_title/task_description -> title/description Fix)
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -40,7 +44,6 @@ function inQuietHours(hour: number, qs: number, qe: number) {
   return hour >= qs || hour < qe;
 }
 
-// v30.36 #5: aktuelle Stunde in Europe/Zurich (DST-sicher), Fallback UTC.
 function zurichHour(): number {
   try {
     return Number(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hour12: false, timeZone: "Europe/Zurich" }).format(new Date())) % 24;
@@ -106,8 +109,8 @@ async function deleteIfGone(sub: any, status?: number) {
 async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
   const userId = sub.user_id;
   const nowUtc = new Date();
-  const hourLocal = zurichHour();        // v30.36 #5
-  const dow = nowUtc.getUTCDay();        // 0=Sonntag (Cron 07/19 UTC = gleicher Kalendertag in CH)
+  const hourLocal = zurichHour();
+  const dow = nowUtc.getUTCDay();
   const month = nowUtc.getUTCMonth() + 1;
 
   if (inQuietHours(hourLocal, sub.quiet_start_hour ?? 22, sub.quiet_end_hour ?? 7)) {
@@ -121,8 +124,8 @@ async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
     if (!(await alreadySentToday(userId, "frost"))) {
       const f = await checkFrost(Number(sub.gps_lat), Number(sub.gps_lng));
       if (f.minTempC !== null && f.minTempC <= 2) {
-        const title = `🥶 Frostgefahr in den nächsten ${f.hourEta ?? 12}h`;
-        const body = `Min. ${f.minTempC.toFixed(1)}°C — kälteempfindliche Pflanzen schützen!`;
+        const title = `Frostgefahr in den naechsten ${f.hourEta ?? 12}h`;
+        const body = `Min. ${f.minTempC.toFixed(1)}C - kaelteempfindliche Pflanzen schuetzen!`;
         if (dryRun) sent.push("frost(dry)");
         else {
           const r = await sendPush(sub, title, body, "/?screen=garden", vapid);
@@ -137,26 +140,25 @@ async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
     if (!(await alreadySentToday(userId, "seasonal"))) {
       const { data: tasks } = await sb
         .from("garden_tasks_catalog")
-        .select("task_title,task_description,priority")
+        .select("title,description,priority")
         .lte("month_start", month).gte("month_end", month)
         .eq("priority", "high")
         .limit(1);
       if (tasks && tasks.length) {
         const t: any = tasks[0];
-        const title = `📅 Saisonale Aufgabe: ${t.task_title}`;
-        const body = (t.task_description || "").slice(0, 120);
+        const title = `Saisonale Aufgabe: ${t.title}`;
+        const body = (t.description || "").slice(0, 120);
         if (dryRun) sent.push("seasonal(dry)");
         else {
           const r = await sendPush(sub, title, body, "/?screen=garden", vapid);
-          await logSend(userId, "seasonal", title, body, { task: t.task_title }, r.ok ? "sent" : "failed", r.status, r.error);
+          await logSend(userId, "seasonal", title, body, { task: t.title }, r.ok ? "sent" : "failed", r.status, r.error);
           if (r.ok) sent.push("seasonal"); else await deleteIfGone(sub, r.status);
         }
       }
     }
   }
 
-  // v6: Pflanzen-Pflege-Tasks (morgens) — gated notify_water, aus v_plant_tasks_due
-  if (sub.notify_water && hourLocal < 12) {
+  if (sub.notify_water && (hourLocal < 12 || hourLocal >= 17)) {
     if (!(await alreadySentToday(userId, "plant_tasks"))) {
       const { data: due } = await sb
         .from("v_plant_tasks_due")
@@ -168,11 +170,11 @@ async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
         let title: string, body: string;
         if (due.length === 1) {
           title = `${due[0].task_label}: ${due[0].plant_name}`;
-          body = `Diese Pflanzen-Aufgabe ist heute fällig.`;
+          body = `Diese Pflanzen-Aufgabe ist heute faellig.`;
         } else {
           const names = Array.from(new Set(due.map((d: any) => d.plant_name))).slice(0, 3).join(", ");
-          title = `🌱 ${due.length} Pflanzen-Aufgaben fällig`;
-          body = `${names}${due.length > 3 ? " u.a." : ""} — jetzt erledigen.`;
+          title = `${due.length} Pflanzen-Aufgaben faellig`;
+          body = `${names}${due.length > 3 ? " u.a." : ""} - jetzt erledigen.`;
         }
         if (dryRun) sent.push("plant_tasks(dry)");
         else {
@@ -184,7 +186,6 @@ async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
     }
   }
 
-  // v6: Sonntag-Wochen-Vorschau — gated notify_water, kommende 7 Tage
   if (sub.notify_water && dow === 0 && hourLocal < 12) {
     if (!(await alreadySentToday(userId, "weekly_summary"))) {
       const in7 = new Date(nowUtc.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -196,8 +197,8 @@ async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
         .lt("next_due_at", in7)
         .limit(50);
       if (wk && wk.length) {
-        const title = `📋 Deine Garten-Woche: ${wk.length} Aufgaben`;
-        const body = `Diese Woche stehen ${wk.length} Pflege-Aufgaben an — plane sie ein!`;
+        const title = `Deine Garten-Woche: ${wk.length} Aufgaben`;
+        const body = `Diese Woche stehen ${wk.length} Pflege-Aufgaben an - plane sie ein!`;
         if (dryRun) sent.push("weekly_summary(dry)");
         else {
           const r = await sendPush(sub, title, body, "/?screen=favs", vapid, "gs-weekly_summary");
@@ -212,7 +213,7 @@ async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
     if (!(await alreadySentToday(userId, "quiz_streak"))) {
       const { data: q } = await sb.from("daily_quizzes").select("id").limit(1);
       if (q && q.length) {
-        const title = `🎯 Tagesquiz wartet`;
+        const title = `Tagesquiz wartet`;
         const body = `Spiele heute noch dein Quiz und halte deine Streak am Leben!`;
         if (dryRun) sent.push("quiz(dry)");
         else {
@@ -233,7 +234,6 @@ async function processSubscription(sub: any, vapid: any, dryRun: boolean) {
   return { suppressed: false, sent };
 }
 
-// 3-Stage Trial-End-Reminder (72h, 24h, 1h) — ms-relativ, TZ-unabhängig (NICHT angetastet).
 async function notifyTrialEnd_stage(
   windowLoHours: number, windowHiHours: number,
   category: string, title: string, body: string,
@@ -282,24 +282,9 @@ async function notifyTrialEnd_stage(
 
 async function notifyTrialEndingSoon(vapid: any, dryRun: boolean) {
   let total = 0;
-  total += await notifyTrialEnd_stage(
-    72, 73, "trial_end_72h",
-    "⏰ Dein GreenScan-Pro endet in 3 Tagen",
-    "Karte hinterlegen und KI-Doctor, Buch-Wissen, Familien-Konto behalten.",
-    vapid, dryRun
-  );
-  total += await notifyTrialEnd_stage(
-    24, 25, "trial_end_24h",
-    "⏰ Dein GreenScan-Pro endet morgen",
-    "Jetzt verlängern und alle Pro-Features behalten.",
-    vapid, dryRun
-  );
-  total += await notifyTrialEnd_stage(
-    1, 2, "trial_end_1h",
-    "⏰ Letzte Stunde — Trial endet gleich",
-    "Karte hinterlegen damit's nahtlos weitergeht (sonst zurück auf Free).",
-    vapid, dryRun
-  );
+  total += await notifyTrialEnd_stage(72, 73, "trial_end_72h", "Dein GreenScan-Pro endet in 3 Tagen", "Karte hinterlegen und KI-Doctor, Buch-Wissen, Familien-Konto behalten.", vapid, dryRun);
+  total += await notifyTrialEnd_stage(24, 25, "trial_end_24h", "Dein GreenScan-Pro endet morgen", "Jetzt verlaengern und alle Pro-Features behalten.", vapid, dryRun);
+  total += await notifyTrialEnd_stage(1, 2, "trial_end_1h", "Letzte Stunde - Trial endet gleich", "Karte hinterlegen damit es nahtlos weitergeht (sonst zurueck auf Free).", vapid, dryRun);
   return total;
 }
 
@@ -352,7 +337,7 @@ Deno.serve(async (req: Request) => {
 
     return new Response(JSON.stringify({
       ok: true, dry_run: dryRun,
-      version: 7,
+      version: 9,
       total_subs: subs?.length || 0,
       pushed_count: totalSent,
       suppressed_count: totalSuppressed,
