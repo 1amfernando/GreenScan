@@ -1,84 +1,65 @@
 # GreenScan 🌿
 
-Schweizer Naturbestimmungs-PWA — 4'342 Arten, Claude-KI-Scanner,
-Garten-Planer, swisstopo-Karte, offline-fähig.
+Schweizer Naturbestimmungs-PWA — **4'342 Arten** (Pflanzen, Pilze, Bäume,
+Kräuter, Moose, Flechten, Algen). KI-Scanner, Garten-Planer, Pilz-Sicherheit,
+Marketplace, mehrsprachig.
 
-**Live**: https://greenscan.ch/ · **App**: https://greenscan.ch/install
+**Live:** https://green-scan.ch/ · **Install:** https://green-scan.ch/install.html
+*(green-scan.ch ist kanonisch — mit Bindestrich; greenscan.ch ohne Bindestrich ist nur die Mail-Domain.)*
 
 ## Stack
 
-- **Frontend**: Vanilla JS in einem `index.html` (kein npm, kein Build).
-  Hosting Cloudflare Pages.
-- **Backend**: Supabase (Auth, Postgres mit RLS, Storage, Edge Functions).
-- **KI**: Claude (Anthropic) — entweder BYO-Key oder Server-Proxy.
-- **Maps**: Leaflet + swisstopo WMTS.
-- **Sicherheit**: CSP, HSTS, revDSG-konform, Opt-In Analytics.
+- **Frontend:** Vanilla JS in `index.html` (~82k Zeilen Monolith, kein npm/Build).
+  Hosting: **Cloudflare Pages**.
+- **Backend:** **Supabase** — 117 Tabellen (alle RLS), ~30 Edge-Functions,
+  195 Migrationen.
+- **KI:** **Claude (Anthropic)** — Server-Proxy (User braucht keinen eigenen Key)
+  oder BYO-Key. Eigene Edge-Fns für Scan/Pilz/Schädling/Garten-Analyse.
+- **Maps:** Leaflet + swisstopo WMTS.
+- **Zahlungen:** Stripe (Live-Mode, inkl. Connect für Marketplace-Experten).
+- **Sicherheit:** CSP, HSTS, COOP, revDSG-konform, 0 Security-ERROR-Advisors.
 
 ## Schlüsselfeatures
 
-**KI & Lernen:**
-- 🤖 **gsBrain** — Kontext-/Lern-Hub: aggregiert Standort, Saison, Wetter,
-  Garten, Quiz-Schwächen → fließt in jeden KI-Call. Geräteübergreifend
-  via Supabase. LLM-basierte Smart-Recommendations bei reichem Memory.
-- 🧠 **gsSRS** — Spaced-Repetition (SM-2, SuperMemo) für adaptives Quiz.
-- 🤖 **Server-Proxy** — User braucht keinen eigenen Claude-Key.
-
-**Schweizer Authentizität:**
-- 🍄 **VAPKO-Pilzkontrollen** — ~50 Stationen direkt auf der Karte.
-- 🛡️ **IUCN-Schutzstatus** nach BAFU für 80+ Schweizer Arten.
-- 🌡️ **MeteoSwiss-Warnungen** — Frost / Hitze / Sturm / Stark-Regen.
-- 🗺️ **swisstopo** + Wanderwege + GPX-Import/Export.
-- 📚 **Quellen pro Art** — Info Flora · GBIF · Wikipedia (locale-aware).
-- 🌍 **DE/FR/IT/Mundart** — vier Sprachen incl. Schweizerdeutsch.
-
-**Bestimmung:**
-- 🔑 **Multikriterien-Schlüssel** — Filter nach Familie, Farbe, Habitat,
-  Höhe, Saison, essbar, giftig, geschützt.
-- 📷 **KI-Scanner** — Claude Vision mit Phytopathologin/Mykologe/
-  Botaniker-Personas + User-Kontext.
-
-**Community & Viralität:**
-- 🦋 **iNaturalist-Bridge** (PKCE-OAuth) — Funde zu 630k+ CH-Sichtungen.
-- 📤 **Share-Cards** — 1080×1080 Image-Cards mit Schweiz-Branding.
-- 🔔 **Smart-Push** — tägliche personalisierte Tipps aus Brain-Memory.
-- 🏆 **24 Achievements** — Badge-System, gamifizierte Retention.
-
-**Stabilität & Diagnose:**
-- 🩺 **`gsHealthCheck`** — 9-Komponenten-Ampel.
-- 🧪 **`gsSelfTest`** — 33 Module-Reachability-Checks vor Deploy.
-- 🔐 **CSP/HSTS/COOP** + revDSG-Consent + server-side Quota.
-- 💾 **Storage-Auto-Rotation** — keine Quota-Crashes.
-- 📦 **PLANT_DB-Split** — -45% Initial-Download.
+- **📷 KI-Scanner** — autonome Klassifikation, Multi-Shot bei niedriger
+  Konfidenz, voller Steckbrief auch für nicht-DB-Arten.
+- **🍄 Pilz-Scanner** — roter Vollbild-Warnscreen bei tödlich/giftig,
+  Tox-Info-145-Notruf, VAPKO-Region-Lookup.
+- **🩺 Pflanzendoktor & Schädlings-Scanner** — KI-Diagnose mit Bio-Behandlung.
+- **🌱 KI-Garten-Planer** — 5 Plan-Intents, Forest-Garden-Designer, Balkon-Wizard.
+- **📚 Wissen** — 11 Sub-Tabs (Alpen, Vögel, Garten-Besucher, …).
+- **🏡 Home-Widgets** — Bauernregel, Saison-Pilze, MeteoSchweiz-Wetter-Alert.
+- **🛒 Marketplace** — Stripe-Connect für Experten, Bio-Filter.
+- **🌍 DE / FR / IT / Schweizerdeutsch** — live, Boot-Auto-Build für nicht-DE.
+- **📱 PWA** — Share-Target, Shortcuts, iOS-Standalone, Offline-fähig.
 
 ## Dokumentation
 
 - 📖 [`CLAUDE.md`](./CLAUDE.md) — Onboarding für AI-Agenten (Konventionen,
-  gsBrain-API, Sicherheits-Regeln, Sync-Protokoll).
-- 📊 [`STATUS.md`](./STATUS.md) — Operativer Snapshot: was funktioniert,
-  was unverifiziert ist, bekannte Bugs.
-- 🗺️ [`ROADMAP.md`](./ROADMAP.md) — Priorisierte Meilensteine (P0/P1/P2/P3),
-  Definition von „beste App der Schweiz" mit 5 Kriterien.
-- 🚀 [`DEPLOY.md`](./DEPLOY.md) — Schritt-für-Schritt-Deploy-Checkliste
-  (7 Befehle, Migrations, Edge Functions, Cron, Smoke-Test).
+  KI-Call-Wrapper, RLS-Regeln, Multi-Agent-Sync).
+- 📊 [`STATUS.md`](./STATUS.md) — Operativer Snapshot + tägliche Routine-Einträge.
+- 🗺️ [`ROADMAP.md`](./ROADMAP.md) — Priorisierte Meilensteine.
+- 🧭 [`BACKEND_FRONTEND_MAP_v26.76.md`](./BACKEND_FRONTEND_MAP_v26.76.md) —
+  Architektur-Detailkarte (Tabellen, Edge-Fns, Advisor-Stand).
+- 🚀 Deploy/Betrieb: `AI_PROXY_ACTIVATION_RUNBOOK.md`, `STORE_SUBMISSION_GUIDE.md`,
+  aktuelle `FULL_STACK_AUDIT_v30.*.md`.
 
-## Quick-Start für Entwickler
+## Quick-Start (Entwickler)
 
 ```bash
-# Static-Hosting reicht (kein Build)
 git clone https://github.com/1amfernando/GreenScan.git
 cd GreenScan
-python3 -m http.server 8000
+python3 -m http.server 8000   # kein Build nötig — statische Files
 # → http://localhost:8000
 ```
 
-Für volle Server-Features: siehe [`DEPLOY.md`](./DEPLOY.md).
-
 ## Multi-Agent-Workflow
 
-Mehrere AI-Sessions arbeiten parallel. Vor jedem Edit: `STATUS.md` lesen,
-nach dem Edit aktualisieren. File-Locks und Sync-Protokoll in `CLAUDE.md`.
+Mehrere AI-Sessions arbeiten parallel (Frontend-Code + „Cowork"-Backend).
+Vor jedem Edit: `STATUS.md` lesen. Nach jedem Edit: Routine-Eintrag oben in
+`STATUS.md` Sektion 0 anhängen. Konventionen in `CLAUDE.md`.
 
-## Lizenz / Kontakt
+## Kontakt
 
-Made in Switzerland · Datenschutz revDSG-konform · Tox Info Suisse 145.
+Made in Switzerland 🇨🇭 · revDSG-konform · Tox Info Suisse **145** ·
 Kontakt: info@greenscan.ch

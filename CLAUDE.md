@@ -20,8 +20,11 @@ deployen, sobald Cloudflare Pages den Branch zieht.
 
 ```
 GreenScan/
-├── index.html           # 46k+ Zeilen Monolith (HTML + CSS + JS) — DIE App
-├── sw.js                # Service Worker (v23.86: Cache, Share-Target, Push)
+├── index.html           # ~82k Zeilen Monolith (HTML + CSS + JS) — DIE App
+├── data/plants.v1.js    # Arten-DB (~2.1 MB, 4'342 Arten) — separat gecacht
+├── sw.js                # Service Worker (Cache-Version gs-vXX: Cache, Share-Target, Push)
+├── supabase/functions/  # ~30 Edge-Functions (Scan/Pilz/Schädling/Stripe/Push/i18n …)
+├── supabase/migrations/ # 195 SQL-Migrationen (alle idempotent)
 ├── manifest.json        # PWA-Manifest (share_target, file_handlers, etc.)
 ├── _headers             # Cloudflare Edge: CSP, HSTS, COOP, Permissions-Policy
 ├── _redirects           # Friendly URLs + SPA-Fallback
@@ -37,12 +40,12 @@ GreenScan/
 ## 3 · Konventionen
 
 ### 3.1 · Versionierung
-- Versions-Format: `vMAJOR.MINOR` (z.B. `v23.87`). Aktuell: siehe `GS_VERSION`
+- Versions-Format: `vMAJOR.MINOR` (z.B. `v30.79`). Aktuell: siehe `GS_VERSION`
   in `index.html` und `CACHE_VERSION` in `sw.js`. Bei Bumps **immer beide
   syncen** + `meta name="app-version"` im `<head>`.
 - Commit-Message-Format: `vXX.YY: <kurze Aussage>` + Markdown-Body mit
   Bullets pro Bereich (Sicherheit / UX / Feature). Beispiel siehe letzte
-  Commits auf `claude/audit-app-features-CXtrI`.
+  Commits auf `main`.
 
 ### 3.2 · Branches
 - `main` ist Produktion. NIE direkt darauf pushen.
@@ -81,15 +84,13 @@ GreenScan/
   pack ihn hinter einen Server-Proxy.
 - **CSP** ist aktiv (siehe `_headers`). Wenn du externe URLs einbaust,
   Allowlist erweitern. Inline-Scripts sind erlaubt, weil Monolith.
-- **innerHTML mit User-Input**: ab v24.02 nutze `gsSafeHTML`-Tagged-Template
-  (auto-escape):
+- **innerHTML mit User-Input**: NIEMALS ungeprüft. Nutze `gsEscHtml(s)` zum
+  HTML-Escapen einzelner Werte, `gsSanitize(s)` für ganze Fragmente:
   ```js
-  el.innerHTML = gsSafeHTML`<div>${userName} sagt: ${msg}</div>`;
+  el.innerHTML = '<div>' + gsEscHtml(userName) + ' sagt: ' + gsEscHtml(msg) + '</div>';
   ```
-  Helpers: `gsSafeHTML.escape(s)`, `.attr(s)`, `.url(s)` (nur https/http/
-  mailto/relative), `.unsafe(html)` (bypass für bereits-escapte Sub-
-  Templates). `gsHTMLEscape` als Kurz-Alias. Für reine Text-Inserts
-  weiterhin `textContent` bevorzugen.
+  Für reine Text-Inserts `textContent` bevorzugen. Für KI-Plan-Objekte:
+  `gsSanitizeGardenPlan` / `gsSanitizePlannerPlan`.
 - **localStorage für Auth**: bewusst akzeptiert, weil mit CSP
   `frame-ancestors 'none'` + `strict-origin-when-cross-origin` Risiko klein
   ist. JWT-Migration in HttpOnly-Cookies ist Roadmap-Punkt P2.
@@ -155,7 +156,7 @@ Mehrere Sessions arbeiten parallel an diesem Repo. Damit kein Knoten platzt:
 
 - Push auf `main` → Cloudflare Pages baut automatisch (kein Build-Step).
 - `_headers` und `sw.js` greifen erst nach Re-Deploy + Hard-Refresh.
-- Service-Worker-Updates kommen via Update-Banner (v23.86) zum User —
+- Service-Worker-Updates kommen via Update-Banner zum User —
   Cache-Version in `sw.js` muss bei größeren Releases hochgesetzt werden.
 
 ## 7 · Hilfe-Adressen
