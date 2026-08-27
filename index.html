@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.80.20260827">
+<meta name="app-version" content="30.81.20260827">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -886,12 +886,11 @@ details > summary::marker { content: ''; }
 .gs-notif-badge{position:absolute;top:6px;right:calc(50% - 22px);min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#e53935;color:#fff;font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 0 0 2px #0f1f11,0 2px 6px rgba(229,57,53,.55);animation:gsNotifPulse 2.2s ease-in-out infinite;pointer-events:none;letter-spacing:.2px;}
 @keyframes gsNotifPulse{0%,100%{box-shadow:0 0 0 2px #0f1f11,0 2px 6px rgba(229,57,53,.55),0 0 0 0 rgba(229,57,53,.5);}50%{box-shadow:0 0 0 2px #0f1f11,0 2px 10px rgba(229,57,53,.75),0 0 0 6px rgba(229,57,53,0);}}
 
-/* v23.70: Notification-Panel im Menü — iOS-Inbox-Style */
-#gs-notif-panel{margin:0 12px 12px;background:linear-gradient(180deg,#fff 0%,#f7fbf5 100%);border:1px solid rgba(46,125,50,.18);border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.04);}
-body.dark #gs-notif-panel{background:linear-gradient(180deg,#1c2e1e 0%,#172519 100%);border-color:rgba(129,199,132,.18);}
+/* v23.70/v30.81: Notification-Panel im Menü — iOS-Inbox-Style, Token-basiert (Dark-Mode via Variablen) */
+#gs-notif-panel{margin:0 12px 12px;background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-sm,0 2px 12px rgba(0,0,0,.04));}
 .gs-notif-header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border);}
 .gs-notif-title{font-size:13px;font-weight:800;color:var(--text);display:inline-flex;align-items:center;gap:8px;}
-.gs-notif-count{background:#e53935;color:#fff;font-size:10px;font-weight:900;padding:2px 7px;border-radius:10px;letter-spacing:.3px;}
+.gs-notif-count{background:var(--c-danger,#e53935);color:#fff;font-size:10px;font-weight:900;padding:2px 7px;border-radius:10px;letter-spacing:.3px;}
 .gs-notif-clear{padding:5px 11px;background:transparent;color:var(--g-main);border:1px solid rgba(46,125,50,.35);border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:.15s;}
 .gs-notif-clear:active{background:rgba(46,125,50,.08);transform:scale(.97);}
 .gs-notif-item{display:flex;align-items:center;gap:11px;padding:10px 14px;width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);cursor:pointer;font-family:inherit;text-align:left;color:var(--text);-webkit-tap-highlight-color:transparent;transition:background .12s;}
@@ -908,6 +907,43 @@ body.dark #gs-notif-panel{background:linear-gradient(180deg,#1c2e1e 0%,#172519 1
 .gs-notif-item-sub{font-size:11.5px;color:var(--muted);line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px;}
 .gs-notif-item-time{font-size:10.5px;color:var(--muted);font-weight:600;flex-shrink:0;padding-left:6px;}
 .gs-notif-more{padding:8px 14px;font-size:11px;color:var(--muted);text-align:center;border-top:1px dashed var(--border);font-weight:600;}
+.gs-notif-scroll{max-height:38vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+.gs-notif-openall{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:11px 14px;background:transparent;border:none;border-top:1px solid var(--border);color:var(--g-main);font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;}
+.gs-notif-openall:active{background:rgba(46,125,50,.06);}
+
+/* v30.81: Notification-Center Modal — Tabs Neu/Erledigt, abhakbare Aufgaben, Tages-Gruppen */
+.gs-nc-tabs{display:flex;gap:6px;padding:8px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.gs-nc-tab{flex:1;padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:.15s;display:inline-flex;align-items:center;justify-content:center;gap:6px;}
+.gs-nc-tab.active{background:var(--g-main);border-color:var(--g-main);color:#fff;}
+.gs-nc-cnt{background:var(--c-danger,#e53935);color:#fff;font-size:10px;font-weight:900;padding:1px 6px;border-radius:9px;min-width:16px;text-align:center;}
+.gs-nc-tab.active .gs-nc-cnt{background:rgba(255,255,255,.25);}
+.gs-nc-body{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:10px 16px calc(18px + var(--sb,0px));flex:1;min-height:180px;}
+.gs-nc-sec{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:12px 2px 7px;display:flex;align-items:center;gap:6px;}
+.gs-nc-sec:first-child{margin-top:2px;}
+.gs-nc-day{font-size:10.5px;font-weight:800;color:var(--text-subtle,var(--muted));margin:10px 2px 5px;}
+.gs-nc-task{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:7px;transition:opacity .22s,transform .22s;}
+.gs-nc-task.gs-nc-urgent{border-color:var(--c-danger-l,#ef9a9a);background:var(--bg-danger-soft,rgba(244,67,54,.06));}
+.gs-nc-check{width:26px;height:26px;border-radius:50%;border:2px solid var(--g-main);background:transparent;flex-shrink:0;cursor:pointer;font-size:14px;line-height:1;color:transparent;display:flex;align-items:center;justify-content:center;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:.15s;padding:0;}
+.gs-nc-check:active{transform:scale(.9);}
+.gs-nc-check.checked{background:var(--g-main);color:#fff;}
+.gs-nc-task-body{flex:1;min-width:0;cursor:pointer;}
+.gs-nc-task-name{font-size:13.5px;font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.gs-nc-task-sub{font-size:11.5px;color:var(--muted);margin-top:1px;}
+.gs-nc-task-sub .urgent{color:var(--c-danger,#c62828);font-weight:800;}
+.gs-nc-ghost{background:transparent;border:1.5px solid var(--border);color:var(--muted);border-radius:9px;padding:6px 9px;font-size:13px;cursor:pointer;font-family:inherit;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
+.gs-nc-ghost:active{transform:scale(.94);}
+.gs-nc-row{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:7px;transition:opacity .22s,transform .22s;}
+.gs-nc-row-icon{font-size:20px;width:34px;height:34px;border-radius:50%;background:rgba(46,125,50,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.gs-nc-row-body{flex:1;min-width:0;cursor:pointer;}
+.gs-nc-row-title{font-size:13px;font-weight:700;color:var(--text);line-height:1.35;}
+.gs-nc-row-sub{font-size:11.5px;color:var(--muted);line-height:1.4;margin-top:1px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.gs-nc-row-time{font-size:10px;color:var(--text-subtle,var(--muted));font-weight:700;margin-top:3px;}
+.gs-nc-row.gs-nc-read{opacity:.72;}
+.gs-nc-out{opacity:0;transform:translateX(28px);}
+.gs-nc-empty{text-align:center;padding:34px 16px;color:var(--muted);}
+.gs-nc-empty .big{font-size:44px;margin-bottom:8px;}
+.gs-nc-empty .t{font-size:14.5px;font-weight:800;color:var(--text);margin-bottom:4px;}
+.gs-nc-empty .s{font-size:12.5px;line-height:1.5;}
 
 
 
@@ -2461,9 +2497,12 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
 <!-- ── HEUTE FÄLLIG (dynamisch gefüllt) ──────────────────────── -->
 <div id="plants-due-section" style="display:none;flex-shrink:0;">
-  <div style="padding:8px 16px 4px;display:flex;align-items:center;justify-content:space-between;">
-    <div style="font-size:11px;font-weight:800;color:#e65100;text-transform:uppercase;letter-spacing:.5px;">🔔 Heute fällig</div>
-    <button onclick="gsDoneAllDue()" style="font-size:11px;font-weight:800;color:var(--g-dark);background:var(--g-bg);border:1px solid var(--g-light);border-radius:8px;padding:3px 10px;cursor:pointer;font-family:inherit;">Alle erledigt ✓</button>
+  <div style="padding:8px 16px 4px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+    <div id="plants-due-heading" style="font-size:11px;font-weight:800;color:var(--c-warn-d,#e65100);text-transform:uppercase;letter-spacing:.5px;">📋 Aufgaben</div>
+    <div style="display:flex;align-items:center;gap:6px;">
+      <button onclick="if(typeof gsOpenNotifCenter==='function')gsOpenNotifCenter('done')" title="Verlauf ansehen" aria-label="Erledigte Aufgaben ansehen" style="font-size:11px;font-weight:800;color:var(--muted);background:transparent;border:1px solid var(--border);border-radius:8px;padding:3px 9px;cursor:pointer;font-family:inherit;">🕘 Verlauf</button>
+      <button onclick="gsDoneAllDue()" style="font-size:11px;font-weight:800;color:var(--g-dark);background:var(--g-bg);border:1px solid var(--g-light);border-radius:8px;padding:3px 10px;cursor:pointer;font-family:inherit;">Alle erledigt ✓</button>
+    </div>
   </div>
   <div id="plants-due-list" style="padding:0 16px 8px;display:flex;flex-direction:column;gap:6px;"></div>
 </div>
@@ -5835,6 +5874,23 @@ html, body{ scroll-behavior: smooth; }
   </div>
 </div>
 
+<!-- v30.81: NOTIFICATION-CENTER — wieder aufrufbare Inbox mit abhakbaren Aufgaben + Archiv -->
+<div class="modal-overlay" id="modal-notif-center" data-gs-swipe="1" onclick="if(event.target===this)closeModal('modal-notif-center')">
+  <div class="modal" style="position:relative;max-height:88vh;padding:0;display:flex;flex-direction:column;overflow:hidden;">
+    <div class="mhandle"></div>
+    <button class="modal-close-btn" onclick="closeModal('modal-notif-center')" aria-label="Schliessen">&#x2715;</button>
+    <div class="mhdr" style="padding:16px 18px 6px;border-bottom:none;">
+      <span class="memoji" aria-hidden="true">🔔</span>
+      <div><h2>Benachrichtigungen</h2><p id="gs-nc-sub">Aufgaben &amp; Mitteilungen</p></div>
+    </div>
+    <div class="gs-nc-tabs" role="tablist">
+      <button type="button" class="gs-nc-tab active" id="gs-nc-tab-new" role="tab" onclick="gsNcSwitchTab('new')">Neu <span class="gs-nc-cnt" id="gs-nc-cnt-new" style="display:none;"></span></button>
+      <button type="button" class="gs-nc-tab" id="gs-nc-tab-done" role="tab" onclick="gsNcSwitchTab('done')">Erledigt</button>
+    </div>
+    <div class="gs-nc-body" id="gs-nc-body"></div>
+  </div>
+</div>
+
 <!-- KRANKHEITSDIAGNOSE MODAL -->
 <div class="modal-overlay" id="modal-diagnosis" onclick="if(event.target===this)closeDiagnosis()">
   <div class="modal" style="position:relative;max-height:90vh;overflow-y:auto;">
@@ -7337,6 +7393,22 @@ function gsQuickDone(plantId, taskKey) {
   // Neu rendern nach kurzer Pause
   setTimeout(function(){ renderMyPlants(); }, 800);
 }
+
+// v30.81: Abhaken mit Micro-Animation (Kreis füllt sich, Karte gleitet raus),
+// danach übernimmt gsQuickDone die komplette Erledigt-Logik (lastDone, RPC,
+// Tagebuch, Cloud-Sync, Notifications gelesen). Ein Haken = wirklich erledigt.
+function gsDueCardDone(btn, plantId, taskKey) {
+  try {
+    if (btn && btn.classList) {
+      btn.classList.add('checked');
+      btn.disabled = true;
+      var card = btn.closest ? btn.closest('.due-card') : null;
+      if (card) setTimeout(function(){ card.classList.add('gs-nc-out'); }, 140);
+    }
+  } catch(_){}
+  setTimeout(function(){ gsQuickDone(plantId, taskKey); }, 200);
+}
+window.gsDueCardDone = gsDueCardDone;
 
 // v30.76: Aufgabe verschieben (Snooze) — lastDone so setzen, dass sie in `days` Tagen wieder fällig wird.
 // Synct über den Blob (user_plants.data → v_plant_tasks_due); kein gsRpcTaskDone (das wäre „erledigt").
@@ -22061,13 +22133,13 @@ function closeMainMenu() {
   setTimeout(() => {
     if (!m.classList.contains('open')) m.style.display = 'none';
   }, 300);
-  // v30.80: Als-gesehen erst beim SCHLIESSEN des Menues — der fruehere
-  // 1,8s-Timer in openMainMenu blendete Badge + Panel aus, waehrend der
-  // User noch am Lesen war (Feedback: "wirkt gebastelt"). Jetzt: Panel
-  // bleibt stabil solange offen, Quittierung passiert beim Verlassen.
+  // v30.81: Beim Schliessen wird nur noch der BADGE quittiert (gesehen) —
+  // die Eintraege selbst bleiben unter "Neu" bis der User sie abhakt oder
+  // "Alle ✓" drueckt. So ist alles jederzeit wieder aufrufbar (User-Wunsch),
+  // und der Badge nervt trotzdem nicht doppelt.
   if (wasOpen) {
     setTimeout(function(){
-      try { if (typeof gsMarkAllNotifsSeen === 'function') gsMarkAllNotifsSeen(); } catch(_){}
+      try { if (typeof gsNotifAckBadge === 'function') gsNotifAckBadge(); } catch(_){}
     }, 320);
   }
 }
@@ -22237,7 +22309,7 @@ function gsCollectNotifs(){
     hist.forEach(function(e){
       if ((e.ts||0) > since){
         out.push({
-          type:'scan', ts:e.ts||0,
+          type:'scan', id:'scan_' + (e.ts||0), ts:e.ts||0,
           title: (e.name || 'Art erkannt'),
           subtitle: 'Scan · ' + (e.conf||0) + '% Sicherheit',
           icon: e.emoji || '🌿',
@@ -22255,7 +22327,7 @@ function gsCollectNotifs(){
       if ((f.ts||0) > sinceFb){
         var iconMap = {bug:'🐛', idea:'💡', data:'📊', ui:'🎨'};
         out.push({
-          type:'feedback', ts:f.ts||0,
+          type:'feedback', id:'fb_' + (f.ts||0), ts:f.ts||0,
           title:'Neues Community-Feedback',
           subtitle: String(f.body||f.title||'').slice(0,70),
           icon: iconMap[f.type] || '💬',
@@ -22270,7 +22342,7 @@ function gsCollectNotifs(){
     var seenLvl = state.seenLevel || 1;
     if (lvl && lvl.lvl > seenLvl){
       out.push({
-        type:'level', ts: Date.now(),
+        type:'level', id:'level_' + lvl.lvl, ts: Date.now(),
         title:'Level ' + lvl.lvl + ' erreicht!',
         subtitle: (lvl.icon||'🏆') + ' ' + (lvl.name||''),
         icon:'🏆',
@@ -22284,7 +22356,7 @@ function gsCollectNotifs(){
     // v23.94: Klammern explizit gesetzt — vorher operator-precedence-verwirrend
     if (apiErr && (!state.seenApiErrTs || apiErr.ts > (state.seenApiErrTs||0))) {
       out.push({
-        type:'api', ts: apiErr.ts || Date.now(),
+        type:'api', id:'api_' + (apiErr.ts || 0), ts: apiErr.ts || Date.now(),
         title:'API-Key Problem',
         subtitle: apiErr.msg || 'Bitte Key prüfen',
         icon:'🔑',
@@ -22298,11 +22370,17 @@ function gsCollectNotifs(){
   try {
     var srv = window._gsServerNotifs;
     if (Array.isArray(srv) && srv.length) {
-      var sinceSrv = state.seenServerTs || 0;
       srv.forEach(function(n){
         if (!n || n.is_read) return;
+        // v30.81: Aufgaben-Reminder (plant_task/plant_task_pre/reminder) NICHT
+        // mehr als Inbox-Zeilen — sie sind live in der Aufgaben-Liste vertreten
+        // (eine Zeile pro Aufgabe statt eine pro Tages-Push → keine Wand mehr).
+        var _kk = n.kind || '';
+        if (_kk === 'plant_task' || _kk === 'plant_task_pre' || _kk === 'reminder') return;
+        // v30.81: KEIN Zeitstempel-Gate mehr — ungelesene Mitteilungen bleiben
+        // unter "Neu", bis der User sie abhakt (vorher verschwanden sie nach
+        // dem ersten Menue-Besuch und waren nie wieder aufrufbar).
         var ts = n.created_at ? new Date(n.created_at).getTime() : 0;
-        if (ts <= sinceSrv) return;
         // Icon aus Title extrahieren (erstes Emoji), sonst kind-spezifisch
         var icon = n.icon || '';
         if (!icon && n.title) {
@@ -22353,7 +22431,7 @@ function gsCollectNotifs(){
           action = "closeMainMenu();";
         }
         out.push({
-          type:'server', ts: ts,
+          type:'server', id:'srv_' + n.id, ts: ts,
           kind: n.kind || 'info',
           title: n.title || 'Benachrichtigung',
           subtitle: String(n.body || '').slice(0, 90),
@@ -22370,17 +22448,58 @@ function gsCollectNotifs(){
   return out;
 }
 
-function gsCountUnreadNotifs(){
-  // v30.80: Eigene Aktionen (eigene Scans, Level-Ups) zaehlen NICHT mehr in den
-  // Badge — die hat der User selbst ausgeloest, ein roter Punkt dafuer wirkt
-  // wie Fake-Dringlichkeit. Im Panel bleiben sie als Aktivitaet sichtbar;
-  // der Badge steht nur noch fuer echte Neuigkeiten (Server-Pushes, Feedback,
-  // API-Probleme) — wie bei anderen Apps.
+// v30.81: Fällige Pflege-Aufgaben aus myPlants — EINE Quelle für Badge,
+// Menü-Panel, Notification-Center und Meine-Pflanzen-Liste.
+function gsGetDueTasks(){
+  var out = [];
   try {
-    return gsCollectNotifs().filter(function(n){
-      return n.type !== 'scan' && n.type !== 'level';
+    if (typeof myPlants === 'undefined' || !Array.isArray(myPlants)) return out;
+    if (typeof TASK_DEFS === 'undefined' || typeof getDaysUntilDue !== 'function') return out;
+    myPlants.forEach(function(p){
+      if (!p || !p.tasks) return;
+      Object.keys(p.tasks).forEach(function(k){
+        var t = p.tasks[k];
+        if (!t || !t.active || !TASK_DEFS[k]) return;
+        var d = getDaysUntilDue(t.lastDone, t.intervalDays);
+        if (d <= 2) out.push({ plant:p, key:k, days:d, def:TASK_DEFS[k] });
+      });
+    });
+    out.sort(function(a,b){ return a.days - b.days; });
+  } catch(_){}
+  return out;
+}
+
+function gsCountUnreadNotifs(){
+  // v30.81: Badge = echte Neuigkeiten seit der letzten Sichtung (badgeAckTs)
+  // + heute fällige Aufgaben (zählen bis zum ersten Menü-Blick des Tages).
+  // Eigene Aktionen (Scans, Level-Ups) zählen weiterhin nicht (v30.80).
+  try {
+    var state = gsGetNotifState();
+    var ack = state.badgeAckTs;
+    if (!ack) {
+      // Migration von den alten seen-Timestamps — kein Badge-Berg beim Update
+      ack = Math.max(state.seenScansTs||0, state.seenFbTs||0, state.seenServerTs||0, state.seenApiErrTs||0);
+    }
+    var n = gsCollectNotifs().filter(function(x){
+      return x.type !== 'scan' && x.type !== 'level' && (x.ts||0) > ack;
     }).length;
+    var todayStart = new Date(); todayStart.setHours(0,0,0,0);
+    if (ack < todayStart.getTime()) {
+      n += gsGetDueTasks().filter(function(t){ return t.days <= 0; }).length;
+    }
+    return n;
   } catch(_){ return 0; }
+}
+
+// v30.81: Badge quittieren (User hat die Benachrichtigungen GESEHEN) —
+// archiviert NICHTS; die Einträge bleiben unter "Neu" bis zum Abhaken.
+function gsNotifAckBadge(){
+  try {
+    var state = gsGetNotifState();
+    state.badgeAckTs = Date.now();
+    gsSetNotifState(state);
+  } catch(_){}
+  try { gsRenderNotifBadge(); } catch(_){}
 }
 
 function gsRenderNotifBadge(){
@@ -22399,9 +22518,13 @@ function gsRenderNotifBadge(){
   }
 }
 
+// v30.81: Semantik geschärft — das hier ist "Alle abhaken/archivieren"
+// (Button "Alle ✓"). Die Badge-Quittierung beim Menü-Schliessen macht
+// gsNotifAckBadge und lässt die Einträge stehen.
 function gsMarkAllNotifsSeen(){
   var state = gsGetNotifState();
   var now = Date.now();
+  state.badgeAckTs = now;
   state.seenScansTs = now;
   state.seenFbTs = now;
   state.seenServerTs = now;  // v23.94: auch Server-Notifs marken
@@ -22432,57 +22555,358 @@ function gsMarkAllNotifsSeen(){
     }
   } catch(_){}
   gsRenderNotifBadge();
-  // Panel-Content soft-ausblenden (visuelles Feedback)
+  // Panel-Content soft-ausblenden (visuelles Feedback), dann frisch rendern
   var panel = document.getElementById('gs-notif-panel');
   if (panel){
-    var items = panel.querySelectorAll('.gs-notif-item');
+    var items = panel.querySelectorAll('.gs-notif-item, .gs-nc-row, .gs-nc-task');
     items.forEach(function(it){ it.classList.add('gs-notif-seen'); });
   }
+  setTimeout(function(){
+    try { if (typeof gsRenderNotifPanelInMenu === 'function') gsRenderNotifPanelInMenu(); } catch(_){}
+    try {
+      var m = document.getElementById('modal-notif-center');
+      if (m && m.classList.contains('open') && typeof gsNcRender === 'function') gsNcRender();
+    } catch(_){}
+  }, 350);
 }
 
+// v30.81: Menü-Panel komplett neu — kompakt statt Wand: max 3 Aufgaben (abhakbar)
+// + max 3 Mitteilungen + "Alle anzeigen" → Notification-Center (Verlauf inklusive).
 function gsRenderNotifPanelInMenu(){
   var panel = document.getElementById('gs-notif-panel');
   if (!panel) return;
-  var notifs = gsCollectNotifs();
-  if (!notifs.length){
-    panel.style.display = 'none';
-    panel.innerHTML = '';
+  var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s||''); };
+  var tasks = gsGetDueTasks();
+  var news = gsCollectNotifs();
+  var dueNow = tasks.filter(function(t){ return t.days <= 0; });
+
+  // Nichts offen → schlanke Ein-Zeilen-Brücke zum Verlauf (wieder aufrufbar!)
+  if (!tasks.length && !news.length){
+    panel.style.display = 'block';
+    panel.innerHTML = '<button type="button" class="gs-notif-openall" style="border-top:none;" ' +
+      'onclick="closeMainMenu();setTimeout(function(){if(typeof gsOpenNotifCenter===\'function\')gsOpenNotifCenter(\'done\');},250);">' +
+      '🔔 Benachrichtigungen · <span style="color:var(--muted);font-weight:700;">Verlauf ansehen</span></button>';
     return;
   }
+
   panel.style.display = 'block';
-  var header = '<div class="gs-notif-header">' +
-    '<span class="gs-notif-title">🔔 Benachrichtigungen <span class="gs-notif-count">' + notifs.length + '</span></span>' +
-    '<button onclick="gsMarkAllNotifsSeen()" class="gs-notif-clear" aria-label="Alle als gelesen markieren">Alle ✓</button>' +
-  '</div>';
-  // v30.80: Kein harter Cut mehr bei 8 mit totem "+N weitere"-Label — die
-  // Liste ist jetzt scrollbar (max-height), Cap 50 nur als DOM-Schutz
-  // (Server-Pull ist ohnehin limit=50).
-  var maxItems = 50;
-  var items = notifs.slice(0, maxItems).map(function(n){
-    var ago = gsRelTime(n.ts);
-    // v24.26: Snooze-Button nur für plant_task / plant_task_pre Notifs (alle anderen behalten Standard-Click)
-    var isPlantTask = n.kind === 'plant_task' || n.kind === 'plant_task_pre';
-    var snoozeBtn = (isPlantTask && n.dedupKey)
-      ? '<button type="button" class="gs-notif-snooze" onclick="event.stopPropagation();gsSnoozePlantReminder(\'' + _gsOcArg(n.dedupKey||'') + '\',1);setTimeout(gsRenderNotifPanelInMenu,200);" title="1 Tag verschieben">⏰</button>'
-      : '';
-    return '<div class="gs-notif-item-wrap" style="position:relative;">' +
-      '<button type="button" class="gs-notif-item" onclick="' + n.action.replace(/"/g,'&quot;') + '">' +
+  var pillCount = dueNow.length + news.filter(function(x){ return x.type !== 'scan' && x.type !== 'level'; }).length;
+  var html = '<div class="gs-notif-header">' +
+    '<span class="gs-notif-title">🔔 Benachrichtigungen' + (pillCount > 0 ? ' <span class="gs-notif-count">' + pillCount + '</span>' : '') + '</span>' +
+    (news.length ? '<button onclick="gsMarkAllNotifsSeen()" class="gs-notif-clear" aria-label="Alle als gelesen markieren">Alle ✓</button>' : '') +
+  '</div><div class="gs-notif-scroll">';
+
+  // ── Aufgaben (abhakbar, max 3) ──
+  if (tasks.length){
+    html += '<div class="gs-nc-sec" style="margin:10px 14px 6px;">📋 Aufgaben</div>';
+    html += '<div style="padding:0 12px 4px;">';
+    tasks.slice(0, 3).forEach(function(t){
+      var when = t.days < 0 ? '<span class="urgent">seit ' + (-t.days) + ' Tag' + (t.days === -1 ? '' : 'en') + ' fällig</span>'
+               : t.days === 0 ? '<span class="urgent">heute fällig</span>'
+               : t.days === 1 ? 'morgen fällig' : 'in ' + t.days + ' Tagen';
+      html += '<div class="gs-nc-task' + (t.days <= 0 ? ' gs-nc-urgent' : '') + '">' +
+        '<button type="button" class="gs-nc-check" aria-label="Erledigt" onclick="gsNcDoneTask(this,\'' + esc(t.plant.id) + '\',\'' + esc(t.key) + '\')">✓</button>' +
+        '<div class="gs-nc-task-body" onclick="gsNcDoneTask(this.parentElement.querySelector(\'.gs-nc-check\'),\'' + esc(t.plant.id) + '\',\'' + esc(t.key) + '\')">' +
+          '<div class="gs-nc-task-name">' + (t.plant.emoji||'🌿') + ' ' + esc(t.plant.name) + '</div>' +
+          '<div class="gs-nc-task-sub">' + (t.def.icon||'') + ' ' + esc(t.def.name||t.key) + ' · ' + when + '</div>' +
+        '</div>' +
+        '<button type="button" class="gs-nc-ghost" title="1 Tag verschieben" onclick="event.stopPropagation();gsSnoozeTask(\'' + esc(t.plant.id) + '\',\'' + esc(t.key) + '\',1);setTimeout(gsRenderNotifPanelInMenu,400);">⏰</button>' +
+      '</div>';
+    });
+    if (tasks.length > 3) html += '<div class="gs-notif-more" style="border:none;padding:2px 2px 6px;">+ ' + (tasks.length - 3) + ' weitere Aufgaben</div>';
+    html += '</div>';
+  }
+
+  // ── Mitteilungen (max 3) ──
+  if (news.length){
+    if (tasks.length) html += '<div class="gs-nc-sec" style="margin:6px 14px 2px;">💬 Mitteilungen</div>';
+    news.slice(0, 3).forEach(function(n){
+      var ago = gsRelTime(n.ts);
+      var act = 'gsNotifArchiveOne(\'' + esc(n.id||'') + '\',true);' + (n.action||'');
+      html += '<button type="button" class="gs-notif-item" onclick="' + act.replace(/"/g,'&quot;') + '">' +
         '<div class="gs-notif-item-icon" aria-hidden="true">' + n.icon + '</div>' +
         '<div class="gs-notif-item-body">' +
-          '<div class="gs-notif-item-title">' + (typeof escHtml==='function'?escHtml(n.title):n.title) + '</div>' +
-          '<div class="gs-notif-item-sub">' + (typeof escHtml==='function'?escHtml(n.subtitle):n.subtitle) + '</div>' +
+          '<div class="gs-notif-item-title">' + esc(n.title) + '</div>' +
+          '<div class="gs-notif-item-sub">' + esc(n.subtitle) + '</div>' +
         '</div>' +
         '<div class="gs-notif-item-time">' + ago + '</div>' +
-      '</button>' +
-      snoozeBtn +
-    '</div>';
-  }).join('');
-  var more = notifs.length > maxItems ? '<div class="gs-notif-more">+ ' + (notifs.length-maxItems) + ' weitere</div>' : '';
-  panel.innerHTML = header +
-    '<div class="gs-notif-scroll" style="max-height:46vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;">' +
-      items + more +
-    '</div>';
+      '</button>';
+    });
+  }
+
+  html += '</div>';
+  var moreCount = Math.max(0, tasks.length - 3) + Math.max(0, news.length - 3);
+  html += '<button type="button" class="gs-notif-openall" onclick="closeMainMenu();setTimeout(function(){if(typeof gsOpenNotifCenter===\'function\')gsOpenNotifCenter(\'new\');},250);">' +
+    'Alle anzeigen' + (moreCount > 0 ? ' (' + (tasks.length + news.length) + ')' : '') + ' →</button>';
+  panel.innerHTML = html;
 }
+
+// ═══════════ v30.81: NOTIFICATION-CENTER (Modal) ═══════════
+// Wieder aufrufbare Inbox: Tab "Neu" (abhakbare Aufgaben + Mitteilungen) und
+// Tab "Erledigt" (Pflege-Verlauf aus dem Pflanzen-Tagebuch + gelesene
+// Mitteilungen). Abhaken ist funktional: gsQuickDone setzt lastDone,
+// synct Cloud + markiert die Server-Reminder gelesen.
+
+function gsRelDay(ts){
+  if (!ts) return 'Älter';
+  var d = new Date(ts); d.setHours(0,0,0,0);
+  var today = new Date(); today.setHours(0,0,0,0);
+  var diff = Math.round((today.getTime() - d.getTime()) / 86400000);
+  if (diff <= 0) return 'Heute';
+  if (diff === 1) return 'Gestern';
+  if (diff < 7) return 'Diese Woche';
+  return new Date(ts).toLocaleDateString('de-CH', {day:'2-digit', month:'short'});
+}
+
+// Eine Mitteilung abhaken/archivieren (Server: is_read; lokal: Watermark).
+// silent=true → kein Re-Render (z.B. wenn direkt danach navigiert wird).
+function gsNotifArchiveOne(id, silent){
+  try {
+    if (!id) return;
+    var state = gsGetNotifState();
+    if (id.indexOf('srv_') === 0) {
+      var uuid = id.slice(4);
+      try { if (typeof gsNotifMarkRead === 'function') gsNotifMarkRead(uuid); } catch(_){}
+      try {
+        (window._gsServerNotifs || []).forEach(function(n){ if (n && n.id === uuid) n.is_read = true; });
+      } catch(_){}
+    } else if (id.indexOf('scan_') === 0) {
+      state.seenScansTs = Math.max(state.seenScansTs || 0, parseInt(id.slice(5), 10) || 0);
+    } else if (id.indexOf('fb_') === 0) {
+      state.seenFbTs = Math.max(state.seenFbTs || 0, parseInt(id.slice(3), 10) || 0);
+    } else if (id.indexOf('level_') === 0) {
+      state.seenLevel = Math.max(state.seenLevel || 1, parseInt(id.slice(6), 10) || 1);
+    } else if (id.indexOf('api_') === 0) {
+      state.seenApiErrTs = Date.now();
+    }
+    gsSetNotifState(state);
+  } catch(_){}
+  try { gsRenderNotifBadge(); } catch(_){}
+  if (!silent) {
+    setTimeout(function(){
+      try { gsRenderNotifPanelInMenu(); } catch(_){}
+      try {
+        var m = document.getElementById('modal-notif-center');
+        if (m && m.classList.contains('open')) gsNcRender();
+      } catch(_){}
+    }, 260);
+  }
+}
+window.gsNotifArchiveOne = gsNotifArchiveOne;
+
+// Aufgabe abhaken (aus Panel oder Center): Häkchen-Animation → gsQuickDone
+// (echtes Erledigen inkl. Cloud-Sync) → betroffene Ansichten neu rendern.
+function gsNcDoneTask(btn, plantId, taskKey){
+  try {
+    if (btn && btn.classList) {
+      btn.classList.add('checked');
+      btn.disabled = true;
+      var row = btn.closest ? btn.closest('.gs-nc-task') : null;
+      if (row) setTimeout(function(){ row.classList.add('gs-nc-out'); }, 140);
+    }
+  } catch(_){}
+  setTimeout(function(){
+    try { if (typeof gsQuickDone === 'function') gsQuickDone(plantId, taskKey); } catch(_){}
+    setTimeout(function(){
+      try { gsRenderNotifPanelInMenu(); } catch(_){}
+      try {
+        var m = document.getElementById('modal-notif-center');
+        if (m && m.classList.contains('open')) gsNcRender();
+      } catch(_){}
+    }, 300);
+  }, 220);
+}
+window.gsNcDoneTask = gsNcDoneTask;
+
+// Intelligente Server-Hygiene: alte ungelesene Aufgaben-Reminder-Zeilen
+// (die Tages-Push-Duplikate) als gelesen markieren — sie sind in der
+// Aufgaben-Liste live vertreten, die Zeilen selbst sind nur Lärm.
+// Max. 1x pro 6h, best-effort.
+function gsNcCleanupTaskRows(){
+  try {
+    var last = parseInt(localStorage.getItem('gs_nc_taskclean_ts') || '0', 10) || 0;
+    if (Date.now() - last < 6 * 3600000) return;
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn() || typeof sbFetch !== 'function') return;
+    var uid = (typeof gsStore !== 'undefined' && gsStore.get) ? gsStore.get('gs_sb_uid', null) : null;
+    if (!uid) return;
+    try { localStorage.setItem('gs_nc_taskclean_ts', String(Date.now())); } catch(_){}
+    sbFetch('/rest/v1/notifications?user_id=eq.' + uid + '&kind=in.(plant_task,plant_task_pre,reminder)&is_read=eq.false', {
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','Prefer':'return=minimal'},
+      body: JSON.stringify({is_read: true, read_at: new Date().toISOString()})
+    }).catch(function(){});
+    try {
+      (window._gsServerNotifs || []).forEach(function(n){
+        if (n && !n.is_read && (n.kind === 'plant_task' || n.kind === 'plant_task_pre' || n.kind === 'reminder')) n.is_read = true;
+      });
+    } catch(_){}
+  } catch(_){}
+}
+
+function gsOpenNotifCenter(tab){
+  window._gsNcTab = (tab === 'done') ? 'done' : 'new';
+  try { gsNotifAckBadge(); } catch(_){}
+  try { gsNcCleanupTaskRows(); } catch(_){}
+  gsNcRender();
+  try { if (typeof openModal === 'function') openModal('modal-notif-center'); } catch(_){}
+  // Frisch vom Server nachziehen, dann still neu rendern
+  try {
+    if (typeof gsNotifPull === 'function') gsNotifPull().then(function(){
+      try {
+        var m = document.getElementById('modal-notif-center');
+        if (m && m.classList.contains('open')) gsNcRender();
+      } catch(_){}
+    }).catch(function(){});
+  } catch(_){}
+}
+window.gsOpenNotifCenter = gsOpenNotifCenter;
+
+function gsNcSwitchTab(t){
+  window._gsNcTab = (t === 'done') ? 'done' : 'new';
+  gsNcRender();
+}
+window.gsNcSwitchTab = gsNcSwitchTab;
+
+function gsNcRender(){
+  var body = document.getElementById('gs-nc-body');
+  if (!body) return;
+  var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s||''); };
+  var tab = window._gsNcTab || 'new';
+  var tasks = gsGetDueTasks();
+  var news = gsCollectNotifs();
+
+  // Tabs + Kopf-Zähler
+  try {
+    var tNew = document.getElementById('gs-nc-tab-new');
+    var tDone = document.getElementById('gs-nc-tab-done');
+    if (tNew) tNew.classList.toggle('active', tab === 'new');
+    if (tDone) tDone.classList.toggle('active', tab === 'done');
+    var cnt = document.getElementById('gs-nc-cnt-new');
+    var total = tasks.length + news.length;
+    if (cnt) { cnt.textContent = String(total); cnt.style.display = total > 0 ? 'inline-block' : 'none'; }
+    var sub = document.getElementById('gs-nc-sub');
+    if (sub) sub.textContent = total > 0
+      ? (tasks.length + ' Aufgabe' + (tasks.length === 1 ? '' : 'n') + ' · ' + news.length + ' Mitteilung' + (news.length === 1 ? '' : 'en'))
+      : 'Alles erledigt 🎉';
+  } catch(_){}
+
+  var html = '';
+  if (tab === 'new') {
+    // ── Aufgaben ──
+    if (tasks.length) {
+      html += '<div class="gs-nc-sec">📋 Aufgaben <span style="font-weight:700;text-transform:none;letter-spacing:0;">(' + tasks.length + ')</span></div>';
+      tasks.forEach(function(t){
+        var when = t.days < 0 ? '<span class="urgent">seit ' + (-t.days) + ' Tag' + (t.days === -1 ? '' : 'en') + ' fällig</span>'
+                 : t.days === 0 ? '<span class="urgent">heute fällig</span>'
+                 : t.days === 1 ? 'morgen fällig' : 'in ' + t.days + ' Tagen';
+        html += '<div class="gs-nc-task' + (t.days <= 0 ? ' gs-nc-urgent' : '') + '">' +
+          '<button type="button" class="gs-nc-check" aria-label="Erledigt" onclick="gsNcDoneTask(this,\'' + esc(t.plant.id) + '\',\'' + esc(t.key) + '\')">✓</button>' +
+          '<div class="gs-nc-task-body" onclick="gsNcDoneTask(this.parentElement.querySelector(\'.gs-nc-check\'),\'' + esc(t.plant.id) + '\',\'' + esc(t.key) + '\')">' +
+            '<div class="gs-nc-task-name">' + (t.plant.emoji||'🌿') + ' ' + esc(t.plant.name) + '</div>' +
+            '<div class="gs-nc-task-sub">' + (t.def.icon||'') + ' ' + esc(t.def.name||t.key) + ' · ' + when + '</div>' +
+          '</div>' +
+          '<button type="button" class="gs-nc-ghost" title="1 Tag verschieben" onclick="event.stopPropagation();gsSnoozeTask(\'' + esc(t.plant.id) + '\',\'' + esc(t.key) + '\',1);setTimeout(gsNcRender,400);">⏰</button>' +
+        '</div>';
+      });
+    }
+    // ── Mitteilungen, nach Tag gruppiert ──
+    if (news.length) {
+      html += '<div class="gs-nc-sec">💬 Mitteilungen</div>';
+      var lastDay = null;
+      news.forEach(function(n){
+        var day = gsRelDay(n.ts);
+        if (day !== lastDay) { html += '<div class="gs-nc-day">' + day + '</div>'; lastDay = day; }
+        var act = 'gsNotifArchiveOne(\'' + esc(n.id||'') + '\',true);closeModal(\'modal-notif-center\');' + (n.action||'');
+        html += '<div class="gs-nc-row">' +
+          '<div class="gs-nc-row-icon" aria-hidden="true">' + n.icon + '</div>' +
+          '<div class="gs-nc-row-body" onclick="' + act.replace(/"/g,'&quot;') + '">' +
+            '<div class="gs-nc-row-title">' + esc(n.title) + '</div>' +
+            (n.subtitle ? '<div class="gs-nc-row-sub">' + esc(n.subtitle) + '</div>' : '') +
+            '<div class="gs-nc-row-time">' + gsRelTime(n.ts) + '</div>' +
+          '</div>' +
+          '<button type="button" class="gs-nc-ghost" title="Als gelesen abhaken" aria-label="Als gelesen abhaken" onclick="event.stopPropagation();gsNotifArchiveOne(\'' + esc(n.id||'') + '\')">✓</button>' +
+        '</div>';
+      });
+    }
+    if (!tasks.length && !news.length) {
+      html = '<div class="gs-nc-empty"><div class="big">🧘</div>' +
+        '<div class="t">Alles erledigt</div>' +
+        '<div class="s">Keine offenen Aufgaben, keine neuen Mitteilungen.<br>Der Verlauf wartet im Tab «Erledigt».</div></div>';
+    }
+  } else {
+    // ── Tab "Erledigt": Pflege-Verlauf + gelesene Mitteilungen ──
+    var doneTasks = [];
+    try {
+      if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) {
+        myPlants.forEach(function(p){
+          if (!p || !Array.isArray(p.diary)) return;
+          p.diary.forEach(function(d){
+            if (!d || !d.action || typeof TASK_DEFS === 'undefined' || !TASK_DEFS[d.action]) return;
+            var ts = d.ts ? new Date(d.ts).getTime() : 0;
+            doneTasks.push({ plant:p, def:TASK_DEFS[d.action], ts:ts });
+          });
+        });
+        doneTasks.sort(function(a,b){ return b.ts - a.ts; });
+        doneTasks = doneTasks.slice(0, 30);
+      }
+    } catch(_){}
+    var readNews = [];
+    try {
+      (window._gsServerNotifs || []).forEach(function(n){
+        if (!n || !n.is_read) return;
+        var _k2 = n.kind || '';
+        if (_k2 === 'plant_task' || _k2 === 'plant_task_pre' || _k2 === 'reminder') return;
+        readNews.push(n);
+      });
+      readNews = readNews.slice(0, 30);
+    } catch(_){}
+
+    if (doneTasks.length) {
+      html += '<div class="gs-nc-sec">✅ Erledigte Pflege</div>';
+      var lastDayT = null;
+      doneTasks.forEach(function(d){
+        var day = gsRelDay(d.ts);
+        if (day !== lastDayT) { html += '<div class="gs-nc-day">' + day + '</div>'; lastDayT = day; }
+        html += '<div class="gs-nc-task" style="opacity:.82;">' +
+          '<span class="gs-nc-check checked" aria-hidden="true" style="cursor:default;">✓</span>' +
+          '<div class="gs-nc-task-body" style="cursor:default;">' +
+            '<div class="gs-nc-task-name">' + (d.plant.emoji||'🌿') + ' ' + esc(d.plant.name) + '</div>' +
+            '<div class="gs-nc-task-sub">' + (d.def.icon||'') + ' ' + esc(d.def.name) + ' · ' + gsRelTime(d.ts) + '</div>' +
+          '</div>' +
+        '</div>';
+      });
+    }
+    if (readNews.length) {
+      html += '<div class="gs-nc-sec">💬 Gelesene Mitteilungen</div>';
+      var lastDayN = null;
+      readNews.forEach(function(n){
+        var ts = n.created_at ? new Date(n.created_at).getTime() : 0;
+        var day = gsRelDay(ts);
+        if (day !== lastDayN) { html += '<div class="gs-nc-day">' + day + '</div>'; lastDayN = day; }
+        var icon = '🔔';
+        try {
+          var em = String(n.title||'').match(/^[\p{Extended_Pictographic}]+/u);
+          if (em) icon = em[0];
+        } catch(_){}
+        html += '<div class="gs-nc-row gs-nc-read">' +
+          '<div class="gs-nc-row-icon" aria-hidden="true">' + icon + '</div>' +
+          '<div class="gs-nc-row-body" style="cursor:default;">' +
+            '<div class="gs-nc-row-title">' + esc(n.title||'') + '</div>' +
+            (n.body ? '<div class="gs-nc-row-sub">' + esc(n.body) + '</div>' : '') +
+            '<div class="gs-nc-row-time">' + gsRelTime(ts) + '</div>' +
+          '</div>' +
+        '</div>';
+      });
+    }
+    if (!doneTasks.length && !readNews.length) {
+      html = '<div class="gs-nc-empty"><div class="big">🗂️</div>' +
+        '<div class="t">Noch kein Verlauf</div>' +
+        '<div class="s">Abgehakte Aufgaben und gelesene Mitteilungen<br>landen hier zum Nachschlagen.</div></div>';
+    }
+  }
+  body.innerHTML = html;
+}
+window.gsNcRender = gsNcRender;
 
 // Legacy-Alias: alter `updateScanHistoryBadge` ruft jetzt unser einheitliches System
 // (damit alle Stellen im Code weiter funktionieren, aber die semantisch sauber zählen)
@@ -27357,25 +27781,33 @@ function renderMyPlants() {
   var dueSection = document.getElementById('plants-due-section');
   var dueList    = document.getElementById('plants-due-list');
   if (dueSection && dueList) {
+    // v30.81: To-do-Look — Abhak-Kreis links (haptisch, mit Häkchen-Animation),
+    // präzise Fälligkeit ("Seit N Tagen überfällig" statt pauschal "Jetzt fällig!").
     if (allDue.length > 0) {
+      var heading = document.getElementById('plants-due-heading');
+      if (heading) heading.textContent = '📋 ' + _t('tasks_heading','Aufgaben') + ' (' + allDue.length + ')';
       dueSection.style.display = 'block';
       dueList.innerHTML = _gsPushPromptHtml() + allDue.map(function(item) {
         var p = item.plant, k = item.key, isDue = item.days <= 0;
         var def = TASK_DEFS[k] || { icon:'', name:k };
-        return '<div class="due-card' + (isDue?'':' soon') + '">' +
-          '<div class="due-card-emoji">' + (p.emoji||'🌿') + '</div>' +
-          '<div class="due-card-info" style="cursor:pointer;" onclick="gsQuickDone(\''+p.id+'\',\''+k+'\')">' +
-            '<div class="due-card-name">' + escHtml(p.name) + '</div>' +
-            '<div class="due-card-task">' + (def.icon||'') + ' ' + (def.name||k) + ' · ' +
-              (isDue ? '<span style="color:#c62828;font-weight:800;">' + _t('due_now','Jetzt fällig!') + '</span>' : _t('due_soon','Bald fällig')) +
-            '</div>' +
+        var when;
+        if (item.days < 0) when = '<span class="urgent">' + _t('due_since_prefix','Seit') + ' ' + (-item.days) + ' ' + (item.days === -1 ? _t('day_unit','Tag') : _t('days_unit','Tagen')) + ' ' + _t('due_overdue','überfällig') + '</span>';
+        else if (item.days === 0) when = '<span class="urgent">' + _t('due_today','Heute fällig') + '</span>';
+        else if (item.days === 1) when = _t('due_tomorrow','Morgen fällig');
+        else when = _t('due_in','In') + ' ' + item.days + ' ' + _t('days_unit','Tagen');
+        return '<div class="due-card' + (isDue?'':' soon') + '" data-duetask="' + escHtml(p.id) + '|' + escHtml(k) + '">' +
+          '<button type="button" class="due-card-check" aria-label="' + _t('btn_done','Erledigt') + '" onclick="gsDueCardDone(this,\''+p.id+'\',\''+k+'\')">✓</button>' +
+          '<div class="due-card-info" style="cursor:pointer;" onclick="gsDueCardDone(this.parentElement.querySelector(\'.due-card-check\'),\''+p.id+'\',\''+k+'\')">' +
+            '<div class="due-card-name">' + (p.emoji||'🌿') + ' ' + escHtml(p.name) + '</div>' +
+            '<div class="due-card-task">' + (def.icon||'') + ' ' + (def.name||k) + ' · ' + when + '</div>' +
           '</div>' +
-          '<button class="due-card-btn" title="' + _t('btn_snooze','Verschieben') + '" onclick="event.stopPropagation();gsSnoozeTask(\''+p.id+'\',\''+k+'\',1)" style="background:transparent;border:1.5px solid var(--border);color:var(--muted);padding:7px 9px;margin-right:6px;">⏰</button>' +
-          '<button class="due-card-btn" onclick="event.stopPropagation();gsQuickDone(\''+p.id+'\',\''+k+'\')">' + _t('btn_done','✓ Erledigt') + '</button>' +
+          '<button class="due-card-btn" title="' + _t('btn_snooze','Verschieben') + '" onclick="event.stopPropagation();gsSnoozeTask(\''+p.id+'\',\''+k+'\',1)" style="background:transparent;border:1.5px solid var(--border);color:var(--muted);padding:7px 9px;">⏰</button>' +
         '</div>';
       }).join('');
     } else if (myPlants.length > 0) {
       // v30.76: schöner "alles erledigt"-Zustand statt die Sektion ganz auszublenden
+      var heading2 = document.getElementById('plants-due-heading');
+      if (heading2) heading2.textContent = '📋 ' + _t('tasks_heading','Aufgaben');
       dueSection.style.display = 'block';
       dueList.innerHTML = '<div style="text-align:center;padding:16px 12px;color:var(--g-dark);font-weight:700;font-size:13.5px;background:rgba(46,125,50,.07);border-radius:12px;">✅ ' + _t('tasks_all_done','Alles erledigt für heute') + ' 🎉</div>';
     } else {
@@ -27383,11 +27815,11 @@ function renderMyPlants() {
     }
   }
 
-  // Benachrichtigung
+  // Benachrichtigung — v30.81: Token-Farben (Dark-Mode-fähig) statt hardcoded Hex
   var nb = document.getElementById('mp-notif-banner');
   if (nb && typeof Notification !== 'undefined') {
     if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
-      nb.innerHTML = '<div style="background:#fff8e1;border-bottom:1px solid #ffe082;padding:8px 16px;font-size:12px;font-weight:700;color:#e65100;cursor:pointer;display:flex;align-items:center;gap:8px;" onclick="gsRequestNotifications()">' +
+      nb.innerHTML = '<div style="background:var(--bg-warn-soft,#fff8e1);border-bottom:1px solid var(--border);padding:8px 16px;font-size:12px;font-weight:700;color:var(--c-warn-d,#e65100);cursor:pointer;display:flex;align-items:center;gap:8px;" onclick="gsRequestNotifications()">' +
         _t('mp_notif_enable','🔔 Erinnerungen aktivieren — nie eine Pflege vergessen') + '</div>';
     }
   }
@@ -66987,7 +67419,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.80';
+var GS_VERSION = 'v30.81';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -79189,23 +79621,34 @@ body.dark #mp-name-sug [role="option"]:hover { background: rgba(45,138,45,.18) !
   letter-spacing: .3px;
 }
 
-/* Fällig-Card (kompakte Ansicht oben) */
+/* Fällig-Card (kompakte Ansicht oben) — v30.81: Token-basiert, To-do-Look mit Abhak-Kreis */
 .due-card {
   background: var(--card);
   border-radius: 12px;
-  border: 1.5px solid #ffcdd2;
-  padding: 10px 12px;
+  border: 1px solid var(--c-danger-l, #ffcdd2);
+  padding: 9px 12px;
   display: flex;
   align-items: center;
   gap: 10px;
-  cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: opacity .22s, transform .22s;
 }
-.due-card.soon { border-color: #ffe082; }
-.due-card-emoji { font-size: 24px; flex-shrink: 0; }
+.due-card.soon { border-color: var(--border); }
+.due-card.gs-nc-out { opacity: 0; transform: translateX(28px); }
+.due-card-check {
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 2px solid var(--g-main); background: transparent;
+  flex-shrink: 0; cursor: pointer; font-size: 14px; line-height: 1;
+  color: transparent; display: flex; align-items: center; justify-content: center;
+  font-family: inherit; -webkit-tap-highlight-color: transparent; transition: .15s; padding: 0;
+}
+.due-card-check:active { transform: scale(.9); }
+.due-card-check.checked { background: var(--g-main); color: #fff; }
+.due-card-emoji { font-size: 22px; flex-shrink: 0; }
 .due-card-info { flex: 1; min-width: 0; }
-.due-card-name { font-size: 13.5px; font-weight: 800; color: var(--text); }
+.due-card-name { font-size: 13.5px; font-weight: 800; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .due-card-task { font-size: 11px; color: var(--muted); margin-top: 1px; }
+.due-card-task .urgent { color: var(--c-danger, #c62828); font-weight: 800; }
 .due-card-btn {
   padding: 7px 14px;
   border-radius: 10px;
