@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.79.20260627">
+<meta name="app-version" content="30.80.20260827">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10387,6 +10387,11 @@ async function answerSupaDailyQuiz(btn) {
     if (typeof gsAddXP === 'function') gsAddXP(isCorrect ? pts : 10, 'quiz');
 
     // Server-side: Antwort + Idempotency (UNIQUE (user_id, quiz_id, answered_date))
+    // v30.80 RACE-FIX: Der Leaderboard-Push (debounce 500ms ab Antwort) feuerte
+    // bisher VOR diesem Insert (der in einem 800ms-setTimeout haengt) → die
+    // Upsert-RPC zaehlte quiz_answers OHNE die neue Antwort → Rangliste fror ein
+    // (DB-Beweis: lb.updated_at 318ms VOR answers.created_at). Jetzt: DB-Trigger
+    // zaehlt atomar; zusaetzlich pushen/refreshen wir hier explizit NACH dem Insert.
     try {
       if (typeof sbFetch === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
         var uid = gsStore.get('gs_sb_uid', null);
@@ -10395,7 +10400,10 @@ async function answerSupaDailyQuiz(btn) {
             method:'POST',
             headers:{'Content-Type':'application/json','Prefer':'return=minimal,resolution=ignore-duplicates'},
             body: JSON.stringify({ user_id: uid, quiz_id: window._dqSupaQuizId, is_correct: isCorrect })
-          });
+          }).then(function(){
+            try { if (typeof dqPushLeaderboardDebounced === 'function') dqPushLeaderboardDebounced(dqGetStats()); } catch(_){}
+            try { if (typeof dqRefreshLeaderboards === 'function') dqRefreshLeaderboards(); } catch(_){}
+          }).catch(function(e){ console.log('[GS] quiz_answers insert:', e && e.message); });
         }
       }
     } catch(e) { console.log('[GS] quiz_answers insert:', e.message); }
@@ -16744,29 +16752,20 @@ function gsCheckFirstRun(){
   setTimeout(function(){showProfileToast('Tipp: Lange auf eine Art drücken → Quick-Menü','info');},7000);
 }
 
+// v30.80 BUG-FIX: dqPushToSupabase schrieb via window.supabase (existiert nicht,
+// kein supabase-js — vgl. Z.80347) in die tote quiz_ranking-Tabelle → returnte
+// IMMER still. 4 Legacy-Call-Sites riefen ins Leere. Jetzt: Umleitung auf das
+// echte v26.72-System (fn_quiz_leaderboard_upsert via dqPushLeaderboardDebounced).
 async function dqPushToSupabase(pts,correct,timeMs){
-  if(!window.supabase||typeof sbIsLoggedIn!=='function'||!sbIsLoggedIn()) return;
   try{
-    var user=(await supabase.auth.getUser()).data.user;
-    if(!user) return;
+    if (typeof sbIsLoggedIn!=='function'||!sbIsLoggedIn()) return;
     var stats=typeof dqGetStats==='function'?dqGetStats():{};
-    var nm=localStorage.getItem('gs_sb_display_name')||localStorage.getItem('gs_social_name')||(user.email||'').split('@')[0]||'Anonym'; // v28.82: gs_profile tot → kanonisch
-    await supabase.from('quiz_ranking').upsert({
-      user_id:user.id,username:nm,total_points:stats.points||0,
-      correct_answers:stats.correct||0,total_answers:stats.total||0,
-      streak:stats.streak||0,best_streak:stats.bestStreak||0,
-      last_played:new Date().toISOString().slice(0,10),
-      updated_at:new Date().toISOString()
-    },{onConflict:'user_id'});
+    if (typeof dqPushLeaderboardDebounced==='function') dqPushLeaderboardDebounced(stats);
   }catch(e){console.log('dqPush',e);}
 }
-async function dqLoadSupabaseRanking(){
-  if(!window.supabase) return null;
-  try{
-    var r=await supabase.from('quiz_ranking').select('username,total_points,correct_answers,total_answers,streak').order('total_points',{ascending:false}).limit(20);
-    return r.data||null;
-  }catch(e){return null;}
-}
+// @deprecated v30.80: quiz_ranking-Tabelle ist tot (v26.80). Nutze
+// dqLoadLeaderboardTop (fn_quiz_leaderboard_top). Kein Caller mehr.
+async function dqLoadSupabaseRanking(){ return null; }
 
 var _dynF=[],_dynFi=0;
 function gsInitDynamicFacts(){
@@ -17100,23 +17099,26 @@ async function openDqRanking() {
   content.innerHTML = '<div style="padding:20px;text-align:center;color:rgba(255,255,255,.6);">⏳ Lade Rangliste…</div>';
 
   // Lokale Stats als eigener Eintrag
+  // v30.80 BUG-FIX: window.supabase.auth.getUser() existiert nicht (kein
+  // supabase-js) → warf immer → localEntry blieb null UND kein Cloud-Eintrag
+  // wurde je als "isMe" markiert (User sah sich nie hervorgehoben). Jetzt:
+  // uid kanonisch aus gs_sb_uid + isMe-Match beim Cloud-Mapping.
   var stats = dqGetStats();
+  var myUid = null;
+  try { myUid = (typeof gsStore !== 'undefined' && gsStore.get) ? gsStore.get('gs_sb_uid', null) : localStorage.getItem('gs_sb_uid'); } catch(e) {}
   var localEntry = null;
-  if (typeof sbIsLoggedIn==='function' && sbIsLoggedIn()) {
-    try {
-      var user = (await window.supabase.auth.getUser()).data.user;
-      if (user) {
-        localEntry = {
-          username: user.user_metadata?.username || user.email?.split('@')[0] || 'Du',
-          yearPoints: stats.yearPoints || 0,
-          yearCorrect: stats.yearCorrect || 0,
-          yearTotal: stats.yearTotal || 0,
-          streak: stats.streak || 0,
-          year: yr,
-          isMe: true,
-        };
-      }
-    } catch(e) {}
+  if (myUid) {
+    var myName = '';
+    try { myName = localStorage.getItem('gs_sb_display_name') || localStorage.getItem('gs_social_name') || 'Du'; } catch(e) { myName = 'Du'; }
+    localEntry = {
+      username: myName,
+      yearPoints: stats.yearPoints || 0,
+      yearCorrect: stats.yearCorrect || 0,
+      yearTotal: stats.yearTotal || 0,
+      streak: stats.streak || 0,
+      year: yr,
+      isMe: true,
+    };
   }
 
   // v26.80 BUG-FIX: Code's quiz_leaderboard-Tabelle nutzen (v26.72) statt alte leere quiz_ranking.
@@ -17138,7 +17140,7 @@ async function openDqRanking() {
             yearCorrect: r.total_correct || 0,
             yearTotal: r.total_attempts || 0,
             streak: r.streak_max || 0,
-            isMe: false
+            isMe: !!(myUid && r.user_id === myUid)  // v30.80: eigener Eintrag hervorgehoben
           };
         });
       }
@@ -19684,16 +19686,23 @@ async function gsAnswerSupaQuiz(btn) {
     }
   } catch(e) {}
   // Server-side: /rest/v1/quiz_answers eintragen (nur wenn eingeloggt)
+  // v30.80 BUG-FIX: window.supabase.auth.getUser() existiert nicht (kein supabase-js,
+  // vgl. Z.80347) → der Insert lief NIE. Plus: Spalte heisst selected_option, nicht
+  // answer_index (PostgREST 400). uid kanonisch aus gs_sb_uid. Der neue DB-Trigger
+  // trg_quiz_answers_sync_lb zaehlt das Leaderboard atomar mit dem Insert hoch.
   try {
     if (typeof sbFetch === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
-      var userRes = await window.supabase.auth.getUser();
-      var uid = userRes && userRes.data && userRes.data.user && userRes.data.user.id;
-      if (uid) {
+      var uid = (typeof gsStore !== 'undefined' && gsStore.get) ? gsStore.get('gs_sb_uid', null) : localStorage.getItem('gs_sb_uid');
+      if (uid && qid) {
         await sbFetch('/rest/v1/quiz_answers', {
           method:'POST',
-          headers:{'Content-Type':'application/json','Prefer':'return=minimal'},
-          body: JSON.stringify({ user_id: uid, quiz_id: qid, is_correct: correct, answer_index: idx })
+          headers:{'Content-Type':'application/json','Prefer':'return=minimal,resolution=ignore-duplicates'},
+          body: JSON.stringify({ user_id: uid, quiz_id: qid, is_correct: correct, selected_option: idx })
         });
+        // Nach dem Insert: Streaks/Name pushen + offene Ranglisten refreshen
+        // (Zaehlung macht der DB-Trigger bereits race-frei selbst).
+        try { if (typeof dqPushLeaderboardDebounced === 'function') dqPushLeaderboardDebounced(dqGetStats()); } catch(_){}
+        try { if (typeof dqRefreshLeaderboards === 'function') dqRefreshLeaderboards(); } catch(_){}
       }
     }
   } catch(e) { console.log('[GS] quiz_answers insert:', e.message); }
@@ -22047,10 +22056,20 @@ function closeMainMenu() {
   if (typeof clearMenuSearch === 'function') clearMenuSearch();
   const m = document.getElementById('main-menu');
   if (!m) return;
+  const wasOpen = m.classList.contains('open');
   m.classList.remove('open');
   setTimeout(() => {
     if (!m.classList.contains('open')) m.style.display = 'none';
   }, 300);
+  // v30.80: Als-gesehen erst beim SCHLIESSEN des Menues — der fruehere
+  // 1,8s-Timer in openMainMenu blendete Badge + Panel aus, waehrend der
+  // User noch am Lesen war (Feedback: "wirkt gebastelt"). Jetzt: Panel
+  // bleibt stabil solange offen, Quittierung passiert beim Verlassen.
+  if (wasOpen) {
+    setTimeout(function(){
+      try { if (typeof gsMarkAllNotifsSeen === 'function') gsMarkAllNotifsSeen(); } catch(_){}
+    }, 320);
+  }
 }
 
 // ── Menü-Navigation ──────────────────────────────────────────
@@ -22179,12 +22198,9 @@ function openMainMenu() {
       try { if (typeof gsRenderNotifPanelInMenu === 'function') gsRenderNotifPanelInMenu(); } catch(_){}
     }
   } catch(_){}
-  try {
-    if (typeof gsMarkAllNotifsSeen === 'function') {
-      clearTimeout(window._gsNotifAckTimer);
-      window._gsNotifAckTimer = setTimeout(gsMarkAllNotifsSeen, 1800);
-    }
-  } catch(_){}
+  // v30.80: KEIN Auto-Mark-Timer mehr beim Oeffnen — Quittierung laeuft jetzt
+  // in closeMainMenu (beim Verlassen). Nur noch evtl. Alt-Timer aufraeumen.
+  try { clearTimeout(window._gsNotifAckTimer); } catch(_){}
 }
 
 // ═══════════ v23.70: NOTIFICATION-CENTER (iOS/WhatsApp-Style) ═══════════
@@ -22355,7 +22371,16 @@ function gsCollectNotifs(){
 }
 
 function gsCountUnreadNotifs(){
-  try { return gsCollectNotifs().length; } catch(_){ return 0; }
+  // v30.80: Eigene Aktionen (eigene Scans, Level-Ups) zaehlen NICHT mehr in den
+  // Badge — die hat der User selbst ausgeloest, ein roter Punkt dafuer wirkt
+  // wie Fake-Dringlichkeit. Im Panel bleiben sie als Aktivitaet sichtbar;
+  // der Badge steht nur noch fuer echte Neuigkeiten (Server-Pushes, Feedback,
+  // API-Probleme) — wie bei anderen Apps.
+  try {
+    return gsCollectNotifs().filter(function(n){
+      return n.type !== 'scan' && n.type !== 'level';
+    }).length;
+  } catch(_){ return 0; }
 }
 
 function gsRenderNotifBadge(){
@@ -22387,10 +22412,23 @@ function gsMarkAllNotifsSeen(){
   state.seenApiErrTs = now;
   gsSetNotifState(state);
   // v23.94: Server-seitig als gelesen markieren (best-effort)
+  // v30.80: Batch-PATCH statt N Einzel-Requests (vorher 1 Request pro Notif).
   try {
     var srv = window._gsServerNotifs;
-    if (Array.isArray(srv) && typeof gsNotifMarkRead === 'function') {
-      srv.forEach(function(n){ if (n && !n.is_read && n.id) gsNotifMarkRead(n.id); });
+    if (Array.isArray(srv) && srv.length) {
+      var unread = srv.filter(function(n){ return n && !n.is_read && n.id; });
+      var uid = (typeof gsStore !== 'undefined' && gsStore.get) ? gsStore.get('gs_sb_uid', null) : null;
+      if (unread.length && uid && typeof sbFetch === 'function' &&
+          typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
+        sbFetch('/rest/v1/notifications?user_id=eq.' + uid + '&is_read=eq.false', {
+          method:'PATCH',
+          headers:{'Content-Type':'application/json','Prefer':'return=minimal'},
+          body: JSON.stringify({is_read: true, read_at: new Date().toISOString()})
+        }).catch(function(){});
+        unread.forEach(function(n){ n.is_read = true; });
+      } else if (unread.length && typeof gsNotifMarkRead === 'function') {
+        unread.forEach(function(n){ gsNotifMarkRead(n.id); n.is_read = true; });
+      }
     }
   } catch(_){}
   gsRenderNotifBadge();
@@ -22416,7 +22454,11 @@ function gsRenderNotifPanelInMenu(){
     '<span class="gs-notif-title">🔔 Benachrichtigungen <span class="gs-notif-count">' + notifs.length + '</span></span>' +
     '<button onclick="gsMarkAllNotifsSeen()" class="gs-notif-clear" aria-label="Alle als gelesen markieren">Alle ✓</button>' +
   '</div>';
-  var items = notifs.slice(0,8).map(function(n){
+  // v30.80: Kein harter Cut mehr bei 8 mit totem "+N weitere"-Label — die
+  // Liste ist jetzt scrollbar (max-height), Cap 50 nur als DOM-Schutz
+  // (Server-Pull ist ohnehin limit=50).
+  var maxItems = 50;
+  var items = notifs.slice(0, maxItems).map(function(n){
     var ago = gsRelTime(n.ts);
     // v24.26: Snooze-Button nur für plant_task / plant_task_pre Notifs (alle anderen behalten Standard-Click)
     var isPlantTask = n.kind === 'plant_task' || n.kind === 'plant_task_pre';
@@ -22435,8 +22477,11 @@ function gsRenderNotifPanelInMenu(){
       snoozeBtn +
     '</div>';
   }).join('');
-  var more = notifs.length > 8 ? '<div class="gs-notif-more">+ ' + (notifs.length-8) + ' weitere</div>' : '';
-  panel.innerHTML = header + items + more;
+  var more = notifs.length > maxItems ? '<div class="gs-notif-more">+ ' + (notifs.length-maxItems) + ' weitere</div>' : '';
+  panel.innerHTML = header +
+    '<div class="gs-notif-scroll" style="max-height:46vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;">' +
+      items + more +
+    '</div>';
 }
 
 // Legacy-Alias: alter `updateScanHistoryBadge` ruft jetzt unser einheitliches System
@@ -22450,6 +22495,33 @@ window.updateScanHistoryBadge = function(){ try { gsRenderNotifBadge(); } catch(
     // v30.54: Server-Notifs schon beim Start ziehen (vorher erst beim Menü-Öffnen → Glocke zeigte beim Boot nichts).
     // gsNotifPull self-gated (Login) + aktualisiert das Badge selbst.
     try { if (typeof gsNotifPull === 'function') setTimeout(function(){ try { gsNotifPull(); } catch(_){} }, 1800); } catch(_){}
+    // v30.80: Live-Refresh — der Service Worker meldet empfangene Pushes per
+    // postMessage (GS_PUSH_RECEIVED). Offene Tabs ziehen die Inbox sofort
+    // nach, Badge aktualisiert sich live ohne Reload/Klick auf den OS-Push.
+    try {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', function(ev){
+          try {
+            if (ev && ev.data && ev.data.type === 'GS_PUSH_RECEIVED') {
+              if (typeof gsNotifPull === 'function') gsNotifPull();
+            }
+          } catch(_){}
+        });
+      }
+    } catch(_){}
+    // v30.80: Beim Zurueckkehren in den Tab die Inbox nachziehen (max. 1x/60s)
+    // — Pushes, die ankamen waehrend die App im Hintergrund/zu war.
+    try {
+      document.addEventListener('visibilitychange', function(){
+        try {
+          if (document.visibilityState !== 'visible') return;
+          var now = Date.now();
+          if (now - (window._gsNotifLastVisPull || 0) < 60000) return;
+          window._gsNotifLastVisPull = now;
+          if (typeof gsNotifPull === 'function') gsNotifPull();
+        } catch(_){}
+      });
+    } catch(_){}
   }
   if (document.readyState === 'complete' || document.readyState === 'interactive') {
     setTimeout(boot, 200);
@@ -66915,7 +66987,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.79';
+var GS_VERSION = 'v30.80';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -68609,10 +68681,50 @@ function checkMilestones(stats) {
 // ══ SCHÖNE TOAST NACHRICHTEN ════════════════════════════════
 var _gsToastTimer = null;
 var _gsToastEl = null;
+// v30.80: Toast-Queue — vorher überschrieb jeder neue Toast den sichtbaren
+// sofort (Meldungen gingen bei Bursts kommentarlos verloren). Jetzt: FIFO-
+// Queue (max 3), Duplikate werden verschluckt, der sichtbare Toast blendet
+// bei wartenden Nachrichten beschleunigt aus (~1s statt 3,5s Restzeit).
+// gsToast() delegiert hierher → deckt beide Toast-Systeme ab.
+var _gsToastQueue = [];
+var _gsToastActive = false;
+var _gsToastCurKey = '';
+function showProfileToast(msg, type) {
+  var _key = (msg && typeof msg === 'object') ? ((msg.title||'') + '|' + (msg.body||'')) : String(msg || '');
+  if (_gsToastActive) {
+    if (_key && _key === _gsToastCurKey) return;   // identisch zum sichtbaren → skip
+    var _last = _gsToastQueue[_gsToastQueue.length - 1];
+    if (!(_last && _last[2] === _key) && _gsToastQueue.length < 3) {
+      _gsToastQueue.push([msg, type, _key]);
+    }
+    // Sichtbaren Toast beschleunigt ausblenden, damit die Queue nicht träge wirkt
+    if (_gsToastTimer) {
+      clearTimeout(_gsToastTimer);
+      _gsToastTimer = setTimeout(function(){
+        if (_gsToastEl) _gsToastEl.classList.remove('show');
+        _gsToastNext();
+      }, 1000);
+    }
+    return;
+  }
+  _gsToastActive = true;
+  _gsToastCurKey = _key;
+  _gsToastShowNow(msg, type);
+}
+function _gsToastNext(){
+  _gsToastActive = false;
+  _gsToastCurKey = '';
+  var nxt = _gsToastQueue.shift();
+  if (nxt) {
+    _gsToastActive = true;
+    _gsToastCurKey = nxt[2] || '';
+    setTimeout(function(){ try { _gsToastShowNow(nxt[0], nxt[1]); } catch(_){ _gsToastNext(); } }, 250);
+  }
+}
 // v23.70: iOS-Style Toast — Top-Banner mit Icon/Title/Body, Swipe-to-dismiss
 // Kompatibel mit allen Legacy-Aufrufen showProfileToast('Text') + showProfileToast('Text','success')
 // Neue Signatur (optional): showProfileToast({icon, title, body, type, duration})
-function showProfileToast(msg, type) {
+function _gsToastShowNow(msg, type) {
   // Object-Signatur unterstützen
   var opts = (typeof msg === 'object' && msg) ? msg : null;
   var raw = opts ? (opts.body || opts.title || '') : String(msg || '');
@@ -68683,6 +68795,7 @@ function showProfileToast(msg, type) {
       if (dy < -40) { // genug nach oben gewischt → dismiss
         _gsToastEl.classList.remove('show');
         if (_gsToastTimer) clearTimeout(_gsToastTimer);
+        _gsToastNext();
       } else {
         _gsToastEl.style.transform = '';
       }
@@ -68693,6 +68806,7 @@ function showProfileToast(msg, type) {
     _gsToastEl.addEventListener('click', function(){
       _gsToastEl.classList.remove('show');
       if (_gsToastTimer) clearTimeout(_gsToastTimer);
+      _gsToastNext();
     });
     document.body.appendChild(_gsToastEl);
   }
@@ -68710,6 +68824,7 @@ function showProfileToast(msg, type) {
   _gsToastEl.classList.add('show');
   _gsToastTimer = setTimeout(function() {
     _gsToastEl.classList.remove('show');
+    _gsToastNext();
   }, dur);
 }
 

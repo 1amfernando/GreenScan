@@ -344,7 +344,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v30.79';
+const VERSION = 'gs-v30.80';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
@@ -605,7 +605,20 @@ self.addEventListener('push', (event) => {
     vibrate: [100, 50, 100],
     silent: false
   };
-  event.waitUntil(self.registration.showNotification(title, options));
+  // v30.80: Offene Tabs sofort informieren → In-App-Badge/Inbox aktualisieren
+  // sich live, ohne dass der User den OS-Push anklicken muss.
+  const notifyClients = self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    .then((clients) => {
+      clients.forEach((c) => c.postMessage({
+        type: 'GS_PUSH_RECEIVED',
+        category: payload.tag || (data.category || ''),
+        title: title
+      }));
+    }).catch(() => {});
+  event.waitUntil(Promise.all([
+    self.registration.showNotification(title, options),
+    notifyClients
+  ]));
 });
 
 // ─── NOTIFICATION-CLICK ──────────────────────────────────────
