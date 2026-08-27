@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.79.20260627">
+<meta name="app-version" content="30.80.20260801">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27427,6 +27427,35 @@ function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&l
 // immer den Fallback. Jetzt definiert (voller Escaper inkl. Single-Quote) → konsistentes Escaping.
 window._gsOcArg = function(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/"/g,'&quot;').replace(/'/g,"\\'"); };  // v30.13 HL#12: sicheres Onclick-Arg-Escape (Backslash, "->&quot;, '->\')
 window.gsHTMLEscape = function(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+// v30.80 Hard-Lesson #9 Nachzügler: gsSafeHTML war seit v24.02 in CLAUDE.md/ROADMAP als
+// "erledigt" dokumentiert (Tagged-Template + .escape/.attr/.url/.unsafe), aber wie gsHTMLEscape
+// vor dem Fix nirgends definiert — jede wörtliche Nutzung von gsSafeHTML`...` (statt eines
+// typeof-Guards) hätte einen ReferenceError geworfen. Jetzt real definiert, gleiches Escaping wie gsHTMLEscape.
+(function(){
+  function esc(s){ return window.gsHTMLEscape(s); }
+  function attr(s){ return window.gsHTMLEscape(s); }
+  function url(s){
+    var str = String(s == null ? '' : s).trim();
+    if (str === '' || /^\//.test(str) || /^(https?:|mailto:)/i.test(str)) return esc(str);
+    return '';
+  }
+  function unsafe(html){ return { __gsSafeHTMLUnsafe: true, html: String(html == null ? '' : html) }; }
+  function gsSafeHTML(strings){
+    var values = Array.prototype.slice.call(arguments, 1);
+    var out = strings[0];
+    for (var i = 0; i < values.length; i++) {
+      var v = values[i];
+      out += (v && typeof v === 'object' && v.__gsSafeHTMLUnsafe) ? v.html : esc(v);
+      out += strings[i + 1];
+    }
+    return out;
+  }
+  gsSafeHTML.escape = esc;
+  gsSafeHTML.attr = attr;
+  gsSafeHTML.url = url;
+  gsSafeHTML.unsafe = unsafe;
+  window.gsSafeHTML = gsSafeHTML;
+})();
 
 function togglePlantCard(id){
   const expand = document.getElementById('expand-' + id);
@@ -66915,7 +66944,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.79';
+var GS_VERSION = 'v30.80';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
