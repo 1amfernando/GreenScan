@@ -1,11 +1,18 @@
-// v26.19 pest-identify Edge-Fn (Cowork-Auftrag AUFTRAG_CODE_v26.19)
+// v26.19 pest-identify Edge-Fn (v2 — v26.50 ai_daily_usage Logging)
 // Identifiziert Schweizer Garten-Schädlinge aus Foto + Anthropic Vision +
-// plant_pests-Knowledge-Context (25 kuratierte Einträge, AGFF-Source).
+// plant_pests-Knowledge-Context (25 kuratierte Eintraege).
 //
 // POST { image_base64, media_type='image/jpeg', host_plant=null }
 // → { matched_slug, confidence, reasoning, alternatives, severity, advice, pest_detail }
 //
 // verify_jwt: true (User-Bearer-Token erforderlich, sonst kein Anthropic-Call)
+//
+// v2 (v26.50): fn_log_ai_usage RPC fire-and-forget vor success-Return.
+// v3 (v30.83, Audit P0-2): User-Verifikation IM CODE + Rate-Limit pro User.
+//   Vorher verliess sich die Fn ausschliesslich auf das Gateway-Flag verify_jwt=true
+//   und hatte KEIN Limit — jeder eingeloggte User konnte unbegrenzt teure Vision-Calls
+//   ausloesen, und ein versehentliches Umstellen des Flags haette sie voellig
+//   oeffentlich gemacht. Muster: plant-doctor-diagnose / garden-scan-analyze.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
@@ -43,6 +50,17 @@ Deno.serve(async (req) => {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 
+  // v30.83 SECURITY (Audit P0-2): User serverseitig verifizieren (Defense-in-Depth,
+  // unabhaengig vom Gateway-Flag). Das Frontend sendet immer ein frisches User-Token
+  // (_gsFreshToken), legitime Aufrufe sind daher nicht betroffen.
+  const authHdr = req.headers.get("authorization") || "";
+  const userToken = authHdr.replace(/^Bearer\s+/i, "").trim();
+  if (!userToken) return json(401, { error: "unauthorized" });
+  const sbUser = createClient(SUPABASE_URL, userToken, { auth: { persistSession: false } });
+  const { data: userData, error: userErr } = await sbUser.auth.getUser();
+  if (userErr || !userData?.user) return json(401, { error: "invalid token" });
+  const userId = userData.user.id;
+
   let body: any;
   try { body = await req.json(); }
   catch (_) { return json(400, { error: "invalid json" }); }
@@ -54,10 +72,19 @@ Deno.serve(async (req) => {
   if (!imageB64) return json(400, { error: "missing image_base64" });
   if (imageB64.length > 8 * 1024 * 1024) return json(413, { error: "image too large" });
 
+  // v30.83: Rate-Limit (KI-Kostenschutz) — max 30 Schaedlings-Scans/Stunde/User.
+  // Fail-open: ein Fehler im Limit-Check darf den Dienst nicht blockieren.
+  try {
+    const { data: rlOk } = await admin.rpc("fn_check_rate_limit", { p_bucket: userId, p_action: "pest_identify", p_max_per_hour: 30 });
+    if (rlOk === false) {
+      return json(429, { error: "rate_limited", message: "Zu viele Schädlings-Scans in kurzer Zeit — bitte etwas später erneut." });
+    }
+  } catch (_) { /* fail-open */ }
+
   const apiKey = await getAnthropicKey(admin);
   if (!apiKey) return json(503, { error: "Anthropic API-Key nicht konfiguriert" });
 
-  // 1) Knowledge-Inventory: passende Schädlinge filtern
+  // 1) Knowledge-Inventory: passende Schaedlinge filtern
   let pestQuery = admin.from("plant_pests").select(
     "slug,common_name_de,scientific_name,category,host_plants,symptoms,identification_tips,affected_parts,size_mm,body_color"
   );
@@ -65,7 +92,6 @@ Deno.serve(async (req) => {
     pestQuery = pestQuery.contains("host_plants", [hostPlant]);
   }
   const { data: pestsScoped } = await pestQuery.limit(30);
-  // Fallback: alle 25 wenn host_plant nicht matched
   let pests = pestsScoped || [];
   if (hostPlant && (!pests || pests.length === 0)) {
     const { data: all } = await admin.from("plant_pests").select(
@@ -74,15 +100,13 @@ Deno.serve(async (req) => {
     pests = all || [];
   }
 
-  // 2) Knowledge-Context-Block
   const knowledge = pests.map((p: any) =>
     `- ${p.slug} | ${p.common_name_de} (${p.scientific_name}, ${p.category}) | Groesse ${p.size_mm || "?"} | Farbe ${p.body_color || "?"} | befällt ${(p.affected_parts || []).join(",")} | Symptome: ${p.symptoms} | Tipps: ${p.identification_tips}`
   ).join("\n");
 
   const systemPrompt =
-    `Du bist ein Experte fuer Schweizer Garten-Schaedlinge. Analysiere das Foto und vergleiche mit dieser Knowledge-Base (jede Zeile ein bekannter Schaedling):\n\n${knowledge}\n\nAntworte AUSSCHLIESSLICH valides JSON-Objekt in diesem Format:\n{"matched_slug": "<slug aus Liste oder null>",\n "confidence": <0-100>,\n "reasoning": "<knapp 1-2 Saetze>",\n "alternative_slugs": ["<slug>", "<slug>"],\n "severity_observed": "gering|mittel|hoch",\n "advice": "<1-2 Saetze konkrete Sofort-Massnahme>"\n}\n\nRegeln:\n- Wenn unsicher (< 50% Confidence) → matched_slug=null und Hinweise im reasoning geben.\n- alternative_slugs: max 3 plausible Kandidaten.\n- KEIN Markdown, KEIN Pre-/Post-Text, NUR das JSON-Objekt.`;
+    `Du bist ein Experte fuer Schweizer Garten-Schaedlinge. Analysiere das Foto und vergleiche mit dieser Knowledge-Base (jede Zeile ein bekannter Schaedling):\n\n${knowledge}\n\nAntworte AUSSCHLIESSLICH valides JSON-Objekt in diesem Format:\n{\"matched_slug\": \"<slug aus Liste oder null>\",\n \"confidence\": <0-100>,\n \"reasoning\": \"<knapp 1-2 Saetze>\",\n \"alternative_slugs\": [\"<slug>\", \"<slug>\"],\n \"severity_observed\": \"gering|mittel|hoch\",\n \"advice\": \"<1-2 Saetze konkrete Sofort-Massnahme>\"\n}\n\nRegeln:\n- Wenn unsicher (< 50% Confidence) → matched_slug=null und Hinweise im reasoning geben.\n- alternative_slugs: max 3 plausible Kandidaten.\n- KEIN Markdown, KEIN Pre-/Post-Text, NUR das JSON-Objekt.`;
 
-  // 3) Anthropic Vision Call (Haiku 4.5)
   let aiJson: any;
   try {
     const aiResp = await fetch("https://api.anthropic.com/v1/messages", {
@@ -123,12 +147,20 @@ Deno.serve(async (req) => {
     return json(502, { error: "JSON-Parse-Fehler bei Anthropic-Antwort" });
   }
 
-  // 4) Vollständige Schädlings-Daten anreichern wenn match
   let fullPest = null;
   if (parsed.matched_slug && typeof parsed.matched_slug === "string") {
     const { data } = await admin.from("plant_pests").select("*").eq("slug", parsed.matched_slug).maybeSingle();
     fullPest = data;
   }
+
+  // v26.50: Log usage (fire-and-forget)
+  try {
+    await admin.rpc('fn_log_ai_usage', {
+      p_edge_fn: 'pest-identify',
+      p_tokens_in: aiJson?.usage?.input_tokens || 0,
+      p_tokens_out: aiJson?.usage?.output_tokens || 0,
+    });
+  } catch (_) { /* nicht-blockierend */ }
 
   return json(200, {
     matched_slug: parsed.matched_slug || null,

@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.82.20260827">
+<meta name="app-version" content="30.83.20260827">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19001,7 +19001,9 @@ async function gsAttachMushroomLiveCounter(card, patch) {
     var freq = {};
     rows.forEach(function(x){ var k = String(x.species_name||'').trim(); if (!k) return; freq[k] = (freq[k]||0) + 1; });
     var top = Object.entries(freq).sort(function(a,b){ return b[1]-a[1]; }).slice(0,3)
-      .map(function(p){ return p[0] + ' (' + p[1] + ')'; });
+      // v30.83 SECURITY: species_name stammt aus FREMDEN, oeffentlichen map_user_finds
+      // (freier Text des Finders) und landete hier ungefiltert im innerHTML.
+      .map(function(p){ return (typeof escHtml==='function' ? escHtml(p[0]) : String(p[0])) + ' (' + p[1] + ')'; });
     counterEl.innerHTML = '🐾 <b>' + rows.length + '</b> Community-Funde diesen Monat'
       + (top.length ? '<br><span style="opacity:.92;font-weight:500;">Top: ' + top.join(' · ') + '</span>' : '');
     counterEl.style.display = 'block';
@@ -20949,7 +20951,7 @@ function renderMarket() {
     var verifiedBadge = l.verified ? '<span style="color:#2e7d32;font-size:11px;margin-left:3px;" title="Verifiziert">✓</span>' : '';
     var reportBadge = (l.reports||0) >= 3 ? '<span style="background:#fff3e0;color:#e65100;font-size:9px;padding:1px 5px;border-radius:4px;font-weight:800;margin-left:4px;">' + _t('badge_reported','⚠️ Gemeldet') + '</span>' : '';
     // v26.36: Bio + Pestizid-frei-Badges
-    var bioBadge = l.organic_certified ? '<span style="background:#e8f5e9;color:#1b5e20;font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;" title="Bio-zertifiziert' + (l.certification_label ? ': ' + l.certification_label : '') + '">' + _t('badge_bio','🌱 Bio') + (l.certification_label ? ' (' + _esc(l.certification_label) + ')' : '') + '</span>' : '';
+    var bioBadge = l.organic_certified ? '<span style="background:#e8f5e9;color:#1b5e20;font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;" title="Bio-zertifiziert' + (l.certification_label ? ': ' + _esc(l.certification_label) : '') + '">' + _t('badge_bio','🌱 Bio') + (l.certification_label ? ' (' + _esc(l.certification_label) + ')' : '') + '</span>' : '';
     var pfBadge = (!l.organic_certified && l.pesticide_free) ? '<span style="background:#fff8e1;color:#bf360c;font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;" title="Pestizid-frei (eigene Aussage)">' + _t('badge_pestfree','🚫 Pestizid-frei') + '</span>' : '';
     var regionText = l.region && l.region !== 'other' ? l.region : '';
     var timeAgo = _timeAgo(l.createdAt);
@@ -20963,7 +20965,7 @@ function renderMarket() {
     html += '<div class="mk-card" onclick="openListingDetail(\'' + l.id + '\')" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px;margin-bottom:8px;cursor:pointer;-webkit-tap-highlight-color:transparent;display:flex;gap:11px;' + cardDim + '">' +
       // Bild/Icon
       '<div style="width:64px;height:64px;background:var(--g-bg);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:34px;flex-shrink:0;overflow:hidden;">' +
-        (l.images && l.images[0] ? '<img src="' + l.images[0] + '" alt="" style="width:100%;height:100%;object-fit:cover;">' : catEmoji) +
+        (l.images && l.images[0] ? '<img src="' + _gsSafeUrl(l.images[0]) + '" alt="" style="width:100%;height:100%;object-fit:cover;">' : catEmoji) +
       '</div>' +
       // Info
       '<div style="flex:1;min-width:0;">' +
@@ -20974,7 +20976,7 @@ function renderMarket() {
         '<div style="font-size:11.5px;color:var(--muted);line-height:1.4;margin-bottom:4px;max-height:32px;overflow:hidden;">' + _esc(l.desc||'').slice(0,90) + (l.desc && l.desc.length > 90 ? '…' : '') + '</div>' +
         '<div style="display:flex;align-items:center;gap:8px;font-size:10.5px;color:var(--muted);flex-wrap:wrap;">' +
           '<span style="background:var(--surface2);padding:2px 7px;border-radius:5px;font-weight:700;">' + catEmoji + ' ' + catLabel + '</span>' +
-          (regionText ? '<span>📍 ' + regionText + '</span>' : '') +
+          (regionText ? '<span>📍 ' + _esc(regionText) + '</span>' : '') +
           (avg > 0 ? '<span style="color:#ef6c00;font-weight:700;">★ ' + avg.toFixed(1) + (ratingCount ? ' (' + ratingCount + ')' : '') + '</span>' : '') +
           '<span style="margin-left:auto;">' + timeAgo + '</span>' +
           statusBadge + verifiedBadge + reportBadge + bioBadge + pfBadge +
@@ -20986,7 +20988,19 @@ function renderMarket() {
 }
 
 // Helpers
-function _esc(s) { return String(s||'').replace(/[<>&]/g, function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;'}[c];}); }
+// v30.83 SECURITY: Quotes ergaenzt. _esc wird auch in ATTRIBUT-Kontexten benutzt
+// (z.B. title="..."); ohne " und ' konnte fremd-befuellter Marktplatz-Text aus dem
+// Attribut ausbrechen (-> " onmouseover=...). In Text-Kontexten aendert sich nichts sichtbar.
+function _esc(s) { return String(s||'').replace(/[<>&"']/g, function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c];}); }
+// v30.83 SECURITY: URL-Sanitizer fuer fremd-befuellte Bild-URLs in src="..."-Attributen.
+// Erlaubt nur http(s)/data:image; escaped Quotes (verhindert Attribut-Ausbruch -> onerror=).
+function _gsSafeUrl(u) {
+  var s = String(u == null ? '' : u).trim();
+  if (!s) return '';
+  if (!/^(https?:\/\/|data:image\/)/i.test(s)) return '';
+  return s.replace(/[<>"']/g, function(c){ return {'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; });
+}
+window._gsSafeUrl = _gsSafeUrl;
 function _catEmoji(c) { return {produkte:'🍅',samen:'🌰',zubehor:'🔧',dienst:'🤝',tausch:'🔄'}[c] || '🌿'; }
 function _catLabel(c) {
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
@@ -36347,10 +36361,10 @@ function gsMarketShowDetail(l) {
   // Bilder-Galerie (1 großes Bild + Thumbnails)
   var galleryHtml = imgs.length
     ? '<div style="margin:0 -16px 14px;">' +
-        '<img id="mklist-main-img" src="' + imgs[0] + '" alt="" style="width:100%;max-height:320px;object-fit:cover;background:var(--surface2);" loading="lazy">' +
+        '<img id="mklist-main-img" src="' + _gsSafeUrl(imgs[0]) + '" alt="" style="width:100%;max-height:320px;object-fit:cover;background:var(--surface2);" loading="lazy">' +
         (imgs.length > 1 ? '<div style="display:flex;gap:6px;padding:8px 16px 0;overflow-x:auto;-webkit-overflow-scrolling:touch;">' +
           imgs.map(function(src, i){
-            return '<img onclick="document.getElementById(\'mklist-main-img\').src=\'' + _gsOcArg(src) + '\'" src="' + src + '" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:8px;cursor:pointer;flex-shrink:0;border:2px solid ' + (i===0?'var(--g-main)':'transparent') + ';" loading="lazy">';
+            return '<img onclick="document.getElementById(\'mklist-main-img\').src=\'' + _gsOcArg(src) + '\'" src="' + _gsSafeUrl(src) + '" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:8px;cursor:pointer;flex-shrink:0;border:2px solid ' + (i===0?'var(--g-main)':'transparent') + ';" loading="lazy">';
           }).join('') +
         '</div>' : '') +
       '</div>'
@@ -46358,7 +46372,7 @@ async function gsLoadMarkersFromCloud() {
       // v26.84: Cloud-Popup mit Foto wenn vorhanden + Cloud-Marker-Hinweis
       var photoBlock = '';
       if (row.photo_url) {
-        photoBlock = '<div style="margin-bottom:6px;text-align:center;"><img src="' + row.photo_url + '" style="max-width:100%;max-height:140px;border-radius:6px;border:1px solid #c8e6c9;" alt="" loading="lazy"></div>';
+        photoBlock = '<div style="margin-bottom:6px;text-align:center;"><img src="' + _gsSafeUrl(row.photo_url) + '" style="max-width:100%;max-height:140px;border-radius:6px;border:1px solid #c8e6c9;" alt="" loading="lazy"></div>';
       }
       var marker = L.marker([row.lat, row.lng], { icon: icon }).addTo(gsMap).bindPopup(
         '<div style="font-size:13px;">' + photoBlock +
@@ -67419,7 +67433,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.82';
+var GS_VERSION = 'v30.83';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -71516,13 +71530,25 @@ async function renderProfileLoggedIn(mc) {
     '</div>',
 
     // Einstellungen
+    // v30.83 BUGFIX (User-Report "XP-Balken → Navigation zeigt nur Konto löschen"):
+    // Das Profil-Sheet liegt (z-index 4000) ÜBER der Tab-Leiste (z-index 1500) und ist
+    // unten angedockt. Die letzten Buttons lagen damit exakt auf der Bildschirm-Position,
+    // an der die Navigation erwartet wird — ein Griff zur Navigation traf "Konto löschen".
+    // Fix: (1) destruktive Aktion hinter ein zugeklapptes <details> (nie versehentlich
+    // erreichbar), (2) grosszuegiger Spacer unten, damit KEIN Button in der Navi-Zone liegt.
     '<div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px;">',
       '<div style="font-weight:800;font-size:13px;color:var(--g-dark);margin-bottom:8px;">'+_t('prof_account_settings','⚙️ Konto-Einstellungen')+'</div>',
       '<button onclick="profEditName()" style="width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;text-align:left;font-size:13px;cursor:pointer;font-family:inherit;color:var(--text);margin-bottom:6px;">'+_t('prof_edit_name','✏️ Name ändern')+'</button>',
       '<button onclick="profChangePassword()" style="width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;text-align:left;font-size:13px;cursor:pointer;font-family:inherit;color:var(--text);margin-bottom:6px;">'+_t('prof_change_pw','🔒 Passwort ändern')+'</button>',
-      '<button onclick="profDeleteAccount()" style="width:100%;padding:10px 14px;background:#fff5f5;border:1px solid #ffcdd2;border-radius:10px;text-align:left;font-size:13px;cursor:pointer;font-family:inherit;color:#c62828;margin-bottom:6px;">'+_t('prof_delete_account','🗑️ Konto löschen')+'</button>',
-      '<button onclick="sbLogout().then(function(){closeModal(\'modal-profile\');showProfileToast(\'👋 Abgemeldet!\');})" style="width:100%;padding:11px 14px;background:#ffebee;border:none;border-radius:10px;text-align:left;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;color:#c62828;">'+_t('prof_logout','🚪 Abmelden')+'</button>',
+      '<button onclick="sbLogout().then(function(){closeModal(\'modal-profile\');showProfileToast(\'👋 Abgemeldet!\');})" style="width:100%;padding:11px 14px;background:#ffebee;border:none;border-radius:10px;text-align:left;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;color:#c62828;margin-bottom:10px;">'+_t('prof_logout','🚪 Abmelden')+'</button>',
+      // Gefahrenzone: zugeklappt, damit ein Fehlgriff sie nicht auslösen kann.
+      '<details style="margin-top:6px;">',
+        '<summary style="cursor:pointer;font-size:11.5px;color:var(--muted);font-weight:700;padding:8px 4px;list-style:none;">'+_t('prof_danger_zone','⚠️ Erweitert — Konto dauerhaft löschen')+'</summary>',
+        '<button onclick="profDeleteAccount()" style="width:100%;padding:10px 14px;margin-top:6px;background:var(--bg-danger-soft,#fff5f5);border:1px solid var(--c-danger-l,#ffcdd2);border-radius:10px;text-align:left;font-size:13px;cursor:pointer;font-family:inherit;color:var(--c-danger,#c62828);">'+_t('prof_delete_account','🗑️ Konto löschen')+'</button>',
+      '</details>',
     '</div>',
+    // Sicherheits-Abstand: haelt alle Buttons ausserhalb der Tab-Leisten-Zone unten.
+    '<div aria-hidden="true" style="height:calc(var(--tab-h,64px) + var(--sb,0px));"></div>',
   ].join('');
 }
 

@@ -21,27 +21,43 @@ const sb = createClient(SUPABASE_URL, SERVICE_ROLE, {
   auth: { persistSession: false, autoRefreshToken: false }
 });
 
-function decodeJwt(authHeader: string): { sub?: string; role?: string } {
-  try {
-    const tok = authHeader.replace(/^Bearer\s+/i, "").trim();
-    const seg = tok.split(".")[1];
-    if (!seg) return {};
-    const json = atob(seg.replace(/-/g, "+").replace(/_/g, "/"));
-    const p = JSON.parse(json);
-    return { sub: p.sub, role: p.role };
-  } catch (_) { return {}; }
+// v30.82 SECURITY-FIX (Audit P0-1, KRITISCH): Der frühere Gate las die ROLE aus dem
+// base64-Payload des JWT — OHNE die Signatur zu prüfen. Zusammen mit verify_jwt=false
+// am Gateway konnte JEDER anonyme Aufrufer sich einen Token mit {"role":"service_role"}
+// basteln und damit unbegrenzt Anthropic-Kosten auslösen. Der Payload eines JWT ist
+// KEIN Nachweis — er ist frei wählbarer Klartext.
+// Jetzt: (a) service_role via Constant-Time-Compare des VOLLEN Keys (Muster daily-push),
+// (b) Admin via echter Signaturprüfung (auth.getUser verifiziert serverseitig).
+// Fail-closed: alles andere → 403 (unverändertes Verhalten für reguläre User, die
+// Übersetzungen ohnehin per GET aus i18n_translations lesen).
+
+function constantTimeEquals(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return mismatch === 0;
 }
 
 // Gate: nur Admin-JWT oder service_role. Liefert null wenn erlaubt, sonst eine 403-Response.
 async function denyIfNotAdmin(req: Request, cors: Record<string,string>): Promise<Response | null> {
   const authHdr = req.headers.get("authorization") || "";
-  const { sub, role } = decodeJwt(authHdr);
-  const isService = role === "service_role" || (SERVICE_ROLE && authHdr.includes(SERVICE_ROLE));
-  if (isService) return null;
-  if (role === "authenticated" && sub) {
-    const { data: prof } = await sb.from("profiles").select("role").eq("id", sub).maybeSingle();
-    if (prof && prof.role === "admin") return null;
+  const token = authHdr.replace(/^Bearer\s+/i, "").trim();
+  if (!token) {
+    return new Response(JSON.stringify({ error: "admin_or_service_only" }), { status: 403, headers: cors });
   }
+
+  // (a) Seeding-Skript / Cron mit Service-Role-Key — voller Key, Constant-Time.
+  if (SERVICE_ROLE && constantTimeEquals(token, SERVICE_ROLE)) return null;
+
+  // (b) Admin-User — Signatur wird serverseitig verifiziert, Rolle aus der DB gelesen.
+  try {
+    const { data: { user }, error } = await sb.auth.getUser(token);
+    if (!error && user) {
+      const { data: prof } = await sb.from("profiles").select("role").eq("id", user.id).maybeSingle();
+      if (prof && prof.role === "admin") return null;
+    }
+  } catch (_) { /* fail-closed */ }
+
   return new Response(JSON.stringify({ error: "admin_or_service_only" }), { status: 403, headers: cors });
 }
 
