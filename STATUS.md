@@ -12,6 +12,15 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-08-27 (c) — Scheduled Security-Audit (read-only, kein Fix gepusht) — 4. Re-Bestätigung desselben Befunds
+
+- **Auftrag:** Automatisierte Scheduled-Routine ("vollständiger Code-Review auf Sicherheitslücken"). Read-only Verifikation gegen aktuellen `main` (`da894a0`, v30.81) — der Befund wurde bereits am 2026-07-21, 2026-07-23 und 2026-07-25 auf separaten `claude/lucid-cerf-*`-Branches bestätigt, aber **keiner dieser Branches wurde je in `main` gemerged**, weshalb der Fix nie live ging.
+- **⚠️ CRITICAL weiterhin LIVE (verifiziert per grep gegen `origin/main:index.html`):** `gsPullGlobalApiKey()` (Zeile ~23717) schreibt den rohen admin-globalen Anthropic-Key nach `localStorage.gs_global_api_key` für jeden eingeloggten User. `_gsAiTarget()` (Zeile ~23974) routet nur dann sicher über die Proxy-Edge-Fn, wenn `localStorage.gs_feat_aiproxy === '1'` — dieser Wert wird **weiterhin nirgends im Repo per `setItem` gesetzt** (0 Treffer), das Flag ist also für 100% der User dauerhaft AUS. Jeder eingeloggte User kann den Key aus `localStorage`/Network-Tab extrahieren → unlimitierte, unbezahlte Anthropic-API-Nutzung auf Kosten des Owners.
+- **Fix liegt weiterhin fertig im Repo:** `supabase/functions/ai-proxy/index.ts` hält den Key server-seitig + erzwingt JWT+Tier-Quota+Model-Whitelist (Code-Kommentar bei `_gsAiTarget` bestätigt das explizit). Es fehlt nur der Flag-Flip (`gs_feat_aiproxy` Default `'1'`) + ein kurzer Preview-Verify.
+- **Bewusst kein Push:** Wie die 3 Vorgänger-Sessions wurde die Flag-Änderung NICHT automatisch vorgenommen — das würde AI-Call-Routing für alle User in Produktion umschalten, was Fernando bewusst freigeben sollte. Stattdessen: Push-Notification an Fernando (4. Versuch, da die vorigen 3 offenbar nicht zum Fix geführt haben).
+- **Meta-Befund:** 109 unmerged `claude/lucid-cerf-*`-Branches auf `origin` (0 davon gemerged) — das erklärt strukturell, warum dieser wiederholt bestätigte Fund nie behoben wurde: jede Scheduled-Session arbeitet isoliert auf ihrem eigenen Wegwerf-Branch statt auf einem gemeinsamen PR/Branch weiterzuarbeiten.
+- **Naechste:** `gs_feat_aiproxy`-Default auf `'1'` setzen (kurzer Preview-Test reicht), dann Flag-Flip live verifizieren. Zusätzlich: Prozess klären, wie Scheduled-Audit-Findings tatsächlich in `main` ankommen (z.B. ein fester Audit-Branch statt immer neuer Wegwerf-Branches).
+
 ### 2026-08-27 (b) — v30.81 Notification-Center: wieder aufrufbare Inbox + abhakbare Aufgaben (Meine Pflanzen + Menü redesigned)
 
 - **Auftrag:** User-Feedback nach v30.80: „Bei Meine Pflanzen und im Menü sieht das mit den Benachrichtigungen hässlich/unprofessionell aus. Man soll sie nochmals aufrufen können. Aufgabenfeld zum Abhaken mit Archiv. Alles eine grosse Stufe besser — smoother, intelligenter."
