@@ -20,15 +20,15 @@
 | Bereich | Status | Kernaussage |
 |---|---|---|
 | **DB-Sicherheit (RLS)** | 🟢 | 178/178 Tabellen RLS-aktiv · 0 Security-ERROR-Advisors · 0 SECURITY-DEFINER-Fns mit mutable search_path |
-| **Edge-Function-Auth** | 🔴 | **1 kritische Auth-Bypass-Lücke** (`i18n-translate`) + 2 ungedrosselte KI-Spender + 9/18 `verify_jwt:false`-Fns ohne Quellcode im Repo |
+| **Edge-Function-Auth** | 🟡 | **1 kritische Auth-Bypass-Lücke** (`i18n-translate`) + 2 ungedrosselte KI-Spender + 9/18 `verify_jwt:false`-Fns ohne Quellcode im Repo |
 | **Secrets** | 🟠 | Working-Tree sauber · **aber** 1 rotiertes Admin-Secret in Git-History + 1 `whsec_`-Prefix in Markdown committed |
-| **Frontend-XSS** | 🟢 | Starke Escaping-Disziplin (`escHtml`/`ed`/`gsSanitize` durchgängig); Stichproben ohne User-Injection |
-| **Optik / Dark-Mode** | 🟠 | 7 doppelte DOM-IDs · viele hardcoded Hex-Farben (Dark-Mode-Lücken) · Notif-CSS in v30.81 bereits tokenisiert |
+| **Frontend-XSS** | 🟢 | Tiefen-Sweep: 4 echte Cross-User-Lücken gefunden — **alle in v30.83 behoben** (§1a). Sonst durchgängig sauber escaped |
+| **Optik / Dark-Mode** | 🟠 | 3 (harmlose) doppelte DOM-IDs · viele hardcoded Hex-Farben (Dark-Mode-Lücken) · Notif-CSS seit v30.81 tokenisiert |
 | **Wissens-Abdeckung** | 🟠 | **GSW (Schweizerdeutsch) = 0 Übersetzungen trotz „live"-Versprechen** · species-Tabelle 2'838 vs. 4'342 beworben |
 | **Infrastruktur** | 🟢 | CSP/HSTS/COOP solide · manifest vollständig · nur CSP-`script-src` zu weit (ungenutzte CDNs) |
 
-**Sofort-Handlung nötig (P0):** `i18n-translate` Auth-Bypass schliessen — sonst
-kann jeder im Internet unbegrenzt Anthropic-Tokens auf deine Rechnung verbrennen.
+**Status 2026-08-27:** ✅ **P0-1 und P0-2 sind behoben und live deployed** (v30.83,
+siehe §1). Offen bleibt P0-3 (`send-push`, Defense-in-Depth) sowie die P1-Punkte.
 
 ---
 
@@ -83,6 +83,31 @@ Flag-Flip ein unauthentifizierter Broadcast-Endpunkt an alle Push-Abonnenten.
 
 ---
 
+## 1a · ✅ Frontend-XSS — 4 Cross-User-Lücken gefunden und behoben (v30.83)
+
+Der vollständige Tiefen-Sweep (nach dem Spend-Limit nachgeholt) prüfte gezielt
+Daten, die **andere Personen** befüllen können. Vier echte Lücken — alle gefixt:
+
+| # | Ort | Angreifer-kontrolliertes Feld | Wirkung | Fix |
+|---|---|---|---|---|
+| 1 | `index.html` Community-Funde-Zähler | `species_name` aus fremden, öffentlichen `map_user_finds` (freier Text) | `<img onerror>` lief bei **jedem** Betrachter der Saison-Pilz-Karte | `escHtml()` |
+| 2 | Karten-Popup (2 Render-Pfade) | `photo_url` fremder Funde | `"`-Ausbruch aus `src="…"` → `onerror=` | neuer `_gsSafeUrl()` |
+| 3 | Marktplatz-Badge | `certification_label` (Verkäufer-PATCH, unvalidiert) | Ausbruch aus `title="…"` → `onmouseover=` | `_esc()` gehärtet |
+| 4 | Marktplatz-Bilder (3 Stellen) | `photo_urls` fremder Inserate | `"`-Ausbruch aus `src="…"` | `_gsSafeUrl()` |
+
+**Zwei Helfer neu/gehärtet:**
+- `_esc()` escaped jetzt auch `"` und `'` — es wurde in **Attribut**-Kontexten
+  benutzt, wo fehlende Quotes der eigentliche Ausbruchsweg sind.
+- `_gsSafeUrl()` (neu): erlaubt nur `https?://` und `data:image/`, escaped Quotes.
+  Blockiert `javascript:`-URLs. Verifiziert gegen echte Storage-URLs — keine
+  bestehenden Bilder betroffen.
+
+**Sauber befundene Bereiche** (kein Handlungsbedarf): Community-Feed, Profile,
+Freunde, Marktplatz-Chat, Orgs/Klassen, Lina-Coach, Feedback, Quiz-Ranglisten,
+Benachrichtigungen — alle konsequent über `escHtml`/`_gsCEsc`.
+
+---
+
 ## 2 · 🟠 P1 — Hohe Priorität
 
 ### P1-1 · 9 von 18 `verify_jwt:false`-Edge-Functions ohne Quellcode im Repo
@@ -122,18 +147,21 @@ Prüft Passwörter gegen HaveIBeenPwned. Steht seit v26.51 offen (ROADMAP P1-1).
 
 ## 3 · 🟡 P2 — Mittel (Optik / Konsistenz / Hygiene)
 
-### P2-1 · 7 doppelte DOM-IDs (statisches HTML)
-| ID | Vorkommen | Risiko |
+### P2-1 · 3 doppelte DOM-IDs *(korrigiert 2026-08-27)*
+
+> ⚠️ **Korrektur:** Die ursprüngliche Meldung „7 doppelte IDs" war falsch — das
+> Prüfskript hatte `id="…"` auch in Changelog-**Strings** mitgezählt. Nachgemessen
+> nur auf echtem Markup sind es **3**, und alle drei sind sich gegenseitig
+> ausschliessende Render-Pfade (harmlos):
+
+| ID | Vorkommen | Bewertung |
 |---|---|---|
-| `plant-name` | ×3 | `getElementById` trifft nur das erste → Formular-Prefill kann ins Leere greifen |
-| `main-tabs` | ×2 | Navigations-Container doppelt — potenziell doppelte Event-Handler |
-| `screen-more` | ×2 | Screen-Container-Kollision |
-| `abo-sub-info-host` | ×2 | Abo-Info-Slot |
-| `gs-prompt-input` | ×2 | Prompt-Modal (textarea/input-Variante — vermutlich exklusiv gerendert, tolerierbar) |
-| `gs-admin-finance-sec` | ×2 | Admin-Cockpit (2 Render-Pfade) |
-| `gs-admin-cockpit-sec` | ×2 | Admin-Cockpit (2 Render-Pfade) |
-**Fix:** IDs eindeutig machen; wo zwei Render-Varianten dasselbe ID nutzen,
-per Suffix trennen (`-textarea`/`-input`) oder auf Klassen umstellen.
+| `gs-prompt-input` | ×2 (14276/14277) | textarea- **oder** input-Variante, nie beide gleichzeitig → OK |
+| `gs-admin-finance-sec` | ×2 (76527/76539) | zwei Render-Zweige derselben Admin-Box → OK |
+| `gs-admin-cockpit-sec` | ×2 (76566/76588) | zwei Render-Zweige derselben Admin-Box → OK |
+
+`main-tabs`, `screen-more`, `plant-name`, `abo-sub-info-host` waren **False
+Positives**. Kein Handlungsbedarf.
 
 ### P2-2 · Hardcoded Hex-Farben → Dark-Mode-Lücken
 3'872 `#rrggbb`-Literale gesamt (viele in Changelog-Strings = false positive,
