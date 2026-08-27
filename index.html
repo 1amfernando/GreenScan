@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.83.20260827">
+<meta name="app-version" content="30.84.20260827">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -43140,7 +43140,7 @@ window.gsRenderBibliothek = async function() {
         '</select>' +
         '<select onchange="window._gsBibliothekFilter.cat=this.value;gsRenderBibliothek()" style="flex:1;min-width:120px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--card);">' +
           '<option value="">📋 Alle Kategorien</option>' +
-          catList.map(function(c){ return '<option value="' + ed(c) + '"' + (filter.cat===c?' selected':'') + '>' + ed(c) + ' (' + byCat[c] + ')</option>'; }).join('') +
+          catList.map(function(c){ return '<option value="' + ed(c) + '"' + (filter.cat===c?' selected':'') + '>' + ed(_gsKbCatLabel(c)) + ' (' + byCat[c] + ')</option>'; }).join('') +
         '</select>' +
       '</div>' +
       ((filter.fam||filter.cat||filter.search) ? '<button onclick="window._gsBibliothekFilter={fam:\'\',cat:\'\',search:\'\'};gsRenderBibliothek()" style="margin-top:8px;font-size:11px;padding:5px 10px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text2);cursor:pointer;">↻ Filter zurücksetzen</button>' : '') +
@@ -44499,6 +44499,33 @@ function _gsWave9RenderMedicinal(r, ed) {
   return html;
 }
 
+// v30.84: Deutsche Labels fuer die Wissens-Datenbank. Die Tabellen speichern
+// englische Slugs (category: 'pest_control', difficulty: 'easy') — die wurden
+// bis dahin ROH in der deutschen Oberflaeche angezeigt.
+var GS_KB_CAT_LABELS = {
+  soil:'Boden', propagation:'Vermehrung', pest_control:'Pflanzenschutz',
+  pruning:'Schnitt', fertilizing:'Düngung', planting:'Pflanzung',
+  permaculture:'Permakultur', mulching:'Mulchen', companion:'Mischkultur',
+  seasonal:'Saisonal', watering:'Bewässerung', harvest:'Ernte'
+};
+function _gsKbCatLabel(cat){
+  if (!cat) return '';
+  return GS_KB_CAT_LABELS[cat] || String(cat).replace(/_/g, ' ');
+}
+window._gsKbCatLabel = _gsKbCatLabel;
+
+function _gsKbDiffLabel(d){
+  if (!d) return null;
+  var map = {
+    easy:   { label:'leicht',        bg:'var(--bg-success-soft,#e8f5e9)', fg:'var(--c-success-d,#2e7d32)' },
+    medium: { label:'mittel',        bg:'var(--bg-warn-soft,#fff8e1)',    fg:'var(--c-warn-d,#e65100)' },
+    hard:   { label:'anspruchsvoll', bg:'var(--bg-danger-soft,#ffebee)',  fg:'var(--c-danger,#c62828)' },
+    expert: { label:'Profi',         bg:'var(--bg-purple-soft,#ede7f6)',  fg:'var(--c-purple,#5e35b1)' }
+  };
+  return map[d] || { label:String(d), bg:'var(--surface2)', fg:'var(--text2)' };
+}
+window._gsKbDiffLabel = _gsKbDiffLabel;
+
 window.gsRenderKnowledge = async function(section) {
   var el = document.getElementById('wissen-content');
   if (!el) return;
@@ -44546,7 +44573,7 @@ window.gsRenderKnowledge = async function(section) {
       '<input type="text" placeholder="🔍 Suche…" value="' + ed(filter.search) + '" onkeyup="(_gsKbGetFilter(\''+section+'\')).search=this.value;clearTimeout(window._kbSearchTimer);window._kbSearchTimer=setTimeout(function(){gsRenderKnowledge(\''+section+'\')},250);" style="width:100%;padding:9px 11px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--input-bg);color:var(--text);box-sizing:border-box;margin-bottom:8px;">' +
       (catList.length > 1 ? '<select onchange="(_gsKbGetFilter(\''+section+'\')).cat=this.value;gsRenderKnowledge(\''+section+'\')" style="width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--card);color:var(--text);">' +
         '<option value="">📋 Alle Kategorien (' + rows.length + ')</option>' +
-        catList.map(function(c){ return '<option value="' + ed(c) + '"' + (filter.cat===c?' selected':'') + '>' + ed(c) + ' (' + byCat[c] + ')</option>'; }).join('') +
+        catList.map(function(c){ return '<option value="' + ed(c) + '"' + (filter.cat===c?' selected':'') + '>' + ed(_gsKbCatLabel(c)) + ' (' + byCat[c] + ')</option>'; }).join('') +
       '</select>' : '') +
       ((filter.cat||filter.search) ? '<button onclick="window._gsKbFilters[\''+section+'\']={cat:\'\',search:\'\'};gsRenderKnowledge(\''+section+'\')" style="margin-top:8px;font-size:11px;padding:5px 10px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text2);cursor:pointer;">↻ Filter zurücksetzen</button>' : '') +
       '<div style="margin-top:8px;font-size:11.5px;color:var(--muted);">' + filtered.length + ' / ' + rows.length + ' angezeigt</div>' +
@@ -44592,14 +44619,32 @@ window.gsRenderKnowledge = async function(section) {
         '</div>';
       }).join('');
     } else if (section === 'techniken') {
+      // v30.84: Karten-Redesign. Vorher: englische Rohwerte („easy", „pest_control")
+      // in deutscher UI, und die Werkzeug-Angaben (141 von 161 Datensaetzen!) wurden
+      // gar nicht angezeigt — vorhandenes Wissen lag brach. Jetzt: uebersetzte
+      // Badges, farbige Kategorie, Werkzeug- und Saison-Zeile.
       itemsHtml = filtered.map(function(r){
         var steps = Array.isArray(r.steps) ? r.steps : [];
         var benefits = Array.isArray(r.benefits) ? r.benefits : [];
+        var tools = Array.isArray(r.tools) ? r.tools : [];
+        var diff = _gsKbDiffLabel(r.difficulty);
+        var catL = _gsKbCatLabel(r.category);
         return '<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:13px 14px;margin-bottom:10px;box-shadow:var(--shadow-sm);">' +
-          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">' + (r.emoji?'<span style="font-size:22px;">'+ed(r.emoji)+'</span>':'') + '<strong style="font-size:15px;">' + ed(r.title) + '</strong>' + (r.difficulty?'<span style="font-size:10px;background:var(--surface2);padding:2px 6px;border-radius:4px;">' + ed(r.difficulty) + '</span>':'') + '</div>' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap;">' +
+            (r.emoji?'<span style="font-size:22px;">'+ed(r.emoji)+'</span>':'') +
+            '<strong style="font-size:15px;color:var(--text);">' + ed(r.title) + '</strong>' +
+            (catL?'<span style="font-size:10px;background:var(--g-bg);color:var(--g-dark);border:1px solid var(--g-light);padding:2px 7px;border-radius:6px;font-weight:700;">' + ed(catL) + '</span>':'') +
+            (diff?'<span style="font-size:10px;background:' + diff.bg + ';color:' + diff.fg + ';padding:2px 7px;border-radius:6px;font-weight:700;">' + ed(diff.label) + '</span>':'') +
+          '</div>' +
           (r.short_desc?'<div style="font-size:12px;color:var(--text2);font-style:italic;margin-bottom:6px;">' + ed(r.short_desc) + '</div>':'') +
           (r.body?'<div style="font-size:12.5px;color:var(--text2);line-height:1.5;margin-bottom:8px;">' + ed(r.body) + '</div>':'') +
-          (benefits.length?'<div style="font-size:11.5px;color:var(--g-dark);margin-bottom:6px;">✓ ' + benefits.map(ed).join(' · ') + '</div>':'') +
+          (benefits.length?'<div style="font-size:11.5px;color:var(--g-dark);margin-bottom:6px;font-weight:600;">✓ ' + benefits.map(ed).join(' · ') + '</div>':'') +
+          ((tools.length || r.season)
+            ? '<div style="display:flex;gap:10px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-bottom:6px;">' +
+                (r.season?'<span>📅 ' + ed(r.season) + '</span>':'') +
+                (tools.length?'<span>🧰 ' + tools.slice(0,5).map(ed).join(', ') + (tools.length>5?' u.a.':'') + '</span>':'') +
+              '</div>'
+            : '') +
           (steps.length?'<details><summary style="font-size:12px;font-weight:700;cursor:pointer;color:var(--g-dark);">📋 Schritt-für-Schritt ('+steps.length+')</summary><ol style="margin:6px 0 0 18px;font-size:12px;color:var(--text2);line-height:1.5;">' + steps.slice(0,12).map(function(s){return '<li>'+ed(s)+'</li>';}).join('') + '</ol></details>':'') +
           (r.warning?'<div style="margin-top:6px;font-size:11.5px;color:var(--c-warn-d,#e65100);">⚠️ ' + ed(r.warning) + '</div>':'') +
         '</div>';
@@ -67433,7 +67478,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.83';
+var GS_VERSION = 'v30.84';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
