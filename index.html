@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.90.20260828">
+<meta name="app-version" content="30.91.20260828">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2265,9 +2265,9 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     </div>
 
     <!-- Notfall-Banner -->
-    <div style="background:#ffebee;border-radius:var(--r-sm);padding:10px 13px;display:flex;align-items:center;gap:10px;margin-bottom:4px;" onclick="window.open ? null : null">
+    <div style="background:var(--bg-danger-soft);border-radius:var(--r-sm);padding:10px 13px;display:flex;align-items:center;gap:10px;margin-bottom:4px;" onclick="window.open ? null : null">
       <span style="font-size:22px;">🚨</span>
-      <div style="flex:1;font-size:12px;color:#c62828;line-height:1.4;">
+      <div style="flex:1;font-size:12px;color:var(--c-danger);line-height:1.4;">
         <strong>Vergiftungsverdacht?</strong> Sofort Tox Info Suisse <strong>145</strong> oder Notruf <strong>144</strong> anrufen.
       </div>
     </div>
@@ -2682,7 +2682,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <div data-i18n="fb_intro" data-i18n-fallback="Hilf uns GreenScan besser zu machen — jedes Feedback wird gelesen, von der KI vor-sortiert und in der Roadmap berücksichtigt." style="font-size:11.5px;color:var(--text2);line-height:1.55;margin-bottom:12px;">
         Hilf uns GreenScan besser zu machen — jedes Feedback wird gelesen, von der KI vor-sortiert und in der Roadmap berücksichtigt.
       </div>
-      <label data-i18n="fb_lbl_type" data-i18n-html data-i18n-fallback="Typ <span style=&quot;color:#c62828;&quot;>*</span>" style="display:block;font-size:11px;font-weight:700;color:var(--text);margin-bottom:4px;">Typ <span style="color:#c62828;">*</span></label>
+      <label data-i18n="fb_lbl_type" data-i18n-html data-i18n-fallback="Typ <span style=&quot;color:var(--c-danger);&quot;>*</span>" style="display:block;font-size:11px;font-weight:700;color:var(--text);margin-bottom:4px;">Typ <span style="color:var(--c-danger);">*</span></label>
       <select class="fb-select" id="fb-type" onchange="gsFbValidate()">
         <option value="" data-i18n="fb_opt_choose" data-i18n-fallback="Typ wählen…">Typ wählen…</option>
         <option value="bug" data-i18n="fb_opt_bug" data-i18n-fallback="🐛 Fehler melden">🐛 Fehler melden</option>
@@ -2690,7 +2690,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
         <option value="data" data-i18n="fb_opt_data" data-i18n-fallback="📊 Datenfehler (Pflanze falsch)">📊 Datenfehler (Pflanze falsch)</option>
         <option value="ui" data-i18n="fb_opt_ui" data-i18n-fallback="🎨 UI/Design-Feedback">🎨 UI/Design-Feedback</option>
       </select>
-      <label data-i18n="fb_lbl_desc" data-i18n-html data-i18n-fallback="Beschreibung <span style=&quot;color:#c62828;&quot;>*</span>" style="display:block;font-size:11px;font-weight:700;color:var(--text);margin:4px 0 4px;">Beschreibung <span style="color:#c62828;">*</span></label>
+      <label data-i18n="fb_lbl_desc" data-i18n-html data-i18n-fallback="Beschreibung <span style=&quot;color:var(--c-danger);&quot;>*</span>" style="display:block;font-size:11px;font-weight:700;color:var(--text);margin:4px 0 4px;">Beschreibung <span style="color:var(--c-danger);">*</span></label>
       <textarea class="fb-textarea" id="fb-text" placeholder="Was ist passiert? Wie sollte es sein?  Je konkreter, desto besser." oninput="gsFbValidate()" maxlength="2000"></textarea>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;font-size:10.5px;color:var(--muted);">
         <span id="fb-counter">0 / 2000 Zeichen</span>
@@ -2700,7 +2700,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     </div>
     <div class="sec" style="padding-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
       <span data-i18n="sec_community_feedback" data-i18n-fallback="📊 Community-Feedback">📊 Community-Feedback</span>
-      <span id="fb-live-dot" title="Live-Feed aus der Community" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#1b5e20;background:#e8f5e9;border:1px solid #a5d6a7;padding:2px 8px;border-radius:10px;letter-spacing:.3px;">
+      <span id="fb-live-dot" title="Live-Feed aus der Community" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:var(--c-success-d);background:var(--bg-success-soft);border:1px solid #a5d6a7;padding:2px 8px;border-radius:10px;letter-spacing:.3px;">
         <span style="width:6px;height:6px;border-radius:50%;background:#43a047;box-shadow:0 0 6px #43a047;animation:fbPulse 1.6s ease-in-out infinite;"></span>LIVE
       </span>
       <span style="flex:1;"></span>
@@ -2844,8 +2844,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 </div>
 <!-- v25.17: Krankheits-Lexikon (nutzt plant_diseases-Tabelle) -->
 <div style="padding:0 16px 8px;">
-  <button onclick="gsDiseaseOpen()" title="Krankheits-Lexikon — Symptome erkennen + behandeln" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#ffebee,#ffcdd2);border:1.5px solid #ef5350;color:#c62828;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_disease_lexicon" data-i18n-fallback="🦠 Krankheits-Lexikon · Symptome + Treatment">🦠 Krankheits-Lexikon · Symptome + Treatment</span><span style="color:#c62828;font-size:18px;">›</span>
+  <button onclick="gsDiseaseOpen()" title="Krankheits-Lexikon — Symptome erkennen + behandeln" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#ffebee,#ffcdd2);border:1.5px solid #ef5350;color:var(--c-danger);border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_disease_lexicon" data-i18n-fallback="🦠 Krankheits-Lexikon · Symptome + Treatment">🦠 Krankheits-Lexikon · Symptome + Treatment</span><span style="color:var(--c-danger);font-size:18px;">›</span>
   </button>
 </div>
 <!-- v26.25: Bodenverbesserer-Recommender (soil_amendments-DB) -->
@@ -2867,8 +2867,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   <div style="padding-top:2px;">
 <!-- v25.18: Saisonkalender-Modal-Trigger (Voll-Jahres-Übersicht) -->
 <div style="padding:0 16px 8px;">
-  <button onclick="gsSeasonalOpen()" title="Saisonkalender — alle 12 Monate" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#e8f5e9,#c5e1a5);border:1.5px solid #66bb6a;color:#1b5e20;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_seasonal_cal" data-i18n-fallback="📅 Saisonkalender · Voll-Jahres-Übersicht">📅 Saisonkalender · Voll-Jahres-Übersicht</span><span style="color:#1b5e20;font-size:18px;">›</span>
+  <button onclick="gsSeasonalOpen()" title="Saisonkalender — alle 12 Monate" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#e8f5e9,#c5e1a5);border:1.5px solid #66bb6a;color:var(--c-success-d);border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_seasonal_cal" data-i18n-fallback="📅 Saisonkalender · Voll-Jahres-Übersicht">📅 Saisonkalender · Voll-Jahres-Übersicht</span><span style="color:var(--c-success-d);font-size:18px;">›</span>
   </button>
 </div>
 <!-- v26.27: Regional-Calendar (7 CH-Höhenzonen) -->
@@ -2891,8 +2891,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 </div>
 <!-- v25.16: Bee-Friendly-Garden-Modal (nutzt pollinators-Tabelle) -->
 <div style="padding:0 16px 8px;">
-  <button onclick="gsBeeFriendlyOpen()" title="Bestäuber-freundlicher Garten" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#fff8e1,#fffbd0);border:1.5px solid #fbc02d;color:#e65100;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_bee_friendly" data-i18n-fallback="🐝 Bestäuber-Garten · Wildbienen fördern">🐝 Bestäuber-Garten · Wildbienen fördern</span><span style="color:#e65100;font-size:18px;">›</span>
+  <button onclick="gsBeeFriendlyOpen()" title="Bestäuber-freundlicher Garten" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#fff8e1,#fffbd0);border:1.5px solid #fbc02d;color:var(--c-warn-d);border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_bee_friendly" data-i18n-fallback="🐝 Bestäuber-Garten · Wildbienen fördern">🐝 Bestäuber-Garten · Wildbienen fördern</span><span style="color:var(--c-warn-d);font-size:18px;">›</span>
   </button>
 </div>
   </div>
@@ -2974,7 +2974,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <div class="farm-res" id="res-fert">🌱 <span id="farm-fert">5</span></div>
     <div class="farm-res" id="res-seeds">🌰 <span id="farm-seeds">3</span></div>
     <div class="farm-res" id="res-tools">🔧 <span id="farm-tools">2</span></div>
-    <div class="farm-res" onclick="openFarmShop()" style="background:#fff8e1;border-color:#ffc107;cursor:pointer;">🏪 Shop</div>
+    <div class="farm-res" onclick="openFarmShop()" style="background:var(--bg-yellow-soft);border-color:#ffc107;cursor:pointer;">🏪 Shop</div>
   </div>
 
   <!-- Farm Grid -->
@@ -2990,7 +2990,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   <div style="padding:8px 12px 4px;margin-top:4px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
       <span data-i18n="farm_my_animals" style="font-size:13px;font-weight:700;color:var(--g-dark);">🐔 Meine Tiere</span>
-      <button onclick="openAnimalShop()" data-i18n="farm_buy_animal_btn" style="padding:5px 12px;background:#fff3e0;color:#bf5600;border:1.5px solid #ffcc80;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">+ Tier kaufen</button>
+      <button onclick="openAnimalShop()" data-i18n="farm_buy_animal_btn" style="padding:5px 12px;background:var(--bg-warn-soft);color:var(--c-warn-d);border:1.5px solid #ffcc80;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">+ Tier kaufen</button>
     </div>
     <div id="farm-animals" style="display:flex;gap:7px;flex-wrap:wrap;"></div>
   </div>
@@ -3030,7 +3030,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <div id="harvest-emoji" style="font-size:72px;margin-bottom:12px;animation:bounce .6s ease infinite alternate;">🌽</div>
       <h2 id="harvest-title" style="font-family:'Playfair Display',serif;color:var(--g-dark);font-size:22px;margin-bottom:6px;"></h2>
       <p id="harvest-msg" style="color:var(--muted);font-size:14px;line-height:1.5;"></p>
-      <div id="harvest-reward" style="margin:16px 0;padding:12px;background:#e8f5e9;border-radius:10px;font-size:16px;font-weight:700;color:var(--g-dark);"></div>
+      <div id="harvest-reward" style="margin:16px 0;padding:12px;background:var(--bg-success-soft);border-radius:10px;font-size:16px;font-weight:700;color:var(--g-dark);"></div>
       <button onclick="closeModal('modal-farm-harvest')" data-i18n="farm_harvest_super" style="width:100%;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">🎉 Super!</button>
     </div>
   </div>
@@ -3172,8 +3172,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <div class="mp-field">
         <label>Foto (optional)</label>
         <div style="display:flex;gap:8px;">
-          <button onclick="selectPostImage('camera')" style="flex:1;padding:11px;background:#e8f5e9;border:1.5px solid var(--g-light);border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;">📷 Kamera</button>
-          <button onclick="selectPostImage('gallery')" style="flex:1;padding:11px;background:#e8f5e9;border:1.5px solid var(--g-light);border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;">🖼️ Galerie</button>
+          <button onclick="selectPostImage('camera')" style="flex:1;padding:11px;background:var(--bg-success-soft);border:1.5px solid var(--g-light);border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;">📷 Kamera</button>
+          <button onclick="selectPostImage('gallery')" style="flex:1;padding:11px;background:var(--bg-success-soft);border:1.5px solid var(--g-light);border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;">🖼️ Galerie</button>
         </div>
         <!-- v23.59: static post-image-input entfernt — selectPostImage() erzeugt input dynamisch -->
         <div id="post-image-preview" style="width:100%;border-radius:10px;margin-top:8px;display:none;max-height:180px;overflow:hidden;"></div>
@@ -3236,7 +3236,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     </div>
     <div id="comments-list" style="padding:8px 16px;max-height:50vh;overflow-y:auto;"></div>
     <!-- Expert answer notice -->
-    <div id="expert-notice" style="display:none;margin:4px 16px;padding:8px 12px;background:#fff3e0;border-radius:8px;font-size:11.5px;color:#e65100;">
+    <div id="expert-notice" style="display:none;margin:4px 16px;padding:8px 12px;background:var(--bg-warn-soft);border-radius:8px;font-size:11.5px;color:var(--c-warn-d);">
       🏅 Ein verifizierter Experte hat geantwortet!
     </div>
     <!-- Add comment -->
@@ -3307,7 +3307,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
 <!-- v26.36: Bio / Pestizid-frei Filter-Pills -->
 <div style="background:var(--g-bg);padding:0 16px 8px;flex-shrink:0;display:flex;gap:6px;overflow-x:auto;">
-  <button id="market-filter-organic" onclick="gsMarketFilterOrganic()" style="padding:5px 11px;background:var(--card);border:1.5px solid #a5d6a7;border-radius:14px;font-size:11px;font-weight:800;cursor:pointer;color:#1b5e20;font-family:inherit;white-space:nowrap;-webkit-tap-highlight-color:transparent;">🌱 Bio-zertifiziert</button>
+  <button id="market-filter-organic" onclick="gsMarketFilterOrganic()" style="padding:5px 11px;background:var(--card);border:1.5px solid #a5d6a7;border-radius:14px;font-size:11px;font-weight:800;cursor:pointer;color:var(--c-success-d);font-family:inherit;white-space:nowrap;-webkit-tap-highlight-color:transparent;">🌱 Bio-zertifiziert</button>
   <button id="market-filter-pestfree" onclick="gsMarketFilterPestfree()" style="padding:5px 11px;background:var(--card);border:1.5px solid #ffcc80;border-radius:14px;font-size:11px;font-weight:800;cursor:pointer;color:#bf360c;font-family:inherit;white-space:nowrap;-webkit-tap-highlight-color:transparent;">🚫 Pestizid-frei</button>
   <!-- v26.92: Preis-Range-Filter -->
   <div style="display:flex;align-items:center;gap:4px;background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:3px 9px;white-space:nowrap;flex-shrink:0;">
@@ -3454,8 +3454,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <div class="mp-field">
         <label>Fotos (empfohlen)</label>
         <div style="display:flex;gap:8px;">
-          <button onclick="selectListingPhoto('camera')" style="flex:1;padding:11px;background:#e8f5e9;border:1.5px solid var(--g-light);border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;">📷 Kamera</button>
-          <button onclick="selectListingPhoto('gallery')" style="flex:1;padding:11px;background:#e8f5e9;border:1.5px solid var(--g-light);border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;">🖼️ Galerie</button>
+          <button onclick="selectListingPhoto('camera')" style="flex:1;padding:11px;background:var(--bg-success-soft);border:1.5px solid var(--g-light);border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;">📷 Kamera</button>
+          <button onclick="selectListingPhoto('gallery')" style="flex:1;padding:11px;background:var(--bg-success-soft);border:1.5px solid var(--g-light);border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;">🖼️ Galerie</button>
         </div>
         <input type="file" id="listing-photo-input" accept="image/*" style="display:none;" onchange="previewListingPhoto(this)">
         <img id="listing-photo-preview" alt="Vorschau Marktplatz-Foto" style="width:100%;border-radius:10px;margin-top:8px;display:none;max-height:200px;object-fit:cover;">
@@ -3473,7 +3473,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <div class="mp-field">
         <label>🌿 Anbau / Zertifizierung (optional)</label>
         <div style="display:flex;flex-direction:column;gap:6px;">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:9px 11px;background:#e8f5e9;border-radius:8px;border:1px solid #a5d6a7;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:9px 11px;background:var(--bg-success-soft);border-radius:8px;border:1px solid #a5d6a7;">
             <input type="checkbox" id="listing-organic" style="accent-color:var(--g-main);width:16px;height:16px;" onchange="document.getElementById('listing-cert-row').style.display=this.checked?'block':'none'">
             <div><div style="font-size:12.5px;font-weight:700;">🌱 Bio-zertifiziert</div><div style="font-size:11px;color:var(--muted);">Knospe, EU-Bio, Demeter etc.</div></div>
           </label>
@@ -3488,7 +3488,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
               <option value="Sonstiges">📋 Sonstiges</option>
             </select>
           </div>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:9px 11px;background:#fff8e1;border-radius:8px;border:1px solid #ffcc80;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:9px 11px;background:var(--bg-yellow-soft);border-radius:8px;border:1px solid #ffcc80;">
             <input type="checkbox" id="listing-pestfree" style="accent-color:#f57c00;width:16px;height:16px;">
             <div><div style="font-size:12.5px;font-weight:700;">🚫 Pestizid-frei</div><div style="font-size:11px;color:var(--muted);">Eigene Aussage (ohne Zertifikat)</div></div>
           </label>
@@ -3731,15 +3731,15 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       </div>
     </div>
     <!-- Disclaimer SOFORT sichtbar -->
-    <div style="margin:14px 18px 0;padding:11px 13px;background:#fff8e1;border:2px solid #fbc02d;border-radius:10px;font-size:11.5px;color:#bf360c;line-height:1.55;">
+    <div style="margin:14px 18px 0;padding:11px 13px;background:var(--bg-yellow-soft);border:2px solid #fbc02d;border-radius:10px;font-size:11.5px;color:var(--c-warn-d);line-height:1.55;">
       <b>⚠️ Wichtig:</b> Diese KI ist eine erste Einschätzung — sie ersetzt KEINE offizielle Pilzkontrolle (VAPKO). Im Zweifel: nie essen. Bei Verdacht auf Vergiftung sofort <b>Tox-Info Schweiz: 145</b> (24/7).
     </div>
     <div id="mushroom-form" style="padding:14px 18px 18px;">
       <div class="mp-field">
         <label data-i18n="mushroom_lbl_photo" data-i18n-fallback="📷 Foto des Pilzes (Pflicht)">📷 Foto des Pilzes (Pflicht)</label>
         <div id="mushroom-photo-area" style="display:flex;gap:8px;">
-          <button onclick="document.getElementById('mushroom-photo-camera').click()" style="flex:1;padding:11px;background:#f3e5f5;border:1.5px solid #ab47bc;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:#4a148c;font-family:inherit;" data-i18n="btn_mushroom_camera" data-i18n-fallback="📷 Kamera">📷 Kamera</button>
-          <button onclick="document.getElementById('mushroom-photo-gallery').click()" style="flex:1;padding:11px;background:#f3e5f5;border:1.5px solid #ab47bc;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:#4a148c;font-family:inherit;" data-i18n="btn_mushroom_gallery" data-i18n-fallback="🖼️ Galerie">🖼️ Galerie</button>
+          <button onclick="document.getElementById('mushroom-photo-camera').click()" style="flex:1;padding:11px;background:var(--bg-purple-soft);border:1.5px solid #ab47bc;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:var(--c-purple);font-family:inherit;" data-i18n="btn_mushroom_camera" data-i18n-fallback="📷 Kamera">📷 Kamera</button>
+          <button onclick="document.getElementById('mushroom-photo-gallery').click()" style="flex:1;padding:11px;background:var(--bg-purple-soft);border:1.5px solid #ab47bc;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:var(--c-purple);font-family:inherit;" data-i18n="btn_mushroom_gallery" data-i18n-fallback="🖼️ Galerie">🖼️ Galerie</button>
         </div>
         <input type="file" id="mushroom-photo-camera" accept="image/*" capture="environment" style="display:none;" onchange="gsMushroomLoadPhoto(this)">
         <input type="file" id="mushroom-photo-gallery" accept="image/*" style="display:none;" onchange="gsMushroomLoadPhoto(this)">
@@ -4218,9 +4218,9 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
         <div id="gs-live-measure" style="display:none;position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);color:#fff;padding:5px 14px;border-radius:8px;font-size:13px;font-weight:700;"></div>
       </div>
       <div style="display:flex;gap:7px;margin-bottom:10px;">
-        <button onclick="openGardenScanCamera()" style="flex:1;padding:11px;background:#e8f5e9;border:1.5px solid var(--g-light);border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;">📷 Kamera</button>
+        <button onclick="openGardenScanCamera()" style="flex:1;padding:11px;background:var(--bg-success-soft);border:1.5px solid var(--g-light);border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;">📷 Kamera</button>
         <button onclick="captureGardenScan()" id="gs-capture-btn" disabled style="flex:1;padding:11px;background:var(--g-main);border:none;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:#fff;font-family:inherit;opacity:.5;">📸 Aufnehmen</button>
-        <button onclick="document.getElementById('gs-file-input').click()" style="flex:1;padding:11px;background:#e8f5e9;border:1.5px solid var(--g-light);border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;">🖼️ Galerie</button>
+        <button onclick="document.getElementById('gs-file-input').click()" style="flex:1;padding:11px;background:var(--bg-success-soft);border:1.5px solid var(--g-light);border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;">🖼️ Galerie</button>
       </div>
       <input type="file" id="gs-file-input" accept="image/*" style="display:none;" onchange="loadGardenScanImage(this)">
       <!-- Manuelle Grösseneingabe -->
@@ -4287,7 +4287,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
             Wähle eine Methode — KI misst dann Länge, Breite, Form und Fläche.
           </div>
           <!-- v23.86: Linsen-Hinweis — Weitwinkel verfälscht Maße -->
-          <div style="background:#fff8e1;border:1px solid #ffd54f;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:11px;line-height:1.55;color:#5d4037;">
+          <div style="background:var(--bg-yellow-soft);border:1px solid #ffd54f;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:11px;line-height:1.55;color:var(--c-brown);">
             <div style="font-weight:800;margin-bottom:4px;">📸 Tipp für präzise Messung</div>
             • Nutze die <b>Standard-Linse (1×)</b> — Weitwinkel (0.5×) verzerrt &amp; macht Flächen optisch grösser<br>
             • Halte die Kamera auf <b>Hüfthöhe</b>, leicht schräg nach unten<br>
@@ -4889,7 +4889,7 @@ html, body{ scroll-behavior: smooth; }
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
       <div class="settings-row" id="settings-portal-row" onclick="gsOpenBillingPortal()" style="cursor:pointer;display:none;">
-        <div class="settings-icon" style="background:#e3f2fd;">💳</div>
+        <div class="settings-icon" style="background:var(--bg-info-soft);">💳</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_manage_sub" data-i18n-fallback="Abo verwalten">Abo verwalten</div>
           <div class="settings-label-sub" data-i18n="settings_manage_sub_hint" data-i18n-fallback="Zahlung, Rechnungen, kündigen">Zahlung, Rechnungen, kündigen</div>
@@ -4905,7 +4905,7 @@ html, body{ scroll-behavior: smooth; }
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
       <div class="settings-row" onclick="gsRestorePurchases()" style="cursor:pointer;">
-        <div class="settings-icon" style="background:#fff3e0;">🔄</div>
+        <div class="settings-icon" style="background:var(--bg-warn-soft);">🔄</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_restore" data-i18n-fallback="Kauf wiederherstellen">Kauf wiederherstellen</div>
           <div class="settings-label-sub" data-i18n="settings_restore_hint" data-i18n-fallback="Nach App-Neuinstallation oder Gerätewechsel">Nach App-Neuinstallation oder Gerätewechsel</div>
@@ -4918,7 +4918,7 @@ html, body{ scroll-behavior: smooth; }
     <div class="settings-group-title" data-i18n="settings_group_location" data-i18n-fallback="📍 Standort & Region">📍 Standort & Region</div>
     <div class="settings-card">
       <div class="settings-row" onclick="openLocationSettings()" style="cursor:pointer;">
-        <div class="settings-icon" style="background:#e3f2fd;">📍</div>
+        <div class="settings-icon" style="background:var(--bg-info-soft);">📍</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_my_location" data-i18n-fallback="Mein Standort">Mein Standort</div>
           <div class="settings-label-sub" id="settings-loc-display" data-i18n="settings_no_location" data-i18n-fallback="Kein Standort gesetzt">Kein Standort gesetzt</div>
@@ -4927,7 +4927,7 @@ html, body{ scroll-behavior: smooth; }
       </div>
       <!-- v23.54: Live-Tracking (z.B. beim Wandern) -->
       <div class="settings-row">
-        <div class="settings-icon" style="background:#fff8e1;">🥾</div>
+        <div class="settings-icon" style="background:var(--bg-yellow-soft);">🥾</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_live_loc" data-i18n-fallback="Live-Standort beim Wandern">Live-Standort beim Wandern</div>
           <div class="settings-label-sub" data-i18n="settings_live_loc_hint" data-i18n-fallback="Kontinuierlich folgen — akkuintensiver. Standard: aus.">Kontinuierlich folgen — akkuintensiver. Standard: aus.</div>
@@ -4962,7 +4962,7 @@ html, body{ scroll-behavior: smooth; }
         </label>
       </div>
       <div class="settings-row">
-        <div class="settings-icon" style="background:#e8f5e9;">🌡️</div>
+        <div class="settings-icon" style="background:var(--bg-success-soft);">🌡️</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_units" data-i18n-fallback="Masseinheiten">Masseinheiten</div>
           <div class="settings-label-sub" data-i18n="settings_units_hint" data-i18n-fallback="Temperatur & Masse">Temperatur & Masse</div>
@@ -4993,7 +4993,7 @@ html, body{ scroll-behavior: smooth; }
       <!-- Schriftgrösse → in den Senioren-Modus integriert (v28.19) -->
       <!-- Farbe Thema -->
       <div class="settings-row">
-        <div class="settings-icon" style="background:#e8f5e9;">🎨</div>
+        <div class="settings-icon" style="background:var(--bg-success-soft);">🎨</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_theme_color" data-i18n-fallback="App-Farbe">App-Farbe</div>
           <div class="settings-label-sub" data-i18n="settings_theme_color_hint" data-i18n-fallback="Hauptfarbe der App">Hauptfarbe der App</div>
@@ -5039,7 +5039,7 @@ html, body{ scroll-behavior: smooth; }
       <!-- v29.21 SET-01: 4 tote In-App-Notif-Toggles (waterNotif/weatherNotif/marketNotif/socialNotif)
            entfernt — sie schrieben ins Leere und duplizierten das echte Smart-Push-Panel weiter unten. -->
       <div class="settings-row" onclick="gsRequestNotifications()" style="cursor:pointer;">
-        <div class="settings-icon" style="background:#e8f5e9;">📲</div>
+        <div class="settings-icon" style="background:var(--bg-success-soft);">📲</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="lbl_settings_push_enable" data-i18n-fallback="Push-Benachrichtigungen aktivieren">Push-Benachrichtigungen aktivieren</div>
           <div class="settings-label-sub" id="notif-perm-status">Status wird geladen…</div>
@@ -5048,7 +5048,7 @@ html, body{ scroll-behavior: smooth; }
       </div>
       <!-- v25.26: Smart-Push-Notifications mit 4 Trigger-Kategorien + Stille-Zeit -->
       <div class="settings-row" id="push-settings-row" style="border-top:1px solid var(--border);">
-        <div class="settings-icon" style="background:#e3f2fd;">🔔</div>
+        <div class="settings-icon" style="background:var(--bg-info-soft);">🔔</div>
         <div class="settings-label" style="flex:1;">
           <div class="settings-label-title" data-i18n="lbl_settings_smartpush" data-i18n-fallback="Smart-Push (Frost/Wasser/Saison/Quiz)">Smart-Push (Frost/Wasser/Saison/Quiz)</div>
           <div class="settings-label-sub" id="push-status-sub">Status wird geladen …</div>
@@ -5105,7 +5105,7 @@ html, body{ scroll-behavior: smooth; }
       </div>
       <!-- v25.27: Sprachauswahl (Schweizer Markt komplett) -->
       <div class="settings-row" id="i18n-lang-row" style="border-top:1px solid var(--border);">
-        <div class="settings-icon" style="background:#fff3e0;">🌍</div>
+        <div class="settings-icon" style="background:var(--bg-warn-soft);">🌍</div>
         <div class="settings-label" style="flex:1;">
           <div class="settings-label-title" data-i18n="lbl_settings_language" data-i18n-fallback="Sprache · Langue · Lingua">Sprache · Langue · Lingua</div>
           <div class="settings-label-sub" id="i18n-status-sub">Aktiv: <span id="i18n-current-display">DE</span></div>
@@ -5125,7 +5125,7 @@ html, body{ scroll-behavior: smooth; }
     <div class="settings-group-title" data-i18n="settings_group_garden" data-i18n-fallback="🌱 Garten & Pflanzen">🌱 Garten & Pflanzen</div>
     <div class="settings-card">
       <div class="settings-row">
-        <div class="settings-icon" style="background:#e8f5e9;">🌙</div>
+        <div class="settings-icon" style="background:var(--bg-success-soft);">🌙</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_moon_cal" data-i18n-fallback="Mondkalender">Mondkalender</div>
           <div class="settings-label-sub" data-i18n="settings_moon_cal_hint" data-i18n-fallback="Im Garten-Tab anzeigen">Im Garten-Tab anzeigen</div>
@@ -5136,7 +5136,7 @@ html, body{ scroll-behavior: smooth; }
         </label>
       </div>
       <div class="settings-row">
-        <div class="settings-icon" style="background:#e3f2fd;">🌤️</div>
+        <div class="settings-icon" style="background:var(--bg-info-soft);">🌤️</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_home_weather" data-i18n-fallback="Wetter auf Startseite">Wetter auf Startseite</div>
           <div class="settings-label-sub" data-i18n="settings_home_weather_hint" data-i18n-fallback="Gartenwetter-Widget Home">Gartenwetter-Widget Home</div>
@@ -5175,17 +5175,17 @@ html, body{ scroll-behavior: smooth; }
            gsRemovePersonalKey() loescht den Eintrag damit Scanner auf den
            globalen Key fallen kann. JS toggled die Sichtbarkeit nach Click. -->
       <div class="settings-row admin-only-row" id="settings-personal-key-row" style="display:none;cursor:pointer;" onclick="gsRemovePersonalKey()">
-        <div class="settings-icon" style="background:#ffebee;">🗑️</div>
+        <div class="settings-icon" style="background:var(--bg-danger-soft);">🗑️</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_remove_personal_key" data-i18n-fallback="Persönlichen API-Key entfernen">Persönlichen API-Key entfernen</div>
           <div class="settings-label-sub" id="settings-personal-key-sub" data-i18n="settings_remove_personal_key_hint" data-i18n-fallback="Auf globalen Key zurücksetzen">Auf globalen Key zurücksetzen</div>
         </div>
-        <div style="font-size:18px;color:#c62828;">×</div>
+        <div style="font-size:18px;color:var(--c-danger);">×</div>
       </div>
       <!-- v26.70 Marketplace Tutti-Style: Inserate gehen ohne Stripe-Connect.
            Online-Payment ist optional. Settings-Row jetzt umformuliert (kein Zwang). -->
       <div class="settings-row" id="gs-marketplace-seller-row" onclick="gsMarketplaceOpenSellerScreen()" style="cursor:pointer;">
-        <div class="settings-icon" style="background:#e8f5e9;">🏪</div>
+        <div class="settings-icon" style="background:var(--bg-success-soft);">🏪</div>
         <div class="settings-label">
           <div class="settings-label-title" id="gs-marketplace-seller-title" data-i18n="settings_seller_connect" data-i18n-fallback="Online-Bezahlung aktivieren · Optional">Online-Bezahlung aktivieren · Optional</div>
           <div class="settings-label-sub" id="gs-marketplace-seller-sub" data-i18n="settings_seller_connect_hint" data-i18n-fallback="Damit Käufer in der App bezahlen können. Sonst funktioniert der Verkauf wie bei Tutti — direkter Kontakt + private Klärung.">Damit Käufer in der App bezahlen können. Sonst funktioniert der Verkauf wie bei Tutti — direkter Kontakt + private Klärung.</div>
@@ -5196,7 +5196,7 @@ html, body{ scroll-behavior: smooth; }
       <!-- v29.21 SET-02: Toggle 'Sicherheits-Warnungen' entfernt — er tat nichts (toter savePref-Key)
            UND ein Sicherheitsfeature (Giftwarnung beim Scannen) soll nicht abschaltbar sein → immer an. -->
       <div class="settings-row">
-        <div class="settings-icon" style="background:#e8f5e9;">💾</div>
+        <div class="settings-icon" style="background:var(--bg-success-soft);">💾</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_scan_history" data-i18n-fallback="Scan-Verlauf speichern">Scan-Verlauf speichern</div>
           <div class="settings-label-sub" data-i18n="settings_scan_history_hint" data-i18n-fallback="Gescannte Arten merken">Gescannte Arten merken</div>
@@ -5212,7 +5212,7 @@ html, body{ scroll-behavior: smooth; }
     <div class="settings-group-title" data-i18n="settings_group_data" data-i18n-fallback="🔒 Datenschutz & Daten">🔒 Datenschutz &amp; Daten</div>
     <div class="settings-card">
       <div class="settings-row">
-        <div class="settings-icon" style="background:#fff8e1;">🏆</div>
+        <div class="settings-icon" style="background:var(--bg-yellow-soft);">🏆</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_ach_feed" data-i18n-fallback="Achievements im Community-Feed zeigen">Achievements im Community-Feed zeigen</div>
           <div class="settings-label-sub" data-i18n="settings_ach_feed_hint" data-i18n-fallback="Deine freigeschalteten Erfolge erscheinen anonymisierbar im Feed anderer">Deine freigeschalteten Erfolge erscheinen im Feed anderer</div>
@@ -5233,7 +5233,7 @@ html, body{ scroll-behavior: smooth; }
       </div>
       <!-- v28.03: Wetter-Standort-Modus (tri-modal) -->
       <div class="settings-row" id="settings-weatherloc-row" style="cursor:pointer;" onclick="if(typeof gsOpenWeatherLocPicker==='function')gsOpenWeatherLocPicker()">
-        <div class="settings-icon" style="background:#e3f2fd;">🌦️</div>
+        <div class="settings-icon" style="background:var(--bg-info-soft);">🌦️</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_weatherloc" data-i18n-fallback="Wetter-Standort">Wetter-Standort</div>
           <div class="settings-label-sub" data-i18n="settings_weatherloc_hint" data-i18n-fallback="Automatisch · Mein Garten · Manuell">Automatisch · Mein Garten · Manuell</div>
@@ -5242,7 +5242,7 @@ html, body{ scroll-behavior: smooth; }
       </div>
       <!-- v28.07: Lina — AI-Garten-Coach (FREE für alle) -->
       <div class="settings-row" id="settings-lina-row" style="cursor:pointer;" onclick="if(typeof gsOpenLina==='function')gsOpenLina()">
-        <div class="settings-icon" style="background:#e8f5e9;">🌿</div>
+        <div class="settings-icon" style="background:var(--bg-success-soft);">🌿</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_lina" data-i18n-fallback="Lina — dein Garten-Coach">Lina — dein Garten-Coach</div>
           <div class="settings-label-sub" data-i18n="settings_lina_hint" data-i18n-fallback="Stell deine Garten- &amp; Natur-Fragen — kostenlos">Stell deine Garten- &amp; Natur-Fragen — kostenlos</div>
@@ -5251,7 +5251,7 @@ html, body{ scroll-behavior: smooth; }
       </div>
       <!-- v28.03: Hilfe & FAQ (Bereich 7 Self-Service) -->
       <div class="settings-row" id="settings-faq-row" style="cursor:pointer;" onclick="if(typeof gsOpenFAQ==='function')gsOpenFAQ()">
-        <div class="settings-icon" style="background:#fff8e1;">❓</div>
+        <div class="settings-icon" style="background:var(--bg-yellow-soft);">❓</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_faq" data-i18n-fallback="Hilfe &amp; FAQ">Hilfe &amp; FAQ</div>
           <div class="settings-label-sub" data-i18n="settings_faq_hint" data-i18n-fallback="Häufige Fragen &amp; Antworten">Häufige Fragen &amp; Antworten</div>
@@ -5260,7 +5260,7 @@ html, body{ scroll-behavior: smooth; }
       </div>
       <!-- v30.63: Onboarding-Tour erneut starten -->
       <div class="settings-row" id="settings-tour-row" style="cursor:pointer;" onclick="if(window.gsTutorial&&gsTutorial.start)gsTutorial.start()">
-        <div class="settings-icon" style="background:#e8f5e9;">🧭</div>
+        <div class="settings-icon" style="background:var(--bg-success-soft);">🧭</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_tour" data-i18n-fallback="App-Tour wiederholen">App-Tour wiederholen</div>
           <div class="settings-label-sub" data-i18n="settings_tour_hint" data-i18n-fallback="Die Einführung erneut ansehen">Die Einführung erneut ansehen</div>
@@ -5278,7 +5278,7 @@ html, body{ scroll-behavior: smooth; }
       </div>
       <!-- v28.01: Organisationen (Multi-Tenant — Schule/Kurs/Verein/Botanischer Garten) -->
       <div class="settings-row" id="settings-orgs-row" style="cursor:pointer;" onclick="if(typeof gsOpenOrgs==='function')gsOpenOrgs()">
-        <div class="settings-icon" style="background:#e8f5e9;">🏢</div>
+        <div class="settings-icon" style="background:var(--bg-success-soft);">🏢</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_orgs" data-i18n-fallback="Organisationen">Organisationen</div>
           <div class="settings-label-sub" data-i18n="settings_orgs_hint" data-i18n-fallback="Schule, Kurs, Verein, Botanischer Garten beitreten oder erstellen">Schule, Kurs, Verein beitreten oder erstellen</div>
@@ -5287,7 +5287,7 @@ html, body{ scroll-behavior: smooth; }
       </div>
       <!-- v28.06: Klassen / Lehrer-Dashboard (FREE — Schule/Kurs/Verein) -->
       <div class="settings-row" id="settings-classes-row" style="cursor:pointer;" onclick="if(typeof gsOpenClasses==='function')gsOpenClasses()">
-        <div class="settings-icon" style="background:#e3f2fd;">🎓</div>
+        <div class="settings-icon" style="background:var(--bg-info-soft);">🎓</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_classes" data-i18n-fallback="Klassen">Klassen</div>
           <div class="settings-label-sub" data-i18n="settings_classes_hint" data-i18n-fallback="Aufgaben &amp; Fortschritt für Schule, Kurs &amp; Verein">Aufgaben &amp; Fortschritt für Schule, Kurs &amp; Verein</div>
@@ -5296,7 +5296,7 @@ html, body{ scroll-behavior: smooth; }
       </div>
       <!-- v27.01: Cloud-Backup & Sync-Status (Datenverlust-Schutz) -->
       <div class="settings-row" id="settings-backup-row" style="cursor:pointer;" onclick="gsManualSnapshotBackup()">
-        <div class="settings-icon" style="background:#e8f5e9;">💾</div>
+        <div class="settings-icon" style="background:var(--bg-success-soft);">💾</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_backup" data-i18n-fallback="Cloud-Backup &amp; Sync">Cloud-Backup &amp; Sync</div>
           <div class="settings-label-sub" id="gs-sync-status" aria-live="polite">☁️ Tippen zum Sichern</div>
@@ -5313,7 +5313,7 @@ html, body{ scroll-behavior: smooth; }
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
       <div class="settings-row" id="settings-storage-row" style="cursor:pointer;" onclick="window.gsShowStorageModal && window.gsShowStorageModal()">
-        <div class="settings-icon" style="background:#e3f2fd;">💾</div>
+        <div class="settings-icon" style="background:var(--bg-info-soft);">💾</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_storage" data-i18n-fallback="Speicher">Speicher</div>
           <div class="settings-label-sub" data-i18n="settings_storage_hint" data-i18n-fallback="Cache, belegter Platz &amp; gespeicherte Daten">Cache, belegter Platz &amp; gespeicherte Daten</div>
@@ -5321,7 +5321,7 @@ html, body{ scroll-behavior: smooth; }
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
       <div class="settings-row" id="settings-conn-row" style="cursor:pointer;" onclick="window.gsShowConnDetail && window.gsShowConnDetail()">
-        <div class="settings-icon" style="background:#e8f5e9;">🌐</div>
+        <div class="settings-icon" style="background:var(--bg-success-soft);">🌐</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_conn" data-i18n-fallback="Verbindung">Verbindung</div>
           <div class="settings-label-sub" data-i18n="settings_conn_hint" data-i18n-fallback="Online-Status &amp; ausstehende Synchronisierung">Online-Status &amp; ausstehende Synchronisierung</div>
@@ -5329,7 +5329,7 @@ html, body{ scroll-behavior: smooth; }
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
       <div class="settings-row" id="settings-export-csv-row" style="cursor:pointer;" onclick="window.gsShowExportModal && window.gsShowExportModal()">
-        <div class="settings-icon" style="background:#fff3e0;">📊</div>
+        <div class="settings-icon" style="background:var(--bg-warn-soft);">📊</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_export_csv" data-i18n-fallback="Daten exportieren">Daten exportieren</div>
           <div class="settings-label-sub" data-i18n="settings_export_csv_hint" data-i18n-fallback="Pflanzen &amp; Tagebuch als CSV">Pflanzen &amp; Tagebuch als CSV</div>
@@ -5337,7 +5337,7 @@ html, body{ scroll-behavior: smooth; }
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
       <div class="settings-row admin-only-row" id="settings-export-row" style="display:none;cursor:pointer;" onclick="exportUserData()">
-        <div class="settings-icon" style="background:#e8f5e9;">📤</div>
+        <div class="settings-icon" style="background:var(--bg-success-soft);">📤</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_export" data-i18n-fallback="Daten exportieren">Daten exportieren</div>
           <div class="settings-label-sub" data-i18n="settings_export_hint" data-i18n-fallback="Alle deine Gärten, Pflanzen & Einstellungen">Alle deine Gärten, Pflanzen &amp; Einstellungen</div>
@@ -5345,7 +5345,7 @@ html, body{ scroll-behavior: smooth; }
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
       <div class="settings-row admin-only-row" id="settings-import-row" style="display:none;cursor:pointer;" onclick="importUserData()">
-        <div class="settings-icon" style="background:#e3f2fd;">📥</div>
+        <div class="settings-icon" style="background:var(--bg-info-soft);">📥</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_import" data-i18n-fallback="Daten importieren">Daten importieren</div>
           <div class="settings-label-sub" data-i18n="settings_import_hint" data-i18n-fallback="Backup wiederherstellen">Backup wiederherstellen</div>
@@ -5354,12 +5354,12 @@ html, body{ scroll-behavior: smooth; }
       </div>
 
       <div class="settings-row" onclick="gsConfirmClearAllData()" style="cursor:pointer;">
-        <div class="settings-icon" style="background:#ffebee;">🗑️</div>
+        <div class="settings-icon" style="background:var(--bg-danger-soft);">🗑️</div>
         <div class="settings-label">
-          <div class="settings-label-title" style="color:#c62828;" data-i18n="settings_clear_all" data-i18n-fallback="Alle Daten löschen">Alle Daten löschen</div>
+          <div class="settings-label-title" style="color:var(--c-danger);" data-i18n="settings_clear_all" data-i18n-fallback="Alle Daten löschen">Alle Daten löschen</div>
           <div class="settings-label-sub" data-i18n="settings_clear_all_hint" data-i18n-fallback="App zurücksetzen">App zurücksetzen</div>
         </div>
-        <div style="font-size:18px;color:#c62828;">›</div>
+        <div style="font-size:18px;color:var(--c-danger);">›</div>
       </div>
       <div class="settings-row admin-only-row" id="settings-sb-key-row" style="display:none;cursor:pointer;" onclick="openAdminSbKeyPanel()">
         <div class="settings-icon" style="background:#e8eaf6;">🔑</div>
@@ -5371,7 +5371,7 @@ html, body{ scroll-behavior: smooth; }
       </div>
       <!-- v24.20: Globaler Anthropic-Key — schreibt in DB, ALLE eingeloggten User profitieren -->
       <div class="settings-row admin-only-row" id="settings-global-claude-key-row" style="display:none;cursor:pointer;" onclick="gsOpenGlobalKeyAdmin()">
-        <div class="settings-icon" style="background:#e3f2fd;">🤖</div>
+        <div class="settings-icon" style="background:var(--bg-info-soft);">🤖</div>
         <div class="settings-label">
           <div class="settings-label-title" style="color:#0d47a1;" data-i18n="settings_global_key" data-i18n-fallback="Globaler Claude-Key (für alle User)">Globaler Claude-Key (für alle User)</div>
           <div class="settings-label-sub" data-i18n="settings_global_key_hint" data-i18n-fallback="Anthropic sk-ant-… · Status, Health, 6-Monats-Reminder">Anthropic sk-ant-… · Status, Health, 6-Monats-Reminder</div>
@@ -5380,9 +5380,9 @@ html, body{ scroll-behavior: smooth; }
       </div>
       <!-- v28.67: Admin-Dashboard-Entry (Live-Metriken + Stripe + Rollen) — war zuvor unerreichbar -->
       <div class="settings-row admin-only-row" id="settings-admin-dashboard-row" style="display:none;cursor:pointer;" onclick="openAdminPanel()">
-        <div class="settings-icon" style="background:#fff3e0;">👑</div>
+        <div class="settings-icon" style="background:var(--bg-warn-soft);">👑</div>
         <div class="settings-label">
-          <div class="settings-label-title" style="color:#bf5600;">Admin-Dashboard</div>
+          <div class="settings-label-title" style="color:var(--c-warn-d);">Admin-Dashboard</div>
           <div class="settings-label-sub">Live-Metriken · Stripe · Rollen verwalten</div>
         </div>
         <div style="font-size:18px;color:var(--muted);">›</div>
@@ -5399,22 +5399,22 @@ html, body{ scroll-behavior: smooth; }
     </div>
     <div class="settings-card">
       <div class="settings-row" onclick="openLegalModal('agb')" style="cursor:pointer;">
-        <div class="settings-icon" style="background:#e8f5e9;">📋</div>
+        <div class="settings-icon" style="background:var(--bg-success-soft);">📋</div>
         <div class="settings-label"><div class="settings-label-title" data-i18n="settings_agb" data-i18n-fallback="AGB">AGB</div><div class="settings-label-sub" data-i18n="settings_agb_hint" data-i18n-fallback="Allgemeine Geschäftsbedingungen">Allgemeine Geschäftsbedingungen</div></div>
         <div class="settings-arrow">›</div>
       </div>
       <div class="settings-row" onclick="openLegalModal('datenschutz')" style="cursor:pointer;">
-        <div class="settings-icon" style="background:#e3f2fd;">🔒</div>
+        <div class="settings-icon" style="background:var(--bg-info-soft);">🔒</div>
         <div class="settings-label"><div class="settings-label-title" data-i18n="settings_privacy" data-i18n-fallback="Datenschutz">Datenschutz</div><div class="settings-label-sub" data-i18n="settings_privacy_hint" data-i18n-fallback="nDSG Datenschutzerklärung">nDSG Datenschutzerklärung</div></div>
         <div class="settings-arrow">›</div>
       </div>
       <div class="settings-row" onclick="openLegalModal('haftung')" style="cursor:pointer;">
-        <div class="settings-icon" style="background:#fff3e0;">⚠️</div>
+        <div class="settings-icon" style="background:var(--bg-warn-soft);">⚠️</div>
         <div class="settings-label"><div class="settings-label-title" data-i18n="settings_liability" data-i18n-fallback="Haftungsausschluss">Haftungsausschluss</div><div class="settings-label-sub" data-i18n="settings_liability_hint" data-i18n-fallback="Sicherheitshinweise · Art. 100 OR">Sicherheitshinweise · Art. 100 OR</div></div>
         <div class="settings-arrow">›</div>
       </div>
       <div class="settings-row" onclick="openLegalModal('impressum')" style="cursor:pointer;">
-        <div class="settings-icon" style="background:#f3e5f5;">🏢</div>
+        <div class="settings-icon" style="background:var(--bg-purple-soft);">🏢</div>
         <div class="settings-label"><div class="settings-label-title" data-i18n="settings_imprint" data-i18n-fallback="Impressum">Impressum</div><div class="settings-label-sub"><span data-i18n="settings_contact" data-i18n-fallback="Kontakt">Kontakt</span> · <a href="mailto:info@greenscan.ch" style="color:inherit;text-decoration:underline;">info@greenscan.ch</a></div></div>
         <div class="settings-arrow">›</div>
       </div>
@@ -5447,7 +5447,7 @@ html, body{ scroll-behavior: smooth; }
       </div>
       <!-- v23.90 SECURITY: Admin-Settings-Row default versteckt — nur für Admin-Emails sichtbar -->
       <div class="settings-row" id="settings-admin-row" onclick="toggleAdminMode()" style="display:none;cursor:pointer;border-top:1px solid var(--border);">
-        <div class="settings-icon" style="background:#fff8e1;">🔐</div>
+        <div class="settings-icon" style="background:var(--bg-yellow-soft);">🔐</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_admin_mode" data-i18n-fallback="Admin-Modus">Admin-Modus</div>
           <div class="settings-label-sub" id="admin-mode-status" data-i18n="settings_admin_inactive" data-i18n-fallback="Inaktiv">Inaktiv</div>
@@ -5572,9 +5572,9 @@ html, body{ scroll-behavior: smooth; }
       <span style="font-size:11px;color:var(--muted);">Tippe zum Aufnehmen oder aus Galerie wählen</span>
     </div>
     <div class="ig-photo-zone-btns" id="ig-photo-btns" style="display:none;">
-      <button onclick="triggerIgCamera()" style="flex:1;padding:9px;background:#e8f5e9;border:1.5px solid var(--g-light);border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--g-dark);">📷 Kamera</button>
-      <button onclick="document.getElementById('ig-gallery-input').click()" style="flex:1;padding:9px;background:#e8f5e9;border:1.5px solid var(--g-light);border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--g-dark);">🖼️ Galerie</button>
-      <button onclick="clearIgPhoto()" style="padding:9px 13px;background:#ffebee;border:1.5px solid #ffcdd2;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;color:#c62828;">✕</button>
+      <button onclick="triggerIgCamera()" style="flex:1;padding:9px;background:var(--bg-success-soft);border:1.5px solid var(--g-light);border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--g-dark);">📷 Kamera</button>
+      <button onclick="document.getElementById('ig-gallery-input').click()" style="flex:1;padding:9px;background:var(--bg-success-soft);border:1.5px solid var(--g-light);border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--g-dark);">🖼️ Galerie</button>
+      <button onclick="clearIgPhoto()" style="padding:9px 13px;background:var(--bg-danger-soft);border:1.5px solid #ffcdd2;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--c-danger);">✕</button>
     </div>
     <input type="file" id="ig-file-input"    accept="image/*" capture="environment" style="display:none;" onchange="loadIgPhoto(this)">
     <input type="file" id="ig-gallery-input" accept="image/*"                       style="display:none;" onchange="loadIgPhoto(this)">
@@ -5729,19 +5729,19 @@ html, body{ scroll-behavior: smooth; }
     <div class="menu-section" data-i18n="msec_hauptfunktionen" data-i18n-fallback="Hauptfunktionen">Hauptfunktionen</div>
     <div class="menu-grid">
       <button class="menu-item" onclick="menuNav('home')" id="mi-home">
-        <div class="menu-item-icon" style="background:#e8f5e9;">🏠</div>
+        <div class="menu-item-icon" style="background:var(--bg-success-soft);">🏠</div>
         <span class="menu-item-label" data-i18n="menu_home" data-i18n-fallback="Home">Home</span>
       </button>
       <button class="menu-item" onclick="menuNav('scanner')" id="mi-scanner">
-        <div class="menu-item-icon" style="background:#e3f2fd;">📷</div>
+        <div class="menu-item-icon" style="background:var(--bg-info-soft);">📷</div>
         <span class="menu-item-label" data-i18n="menu_scanner" data-i18n-fallback="Scanner">Scanner</span>
       </button>
       <button class="menu-item" onclick="menuNav('search')" id="mi-search">
-        <div class="menu-item-icon" style="background:#f3e5f5;">🔍</div>
+        <div class="menu-item-icon" style="background:var(--bg-purple-soft);">🔍</div>
         <span class="menu-item-label" data-i18n="menu_suche" data-i18n-fallback="Suche">Suche</span>
       </button>
       <button class="menu-item" onclick="if(typeof gsOpenLina==='function')gsOpenLina()" id="mi-ai">
-        <div class="menu-item-icon" style="background:#e8f5e9;">🌿</div>
+        <div class="menu-item-icon" style="background:var(--bg-success-soft);">🌿</div>
         <span class="menu-item-label" data-i18n="menu_lina_coach" data-i18n-fallback="Lina · Coach">Lina · Coach</span>
       </button>
     </div>
@@ -5749,7 +5749,7 @@ html, body{ scroll-behavior: smooth; }
     <div class="menu-section" data-i18n="msec_meine_welt" data-i18n-fallback="Meine Welt">Meine Welt</div>
     <div class="menu-grid">
       <button class="menu-item" onclick="menuNav('favs')" id="mi-favs">
-        <div class="menu-item-icon" style="background:#e8f5e9;">🌱</div>
+        <div class="menu-item-icon" style="background:var(--bg-success-soft);">🌱</div>
         <span class="menu-item-label" data-i18n="menu_meine_pflanzen" data-i18n-fallback="Meine Pflanzen">Meine Pflanzen</span>
       </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){if(typeof gsOpenNaturjahr==='function')gsOpenNaturjahr();},200)" id="mi-naturjahr">
@@ -5762,7 +5762,7 @@ html, body{ scroll-behavior: smooth; }
       </button>
 
       <button class="menu-item" onclick="menuNav('season')" id="mi-season">
-        <div class="menu-item-icon" style="background:#e8f5e9;">📅</div>
+        <div class="menu-item-icon" style="background:var(--bg-success-soft);">📅</div>
         <span class="menu-item-label" data-i18n="menu_saisonkalender" data-i18n-fallback="Saisonkalender">Saisonkalender</span>
       </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(openLightMeter,200)" id="mi-light">
@@ -5811,19 +5811,19 @@ html, body{ scroll-behavior: smooth; }
     <div class="menu-section" data-i18n="msec_next_level_tools" data-i18n-fallback="✨ Next-Level-Tools">✨ Next-Level-Tools</div>
     <div class="menu-grid">
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){gsOpenPlantDoctor();},200)" id="mi-doctor">
-        <div class="menu-item-icon" style="background:#ffebee;">🩺</div>
+        <div class="menu-item-icon" style="background:var(--bg-danger-soft);">🩺</div>
         <span class="menu-item-label" data-i18n="menu_pflanzendoktor" data-i18n-fallback="Pflanzendoktor">Pflanzendoktor</span>
       </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){gsOpenHarvestTracker();},200)" id="mi-harvest">
-        <div class="menu-item-icon" style="background:#fff8e1;">🧺</div>
+        <div class="menu-item-icon" style="background:var(--bg-yellow-soft);">🧺</div>
         <span class="menu-item-label" data-i18n="menu_ernte_tracker" data-i18n-fallback="Ernte-Tracker">Ernte-Tracker</span>
       </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){gsOpenSeedInventory();},200)" id="mi-seeds">
-        <div class="menu-item-icon" style="background:#fff3e0;">🌰</div>
+        <div class="menu-item-icon" style="background:var(--bg-warn-soft);">🌰</div>
         <span class="menu-item-label" data-i18n="menu_saatgut_inventar" data-i18n-fallback="Saatgut-Inventar">Saatgut-Inventar</span>
       </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){gsOpenBiodiversity();},200)" id="mi-bio">
-        <div class="menu-item-icon" style="background:#e8f5e9;">🐝</div>
+        <div class="menu-item-icon" style="background:var(--bg-success-soft);">🐝</div>
         <span class="menu-item-label" data-i18n="menu_biodiversitaet" data-i18n-fallback="Biodiversität">Biodiversität</span>
       </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){gsOpenGardenTimeline();},200)" id="mi-timeline">
@@ -5839,11 +5839,11 @@ html, body{ scroll-behavior: smooth; }
     <div class="menu-section" data-i18n="msec_community" data-i18n-fallback="Community">Community</div>
     <div class="menu-grid">
       <button class="menu-item" onclick="menuNav('social')" id="mi-social">
-        <div class="menu-item-icon" style="background:#e8f5e9;">🌿</div>
+        <div class="menu-item-icon" style="background:var(--bg-success-soft);">🌿</div>
         <span class="menu-item-label" data-i18n="menu_community" data-i18n-fallback="Community">Community</span>
       </button>
       <button class="menu-item" onclick="menuNav('market')" id="mi-market">
-        <div class="menu-item-icon" style="background:#fff3e0;">🛒</div>
+        <div class="menu-item-icon" style="background:var(--bg-warn-soft);">🛒</div>
         <span class="menu-item-label" data-i18n="menu_marktplatz" data-i18n-fallback="Marktplatz">Marktplatz</span>
       </button>
       <button class="menu-item" onclick="menuNav('settings')" id="mi-settings">
@@ -5855,7 +5855,7 @@ html, body{ scroll-behavior: smooth; }
         <span class="menu-item-label" data-i18n="menu_feedback_amp_hilfe" data-i18n-fallback="Feedback &amp; Hilfe">Feedback &amp; Hilfe</span>
       </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(openAbout,200)" id="mi-about">
-        <div class="menu-item-icon" style="background:#e8f5e9;">ℹ️</div>
+        <div class="menu-item-icon" style="background:var(--bg-success-soft);">ℹ️</div>
         <span class="menu-item-label" data-i18n="menu_ueber_greenscan" data-i18n-fallback="Über GreenScan">Über GreenScan</span>
       </button>
       <button class="menu-item" id="mi-apikey" style="display:none;" onclick="closeMainMenu();openApiKey()">
@@ -5863,7 +5863,7 @@ html, body{ scroll-behavior: smooth; }
         <span class="menu-item-label" data-i18n="menu_api_key" data-i18n-fallback="API-Key">API-Key</span>
       </button>
       <button class="menu-item admin-only-row" id="mi-book-ingest" style="display:none;" onclick="closeMainMenu();setTimeout(openBookIngest,200)">
-        <div class="menu-item-icon" style="background:#fff3e0;">📚</div>
+        <div class="menu-item-icon" style="background:var(--bg-warn-soft);">📚</div>
         <span class="menu-item-label" data-i18n="menu_buch_einlesen_experten" data-i18n-fallback="Buch einlesen (Experten)">Buch einlesen (Experten)</span>
       </button>
       <button class="menu-item" onclick="closeMainMenu()">
@@ -5956,8 +5956,8 @@ html, body{ scroll-behavior: smooth; }
         </div>
       </div>
       <div style="display:flex;gap:7px;margin-bottom:12px;">
-        <button onclick="openDiagCamera()" style="flex:1;padding:11px;background:#e8f5e9;border:1.5px solid var(--g-light);border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;">📷 Kamera öffnen</button>
-        <button onclick="document.getElementById('diag-file-input').click()" style="flex:1;padding:11px;background:#e8f5e9;border:1.5px solid var(--g-light);border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;">🖼️ Foto wählen</button>
+        <button onclick="openDiagCamera()" style="flex:1;padding:11px;background:var(--bg-success-soft);border:1.5px solid var(--g-light);border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;">📷 Kamera öffnen</button>
+        <button onclick="document.getElementById('diag-file-input').click()" style="flex:1;padding:11px;background:var(--bg-success-soft);border:1.5px solid var(--g-light);border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;">🖼️ Foto wählen</button>
       </div>
       <input type="file" id="diag-file-input" accept="image/*" style="display:none;" onchange="loadDiagImage(this)">
       <div class="mp-field" style="display:none;" id="diag-symptom-field">
@@ -6433,7 +6433,7 @@ html, body{ scroll-behavior: smooth; }
 
       <!-- Notfall -->
       <div style="background:rgba(198,40,40,.08);border-left:3px solid #c62828;border-radius:10px;padding:10px 13px;margin-bottom:14px;">
-        <div style="font-size:12px;font-weight:800;color:#c62828;margin-bottom:4px;">🚨 Notfall</div>
+        <div style="font-size:12px;font-weight:800;color:var(--c-danger);margin-bottom:4px;">🚨 Notfall</div>
         <div style="font-size:12px;color:var(--text2);line-height:1.6;">
           <strong>Notruf:</strong> 144 · <strong>Tox Info Suisse:</strong> 145 · <strong>EU:</strong> 112
         </div>
@@ -13309,7 +13309,7 @@ async function gsOpenMyPlan() {
   h += '<div style="font-size:22px;font-weight:900;color:var(--text);margin-bottom:4px;">💎 Mein Plan</div>';
   h += '<div style="font-size:15px;color:var(--g-dark);font-weight:800;margin-bottom:16px;">Aktueller Tarif: ' + escHtml(planLabel) + '</div>';
   if (isPaid) {
-    h += '<div style="background:#e8f5e9;border-radius:12px;padding:16px;font-size:14px;color:var(--text);line-height:1.6;">🌿 Alle KI-Funktionen <b>unbegrenzt</b> — danke, dass du GreenScan unterstützt! Deine Beiträge decken die Server- &amp; KI-Kosten, damit die App für alle da sein kann.</div>';
+    h += '<div style="background:var(--bg-success-soft);border-radius:12px;padding:16px;font-size:14px;color:var(--text);line-height:1.6;">🌿 Alle KI-Funktionen <b>unbegrenzt</b> — danke, dass du GreenScan unterstützt! Deine Beiträge decken die Server- &amp; KI-Kosten, damit die App für alle da sein kann.</div>';
   } else {
     var feats = [{k:'scan',e:'🔍',l:'Pflanzen-Scan'},{k:'doctor',e:'🩺',l:'Pflanzen-Doktor'},{k:'foto_diff',e:'📈',l:'Wachstums-Analyse'}];
     var peeks = await Promise.all(feats.map(function(f){ return gsQuotaPeek(f.k); }));
@@ -16115,7 +16115,7 @@ function renderScanHistFull() {
           (item.lat ? '<div style="font-style:italic;font-size:10.5px;color:var(--muted);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (typeof escHtml==='function'?escHtml(item.lat):item.lat) + '</div>' : '') +
           '<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">' +
             (hasConf ? '<span style="font-size:10px;padding:1px 7px;background:' + confColor + '22;color:' + confColor + ';border-radius:5px;font-weight:700;">' + item.conf + '%</span>' : '') +
-            (dbMatch ? '<span style="font-size:9.5px;padding:1px 6px;background:#e8f5e9;color:#2e7d32;border-radius:5px;font-weight:700;">in DB</span>' : '') +
+            (dbMatch ? '<span style="font-size:9.5px;padding:1px 6px;background:var(--bg-success-soft);color:var(--c-success);border-radius:5px;font-weight:700;">in DB</span>' : '') +
             (timeStr ? '<span style="font-size:10px;color:var(--muted);">' + timeStr + '</span>' : '') +
           '</div>' +
         '</div>' +
@@ -16501,7 +16501,7 @@ function _gsGalDiffHtml(diff, days, _t, esc){
   var hCol=health==='besser'?'#2e7d32':health==='schlechter'?'#c62828':'#f57f17';
   var chips='';
   if(gp!=null) chips+='<span style="background:'+(gp>=0?'#e8f5e9':'#ffebee')+';color:'+(gp>=0?'#2e7d32':'#c62828')+';padding:4px 10px;border-radius:9px;font-size:12px;font-weight:800;">'+(gp>=0?'+':'')+gp+'% '+_t('gal_size','Größe')+'</span>';
-  if(nl!=null&&nl>0) chips+='<span style="background:#e8f5e9;color:#2e7d32;padding:4px 10px;border-radius:9px;font-size:12px;font-weight:800;">+'+nl+' '+_t('gal_leaves','Blätter/Triebe')+'</span>';
+  if(nl!=null&&nl>0) chips+='<span style="background:var(--bg-success-soft);color:var(--c-success);padding:4px 10px;border-radius:9px;font-size:12px;font-weight:800;">+'+nl+' '+_t('gal_leaves','Blätter/Triebe')+'</span>';
   if(health) chips+='<span style="background:'+hCol+'22;color:'+hCol+';padding:4px 10px;border-radius:9px;font-size:12px;font-weight:800;">'+_t('gal_health','Farbe/Gesundheit')+': '+esc(diff.color_health)+'</span>';
   var hl=(Array.isArray(diff.highlights)?diff.highlights:[]).filter(Boolean);
   var co=(Array.isArray(diff.concerns)?diff.concerns:[]).filter(Boolean);
@@ -16509,8 +16509,8 @@ function _gsGalDiffHtml(diff, days, _t, esc){
     +'<div style="font-size:13px;font-weight:900;color:var(--text);margin-bottom:8px;">📈 '+_t('gal_growth_result','Wachstums-Analyse')+(days!=null?' · '+days+' '+_t('gal_days','Tage'):'')+'</div>'
     +(chips?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">'+chips+'</div>':'')
     +(diff.summary?'<div style="font-size:13px;line-height:1.5;color:var(--text);margin-bottom:'+((hl.length||co.length)?'10px':'0')+';">'+esc(diff.summary)+'</div>':'')
-    +(hl.length?'<div style="margin-bottom:6px;">'+hl.map(function(h){ return '<div style="font-size:12px;color:#2e7d32;">✓ '+esc(h)+'</div>'; }).join('')+'</div>':'')
-    +(co.length?'<div>'+co.map(function(c){ return '<div style="font-size:12px;color:#c62828;">⚠️ '+esc(c)+'</div>'; }).join('')+'</div>':'')
+    +(hl.length?'<div style="margin-bottom:6px;">'+hl.map(function(h){ return '<div style="font-size:12px;color:var(--c-success);">✓ '+esc(h)+'</div>'; }).join('')+'</div>':'')
+    +(co.length?'<div>'+co.map(function(c){ return '<div style="font-size:12px;color:var(--c-danger);">⚠️ '+esc(c)+'</div>'; }).join('')+'</div>':'')
     +'</div>';
 }
 window.gsGalSetView=gsGalSetView; window.gsGalOpenSpecies=gsGalOpenSpecies; window.gsGalCloseSpecies=gsGalCloseSpecies; window.gsGalCompareGrowth=gsGalCompareGrowth;
@@ -21010,7 +21010,7 @@ function renderMarket() {
     var priceBadge = _priceLabel(l);
     var catEmoji = _catEmoji(l.cat);
     var catLabel = _catLabel(l.cat);
-    var verifiedBadge = l.verified ? '<span style="color:#2e7d32;font-size:11px;margin-left:3px;" title="Verifiziert">✓</span>' : '';
+    var verifiedBadge = l.verified ? '<span style="color:var(--c-success);font-size:11px;margin-left:3px;" title="Verifiziert">✓</span>' : '';
     var reportBadge = (l.reports||0) >= 3 ? '<span style="background:#fff3e0;color:#e65100;font-size:9px;padding:1px 5px;border-radius:4px;font-weight:800;margin-left:4px;">' + _t('badge_reported','⚠️ Gemeldet') + '</span>' : '';
     // v26.36: Bio + Pestizid-frei-Badges
     var bioBadge = l.organic_certified ? '<span style="background:#e8f5e9;color:#1b5e20;font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;" title="Bio-zertifiziert' + (l.certification_label ? ': ' + _esc(l.certification_label) : '') + '">' + _t('badge_bio','🌱 Bio') + (l.certification_label ? ' (' + _esc(l.certification_label) + ')' : '') + '</span>' : '';
@@ -23351,7 +23351,7 @@ async function gsFriendsOpenModal() {
         '<button onclick="gsFriendsRemove(\''+u.id+'\').then(function(){gsFriendsOpenModal();})" style="padding:6px 12px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;margin-left:8px;">Zurückziehen</button>';
     } else if (kind === 'accepted') {
       actions = '<span style="font-size:11px;color:#2e7d32;font-weight:700;">✓ Verbunden</span>' +
-        '<button onclick="gsFriendsRemove(\''+u.id+'\').then(function(){gsFriendsOpenModal();})" style="padding:6px 10px;background:none;border:none;color:#c62828;font-size:13px;cursor:pointer;font-family:inherit;">🗑</button>';
+        '<button onclick="gsFriendsRemove(\''+u.id+'\').then(function(){gsFriendsOpenModal();})" style="padding:6px 10px;background:none;border:none;color:var(--c-danger);font-size:13px;cursor:pointer;font-family:inherit;">🗑</button>';
     } else if (kind === 'search') {
       actions = '<button onclick="gsFriendsSendRequest(\''+u.id+'\').then(function(){gsFriendsOpenModal();})" style="padding:6px 12px;background:var(--g-main);color:#fff;border:none;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;">+ Folgen</button>';
     }
@@ -25577,9 +25577,9 @@ async function analyzeImage(b64, mt, organContext, extraImages){
         + '</div>'
       : '';
     rd.innerHTML =
-      '<div class="analyzing" style="color:#c62828;padding:20px 16px;">'+
+      '<div class="analyzing" style="color:var(--c-danger);padding:20px 16px;">'+
         '<div style="font-size:52px;margin-bottom:8px;filter:drop-shadow(0 2px 4px rgba(198,40,40,.25));">'+(isKeyErr?'🔑':(isNetErr?'📡':'⚠️'))+'</div>'+
-        '<p style="margin:0;font-size:18px;font-weight:900;color:#b71c1c;letter-spacing:.2px;">Scan fehlgeschlagen</p>'+
+        '<p style="margin:0;font-size:18px;font-weight:900;color:var(--c-danger-d);letter-spacing:.2px;">Scan fehlgeschlagen</p>'+
         '<p style="font-size:13px;color:var(--text);max-width:320px;text-align:center;line-height:1.55;font-weight:600;margin:6px auto 0;">'+escHtml(errMsg)+'</p>'+
         heroCta +
         diagLine +
@@ -25862,7 +25862,7 @@ function gsShowConfirmedScans() {
           '<div style="font-weight:700;color:var(--text);">' + escHtml(s.name) + '</div>' +
           '<div style="font-size:11px;color:var(--muted);">' + escHtml(s.lat) + ' · ' + s.confidence + '% · ' + new Date(s.scannedAt).toLocaleDateString('de-CH') + '</div>' +
         '</div>' +
-        (s.inMainDB ? '<span style="color:var(--g-main);font-size:11px;font-weight:700;">In DB</span>' : '<span style="color:#e65100;font-size:11px;">Neu</span>') +
+        (s.inMainDB ? '<span style="color:var(--g-main);font-size:11px;font-weight:700;">In DB</span>' : '<span style="color:var(--c-warn-d);font-size:11px;">Neu</span>') +
       '</div>';
     }).join('') +
     '</div>';
@@ -28261,7 +28261,7 @@ function _gsRenderSugList(list, q, dropdown){
     var lat = s.lat || '';
     var cat = (s.cat || '').toLowerCase();
     var tag = _GS_SUG_CATLABEL[cat] || '';
-    var tox = s.toxic ? '<span style="color:#c62828;font-size:11px;font-weight:700;margin-left:6px;" title="Giftig">⚠️ giftig</span>' : '';
+    var tox = s.toxic ? '<span style="color:var(--c-danger);font-size:11px;font-weight:700;margin-left:6px;" title="Giftig">⚠️ giftig</span>' : '';
     var cloud = s._remote ? '<span style="font-size:11px;margin-left:5px;opacity:.6;" title="Online-Treffer (tippfehler-tolerant)">☁️</span>' : '';
     return '<div role="option" tabindex="0" data-sug-idx="' + idx + '"' +
       ' onmousedown="event.preventDefault(); _gsApplyPlantSuggestion(' + idx + ')"' +
@@ -30388,7 +30388,7 @@ function renderRoomScanResult(results) {
 
   // Overall best spots
   const sorted = [...results].sort((a,b)=>b.lux-a.lux);
-  html += '<div style="margin-top:8px;padding:10px 12px;background:#e8f5e9;border-radius:10px;">';
+  html += '<div style="margin-top:8px;padding:10px 12px;background:var(--bg-success-soft);border-radius:10px;">';
   html += '<div style="font-weight:700;font-size:12.5px;color:var(--g-dark);margin-bottom:4px;">' + _t('room_recommendation','🏆 Empfehlung') + '</div>';
   html += '<div style="font-size:12px;color:var(--g-dark);">' + _t('room_brightest','Hellster Spot:') + ' <strong>' + sorted[0].emoji + ' ' + sorted[0].position + '</strong> (' + sorted[0].lux.toLocaleString() + ' ' + _t('unit_lux','Lux') + ') → ' + _t('room_light_loving','ideal für lichtliebende Pflanzen.') + '</div>';
   html += '<div style="font-size:12px;color:var(--g-dark);margin-top:3px;">' + _t('room_shadiest','Schattigster Spot:') + ' <strong>' + sorted[sorted.length-1].emoji + ' ' + sorted[sorted.length-1].position + '</strong> (' + sorted[sorted.length-1].lux.toLocaleString() + ' ' + _t('unit_lux','Lux') + ') → ' + _t('room_shade_tolerant','ideal für Schattenverträgliche.') + '</div>';
@@ -30788,9 +30788,9 @@ function renderFeedback(){
     if (errMsg) {
       // Fehler-State mit Retry-Button
       listEl.innerHTML = filterHtml +
-        '<div style="padding:22px 18px;text-align:center;border:1px solid rgba(198,40,40,.25);border-radius:14px;background:#ffebee;">'+
+        '<div style="padding:22px 18px;text-align:center;border:1px solid rgba(198,40,40,.25);border-radius:14px;background:var(--bg-danger-soft);">'+
           '<div style="font-size:32px;margin-bottom:8px;">⚠️</div>'+
-          '<div style="font-weight:700;color:#c62828;margin-bottom:4px;">'+_t('fb_error_title','Community-Feed konnte nicht geladen werden')+'</div>'+
+          '<div style="font-weight:700;color:var(--c-danger);margin-bottom:4px;">'+_t('fb_error_title','Community-Feed konnte nicht geladen werden')+'</div>'+
           '<div style="font-size:12px;color:#888;line-height:1.4;margin-bottom:12px;">'+escHtml(String(errMsg).slice(0,120))+'</div>'+
           '<button onclick="window._gsFbLastFetch=null;window._gsFbLastError=null;gsRefreshGlobalFeedback(true);" style="padding:8px 18px;background:#c62828;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-family:inherit;font-size:12.5px;">'+_t('fb_error_retry','🔄 Erneut versuchen')+'</button>'+
         '</div>';
@@ -30895,9 +30895,9 @@ function renderFeedback(){
         // KPIs
         '<div style="flex:1;min-width:0;display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;">'+
           '<div><div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.3px;">'+_t('fb_stat_analyzed','KI-ANALYSIERT')+'</div><div style="font-size:15px;font-weight:800;color:var(--g-dark);">'+pctAnalyzed+'<span style="font-size:10px;color:var(--muted);font-weight:600;">%</span></div></div>'+
-          '<div><div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.3px;">'+_t('fb_stat_accepted','ANGENOMMEN')+'</div><div style="font-size:15px;font-weight:800;color:#1b5e20;">'+pctAccepted+'<span style="font-size:10px;color:var(--muted);font-weight:600;">%</span></div></div>'+
+          '<div><div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.3px;">'+_t('fb_stat_accepted','ANGENOMMEN')+'</div><div style="font-size:15px;font-weight:800;color:var(--c-success-d);">'+pctAccepted+'<span style="font-size:10px;color:var(--muted);font-weight:600;">%</span></div></div>'+
           '<div><div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.3px;">'+_t('fb_stat_community','👍 COMMUNITY')+'</div><div style="font-size:15px;font-weight:800;color:var(--g-main);">'+approvalRate+'<span style="font-size:10px;color:var(--muted);font-weight:600;">%</span></div></div>'+
-          '<div><div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.3px;">'+_t('fb_stat_implemented','UMGESETZT')+'</div><div style="font-size:15px;font-weight:800;color:#1b5e20;">🎉 '+stats.implemented+'</div></div>'+
+          '<div><div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.3px;">'+_t('fb_stat_implemented','UMGESETZT')+'</div><div style="font-size:15px;font-weight:800;color:var(--c-success-d);">🎉 '+stats.implemented+'</div></div>'+
         '</div>'+
       '</div>'+
       // Segment bar
@@ -32610,9 +32610,9 @@ function gsRenderDoctorResult(j, plantLocalId) {
   }
   // Natürliche Hilfsmittel
   if (Array.isArray(t.natural_remedies) && t.natural_remedies.length) {
-    html += '<div style="margin-top:12px;padding:10px 12px;background:#e8f5e9;border-radius:10px;">';
-    html += '<div style="font-size:11.5px;font-weight:800;color:#1b5e20;margin-bottom:5px;" data-i18n="doctor_natural" data-i18n-fallback="🌿 Natürliche Hilfsmittel">🌿 Natürliche Hilfsmittel</div>';
-    html += '<ul style="margin:0;padding-left:18px;font-size:12.5px;color:#1b5e20;line-height:1.6;">';
+    html += '<div style="margin-top:12px;padding:10px 12px;background:var(--bg-success-soft);border-radius:10px;">';
+    html += '<div style="font-size:11.5px;font-weight:800;color:var(--c-success-d);margin-bottom:5px;" data-i18n="doctor_natural" data-i18n-fallback="🌿 Natürliche Hilfsmittel">🌿 Natürliche Hilfsmittel</div>';
+    html += '<ul style="margin:0;padding-left:18px;font-size:12.5px;color:var(--c-success-d);line-height:1.6;">';
     t.natural_remedies.forEach(function(r){ html += '<li>' + esc(r) + '</li>'; });
     html += '</ul></div>';
   }
@@ -32761,7 +32761,7 @@ async function gsDoctorShowHistory(plantLocalId) {
     html += '</div>';
     _gsNlOpen(html);
   } catch(e) {
-    _gsNlOpen('<div style="padding:24px;text-align:center;color:#c62828;">⚠️ Verlauf konnte nicht geladen werden.</div>');
+    _gsNlOpen('<div style="padding:24px;text-align:center;color:var(--c-danger);">⚠️ Verlauf konnte nicht geladen werden.</div>');
   }
 }
 window.gsDoctorShowHistory = gsDoctorShowHistory;
@@ -32912,7 +32912,7 @@ async function gsOpenBattles(){
     window._gsBattleList = rows;
     gsBattleRenderList(rows);
   } catch(e) {
-    _gsNlOpen('<div style="padding:24px;text-align:center;color:#c62828;">⚠️ Battles konnten nicht geladen werden.</div>');
+    _gsNlOpen('<div style="padding:24px;text-align:center;color:var(--c-danger);">⚠️ Battles konnten nicht geladen werden.</div>');
   }
 }
 window.gsOpenBattles = gsOpenBattles;
@@ -33011,7 +33011,7 @@ async function gsBattleNewRandom(){
       try { if (typeof gsToast==='function') setTimeout(function(){ gsToast('🔍 Gerade kein Gegner online — du spielst vor, das Ergebnis kommt sobald jemand annimmt.', 'info', 5000); }, 700); } catch(_){}
     }
   } catch(e) {
-    _gsNlOpen('<div style="padding:24px;text-align:center;color:#c62828;">⚠️ Match fehlgeschlagen. Bitte erneut versuchen.</div>');
+    _gsNlOpen('<div style="padding:24px;text-align:center;color:var(--c-danger);">⚠️ Match fehlgeschlagen. Bitte erneut versuchen.</div>');
   }
 }
 window.gsBattleNewRandom = gsBattleNewRandom;
@@ -33032,7 +33032,7 @@ async function gsBattleLoadAndPlay(battleId){
     }
     gsBattleStartPlay(d.id, d.role, d.questions);
   } catch(e) {
-    _gsNlOpen('<div style="padding:24px;text-align:center;color:#c62828;">⚠️ Battle konnte nicht geladen werden.</div>');
+    _gsNlOpen('<div style="padding:24px;text-align:center;color:var(--c-danger);">⚠️ Battle konnte nicht geladen werden.</div>');
   }
 }
 window.gsBattleLoadAndPlay = gsBattleLoadAndPlay;
@@ -33151,7 +33151,7 @@ async function gsBattleSubmit(){
     if (r && r.error) throw new Error(r.error.message || 'submit_failed');
     gsBattleRenderResult(d || {});
   } catch(e) {
-    _gsNlOpen('<div style="padding:24px;text-align:center;color:#c62828;">⚠️ Konnte nicht absenden.<br><button onclick="gsOpenBattles()" style="margin-top:14px;padding:10px 20px;background:#7e57c2;color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">Zurück</button></div>');
+    _gsNlOpen('<div style="padding:24px;text-align:center;color:var(--c-danger);">⚠️ Konnte nicht absenden.<br><button onclick="gsOpenBattles()" style="margin-top:14px;padding:10px 20px;background:#7e57c2;color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">Zurück</button></div>');
   } finally {
     window._gsBattle = null;
     _gsBattleClearPersist(); // v27.04: abgeschlossen → kein Resume mehr anbieten
@@ -33375,9 +33375,9 @@ function gsPestRenderResult(j) {
     html += '<div style="font-size:12.5px;color:var(--text2);line-height:1.5;margin-bottom:8px;">' + esc(p.symptoms) + '</div>';
   }
   if (Array.isArray(p.treatment_organic) && p.treatment_organic.length) {
-    html += '<div style="margin-top:10px;padding:10px 12px;background:#e8f5e9;border-radius:10px;">';
+    html += '<div style="margin-top:10px;padding:10px 12px;background:var(--bg-success-soft);border-radius:10px;">';
     html += '<div style="font-size:11.5px;font-weight:800;color:#1b5e20;margin-bottom:5px;">' + _t('pest_organic_heading','🌿 Bio-Behandlung') + '</div>';
-    html += '<ul style="margin:0;padding-left:18px;font-size:12.5px;color:#1b5e20;line-height:1.6;">';
+    html += '<ul style="margin:0;padding-left:18px;font-size:12.5px;color:var(--c-success-d);line-height:1.6;">';
     p.treatment_organic.forEach(function(t){ html += '<li>' + esc(t) + '</li>'; });
     html += '</ul></div>';
   }
@@ -33609,7 +33609,7 @@ async function gsMushroomRenderResult(j) {
 
   // LOOKALIKES — kritisch!
   if (Array.isArray(j.lookalikes) && j.lookalikes.length) {
-    html += '<div style="margin-top:12px;padding:12px 14px;background:#fff3e0;border:2px solid #e65100;border-radius:12px;">';
+    html += '<div style="margin-top:12px;padding:12px 14px;background:var(--bg-warn-soft);border:2px solid #e65100;border-radius:12px;">';
     html += '<div style="font-size:12.5px;font-weight:900;color:#bf360c;margin-bottom:6px;letter-spacing:.3px;">' + _t('mush_confusion_risk','⚠️ VERWECHSLUNGS-RISIKO') + '</div>';
     j.lookalikes.forEach(function(la){
       // v29.50 SAFETY: die tödlichste Stufe 'sehr_hoch_lebensgefahr' fehlte im Farb-Mapping → fiel auf
@@ -33742,7 +33742,7 @@ async function gsRunSoilRecommend() {
     var r = await sbFetch('/rest/v1/soil_amendments?select=*&limit=50', { method: 'GET' });
     var rows = (r && Array.isArray(r.data)) ? r.data : [];
     if (!rows.length) {
-      if (box) box.innerHTML = '<div style="margin-top:14px;padding:14px;background:#fff3e0;border-radius:10px;color:#bf360c;text-align:center;">Keine Bodenverbesserer in der Datenbank.</div>';
+      if (box) box.innerHTML = '<div style="margin-top:14px;padding:14px;background:var(--bg-warn-soft);border-radius:10px;color:var(--c-warn-d);text-align:center;">Keine Bodenverbesserer in der Datenbank.</div>';
       return;
     }
     // Score
@@ -33804,7 +33804,7 @@ async function gsRunSoilRecommend() {
     });
     html += '</div>';
     // Speicher-Hinweis
-    html += '<div style="margin-top:8px;padding:8px 12px;background:#e3f2fd;border-radius:9px;font-size:10.5px;color:#01579b;text-align:center;">Dein Boden-Profil ist gespeichert — beim nächsten Mal vorausgefüllt.</div>';
+    html += '<div style="margin-top:8px;padding:8px 12px;background:var(--bg-info-soft);border-radius:9px;font-size:10.5px;color:var(--c-info);text-align:center;">Dein Boden-Profil ist gespeichert — beim nächsten Mal vorausgefüllt.</div>';
 
     // Store top5 für Detail-Lookup
     window._gsSoilTop5 = top5.map(function(s){ return s.row; });
@@ -33841,27 +33841,27 @@ async function gsLoadMedicinalProfile(spId, latName) {
     // Section-Header
     html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;border-bottom:1.5px solid #66bb6a;padding-bottom:8px;">';
     html += '<span style="font-size:24px;">🌿</span>';
-    html += '<div style="font-family:\'Playfair Display\',serif;font-size:17px;font-weight:900;color:#1b5e20;">Als Heilpflanze</div>';
+    html += '<div style="font-family:\'Playfair Display\',serif;font-size:17px;font-weight:900;color:var(--c-success-d);">Als Heilpflanze</div>';
     html += '</div>';
 
     // Badges
     var badges = '';
     if (med.evidence_level) badges += '<span style="background:#e8f5e9;color:#1b5e20;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:700;">📊 Evidenz: ' + ed(med.evidence_level) + '</span> ';
-    if (med.swiss_native) badges += '<span style="background:#e3f2fd;color:#01579b;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:700;">🇨🇭 CH-heimisch</span> ';
-    if (med.protected_species) badges += '<span style="background:#ffebee;color:#c62828;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:700;">🛡️ Geschützt</span> ';
+    if (med.swiss_native) badges += '<span style="background:var(--bg-info-soft);color:var(--c-info);padding:3px 9px;border-radius:7px;font-size:11px;font-weight:700;">🇨🇭 CH-heimisch</span> ';
+    if (med.protected_species) badges += '<span style="background:var(--bg-danger-soft);color:var(--c-danger);padding:3px 9px;border-radius:7px;font-size:11px;font-weight:700;">🛡️ Geschützt</span> ';
     if (badges) html += '<div style="margin-bottom:10px;">' + badges + '</div>';
 
     // WICHTIG: Warnungen ZUERST und PROMINENT
     if (med.contraindications && med.contraindications.length) {
-      html += '<div style="padding:11px 14px;background:#ffebee;border:2px solid #c62828;border-radius:11px;margin-bottom:8px;">';
-      html += '<div style="font-size:12.5px;font-weight:900;color:#c62828;margin-bottom:5px;letter-spacing:.3px;">⛔ KONTRAINDIKATIONEN</div>';
-      html += '<ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.55;color:#b71c1c;">';
+      html += '<div style="padding:11px 14px;background:var(--bg-danger-soft);border:2px solid #c62828;border-radius:11px;margin-bottom:8px;">';
+      html += '<div style="font-size:12.5px;font-weight:900;color:var(--c-danger);margin-bottom:5px;letter-spacing:.3px;">⛔ KONTRAINDIKATIONEN</div>';
+      html += '<ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.55;color:var(--c-danger-d);">';
       med.contraindications.forEach(function(c){ html += '<li><b>' + ed(c) + '</b></li>'; });
       html += '</ul></div>';
     }
     if (med.drug_interactions && med.drug_interactions.length) {
-      html += '<div style="padding:10px 13px;background:#fff3e0;border:1.5px solid #e65100;border-radius:11px;margin-bottom:8px;">';
-      html += '<div style="font-size:12px;font-weight:900;color:#e65100;margin-bottom:4px;">⚠️ Wechselwirkungen mit Medikamenten</div>';
+      html += '<div style="padding:10px 13px;background:var(--bg-warn-soft);border:1.5px solid #e65100;border-radius:11px;margin-bottom:8px;">';
+      html += '<div style="font-size:12px;font-weight:900;color:var(--c-warn-d);margin-bottom:4px;">⚠️ Wechselwirkungen mit Medikamenten</div>';
       html += '<ul style="margin:0;padding-left:18px;font-size:11.5px;line-height:1.55;color:#bf360c;">';
       med.drug_interactions.forEach(function(c){ html += '<li>' + ed(c) + '</li>'; });
       html += '</ul></div>';
@@ -34017,14 +34017,14 @@ async function gsRenderRegionalContent(slug) {
 
   // Best Vegetables + Challenging
   if (r.best_vegetables && r.best_vegetables.length) {
-    html += '<div style="padding:11px 13px;background:#e8f5e9;border-radius:11px;margin-bottom:8px;">';
-    html += '<div style="font-size:11.5px;font-weight:800;color:#1b5e20;margin-bottom:4px;">✅ Gut geeignet</div>';
+    html += '<div style="padding:11px 13px;background:var(--bg-success-soft);border-radius:11px;margin-bottom:8px;">';
+    html += '<div style="font-size:11.5px;font-weight:800;color:var(--c-success-d);margin-bottom:4px;">✅ Gut geeignet</div>';
     html += '<div style="font-size:12.5px;color:#1b5e20;line-height:1.55;">' + ed((r.best_vegetables).join(', ')) + '</div>';
     html += '</div>';
   }
   if (r.challenging_plants && r.challenging_plants.length) {
-    html += '<div style="padding:11px 13px;background:#fff3e0;border-radius:11px;margin-bottom:14px;">';
-    html += '<div style="font-size:11.5px;font-weight:800;color:#e65100;margin-bottom:4px;">⚠️ Schwierig hier</div>';
+    html += '<div style="padding:11px 13px;background:var(--bg-warn-soft);border-radius:11px;margin-bottom:14px;">';
+    html += '<div style="font-size:11.5px;font-weight:800;color:var(--c-warn-d);margin-bottom:4px;">⚠️ Schwierig hier</div>';
     html += '<div style="font-size:12.5px;color:#bf360c;line-height:1.55;">' + ed((r.challenging_plants).join(', ')) + '</div>';
     html += '</div>';
   }
@@ -34644,11 +34644,11 @@ async function gsRenderFertilizerPlan(key) {
     if (p.npk_focus) html += '<div style="font-size:11.5px;color:#1b5e20;background:#e8f5e9;padding:3px 8px;border-radius:6px;display:inline-block;margin-bottom:6px;font-weight:700;">NPK: ' + ed(p.npk_focus) + '</div>';
     if (p.fertilizer_type) html += '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;"><b>Typ:</b> ' + ed(p.fertilizer_type) + '</div>';
     if (Array.isArray(p.fertilizer_organic) && p.fertilizer_organic.length) {
-      html += '<div style="margin-top:6px;padding:7px 10px;background:#e8f5e9;border-radius:8px;font-size:11.5px;color:#1b5e20;line-height:1.55;">';
+      html += '<div style="margin-top:6px;padding:7px 10px;background:var(--bg-success-soft);border-radius:8px;font-size:11.5px;color:var(--c-success-d);line-height:1.55;">';
       html += '<b>🌿 Bio-Optionen:</b> ' + p.fertilizer_organic.map(ed).join(' · ') + '</div>';
     }
     if (Array.isArray(p.fertilizer_mineral) && p.fertilizer_mineral.length) {
-      html += '<div style="margin-top:5px;padding:7px 10px;background:#e3f2fd;border-radius:8px;font-size:11.5px;color:#01579b;line-height:1.55;">';
+      html += '<div style="margin-top:5px;padding:7px 10px;background:var(--bg-info-soft);border-radius:8px;font-size:11.5px;color:var(--c-info);line-height:1.55;">';
       html += '<b>⚗️ Mineral-Optionen:</b> ' + p.fertilizer_mineral.map(ed).join(' · ') + '</div>';
     }
     var doseStr = '';
@@ -34659,7 +34659,7 @@ async function gsRenderFertilizerPlan(key) {
     if (p.ph_consideration) html += '<div style="margin-top:3px;font-size:11.5px;color:var(--text2);"><b>⚗️ pH:</b> ' + ed(p.ph_consideration) + '</div>';
     if (p.cost_swiss_chf) html += '<div style="margin-top:3px;font-size:11.5px;color:#2e7d32;"><b>💰</b> ' + ed(p.cost_swiss_chf) + '</div>';
     if (p.warnings) html += '<div style="margin-top:6px;padding:6px 10px;background:#fff3e0;border:1px solid #ffb74d;border-radius:8px;font-size:11.5px;color:#bf360c;line-height:1.5;">⚠️ ' + ed(p.warnings) + '</div>';
-    if (p.organic_certified) html += '<div style="margin-top:5px;font-size:10.5px;color:#1b5e20;font-weight:700;">✅ Bio-zertifiziert (Schweiz)</div>';
+    if (p.organic_certified) html += '<div style="margin-top:5px;font-size:10.5px;color:var(--c-success-d);font-weight:700;">✅ Bio-zertifiziert (Schweiz)</div>';
     html += '<button onclick="gsFertilizerLogDone(\'' + ed(p.slug || p.id) + '\',\'' + ed(lat) + '\',\'' + ed(name) + '\',\'' + ed(p.phase || '') + '\')" style="margin-top:8px;width:100%;padding:8px;background:' + col + ';color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">✅ Diese Düngung jetzt erledigt</button>';
     html += '</div>';
   });
@@ -35119,7 +35119,7 @@ async function gsDiaryRenderStats() {
   html += '</div>';
   // Harvest-Total
   if (stats.harvest_total_kg > 0) {
-    html += '<div style="padding:11px 14px;background:#fff3e0;border:1.5px solid #f57c00;border-radius:11px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">';
+    html += '<div style="padding:11px 14px;background:var(--bg-warn-soft);border:1.5px solid #f57c00;border-radius:11px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">';
     html += '<div><div style="font-size:11.5px;color:#bf360c;font-weight:700;">🥕 Ernte gesamt</div><div style="font-size:18px;font-weight:900;color:#bf360c;font-family:\'Playfair Display\',serif;">' + stats.harvest_total_kg + ' kg</div></div>';
     var nSp = Object.keys(stats.harvest_per_species || {}).length;
     html += '<div style="font-size:11px;color:#bf360c;text-align:right;">aus ' + nSp + (nSp === 1 ? ' Pflanze' : ' Pflanzen') + '</div>';
@@ -35138,7 +35138,7 @@ async function gsDiaryRenderStats() {
   }
   // Pest-Count
   if (stats.pest_count > 0) {
-    html += '<div style="padding:11px 14px;background:#fff3e0;border:1.5px solid #6d4c41;border-radius:11px;margin-bottom:10px;">';
+    html += '<div style="padding:11px 14px;background:var(--bg-warn-soft);border:1.5px solid #6d4c41;border-radius:11px;margin-bottom:10px;">';
     html += '<div style="font-size:11.5px;color:#4e342e;font-weight:700;">🪲 Schädlings-Beobachtungen</div>';
     html += '<div style="font-size:16px;font-weight:900;color:#4e342e;">' + stats.pest_count + '</div>';
     html += '</div>';
@@ -35341,13 +35341,13 @@ window.gsForestOpenDetail = function(slug) {
   html += layersHtml || '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;">' + _t('forest_no_layer_data','Keine Schicht-Daten in dieser DB-Zeile.') + '</div>';
   // Pro-Tips + Pitfalls
   if (Array.isArray(r.pro_tips) && r.pro_tips.length) {
-    html += '<div style="margin-top:14px;padding:11px 13px;background:#e8f5e9;border-left:3px solid #2e7d32;border-radius:9px;">';
+    html += '<div style="margin-top:14px;padding:11px 13px;background:var(--bg-success-soft);border-left:3px solid #2e7d32;border-radius:9px;">';
     html += '<div style="font-size:11.5px;font-weight:800;color:#1b5e20;margin-bottom:5px;">' + _t('forest_protips','💡 Profi-Tipps') + '</div>';
     html += '<ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.6;color:#1b5e20;">' + r.pro_tips.map(function(t){ return '<li>' + ed(t) + '</li>'; }).join('') + '</ul>';
     html += '</div>';
   }
   if (Array.isArray(r.common_pitfalls) && r.common_pitfalls.length) {
-    html += '<div style="margin-top:8px;padding:11px 13px;background:#ffebee;border-left:3px solid #c62828;border-radius:9px;">';
+    html += '<div style="margin-top:8px;padding:11px 13px;background:var(--bg-danger-soft);border-left:3px solid #c62828;border-radius:9px;">';
     html += '<div style="font-size:11.5px;font-weight:800;color:#b71c1c;margin-bottom:5px;">' + _t('forest_pitfalls','⚠ Häufige Fehler') + '</div>';
     html += '<ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.6;color:#b71c1c;">' + r.common_pitfalls.map(function(t){ return '<li>' + ed(t) + '</li>'; }).join('') + '</ul>';
     html += '</div>';
@@ -35440,7 +35440,7 @@ window.gsLayoutOpenDetail = function(slug) {
   var infos = '';
   if (L.estimated_cost_chf) infos += '<span style="background:#e8f5e9;color:#1b5e20;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:700;">💰 ' + ed(L.estimated_cost_chf) + '</span> ';
   if (L.setup_time_hours) infos += '<span style="background:#fff8e1;color:#e65100;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:700;">⏱ ' + ed(L.setup_time_hours) + 'h Setup</span> ';
-  if (L.best_for_beginners) infos += '<span style="background:#e3f2fd;color:#01579b;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:700;">🌱 Anfänger-freundlich</span>';
+  if (L.best_for_beginners) infos += '<span style="background:var(--bg-info-soft);color:var(--c-info);padding:3px 9px;border-radius:7px;font-size:11px;font-weight:700;">🌱 Anfänger-freundlich</span>';
   if (infos) html += '<div style="margin-bottom:12px;">' + infos + '</div>';
   // plant_combinations jsonb
   if (L.plant_combinations) {
@@ -35460,23 +35460,23 @@ window.gsLayoutOpenDetail = function(slug) {
   }
   // rotation_plan jsonb
   if (L.rotation_plan && typeof L.rotation_plan === 'object') {
-    html += '<div style="margin-top:12px;padding:10px 12px;background:#fff3e0;border-radius:10px;">';
-    html += '<div style="font-size:11.5px;font-weight:800;color:#e65100;margin-bottom:5px;">🔄 Rotations-Plan</div>';
+    html += '<div style="margin-top:12px;padding:10px 12px;background:var(--bg-warn-soft);border-radius:10px;">';
+    html += '<div style="font-size:11.5px;font-weight:800;color:var(--c-warn-d);margin-bottom:5px;">🔄 Rotations-Plan</div>';
     var keys = Object.keys(L.rotation_plan).sort();
     keys.forEach(function(k){ html += '<div style="font-size:12px;color:#bf360c;margin-top:3px;"><b>' + ed(k) + ':</b> ' + ed(Array.isArray(L.rotation_plan[k]) ? L.rotation_plan[k].join(', ') : String(L.rotation_plan[k])) + '</div>'; });
     html += '</div>';
   }
   if (Array.isArray(L.pro_tips) && L.pro_tips.length) {
-    html += '<div style="margin-top:10px;padding:10px 12px;background:#e8f5e9;border-radius:10px;">';
-    html += '<div style="font-size:11.5px;font-weight:800;color:#1b5e20;margin-bottom:5px;">💡 Pro-Tips</div>';
-    html += '<ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.55;color:#1b5e20;">';
+    html += '<div style="margin-top:10px;padding:10px 12px;background:var(--bg-success-soft);border-radius:10px;">';
+    html += '<div style="font-size:11.5px;font-weight:800;color:var(--c-success-d);margin-bottom:5px;">💡 Pro-Tips</div>';
+    html += '<ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.55;color:var(--c-success-d);">';
     L.pro_tips.forEach(function(t){ html += '<li>' + ed(String(t)) + '</li>'; });
     html += '</ul></div>';
   }
   if (Array.isArray(L.common_pitfalls) && L.common_pitfalls.length) {
-    html += '<div style="margin-top:8px;padding:10px 12px;background:#ffebee;border:1px solid #ef5350;border-radius:10px;">';
-    html += '<div style="font-size:11.5px;font-weight:800;color:#c62828;margin-bottom:5px;">⚠️ Häufige Fehler</div>';
-    html += '<ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.55;color:#c62828;">';
+    html += '<div style="margin-top:8px;padding:10px 12px;background:var(--bg-danger-soft);border:1px solid #ef5350;border-radius:10px;">';
+    html += '<div style="font-size:11.5px;font-weight:800;color:var(--c-danger);margin-bottom:5px;">⚠️ Häufige Fehler</div>';
+    html += '<ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.55;color:var(--c-danger);">';
     L.common_pitfalls.forEach(function(t){ html += '<li>' + ed(String(t)) + '</li>'; });
     html += '</ul></div>';
   }
@@ -43955,8 +43955,8 @@ function _gsWave9RenderSeedSaving(r, ed) {
 
   // WICHTIG: Cucurbita-Kreuzung Warnung PROMINENT zuerst
   if (r.warnings) {
-    html += '<div style="margin-bottom:10px;padding:11px 14px;background:#ffebee;border:2px solid #c62828;border-radius:12px;">';
-    html += '<div style="font-size:12.5px;font-weight:900;color:#c62828;margin-bottom:5px;">⚠️ WICHTIG</div>';
+    html += '<div style="margin-bottom:10px;padding:11px 14px;background:var(--bg-danger-soft);border:2px solid #c62828;border-radius:12px;">';
+    html += '<div style="font-size:12.5px;font-weight:900;color:var(--c-danger);margin-bottom:5px;">⚠️ WICHTIG</div>';
     html += '<div style="font-size:12.5px;color:#b71c1c;line-height:1.55;">' + ed(r.warnings) + '</div>';
     html += '</div>';
   }
@@ -44128,7 +44128,7 @@ async function _gsMushroomLoadDetailExtras(slug, isEdible) {
         }
       } catch(_){}
       var _prettySlug = function(s){ return String(s||'').replace(/_/g,' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); }); };
-      var html = '<div style="padding:12px 14px;background:#fff3e0;border:2px solid #e65100;border-radius:12px;">';
+      var html = '<div style="padding:12px 14px;background:var(--bg-warn-soft);border:2px solid #e65100;border-radius:12px;">';
       html += '<div style="font-size:12.5px;font-weight:900;color:#bf360c;margin-bottom:8px;letter-spacing:.3px;">⚠️ ' + _lt('mush_l_verwechslung','VERWECHSLUNGS-RISIKO') + ' (' + laRows.length + ')</div>';
       laRows.forEach(function(la){
         var other = (la.edible_slug === slug) ? la.lookalike_slug : la.edible_slug;
@@ -44155,7 +44155,7 @@ async function _gsMushroomLoadDetailExtras(slug, isEdible) {
     var recRows = (r2 && Array.isArray(r2.data)) ? r2.data : (Array.isArray(r2) ? r2 : []);
     var recBox = document.getElementById('gs-mushroom-recipes-' + slug);
     if (recBox && recRows.length) {
-      var rh = '<div style="padding:11px 13px;background:#fff8e1;border:1.5px solid #fbc02d;border-radius:11px;">';
+      var rh = '<div style="padding:11px 13px;background:var(--bg-yellow-soft);border:1.5px solid #fbc02d;border-radius:11px;">';
       rh += '<div style="font-size:12.5px;font-weight:900;color:#827717;margin-bottom:6px;">🍳 Rezepte mit diesem Pilz (' + recRows.length + ')</div>';
       recRows.forEach(function(rec){
         rh += '<div onclick="gsMushroomRecipeOpen(\'' + ed(rec.slug) + '\')" style="cursor:pointer;padding:8px 0;border-top:1px dashed rgba(0,0,0,.12);display:flex;align-items:center;gap:10px;-webkit-tap-highlight-color:transparent;">' +
@@ -44248,10 +44248,10 @@ function _gsWave9RenderWater(r, ed) {
 
   // Badges
   var badges = '';
-  if (r.swiss_native) badges += '<span style="background:#e8f5e9;color:#1b5e20;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🇨🇭 CH-heimisch</span>';
-  if (r.oxygenating) badges += '<span style="background:#e3f2fd;color:#01579b;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">💨 Sauerstoff</span>';
+  if (r.swiss_native) badges += '<span style="background:var(--bg-success-soft);color:var(--c-success-d);padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🇨🇭 CH-heimisch</span>';
+  if (r.oxygenating) badges += '<span style="background:var(--bg-info-soft);color:var(--c-info);padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">💨 Sauerstoff</span>';
   if (r.water_filtration) badges += '<span style="background:#e0f7fa;color:#006064;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🌊 Filtert Wasser</span>';
-  if (r.attracts_wildlife) badges += '<span style="background:#fff8e1;color:#bf360c;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🦋 Tiere</span>';
+  if (r.attracts_wildlife) badges += '<span style="background:var(--bg-yellow-soft);color:var(--c-warn-d);padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🦋 Tiere</span>';
   if (r.cost_chf_each) badges += '<span style="background:#fff3e0;color:#e65100;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">💰 CHF ' + ed(r.cost_chf_each) + '</span>';
   if (badges) html += '<div style="margin-bottom:10px;">' + badges + '</div>';
 
@@ -44371,7 +44371,7 @@ function _gsWave9RenderAlpine(r, ed) {
 
   // Badges
   var badges = '';
-  if (r.swiss_native) badges += '<span style="background:#e8f5e9;color:#1b5e20;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🇨🇭 CH-heimisch</span>';
+  if (r.swiss_native) badges += '<span style="background:var(--bg-success-soft);color:var(--c-success-d);padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🇨🇭 CH-heimisch</span>';
   if (r.habitat_type) badges += '<span style="background:#e3f2fd;color:#01579b;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🌄 ' + ed(r.habitat_type) + '</span>';
   if (r.red_list_status && r.red_list_status !== 'nicht gefährdet') badges += '<span style="background:#ffebee;color:#b71c1c;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">⚠ ' + ed(r.red_list_status) + '</span>';
   if (r.cultivation_difficulty) badges += '<span style="background:#fff8e1;color:#827717;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🎯 ' + ed(r.cultivation_difficulty) + '</span>';
@@ -44555,7 +44555,7 @@ function _gsWave9RenderVisitor(r, ed) {
   var badges = '';
   badges += '<span style="background:#e3f2fd;color:#01579b;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">' + emoji + ' ' + ed(catLblMap[r.category] || r.category) + '</span>';
   if (r.size_cm != null) badges += '<span style="background:#fff8e1;color:#827717;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">📏 ' + ed(r.size_cm) + ' cm</span>';
-  if (r.swiss_native) badges += '<span style="background:#e8f5e9;color:#1b5e20;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🇨🇭 CH-heimisch</span>';
+  if (r.swiss_native) badges += '<span style="background:var(--bg-success-soft);color:var(--c-success-d);padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🇨🇭 CH-heimisch</span>';
   if (r.protected_status) badges += '<span style="background:#ede7f6;color:#311b92;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🔒 ' + ed(r.protected_status) + '</span>';
   if (r.active_time) badges += '<span style="background:#f3e5f5;color:#6a1b9a;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">⏰ ' + ed(r.active_time) + '</span>';
   html += '<div style="margin-bottom:10px;">' + badges + '</div>';
@@ -44641,8 +44641,8 @@ function _gsWave9RenderCompost(r, ed) {
   if (r.troubleshooting && typeof r.troubleshooting === 'object') {
     var tkeys = Object.keys(r.troubleshooting);
     if (tkeys.length) {
-      html += '<div style="margin-top:12px;padding:10px 12px;background:#fff3e0;border:1px solid #ffb74d;border-radius:10px;">';
-      html += '<div style="font-size:11.5px;font-weight:800;color:#e65100;margin-bottom:5px;">⚠️ Wenn etwas schiefläuft</div>';
+      html += '<div style="margin-top:12px;padding:10px 12px;background:var(--bg-warn-soft);border:1px solid #ffb74d;border-radius:10px;">';
+      html += '<div style="font-size:11.5px;font-weight:800;color:var(--c-warn-d);margin-bottom:5px;">⚠️ Wenn etwas schiefläuft</div>';
       tkeys.forEach(function(k){
         html += '<div style="font-size:12px;color:#bf360c;line-height:1.5;margin-top:3px;"><b>' + ed(k) + ':</b> ' + ed(String(r.troubleshooting[k])) + '</div>';
       });
@@ -44731,22 +44731,22 @@ function _gsWave9RenderMedicinal(r, ed) {
   // Badges
   html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">' +
     (r.evidence_level ? '<span style="background:#e8f5e9;color:#1b5e20;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">📊 Evidenz: ' + ed(r.evidence_level) + '</span>' : '') +
-    (r.swiss_native ? '<span style="background:#e3f2fd;color:#01579b;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">🇨🇭 CH-heimisch</span>' : '') +
-    (r.protected_species ? '<span style="background:#ffebee;color:#c62828;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">🛡️ Geschützt</span>' : '') +
+    (r.swiss_native ? '<span style="background:var(--bg-info-soft);color:var(--c-info);padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">🇨🇭 CH-heimisch</span>' : '') +
+    (r.protected_species ? '<span style="background:var(--bg-danger-soft);color:var(--c-danger);padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">🛡️ Geschützt</span>' : '') +
     (r.family ? '<span style="background:#f3e5f5;color:#4527a0;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">' + ed(r.family) + '</span>' : '') +
     '</div>';
 
   // WICHTIG: Warnungen ZUERST und PROMINENT
   if (r.contraindications && r.contraindications.length) {
-    html += '<div style="margin-top:8px;padding:12px 14px;background:#ffebee;border:2px solid #c62828;border-radius:12px;">';
-    html += '<div style="font-size:13px;font-weight:900;color:#c62828;margin-bottom:6px;letter-spacing:.4px;">⛔ KONTRAINDIKATIONEN</div>';
-    html += '<ul style="margin:0;padding-left:18px;font-size:12.5px;line-height:1.6;color:#b71c1c;">';
+    html += '<div style="margin-top:8px;padding:12px 14px;background:var(--bg-danger-soft);border:2px solid #c62828;border-radius:12px;">';
+    html += '<div style="font-size:13px;font-weight:900;color:var(--c-danger);margin-bottom:6px;letter-spacing:.4px;">⛔ KONTRAINDIKATIONEN</div>';
+    html += '<ul style="margin:0;padding-left:18px;font-size:12.5px;line-height:1.6;color:var(--c-danger-d);">';
     r.contraindications.forEach(function(c){ html += '<li><b>' + ed(c) + '</b></li>'; });
     html += '</ul></div>';
   }
   if (r.drug_interactions && r.drug_interactions.length) {
-    html += '<div style="margin-top:8px;padding:11px 14px;background:#fff3e0;border:1.5px solid #e65100;border-radius:12px;">';
-    html += '<div style="font-size:12.5px;font-weight:900;color:#e65100;margin-bottom:5px;">⚠️ Wechselwirkungen mit Medikamenten</div>';
+    html += '<div style="margin-top:8px;padding:11px 14px;background:var(--bg-warn-soft);border:1.5px solid #e65100;border-radius:12px;">';
+    html += '<div style="font-size:12.5px;font-weight:900;color:var(--c-warn-d);margin-bottom:5px;">⚠️ Wechselwirkungen mit Medikamenten</div>';
     html += '<ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.6;color:#bf360c;">';
     r.drug_interactions.forEach(function(c){ html += '<li>' + ed(c) + '</li>'; });
     html += '</ul></div>';
@@ -47155,7 +47155,7 @@ function gsSetUserMarker(lat, lng) {
     iconSize: [14, 14], iconAnchor: [7, 7], className: ''
   });
   gsMapUserMarker = L.marker([lat, lng], { icon }).addTo(gsMap)
-    .bindPopup('<div style="font-size:13px;font-weight:700;color:#1565c0;">📍 Mein Standort</div>');
+    .bindPopup('<div style="font-size:13px;font-weight:700;color:var(--c-info);">📍 Mein Standort</div>');
 }
 
 // ══ v23.56: OUTDOOR-FEATURES — GPS-Track, Kategorien, Pilz-Hotspots, Kompass ══
@@ -48806,11 +48806,11 @@ async function runKiImprove(){
       scored.forEach(f=>{ const s = f.ki_status||'pending'; badgeCounts[s]=(badgeCounts[s]||0)+1; });
       const badgesHtml =
         '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;">'+
-          '<span style="background:#e8f5e9;color:#1b5e20;padding:3px 8px;border-radius:7px;font-size:11px;font-weight:700;">✅ '+badgeCounts.accepted+'</span>'+
-          '<span style="background:#ffebee;color:#b71c1c;padding:3px 8px;border-radius:7px;font-size:11px;font-weight:700;">❌ '+badgeCounts.rejected+'</span>'+
-          '<span style="background:#fff8e1;color:#e65100;padding:3px 8px;border-radius:7px;font-size:11px;font-weight:700;">❓ '+badgeCounts.needs_info+'</span>'+
-          '<span style="background:#f3e5f5;color:#6a1b9a;padding:3px 8px;border-radius:7px;font-size:11px;font-weight:700;">🔗 '+badgeCounts.duplicate+'</span>'+
-          (badgeCounts.implemented?'<span style="background:#c8e6c9;color:#1b5e20;padding:3px 8px;border-radius:7px;font-size:11px;font-weight:700;">🎉 '+badgeCounts.implemented+'</span>':'')+
+          '<span style="background:var(--bg-success-soft);color:var(--c-success-d);padding:3px 8px;border-radius:7px;font-size:11px;font-weight:700;">✅ '+badgeCounts.accepted+'</span>'+
+          '<span style="background:var(--bg-danger-soft);color:var(--c-danger-d);padding:3px 8px;border-radius:7px;font-size:11px;font-weight:700;">❌ '+badgeCounts.rejected+'</span>'+
+          '<span style="background:var(--bg-yellow-soft);color:var(--c-warn-d);padding:3px 8px;border-radius:7px;font-size:11px;font-weight:700;">❓ '+badgeCounts.needs_info+'</span>'+
+          '<span style="background:var(--bg-purple-soft);color:var(--c-purple);padding:3px 8px;border-radius:7px;font-size:11px;font-weight:700;">🔗 '+badgeCounts.duplicate+'</span>'+
+          (badgeCounts.implemented?'<span style="background:var(--bg-success-mid);color:var(--c-success-d);padding:3px 8px;border-radius:7px;font-size:11px;font-weight:700;">🎉 '+badgeCounts.implemented+'</span>':'')+
         '</div>';
       result.innerHTML =
         '<strong style="color:var(--g-dark)">📊 '+scored.length+' Feedbacks bewertet:</strong>'+
@@ -50734,7 +50734,7 @@ Format: Kurze, klare Bullet-Points mit •. Auf Deutsch. Max 200 Wörter.`;
           '<button onclick="saveGardenFromAI(this.previousSibling.textContent)" style="margin-top:10px;width:100%;padding:10px;background:#e8f5e9;border:1.5px solid var(--g-light);border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;">💾 Plan speichern &amp; Garten erstellen</button>' +
         '</div>';
     } else {
-      result.innerHTML = '<div style="color:#c62828;padding:12px;">❌ Keine Antwort. API-Key prüfen.</div>';
+      result.innerHTML = '<div style="color:var(--c-danger);padding:12px;">❌ Keine Antwort. API-Key prüfen.</div>';
     }
   } catch(e) {
     result.innerHTML = '<div style="color:#c62828;padding:12px;">❌ Fehler: ' + escHtml(e.message) + '</div>';
@@ -51018,11 +51018,11 @@ function gsPPcapturePhoto() {
         if (r.shape) document.getElementById('pp-shape').value = r.shape;
         gsPPcalcArea();
         var corrNote = (lensFactor !== 1.0)
-          ? '<div style="margin-top:6px;font-size:10.5px;color:#1b5e20;background:#e8f5e9;border-radius:6px;padding:6px 8px;">✓ Linsen-Korrektur angewendet (×'+lensFactor+')</div>'
+          ? '<div style="margin-top:6px;font-size:10.5px;color:var(--c-success-d);background:var(--bg-success-soft);border-radius:6px;padding:6px 8px;">✓ Linsen-Korrektur angewendet (×'+lensFactor+')</div>'
           : '';
         out.innerHTML = '✅ ' + (r.description || 'Analyse abgeschlossen') + (r.confidence ? '<br><span style="font-size:10px;color:var(--muted);">Konfidenz: ' + r.confidence + '%</span>' : '') + corrNote;
       } else {
-        out.innerHTML = '<span style="color:#c62828;">Keine Analyse möglich — bitte Masse manuell eingeben.</span>';
+        out.innerHTML = '<span style="color:var(--c-danger);">Keine Analyse möglich — bitte Masse manuell eingeben.</span>';
       }
     } catch(e) {
       out.innerHTML = '<span style="color:#c62828;">Analyse fehlgeschlagen: ' + (escHtml?escHtml(e.message):e.message) + '</span>';
@@ -51302,10 +51302,10 @@ function gsPPcaptureSoil() {
         out.innerHTML = '✅ <b>' + (r.typeLabel || '—') + '</b> · ' + (r.description || '') +
           (r.recommendation ? '<br><span style="color:var(--g-main);">💡 ' + r.recommendation + '</span>' : '');
       } else {
-        out.innerHTML = '<span style="color:#c62828;">Keine Analyse möglich — bitte manuell auswählen.</span>';
+        out.innerHTML = '<span style="color:var(--c-danger);">Keine Analyse möglich — bitte manuell auswählen.</span>';
       }
     } catch(e) {
-      out.innerHTML = '<span style="color:#c62828;">Analyse fehlgeschlagen.</span>';
+      out.innerHTML = '<span style="color:var(--c-danger);">Analyse fehlgeschlagen.</span>';
     }
   };
   inp.click();
@@ -51490,12 +51490,12 @@ function gsPPloadLastLux() {
 async function gsPPfetchWeather() {
   var loc = document.getElementById('pp-location').value.trim();
   var out = document.getElementById('pp-weather-result');
-  if (!loc) { out.innerHTML = '<span style="color:#c62828;">Ort eingeben.</span>'; return; }
+  if (!loc) { out.innerHTML = '<span style="color:var(--c-danger);">Ort eingeben.</span>'; return; }
   out.innerHTML = '<div style="color:var(--muted);">🌐 Lade Wetter…</div>';
   try {
     var w = await fetchWeather(loc);
     if (!w) {
-      out.innerHTML = '<span style="color:#c62828;">Ort nicht gefunden.</span>';
+      out.innerHTML = '<span style="color:var(--c-danger);">Ort nicht gefunden.</span>';
       return;
     }
     _gsPP.weather = w;
@@ -52332,17 +52332,17 @@ async function gsPPRefine(presetMsg){
   var plan=window._gsPP&&window._gsPP.plan, data=(window._gsPP&&window._gsPP.data)||{};
   if(!msg){ if(st) st.innerHTML='<span style="color:var(--muted);">Bitte Wunsch eingeben.</span>'; return; }
   if(!plan){ return; }
-  if(typeof callAI!=='function'){ if(st) st.innerHTML='<span style="color:#b71c1c;">KI hier nicht verfügbar.</span>'; return; }
+  if(typeof callAI!=='function'){ if(st) st.innerHTML='<span style="color:var(--c-danger-d);">KI hier nicht verfügbar.</span>'; return; }
   if(st) st.innerHTML='<span style="color:var(--g-main);">⏳ KI passt den Plan an …</span>';
   var sys='Du bist Dr. Greta Hofmann, Schweizer Bio-Gemüsebau-Agronomin. Du passt einen BESTEHENDEN Gartenplan gemäss dem Nutzer-Wunsch an. Behalte das JSON-Schema EXAKT bei (gleiche Felder/Struktur), ändere nur was der Wunsch erfordert, und aktualisiere abhängige Felder (z. B. mixedCulture, pestControl, summary). Antworte STRIKT NUR mit dem vollständigen aktualisierten JSON-Objekt — kein Markdown, keine Prosa.';
   var p='BESTEHENDER PLAN (JSON):\n'+JSON.stringify(plan)+'\n\nNUTZER-WUNSCH ZUR ANPASSUNG:\n'+msg+'\n\nGib den VOLLSTÄNDIGEN angepassten Plan als EIN JSON-Objekt mit demselben Schema zurück.';
   var resp=null;
   try{ resp=await callAI([{role:'user',content:p}], sys, 4096, {brain:'gaertner', quotaFeature:'garden', logLabel:'pp_refine'}); }
-  catch(e){ if(st) st.innerHTML='<span style="color:#b71c1c;">Fehler: '+((e&&e.message)||'')+'</span>'; return; }
+  catch(e){ if(st) st.innerHTML='<span style="color:var(--c-danger-d);">Fehler: '+((e&&e.message)||'')+'</span>'; return; }
   var txt=(typeof resp==='string')?resp:(resp&&(resp.text||resp.content||''));
   var np=null;
   try{ var i=txt.indexOf('{'), j=txt.lastIndexOf('}'); if(i>=0&&j>i) np=JSON.parse(txt.slice(i,j+1)); }catch(_){}
-  if(!np||!np.plants){ if(st) st.innerHTML='<span style="color:#b71c1c;">Konnte die Anpassung nicht lesen — bitte anders formulieren.</span>'; return; }
+  if(!np||!np.plants){ if(st) st.innerHTML='<span style="color:var(--c-danger-d);">Konnte die Anpassung nicht lesen — bitte anders formulieren.</span>'; return; }
   np._refinedFrom=(plan._refinedFrom||0)+1;
   window._gsPP.plan=np;
   var res=document.getElementById('pp-plan-result');
@@ -52543,12 +52543,12 @@ function gsPPrenderPlan(plan, data) {
       }
       if (mc.explanation) html += '<div style="font-size:12px;color:var(--text2);margin-bottom:8px;line-height:1.5;">' + esc(mc.explanation) + '</div>';
       if (mc.good && mc.good.length) {
-        html += '<div style="font-size:11.5px;color:#2e7d32;font-weight:700;margin-top:4px;">✅ Gute Nachbarschaften:</div><ul style="margin:2px 0 6px 18px;padding:0;font-size:12px;color:var(--text2);line-height:1.6;">';
+        html += '<div style="font-size:11.5px;color:var(--c-success);font-weight:700;margin-top:4px;">✅ Gute Nachbarschaften:</div><ul style="margin:2px 0 6px 18px;padding:0;font-size:12px;color:var(--text2);line-height:1.6;">';
         mc.good.forEach(function(x){ html += '<li>' + esc(x) + '</li>'; });
         html += '</ul>';
       }
       if (mc.bad && mc.bad.length) {
-        html += '<div style="font-size:11.5px;color:#c62828;font-weight:700;margin-top:4px;">⚠️ Vermeiden:</div><ul style="margin:2px 0 0 18px;padding:0;font-size:12px;color:var(--text2);line-height:1.6;">';
+        html += '<div style="font-size:11.5px;color:var(--c-danger);font-weight:700;margin-top:4px;">⚠️ Vermeiden:</div><ul style="margin:2px 0 0 18px;padding:0;font-size:12px;color:var(--text2);line-height:1.6;">';
         mc.bad.forEach(function(x){ html += '<li>' + esc(x) + '</li>'; });
         html += '</ul>';
       }
@@ -52599,7 +52599,7 @@ function gsPPrenderPlan(plan, data) {
   // v23.83: Schädlings-Schutz (biologisch)
   if (plan.pestControl && plan.pestControl.length) {
     html += '<div class="pp-planbox" style="background:linear-gradient(135deg,rgba(245,124,0,.08),rgba(245,124,0,.02));border-left:3px solid #f57c00;">' +
-      '<h4 style="color:#e65100;">🐛 Schädlings-Schutz (bio)</h4>';
+      '<h4 style="color:var(--c-warn-d);">🐛 Schädlings-Schutz (bio)</h4>';
     plan.pestControl.forEach(function(p) {
       html += '<div style="background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:12px;line-height:1.5;">' +
         '<div style="font-weight:800;color:#e65100;margin-bottom:3px;">⚠️ ' + esc(p.pest||'') + (p.affects && p.affects.length ? ' <span style="color:var(--muted);font-weight:600;">→ ' + p.affects.map(esc).join(', ') + '</span>' : '') + '</div>' +
@@ -52621,7 +52621,7 @@ function gsPPrenderPlan(plan, data) {
   // Pitfalls
   if (plan.pitfalls && plan.pitfalls.length) {
     html += '<div class="pp-planbox" style="background:linear-gradient(135deg,rgba(198,40,40,.08),rgba(198,40,40,.02));border-left:3px solid #c62828;">' +
-      '<h4 style="color:#c62828;">⚠️ Häufige Fehler</h4><ul style="margin:0;padding-left:18px;font-size:12.5px;color:var(--text2);line-height:1.7;">';
+      '<h4 style="color:var(--c-danger);">⚠️ Häufige Fehler</h4><ul style="margin:0;padding-left:18px;font-size:12.5px;color:var(--text2);line-height:1.7;">';
     plan.pitfalls.forEach(function(x) { html += '<li>' + esc(x) + '</li>'; });
     html += '</ul></div>';
   }
@@ -52694,7 +52694,7 @@ function gsPPrenderPlan(plan, data) {
         (plan.harvest.est_value_chf ? '<div>💰 Gegenwert Bio-Markt: <b>~CHF ' + esc(plan.harvest.est_value_chf) + '</b></div>' : '');
     if (perPlant.length) {
       html += '<div style="margin-top:8px;padding-top:8px;border-top:1px dashed rgba(230,81,0,.25);">';
-      html += '<div style="font-size:11px;font-weight:700;color:#e65100;margin-bottom:4px;">Pro Kultur:</div>';
+      html += '<div style="font-size:11px;font-weight:700;color:var(--c-warn-d);margin-bottom:4px;">Pro Kultur:</div>';
       html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;font-size:11.5px;">';
       perPlant.forEach(function(p) {
         html += '<div><span style="font-size:13px;">' + esc(p.icon || '🌱') + '</span> ' + esc(p.name) + ': <b>' + esc(p.yield_kg) + ' kg</b></div>';
@@ -52709,7 +52709,7 @@ function gsPPrenderPlan(plan, data) {
     var bd = plan.biodiversity;
     var bdColor = bd.score >= 80 ? '#2e7d32' : bd.score >= 50 ? '#f57c00' : '#c62828';
     html += '<div class="pp-planbox" style="background:linear-gradient(135deg,rgba(76,175,80,.10),rgba(76,175,80,.02));border-left:3px solid #4caf50;">' +
-      '<h4 style="color:#2e7d32;">🐝 Biodiversität</h4>';
+      '<h4 style="color:var(--c-success);">🐝 Biodiversität</h4>';
     if (typeof bd.score === 'number') {
       html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><div style="flex:1;height:8px;background:#eee;border-radius:4px;overflow:hidden;"><div style="width:' + Math.max(0,Math.min(100,bd.score)) + '%;height:100%;background:' + bdColor + ';"></div></div><b style="color:' + bdColor + ';font-size:12px;">' + bd.score + '/100</b></div>';
     }
@@ -52816,7 +52816,7 @@ function gsPPshowDetailedGuide(){
 
   // Pitfalls
   if (plan.pitfalls && plan.pitfalls.length) {
-    sections += '<h3 style="font-size:14px;color:#c62828;margin:14px 0 6px;">⚠️ Häufige Fehler</h3>';
+    sections += '<h3 style="font-size:14px;color:var(--c-danger);margin:14px 0 6px;">⚠️ Häufige Fehler</h3>';
     sections += '<ul style="padding-left:20px;font-size:12.5px;line-height:1.7;color:var(--text2);">';
     plan.pitfalls.forEach(function(p){ sections += '<li style="margin-bottom:4px;">' + esc(p) + '</li>'; });
     sections += '</ul>';
@@ -54441,8 +54441,8 @@ function gsBuildGardenScanWizard() {
         '<span style="font-size:15px;">' + o.e + '</span><span>' + o.l + '</span></button>';
     }).join('') +
     '</div>' +
-    (intent === 'pollinator' ? '<div style="margin-top:6px;padding:7px 10px;background:#fff8e1;border-left:3px solid #f9a825;border-radius:6px;font-size:11px;color:#827717;line-height:1.5;">🐝 KI bevorzugt Pflanzen mit hoher ecological_value für Bestäuber (Honigbiene, Hummel, Schwebfliege).</div>' : '') +
-    (intent === 'bird_friendly' ? '<div style="margin-top:6px;padding:7px 10px;background:#e8f5e9;border-left:3px solid #2e7d32;border-radius:6px;font-size:11px;color:#1b5e20;line-height:1.5;">🦜 KI empfiehlt Hecken, Beerensträucher und Wildkräuter-Ecken — wenig Rasen, viel Vielfalt für Vögel.</div>' : '') +
+    (intent === 'pollinator' ? '<div style="margin-top:6px;padding:7px 10px;background:var(--bg-yellow-soft);border-left:3px solid #f9a825;border-radius:6px;font-size:11px;color:var(--c-warn-d);line-height:1.5;">🐝 KI bevorzugt Pflanzen mit hoher ecological_value für Bestäuber (Honigbiene, Hummel, Schwebfliege).</div>' : '') +
+    (intent === 'bird_friendly' ? '<div style="margin-top:6px;padding:7px 10px;background:var(--bg-success-soft);border-left:3px solid #2e7d32;border-radius:6px;font-size:11px;color:var(--c-success-d);line-height:1.5;">🦜 KI empfiehlt Hecken, Beerensträucher und Wildkräuter-Ecken — wenig Rasen, viel Vielfalt für Vögel.</div>' : '') +
     (intent === 'container' ? '<div style="margin-top:6px;padding:8px 11px;background:#e3f2fd;border-left:3px solid #1565c0;border-radius:6px;font-size:11.5px;color:#01579b;line-height:1.55;">🪴 <b>Balkon-Wizard:</b> Wähle Größe + Orientierung — wir matchen passende Designs aus 16 Schweizer Stadtbalkon-Vorlagen.<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><input id="gs-balcony-size" type="number" min="1" max="30" step="0.5" value="' + (s.metadata.balcony_size_m2 != null ? s.metadata.balcony_size_m2 : '') + '" placeholder="m²" style="width:65px;padding:4px 7px;border:1.5px solid #90caf9;border-radius:6px;font-size:11.5px;font-family:inherit;background:#fff;color:#01579b;font-weight:700;" onchange="gsBalconyWizardChanged()"><span style="font-size:11px;color:#01579b;">m²</span><select id="gs-balcony-orientation" style="padding:4px 7px;border:1.5px solid #90caf9;border-radius:6px;font-size:11px;font-family:inherit;background:#fff;color:#01579b;font-weight:700;" onchange="gsBalconyWizardChanged()"><option value="">— Richtung —</option><option value="sued"' + (s.metadata.balcony_orientation === 'sued' ? ' selected' : '') + '>☀ Süd</option><option value="suedost"' + (s.metadata.balcony_orientation === 'suedost' ? ' selected' : '') + '>🌅 Süd-Ost</option><option value="suedwest"' + (s.metadata.balcony_orientation === 'suedwest' ? ' selected' : '') + '>🌇 Süd-West</option><option value="ost"' + (s.metadata.balcony_orientation === 'ost' ? ' selected' : '') + '>🌅 Ost</option><option value="west"' + (s.metadata.balcony_orientation === 'west' ? ' selected' : '') + '>🌇 West</option><option value="nord"' + (s.metadata.balcony_orientation === 'nord' ? ' selected' : '') + '>🌫 Nord</option><option value="geschlossen_wintergarten"' + (s.metadata.balcony_orientation === 'geschlossen_wintergarten' ? ' selected' : '') + '>🏠 Wintergarten</option></select><button onclick="gsBalconyWizardSearch()" style="padding:5px 11px;background:#1565c0;color:#fff;border:none;border-radius:6px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🔍 Vorlagen</button></div><div id="gs-balcony-results" style="margin-top:8px;"></div></div>' : '') +
   '</div>';
 
@@ -54467,7 +54467,7 @@ function gsBuildGardenScanWizard() {
     '<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">🎯 Wie ambitioniert?</div>' +
     '<div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:5px;">📅 Planungs-Horizont</div>' + horizonSeg +
     '<div style="font-size:11px;font-weight:700;color:var(--text);margin:10px 0 5px;">🌍 Klima-Szenario</div>' + climateSeg +
-    (climate !== 'baseline' ? '<div style="margin-top:6px;padding:6px 9px;background:#fff8e1;border-left:3px solid #f9a825;border-radius:6px;font-size:10.5px;color:#827717;line-height:1.45;">KI passt Sorten + Timing an dieses Klima an (Schweizer CH2018-Szenarien).</div>' : '') +
+    (climate !== 'baseline' ? '<div style="margin-top:6px;padding:6px 9px;background:var(--bg-yellow-soft);border-left:3px solid #f9a825;border-radius:6px;font-size:10.5px;color:var(--c-warn-d);line-height:1.45;">KI passt Sorten + Timing an dieses Klima an (Schweizer CH2018-Szenarien).</div>' : '') +
     (simSeg ? '<div style="font-size:11px;font-weight:700;color:var(--text);margin:10px 0 5px;">🎲 Simulation</div>' + simSeg : '') +
     '<div style="font-size:11px;font-weight:700;color:var(--text);margin:10px 0 5px;">🧑‍🌾 Erfahrung</div>' + expSeg +
     '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">' +
@@ -54667,8 +54667,8 @@ window.gsBalconyTemplateOpen = function(slug) {
   if (t.container_count) pills += '<span style="background:#e3f2fd;color:#01579b;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">📦 ' + t.container_count + ' Container</span>';
   if (t.setup_time_hours) pills += '<span style="background:#fff8e1;color:#827717;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">⏱ ' + ed(t.setup_time_hours) + 'h Setup</span>';
   if (t.maintenance_min_week) pills += '<span style="background:#f3e5f5;color:#6a1b9a;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🛠 ' + ed(t.maintenance_min_week) + ' min/W</span>';
-  if (t.pet_friendly) pills += '<span style="background:#e8f5e9;color:#1b5e20;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🐾 Pet-OK</span>';
-  if (t.child_friendly) pills += '<span style="background:#e8f5e9;color:#1b5e20;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">👶 Kind-OK</span>';
+  if (t.pet_friendly) pills += '<span style="background:var(--bg-success-soft);color:var(--c-success-d);padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🐾 Pet-OK</span>';
+  if (t.child_friendly) pills += '<span style="background:var(--bg-success-soft);color:var(--c-success-d);padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">👶 Kind-OK</span>';
   if (pills) html += '<div style="margin-bottom:10px;">' + pills + '</div>';
   if (t.yield_estimate) html += '<div style="font-size:12.5px;color:var(--text);margin-bottom:8px;"><b>🌾 Ertrag:</b> ' + ed(t.yield_estimate) + '</div>';
   if (t.watering_strategy) html += '<div style="font-size:12px;color:var(--text2);margin-bottom:6px;"><b>💧 Wassern:</b> ' + ed(t.watering_strategy) + '</div>';
@@ -54693,14 +54693,14 @@ window.gsBalconyTemplateOpen = function(slug) {
   if (Array.isArray(t.container_types) && t.container_types.length) html += '<div style="margin-top:10px;font-size:11.5px;color:var(--text2);"><b>📦 Container:</b> ' + ed(t.container_types.join(', ')) + '</div>';
   if (Array.isArray(t.best_for_swiss_cities) && t.best_for_swiss_cities.length) html += '<div style="margin-top:6px;font-size:11.5px;color:var(--text2);"><b>🇨🇭 Stadt:</b> ' + ed(t.best_for_swiss_cities.join(', ')) + '</div>';
   if (Array.isArray(t.pro_tips) && t.pro_tips.length) {
-    html += '<div style="margin-top:10px;padding:10px 12px;background:#e8f5e9;border-left:3px solid #2e7d32;border-radius:9px;">';
-    html += '<div style="font-size:11.5px;font-weight:800;color:#1b5e20;margin-bottom:5px;">💡 Profi-Tipps</div>';
+    html += '<div style="margin-top:10px;padding:10px 12px;background:var(--bg-success-soft);border-left:3px solid #2e7d32;border-radius:9px;">';
+    html += '<div style="font-size:11.5px;font-weight:800;color:var(--c-success-d);margin-bottom:5px;">💡 Profi-Tipps</div>';
     html += '<ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.6;color:#1b5e20;">' + t.pro_tips.map(function(x){ return '<li>' + ed(x) + '</li>'; }).join('') + '</ul>';
     html += '</div>';
   }
   if (Array.isArray(t.common_pitfalls) && t.common_pitfalls.length) {
-    html += '<div style="margin-top:8px;padding:10px 12px;background:#ffebee;border-left:3px solid #c62828;border-radius:9px;">';
-    html += '<div style="font-size:11.5px;font-weight:800;color:#b71c1c;margin-bottom:5px;">⚠ Häufige Fehler</div>';
+    html += '<div style="margin-top:8px;padding:10px 12px;background:var(--bg-danger-soft);border-left:3px solid #c62828;border-radius:9px;">';
+    html += '<div style="font-size:11.5px;font-weight:800;color:var(--c-danger-d);margin-bottom:5px;">⚠ Häufige Fehler</div>';
     html += '<ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.6;color:#b71c1c;">' + t.common_pitfalls.map(function(x){ return '<li>' + ed(x) + '</li>'; }).join('') + '</ul>';
     html += '</div>';
   }
@@ -55173,7 +55173,7 @@ async function gsLoadCompanionsForPlanPlant(idx, speciesLat) {
   }
 
   if (!rows || !rows.length) {
-    host.innerHTML = '<div style="margin-top:14px;padding:9px 12px;background:#f3e5f5;border-radius:9px;font-size:11.5px;color:#6a1b9a;text-align:center;">🤝 Keine Companion-Daten für diese Pflanze in der DB.</div>';
+    host.innerHTML = '<div style="margin-top:14px;padding:9px 12px;background:var(--bg-purple-soft);border-radius:9px;font-size:11.5px;color:var(--c-purple);text-align:center;">🤝 Keine Companion-Daten für diese Pflanze in der DB.</div>';
     return;
   }
 
@@ -55182,7 +55182,7 @@ async function gsLoadCompanionsForPlanPlant(idx, speciesLat) {
 
   var html = '';
   if (good.length) {
-    html += '<div style="margin-top:14px;padding:12px 14px;background:#e8f5e9;border:1px solid #66bb6a;border-radius:11px;">';
+    html += '<div style="margin-top:14px;padding:12px 14px;background:var(--bg-success-soft);border:1px solid #66bb6a;border-radius:11px;">';
     html += '<div style="font-size:12px;font-weight:800;color:#1b5e20;margin-bottom:6px;">🤝 Gute Nachbarn (Top ' + good.length + ')</div>';
     good.forEach(function(c){
       var conf = (c.confidence != null) ? Math.round(c.confidence * 100) : null;
@@ -55196,8 +55196,8 @@ async function gsLoadCompanionsForPlanPlant(idx, speciesLat) {
     html += '</div>';
   }
   if (bad.length) {
-    html += '<div style="margin-top:8px;padding:12px 14px;background:#ffebee;border:1px solid #ef9a9a;border-radius:11px;">';
-    html += '<div style="font-size:12px;font-weight:800;color:#c62828;margin-bottom:6px;">⚠️ Schlechte Nachbarn (nicht direkt daneben)</div>';
+    html += '<div style="margin-top:8px;padding:12px 14px;background:var(--bg-danger-soft);border:1px solid #ef9a9a;border-radius:11px;">';
+    html += '<div style="font-size:12px;font-weight:800;color:var(--c-danger);margin-bottom:6px;">⚠️ Schlechte Nachbarn (nicht direkt daneben)</div>';
     bad.forEach(function(c){
       var conf = (c.confidence != null) ? Math.round(c.confidence * 100) : null;
       html += '<div style="padding:6px 0;border-top:1px dashed rgba(0,0,0,.1);font-size:11.5px;color:#b71c1c;line-height:1.5;">' +
@@ -55257,13 +55257,13 @@ async function gsLoadPestsForPlanPlant(idx, speciesLat) {
 
   // 3) HTML aufbauen
   if (!pests.length && !companions.length) {
-    host.innerHTML = '<div style="margin-top:14px;padding:9px 12px;background:#e8f5e9;border-radius:9px;font-size:11.5px;color:#1b5e20;text-align:center;">✅ Keine spezifischen Schädling-Risiken für diese Pflanze in der DB.</div>';
+    host.innerHTML = '<div style="margin-top:14px;padding:9px 12px;background:var(--bg-success-soft);border-radius:9px;font-size:11.5px;color:var(--c-success-d);text-align:center;">✅ Keine spezifischen Schädling-Risiken für diese Pflanze in der DB.</div>';
     return;
   }
 
   var html = '';
   if (pests.length) {
-    html += '<div style="margin-top:14px;padding:12px 14px;background:#fff8e1;border:1px solid #fbc02d;border-radius:11px;">';
+    html += '<div style="margin-top:14px;padding:12px 14px;background:var(--bg-yellow-soft);border:1px solid #fbc02d;border-radius:11px;">';
     html += '<div style="font-size:12px;font-weight:800;color:#e65100;margin-bottom:8px;">⚠️ Mögliche Schädlinge (Top ' + pests.length + ')</div>';
     pests.forEach(function(p){
       var sev = String(p.damage_severity || 'mittel');
@@ -55285,8 +55285,8 @@ async function gsLoadPestsForPlanPlant(idx, speciesLat) {
   }
 
   if (companions.length) {
-    html += '<div style="margin-top:10px;padding:12px 14px;background:#e8f5e9;border:1px solid #66bb6a;border-radius:11px;">';
-    html += '<div style="font-size:12px;font-weight:800;color:#1b5e20;margin-bottom:6px;">💚 Schutzpflanzen-Vorschlag (gegen die obigen Schädlinge)</div>';
+    html += '<div style="margin-top:10px;padding:12px 14px;background:var(--bg-success-soft);border:1px solid #66bb6a;border-radius:11px;">';
+    html += '<div style="font-size:12px;font-weight:800;color:var(--c-success-d);margin-bottom:6px;">💚 Schutzpflanzen-Vorschlag (gegen die obigen Schädlinge)</div>';
     companions.forEach(function(c){
       var roles = (c.role) ? ed(c.role) : '';
       var against = Array.isArray(c.effective_against) ? c.effective_against.slice(0,3).join(', ') : '';
@@ -56624,7 +56624,7 @@ function gsBuildGardenScanChatBar() {
     '</div>' +
     lastChange +
     (locked
-      ? '<div style="text-align:center;padding:12px;background:#fff3e0;border:1.5px solid #f57c00;border-radius:10px;font-size:11.5px;color:#e65100;font-weight:600;">⚠️ Iteration-Limit erreicht (5/5). Erstelle einen neuen Plan für weitere Anpassungen.</div>'
+      ? '<div style="text-align:center;padding:12px;background:var(--bg-warn-soft);border:1.5px solid #f57c00;border-radius:10px;font-size:11.5px;color:var(--c-warn-d);font-weight:600;">⚠️ Iteration-Limit erreicht (5/5). Erstelle einen neuen Plan für weitere Anpassungen.</div>'
       : '<div style="display:flex;gap:8px;">' +
           '<input id="garden-scan-chat-input" type="text" placeholder="z.B. Ich will keinen Bambus, lieber Schnittlauch" maxlength="300" onkeydown="gsGardenScanChatKey(event)" style="flex:1;padding:10px 12px;background:var(--card);border:1.5px solid var(--border);border-radius:10px;font-size:12.5px;font-family:inherit;color:var(--text);outline:none;">' +
           '<button id="garden-scan-chat-send" onclick="gsGardenScanChatSend()" style="padding:10px 14px;background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border:none;border-radius:10px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;">✨ Senden</button>' +
@@ -57671,7 +57671,7 @@ function gsCompanionLiveCheck() {
       }
     } catch(_){}
     if (!gardenLats.length) {
-      host.innerHTML = '<div style="background:#e3f2fd;border:1px solid #0277bd;border-radius:10px;padding:8px 12px;font-size:11.5px;color:#01579b;">🌱 Mischkultur-Check: noch keine anderen Pflanzen im Garten — willkommen!</div>';
+      host.innerHTML = '<div style="background:var(--bg-info-soft);border:1px solid #0277bd;border-radius:10px;padding:8px 12px;font-size:11.5px;color:var(--c-info);">🌱 Mischkultur-Check: noch keine anderen Pflanzen im Garten — willkommen!</div>';
       return;
     }
     host.innerHTML = '<div style="font-size:11px;color:var(--muted);font-style:italic;">⏳ Mischkultur-Check läuft …</div>';
@@ -58188,7 +58188,7 @@ function gsBuildVoiceModalContent() {
 
   var supportBlock = supported
     ? ''
-    : '<div style="background:#fff3e0;border:1.5px solid #f57c00;color:#bf360c;border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;line-height:1.5;text-align:center;">⚠️ Voice-Mode wird auf diesem Browser nicht unterstützt. iOS Safari 14.5+, Chrome, Edge nutzen.</div>';
+    : '<div style="background:var(--bg-warn-soft);border:1.5px solid #f57c00;color:var(--c-warn-d);border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;line-height:1.5;text-align:center;">⚠️ Voice-Mode wird auf diesem Browser nicht unterstützt. iOS Safari 14.5+, Chrome, Edge nutzen.</div>';
 
   var examples = '<div style="margin-top:12px;color:#fff;text-align:left;">' +
     '<div style="font-size:11.5px;font-weight:700;opacity:.85;margin-bottom:6px;">💬 Beispiele:</div>' +
@@ -59444,13 +59444,13 @@ async function gsDevRenderCloudWizard() {
   var html = '<div style="font-size:13.5px;font-weight:800;color:#0d47a1;margin-bottom:8px;display:flex;align-items:center;gap:8px;">' +
     '<span style="font-size:18px;">☁️</span> Cloud-Sensor (ESP32 / Pi / Arduino)' +
     '</div>' +
-    '<div style="font-size:11.5px;color:#1565c0;line-height:1.55;margin-bottom:10px;">Funktioniert auf <b>jedem</b> Gerät — auch iOS. Sensor sendet Werte per HTTP-POST.</div>';
+    '<div style="font-size:11.5px;color:var(--c-info);line-height:1.55;margin-bottom:10px;">Funktioniert auf <b>jedem</b> Gerät — auch iOS. Sensor sendet Werte per HTTP-POST.</div>';
 
   // Liste vorhandene Cloud-Devices
   if (devices.length) {
     html += '<div style="margin-bottom:10px;">';
     devices.forEach(function(d){
-      var online = d.is_online ? '<span style="color:#2e7d32;font-weight:800;">● online</span>' : '<span style="color:#999;">○ offline</span>';
+      var online = d.is_online ? '<span style="color:var(--c-success);font-weight:800;">● online</span>' : '<span style="color:#999;">○ offline</span>';
       html += '<div style="background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:6px;display:flex;gap:8px;align-items:center;">' +
         '<div style="flex:1;min-width:0;">' +
           '<div style="font-size:12.5px;font-weight:700;color:#0d47a1;">' + escHtml(d.name) + ' <span style="font-size:10px;color:var(--muted);">' + escHtml(d.kind || 'generic') + '</span></div>' +
@@ -59462,7 +59462,7 @@ async function gsDevRenderCloudWizard() {
     });
     html += '</div>';
   } else {
-    html += '<div style="text-align:center;color:#1565c0;font-size:11.5px;padding:6px 0 12px;">Noch kein Cloud-Sensor angelegt.</div>';
+    html += '<div style="text-align:center;color:var(--c-info);font-size:11.5px;padding:6px 0 12px;">Noch kein Cloud-Sensor angelegt.</div>';
   }
 
   // Add-Button
@@ -59530,7 +59530,7 @@ async function gsDevShowSensorCode(deviceId) {
       '<details><summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px;">⚡ ESP32 / Arduino-Code anzeigen</summary>' +
       '<div style="background:#1a1a1a;color:#69f0ae;font-family:monospace;font-size:10px;padding:12px;border-radius:8px;overflow-x:auto;white-space:pre-wrap;line-height:1.5;margin-top:8px;">' + escHtml(espExample) + '</div>' +
       '<button onclick="navigator.clipboard.writeText(this.previousSibling.textContent).then(function(){gsToast(\'ESP32-Code kopiert ✓\', \'success\');})" style="width:100%;padding:8px;background:#0277bd;color:#fff;border:none;border-radius:6px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:8px;">📋 ESP32-Code kopieren</button></details>' +
-      '<div style="margin-top:12px;padding:8px;background:#fff8e1;border-left:3px solid #ffa000;font-size:11.5px;color:#5d4037;line-height:1.5;border-radius:0 6px 6px 0;">⚠️ <b>JWT-Token läuft ab</b> (1h). Für Hardware-Sensoren nutze die Service-Role-Key oder generiere ein langlebiges API-Token (Premium). Test-Daten kannst du auch direkt im Supabase SQL-Editor inserten.</div>';
+      '<div style="margin-top:12px;padding:8px;background:var(--bg-yellow-soft);border-left:3px solid #ffa000;font-size:11.5px;color:var(--c-brown);line-height:1.5;border-radius:0 6px 6px 0;">⚠️ <b>JWT-Token läuft ab</b> (1h). Für Hardware-Sensoren nutze die Service-Role-Key oder generiere ein langlebiges API-Token (Premium). Test-Daten kannst du auch direkt im Supabase SQL-Editor inserten.</div>';
 
     // Modal mit dem Code anzeigen
     var existing = document.getElementById('modal-sensor-code');
@@ -67769,7 +67769,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.90';
+var GS_VERSION = 'v30.91';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -71545,7 +71545,7 @@ function renderProfileLogin(mc) {
           'font-size:12px;cursor:pointer;font-family:inherit;padding:0;">',
           _t('forgot_password','Passwort vergessen?') + '</button>',
       '</div>',
-      '<div id="prof-err" style="color:#c62828;font-size:12.5px;margin-bottom:10px;display:none;',
+      '<div id="prof-err" style="color:var(--c-danger);font-size:12.5px;margin-bottom:10px;display:none;',
         'padding:10px 12px;background:#ffebee;border-radius:9px;border-left:3px solid #c62828;"></div>',
       '<button onclick="profileDoLogin()" id="prof-login-btn" ',
         'style="width:100%;padding:14px;background:linear-gradient(135deg,var(--g-forest),var(--g-main));',
@@ -71581,7 +71581,7 @@ function renderProfileLogin(mc) {
         'onfocus="this.style.borderColor=\'var(--g-main)\'" ',
         'onblur="this.style.borderColor=\'var(--border)\'" ',
         'onkeydown="if(event.key===\'Enter\')profileDoRegister()">',
-      '<div id="prof-err2" style="color:#c62828;font-size:12.5px;margin-bottom:10px;display:none;',
+      '<div id="prof-err2" style="color:var(--c-danger);font-size:12.5px;margin-bottom:10px;display:none;',
         'padding:10px 12px;background:#ffebee;border-radius:9px;border-left:3px solid #c62828;"></div>',
       '<button onclick="profileDoRegister()" id="prof-reg-btn" ',
         'style="width:100%;padding:14px;background:linear-gradient(135deg,var(--g-forest),var(--g-main));',
@@ -71884,7 +71884,7 @@ async function renderProfileLoggedIn(mc) {
       '<div style="font-weight:800;font-size:13px;color:var(--g-dark);margin-bottom:8px;">'+_t('prof_account_settings','⚙️ Konto-Einstellungen')+'</div>',
       '<button onclick="profEditName()" style="width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;text-align:left;font-size:13px;cursor:pointer;font-family:inherit;color:var(--text);margin-bottom:6px;">'+_t('prof_edit_name','✏️ Name ändern')+'</button>',
       '<button onclick="profChangePassword()" style="width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;text-align:left;font-size:13px;cursor:pointer;font-family:inherit;color:var(--text);margin-bottom:6px;">'+_t('prof_change_pw','🔒 Passwort ändern')+'</button>',
-      '<button onclick="sbLogout().then(function(){closeModal(\'modal-profile\');showProfileToast(\'👋 Abgemeldet!\');})" style="width:100%;padding:11px 14px;background:#ffebee;border:none;border-radius:10px;text-align:left;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;color:#c62828;margin-bottom:10px;">'+_t('prof_logout','🚪 Abmelden')+'</button>',
+      '<button onclick="sbLogout().then(function(){closeModal(\'modal-profile\');showProfileToast(\'👋 Abgemeldet!\');})" style="width:100%;padding:11px 14px;background:var(--bg-danger-soft);border:none;border-radius:10px;text-align:left;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--c-danger);margin-bottom:10px;">'+_t('prof_logout','🚪 Abmelden')+'</button>',
       // Gefahrenzone: zugeklappt, damit ein Fehlgriff sie nicht auslösen kann.
       '<details style="margin-top:6px;">',
         '<summary style="cursor:pointer;font-size:11.5px;color:var(--muted);font-weight:700;padding:8px 4px;list-style:none;">'+_t('prof_danger_zone','⚠️ Erweitert — Konto dauerhaft löschen')+'</summary>',
@@ -74254,7 +74254,7 @@ function gsProfileMore(uid){
   if (typeof gsConfirmModal !== 'function') { gsBlockToggleProfile(uid); return; }
   var d = window._gsProfileCur || {};
   var h = '<div style="padding:6px 0;">';
-  h += '<button onclick="gsBlockToggleProfile(\''+uid+'\')" style="width:100%;padding:12px;margin-bottom:8px;border-radius:10px;border:1.5px solid #ef9a9a;background:#fff;color:#c62828;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">'+_gsCommT('comm_block','🚫 Blockieren')+'</button>';
+  h += '<button onclick="gsBlockToggleProfile(\''+uid+'\')" style="width:100%;padding:12px;margin-bottom:8px;border-radius:10px;border:1.5px solid #ef9a9a;background:#fff;color:var(--c-danger);font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">'+_gsCommT('comm_block','🚫 Blockieren')+'</button>';
   h += '<button onclick="gsReportUser(\''+uid+'\')" style="width:100%;padding:12px;border-radius:10px;border:1.5px solid var(--border);background:var(--card);color:var(--text);font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">'+_gsCommT('comm_report','🚩 Melden')+'</button>';
   h += '</div>';
   _gsNlOpen('<div style="font-size:15px;font-weight:800;margin-bottom:10px;">'+_gsCEsc(d.display_name||'Nutzer')+'</div>'+h);
@@ -74572,7 +74572,7 @@ function _gsRenderOrgDetail(d){
   }).join('');
   h += '<div style="display:flex;gap:8px;margin-top:14px;">';
   h += '<button onclick="gsOpenOrgs()" style="flex:1;padding:10px;border:none;background:transparent;color:var(--muted);font-size:13px;cursor:pointer;font-family:inherit;">'+_gsOrgT('org_all_orgs','‹ Alle Orgs')+'</button>';
-  h += '<button onclick="gsOrgLeave(\''+orgId+'\')" style="flex:1;padding:10px;border:1.5px solid #ef9a9a;border-radius:10px;background:#fff;color:#c62828;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">'+_gsOrgT('org_leave_btn','Org verlassen')+'</button></div>';
+  h += '<button onclick="gsOrgLeave(\''+orgId+'\')" style="flex:1;padding:10px;border:1.5px solid #ef9a9a;border-radius:10px;background:#fff;color:var(--c-danger);font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">'+_gsOrgT('org_leave_btn','Org verlassen')+'</button></div>';
   _gsNlOpen(h);
 }
 function d_isSelf(uid){ try { return uid === gsStore.get('gs_sb_uid', null); } catch(_){ return false; } }
@@ -74779,7 +74779,7 @@ async function gsOpenClassDetail(classId){
   try {
     if (isTeacher) {
       var r = await sbFetch('/rest/v1/rpc/fn_class_roster', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_class_id: classId })});
-      if (!r || r.error || !r.data) { _gsNlOpen('<div style="padding:24px;text-align:center;color:#c62828;">'+_gsClsT('cls_load_fail','⚠️ Klasse konnte nicht geladen werden.')+'</div>'); return; }
+      if (!r || r.error || !r.data) { _gsNlOpen('<div style="padding:24px;text-align:center;color:var(--c-danger);">'+_gsClsT('cls_load_fail','⚠️ Klasse konnte nicht geladen werden.')+'</div>'); return; }
       var d = r.data; var total = d.assignment_total || 0;
       var h = '<div style="padding:20px;max-width:480px;margin:0 auto;">';
       h += '<div style="font-size:20px;font-weight:900;color:var(--text);margin-bottom:2px;">🧑‍🏫 '+escHtml(name)+'</div>';
@@ -74816,7 +74816,7 @@ async function gsOpenClassDetail(classId){
       h2 += '<button onclick="gsOpenClasses()" style="width:100%;margin-top:14px;padding:10px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">'+_gsClsT('cls_back','Zurück')+'</button></div>';
       _gsNlOpen(h2);
     }
-  } catch(_){ _gsNlOpen('<div style="padding:24px;text-align:center;color:#c62828;">'+_gsClsT('cls_load_err','⚠️ Fehler beim Laden.')+'</div>'); }
+  } catch(_){ _gsNlOpen('<div style="padding:24px;text-align:center;color:var(--c-danger);">'+_gsClsT('cls_load_err','⚠️ Fehler beim Laden.')+'</div>'); }
 }
 window.gsOpenClassDetail = gsOpenClassDetail;
 
@@ -76188,7 +76188,7 @@ function _gsAdminClientErrorsHtml(errs) {
       '<div style="color:#c62828;font-weight:700;">' + esc(String(e.message||'').slice(0,90)) + '</div>' +
       '<div style="color:var(--muted);">' + (e.n||0) + '× · ' + (e.users||0) + ' Nutzer · ' + esc(e.app_version||'?') + ' · ' + esc(e.err_type||'') + ' · zuletzt ' + last + (e.last_context ? ' · ' + esc(String(e.last_context).slice(0,50)) : '') + '</div>' +
     '</div>';
-  }).join('') : '<div style="color:#2e7d32;font-size:12px;padding:6px 0;">✅ Keine Client-Fehler in den letzten 7 Tagen.</div>';
+  }).join('') : '<div style="color:var(--c-success);font-size:12px;padding:6px 0;">✅ Keine Client-Fehler in den letzten 7 Tagen.</div>';
   return '<div style="margin-top:10px;padding:11px 13px;background:#fce4ec;border-radius:8px;">' +
     '<div style="font-weight:800;font-size:12.5px;margin-bottom:4px;color:#880e4f;">🐛 Client-Fehler (alle Nutzer · 7 Tage · server-seitig)</div>' + rows + '</div>';
 }
@@ -76212,7 +76212,7 @@ function _gsAdminModerationHtml(feed) {
     var lifecycle = (it.kind === 'listing' && (it.status === 'archived' || it.status === 'sold' || it.status === 'reserved')) ? it.status : '';
     var when = it.created_at ? new Date(it.created_at).toLocaleString('de-CH', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
     var badge = hidden
-      ? '<span style="background:#ffcdd2;color:#b71c1c;font-size:9px;font-weight:800;padding:1px 5px;border-radius:4px;">VERSTECKT</span>'
+      ? '<span style="background:#ffcdd2;color:var(--c-danger-d);font-size:9px;font-weight:800;padding:1px 5px;border-radius:4px;">VERSTECKT</span>'
       : (lifecycle ? '<span style="background:#e0e0e0;color:#424242;font-size:9px;font-weight:800;padding:1px 5px;border-radius:4px;">' + ({archived:'ARCHIVIERT',sold:'VERKAUFT',reserved:'RESERVIERT'}[lifecycle] || '') + '</span>' : '');
     var btns = '';
     if (it.kind === 'comment') {
@@ -76409,7 +76409,7 @@ async function gsAdminOpenKnowledgeEditor(table) {
   var picker = GS_KN_TABLES.map(function(x){ return '<option value="'+x.t+'"'+(x.t===table?' selected':'')+'>'+x.l+'</option>'; }).join('');
   var datalist = '<datalist id="gs-kn-catlist">' + cats.map(function(c){ return '<option value="'+esc(c)+'">'; }).join('') + '</datalist>';
   var list = entries.length ? entries.map(function(e){
-    var badge = e.published ? '<span style="background:#c8e6c9;color:#1b5e20;font-size:9px;font-weight:800;padding:1px 5px;border-radius:4px;">LIVE</span>' : '<span style="background:#eee;color:#777;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;">Entwurf</span>';
+    var badge = e.published ? '<span style="background:var(--bg-success-mid);color:var(--c-success-d);font-size:9px;font-weight:800;padding:1px 5px;border-radius:4px;">LIVE</span>' : '<span style="background:#eee;color:#777;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;">Entwurf</span>';
     return '<div style="padding:6px 0;border-bottom:1px solid var(--border);display:flex;gap:6px;align-items:center;font-size:11.5px;">' +
       '<div style="flex:1;min-width:0;"><b>' + esc(e.title||'(ohne Titel)') + '</b> ' + badge + (e.category?' <span style="color:var(--muted);">· '+esc(e.category)+'</span>':'') + '</div>' +
       '<button onclick="gsAdminKnEdit(\'' + e.id + '\')" title="Bearbeiten" style="padding:3px 7px;border:1px solid var(--border);border-radius:6px;background:var(--card);cursor:pointer;font-size:12px;flex-shrink:0;">✏️</button>' +
@@ -76484,7 +76484,7 @@ async function gsAdminFetchMetrics() {
 // v28.64: Metriken-Karte rendern (Admin-intern, Deutsch). m = jsonb von fn_admin_metrics
 function _gsAdminMetricsHtml(m) {
   if (!m) {
-    return '<div style="margin-bottom:14px;padding:11px 13px;background:#fff8e1;border-radius:8px;font-size:11.5px;color:#5d4037;">📊 Live-Metriken konnten nicht geladen werden (RPC fn_admin_metrics).</div>';
+    return '<div style="margin-bottom:14px;padding:11px 13px;background:var(--bg-yellow-soft);border-radius:8px;font-size:11.5px;color:var(--c-brown);">📊 Live-Metriken konnten nicht geladen werden (RPC fn_admin_metrics).</div>';
   }
   var n = function(k){ var v = m[k]; return (typeof v === 'number') ? v : (v != null ? v : 0); };
   function card(emoji, label, big, sub, color){
@@ -76528,7 +76528,7 @@ async function gsAdminFetchStripe() {
 // v28.65: Stripe-Übersicht rendern (Admin-intern, Deutsch). Internes Monitoring, KEIN Sales-UI.
 function _gsAdminStripeHtml(s) {
   if (!s) {
-    return '<div style="margin-bottom:14px;padding:11px 13px;background:#fff8e1;border-radius:8px;font-size:11.5px;color:#5d4037;">💳 Stripe-Übersicht konnte nicht geladen werden (RPC fn_admin_stripe_overview).</div>';
+    return '<div style="margin-bottom:14px;padding:11px 13px;background:var(--bg-yellow-soft);border-radius:8px;font-size:11.5px;color:var(--c-brown);">💳 Stripe-Übersicht konnte nicht geladen werden (RPC fn_admin_stripe_overview).</div>';
   }
   var n = function(k){ var v = s[k]; return (typeof v === 'number') ? v : 0; };
   var cur = (s.currency || 'chf').toUpperCase();
@@ -76833,7 +76833,7 @@ function _gsAdminCronHealthHtml(jobs){
       '<div style="font-weight:800;font-size:12.5px;color:var(--g-dark);">⚙️ Hintergrund-Jobs ('+jobs.length+')</div>' +
       '<button onclick="_gsAdminRefreshSection(\'gs-admin-cron-sec\', gsAdminFetchCronHealth, _gsAdminCronHealthHtml)" title="Aktualisieren" style="padding:4px 9px;border:1px solid var(--border);border-radius:6px;background:var(--card);font-size:11px;cursor:pointer;font-family:inherit;">↻</button>' +
     '</div>' +
-    (unhealthy>0 ? '<div style="font-size:11px;color:#c62828;font-weight:700;margin-bottom:6px;">⚠️ '+unhealthy+' Job(s) ohne aktuellen Erfolg</div>' : '<div style="font-size:11px;color:#2e7d32;margin-bottom:6px;">✅ Alle Jobs laufen</div>') +
+    (unhealthy>0 ? '<div style="font-size:11px;color:var(--c-danger);font-weight:700;margin-bottom:6px;">⚠️ '+unhealthy+' Job(s) ohne aktuellen Erfolg</div>' : '<div style="font-size:11px;color:var(--c-success);margin-bottom:6px;">✅ Alle Jobs laufen</div>') +
     (jobs.length ? rows : '<div style="font-size:11.5px;color:var(--muted);">Keine Job-Daten.</div>') +
   '</div>';
 }
@@ -76865,7 +76865,7 @@ function _gsAdminSystemEventsHtml(events){
         '<button onclick="_gsAdminRefreshSection(\'gs-admin-sysevents-sec\', gsAdminFetchSystemEvents, _gsAdminSystemEventsHtml)" title="Aktualisieren" style="padding:4px 9px;border:1px solid var(--border);border-radius:6px;background:var(--card);font-size:11px;cursor:pointer;font-family:inherit;">↻</button>' +
       '</div>' +
     '</div>' +
-    (events.length ? rows : '<div style="font-size:11.5px;color:#2e7d32;">✅ Keine Ereignisse — alles ruhig.</div>') +
+    (events.length ? rows : '<div style="font-size:11.5px;color:var(--c-success);">✅ Keine Ereignisse — alles ruhig.</div>') +
   '</div>';
 }
 
@@ -76915,7 +76915,7 @@ function _gsAdminFinanceHtml(fin){
   var cov = (fin.coverage_ratio_mrr_over_ai==null) ? '–' : (fin.coverage_ratio_mrr_over_ai + '×');
   var anomalies = (fin.anomalies && fin.anomalies.length)
     ? '<div style="margin-top:6px;font-size:11px;color:#b45309;">⚠️ ' + esc(fin.anomalies.join(' · ')) + '</div>'
-    : '<div style="margin-top:6px;font-size:11px;color:#2e7d32;">✅ Kostendeckung im grünen Bereich</div>';
+    : '<div style="margin-top:6px;font-size:11px;color:var(--c-success);">✅ Kostendeckung im grünen Bereich</div>';
   function cell(lbl, val){ return '<div style="flex:1;min-width:84px;"><div style="font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">'+lbl+'</div><div style="font-size:14px;font-weight:800;color:var(--text);">'+val+'</div></div>'; }
   return '<div id="gs-admin-finance-sec" style="margin-top:10px;padding:11px 13px;background:#ecfdf5;border-radius:8px;">' +
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
@@ -78176,7 +78176,7 @@ async function gsOpenWeatherWarn(){
           '<div style="font-size:11px;color:var(--muted);">' + escHtml(w.date) + '</div>' +
           '<div>' + escHtml(w.msg) + '</div>' +
           '</div>';
-      }).join('') : '<div style="padding:20px;text-align:center;color:#2e7d32;background:#e8f5e9;border-radius:10px;">✅ Keine Warnungen für die nächsten 7 Tage — alles im grünen Bereich!</div>');
+      }).join('') : '<div style="padding:20px;text-align:center;color:var(--c-success);background:var(--bg-success-soft);border-radius:10px;">✅ Keine Warnungen für die nächsten 7 Tage — alles im grünen Bereich!</div>');
   } catch(err){
     html = '<div style="padding:20px;color:#c62828;">❌ Wetterdaten nicht verfügbar: ' + escHtml(err.message||'') + '</div>';
   }
@@ -80507,8 +80507,8 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
     </div>
 
     <!-- Warnung -->
-    <div id="wd-warning-box" style="margin:0 16px 12px;background:#ffebee;border-radius:12px;padding:11px 14px;border-left:3px solid #ef5350;display:none;">
-      <div id="wd-warning-text" style="font-size:13px;font-weight:700;color:#c62828;"></div>
+    <div id="wd-warning-box" style="margin:0 16px 12px;background:var(--bg-danger-soft);border-radius:12px;padding:11px 14px;border-left:3px solid #ef5350;display:none;">
+      <div id="wd-warning-text" style="font-size:13px;font-weight:700;color:var(--c-danger);"></div>
     </div>
 
     <!-- Stündliche Vorhersage -->
@@ -80687,7 +80687,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
       </div>
 
       <div style="position:relative;">
-        <label style="display:block;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:4px;">Art / Name <span style="color:#c62828;">*</span></label>
+        <label style="display:block;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:4px;">Art / Name <span style="color:var(--c-danger);">*</span></label>
         <input id="mp-name" type="text" placeholder="z.B. Monstera, Tomate…" autocomplete="off"
           oninput="gsPlantSuggest(this); gsCompanionLiveCheck();"
           onfocus="gsPlantSuggest(this);"
@@ -80769,7 +80769,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
     </div>
     <div style="padding:18px;display:flex;flex-direction:column;gap:12px;">
       <div>
-        <label style="display:block;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:4px;">Name <span style="color:#c62828;">*</span></label>
+        <label style="display:block;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:4px;">Name <span style="color:var(--c-danger);">*</span></label>
         <input id="gard-name" type="text" placeholder="z.B. Hinterer Garten, Balkon…" style="width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;background:var(--input-bg);color:var(--text);box-sizing:border-box;">
       </div>
       <div>
@@ -80833,11 +80833,11 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
     </div>
     <div style="padding:18px;display:flex;flex-direction:column;gap:12px;">
       <div>
-        <label style="display:block;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:4px;">In welchem Garten? <span style="color:#c62828;">*</span></label>
+        <label style="display:block;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:4px;">In welchem Garten? <span style="color:var(--c-danger);">*</span></label>
         <select id="plant-garden-sel" style="width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;background:var(--input-bg);color:var(--text);box-sizing:border-box;"></select>
       </div>
       <div>
-        <label style="display:block;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:4px;">Pflanzen-Name <span style="color:#c62828;">*</span></label>
+        <label style="display:block;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:4px;">Pflanzen-Name <span style="color:var(--c-danger);">*</span></label>
         <input id="plant-name" type="text" placeholder="z.B. Tomate, Basilikum…" style="width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;background:var(--input-bg);color:var(--text);box-sizing:border-box;">
       </div>
       <div>
@@ -80846,7 +80846,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
       </div>
       <div style="display:flex;gap:10px;">
         <div style="flex:2;">
-          <label style="display:block;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:4px;">Pflanz-Datum <span style="color:#c62828;">*</span></label>
+          <label style="display:block;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:4px;">Pflanz-Datum <span style="color:var(--c-danger);">*</span></label>
           <input id="plant-date" type="date" style="width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;background:var(--input-bg);color:var(--text);box-sizing:border-box;">
         </div>
         <div style="flex:1;">
@@ -81558,7 +81558,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
         try { if (typeof gsLoadCloudRemedies === 'function') gsLoadCloudRemedies(); } catch(_){}
       } catch(autoErr) {
         console.warn('[book-ingest] auto-pipeline failed (non-fatal):', autoErr);
-        prog.innerHTML += '<br><span style="color:#c62828;font-size:11px;">⚠️ Auto-Approve fehlgeschlagen — manueller Review unten.</span>';
+        prog.innerHTML += '<br><span style="color:var(--c-danger);font-size:11px;">⚠️ Auto-Approve fehlgeschlagen — manueller Review unten.</span>';
       }
 
       // 4) Verbleibende Kandidaten (Confidence <0.85) zum manuellen Review laden
@@ -81612,7 +81612,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
         var cat = c.category || '—';
         var conf = Math.round((c.confidence || 0) * 100);
         var dup = _biDupCheck(c);
-        var dupBadge = dup ? '<span title="Schon in der Bibliothek vorhanden" style="background:#f3e5f5;color:#6a1b9a;font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px;margin-left:5px;">🔁 DUP</span>' : '';
+        var dupBadge = dup ? '<span title="Schon in der Bibliothek vorhanden" style="background:var(--bg-purple-soft);color:var(--c-purple);font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px;margin-left:5px;">🔁 DUP</span>' : '';
         var badge = c.toxic ? '<span style="background:#c62828;color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px;margin-left:5px;">GIFTIG</span>' :
                     c.edible ? '<span style="background:#2e7d32;color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px;margin-left:5px;">ESSBAR</span>' : '';
         var desc = (c.description || '').slice(0, 160);
@@ -82898,7 +82898,7 @@ function tpRenderList(){
       +scored.map(function(x){return '<div onclick="window._gsTPpick&&_gsTPpick(\''+ed(x.t.slug)+'\')" style="flex-shrink:0;width:118px;background:linear-gradient(135deg,#e8f5e9,#f1f8e9);border:1px solid #a5d6a7;border-radius:12px;padding:10px;cursor:pointer;">'
         +'<div style="font-size:22px;">'+(x.t.category==='nadelbaum'?'🌲':(x.t.category==='obstbaum'?'🍎':(x.t.category==='beerenstrauch'?'🫐':'🌳')))+'</div>'
         +'<div style="font-size:11.5px;font-weight:800;color:var(--g-dark);line-height:1.2;margin:3px 0;max-height:28px;overflow:hidden;">'+ed(tpName(x.t))+'</div>'
-        +'<div style="font-size:10px;color:#2e7d32;font-weight:800;">'+x.s+'% '+ed(L('tp_fit','Fit'))+'</div></div>';}).join('')
+        +'<div style="font-size:10px;color:var(--c-success);font-weight:800;">'+x.s+'% '+ed(L('tp_fit','Fit'))+'</div></div>';}).join('')
       +'</div>';
   }
   el.innerHTML = recHtml + list.map(function(t){

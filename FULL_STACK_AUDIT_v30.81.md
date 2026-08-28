@@ -174,6 +174,20 @@ Prüft Passwörter gegen HaveIBeenPwned. Steht seit v26.51 offen (ROADMAP P1-1).
 
 ---
 
+## 2a · ✅ Drei Audit-Punkte nachgeprüft — erledigt bzw. unbegründet (v30.91)
+
+Beim Abarbeiten stellte sich heraus, dass drei als „offen" geführte Punkte
+gar keine Arbeit mehr brauchen. Festgehalten, damit niemand Phantom-Arbeit
+hinterherläuft:
+
+| Punkt | Prüfergebnis |
+|---|---|
+| **P2-3 `alert()`/`confirm()` ersetzen** | ✅ **Faktisch erledigt.** Nachgezählt: 1 `alert()` (nur der Notnagel *innerhalb* von `gsToast` selbst — korrekt so) und 14 `confirm()`, davon **alle** in `else`-Zweigen hinter `gsConfirmModal`. Da `gsConfirmModal` immer definiert ist, feuert kein nativer Dialog. Die frühere Zahl („62× alert") stammte aus einem groben grep inkl. Changelog-Strings. |
+| **`garden_diary` / `client_errors` leer trotz Schreibpfad** | ✅ **Unbegründet.** Schema live gegen den Frontend-Insert geprüft: alle Spalten vorhanden, kein Drift. RLS-Policies korrekt (`diary_owner_all` mit `auth.uid() = user_id`; `cerr_insert_own`). Die Leere ist echte Nicht-Nutzung (13 User, Nischen-Pfade), **kein stiller 4xx**. |
+| **GSW als „live" beworben** | ✅ **Erledigt.** GSW ist seit **v26.65** gar nicht mehr in `SUPPORTED` — also nicht auswählbar. Verbliebene `gsw`-Treffer sind Kommentare/Changelog. Doku in v30.86 korrigiert. |
+
+---
+
 ## 3 · 🟡 P2 — Mittel (Optik / Konsistenz / Hygiene)
 
 ### P2-1 · 3 doppelte DOM-IDs *(korrigiert 2026-08-27)*
