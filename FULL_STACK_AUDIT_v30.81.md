@@ -127,9 +127,10 @@ Verbleibende Fns mit Quellcode ins Repo committen → auditierbar + wiederherste
   Entfernt aus HEAD, **aber via `git log -p` weiterhin lesbar** wenn das Repo
   public ist. Laut Commit rotiert — dennoch: History-Purge erwägen (BFG/
   filter-repo) falls je public.
-- **`AUFTRAG_v25.4_AUTH_TRIAL_ABO.md:270`:** `whsec_a1dWVK5xWxEbOd…`-Prefix eines
-  Stripe-Webhook-Signing-Secrets im Klartext committed. **Fix:** Zeile
-  redigieren + Secret in Stripe rotieren.
+- **`AUFTRAG_v25.4_AUTH_TRIAL_ABO.md:270`:** ein `whsec_`-Prefix eines
+  Stripe-Webhook-Signing-Secrets war im Klartext committed. **v30.86: aus HEAD
+  redigiert** (`whsec_***REDACTED***`). Rest-Aufgabe Owner: Secret in Stripe
+  rotieren + ggf. Git-History bereinigen, falls das Repo je public wird.
 
 ### P1-3 · Leaked-Password-Protection deaktiviert
 Advisor `auth_leaked_password_protection` WARN. **Fix:** Supabase Dashboard →

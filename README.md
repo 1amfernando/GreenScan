@@ -30,7 +30,9 @@ Marketplace, mehrsprachig.
 - **📚 Wissen** — 11 Sub-Tabs (Alpen, Vögel, Garten-Besucher, …).
 - **🏡 Home-Widgets** — Bauernregel, Saison-Pilze, MeteoSchweiz-Wetter-Alert.
 - **🛒 Marketplace** — Stripe-Connect für Experten, Bio-Filter.
-- **🌍 DE / FR / IT / Schweizerdeutsch** — live, Boot-Auto-Build für nicht-DE.
+- **🌍 DE / EN / FR / IT / ES** — live, Boot-Auto-Build für nicht-DE.
+  *(Schweizerdeutsch ist derzeit **nicht** verfügbar: 0 Übersetzungen in
+  `i18n_translations`, und die Sprachauswahl bietet es folgerichtig nicht an.)*
 - **📱 PWA** — Share-Target, Shortcuts, iOS-Standalone, Offline-fähig.
 
 ## Dokumentation

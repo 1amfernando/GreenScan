@@ -267,7 +267,7 @@ if (trial_days && trial_days > 0 && mode === 'subscription') {
 3. **Test-Card-Verify** sobald Code v25.4 deployed: Card-Test → DB-Check (Subscription erstellt, status=trialing, trial_end=+30d)
 
 ### Heute schon gemacht (vor diesem Briefing)
-- ✅ Webhook-Endpoint rotiert + neuer Secret in app_settings (`whsec_a1dWVK5xWxEbOd…`)
+- ✅ Webhook-Endpoint rotiert + neuer Secret in app_settings (`whsec_***REDACTED***` — v30.86: Prefix aus Repo entfernt, Secret liegt nur noch in Supabase app_settings)
 - ✅ stripe-webhook v6 deployed (Cache-Bust)
 - ✅ stripe-setup-webhook v2 mit `?rotate=1` Support
 - ✅ stripe-bootstrap v4 mit metadata.lookup_key Backwards-Compat
