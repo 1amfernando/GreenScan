@@ -31910,7 +31910,7 @@ Antworte NUR mit dem JSON-Objekt, kein Text davor/danach.`;
     resultEl.innerHTML =
       '<div class="diag-result">' +
         '<div class="diag-severity ' + sev.cls + '">' + sev.icon + ' ' + sev.label + '</div>' +
-        (diag.urgency && diag.urgency !== 'gering' ? '<div style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:7px;background:' + urgColors[diag.urgency] + '22;color:' + urgColors[diag.urgency] + ';font-size:10.5px;font-weight:800;margin-left:5px;">' + urgIcon[diag.urgency] + ' ' + diag.urgency.toUpperCase() + '</div>' : '') +
+        (diag.urgency && diag.urgency !== 'gering' ? '<div style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:7px;background:' + urgColors[diag.urgency] + '22;color:' + urgColors[diag.urgency] + ';font-size:10.5px;font-weight:800;margin-left:5px;">' + urgIcon[diag.urgency] + ' ' + escHtml(diag.urgency.toUpperCase()) + '</div>' : '') +
         '<div style="font-size:14px;font-weight:800;color:var(--text);margin:8px 0 6px;">' + escHtml(diag.diagnosis||'') + '</div>' +
         (diag.problems && diag.problems.length ? '<div style="margin-bottom:8px;">' + diag.problems.map(pr =>
           '<div style="display:flex;align-items:center;gap:7px;background:#f9fafb;border-radius:8px;padding:7px 9px;margin-bottom:4px;">' +
