@@ -20,7 +20,7 @@
 | Bereich | Status | Kernaussage |
 |---|---|---|
 | **DB-Sicherheit (RLS)** | 🟢 | 178/178 Tabellen RLS-aktiv · 0 Security-ERROR-Advisors · 0 SECURITY-DEFINER-Fns mit mutable search_path |
-| **Edge-Function-Auth** | 🟡 | **1 kritische Auth-Bypass-Lücke** (`i18n-translate`) + 2 ungedrosselte KI-Spender + 9/18 `verify_jwt:false`-Fns ohne Quellcode im Repo |
+| **Edge-Function-Auth** | 🟢 | Alle 3 P0 im Code behoben (i18n-translate live · Vision-Fns + send-push deploy-bereit) · 6 tote Stripe-Setup-Fns auf 410 stillgelegt (v30.88) |
 | **Secrets** | 🟠 | Working-Tree sauber · **aber** 1 rotiertes Admin-Secret in Git-History + 1 `whsec_`-Prefix in Markdown committed |
 | **Frontend-XSS** | 🟢 | Tiefen-Sweep: 4 echte Cross-User-Lücken gefunden — **alle in v30.83 behoben** (§1a). Sonst durchgängig sauber escaped |
 | **Optik / Dark-Mode** | 🟠 | 3 (harmlose) doppelte DOM-IDs · viele hardcoded Hex-Farben (Dark-Mode-Lücken) · Notif-CSS seit v30.81 tokenisiert |
@@ -118,16 +118,36 @@ Benachrichtigungen — alle konsequent über `escHtml`/`_gsCEsc`.
 
 ## 2 · 🟠 P1 — Hohe Priorität
 
-### P1-1 · 9 von 18 `verify_jwt:false`-Edge-Functions ohne Quellcode im Repo
-Nicht auditierbar, weil kein Ordner in `supabase/functions/`:
-`create-checkout`, `customer-portal`, `admin-seed-species`, `species-bulk-seed`,
-`stripe-restructure-pro-only`, `stripe-import-fernando-sub`,
-`stripe-complete-setup`, `stripe-final-audit`, `key-health-check`.
-Vier davon sind **live Stripe-mutierende Setup-Tools**, laut eigener Audit-Doku
-„💀 DEAD-CODE" aber **weiterhin ACTIVE**.
-**Fix (Cowork):** Obsolete Setup-/Migrations-Fns **löschen oder auf 410-Gone
-stubben** (Muster: `stripe-setup-webhook` ist bereits korrekt neutralisiert).
-Verbleibende Fns mit Quellcode ins Repo committen → auditierbar + wiederherstellbar.
+### P1-1 · Obsolete Edge-Functions ✅ IM CODE STILLGELEGT (v30.88)
+
+**Befund:** 9 von 18 `verify_jwt:false`-Funktionen hatten keinen Quellcode im
+Repo. Sechs davon waren nachweislich tot, liefen aber weiter **ACTIVE und für
+jeden im Internet aufrufbar** — vier davon mutieren ECHTE Stripe-Daten
+(Produkte, Preise, Webhooks, Abos).
+
+**⚠️ Korrektur zum ersten Entwurf:** `key-health-check` stand faelschlich auf
+der Totliste. Sie wird von einem **Cron-Job taeglich um 03:00** aufgerufen
+(`cron.job` → `key-health-daily`) und ist NICHT tot. Nicht anfassen.
+
+**Vor der Stilllegung verifiziert (2026-08-28):**
+- 0 Aufrufe aus `index.html` (Frontend)
+- 0 Referenzen in `cron.job`
+
+**v30.88 — 410-Gone-Stubs im Repo** (Muster: `stripe-setup-webhook`), reine
+Antwort ohne Code und ohne Secrets:
+
+| Funktion | Grund | Ersatz |
+|---|---|---|
+| `stripe-restructure-pro-only` | Einmaliges Preis-Umbau-Tool | Stripe-Dashboard |
+| `stripe-import-fernando-sub` | Einmalige Abo-Migration | Stripe-Dashboard |
+| `stripe-complete-setup` | Einmaliges Setup-Tool | Stripe-Dashboard |
+| `stripe-final-audit` | Einmaliges Audit-Tool | Stripe-Dashboard |
+| `create-checkout` | Aeltere Dublette | `stripe-checkout` |
+| `customer-portal` | Aeltere Dublette | `stripe-portal` |
+
+**Ausrollen:** `bash scripts/apply_pending_v30_87.sh` (Schritt 4/4).
+**Rest-Aufgabe:** `admin-seed-species` / `species-bulk-seed` pruefen und
+Quellcode der weiter genutzten Fns ins Repo committen.
 
 ### P1-2 · Geleakte Secrets in Git-History & Doku
 - **Git-History:** Commit vor `e6fc9d2` enthält 3× `const ADMIN_SECRET =

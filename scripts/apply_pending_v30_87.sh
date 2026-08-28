@@ -107,9 +107,28 @@ echo ""
 # verhinderte den Missbrauch — ein Klick im Dashboard hätte daraus einen
 # offenen Broadcast-Endpunkt an ALLE Push-Abonnenten gemacht.
 # v3: Constant-Time-Compare des vollen Keys + echte auth.getUser()-Prüfung.
-echo "── 3/3 · send-push härten (P0-3) ──────────────────────────"
+echo "── 3/4 · send-push härten (P0-3) ──────────────────────────"
 supabase functions deploy send-push --project-ref "$PROJECT_REF"
 echo "✓ send-push v3 deployed"
+echo ""
+
+# ── 4 · TOTE STRIPE-SETUP-FUNKTIONEN STILLLEGEN (Audit P1-1) ───────────
+# Diese 6 waren weiterhin ACTIVE und mit verify_jwt:false deployed — also für
+# JEDEN im Internet aufrufbar — obwohl laut Projekt-Doku toter Setup-Code.
+# Vier davon mutieren ECHTE Stripe-Daten (Produkte, Preise, Webhooks, Abos).
+#
+# VOR DER STILLLEGUNG VERIFIZIERT (2026-08-28):
+#   • 0 Aufrufe aus index.html      • 0 Referenzen in cron.job
+# NICHT dabei: key-health-check — die wird von einem Cron-Job (täglich 03:00)
+# aufgerufen und ist NICHT tot. (Korrektur zum ersten Audit-Entwurf.)
+echo "── 4/4 · Tote Stripe-Setup-Funktionen stilllegen (P1-1) ───"
+for FN in stripe-restructure-pro-only stripe-import-fernando-sub \
+          stripe-complete-setup stripe-final-audit \
+          create-checkout customer-portal; do
+  echo "   → $FN (410-Gone)"
+  supabase functions deploy "$FN" --project-ref "$PROJECT_REF"
+done
+echo "✓ 6 Setup-Funktionen auf 410 stillgelegt"
 echo ""
 
 echo "═══════════════════════════════════════════════════════════"
@@ -137,9 +156,50 @@ cat <<'PRUEF'
        -d '{"broadcast":true}'
      → erwartet: 401  (vor dem Fix wäre das durchgegangen)
 
-  NOCH OFFEN (nur im Dashboard möglich):
-  • Supabase → Auth → Settings → "Leaked password protection" aktivieren
-  • Stripe → Webhook-Signing-Secret rotieren (Prefix war im Repo, jetzt redigiert)
-  • Obsolete Stripe-Setup-Edge-Fns löschen/auf 410 stubben (P1-1)
+  5) Tote Stripe-Fns liefern jetzt 410 (Beispiel):
+     curl -s -o /dev/null -w '%{http_code}\n' -X POST \
+       "https://vowbiueikwrauuceilhc.supabase.co/functions/v1/stripe-final-audit"
+     → erwartet: 410
+
+  ═══════════════════════════════════════════════════════════
+  NOCH OFFEN — Stripe-Webhook-Secret rotieren
+  ═══════════════════════════════════════════════════════════
+  BEWUSST NICHT AUTOMATISIERT. Die Reihenfolge ist kritisch: Zwischen dem
+  Rotieren in Stripe und dem Speichern in Supabase schlägt JEDE Webhook-
+  Signaturprüfung fehl. In diesem Fenster werden Abo-Wechsel, Zahlungen und
+  Kündigungen NICHT mehr in die DB übernommen. Darum von Hand, zügig, in
+  genau dieser Reihenfolge:
+
+    1. Supabase → SQL Editor: aktuellen Wert sichern (Rückweg!)
+         SELECT value FROM app_settings WHERE key = 'stripe_webhook_secret';
+
+    2. Stripe → Developers → Webhooks → Endpoint (zeigt auf
+       .../functions/v1/stripe-webhook) → "Roll secret".
+       Falls angeboten: Übergangsfrist ("expire in 24 hours") wählen —
+       dann gilt das alte Secret noch und es gibt KEIN Ausfallfenster.
+       Neues whsec_… kopieren.
+
+    3. SOFORT in Supabase speichern:
+         UPDATE app_settings SET value = '<NEUES_whsec_>'
+         WHERE key = 'stripe_webhook_secret';
+       (Hinweis: Ist zusätzlich die Env-Variable STRIPE_WEBHOOK_SECRET
+        gesetzt, hat DIESE Vorrang — dann dort ebenfalls aktualisieren,
+        Supabase → Edge Functions → Secrets, danach stripe-webhook neu
+        deployen.)
+
+    4. Prüfen: Stripe → Webhooks → "Send test webhook".
+       Erwartet: HTTP 200. Und in der DB:
+         SELECT type, created_at FROM stripe_events
+         ORDER BY created_at DESC LIMIT 5;
+       → der Test-Event muss auftauchen.
+
+    5. Erst wenn 4 grün ist: in Stripe das alte Secret endgültig verfallen
+       lassen (falls Übergangsfrist gewählt).
+
+    Rückweg, falls etwas klemmt: den in Schritt 1 gesicherten Wert wieder
+    in app_settings zurückschreiben und in Stripe das alte Secret reaktivieren.
+
+  NOCH OFFEN — Supabase-Dashboard (1 Klick):
+  • Auth → Settings → "Leaked password protection" aktivieren
 
 PRUEF
