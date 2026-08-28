@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.85.20260827">
+<meta name="app-version" content="30.86.20260828">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -829,7 +829,7 @@ details > summary::marker { content: ''; }
 .dil{font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.3px;}
 .div2{font-size:13px;font-weight:700;color:var(--text);margin-top:2px;overflow-wrap:anywhere;}
 .tox-scale{display:flex;gap:7px;margin-top:8px;}
-.td{width:32px;height:32px;border-radius:50%;background:#eee;display:flex;align-items:center;justify-content:center;font-size:15px;}
+.td{width:32px;height:32px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:15px;}
 .td.act{box-shadow:0 2px 8px rgba(0,0,0,.2);}
 .fav-btn{width:100%;padding:13px;border:2px solid var(--g-light);border-radius:var(--r);background:transparent;font-size:13.5px;font-weight:700;color:var(--g-main);cursor:pointer;margin-top:6px;transition:.15s;font-family:inherit;}
 .fav-btn.added{background:var(--g-main);color:#fff;border-color:var(--g-main);}
@@ -1006,7 +1006,7 @@ body.dark #gs-task-note{background:linear-gradient(160deg,#4a4224,#3a331b);color
 .post-help-tag{display:inline-flex;align-items:center;gap:4px;background:#fff3e0;color:#e65100;padding:3px 9px;border-radius:8px;font-size:11px;font-weight:700;margin:0 14px 8px;}
 .post-actions{display:flex;border-top:1px solid #f5f5f5;padding:0 6px;}
 .post-action{flex:1;padding:10px 4px;border:none;background:transparent;display:flex;align-items:center;justify-content:center;gap:5px;font-size:12.5px;font-weight:700;color:var(--muted);cursor:pointer;font-family:inherit;transition:.15s;border-radius:8px;}
-.post-action:active{background:#f5f5f5;}
+.post-action:active{background:var(--surface2);}
 .post-action.liked{color:#e53935;}
 .comments-section{padding:8px 14px 12px;border-top:1px solid #f5f5f5;display:none;}
 .comment{display:flex;gap:8px;margin-bottom:8px;}
@@ -1352,7 +1352,7 @@ body.dark .menu-search-wrap{background:var(--card);}
 .farm-quest-name{font-size:13px;font-weight:700;color:var(--text);}
 .farm-quest-desc{font-size:11.5px;color:var(--muted);margin-top:1px;}
 .farm-quest-reward{font-size:11.5px;font-weight:700;color:var(--g-main);}
-.farm-quest-prog{height:5px;background:#eee;border-radius:3px;margin-top:5px;overflow:hidden;}
+.farm-quest-prog{height:5px;background:var(--surface2);border-radius:3px;margin-top:5px;overflow:hidden;}
 .farm-quest-prog-bar{height:100%;background:var(--g-main);border-radius:3px;transition:width .4s;}
 .farm-quest-done{font-size:18px;color:var(--g-main);}
 
@@ -5847,7 +5847,7 @@ html, body{ scroll-behavior: smooth; }
         <span class="menu-item-label" data-i18n="menu_marktplatz" data-i18n-fallback="Marktplatz">Marktplatz</span>
       </button>
       <button class="menu-item" onclick="menuNav('settings')" id="mi-settings">
-        <div class="menu-item-icon" style="background:#f0f0f0;">⚙️</div>
+        <div class="menu-item-icon" style="background:var(--surface2);">⚙️</div>
         <span class="menu-item-label" data-i18n="menu_einstellungen" data-i18n-fallback="Einstellungen">Einstellungen</span>
       </button>
       <button class="menu-item" onclick="menuNav('more')" id="mi-more">
@@ -5867,7 +5867,7 @@ html, body{ scroll-behavior: smooth; }
         <span class="menu-item-label" data-i18n="menu_buch_einlesen_experten" data-i18n-fallback="Buch einlesen (Experten)">Buch einlesen (Experten)</span>
       </button>
       <button class="menu-item" onclick="closeMainMenu()">
-        <div class="menu-item-icon" style="background:#f5f5f5;">✕</div>
+        <div class="menu-item-icon" style="background:var(--surface2);">✕</div>
         <span class="menu-item-label" data-i18n="menu_schliessen" data-i18n-fallback="Schliessen">Schliessen</span>
       </button>
     </div>
@@ -6798,7 +6798,7 @@ function gsNewPlantCard(p) {
   // v28.71 A3: CSS-url()-Injection härten — nur valide Bild-Schemata + breaking-chars strippen (quote-strip allein reicht nicht).
   if (p.photo && typeof p.photo === 'string' && p.photo.length > 8 && /^(https?:\/\/|data:image\/|blob:)/i.test(p.photo)) {
     var _safePhoto = p.photo.replace(/['"()\\\s<>]/g, '');
-    headerVisual = '<div class="plant-card-photo" style="width:42px;height:42px;border-radius:8px;background:#f0f0f0 center/cover no-repeat url(\'' + _safePhoto + '\');flex-shrink:0;"></div>';
+    headerVisual = '<div class="plant-card-photo" style="width:42px;height:42px;border-radius:8px;background:var(--surface2)f0 center/cover no-repeat url(\'' + _safePhoto + '\');flex-shrink:0;"></div>';
   }
   return '<div class="plant-card ' + statusClass + '" id="mpcard-' + p.id + '">' +
     // Header: tippen = expandieren
@@ -15849,22 +15849,13 @@ function gsAutoFillLookalikes() {
   console.log('[GreenScan] Auto-filled ' + filled + ' lookalike warnings');
 }
 
-// ══ AUTO-LOGIN beim Start ════════════════════════════════════
-async function gsAutoLogin() {
-  if (!window.supabase) return;
-  try {
-    var session = (await supabase.auth.getSession()).data.session;
-    if (session && session.user) {
-      var uid = session.user.id;
-      gsStore.set('gs_sb_uid',uid);
-      var meta = session.user.user_metadata || {};
-      var name = meta.display_name || meta.name || session.user.email.split('@')[0] || 'Natur-Fan';
-      localStorage.setItem('gs_sb_display_name', name);
-      // Profil-Leiste aktualisieren
-      if (typeof updateMenuProfileBar === 'function') setTimeout(updateMenuProfileBar, 100);
-    }
-  } catch(e) { console.log('Auto-login check:', e); }
-}
+// ══ AUTO-LOGIN beim Start — v30.86 ENTFERNT ══════════════════
+// War toter Code: gsAutoLogin() wurde NIRGENDS aufgerufen und stieg ohnehin
+// sofort mit `if (!window.supabase) return;` aus — GreenScan laedt den
+// offiziellen supabase-js-Client gar nicht (siehe CLAUDE.md §3.3).
+// Die echte Session-Wiederherstellung laeuft ueber localStorage.gs_sb_token
+// + sbEnsureValidToken(). Entfernt, damit niemand mehr glaubt, hier haenge
+// ein zweiter Auth-Pfad — das hat bei frueheren Audits Verwirrung gestiftet.
 
 // ══ MORE SCREEN LIVE STATS ═══════════════════════════════════
 function gsUpdateMoreStats() {
@@ -21015,7 +21006,7 @@ function renderMarket() {
     var statusBadge = '';
     if (l.status === 'sold')        statusBadge = '<span style="background:#eceff1;color:#455a64;font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;">' + _t('status_sold','✅ Verkauft') + '</span>';
     else if (l.status === 'reserved') statusBadge = '<span style="background:#fff8e1;color:#ef6c00;font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;">' + _t('status_reserved','🟡 Reserviert') + '</span>';
-    else if (l.status === 'archived') statusBadge = '<span style="background:#f5f5f5;color:#90a4ae;font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;">' + _t('status_archived','📦 Archiviert') + '</span>';
+    else if (l.status === 'archived') statusBadge = '<span style="background:var(--surface2);color:var(--muted);font-size:9.5px;padding:1px 6px;border-radius:5px;font-weight:800;margin-left:3px;">' + _t('status_archived','📦 Archiviert') + '</span>';
     var cardDim = (l.status === 'sold' || l.status === 'archived') ? 'opacity:.62;' : '';
 
     html += '<div class="mk-card" onclick="openListingDetail(\'' + l.id + '\')" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px;margin-bottom:8px;cursor:pointer;-webkit-tap-highlight-color:transparent;display:flex;gap:11px;' + cardDim + '">' +
@@ -21899,10 +21890,54 @@ window.gsDismissOverlay = gsDismissOverlay;
 
 // Alle registrierten dynamischen Overlays schliessen — die Rettungsleine.
 // Wird bei jedem Tab-Wechsel und bei Escape aufgerufen.
+// v30.86: Liste der dynamisch erzeugten Dialoge, die beim Navigieren
+// aufgeraeumt werden. Ermittelt durch einen Scan aller body-Overlays mit
+// position:fixed+inset:0 (31 gefunden, 29 davon ohne jeden zentralen Ausweg).
+//
+// BEWUSST NICHT in der Liste:
+//   gs-mushroom-danger   — sicherheitskritische Giftpilz-Warnung, MUSS aktiv
+//                          bestaetigt werden (wegklicken durch Navigation waere
+//                          gefaehrlich).
+//   gs-auth-pflicht-modal— absichtliche Anmelde-Schranke.
+//   gs-tutorial          — Onboarding-Ablauf, hat eigene Schritt-Logik.
+//   *-screen             — Vollbild-SCREENS (saison-pilze, gs-plans,
+//                          tree-planner), keine Dialoge.
+var GS_DISMISSIBLE_OVERLAYS = [
+  'achievements-modal','gs-confirm-modal','gs-prompt-modal','gs-gallery-overlay',
+  'gs-gal-species-ov','modal-mushroom-lookalikes','gs-scan-tips-modal',
+  'modal-shot-preview','gs-loc-pick','plant-diary-modal','verify-post-modal',
+  'gs-conn-test-modal','modal-plan-3dcad','photo-timeline-modal','voice-mode-modal',
+  'modal-saved-plans','modal-agent','gs-global-key-admin','gs-conn-detail',
+  'gs-storage-modal','gs-univ-modal','gs-export-modal','gs-wx-overlay',
+  'change-pw-modal','delete-account-modal'
+];
+
+// Schliesst EINEN Dialog moeglichst ueber seinen EIGENEN Abbrechen-/Schliessen-
+// Knopf. Das ist wichtig: Promise-basierte Dialoge (gsConfirmModal/gsPromptModal)
+// loesen ihr Versprechen nur in ihrem eigenen finish()-Handler auf. Wuerde man
+// das Element bloss aus dem DOM reissen, wartet der aufrufende Code fuer immer.
+// Erst wenn kein solcher Knopf existiert, wird hart entfernt.
+function _gsCloseOverlayGracefully(el) {
+  if (!el) return;
+  try {
+    var btn = el.querySelector('#gs-confirm-cancel, #gs-prompt-cancel, .modal-close-btn, [data-gs-close]');
+    if (btn && typeof btn.click === 'function') { btn.click(); }
+  } catch(_){}
+  // Falls der eigene Handler das Element nicht entfernt hat: hart aufraeumen.
+  try {
+    if (el.parentNode && document.body.contains(el)) gsDismissOverlay(el);
+  } catch(_){}
+}
+
 function gsDismissOrphanOverlays() {
   try {
-    var list = Array.prototype.slice.call(document.querySelectorAll('.gs-dyn-overlay'));
-    list.forEach(gsDismissOverlay);
+    // 1) Explizit registrierte Overlays (mit onDismiss-Callback)
+    Array.prototype.slice.call(document.querySelectorAll('.gs-dyn-overlay')).forEach(gsDismissOverlay);
+    // 2) Bekannte dynamische Dialoge, die noch nicht registriert sind
+    GS_DISMISSIBLE_OVERLAYS.forEach(function(id){
+      var el = document.getElementById(id);
+      if (el && el.parentNode) _gsCloseOverlayGracefully(el);
+    });
   } catch(_){}
 }
 window.gsDismissOrphanOverlays = gsDismissOrphanOverlays;
@@ -28120,7 +28155,7 @@ function buildPlantCard(p){
 
   // v23.91: Photo-Thumb statt Emoji wenn Foto vorhanden
   var emojiOrPhoto = p.photo
-    ? '<div class="mpcard-emoji" style="width:44px;height:44px;border-radius:8px;overflow:hidden;background:#eee;flex-shrink:0;"><img src="'+p.photo+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block;"></div>'
+    ? '<div class="mpcard-emoji" style="width:44px;height:44px;border-radius:8px;overflow:hidden;background:var(--surface2);flex-shrink:0;"><img src="'+p.photo+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block;"></div>'
     : '<div class="mpcard-emoji">' + (p.emoji||'🌿') + '</div>';
   return '<div class="mpcard" id="mpcard-' + p.id + '">' +
     '<div class="mpcard-header" data-action="toggle" data-id="' + p.id + '">' + emojiOrPhoto +
@@ -28650,7 +28685,7 @@ function openPlantDiary(plantId) {
   // v26.61: Hero-Image wenn p.photo existiert (prominent, 200px hoch über Header)
   var heroHtml = '';
   if (p.photo && typeof p.photo === 'string' && p.photo.length > 8) {
-    heroHtml = '<div style="width:100%;height:200px;background:#f0f0f0 center/cover no-repeat url(\''+ p.photo.replace(/'/g, "\\'") +'\');border-radius:20px 20px 0 0;flex-shrink:0;position:relative;">'+
+    heroHtml = '<div style="width:100%;height:200px;background:var(--surface2) center/cover no-repeat url(\''+ p.photo.replace(/'/g, "\\'") +'\');border-radius:20px 20px 0 0;flex-shrink:0;position:relative;">'+
       '<div style="position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent, rgba(0,0,0,.65));padding:24px 18px 12px;color:#fff;">'+
         '<div style="font-size:18px;font-weight:800;text-shadow:0 1px 3px rgba(0,0,0,.5);">'+(p.emoji||'🌿')+' '+(typeof escHtml==='function'?escHtml(p.name):p.name)+'</div>'+
         (p.nick ? '<div style="font-size:12px;opacity:.9;text-shadow:0 1px 2px rgba(0,0,0,.5);">📍 '+(typeof escHtml==='function'?escHtml(p.nick):p.nick)+'</div>' : '')+
@@ -67695,7 +67730,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.85';
+var GS_VERSION = 'v30.86';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

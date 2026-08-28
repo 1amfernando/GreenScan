@@ -28,8 +28,11 @@ Die App ist ein reifes, live-laufendes Produkt. Erreicht u.a.:
 - **Marketplace** — Stripe-Connect für Experten, Bio-Filter.
 - **Abos** — Stripe Live-Mode (Trial → Pro), server-seitige Quota, Token-Kosten-
   Dashboard (Admin) mit Live-Logging pro Edge-Fn.
-- **i18n** — DE/FR/IT/GSW live, Direct-PostgREST-Pull aus `i18n_translations`,
-  24h-TTL, Boot-Auto-Build für nicht-DE-User.
+- **i18n** — DE/EN/FR/IT/ES live (je ~2'050 Keys), Direct-PostgREST-Pull aus
+  `i18n_translations`, 24h-TTL, Boot-Auto-Build für nicht-DE-User.
+  *Korrektur v30.86: GSW (Schweizerdeutsch) wurde hier fälschlich als „live"
+  geführt — es existieren 0 Übersetzungen, und die Sprachauswahl bietet es
+  nicht an. Als optionales Vorhaben unter P3 geführt.*
 - **Backend-Härtung** — 117 Tabellen alle RLS, 0 Security-ERROR-Advisors,
   SECURITY-DEFINER-Views auf `security_invoker`, admin-only Functions REVOKE.
 - **PWA** — Share-Target, Shortcuts, Screenshots, iOS-Standalone, Offline-Cache.
@@ -68,7 +71,11 @@ Detaillierte Sprint-Historie: `STATUS.md` Sektion 0 (Routine-Einträge).
 ## 🌟 P3 — Zukunft
 
 - AR-Pflanzenmarkierung (MVP-Auftrag existiert: `AUFTRAG_CODE_v26.18_AR_VIEW_MVP.md`).
-- Weitere Sprachen über die 4 CH-Amtssprachen hinaus (EN als Europa-Vorbereitung).
+- Weitere Sprachen (EN/ES sind bereits live — nächste Kandidaten: PT, NL).
+- **Schweizerdeutsch (GSW)** — Nice-to-have mit Marketing-Wert, aber kein
+  Nutzen-Blocker: DE deckt die Deutschschweiz vollständig ab. Voraussetzung
+  wäre ein Seeding-Lauf über `i18n-translate` (Dialekt-Qualität vorher an
+  einer Stichprobe prüfen — maschinelles GSW klingt schnell unfreiwillig komisch).
 - Vogel-Audio-Bestimmung (BirdNET-Style, client-side).
 
 ---
