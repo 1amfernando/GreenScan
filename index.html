@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.88.20260828">
+<meta name="app-version" content="30.89.20260828">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14183,6 +14183,8 @@ window.openAchievementsModal = async function() {
       '<div id="ach-tab-feed" style="flex:1;overflow-y:auto;display:none;"></div>' +
     '</div>';
   document.body.appendChild(m);
+  // v30.89: Rettungsleine — schliessbar per Escape und bei jedem Navigations-Wechsel.
+  try { if (typeof gsRegisterOverlay === 'function') gsRegisterOverlay(m); } catch(_){}
   m.addEventListener('click', function(e) { if (e.target === m) m.remove(); });
   var escHandler = function(e) {
     if (e.key === 'Escape') { m.remove(); document.removeEventListener('keydown', escHandler); }
@@ -14261,6 +14263,12 @@ window.gsConfirmModal = function gsConfirmModal(a, b){
       document.body.appendChild(w);
       var prevFocus = document.activeElement;
       var done = false;
+      // v30.89: An die Rettungsleine haengen. WICHTIG der onDismiss-Callback:
+      // dieser Dialog gibt ein Promise zurueck — wird er nur aus dem DOM
+      // entfernt, wartet der aufrufende Code EWIG (das ist die wahrscheinliche
+      // Ursache des vom User gemeldeten „friert ein"). finish(false) loest
+      // sauber als „abgebrochen" auf. Der done-Guard verhindert Doppel-Resolve.
+      try { if (typeof gsRegisterOverlay === 'function') gsRegisterOverlay(w, function(){ finish(false); }); } catch(_){}
       function finish(val){
         if (done) return;
         done = true;
@@ -14344,6 +14352,9 @@ window.gsPromptModal = function gsPromptModal(a, b){
       var prevFocus = document.activeElement;
       var done = false;
       var inp = c.querySelector('#gs-prompt-input');
+      // v30.89: Rettungsleine mit Promise-Aufloesung — finish(null) = abgebrochen.
+      // Ohne den Callback wuerde ein weggeraeumter Dialog den Aufrufer haengen lassen.
+      try { if (typeof gsRegisterOverlay === 'function') gsRegisterOverlay(w, function(){ finish(null); }); } catch(_){}
       function finish(val){
         if (done) return; done = true;
         try { document.removeEventListener('keydown', onKey, true); } catch(_){}
@@ -16339,6 +16350,8 @@ function gsOpenPhotoGallery(){
     ov=document.createElement('div'); ov.id='gs-gallery-overlay';
     ov.style.cssText='position:fixed;inset:0;z-index:5900;background:var(--g-bg,#eef7ee);display:flex;flex-direction:column;';
     document.body.appendChild(ov);
+    // v30.89: Rettungsleine — schliessbar per Escape und bei jedem Navigations-Wechsel.
+    try { if (typeof gsRegisterOverlay === 'function') gsRegisterOverlay(ov); } catch(_){}
   }
   var loggedIn=(typeof sbIsLoggedIn==='function')&&sbIsLoggedIn();
   var chips=[['all',_t('gal_all','Alle')],['plants',_t('gal_plants','🌿 Pflanzen')],['fungi',_t('gal_fungi','🍄 Pilze')],['trees',_t('gal_trees','🌳 Bäume')],['cloud',_t('gal_cloud','☁️ Cloud')],['local',_t('gal_local','📱 Lokal')]];
@@ -19356,6 +19369,8 @@ window.gsOpenMushroomLookalikesModal = function(jsonStr) {
     html += '</div></div>';
     m.innerHTML = html;
     document.body.appendChild(m);
+    // v30.89: Rettungsleine — schliessbar per Escape und bei jedem Navigations-Wechsel.
+    try { if (typeof gsRegisterOverlay === 'function') gsRegisterOverlay(m); } catch(_){}
   } catch(e) { console.warn('[mushroom-lookalikes-modal]', e && e.message); }
 };
 
@@ -24745,6 +24760,8 @@ function gsShowScanTips(){
       + '</div>';
     m.addEventListener('click', function(e){ if (e.target === m) m.remove(); });
     document.body.appendChild(m);
+    // v30.89: Rettungsleine — schliessbar per Escape und bei jedem Navigations-Wechsel.
+    try { if (typeof gsRegisterOverlay === 'function') gsRegisterOverlay(m); } catch(_){}
   } catch(e){}
 }
 
@@ -25149,6 +25166,8 @@ function gsPreviewMultiShot(idx) {
       '<button onclick="gsDiscardMultiShot('+idx+');document.getElementById(\'modal-shot-preview\').remove();" style="padding:11px 18px;background:#c62828;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">🗑️ Verwerfen</button>' +
     '</div>';
   document.body.appendChild(m);
+  // v30.89: Rettungsleine — schliessbar per Escape und bei jedem Navigations-Wechsel.
+  try { if (typeof gsRegisterOverlay === 'function') gsRegisterOverlay(m); } catch(_){}
 }
 
 function gsDiscardMultiShot(idx) {
@@ -26632,6 +26651,8 @@ function gsPickScanLocation(cat){
     ov.appendChild(card);
     ov.addEventListener('click', function(e){ if (e.target===ov) { done(null); return; } var b=e.target.closest('button[data-loc]'); if (b) done(b.getAttribute('data-loc')||null); });
     document.body.appendChild(ov);
+    // v30.89: Rettungsleine — schliessbar per Escape und bei jedem Navigations-Wechsel.
+    try { if (typeof gsRegisterOverlay === 'function') gsRegisterOverlay(ov); } catch(_){}
     try{ if(typeof gsTrapFocus==='function') gsTrapFocus(ov); }catch(_){}
   });
 }
@@ -28728,6 +28749,8 @@ function openPlantDiary(plantId) {
     '</div>';
   m.addEventListener('click', function(ev){ if (ev.target === m) m.remove(); });
   document.body.appendChild(m);
+  // v30.89: Rettungsleine — schliessbar per Escape und bei jedem Navigations-Wechsel.
+  try { if (typeof gsRegisterOverlay === 'function') gsRegisterOverlay(m); } catch(_){}
 }
 
 window._gsDiaryPhotoB64 = null;
@@ -32264,6 +32287,8 @@ function gsOpenVerifyModal(postId) {
     '</div>' +
   '</div>';
   document.body.appendChild(m);
+  // v30.89: Rettungsleine — schliessbar per Escape und bei jedem Navigations-Wechsel.
+  try { if (typeof gsRegisterOverlay === 'function') gsRegisterOverlay(m); } catch(_){}
 }
 
 // Submit Verifikation — INSERT expert_verifications (RLS prüft is_expert).
@@ -52228,6 +52253,8 @@ window.gsPPTestConnection = async function(btnEl) {
     '<button onclick="document.getElementById(\'gs-conn-test-modal\').remove()" style="margin-top:14px;width:100%;padding:11px;background:var(--g-main);color:#fff;border:none;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">Schliessen</button>' +
   '</div>';
   document.body.appendChild(m);
+  // v30.89: Rettungsleine — schliessbar per Escape und bei jedem Navigations-Wechsel.
+  try { if (typeof gsRegisterOverlay === 'function') gsRegisterOverlay(m); } catch(_){}
 };
 
 // v24.25: prüft ob die KI Form/Wünsche/Anmerkung wirklich angewendet hat
@@ -52995,6 +53022,8 @@ function gsPPshow3DCad() {
     '</div>';
   m.onclick = function(e){ if (e.target === m) gsPPclose3DCad(); };
   document.body.appendChild(m);
+  // v30.89: Rettungsleine — schliessbar per Escape und bei jedem Navigations-Wechsel.
+  try { if (typeof gsRegisterOverlay === 'function') gsRegisterOverlay(m); } catch(_){}
 
   // Three.js laden + 3D-Render starten
   if (typeof _gsLoadThree === 'function') {
@@ -57719,6 +57748,8 @@ function gsOpenPhotoTimeline(plantId) {
       '<button onclick="document.getElementById(\'photo-timeline-modal\').remove()" style="margin-top:14px;padding:10px 22px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">OK</button>' +
     '</div>';
     document.body.appendChild(m);
+    // v30.89: Rettungsleine — schliessbar per Escape und bei jedem Navigations-Wechsel.
+    try { if (typeof gsRegisterOverlay === 'function') gsRegisterOverlay(m); } catch(_){}
     return;
   }
 
@@ -58131,6 +58162,8 @@ function gsVoiceOpen() {
   m.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);padding:12px;';
   m.innerHTML = gsBuildVoiceModalContent();
   document.body.appendChild(m);
+  // v30.89: Rettungsleine — schliessbar per Escape und bei jedem Navigations-Wechsel.
+  try { if (typeof gsRegisterOverlay === 'function') gsRegisterOverlay(m); } catch(_){}
   if (typeof gsBrain !== 'undefined' && gsBrain && typeof gsBrain.observe === 'function') {
     try { gsBrain.observe('voice_mode_open', {}); } catch(_){}
   }
@@ -58433,6 +58466,8 @@ async function gsPPopenSavedPlans() {
       '<div style="padding:14px 14px 24px;">' + rowsHtml + '</div>' +
     '</div>';
   document.body.appendChild(m);
+  // v30.89: Rettungsleine — schliessbar per Escape und bei jedem Navigations-Wechsel.
+  try { if (typeof gsRegisterOverlay === 'function') gsRegisterOverlay(m); } catch(_){}
 }
 function gsPPloadSavedPlan(id) {
   // v26.68: LS hat nach gsPPopenSavedPlans die merged Liste (LS+Cloud), also auch gp_-prefixed IDs.
@@ -59331,6 +59366,8 @@ function _gsAgentShowModal(title, bodyHtml) {
       '<div style="padding:14px 16px 22px;">' + bodyHtml + '</div>' +
     '</div>';
   document.body.appendChild(m);
+  // v30.89: Rettungsleine — schliessbar per Escape und bei jedem Navigations-Wechsel.
+  try { if (typeof gsRegisterOverlay === 'function') gsRegisterOverlay(m); } catch(_){}
   if (typeof gsHaptic === 'function') gsHaptic('light');
 }
 
@@ -61870,6 +61907,8 @@ window.gsOpenGlobalKeyAdmin = async function() {
       '</div>' +
     '</div>';
   document.body.appendChild(m);
+  // v30.89: Rettungsleine — schliessbar per Escape und bei jedem Navigations-Wechsel.
+  try { if (typeof gsRegisterOverlay === 'function') gsRegisterOverlay(m); } catch(_){}
   // Health im Hintergrund testen
   setTimeout(async function(){
     var hEl = document.getElementById('gs-gk-health');
@@ -67730,7 +67769,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.88';
+var GS_VERSION = 'v30.89';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -70066,6 +70105,8 @@ function gsRegisterServiceWorker() {
         '</div>' +
       '</div>';
     document.body.appendChild(m);
+    // v30.89: Rettungsleine — schliessbar per Escape und bei jedem Navigations-Wechsel.
+    try { if (typeof gsRegisterOverlay === 'function') gsRegisterOverlay(m); } catch(_){}
   };
 
   // Init: Badge nach Boot anzeigen + Hooks setzen
@@ -70254,6 +70295,8 @@ function gsRegisterServiceWorker() {
         '</div>' +
       '</div>';
     document.body.appendChild(m);
+    // v30.89: Rettungsleine — schliessbar per Escape und bei jedem Navigations-Wechsel.
+    try { if (typeof gsRegisterOverlay === 'function') gsRegisterOverlay(m); } catch(_){}
   };
 
   // v24.41 BUGFIX: Idempotenz-Guard verhindert Doppel-Wrap.
@@ -70601,6 +70644,8 @@ function gsRegisterServiceWorker() {
         '<div style="padding:8px 14px;background:var(--surface2);font-size:10.5px;color:var(--muted);text-align:center;">Tipp: ⌘+K (Mac) oder Ctrl+K · „/"-Taste · ESC zum Schliessen</div>' +
       '</div>';
     document.body.appendChild(m);
+    // v30.89: Rettungsleine — schliessbar per Escape und bei jedem Navigations-Wechsel.
+    try { if (typeof gsRegisterOverlay === 'function') gsRegisterOverlay(m); } catch(_){}
     var input = document.getElementById('gs-univ-input');
     var debouncer;
     input.addEventListener('input', function(){
@@ -71290,6 +71335,8 @@ window.gsShowExportModal = function(){
       '</div>' +
     '</div>';
   document.body.appendChild(m);
+  // v30.89: Rettungsleine — schliessbar per Escape und bei jedem Navigations-Wechsel.
+  try { if (typeof gsRegisterOverlay === 'function') gsRegisterOverlay(m); } catch(_){}
 };
 
 // v24.38: ═══ KNOWLEDGE-CACHE FRONTEND-INTEGRATION ════════════════════════
@@ -75563,6 +75610,8 @@ async function gsOpenWeatherAlerts(){
     ov.addEventListener('click', function(e){ if (e.target === ov) gsCloseWeatherAlerts(); });
     ov.innerHTML = '<div id="gs-wx-panel" role="dialog" aria-label="Wetter-Warnungen" style="background:var(--bg,#fff);color:var(--text,#222);width:100%;max-width:560px;max-height:82vh;border-radius:18px 18px 0 0;overflow-y:auto;padding:18px 16px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -8px 30px rgba(0,0,0,.25);"></div>';
     document.body.appendChild(ov);
+    // v30.89: Rettungsleine — schliessbar per Escape und bei jedem Navigations-Wechsel.
+    try { if (typeof gsRegisterOverlay === 'function') gsRegisterOverlay(ov); } catch(_){}
   }
   ov.style.display = 'flex';
   var panel = document.getElementById('gs-wx-panel');
