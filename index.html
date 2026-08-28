@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.84.20260827">
+<meta name="app-version" content="30.85.20260827">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -908,6 +908,23 @@ details > summary::marker { content: ''; }
 .gs-notif-item-time{font-size:10.5px;color:var(--muted);font-weight:600;flex-shrink:0;padding-left:6px;}
 .gs-notif-more{padding:8px 14px;font-size:11px;color:var(--muted);text-align:center;border-top:1px dashed var(--border);font-weight:600;}
 .gs-notif-scroll{max-height:38vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+/* v30.85: Glocken-Badge in der Kopfleiste — eigener fester Platz für
+   Benachrichtigungen UND Aufgaben (vorher nur über das Menü erreichbar). */
+.gs-bell-badge{position:absolute;top:-3px;right:-3px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--c-danger,#e53935);color:#fff;font-size:9.5px;font-weight:900;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 0 0 2px var(--g-dark);letter-spacing:.2px;pointer-events:none;}
+
+/* v30.85: Aufgaben-Notizzettel — klebt am rechten Rand von „Meine Pflanzen",
+   klappt beim Tippen auf. Bewusst wie ein Merkzettel gestaltet (Papierfarbe,
+   leichte Neigung, Klebestreifen oben) statt als weiterer runder Button. */
+#gs-task-note{position:fixed;right:0;top:38%;z-index:var(--z-sticky,100);display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 9px 11px;border:none;border-right:none;border-radius:12px 0 0 12px;background:linear-gradient(160deg,#fff8d6,#ffeeb0);color:#6d4c41;box-shadow:-3px 3px 12px rgba(0,0,0,.18);cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:transform .18s ease,box-shadow .18s ease;transform:rotate(-1.5deg);}
+#gs-task-note:active{transform:rotate(-1.5deg) scale(.94);}
+#gs-task-note.gs-note-open{box-shadow:-2px 2px 6px rgba(0,0,0,.12);}
+body.dark #gs-task-note{background:linear-gradient(160deg,#4a4224,#3a331b);color:#f5e6a8;}
+.gs-task-note-clip{width:22px;height:5px;border-radius:3px;background:rgba(0,0,0,.14);margin-bottom:2px;}
+.gs-task-note-ico{font-size:19px;line-height:1;}
+.gs-task-note-cnt{font-size:12px;font-weight:900;line-height:1;}
+.gs-task-note-pop{position:fixed;right:8px;top:calc(38% - 6px);z-index:calc(var(--z-sticky,100) + 1);width:min(300px,84vw);max-height:52vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 34px rgba(0,0,0,.22);padding:11px 12px;animation:gsNotePop .16s ease-out;}
+@keyframes gsNotePop{from{opacity:0;transform:translateX(10px) scale(.97);}to{opacity:1;transform:none;}}
+.gs-task-note-pop h4{margin:0 0 8px;font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
 .gs-notif-openall{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:11px 14px;background:transparent;border:none;border-top:1px solid var(--border);color:var(--g-main);font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;}
 .gs-notif-openall:active{background:rgba(46,125,50,.06);}
 
@@ -2033,6 +2050,11 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   <div class="tb-right">
     <button class="ib" id="dark-btn" onclick="toggleDark()" aria-label="Dark Mode umschalten" title="Dark Mode">🌙</button>
     <button class="ib" id="api-key-btn" onclick="openApiKey()" aria-label="API Key öffnen" title="API Key" style="display:none;">🔑</button>
+    <!-- v30.85: Benachrichtigungen bekommen einen EIGENEN, festen Platz.
+         Vorher nur über Menü → Panel → „Alle anzeigen" erreichbar (drei Schritte,
+         versteckt). Jetzt: Glocke immer sichtbar, mit Zähler für offene Aufgaben
+         + ungelesene Mitteilungen, öffnet direkt das Benachrichtigungs-Center. -->
+    <button class="ib" id="gs-bell-btn" onclick="if(typeof gsOpenNotifCenter==='function')gsOpenNotifCenter('new')" aria-label="Benachrichtigungen und Aufgaben" title="Benachrichtigungen &amp; Aufgaben" style="position:relative;">🔔<span id="gs-bell-badge" class="gs-bell-badge" role="status" aria-live="polite" style="display:none;"></span></button>
     <button class="menu-btn" onclick="openMainMenu()" aria-label="Hauptmenü" title="Hauptmenü" style="font-size:22px;background:rgba(255,255,255,.15);">⋯</button>
   </div>
 </div>
@@ -2509,6 +2531,16 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
 <!-- ── BENACHRICHTIGUNG + BANNER ──────────────────────────────── -->
 <div id="mp-notif-banner"></div>
+
+<!-- v30.85: Aufgaben-Notizzettel am rechten Rand. Klebt wie ein Merkzettel am
+     Bildschirmrand, zeigt die Anzahl offener Pflege-Aufgaben und klappt beim
+     Tippen auf — abgehakte Aufgaben wandern ins Archiv (Tab „Erledigt"). -->
+<button id="gs-task-note" onclick="gsToggleTaskNote()" aria-label="Offene Aufgaben anzeigen" style="display:none;">
+  <span class="gs-task-note-clip" aria-hidden="true"></span>
+  <span class="gs-task-note-ico" aria-hidden="true">📋</span>
+  <span class="gs-task-note-cnt" id="gs-task-note-cnt">0</span>
+</button>
+<div id="gs-task-note-pop" class="gs-task-note-pop" style="display:none;"></div>
 
 <!-- ── PFLANZEN-LISTE ─────────────────────────────────────────── -->
 <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 16px 90px;" id="mp-scroll-area">
@@ -7390,6 +7422,10 @@ function gsQuickDone(plantId, taskKey) {
   });
   var def = TASK_DEFS[taskKey];
   showProfileToast((def?def.icon+' '+def.name:'Aufgabe') + ' erledigt! ✅', 'success');
+  // v30.85: Glocke + Notiz-Zettel sofort mitziehen — die Aufgabe ist weg,
+  // also muss der Zaehler ueberall stimmen (nicht erst beim naechsten Render).
+  try { if (typeof gsRenderNotifBadge === 'function') gsRenderNotifBadge(); } catch(_){}
+  try { if (typeof gsRenderTaskNote === 'function') gsRenderTaskNote(); } catch(_){}
   // Neu rendern nach kurzer Pause
   setTimeout(function(){ renderMyPlants(); }, 800);
 }
@@ -10340,6 +10376,26 @@ function openDailyQuizFromSupa(quiz) {
   if (iconEl) iconEl.textContent = '🌿';
   if (rEl) { rEl.style.display = 'none'; rEl.innerHTML = ''; }
   qEl.textContent = quiz.question;
+  // v30.85: Bildfrage. Hat die Frage ein Foto, ersetzt es das Emoji.
+  // URL wird durch _gsSafeUrl gefiltert (nur https/data:image, kein Attribut-Ausbruch).
+  try {
+    var imgWrap = document.getElementById('dq-image-wrap');
+    var imgEl   = document.getElementById('dq-image');
+    var credEl  = document.getElementById('dq-image-credit');
+    var safeSrc = (typeof _gsSafeUrl === 'function') ? _gsSafeUrl(quiz.image_url) : '';
+    if (imgWrap && imgEl && safeSrc) {
+      imgEl.src = safeSrc;
+      imgEl.alt = quiz.image_alt || 'Bild zur Quizfrage';
+      // Bild kaputt/offline → still auf das Emoji zurückfallen, nie leeren Rahmen zeigen
+      imgEl.onerror = function(){ imgWrap.style.display = 'none'; if (iconEl) iconEl.style.display = ''; };
+      imgWrap.style.display = 'block';
+      if (iconEl) iconEl.style.display = 'none';
+      if (credEl) { credEl.textContent = quiz.image_credit || ''; credEl.style.display = quiz.image_credit ? 'block' : 'none'; }
+    } else if (imgWrap) {
+      imgWrap.style.display = 'none';
+      if (iconEl) iconEl.style.display = '';
+    }
+  } catch(_){}
   if (hintEl) {
     hintEl.textContent = quiz.category ? ('Kategorie: ' + quiz.category) : '';
     hintEl.style.display = hintEl.textContent ? 'block' : 'none';
@@ -21800,9 +21856,61 @@ function closeModal(id){
   }
 }
 
+// ═══ v30.85: RETTUNGSLEINE FÜR DYNAMISCHE OVERLAYS ═══════════════
+// User-Bug (2×gemeldet): „Ich drücke den XP-Balken, dann kommt bei JEDEM
+// Tippen nur noch 'Konto wirklich löschen'." Ursache: Dialoge, die per
+// createElement gebaut und an <body> gehängt werden (delete-account-modal,
+// change-pw-modal, …), liegen auf z-index 99999 — über der Tab-Leiste (1500) —
+// und werden von NICHTS zentral geschlossen: nicht von closeModal, nicht von
+// Escape, nicht beim Tab-Wechsel. Wer nicht exakt „Abbrechen" oder den Rand
+// trifft, sitzt fest. Insgesamt gibt es 53 solcher Overlays im Code.
+//
+// Fix: registrierte Overlays sind IMMER auf drei Wegen zu verlassen —
+// ✕-Knopf, Escape, und jeder Navigations-Wechsel. Optionaler onDismiss-
+// Callback, damit Promise-basierte Dialoge sauber auflösen statt zu hängen.
+window._gsOrphanOverlays = window._gsOrphanOverlays || [];
+
+function gsRegisterOverlay(el, onDismiss) {
+  try {
+    if (!el || !el.classList) return el;
+    el.classList.add('gs-dyn-overlay');
+    if (typeof onDismiss === 'function') el._gsOnDismiss = onDismiss;
+    // Klick auf den abgedunkelten Rand schliesst (falls nicht schon verdrahtet)
+    if (!el._gsBackdropBound) {
+      el._gsBackdropBound = true;
+      el.addEventListener('click', function(ev){ if (ev.target === el) gsDismissOverlay(el); });
+    }
+    window._gsOrphanOverlays.push(el);
+  } catch(_){}
+  return el;
+}
+window.gsRegisterOverlay = gsRegisterOverlay;
+
+function gsDismissOverlay(el) {
+  try {
+    if (!el) return;
+    var cb = el._gsOnDismiss;
+    if (el.parentNode) el.parentNode.removeChild(el);
+    window._gsOrphanOverlays = (window._gsOrphanOverlays || []).filter(function(x){ return x !== el; });
+    if (typeof cb === 'function') { try { cb(); } catch(_){} }   // z.B. Promise mit false auflösen
+  } catch(_){}
+}
+window.gsDismissOverlay = gsDismissOverlay;
+
+// Alle registrierten dynamischen Overlays schliessen — die Rettungsleine.
+// Wird bei jedem Tab-Wechsel und bei Escape aufgerufen.
+function gsDismissOrphanOverlays() {
+  try {
+    var list = Array.prototype.slice.call(document.querySelectorAll('.gs-dyn-overlay'));
+    list.forEach(gsDismissOverlay);
+  } catch(_){}
+}
+window.gsDismissOrphanOverlays = gsDismissOrphanOverlays;
+
 // Close any open modal on Escape key
 document.addEventListener('keydown', e => {
   if(e.key==='Escape'){
+    try { gsDismissOrphanOverlays(); } catch(_){}
     // v29.35: über closeModal schliessen → smoothe Fade-out statt abruptem display:none.
     document.querySelectorAll('.modal-overlay.open,.overlay-modal.open').forEach(m => {
       if (m.id && typeof closeModal === 'function') { try { closeModal(m.id); return; } catch(_){} }
@@ -21904,6 +22012,15 @@ document.addEventListener('keydown', e => {
 })();
 function switchTab(t, btn) {
   if(typeof gsHaptic==='function') gsHaptic('tap');
+  // v30.85: Rettungsleine — beim Navigieren immer alle dynamischen Overlays
+  // schliessen. Vorher konnte ein haengengebliebener Dialog (z.B. die
+  // Konto-Loeschen-Rueckfrage auf z-index 99999) jede weitere Bedienung
+  // blockieren, weil er ueber der Tab-Leiste lag.
+  try { if (typeof gsDismissOrphanOverlays === 'function') gsDismissOrphanOverlays(); } catch(_){}
+  // v30.85: Aufgaben-Notizzettel nur auf „Meine Pflanzen" zeigen — beim Verlassen
+  // zuklappen, beim Betreten neu zeichnen (nach dem Screen-Wechsel).
+  try { if (typeof gsToggleTaskNote === 'function') gsToggleTaskNote(true); } catch(_){}
+  setTimeout(function(){ try { if (typeof gsRenderTaskNote === 'function') gsRenderTaskNote(); } catch(_){} }, 60);
   // Same-Tab: Scroll-to-Top + Smart Action
   if (typeof _gsCurrentTab !== 'undefined' && _gsCurrentTab === t) {
     if (typeof gsSameTabAction === 'function') gsSameTabAction(t);
@@ -22516,7 +22633,105 @@ function gsNotifAckBadge(){
   try { gsRenderNotifBadge(); } catch(_){}
 }
 
+// v30.85: Glocken-Badge in der Kopfleiste. Zählt BEIDES — offene Pflege-Aufgaben
+// und ungelesene Mitteilungen — weil die Glocke der eine feste Ort für beides ist.
+// Bewusst andere Zählung als der Menü-Badge: hier zählen fällige Aufgaben immer
+// mit, auch wenn der Badge schon quittiert wurde (eine offene Aufgabe bleibt offen).
+// ═══ v30.85: AUFGABEN-NOTIZZETTEL („Meine Pflanzen") ═══════════════
+// User-Wunsch: „Aufgaben sollen wie eine Notiz am Rande stehen, aufploppen,
+// zeigen was ansteht — und nach dem Abhaken ins Archiv wandern."
+// Der Zettel erscheint nur auf dem Pflanzen-Tab und nur bei offenen Aufgaben.
+// Abhaken läuft über gsNcDoneTask → gsQuickDone (echtes Erledigen inkl.
+// Cloud-Sync); erledigt = sichtbar im Center-Tab „Erledigt".
+function gsRenderTaskNote(){
+  var note = document.getElementById('gs-task-note');
+  var pop  = document.getElementById('gs-task-note-pop');
+  if (!note) return;
+  var onFavs = false;
+  try {
+    var sc = document.getElementById('screen-favs');
+    onFavs = !!(sc && sc.classList.contains('active'));
+  } catch(_){}
+  var tasks = (typeof gsGetDueTasks === 'function') ? gsGetDueTasks() : [];
+  var due = tasks.filter(function(t){ return t.days <= 0; });
+  if (!onFavs || !due.length) {
+    note.style.display = 'none';
+    if (pop) { pop.style.display = 'none'; pop.innerHTML = ''; }
+    note.classList.remove('gs-note-open');
+    return;
+  }
+  note.style.display = 'flex';
+  var cnt = document.getElementById('gs-task-note-cnt');
+  if (cnt) cnt.textContent = String(due.length);
+  note.setAttribute('aria-label', due.length + ' offene Aufgabe' + (due.length===1?'':'n') + ' anzeigen');
+  // Wenn der Zettel offen ist, Inhalt frisch zeichnen
+  if (pop && pop.style.display !== 'none') gsRenderTaskNotePop();
+}
+window.gsRenderTaskNote = gsRenderTaskNote;
+
+function gsRenderTaskNotePop(){
+  var pop = document.getElementById('gs-task-note-pop');
+  if (!pop) return;
+  var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s||''); };
+  var due = ((typeof gsGetDueTasks === 'function') ? gsGetDueTasks() : []).filter(function(t){ return t.days <= 0; });
+  if (!due.length) { pop.style.display = 'none'; pop.innerHTML = ''; return; }
+  var html = '<h4>📋 Heute zu tun (' + due.length + ')</h4>';
+  due.slice(0, 8).forEach(function(t){
+    var when = t.days < 0 ? 'seit ' + (-t.days) + ' Tag' + (t.days === -1 ? '' : 'en') : 'heute';
+    html += '<div class="gs-nc-task" style="margin-bottom:6px;">' +
+      '<button type="button" class="gs-nc-check" aria-label="Erledigt" onclick="gsNcDoneTask(this,\'' + esc(t.plant.id) + '\',\'' + esc(t.key) + '\')">✓</button>' +
+      '<div class="gs-nc-task-body" onclick="gsNcDoneTask(this.parentElement.querySelector(\'.gs-nc-check\'),\'' + esc(t.plant.id) + '\',\'' + esc(t.key) + '\')">' +
+        '<div class="gs-nc-task-name">' + (t.plant.emoji||'🌿') + ' ' + esc(t.plant.name) + '</div>' +
+        '<div class="gs-nc-task-sub">' + (t.def.icon||'') + ' ' + esc(t.def.name||t.key) + ' · <span class="urgent">' + when + '</span></div>' +
+      '</div>' +
+    '</div>';
+  });
+  if (due.length > 8) html += '<div style="font-size:11px;color:var(--muted);text-align:center;padding:2px 0 6px;">+ ' + (due.length - 8) + ' weitere</div>';
+  html += '<button type="button" class="gs-notif-openall" style="border-top:1px solid var(--border);margin-top:4px;" onclick="gsToggleTaskNote(true);if(typeof gsOpenNotifCenter===\'function\')gsOpenNotifCenter(\'done\');">🗂️ Archiv ansehen →</button>';
+  pop.innerHTML = html;
+  pop.style.display = 'block';
+}
+
+function gsToggleTaskNote(forceClose){
+  var pop = document.getElementById('gs-task-note-pop');
+  var note = document.getElementById('gs-task-note');
+  if (!pop) return;
+  var isOpen = pop.style.display !== 'none' && pop.innerHTML !== '';
+  if (isOpen || forceClose === true) {
+    pop.style.display = 'none'; pop.innerHTML = '';
+    if (note) note.classList.remove('gs-note-open');
+  } else {
+    try { if (typeof gsHaptic === 'function') gsHaptic('tap'); } catch(_){}
+    gsRenderTaskNotePop();
+    if (note) note.classList.add('gs-note-open');
+  }
+}
+window.gsToggleTaskNote = gsToggleTaskNote;
+
+function gsRenderBellBadge(){
+  var el = document.getElementById('gs-bell-badge');
+  if (!el) return;
+  var n = 0;
+  try {
+    var tasks = (typeof gsGetDueTasks === 'function') ? gsGetDueTasks().filter(function(t){ return t.days <= 0; }).length : 0;
+    var news  = (typeof gsCollectNotifs === 'function')
+      ? gsCollectNotifs().filter(function(x){ return x.type !== 'scan' && x.type !== 'level'; }).length : 0;
+    n = tasks + news;
+  } catch(_){ n = 0; }
+  if (n > 0){
+    el.textContent = n > 99 ? '99+' : String(n);
+    el.style.display = 'flex';
+    el.setAttribute('aria-label', n + ' offene Aufgabe' + (n===1?'':'n') + ' und Mitteilungen');
+  } else {
+    el.style.display = 'none';
+    el.removeAttribute('aria-label');
+  }
+}
+window.gsRenderBellBadge = gsRenderBellBadge;
+
 function gsRenderNotifBadge(){
+  // v30.85: Glocke immer mitziehen — beide Anzeigen bleiben so synchron.
+  try { gsRenderBellBadge(); } catch(_){}
   var el = document.getElementById('gs-notif-badge');
   if (!el) return;
   var n = gsCountUnreadNotifs();
@@ -27867,6 +28082,8 @@ function renderMyPlants() {
 
   list.innerHTML = sortedPlants.map(function(p) { return gsNewPlantCard(p); }).join('');
   initPlantListDelegation();
+  // v30.85: Notizzettel am Rand mitziehen (Anzahl offener Aufgaben)
+  try { if (typeof gsRenderTaskNote === 'function') gsRenderTaskNote(); } catch(_){}
 }
 
 function buildPlantCard(p){
@@ -67478,7 +67695,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.84';
+var GS_VERSION = 'v30.85';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -71705,6 +71922,8 @@ async function profChangePassword() {
     '</div>';
   m.addEventListener('click', function(ev){ if (ev.target === m) m.remove(); });
   document.body.appendChild(m);
+  // v30.85: gleiche Rettungsleine wie beim Loesch-Dialog (Escape + Navigation).
+  try { if (typeof gsRegisterOverlay === 'function') gsRegisterOverlay(m); } catch(_){}
   setTimeout(function(){
     var inp = document.getElementById('pw-current');
     if (inp) inp.focus();
@@ -71795,7 +72014,10 @@ async function profDeleteAccount() {
   m.style.cssText = 'position:fixed;inset:0;z-index:var(--z-image-overlay,99999);background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px);';
   m.innerHTML =
     '<div style="background:var(--card,#fff);border-radius:16px;max-width:400px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.4);overflow:hidden;">' +
-      '<div style="padding:20px;background:linear-gradient(135deg,#c62828,#e53935);color:#fff;">' +
+      '<div style="padding:20px;background:linear-gradient(135deg,#c62828,#e53935);color:#fff;position:relative;">' +
+        // v30.85: sichtbarer Schliessen-Knopf — vorher gab es nur „Abbrechen" ganz
+        // unten, ausserhalb des Blickfelds wenn der Dialog die Navigation ueberdeckte.
+        '<button onclick="gsDismissOverlay(document.getElementById(\'delete-account-modal\'))" aria-label="Schliessen" style="position:absolute;top:10px;right:10px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.22);border:none;color:#fff;font-size:16px;line-height:1;cursor:pointer;font-family:inherit;">✕</button>' +
         '<div style="font-size:28px;margin-bottom:6px;">⚠️</div>' +
         '<div style="font-size:18px;font-weight:900;">Konto wirklich löschen?</div>' +
         '<div style="font-size:12px;opacity:.92;margin-top:4px;line-height:1.5;">Diese Aktion kann nicht rückgängig gemacht werden.</div>' +
@@ -71819,6 +72041,10 @@ async function profDeleteAccount() {
     '</div>';
   m.addEventListener('click', function(ev){ if (ev.target === m) m.remove(); });
   document.body.appendChild(m);
+  // v30.85: An die Rettungsleine haengen — schliesst jetzt auch per Escape und
+  // bei jedem Navigations-Wechsel. Vorher blieb dieser Dialog auf z-index 99999
+  // ueber der Tab-Leiste haengen und blockierte die ganze App (User-Bug).
+  try { if (typeof gsRegisterOverlay === 'function') gsRegisterOverlay(m); } catch(_){}
   setTimeout(function(){ var i = document.getElementById('del-confirm'); if (i) i.focus(); }, 150);
 }
 
@@ -80078,6 +80304,12 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
     </div>
     <div style="padding:0 18px 16px;">
       <div id="dq-icon" style="font-size:52px;text-align:center;margin-bottom:12px;"></div>
+      <!-- v30.85: Bildfrage — ersetzt das Emoji, wenn die Frage ein Foto hat.
+           Macht das Quiz deutlich spannender („Welche Pflanze ist das?"). -->
+      <figure id="dq-image-wrap" style="display:none;margin:0 0 12px;">
+        <img id="dq-image" alt="" loading="lazy" style="width:100%;max-height:190px;object-fit:cover;border-radius:14px;background:rgba(255,255,255,.1);display:block;">
+        <figcaption id="dq-image-credit" style="font-size:9.5px;color:rgba(255,255,255,.55);text-align:right;margin-top:3px;"></figcaption>
+      </figure>
       <div id="dq-hint" style="display:none;font-size:11px;color:rgba(255,255,255,.6);font-style:italic;text-align:center;margin:-6px 0 8px;"></div>
       <div id="dq-question" style="font-size:18px;font-weight:900;color:#fff;text-align:center;line-height:1.3;margin-bottom:16px;"></div>
       <div id="dq-options"></div>
