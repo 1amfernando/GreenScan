@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.89.20260828">
+<meta name="app-version" content="30.90.20260828">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -309,7 +309,7 @@ body{height:100%;background:var(--g-dark);font-family:"DM Sans",sans-serif;overf
 .tabs{position:fixed;bottom:0;left:0;right:0;height:calc(var(--sb)+var(--tab-h));padding-bottom:var(--sb);background:var(--g-dark);border-top:1px solid rgba(255,255,255,.08);display:flex;z-index:var(--z-overlay);box-shadow:0 -2px 20px rgba(0,0,0,.1);}
 .tab{flex:1;border:none;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;transition:.2s;color:var(--muted);position:relative;padding:4px 2px 2px;}
 .tab.active{color:var(--g-main);}
-.tab.active{color:var(--g-main);}.tab.active::before{content:"";position:absolute;top:6px;left:50%;transform:translateX(-50%);width:36px;height:36px;background:#e8f5e9;border-radius:12px;z-index:-1;}
+.tab.active{color:var(--g-main);}.tab.active::before{content:"";position:absolute;top:6px;left:50%;transform:translateX(-50%);width:36px;height:36px;background:var(--bg-success-soft);border-radius:12px;z-index:-1;}
 .ti{font-size:20px;line-height:1;position:relative;z-index:1;}
 .tl{font-size:9px;font-weight:700;letter-spacing:.2px;text-transform:uppercase;margin-top:1px;}
 
@@ -376,8 +376,8 @@ body.gs-scanner-active #screen-scanner { bottom: 0 !important; }
 
 
 .api-banner{display:none;align-items:center;gap:10px;margin:12px 16px 0;padding:11px 14px;border-radius:var(--r-sm);font-size:12.5px;font-weight:600;cursor:pointer;}
-.api-banner.missing{background:#fff3e0;color:#bf5600;}
-.api-banner.ok{background:#e8f5e9;color:#1b6b1b;}
+.api-banner.missing{background:var(--bg-warn-soft);color:var(--c-warn-d);}
+.api-banner.ok{background:var(--bg-success-soft);color:var(--c-success-d);}
 
 
 .hero{background:linear-gradient(145deg,#142e14 0%,#2d6a2d 60%,#3a8c3a 100%);padding:22px 18px 20px;color:#fff;position:relative;overflow:hidden;}
@@ -763,8 +763,8 @@ body.gs-scanner-active #screen-scanner { bottom: 0 !important; }
 
 
 .tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:9px;}
-.tag.e{background:#e8f5e9;color:#2d7a2d;}
-.tag.t{background:#ffebee;color:#c62828;}
+.tag.e{background:var(--bg-success-soft);color:var(--c-success);}
+.tag.t{background:var(--bg-danger-soft);color:var(--c-danger);}
 .tag.m{background:#e8eaf6;color:#3949ab;}
 .tag.p{background:#fce4ec;color:#c2185b;}
 
@@ -841,7 +841,7 @@ details > summary::marker { content: ''; }
 .lux-n{font-size:54px;font-weight:800;color:var(--g-dark);font-family:"Playfair Display",serif;line-height:1;}
 .lux-u{font-size:15px;color:var(--muted);margin-top:3px;}
 .lux-c{font-size:15px;color:var(--g-main);margin-top:7px;font-weight:700;}
-.lux-bar-w{height:11px;background:#e8f5e9;border-radius:6px;margin-bottom:8px;overflow:hidden;}
+.lux-bar-w{height:11px;background:var(--bg-success-soft);border-radius:6px;margin-bottom:8px;overflow:hidden;}
 .lux-bar{height:100%;background:linear-gradient(90deg,#2196f3,#4caf50,#ff9800,#f44336);border-radius:6px;transition:width 1.2s;}
 .lbtn{width:100%;padding:14px;background:var(--g-main);color:#fff;border:none;border-radius:var(--r-sm);font-size:14.5px;font-weight:700;cursor:pointer;transition:.15s;font-family:inherit;}
 .lbtn:disabled{opacity:.6;}
@@ -967,10 +967,10 @@ body.dark #gs-task-note{background:linear-gradient(160deg,#4a4224,#3a331b);color
 .diag-camera-preview{width:100%;max-height:200px;object-fit:cover;border-radius:10px;background:#000;display:block;}
 .diag-result{background:var(--card);border-radius:10px;padding:12px 14px;margin-top:8px;font-size:13px;color:var(--text2);line-height:1.6;}
 .diag-severity{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:8px;font-size:11px;font-weight:800;margin-bottom:6px;}
-.sev-healthy{background:#e8f5e9;color:#2e7d32;}
-.sev-mild{background:#fff8e1;color:#f57f17;}
-.sev-moderate{background:#fff3e0;color:#e65100;}
-.sev-severe{background:#ffebee;color:#c62828;}
+.sev-healthy{background:var(--bg-success-soft);color:var(--c-success);}
+.sev-mild{background:var(--bg-yellow-soft);color:#f57f17;}
+.sev-moderate{background:var(--bg-warn-soft);color:var(--c-warn-d);}
+.sev-severe{background:var(--bg-danger-soft);color:var(--c-danger);}
 
 
 .cemetery-card{background:linear-gradient(135deg,#263238,#37474f);border-radius:var(--r);padding:13px 15px;color:#eceff1;margin-bottom:8px;position:relative;overflow:hidden;}
@@ -985,9 +985,9 @@ body.dark #gs-task-note{background:linear-gradient(160deg,#4a4224,#3a331b);color
 
 
 .rarity-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:7px;font-size:10px;font-weight:800;letter-spacing:.3px;}
-.rarity-common{background:#e8f5e9;color:#2e7d32;}
-.rarity-uncommon{background:#e3f2fd;color:#1565c0;}
-.rarity-rare{background:#f3e5f5;color:#7b1fa2;}
+.rarity-common{background:var(--bg-success-soft);color:var(--c-success);}
+.rarity-uncommon{background:var(--bg-info-soft);color:var(--c-info);}
+.rarity-rare{background:var(--bg-purple-soft);color:var(--c-purple);}
 .rarity-legendary{background:linear-gradient(90deg,#ff6f00,#f57f17);color:#fff;}
 
 
@@ -996,14 +996,14 @@ body.dark #gs-task-note{background:linear-gradient(160deg,#4a4224,#3a331b);color
 .post-avatar{width:38px;height:38px;border-radius:50%;background:var(--g-light);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
 .post-user-name{font-size:13.5px;font-weight:800;color:var(--text);}
 .post-user-badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px;margin-left:5px;}
-.badge-expert{background:#fff3e0;color:#e65100;}
-.badge-verified{background:#e3f2fd;color:#1565c0;}
+.badge-expert{background:var(--bg-warn-soft);color:var(--c-warn-d);}
+.badge-verified{background:var(--bg-info-soft);color:var(--c-info);}
 .post-time{font-size:11px;color:var(--muted);}
 .post-plant-tag{font-size:11px;color:var(--g-main);font-weight:700;}
 .post-image{width:100%;max-height:280px;object-fit:cover;background:#f0f7ee;display:flex;align-items:center;justify-content:center;font-size:60px;}
 .post-image-placeholder{width:100%;height:200px;background:linear-gradient(135deg,#e8f5e9,#c8e6c9);display:flex;align-items:center;justify-content:center;font-size:56px;}
 .post-text{padding:10px 14px;font-size:13.5px;color:var(--text2);line-height:1.6;}
-.post-help-tag{display:inline-flex;align-items:center;gap:4px;background:#fff3e0;color:#e65100;padding:3px 9px;border-radius:8px;font-size:11px;font-weight:700;margin:0 14px 8px;}
+.post-help-tag{display:inline-flex;align-items:center;gap:4px;background:var(--bg-warn-soft);color:var(--c-warn-d);padding:3px 9px;border-radius:8px;font-size:11px;font-weight:700;margin:0 14px 8px;}
 .post-actions{display:flex;border-top:1px solid #f5f5f5;padding:0 6px;}
 .post-action{flex:1;padding:10px 4px;border:none;background:transparent;display:flex;align-items:center;justify-content:center;gap:5px;font-size:12.5px;font-weight:700;color:var(--muted);cursor:pointer;font-family:inherit;transition:.15s;border-radius:8px;}
 .post-action:active{background:var(--surface2);}
@@ -1014,7 +1014,7 @@ body.dark #gs-task-note{background:linear-gradient(160deg,#4a4224,#3a331b);color
 .comment-bubble{background:#f9fafb;border-radius:10px;padding:7px 10px;flex:1;}
 .comment-name{font-size:11.5px;font-weight:800;color:var(--text);}
 .comment-text{font-size:12.5px;color:var(--text2);margin-top:1px;line-height:1.4;}
-.comment-expert-note{font-size:11px;color:#e65100;font-weight:700;margin-top:3px;}
+.comment-expert-note{font-size:11px;color:var(--c-warn-d);font-weight:700;margin-top:3px;}
 .social-input-bar{display:flex;gap:8px;padding:10px 14px;border-top:1px solid #f5f5f5;background:var(--card);}
 .social-tabs{display:flex;gap:6px;padding:10px 16px 4px;overflow-x:auto;scrollbar-width:none;}
 .social-tab{flex:0 0 auto;padding:7px 14px;border:1.5px solid var(--g-light);border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:var(--g-dark);font-family:inherit;white-space:nowrap;transition:.15s;}
@@ -1073,7 +1073,7 @@ body.dark .social-input-bar{background:var(--card);}
 .market-price-row{display:flex;align-items:center;justify-content:space-between;margin-top:8px;}
 .market-price{font-size:22px;font-weight:800;color:var(--g-dark);font-family:'Playfair Display',serif;}
 .market-price-label{font-size:10px;color:var(--muted);font-weight:600;}
-.market-auction-timer{font-size:11.5px;font-weight:800;color:#e53935;background:#ffebee;padding:4px 9px;border-radius:7px;}
+.market-auction-timer{font-size:11.5px;font-weight:800;color:var(--c-danger);background:var(--bg-danger-soft);padding:4px 9px;border-radius:7px;}
 .market-seller{display:flex;align-items:center;gap:7px;padding:8px 14px;border-top:1px solid #f5f5f5;}
 .market-seller-avatar{width:24px;height:24px;border-radius:50%;background:var(--g-light);display:flex;align-items:center;justify-content:center;font-size:13px;}
 .market-seller-name{font-size:11.5px;color:var(--muted);font-weight:600;}
@@ -1163,9 +1163,9 @@ body.dark .mkt-chat-msg.them{background:#2a3f2a;color:var(--text);}
 .purchases-list{padding:10px 16px 24px;}
 .purchase-card{background:var(--card);border-radius:12px;padding:12px 14px;margin-bottom:8px;box-shadow:var(--shadow-sm);display:flex;gap:10px;align-items:center;}
 .purchase-status{font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;}
-.status-won{background:#e8f5e9;color:#2e7d32;}
-.status-bought{background:#e3f2fd;color:#1565c0;}
-.status-bidding{background:#fff3e0;color:#e65100;}
+.status-won{background:var(--bg-success-soft);color:var(--c-success);}
+.status-bought{background:var(--bg-info-soft);color:var(--c-info);}
+.status-bidding{background:var(--bg-warn-soft);color:var(--c-warn-d);}
 
 
 
@@ -1186,11 +1186,11 @@ body.dark .mkt-chat-msg.them{background:#2a3f2a;color:var(--text);}
 .plant-info-label{font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.3px;}
 .plant-info-val{font-size:13.5px;font-weight:800;color:var(--text);margin-top:2px;}
 .companion-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:8px;font-size:11px;font-weight:700;margin:2px;}
-.chip-good{background:#e8f5e9;color:#2e7d32;}
-.chip-bad{background:#ffebee;color:#c62828;}
+.chip-good{background:var(--bg-success-soft);color:var(--c-success);}
+.chip-bad{background:var(--bg-danger-soft);color:var(--c-danger);}
 .fruchtfolge-row{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;}
 .keimtyp-badge{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:700;}
-.keimtyp-licht{background:#fff8e1;color:#f57f17;}
+.keimtyp-licht{background:var(--bg-yellow-soft);color:#f57f17;}
 .keimtyp-dunkel{background:#1a237e22;color:#1a237e;}
 body.dark .plant-info-card{background:var(--card);}
 body.dark .keimtyp-dunkel{background:rgba(255,255,255,.1);color:#90caf9;}
@@ -1277,7 +1277,7 @@ body.compact .recipe-card-img{height:120px;}
 body.compact .market-img{height:150px;}
 
 
-.loc-quick-btn{padding:6px 12px;background:#e8f5e9;border:1.5px solid var(--g-light);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;}
+.loc-quick-btn{padding:6px 12px;background:var(--bg-success-soft);border:1.5px solid var(--g-light);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;}
 .loc-quick-btn:active{background:var(--g-main);color:#fff;}
 body.dark .loc-quick-btn{background:var(--g-light);color:var(--text);}
 
@@ -1309,7 +1309,7 @@ body.dark .menu-search-wrap{background:var(--card);}
 }
 .gs-xp-pulse { animation: gs-xp-pulse-anim 1.2s ease-out; }
 .map-layer-btn{display:none;}
-.map-layer-btn.active{background:rgba(255,255,255,.9);color:#b71c1c;border-color:transparent;}
+.map-layer-btn.active{background:rgba(255,255,255,.9);color:var(--c-danger-d);border-color:transparent;}
 .map-layer-btn:active{opacity:.8;}
 
 
@@ -1318,11 +1318,11 @@ body.dark .menu-search-wrap{background:var(--card);}
 
 .farm-plot{border-radius:12px;aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;transition:.15s;position:relative;border:2px solid transparent;font-family:inherit;}
 .farm-plot:active{transform:scale(.94);}
-.farm-plot.empty{background:#e8f5e9;border-color:#c8e6c9;border-style:dashed;}
-.farm-plot.planted{background:#fff8e1;border-color:#ffc107;}
+.farm-plot.empty{background:var(--bg-success-soft);border-color:#c8e6c9;border-style:dashed;}
+.farm-plot.planted{background:var(--bg-yellow-soft);border-color:#ffc107;}
 .farm-plot.growing{background:#e1f5fe;border-color:#81d4fa;}
-.farm-plot.ready{background:#e8f5e9;border-color:#4caf50;animation:readyPulse 1.5s ease-in-out infinite;}
-.farm-plot.watering{background:#e3f2fd;border-color:#2196f3;}
+.farm-plot.ready{background:var(--bg-success-soft);border-color:#4caf50;animation:readyPulse 1.5s ease-in-out infinite;}
+.farm-plot.watering{background:var(--bg-info-soft);border-color:#2196f3;}
 @keyframes readyPulse{0%,100%{box-shadow:0 0 0 0 rgba(76,175,80,.4)}50%{box-shadow:0 0 0 8px rgba(76,175,80,0)}}
 @keyframes bounce{0%{transform:translateY(0)}100%{transform:translateY(-12px)}}
 .farm-plot-emoji{font-size:28px;line-height:1;}
@@ -1334,7 +1334,7 @@ body.dark .menu-search-wrap{background:var(--card);}
 
 .farm-animal{background:var(--card);border-radius:12px;padding:10px 12px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.07);cursor:pointer;transition:.15s;min-width:72px;border:2px solid transparent;}
 .farm-animal:active{transform:scale(.95);}
-.farm-animal.ready{border-color:#4caf50;background:#e8f5e9;}
+.farm-animal.ready{border-color:#4caf50;background:var(--bg-success-soft);}
 .farm-animal-emoji{font-size:30px;display:block;line-height:1;}
 .farm-animal-name{font-size:9px;font-weight:700;color:var(--g-dark);margin-top:3px;}
 .farm-animal-prod{font-size:9px;color:var(--muted);}
@@ -1372,14 +1372,14 @@ body.dark .menu-search-wrap{background:var(--card);}
 .planting-name{font-size:13.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .planting-meta{font-size:11px;color:var(--muted);margin-top:1px;}
 .planting-status{font-size:11px;font-weight:700;padding:3px 8px;border-radius:7px;flex-shrink:0;white-space:nowrap;}
-.status-growing{background:#e3f2fd;color:#1565c0;}
-.status-ready{background:#e8f5e9;color:#2e7d32;animation:readyPulse 1.5s infinite;}
-.status-late{background:#ffebee;color:#c62828;}
+.status-growing{background:var(--bg-info-soft);color:var(--c-info);}
+.status-ready{background:var(--bg-success-soft);color:var(--c-success);animation:readyPulse 1.5s infinite;}
+.status-late{background:var(--bg-danger-soft);color:var(--c-danger);}
 
 
 .shop-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px;}
 .shop-item{background:#f9fafb;border-radius:10px;padding:12px;text-align:center;cursor:pointer;transition:.15s;border:1.5px solid #eee;}
-.shop-item:active{background:#e8f5e9;border-color:var(--g-light);}
+.shop-item:active{background:var(--bg-success-soft);border-color:var(--g-light);}
 .shop-item-emoji{font-size:30px;display:block;margin-bottom:5px;}
 .shop-item-name{font-size:12.5px;font-weight:700;color:var(--text);}
 .shop-item-price{font-size:11.5px;color:var(--g-main);font-weight:700;margin-top:3px;}
@@ -1404,8 +1404,8 @@ body.dark .menu-search-wrap{background:var(--card);}
 .mpcard-loc{font-size:11.5px;color:var(--muted);margin-top:1px;}
 .mpcard-badges{display:flex;gap:5px;margin-top:5px;flex-wrap:wrap;}
 .mpbadge{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:8px;background:#f0f7ee;color:var(--g-dark);}
-.mpbadge.warn{background:#fff3e0;color:#bf5600;}
-.mpbadge.ok{background:#e8f5e9;color:#1b6b1b;}
+.mpbadge.warn{background:var(--bg-warn-soft);color:var(--c-warn-d);}
+.mpbadge.ok{background:var(--bg-success-soft);color:var(--c-success-d);}
 .mpcard-chevron{font-size:18px;color:var(--muted);flex-shrink:0;transition:.2s;}
 .mpcard-chevron.open{transform:rotate(90deg);}
 
@@ -1432,7 +1432,7 @@ body.dark .menu-search-wrap{background:var(--card);}
 .mp-task-due{font-size:11px;color:var(--muted);margin-top:1px;}
 .mp-task-due.overdue{color:#e53935;font-weight:700;}
 .mp-task-due.soon{color:#ef6c00;font-weight:700;}
-.mp-task-due.ok{color:#2e7d32;}
+.mp-task-due.ok{color:var(--c-success);}
 .mp-task-check{width:24px;height:24px;border-radius:50%;border:2px solid var(--g-light);background:transparent;display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:.15s;flex-shrink:0;}
 .mp-task-check.done{background:var(--g-main);border-color:var(--g-main);color:#fff;}
 
@@ -1446,11 +1446,11 @@ body.dark .menu-search-wrap{background:var(--card);}
 .mp-actions{display:flex;gap:7px;padding:0 13px 13px;}
 .mp-action-btn{flex:1;padding:9px 6px;border:1.5px solid var(--g-light);border-radius:10px;background:transparent;font-size:12px;font-weight:700;color:var(--g-dark);cursor:pointer;font-family:inherit;transition:.15s;text-align:center;}
 .mp-action-btn:active{background:var(--g-light);}
-.mp-action-btn.del{border-color:#ffcdd2;color:#c62828;}
+.mp-action-btn.del{border-color:#ffcdd2;color:var(--c-danger);}
 
 
-.notif-banner{margin:10px 16px 0;padding:11px 14px;border-radius:var(--r-sm);background:#e8f5e9;border:1px solid #c8e6c9;display:flex;align-items:center;gap:9px;font-size:12.5px;font-weight:600;color:#1b6b1b;cursor:pointer;}
-.notif-banner.warn{background:#fff3e0;border-color:#ffe082;color:#bf5600;}
+.notif-banner{margin:10px 16px 0;padding:11px 14px;border-radius:var(--r-sm);background:var(--bg-success-soft);border:1px solid #c8e6c9;display:flex;align-items:center;gap:9px;font-size:12.5px;font-weight:600;color:var(--c-success-d);cursor:pointer;}
+.notif-banner.warn{background:var(--bg-warn-soft);border-color:#ffe082;color:var(--c-warn-d);}
 
 
 .mp-form{padding:4px 18px 14px;}
@@ -1488,15 +1488,15 @@ body.dark .menu-search-wrap{background:var(--card);}
 .fb-card{background:var(--card);border-radius:var(--r);padding:18px;box-shadow:var(--shadow-sm);margin-bottom:12px;}
 .fb-card h3{font-family:"Playfair Display",serif;font-size:17px;font-weight:800;color:var(--g-dark);margin-bottom:8px;}
 .fb-tag{display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;margin-bottom:10px;}
-.fb-tag.bug{background:#ffebee;color:#c62828;}
-.fb-tag.idea{background:#e8f5e9;color:#2d7a2d;}
+.fb-tag.bug{background:var(--bg-danger-soft);color:var(--c-danger);}
+.fb-tag.idea{background:var(--bg-success-soft);color:var(--c-success);}
 .fb-tag.ui{background:#e8eaf6;color:#3949ab;}
-.fb-tag.data{background:#fff3e0;color:#e65100;}
+.fb-tag.data{background:var(--bg-warn-soft);color:var(--c-warn-d);}
 .fb-body{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:12px;}
 .vote-row{display:flex;align-items:center;gap:10px;}
 .vote-btn{display:flex;align-items:center;gap:5px;padding:7px 14px;border-radius:20px;border:1.5px solid #e0e0e0;background:var(--card);font-size:13px;font-weight:700;cursor:pointer;transition:.15s;font-family:inherit;}
-.vote-btn.up.voted{background:#e8f5e9;border-color:#4caf50;color:#2d7a2d;}
-.vote-btn.down.voted{background:#ffebee;border-color:#ef5350;color:#c62828;}
+.vote-btn.up.voted{background:var(--bg-success-soft);border-color:#4caf50;color:var(--c-success);}
+.vote-btn.down.voted{background:var(--bg-danger-soft);border-color:#ef5350;color:var(--c-danger);}
 .vote-count{font-size:13px;color:var(--muted);font-weight:600;}
 .fb-form{background:var(--card);border-radius:var(--r);padding:18px;box-shadow:var(--shadow-sm);margin-bottom:12px;}
 .fb-form h3{font-family:"Playfair Display",serif;font-size:17px;font-weight:800;color:var(--g-dark);margin-bottom:12px;}
@@ -1534,7 +1534,7 @@ body.dark .menu-search-wrap{background:var(--card);}
 .screen::-webkit-scrollbar{width:3px;}
 
 
-.screen::-webkit-scrollbar-thumb{background:#c8e6c9;border-radius:2px;}
+.screen::-webkit-scrollbar-thumb{background:var(--bg-success-mid);border-radius:2px;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 .screen.active>*:first-child{animation:fadeUp .25s ease;}
 
@@ -67769,7 +67769,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.89';
+var GS_VERSION = 'v30.90';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
