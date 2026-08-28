@@ -4,13 +4,23 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-27 · **Branch**: `main` · **Version**: `v30.88` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-28 · **Branch**: `main` · **Version**: `v30.89` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-08-28 (d) — v30.89: XSS-Sweep fortgesetzt — 1 kritischer + 3 weitere Cross-User-Funde geschlossen
+
+- **Auftrag:** Den vom Org-Spend-Limit unterbrochenen „668-innerHTML-Sweep" aus v30.82 zu Ende führen (v30.83 hatte bereits 4 Funde gefixt). Alle 684 aktuellen `innerHTML`-Stellen nach Domäne durchsucht (Community-Feed, Marktplatz, Profil/Avatar/Bio, Diary, Lina-Chat, Quiz-Battles, Achievements, Kommentare/Reports, Karten-Funde, Organisationen) und jede Fund-Quelle bis zur Datenherkunft zurückverfolgt statt geraten.
+- **🔴 KRITISCH — Home-Widget `gsHomeRenderTopPicks` (Marktplatz-Live-Vorschau):** `photo_url`/`photo_urls` aus `v_marketplace_listings` — von JEDEM eingeloggten User frei setzbar (kein CHECK-Constraint, kein Upload-Zwang) — landete via `encodeURI(img)` roh in `background-image:url('...')` INNERHALB eines doppelt gequoteten `style="..."`-Attributs. `encodeURI()` escaped kein `'` → ein präparierter `photo_url`-Wert wie `x.jpg');"><img src=x onerror=...` bricht aus CSS-`url()` UND aus dem `style`-Attribut aus → Stored-XSS, das auf der HOME-SEITE für JEDEN Besucher automatisch feuert (höchste Reichweite der App, kein Klick nötig). Fix: `_gsSafeUrl()` statt `encodeURI()` (erzwingt https?/data:image, entschärft Anführungszeichen).
+- **Community-Feed `renderSocialFeed`:** `title="' + (p.type||p.category||'fund') + '"` unescaped — `type`/`category` kommt aus fremden `social_posts`-Zeilen; die Compose-UI bietet nur ein festes Set, ein direkter REST-Insert kann aber jeden String setzen → Attribut-Ausbruch. Fix: `escHtml()`.
+- **Karten-Funde (2 Stellen, gleiche Ursache):** `_gsBuildFindPopup()` (Popup-Builder für lokal gecachte Marker) und `gsOpenMyFinds()` (Thumbnail in „Meine Funde") rendern `photo_url` roh in `<img src>`. Beide Listen können fremde, öffentliche Funde enthalten: `gsLoadMarkersFromCloud()` zieht `map_user_finds` OHNE `user_id`-Filter (alle `is_private=false`-Funde) in den lokalen Marker-Cache, und `gsMapFinds.list()` übernimmt Cache-Einträge mit fremder `cloud_id` ungefiltert in „Meine Funde". Die v30.83-Fixes deckten nur den direkten Cloud-Renderpfad ab, nicht diese beiden Folgepfade. Fix: `_gsSafeUrl()` an beiden Stellen (identisches Muster wie v30.83).
+- **~35 weitere Kandidaten geprüft und als False Positive verworfen** (bereits über `escHtml`/`_esc`/`gsEscHtml`/`_gsCEsc`/`_gsBtlEsc`/`_gsAchEsc`/`_gsProfileChip` abgesichert oder nachweislich Eigen-Daten ohne Cross-User-Pfad): Marktplatz-Detailansicht (`gsMarketShowDetail`, bereits v30.83-fest), Marktplatz-Chat (Demo + Backend `marketplace_messages`), Profil/Bio/Showcase (`_gsRenderProfile`), Organisationen-Modul (`_gsRenderOrgDetail` — durchgängig `_gsCEsc`, `website`-Href zusätzlich Schema-geprüft), Quiz-Battles (`_gsBtlEsc`), Quiz-Leaderboard, Achievements-Community-Feed (`_gsAchEsc`), Lina-Coach (RLS own-only + `escHtml`), Kommentare (`openComments`), Admin-Panels (Reports/Species-Proposals/Foto-Queue — alle `escHtml`), Feedback-Board. Eigen-Daten ohne Fremdzugriff (niedrige Priorität, nicht verändert): Pflanzen-Tagebuch-Fotos (`openPlantDiary`, `buildPlantCard`), Scan-History-Detail, Rezepte (rein lokal, kein Cloud-Sync), Markt-Bewertungen (`gs_market_ratings` ist rein lokal — keine Cloud-Persistenz trotz Cross-User-Anzeige-Anschein).
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · `sw.js` `node --check` OK · alle 4 Fund-Stellen per grep gegengeprüft (kein rohes `encodeURI(img)`/unescaped `photoUrl`/`f.photo_url`/`p.type||p.category` mehr im Code) · Version synchron v30.89 (GS_VERSION/sw.js/_headers/meta).
+- **Nächste:** Der Sweep war domänenfokussiert (Auftragsliste: Community/Marktplatz/Profil/Diary/Lina/Quiz-Battle/Achievements/Kommentare/Karten-Funde/Notifications) und dabei erschöpfend — ein vollständiger Zeile-für-Zeile-Diff aller 684 Stellen ohne Domänen-Priorisierung wurde nicht gemacht. Bei Gelegenheit: Markt-Bewertungen (`gs_market_ratings`) entweder ans Backend anschliessen oder UI-Text klarstellen, dass sie nur lokal sind.
 
 ### 2026-08-28 (c) — v30.88: 6 tote Stripe-Setup-Funktionen stillgelegt + Secret-Rotation dokumentiert
 

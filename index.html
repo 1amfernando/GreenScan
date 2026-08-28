@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.88.20260828">
+<meta name="app-version" content="30.89.20260828">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -9651,7 +9651,11 @@ async function gsHomeRenderTopPicks(){
       var img = (Array.isArray(l.photo_urls) && l.photo_urls[0]) ? l.photo_urls[0] : (l.photo_url || '');
       var emoji = (typeof CAT_EMOJIS !== 'undefined' && CAT_EMOJIS[l.category]) ? CAT_EMOJIS[l.category] : '🛒';
       var thumb = img
-        ? '<div style="width:40px;height:40px;border-radius:9px;background-size:cover;background-position:center;flex-shrink:0;background-image:url(\'' + encodeURI(img) + '\');"></div>'
+        // v30.89 SECURITY: photo_url/photo_urls stammt aus FREMDEN Marktplatz-Inseraten (jeder eingeloggte
+        // User kann diese Felder frei setzen). encodeURI() escaped kein "'" -> Ausbruch aus dem CSS-url()
+        // UND dem umschliessenden style="..."-Attribut moeglich (Stored-XSS auf der Home-Seite fuer ALLE
+        // Besucher). _gsSafeUrl() erzwingt https?/data:image + entschaerft Anfuehrungszeichen.
+        ? '<div style="width:40px;height:40px;border-radius:9px;background-size:cover;background-position:center;flex-shrink:0;background-image:url(\'' + (typeof _gsSafeUrl === 'function' ? _gsSafeUrl(img) : '') + '\');"></div>'
         : '<div style="width:40px;height:40px;border-radius:9px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">' + emoji + '</div>';
       var pm = l.price_mode || '';
       var price;
@@ -31994,7 +31998,10 @@ function renderSocialFeed() {
     out += '<div style="font-weight:800;font-size:13.5px;color:var(--text);">' + nameHtml + exp + vBadge + '</div>';
     out += '<div style="font-size:11px;color:var(--muted);">' + dt + (plant ? ' · 🌿 ' + escHtml(plant) : '') + '</div>';
     out += '</div>';
-    out += '<span style="font-size:16px;" title="' + (p.type||p.category||'fund') + '">' + emoji + '</span>';
+    // v30.89 SECURITY: type/category kommt aus fremden social_posts-Zeilen; die UI beschraenkt die
+    // Auswahl auf ein festes Set, ein direkter REST-Call kann aber jeden String setzen (title-Attribut-
+    // Ausbruch). escHtml() wie ueberall sonst im Post-Rendering.
+    out += '<span style="font-size:16px;" title="' + escHtml(p.type||p.category||'fund') + '">' + emoji + '</span>';
     out += '</div>';
     // v23.74: Foto (von Storage oder optimistic-base64)
     var photo = p.photo_url || p.image || null;
@@ -46613,7 +46620,11 @@ async function gsAddMarker(lat, lng) {
 function _gsBuildFindPopup(catMeta, name, note, dateObj, photoUrl){
   var photoBlock = '';
   if (photoUrl) {
-    photoBlock = '<div style="margin-bottom:6px;text-align:center;"><img src="' + photoUrl + '" style="max-width:100%;max-height:140px;border-radius:6px;border:1px solid #c8e6c9;" alt="" loading="lazy"></div>';
+    // v30.89 SECURITY: dieser Popup-Builder wird auch fuer lokal gecachte Marker aufgerufen
+    // (gsLoadMarkers -> gsGetSavedMarkers). Der lokale Cache wird von gsLoadMarkersFromCloud mit
+    // OEFFENTLICHEN Funden ANDERER User angereichert (is_private=false) -> photoUrl kann fremd sein.
+    // _gsSafeUrl() wie am direkten Cloud-Renderpfad (v30.83) statt roher Interpolation.
+    photoBlock = '<div style="margin-bottom:6px;text-align:center;"><img src="' + (typeof _gsSafeUrl === 'function' ? _gsSafeUrl(photoUrl) : '') + '" style="max-width:100%;max-height:140px;border-radius:6px;border:1px solid #c8e6c9;" alt="" loading="lazy"></div>';
   }
   return '<div style="font-size:13px;">' + photoBlock +
     '<b style="color:#1a3d1a;">' + catMeta.emoji + ' ' + escHtml(name || '') + '</b>' +
@@ -46920,7 +46931,10 @@ async function gsOpenMyFinds(){
       var emo = catEmoji[f.category] || '📍';
       var pub = (f.is_private === false);
       var thumb = f.photo_url
-        ? '<img src="' + f.photo_url + '" style="width:46px;height:46px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:pointer;" onclick="_gsMyFindFocus(' + i + ')" loading="lazy" alt="">'
+        // v30.89 SECURITY: gsMapFinds.list() mischt LS-only-Eintraege ein, die urspruenglich per
+        // gsLoadMarkersFromCloud (OHNE user_id-Filter, oeffentliche Funde) in den lokalen Marker-Cache
+        // gelangt sind -> photo_url kann von einem anderen User stammen. _gsSafeUrl() statt roher Interpolation.
+        ? '<img src="' + (typeof _gsSafeUrl === 'function' ? _gsSafeUrl(f.photo_url) : '') + '" style="width:46px;height:46px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:pointer;" onclick="_gsMyFindFocus(' + i + ')" loading="lazy" alt="">'
         : '<div style="width:46px;height:46px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:var(--surface2);font-size:24px;cursor:pointer;" onclick="_gsMyFindFocus(' + i + ')">' + emo + '</div>';
       var photoBtn = f.photo_url
         ? ''
@@ -67730,7 +67744,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.88';
+var GS_VERSION = 'v30.89';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
