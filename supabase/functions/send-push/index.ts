@@ -2,14 +2,28 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 
-// send-push v2 (v28.99 — 2026-06-10): v1 + ADMIN-BROADCAST.
+// send-push v3 (v30.87 — Audit P0-3): v2 + ECHTE JWT-Verifikation.
 // On-demand / Test-Push-Endpoint. verify_jwt=true (Gateway validiert JWT).
 // Rollen-Auth INNERHALB:
-//   role=authenticated → darf NUR an sich selbst pushen (uid aus JWT.sub)
-//   role=authenticated + profiles.role='admin' + body.broadcast=true
-//                      → darf an ALLE Subscriber pushen (Cap 500 Subs/Call)
-//   role=service_role  → darf an body.user_id pushen (Cron/Admin) oder broadcast
+//   authentifizierter User → darf NUR an sich selbst pushen (uid aus VERIFIZIERTEM Token)
+//   + profiles.role='admin' + body.broadcast=true
+//                          → darf an ALLE Subscriber pushen (Cap 500 Subs/Call)
+//   service_role           → darf an body.user_id pushen (Cron/Admin) oder broadcast
 // VAPID-Keys aus app_settings (gleiche Quelle wie daily-push-checker).
+//
+// ═══ v30.87 SECURITY-FIX (Audit P0-3) ═══════════════════════════════════
+// v2 las Rolle und User-ID aus dem base64-Payload des JWT — OHNE die Signatur
+// zu pruefen (`decodeJwt`). Zusaetzlich galt `authHdr.includes(SERVICE_ROLE)`
+// als Service-Nachweis: ein Substring-Test auf einen Vollmacht-Schluessel.
+// Das war nur deshalb nicht ausnutzbar, weil das Gateway-Flag verify_jwt=true
+// gesetzt ist — ein einziger Klick im Dashboard haette daraus einen
+// unauthentifizierten Broadcast-Endpunkt an ALLE Push-Abonnenten gemacht.
+// Ein JWT-Payload ist KEIN Nachweis, er ist frei waehlbarer Klartext.
+//
+// Jetzt: (a) service_role via Constant-Time-Compare des VOLLEN Keys,
+//        (b) User via sb.auth.getUser(token) — serverseitig signaturgeprueft.
+// Fail-closed: ohne gueltigen Nachweis 401. Defense-in-Depth, also unabhaengig
+// davon, wie das Gateway-Flag steht.
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -30,19 +44,37 @@ async function loadVapid() {
   return {
     publicKey: m.vapid_public_key,
     privateKey: m.vapid_private_key,
-    subject: m.vapid_subject || "mailto:fernando.rankwiler1997@gmail.com"
+    subject: m.vapid_subject || "mailto:info@greenscan.ch"
   };
 }
 
-function decodeJwt(authHeader: string): { sub?: string; role?: string } {
+// v30.87: Constant-Time-Vergleich (Muster aus daily-push, dem staerksten
+// Guard im Repo). Verhindert Timing-Rueckschluesse auf den Service-Key.
+function constantTimeEquals(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return mismatch === 0;
+}
+
+// v30.87: Ersetzt das alte, ungeprüfte `decodeJwt`. Liefert entweder einen
+// nachgewiesenen Service-Aufruf oder eine serverseitig verifizierte User-ID.
+async function authenticate(authHdr: string): Promise<{ isService: boolean; uid: string | null }> {
+  const token = authHdr.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return { isService: false, uid: null };
+
+  // (a) Cron/Admin mit Service-Role-Key — voller Key, Constant-Time.
+  if (SERVICE_ROLE && constantTimeEquals(token, SERVICE_ROLE)) {
+    return { isService: true, uid: null };
+  }
+
+  // (b) Regulaerer User — Signatur wird serverseitig geprueft.
   try {
-    const tok = authHeader.replace(/^Bearer\s+/i, "").trim();
-    const seg = tok.split(".")[1];
-    if (!seg) return {};
-    const json = atob(seg.replace(/-/g, "+").replace(/_/g, "/"));
-    const p = JSON.parse(json);
-    return { sub: p.sub, role: p.role };
-  } catch (_) { return {}; }
+    const { data: { user }, error } = await sb.auth.getUser(token);
+    if (!error && user) return { isService: false, uid: user.id };
+  } catch (_) { /* fail-closed */ }
+
+  return { isService: false, uid: null };
 }
 
 async function logSend(
@@ -86,20 +118,23 @@ Deno.serve(async (req: Request) => {
 
   try {
     const authHdr = req.headers.get("authorization") || "";
-    const { sub: jwtSub, role } = decodeJwt(authHdr);
-    const isService = role === "service_role" || authHdr.includes(SERVICE_ROLE);
+    // v30.87: verifizierte Identitaet statt geratenem JWT-Payload.
+    const { isService, uid: jwtSub } = await authenticate(authHdr);
+    if (!isService && !jwtSub) {
+      return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: cors });
+    }
 
     let body: any = {};
     try { body = await req.json(); } catch (_) { body = {}; }
 
-    // v2: Admin-Broadcast — JWT-User muss profiles.role='admin' sein (Server-Check,
+    // Admin-Broadcast — JWT-User muss profiles.role='admin' sein (Server-Check,
     // nicht client-vertrauend). service_role darf broadcast direkt.
     let broadcast = false;
     if (body.broadcast === true) {
       if (isService) {
         broadcast = true;
-      } else if (role === "authenticated" && jwtSub) {
-        const { data: prof } = await sb.from("profiles").select("role").eq("id", jwtSub).single();
+      } else if (jwtSub) {
+        const { data: prof } = await sb.from("profiles").select("role").eq("id", jwtSub).maybeSingle();
         if (prof && prof.role === "admin") broadcast = true;
         else return new Response(JSON.stringify({ error: "broadcast_admin_only" }), { status: 403, headers: cors });
       }
@@ -108,7 +143,7 @@ Deno.serve(async (req: Request) => {
     let targetUid: string | null = null;
     if (isService) {
       targetUid = body.user_id || body.target_user_id || null;
-    } else if (role === "authenticated" && jwtSub) {
+    } else if (jwtSub) {
       targetUid = jwtSub; // self only (außer broadcast, oben geprüft)
     }
     if (!targetUid && !broadcast) {

@@ -74,12 +74,20 @@ Flag je versehentlich umgestellt, wären sie vollständig offen.
 `garden-scan-analyze`/`plant-doctor-diagnose`) — idealerweise tier-basiert wie
 `ai-proxy` (die einzige Fn mit echter Quota-Enforcement).
 
-### P0-3 · `send-push` — fälschbarer service_role-Claim
-**Datei:** `supabase/functions/send-push/index.ts:37-46,90`
-Gleiches `decodeJwt()`-Muster wie P0-1. Sicher **nur solange**
-`verify_jwt:true` bleibt; der `role==="service_role"`-Zweig ist bei einem
-Flag-Flip ein unauthentifizierter Broadcast-Endpunkt an alle Push-Abonnenten.
-**Fix:** Wie P0-1 — echte Signaturprüfung statt Payload-Vertrauen.
+### P0-3 · `send-push` — fälschbarer service_role-Claim ✅ IM CODE BEHOBEN (v30.87)
+**Datei:** `supabase/functions/send-push/index.ts`
+War dasselbe `decodeJwt()`-Muster wie P0-1: Rolle und User-ID aus dem
+**unsignierten** JWT-Payload, plus `authHdr.includes(SERVICE_ROLE)` — ein
+Substring-Test auf einen Vollmacht-Schlüssel. Sicher war das nur, solange
+`verify_jwt:true` steht; ein Klick im Dashboard hätte daraus einen
+unauthentifizierten Broadcast-Endpunkt an ALLE Push-Abonnenten gemacht.
+
+**Fix v30.87 (im Repo, Deploy ausstehend):** `authenticate()` ersetzt
+`decodeJwt()` — (a) service_role via **Constant-Time-Compare des vollen Keys**
+(Muster `daily-push`), (b) User via **`sb.auth.getUser(token)`**, also
+serverseitig signaturgeprüft. Fail-closed → 401. Admin-Broadcast-Check und
+500er-Cap unverändert erhalten.
+**Ausrollen:** `bash scripts/apply_pending_v30_87.sh` (Schritt 3/3).
 
 ---
 
