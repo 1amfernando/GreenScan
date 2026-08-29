@@ -4,13 +4,21 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-27 · **Branch**: `main` · **Version**: `v30.91` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-29 · **Branch**: `claude/lucid-cerf-m7o2op` (PR offen) · **Version**: `v30.92` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-08-29 — v30.92: Scheduled-Audit — 2 kleine Security-/Hygiene-Fixes
+
+- **Auftrag:** Geplanter Routine-Scan (Security-Audit auf hardcoded Secrets, ungeschütztes `innerHTML`, KI-Call-Konvention, Edge-Function-Auth). Gesamturteil: **nichts hoch-kritisch/akut ausnutzbar.**
+- **Fix 1 (P2, §3.4-Verstoß):** `gsEnrichSpeciesViaAI()` (`index.html`) war toter Code — direkter `fetch('https://api.anthropic.com/...')` unter Umgehung von `callAI()`, ohne verbliebene Call-Site (nur ein Kommentar erwähnte den Namen noch). Ersatzlos entfernt.
+- **Fix 2 (P2, XSS-Lücke):** Admin-Bulk-Import-Fortschrittsanzeige (`index.html:81518`) schrieb `file.name` ungeschützt in `innerHTML` — jetzt mit `gsEscHtml(file.name)`. Scope eng (Admin-only, erfordert lokal gewählte Datei mit bösartigem Namen), aber klarer Verstoß gegen §3.6.
+- **Geprüft und für sauber befunden:** keine hartcodierten Keys/Secrets live im Code (nur Platzhalter/Validierungs-Regexe) · Edge-Functions (`delete-user`, `ai-proxy`, `entitlements`, `pest-identify`, `mushroom-identify`, `plant-doctor-diagnose`, `garden-scan-analyze`, `push-test`, `send-push`) prüfen `auth.getUser()` vor Datenzugriff · Stripe-Setup-Funktionen bereits als 410-Stubs stillgelegt (siehe v30.88-Eintrag unten) · `~672` `innerHTML`-Assignments überwiegend über `gsEscHtml`/`escHtml`/`ed()` abgesichert.
+- **Verify:** `node --check` auf extrahiertem Haupt-Script-Block (4.7 MB) OK · `grep` bestätigt 0 verbleibende Referenzen auf `gsEnrichSpeciesViaAI` außer Changelog-Kommentar · Version synchron (`GS_VERSION`, `sw.js` `VERSION`, `meta[app-version]`) auf v30.92.
 
 ### 2026-08-28 (f) — v30.91: Dark-Mode-Sweep abgeschlossen (Inline-Styles) + drei Audit-Punkte als erledigt nachgewiesen
 
