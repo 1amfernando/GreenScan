@@ -4,11 +4,17 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-27 · **Branch**: `main` · **Version**: `v30.91` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-29 · **Branch**: `main` · **Version**: `v30.92` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
+
+### 2026-08-29 — v30.92: Stored-XSS-Fix in Garden-Planner-Pro KI-Foto-Analyse
+
+- **Fund (Security-Audit):** `gsPPanalyzeAreaPhoto`/`gsPPanalyzeSoil` (Flächenmessung + Bodenanalyse per Foto) schrieben KI-generierte Freitext-Felder (`r.description`, `r.confidence`, `r.typeLabel`, `r.recommendation`) **ungeprüft in `.innerHTML`** — Verstoss gegen die eigene Konvention in CLAUDE.md §3.6 (KI-Output ist wie User-Input zu behandeln). Angriffsvektor: Bild-Prompt-Injection (Text/QR-Code im Foto bringt Claude Vision dazu, HTML/JS statt Freitext zurückzugeben) → Stored-XSS in der eigenen Session beim Scannen eines präparierten Fotos.
+- **Fix:** Beide Stellen (`index.html` Zeilen ~51023 und ~51302) escapen jetzt via `escHtml` (gleiches Guard-Pattern wie überall sonst im Code: `typeof escHtml==='function'?escHtml:...`-Fallback).
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · Version synchron v30.92 (`GS_VERSION`, `sw.js VERSION`, `_headers`, `meta app-version`).
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 

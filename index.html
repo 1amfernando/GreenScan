@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.91.20260828">
+<meta name="app-version" content="30.92.20260829">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -51020,7 +51020,8 @@ function gsPPcapturePhoto() {
         var corrNote = (lensFactor !== 1.0)
           ? '<div style="margin-top:6px;font-size:10.5px;color:var(--c-success-d);background:var(--bg-success-soft);border-radius:6px;padding:6px 8px;">✓ Linsen-Korrektur angewendet (×'+lensFactor+')</div>'
           : '';
-        out.innerHTML = '✅ ' + (r.description || 'Analyse abgeschlossen') + (r.confidence ? '<br><span style="font-size:10px;color:var(--muted);">Konfidenz: ' + r.confidence + '%</span>' : '') + corrNote;
+        var ppEsc = (typeof escHtml==='function') ? escHtml : function(s){return String(s==null?'':s);};
+        out.innerHTML = '✅ ' + ppEsc(r.description || 'Analyse abgeschlossen') + (r.confidence ? '<br><span style="font-size:10px;color:var(--muted);">Konfidenz: ' + ppEsc(r.confidence) + '%</span>' : '') + corrNote;
       } else {
         out.innerHTML = '<span style="color:var(--c-danger);">Keine Analyse möglich — bitte Masse manuell eingeben.</span>';
       }
@@ -51299,8 +51300,9 @@ function gsPPcaptureSoil() {
           var ps = document.getElementById('pp-soil-ph');
           if (ps && [].some.call(ps.options, function(o){return o.value===r.ph;})) ps.value = r.ph;
         }
-        out.innerHTML = '✅ <b>' + (r.typeLabel || '—') + '</b> · ' + (r.description || '') +
-          (r.recommendation ? '<br><span style="color:var(--g-main);">💡 ' + r.recommendation + '</span>' : '');
+        var soilEsc = (typeof escHtml==='function') ? escHtml : function(s){return String(s==null?'':s);};
+        out.innerHTML = '✅ <b>' + soilEsc(r.typeLabel || '—') + '</b> · ' + soilEsc(r.description || '') +
+          (r.recommendation ? '<br><span style="color:var(--g-main);">💡 ' + soilEsc(r.recommendation) + '</span>' : '');
       } else {
         out.innerHTML = '<span style="color:var(--c-danger);">Keine Analyse möglich — bitte manuell auswählen.</span>';
       }
@@ -67769,7 +67771,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.91';
+var GS_VERSION = 'v30.92';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
