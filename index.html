@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.91.20260828">
+<meta name="app-version" content="30.92.20260830">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27664,15 +27664,15 @@ function openDetail(id){
         '<div class="tox-scale">'+dots+'</div>',
       '</div>',
       // Verwendung in der Küche
-      sp.uses && sp.uses!=='–' && sp.uses!=='Keine Nutzung bekannt' ? '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_uses','🍽️ Verwendung (Küche & Alltag)') + '</h3><p>'+(sp.uses)+'</p></div>' : '',
+      sp.uses && sp.uses!=='–' && sp.uses!=='Keine Nutzung bekannt' ? '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_uses','🍽️ Verwendung (Küche & Alltag)') + '</h3><p>'+escHtml(sp.uses)+'</p></div>' : '',
       // Heilwirkung
-      sp.medicinalUse && sp.medicinalUse!=='–' && sp.medicinalUse!=='Keine bekannte Heilwirkung' && sp.medicinalUse!=='Keine – giftig' ? '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_medicinal','💊 Heilwirkung & Medizin') + '</h3><p>'+sp.medicinalUse+'</p></div>' : '',
+      sp.medicinalUse && sp.medicinalUse!=='–' && sp.medicinalUse!=='Keine bekannte Heilwirkung' && sp.medicinalUse!=='Keine – giftig' ? '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_medicinal','💊 Heilwirkung & Medizin') + '</h3><p>'+escHtml(sp.medicinalUse)+'</p></div>' : '',
       // Licht (Hauspflanzen)
       lightHtml,
       // Giessintervall
       sp.waterFrequency ? '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_watering','💧 Giessintervall') + '</h3><p>' + _t('water_every','Alle') + ' <strong>'+sp.waterFrequency+' ' + _t('unit_days','Tage') + '</strong> ' + _t('water_dry_hint','giessen. Erde leicht antrocknen lassen.') + '</p></div>' : '',
       // Pflege
-      sp.care ? '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_care','🪴 Pflege & Standort') + '</h3><p>'+sp.care+'</p></div>' : '',
+      sp.care ? '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_care','🪴 Pflege & Standort') + '</h3><p>'+escHtml(sp.care)+'</p></div>' : '',
       // Giftwarnung
       (function(){
         if(sp.tox < 3) return '';
@@ -27680,7 +27680,7 @@ function openDetail(id){
         return '<div style="background:'+(isFatal?'#ffebee':'#fff8e1')+';border:2px solid '+(isFatal?'#ef9a9a':'#ffe082')+';border-radius:12px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:flex-start;gap:10px;">' +
           '<span style="font-size:20px;flex-shrink:0;">'+(isFatal?'☠️':'⚠️')+'</span>' +
           '<div><div style="font-size:13px;font-weight:800;color:'+(isFatal?'#c62828':'#e65100')+';margin-bottom:2px;">'+(isFatal?_t('tox_strong','STARK GIFTIG'):_t('tox_caution','VORSICHT: GIFTIG'))+'</div>' +
-          '<div style="font-size:11.5px;color:var(--text2);line-height:1.5;">'+(sp.warning&&sp.warning!=='–'?sp.warning:_t('tox_warn_default','Nicht essen. Bei Vergiftung: Tox Info Suisse 145'))+'</div>' +
+          '<div style="font-size:11.5px;color:var(--text2);line-height:1.5;">'+(sp.warning&&sp.warning!=='–'?escHtml(sp.warning):_t('tox_warn_default','Nicht essen. Bei Vergiftung: Tox Info Suisse 145'))+'</div>' +
           '</div></div>';
       })(),
       // Vollständigkeits-Indikator
@@ -27696,7 +27696,7 @@ function openDetail(id){
       })(),
       // Verwechslungen
       (function(){
-  var lk = (sp.lookalike && sp.lookalike!=='–' && sp.lookalike!=='') ? sp.lookalike :
+  var lk = (sp.lookalike && sp.lookalike!=='–' && sp.lookalike!=='') ? escHtml(sp.lookalike) :
     ({'wildpflanze':_t('lookalike_wild','Ähnliche Wildpflanzen möglich. Im Zweifel Experten fragen.'),
       'pilz':_t('lookalike_pilz','Viele Pilzarten ähnlich! Nur essen wenn 100% sicher. Vergiftung: Tox 145.'),
       'baum':_t('lookalike_baum','Ähnliche Baumarten. Auf Rinde, Blatt und Früchte achten.'),
@@ -67769,7 +67769,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.91';
+var GS_VERSION = 'v30.92';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
