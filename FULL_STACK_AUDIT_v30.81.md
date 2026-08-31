@@ -15,6 +15,44 @@
 
 ---
 
+## ⏱️ NACHTRAG v31.08 — was seither erledigt ist
+
+> Dieses Dokument ist der Stand vom **2026-08-27**. Seither sind 18 Releases
+> gelaufen (v30.92–v31.08). Ohne diesen Nachtrag würde jemand, der hier liest,
+> Arbeit doppeln oder längst geschlossene Lücken für offen halten.
+
+**Erledigt seit diesem Audit** — Belege in `STATUS.md` Sektion 0:
+
+| Thema | Release |
+|---|---|
+| Sackgasse bei Key-Fehlern (Nicht-Admins hatten keinen Weg vorwärts) · Erstnutzer-Tour startete nach Registrierung nie | v30.92 |
+| Marktplatz-Chat erfand Antworten im Namen echter Verkäufer | v30.93 |
+| Feedback konnte still verloren gehen · Community-Post-Entwurf nach Serverfehler weg | v30.94 |
+| Rollen-Auskunft über fremde Konten für `anon` · `quiz_answers.is_correct` kam vom Client · Pflege-Erinnerungen seit 33 Tagen tot · KI-Kosten mit CHF 0.00 gebucht · Cron-Überwachung blind für HTTP-Jobs | v30.95 |
+| Sensor-Messwerte gingen ins Leere · GardenSync-Endlosschleife · Stripe-Webhook nie verarbeitet (Befund) | v30.96 |
+| **Cloud-Backup war da, nur nicht erreichbar** | v30.97 |
+| **Speicher-Wrapper log** — jeder Quota-Fallback war toter Code, Anmelden schlug still fehl | v30.98 |
+| keepalive-Push verbuchte Fehlschläge als Erfolg · fehlgeschlagener Pull entwaffnete den Empty-Clobber-Guard | v30.99 |
+| `savePlant` hielt eine Referenz über ein `await` | v31.00 |
+| XP-Balken löste den ganzen Login-Übergang aus · Benachrichtigungen aus dem Menü entfernt | v31.01 |
+| Last-Write-Wins verglich Geräte- gegen Server-Uhr · Sync log über sich selbst | v31.02 |
+| Integritäts-Check zerstörte, was er retten sollte · Speicher-Modal zeigte falsche Grenze · i18n-Cache ass vom Nutzer-Budget | v31.03 |
+| **Abmelden + wieder anmelden löschte das Konto auf allen Geräten** | v31.04 |
+| Garten-Sync überschrieb lokal hart (gestellte Falle) | v31.05 |
+| Foto-Ausgangskorb · Render-Pfad dazu | v31.06 / v31.07 |
+| Rotierende Listen archivieren statt wegzuwerfen | v31.08 |
+
+**Zwei Behauptungen aus späteren Audits habe ich WIDERLEGT** — nicht daran „reparieren":
+
+1. *„Gartentagebuch-Cap inkonsistent: lokal 500, im pullAll 200 → 300 Einträge weg."* Stimmt nicht: die 200er-Caps sitzen auf `p.diary` (Pflege-Historie **pro Pflanze**), die 500 auf `gs_gartentagebuch` (**globales** Tagebuch). Zwei verschiedene Arrays, jedes konsistent gedeckelt.
+2. *„Der 50-s-Timeout im Cron war ein Ausfall."* War keiner — die Edge-Function hat 77 s nach dem Trigger erfolgreich geschrieben (11 neue Zeilen). Der Befund zur **strukturellen** Blindheit der Cron-Überwachung stimmt trotzdem und ist in v30.95 behoben.
+
+**Weiterhin offen und nur vom Owner lösbar:** siehe `ROADMAP.md` P0-1 (offene
+`species`-Schreib-Endpunkte) sowie P1-1 (Leaked-Password-Protection) und P1-2
+(Stripe-Webhook hat noch nie ein Event verarbeitet).
+
+---
+
 ## 0 · Executive Summary — Ampel
 
 | Bereich | Status | Kernaussage |
