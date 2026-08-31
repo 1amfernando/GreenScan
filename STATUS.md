@@ -12,6 +12,42 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-08-31 (y) — Vorabprüfung des Runbooks gegen die Live-Datenbank (lesend, keine Code-Änderung)
+
+> Der Supabase-Lesezugriff funktioniert in dieser Sitzung. Damit liess sich der Stand faktisch prüfen, statt ihn zu vermuten — und die sieben wartenden Migrationen gegen das echte Schema abgleichen, bevor Fernando sie einspielt.
+
+#### Was live noch offen ist (geprüft, nicht vermutet)
+
+| Artefakt | Migration | Live vorhanden |
+|---|---|---|
+| `comment_reactions`, `fn_notify_post_like`, `fn_notify_comment_like` | v31.09 | **nein** |
+| `daily_quizzes.image_url` | v30.85 | **nein** |
+| Integritäts-Trigger auf `quiz_answers` | v30.95 | **nein** |
+| `fn_is_role` / `fn_role_at_least` für `anon` gesperrt | v30.95 | **nein** (Leak offen) |
+| Leaked-Password-Protection | Dashboard | **nein** |
+
+Zum Quiz-Trigger: `quiz_answers` **hat** einen Trigger, aber es ist `trg_quiz_answers_sync_lb` (Leaderboard-Sync) — nicht der Integritäts-Trigger. Eine reine Spalten-Prüfung (`answered_on` existiert) hätte hier ein falsches „ist schon drin" geliefert; die Trigger-Definition zu lesen war nötig.
+
+#### Vorabprüfung: der Runbook-Lauf sollte durchlaufen
+
+- **Jedes referenzierte Objekt existiert** — 13 Tabellen plus `cron.job`, `cron.job_run_details`, `net._http_response`. Fehlend sind nur die vier Funktionen, welche die Migrationen selbst anlegen.
+- **Spaltentypen passen** (uuid-Fremdschlüssel, `social_posts.likes` integer, `notifications` mit `dedup_key`).
+- **Funktions-Signaturen stimmen mit den live vorhandenen überein.** Das war der wichtigste Punkt: weicht die Argumentliste ab, legt `CREATE OR REPLACE` eine **Überladung** an statt zu ersetzen — die Migration liefe fehlerfrei durch, und der Cron riefe weiter die alte Fassung auf. Sieben Signaturen abgeglichen, alle identisch.
+- **`fn_get_daily_quiz` wird gelöscht und neu angelegt** (die Rückgabe bekommt drei Bild-Spalten). Kein View hängt daran, und die Migration setzt `GRANT EXECUTE` für `anon` + `authenticated` wieder — ohne das wäre das Quiz nach dem Lauf für alle tot. Geprüft, weil ein DROP die Rechte mitnimmt.
+- **Das Frontend liest `image_url`/`image_alt`/`image_credit` bereits** (`index.html:10542`) — die Bildfragen wirken sofort.
+
+Alles davon steht jetzt als Kommentarblock im Runbook selbst (`scripts/apply_pending_v30_87.sh`), nicht nur hier.
+
+#### Advisor-Stand (live)
+
+**0 ERROR**, 140 WARN, 5 INFO. Die WARNs sind zu 136 das bewusste SECURITY-DEFINER-RPC-Muster; die einzige andere ist `auth_leaked_password_protection`. Fünf Tabellen haben RLS **ohne Policy** (`book_ocr_pages`, `species_import_queue`, `species_search_cache`, `system_events`, `weather_forecast_cache`) — das ist Deny-all für normale Nutzer und passt: geschrieben wird dort nur aus SECURITY-DEFINER-Funktionen, die RLS umgehen.
+
+#### Ein Verdacht, der sich auflöste
+
+Achievement-Zähler, die wie `track_count` rückwärts laufen: Ich habe alle zehn `gsAchBump`-Aufrufstellen gegen die **live** ausgelesenen Schwellen geprüft. `diary_count` (Deckel 500, höchste Stufe **30**) und `harvest_count` (Deckel 1000, höchste Stufe **10**) sind nicht erreichbar — theoretisch, kein Fund. Und `fn_achievements_bump` setzt `unlocked_at` per `COALESCE`: ein gesunkener Wert **entzieht** kein Abzeichen, er lässt nur den Fortschrittsbalken zurückspringen. Das relativiert v31.12 nicht (bei `track_distance_km`, Stufe 50 km, war der Rückwärtslauf echt), aber es ist die genauere Beschreibung.
+
+- **Verify:** Alle Aussagen oben stammen aus `execute_sql`/`get_advisors` gegen `vowbiueikwrauuceilhc` (nur lesend, keine DDL) · `bash -n scripts/apply_pending_v30_87.sh` OK · keine Code-Änderung, deshalb **kein Versions-Bump** und kein `GS_RELEASES`-Eintrag.
+
 ### 2026-08-31 (x) — v31.15: In der Quiz-Rangliste standest du mit 0
 
 > Zweiter Teil von „Bindung und Wachstum". Beim Durchgehen des Quiz habe ich mehr verworfen als repariert — zwei Verdachtsfälle liessen sich nicht halten, und einen Fix habe ich rückgängig gemacht, weil er einen echten Fehler erzeugt hätte.
