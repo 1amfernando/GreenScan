@@ -4,13 +4,38 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.16` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.17` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (a) — v31.17: „Mein Garten" bekommt den Überblick aus den Entwürfen
+
+> Zweiter Schritt aus Fernandos Bildern. Bild 6 zeigt „Mein Garten" mit vier Kennzahl-Kacheln und einem Knopf zum Pflegeplan.
+
+#### Die interessante Entscheidung: zwei Kacheln habe ich nicht gebaut
+
+Der Entwurf zeigt **„4 Pflegezonen eingerichtet"** und **„2 Lichtzonen erstellt"**. Beides stammt aus dem Sensor-Produkt und hat in dieser App **keine Entsprechung** — es gibt weder Pflege- noch Lichtzonen. Ich hätte Kacheln bauen können, die irgendetwas Plausibles anzeigen. Das wäre genau die Sorte Lüge, die ich in dieser Sitzung reihenweise entfernt habe: die Quiz-Rangliste zeigte Nullen, „Was ist neu" zeigte hundert Updates lang v30.03, der Tracking-Kommentar versprach ein Fortsetzen, das es nicht gab.
+
+Also dieselbe **Form**, aber nur Zahlen, die es wirklich gibt: **Pflanzen in Pflege** (`ps_myplants`), **Beete angelegt** (`gs_gardens`), **Pläne gespeichert** (`gs_garden_plans`) — und als vierte Kachel der **nächste Schritt** aus `gsGetDueTasks()`, den ein Tippen erledigt.
+
+#### Zwei eigene Fehler, gefunden bevor sie ausgeliefert wurden
+
+1. **Ich hatte `gsOpenGardenBeds()` und `gsOpenMyPlans()` aufgerufen — beide existieren nicht.** Erfundene Funktionsnamen, direkt nach dem Absatz, in dem ich erfundene Zahlen ablehne. Nachgesehen: die Pläne öffnet `gsPlansOpen()` (Rückfall `gsPPopenSavedPlans()`), und für Beete gibt es **kein** Modal — die Liste steht auf demselben Bildschirm, also scrollt die Kachel dorthin.
+2. **`'Plan' + (n===1?'':'ä') + (n===1?'':'ne')`** ergibt bei drei Plänen „Planäne". Jetzt schlicht `Plan` / `Pläne`.
+
+Beides fiel auf, weil ich den Code **gerendert** habe statt ihn nur zu lesen.
+
+#### Gelesen wird frisch aus dem Speicher
+
+Nicht aus den globalen `gardens`/`plantings`-Variablen: die stehen auf dem Stand von vor dem letzten Cloud-Pull. Dieselbe Falle wie beim Tagesplan.
+
+Ohne Pflanzen führt „Pflegeplan ansehen" auf eine leere Liste — dann heisst der Knopf „Erste Pflanze scannen".
+
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · **in Chromium gerendert**: vier Zustände (voller Garten, alles erledigt, dunkel, leer), keine JS-Fehler, Plural in allen Fällen geprüft · Ziel-Funktionen im Monolithen nachgeschlagen statt angenommen · Version synchron v31.17.
 
 ### 2026-08-31 (z) — v31.16: Startseite nach Fernandos Entwürfen — „Dein Tagesplan"
 
