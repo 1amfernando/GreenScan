@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.02.20260831">
+<meta name="app-version" content="31.03.20260831">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1747,7 +1747,44 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   window.gsClearErrorLog = function() {
     try { localStorage.removeItem('gs_error_log'); return true; } catch(_) { return false; }
   };
-  // v23.61 — Storage-Integrity-Sweep: prüft JSON-Keys auf Korruption, räumt auf ohne Datenverlust
+  // v31.03: Rettungsversuch fuer abgeschnittenes JSON. Bricht ein Schreibvorgang
+  // an der Quota mittendrin ab, steht in localStorage ein Prefix eines gueltigen
+  // Arrays/Objekts. Statt alles wegzuwerfen: bis zum letzten vollstaendigen
+  // Element zurueckschneiden und schliessen. Liefert den geretteten Wert oder null.
+  // Bewusst konservativ — im Zweifel null, damit der Aufrufer den sicheren Weg geht.
+  function _gsSalvageJson(raw){
+    if (!raw || typeof raw !== 'string') return null;
+    var open = raw.charAt(0);
+    if (open !== '[' && open !== '{') return null;
+    var close = (open === '[') ? ']' : '}';
+    var depth = 0, inStr = false, esc = false, lastTop = -1;
+    for (var i = 0; i < raw.length; i++) {
+      var c = raw.charAt(i);
+      if (inStr) {
+        if (esc) { esc = false; }
+        else if (c === '\\') { esc = true; }
+        else if (c === '"') { inStr = false; }
+        continue;
+      }
+      if (c === '"') { inStr = true; continue; }
+      if (c === '[' || c === '{') depth++;
+      else if (c === ']' || c === '}') {
+        depth--;
+        if (depth === 1) lastTop = i;   // Ende eines Elements der obersten Ebene
+      }
+    }
+    if (lastTop < 0) return null;       // kein einziges vollstaendiges Element
+    var candidate = raw.slice(0, lastTop + 1) + close;
+    try {
+      var parsed = JSON.parse(candidate);
+      if (open === '[' && (!Array.isArray(parsed) || !parsed.length)) return null;
+      return parsed;
+    } catch(_){ return null; }
+  }
+
+  // v23.61 — Storage-Integrity-Sweep: prüft JSON-Keys auf Korruption
+  // v31.03: repariert jetzt zuerst, sichert vollstaendig, und loescht nur mit
+  // zurueckgelesener Sicherung (siehe Kommentar im catch-Zweig).
   // Wird einmal beim Laden ausgeführt. Defekte Einträge werden als Backup gesichert, dann entfernt.
   window.gsStorageIntegrityCheck = function() {
     // v28.76 C2-1: kanonischer Scan-History-Key ist 'gs_scan_history' (SCAN_HISTORY_KEY).
@@ -1762,14 +1799,53 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
         if (raw === null || raw === '') continue;
         JSON.parse(raw); // throws if corrupt
       } catch(e) {
+        // ═══ v31.03: erst RETTEN, dann sichern, und nur mit gueltiger Sicherung loeschen ═══
+        // Vorher stand hier: die ersten 2000 Zeichen als „Backup" wegschreiben und
+        // dann den ganzen Schluessel entfernen. Bei einer echten Pflanzenliste
+        // (Zehntausende Zeichen) ist das ein abgeschnittenes, nie wieder
+        // verwertbares Fragment — und der Kommentar darueber behauptete
+        // „raeumt auf ohne Datenverlust". Fuer Schluessel ohne Cloud-Spiegel
+        // (gs_scan_corrections, ps_feedback, ps_votes, gs_ki_analyses,
+        // userLocation) war das endgueltige Vernichtung.
+        var raw2 = '';
+        try { raw2 = String(localStorage.getItem(k) || ''); } catch(_){}
+        // (1) Reparaturversuch. Die haeufigste Korruption ist ein abgeschnittener
+        // Schreibvorgang (Quota hat mittendrin abgebrochen) — dann laesst sich bis
+        // zum letzten vollstaendigen Element zurueckschneiden und der Rest retten.
+        var repaired = null;
+        try { repaired = _gsSalvageJson(raw2); } catch(_){}
+        if (repaired !== null) {
+          var okW = false;
+          try { okW = (localStorage.setItem(k, JSON.stringify(repaired)) !== false); } catch(_){ okW = false; }
+          if (okW) {
+            fixed++;
+            var _n = Array.isArray(repaired) ? repaired.length : 1;
+            console.warn('[GS-Integrity] ' + k + ': abgeschnittenes JSON reparieren — ' + _n + ' Eintraege gerettet.');
+            try { persistError({ t: Date.now(), type: 'storage_salvage', msg: k + ' salvaged ' + _n }); } catch(_){}
+            continue;
+          }
+        }
+        // (2) Nicht rettbar → VOLLSTAENDIG sichern (nicht abschneiden) und die
+        // Sicherung zurueckelesen. Nur wenn sie wirklich steht, darf das Original weg.
+        var bakKey = 'gs_corrupt_bak__' + k + '__' + Date.now();
+        var bakOk = false;
         try {
-          // Backup corrupt data before removal so nothing is silently lost
-          localStorage.setItem('gs_corrupt_bak__' + k + '__' + Date.now(), String(localStorage.getItem(k)||'').slice(0,2000));
-          localStorage.removeItem(k);
+          if (localStorage.setItem(bakKey, raw2) !== false) {
+            bakOk = (localStorage.getItem(bakKey) === raw2);   // Ruecklesen = der einzige Beweis
+          }
+        } catch(_){ bakOk = false; }
+        if (bakOk) {
+          try { localStorage.removeItem(k); } catch(_){}
           fixed++; backedUp++;
-          console.warn('[GS-Integrity] repaired corrupt key:', k);
-          persistError({ t: Date.now(), type: 'storage_repair', msg: 'corrupt ' + k });
-        } catch(_) {}
+          console.warn('[GS-Integrity] ' + k + ' war korrupt — vollstaendig gesichert unter ' + bakKey + ' und entfernt.');
+          try { persistError({ t: Date.now(), type: 'storage_repair', msg: 'corrupt ' + k + ' -> ' + bakKey }); } catch(_){}
+        } else {
+          // (3) Keine gueltige Sicherung → NICHT loeschen. Ein kaputter Schluessel,
+          // den man noch ansehen kann, ist besser als stille Vernichtung.
+          try { localStorage.removeItem(bakKey); } catch(_){}
+          console.error('[GS-Integrity] ' + k + ' ist korrupt, aber die Sicherung schlug fehl (Speicher voll?) — Schluessel bleibt unangetastet.');
+          try { persistError({ t: Date.now(), type: 'storage_repair_failed', msg: 'corrupt ' + k + ' — kept, backup failed' }); } catch(_){}
+        }
       }
     }
     return { checked: jsonKeys.length, repaired: fixed, backedUp: backedUp };
@@ -11148,7 +11224,17 @@ window.gsI18n = (function(){
           var _short = {};
           Object.keys(srcMap).forEach(function(k){ if (k && k.length < 120) _short[k] = srcMap[k]; });
           srcMaps[lang] = _short;
-          localStorage.setItem('gs_i18n_srcmaps', JSON.stringify(srcMaps));
+          // v31.03: wie beim Bundle nur die aktuelle Sprache sichern — sonst waechst
+          // auch diese Map mit jeder je besuchten Sprache weiter.
+          var _smSlim = {};
+          if (current && current !== 'de' && srcMaps[current]) _smSlim[current] = srcMaps[current];
+          if (Object.keys(_smSlim).length) {
+            if (localStorage.setItem('gs_i18n_srcmaps', JSON.stringify(_smSlim)) === false) {
+              try { localStorage.removeItem('gs_i18n_srcmaps'); } catch(_){}
+            }
+          } else {
+            try { localStorage.removeItem('gs_i18n_srcmaps'); } catch(_){}
+          }
         } catch(_){}
         _persist();
         return true;
@@ -11157,11 +11243,37 @@ window.gsI18n = (function(){
     } catch(_) { return false; }
   }
 
+  // v31.03: Der Cache war ungedeckelt — pro besuchter Sprache ~150-200k Zeichen,
+  // also bis zu ~0.8 MB des 5-MB-localStorage-Budgets fuer Daten, die jederzeit
+  // neu ladbar sind. Und weil der Nutzer-Speicher und dieser Cache sich dieselben
+  // 5 MB teilen, ging das direkt zulasten von Pflanzen, Tagebuch und Ernte.
+  //
+  // Jetzt: nur die AKTUELLE Sprache wird gesichert (Deutsch braucht kein Bundle —
+  // es ist die Fallback-Sprache im Code). Andere Sprachen bleiben zur Laufzeit im
+  // Speicher, werden aber nicht persistiert; nach einem Neustart holt sie der
+  // erste Aufruf wieder. Kostet einen Abruf beim Sprachwechsel, spart dauerhaft
+  // Platz, der Nutzerdaten gehoert.
+  //
+  // Und wenn selbst das nicht passt, wird der Cache ganz geraeumt statt halb
+  // stehen zu lassen: Uebersetzungen sind ersetzbar, Nutzerdaten nicht.
   function _persist(){
     try {
-      localStorage.setItem('gs_i18n_bundles', JSON.stringify({
-        bundles: bundles, ts: bundleTs
-      }));
+      var slim = {}, slimTs = {};
+      if (current && current !== 'de' && bundles[current]) {
+        slim[current] = bundles[current];
+        slimTs[current] = bundleTs[current];
+      }
+      if (!Object.keys(slim).length) {
+        try { localStorage.removeItem('gs_i18n_bundles'); } catch(_){}
+        return;
+      }
+      var ok = localStorage.setItem('gs_i18n_bundles', JSON.stringify({ bundles: slim, ts: slimTs }));
+      if (ok === false) {
+        // Speicher voll → Cache abwerfen statt Nutzerdaten zu verdraengen.
+        try { localStorage.removeItem('gs_i18n_bundles'); } catch(_){}
+        try { localStorage.removeItem('gs_i18n_srcmaps'); } catch(_){}
+        console.warn('[gsI18n] Uebersetzungs-Cache verworfen — Speicher voll. Wird bei Bedarf neu geladen.');
+      }
     } catch(_){}
   }
 
@@ -67921,7 +68033,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.02';
+var GS_VERSION = 'v31.03';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -70436,12 +70548,37 @@ function gsRegisterServiceWorker() {
     var pending = (typeof window.gsCountOfflineQueue === 'function') ? await window.gsCountOfflineQueue() : 0;
     var swStatus = ('serviceWorker' in navigator && navigator.serviceWorker.controller) ? '✅ aktiv' : '⚠️ nicht aktiv';
     var bar = info ? '<div style="background:var(--border);border-radius:99px;height:8px;overflow:hidden;margin-top:6px;"><div style="background:var(--g-main);height:100%;width:' + Math.min(100, info.percent) + '%;transition:width .4s;"></div></div>' : '';
-    var infoBlock = info ? (
-      '<div style="font-size:13.5px;color:var(--text);font-weight:700;display:flex;justify-content:space-between;"><span>Belegt</span><span>' + info.usedMB + ' MB / ' + info.quotaMB + ' MB</span></div>' +
+    // ═══ v31.03: die WICHTIGE Grenze zuerst ═══════════════════════════════
+    // Vorher stand hier nur navigator.storage.estimate — die Origin-Quota, also
+    // hunderte MB bis GB. Der Balken zeigte dann 0.8 % und beruhigte, waehrend
+    // die tatsaechlich bindende Grenze die ~5 MB von localStorage sind. Genau
+    // die falsche Auskunft fuer jemanden, der nachsieht, WEIL Daten fehlen.
+    // Jetzt: localStorage prominent mit echter Grenze, die Origin-Quota als
+    // klar benannte Nebeninformation (dort liegen Caches und Bilder).
+    var LS_LIMIT = 5 * 1024 * 1024;   // ~5 MB, der uebliche Browser-Wert
+    var _lsBytes = 0;
+    try { _lsBytes = (window.gsStore && typeof gsStore.usageBytes === 'function') ? gsStore.usageBytes() : 0; } catch(_){}
+    var _lsPct = Math.min(100, Math.round(_lsBytes / LS_LIMIT * 1000) / 10);
+    var _lsCol = _lsPct >= 90 ? 'var(--c-danger,#c62828)' : (_lsPct >= 75 ? 'var(--c-warn-d,#e65100)' : 'var(--g-main)');
+    var _lsHint = _lsPct >= 90
+      ? '⚠️ Fast voll. Neue Einträge und Fotos können ab jetzt fehlschlagen — bitte alte Scans oder Fotos löschen.'
+      : (_lsPct >= 75 ? 'Wird eng. Ein Aufräumen alter Scans schafft Luft.' : 'Genug Platz.');
+    var lsBlock =
+      '<div style="font-size:13.5px;color:var(--text);font-weight:700;display:flex;justify-content:space-between;">' +
+        '<span>Lokaler Speicher</span><span>' + (_lsBytes/1024/1024).toFixed(2) + ' MB / ' + (LS_LIMIT/1024/1024).toFixed(0) + ' MB</span></div>' +
+      '<div style="background:var(--border);border-radius:99px;height:8px;overflow:hidden;margin-top:6px;">' +
+        '<div style="background:' + _lsCol + ';height:100%;width:' + _lsPct + '%;transition:width .4s;"></div></div>' +
+      '<div style="font-size:11px;color:' + (_lsPct >= 75 ? _lsCol : 'var(--muted)') + ';margin-top:4px;line-height:1.45;">' +
+        _lsPct.toFixed(1) + '% — ' + _lsHint + '</div>' +
+      '<div style="font-size:10.5px;color:var(--muted);margin-top:5px;line-height:1.45;">' +
+        'Hier liegen Pflanzen, Tagebuch, Ernte und Einstellungen. Das ist die Grenze, die im Alltag zuerst erreicht wird.</div>';
+    var infoBlock = lsBlock + (info ? (
+      '<div style="font-size:12px;color:var(--text2);margin-top:12px;display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:8px;">' +
+        '<span>Cache &amp; Bilder</span><span>' + info.usedMB + ' MB / ' + info.quotaMB + ' MB</span></div>' +
       bar +
-      '<div style="font-size:11px;color:var(--muted);margin-top:4px;">' + info.percent.toFixed(1) + '% des verfügbaren Speichers</div>' +
+      '<div style="font-size:10.5px;color:var(--muted);margin-top:4px;">' + info.percent.toFixed(1) + '% — separates, viel grösseres Kontingent (Service-Worker-Cache, Offline-Daten).</div>' +
       '<div style="font-size:12px;color:var(--text2);margin-top:8px;display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:8px;"><span>Persistent-Storage</span><span>' + (info.persisted ? '✅ ja (löschsicher)' : '⚠️ nein') + '</span></div>'
-    ) : '<div style="font-size:12px;color:var(--muted);">Storage-Estimate nicht verfügbar.</div>';
+    ) : '<div style="font-size:11.5px;color:var(--muted);margin-top:10px;">Cache-Schätzung nicht verfügbar.</div>');
     // v30.54 (Bug A): „Gespeicherte Daten"-Zähler — vorher zeigte das Modal nur MB + leere Offline-Queue,
     // darum wirkte es als „sammelt sich nichts an". Counts beweisen, dass Daten da sind.
     var _cntArr = function(k){ try { var a = JSON.parse((window.gsStore&&gsStore.get?gsStore.get(k,null):localStorage.getItem(k))||'[]'); return Array.isArray(a)?a.length:0; } catch(_){ return 0; } };
@@ -70449,13 +70586,12 @@ function gsRegisterServiceWorker() {
     var _plantN = (typeof myPlants!=='undefined' && Array.isArray(myPlants)) ? myPlants.length : _cntArr('ps_myplants');
     var _findN  = _cntArr('greenscan_markers');
     var _planN  = _cntArr('gs_garden_plans');
-    var _lsKB   = (function(){ try { return (window.gsStore && typeof gsStore.usageBytes==='function') ? Math.round(gsStore.usageBytes()/1024) : null; } catch(_){ return null; } })();
     var _row = function(label, val){ return '<div style="font-size:12px;color:var(--text2);display:flex;justify-content:space-between;padding:3px 0;"><span>'+label+'</span><span><b>'+val+'</b></span></div>'; };
     var dataBlock =
       '<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px;">' +
         '<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Gespeicherte Daten</div>' +
         _row('📷 Scans', _scanN) + _row('🌱 Pflanzen', _plantN) + _row('📍 Funde', _findN) + _row('🪴 Garten-Pläne', _planN) +
-        (_lsKB!=null ? _row('💾 Lokal belegt', _lsKB+' KB') : '') +
+        /* v31.03: „Lokal belegt" steht jetzt oben mit echter Grenze und Balken. */
       '</div>';
     var m = document.createElement('div');
     m.id = 'gs-storage-modal';
