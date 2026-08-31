@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.93.20260831">
+<meta name="app-version" content="30.94.20260831">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -30961,7 +30961,13 @@ function renderFeedback(){
       duplicate:  {bg:'#f3e5f5', fg:'#6a1b9a', ico:'🔗', txt:_t('fb_st_duplicate','Duplikat')}
     };
     const st = map[s] || map.pending;
-    return '<span title="'+escHtml(fb.ki_rationale||st.txt)+'" style="display:inline-flex;align-items:center;gap:4px;background:'+st.bg+';color:'+st.fg+';padding:3px 9px;border-radius:10px;font-size:10.5px;font-weight:800;letter-spacing:.2px;">'+st.ico+' '+escHtml(st.txt)+'</span>';
+    var html = '<span title="'+escHtml(fb.ki_rationale||st.txt)+'" style="display:inline-flex;align-items:center;gap:4px;background:'+st.bg+';color:'+st.fg+';padding:3px 9px;border-radius:10px;font-size:10.5px;font-weight:800;letter-spacing:.2px;">'+st.ico+' '+escHtml(st.txt)+'</span>';
+    // v30.94: ehrlicher Hinweis, solange der Eintrag den Server noch nicht erreicht hat.
+    // Vorher sah ein nur-lokaler Report exakt aus wie ein angekommener.
+    if (fb && fb._local && !fb.sb_id) {
+      html += '<span title="Wird beim nächsten Start automatisch nachgeschickt." style="display:inline-flex;align-items:center;gap:4px;background:var(--bg-warn-soft,#fff8e1);color:var(--c-warn-d,#e65100);padding:3px 9px;border-radius:10px;font-size:10.5px;font-weight:800;letter-spacing:.2px;margin-left:5px;">📤 Noch nicht gesendet</span>';
+    }
+    return html;
   };
 
   // v23.63: Premium Community-Dashboard — Stats, Ring-Diagramm, Kategorien
@@ -32216,6 +32222,13 @@ function openNewPost() {
   var pt = document.getElementById('post-text');
   if (pt) pt.value = '';
   openModal('modal-new-post');
+  // v30.94: Liegt noch ein nicht abgeschickter Entwurf vor (Server-Fehler beim letzten
+  // Versuch, App zwischendurch geschlossen), kommt er hier zurueck statt verloren zu sein.
+  try {
+    if (typeof _gsRestoreSocialDraft === 'function' && _gsRestoreSocialDraft(false)) {
+      if (typeof showProfileToast === 'function') showProfileToast('📝 Nicht gesendeter Entwurf wiederhergestellt');
+    }
+  } catch(_){}
   if (pt) setTimeout(function(){ pt.focus(); }, 300);
 }
 
@@ -36183,6 +36196,25 @@ async function addComment() {
   } else { showProfileToast('❌ '+(res.error.message||'Fehler')); }
 }
 
+// v30.94: Entwurf eines Community-Posts zurueckholen. `reopen=true` oeffnet das Formular
+// direkt wieder (Fehlerfall); ohne Flag fuellt es beim naechsten Oeffnen still vor.
+// Entwuerfe aelter als 7 Tage werden verworfen — sonst poppt Monate spaeter Text auf.
+function _gsRestoreSocialDraft(reopen){
+  var d = null;
+  try { d = JSON.parse(localStorage.getItem('gs_social_draft') || 'null'); } catch(_){}
+  if (!d || !d.text) return false;
+  if (d.ts && (Date.now() - d.ts) > 7*24*3600*1000) {
+    try { localStorage.removeItem('gs_social_draft'); } catch(_){}
+    return false;
+  }
+  if (reopen) { try { openModal('modal-new-post'); } catch(_){} }
+  var t = document.getElementById('post-text');   if (t) t.value = d.text;
+  var c = document.getElementById('post-category'); if (c && d.cat) c.value = d.cat;
+  var pl= document.getElementById('post-plant');  if (pl && d.plant) pl.value = d.plant;
+  return true;
+}
+window._gsRestoreSocialDraft = _gsRestoreSocialDraft;
+
 async function submitPost() {
   if (!gsRequire('post_community','Bitte anmelden um zu posten.')) return;
   var text = ((document.getElementById('post-text')||{}).value||'').trim();
@@ -36219,6 +36251,10 @@ async function submitPost() {
     socialPosts.unshift(optimisticPost);
     try { renderSocialFeed && renderSocialFeed(); } catch(_){}
   }
+  // v30.94: Entwurf sichern, BEVOR das Feld geleert wird. Bisher war der geschriebene
+  // Text nach einem Server-Fehler unwiederbringlich weg — Modal zu, Textarea leer,
+  // optimistischer Post entfernt, nur ein Toast blieb. Der Nutzer musste alles neu tippen.
+  try { localStorage.setItem('gs_social_draft', JSON.stringify({text:text, cat:cat, plant:plant, ts:Date.now()})); } catch(_){}
   // Modal sofort schließen + Felder reset
   var postEl = document.getElementById('post-text');
   if (postEl) postEl.value='';
@@ -36247,6 +36283,7 @@ async function submitPost() {
       // Reload um Konsistenz sicherzustellen
       try { loadSocialPosts && loadSocialPosts(true); } catch(_){}
     }
+    try { localStorage.removeItem('gs_social_draft'); } catch(_){} // v30.94: Entwurf ist angekommen
     showProfileToast('✅ Post veröffentlicht!');
     // v29.08: profileTrackPost-Aufruf entfernt (Funktion nie implementiert → silent No-Op, HL#9)
   } else {
@@ -36257,7 +36294,10 @@ async function submitPost() {
     }
     var errMsg = (res.error && res.error.message) || 'Unbekannter Fehler';
     console.error('[submitPost] failed:', res.error, 'payload:', {user_id:uid,category:cat,len:text.length});
-    showProfileToast('❌ Post nicht gespeichert: ' + errMsg.slice(0,80), 'error');
+    // v30.94: Der Entwurf bleibt in gs_social_draft liegen UND kommt sofort zurueck ins
+    // Formular — der Nutzer muss nichts neu tippen und kann direkt nochmal senden.
+    try { _gsRestoreSocialDraft(true); } catch(_){}
+    showProfileToast('❌ Post nicht gespeichert: ' + errMsg.slice(0,80) + ' · Dein Text ist erhalten.', 'error');
   }
 }
 
@@ -61495,6 +61535,100 @@ function gsFbValidate() {
 // (altes SDK-Format, in dieser App nirgends gesetzt) → user_id wurde nie gesetzt.
 // Plus: kein finally-Block → Button hing in "Wird gesendet…" wenn etwas crashte.
 // Refactor: gs_sb_uid/gs_sb_email als Auth-Source, defensives try/finally, klare Fehler-Toasts.
+// ═══ v30.94: Feedback-Outbox — kein Bug-Report darf still verschwinden ═══════
+// Bisher war der Supabase-Push ein Fire-and-Forget mit `.catch(console.warn)`.
+// Schlug er fehl (offline, 5xx, abgelaufener Token), blieb der Eintrag nur lokal,
+// ohne `sb_id` — und weil `ps_feedback` in GS_USER_KEYS steht, loeschte ihn der
+// naechste Logout ersatzlos. Der Nutzer sah „Danke fuer dein Feedback", niemand
+// bekam es je zu sehen. Jetzt: markieren, erneut versuchen, ehrlich anzeigen.
+function _gsFeedbackBuildPayload(fb){
+  var kindMap = {bug:'bug', idea:'idea', data:'bug', ui:'idea'};
+  var payload = {
+    kind: kindMap[fb.type] || 'idea',
+    content: fb.body || '',
+    app_version: (typeof GS_VERSION !== 'undefined') ? GS_VERSION : null,
+    context: {
+      type: fb.type,
+      local_id: fb.id,
+      author_email: fb.author_email || '',
+      ua: (navigator.userAgent || '').slice(0,200),
+      lang: (navigator.language || ''),
+      plan: (localStorage.getItem('gs_abo_plan') || 'free'),
+      ts_client: new Date(fb.ts || Date.now()).toISOString()
+    }
+  };
+  // user_id NUR setzen wenn eingeloggt (Policy: anon -> muss NULL sein)
+  var uid = '';
+  try { uid = gsStore.get('gs_sb_uid', null) || ''; } catch(_){}
+  if (uid) payload.user_id = uid;
+  return payload;
+}
+
+// Liefert true nur bei nachgewiesenem Server-Erfolg.
+async function _gsFeedbackPushOne(fb){
+  if (!fb || fb.sb_id) return true;
+  var canPush = (typeof sbFetch === 'function') && (typeof sbGetConfig === 'function') && !!sbGetConfig();
+  if (!canPush) return false;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
+  try {
+    var resp = await sbFetch('/rest/v1/feedback_items', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Prefer':'return=representation' },
+      body: JSON.stringify(_gsFeedbackBuildPayload(fb))
+    });
+    if (!resp || resp.error) {
+      console.warn('[feedback] push:', (resp && resp.error && resp.error.message) || 'unbekannt');
+      return false;
+    }
+    var rows = resp.data;
+    if (Array.isArray(rows) && rows[0] && rows[0].id) {
+      fb.sb_id = rows[0].id;
+      delete fb._push_pending;
+      try { localStorage.setItem('ps_feedback', JSON.stringify(feedbackItems)); } catch(_){}
+      return true;
+    }
+    // 2xx ohne Zeile: als Erfolg werten waere geraten — lieber erneut versuchen.
+    return false;
+  } catch(e){
+    console.warn('[feedback] push exception:', e && e.message);
+    return false;
+  }
+}
+window._gsFeedbackPushOne = _gsFeedbackPushOne;
+
+// Alle noch nicht angekommenen Eintraege nachschicken. Laeuft beim Start, wenn das
+// Geraet wieder online geht — und vor dem Logout, bevor ps_feedback geleert wird.
+window._gsFbFlushRunning = false;
+async function gsFeedbackFlushOutbox(){
+  if (window._gsFbFlushRunning) return 0;
+  if (!Array.isArray(feedbackItems) || !feedbackItems.length) return 0;
+  var pending = feedbackItems.filter(function(f){ return f && f._local && !f.sb_id; });
+  if (!pending.length) return 0;
+  window._gsFbFlushRunning = true;
+  var sent = 0;
+  try {
+    for (var i = 0; i < pending.length; i++) {
+      var ok = await _gsFeedbackPushOne(pending[i]);
+      if (ok) { sent++; continue; }
+      // Erster Fehlschlag beendet den Durchlauf — beim naechsten Anlauf weiter.
+      pending[i]._push_pending = true;
+      break;
+    }
+    if (sent) {
+      try { localStorage.setItem('ps_feedback', JSON.stringify(feedbackItems)); } catch(_){}
+      try { if (typeof renderFeedback === 'function') renderFeedback(); } catch(_){}
+      console.info('[feedback] ' + sent + ' nachtraeglich gesendet.');
+    }
+  } finally { window._gsFbFlushRunning = false; }
+  return sent;
+}
+window.gsFeedbackFlushOutbox = gsFeedbackFlushOutbox;
+
+try {
+  window.addEventListener('online', function(){ setTimeout(gsFeedbackFlushOutbox, 1200); });
+  window.addEventListener('load',   function(){ setTimeout(gsFeedbackFlushOutbox, 6000); });
+} catch(_){}
+
 function submitFeedback(){
   var typeEl = document.getElementById('fb-type');
   var textEl = document.getElementById('fb-text');
@@ -61562,54 +61696,23 @@ function submitFeedback(){
     // Hintergrund-Triage (best-effort)
     try { setTimeout(function(){ if (typeof gsAutoTriageFeedbacks === 'function') gsAutoTriageFeedbacks(false); }, 300); } catch(_){}
 
-    // Supabase-Push — auch anon erlaubt durch Policy feedback_items_insert_validated (v23.92)
-    var canPushToSb = (typeof sbFetch === 'function')
-                   && (typeof sbGetConfig === 'function')
-                   && !!sbGetConfig();
-    if (canPushToSb) {
-      var kindMap = {bug:'bug', idea:'idea', data:'bug', ui:'idea'};
-      var payload = {
-        kind: kindMap[type] || 'idea',
-        content: text,
-        app_version: (typeof GS_VERSION !== 'undefined') ? GS_VERSION : null,
-        context: {
-          type: type,
-          local_id: fbId,
-          author_email: email,
-          ua: (navigator.userAgent || '').slice(0,200),
-          lang: (navigator.language || ''),                                  // v28.11 B-010
-          plan: (localStorage.getItem('gs_abo_plan') || 'free'),
-          ts_client: new Date().toISOString()
-        }
-      };
-      // user_id NUR setzen wenn eingeloggt (Policy: anon → muss NULL sein)
-      if (uid) payload.user_id = uid;
-
-      sbFetch('/rest/v1/feedback_items', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json', 'Prefer':'return=representation' },
-        body: JSON.stringify(payload)
-      }).then(function(resp){
-        if (resp && resp.error) {
-          if (typeof console!=='undefined') console.warn('[feedback] sb-push error:', resp.error.message);
+    // v30.94: Push ueber die Outbox — bei Fehlschlag bleibt der Eintrag als
+    // `_push_pending` markiert und wird beim naechsten Start / Online-Event
+    // nachgeschickt, statt wie bisher still verloren zu gehen.
+    // (Policy feedback_items_insert_validated erlaubt auch anon, v23.92.)
+    try {
+      _gsFeedbackPushOne(newFb).then(function(ok){
+        if (!ok) {
+          newFb._push_pending = true;
+          try { localStorage.setItem('ps_feedback', JSON.stringify(feedbackItems)); } catch(_){}
+          try { if (typeof renderFeedback === 'function') renderFeedback(); } catch(_){}
           return;
         }
-        // Server-ID merken
-        try {
-          var rows = resp && resp.data;
-          if (Array.isArray(rows) && rows[0] && rows[0].id) {
-            var local = feedbackItems.find(function(f){ return f.id === fbId; });
-            if (local) {
-              local.sb_id = rows[0].id;
-              localStorage.setItem('ps_feedback', JSON.stringify(feedbackItems));
-            }
-          }
-        } catch(_){}
-        // Globaler Refresh
         try { if (typeof gsRefreshGlobalFeedback === 'function') gsRefreshGlobalFeedback(false); } catch(_){}
-      }).catch(function(e){
-        if (typeof console!=='undefined') console.warn('[feedback] sb-push exception:', e);
       });
+    } catch(e) {
+      newFb._push_pending = true;
+      if (typeof console!=='undefined') console.warn('[feedback] push:', e);
     }
 
     // Erfolgs-Toast (lokaler Save ist erfolgreich — Push läuft im Hintergrund)
@@ -67909,7 +68012,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.93';
+var GS_VERSION = 'v30.94';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -72977,6 +73080,10 @@ function gsOnLoginSuccess() {
 function gsOnLogout() {
   localStorage.removeItem(GS_ONBOARDING_KEY);
   localStorage.removeItem(GS_GUEST_MODE_KEY);
+  // v30.94: Noch nicht angekommenes Feedback zuerst wegschicken. `ps_feedback` steht in
+  // GS_USER_KEYS und wird gleich geleert — ohne diesen Anlauf waere ein bei schlechtem
+  // Netz abgesetzter Bug-Report mit dem Logout endgueltig weg.
+  try { if (typeof gsFeedbackFlushOutbox === 'function') gsFeedbackFlushOutbox(); } catch(_){}
   // v23.74: DATENSCHUTZ — alle user-spezifischen Daten löschen (zentrale Liste GS_USER_KEYS)
   try {
     if (typeof gsClearUserDataKeys === 'function') gsClearUserDataKeys();
@@ -73030,6 +73137,9 @@ var GS_USER_KEYS = [
   'gs_market_chats','gs_market_reported','gs_market_ratings',  // private 1:1-Marktplatz-Chats/Reports/Ratings
   'greenscan_markers',          // private GPS-Funde (is_private, cloud map_user_finds)
   'gs_expert_application',      // PII: Email + Biografie + Diplome
+  // v30.94: nicht abgeschickter Community-Entwurf — eigener Text des Nutzers, darf auf
+  // einem geteilten Geraet nicht zum naechsten Konto durchsickern.
+  'gs_social_draft',
   'gs_soil_profile','gs_pp_garden_location',  // per-User Garten-Kontext (Boden/Standort)
   'gs_wissen_read','gs_recipe_favs','gs_recent_searches'  // Lese-Fortschritt / Favoriten / Suchverlauf (cloud-restored)
 ];
