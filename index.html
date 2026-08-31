@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.91.20260828">
+<meta name="app-version" content="30.92.20260831">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14867,7 +14867,43 @@ window.gsTutorial = {
     try { var ov=document.getElementById('gs-tutorial'); if (ov){ if (typeof gsReleaseFocusTrap==='function') gsReleaseFocusTrap(ov); ov.remove(); } } catch(_){}
     try { if (typeof gsStore!=='undefined' && gsStore.set) gsStore.set(GS_TUTORIAL_KEY, '1'); else localStorage.setItem(GS_TUTORIAL_KEY,'1'); } catch(_){}
     try { if (typeof switchTab==='function') switchTab('home'); } catch(_){}
+  },
+  // v30.92: Tour genau EINMAL pro Geraet. GS_TUTORIAL_KEY wurde bisher in _close
+  // geschrieben, aber NIRGENDS gelesen — der Schluessel war reine Dekoration.
+  // startOnce() liest ihn; der manuelle Neustart (Einstellungen → Tour) ruft
+  // weiterhin start() und ignoriert den Schluessel bewusst.
+  startOnce: function(){
+    try {
+      var done = null;
+      try { done = (typeof gsStore!=='undefined' && gsStore.get) ? gsStore.get(GS_TUTORIAL_KEY, null) : localStorage.getItem(GS_TUTORIAL_KEY); } catch(_){}
+      if (done === '1') return false;
+      window.gsTutorial.start();
+      return true;
+    } catch(_){ return false; }
   }
+};
+
+// v30.92 FIX: Erstnutzer-Willkommen an EINER Stelle.
+// Vorher lag die Tour nur im Login-Pfad (onbDoLogin). Bei aktivem Auto-Confirm —
+// dem Normalfall — loggt onbDoRegister den Nutzer aber SOFORT selbst ein und
+// onbDoLogin wird nie durchlaufen: Die Tour startete also nach einer Registrierung
+// nie, und das gesetzte Flag gs_first_login blieb liegen, bis Tage spaeter ein
+// echter Login sie an voellig unpassender Stelle aufpoppen liess.
+// Jetzt: beide Pfade rufen diese Funktion; das Flag wird immer verbraucht.
+window.gsRunFirstRunWelcome = function(){
+  try { gsStore.remove('gs_first_login'); } catch(_){}
+  try {
+    if (typeof showProfileToast === 'function') showProfileToast('🎉 Willkommen bei GreenScan!', 'success');
+  } catch(_){}
+  // 1.6 s: der Willkommens-Toast soll erst gelesen werden, dann kommt die Tour.
+  setTimeout(function(){
+    try {
+      if (window.gsTutorial && typeof window.gsTutorial.startOnce === 'function') {
+        if (window.gsTutorial.startOnce()) return;
+      }
+      // Tour schon gesehen (oder nicht verfuegbar) → nichts aufdraengen.
+    } catch(_){}
+  }, 1600);
 };
 
 // ── Billing-Return-Handler: nach Stripe-Redirect Plan aktualisieren
@@ -22097,8 +22133,12 @@ function switchTab(t, btn) {
       try {
         var chip = document.getElementById('sr-apikey-chip');
         if (chip) {
+          // v30.92: Der Chip führt zu openApiKey() (ADMIN-only). Für alle anderen Rollen
+          // war er ein roter Alarm-Knopf ohne Ziel — daher gar nicht erst zeigen.
           var cfg = (typeof getApiConfig==='function') ? getApiConfig() : {key:''};
-          chip.style.display = cfg.key ? 'none' : 'inline-flex';
+          var _chipAdm = false;
+          try { _chipAdm = (typeof sbIsLoggedIn==='function') && sbIsLoggedIn() && (typeof gsIsAdmin==='function') && gsIsAdmin(); } catch(_){}
+          chip.style.display = (cfg.key || !_chipAdm) ? 'none' : 'inline-flex';
         }
       } catch(_){}
     }, 200);
@@ -22534,8 +22574,13 @@ function gsCollectNotifs(){
   // 4) API-Key-Problem (falls bekannt)
   try {
     var apiErr = state.lastApiError;
+    // v30.92: Nur für Admins. Die Aktion ist openApiKey() (ADMIN-only) — für alle anderen
+    // war das eine Benachrichtigung mit totem Klick UND eine Fehlermeldung ohne Bezug
+    // (der Key ist Sache der App, nicht des Nutzers).
+    var _apiErrAdm = false;
+    try { _apiErrAdm = (typeof sbIsLoggedIn==='function') && sbIsLoggedIn() && (typeof gsIsAdmin==='function') && gsIsAdmin(); } catch(_){}
     // v23.94: Klammern explizit gesetzt — vorher operator-precedence-verwirrend
-    if (apiErr && (!state.seenApiErrTs || apiErr.ts > (state.seenApiErrTs||0))) {
+    if (_apiErrAdm && apiErr && (!state.seenApiErrTs || apiErr.ts > (state.seenApiErrTs||0))) {
       out.push({
         type:'api', id:'api_' + (apiErr.ts || 0), ts: apiErr.ts || Date.now(),
         title:'API-Key Problem',
@@ -25388,6 +25433,55 @@ var SCAN_SYSTEM_PROMPT =
       '"db_search":"Bärlauch"' +
     '}';
 
+
+// ═══ v30.92 BLOCKER-FIX: Sackgasse bei Key-Fehlern ═══════════════════════
+// Befund (Audit): Auf JEDEM Scan-Fehlerbildschirm war der einzige Handlungs-Knopf
+// openApiKey() — und das ist ADMIN-ONLY (GS_PERMISSIONS.ADMIN enthaelt 'api_key').
+// Fuer jeden normalen Nutzer war das ein toter Knopf: tippen -> "Keine Berechtigung"
+// oder Profil-Modal, nie ein Key-Feld. openModal('apikey-modal') existiert genau
+// EINMAL in der Datei, naemlich in openApiKey. Es gab fuer Nicht-Admins also
+// KEINEN Weg vorwaerts — der Nutzer konnte nur die App schliessen.
+// Fix: CTA nach Rolle. Admin -> Key einrichten. Eingeloggt -> erneut versuchen
+// (mit Key-Nachzug). Ausgeloggt -> Konto anlegen.
+function _gsKeyErrorCta(onLight){
+  var hint = onLight ? '#6d4c00' : 'var(--muted)';
+  var isAdmin = false, loggedIn = false;
+  try { loggedIn = (typeof sbIsLoggedIn === 'function') && sbIsLoggedIn(); } catch(_){}
+  try { isAdmin = loggedIn && (typeof gsIsAdmin === 'function') && gsIsAdmin(); } catch(_){}
+  var btn = 'display:block;width:100%;max-width:300px;margin:0 auto 8px;padding:14px;color:#fff;border:none;border-radius:12px;font-size:14.5px;font-weight:800;cursor:pointer;font-family:inherit;';
+  if (isAdmin) {
+    return '<button onclick="openApiKey()" style="' + btn + 'background:linear-gradient(135deg,#1a237e,#3949ab);">🔑 API-Key einrichten</button>'
+         + '<div style="margin-top:10px;font-size:11.5px;color:' + hint + ';line-height:1.5;">Admin-Ansicht · Key von <b>console.anthropic.com</b></div>';
+  }
+  if (loggedIn) {
+    return '<button onclick="_gsRetryAfterKeyPull()" style="' + btn + 'background:linear-gradient(135deg,var(--g-main,#2d8a2d),var(--g-dark,#1a6a1a));">🔄 Nochmal versuchen</button>'
+         + '<div style="margin-top:10px;font-size:11.5px;color:' + hint + ';line-height:1.5;">Die KI ist gerade nicht erreichbar. Meist hilft ein zweiter Versuch.</div>';
+  }
+  return '<button onclick="openLoginModal()" style="' + btn + 'background:linear-gradient(135deg,var(--g-main,#2d8a2d),var(--g-dark,#1a6a1a));">✨ Kostenlos Konto anlegen</button>'
+       + '<div style="margin-top:10px;font-size:11.5px;color:' + hint + ';line-height:1.5;">Die KI-Bestimmung ist für angemeldete Nutzer kostenlos.</div>';
+}
+window._gsKeyErrorCta = _gsKeyErrorCta;
+
+// v30.92: Key frisch nachziehen und den letzten Scan wiederholen.
+// analyzeImage brach bisher OHNE diesen Nachzug ab — anders als callAI/callVisionAI,
+// die gsPullGlobalApiKey mit Backoff erneut versuchen. Direkt nach dem Login gab es
+// dadurch ein Zeitfenster, in dem der Scan mit "API-Key wird benoetigt" scheiterte,
+// obwohl der Key Sekunden spaeter da war.
+async function _gsRetryAfterKeyPull(){
+  try {
+    if (typeof showProfileToast === 'function') showProfileToast('🔄 Verbinde erneut…');
+    if (typeof gsPullGlobalApiKey === 'function') await gsPullGlobalApiKey();
+  } catch(_){}
+  try {
+    if (typeof _gsRetryLastScan === 'function') { await _gsRetryLastScan(); return; }
+  } catch(_){}
+  try {
+    var el = document.getElementById('scan-result');
+    if (el) { el.style.display = 'none'; el.innerHTML = ''; }
+  } catch(_){}
+}
+window._gsRetryAfterKeyPull = _gsRetryAfterKeyPull;
+
 async function analyzeImage(b64, mt, organContext, extraImages){
   // v30.74: Low-Confidence-Re-Scan — der Nutzer hat „Weiteres Foto hinzufügen" getippt; das vorige Bild wird als
   // Multi-Shot mit dem neuen kombiniert (höhere Genauigkeit). Eine Stelle → greift für Kamera UND Galerie.
@@ -25406,22 +25500,38 @@ async function analyzeImage(b64, mt, organContext, extraImages){
   // v28.05: Früher LS-Scan-Gate (5/Tag) ENTFERNT — die server-authoritative Per-Feature-Quota
   // (callVisionAI mit quotaFeature:'scan', free 15/Tag) gilt jetzt UND nur bei echtem Claude-Call
   // (Cache-Treffer sind frei → kosten keine Quota). Warme Limit-UI via gsShowQuotaCountdown.
-  const {key} = getApiConfig();
+  let {key} = getApiConfig();
+  // v30.92: Key EINMAL frisch nachziehen, bevor wir abbrechen. callAI/callVisionAI machen das
+  // laengst (mit Backoff) — analyzeImage brach als einzige Stelle sofort ab. Direkt nach dem
+  // Login gab es dadurch ein Zeitfenster, in dem der erste Scan mit "API-Key wird benoetigt"
+  // scheiterte, obwohl der globale Key Sekundenbruchteile spaeter da war.
+  if (!key) {
+    try { if (typeof gsPullGlobalApiKey === 'function') await gsPullGlobalApiKey(); } catch(_){}
+    try { key = getApiConfig().key; } catch(_){}
+  }
   if(!key){
     // v23.72: Klares UI-Feedback statt stummem Dialog-Pop
     const rdN = document.getElementById('scan-result');
     if (rdN) {
+      // v30.92: Text UND Handlung nach Rolle. Vorher stand hier fuer jeden Nutzer
+      // "API-Key einrichten" — ein Knopf, den ausser Admins niemand oeffnen darf.
+      var _isAdm = false, _isLog = false;
+      try { _isLog = (typeof sbIsLoggedIn === 'function') && sbIsLoggedIn(); } catch(_){}
+      try { _isAdm = _isLog && (typeof gsIsAdmin === 'function') && gsIsAdmin(); } catch(_){}
+      var _ico = _isAdm ? '🔑' : (_isLog ? '📡' : '✨');
+      var _ttl = _isAdm ? 'API-Key wird benötigt' : (_isLog ? 'KI gerade nicht erreichbar' : 'Anmelden für die KI-Bestimmung');
+      var _sub = _isAdm
+        ? 'Für die KI-gestützte Arterkennung wird ein Anthropic-(Claude)-API-Key gebraucht. Hinterlege einen globalen Key für alle Nutzer — oder setze deinen eigenen.'
+        : (_isLog
+            ? 'Die Verbindung zum KI-Dienst steht gerade nicht. Das ist meist nur ein kurzer Aussetzer — ein zweiter Versuch genügt in der Regel.'
+            : 'Die KI-Arterkennung ist für angemeldete Nutzer kostenlos. Melde dich an, dann läuft der Scan sofort.');
       rdN.style.display = 'block';
       rdN.innerHTML = '<div style="padding:32px 22px;text-align:center;background:var(--card);">'+
-        '<div style="font-size:56px;margin-bottom:12px;">🔑</div>'+
-        '<div style="font-size:19px;font-weight:900;color:var(--g-dark);margin-bottom:8px;">API-Key wird benötigt</div>'+
-        '<div style="font-size:13.5px;color:var(--text2);line-height:1.6;margin-bottom:20px;max-width:340px;margin-left:auto;margin-right:auto;">'+
-          'Für die KI-gestützte Arterkennung brauchst du einen Anthropic-(Claude)-API-Key. '+
-          'Der Admin dieser App kann einen für alle hinterlegen — oder du setzt deinen eigenen.'+
-        '</div>'+
-        '<button onclick="openApiKey()" style="display:block;width:100%;max-width:300px;margin:0 auto 8px;padding:14px;background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;border:none;border-radius:12px;font-size:14.5px;font-weight:800;cursor:pointer;font-family:inherit;">🔑 API-Key einrichten</button>'+
-        '<button onclick="document.getElementById(\'scan-result\').style.display=\'none\';document.getElementById(\'scan-result\').innerHTML=\'\';" style="display:block;width:100%;max-width:300px;margin:0 auto;padding:12px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Zurück</button>'+
-        '<div style="margin-top:14px;font-size:11.5px;color:var(--muted);line-height:1.5;">API-Key von <b>console.anthropic.com</b> → API Keys</div>'+
+        '<div style="font-size:56px;margin-bottom:12px;">'+_ico+'</div>'+
+        '<div style="font-size:19px;font-weight:900;color:var(--g-dark);margin-bottom:8px;">'+_ttl+'</div>'+
+        '<div style="font-size:13.5px;color:var(--text2);line-height:1.6;margin-bottom:20px;max-width:340px;margin-left:auto;margin-right:auto;">'+_sub+'</div>'+
+        _gsKeyErrorCta()+
+        '<button onclick="document.getElementById(\'scan-result\').style.display=\'none\';document.getElementById(\'scan-result\').innerHTML=\'\';" style="display:block;width:100%;max-width:300px;margin:12px auto 0;padding:12px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Zurück</button>'+
       '</div>';
     }
     return;
@@ -25565,15 +25675,25 @@ async function analyzeImage(b64, mt, organContext, extraImages){
       '<div><b>Zeit:</b> '+new Date().toLocaleTimeString('de-CH')+'</div>'+
       '</div>';
     // v23.65: Professionelles Fail-Screen mit hero API-Key-CTA bei Key-Fehler
+    // v30.92: auch hier rollenbewusst — der frühere Einzel-Knopf "Jetzt API-Key einrichten"
+    // war für Nicht-Admins eine Sackgasse (openApiKey ist ADMIN-only, GS_PERMISSIONS.api_key).
+    var _kAdm = false, _kLog = false;
+    try { _kLog = (typeof sbIsLoggedIn === 'function') && sbIsLoggedIn(); } catch(_){}
+    try { _kAdm = _kLog && (typeof gsIsAdmin === 'function') && gsIsAdmin(); } catch(_){}
     var heroCta = isKeyErr
       ? '<div style="margin:14px auto 0;max-width:340px;padding:14px 16px;background:linear-gradient(135deg,#fff9c4 0%,#fff8e1 100%);border:2px solid #f9a825;border-radius:14px;text-align:left;box-shadow:0 4px 18px rgba(249,168,37,.22);">'
           + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
-            + '<div style="font-size:28px;">🔑</div>'
-            + '<div><div style="font-weight:800;color:#b37400;font-size:14px;">API-Key nötig oder ungültig</div>'
-            + '<div style="font-size:11.5px;color:#6d4c00;">Für die KI-Pflanzen-Bestimmung wird ein gültiger Anthropic-(Claude)-API-Key gebraucht.</div></div>'
+            + '<div style="font-size:28px;">' + (_kAdm ? '🔑' : (_kLog ? '📡' : '✨')) + '</div>'
+            + '<div><div style="font-weight:800;color:#b37400;font-size:14px;">'
+              + (_kAdm ? 'API-Key nötig oder ungültig' : (_kLog ? 'KI gerade nicht erreichbar' : 'Anmelden für die KI-Bestimmung'))
+            + '</div>'
+            + '<div style="font-size:11.5px;color:#6d4c00;">'
+              + (_kAdm ? 'Für die KI-Pflanzen-Bestimmung wird ein gültiger Anthropic-(Claude)-API-Key gebraucht.'
+                       : (_kLog ? 'Die Verbindung zum KI-Dienst steht gerade nicht — meist genügt ein zweiter Versuch.'
+                                : 'Die KI-Arterkennung ist für angemeldete Nutzer kostenlos.'))
+            + '</div></div>'
           + '</div>'
-          + '<button onclick="openApiKey()" style="display:block;width:100%;padding:12px;background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13.5px;font-family:inherit;font-weight:800;box-shadow:0 3px 10px rgba(26,35,126,.35);">🔑 Jetzt API-Key einrichten →</button>'
-          + '<div style="margin-top:8px;font-size:10.5px;color:#6d4c00;text-align:center;line-height:1.45;">Anthropic-Key holen: <b>console.anthropic.com</b> → API Keys</div>'
+          + _gsKeyErrorCta(true)
         + '</div>'
       : '';
     rd.innerHTML =
@@ -25585,14 +25705,15 @@ async function analyzeImage(b64, mt, organContext, extraImages){
         diagLine +
         '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;justify-content:center;">'+
           '<button onclick="_gsRetryLastScan()" style="padding:10px 18px;background:var(--g-main);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:800;box-shadow:0 3px 10px rgba(45,138,45,.35);">🔁 Nochmal versuchen</button>'+
-          '<button onclick="gsTestApiKey()" style="padding:10px 18px;background:#37474f;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:800;">🧪 Key testen</button>'+
+          (_kAdm ? '<button onclick="gsTestApiKey()" style="padding:10px 18px;background:#37474f;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:800;">🧪 Key testen</button>' : '')+
           (isRateErr ? '<button onclick="setTimeout(_gsRetryLastScan,60000);document.getElementById(\'scan-status\').textContent=\'⏳ Warte 60s auf Anbieter…\';" style="padding:10px 18px;background:#e65100;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:800;">⏱️ In 60s retry</button>' : '')+
         '</div>'+
       '</div>';
     // v23.65: API-Key-Chip sofort sichtbar machen bei Key-Fehler
     try {
       var chipEl = document.getElementById('sr-apikey-chip');
-      if (chipEl && isKeyErr) chipEl.style.display = 'inline-flex';
+      // v30.92: Chip nur für Admins — er öffnet openApiKey(), was sonst "Keine Berechtigung" wirft.
+      if (chipEl && isKeyErr && _kAdm) chipEl.style.display = 'inline-flex';
     } catch(_){}
     var sst = document.getElementById('scan-status');
     if (sst) sst.textContent = isKeyErr ? 'Fehler – API Key prüfen' : (isNetErr ? 'Netzwerk-Fehler' : 'KI-Fehler – erneut versuchen');
@@ -67769,7 +67890,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.91';
+var GS_VERSION = 'v30.92';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -72571,7 +72692,12 @@ async function onbDoRegister() {
       if (typeof gsOnLoginSuccess === 'function') gsOnLoginSuccess();
       if (typeof updateMenuProfileBar === 'function') updateMenuProfileBar();
       gsOnboardingHide();
-      if (typeof showProfileToast === 'function') showProfileToast('🎉 Willkommen bei GreenScan!', 'success');
+      // v30.92: Auto-Confirm loggt hier direkt ein — onbDoLogin laeuft nie.
+      // Darum die Erstnutzer-Tour GENAU HIER starten (verbraucht auch das Flag).
+      try {
+        if (typeof window.gsRunFirstRunWelcome === 'function') window.gsRunFirstRunWelcome();
+        else if (typeof showProfileToast === 'function') showProfileToast('🎉 Willkommen bei GreenScan!', 'success');
+      } catch(_){}
     } else {
       // E-Mail Bestätigung nötig — Flag setzen damit nach Email-Confirm-Login
       // der First-Login-Welcome-Pfad triggert
@@ -72624,8 +72750,13 @@ async function onbDoLogin() {
     var firstLogin = false;
     try { firstLogin = gsStore.get('gs_first_login', null) === '1'; } catch(_){}
     if (firstLogin) {
+      // v30.92: eine gemeinsame Quelle mit dem Register-Pfad (gsRunFirstRunWelcome).
+      // Konsumiert das Flag, zeigt den Toast und startet die Tour genau einmal.
+      try {
+        if (typeof window.gsRunFirstRunWelcome === 'function') { window.gsRunFirstRunWelcome(); }
+      } catch(_){}
       try { gsStore.remove('gs_first_login'); } catch(_){}
-      if (typeof showProfileToast === 'function') {
+      if (typeof window.gsRunFirstRunWelcome !== 'function' && typeof showProfileToast === 'function') {
         showProfileToast('🎉 Willkommen bei GreenScan!', 'success');
       }
       // v25.7 A3: Trial-Modal nach First-Login zeigen — User wählt Plus/Pro
@@ -72633,16 +72764,8 @@ async function onbDoLogin() {
       // Verzögerung 1.6s: Welcome-Toast erst sehen, dann Modal.
       // v30.63: Erstnutzer-Tour statt Upsell-Modal (Mission: nicht geldgierig, keine Verkaufs-Sprache).
       // Die spielartige Einführung erklärt die App; Pro/Lifetime bleiben in Einstellungen auffindbar.
-      setTimeout(function(){
-        try {
-          if (typeof gsTutorial !== 'undefined' && gsTutorial && typeof gsTutorial.start === 'function') {
-            gsTutorial.start();
-          } else {
-            var plan = localStorage.getItem('gs_abo_plan') || 'free';
-            if (plan === 'free' && typeof gsShowFirstTrialModal === 'function') gsShowFirstTrialModal();
-          }
-        } catch(_){}
-      }, 1600);
+      // (Tour laeuft jetzt in gsRunFirstRunWelcome — kein zweiter Timer mehr,
+      //  sonst waere die Tour bei einem First-Login doppelt aufgepoppt.)
     } else {
       // Normaler Re-Login: Welcome-Back-Toast mit Display-Name
       var displayName = '';
