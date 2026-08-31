@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.03.20260831">
+<meta name="app-version" content="31.04.20260831">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -68033,7 +68033,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.03';
+var GS_VERSION = 'v31.04';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -69449,6 +69449,16 @@ async function sbLogout() {
   try {
     if (typeof gsSnapshotCreate === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
       await Promise.race([ gsSnapshotCreate('pre_logout'), new Promise(function(r){ setTimeout(r, 2500); }) ]);
+    }
+  } catch(_){}
+  // v31.04: Ausstehende Sync-Vorgaenge JETZT wegschicken — hier ist der Token noch
+  // gueltig. Gleich darunter loescht sbClearSession() ihn, und gsOnLogout() raeumt
+  // die Warteschlange (siehe dort, warum sie nicht stehen bleiben darf).
+  // Gleiches Muster wie beim Snapshot darueber: 2,5-s-Rennen, der Logout haengt nie.
+  try {
+    if (window.gsCloudSync && typeof gsCloudSync.flushNow === 'function' &&
+        typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
+      await Promise.race([ gsCloudSync.flushNow(), new Promise(function(r){ setTimeout(r, 2500); }) ]);
     }
   } catch(_){}
   if (gsStore.get('gs_sb_token', null) && sbGetConfig()) {
@@ -73238,6 +73248,40 @@ function gsOnLogout() {
   // v31.01: Wachposten loeschen, sonst laeuft der Login-Uebergang beim naechsten
   // Anmelden (auch mit demselben Konto) nicht mehr.
   try { window._gsLoginDoneForUid = null; } catch(_){}
+
+  // ═══ v31.04 KRITISCH: Empty-Clobber-Guard wieder scharf stellen ═══════════
+  // Der Guard (v27.01) verhindert, dass ein leerer Blob die Cloud ueberschreibt,
+  // BEVOR der erste Pull gelaufen ist. Er wurde bisher nur bei einem WECHSEL des
+  // Kontos neu gesetzt (`lastUid !== uid`, Z. ~73338) — nicht beim Logout.
+  //
+  // Folge bei Logout und Re-Login mit DEMSELBEN Konto, ohne Seiten-Neuladen:
+  //   1. gsClearUserDataKeys() unten leert ps_myplants, Tagebuch, Totliste,
+  //      Saatgut — und markiert dabei ueber den setItem-Patch alles als dirty.
+  //   2. `window._gsInitialSyncDone` steht noch auf true vom vorigen Login.
+  //   3. Der naechste Flush schiebt also einen LEEREN Pflanzen-Blob hoch, ohne
+  //      dass der Guard greift.
+  //   4. Damit ist das Konto in der Cloud leer — und das erreicht ALLE Geraete.
+  // Eine voellig normale Handlung (abmelden, wieder anmelden) loeschte so den
+  // gesamten Pflanzen-Bestand ueberall.
+  try { window._gsInitialSyncDone = false; } catch(_){}
+
+  // ═══ v31.04: Sync-Zustand des scheidenden Nutzers raeumen ════════════════
+  // `gs_sync_queue` und `gs_sync_dirty` stehen NICHT in GS_USER_KEYS und
+  // ueberlebten den Logout. Die user_id wird aber erst beim Flush eingesetzt
+  // (z.B. `Object.assign({user_id: _uid()}, op.row)`) — ungesendete Ernte- und
+  // Tagebuch-Vorgaenge von Nutzer A landeten dadurch im Konto von Nutzer B.
+  // Datenverfaelschung und Datenschutz-Problem zugleich.
+  // Verlustfrei, weil sbLogout() unmittelbar davor zweimal sichert: erst der
+  // pre_logout-Snapshot, dann ein flushNow() mit noch gueltigem Token.
+  try {
+    localStorage.removeItem('gs_sync_queue');
+    localStorage.removeItem('gs_sync_dirty');
+    localStorage.removeItem('gs_sync_last_push');
+    ['plants','garden','state'].forEach(function(sc){
+      try { localStorage.removeItem('gs_sync_dirty_at_' + sc); } catch(_){}
+      try { localStorage.removeItem('gs_sync_synced_at_' + sc); } catch(_){}
+    });
+  } catch(_){}
   localStorage.removeItem(GS_ONBOARDING_KEY);
   localStorage.removeItem(GS_GUEST_MODE_KEY);
   // v30.94: Noch nicht angekommenes Feedback zuerst wegschicken. `ps_feedback` steht in

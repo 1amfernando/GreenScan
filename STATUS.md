@@ -4,13 +4,42 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.03` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.04` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-08-31 (m) — v31.04: 🔴 Abmelden und wieder anmelden löschte das Konto auf ALLEN Geräten
+
+> Der schwerste Befund der ganzen Session. Aus den beiden Audit-Bereichen „multi-geraet" und „offline", die ich zuvor noch nicht gelesen hatte — beide selbst am Code nachvollzogen und die Kette in Node nachgestellt.
+
+#### Die Kette
+
+1. `gsOnLogout()` → `gsClearUserDataKeys()` leert `ps_myplants`, Tagebuch, Totliste, Saatgut-Inventar — **und markiert dabei über den `setItem`-Patch alles als dirty**.
+2. `window._gsInitialSyncDone` steht weiter auf `true` vom vorigen Login. Der v27.01-Empty-Clobber-Guard wurde nämlich **nur bei einem Wechsel des Kontos** neu scharf gestellt (`lastUid !== uid`, Z. ~73338) — beim Logout nicht.
+3. Re-Login mit **demselben** Konto, ohne Seiten-Neuladen: der Wechsel-Zweig greift nicht, der Guard bleibt entwaffnet.
+4. Der nächste Flush schiebt einen **leeren** Pflanzen-Blob hoch.
+5. Das Konto ist in der Cloud leer — **und das erreicht alle Geräte.**
+
+Eine völlig normale Handlung — abmelden, wieder anmelden — löschte damit den gesamten Bestand überall.
+
+#### Der zweite Fund an derselben Stelle
+
+`gs_sync_queue` und `gs_sync_dirty` stehen **nicht** in `GS_USER_KEYS` und überlebten den Logout. Die `user_id` wird aber erst **beim Flush** eingesetzt (`Object.assign({user_id: _uid()}, op.row)`). Ungesendete Ernte- und Tagebuch-Vorgänge von Nutzer A landeten dadurch im Konto von Nutzer B — Datenverfälschung und Datenschutz-Problem in einem. Auf einem Familien-Tablet reicht ein Kontowechsel.
+
+#### Die Lösung
+
+- **`window._gsInitialSyncDone = false` in `gsOnLogout()`** — der Guard ist wieder scharf, bis der erste Pull des neuen Logins durch ist. Das ist der eigentliche Fix.
+- **Sync-Zustand des scheidenden Nutzers räumen:** `gs_sync_queue`, `gs_sync_dirty`, `gs_sync_last_push` und die Pro-Scope-Marker.
+- **Verlustfrei, weil vorher zweimal gesichert wird:** `sbLogout()` legt bereits den `pre_logout`-Snapshot an, und **neu** kommt davor ein `gsCloudSync.flushNow()` — beides noch mit gültigem Token, beides im 2,5-s-Rennen, damit der Logout nie hängt. Die Reihenfolge war entscheidend: `sbClearSession()` löscht den Token **vor** `gsOnLogout()`, ein Flush aus `gsOnLogout` heraus wäre also zwangsläufig fehlgeschlagen.
+- **Verify — die Kette in Node nachgestellt, vorher/nachher:** vorher „LEERER Blob gepusht — Cloud-Pflanzen: 0" und „Warteschlange von Nutzer A liegt noch da → flusht ins nächste Konto"; nachher „kein Push — Cloud-Pflanzen: 3" und „Warteschlange geräumt". 9/9 Inline-Scripts `node --check` OK · `sw.js` valid · Version synchron v31.04.
+
+#### Noch offen aus diesen zwei Bereichen
+
+Bewusst nicht in diesem Release, weil je eigener Umfang: offline aufgenommene Fund-Fotos werden bei fehlgeschlagenem Upload verworfen · ein in die Offline-Queue gelegter Scan bekommt beim Flush kein oder ein **fremdes** Foto (das Bild wird aus einer globalen Variable statt aus dem Queue-Eintrag gelesen) · `gsGardenSync.pullAll` überschreibt Tagebuch und Ernte-Log hart (aktuell harmlos, weil `garden_diary` 0 Zeilen hat — sobald die erste entsteht, wischt der nächste Boot die lokalen Einträge weg) · fehlender Idempotenz-Schlüssel erzeugt Duplikate bei Timeout.
 
 ### 2026-08-31 (l) — v31.03: Das Sicherheitsnetz für den Speicher zerstörte Daten, log über die Grenze und verschenkte Platz
 
