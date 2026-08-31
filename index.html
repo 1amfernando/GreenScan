@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.10.20260831">
+<meta name="app-version" content="31.11.20260831">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -45986,16 +45986,14 @@ function initSettingsScreen() {
 
   const toggleMap = {
     'toggle-compact': 'compact',
-    'toggle-water-notif': 'waterNotif',
-    'toggle-weather-notif': 'weatherNotif',
-    'toggle-market-notif': 'marketNotif',
-    'toggle-social-notif': 'socialNotif',
-    'toggle-harvest-notif': 'harvestNotif',
+    // v31.11: Sieben verwaiste Eintraege entfernt — ihre Schalter existieren im
+    // DOM nicht mehr (Zaehlung: 0 Treffer fuer id="toggle-water-notif",
+    // -weather-notif, -market-notif, -social-notif, -harvest-notif, -pest-tips,
+    // -safety). getElementById lieferte null, die Zeilen liefen ins Leere.
+    // Harmlos, aber irrefuehrend: wer die Karte liest, haelt diese Einstellungen
+    // fuer vorhanden. Push-Kategorien laufen laengst ueber gs_push_settings.
     'toggle-moon': 'showMoon',
     'toggle-home-weather': 'homeWeather',
-    'toggle-pest-tips': 'pestTips',
-      // rearCam setting removed
-    'toggle-safety': 'safetyWarnings',
     'toggle-scan-history': 'scanHistory',
     'toggle-ach-feed': 'achFeed',
   };
@@ -68337,7 +68335,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.10';
+var GS_VERSION = 'v31.11';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -69906,6 +69904,23 @@ async function sbLoadProfile() {
       };
     } else {
       _sbProfile = res.data[0];
+      // v31.11: Datenschutz-Schalter aus dem SERVER-Wert spiegeln.
+      // `profiles.opt_in_achievement_feed` ist der massgebliche Wert (fn_achievements_feed
+      // liest ihn), `userPrefs.achFeed` war bisher nur ein lokaler Spiegel — und wurde
+      // NIE zurueckgelesen. Auf einem neuen Geraet stand der Schalter deshalb auf dem
+      // Standard „an", auch wenn der Nutzer sich anderswo abgemeldet hatte. Bei einer
+      // Datenschutz-Einstellung ist ein falsch angezeigter Zustand das eigentliche Problem:
+      // wer „aus" gewaehlt hat, muss „aus" sehen.
+      try {
+        if (typeof _sbProfile.opt_in_achievement_feed === 'boolean' && typeof userPrefs !== 'undefined' && userPrefs) {
+          if (userPrefs.achFeed !== _sbProfile.opt_in_achievement_feed) {
+            userPrefs.achFeed = _sbProfile.opt_in_achievement_feed;
+            if (typeof savePrefs === 'function') savePrefs();
+          }
+          var _af = document.getElementById('toggle-ach-feed');
+          if (_af) _af.checked = _sbProfile.opt_in_achievement_feed;
+        }
+      } catch(_){}
     }
   } catch(e) {
     console.warn('[sbLoadProfile] error:', e.message);

@@ -4,13 +4,38 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.10` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.11` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-08-31 (t) — v31.11: Einstellungen durchgegangen — ein Datenschutz-Schalter zeigte den falschen Zustand
+
+> Fernandos Auftrag „Einstellungen abchecken und alles verbessern + stabilisieren". Systematisch geprüft statt punktuell — und dabei zweimal meine eigene Prüfung korrigiert.
+
+#### Was in Ordnung war (und ich deshalb nicht angefasst habe)
+
+- **Alle 33 Einstellungs-Zeilen mit Aktion haben ein existierendes Ziel.** Keine toten Klicks.
+- **Alle 11 Schalter haben einen Handler**, und jede Handler-Funktion ist definiert.
+- **Die Schalter werden korrekt aus dem Speicher initialisiert.** Mein erster Scan meldete „11× nie gesetzt" — das war ein **zu enges Suchmuster**, die Zuweisung läuft über eine Zwischenvariable in `toggleMap`. Nachgesehen, bevor ich etwas „repariert" hätte.
+- **Das `!== false`-Muster ist konsistent.** Ich hielt es kurz für einen Fehler (nicht gesetzte Vorliebe → Schalter zeigt „an"), aber die Features lesen mit derselben Regel (`=== false ? aus : an`). Kein Widerspruch.
+
+#### 🔒 Der echte Fund: eine Datenschutz-Einstellung log
+
+`profiles.opt_in_achievement_feed` steuert, ob die eigenen Erfolge im Community-Feed erscheinen — **massgeblich ist der Server** (`fn_achievements_feed` liest ihn). Der Schalter in den Einstellungen las aber `userPrefs.achFeed`, einen rein **lokalen Spiegel**, der **nur geschrieben und nie zurückgelesen** wurde.
+
+Folge: auf einem neuen Gerät stand der Schalter auf dem Standard „an" — auch wenn man sich anderswo bewusst abgemeldet hatte. Bei einer Datenschutz-Einstellung ist ein falsch angezeigter Zustand das eigentliche Problem: **wer „aus" gewählt hat, muss „aus" sehen.** Schlimmer noch, ein späteres Speichern hätte den Server-Wert stillschweigend zurück auf „an" gedreht.
+
+`sbLoadProfile()` spiegelt den Server-Wert jetzt in die lokale Vorliebe **und** in die Checkbox, sobald das Profil geladen ist. Spalte vorher in der Live-DB geprüft: `boolean`, Standard `true`.
+
+#### 🧹 Sieben verwaiste Einträge entfernt
+
+`toggleMap` enthielt `toggle-water-notif`, `-weather-notif`, `-market-notif`, `-social-notif`, `-harvest-notif`, `-pest-tips`, `-safety` — **null** davon existiert noch im DOM (nachgezählt). `getElementById` lieferte `null`, die Zeilen liefen ins Leere. Harmlos, aber irreführend: wer die Karte liest, hält diese Einstellungen für vorhanden. Push-Kategorien laufen längst über `gs_push_settings`. Übrig bleiben **5 Einträge, alle mit echtem Element**.
+
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · `sw.js` valid · `toggleMap` gegengezählt (5/5 im DOM) · Version synchron v31.11.
 
 ### 2026-08-31 (s) — v31.10: Eigenes Icon-Set — 23 Symbole, 7 KB, erben die Textfarbe
 
