@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.99.20260831">
+<meta name="app-version" content="31.00.20260831">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28687,30 +28687,56 @@ async function savePlant(){
   } catch(e) { console.warn('[v26.87] location-routing', e && e.message); }
   const now = new Date().toISOString();
   if(editingPlantId){
-    const p = myPlants.find(x => x.id === editingPlantId);
-    if(p){
-      p.name  = name;
-      p.nick  = document.getElementById('mp-nick').value.trim();
-      p.emoji = document.getElementById('mp-emoji').value.trim() || '🌿';
-      p.water = +document.getElementById('mp-water').value;
-      p.sun   = +document.getElementById('mp-sun').value;
-      p.notes = document.getElementById('mp-notes').value.trim();
-      // v24.11/v26.58: Foto-Update — Cloud-URL hat Vorrang. Bei B64: Storage-Bucket-Upload,
-      // Fallback auf base64 nur wenn Upload-Fail (Privacy-/Quota-Safety).
-      if (window._gsPlantPhotoUrl) {
-        p.photoUrl = window._gsPlantPhotoUrl;
-        p.photo = window._gsPlantPhotoUrl;
-      } else if (window._gsPlantPhotoB64) {
-        try {
-          var photoUrl = await window.gsUploadPhotoToBucket('user-plant-photos', window._gsPlantPhotoB64);
-          p.photo = photoUrl;
-          p.photoUrl = photoUrl;
-        } catch (uploadErr) {
-          // Fallback: base64 (User-Action nicht blockieren — Upload kann später via gsMigrateBase64Photos nachgezogen werden)
-          p.photo = 'data:image/jpeg;base64,' + window._gsPlantPhotoB64;
-        }
+    // v31.00 FIX: KEINE Objekt-Referenz ueber ein await hinweg halten.
+    // Vorher stand hier `const p = myPlants.find(...)`, danach ein `await` auf den
+    // Foto-Upload (Netz, kann Sekunden dauern). Genau in diesem Fenster kann
+    // gsSyncUserDataOnLogin `myPlants = pd.plants` ausfuehren und das ganze Array
+    // durch frische Objekte aus der Cloud ersetzen. `p` zeigte dann auf ein
+    // verwaistes Objekt: alle Aenderungen (Name, Spitzname, Emoji, Wasser, Sonne,
+    // Notizen, Foto) landeten im Nichts, savePlantsToStorage() serialisierte das
+    // NEUE Array — und der Nutzer bekam trotzdem einen Erfolgs-Toast.
+    // Jetzt: Felder erst einsammeln, dann uploaden, dann die Pflanze FRISCH
+    // per id auflösen und alles auf einmal anwenden.
+    var _edits = {
+      name:  name,
+      nick:  document.getElementById('mp-nick').value.trim(),
+      emoji: document.getElementById('mp-emoji').value.trim() || '🌿',
+      water: +document.getElementById('mp-water').value,
+      sun:   +document.getElementById('mp-sun').value,
+      notes: document.getElementById('mp-notes').value.trim()
+    };
+    // v24.11/v26.58: Foto-Update — Cloud-URL hat Vorrang. Bei B64: Storage-Bucket-Upload,
+    // Fallback auf base64 nur wenn Upload-Fail (Privacy-/Quota-Safety).
+    if (window._gsPlantPhotoUrl) {
+      _edits.photoUrl = window._gsPlantPhotoUrl;
+      _edits.photo    = window._gsPlantPhotoUrl;
+    } else if (window._gsPlantPhotoB64) {
+      try {
+        var photoUrl = await window.gsUploadPhotoToBucket('user-plant-photos', window._gsPlantPhotoB64);
+        _edits.photo    = photoUrl;
+        _edits.photoUrl = photoUrl;
+      } catch (uploadErr) {
+        // Fallback: base64 (User-Action nicht blockieren — Upload kann später via gsMigrateBase64Photos nachgezogen werden)
+        _edits.photo = 'data:image/jpeg;base64,' + window._gsPlantPhotoB64;
       }
+    }
+    // Erst JETZT — nach allen awaits — die Pflanze auflösen.
+    const p = myPlants.find(x => x.id === editingPlantId);
+    if (p) {
+      Object.keys(_edits).forEach(function(k){ p[k] = _edits[k]; });
       if (!Array.isArray(p.diary)) p.diary = [];
+    } else {
+      // Die Pflanze ist waehrend des Uploads aus myPlants verschwunden (Cloud-Pull
+      // mit Loeschung von einem anderen Geraet). Ehrlich melden statt still schlucken.
+      console.warn('[savePlant] Pflanze', editingPlantId, 'waehrend des Speicherns verschwunden — Aenderung nicht angewendet.');
+      try {
+        if (typeof gsToast === 'function') {
+          gsToast('⚠️ Die Pflanze wurde zwischenzeitlich von einem anderen Gerät entfernt — die Änderung konnte nicht gespeichert werden.', 'warning', 7000);
+        }
+      } catch(_){}
+      try { closeModal('modal-addplant'); } catch(_){}
+      try { gsClearPlantPhoto(); } catch(_){}   // Foto-State nicht fuer den naechsten Add liegen lassen
+      return;
     }
   } else {
     // v23.73: Standard-Aufgaben mit lastDone=now → nicht sofort fällig nach Anlegen
@@ -67995,7 +68021,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.99';
+var GS_VERSION = 'v31.00';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
