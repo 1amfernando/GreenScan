@@ -4,13 +4,25 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.04` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.05` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-08-31 (n) — v31.05: Die gestellte Falle im Garten-Sync entschärft
+
+> Der Punkt aus v31.04s Restliste, der **von selbst** scharf wird. Kein Designproblem — die Hausregel für genau diesen Fall existiert längst, sie war hier nur nicht angewandt.
+
+- **Der Befund.** `gsGardenSync.pullAll()` schrieb den Remote-Stand **hart** über den lokalen — bei Gartentagebuch, Ernte-Log, Gärten und Pflanzungen. Der einzige Schutz war „die Cloud-Antwort ist nicht leer" (`d.data.length`). Hat die Cloud **einen** Eintrag und lokal liegen zweihundert, waren die anderen 199 weg.
+- **Warum es heute nicht auffällt — und genau deshalb gefährlich ist:** `garden_diary` hat in Produktion **0 Zeilen**. Der Empty-Guard greift also immer, und nichts passiert. Sobald aber der erste Eintrag entsteht, räumt der nächste Start das lokale Tagebuch leer. Eine Falle, die sich selbst stellt, sobald das Feature benutzt wird.
+- **Zweiter Fehler daneben:** geladen wird mit `limit=500`, lokal geschrieben wurde aber `slice(0,200)` — während der lokale Schreiber (Z. ~8182) bei 500 deckelt. Selbst ein völlig sauberer Sync hätte also gekürzt.
+- **Die Lösung ist die Hausregel, die es schon gibt.** `_gsMergeById()` führt über die `id` zusammen, bei Kollision **gewinnt der lokale Stand**, sortiert nach Zeit — genau wie `_gsRestoreKey` im Snapshot-Restore. Ein Eintrag, den dieses Gerät kennt, geht nie verloren; Einträge von anderen Geräten kommen hinzu. Caps jetzt konsistent mit den lokalen Schreibern: Tagebuch 500, Ernte 1000.
+- **Verify in Node, 11 Fälle.** Der Ernstfall zuerst: Cloud 1 Eintrag, lokal 200 → **201 statt 1**, alle 200 lokalen nachweislich erhalten, der Cloud-Eintrag dazu. Kollision auf derselben `id` → lokale Fassung gewinnt. 600 Einträge mit Cap 500 → 500, neuester zuerst. Sonderfälle: beide leer, nur Cloud, nur lokal, **Eintrag ohne `id`** (wird nicht verschluckt), `null`-Eingaben. Dazu `_gsReadArr` gegen gültiges JSON, Müll, Nicht-Array und fehlenden Schlüssel.
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · `sw.js` valid · Version synchron v31.05.
+- **Aus der v31.04-Restliste noch offen:** offline aufgenommene Fund-Fotos werden bei fehlgeschlagenem Upload verworfen · ein in die Offline-Queue gelegter Scan bekommt beim Flush kein oder ein **fremdes** Foto · fehlender Idempotenz-Schlüssel erzeugt Duplikate bei Timeout. Alle drei hängen am selben Thema wie die noch offene Produktfrage (Fotos im Blob) und gehören sinnvollerweise gemeinsam gelöst.
 
 ### 2026-08-31 (m) — v31.04: 🔴 Abmelden und wieder anmelden löschte das Konto auf ALLEN Geräten
 

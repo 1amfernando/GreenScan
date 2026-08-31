@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.04.20260831">
+<meta name="app-version" content="31.05.20260831">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -68033,7 +68033,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.04';
+var GS_VERSION = 'v31.05';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -81900,39 +81900,82 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
   } catch(_){}
 
   // ── Pull everything from remote and merge into local stores ──────────
+  // v31.05: Zusammenfuehren statt Ersetzen — lokale Eintraege gewinnen.
+  //
+  // Bisher schrieb pullAll den Remote-Stand HART ueber den lokalen, geschuetzt nur
+  // durch „die Cloud-Antwort ist nicht leer". Hat die Cloud einen Eintrag und
+  // lokal liegen zweihundert, waren die anderen 199 weg. Aktuell faellt das nicht
+  // auf, weil `garden_diary` in Produktion 0 Zeilen hat — aber genau deshalb ist
+  // es eine gestellte Falle: sobald der erste Eintrag entsteht, raeumt der
+  // naechste Start das lokale Tagebuch leer.
+  //
+  // Dieselbe Regel wie in _gsRestoreKey (Snapshot-Restore): ueber die id
+  // zusammenfuehren, bei Kollision gewinnt der lokale Stand, nach Zeit sortieren.
+  // Ein Eintrag, den dieses Geraet kennt, geht dadurch nie verloren; Eintraege
+  // von anderen Geraeten kommen hinzu.
+  function _gsMergeById(localArr, remoteArr, cap){
+    var byId = {}, order = [];
+    function add(x){
+      if (!x) return;
+      var k = (x.id != null) ? String(x.id) : null;
+      if (k === null) { order.push(x); return; }   // ohne id: unveraendert behalten
+      if (!(k in byId)) order.push(k);
+      byId[k] = x;
+    }
+    (remoteArr || []).forEach(add);
+    (localArr  || []).forEach(add);                // lokal ueberschreibt remote
+    var out = order.map(function(o){ return (typeof o === 'string') ? byId[o] : o; });
+    out.sort(function(a,b){
+      var ta = new Date((a && a.ts) || 0).getTime() || 0;
+      var tb = new Date((b && b.ts) || 0).getTime() || 0;
+      return tb - ta;
+    });
+    return cap ? out.slice(0, cap) : out;
+  }
+  function _gsReadArr(key){
+    try { var v = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(v) ? v : []; }
+    catch(_){ return []; }
+  }
+
   async function pullAll() {
     if (!loggedIn() || !isOnline()) return;
     setStatus('⬇️ Laden…');
     try {
-      // Diary — v29.10: Empty-Guard (leere Cloud-Antwort darf populated local NIE überschreiben; PERS-12)
+      // Diary — v31.05: mergen statt ersetzen. Cap 500 wie der lokale Schreiber
+      // (Z. ~8182); vorher stand hier slice(0,200), was selbst einen sauberen
+      // Sync auf 200 gekuerzt haette, obwohl mit limit=500 geladen wird.
       var d = await supaGet('garden_diary', 'select=*&order=ts.desc&limit=500');
       if (d && d.data && d.data.length) {
         var remoteDiary = d.data.map(function(r){
           return { id: r.id, ts: r.ts, text: r.text, emoji: r.emoji || '🌱', date: new Date(r.ts).toLocaleDateString('de-CH'), title: r.title, tag: r.tag, garden_id: r.garden_id, photo_url: r.photo_url };
         });
-        try { localStorage.setItem('gs_gartentagebuch', JSON.stringify(remoteDiary.slice(0,200))); } catch(e){}
+        var mergedDiary = _gsMergeById(_gsReadArr('gs_gartentagebuch'), remoteDiary, 500);
+        try { localStorage.setItem('gs_gartentagebuch', JSON.stringify(mergedDiary)); } catch(e){}
         if (typeof _gsTagebuch !== 'undefined') { try { window._gsTagebuch = null; } catch(e){} }
       }
-      // Harvests — v29.10: Empty-Guard (PERS-12)
+      // Harvests — v31.05: mergen statt ersetzen. Cap 1000 wie der lokale Schreiber.
       var h = await supaGet('garden_harvests', 'select=*&order=ts.desc&limit=500');
       if (h && h.data && h.data.length) {
         var remoteLog = h.data.map(function(r){
           return { id: r.id, ts: r.ts, plant: r.species_name, menge: r.menge, unit: r.unit, garden_id: r.garden_id, emoji: r.emoji, planting_id: r.planting_id };
         });
-        try { localStorage.setItem('gs_ernte_log', JSON.stringify(remoteLog)); } catch(e){}
+        var mergedLog = _gsMergeById(_gsReadArr('gs_ernte_log'), remoteLog, 1000);
+        try { localStorage.setItem('gs_ernte_log', JSON.stringify(mergedLog)); } catch(e){}
         try { window._gsErnteLog = null; } catch(e){}
       }
-      // Gardens — v29.10: Empty-Guard (gardens-Tabelle live 0 Zeilen wipte sonst lokale Gärten; PERS-12)
+      // Gardens — v31.05: mergen statt ersetzen (kein ts, Sortierung bleibt wie geliefert).
       var g = await supaGet('gardens', 'select=*&is_archived=eq.false&order=created_at.asc');
       if (g && g.data && g.data.length) {
-        try { localStorage.setItem('gs_gardens', JSON.stringify(g.data)); } catch(e){}
-        try { window.gardens = g.data; } catch(e){}
+        var mergedGardens = _gsMergeById(_gsReadArr('gs_gardens'), g.data, 0);
+        try { localStorage.setItem('gs_gardens', JSON.stringify(mergedGardens)); } catch(e){}
+        try { window.gardens = mergedGardens; } catch(e){}
       }
-      // Plantings — v29.10: Empty-Guard (PERS-12)
+      // Plantings — v31.05: mergen statt ersetzen.
       var p = await supaGet('garden_plantings', 'select=*&order=planted_at.desc');
       if (p && p.data && p.data.length) {
-        try { gsStore.set('gs_plantings', JSON.stringify(p.data)); } catch(e){}
-        try { window.plantings = p.data; } catch(e){}
+        var mergedPlantings = _gsMergeById(_gsReadArr('gs_plantings'), p.data, 0);
+        try { gsStore.set('gs_plantings', JSON.stringify(mergedPlantings)); } catch(e){}
+        try { window.plantings = mergedPlantings; } catch(e){}
       }
       // Trigger re-render if app already showing garden (v29.44 HL#9: war renderGardenList — existiert nicht → No-Op; echte Fn ist renderGarden)
       if (typeof renderGarden === 'function') { try { renderGarden(); } catch(e){} }
