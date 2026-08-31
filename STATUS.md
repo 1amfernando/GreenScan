@@ -4,13 +4,45 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.11` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.12` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-08-31 (u) — v31.12: Karte & Tracking — das Fortsetzen war nur ein Kommentar
+
+> Fernandos Auftrag „die Karte mit dem Tracking verbessern". Ich habe die Aufzeichnung von vorne durchgelesen, statt nur Kosmetik anzufassen — und fünf Stellen gefunden, an denen sie still verlor, was sie aufgezeichnet hatte.
+
+#### ▶️ Der Kern: „Fortsetzen" gab es nicht
+
+Über dem Tracking-Code steht seit v24.11 die Zeile *„Recovery beim App-Start: angefangener Track wird angeboten zum Fortsetzen"*. Der Dialog bot aber nur **„Als beendet speichern"** und **„Verwerfen"** an. Wer auf halber Wanderung die App verlor, konnte den Track abschliessen oder wegwerfen — weitergehen konnte er nur als **zweiter** Track. Ein Kommentar, der etwas verspricht, das der Code nicht tut, ist schlimmer als gar keiner: er verhindert, dass jemand nachsieht.
+
+Jetzt gibt es drei Wege: **Fortsetzen** (hängt neue Punkte an denselben Track, wechselt dafür auf die Karte und wartet, bis sie bereit ist), **Als beendet speichern**, **Verwerfen**. Wegtippen heisst neu „später entscheiden" — der Snapshot bleibt liegen und wird beim nächsten Start wieder angeboten. Vorher löschte jeder Weg ausser „Speichern" die Aufzeichnung, **auch der Fehlerfall**: war `gsConfirmModal` nicht verfügbar, ging der Track kommentarlos verloren, ohne dass je jemand gefragt wurde.
+
+#### 🔧 Vier weitere Stellen, an denen still Daten verschwanden
+
+1. **Der Wiederanlauf des GPS war toter Code.** Beim App-Wake prüfte er `_gsTrack.watchId == null`. Der Browser setzt die watchId aber **nie** zurück, wenn er einen Watch einschläfert — die Bedingung konnte nicht wahr werden. Ein eingeschlafener Watch sah aus wie eine Pause: die Karte zeigte weiter Statistik, es kam nur nichts mehr an. Jetzt entscheidet ein Wach-Timer anhand des **letzten Fixes** (45 s ohne Signal → neu anhängen, frühestens alle 30 s), hängt vorher sauber ab (zwei parallele Watches hätten jeden Punkt doppelt gezählt) und schreibt **„⚠️ kein GPS-Signal"** in die Statuszeile, statt es zu verschweigen.
+2. **Gesichert wurde „alle 10 Punkte"** — der Kommentar daneben sagte „alle 10 s". Wer stillsteht, bekommt keine neuen Punkte und damit **keine Sicherung**. Jetzt zeitbasiert, plus einmal beim Wegschalten (`visibilitychange`) und beim Schliessen (`pagehide`) — genau dann räumt das Betriebssystem die Seite ab.
+3. **Lange Tracks wurden hinten abgeschnitten** (`.slice(-5000)` beim Speichern, `.slice(-2000)` im Snapshot). Eine Sechs-Stunden-Wanderung **begann danach in der Mitte**. Jetzt gleichmässig ausgedünnt: erster und letzter Punkt bleiben immer, die Form bleibt, nur die Auflösung sinkt. Gegengerechnet: 28 800 Punkte → 5 000, Start 0, Ende 28 799, keine Duplikate, streng steigend.
+4. **Die Wander-Achievements liefen rückwärts.** Sie meldeten `saved.length` und die Summe der **30 aufbewahrten** Tracks — beides schrumpft, sobald der Deckel greift, und `p_set=true` schreibt den kleineren Wert auf dem Server fest. Ab Track 31 stand der Zähler auf 30 und die Kilometer **sanken** mit jedem weiteren Track. Jetzt zählen `gs_track_total_n`/`gs_track_total_m` monoton; fehlen sie, werden sie einmalig aus der vorhandenen Liste abgeleitet, damit niemand bei null anfängt.
+
+#### 🗺️ Und die Karte selbst
+
+- **Sie läuft mit.** Die Linie wuchs bisher aus dem Bild heraus — nach zehn Minuten sah man leere Karte. Nachgeführt wird nur, wenn der neue Punkt den Ausschnitt verlässt, und **nie**, während der Nutzer selbst verschoben hat (25 s Karenz): wer die Karte in die Hand nimmt, will sie behalten.
+- **Ein Kopf-Marker** zeigt, wo man gerade steht — auf einer verwinkelten Route war das aus der Linie allein nicht zu lesen.
+- **Funkzellen-Fixes verzerren die Linie nicht mehr.** Der erste Fix liegt oft hunderte Meter daneben; er zog einen Strich quer durch den Kanton und die Karte sprang dorthin. Solche Punkte werden weiterhin **gespeichert** (die Statistik filtert sie ohnehin selbst), aber nicht gezeichnet — mit derselben 70-km/h-Schwelle wie `_gsRobustDistance`, damit Linie und Statistik dieselbe Wirklichkeit zeigen. Nach 60 s ohne brauchbaren Punkt wird neu verankert, damit im Zug oder nach einem Tunnel nicht dauerhaft nichts mehr ankommt.
+- **Voller Speicher verliert den Track nicht mehr.** Schlägt das Schreiben fehl, bleibt der Live-Snapshot liegen und der Nutzer erfährt es — vorher landete es in einem `catch` mit einer Zeile Konsole.
+- **Ein liegengebliebener Snapshot wird beim Neustart einer Aufzeichnung gerettet**, statt vom ersten Sichern überschrieben zu werden.
+- **`gs_track_live` und die neuen Zähler stehen in `GS_USER_KEYS`** — sonst bekäme der nächste Nutzer auf demselben Gerät angeboten, den Track eines Fremden fortzusetzen.
+
+#### Nebenbefund (nicht angefasst)
+
+`GS_RELEASES` endet bei **v30.03**. Alles danach — über hundert Versionen — steht nur in `STATUS.md`, nicht im „Was ist neu?"-Modal der App. Das nachzuziehen ist eine eigene Aufgabe, keine Beifracht dieses Commits.
+
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · Ausdünnung und Plausibilitätsfilter mit Node gegengerechnet (Länge, Start/Ende, Duplikate, Gehen/Sprung/Stillstand/Funkzelle) · `_gsHaversine` bleibt für die drei Aufrufer weiter unten erhalten · Version synchron v31.12 (`GS_VERSION`, `meta app-version`, `sw.js gs-v31.12`, `_headers`).
 
 ### 2026-08-31 (t) — v31.11: Einstellungen durchgegangen — ein Datenschutz-Schalter zeigte den falschen Zustand
 
