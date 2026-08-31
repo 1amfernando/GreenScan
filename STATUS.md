@@ -12,6 +12,13 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-08-31 (z) — Secret-Scan über Repo (lesend, keine Code-Änderung)
+
+> Automatisierte Routine-Session ohne konkreten Auftrag. Statt vager „Ressourcen-Maximierung" ein bewusst eng begrenzter, nützlicher Check: Grep nach hardcodierten API-Keys/Secrets im ganzen Repo (`sk-ant-`, `sk-proj-`, `AIzaSy`, private-key-Blöcke), da CLAUDE.md §3.6 das explizit als wiederkehrendes Risiko nennt (NVIDIA-Demo-Key-Leak, `app_settings`-Leak v28.98).
+
+- **Fund:** keiner. Alle 5 Treffer für `sk-ant-` sind Platzhalter-Text (UI-Hints/Placeholders), Format-Validierung (`.startsWith('sk-ant-')`), i18n-Strings oder Changelog-Prosa über bereits gefixte historische Leaks — kein echter Key im Klartext.
+- **Verify:** `grep -riE` über Repo-Root nach den vier Mustern oben, Treffer einzeln gegen Kontext geprüft · keine Code-Änderung, kein Versions-Bump, kein `GS_RELEASES`-Eintrag.
+
 ### 2026-08-31 (y) — Vorabprüfung des Runbooks gegen die Live-Datenbank (lesend, keine Code-Änderung)
 
 > Der Supabase-Lesezugriff funktioniert in dieser Sitzung. Damit liess sich der Stand faktisch prüfen, statt ihn zu vermuten — und die sieben wartenden Migrationen gegen das echte Schema abgleichen, bevor Fernando sie einspielt.
