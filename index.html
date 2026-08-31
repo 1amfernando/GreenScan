@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.96.20260831">
+<meta name="app-version" content="30.97.20260831">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5300,6 +5300,17 @@ html, body{ scroll-behavior: smooth; }
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_backup" data-i18n-fallback="Cloud-Backup &amp; Sync">Cloud-Backup &amp; Sync</div>
           <div class="settings-label-sub" id="gs-sync-status" aria-live="polite">☁️ Tippen zum Sichern</div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);">›</div>
+      </div>
+      <!-- v30.97: Der Gegenpart zum Backup. Vorher gab es NUR den Sicherungs-Knopf —
+           wiederherstellen ging ausschliesslich über einen Banner, den niemand je zu
+           sehen bekam (siehe gsSnapshotMaybeOfferRestore). -->
+      <div class="settings-row" id="settings-restore-row" style="cursor:pointer;" onclick="if(typeof gsSnapshotRestoreManual==='function')gsSnapshotRestoreManual()">
+        <div class="settings-icon" style="background:var(--bg-info-soft,#e3f2fd);">♻️</div>
+        <div class="settings-label">
+          <div class="settings-label-title" data-i18n="settings_restore" data-i18n-fallback="Aus Cloud-Backup wiederherstellen">Aus Cloud-Backup wiederherstellen</div>
+          <div class="settings-label-sub">Ergänzt fehlende Daten · überschreibt nichts</div>
         </div>
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
@@ -67966,7 +67977,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.96';
+var GS_VERSION = 'v30.97';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -73080,6 +73091,10 @@ var GS_USER_KEYS = [
   'gs_notif_state','gs_lux_calib','gs_lux_calib_points','gs_light_pro10_latest',
   'gs_dead_plants','gs_social_posts','gs_my_bids','gs_purchases',
   'gs_garden_sync_queue','gs_garden_sync_last',
+  // v30.97: Spur des Verdraengungs-Schutzes. Pro Nutzer — bliebe sie beim
+  // Konto-Wechsel liegen, blockierte sie die Auto-Snapshots des naechsten
+  // Nutzers wegen Daten, die nie ihm gehoert haben.
+  'gs_snapshot_had',
   // v29.19 Stale-Leak (Audit-2): persönliche GPS-Track-Historie + Community-Anzeigename MÜSSEN bei
   // Logout/User-Switch weg (sonst sieht der nächste User auf demselben Gerät fremde Tracks/Namen).
   'gs_gpx_tracks','gs_social_name',
@@ -74011,18 +74026,124 @@ function _gsSnapshotHasContent(st){
       || _n(st.plantings) || _n(st.diary) || _n(st.scan_history) || _n(st.ernte)
       || _n(st.achievements) || _n(st.doctor_history);
 }
+// v30.97: Domaenen, die AUSSCHLIESSLICH im Snapshot leben. Weder gsCloudSync
+// (_buildStateBlob) noch der Login-Pull (stateMap) kennen sie — der Snapshot ist
+// ihr einziger Rueckweg. Genau darum darf die Restore-Frage nicht am
+// Gesamt-Content haengen (siehe gsSnapshotMaybeOfferRestore).
+var _GS_SNAPSHOT_ONLY = [
+  ['gs_soil_profile',      'soil_profile'],
+  ['gs_pp_garden_location','pp_garden_location'],
+  ['gs_scan_corrections',  'scan_corrections'],
+  ['gs_purchases',         'purchases'],
+  ['gs_my_bids',           'my_bids'],
+  ['gs_action_counts',     'action_counts'],
+  ['gs_market_ratings',    'market_ratings'],
+  ['gs_market_reported',   'market_reported'],
+  ['gs_recipes',           'user_recipes'],
+  ['gs_remedies',          'user_remedies'],
+  ['gs_prefs',             'prefs'],
+  // gs_reminder_prefs wird in user_app_state GEPUSHT, aber die Pull-stateMap
+  // liest es nicht zurueck — steckt nur im state-Blob des Snapshots.
+  ['gs_reminder_prefs',    null]
+];
+
+// v30.97: Merkt sich, welche snapshot-exklusiven Domaenen beim letzten
+// erfolgreichen Snapshot Inhalt hatten. Grundlage fuer den Verdraengungs-Schutz
+// unten — ohne diese Spur laesst sich „lokal leer" nicht von „hatte noch nie
+// etwas" unterscheiden.
+function _gsSnapshotMarkHad(){
+  try {
+    var had = {};
+    _GS_SNAPSHOT_ONLY.forEach(function(pair){
+      var cur = null; try { cur = localStorage.getItem(pair[0]); } catch(_){}
+      if (cur && cur !== '[]' && cur !== '{}' && cur !== 'null' && cur !== '""') had[pair[0]] = 1;
+    });
+    localStorage.setItem('gs_snapshot_had', JSON.stringify(had));
+  } catch(_){}
+}
+
+// Ist eine Domaene, die beim letzten Snapshot noch Inhalt hatte, jetzt lokal leer?
+// Dann hat dieses Geraet Daten VERLOREN — und darf das Backup nicht ueberschreiben.
+//
+// Die lokale Spur (gs_snapshot_had) ist nur der schnelle Weg. Sie allein reicht
+// NICHT: bei „Browserdaten geloescht" — also genau im Ernstfall — wird sie
+// mitgeloescht und der Schutz liefe leer. Massgeblich ist deshalb der Vergleich
+// gegen den Snapshot in der Cloud; die lokale Spur spart nur den Netz-Aufruf,
+// wenn sie ohnehin schon anschlaegt.
+function _gsSnapshotWouldLoseDataLocal(){
+  try {
+    var had = JSON.parse(localStorage.getItem('gs_snapshot_had') || '{}');
+    if (!had || typeof had !== 'object') return false;
+    var keys = Object.keys(had);
+    for (var i = 0; i < keys.length; i++) {
+      var cur = null; try { cur = localStorage.getItem(keys[i]); } catch(_){}
+      if (!cur || cur === '[]' || cur === '{}' || cur === 'null' || cur === '""') return true;
+    }
+  } catch(_){}
+  return false;
+}
+window._gsSnapshotWouldLoseDataLocal = _gsSnapshotWouldLoseDataLocal;
+
+// Massgebliche Pruefung: haelt der Cloud-Snapshot etwas, das hier lokal fehlt?
+// Ueberlebt einen kompletten Speicher-Wipe, weil die Antwort vom Server kommt.
+// Kosten: ein RPC alle ~3 h (nur im Auto-Pfad) — vernachlaessigbar.
+async function _gsSnapshotWouldLoseData(){
+  if (_gsSnapshotWouldLoseDataLocal()) return true;
+  try {
+    if (typeof sbFetch !== 'function') return false;
+    var r = await sbFetch('/rest/v1/rpc/fn_user_snapshot_latest', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'
+    });
+    var st = (r && !r.error) ? r.data : null;
+    if (!st || typeof st !== 'object') return false;   // kein Backup -> nichts zu verlieren
+    function _full(v){
+      if (v == null) return false;
+      if (Array.isArray(v)) return v.length > 0;
+      if (typeof v === 'object') return Object.keys(v).length > 0;
+      return String(v) !== '' && String(v) !== 'null';
+    }
+    for (var i = 0; i < _GS_SNAPSHOT_ONLY.length; i++) {
+      var lsKey = _GS_SNAPSHOT_ONLY[i][0];
+      var snapKey = _GS_SNAPSHOT_ONLY[i][1];
+      // gs_reminder_prefs steckt im state-Blob, nicht auf oberster Ebene.
+      var snapVal = snapKey ? st[snapKey] : (st.state && st.state.reminder_prefs);
+      if (!_full(snapVal)) continue;
+      var cur = null; try { cur = localStorage.getItem(lsKey); } catch(_){}
+      if (!cur || cur === '[]' || cur === '{}' || cur === 'null' || cur === '""') return true;
+    }
+  } catch(e){ console.warn('[gsSnapshot] loseCheck', e && e.message); }
+  return false;
+}
+window._gsSnapshotWouldLoseData = _gsSnapshotWouldLoseData;
+
 async function gsSnapshotCreate(trigger){
   try {
     if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn() || typeof sbFetch !== 'function') return null;
     if (!gsStore.get('gs_sb_uid', null)) return null;
     var st = gsSnapshotBuildState();
     if (!_gsSnapshotHasContent(st)) return null; // nie einen leeren Snapshot speichern
+    // v30.97 VERDRAENGUNGS-SCHUTZ: Die Aufbewahrung behaelt nur 6 Snapshots plus
+    // den je neuesten pro Typ. Nach einem Speicher-Wipe fuellt der Cloud-Pull die
+    // Pflanzen wieder auf — _gsSnapshotHasContent ist also true — und alle ~3 h
+    // legte ein auto_periodic-Snapshot nach, dem die verlorenen Domaenen fehlen.
+    // Binnen Stunden war das brauchbare Backup verdraengt und die Daten endgueltig
+    // weg. Automatische Snapshots halten jetzt an, solange lokal etwas fehlt, das
+    // zuletzt noch da war, und bieten stattdessen die Wiederherstellung an.
+    // Vom Nutzer ausgeloeste Snapshots (manual/pre_logout/pre_migration) laufen
+    // weiter — dort ist der Wille eindeutig.
+    var _autoTrig = (trigger === 'auto_periodic' || trigger === 'auto_daily');
+    if (_autoTrig && await _gsSnapshotWouldLoseData()) {
+      console.warn('[gsSnapshot] auto-Snapshot angehalten — lokal fehlen Daten, die im letzten Backup noch waren.');
+      try { if (typeof _gsShowRestoreBanner === 'function') _gsShowRestoreBanner(); } catch(_){}
+      return null;
+    }
     var r = await sbFetch('/rest/v1/rpc/fn_user_snapshot_create', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ p_trigger: trigger || 'manual', p_state: st })
     });
     if (r && !r.error) {
       try { localStorage.setItem('gs_snapshot_last', new Date().toISOString()); } catch(_){}
+      try { _gsSnapshotMarkHad(); } catch(_){}   // v30.97: Spur fuer den Verdraengungs-Schutz
       return r.data || true;
     }
     return null;
@@ -74134,6 +74255,9 @@ async function gsSnapshotRestore(){
     try { if (typeof renderGarden === 'function') renderGarden(); } catch(_){}
     try { if (typeof gsLoadMarkers === 'function') gsLoadMarkers(); } catch(_){}
     try { if (typeof applyAllPrefs === 'function') applyAllPrefs(); } catch(_){}
+    // v30.97: Spur neu setzen — sonst blockiert der Verdraengungs-Schutz die
+    // automatischen Snapshots dauerhaft, obwohl die Daten wieder da sind.
+    try { _gsSnapshotMarkHad(); } catch(_){}
     if (typeof gsToast === 'function') gsToast('✅ Daten wiederhergestellt!','success', 4000);
     return true;
   } catch(e){ console.warn('[gsSnapshot] restore', e && e.message); if (typeof gsToast==='function') gsToast('Wiederherstellung fehlgeschlagen.','error'); return false; }
@@ -74163,13 +74287,40 @@ function _gsShowRestoreBanner(){
   } catch(e){ console.warn('[gsSnapshot] banner', e && e.message); }
 }
 // Beim Boot: eingeloggt + lokaler User-Content leer + Cloud-Snapshot vorhanden → Banner.
+// Ist lokal eine snapshot-exklusive Domaene leer? Dann lohnt ein Restore, egal
+// wie voll der Rest aussieht.
+function _gsSnapshotHasExclusiveGap(){
+  try {
+    for (var i = 0; i < _GS_SNAPSHOT_ONLY.length; i++) {
+      var k = _GS_SNAPSHOT_ONLY[i][0];
+      var cur = null; try { cur = localStorage.getItem(k); } catch(_){}
+      if (!cur || cur === '[]' || cur === '{}' || cur === 'null' || cur === '""') return true;
+    }
+  } catch(_){}
+  return false;
+}
+window._gsSnapshotHasExclusiveGap = _gsSnapshotHasExclusiveGap;
+
 async function gsSnapshotMaybeOfferRestore(){
   try {
     if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn() || typeof sbFetch !== 'function') return;
     if (!gsStore.get('gs_sb_uid', null)) return;
-    // Lokaler Content vorhanden? Dann kein Restore nötig.
+    // v30.97 FIX: Die alte Bedingung war `if (_gsSnapshotHasContent(local)) return;`
+    // — und damit fuer JEDEN Nutzer mit Cloud-Daten eine geschlossene Tuer:
+    // _gsSnapshotHasContent prueft genau die 10 Domaenen (plants, diary, ernte,
+    // achievements, markers, scan_history …), die der Login-Pull 2,7 Sekunden
+    // FRUEHER (t=1800ms, hier t=4500ms) wieder befuellt. Nach einem
+    // Speicher-Wipe war der Banner also nie zu sehen — und der Banner-Knopf war
+    // die EINZIGE Aufrufstelle von gsSnapshotRestore(). Alles, was nur im
+    // Snapshot lebt (eigene Rezepte/Heilmittel, Bodenprofil, Kaeufe/Gebote,
+    // Bewertungen, Scan-Korrekturen, Giess-Erinnerungs-Prefs), war damit
+    // faktisch unerreichbar — obwohl es vollstaendig in user_state_snapshots lag.
+    // Verschaerfend: die Aufbewahrung behaelt nur 6 Snapshots plus den je
+    // neuesten pro Typ, und alle ~3 h entsteht ein neuer (dann leerer) — der
+    // gute Snapshot wurde also binnen Stunden verdraengt.
+    // Jetzt entscheidet die Frage „fehlt etwas, das NUR im Snapshot steht?".
     var local = gsSnapshotBuildState();
-    if (_gsSnapshotHasContent(local)) return;
+    if (_gsSnapshotHasContent(local) && !_gsSnapshotHasExclusiveGap()) return;
     // Cloud-Snapshot vorhanden?
     var r = await sbFetch('/rest/v1/rpc/fn_user_snapshots_list', {
       method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'
@@ -74178,6 +74329,34 @@ async function gsSnapshotMaybeOfferRestore(){
     if (rows.length > 0) _gsShowRestoreBanner();
   } catch(e){ console.warn('[gsSnapshot] maybeOffer', e && e.message); }
 }
+
+// v30.97: Manueller Restore aus den Einstellungen. gsSnapshotRestore() hatte
+// bisher GENAU EINE Aufrufstelle — den Banner-Knopf. Wer den nie sah (also
+// jeder mit Cloud-Daten), hatte keinen Weg an sein Backup.
+// Gefahrlos: _gsRestoreKey schreibt nur in leere Schluessel und merged
+// id-Arrays mit Vorrang fuer lokal — es kann nichts ueberschreiben.
+async function gsSnapshotRestoreManual(){
+  try {
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) {
+      if (typeof gsToast === 'function') gsToast('Dafür musst du angemeldet sein.','warning');
+      return;
+    }
+    var ok = true;
+    if (typeof gsConfirmModal === 'function') {
+      ok = await gsConfirmModal({
+        title: '💾 Aus Cloud-Backup wiederherstellen',
+        message: 'Holt fehlende Daten aus deinem letzten Cloud-Backup zurück — eigene Rezepte, '
+               + 'Bodenprofil, Käufe, Bewertungen und mehr.\n\nVorhandenes wird dabei nie überschrieben: '
+               + 'ergänzt werden nur Bereiche, die auf diesem Gerät leer sind.',
+        ok: 'Wiederherstellen', cancel: 'Abbrechen'
+      });
+    }
+    if (!ok) return;
+    if (typeof gsToast === 'function') gsToast('💾 Backup wird geladen…','info');
+    await gsSnapshotRestore();
+  } catch(e){ console.warn('[gsSnapshot] manual', e && e.message); }
+}
+window.gsSnapshotRestoreManual = gsSnapshotRestoreManual;
 window.gsSnapshotMaybeOfferRestore = gsSnapshotMaybeOfferRestore;
 
 // Sync-Status-Text für Settings („Zuletzt synchronisiert vor X Min")
