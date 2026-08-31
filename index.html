@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.98.20260831">
+<meta name="app-version" content="30.99.20260831">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -67995,7 +67995,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.98';
+var GS_VERSION = 'v30.99';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -73213,8 +73213,17 @@ async function gsSyncUserDataOnLogin(){
       }
       return true;
     }
+    // v30.99: Fehlgeschlagene Pulls mitzaehlen. sbFetch WIRFT NICHT, es liefert
+    // {error} — die Bedingungen unten ueberspringen den Block dann einfach, und
+    // ein Netzfehler sah bisher exakt aus wie „die Cloud hat noch nichts".
+    // Folge: `_gsInitialSyncDone = true` wurde trotzdem gesetzt, der
+    // v27.01-Empty-Clobber-Guard damit entwaffnet, und der unmittelbar folgende
+    // flushNow() schrieb den (womoeglich leeren) lokalen Stand ueber die Cloud.
+    // Genau der Datenverlust, gegen den der Guard gebaut wurde.
+    var _pullErrors = 0;
     // user_gardens — Gardens, Plantings, Pläne
     var g = await sbFetch('/rest/v1/user_gardens?user_id=eq.' + uid + '&select=data,updated_at&limit=1', {method:'GET'});
+    if (g && g.error) { _pullErrors++; console.warn('[gsSync] user_gardens-Pull fehlgeschlagen:', g.error.message); }
     if (g && !g.error && Array.isArray(g.data) && g.data[0] && g.data[0].data) {
       var d = g.data[0].data;
       var gUpdated = g.data[0].updated_at || null;
@@ -73241,6 +73250,7 @@ async function gsSyncUserDataOnLogin(){
     }
     // user_plants — myPlants + Diary + dead_plants + seed_inventory (v24.24)
     var p = await sbFetch('/rest/v1/user_plants?user_id=eq.' + uid + '&select=data,updated_at&limit=1', {method:'GET'});
+    if (p && p.error) { _pullErrors++; console.warn('[gsSync] user_plants-Pull fehlgeschlagen:', p.error.message); }
     if (p && !p.error && Array.isArray(p.data) && p.data[0] && p.data[0].data) {
       var pd = p.data[0].data;
       var pUpdated = p.data[0].updated_at || null;
@@ -73276,6 +73286,7 @@ async function gsSyncUserDataOnLogin(){
     // v24.24: user_app_state — alles was nicht in plants/garden gehört
     try {
       var s = await sbFetch('/rest/v1/user_app_state?user_id=eq.' + uid + '&select=data,updated_at&limit=1', {method:'GET'});
+      if (s && s.error) { _pullErrors++; console.warn('[gsSync] user_app_state-Pull fehlgeschlagen:', s.error.message); }
       if (s && !s.error && Array.isArray(s.data) && s.data[0] && s.data[0].data) {
         var sd = s.data[0].data;
         var sUpdated = s.data[0].updated_at || null;
@@ -73463,6 +73474,14 @@ async function gsSyncUserDataOnLogin(){
     try { if (typeof updateScanHistoryBadge === 'function') updateScanHistoryBadge(); } catch(_){}
     // v27.01: Initial-Pull erfolgreich → ab jetzt dürfen auch leere Blobs gepusht werden
     // (legitimes „User hat alles gelöscht"). Vorher blockiert der Boot-Race-Guard leere Pushes.
+    // v30.99: NUR wenn wirklich kein Pull fehlgeschlagen ist. Eine leere Antwort ohne
+    // Fehler ist legitim (frischer Nutzer, noch nichts in der Cloud) und zaehlt weiter
+    // als Erfolg — ein Netzfehler aber nicht. Bei Fehlern bleibt der Guard scharf und
+    // es wird NICHT geflusht; der naechste Pull-Versuch entscheidet neu.
+    if (_pullErrors > 0) {
+      console.warn('[gsSync] ' + _pullErrors + ' Pull(s) fehlgeschlagen — Empty-Clobber-Guard bleibt scharf, kein Push. Naechster Versuch entscheidet neu.');
+      return;
+    }
     window._gsInitialSyncDone = true;
     console.log('[gsSync] complete cross-device sync done for', uid);
     // v27.01: nach erfolgreichem Pull eventuell zurückgehaltene Repair-Pushes ausführen
@@ -73722,7 +73741,18 @@ window.gsCloudSync = (function(){
         var key = localStorage.getItem('gs_sb_key') || (typeof SB_KEY !== 'undefined' ? SB_KEY : '');
         var supaUrl = (typeof SB_URL !== 'undefined' ? SB_URL : 'https://' + (localStorage.getItem('gs_sb_url')||'') );
         if (!supaUrl || !key) return false;
-        await fetch(supaUrl + url, {
+        // v30.99: Token-Frische pruefen. Dieser Pfad benutzt den rohen Token aus dem
+        // Speicher OHNE den Auto-Refresh, den sbFetch hat — ein abgelaufenes JWT
+        // (Supabase: ~1 h) fuehrt zwangslaeufig zu 401. Beim Schliessen der App laesst
+        // sich nicht mehr zuverlaessig refreshen, also lieber gar nicht senden und
+        // schmutzig bleiben: der naechste Start holt es nach.
+        var _exp = 0;
+        try { _exp = parseInt(localStorage.getItem('gs_sb_expires') || '0', 10) || 0; } catch(_){}
+        if (!token || (_exp && Date.now() > _exp - 30000)) {
+          console.warn('[gsSync] keepalive-Push uebersprungen — Token abgelaufen. Bleibt dirty.');
+          return false;
+        }
+        var _res = await fetch(supaUrl + url, {
           method: 'POST',
           headers: {
             'Content-Type':'application/json',
@@ -73733,6 +73763,15 @@ window.gsCloudSync = (function(){
           body: body,
           keepalive: true
         });
+        // v30.99: HTTP-Status auswerten. Vorher wurde _markSuccess() BEDINGUNGSLOS
+        // aufgerufen — ein 401 oder 500 galt als erfolgreicher Push, der dirty-Marker
+        // wurde geloescht, und der naechste Pull liess daraufhin den veralteten
+        // Cloud-Stand ueber die lokalen Daten schreiben. Auf Mobile ist das der
+        // Haupt-Push-Pfad (pagehide/beforeunload), also der Normalfall, nicht der Rand.
+        if (!_res || !_res.ok) {
+          console.warn('[gsSync] keepalive-Push fehlgeschlagen:', _res && _res.status, '— bleibt dirty.');
+          return false;
+        }
         _markSuccess();
         return true;
       } catch(_){ return false; }
