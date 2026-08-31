@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.95.20260831">
+<meta name="app-version" content="30.96.20260831">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -67966,7 +67966,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.95';
+var GS_VERSION = 'v30.96';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -75373,21 +75373,34 @@ async function gsRegisterSensorDevice(device){
 }
 
 // Messwert hochladen (für BLE-Sensoren die im Client gelesen werden)
+// v30.96 FIX: Die Spalte heisst `value_num`, nicht `value`.
+// PostgREST antwortet auf eine unbekannte Spalte mit 400 — und der frueher hier
+// stehende `catch(e){ console.warn }` verschluckte das. Ergebnis: JEDE ueber diese
+// Funktion gesendete Messung wurde verworfen (sensor_devices = 1, sensor_readings = 0).
+// Der ESP32-Beispielcode weiter oben in derselben Datei (Z. ~59659) und der Lesepfad
+// (Z. ~59947, `select=metric,value_num,ts`) benutzen laengst den richtigen Namen —
+// nur der App-eigene Schreibpfad nicht.
+// Gibt jetzt true/false zurueck, damit ein Aufrufer den Fehlschlag bemerken kann.
 async function gsPushSensorReading(deviceId, metric, value, unit){
-  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return false;
   var uid = gsStore.get('gs_sb_uid', null);
-  if (!uid || !deviceId || typeof sbFetch !== 'function') return;
+  if (!uid || !deviceId || typeof sbFetch !== 'function') return false;
   try {
-    await sbFetch('/rest/v1/sensor_readings', {
+    var r = await sbFetch('/rest/v1/sensor_readings', {
       method:'POST',
       headers:{'Content-Type':'application/json','Prefer':'return=minimal'},
       body: JSON.stringify({
         device_id: deviceId, user_id: uid,
-        metric: metric, value: Number(value), unit: unit || null,
+        metric: metric, value_num: Number(value), unit: unit || null,
         ts: new Date().toISOString()
       })
     });
-  } catch(e){ console.warn('[gsPushSensorReading]', e); }
+    if (r && r.error) {
+      console.warn('[gsPushSensorReading]', r.error.message);
+      return false;
+    }
+    return true;
+  } catch(e){ console.warn('[gsPushSensorReading]', e); return false; }
 }
 
 // ── NOTIFICATIONS (Inbox + Push) ────────────────────────────────────────────
@@ -81266,34 +81279,92 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
     _debounceTimers.flush = setTimeout(flushQueue, SYNC_DEBOUNCE_MS);
   }
 
+  // v30.96: Ein Fehler ist nicht gleich ein Fehler. Bisher wanderte JEDER
+  // fehlgeschlagene Vorgang zurueck in die Warteschlange — auch einer, der aus
+  // Prinzip nie gelingen kann. Genau das passiert hier: die lokalen Eintraege
+  // tragen `id: Date.now()` (Zahl) bzw. 'gard_default', die Spalten
+  // garden_diary.id / gardens.id / garden_plantings.id sind aber `uuid`.
+  // Postgres antwortet mit 22P02 „invalid input syntax for type uuid" — und der
+  // Vorgang wurde bei JEDER Aenderung und JEDEM online-Event erneut versucht.
+  // Belegt: garden_diary = 0, gardens = 0, garden_plantings = 0 Zeilen.
+  // (Kein Datenverlust: Tagebuch, Gaerten und Pflanzungen sind ueber die
+  //  gsCloudSync-Blobs cloud-gesichert — GardenSync ist ein zweiter, nie
+  //  funktionierender Weg zu denselben Daten. Der Schaden war der endlose
+  //  Wiederholungslauf plus ein dauerhaftes „⚠️ N Sync pending".)
+  var MAX_ATTEMPTS = 5;
+  function isPermanentError(msg) {
+    var m = String(msg || '');
+    // Datenfehler gelingen bei Wiederholung nie: falscher Typ, verletzte
+    // Constraint, kaputtes JSON, abgelehnte Policy.
+    return /22P02|invalid input syntax|violates|22007|23502|23514|42703|malformed|Fehler 4(0[0-9]|2[0-9])/i.test(m);
+  }
+  function dropOp(op, why) {
+    try {
+      console.warn('[GardenSync] Vorgang verworfen (' + why + '):', op.action, op.table, op.id || (op.row && op.row.id), op._lastErr || '');
+    } catch(_){}
+  }
+
   async function flushQueue() {
     if (_syncing || !loggedIn() || !isOnline()) return;
     var q = loadQueue();
     if (!q.length) return;
     _syncing = true;
     setStatus('🔄 Sync…');
-    var remaining = [];
+    var remaining = [], dropped = 0;
     for (var i = 0; i < q.length; i++) {
       var op = q[i];
+      var err = null;
       try {
         if (op.action === 'upsert') {
           var r = await supaPost(op.table, [op.row]);
-          if (r.error) remaining.push(op);
+          err = r.error || null;
         } else if (op.action === 'patch') {
           var r2 = await supaPatch(op.table, op.id, op.patch);
-          if (r2.error) remaining.push(op);
+          err = r2.error || null;
         } else if (op.action === 'delete') {
           var r3 = await supaDelete(op.table, op.id);
-          if (r3.error && !/404/.test(r3.error.message)) remaining.push(op);
+          err = (r3.error && !/404/.test(r3.error.message)) ? r3.error : null;
         }
-      } catch(e) { remaining.push(op); }
+      } catch(e) { err = { message: (e && e.message) || 'Netzwerkfehler' }; }
+
+      if (!err) continue;                       // erledigt
+      op._lastErr = String(err.message || '').slice(0, 200);
+      if (isPermanentError(op._lastErr)) {      // gelingt nie → sofort raus
+        dropOp(op, 'dauerhafter Datenfehler'); dropped++; continue;
+      }
+      op._n = (op._n || 0) + 1;
+      if (op._n >= MAX_ATTEMPTS) {              // vorübergehend, aber aussichtslos
+        dropOp(op, MAX_ATTEMPTS + ' Versuche'); dropped++; continue;
+      }
+      remaining.push(op);
     }
     saveQueue(remaining);
     _syncing = false;
     setStatus(remaining.length ? ('⚠️ ' + remaining.length + ' Sync pending') : '✅ synced');
     setTimeout(function(){ setStatus(''); }, 2500);
+    if (dropped) { try { console.warn('[GardenSync] ' + dropped + ' Vorgang/Vorgaenge endgueltig verworfen.'); } catch(_){} }
     try { localStorage.setItem(LS_LAST, String(Date.now())); } catch(e){}
   }
+
+  // v30.96 EINMAL: die bereits vergiftete Warteschlange leeren. Bei betroffenen
+  // Nutzern liegen dort bis zu 500 Vorgaenge, die seit Monaten bei jeder
+  // Aenderung erneut gegen die Wand laufen. Die Daten selbst sind ueber
+  // gsCloudSync gesichert, es geht nichts verloren.
+  try {
+    if (localStorage.getItem('gs_garden_sync_queue_purged_v3096') !== '1') {
+      var _oldQ = loadQueue();
+      var _keep = _oldQ.filter(function(op){
+        var rid = op && (op.id || (op.row && op.row.id));
+        // UUID behalten, alles andere (Zahl, 'gard_default', …) ist unzustellbar.
+        return rid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(rid));
+      });
+      if (_keep.length !== _oldQ.length) {
+        saveQueue(_keep);
+        try { console.info('[GardenSync] v30.96: ' + (_oldQ.length - _keep.length) + ' unzustellbare Vorgaenge aus der Warteschlange entfernt.'); } catch(_){}
+      }
+      localStorage.setItem('gs_garden_sync_queue_purged_v3096', '1');
+    }
+  } catch(_){}
 
   // ── Pull everything from remote and merge into local stores ──────────
   async function pullAll() {
