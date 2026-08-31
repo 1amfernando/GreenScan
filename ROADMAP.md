@@ -5,7 +5,7 @@
 > Kompagnon: `STATUS.md` (operativer Snapshot) · `CLAUDE.md` (Onboarding) ·
 > `BACKEND_FRONTEND_MAP_v26.76.md` (Architektur-Detailkarte).
 
-**Stand:** v31.08 · App **live** auf green-scan.ch · released seit v26.0.
+**Stand:** v31.12 · App **live** auf green-scan.ch · released seit v26.0.
 
 ---
 
@@ -46,6 +46,8 @@ Die App ist ein reifes, live-laufendes Produkt. Erreicht u.a.:
 - **Fotos** liegen nicht mehr im 5-MB-Speicher und gehen nicht mehr verloren (v31.06/07) — Ausgangskorb in IndexedDB, Anzeige über einen Auflöser, idempotente Uploads.
 - **Rotierende Listen** archivieren statt wegzuwerfen, mit erreichbarem Export (v31.08).
 - **Sicherheit:** Rollen-Auskunft über fremde Konten für `anon` geschlossen, `quiz_answers.is_correct` serverseitig abgeleitet (entschied über ein Jahr PRO gratis), Marktplatz-Chat erfand keine Antworten mehr im Namen echter Verkäufer.
+
+**Community, Einstellungen, Karte (v31.09–v31.12).** Kommentare lassen sich liken/disliken und teilen, Likes erscheinen als Benachrichtigung; ein Datenschutz-Schalter zeigte auf neuen Geräten den falschen Zustand (`opt_in_achievement_feed` wurde nur geschrieben, nie zurückgelesen); ein eigenes Icon-Set liegt unter `assets/icons/`; und die GPS-Aufzeichnung kann jetzt tatsächlich **fortgesetzt** werden — der Kommentar versprach das seit v24.11, der Code bot nur „speichern" oder „verwerfen". Dazu: Wach-Timer statt totem watchId-Test, zeitbasiertes Sichern, Ausdünnen statt Abschneiden langer Tracks, monotone Wander-Zähler (die Achievements liefen ab Track 31 rückwärts) und eine Karte, die mitläuft.
 
 Detaillierte Sprint-Historie: `STATUS.md` Sektion 0 (Routine-Einträge).
 

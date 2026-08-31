@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.11.20260831">
+<meta name="app-version" content="31.12.20260831">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -47674,17 +47674,139 @@ function gsFilterMarkers(cat, btn) {
 
 // v24.11: GPS-Tracking — Garmin-Style
 // — Wake Lock hält den Bildschirm an damit GPS aktiv bleibt
-// — Auto-Persist alle 10 s in localStorage (Crash-Recovery)
-// — Visibility-Resume: bei App-Wake re-attach watchPosition wenn unterbrochen
+// — Auto-Persist in localStorage (Crash-Recovery)
 // — Recovery beim App-Start: angefangener Track wird angeboten zum Fortsetzen
-var _gsTrack = { active:false, points:[], layer:null, start:0, lastUpd:0, watchId:null, wakeLock:null };
-var _GS_TRACK_LIVE_KEY = 'gs_track_live'; // Crash-Recovery-Snapshot
+//
+// v31.12: Die Aufzeichnung überarbeitet. Der Kommentar oben versprach seit
+// v24.11 „angeboten zum Fortsetzen" — der Code bot das nie an: der Boot-Dialog
+// kannte nur „als beendet speichern" und „verwerfen". Fortsetzen gab es
+// schlicht nicht. Dazu kamen vier weitere Stellen, an denen die Aufzeichnung
+// still verlor, was sie aufgezeichnet hatte:
+//   1. Der Visibility-Resume prüfte `_gsTrack.watchId == null`. Der Browser
+//      setzt die watchId aber nie zurück, wenn er einen Watch einschläfert —
+//      die Bedingung war nie wahr, die Wiederaufnahme also toter Code. Jetzt
+//      entscheidet ein Wach-Timer anhand des Zeitpunkts des letzten Fixes.
+//   2. Gesichert wurde „alle 10 Punkte" (der Kommentar sagte 10 Sekunden).
+//      Wer stillsteht, bekommt keine neuen Punkte — und damit keine Sicherung.
+//      Jetzt zeitbasiert, plus einmal beim Wegschalten und Schliessen.
+//   3. Lange Tracks wurden mit `.slice(-5000)` hinten abgeschnitten: eine
+//      Sechs-Stunden-Wanderung begann danach in der Mitte. Jetzt gleichmässig
+//      ausgedünnt — die Form bleibt, nur die Auflösung sinkt.
+//   4. Die Wander-Achievements lasen `saved.length` und die Summe der 30
+//      aufbewahrten Tracks. Beides schrumpft, sobald der Deckel greift, und
+//      `p_set=true` schrieb den kleineren Wert auf den Server zurück. Ein
+//      Zähler, der rückwärts läuft, ist schlimmer als keiner.
+var _gsTrack = { active:false, points:[], layer:null, head:null, start:0, lastUpd:0, watchId:null, wakeLock:null,
+                 lastFix:0, lastPersist:0, lastGood:null, lastReattach:0, watchdog:null,
+                 stale:false, centred:false, resumed:false, pannedAt:0 };
+var _GS_TRACK_LIVE_KEY   = 'gs_track_live';       // Crash-Recovery-Snapshot
+var _GS_TRACK_MAX_PTS    = 5000;                  // Deckel beim Speichern
+var _GS_TRACK_SNAP_PTS   = 2500;                  // Deckel im Crash-Snapshot
+var _GS_TRACK_PERSIST_MS = 10000;                 // so oft wird gesichert
+var _GS_TRACK_STALE_MS   = 45000;                 // ohne Fix gilt der Watch als eingeschlafen
+var _GS_TRACK_REATTACH_MS= 30000;                 // frühestens so oft neu anhängen
+var _GS_TRACK_RECOVER_MS = 24*60*60*1000;         // so alt darf ein Snapshot höchstens sein
+var _GS_TRACK_FOLLOW_MS  = 25000;                 // nach eigenem Verschieben so lange nicht nachführen
+
+// Gleichmässig ausdünnen statt hinten abschneiden. Erster und letzter Punkt
+// bleiben in jedem Fall erhalten, damit Start- und Zielzeit stimmen.
+function _gsTrackThin(pts, cap) {
+  if (!Array.isArray(pts)) return [];
+  if (pts.length <= cap || cap < 2) return pts;
+  var out = [], step = (pts.length - 1) / (cap - 1);
+  for (var i = 0; i < cap; i++) out.push(pts[Math.round(i * step)]);
+  out[0] = pts[0];
+  out[out.length - 1] = pts[pts.length - 1];
+  return out;
+}
+
+// Ein erster Fix kommt oft aus der Funkzelle und liegt hunderte Meter daneben.
+// Solche Punkte werden weiterhin gespeichert (die Statistik filtert sie selbst),
+// aber nicht in die Linie gezeichnet — sonst zieht sie einen Strich quer durch
+// den Kanton. Schwelle 70 km/h wie in _gsRobustDistance, damit Linie und
+// Statistik dieselbe Wirklichkeit zeigen.
+function _gsTrackPlausible(prev, ll, acc, now) {
+  if (acc != null && acc > 100) return false;
+  if (!prev) return true;
+  var d = _gsHaversine(prev.ll, ll);
+  if (d < 3) return true;
+  var dt = Math.max(0.5, (now - prev.t) / 1000);
+  return ((d / dt) * 3.6) <= 70;
+}
+
+// Monotone Gesamtzahlen für die Achievements. Fehlen sie (erster Lauf nach
+// dem Update), werden sie einmalig aus der vorhandenen Liste abgeleitet —
+// niemand soll bei null anfangen.
+function _gsTrackTotals() {
+  var n = parseInt(localStorage.getItem('gs_track_total_n') || '', 10);
+  var m = parseFloat(localStorage.getItem('gs_track_total_m') || '');
+  if (isNaN(n) || isNaN(m)) {
+    n = 0; m = 0;
+    try {
+      var cur = JSON.parse(localStorage.getItem('gs_gpx_tracks') || '[]');
+      if (Array.isArray(cur)) {
+        n = cur.length;
+        cur.forEach(function(t){ try { m += (gsTrackComputeStats(t).distM || 0); } catch(_){} });
+      }
+    } catch(_){}
+  }
+  return { n: n, m: m };
+}
+
+function _gsTrackCommitTotals(before, rec) {
+  var n = (before.n || 0) + 1;
+  var m = (before.m || 0);
+  try { m += (gsTrackComputeStats(rec).distM || 0); } catch(_){}
+  try {
+    localStorage.setItem('gs_track_total_n', String(n));
+    localStorage.setItem('gs_track_total_m', String(Math.round(m)));
+  } catch(_){}
+  try {
+    if (typeof gsAchBump === 'function') {
+      gsAchBump('track_count', n, true);
+      gsAchBump('track_distance_km', Math.round(m / 1000), true);
+    }
+  } catch(_){}
+}
+
+// Eine einzige Stelle, an der ein fertiger Track in die Liste wandert —
+// vom normalen Stopp und von der Wiederherstellung gleichermassen benutzt.
+// Rückgabe: Index in gs_gpx_tracks, oder -1 wenn nichts gespeichert wurde.
+function _gsTrackSaveTrack(track) {
+  var pts = (track && track.points) || [];
+  if (pts.length < 3) return -1;
+  var before = _gsTrackTotals();   // VOR dem Schreiben lesen, sonst zählt der neue Track doppelt
+  var rec = {
+    ts: track.ts || (pts[0] && pts[0].t) || Date.now(),
+    end: track.end || (pts[pts.length-1] && pts[pts.length-1].t) || Date.now(),
+    points: _gsTrackThin(pts.map(function(p){ return { ll:p.ll, alt:p.alt, t:p.t }; }), _GS_TRACK_MAX_PTS)
+  };
+  if (track._recovered) rec._recovered = true;
+  var saved = [];
+  try { saved = JSON.parse(localStorage.getItem('gs_gpx_tracks') || '[]'); } catch(_){}
+  if (!Array.isArray(saved)) saved = [];
+  saved.push(rec);
+  saved = gsCapWithArchive('gs_gpx_tracks', saved, 30, 'tail');
+  try {
+    localStorage.setItem('gs_gpx_tracks', JSON.stringify(saved));
+  } catch(e) {
+    // Bisher landete das in einem catch mit einer Zeile Konsole — der Track
+    // war weg und niemand erfuhr es. Jetzt bleibt der Live-Snapshot liegen,
+    // damit der nächste Start erneut anbietet zu retten.
+    console.warn('[gsTrack] Speichern fehlgeschlagen:', e && e.message);
+    if (typeof showProfileToast === 'function') showProfileToast('Track konnte nicht gespeichert werden — Speicher voll. Er bleibt zur Wiederherstellung liegen.','error');
+    return -1;
+  }
+  _gsTrackCommitTotals(before, rec);
+  return saved.length - 1;
+}
 
 async function _gsTrackAcquireWakeLock() {
   try {
     if (navigator.wakeLock && navigator.wakeLock.request) {
       _gsTrack.wakeLock = await navigator.wakeLock.request('screen');
       _gsTrack.wakeLock.addEventListener('release', function(){
+        _gsTrack.wakeLock = null;
         // Wenn Wake Lock vom System freigegeben wurde + wir noch tracken: re-acquire
         if (_gsTrack.active) setTimeout(_gsTrackAcquireWakeLock, 500);
       });
@@ -47701,111 +47823,234 @@ function _gsTrackReleaseWakeLock() {
   _gsTrack.wakeLock = null;
 }
 
-function _gsTrackPersistLive() {
+function _gsTrackPersistLive(force) {
   if (!_gsTrack.active) return;
+  var now = Date.now();
+  if (!force && (now - _gsTrack.lastPersist) < _GS_TRACK_PERSIST_MS) return;
+  _gsTrack.lastPersist = now;
   try {
     localStorage.setItem(_GS_TRACK_LIVE_KEY, JSON.stringify({
       start: _gsTrack.start,
-      lastSave: Date.now(),
-      points: _gsTrack.points.slice(-2000)
+      lastSave: now,
+      points: _gsTrackThin(_gsTrack.points, _GS_TRACK_SNAP_PTS)
     }));
   } catch(_){}
 }
 
+function _gsTrackDetachWatch() {
+  try { if (_gsTrack.watchId != null) navigator.geolocation.clearWatch(_gsTrack.watchId); } catch(_){}
+  _gsTrack.watchId = null;
+}
+
 function _gsTrackAttachWatch() {
+  // Immer erst sauber abhängen: zwei parallele Watches liefern jeden Punkt
+  // doppelt und verfälschen Distanz und Tempo.
+  _gsTrackDetachWatch();
+  _gsTrack.lastReattach = Date.now();
   try {
     _gsTrack.watchId = navigator.geolocation.watchPosition(function(pos){
       if (!_gsTrack.active) return;
-      var ll = [pos.coords.latitude, pos.coords.longitude];
+      var now = Date.now();
+      var ll  = [pos.coords.latitude, pos.coords.longitude];
+      var acc = (pos.coords.accuracy != null) ? pos.coords.accuracy : null;
       var alt = (pos.coords.altitude != null) ? pos.coords.altitude : null;
-      _gsTrack.points.push({ ll: ll, alt: alt, t: Date.now(), acc: pos.coords.accuracy });
-      try { _gsTrack.layer.addLatLng(ll); } catch(e){}
-      if (Date.now() - _gsTrack.lastUpd > 1500) {
-        _gsTrack.lastUpd = Date.now();
+      _gsTrack.points.push({ ll: ll, alt: alt, t: now, acc: acc });
+      _gsTrack.lastFix = now;
+      // Nach einer langen Lücke neu verankern, statt ewig alles zu verwerfen
+      // (im Zug oder nach einem Tunnel ist der Sprung echt).
+      var anchor = _gsTrack.lastGood;
+      var reAnchor = anchor ? (now - anchor.t > 60000) : (now - _gsTrack.start > 60000);
+      var ok = reAnchor || _gsTrackPlausible(anchor, ll, acc, now);
+      if (ok) {
+        _gsTrack.lastGood = { ll: ll, t: now };
+        try { _gsTrack.layer.addLatLng(ll); } catch(e){}
+        try { if (_gsTrack.head) { _gsTrack.head.setLatLng(ll); if (!gsMap.hasLayer(_gsTrack.head)) _gsTrack.head.addTo(gsMap); } } catch(e){}
+        if (!_gsTrack.centred) {
+          _gsTrack.centred = true;
+          _gsTrackPan(ll, true);
+        } else {
+          _gsTrackFollow(ll);
+        }
+      }
+      if (_gsTrack.stale) { _gsTrack.stale = false; _gsTrack.lastUpd = 0; }
+      if (now - _gsTrack.lastUpd > 1500) {
+        _gsTrack.lastUpd = now;
         gsTrackUpdateStats();
       }
-      if (_gsTrack.points.length === 1) { gsMap.setView(ll, Math.max(gsMap.getZoom(), 14)); }
-      // Persist alle 10 s
-      if (_gsTrack.points.length % 10 === 0) _gsTrackPersistLive();
+      _gsTrackPersistLive();
     }, function(err){
       console.warn('[gsTrack] GPS error', err);
-      // Bei Permission-Denied: Stop. Bei timeout: ignorieren — kommt wieder.
-      if (err.code === 1) { showProfileToast('GPS-Berechtigung verweigert', 'error'); gsTrackStop(); }
+      // Bei Permission-Denied: Stop. Bei timeout: ignorieren — der Wach-Timer hängt neu an.
+      if (err && err.code === 1) { showProfileToast('GPS-Berechtigung verweigert', 'error'); gsTrackStop(); }
     }, { enableHighAccuracy:true, maximumAge:2000, timeout:15000 });
   } catch(e) {
     console.warn('[gsTrack] watchPosition failed', e);
   }
 }
 
+// v31.12: Mitlaufen. Die Linie wuchs bisher aus dem Bild heraus — nach zehn
+// Minuten Wandern sah man nur noch leere Karte. Nachgeführt wird nur, wenn der
+// neue Punkt den sichtbaren Ausschnitt verlässt, und nie direkt nachdem der
+// Nutzer selbst verschoben hat: wer die Karte in die Hand nimmt, will sie
+// behalten. Nach _GS_TRACK_FOLLOW_MS ohne Eingriff übernimmt die App wieder.
+function _gsTrackPan(ll, initial) {
+  try {
+    _gsTrack.suppressPan = true;
+    if (initial) gsMap.setView(ll, Math.max(gsMap.getZoom(), 14));
+    else gsMap.panTo(ll, { animate:true, duration:0.6 });
+  } catch(e){}
+  setTimeout(function(){ _gsTrack.suppressPan = false; }, 900);
+}
+
+function _gsTrackFollow(ll) {
+  if (!_gsTrack.active) return;
+  if (Date.now() - (_gsTrack.pannedAt || 0) < _GS_TRACK_FOLLOW_MS) return;
+  try {
+    var b = gsMap.getBounds().pad(-0.18);   // Rand, damit erst kurz vor dem Bildrand nachgezogen wird
+    if (!b.contains(L.latLng(ll[0], ll[1]))) _gsTrackPan(ll, false);
+  } catch(e){}
+}
+
+// Wach-Timer: die eigentliche Wiederaufnahme. Kommt seit _GS_TRACK_STALE_MS
+// kein Fix mehr, hat der Browser den Watch eingeschläfert — dann neu anhängen
+// (frühestens alle _GS_TRACK_REATTACH_MS, damit es nicht rattert) und den
+// Zustand in der Statuszeile zeigen, statt still nichts aufzuzeichnen.
+function _gsTrackWatchdogTick() {
+  if (!_gsTrack.active) return;
+  var now = Date.now();
+  var since = now - (_gsTrack.lastFix || _gsTrack.start);
+  if (since > _GS_TRACK_STALE_MS) {
+    if (!_gsTrack.stale) { _gsTrack.stale = true; gsTrackUpdateStats(); }
+    if (now - _gsTrack.lastReattach > _GS_TRACK_REATTACH_MS) _gsTrackAttachWatch();
+    _gsTrackPersistLive(true);
+  }
+  if (!_gsTrack.wakeLock) _gsTrackAcquireWakeLock();
+}
+
+function _gsTrackSetBtn(active) {
+  var btn = document.getElementById('gs-track-btn');
+  if (!btn) return;
+  if (active) { btn.textContent = '⏹ Stopp'; btn.style.background = '#c62828'; }
+  else        { btn.textContent = '▶️ Track'; btn.style.background = 'rgba(255,255,255,.12)'; }
+}
+
+// Gemeinsamer Start — von gsTrackToggle (neu) und vom Fortsetzen benutzt.
+function _gsTrackBegin(points, startTs) {
+  _gsTrack.active   = true;
+  _gsTrack.points   = Array.isArray(points) ? points.slice() : [];
+  _gsTrack.start    = startTs || Date.now();
+  _gsTrack.lastUpd  = 0;
+  _gsTrack.lastFix  = 0;
+  _gsTrack.lastPersist = 0;
+  _gsTrack.lastGood = null;
+  _gsTrack.lastReattach = 0;
+  _gsTrack.stale    = false;
+  _gsTrack.centred  = false;
+  if (_gsTrack.layer) { try { gsMap.removeLayer(_gsTrack.layer); } catch(e){} }
+  var line = [];
+  for (var i = 0; i < _gsTrack.points.length; i++) {
+    var p = _gsTrack.points[i];
+    if (p && p.ll) line.push(p.ll);
+  }
+  _gsTrack.layer = L.polyline(line, { color:'#ff6f00', weight:5, opacity:0.85, lineCap:'round', lineJoin:'round' }).addTo(gsMap);
+  // Kopf der Spur: ohne ihn ist auf einer verwinkelten Route nicht zu sehen,
+  // wo man gerade steht und in welche Richtung es weitergeht.
+  if (_gsTrack.head) { try { gsMap.removeLayer(_gsTrack.head); } catch(e){} }
+  _gsTrack.head = L.circleMarker(line.length ? line[line.length-1] : [0,0], {
+    radius:7, color:'#fff', weight:3, fillColor:'#ff6f00', fillOpacity:1
+  });
+  if (line.length) { try { _gsTrack.head.addTo(gsMap); } catch(e){} }
+  _gsTrack.pannedAt = 0;
+  // An die Karten-INSTANZ binden, nicht an ein Flag: gsMapClearAll baut die
+  // Karte neu auf: ein globales „schon gehaengt" haette die neue Instanz ohne
+  // Hooks gelassen und das Nachfuehren waere gegen den Nutzer gelaufen.
+  if (_gsTrack.hookedMap !== gsMap) {
+    _gsTrack.hookedMap = gsMap;
+    try {
+      gsMap.on('dragstart', function(){ if (!_gsTrack.suppressPan) _gsTrack.pannedAt = Date.now(); });
+      gsMap.on('zoomstart', function(){ if (!_gsTrack.suppressPan) _gsTrack.pannedAt = Date.now(); });
+    } catch(e){}
+  }
+  if (line.length) {
+    var last = _gsTrack.points[_gsTrack.points.length - 1];
+    _gsTrack.lastGood = { ll: last.ll, t: last.t || Date.now() };
+    _gsTrack.centred = true;
+    try { gsMap.fitBounds(_gsTrack.layer.getBounds(), { padding:[30,30] }); } catch(e){}
+  }
+  _gsTrackSetBtn(true);
+  _gsTrackAcquireWakeLock();
+  _gsTrackAttachWatch();
+  try { if (_gsTrack.watchdog) clearInterval(_gsTrack.watchdog); } catch(_){}
+  _gsTrack.watchdog = setInterval(_gsTrackWatchdogTick, 15000);
+  gsTrackUpdateStats();
+}
+
 function gsTrackToggle() {
   if (_gsTrack.active) return gsTrackStop();
   if (!gsMap || !navigator.geolocation) { showProfileToast('GPS nicht verfügbar','error'); return; }
-  _gsTrack.active = true;
-  _gsTrack.points = [];
-  _gsTrack.start = Date.now();
-  _gsTrack.lastUpd = 0;
-  if (_gsTrack.layer) { try { gsMap.removeLayer(_gsTrack.layer); } catch(e){} }
-  _gsTrack.layer = L.polyline([], { color:'#ff6f00', weight:5, opacity:0.85, lineCap:'round', lineJoin:'round' }).addTo(gsMap);
-  var btn = document.getElementById('gs-track-btn');
-  if (btn) { btn.textContent = '⏹ Stopp'; btn.style.background = '#c62828'; }
-  // Wake Lock + GPS Watch
-  _gsTrackAcquireWakeLock();
-  _gsTrackAttachWatch();
+  // Ein liegengebliebener Snapshot würde vom ersten Sichern überschrieben.
+  // Erst retten, dann neu starten — ohne Rückfrage, denn wer „Track" drückt,
+  // will aufzeichnen und nicht über den letzten Absturz reden.
+  try {
+    var pend = localStorage.getItem(_GS_TRACK_LIVE_KEY);
+    if (pend) {
+      var pd = JSON.parse(pend);
+      if (pd && Array.isArray(pd.points) && pd.points.length >= 3) {
+        if (_gsTrackSaveTrack({ ts: pd.start, end: pd.lastSave || Date.now(), points: pd.points, _recovered: true }) >= 0) {
+          showProfileToast('Unterbrochener Track gesichert — siehe Meine Tracks','info');
+        }
+      }
+      localStorage.removeItem(_GS_TRACK_LIVE_KEY);
+    }
+  } catch(_){}
+  _gsTrackBegin([], Date.now());
+  _gsTrack.resumed = false;
   showProfileToast('🎯 Track läuft · Display bleibt an','success');
 }
+
 function gsTrackStop() {
   if (!_gsTrack.active) return;
   _gsTrack.active = false;
-  if (_gsTrack.watchId != null) { try { navigator.geolocation.clearWatch(_gsTrack.watchId); } catch(e){} }
-  _gsTrack.watchId = null;
+  _gsTrackDetachWatch();
+  try { if (_gsTrack.watchdog) clearInterval(_gsTrack.watchdog); } catch(_){}
+  _gsTrack.watchdog = null;
   _gsTrackReleaseWakeLock();
-  // Live-Snapshot löschen — Track ist jetzt fertig
-  try { localStorage.removeItem(_GS_TRACK_LIVE_KEY); } catch(_){}
-  var btn = document.getElementById('gs-track-btn');
-  if (btn) { btn.textContent = '▶️ Track'; btn.style.background = 'rgba(255,255,255,.12)'; }
+  if (_gsTrack.head) { try { gsMap.removeLayer(_gsTrack.head); } catch(e){} _gsTrack.head = null; }
+  _gsTrackSetBtn(false);
   gsTrackUpdateStats();
-  // Track speichern + 3D-Detail-Modal automatisch öffnen (v23.93)
   if (_gsTrack.points.length >= 3) {
-    try {
-      var saved = JSON.parse(localStorage.getItem('gs_gpx_tracks') || '[]');
-      saved.push({
-        ts: _gsTrack.start,
-        end: Date.now(),
-        points: _gsTrack.points.map(function(p){ return { ll:p.ll, alt:p.alt, t:p.t }; }).slice(-5000)
-      });
-      saved = gsCapWithArchive('gs_gpx_tracks', saved, 30, 'tail');
-      localStorage.setItem('gs_gpx_tracks', JSON.stringify(saved));
-      // v30.39: Wander-Achievements — track_count (Anzahl) + track_distance_km (kumulierte km via gsTrackComputeStats)
-      try {
-        if (typeof gsAchBump === 'function') {
-          gsAchBump('track_count', saved.length, true);
-          var _trkM = 0;
-          saved.forEach(function(t){ try { _trkM += ((typeof gsTrackComputeStats === 'function' ? (gsTrackComputeStats(t).distM || 0) : 0)); } catch(_){} });
-          gsAchBump('track_distance_km', Math.round(_trkM / 1000), true);
-        }
-      } catch(_){}
+    var newIdx = _gsTrackSaveTrack({ ts: _gsTrack.start, end: Date.now(), points: _gsTrack.points, _recovered: _gsTrack.resumed });
+    if (newIdx >= 0) {
+      // Erst nach erfolgreichem Speichern den Snapshot löschen — sonst wäre
+      // der Track bei vollem Speicher restlos verloren.
+      try { localStorage.removeItem(_GS_TRACK_LIVE_KEY); } catch(_){}
       showProfileToast('🎉 Track gespeichert · '+_gsTrack.points.length+' Punkte','success');
-      // v23.93: nach 800ms automatisch 3D-Detail anzeigen (Index = letzter Eintrag)
-      var newIdx = saved.length - 1;
       setTimeout(function(){
         if (typeof gsTrackOpenDetail === 'function') gsTrackOpenDetail(newIdx);
       }, 800);
-    } catch(e) { console.log('Track save err:', e.message); }
-  } else if (_gsTrack.points.length > 0) {
-    showProfileToast('Track zu kurz — mindestens 3 GPS-Punkte nötig','warn');
+    }
+  } else {
+    try { localStorage.removeItem(_GS_TRACK_LIVE_KEY); } catch(_){}
+    if (_gsTrack.points.length > 0) showProfileToast('Track zu kurz — mindestens 3 GPS-Punkte nötig','warn');
   }
+  _gsTrack.resumed = false;
 }
+
 function gsTrackUpdateStats() {
   var el = document.getElementById('gs-track-stats');
   if (!el) return;
-  if (!_gsTrack.points.length) { el.textContent = ''; return; }
+  if (!_gsTrack.points.length) { el.textContent = _gsTrack.active ? '📡 warte auf GPS-Signal …' : ''; return; }
   // v23.93.1: nutzt jetzt ROBUSTE Berechnung — konsistent mit Detail-Modal
   var liveTrack = { ts: _gsTrack.start, end: Date.now(), points: _gsTrack.points };
   var s = gsTrackComputeStats(liveTrack);
   var distStr = s.distM >= 1000 ? (s.distM/1000).toFixed(2)+' km' : Math.round(s.distM)+' m';
   var minutes = Math.round(s.durMin);
-  el.textContent = '📏 '+distStr+' · ⏱ '+minutes+' min' + (s.gainM > 0 ? ' · ↗ '+Math.round(s.gainM)+' m' : '');
+  var txt = '📏 '+distStr+' · ⏱ '+minutes+' min' + (s.gainM > 0 ? ' · ↗ '+Math.round(s.gainM)+' m' : '');
+  // Ein eingeschlafener Watch sah bisher aus wie eine Pause. Jetzt steht es da.
+  if (_gsTrack.active && _gsTrack.stale) txt += ' · ⚠️ kein GPS-Signal';
+  el.textContent = txt;
 }
+
 function _gsHaversine(a, b) {
   var R = 6371000;
   var toRad = function(x){ return x * Math.PI / 180; };
@@ -47816,48 +48061,113 @@ function _gsHaversine(a, b) {
   return 2 * R * Math.atan2(Math.sqrt(h), Math.sqrt(1-h));
 }
 
-// v24.11: Visibility-Resume — wenn der Browser pausiert hat, bei Wake re-attach
+// v31.12: Aus dem Bild verschwinden heisst nicht, dass nichts mehr zu sichern
+// wäre — im Gegenteil: genau dann killt das Betriebssystem die Seite.
 document.addEventListener('visibilitychange', function(){
-  if (document.hidden || !_gsTrack.active) return;
-  // Wake Lock kann verloren gegangen sein → re-acquire
-  if (!_gsTrack.wakeLock) _gsTrackAcquireWakeLock();
-  // GPS-Watch könnte vom Browser gepausiert worden sein → defensiv neu starten
-  if (_gsTrack.watchId == null) _gsTrackAttachWatch();
+  if (!_gsTrack.active) return;
+  if (document.hidden) { _gsTrackPersistLive(true); return; }
+  _gsTrackWatchdogTick();          // beim Zurückkommen sofort prüfen statt bis zu 15 s warten
 });
+window.addEventListener('pagehide', function(){ try { _gsTrackPersistLive(true); } catch(_){} });
+
+// v31.12: Wiederherstellungs-Dialog mit drei Wegen. gsConfirmModal kann nur
+// zwei Knöpfe, und der dritte ist hier der wichtigste: fortsetzen.
+function _gsTrackRecoveryChoice(points, minutes) {
+  return new Promise(function(resolve){
+    try {
+      var prev = document.getElementById('gs-track-recover');
+      if (prev && prev.parentNode) prev.parentNode.removeChild(prev);
+      var w = document.createElement('div');
+      w.id = 'gs-track-recover';
+      w.setAttribute('role','dialog');
+      w.setAttribute('aria-modal','true');
+      w.setAttribute('aria-labelledby','gs-track-recover-title');
+      w.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:var(--z-image-overlay,99999);padding:18px;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);';
+      var c = document.createElement('div');
+      c.style.cssText = 'background:var(--bg,#fff);color:var(--fg,#1a1a1a);max-width:360px;width:100%;border-radius:16px;padding:22px 22px 18px;box-shadow:0 12px 38px rgba(0,0,0,.32);font-family:inherit;';
+      var bg = '#2e7d32';
+      try { bg = (getComputedStyle(document.documentElement).getPropertyValue('--g-main')||'#2e7d32').trim(); } catch(_){}
+      var body = 'Die letzte Aufzeichnung wurde unterbrochen: ' + points + ' Punkte, vor ' + minutes + ' Minuten. Fortsetzen hängt neue Punkte an denselben Track an.';
+      var safe = function(x){ return String(x==null?'':x).replace(/[&<>"']/g, function(ch){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]; }); };
+      c.innerHTML =
+        '<h3 id="gs-track-recover-title" style="margin:0 0 8px;font-size:17px;font-weight:800;letter-spacing:-.01em;">🎯 Track fortsetzen?</h3>'+
+        '<p style="margin:0 0 18px;font-size:14px;line-height:1.5;opacity:.85;">'+safe(body)+'</p>'+
+        '<div style="display:flex;flex-direction:column;gap:8px;">'+
+          '<button data-gs-choice="resume"  style="padding:11px 14px;border:none;border-radius:11px;background:'+bg+';color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;">Fortsetzen</button>'+
+          '<button data-gs-choice="save"    style="padding:11px 14px;border:1px solid var(--border,#dcdcdc);border-radius:11px;background:transparent;color:inherit;font-weight:600;font-size:14px;cursor:pointer;font-family:inherit;">Als beendet speichern</button>'+
+          '<button data-gs-choice="discard" style="padding:11px 14px;border:none;border-radius:11px;background:transparent;color:#c62828;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit;">Verwerfen</button>'+
+        '</div>';
+      w.appendChild(c);
+      document.body.appendChild(w);
+      var done = false;
+      function finish(val){
+        if (done) return;
+        done = true;
+        try { document.removeEventListener('keydown', onKey, true); } catch(_){}
+        try { if (w.parentNode) w.parentNode.removeChild(w); } catch(_){}
+        resolve(val);
+      }
+      function onKey(e){ if (e.key === 'Escape') { e.stopPropagation(); finish(null); } }
+      document.addEventListener('keydown', onKey, true);
+      // Wegtippen heisst „später entscheiden", nicht „wegwerfen": der Snapshot
+      // bleibt liegen und wird beim nächsten Start wieder angeboten.
+      w.addEventListener('click', function(e){ if (e.target === w) finish(null); });
+      c.querySelectorAll('[data-gs-choice]').forEach(function(b){
+        b.addEventListener('click', function(){ finish(b.getAttribute('data-gs-choice')); });
+      });
+      try { if (typeof gsRegisterOverlay === 'function') gsRegisterOverlay(w, function(){ finish(null); }); } catch(_){}
+      try { c.querySelector('[data-gs-choice="resume"]').focus(); } catch(_){}
+    } catch(e) { resolve(null); }
+  });
+}
 
 // v24.11: Crash-Recovery — beim Boot prüfen ob ein Track abgebrochen ist
 (function(){
+  async function _gsTrackDoResume(data) {
+    // Aufzeichnen braucht die Karte (die Linie hängt daran). Also erst dorthin.
+    try { if (typeof switchTab === 'function') switchTab('map'); } catch(_){}
+    try { if ((typeof gsMap === 'undefined' || !gsMap) && typeof initMap === 'function') await initMap(); } catch(_){}
+    for (var i = 0; i < 25 && (typeof gsMap === 'undefined' || !gsMap); i++) {
+      await new Promise(function(r){ setTimeout(r, 400); });   // switchTab initialisiert selbst verzögert
+    }
+    if (typeof gsMap === 'undefined' || !gsMap || !window.L) {
+      // Karte kam nicht — Snapshot NICHT anfassen, lieber beim nächsten Start
+      // noch einmal fragen als jetzt still verlieren.
+      if (typeof showProfileToast === 'function') showProfileToast('Karte nicht bereit — Track bleibt gespeichert, bitte später fortsetzen','warn');
+      return;
+    }
+    _gsTrackBegin(data.points, data.start);
+    _gsTrack.resumed = true;
+    _gsTrackPersistLive(true);
+    if (typeof showProfileToast === 'function') showProfileToast('▶️ Track fortgesetzt · '+data.points.length+' Punkte übernommen','success');
+  }
+
   function _gsCheckTrackRecovery() {
     try {
+      if (_gsTrack.active) return;
       var snap = localStorage.getItem(_GS_TRACK_LIVE_KEY);
       if (!snap) return;
       var data = JSON.parse(snap);
-      // Snapshot älter als 30 min → wahrscheinlich vergessen, einfach löschen
+      if (!data || !Array.isArray(data.points)) { localStorage.removeItem(_GS_TRACK_LIVE_KEY); return; }
+      // v31.12: 24 h statt 30 min. Wer sein Handy auf einer Wanderung leert und
+      // die App am Abend wieder öffnet, hatte die Aufzeichnung bisher verloren,
+      // bevor er gefragt wurde.
       var age = Date.now() - (data.lastSave || data.start || 0);
-      if (age > 30*60*1000) { localStorage.removeItem(_GS_TRACK_LIVE_KEY); return; }
-      if (!data.points || data.points.length < 3) { localStorage.removeItem(_GS_TRACK_LIVE_KEY); return; }
-      // User fragen ob fortsetzen — v28.82 HL#2: gsConfirmModal statt nativem confirm()
-      // (feuerte 2.5s nach Boot → blockierte iOS-PWA-Webview automatisch).
+      if (age > _GS_TRACK_RECOVER_MS) { localStorage.removeItem(_GS_TRACK_LIVE_KEY); return; }
+      if (data.points.length < 3) { localStorage.removeItem(_GS_TRACK_LIVE_KEY); return; }
+      // v28.82 HL#2: eigener Dialog statt nativem confirm() (feuerte 2.5s nach
+      // Boot → blockierte iOS-PWA-Webview automatisch).
       setTimeout(async function(){
-        var _go = false;
-        try {
-          _go = (typeof gsConfirmModal === 'function')
-            ? await gsConfirmModal({ title:'Track wiederherstellen?', text:'🎯 Letzter Track wurde unterbrochen (' + data.points.length + ' Punkte, vor ' + Math.round(age/60000) + ' min). Als beendet speichern?', okText:'Speichern', cancelText:'Verwerfen' })
-            : false;
-        } catch(_){ _go = false; }
-        if (!_go) {
-          localStorage.removeItem(_GS_TRACK_LIVE_KEY);
-          return;
-        }
-        // Als regulären Track speichern
-        try {
-          var saved = JSON.parse(localStorage.getItem('gs_gpx_tracks') || '[]');
-          saved.push({ ts: data.start, end: data.lastSave || Date.now(), points: data.points, _recovered: true });
-          saved = gsCapWithArchive('gs_gpx_tracks', saved, 30, 'tail');
-          localStorage.setItem('gs_gpx_tracks', JSON.stringify(saved));
-          localStorage.removeItem(_GS_TRACK_LIVE_KEY);
+        var choice = null;
+        try { choice = await _gsTrackRecoveryChoice(data.points.length, Math.round(age/60000)); } catch(_){ choice = null; }
+        // null = weggetippt/Escape → nichts löschen, beim nächsten Start erneut fragen.
+        if (!choice) return;
+        if (choice === 'discard') { try { localStorage.removeItem(_GS_TRACK_LIVE_KEY); } catch(_){} return; }
+        if (choice === 'resume') { _gsTrackDoResume(data); return; }
+        if (_gsTrackSaveTrack({ ts: data.start, end: data.lastSave || Date.now(), points: data.points, _recovered: true }) >= 0) {
+          try { localStorage.removeItem(_GS_TRACK_LIVE_KEY); } catch(_){}
           if (typeof showProfileToast === 'function') showProfileToast('✅ Track wiederhergestellt — siehe Meine Tracks', 'success');
-        } catch(_){}
+        }
       }, 2500);
     } catch(_){}
   }
@@ -68335,7 +68645,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.11';
+var GS_VERSION = 'v31.12';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -73955,6 +74265,11 @@ var GS_USER_KEYS = [
   // v29.19 Stale-Leak (Audit-2): persönliche GPS-Track-Historie + Community-Anzeigename MÜSSEN bei
   // Logout/User-Switch weg (sonst sieht der nächste User auf demselben Gerät fremde Tracks/Namen).
   'gs_gpx_tracks','gs_social_name',
+  // v31.12: dazugehoerig — die laufende Aufzeichnung und die monotonen
+  // Gesamtzahlen der Wander-Achievements. Bliebe der Live-Snapshot liegen,
+  // bekaeme der naechste Nutzer beim Start angeboten, den Track eines
+  // Fremden fortzusetzen.
+  'gs_track_live','gs_track_total_n','gs_track_total_m',
   // v29.10 SECURITY/Payment: Abo-/Entitlement-Cache MUSS bei Logout/User-Switch weg, sonst
   // sieht der nächste (Free-)User auf demselben Gerät stale Pro/Lifetime-Gates (gsIsPaid/gsAboCanUse).
   'gs_abo_plan','gs_ent_scans_per_month','gs_ent_ai_herbalist','gs_ent_offline_mode','gs_ent_recipes_export',
