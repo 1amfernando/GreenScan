@@ -4,13 +4,47 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.05` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.06` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-08-31 (o) — v31.06: Foto-Ausgangskorb — Fotos gehen nicht mehr verloren und fressen nicht mehr den Nutzer-Speicher
+
+> Fernandos Freigabe für die Foto-Pipeline. Löst die drei verbliebenen Audit-Befunde **und** nimmt den Druck von der 5-MB-Grenze, der heute ab ~13–20 fotografierten Pflanzen alles blockiert.
+
+#### Warum IndexedDB und nicht localStorage
+
+Ein Foto belegt als base64 leicht **200 KB**. In den ~5 MB von localStorage liegen Pflanzen, Tagebuch, Ernte und Einstellungen — dort haben Fotos nichts verloren. IndexedDB hat ein eigenes, viel grösseres Kontingent. Der neue Store `pending_photos` (DB-Version 1 → 2; `onupgradeneeded` legt fehlende Stores ohnehin an, Bestandsinstallationen ziehen also sauber nach).
+
+#### 1 · Fund-Fotos wurden verworfen
+
+Schlug der Upload fehl, hiess es „Fund wird ohne Bild gespeichert" — und das Bild war **endgültig weg**, auch wenn nur kurz das Netz fehlte. Jetzt wandert es in den Ausgangskorb und wird nachgetragen, sobald wieder Verbindung besteht. Auch der Fall „gar nicht angemeldet" ist abgedeckt: früher wurde da nicht einmal ein Versuch gemacht und das Bild fiel weg; jetzt hält der Korb es fest, bis ein Konto da ist.
+
+#### 2 · Der eingereihte Scan bekam ein FREMDES Foto
+
+`gsScanPersistToCloud` las das Bild beim Flush aus `window._gsLastScanB64` — einer **globalen Variable**. Ein gestern eingereihter Scan bekam heute also entweder gar kein Foto (nach einem Neustart ist die Variable leer) oder das Foto eines **anderen, neueren** Scans. Das Foto reist jetzt **mit** dem Warteschlangen-Eintrag; die globale Variable dient nur noch dem Live-Pfad direkt nach dem Scannen.
+
+#### 3 · Duplikate bei Timeout
+
+`gsUploadImage` erzeugte pro Aufruf einen Zufallsnamen. Lief ein Upload in einen Timeout, der serverseitig aber durchlief, legte die Wiederholung eine **zweite Datei** an — verwaiste Bytes, die niemand referenziert. Neuer vierter Parameter `stableKey`: FNV-1a über den Schlüssel ergibt einen deterministischen, pfadsicheren Dateinamen; zusammen mit dem ohnehin gesetzten `x-upsert: true` wird dieselbe Datei überschrieben statt einer zweiten angelegt. Aufrufer ohne Schlüssel verhalten sich unverändert. Auch `gsRetryPhotoUploads` nutzt ihn jetzt — vorher legte **jeder** Nachhol-Versuch eine neue Datei an.
+
+#### 4 · Pflanzen-Fotos landen nicht mehr im 5-MB-Speicher
+
+Beide base64-Notnägel in `savePlant` (Bearbeiten und Neuanlage) gehen jetzt in den Ausgangskorb. Bei der Neuanlage steht die `id` erst nach dem `push` fest — das Foto wird deshalb dort eingereiht (`_gsPendingNewPlantPhoto`). Ist der Korb nicht verfügbar, greift weiterhin der alte base64-Weg, damit nie ein Bild verloren geht.
+
+#### Verify
+
+- **Zustandsautomat in Node, 5 Fälle:** Upload ok + Ziel da → nachgetragen, Eintrag weg · Upload ok + Fund inzwischen gelöscht → Eintrag weg (wandert nicht ewig mit) · Fehlschlag 1 und 5 → bleibt, Zähler hoch · **8. Fehlschlag → aufgeben** (ohne Deckel liefe ein dauerhaft abgelehntes Bild für immer).
+- **Idempotenz belegt:** gleicher Schlüssel → identischer Pfad, andere Scans → andere Pfade, umlautsicher (`scan-…-Bärlauch` → `k68c9z0_scan175664000000.jpg`).
+- 9/9 Inline-Scripts `node --check` OK · `sw.js` valid · Version synchron v31.06.
+
+#### Ehrlich zum Rest
+
+Für **Gäste** liegt das Foto im Korb, bis ein Konto da ist — `gsFlushPhotoQueue` braucht eine Anmeldung. Besser als verwerfen, aber kein Upload ohne Konto. **Altbestand** an base64 in `ps_myplants` räumt weiterhin `gsMigrateBase64Photos` ab. Was noch fehlt, ist der Render-Pfad: ein Bild im Korb ist bis zum Upload nicht anzeigbar. Das ist der nächste Schritt (Auflöser, der aus dem Korb eine Object-URL macht) — bewusst getrennt, weil er die Anzeige an vielen Stellen berührt.
 
 ### 2026-08-31 (n) — v31.05: Die gestellte Falle im Garten-Sync entschärft
 

@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.05.20260831">
+<meta name="app-version" content="31.06.20260831">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16690,7 +16690,10 @@ async function gsRetryPhotoUploads(){
       if(e.photoUrl){ if(e._needsPhotoSync) delete e._needsPhotoSync; continue; }
       var src=e.photo||''; if(!src||String(src).indexOf('base64,')<0) continue;
       var raw=String(src).split(',').pop(); var url=null;
-      try{ url=await gsUploadImage(raw,'scan-images','jpg'); }catch(_){ url=null; }
+      // v31.06: stabiler Schluessel — ohne ihn legte JEDER Nachhol-Versuch eine
+      // neue Datei an. Dieselbe Nachricht wird jetzt auf denselben Pfad geschrieben.
+      var _k = 'scan-' + (e.ts || '') + '-' + String(e.name || '').slice(0,24);
+      try{ url=await gsUploadImage(raw,'scan-images','jpg',_k); }catch(_){ url=null; }
       if(url){ e.photoUrl=url; if(!e.thumb) e.thumb=url; if(e._needsPhotoSync) delete e._needsPhotoSync; fixed++; }
       if(fixed>=8) break;
     }
@@ -16718,6 +16721,19 @@ async function gsScanPersistToCloud(r) {
   try { window.gsTrackEngagement && window.gsTrackEngagement('scan'); } catch(e){}
   // v24.35: Wenn offline → in IndexedDB-Queue statt direkt zu Supabase
   if (!navigator.onLine && typeof window.gsQueueOffline === 'function') {
+    // v31.06: Das Foto reist MIT dem Warteschlangen-Eintrag. Vorher las
+    // gsScanPersistToCloud es beim spaeteren Flush aus `window._gsLastScanB64` —
+    // einer globalen Variable. Ein gestern eingereihter Scan bekam beim Flush
+    // heute also entweder GAR KEIN Foto (nach einem Neustart ist die Variable
+    // leer) oder das Foto eines FREMDEN, neueren Scans. IndexedDB hat den Platz
+    // dafuer; genau deshalb liegt die Warteschlange dort und nicht im
+    // localStorage.
+    try {
+      if (window._gsLastScanB64 && !r._photoB64) {
+        r._photoB64 = window._gsLastScanB64;
+        r._photoMt  = window._gsLastScanMt || 'image/jpeg';
+      }
+    } catch(_){}
     await window.gsQueueOffline('scan', r);
     if (typeof showProfileToast === 'function') showProfileToast({type:'info', icon:'📡', title:'Offline gespeichert', body:'Scan wird synchronisiert sobald online.', duration:3500});
     return true;
@@ -16729,10 +16745,20 @@ async function gsScanPersistToCloud(r) {
   try {
     // Foto zu Storage hochladen (falls vorhanden)
     var photoUrl = null;
-    if (window._gsLastScanB64 && typeof gsUploadImage === 'function') {
+    // v31.06: Zuerst das Foto, das MIT diesem Scan eingereiht wurde (Offline-Flush),
+    // erst danach die globale Variable (Live-Pfad, direkt nach dem Scannen).
+    // Vorher stand hier nur die globale — siehe Kommentar im Offline-Zweig oben.
+    var _scanB64 = (r && r._photoB64) ? r._photoB64 : window._gsLastScanB64;
+    // Stabiler Schluessel pro Scan: eine Wiederholung nach Timeout schreibt damit
+    // auf denselben Storage-Pfad statt eine verwaiste zweite Datei anzulegen.
+    var _photoKey = null;
+    try {
+      if (r && r._photoB64) _photoKey = 'scan-' + (r.ts || r.id || '') + '-' + String(r.name || '').slice(0,24);
+    } catch(_){}
+    if (_scanB64 && typeof gsUploadImage === 'function') {
       // v30.10: 2 Versuche — gsUploadImage returnt null statt zu werfen, deshalb Schleife + Fehler-Markierung
       for (var _ua = 0; _ua < 2 && !photoUrl; _ua++) {
-        try { photoUrl = await gsUploadImage(window._gsLastScanB64, 'scan-images', 'jpg'); } catch(_){}
+        try { photoUrl = await gsUploadImage(_scanB64, 'scan-images', 'jpg', _photoKey); } catch(_){}
       }
     }
     // v24.11: photoUrl zurück in die lokale Scan-History schreiben damit Detail-View
@@ -16746,7 +16772,7 @@ async function gsScanPersistToCloud(r) {
           localStorage.setItem(SCAN_HISTORY_KEY, JSON.stringify(hist));
         }
       } catch(_){}
-    } else if (window._gsLastScanB64) {
+    } else if (_scanB64) {
       // v30.10: Upload fehlgeschlagen — Foto bleibt lokal (Medium 480px), Eintrag fuer spaeteren Re-Sync markieren (gsRetryPhotoUploads / Galerie-Sync)
       try {
         var histF = JSON.parse(localStorage.getItem(SCAN_HISTORY_KEY) || '[]');
@@ -28728,8 +28754,16 @@ async function savePlant(){
         _edits.photo    = photoUrl;
         _edits.photoUrl = photoUrl;
       } catch (uploadErr) {
-        // Fallback: base64 (User-Action nicht blockieren — Upload kann später via gsMigrateBase64Photos nachgezogen werden)
-        _edits.photo = 'data:image/jpeg;base64,' + window._gsPlantPhotoB64;
+        // v31.06: statt base64 in den 5-MB-Speicher zu legen, wandert das Bild in
+        // den Ausgangskorb (IndexedDB) und wird nachgetragen. Ein Foto belegt als
+        // base64 leicht 200 KB — ab ~13-20 Pflanzen ist die Grenze erreicht, und
+        // dann scheitert ALLES, nicht nur das naechste Foto.
+        var _qp = false;
+        try { _qp = await window.gsQueuePhoto('user-plant-photos', window._gsPlantPhotoB64, { kind:'plant', ref: editingPlantId }); } catch(_){}
+        if (!_qp) {
+          // Ausgangskorb nicht verfuegbar -> altes Verhalten, damit das Bild nicht verloren geht.
+          _edits.photo = 'data:image/jpeg;base64,' + window._gsPlantPhotoB64;
+        }
       }
     }
     // Erst JETZT — nach allen awaits — die Pflanze auflösen.
@@ -28761,7 +28795,11 @@ async function savePlant(){
       try {
         newPlantPhoto = await window.gsUploadPhotoToBucket('user-plant-photos', window._gsPlantPhotoB64);
       } catch (_uErr) {
-        newPlantPhoto = 'data:image/jpeg;base64,' + window._gsPlantPhotoB64; // Fallback
+        // v31.06: siehe oben — Ausgangskorb statt base64 im localStorage.
+        // Die id der neuen Pflanze steht erst unten fest, darum wird der
+        // Ausgangskorb nach dem Anlegen befuellt (_gsPendingNewPlantPhoto).
+        window._gsPendingNewPlantPhoto = window._gsPlantPhotoB64;
+        newPlantPhoto = null;
       }
     }
     const newPlant = {
@@ -28790,6 +28828,16 @@ async function savePlant(){
       }
     };
     myPlants.push(newPlant);
+    // v31.06: jetzt steht die id fest — haengengebliebenes Foto einreihen.
+    if (window._gsPendingNewPlantPhoto) {
+      var _pend = window._gsPendingNewPlantPhoto;
+      window._gsPendingNewPlantPhoto = null;
+      try {
+        if (!(await window.gsQueuePhoto('user-plant-photos', _pend, { kind:'plant', ref: newPlant.id }))) {
+          newPlant.photo = 'data:image/jpeg;base64,' + _pend;   // Notnagel
+        }
+      } catch(_){ newPlant.photo = 'data:image/jpeg;base64,' + _pend; }
+    }
   }
   var _wasEdit = !!editingPlantId;
   var _okPlant = savePlantsToStorage();
@@ -46726,6 +46774,9 @@ async function gsAddMarker(lat, lng) {
 
   // v26.84: Foto vor Save uploaden (best effort, schweigend wenn nicht eingeloggt)
   var photoUrl = null;
+  // v31.06: clientId schon HIER bilden — der Foto-Ausgangskorb braucht ein Ziel,
+  // falls der Upload gleich fehlschlaegt. (Stand vorher weiter unten.)
+  var clientId = 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
   if (photoB64 && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn() && typeof window.gsUploadPhotoToBucket === 'function') {
     try {
       if (typeof gsToast === 'function') gsToast('📤 Foto wird hochgeladen…', 'info', 2500);
@@ -46733,8 +46784,26 @@ async function gsAddMarker(lat, lng) {
       console.log('[v26.84] gsAddMarker photo uploaded', photoUrl);
     } catch(e) {
       console.warn('[v26.84] gsAddMarker photo upload fail', e && e.message);
-      if (typeof gsToast === 'function') gsToast('Foto-Upload fehlgeschlagen — Fund wird ohne Bild gespeichert.', 'warning');
+      // v31.06: Foto NICHT mehr wegwerfen. Vorher hiess es hier „Fund wird ohne
+      // Bild gespeichert" — und das Bild war endgueltig weg, auch wenn nur kurz
+      // das Netz fehlte. Jetzt wandert es in den Ausgangskorb (IndexedDB) und
+      // wird nachgetragen, sobald wieder Verbindung besteht.
+      var _q = false;
+      try { _q = await window.gsQueuePhoto('map-find-photos', photoB64, { kind:'marker', ref: clientId }); } catch(_){}
+      if (typeof gsToast === 'function') {
+        gsToast(_q ? '📷 Foto gemerkt — wird nachgeladen, sobald du online bist.'
+                   : 'Foto-Upload fehlgeschlagen — Fund wird ohne Bild gespeichert.',
+                _q ? 'info' : 'warning');
+      }
     }
+  } else if (photoB64 && typeof window.gsQueuePhoto === 'function') {
+    // Offline oder nicht angemeldet: gar nicht erst versuchen, aber auch nicht
+    // verwerfen — der Ausgangskorb haelt es fest.
+    try {
+      if (await window.gsQueuePhoto('map-find-photos', photoB64, { kind:'marker', ref: clientId })) {
+        if (typeof gsToast === 'function') gsToast('📷 Foto gemerkt — wird nachgeladen, sobald du online bist.', 'info');
+      }
+    } catch(_){}
   }
 
   var catMeta = GS_MARKER_CATS[cat];
@@ -46747,7 +46816,7 @@ async function gsAddMarker(lat, lng) {
   try { if (typeof _gsMarkerLayers !== 'undefined') _gsMarkerLayers.push({ cat: cat, layer: marker }); } catch(e){}
 
   // v26.81: In localStorage speichern MIT Quota-Catch (lokaler Cache + offline-Safety)
-  var clientId = 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+  // (clientId steht seit v31.06 weiter oben — der Foto-Ausgangskorb braucht sie frueher.)
   var lsOk = false;
   try {
     var markers = gsGetSavedMarkers();
@@ -51233,7 +51302,14 @@ function gsPPcapturePhoto() {
 }
 
 // v23.74: Storage-Upload-Helper — base64 → Supabase Storage, returnt public URL
-window.gsUploadImage = window.gsUploadImage || async function(b64, bucket, ext) {
+// v31.06: vierter Parameter `stableKey` — Idempotenz.
+// Ohne ihn erzeugt jeder Aufruf einen neuen Zufallsnamen. Laeuft ein Upload in
+// einen Timeout, der serverseitig aber durchlief, legt die Wiederholung eine
+// ZWEITE Datei an: verwaiste Bytes, die niemand mehr referenziert und die still
+// Speicherplatz kosten. Mit stableKey ist der Pfad deterministisch und
+// `x-upsert: true` (steht ohnehin schon unten) schreibt dieselbe Datei erneut —
+// aus zwei Dateien wird eine. Aufrufer ohne Schluessel verhalten sich unveraendert.
+window.gsUploadImage = window.gsUploadImage || async function(b64, bucket, ext, stableKey) {
   ext = ext || 'jpg';
   bucket = bucket || 'post-images';
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return null;
@@ -51243,7 +51319,21 @@ window.gsUploadImage = window.gsUploadImage || async function(b64, bucket, ext) 
     var bin = atob(b64);
     var u8 = new Uint8Array(bin.length);
     for (var i=0; i<bin.length; i++) u8[i] = bin.charCodeAt(i);
-    var fileName = uid + '/' + Date.now() + '_' + Math.random().toString(36).slice(2,8) + '.' + ext;
+    var _stamp;
+    if (stableKey) {
+      // Deterministisch und pfadsicher: FNV-1a ueber den Schluessel. Gleicher
+      // Schluessel -> gleicher Dateiname -> gleiche Datei beim zweiten Versuch.
+      var _h = 2166136261;
+      var _sk = String(stableKey);
+      for (var _i = 0; _i < _sk.length; _i++) {
+        _h ^= _sk.charCodeAt(_i);
+        _h = (_h + ((_h << 1) + (_h << 4) + (_h << 7) + (_h << 8) + (_h << 24))) >>> 0;
+      }
+      _stamp = 'k' + _h.toString(36) + '_' + _sk.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16);
+    } else {
+      _stamp = Date.now() + '_' + Math.random().toString(36).slice(2,8);
+    }
+    var fileName = uid + '/' + _stamp + '.' + ext;
     var url = (window.SB_URL || window.SB_URL_DEFAULT) + '/storage/v1/object/' + bucket + '/' + fileName;
     var token = (typeof _gsFreshToken === 'function') ? (await _gsFreshToken() || '') : (gsStore.get('gs_sb_token', null) || ''); // v30.49: frischen JWT (Storage-Upload, sonst 401 bei abgelaufenem Token nach Ruhe)
     var apikey = window.SB_KEY || window.SB_KEY_DEFAULT;
@@ -68033,7 +68123,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.05';
+var GS_VERSION = 'v31.06';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -70165,8 +70255,11 @@ function gsRegisterServiceWorker() {
     return;
   }
   var DB_NAME = 'gs_offline';
-  var DB_VERSION = 1;
-  var STORES = ['pending_scans', 'pending_diary', 'pending_sync'];
+  // v31.06: Version 2 — neuer Store `pending_photos`. onupgradeneeded legt unten
+  // ohnehin jeden fehlenden Store aus STORES an, Bestandsinstallationen ziehen
+  // also sauber nach.
+  var DB_VERSION = 2;
+  var STORES = ['pending_scans', 'pending_diary', 'pending_sync', 'pending_photos'];
 
   function _open(){
     return new Promise(function(resolve, reject){
@@ -70200,6 +70293,117 @@ function gsRegisterServiceWorker() {
       }
       return true;
     } catch(e) { console.warn('[gsQueueOffline]', e); return false; }
+  };
+
+  // ═══ v31.06: FOTO-AUSGANGSKORB ═══════════════════════════════════════════
+  // Bisher galt: Upload fehlgeschlagen -> Foto weg. Bei Funden stand dazu ein
+  // Toast „Fund wird ohne Bild gespeichert" — das Bild war danach endgueltig
+  // verloren, auch wenn es nur am fehlenden Netz lag.
+  //
+  // Warum IndexedDB und nicht localStorage: ein Foto belegt als base64 leicht
+  // 200 KB. In den 5 MB von localStorage liegen Pflanzen, Tagebuch und Ernte —
+  // dort haben Fotos nichts verloren (genau daher stammt der Quota-Druck, der
+  // ab ~13-20 fotografierten Pflanzen ALLES scheitern laesst). IndexedDB hat ein
+  // eigenes, viel groesseres Kontingent.
+  //
+  // Ablauf: enqueue -> spaeter hochladen -> Ziel nachtragen -> Eintrag loeschen.
+  // Der Upload laeuft mit stabilem Schluessel (siehe gsUploadImage), eine
+  // Wiederholung nach Timeout schreibt also dieselbe Datei statt einer zweiten.
+  window.gsQueuePhoto = async function(bucket, b64, target){
+    if (!b64 || !bucket || !target || !target.kind || !target.ref) return false;
+    try {
+      var db = await _open();
+      var tx = db.transaction('pending_photos', 'readwrite');
+      tx.objectStore('pending_photos').add({
+        bucket: bucket, b64: b64, target: target,
+        key: target.kind + ':' + target.ref,
+        queued_at: Date.now(), tries: 0
+      });
+      await new Promise(function(r,j){ tx.oncomplete = r; tx.onerror = function(){ j(tx.error); }; });
+      console.log('[gsQueuePhoto] eingereiht fuer', target.kind, target.ref);
+      return true;
+    } catch(e){ console.warn('[gsQueuePhoto]', e); return false; }
+  };
+
+  // Traegt die fertige URL im Ziel nach. Pro Ziel-Art eine kleine, klar
+  // benannte Zustaendigkeit — kein generisches Herumraten an fremden Strukturen.
+  function _gsApplyPhotoUrl(target, url){
+    try {
+      if (target.kind === 'marker') {
+        var arr = [];
+        try { arr = JSON.parse(localStorage.getItem('greenscan_markers') || '[]'); } catch(_){ return false; }
+        if (!Array.isArray(arr)) return false;
+        var hit = arr.find(function(m){ return m && String(m.id) === String(target.ref); });
+        if (!hit) return false;               // Fund geloescht -> Foto verwerfen
+        hit.photo_url = url;
+        if (localStorage.setItem('greenscan_markers', JSON.stringify(arr)) === false) return false;
+        try { if (typeof gsLoadMarkers === 'function') gsLoadMarkers(); } catch(_){}
+        return true;
+      }
+      if (target.kind === 'plant') {
+        if (typeof myPlants === 'undefined' || !Array.isArray(myPlants)) return false;
+        var pl = myPlants.find(function(x){ return x && String(x.id) === String(target.ref); });
+        if (!pl) return false;
+        pl.photo = url; pl.photoUrl = url;
+        if (typeof savePlantsToStorage === 'function' && savePlantsToStorage() === false) return false;
+        try { if (typeof renderMyPlants === 'function') renderMyPlants(); } catch(_){}
+        return true;
+      }
+    } catch(e){ console.warn('[_gsApplyPhotoUrl]', e); }
+    return false;
+  }
+
+  window.gsFlushPhotoQueue = async function(){
+    if (!navigator.onLine) return 0;
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return 0;
+    if (typeof gsUploadImage !== 'function') return 0;
+    if (window._gsPhotoFlushing) return 0;
+    window._gsPhotoFlushing = true;
+    var done = 0;
+    try {
+      var db = await _open();
+      var tx = db.transaction('pending_photos', 'readonly');
+      var items = await new Promise(function(r,j){
+        var rq = tx.objectStore('pending_photos').getAll();
+        rq.onsuccess = function(){ r(rq.result || []); };
+        rq.onerror = function(){ j(rq.error); };
+      });
+      for (var i = 0; i < items.length; i++) {
+        var it = items[i];
+        var drop = false;
+        try {
+          var url = await gsUploadImage(it.b64, it.bucket, 'jpg', it.key);
+          if (url) {
+            var applied = _gsApplyPhotoUrl(it.target, url);
+            // Auch wenn das Ziel verschwunden ist (Fund geloescht): Eintrag darf
+            // weg — sonst wandert er ewig mit. Das Bild liegt dann im Bucket.
+            drop = true;
+            if (applied) done++;
+          } else {
+            // v31.06: Nach 8 vergeblichen Anlaeufen aufgeben statt endlos zu
+            // wiederholen. Ohne Deckel laeuft die Warteschlange bei einem
+            // dauerhaft abgelehnten Bild (z.B. Bucket-Policy) fuer immer.
+            it.tries = (it.tries || 0) + 1;
+            if (it.tries >= 8) {
+              console.warn('[gsFlushPhotoQueue] gebe auf nach 8 Versuchen:', it.key);
+              drop = true;
+            } else {
+              var utx = db.transaction('pending_photos', 'readwrite');
+              utx.objectStore('pending_photos').put(it);
+            }
+          }
+        } catch(e){ console.warn('[gsFlushPhotoQueue] item', e); }
+        if (drop) {
+          try {
+            var dtx = db.transaction('pending_photos', 'readwrite');
+            dtx.objectStore('pending_photos').delete(it.id);
+          } catch(_){}
+        }
+      }
+      if (done) console.log('[gsFlushPhotoQueue] ' + done + ' Foto(s) nachgetragen.');
+    } catch(e){ console.warn('[gsFlushPhotoQueue]', e); }
+    finally { window._gsPhotoFlushing = false; }
+    return done;
   };
 
   // Public API: gsFlushOfflineQueue — alle pending Items abarbeiten (wenn online)
@@ -70297,6 +70501,7 @@ function gsRegisterServiceWorker() {
     console.log('[GreenScan] 🌐 Wieder online');
     _gsConnBanner('pending');
     setTimeout(function(){ window.gsFlushOfflineQueue && window.gsFlushOfflineQueue(); }, 800);
+    setTimeout(function(){ window.gsFlushPhotoQueue && window.gsFlushPhotoQueue(); }, 1400); // v31.06
     // Toast
     try {
       window.gsCountOfflineQueue && window.gsCountOfflineQueue().then(function(n){
@@ -70318,6 +70523,7 @@ function gsRegisterServiceWorker() {
   // Beim Boot Queue ggf. abarbeiten
   if (navigator.onLine) {
     setTimeout(function(){ window.gsFlushOfflineQueue && window.gsFlushOfflineQueue(); }, 3500);
+    setTimeout(function(){ window.gsFlushPhotoQueue && window.gsFlushPhotoQueue(); }, 4200); // v31.06
   }
 })();
 
