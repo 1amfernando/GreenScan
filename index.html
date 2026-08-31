@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.18.20260901">
+<meta name="app-version" content="31.19.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -63300,6 +63300,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.19', date: '01.09.2026',
+    headline: '📷 Garten-Foto-Analyse zeigt, was gerade passiert',
+    summary: 'Beim Erstellen des 3D-Gartenmodells aus Fotos stand bisher eine einzige Zeile — für die ganze Dauer der KI-Analyse über bis zu vier Bilder. Jetzt siehst du die Stufen: Fotos lesen, Grundstück schätzen, Beete und Zonen zuordnen, 3D-Modell aufbauen. Der Balken schätzt die Dauer und läuft bewusst nur bis 90 % — fertig ist es, wenn das Ergebnis wirklich da ist.',
+    user_summary: '📷 Beim Foto-zu-3D-Modell siehst du jetzt, welcher Schritt gerade läuft, statt nur „bitte warten".',
+    user_items: [
+      { emoji: '🪜', text: 'Vier Stufen statt einer Zeile — du siehst, woran die KI gerade arbeitet' },
+      { emoji: '⏳', text: 'Der Balken schätzt die Dauer und bleibt bei 90 %, bis das Ergebnis da ist' },
+    ],
+    items: [
+      {emoji:'🪜', bold:'tpStartProgress():', text:' vier Stufen mit Zeitachse, alle 600 ms neu gezeichnet, gestoppt in jedem Ausgang der Analyse (Erfolg wie Fehler).'},
+      {emoji:'🚫', bold:'Kein erfundener Fortschritt:', text:' ein Vision-Aufruf liefert keine Fortschrittsmeldung. Der Balken ist ausdrücklich eine Zeit-Schätzung und hält bei 90 %; ein Balken, der 100 % behauptet, während noch gewartet wird, wäre gelogen.'},
+    ],
+  },
+  {
     v: 'v31.18', date: '01.09.2026',
     headline: '🩺 Pflanzendoktor — Ursachen mit Wahrscheinlichkeit, dann zu Lina',
     summary: 'Das Diagnose-Ergebnis zeigt die möglichen Ursachen jetzt als eine Liste mit Balken und Prozentwerten, statt einer grossen Diagnose und grauen Restposten darunter. Neu darunter: „Zu Lina wechseln" — der Knopf stellt deiner Coachin genau die Frage, die nach jeder Diagnose kommt: und was mache ich jetzt konkret?',
@@ -69253,7 +69267,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.18';
+var GS_VERSION = 'v31.19';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -85278,18 +85292,64 @@ window._gsTPphoto = function(){
   };
   inp.click();
 };
+// v31.19: Stufen-Anzeige waehrend der Foto-Analyse.
+// Bisher stand hier EINE Zeile — „KI analysiert deine Gartenfotos…" — und zwar
+// fuer die gesamte Dauer eines Vision-Aufrufs ueber bis zu vier Bilder. Die
+// Entwuerfe (Bilder 5 und 7) zeigen stattdessen, WAS gerade passiert.
+//
+// Wichtig: die Balkenlaenge ist eine ZEIT-Schaetzung, keine Fortschrittsmeldung.
+// Ein Vision-Aufruf liefert keinen Fortschritt, deshalb laeuft der Balken nur
+// bis 90 % und bleibt dort stehen, bis die Antwort wirklich da ist. Eine Zahl,
+// die 100 % behauptet, waehrend noch gewartet wird, waere gelogen — und genau
+// solche Anzeigen habe ich in dieser Sitzung reihenweise entfernt.
+function tpStartProgress(note){
+  if (!note) return { stop: function(){} };
+  var stages = [
+    L('tp_stage_read',  'Fotos werden gelesen'),
+    L('tp_stage_plot',  'Grundstück wird geschätzt'),
+    L('tp_stage_feat',  'Beete, Bäume und Zonen werden zugeordnet'),
+    L('tp_stage_model', '3D-Modell wird aufgebaut')
+  ];
+  var t0 = Date.now(), EST = 16000, timer = null, stopped = false;
+  function tick(){
+    if (stopped) return;
+    var el = Date.now() - t0;
+    var pct = Math.min(90, Math.round((el / EST) * 90));
+    var si = Math.min(stages.length - 1, Math.floor((el / EST) * stages.length));
+    note.innerHTML =
+      '<div style="margin-top:10px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:13px 14px;">' +
+        '<div style="display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border-radius:20px;padding:3px 10px;font-size:10.5px;font-weight:800;color:var(--g-main);">' +
+          '<span style="width:7px;height:7px;border-radius:50%;background:var(--g-main);display:inline-block;"></span>' +
+          ed(L('tp_stage_chip','Analyse läuft')) +
+        '</div>' +
+        '<div style="font-family:\'Playfair Display\',serif;font-size:16px;font-weight:800;color:var(--text);margin-top:8px;">' + ed(stages[si]) + '</div>' +
+        '<div style="display:flex;align-items:center;gap:9px;margin-top:9px;">' +
+          '<div style="flex:1;height:6px;border-radius:3px;background:var(--surface2);overflow:hidden;">' +
+            '<div style="width:' + pct + '%;height:100%;background:var(--g-main);border-radius:3px;transition:width .5s linear;"></div>' +
+          '</div>' +
+          '<div style="font-size:11.5px;font-weight:800;color:var(--muted);flex-shrink:0;">' + pct + '%</div>' +
+        '</div>' +
+        '<div style="font-size:10.5px;color:var(--muted);margin-top:6px;line-height:1.4;">' + ed(L('tp_stage_hint','Der Balken schätzt die Dauer — fertig ist es, wenn das Ergebnis da ist.')) + '</div>' +
+      '</div>';
+    timer = setTimeout(tick, 600);
+  }
+  tick();
+  return { stop: function(){ stopped = true; if (timer) clearTimeout(timer); } };
+}
+
 async function tpAnalyzePhotos(imgs){
   if (!imgs || !imgs.length) return;
   if (typeof callVisionAI !== 'function'){ if(typeof gsToast==='function') gsToast(L('tp_no_ai','KI-Foto-Analyse hier nicht verfügbar.')); return; }
   TP.analyzing = true;
   var note = document.getElementById('tp-photo-note');
-  if (note) note.innerHTML = '<div style="padding:10px;text-align:center;color:var(--g-main);font-size:12px;">⏳ '+ed(L('tp_analyzing','KI analysiert deine Gartenfotos…'))+'</div>';
+  var prog = tpStartProgress(note);
   var sys = 'Du bist Landschaftsgärtner. Analysiere die Gartenfotos und schätze das Grundstück für einen Pflanzplan. Antworte NUR mit JSON (keine Erklärung), Schema: {"plot_length_m":Zahl,"plot_width_m":Zahl,"shape":"Rechteck|L-Form|unregelmässig","sun_direction":"kurzer DE-Hinweis","slope":"eben|leicht|steil","soil_hint":"lehmig|sandig|tonig|humos|kalkhaltig|feucht","light_hint":"vollsonnig|sonnig|halbschattig|schattig","features":[{"type":"baum|gebaeude|weg|hecke|beet|zaun","label":"DE","x_rel":0..1,"y_rel":0..1,"size_m":Zahl}],"boundaries":[{"edge":"vorne|hinten|links|rechts","type":"zaun|hecke|mauer|offen"}],"confidence":"hoch|mittel|niedrig","note":"kurzer DE-Hinweis, dass dies eine Schätzung ist"}. x_rel=0 links/1 rechts, y_rel=0 vorne/1 hinten. Schätze konservativ. Masse in Metern.';
   var prompt = 'Schätze aus diesen ' + imgs.length + ' Gartenfoto(s) die Grundstücksmasse, Himmelsrichtung, Hangneigung, Bodentyp und vorhandene Objekte (Bäume, Gebäude, Wege, Hecken, Zäune) mit ungefährer Position. Nur JSON.';
   var first = imgs[0], extra = imgs.slice(1).map(function(x){ return { b64:x.b64, mt:x.mt, label:'Garten' }; });
   var resp = null;
   try { resp = await callVisionAI(first.b64, first.mt, prompt, extra, { systemPrompt: sys, quotaFeature:'garden', logLabel:'tree_photo_3d' }); }
   catch(e){ console.warn('[TP] vision failed', e); }
+  try { prog.stop(); } catch(_){}
   TP.analyzing = false;
   var est = null;
   try {
