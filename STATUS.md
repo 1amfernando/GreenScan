@@ -4,13 +4,36 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.12` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.13` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-08-31 (v) — v31.13: „Was ist neu" zeigte über hundert Updates lang dasselbe
+
+> Beim Aufräumen des Tracking-Codes fiel mir auf, dass `GS_RELEASES` bei **v30.03** endet. Ich habe das als Nebenbefund notiert und dann nachgesehen, was der Eintrag eigentlich steuert. Die Antwort war unangenehmer als erwartet.
+
+#### 📰 Der Fund
+
+`showWhatsNew` baut den Dialog nach einem Update so: **Überschrift aus `GS_VERSION`**, **Inhalt aus `GS_RELEASES[0]`** — ohne zu prüfen, ob beides zusammengehört. Die Liste steht seit dem 21. Juni auf v30.03. Seither hat jeder Nutzer nach **jedem** Update einen Dialog gesehen mit dem Titel *„Was ist neu in v31.xx"* und darunter den Notizen von v30.03 („💾 Pläne speichern — zuverlässig, mit ‚Meine Pläne'"). Rund **110 Versionen** lang. Dasselbe im Über-Modal: der Block *„✨ Aktuelle Version"* zeigte v30.03, während direkt daneben im selben Modal die echte laufende Version stand.
+
+Das ist kein Schönheitsfehler. Wer die App aktualisiert und dreimal dieselbe Meldung bekommt, hört auf hinzusehen — und erfährt dann auch nichts mehr, wenn wieder etwas Echtes drinsteht.
+
+#### Was ich geändert habe
+
+1. **Sechs Einträge nachgetragen.** v31.09, v31.10, v31.11, v31.12 einzeln; dazu zwei ehrlich als solche gekennzeichnete Sammel-Einträge: `v30.92 – v31.08` (die Datenhaltungs-Welle) und `v30.04 – v30.91`. Über hundert Einzel-Einträge rückwirkend zu erfinden wäre Theater gewesen — die vollständige Historie steht in `STATUS.md`, und die Sammel-Einträge sagen genau das.
+2. **Der Dialog prüft jetzt ab.** Stimmt `GS_RELEASES[0].v` nicht mit `GS_VERSION` überein, **bleibt er aus** und schreibt in die Konsole, welcher Eintrag fehlt. Lieber nichts zeigen als etwas Falsches. `gs_seen_version` wird dabei bewusst **nicht** gestempelt: wird der Eintrag später nachgetragen, bekommt der Nutzer ihn noch zu sehen.
+3. **Das Über-Modal widerspricht sich nicht mehr.** Der Block heisst nur dann „Aktuelle Version", wenn er es auch ist — sonst „Letzter dokumentierter Eintrag".
+4. **Die Konvention steht jetzt in `CLAUDE.md` §3.1**, nicht nur in einem Kommentar über dem Array. Ein Schritt, den man nur findet, wenn man ohnehin an der richtigen Stelle liest, wird übersehen — genau das ist hier passiert, mir eingeschlossen: ich habe in dieser Session zwanzig Releases gebaut und keinen einzigen Eintrag hinterlassen.
+
+#### 🧹 Nebenbefund beim Nachzählen: 49 Zeilen wurden beim Rendern verstümmelt
+
+Die Notizen gehen per `innerHTML` ins Modal. **49 technische Zeilen** enthalten Tag-Namen und Platzhalter als **Prosa** — `<head>`, `<uuid>`, `<slug>`, `<script>`, `<img onerror>`. Der Browser hat sie als Markup gelesen: die Wörter verschwanden mitten im Satz, und die v29.36-Zeile baute tatsächlich ein `<img onerror>`-Element in den Dialog. Kein XSS (die Texte stammen aus dem Repo, nicht von Nutzern, und `<script>` via `innerHTML` läuft nicht), aber schlicht falsch dargestellt. Alle 13 Einsetzstellen in beiden Render-Funktionen escapen jetzt; gegengerechnet: 49/49 Zeilen kommen sauber durch.
+
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · `GS_RELEASES` als Array ausgewertet: **361 Einträge**, keine doppelten Versionen, keine ohne `v`/`headline` · Guard mit drei Fällen durchgespielt (passend → Dialog, unpassend → kein Dialog, real v31.13/v31.13 → Dialog) · Escaping an Stichproben gegengerechnet · Version synchron v31.13.
 
 ### 2026-08-31 (u) — v31.12: Karte & Tracking — das Fortsetzen war nur ein Kommentar
 

@@ -84,6 +84,18 @@ GreenScan/
 - Commit-Message-Format: `vXX.YY: <kurze Aussage>` + Markdown-Body mit
   Bullets pro Bereich (Sicherheit / UX / Feature). Beispiel siehe letzte
   Commits auf `main`.
+- **Pflicht bei jedem Bump: ein neuer Eintrag ganz oben in `GS_RELEASES`**
+  (`index.html`, gesucht mit `grep -n "window.GS_RELEASES = \["`). Der
+  „Was ist neu"-Dialog und der Über-Modal-Changelog lesen ausschliesslich
+  diese Liste. Seit v31.13 prüft der Dialog, ob `GS_RELEASES[0].v` der
+  laufenden `GS_VERSION` entspricht, und **bleibt sonst aus** — vergisst
+  du den Eintrag, sehen die Nutzer gar keine Release-Notizen mehr.
+  *Warum die Prüfung existiert:* zwischen v30.04 und v31.12 wurde die
+  Liste nicht gepflegt. Über hundert Updates lang zeigte der Dialog die
+  Notizen von v30.03 unter der jeweils neuen Versionsnummer.
+  Felder: `v`, `date`, `headline`, `summary`, optional `user_summary` /
+  `user_items` (werden bevorzugt gerendert). **Reiner Fliesstext** — die
+  Werte werden beim Rendern escaped, Markup in den Strings wirkt nicht.
 
 ### 3.2 · Branches
 - `main` ist Produktion. NIE direkt darauf pushen.
