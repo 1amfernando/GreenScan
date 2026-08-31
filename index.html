@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.00.20260831">
+<meta name="app-version" content="31.01.20260831">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -883,31 +883,10 @@ details > summary::marker { content: ''; }
 
 .tab-badge{position:absolute;top:2px;right:calc(50% - 20px);background:#e53935;color:#fff;font-size:9px;font-weight:800;min-width:16px;height:16px;border-radius:8px;padding:0 4px;display:flex;align-items:center;justify-content:center;line-height:1;}
 /* v23.70: Notification-Badge am Menü-Tab — iOS-Style, pulst sanft wenn >0 */
-.gs-notif-badge{position:absolute;top:6px;right:calc(50% - 22px);min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#e53935;color:#fff;font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 0 0 2px #0f1f11,0 2px 6px rgba(229,57,53,.55);animation:gsNotifPulse 2.2s ease-in-out infinite;pointer-events:none;letter-spacing:.2px;}
-@keyframes gsNotifPulse{0%,100%{box-shadow:0 0 0 2px #0f1f11,0 2px 6px rgba(229,57,53,.55),0 0 0 0 rgba(229,57,53,.5);}50%{box-shadow:0 0 0 2px #0f1f11,0 2px 10px rgba(229,57,53,.75),0 0 0 6px rgba(229,57,53,0);}}
+/* v31.01: .gs-notif-badge entfernt — die Badge am Menue-Tab ist weg (nur noch .gs-bell-badge). */
 
-/* v23.70/v30.81: Notification-Panel im Menü — iOS-Inbox-Style, Token-basiert (Dark-Mode via Variablen) */
-#gs-notif-panel{margin:0 12px 12px;background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-sm,0 2px 12px rgba(0,0,0,.04));}
-.gs-notif-header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border);}
-.gs-notif-title{font-size:13px;font-weight:800;color:var(--text);display:inline-flex;align-items:center;gap:8px;}
-.gs-notif-count{background:var(--c-danger,#e53935);color:#fff;font-size:10px;font-weight:900;padding:2px 7px;border-radius:10px;letter-spacing:.3px;}
-.gs-notif-clear{padding:5px 11px;background:transparent;color:var(--g-main);border:1px solid rgba(46,125,50,.35);border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:.15s;}
-.gs-notif-clear:active{background:rgba(46,125,50,.08);transform:scale(.97);}
-.gs-notif-item{display:flex;align-items:center;gap:11px;padding:10px 14px;width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);cursor:pointer;font-family:inherit;text-align:left;color:var(--text);-webkit-tap-highlight-color:transparent;transition:background .12s;}
-.gs-notif-item:last-child{border-bottom:none;}
-.gs-notif-item:active{background:rgba(46,125,50,.06);}
-/* v24.26: Snooze-Button für Plant-Reminders */
-.gs-notif-item-wrap{position:relative;}
-.gs-notif-snooze{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:rgba(46,125,50,.10);border:1px solid rgba(46,125,50,.25);border-radius:6px;padding:4px 7px;font-size:13px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:.15s;}
-.gs-notif-snooze:active{background:rgba(46,125,50,.18);transform:translateY(-50%) scale(.94);}
-.gs-notif-item.gs-notif-seen{opacity:.55;}
-.gs-notif-item-icon{font-size:22px;width:36px;height:36px;border-radius:50%;background:rgba(46,125,50,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.gs-notif-item-body{flex:1;min-width:0;}
-.gs-notif-item-title{font-size:13px;font-weight:700;color:var(--text);line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.gs-notif-item-sub{font-size:11.5px;color:var(--muted);line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px;}
-.gs-notif-item-time{font-size:10.5px;color:var(--muted);font-weight:600;flex-shrink:0;padding-left:6px;}
-.gs-notif-more{padding:8px 14px;font-size:11px;color:var(--muted);text-align:center;border-top:1px dashed var(--border);font-weight:600;}
-.gs-notif-scroll{max-height:38vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+/* v31.01: CSS des Menue-Panels entfernt (22 Regeln) — das Panel gibt es nicht mehr.
+   .gs-notif-openall bleibt weiter unten, die nutzt der Aufgaben-Notizzettel. */
 /* v30.85: Glocken-Badge in der Kopfleiste — eigener fester Platz für
    Benachrichtigungen UND Aufgaben (vorher nur über das Menü erreichbar). */
 .gs-bell-badge{position:absolute;top:-3px;right:-3px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--c-danger,#e53935);color:#fff;font-size:9.5px;font-weight:900;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 0 0 2px var(--g-dark);letter-spacing:.2px;pointer-events:none;}
@@ -5701,7 +5680,9 @@ html, body{ scroll-behavior: smooth; }
   <button class="tab"        id="tab-favs"    role="tab" aria-selected="false" aria-controls="screen-favs"    onclick="switchTab('favs',this)"><span class="ti" aria-hidden="true">🌱</span><span class="tl" data-i18n="nav_tab_favs" data-i18n-fallback="Pflanzen">Pflanzen</span></button>
   <button class="tab tab-center active" id="tab-home" role="tab" aria-selected="true" aria-controls="screen-home" onclick="switchTab('home',this)" aria-label="Startseite"><span class="ti" aria-hidden="true">🏠</span><span class="tl" data-i18n="nav_tab_home" data-i18n-fallback="Home">Home</span></button>
   <button class="tab"        id="tab-social"  role="tab" aria-selected="false" aria-controls="screen-social"  onclick="switchTab('social',this)"><span class="ti" aria-hidden="true">🌿</span><span class="tl" data-i18n="nav_tab_community" data-i18n-fallback="Community">Community</span></button>
-  <button class="tab"        id="tab-menu"    aria-haspopup="menu" aria-label="Hauptmenü öffnen" onclick="openMainMenu()"><span class="ti" aria-hidden="true">⋯</span><span class="tl" data-i18n="nav_tab_menu" data-i18n-fallback="Menü">Menü</span><span id="gs-notif-badge" class="gs-notif-badge" role="status" aria-live="polite" style="display:none;"></span></button>
+  <button class="tab"        id="tab-menu"    aria-haspopup="menu" aria-label="Hauptmenü öffnen" onclick="openMainMenu()"><span class="ti" aria-hidden="true">⋯</span><span class="tl" data-i18n="nav_tab_menu" data-i18n-fallback="Menü">Menü</span><!-- v31.01: Badge am Menü-Tab entfernt — sie zeigte ungelesene Benachrichtigungen an
+       und führte damit ins Menü, wo es seit dieser Version keine mehr gibt. Die Glocke
+       in der Kopfzeile (#gs-bell-btn) trägt die Zahl jetzt allein. --></button>
 </div>
 
 <!-- HAUPTMENÜ OVERLAY -->
@@ -5718,8 +5699,10 @@ html, body{ scroll-behavior: smooth; }
     </div>
     <div id="menu-search-results" style="display:none;padding:4px 12px 8px;max-height:300px;overflow-y:auto;"></div>
 
-    <!-- v23.70: Notification-Panel — nur sichtbar wenn ungelesene Events vorliegen -->
-    <div id="gs-notif-panel" style="display:none;"></div>
+    <!-- v31.01: Benachrichtigungs-Panel aus dem Menü ENTFERNT. Seit v30.85 gibt es
+         den Glocken-Knopf in der Kopfzeile (#gs-bell-btn), der direkt das
+         Benachrichtigungs-Center öffnet — mit Verlauf, abhakbaren Aufgaben und
+         mehr Platz. Zwei Orte für dieselbe Sache waren einer zu viel. -->
 
     <div id="menu-normal-content">
     <!-- PROFIL-SECTION (immer sichtbar) -->
@@ -22323,20 +22306,16 @@ function closeMainMenu() {
   if (typeof clearMenuSearch === 'function') clearMenuSearch();
   const m = document.getElementById('main-menu');
   if (!m) return;
-  const wasOpen = m.classList.contains('open');
   m.classList.remove('open');
   setTimeout(() => {
     if (!m.classList.contains('open')) m.style.display = 'none';
   }, 300);
-  // v30.81: Beim Schliessen wird nur noch der BADGE quittiert (gesehen) —
-  // die Eintraege selbst bleiben unter "Neu" bis der User sie abhakt oder
-  // "Alle ✓" drueckt. So ist alles jederzeit wieder aufrufbar (User-Wunsch),
-  // und der Badge nervt trotzdem nicht doppelt.
-  if (wasOpen) {
-    setTimeout(function(){
-      try { if (typeof gsNotifAckBadge === 'function') gsNotifAckBadge(); } catch(_){}
-    }, 320);
-  }
+  // v31.01: Die Badge-Quittierung beim Menue-Schliessen ist ENTFALLEN. Sie stammt
+  // aus v30.81, als das Menue die Benachrichtigungen noch zeigte — dort war
+  // "Menue zu" gleichbedeutend mit "gesehen". Seit die Benachrichtigungen nur
+  // noch im Center liegen, haette sie Mitteilungen als gelesen markiert, die
+  // niemand je angesehen hat: Menue auf, Menue zu, Glocke leer.
+  // Quittiert wird jetzt dort, wo man wirklich hinschaut — gsOpenNotifCenter().
 }
 
 // ── Menü-Navigation ──────────────────────────────────────────
@@ -22454,15 +22433,15 @@ function openMainMenu() {
 
   // v23.70: Notification-Panel im Menü rendern + 1,8s Zeit zum Lesen, dann als gesehen markieren
   // v23.94: Server-Notifs frisch laden BEVOR Panel rendert (sonst zeigt der Badge stale-state)
+  // v31.01: Panel ist weg — der Server-Pull bleibt aber, damit die Glocken-Badge
+  // beim Menue-Oeffnen frisch ist (sonst zeigt sie einen veralteten Stand).
   try {
     if (typeof gsNotifPull === 'function') {
-      gsNotifPull().then(function(){
-        try { if (typeof gsRenderNotifPanelInMenu === 'function') gsRenderNotifPanelInMenu(); } catch(_){}
-      }).catch(function(){
-        try { if (typeof gsRenderNotifPanelInMenu === 'function') gsRenderNotifPanelInMenu(); } catch(_){}
-      });
+      gsNotifPull()
+        .then(function(){ try { gsRenderNotifBadge(); } catch(_){} })
+        .catch(function(){ try { gsRenderNotifBadge(); } catch(_){} });
     } else {
-      try { if (typeof gsRenderNotifPanelInMenu === 'function') gsRenderNotifPanelInMenu(); } catch(_){}
+      try { gsRenderNotifBadge(); } catch(_){}
     }
   } catch(_){}
   // v30.80: KEIN Auto-Mark-Timer mehr beim Oeffnen — Quittierung laeuft jetzt
@@ -22798,22 +22777,12 @@ function gsRenderBellBadge(){
 }
 window.gsRenderBellBadge = gsRenderBellBadge;
 
+// v31.01: Es gibt nur noch EINE Anzeige — die Glocke in der Kopfzeile.
+// Vorher pflegte diese Funktion zusaetzlich eine zweite Badge am Menue-Tab.
+// Der Name bleibt, weil ihn ~20 Stellen aufrufen; er ist jetzt schlicht ein
+// Synonym fuer gsRenderBellBadge und haelt diese Aufrufer korrekt am Laufen.
 function gsRenderNotifBadge(){
-  // v30.85: Glocke immer mitziehen — beide Anzeigen bleiben so synchron.
   try { gsRenderBellBadge(); } catch(_){}
-  var el = document.getElementById('gs-notif-badge');
-  if (!el) return;
-  var n = gsCountUnreadNotifs();
-  if (n > 0){
-    el.textContent = n > 99 ? '99+' : String(n);
-    el.style.display = 'flex';
-    el.setAttribute('aria-label', n + ' ungelesene Benachrichtigung' + (n===1?'':'en'));
-    el.title = n + ' ungelesene Benachrichtigung' + (n===1?'':'en') + ' — Menü öffnen';
-  } else {
-    el.style.display = 'none';
-    el.removeAttribute('aria-label');
-    el.removeAttribute('title');
-  }
 }
 
 // v30.81: Semantik geschärft — das hier ist "Alle abhaken/archivieren"
@@ -22853,14 +22822,9 @@ function gsMarkAllNotifsSeen(){
     }
   } catch(_){}
   gsRenderNotifBadge();
-  // Panel-Content soft-ausblenden (visuelles Feedback), dann frisch rendern
-  var panel = document.getElementById('gs-notif-panel');
-  if (panel){
-    var items = panel.querySelectorAll('.gs-notif-item, .gs-nc-row, .gs-nc-task');
-    items.forEach(function(it){ it.classList.add('gs-notif-seen'); });
-  }
+  // v31.01: Das Menue-Panel gibt es nicht mehr — nur noch das Benachrichtigungs-Center
+  // nachziehen, falls es gerade offen ist.
   setTimeout(function(){
-    try { if (typeof gsRenderNotifPanelInMenu === 'function') gsRenderNotifPanelInMenu(); } catch(_){}
     try {
       var m = document.getElementById('modal-notif-center');
       if (m && m.classList.contains('open') && typeof gsNcRender === 'function') gsNcRender();
@@ -22868,76 +22832,11 @@ function gsMarkAllNotifsSeen(){
   }, 350);
 }
 
-// v30.81: Menü-Panel komplett neu — kompakt statt Wand: max 3 Aufgaben (abhakbar)
-// + max 3 Mitteilungen + "Alle anzeigen" → Notification-Center (Verlauf inklusive).
-function gsRenderNotifPanelInMenu(){
-  var panel = document.getElementById('gs-notif-panel');
-  if (!panel) return;
-  var esc = (typeof escHtml === 'function') ? escHtml : function(s){ return String(s||''); };
-  var tasks = gsGetDueTasks();
-  var news = gsCollectNotifs();
-  var dueNow = tasks.filter(function(t){ return t.days <= 0; });
-
-  // Nichts offen → schlanke Ein-Zeilen-Brücke zum Verlauf (wieder aufrufbar!)
-  if (!tasks.length && !news.length){
-    panel.style.display = 'block';
-    panel.innerHTML = '<button type="button" class="gs-notif-openall" style="border-top:none;" ' +
-      'onclick="closeMainMenu();setTimeout(function(){if(typeof gsOpenNotifCenter===\'function\')gsOpenNotifCenter(\'done\');},250);">' +
-      '🔔 Benachrichtigungen · <span style="color:var(--muted);font-weight:700;">Verlauf ansehen</span></button>';
-    return;
-  }
-
-  panel.style.display = 'block';
-  var pillCount = dueNow.length + news.filter(function(x){ return x.type !== 'scan' && x.type !== 'level'; }).length;
-  var html = '<div class="gs-notif-header">' +
-    '<span class="gs-notif-title">🔔 Benachrichtigungen' + (pillCount > 0 ? ' <span class="gs-notif-count">' + pillCount + '</span>' : '') + '</span>' +
-    (news.length ? '<button onclick="gsMarkAllNotifsSeen()" class="gs-notif-clear" aria-label="Alle als gelesen markieren">Alle ✓</button>' : '') +
-  '</div><div class="gs-notif-scroll">';
-
-  // ── Aufgaben (abhakbar, max 3) ──
-  if (tasks.length){
-    html += '<div class="gs-nc-sec" style="margin:10px 14px 6px;">📋 Aufgaben</div>';
-    html += '<div style="padding:0 12px 4px;">';
-    tasks.slice(0, 3).forEach(function(t){
-      var when = t.days < 0 ? '<span class="urgent">seit ' + (-t.days) + ' Tag' + (t.days === -1 ? '' : 'en') + ' fällig</span>'
-               : t.days === 0 ? '<span class="urgent">heute fällig</span>'
-               : t.days === 1 ? 'morgen fällig' : 'in ' + t.days + ' Tagen';
-      html += '<div class="gs-nc-task' + (t.days <= 0 ? ' gs-nc-urgent' : '') + '">' +
-        '<button type="button" class="gs-nc-check" aria-label="Erledigt" onclick="gsNcDoneTask(this,\'' + esc(t.plant.id) + '\',\'' + esc(t.key) + '\')">✓</button>' +
-        '<div class="gs-nc-task-body" onclick="gsNcDoneTask(this.parentElement.querySelector(\'.gs-nc-check\'),\'' + esc(t.plant.id) + '\',\'' + esc(t.key) + '\')">' +
-          '<div class="gs-nc-task-name">' + (t.plant.emoji||'🌿') + ' ' + esc(t.plant.name) + '</div>' +
-          '<div class="gs-nc-task-sub">' + (t.def.icon||'') + ' ' + esc(t.def.name||t.key) + ' · ' + when + '</div>' +
-        '</div>' +
-        '<button type="button" class="gs-nc-ghost" title="1 Tag verschieben" onclick="event.stopPropagation();gsSnoozeTask(\'' + esc(t.plant.id) + '\',\'' + esc(t.key) + '\',1);setTimeout(gsRenderNotifPanelInMenu,400);">⏰</button>' +
-      '</div>';
-    });
-    if (tasks.length > 3) html += '<div class="gs-notif-more" style="border:none;padding:2px 2px 6px;">+ ' + (tasks.length - 3) + ' weitere Aufgaben</div>';
-    html += '</div>';
-  }
-
-  // ── Mitteilungen (max 3) ──
-  if (news.length){
-    if (tasks.length) html += '<div class="gs-nc-sec" style="margin:6px 14px 2px;">💬 Mitteilungen</div>';
-    news.slice(0, 3).forEach(function(n){
-      var ago = gsRelTime(n.ts);
-      var act = 'gsNotifArchiveOne(\'' + esc(n.id||'') + '\',true);' + (n.action||'');
-      html += '<button type="button" class="gs-notif-item" onclick="' + act.replace(/"/g,'&quot;') + '">' +
-        '<div class="gs-notif-item-icon" aria-hidden="true">' + n.icon + '</div>' +
-        '<div class="gs-notif-item-body">' +
-          '<div class="gs-notif-item-title">' + esc(n.title) + '</div>' +
-          '<div class="gs-notif-item-sub">' + esc(n.subtitle) + '</div>' +
-        '</div>' +
-        '<div class="gs-notif-item-time">' + ago + '</div>' +
-      '</button>';
-    });
-  }
-
-  html += '</div>';
-  var moreCount = Math.max(0, tasks.length - 3) + Math.max(0, news.length - 3);
-  html += '<button type="button" class="gs-notif-openall" onclick="closeMainMenu();setTimeout(function(){if(typeof gsOpenNotifCenter===\'function\')gsOpenNotifCenter(\'new\');},250);">' +
-    'Alle anzeigen' + (moreCount > 0 ? ' (' + (tasks.length + news.length) + ')' : '') + ' →</button>';
-  panel.innerHTML = html;
-}
+// v31.01: gsRenderNotifPanelInMenu (68 Zeilen) ersatzlos entfernt. Das
+// Menue-Panel war der zweite Ort fuer Benachrichtigungen und Aufgaben —
+// seit v30.85 macht das der Glocken-Knopf in der Kopfzeile besser
+// (Benachrichtigungs-Center mit Verlauf). Zwei Orte fuer dieselbe Sache
+// hiess: zwei Render-Pfade, zwei Zustaende, doppelte Pflege.
 
 // ═══════════ v30.81: NOTIFICATION-CENTER (Modal) ═══════════
 // Wieder aufrufbare Inbox: Tab "Neu" (abhakbare Aufgaben + Mitteilungen) und
@@ -22982,7 +22881,7 @@ function gsNotifArchiveOne(id, silent){
   try { gsRenderNotifBadge(); } catch(_){}
   if (!silent) {
     setTimeout(function(){
-      try { gsRenderNotifPanelInMenu(); } catch(_){}
+      // v31.01: Menue-Panel entfaellt — nur noch das Benachrichtigungs-Center nachziehen.
       try {
         var m = document.getElementById('modal-notif-center');
         if (m && m.classList.contains('open')) gsNcRender();
@@ -23006,11 +22905,12 @@ function gsNcDoneTask(btn, plantId, taskKey){
   setTimeout(function(){
     try { if (typeof gsQuickDone === 'function') gsQuickDone(plantId, taskKey); } catch(_){}
     setTimeout(function(){
-      try { gsRenderNotifPanelInMenu(); } catch(_){}
+      // v31.01: Menue-Panel entfaellt — nur noch das Benachrichtigungs-Center nachziehen.
       try {
         var m = document.getElementById('modal-notif-center');
         if (m && m.classList.contains('open')) gsNcRender();
       } catch(_){}
+      try { if (typeof gsRenderNotifBadge === 'function') gsRenderNotifBadge(); } catch(_){}
     }, 300);
   }, 220);
 }
@@ -68021,7 +67921,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.00';
+var GS_VERSION = 'v31.01';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -70590,7 +70490,13 @@ function gsRegisterServiceWorker() {
     window._gsLoginPersistWrapped = true;
     var _origLoginSuccess = window.gsOnLoginSuccess;
     window.gsOnLoginSuccess = function(){
-      try { window.gsRequestPersistentStorage && window.gsRequestPersistentStorage(); } catch(e){}
+      // v31.01: Der Wachposten sitzt in der Basis-Funktion, also NACH diesem
+      // Wrapper. Ohne diese Pruefung liefe die Seiteneffekt-Zeile weiterhin bei
+      // jedem Aufruf — genau das, was den XP-Balken-Bug mit ausgeloest hat.
+      var _u = ''; try { _u = gsStore.get('gs_sb_uid', null) || ''; } catch(_){}
+      if (!_u || window._gsLoginDoneForUid !== _u) {
+        try { window.gsRequestPersistentStorage && window.gsRequestPersistentStorage(); } catch(e){}
+      }
       if (typeof _origLoginSuccess === 'function') return _origLoginSuccess.apply(this, arguments);
     };
   }
@@ -70738,7 +70644,12 @@ function gsRegisterServiceWorker() {
     window._gsLoginPullWrapped = true;
     var _origLoginPull = window.gsOnLoginSuccess;
     window.gsOnLoginSuccess = function(){
-      setTimeout(function(){ window.gsKnowledgePull && window.gsKnowledgePull(true); }, 2000);
+      // v31.01: siehe Wrapper oben — der Wissens-Pull ist ein Netz-Vorgang und
+      // gehoert zum Login, nicht zu jedem Profil-Oeffnen.
+      var _u2 = ''; try { _u2 = gsStore.get('gs_sb_uid', null) || ''; } catch(_){}
+      if (!_u2 || window._gsLoginDoneForUid !== _u2) {
+        setTimeout(function(){ window.gsKnowledgePull && window.gsKnowledgePull(true); }, 2000);
+      }
       if (typeof _origLoginPull === 'function') return _origLoginPull.apply(this, arguments);
     };
   }
@@ -72068,8 +71979,12 @@ async function profForgotPw() {
 async function renderProfileLoggedIn(mc) {
   // v28.81 i18n: _t-Guard für Profil-Vollansicht (DE/EN/ES).
   var _t=(window.gsI18n&&gsI18n.t)?gsI18n.t:function(k,f){return f;};
-  // Onboarding-Status nach erfolgreichem Login aktualisieren
-  if (typeof gsOnLoginSuccess === 'function') gsOnLoginSuccess();
+  // v31.01: NUR noch der billige Zustands-Abgleich. Hier stand
+  // `gsOnLoginSuccess()` — der komplette Login-Uebergang, bei JEDEM Oeffnen des
+  // Profils. Da der XP-Balken genau dieses Profil oeffnet, loeste ein Klick
+  // darauf Admin-Toast, Abo-Trial, zwei Netz-Pulls und ein closeModal auf das
+  // gerade zu oeffnende Modal aus (siehe Kommentar bei gsOnLoginSuccess).
+  if (typeof _gsApplyAuthUiState === 'function') _gsApplyAuthUiState();
   // v29.49: Sofort-Skeleton BEVOR auf sbLoadProfile() gewartet wird — sonst öffnet das Profil-Modal
   // (XP-Balken-Klick) leer/weiss bis das Netzwerk antwortet → fühlte sich wie ein Hänger an.
   try { if (mc && !_sbProfile) mc.innerHTML = '<div style="padding:44px 16px;text-align:center;color:var(--muted);font-size:13px;">⏳ ' + _t('profile_loading','Profil wird geladen…') + '</div>'; } catch(_){}
@@ -73057,7 +72972,71 @@ function gsActivateGuestMode(showBanner) {
 }
 
 // Nach erfolgreichem Login: Onboarding-Status setzen + Gast-Modus beenden
+// ═══ v31.01: Login-UEBERGANG und UI-Abgleich sauber getrennt ═══════════════
+//
+// BUG (Fernando, dritte Meldung): Klick auf den XP-Balken im Home zeigte
+// „🛡️ Admin-Modus aktiv" und danach fing die App an zu spinnen.
+//
+// URSACHE: renderProfileLoggedIn() rief bei JEDEM Oeffnen des Profils
+// gsOnLoginSuccess() auf — also den kompletten Login-Uebergang. Der XP-Balken
+// oeffnet genau dieses Profil. Pro Klick lief damit ab:
+//   • closeModal('modal-profile')  ← auf das Modal, das gerade geoeffnet wird
+//   • gsPullGlobalApiKey()          (Netz)
+//   • Admin-Toast nach 600 ms       ← das, was Fernando sah
+//   • gsAboStartTrial()             (Abo-Logik bei jedem Profil-Blick)
+//   • gsLoadCloudScans() nach 1200 ms (Netz + evtl. Toast)
+//   • gsRequestPersistentStorage() und gsKnowledgePull() aus den zwei Wrappern
+// Weil renderProfileLoggedIn async ist und openUserProfile direkt danach
+// openModal() aufruft, schloss und oeffnete sich das Modal gegenseitig — und
+// 600/1200 ms spaeter schoben Toasts und Netz-Antworten die UI weiter
+// durcheinander. Genau das ist „dann fängt alles an zu bugen".
+//
+// LOESUNG (Wurzel, nicht Symptom): zwei getrennte Zustaendigkeiten.
+//   _gsApplyAuthUiState()  — billig, idempotent, jederzeit aufrufbar.
+//                            Nur Zustands-/Sichtbarkeits-Abgleich.
+//   gsOnLoginSuccess()     — der EINMALIGE Uebergang. Laeuft pro echtem Login
+//                            genau einmal (Wachposten auf der uid), nicht bei
+//                            jedem Render.
+// Der uid-Wachposten schuetzt zugleich die uebrigen Aufrufer: sbLogin() UND
+// onbDoLogin() riefen bisher beide auf, der Uebergang lief also schon beim
+// normalen Anmelden doppelt.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Billiger, jederzeit wiederholbarer Abgleich. Keine Toasts, kein Netz,
+// keine Modals, keine Abo-Logik.
+function _gsApplyAuthUiState() {
+  try {
+    localStorage.setItem(GS_ONBOARDING_KEY, 'logged_in');
+    localStorage.removeItem(GS_GUEST_MODE_KEY);
+    window._gsGuestMode = false;
+  } catch(_){}
+  try {
+    var banner = document.getElementById('gs-guest-banner');
+    if (banner) banner.style.display = 'none';
+  } catch(_){}
+  try {
+    var isAdm = (typeof gsIsAdmin === 'function') ? gsIsAdmin() : false;
+    document.querySelectorAll('.admin-only-row').forEach(function(el) {
+      el.style.display = isAdm ? '' : 'none';
+    });
+    var ab = document.getElementById('api-key-btn');
+    if (ab) ab.style.display = isAdm ? '' : 'none';
+  } catch(_){}
+}
+window._gsApplyAuthUiState = _gsApplyAuthUiState;
+
 function gsOnLoginSuccess() {
+  // v31.01: Wachposten — der Uebergang gehoert genau einmal pro echtem Login
+  // ausgefuehrt. Ein Wechsel des Kontos (andere uid) laesst ihn wieder zu,
+  // gsOnLogout() setzt ihn zurueck.
+  try {
+    var _uid = gsStore.get('gs_sb_uid', null) || '';
+    if (_uid && window._gsLoginDoneForUid === _uid) {
+      _gsApplyAuthUiState();   // der billige Teil darf immer laufen
+      return;
+    }
+    window._gsLoginDoneForUid = _uid;
+  } catch(_){}
   localStorage.setItem(GS_ONBOARDING_KEY, 'logged_in');
   localStorage.removeItem(GS_GUEST_MODE_KEY);
   window._gsGuestMode = false;
@@ -73120,6 +73099,9 @@ function gsOnLoginSuccess() {
 
 // Nach Logout: Onboarding-Status zurücksetzen damit es beim nächsten Start erscheint
 function gsOnLogout() {
+  // v31.01: Wachposten loeschen, sonst laeuft der Login-Uebergang beim naechsten
+  // Anmelden (auch mit demselben Konto) nicht mehr.
+  try { window._gsLoginDoneForUid = null; } catch(_){}
   localStorage.removeItem(GS_ONBOARDING_KEY);
   localStorage.removeItem(GS_GUEST_MODE_KEY);
   // v30.94: Noch nicht angekommenes Feedback zuerst wegschicken. `ps_feedback` steht in
