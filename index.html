@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.97.20260831">
+<meta name="app-version" content="30.98.20260831">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -6483,8 +6483,17 @@ function gsIsValidEmail(email) {
   var _origSet = localStorage.setItem.bind(localStorage);
   var _origGet = localStorage.getItem.bind(localStorage);
   var _origRem = localStorage.removeItem.bind(localStorage);
+  // v30.98: Der Patch gibt jetzt true/false zurueck statt undefined.
+  // Vorher verschluckte er jeden QuotaExceededError und lieferte undefined —
+  // dadurch war JEDER `try{ localStorage.setItem(...) }catch{ …Fallback… }` im
+  // ganzen Monolithen toter Code (die Ausnahme kam nie an), und gsStore.set()
+  // meldete ausnahmslos Erfolg, auch wenn nichts geschrieben wurde.
+  // Der Rueckgabewert ist der einzige ehrliche Kanal, der bleibt: die Ausnahme
+  // darf nicht zurueck, sonst kehrt der iOS-Privatmodus-Absturz wieder, gegen
+  // den dieser Wrapper ueberhaupt gebaut wurde.
+  // Native setItem liefert undefined — `=== false` ist also eindeutig unser Signal.
   localStorage.setItem = function(k, v) {
-    try { return _origSet(k, v); }
+    try { _origSet(k, v); return true; }
     catch(e) {
       console.warn('localStorage.setItem quota/fail for "' + k + '":', e.message);
       // v28.91 HL#10: zentraler Choke-Point → throttled User-Feedback bei Quota.
@@ -6501,7 +6510,7 @@ function gsIsValidEmail(email) {
           }
         }
       } catch(__){}
-      return undefined;
+      return false;   // v30.98: ehrliches Fehlersignal statt stillem undefined
     }
   };
   localStorage.getItem = function(k) {
@@ -24143,7 +24152,16 @@ window._gsFetch = function(url, init, timeoutMs){
     set: function(key, value){
       try {
         var s = _ls(); if (!s) return false;
-        s.setItem(key, value);
+        // v30.98: RUECKGABEWERT auswerten. s.setItem ist der Wrapper von weiter
+        // oben — der wirft NICHT (sonst iOS-Privatmodus-Absturz), sondern liefert
+        // false. Vorher wurde hier nur auf eine Ausnahme gewartet, die nie kam:
+        // gsStore.set() meldete deshalb immer Erfolg, auch bei voller Quota.
+        // Ein natives, ungepatchtes setItem liefert undefined und wirft im
+        // Fehlerfall — beide Wege bleiben also korrekt abgedeckt.
+        var r = s.setItem(key, value);
+        // Kein eigener Zaehler-Hochlauf: der Wrapper oben hat den Quota-Treffer
+        // bereits gezaehlt. Sonst stuende jeder Fehlschlag doppelt in der Statistik.
+        if (r === false) return false;
         return true;
       } catch(e) {
         if (_isQuotaErr(e)) {
@@ -67977,7 +67995,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.97';
+var GS_VERSION = 'v30.98';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -69017,8 +69035,17 @@ async function sbEnsureValidToken() {
   return true;
 }
 
+// v30.98: gibt jetzt true/false zurueck. Bei vollem Gerätespeicher schlug das
+// Anmelden bisher STILL fehl: gsStore.set('gs_sb_token', …) schrieb nichts,
+// der Rueckgabewert wurde ignoriert, und der Nutzer landete nach korrekter
+// Passworteingabe wieder auf dem Login-Screen — ohne Fehlermeldung und ohne
+// Zugriff auf seine Cloud-Daten. (Bis v30.98 konnte gsStore.set das gar nicht
+// melden, siehe der Wrapper-Fix weiter oben.)
+// Geprueft wird per RUECKLESEN, nicht nur am Rueckgabewert: das ist der einzige
+// Beweis, dass der Token wirklich im Speicher steht. Bei den beiden kritischen
+// Schluesseln (Token + UID) ist das billig — es sind kurze Strings.
 function sbSaveSession(data) {
-  if (!data) return;
+  if (!data) return false;
   // v23.90 SECURITY: Account-Wechsel-Detection — Admin-Flag aufräumen wenn Email wechselt
   var oldEmail = (gsStore.get('gs_sb_email', null) || '').toLowerCase();
   var newEmail = ((data.user && data.user.email) || '').toLowerCase();
@@ -69039,6 +69066,23 @@ function sbSaveSession(data) {
   _sbUser = data.user || null;
   // Admin-Flag UI/Logic refreshen
   if (typeof gsRefreshAdminFlag === 'function') gsRefreshAdminFlag();
+  // v30.98: Hat der Token den Speicher wirklich erreicht?
+  var _tok = data.access_token || '';
+  if (_tok) {
+    var _back = null;
+    try { _back = gsStore.get('gs_sb_token', null); } catch(_){}
+    if (_back !== _tok) {
+      console.error('[sbSaveSession] Sitzung konnte nicht gespeichert werden (Speicher voll?).');
+      try {
+        if (typeof gsToast === 'function') {
+          gsToast('⚠️ Anmeldung konnte nicht gespeichert werden — der Gerätespeicher ist voll. '
+                + 'Bitte in den Einstellungen Platz schaffen und erneut anmelden.', 'error', 9000);
+        }
+      } catch(_){}
+      return false;
+    }
+  }
+  return true;
 }
 
 function sbClearSession() {
@@ -69327,7 +69371,14 @@ async function sbLogin(email, password) {
     return {error:{message:'⚠️ Unbekannter Fehler ('+res.status+')'+(preview2?' : '+preview2:'')}};
   }
   if (!res.ok) return {error: {message: (data&&(data.error_description||data.message||data.error)) || 'Login fehlgeschlagen'}};
-  sbSaveSession(data);
+  // v30.98: Wenn die Sitzung nicht in den Speicher passt, ist der Login NICHT
+  // gelungen — auch wenn der Server 200 gesagt hat. Vorher lief die Funktion
+  // hier stumm weiter, meldete Erfolg, und der Nutzer stand Sekunden spaeter
+  // wieder auf dem Login-Screen, ohne zu erfahren warum.
+  if (sbSaveSession(data) === false) {
+    return {error:{message:'💾 Anmeldung konnte nicht gespeichert werden — der Gerätespeicher ist voll. '
+                          + 'Bitte in den Einstellungen unter „Speicher" Platz schaffen und es erneut versuchen.'}};
+  }
   // v23.73: User-Daten aus Supabase ziehen (Garten/Pflanzen/Tagebuch)
   try { if (typeof gsSyncUserDataOnLogin === 'function') setTimeout(gsSyncUserDataOnLogin, 100); } catch(_){}
   // v23.73: Entitlements nach Login laden → Pro/Plus-Features greifen direkt
@@ -74154,6 +74205,11 @@ window.gsSnapshotBuildState = gsSnapshotBuildState;
 
 // Restore: jüngsten Snapshot holen + sicher in LS mergen (local-wins bei id-Arrays,
 // sonst nur befüllen wenn local leer). Nie populated local blind überschreiben.
+// v30.98: zaehlt jetzt mit, was wirklich geschrieben wurde. Vorher meldete
+// gsSnapshotRestore „✅ Daten wiederhergestellt!" auch dann, wenn bei voller
+// Quota kein einziger Schluessel geschrieben werden konnte — das letzte
+// Sicherheitsnetz log den Nutzer an.
+window._gsRestoreStats = { written: 0, failed: 0 };
 function _gsRestoreKey(lsKey, snapVal){
   if (snapVal == null) return;
   var cur = null; try { cur = localStorage.getItem(lsKey); } catch(_){}
@@ -74166,12 +74222,18 @@ function _gsRestoreKey(lsKey, snapVal){
         var byId = {};
         snapVal.forEach(function(x){ if (x && x.id != null) byId[String(x.id)] = x; });
         c.forEach(function(x){ if (x && x.id != null) byId[String(x.id)] = x; }); // local wins
-        try { localStorage.setItem(lsKey, JSON.stringify(Object.keys(byId).map(function(k){ return byId[k]; }))); } catch(_){}
+        try {
+          var _okM = localStorage.setItem(lsKey, JSON.stringify(Object.keys(byId).map(function(k){ return byId[k]; })));
+          if (_okM === false) window._gsRestoreStats.failed++; else window._gsRestoreStats.written++;
+        } catch(_){ window._gsRestoreStats.failed++; }
       }
     } catch(_){}
     return;
   }
-  try { localStorage.setItem(lsKey, typeof snapVal === 'string' ? snapVal : JSON.stringify(snapVal)); } catch(_){}
+  try {
+    var _ok = localStorage.setItem(lsKey, typeof snapVal === 'string' ? snapVal : JSON.stringify(snapVal));
+    if (_ok === false) window._gsRestoreStats.failed++; else window._gsRestoreStats.written++;
+  } catch(_){ window._gsRestoreStats.failed++; }
 }
 // v30.50: State-Blob aus dem Snapshot zurück in localStorage (Inverse von _buildStateBlob), non-destruktiv
 // via _gsRestoreKey (nur wenn lokal leer / id-Array-Merge). Greift nur im Katastrophen-Fall (auch user_app_state
@@ -74204,6 +74266,7 @@ async function gsSnapshotRestore(){
     });
     var st = (r && !r.error) ? r.data : null;
     if (!st || typeof st !== 'object') { if (typeof gsToast==='function') gsToast('Kein Backup gefunden.','warning'); return false; }
+    window._gsRestoreStats = { written: 0, failed: 0 };   // v30.98
     _gsRestoreKey('ps_myplants', st.plants);
     _gsRestoreKey('gs_gartentagebuch', st.diary);
     _gsRestoreKey('gs_ernte_log', st.ernte);
@@ -74258,6 +74321,22 @@ async function gsSnapshotRestore(){
     // v30.97: Spur neu setzen — sonst blockiert der Verdraengungs-Schutz die
     // automatischen Snapshots dauerhaft, obwohl die Daten wieder da sind.
     try { _gsSnapshotMarkHad(); } catch(_){}
+    // v30.98: ehrlich melden, was tatsaechlich ankam.
+    var _st = window._gsRestoreStats || { written:0, failed:0 };
+    if (_st.failed > 0 && _st.written === 0) {
+      if (typeof gsToast === 'function') {
+        gsToast('⚠️ Wiederherstellung fehlgeschlagen — der Gerätespeicher ist voll. '
+              + 'Bitte Platz schaffen und es erneut versuchen. Dein Backup bleibt erhalten.', 'error', 9000);
+      }
+      return false;
+    }
+    if (_st.failed > 0) {
+      if (typeof gsToast === 'function') {
+        gsToast('⚠️ Teilweise wiederhergestellt (' + _st.written + ' von ' + (_st.written + _st.failed) + ') — '
+              + 'der Gerätespeicher ist voll. Nach dem Aufräumen bitte nochmal wiederherstellen.', 'warning', 9000);
+      }
+      return false;
+    }
     if (typeof gsToast === 'function') gsToast('✅ Daten wiederhergestellt!','success', 4000);
     return true;
   } catch(e){ console.warn('[gsSnapshot] restore', e && e.message); if (typeof gsToast==='function') gsToast('Wiederherstellung fehlgeschlagen.','error'); return false; }
