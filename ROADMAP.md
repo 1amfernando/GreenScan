@@ -5,7 +5,7 @@
 > Kompagnon: `STATUS.md` (operativer Snapshot) · `CLAUDE.md` (Onboarding) ·
 > `BACKEND_FRONTEND_MAP_v26.76.md` (Architektur-Detailkarte).
 
-**Stand:** v31.13 · App **live** auf green-scan.ch · released seit v26.0.
+**Stand:** v31.14 · App **live** auf green-scan.ch · released seit v26.0.
 
 ---
 
@@ -50,6 +50,8 @@ Die App ist ein reifes, live-laufendes Produkt. Erreicht u.a.:
 **Community, Einstellungen, Karte (v31.09–v31.12).** Kommentare lassen sich liken/disliken und teilen, Likes erscheinen als Benachrichtigung; ein Datenschutz-Schalter zeigte auf neuen Geräten den falschen Zustand (`opt_in_achievement_feed` wurde nur geschrieben, nie zurückgelesen); ein eigenes Icon-Set liegt unter `assets/icons/`; und die GPS-Aufzeichnung kann jetzt tatsächlich **fortgesetzt** werden — der Kommentar versprach das seit v24.11, der Code bot nur „speichern" oder „verwerfen". Dazu: Wach-Timer statt totem watchId-Test, zeitbasiertes Sichern, Ausdünnen statt Abschneiden langer Tracks, monotone Wander-Zähler (die Achievements liefen ab Track 31 rückwärts) und eine Karte, die mitläuft.
 
 **Release-Notizen wieder ehrlich (v31.13).** Der „Was ist neu"-Dialog setzte die laufende Versionsnummer über den obersten `GS_RELEASES`-Eintrag — und der stand seit Juni auf v30.03. Rund hundert Updates lang las jeder Nutzer dieselben Notizen unter einer neuen Nummer. Sechs Einträge nachgetragen, der Dialog prüft jetzt ab und bleibt bei fehlendem Eintrag lieber aus, die Konvention steht in `CLAUDE.md` §3.1 statt nur in einem Code-Kommentar.
+
+**Streaks halten wieder (v31.14).** Erster Teil von „Bindung und Wachstum" — bevor eine Serie Nutzer hält, muss sie selbst halten. Der Cloud-Abgleich schrieb die vier zusammengehörenden Streak-Schlüssel einzeln; ein Gerät ohne Serie leerte dabei die Prüfsumme, und der nächste Lesevorgang setzte auf 0. Der Login-Streak fiel auf 1, weil nur die Zahl übertragen wurde, nicht der Tag. Dazu rechneten drei Streak-Systeme mit zwei Tagesgrenzen (Ortszeit vs. UTC). Alles behoben, 14/14 Szenarien gegen die Originalfunktionen grün.
 
 Detaillierte Sprint-Historie: `STATUS.md` Sektion 0 (Routine-Einträge).
 

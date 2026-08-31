@@ -4,13 +4,52 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.13` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.14` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-08-31 (w) — v31.14: Die Tages-Serie verschwand beim zweiten Gerät
+
+> Erster Teil von „Bindung und Wachstum", der nichts mit Aussehen zu tun hat. Bevor man Nutzer mit einer Serie hält, muss die Serie halten. Sie tat es nicht.
+
+#### 🔥 Der Streak wurde beim Cloud-Abgleich gelöscht
+
+`gs_streak` ist kein einzelner Wert, sondern **ein Datensatz aus vier Schlüsseln**: Wert, letzter aktiver Tag, Zeitstempel und eine FNV-Signatur gegen Handarbeit im localStorage. `gsGetStreak()` prüft die Signatur bei **jedem** Lesevorgang und setzt bei Nichtübereinstimmung auf 0.
+
+Der Cloud-Writeback schrieb die vier durch dieselbe generische Schleife wie alles andere — mit `if (v == null) continue`. Ein Gerät, das noch nie eine Serie hatte, baut aber genau diesen Blob:
+
+```
+streak: null   (JSON.parse(getItem('gs_streak') || 'null'))   → übersprungen
+streak_sig: '' (getItem(...) || '')                           → GESCHRIEBEN
+```
+
+Der Wert blieb also stehen, die Signatur wurde geleert — und der nächste Lesevorgang hielt den Datensatz für manipuliert. **Wer zwanzig Tage gesammelt hatte, verlor sie, sobald er sich einmal auf einem zweiten Gerät anmeldete.** Zweitens galt für den ganzen `state`-Blob „Cloud ist massgeblich"; für einen Streak ist das falsch, denn Aktivität auf **irgendeinem** Gerät zählt — ein zurückgebliebenes Gerät zog den Wert nach unten.
+
+Beides **vor dem Fix mit den echten Funktionen nachgestellt** (Fake-`localStorage`, `_gsStreakSig`/`gsGetStreak` unverändert aus `index.html` extrahiert): 20 → **0** beim leeren Blob, 20 → **5** beim niedrigeren Cloud-Wert. Nach dem Fix 7/7 Szenarien grün.
+
+Jetzt übernimmt `_gsStreakApplyCloud` die vier Schlüssel **als Ganzes** und nur, wenn die Cloud weiter ist (späterer Tag; bei gleichem Tag der höhere Wert). Die Signatur wird lokal neu erzeugt — über die Leitung transportiert sie ohnehin nichts, was nicht schon in den Daten steht. Bleibt der lokale Stand stehen, wird über das bestehende `_gsStateRepairNeeded`-Signal aus v28.97 ein Reparatur-Push angestossen.
+
+#### 🔑 Der Login-Streak fiel auf 1, sobald ein zweites Gerät im Spiel war
+
+Im State-Blob stand `login_streak`, aber **nicht** `gs_last_login`. Gerät B bekam die Zahl ohne den zugehörigen Tag, sah beim nächsten Start eine Lücke, setzte auf 1 — und schob die 1 zurück in die Cloud, von wo Gerät A sie holte. Der Tag ist jetzt Teil des Blobs, und beide werden wie oben nur gemeinsam übernommen. `gs_last_login` steht dazu in `STATE_KEYS`, damit ein Schreiben den Scope überhaupt als geändert markiert.
+
+#### 🕛 Drei Streak-Systeme, zwei Tagesgrenzen
+
+`gs_streak` rechnet seit v23.56 mit `_gsDayKey()` in **Ortszeit** („Timezone-safe, kein UTC-Drift" steht sogar im Kommentar). `gsCheckLoginStreak` und `checkAndUpdateStreak` rechneten mit `new Date().toISOString().slice(0,10)` — dem **UTC-Tag**. Nachgerechnet mit `TZ=Europe/Zurich`:
+
+| Zeitpunkt | Ortszeit | UTC |
+|---|---|---|
+| 31.08. 00:30 (Sommerzeit) | `2026-08-31` | `2026-08-30` |
+| 15.01. 00:30 (Winterzeit) | `2026-01-15` | `2026-01-14` |
+| 31.08. 14:00 | `2026-08-31` | `2026-08-31` |
+
+In der Schweiz begann der neue Tag für zwei der drei Systeme also erst um **01:00 bzw. 02:00 Uhr**. Wer um halb eins nachts noch hereinschaute, zählte für gestern — und dieselbe Sitzung wurde vom einen System als „heute", vom anderen als „gestern" gewertet. Alle drei nutzen jetzt dieselbe Grenze.
+
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · `sw.js` valid · **14/14 Szenarien** in zwei Node-Suiten gegen die aus `index.html` extrahierten Originalfunktionen (Aktiv-Streak 7, Login-Streak + Tagesgrenze 7); die zwei Fehlerfälle waren vor dem Fix rot · Zeitzonen-Divergenz mit `TZ=Europe/Zurich` belegt · `GS_RELEASES[0].v === GS_VERSION` (die Prüfung aus v31.13 greift) · Version synchron v31.14.
 
 ### 2026-08-31 (v) — v31.13: „Was ist neu" zeigte über hundert Updates lang dasselbe
 

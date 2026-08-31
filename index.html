@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.13.20260831">
+<meta name="app-version" content="31.14.20260831">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10949,6 +10949,56 @@ function _gsStreakResetAll(){
   } catch(_){}
 }
 
+// v31.14: Der Streak ist EIN Datensatz aus vier Schlüsseln — Wert, letzter
+// aktiver Tag, Zeitstempel, Signatur — und nur zusammen gültig. Der Cloud-Pull
+// schrieb sie einzeln durch dieselbe Schleife wie alles andere. Ein Gerät ohne
+// Streak schickt aber `streak: null` und `streak_sig: ''`: der Wert wurde
+// übersprungen (null), die leere Signatur geschrieben (Leerstring ist nicht
+// null) — und der nächste Lesevorgang hielt den Datensatz für manipuliert und
+// setzte ihn auf 0. Wer zwanzig Tage gesammelt hatte, verlor sie beim ersten
+// Login auf einem zweiten Gerät.
+// Zweitens galt „Cloud ist massgeblich" auch hier. Für einen Streak ist das
+// falsch: Aktivität auf IRGENDEINEM Gerät zählt, also gewinnt der weiter
+// fortgeschrittene Stand — späterer Tag, bei gleichem Tag der höhere Wert.
+// Die Signatur wird lokal neu erzeugt; sie schützt den lokalen Speicher vor
+// Handarbeit, über die Leitung transportiert sie nichts Zusätzliches.
+window._gsStreakApplyCloud = function(sd) {
+  try {
+    var cs = parseInt(sd && sd.streak, 10);
+    var cd = String((sd && sd.last_active_day_iso) || '');
+    if (!isFinite(cs) || cs <= 0 || !cd) return;   // Cloud hat keinen Streak → lokal nichts anfassen
+    var ls = 0, ld = '';
+    try { ls = parseInt(gsStore.get('gs_streak', null) || '0', 10) || 0; } catch(_){}
+    try { ld = localStorage.getItem('gs_last_active_day_iso') || ''; } catch(_){}
+    if (ld && !(cd > ld || (cd === ld && cs > ls))) {
+      // Lokal ist weiter → behalten und die Cloud beim nächsten Push nachziehen
+      // (dasselbe Reparatur-Signal wie beim leeren-Array-Schutz aus v28.97).
+      if (cs !== ls || cd !== ld) window._gsStateRepairNeeded = true;
+      return;
+    }
+    _gsStreakWriteSigned(cs, cd);   // Wert, Tag, Stempel und Signatur in einem Zug
+  } catch(_){}
+};
+
+// v31.14: derselbe Grund wie oben, für den Login-Streak — Zahl und Tag gehören
+// zusammen und werden nur gemeinsam übernommen, der weiter fortgeschrittene
+// Stand gewinnt.
+window._gsLoginStreakApplyCloud = function(sd) {
+  try {
+    var cs = parseInt(sd && sd.login_streak, 10);
+    var cd = String((sd && sd.last_login) || '');
+    if (!isFinite(cs) || cs <= 0 || !cd) return;
+    var ls = parseInt(localStorage.getItem('gs_login_streak') || '0', 10) || 0;
+    var ld = localStorage.getItem('gs_last_login') || '';
+    if (ld && !(cd > ld || (cd === ld && cs > ls))) {
+      if (cs !== ls || cd !== ld) window._gsStateRepairNeeded = true;
+      return;
+    }
+    localStorage.setItem('gs_login_streak', String(cs));
+    localStorage.setItem('gs_last_login', cd);
+  } catch(_){}
+};
+
 function gsGetStreak() {
   // v23.60: Signatur-Verify bei jedem Read – verhindert manuelles Aufdrehen.
   if (!_gsStreakVerify()){
@@ -18164,12 +18214,22 @@ function gsTrackAction(action) {
 var _gsStreakDone = false;
 function gsCheckLoginStreak() {
   if (_gsStreakDone) return; _gsStreakDone = true;
-  var today = new Date().toISOString().slice(0,10);
+  // v31.14: hier stand `new Date().toISOString().slice(0,10)` — das ist der
+  // UTC-Tag. In der Schweiz (UTC+1/+2) beginnt der neue Tag damit erst um
+  // 01:00 bzw. 02:00 Uhr Ortszeit: wer um halb eins nachts noch hereinschaut,
+  // zählte für gestern. Der Aktiv-Streak (gs_streak) rechnet seit v23.56 mit
+  // _gsDayKey() in Ortszeit — die App hatte zwei verschiedene Tagesgrenzen und
+  // konnte dieselbe Sitzung einmal als „heute" und einmal als „gestern" werten.
+  var today = (typeof _gsDayKey === 'function') ? _gsDayKey() : new Date().toISOString().slice(0,10);
   var last = localStorage.getItem('gs_last_login')||'';
-  var streak = parseInt(localStorage.getItem('gs_login_streak')||'0');
+  var streak = parseInt(localStorage.getItem('gs_login_streak')||'0', 10) || 0;
   if (last === today) { gsUpdateXPBar(); return; }
-  var yest = new Date(); yest.setDate(yest.getDate()-1);
-  streak = (last === yest.toISOString().slice(0,10)) ? streak+1 : 1;
+  var cont = false;
+  if (last) {
+    if (typeof _gsDayDiff === 'function') cont = (_gsDayDiff(today, last) === 1);
+    else { var yest = new Date(); yest.setDate(yest.getDate()-1); cont = (last === yest.toISOString().slice(0,10)); }
+  }
+  streak = cont ? streak + 1 : 1;
   try { localStorage.setItem('gs_last_login', today); localStorage.setItem('gs_login_streak', String(streak)); } catch(_){}
   gsAddXP(3, streak > 1 ? streak+'-Tage-Serie! 🔥' : null);
 }
@@ -62895,6 +62955,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.14', date: '31.08.2026',
+    headline: '🔥 Streaks — sie verschwanden beim zweiten Gerät',
+    summary: 'Wer sich auf einem zweiten Gerät anmeldete, verlor seine Tages-Serie: der Abgleich schrieb die vier zusammengehörenden Werte einzeln, und ein Gerät ohne Serie leerte dabei die Prüfsumme — beim nächsten Lesen galt der Datensatz als manipuliert und wurde auf 0 gesetzt. Auch der Login-Streak fiel auf 1, weil nur die Zahl übertragen wurde, nicht der zugehörige Tag. Und die App rechnete an drei Stellen mit zwei verschiedenen Tagesgrenzen.',
+    user_summary: '🔥 Deine Tages-Serie überlebt jetzt den Wechsel auf ein anderes Gerät — und der Tag wechselt um Mitternacht, nicht um zwei Uhr morgens.',
+    user_items: [
+      { emoji: '🔥', text: 'Die Serie verschwindet nicht mehr, wenn du dich auf einem zweiten Gerät anmeldest' },
+      { emoji: '📱', text: 'Der weiter fortgeschrittene Stand gewinnt — aktiv auf irgendeinem Gerät zählt' },
+      { emoji: '🕛', text: 'Der Tag wechselt um Mitternacht Ortszeit, nicht um 01:00/02:00 Uhr' },
+    ],
+    items: [
+      {emoji:'🔥', bold:'Streak als ein Datensatz:', text:' gs_streak, gs_last_active_day_iso, gs_streak_stamp und gs_streak_sig werden nur noch gemeinsam übernommen. Ein Gerät ohne Streak schickte streak=null (übersprungen) mit sig="" (geschrieben) — die Prüfsumme passte nicht mehr und gsGetStreak setzte auf 0.'},
+      {emoji:'📈', bold:'Weiter-fortgeschritten gewinnt:', text:' späterer Tag, bei gleichem Tag der höhere Wert. Bleibt lokal stehen, wird die Cloud über das bestehende Repair-Signal nachgezogen.'},
+      {emoji:'🔑', bold:'gs_last_login im State-Blob:', text:' bisher wurde nur gs_login_streak übertragen. Gerät B bekam die Zahl ohne den Tag, sah beim Start eine Lücke, setzte auf 1 und schob die 1 zurück.'},
+      {emoji:'🕛', bold:'Eine Tagesgrenze:', text:' gsCheckLoginStreak und checkAndUpdateStreak nutzen jetzt _gsDayKey/_gsDayDiff (Ortszeit) statt toISOString (UTC). In der Schweiz begann der neue Tag sonst um 01:00 bzw. 02:00 Uhr.'},
+    ],
+  },
+  {
     v: 'v31.13', date: '31.08.2026',
     headline: '📰 „Was ist neu" zeigte seit über hundert Updates dasselbe',
     summary: 'Der Dialog nach einem Update setzte die neue Versionsnummer als Überschrift, darunter aber immer den obersten Listen-Eintrag — und der stand seit Juni auf v30.03. Über hundert Updates lang las jeder Nutzer dieselben alten Notizen unter einer neuen Nummer. Die fehlenden Versionen sind nachgetragen, und der Dialog bleibt künftig lieber aus, als etwas Falsches zu zeigen.',
@@ -68765,7 +68842,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.13';
+var GS_VERSION = 'v31.14';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -70427,14 +70504,22 @@ async function profileAddXp(amount, reason) {
 async function checkAndUpdateStreak() {
   var profile = _sbProfile || await sbLoadProfile();
   if (!profile) return;
-  var today = new Date().toISOString().slice(0,10);
+  // v31.14: gleiche Tagesgrenze wie überall sonst (Ortszeit statt UTC) — sonst
+  // zählt der Server-Streak eine Sitzung um 00:30 Uhr noch zu gestern, während
+  // der lokale Aktiv-Streak sie schon zu heute zählt, und der Nutzer sieht zwei
+  // verschiedene Zahlen für dieselbe Sache.
+  var today = (typeof _gsDayKey === 'function') ? _gsDayKey() : new Date().toISOString().slice(0,10);
   var lastLogin = profile.last_login_date || '';
   var streak = profile.login_streak || 0;
   var longestStreak = profile.longest_streak || 0;
-  var yesterday = new Date(Date.now()-86400000).toISOString().slice(0,10);
 
   if (lastLogin === today) return; // Schon heute eingeloggt
-  if (lastLogin === yesterday) {
+  var _cont = false;
+  if (lastLogin) {
+    if (typeof _gsDayDiff === 'function') _cont = (_gsDayDiff(today, lastLogin) === 1);
+    else _cont = (lastLogin === new Date(Date.now()-86400000).toISOString().slice(0,10));
+  }
+  if (_cont) {
     streak++;
   } else {
     streak = 1; // Streak unterbrochen
@@ -74575,9 +74660,11 @@ async function gsSyncUserDataOnLogin(){
         if (_shouldOverwriteLocal('state', sUpdated)) {
           // Setze JEDEN bekannten Key zurück in localStorage (für Cross-Device-Sync)
           var stateMap = {
-            'gs_streak': sd.streak, 'gs_login_streak': sd.login_streak,
-            'gs_streak_sig': sd.streak_sig, 'gs_streak_stamp': sd.streak_stamp,
-            'gs_last_active_day_iso': sd.last_active_day_iso,
+            // v31.14: gs_streak / gs_streak_sig / gs_streak_stamp /
+            // gs_last_active_day_iso stehen bewusst NICHT mehr hier — sie sind
+            // nur zusammen gültig und werden unten von _gsStreakApplyCloud als
+            // ein Datensatz übernommen. Einzeln geschrieben löschten sie den
+            // Streak (siehe Kommentar bei _gsStreakApplyCloud).
             'gs_chat_history': sd.chat_history, 'gs_doctor_history': sd.doctor_history,
             'gs_ki_analyses': sd.ki_analyses,
             'gs_dq_archive': sd.dq_archive, 'gs_dq_stats': sd.dq_stats, 'gs_quiz_streak': sd.quiz_streak,
@@ -74654,6 +74741,10 @@ async function gsSyncUserDataOnLogin(){
                 } catch(_){}
               }
             }
+            // v31.14: Streak als Ganzes übernehmen (nach der Schleife, damit der
+            // Schreibschutz gegen Re-Push noch aktiv ist).
+            try { if (typeof window._gsStreakApplyCloud === 'function') window._gsStreakApplyCloud(sd); } catch(_){}
+            try { if (typeof window._gsLoginStreakApplyCloud === 'function') window._gsLoginStreakApplyCloud(sd); } catch(_){}
             // UI prefs
             if (sd.ui) {
               if (sd.ui.dark != null) try { localStorage.setItem('gs_dark', String(sd.ui.dark)); } catch(_){}
@@ -74968,6 +75059,11 @@ window.gsCloudSync = (function(){
     // Streak/Activity
     try { data.streak = JSON.parse(gsStore.get('gs_streak', null)||'null'); } catch(_){}
     try { data.login_streak = JSON.parse(localStorage.getItem('gs_login_streak')||'null'); } catch(_){}
+    // v31.14: der zugehörige Tag fehlte im Blob. Nur die Zahl zu übertragen
+    // heisst: Gerät B bekommt „10", hat aber kein gs_last_login → beim nächsten
+    // Start sieht es eine Lücke, setzt auf 1 und schiebt die 1 in die Cloud.
+    // Der Login-Streak fiel dadurch auf 1, sobald ein zweites Gerät im Spiel war.
+    try { data.last_login = localStorage.getItem('gs_last_login') || ''; } catch(_){}
     try { data.streak_sig = localStorage.getItem('gs_streak_sig') || ''; } catch(_){}
     try { data.streak_stamp = localStorage.getItem('gs_streak_stamp') || ''; } catch(_){}
     try { data.last_active_day_iso = localStorage.getItem('gs_last_active_day_iso') || ''; } catch(_){}
@@ -75196,6 +75292,7 @@ window.gsCloudSync = (function(){
       var STATE_KEYS = {
         // state-Scope
         'gs_streak':'state','gs_login_streak':'state','gs_streak_sig':'state','gs_streak_stamp':'state',
+        'gs_last_login':'state',   // v31.14: gehört zu gs_login_streak — beide oder keiner
         'gs_last_active_day_iso':'state',
         'gs_chat_history':'state','gs_doctor_history':'state','gs_ki_analyses':'state',
         'gs_dq_archive':'state','gs_dq_stats':'state','gs_quiz_streak':'state',
@@ -75611,9 +75708,11 @@ function _gsRestoreKey(lsKey, snapVal){
 // leer); im Normalfall stellt der Cloud-Pull diese Keys ohnehin her.
 function _gsApplyStateBlob(b){
   if (!b || typeof b !== 'object') return;
+  // v31.14: die vier Streak-Schlüssel fehlen hier absichtlich — _gsRestoreKey
+  // füllt je Schlüssel einzeln, was denselben halben Datensatz erzeugen kann
+  // wie im Cloud-Pull. Sie kommen unten als Ganzes.
   var map = {
-    streak:'gs_streak', login_streak:'gs_login_streak', streak_sig:'gs_streak_sig', streak_stamp:'gs_streak_stamp',
-    last_active_day_iso:'gs_last_active_day_iso', chat_history:'gs_chat_history', doctor_history:'gs_doctor_history',
+    chat_history:'gs_chat_history', doctor_history:'gs_doctor_history',
     ki_analyses:'gs_ki_analyses', dq_archive:'gs_dq_archive', dq_stats:'gs_dq_stats', quiz_streak:'gs_quiz_streak',
     recipe_favs:'gs_recipe_favs', recent_searches:'gs_recent_searches', wissen_read:'gs_wissen_read',
     favs:'ps_favs', votes:'ps_votes', confirmed_species:'gs_confirmed_species', achievements:'gs_achievements',
@@ -75621,6 +75720,8 @@ function _gsApplyStateBlob(b){
     push_settings:'gs_push_settings', user_location:'gs_user_location', sae_search:'gs_sae_search', sae_cat:'gs_sae_cat'
   };
   try { Object.keys(map).forEach(function(f){ if (b[f] != null) _gsRestoreKey(map[f], b[f]); }); } catch(_){}
+  try { if (typeof window._gsStreakApplyCloud === 'function') window._gsStreakApplyCloud(b); } catch(_){}
+  try { if (typeof window._gsLoginStreakApplyCloud === 'function') window._gsLoginStreakApplyCloud(b); } catch(_){}
   try { if (b.ui && typeof b.ui==='object') ['dark','theme_color','lang'].forEach(function(k){ if (b.ui[k]!=null) _gsRestoreKey('gs_'+k, b.ui[k]); }); } catch(_){}
   try {
     if (b.garten_prefs && typeof b.garten_prefs==='object'){
