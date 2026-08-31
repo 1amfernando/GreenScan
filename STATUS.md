@@ -4,13 +4,44 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.18` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.19` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (c) — v31.19: Foto-zu-3D zeigt seine Stufen — letzter Entwurfs-Schritt
+
+> Bilder 4, 5 und 7: „Garten wird erkannt" → „3D-Modell wird erstellt · 65 %" → „3D-Modell erstellt". Wie angekündigt zuerst nachgesehen, was es gibt.
+
+#### Was ich vorgefunden habe
+
+Den ganzen Ablauf. Der **Baum-Planer** hat seit v30.02 „Aus Fotos einen 3D-Plan": bis zu vier Bilder → `callVisionAI` → `TP.scene` mit erkannten Objekten, Himmelsrichtung, Hangneigung → 3D-Vorschau. Die Bilder zeigen also nichts Neues, sondern **etwas Vorhandenes ohne Rückmeldung**.
+
+Denn während des gesamten Vision-Aufrufs über bis zu vier Fotos stand dort **eine** Zeile: „⏳ KI analysiert deine Gartenfotos…". Sekundenlang, ohne Hinweis, ob noch etwas passiert.
+
+#### Was ich gebaut habe — und was bewusst nicht
+
+Vier Stufen mit Zeitachse: *Fotos werden gelesen · Grundstück wird geschätzt · Beete, Bäume und Zonen werden zugeordnet · 3D-Modell wird aufgebaut*. Alle 600 ms neu gezeichnet, gestoppt in **jedem** Ausgang der Analyse — Erfolg wie Fehler.
+
+**Nicht** gebaut habe ich den Prozentwert aus dem Entwurf als Fortschrittsmeldung. Ein Vision-Aufruf liefert keinen Fortschritt; eine Zahl, die so tut, wäre erfunden. Der Balken ist deshalb ausdrücklich eine **Zeit-Schätzung**, hält bei **90 %** und springt erst auf fertig, wenn die Antwort wirklich da ist — mit genau diesem Satz darunter: „Der Balken schätzt die Dauer — fertig ist es, wenn das Ergebnis da ist."
+
+Das ist dieselbe Linie wie bei den Pflegezonen in v31.17 und den Diagnose-Prozenten in v31.18: die Form aus den Entwürfen übernehmen, aber nichts behaupten, was die App nicht weiss.
+
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · **in Chromium gerendert**: Stufe 1, Stufe 3 und Stufe 4, hell und dunkel, keine JS-Fehler. Für die gezielten Stufen musste die Uhr im Testgerüst manipuliert werden — der erste Versuch war falsch (`t0` wurde nach der Manipulation gesetzt, alle Stufen zeigten 0 %), das fiel im gerenderten Text auf und wurde korrigiert · `prog.stop()` liegt vor allen frühen Rücksprüngen · Version synchron v31.19.
+
+#### Damit sind die Entwürfe umgesetzt
+
+| Bild | Umgesetzt in |
+|---|---|
+| 1 — Startseite mit Tagesplan | v31.16 |
+| 6 — Mein Garten mit Kacheln | v31.17 |
+| 3 — Scan-Ergebnis mit Ursachen + Lina | v31.18 |
+| 4/5/7 — Foto zu 3D-Modell | v31.19 |
+
+Die Bilder 2 und 8–16 sind Pitch-Deck (Markt, Go-to-Market, Handel, Investoren) — kein App-Code.
 
 ### 2026-09-01 (b) — v31.18: Pflanzendoktor — Ursachen mit Wahrscheinlichkeit, dann zu Lina
 
