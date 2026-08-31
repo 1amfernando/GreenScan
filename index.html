@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.12.20260831">
+<meta name="app-version" content="31.13.20260831">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -62886,10 +62886,122 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 // v23.92: Daten-getriebenes Changelog
 // Bei neuer Version: NUR oben in GS_RELEASES einen Eintrag hinzufügen.
+// PFLICHT bei jedem Versions-Bump — seit v31.13 prüft der „Was ist neu"-Dialog,
+// ob GS_RELEASES[0].v der laufenden GS_VERSION entspricht, und bleibt sonst aus.
+// (Zwischen v30.04 und v31.12 fehlte dieser Schritt: der Dialog zeigte über
+// hundert Updates lang die Notizen von v30.03 unter der neuen Versionsnummer.)
 // "Aktuelle Version"-Highlight + "Was ist neu?"-Liste werden automatisch synchron.
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v31.13', date: '31.08.2026',
+    headline: '📰 „Was ist neu" zeigte seit über hundert Updates dasselbe',
+    summary: 'Der Dialog nach einem Update setzte die neue Versionsnummer als Überschrift, darunter aber immer den obersten Listen-Eintrag — und der stand seit Juni auf v30.03. Über hundert Updates lang las jeder Nutzer dieselben alten Notizen unter einer neuen Nummer. Die fehlenden Versionen sind nachgetragen, und der Dialog bleibt künftig lieber aus, als etwas Falsches zu zeigen.',
+    user_summary: '📰 Der „Was ist neu"-Dialog zeigte seit Juni immer dieselben Notizen. Nachgetragen und abgesichert.',
+    user_items: [
+      { emoji: '📰', text: 'Alle fehlenden Versionen seit Juni sind nachgetragen' },
+      { emoji: '🚫', text: 'Passt der Eintrag nicht zur laufenden Version, bleibt der Dialog aus — statt Falsches zu zeigen' },
+      { emoji: '📖', text: 'Im Über-Modal heisst der Block nur noch „Aktuelle Version", wenn er es auch ist' },
+    ],
+    items: [
+      {emoji:'🚫', bold:'Abgleich statt Vertrauen:', text:' showWhatsNew vergleicht GS_RELEASES[0].v mit GS_VERSION und bricht sonst ab — ohne gs_seen_version zu stempeln, damit der Eintrag später noch ankommt. Konsole sagt, was fehlt.'},
+      {emoji:'📖', bold:'gsRenderAboutChangelog:', text:' der Highlight-Block heisst „Letzter dokumentierter Eintrag", wenn er nicht der laufenden Version entspricht.'},
+      {emoji:'📰', bold:'Sechs Einträge nachgetragen:', text:' v31.09–v31.12 einzeln, v30.92–v31.08 und v30.04–v30.91 als Sammel-Einträge mit Verweis auf STATUS.md.'},
+    ],
+  },
+  {
+    v: 'v31.12', date: '31.08.2026',
+    headline: '🗺️ Karte & Tracking — Aufzeichnung fortsetzen',
+    summary: 'Die GPS-Aufzeichnung kann jetzt tatsächlich fortgesetzt werden, wenn sie unterbrochen wurde — bisher blieb nur „speichern" oder „verwerfen". Dazu: die Karte läuft beim Wandern mit, ein Punkt zeigt die aktuelle Position, ungenaue erste Ortungen verbiegen die Linie nicht mehr, und lange Touren werden nicht mehr vorne abgeschnitten.',
+    user_summary: '🗺️ Unterbrochene Tracks lassen sich fortsetzen. Die Karte läuft beim Wandern mit, und lange Touren bleiben vollständig.',
+    user_items: [
+      { emoji: '▶️', text: 'Unterbrochene Aufzeichnung fortsetzen — statt nur speichern oder verwerfen' },
+      { emoji: '🧭', text: 'Die Karte läuft mit und zeigt deine aktuelle Position; verschiebst du selbst, lässt sie dich in Ruhe' },
+      { emoji: '📏', text: 'Lange Touren bleiben ganz — vorher begann eine Sechs-Stunden-Wanderung in der Mitte' },
+      { emoji: '📡', text: 'Schwaches GPS steht jetzt in der Statuszeile, statt wie eine Pause auszusehen' },
+      { emoji: '🏅', text: 'Wander-Abzeichen zählen wieder korrekt — ab Track 31 liefen sie rückwärts' },
+    ],
+    items: [
+      {emoji:'▶️', bold:'Wiederherstellung mit drei Wegen:', text:' Fortsetzen (hängt an denselben Track an), als beendet speichern, verwerfen. Wegtippen heisst „später entscheiden". Altersgrenze 30 min → 24 h.'},
+      {emoji:'🔁', bold:'Wach-Timer statt totem watchId-Test:', text:' der Wiederanlauf prüfte eine Bedingung, die nie wahr werden konnte. Jetzt entscheidet der Zeitpunkt des letzten Fixes.'},
+      {emoji:'💾', bold:'Zeitbasiertes Sichern:', text:' vorher „alle 10 Punkte" — wer stillstand, wurde nie gesichert. Dazu visibilitychange und pagehide.'},
+      {emoji:'📐', bold:'Ausdünnen statt Abschneiden:', text:' erster und letzter Punkt bleiben immer erhalten, die Form der Tour auch.'},
+      {emoji:'🏅', bold:'Monotone Zähler:', text:' track_count/track_distance_km lasen die gedeckelte Liste und schrieben den kleineren Wert auf dem Server fest.'},
+    ],
+  },
+  {
+    v: 'v31.11', date: '31.08.2026',
+    headline: '⚙️ Einstellungen — ein Datenschutz-Schalter zeigte falsch',
+    summary: 'Der Schalter „Erfolge im Community-Feed zeigen" las einen rein lokalen Wert und nicht den Server. Auf einem neuen Gerät stand er dadurch auf „an", auch wenn man sich anderswo bewusst abgemeldet hatte. Bei einer Datenschutz-Einstellung ist ein falsch angezeigter Zustand das eigentliche Problem.',
+    user_summary: '⚙️ Der Schalter für Erfolge im Community-Feed zeigt jetzt auf jedem Gerät deinen echten Stand.',
+    user_items: [
+      { emoji: '🔒', text: 'Datenschutz-Schalter zeigt auf jedem Gerät den wirklich gültigen Zustand' },
+      { emoji: '🧹', text: 'Sieben Einstellungs-Einträge entfernt, deren Schalter es gar nicht mehr gab' },
+    ],
+    items: [
+      {emoji:'🔒', bold:'opt_in_achievement_feed:', text:' wurde nur geschrieben, nie zurückgelesen. sbLoadProfile spiegelt den Server-Wert jetzt in Vorliebe und Checkbox.'},
+      {emoji:'🧹', bold:'toggleMap aufgeräumt:', text:' 12 → 5 Einträge; die entfernten Schalter existieren im DOM nicht mehr, Push-Kategorien laufen über gs_push_settings.'},
+    ],
+  },
+  {
+    v: 'v31.10', date: '31.08.2026',
+    headline: '🎨 Eigenes Icon-Set — 23 Symbole',
+    summary: 'Ein eigenes, einheitliches Symbol-Set unter assets/icons: 23 SVGs, zusammen rund 7 KB, alle 24×24 mit gleicher Strichstärke. Sie erben die Textfarbe, passen sich also automatisch an Hell- und Dunkelmodus an.',
+    user_summary: '🎨 Ein eigenes Symbol-Set — einheitlich, winzig, und es passt sich automatisch an Hell- und Dunkelmodus an.',
+    user_items: [
+      { emoji: '🎨', text: '23 eigene Symbole statt zusammengesuchter Emojis' },
+      { emoji: '🌗', text: 'Sie übernehmen die Textfarbe — hell wie dunkel richtig' },
+    ],
+    items: [
+      {emoji:'🎨', bold:'assets/icons:', text:' 23 SVGs, 24×24, Strichstärke 1.75, currentColor, ~7 KB gesamt, mit README und Vorschau-Seite.'},
+    ],
+  },
+  {
+    v: 'v31.09', date: '31.08.2026',
+    headline: '💬 Community — Kommentare liken, teilen, benachrichtigen',
+    summary: 'Kommentare lassen sich jetzt liken und disliken, Beiträge und Kommentare teilen. Und Likes erscheinen als Benachrichtigung — bisher erfuhr man schlicht nie, dass jemand reagiert hat.',
+    user_summary: '💬 Kommentare liken und disliken, Beiträge teilen — und du erfährst endlich, wenn jemand dein Ding mag.',
+    user_items: [
+      { emoji: '👍', text: 'Kommentare liken und disliken' },
+      { emoji: '🔗', text: 'Beiträge und Kommentare teilen' },
+      { emoji: '🔔', text: 'Likes kommen als Benachrichtigung an — überall' },
+    ],
+    items: [
+      {emoji:'👍', bold:'comment_reactions:', text:' eigene Tabelle mit RLS, Reaktions-Leiste je Kommentar, Verfügbarkeits-Flag falls die Migration noch nicht läuft.'},
+      {emoji:'🔔', bold:'fn_notify_post_like / fn_notify_comment_like:', text:' Likes erzeugen serverseitig eine Benachrichtigung.'},
+    ],
+  },
+  {
+    v: 'v30.92 – v31.08', date: '08/2026',
+    headline: '🛡️ Deine Daten gehen nicht mehr verloren',
+    summary: 'Siebzehn Releases an einem Thema: Datenhaltung. Abmelden und wieder anmelden löschte das Konto auf allen Geräten. Das Cloud-Backup war da, nur nicht erreichbar. Der Speicher verschluckte Fehler, sodass bei vollem Speicher das Anmelden still fehlschlug. Der Sync verglich Geräte- gegen Server-Uhr. Fotos lagen im knappen 5-MB-Speicher. Rotierende Listen warfen alte Einträge weg. Alles behoben und nachgeprüft.',
+    user_summary: '🛡️ Siebzehn Releases zu einem Thema: deine Daten bleiben, wo sie hingehören — auf jedem Gerät.',
+    user_items: [
+      { emoji: '🔐', text: 'Abmelden und wieder anmelden löscht nichts mehr' },
+      { emoji: '☁️', text: 'Das Cloud-Backup ist jetzt auch wirklich erreichbar' },
+      { emoji: '📷', text: 'Fotos liegen sicher und gehen beim Hochladen nicht mehr verloren' },
+      { emoji: '📦', text: 'Alte Einträge wandern ins Archiv statt ins Nichts — mit Export' },
+      { emoji: '🛡️', text: 'Mehrere Sicherheitslücken geschlossen (Rollen, Quiz-Antworten, Marktplatz-Chat)' },
+    ],
+    items: [
+      {emoji:'📚', bold:'Sammel-Eintrag:', text:' fasst v30.92 bis v31.08 zusammen. Die vollständige Sprint-Historie steht in STATUS.md, Sektion 0.'},
+    ],
+  },
+  {
+    v: 'v30.04 – v30.91', date: '06–08/2026',
+    headline: '📚 Sammel-Eintrag — Wissen, Quiz, Benachrichtigungen, Härtung',
+    summary: 'Diese Versionen wurden seinerzeit nur in STATUS.md dokumentiert und fehlten hier. Schwerpunkte: Ausbau des Wissens-Bereichs, mehr Quiz-Fragen mit Bildern, ein eigener Platz für Benachrichtigungen und Mitteilungen, Übersetzungen, sowie laufende Absicherung von Backend und Datenschutz.',
+    user_summary: '📚 Nachgetragen: Wissen ausgebaut, Quiz erweitert, Benachrichtigungen mit eigenem Platz, viel Absicherung im Hintergrund.',
+    user_items: [
+      { emoji: '📖', text: 'Wissens-Bereich ausgebaut' },
+      { emoji: '🧠', text: 'Mehr Quiz-Fragen, teils mit Bildern' },
+      { emoji: '🔔', text: 'Benachrichtigungen und Mitteilungen haben einen eigenen Platz bekommen' },
+    ],
+    items: [
+      {emoji:'📚', bold:'Sammel-Eintrag:', text:' diese Versionen fehlten in GS_RELEASES. Details je Release in STATUS.md, Sektion 0.'},
+    ],
+  },
   {
     v: 'v30.03', date: '21.06.2026',
     headline: '💾 Pläne speichern — zuverlässig, mit „Meine Pläne"',
@@ -68569,16 +68681,24 @@ function gsAutoUserItems(rel){
 function gsRenderAboutChangelog(){
   // Aktuelle Version (Highlight-Block) — v26.2: zeigt user_summary wenn vorhanden,
   // sonst Auto-Heuristik aus summary. Original-Tech-summary bleibt unter Toggle erreichbar.
+  // v31.13: gleiche Begründung wie im „Was ist neu"-Dialog — die Notizen sind
+  // Fliesstext, und Prosa wie <uuid> oder <head> verschwand beim innerHTML-Bau.
+  var _e = function(x){ return String(x==null?'':x).replace(/[&<>"']/g, function(ch){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]; }); };
   var current = (window.GS_RELEASES && window.GS_RELEASES[0]) || null;
+  // v31.13: Der Block hiess „Aktuelle Version", zeigte aber immer den obersten
+  // Listen-Eintrag — daneben stand im selben Modal die echte laufende Version.
+  // Stimmen sie nicht überein, sagt der Block das jetzt, statt zu widersprechen.
+  var _runV = (typeof GS_VERSION === 'string') ? GS_VERSION : '';
+  var _relMatch = !!(current && _runV && current.v === _runV);
   var hi = document.getElementById('about-current-version');
   if (hi && current) {
     var headlineText = current.headline || '';
     var summaryText = gsAutoUserSummary(current);
     hi.innerHTML =
       '<div style="background:linear-gradient(135deg,rgba(45,138,45,.12),rgba(45,138,45,.04));border-left:3px solid var(--g-main);border-radius:10px;padding:12px 14px;margin-bottom:16px;">' +
-        '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--g-main);margin-bottom:4px;">✨ Aktuelle Version</div>' +
-        '<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;">' + current.v + ' — ' + headlineText + '</div>' +
-        '<div style="font-size:12.5px;color:var(--text2);line-height:1.55;">' + summaryText + '</div>' +
+        '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--g-main);margin-bottom:4px;">' + (_relMatch ? '✨ Aktuelle Version' : '✨ Letzter dokumentierter Eintrag') + '</div>' +
+        '<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;">' + _e(current.v) + ' — ' + _e(headlineText) + '</div>' +
+        '<div style="font-size:12.5px;color:var(--text2);line-height:1.55;">' + _e(summaryText) + '</div>' +
       '</div>';
   }
 
@@ -68593,15 +68713,15 @@ function gsRenderAboutChangelog(){
       var techItems = Array.isArray(rel.items) ? rel.items : [];
       var hasTech = techItems.length > 0;
       var userListHtml = userItems.length
-        ? userItems.map(function(it){ return '<li>' + (it.emoji || '') + ' ' + (it.text || '') + '</li>'; }).join('')
-        : techItems.slice(0, 3).map(function(it){ return '<li>' + (it.emoji || '') + ' ' + (it.text || '') + '</li>'; }).join('');
+        ? userItems.map(function(it){ return '<li>' + _e(it.emoji || '') + ' ' + _e(it.text || '') + '</li>'; }).join('')
+        : techItems.slice(0, 3).map(function(it){ return '<li>' + _e(it.emoji || '') + ' ' + _e(it.text || '') + '</li>'; }).join('');
       var techListHtml = techItems.map(function(it){
-        return '<li>' + (it.emoji || '') + ' <b>' + (it.bold || '') + '</b>' + (it.text || '') + '</li>';
+        return '<li>' + _e(it.emoji || '') + ' <b>' + _e(it.bold || '') + '</b>' + _e(it.text || '') + '</li>';
       }).join('');
       var toggleId = 'rel-tech-' + idx;
       html +=
         '<div style="margin-bottom:12px;">' +
-          '<div style="font-size:12.5px;font-weight:700;color:var(--g-main);margin-bottom:4px;">' + rel.v + ' · ' + (rel.date || '') + '</div>' +
+          '<div style="font-size:12.5px;font-weight:700;color:var(--g-main);margin-bottom:4px;">' + _e(rel.v) + ' · ' + _e(rel.date || '') + '</div>' +
           '<ul style="margin:0 0 0 18px;padding:0;font-size:12px;color:var(--text2);line-height:1.7;">' + userListHtml + '</ul>' +
           (hasTech ? (
             '<div style="margin-top:4px;">' +
@@ -68645,7 +68765,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.12';
+var GS_VERSION = 'v31.13';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -72186,6 +72306,17 @@ window.gsRenderGardenStats = function(){
     if (!release) return;
     var seenV = localStorage.getItem('gs_seen_version');
     var current = window.GS_VERSION || release.v;
+    // v31.13: Der Dialog nahm die oberste GS_RELEASES-Zeile und setzte die
+    // laufende Versionsnummer darüber — ohne zu prüfen, ob beides zusammengehört.
+    // Die Liste wurde seit v30.03 nicht mehr gepflegt: über hundert Updates lang
+    // las jeder Nutzer unter der Überschrift „Was ist neu in v31.xx" die Notizen
+    // von v30.03. Lieber gar nichts zeigen als etwas Falsches. gs_seen_version
+    // wird dabei bewusst NICHT gestempelt — sobald der Eintrag nachgetragen ist,
+    // bekommt der Nutzer ihn noch zu sehen.
+    if (release.v !== current) {
+      try { console.warn('[GS_RELEASES] Kein Eintrag für ' + current + ' (oberster: ' + release.v + ') — „Was ist neu" bleibt aus.'); } catch(_){}
+      return;
+    }
     // Erstes Booten je → seenV setzen ohne Dialog (kein Spam für neue User)
     if (!seenV) {
       try { localStorage.setItem('gs_seen_version', current); } catch(e){}
@@ -72206,6 +72337,12 @@ window.gsRenderGardenStats = function(){
     function closeIt(){ try { localStorage.setItem('gs_seen_version', current); } catch(e){} m.remove(); }
     // v26.15: Auto-Heuristik fuer alte Releases ohne user_summary/user_items.
     // Fallback auf gsAutoUserSummary / gsAutoUserItems falls Funktionen vorhanden.
+    // v31.13: Release-Notizen sind Fliesstext, keine Markup-Quelle. 57 Stellen
+    // enthalten Platzhalter und Tag-Namen als Prosa (<uuid>, <slug>, <head>,
+    // <script>) — der Browser schluckte sie beim innerHTML-Bau, Wörter
+    // verschwanden mitten im Satz. Escapen macht sie sichtbar; Markup war hier
+    // nie beabsichtigt, das Gerüst baut die Render-Funktion selbst.
+    var _e = function(x){ return String(x==null?'':x).replace(/[&<>"']/g, function(ch){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]; }); };
     var userItems = (typeof gsAutoUserItems === 'function')
       ? gsAutoUserItems(release)
       : (Array.isArray(release.user_items) ? release.user_items : []);
@@ -72216,14 +72353,14 @@ window.gsRenderGardenStats = function(){
     var displayItems = userItems.length ? userItems : techItems.slice(0, 4);
     var itemsHtml = displayItems.slice(0, 6).map(function(it){
       return '<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);align-items:flex-start;">' +
-        '<div style="font-size:22px;flex-shrink:0;line-height:1;">' + (it.emoji || '✨') + '</div>' +
-        '<div style="flex:1;font-size:13px;line-height:1.5;color:var(--text);">' + (it.text || (it.bold ? (it.bold + ' ') : '')) + '</div>' +
+        '<div style="font-size:22px;flex-shrink:0;line-height:1;">' + _e(it.emoji || '✨') + '</div>' +
+        '<div style="flex:1;font-size:13px;line-height:1.5;color:var(--text);">' + _e(it.text || (it.bold ? (it.bold + ' ') : '')) + '</div>' +
       '</div>';
     }).join('');
     var techHtml = techItems.map(function(it){
       return '<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border);align-items:flex-start;">' +
-        '<div style="font-size:18px;flex-shrink:0;line-height:1;">' + (it.emoji || '✨') + '</div>' +
-        '<div style="flex:1;font-size:11.5px;line-height:1.45;color:var(--muted);"><b style="color:var(--text);">' + (it.bold || '') + '</b> ' + (it.text || '') + '</div>' +
+        '<div style="font-size:18px;flex-shrink:0;line-height:1;">' + _e(it.emoji || '✨') + '</div>' +
+        '<div style="flex:1;font-size:11.5px;line-height:1.45;color:var(--muted);"><b style="color:var(--text);">' + _e(it.bold || '') + '</b> ' + _e(it.text || '') + '</div>' +
       '</div>';
     }).join('');
     var techToggleHtml = (techItems.length ? (
@@ -72236,10 +72373,10 @@ window.gsRenderGardenStats = function(){
       '<div style="background:var(--card);border-radius:18px;max-width:480px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.35);">' +
         '<div style="background:linear-gradient(135deg,#1a3d1a,#2e7d32);color:#fff;padding:22px 22px 18px;text-align:center;position:sticky;top:0;z-index:1;">' +
           '<div style="font-size:42px;margin-bottom:4px;">✨</div>' +
-          '<div style="font-family:\'Playfair Display\',serif;font-size:22px;font-weight:800;">Was ist neu in ' + current + '</div>' +
-          '<div style="font-size:12px;opacity:.92;margin-top:2px;line-height:1.35;">' + (release.headline || '') + '</div>' +
+          '<div style="font-family:\'Playfair Display\',serif;font-size:22px;font-weight:800;">Was ist neu in ' + _e(current) + '</div>' +
+          '<div style="font-size:12px;opacity:.92;margin-top:2px;line-height:1.35;">' + _e(release.headline || '') + '</div>' +
         '</div>' +
-        '<div style="padding:14px 22px 8px;font-size:12.5px;color:var(--text2);line-height:1.5;">' + summaryText + '</div>' +
+        '<div style="padding:14px 22px 8px;font-size:12.5px;color:var(--text2);line-height:1.5;">' + _e(summaryText) + '</div>' +
         '<div style="padding:0 22px;">' + itemsHtml + '</div>' +
         techToggleHtml +
         '<div style="padding:14px 22px 22px;display:flex;gap:8px;">' +
