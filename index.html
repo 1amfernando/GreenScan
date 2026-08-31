@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.07.20260831">
+<meta name="app-version" content="31.08.20260831">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -6535,6 +6535,35 @@ function gsIsValidEmail(email) {
   return /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/.test(email.trim());
 }
 
+// v31.08: Deckeln MIT Archiv statt lautlos wegwerfen.
+// Die Deckel selbst bleiben — sie schuetzen die 5 MB. Aber der herausfallende
+// Eintrag wandert ins Archiv (IndexedDB, eigenes Kontingent) statt ins Nichts,
+// und der Nutzer erfaehrt einmalig davon. Bei Gartentagebuch, Pflege-Historie,
+// Gartenplaenen und GPX-Tracks war der gekuerzte Eintrag bisher AUCH in der
+// Cloud weg, weil der Sync-Blob aus der bereits gekuerzten Liste gebaut wird
+// (_buildPlantsBlob liest gs_gartentagebuch, _buildGardenBlob liest
+// gs_garden_plans und gs_gpx_tracks).
+// keep: 'head' = Anfang behalten (Liste ist neueste-zuerst)
+//       'tail' = Ende behalten  (Liste ist aelteste-zuerst)
+window.gsCapWithArchive = function(key, arr, cap, keep){
+  if (!Array.isArray(arr) || arr.length <= cap) return arr;
+  var kept, dropped;
+  if (keep === 'tail') { kept = arr.slice(-cap); dropped = arr.slice(0, arr.length - cap); }
+  else                 { kept = arr.slice(0, cap); dropped = arr.slice(cap); }
+  try { if (typeof window.gsArchiveDropped === 'function') window.gsArchiveDropped(key, dropped); } catch(_){}
+  // Einmal pro Schluessel und Sitzung Bescheid geben — nicht bei jedem Speichern nerven.
+  try {
+    window._gsCapNoticed = window._gsCapNoticed || {};
+    if (!window._gsCapNoticed[key]) {
+      window._gsCapNoticed[key] = true;
+      if (typeof gsToast === 'function') {
+        gsToast('📦 Älteste Einträge ins Archiv verschoben (Einstellungen → Speicher → Archiv sichern).', 'info', 6000);
+      }
+    }
+  } catch(_){}
+  return kept;
+};
+
 // ── SAFE localStorage Wrapper ──────────────────────────────────
 // Schützt vor QuotaExceededError (iOS Safari Privatmodus)
 (function(){
@@ -7327,7 +7356,7 @@ window.gsCollOpenPlan = async function(ref){
     var arr2 = []; try { arr2 = JSON.parse(localStorage.getItem('gs_garden_plans') || '[]'); } catch(_){}
     if (!Array.isArray(arr2)) arr2 = [];
     arr2 = arr2.filter(function(x){ return x && x.id !== mapped.id; }); arr2.unshift(mapped);
-    try { localStorage.setItem('gs_garden_plans', JSON.stringify(arr2.slice(0,30))); } catch(_){}
+    try { localStorage.setItem('gs_garden_plans', JSON.stringify(gsCapWithArchive('gs_garden_plans', arr2, 30))); } catch(_){}
     gsPPloadSavedPlan(mapped.id);
   } catch(e){ try { gsPPloadSavedPlan(ref); } catch(_){} }
 };
@@ -7487,7 +7516,7 @@ function gsQuickDone(plantId, taskKey) {
     if (!Array.isArray(p.diary)) p.diary = [];
     p.diary.unshift({ ts: nowIso, action: taskKey, title: (defQ.icon ? defQ.icon + ' ' : '') + (defQ.name||taskKey) + ' (Quick)', source: 'quick_done' });
     // Cap auf 200 Diary-Einträge pro Pflanze (sonst Blob-Bloat)
-    if (p.diary.length > 200) p.diary = p.diary.slice(0, 200);
+    p.diary = gsCapWithArchive('plant_diary', p.diary, 200);
   } catch(_){}
   savePlantsToStorage();
   try { if (typeof scheduleAllNotifications === 'function') scheduleAllNotifications(); } catch(_){} // v30.76: konsistent mit doneTask
@@ -7561,7 +7590,7 @@ function gsDoneAllDue() {
           var defB = (typeof TASK_DEFS !== 'undefined' && TASK_DEFS[k]) ? TASK_DEFS[k] : {icon:'', name:k};
           if (!Array.isArray(p.diary)) p.diary = [];
           p.diary.unshift({ ts: nowIso, action: k, title: (defB.icon ? defB.icon + ' ' : '') + (defB.name||k) + ' (Bulk)', source: 'done_all_due' });
-          if (p.diary.length > 200) p.diary = p.diary.slice(0, 200);
+          p.diary = gsCapWithArchive('plant_diary', p.diary, 200);
         } catch(_){}
       }
     });
@@ -8238,7 +8267,7 @@ function gsSaeLogAsSowed(name) {
     weather: '',
     ts: new Date().toISOString()
   });
-  try { localStorage.setItem('gs_gartentagebuch', JSON.stringify(_gsTagebuch.slice(0,500))); } catch(e){}
+  try { localStorage.setItem('gs_gartentagebuch', JSON.stringify(gsCapWithArchive('gs_gartentagebuch', _gsTagebuch, 500))); } catch(e){}
   // v24.23: Cross-Device-Sync
   try { if (window.gsCloudSync) gsCloudSync.markDirty('plants'); } catch(_){}
   gsHaptic('success');
@@ -8989,7 +9018,7 @@ function gsTagebuchLoad(forceReload) {
 }
 function gsTagebuchSave() {
   try {
-    localStorage.setItem('gs_gartentagebuch', JSON.stringify(_gsTagebuch.slice(0,500)));
+    localStorage.setItem('gs_gartentagebuch', JSON.stringify(gsCapWithArchive('gs_gartentagebuch', _gsTagebuch, 500)));
     // v23.55: Cross-Tab-Sync Event auslösen (für PWA mit mehreren Fenstern)
     try { window.dispatchEvent(new Event('gs-tagebuch-changed')); } catch(_){}
     // v24.23: Cross-Device-Sync — Tagebuch wird im plants-Blob (data.diary) mitgepusht
@@ -28994,7 +29023,7 @@ async function gsAddDiaryEntry(plantId) {
     note: note || null,
     photo: photo
   });
-  if (p.diary.length > 200) p.diary = p.diary.slice(-200); // v30.35: Cap (neueste 200) gegen Blob-Bloat
+  p.diary = gsCapWithArchive('plant_diary', p.diary, 200, 'tail'); // v30.35 Cap, v31.08 jetzt mit Archiv
   // Auch lastDone der entsprechenden Aufgabe updaten falls action eine Pflege-Aktion ist
   if (p.tasks && p.tasks[action]) {
     p.tasks[action].lastDone = new Date().toISOString();
@@ -47571,7 +47600,7 @@ function gsTrackStop() {
         end: Date.now(),
         points: _gsTrack.points.map(function(p){ return { ll:p.ll, alt:p.alt, t:p.t }; }).slice(-5000)
       });
-      if (saved.length > 30) saved = saved.slice(-30);
+      saved = gsCapWithArchive('gs_gpx_tracks', saved, 30, 'tail');
       localStorage.setItem('gs_gpx_tracks', JSON.stringify(saved));
       // v30.39: Wander-Achievements — track_count (Anzahl) + track_distance_km (kumulierte km via gsTrackComputeStats)
       try {
@@ -47651,7 +47680,7 @@ document.addEventListener('visibilitychange', function(){
         try {
           var saved = JSON.parse(localStorage.getItem('gs_gpx_tracks') || '[]');
           saved.push({ ts: data.start, end: data.lastSave || Date.now(), points: data.points, _recovered: true });
-          if (saved.length > 30) saved = saved.slice(-30);
+          saved = gsCapWithArchive('gs_gpx_tracks', saved, 30, 'tail');
           localStorage.setItem('gs_gpx_tracks', JSON.stringify(saved));
           localStorage.removeItem(_GS_TRACK_LIVE_KEY);
           if (typeof showProfileToast === 'function') showProfileToast('✅ Track wiederhergestellt — siehe Meine Tracks', 'success');
@@ -54436,7 +54465,7 @@ async function gsPPsavePlan() {
   try {
     var saved = JSON.parse(localStorage.getItem('gs_garden_plans') || '[]');
     saved.unshift(planEntry);
-    while (saved.length > 30) saved.pop();
+    saved = gsCapWithArchive('gs_garden_plans', saved, 30);
     localStorage.setItem('gs_garden_plans', JSON.stringify(saved));
     localSaved = true;
   } catch(e) {
@@ -58910,13 +58939,13 @@ async function gsPPduplicatePlan(id){
         var ugRows2=(ug2&&ug2.data&&Array.isArray(ug2.data))?ug2.data:[];
         var data2 = (ugRows2[0] && ugRows2[0].data && typeof ugRows2[0].data==='object') ? ugRows2[0].data : {};
         if (!Array.isArray(data2.plans)) data2.plans = [];
-        data2.plans.unshift(newPlan); data2.plans = data2.plans.slice(0,30);
+        data2.plans.unshift(newPlan); data2.plans = gsCapWithArchive('gs_garden_plans', data2.plans, 30);
         await sbFetch('/rest/v1/user_gardens?on_conflict=user_id', {method:'POST', headers:{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'}, body: JSON.stringify({user_id:uid, data:data2, updated_at:nowIso})});
       }
     } catch(e){ console.warn('[gsPPduplicatePlan] ug:', e); }
   }
   // LS einfügen (vorn, Cap 30)
-  try { var s2 = JSON.parse(localStorage.getItem('gs_garden_plans')||'[]'); if(!Array.isArray(s2)) s2=[]; s2.unshift(newPlan); localStorage.setItem('gs_garden_plans', JSON.stringify(s2.slice(0,30))); } catch(_){}
+  try { var s2 = JSON.parse(localStorage.getItem('gs_garden_plans')||'[]'); if(!Array.isArray(s2)) s2=[]; s2.unshift(newPlan); localStorage.setItem('gs_garden_plans', JSON.stringify(gsCapWithArchive('gs_garden_plans', s2, 30))); } catch(_){}
   try { if (typeof gsCollectionsAutoVacuumDebounced==='function') gsCollectionsAutoVacuumDebounced(); } catch(_){}
   if (typeof showProfileToast==='function') showProfileToast('🔁 Plan dupliziert');
   gsPPopenSavedPlans();
@@ -68133,7 +68162,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.07';
+var GS_VERSION = 'v31.08';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -70270,8 +70299,9 @@ function gsRegisterServiceWorker() {
   // v31.06: Version 2 — neuer Store `pending_photos`. onupgradeneeded legt unten
   // ohnehin jeden fehlenden Store aus STORES an, Bestandsinstallationen ziehen
   // also sauber nach.
-  var DB_VERSION = 2;
-  var STORES = ['pending_scans', 'pending_diary', 'pending_sync', 'pending_photos'];
+  var DB_VERSION = 3;
+  // v31.08: `dropped_entries` — Archiv fuer Eintraege, die einem Listen-Deckel zum Opfer fielen.
+  var STORES = ['pending_scans', 'pending_diary', 'pending_sync', 'pending_photos', 'dropped_entries'];
 
   function _open(){
     return new Promise(function(resolve, reject){
@@ -70305,6 +70335,90 @@ function gsRegisterServiceWorker() {
       }
       return true;
     } catch(e) { console.warn('[gsQueueOffline]', e); return false; }
+  };
+
+  // ═══ v31.08: ARCHIV FUER GEKUERZTE LISTEN ════════════════════════════════
+  // Zehn Nutzerdaten-Listen werden per slice() gedeckelt. Bei vier davon
+  // (Gartentagebuch, Pflege-Historie pro Pflanze, Gartenplaene, GPX-Tracks) ist
+  // der abgeschnittene Eintrag danach AUCH in der Cloud weg: der Blob wird aus
+  // der bereits gekuerzten Liste gebaut (_buildPlantsBlob liest
+  // `gs_gartentagebuch`, _buildGardenBlob liest `gs_garden_plans` und
+  // `gs_gpx_tracks`). Und es geschah lautlos — der Nutzer erfuhr es nie.
+  //
+  // Die Deckel selbst bleiben: sie schuetzen die 5 MB. Aber was herausfaellt,
+  // wandert jetzt ins Archiv (IndexedDB, eigenes Kontingent) statt ins Nichts —
+  // und es ist ueber die Einstellungen abrufbar. Ein Sicherheitsnetz, das
+  // niemand erreicht, ist keines; das habe ich in v30.97 schon einmal repariert.
+  var ARCH_CAP = 3000;   // Archiv selbst gedeckelt, sonst waechst es unbegrenzt
+
+  window.gsArchiveDropped = async function(key, items){
+    if (!key || !Array.isArray(items) || !items.length) return 0;
+    try {
+      var db = await _open();
+      var tx = db.transaction('dropped_entries', 'readwrite');
+      var st = tx.objectStore('dropped_entries');
+      for (var i = 0; i < items.length; i++) {
+        st.add({ src: key, item: items[i], dropped_at: Date.now() });
+      }
+      await new Promise(function(r,j){ tx.oncomplete = r; tx.onerror = function(){ j(tx.error); }; });
+      // Aeltestes abraeumen, wenn das Archiv selbst zu gross wird.
+      try {
+        var tx2 = db.transaction('dropped_entries', 'readwrite');
+        var st2 = tx2.objectStore('dropped_entries');
+        var n = await new Promise(function(r,j){ var q = st2.count(); q.onsuccess=function(){r(q.result);}; q.onerror=function(){j(q.error);}; });
+        if (n > ARCH_CAP) {
+          var over = n - ARCH_CAP;
+          var cur = st2.openCursor();
+          var removed = 0;
+          await new Promise(function(r){
+            cur.onsuccess = function(e){
+              var c = e.target.result;
+              if (!c || removed >= over) { r(); return; }
+              c.delete(); removed++; c.continue();
+            };
+            cur.onerror = function(){ r(); };
+          });
+        }
+      } catch(_){}
+      console.info('[gsArchiveDropped] ' + items.length + ' Eintrag(e) aus ' + key + ' archiviert.');
+      return items.length;
+    } catch(e){ console.warn('[gsArchiveDropped]', e); return 0; }
+  };
+
+  window.gsArchiveCount = async function(){
+    try {
+      var db = await _open();
+      var tx = db.transaction('dropped_entries', 'readonly');
+      return await new Promise(function(r,j){
+        var q = tx.objectStore('dropped_entries').count();
+        q.onsuccess = function(){ r(q.result); }; q.onerror = function(){ j(q.error); };
+      });
+    } catch(_){ return 0; }
+  };
+
+  // Erreichbarkeit: als JSON herunterladen. Ohne diesen Weg waere das Archiv
+  // nur eine weitere Schublade, die niemand oeffnen kann.
+  window.gsArchiveExport = async function(){
+    try {
+      var db = await _open();
+      var tx = db.transaction('dropped_entries', 'readonly');
+      var rows = await new Promise(function(r,j){
+        var q = tx.objectStore('dropped_entries').getAll();
+        q.onsuccess = function(){ r(q.result || []); }; q.onerror = function(){ j(q.error); };
+      });
+      if (!rows.length) {
+        if (typeof gsToast === 'function') gsToast('Archiv ist leer — es wurde noch nichts gekürzt.', 'info');
+        return 0;
+      }
+      var blob = new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'greenscan-archiv-' + new Date().toISOString().slice(0,10) + '.json';
+      document.body.appendChild(a); a.click();
+      setTimeout(function(){ try { URL.revokeObjectURL(a.href); a.remove(); } catch(_){} }, 1000);
+      if (typeof gsToast === 'function') gsToast('📦 ' + rows.length + ' archivierte Einträge heruntergeladen.', 'success');
+      return rows.length;
+    } catch(e){ console.warn('[gsArchiveExport]', e); return 0; }
   };
 
   // ═══ v31.06: FOTO-AUSGANGSKORB ═══════════════════════════════════════════
@@ -70846,6 +70960,18 @@ function gsRegisterServiceWorker() {
 
   // Storage-Modal (Settings → „Speicher")
   window.gsShowStorageModal = async function(){
+    // v31.08: Archiv-Zahl asynchron nachtragen (IndexedDB) — das Modal soll
+    // nicht auf die Abfrage warten muessen.
+    setTimeout(async function(){
+      try {
+        var el = document.getElementById('gs-archive-count');
+        if (!el) return;
+        var n = (typeof gsArchiveCount === 'function') ? await gsArchiveCount() : 0;
+        el.textContent = String(n);
+        var row = document.getElementById('gs-archive-row');
+        if (row && n === 0) row.style.opacity = '.55';
+      } catch(_){}
+    }, 60);
     var existing = document.getElementById('gs-storage-modal');
     if (existing) existing.remove();
     var info = await window.gsGetStorageInfo();
@@ -70895,6 +71021,14 @@ function gsRegisterServiceWorker() {
       '<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px;">' +
         '<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Gespeicherte Daten</div>' +
         _row('📷 Scans', _scanN) + _row('🌱 Pflanzen', _plantN) + _row('📍 Funde', _findN) + _row('🪴 Garten-Pläne', _planN) +
+        // v31.08: Archiv gekuerzter Eintraege — sichtbar UND abrufbar. Ein
+        // Sicherheitsnetz, das niemand erreicht, ist keines (vgl. v30.97).
+        '<div id="gs-archive-row" style="font-size:12px;color:var(--text2);display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-top:1px solid var(--border);margin-top:6px;">' +
+          '<span>📦 Archiv <span style="color:var(--muted);">(gekürzte Einträge)</span></span>' +
+          '<span><b id="gs-archive-count">…</b> ' +
+            '<button onclick="if(typeof gsArchiveExport===\'function\')gsArchiveExport()" style="margin-left:8px;padding:4px 10px;background:var(--g-main);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;">Sichern</button>' +
+          '</span>' +
+        '</div>' +
         /* v31.03: „Lokal belegt" steht jetzt oben mit echter Grenze und Balken. */
       '</div>';
     var m = document.createElement('div');
