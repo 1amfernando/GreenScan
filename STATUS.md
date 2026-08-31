@@ -4,13 +4,29 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.08` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.09` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-08-31 (r) — v31.09: Community — Kommentare liken und disliken, Teilen, Likes als Benachrichtigung
+
+> Fernandos Auftrag: Likes sollen überall auch als Benachrichtigung erscheinen · Kommentare liken **und** disliken · Teilen. Dazu der Wunsch, dass die App mehr bindet.
+
+- **Warum das eine Migration braucht und nicht nur Client-Code.** Geprüft, nicht angenommen: `notifications` hat RLS `insert_own` — ein Client kann keine Meldung für **jemand anderen** anlegen. Und `fn_create_notification` ist SECURITY DEFINER, aber nur für `postgres` + `service_role` ausführbar (`proacl` nachgesehen). Das ist richtig so: wäre sie für `authenticated` offen, könnte jeder jedem beliebige Meldungen schicken. **Ein Trigger ist damit der einzige saubere Weg** — er läuft als Owner, ist vom Client nicht fälschbar und funktioniert unabhängig davon, welche App-Version gerade liket.
+- **Neu in der Migration** (`20260831_community_reaktionen_v31_09.sql`, im Runbook als M7):
+  - `comment_reactions` — eine Zeile pro Nutzer und Kommentar, `UNIQUE (comment_id, user_id)`. Wechsel Like ↔ Dislike ist ein **Upsert**, nicht Löschen+Neuanlegen. Doppelstimmen sind dadurch auch bei parallelen Taps auf zwei Geräten unmöglich. RLS: lesen alle (Zählstände sind öffentlich), schreiben nur die eigene Stimme.
+  - Trigger auf `post_likes` und auf `comment_reactions` → Benachrichtigung an den Autor. **Selbst-Likes lösen nichts aus.** `dedup_key` ist `like:post:<id>:<liker>` — wer wegnimmt und neu liked, erzeugt keine zweite Meldung.
+  - **Dislikes benachrichtigen bewusst niemanden.** „Jemandem gefällt dein Kommentar nicht" wäre entmutigend und lädt zu Schikane ein. Sie zählen sichtbar mit, mehr nicht.
+  - `social_posts.likes` wird jetzt **serverseitig** gezählt. Vorher schrieb der Client den Zähler selbst — bei zwei Geräten driftete er, und fälschbar war er ohnehin.
+- **Client:** Reaktionsleiste unter jedem Kommentar (❤️ / 👎 / 🔗), optimistisch geschaltet und **bei Fehlschlag sauber zurückgesetzt** statt Erfolg vorzutäuschen. Teilen-Knopf an jedem Beitrag. Alle Reaktionen einer Kommentarliste werden in **einem** Aufruf geholt — nicht 30 Anfragen bei 30 Kommentaren.
+- **Verhalten vor der Migration:** `_gsCommentReactionsOk` merkt sich beim ersten Abruf, ob die Tabelle da ist. Fehlt sie, werden die Knöpfe **gar nicht** gerendert — statt sichtbar ins Leere zu laufen. Sobald die Migration angewandt ist, erscheinen sie von selbst.
+- **Teilen** nutzt die System-Freigabe (`navigator.share`), sonst die Zwischenablage; ein Abbruch durch den Nutzer wird als solcher erkannt und nicht als Fehler gemeldet.
+- **Bewusst NICHT gebaut:** Benachrichtigung bei Marktplatz-Likes. `mktLike` zählt nur einen Zähler auf `marketplace_listings` hoch, ohne Pro-Nutzer-Zeile — eine Meldung wäre durch wiederholtes Tippen beliebig oft auslösbar. Das bräuchte erst eine eigene Tabelle wie `post_likes`.
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · `sw.js` valid · Runbook `bash -n` OK · Version synchron v31.09.
 
 ### 2026-08-31 (q) — v31.08: Die still rotierenden Listen werfen nicht mehr weg, sie archivieren
 
