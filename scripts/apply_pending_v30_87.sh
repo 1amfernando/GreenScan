@@ -136,6 +136,7 @@ M3="supabase/migrations/20260831_rollen_leak_fix_v30_95.sql"
 M4="supabase/migrations/20260831_benachrichtigungen_dedup_fix_v30_95.sql"
 M5="supabase/migrations/20260831_quiz_antworten_serverseitig_v30_95.sql"
 M6="supabase/migrations/20260831_kosten_und_cron_wachhund_v30_95.sql"
+M7="supabase/migrations/20260831_community_reaktionen_v31_09.sql"
 
 if [ -n "${SUPABASE_DB_URL:-}" ] && command -v psql >/dev/null 2>&1; then
   echo "   Wende via psql an (SUPABASE_DB_URL gesetzt)…"
@@ -145,7 +146,8 @@ if [ -n "${SUPABASE_DB_URL:-}" ] && command -v psql >/dev/null 2>&1; then
   psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f "$M4"
   psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f "$M5"
   psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f "$M6"
-  echo "✓ Alle sechs Migrationen angewendet"
+  psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f "$M7"
+  echo "✓ Alle sieben Migrationen angewendet"
   echo ""
   echo "   Gegenprobe zum Rollen-Leak (muss jetzt 'false' liefern):"
   psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -c \
@@ -163,6 +165,7 @@ else
        supabase/migrations/20260831_quiz_antworten_serverseitig_v30_95.sql ← Sicherheit
        supabase/migrations/20260831_benachrichtigungen_dedup_fix_v30_95.sql
        supabase/migrations/20260831_kosten_und_cron_wachhund_v30_95.sql
+       supabase/migrations/20260831_community_reaktionen_v31_09.sql
 
      Gegenprobe danach im selben SQL-Editor (muss `false` liefern):
        set local role anon;
