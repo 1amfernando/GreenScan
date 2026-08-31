@@ -4,13 +4,55 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.15` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.16` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-08-31 (z) — v31.16: Startseite nach Fernandos Entwürfen — „Dein Tagesplan"
+
+> Fernando hat 16 Bilder geschickt: sieben zeigen die App, neun sind Pitch-Deck. Auftrag: „genau so soll es ungefähr aussehen … so dass es auch 100% funktionsfähig ist und auch sauber im backend ist". Erster Schritt: die Startseite.
+
+#### Was die Entwürfe sagen
+
+Die Startseite ist dort **eine einzige Frage**: *Was mache ich jetzt?* Begrüssung mit Namen als Überschrift, Wetter, dann **„Dein Tagesplan"** mit Prioritäten (Hoch/Mittel/Niedrig) — und darunter **genau ein** hervorgehobener **„Nächster Schritt"** mit rundem grünem Pfeilknopf. Kein Abzeichen, keine Punktzahl. Das ist die ehrlichere Antwort auf „süchtig machen": nicht mehr Belohnung, sondern weniger Ratlosigkeit.
+
+#### Umgesetzt
+
+`gsRenderDayPlan()` liest **`gsGetDueTasks()`** — Pflanze, Aufgabe, Tage bis fällig. Diese Daten gab es längst; sie standen nur auf dem Pflanzen-Tab (Notizzettel) und in der Glocke, also **überall ausser dort, wo man zuerst hinschaut**. Erledigen läuft über `gsNcDoneTask → gsQuickDone`, es gibt weiterhin **genau eine** Erledigt-Logik (inkl. Cloud-Sync, Tagebuch-Eintrag, Achievements) — keine zweite, die auseinanderläuft.
+
+Vier Zustände, alle gebaut und gerendert:
+
+| Lage | Was steht da |
+|---|---|
+| Aufgaben offen | bis zu 3 Zeilen + „+ N weitere" + Nächster Schritt (Tippen = erledigt) |
+| Alles erledigt | „Alles versorgt … auf Kurs." + Nächster Schritt „Neue Art entdecken" |
+| Keine Pflanze | Erklärung + Nächster Schritt „Erste Pflanze scannen" |
+| Dunkelmodus | dieselbe Karte, nur Token-Farben |
+
+Gezeichnet wird in **`initHomeBoard()`**, nicht in `switchTab` — sonst bliebe die Karte beim allerersten Start leer, weil „Home" da schon offen ist. Dazu nach jedem Erledigen und am Ende von `renderMyPlants()`, damit nach einem Cloud-Pull nicht „keine Pflanze" behauptet wird, während nebenan zwölf stehen.
+
+#### Der Kopf der Seite
+
+Die Begrüssung war bisher eine kleine Zeile **über** einem Titel, der jeden Tag derselbe war („Natur bestimmen & entdecken"). Die Entwürfe drehen das um, und das ist richtig: die erste Zeile soll den Nutzer meinen, nicht die App. Jetzt Überschrift = „Guten Morgen, Fernando", darüber nur noch die Jahreszeit.
+
+Der Untertitel sagt, **was gerade gilt** — offene Aufgaben zuerst, dann demnächst Fälliges, dann „Dein Garten im Blick.", sonst die Saison-Zeile. Letzteres bewusst: für reine Bestimmungs-Nutzer ohne Pflanzen wäre „Dein Garten im Blick" eine leere Behauptung. Alle fünf Zweige einzeln nachgerechnet, inklusive Singular/Plural.
+
+`home-hero-title` und `home-hero-sub` haben dafür ihre `data-i18n`-Attribute **verloren**: sie werden jetzt in JS gesetzt und holen ihre Texte über `gsI18n.t`, sonst hätte der nächste i18n-Durchlauf die Begrüssung wieder überschrieben.
+
+#### Zwei Dinge, die beim Rendern auffielen
+
+- **„Basilikum schädlinge prüfen".** Ein pauschales `toLowerCase()` auf den Anzeigenamen aus `TASK_DEFS` ergibt Unsinn, sobald der Name aus zwei Wörtern besteht. Im Entwurf steht schlicht „Basilikum prüfen" — jetzt eine kleine Verb-Tabelle je Aufgabenart, mit Rückfall auf den Anzeigenamen (und nur bei **einem** Wort kleingeschrieben).
+- **Dunkelmodus.** Die Entwürfe sind cremefarben. Fest verdrahtet hätte die Karte im Dunkelmodus geleuchtet wie ein Scheinwerfer — deshalb ausschliesslich `--card`/`--surface2`/`--border`. Beide Modi gerendert und angesehen, nicht nur vermutet.
+
+#### Wie es weitergeht
+
+Die restlichen Entwürfe (Mein Garten mit Kennzahl-Kacheln, Scan-Ergebnis mit Wahrscheinlichkeits-Zeilen, 3D-Modell-Fortschritt) sind je ein eigener, prüfbarer Schritt. Ein Rundumschlag über 82 000 Zeilen in einem Zug ist genau der Weg, auf dem etwas kaputtgeht — und „durchdacht" war die Vorgabe.
+
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · `sw.js` valid · **In Chromium gerendert** (Playwright, 2× Pixeldichte): vier Zustände nebeneinander, hell und dunkel, **keine JS-Fehler** · Untertitel-Logik in fünf Zweigen nachgerechnet · `GS_RELEASES[0].v === GS_VERSION` · Version synchron v31.16.
 
 ### 2026-08-31 (y) — Vorabprüfung des Runbooks gegen die Live-Datenbank (lesend, keine Code-Änderung)
 
