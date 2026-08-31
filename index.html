@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.94.20260831">
+<meta name="app-version" content="30.95.20260831">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10406,6 +10406,11 @@ function openDailyQuizFromSupa(quiz) {
       : '🎯 ' + new Date().toLocaleDateString('de-CH', {day:'numeric',month:'long'});
   }
 
+  // v30.95: DB-Index auf jede Option stempeln, BEVOR gemischt wird. Der Server
+  // leitet is_correct aus daily_quizzes.options[selected_option] ab — ohne diesen
+  // Index koennte er die clientseitig gemischte Reihenfolge nicht zurueckuebersetzen.
+  // `opts` ist eine flache Kopie, die Objektreferenzen bleiben also erhalten.
+  try { quiz.options.forEach(function(o, i){ if (o && typeof o === 'object') o._idx = i; }); } catch(_){}
   // Shuffle deterministisch pro Tag+QuizID (gleiche Reihenfolge für alle User)
   var today = new Date().toISOString().slice(0,10);
   var seed = quiz.id || 1;
@@ -10423,7 +10428,8 @@ function openDailyQuizFromSupa(quiz) {
     var isCorrect = opt.is_correct === true || opt.correct === true;
     var safe = labelText.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     var expl = (opt.explanation || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-    return '<button class="dq-opt" data-ans="' + safe + '" data-correct="' + (isCorrect ? 1 : 0) + '" data-expl="' + expl + '" ' +
+    var dbIdx = (opt && typeof opt._idx === 'number') ? opt._idx : -1;   // v30.95
+    return '<button class="dq-opt" data-ans="' + safe + '" data-correct="' + (isCorrect ? 1 : 0) + '" data-idx="' + dbIdx + '" data-expl="' + expl + '" ' +
       'style="width:100%;padding:13px 15px;margin-bottom:8px;background:rgba(255,255,255,.12);' +
       'border:1.5px solid rgba(255,255,255,.25);border-radius:13px;color:#fff;font-size:14px;' +
       'font-weight:700;cursor:pointer;font-family:inherit;text-align:left;' +
@@ -10455,6 +10461,9 @@ async function answerSupaDailyQuiz(btn) {
   dqStopTimer();
 
   var isCorrect = btn.dataset.correct === '1';
+  // v30.95: DB-Index der gewaehlten Option — der Server prueft damit selbst nach.
+  var _dqSelIdx = parseInt(btn.dataset.idx, 10);
+  if (!isFinite(_dqSelIdx) || _dqSelIdx < 0) _dqSelIdx = null;
   var timeUsed = Math.round((Date.now() - _dqStartTime) / 1000);
   var expl = btn.dataset.expl || window._dqSupaExpl || '';
 
@@ -10524,10 +10533,14 @@ async function answerSupaDailyQuiz(btn) {
       if (typeof sbFetch === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
         var uid = gsStore.get('gs_sb_uid', null);
         if (uid && window._dqSupaQuizId) {
+          // v30.95: selected_option (DB-Index) mitschicken. Der Server leitet
+          // is_correct daraus selbst ab — der hier mitgeschickte Wert ist nur noch
+          // Vorschlag und wird serverseitig ersetzt. Ohne Index gilt die Antwort
+          // als nicht ueberpruefbar und zaehlt nicht (bewusst: im Zweifel nicht anrechnen).
           sbFetch('/rest/v1/quiz_answers', {
             method:'POST',
             headers:{'Content-Type':'application/json','Prefer':'return=minimal,resolution=ignore-duplicates'},
-            body: JSON.stringify({ user_id: uid, quiz_id: window._dqSupaQuizId, is_correct: isCorrect })
+            body: JSON.stringify({ user_id: uid, quiz_id: window._dqSupaQuizId, is_correct: isCorrect, selected_option: _dqSelIdx })
           }).then(function(){
             try { if (typeof dqPushLeaderboardDebounced === 'function') dqPushLeaderboardDebounced(dqGetStats()); } catch(_){}
             try { if (typeof dqRefreshLeaderboards === 'function') dqRefreshLeaderboards(); } catch(_){}
@@ -19815,71 +19828,12 @@ function renderDailyQuizTeaser() {
 })();
 
 // Antwort-Handler für Supabase-basiertes Quiz
-async function gsAnswerSupaQuiz(btn) {
-  if (!btn || !btn.dataset) return;
-  var qid = parseInt(btn.dataset.qid || '0', 10);
-  var idx = parseInt(btn.dataset.idx || '0', 10);
-  var correct = btn.dataset.correct === '1';
-  var expl = btn.dataset.expl || '';
-  var xp = parseInt(btn.dataset.xp || '10', 10);
-  var oEl = document.getElementById('quiz-options');
-  var rEl = document.getElementById('quiz-result');
-  if (oEl) {
-    Array.prototype.forEach.call(oEl.querySelectorAll('button'), function(b) {
-      b.disabled = true;
-      b.style.cursor = 'default';
-      if (b === btn) {
-        b.style.background = correct ? 'rgba(102,187,106,.85)' : 'rgba(239,83,80,.85)';
-        b.style.borderColor = correct ? '#2e7d32' : '#c62828';
-      } else if (b.dataset.correct === '1') {
-        b.style.background = 'rgba(102,187,106,.55)';
-      }
-    });
-  }
-  if (rEl) {
-    rEl.style.display = 'block';
-    rEl.textContent = (correct ? '✅ Richtig! +' + xp + ' XP ' : '❌ Leider falsch. ') + expl;
-  }
-  // Lokal markieren
-  var today = new Date().toISOString().slice(0,10);
-  try { localStorage.setItem('gs_quiz_sb_' + qid + '_' + today, '1'); } catch(e) {}
-  // Punkte + Streak lokal tracken
-  try {
-    if (correct) {
-      var pts = parseInt(localStorage.getItem('gs_quiz_points')||'0', 10) + xp;
-      localStorage.setItem('gs_quiz_points', String(pts));
-      var lastDay = localStorage.getItem('gs_quiz_lastday') || '';
-      var streak  = parseInt(gsStore.get('gs_quiz_streak', null)||'0', 10);
-      var yDate = new Date(); yDate.setDate(yDate.getDate()-1);
-      var y = yDate.toISOString().slice(0,10);
-      streak = (lastDay === y) ? (streak + 1) : (lastDay === today ? streak : 1);
-      gsStore.set('gs_quiz_streak', String(streak));
-      localStorage.setItem('gs_quiz_lastday', today);
-    }
-  } catch(e) {}
-  // Server-side: /rest/v1/quiz_answers eintragen (nur wenn eingeloggt)
-  // v30.80 BUG-FIX: window.supabase.auth.getUser() existiert nicht (kein supabase-js,
-  // vgl. Z.80347) → der Insert lief NIE. Plus: Spalte heisst selected_option, nicht
-  // answer_index (PostgREST 400). uid kanonisch aus gs_sb_uid. Der neue DB-Trigger
-  // trg_quiz_answers_sync_lb zaehlt das Leaderboard atomar mit dem Insert hoch.
-  try {
-    if (typeof sbFetch === 'function' && typeof sbIsLoggedIn === 'function' && sbIsLoggedIn()) {
-      var uid = (typeof gsStore !== 'undefined' && gsStore.get) ? gsStore.get('gs_sb_uid', null) : localStorage.getItem('gs_sb_uid');
-      if (uid && qid) {
-        await sbFetch('/rest/v1/quiz_answers', {
-          method:'POST',
-          headers:{'Content-Type':'application/json','Prefer':'return=minimal,resolution=ignore-duplicates'},
-          body: JSON.stringify({ user_id: uid, quiz_id: qid, is_correct: correct, selected_option: idx })
-        });
-        // Nach dem Insert: Streaks/Name pushen + offene Ranglisten refreshen
-        // (Zaehlung macht der DB-Trigger bereits race-frei selbst).
-        try { if (typeof dqPushLeaderboardDebounced === 'function') dqPushLeaderboardDebounced(dqGetStats()); } catch(_){}
-        try { if (typeof dqRefreshLeaderboards === 'function') dqRefreshLeaderboards(); } catch(_){}
-      }
-    }
-  } catch(e) { console.log('[GS] quiz_answers insert:', e.message); }
-  if (typeof gsUpdateQuizCard === 'function') gsUpdateQuizCard();
-}
+// v30.95: gsAnswerSupaQuiz (65 Zeilen) ersatzlos entfernt — NULL Aufrufer.
+// Der lebende Pfad ist answerSupaDailyQuiz (Z. ~10458, verdrahtet in Z. ~10441).
+// Die tote Funktion war der einzige Ort, der `selected_option` mitschickte; genau
+// deshalb haben alle 24 bestehenden quiz_answers-Zeilen selected_option = NULL und
+// sind nachtraeglich nicht gegen daily_quizzes pruefbar (siehe Migration
+// 20260831_quiz_antworten_serverseitig_v30_95.sql).
 
 
 
@@ -68012,7 +67966,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.94';
+var GS_VERSION = 'v30.95';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

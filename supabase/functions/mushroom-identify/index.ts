@@ -170,6 +170,8 @@ Deno.serve(async (req) => {
       p_edge_fn: 'mushroom-identify',
       p_tokens_in: aiJson?.usage?.input_tokens || 0,
       p_tokens_out: aiJson?.usage?.output_tokens || 0,
+      // v30.95: ohne p_model bucht fn_log_ai_usage 0.00 CHF (else-Zweig).
+      p_model: aiJson?.model || 'claude-haiku-4-5-20251001',
     });
   } catch (_) { /* nicht-blockierend */ }
 

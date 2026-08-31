@@ -116,6 +116,11 @@ Deno.serve(async (req) => {
         p_edge_fn: "knowledge-bulk-gen",
         p_tokens_in: aiData?.usage?.input_tokens || 0,
         p_tokens_out: aiData?.usage?.output_tokens || 0,
+        // v30.95: p_model MUSS mit. Ohne ihn laeuft fn_log_ai_usage in den
+        // else-Zweig `v_cost := 0` — 111 echte Calls mit 471'430 Output-Token
+        // waren dadurch mit 0.00 CHF gebucht und fn_finance_snapshot meldete
+        // eine um Faktor ~7,5 zu optimistische Deckung.
+        p_model: aiData?.model || model,
       });
     } catch (_) { /* nicht-blockierend */ }
 
