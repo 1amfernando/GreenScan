@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.01.20260831">
+<meta name="app-version" content="31.02.20260831">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -67921,7 +67921,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.01';
+var GS_VERSION = 'v31.02';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -73209,17 +73209,41 @@ async function gsSyncUserDataOnLogin(){
   try {
     // v24.23: Last-Write-Wins-Helper — vergleicht lokalen dirty-marker mit cloud updated_at.
     // Wenn lokal NEUER → überschreiben blockiert + Re-Push triggern (Cloud aktualisieren).
+    // v31.02: Entscheidet, ob der Cloud-Stand den lokalen ersetzen darf.
+    //
+    // VORHER wurde hier die GERAETE-Uhr gegen die SERVER-Uhr gestellt:
+    //   new Date(dirtyAt).getTime() > new Date(cloudUpdatedAt).getTime()
+    // `dirtyAt` kommt aus markDirty() — `new Date().toISOString()`, also vom
+    // Geraet. `cloudUpdatedAt` ist `updated_at` aus Postgres, also vom Server.
+    // Geht die Geraete-Uhr nach (nach leerem Akku, falsch gestellt, ohne
+    // Zeit-Sync), sieht eine soeben getippte lokale Aenderung aelter aus als
+    // der Cloud-Stand — die Bedingung greift nicht, und der Pull ueberschreibt
+    // ungepushte Arbeit. Kein Randfall: eine um Minuten nachgehende Uhr reicht.
+    //
+    // Ein Vergleich gegen `gs_sync_synced_at_<scope>` waere auch nicht sauber:
+    // dieser Schluessel wird je nach Pfad mal mit der Server-Zeit (Pull, Z. ~73255)
+    // und mal mit der Geraete-Zeit (_markSuccess im Push) geschrieben.
+    //
+    // JETZT ohne jeden Uhrenvergleich: die Dirty-Markierung EXISTIERT genau dann,
+    // wenn es eine noch nicht gepushte lokale Aenderung gibt — markDirty() setzt
+    // sie, _markSuccess() loescht sie erst nach einem nachweislich erfolgreichen
+    // Push (seit v30.99 mit HTTP-Status-Pruefung). Genau das ist die Frage, die
+    // hier zu beantworten ist, und sie braucht keine Zeitrechnung.
+    //
+    // Bewusste Abwaegung: hat ein anderes Geraet zwischenzeitlich etwas Neueres
+    // gepusht, gewinnt jetzt das hier ungepushte Lokal und wird hochgeschoben.
+    // Das ist dieselbe Last-Write-Wins-Semantik wie bisher, nur richtig
+    // entschieden — und sie faellt zugunsten dessen aus, was auf DIESEM Geraet
+    // noch nicht gesichert ist. Gegen das Ueberschreiben einer groesseren Liste
+    // durch eine kleinere schuetzt weiterhin der Count-Guard (v28.22).
     function _shouldOverwriteLocal(scope, cloudUpdatedAt){
       if (!cloudUpdatedAt) return false; // keine Cloud-Daten → lokal behalten
       var dirtyAt = (window.gsCloudSync && gsCloudSync.localDirtyAt) ? gsCloudSync.localDirtyAt(scope) : null;
-      if (!dirtyAt) return true; // lokal nicht modifiziert seit letzem Push → Cloud ist autoritativ
-      // Lokal ist modifiziert. Wenn lokal NEUER als Cloud → NICHT überschreiben + Push triggern
-      if (new Date(dirtyAt).getTime() > new Date(cloudUpdatedAt).getTime()) {
-        try { gsCloudSync.markDirty(scope); } catch(_){}
-        console.log('[gsSync]', scope, 'local is newer than cloud — keeping local + triggering push');
-        return false;
-      }
-      return true;
+      if (!dirtyAt) return true; // nichts Ungepushtes → Cloud ist autoritativ
+      // Ungepushte lokale Aenderung → behalten und nachschieben.
+      try { gsCloudSync.markDirty(scope); } catch(_){}
+      console.log('[gsSync]', scope, 'ungepushte lokale Aenderung — lokal behalten + Push angestossen');
+      return false;
     }
     // v30.99: Fehlgeschlagene Pulls mitzaehlen. sbFetch WIRFT NICHT, es liefert
     // {error} — die Bedingungen unten ueberspringen den Block dann einfach, und
@@ -73628,7 +73652,19 @@ window.gsCloudSync = (function(){
       }
       _setQueue(remaining);
       _setDirty(stillDirty);
-      try { localStorage.setItem(LAST_PUSH_KEY, new Date().toISOString()); } catch(_){}
+      // v31.02: Den Zeitstempel NUR bei vollstaendigem Erfolg setzen. Vorher stand
+      // er hier bedingungslos — auch wenn jeder Push in einen 401 lief und
+      // `stillDirty` randvoll blieb. Die Statuszeile meldete daraufhin „gerade
+      // eben synchronisiert", waehrend in Wahrheit nichts angekommen war.
+      // `gs_sync_last_push` heisst ab jetzt: letzte NACHWEISLICH vollstaendige
+      // Synchronisierung.
+      var _allDone = (Object.keys(stillDirty).length === 0) && (remaining.length === 0);
+      if (_allDone) {
+        try { localStorage.setItem(LAST_PUSH_KEY, new Date().toISOString()); } catch(_){}
+      } else {
+        console.warn('[gsCloudSync] Sync unvollstaendig — offen:',
+          Object.keys(stillDirty).join(',') || '–', '| Warteschlange:', remaining.length);
+      }
     } catch(e){
       console.warn('[gsCloudSync] flush error', e);
     } finally {
@@ -74497,11 +74533,23 @@ function gsSyncStatusText(){
     if (window._gsSyncSyncing) return T('sync_syncing','Synchronisiere…');
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return T('sync_offline','Offline — Änderungen werden bei Verbindung synchronisiert');
     var parts = [];
-    if (s.lastPushAgeSec != null) {
+    // v31.02: Steht etwas aus, kommt das ZUERST. Vorher las sich die Zeile
+    // „gerade eben synchronisiert · 3 ausstehend" — der beruhigende Teil vorn,
+    // der eigentliche Zustand als Nachsatz. Wer nachsieht, weil Daten fehlen,
+    // soll das Problem lesen, nicht die Beruhigung.
+    var _open = s.dirty.length + s.pendingOps;
+    if (!s.ok && _open > 0) {
+      parts.push('⚠️ ' + _open + ' ' + T('sync_unsaved','Änderung(en) noch nicht gesichert'));
+      if (s.lastPushAgeSec != null) {
+        var mo = Math.round(s.lastPushAgeSec/60);
+        parts.push('· ' + T('sync_last_ok_prefix','zuletzt vollständig vor') + ' ' + (mo <= 0 ? ('<1 ' + _min) : (mo + ' ' + _min)));
+      } else {
+        parts.push('· ' + T('sync_never_complete','noch nie vollständig'));
+      }
+    } else if (s.lastPushAgeSec != null) {
       var m = Math.round(s.lastPushAgeSec/60);
       parts.push(m <= 0 ? T('sync_just_now','gerade eben synchronisiert') : (T('sync_last_prefix','zuletzt synchronisiert vor') + ' ' + m + ' ' + _min));
     } else parts.push(T('sync_not_yet','noch nicht synchronisiert'));
-    if (!s.ok) parts.push('· ' + (s.dirty.length + s.pendingOps) + ' ' + T('sync_pending','ausstehend'));
     var snap = null; try { snap = localStorage.getItem('gs_snapshot_last'); } catch(_){}
     if (snap) { var sm = Math.round((Date.now()-new Date(snap).getTime())/60000); parts.push('· ' + T('sync_backup_prefix','Backup vor') + ' ' + (sm<60? sm+' '+_min : Math.round(sm/60)+' '+T('sync_hour','h'))); }
     return parts.join(' ');
