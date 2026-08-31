@@ -293,6 +293,62 @@ cat <<'PRUEF'
     Rückweg, falls etwas klemmt: den in Schritt 1 gesicherten Wert wieder
     in app_settings zurückschreiben und in Stripe das alte Secret reaktivieren.
 
+  ══════════════════════════════════════════════════════════════════════
+  WICHTIG — die Secret-Rotation oben ist NICHT nur Hygiene
+  ══════════════════════════════════════════════════════════════════════
+  Befund vom 2026-08-31: die Stripe-Webhook-Strecke hat noch NIE geliefert.
+
+    stripe_webhook_events          = 0 Zeilen, seit jeher
+    stripe_subscriptions           = 1 Zeile, status='trialing',
+                                     current_period_end = 2026-05-23
+                                     (ueber 3 Monate her),
+                                     updated_at = 2026-05-27
+    audit_log (stripe/subscription)= 0 Zeilen
+
+  Warum das aussagekraeftig ist: stripe-webhook/index.ts:305 schreibt JEDES
+  empfangene Event nach stripe_webhook_events — direkt nach der Signatur-
+  pruefung, VOR jedem Handler. Null Zeilen heisst also: kein einziges Event
+  hat je die Signaturpruefung passiert. Und waere die Strecke intakt, haette
+  Stripe zum Trial-Ende am 23.05. ein customer.subscription.updated
+  geschickt; die Zeile stuende auf 'active' oder 'canceled' statt weiterhin
+  auf 'trialing'.
+
+  ENTWARNUNG zur Schwere: es ist noch niemandem etwas verloren gegangen.
+  Alle 9 bezahlten Konten sind comp_tier-Zuteilungen von Hand — es hat noch
+  NIE jemand ueber Stripe wirklich bezahlt. Die Strecke ist unerprobt, nicht
+  beschaedigt. Beim ersten echten Zahlungsvorgang waere sie es aber:
+  Abo-Start, Kuendigung und fehlgeschlagene Karte kaemen nie in der App an.
+
+  URSACHE VON HIER AUS NICHT BESTIMMBAR — dafuer braucht es das Stripe-
+  Dashboard. Bitte in dieser Reihenfolge pruefen:
+
+    1. Stripe → Developers → Webhooks: Gibt es ueberhaupt einen Endpunkt auf
+         https://vowbiueikwrauuceilhc.supabase.co/functions/v1/stripe-webhook
+       Wenn nein → das ist die Ursache. Anlegen, Events abonnieren
+       (checkout.session.completed, customer.subscription.*,
+        invoice.payment_failed, charge.failed, charge.dispute.created,
+        customer.updated, account.updated).
+
+    2. Modus pruefen: Test- und Live-Modus haben GETRENNTE Endpunkte UND
+       getrennte Signing-Secrets. Ein im Test-Modus angelegter Endpunkt sieht
+       keine Live-Events. (Hinweis am Rande: app_settings.stripe_publishable_key
+       traegt den Prefix `pk_test_` — die Zeile wird vom Frontend allerdings
+       nirgends gelesen, ist also eher Altlast als Beweis. Trotzdem ein
+       Anlass, den Modus bewusst zu pruefen.)
+
+    3. Falls ein Endpunkt existiert: dessen "Recent deliveries" ansehen.
+       401/400 → Signing-Secret passt nicht zu app_settings.stripe_webhook_secret
+       (dort steht ein 38-Zeichen-Wert mit Prefix whsec, zuletzt geaendert
+       am 2026-05-16). Dann ist die Rotation unten genau die Loesung.
+       Keine Deliveries → es wurde nie etwas gesendet, siehe 1./2.
+
+    4. Gegenprobe nach jeder Aenderung: Stripe → "Send test webhook" und
+         SELECT id, type, created_at, error FROM stripe_webhook_events
+         ORDER BY created_at DESC LIMIT 5;
+       Der Test-Event MUSS dort auftauchen. Erst dann ist die Strecke belegt.
+
+  ══════════════════════════════════════════════════════════════════════
+
   NOCH OFFEN — Supabase-Dashboard (1 Klick):
   • Auth → Settings → "Leaked password protection" aktivieren
 
