@@ -5,7 +5,7 @@
 > Kompagnon: `STATUS.md` (operativer Snapshot) · `CLAUDE.md` (Onboarding) ·
 > `BACKEND_FRONTEND_MAP_v26.76.md` (Architektur-Detailkarte).
 
-**Stand:** v30.79 · App **live** auf green-scan.ch · released seit v26.0.
+**Stand:** v31.08 · App **live** auf green-scan.ch · released seit v26.0.
 
 ---
 
@@ -37,13 +37,34 @@ Die App ist ein reifes, live-laufendes Produkt. Erreicht u.a.:
   SECURITY-DEFINER-Views auf `security_invoker`, admin-only Functions REVOKE.
 - **PWA** — Share-Target, Shortcuts, Screenshots, iOS-Standalone, Offline-Cache.
 
+**Datenhaltung gehärtet (v30.92–v31.08, 18 Releases).** Zwei Audits — Backend-Integrität und Datenverlust — vollständig abgearbeitet. Die Kernbefunde:
+
+- **Abmelden + wieder anmelden löschte das Konto auf allen Geräten** (v31.04). Der Empty-Clobber-Guard wurde nur bei einem *Konto­wechsel* neu scharf gestellt, nicht beim Logout.
+- **Das Cloud-Backup war da, nur nicht erreichbar** (v30.97). Der Wiederherstellen-Banner erschien nur bei komplett leerem Speicher — den der Login-Pull 2,7 s vorher wieder füllte.
+- **Der Speicher-Wrapper log** (v30.98). Er verschluckte jeden Quota-Fehler und gab `undefined` zurück: jeder `try/catch`-Fallback im Monolithen war toter Code, und bei vollem Speicher schlug **das Anmelden still fehl**.
+- **Der Sync verglich Geräte- gegen Server-Uhr** (v31.02) und stempelte „synchronisiert" auch nach lauter Fehlschlägen.
+- **Fotos** liegen nicht mehr im 5-MB-Speicher und gehen nicht mehr verloren (v31.06/07) — Ausgangskorb in IndexedDB, Anzeige über einen Auflöser, idempotente Uploads.
+- **Rotierende Listen** archivieren statt wegzuwerfen, mit erreichbarem Export (v31.08).
+- **Sicherheit:** Rollen-Auskunft über fremde Konten für `anon` geschlossen, `quiz_answers.is_correct` serverseitig abgeleitet (entschied über ein Jahr PRO gratis), Marktplatz-Chat erfand keine Antworten mehr im Namen echter Verkäufer.
+
 Detaillierte Sprint-Historie: `STATUS.md` Sektion 0 (Routine-Einträge).
 
 ---
 
 ## 🔥 P0 — Blocker
 
-*Keine offen.* Der v26.51-Self-Audit hat alle Security-ERROR eliminiert.
+> ⚠️ **Diese Sektion stand bis v31.08 auf „Keine offen" — das war seit dem
+> Backend-Audit (v30.95) falsch.** Genau diese Art veralteter Entwarnung ist
+> gefährlich: wer hier nachsieht, hört auf zu suchen.
+
+| # | Punkt | Wer | Stand |
+|---|---|---|---|
+| **P0-1** | **Zwei offene Schreib-Endpunkte auf `public.species`.** `admin-seed-species` (v3) und `species-bulk-seed` (v4) sind ACTIVE mit `verify_jwt=false`, schreiben mit dem Service-Role-Key an der RLS vorbei und sind nur durch **ein hartcodiertes Secret** geschützt — das im Klartext im **öffentlichen** Repo liegt (aktueller Tree von 6 gepushten `claude/*`-Branches). Die v29-Rotation hat sie übersehen, weil sie kein Repo-Verzeichnis hatten. **Kein Missbrauch nachweisbar** (species = 2'838 Zeilen, 1 in 90 Tagen, neueste 02.07.). | **Owner** | 🔴 **offen** — 410-Stubs liegen fertig im Repo, `bash scripts/apply_pending_v30_87.sh` (Schritt 0) legt sie still |
+
+Der v26.51-Self-Audit hat seinerzeit alle Security-**ERROR**-Advisors eliminiert;
+das gilt weiterhin (Stand v31.08: 0 ERROR, nur WARNs). P0-1 ist kein
+Advisor-Befund, sondern eine Edge-Function ausserhalb des Repos — genau deshalb
+hat ihn keine automatische Prüfung gefunden.
 
 ---
 
@@ -51,8 +72,8 @@ Detaillierte Sprint-Historie: `STATUS.md` Sektion 0 (Routine-Einträge).
 
 | # | Punkt | Wer |
 |---|---|---|
-| P1-1 | **Leaked-Password-Protection** aktivieren (Supabase → Auth → Settings) | Owner, 1 Klick |
-| P1-2 | **Stripe Live-Mode** End-to-End verifizieren (Checkout → Webhook `stripe_events` → Tier-Wechsel → Portal → Cancel) | Owner |
+| P1-1 | **Leaked-Password-Protection** aktivieren (Supabase → Auth → Settings). Alle 13 Konten nutzen E-Mail+Passwort, `auth.mfa_factors` = 0 — das Passwort ist der einzige Credential, auch bei den 6 internen Admin-/Staff-Konten. | Owner, 1 Klick |
+| P1-2 | **Stripe-Webhook reparieren.** Nicht mehr nur „verifizieren": `stripe_webhook_events` hat **0 Zeilen**, und die Tabelle wird *vor* jedem Handler beschrieben — es hat also **noch nie ein Event die Signaturprüfung passiert**. Die eine Subscription hängt seit 23.05. auf `trialing` mit abgelaufener Periode; alle 9 „bezahlten" Konten sind manuelle `comp_tier`-Zuteilungen. **Entwarnung:** niemandem ist etwas verloren gegangen, es hat schlicht noch nie jemand über Stripe bezahlt. Beim ersten echten Zahlungsvorgang wäre es aber so. Die Secret-Rotation ist womöglich gleich die Lösung — 4-Schritt-Diagnose im Runbook. | Owner |
 | P1-3 | `seasonal_highlights` Knowledge-Tabelle unter Threshold (36/40) — Topic in `knowledge-bulk-gen` ergänzen ODER Seed-Quelle | Backend/Cowork |
 
 ---
