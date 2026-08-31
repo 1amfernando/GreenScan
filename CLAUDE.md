@@ -9,12 +9,50 @@
 
 Schweizer PWA für Naturbestimmung — 4'342 Arten (Pflanzen, Pilze, Bäume,
 Kräuter, Moose, Flechten, Algen). Live unter `https://green-scan.ch/` (kanonisch MIT Bindestrich; `greenscan.ch` ohne Bindestrich ist nur die Mail-Domain). Hosting:
-**Cloudflare Pages**. Backend: **Supabase** (Auth, Storage, Postgres mit RLS).
+**Cloudflare Pages** (`greenscan-app`) — und **zusätzlich Netlify**
+(`green-scanswitzerland`), siehe §2.1. Backend: **Supabase** (Auth, Storage,
+Postgres mit RLS).
 KI: **Claude (Anthropic)** — User bringt eigenen API-Key oder Admin hinterlegt
 einen globalen Key in Supabase (`fn_get_global_api_key` RPC).
 
 Keine Build-Pipeline, kein npm. Reine statische Files. Editieren = direkt
-deployen, sobald Cloudflare Pages den Branch zieht.
+deployen, sobald der Hoster den Branch zieht.
+
+### 2.1 · Zwei Hoster — was das bedeutet (Stand v31.08)
+
+An jedem PR bauen **beide**: Cloudflare Pages (`greenscan-app`) und Netlify
+(`green-scanswitzerland`). Das war bis v31.08 nirgends dokumentiert, obwohl es
+für jede Änderung an Auslieferungs-Dateien wichtig ist.
+
+**Konsistent, weil bewusst so gebaut** — geprüft, nicht vermutet:
+
+- **Keine `netlify.toml`, keine Wrangler-/Pages-Konfiguration.** Beide liefern
+  schlicht das Repo-Wurzelverzeichnis als statische Dateien aus.
+- **`_headers` gilt auf beiden.** Netlify wertet dieselbe Datei aus — CSP,
+  HSTS, COOP und Permissions-Policy greifen also überall gleich.
+- **`_redirects` gilt auf beiden.** Die Datei sagt es sogar selbst:
+  „Format identisch zu Netlify".
+- **`<link rel="canonical" href="https://green-scan.ch/">`** steht in
+  `index.html:11` (seit v29.23). Suchmaschinen bekommen dadurch unabhängig vom
+  ausliefernden Host dieselbe kanonische Adresse — kein Duplicate-Content.
+
+**Was beim Arbeiten zu beachten ist:**
+
+- Eine Änderung an `_headers` oder `_redirects` wirkt auf **beiden** Hostern.
+  Nie annehmen, es gebe nur Cloudflare-Semantik.
+- `manifest.json` nutzt relative `start_url`/`scope` (`/?source=pwa`, `/`).
+  Wer die PWA von der Netlify-Adresse installiert, bekommt eine **eigene**
+  Instanz mit **eigenem** localStorage — andere Herkunft, andere Daten. Für
+  Support-Fälle relevant: „meine Pflanzen sind weg" kann schlicht die falsche
+  Adresse sein.
+- Der Anon-Key ist öffentlich by design und die Daten sind über RLS geschützt;
+  eine zweite Auslieferung ist deshalb **kein** Datenrisiko.
+
+**Nicht verifiziert:** ob `green-scanswitzerland.netlify.app` tatsächlich
+öffentlich erreichbar ist oder nur Deploy-Previews baut. Die Netzwerk-Richtlinie
+der Claude-Cloud-Umgebung blockiert ausgehende Verbindungen dorthin
+(`CONNECT … 403`). Wer es prüfen kann: einmal aufrufen und hier eintragen —
+und dann entscheiden, ob die zweite Auslieferung bleiben soll.
 
 ## 2 · Repo-Struktur
 
