@@ -5,7 +5,7 @@
 > Kompagnon: `STATUS.md` (operativer Snapshot) · `CLAUDE.md` (Onboarding) ·
 > `BACKEND_FRONTEND_MAP_v26.76.md` (Architektur-Detailkarte).
 
-**Stand:** v31.14 · App **live** auf green-scan.ch · released seit v26.0.
+**Stand:** v31.15 · App **live** auf green-scan.ch · released seit v26.0.
 
 ---
 
@@ -52,6 +52,8 @@ Die App ist ein reifes, live-laufendes Produkt. Erreicht u.a.:
 **Release-Notizen wieder ehrlich (v31.13).** Der „Was ist neu"-Dialog setzte die laufende Versionsnummer über den obersten `GS_RELEASES`-Eintrag — und der stand seit Juni auf v30.03. Rund hundert Updates lang las jeder Nutzer dieselben Notizen unter einer neuen Nummer. Sechs Einträge nachgetragen, der Dialog prüft jetzt ab und bleibt bei fehlendem Eintrag lieber aus, die Konvention steht in `CLAUDE.md` §3.1 statt nur in einem Code-Kommentar.
 
 **Streaks halten wieder (v31.14).** Erster Teil von „Bindung und Wachstum" — bevor eine Serie Nutzer hält, muss sie selbst halten. Der Cloud-Abgleich schrieb die vier zusammengehörenden Streak-Schlüssel einzeln; ein Gerät ohne Serie leerte dabei die Prüfsumme, und der nächste Lesevorgang setzte auf 0. Der Login-Streak fiel auf 1, weil nur die Zahl übertragen wurde, nicht der Tag. Dazu rechneten drei Streak-Systeme mit zwei Tagesgrenzen (Ortszeit vs. UTC). Alles behoben, 14/14 Szenarien gegen die Originalfunktionen grün.
+
+**Quiz-Rangliste zeigt den echten Stand (v31.15).** Wer nicht in den Top 50 stand, sah sich selbst mit 0 richtigen Antworten — der lokale Eintrag las Felder, die niemand schreibt. Dazu: die Zahl hiess „Punkte 2026", war aber die Anzahl richtiger Antworten insgesamt; die beste Serie wird jetzt angezeigt. Der Quiz-Tag liegt in einer Funktion mit dem Hinweis, dass er UTC bleiben muss, solange `fn_get_daily_quiz` mit `current_date` rotiert.
 
 Detaillierte Sprint-Historie: `STATUS.md` Sektion 0 (Routine-Einträge).
 

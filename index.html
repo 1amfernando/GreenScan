@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.14.20260831">
+<meta name="app-version" content="31.15.20260831">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -9556,8 +9556,29 @@ function dqDaySeed(dateStr) {
   return s;
 }
 
+// v31.15: EINE Stelle für den Quiz-Tag. Vorher rechneten vier Stellen unabhängig
+// voneinander `new Date().toISOString().slice(0,10)` — der Tagesschlüssel, der
+// Cache-Schlüssel der Server-Frage, der Seed der lokalen Ersatzfrage und die
+// „heute schon beantwortet"-Sperre des Mini-Quiz.
+//
+// ACHTUNG, das ist bewusst UTC und darf NICHT einzeln auf Ortszeit umgestellt
+// werden: die Frage kommt aus `fn_get_daily_quiz`, und die rotiert mit dem
+// Postgres-`current_date` (auf Supabase UTC). Stellt man nur den Client um,
+// hält er zwischen 00:00 und 02:00 Ortszeit bereits den nächsten Tag für
+// angebrochen, bekommt vom Server aber dieselbe Frage — und weil auch die
+// „heute gespielt"-Sperre einen neuen Schlüssel hätte, liesse sich dieselbe
+// Frage zweimal beantworten und doppelt punkten. In der Schweiz erscheint die
+// neue Frage deshalb um 01:00 (Winter) bzw. 02:00 (Sommer).
+//
+// Um das auf Ortszeit zu bringen, müssen BEIDE Seiten zusammen wechseln:
+// `fn_get_daily_quiz` auf `(now() AT TIME ZONE 'Europe/Zurich')::date` (so macht
+// es v28_05_feature_quota bereits) und danach diese Funktion. Notiert in
+// STATUS.md; die Migration ist noch nicht eingespielt.
+function dqDayKey() {
+  return new Date().toISOString().slice(0,10);
+}
 function dqTodayKey() {
-  return 'gs_dq_' + new Date().toISOString().slice(0,10);
+  return 'gs_dq_' + dqDayKey();
 }
 function dqGetToday() {
   try { return JSON.parse(localStorage.getItem(dqTodayKey()) || 'null'); } catch(e) { return null; }
@@ -10143,7 +10164,7 @@ function openDailyQuiz() {
   // Hat Vorrang vor dem lokal-generierten Quiz (das hatte Bug: gleiche Frage 2 Tage hintereinander
   // weil Random-Seed nur Datum war, ohne Server-side Rotation). Async — bei Erfolg Modal öffnen.
   if (typeof sbFetch === 'function') {
-    var todayKey = new Date().toISOString().slice(0,10);
+    var todayKey = dqDayKey();
     var lastFetched = localStorage.getItem('gs_dq_today_key');
     var cachedQuiz = null;
     try { cachedQuiz = JSON.parse(localStorage.getItem('gs_dq_today_cache') || 'null'); } catch(_){}
@@ -10195,7 +10216,7 @@ function _openDailyQuizLocal() {
   }
 
   // Deterministische Art und Fragetyp für heute
-  var dateStr = new Date().toISOString().slice(0,10);
+  var dateStr = dqDayKey();
   var seed = dqDaySeed(dateStr);
   
   // Pool: Arten mit genug Daten
@@ -17458,16 +17479,15 @@ function dqShowResult(correct, timeUsed, pts, fromCache) {
       stats.correct++;
       stats.streak++;
       stats.bestStreak = Math.max(stats.bestStreak, stats.streak);
-      stats.yearCorrect++;
     } else {
       stats.streak = 0;
     }
     stats.total++;
-    stats.yearTotal++;
-    if (pts) {
-      stats.points = (stats.points||0) + pts;
-      stats.yearPoints = (stats.yearPoints||0) + pts;
-    }
+    // v31.15: hier stand zusätzlich stats.yearCorrect++ / stats.yearTotal++ auf
+    // Feldern, die dqGetStats gar nicht anlegt — `undefined++` ergibt NaN, und
+    // JSON.stringify macht daraus null. Die Funktion hat zwar keine Aufrufstelle
+    // (nachgezählt), aber sie soll keine Falle sein, falls sie je verdrahtet wird.
+    if (pts) stats.points = (stats.points||0) + pts;
 
     // Heute speichern
     dqSaveToday({ answered: true, correct: correct, points: pts||0, timeMs: Math.round(t*1000) });
@@ -17524,7 +17544,6 @@ async function openDqRanking() {
   var content = document.getElementById('dq-ranking-content');
   if (!content) return;
 
-  var yr = new Date().getFullYear();
   content.innerHTML = '<div style="padding:20px;text-align:center;color:rgba(255,255,255,.6);">⏳ Lade Rangliste…</div>';
 
   // Lokale Stats als eigener Eintrag
@@ -17539,13 +17558,20 @@ async function openDqRanking() {
   if (myUid) {
     var myName = '';
     try { myName = localStorage.getItem('gs_sb_display_name') || localStorage.getItem('gs_social_name') || 'Du'; } catch(e) { myName = 'Du'; }
+    // v31.15: hier standen stats.yearPoints / yearCorrect / yearTotal — Felder,
+    // die NIEMAND schreibt. Einziger Schreiber war dqShowResult, und diese
+    // Funktion hat im ganzen Monolithen keine einzige Aufrufstelle (nachgezählt).
+    // Wer noch nicht in der Cloud-Rangliste steht — neu, Push fehlgeschlagen oder
+    // ausserhalb der Top 50 —, sah sich deshalb mit 0 richtigen Antworten und 0 %,
+    // obwohl gs_dq_stats den richtigen Stand hielt. Jetzt dieselben Felder, die
+    // die beiden echten Antwort-Handler pflegen, und dieselbe Währung wie die
+    // Cloud-Zeilen (die Tabelle quiz_leaderboard kennt total_correct/attempts —
+    // eine Punkte-Spalte gibt es dort nicht).
     localEntry = {
       username: myName,
-      yearPoints: stats.yearPoints || 0,
-      yearCorrect: stats.yearCorrect || 0,
-      yearTotal: stats.yearTotal || 0,
-      streak: stats.streak || 0,
-      year: yr,
+      correct: stats.correct || 0,
+      attempts: stats.total || 0,
+      streakMax: stats.bestStreak || 0,   // Cloud liefert streak_max — vorher stand hier der LAUFENDE Streak
       isMe: true,
     };
   }
@@ -17561,14 +17587,14 @@ async function openDqRanking() {
         body: JSON.stringify({ p_limit: 50 })
       });
       if (result && result.data) {
-        // Mappe v26.72-Schema → openDqRanking-Schema (year_points/yearCorrect/yearTotal etc.)
+        // Mappe v26.72-Schema (total_correct/total_attempts/streak_max) auf die
+        // Felder, die diese Liste rendert.
         entries = result.data.map(function(r){
           return {
             username: r.display_name || 'Spieler',
-            yearPoints: r.total_correct || 0,
-            yearCorrect: r.total_correct || 0,
-            yearTotal: r.total_attempts || 0,
-            streak: r.streak_max || 0,
+            correct: r.total_correct || 0,
+            attempts: r.total_attempts || 0,
+            streakMax: r.streak_max || 0,
             isMe: !!(myUid && r.user_id === myUid)  // v30.80: eigener Eintrag hervorgehoben
           };
         });
@@ -17579,7 +17605,7 @@ async function openDqRanking() {
   // Lokalen Eintrag mergen falls nicht drin
   if (localEntry && !entries.find(function(e){ return e.isMe; })) {
     entries.push(localEntry);
-    entries.sort(function(a,b){ return (b.yearPoints||0)-(a.yearPoints||0); });
+    entries.sort(function(a,b){ return (b.correct||0)-(a.correct||0); });
   }
 
   if (!entries.length) {
@@ -17606,7 +17632,7 @@ async function openDqRanking() {
       var rank = i+1;
       var isTop3 = rank <= 3;
       var isMe = e.isMe;
-      var accuracy = e.yearTotal > 0 ? Math.round((e.yearCorrect||0)/(e.yearTotal||1)*100) : 0;
+      var accuracy = e.attempts > 0 ? Math.round((e.correct||0)/(e.attempts||1)*100) : 0;
       return '<div style="padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.1);'+
         (isMe?'background:rgba(255,255,255,.08);':'')+'">' +
         '<div style="font-size:'+(isTop3?'22':'16')+'px;flex-shrink:0;width:28px;text-align:center;">'+
@@ -17618,12 +17644,20 @@ async function openDqRanking() {
             (isTop3 ? ' <span style="font-size:10px;background:rgba(255,215,0,.25);color:#ffd700;padding:1px 6px;border-radius:5px;margin-left:4px;">'+rewards[i]+'</span>' : '') +
           '</div>' +
           '<div style="font-size:11px;color:rgba(255,255,255,.55);margin-top:2px;">' +
-            accuracy + '% korrekt · ' + (e.yearCorrect||0) + '/' + (e.yearTotal||0) + ' Fragen' +
+            accuracy + '% richtig · ' + (e.attempts||0) + ' Fragen' +
+            // v31.15: streak_max kam schon immer vom Server mit, wurde aber nie
+            // angezeigt. Die beste Serie ist genau das, was eine Rangliste
+            // interessant macht — sie kostet hier keine Zeile extra.
+            ((e.streakMax||0) > 1 ? ' · 🔥 ' + e.streakMax + ' in Folge' : '') +
           '</div>' +
         '</div>' +
         '<div style="text-align:right;flex-shrink:0;">' +
-          '<div style="font-size:16px;font-weight:900;color:#a5d6a7;">' + (e.yearPoints||0) + '</div>' +
-          '<div style="font-size:9px;color:rgba(255,255,255,.4);">Punkte ' + yr + '</div>' +
+          '<div style="font-size:16px;font-weight:900;color:#a5d6a7;">' + (e.correct||0) + '</div>' +
+          // v31.15: stand „Punkte <Jahr>", zeigte aber total_correct aus
+          // quiz_leaderboard — die Tabelle hat weder eine Punkte-Spalte noch
+          // einen Jahresbezug, und die Überschrift sagt selbst „gesamt". Die
+          // Zahl stand ausserdem identisch nochmal in der Zeile darunter.
+          '<div style="font-size:9px;color:rgba(255,255,255,.4);">richtig gesamt</div>' +
         '</div>' +
       '</div>';
     }).join('') +
@@ -19007,8 +19041,8 @@ function initDailyQuiz() {
   var rEl = document.getElementById('quiz-result');
   if (!qEl || !oEl) return;
 
-  // Heute bereits beantwortet?
-  var today = new Date().toISOString().slice(0,10);
+  // Heute bereits beantwortet? (gleiche Tagesgrenze wie das Tages-Quiz — siehe dqDayKey)
+  var today = (typeof dqDayKey === 'function') ? dqDayKey() : new Date().toISOString().slice(0,10);
   var answered = localStorage.getItem('gs_quiz_lastday') === today;
   if (answered) {
     qEl.innerHTML = '✅ Heute schon beantwortet!';
@@ -62955,6 +62989,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.15', date: '31.08.2026',
+    headline: '🏆 Quiz-Rangliste — du standest mit 0 drin',
+    summary: 'Wer noch nicht in der Cloud-Rangliste stand — neu angemeldet, Übertragung fehlgeschlagen oder ausserhalb der Top 50 —, sah sich selbst mit 0 richtigen Antworten und 0 Prozent, obwohl der eigene Stand längst gespeichert war. Die Zahl rechts hiess ausserdem „Punkte 2026", war aber die Anzahl richtiger Antworten insgesamt. Beides berichtigt, und die beste Serie steht jetzt in der Liste.',
+    user_summary: '🏆 Die Rangliste zeigt deinen echten Stand statt einer Null — und dazu deine beste Serie.',
+    user_items: [
+      { emoji: '🏆', text: 'Dein eigener Eintrag zeigt deinen wirklichen Stand, auch ausserhalb der Top 50' },
+      { emoji: '🔥', text: 'Beste Serie („x in Folge") wird angezeigt — die Zahl kam schon immer mit, nur sah sie niemand' },
+      { emoji: '🏷️', text: 'Ehrliche Beschriftung: „richtig gesamt" statt „Punkte 2026"' },
+    ],
+    items: [
+      {emoji:'🏆', bold:'localEntry las Phantom-Felder:', text:' stats.yearPoints/yearCorrect/yearTotal werden von niemandem geschrieben — einziger Schreiber war dqShowResult, eine Funktion ohne Aufrufstelle. Jetzt dieselben Felder, die die echten Antwort-Handler pflegen, und dieselbe Währung wie die Cloud-Zeilen.'},
+      {emoji:'🏷️', bold:'Beschriftung:', text:' quiz_leaderboard hat weder Punkte-Spalte noch Jahresbezug; die Überschrift sagte selbst „gesamt". Die Zahl stand zudem identisch nochmal in der Zeile darunter.'},
+      {emoji:'📅', bold:'dqDayKey():', text:' vier Stellen rechneten den Quiz-Tag unabhängig voneinander aus. Jetzt eine Funktion — mit dem ausdrücklichen Hinweis, dass sie UTC bleiben MUSS, solange fn_get_daily_quiz mit current_date rotiert (sonst liesse sich dieselbe Frage zweimal beantworten).'},
+    ],
+  },
+  {
     v: 'v31.14', date: '31.08.2026',
     headline: '🔥 Streaks — sie verschwanden beim zweiten Gerät',
     summary: 'Wer sich auf einem zweiten Gerät anmeldete, verlor seine Tages-Serie: der Abgleich schrieb die vier zusammengehörenden Werte einzeln, und ein Gerät ohne Serie leerte dabei die Prüfsumme — beim nächsten Lesen galt der Datensatz als manipuliert und wurde auf 0 gesetzt. Auch der Login-Streak fiel auf 1, weil nur die Zahl übertragen wurde, nicht der zugehörige Tag. Und die App rechnete an drei Stellen mit zwei verschiedenen Tagesgrenzen.',
@@ -68842,7 +68892,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.14';
+var GS_VERSION = 'v31.15';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

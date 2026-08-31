@@ -4,13 +4,48 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.14` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.15` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-08-31 (x) — v31.15: In der Quiz-Rangliste standest du mit 0
+
+> Zweiter Teil von „Bindung und Wachstum". Beim Durchgehen des Quiz habe ich mehr verworfen als repariert — zwei Verdachtsfälle liessen sich nicht halten, und einen Fix habe ich rückgängig gemacht, weil er einen echten Fehler erzeugt hätte.
+
+#### 🏆 Der Fund: der eigene Eintrag war immer 0
+
+`openDqRanking` baut die Liste aus zwei Quellen: den Cloud-Zeilen aus `fn_quiz_leaderboard_top` und — falls man dort **nicht** vorkommt — einem lokalen Eintrag. Der lokale las `stats.yearPoints`, `stats.yearCorrect`, `stats.yearTotal`. Diese Felder legt `dqGetStats()` gar nicht an, und **niemand schreibt sie**: der einzige Schreiber war `dqShowResult`, eine Funktion, die im ganzen Monolithen **keine Aufrufstelle** hat (nachgezählt).
+
+Wer also neu angemeldet ist, wessen Übertragung fehlschlug oder wer ausserhalb der Top 50 liegt, sah sich mit **0 richtig, 0 %, 0 Fragen** — während `gs_dq_stats` den richtigen Stand hielt. Genau die Nutzer, die man halten will, bekamen die Rückmeldung, sie hätten nichts erreicht.
+
+Jetzt nimmt der lokale Eintrag die Felder, die die beiden **echten** Antwort-Handler pflegen (`correct`, `total`, `bestStreak`) — und dieselbe Währung wie die Cloud-Zeilen. Denn:
+
+#### 🏷️ Die Zahl hiess „Punkte 2026" und war keine
+
+`quiz_leaderboard` speichert `total_correct`, `total_attempts`, `streak_current`, `streak_max` — **keine Punkte-Spalte, keinen Jahresbezug**. Die grosse Zahl rechts zeigte `total_correct` unter der Beschriftung „Punkte 2026", während die Überschrift zwei Zeilen darüber „Rangliste (gesamt)" sagte. Dieselbe Zahl stand ausserdem gleich nochmal in der Zeile darunter („x/y Fragen"). Hätte ich den lokalen Eintrag auf `stats.points` gesetzt — die naheliegende Lesart der Feldnamen —, stünde ein Nutzer mit 850 Punkten über allen Cloud-Zeilen mit 12: aus einer Null wäre eine noch grössere Lüge geworden.
+
+Jetzt heisst die Zahl **„richtig gesamt"**, die Doppelung ist weg, und `streak_max` — kam schon immer vom Server mit, wurde nie angezeigt — steht als „🔥 x in Folge" in der Zeile. Der eigene Streak-Wert war zudem der **laufende**, während alle anderen ihren **besten** zeigten; auch das stimmt jetzt überein.
+
+#### 📅 Ein Fix, den ich zurückgenommen habe
+
+Der Quiz-Tag wird an vier Stellen mit `new Date().toISOString().slice(0,10)` gerechnet — UTC, wie die drei Streak-Systeme vor v31.14. Ich wollte ihn auf Ortszeit umstellen. **Das wäre ein echter Fehler gewesen:** die Frage kommt aus `fn_get_daily_quiz`, und die rotiert mit dem Postgres-`current_date` (auf Supabase UTC). Stellt man nur den Client um, hält er zwischen 00:00 und 02:00 Ortszeit den nächsten Tag für angebrochen, bekommt vom Server aber **dieselbe** Frage — und weil auch die „heute gespielt"-Sperre einen neuen Schlüssel hätte, liesse sich dieselbe Frage **zweimal beantworten und doppelt punkten**.
+
+Stattdessen: eine Funktion `dqDayKey()` für alle vier Stellen, mit dem Grund im Kommentar und der Anleitung, wie beide Seiten gemeinsam wechseln müssten (`(now() AT TIME ZONE 'Europe/Zurich')::date`, so macht es `v28_05_feature_quota` bereits). Damit kann niemand mehr eine der vier Stellen einzeln „reparieren".
+
+#### Zwei Verdachtsfälle, die sich nicht halten liessen
+
+- **„Das Mini-Quiz lässt sich beliebig oft beantworten."** `initDailyQuiz` liest `gs_quiz_lastday`, und dieser Schlüssel wird **nirgends geschrieben** — die Sperre kann nie greifen. Aber: `initDailyQuiz` hat selbst keine Aufrufstelle, es wurde längst von `renderDailyQuizTeaser`/`initQuiz` abgelöst. Toter Code, kein Fehler.
+- **„`dqShowResult` erzeugt NaN in den Statistiken."** Stimmt (`undefined++`), aber die Funktion wird nirgends aufgerufen. Ich habe die Phantom-Zeilen trotzdem entfernt, damit sie keine Falle ist, falls sie je verdrahtet wird — und es als Hygiene deklariert, nicht als Fix.
+
+#### Nicht angefasst
+
+`gs_quiz_lastday` steht in `GS_USER_KEYS` und in drei Sync-Listen, obwohl niemand den Schlüssel schreibt. Aufräumen ist eine eigene Aufgabe. Ebenso das Nachziehen der 42 neuen Quiz-Fragen — die Migration `20260827_quiz_bilder_und_fragen_v30_85.sql` liegt bereit, kann aber nur der Betreiber einspielen (Runbook).
+
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · `sw.js` valid · Feld-Abgleich im Block `openDqRanking` programmatisch geprüft: beide Produzenten liefern denselben Satz (`username, correct, attempts, streakMax, isMe`), alle konsumierten Felder werden auch produziert, kein Phantom-Feld mehr im Code (nur noch in Kommentaren) · `initDailyQuiz` und `dqShowResult` als aufruflos nachgezählt · `GS_RELEASES[0].v === GS_VERSION` · Version synchron v31.15.
 
 ### 2026-08-31 (w) — v31.14: Die Tages-Serie verschwand beim zweiten Gerät
 
