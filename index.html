@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="30.92.20260831">
+<meta name="app-version" content="30.93.20260831">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -36633,55 +36633,9 @@ function openPostWithType(type) {
 // MARKETPLACE JAVASCRIPT
 
 // Demo listings
-const DEMO_LISTINGS = [
-  {
-    id:'l1', type:'auction', cat:'wildpflanze', title:'Monstera Albo Variegata – Ableger',
-    desc:'Eingewurzelter Ableger meiner Monstera Albo. 2 Blätter, sehr gesund. Selten in der Schweiz! Perfekte Blattteilung.',
-    seller:'PlantQueen_Zuri', sellerAvatar:'🌿', region:'Zürich',
-    startBid:45, currentBid:78, bidCount:7, bidStep:5,
-    buyNowPrice:150, endTime: Date.now() + 2*24*3600000 + 3600000*4,
-    shipping:['local','post'], tags:['Rarität','Variegata','Monstera'], emoji:'🌿',
-    likes:12, status:'active', created: Date.now() - 8*3600000
-  },
-  {
-    id:'l2', type:'buynow', cat:'hauspflanze', title:'Philodendron Pink Princess',
-    desc:'Gesunde Pink Princess, ca. 30cm, 4 Blätter mit schöner Blattung. Aus eigenem Bestand. Kein Versand – nur Abholung Winterthur.',
-    seller:'HobbyGärtner', sellerAvatar:'🌱', region:'Winterthur',
-    price:85, shipping:['local'], tags:['Pink Princess','Rarität'], emoji:'🩷',
-    likes:8, status:'active', created: Date.now() - 24*3600000
-  },
-  {
-    id:'l3', type:'buynow', cat:'kraut', title:'Tomaten-Samen (20 Sorten-Mix)',
-    desc:'Selbst gesammelter Samenmix aus 20 verschiedenen Heirloom-Tomatensorten. Bio, nicht F1. Aus eigenem Anbau 2024.',
-    seller:'BioBauer_BE', sellerAvatar:'🍅', region:'Bern',
-    price:8.50, shipping:['local','post'], tags:['Bio','Samen','Tomaten'], emoji:'🍅',
-    likes:15, status:'active', created: Date.now() - 48*3600000
-  },
-  {
-    id:'l4', type:'auction', cat:'wildpflanze', title:'Anthurium Crystallinum XL',
-    desc:'Prachtexemplar mit 5 riesigen Blättern (bis 40cm). Velvet-Textur, gesund und kräftig. Nur 1x verfügbar.',
-    seller:'TropenPflanzen', sellerAvatar:'🌺', region:'Basel',
-    startBid:60, currentBid:95, bidCount:12, bidStep:5,
-    endTime: Date.now() + 1*24*3600000 + 6*3600000,
-    shipping:['local'], tags:['Anthurium','Rarität','XL'], emoji:'🌺',
-    likes:21, status:'active', created: Date.now() - 12*3600000
-  },
-  {
-    id:'l5', type:'exchange', cat:'hauspflanze', title:'Hoya Kerrii ❤️ – Tausch',
-    desc:'Biete bewurzelte Hoya Kerrii Stecklinge. Suche im Tausch: Begonia Maculata oder Tradescantia Quadricolor.',
-    seller:'SwapPlants_LU', sellerAvatar:'💚', region:'Luzern',
-    exchangeWant:'Begonia Maculata oder Tradescantia', shipping:['local'],
-    tags:['Hoya','Tausch','Steckling'], emoji:'💚',
-    likes:5, status:'active', created: Date.now() - 6*3600000
-  },
-  {
-    id:'l6', type:'free', cat:'hauspflanze', title:'Ableger Grünlilie – verschenken!',
-    desc:'Zu viele Grünlilien! Gebe 5 Ableger gratis ab. Perfekte Anfängerpflanze, sehr robust. Nur Abholung Genf.',
-    seller:'GartenSchwiegermutter', sellerAvatar:'🌿', region:'Genf',
-    shipping:['local'], tags:['Grünlilie','Gratis','Anfänger'], emoji:'🌿',
-    likes:3, status:'active', created: Date.now() - 3*3600000
-  },
-];
+// v30.93: DEMO_LISTINGS (49 Zeilen erfundene Inserate mit Namen wie „PlantQueen_Zuri")
+// ersatzlos entfernt — die Konstante hatte NULL Leser. Alle Inserate kommen aus
+// v_marketplace_listings bzw. aus lokalen Entwuerfen des Nutzers.
 
 let marketListings = (function() {
   var stored = localStorage.getItem('gs_market');
@@ -36978,6 +36932,29 @@ let myBids = safeGetItem('gs_my_bids', []);
 let myPurchases = safeGetItem('gs_purchases', []);
 
 function saveMarketChats(){ try { localStorage.setItem('gs_market_chats', JSON.stringify(marketChats)); } catch(_){} }
+
+// v30.93 EINMAL-BEREINIGUNG: Bis v30.92 erfand der Demo-Chat Nachrichten im Namen des
+// echten Verkaeufers (Begruessung beim Oeffnen + eine von fuenf Floskeln nach jedem
+// Senden). Die liegen bei betroffenen Nutzern noch im Verlauf und sind von echten
+// Nachrichten nicht zu unterscheiden. Echte Chats laufen ueber marketplace_messages und
+// stehen NIE in gs_market_chats — alles hier mit isMe:false ist also nachweislich
+// erfunden und wird entfernt. Eigene Nachrichten (isMe:true) bleiben unangetastet.
+(function _gsPurgeFakeMarketChats(){
+  try {
+    if (localStorage.getItem('gs_market_chats_purged_v3093') === '1') return;
+    var changed = 0;
+    Object.keys(marketChats || {}).forEach(function(lid){
+      var arr = marketChats[lid];
+      if (!Array.isArray(arr)) return;
+      var kept = arr.filter(function(m){ return m && m.isMe === true; });
+      if (kept.length !== arr.length) { changed += (arr.length - kept.length); }
+      if (kept.length) marketChats[lid] = kept; else delete marketChats[lid];
+    });
+    if (changed) saveMarketChats();
+    localStorage.setItem('gs_market_chats_purged_v3093', '1');
+    if (changed) console.info('[GS] v30.93: ' + changed + ' erfundene Marktplatz-Nachrichten entfernt.');
+  } catch(_){}
+})();
 function saveMyBids(){ try { localStorage.setItem('gs_my_bids', JSON.stringify(myBids)); } catch(_){} }
 function saveMyPurchases(){ try { localStorage.setItem('gs_purchases', JSON.stringify(myPurchases)); } catch(_){} }
 
@@ -37161,9 +37138,68 @@ function openMarketChat(lid) {
     _gsChatStartThread(lid, myUid, sellerId, l.title || 'Inserat', l.sellerName || 'Verkäufer', l.sellerAvatar || '🌿');
     return;
   }
-  // Fallback: Demo-Chat (Gast / Demo-Listing)
+  // v30.93: Bis hierher kam frueher JEDER Gast auf einem ECHTEN Inserat — und landete
+  // im Demo-Chat, der eine Antwort im Namen des echten Verkaeufers erfand. Die Nachricht
+  // des Gastes ging dabei nirgendwo hin. Jetzt: ehrliche Login-Aufforderung.
+  if (isUuid) {
+    var _sn = l.sellerName || l.seller || 'dem Verkäufer';
+    if (!loggedIn || !myUid) { _gsMarketChatLoginPrompt(_sn); return; }
+    // Eingeloggt, aber die Verkaeufer-ID fehlt (unvollstaendige Zeile) — kein Fake-Chat,
+    // sondern der ehrliche Hinweis plus die hinterlegte Kontaktangabe.
+    _gsMarketChatUnavailable(l);
+    return;
+  }
+  // Nur noch lokale Entwuerfe (nicht-UUID-ID) landen im lokalen Chat — das ist das
+  // eigene, noch nicht veroeffentlichte Inserat. Dort gibt es keine Gegenseite.
   _openMarketChatDemo(lid, l);
 }
+
+// v30.93: Ehrliche Alternative zum frueheren Fake-Chat.
+function _gsMarketChatLoginPrompt(sellerName){
+  var msg = 'Um ' + sellerName + ' zu schreiben, brauchst du ein Konto — so kommt deine '
+          + 'Nachricht auch wirklich an und du siehst die Antwort.';
+  try {
+    if (typeof gsConfirmModal === 'function') {
+      gsConfirmModal({ title:'💬 Nachricht senden', message: msg, ok:'Anmelden', cancel:'Später' })
+        .then(function(ok){ if (ok && typeof openLoginModal === 'function') openLoginModal(); });
+      return;
+    }
+  } catch(_){}
+  try { if (typeof openLoginModal === 'function') openLoginModal(); } catch(_){}
+}
+window._gsMarketChatLoginPrompt = _gsMarketChatLoginPrompt;
+
+// v30.93: Chat technisch nicht moeglich (fehlende Verkaeufer-ID) — die hinterlegte
+// Kontaktangabe des Inserats ist dann der einzige echte Weg. Nie einen Chat vortaeuschen.
+function _gsMarketChatUnavailable(l){
+  var contact = (l && l.contact) ? String(l.contact) : '';
+  var msg = contact
+    ? 'Der Direkt-Chat ist für dieses Inserat nicht verfügbar. Die Kontaktangabe lautet: ' + contact
+    : 'Der Direkt-Chat ist für dieses Inserat nicht verfügbar und es ist keine Kontaktangabe hinterlegt.';
+  try {
+    if (typeof gsConfirmModal === 'function') {
+      // Beide Knoepfe tun etwas Sinnvolles: kopieren oder schliessen.
+      gsConfirmModal({
+        title: '💬 Chat nicht verfügbar',
+        message: msg,
+        ok: contact ? 'Kontakt kopieren' : 'Verstanden',
+        cancel: 'Schliessen'
+      }).then(function(ok){
+        if (!ok || !contact) return;
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(contact).then(function(){
+              if (typeof showProfileToast === 'function') showProfileToast('📋 Kontakt kopiert');
+            }, function(){});
+          }
+        } catch(_){}
+      });
+      return;
+    }
+  } catch(_){}
+  try { if (typeof showProfileToast === 'function') showProfileToast('💬 Chat für dieses Inserat nicht verfügbar'); } catch(_){}
+}
+window._gsMarketChatUnavailable = _gsMarketChatUnavailable;
 window.openMarketChat = openMarketChat;
 
 function _openMarketChatDemo(lid, l){
@@ -37181,15 +37217,10 @@ function _openMarketChatDemo(lid, l){
   if (subEl)   subEl.textContent   = 'Chat mit ' + sellerName;
   if (avatarEl) avatarEl.textContent = l.sellerAvatar || '🌿';
 
-  // Init chat if new
-  if (!marketChats[lid]) {
-    marketChats[lid] = [];
-    var welcomeMsg = l.type === 'auction'
-      ? 'Hallo! Danke für dein Interesse an "' + title + '". Bei Fragen bin ich gerne da! 🌿'
-      : 'Hallo! "' + title + '" ist noch verfügbar. Schreib mir bei Fragen. 🌿';
-    marketChats[lid].push({ author: sellerName, text: welcomeMsg, ts: Date.now() - 60000, isMe: false });
-    saveMarketChats();
-  }
+  // v30.93: Die erfundene „Begruessung des Verkaeufers" ist raus. Sie stand mit dem
+  // echten Namen und einem Zeitstempel von vor einer Minute im Verlauf — nicht von
+  // dieser Person geschrieben und nicht von ihr gelesen. Ein leerer Verlauf ist ehrlich.
+  if (!marketChats[lid]) { marketChats[lid] = []; saveMarketChats(); }
 
   renderChatMessages(lid);
   openModal('modal-market-chat');
@@ -37484,23 +37515,11 @@ function sendChatMsg() {
   if (input) input.value = '';
   renderChatMessages(lid);
 
-  // Simulate seller response after 2-4 sec (demo mode)
-  const l = marketListings.find(x => x.id === lid);
-  if (l && Math.random() > 0.4) {
-    const replies = [
-      'Danke für deine Nachricht! Ich melde mich so schnell wie möglich. 🌿',
-      'Gerne beantworte ich deine Fragen! Was möchtest du wissen?',
-      'Die Pflanze ist in sehr gutem Zustand. 😊',
-      'Abholung ist problemlos möglich. Schreib mir für Details!',
-      'Super, freut mich über dein Interesse! 🌱',
-    ];
-    setTimeout(() => {
-      marketChats[lid].push({ author: l.seller||'Verkäufer', text: replies[Math.floor(Math.random()*replies.length)], ts: Date.now(), isMe: false });
-      saveMarketChats();
-      renderChatMessages(lid);
-      showMarketNotif('Neue Nachricht von ' + (l.seller||'Verkäufer'), '💬', '#1565c0');
-    }, 2000 + Math.random() * 2000);
-  }
+  // v30.93 ENTFERNT: die simulierte Verkaeufer-Antwort. Sie erfand mit 60 % Wahrschein-
+  // lichkeit eine von fuenf Floskeln, schrieb sie dem echten Verkaeufer-Namen zu und
+  // loeste sogar eine Benachrichtigung „Neue Nachricht von <Name>" aus. Fuer den Nutzer
+  // war das von einer echten Antwort nicht zu unterscheiden — waehrend seine eigene
+  // Nachricht nirgendwo ankam. Echte Nachrichten laufen ueber _gsChatSendBackend().
 }
 
 
@@ -67890,7 +67909,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v30.92';
+var GS_VERSION = 'v30.93';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
