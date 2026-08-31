@@ -4,13 +4,26 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.07` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.08` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-08-31 (q) — v31.08: Die still rotierenden Listen werfen nicht mehr weg, sie archivieren
+
+> Der letzte offene Punkt aus dem Quota-Bereich. Der zweite von Fernandos zwei Architektur-Fragen — mit seiner Freigabe umgesetzt.
+
+- **Der Befund.** Zehn Nutzerdaten-Listen werden per `slice()` gedeckelt. Bei **vier** davon ist der abgeschnittene Eintrag danach **auch in der Cloud weg**, weil der Sync-Blob aus der bereits gekürzten Liste gebaut wird — nachgeprüft: `_buildPlantsBlob` liest `gs_gartentagebuch`, `_buildGardenBlob` liest `gs_garden_plans` und `gs_gpx_tracks`, und `p.diary` steckt in `ps_myplants`. Und es geschah **lautlos**: der Nutzer erfuhr nie, dass etwas fehlt.
+- **Die Deckel bleiben** — sie schützen die 5 MB, und das zu Recht. Was sich ändert: der herausfallende Eintrag wandert ins **Archiv** (IndexedDB, eigenes Kontingent) statt ins Nichts.
+- **Und das Archiv ist erreichbar.** Einstellungen → Speicher zeigt die Zahl und hat einen „Sichern"-Knopf, der alles als JSON herunterlädt. Das war mir wichtig: heute habe ich schon **ein** Sicherheitsnetz repariert, das niemand erreichen konnte (v30.97, der Wiederherstellen-Banner). Ein zweites unerreichbares hätte ich nicht gebaut.
+- **Einmaliger Hinweis** pro Schlüssel und Sitzung — nicht bei jedem Speichern nerven, aber auch nicht schweigen.
+- **11 Kürzungsstellen** umgestellt: Gartentagebuch (2), Gartenpläne (4), GPX-Tracks (2), Pflege-Historie pro Pflanze (3). Das Archiv selbst ist auf 3'000 Einträge gedeckelt und räumt die ältesten ab — sonst hätte ich das Problem nur verschoben.
+- **⚠️ Beim Umbau zweimal in dieselbe Falle getappt und sie beide Male vor dem Schreiben bemerkt:** die stärker eingerückten Zeilen (`          if (p.diary…`) enthalten die schwächer eingerückten als **Substring**, ein `str.replace` hätte also die falsche Stelle getroffen. Meine Zusicherung auf die Trefferzahl hat es beide Male abgefangen, bevor die Datei geschrieben wurde. Danach zeilennummernbasiert ersetzt — eindeutig.
+- **Verify in Node, 9 Fälle.** `head` (Liste neueste-zuerst): 35 → 30 behalten, **die 5 ältesten** archiviert (`p30…p34`) ✅ · `tail` (Liste älteste-zuerst): ebenfalls **die 5 ältesten** (`t0…t4`) ✅ — in beiden Richtungen fällt das Alte heraus, nicht das Neue · genau am Deckel / darunter / leere Liste → nichts archiviert ✅ · `null` und Nicht-Array unverändert durchgereicht ✅ · **drei Kürzungen → genau ein Hinweis** ✅.
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · `sw.js` valid · IndexedDB-Version 2 → 3 (neuer Store `dropped_entries`; `onupgradeneeded` legt fehlende Stores ohnehin an) · Version synchron v31.08.
 
 ### 2026-08-31 (p) — v31.07: Der Render-Pfad zum Ausgangskorb — Fotos sind sofort sichtbar, auch vor dem Upload
 
