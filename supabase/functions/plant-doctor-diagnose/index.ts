@@ -209,6 +209,8 @@ Deno.serve(async (req: Request) => {
     try {
       await sbAdmin.rpc("fn_log_ai_usage", {
         p_edge_fn: "plant-doctor-diagnose",
+        // v30.95: ohne p_model bucht fn_log_ai_usage 0.00 CHF (else-Zweig).
+        p_model: "claude-sonnet-4-20250514",
         p_tokens_in: result.tokens_in,
         p_tokens_out: result.tokens_out
       });

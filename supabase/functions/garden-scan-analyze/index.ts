@@ -363,6 +363,8 @@ Deno.serve(async (req) => {
         p_edge_fn: "garden-scan-analyze",
         p_tokens_in: anthropicData?.usage?.input_tokens || 0,
         p_tokens_out: anthropicData?.usage?.output_tokens || 0,
+        // v30.95: ohne p_model bucht fn_log_ai_usage 0.00 CHF (else-Zweig).
+        p_model: anthropicData?.model || "claude-sonnet-4-20250514",
       });
     } catch (_) { /* nicht-blockierend */ }
 
