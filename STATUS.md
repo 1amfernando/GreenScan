@@ -4,13 +4,27 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.09` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.10` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-08-31 (s) — v31.10: Eigenes Icon-Set — 23 Symbole, 7 KB, erben die Textfarbe
+
+> Fernandos Wunsch nach eigenen Icons. **Wichtige Einschränkung vorweg:** eine „Expansions-Festplatte" ist in dieser Umgebung **nicht eingebunden** (`df` zeigt nur den Container). Die Icons liegen deshalb im Repo unter `assets/icons/` — das ist der Weg auf Fernandos Rechner, per `git pull`.
+
+- **Warum eigene Icons statt Emoji.** Die App nutzt durchgehend 🌱 🔔 📷. Drei Nachteile: jede Plattform zeichnet sie **anders** (die App wirkt zusammengesetzt statt gestaltet), sie lassen sich **nicht einfärben** (im Dunkelmodus bleiben sie bunt, während alles andere umschaltet), und Screenreader lesen oft einen Namen vor, der mit der Funktion nichts zu tun hat.
+- **Das Set:** 23 Strich-Symbole, 24×24, Strichstärke 1.75, runde Enden — `leaf` `mushroom` `tree` `herb` `scan` `pin` `track` `bell` `community` `heart` `share` `chat` `garden` `harvest` `book` `market` `settings` `search` `profile` `streak` `water` `sun` `calendar`. Zusammen **7 KB**.
+- **`currentColor` ist der Kern.** Die Icons nehmen die Farbe des umgebenden Textes an — damit stimmen sie im Hell-, Dunkel- und jedem Akzent-Thema **ohne eine einzige zusätzliche Regel**. Genau das, was Emoji nicht können.
+- **Eingebettet statt nachgeladen.** `gsIcon(name, size, label)` liefert Inline-SVG. Die App baut ihre Ansichten als HTML-Strings; ein `<img>` oder `<use href="datei.svg#id">` würde die Textfarbe nicht erben und zusätzliche Abrufe kosten.
+- **Barrierefreiheit eingebaut, nicht nachgereicht:** mit `label` bekommt das Icon `role="img"` + `aria-label` (es *trägt* dann die Bedeutung); ohne `label` wird es als `aria-hidden` markiert — richtig, wenn daneben ohnehin Text steht.
+- **`assets/icons/preview.html`** zeigt alle 23 mit Umschaltern für Dunkelmodus, Größe und Farbe. Wer eines ändert, hält es dort gegen die anderen.
+- **Verify:** alle 23 SVGs mit einem XML-Parser geprüft — valide, `currentColor` vorhanden, Raster korrekt · Helfer in Node getestet: dekorativ/mit Label, Größe wird übernommen, unbekannter Name liefert leeren String, alle 23 erzeugen fehlerfreies Markup.
+- **⚠️ Eine eigene Prüfung war zu naiv, und das ist erwähnenswert:** ich hatte „kein `onload` im Markup" per Substring-Suche geprüft — die schlug an, obwohl das Escaping korrekt war (`onload=` steht als harmloser Text *innerhalb* des Attributwerts). Erst das echte Parsen des Markups zeigt es sauber: es gibt **kein** `onload`-Attribut, der Angriffsstring ist der **Wert** von `aria-label`. Ein Test, der die falsche Frage stellt, ist schlimmer als keiner.
+- **Noch nicht gemacht:** die Icons sind noch nirgends im UI eingesetzt. Emoji durch sie zu ersetzen berührt sehr viele Render-Stellen — das gehört in einen eigenen Schritt, sonst wird ein Rendering-Fehler zwischen 200 Änderungen unauffindbar.
 
 ### 2026-08-31 (r) — v31.09: Community — Kommentare liken und disliken, Teilen, Likes als Benachrichtigung
 
