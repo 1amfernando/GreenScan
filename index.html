@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.06.20260831">
+<meta name="app-version" content="31.07.20260831">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28758,8 +28758,9 @@ async function savePlant(){
         // den Ausgangskorb (IndexedDB) und wird nachgetragen. Ein Foto belegt als
         // base64 leicht 200 KB — ab ~13-20 Pflanzen ist die Grenze erreicht, und
         // dann scheitert ALLES, nicht nur das naechste Foto.
-        var _qp = false;
+        var _qp = null;
         try { _qp = await window.gsQueuePhoto('user-plant-photos', window._gsPlantPhotoB64, { kind:'plant', ref: editingPlantId }); } catch(_){}
+        if (_qp) { _edits.photo = _qp; _edits.photoUrl = null; }   // v31.07: sofort anzeigbarer Platzhalter
         if (!_qp) {
           // Ausgangskorb nicht verfuegbar -> altes Verhalten, damit das Bild nicht verloren geht.
           _edits.photo = 'data:image/jpeg;base64,' + window._gsPlantPhotoB64;
@@ -28833,9 +28834,9 @@ async function savePlant(){
       var _pend = window._gsPendingNewPlantPhoto;
       window._gsPendingNewPlantPhoto = null;
       try {
-        if (!(await window.gsQueuePhoto('user-plant-photos', _pend, { kind:'plant', ref: newPlant.id }))) {
-          newPlant.photo = 'data:image/jpeg;base64,' + _pend;   // Notnagel
-        }
+        var _qn = await window.gsQueuePhoto('user-plant-photos', _pend, { kind:'plant', ref: newPlant.id });
+        if (_qn) newPlant.photo = _qn;                            // v31.07: Platzhalter
+        else newPlant.photo = 'data:image/jpeg;base64,' + _pend;  // Notnagel
       } catch(_){ newPlant.photo = 'data:image/jpeg;base64,' + _pend; }
     }
   }
@@ -46788,8 +46789,11 @@ async function gsAddMarker(lat, lng) {
       // Bild gespeichert" — und das Bild war endgueltig weg, auch wenn nur kurz
       // das Netz fehlte. Jetzt wandert es in den Ausgangskorb (IndexedDB) und
       // wird nachgetragen, sobald wieder Verbindung besteht.
-      var _q = false;
+      var _q = null;
       try { _q = await window.gsQueuePhoto('map-find-photos', photoB64, { kind:'marker', ref: clientId }); } catch(_){}
+      // v31.07: Referenz als lokalen Platzhalter setzen -> das Bild ist sofort
+      // sichtbar, obwohl es erst spaeter hochgeladen wird.
+      if (_q) photoUrl = _q;
       if (typeof gsToast === 'function') {
         gsToast(_q ? '📷 Foto gemerkt — wird nachgeladen, sobald du online bist.'
                    : 'Foto-Upload fehlgeschlagen — Fund wird ohne Bild gespeichert.',
@@ -46800,7 +46804,9 @@ async function gsAddMarker(lat, lng) {
     // Offline oder nicht angemeldet: gar nicht erst versuchen, aber auch nicht
     // verwerfen — der Ausgangskorb haelt es fest.
     try {
-      if (await window.gsQueuePhoto('map-find-photos', photoB64, { kind:'marker', ref: clientId })) {
+      var _q2 = await window.gsQueuePhoto('map-find-photos', photoB64, { kind:'marker', ref: clientId });
+      if (_q2) {
+        photoUrl = _q2;   // v31.07: Platzhalter, sofort anzeigbar
         if (typeof gsToast === 'function') gsToast('📷 Foto gemerkt — wird nachgeladen, sobald du online bist.', 'info');
       }
     } catch(_){}
@@ -46852,7 +46858,11 @@ async function gsAddMarker(lat, lng) {
         lat: isFinite(_flat) ? _flat : null,
         lng: isFinite(_flng) ? _flng : null,
         note: note || null,
-        photo_url: photoUrl,
+        // v31.07: Ein `gsphoto://…`-Platzhalter ist eine rein LOKALE Referenz auf
+        // den Ausgangskorb. Er darf niemals in die Cloud — dort waere er eine
+        // sinnlose URL, die auf keinem anderen Geraet etwas bedeutet. Das echte
+        // Bild traegt gsFlushPhotoQueue nach, sobald der Upload gelingt.
+        photo_url: (photoUrl && String(photoUrl).indexOf('gsphoto://') === 0) ? null : photoUrl,
         found_at: new Date().toISOString(),
         is_private: true
       };
@@ -68123,7 +68133,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.06';
+var GS_VERSION = 'v31.07';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -70254,6 +70264,8 @@ function gsRegisterServiceWorker() {
     console.warn('[GreenScan] IndexedDB nicht supported — Offline-Queue deaktiviert');
     return;
   }
+  // v31.07: Platzhalter-Schema fuer noch nicht hochgeladene Fotos.
+  var GS_PHOTO_REF = 'gsphoto://';
   var DB_NAME = 'gs_offline';
   // v31.06: Version 2 — neuer Store `pending_photos`. onupgradeneeded legt unten
   // ohnehin jeden fehlenden Store aus STORES an, Bestandsinstallationen ziehen
@@ -70309,21 +70321,94 @@ function gsRegisterServiceWorker() {
   // Ablauf: enqueue -> spaeter hochladen -> Ziel nachtragen -> Eintrag loeschen.
   // Der Upload laeuft mit stabilem Schluessel (siehe gsUploadImage), eine
   // Wiederholung nach Timeout schreibt also dieselbe Datei statt einer zweiten.
+  // v31.07: liefert jetzt eine REFERENZ zurueck (`gsphoto://<id>`) statt nur
+  // true/false. Damit kann der Aufrufer das Bild sofort als Platzhalter
+  // hinterlegen — der Auflooeser weiter unten macht daraus beim Rendern eine
+  // anzeigbare Object-URL. Vorher war ein Foto im Korb bis zum Upload unsichtbar.
   window.gsQueuePhoto = async function(bucket, b64, target){
-    if (!b64 || !bucket || !target || !target.kind || !target.ref) return false;
+    if (!b64 || !bucket || !target || !target.kind || !target.ref) return null;
     try {
       var db = await _open();
       var tx = db.transaction('pending_photos', 'readwrite');
-      tx.objectStore('pending_photos').add({
+      var rq = tx.objectStore('pending_photos').add({
         bucket: bucket, b64: b64, target: target,
         key: target.kind + ':' + target.ref,
         queued_at: Date.now(), tries: 0
       });
+      var newId = await new Promise(function(r,j){
+        rq.onsuccess = function(){ r(rq.result); };
+        rq.onerror   = function(){ j(rq.error); };
+      });
       await new Promise(function(r,j){ tx.oncomplete = r; tx.onerror = function(){ j(tx.error); }; });
-      console.log('[gsQueuePhoto] eingereiht fuer', target.kind, target.ref);
-      return true;
-    } catch(e){ console.warn('[gsQueuePhoto]', e); return false; }
+      console.log('[gsQueuePhoto] eingereiht fuer', target.kind, target.ref, '-> #' + newId);
+      return GS_PHOTO_REF + newId;
+    } catch(e){ console.warn('[gsQueuePhoto]', e); return null; }
   };
+
+  // ═══ v31.07: AUFLOESER — Platzhalter im DOM durch anzeigbare Bilder ersetzen ═══
+  // Ein Foto im Ausgangskorb liegt als base64 in IndexedDB. Die App baut ihre
+  // Ansichten als HTML-Strings zusammen; ein `<img src="gsphoto://7">` wuerde dort
+  // schlicht nicht laden. Statt jede einzelne Render-Stelle umzubauen (es sind
+  // viele, und jede waere eine neue Fehlerquelle), greift ein Auflooeser NACH dem
+  // Rendern: er sucht solche Bilder, holt die Bytes und setzt eine Object-URL.
+  // Ein MutationObserver stoesst das automatisch an — kein Aufrufer muss etwas wissen.
+  var _gsPhotoUrlCache = {};   // id -> ObjectURL (einmal erzeugt, wiederverwendet)
+
+  window.gsResolvePhotoRef = async function(ref){
+    if (!ref || String(ref).indexOf(GS_PHOTO_REF) !== 0) return null;
+    var id = parseInt(String(ref).slice(GS_PHOTO_REF.length), 10);
+    if (!isFinite(id)) return null;
+    if (_gsPhotoUrlCache[id]) return _gsPhotoUrlCache[id];
+    try {
+      var db = await _open();
+      var tx = db.transaction('pending_photos', 'readonly');
+      var rec = await new Promise(function(r,j){
+        var rq = tx.objectStore('pending_photos').get(id);
+        rq.onsuccess = function(){ r(rq.result); };
+        rq.onerror   = function(){ j(rq.error); };
+      });
+      if (!rec || !rec.b64) return null;   // schon hochgeladen und geloescht
+      var bin = atob(rec.b64);
+      var u8 = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+      var url = URL.createObjectURL(new Blob([u8], { type: 'image/jpeg' }));
+      _gsPhotoUrlCache[id] = url;
+      return url;
+    } catch(e){ console.warn('[gsResolvePhotoRef]', e); return null; }
+  };
+
+  window.gsResolvePhotosIn = async function(root){
+    try {
+      var scope = root || document;
+      var imgs = scope.querySelectorAll('img[src^="' + GS_PHOTO_REF + '"]');
+      for (var i = 0; i < imgs.length; i++) {
+        var el = imgs[i];
+        var url = await window.gsResolvePhotoRef(el.getAttribute('src'));
+        if (url) { el.src = url; }
+        else {
+          // Bild nicht mehr im Korb (hochgeladen und aufgeraeumt) und das Ziel
+          // traegt noch den Platzhalter -> nichts vortaeuschen, Bild ausblenden.
+          el.removeAttribute('src');
+          el.style.display = 'none';
+        }
+      }
+    } catch(e){ console.warn('[gsResolvePhotosIn]', e); }
+  };
+
+  // Automatik: nach jeder DOM-Aenderung einmal gebuendelt nachziehen.
+  try {
+    var _photoTick = null;
+    var _obs = new MutationObserver(function(){
+      if (_photoTick) clearTimeout(_photoTick);
+      _photoTick = setTimeout(function(){ window.gsResolvePhotosIn(document); }, 120);
+    });
+    document.addEventListener('DOMContentLoaded', function(){
+      try {
+        _obs.observe(document.body, { childList: true, subtree: true });
+        window.gsResolvePhotosIn(document);
+      } catch(_){}
+    });
+  } catch(_){}
 
   // Traegt die fertige URL im Ziel nach. Pro Ziel-Art eine kleine, klar
   // benannte Zustaendigkeit — kein generisches Herumraten an fremden Strukturen.
@@ -70374,6 +70459,9 @@ function gsRegisterServiceWorker() {
         try {
           var url = await gsUploadImage(it.b64, it.bucket, 'jpg', it.key);
           if (url) {
+            // v31.07: Object-URL freigeben — sonst haelt der Browser die Bytes
+            // fuer die ganze Sitzung fest, obwohl das Bild jetzt aus der Cloud kommt.
+            try { if (_gsPhotoUrlCache[it.id]) { URL.revokeObjectURL(_gsPhotoUrlCache[it.id]); delete _gsPhotoUrlCache[it.id]; } } catch(_){}
             var applied = _gsApplyPhotoUrl(it.target, url);
             // Auch wenn das Ziel verschwunden ist (Fund geloescht): Eintrag darf
             // weg — sonst wandert er ewig mit. Das Bild liegt dann im Bucket.
@@ -74058,9 +74146,28 @@ window.gsCloudSync = (function(){
     }
   }
 
+  // v31.07: Lokale Foto-Platzhalter (`gsphoto://…`) aus allem entfernen, was in
+  // die Cloud geht. Die Referenz zeigt auf den Ausgangskorb DIESES Geraets — auf
+  // einem anderen Geraet waere sie eine tote URL und wuerde als kaputtes Bild
+  // gerendert. Das echte Foto traegt gsFlushPhotoQueue nach; bis dahin ist „kein
+  // Bild" die ehrliche Aussage fuer alle anderen Geraete.
+  function _gsStripPhotoRefs(arr){
+    if (!Array.isArray(arr)) return arr;
+    return arr.map(function(o){
+      if (!o || typeof o !== 'object') return o;
+      var isRef = function(v){ return typeof v === 'string' && v.indexOf('gsphoto://') === 0; };
+      if (!isRef(o.photo) && !isRef(o.photoUrl) && !isRef(o.photo_url)) return o;
+      var c = Object.assign({}, o);
+      if (isRef(c.photo))     c.photo = null;
+      if (isRef(c.photoUrl))  c.photoUrl = null;
+      if (isRef(c.photo_url)) c.photo_url = null;
+      return c;
+    });
+  }
+
   function _buildPlantsBlob(){
     var data = {};
-    try { data.plants = JSON.parse(gsStore.get('ps_myplants', null)||'[]'); } catch(_){ data.plants = []; }
+    try { data.plants = _gsStripPhotoRefs(JSON.parse(gsStore.get('ps_myplants', null)||'[]')); } catch(_){ data.plants = []; }
     try { data.diary  = JSON.parse(localStorage.getItem('gs_gartentagebuch')||'[]'); } catch(_){ data.diary = []; }
     // v24.24: zusätzliche pflanzenbezogene lokale Keys mitsyncen
     try { data.dead_plants = JSON.parse(gsStore.get('gs_dead_plants', null)||'[]'); } catch(_){}
@@ -74491,6 +74598,23 @@ function gsPushPlantsNow(){ window.gsCloudSync && gsCloudSync.markDirty('plants'
 // (max 3/User). Trigger: pre_migration (vor SW-Update), auto_daily (1×/Tag),
 // manual, pre_logout. Restore-Banner beim Boot wenn LS leer + Cloud-Snapshot da.
 // ═══════════════════════════════════════════════════════════════════════════════
+// v31.07: dieselbe Regel wie _gsStripPhotoRefs im Sync-Layer, hier fuer den Snapshot.
+// Ein `gsphoto://…` verweist auf den Ausgangskorb DIESES Geraets; in einem Backup,
+// das auf einem anderen Geraet eingespielt wird, waere es eine tote Referenz.
+function _gsStripSnapPhotoRefs(arr){
+  if (!Array.isArray(arr)) return arr;
+  return arr.map(function(o){
+    if (!o || typeof o !== 'object') return o;
+    var isRef = function(v){ return typeof v === 'string' && v.indexOf('gsphoto://') === 0; };
+    if (!isRef(o.photo) && !isRef(o.photoUrl) && !isRef(o.photo_url)) return o;
+    var c = Object.assign({}, o);
+    if (isRef(c.photo))     c.photo = null;
+    if (isRef(c.photoUrl))  c.photoUrl = null;
+    if (isRef(c.photo_url)) c.photo_url = null;
+    return c;
+  });
+}
+
 function gsSnapshotBuildState(){
   function _j(k, fb){ try { return JSON.parse((typeof gsStore!=='undefined'&&gsStore.get? gsStore.get(k,null): localStorage.getItem(k)) || fb); } catch(_){ try { return JSON.parse(fb); } catch(__){ return null; } } }
   function _s(k){ try { return localStorage.getItem(k) || null; } catch(_){ return null; } }
@@ -74514,7 +74638,9 @@ function gsSnapshotBuildState(){
     // r_001…r_NNN erfasst (Bloat + Default-Shadowing beim Restore). Defaults/Cloud bleiben draußen (re-pullbar).
     user_recipes:        (function(){ try { return (typeof recipesData!=='undefined'&&Array.isArray(recipesData)?recipesData:[]).filter(function(r){ return r && typeof r.id==='string' && /^r_\d{13}$/.test(r.id); }); } catch(_){ return []; } })(),
     user_remedies:       (function(){ try { return (typeof remediesData!=='undefined'&&Array.isArray(remediesData)?remediesData:[]).filter(function(r){ return r && typeof r.id==='string' && /^rem_\d{13}$/.test(r.id); }); } catch(_){ return []; } })(),
-    plants:              _j('ps_myplants','[]'),
+    // v31.07: Foto-Platzhalter auch aus dem Snapshot halten — er wird auf ANDEREN
+    // Geraeten wiederhergestellt, wo `gsphoto://…` ins Leere zeigt.
+    plants:              _gsStripSnapPhotoRefs(_j('ps_myplants','[]')),
     diary:               _j('gs_gartentagebuch','[]'),
     ernte:               _j('gs_ernte_log','[]'),
     dead_plants:         _j('gs_dead_plants','[]'),

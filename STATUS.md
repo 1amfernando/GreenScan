@@ -4,13 +4,31 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.06` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.07` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-08-31 (p) — v31.07: Der Render-Pfad zum Ausgangskorb — Fotos sind sofort sichtbar, auch vor dem Upload
+
+> Der zweite Teil der Foto-Pipeline, der in v31.06 bewusst offen blieb. Damit ist sie rund: retten (v31.06) **und** anzeigen (jetzt).
+
+- **Das Problem.** Ein Foto im Ausgangskorb liegt als base64 in IndexedDB. Die App baut ihre Ansichten als HTML-Strings zusammen — ein `<img src="gsphoto://7">` würde dort schlicht nicht laden. Nach v31.06 war das Bild also gerettet, aber bis zum Upload unsichtbar.
+- **Der Weg, den ich NICHT gegangen bin:** jede einzelne Render-Stelle umbauen. Es sind viele, jede wäre eine neue Fehlerquelle, und der nächste Foto-Ort würde wieder vergessen.
+- **Stattdessen ein Auflöser, der nach dem Rendern greift.** `gsResolvePhotosIn()` sucht `img[src^="gsphoto://"]`, holt die Bytes aus IndexedDB und setzt eine Object-URL. Ein `MutationObserver` auf `document.body` stösst das gebündelt (120 ms) an — **kein Aufrufer muss etwas davon wissen**, auch künftige nicht.
+  - Object-URLs werden pro id **gecacht** (nicht bei jedem Render neu erzeugt) und nach erfolgreichem Upload **freigegeben** — sonst hielte der Browser die Bytes für die ganze Sitzung fest, obwohl das Bild längst aus der Cloud kommt.
+  - Ist der Eintrag nicht mehr im Korb (hochgeladen und aufgeräumt), wird das Bild ausgeblendet statt ein kaputtes Symbol zu zeigen.
+- **`gsQueuePhoto` liefert jetzt eine Referenz** (`gsphoto://<id>`) statt nur true/false. Fund, Pflanze-Bearbeiten und Pflanze-Neuanlage hinterlegen sie als Foto-Wert — das Bild erscheint sofort.
+- **⚠️ Der Punkt, an dem es hätte schiefgehen können — und den ich an drei Stellen abgedichtet habe:** ein `gsphoto://…` ist eine **rein lokale** Referenz auf den Ausgangskorb *dieses* Geräts. Gerät sie in die Cloud, ist sie auf jedem anderen Gerät eine tote URL und rendert als kaputtes Bild. Abgefangen in:
+  1. `map_user_finds`-Payload (Fund) — Platzhalter → `null`
+  2. `_buildPlantsBlob` (Sync in `user_plants`) — via `_gsStripPhotoRefs`
+  3. `gsSnapshotBuildState` (Backup, wird auf **anderen** Geräten wiederhergestellt) — via `_gsStripSnapPhotoRefs`
+  „Kein Bild" ist für die anderen Geräte die ehrliche Aussage, bis der Upload durch ist; `gsFlushPhotoQueue` trägt das echte nach.
+- **Verify in Node, 12 Prüfungen.** Kein Platzhalter im Cloud-Blob ✅ · echte URLs und base64 unangetastet ✅ · **unveränderte Einträge behalten ihre Objekt-Identität** (kein unnötiges Kopieren) ✅ · `null`, Nicht-Array, leeres Array, `null`-Eintrag in der Liste ✅ · **und das Original bleibt unverändert** — entscheidend, denn der lokale Platzhalter muss überleben, sonst verschwindet das Bild aus der Anzeige ✅.
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · `sw.js` valid · Version synchron v31.07.
 
 ### 2026-08-31 (o) — v31.06: Foto-Ausgangskorb — Fotos gehen nicht mehr verloren und fressen nicht mehr den Nutzer-Speicher
 
