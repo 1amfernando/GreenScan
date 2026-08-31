@@ -18,6 +18,48 @@
 #
 # Das Skript ist IDEMPOTENT: Ein zweiter Lauf ändert nichts mehr.
 # Es bricht bei jedem Fehler ab (set -e), damit nichts halb angewendet wird.
+#
+# ── VORABPRÜFUNG GEGEN DIE LIVE-DATENBANK (31.08.2026, lesend) ─────────
+# Alle sieben Migrationen wurden gegen das echte Schema geprüft, damit der
+# Lauf nicht auf halber Strecke abbricht:
+#
+#   ✓ Jedes referenzierte Objekt existiert. Geprüft: 13 Tabellen
+#     (profiles, notifications, system_events, garden_tasks, quiz_answers,
+#     daily_quizzes, daily_quiz_history, post_likes, post_comments,
+#     social_posts, did_you_know_facts, garden_techniques,
+#     traditional_garden_wisdom), cron.job, cron.job_run_details,
+#     net._http_response. Fehlend sind NUR die vier Funktionen, welche die
+#     Migrationen selbst anlegen (fn_notify_post_like, fn_notify_comment_like,
+#     fn_sync_post_like_count, fn_quiz_answers_verify).
+#   ✓ Spaltentypen passen: post_likes/post_comments/social_posts.id sind uuid,
+#     social_posts.likes ist integer, notifications hat user_id/kind/title/
+#     body/link/dedup_key.
+#   ✓ Funktions-Signaturen stimmen mit den live vorhandenen überein — sonst
+#     würde CREATE OR REPLACE eine ÜBERLADUNG anlegen statt zu ersetzen, und
+#     der Cron riefe weiter die alte Fassung auf. Abgeglichen:
+#     fn_create_notification(uuid,text,text,text,text,text)->uuid,
+#     fn_remind_garden_tasks()->int, fn_is_role(text,uuid)->bool,
+#     fn_role_at_least(text,uuid)->bool, fn_log_ai_usage(text,int,int,
+#     numeric,text)->void, fn_monitor_health()->int,
+#     fn_grant_quiz_top3_pro()->jsonb.
+#   ✓ fn_get_daily_quiz wird gelöscht und neu angelegt (die Rückgabe bekommt
+#     drei Bild-Spalten). Kein View hängt daran (geprüft), und Zeile 75 der
+#     Migration setzt GRANT EXECUTE für anon + authenticated wieder — ohne
+#     das wäre das Quiz nach dem Lauf für alle tot.
+#   ✓ Das Frontend liest image_url/image_alt/image_credit bereits
+#     (index.html ~10542) — die Bildfragen wirken sofort nach dem Lauf.
+#
+# ── WAS LIVE NOCH OFFEN IST (ebenfalls lesend geprüft) ────────────────
+#   · comment_reactions, fn_notify_post_like, fn_notify_comment_like,
+#     daily_quizzes.image_url: NICHT vorhanden → v31.09 und v30.85 warten.
+#   · quiz_answers hat NUR den Trigger trg_quiz_answers_sync_lb
+#     (Leaderboard-Sync). Der Integritäts-Trigger aus v30.95 fehlt: die
+#     Antwort-Prüfung liegt weiterhin beim Client.
+#   · fn_is_role und fn_role_at_least sind für `anon` ausführbar — genau der
+#     Rollen-Leak, den 20260831_rollen_leak_fix_v30_95.sql schliesst.
+#   · Advisor-Stand: 0 ERROR, 140 WARN, 5 INFO. Die einzige WARN ausserhalb
+#     des SECURITY-DEFINER-Musters ist auth_leaked_password_protection —
+#     die schaltest du im Dashboard, nicht hier (Schritt 5 unten).
 
 set -euo pipefail
 
