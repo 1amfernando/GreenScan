@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.17.20260831">
+<meta name="app-version" content="31.18.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1403,6 +1403,22 @@ body.dark .menu-search-wrap{background:var(--card);}
 
 
 
+
+/* v31.18: Dringlichkeits-Band und „Profi rufen"-Kasten des Pflanzendoktors
+   hatten ihre Farben fest verdrahtet (#fff8e1, #fff3e0). Im Dunkelmodus
+   leuchteten sie wie ein Scheinwerfer — derselbe Fehler, den ich beim
+   Tagesplan von vornherein vermieden habe, hier nur schon vorhanden. */
+.gs-doc-urg{padding:10px 16px;font-size:13px;font-weight:800;text-align:center;}
+.gs-doc-urg-low{background:#e8f5e9;color:#1b5e20;}
+.gs-doc-urg-medium{background:#fff8e1;color:#e65100;}
+.gs-doc-urg-high{background:#ffebee;color:#c62828;}
+.gs-doc-urg-critical{background:#b71c1c;color:#fff;}
+body.dark .gs-doc-urg-low{background:#16351a;color:#a5d6a7;}
+body.dark .gs-doc-urg-medium{background:#3a2c10;color:#ffcc80;}
+body.dark .gs-doc-urg-high{background:#3d1a1a;color:#ef9a9a;}
+body.dark .gs-doc-urg-critical{background:#7f1d1d;color:#ffe3e3;}
+.gs-doc-pro{margin-top:12px;padding:9px 12px;background:#fff3e0;border:1px solid #ffb74d;border-radius:10px;font-size:12px;color:#e65100;line-height:1.5;}
+body.dark .gs-doc-pro{background:#3a2c10;border-color:#8d6e2a;color:#ffcc80;}
 /* v31.17: Gartenüberblick — Kennzahl-Kacheln nach denselben Regeln wie der
    Tagesplan: nur Token-Farben, damit Hell und Dunkel beide stimmen. */
 .gs-go-head{font-family:'Playfair Display',serif;font-size:17px;font-weight:800;color:var(--text);margin:0 0 9px;letter-spacing:-.01em;}
@@ -33211,33 +33227,51 @@ function gsRenderDoctorResult(j, plantLocalId) {
   var top = hyps[0] || { name: d.top || '?', confidence: 0, reason: '' };
 
   var urgency = String(d.urgency || 'medium');
-  var urgColors = {
-    low: { bg:'#e8f5e9', col:'#1b5e20', lbl:'🟢 Gering' },
-    medium: { bg:'#fff8e1', col:'#e65100', lbl:'🟡 Mittel' },
-    high: { bg:'#ffebee', col:'#c62828', lbl:'🔴 Hoch' },
-    critical: { bg:'#b71c1c', col:'#fff', lbl:'🚨 Kritisch' }
-  };
-  var u = urgColors[urgency] || urgColors.medium;
+  var urgLbl = { low:'🟢 Gering', medium:'🟡 Mittel', high:'🔴 Hoch', critical:'🚨 Kritisch' };
+  if (!urgLbl[urgency]) urgency = 'medium';
+  var u = { lbl: urgLbl[urgency], cls: 'gs-doc-urg gs-doc-urg-' + urgency };
 
   var esc = (typeof gsHTMLEscape === 'function') ? gsHTMLEscape : function(s){ return String(s||'').replace(/[<>&"]/g, function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
 
   var html = '<div class="doctor-result-card" style="margin-top:14px;border-radius:14px;overflow:hidden;border:1px solid var(--border);background:var(--card);">';
-  html += '<div style="background:' + u.bg + ';color:' + u.col + ';padding:10px 16px;font-size:13px;font-weight:800;text-align:center;">' + u.lbl + ' · <span data-i18n="doctor_urgency_label" data-i18n-fallback="Dringlichkeit">Dringlichkeit</span></div>';
+  html += '<div class="' + u.cls + '">' + u.lbl + ' · <span data-i18n="doctor_urgency_label" data-i18n-fallback="Dringlichkeit">Dringlichkeit</span></div>';
   html += '<div style="padding:14px 16px;">';
-  html += '<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;" data-i18n="doctor_top_diagnosis" data-i18n-fallback="Wahrscheinlichste Diagnose">Wahrscheinlichste Diagnose</div>';
-  html += '<div style="font-size:18px;font-weight:900;color:var(--text);">' + esc(top.name) + ' <span style="font-size:13px;color:var(--g-main);">(' + Math.round((top.confidence||0)*100) + '%)</span></div>';
-  if (top.reason) html += '<div style="font-size:12.5px;color:var(--text2);line-height:1.5;margin-top:4px;">' + esc(top.reason) + '</div>';
-  // Weitere Hypothesen
-  if (hyps.length > 1) {
-    html += '<div style="margin-top:14px;font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;" data-i18n="doctor_other_hyps" data-i18n-fallback="Weitere Möglichkeiten">Weitere Möglichkeiten</div>';
-    for (var i = 1; i < Math.min(hyps.length, 4); i++) {
-      var h = hyps[i];
-      html += '<div style="padding:8px 10px;background:var(--surface2);border-radius:8px;margin-bottom:5px;font-size:12.5px;">' +
-              '<b>' + esc(h.name) + '</b> <span style="color:var(--g-main);">(' + Math.round((h.confidence||0)*100) + '%)</span>';
-      if (h.reason) html += '<div style="color:var(--text2);font-size:11.5px;margin-top:2px;">' + esc(h.reason) + '</div>';
-      html += '</div>';
+  // v31.18: EINE Liste „Mögliche Ursachen" statt „wahrscheinlichste Diagnose"
+  // plus grauer Restposten darunter. So zeigt es der Entwurf, und es ist auch
+  // ehrlicher: bei 70 % / 60 % / 30 % ist die zweite Hypothese keine Fussnote.
+  // Die Prozentwerte sind echt — die Edge-Function liefert je Hypothese ein
+  // `confidence` zwischen 0 und 1; hier wird nichts geschätzt.
+  html += '<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;" data-i18n="doctor_causes" data-i18n-fallback="Mögliche Ursachen">Mögliche Ursachen</div>';
+  var _list = hyps.length ? hyps.slice(0, 4) : [top];
+  _list.forEach(function(h, i){
+    var pct = Math.max(0, Math.min(100, Math.round((h.confidence || 0) * 100)));
+    html += '<div style="margin-bottom:' + (i === _list.length - 1 ? '2' : '10') + 'px;">' +
+      '<div style="display:flex;align-items:baseline;gap:8px;">' +
+        '<div style="flex:1;min-width:0;font-size:' + (i === 0 ? '15px' : '13.5px') + ';font-weight:800;color:var(--text);">' + esc(h.name || '?') + '</div>' +
+        '<div style="flex-shrink:0;font-size:13px;font-weight:800;color:var(--g-main);">' + pct + '%</div>' +
+      '</div>' +
+      '<div style="height:5px;border-radius:3px;background:var(--surface2);margin-top:5px;overflow:hidden;">' +
+        '<div style="width:' + pct + '%;height:100%;background:var(--g-main);border-radius:3px;"></div>' +
+      '</div>' +
+      (h.reason ? '<div style="font-size:12px;color:var(--text2);line-height:1.5;margin-top:5px;">' + esc(h.reason) + '</div>' : '') +
+    '</div>';
+  });
+  // v31.18: Übergabe an Lina — im Entwurf der prominenteste Knopf der Seite.
+  // Eine Diagnose beantwortet „was ist es"; die Frage danach ist immer „und was
+  // mache ich jetzt". Der Knopf stellt genau die, mit der Diagnose als Kontext.
+  var _plantNm = '';
+  try {
+    if (plantLocalId && typeof myPlants !== 'undefined' && Array.isArray(myPlants)) {
+      var _pp = myPlants.filter(function(x){ return x && String(x.id) === String(plantLocalId); })[0];
+      if (_pp && _pp.name) _plantNm = _pp.name;
     }
+  } catch(_){}
+  if (top && top.name) {
+    html += '<button type="button" onclick="gsDoctorToLina(' + JSON.stringify(String(top.name)).replace(/"/g, '&quot;') + ',' + JSON.stringify(String(_plantNm)).replace(/"/g, '&quot;') + ')" ' +
+      'style="width:100%;margin-top:14px;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;">' +
+      '🌿 Zu Lina wechseln</button>';
   }
+
   // Treatment
   var steps = Array.isArray(t.steps) ? t.steps : [];
   if (steps.length) {
@@ -33262,7 +33296,7 @@ function gsRenderDoctorResult(j, plantLocalId) {
   }
   // Pro rufen?
   if (t.when_call_pro) {
-    html += '<div style="margin-top:12px;padding:9px 12px;background:#fff3e0;border:1px solid #ffb74d;border-radius:10px;font-size:12px;color:#e65100;line-height:1.5;">⚠️ <b data-i18n="doctor_call_pro" data-i18n-fallback="Profi rufen wenn:">Profi rufen wenn:</b> ' + esc(t.when_call_pro) + '</div>';
+    html += '<div class="gs-doc-pro">⚠️ <b data-i18n="doctor_call_pro" data-i18n-fallback="Profi rufen wenn:">Profi rufen wenn:</b> ' + esc(t.when_call_pro) + '</div>';
   }
   // Followup-Buttons
   var hid = (j && j.history_id) ? String(j.history_id) : '';
@@ -63266,6 +63300,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.18', date: '01.09.2026',
+    headline: '🩺 Pflanzendoktor — Ursachen mit Wahrscheinlichkeit, dann zu Lina',
+    summary: 'Das Diagnose-Ergebnis zeigt die möglichen Ursachen jetzt als eine Liste mit Balken und Prozentwerten, statt einer grossen Diagnose und grauen Restposten darunter. Neu darunter: „Zu Lina wechseln" — der Knopf stellt deiner Coachin genau die Frage, die nach jeder Diagnose kommt: und was mache ich jetzt konkret?',
+    user_summary: '🩺 Diagnose zeigt alle Ursachen mit Wahrscheinlichkeit — und du kannst direkt zu Lina wechseln.',
+    user_items: [
+      { emoji: '📊', text: 'Alle möglichen Ursachen mit Balken und Prozent, nach Wahrscheinlichkeit sortiert' },
+      { emoji: '🌿', text: '„Zu Lina wechseln" — sie bekommt die Diagnose mit und antwortet sofort' },
+      { emoji: '🌗', text: 'Dringlichkeits-Band und „Profi rufen"-Hinweis leuchten im Dunkelmodus nicht mehr' },
+    ],
+    items: [
+      {emoji:'📊', bold:'Echte Werte:', text:' die Edge-Function plant-doctor-diagnose liefert je Hypothese ein confidence zwischen 0 und 1. Hier wird nichts geschätzt — die Prozentzahlen kommen aus der Diagnose selbst.'},
+      {emoji:'🌿', bold:'gsDoctorToLina():', text:' öffnet Lina und schreibt die Frage ins normale Eingabefeld, gsLinaSend() übernimmt. Damit gelten dieselben Regeln wie für jede andere Nachricht — Konversation anlegen, in coach_messages speichern, Quota zählen, Verlauf mitschicken. Kein zweiter Sendeweg.'},
+      {emoji:'🌗', bold:'Dunkelmodus:', text:' das Dringlichkeits-Band und der „Profi rufen"-Kasten hatten ihre Farben fest verdrahtet (#fff8e1, #fff3e0) und leuchteten nachts. Jetzt CSS-Klassen mit body.dark-Varianten.'},
+    ],
+  },
+  {
     v: 'v31.17', date: '31.08.2026',
     headline: '🌻 Mein Garten — Überblick in vier Kacheln',
     summary: 'Der Garten-Bildschirm beginnt jetzt mit einem Überblick: Pflanzen in Pflege, angelegte Beete, gespeicherte Pläne — und der nächste Schritt, den ein Tippen erledigt. Darunter ein Knopf zum Pflegeplan. Jede Kachel führt dorthin, wo ihre Zahl herkommt.',
@@ -69203,7 +69253,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.17';
+var GS_VERSION = 'v31.18';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -77233,6 +77283,28 @@ async function gsOpenLina(){
   gsLinaRender(false);
 }
 window.gsOpenLina = gsOpenLina;
+
+// v31.18: Übergabe vom Pflanzendoktor an Lina.
+// Bewusst OHNE eigenen Sendeweg: der Text landet im normalen Eingabefeld und
+// gsLinaSend() übernimmt. Damit gelten dieselben Regeln wie für jede andere
+// Nachricht — Konversation anlegen, in coach_messages speichern, Quota zählen,
+// Verlauf mitschicken, Fehler behandeln. Ein zweiter Pfad wäre genau die Sorte
+// Doppel-Logik, die in dieser App schon zweimal auseinandergelaufen ist.
+window.gsDoctorToLina = async function(topName, plantName){
+  if (typeof gsOpenLina !== 'function') return;
+  try { await gsOpenLina(); } catch(_){}
+  // Nicht eingeloggt: gsOpenLina zeigt den Hinweis-Bildschirm ohne Eingabefeld.
+  // Dann ist hier Schluss — nichts senden, nichts vortäuschen.
+  var inp = null;
+  for (var i = 0; i < 20 && !inp; i++) {
+    inp = document.getElementById('gs-lina-input');
+    if (!inp) await new Promise(function(r){ setTimeout(r, 100); });
+  }
+  if (!inp) return;
+  var wer = plantName ? ('Meine ' + plantName) : 'Meine Pflanze';
+  inp.value = wer + ' hat laut Diagnose vermutlich: ' + topName + '. Was kann ich jetzt konkret tun?';
+  try { if (typeof gsLinaSend === 'function') gsLinaSend(); } catch(_){}
+};
 
 function gsLinaRender(typing){
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };

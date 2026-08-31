@@ -4,13 +4,39 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.17` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.18` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (b) — v31.18: Pflanzendoktor — Ursachen mit Wahrscheinlichkeit, dann zu Lina
+
+> Dritter Schritt aus den Entwürfen. Bild 3 zeigt „Gelbe Blätter erkannt / Mögliche Ursachen" mit Prozentwerten und einem prominenten Knopf „Zu Lina wechseln".
+
+#### Zuerst geprüft, wie versprochen: die Zahlen sind echt
+
+Ich hatte angekündigt, vor dem Bauen nachzusehen, ob die Diagnose solche Werte überhaupt liefert. Sie tut es: `plant-doctor-diagnose` gibt `hypotheses: [{ name, confidence (0–1), reason }]` zurück, und das Frontend zeigte die Prozente sogar schon an — nur in einer anderen Form. **Nichts zu erfinden.**
+
+#### Was sich ändert
+
+Statt „Wahrscheinlichste Diagnose" gross und „Weitere Möglichkeiten" als graue Restposten darunter jetzt **eine** Liste „Mögliche Ursachen" mit Balken und Prozent, nach Wahrscheinlichkeit sortiert. Das ist nicht nur näher am Entwurf, es ist ehrlicher: bei 70 % / 60 % / 30 % ist die zweite Hypothese keine Fussnote.
+
+#### Der Knopf, der wirklich gefehlt hat
+
+„Zu Lina wechseln" gab es nicht. `gsOpenLina()` nahm keine Argumente und lud immer nur die letzte Konversation — es war schlicht **kein Weg vorgesehen, eine Diagnose zu übergeben**. Dabei ist das die Frage, die nach jeder Diagnose kommt: *und was mache ich jetzt konkret?*
+
+`gsDoctorToLina()` öffnet Lina und schreibt die Frage samt Pflanzenname und Top-Ursache ins **normale Eingabefeld**; `gsLinaSend()` übernimmt. Bewusst ohne eigenen Sendeweg: so gelten dieselben Regeln wie für jede andere Nachricht — Konversation anlegen, in `coach_messages` speichern, Quota zählen, Verlauf mitschicken, Fehler behandeln. Ein zweiter Pfad wäre genau die Doppel-Logik, die in dieser App schon zweimal auseinandergelaufen ist (Streak-Zähler, Erledigt-Logik). Ist man nicht angemeldet, zeigt `gsOpenLina` seinen Hinweis-Bildschirm ohne Eingabefeld — dann bricht die Funktion ab, statt etwas vorzutäuschen.
+
+#### Ein Fund, der nicht von mir stammt
+
+Im gerenderten Dunkelmodus leuchteten das **Dringlichkeits-Band** (`#fff8e1`) und der **„Profi rufen"-Kasten** (`#fff3e0`) wie ein Scheinwerfer — fest verdrahtete Farben, derselbe Fehler, den ich beim Tagesplan von vornherein vermieden habe, hier nur schon vorhanden. Jetzt CSS-Klassen mit `body.dark`-Varianten (warmes Bernstein auf dunklem Braun).
+
+**Nicht angefasst:** die drei Rückmeldungs-Knöpfe („Hilfreich", „Wurde besser", „Wurde schlechter") sind im Dunkelmodus weiterhin helle Chips. Lesbar, nur hell — eigene Aufgabe, kein Grund, diesen Schritt aufzublähen.
+
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · **in Chromium gerendert**, hell und dunkel (dunkel in einem eigenen `body.dark`-Rahmen, damit die Klassen wirklich greifen), keine JS-Fehler · Antwortformat der Edge-Function im Quelltext nachgelesen statt angenommen · Version synchron v31.18.
 
 ### 2026-09-01 (a) — v31.17: „Mein Garten" bekommt den Überblick aus den Entwürfen
 
