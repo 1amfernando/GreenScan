@@ -12,6 +12,69 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-01 (ay) — v31.61: Marker auf dem Foto — man sieht, WELCHE Pflanze gemeint ist
+
+Direkt aus Fernandos zweitem Bild („Garten wird erkannt", mit Beschriftungen auf den Pflanzen). Und es ist kein Schmuck, sondern die Voraussetzung für das, was gestern gebaut wurde: **die Korrektur aus v31.60 ist ohne diesen Schritt ein Ratespiel.** Eine Liste sagt „Tomate, 92 %". Sie sagt nicht, welche der drei Pflanzen im Bild damit gemeint ist — und wer das nicht weiss, kann nicht korrigieren.
+
+#### Warum das nicht einfach aus den vorhandenen Daten geht
+
+Der Zwilling hatte schon Koordinaten: `x_m`/`y_m`, Meter innerhalb der Beetfläche. Die sind für das 3D-Modell richtig und **für das Foto falsch** — das eine ist ein Grundriss von oben, das andere eine perspektivische Aufnahme. Wer die Meter aufs Bild legt, bekommt Marker, die überzeugend aussehen und daneben zeigen.
+
+Also ein zweites, ehrliches Feld: `ix`/`iy`, die Mitte der Pflanze **im Bild**, 0–1 von links oben. Der Prompt sagt ausdrücklich, dass das etwas anderes ist als `x_m`/`y_m`, und:
+
+> *Kannst du bei einer Pflanze NICHT sagen, wo im Bild sie steht, dann LASS ix/iy WEG. Eine geratene Markierung ist schlimmer als keine.*
+
+#### Drei Stellen, an denen bewusst nichts erfunden wird
+
+| Fall | Verhalten |
+|---|---|
+| KI nennt keine Bildposition | `ix`/`iy` bleiben **`null`**, nicht `0` — sonst zeigt der Marker auf „links oben", weil ein Feld fehlte |
+| Koordinate ausserhalb 0–1 | verworfen, **nicht** an den Rand geklemmt |
+| Kein Foto, oder keine einzige Position | der ganze Block fällt weg — dann ist die Liste eben eine Liste, wie bis v31.60 |
+
+Unter dem Bild steht, bei wie vielen Pflanzen die Stelle unbekannt blieb. Weglassen wäre die bequemere Variante gewesen.
+
+#### Sicherheit
+
+Das Foto kommt aus `localStorage` zurück — aus etwas, das sich von aussen beschreiben lässt. `gsEscHtml` verhindert schon das Ausbrechen aus dem Attribut; dazu kommt jetzt, dass überhaupt nur `data:image/(png|jpe?g|webp);base64,…` durchgeht. Am laufenden Programm nachgestellt: `photo = 'javascript:alert(1)'` → **kein** Bildblock, die Liste bleibt vollständig.
+
+#### Farben — Marker liegen auf einem Foto, nicht auf einer Fläche
+
+Welcher Anzeigemodus eingestellt ist, sagt **nichts** darüber, wie hell das Foto darunter ist. Deshalb feste Farben statt Variablen:
+
+| | Wert |
+|---|---|
+| Ziffer `#fff` auf Scheibe `#1b5e20` | 7,87:1 |
+| Marker aktiv, `#1b5e20` auf `#fff` | 7,87:1 |
+| Zeilennummer dunkel `#0d2818` auf `#a5d6a7` | 9,58:1 |
+| Hervorgehobene Zeile, alle drei Textstufen | 4,74 bis 16,79:1 |
+
+Ein Fall bleibt offen und wird deshalb getragen statt behauptet: die Scheibe `#1b5e20` gegen ein **schwarzes** Foto ist 2,67:1 — unter den 3:1 für Nicht-Text. Dafür ist der weisse 2-px-Ring da (21:1 gegen Schwarz), plus Schlagschatten gegen Weiss.
+
+#### Durchgespielt
+
+Vier Pflanzen: zwei mit Position, eine ohne, eine mit `ix:7, iy:-2`.
+
+```
+1 · normalisiert : Tomate:0.31/0.62 · Kohl:0.7/0.4 · Basilikum:kein Ort · Ausreisser:kein Ort
+2 · Marker       : 1@31%,62% · 2@70%,40%
+3 · Zeilennummern: 1, 2   | Foto da: true | src ok: true
+4 · Hinweis      : „Bei 2 Pflanzen konnte die KI die Stelle im Bild nicht angeben"
+5 · Tipp auf Marker 2 → Zeile gs-twin-row-1 UND Marker hervorgehoben
+6 · photo='javascript:alert(1)' → kein Bildblock, 4 Zeilen bleiben
+7 · alter Scan ohne ix/iy       → kein Bildblock, 0 Nummern, 4 Zeilen
+```
+
+#### Verify
+
+`wiring_check` 307 Namen / **0** nicht auflösbar · Menü 40/0 · 928 Nachschlagungen / **0** nie erzeugt / **0** ungesichert · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen, Vergleich 2277 Elemente: **0** Layout-, 0 Farb-, 0 Radius-, 0 Schriftgrössenänderungen · `contrast_check` 0 unter AA beide Modi · `touch_check` 0 unter 24×24 (Marker sind 26 px) · `GS_RELEASES[0].v` = `GS_VERSION` am laufenden Programm geprüft, `gsAllReleases()` 408 → **409**, 0 Dopplungen · 9/9 Inline-Scripts + `sw.js` `node --check` OK · `GS_VERSION` v31.61 · `sw.js` gs-v31.61 · `_headers` v31.61 · meta 31.61.20260901.
+
+#### Grenze, die bleibt
+
+`wiring_check` sieht `gsTwinZeig` nicht: der Aufruf entsteht erst beim Rendern, in einer Zeichenkette. Deshalb hier von Hand am laufenden Programm angetippt (Punkt 5 oben) — genau die Sorte Prüfung, die der Prüfstand nach eigener Dokumentation nicht leisten kann.
+
+---
+
 ### 2026-09-01 (ax) — v31.60: Den Garten-Scan korrigieren, und ihn in die Pflege übernehmen
 
 Der Garten-Zwilling (v31.57) erkennt Pflanzen. Bis heute war das eine **Anzeige**: was die KI falsch benannte, blieb falsch, und was sie richtig erkannte, musste man trotzdem von Hand in „Meine Pflanzen" anlegen. Zwei Lücken, und die zweite ist die grössere — ohne sie bleibt der Scan eine Vorführung.
