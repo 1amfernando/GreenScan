@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.40.20260901">
+<meta name="app-version" content="31.41.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -104,14 +104,12 @@
   --fs-2xl:24px;  /* Seiten-Titel */
   --fs-3xl:28px;  /* Kennzahlen */
   --fs-4xl:32px;  /* Hero-Ziffern */
-  /* v31.32 — Text, der DIREKT auf einer der vierzehn dunklen Bildschirm-
-     Leinwaende sitzt (#screen-garden #33691e, #screen-social #1b5e20 …).
-     Die sind in beiden Modi dunkel, also gilt derselbe Wert in beiden Modi.
-     Gegen alle acht Leinwandfarben gerechnet: #ffffff mindestens 5.13:1,
-     #eef3ee mindestens 4.56:1. NICHT fuer Text in Karten benutzen — die
-     haben ihre eigene, helle Flaeche und bleiben bei --text. */
-  --on-canvas:#ffffff;
-  --on-canvas-2:#eef3ee;
+  /* v31.41 — Die Token --on-canvas / --on-canvas-2 sind entfernt. Sie kamen in
+     v31.32 dazu, WEIL vierzehn Bildschirme eine dunkle Leinwand hatten und Text
+     darauf helle Farben brauchte. Seit v31.41 sind diese Leinwaende hell wie
+     alles andere — die Sonderfarben waeren jetzt genau die Falle, gegen die sie
+     erfunden wurden (hell auf hell). Die betroffenen Stellen nutzen wieder
+     --text und --muted. */
   --r-xs:4px;    /* Marker, Fortschrittsbalken, winzige Chips */
   --r-sm:8px;    /* Badges, Tags, kleine Knoepfe */
   --r-md:12px;   /* Knoepfe, Eingabefelder, Listenzeilen */
@@ -1155,7 +1153,7 @@ body.dark #gs-task-note{background:linear-gradient(160deg,#4a4224,#3a331b);color
 .comment-expert-note{font-size:var(--fs-sm);color:var(--c-warn-d);font-weight:700;margin-top:3px;}
 .social-input-bar{display:flex;gap:8px;padding:10px 14px;border-top:1px solid #f5f5f5;background:var(--card);}
 .social-tabs{display:flex;gap:6px;padding:10px 16px 4px;overflow-x:auto;scrollbar-width:none;}
-.social-tab{flex:0 0 auto;padding:7px 14px;border:1.5px solid var(--g-light);border-radius:var(--r-xl);font-size:var(--fs-sm);font-weight:700;cursor:pointer;background:transparent;color:var(--on-canvas);font-family:inherit;white-space:nowrap;transition:var(--dur);}
+.social-tab{flex:0 0 auto;padding:7px 14px;border:1.5px solid var(--g-light);border-radius:var(--r-xl);font-size:var(--fs-sm);font-weight:700;cursor:pointer;background:transparent;color:var(--g-dark);font-family:inherit;white-space:nowrap;transition:var(--dur);}
 .social-tab.active{background:var(--fill-brand);border-color:var(--g-main);color:#fff;}
 
 
@@ -1596,7 +1594,7 @@ body.dark .gs-doc-urg-critical{background:#7f1d1d;color:#ffe3e3;}
 body.dark .gs-doc-pro{background:#3a2c10;border-color:#8d6e2a;color:#ffcc80;}
 /* v31.17: Gartenüberblick — Kennzahl-Kacheln nach denselben Regeln wie der
    Tagesplan: nur Token-Farben, damit Hell und Dunkel beide stimmen. */
-.gs-go-head{font-family:'Playfair Display',serif;font-size:var(--fs-lg);font-weight:800;color:var(--on-canvas);margin:0 0 9px;letter-spacing:-.01em;}
+.gs-go-head{font-family:'Playfair Display',serif;font-size:var(--fs-lg);font-weight:800;color:var(--text);margin:0 0 9px;letter-spacing:-.01em;}
 .gs-go-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:9px;}
 .gs-go-tile{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px 13px;box-shadow:var(--shadow-sm);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform var(--dur-fast) ease;}
 .gs-go-tile:active{transform:scale(.985);}
@@ -2773,7 +2771,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 </div>
 
 <!-- ── ERGEBNIS-INFO (nur 1x, kompakt) ─────────────── -->
-<div id="search-status" style="padding:4px 16px 2px;font-size:var(--fs-sm);font-weight:700;color:var(--on-canvas-2);flex-shrink:0;"></div>
+<div id="search-status" style="padding:4px 16px 2px;font-size:var(--fs-sm);font-weight:700;color:var(--muted);flex-shrink:0;"></div>
 
 <!-- ── ARTENLISTE ──────────────────────────────────── -->
 <div id="recent-searches" style="display:none;"></div>
@@ -3140,8 +3138,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
 <!-- ── MEINE GÄRTEN Section ── -->
 <div style="padding:16px 16px 4px;display:flex;align-items:baseline;justify-content:space-between;">
-  <div style="font-size:var(--fs-md);font-weight:800;color:var(--on-canvas);">🪴 Meine Gärten</div>
-  <button onclick="openAddGarden()" style="background:none;border:none;color:var(--on-canvas);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;padding:6px 0;-webkit-tap-highlight-color:transparent;">+ Hinzufügen</button>
+  <div style="font-size:var(--fs-md);font-weight:800;color:var(--text);">🪴 Meine Gärten</div>
+  <button onclick="openAddGarden()" style="background:none;border:none;color:var(--text);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;padding:6px 0;-webkit-tap-highlight-color:transparent;">+ Hinzufügen</button>
 </div>
 
 <div id="garden-list" style="padding:2px 16px 12px;"></div>
@@ -3160,7 +3158,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <!-- v25.18: Saisonkalender-Inline-Host (wird via gsRenderSeasonalInline gefüllt) -->
 <div id="seasonal-tasks-host" style="padding:0 16px 8px;"></div>
 <details style="margin:0 0 8px;border-top:1px solid var(--border);">
-  <summary style="padding:12px 16px;font-size:var(--fs-md);font-weight:800;color:var(--on-canvas);cursor:pointer;">🩺 Pflege & Diagnose</summary>
+  <summary style="padding:12px 16px;font-size:var(--fs-md);font-weight:800;color:var(--text);cursor:pointer;">🩺 Pflege & Diagnose</summary>
   <div style="padding-top:2px;">
 <!-- v25.31: KI-Pflanzendoktor (Vision-AI via plant-doctor-diagnose Edge-Fn) -->
 <div style="padding:0 16px 12px;">
@@ -3195,7 +3193,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   </div>
 </details>
 <details style="margin:0 0 8px;border-top:1px solid var(--border);">
-  <summary style="padding:12px 16px;font-size:var(--fs-md);font-weight:800;color:var(--on-canvas);cursor:pointer;">🗓️ Planen & Gestalten</summary>
+  <summary style="padding:12px 16px;font-size:var(--fs-md);font-weight:800;color:var(--text);cursor:pointer;">🗓️ Planen & Gestalten</summary>
   <div style="padding-top:2px;">
 <!-- v25.18: Saisonkalender-Modal-Trigger (Voll-Jahres-Übersicht) -->
 <div style="padding:0 16px 8px;">
@@ -3230,7 +3228,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   </div>
 </details>
 <details style="margin:0 0 8px;border-top:1px solid var(--border);">
-  <summary style="padding:12px 16px;font-size:var(--fs-md);font-weight:800;color:var(--on-canvas);cursor:pointer;">📚 Wissen & Werkzeuge</summary>
+  <summary style="padding:12px 16px;font-size:var(--fs-md);font-weight:800;color:var(--text);cursor:pointer;">📚 Wissen & Werkzeuge</summary>
   <div style="padding-top:2px;">
 <!-- v25.20: Garten-Insights-Dashboard (aggregiert pollinators + diseases + tasks + myPlants) -->
 <div style="padding:0 16px 8px;">
@@ -32829,7 +32827,7 @@ function renderSocialFeed() {
   if (!filtered.length) {
     // v31.32: --muted ist eine Farbe fuer HELLE Flaechen; dieser Block sitzt
     // direkt auf der Leinwand von #screen-social (#1b5e20) — dort 1.14:1.
-    feed.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--on-canvas-2);">' +
+    feed.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--muted);">' +
       '<div style="font-size:48px;margin-bottom:12px;">🌿</div>' +
       '<p>' + _t('feed_empty','Noch keine Posts. Tippe auf + und teile deine Entdeckung!') + '</p></div>';
     return;
@@ -33059,7 +33057,7 @@ function loadSocialPosts(reset) {
         var fe = document.getElementById('social-feed');
         if (fe && reset) {
           var msg = (res && res.error && res.error.message) || 'Verbindung fehlgeschlagen';
-          fe.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--on-canvas-2);">' +
+          fe.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--muted);">' +
             '<div style="font-size:48px;margin-bottom:12px;">⚠️</div>' +
             '<p style="margin-bottom:14px;">' + escHtml(msg) + '</p>' +
             '<button onclick="loadSocialPosts(true)" style="padding:10px 20px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-md);font-weight:700;cursor:pointer;font-family:inherit;">🔄 Nochmal versuchen</button>' +
@@ -33070,7 +33068,7 @@ function loadSocialPosts(reset) {
       _communityLoading = false;
       var fe2 = document.getElementById('social-feed');
       if (fe2 && reset) {
-        fe2.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--on-canvas-2);">' +
+        fe2.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--muted);">' +
           '<div style="font-size:48px;margin-bottom:12px;">📡</div>' +
           '<p style="margin-bottom:14px;">Keine Verbindung zur Community</p>' +
           '<button onclick="loadSocialPosts(true)" style="padding:10px 20px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-md);font-weight:700;cursor:pointer;font-family:inherit;">🔄 Nochmal versuchen</button>' +
@@ -43630,7 +43628,7 @@ function renderRecipes() {
   if (_gsRecipesState.shown < filtered.length) {
     var remaining = filtered.length - _gsRecipesState.shown;
     sentinelHtml =
-      '<div id="recipes-sentinel" data-loadmore="recipes-list" style="text-align:center;padding:18px 14px;color:var(--on-canvas-2);font-size:var(--fs-sm);font-weight:600;border:2px dashed var(--border);border-radius:var(--r-md);margin:8px 0;">' +
+      '<div id="recipes-sentinel" data-loadmore="recipes-list" style="text-align:center;padding:18px 14px;color:var(--muted);font-size:var(--fs-sm);font-weight:600;border:2px dashed var(--border);border-radius:var(--r-md);margin:8px 0;">' +
         '<span class="gs-spin" style="display:inline-block;width:14px;height:14px;border:2px solid var(--g-light);border-top-color:var(--g-main);border-radius:50%;animation:gs-spin 1s linear infinite;vertical-align:middle;margin-right:6px;"></span>' +
         _t('load_more_label','Lade weitere') + ' ' + Math.min(BATCH, remaining) + ' ' + _t('word_of','von') + ' ' + remaining + '…' +
       '</div>';
@@ -43682,7 +43680,7 @@ function renderRemedies() {
   if (_gsRemediesState.shown < filtered.length) {
     var remaining = filtered.length - _gsRemediesState.shown;
     sentinelHtml =
-      '<div id="remedies-sentinel" data-loadmore="remedies-list" style="text-align:center;padding:18px 14px;color:var(--on-canvas-2);font-size:var(--fs-sm);font-weight:600;border:2px dashed var(--border);border-radius:var(--r-md);margin:8px 0;">' +
+      '<div id="remedies-sentinel" data-loadmore="remedies-list" style="text-align:center;padding:18px 14px;color:var(--muted);font-size:var(--fs-sm);font-weight:600;border:2px dashed var(--border);border-radius:var(--r-md);margin:8px 0;">' +
         '<span class="gs-spin" style="display:inline-block;width:14px;height:14px;border:2px solid var(--g-light);border-top-color:var(--g-main);border-radius:50%;animation:gs-spin 1s linear infinite;vertical-align:middle;margin-right:6px;"></span>' +
         _t('load_more_label','Lade weitere') + ' ' + Math.min(BATCH, remaining) + ' ' + _t('word_of','von') + ' ' + remaining + '…' +
       '</div>';
@@ -63567,6 +63565,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.41', date: '01.09.2026',
+    headline: '\ud83c\udfa8 Alle Bildschirme hell \u2014 dieselbe Sprache wie die Startseite',
+    summary: 'Vierzehn Bildschirme hatten dunkle Volltoene als Fl\u00e4che \u2014 Garten gr\u00fcn, Rezepte braun, Heilmittel blau, Einstellungen schiefer. Die Startseite ist seit v31.37 hell. Jetzt sind es alle, wie in Fernandos Vorlage: eine ruhige helle Fl\u00e4che mit Karten darauf.',
+    user_summary: '\ud83c\udfa8 Alle Seiten sehen jetzt aus wie die Startseite \u2014 hell und ruhig statt jede in einer anderen dunklen Farbe.',
+    user_items: [
+      { emoji: '\ud83c\udfa8', text: 'Garten, Wissen, Rezepte, Heilmittel, Marktplatz und acht weitere Seiten sind hell' },
+      { emoji: '\ud83e\uddf9', text: 'Zwei Sonderfarb-Token entfernt, die es nur wegen der dunklen Fl\u00e4chen gab' },
+    ],
+    items: [
+      {emoji:'\ud83c\udfa8', bold:'Zum VIERTEN Mal dasselbe Muster:', text:' die hellen Fassungen waren teils l\u00e4ngst geschrieben. Zeile ~1249 definiert f\u00fcr Rezepte und Heilmittel warme helle Verl\u00e4ufe — \u00fcberstimmt von einem Block mit vierzehn !important-Dunkelfarben am Dateiende. Genau wie bei .hero in v31.37, dem Icon-Satz in v31.38 und displayLuxResult in v31.40: die richtige Arbeit war da und nicht angeschlossen.'},
+      {emoji:'\ud83e\uddf9', bold:'Zwei Token wieder abgeschafft:', text:' --on-canvas und --on-canvas-2 kamen in v31.32 dazu, WEIL die Leinw\u00e4nde dunkel waren und Text darauf helle Farben brauchte. Auf hellen Fl\u00e4chen w\u00e4ren sie jetzt genau die Falle, gegen die sie erfunden wurden: hell auf hell. Der Pr\u00fcfstand hat das sofort gezeigt — acht Stellen bei 1,03 bis 1,09:1. Alle 14 Verwendungen zurueck auf --text und --muted, die Token entfernt.'},
+      {emoji:'\ud83d\udd0d', bold:'Die Reihenfolge war wichtig:', text:' erst die Leinw\u00e4nde umgestellt, dann gemessen, dann repariert. H\u00e4tte ich beides gleichzeitig gemacht, w\u00e4re nicht belegt, dass genau diese acht Stellen betroffen sind — und warum.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Kontrast nach der Umstellung: 8 Stellen unter AA (alle exakt die --on-canvas-Stellen) \u2192 nach der Korrektur 0 + 0 in beiden Modi \u00b7 Antippfl\u00e4chen 0 unter 24\u00d724 \u00b7 Garten und Community gerendert und angesehen \u00b7 Vorher/Nachher: 32 Farb\u00e4nderungen (die Leinw\u00e4nde), 0 Radius-, 0 Schriftgr\u00f6ssen\u00e4nderungen; die 6 Gr\u00f6ssen\u00e4nderungen sind der bekannte dritte Chip im Wissens-Hero, der erscheint sobald die Arten-Datenbank geladen ist \u00b7 keine JS-Fehler \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.41 \u00b7 sw.js gs-v31.41 \u00b7 _headers v31.41 \u00b7 meta=31.41.20260901.'},
+    ],
+  },
+  {
     v: 'v31.40', date: '01.09.2026',
     headline: '\ud83d\udca1 Der Lichtmesser war komplett kaputt \u2014 gefunden beim Verdrahtungs-Check',
     summary: 'Fernando wollte einen Funktionscheck der Ein- und Ausg\u00e4nge. Ich habe alle 1\u2019012 im Code angesprochenen Elemente gegen die tats\u00e4chlich vorhandenen gepr\u00fcft: 44 Funktionen greifen auf Elemente zu, die es nirgends gibt. Die meisten sind abgesichert und tun still nichts. Eine war es nicht \u2014 und st\u00fcrzte ab.',
@@ -64075,7 +64091,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.40';
+var GS_VERSION = 'v31.41';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -76033,11 +76049,11 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
    hellen Flaechen unveraendert bleibt. */
 #screen-favs .gs-empty, #screen-search .gs-empty, #screen-social .gs-empty,
 #screen-market .gs-empty, #screen-garden .gs-empty, #screen-wissen .gs-empty,
-#screen-recipes .gs-empty, #screen-remedies .gs-empty { color: var(--on-canvas-2); }
+#screen-recipes .gs-empty, #screen-remedies .gs-empty { color: var(--muted); }
 #screen-favs .gs-empty-title, #screen-search .gs-empty-title,
 #screen-social .gs-empty-title, #screen-market .gs-empty-title,
 #screen-garden .gs-empty-title, #screen-wissen .gs-empty-title,
-#screen-recipes .gs-empty-title, #screen-remedies .gs-empty-title { color: var(--on-canvas); }
+#screen-recipes .gs-empty-title, #screen-remedies .gs-empty-title { color: var(--text); }
 
 /* v31.32 — Diese vierzehn Bildschirme haben in BEIDEN Modi eine dunkle
    Leinwand (bewusst: jeder Bereich hat seine Farbe). Text, der direkt darauf
@@ -76051,20 +76067,17 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
    gezielt an den Stellen, die tatsaechlich auf der Leinwand sitzen.
    #screen-light war #e65100 — darauf erreicht Weiss nur 3.79:1; auf #bf360c
    sind es 5.60:1, derselbe Wert wie fuer das orange Thema. */
-#screen-social   { background: #1b5e20 !important; }
-#screen-recipes  { background: #4e342e !important; }
-#screen-remedies { background: #1a237e !important; }
-#screen-wissen   { background: #1b5e20 !important; }
-#screen-market   { background: #1b5e20 !important; }
-#screen-garden   { background: #33691e !important; }
-#screen-season   { background: #2e7d32 !important; }
-#screen-settings { background: #37474f !important; }
-#screen-more     { background: #1b5e20 !important; }
-#screen-map      { background: #1b5e20 !important; }
-#screen-search   { background: #1a3d1a !important; }
-#screen-favs     { background: #1a3d1a !important; }
-#screen-guide    { background: #1b5e20 !important; }
-#screen-light    { background: #bf360c !important; }
+/* v31.41 — Hier standen vierzehn Bildschirm-Leinwaende in dunklen Volltoenen,
+   jede mit !important. Fernandos Vorlage zeigt eine helle, ruhige Flaeche mit
+   Karten darauf — so wie die Startseite seit v31.37.
+   Und wie schon bei .hero war die helle Fassung teils laengst geschrieben:
+   Zeile ~1249 definiert fuer Rezepte und Heilmittel warme helle Verlaeufe, die
+   von diesem Block ueberstimmt wurden. Vierter Fall desselben Musters heute.
+   Die Leinwaende folgen jetzt --g-bg und kippen damit selbst; die zwei hellen
+   Verlaeufe weiter oben greifen wieder. */
+#screen-social, #screen-wissen, #screen-market, #screen-garden, #screen-season,
+#screen-settings, #screen-more, #screen-map, #screen-search, #screen-favs,
+#screen-guide, #screen-light { background: var(--g-bg); }
 
 
 .gs-back-bar-top {
