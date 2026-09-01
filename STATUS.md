@@ -12,6 +12,40 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-01 (v) — Nachtrag zu v31.36: eine eigene Behauptung überprüft und halb widerlegt
+
+> Kein Release, nur Doku. In der v31.36-Notiz steht: *„DEFAULT_RECIPES (297 KB), WEEKLY_SEASONAL_FACTS (148 KB) und GS_I18N_JS_STRINGS (83 KB) — die werden aber tatsächlich beim Start gebraucht."* Das hatte ich **nicht geprüft, sondern angenommen.**
+
+#### Nachgemessen
+
+| Block | roh / gzip | beim Start gebraucht? |
+|---|---|---|
+| `WEEKLY_SEASONAL_FACTS` | 148 / 37 KB | **ja** — `_dynF` ist mit 10 Einträgen gefüllt, die Startseite zeigt sichtbar eine Saison-Tatsache (`fact-text: 🌿 Rosmarin überwintern`) |
+| `GS_I18N_JS_STRINGS` | 83 / 27 KB | **ja** — 1'450 Schlüssel, `gsCollectI18nStrings` läuft beim Start |
+| `DEFAULT_RECIPES` | 297 / 70 KB | **nein** — `rezepteImDom: 0` beim Start; `renderRecipes` läuft erst beim Tab-Wechsel |
+
+Meine Behauptung stimmte also für zwei von drei Blöcken. Für den grössten war sie falsch.
+
+#### Und die Messung selbst war beim ersten Anlauf falsch
+
+Mein erster Ansatz hat die Funktionen umhüllt (`window.gsGetWeekFacts = wrapper`) und gezählt, welche beim Start laufen. Ergebnis: `gsGetWeekFacts` wurde **nicht** aufgerufen — was bedeutet hätte, `WEEKLY_SEASONAL_FACTS` sei entbehrlich.
+
+Das war ein **Falsch-Negativ**: die Umhüllung greift nur, wenn Aufrufer den globalen Namen zur Aufrufzeit auflösen. Erst der Blick auf die *Daten* (`_dynF` gefüllt, Fakt sichtbar im DOM) zeigte, dass die Funktion sehr wohl gelaufen war.
+
+Sechstes Mal in dieser Serie, dass eine Messung selbst der Fehler war. Die Regel, die sich daraus ergibt: **die Wirkung messen, nicht den Aufruf.**
+
+#### Entscheidung: `DEFAULT_RECIPES` bleibt inline
+
+Naheliegend wäre, die 297 KB wie den Changelog auszulagern. Dagegen spricht:
+
+- Verbraucher sind der Rezepte-Tab, der Heilmittel-Tab **und `openDetail`** — also das Öffnen eines Arten-Steckbriefs. Das ist eine **Kernhandlung**; die meisten Nutzer lösen sie früh aus. Die 70 KB Übertragung spart man dann nicht, man verschiebt sie nur.
+- Bei `openDetail` steht bereits ein `typeof DEFAULT_RECIPES !== 'undefined'`-Schutz. Fehlten die Daten, verschwände das Rezept-Abzeichen **stillschweigend** — ein Feature-Verlust, den niemand meldet.
+- Bleibt der Parse-Gewinn: nach der Erfahrung aus v31.36 (630 KB Daten ≈ 70ms) wären das rund **35ms**.
+
+35ms gegen ein Risiko auf einem Kernpfad ist ein schlechtes Geschäft. Der Changelog war der richtige Kandidat, weil ihn fast niemand öffnet; die Rezepte sind es nicht.
+
+---
+
 ### 2026-09-01 (u) — v31.36: 787 KB Changelog, die jeder bei jedem Start mitlud
 
 > In (t) habe ich geschrieben, das Parsen der 5,7-MB-Datei sei „eine Eigenschaft der Architektur". Das stimmt — aber bevor ich es stehen lasse, wollte ich wissen, **woraus** die Datei besteht.
