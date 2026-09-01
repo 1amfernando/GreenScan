@@ -12,6 +12,54 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-01 (ak) — Backend gegen die Live-DB geprüft: zwei meiner Angaben waren überholt
+
+Fernando wollte die offenen Backend-Punkte gemeinsam durchgehen. Ich habe sie deshalb **an der Produktionsdatenbank nachgemessen** statt aus dem vorbereiteten Skript abzuschreiben — und zwei Angaben stimmen nicht mehr.
+
+#### Was ich korrigieren muss
+
+**1. Die Pflege-Erinnerungen sind NICHT tot.** Das Skript sagt „seit 33 Tagen still tot". Live:
+
+| kind | Anzahl | neueste |
+|---|---|---|
+| `plant_task` | 600 | **2026-09-01** |
+| `plant_task_pre` | 19 | 2026-08-30 |
+
+231 Benachrichtigungen in den letzten 30 Tagen. Die dedup-Migration ist damit eine Robustheits-Verbesserung, kein Notfall — die Dringlichkeit, die ich zuletzt genannt habe, war falsch.
+
+**2. Der Trigger auf `quiz_answers` ist ein anderer.** Vorhanden ist `trg_quiz_answers_sync_lb` (Ranglisten-Abgleich), **nicht** die serverseitige Antwortprüfung. `fn_quiz_answers_verify` existiert nicht (0 Treffer). Die Migration ist also wirklich offen.
+
+#### Was live bestätigt offen ist
+
+**A · `quiz_answers` — anon darf INSERT, UPDATE, DELETE, TRUNCATE.** `is_correct` kommt weiter vom Client, und Cron `jobid=23` verteilt am 31.12. ein Jahr PRO gratis an die Top 3. Heutiger Umfang: 28 Antworten, 50 % richtig — der Schaden wäre klein, das Loch ist offen.
+
+**B · Rollen-Leak.** `fn_is_role(_role, _uid)` mit zwei Parametern ist live. Auskunft über fremde Konten, ohne Login.
+
+**C · `fn_mkt_increment_views`.** `security_definer = true`, `anon_darf = true`, **`hat_uid_bezug = false`** — kein einziger Bezug auf `auth.uid()`. Die Schwester `fn_quiz_record_answer` hat beides. Nur diese wurde vergessen.
+
+**D · Zwei offene Schreib-Endpunkte auf `public.species`** — der schwerste Punkt. `admin-seed-species` v3 ist **ACTIVE**, `verify_jwt: false`, schreibt mit dem Service-Role-Key an der RLS vorbei. Schutz: ein hartcodiertes Secret im Quelltext — und das liegt im Klartext in sechs gepushten Branches (`claude/happy-gates-HK3zX`, `claude/lucid-cerf-{3ooy72,XIpgp,dfxwv7,dix1vr,o5b8ie}`). In `origin/main` ist es nicht.
+
+Nachweis geprüft: **kein Missbrauch.** `species` = 2'838 Zeilen, 1 Zeile in 90 Tagen, 0 in 7 Tagen, neueste vom 2026-07-02.
+
+#### Ein Fund, den ich bewusst NICHT dramatisiere
+
+Beim Prüfen von C fiel auf: anon und authenticated haben auf **allen 200 Tabellen** `TRUNCATE`, `REFERENCES` und `TRIGGER`. TRUNCATE unterliegt keiner RLS.
+
+Bevor ich das als Loch melde, habe ich nachgesehen, ob es erreichbar ist:
+
+- PostgREST hat kein Verb für TRUNCATE; der Anon-Schlüssel ist ein PostgREST-JWT, kein Postgres-Login.
+- Der einzige Umweg wäre eine anon-aufrufbare Funktion mit dynamischem SQL. **0 Treffer.**
+
+Also: unnötig weite Standard-Grants, kein offenes Loch. Als optionaler Block angehängt, klar getrennt.
+
+#### Warum ich es nicht selbst angewendet habe
+
+Lesen geht, schreiben nicht: `apply_migration` und `deploy_edge_function` verlangen eine Bestätigung, die in einer Cloud-Sitzung niemand geben kann. Ich habe es an beiden versucht.
+
+`scripts/SICHERHEIT_JETZT.sql` fasst A, B, C in einer einfügbaren Datei zusammen. **Keine äussere Transaktions-Klammer** — zwei der drei Migrationen bringen ihre eigene mit, und das erste innere `COMMIT` hätte eine äussere beendet; alles danach wäre ungeschützt gelaufen. Jede ist für sich atomar und idempotent.
+
+---
+
 ### 2026-09-01 (aj) — v31.48: Drei Menü-Einträge, die nirgendwohin führten
 
 Eine blinde Stelle des Verdrahtungs-Prüfstands: er sammelt `on*`-Attribute aus dem **Dokument**. Die 40 Einträge der Menü-Suche tragen ihre Aktion aber als **Text in einer Liste** (`MENU_ITEMS`), nicht am Element. Sie wurden nie geprüft.
