@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.49.20260901">
+<meta name="app-version" content="31.50.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17917,7 +17917,6 @@ function gsShowQuickActions(id, name, lat, x, y) {
 // Saisonal: bevorzugt Arten die jetzt Saison haben.
 // 24h-Cache: prüft täglich um Mitternacht.
 
-function initPlantOfDayUpgraded(){/* POTD entfernt */}
 
 // ══ TÄGLICHES QUIZ — ANTI-CHEAT + RANKING ════════════════════
 
@@ -20673,12 +20672,11 @@ function nextFact() {
 }
 
 // ── Pflanze des Tages ──────────────────────────────────────
-function initPlantOfDay(){/* POTD entfernt */}
 
-function openPlantOfDay() {
-  const card = document.getElementById('plant-of-day-card');
-  if (card && card.dataset.potdId) openDetail(card.dataset.potdId);
-}
+/* v31.50 — openPlantOfDay entfernt. „Pflanze des Tages" wurde ausdruecklich
+   abgeschafft; daneben standen initPlantOfDay() und initPlantOfDayUpgraded(),
+   beide leer mit dem Kommentar „POTD entfernt", beide ohne Aufrufer. Diese
+   dritte las dataset.potdId von einer Karte, die es seither nicht mehr gibt. */
 
 // ── Täglich-Quiz ───────────────────────────────────────────
 let _quizAnswered = false;
@@ -30017,77 +30015,57 @@ var cameraPermGranted = (function(){
   try { var v = localStorage.getItem('gs_cam_perm'); return v === 'granted' || v === '1'; }
   catch(_) { return false; }
 })();
-let pendingCameraAction = null; // function to call after permission
+// v31.50: pendingCameraAction entfernt. Es merkte sich die Aktion, die der
+// eigene Erlaubnis-Dialog nach dem Tippen ausfuehren sollte. Gelesen wurde es
+// nur von grantCameraPermission und skipCameraPermission — beide sind mit dem
+// Dialog weg, also blieb eine Variable, die geschrieben und nie gelesen wird.
+// showCameraPermDialog haelt die Aktion jetzt in ihrem eigenen Abschluss.
 let useLidar = false;
 
+// v31.50 — der eigene Erlaubnis-Dialog ist entfernt.
+//
+// #cam-perm-dialog existiert nirgends, also lief immer nur der Rueckfall:
+// direkt getUserMedia, der Browser fragt selbst. Der ganze Dialog-Zweig mit
+// #cpd-icon/#cpd-title/#cpd-text war unerreichbar, ebenso die beiden
+// Knopf-Funktionen grantCameraPermission und skipCameraPermission (beide
+// ohne Aufrufer, zusammen ~35 Zeilen).
+//
+// EINE Sache ging dabei verloren, und die hole ich zurueck: die zwei
+// Aufrufer uebergeben seit jeher `opts` mit Symbol, Titel und Begruendung
+// („GreenScan braucht Kamera-Zugriff um Arten direkt zu bestimmen"). Ohne
+// Dialog wurde das stillschweigend weggeworfen — der Nutzer sah nur die
+// nackte Browser-Abfrage, ohne zu wissen, wofuer. Jetzt kommt die Begruendung
+// als kurzer Hinweis, BEVOR der Browser fragt. Wer weiss, warum gefragt wird,
+// entscheidet anders.
 function showCameraPermDialog(actionFn, opts = {}) {
-  pendingCameraAction = actionFn;
-  const dialog = document.getElementById('cam-perm-dialog');
-  // Fallback: wenn Dialog nicht existiert, direkt Permission anfragen
-  if (!dialog) {
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}})
-        .then(function(stream){
-          stream.getTracks().forEach(function(t){t.stop();});
-          cameraPermGranted = true;
-          try { localStorage.setItem('gs_cam_perm', 'granted'); } catch(e){}
-          if (typeof actionFn === 'function') setTimeout(actionFn, 100);
-        })
-        .catch(function(err){
-          if (typeof showProfileToast === 'function') {
-            showProfileToast('Kamera-Zugriff: ' + (err.name === 'NotAllowedError' ? 'verweigert' : err.message), 'error');
-          }
-        });
-    }
+  if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
+    if (typeof gsToast === 'function') gsToast('Dieses Geraet hat keine nutzbare Kamera.', 'error');
     return;
   }
-  const iconEl = document.getElementById('cpd-icon');
-  const titleEl = document.getElementById('cpd-title');
-  const textEl = document.getElementById('cpd-text');
-  if (opts.icon && iconEl) iconEl.textContent = opts.icon;
-  if (opts.title && titleEl) titleEl.textContent = opts.title;
-  if (opts.text && textEl) textEl.textContent = opts.text;
-  dialog.style.display = 'flex';
+  var grund = opts.text || '';
+  if (grund && typeof gsToast === 'function') {
+    try { gsToast((opts.icon || '📷') + ' ' + grund, 'info'); } catch (_) {}
+  }
+  var starten = function () {
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      .then(function (stream) {
+        stream.getTracks().forEach(function (t) { t.stop(); });
+        cameraPermGranted = true;
+        try { localStorage.setItem('gs_cam_perm', 'granted'); } catch (e) {}
+        if (typeof actionFn === 'function') setTimeout(actionFn, 100);
+      })
+      .catch(function (err) {
+        if (typeof showProfileToast === 'function') {
+          showProfileToast('Kamera-Zugriff: ' + (err.name === 'NotAllowedError' ? 'verweigert' : err.message), 'error');
+        }
+      });
+  };
+  // Kurz warten, damit der Hinweis gelesen werden kann, bevor der
+  // Browser-Dialog darueberlegt.
+  if (grund) setTimeout(starten, 900); else starten();
 }
 
-async function grantCameraPermission() {
-  const dialog = document.getElementById('cam-perm-dialog');
-  const allowBtn = document.getElementById('cpd-allow-btn');
-  const lidarToggle = document.getElementById('lidar-toggle');
-  useLidar = lidarToggle ? lidarToggle.checked : false;
-  
-  if (allowBtn) { allowBtn.textContent = '⏳ Öffne Kamera…'; allowBtn.disabled = true; }
-  
-  try {
-    // Test camera access
-    const testStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-    testStream.getTracks().forEach(t => t.stop());
-    cameraPermGranted = true;
-    localStorage.setItem('gs_cam_perm', 'granted');
-    if (dialog) dialog.style.display = 'none';
-    if (allowBtn) { allowBtn.textContent = '📷 Kamera aktivieren'; allowBtn.disabled = false; }
-    if (pendingCameraAction) { pendingCameraAction(); pendingCameraAction = null; }
-  } catch(e) {
-    if (allowBtn) { allowBtn.textContent = '📷 Kamera aktivieren'; allowBtn.disabled = false; }
-    var msg = 'Kamera konnte nicht aktiviert werden.';
-    if (e.name === 'NotAllowedError') {
-      msg = 'Kamera-Zugriff verweigert. Bitte in den Browser-Einstellungen die Kamera für diese Seite erlauben.';
-    } else if (e.name === 'NotFoundError') {
-      msg = 'Keine Kamera gefunden. Bitte Gerät prüfen.';
-    }
-    gsToast(msg, 'error');
-  }
-}
 
-function skipCameraPermission() {
-  const dialog = document.getElementById('cam-perm-dialog');
-  if (dialog) dialog.style.display = 'none';
-  if (pendingCameraAction) {
-    // Replace with estimate-only version
-    pendingCameraAction = null;
-    runLightEstimate();
-  }
-}
 
 function runLightEstimate() {
   const h = new Date().getHours(), m = new Date().getMonth();
@@ -32908,27 +32886,10 @@ function filterSocial(filter, el) {
 }
 
 // Neuen Post öffnen
-function openNewPost() {
-  if (!gsRequire('post_community', 'Bitte anmelden um zu posten.')) return;
-  var name   = localStorage.getItem('gs_sb_display_name') ||
-               gsStore.get('gs_sb_email', null) || 'Naturfreund';
-  var avatar = (_sbProfile && _sbProfile.avatar_emoji) || '🌿';
-  var ca = document.getElementById('compose-avatar');
-  if (ca) ca.textContent = avatar;
-  var cn = document.getElementById('compose-name');
-  if (cn) cn.textContent = name;
-  var pt = document.getElementById('post-text');
-  if (pt) pt.value = '';
-  openModal('modal-new-post');
-  // v30.94: Liegt noch ein nicht abgeschickter Entwurf vor (Server-Fehler beim letzten
-  // Versuch, App zwischendurch geschlossen), kommt er hier zurueck statt verloren zu sein.
-  try {
-    if (typeof _gsRestoreSocialDraft === 'function' && _gsRestoreSocialDraft(false)) {
-      if (typeof showProfileToast === 'function') showProfileToast('📝 Nicht gesendeter Entwurf wiederhergestellt');
-    }
-  } catch(_){}
-  if (pt) setTimeout(function(){ pt.focus(); }, 300);
-}
+/* v31.50 — openNewPost entfernt. Dasselbe Fenster (modal-new-post) wird von
+   openPostWithType geoeffnet, das sieben Bezuege hat und zusaetzlich den
+   Beitragstyp setzt. Diese Fassung hatte keinen Aufrufer und schrieb noch in
+   #compose-name — ein Element der frueheren Kopfzeile, das es nicht mehr gibt. */
 
 // Eigenen Post löschen
 async function deletePost(postId) {
@@ -63554,6 +63515,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.50', date: '01.09.2026',
+    headline: '\ud83e\uddf9 Neun tote Funktionen entfernt \u2014 und eine Begr\u00fcndung gerettet, die niemand mehr zu sehen bekam',
+    summary: 'Zweite Welle des Meilensteins „Alles verdrahtet": die Funde, die sich beim Nachsehen als Reste entfernter Oberfl\u00e4chen erwiesen haben, sind jetzt weg. 41 offene Nachschlagungen \u2192 26.',
+    user_summary: '\ud83d\udcf7 Wenn die App nach der Kamera fragt, steht jetzt wieder dabei WOF\u00dcR \u2014 dieser Satz existierte im Code, kam aber seit dem Umbau nirgends mehr an.',
+    user_items: [
+      {emoji:'\ud83d\udcf7', bold:'Die Kamera-Frage erkl\u00e4rt sich wieder:', text:' Die App fragte die Kamera-Erlaubnis nackt an \u2014 nur die Browser-Abfrage, ohne ein Wort dazu. Dabei gaben die aufrufenden Stellen seit jeher eine Begr\u00fcndung mit („GreenScan braucht Kamera-Zugriff um Arten direkt zu bestimmen"); sie ging beim Entfernen des alten Dialogs still verloren. Jetzt kommt sie kurz vor der Abfrage. Wer weiss, warum gefragt wird, entscheidet anders.'},
+      {emoji:'\ud83e\uddf9', bold:'Neun Funktionen ohne Aufrufer entfernt:', text:' Reste von Oberfl\u00e4chen, die es nicht mehr gibt \u2014 die „Pflanze des Tages", ein zweiter \u00d6ffner f\u00fcrs Beitrags-Fenster, eine \u00fcberholte Zweitfassung des Magic-Link-Logins, die beiden Kn\u00f6pfe des alten Kamera-Dialogs. Rund 215 Zeilen.'},
+      {emoji:'\ud83d\udd12', bold:'Eine davon war ein Risiko:', text:' Ein verstecktes Entwickler-Formular liess URL und Schl\u00fcssel einer BELIEBIGEN Datenbank eintragen \u2014 die App h\u00e4tte danach deine Daten woanders hingeschickt. Ohne Aufrufer, aber der Code lag ausgeliefert bei jedem mit. So etwas geh\u00f6rt nicht in eine ver\u00f6ffentlichte App.'},
+      {emoji:'\ud83d\udcda', bold:'6,8 KB Dokumentation, die niemand lesen konnte:', text:' Eine Liste von acht historischen Fehlern lag als Programmcode in der App und wurde von jedem Telefon bei jedem Start mitgeladen \u2014 sichtbar war sie nirgends, gelesen hat sie eine Funktion ohne Aufrufer, zuletzt gepflegt im M\u00e4rz. Sie ist vollst\u00e4ndig ins Repo umgezogen (docs/FEHLER-LOG.md), wo sie auffindbar ist und keinen Nutzer etwas kostet.'},
+    ],
+  },
+  {
     v: 'v31.49', date: '01.09.2026',
     headline: '\ud83d\udce1 GPS im Gartenformular \u2014 und der Garten-Standort \u00fcberschreibt nicht mehr deinen eigenen',
     summary: 'Beim Anlegen eines Gartens musste man die Adresse abtippen. Die GPS-Funktion daf\u00fcr gab es seit Langem, sie hatte nur keinen Knopf \u2014 und ein Meldefeld stand daneben, dauerhaft verborgen, weil es genau f\u00fcr diese R\u00fcckmeldung gebaut worden war.',
@@ -64008,7 +63981,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.49';
+var GS_VERSION = 'v31.50';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -65151,54 +65124,11 @@ async function sbSendMagicLink(email) {
 }
 
 // Magic Link anfordern (UI-Handler)
-async function profileRequestMagicLink() {
-  var emailEl = document.getElementById('prof-magic-email');
-  var email = emailEl ? emailEl.value.trim() : '';
-  var errEl = document.getElementById('prof-magic-err');
-  var btn   = document.getElementById('prof-magic-btn');
-
-  if (!email || !email.includes('@')) {
-    if (errEl) { errEl.textContent = 'Bitte eine gültige E-Mail-Adresse eingeben.'; errEl.style.display = 'block'; }
-    return;
-  }
-  if (errEl) errEl.style.display = 'none';
-  if (btn) { btn.textContent = '⏳ Sende Link…'; btn.disabled = true; }
-
-  var res = await sbSendMagicLink(email);
-
-  if (btn) { btn.textContent = '✉️ Magic Link senden'; btn.disabled = false; }
-
-  if (res.error) {
-    if (errEl) { errEl.textContent = '❌ ' + res.error.message; errEl.style.display = 'block'; }
-    return;
-  }
-
-  // Erfolg: Hinweis anzeigen
-  var mc = document.getElementById('profile-modal-content');
-  if (mc) mc.innerHTML = [
-    '<div style="text-align:center;padding:30px 10px;">',
-      '<div style="font-size:64px;margin-bottom:16px;">📧</div>',
-      '<div style="font-size:var(--fs-2xl);font-weight:800;font-family:serif;color:var(--g-dark);margin-bottom:10px;">Link gesendet!</div>',
-      '<div style="font-size:var(--fs-md);color:var(--text2);line-height:1.7;margin-bottom:18px;">',
-        'Wir haben einen Magic Link an<br>',
-        '<strong style="color:var(--g-dark);">' + email + '</strong><br>',
-        'gesendet. Tippe auf den Link in der E-Mail — du bist dann sofort eingeloggt.',
-      '</div>',
-      '<div style="background:var(--surface2);border:1.5px solid var(--g-light);border-radius:var(--r-md);padding:13px 15px;font-size:var(--fs-sm);color:var(--g-dark);text-align:left;margin-bottom:16px;line-height:1.8;">',
-        '<strong>Nächste Schritte:</strong><br>',
-        '1️⃣ E-Mail-Postfach öffnen<br>',
-        '2️⃣ Auch Spam-Ordner prüfen<br>',
-        '3️⃣ Auf <strong>„Bei GreenScan anmelden"</strong> tippen',
-      '</div>',
-      '<div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:16px;">',
-        'Der Link ist 60 Minuten gültig.',
-      '</div>',
-      '<button id="magic-back-btn" style="width:100%;padding:11px;background:var(--surface2);color:var(--g-dark);border:1.5px solid var(--border);border-radius:var(--r-md);font-size:var(--fs-md);font-weight:700;cursor:pointer;font-family:inherit;">← Zurück zum Login</button>',
-    '</div>',
-  ].join('');
-  var backBtn = document.getElementById('magic-back-btn');
-  if (backBtn) backBtn.onclick = function() { renderProfileLogin(document.getElementById('profile-modal-content')); };
-}
+/* v31.50 — profileRequestMagicLink entfernt. Ich wollte den passwortlosen
+   Login zuerst als fehlendes Feature nachbauen — und habe dann nachgesehen:
+   es gibt ihn bereits im Onboarding (#onb-magic-btn → onbMagicLink(),
+   ~Zeile 2368), inklusive Hinweistext. Diese Fassung war eine ueberholte
+   Zweitfassung fuers Profil, ohne Aufrufer und ohne ihre drei Elemente. */
 
 // Supabase Magic Link Session verarbeiten (URL-Hash nach Redirect)
 function gsHandleMagicLinkCallback() {
@@ -68935,18 +68865,13 @@ function renderProfileSetup(mc) {
   renderProfileLogin(mc);
 }
 
-function profSaveSupabaseConfig() {
-  var url = (document.getElementById('prof-sb-url')||{}).value || '';
-  var key = (document.getElementById('prof-sb-key')||{}).value || '';
-  if (!url || !key) { showProfileToast('❌ URL und Key erforderlich'); return; }
-  url = url.trim().replace(/\/$/, '');
-  localStorage.setItem('gs_sb_url', url);
-  localStorage.setItem('gs_sb_key', key.trim());
-  SB_URL = url; SB_KEY = key.trim();
-  _sbInited = false;
-  var mc = document.getElementById('profile-modal-content');
-  if (mc) renderProfileLogin(mc);
-}
+/* v31.50 — profSaveSupabaseConfig entfernt. Sie liess URL und Schluessel
+   einer BELIEBIGEN Supabase-Instanz eintragen und schrieb sie nach
+   gs_sb_url/gs_sb_key — die App haette danach ihre Daten woanders hingeschickt.
+   Als Entwickler-Werkzeug gedacht, ohne Aufrufer, und ihre beiden Eingabefelder
+   gibt es in renderProfileLogin schon lange nicht mehr. Eine Oberflaeche, die
+   das Ziel der eigenen Datenverbindung umbiegt, gehoert nicht in eine
+   ausgelieferte App. */
 
 // ── Profil-Statistiken bei Aktionen tracken ───────────────────
 function profileTrackScan(cat) {
@@ -69546,10 +69471,8 @@ function _gsApplyAuthUiState() {
     localStorage.removeItem(GS_GUEST_MODE_KEY);
     window._gsGuestMode = false;
   } catch(_){}
-  try {
-    var banner = document.getElementById('gs-guest-banner');
-    if (banner) banner.style.display = 'none';
-  } catch(_){}
+  // v31.50: hier stand ein Verstecken von #gs-guest-banner. Zeile ~2385 haelt
+  // fest, dass das Banner in v25.33 entfernt wurde (Demo-Modus abgeschaltet).
   try {
     var isAdm = (typeof gsIsAdmin === 'function') ? gsIsAdmin() : false;
     document.querySelectorAll('.admin-only-row').forEach(function(el) {
@@ -69596,9 +69519,7 @@ function gsOnLoginSuccess() {
   // (gsSyncUserDataOnLogin macht das auch, aber mit ~1s Delay — das ist zu spät wenn User
   //  direkt nach Login auf Scanner geht. Hier explizit + parallel.)
   try { if (typeof gsPullGlobalApiKey === 'function') gsPullGlobalApiKey(); } catch(_){}
-  // Gast-Banner verstecken
-  var banner = document.getElementById('gs-guest-banner');
-  if (banner) banner.style.display = 'none';
+  // v31.50: Gast-Banner-Verstecken entfernt — seit v25.33 gibt es kein Banner.
   // Admin-Status sofort anwenden
   // v29.15: Single-Source gsIsAdmin() (Rolle ODER E-Mail) — konsistent mit Settings/Login-Pfad-1 (B-ADM-1).
   var email = (gsStore.get('gs_sb_email', null)||'').toLowerCase();
@@ -74589,134 +74510,13 @@ function gsRunSplash(onDone) {
 // ══ GreenScan Error Log & Known Fixes ════════════════════════
 // Dieses Objekt dokumentiert alle bekannten Bugs und deren Fixes.
 // Bei zukünftigen Fehlern zuerst hier nachschauen!
-const GS_ERROR_LOG = {
-  version: '1.0',
-  lastUpdated: '2026-03-27',
-  bugs: [
-
-    {
-      id: 'ERR-001',
-      date: '2026-03-27',
-      title: 'Script error: Service Worker iOS Crash',
-      symptom: 'App friert nach dem Laden ein. Fehler: async is not defined.',
-      cause: 'Service Worker Blob-URL mit async-Syntax crasht auf iOS Safari.',
-      fix: 'Service Worker vollständig entfernen. iOS unterstützt keine Blob-URL SW.',
-      status: 'FIXED',
-      affectedVersions: 'v16',
-      prevention: 'Keinen Service Worker mit Blob URLs verwenden. PWA-Offline nur via normaler SW-Registration mit separater sw.js Datei.'
-    },
-
-    {
-      id: 'ERR-002',
-      date: '2026-03-27',
-      title: 'TypeError: Cannot read properties of undefined (reading "id") - Menü-Suche',
-      symptom: 'Infokarten aus der Menü-Suche öffnen nicht. Fehler: TypeError: Cannot read properties of undefined (reading "id").',
-      cause: 'Menü-Suche generierte onclick="openDetail(W001)" OHNE Anführungszeichen. Browser interpretiert W001 als JS-Variable → undefined → .id crash.',
-      fix: 'Anführungszeichen hinzufügen — ID muss als String uebergeben werden, nicht als Variable.',
-      codeLocation: 'Menü-Search Funktion: dbResults.forEach(s => { html += ... onclick ...})',
-      status: 'FIXED',
-      affectedVersions: 'v16',
-      prevention: 'Bei dynamisch generierten onclick-Attributen: ID-Werte IMMER in Anführungszeichen einschliessen. Test: Generierte HTML prüfen ob ID als String oder Variable interpretiert wird.'
-    },
-
-    {
-      id: 'ERR-003',
-      date: '2026-03-27',
-      title: 'TypeError: Cannot read properties of undefined (reading "id") - Duplikate IDs',
-      symptom: 'Viele Infokarten öffnen nicht. Fehler wie ERR-002.',
-      cause: 'Beim Hinzufügen neuer Arten-Batches wurden einige IDs (z.B. W051-W200, K031-K130) doppelt eingefügt. DB.find() gibt das erste Vorkommen zurück, aber die Rendering-Logik kann inkonsistent sein.',
-      fix: 'DB deduplizieren: Alle Einträge mit identischen IDs entfernen, nur erstes Vorkommen behalten. Code: const seen=new Set(); const cleanDB=DB.filter(e=>{ if(seen.has(e.id))return false; seen.add(e.id); return true; });',
-      status: 'FIXED',
-      affectedVersions: 'v16',
-      prevention: 'Vor jedem Einfügen neuer Arten prüfen: DB IDs auf Duplikate scannen. Neue IDs mit höchster vorhandener Nummer + 1 vergeben. Batch-Validierung: node --check UND Duplikat-Check.'
-    },
-
-    {
-      id: 'ERR-004',
-      date: '2026-03-27',
-      title: 'SyntaxError: Unexpected token ] - Doppeltes Array-Ende',
-      symptom: 'Gesamte App lädt nicht. SyntaxError im Browser.',
-      cause: 'Beim Einfügen neuer DB-Einträge wurde ein doppeltes ]\n]; am Ende der DB erzeugt.',
-      fix: 'Suche und ersetze: "\n]\n];" durch "\n];" in der DB-Section.',
-      status: 'FIXED',
-      affectedVersions: 'v16',
-      prevention: 'Nach jedem DB-Edit: node --check ausführen. DB-Ende immer mit genau einem ]\n]; abschliessen.'
-    },
-
-    {
-      id: 'ERR-005',
-      date: '2026-03-26',
-      title: 'Alle Screens blank - display:none Bug',
-      symptom: 'Nach Code-Änderungen werden alle Screens leer/blank.',
-      cause: 'CSS-Regel  überschreibt inline styles.',
-      fix: '.screen { display:none; } OHNE !important. Aktive Screens: .screen.active { display:block !important }',
-      status: 'FIXED',
-      affectedVersions: 'v15, v16',
-      prevention: 'NIEMALS display:none !important auf .screen setzen. switchTab() setzt cssText mit !important für aktive Screens.'
-    },
-
-    {
-      id: 'ERR-006',
-      date: '2026-03-26',
-      title: 'Karte/Map zeigt kein Internet obwohl online',
-      symptom: 'Map-Screen zeigt Kein Internet Fehler, obwohl Leaflet im Head ist.',
-      cause: 'Leaflet lazy-loaded statt im <head> preloaded. Bei Tab-Switch nicht verfügbar.',
-      fix: 'Leaflet CSS+JS immer im <head> preloaden. Nie lazy-loaden.',
-      status: 'FIXED',
-      affectedVersions: 'v15, v16',
-      prevention: 'Leaflet im \u003chead\u003e: \u003clink rel=stylesheet href=leaflet.css\u003e und \u003cscript src=leaflet.js\u003e vor dem Main-Script.'
-    },
-
-    {
-      id: 'ERR-007',
-      date: '2026-03-27',
-      title: 'buildPlantCard crash - undefined.id',
-      symptom: 'Mein Garten Screen lädt nicht, Fehler: Cannot read properties of undefined (reading "id").',
-      cause: 'buildPlantCard(p) wird mit undefined aufgerufen wenn myPlants korrupte Einträge enthält.',
-      fix: 'Guard am Anfang von buildPlantCard: if (!p || !p.id) return "";',
-      status: 'FIXED',
-      affectedVersions: 'v16',
-      prevention: 'Alle render-Funktionen die ein Objekt erwarten müssen Guards haben: if(!obj || !obj.id) return "".'
-    },
-
-    {
-      id: 'ERR-008',
-      date: '2026-03-27',
-      title: 'Navigationsleiste (Tab-Bar) verschwunden / unsichtbar',
-      symptom: 'Die untere Tab-Bar (Home, Suche, Scanner, Pflanzen, Menü) ist nicht mehr sichtbar und kann nicht mehr benutzt werden.',
-      cause: 'Beim Einbauen des neuen screen-more Inhalts (Über-Seite) fehlte ein schliessendes </div>. Dadurch blieb <div id="screen-more"> dauerhaft offen. Alle nachfolgenden Screens (screen-garden, screen-farm, screen-map etc.) wurden als Kinder von screen-more behandelt. Da screen-more overflow:scroll und position:absolute hat, wurde die Tab-Bar (position:fixed) durch den verschachtelten Stacking-Context auf iOS Safari abgeschnitten und unsichtbar.',
-      fix: 'HTML-Balance prüfen',
-      codeLocation: 'HTML: screen-more div, direkt vor screen-garden. Python-Diagnose: before_tabs = html[:tabs_pos]; stack=[]; Simuliere div-Stack → len(stack) muss 0 sein.',
-      diagnostic: 'python3: before_tabs = html[:html.find(class="tabs" id="main-tabs")]; stack=[]; for m in re.finditer(r"<(/?div)[^>]*>", before_tabs): t=m.group(1); stack.append() if t=="div" else stack.pop() if stack else None; print(len(stack)) → muss 0 sein!',
-      status: 'FIXED',
-      affectedVersions: 'v19',
-      prevention: 'Nach JEDER HTML-Änderung an einem Screen: 1) Div-Balance prüfen (opens == closes). 2) Div-Stack vor Tab-Bar prüfen (muss 0 sein). 3) Regel: Neuer Screen-Inhalt immer in einem eigenen Branch testen bevor er in Produktion geht. 4) Bei jedem screen-Umbau: gsRunSplash + switchTab testen.'
-    }
-
-  ],
-
-  // Checkliste für neue Arten-Batches
-  addSpeciesChecklist: [
-    '1. Neue IDs beginnen mit max(existierende IDs) + 1',
-    '2. Alle Pflichtfelder vorhanden: id, name, lat, fam, cat, emoji, edible, toxic, tox, medicinal, protected, season, habitat, alt, color, desc, uses, medicinalUse, warning, lookalike, bookRef',
-    '3. Keine Apostrophe in Feldwerten (oder escaped mit \')',
-    '4. Keine HTML-Zeichen < > in Feldwerten',
-    '5. node --check nach Generierung',
-    '6. Duplikat-Check: DB IDs auf doppelte Werte prüfen',
-    '7. DB-Ende korrekt: genau EIN ]\n];',
-    '8. onclick in generierten Karten: IDs in Anführungszeichen'
-  ]
-};
-
-// Hilfsfunktion: Bug nachschlagen
-function gsLookupError(keyword) {
-  const kw = keyword.toLowerCase();
-  return GS_ERROR_LOG.bugs.filter(b =>
-    b.title.toLowerCase().includes(kw) ||
-    b.symptom.toLowerCase().includes(kw) ||
-    b.cause.toLowerCase().includes(kw)
-  );
-}
+/* v31.50 — GS_ERROR_LOG und gsLookupError entfernt: 6,8 KB Fehler-
+   Dokumentation (8 Eintraege) lagen als JavaScript in dieser Datei und wurden
+   von jedem Telefon bei jedem Kaltstart mitgeparst. Sehen konnte sie in der
+   App niemand; die einzige Leserin war gsLookupError(stichwort) — ohne einen
+   einzigen Aufrufer, zuletzt gepflegt am 27.03.2026.
+   Der Inhalt ist vollstaendig nach docs/FEHLER-LOG.md umgezogen, wo er
+   auffindbar und durchsuchbar ist und keinen Nutzer etwas kostet. */
 // ══ Ende Error Log ════════════════════════════════════════════
 
 document.addEventListener('DOMContentLoaded',()=>{
@@ -74750,8 +74550,8 @@ document.addEventListener('DOMContentLoaded',()=>{
       var mav = document.getElementById('modal-about-ver');
       if (mav && typeof GS_VERSION === 'string') mav.textContent = GS_VERSION.replace(/^v/,'');
     } catch(_){}
-    var legalEl = document.getElementById('legal-arten-info');
-    if (legalEl) legalEl.textContent = artStr + ' Arten in der Schweizer Natur';
+    // v31.50: #legal-arten-info gibt es nicht mehr; die Artenzahl steht im
+    // Ueber-Fenster und auf dem Startbildschirm.
     var sc=document.getElementById('splash-count'); if(sc) sc.textContent = DB.length + ' Arten';
     document.getElementById('stat-edible').textContent = DB.filter(s=>s.edible).length;
     document.getElementById('stat-favs').textContent = myPlants.length;
@@ -74759,7 +74559,8 @@ document.addEventListener('DOMContentLoaded',()=>{
       const el=document.getElementById('cnt-'+c);
       if(el) el.textContent=(cats[c]||0)+' Arten';
     });
-    var _cAll=document.getElementById('cnt-all'); if(_cAll) _cAll.textContent = DB.length+' Arten';  // v28.22: guarded (Home-Kategorien entfernt)
+    // v31.50: #cnt-all entfernt — die Home-Kategorien, zu denen es gehoerte,
+    // sind seit v28.22 weg; der Kommentar stand seither daneben.
     initHomeBoard();
     renderList();
     if(typeof gsUpdateStreak==="function") gsUpdateStreak();
