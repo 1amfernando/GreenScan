@@ -4,13 +4,51 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.25` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.26` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (k) — v31.26: Dreimal ist ein Muster — 146 Flächen im Dunkelmodus
+
+> In v31.20 (gefüllte Knöpfe), v31.22 (Marken-Glow) und v31.25 (Kopfleiste) war es dreimal derselbe Fehler. Beim dritten Mal habe ich aufgehört, Einzelfälle zu reparieren, und die Klasse gesucht.
+
+#### Die Suche
+
+Die Farb-Token der App kehren im Dunkelmodus ihre Helligkeit um — `--g-main` ist hell `#1f6b2f`, dunkel `#66bb6a`. **Für eine Textfarbe ist das genau richtig:** dunkle Schrift auf hellem Grund, helle Schrift auf dunklem Grund.
+
+Für eine **Fläche** ist es genau falsch.
+
+29 Token verhalten sich so. Davon werden **146** als Fläche benutzt, **124 davon mit weisser Schrift**:
+
+| Token | Flächen | weisse Schrift auf dunkler Fassung | … auf heller Fassung |
+|---|---|---|---|
+| `--g-main` | 125 | 6,56:1 | **2,36:1** |
+| `--g-dark` | 16 | 12,16:1 | **1,64:1** |
+| `--c-purple` | 3 | 9,39:1 | **2,39:1** |
+| `--c-warn-d` | 1 | **3,79:1** | **2,16:1** |
+
+Jeder Hauptknopf, jeder aktive Chip, jeder aktive Reiter der App lag im Dunkelmodus bei **2,4:1**.
+
+#### Die Lösung: zwei Rollen, zwei Token
+
+`--fill-brand`, `--fill-dark`, `--fill-violet`, `--fill-warn` sind **Flächen** und bleiben im Dunkelmodus dunkel. `--g-main` und Co. bleiben **Schrift** und werden hell. Ein Token kann nicht beides sein — das war die ganze Ursache.
+
+Die Hellwerte der neuen Token sind mit den alten **identisch** (`#1f6b2f`, `#1a3d1a`, `#6a1b9a`): der Hellmodus ändert sich um kein Pixel. Dieselbe Beweisführung wie in v31.20.
+
+#### Zwei Nebenbefunde
+
+- **`--c-warn-d` als Fläche schaffte auch im HELLmodus nur 3,79:1.** Ein Fehler in beiden Modi. `--fill-warn` ist deshalb bewusst dunkler (`#b34000`, 5,75:1) — der **einzige** Wert, der sich im Hellmodus ändert, und zwar zum Besseren.
+- **Der Live-Punkt** hatte hellen Puls-Hintergrund mit `--c-info-d` als Text — im Dunkelmodus hell auf hell. Jetzt fest dunkler Text (7,4:1).
+
+#### Und ein Fehler in meiner eigenen Analyse
+
+Der erste Durchlauf meldete „0 von 125 mit weisser Schrift" — ich hätte daraus schliessen können, dass alles harmlos ist. Ursache: mein Suchfenster schloss das Semikolon aus, und `background:var(--g-main);color:#fff` hat genau dort eines. Aufgefallen ist es nur, weil „0 von 125" zu glatt klang und ich mir echte Fundstellen angesehen habe.
+
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · **146 Flächen umgestellt**, 0 verbleibend (die eine Ausnahme ist `.gs-btn-info` mit eigener `body.dark`-Regel) · Hellwerte der neuen Token gegen die alten geprüft: identisch, ausser dem bewusst korrigierten `--fill-warn` · Vorher/Nachher in Chromium gerendert · Version synchron v31.26.
 
 ### 2026-09-01 (j) — v31.25: Ruhige Kopfzone — und ein Fehler, den erst das Rendern zeigte
 
