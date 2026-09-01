@@ -4,13 +4,65 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.48` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.49` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (al) — v31.49: GPS im Gartenformular · Meilenstein „Alles verdrahtet", Welle 1
+
+Fernandos Wahl für den nächsten Meilenstein: die 42 verbliebenen Verdrahtungs-Funde **einzeln** durchgehen. Erste Welle: die sieben Funktionen ohne Aufrufer.
+
+#### Vollständige Triage zuerst
+
+| Funktion | Bezüge | betroffene ids |
+|---|---|---|
+| `openPlantOfDay` | 0 | `plant-of-day-card` |
+| `grantCameraPermission` | 0 | `cpd-allow-btn`, `lidar-toggle` |
+| `openNewPost` | 0 | `compose-name` |
+| `detectGardenLocation` | 0 | `loc-gps-status`×2 |
+| `profileRequestMagicLink` | 0 | `prof-magic-email/err/btn` |
+| `profSaveSupabaseConfig` | 0 | `prof-sb-url/key` |
+| `gsLookupError` | 0 | — (Fehlzuordnung, siehe unten) |
+
+#### Vier lösten sich beim Nachsehen auf — es sind keine fehlenden Features
+
+Das ist der wichtigste Teil: **nicht jeder Fund ist ein Friedhof.**
+
+- **`openPlantOfDay`** — „Pflanze des Tages" wurde ausdrücklich entfernt. Daneben stehen `initPlantOfDay(){/* POTD entfernt */}` und `initPlantOfDayUpgraded(){/* POTD entfernt */}`, beide leer, beide ohne Aufrufer. Ein Rest, kein Verlust.
+- **`profileRequestMagicLink`** — ich wollte das schon als „fehlender passwortloser Login" einbauen. Dann nachgesehen: **es gibt ihn bereits**, im Onboarding (`onb-magic-btn` → `onbMagicLink()`, Zeile 2368). Die Profil-Fassung ist eine überholte Zweitfassung.
+- **`openNewPost`** — `modal-new-post` ist erreichbar, über `openPostWithType` (7 Bezüge). Zwei Öffner, einer davon verwaist.
+- **`gsLookupError`** — die ihm zugeordneten ids (`legal-arten-info`, `cnt-all`) gehören gar nicht zu ihm; meine Rückwärtssuche nach der umschliessenden Funktion landete falsch. Beide stehen im Boot-Block; `cnt-all` trägt seit v28.22 sogar den Kommentar „Home-Kategorien entfernt".
+
+#### Einer war ein echter Fund — und ein Fehler dazu
+
+**`detectGardenLocation`.** Beim Anlegen eines Gartens gibt es ein Feld „Standort (optional)" und daneben `#gard-loc-status` — ein Meldefeld, das **immer verborgen** ist, weil nie etwas hineinschreibt. Die GPS-Funktion dafür liegt fertig im Code, ohne Aufrufer. Abtippen war der einzige Weg.
+
+Und die Funktion selbst war kaputt: eine verunglückte Kopie aus dem Standort-Fenster. Sie liest `#gard-loc` / `#gard-loc-status`, schreibt im Rückruf aber in `#loc-name-input`, `#loc-status` und `#loc-gps-status` — Felder eines anderen Formulars, von denen eines gar nicht existiert.
+
+**Der schwerere Teil:** sie rief `saveUserLocation(locObj)`. Der Standort **eines Gartens** hätte damit den Standort des **Nutzers** überschrieben. Wer einen Balkon in Bern einträgt, wohnt deswegen nicht dort — und der Nutzer-Standort steuert Wetter, Frostwarnungen und Saisonkalender.
+
+Gemessen mit gefälschtem GPS auf Bern und abgefangenem Nominatim:
+
+| | |
+|---|---|
+| Knopf | 44×42 px |
+| Feld nach dem Tipp | `Bern` |
+| Meldung | `✅ Bern` |
+| **`gs_user_location`** | **bleibt `Zürich`** |
+
+#### Verify
+
+`wiring_check` 304 Namen / 0 nicht auflösbar · Menü 40/0 · 42 → **41** abgesichert · 0 ungesichert · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen, Radius/Schrift/Farbe je 0 gegen `origin/main` · `contrast_check` 0 unter AA beide Modi · `touch_check` 0 unter 24×24 · `GS_VERSION` v31.49 · `sw.js` gs-v31.49 · `_headers` v31.49 · meta 31.49.20260901.
+
+#### Als Nächstes (Welle 2)
+
+Die sechs aufgelösten Funde entfernen — sie sind belegt tot, aber das ist eine eigene, zusammenhängende Änderung. Dazu `GS_ERROR_LOG`: 6,8 KB Fehler-Dokumentation als JavaScript, die jeder Nutzer bei jedem Kaltstart parst, zuletzt gepflegt am 27.03.2026, lesbar für niemanden. Die gehört als Markdown ins Repo.
+
+---
 
 ### 2026-09-01 (ak) — Backend gegen die Live-DB geprüft: zwei meiner Angaben waren überholt
 

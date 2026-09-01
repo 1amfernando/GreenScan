@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.48.20260901">
+<meta name="app-version" content="31.49.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -61748,36 +61748,50 @@ async function refreshGardenWeather(gardenId) {
 
 // Standort automatisch ermitteln für Garten
 async function detectGardenLocation() {
-  const input = document.getElementById('gard-loc');
-  const status = document.getElementById('gard-loc-status');
+  // v31.49: Diese Funktion war eine verunglueckte Kopie der Standort-Funktion
+  // aus dem Standort-Fenster. Sie las zwar #gard-loc / #gard-loc-status (das
+  // Gartenformular), schrieb im Rueckruf aber in #loc-name-input, #loc-status
+  // und #loc-gps-status — die Felder eines ganz anderen Formulars, von denen
+  // eines gar nicht existiert. Und sie rief saveUserLocation: der Standort
+  // EINES Gartens haette damit den Standort des NUTZERS ueberschrieben. Das
+  // sind zwei verschiedene Dinge; wer einen Balkon in Bern eintraegt, wohnt
+  // deswegen nicht dort. Jetzt bleibt alles im Gartenformular.
+  var input  = document.getElementById('gard-loc');
+  var status = document.getElementById('gard-loc-status');
+  var btn    = document.getElementById('gard-loc-gps');
   if (!input) return;
-  
+
+  function melde(text, farbe) {
+    if (!status) return;
+    status.style.display = 'block';
+    status.style.color = farbe || 'var(--g-main)';
+    status.textContent = text;
+  }
+  function knopfZurueck() {
+    if (btn) { btn.disabled = false; btn.textContent = '📡'; }
+  }
+
   if (!navigator.geolocation) {
-    gsToast('GPS wird von diesem Browser nicht unterstützt.', 'warn');
+    if (typeof gsToast === 'function') gsToast('GPS wird von diesem Browser nicht unterstützt.', 'warn');
     return;
   }
-  
-  if (status) { status.style.display = 'block'; status.textContent = '📡 GPS wird ermittelt…'; }
-  
-  // GPS über zentrales System
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+  melde('📡 GPS wird ermittelt…');
+
   gsGetPosition(
     function(lat, lon) {
-      var input  = document.getElementById('loc-name-input');
-      var status = document.getElementById('loc-gps-status');
-      if (status) { status.style.display='block'; status.textContent='📡 Ort wird ermittelt…'; }
+      melde('📡 Ort wird ermittelt…');
       gsReverseGeocode(lat, lon, function(locObj) {
-        saveUserLocation(locObj);
-        if (input) input.value = locObj.name;
-        if (status) { status.textContent = '✅ ' + locObj.name; setTimeout(function(){ status.style.display='none'; }, 3000); }
-        var stEl = document.getElementById('loc-status');
-        if (stEl) { stEl.style.background='#e8f5e9'; stEl.style.color='#2e7d32';
-          stEl.innerHTML = '✅ Standort gespeichert: <strong>' + escHtml(locObj.name) + '</strong>'; }
-        gsGpsUpdateToggleUI();
+        input.value = locObj.name;
+        melde('✅ ' + locObj.name);
+        knopfZurueck();
+        setTimeout(function(){ if (status) status.style.display = 'none'; }, 3000);
       });
     },
     function(errMsg) {
-      var status = document.getElementById('loc-gps-status');
-      if (status) { status.style.display='block'; status.style.color='#c62828'; status.textContent='❌ ' + errMsg; }
+      melde('❌ ' + errMsg, 'var(--c-danger)');
+      knopfZurueck();
     }
   );
 }
@@ -63540,6 +63554,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.49', date: '01.09.2026',
+    headline: '\ud83d\udce1 GPS im Gartenformular \u2014 und der Garten-Standort \u00fcberschreibt nicht mehr deinen eigenen',
+    summary: 'Beim Anlegen eines Gartens musste man die Adresse abtippen. Die GPS-Funktion daf\u00fcr gab es seit Langem, sie hatte nur keinen Knopf \u2014 und ein Meldefeld stand daneben, dauerhaft verborgen, weil es genau f\u00fcr diese R\u00fcckmeldung gebaut worden war.',
+    user_summary: '\ud83d\udce1 Beim Garten anlegen gibt es jetzt einen GPS-Knopf. Und ein Fehler, der dabei deinen pers\u00f6nlichen Standort \u00fcberschrieben h\u00e4tte, ist behoben.',
+    user_items: [
+      {emoji:'\ud83d\udce1', bold:'GPS beim Garten anlegen:', text:' Ein Tipp auf den Knopf neben dem Standortfeld, und der Ort steht drin. Vorher war Abtippen der einzige Weg \u2014 obwohl die Funktion dafuer fertig im Code lag, ohne Aufrufer.'},
+      {emoji:'\u26a0\ufe0f', bold:'Der Fehler, der dabei zutage kam:', text:' Die Funktion war eine verungl\u00fcckte Kopie aus dem Standort-Fenster. Sie las zwar die Felder des Gartenformulars, schrieb aber in die eines ganz anderen \u2014 und rief saveUserLocation. Der Standort EINES Gartens h\u00e4tte damit deinen pers\u00f6nlichen Standort \u00fcberschrieben. Wer einen Balkon in Bern eintr\u00e4gt, wohnt deswegen nicht dort. Gepr\u00fcft: Garten „Bern", Nutzer-Standort bleibt „Z\u00fcrich".'},
+      {emoji:'\ud83d\udd0d', bold:'Vier Funde, die sich beim Nachsehen aufl\u00f6sten:', text:' „Pflanze des Tages" wurde ausdr\u00fccklich entfernt, nur ein Rest blieb stehen. Der Magic-Link-Login existiert bereits im Onboarding \u2014 die zweite Fassung im Profil war \u00fcberfl\u00fcssig, nicht fehlend. Ein Beitrags-Fenster hatte zwei \u00d6ffner, einer davon ohne Aufrufer. Nicht jeder Fund ist ein fehlendes Feature; manchmal ist er ein Doppel.'},
+    ],
+  },
+  {
     v: 'v31.48', date: '01.09.2026',
     headline: '\ud83e\udded Drei Men\u00fc-Eintr\u00e4ge, die nirgendwohin f\u00fchrten',
     summary: 'Die 40 Eintr\u00e4ge der Men\u00fc-Suche tragen ihre Aktion als Text in einer Liste \u2014 nicht als onclick am Element. Der Verdrahtungs-Pr\u00fcfstand sah sie deshalb nicht. Beim ersten gezielten Durchgang waren drei davon kaputt: sie sprangen auf einen Bildschirm und tippten dort auf ein Element, das es nicht gibt.',
@@ -63983,7 +64008,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.48';
+var GS_VERSION = 'v31.49';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -77984,7 +78009,16 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
       </div>
       <div>
         <label style="display:block;font-size:var(--fs-sm);font-weight:700;color:var(--text2);margin-bottom:4px;">Standort (optional)</label>
-        <input id="gard-loc" type="text" placeholder="Ort oder Adresse" style="width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:var(--r-md);font-size:var(--fs-md);font-family:inherit;background:var(--input-bg);color:var(--text);box-sizing:border-box;">
+        <div style="display:flex;gap:6px;align-items:stretch;">
+          <input id="gard-loc" type="text" placeholder="Ort oder Adresse" style="flex:1;min-width:0;padding:11px 13px;border:1.5px solid var(--border);border-radius:var(--r-md);font-size:var(--fs-md);font-family:inherit;background:var(--input-bg);color:var(--text);box-sizing:border-box;">
+          <!-- v31.49: detectGardenLocation gibt es seit Langem, hatte aber keinen
+               Aufrufer — und #gard-loc-status stand da, dauerhaft verborgen, weil
+               es fuer genau diese Rueckmeldung gebaut wurde. Wer einen Garten
+               anlegte, musste die Adresse abtippen. -->
+          <button type="button" id="gard-loc-gps" onclick="detectGardenLocation()"
+                  aria-label="Standort per GPS ermitteln" title="Standort per GPS ermitteln"
+                  style="flex:0 0 auto;width:44px;border:1.5px solid var(--border);border-radius:var(--r-md);background:var(--surface2);color:var(--text);font-family:inherit;font-size:var(--fs-lg);cursor:pointer;-webkit-tap-highlight-color:transparent;">📡</button>
+        </div>
         <div id="gard-loc-status" style="display:none;margin-top:6px;font-size:var(--fs-sm);color:var(--g-main);"></div>
       </div>
       <div style="display:flex;gap:10px;">
