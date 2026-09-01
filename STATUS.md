@@ -4,13 +4,50 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.32` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.33` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (r) — v31.33: 52 Stilregeln, die nie gewirkt haben
+
+> Der Nebenfund aus (p) — `.recipe-card-desc` war zweimal deklariert — als eigene Runde.
+
+#### Das Muster
+
+22 Klassen sind zweimal beschrieben: die ursprüngliche Regel um Zeile 400–1500, eine zweite aus einem späteren Umbau um Zeile 81'000–82'700. Gleiche Spezifität, gleicher Selektor — **die spätere gewinnt immer**. Die frühere galt nie.
+
+`.modal-close-btn` ist das deutlichste Beispiel: acht widersprechende Angaben, darunter `position: sticky` gegen `position: absolute`. Wer die obere Regel liest, liest etwas, das die App nicht tut.
+
+52 tote Deklarationen entfernt, in 22 Regeln.
+
+#### Vorsichtig abgegrenzt
+
+Verglichen wurden nur Regeln mit **exakt einem Klassen-Selektor**, beide **ausserhalb** von `@media`/`@supports`/`@layer` und beide **ohne** `!important`. Nur unter diesen drei Bedingungen gilt zwingend, dass die spätere gewinnt und die frühere Deklaration folgenlos entfernt werden kann. Alles andere blieb unangetastet — auch da, wo es wahrscheinlich ebenfalls tot ist.
+
+#### Der Prüfstand hat sich selbst korrigiert
+
+Der Vergleich meldete `GROESSE geaendert: 1`. Bei einer beweisbaren Null-Änderung darf da nichts stehen, also nachgesehen — statt es als Rundungsrest durchzuwinken. Ein zweiter Lauf meldete **2**, und an einer anderen Stelle.
+
+Beide Male `.gs-spin`: ein Ladekreisel, 14×14px, `animation: gs-spin 1s linear infinite`. Ich mass mit `getBoundingClientRect()`, und das liefert die **gedrehte Hülle** — ein rotierendes Quadrat ergibt darin je nach Winkel 14 bis 20px.
+
+Der Fehler lag im Werkzeug, nicht in der Änderung. Jetzt `offsetWidth`/`offsetHeight`: die Layout-Box, unabhängig von Transformationen. Zwei aufeinanderfolgende Läufe sind seither identisch.
+
+Das ist die dritte Runde in Folge, in der die entscheidende Arbeit darin bestand, dem eigenen Messwert nicht zu glauben.
+
+#### Ergebnis
+
+| | |
+|---|---|
+| stille Konflikte | **52 → 0** |
+| vergleichbare Elemente | 1'520 |
+| Radius / Schrift / **Grösse** / Farbe geändert | **0 / 0 / 0 / 0** |
+| Kontrast unter AA | 0 in beiden Modi (unverändert) |
+
+---
 
 ### 2026-09-01 (q) — v31.32: Meine eigene Farbarbeit kam seit v31.20 nie an
 

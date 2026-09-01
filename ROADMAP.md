@@ -5,7 +5,7 @@
 > Kompagnon: `STATUS.md` (operativer Snapshot) · `CLAUDE.md` (Onboarding) ·
 > `BACKEND_FRONTEND_MAP_v26.76.md` (Architektur-Detailkarte).
 
-**Stand:** v31.32 · App **live** auf green-scan.ch · released seit v26.0.
+**Stand:** v31.33 · App **live** auf green-scan.ch · released seit v26.0.
 
 ---
 
@@ -70,6 +70,8 @@ Die App ist ein reifes, live-laufendes Produkt. Erreicht u.a.:
 **Typo-Skala (v31.31).** 4'739 Schriftgrössen in 53 Varianten, darunter 1'387 Halbpixel-Werte — jetzt sieben Stufen, keine Bewegung grösser als 2px. Weil bei Schrift `GROESSE geaendert: 0` unmöglich ist, wurde vorher das passende Mass gebaut: Überlauf- und Ellipsis-Prüfung. Ergebnis: 0 neue Überläufe, 6 Zutaten-Vorschauen kürzen +0,5px früher. **Offen und für v31.32 vorgemerkt:** `applyThemeColors()` überschreibt die Text-Token zur Laufzeit per `setProperty` auf `documentElement` — `--muted` ist dadurch `#888888` (3,54:1) statt der geprüften Werte. Die Farbwelle ab v31.20 kam dort nie an; 270 Textstellen liegen im Hellmodus unter AA. Ebenfalls notiert: 53 stille CSS-Konflikte (gleiche Klasse, gleiche Eigenschaft, zwei Werte).
 
 **Lesbarkeit: 291 → 0 (v31.32).** Der Kontrast-Prüfstand fand 270 Textstellen im Hell- und 21 im Dunkelmodus unter AA. Hauptursache: `applyThemeColors()` überschrieb `--text`/`--text2`/`--muted`/`--border` per `setProperty` auf `documentElement` — ein Inline-Stil, der jede `:root`-Regel schlägt. **Die Farbarbeit ab v31.20 kam an diesen Token nie an.** Dazu: `body` hatte nie eine `color` (in beiden Modi Schwarz), die Hauptfarben der Themen Grün und Orange lagen unter AA, und vierzehn Bildschirme mit dunkler Leinwand trugen Text in Hell-Token. Jetzt 0 + 0, mit 0 Layout-Änderungen gegengeprüft. Ein struktureller Lösungsversuch (gemeinsame Textfarbe auf den Leinwänden) wurde **verworfen**, weil die Messung ihn widerlegte.
+
+**Stille CSS-Konflikte bereinigt (v31.33).** 22 Klassen waren zweimal deklariert — die ursprüngliche Regel oben im Dokument, eine zweite aus einem späteren Umbau weiter unten. Bei gleicher Spezifität gewinnt die spätere; die frühere galt nie. 52 tote Deklarationen entfernt, streng abgegrenzt auf Einzelklassen ohne `@media` und ohne `!important`. Nachgemessen 0/0/0/0. Dabei einen Messfehler im eigenen Prüfstand behoben: `getBoundingClientRect()` misst die gedrehte Hülle, ein rotierender Ladekreisel erschien dadurch als Layout-Änderung — jetzt `offsetWidth`/`offsetHeight`.
 
 **Backend durchgemessen (01.09.).** Leistungs-Advisors zum ersten Mal ausgewertet: 0 ERROR, 0 WARN, kein Fremdschlüssel ohne Index. Die Datenbank ist gesund. Einzige lohnende Aufräumung: 38 Indizes, deren Spalten ein echtes Präfix eines breiteren Index sind — bereitgelegt als `20260901_redundante_indizes.sql`, umkehrbar, nicht Teil der Pflichtschritte.
 

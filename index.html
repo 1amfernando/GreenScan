@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.32.20260901">
+<meta name="app-version" content="31.33.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -420,7 +420,7 @@ body{height:100%;background:var(--fill-dark);color:var(--text);font-family:"DM S
 .ib:active{background:rgba(255,255,255,.28);}
 
 
-.tabs{position:fixed;bottom:0;left:0;right:0;height:calc(var(--sb)+var(--tab-h));padding-bottom:var(--sb);background:var(--fill-dark);border-top:1px solid rgba(255,255,255,.08);display:flex;z-index:var(--z-overlay);box-shadow:var(--elev-3);}
+.tabs{ position:fixed; bottom:0; left:0; right:0; height:calc(var(--sb)+var(--tab-h)); background:var(--fill-dark); border-top:1px solid rgba(255,255,255,.08); display:flex; z-index:var(--z-overlay); box-shadow:var(--elev-3); }
 /* v31.28 — Gartenwetter als ruhige Karte. Der alte blaue Verlauf war das
    lauteste Element der Startseite und in beiden Modi derselbe harte Block;
    auf der warmen Creme-Flaeche wirkte er wie ein Fremdkoerper. Gleiches
@@ -458,7 +458,7 @@ body{height:100%;background:var(--fill-dark);color:var(--text);font-family:"DM S
    App war dort praktisch unlesbar. Im Dunkelmodus hatte das jemand dreimal
    ueberschrieben, im Hellmodus nie. Jetzt feste Werte, die auf dunklem Grund
    in beiden Modi stimmen — die Flaeche ist ja in beiden dieselbe. */
-.tab{flex:1;border:none;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;transition:var(--dur);color:#9db89d;position:relative;padding:4px 2px 2px;}
+.tab{ flex:1; border:none; background:transparent; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; cursor:pointer; color:#9db89d; position:relative; padding:4px 2px 2px; }
 .tab.active{color:#a5d6a7;}.tab.active::before{content:"";position:absolute;top:6px;left:50%;transform:translateX(-50%);width:36px;height:36px;background:var(--bg-success-soft);border-radius:var(--r-md);z-index:-1;}
 .ti{font-size:var(--fs-xl);line-height:1;position:relative;z-index:1;}
 .tl{font-size:var(--fs-xs);font-weight:700;letter-spacing:.2px;text-transform:uppercase;margin-top:1px;}
@@ -534,13 +534,13 @@ body.gs-scanner-active #screen-scanner { bottom: 0 !important; }
 .hero::before{content:"🌿";position:absolute;right:-10px;top:-10px;font-size:120px;opacity:.06;}
 .hero h2{font-family:"Playfair Display",serif;font-size:var(--fs-xl);font-weight:900;margin-bottom:5px;}
 .hero p{font-size:var(--fs-sm);opacity:.78;line-height:1.55;}
-.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:14px 16px 0;}
+.stats-grid{ display:grid; }
 .stat-card{background:var(--card);border-radius:var(--r-md);padding:13px 8px;text-align:center;box-shadow:var(--shadow-sm);}
 .sn{font-size:var(--fs-2xl);font-weight:800;color:var(--g-dark);font-family:"Playfair Display",serif;}
 .sl{font-size:var(--fs-xs);color:var(--muted);margin-top:2px;font-weight:600;}
-.sec{font-size:var(--fs-md);font-weight:700;color:var(--g-dark);padding:16px 16px 8px;letter-spacing:.3px;}
-.cat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 16px;}
-.cat-card{background:var(--card);border-radius:var(--r-md);padding:11px 4px;text-align:center;cursor:pointer;box-shadow:var(--shadow-sm);transition:var(--dur);}
+.sec{}
+.cat-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+.cat-card{ background:var(--card); padding:11px 4px; text-align:center; cursor:pointer; box-shadow:var(--shadow-sm); }
 .cat-card:active{transform:scale(.94);}
 .ci{font-size:var(--fs-2xl);display:block;margin-bottom:4px;}
 .cn{font-size:var(--fs-xs);font-weight:700;color:var(--g-dark);}
@@ -664,15 +664,7 @@ body.gs-scanner-active #screen-scanner { bottom: 0 !important; }
 .sr-topbtn:active { transform: scale(.95); background: rgba(255,255,255,.16); }
 .sr-topbtn .sr-ico { font-size: var(--fs-lg); }
 /* v23.55: alte .scan-overlay & .sf entfernt — ersetzt durch spätere Definitionen weiter unten */
-.sc {
-  position: absolute;
-  width: 32px;
-  height: 32px;
-  border-color: rgba(102, 187, 106, 0.9);
-  border-style: solid;
-  border-width: 0;
-  filter: drop-shadow(0 0 8px rgba(102, 187, 106, 0.4));
-}
+.sc { position: absolute; border-color: rgba(102, 187, 106, 0.9); border-style: solid; border-width: 0; filter: drop-shadow(0 0 8px rgba(102, 187, 106, 0.4)); }
 .sc.tl { top:0; left:0; border-top-width:3px; border-left-width:3px; border-top-left-radius:8px; }
 .sc.tr { top:0; right:0; border-top-width:3px; border-right-width:3px; border-top-right-radius:8px; }
 .sc.bl { bottom:0; left:0; border-bottom-width:3px; border-left-width:3px; border-bottom-left-radius:8px; }
@@ -896,7 +888,7 @@ body.gs-scanner-active #screen-scanner { bottom: 0 !important; }
 
 
 .search-bar{padding:12px 16px 6px;}
-.search-input{width:100%;padding:11px 15px;border:2px solid var(--g-light);border-radius:var(--r-lg);font-size:var(--fs-md);font-family:inherit;background:var(--card);color:var(--text);outline:none;transition:var(--dur);}
+.search-input{ width:100%; padding:11px 15px; border:2px solid var(--g-light); border-radius:var(--r-lg); font-family:inherit; background:var(--card); color:var(--text); outline:none; transition:var(--dur); }
 .search-input:focus{border-color:var(--g-main);}
 .filter-row{display:flex;gap:7px;overflow-x:auto;padding:4px 16px 10px;scrollbar-width:none;}
 .filter-row::-webkit-scrollbar{display:none;}
@@ -941,7 +933,7 @@ body.gs-scanner-active #screen-scanner { bottom: 0 !important; }
 
 
 
-.di { background: var(--card); border-radius: var(--r-sm); padding: 10px 12px; }
+.di {}
 body.dark .di { background: #1e3a1e; }
 .dsec { background:var(--surface-neutral); border-radius: var(--r-md); padding: 13px; margin-bottom: 9px; }
 body.dark .dsec { background: #1e3a1e; }
@@ -950,7 +942,7 @@ body.dark .dsec { background: #1e3a1e; }
 
 /* v23.60: Dezenter professioneller X-Button – 44×44px Tap-Area, subtil, konsistent */
 /* v23.71: modal-close-btn sticky damit er beim Scroll im Modal immer sichtbar bleibt */
-.modal-close-btn{position:sticky;float:right;top:10px;right:10px;width:34px;height:34px;min-width:34px;border:none;background:rgba(0,0,0,.08);border-radius:50%;font-size:var(--fs-lg);cursor:pointer;display:flex;align-items:center;justify-content:center;color:rgba(0,0,0,.6);transition:background var(--dur),color var(--dur),transform var(--dur-fast);z-index:50;font-weight:500;line-height:1;padding:0;-webkit-tap-highlight-color:transparent;backdrop-filter:saturate(1.2) blur(var(--blur-md));margin-bottom:-34px;}
+.modal-close-btn{ float:right; min-width:34px; border:none; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; color:rgba(0,0,0,.6); transition:background var(--dur),color var(--dur),transform var(--dur-fast); font-weight:500; line-height:1; padding:0; -webkit-tap-highlight-color:transparent; backdrop-filter:saturate(1.2) blur(var(--blur-md)); margin-bottom:-34px; }
 .modal-close-btn:active{transform:scale(.92);background:rgba(0,0,0,.14);}
 .modal-close-btn:hover{background:rgba(0,0,0,.10);color:rgba(0,0,0,.85);}
 .modal-close-btn:active{transform:scale(.88);background:rgba(0,0,0,.14);}
@@ -979,7 +971,7 @@ details > summary::marker { content: ''; }
 .dil{font-size:var(--fs-xs);color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.3px;}
 .div2{font-size:var(--fs-md);font-weight:700;color:var(--text);margin-top:2px;overflow-wrap:anywhere;}
 .tox-scale{display:flex;gap:7px;margin-top:8px;}
-.td{width:32px;height:32px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:var(--fs-lg);}
+.td{ border-radius:50%; background:var(--surface2); align-items:center; justify-content:center; }
 .td.act{box-shadow:var(--elev-1);}
 .fav-btn{width:100%;padding:13px;border:2px solid var(--g-light);border-radius:var(--r-lg);background:transparent;font-size:var(--fs-md);font-weight:700;color:var(--g-main);cursor:pointer;margin-top:6px;transition:var(--dur);font-family:inherit;}
 .fav-btn.added{background:var(--fill-brand);color:#fff;border-color:var(--g-main);}
@@ -1122,18 +1114,18 @@ body.dark #gs-task-note{background:linear-gradient(160deg,#4a4224,#3a331b);color
 
 .social-post{background:var(--card);border-radius:var(--r-lg);box-shadow:var(--shadow-sm);margin-bottom:12px;overflow:hidden;}
 .post-header{display:flex;align-items:center;gap:10px;padding:12px 14px 8px;}
-.post-avatar{width:38px;height:38px;border-radius:50%;background:var(--g-light);display:flex;align-items:center;justify-content:center;font-size:var(--fs-xl);flex-shrink:0;}
+.post-avatar{ border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:var(--fs-xl); flex-shrink:0; }
 .post-user-name{font-size:var(--fs-md);font-weight:800;color:var(--text);}
 .post-user-badge{display:inline-flex;align-items:center;gap:3px;font-size:var(--fs-xs);font-weight:700;padding:1px 6px;border-radius:var(--r-sm);margin-left:5px;}
 .badge-expert{background:var(--bg-warn-soft);color:var(--c-warn-d);}
 .badge-verified{background:var(--bg-info-soft);color:var(--c-info);}
 .post-time{font-size:var(--fs-sm);color:var(--muted);}
-.post-plant-tag{font-size:var(--fs-sm);color:var(--g-main);font-weight:700;}
+.post-plant-tag{ font-size:var(--fs-sm); font-weight:700; }
 .post-image{width:100%;max-height:280px;object-fit:cover;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:60px;}
 .post-image-placeholder{width:100%;height:200px;background:linear-gradient(135deg,#e8f5e9,#c8e6c9);display:flex;align-items:center;justify-content:center;font-size:56px;}
-.post-text{padding:10px 14px;font-size:var(--fs-md);color:var(--text2);line-height:1.6;}
+.post-text{ padding:10px 14px; font-size:var(--fs-md); line-height:1.6; }
 .post-help-tag{display:inline-flex;align-items:center;gap:4px;background:var(--bg-warn-soft);color:var(--c-warn-d);padding:3px 9px;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;margin:0 14px 8px;}
-.post-actions{display:flex;border-top:1px solid #f5f5f5;padding:0 6px;}
+.post-actions{ display:flex; padding:0 6px; }
 .post-action{flex:1;padding:10px 4px;border:none;background:transparent;display:flex;align-items:center;justify-content:center;gap:5px;font-size:var(--fs-sm);font-weight:700;color:var(--muted);cursor:pointer;font-family:inherit;transition:var(--dur);border-radius:var(--r-sm);}
 .post-action:active{background:var(--surface2);}
 .post-action.liked{color:var(--c-danger-l);}
@@ -1190,7 +1182,7 @@ body.dark .social-input-bar{background:var(--card);}
 .market-listing:active{transform:scale(.99);}
 .market-img{width:100%;height:200px;object-fit:cover;background:linear-gradient(135deg,#e8f5e9,#c8e6c9);display:flex;align-items:center;justify-content:center;font-size:64px;position:relative;}
 .market-img-placeholder{width:100%;height:200px;background:linear-gradient(135deg,#e8f5e9,#c8e6c9);display:flex;align-items:center;justify-content:center;font-size:56px;flex-direction:column;gap:6px;}
-.market-badge{position:absolute;top:10px;left:10px;padding:4px 10px;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:800;}
+.market-badge{ position:absolute; border-radius:var(--r-sm); font-weight:800; }
 .badge-auction{background:#e53935;color:#fff;}
 .badge-buy-now{background:#1565c0;color:#fff;}
 .badge-sold{background:#555;color:#fff;}
@@ -1232,7 +1224,7 @@ body.dark .market-search-input{background:var(--card);border-color:var(--border)
 .recipe-card-img{width:100%;height:160px;background:linear-gradient(135deg,#e8f5e9,#c8e6c9);display:flex;align-items:center;justify-content:center;font-size:56px;position:relative;}
 .recipe-card-body{padding:12px 14px;}
 .recipe-card-title{font-family:'Playfair Display',serif;font-size:var(--fs-lg);font-weight:800;color:var(--text);margin-bottom:4px;}
-.recipe-card-meta{font-size:var(--fs-sm);color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px;}
+.recipe-card-meta{ font-size:var(--fs-sm); color:var(--muted); display:flex; flex-wrap:wrap; margin-bottom:6px; }
 /* .recipe-card-desc: siehe die eine Regel weiter unten (v31.31 zusammengefuehrt). */
 .recipe-tag{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:var(--r-sm);font-size:var(--fs-xs);font-weight:700;}
 .recipe-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;}
@@ -1327,7 +1319,7 @@ body.dark .keimtyp-dunkel{background:rgba(255,255,255,.1);color:#90caf9;}
 
 
 .settings-group{margin-bottom:14px;}
-.settings-group-title{font-size:var(--fs-xs);font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);padding:10px 16px 5px;}
+.settings-group-title{ font-weight:800; text-transform:uppercase; color:var(--muted); }
 .settings-row{background:var(--card);display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid var(--border);}
 .settings-row:first-of-type{border-radius:var(--r-lg) var(--r-lg) 0 0;}
 .settings-row:last-of-type{border-bottom:none;border-radius:0 0 var(--r-lg) var(--r-lg);}
@@ -1353,9 +1345,9 @@ body.dark .keimtyp-dunkel{background:rgba(255,255,255,.1);color:#90caf9;}
 #settings-acc-all{position:absolute;right:5px;top:50%;transform:translateY(-50%);min-width:38px;padding:7px 9px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);font-size:var(--fs-md);line-height:1;cursor:pointer;color:var(--text);font-family:inherit;}
 #settings-search-none{display:none;padding:18px 14px;text-align:center;color:var(--muted);font-size:var(--fs-md);}
 
-.settings-toggle{position:relative;width:48px;height:26px;flex-shrink:0;}
+.settings-toggle{ position:relative; height:26px; flex-shrink:0; }
 .settings-toggle input{opacity:0;width:0;height:0;}
-.settings-toggle-slider{position:absolute;inset:0;background:#ccc;border-radius:26px;cursor:pointer;transition:var(--dur-slow);}
+.settings-toggle-slider{ position:absolute; inset:0; border-radius:26px; cursor:pointer; }
 .settings-toggle input:checked + .settings-toggle-slider{background:var(--fill-brand);}
 
 /* v28.19 Senior-Modus: bessere Lesbarkeit (Kontrast) + grössere Tap-Targets + grössere
@@ -1390,7 +1382,7 @@ body.senior p, body.senior li{ line-height:1.55; }
 .settings-header{background:var(--hero-bg);padding:20px 16px 16px;color:#fff;position:relative;overflow:hidden;}
 .settings-header::after{content:'⚙️';position:absolute;right:-5px;top:-10px;font-size:90px;opacity:.08;}
 
-.settings-card{background:var(--card);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-sm);margin-bottom:12px;}
+.settings-card{ background:var(--card); border-radius:var(--r-lg); overflow:hidden; }
 body.dark .settings-row{background:var(--card);border-bottom-color:var(--border);}
 body.dark .settings-toggle-slider{background:#444;}
 
@@ -1529,7 +1521,7 @@ body.dark .menu-search-wrap{background:var(--card);}
 .mpcard-header{display:flex;align-items:center;gap:11px;padding:12px 13px 10px;cursor:pointer;}
 .mpcard-emoji{font-size:var(--fs-4xl);flex-shrink:0;width:44px;text-align:center;}
 .mpcard-info{flex:1;min-width:0;}
-.mpcard-name{font-size:var(--fs-lg);font-weight:700;color:var(--g-dark);font-family:'Playfair Display',serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.mpcard-name{ font-size:var(--fs-lg); font-family:'Playfair Display',serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .mpcard-loc{font-size:var(--fs-sm);color:var(--muted);margin-top:1px;}
 .mpcard-badges{display:flex;gap:5px;margin-top:5px;flex-wrap:wrap;}
 .mpbadge{font-size:var(--fs-xs);font-weight:700;padding:2px 8px;border-radius:var(--r-sm);background:var(--surface2);color:var(--g-dark);}
@@ -63552,6 +63544,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.33', date: '01.09.2026',
+    headline: '\ud83e\uddf9 52 Stilregeln, die seit Jahren wirkungslos im Code standen',
+    summary: 'An 22 Stellen war dieselbe Klasse zweimal beschrieben \u2014 einmal oben im Dokument, einmal weiter unten aus einem sp\u00e4teren Umbau. Bei gleicher Spezifit\u00e4t gewinnt die sp\u00e4tere, die fr\u00fchere galt also nie. Wer die obere las, las etwas, das nicht stimmt. Entfernt; sichtbar \u00e4ndert sich nichts, und das ist nachgemessen.',
+    user_summary: '\ud83e\uddf9 Aufr\u00e4umen im Unterbau: nichts sieht anders aus, aber der Code beschreibt jetzt, was die App tats\u00e4chlich tut.',
+    user_items: [
+      { emoji: '\ud83e\uddf9', text: '52 Stilregeln entfernt, die ohnehin nie gewirkt haben' },
+      { emoji: '\u2705', text: 'Nachgemessen: an 1\u2019520 Elementen \u00e4ndert sich nichts \u2014 keine Farbe, keine Gr\u00f6sse' },
+    ],
+    items: [
+      {emoji:'\ud83e\uddf9', bold:'Das Muster:', text:' 22 Klassen waren zweimal deklariert \u2014 die urspr\u00fcngliche Regel um Zeile 400 bis 1500, eine zweite aus einem sp\u00e4teren Umbau um Zeile 81\u2019000 bis 82\u2019700. Gleiche Spezifit\u00e4t, gleicher Selektor: die sp\u00e4tere gewinnt immer. Betroffen unter anderem .modal-close-btn (acht widersprechende Angaben, darunter position sticky gegen absolute), .sec (f\u00fcnf), .settings-group-title, .stats-grid, .post-avatar, .td. Aufgefallen ist mir das in v31.31 bei .recipe-card-desc; die Suche danach fand 52 weitere.'},
+      {emoji:'\ud83d\udd0e', bold:'Vorsichtig abgegrenzt:', text:' verglichen wurden nur Regeln mit exakt EINEM Klassen-Selektor, beide ausserhalb von @media/@supports und beide ohne !important \u2014 nur dann gilt zwingend, dass die sp\u00e4tere gewinnt. Alles andere blieb unangetastet.'},
+      {emoji:'\ud83d\udd2c', bold:'Der Pr\u00fcfstand wurde dabei genauer:', text:' er meldete 1 bzw. 2 Gr\u00f6ssen\u00e4nderungen, jedes Mal woanders. Ursache war er selbst: er mass mit getBoundingClientRect(), und das liefert die GEDREHTE H\u00fclle. Ein Ladekreisel (14\u00d714px, dauerhaft rotierend) ergibt darin je nach Winkel 14 bis 20px. Jetzt offsetWidth/Height \u2014 die Layout-Box, unabh\u00e4ngig von Transformationen. Damit sind zwei aufeinanderfolgende L\u00e4ufe identisch.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Vorher/Nachher am laufenden Programm, zweimal hintereinander mit gleichem Ergebnis: 1\u2019520 vergleichbare Elemente, 0 \u00c4nderungen an Radius, Schriftgr\u00f6sse, GR\u00d6SSE und Farbe \u00b7 verbleibende stille Konflikte 52 \u2192 0 \u00b7 keine leere Regel zur\u00fcckgeblieben \u00b7 Kontrast weiterhin 0 Stellen unter AA in beiden Modi \u00b7 keine JS-Fehler \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.33 \u00b7 sw.js gs-v31.33 \u00b7 _headers v31.33 \u00b7 meta=31.33.20260901.'},
+    ],
+  },
+  {
     v: 'v31.32', date: '01.09.2026',
     headline: '\ud83d\udc41\ufe0f 291 schlecht lesbare Textstellen \u2014 und warum meine Farbarbeit seit v31.20 nie ankam',
     summary: 'Der neue Kontrast-Pr\u00fcfstand fand 270 Textstellen im Hell- und 21 im Dunkelmodus unter dem Lesbarkeits-Mindestwert. Die Hauptursache war eine einzige Zeile JavaScript, die meine gepr\u00fcften Farbwerte zur Laufzeit \u00fcberschrieb. Jetzt sind es null in beiden Modi.',
@@ -69747,7 +69757,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.32';
+var GS_VERSION = 'v31.33';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
