@@ -4,13 +4,63 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.49` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.50` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (am) — v31.50: Neun tote Funktionen weg · Meilenstein „Alles verdrahtet", Welle 2
+
+Die Funde, die sich in Welle 1 als Reste erwiesen haben, sind jetzt entfernt. **41 → 26** offene Nachschlagungen, **−10 KB** in `index.html`, rund 215 Zeilen.
+
+#### Entfernt
+
+| | warum |
+|---|---|
+| `openPlantOfDay` + `initPlantOfDay` + `initPlantOfDayUpgraded` | POTD ausdrücklich abgeschafft, zwei der drei waren leere Stubs |
+| `openNewPost` | zweiter Öffner für `modal-new-post`; `openPostWithType` macht es und setzt zusätzlich den Typ |
+| `profileRequestMagicLink` | der passwortlose Login existiert im Onboarding |
+| `profSaveSupabaseConfig` | siehe unten |
+| `grantCameraPermission`, `skipCameraPermission` | Knöpfe eines Dialogs, den es nicht gibt |
+| `GS_ERROR_LOG` + `gsLookupError` | 6,8 KB Dokumentation als JavaScript |
+| `pendingCameraAction` | nach dem Obigen nur noch geschrieben, nie gelesen |
+| 4 Nachschlagungen | `gs-guest-banner`×2, `legal-arten-info`, `cnt-all` |
+
+#### Eine davon war ein Risiko
+
+**`profSaveSupabaseConfig`** liess URL und Schlüssel einer **beliebigen** Supabase-Instanz eintragen und schrieb sie nach `gs_sb_url` / `gs_sb_key`. Die App hätte danach ihre Daten woanders hingeschickt. Als Entwickler-Werkzeug gedacht, ohne Aufrufer, ihre beiden Eingabefelder gibt es in `renderProfileLogin` längst nicht mehr — der Code lag aber bei jedem Nutzer ausgeliefert mit. Eine Oberfläche, die das Ziel der eigenen Datenverbindung umbiegt, gehört nicht in eine veröffentlichte App.
+
+#### Und eine Sache habe ich beim Entfernen zurückgeholt
+
+Der eigene Kamera-Erlaubnis-Dialog war unerreichbar (`#cam-perm-dialog` existiert nirgends), es lief immer nur der Rückfall: direkt `getUserMedia`, der Browser fragt selbst.
+
+Dabei ging etwas verloren, das im Code steht: die zwei Aufrufer übergeben seit jeher `opts` mit Symbol, Titel und **Begründung** — „GreenScan braucht Kamera-Zugriff um Arten direkt zu bestimmen". Ohne Dialog wurde das stillschweigend weggeworfen. Der Nutzer sah nur die nackte Browser-Abfrage.
+
+Jetzt kommt die Begründung als kurzer Hinweis, **bevor** der Browser fragt. Am laufenden Programm mit gefälschtem `getUserMedia` geprüft:
+
+| Fall | Hinweis | Anfragen | Aktion lief | gemerkt |
+|---|---|---|---|---|
+| erlaubt | ✅ | 1 | ✅ | `granted` |
+| verweigert | ✅ | 1 | — | — |
+
+Das ist der Punkt des ganzen Meilensteins: nicht nur wegräumen, sondern nachsehen, was beim Wegräumen von damals verloren ging.
+
+#### Die Fehler-Dokumentation ist umgezogen, nicht gelöscht
+
+`docs/FEHLER-LOG.md` — acht Einträge mit Symptom, Ursache, Behebung und Vorbeugung, maschinell aus der Datenstruktur erzeugt, damit nichts von Hand verlorengeht. In der App war sie unsichtbar und wurde trotzdem von jedem Telefon bei jedem Kaltstart mitgeparst.
+
+#### Verify
+
+`wiring_check` 304 Namen / 0 nicht auflösbar · Menü 40/0 · **41 → 26** abgesichert · 0 ungesichert · Kamera-Rundlauf beide Fälle · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen, Radius/Schrift/Farbe je 0 gegen `origin/main` · `contrast_check` 0 unter AA beide Modi · `touch_check` 0 unter 24×24 · `index.html` 5'134'747 → 5'124'444 Bytes · 9/9 Inline-Scripts + `sw.js` + Archiv + sechs Prüfstände `node --check` OK · `GS_VERSION` v31.50 · `sw.js` gs-v31.50 · `_headers` v31.50 · meta 31.50.20260901.
+
+#### Was von den 26 noch offen ist
+
+`cam-perm-dialog` (Rest im `switchTab`-Aufräumen) · `gc-start`/`gc-gameover`/`gc-canvas` (ein Spiel?) · `more-db-cats`/`more-stat-total` · `post-category`×2/`post-submit-btn`/`post-photo-section` · `soil-info-box` · `kb-loading`/`bibliothek-loading` (Rückfallkette, vermutlich Falschmeldung) · `about-db`/`settings-ai-quota-*` · `mi-adminpanel`/`dedup-badge` · `camera-wrapper` · `chip-all` · `tab-map` (geprüft harmlos) · `weather-alert-card`×3 + `wa-*`×5 (Fernandos Entscheidung).
+
+---
 
 ### 2026-09-01 (al) — v31.49: GPS im Gartenformular · Meilenstein „Alles verdrahtet", Welle 1
 
