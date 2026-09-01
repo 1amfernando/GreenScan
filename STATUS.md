@@ -4,13 +4,50 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.30` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.31` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (p) — v31.31: Typo-Skala, und was der neue Prüfstand sofort zutage fördert
+
+#### Der Befund
+
+4'739 Schriftgrössen in **53** Varianten. Darunter **1'387 Halbpixel-Werte** — 11.5px (510×), 12.5px (435×), 10.5px (235×), 13.5px (130×). Das entscheidet niemand; das bleibt beim Nachjustieren übrig. Und sieben Textgrössen (9, 10, 11, 12, 13, 14, 15) lagen innerhalb von 6px.
+
+#### Die Skala — und warum ich sie diesmal anders geprüft habe
+
+Sieben Stufen über den ganzen Bereich: 10 · 12 · 14 · 16 · 20 · 24 · 28/32. Über 34px bleibt alles stehen (Hero-Ziffern, Emoji-Grössen).
+
+Bei den Radien in v31.29 galt: `GROESSE geaendert: 0` beweist Unbedenklichkeit. **Bei Schrift ist das unmöglich** — Text bestimmt die Grösse, 880 Elemente ändern sich zwangsläufig. Also brauchte es ein anderes Mass, und das habe ich vor der Änderung gebaut:
+
+- **Überlauf**: abgeschnittener Inhalt 17 → 17, aus dem Bildschirm ragend 0 → 0. Die vorhandenen Überläufe wurden eher *kleiner*.
+- **Ellipsis**: 83 einzeilige Texte geprüft. **6 kürzen neu** — Zutaten-Vorschauen in Rezeptkarten, wegen +0,5px. Das ist der Preis, und er steht hier.
+
+Beim ersten Anlauf meldete die Überlauf-Prüfung **72** Elemente als „ragt aus dem Bildschirm". Alle 72 waren Chips in waagrecht scrollenden Leisten, die genau dort hingehören. Verworfen und die Prüfung verengt, bis 0 Falschalarme blieben. Ein Prüfstand, der Fehlalarme produziert, ist schlechter als keiner — man gewöhnt sich an rote Zahlen.
+
+#### Was beim Nachsehen herausfiel
+
+`.recipe-card-desc` war **zweimal** deklariert: einmal 12.5px / Zeilenhöhe 1.5 / Umbruch, einmal 11.5px / 1.4 / einzeilige Ellipsis. Gleiche Spezifität, also gewann die zweite — die erste war komplett tot. Zusammengeführt.
+
+Eine Suche danach ergab: **53 solcher stillen Konflikte** (gleiche Klasse, gleiche Eigenschaft, zwei Werte, keine `!important`). Eigene Runde wert, hier nur notiert.
+
+#### Der grosse Fund — für die nächste Version
+
+Der neue `contrast_check.js` meldet **270 Textstellen unter AA im Hellmodus**. Die Wurzel ist nicht, was ich zuerst dachte (dunkle Bildschirm-Hintergründe, davon nur 11 Stellen), sondern eine einzige Zeile:
+
+```js
+root.setProperty('--muted', '#888888');   // Z. 46492, in applyThemeColors()
+```
+
+`applyThemeColors()` schreibt die Text-Token zur Laufzeit auf `documentElement` — und das schlägt **jede** `:root`-Regel im Stylesheet. `--muted` ist damit `#888888` (3,54:1 auf Weiss), nicht die sorgfältig geprüften `#6b6b6b`/`#5a5a5a`. Der Kommentar darüber behauptet *„Light text colors – always readable on light backgrounds"*.
+
+**Meine gesamte Farbwelle ab v31.20 kam an dieser Stelle nie an.** Ich habe Token-Werte gerechnet, verifiziert und ausgeliefert, die zur Laufzeit überschrieben wurden. Kommt als v31.32.
+
+---
 
 ### 2026-09-01 (o) — v31.30: Die Lücke schliessen, die ich in (n) selbst benannt habe
 

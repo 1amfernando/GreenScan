@@ -54,18 +54,52 @@ const SEED = () => { try {
 
 const CENSUS = () => {
   const out = [];
+  // Hat ein Vorfahre eine waagrechte Scroll-Flaeche? Dann ist Herausragen gewollt.
+  const scrollsX = el => {
+    for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+      const o = getComputedStyle(p).overflowX;
+      if (o === 'auto' || o === 'scroll') return true;
+      if (p.scrollWidth - p.clientWidth > 1 && o !== 'visible') return true;
+    }
+    return false;
+  };
+  // Senkrechtes Clipping auf einem Bildschirm-Container ist normales Scrollen
+  // der Seite, kein verlorener Inhalt.
+  const isScreen = el => el.classList && (el.classList.contains('screen') || el.id === 'app' || el.id === 'main');
   document.querySelectorAll('*').forEach(el => {
     const cs = getComputedStyle(el);
     if (cs.display === 'none' || cs.visibility === 'hidden' || !cs.opacity || cs.opacity === '0') return;
     const b = el.getBoundingClientRect();
     if (b.width < 2 || b.height < 2) return;
     const cls = (typeof el.className === 'string') ? el.className.trim().slice(0, 48) : '';
+
+    // Ueberlauf: Inhalt breiter/hoeher als der Kasten UND abgeschnitten.
+    // Nur zaehlen, wenn wirklich etwas verloren geht — also nicht bei
+    // overflow:auto/scroll (da kann der Nutzer scrollen) und nicht bei
+    // Rundungsresten unter 1px.
+    const ox = cs.overflowX, oy = cs.overflowY;
+    const clipX = (ox === 'hidden' || ox === 'clip');
+    const clipY = (oy === 'hidden' || oy === 'clip');
+    const overX = el.scrollWidth  - el.clientWidth;
+    const overY = el.scrollHeight - el.clientHeight;
+    const ell = cs.textOverflow === 'ellipsis';
+
     out.push({
       key: el.tagName + '|' + (el.id || '') + '|' + cls + '|' + (el.textContent || '').trim().slice(0, 24),
       r: parseFloat(cs.borderTopLeftRadius) || 0,
       fs: parseFloat(cs.fontSize) || 0,
+      lh: parseFloat(cs.lineHeight) || 0,
       w: Math.round(b.width), h: Math.round(b.height),
       color: cs.color, bg: cs.backgroundColor,
+      // abgeschnitten = Inhalt laeuft ueber UND wird geclippt (Ellipsis ist gewollt)
+      clipX: clipX && overX > 1 && !ell ? overX : 0,
+      clipY: (clipY && overY > 1 && !isScreen(el)) ? overY : 0,
+      // Rechts aus dem Bildschirm heraus ist NUR dann ein Fehler, wenn kein
+      // Vorfahre waagrecht scrollt. Chip-Leisten (Kategorien, Filter) ragen
+      // absichtlich hinaus — der erste Anlauf meldete davon 72 Stueck als
+      // Fehler. Ein Pruefstand, der Falschalarme produziert, ist schlechter
+      // als keiner.
+      offscreen: (b.right > 412.5 && !scrollsX(el)) ? Math.round(b.right - 412) : 0,
     });
   });
   return out;
@@ -124,6 +158,13 @@ async function scan(browser, file) {
     console.log('  JS-Fehler:', r.errs.length ? [...new Set(r.errs)].slice(0,4).join(' | ') : 'keine');
     console.log('  sichtbare Elemente je Tab:', Object.entries(r.perTab).map(([k,v]) => k+'='+v).join(' '));
     console.log('  gesamt vermessen:', r.rows.length);
+    const cut  = r.rows.filter(o => o.clipX || o.clipY);
+    const offs = r.rows.filter(o => o.offscreen);
+    console.log('  abgeschnittener Inhalt:', cut.length, '| ragt aus dem Bildschirm:', offs.length);
+    const show = (list, f) => [...list].sort((a,b) => f(b) - f(a)).slice(0, 8)
+      .forEach(o => console.log('     ', String(f(o)) + 'px  ' + o.key.replace(/\|/g,' ').slice(0, 88)));
+    if (cut.length)  { console.log('   -- am staerksten abgeschnitten:'); show(cut,  o => Math.max(o.clipX, o.clipY)); }
+    if (offs.length) { console.log('   -- am weitesten draussen:');       show(offs, o => o.offscreen); }
   }
 
   if (res.length === 2) {
