@@ -65,6 +65,20 @@ const STELLEN = () => {
     if (mx < 0 || my < 0 || mx >= innerWidth || my >= innerHeight) return;
     const oben = document.elementFromPoint(mx, my);
     if (!oben || !(oben === el || el.contains(oben) || oben.contains(el))) return;
+    // v31.57: Die Pruefung oben nimmt die MITTE, die Messung weiter unten
+    // nimmt die GANZE Box. Solange beide nicht dasselbe pruefen, entsteht
+    // genau ein Falschalarm: ein Text, dessen Mitte noch frei liegt, dessen
+    // untere Kante aber schon unter der fixierten Leiste steckt. Der
+    // Median-Hintergrund ueber die Box ist dann halb Leiste — gemessen 1,27:1
+    // an einer Stelle, die in Wahrheit unveraendert und lesbar ist (im selben
+    // Lauf gegen origin/main nachgewiesen: identische Farben, identische
+    // Kachel, nur 158px tiefer). Wer scrollt, sieht sie ganz.
+    // Also: was die Leiste ANSCHNEIDET, wird gar nicht erst vermessen.
+    const _leiste = document.querySelector('.tabs');
+    if (_leiste) {
+      const lr = _leiste.getBoundingClientRect();
+      if (lr.height > 0 && r.bottom > lr.top + 1) return;
+    }
     let op = 1;
     for (let q = el; q && q !== document.documentElement; q = q.parentElement) op *= parseFloat(getComputedStyle(q).opacity || 1);
     const m = (cs.color.match(/[\d.]+/g) || [0,0,0]).map(Number);
