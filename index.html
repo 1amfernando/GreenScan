@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.25.20260901">
+<meta name="app-version" content="31.26.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -188,6 +188,17 @@
   --dur:      .18s;
   --dur-slow: .3s;
 
+  /* v31.26 — FLAECHE ist nicht SCHRIFT. --g-main und --g-dark kehren im
+     Dunkelmodus ihre Helligkeit um (richtig fuer eine Textfarbe), wurden aber
+     an 124 Stellen als Flaeche mit weisser Schrift benutzt — dort ergab das
+     2,36:1 bzw. 1,64:1. Zwei getrennte Rollen loesen das dauerhaft.
+     Die Hellwerte sind mit den bisherigen identisch: der Hellmodus aendert
+     sich um kein Pixel. */
+  --fill-brand: #1f6b2f;
+  --fill-dark:  #1a3d1a;
+  --fill-violet:#6a1b9a;
+  --fill-warn:  #b34000;   /* v31.26: #e65100 schaffte mit weisser Schrift nur 3,79:1 */
+
 }
 
 body.dark{
@@ -258,8 +269,15 @@ body.dark{
   --elev-4: 0 12px 40px rgba(0,0,0,.65);
   --elev-brand: 0 4px 14px rgba(0,0,0,.50);
 
+  /* v31.26 — Flaechen bleiben dunkel, damit weisse Schrift lesbar bleibt.
+     Waehrend --g-main/--g-dark als SCHRIFT hell werden (und das sollen sie). */
+  --fill-brand: #2b7530;   /* weisse Schrift 5,69:1 */
+  --fill-dark:  #16391f;   /* weisse Schrift 12,81:1 */
+  --fill-violet:#6a1b9a;   /* weisse Schrift 9,39:1 — bleibt dunkel */
+  --fill-warn:  #a83a00;   /* weisse Schrift 6,42:1 */
+
 }
-body.dark html,body.dark body{background:var(--g-dark);}
+body.dark html,body.dark body{background:var(--fill-dark);}
 
 
 input, textarea, select {
@@ -321,7 +339,7 @@ body.dark .search-input,.dark .mp-input,.dark .mp-select,.dark .fb-textarea,.dar
 }
 body.dark .search-input:focus,.dark .mp-input:focus{border-color:var(--g-main);}
 body.dark .chip{background:#1a2e1a;border-color:#2a3f2a;color:var(--text);}
-body.dark .chip.active{background:var(--g-main);color:#fff;}
+body.dark .chip.active{background:var(--fill-brand);color:#fff;}
 body.dark .modal{background:#1a2e1a;}
 body.dark .mhdr{border-bottom-color:#2a3f2a;}
 body.dark .obox{background:#1a2e1a;color:var(--text);}
@@ -353,15 +371,15 @@ body.dark .planting-row:active{background:#1e3a1e;}
 body.dark .notif-banner{background:#1e3a1e;border-color:#2a4f2a;color:var(--g-main);}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,html,body{background:var(--g-bg);}
-body{height:100%;background:var(--g-dark);font-family:"DM Sans",sans-serif;overflow:hidden;font-size:var(--base-font,16px);}
-#app{position:fixed;inset:0;overflow:hidden;background:var(--g-dark);}
+body{height:100%;background:var(--fill-dark);font-family:"DM Sans",sans-serif;overflow:hidden;font-size:var(--base-font,16px);}
+#app{position:fixed;inset:0;overflow:hidden;background:var(--fill-dark);}
 
 
 .topbar{
   position:fixed;top:0;left:0;right:0;
   height:calc(var(--st)+var(--top-h));
   padding-top:var(--st);
-  background:var(--g-dark);
+  background:var(--fill-dark);
   display:flex;align-items:center;justify-content:space-between;
   padding-left:16px;padding-right:12px;
   z-index:100;
@@ -374,7 +392,7 @@ body{height:100%;background:var(--g-dark);font-family:"DM Sans",sans-serif;overf
 .ib:active{background:rgba(255,255,255,.28);}
 
 
-.tabs{position:fixed;bottom:0;left:0;right:0;height:calc(var(--sb)+var(--tab-h));padding-bottom:var(--sb);background:var(--g-dark);border-top:1px solid rgba(255,255,255,.08);display:flex;z-index:var(--z-overlay);box-shadow:var(--elev-3);}
+.tabs{position:fixed;bottom:0;left:0;right:0;height:calc(var(--sb)+var(--tab-h));padding-bottom:var(--sb);background:var(--fill-dark);border-top:1px solid rgba(255,255,255,.08);display:flex;z-index:var(--z-overlay);box-shadow:var(--elev-3);}
 .tab{flex:1;border:none;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;transition:var(--dur);color:var(--muted);position:relative;padding:4px 2px 2px;}
 .tab.active{color:var(--g-main);}
 .tab.active{color:var(--g-main);}.tab.active::before{content:"";position:absolute;top:6px;left:50%;transform:translateX(-50%);width:36px;height:36px;background:var(--bg-success-soft);border-radius:12px;z-index:-1;}
@@ -425,7 +443,7 @@ body.dark .tab.tab-center .ti{ border-color:var(--g-dark); }
   overflow-x:hidden;
   -webkit-overflow-scrolling:touch;
   overscroll-behavior:contain;
-  background:var(--g-dark);
+  background:var(--fill-dark);
   z-index:1;
 }
 .screen.active{display:block;}
@@ -819,7 +837,7 @@ body.gs-scanner-active #screen-scanner { bottom: 0 !important; }
 .filter-row{display:flex;gap:7px;overflow-x:auto;padding:4px 16px 10px;scrollbar-width:none;}
 .filter-row::-webkit-scrollbar{display:none;}
 .chip{flex-shrink:0;padding:6px 13px;border-radius:20px;font-size:12px;font-weight:600;background:var(--card);border:1.5px solid var(--g-light);color:var(--g-dark);cursor:pointer;transition:var(--dur);white-space:nowrap;}
-.chip.active{background:var(--g-main);border-color:var(--g-main);color:#fff;}
+.chip.active{background:var(--fill-brand);border-color:var(--g-main);color:#fff;}
 .rc{font-size:11.5px;color:var(--muted);padding:0 16px 8px;font-weight:500;}
 .rlist{padding:0 16px 20px;background:var(--g-bg);}
 
@@ -900,7 +918,7 @@ details > summary::marker { content: ''; }
 .td{width:32px;height:32px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:15px;}
 .td.act{box-shadow:var(--elev-1);}
 .fav-btn{width:100%;padding:13px;border:2px solid var(--g-light);border-radius:var(--r);background:transparent;font-size:13.5px;font-weight:700;color:var(--g-main);cursor:pointer;margin-top:6px;transition:var(--dur);font-family:inherit;}
-.fav-btn.added{background:var(--g-main);color:#fff;border-color:var(--g-main);}
+.fav-btn.added{background:var(--fill-brand);color:#fff;border-color:var(--g-main);}
 
 
 .light-screen{padding:16px;}
@@ -911,7 +929,7 @@ details > summary::marker { content: ''; }
 .lux-c{font-size:15px;color:var(--g-main);margin-top:7px;font-weight:700;}
 .lux-bar-w{height:11px;background:var(--bg-success-soft);border-radius:6px;margin-bottom:8px;overflow:hidden;}
 .lux-bar{height:100%;background:linear-gradient(90deg,#2196f3,#4caf50,#ff9800,#f44336);border-radius:6px;transition:width var(--dur-slow);}
-.lbtn{width:100%;padding:14px;background:var(--g-main);color:#fff;border:none;border-radius:var(--r-sm);font-size:14.5px;font-weight:700;cursor:pointer;transition:var(--dur);font-family:inherit;}
+.lbtn{width:100%;padding:14px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-sm);font-size:14.5px;font-weight:700;cursor:pointer;transition:var(--dur);font-family:inherit;}
 .lbtn:disabled{opacity:.6;}
 .lrec-card{background:var(--card);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:7px;box-shadow:var(--shadow-sm);display:flex;align-items:center;gap:12px;}
 .lrp{font-size:17px;font-weight:800;min-width:44px;text-align:center;font-family:"Playfair Display",serif;}
@@ -929,7 +947,7 @@ details > summary::marker { content: ''; }
 .cam-perm-icon{font-size:56px;margin-bottom:12px;}
 .cam-perm-title{font-family:'Playfair Display',serif;font-size:18px;font-weight:800;color:var(--g-dark);margin-bottom:8px;}
 .cam-perm-text{font-size:13px;color:var(--text2);line-height:1.55;margin-bottom:18px;}
-.cam-perm-allow{width:100%;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px;}
+.cam-perm-allow{width:100%;padding:13px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px;}
 .cam-perm-skip{width:100%;padding:10px;background:transparent;color:var(--muted);border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;}
 
 .menu-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;display:none;opacity:0;transition:opacity var(--dur-slow);}
@@ -978,7 +996,7 @@ body.dark #gs-task-note{background:linear-gradient(160deg,#4a4224,#3a331b);color
 /* v30.81: Notification-Center Modal — Tabs Neu/Erledigt, abhakbare Aufgaben, Tages-Gruppen */
 .gs-nc-tabs{display:flex;gap:6px;padding:8px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0;}
 .gs-nc-tab{flex:1;padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:var(--dur);display:inline-flex;align-items:center;justify-content:center;gap:6px;}
-.gs-nc-tab.active{background:var(--g-main);border-color:var(--g-main);color:#fff;}
+.gs-nc-tab.active{background:var(--fill-brand);border-color:var(--g-main);color:#fff;}
 .gs-nc-cnt{background:var(--c-danger,#e53935);color:#fff;font-size:10px;font-weight:900;padding:1px 6px;border-radius:9px;min-width:16px;text-align:center;}
 .gs-nc-tab.active .gs-nc-cnt{background:rgba(255,255,255,.25);}
 .gs-nc-body{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:10px 16px calc(18px + var(--sb,0px));flex:1;min-height:180px;}
@@ -989,7 +1007,7 @@ body.dark #gs-task-note{background:linear-gradient(160deg,#4a4224,#3a331b);color
 .gs-nc-task.gs-nc-urgent{border-color:var(--c-danger-l,#ef9a9a);background:var(--bg-danger-soft,rgba(244,67,54,.06));}
 .gs-nc-check{width:26px;height:26px;border-radius:50%;border:2px solid var(--g-main);background:transparent;flex-shrink:0;cursor:pointer;font-size:14px;line-height:1;color:transparent;display:flex;align-items:center;justify-content:center;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:var(--dur);padding:0;}
 .gs-nc-check:active{transform:scale(.9);}
-.gs-nc-check.checked{background:var(--g-main);color:#fff;}
+.gs-nc-check.checked{background:var(--fill-brand);color:#fff;}
 .gs-nc-task-body{flex:1;min-width:0;cursor:pointer;}
 .gs-nc-task-name{font-size:13.5px;font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .gs-nc-task-sub{font-size:11.5px;color:var(--muted);margin-top:1px;}
@@ -1028,7 +1046,7 @@ body.dark #gs-task-note{background:linear-gradient(160deg,#4a4224,#3a331b);color
 .cemetery-restore-btn{margin-top:8px;padding:6px 12px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;}
 .mp-header-tabs{display:flex;gap:0;margin:10px 16px 0;background:var(--surface2);border-radius:10px;padding:3px;}
 .mp-htab{flex:1;padding:8px 6px;border:none;background:transparent;font-size:12px;font-weight:700;cursor:pointer;border-radius:8px;font-family:inherit;color:var(--muted);transition:var(--dur);}
-.mp-htab.active{background:var(--g-main);color:#fff;}
+.mp-htab.active{background:var(--fill-brand);color:#fff;}
 
 
 .rarity-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:7px;font-size:10px;font-weight:800;letter-spacing:.3px;}
@@ -1065,11 +1083,11 @@ body.dark #gs-task-note{background:linear-gradient(160deg,#4a4224,#3a331b);color
 .social-input-bar{display:flex;gap:8px;padding:10px 14px;border-top:1px solid #f5f5f5;background:var(--card);}
 .social-tabs{display:flex;gap:6px;padding:10px 16px 4px;overflow-x:auto;scrollbar-width:none;}
 .social-tab{flex:0 0 auto;padding:7px 14px;border:1.5px solid var(--g-light);border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:var(--g-dark);font-family:inherit;white-space:nowrap;transition:var(--dur);}
-.social-tab.active{background:var(--g-main);border-color:var(--g-main);color:#fff;}
+.social-tab.active{background:var(--fill-brand);border-color:var(--g-main);color:#fff;}
 
 
 .listing-type-btn{flex:1;padding:11px 8px;border:2px solid var(--g-light);border-radius:12px;background:transparent;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--g-dark);display:flex;flex-direction:column;align-items:center;gap:3px;transition:var(--dur);}
-.listing-type-btn.active{background:var(--g-main);border-color:var(--g-main);color:#fff;}
+.listing-type-btn.active{background:var(--fill-brand);border-color:var(--g-main);color:#fff;}
 .listing-type-btn:active{transform:scale(.96);}
 
 .post-type-pick-btn{display:flex;align-items:center;gap:13px;width:100%;padding:13px 15px;border:none;border-radius:14px;cursor:pointer;text-align:left;font-family:inherit;transition:var(--dur);}
@@ -1088,7 +1106,7 @@ body.dark #gs-task-note{background:linear-gradient(160deg,#4a4224,#3a331b);color
 .ig-type-pills{display:flex;overflow-x:auto;gap:8px;padding:2px 0 10px;scrollbar-width:none;}
 .ig-type-pills::-webkit-scrollbar{display:none;}
 .ig-type-pill{flex-shrink:0;padding:7px 14px;border-radius:20px;border:1.5px solid var(--border);background:var(--card);font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;transition:var(--dur);color:var(--text2);}
-.ig-type-pill.active{border-color:var(--g-main);background:var(--g-main);color:#fff;}
+.ig-type-pill.active{border-color:var(--g-main);background:var(--fill-brand);color:#fff;}
 .ig-photo-zone{border-radius:var(--r);border:2px dashed var(--g-light);min-height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;margin-bottom:14px;position:relative;overflow:hidden;background:#f8fdf8;}
 .ig-photo-zone img{width:100%;height:200px;object-fit:cover;border-radius:calc(var(--r) - 2px);}
 .ig-photo-zone-btns{display:flex;gap:8px;margin-bottom:14px;}
@@ -1125,7 +1143,7 @@ body.dark .social-input-bar{background:var(--card);}
 .market-seller-avatar{width:24px;height:24px;border-radius:50%;background:var(--g-light);display:flex;align-items:center;justify-content:center;font-size:13px;}
 .market-seller-name{font-size:11.5px;color:var(--muted);font-weight:600;}
 .market-actions{display:flex;gap:8px;padding:8px 14px;}
-.market-btn-buy{flex:2;padding:11px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;transition:var(--dur);}
+.market-btn-buy{flex:2;padding:11px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;transition:var(--dur);}
 .market-btn-buy:active{transform:scale(.97);}
 .market-btn-wish{flex:1;padding:11px;background:var(--surface2);border:1.5px solid var(--g-light);border-radius:10px;font-size:13.5px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;transition:var(--dur);}
 .market-btn-bid{flex:2;padding:11px;background:linear-gradient(135deg,#e53935,#c62828);color:#fff;border:none;border-radius:10px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;}
@@ -1135,7 +1153,7 @@ body.dark .social-input-bar{background:var(--card);}
 .market-search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:17px;pointer-events:none;}
 .market-cats{display:flex;gap:6px;overflow-x:auto;padding:4px 16px 8px;scrollbar-width:none;}
 .market-cat{flex:0 0 auto;padding:7px 13px;border:1.5px solid var(--g-light);border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:var(--g-dark);font-family:inherit;transition:var(--dur);white-space:nowrap;}
-.market-cat.active{background:var(--g-main);border-color:var(--g-main);color:#fff;}
+.market-cat.active{background:var(--fill-brand);border-color:var(--g-main);color:#fff;}
 .auction-progress{height:5px;background:#ffcdd2;border-radius:3px;overflow:hidden;margin:5px 0;}
 .auction-progress-bar{height:100%;background:linear-gradient(90deg,#e53935,#b71c1c);border-radius:3px;transition:width var(--dur-slow);}
 body.dark .market-listing{background:var(--card);}
@@ -1162,7 +1180,7 @@ body.dark #screen-remedies { background: linear-gradient(180deg, var(--g-bg) 0%,
 .recipe-cats{display:flex;gap:6px;overflow-x:auto;padding:8px 16px 6px;scrollbar-width:none;background:rgba(255,255,255,.55);backdrop-filter:saturate(140%) blur(var(--blur-md));-webkit-backdrop-filter:saturate(140%) blur(var(--blur-md));}
 body.dark .recipe-cats{background:rgba(20,30,20,.55);}
 .recipe-cat{flex:0 0 auto;padding:7px 13px;border:1.5px solid var(--g-light);border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:var(--card);color:var(--g-dark);font-family:inherit;transition:var(--dur);white-space:nowrap;box-shadow:var(--elev-1);}
-.recipe-cat.active{background:var(--g-main);border-color:var(--g-main);color:#fff;box-shadow:var(--elev-brand);}
+.recipe-cat.active{background:var(--fill-brand);border-color:var(--g-main);color:#fff;box-shadow:var(--elev-brand);}
 /* v25.31: Doctor-Symptom-Chips (Multi-Select) */
 .doctor-sym-chip{display:inline-flex;align-items:center;gap:4px;padding:6px 11px;border:1.5px solid var(--border);border-radius:18px;background:var(--card);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text);transition:var(--dur);user-select:none;-webkit-tap-highlight-color:transparent;}
 .doctor-sym-chip input{display:none;}
@@ -1177,7 +1195,7 @@ body.dark #screen-remedies .recipe-card-img{background:linear-gradient(135deg,#3
 .recipe-fab:active{transform:scale(.92);}
 .recipe-step{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid #f0f0f0;}
 .recipe-step:last-child{border-bottom:none;}
-.recipe-step-num{width:28px;height:28px;border-radius:50%;background:var(--g-main);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;}
+.recipe-step-num{width:28px;height:28px;border-radius:50%;background:var(--fill-brand);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;}
 .recipe-step-text{font-size:13px;color:var(--text2);line-height:1.6;flex:1;padding-top:4px;}
 .ingredient-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f9f9f9;}
 .ingredient-row:last-child{border-bottom:none;}
@@ -1199,7 +1217,7 @@ body.dark .recipe-card-img{background:linear-gradient(135deg,#1e3a1e,#2a4f2a);}
 .mkt-chat-wrap{display:flex;flex-direction:column;height:100%;}
 .mkt-chat-msgs{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px;min-height:200px;max-height:45vh;}
 .mkt-chat-msg{max-width:82%;border-radius:14px;padding:9px 12px;font-size:13px;line-height:1.5;}
-.mkt-chat-msg.me{background:var(--g-main);color:#fff;align-self:flex-end;border-bottom-right-radius:3px;}
+.mkt-chat-msg.me{background:var(--fill-brand);color:#fff;align-self:flex-end;border-bottom-right-radius:3px;}
 .mkt-chat-msg.them{background:#f0f0f0;color:var(--text);align-self:flex-start;border-bottom-left-radius:3px;}
 body.dark .mkt-chat-msg.them{background:#2a3f2a;color:var(--text);}
 .mkt-chat-msg-name{font-size:10px;font-weight:700;opacity:.7;margin-bottom:3px;}
@@ -1274,7 +1292,7 @@ body.dark .keimtyp-dunkel{background:rgba(255,255,255,.1);color:#90caf9;}
 .settings-toggle{position:relative;width:48px;height:26px;flex-shrink:0;}
 .settings-toggle input{opacity:0;width:0;height:0;}
 .settings-toggle-slider{position:absolute;inset:0;background:#ccc;border-radius:26px;cursor:pointer;transition:var(--dur-slow);}
-.settings-toggle input:checked + .settings-toggle-slider{background:var(--g-main);}
+.settings-toggle input:checked + .settings-toggle-slider{background:var(--fill-brand);}
 
 /* v28.19 Senior-Modus: bessere Lesbarkeit (Kontrast) + grössere Tap-Targets + grössere
    Bedien-Elemente. App nutzt px-Schriften → KEIN globaler Font-Scale (würde inkonsistent
@@ -1295,7 +1313,7 @@ body.senior p, body.senior li{ line-height:1.55; }
 .gs-wslide > *{margin-bottom:0 !important;width:100%;box-sizing:border-box;}
 .gs-wstack-dots{display:flex;justify-content:center;gap:6px;padding:9px 0 13px;}
 .gs-wdot{width:8px;height:8px;border-radius:50%;background:var(--border);border:none;padding:0;cursor:pointer;transition:background var(--dur),transform var(--dur);-webkit-tap-highlight-color:transparent;}
-.gs-wdot[aria-selected="true"]{background:var(--g-main);transform:scale(1.3);}
+.gs-wdot[aria-selected="true"]{background:var(--fill-brand);transform:scale(1.3);}
 @media (prefers-reduced-motion: reduce){ .gs-wstack-viewport{scroll-behavior:auto;} }
 .settings-toggle-slider::before{content:'';position:absolute;width:20px;height:20px;left:3px;bottom:3px;background:var(--card);border-radius:50%;transition:var(--dur-slow);}
 .settings-toggle input:checked + .settings-toggle-slider::before{transform:translateX(22px);}
@@ -1325,13 +1343,13 @@ body.compact .market-img{height:150px;}
 
 
 .loc-quick-btn{padding:6px 12px;background:var(--bg-success-soft);border:1.5px solid var(--g-light);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;}
-.loc-quick-btn:active{background:var(--g-main);color:#fff;}
+.loc-quick-btn:active{background:var(--fill-brand);color:#fff;}
 body.dark .loc-quick-btn{background:var(--g-light);color:var(--text);}
 
 
 
 .inline-type-pill{display:inline-block;margin-right:6px;padding:5px 12px;border-radius:16px;border:1.5px solid var(--border);background:var(--card);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:var(--dur);color:var(--text2);white-space:nowrap;}
-.inline-type-pill.active{border-color:var(--g-main);background:var(--g-main);color:#fff;}
+.inline-type-pill.active{border-color:var(--g-main);background:var(--fill-brand);color:#fff;}
 body.dark .inline-type-pill{background:var(--card);border-color:var(--border);}
 body.dark #social-inline-composer{background:var(--card);}
 body.dark #inline-post-text{color:var(--text);}
@@ -1400,7 +1418,7 @@ body.dark .menu-search-wrap{background:var(--card);}
 .farm-quest-desc{font-size:11.5px;color:var(--muted);margin-top:1px;}
 .farm-quest-reward{font-size:11.5px;font-weight:700;color:var(--g-main);}
 .farm-quest-prog{height:5px;background:var(--surface2);border-radius:3px;margin-top:5px;overflow:hidden;}
-.farm-quest-prog-bar{height:100%;background:var(--g-main);border-radius:3px;transition:width var(--dur-slow);}
+.farm-quest-prog-bar{height:100%;background:var(--fill-brand);border-radius:3px;transition:width var(--dur-slow);}
 .farm-quest-done{font-size:18px;color:var(--g-main);}
 
 
@@ -1436,7 +1454,7 @@ body.dark .menu-search-wrap{background:var(--card);}
 .mp-header{padding:16px 16px 0;}
 .mp-title{font-family:'Playfair Display',serif;font-size:19px;font-weight:800;color:var(--g-dark);margin-bottom:2px;}
 .mp-sub{font-size:12.5px;color:var(--muted);}
-.mp-add-btn{display:flex;align-items:center;justify-content:center;gap:8px;margin:12px 16px 4px;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:var(--r);font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:var(--dur);box-shadow:var(--elev-brand);}
+.mp-add-btn{display:flex;align-items:center;justify-content:center;gap:8px;margin:12px 16px 4px;padding:13px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r);font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:var(--dur);box-shadow:var(--elev-brand);}
 .mp-add-btn:active{transform:scale(.97);}
 .mp-list{padding:10px 16px 24px;display:flex;flex-direction:column;gap:10px;}
 .mp-empty{display:flex;flex-direction:column;align-items:center;padding:50px 20px;color:var(--muted);text-align:center;gap:8px;}
@@ -1506,7 +1524,7 @@ body.dark .gs-doc-pro{background:#3a2c10;border-color:#8d6e2a;color:#ffcc80;}
 .gs-go-next-k{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);}
 .gs-go-next-t{font-size:14.5px;font-weight:800;color:var(--text);margin-top:3px;line-height:1.25;}
 .gs-go-next-s{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.3;}
-.gs-go-cta{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:var(--g-main);color:#fff;border:none;border-radius:13px;padding:13px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-2);}
+.gs-go-cta{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:var(--fill-brand);color:#fff;border:none;border-radius:13px;padding:13px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-2);}
 @media (prefers-reduced-motion: reduce){.gs-go-tile{transition:none;}.gs-go-tile:active{transform:none;}}
 /* v31.25 — Startseite: helle Kopfzone. Beide Entwuerfe zeigen oben Ruhe —
    Creme, dunkler Text — und lassen das Gruen als KARTE auftreten statt als
@@ -1542,7 +1560,7 @@ body.dark #screen-home .hero #home-hero-title{color:var(--text);}
   display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;line-height:1;padding:0;font-family:inherit;
   transition:background var(--dur-fast) ease,border-color var(--dur-fast) ease,transform var(--dur-fast) ease;-webkit-tap-highlight-color:transparent;}
 .gs-dp-box:active{transform:scale(.9);}
-.gs-dp-box.on{background:var(--g-main);border-color:var(--g-main);}
+.gs-dp-box.on{background:var(--fill-brand);border-color:var(--g-main);}
 .gs-dp-all{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;padding:12px 14px;background:transparent;border:none;
   border-top:1px solid var(--border);font-size:13px;font-weight:700;color:var(--g-main);cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;}
 .gs-dp-empty{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--elev-1);padding:16px;
@@ -1561,7 +1579,7 @@ body.dark #screen-home .hero #home-hero-title{color:var(--text);}
 .mp-task-due.soon{color:#ef6c00;font-weight:700;}
 .mp-task-due.ok{color:var(--c-success);}
 .mp-task-check{width:24px;height:24px;border-radius:50%;border:2px solid var(--g-light);background:transparent;display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:var(--dur);flex-shrink:0;}
-.mp-task-check.done{background:var(--g-main);border-color:var(--g-main);color:#fff;}
+.mp-task-check.done{background:var(--fill-brand);border-color:var(--g-main);color:#fff;}
 
 
 .mp-ai-section{padding:0 13px 13px;}
@@ -1586,7 +1604,7 @@ body.dark #screen-home .hero #home-hero-title{color:var(--text);}
 .mp-input{width:100%;padding:11px 13px;border:1.5px solid var(--g-light);border-radius:var(--r-sm);font-size:14px;font-family:inherit;background:var(--card);color:var(--text);outline:none;transition:var(--dur);}
 .mp-input:focus{border-color:var(--g-main);}
 .mp-select{width:100%;padding:11px 13px;border:1.5px solid var(--g-light);border-radius:var(--r-sm);font-size:14px;font-family:inherit;background:var(--card);color:var(--text);outline:none;appearance:none;}
-.mp-save-btn{width:100%;padding:14px;background:var(--g-main);color:#fff;border:none;border-radius:var(--r);font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;transition:var(--dur);}
+.mp-save-btn{width:100%;padding:14px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r);font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;transition:var(--dur);}
 .mp-save-btn:active{transform:scale(.98);}
 
 
@@ -1600,12 +1618,12 @@ body.dark #screen-home .hero #home-hero-title{color:var(--text);}
 .ai-messages{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px;}
 .ai-msg{max-width:88%;border-radius:16px;padding:12px 15px;font-size:13.5px;line-height:1.6;}
 .ai-msg.bot{background:var(--card);color:var(--text);box-shadow:var(--shadow-sm);border-bottom-left-radius:4px;align-self:flex-start;}
-.ai-msg.user{background:var(--g-main);color:#fff;border-bottom-right-radius:4px;align-self:flex-end;}
+.ai-msg.user{background:var(--fill-brand);color:#fff;border-bottom-right-radius:4px;align-self:flex-end;}
 .ai-msg.typing{background:var(--card);color:var(--muted);font-style:italic;}
 .ai-input-row{display:flex;gap:8px;padding:10px 16px;background:var(--card);border-top:1px solid #eee;position:sticky;bottom:0;z-index:10;}
 .ai-input{flex:1;padding:11px 14px;border:1.5px solid var(--g-light);border-radius:22px;font-size:13.5px;font-family:inherit;outline:none;}
 .ai-input:focus{border-color:var(--g-main);}
-.ai-send{background:var(--g-main);border:none;color:#fff;width:42px;height:42px;border-radius:21px;font-size:18px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.ai-send{background:var(--fill-brand);border:none;color:#fff;width:42px;height:42px;border-radius:21px;font-size:18px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
 .ai-suggestions{display:flex;gap:7px;overflow-x:auto;padding:8px 16px 0;scrollbar-width:none;}
 .ai-suggestions::-webkit-scrollbar{display:none;}
 .ai-sug{flex-shrink:0;background:var(--surface2);border:1.5px solid var(--g-light);border-radius:16px;padding:6px 12px;font-size:12px;color:var(--g-dark);cursor:pointer;font-weight:600;white-space:nowrap;}
@@ -1630,7 +1648,7 @@ body.dark #screen-home .hero #home-hero-title{color:var(--text);}
 .fb-select{width:100%;padding:10px 12px;border:1.5px solid var(--g-light);border-radius:var(--r-sm);font-size:13.5px;font-family:inherit;margin-bottom:10px;background:var(--card);outline:none;}
 .fb-textarea{width:100%;padding:11px 13px;border:1.5px solid var(--g-light);border-radius:var(--r-sm);font-size:13.5px;font-family:inherit;resize:none;height:100px;outline:none;}
 .fb-textarea:focus{border-color:var(--g-main);}
-.fb-submit{width:100%;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:var(--r-sm);font-size:14px;font-weight:700;cursor:pointer;margin-top:10px;font-family:inherit;}
+.fb-submit{width:100%;padding:13px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-sm);font-size:14px;font-weight:700;cursor:pointer;margin-top:10px;font-family:inherit;}
 
 
 .sup-screen{padding:16px;}
@@ -1654,7 +1672,7 @@ body.dark #screen-home .hero #home-hero-title{color:var(--text);}
 .obox p{font-size:13px;color:var(--text2);line-height:1.55;margin-bottom:12px;}
 .oinput{width:100%;padding:12px 14px;border:1.5px solid var(--g-light);border-radius:var(--r-sm);font-size:14px;font-family:inherit;margin-bottom:10px;outline:none;}
 .oinput:focus{border-color:var(--g-main);}
-.obtn-prim{width:100%;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:var(--r-sm);font-size:13.5px;font-weight:700;cursor:pointer;margin-bottom:7px;font-family:inherit;}
+.obtn-prim{width:100%;padding:13px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-sm);font-size:13.5px;font-weight:700;cursor:pointer;margin-bottom:7px;font-family:inherit;}
 .obtn-sec{width:100%;padding:11px;background:transparent;border:1.5px solid #e0e0e0;border-radius:var(--r-sm);font-size:13px;color:var(--muted);cursor:pointer;font-family:inherit;}
 
 
@@ -1722,7 +1740,7 @@ body.dark #screen-home .hero #home-hero-title{color:var(--text);}
 </style>
 
 <style>
-#lidar-toggle:checked + span#lidar-slider { background: var(--g-main); }
+#lidar-toggle:checked + span#lidar-slider { background:var(--fill-brand); }
 #lidar-toggle:checked + span#lidar-slider:before { transform: translateX(18px); }
 #lidar-slider:before { content:''; position:absolute; height:18px; width:18px; left:3px; bottom:3px; background:var(--card); border-radius:50%; transition:var(--dur-slow); }
 
@@ -2915,7 +2933,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       </span>
       <span style="flex:1;"></span>
       <button id="fb-refresh-btn" data-i18n="btn_refresh" data-i18n-fallback="🔄 Aktualisieren" onclick="gsRefreshGlobalFeedback(true)" style="padding:4px 10px;font-size:11px;font-weight:700;background:#eceff1;color:#37474f;border:1px solid #cfd8dc;border-radius:8px;cursor:pointer;font-family:inherit;">🔄 Aktualisieren</button>
-      <button onclick="openKiImprove()" data-i18n="btn_ki_analyse" data-i18n-fallback="🤖 KI-Analyse" style="padding:4px 10px;font-size:11px;font-weight:700;background:var(--g-main);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:inherit;">🤖 KI-Analyse</button>
+      <button onclick="openKiImprove()" data-i18n="btn_ki_analyse" data-i18n-fallback="🤖 KI-Analyse" style="padding:4px 10px;font-size:11px;font-weight:700;background:var(--fill-brand);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:inherit;">🤖 KI-Analyse</button>
     </div>
     <div id="feedback-list"></div>
     <!-- SUPPORT -->
@@ -3029,7 +3047,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
 <!-- ── ACTION BAR · v24.03: + „Meine Pläne"-Button -->
 <div style="padding:4px 16px 8px;display:flex;gap:8px;">
-  <button onclick="openAddPlanting()" data-i18n="btn_garden_plant" data-i18n-fallback="🌱 Einpflanzen" style="flex:1;padding:11px 8px;background:var(--g-main);color:#fff;border:none;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🌱 Einpflanzen</button>
+  <button onclick="openAddPlanting()" data-i18n="btn_garden_plant" data-i18n-fallback="🌱 Einpflanzen" style="flex:1;padding:11px 8px;background:var(--fill-brand);color:#fff;border:none;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🌱 Einpflanzen</button>
   <button onclick="openGardenAI()" title="KI-Gartenplaner PRO" data-i18n="btn_garden_ai_planner" data-i18n-fallback="🤖 KI-Planer" style="flex:1;padding:11px 8px;background:linear-gradient(135deg,#2d8a2d,#1b5e20);color:#fff;border:none;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-brand);">🤖 KI-Planer</button>
 </div>
 <div style="padding:0 16px 8px;">
@@ -3147,7 +3165,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
         <span style="font-size:10.5px;opacity:.85;font-weight:600;">Echtzeit · Alarme · Verlauf</span>
       </span>
     </span>
-    <span id="gs-sh-livedot" style="background:var(--c-live-pulse);color:var(--c-info-d);font-size:10px;font-weight:800;padding:3px 8px;border-radius:10px;display:none;">● LIVE</span>
+    <span id="gs-sh-livedot" style="background:var(--c-live-pulse);color:#0b3d1f;font-size:10px;font-weight:800;padding:3px 8px;border-radius:10px;display:none;">● LIVE</span>
   </button>
 </div>
   </div>
@@ -3194,7 +3212,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   <div style="padding:10px 12px 4px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
       <span data-i18n="farm_my_fields" style="font-size:13px;font-weight:700;color:var(--g-dark);">🌱 Meine Felder</span>
-      <button onclick="addFarmPlot()" data-i18n="farm_add_field" style="padding:5px 12px;background:var(--g-main);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">+ Feld</button>
+      <button onclick="addFarmPlot()" data-i18n="farm_add_field" style="padding:5px 12px;background:var(--fill-brand);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">+ Feld</button>
     </div>
     <div id="farm-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;"></div>
   </div>
@@ -3244,7 +3262,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <h2 id="harvest-title" style="font-family:'Playfair Display',serif;color:var(--g-dark);font-size:22px;margin-bottom:6px;"></h2>
       <p id="harvest-msg" style="color:var(--muted);font-size:14px;line-height:1.5;"></p>
       <div id="harvest-reward" style="margin:16px 0;padding:12px;background:var(--bg-success-soft);border-radius:10px;font-size:16px;font-weight:700;color:var(--g-dark);"></div>
-      <button onclick="closeModal('modal-farm-harvest')" data-i18n="farm_harvest_super" style="width:100%;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">🎉 Super!</button>
+      <button onclick="closeModal('modal-farm-harvest')" data-i18n="farm_harvest_super" style="width:100%;padding:13px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">🎉 Super!</button>
     </div>
   </div>
 </div>
@@ -3300,7 +3318,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   </div>
   <!-- v28.02: Following-zentrische Community (kein Mitglieder-Massentab mehr) -->
   <div style="display:flex;gap:8px;margin:8px 16px 0;">
-    <button onclick="if(typeof gsOpenCommunity==='function')gsOpenCommunity('feed')" style="flex:1;padding:10px;background:var(--g-dark);color:#fff;border:none;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📰 Folge-Feed</button>
+    <button onclick="if(typeof gsOpenCommunity==='function')gsOpenCommunity('feed')" style="flex:1;padding:10px;background:var(--fill-dark);color:#fff;border:none;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📰 Folge-Feed</button>
     <button onclick="if(typeof gsOpenCommunity==='function')gsOpenCommunity('search')" style="flex:1;padding:10px;background:var(--card);color:var(--g-dark);border:1.5px solid var(--g-light);border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🔍 Person suchen</button>
   </div>
   <!-- Tabs -->
@@ -3345,7 +3363,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <button onclick="triggerInlineGallery()" title="Aus Galerie" style="padding:7px 10px;background:transparent;border:none;font-size:20px;cursor:pointer;border-radius:8px;transition:var(--dur);" onmousedown="this.style.background='var(--g-light)'" onmouseup="this.style.background='transparent'">🖼️</button>
       <button onclick="openInlinePlantTag()" title="Pflanze taggen" id="inline-plant-btn" style="padding:5px 10px;background:transparent;border:none;font-size:13px;cursor:pointer;border-radius:8px;color:var(--muted);font-family:inherit;font-weight:600;" >🌿 <span id="inline-plant-label">Pflanze</span></button>
       <div style="flex:1;"></div>
-      <button id="inline-post-btn" onclick="submitInlinePost()" disabled style="padding:7px 18px;background:var(--g-main);color:#fff;border:none;border-radius:20px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;opacity:.4;transition:var(--dur);">Teilen</button>
+      <button id="inline-post-btn" onclick="submitInlinePost()" disabled style="padding:7px 18px;background:var(--fill-brand);color:#fff;border:none;border-radius:20px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;opacity:.4;transition:var(--dur);">Teilen</button>
     </div>
     <input type="file" id="inline-camera-input"  accept="image/*" capture="environment" style="display:none;" onchange="loadInlinePhoto(this)">
     <input type="file" id="inline-gallery-input" accept="image/*"                       style="display:none;" onchange="loadInlinePhoto(this)">
@@ -4432,7 +4450,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       </div>
       <div style="display:flex;gap:7px;margin-bottom:10px;">
         <button onclick="openGardenScanCamera()" style="flex:1;padding:11px;background:var(--bg-success-soft);border:1.5px solid var(--g-light);border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;">📷 Kamera</button>
-        <button onclick="captureGardenScan()" id="gs-capture-btn" disabled style="flex:1;padding:11px;background:var(--g-main);border:none;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:#fff;font-family:inherit;opacity:.5;">📸 Aufnehmen</button>
+        <button onclick="captureGardenScan()" id="gs-capture-btn" disabled style="flex:1;padding:11px;background:var(--fill-brand);border:none;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:#fff;font-family:inherit;opacity:.5;">📸 Aufnehmen</button>
         <button onclick="document.getElementById('gs-file-input').click()" style="flex:1;padding:11px;background:var(--bg-success-soft);border:1.5px solid var(--g-light);border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;">🖼️ Galerie</button>
       </div>
       <input type="file" id="gs-file-input" accept="image/*" style="display:none;" onchange="loadGardenScanImage(this)">
@@ -4528,7 +4546,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
             <div style="display:flex;gap:6px;justify-content:center;">
               <button class="recipe-cat" onclick="gsPPcanvasUndo()">↩️ Zurück</button>
               <button class="recipe-cat" onclick="gsPPcanvasReset()">🗑️ Neu</button>
-              <button class="recipe-cat" onclick="gsPPcanvasDone()" style="background:var(--g-main);color:#fff;">✅ Fertig</button>
+              <button class="recipe-cat" onclick="gsPPcanvasDone()" style="background:var(--fill-brand);color:#fff;">✅ Fertig</button>
             </div>
             <div style="font-size:10.5px;color:var(--muted);text-align:center;margin-top:6px;">Tippe Punkte, um den Umriss deines Gartens zu zeichnen — schließe mit „Fertig"</div>
           </div>
@@ -5701,7 +5719,7 @@ html, body{ scroll-behavior: smooth; }
       </div>
 
       <!-- GPS Button -->
-      <button id="loc-auto-btn" onclick="autoDetectLocation()" style="width:100%;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:var(--r-sm);font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:8px;">
+      <button id="loc-auto-btn" onclick="autoDetectLocation()" style="width:100%;padding:13px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-sm);font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:8px;">
         <span>📡</span> GPS-Standort automatisch ermitteln
       </button>
 
@@ -5732,7 +5750,7 @@ html, body{ scroll-behavior: smooth; }
         <label>Stadt / Ort / PLZ</label>
         <div style="display:flex;gap:8px;">
           <input class="mp-input" id="loc-name-input" placeholder="z.B. Zürich, Bern, 3000 Bern…" style="flex:1;" onkeydown="if(event.key==='Enter')saveManualLocation()">
-          <button onclick="saveManualLocation()" style="padding:11px 16px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;font-size:13px;white-space:nowrap;">✓ Setzen</button>
+          <button onclick="saveManualLocation()" style="padding:11px 16px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;font-size:13px;white-space:nowrap;">✓ Setzen</button>
         </div>
       </div>
 
@@ -5765,7 +5783,7 @@ html, body{ scroll-behavior: smooth; }
   <div class="ig-post-header">
     <button class="ig-post-close" onclick="closeIgPost()">&#x2715;</button>
     <div style="flex:1;font-family:'Playfair Display',serif;font-size:17px;font-weight:800;color:var(--g-dark);">Neuer Post</div>
-    <button id="ig-post-btn" onclick="submitIgPost()" style="padding:8px 18px;background:var(--g-main);color:#fff;border:none;border-radius:20px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">Teilen 🌿</button>
+    <button id="ig-post-btn" onclick="submitIgPost()" style="padding:8px 18px;background:var(--fill-brand);color:#fff;border:none;border-radius:20px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">Teilen 🌿</button>
   </div>
 
   <!-- Body -->
@@ -6015,7 +6033,7 @@ html, body{ scroll-behavior: smooth; }
       <div class="menu-section" data-i18n="msec_app" data-i18n-fallback="App">App</div>
       <div class="menu-grid">
         <button class="menu-item" onclick="gsInstallApp()" id="mi-install" style="grid-column:span 2;background:linear-gradient(135deg,rgba(46,125,50,.10),rgba(46,125,50,.02));border:1.5px solid var(--g-main);">
-          <div class="menu-item-icon" style="background:var(--g-main);color:#fff;">📱</div>
+          <div class="menu-item-icon" style="background:var(--fill-brand);color:#fff;">📱</div>
           <div style="text-align:left;flex:1;">
             <div class="menu-item-label" style="color:var(--g-dark);font-weight:800;">App installieren</div>
             <div style="font-size:11px;color:var(--text2);margin-top:2px;">Schneller · Offline · Vollbild</div>
@@ -6118,7 +6136,7 @@ html, body{ scroll-behavior: smooth; }
     <p style="font-size:13px;color:#666;margin-bottom:14px;">Die KI analysiert alle Community-Feedbacks nach Priorität und schlägt konkrete Verbesserungen vor.</p>
     <div id="ki-improve-status" style="font-size:13px;color:var(--g-main);font-weight:600;margin-bottom:10px;"></div>
     <div id="ki-improve-result" style="font-size:13px;color:var(--text2);line-height:1.7;background:var(--surface-neutral);border-radius:10px;padding:12px;display:none;"></div>
-    <button onclick="runKiImprove()" id="ki-run-btn" style="width:100%;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:10px;">&#x1F680; Analyse starten</button>
+    <button onclick="runKiImprove()" id="ki-run-btn" style="width:100%;padding:13px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:10px;">&#x1F680; Analyse starten</button>
     <button onclick="gsRunServerTriage()" id="ki-run-server-btn" style="width:100%;padding:11px;background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:8px;">&#x1F9E0; Server-KI-Triage (Admin)</button>
     <div style="font-size:10.5px;color:var(--muted);margin-top:6px;text-align:center;line-height:1.4;">Lokal = nur deine lokalen Feedbacks · Server-KI = alle gepushten User-Ideen aus Supabase</div>
   </div>
@@ -6180,7 +6198,7 @@ html, body{ scroll-behavior: smooth; }
         </div>
         <!-- Camera controls overlay -->
         <div id="diag-cam-controls" style="display:none;position:absolute;bottom:10px;left:0;right:0;display:flex;justify-content:center;gap:10px;">
-          <button onclick="captureDiagPhoto()" style="width:56px;height:56px;background:var(--g-main);border:3px solid #fff;border-radius:50%;font-size:22px;cursor:pointer;box-shadow:var(--elev-2);">📸</button>
+          <button onclick="captureDiagPhoto()" style="width:56px;height:56px;background:var(--fill-brand);border:3px solid #fff;border-radius:50%;font-size:22px;cursor:pointer;box-shadow:var(--elev-2);">📸</button>
         </div>
       </div>
       <div style="display:flex;gap:7px;margin-bottom:12px;">
@@ -6678,7 +6696,7 @@ html, body{ scroll-behavior: smooth; }
 
     <!-- Footer -->
     <div style="flex-shrink:0;padding:14px 18px;border-top:1px solid var(--border);">
-      <button onclick="closeModal('about-modal')" style="width:100%;padding:12px;background:var(--g-main);color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">Schliessen</button>
+      <button onclick="closeModal('about-modal')" style="width:100%;padding:12px;background:var(--fill-brand);color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">Schliessen</button>
     </div>
   </div>
 </div>
@@ -7522,7 +7540,7 @@ window.gsCollectionsRefresh = async function(){
   window._gsCollList = rows;
   var html = '<div style="display:flex;gap:6px;margin-bottom:10px;">' +
     '<input id="gs-coll-new" placeholder="'+_gsCollT('coll_new_placeholder','Neue Sammlung…')+'" maxlength="60" style="flex:1;padding:9px 11px;border:1px solid var(--border);border-radius:10px;font-size:13px;font-family:inherit;background:var(--card);color:var(--text);">' +
-    '<button onclick="gsCollectionCreateFromInput()" style="padding:9px 14px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">'+_gsCollT('coll_create_btn','+ Anlegen')+'</button></div>';
+    '<button onclick="gsCollectionCreateFromInput()" style="padding:9px 14px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">'+_gsCollT('coll_create_btn','+ Anlegen')+'</button></div>';
   // v28.58: Live-Smart-Chips ENTFERNT — durch persistente System-Sammlungen (Auto-Vacuum) ersetzt.
   // System-Sammlungen (system_key) erscheinen unten als normale Zeilen mit 🤖-Badge.
   var sysRows = rows.filter(function(c){ return !!c.system_key; });
@@ -7661,7 +7679,7 @@ window.gsAddToCollection = async function(itemType, itemRef, label, emoji){
   } catch(_){}
   var html = '<div style="display:flex;gap:6px;margin-bottom:10px;">' +
     '<input id="gs-collpick-new" placeholder="Neue Sammlung…" maxlength="60" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:9px;font-size:13px;font-family:inherit;background:var(--card);color:var(--text);">' +
-    '<button onclick="gsCollPickCreate()" style="padding:8px 12px;background:var(--g-main);color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">+</button></div>';
+    '<button onclick="gsCollPickCreate()" style="padding:8px 12px;background:var(--fill-brand);color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">+</button></div>';
   if (!cols.length){ html += '<div style="color:var(--muted);font-size:12.5px;padding:6px 2px;">Noch keine Sammlung — lege oben eine an.</div>'; }
   else {
     html += cols.map(function(c){
@@ -8151,7 +8169,7 @@ function openGartenTagebuch() {
       '<datalist id="tb-plant-list">' + GS_SAE_DB.map(function(p){return '<option value="'+p.n+'">';}).join('') + '</datalist>' +
       '<textarea id="tb-input" placeholder="Was hast du heute gemacht?" maxlength="500" style="width:100%;padding:8px 10px;border-radius:9px;border:1.5px solid var(--border);background:var(--card);font-size:12.5px;font-family:inherit;color:var(--text);outline:none;resize:none;min-height:44px;box-sizing:border-box;"></textarea>' +
       '<div style="display:flex;justify-content:flex-end;margin-top:5px;">' +
-        '<button onclick="gsTbAdd()" style="padding:6px 14px;background:var(--g-main);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">+ Speichern</button>' +
+        '<button onclick="gsTbAdd()" style="padding:6px 14px;background:var(--fill-brand);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">+ Speichern</button>' +
       '</div>' +
     '</div>' +
     // Quick actions
@@ -8492,7 +8510,7 @@ function gsSaeDetail(el) {
     '</div>' +
     '<div style="padding:8px 11px;background:var(--g-bg);border-radius:8px;color:var(--g-dark);font-weight:600;font-size:12px;">💡 ' + p.tip + '</div>' +
     '<div style="display:flex;gap:6px;margin-top:8px;">' +
-      '<button onclick="gsSaeLogAsSowed(\'' + _gsOcArg(p.n) + '\')" style="flex:1;padding:7px 10px;background:var(--g-main);color:#fff;border:none;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🌱 Heute gesät</button>' +
+      '<button onclick="gsSaeLogAsSowed(\'' + _gsOcArg(p.n) + '\')" style="flex:1;padding:7px 10px;background:var(--fill-brand);color:#fff;border:none;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🌱 Heute gesät</button>' +
     '</div>';
   el.parentNode.insertBefore(detail, el.nextSibling);
 }
@@ -8768,7 +8786,7 @@ function openErnteTracking() {
         '<div style="flex:1;min-width:0;">' +
           '<div style="font-size:13px;font-weight:700;color:var(--text);">' + p.name + '</div>' +
           '<div style="height:4px;background:var(--surface2);border-radius:2px;margin-top:3px;overflow:hidden;">' +
-            '<div style="height:100%;width:' + barLen + '%;background:var(--g-main);border-radius:2px;"></div>' +
+            '<div style="height:100%;width:' + barLen + '%;background:var(--fill-brand);border-radius:2px;"></div>' +
           '</div>' +
         '</div>' +
         '<div style="text-align:right;min-width:72px;">' +
@@ -8809,7 +8827,7 @@ function openErnteTracking() {
           '<input id="ernte-pflanze" type="text" placeholder="Pflanze" list="ernte-plant-list" maxlength="50" style="flex:2;min-width:100px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--card);font-size:12.5px;font-family:inherit;color:var(--text);outline:none;">' +
           '<datalist id="ernte-plant-list">' + GS_SAE_DB.map(function(p){return '<option value="'+p.n+'">';}).join('') + '</datalist>' +
           '<input id="ernte-menge" type="number" placeholder="' + unit + '" step="0.1" min="0" style="width:72px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--card);font-size:12.5px;font-family:inherit;color:var(--text);outline:none;">' +
-          '<button onclick="gsErnteAdd()" style="padding:8px 13px;background:var(--g-main);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">+</button>' +
+          '<button onclick="gsErnteAdd()" style="padding:8px 13px;background:var(--fill-brand);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">+</button>' +
         '</div>' +
         // v26.59: Expand-Section "Mehr Details" — Notiz, Foto, Verkaufstracking
         '<details style="margin-top:8px;">' +
@@ -14058,7 +14076,7 @@ function gsShowAboScreen() {
     '<div style="border:' + (plan==='free'?'2px solid var(--g-main)':'1px solid var(--border)') + ';border-radius:14px;padding:14px 16px;margin-bottom:10px;' + (plan==='free'?'background:#f0fff0':'background:var(--card)') + ';">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
         '<div style="font-size:15px;font-weight:900;">🌱 Gratis</div>' +
-        (plan==='free' ? '<span style="background:var(--g-main);color:#fff;padding:2px 9px;border-radius:8px;font-size:11px;font-weight:800;">Aktiv</span>' : '') +
+        (plan==='free' ? '<span style="background:var(--fill-brand);color:#fff;padding:2px 9px;border-radius:8px;font-size:11px;font-weight:800;">Aktiv</span>' : '') +
       '</div>' +
       '<div style="font-size:12px;color:var(--muted);line-height:1.6;">15 Scans/Tag · Alle 4342 Arten · Community · Karte</div>' +
     '</div>';
@@ -16759,7 +16777,7 @@ function gsScanHistoryOpen(uidOrIdx) {
 
   var actions = '';
   if (dbMatch) {
-    actions = '<button onclick="closeScanDetail();closeScanHistoryFull();setTimeout(function(){openDetail(\'' + dbMatch.id + '\');},200);" style="flex:1;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:12px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;">📖 In Datenbank öffnen</button>';
+    actions = '<button onclick="closeScanDetail();closeScanHistoryFull();setTimeout(function(){openDetail(\'' + dbMatch.id + '\');},200);" style="flex:1;padding:13px;background:var(--fill-brand);color:#fff;border:none;border-radius:12px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;">📖 In Datenbank öffnen</button>';
   } else {
     actions = '<div style="flex:1;padding:13px;background:var(--surface2);border:1.5px dashed var(--border);border-radius:12px;font-size:12px;color:var(--muted);text-align:center;line-height:1.45;">🧬 Diese Art ist noch nicht in der Datenbank. Dein Scan wurde automatisch zur Prüfung vorgeschlagen — nach Freigabe durch das Team wird sie aufgenommen.</div>';
   }
@@ -18091,7 +18109,7 @@ function gsInitPullToRefresh(screenId, onRefresh) {
       if (!indicator) {
         indicator = document.createElement('div');
         indicator.style.cssText = 'position:sticky;top:0;left:0;right:0;height:0;overflow:visible;z-index:60;pointer-events:none;display:flex;justify-content:center;';
-        indicator.innerHTML = '<div id="ptr-ind-'+screenId+'" style="width:34px;height:34px;background:var(--g-main);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;transform:translateY(-44px);transition:transform var(--dur-fast);box-shadow:var(--elev-2);">↓</div>';
+        indicator.innerHTML = '<div id="ptr-ind-'+screenId+'" style="width:34px;height:34px;background:var(--fill-brand);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;transform:translateY(-44px);transition:transform var(--dur-fast);box-shadow:var(--elev-2);">↓</div>';
         el.insertBefore(indicator, el.firstChild);
       }
       var ptr = document.getElementById('ptr-ind-'+screenId);
@@ -20792,7 +20810,7 @@ async function loadHomeWeather() {
           b.innerHTML = '<div style="display:flex;align-items:center;gap:10px;">' +
             '<span style="font-size:20px;">📍</span>' +
             '<div style="flex:1;color:var(--text);"><b>' + _lt('loc_banner_title','Standort nicht ermittelt') + '</b><br><span style="color:var(--text2);font-size:11.5px;">' + _lt('loc_banner_text','Wetter zeigt Zürich. Erlaube Standort für dein lokales Wetter.') + '</span></div>' +
-            '<button onclick="document.getElementById(\'gs-loc-permission-banner\').remove();loadHomeWeather()" style="padding:6px 12px;background:var(--g-main);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;">' + _lt('loc_banner_allow','Erlauben') + '</button>' +
+            '<button onclick="document.getElementById(\'gs-loc-permission-banner\').remove();loadHomeWeather()" style="padding:6px 12px;background:var(--fill-brand);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;">' + _lt('loc_banner_allow','Erlauben') + '</button>' +
             '<button onclick="document.getElementById(\'gs-loc-permission-banner\').remove()" style="padding:6px 8px;background:transparent;color:var(--muted);border:none;font-size:18px;cursor:pointer;">×</button>' +
           '</div>';
           document.body.appendChild(b);
@@ -21561,7 +21579,7 @@ function renderMarket() {
         '<div style="font-size:48px;opacity:.25;margin-bottom:10px;">🛒</div>' +
         '<div style="font-size:14px;font-weight:700;color:var(--text2);margin-bottom:4px;">' + _t('market_empty_title','Noch keine Angebote') + '</div>' +
         '<div style="font-size:12px;">' + _t('market_empty_sub','Sei der/die Erste! Erstelle ein Inserat.') + '</div>' +
-        '<button onclick="openNewListing()" style="margin-top:14px;padding:10px 20px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' + _t('market_empty_btn','+ Erstes Angebot erstellen') + '</button>' +
+        '<button onclick="openNewListing()" style="margin-top:14px;padding:10px 20px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' + _t('market_empty_btn','+ Erstes Angebot erstellen') + '</button>' +
         '</div>';
     } else {
       listEl.innerHTML = '<div style="text-align:center;padding:30px 20px;color:var(--muted);">' +
@@ -21884,7 +21902,7 @@ function openNewListing() {
     '</div>' +
 
     // Submit
-    '<button id="nl-submit-btn" onclick="saveListing()" style="width:100%;padding:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📢 Angebot veröffentlichen</button>' +
+    '<button id="nl-submit-btn" onclick="saveListing()" style="width:100%;padding:12px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📢 Angebot veröffentlichen</button>' +
     '</div>';
 
   // State leeren
@@ -22155,7 +22173,7 @@ function contactSeller(id) {
         '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:4px;">' + (typeof _gsProfileChip==='function' ? _gsProfileChip(l.sellerId, l.sellerName||'Anbieter') : _esc(l.sellerName||'Anbieter')) + '</div>' +
         '<div style="font-size:15px;font-weight:800;color:var(--text);word-break:break-all;">' + _esc(l.contact) + '</div>' +
       '</div>' +
-      '<button onclick="navigator.clipboard&&navigator.clipboard.writeText(window._gsMktCopyContact||\'\');gsHaptic(\'success\');showProfileToast(\'Kopiert ✅\',\'success\');" style="width:100%;padding:11px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📋 Kontakt kopieren</button>' +
+      '<button onclick="navigator.clipboard&&navigator.clipboard.writeText(window._gsMktCopyContact||\'\');gsHaptic(\'success\');showProfileToast(\'Kopiert ✅\',\'success\');" style="width:100%;padding:11px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📋 Kontakt kopieren</button>' +
       '</div>';
     openModal('detail-modal');
   }
@@ -22180,7 +22198,7 @@ function openRateListing(id) {
       }).join('') +
     '</div>' +
     '<textarea id="rate-comment" maxlength="300" placeholder="Kommentar (optional)" style="width:100%;padding:10px 12px;border-radius:9px;border:1.5px solid var(--border);background:var(--card);font-size:13px;font-family:inherit;color:var(--text);outline:none;resize:none;min-height:70px;box-sizing:border-box;margin-bottom:12px;"></textarea>' +
-    '<button onclick="submitRating(\'' + id + '\')" style="width:100%;padding:11px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">Bewertung speichern</button>' +
+    '<button onclick="submitRating(\'' + id + '\')" style="width:100%;padding:11px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">Bewertung speichern</button>' +
     '</div>';
   localStorage.setItem('gs_rate_current', '0');
   openModal('detail-modal');
@@ -23950,7 +23968,7 @@ async function gsFriendsOpenModal() {
     var roleBadge = (typeof gsRoleBadge==='function') ? gsRoleBadge(u.role,{size:'sm'}) : '';
     var actions = '';
     if (kind === 'incoming') {
-      actions = '<button onclick="gsFriendsAccept(\''+u.id+'\').then(function(){gsFriendsOpenModal();})" style="padding:6px 12px;background:var(--g-main);color:#fff;border:none;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;">✓ Akzeptieren</button>' +
+      actions = '<button onclick="gsFriendsAccept(\''+u.id+'\').then(function(){gsFriendsOpenModal();})" style="padding:6px 12px;background:var(--fill-brand);color:#fff;border:none;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;">✓ Akzeptieren</button>' +
         '<button onclick="gsFriendsRemove(\''+u.id+'\').then(function(){gsFriendsOpenModal();})" style="padding:6px 12px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;margin-left:6px;">✕</button>';
     } else if (kind === 'outgoing') {
       actions = '<span style="font-size:11px;color:var(--muted);">⏳ Wartet</span>' +
@@ -23959,7 +23977,7 @@ async function gsFriendsOpenModal() {
       actions = '<span style="font-size:11px;color:var(--c-success);font-weight:700;">✓ Verbunden</span>' +
         '<button onclick="gsFriendsRemove(\''+u.id+'\').then(function(){gsFriendsOpenModal();})" style="padding:6px 10px;background:none;border:none;color:var(--c-danger);font-size:13px;cursor:pointer;font-family:inherit;">🗑</button>';
     } else if (kind === 'search') {
-      actions = '<button onclick="gsFriendsSendRequest(\''+u.id+'\').then(function(){gsFriendsOpenModal();})" style="padding:6px 12px;background:var(--g-main);color:#fff;border:none;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;">+ Folgen</button>';
+      actions = '<button onclick="gsFriendsSendRequest(\''+u.id+'\').then(function(){gsFriendsOpenModal();})" style="padding:6px 12px;background:var(--fill-brand);color:#fff;border:none;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;">+ Folgen</button>';
     }
     return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border-radius:9px;margin-bottom:6px;">' +
       '<div style="font-size:28px;flex-shrink:0;">' + esc(u.avatar_emoji||'🌿') + '</div>' +
@@ -24031,7 +24049,7 @@ function gsFriendsSearchTrigger(q){
           '<div style="font-size:13px;font-weight:800;color:var(--text);">' + esc(u.display_name||'Naturfreund') + roleBadge + '</div>' +
           '<div style="font-size:10.5px;color:var(--muted);margin-top:2px;">' + (u.scan_count||0) + ' Scans · ' + (u.xp||0) + ' XP</div>' +
         '</div>' +
-        '<button onclick="gsFriendsSendRequest(\''+u.id+'\').then(function(ok){if(ok)gsFriendsOpenModal();})" style="padding:7px 14px;background:var(--g-main);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">+ Folgen</button>' +
+        '<button onclick="gsFriendsSendRequest(\''+u.id+'\').then(function(ok){if(ok)gsFriendsOpenModal();})" style="padding:7px 14px;background:var(--fill-brand);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">+ Folgen</button>' +
       '</div>';
     }).join('');
   }, 350);
@@ -25718,7 +25736,7 @@ function gsRelabelMultiShot(idx) {
   var current = window._gsMultiShots[idx].label || '';
   var labels = window._gsMultiShotLabels;
   var html = labels.map(function(l, i){
-    var sel = current === l ? 'background:var(--g-main);color:#fff;' : 'background:var(--bg);color:var(--text);';
+    var sel = current === l ? 'background:var(--fill-brand);color:#fff;' : 'background:var(--bg);color:var(--text);';
     return '<button onclick="window._gsMultiShots[' + idx + '].label=\'' + l + '\';gsRenderMultiShotBar();document.getElementById(\'modal-relabel\').remove();" style="' + sel + 'border:1px solid var(--border);padding:9px 12px;border-radius:8px;font-size:12.5px;cursor:pointer;margin:3px;">' + l + '</button>';
   }).join('');
   var existing = document.getElementById('modal-relabel');
@@ -26274,7 +26292,7 @@ async function analyzeImage(b64, mt, organContext, extraImages){
         heroCta +
         diagLine +
         '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;justify-content:center;">'+
-          '<button onclick="_gsRetryLastScan()" style="padding:10px 18px;background:var(--g-main);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:800;box-shadow:var(--elev-brand);">🔁 Nochmal versuchen</button>'+
+          '<button onclick="_gsRetryLastScan()" style="padding:10px 18px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:800;box-shadow:var(--elev-brand);">🔁 Nochmal versuchen</button>'+
           (_kAdm ? '<button onclick="gsTestApiKey()" style="padding:10px 18px;background:#37474f;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:800;">🧪 Key testen</button>' : '')+
           (isRateErr ? '<button onclick="setTimeout(_gsRetryLastScan,60000);document.getElementById(\'scan-status\').textContent=\'⏳ Warte 60s auf Anbieter…\';" style="padding:10px 18px;background:#e65100;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:800;">⏱️ In 60s retry</button>' : '')+
         '</div>'+
@@ -26633,7 +26651,7 @@ function gsReportScanMistake() {
     '<textarea id="scan-fix-note" rows="3" placeholder="z.B. Blätter sind gezackt, nicht glatt" style="width:100%;padding:12px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;font-family:inherit;box-sizing:border-box;resize:vertical;"></textarea>' +
     '<div style="display:flex;gap:10px;margin-top:16px;">' +
       '<button onclick="closeModal(\'detail-modal\')" style="flex:1;padding:12px;background:var(--card);color:var(--text);border:1.5px solid var(--border);border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">Abbrechen</button>' +
-      '<button onclick="gsSubmitScanMistake()" style="flex:1;padding:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">✓ Absenden</button>' +
+      '<button onclick="gsSubmitScanMistake()" style="flex:1;padding:12px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">✓ Absenden</button>' +
     '</div>' +
   '</div>';
   openModal('detail-modal');
@@ -26970,7 +26988,7 @@ function showScanResult(r){
     body += '<div class="sr2-card" style="background:linear-gradient(135deg,rgba(255,193,7,.12),rgba(255,193,7,.02));border-left:3px solid #ffa000;">' +
       '<div class="sr2-card-lbl" style="color:#8d6e00;">📸 Sicherere Bestimmung</div>' +
       '<div class="sr2-card-body">' + esc(_hintTxt) +
-        (_canRescan ? '<button onclick="gsAddPhotoForRescan()" style="margin-top:8px;padding:9px 14px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;">📷 Weiteres Foto hinzufügen (kombinieren)</button>' : '') +
+        (_canRescan ? '<button onclick="gsAddPhotoForRescan()" style="margin-top:8px;padding:9px 14px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;">📷 Weiteres Foto hinzufügen (kombinieren)</button>' : '') +
       '</div></div>';
   }
 
@@ -29487,7 +29505,7 @@ function openPlantDiary(plantId) {
         '<input type="file" id="diary-photo-file" accept="image/*" capture="environment" onchange="gsDiaryHandlePhoto(event)" style="display:none;">'+
         '<div style="display:flex;gap:6px;">'+
           '<button onclick="document.getElementById(\'diary-photo-file\').click()" style="flex:1;padding:9px;background:var(--card);color:var(--text);border:1.5px dashed var(--border);border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">📷 Foto</button>'+
-          '<button onclick="gsAddDiaryEntry(\''+plantId+'\')" style="flex:2;padding:9px;background:var(--g-main);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">➕ Eintrag speichern</button>'+
+          '<button onclick="gsAddDiaryEntry(\''+plantId+'\')" style="flex:2;padding:9px;background:var(--fill-brand);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">➕ Eintrag speichern</button>'+
         '</div>'+
       '</div>'+
       '<div style="overflow-y:auto;padding:14px 18px;flex:1;">'+entriesHtml+'</div>'+
@@ -31679,7 +31697,7 @@ function renderFeedback(){
     var adminDoneBtn = '';
     try {
       if (localStorage.getItem('gs_admin') === 'true' && !_gsFbIsDone(fb)){
-        adminDoneBtn = '<button onclick="gsFbMarkDone(\''+safeId+'\')" title="Als erledigt markieren + kurz erklären" style="background:var(--g-main);border:none;color:#fff;padding:4px 9px;border-radius:7px;font-size:10.5px;font-weight:800;cursor:pointer;margin-left:6px;">✓ Erledigt</button>';
+        adminDoneBtn = '<button onclick="gsFbMarkDone(\''+safeId+'\')" title="Als erledigt markieren + kurz erklären" style="background:var(--fill-brand);border:none;color:#fff;padding:4px 9px;border-radius:7px;font-size:10.5px;font-weight:800;cursor:pointer;margin-left:6px;">✓ Erledigt</button>';
       }
     } catch(_){}
     // v23.65: Author + Source-Badge
@@ -32948,7 +32966,7 @@ function loadSocialPosts(reset) {
           fe.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--muted);">' +
             '<div style="font-size:48px;margin-bottom:12px;">⚠️</div>' +
             '<p style="margin-bottom:14px;">' + escHtml(msg) + '</p>' +
-            '<button onclick="loadSocialPosts(true)" style="padding:10px 20px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">🔄 Nochmal versuchen</button>' +
+            '<button onclick="loadSocialPosts(true)" style="padding:10px 20px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">🔄 Nochmal versuchen</button>' +
           '</div>';
         } else if (reset) renderSocialFeed();
       }
@@ -32959,7 +32977,7 @@ function loadSocialPosts(reset) {
         fe2.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--muted);">' +
           '<div style="font-size:48px;margin-bottom:12px;">📡</div>' +
           '<p style="margin-bottom:14px;">Keine Verbindung zur Community</p>' +
-          '<button onclick="loadSocialPosts(true)" style="padding:10px 20px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">🔄 Nochmal versuchen</button>' +
+          '<button onclick="loadSocialPosts(true)" style="padding:10px 20px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">🔄 Nochmal versuchen</button>' +
         '</div>';
       } else if (reset) renderSocialFeed();
     });
@@ -33355,7 +33373,7 @@ function gsRenderDoctorResult(j, plantLocalId) {
         '<div style="flex-shrink:0;font-size:13px;font-weight:800;color:var(--g-main);">' + pct + '%</div>' +
       '</div>' +
       '<div style="height:5px;border-radius:3px;background:var(--surface2);margin-top:5px;overflow:hidden;">' +
-        '<div style="width:' + pct + '%;height:100%;background:var(--g-main);border-radius:3px;"></div>' +
+        '<div style="width:' + pct + '%;height:100%;background:var(--fill-brand);border-radius:3px;"></div>' +
       '</div>' +
       (h.reason ? '<div style="font-size:12px;color:var(--text2);line-height:1.5;margin-top:5px;">' + esc(h.reason) + '</div>' : '') +
     '</div>';
@@ -33372,7 +33390,7 @@ function gsRenderDoctorResult(j, plantLocalId) {
   } catch(_){}
   if (top && top.name) {
     html += '<button type="button" onclick="gsDoctorToLina(' + JSON.stringify(String(top.name)).replace(/"/g, '&quot;') + ',' + JSON.stringify(String(_plantNm)).replace(/"/g, '&quot;') + ')" ' +
-      'style="width:100%;margin-top:14px;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;">' +
+      'style="width:100%;margin-top:14px;padding:13px;background:var(--fill-brand);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;">' +
       '🌿 Zu Lina wechseln</button>';
   }
 
@@ -37400,7 +37418,7 @@ function initSocialFeed() {
         fe.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--muted);">' +
           '<div style="font-size:48px;margin-bottom:12px;">🌿</div>' +
           '<p style="margin-bottom:14px;">Noch keine Posts. Tippe auf <b>+</b> oder das Compose-Feld oben und teile etwas!</p>' +
-          '<button onclick="loadSocialPosts(true)" style="padding:10px 20px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">🔄 Erneut laden</button>' +
+          '<button onclick="loadSocialPosts(true)" style="padding:10px 20px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">🔄 Erneut laden</button>' +
         '</div>';
       }
     } catch(_){}
@@ -37577,7 +37595,7 @@ function gsMarketShowDetail(l) {
       '</div>' +
       ownerCtrl +
       '<div style="display:flex;gap:8px;">' +
-        '<button onclick="contactSeller(\'' + l.id + '\')" style="flex:2;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' + _t('btn_contact_seller','💬 Kontakt aufnehmen') + '</button>' +
+        '<button onclick="contactSeller(\'' + l.id + '\')" style="flex:2;padding:13px;background:var(--fill-brand);color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' + _t('btn_contact_seller','💬 Kontakt aufnehmen') + '</button>' +
         '<button onclick="openRateListing(\'' + l.id + '\')" style="flex:1;padding:13px;background:var(--bg-warn-soft);color:var(--c-warn-d);border:1px solid #ffcc80;border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' + _t('btn_rate_listing','⭐ Bewerten') + '</button>' +
         '<button onclick="gsAddListingToCollection(\'' + l.id + '\')" title="' + _t('btn_add_collection','Zu Sammlung hinzufügen') + '" aria-label="' + _t('btn_add_collection','Zu Sammlung hinzufügen') + '" style="flex:0 0 auto;padding:13px 14px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:11px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📁</button>' +
         /* v30.34: Report-Button verdrahtet (reportListing war definiert, aber an KEINE UI gebunden → tote Funktion). Persistiert jetzt via fn_report. */
@@ -44308,7 +44326,7 @@ window.gsRenderBibliothek = async function() {
         '<div style="font-size:60px;margin-bottom:10px;">📚</div>' +
         '<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;">Bibliothek noch leer</div>' +
         '<div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:14px;">Lade dein erstes Buch hoch — die KI extrahiert die Arten und sortiert sie hier hinein.</div>' +
-        '<button onclick="if(typeof openBookIngest===\'function\')openBookIngest()" style="padding:10px 18px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;">📖 Buch einlesen →</button>' +
+        '<button onclick="if(typeof openBookIngest===\'function\')openBookIngest()" style="padding:10px 18px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;">📖 Buch einlesen →</button>' +
         '</div>';
       return;
     }
@@ -45790,7 +45808,7 @@ window.gsRenderKnowledge = async function(section) {
       el.innerHTML = introHtml + '<div style="padding:24px 16px;text-align:center;background:var(--card);border-radius:14px;">' +
         '<div style="font-size:60px;margin-bottom:10px;">📭</div>' +
         '<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;">' + ed(cfg.emptyMsg) + '</div>' +
-        '<button onclick="if(typeof openBookIngest===\'function\')openBookIngest()" style="margin-top:10px;padding:10px 18px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;">📖 Buch einlesen →</button>' +
+        '<button onclick="if(typeof openBookIngest===\'function\')openBookIngest()" style="margin-top:10px;padding:10px 18px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;">📖 Buch einlesen →</button>' +
         '</div>';
       return;
     }
@@ -48771,7 +48789,7 @@ function gsTrackOpenList() {
       _sparkline(t) +
       '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">' +
         '<button onclick="document.getElementById(\'modal-tracks\').remove();gsTrackOpenDetail(' + realIdx + ')" style="flex:1 1 100%;padding:8px;background:linear-gradient(135deg,#2e7d32,#1b5e20);color:#fff;border:none;border-radius:7px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit;">🌐 3D-Details</button>' +
-        '<button onclick="gsTrackShowOnMap(' + realIdx + ')" style="flex:1;padding:7px;background:var(--g-main);color:#fff;border:none;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;">🗺️ Karte</button>' +
+        '<button onclick="gsTrackShowOnMap(' + realIdx + ')" style="flex:1;padding:7px;background:var(--fill-brand);color:#fff;border:none;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;">🗺️ Karte</button>' +
         '<button onclick="gsTrackExportGPX(' + realIdx + ')" style="flex:1;padding:7px;background:#1565c0;color:#fff;border:none;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;">📥 GPX</button>' +
         '<button onclick="gsTrackDelete(' + realIdx + ')" style="padding:7px 10px;background:#c62828;color:#fff;border:none;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;">🗑</button>' +
       '</div>' +
@@ -49646,7 +49664,7 @@ function gsTrackOpenDetail(idx) {
         })() : '') +
         // Action-Buttons
         '<div style="display:flex;gap:8px;padding:14px;">' +
-          '<button onclick="gsTrackCloseDetail();gsTrackShowOnMap(' + idx + ')" style="flex:1;padding:12px;background:var(--g-main);color:#fff;border:none;border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">🗺️ Auf Karte</button>' +
+          '<button onclick="gsTrackCloseDetail();gsTrackShowOnMap(' + idx + ')" style="flex:1;padding:12px;background:var(--fill-brand);color:#fff;border:none;border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">🗺️ Auf Karte</button>' +
           '<button onclick="gsTrackExportGPX(' + idx + ')" style="flex:1;padding:12px;background:#1565c0;color:#fff;border:none;border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">📥 GPX</button>' +
           '<button onclick="gsTrackCloseDetail();setTimeout(function(){gsTrackDelete(' + idx + ');},150);" style="padding:12px 14px;background:#c62828;color:#fff;border:none;border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">🗑</button>' +
         '</div>' +
@@ -51359,7 +51377,7 @@ function gsOpenFAQ(){
   var h = '<div style="font-size:17px;font-weight:800;margin-bottom:10px;">❓ Hilfe & FAQ</div>';
   h += '<input id="gs-faq-search" type="search" placeholder="🔎 Frage suchen (z.B. „Abo", „Foto", „Privatsphäre")…" oninput="gsRenderFAQList(this.value)" autocomplete="off" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;box-sizing:border-box;margin-bottom:4px;">';
   h += '<div id="gs-faq-list"></div>';
-  h += '<button onclick="if(typeof closeModal===\'function\')closeModal(\'gs-nl-modal\');if(typeof menuNav===\'function\')menuNav(\'more\')" style="width:100%;margin-top:12px;padding:11px;border:none;border-radius:10px;background:var(--g-dark);color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">💬 Frage nicht dabei? Feedback geben</button>';
+  h += '<button onclick="if(typeof closeModal===\'function\')closeModal(\'gs-nl-modal\');if(typeof menuNav===\'function\')menuNav(\'more\')" style="width:100%;margin-top:12px;padding:11px;border:none;border-radius:10px;background:var(--fill-dark);color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">💬 Frage nicht dabei? Feedback geben</button>';
   if (typeof _gsNlOpen === 'function') _gsNlOpen(h);
   gsRenderFAQList('');
 }
@@ -53572,7 +53590,7 @@ window.gsPPTestConnection = async function(btnEl) {
   m.style.cssText = 'position:fixed;inset:0;z-index:7000;background:rgba(0,0,0,.7);backdrop-filter:blur(var(--blur-md));display:flex;align-items:center;justify-content:center;padding:20px;';
   m.onclick = function(e){ if (e.target===m) m.remove(); };
   m.innerHTML = '<div style="background:var(--card);border-radius:14px;padding:20px;max-width:460px;width:100%;max-height:80vh;overflow-y:auto;">' + html +
-    '<button onclick="document.getElementById(\'gs-conn-test-modal\').remove()" style="margin-top:14px;width:100%;padding:11px;background:var(--g-main);color:#fff;border:none;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">Schliessen</button>' +
+    '<button onclick="document.getElementById(\'gs-conn-test-modal\').remove()" style="margin-top:14px;width:100%;padding:11px;background:var(--fill-brand);color:#fff;border:none;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">Schliessen</button>' +
   '</div>';
   document.body.appendChild(m);
   // v30.89: Rettungsleine — schliessbar per Escape und bei jedem Navigations-Wechsel.
@@ -54298,7 +54316,7 @@ function gsPPshowVisual() {
       water +
       rotation +
       biodiv +
-      '<button onclick="gsPPdownloadPlan()" style="margin-top:12px;width:100%;padding:11px;background:var(--g-main);color:#fff;border:none;border-radius:9px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;">💾 Plan als JSON speichern</button>' +
+      '<button onclick="gsPPdownloadPlan()" style="margin-top:12px;width:100%;padding:11px;background:var(--fill-brand);color:#fff;border:none;border-radius:9px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;">💾 Plan als JSON speichern</button>' +
     '</div></div>';
   document.body.appendChild(m);
 }
@@ -59067,7 +59085,7 @@ function gsOpenPhotoTimeline(plantId) {
       '<div style="font-size:48px;margin-bottom:8px;opacity:.5;">📸</div>' +
       '<div style="font-size:14px;font-weight:800;margin-bottom:6px;">Noch kein Foto-Verlauf</div>' +
       '<div style="font-size:12px;color:var(--muted);line-height:1.55;">Fuege im Tagebuch Fotos hinzu — dieser Slider zeigt dann die Entwicklung deiner Pflanze ueber die Zeit.</div>' +
-      '<button onclick="document.getElementById(\'photo-timeline-modal\').remove()" style="margin-top:14px;padding:10px 22px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">OK</button>' +
+      '<button onclick="document.getElementById(\'photo-timeline-modal\').remove()" style="margin-top:14px;padding:10px 22px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">OK</button>' +
     '</div>';
     document.body.appendChild(m);
     // v30.89: Rettungsleine — schliessbar per Escape und bei jedem Navigations-Wechsel.
@@ -59767,7 +59785,7 @@ async function gsPPopenSavedPlans() {
             (bedW && bedL ? '<span>📐 ' + bedW + '×' + bedL + ' m</span>' : '') +
             (pl.climateZone ? '<span>🌍 ' + (typeof escHtml==='function'?escHtml(pl.climateZone):pl.climateZone) + '</span>' : '') +
           '</div>' +
-          '<button onclick="gsPPloadSavedPlan(\'' + p.id + '\')" style="width:100%;padding:9px;background:var(--g-main);color:#fff;border:none;border-radius:9px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📂 Plan wieder öffnen</button>' +
+          '<button onclick="gsPPloadSavedPlan(\'' + p.id + '\')" style="width:100%;padding:9px;background:var(--fill-brand);color:#fff;border:none;border-radius:9px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📂 Plan wieder öffnen</button>' +
         '</div>';
       }).join('')
     : '<div style="text-align:center;padding:40px 20px;color:var(--muted);"><div style="font-size:42px;opacity:.4;margin-bottom:10px;">📂</div><div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:4px;">Noch keine gespeicherten Pläne</div><div style="font-size:11.5px;line-height:1.5;">Erstelle einen Plan im KI-Planer und drücke „💾 Plan speichern".</div></div>';
@@ -61505,7 +61523,7 @@ async function renderGarden() {
         html += '</div>';
       });
     } else {
-      html += '<div style="padding:14px 16px;font-size:13px;color:var(--muted);text-align:center;">' + _t('garden_no_plantings','Noch nichts gepflanzt.') + '<br><button onclick="openAddPlanting(\'' + garden.id + '\')" style="margin-top:8px;padding:7px 14px;background:var(--g-main);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">🌱 ' + _t('garden_plant_now','Pflanze einsetzen') + '</button></div>';
+      html += '<div style="padding:14px 16px;font-size:13px;color:var(--muted);text-align:center;">' + _t('garden_no_plantings','Noch nichts gepflanzt.') + '<br><button onclick="openAddPlanting(\'' + garden.id + '\')" style="margin-top:8px;padding:7px 14px;background:var(--fill-brand);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">🌱 ' + _t('garden_plant_now','Pflanze einsetzen') + '</button></div>';
     }
 
     // Actions · v23.81: Wetter-Button raus, Einpflanzen nur 1× pro Garden
@@ -63403,6 +63421,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v31.26', date: '01.09.2026',
+    headline: '🌗 Jeder Hauptknopf war im Dunkelmodus blass — 146 Flächen',
+    summary: 'Nach drei Einzelfunden habe ich das Muster systematisch gesucht: Farb-Token, die im Dunkelmodus heller werden (richtig für Schrift), wurden an 146 Stellen als Fläche mit weisser Schrift benutzt. Jeder Hauptknopf, jeder aktive Chip, jeder aktive Reiter lag dort bei 2,4:1. Fläche und Schrift sind jetzt getrennte Rollen.',
+    user_summary: '🌗 Knöpfe, Chips und Reiter sind im Dunkelmodus wieder klar lesbar — vorher waren sie blassgrün mit weisser Schrift.',
+    user_items: [
+      { emoji: '🔘', text: '146 Flächen im Dunkelmodus korrigiert — Knöpfe, Chips, Reiter, Kopfleiste' },
+      { emoji: '👁️', text: 'Weisse Schrift auf Grün: von 2,4:1 auf 5,7:1' },
+      { emoji: '🔒', text: 'Hellmodus unverändert — die neuen Token tragen exakt die alten Werte' },
+    ],
+    items: [
+      {emoji:'🔍', bold:'Systematisch statt zufällig:', text:' alle Token verglichen, deren Helligkeit sich zwischen Hell- und Dunkelmodus umkehrt (29 Stück — das ist für eine Textfarbe richtig), und geprüft, welche davon als Fläche dienen. Ergebnis: 146 Stellen, davon 124 mit weisser Schrift.'},
+      {emoji:'🎭', bold:'Rollen getrennt:', text:' --fill-brand, --fill-dark, --fill-violet, --fill-warn sind Flächen und bleiben im Dunkelmodus dunkel. --g-main und Co. bleiben Schrift und werden hell. Ein Token kann nicht beides.'},
+      {emoji:'🐛', bold:'Nebenbefund:', text:' --c-warn-d als Fläche mit weisser Schrift schaffte auch im HELLmodus nur 3,79:1. --fill-warn ist deshalb bewusst dunkler (5,75:1) — der einzige Wert, der sich im Hellmodus ändert.'},
+      {emoji:'🟢', bold:'Live-Punkt:', text:' heller Puls-Hintergrund mit --c-info-d als Text — im Dunkelmodus hell auf hell. Jetzt fest dunkler Text (7,4:1).'},
+    ],
+  },
   {
     v: 'v31.25', date: '01.09.2026',
     headline: '🌾 Ruhige Kopfzone — und die Kopfleiste war nachts unlesbar',
@@ -69470,7 +69505,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.25';
+var GS_VERSION = 'v31.26';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -70391,7 +70426,7 @@ window.gsInstallApp = async function(){
         '</div>' +
         '<div style="font-size:12.5px;font-weight:800;color:var(--g-dark);margin-bottom:4px;">So geht\'s:</div>' +
         steps +
-        '<button onclick="document.getElementById(\'gs-install-modal\').remove()" style="display:block;width:100%;padding:11px;margin-top:18px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">Verstanden</button>' +
+        '<button onclick="document.getElementById(\'gs-install-modal\').remove()" style="display:block;width:100%;padding:11px;margin-top:18px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">Verstanden</button>' +
       '</div>' +
     '</div>';
   document.body.appendChild(m);
@@ -72147,7 +72182,7 @@ function gsRegisterServiceWorker() {
           connInfo +
           '<div style="display:flex;gap:8px;margin-top:14px;">' +
             (pending > 0 && navigator.onLine ?
-              '<button onclick="window.gsFlushOfflineQueue && window.gsFlushOfflineQueue();document.getElementById(\'gs-conn-detail\').remove()" style="flex:1;padding:11px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit;">🔄 Jetzt syncen</button>' : '') +
+              '<button onclick="window.gsFlushOfflineQueue && window.gsFlushOfflineQueue();document.getElementById(\'gs-conn-detail\').remove()" style="flex:1;padding:11px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit;">🔄 Jetzt syncen</button>' : '') +
             '<button onclick="document.getElementById(\'gs-conn-detail\').remove()" style="flex:1;padding:11px;background:transparent;color:var(--g-main);border:1.5px solid var(--g-main);border-radius:10px;font-weight:700;font-size:12.5px;cursor:pointer;font-family:inherit;">Schliessen</button>' +
           '</div>' +
         '</div>' +
@@ -72310,7 +72345,7 @@ function gsRegisterServiceWorker() {
     var info = await window.gsGetStorageInfo();
     var pending = (typeof window.gsCountOfflineQueue === 'function') ? await window.gsCountOfflineQueue() : 0;
     var swStatus = ('serviceWorker' in navigator && navigator.serviceWorker.controller) ? '✅ aktiv' : '⚠️ nicht aktiv';
-    var bar = info ? '<div style="background:var(--border);border-radius:99px;height:8px;overflow:hidden;margin-top:6px;"><div style="background:var(--g-main);height:100%;width:' + Math.min(100, info.percent) + '%;transition:width var(--dur-slow);"></div></div>' : '';
+    var bar = info ? '<div style="background:var(--border);border-radius:99px;height:8px;overflow:hidden;margin-top:6px;"><div style="background:var(--fill-brand);height:100%;width:' + Math.min(100, info.percent) + '%;transition:width var(--dur-slow);"></div></div>' : '';
     // ═══ v31.03: die WICHTIGE Grenze zuerst ═══════════════════════════════
     // Vorher stand hier nur navigator.storage.estimate — die Origin-Quota, also
     // hunderte MB bis GB. Der Balken zeigte dann 0.8 % und beruhigte, waehrend
@@ -72359,7 +72394,7 @@ function gsRegisterServiceWorker() {
         '<div id="gs-archive-row" style="font-size:12px;color:var(--text2);display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-top:1px solid var(--border);margin-top:6px;">' +
           '<span>📦 Archiv <span style="color:var(--muted);">(gekürzte Einträge)</span></span>' +
           '<span><b id="gs-archive-count">…</b> ' +
-            '<button onclick="if(typeof gsArchiveExport===\'function\')gsArchiveExport()" style="margin-left:8px;padding:4px 10px;background:var(--g-main);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;">Sichern</button>' +
+            '<button onclick="if(typeof gsArchiveExport===\'function\')gsArchiveExport()" style="margin-left:8px;padding:4px 10px;background:var(--fill-brand);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;">Sichern</button>' +
           '</span>' +
         '</div>' +
         /* v31.03: „Lokal belegt" steht jetzt oben mit echter Grenze und Balken. */
@@ -72381,7 +72416,7 @@ function gsRegisterServiceWorker() {
           '<div style="font-size:12px;color:var(--text2);margin-top:10px;display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:8px;"><span>Service Worker</span><span>' + swStatus + '</span></div>' +
           '<div style="font-size:12px;color:var(--text2);display:flex;justify-content:space-between;border-top:1px solid var(--border);padding:8px 0;"><span>Wartet auf Cloud-Sync</span><span><b>' + pending + '</b>' + (pending===0?' (alles sync.)':' Items') + '</span></div>' +
           (info && !info.persisted ?
-            '<button onclick="window.gsRequestPersistentStorage().then(function(ok){document.getElementById(\'gs-storage-modal\').remove();if(typeof showProfileToast===\'function\')showProfileToast({type:ok?\'success\':\'warn\',icon:ok?\'✅\':\'⚠️\',title:ok?\'Persistent aktiviert\':\'Vom Browser abgelehnt\',body:ok?\'Cache wird nicht mehr automatisch gelöscht.\':\'Browser hat Anfrage abgelehnt — kein Problem, Cache funktioniert trotzdem.\'})})" style="display:block;width:100%;padding:11px;margin-top:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit;">🛡️ Persistent-Storage anfragen</button>' : '') +
+            '<button onclick="window.gsRequestPersistentStorage().then(function(ok){document.getElementById(\'gs-storage-modal\').remove();if(typeof showProfileToast===\'function\')showProfileToast({type:ok?\'success\':\'warn\',icon:ok?\'✅\':\'⚠️\',title:ok?\'Persistent aktiviert\':\'Vom Browser abgelehnt\',body:ok?\'Cache wird nicht mehr automatisch gelöscht.\':\'Browser hat Anfrage abgelehnt — kein Problem, Cache funktioniert trotzdem.\'})})" style="display:block;width:100%;padding:11px;margin-top:12px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit;">🛡️ Persistent-Storage anfragen</button>' : '') +
           '<button onclick="gsClearCachesConfirm()" style="display:block;width:100%;padding:11px;margin-top:8px;background:transparent;color:var(--c-danger);border:1.5px solid #c62828;border-radius:10px;font-weight:700;font-size:12.5px;cursor:pointer;font-family:inherit;">🗑️ Cache komplett leeren</button>' +
           '<button onclick="document.getElementById(\'gs-storage-modal\').remove()" style="display:block;width:100%;padding:9px;margin-top:6px;background:transparent;color:var(--muted);border:none;font-size:12px;cursor:pointer;font-family:inherit;">Schliessen</button>' +
         '</div>' +
@@ -72811,7 +72846,7 @@ window.gsEmptyState = function(opts){
     '<div style="font-size:54px;margin-bottom:10px;opacity:.85;animation:gsEmptyPulse 2.4s ease-in-out infinite;">' + icon + '</div>' +
     '<div style="font-family:\'Playfair Display\',serif;font-size:18px;font-weight:800;color:var(--text);margin-bottom:6px;">' + title + '</div>' +
     (body ? '<div style="font-size:12.5px;color:var(--text2);line-height:1.45;max-width:280px;margin:0 auto 14px;">' + body + '</div>' : '') +
-    (ctaLabel && ctaAction ? '<button onclick="' + ctaAction + '" style="background:var(--g-main);color:#fff;border:none;border-radius:10px;padding:10px 22px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">' + ctaLabel + '</button>' : '') +
+    (ctaLabel && ctaAction ? '<button onclick="' + ctaAction + '" style="background:var(--fill-brand);color:#fff;border:none;border-radius:10px;padding:10px 22px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">' + ctaLabel + '</button>' : '') +
   '</div>';
 };
 // CSS-Pulse für Empty-State-Icon
@@ -73093,7 +73128,7 @@ window.gsRenderGardenStats = function(){
         '<div style="padding:0 22px;">' + itemsHtml + '</div>' +
         techToggleHtml +
         '<div style="padding:14px 22px 22px;display:flex;gap:8px;">' +
-          '<button id="gs-wn-close" style="flex:1;padding:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">Verstanden</button>' +
+          '<button id="gs-wn-close" style="flex:1;padding:12px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">Verstanden</button>' +
         '</div>' +
       '</div>';
     document.body.appendChild(m);
@@ -73636,7 +73671,7 @@ function renderProfileLogin(mc) {
     // Tab-Bar: nur Anmelden / Registrieren
     '<div style="display:flex;border-radius:12px;overflow:hidden;border:1.5px solid var(--border);margin-bottom:18px;">',
       '<button id="prof-tab-login" onclick="profSwitchTab(\'login\')" ',
-        'style="flex:1;padding:11px;background:var(--g-main);color:#fff;border:none;',
+        'style="flex:1;padding:11px;background:var(--fill-brand);color:#fff;border:none;',
         'font-weight:800;font-size:13.5px;cursor:pointer;font-family:inherit;transition:all var(--dur);">',
         _t('btn_login','🔑 Anmelden') + '</button>',
       '<button id="prof-tab-reg" onclick="profSwitchTab(\'register\')" ',
@@ -73742,7 +73777,7 @@ function profSwitchTab(tab) {
   var tabLogin  = document.getElementById('prof-tab-login');
   var tabReg    = document.getElementById('prof-tab-reg');
 
-  var activeStyle   = 'flex:1;padding:11px;background:var(--g-main);color:#fff;border:none;font-weight:800;font-size:13.5px;cursor:pointer;font-family:inherit;transition:all var(--dur);';
+  var activeStyle   = 'flex:1;padding:11px;background:var(--fill-brand);color:#fff;border:none;font-weight:800;font-size:13.5px;cursor:pointer;font-family:inherit;transition:all var(--dur);';
   var inactiveStyle = 'flex:1;padding:11px;background:var(--surface2);color:var(--text);border:none;font-weight:600;font-size:13.5px;cursor:pointer;font-family:inherit;transition:all var(--dur);';
 
   if (tab === 'login') {
@@ -73835,7 +73870,7 @@ async function profileDoRegister() {
       '<div style="font-size:60px;margin-bottom:14px;">🌿</div>' +
       '<div style="font-size:22px;font-weight:800;color:var(--g-dark);">' + _t('welcome_title','Willkommen!') + '</div>' +
       '<div style="font-size:14px;color:var(--muted);margin-top:8px;">' + _t('now_logged_in','Du bist jetzt eingeloggt.') + '</div>' +
-      '<button onclick="closeModal(\'modal-profile\')" style="margin-top:20px;width:100%;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">' + _t('btn_lets_go','✅ Los geht es!') + '</button>' +
+      '<button onclick="closeModal(\'modal-profile\')" style="margin-top:20px;width:100%;padding:13px;background:var(--fill-brand);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">' + _t('btn_lets_go','✅ Los geht es!') + '</button>' +
       '</div>';
     return;
   }
@@ -73859,7 +73894,7 @@ async function profileDoRegister() {
         _t('sender_label','Absender:') + ' <strong>info@greenscan.ch</strong>',
       '</div>',
     '</div>',
-    '<button onclick="profSwitchTab(\'login\'); var e=document.getElementById(\'prof-email\'); if(e) e.value=\''+email+'\'" style="width:100%;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:8px;">' + _t('btn_to_login','🔑 Zum Login') + '</button>',
+    '<button onclick="profSwitchTab(\'login\'); var e=document.getElementById(\'prof-email\'); if(e) e.value=\''+email+'\'" style="width:100%;padding:13px;background:var(--fill-brand);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:8px;">' + _t('btn_to_login','🔑 Zum Login') + '</button>',
     '<a href="mailto:info@greenscan.ch?subject=Hilfe%20bei%20Registrierung" style="display:block;text-align:center;font-size:12px;color:var(--muted);text-decoration:none;padding:6px;">' + _t('help_contact','Hilfe? Kontakt: info@greenscan.ch') + '</a>',
   ].join('');
 }
@@ -77008,7 +77043,7 @@ async function gsRenderBlockedList(){
     var h = '<div style="font-size:16px;font-weight:800;margin-bottom:12px;">🚫 Blockierte Nutzer</div>';
     if (!rows.length) h += '<div style="text-align:center;color:var(--muted);padding:24px;">Niemand blockiert.</div>';
     else h += rows.map(function(b){ return '<div style="display:flex;align-items:center;gap:10px;padding:9px;border-bottom:1px solid var(--border);">'+_gsAvatarHtml({avatar_emoji:b.avatar_emoji},38)+'<div style="flex:1;font-size:13px;">'+_gsCEsc(b.display_name||'Nutzer')+'</div><button onclick="gsBlockToggleProfile(\''+b.blocked_id+'\');setTimeout(gsRenderBlockedList,400)" style="padding:7px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--card);color:var(--g-dark);font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;">Aufheben</button></div>'; }).join('');
-    h += '<button onclick="gsOpenProfileSettings()" style="width:100%;margin-top:12px;padding:10px;border-radius:10px;border:none;background:var(--g-dark);color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">‹ Zurück</button>';
+    h += '<button onclick="gsOpenProfileSettings()" style="width:100%;margin-top:12px;padding:10px;border-radius:10px;border:none;background:var(--fill-dark);color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">‹ Zurück</button>';
     _gsNlOpen(h);
   } catch(e){ console.warn('[gsBlockedList]', e && e.message); }
 }
@@ -77043,7 +77078,7 @@ async function gsOpenOrgs(){
         + '<div style="color:var(--muted);">›</div></div>';
     }).join('');
     h += '<div style="display:flex;gap:8px;margin-top:14px;">'
-      + '<button onclick="gsOrgCreate()" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--g-dark);color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">'+_gsOrgT('org_new_btn','+ Neue Org')+'</button>'
+      + '<button onclick="gsOrgCreate()" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--fill-dark);color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">'+_gsOrgT('org_new_btn','+ Neue Org')+'</button>'
       + '<button onclick="gsOrgJoinPrompt()" style="flex:1;padding:11px;border:1.5px solid var(--g-light);border-radius:10px;background:var(--card);color:var(--g-dark);font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">'+_gsOrgT('org_join_btn','🔑 Beitreten (Code)')+'</button></div>';
     _gsNlOpen(h);
   } catch(e){ console.warn('[gsOpenOrgs]', e && e.message); }
@@ -77055,7 +77090,7 @@ function gsOrgCreate(){
   h += '<div style="font-size:12px;color:var(--muted);margin-bottom:3px;">'+_gsOrgT('org_name_label','Name')+'</div><input id="gs-org-name" maxlength="80" placeholder="'+_gsOrgT('org_name_ph','z.B. Schule Bern')+'" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:9px;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:10px;">';
   h += '<div style="font-size:12px;color:var(--muted);margin-bottom:3px;">'+_gsOrgT('org_slug_label','Kurz-URL (slug, 3-40 Klein-Buchst./Zahlen/-)')+'</div><input id="gs-org-slug" maxlength="40" placeholder="schule-bern" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:9px;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:10px;">';
   h += '<div style="font-size:12px;color:var(--muted);margin-bottom:3px;">'+_gsOrgT('org_type_label','Typ')+'</div><select id="gs-org-type" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:9px;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:16px;">'+opts+'</select>';
-  h += '<button onclick="gsOrgSubmitCreate()" style="width:100%;padding:12px;border:none;border-radius:10px;background:var(--g-dark);color:#fff;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;">'+_gsOrgT('org_create_submit','Erstellen')+'</button>';
+  h += '<button onclick="gsOrgSubmitCreate()" style="width:100%;padding:12px;border:none;border-radius:10px;background:var(--fill-dark);color:#fff;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;">'+_gsOrgT('org_create_submit','Erstellen')+'</button>';
   h += '<button onclick="gsOpenOrgs()" style="width:100%;margin-top:8px;padding:9px;border:none;background:transparent;color:var(--muted);font-size:13px;cursor:pointer;font-family:inherit;">'+_gsOrgT('org_back','‹ Zurück')+'</button>';
   _gsNlOpen(h);
 }
@@ -77083,7 +77118,7 @@ function gsOrgJoinPrompt(){
   var h = '<div style="font-size:16px;font-weight:800;margin-bottom:12px;">'+_gsOrgT('org_join_title','🔑 Organisation beitreten')+'</div>';
   h += '<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px;">'+_gsOrgT('org_join_hint','Gib den 8-stelligen Einladungs-Code ein, den du von deiner Schule/Org bekommen hast.')+'</div>';
   h += '<input id="gs-org-code" maxlength="8" placeholder="ABCD1234" style="width:100%;padding:12px;border:1.5px solid var(--border);border-radius:9px;font-family:inherit;font-size:18px;letter-spacing:3px;text-align:center;text-transform:uppercase;box-sizing:border-box;margin-bottom:14px;">';
-  h += '<button onclick="gsOrgRedeemCode()" style="width:100%;padding:12px;border:none;border-radius:10px;background:var(--g-dark);color:#fff;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;">'+_gsOrgT('org_join_submit','Beitreten')+'</button>';
+  h += '<button onclick="gsOrgRedeemCode()" style="width:100%;padding:12px;border:none;border-radius:10px;background:var(--fill-dark);color:#fff;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;">'+_gsOrgT('org_join_submit','Beitreten')+'</button>';
   h += '<button onclick="gsOpenOrgs()" style="width:100%;margin-top:8px;padding:9px;border:none;background:transparent;color:var(--muted);font-size:13px;cursor:pointer;font-family:inherit;">'+_gsOrgT('org_back','‹ Zurück')+'</button>';
   _gsNlOpen(h);
 }
@@ -77161,7 +77196,7 @@ async function gsOrgInviteCreate(orgId){
     var h = '<div style="text-align:center;padding:10px;"><div style="font-size:14px;font-weight:800;margin-bottom:8px;">'+_gsOrgT('org_invite_code_title','🔑 Einladungs-Code')+'</div>'
       + '<div style="font-size:11px;color:var(--muted);margin-bottom:12px;">'+_gsOrgT('org_invite_code_hint','Gültig 14 Tage · Rolle: Schüler. Teile diesen Code:')+'</div>'
       + '<div style="font-size:30px;font-weight:900;letter-spacing:4px;color:var(--g-dark);background:var(--card);border:2px dashed var(--g-light);border-radius:12px;padding:16px;margin-bottom:12px;">'+_gsCEsc(code)+'</div>'
-      + '<button onclick="gsCopyInviteCode()" style="padding:10px 18px;border:none;border-radius:10px;background:var(--g-dark);color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">'+_gsOrgT('org_copy_btn','📋 Kopieren')+'</button>'
+      + '<button onclick="gsCopyInviteCode()" style="padding:10px 18px;border:none;border-radius:10px;background:var(--fill-dark);color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">'+_gsOrgT('org_copy_btn','📋 Kopieren')+'</button>'
       + '<button onclick="gsOpenOrgDetail(\''+orgId+'\')" style="display:block;width:100%;margin-top:10px;padding:9px;border:none;background:transparent;color:var(--muted);font-size:13px;cursor:pointer;font-family:inherit;">'+_gsOrgT('org_back','‹ Zurück')+'</button></div>';
     _gsNlOpen(h);
   } catch(e){ console.warn('[gsOrgInviteCreate]', e && e.message); }
@@ -77214,7 +77249,7 @@ function gsOrgEdit(orgId){
   h += '<input id="gs-orge-web" placeholder="https://…" value="'+_gsCEsc(o.website||'')+'" style="width:100%;padding:11px;margin:4px 0 10px;border:1px solid var(--border);border-radius:10px;font-family:inherit;font-size:13px;box-sizing:border-box;">';
   h += '<label style="font-size:12px;color:var(--muted);">'+_gsOrgT('org_color_label','Akzent-Farbe')+'</label>';
   h += '<div style="display:flex;gap:8px;align-items:center;margin:4px 0 14px;"><input id="gs-orge-color" type="color" value="'+pc+'" style="width:48px;height:38px;border:1px solid var(--border);border-radius:8px;padding:2px;cursor:pointer;"><span style="font-size:12px;color:var(--muted);">'+_gsOrgT('org_color_hint','Akzent in der Org-Ansicht (Whitelabel).')+'</span></div>';
-  h += '<button onclick="gsOrgSubmitEdit(\''+orgId+'\')" style="width:100%;padding:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">'+_gsOrgT('org_save_btn','Speichern')+'</button>';
+  h += '<button onclick="gsOrgSubmitEdit(\''+orgId+'\')" style="width:100%;padding:12px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">'+_gsOrgT('org_save_btn','Speichern')+'</button>';
   h += '<button onclick="gsOpenOrgDetail(\''+orgId+'\')" style="width:100%;margin-top:8px;padding:10px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">'+_gsOrgT('cls_back','Zurück')+'</button>';
   h += '</div>';
   _gsNlOpen(h);
@@ -77242,7 +77277,7 @@ function gsOrgOnboardingDone(){
       + _gsOrgT('org_onb_step2','2️⃣ <b>Mitglieder einladen</b> → Einladungs-Code teilen')+'<br>'
       + _gsOrgT('org_onb_step3','3️⃣ <b>Klasse erstellen</b> → Aufgaben stellen (🎓 Klassen)')
     + '</div>'
-    + '<button onclick="gsOpenOrgs()" style="width:100%;padding:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">'+_gsOrgT('org_onb_cta','Zu meinen Organisationen')+'</button>'
+    + '<button onclick="gsOpenOrgs()" style="width:100%;padding:12px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">'+_gsOrgT('org_onb_cta','Zu meinen Organisationen')+'</button>'
     + '<button onclick="if(typeof gsOpenClasses===&quot;function&quot;)gsOpenClasses()" style="width:100%;margin-top:8px;padding:10px;background:transparent;color:var(--g-dark);border:1px solid var(--border);border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">'+_gsOrgT('org_onb_cta2','🎓 Direkt zu Klassen')+'</button>'
     + '</div>');
 }
@@ -77282,7 +77317,7 @@ async function gsOpenClasses(){
     });
   }
   h += '<div style="display:flex;gap:8px;margin-top:8px;">'
-    + '<button onclick="gsClassJoin()" style="flex:1;padding:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;font-size:13px;">'+_gsClsT('cls_join_btn','➕ Beitreten')+'</button>'
+    + '<button onclick="gsClassJoin()" style="flex:1;padding:12px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;font-size:13px;">'+_gsClsT('cls_join_btn','➕ Beitreten')+'</button>'
     + '<button onclick="gsClassCreate()" style="flex:1;padding:12px;background:#37474f;color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;font-size:13px;">'+_gsClsT('cls_new_btn','🧑‍🏫 Neue Klasse')+'</button>'
     + '</div></div>';
   _gsNlOpen(h);
@@ -77294,7 +77329,7 @@ function gsClassJoin(){
     + '<div style="font-size:18px;font-weight:900;color:var(--text);margin-bottom:10px;">'+_gsClsT('cls_join_title','➕ Klasse beitreten')+'</div>'
     + '<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px;">'+_gsClsT('cls_join_hint','Gib den Klassen-Code deiner Lehrkraft ein. (Du musst bereits Mitglied der Organisation sein.)')+'</div>'
     + '<input id="gs-cls-join-code" maxlength="6" placeholder="'+_gsClsT('cls_join_ph','z.B. 8F1E0B')+'" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;font-size:16px;text-transform:uppercase;letter-spacing:2px;text-align:center;font-family:inherit;box-sizing:border-box;">'
-    + '<button onclick="gsClassDoJoin()" style="width:100%;margin-top:12px;padding:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">'+_gsClsT('cls_join_submit','Beitreten')+'</button>'
+    + '<button onclick="gsClassDoJoin()" style="width:100%;margin-top:12px;padding:12px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">'+_gsClsT('cls_join_submit','Beitreten')+'</button>'
     + '<button onclick="gsOpenClasses()" style="width:100%;margin-top:8px;padding:10px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">'+_gsClsT('cls_back','Zurück')+'</button>'
     + '</div>');
 }
@@ -77319,7 +77354,7 @@ async function gsClassCreate(){
     orgs = (r && r.data) || []; if (!Array.isArray(orgs)) orgs = [];
   } catch(_){}
   if (!orgs.length) {
-    _gsNlOpen('<div style="padding:24px;max-width:380px;margin:0 auto;text-align:center;"><div style="font-size:40px;">🏢</div><div style="font-weight:800;color:var(--text);margin:10px 0;">'+_gsClsT('cls_need_org_title','Erst eine Organisation')+'</div><div style="font-size:13px;color:var(--muted);line-height:1.6;">'+_gsClsT('cls_need_org_text','Klassen gehören zu einer Organisation. Erstelle/tritt zuerst einer Schule, einem Kurs oder Verein bei (Einstellungen → 🏢 Organisationen). Nur Lehrkräfte/Admins können Klassen anlegen.')+'</div><button onclick="gsOpenClasses()" style="margin-top:16px;padding:10px 20px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">'+_gsClsT('cls_back','Zurück')+'</button></div>');
+    _gsNlOpen('<div style="padding:24px;max-width:380px;margin:0 auto;text-align:center;"><div style="font-size:40px;">🏢</div><div style="font-weight:800;color:var(--text);margin:10px 0;">'+_gsClsT('cls_need_org_title','Erst eine Organisation')+'</div><div style="font-size:13px;color:var(--muted);line-height:1.6;">'+_gsClsT('cls_need_org_text','Klassen gehören zu einer Organisation. Erstelle/tritt zuerst einer Schule, einem Kurs oder Verein bei (Einstellungen → 🏢 Organisationen). Nur Lehrkräfte/Admins können Klassen anlegen.')+'</div><button onclick="gsOpenClasses()" style="margin-top:16px;padding:10px 20px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">'+_gsClsT('cls_back','Zurück')+'</button></div>');
     return;
   }
   var opts = orgs.map(function(o){ return '<option value="'+(o.id||o.org_id)+'">'+escHtml(o.name||o.org_name||_gsClsT('cls_org_default','Organisation'))+'</option>'; }).join('');
@@ -77330,7 +77365,7 @@ async function gsClassCreate(){
     + '<label style="font-size:12px;color:var(--muted);">'+_gsClsT('cls_name_label','Klassen-Name')+'</label>'
     + '<input id="gs-cls-name" maxlength="60" placeholder="'+_gsClsT('cls_name_ph','z.B. Bio 1a')+'" style="width:100%;padding:11px;margin:4px 0 10px;border:1px solid var(--border);border-radius:10px;font-family:inherit;font-size:14px;box-sizing:border-box;">'
     + '<input id="gs-cls-desc" maxlength="120" placeholder="'+_gsClsT('cls_desc_ph','Beschreibung (optional)')+'" style="width:100%;padding:11px;margin:0 0 12px;border:1px solid var(--border);border-radius:10px;font-family:inherit;font-size:14px;box-sizing:border-box;">'
-    + '<button onclick="gsClassDoCreate()" style="width:100%;padding:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">'+_gsClsT('cls_create_submit','Klasse erstellen')+'</button>'
+    + '<button onclick="gsClassDoCreate()" style="width:100%;padding:12px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">'+_gsClsT('cls_create_submit','Klasse erstellen')+'</button>'
     + '<button onclick="gsOpenClasses()" style="width:100%;margin-top:8px;padding:10px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">'+_gsClsT('cls_back','Zurück')+'</button>'
     + '</div>');
 }
@@ -77360,7 +77395,7 @@ async function gsOpenClassDetail(classId){
       var h = '<div style="padding:20px;max-width:480px;margin:0 auto;">';
       h += '<div style="font-size:20px;font-weight:900;color:var(--text);margin-bottom:2px;">🧑‍🏫 '+escHtml(name)+'</div>';
       h += '<div style="font-size:12px;color:var(--muted);margin-bottom:14px;">'+(d.students?d.students.length:0)+' '+_gsClsT('cls_students','Schüler:innen')+' · '+total+' '+_gsClsT('cls_tasks_n','Aufgabe(n)')+'</div>';
-      h += '<button onclick="gsClassAssignmentCreate(\''+classId+'\')" style="width:100%;padding:11px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:14px;">'+_gsClsT('cls_new_task','➕ Neue Aufgabe')+'</button>';
+      h += '<button onclick="gsClassAssignmentCreate(\''+classId+'\')" style="width:100%;padding:11px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:14px;">'+_gsClsT('cls_new_task','➕ Neue Aufgabe')+'</button>';
       h += '<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:6px;">'+_gsClsT('cls_tasks_header','Aufgaben')+'</div>';
       if (d.assignments && d.assignments.length) d.assignments.forEach(function(a){
         h += '<div style="background:var(--surface2);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:12.5px;color:var(--text);">📋 '+escHtml(a.title)+' <span style="color:var(--muted);">('+gsClassTaskLabel(a.task_type)+' · '+_gsClsT('cls_target','Ziel')+' '+a.target_count+')</span></div>';
@@ -77410,7 +77445,7 @@ function gsClassAssignmentCreate(classId){
     + '</select>'
     + '<label style="font-size:12px;color:var(--muted);">'+_gsClsT('cls_target_label','Ziel-Anzahl')+'</label>'
     + '<input id="gs-asg-target" type="number" min="1" value="5" style="width:100%;padding:11px;margin:4px 0 12px;border:1px solid var(--border);border-radius:10px;font-family:inherit;font-size:14px;box-sizing:border-box;">'
-    + '<button onclick="gsClassDoAssignmentCreate(\''+classId+'\')" style="width:100%;padding:12px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">'+_gsClsT('cls_task_submit','Aufgabe erstellen')+'</button>'
+    + '<button onclick="gsClassDoAssignmentCreate(\''+classId+'\')" style="width:100%;padding:12px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;">'+_gsClsT('cls_task_submit','Aufgabe erstellen')+'</button>'
     + '<button onclick="gsOpenClassDetail(\''+classId+'\')" style="width:100%;margin-top:8px;padding:10px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;">'+_gsClsT('cls_back','Zurück')+'</button>'
     + '</div>');
 }
@@ -77534,7 +77569,7 @@ function gsLinaRender(typing){
       var isU = m.role === 'user';
       body += '<div style="display:flex;justify-content:'+(isU?'flex-end':'flex-start')+';margin:8px 0;">'
         + '<div style="max-width:82%;padding:10px 13px;border-radius:14px;font-size:14px;line-height:1.55;white-space:pre-wrap;word-break:break-word;'
-        + (isU ? 'background:var(--g-main);color:#fff;border-bottom-right-radius:4px;' : 'background:var(--surface2);color:var(--text);border-bottom-left-radius:4px;')
+        + (isU ? 'background:var(--fill-brand);color:#fff;border-bottom-right-radius:4px;' : 'background:var(--surface2);color:var(--text);border-bottom-left-radius:4px;')
         + '">' + (isU?'':'🌿 ') + escHtml(m.content) + '</div></div>';
     });
   }
@@ -77547,7 +77582,7 @@ function gsLinaRender(typing){
     + '<div id="gs-lina-scroll" style="flex:1;overflow-y:auto;padding:12px 16px;">' + body + '</div>'
     + '<div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);">'
       + '<input id="gs-lina-input" placeholder="' + _t('lina_input_ph','Frag Lina etwas…') + '" onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();gsLinaSend();}" style="flex:1;padding:11px 14px;border:1px solid var(--border);border-radius:22px;font-size:14px;font-family:inherit;box-sizing:border-box;">'
-      + '<button onclick="gsLinaSend()" style="padding:11px 17px;background:var(--g-main);color:#fff;border:none;border-radius:22px;font-weight:800;cursor:pointer;font-family:inherit;">➤</button>'
+      + '<button onclick="gsLinaSend()" style="padding:11px 17px;background:var(--fill-brand);color:#fff;border:none;border-radius:22px;font-weight:800;cursor:pointer;font-family:inherit;">➤</button>'
     + '</div></div>';
   _gsNlOpen(html);
   try { var sc=document.getElementById('gs-lina-scroll'); if(sc) sc.scrollTop = sc.scrollHeight; } catch(_){}
@@ -79043,7 +79078,7 @@ async function gsAdminOpenKnowledgeEditor(table) {
         '<input id="gs-kn-cat" list="gs-kn-catlist" placeholder="Kategorie (optional)" style="flex:1;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:12.5px;">' + datalist +
         '<label style="font-size:12px;display:flex;align-items:center;gap:4px;white-space:nowrap;"><input type="checkbox" id="gs-kn-pub"> freigeben</label>' +
       '</div>' +
-      '<div style="display:flex;gap:6px;"><button onclick="gsAdminKnSubmit()" style="flex:1;padding:8px;background:var(--g-main);color:#fff;border:none;border-radius:7px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;">💾 Speichern</button>' +
+      '<div style="display:flex;gap:6px;"><button onclick="gsAdminKnSubmit()" style="flex:1;padding:8px;background:var(--fill-brand);color:#fff;border:none;border-radius:7px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;">💾 Speichern</button>' +
       '<button onclick="gsAdminKnClear()" style="padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:7px;font-size:12.5px;cursor:pointer;font-family:inherit;">Neu</button></div>' +
     '</div>' +
     '<div style="font-size:11.5px;font-weight:800;color:var(--muted);margin-bottom:4px;">Einträge (' + entries.length + ')</div>' + list +
@@ -80599,7 +80634,7 @@ function gsOpenSeedInventory(){
       '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;">' +
         '<input id="gs-s-qty" placeholder="Anzahl g/Stk" style="padding:11px 12px;border:1px solid var(--border);border-radius:10px;font-family:inherit;font-size:14px;min-width:0;box-sizing:border-box;">' +
         '<input id="gs-s-exp" type="date" style="padding:11px 12px;border:1px solid var(--border);border-radius:10px;font-family:inherit;font-size:14px;min-width:0;box-sizing:border-box;">' +
-        '<button onclick="gsSeedAdd()" style="padding:11px 18px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;font-size:16px;white-space:nowrap;">+ Add</button>' +
+        '<button onclick="gsSeedAdd()" style="padding:11px 18px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;font-size:16px;white-space:nowrap;">+ Add</button>' +
       '</div>' +
     '</div>' +
     '<div id="gs-s-list" style="max-height:42vh;overflow-y:auto;">' +
@@ -80742,7 +80777,7 @@ function gsOpenGardenTimeline(){
       events.map(function(ev){
         var col = ev.type==='harvest'?'#fff8e1':ev.type==='scan'?'#e1f5fe':'#f1f8e9';
         return '<div style="position:relative;margin-bottom:10px;padding:10px 12px;background:' + col + ';border-radius:8px;">' +
-          '<div style="position:absolute;left:-22px;top:14px;width:12px;height:12px;border-radius:50%;background:var(--g-main);border:3px solid var(--card);"></div>' +
+          '<div style="position:absolute;left:-22px;top:14px;width:12px;height:12px;border-radius:50%;background:var(--fill-brand);border:3px solid var(--card);"></div>' +
           '<div style="font-size:11px;color:var(--muted);">' + escHtml(ev.date) + '</div>' +
           '<div style="font-size:13px;">' + escHtml(ev.label) + '</div>' +
           '</div>';
@@ -80929,7 +80964,7 @@ async function gsOpenWeatherWarn(){
 }
 .gs-chip:active { transform: scale(.93); }
 .gs-chip.active {
-  background: var(--g-main);
+  background:var(--fill-brand);
   color: #fff;
 }
 
@@ -81385,7 +81420,7 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
   left: 50%;
   transform: translateX(-50%);
   width: 4px; height: 4px;
-  background: var(--g-main);
+  background:var(--fill-brand);
   border-radius: 50%;
 }
 .screen.active { animation: screenFadeIn .16s ease both; }
@@ -81402,7 +81437,7 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
   left: 50%;
   transform: translateX(-50%);
   width: 4px; height: 4px;
-  background: var(--g-main);
+  background:var(--fill-brand);
   border-radius: 50%;
 }
 
@@ -81697,7 +81732,7 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
   transition: transform var(--dur);
   box-shadow:var(--elev-1);
 }
-.settings-toggle input:checked + .settings-toggle-slider { background: var(--g-main); }
+.settings-toggle input:checked + .settings-toggle-slider { background:var(--fill-brand); }
 .settings-toggle input:checked + .settings-toggle-slider::before { transform: translateX(18px); }
 
 
@@ -82297,7 +82332,7 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
 .gs-empty-action {
   margin-top: 20px;
   padding: 12px 24px;
-  background: var(--g-main);
+  background:var(--fill-brand);
   color: #fff;
   border: none;
   border-radius: 12px;
@@ -82356,7 +82391,7 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
   border-radius: 7px;
   font-size: 10px;
   font-weight: 800;
-  background: var(--g-main);
+  background:var(--fill-brand);
   color: #fff;
 }
 
@@ -82635,7 +82670,7 @@ body.dark #mp-name-sug [role="option"]:hover { background: rgba(45,138,45,.18) !
   font-family: inherit; -webkit-tap-highlight-color: transparent; transition: var(--dur); padding: 0;
 }
 .due-card-check:active { transform: scale(.9); }
-.due-card-check.checked { background: var(--g-main); color: #fff; }
+.due-card-check.checked { background:var(--fill-brand); color: #fff; }
 .due-card-emoji { font-size: 22px; flex-shrink: 0; }
 .due-card-info { flex: 1; min-width: 0; }
 .due-card-name { font-size: 13.5px; font-weight: 800; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -82644,7 +82679,7 @@ body.dark #mp-name-sug [role="option"]:hover { background: rgba(45,138,45,.18) !
 .due-card-btn {
   padding: 7px 14px;
   border-radius: 10px;
-  background: var(--g-main);
+  background:var(--fill-brand);
   color: #fff;
   border: none;
   font-size: 12.5px;
@@ -82675,7 +82710,7 @@ body.dark #mp-name-sug [role="option"]:hover { background: rgba(45,138,45,.18) !
   white-space: nowrap;
 }
 .sf-btn.active {
-  background: var(--g-main);
+  background:var(--fill-brand);
   color: #fff;
   border-color: var(--g-main);
 }
@@ -82685,7 +82720,7 @@ body.dark #mp-name-sug [role="option"]:hover { background: rgba(45,138,45,.18) !
   font-size: 11.5px;
 }
 .sf-btn.sf-prop.active {
-  background: var(--g-dark);
+  background:var(--fill-dark);
   color: #fff;
   border-color: var(--g-dark);
 }
@@ -82698,7 +82733,7 @@ body.dark #mp-name-sug [role="option"]:hover { background: rgba(45,138,45,.18) !
   font-size: 11px !important;
 }
 .sf-toggle.active {
-  background: var(--g-dark) !important;
+  background:var(--fill-dark) !important;
   color: #fff !important;
   border-color: var(--g-dark) !important;
 }
@@ -82730,7 +82765,7 @@ body.dark #mp-name-sug [role="option"]:hover { background: rgba(45,138,45,.18) !
   transition: all var(--dur-fast);
 }
 .mk-cat.active {
-  background: var(--g-main);
+  background:var(--fill-brand);
   color: #fff;
   border-color: var(--g-main);
 }
@@ -82874,7 +82909,7 @@ if (typeof window.gsGoBack !== 'function') {
       <input id="scan-chat-input" type="text" placeholder="Frage stellen… (Ist sie essbar? Wo wächst sie?)"
         style="flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font-size:13px;"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendScanChat();}">
-      <button onclick="sendScanChat()" style="padding:9px 16px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;">➤</button>
+      <button onclick="sendScanChat()" style="padding:9px 16px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;">➤</button>
     </div>
     <!-- Quick-Chips -->
     <div style="padding:6px 12px 10px;display:flex;gap:6px;flex-wrap:wrap;background:var(--surface2);flex-shrink:0;">
@@ -82930,7 +82965,7 @@ ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "sel" ON profiles FOR SELECT TO authenticated USING (auth.uid()=id);
 CREATE POLICY "ins" ON profiles FOR INSERT TO authenticated WITH CHECK (auth.uid()=id);
 CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id);</pre>
-      <button onclick="navigator.clipboard&&navigator.clipboard.writeText(document.querySelector('#supabase-schema-modal pre').textContent).then(function(){gsToast('Kopiert!', 'success')})" style="margin-top:8px;padding:7px 14px;background:var(--g-main);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-family:inherit;">📋 Kopieren</button>
+      <button onclick="navigator.clipboard&&navigator.clipboard.writeText(document.querySelector('#supabase-schema-modal pre').textContent).then(function(){gsToast('Kopiert!', 'success')})" style="margin-top:8px;padding:7px 14px;background:var(--fill-brand);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-family:inherit;">📋 Kopieren</button>
     </div>
   </div>
 </div>
@@ -82965,14 +83000,14 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
     
     <!-- Footer -->
     <div style="flex-shrink:0;padding:12px 18px;border-top:1px solid var(--border);background:var(--card);">
-      <button onclick="closeModal('modal-rechtlich')" style="width:100%;padding:11px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;">Schliessen</button>
+      <button onclick="closeModal('modal-rechtlich')" style="width:100%;padding:11px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;">Schliessen</button>
     </div>
   </div>
 </div>
 
 
 <!-- Back-to-Top Button -->
-<button id="gs-back-to-top" onclick="gsScrollToTop()" style="display:none;position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 80px);right:16px;width:42px;height:42px;border-radius:50%;background:var(--g-dark);color:#fff;border:none;font-size:18px;cursor:pointer;z-index:800;box-shadow:var(--elev-2);align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;transition:opacity var(--dur),transform var(--dur);">↑</button>
+<button id="gs-back-to-top" onclick="gsScrollToTop()" style="display:none;position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 80px);right:16px;width:42px;height:42px;border-radius:50%;background:var(--fill-dark);color:#fff;border:none;font-size:18px;cursor:pointer;z-index:800;box-shadow:var(--elev-2);align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;transition:opacity var(--dur),transform var(--dur);">↑</button>
 
 
 <!-- Tägliches Quiz Modal -->
@@ -83551,7 +83586,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
         <input id="bi-pdf" type="file" accept="application/pdf" multiple style="width:100%;padding:8px;border:1.5px dashed var(--border);border-radius:8px;font-size:12.5px;box-sizing:border-box;">
         <div id="bi-pdf-info" style="font-size:11.5px;color:var(--muted);margin-top:6px;"></div>
         <div style="margin-top:8px;padding:8px 10px;background:var(--bg-info-soft);border-radius:6px;font-size:11px;color:var(--c-info-d);">💡 Bei mehreren PDFs wird pro Datei ein eigener Job angelegt — Buchtitel wird automatisch um „[Datei N/M]" ergänzt wenn mehr als ein File hochgeladen wird.</div>
-        <button onclick="gsBookIngestStart()" style="margin-top:14px;width:100%;padding:11px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer;">🚀 Import starten</button>
+        <button onclick="gsBookIngestStart()" style="margin-top:14px;width:100%;padding:11px;background:var(--fill-brand);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer;">🚀 Import starten</button>
       </div>
 
       <!-- Step 2: Fortschritt + Review -->
@@ -83559,7 +83594,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
         <div style="font-size:11px;font-weight:800;color:var(--g-main);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Schritt 2 · Verarbeitung</div>
         <div id="bi-progress" style="padding:12px;background:#f6f9f4;border-radius:10px;font-size:12.5px;color:var(--text);margin-bottom:10px;">Starte…</div>
         <div id="bi-progress-bar-wrap" style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:14px;">
-          <div id="bi-progress-bar" style="width:0%;height:100%;background:var(--g-main);transition:width var(--dur-slow);"></div>
+          <div id="bi-progress-bar" style="width:0%;height:100%;background:var(--fill-brand);transition:width var(--dur-slow);"></div>
         </div>
         <div id="bi-review-list" style="display:flex;flex-direction:column;gap:10px;"></div>
         <!-- v24.27: Auto-Approve mit Confidence-Threshold (Wissens-DB direkt erweitern) -->
@@ -84336,7 +84371,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
           '<div style="font-size:11.5px;color:var(--muted);font-style:italic;margin-bottom:6px;">' + (c.name_lat || '') + ' · ' + cat + ' · S.' + c.page_number + ' · ' + conf + '% sicher</div>' +
           (desc ? '<div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:8px;">' + desc + (c.description && c.description.length > 160 ? '…' : '') + '</div>' : '') +
           '<div style="display:flex;gap:6px;">' +
-            '<button onclick="gsBookIngestDecide(' + c.id + ', \'approve\')\" style="flex:1;padding:7px;background:var(--g-main);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;">✓ Übernehmen</button>' +
+            '<button onclick="gsBookIngestDecide(' + c.id + ', \'approve\')\" style="flex:1;padding:7px;background:var(--fill-brand);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;">✓ Übernehmen</button>' +
             '<button onclick="gsBookIngestDecide(' + c.id + ', \'reject\')\" style="flex:1;padding:7px;background:#fafafa;color:var(--c-danger);border:1.5px solid #c62828;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;">✗ Verwerfen</button>' +
           '</div>' +
         '</div>';
@@ -84396,8 +84431,8 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
     </div>
     <div style="padding:12px 14px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;">
       <button onclick="gsShAddSensor()" class="gs-btn-ok" style="flex:1;min-width:120px;padding:9px;border:none;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;">+ Sensor anlegen</button>
-      <button onclick="gsShDemoMode()" style="flex:1;min-width:120px;padding:9px;background:var(--c-purple);color:#fff;border:none;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;">🎭 Demo-Modus</button>
-      <button onclick="gsShOpenAlerts()" style="flex:1;min-width:120px;padding:9px;background:var(--c-warn-d);color:#fff;border:none;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;">🔔 <span id="sh-alert-badge">Alerts</span></button>
+      <button onclick="gsShDemoMode()" style="flex:1;min-width:120px;padding:9px;background:var(--fill-violet);color:#fff;border:none;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;">🎭 Demo-Modus</button>
+      <button onclick="gsShOpenAlerts()" style="flex:1;min-width:120px;padding:9px;background:var(--fill-warn);color:#fff;border:none;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;">🔔 <span id="sh-alert-badge">Alerts</span></button>
     </div>
     <div id="sh-body" style="padding:14px;overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1;background:var(--bg);">
       <!-- gefüllt durch gsShRender() -->
@@ -84647,7 +84682,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
           '</div>' +
           '<div style="display:flex;gap:8px;justify-content:center;">' +
             (loggedIn ? '<button onclick="gsShAddSensor()" class="gs-btn-ok" style="padding:11px 16px;border:none;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;">+ Sensor anlegen</button>' : '') +
-            '<button onclick="gsShDemoMode()" style="padding:11px 16px;background:var(--c-purple);color:#fff;border:none;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;">🎭 Demo starten</button>' +
+            '<button onclick="gsShDemoMode()" style="padding:11px 16px;background:var(--fill-violet);color:#fff;border:none;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;">🎭 Demo starten</button>' +
           '</div>' +
         '</div>';
       return;
@@ -84657,7 +84692,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
     var demoBar = SH.demoMode
       ? '<div style="background:var(--bg-purple-soft);border:1.5px solid var(--c-purple);border-radius:10px;padding:8px 12px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;">' +
           '<span style="font-size:11.5px;color:var(--c-purple);font-weight:700;">🎭 Demo-Modus aktiv — simulierte Werte</span>' +
-          '<button onclick="gsShDemoOff()" style="background:var(--c-purple);color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">Aus</button>' +
+          '<button onclick="gsShDemoOff()" style="background:var(--fill-violet);color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">Aus</button>' +
         '</div>'
       : '';
     // Karten-Grid
@@ -85522,13 +85557,13 @@ function tpStartProgress(note){
     note.innerHTML =
       '<div style="margin-top:10px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:13px 14px;">' +
         '<div style="display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border-radius:20px;padding:3px 10px;font-size:10.5px;font-weight:800;color:var(--g-main);">' +
-          '<span style="width:7px;height:7px;border-radius:50%;background:var(--g-main);display:inline-block;"></span>' +
+          '<span style="width:7px;height:7px;border-radius:50%;background:var(--fill-brand);display:inline-block;"></span>' +
           ed(L('tp_stage_chip','Analyse läuft')) +
         '</div>' +
         '<div style="font-family:\'Playfair Display\',serif;font-size:16px;font-weight:800;color:var(--text);margin-top:8px;">' + ed(stages[si]) + '</div>' +
         '<div style="display:flex;align-items:center;gap:9px;margin-top:9px;">' +
           '<div style="flex:1;height:6px;border-radius:3px;background:var(--surface2);overflow:hidden;">' +
-            '<div style="width:' + pct + '%;height:100%;background:var(--g-main);border-radius:3px;transition:width var(--dur-slow) linear;"></div>' +
+            '<div style="width:' + pct + '%;height:100%;background:var(--fill-brand);border-radius:3px;transition:width var(--dur-slow) linear;"></div>' +
           '</div>' +
           '<div style="font-size:11.5px;font-weight:800;color:var(--muted);flex-shrink:0;">' + pct + '%</div>' +
         '</div>' +
