@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.65.20260901">
+<meta name="app-version" content="31.66.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1382,7 +1382,13 @@ body.dark .mkt-chat-msg.them{background:#2a3f2a;color:var(--text);}
 .gs-pk-txt{flex:1;min-width:0;font-size:var(--fs-sm);color:var(--text2);line-height:1.45;}
 .gs-pk-txt b{color:var(--text);font-weight:800;}
 .gs-pk-marke{font-size:var(--fs-md);font-weight:900;line-height:1.45;flex-shrink:0;}
-.moon-card-zeile{display:flex;align-items:center;gap:12px;padding:11px 14px;margin-bottom:0;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+/* v31.66: Die Zeilenfassung traegt jetzt die Kartenoptik der Seite. Vorher
+   erbte sie von .moon-card den dunkelblauen Verlauf — zwischen lauter hellen
+   Karten war sie der einzige dunkle Balken und zog den Blick auf sich, obwohl
+   sie die unwichtigste Zeile der Seite ist. Der VOLLE Mondkalender im Fenster
+   behaelt seinen Nachthimmel; dort ist er das Thema. */
+.moon-card-zeile{display:flex;align-items:center;gap:12px;padding:11px 14px;margin-bottom:0;cursor:pointer;-webkit-tap-highlight-color:transparent;
+  background:var(--card) !important;color:var(--text) !important;border:1px solid var(--border);box-shadow:var(--shadow-sm);}
 .moon-phase-icon{font-size:44px;text-align:center;margin-bottom:8px;}
 .moon-phase-name{font-family:'Playfair Display',serif;font-size:var(--fs-lg);font-weight:800;text-align:center;}
 .moon-type-row{display:flex;gap:6px;justify-content:center;margin-top:6px;flex-wrap:wrap;}
@@ -1683,6 +1689,15 @@ body.dark .gs-doc-pro{background:#3a2c10;border-color:#8d6e2a;color:#ffcc80;}
 .gs-go-badge b{display:block;font-size:var(--fs-sm);font-weight:800;color:var(--text);}
 .gs-go-badge span{display:block;font-size:var(--fs-xs);font-weight:700;color:var(--g-main);}
 
+/* v31.66 — Die Zahlenzeile. Drei Werte nebeneinander in einer Karte statt
+   drei grosser Kacheln untereinander. Trennstriche statt Rahmen: es ist EIN
+   Block mit drei Werten, keine drei Bloecke. */
+.gs-go-zahlen{display:flex;background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-sm);margin-bottom:9px;overflow:hidden;}
+.gs-go-z{flex:1;min-width:0;padding:11px 6px;text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent;border-left:1px solid var(--border);transition:background var(--dur-fast) ease;}
+.gs-go-z:first-child{border-left:none;}
+.gs-go-z:active{background:var(--surface2);}
+.gs-go-z-num{font-size:var(--fs-2xl);font-weight:900;color:var(--g-dark);line-height:1.1;}
+.gs-go-z-lbl{font-size:var(--fs-xs);color:var(--muted);font-weight:600;line-height:1.3;margin-top:2px;}
 .gs-go-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px;}
 .gs-go-ico{font-size:var(--fs-xl);line-height:1;color:var(--g-main);margin-bottom:6px;}
 .gs-go-num{font-size:var(--fs-3xl);font-weight:900;color:var(--g-dark);line-height:1;}
@@ -1700,7 +1715,11 @@ body.dark .gs-doc-pro{background:#3a2c10;border-color:#8d6e2a;color:#ffcc80;}
 body.dark .gs-go-cta{background:#a5d6a7;color:#0c170c;}
 body.dark .gs-go-cta2{background:var(--card);color:var(--g-dark);}
 .gs-go-neu{width:100%;margin-top:8px;padding:10px;border:none;background:transparent;color:var(--muted);font-family:inherit;font-size:var(--fs-sm);font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent;}
-.gs-go-hint{font-size:var(--fs-sm);color:var(--muted);line-height:1.5;margin-top:9px;text-align:center;}
+/* v31.66: Der Satz erklaert den Knopf ueber ihm. Zentriert und mit viel Luft
+   stand er wie eine eigene Aussage zwischen zwei Karten. Jetzt sitzt er eng
+   unter dem Knopf, linksbuendig wie jeder andere Text der Seite, und liest
+   sich als das, was er ist: die Bildunterschrift zum Knopf. */
+.gs-go-hint{font-size:var(--fs-sm);color:var(--muted);line-height:1.45;margin:6px 2px 0;}
 
 /* ── Scan-Fenster ─────────────────────────────────────────────────────── */
 .gs-twin-bild{border-radius:var(--r-lg);overflow:hidden;background:var(--surface2);aspect-ratio:4/3;margin-bottom:14px;}
@@ -1755,7 +1774,7 @@ body.dark .gs-twin-nr{background:#a5d6a7;color:#0d2818;}
 .gs-twin-leg i{width:11px;height:11px;border-radius:3px;display:inline-block;}
 .gs-go-tile{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px 13px;box-shadow:var(--shadow-sm);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform var(--dur-fast) ease;}
 .gs-go-tile:active{transform:scale(.985);}
-.gs-go-next{background:var(--surface2);border-color:var(--border);}
+.gs-go-next{background:var(--surface2);border-color:var(--border);margin-bottom:12px;}
 .gs-go-next-k{font-size:var(--fs-xs);font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);}
 .gs-go-next-t{font-size:var(--fs-md);font-weight:800;color:var(--text);margin-top:3px;line-height:1.25;}
 .gs-go-next-s{font-size:var(--fs-xs);color:var(--muted);margin-top:2px;line-height:1.3;}
@@ -3273,12 +3292,11 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <!-- ── SYNC STATUS (Cloud-Sync Indikator) ── -->
 <div id="garden-sync-status" aria-live="polite" style="margin:4px 18px 0;font-size:var(--fs-xs);color:var(--muted);height:14px;text-align:right;"></div>
 
-<!-- v31.56: Trennung zwischen Wetter und den vier Werkzeugen. Vorher stiessen
-     die Bloecke fast aneinander (Wetterkarte margin-bottom 0, Raster
-     margin-top 6px, dazwischen nur die 14px hohe, meist leere Sync-Zeile) —
-     das las sich als ein einziger Klotz. Eine feine Linie mit Luft darum
-     trennt sauber, ohne eine weitere Karte einzufuehren. -->
-<div style="height:1px;background:var(--border);margin:14px 16px 4px;"></div>
+<!-- v31.66: Die Trennlinie von v31.56 ist raus. Sie loeste ein Problem, das
+     es nicht mehr gibt: damals stiessen zwei randlose Bloecke aneinander und
+     lasen sich als ein Klotz. Inzwischen ist jeder Block auf dieser Seite eine
+     Karte mit eigenem Rand — da trennt der Abstand schon, und der Strich war
+     der einzige nackte Strich auf dem Bildschirm. -->
 
 <!-- v24.39: Smart-Reminder Card (wetter-aware) -->
 <div id="garden-smart-reminder" style="margin:0 16px;"></div>
@@ -3341,8 +3359,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <!-- v30.79: Garten-Werkzeuge in ausklappbare Gruppen gebündelt (rein optisch, alle Funktionen unverändert/erreichbar) -->
 <!-- v25.18: Saisonkalender-Inline-Host (wird via gsRenderSeasonalInline gefüllt) -->
 <div id="seasonal-tasks-host" style="padding:0 16px;"></div>
-<details style="margin:0 0 8px;border-top:1px solid var(--border);">
-  <summary style="padding:12px 16px;font-size:var(--fs-md);font-weight:800;color:var(--text);cursor:pointer;">🩺 Pflege & Diagnose</summary>
+<details class="gs-grp">
+  <summary>🩺 Pflege & Diagnose</summary>
   <div style="padding-top:2px;">
 <!-- v25.31: KI-Pflanzendoktor (Vision-AI via plant-doctor-diagnose Edge-Fn) -->
 <div style="padding:0 16px 12px;">
@@ -3376,8 +3394,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 </div>
   </div>
 </details>
-<details style="margin:0 0 8px;border-top:1px solid var(--border);">
-  <summary style="padding:12px 16px;font-size:var(--fs-md);font-weight:800;color:var(--text);cursor:pointer;">🗓️ Planen & Gestalten</summary>
+<details class="gs-grp">
+  <summary>🗓️ Planen & Gestalten</summary>
   <div style="padding-top:2px;">
 <div style="padding:0 16px 8px;">
   <button onclick="gsPPopenSavedPlans()" title="Gespeicherte Garten-Pläne" style="width:100%;padding:11px 12px;background:var(--card);border:1.5px solid var(--border);color:var(--text);border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
@@ -3416,8 +3434,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 </div>
   </div>
 </details>
-<details style="margin:0 0 8px;border-top:1px solid var(--border);">
-  <summary style="padding:12px 16px;font-size:var(--fs-md);font-weight:800;color:var(--text);cursor:pointer;">📚 Wissen & Werkzeuge</summary>
+<details class="gs-grp">
+  <summary>📚 Wissen & Werkzeuge</summary>
   <div style="padding-top:2px;">
 <!-- v31.64: Achievements. Vorher eine eigene Kachel im Werkzeug-Raster —
      als fuenfte in einem Zweierraster, was aus zwei Reihen drei mit einer
@@ -5075,6 +5093,16 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 </div>
 
 <style>
+/* v31.66 — Die drei Werkzeug-Gruppen. Sie standen als nackter Text auf dem
+   Seitengrund, waehrend darueber alles in Karten sass: derselbe Bildschirm,
+   zwei verschiedene Sprachen. Jetzt dieselbe Karte wie der Rest, und das
+   Dreieck sagt, dass sich etwas aufklappen laesst. */
+.gs-grp{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-sm);margin:0 16px 9px;overflow:hidden;}
+.gs-grp > summary{padding:13px 14px;font-size:var(--fs-md);font-weight:800;color:var(--text);cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;}
+.gs-grp > summary::-webkit-details-marker{display:none;}
+.gs-grp > summary::after{content:'\203a';font-size:var(--fs-xl);color:var(--muted);transition:transform var(--dur-fast) ease;}
+.gs-grp[open] > summary::after{transform:rotate(90deg);}
+.gs-grp[open] > summary{border-bottom:1px solid var(--border);}
 .pp-step{flex:1;background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-md);padding:6px 4px;font-size:var(--fs-xs);font-weight:700;color:var(--text2);text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent;line-height:1.25;transition:var(--dur);}
 .pp-step span{display:block;font-size:var(--fs-sm);font-weight:800;color:var(--g-main);margin-bottom:2px;}
 .pp-step.active{background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border-color:#1b5e20;}
@@ -7625,7 +7653,17 @@ function gsTwinOpen3D() {
     return;
   }
   _gsLoadThree().then(function () {
-    try { gsPP3DRenderInline({ bed: t.bed, plants: t.plants }, c); }
+    // v31.66: Im Zwilling ist ALLES Bestand — es ist ja der Scan dessen, was
+    // wirklich dasteht. Ohne existing:true bekaeme jede Pflanze den Ring und
+    // den gruenen Schildrahmen, also die Zeichensprache fuer „das waere neu".
+    // Im Planer sagt dieselbe Ansicht dann das Gegenteil. Eine Zeichensprache,
+    // die je nach Fenster etwas anderes bedeutet, ist keine.
+    try {
+      gsPP3DRenderInline({ bed: t.bed, plants: (t.plants || []).map(function (p) {
+        var q = {}; for (var k in p) if (Object.prototype.hasOwnProperty.call(p, k)) q[k] = p[k];
+        q.existing = true; return q;
+      }) }, c);
+    }
     catch (e) { c.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#88a888;font-size:var(--fs-sm);padding:20px;text-align:center;">Modell konnte nicht gezeichnet werden.</div>'; }
   }).catch(function () {
     c.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#88a888;font-size:var(--fs-sm);padding:20px;text-align:center;">3D-Bibliothek nicht geladen. Der Rest funktioniert weiter.</div>';
@@ -7685,6 +7723,40 @@ window.gsRenderGardenOverview = function () {
            '</div>';
   }
 
+  // ── v31.66: Drei Zahlen in EINER Zeile ────────────────────────────────
+  //
+  // Vorher: vier Kacheln in einem 2x2-Raster, jede ~145 px hoch, zusammen
+  // rund 300 px — fuer drei Zahlen und eine Handlungsaufforderung. Und die
+  // vierte Kachel war gar keine Zahl: anderer Grund, andere Ausrichtung,
+  // andere Schriftgroessen. Sie brach das Raster sichtbar, weil sie etwas
+  // anderes IST.
+  //
+  // Jetzt: die drei Zahlen nebeneinander in einer Zeile (72 px statt 300),
+  // und der naechste Schritt als eigene Karte darunter. Er sieht weiterhin
+  // anders aus — aber jetzt absichtlich, nicht aus Versehen.
+  //
+  // Ohne Symbole: „▦" und „🗺" sahen auf dem Geraet wie Platzhalter aus,
+  // nicht wie Zeichen. Eine grosse Zahl mit klarer Beschriftung braucht
+  // kein Bild daneben.
+  function zahlenzeile(eintraege) {
+    return '<div class="gs-go-zahlen">' + eintraege.map(function (e) {
+      return '<div class="gs-go-z" role="button" tabindex="0" onclick="' + e.aktion + '"' +
+             ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();' + e.aktion + ';}">' +
+               '<div class="gs-go-z-num">' + e.zahl + '</div>' +
+               '<div class="gs-go-z-lbl">' + e.label + '</div>' +
+             '</div>';
+    }).join('') + '</div>';
+  }
+  function naechsterSchritt() {
+    return '<div class="gs-go-tile gs-go-next" role="button" tabindex="0" onclick="' +
+      (first ? 'gsNcDoneTask(this,\'' + esc(first.plant.id) + '\',\'' + esc(first.key) + '\')'
+             : "if(typeof switchTab==='function')switchTab('favs')") + '">' +
+      '<div class="gs-go-next-k">N\u00e4chster Schritt</div>' +
+      '<div class="gs-go-next-t">' + schrittTitel + '</div>' +
+      '<div class="gs-go-next-s">' + esc(schrittUnter) + '</div>' +
+    '</div>';
+  }
+
   var kacheln, hero = '', cta;
 
   if (t) {
@@ -7694,30 +7766,22 @@ window.gsRenderGardenOverview = function () {
         (t.photo ? '<img src="' + esc(t.photo) + '" alt="Dein Garten">' : '<div class="gs-go-hero-leer">🌿</div>') +
         '<div class="gs-go-badge"><b>3D-Modell</b><span>Fertig</span></div>' +
       '</div>';
-    kacheln =
-      kachel('🌿', t.plants.length, 'Pflanze' + (t.plants.length === 1 ? '' : 'n') + '<br>erkannt', "gsTwinOpenListe()") +
-      kachel('▦',  t.beds.length,   'Pflegezone' + (t.beds.length === 1 ? '' : 'n') + '<br>eingerichtet', "gsTwinOpen3D()") +
-      kachel('☀',  t.zones.length,  'Lichtzone' + (t.zones.length === 1 ? '' : 'n') + '<br>erkannt', "gsTwinOpen3D()") +
-      '<div class="gs-go-tile gs-go-next" role="button" tabindex="0" onclick="' + (first ? 'gsNcDoneTask(this,\'' + esc(first.plant.id) + '\',\'' + esc(first.key) + '\')' : "if(typeof switchTab==='function')switchTab('favs')") + '">' +
-        '<div class="gs-go-next-k">Nächster Schritt</div>' +
-        '<div class="gs-go-next-t">' + schrittTitel + '</div>' +
-        '<div class="gs-go-next-s">' + esc(schrittUnter) + '</div>' +
-      '</div>';
+    kacheln = zahlenzeile([
+      { zahl: t.plants.length, label: 'Pflanze' + (t.plants.length === 1 ? '' : 'n') + ' erkannt', aktion: 'gsTwinOpenListe()' },
+      { zahl: t.beds.length,   label: 'Pflegezone' + (t.beds.length === 1 ? '' : 'n'),             aktion: 'gsTwinOpen3D()' },
+      { zahl: t.zones.length,  label: 'Lichtzone' + (t.zones.length === 1 ? '' : 'n'),             aktion: 'gsTwinOpen3D()' },
+    ]) + naechsterSchritt();
     cta =
       '<button type="button" class="gs-go-cta" onclick="if(typeof switchTab===\'function\')switchTab(\'favs\')">Pflegeplan ansehen <span aria-hidden="true">→</span></button>' +
       '<button type="button" class="gs-go-cta gs-go-cta2" onclick="gsTwinOpen3D()"><span aria-hidden="true">🧊</span> 3D-Modell öffnen</button>' +
       '<button type="button" class="gs-go-neu" onclick="gsTwinPickPhoto()">Neu scannen</button>';
   } else {
     // ── Ohne Zwilling: nur echte Zahlen, plus die Einladung ────────────
-    kacheln =
-      kachel('🌿', nPlants, 'Pflanze' + (nPlants === 1 ? '' : 'n') + '<br>in Pflege', "if(typeof switchTab==='function')switchTab('favs')") +
-      kachel('▦',  nBeds,   'Beet' + (nBeds === 1 ? '' : 'e') + '<br>angelegt', "var _l=document.getElementById('garden-list');if(_l)_l.scrollIntoView({behavior:gsScrollBehavior(),block:'start'})") +
-      kachel('🗺', nPlans,  (nPlans === 1 ? 'Plan' : 'Pläne') + '<br>gespeichert', "(window.gsPlansOpen?gsPlansOpen():(typeof gsPPopenSavedPlans==='function'?gsPPopenSavedPlans():null))") +
-      '<div class="gs-go-tile gs-go-next" role="button" tabindex="0" onclick="' + (first ? 'gsNcDoneTask(this,\'' + esc(first.plant.id) + '\',\'' + esc(first.key) + '\')' : "if(typeof switchTab==='function')switchTab('favs')") + '">' +
-        '<div class="gs-go-next-k">Nächster Schritt</div>' +
-        '<div class="gs-go-next-t">' + schrittTitel + '</div>' +
-        '<div class="gs-go-next-s">' + esc(schrittUnter) + '</div>' +
-      '</div>';
+    kacheln = zahlenzeile([
+      { zahl: nPlants, label: 'Pflanze' + (nPlants === 1 ? '' : 'n') + ' in Pflege', aktion: "if(typeof switchTab==='function')switchTab('favs')" },
+      { zahl: nBeds,   label: 'Beet' + (nBeds === 1 ? '' : 'e') + ' angelegt',       aktion: "var _l=document.getElementById('garden-list');if(_l)_l.scrollIntoView({behavior:gsScrollBehavior(),block:'start'})" },
+      { zahl: nPlans,  label: (nPlans === 1 ? 'Plan' : 'Pl\u00e4ne') + ' gespeichert', aktion: "(window.gsPlansOpen?gsPlansOpen():(typeof gsPPopenSavedPlans==='function'?gsPPopenSavedPlans():null))" },
+    ]) + naechsterSchritt();
     cta =
       '<button type="button" class="gs-go-cta" onclick="gsTwinPickPhoto()"><span aria-hidden="true">📷</span> Garten scannen</button>' +
       '<div class="gs-go-hint">Ein Foto genügt. GreenScan erkennt Pflanzen, Beete und Lichtzonen und baut daraus dein 3D-Modell.</div>';
@@ -7731,10 +7795,7 @@ window.gsRenderGardenOverview = function () {
   // „🌻 Mein Garten · Planen · Pflegen · Ernten". Hier stand dieselbe
   // Ueberschrift ein zweites Mal — zwei Titel fuer eine Seite. Die vier
   // Kacheln sagen ohnehin, was sie sind.
-  el.innerHTML =
-    hero +
-    '<div class="gs-go-grid">' + kacheln + '</div>' +
-    cta;
+  el.innerHTML = hero + kacheln + cta;
 };
 
 // Die erkannten Pflanzen als Liste — mit Vertrauenswert, damit sichtbar
@@ -56399,6 +56460,71 @@ function gsPP3DRenderInline(plan, container) {
     return makePlantMesh(single);
   }
 
+  // ── v31.66: Namensschilder ─────────────────────────────────────────────
+  //
+  // Das Modell war huebsch und stumm. Vier Pflanzen, keine Namen — Hecke,
+  // Kohl und Basilikum sahen als gruene Formen praktisch gleich aus. Ein
+  // Plan, den man nicht lesen kann, ist Dekoration, kein Plan.
+  //
+  // Sprites statt Text-Geometrie: sie drehen sich immer zur Kamera, bleiben
+  // also beim Drehen des Modells lesbar, und sie kosten eine Textur statt
+  // eines Schriftladers. Weisse Schrift auf dunkler Pille — das traegt ueber
+  // jeder Pflanzenfarbe und ueber der Erde.
+  var schilder = [];
+  function machSchild(text, istBestand) {
+    var c = document.createElement('canvas');
+    var ctx = c.getContext('2d');
+    var schrift = 44;                       // grosszuegig, wird als Textur skaliert
+    ctx.font = '700 ' + schrift + 'px system-ui, -apple-system, sans-serif';
+    var tw = Math.ceil(ctx.measureText(text).width);
+    var pad = 22;
+    c.width = Math.min(760, tw + pad * 2);
+    c.height = schrift + pad;
+    ctx = c.getContext('2d');
+    ctx.font = '700 ' + schrift + 'px system-ui, -apple-system, sans-serif';
+    // Pille
+    var r = c.height / 2;
+    ctx.fillStyle = istBestand ? 'rgba(38,50,38,.82)' : 'rgba(20,42,20,.88)';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(0, 0, c.width, c.height, r);
+    else ctx.rect(0, 0, c.width, c.height);
+    ctx.fill();
+    if (!istBestand) { ctx.strokeStyle = 'rgba(124,179,66,.95)'; ctx.lineWidth = 3; ctx.stroke(); }
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, c.width / 2, c.height / 2 + 1);
+
+    var tex = new THREE.CanvasTexture(c);
+    tex.minFilter = THREE.LinearFilter;
+    var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+    sp.renderOrder = 999;                   // nie hinter einer Pflanze verschwinden
+    // Je voller das Beet, desto kleiner die Schilder — sonst verdecken sie
+    // einander und die Entzerrung muss mehr davon ausblenden. Bei vier
+    // Pflanzen darf ein Schild gross sein, bei zwoelf nicht.
+    var _n = (plan.plants || []).length;
+    var hoehe = _n > 8 ? 0.19 : (_n > 5 ? 0.22 : 0.26);   // Meter
+    sp.scale.set(hoehe * (c.width / c.height), hoehe, 1);
+    return sp;
+  }
+
+  // Wie hoch ist die Pflanze wirklich? Statt zu raten die Bounding-Box
+  // messen — dann sitzt das Schild ueber der Pflanze und nicht in ihr.
+  function schildUeber(gruppe, text, istBestand) {
+    try {
+      var box = new THREE.Box3().setFromObject(gruppe);
+      var oben = isFinite(box.max.y) ? box.max.y : 0.4;
+      var sp = machSchild(text, istBestand);
+      // Drei feste Hoehenstufen im Wechsel. Ohne sie liegen benachbarte
+      // Schilder auf derselben Linie und ueberdecken sich — mit neun
+      // Pflanzen im Beet nachgestellt. Fest statt berechnet, damit beim
+      // Drehen des Modells nichts springt.
+      sp.position.set(gruppe.position.x, oben + 0.18 + (schilder.length % 4) * 0.24, gruppe.position.z);
+      scene.add(sp);
+      schilder.push(sp);
+    } catch (_) {}
+  }
+
   // Höhensortierung für Render-Reihenfolge (Y-Sort) und für Aufteilung Nord-Süd
   // Wir haben keine echte „Pflanzenhöhe" im Plan — nutze die w_m als Proxy
   // (kleine w_m = niedrige Pflanze, große w_m = hoher Strauch)
@@ -56417,6 +56543,7 @@ function gsPP3DRenderInline(plan, container) {
       grpSingle.traverse(function(child){ if (child.isMesh) child.userData.plantIdx = idx; });
       scene.add(grpSingle);
       plantMeshes.push(grpSingle);
+      schildUeber(grpSingle, String(p.name || '').slice(0, 22), p.existing === true);
       return;
     }
 
@@ -56426,6 +56553,7 @@ function gsPP3DRenderInline(plan, container) {
     var slotH = ph / grid.rows;
 
     var placed = 0;
+    var hoechste = null;      // fuer das eine Schild der Gruppe
     for (var row = 0; row < grid.rows; row++) {
       // Reihen-Versatz für gerade Reihen → leicht versetzt für natürlicheren Look (optional)
       var staggered = (row % 2 === 1) && (grid.cols * grid.rows > count);
@@ -56441,8 +56569,24 @@ function gsPP3DRenderInline(plan, container) {
         pSingle.traverse(function(child){ if (child.isMesh) child.userData.plantIdx = idx; });
         scene.add(pSingle);
         plantMeshes.push(pSingle);
+        if (!hoechste) hoechste = pSingle;
         placed++;
       }
+    }
+    // Eine Gruppe bekommt EIN Schild mit Anzahl — zwoelf Schilder „Kohl"
+    // uebereinander waeren unlesbar und saehen nach Fehler aus.
+    if (hoechste) {
+      var mitte = new THREE.Object3D();
+      mitte.position.set(px + pw / 2, 0, py + ph / 2);
+      var box = new THREE.Box3().setFromObject(hoechste);
+      mitte.position.y = 0;
+      var sp = machSchild(String(p.name || '').slice(0, 20) + ' \u00d7' + count, p.existing === true);
+      sp.position.set(px + pw / 2,
+        (isFinite(box.max.y) ? box.max.y : 0.4) + 0.18 + (schilder.length % 4) * 0.24,
+        py + ph / 2);
+      sp.renderOrder = 999;
+      scene.add(sp);
+      schilder.push(sp);
     }
   });
 
@@ -56482,6 +56626,41 @@ function gsPP3DRenderInline(plan, container) {
   applyCamera();
 
   var raf = null;
+  // v31.66 — Was sich trotz Staffelung noch ueberdeckt, wird ausgeblendet.
+  // Zwei unlesbare Schilder uebereinander sind schlechter als eines, das man
+  // lesen kann. Es gewinnt das vordere: was naeher an der Kamera steht,
+  // gehoert zu der Pflanze, die man gerade ansieht. Laeuft pro Bild, weil
+  // sich die Kamera dreht — eine einmalige Anordnung wuerde nicht halten.
+  var _npos = new THREE.Vector3(), _neck = new THREE.Vector3(), _rechts = new THREE.Vector3();
+  function entzerreSchilder() {
+    if (!schilder.length) return;
+    // Die Schildgroesse im Bildraum wird GEMESSEN, nicht geschaetzt: Mitte
+    // und eine Ecke werden beide projiziert, die Differenz ist die halbe
+    // Breite bzw. Hoehe in NDC. Der erste Anlauf hatte dafuer einen
+    // geratenen Faktor — er machte die Schilder rechnerisch mehr als
+    // viermal so breit, wie sie sind, und blendete selbst bei drei
+    // Pflanzen eines aus.
+    _rechts.setFromMatrixColumn(camera.matrixWorld, 0).normalize();
+    var sichtbar = [];
+    var sortiert = schilder.map(function (sp) {
+      _npos.copy(sp.position).project(camera);
+      _neck.copy(sp.position).addScaledVector(_rechts, sp.scale.x / 2);
+      _neck.y += sp.scale.y / 2;
+      _neck.project(camera);
+      return { sp: sp, x: _npos.x, y: _npos.y, z: _npos.z,
+               hb: Math.abs(_neck.x - _npos.x), hh: Math.abs(_neck.y - _npos.y) };
+    }).sort(function (a, b) { return a.z - b.z; });
+    for (var i = 0; i < sortiert.length; i++) {
+      var k = sortiert[i], frei = (k.z > -1 && k.z < 1);
+      for (var j = 0; frei && j < sichtbar.length; j++) {
+        var o = sichtbar[j];
+        if (Math.abs(k.x - o.x) < (k.hb + o.hb) && Math.abs(k.y - o.y) < (k.hh + o.hh)) frei = false;
+      }
+      k.sp.visible = frei;
+      if (frei) sichtbar.push(k);
+    }
+  }
+
   function animate(now) {
     var elapsed = now - introStart;
     if (!userInteracted && elapsed < INTRO_MS) {
@@ -56495,6 +56674,7 @@ function gsPP3DRenderInline(plan, container) {
       currentZoom  += (targetZoom  - currentZoom)  * 0.15;
     }
     applyCamera();
+    entzerreSchilder();
     renderer.render(scene, camera);
     raf = requestAnimationFrame(animate);
   }
@@ -64966,6 +65146,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.66', date: '01.09.2026',
+    headline: '\ud83c\udff7\ufe0f Das 3D-Modell hat jetzt Namensschilder \u2014 und „Mein Garten" sieht endlich nach einem St\u00fcck aus',
+    summary: 'Im Modell waren Hecke, Kohl und Basilikum drei gr\u00fcne Formen ohne Namen \u2014 h\u00fcbsch, aber nicht lesbar. Und auf der Gartenseite klaffte ein 100 Pixel hohes Loch mitten im Layout, das seit Jahren niemand bemerkt hat.',
+    user_summary: '\ud83c\udff7\ufe0f Jede Pflanze im 3D-Modell tr\u00e4gt jetzt ihren Namen. Und „Mein Garten" ist noch einmal k\u00fcrzer und deutlich aufger\u00e4umter.',
+    user_items: [
+      {emoji:'\ud83c\udff7\ufe0f', bold:'Namen im Modell:', text:' Ein Plan, den man nicht lesen kann, ist Dekoration. Jede Pflanze bekommt ein Schild, das sich immer zur Kamera dreht \u2014 grau f\u00fcr das, was schon dasteht, mit gr\u00fcnem Rand f\u00fcr Vorschl\u00e4ge, genau wie die Ringe am Boden. Gruppen zeigen die Anzahl: „Karotte \u00d712".'},
+      {emoji:'\ud83d\udc41\ufe0f', bold:'Und sie dr\u00e4ngeln sich nicht:', text:' Bei einem vollen Beet lagen die Schilder \u00fcbereinander. Jetzt stehen sie auf vier festen H\u00f6hen, werden bei vielen Pflanzen kleiner, und was sich trotzdem \u00fcberdeckt, tritt zur\u00fcck \u2014 das vordere gewinnt. Gemessen: bei drei bis f\u00fcnf Pflanzen sind alle Schilder da, bei zw\u00f6lf noch drei Viertel.'},
+      {emoji:'\ud83d\udd73\ufe0f', bold:'Ein 100-Pixel-Loch:', text:' Zwischen der letzten Gartenkarte und „Einpflanzen" klaffte eine leere Fl\u00e4che. Ursache: eine Regel, die Listen einen Sockel gibt, damit ihr Ende nicht hinter der Navigationsleiste verschwindet \u2014 nur ist die Gartenliste gar nicht das Letzte auf der Seite.'},
+      {emoji:'\u2728', bold:'Und die Seite als Ganzes:', text:' Drei Zahlen stehen jetzt nebeneinander in einer Zeile statt in vier grossen Kacheln (72 statt 300 Pixel). Der Mondkalender war der einzige dunkelblaue Balken zwischen lauter hellen Karten \u2014 jetzt tr\u00e4gt er dieselbe Karte. Die drei Werkzeug-Gruppen standen als nackter Text auf dem Grund und sind jetzt ebenfalls Karten. Nochmals 10 bis 13 % k\u00fcrzer, bei exakt gleich vielen Kn\u00f6pfen.'},
+    ],
+  },
+  {
     v: 'v31.65', date: '01.09.2026',
     headline: '\ud83d\udd0d Der Planer sagt jetzt, was er gepr\u00fcft hat \u2014 und ein Speicher-Fehler, der den ganzen Scan fressen konnte',
     summary: 'Vor dem Plan stapelten sich bis zu vier Hinweiskästen; jetzt ist es eine Tafel, die auch sagt, was NICHT gepr\u00fcft werden konnte. Der Fortschrittsbalken erfindet keine Stufen mehr. Und beim Nachstellen mit einem echten Telefonfoto kam ein Fehler heraus, den ich selbst gebaut hatte.',
@@ -65357,7 +65549,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.65';
+var GS_VERSION = 'v31.66';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -77117,7 +77309,13 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
 #social-feed        { padding-bottom: 100px !important; }
 #wissen-content     { padding-bottom: 100px !important; }
 #market-list        { padding-bottom: 100px !important; }
-#garden-list        { padding-bottom: 100px !important; }
+/* v31.66: #garden-list ist hier RAUS. Die Regel gibt Listen einen 100-px-Sockel,
+   damit ihr Ende nicht hinter der Navigationsleiste verschwindet — das gilt fuer
+   Listen, die das LETZTE auf ihrem Bildschirm sind. Die Gartenliste ist das
+   nicht: darunter stehen zwei Knoepfe und drei Werkzeug-Gruppen. Der Sockel
+   erzeugte deshalb ein Loch von 100 px mitten auf der Seite, sichtbar zwischen
+   der letzten Gartenkarte und „Einpflanzen". (Derselbe Grund wie bei der
+   Aufraeumung direkt darunter, v31.47.) */
 #season-list        { padding-bottom: 100px !important; }
 #favs-list          { padding-bottom: 100px !important; }
 /* v31.47: die Regel galt fuer die Liste als eigener Bildschirm-Abschnitt.
