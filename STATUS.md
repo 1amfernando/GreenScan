@@ -4,13 +4,52 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.58` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.59` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (aw) — v31.59: Bestand und Vorschlag im 3D unterscheidbar
+
+Nachtrag zu V3, und beim Benutzen sofort spürbar. Seit v31.58 enthält ein Plan beides — Pflanzen aus dem Garten-Scan (`existing:true`) und neu vorgeschlagene. Im Modell sahen sie **identisch** aus.
+
+#### Die Lösung
+
+Der Footprint unter jeder Pflanze trug bisher immer die Pflanzenfarbe bei 15 %. Jetzt:
+
+| | Fläche | Ring |
+|---|---|---|
+| Bestand | `#bdbdbd`, 10 % — neutral, zurückhaltend | — |
+| Vorschlag | Pflanzenfarbe, 22 % | `#7cb342`, flache `RingGeometry` |
+
+`RingGeometry` statt Torus: flach auf dem Boden, keine zusätzliche Höhe, kein Schattenwurf.
+
+Legende darunter — **nur wenn der Plan tatsächlich Bestand enthält**. Ohne Garten-Scan gibt es nichts zu unterscheiden, und eine Legende für eine Unterscheidung, die es nicht gibt, verwirrt mehr als sie hilft.
+
+#### Gemessen an dem, was der Renderer baut
+
+Der erste Versuch scheiterte: `_gsPP3DInlineState` legt die Szene nicht offen, also kam `{meshes: 0}` heraus — kein Beweis, sondern eine Messlücke. Zweiter Anlauf: die Konstruktoren `THREE.RingGeometry` und `THREE.MeshStandardMaterial` vorübergehend umhüllen und mitzählen. Das prüft den tatsächlich gegangenen Codeweg, unabhängig davon, was der Renderer hinterher offenlegt.
+
+Bei 2 vorhandenen und 2 neuen Pflanzen:
+
+```
+ringe: 2
+fuesse: #bdbdbd @0.10 · #bdbdbd @0.10 · #66bb6a @0.22 · #66bb6a @0.22
+canvas: 1
+```
+
+#### Farben
+
+Legendentext `--text2` auf `--card`: hell 11,37:1 · dunkel 11,57:1. Ring `#7cb342` gegen den 3D-Grund `#0d2818`: 6,29:1 (Nicht-Text, Soll 3:1). Bestand `#bdbdbd`: 8,38:1.
+
+#### Verify
+
+`wiring_check` 307 Namen / 0 nicht auflösbar · Menü 40/0 · **0** offene Nachschlagungen · 0 ungesichert · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen · `contrast_check` 0 unter AA beide Modi · `touch_check` 0 unter 24×24 · Renderer-Konstruktoren am laufenden Programm gezählt · 9/9 Inline-Scripts + `sw.js` `node --check` OK · `GS_VERSION` v31.59 · `sw.js` gs-v31.59 · `_headers` v31.59 · meta 31.59.20260901.
+
+---
 
 ### 2026-09-01 (av) — v31.58: Planer V3 — er plant in den Garten, nicht auf ein leeres Rechteck
 
