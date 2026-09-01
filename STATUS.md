@@ -4,13 +4,44 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.40` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.41` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (ab) — v31.41: Alle Bildschirme hell — und zum vierten Mal dasselbe Muster
+
+Vierzehn Bildschirme hatten dunkle Volltöne als Fläche: Garten grün, Rezepte braun, Heilmittel blau, Einstellungen schiefer, Licht orange. Die Startseite ist seit v31.37 hell. Fernandos Vorlage zeigt durchgehend eine ruhige helle Fläche mit Karten darauf.
+
+#### Zum vierten Mal heute
+
+Die hellen Fassungen waren **teils längst geschrieben**. Zeile ~1249 definiert für Rezepte und Heilmittel warme helle Verläufe — überstimmt von einem Block mit vierzehn `!important`-Dunkelfarben am Dateiende.
+
+Damit ist es heute viermal dasselbe:
+
+| Version | Fertig, aber nicht angeschlossen |
+|---|---|
+| v31.37 | die helle Kopfzeile der Startseite |
+| v31.38 | der Icon-Satz mit 23 Symbolen |
+| v31.40 | `displayLuxResult` (die korrekte Lichtmess-Ausgabe) |
+| v31.41 | die hellen Bildschirm-Flächen |
+
+Das ist kein Zufall mehr. In diesem Repo wird Arbeit fertiggestellt und dann von einer `!important`-Regel oder einem nicht umgehängten Aufrufer stillgelegt. Wer hier etwas „neu bauen" will, sollte **zuerst suchen, ob es schon da ist**.
+
+#### Zwei Token wieder abgeschafft
+
+`--on-canvas` und `--on-canvas-2` kamen in v31.32 dazu, **weil** die Leinwände dunkel waren. Auf hellen Flächen wären sie jetzt genau die Falle, gegen die sie erfunden wurden: hell auf hell.
+
+Der Prüfstand hat das sofort gezeigt — acht Stellen bei 1,03 bis 1,09:1, und zwar **exakt** die 14 Stellen, die diese Token nutzten. Alle zurück auf `--text` und `--muted`, die Token entfernt.
+
+#### Die Reihenfolge war wichtig
+
+Erst die Leinwände umgestellt, **dann** gemessen, dann repariert. Hätte ich beides in einem Schritt gemacht, wäre nicht belegt, dass genau diese acht Stellen betroffen sind — und warum.
+
+---
 
 ### 2026-09-01 (aa) — v31.40: Funktionscheck — 44 Funktionen greifen ins Leere, eine stürzte dabei ab
 
