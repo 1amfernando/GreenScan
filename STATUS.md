@@ -4,13 +4,64 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.36` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.37` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (x) — v31.37: Fernando hatte recht, und mein Prüfstand war blind dafür
+
+> „Bei der Home-Seite sieht es nicht so schön aus da man kaum lesen kann was oben steht."
+
+#### Er hatte recht — und ich hatte „0 Stellen unter AA" gemeldet
+
+`contrast_check.js` überspringt Text auf Farbverläufen. Das stand sogar als bewusste Einschränkung im Kopf der Datei. Der Hero der Startseite **ist** ein Verlauf. Also war ausgerechnet der schlimmste Fall der ganzen App für mein Werkzeug unsichtbar:
+
+| | gemessen | nötig |
+|---|---|---|
+| „Natur entdecken" | **1,32:1** | 3,0 |
+| „Pilze · Nüsse · Hagebutten" | **1,11:1** | 4,5 |
+| „Guten Morgen, …" | **1,93:1** | 4,5 |
+
+#### Die Ursache: zwei Hälften eines Umbaus, die sich nie getroffen haben
+
+```css
+#screen-home .hero { background: var(--g-bg); color: var(--text); }   /* Zeile ~1599 */
+#screen-home .hero #home-hero-title { color: var(--g-dark); }
+#screen-home .hero #home-hero-sub   { color: var(--muted); }
+```
+
+Die **helle** Kopfzeile steht seit Längerem fertig im Code, samt Dunkelmodus-Variante. Sie wurde von einer `.hero`-Regel am Dateiende mit `!important` überstimmt (dunkelgrüner Verlauf, `color:#fff`). Die Kindregeln für Titel und Untertitel sind aber **ohne** `!important` — und damit wirksam. Ergebnis: dunkelgrüner und grauer Text auf dunklem Verlauf.
+
+`class="hero"` kommt in der ganzen App **genau einmal** vor. Die Sperre betraf also nichts anderes; sie ist weg, zusammen mit drei weiteren `.hero`-Regeln, die nie gewirkt haben. Damit greift der vorhandene helle Entwurf — und der entspricht Fernandos Referenzbild.
+
+#### Das Werkzeug repariert, nicht nur den Fall
+
+`contrast_check.js` nimmt die Seite jetzt **zweimal** auf: einmal normal, einmal mit `color:transparent`. Unter jeder Textstelle wird der echte Pixel-Median gelesen. Verläufe, Bilder und halbtransparente Schichten sind damit automatisch richtig berücksichtigt.
+
+Ein erster Anlauf **entfernte** den Text statt ihn durchsichtig zu machen — das liess das Layout umfliessen, die vorher gemessenen Koordinaten zeigten woanders hin, und der Prüfstand meldete „weiss auf weiss". Siebter Fall in dieser Serie, in dem die Messung selbst der Fehler war.
+
+Zwei Falschmeldungs-Klassen habe ich zusätzlich beseitigt: Text **hinter** der fixierten Navigationsleiste (dort wird ein Hintergrund gemessen, den niemand sieht) und **deaktivierte** Bedienelemente, die WCAG 1.4.3 ausdrücklich ausnimmt.
+
+#### Was der Prüfstand dann fand
+
+**28 im Hell-, 12 im Dunkelmodus** — statt 0. Alle behoben:
+
+- Zähler-Chips und Intro-Karten in Wissen/Rezepte/Heilmittel: 10-%-Tönungen über dunkler Leinwand mit Text für helle Flächen (1,05–1,59:1) → richtige Karten.
+- Pillen im Wissens-Hero und Kennzahl-Kästen bei den Pflanzen: **weisse** Transparenz über Grün hellt den Untergrund auf und lässt weissen Text durchfallen → jetzt dunkle Transparenz.
+- Zwei `rgba(255,255,255,.96)`-Flächen blieben im Dunkelmodus weiss → `var(--card)`.
+- **41× `#2d8a2d`**: dieser Grünton scheitert in *beide* Richtungen mit 4,39:1. Das Token hatte ich in v31.32 gezogen, die fest verdrahteten Vorkommen nicht.
+
+#### Eine gemeldete Grössenänderung, die diesmal echt war
+
+Der Vergleich meldete `GROESSE geaendert: 5` an den Wissens-Chips. Dieselbe Signatur war vorher schon zweimal Rauschen — also habe ich **direkt nachgemessen** statt sie erneut abzutun. Diesmal war sie echt: 72×18 → 63×32.
+
+Ursache war aber nicht meine Änderung, sondern der **dritte Chip**, der dazukommt, sobald die Arten-Datenbank geladen ist. Drei passen nicht nebeneinander, und ohne `flex-wrap` schrumpften sie und brachen *innerhalb* um — „🍂 / Herbst" auf zwei Zeilen. Trotzdem behoben, weil es hässlich ist.
+
+---
 
 ### 2026-09-01 (w) — Backend nachgesehen: ein ungesicherter Schreibaufruf, und ein Widerspruch zu einer Meldung
 

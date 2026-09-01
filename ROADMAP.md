@@ -5,7 +5,7 @@
 > Kompagnon: `STATUS.md` (operativer Snapshot) · `CLAUDE.md` (Onboarding) ·
 > `BACKEND_FRONTEND_MAP_v26.76.md` (Architektur-Detailkarte).
 
-**Stand:** v31.36 · App **live** auf green-scan.ch · released seit v26.0.
+**Stand:** v31.37 · App **live** auf green-scan.ch · released seit v26.0.
 
 ---
 
@@ -76,6 +76,8 @@ Die App ist ein reifes, live-laufendes Produkt. Erreicht u.a.:
 **Bedienbarkeit: 43 → 0 (v31.34).** Antippflächen unter 24×24 px (WCAG 2.5.8) gemessen und behoben — die kleinste war 8×8: die Karussell-Punkte unter den Tageskarten. Trefferfläche jetzt 24×24, der sichtbare Punkt sitzt als `::before` darin, die Optik ist unverändert. Zweiter echter Fall: die Suchfelder waren 18px hoch in einer 37px hohen Leiste; deren Polsterung reagierte nicht. `scripts/touch_check.js` liegt als drittes Prüfwerkzeug im Repo. Nebenbei belegt: alle **7'081** `onclick`-Ziele lösen zu echten Funktionen auf, kein fehlender Handler.
 
 **Startleistung: App-JS 1'548ms → 421ms (v31.35).** Drei `MutationObserver` (Auto-ARIA, Auto-Maxlength, Auto-Lazy) durchsuchten bei jeder DOM-Änderung das ganze Dokument neu — 743ms `querySelectorAll` allein beim Start. Jetzt gebündelt und auf die eingefügten Teilbäume beschränkt. Gegengeprüft: die drei setzen exakt dieselben 199 `aria-label`, 65 `maxlength` und 7 `loading`-Attribute wie vorher. `scripts/perf_check.js` neu im Repo. **Bewusst nicht angefasst:** die längste Einzelblockade (710ms auf einem Mittelklasse-Telefon) ist das Parsen der 5,7-MB-Datei — das liesse sich nur durch Aufteilen des Monolithen ändern, und das ist eine Architektur-Entscheidung.
+
+**Lesbarkeit, zweite Runde (v31.37).** Fernando meldete, oben auf der Startseite sei kaum etwas zu lesen — mein Prüfstand hatte „0 unter AA" gemeldet. Ursache: `contrast_check.js` übersprang Text auf **Farbverläufen**, und der Hero ist einer. „Natur entdecken" lag bei **1,32:1**. Das Werkzeug misst jetzt pixelgenau (Seite zweimal aufnehmen, einmal mit `color:transparent`, echten Hintergrund-Median lesen) und fand damit **28 + 12** Stellen; alle behoben, wieder 0 + 0. Der Kern war ein halber Umbau: die helle Kopfzeile stand fertig im Code und wurde von einer `.hero`-Regel mit `!important` überstimmt, während die Kindregeln für Titel/Untertitel (ohne `!important`) für Hell geschrieben waren. Dazu 41 fest verdrahtete `#2d8a2d` (4,39:1 in beide Richtungen) auf `#1f6b2f` gezogen.
 
 **Backend-Sicherheit nachgesehen (01.09.).** Security-Advisor: 145 Meldungen, **0 ERROR**. Die 5 `rls_enabled_no_policy` sind kein Mangel (RLS an ohne Policy = alles verboten ausser `service_role`, richtig für reine Server-Tabellen); die 3 `extension_in_public` sind Supabase-Standard. Von den 16 anon-ausführbaren SECURITY-DEFINER-Funktionen schreiben zwei: `fn_quiz_record_answer` sichert sich korrekt über `auth.uid()`, **`fn_mkt_increment_views` gar nicht** — jeder mit dem öffentlichen Anon-Key kann die Aufrufzahl beliebiger Inserate hochzählen. Migration liegt bereit (`v31_36_mkt_views_auth_guard.sql`), **nicht angewendet** (Produktionsdatenbank, Konvention: Fernando wendet an). **Offen zu klären:** der Advisor meldet Leaked-Password-Protection weiterhin als deaktiviert, obwohl als erledigt gemeldet — entweder gecacht oder nicht gegriffen.
 

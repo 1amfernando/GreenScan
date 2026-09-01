@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.36.20260901">
+<meta name="app-version" content="31.37.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -80,7 +80,7 @@
 <style>
 :root{
   /* v31.24 — warme Grundflaeche statt gruenstichigem Weiss (beide Entwuerfe
-     zeigen Creme). --g-main von #2d8a2d auf #1f6b2f: tieferes Waldgruen wie
+     zeigen Creme). --g-main von #1f6b2f auf #1f6b2f: tieferes Waldgruen wie
      in den Bildern UND endlich lesbar — der alte Wert lag als Text bei
      4,0:1, also schon vor dieser Aenderung unter der Schwelle. */
   --g-dark:#1a3d1a;--g-main:#1f6b2f;--g-mid:#3d9e3d;--g-light:#b8ddb8;--g-bg:#f4f1ea;
@@ -530,7 +530,9 @@ body.gs-scanner-active #screen-scanner { bottom: 0 !important; }
 .api-banner.ok{background:var(--bg-success-soft);color:var(--c-success-d);}
 
 
-.hero{background:linear-gradient(145deg,#142e14 0%,#2d6a2d 60%,#3a8c3a 100%);padding:22px 18px 20px;color:#fff;position:relative;overflow:hidden;}
+/* v31.37: .hero-Basisregel entfernt — sie war seit jeher tot (weiter unten
+   stand dieselbe Klasse mit !important). Die einzige .hero der App ist die
+   Startseite, und die wird ab hier von `#screen-home .hero` gestaltet. */
 .hero::before{content:"🌿";position:absolute;right:-10px;top:-10px;font-size:120px;opacity:.06;}
 .hero h2{font-family:"Playfair Display",serif;font-size:var(--fs-xl);font-weight:900;margin-bottom:5px;}
 .hero p{font-size:var(--fs-sm);opacity:.78;line-height:1.55;}
@@ -850,7 +852,7 @@ body.gs-scanner-active #screen-scanner { bottom: 0 !important; }
   position: absolute;
   inset: 7px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #2d8a2d 0%, #1a5c1a 100%);
+  background: linear-gradient(135deg, #1f6b2f 0%, #1a5c1a 100%);
   transition: transform var(--dur-fast);
   box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.25);
 }
@@ -1781,7 +1783,7 @@ body.dark #screen-home .hero #home-hero-title{color:var(--text);}
 .splash-sub { font-size: var(--fs-sm); color: rgba(220,240,220,.58); letter-spacing: .7px; text-transform: uppercase; white-space: nowrap; margin-bottom: 30px; animation: splUp .7s ease .4s both; }
 .splash-bar-wrap { width: 178px; animation: splUp .7s ease .52s both; }
 .splash-bar-track { width:100%; height:4px; background: rgba(255,255,255,.10); border-radius:var(--r-pill); overflow:hidden; }
-.splash-bar { height:100%; width:0; border-radius:var(--r-pill); background: linear-gradient(90deg,#2d8a2d,#66bb6a,#a5d6a7); background-size:220% 100%; box-shadow:var(--elev-2); transition: width var(--dur-slow) cubic-bezier(.4,0,.2,1); animation: splBarShimmer 1.9s linear infinite; }
+.splash-bar { height:100%; width:0; border-radius:var(--r-pill); background: linear-gradient(90deg,#1f6b2f,#66bb6a,#a5d6a7); background-size:220% 100%; box-shadow:var(--elev-2); transition: width var(--dur-slow) cubic-bezier(.4,0,.2,1); animation: splBarShimmer 1.9s linear infinite; }
 .splash-check { font-size: var(--fs-sm); color: rgba(255,255,255,.45); min-height: 18px; transition: color var(--dur-slow); margin-top: 16px; letter-spacing:.3px; animation: splUp .7s ease .62s both; }
 .splash-check.ok { color: #7cc480; }
 
@@ -2219,7 +2221,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
         <div id="onb-hl-dots" class="onb-hl-dots"></div>
       </div>
 
-      <button onclick="onbShowRegister()" style="width:100%;padding:16px;background:linear-gradient(135deg,#2d8a2d,#1a5c1a);color:#fff;border:none;border-radius:var(--r-lg);font-size:var(--fs-lg);font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px;box-shadow:var(--elev-brand);-webkit-tap-highlight-color:transparent;">
+      <button onclick="onbShowRegister()" style="width:100%;padding:16px;background:linear-gradient(135deg,#1f6b2f,#1a5c1a);color:#fff;border:none;border-radius:var(--r-lg);font-size:var(--fs-lg);font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px;box-shadow:var(--elev-brand);-webkit-tap-highlight-color:transparent;">
         🌱 Jetzt kostenlos registrieren
       </button>
       <button onclick="onbShowLogin()" style="width:100%;padding:15px;background:rgba(255,255,255,.08);color:#fff;border:1.5px solid rgba(255,255,255,.2);border-radius:var(--r-lg);font-size:var(--fs-lg);font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:20px;-webkit-tap-highlight-color:transparent;">
@@ -2255,7 +2257,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
       <!-- Datenschutz-Checkbox -->
       <label style="display:flex;gap:10px;align-items:flex-start;margin-bottom:14px;cursor:pointer;-webkit-tap-highlight-color:transparent;">
-        <input type="checkbox" id="onb-reg-terms" style="margin-top:2px;accent-color:#2d8a2d;cursor:pointer;flex-shrink:0;">
+        <input type="checkbox" id="onb-reg-terms" style="margin-top:2px;accent-color:#1f6b2f;cursor:pointer;flex-shrink:0;">
         <span style="font-size:var(--fs-sm);color:rgba(255,255,255,.65);line-height:1.5;">
           Ich akzeptiere die <a href="#" onclick="event.preventDefault();onbOpenPrivacy();" style="color:#a5d6a7;text-decoration:underline;">Datenschutzerklärung</a> &amp; <a href="#" onclick="event.preventDefault();onbOpenTerms();" style="color:#a5d6a7;text-decoration:underline;">Nutzungsbedingungen</a>.
         </span>
@@ -2263,7 +2265,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
       <div id="onb-reg-err" role="alert" aria-live="polite" style="display:none;background:rgba(198,40,40,.15);border-left:3px solid #e57373;color:#ff8a80;padding:10px 12px;border-radius:var(--r-sm);font-size:var(--fs-sm);margin-bottom:12px;line-height:1.5;"></div>
 
-      <button id="onb-reg-btn" data-i18n="btn_onb_register" data-i18n-fallback="✨ Registrieren" onclick="onbDoRegister()" style="width:100%;padding:15px;background:linear-gradient(135deg,#2d8a2d,#1a5c1a);color:#fff;border:none;border-radius:var(--r-lg);font-size:var(--fs-lg);font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px;box-shadow:var(--elev-brand);-webkit-tap-highlight-color:transparent;">
+      <button id="onb-reg-btn" data-i18n="btn_onb_register" data-i18n-fallback="✨ Registrieren" onclick="onbDoRegister()" style="width:100%;padding:15px;background:linear-gradient(135deg,#1f6b2f,#1a5c1a);color:#fff;border:none;border-radius:var(--r-lg);font-size:var(--fs-lg);font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px;box-shadow:var(--elev-brand);-webkit-tap-highlight-color:transparent;">
         ✨ Registrieren
       </button>
       <button data-i18n="btn_onb_show_login" data-i18n-fallback="Schon registriert? → Anmelden" onclick="onbShowLogin()" style="width:100%;padding:11px;background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.15);border-radius:var(--r-md);font-size:var(--fs-md);font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px;-webkit-tap-highlight-color:transparent;">
@@ -2291,7 +2293,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;-webkit-tap-highlight-color:transparent;">
-          <input type="checkbox" id="onb-login-remember" checked style="accent-color:#2d8a2d;cursor:pointer;">
+          <input type="checkbox" id="onb-login-remember" checked style="accent-color:#1f6b2f;cursor:pointer;">
           <span data-i18n="onb_remember_me" data-i18n-fallback="Angemeldet bleiben" style="font-size:var(--fs-sm);color:rgba(255,255,255,.65);">Angemeldet bleiben</span>
         </label>
         <button data-i18n="btn_onb_forgot_pw" data-i18n-fallback="Passwort vergessen?" onclick="onbForgotPw()" style="background:none;border:none;color:rgba(165,214,167,.85);font-size:var(--fs-sm);cursor:pointer;font-family:inherit;padding:0;-webkit-tap-highlight-color:transparent;">Passwort vergessen?</button>
@@ -2299,7 +2301,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
       <div id="onb-login-err" role="alert" aria-live="polite" style="display:none;background:rgba(198,40,40,.15);border-left:3px solid #e57373;color:#ff8a80;padding:10px 12px;border-radius:var(--r-sm);font-size:var(--fs-sm);margin-bottom:12px;line-height:1.5;"></div>
 
-      <button id="onb-login-btn" data-i18n="btn_onb_login" data-i18n-fallback="🔑 Anmelden" onclick="onbDoLogin()" style="width:100%;padding:15px;background:linear-gradient(135deg,#2d8a2d,#1a5c1a);color:#fff;border:none;border-radius:var(--r-lg);font-size:var(--fs-lg);font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px;box-shadow:var(--elev-brand);-webkit-tap-highlight-color:transparent;">
+      <button id="onb-login-btn" data-i18n="btn_onb_login" data-i18n-fallback="🔑 Anmelden" onclick="onbDoLogin()" style="width:100%;padding:15px;background:linear-gradient(135deg,#1f6b2f,#1a5c1a);color:#fff;border:none;border-radius:var(--r-lg);font-size:var(--fs-lg);font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px;box-shadow:var(--elev-brand);-webkit-tap-highlight-color:transparent;">
         🔑 Anmelden
       </button>
 
@@ -2363,7 +2365,10 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
          sie werden in initHomeBoard() gesetzt und holen ihre Texte dort über
          gsI18n.t — ein i18n-Durchlauf würde sie sonst wieder überschreiben. -->
     <div id="home-hero-title" style="font-family:'Playfair Display',serif;font-size:var(--fs-3xl);font-weight:900;line-height:1.15;margin-bottom:5px;">Natur bestimmen<br>&amp; entdecken</div>
-    <div id="home-hero-sub" style="font-size:var(--fs-md);opacity:.85;line-height:1.5;">Pflanzen · Pilze · Kräuter · Bäume · Moose</div>
+    <!-- v31.37: opacity:.85 entfernt. Die Regel #screen-home .hero #home-hero-sub
+         setzt bereits opacity:1 — der Inline-Wert schlug sie und drueckte den
+         Kontrast auf 4,43:1 (noetig 4,5). Ohne ihn: 6,32:1. -->
+    <div id="home-hero-sub" style="font-size:var(--fs-md);line-height:1.5;">Pflanzen · Pilze · Kräuter · Bäume · Moose</div>
   </div>
   
 </div>
@@ -2389,7 +2394,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:8px;">
       <div id="home-xp-achievement" style="font-size:var(--fs-xs);opacity:.78;font-weight:600;display:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0;"></div>
-      <div id="home-xp-next" style="font-size:var(--fs-xs);opacity:.78;font-weight:600;text-align:right;white-space:nowrap;">50 XP bis Level 2</div>
+      <div id="home-xp-next" style="font-size:var(--fs-xs);opacity:.9;font-weight:600;text-align:right;white-space:nowrap;">50 XP bis Level 2</div>
     </div>
   </div>
   <div class="stats-grid">
@@ -2696,7 +2701,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <div class="uz-title" data-i18n="uz_title" data-i18n-fallback="Foto aus Galerie wählen">Foto aus Galerie wählen</div>
       <div class="uz-sub" data-i18n="uz_sub" data-i18n-html data-i18n-fallback="Tippe hier um eine Pflanze, einen Pilz oder ein Kraut<br>aus deinen Fotos bestimmen zu lassen">Tippe hier um eine Pflanze, einen Pilz oder ein Kraut<br>aus deinen Fotos bestimmen zu lassen</div>
     </div>
-    <button onclick="initScanner()" data-i18n="btn_reopen_camera" data-i18n-fallback="🔄 Kamera erneut öffnen" style="display:block;width:100%;margin-top:14px;padding:13px;background:linear-gradient(135deg,#2d8a2d,#1b5e20);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🔄 Kamera erneut öffnen</button>
+    <button onclick="initScanner()" data-i18n="btn_reopen_camera" data-i18n-fallback="🔄 Kamera erneut öffnen" style="display:block;width:100%;margin-top:14px;padding:13px;background:linear-gradient(135deg,#1f6b2f,#1b5e20);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🔄 Kamera erneut öffnen</button>
   </div>
   
   <!-- File-Input (unsichtbar) — v25.1: capture="environment" entfernt, sonst forciert iOS/Android nur Kamera statt Datei-Picker -->
@@ -2774,17 +2779,17 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   </div>
   <!-- Stats-Zeile -->
   <div style="display:flex;gap:8px;">
-    <div id="plants-stat-total" style="flex:1;background:rgba(255,255,255,.15);border-radius:var(--r-md);padding:8px 10px;text-align:center;">
+    <div id="plants-stat-total" style="flex:1;background:rgba(0,0,0,.22);border-radius:var(--r-md);padding:8px 10px;text-align:center;">
       <div style="font-size:var(--fs-xl);font-weight:900;">0</div>
-      <div data-i18n="favs_stat_plants" data-i18n-fallback="Pflanzen" style="font-size:var(--fs-xs);opacity:.8;font-weight:700;text-transform:uppercase;">Pflanzen</div>
+      <div data-i18n="favs_stat_plants" data-i18n-fallback="Pflanzen" style="font-size:var(--fs-xs);opacity:.95;font-weight:700;text-transform:uppercase;">Pflanzen</div>
     </div>
-    <div id="plants-stat-due" onclick="gsShowAllDue()" style="flex:1;background:rgba(255,255,255,.15);border-radius:var(--r-md);padding:8px 10px;text-align:center;cursor:pointer;">
+    <div id="plants-stat-due" onclick="gsShowAllDue()" style="flex:1;background:rgba(0,0,0,.22);border-radius:var(--r-md);padding:8px 10px;text-align:center;cursor:pointer;">
       <div id="plants-due-count" style="font-size:var(--fs-xl);font-weight:900;">0</div>
-      <div data-i18n="favs_stat_due" data-i18n-fallback="Heute fällig" style="font-size:var(--fs-xs);opacity:.8;font-weight:700;text-transform:uppercase;">Heute fällig</div>
+      <div data-i18n="favs_stat_due" data-i18n-fallback="Heute fällig" style="font-size:var(--fs-xs);opacity:.95;font-weight:700;text-transform:uppercase;">Heute fällig</div>
     </div>
-    <div id="plants-stat-ok" style="flex:1;background:rgba(255,255,255,.15);border-radius:var(--r-md);padding:8px 10px;text-align:center;">
+    <div id="plants-stat-ok" style="flex:1;background:rgba(0,0,0,.22);border-radius:var(--r-md);padding:8px 10px;text-align:center;">
       <div id="plants-ok-count" style="font-size:var(--fs-xl);font-weight:900;">0</div>
-      <div data-i18n="favs_stat_ok" data-i18n-fallback="Gut versorgt" style="font-size:var(--fs-xs);opacity:.8;font-weight:700;text-transform:uppercase;">Gut versorgt</div>
+      <div data-i18n="favs_stat_ok" data-i18n-fallback="Gut versorgt" style="font-size:var(--fs-xs);opacity:.95;font-weight:700;text-transform:uppercase;">Gut versorgt</div>
     </div>
   </div>
 </div>
@@ -3104,7 +3109,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <span style="font-size:var(--fs-2xl);">🏆</span>
       <div style="font-size:var(--fs-md);font-weight:800;color:#5d4037;">Achievements</div>
     </div>
-    <div id="widget-achievements-subline" style="font-size:var(--fs-xs);color:#8d6e63;line-height:1.35;">Meilensteine & Garten-Score</div>
+    <!-- v31.37: #8d6e63 auf der Bernstein-Kachel ergab 4,11:1 (noetig 4,5). -->
+    <div id="widget-achievements-subline" style="font-size:var(--fs-xs);color:#6d4c41;line-height:1.35;">Meilensteine & Garten-Score</div>
   </div>
 </div>
 
@@ -3125,7 +3131,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <!-- ── ACTION BAR · v24.03: + „Meine Pläne"-Button -->
 <div style="padding:4px 16px 8px;display:flex;gap:8px;">
   <button onclick="openAddPlanting()" data-i18n="btn_garden_plant" data-i18n-fallback="🌱 Einpflanzen" style="flex:1;padding:11px 8px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🌱 Einpflanzen</button>
-  <button onclick="openGardenAI()" title="KI-Gartenplaner PRO" data-i18n="btn_garden_ai_planner" data-i18n-fallback="🤖 KI-Planer" style="flex:1;padding:11px 8px;background:linear-gradient(135deg,#2d8a2d,#1b5e20);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-brand);">🤖 KI-Planer</button>
+  <button onclick="openGardenAI()" title="KI-Gartenplaner PRO" data-i18n="btn_garden_ai_planner" data-i18n-fallback="🤖 KI-Planer" style="flex:1;padding:11px 8px;background:linear-gradient(135deg,#1f6b2f,#1b5e20);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-brand);">🤖 KI-Planer</button>
 </div>
 <div style="padding:0 16px 8px;">
   <button onclick="gsPPopenSavedPlans()" title="Gespeicherte Garten-Pläne" style="width:100%;padding:11px 12px;background:var(--card);border:1.5px solid var(--border);color:var(--text);border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
@@ -5017,7 +5023,7 @@ input:focus, textarea:focus, select:focus{
   padding:3px 8px;
   border-radius:var(--r-pill);
   background: linear-gradient(135deg,#fffbe6,#fff4c7);
-  color:#8d6e00;
+  color:#6d5400;
   border:1px solid rgba(212,175,55,.45);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.8), 0 1px 2px rgba(141,110,0,.10);
 }
@@ -5307,7 +5313,7 @@ html, body{ scroll-behavior: smooth; }
           <div class="settings-label-sub" data-i18n="settings_theme_color_hint" data-i18n-fallback="Hauptfarbe der App">Hauptfarbe der App</div>
         </div>
         <div style="display:flex;gap:7px;align-items:center;">
-          <div class="theme-swatch active" id="swatch-green"  data-theme="green"  style="background:#2d8a2d;" onclick="applyTheme('green',this)"></div>
+          <div class="theme-swatch active" id="swatch-green"  data-theme="green"  style="background:#1f6b2f;" onclick="applyTheme('green',this)"></div>
           <div class="theme-swatch"        id="swatch-teal"   data-theme="teal"   style="background:#00695c;" onclick="applyTheme('teal',this)"></div>
           <div class="theme-swatch"        id="swatch-blue"   data-theme="blue"   style="background:#1565c0;" onclick="applyTheme('blue',this)"></div>
           <div class="theme-swatch"        id="swatch-purple" data-theme="purple" style="background:#6a1b9a;" onclick="applyTheme('purple',this)"></div>
@@ -6035,7 +6041,7 @@ html, body{ scroll-behavior: smooth; }
 
     <div id="menu-normal-content">
     <!-- PROFIL-SECTION (immer sichtbar) -->
-    <div id="menu-profile-bar" onclick="closeMainMenu();(sbIsLoggedIn&&sbIsLoggedIn()?openUserProfile():openLoginModal());" style="display:flex;align-items:center;gap:12px;padding:13px 14px 10px;margin-bottom:12px;background:linear-gradient(135deg,#1a3d1a,#2d8a2d);border-radius:var(--r-lg);cursor:pointer;color:#fff;position:relative;overflow:hidden;">
+    <div id="menu-profile-bar" onclick="closeMainMenu();(sbIsLoggedIn&&sbIsLoggedIn()?openUserProfile():openLoginModal());" style="display:flex;align-items:center;gap:12px;padding:13px 14px 10px;margin-bottom:12px;background:linear-gradient(135deg,#1a3d1a,#1f6b2f);border-radius:var(--r-lg);cursor:pointer;color:#fff;position:relative;overflow:hidden;">
       <div style="position:absolute;right:-10px;top:-10px;font-size:60px;opacity:.06;">🌿</div>
       <div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:rgba(0,0,0,.2);border-radius:0 0 var(--r-lg) var(--r-lg);">
         <div id="menu-profile-xpbar" style="display:none;height:100%;background:rgba(255,255,255,.75);border-radius:0 0 var(--r-lg) var(--r-lg);transition:width var(--dur-slow) ease;width:0%;"></div>
@@ -15469,7 +15475,7 @@ window.gsTutorial = {
       var esc = (typeof gsHTMLEscape==='function') ? gsHTMLEscape : function(x){ return String(x==null?'':x); };
       var card = document.getElementById('gs-tut-card'); if (!card) return;
       if (s.tab && typeof switchTab==='function') { try { switchTab(s.tab); } catch(_){} }
-      var dots = steps.map(function(_x,j){ return '<span style="width:7px;height:7px;border-radius:50%;background:'+(j===i?'var(--g-main,#2d8a2d)':'var(--border,#ccc)')+';display:inline-block;margin:0 3px;"></span>'; }).join('');
+      var dots = steps.map(function(_x,j){ return '<span style="width:7px;height:7px;border-radius:50%;background:'+(j===i?'var(--g-main,#1f6b2f)':'var(--border,#ccc)')+';display:inline-block;margin:0 3px;"></span>'; }).join('');
       var last = (i === steps.length-1);
       card.innerHTML =
         '<div style="text-align:center;font-size:44px;margin-bottom:8px;">'+esc(s.emoji)+'</div>' +
@@ -15478,7 +15484,7 @@ window.gsTutorial = {
         '<div style="text-align:center;margin-bottom:16px;">'+dots+'</div>' +
         '<div style="display:flex;gap:10px;align-items:center;">' +
           (last ? '' : '<button onclick="window.gsTutorial._close(true)" style="flex:0 0 auto;padding:12px 14px;background:transparent;border:none;color:var(--muted,#888);font-size:var(--fs-md);font-weight:700;cursor:pointer;font-family:inherit;">Überspringen</button>') +
-          '<button onclick="window.gsTutorial._render('+(i+1)+')" style="flex:1;padding:13px;background:var(--g-main,#2d8a2d);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;">'+(last?'Los geht\'s 🌱':'Weiter →')+'</button>' +
+          '<button onclick="window.gsTutorial._render('+(i+1)+')" style="flex:1;padding:13px;background:var(--g-main,#1f6b2f);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;">'+(last?'Los geht\'s 🌱':'Weiter →')+'</button>' +
         '</div>';
     } catch(_){}
   },
@@ -25867,7 +25873,7 @@ function gsRenderMultiShotBar() {
         '<button type="button" onclick="event.stopPropagation();gsDiscardMultiShot('+i+');" aria-label="Verwerfen" style="position:absolute;top:-7px;right:-7px;width:22px;height:22px;border-radius:50%;border:2px solid #fff;background:#c62828;color:#fff;font-size:var(--fs-md);font-weight:800;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;z-index:5;">✕</button>' +
         '</div>';
     }).join('') +
-    '<button onclick="gsAnalyzeMultiShot()" style="flex:1;padding:10px 14px;background:linear-gradient(135deg,#1a5c1a,#2d8a2d);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;">✨ Auswerten ('+shots.length+')</button>';
+    '<button onclick="gsAnalyzeMultiShot()" style="flex:1;padding:10px 14px;background:linear-gradient(135deg,#1a5c1a,#1f6b2f);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;">✨ Auswerten ('+shots.length+')</button>';
 }
 
 // v23.82: Multi-Shot-Preview im Modal mit Verwerfen + Re-Label
@@ -26134,10 +26140,10 @@ function _gsKeyErrorCta(onLight){
          + '<div style="margin-top:10px;font-size:var(--fs-sm);color:' + hint + ';line-height:1.5;">Admin-Ansicht · Key von <b>console.anthropic.com</b></div>';
   }
   if (loggedIn) {
-    return '<button onclick="_gsRetryAfterKeyPull()" style="' + btn + 'background:linear-gradient(135deg,var(--g-main,#2d8a2d),var(--g-dark,#1a6a1a));">🔄 Nochmal versuchen</button>'
+    return '<button onclick="_gsRetryAfterKeyPull()" style="' + btn + 'background:linear-gradient(135deg,var(--g-main,#1f6b2f),var(--g-dark,#1a6a1a));">🔄 Nochmal versuchen</button>'
          + '<div style="margin-top:10px;font-size:var(--fs-sm);color:' + hint + ';line-height:1.5;">Die KI ist gerade nicht erreichbar. Meist hilft ein zweiter Versuch.</div>';
   }
-  return '<button onclick="openLoginModal()" style="' + btn + 'background:linear-gradient(135deg,var(--g-main,#2d8a2d),var(--g-dark,#1a6a1a));">✨ Kostenlos Konto anlegen</button>'
+  return '<button onclick="openLoginModal()" style="' + btn + 'background:linear-gradient(135deg,var(--g-main,#1f6b2f),var(--g-dark,#1a6a1a));">✨ Kostenlos Konto anlegen</button>'
        + '<div style="margin-top:10px;font-size:var(--fs-sm);color:' + hint + ';line-height:1.5;">Die KI-Bestimmung ist für angemeldete Nutzer kostenlos.</div>';
 }
 window._gsKeyErrorCta = _gsKeyErrorCta;
@@ -27174,7 +27180,7 @@ function showScanResult(r){
       _addBtn.style.cssText = 'margin-top:14px;';
       _addBtn.innerHTML =
         '<button onclick="gsAddScanToMyPlants()" ' +
-        'style="width:100%;padding:16px 14px;background:linear-gradient(135deg,#2d8a2d,#1a6a1a);color:#fff;' +
+        'style="width:100%;padding:16px 14px;background:linear-gradient(135deg,#1f6b2f,#1a6a1a);color:#fff;' +
         'border:none;border-radius:var(--r-lg);font-weight:900;font-size:var(--fs-lg);cursor:pointer;font-family:inherit;' +
         'display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:var(--elev-brand);">' +
         '<span style="font-size:var(--fs-2xl);">🌱</span> Zu meinen Pflanzen hinzufügen' +
@@ -27188,7 +27194,7 @@ function showScanResult(r){
   _newScanBtn.style.cssText = 'margin-top:14px;';
   _newScanBtn.innerHTML =
     '<button onclick="gsResetScanner()" ' +
-    'style="width:100%;padding:14px;background:linear-gradient(135deg,#1a3d1a,#2d8a2d);color:#fff;' +
+    'style="width:100%;padding:14px;background:linear-gradient(135deg,#1a3d1a,#1f6b2f);color:#fff;' +
     'border:none;border-radius:var(--r-lg);font-weight:800;font-size:var(--fs-lg);cursor:pointer;' +
     'display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:var(--elev-2);">' +
     '<span style="font-size:var(--fs-xl);">📷</span> Nächste Aufnahme' +
@@ -27438,9 +27444,9 @@ function gsPickScanLocation(cat){
     var card = document.createElement('div');
     card.style.cssText = 'background:var(--card,#fff);color:var(--text,#111);border:1px solid var(--border);border-radius:var(--r-xl) var(--r-xl) 0 0;max-width:480px;width:100%;padding:22px 20px calc(20px + env(safe-area-inset-bottom));box-shadow:var(--elev-4);';
     var btn = function(loc, emoji, label, hint, primary){
-      return '<button type="button" data-loc="'+loc+'" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;margin-bottom:10px;border-radius:var(--r-lg);border:2px solid '+(primary?'var(--g-main,#2d8a2d)':'var(--border,#ccc)')+';background:'+(primary?'rgba(46,138,45,.08)':'transparent')+';cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">'+
+      return '<button type="button" data-loc="'+loc+'" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;margin-bottom:10px;border-radius:var(--r-lg);border:2px solid '+(primary?'var(--g-main,#1f6b2f)':'var(--border,#ccc)')+';background:'+(primary?'rgba(46,138,45,.08)':'transparent')+';cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">'+
         '<span style="font-size:var(--fs-3xl);flex-shrink:0;">'+emoji+'</span>'+
-        '<span style="flex:1;min-width:0;"><span style="display:block;font-size:var(--fs-lg);font-weight:800;color:var(--text);">'+label+(primary?' <span style="font-size:var(--fs-sm);color:var(--g-main,#2d8a2d);font-weight:700;">· empfohlen</span>':'')+'</span>'+
+        '<span style="flex:1;min-width:0;"><span style="display:block;font-size:var(--fs-lg);font-weight:800;color:var(--text);">'+label+(primary?' <span style="font-size:var(--fs-sm);color:var(--g-main,#1f6b2f);font-weight:700;">· empfohlen</span>':'')+'</span>'+
         '<span style="display:block;font-size:var(--fs-sm);color:var(--muted,#777);">'+hint+'</span></span></button>';
     };
     card.innerHTML =
@@ -28668,7 +28674,7 @@ function gsFavsRenderOutdoor(){
       '<div class="gs-empty-icon" style="font-size:54px;">🌳</div>' +
       '<div class="gs-empty-title" style="font-size:var(--fs-xl);font-weight:900;margin:6px 0;">' + _t('garden_empty_title','Noch kein Garten') + '</div>' +
       '<div class="gs-empty-sub" style="font-size:var(--fs-md);margin:0 auto 18px;max-width:340px;line-height:1.5;">' + _t('garden_empty_hint','Lege einen Garten oder ein Beet an, um Outdoor-Pflanzen, Pflege-Plan und Ernte-Kalender zu nutzen.') + '</div>' +
-      '<button onclick="if(typeof openAddGarden===\'function\'){openAddGarden();}else if(typeof openModal===\'function\'){openModal(\'modal-add-garden\');}" style="display:inline-flex;align-items:center;gap:8px;padding:14px 22px;background:linear-gradient(135deg,#2d8a2d,#1a6a1a);color:#fff;border:none;border-radius:var(--r-lg);font-size:var(--fs-lg);font-weight:900;cursor:pointer;font-family:inherit;box-shadow:var(--elev-brand);-webkit-tap-highlight-color:transparent;"><span style="font-size:var(--fs-xl);">＋</span> ' + _t('btn_add_garden','Garten anlegen') + '</button>' +
+      '<button onclick="if(typeof openAddGarden===\'function\'){openAddGarden();}else if(typeof openModal===\'function\'){openModal(\'modal-add-garden\');}" style="display:inline-flex;align-items:center;gap:8px;padding:14px 22px;background:linear-gradient(135deg,#1f6b2f,#1a6a1a);color:#fff;border:none;border-radius:var(--r-lg);font-size:var(--fs-lg);font-weight:900;cursor:pointer;font-family:inherit;box-shadow:var(--elev-brand);-webkit-tap-highlight-color:transparent;"><span style="font-size:var(--fs-xl);">＋</span> ' + _t('btn_add_garden','Garten anlegen') + '</button>' +
       '</div>';
     return;
   }
@@ -28815,7 +28821,7 @@ function _gsPushPromptHtml(){
     return '<div id="gs-push-prompt" style="display:flex;align-items:center;gap:10px;padding:11px 13px;margin-bottom:10px;background:linear-gradient(135deg,rgba(46,138,45,.12),rgba(46,138,45,.03));border:1px solid var(--g-light,#a5d6a7);border-radius:var(--r-md);">' +
       '<span style="font-size:var(--fs-2xl);flex-shrink:0;">🔔</span>' +
       '<div style="flex:1;min-width:0;font-size:var(--fs-sm);line-height:1.4;color:var(--text);"><b>Erinnerungen aufs Handy?</b><br><span style="color:var(--muted);">Werde benachrichtigt, wenn Pflege ansteht — auch wenn die App zu ist.</span></div>' +
-      '<button onclick="event.stopPropagation();gsSubscribeWebPush();" style="flex-shrink:0;padding:8px 12px;background:var(--g-main,#2d8a2d);color:#fff;border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;">Aktivieren</button>' +
+      '<button onclick="event.stopPropagation();gsSubscribeWebPush();" style="flex-shrink:0;padding:8px 12px;background:var(--g-main,#1f6b2f);color:#fff;border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;">Aktivieren</button>' +
       '<button onclick="event.stopPropagation();try{localStorage.setItem(\'gs_push_prompt_dismissed\',\'1\');}catch(_){};var e=document.getElementById(\'gs-push-prompt\');if(e)e.remove();" title="Schliessen" style="flex-shrink:0;padding:6px 8px;background:transparent;border:none;color:var(--muted);font-size:var(--fs-lg);cursor:pointer;font-family:inherit;">✕</button>' +
     '</div>';
   } catch(_){ return ''; }
@@ -28924,7 +28930,7 @@ function renderMyPlants() {
       '<div class="gs-empty-title" style="font-size:var(--fs-xl);font-weight:900;margin-bottom:6px;">' + _t('mp_empty_title','Noch keine Pflanzen') + '</div>' +
       '<div class="gs-empty-sub" style="font-size:var(--fs-md);line-height:1.5;margin-bottom:20px;max-width:340px;margin-left:auto;margin-right:auto;">' + _t('mp_empty_sub','Füge deine erste Pflanze hinzu — am einfachsten per Foto-Scan. Wir merken uns Bestimmung, Foto und Pflege.') + '</div>' +
       '<div style="display:flex;flex-direction:column;gap:10px;max-width:340px;margin:0 auto;">' +
-        '<button onclick="if(typeof switchTab===\'function\')switchTab(\'scanner\');" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:56px;padding:14px;background:linear-gradient(135deg,#2d8a2d,#1a6a1a);color:#fff;border:none;border-radius:var(--r-lg);font-size:var(--fs-lg);font-weight:900;cursor:pointer;font-family:inherit;box-shadow:var(--elev-brand);"><span style="font-size:var(--fs-2xl);">📷</span> ' + _t('btn_scan_plant','Pflanze scannen') + ' <span style="font-size:var(--fs-sm);background:rgba(255,255,255,.22);padding:3px 8px;border-radius:var(--r-sm);margin-left:4px;">' + _t('badge_recommended','empfohlen') + '</span></button>' +
+        '<button onclick="if(typeof switchTab===\'function\')switchTab(\'scanner\');" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:56px;padding:14px;background:linear-gradient(135deg,#1f6b2f,#1a6a1a);color:#fff;border:none;border-radius:var(--r-lg);font-size:var(--fs-lg);font-weight:900;cursor:pointer;font-family:inherit;box-shadow:var(--elev-brand);"><span style="font-size:var(--fs-2xl);">📷</span> ' + _t('btn_scan_plant','Pflanze scannen') + ' <span style="font-size:var(--fs-sm);background:rgba(0,0,0,.25);padding:3px 8px;border-radius:var(--r-sm);margin-left:4px;">' + _t('badge_recommended','empfohlen') + '</span></button>' +
         '<button onclick="openAddPlant()" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:56px;padding:14px;background:var(--card);color:var(--text);border:1.5px solid var(--border);border-radius:var(--r-lg);font-size:var(--fs-lg);font-weight:700;cursor:pointer;font-family:inherit;"><span style="font-size:var(--fs-2xl);">✍️</span> ' + _t('btn_add_manual','Manuell hinzufügen') + '</button>' +
       '</div></div>';
     return;
@@ -43535,7 +43541,10 @@ function gsRenderRecipesStatsBar(filtered, isRemedy) {
   var randFn = isRemedy ? 'gsOpenRandomRecipe(true)' : 'gsOpenRandomRecipe(false)';
   var label = isRemedy ? _t('unit_remedies','Heilmittel') : _t('unit_recipes','Rezepte');
   return '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">'
-    + '<div style="background:linear-gradient(135deg,rgba(46,125,50,.12),rgba(46,125,50,.03));border:1px solid rgba(46,125,50,.22);border-radius:var(--r-md);padding:7px 12px;font-size:var(--fs-sm);font-weight:800;color:var(--g-dark);">'
+    + /* v31.37: war eine 12-%-Gruentoenung ueber der dunklen Bildschirm-Leinwand
+       (#4e342e bzw. #1a237e) mit --g-dark als Schrift — gemessen 1,05:1 und
+       1,11:1. Jetzt eine richtige Karte: --card traegt --g-dark in beiden Modi. */
+'<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:7px 12px;font-size:var(--fs-sm);font-weight:800;color:var(--g-dark);">'
       + '📚 ' + filtered.length + ' / ' + total + ' ' + label + '</div>'
     + '<button onclick="' + toggleFn + '" style="background:' + (favOnly ? 'linear-gradient(135deg,#e53935,#c62828)' : 'var(--card)') + ';color:' + (favOnly ? '#fff' : 'var(--text)') + ';border:1px solid ' + (favOnly ? '#c62828' : 'var(--border)') + ';border-radius:var(--r-md);padding:7px 12px;font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:5px;">'
       + (favOnly ? '♥ ' + _t('favorites_label','Favoriten') + ' (' + favCount + ')' : '♡ ' + _t('favorites_label','Favoriten') + ' (' + favCount + ')')
@@ -43718,7 +43727,7 @@ function openRecipeDetail(id) {
     for (var k in GS_ING_LINK_MAP) {
       if (name.toLowerCase().indexOf(k.toLowerCase()) >= 0) {
         var pid = GS_ING_LINK_MAP[k];
-        return '<span onclick="_gsOpenIngCard(\''+pid+'\',\''+escHtml(r.id)+'\')" style="color:#2d8a2d;font-weight:800;text-decoration:underline dotted;cursor:pointer;" title="'+_t('ing_card_tooltip','Infokarte:')+' '+escHtml(k)+'">'+escHtml(name)+'</span>';
+        return '<span onclick="_gsOpenIngCard(\''+pid+'\',\''+escHtml(r.id)+'\')" style="color:#1f6b2f;font-weight:800;text-decoration:underline dotted;cursor:pointer;" title="'+_t('ing_card_tooltip','Infokarte:')+' '+escHtml(k)+'">'+escHtml(name)+'</span>';
       }
     }
     return escHtml(name);
@@ -44129,16 +44138,22 @@ function gsRenderWissenHero() {
       + '<div style="position:relative;display:flex;align-items:center;gap:10px;color:#fff;">'
         + '<div style="flex:1;min-width:0;">'
           + '<div style="font-family:\'Playfair Display\',serif;font-size:var(--fs-xl);font-weight:800;line-height:1.1;letter-spacing:.2px;">Gartenwissen</div>'
-          + '<div style="display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);opacity:.92;margin-top:3px;">'
-            + '<span style="background:rgba(255,255,255,.22);padding:2px 8px;border-radius:var(--r-md);font-weight:700;">'+season.ico+' '+season.n+'</span>'
-            + (moonStr ? '<span style="background:rgba(255,255,255,.22);padding:2px 8px;border-radius:var(--r-md);font-weight:700;">🌙 '+moonStr+'</span>' : '')
-            + (dbTotal ? '<span style="background:rgba(255,255,255,.22);padding:2px 8px;border-radius:var(--r-md);font-weight:700;">🌿 '+dbTotal.toLocaleString('de-CH')+' Arten</span>' : '')
+          + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:var(--fs-sm);margin-top:3px;">'
+          /* v31.37: opacity:.92 raus (die Pillen sind jetzt dunkel statt hell) UND
+             flex-wrap:wrap. Sobald die Arten-Datenbank geladen ist, kommt ein
+             dritter Chip dazu; drei passen nicht in 284px, und ohne wrap
+             schrumpften sie und brachen INNERHALB um — „🍂 / Herbst" auf zwei
+             Zeilen. Jetzt rutscht bei Bedarf ein ganzer Chip in die naechste
+             Zeile. Die Chips selbst bleiben einzeilig (nowrap, unten). */
+            + '<span style="background:rgba(0,0,0,.28);padding:2px 8px;border-radius:var(--r-md);font-weight:700;white-space:nowrap;">'+season.ico+' '+season.n+'</span>'
+            + (moonStr ? '<span style="background:rgba(0,0,0,.28);padding:2px 8px;border-radius:var(--r-md);font-weight:700;white-space:nowrap;">🌙 '+moonStr+'</span>' : '')
+            + (dbTotal ? '<span style="background:rgba(0,0,0,.28);padding:2px 8px;border-radius:var(--r-md);font-weight:700;white-space:nowrap;">🌿 '+dbTotal.toLocaleString('de-CH')+' Arten</span>' : '')
           + '</div>'
         + '</div>'
         // Progress ring
         + '<div style="position:relative;width:54px;height:54px;flex-shrink:0;">'
           + '<div style="width:54px;height:54px;border-radius:50%;background:'+ringBg+';padding:4px;box-sizing:border-box;">'
-            + '<div style="width:100%;height:100%;border-radius:50%;background:rgba(255,255,255,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;">'
+            + '<div style="width:100%;height:100%;border-radius:50%;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;">'
               + '<div style="font-size:var(--fs-md);font-weight:800;color:var(--g-dark);line-height:1;">'+pct+'<span style="font-size:var(--fs-xs);color:var(--muted);">%</span></div>'
               + '<div style="font-size:var(--fs-xs);color:var(--muted);font-weight:800;letter-spacing:.4px;margin-top:1px;">'+readCount+'/'+readKeys.length+'</div>'
             + '</div>'
@@ -44146,7 +44161,7 @@ function gsRenderWissenHero() {
         + '</div>'
       + '</div>'
       // Tip card (glass morphism)
-      + '<div style="position:relative;margin-top:11px;background:rgba(255,255,255,.96);backdrop-filter:blur(var(--blur-md));border-radius:var(--r-md);padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:var(--elev-1);">'
+      + '<div style="position:relative;margin-top:11px;background:var(--card);backdrop-filter:blur(var(--blur-md));border-radius:var(--r-md);padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:var(--elev-1);">'
         + '<div style="font-size:var(--fs-3xl);flex-shrink:0;">'+tip.i+'</div>'
         + '<div style="flex:1;min-width:0;">'
           + '<div style="font-size:var(--fs-xs);font-weight:800;color:var(--g-main);text-transform:uppercase;letter-spacing:.6px;">Tipp des Tages</div>'
@@ -44336,7 +44351,10 @@ function showWissen(section, btn) {
   };
   var intro = introMap[section] || {ico:'📚', title:'Gartenwissen', sub:''};
   var introHtml =
-    '<div style="background:linear-gradient(135deg,rgba(46,125,50,.10),rgba(46,125,50,.02));border:1px solid rgba(46,125,50,.25);border-radius:var(--r-md);padding:11px 13px;margin-bottom:10px;display:flex;align-items:center;gap:10px;">'+
+    /* v31.37: dieselbe Ursache wie beim Zaehler-Chip — 10-%-Toenung ueber
+       dunkler Leinwand, Titel in --g-dark (1,59:1), Untertitel in --text2
+       (1,47:1). Als richtige Karte stimmen beide Modi von selbst. */
+    '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:11px 13px;margin-bottom:10px;display:flex;align-items:center;gap:10px;box-shadow:var(--elev-1);">'+
       '<div style="font-size:var(--fs-3xl);flex-shrink:0;">'+intro.ico+'</div>'+
       '<div style="flex:1;min-width:0;">'+
         '<div style="font-family:\'Playfair Display\',serif;font-size:var(--fs-lg);font-weight:800;color:var(--g-dark);line-height:1.2;">'+intro.title+'</div>'+
@@ -46241,7 +46259,7 @@ function renderPflanzentafel() {
 
 // Farb-Themes
 const THEMES = {
-  /* v31.32: green main war #2d8a2d = 4.39:1 auf Weiss (unter AA), orange
+  /* v31.32: green main war #1f6b2f = 4.39:1 auf Weiss (unter AA), orange
      #e65100 = 3.79:1. Beide sind Textfarbe UND Knopf-Hintergrund, der Wert
      gilt also in beide Richtungen. Neu: #1f6b2f = 6.56:1 (deckt sich mit
      --g-main im Stylesheet) und #bf360c = 5.60:1. */
@@ -47240,7 +47258,7 @@ window.addEventListener('DOMContentLoaded', () => {
       var apBtn = document.getElementById('mi-adminpanel');
       if (apBtn) apBtn.style.display = '';
       var badge = document.getElementById('admin-badge');
-      if (badge) { badge.textContent = '🛡️ Admin'; badge.style.background='#1a3d1a'; badge.style.color='#4caf50'; badge.style.border='1px solid #2d8a2d'; }
+      if (badge) { badge.textContent = '🛡️ Admin'; badge.style.background='#1a3d1a'; badge.style.color='#4caf50'; badge.style.border='1px solid #1f6b2f'; }
     } else {
       var badge2 = document.getElementById('admin-badge');
       if (badge2) { badge2.textContent = '🔐 Admin Login'; badge2.style.background='#f5f5f5'; badge2.style.color='#888'; }
@@ -47440,10 +47458,10 @@ function gsCreateMap() {
         '<input id="gs-pin-name" placeholder="Name (z.B. Steinpilz, Aussichtspunkt)" style="width:100%;padding:7px 9px;border:1.5px solid #c8e6c9;border-radius:var(--r-sm);font-size:var(--fs-md);font-family:inherit;box-sizing:border-box;margin-bottom:6px;">' +
         '<input id="gs-pin-note" placeholder="Notiz (Anzahl, Qualität, …)" style="width:100%;padding:7px 9px;border:1.5px solid #c8e6c9;border-radius:var(--r-sm);font-size:var(--fs-md);font-family:inherit;box-sizing:border-box;margin-bottom:8px;">' +
         // v26.84: Foto-Input (optional) + Preview
-        '<label for="gs-pin-photo" style="display:block;padding:7px 9px;border:1.5px dashed #c8e6c9;border-radius:var(--r-sm);font-size:var(--fs-sm);color:#2d8a2d;text-align:center;cursor:pointer;margin-bottom:6px;background:#f1f8f1;">📸 Foto hinzufügen (optional)</label>' +
+        '<label for="gs-pin-photo" style="display:block;padding:7px 9px;border:1.5px dashed #c8e6c9;border-radius:var(--r-sm);font-size:var(--fs-sm);color:#1f6b2f;text-align:center;cursor:pointer;margin-bottom:6px;background:#f1f8f1;">📸 Foto hinzufügen (optional)</label>' +
         '<input type="file" id="gs-pin-photo" accept="image/*" capture="environment" style="display:none;" onchange="_gsPinPhotoPick(this)">' +
         '<div id="gs-pin-photo-preview" style="display:none;margin-bottom:8px;text-align:center;"></div>' +
-        '<button onclick="gsAddMarker(window._gsPendingPin && window._gsPendingPin.lat, window._gsPendingPin && window._gsPendingPin.lng)" style="width:100%;padding:8px;background:#2d8a2d;color:#fff;border:none;border-radius:var(--r-sm);font-size:var(--fs-md);font-weight:700;cursor:pointer;font-family:inherit;">✅ Fundort speichern</button>' +
+        '<button onclick="gsAddMarker(window._gsPendingPin && window._gsPendingPin.lat, window._gsPendingPin && window._gsPendingPin.lng)" style="width:100%;padding:8px;background:#1f6b2f;color:#fff;border:none;border-radius:var(--r-sm);font-size:var(--fs-md);font-weight:700;cursor:pointer;font-family:inherit;">✅ Fundort speichern</button>' +
         '</div>'
       )
       .openOn(gsMap);
@@ -47529,7 +47547,7 @@ function gsSetLayer(name, btn) {
 
 // v23.56: Kategorie-Icon erzeugen
 function _gsCatIcon(cat, small) {
-  var c = (typeof GS_MARKER_CATS !== 'undefined' && GS_MARKER_CATS[cat]) ? GS_MARKER_CATS[cat] : { color:'#2d8a2d', emoji:'🌿' };
+  var c = (typeof GS_MARKER_CATS !== 'undefined' && GS_MARKER_CATS[cat]) ? GS_MARKER_CATS[cat] : { color:'#1f6b2f', emoji:'🌿' };
   var sz = small ? 22 : 24;
   var br = small ? 2 : 2.5;
   var fs = small ? 11 : 12;
@@ -48288,7 +48306,7 @@ function gsSetUserMarker(lat, lng) {
 // ══ v23.56: OUTDOOR-FEATURES — GPS-Track, Kategorien, Pilz-Hotspots, Kompass ══
 
 var GS_MARKER_CATS = {
-  pflanze:  { label:'Pflanze',    emoji:'🌿', color:'#2d8a2d' },
+  pflanze:  { label:'Pflanze',    emoji:'🌿', color:'#1f6b2f' },
   pilz:     { label:'Pilz',       emoji:'🍄', color:'#8d6e63' },
   beere:    { label:'Beere',      emoji:'🫐', color:'#d32f2f' },
   heil:     { label:'Heilpflanze',emoji:'💊', color:'#8e24aa' },
@@ -51597,7 +51615,7 @@ function gsGpsUpdateToggleUI() {
   if (tog) tog.checked = granted;
 
   // Slider-Farbe
-  if (slider) slider.style.background = granted ? '#2d8a2d' : '#ccc';
+  if (slider) slider.style.background = granted ? '#1f6b2f' : '#ccc';
 
   if (label) {
     if (granted) { label.textContent = '✅ GPS aktiv — Standort wird automatisch erkannt'; label.style.color = '#2e7d32'; }
@@ -63162,7 +63180,7 @@ function openAdminSbKeyPanel() {
     'style="width:100%;padding:10px 12px;border:1.5px solid #90caf9;border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:monospace;box-sizing:border-box;background:var(--card);">' +
     '<div style="font-size:var(--fs-sm);color:#666;margin-top:4px;">Alle Nutzer können damit den Scanner verwenden.</div>' +
     '</div>' +
-    '<button onclick="gsAdminSaveSbKey()" style="width:100%;padding:13px;background:#2d8a2d;color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:8px;">✅ Supabase-Key speichern & aktivieren</button>' +
+    '<button onclick="gsAdminSaveSbKey()" style="width:100%;padding:13px;background:#1f6b2f;color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:8px;">✅ Supabase-Key speichern & aktivieren</button>' +
     '<button onclick="var k=document.getElementById(\'admin-global-api-input\')?.value; if(k&&k.length>10)gsAdminSetGlobalApiKey(k);else showProfileToast(\'⚠️ API-Key eingeben\')" style="width:100%;padding:11px;background:var(--bg-info-soft);color:var(--c-info);border:1.5px solid #90caf9;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px;">🤖 API-Key für alle setzen</button>' +
     '<button onclick="gsAdminResetSbKey()" style="width:100%;padding:11px;background:var(--bg-danger-soft);color:var(--c-danger);border:1.5px solid #ffcdd2;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:700;cursor:pointer;font-family:inherit;">🔄 Standard-Key wiederherstellen</button>' +
     '</div>';
@@ -63553,6 +63571,26 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.37', date: '01.09.2026',
+    headline: '\ud83d\udc41\ufe0f Die Kopfzeile der Startseite war praktisch unsichtbar \u2014 1,32:1',
+    summary: 'Fernando: „bei der Home-Seite kann man kaum lesen was oben steht." Er hatte recht, und mein Kontrast-Pr\u00fcfstand war blind daf\u00fcr: er \u00fcbersprang Text auf Farbverl\u00e4ufen, weil er ihn nicht als EINE Farbe messen konnte. Genau dort lag der schlimmste Fall der App. Der Pr\u00fcfstand misst jetzt pixelgenau \u2014 und was er dann fand, ist behoben.',
+    user_summary: '\ud83d\udc41\ufe0f Die \u00dcberschrift oben auf der Startseite ist wieder lesbar \u2014 sie war dunkelgr\u00fcn auf dunkelgr\u00fcn. Dazu 20 weitere schlecht lesbare Stellen quer durch die App.',
+    user_items: [
+      { emoji: '\ud83d\udc41\ufe0f', text: '„Natur entdecken" von 1,3:1 auf lesbar \u2014 die Kopfzeile ist jetzt hell statt dunkel' },
+      { emoji: '\ud83c\udfa8', text: 'Wissen, Rezepte, Heilmittel, Pflanzen: Text auf get\u00f6nten Fl\u00e4chen korrigiert' },
+    ],
+    items: [
+      {emoji:'\ud83d\udd0e', bold:'Die Ursache war ein halber Umbau:', text:' die Regel `#screen-home .hero{background:var(--g-bg);color:var(--text)}` steht seit L\u00e4ngerem im Code \u2014 eine HELLE Kopfzeile, samt Dunkelmodus-Variante, fertig ausformuliert. Sie wurde von einer `.hero`-Regel am Dateiende mit !important \u00fcberstimmt (dunkelgr\u00fcner Verlauf, weisse Schrift). Die Kindregeln f\u00fcr Titel und Untertitel waren aber ebenfalls f\u00fcr HELL geschrieben, ohne !important, und deshalb wirksam: dunkelgr\u00fcner Text auf dunklem Verlauf. Zwei H\u00e4lften eines Umbaus, die sich nie getroffen haben. `class="hero"` kommt in der ganzen App GENAU EINMAL vor, also betraf die Sperre nichts anderes \u2014 sie ist entfernt, zusammen mit drei weiteren .hero-Regeln, die nie gewirkt haben.'},
+      {emoji:'\ud83d\udd2c', bold:'Der Pr\u00fcfstand kann jetzt Verl\u00e4ufe:', text:' contrast_check.js las die Hintergrundfarbe bisher aus getComputedStyle und \u00fcbersprang alles mit background-image. Jetzt wird die Seite zweimal aufgenommen \u2014 einmal normal, einmal mit color:transparent \u2014 und unter jeder Textstelle der echte Pixel-Median gelesen. Damit sind Verl\u00e4ufe, Bilder und halbtransparente Schichten automatisch richtig ber\u00fccksichtigt.'},
+      {emoji:'\ud83c\udfa8', bold:'21 weitere Stellen:', text:' Z\u00e4hler-Chips und Intro-Karten in Wissen/Rezepte/Heilmittel waren 10-%-T\u00f6nungen \u00fcber dunkler Leinwand mit Text f\u00fcr helle Fl\u00e4chen (1,05 bis 1,59:1) \u2014 jetzt richtige Karten. Die Pillen im Wissens-Hero und die Kennzahl-K\u00e4sten bei den Pflanzen nutzten WEISSE Transparenz \u00fcber Gr\u00fcn, was den Untergrund aufhellt und weissen Text durchfallen l\u00e4sst \u2014 jetzt dunkle. Zwei fest verdrahtete rgba(255,255,255,.96)-Fl\u00e4chen blieben im Dunkelmodus weiss.'},
+      {emoji:'\ud83d\udd22', bold:'41\u00d7 #2d8a2d:', text:' dieser Gr\u00fcnton scheitert in BEIDE Richtungen mit 4,39:1 \u2014 als Fl\u00e4che mit weisser Schrift und als Schrift auf Weiss. Das Token hatte ich in v31.32 schon gezogen, die 41 fest verdrahteten Vorkommen nicht. Jetzt alle auf #1f6b2f (6,56:1).'},
+      {emoji:'\ud83e\udde9', bold:'Nebenbei ein Umbruch-Fehler:', text:' im Wissens-Hero kommt ein dritter Chip dazu, sobald die Arten-Datenbank geladen ist. Drei passten nicht nebeneinander und brachen INNERHALB um \u2014 „🍂 / Herbst" auf zwei Zeilen. Jetzt rutscht bei Bedarf ein ganzer Chip in die n\u00e4chste Zeile.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Kontrast pixelgenau \u00fcber neun Tabs in beiden Modi: 28 + 12 \u2192 0 + 0 \u00b7 zwei Falschmeldungs-Klassen im Pr\u00fcfstand selbst beseitigt (Text hinter der fixierten Navigationsleiste; deaktivierte Bedienelemente, die WCAG ausdr\u00fccklich ausnimmt) \u00b7 die gemeldete Gr\u00f6ssen\u00e4nderung an den Wissens-Chips direkt nachgemessen und als ECHT best\u00e4tigt \u2014 Ursache war der dritte Chip, nicht meine \u00c4nderung; trotzdem behoben \u00b7 Antippfl\u00e4chen weiterhin 0 unter 24\u00d724 \u00b7 keine JS-Fehler \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.37 \u00b7 sw.js gs-v31.37 \u00b7 _headers v31.37 \u00b7 meta=31.37.20260901.'},
+    ],
+  },
+  {
     v: 'v31.36', date: '01.09.2026',
     headline: '\ud83d\udce6 787 KB Changelog, die jeder bei jedem Start mitlud',
     summary: 'Die Versionshistorie stand vollst\u00e4ndig in der Hauptdatei: 383 Eintr\u00e4ge, 787 KB, 14 Prozent der ganzen App. Geladen und geparst bei jedem Kaltstart \u2014 obwohl beim Start nur der neueste Eintrag gebraucht wird und die volle Liste nur sieht, wer den Changelog \u00f6ffnet. Jetzt bleiben die neuesten zw\u00f6lf drin, der Rest wird bei Bedarf geholt.',
@@ -63640,7 +63678,7 @@ window.GS_RELEASES = [
     ],
     items: [
       {emoji:'\ud83d\udd0e', bold:'Die Ursache:', text:' applyThemeColors() schrieb --text/--text2/--muted/--border per setProperty auf documentElement \u2014 ein Inline-Stil, der JEDE :root-Regel schl\u00e4gt. --muted war dadurch #888888 (3,54:1 auf Weiss) statt der gepr\u00fcften Werte. Der Kommentar dar\u00fcber behauptete "always readable on light backgrounds". Betroffen war nur der Hellmodus: der Dunkelmodus definiert seine Token auf body.dark, und ein Wert auf body sticht den geerbten von html. Die vier Aufrufe sind entfernt, alte Inline-Werte werden aktiv zur\u00fcckgenommen.'},
-      {emoji:'\ud83c\udfa8', bold:'Zwei Themen fielen durch:', text:' die Hauptfarbe des Standard-Themas Gr\u00fcn war #2d8a2d = 4,39:1 auf Weiss, Orange #e65100 = 3,79:1. Beide dienen als Textfarbe UND als Knopf-Hintergrund, der Wert gilt also in beide Richtungen. Neu #1f6b2f (6,56:1) und #bf360c (5,60:1).'},
+      {emoji:'\ud83c\udfa8', bold:'Zwei Themen fielen durch:', text:' die Hauptfarbe des Standard-Themas Gr\u00fcn war #1f6b2f = 4,39:1 auf Weiss, Orange #e65100 = 3,79:1. Beide dienen als Textfarbe UND als Knopf-Hintergrund, der Wert gilt also in beide Richtungen. Neu #1f6b2f (6,56:1) und #bf360c (5,60:1).'},
       {emoji:'\ud83c\udf19', bold:'body hatte nie eine Schriftfarbe:', text:' sie war damit in beiden Modi Schwarz (der Vorgabewert). Alles ohne eigene Farbe erbte Schwarz \u2014 im Dunkelmodus schwarz auf dunkel. Zw\u00f6lf Stellen auf einen Schlag behoben.'},
       {emoji:'\ud83d\uddbc\ufe0f', bold:'Text auf farbigen Bildschirmen:', text:' vierzehn Bildschirme haben in beiden Modi eine dunkle Leinwand. Text direkt darauf nutzte --text/--muted \u2014 Token f\u00fcr HELLE Fl\u00e4chen, Ergebnis 1,01:1 bis 2,86:1. Neue Token --on-canvas / --on-canvas-2, gegen alle acht Leinwandfarben gerechnet. Meinen ersten Versuch, das \u00fcber eine gemeinsame Regel auf den Leinwaenden zu l\u00f6sen, habe ich VERWORFEN: gemessen wurde es davon schlechter (22 auf 33 Stellen).'},
       {emoji:'\ud83c\udf24\ufe0f', bold:'Nachtrag zu v31.28:', text:' die Wetterkachel im Garten blieb damals stehen \u2014 umgestellt wurde nur die auf der Startseite. Jetzt dasselbe Material; die drei von JavaScript beschriebenen IDs unver\u00e4ndert.'},
@@ -63785,7 +63823,7 @@ window.GS_RELEASES = [
       { emoji: '✂️', text: 'Weniger auf der Seite: keine Prioritäts-Plaketten, keine zweite Hervorhebung' },
     ],
     items: [
-      {emoji:'🎨', bold:'Palette:', text:' --g-bg #eef7ee → #f4f1ea, --surface2 → #f7f4ee, --border → #e3ded3 (warm-neutral statt grün). --g-main #2d8a2d → #1f6b2f: lag als Text bei 4,0:1 und war damit schon vorher unter der Lesbarkeitsschwelle; jetzt 5,8:1 auf Creme und 6,6:1 mit weisser Schrift darauf.'},
+      {emoji:'🎨', bold:'Palette:', text:' --g-bg #eef7ee → #f4f1ea, --surface2 → #f7f4ee, --border → #e3ded3 (warm-neutral statt grün). --g-main #1f6b2f → #1f6b2f: lag als Text bei 4,0:1 und war damit schon vorher unter der Lesbarkeitsschwelle; jetzt 5,8:1 auf Creme und 6,6:1 mit weisser Schrift darauf.'},
       {emoji:'☑️', bold:'Abhaken:', text:' Kästchen füllt sich, Zeile klappt zu, dann erledigt gsNcDoneTask → gsQuickDone. Weiterhin genau eine Erledigt-Logik. Bei „Bewegung reduzieren" entfällt der Übergang, die Reihenfolge bleibt.'},
       {emoji:'✂️', bold:'Weniger:', text:' Prioritäts-Plaketten und die separate „Nächster Schritt"-Karte aus v31.16 entfernt. Beide Entwürfe zeigen sie nicht — und „sehr simpel" heisst weglassen, bis nur das übrig ist, was man antippt.'},
     ],
@@ -63984,7 +64022,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.36';
+var GS_VERSION = 'v31.37';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -64057,7 +64095,7 @@ GS_ADMINS = [
 
 var GS_EXPERT_LEVELS = {
   user:        { label: 'Nutzer',           icon: '',    color: '#666666', rank: 0 },
-  enthusiast:  { label: 'Natur-Enthusiast', icon: '🌱',  color: '#2d8a2d', rank: 1 },
+  enthusiast:  { label: 'Natur-Enthusiast', icon: '🌱',  color: '#1f6b2f', rank: 1 },
   explorer:    { label: 'Natur-Entdecker',  icon: '🔍',  color: '#1565c0', rank: 2 },
   specialist:  { label: 'Fachspezialist',   icon: '🎓',  color: '#6a1b9a', rank: 3 },
   expert:      { label: 'Natur-Experte',    icon: '✅',  color: '#1a3d1a', rank: 4, verified: true },
@@ -64121,7 +64159,7 @@ function openAdminActions(targetEmail) {
     '</div>' +
 
     '<div style="display:flex;gap:8px;margin-bottom:14px;">' +
-    '<button onclick="gsAdminSetExpertLevel(\'' + targetEmail + '\')" style="flex:1;padding:11px;background:#2d8a2d;color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;">✅ Level vergeben</button>' +
+    '<button onclick="gsAdminSetExpertLevel(\'' + targetEmail + '\')" style="flex:1;padding:11px;background:#1f6b2f;color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;">✅ Level vergeben</button>' +
     '<button onclick="gsAdminBanUser(\'' + targetEmail + '\')" style="flex:1;padding:11px;background:var(--bg-danger-soft);color:var(--c-danger);border:1.5px solid #ffcdd2;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;">🚫 Sperren</button>' +
     '</div>' +
 
@@ -64262,7 +64300,7 @@ function gsOpenExpertApplication() {
     '<div style="background:var(--bg-warn-soft);border-radius:var(--r-sm);padding:10px;margin-bottom:14px;font-size:var(--fs-sm);color:#8b4513;">' +
     '⚠️ <strong>Hinweis:</strong> Der Experten-Status berechtigt NICHT zum Beitritt ins GreenScan-Team. Er ist ein persönliches Qualifikationsmerkmal.' +
     '</div>' +
-    '<button onclick="gsSubmitExpertApplication()" style="width:100%;padding:12px;background:#2d8a2d;color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;">📤 Antrag einreichen</button>' +
+    '<button onclick="gsSubmitExpertApplication()" style="width:100%;padding:12px;background:#1f6b2f;color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;">📤 Antrag einreichen</button>' +
     '</div>';
 
   document.getElementById('recipe-detail-body').innerHTML = html;
@@ -68526,7 +68564,7 @@ async function renderProfileLoggedIn(mc) {
 
   mc.innerHTML = [
     // Header mit Avatar + Level
-    '<div style="background:linear-gradient(135deg,#1a3d1a,#2d8a2d);padding:20px 16px 16px;margin:-16px -16px 16px;color:#fff;border-radius:var(--r-md) var(--r-md) 0 0;">',
+    '<div style="background:linear-gradient(135deg,#1a3d1a,#1f6b2f);padding:20px 16px 16px;margin:-16px -16px 16px;color:#fff;border-radius:var(--r-md) var(--r-md) 0 0;">',
       '<div style="display:flex;align-items:center;gap:14px;">',
         '<div onclick="profOpenAvatarPicker()" style="font-size:52px;cursor:pointer;' +
           'background:rgba(255,255,255,.15);border-radius:50%;width:72px;height:72px;' +
@@ -74850,7 +74888,7 @@ function checkShowScanWarning(callback) {
     '<label style="display:flex;align-items:center;gap:8px;font-size:var(--fs-md);color:var(--text2);margin-bottom:16px;cursor:pointer;">' +
     '<input type="checkbox" id="scan-warn-cb" style="width:18px;height:18px;cursor:pointer;">' +
     '<span>Ich habe diesen Hinweis gelesen und verstanden</span></label>' +
-    '<button onclick="gsConfirmScanWarning()" style="width:100%;padding:12px;background:#2d8a2d;color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;">&#x2705; Verstanden \u2014 Scanner \u00f6ffnen</button>' +
+    '<button onclick="gsConfirmScanWarning()" style="width:100%;padding:12px;background:#1f6b2f;color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;">&#x2705; Verstanden \u2014 Scanner \u00f6ffnen</button>' +
     '</div>';
   
   window._scanWarnCallback = callback;
@@ -75404,7 +75442,7 @@ async function gsOpenWeatherWarn(){
       style="width:100%;padding:13px 16px;background:#1e2e1e;border:1.5px solid #2a3f2a;border-radius:var(--r-md);color:#e2f0e2;font-size:var(--fs-lg);font-family:monospace;outline:none;margin-bottom:12px;box-sizing:border-box;">
     <div id="admin-login-error" style="display:none;padding:8px 12px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:var(--r-sm);font-size:var(--fs-sm);color:#fca5a5;margin-bottom:10px;text-align:center;"></div>
     <button onclick="doAdminLogin()"
-      style="width:100%;padding:13px;background:#2d8a2d;border:none;border-radius:var(--r-md);color:#fff;font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:8px;">
+      style="width:100%;padding:13px;background:#1f6b2f;border:none;border-radius:var(--r-md);color:#fff;font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:8px;">
       🔐 Anmelden
     </button>
     <button onclick="closeAdminLogin()"
@@ -75627,13 +75665,7 @@ async function gsOpenWeatherWarn(){
 }
 
 
-.hero {
-  background: linear-gradient(160deg, #0a2e0a 0%, #1b5e20 45%, #2e7d32 100%);
-  padding: 20px 20px 22px;
-  color: #fff;
-  position: relative;
-  overflow: hidden;
-}
+/* v31.37: weitere tote .hero-Regel entfernt (vier gab es insgesamt, drei ohne Wirkung). */
 .hero::after {
   content: '🌿';
   position: absolute;
@@ -75664,13 +75696,7 @@ async function gsOpenWeatherWarn(){
 .gs-back-bar button:active { transform: scale(.88); }
 
 
-.hero {
-  background: linear-gradient(175deg, #0d1f0d 0%, #1a3d1a 35%, #2d6a2d 70%, #388e3c 100%);
-  padding: 18px 20px 22px;
-  color: #fff;
-  position: relative;
-  overflow: hidden;
-}
+/* v31.37: weitere tote .hero-Regel entfernt (vier gab es insgesamt, drei ohne Wirkung). */
 .hero::before {
   content: '';
   position: absolute;
@@ -75879,19 +75905,31 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
 
 
 
+/* v31.37 — Hier stand eine .hero-Regel, die Hintergrund UND Schriftfarbe mit
+   !important setzte: dunkelgruener Verlauf, color:#fff. Sie hat die viel
+   spezifischere Regel `#screen-home .hero{background:var(--g-bg);color:var(--text)}`
+   (Zeile ~1599) ueberstimmt — die HELLE Kopfzeile, die dort samt
+   Dunkelmodus-Variante fertig ausformuliert steht.
+   Folge: die Kindregeln `#home-hero-title{color:var(--g-dark)}` und
+   `#home-hero-sub{color:var(--muted)}` (ebenfalls fuer HELL geschrieben, ohne
+   !important und deshalb wirksam) malten dunkelgruenen und grauen Text auf den
+   dunklen Verlauf — gemessen 1,32:1 und 1,11:1. Zwei Haelften eines Umbaus,
+   die sich nie getroffen haben.
+   `class="hero"` kommt in der ganzen App GENAU EINMAL vor (Startseite), also
+   betrifft das nichts anderes. Die Sperre ist entfernt; die Regeln ab ~1599
+   greifen jetzt. */
 .hero {
   margin-top: -2px !important;
-  background: linear-gradient(180deg, #0d1f0d 0%, #1a3d1a 30%, #2d6a2d 65%, #388e3c 100%) !important;
-  padding: 20px 18px 22px !important;
-  color: #fff !important;
-  position: relative !important;
-  overflow: hidden !important;
+  position: relative;
+  overflow: hidden;
 }
 .hero h2 { margin: 0 0 5px !important; }
 .hero p  { margin: 0 !important; }
 
 #screen-home {
-  background: #0d1f0d !important;  
+  /* v31.37: war #0d1f0d — passend zum dunklen Hero-Verlauf. Der ist weg,
+     also folgt die Leinwand jetzt dem Hintergrund-Token (hell/dunkel). */
+  background: var(--g-bg) !important;
 }
 
 
