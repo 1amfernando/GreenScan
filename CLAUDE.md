@@ -246,7 +246,13 @@ Zwei weitere Prüfstände liegen daneben:
 ```bash
 node scripts/contrast_check.js   # WCAG-Kontrast jeder Textstelle, beide Modi
 node scripts/touch_check.js      # Antippflächen unter 24×24 px (WCAG 2.5.8)
+node scripts/perf_check.js       # Kaltstart unter Telefon-Drosselung (1×/4×/6×)
 ```
+
+`perf_check.js` trennt **App-JS** von **Parsen/Kompilieren**. Nur die erste
+Spalte ist beeinflussbar — die zweite ist der Preis des 5,7-MB-Monolithen und
+eine Eigenschaft der Architektur, kein Fehler. Für einen Vergleich beide Stände
+mit **demselben** Aufruf messen; die Zahlen schwanken zwischen Läufen.
 
 Beide sollen **0** melden. Wenn nicht, ist es entweder ein echter Fund oder
 eine Falschmeldung des Prüfstands — und die zweite Möglichkeit ist schon
