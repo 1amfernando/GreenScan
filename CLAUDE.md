@@ -348,6 +348,13 @@ Spalte ist beeinflussbar — die zweite ist der Preis des 5,7-MB-Monolithen und
 eine Eigenschaft der Architektur, kein Fehler. Für einen Vergleich beide Stände
 mit **demselben** Aufruf messen; die Zahlen schwanken zwischen Läufen.
 
+**Grenze von `contrast_check` und `touch_check`:** beide vermessen, was auf den
+elf Bildschirmen **sichtbar** ist. Was in einem geschlossenen Fenster steckt,
+sehen sie nicht. In v31.51 wäre so eine neue Textstelle mit 3,46:1 durchgerutscht
+(Boden-Infobox im Gartenformular, `#e65100` auf `#fff3e0`) — gefunden nur, weil
+ich die Farbe von Hand nachgerechnet habe. **Wer Farbe in einem Modal setzt,
+rechnet selbst nach.**
+
 Beide sollen **0** melden. Wenn nicht, ist es entweder ein echter Fund oder
 eine Falschmeldung des Prüfstands — und die zweite Möglichkeit ist schon
 dreimal eingetreten (Chip-Leisten, die absichtlich hinausragen; Emoji, deren
