@@ -57,7 +57,15 @@
 #     Antwort-Prüfung liegt weiterhin beim Client.
 #   · fn_is_role und fn_role_at_least sind für `anon` ausführbar — genau der
 #     Rollen-Leak, den 20260831_rollen_leak_fix_v30_95.sql schliesst.
-#   · Advisor-Stand: 0 ERROR, 140 WARN, 5 INFO. Die einzige WARN ausserhalb
+#   · Advisor-Stand SICHERHEIT: 0 ERROR, 140 WARN, 5 INFO.
+#   · Advisor-Stand LEISTUNG (01.09.): 0 ERROR, 0 WARN, 146 INFO — davon
+#     145 "unused_index" und ein Verbindungs-Hinweis. Ausserdem geprueft:
+#     KEIN Fremdschluessel ohne fuehrenden Index (0 Treffer). Die Datenbank
+#     ist in gutem Zustand; die einzige lohnende Aufraeumung ist die neue
+#     Migration 20260901_redundante_indizes.sql (38 Indizes, deren Spalten
+#     ein echtes Praefix eines breiteren Index sind — Begruendung je Zeile
+#     in der Datei). Sie ist NICHT Teil der Pflichtschritte unten: reine
+#     Hygiene, jederzeit nachholbar, jederzeit umkehrbar. Die einzige WARN ausserhalb
 #     des SECURITY-DEFINER-Musters ist auth_leaked_password_protection —
 #     die schaltest du im Dashboard, nicht hier (Schritt 5 unten).
 
