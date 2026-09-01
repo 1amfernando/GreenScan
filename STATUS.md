@@ -4,13 +4,42 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.26` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.27` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (l) — v31.27: Die untere Navigation — dasselbe Muster, andere Richtung
+
+> Ich wollte den runden grünen Mittelknopf aus den Entwürfen bauen. **Den gibt es seit v26.86.** Drittes Mal in dieser Runde, dass Nachsehen vor Doppelarbeit bewahrt hat. Beim Hinsehen fiel dafür etwas anderes auf.
+
+#### Der Fund
+
+`.tabs` nutzt `--fill-dark` — die Leiste ist in **beiden** Modi dunkelgrün. Die Beschriftung nutzte aber `--muted` und `--g-main`, also Token, die für **helle** Flächen gedacht sind.
+
+| | Hellmodus | Dunkelmodus |
+|---|---|---|
+| aktiver Reiter | **1,86:1** | 5,42:1 |
+| übrige Reiter | **2,28:1** | 5,47:1 |
+
+Die meistgenutzte Bedienleiste der App war im Hellmodus praktisch unlesbar.
+
+Das ist dasselbe Muster wie in v31.26, nur andersherum: dort eine **Textfarbe als Fläche**, hier **Textfarben auf einer Fläche, die nicht mitkippt**. Beide Male, weil ein Token für zwei Zusammenhänge herhalten muss.
+
+#### Was das über die Historie verrät
+
+Für den Dunkelmodus gab es **vier** Überschreibungen derselben zwei Zustände — `rgba(255,255,255,.55)`, `#fff !important`, `#5a8a5a`, `var(--g-main)` — teils widersprüchlich, plus eine doppelte Basisregel. Vier Anläufe, dasselbe zu reparieren. Für den Hellmodus **keinen einzigen**, weil dort niemand damit rechnet, dass die Leiste dunkel ist.
+
+Jetzt: feste Werte (`#9db89d` inaktiv, `#a5d6a7` aktiv), gegen **beide** Leisten-Hintergründe gerechnet (5,7 bis 8,8:1), und **eine** Regel je Zustand statt fünf. Die Fläche ist in beiden Modi dieselbe — also braucht sie auch nur eine Farbe.
+
+#### Ehrlich zum Testgerüst
+
+Mein Gerüst stellte die Reiter untereinander statt nebeneinander dar — ein Extraktionsfehler, den ich zweimal erfolglos zu beheben versucht habe. Die Änderung ist eine **Farbänderung**, und die ist numerisch belegt und im Rendering klar erkennbar; die Anordnung ist im echten Markup unverändert. Ich habe das Bild deshalb nicht als Beleg verschickt, statt es als „sieht gut aus" auszugeben.
+
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · Kontrast gegen beide Leisten-Hintergründe gerechnet (`#1a3d1a` hell, `#1a2e1a` dunkel) · Regelanzahl gegengezählt: genau **eine** `.tab`- und eine `.tab.active`-Farbregel verbleibend (vorher fünf) · Version synchron v31.27.
 
 ### 2026-09-01 (k) — v31.26: Dreimal ist ein Muster — 146 Flächen im Dunkelmodus
 
