@@ -203,6 +203,13 @@ const IGNORIEREN = new Set([
   [/\bid\s*=\s*(?:\\?["'])([A-Za-z0-9_\-:.]+)(?:\\?["'])/g,
    /\.id\s*=\s*['"]([A-Za-z0-9_\-:.]+)['"]/g,
    /setAttribute\(\s*['"]id['"]\s*,\s*['"]([A-Za-z0-9_\-:.]+)['"]/g,
+   // Ueber den Umweg einer Variablen:  var bodyId = 'gs-community-body';
+   //   … '<div id="' + bodyId + '"></div>' …
+   // Der erste Lauf meldete gs-community-body dreimal als „nie erzeugt" —
+   // es steht aber sehr wohl im Dokument, nur nicht als Literal am id=.
+   // Auf Namen beschraenkt, die auf „id" enden: sonst gilt jede
+   // Zeichenkette im Programm als moegliche id und die Pruefung meldet nichts mehr.
+   /(?:var|let|const)\s+\w*[iI]d\s*=\s*['"]([A-Za-z0-9_\-:.]+)['"]/g,
   ].forEach(re => { let m; while ((m = re.exec(quelle))) erzeugt.add(m[1]); });
 
   const nachschlag = new Map();

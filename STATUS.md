@@ -4,13 +4,67 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.45` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.46` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (ah) — v31.46: Der Pflanzenfriedhof hatte einen Eingang, aber keinen Ausgang
+
+Der Verdrahtungs-Prüfstand aus v31.45 liess 52 **abgesicherte** Nachschlagungen offen — still und folgenlos, hiess es. Beim Durchgehen stellte sich heraus: eine davon war alles andere als folgenlos.
+
+#### Der Fund
+
+Auf **jeder** Pflanzenkarte steht `🪦 Pflanzenfriedhof` (`index.html:29083`, dazu ein Icon-Knopf bei `7389`). Der Weg dahinter funktioniert vollständig:
+
+1. `moveToCemetery` fragt nach der Todesursache,
+2. schiebt die Pflanze von `myPlants` nach `deadPlants`,
+3. speichert beides — `savePlantsToStorage()` **und** `gs_dead_plants`.
+
+Und dann hört es auf.
+
+- `renderCemetery` schreibt in `#cemetery-list` — **existiert nicht** → `if (!list) return`.
+- Der einzige Weg dorthin war `switchPlantsTab` — **0 Aufrufer**, und ihre beiden Abschnitte `plants-alive-section` / `plants-cemetery-section` existieren ebenfalls nicht.
+- `restoreFromCemetery` hängt an einem Knopf, der nur in der nie gerenderten Friedhofs-Karte steht.
+
+**Am laufenden Programm nachgestellt:** Pflanze verabschieden → `myPlants` 3 → 2, `gs_dead_plants` 0 → 1, im Dokument **nichts** über den Friedhof sichtbar. Die Daten waren immer da. Der Weg zurück nicht.
+
+Für Leute, die Pflanzen benennen und pflegen, ist das kein Schönheitsfehler.
+
+#### Die Lösung
+
+Kein Reiter, sondern ein Fenster — `gsOpenCemetery()` über den vorhandenen `_gsNlOpen`-Überlagerer, mit `<div id="cemetery-list">` darin. `renderCemetery` bleibt unverändert, es hat jetzt einfach sein Element.
+
+Der Eingang steht oben auf „Meine Pflanzen" und **nur dann, wenn es dort etwas zu sehen gibt** — `renderMyPlants` blendet ihn ein und aus. Dazu eine Rückmeldung beim Verabschieden (`Basilikum → 🪦 Pflanzenfriedhof`) und beim Wiederherstellen. Gemessener Rundlauf: verborgen → sichtbar mit Zahl 1 → Karte mit Name, Ursache und Knopf → wiederhergestellt, Eingang wieder verborgen. Keine JS-Fehler.
+
+#### Zum siebten Mal die Inline-Stil-Falle
+
+Mein erster Anlauf gab dem Knopf `style="…display:flex…"` und verliess sich auf `hidden`. Gemessen: `hidden=true`, trotzdem **380×34 sichtbar** — ein Inline-Stil schlägt die Browser-Vorgabe `[hidden]{display:none}`. Dieselbe Falle wie bei `.tab-badge` in v31.45, einen Tag alt. Jetzt eine Klasse `.gs-cem-entry` mit `[hidden]`-Zeile.
+
+#### Zwei weitere Funde
+
+**Die Kamera-Erlaubnis ging bei jedem Neustart verloren.** Fünf Stellen schreiben `gs_cam_perm`, vier davon `'granted'` — der Kamerastart im Scanner schrieb `'1'`. Der Leser beim Start kannte nur `'granted'`. Wer die Kamera im Scanner erlaubte, wurde vom Pflanzendoktor beim nächsten Start wieder gefragt. Jemand hatte das früher bemerkt und in `initScanner` einen Notbehelf eingebaut, der genau diesen Wert abfängt — behoben war es damit nicht, nur an einer Stelle überdeckt. Jetzt schreibt die Stelle `'granted'`, der Leser akzeptiert weiterhin `'1'` (bestehende Installationen), der Notbehelf ist weg.
+
+**`switchPlantsTab` hätte Schaden angerichtet.** Ihre erste Zeile: `document.querySelectorAll('.mp-htab').forEach(b => b.classList.remove('active'))`. Diese Klasse tragen inzwischen die drei Reiter im **Marktplatz** (Aktiv / Gewonnen / Gekauft). Tot, aber nicht harmlos. Entfernt.
+
+#### Der Prüfstand stand sich selbst im Weg
+
+**Falscher Alarm:** `gs-community-body` wurde dreimal als „nie erzeugt" gemeldet. Es entsteht über `var bodyId = '…'` und dann `id="' + bodyId + '"` — mein Abgleich sah nur Literale. Der Prüfstand kennt jetzt auch diesen Umweg (beschränkt auf Variablennamen, die auf `id` enden; alles andere machte jede Zeichenkette zur möglichen id).
+
+**Der eigentliche Fehler war schwerer.** `scripts/_seed.js` legte die Beispiel-Pflanzen unter `myPlants` ab. Die App liest `ps_myplants`. **Seit v31.30 haben also alle Prüfstände immer eine leere Pflanzenliste vermessen** — Leerzustand statt Karten, kein Pflegeplan, keine Aufgaben. Aufgefallen erst, als ein Versuch `myPlants[0]` lesen wollte und `undefined` bekam. Genau deshalb blieb der Friedhof so lange unentdeckt: ohne Pflanzen gibt es nichts zu verabschieden.
+
+Der Pflanzen-Bildschirm misst jetzt 120 statt 104 Elemente. Was sonst noch unter dem Leerzustand verborgen lag, wird sich in den nächsten Läufen zeigen.
+
+#### Verify
+
+`wiring_check` 302 Namen / 0 nicht auflösbar / 0 ungesichert · 51 → **46** abgesicherte Nachschlagungen · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen, Radius/Schrift/Farbe je 0 geändert gegen `origin/main` · `contrast_check` 0 unter AA in beiden Modi · `touch_check` 0 unter 24×24 · Friedhofs-Rundlauf am laufenden Programm · 9/9 Inline-Scripts + `sw.js` + Archiv + sechs Prüfstände `node --check` OK · `GS_VERSION` v31.46 · `sw.js` gs-v31.46 · `_headers` v31.46 · meta 31.46.20260901.
+
+Die eine gemessene Layout-Änderung ist dieselbe wie in v31.45: die Arten-Zahl im Wissen-Kopf erscheint innerhalb des Messfensters. Keine Regression.
+
+---
 
 ### 2026-09-01 (ag) — v31.45: ein Prüfstand für die Verdrahtung
 

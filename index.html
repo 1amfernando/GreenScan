@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.45.20260901">
+<meta name="app-version" content="31.46.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1140,6 +1140,16 @@ body.dark #gs-task-note{background:linear-gradient(160deg,#4a4224,#3a331b);color
 .sev-severe{background:var(--bg-danger-soft);color:var(--c-danger);}
 
 
+/* v31.46 — Eingang zum Pflanzenfriedhof im Kopf der Pflanzen-Seite.
+   Bewusst als Regel und nicht als style="…" am Element: der erste Anlauf
+   hatte display:flex inline, und damit war das hidden-Attribut wirkungslos —
+   der Knopf stand auch dann da, wenn es gar keine verstorbene Pflanze gab
+   (gemessen: hidden=true, trotzdem 380x34 sichtbar). Ein Inline-Stil schlaegt
+   die Vorgabe des Browsers fuer [hidden]. Dieselbe Falle wie bei .tab-badge
+   in v31.45. */
+.gs-cem-entry{width:100%;margin-top:8px;padding:9px 12px;border:none;border-radius:var(--r-md);background:rgba(0,0,0,.22);color:#fff;font-family:inherit;font-size:var(--fs-sm);font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;-webkit-tap-highlight-color:transparent;}
+.gs-cem-entry[hidden]{display:none;}
+.gs-cem-count{padding:1px 7px;border-radius:var(--r-sm);background:rgba(255,255,255,.18);font-weight:800;}
 .cemetery-card{background:linear-gradient(135deg,#263238,#37474f);border-radius:var(--r-lg);padding:13px 15px;color:#eceff1;margin-bottom:8px;position:relative;overflow:hidden;}
 .cemetery-card::before{content:'RIP';position:absolute;right:12px;top:8px;font-size:var(--fs-sm);font-weight:800;opacity:.2;letter-spacing:2px;}
 .cemetery-name{font-family:'Playfair Display',serif;font-size:var(--fs-lg);font-weight:700;}
@@ -2839,6 +2849,18 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <div data-i18n="favs_stat_ok" data-i18n-fallback="Gut versorgt" style="font-size:var(--fs-xs);opacity:.95;font-weight:700;text-transform:uppercase;">Gut versorgt</div>
     </div>
   </div>
+  <!-- v31.46: Weg zum Pflanzenfriedhof. Der Knopf „🪦 Pflanzenfriedhof" steht
+       auf jeder Pflanzenkarte und verschiebt die Pflanze auch tatsaechlich —
+       nur gab es danach keine Ansicht mehr dafuer: renderCemetery schreibt in
+       cemetery-list, und dieses Element existierte nirgends. Wer eine Pflanze
+       verabschiedet hat, sah sie nie wieder. Erscheint nur, wenn es etwas zu
+       sehen gibt (renderMyPlants blendet ein/aus). -->
+  <button type="button" id="plants-cemetery-entry" class="gs-cem-entry" hidden
+          onclick="if(typeof gsOpenCemetery==='function')gsOpenCemetery()">
+    <span aria-hidden="true">🪦</span>
+    <span data-i18n="favs_cemetery_open" data-i18n-fallback="Pflanzenfriedhof">Pflanzenfriedhof</span>
+    <span id="plants-cemetery-count" class="gs-cem-count">0</span>
+  </button>
 </div>
 
 <!-- ── v26.90 SUB-TAB-SWITCHER 🏠 Wohnung | 🌳 Garten ─────────── -->
@@ -25364,7 +25386,10 @@ function initScanner(){
   var alwaysAsk = false;
   try { alwaysAsk = (typeof gsCamAlwaysAsk === 'function') && gsCamAlwaysAsk(); } catch(e){}
   var granted = cameraPermGranted;
-  try { if (!granted && localStorage.getItem('gs_cam_perm') === '1') granted = true; } catch(_){}
+  // v31.46: der Notbehelf von damals — er fing genau den Wert ab, den die
+  // eigene Schreibstelle vier Zeilen weiter unten hinterliess. Behoben ist es
+  // jetzt an der Wurzel (Schreiber wie Leser kennen 'granted' und '1'),
+  // deshalb ist hier nichts mehr noetig.
   if (alwaysAsk && !granted) {
     // Nur beim ERSTEN mal Dialog — nicht bei jedem Öffnen
     showCameraPermDialog(tryStartCamera, {
@@ -25411,7 +25436,7 @@ async function tryStartCamera(){
       } catch(e1){ stream = await navigator.mediaDevices.getUserMedia({video:true}); }
     }
     // Permission merken — kein erneutes Prompt bei nächstem Öffnen
-    try { cameraPermGranted = true; localStorage.setItem('gs_cam_perm','1'); } catch(e){}
+    try { cameraPermGranted = true; localStorage.setItem('gs_cam_perm','granted'); } catch(e){}   // v31.46: schrieb '1'
     var v = document.getElementById('video');
     if (v) {
       v.srcObject = stream;
@@ -28979,11 +29004,16 @@ function renderMyPlants() {
     }
   }
 
-  // Counters für Tabs
-  var cntAlive = document.getElementById('cnt-alive');
-  var cntDead  = document.getElementById('cnt-dead');
-  if (cntAlive) cntAlive.textContent = myPlants.length;
-  if (cntDead && typeof deadPlants !== 'undefined') cntDead.textContent = deadPlants.length;
+  // v31.46: hier standen Zuweisungen an cnt-alive und cnt-dead — die Zaehler
+  // der alten Lebend/Friedhof-Reiter. Beide ids gibt es nicht mehr. Statt
+  // dessen der Eingang zum Friedhof, und nur dann, wenn es dort etwas gibt.
+  var friedhofBtn = document.getElementById('plants-cemetery-entry');
+  if (friedhofBtn) {
+    var nTot = (typeof deadPlants !== 'undefined' && Array.isArray(deadPlants)) ? deadPlants.length : 0;
+    var nTotEl = document.getElementById('plants-cemetery-count');
+    if (nTotEl) nTotEl.textContent = nTot;
+    friedhofBtn.hidden = !nTot;
+  }
 
   if (!myPlants.length) {
     // v26.86: Empty-State mit zwei Wegen — Scannen (empfohlen, schnell) oder Manuell.
@@ -29929,7 +29959,15 @@ setTimeout(() => {
 
 
 // Camera permission state
-var cameraPermGranted = localStorage.getItem('gs_cam_perm') === 'granted';
+// v31.46: las nur 'granted' — eine von fuenf Schreibstellen (der Kamerastart
+// im Scanner) schrieb aber '1'. Wer die Kamera dort erlaubte, hatte beim
+// naechsten Start wieder cameraPermGranted=false, und der Pflanzendoktor
+// fragte erneut. Die Schreibstelle schreibt jetzt 'granted'; '1' bleibt hier
+// gueltig, damit bestehende Installationen nicht neu fragen muessen.
+var cameraPermGranted = (function(){
+  try { var v = localStorage.getItem('gs_cam_perm'); return v === 'granted' || v === '1'; }
+  catch(_) { return false; }
+})();
 let pendingCameraAction = null; // function to call after permission
 let useLidar = false;
 
@@ -32381,19 +32419,26 @@ function getRarityBadgeHtml(rarity) {
   return '<span class="rarity-badge ' + cfg.css + '">' + cfg.icon + ' ' + cfg.label + '</span>';
 }
 
-function switchPlantsTab(tab, btn) {
-  document.querySelectorAll('.mp-htab').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  const aliveSection = document.getElementById('plants-alive-section');
-  const cemeterySection = document.getElementById('plants-cemetery-section');
-  if (tab === 'alive') {
-    if (aliveSection) aliveSection.style.display = '';
-    if (cemeterySection) cemeterySection.style.display = 'none';
-  } else {
-    if (aliveSection) aliveSection.style.display = 'none';
-    if (cemeterySection) cemeterySection.style.display = '';
-    renderCemetery();
-  }
+/* v31.46 — switchPlantsTab entfernt. Sie schaltete zwischen
+   plants-alive-section und plants-cemetery-section um; beide Elemente gibt es
+   nicht mehr, und aufgerufen wurde sie von niemandem. Zusaetzlich haette sie
+   Schaden angerichtet, waere sie je gelaufen: ihre erste Zeile raeumte
+   .mp-htab.active ab — diese Klasse tragen inzwischen die drei Reiter im
+   Marktplatz (Aktiv / Gewonnen / Gekauft). Der Friedhof haengt jetzt an
+   gsOpenCemetery und braucht keinen Reiter mehr. */
+
+function gsOpenCemetery(){
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+  var n = (typeof deadPlants !== 'undefined' && Array.isArray(deadPlants)) ? deadPlants.length : 0;
+  _gsNlOpen(
+    '<div style="font-size:var(--fs-lg);font-weight:800;margin-bottom:4px;">🪦 ' +
+      _t('cemetery_title','Pflanzenfriedhof') + '</div>' +
+    '<div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:12px;">' +
+      (n === 1 ? _t('cemetery_sub_one','Eine Pflanze, die du verabschiedet hast. Wiederherstellen geht jederzeit.')
+               : _t('cemetery_sub_many','Pflanzen, die du verabschiedet hast. Wiederherstellen geht jederzeit.')) +
+      '</div>' +
+    '<div id="cemetery-list"></div>');
+  renderCemetery();
 }
 
 function moveToCemetery(plantId) {
@@ -32413,6 +32458,13 @@ function moveToCemetery(plantId) {
     gsStore.set('gs_dead_plants', JSON.stringify(deadPlants));
     renderMyPlants();
     closeModal('modal-addplant');
+    // v31.46: bis hierher verschwand die Pflanze kommentarlos — und es gab
+    // keinen Weg zurueck. Jetzt sagt die App, wohin sie gegangen ist.
+    try {
+      if (typeof gsToast === 'function') {
+        gsToast((p.name || 'Pflanze') + ' → 🪦 Pflanzenfriedhof · im Kopf der Seite nachzusehen', 'info');
+      }
+    } catch(_){}
   });
 }
 
@@ -32425,15 +32477,16 @@ function restoreFromCemetery(plantId) {
   savePlantsToStorage();
   gsStore.set('gs_dead_plants', JSON.stringify(deadPlants));
   renderCemetery();
-  renderMyPlants();
+  renderMyPlants();   // zieht den Eingang im Kopf mit (blendet ihn bei 0 aus)
+  try { if (typeof gsToast === 'function') gsToast('♻️ ' + (p.name || 'Pflanze') + ' ist zurück in deiner Sammlung', 'success'); } catch(_){}
 }
 
 function renderCemetery() {
   const list = document.getElementById('cemetery-list');
   if (!list) return;
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
-  const cntEl = document.getElementById('cnt-dead');
-  if (cntEl) cntEl.textContent = deadPlants.length;
+  // v31.46: die Zahl stand vorher in cnt-dead (existiert nicht); sie steht
+  // jetzt am Eingang im Kopf und in der Ueberschrift des Fensters.
   if (!deadPlants.length) {
     list.innerHTML = '<div class="mp-empty"><span>😊</span><p>' + _t('cemetery_empty','Noch keine verstorbenen Pflanzen.') + '</p></div>';
     return;
@@ -63429,6 +63482,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.46', date: '01.09.2026',
+    headline: '\ud83e\udea6 Der Pflanzenfriedhof hatte einen Eingang, aber keinen Ausgang',
+    summary: 'Auf jeder Pflanzenkarte steht ein Knopf „\ud83e\udea6 Pflanzenfriedhof". Er fragt nach der Todesursache, verschiebt die Pflanze \u2014 und danach war sie fort. renderCemetery schreibt in ein Element namens cemetery-list, das es nirgends gibt, und die einzige Funktion, die es h\u00e4tte anzeigen k\u00f6nnen, hatte keinen Aufrufer.',
+    user_summary: '\ud83e\udea6 Verabschiedete Pflanzen waren unwiederbringlich weg \u2014 jetzt gibt es den Friedhof wirklich, mit Weg zur\u00fcck. Und der Pflanzendoktor fragt nicht mehr jedes Mal neu nach der Kamera.',
+    user_items: [
+      {emoji:'\ud83e\udea6', bold:'Verabschiedete Pflanzen sind wieder da:', text:' Der Knopf auf der Pflanzenkarte hat die Pflanze immer korrekt verschoben \u2014 gespeichert war sie also die ganze Zeit. Nur ansehen konnte man sie nicht: die Ansicht schrieb in ein Element, das es nicht gibt, und der einzige Weg dorthin war eine Funktion, die niemand aufrief. Jetzt steht oben auf „Meine Pflanzen" ein Eingang \u2014 und zwar nur dann, wenn es dort etwas zu sehen gibt. Wiederherstellen geht mit einem Tipp.'},
+      {emoji:'\ud83d\udcac', bold:'Und die App sagt jetzt, wohin sie geht:', text:' Bisher verschwand die Pflanze kommentarlos aus der Liste. Das f\u00fchlt sich an wie ein Datenverlust, auch wenn es keiner war. Jetzt kommt eine kurze R\u00fcckmeldung mit dem Hinweis, wo sie zu finden ist.'},
+      {emoji:'\ud83d\udcf7', bold:'Kamera-Erlaubnis ging bei jedem Neustart verloren:', text:' F\u00fcnf Stellen merken sich die Erlaubnis, vier schreiben „granted" \u2014 eine schrieb „1". Wer die Kamera im Scanner erlaubte, wurde vom Pflanzendoktor beim n\u00e4chsten Start wieder gefragt. Jemand hatte das fr\u00fcher schon bemerkt und einen Notbehelf eingebaut, der genau diesen einen Wert abfing; behoben war es damit nicht. Jetzt an der Wurzel \u2014 und bestehende Installationen m\u00fcssen nichts neu erlauben.'},
+      {emoji:'\u26a0\ufe0f', bold:'Eine Umschaltung, die Schaden angerichtet h\u00e4tte:', text:' switchPlantsTab war tot, aber h\u00e4tte sie je jemand aufgerufen, h\u00e4tte ihre erste Zeile die Reiter im Marktplatz (Aktiv / Gewonnen / Gekauft) abger\u00e4umt \u2014 die tragen inzwischen dieselbe Klasse. Entfernt.'},
+      {emoji:'\ud83d\udd2c', bold:'Der Pr\u00fcfstand hat sich selbst im Weg gestanden:', text:' Er meldete die Community-Suche als kaputt \u2014 falscher Alarm, das Element entsteht \u00fcber eine Variable statt \u00fcber ein festes id=. Wichtiger: die Beispieldaten aller Pr\u00fcfst\u00e4nde lagen unter dem falschen Schl\u00fcssel. Seit v31.30 wurde immer eine LEERE Pflanzenliste vermessen \u2014 Leerzustand statt Karten. Aufgefallen, als ein Versuch die erste Pflanze lesen wollte und nichts bekam. Genau deshalb war der Friedhof so lange unentdeckt.'},
+    ],
+  },
+  {
     v: 'v31.45', date: '01.09.2026',
     headline: '\ud83d\udd0c Ein Pr\u00fcfstand f\u00fcr die Verdrahtung \u2014 und ein Abzeichen, das seit einem Jahr ins Leere zielte',
     summary: 'Alle bisherigen Pr\u00fcfst\u00e4nde messen, wie die App AUSSIEHT. Keiner pr\u00fcfte, ob das Angetippte auch ankommt. Der neue scripts/wiring_check.js l\u00f6st beide Richtungen auf: 301 Knopf-Aufrufe gegen die tats\u00e4chlich vorhandenen Funktionen, und 1\u2019010 Element-Nachschlagungen gegen die ids, die es wirklich gibt.',
@@ -63835,7 +63901,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.45';
+var GS_VERSION = 'v31.46';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

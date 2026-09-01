@@ -23,7 +23,12 @@ module.exports = () => { try {
   set('gs_sb_display_name', 'Testnutzerin');
   set('gs_user_location', { lat:47.3769, lon:8.5417, name:'Zürich', canton:'ZH', country:'CH', zip:'8001' });
   set('gs_home_weather_loc', { lat:47.3769, lon:8.5417, name:'Zürich' });
-  set('myPlants', [
+  // v31.46: lag bis hierher unter 'myPlants' — die App liest aber
+  // 'ps_myplants' (index.html: var myPlants = safeGetItem('ps_myplants', [])).
+  // Die Pruefstaende haben deshalb seit v31.30 IMMER eine leere Pflanzenliste
+  // vermessen: Leerzustand statt Karten, kein Pflegeplan, keine Aufgaben.
+  // Aufgefallen erst, als ein Versuch myPlants[0] lesen wollte und undefined bekam.
+  set('ps_myplants', [
     { id:'p1', name:'Basilikum', species:'Ocimum basilicum', emoji:'🌿', added:now-20*D, lastWatered:now-4*D, waterEvery:3, location:'Küchenfenster' },
     { id:'p2', name:'Monstera',  species:'Monstera deliciosa', emoji:'🪴', added:now-90*D, lastWatered:now-1*D, waterEvery:7, location:'Wohnzimmer' },
     { id:'p3', name:'Tomate',    species:'Solanum lycopersicum', emoji:'🍅', added:now-45*D, lastWatered:now-2*D, waterEvery:2, location:'Balkon' }
