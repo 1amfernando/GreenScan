@@ -12,6 +12,73 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-01 (bf) — v31.68: Die Gärten nach oben, vier Abschnitte statt eines Stapels
+
+Fernando, nach zwei Kürzungsrunden: *„Ich finde immer noch dass die Seite (Mein Garten) soviele Sachen/Widget hat und es chaotisch wirkt. Der eigene Garten muss zudem höher gelistet werden."*
+
+Er hat recht, und ich hatte am falschen Hebel gezogen. In v31.64 und v31.66 habe ich **gekürzt** — von 1,9 auf 1,3 Bildschirme. Aber die **Reihenfolge** habe ich nie in Frage gestellt.
+
+#### Der Befund
+
+Die tatsächliche Reihenfolge der Seite „Mein Garten":
+
+```
+ 1. Kopfzeile          6. Werkzeugkacheln
+ 2. Zahlen             7. Mondkalender
+ 3. Nächster Schritt   8. Statistik-Karte
+ 4. Garten scannen     9. ── MEINE GÄRTEN ──   ← hier erst
+ 5. Gartenwetter      10. Einpflanzen / KI-Planer
+```
+
+Die Gärten standen an **neunter** Stelle. Wer „Mein Garten" öffnet, sucht seinen Garten — nicht den Mondkalender.
+
+Und das „Chaos" kam nicht von der Menge: es waren zehn gleich aussehende Karten **ohne eine einzige Überschrift**. Nichts sagte, was zusammengehört.
+
+#### Vier Abschnitte, in der Reihenfolge, in der man fragt
+
+| | |
+|---|---|
+| 🪴 **MEIN GARTEN** | die Gärten selbst (mit „+ Garten" daneben), die Zahlen dazu, was ansteht |
+| ⚡ **TUN** | Einpflanzen · KI-Planer · Garten scannen |
+| ☀️ **HEUTE** | Wetter und Mond |
+| 🧰 **WERKZEUGE** | Säen/Tagebuch/Ernte/Blumen und die drei Gruppen |
+
+Die Zahlen stehen jetzt **unter** den Gärten statt darüber: sie fassen zusammen, was man gerade gesehen hat. Vorher standen sie vor dem, was sie beschreiben.
+
+Der Scan-Knopf ist aus der Übersicht nach „Tun" gewandert — er ist eine Handlung, keine Übersicht. `gsRenderGardenOverview` rendert ihn jetzt in einen eigenen Container; fehlt der, bleibt alles beisammen (ein Knopf, der nirgends landet, wäre schlimmer als einer am falschen Ort).
+
+#### Wetter und Mond in eine Karte
+
+Beide beantworten dieselbe Frage. Ein Trennstrich statt einer zweiten Karte, beide Zeilen weiter einzeln antippbar. Beim Zusammenlegen polsterte es doppelt (`#moon-widget` ist nur ein Behälter, die Zeile darin bringt ihr eigenes Polster mit) — **gemessen 158 statt 116 px**, dann behoben.
+
+#### Der Widerspruch, den erst die neue Reihenfolge zeigte
+
+Auf den Gartenkarten stand „0 Pflanzen" — und direkt darunter „8 Pflanzen in Pflege". Beides stimmt: `plantings` sind Einpflanzungen **in dieses Beet** (Datum, Menge, über „Einpflanzen" angelegt), `myPlants` sind Pflanzen **in deiner Pflege** (Giessplan, Aufgaben). Solange die Gärten unten standen, sah man beides nie zusammen.
+
+Jetzt sagt die Karte **„0 gepflanzt"**. Erster Versuch war „noch nichts eingepflanzt" — zu lang, die Zeile brach um und die Seite wurde länger statt kürzer. Gemessen, verworfen, ersetzt.
+
+#### Diesmal keine Kürzung, sondern eine Ordnung
+
+```
+1 Garten :  1071px → 1076px   +5px
+3 Gärten :  1205px → 1210px   +5px
+6 Gärten :  1406px → 1411px   +5px
+```
+
+Die vier Überschriften kosten rund 48 px; die zusammengelegte Heute-Karte, der gekürzte Erklärsatz und die geschlossene Lücke bringen sie wieder herein. **Das ist ehrlich so zu sagen: dieser Release macht die Seite nicht kürzer, er macht sie lesbar.** Eine Grössenersparnis zu behaupten wäre falsch. Antippbare Stellen unverändert 38/48/63.
+
+#### Und ein Fehler von mir, den der eigene Prüfstand gefunden hat
+
+Der neue „+ Garten"-Knopf war **41×15 px** — unter den 24×24 aus WCAG 2.5.8. `touch_check` hat ihn gemeldet, bevor er ausgeliefert wurde.
+
+Dazu ein zweiter: meine Befehlskette lief aus dem Scratchpad-Verzeichnis, die relativen `sed`-Pfade trafen eine alte Kopie statt des Repos, und die Kette brach ab, bevor der `GS_RELEASES`-Eintrag gesetzt war. Ergebnis: `GS_VERSION` v31.68, Changelog v31.67 — der „Was ist neu"-Dialog wäre stumm geblieben. Gefunden von `relcheck`, der genau diese Gleichheit prüft. **Nach jedem Versions-Bump gehört diese Prüfung gefahren, nicht nur die Prüfstände.**
+
+#### Verify
+
+`wiring_check` 307 Namen / **0** nicht auflösbar · Menü 40/0 · 930 Nachschlagungen / **0** nie erzeugt / **0** ungesichert · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen · `contrast_check` 0 unter AA beide Modi · `touch_check` 0 unter 24×24 (nach dem Fund) · Überschriften 4,87 / 7,84:1, „+ Garten" 5,99 / 7,77:1 · Hell- und Dunkelmodus als Bild angesehen · Höhe bei 1/3/6 Gärten · `GS_RELEASES[0].v` = `GS_VERSION` geprüft · `gsAllReleases()` 415 → **416**, 0 Dopplungen · 9/9 Inline-Scripts + `sw.js` `node --check` OK · `GS_VERSION` v31.68 · `sw.js` gs-v31.68 · `_headers` v31.68 · meta 31.68.20260901.
+
+---
+
 ### 2026-09-01 (be) — v31.67: Rasen statt Filz, ein Knopf ins Leere, und eine Messung, die mich widerlegt hat
 
 #### Der Scanner bot an, was nicht gehen kann

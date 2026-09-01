@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.67.20260901">
+<meta name="app-version" content="31.68.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1692,6 +1692,34 @@ body.dark .gs-doc-pro{background:#3a2c10;border-color:#8d6e2a;color:#ffcc80;}
 /* v31.66 — Die Zahlenzeile. Drei Werte nebeneinander in einer Karte statt
    drei grosser Kacheln untereinander. Trennstriche statt Rahmen: es ist EIN
    Block mit drei Werten, keine drei Bloecke. */
+/* v31.68 — Abschnittsüberschriften. Ohne sie war die Seite ein flacher
+   Stapel aus zehn Karten, und genau das las sich als Chaos: gleich
+   aussehende Bloecke ohne Aussage darueber, was zusammengehoert. Klein,
+   in Grossbuchstaben, gedaempft — sie sollen gliedern, nicht auffallen. */
+/* v31.68 — „Heute": Wetter und Mond als EIN Block. Die beiden Kinder bringen
+   ihre eigene Kartenoptik mit (sie werden auch anderswo benutzt bzw. von JS
+   gerendert); hier wird sie neutralisiert, damit nicht Karte-in-Karte
+   entsteht. Der Trennstrich uebernimmt, was vorher zwei Raender taten. */
+.gs-heute{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-sm);margin:0 16px;overflow:hidden;}
+.gs-heute > div{margin:0 !important;border:none !important;border-radius:0 !important;box-shadow:none !important;}
+/* Die Wetterzeile IST die Zeile und traegt ihr Polster selbst. #moon-widget
+   ist dagegen nur ein Behaelter — die Zeile darin bringt ihr eigenes Polster
+   mit, deshalb hier keins, sonst polstert es doppelt (gemessen: 158 statt
+   116 px). */
+.gs-heute > div:first-child{padding:11px 14px !important;}
+.gs-heute > #moon-widget{padding:0 !important;}
+.gs-heute .moon-card-zeile{border:none !important;box-shadow:none !important;border-radius:0 !important;margin:0 !important;border-top:1px solid var(--border) !important;}
+.gs-sek{display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+  margin:18px 18px 7px;font-size:var(--fs-xs);font-weight:800;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.7px;}
+.gs-sek:first-of-type{margin-top:12px;}
+/* Antippflaeche: mit padding:2px war der Knopf 41x15 px — unter den 24x24
+   aus WCAG 2.5.8, vom eigenen touch_check gemeldet. Der negative Rand haelt
+   die Ueberschrift optisch dort, wo sie war. */
+.gs-sek-akt{background:none;border:none;padding:6px 4px;margin:-6px -4px;
+  min-height:24px;font-family:inherit;
+  font-size:var(--fs-xs);font-weight:800;color:var(--g-main);cursor:pointer;
+  text-transform:none;letter-spacing:0;-webkit-tap-highlight-color:transparent;}
 .gs-go-zahlen{display:flex;background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-sm);margin-bottom:9px;overflow:hidden;}
 .gs-go-z{flex:1;min-width:0;padding:11px 6px;text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent;border-left:1px solid var(--border);transition:background var(--dur-fast) ease;}
 .gs-go-z:first-child{border-left:none;}
@@ -3278,14 +3306,55 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 </div>
 
 <!-- v31.17: Gartenüberblick — Inhalt kommt aus gsRenderGardenOverview() -->
-<div id="garden-overview" style="margin:12px 16px 0;"></div>
+<!-- ══ v31.68: VIER ABSCHNITTE STATT ZEHN LOSER KARTEN ════════════════
+     Fernando: „soviele Sachen/Widget … es chaotisch wirkt" und „Der eigene
+     Garten muss zudem höher gelistet werden."
 
+     Beides hatte dieselbe Ursache. Die Seite war ein flacher Stapel aus
+     zehn Karten ohne jede Gliederung — und die GÄRTEN, das Thema der
+     Seite, standen an zehnter Stelle: hinter Wetter, Werkzeugkacheln,
+     Mond und Statistik. Wer „Mein Garten" öffnet, sucht seinen Garten.
+
+     Jetzt vier Abschnitte mit Überschrift, in der Reihenfolge, in der
+     man fragt:
+       1. MEIN GARTEN — die Gärten selbst, die Zahlen dazu, was ansteht
+       2. TUN         — einpflanzen, planen, scannen
+       3. HEUTE       — Wetter und Mond
+       4. WERKZEUGE   — Säen/Tagebuch/Ernte/Blumen und die drei Gruppen
+     ═══════════════════════════════════════════════════════════════════ -->
+
+<div class="gs-sek">🪴 Mein Garten<button type="button" class="gs-sek-akt" onclick="openAddGarden()">+ Garten</button></div>
+<div id="garden-list" style="padding:2px 16px 12px;"></div>
+<!-- ── SYNC STATUS (Cloud-Sync Indikator) ── -->
+<div id="garden-sync-status" aria-live="polite" style="margin:-8px 18px 0;font-size:var(--fs-xs);color:var(--muted);height:14px;text-align:right;"></div>
+
+<!-- Zahlen und „Nächster Schritt" gehoeren zu den Gaerten DARUEBER: sie
+     beschreiben, was man gerade gesehen hat. Am Seitenanfang standen sie
+     vor dem, was sie zusammenfassen. -->
+<div id="garden-overview" style="margin:0 16px 0;"></div>
+
+<div class="gs-sek">⚡ Tun</div>
+<!-- ── ACTION BAR · v24.03: + „Meine Pläne"-Button -->
+<div style="padding:0 16px 10px;display:flex;gap:8px;">
+  <button onclick="openAddPlanting()" data-i18n="btn_garden_plant" data-i18n-fallback="🌱 Einpflanzen" style="flex:1;padding:11px 8px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🌱 Einpflanzen</button>
+  <button onclick="openGardenAI()" title="KI-Gartenplaner PRO" data-i18n="btn_garden_ai_planner" data-i18n-fallback="🤖 KI-Planer" style="flex:1;padding:11px 8px;background:linear-gradient(135deg,#1f6b2f,#1b5e20);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-brand);">🤖 KI-Planer</button>
+</div>
+<!-- Der Scan-Knopf kommt aus gsRenderGardenOverview hierher: er ist eine
+     Handlung, keine Uebersicht. -->
+<div id="garden-cta" style="margin:0 16px;"></div>
+
+<div class="gs-sek">☀️ Heute</div>
 <!-- ── WETTER-CARD (eigenständig unter Header) ── -->
 <!-- v31.32: Diese Kachel blieb bei v31.28 stehen — dort wurde nur das Wetter
      auf der Startseite vom blauen Verlauf auf Karten-Optik umgestellt. Auf dem
      Garten-Bildschirm leuchtete danach als Einzige noch
      linear-gradient(135deg,#0d47a1,#1565c0). Jetzt dasselbe Material wie die
      Kacheln daneben. Die drei von JS beschriebenen IDs sind unveraendert. -->
+<!-- v31.68: Wetter und Mond in EINER Karte. Beides beantwortet dieselbe
+     Frage — „wie ist es heute?" — und stand als zwei Karten mit zwei
+     Raendern untereinander. Ein Trennstrich statt einer zweiten Karte:
+     ein Block, zwei Zeilen, beide weiterhin einzeln antippbar. -->
+<div class="gs-heute">
 <div onclick="openWeatherDetail()" style="margin:10px 16px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--elev-1);padding:11px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;">
   <span id="garden-hw-icon" style="font-size:var(--fs-3xl);flex-shrink:0;">🌤️</span>
   <div style="flex:1;min-width:0;">
@@ -3298,8 +3367,46 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   <span style="color:var(--muted);font-size:var(--fs-xl);">›</span>
 </div>
 
-<!-- ── SYNC STATUS (Cloud-Sync Indikator) ── -->
-<div id="garden-sync-status" aria-live="polite" style="margin:4px 18px 0;font-size:var(--fs-xs);color:var(--muted);height:14px;text-align:right;"></div>
+<div id="moon-widget" style="margin:8px 16px 0;"></div>
+</div>
+
+<div class="gs-sek">🧰 Werkzeuge</div>
+<!-- ── 4 HAUPTWIDGETS (2×2 Grid) ── -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 16px 0;">
+  <div onclick="openSaekalender()" class="garden-widget" style="background:var(--card);border-radius:var(--r-lg);border:1px solid var(--border);padding:9px 11px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform var(--dur-fast);">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+      <span style="font-size:var(--fs-2xl);">🌱</span>
+      <div style="font-size:var(--fs-md);font-weight:800;color:var(--text);">Säen</div>
+    </div>
+    <div id="widget-sae-subline" style="font-size:var(--fs-xs);color:var(--muted);line-height:1.35;">Was jetzt pflanzen?</div>
+  </div>
+  <div onclick="openGartenTagebuch()" class="garden-widget" style="background:var(--card);border-radius:var(--r-lg);border:1px solid var(--border);padding:9px 11px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform var(--dur-fast);">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+      <span style="font-size:var(--fs-2xl);">📓</span>
+      <div style="font-size:var(--fs-md);font-weight:800;color:var(--text);">Tagebuch</div>
+    </div>
+    <div id="widget-tb-subline" style="font-size:var(--fs-xs);color:var(--muted);line-height:1.35;">Aktivitäten notieren</div>
+  </div>
+  <div onclick="openErnteTracking()" class="garden-widget" style="background:var(--card);border-radius:var(--r-lg);border:1px solid var(--border);padding:9px 11px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform var(--dur-fast);">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+      <span style="font-size:var(--fs-2xl);">🧺</span>
+      <div style="font-size:var(--fs-md);font-weight:800;color:var(--text);">Ernte</div>
+    </div>
+    <div id="widget-ernte-subline" style="font-size:var(--fs-xs);color:var(--muted);line-height:1.35;">Mengen erfassen</div>
+  </div>
+  <div onclick="openBluehkalender()" class="garden-widget" style="background:var(--card);border-radius:var(--r-lg);border:1px solid var(--border);padding:9px 11px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform var(--dur-fast);">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+      <span style="font-size:var(--fs-2xl);">🌻</span>
+      <div style="font-size:var(--fs-md);font-weight:800;color:var(--text);">Blumen</div>
+    </div>
+    <div id="widget-bloom-subline" style="font-size:var(--fs-xs);color:var(--muted);line-height:1.35;">Blüte-Kalender</div>
+  </div>
+</div>
+
+
+<!-- v31.68: Die Sync-Zeile stand nach dem Umbau verwaist zwischen den
+     Werkzeug-Kacheln und den Gruppen. Sie meldet den Abgleich der
+     GARTEN-Daten — sie gehoert zu den Gaerten, nicht ins Werkzeugfach. -->
 
 <!-- v31.66: Die Trennlinie von v31.56 ist raus. Sie loeste ein Problem, das
      es nicht mehr gibt: damals stiessen zwei randlose Bloecke aneinander und
@@ -3310,57 +3417,9 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <!-- v24.39: Smart-Reminder Card (wetter-aware) -->
 <div id="garden-smart-reminder" style="margin:0 16px;"></div>
 
-<!-- ── 4 HAUPTWIDGETS (2×2 Grid) ── -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 16px 0;">
-  <div onclick="openSaekalender()" class="garden-widget" style="background:var(--card);border-radius:var(--r-lg);border:1px solid var(--border);padding:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform var(--dur-fast);">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-      <span style="font-size:var(--fs-2xl);">🌱</span>
-      <div style="font-size:var(--fs-md);font-weight:800;color:var(--text);">Säen</div>
-    </div>
-    <div id="widget-sae-subline" style="font-size:var(--fs-xs);color:var(--muted);line-height:1.35;">Was jetzt pflanzen?</div>
-  </div>
-  <div onclick="openGartenTagebuch()" class="garden-widget" style="background:var(--card);border-radius:var(--r-lg);border:1px solid var(--border);padding:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform var(--dur-fast);">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-      <span style="font-size:var(--fs-2xl);">📓</span>
-      <div style="font-size:var(--fs-md);font-weight:800;color:var(--text);">Tagebuch</div>
-    </div>
-    <div id="widget-tb-subline" style="font-size:var(--fs-xs);color:var(--muted);line-height:1.35;">Aktivitäten notieren</div>
-  </div>
-  <div onclick="openErnteTracking()" class="garden-widget" style="background:var(--card);border-radius:var(--r-lg);border:1px solid var(--border);padding:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform var(--dur-fast);">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-      <span style="font-size:var(--fs-2xl);">🧺</span>
-      <div style="font-size:var(--fs-md);font-weight:800;color:var(--text);">Ernte</div>
-    </div>
-    <div id="widget-ernte-subline" style="font-size:var(--fs-xs);color:var(--muted);line-height:1.35;">Mengen erfassen</div>
-  </div>
-  <div onclick="openBluehkalender()" class="garden-widget" style="background:var(--card);border-radius:var(--r-lg);border:1px solid var(--border);padding:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform var(--dur-fast);">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-      <span style="font-size:var(--fs-2xl);">🌻</span>
-      <div style="font-size:var(--fs-md);font-weight:800;color:var(--text);">Blumen</div>
-    </div>
-    <div id="widget-bloom-subline" style="font-size:var(--fs-xs);color:var(--muted);line-height:1.35;">Blüte-Kalender</div>
-  </div>
-</div>
-
-<!-- ── MONDKALENDER Widget (wird vom loadMoon gerendert) ── -->
-<div id="moon-widget" style="padding:10px 16px 0;"></div>
-
 <!-- v24.39: Garten-Statistik-Dashboard -->
 <div id="garden-stats-card" style="padding:0 16px;"></div>
 
-<!-- ── MEINE GÄRTEN Section ── -->
-<div style="padding:16px 16px 4px;display:flex;align-items:baseline;justify-content:space-between;">
-  <div style="font-size:var(--fs-md);font-weight:800;color:var(--text);">🪴 Meine Gärten</div>
-  <button onclick="openAddGarden()" style="background:none;border:none;color:var(--text);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;padding:6px 0;-webkit-tap-highlight-color:transparent;">+ Hinzufügen</button>
-</div>
-
-<div id="garden-list" style="padding:2px 16px 12px;"></div>
-
-<!-- ── ACTION BAR · v24.03: + „Meine Pläne"-Button -->
-<div style="padding:4px 16px 8px;display:flex;gap:8px;">
-  <button onclick="openAddPlanting()" data-i18n="btn_garden_plant" data-i18n-fallback="🌱 Einpflanzen" style="flex:1;padding:11px 8px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🌱 Einpflanzen</button>
-  <button onclick="openGardenAI()" title="KI-Gartenplaner PRO" data-i18n="btn_garden_ai_planner" data-i18n-fallback="🤖 KI-Planer" style="flex:1;padding:11px 8px;background:linear-gradient(135deg,#1f6b2f,#1b5e20);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-brand);">🤖 KI-Planer</button>
-</div>
 <!-- v31.64: „Meine gespeicherten Garten-Pläne" ist nach „Planen & Gestalten"
      gewandert. Planung stand auf dieser Seite an DREI Stellen: als Kachel in
      der Übersicht, als eigene Zeile hier, und im Akkordeon. Der Weg über die
@@ -7793,7 +7852,7 @@ window.gsRenderGardenOverview = function () {
     ]) + naechsterSchritt();
     cta =
       '<button type="button" class="gs-go-cta" onclick="gsTwinPickPhoto()"><span aria-hidden="true">📷</span> Garten scannen</button>' +
-      '<div class="gs-go-hint">Ein Foto genügt. GreenScan erkennt Pflanzen, Beete und Lichtzonen und baut daraus dein 3D-Modell.</div>';
+      '<div class="gs-go-hint">Ein Foto genügt — GreenScan baut daraus dein 3D-Modell.</div>';
     // Der Satz erklaert den Knopf darueber. Wer den Scan schon kennt,
     // liest ihn bei jedem Besuch erneut — dann ist er keine Erklaerung
     // mehr, sondern Fuellung. Dieser Zweig laeuft nur ohne Zwilling,
@@ -7804,7 +7863,14 @@ window.gsRenderGardenOverview = function () {
   // „🌻 Mein Garten · Planen · Pflegen · Ernten". Hier stand dieselbe
   // Ueberschrift ein zweites Mal — zwei Titel fuer eine Seite. Die vier
   // Kacheln sagen ohnehin, was sie sind.
-  el.innerHTML = hero + kacheln + cta;
+  // v31.68: Uebersicht und Handlung sind zwei Dinge und stehen jetzt in
+  // zwei Abschnitten. Die Zahlen bleiben hier, der Knopf wandert in „Tun".
+  // Faellt der Zielcontainer weg (aeltere Ansicht), bleibt alles beisammen —
+  // ein Knopf, der nirgends landet, waere schlimmer als einer am falschen
+  // Ort.
+  var ziel = document.getElementById('garden-cta');
+  if (ziel) { el.innerHTML = hero + kacheln; ziel.innerHTML = cta; }
+  else { el.innerHTML = hero + kacheln + cta; }
 };
 
 // Die erkannten Pflanzen als Liste — mit Vertrauenswert, damit sichtbar
@@ -63282,9 +63348,17 @@ async function renderGarden() {
     // keine zweite Zeile. In einer Zeile spart das ~20 px je Garten, und
     // das summiert sich: wer sechs Gaerten hat, sah bisher 120 px allein
     // dafuer. Dieselben vier Angaben, dieselbe Reihenfolge.
+    // v31.68: Hier stand „0 Pflanzen" — und direkt darueber auf derselben
+    // Seite „8 Pflanzen in Pflege". Beides stimmt, aber es sind ZWEI Dinge:
+    // `plantings` sind Einpflanzungen IN DIESES BEET (mit Datum und Menge,
+    // ueber „Einpflanzen" angelegt), `myPlants` sind die Pflanzen in deiner
+    // PFLEGE (Giessplan, Aufgaben). Dasselbe Wort fuer beides las sich als
+    // Widerspruch, seit die Gaerten nach oben gerueckt sind und beide Zahlen
+    // nebeneinander stehen. Jetzt benennt die Karte die tatsaechliche
+    // Beziehung.
     html += '<div class="garden-card-meta">' +
       escHtml(garden.location || _t('garden_no_location','Kein Standort')) +
-      ' · ' + gPlantings.length + ' ' + _t('unit_plants','Pflanzen') +
+      ' · ' + gPlantings.length + ' ' + _t('unit_planted','gepflanzt') +
       ' · ' + (sizeLabels[garden.size] || 'Mittel') +
       ' · ' + (lightLabels[garden.light] || '⛅') + '</div>';
     html += '</div>';
@@ -65234,6 +65308,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.68', date: '01.09.2026',
+    headline: '\ud83e\udeb4 Deine G\u00e4rten stehen jetzt ganz oben \u2014 und die Seite hat endlich eine Gliederung',
+    summary: 'Auf einer Seite namens „Mein Garten" standen die eigenen G\u00e4rten an zehnter Stelle, hinter Wetter, Werkzeugen, Mond und Statistik. Und zehn gleich aussehende Karten ohne \u00dcberschrift lasen sich als Chaos.',
+    user_summary: '\ud83e\udeb4 Deine G\u00e4rten kommen zuerst. Darunter vier klare Abschnitte: Mein Garten \u00b7 Tun \u00b7 Heute \u00b7 Werkzeuge.',
+    user_items: [
+      {emoji:'\ud83e\udeb4', bold:'Der eigene Garten zuerst:', text:' Er stand an zehnter Stelle \u2014 hinter dem Wetter, den Werkzeugkacheln, dem Mondkalender und der Statistik. Wer „Mein Garten" \u00f6ffnet, sucht seinen Garten. Jetzt steht er direkt unter der Kopfzeile, mit „+ Garten" gleich daneben.'},
+      {emoji:'\ud83d\udcd1', bold:'Vier Abschnitte statt eines Stapels:', text:' MEIN GARTEN (deine G\u00e4rten, die Zahlen dazu, was ansteht) \u00b7 TUN (einpflanzen, planen, scannen) \u00b7 HEUTE (Wetter und Mond) \u00b7 WERKZEUGE. Das Chaos kam nicht von der Menge, sondern davon, dass zehn gleich aussehende Karten nichts dar\u00fcber sagten, was zusammengeh\u00f6rt.'},
+      {emoji:'\u2600\ufe0f', bold:'Wetter und Mond in einer Karte:', text:' Beide beantworten dieselbe Frage \u2014 wie ist es heute? \u2014 und standen als zwei Karten mit zwei R\u00e4ndern untereinander. Jetzt ein Block mit zwei Zeilen, beide weiterhin einzeln antippbar.'},
+      {emoji:'\ud83d\udd22', bold:'Ein Widerspruch, den erst die neue Reihenfolge zeigte:', text:' Auf den Gartenkarten stand „0 Pflanzen", direkt darunter „8 Pflanzen in Pflege". Beides stimmte, aber es sind zwei Dinge: was in EIN Beet eingepflanzt ist, und wie viele Pflanzen du insgesamt pflegst. Jetzt sagt die Karte „0 gepflanzt".'},
+    ],
+  },
+  {
     v: 'v31.67', date: '01.09.2026',
     headline: '\ud83c\udf31 Echter Rasen im 3D-Modell \u2014 und ein Scanner-Knopf, der nicht mehr ins Leere zeigt',
     summary: 'Der Rasen war eine glatte gr\u00fcne Fl\u00e4che, das Beet wirkte daraufgeklebt. Und wenn dein Ger\u00e4t keine Kamera hat, bot der Scanner „Kamera erneut \u00f6ffnen" als gr\u00f6ssten Knopf an \u2014 die einzige Aktion, die dort nie klappen kann.',
@@ -65649,7 +65735,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.67';
+var GS_VERSION = 'v31.68';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
