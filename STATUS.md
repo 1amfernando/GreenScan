@@ -4,13 +4,46 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.27` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.28` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (m) — v31.28: Die Wetterkarte — und was zwei Renderwege anrichten
+
+> Letzter Punkt aus Bild 3 der zweiten Vorlagen-Reihe. Die Startseite besteht aus hellen Karten mit ruhigem Rahmen — mit einer Ausnahme: das Wetter-Widget lag als `linear-gradient(135deg,#0d47a1,#1565c0)` mit weisser Schrift dazwischen. Es hat jetzt dasselbe Material wie alles andere.
+
+#### Der eigentliche Fund kam beim Nachsehen
+
+Beim Umbau habe ich zuerst nur **einen** Trenner korrigiert: `rgba(255,255,255,.15)` — eine weisse Linie, die auf heller Karte verschwindet. Danach habe ich gesucht, wer sonst noch in `hw-forecast` schreibt. Es sind **zwei** Stellen:
+
+| | `gsApplyWeatherToWidget()` | `loadHomeWeather()` |
+|---|---|---|
+| Auslöser | Cache-Treffer (30 min TTL) | Live-Abruf beim Start |
+| Spalten | **3** | **4** |
+| Textfarbe | geerbt (passt sich an) | **fest `#fff` / `rgba(255,255,255,.7)`** |
+| Trenner | `<div>` dazwischen | `border-right` auf **jede** Spalte, auch die letzte |
+| Wochentage | deutsches Array im Code | aus `gsI18n` |
+
+Der Live-Weg ist der, der beim Start läuft. Hätte ich nur den Trenner korrigiert, wäre die Vorschau beim ersten Öffnen **weiss auf weiss** gewesen — und beim zweiten, aus dem Cache, korrekt. Ein Fehler, der sich beim Nachprüfen selbst wegcacht.
+
+Nebenbei erklärt die Tabelle auch etwas, das nie jemand gemeldet hat: die Vorschau zeigte je nach Cache-Zustand **3 oder 4 Tage**.
+
+#### Die Lösung ist eine Funktion, kein Pflaster
+
+`_gsWxForecastHtml(items)` — beide Wege bauen ihre Liste und geben sie dorthin. Farben kommen aus Tokens, der Trenner aus `.gs-wx-day + .gs-wx-day{border-left}` (also nur *zwischen* den Spalten), die Wochentage aus `gsI18n`. Zwei Wege können jetzt nicht mehr auseinanderlaufen, weil es nur noch einen gibt.
+
+#### Belegt, nicht angenommen
+
+- **Kontrast gerechnet**, statt „sieht dunkel aus" zu urteilen: Tagesname 7,11:1 hell / 7,76:1 dunkel, Min-Temperatur 4,95:1 / 6,08:1. Die gedämpfte Wirkung im Bild ist gewollte Abstufung und liegt über AA — hier war **nichts** zu reparieren, und ich habe es dabei belassen.
+- **Prüfstand lädt die echte Funktion** aus `index.html`, statt eine Kopie zu testen. Drei Zustände gerendert (hell, dunkel, hell mit Warnung), keine JS-Fehler.
+- **Alle zehn JS-beschriebenen IDs** je genau einmal im Dokument.
+- 9/9 Inline-Scripts `node --check` OK · Versionen an allen vier Punkten synchron.
+
+---
 
 ### 2026-09-01 (l) — v31.27: Die untere Navigation — dasselbe Muster, andere Richtung
 
