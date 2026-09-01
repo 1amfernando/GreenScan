@@ -4,13 +4,63 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.28` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.29` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (n) — v31.29: Die Radien-Skala — und ein Fehler, den ich selbst gebaut hatte
+
+> Das letzte grosse Stück Uneinheitlichkeit, das ich in v31.22 bewusst aufgeschoben hatte, weil es „eine eigene, sauber verifizierte Runde braucht". Hier ist sie.
+
+#### Der Befund
+
+2'286 `border-radius`-Angaben in **55** Varianten — 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14 … px, lückenlos. Das ist keine Gestaltung, das ist Rauschen: 461× 10px neben 178× 9px neben 98× 11px. Über 90 % stehen in JS-erzeugten Inline-Styles, nicht in CSS-Klassen — eine Skala musste also bis in die Strings reichen.
+
+Es *gab* bereits drei Token (`--r:16px --r-sm:10px --r-xs:8px`), genutzt an 85 von 2'286 Stellen.
+
+#### Die Skala
+
+4px-Raster, sechs Stufen, jede an einen Zweck gebunden:
+
+| Token | Wert | wofür |
+|---|---|---|
+| `--r-xs` | 4px | Marker, Fortschrittsbalken |
+| `--r-sm` | 8px | Badges, Tags, kleine Knöpfe |
+| `--r-md` | 12px | Knöpfe, Eingabefelder, Listenzeilen |
+| `--r-lg` | 16px | Karten |
+| `--r-xl` | 22px | Modale, Bottom-Sheets |
+| `--r-pill` | 999px | Pillen |
+
+Kreise bleiben `50%` — das erklärt sich selbst besser als jedes Token.
+
+**Bewegung:** von 2'481 Einzelwerten blieben 790 exakt gleich, 1'398 rückten auf ihre Stufe, 293 blieben unberührt. Grösste Bewegung ±2px. Meine erste Zuordnung hätte 18px auf 22px geschoben — **+4px**, ein Bruch meines eigenen Versprechens. Grenze auf den Mittelwert gelegt, neu gerechnet. Es blieb genau **eine** Ausnahme: das Onboarding-Logo, 19px → 22px, bei 80×80px. Im Browser nachgemessen.
+
+11 Werte (26/27/28px) habe ich stehen lassen. Sie liegen zu weit von jeder Stufe, um sie stillschweigend zu verschieben — das wäre eine Gestaltungsentscheidung, keine Aufräumarbeit.
+
+#### Der eigentliche Fund — und er geht auf meine Kappe
+
+Bevor ich `var(--r-*)` überall hineinschrieb, habe ich gefragt: *gibt es Stellen, an denen `:root` gar nicht gilt?* Es gibt sie. Zwei:
+
+- **Garten-Plan-Export** — baut ein HTML-Dokument in einen Blob und öffnet es als Druckfenster.
+- **Garten-Scan-Druck** — schreibt ein Dokument in ein verstecktes iframe.
+
+Beide sind **eigenständige Dokumente**. Sie kennen das `:root` der App nicht. `var(--c-success)` löst dort zu nichts auf.
+
+Und die Farb-Token stehen dort **seit v31.20** — der Farb-Welle, die ich selbst geschrieben habe. Seither druckte der Export schwarze Schrift auf transparenten Flächen. Niemand hat es gemeldet; ich hätte es mit den Radien ein zweites Mal eingebaut.
+
+Beide Dokumente bekommen jetzt über `GS_DOC_TOKENS` ihre eigenen Werte — die **hellen**, weil Gedrucktes nicht dem App-Modus folgt.
+
+#### Ehrlich zur Abdeckung
+
+Ich wollte die Änderung an der laufenden App belegen: vorher/nachher laden, jedes Element mit Radius vermessen, prüfen ob eines die Form wechselt (Rechteck → Pille). Das Ergebnis ist gut — 38 → 19 tatsächlich gerenderte Radien-Varianten, keine JS-Fehler, **kein** Form-Wechsel —, aber es beruht auf nur **11 vergleichbaren Elementen**. Ohne Anmeldung und ohne Netz baut die App ihre Tabs nicht auf, und das Onboarding liess sich nicht dauerhaft wegschalten.
+
+Das trage ich so vor, statt 11 Elemente als Beweis für 2'286 Stellen auszugeben. Was tatsächlich trägt: die Umsetzung ist rein textuell und mechanisch, die Zuordnung ist vollständig aufgelistet, und die beiden erzeugten Dokumente habe ich einzeln gerendert und jedes Token gegen `getComputedStyle` geprüft.
+
+---
 
 ### 2026-09-01 (m) — v31.28: Die Wetterkarte — und was zwei Renderwege anrichten
 
