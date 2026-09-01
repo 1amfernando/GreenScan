@@ -241,6 +241,19 @@ Faustregel für die Auswertung: eine reine Farb- oder Radius-Änderung **muss**
 `GROESSE geaendert: 0` ergeben. Steht dort etwas anderes, verschiebt die
 Änderung Layout — dann vor dem Ausliefern nachsehen, wo.
 
+Zwei weitere Prüfstände liegen daneben:
+
+```bash
+node scripts/contrast_check.js   # WCAG-Kontrast jeder Textstelle, beide Modi
+node scripts/touch_check.js      # Antippflächen unter 24×24 px (WCAG 2.5.8)
+```
+
+Beide sollen **0** melden. Wenn nicht, ist es entweder ein echter Fund oder
+eine Falschmeldung des Prüfstands — und die zweite Möglichkeit ist schon
+dreimal eingetreten (Chip-Leisten, die absichtlich hinausragen; Emoji, deren
+`color` nichts über die Darstellung sagt; ein rotierender Ladekreisel, dessen
+gemessene Grösse vom Winkel abhing). Erst nachsehen, dann ändern.
+
 ## 8 · Wenn du dich verlaufen hast
 
 - Suchst du eine Funktion? `grep -nE "function <name>" index.html`
