@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.26.20260901">
+<meta name="app-version" content="31.27.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -312,8 +312,6 @@ body.dark .settings-label-sub, body.dark .recipe-card-desc {
   color: var(--text2) !important;
 }
 
-body.dark .tab { color: rgba(255,255,255,.55); }
-body.dark .tab.active { color: #fff !important; }
 
 .topbar button, .topbar .ib { color: #ffffff !important; }
 /* v31.25 — FEHLER: --g-dark ist im Dunkelmodus HELLGRUEN (#a5d6a7, die Skala
@@ -324,8 +322,6 @@ body.dark .topbar { background: #122212 !important; }
 
 body.dark .topbar{background:#122212;}   /* v31.25: siehe oben */
 body.dark .tabs{background:#1a2e1a;border-top-color:#2a3f2a;}
-body.dark .tab{color:#5a8a5a;}
-body.dark .tab.active{color:var(--g-main);}
 body.dark .tab.active::before{background:#1e3a1e;}
 body.dark .screen{background:var(--g-bg);}
 body.dark .sp-card,.dark .mpcard,.dark .dsec,.dark .lcard,.dark .mp-stat,
@@ -393,9 +389,15 @@ body{height:100%;background:var(--fill-dark);font-family:"DM Sans",sans-serif;ov
 
 
 .tabs{position:fixed;bottom:0;left:0;right:0;height:calc(var(--sb)+var(--tab-h));padding-bottom:var(--sb);background:var(--fill-dark);border-top:1px solid rgba(255,255,255,.08);display:flex;z-index:var(--z-overlay);box-shadow:var(--elev-3);}
-.tab{flex:1;border:none;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;transition:var(--dur);color:var(--muted);position:relative;padding:4px 2px 2px;}
-.tab.active{color:var(--g-main);}
-.tab.active{color:var(--g-main);}.tab.active::before{content:"";position:absolute;top:6px;left:50%;transform:translateX(-50%);width:36px;height:36px;background:var(--bg-success-soft);border-radius:12px;z-index:-1;}
+/* v31.27 — Die Navigationsleiste ist in BEIDEN Modi dunkel (--fill-dark).
+   Ihre Beschriftung nutzte aber --muted und --g-main, also Token, die nur
+   fuer helle Flaechen im jeweiligen Modus stimmen. Im HELLmodus ergab das
+   2,28:1 (inaktiv) und 1,86:1 (aktiv) — die meistgenutzte Bedienleiste der
+   App war dort praktisch unlesbar. Im Dunkelmodus hatte das jemand dreimal
+   ueberschrieben, im Hellmodus nie. Jetzt feste Werte, die auf dunklem Grund
+   in beiden Modi stimmen — die Flaeche ist ja in beiden dieselbe. */
+.tab{flex:1;border:none;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;transition:var(--dur);color:#9db89d;position:relative;padding:4px 2px 2px;}
+.tab.active{color:#a5d6a7;}.tab.active::before{content:"";position:absolute;top:6px;left:50%;transform:translateX(-50%);width:36px;height:36px;background:var(--bg-success-soft);border-radius:12px;z-index:-1;}
 .ti{font-size:20px;line-height:1;position:relative;z-index:1;}
 .tl{font-size:9px;font-weight:700;letter-spacing:.2px;text-transform:uppercase;margin-top:1px;}
 
@@ -63422,6 +63424,21 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.27', date: '01.09.2026',
+    headline: '🧭 Die untere Navigation war im Hellmodus kaum lesbar',
+    summary: 'Die Navigationsleiste ist in beiden Modi dunkelgrün — ihre Beschriftung nutzte aber Farb-Token für helle Flächen. Im Hellmodus ergab das 1,86:1 für den aktiven und 2,28:1 für die übrigen Reiter. Im Dunkelmodus hatte das jemand dreimal überschrieben, im Hellmodus nie.',
+    user_summary: '🧭 Die Beschriftungen der unteren Navigation sind wieder klar lesbar — im Hellmodus waren sie fast unsichtbar.',
+    user_items: [
+      { emoji: '🧭', text: 'Reiter-Beschriftungen im Hellmodus von 1,9:1 auf 7,4:1' },
+      { emoji: '🧹', text: 'Vier widersprüchliche Farbregeln für dieselben Reiter entfernt — jetzt eine' },
+    ],
+    items: [
+      {emoji:'🧭', bold:'Dunkle Fläche, helle Token:', text:' .tabs nutzt --fill-dark (in beiden Modi dunkel), .tab aber --muted und --g-main. Die stimmen nur für helle Flächen. Feste Werte (#9db89d / #a5d6a7) gegen beide Leisten-Hintergründe gerechnet: 5,7–8,8:1.'},
+      {emoji:'🧹', bold:'Eine Quelle statt fünf:', text:' es gab vier body.dark-Überschreibungen für dieselben zwei Zustände, teils widersprüchlich, plus eine doppelte Basisregel. Alle entfernt — die Fläche ist in beiden Modi dieselbe, also braucht sie auch nur eine Farbe.'},
+      {emoji:'✅', bold:'Nicht gebaut:', text:' der runde grüne Mittelknopf aus den Entwürfen existiert seit v26.86. Drittes Mal in dieser Runde, dass Nachsehen vor Doppelarbeit bewahrt hat.'},
+    ],
+  },
+  {
     v: 'v31.26', date: '01.09.2026',
     headline: '🌗 Jeder Hauptknopf war im Dunkelmodus blass — 146 Flächen',
     summary: 'Nach drei Einzelfunden habe ich das Muster systematisch gesucht: Farb-Token, die im Dunkelmodus heller werden (richtig für Schrift), wurden an 146 Stellen als Fläche mit weisser Schrift benutzt. Jeder Hauptknopf, jeder aktive Chip, jeder aktive Reiter lag dort bei 2,4:1. Fläche und Schrift sind jetzt getrennte Rollen.',
@@ -69505,7 +69522,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.26';
+var GS_VERSION = 'v31.27';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -82844,8 +82861,6 @@ body.dark [style*="background:var(--surface2)"],
 body.dark [style*="background:var(--surface2)"] { background: var(--card) !important; color: var(--text) !important; }
 
 /* Tabs im Dark — Kontrast erhöhen */
-body.dark .tab{color:rgba(240,249,240,0.6);}
-body.dark .tab.active{color:#ffffff;}
 
 /* Karten-Schatten im Dark dezenter */
 body.dark .card,
