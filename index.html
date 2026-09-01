@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.54.20260901">
+<meta name="app-version" content="31.55.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20333,164 +20333,38 @@ window.gsAttachMushroomForecast = gsAttachMushroomForecast;
 // 4h Cache. Sicht nur wenn Treffer.
 // ═════════════════════════════════════════════════════════════════════
 
-window._gsWeatherAlertCache = null; // {key, data, ts}
-window._gsWeatherAlertIdx = 0;
-var GS_WA_TTL_MS = 4 * 60 * 60 * 1000;
+/* ══════════════════════════════════════════════════════════════════════════
+   v31.55 — Home-Unwetter-Karte: der Code ist der letzte Rest, jetzt auch weg.
 
-// User-Region-Slug → grobe Match-Tokens für typical_regions text-Array.
-// v29.50 FIX: Keys an die ECHTEN regional_garden_calendars-Slugs angeglichen — vorher hießen sie
-// mittelland_basic/wallis/tessin/alpen (existieren NICHT) → GS_WA_REGION_TOKENS[gs_region] war für
-// fast jede reale Auswahl null → Region-Filter der Wetter-Warnung lief still ins Leere (nation-wide).
-var GS_WA_REGION_TOKENS = {
-  mittelland:        ['Mittelland', 'ganz CH'],
-  basel_rhein:       ['Mittelland', 'ganz CH'],
-  jura:              ['ganz CH', 'Mittelland'],
-  voralpen:          ['Voralpen', 'Berg-Regionen', 'ganz CH'],
-  graubuenden_hoch:  ['Berg-Regionen', 'Voralpen', 'ganz CH'],
-  walliserkern:      ['Wallis', 'Wallis Talkern', 'ganz CH'],
-  tessin_sued:       ['Tessin', 'ganz CH']
-};
+   Entfernt wurden GS_WA_REGION_TOKENS, gsLoadGardenWeatherAlerts,
+   gsRenderWeatherAlert, gsShowNextWeatherAlert samt Zwischenspeicher —
+   zusammen rund 150 Zeilen. Sie zeichneten in #weather-alert-card und sechs
+   wa-*-Elemente, die es nicht gibt.
 
-async function gsLoadGardenWeatherAlerts() {
-  var card = document.getElementById('weather-alert-card');
-  if (!card) return;
-  if (typeof sbFetch !== 'function') return;
-  try {
-    var month = new Date().getMonth() + 1;
-    // Region heuristisch
-    var regionSlug = null;
-    var regionTokens = null;
-    try {
-      regionSlug = localStorage.getItem('gs_region') || null;
-      if (regionSlug && GS_WA_REGION_TOKENS[regionSlug]) regionTokens = GS_WA_REGION_TOKENS[regionSlug];
-    } catch(_){}
-    var cacheKey = (regionSlug || 'any') + '|' + month;
-    var now = Date.now();
-    var fresh = window._gsWeatherAlertCache && window._gsWeatherAlertCache.key === cacheKey && (now - window._gsWeatherAlertCache.ts) < GS_WA_TTL_MS;
-    var rows;
-    if (fresh) {
-      rows = window._gsWeatherAlertCache.data;
-    } else {
-      // typical_months ist int-Array → contains-Match {month}
-      var q = '/rest/v1/garden_weather_alerts?typical_months=cs.{' + month + '}&select=*&limit=20';
-      var r = await sbFetch(q, { method:'GET' });
-      // v29.02 GARDEN-1: API-Fehler von "keine Alerts" unterscheiden — bei Fehler Widget
-      // still lassen + NICHT cachen (sonst klebt der Fehl-Zustand für die ganze TTL).
-      if (r && r.error) { console.warn('[gsWeatherAlerts] fetch:', r.error.message || r.error); return; }
-      var allRows = (r && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : []);
-      // Region-Filter client-side (typical_regions ist Text-Array mit unstrukturierten Werten)
-      if (regionTokens && allRows.length) {
-        var matching = allRows.filter(function(a){
-          var regs = Array.isArray(a.typical_regions) ? a.typical_regions : [];
-          return regs.some(function(rg){
-            var l = String(rg||'').toLowerCase();
-            return regionTokens.some(function(tok){ return l.indexOf(String(tok).toLowerCase()) >= 0; });
-          });
-        });
-        if (matching.length) allRows = matching;
-      }
-      // Sort: severity desc (katastrophal first), dann hours_to_react asc (dringend first)
-      var sevRank = { katastrophal: 0, hoch: 1, mittel: 2, gering: 3 };
-      allRows.sort(function(a,b){
-        var sa = sevRank[String(a.damage_severity||'').toLowerCase()] || 9;
-        var sb = sevRank[String(b.damage_severity||'').toLowerCase()] || 9;
-        if (sa !== sb) return sa - sb;
-        return (a.hours_to_react||999) - (b.hours_to_react||999);
-      });
-      window._gsWeatherAlertCache = { key: cacheKey, data: allRows, ts: now };
-      rows = allRows;
-    }
-    if (!rows.length) { card.style.display = 'none'; return; }
-    // v29.49: höchste Severity gewinnt weiterhin (katastrophal nie verdeckt), aber bei mehreren
-    // gleich-schweren Warnungen wird tag-stabil gewählt → kein Wechsel bei Re-Render, neue Auswahl
-    // nur alle 24h (Tap re-rollt nicht mehr, sondern öffnet die Live-Warnungen).
-    var _topSev = String(rows[0].damage_severity||'').toLowerCase();
-    var _topGroup = rows.filter(function(r){ return String(r.damage_severity||'').toLowerCase() === _topSev; });
-    var _d = new Date();
-    var _doy = Math.floor((_d.getTime() - new Date(_d.getFullYear(),0,1).getTime())/86400000);
-    var _pick = _topGroup.length ? _topGroup[_doy % _topGroup.length] : rows[0];
-    window._gsWeatherAlertIdx = Math.max(0, rows.indexOf(_pick));
-    gsRenderWeatherAlert(_pick);
-  } catch(_){}
-}
-window.gsLoadGardenWeatherAlerts = gsLoadGardenWeatherAlerts;
+   WARUM ENTFERNEN UND NICHT WIEDER ANSCHLIESSEN — das war die eigentliche
+   Frage, und sie steht seit v29.78 in der Startseite beantwortet:
 
-function gsRenderWeatherAlert(a) {
-  var card = document.getElementById('weather-alert-card');
-  if (!card || !a) return;
-  var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
-  // Severity → Background-Gradient
-  var sev = String(a.damage_severity || '').toLowerCase();
-  var sevMap = {
-    katastrophal: { bg: 'linear-gradient(135deg,#b71c1c,#4a0000)', lbl: '☠ KATASTROPHAL', pulse: true },
-    hoch:         { bg: 'linear-gradient(135deg,#c62828,#7f0000)', lbl: '⚠ HOCH', pulse: false },
-    mittel:       { bg: 'linear-gradient(135deg,#e65100,#bf360c)', lbl: '⚠ MITTEL', pulse: false },
-    gering:       { bg: 'linear-gradient(135deg,#f57c00,#e65100)', lbl: '⚠ GERING', pulse: false }
-  };
-  var sm = sevMap[sev] || sevMap.mittel;
-  card.style.background = sm.bg;
-  // Severity-Badge
-  var sevBadge = document.getElementById('wa-severity-badge');
-  if (sevBadge) sevBadge.textContent = sm.lbl + (a.hours_to_react != null ? ' · React in ' + a.hours_to_react + 'h' : '');
-  // Pulse-Animation bei katastrophal
-  if (sm.pulse) {
-    if (!document.getElementById('gs-wa-pulse-style')) {
-      var st = document.createElement('style'); st.id = 'gs-wa-pulse-style';
-      st.textContent = '@keyframes gs-wa-pulse { 0%{box-shadow:0 0 0 0 rgba(183,28,28,.7);} 70%{box-shadow:0 0 0 14px rgba(183,28,28,0);} 100%{box-shadow:0 0 0 0 rgba(183,28,28,0);} }';
-      document.head.appendChild(st);
-    }
-    card.style.animation = 'gs-wa-pulse 1.5s ease infinite';
-  } else {
-    card.style.animation = '';
-  }
-  // Title
-  var titleEl = document.getElementById('wa-title');
-  if (titleEl) titleEl.textContent = (a.emoji ? a.emoji + ' ' : '') + (a.title || a.alert_type || '');
-  // Region + Pflanzen-Phasen
-  var regionLine = document.getElementById('wa-region-line');
-  if (regionLine) {
-    var bits = [];
-    if (Array.isArray(a.typical_regions) && a.typical_regions.length) bits.push('📍 ' + a.typical_regions.slice(0,3).join(' · '));
-    if (Array.isArray(a.affected_plants) && a.affected_plants.length) bits.push('🌱 ' + a.affected_plants.slice(0,4).join(', '));
-    regionLine.textContent = bits.join(' · ');
-  }
-  // Sofort-Actions
-  var actsEl = document.getElementById('wa-actions');
-  if (actsEl) {
-    if (Array.isArray(a.immediate_actions) && a.immediate_actions.length) {
-      actsEl.innerHTML = '<b>🚨 Sofort:</b> ' + a.immediate_actions.slice(0,3).map(ed).join(' · ');
-      actsEl.style.display = 'block';
-    } else {
-      actsEl.style.display = 'none';
-    }
-  }
-  // MeteoSchweiz-Link
-  var meteoEl = document.getElementById('wa-meteo-link');
-  if (meteoEl) {
-    var link = a.meteoswiss_warning_link || 'https://www.meteoswiss.admin.ch/';
-    meteoEl.href = link;
-  }
-  card.style.display = 'block';
-}
-window.gsRenderWeatherAlert = gsRenderWeatherAlert;
+     „v29.78: Home-Unwetter-Card entfernt (Fernando: unnötig im Home).
+      Wetter-Warnungen-Inbox + Push-Alerts bleiben unabhängig erhalten."
 
-function gsShowNextWeatherAlert() {
-  var data = (window._gsWeatherAlertCache && window._gsWeatherAlertCache.data) || [];
-  if (!data.length) return;
-  window._gsWeatherAlertIdx = (window._gsWeatherAlertIdx + 1) % data.length;
-  var card = document.getElementById('weather-alert-card');
-  if (card) {
-    card.style.transition = 'opacity .2s';
-    card.style.opacity = '0';
-    setTimeout(function(){
-      gsRenderWeatherAlert(data[window._gsWeatherAlertIdx]);
-      card.style.opacity = '1';
-    }, 200);
-  } else {
-    gsRenderWeatherAlert(data[window._gsWeatherAlertIdx]);
-  }
-}
-window.gsShowNextWeatherAlert = gsShowNextWeatherAlert;
+   Also keine vergessene Arbeit, sondern eine getroffene Produktentscheidung.
+   v29.78 hat die Aufrufe entfernt (siehe die beiden Vermerke in
+   gsLoadHomeExtras), die Funktionsrümpfe aber stehen lassen. Genau die sind
+   in der Verdrahtungs-Liste als sechs offene Nachschlagungen aufgetaucht.
+
+   WAS BLEIBT — und das ist ein anderes Feature, das ich anfangs damit
+   verwechselt hatte:
+     · Tabelle weather_alerts (persönliche Live-Warnungen, RLS own-only),
+       befüllt vom Cron weather-alert-3h über die Edge-Function
+       weather-alert-checker. Stand 01.09.2026: 4 offene Warnungen.
+     · Zustellung per Push und in die Inbox.
+     · Ansicht in der App: gsOpenWeatherAlerts(), verdrahtet am Knopf
+       „🌦️ Wetter-Warnungen ansehen" in den Push-Einstellungen (#push-wx-btn),
+       plus Badge über gsWxRefreshBadge().
+   Das alles bleibt unberührt. Entfernt ist nur die saisonale Typ-Warnung
+   auf der Startseite aus garden_weather_alerts — die Tabelle selbst bleibt
+   ebenfalls stehen, sie ist Wissensbestand.
+   ══════════════════════════════════════════════════════════════════════════ */
 
 // ══ SUPABASE-BACKED DAILY CONTENT ═══════════════════════════════
 // Lädt Saison-Tipp, Wusstest du?, Tägliches Quiz und Seasonal-Highlights
@@ -49026,7 +48900,11 @@ function gsTrackShowOnMap(idx) {
     var t = saved[idx];
     if (!t || !t.points || !t.points.length) return;
     document.getElementById('modal-tracks') && document.getElementById('modal-tracks').remove();
-    if (typeof switchTab === 'function') switchTab('map', document.getElementById('tab-map'));
+    // v31.55: der zweite Parameter war document.getElementById('tab-map') — ein
+    // Element, das es nicht gibt. Geprueft: switchTab deklariert zwar btn, liest
+    // es aber nirgends; die aktive Leiste wird ueber ids gesetzt. Der Aufruf war
+    // also folgenlos, nur irrefuehrend. Karte ist ohnehin kein Reiter der Leiste.
+    if (typeof switchTab === 'function') switchTab('map');
     setTimeout(function(){
       if (typeof gsMap === 'undefined' || !gsMap || !window.L) return;
       // Alte Layer entfernen
@@ -63627,6 +63505,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.55', date: '01.09.2026',
+    headline: '\ud83d\udd12 Backend abgesichert \u2014 und der Verdrahtungs-Meilenstein steht auf null',
+    summary: 'Zwei offene Schreib-Endpunkte auf die Artendatenbank stillgelegt, drei Sicherheitsl\u00fccken in der Datenbank geschlossen, die Standard-Rechte geh\u00e4rtet. Dazu der letzte Rest der Verdrahtungs-Liste: 42 offene Nachschlagungen \u2192 0.',
+    user_summary: '\ud83d\udd12 Ein offenes Fenster zur Artendatenbank ist zu, drei Datenbank-L\u00fccken sind geschlossen. Niemand ist hindurchgegangen \u2014 das habe ich nachgepr\u00fcft, bevor ich es gemeldet habe.',
+    user_items: [
+      {emoji:'\ud83d\udeaa', bold:'Das offene Fenster ist zu:', text:' Zwei Server-Funktionen konnten die Artendatenbank ohne Anmeldung \u00fcberschreiben \u2014 gesch\u00fctzt nur durch ein Passwort, das im \u00f6ffentlichen Quelltext stand. Beide liefern jetzt „nicht mehr verf\u00fcgbar". Gepr\u00fcft: 2\u2019838 Arten unver\u00e4ndert, eine einzige neue Zeile in 90 Tagen \u2014 es ist niemand hindurchgegangen.'},
+      {emoji:'\ud83d\udd75\ufe0f', bold:'Wer wer ist, war ohne Anmeldung abfragbar:', text:' Zu jeder Nutzerkennung, die \u00f6ffentlich im Feed steht, liess sich die Berechtigungsstufe erfragen. Vorher gemessen: „ja". Jetzt: „nein" \u2014 und das Gast-St\u00f6bern funktioniert unver\u00e4ndert (Arten, Rezepte, Wissen, Feed alle weiter lesbar).'},
+      {emoji:'\ud83c\udfc6', bold:'Beim Quiz entschied der Client, was richtig ist:', text:' Und daran h\u00e4ngt ein Jahr Pro gratis f\u00fcr die Jahresbesten. Jetzt leitet der Server die Bewertung selbst aus der Frage ab; nachtr\u00e4gliches \u00c4ndern und L\u00f6schen ist gesperrt.'},
+      {emoji:'\ud83d\udcca', bold:'Aufrufz\u00e4hler im Marktplatz waren beliebig hochtreibbar:', text:' Zehn Versuche ohne Anmeldung, gemessen: Z\u00e4hler bleibt bei 6.'},
+      {emoji:'\ud83c\udf29\ufe0f', bold:'Die Unwetter-Karte kommt NICHT zur\u00fcck:', text:' Ich wollte sie schon bauen \u2014 und fand dann in der Startseite den Vermerk von v29.78: „Home-Unwetter-Card entfernt (Fernando: unn\u00f6tig im Home)." Also keine vergessene Arbeit, sondern eine getroffene Entscheidung. Nur die 150 Zeilen Code dahinter sind jetzt auch weg. Deine pers\u00f6nlichen Wetter-Warnungen per Push und in der Inbox bleiben unber\u00fchrt.'},
+    ],
+  },
+  {
     v: 'v31.54', date: '01.09.2026',
     headline: '\ud83c\udf3f Was in der Artendatenbank steckt \u2014 und der Meilenstein von 42 auf 7',
     summary: 'Letzte Welle des Verdrahtungs-Meilensteins. Die Aufschl\u00fcsselung der 4\u2019337 Arten nach Kategorien wurde bei jedem Aufruf berechnet und in ein Element geschrieben, das es nicht gab. Dazu die letzten Reste zweier abgel\u00f6ster Funktionen.',
@@ -64143,7 +64034,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.54';
+var GS_VERSION = 'v31.55';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

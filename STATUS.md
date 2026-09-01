@@ -4,13 +4,71 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.54` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.55` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (ar) — v31.55: Backend abgesichert · Verdrahtungs-Liste auf 0
+
+Fernando hat den Schreibzugriff freigegeben; der Supabase-Server hatte sich neu verbunden und die Schreibwerkzeuge funktionierten. **Drei der vier offenen Punkte konnte ich damit selbst erledigen**, einer bleibt bei ihm.
+
+#### 1 · Die zwei offenen Schreib-Endpunkte (erledigt)
+
+`admin-seed-species` (v3→v4) und `species-bulk-seed` (v4→v5) liefern jetzt 410. Vorher: `verify_jwt: false`, `SUPABASE_SERVICE_ROLE_KEY`, geschützt nur durch ein hartcodiertes Secret, das im Klartext in sechs gepushten Branches lag.
+
+Gegenprobe am ausgelieferten Code: Secret weg, `createClient` weg, `SERVICE_ROLE_KEY` weg. Nachweis kein Missbrauch: `species` 2’838 Zeilen, 1 in 90 Tagen, 0 in 7 Tagen.
+
+#### 2 · Drei Sicherheits-Migrationen (erledigt, jede einzeln belegt)
+
+**Rollen-Leak.** Vorher als `anon` reproduziert: `fn_role_at_least` auf eine fremde UUID lieferte `true`. Die UUID steht öffentlich in `social_posts.user_id`. Nachher: `false`.
+
+**Und die Regressionsprobe**, vor der die Migration ausdrücklich warnt: Gast-Stöbern läuft — species 2’838, recipes 194, remedies 173, facts 162, quests 3, techniques 161, quizzes 203, diseases 135. Der Feed zeigt 1 von 3 Beiträgen, weil zwei `is_archived = true` sind, nicht wegen der Änderung.
+
+**Quiz-Antworten.** Reihenfolge vorher geprüft: der lebende Einfügepfad schickt `selected_option` (`index.html:11192`), `data-idx` ist der DB-Index (`11081`), und die App macht auf `quiz_answers` nur SELECT und INSERT — das `REVOKE UPDATE, DELETE` ist gefahrlos. Nachher belegt: Trigger hängt · Ableitung liefert bei Index 0 `true`, bei Index 1 `false` · anon und authenticated haben nur noch `INSERT, SELECT`.
+
+**Marktplatz-Zähler.** Zehn Aufrufe als `anon` gegen ein echtes Inserat: Zähler bleibt bei **6**.
+
+#### 3 · Härtung, die ich als optional geführt hatte (erledigt)
+
+`TRUNCATE`, `REFERENCES`, `TRIGGER` auf allen 200 Tabellen von `anon`/`authenticated` entzogen, inklusive Default Privileges. Rest: **0**. anon hat noch genau `DELETE, INSERT, SELECT, UPDATE` — was die App braucht. Gast-Stöbern danach erneut geprüft: unverändert. Dazu `revoke execute` auf `fn_quiz_answers_verify` (Trigger-Funktion, die niemand direkt aufrufen soll): Direktaufruf verwehrt, Trigger läuft. Advisor: **0 ERROR**.
+
+#### 4 · Die Wetterwarnungs-Karte — und eine Entscheidung, die schon getroffen war
+
+Ich wollte sie bauen. Die Live-Daten sprachen dafür: `weather_alerts` hat **4 offene Warnungen**, neueste vom 28.08., der Cron läuft.
+
+Dann fiel auf, dass ich **zwei Dinge verwechselt hatte**:
+
+| Tabelle | Stand |
+|---|---|
+| `weather_alerts` | persönliche Live-Warnungen, Push + Inbox. **Hat eine Ansicht**: `gsOpenWeatherAlerts()` am Knopf in den Push-Einstellungen. Funktioniert. |
+| `garden_weather_alerts` | saisonale Typ-Warnungen (für September: Herbst-Frost, Starkregen, Trockenheit — je mit Warnzeichen und Sofortmassnahmen). **Das** war die Karte ohne Element. |
+
+Und für die zweite steht die Antwort seit v29.78 in der Startseite: *Home-Unwetter-Card entfernt (Fernando: unnötig im Home). Wetter-Warnungen-Inbox + Push-Alerts bleiben unabhängig erhalten.*
+
+Keine vergessene Arbeit, sondern eine getroffene Produktentscheidung. v29.78 entfernte die Aufrufe und liess die Rümpfe stehen — genau die tauchten in der Verdrahtungs-Liste auf. Jetzt sind auch sie weg (~150 Zeilen). Die Tabelle bleibt, sie ist Wissensbestand.
+
+**Meine frühere Aussage war falsch** (*Backend und Cron liefern per Push, nur die Ansicht in der App fehlt*) — das galt für `weather_alerts`, und die hat eine Ansicht.
+
+#### Verdrahtungs-Meilenstein: 42 → 0
+
+Dazu noch `tab-map`: der zweite Parameter von `switchTab` war ein Element, das es nicht gibt. `switchTab` deklariert `btn`, liest es aber nirgends — folgenlos, nur irreführend.
+
+#### Was bei Fernando bleibt
+
+**Leaked-Password-Protection.** Der Supabase-Server hat kein Werkzeug für die Auth-Konfiguration. Zwei Dinge nachgeschlagen statt geraten:
+
+- Die Organisation ist auf **Pro** — die Funktion ist verfügbar (sie ist Pro-only). Meine Vermutung Plan-Beschränkung war falsch, sie ist schlicht aus.
+- Der **richtige Pfad** ist `Authentication → Providers → Email`, nicht Policies wie ich zuletzt geschrieben hatte.
+
+#### Verify
+
+`wiring_check` 305 Namen / 0 nicht auflösbar · Menü 40/0 · **0** offene Nachschlagungen (von 42) · 0 ungesichert · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen, Radius/Schrift/Farbe je 0 gegen `origin/main` · `contrast_check` 0 unter AA beide Modi · `touch_check` 0 unter 24×24 · 9/9 Inline-Scripts + `sw.js` `node --check` OK · `GS_VERSION` v31.55 · `sw.js` gs-v31.55 · `_headers` v31.55 · meta 31.55.20260901.
+
+---
 
 ### 2026-09-01 (aq) — v31.54: Meilenstein „Alles verdrahtet" — von 42 auf 7
 
