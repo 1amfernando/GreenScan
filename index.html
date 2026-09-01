@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.29.20260901">
+<meta name="app-version" content="31.30.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -63493,6 +63493,25 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.30', date: '01.09.2026',
+    headline: '\ud83d\udd2c Ein Pr\u00fcfstand, der die App wirklich aufbaut',
+    summary: 'Bei den letzten optischen \u00c4nderungen konnte ich nur ein Dutzend Elemente am laufenden Programm nachmessen \u2014 ohne Anmeldung blieb die App im Onboarding stecken. Jetzt sind es 2\u2019596 Elemente \u00fcber elf Tabs. Beim Bauen kam heraus, warum: nicht der Gast-Modus, sondern ein Schutz gegen Aufblitzen h\u00e4lt die App-H\u00fclle zur\u00fcck. Und der Gast-Zweig daneben war seit v25.33 tot.',
+    user_summary: '\ud83d\udd2c Werkzeug f\u00fcr mich, nicht f\u00fcr dich: optische \u00c4nderungen lassen sich ab jetzt an der echten App nachmessen statt an einer Handvoll Elemente. Sichtbar \u00e4ndert sich nichts.',
+    user_items: [
+      { emoji: '\ud83d\udd2c', text: 'Optische \u00c4nderungen sind ab jetzt \u00fcberpr\u00fcfbar \u2014 2\u2019596 statt 11 Elemente' },
+      { emoji: '\ud83e\uddf9', text: 'Ein alter Gast-Modus-Schl\u00fcssel wird beim n\u00e4chsten Start entsorgt' },
+    ],
+    items: [
+      {emoji:'\ud83d\udd2c', bold:'scripts/render_check.js:', text:' l\u00e4dt index.html ohne Netz, baut jeden der elf Tabs auf und vermisst jedes sichtbare Element (Radius, Schriftgr\u00f6sse, Gr\u00f6sse, Farbe). Mit zwei Dateien als Argument vergleicht er zwei St\u00e4nde und meldet getrennt, was sich an Radius, Schrift, GR\u00d6SSE (also Layout) und Farbe ge\u00e4ndert hat.'},
+      {emoji:'\ud83d\udd0d', bold:'Warum es vorher nicht ging:', text:' nicht die fehlende Anmeldung, sondern der Login-Flash-Guard \u2014 ohne gs_sb_token setzt er html.gs-preauth und damit #app{display:none!important}. Der Pr\u00fcfstand setzt deshalb einen Token. Auf dem Weg dorthin hatte ich einen eigenen Denkfehler: mein Regel-Sucher pr\u00fcfte if (r.cssRules), und das ist seit CSS Nesting bei JEDER Style-Regel wahr \u2014 er hat nie eine Regel angesehen und meldete \u201ekeine Regel gefunden\u201c.'},
+      {emoji:'\ud83e\uddf9', bold:'Toter Gast-Zweig entfernt:', text:' gsCheckOnboarding hatte eine Ausnahme \u201eGast kehrt zur\u00fcck \u2192 kein Onboarding\u201c. Die tat seit v25.33 nichts, weil dort der Demo-Modus abgeschaltet und gsActivateGuestMode auf einen leeren Rumpf gesetzt wurde. Kein Nutzer war dadurch ausgesperrt \u2014 nachgemessen, der Alt-Gast landete im selben Zustand wie jeder Abgemeldete. Der Zweig log nur im Kommentar. Der Schl\u00fcssel gs_guest_mode wird jetzt einmalig entsorgt.'},
+      {emoji:'\u2705', bold:'v31.29 nachtr\u00e4glich belegt:', text:' die Radien-Skala aus der Vorversion mit dem neuen Pr\u00fcfstand gegengerechnet: 1\u2019524 vergleichbare Elemente, 316 Radien ge\u00e4ndert, gr\u00f6sste Bewegung 2px \u2014 und 0 Schriftgr\u00f6ssen, 0 Gr\u00f6ssen\u00e4nderungen, 0 Farb\u00e4nderungen. Genau das Profil, das eine reine Radius-\u00c4nderung haben muss.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Pr\u00fcfstand auf der aktuellen index.html: Onboarding blockiert nicht, keine JS-Fehler, 2\u2019596 Elemente \u00fcber 11 Tabs \u00b7 Entfernung des toten Zweigs gegen den Vorstand vermessen: 1\u2019524 vergleichbare Elemente, 0 Unterschiede in Radius, Schrift, Gr\u00f6sse und Farbe \u00b7 Alt-Gast-Fall vorher/nachher gepr\u00fcft: gleicher Zustand wie ein neuer Nutzer, Schl\u00fcssel entsorgt \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.30 \u00b7 sw.js gs-v31.30 \u00b7 _headers v31.30 \u00b7 meta=31.30.20260901.'},
+    ],
+  },
+  {
     v: 'v31.29', date: '01.09.2026',
     headline: '\u25a2 Eine Radien-Skala statt 55 Einzelentscheidungen',
     summary: 'Die App hatte 2\u2019286 Angaben f\u00fcr abgerundete Ecken in 55 verschiedenen Werten \u2014 von 2px bis 28px in Einerschritten. 9px neben 10px neben 11px, ohne dass das jemand so entschieden h\u00e4tte. Jetzt ein 4px-Raster mit sechs benannten Stufen. Beim Umbau kam ein Fehler ans Licht, der \u00e4lter ist als diese \u00c4nderung: Export und Druck erzeugen eigenst\u00e4ndige Dokumente, in denen die Farb-Token der App gar nicht gelten.',
@@ -69629,7 +69648,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.29';
+var GS_VERSION = 'v31.30';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -74577,14 +74596,17 @@ function gsCheckOnboarding() {
       return;
     }
 
-    // Kein Token → immer Onboarding zeigen (egal was in localStorage steht)
-    // Ausnahme: Gast-Modus wurde explizit gewählt (gs_guest_mode = true)
-    var isGuest = localStorage.getItem(GS_GUEST_MODE_KEY) === 'true';
-    if (isGuest) {
-      // Gast kehrt zurück → Demo-Banner zeigen, kein Onboarding
-      gsActivateGuestMode(false);
-      return;
-    }
+    // Kein Token → immer Onboarding zeigen (egal was in localStorage steht).
+    //
+    // v31.30: Hier stand eine Ausnahme für den Gast-Modus — "Gast kehrt zurück
+    // → Demo-Banner zeigen, kein Onboarding". Sie tat seit v25.33 nichts:
+    // dort wurde der Demo-Modus abgeschaltet und gsActivateGuestMode auf einen
+    // leeren Rumpf gesetzt. Der Zweig rief also eine No-Op und kehrte zurück.
+    // Sichtbar wurde das nicht, weil der Login-Flash-Guard das Onboarding
+    // ohnehin per !important einblendet — der Zweig log nur im Kommentar.
+    // Wer vor v25.33 als Gast unterwegs war, trägt den Schlüssel bis heute mit
+    // sich herum; er wird jetzt einmalig entsorgt.
+    try { localStorage.removeItem(GS_GUEST_MODE_KEY); } catch(_){}
 
     // Erster Besuch ODER früherer Besucher ohne Token → Onboarding zeigen
     var el = document.getElementById('gs-onboarding');
