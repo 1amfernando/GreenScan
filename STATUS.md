@@ -4,13 +4,63 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.52` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.53` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (ap) — v31.53: Das KI-Tageskontingent war nirgends zu sehen
+
+Welle 5. Die Einstellungs- und Menü-Gruppe: `about-db`, `settings-ai-quota-row`, `settings-ai-quota-sub`, `mi-adminpanel`, `dedup-badge`.
+
+#### Der Fund
+
+Gratis-Nutzer haben **15 KI-Aufrufe pro Tag** (`gsAboGetAIQuota`). `initSettingsScreen` füllt seit v26.65 zwei Elemente damit — `#settings-ai-quota-row` und `#settings-ai-quota-sub`. Beide gab es **nie**.
+
+Nachgesehen, wo das Kontingent sonst auftaucht: an genau zwei Stellen, `callAI` und `callVisionAI` — und zwar erst **im Fehlerfall**:
+
+```
+🚫 Tageslimit erreicht — heute 15/15 KI-Aufrufe verbraucht.
+```
+
+Man konnte nicht einteilen, was man nicht sehen konnte. Der erste Hinweis auf ein Limit war die Absage.
+
+#### Die Lösung
+
+Eine Zeile in der Abo-Karte der Einstellungen, dort wo Plan und Abrechnung stehen. Startet verborgen wie die Portal-Zeile daneben; `initSettingsScreen` blendet sie ein, sobald es etwas anzuzeigen gibt — bei Pro oder eigenem Schlüssel bleibt sie weg, weil es dann kein Limit gibt.
+
+Gemessen, alle drei Zustände:
+
+| verbraucht | Text | Farbe |
+|---|---|---|
+| 0 | `✅ 0 / 15 Calls heute · 15 übrig` | `--muted` |
+| 12 | `⚠️ 12 / 15 Calls heute · 3 übrig` | `rgb(191,54,12)` |
+| 15 | `🚫 15 / 15 Calls heute · 0 übrig` | `rgb(198,40,40)` |
+
+#### Und die Farbe stimmte nicht
+
+Der vorhandene Code setzte bei ≤3 verbleibenden Aufrufen `#e65100` — auf der weissen Karte **3,79:1**, unter AA. Auf `#bf360c` gebracht: **5,60:1**.
+
+Das ist der zweite Fall dieser Art in Folge (v31.51 war es die Boden-Infobox). Beide Male hätte `contrast_check` nichts gefunden — beim ersten Mal steckte die Stelle in einem geschlossenen Fenster, hier existierte sie überhaupt nicht. **Was nicht gerendert wird, wird nicht gemessen.** Wer eine neue Farbe in Code schreibt, der bisher tot war, rechnet selbst nach.
+
+#### Drei Reste aufgelöst
+
+- **`mi-adminpanel`** — ein Menü-Eintrag aus einer früheren Fassung. Das Admin-Panel ist erreichbar: `#settings-admin-dashboard-row` in den Einstellungen und ein Menü-Sucheintrag, der `openAdminPanel()` direkt aufruft.
+- **`about-db`** — zwölf Zeilen tiefer wird die Artenzahl ohnehin in vier Elemente geschrieben, plus `modal-about-arten` aus dem Über-Dialog. Die Zahl war nie weg, nur diese Stelle.
+- **`dedup-badge`** — Abzeichen aus derselben früheren Fassung. `deduplicateDB` läuft beim Start und räumt selbstständig auf; es braucht keine Bedienung.
+
+#### Verify
+
+`wiring_check` 305 Namen / 0 nicht auflösbar · Menü 40/0 · 22 → **17** abgesichert · 0 ungesichert · Kontingent-Anzeige in allen drei Zuständen gemessen · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen, Radius/Schrift/Farbe je 0 gegen `origin/main` · `contrast_check` 0 unter AA beide Modi · `touch_check` 0 unter 24×24 · `GS_VERSION` v31.53 · `sw.js` gs-v31.53 · `_headers` v31.53 · meta 31.53.20260901.
+
+#### Stand des Meilensteins
+
+Von 42 offenen Nachschlagungen sind **17** übrig, davon **8 die Wetterwarnungs-Gruppe**, die auf Fernandos Entscheidung wartet. Die übrigen 9: `camera-wrapper` (hat einen absichtlichen Rückfall), `chip-all`, `cam-perm-dialog`, `gc-*`×3, `more-db-cats`, `more-stat-total`, `kb-loading`/`bibliothek-loading` (Rückfallkette), `tab-map` (geprüft harmlos).
+
+---
 
 ### 2026-09-01 (ao) — v31.52: Der Beitragstyp wurde beim Absenden weggeworfen
 
