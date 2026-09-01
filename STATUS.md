@@ -12,6 +12,18 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-01 (af) — Nachtrag: aus dem Zufallsfund eine wiederholbare Prüfung gemacht
+
+Der `undefined`-Fund in v31.44 war ein Vertreter einer **Klasse**: eine Zuordnung greift daneben, und das Ergebnis landet wörtlich im Text. Ich habe systematisch nach den anderen Vertretern gesucht — `undefined`, `null`, `NaN`, `[object Object]`, `Invalid Date`, `{{platzhalter}}` — über elf Tabs in beiden Modi.
+
+**Ergebnis: 0.** Die Klasse ist nach v31.44 sauber.
+
+Damit das nicht wieder vom Zufall abhängt, meldet `render_check.js` diese Zahl jetzt bei jedem Lauf. Sie muss **0** sein; steht dort etwas anderes, ist irgendwo eine Zuordnung oder Formatierung danebengegangen.
+
+Kein Versions-Bump — reines Werkzeug plus Dokumentation, kein App-Code.
+
+---
+
 ### 2026-09-01 (ae) — v31.44: „undefined" auf 22 Karten — gefunden beim Durchsehen, nicht beim Messen
 
 Nach sieben Releases mit sichtbaren Änderungen wollte ich mich nicht auf „0 Fehler" verlassen. Also alle zehn Seiten in beiden Modi gerendert und **angesehen**. Auf einer Heilmittel-Karte stand im Kategorie-Chip wörtlich `undefined`.
