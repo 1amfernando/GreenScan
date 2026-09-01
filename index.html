@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.23.20260901">
+<meta name="app-version" content="31.24.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -79,9 +79,13 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --g-dark:#1a3d1a;--g-main:#2d8a2d;--g-mid:#3d9e3d;--g-light:#b8ddb8;--g-bg:#eef7ee;
+  /* v31.24 — warme Grundflaeche statt gruenstichigem Weiss (beide Entwuerfe
+     zeigen Creme). --g-main von #2d8a2d auf #1f6b2f: tieferes Waldgruen wie
+     in den Bildern UND endlich lesbar — der alte Wert lag als Text bei
+     4,0:1, also schon vor dieser Aenderung unter der Schwelle. */
+  --g-dark:#1a3d1a;--g-main:#1f6b2f;--g-mid:#3d9e3d;--g-light:#b8ddb8;--g-bg:#f4f1ea;
   --text:#111111;--text2:#3a3a3a;--muted:#6b6b6b;
-  --card:#ffffff;--surface2:#f4faf4;--border:#c8e0c8;
+  --card:#ffffff;--surface2:#f7f4ee;--border:#e3ded3;
   /* v30.17: bisher NIE definierte, aber benutzte Theme-Vars (--bg 19×, --surface 14×, --g-forest 2×) — Fix der Transparenz/Gradient-Bug-Klasse */
   --bg:#eef7ee;--surface:#f4faf4;--g-forest:#1a3d1a;
   --shadow:0 4px 20px rgba(0,0,0,.10);--shadow-sm:0 2px 8px rgba(0,0,0,.07);
@@ -1500,28 +1504,33 @@ body.dark .gs-doc-pro{background:#3a2c10;border-color:#8d6e2a;color:#ffcc80;}
 .gs-go-next-s{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.3;}
 .gs-go-cta{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:var(--g-main);color:#fff;border:none;border-radius:13px;padding:13px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-2);}
 @media (prefers-reduced-motion: reduce){.gs-go-tile{transition:none;}.gs-go-tile:active{transform:none;}}
-/* v31.16: „Dein Tagesplan" auf der Startseite. Bewusst nur Token-Farben —
-   die Karte muss in Hell UND Dunkel funktionieren, ein fest verdrahtetes
-   Creme haette im Dunkelmodus geleuchtet wie ein Scheinwerfer. */
-.gs-dp-head{font-family:'Playfair Display',serif;font-size:17px;font-weight:800;color:var(--text);margin:2px 0 9px;letter-spacing:-.01em;}
-.gs-dp-row{display:flex;align-items:center;gap:11px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:11px 12px;margin-bottom:8px;cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:var(--shadow-sm);transition:transform var(--dur-fast) ease;}
-.gs-dp-row:active{transform:scale(.985);}
-.gs-dp-ico{width:38px;height:38px;flex-shrink:0;border-radius:11px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:19px;}
+/* v31.24 — „Heute zu tun". Beide neuen Entwuerfe zeigen dieselbe Loesung:
+   EINE Karte, getrennte Zeilen, rechts ein Kaestchen. Keine Prioritaets-
+   Plaketten, keine zweite Hervorhebung darunter. „Hochwertig und sehr simpel"
+   heisst hier: weglassen, bis nur noch das uebrig ist, was man antippt. */
+.gs-dp-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:2px 0 10px;}
+.gs-dp-head h3{font-family:'Playfair Display',serif;font-size:19px;font-weight:800;color:var(--text);margin:0;letter-spacing:-.015em;}
+.gs-dp-count{font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap;}
+.gs-dp-card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--elev-1);overflow:hidden;}
+.gs-dp-row{display:flex;align-items:center;gap:12px;padding:13px 14px;border-bottom:1px solid var(--border);transition:opacity var(--dur) ease,max-height var(--dur) ease;max-height:90px;}
+.gs-dp-row:last-of-type{border-bottom:none;}
+.gs-dp-row.gs-dp-done{opacity:0;max-height:0;padding-top:0;padding-bottom:0;border-bottom-width:0;}
+.gs-dp-ico{width:34px;height:34px;flex-shrink:0;border-radius:10px;background:var(--surface2);color:var(--g-main);display:flex;align-items:center;justify-content:center;}
+.gs-dp-ico svg{width:19px;height:19px;}
 .gs-dp-body{flex:1;min-width:0;}
-.gs-dp-title{font-size:14px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.gs-dp-sub{font-size:11.5px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.gs-dp-prio{flex-shrink:0;text-align:center;border-radius:9px;padding:5px 9px;line-height:1.25;}
-.gs-dp-prio span{display:block;font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;opacity:.8;}
-.gs-dp-prio b{display:block;font-size:11.5px;font-weight:800;}
-.gs-dp-more{font-size:11.5px;font-weight:700;color:var(--g-main);padding:1px 2px 9px;cursor:pointer;}
-.gs-dp-empty{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:13px 14px;font-size:12.5px;line-height:1.5;color:var(--text2);box-shadow:var(--shadow-sm);margin-bottom:8px;}
-.gs-dp-next{display:flex;align-items:center;gap:12px;background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:12px 13px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform var(--dur-fast) ease;}
-.gs-dp-next:active{transform:scale(.985);}
-.gs-dp-next-kicker{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);}
-.gs-dp-next-title{font-size:15px;font-weight:800;color:var(--text);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.gs-dp-next-sub{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.4;}
-.gs-dp-next-btn{width:40px;height:40px;flex-shrink:0;border-radius:50%;background:var(--g-main);color:#fff;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;box-shadow:var(--elev-2);}
-@media (prefers-reduced-motion: reduce){.gs-dp-row,.gs-dp-next{transition:none;}.gs-dp-row:active,.gs-dp-next:active{transform:none;}}
+.gs-dp-title{font-size:14.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.01em;}
+.gs-dp-sub{font-size:11.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gs-dp-box{width:24px;height:24px;flex-shrink:0;border-radius:7px;border:1.6px solid var(--border);background:transparent;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;line-height:1;padding:0;font-family:inherit;
+  transition:background var(--dur-fast) ease,border-color var(--dur-fast) ease,transform var(--dur-fast) ease;-webkit-tap-highlight-color:transparent;}
+.gs-dp-box:active{transform:scale(.9);}
+.gs-dp-box.on{background:var(--g-main);border-color:var(--g-main);}
+.gs-dp-all{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;padding:12px 14px;background:transparent;border:none;
+  border-top:1px solid var(--border);font-size:13px;font-weight:700;color:var(--g-main);cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;}
+.gs-dp-empty{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--elev-1);padding:16px;
+  font-size:13px;line-height:1.55;color:var(--text2);}
+.gs-dp-empty b{display:block;font-family:'Playfair Display',serif;font-size:16px;font-weight:800;color:var(--text);margin-bottom:3px;}
+@media (prefers-reduced-motion: reduce){.gs-dp-row,.gs-dp-box{transition:none;}.gs-dp-box:active{transform:none;}}
 .mp-tasks{padding:0 13px 12px;}
 .mp-tasks-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:6px;}
 .mp-task{display:flex;align-items:center;gap:9px;padding:8px 10px;background:var(--surface-neutral);border-radius:10px;margin-bottom:5px;cursor:pointer;transition:var(--dur);}
@@ -23196,118 +23205,108 @@ function gsGetDueTasks(){
 }
 
 
-// ═══ v31.16: „DEIN TAGESPLAN" AUF DER STARTSEITE ══════════════════════
-// Fernandos Entwürfe zeigen die Startseite als eine einzige Frage:
-// „Was mache ich jetzt?" — eine kurze Liste mit Prioritäten und darunter EIN
-// hervorgehobener nächster Schritt. Das ist der eigentliche Haken, nicht noch
-// ein Abzeichen: wer die App öffnet, soll in zwei Sekunden wissen, was ansteht,
-// und es mit einem Tippen erledigen können.
+// ═══ v31.24: „HEUTE ZU TUN" ═════════════════════════════════════════
+// Fernandos zweite Bilderserie zeigt in beiden Registern dieselbe Loesung:
+// EINE Karte, getrennte Zeilen, rechts ein Kaestchen zum Abhaken. Keine
+// Prioritaets-Plaketten, keine zweite Hervorhebung darunter.
 //
-// Die Daten liegen längst vor — gsGetDueTasks() kennt Pflanze, Aufgabe und Tage
-// bis fällig. Sie standen bisher nur auf dem Pflanzen-Tab (Notizzettel) und in
-// der Glocke; auf der Startseite, die man zuerst sieht, standen sie nirgends.
-function _gsDayPlanPrio(days){
-  if (days <= 0)  return { label:'Hoch',    fg:'#c62828',      bg:'rgba(198,40,40,.10)' };
-  if (days === 1) return { label:'Mittel',  fg:'#ef6c00',      bg:'rgba(239,108,0,.10)' };
-  return            { label:'Niedrig', fg:'var(--g-main)', bg:'rgba(45,138,45,.10)' };
-}
-// Kurze Verben statt der Anzeigenamen aus TASK_DEFS. Ein pauschales
-// toLowerCase() auf „Schädlinge prüfen" ergibt „Basilikum schädlinge prüfen" —
-// grammatikalisch daneben und im Entwurf steht schlicht „Basilikum prüfen".
+// Das ist bewusst WENIGER als die Fassung aus v31.16. „Hochwertig und sehr
+// simpel" heisst hier weglassen: eine Zeile sagt, was ansteht, und das
+// Kaestchen erledigt es. Die Dringlichkeit steht als Zeile darunter, nicht
+// als bunte Plakette — im Entwurf gibt es keine.
+//
+// Erledigt wird weiterhin ueber gsNcDoneTask → gsQuickDone: eine einzige
+// Erledigt-Logik inklusive Cloud-Sync, Tagebuch und Achievements.
 var _GS_DP_VERB = { water:'giessen', fertilize:'düngen', repot:'umtopfen', rotate:'drehen',
                     mist:'besprühen', dust:'Blätter putzen', prune:'schneiden', check:'prüfen' };
+var _GS_DP_ICON = { water:'water', fertilize:'leaf', repot:'garden', rotate:'sun',
+                    mist:'water', dust:'leaf', prune:'herb', check:'search' };
 function _gsDayPlanVerb(key, def){
   if (_GS_DP_VERB[key]) return _GS_DP_VERB[key];
   var n = String((def && def.name) || key || '').trim();
-  // Unbekannte Aufgabe: nur ein EINZELNES Wort kleinschreiben, sonst so lassen.
   return n.indexOf(' ') === -1 ? n.toLowerCase() : n;
 }
 function _gsDayPlanWhen(days){
-  if (days < 0)   return 'Seit ' + Math.abs(days) + ' Tag' + (Math.abs(days) === 1 ? '' : 'en') + ' fällig.';
-  if (days === 0) return 'Heute fällig.';
-  if (days === 1) return 'Morgen dran.';
-  return 'In ' + days + ' Tagen.';
+  if (days < 0)   return 'Seit ' + Math.abs(days) + ' Tag' + (Math.abs(days) === 1 ? '' : 'en') + ' fällig';
+  if (days === 0) return 'Heute';
+  if (days === 1) return 'Morgen';
+  return 'In ' + days + ' Tagen';
 }
-// Eine Zeile: Symbol, Titel, Begründung, Prioritätsschild. Tippen erledigt sie —
-// derselbe Weg wie im Notizzettel (gsNcDoneTask → gsQuickDone), damit es genau
-// eine Erledigt-Logik gibt und nicht zwei, die auseinanderlaufen.
-function _gsDayPlanRow(t, esc){
-  var prio = _gsDayPlanPrio(t.days);
-  var title = esc(t.plant.name) + ' ' + esc(_gsDayPlanVerb(t.key, t.def));
-  var call = "gsNcDoneTask(this,'" + esc(t.plant.id) + "','" + esc(t.key) + "')";
-  return '<div class="gs-dp-row" role="button" tabindex="0" onclick="' + call + '"' +
-           ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();' + call + ';}"' +
-           ' aria-label="' + title + ' — erledigt melden">' +
-      '<div class="gs-dp-ico">' + (t.def.icon || '🌿') + '</div>' +
-      '<div class="gs-dp-body">' +
-        '<div class="gs-dp-title">' + title + '</div>' +
-        '<div class="gs-dp-sub">' + _gsDayPlanWhen(t.days) + '</div>' +
-      '</div>' +
-      '<div class="gs-dp-prio" style="color:' + prio.fg + ';background:' + prio.bg + ';">' +
-        '<span>Priorität</span><b>' + prio.label + '</b>' +
-      '</div>' +
-    '</div>';
-}
-// Der hervorgehobene Abschluss: genau EINE Handlung. Mehr als eine „wichtigste"
-// Sache gibt es nicht, sonst ist es wieder eine Liste.
-function _gsDayPlanNext(label, sub, call, aria){
-  return '<div class="gs-dp-next" role="button" tabindex="0" onclick="' + call + '"' +
-           ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();' + call + ';}"' +
-           ' aria-label="' + aria + '">' +
-      '<div style="flex:1;min-width:0;">' +
-        '<div class="gs-dp-next-kicker">Nächster Schritt</div>' +
-        '<div class="gs-dp-next-title">' + label + '</div>' +
-        (sub ? '<div class="gs-dp-next-sub">' + sub + '</div>' : '') +
-      '</div>' +
-      '<div class="gs-dp-next-btn" aria-hidden="true">→</div>' +
-    '</div>';
-}
+
+// Abhaken: erst die Zeile sichtbar quittieren, dann erledigen. Die Zeile
+// klappt zu statt zu verschwinden — ein Element, das ohne Uebergang wegspringt,
+// wirkt wie ein Fehler. Bei „Bewegung reduzieren" faellt der Uebergang weg
+// (siehe CSS), die Reihenfolge bleibt dieselbe.
+window.gsDayPlanCheck = function(btn, plantId, taskKey){
+  if (!btn || btn.dataset.busy === '1') return;
+  btn.dataset.busy = '1';
+  btn.classList.add('on');
+  btn.textContent = '✓';
+  try { if (typeof gsHaptic === 'function') gsHaptic('success'); } catch(_){}
+  var row = btn.closest ? btn.closest('.gs-dp-row') : null;
+  if (row) setTimeout(function(){ row.classList.add('gs-dp-done'); }, 160);
+  setTimeout(function(){
+    try { if (typeof gsNcDoneTask === 'function') gsNcDoneTask(btn, plantId, taskKey); } catch(_){}
+  }, 340);
+};
+
 window.gsRenderDayPlan = function(){
   var el = document.getElementById('home-dayplan');
   if (!el) return;
   var esc = (typeof gsEscHtml === 'function') ? gsEscHtml
           : (typeof escHtml === 'function') ? escHtml
-          : function(s){ return String(s == null ? '' : s); };
+          : function(x){ return String(x == null ? '' : x); };
+  var ico = function(name){
+    try { if (typeof gsIcon === 'function') return gsIcon(name, 19, ''); } catch(_){}
+    return '';
+  };
   var tasks = [];
   try { if (typeof gsGetDueTasks === 'function') tasks = gsGetDueTasks() || []; } catch(_){}
   var nPlants = 0;
   try { if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) nPlants = myPlants.length; } catch(_){}
 
-  var head = '<div class="gs-dp-head">Dein Tagesplan</div>';
-
-  // Ohne Pflanzen gibt es keinen Plan — dann ist der nächste Schritt, eine
-  // anzulegen. Eine leere Karte mit „nichts zu tun" wäre hier eine Sackgasse.
+  function head(count){
+    return '<div class="gs-dp-head"><h3>Heute zu tun</h3>' +
+      (count ? '<span class="gs-dp-count">' + count + ' Aufgabe' + (count === 1 ? '' : 'n') + '</span>' : '') +
+      '</div>';
+  }
+  // Ohne Pflanzen gibt es keinen Plan — dann ist der naechste Schritt, eine
+  // anzulegen. Eine leere Karte mit „nichts zu tun" waere eine Sackgasse.
   if (!nPlants) {
-    el.innerHTML = head +
-      '<div class="gs-dp-empty">Du hast noch keine Pflanze angelegt. Scanne eine — danach zeigt dir GreenScan hier jeden Tag, was ansteht.</div>' +
-      _gsDayPlanNext('Erste Pflanze scannen', 'Foto genügt — Art, Pflege und Erinnerungen kommen automatisch.',
-                     "if(typeof switchTab==='function')switchTab('scanner')", 'Erste Pflanze scannen');
+    el.innerHTML = head(0) +
+      '<div class="gs-dp-empty"><b>Noch keine Pflanze</b>Scanne eine — danach steht hier jeden Tag, was ansteht.' +
+      '</div><button type="button" class="gs-dp-all" style="border-top:none;padding-left:2px;"' +
+      ' onclick="if(typeof switchTab===\'function\')switchTab(\'scanner\')">' +
+      '<span>Erste Pflanze scannen</span><span aria-hidden="true">→</span></button>';
     return;
   }
   if (!tasks.length) {
-    el.innerHTML = head +
-      '<div class="gs-dp-empty">Alles versorgt. In den nächsten Tagen steht nichts an — deine ' + nPlants +
-        ' Pflanze' + (nPlants === 1 ? '' : 'n') + ' ' + (nPlants === 1 ? 'ist' : 'sind') + ' auf Kurs.</div>' +
-      _gsDayPlanNext('Neue Art entdecken', 'Scanne etwas Unbekanntes und erweitere deine Sammlung.',
-                     "if(typeof switchTab==='function')switchTab('scanner')", 'Neue Art scannen');
+    el.innerHTML = head(0) +
+      '<div class="gs-dp-empty"><b>Alles versorgt</b>In den nächsten Tagen steht nichts an — deine ' + nPlants +
+      ' Pflanze' + (nPlants === 1 ? '' : 'n') + ' ' + (nPlants === 1 ? 'ist' : 'sind') + ' auf Kurs.</div>';
     return;
   }
 
   var shown = tasks.slice(0, 3);
-  var rest  = tasks.length - shown.length;
-  var first = tasks[0];
-  var html = head + shown.map(function(t){ return _gsDayPlanRow(t, esc); }).join('');
-  if (rest > 0) {
-    html += '<div class="gs-dp-more" role="button" tabindex="0" onclick="switchTab(\'favs\')"' +
-            ' onkeydown="if(event.key===\'Enter\'){switchTab(\'favs\');}">+ ' + rest +
-            ' weitere Aufgabe' + (rest === 1 ? '' : 'n') + ' ansehen</div>';
-  }
-  html += _gsDayPlanNext(
-    esc(first.plant.name) + ' ' + esc(_gsDayPlanVerb(first.key, first.def)),
-    _gsDayPlanWhen(first.days) + ' Tippen = erledigt.',
-    "gsNcDoneTask(this,'" + esc(first.plant.id) + "','" + esc(first.key) + "')",
-    'Nächster Schritt erledigen');
-  el.innerHTML = html;
+  var rows = shown.map(function(t){
+    var call = "gsDayPlanCheck(this,'" + esc(t.plant.id) + "','" + esc(t.key) + "')";
+    var title = esc(t.plant.name) + ' ' + esc(_gsDayPlanVerb(t.key, t.def));
+    return '<div class="gs-dp-row">' +
+        '<div class="gs-dp-ico" aria-hidden="true">' + ico(_GS_DP_ICON[t.key] || 'leaf') + '</div>' +
+        '<div class="gs-dp-body">' +
+          '<div class="gs-dp-title">' + title + '</div>' +
+          '<div class="gs-dp-sub">' + _gsDayPlanWhen(t.days) + '</div>' +
+        '</div>' +
+        '<button type="button" class="gs-dp-box" onclick="' + call + '"' +
+          ' aria-label="' + title + ' erledigt"></button>' +
+      '</div>';
+  }).join('');
+
+  el.innerHTML = head(tasks.length) +
+    '<div class="gs-dp-card">' + rows +
+      '<button type="button" class="gs-dp-all" onclick="if(typeof switchTab===\'function\')switchTab(\'favs\')">' +
+        '<span>Alle Aufgaben anzeigen</span><span aria-hidden="true">→</span></button>' +
+    '</div>';
 };
 
 function gsCountUnreadNotifs(){
@@ -63379,6 +63378,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.24', date: '01.09.2026',
+    headline: '🤍 Hochwertig und einfach — warme Flächen, „Heute zu tun"',
+    summary: 'Die Startseite folgt jetzt den neuen Entwürfen: eine warme Creme-Fläche statt grünstichigem Weiss, ein tieferes Waldgrün, und „Heute zu tun" als EINE Karte mit Kästchen zum Abhaken. Die Prioritäts-Plaketten sind weg — was bleibt, ist eine Zeile, die sagt was ansteht, und ein Kästchen, das es erledigt.',
+    user_summary: '🤍 Ruhigere, wärmere Oberfläche — und „Heute zu tun" hakst du jetzt einfach ab.',
+    user_items: [
+      { emoji: '☑️', text: 'Aufgaben mit einem Tipp abhaken — die Zeile klappt sanft zu' },
+      { emoji: '🤍', text: 'Warme Creme-Fläche statt grünstichigem Weiss' },
+      { emoji: '🌲', text: 'Tieferes Waldgrün — eleganter und endlich gut lesbar' },
+      { emoji: '✂️', text: 'Weniger auf der Seite: keine Prioritäts-Plaketten, keine zweite Hervorhebung' },
+    ],
+    items: [
+      {emoji:'🎨', bold:'Palette:', text:' --g-bg #eef7ee → #f4f1ea, --surface2 → #f7f4ee, --border → #e3ded3 (warm-neutral statt grün). --g-main #2d8a2d → #1f6b2f: lag als Text bei 4,0:1 und war damit schon vorher unter der Lesbarkeitsschwelle; jetzt 5,8:1 auf Creme und 6,6:1 mit weisser Schrift darauf.'},
+      {emoji:'☑️', bold:'Abhaken:', text:' Kästchen füllt sich, Zeile klappt zu, dann erledigt gsNcDoneTask → gsQuickDone. Weiterhin genau eine Erledigt-Logik. Bei „Bewegung reduzieren" entfällt der Übergang, die Reihenfolge bleibt.'},
+      {emoji:'✂️', bold:'Weniger:', text:' Prioritäts-Plaketten und die separate „Nächster Schritt"-Karte aus v31.16 entfernt. Beide Entwürfe zeigen sie nicht — und „sehr simpel" heisst weglassen, bis nur das übrig ist, was man antippt.'},
+    ],
+  },
+  {
     v: 'v31.23', date: '01.09.2026',
     headline: '🎚️ Bewegung — drei Stufen statt 85 Varianten',
     summary: 'Alle Übergänge laufen jetzt in drei abgestimmten Geschwindigkeiten. Und: wer im Betriebssystem „Bewegung reduzieren" gewählt hat, bekam dreizehn Bildläufe trotzdem animiert — der JS-Parameter hat Vorrang vor der CSS-Regel. Das ist behoben.',
@@ -69412,7 +69428,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.23';
+var GS_VERSION = 'v31.24';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

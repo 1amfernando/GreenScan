@@ -4,13 +4,44 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.23` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.24` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (i) — v31.24: „Ein hochwertiger Mix aus diesen zwei Looks"
+
+> Fernando schickte vier weitere Bilder: zwei Marketing-Register (ruhig, Serifen, Creme) und zwei App-Register (Aufgabenliste mit Kästchen). Auftrag: hochwertig, elegant — und **sehr simpel**.
+
+#### Was beide Register gemeinsam haben
+
+Warme Creme-Fläche. Tiefes Waldgrün. Serifen-Überschrift. Und — in **beiden** App-Bildern identisch — **„Heute zu tun"** als *eine* Karte mit getrennten Zeilen und einem **Kästchen** rechts. Keine Prioritäts-Plaketten. Keine zweite Hervorhebung darunter.
+
+#### Weniger als vorher, und das ist der Punkt
+
+Die Fassung aus v31.16 hatte Prioritäts-Plaketten (Hoch/Mittel/Niedrig) und eine separate „Nächster Schritt"-Karte. Beides ist jetzt **weg**. Die Entwürfe zeigen es nicht, und „sehr simpel" heisst weglassen, bis nur noch das übrig ist, was man antippt: eine Zeile sagt, was ansteht, ein Kästchen erledigt es. Die Dringlichkeit steht als graue Zeile darunter, nicht als bunte Plakette.
+
+Das war der unangenehmere Teil — ich hatte in v31.16 selbst begründet, warum der hervorgehobene nächste Schritt der Haken sei. Der Entwurf ist die neuere Information.
+
+#### Die Palette
+
+| | vorher | jetzt |
+|---|---|---|
+| `--g-bg` | `#eef7ee` (grünstichig) | `#f4f1ea` (warmes Creme) |
+| `--surface2` | `#f4faf4` | `#f7f4ee` |
+| `--border` | `#c8e0c8` (grün) | `#e3ded3` (warm-neutral) |
+| `--g-main` | `#2d8a2d` | `#1f6b2f` |
+
+Beim Nachrechnen kam heraus: **`--g-main` lag als Text schon vorher bei 4,0:1** — unter der Lesbarkeitsschwelle, und zwar auf der alten Fläche genauso. Das ist also kein Nebeneffekt der Creme, sondern ein Fund. Der neue Wert schafft **5,8:1** als Text auf Creme *und* **6,6:1** mit weisser Schrift darauf — er kann beides, weil er tiefer ist, und das ist genau die Farbe aus den Bildern.
+
+#### Abhaken, das sich richtig anfühlt
+
+Kästchen füllt sich (120 ms), Zeile klappt zu (180 ms), dann läuft `gsNcDoneTask → gsQuickDone`. Weiterhin **eine** Erledigt-Logik inklusive Cloud-Sync, Tagebuch, Achievements. Ein Doppel-Tipp-Schutz verhindert zwei Erledigungen. Bei „Bewegung reduzieren" entfällt der Übergang — die Reihenfolge bleibt dieselbe, das Ergebnis auch.
+
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · Kontrast der neuen Palette durchgerechnet (Text 16,7:1 · gedämpft 6,1:1 · Grün 5,8:1) · vier Zustände in Chromium gerendert (Aufgaben, alles erledigt, dunkel, keine Pflanze), keine JS-Fehler · Reste der alten Fassung gegengezählt: 0 · Version synchron v31.24.
 
 ### 2026-09-01 (h) — v31.23: Bewegung — und ein Fix, den ich fast doppelt gebaut hätte
 
