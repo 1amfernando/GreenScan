@@ -4,13 +4,52 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.43` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.44` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (ae) — v31.44: „undefined" auf 22 Karten — gefunden beim Durchsehen, nicht beim Messen
+
+Nach sieben Releases mit sichtbaren Änderungen wollte ich mich nicht auf „0 Fehler" verlassen. Also alle zehn Seiten in beiden Modi gerendert und **angesehen**. Auf einer Heilmittel-Karte stand im Kategorie-Chip wörtlich `undefined`.
+
+#### Die Spur
+
+Die Daten führen ein Feld `cat`. Fünf Werte darin stehen in **keiner** Zuordnungstabelle:
+
+| Bereich | fehlende Kategorie | Karten |
+|---|---|---|
+| Rezepte | `fermentation`, `salat`, `backen` | **19** |
+| Heilmittel | `oel`, `inhalation` | **3** |
+
+Die Tabellen enthielten stattdessen `ferment` und `gebaeck` — ähnliche Namen, die nie zugeordnet wurden.
+
+#### Die eigentliche Ursache
+
+```js
+const catInfo = cats[r.cat] || {emoji:'🌿', bg:'#e8f5e9', color:'#2e7d32'};
+```
+
+Der Rückfall hat **kein `label`**. Bei einer unbekannten Kategorie wird `catInfo.label` zu `undefined` und landet wörtlich im Chip.
+
+Der Rückfall in der **Detail**ansicht (66 Zeilen weiter) hat `label:''` — deshalb fiel es nur in der Liste auf. Jetzt sind beide gleich.
+
+#### Zwei Fehler, die sich gegenseitig verdeckten
+
+Die Kategorie `ferment` trägt `color:#e65100` auf `bg:#fff3e0` — **3,46:1**, unter AA. Genau das Paar, das ich in v31.37 an zwei anderen Stellen korrigiert habe.
+
+Mein Kontrast-Prüfstand konnte es nicht finden, **weil kein Rezept diese Kategorie benutzt** und der Chip nie gerendert wird. Hätte ich `fermentation` einfach als Kopie von `ferment` ergänzt, wäre der schlechte Wert mitgekommen und der Prüfstand hätte ihn beim nächsten Lauf gemeldet — als „neuer" Fehler, den ich gerade selbst eingebaut hätte.
+
+Beide stehen jetzt auf `#bf360c` (5,11:1). Alle fünf neuen Farbpaare vorher gerechnet: 4,78 bis 6,08:1.
+
+#### Was das über Prüfstände sagt
+
+Ein Werkzeug misst, was gerendert wird. Was **nie** gerendert wird, ist für es nicht vorhanden — auch wenn es falsch ist und beim nächsten Datensatz sichtbar würde. Das ist keine Lücke, die man schliessen kann; es ist die Natur der Sache. Deshalb bleibt Durchsehen nötig.
+
+---
 
 ### 2026-09-01 (ad) — v31.43: Die Kopfleiste, und ein Band das niemand sehen konnte
 

@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.43.20260901">
+<meta name="app-version" content="31.44.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -38764,7 +38764,14 @@ const RECIPE_CATS = {
   salbe:        {label:'🧴 Salbe',        emoji:'🧴', color:'#6a1b9a', bg:'#f3e5f5'},
   pflege:       {label:'💆 Pflege',       emoji:'💆', color:'#00838f', bg:'#e0f7fa'},
   tinktur:      {label:'💧 Tinktur',      emoji:'💧', color:'#1565c0', bg:'#e3f2fd'},
-  ferment:      {label:'🫙 Fermentierung',emoji:'🫙', color:'#e65100', bg:'#fff3e0'},
+  ferment:      {label:'🫙 Fermentierung',emoji:'🫙', color:'#bf360c', bg:'#fff3e0'}  /* v31.44: #e65100 war 3,46:1 — nie aufgefallen, weil kein Rezept diese Kategorie nutzt */
+  /* v31.44 — Diese drei Kategorien werden von den Daten TATSAECHLICH benutzt,
+     standen aber nicht in der Tabelle: fermentation (4 Rezepte), salat (2),
+     backen (13). Der Renderer faellt dann auf ein Objekt ohne label zurueck
+     und schrieb woertlich „undefined" in den Chip. */
+  , fermentation: {label:'🫙 Fermentiert',  emoji:'🫙', color:'#bf360c', bg:'#fff3e0'}
+  , salat:        {label:'🥗 Salat',        emoji:'🥗', color:'#33691e', bg:'#f1f8e9'}
+  , backen:       {label:'🍞 Backen',       emoji:'🍞', color:'#bf360c', bg:'#fbe9e7'},
   einlegen:     {label:'🫒 Einlegen',     emoji:'🫒', color:'#1b5e20', bg:'#e8f5e9'}
 };
 
@@ -38776,6 +38783,9 @@ const REMEDY_CATS = {
   sirup:    {label:'🍯 Hustensaft',  emoji:'🍯', color:'#bf360c', bg:'#fff3e0'}  /* v31.32: #e65100 war 3.46:1 auf #fff3e0 */,
   bad:      {label:'🛁 Kräuterbad',  emoji:'🛁', color:'#00695c', bg:'#e0f2f1'},
   essig:    {label:'🫙 Kräuteressig',emoji:'🫙', color:'#4e342e', bg:'#efebe9'},
+  /* v31.44 — von den Daten benutzt, fehlten in der Tabelle: oel (1), inhalation (2). */
+  oel:        {label:'🫒 Ölauszug',   emoji:'🫒', color:'#33691e', bg:'#f1f8e9'},
+  inhalation: {label:'💨 Inhalation', emoji:'💨', color:'#00695c', bg:'#e0f2f1'},
 };
 
 // Demo Rezepte
@@ -43480,7 +43490,11 @@ function buildRecipeCard(r, isRemedy) {
   if (!r || !r.id) return '';
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   const cats = isRemedy ? REMEDY_CATS : RECIPE_CATS;
-  const catInfo = cats[r.cat] || {emoji:'🌿', bg:'#e8f5e9', color:'#2e7d32'};
+  // v31.44: der Rueckfall hatte KEIN label — cats[r.cat] ist bei einer
+  // unbekannten Kategorie undefined, und catInfo.label landete woertlich als
+  // „undefined" im Chip. Der Rueckfall weiter unten (Detailansicht) hatte
+  // label:'' und war deshalb unauffaellig. Jetzt beide gleich.
+  const catInfo = cats[r.cat] || {emoji:'🌿', bg:'#e8f5e9', color:'#2e7d32', label:''};
   var preview = '';
   if (Array.isArray(r.ingredients)) preview = r.ingredients.slice(0,3).join(', ');
   else if (typeof r.ingredients === 'string') preview = r.ingredients.split('\n').slice(0,3).join(', ');
@@ -63588,6 +63602,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.44', date: '01.09.2026',
+    headline: '\ud83c\udff7\ufe0f 22 Karten trugen ein Etikett mit der Aufschrift „undefined"',
+    summary: 'Beim Durchsehen aller Seiten nach der Optik-Umstellung fiel im Heilmittel-Bereich ein Chip auf, auf dem w\u00f6rtlich „undefined" stand. Die Spur f\u00fchrte zu f\u00fcnf Kategorien, die von den Daten benutzt werden, aber in keiner Zuordnungstabelle stehen \u2014 und zu einem R\u00fcckfall ohne Beschriftung.',
+    user_summary: '\ud83c\udff7\ufe0f 22 Rezept- und Heilmittel-Karten zeigten statt einer Kategorie das Wort „undefined". Jetzt steht dort, was drin ist.',
+    user_items: [
+      { emoji: '\ud83c\udff7\ufe0f', text: '„Fermentiert", „Salat", „Backen", „\u00d6lauszug" und „Inhalation" fehlten komplett' },
+      { emoji: '\ud83d\udee1\ufe0f', text: 'Unbekannte Kategorien zeigen jetzt gar nichts statt „undefined"' },
+    ],
+    items: [
+      {emoji:'\ud83c\udff7\ufe0f', bold:'F\u00fcnf fehlende Kategorien:', text:' die Daten nutzen fermentation (4 Rezepte), salat (2), backen (13) sowie oel (1 Heilmittel) und inhalation (2). Keine davon stand in RECIPE_CATS bzw. REMEDY_CATS. Zusammen 22 Karten. Die Tabellen enthielten stattdessen ferment und gebaeck \u2014 \u00e4hnliche Namen, die nie zugeordnet wurden.'},
+      {emoji:'\ud83d\udee1\ufe0f', bold:'Die eigentliche Ursache:', text:' der R\u00fcckfall in der Listenansicht war {emoji, bg, color} \u2014 OHNE label. Bei einer unbekannten Kategorie landete catInfo.label als das Wort „undefined" im Chip. Der R\u00fcckfall in der Detailansicht hatte label:\'\' und war deshalb unauff\u00e4llig. Jetzt beide gleich.'},
+      {emoji:'\ud83e\udde9', bold:'Zwei Fehler, die sich gegenseitig verdeckten:', text:' die Kategorie ferment trug color:#e65100 auf bg:#fff3e0 \u2014 3,46:1, also unter AA. Mein Kontrast-Pr\u00fcfstand konnte das nicht finden, WEIL kein Rezept diese Kategorie benutzt und der Chip nie gerendert wird. Beim Erg\u00e4nzen von fermentation w\u00e4re der schlechte Wert mitgekommen; jetzt sind beide auf #bf360c (5,11:1).'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' „undefined"-Chips in Rezepten und Heilmitteln: 22 \u2192 0 \u00b7 gegengepr\u00fcft, dass KEINE von den Daten benutzte Kategorie mehr in den Tabellen fehlt (beide Listen leer) \u00b7 alle neuen Farbpaare vorher gerechnet: 4,78 bis 6,08:1 \u00b7 Kontrast weiterhin 0 unter AA in beiden Modi \u00b7 keine JS-Fehler \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.44 \u00b7 sw.js gs-v31.44 \u00b7 _headers v31.44 \u00b7 meta=31.44.20260901.'},
+    ],
+  },
+  {
     v: 'v31.43', date: '01.09.2026',
     headline: '\u2728 Auch die Kopfleiste hell \u2014 die App ist jetzt durchgehend ruhig',
     summary: 'Nach Startseite, Navigationsleiste und allen \u00fcbrigen Bildschirmen war die Kopfzeile das letzte dunkle Element. Jetzt kippt auch sie mit dem Modus. Dabei kam ein dunkelgr\u00fcnes Band zum Vorschein, das jahrelang unsichtbar war \u2014 weil es immer von etwas Dunklem verdeckt wurde.',
@@ -64149,7 +64181,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.43';
+var GS_VERSION = 'v31.44';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
