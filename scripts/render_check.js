@@ -89,7 +89,13 @@ const CENSUS = () => {
       r: parseFloat(cs.borderTopLeftRadius) || 0,
       fs: parseFloat(cs.fontSize) || 0,
       lh: parseFloat(cs.lineHeight) || 0,
-      w: Math.round(b.width), h: Math.round(b.height),
+      // Groesse aus der Layout-Box, NICHT aus getBoundingClientRect(): letzteres
+      // misst die transformierte Huelle. Ein Ladekreisel (.gs-spin, 14x14,
+      // animation:rotate) liefert darueber je nach Winkel 14 bis 20px und
+      // erschien im Vergleich als "Layout geaendert" — jedes Mal an einer
+      // anderen Stelle. offsetWidth/Height ignorieren Transformationen.
+      // Inline-Elemente haben offsetWidth 0; dort bleibt das Rechteck.
+      w: Math.round(el.offsetWidth || b.width), h: Math.round(el.offsetHeight || b.height),
       color: cs.color, bg: cs.backgroundColor,
       // abgeschnitten = Inhalt laeuft ueber UND wird geclippt (Ellipsis ist gewollt)
       clipX: clipX && overX > 1 && !ell ? overX : 0,
