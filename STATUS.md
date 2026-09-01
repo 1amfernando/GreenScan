@@ -4,13 +4,39 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.22` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.23` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (h) — v31.23: Bewegung — und ein Fix, den ich fast doppelt gebaut hätte
+
+> Dritte Ebene nach Farbe und Fläche. 192 Übergänge in 85 Varianten, dazu neun einzelne `prefers-reduced-motion`-Blöcke, die je nur ihre eigenen Bauteile abdecken.
+
+#### Was ich bauen wollte — und was es schon gab
+
+Mein Plan war eine **globale** reduced-motion-Regel. Beim Nachsehen fand ich sie: seit **v24.43**, Zeile 1709, exakt in der Form, die ich schreiben wollte (`*, *::before, *::after { animation-duration:.01ms !important; … }`). Die neun lokalen Blöcke sind Zusatz, nicht Ersatz — die Grundabdeckung steht.
+
+Das ist in dieser Sitzung das zweite Mal, dass Messen vor Bauen mich vor erfundener Arbeit bewahrt hat (das erste Mal: kein einziger Fremdschlüssel ohne Index).
+
+#### Die echte Lücke
+
+**13× `scrollIntoView({behavior:'smooth'})`.** Der JS-Parameter hat laut Spezifikation **Vorrang** vor `scroll-behavior` aus CSS — die globale Regel greift dort also nicht. Wer im Betriebssystem „Bewegung reduzieren" gewählt hat, bekam diese Bildläufe trotzdem gleitend. Für Menschen mit vestibulären Beschwerden ist ein unerwartet gleitender Bildlauf ein echtes Problem, kein Schönheitsfehler.
+
+Neuer Helfer `gsScrollBehavior()` fragt `matchMedia` ab und liefert `'auto'` statt `'smooth'`. Alle 13 Stellen umgestellt, inklusive der zwei, die in Zeichenketten für `onclick` stehen.
+
+Ebenfalls geprüft: Konfetti und der Widget-Stapel fragen die Einstellung **bereits** ab. Auch dort nichts zu tun.
+
+#### Drei Geschwindigkeiten
+
+`--dur-fast` (.12s) · `--dur` (.18s) · `--dur-slow` (.3s). **190 von 194** Übergängen umgestellt (245 einzelne Dauer-Angaben, weil ein `transition` mehrere Eigenschaften mit eigenen Dauern haben kann). Die vier Ausnahmen: zweimal `none` und die beiden `.01ms` aus dem reduced-motion-Block — die dürfen nicht angefasst werden.
+
+**Animationen bewusst nicht angefasst:** 76 Stück mit 60 Keyframes, darunter Ladeanzeigen, Splash-Sequenz und Puls-Effekte. Deren Dauern sind gestalterische Entscheidungen, keine Systemwerte.
+
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · `transition` mit Token **190/194** · alle 13 Scroll-Aufrufe umgestellt, 0 verbleibende `behavior:'smooth'` · die `.01ms`-Werte des reduced-motion-Blocks nachweislich unberührt · Version synchron v31.23.
 
 ### 2026-09-01 (g) — v31.22: Oberflächen aus einem Guss — Tiefe und Glas
 
