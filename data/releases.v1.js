@@ -20,6 +20,193 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v31.33', date: '01.09.2026',
+    headline: '\ud83e\uddf9 52 Stilregeln, die seit Jahren wirkungslos im Code standen',
+    summary: 'An 22 Stellen war dieselbe Klasse zweimal beschrieben \u2014 einmal oben im Dokument, einmal weiter unten aus einem sp\u00e4teren Umbau. Bei gleicher Spezifit\u00e4t gewinnt die sp\u00e4tere, die fr\u00fchere galt also nie. Wer die obere las, las etwas, das nicht stimmt. Entfernt; sichtbar \u00e4ndert sich nichts, und das ist nachgemessen.',
+    user_summary: '\ud83e\uddf9 Aufr\u00e4umen im Unterbau: nichts sieht anders aus, aber der Code beschreibt jetzt, was die App tats\u00e4chlich tut.',
+    user_items: [
+      { emoji: '\ud83e\uddf9', text: '52 Stilregeln entfernt, die ohnehin nie gewirkt haben' },
+      { emoji: '\u2705', text: 'Nachgemessen: an 1\u2019520 Elementen \u00e4ndert sich nichts \u2014 keine Farbe, keine Gr\u00f6sse' },
+    ],
+    items: [
+      {emoji:'\ud83e\uddf9', bold:'Das Muster:', text:' 22 Klassen waren zweimal deklariert \u2014 die urspr\u00fcngliche Regel um Zeile 400 bis 1500, eine zweite aus einem sp\u00e4teren Umbau um Zeile 81\u2019000 bis 82\u2019700. Gleiche Spezifit\u00e4t, gleicher Selektor: die sp\u00e4tere gewinnt immer. Betroffen unter anderem .modal-close-btn (acht widersprechende Angaben, darunter position sticky gegen absolute), .sec (f\u00fcnf), .settings-group-title, .stats-grid, .post-avatar, .td. Aufgefallen ist mir das in v31.31 bei .recipe-card-desc; die Suche danach fand 52 weitere.'},
+      {emoji:'\ud83d\udd0e', bold:'Vorsichtig abgegrenzt:', text:' verglichen wurden nur Regeln mit exakt EINEM Klassen-Selektor, beide ausserhalb von @media/@supports und beide ohne !important \u2014 nur dann gilt zwingend, dass die sp\u00e4tere gewinnt. Alles andere blieb unangetastet.'},
+      {emoji:'\ud83d\udd2c', bold:'Der Pr\u00fcfstand wurde dabei genauer:', text:' er meldete 1 bzw. 2 Gr\u00f6ssen\u00e4nderungen, jedes Mal woanders. Ursache war er selbst: er mass mit getBoundingClientRect(), und das liefert die GEDREHTE H\u00fclle. Ein Ladekreisel (14\u00d714px, dauerhaft rotierend) ergibt darin je nach Winkel 14 bis 20px. Jetzt offsetWidth/Height \u2014 die Layout-Box, unabh\u00e4ngig von Transformationen. Damit sind zwei aufeinanderfolgende L\u00e4ufe identisch.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Vorher/Nachher am laufenden Programm, zweimal hintereinander mit gleichem Ergebnis: 1\u2019520 vergleichbare Elemente, 0 \u00c4nderungen an Radius, Schriftgr\u00f6sse, GR\u00d6SSE und Farbe \u00b7 verbleibende stille Konflikte 52 \u2192 0 \u00b7 keine leere Regel zur\u00fcckgeblieben \u00b7 Kontrast weiterhin 0 Stellen unter AA in beiden Modi \u00b7 keine JS-Fehler \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.33 \u00b7 sw.js gs-v31.33 \u00b7 _headers v31.33 \u00b7 meta=31.33.20260901.'},
+    ],
+  },
+  {
+    v: 'v31.32', date: '01.09.2026',
+    headline: '\ud83d\udc41\ufe0f 291 schlecht lesbare Textstellen \u2014 und warum meine Farbarbeit seit v31.20 nie ankam',
+    summary: 'Der neue Kontrast-Pr\u00fcfstand fand 270 Textstellen im Hell- und 21 im Dunkelmodus unter dem Lesbarkeits-Mindestwert. Die Hauptursache war eine einzige Zeile JavaScript, die meine gepr\u00fcften Farbwerte zur Laufzeit \u00fcberschrieb. Jetzt sind es null in beiden Modi.',
+    user_summary: '\ud83d\udc41\ufe0f Grauer Hilfstext, \u00dcberschriften auf farbigen Fl\u00e4chen und Filter-Kn\u00f6pfe sind jetzt \u00fcberall klar lesbar \u2014 in beiden Modi. Und die Wetterkachel im Garten sieht endlich aus wie der Rest.',
+    user_items: [
+      { emoji: '\ud83d\udc41\ufe0f', text: 'Grauer Hilfstext war 3,5:1 statt der n\u00f6tigen 4,5:1 \u2014 jetzt 6,9:1' },
+      { emoji: '\ud83c\udf19', text: 'Im Dunkelmodus war Text ohne eigene Farbe schwarz auf dunkel' },
+      { emoji: '\ud83c\udf24\ufe0f', text: 'Die Wetterkachel im Garten war als Einzige noch knallblau' },
+    ],
+    items: [
+      {emoji:'\ud83d\udd0e', bold:'Die Ursache:', text:' applyThemeColors() schrieb --text/--text2/--muted/--border per setProperty auf documentElement \u2014 ein Inline-Stil, der JEDE :root-Regel schl\u00e4gt. --muted war dadurch #888888 (3,54:1 auf Weiss) statt der gepr\u00fcften Werte. Der Kommentar dar\u00fcber behauptete "always readable on light backgrounds". Betroffen war nur der Hellmodus: der Dunkelmodus definiert seine Token auf body.dark, und ein Wert auf body sticht den geerbten von html. Die vier Aufrufe sind entfernt, alte Inline-Werte werden aktiv zur\u00fcckgenommen.'},
+      {emoji:'\ud83c\udfa8', bold:'Zwei Themen fielen durch:', text:' die Hauptfarbe des Standard-Themas Gr\u00fcn war #1f6b2f = 4,39:1 auf Weiss, Orange #e65100 = 3,79:1. Beide dienen als Textfarbe UND als Knopf-Hintergrund, der Wert gilt also in beide Richtungen. Neu #1f6b2f (6,56:1) und #bf360c (5,60:1).'},
+      {emoji:'\ud83c\udf19', bold:'body hatte nie eine Schriftfarbe:', text:' sie war damit in beiden Modi Schwarz (der Vorgabewert). Alles ohne eigene Farbe erbte Schwarz \u2014 im Dunkelmodus schwarz auf dunkel. Zw\u00f6lf Stellen auf einen Schlag behoben.'},
+      {emoji:'\ud83d\uddbc\ufe0f', bold:'Text auf farbigen Bildschirmen:', text:' vierzehn Bildschirme haben in beiden Modi eine dunkle Leinwand. Text direkt darauf nutzte --text/--muted \u2014 Token f\u00fcr HELLE Fl\u00e4chen, Ergebnis 1,01:1 bis 2,86:1. Neue Token --on-canvas / --on-canvas-2, gegen alle acht Leinwandfarben gerechnet. Meinen ersten Versuch, das \u00fcber eine gemeinsame Regel auf den Leinwaenden zu l\u00f6sen, habe ich VERWORFEN: gemessen wurde es davon schlechter (22 auf 33 Stellen).'},
+      {emoji:'\ud83c\udf24\ufe0f', bold:'Nachtrag zu v31.28:', text:' die Wetterkachel im Garten blieb damals stehen \u2014 umgestellt wurde nur die auf der Startseite. Jetzt dasselbe Material; die drei von JavaScript beschriebenen IDs unver\u00e4ndert.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Kontrast-Pr\u00fcfstand \u00fcber neun Tabs in beiden Modi: 270 + 21 \u2192 0 + 0 \u00b7 Vorher/Nachher am laufenden Programm: 1\u2019522 vergleichbare Elemente, 1\u2019002 Farb\u00e4nderungen und 0 \u00c4nderungen an Radius, Schriftgr\u00f6sse und GR\u00d6SSE \u2014 genau das Profil einer reinen Farb\u00e4nderung \u00b7 abgeschnittener Inhalt 17 \u2192 17, aus dem Bildschirm ragend 0 \u2192 0 \u00b7 keine JS-Fehler \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.32 \u00b7 sw.js gs-v31.32 \u00b7 _headers v31.32 \u00b7 meta=31.32.20260901.'},
+    ],
+  },
+  {
+    v: 'v31.31', date: '01.09.2026',
+    headline: '\ud83d\udd24 Eine Typo-Skala \u2014 und 1\u2019387 Halbpixel-Schriftgr\u00f6ssen weniger',
+    summary: 'Die App hatte 4\u2019739 Schriftgr\u00f6ssen in 53 Varianten, darunter 1\u2019387 Halbpixel-Werte wie 11.5px oder 12.5px. Das entscheidet niemand \u2014 das bleibt beim Nachjustieren \u00fcbrig. Sieben Textgr\u00f6ssen lagen innerhalb von 6px. Jetzt sieben Stufen \u00fcber den ganzen Bereich, jede mit einem Zweck.',
+    user_summary: '\ud83d\udd24 Schriftgr\u00f6ssen folgen jetzt einer Skala statt 53 Einzelwerten. Kleine Texte sind an einigen Stellen etwas gr\u00f6sser und damit besser lesbar.',
+    user_items: [
+      { emoji: '\ud83d\udd24', text: 'Schriftgr\u00f6ssen: 53 Varianten \u2192 7 Stufen, keine Bewegung gr\u00f6sser als 2px' },
+      { emoji: '\ud83d\udc41\ufe0f', text: 'Winzige 7,5\u20138,5px-Texte sind jetzt 10px \u2014 unter 9px liest das niemand' },
+    ],
+    items: [
+      {emoji:'\ud83d\udd24', bold:'Die Skala:', text:' --fs-xs 10px (Marker, Fussnoten) \u00b7 --fs-sm 12px (Kleintext, Badges) \u00b7 --fs-md 14px (Fliesstext, Listen, Kn\u00f6pfe) \u00b7 --fs-lg 16px (Karten-Titel) \u00b7 --fs-xl 20px (Abschnitts-Titel) \u00b7 --fs-2xl 24px (Seiten-Titel) \u00b7 --fs-3xl 28px und --fs-4xl 32px (Kennzahlen, Hero). \u00dcber 34px bleibt alles unangetastet \u2014 das sind Hero-Ziffern und Emoji-Gr\u00f6ssen.'},
+      {emoji:'\ud83d\udcd0', bold:'Bewegung:', text:' von 4\u2019739 Angaben blieben 1\u2019362 exakt gleich, 3\u2019185 r\u00fcckten auf ihre Stufe, 139 blieben unber\u00fchrt. Gr\u00f6sste Bewegung \u00b12px \u2014 Ausnahme sind sechs winzige Stellen (7,5\u20138,5px \u2192 10px), und das ist eine Verbesserung, kein Risiko. Meine erste Zuordnung h\u00e4tte 28px auf 32px und 36px auf 32px geschoben (\u00b14px); oberes Ende aufgeteilt und neu gerechnet.'},
+      {emoji:'\ud83e\uddf9', bold:'Doppelte Regel gefunden:', text:' .recipe-card-desc war ZWEIMAL deklariert \u2014 einmal mit 12.5px, Zeilenh\u00f6he 1.5 und Umbruch, einmal mit 11.5px, 1.4 und einzeiliger Ellipsis. Gleiche Spezifit\u00e4t, also gewann die zweite; die erste war tot. Zusammengef\u00fchrt. Dasselbe Muster wie bei den Nav-Beschriftungen in v31.27.'},
+      {emoji:'\ud83d\udd2c', bold:'Zwei neue Pr\u00fcfwerkzeuge:', text:' render_check.js misst jetzt auch \u00dcberlauf \u2014 abgeschnittener Inhalt und Elemente, die aus dem Bildschirm ragen. Der erste Anlauf meldete 72 Chip-Leisten als Fehler, die absichtlich hinausragen; verworfen und die Pr\u00fcfung verengt, bis 0 Falschalarme blieben. Neu dazu: contrast_check.js misst den WCAG-Kontrast jeder Textstelle in beiden Modi.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Vorher/Nachher am laufenden Programm: 1\u2019520 vergleichbare Elemente, 666 Schriftgr\u00f6ssen ge\u00e4ndert, 0 Farb\u00e4nderungen, 0 Radius\u00e4nderungen \u00b7 abgeschnittener Inhalt 17 \u2192 17 (die vorhandenen \u00dcberl\u00e4ufe wurden eher kleiner), aus dem Bildschirm ragend 0 \u2192 0 \u00b7 Ellipsis-Pr\u00fcfung \u00fcber 83 einzeilige Texte: 6 k\u00fcrzen neu (Zutaten-Vorschau in Rezeptkarten, +0,5px), 0 verlieren mehr als eine Zeile \u2014 das ist der Preis und er steht hier, statt verschwiegen zu werden \u00b7 keine JS-Fehler \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.31 \u00b7 sw.js gs-v31.31 \u00b7 _headers v31.31 \u00b7 meta=31.31.20260901.'},
+    ],
+  },
+  {
+    v: 'v31.30', date: '01.09.2026',
+    headline: '\ud83d\udd2c Ein Pr\u00fcfstand, der die App wirklich aufbaut',
+    summary: 'Bei den letzten optischen \u00c4nderungen konnte ich nur ein Dutzend Elemente am laufenden Programm nachmessen \u2014 ohne Anmeldung blieb die App im Onboarding stecken. Jetzt sind es 2\u2019596 Elemente \u00fcber elf Tabs. Beim Bauen kam heraus, warum: nicht der Gast-Modus, sondern ein Schutz gegen Aufblitzen h\u00e4lt die App-H\u00fclle zur\u00fcck. Und der Gast-Zweig daneben war seit v25.33 tot.',
+    user_summary: '\ud83d\udd2c Werkzeug f\u00fcr mich, nicht f\u00fcr dich: optische \u00c4nderungen lassen sich ab jetzt an der echten App nachmessen statt an einer Handvoll Elemente. Sichtbar \u00e4ndert sich nichts.',
+    user_items: [
+      { emoji: '\ud83d\udd2c', text: 'Optische \u00c4nderungen sind ab jetzt \u00fcberpr\u00fcfbar \u2014 2\u2019596 statt 11 Elemente' },
+      { emoji: '\ud83e\uddf9', text: 'Ein alter Gast-Modus-Schl\u00fcssel wird beim n\u00e4chsten Start entsorgt' },
+    ],
+    items: [
+      {emoji:'\ud83d\udd2c', bold:'scripts/render_check.js:', text:' l\u00e4dt index.html ohne Netz, baut jeden der elf Tabs auf und vermisst jedes sichtbare Element (Radius, Schriftgr\u00f6sse, Gr\u00f6sse, Farbe). Mit zwei Dateien als Argument vergleicht er zwei St\u00e4nde und meldet getrennt, was sich an Radius, Schrift, GR\u00d6SSE (also Layout) und Farbe ge\u00e4ndert hat.'},
+      {emoji:'\ud83d\udd0d', bold:'Warum es vorher nicht ging:', text:' nicht die fehlende Anmeldung, sondern der Login-Flash-Guard \u2014 ohne gs_sb_token setzt er html.gs-preauth und damit #app{display:none!important}. Der Pr\u00fcfstand setzt deshalb einen Token. Auf dem Weg dorthin hatte ich einen eigenen Denkfehler: mein Regel-Sucher pr\u00fcfte if (r.cssRules), und das ist seit CSS Nesting bei JEDER Style-Regel wahr \u2014 er hat nie eine Regel angesehen und meldete \u201ekeine Regel gefunden\u201c.'},
+      {emoji:'\ud83e\uddf9', bold:'Toter Gast-Zweig entfernt:', text:' gsCheckOnboarding hatte eine Ausnahme \u201eGast kehrt zur\u00fcck \u2192 kein Onboarding\u201c. Die tat seit v25.33 nichts, weil dort der Demo-Modus abgeschaltet und gsActivateGuestMode auf einen leeren Rumpf gesetzt wurde. Kein Nutzer war dadurch ausgesperrt \u2014 nachgemessen, der Alt-Gast landete im selben Zustand wie jeder Abgemeldete. Der Zweig log nur im Kommentar. Der Schl\u00fcssel gs_guest_mode wird jetzt einmalig entsorgt.'},
+      {emoji:'\u2705', bold:'v31.29 nachtr\u00e4glich belegt:', text:' die Radien-Skala aus der Vorversion mit dem neuen Pr\u00fcfstand gegengerechnet: 1\u2019524 vergleichbare Elemente, 316 Radien ge\u00e4ndert, gr\u00f6sste Bewegung 2px \u2014 und 0 Schriftgr\u00f6ssen, 0 Gr\u00f6ssen\u00e4nderungen, 0 Farb\u00e4nderungen. Genau das Profil, das eine reine Radius-\u00c4nderung haben muss.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Pr\u00fcfstand auf der aktuellen index.html: Onboarding blockiert nicht, keine JS-Fehler, 2\u2019596 Elemente \u00fcber 11 Tabs \u00b7 Entfernung des toten Zweigs gegen den Vorstand vermessen: 1\u2019524 vergleichbare Elemente, 0 Unterschiede in Radius, Schrift, Gr\u00f6sse und Farbe \u00b7 Alt-Gast-Fall vorher/nachher gepr\u00fcft: gleicher Zustand wie ein neuer Nutzer, Schl\u00fcssel entsorgt \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.30 \u00b7 sw.js gs-v31.30 \u00b7 _headers v31.30 \u00b7 meta=31.30.20260901.'},
+    ],
+  },
+  {
+    v: 'v31.29', date: '01.09.2026',
+    headline: '\u25a2 Eine Radien-Skala statt 55 Einzelentscheidungen',
+    summary: 'Die App hatte 2\u2019286 Angaben f\u00fcr abgerundete Ecken in 55 verschiedenen Werten \u2014 von 2px bis 28px in Einerschritten. 9px neben 10px neben 11px, ohne dass das jemand so entschieden h\u00e4tte. Jetzt ein 4px-Raster mit sechs benannten Stufen. Beim Umbau kam ein Fehler ans Licht, der \u00e4lter ist als diese \u00c4nderung: Export und Druck erzeugen eigenst\u00e4ndige Dokumente, in denen die Farb-Token der App gar nicht gelten.',
+    user_summary: '\u25a2 Abgerundete Ecken folgen jetzt \u00fcberall demselben Raster \u2014 vorher gab es 55 leicht verschiedene Werte. Und der PDF-Export bekommt seine Farben zur\u00fcck.',
+    user_items: [
+      { emoji: '\u25a2', text: 'Ecken-Rundungen: 55 Varianten \u2192 6 Stufen, kein Wert bewegt sich mehr als 2px' },
+      { emoji: '\ud83d\udcc4', text: 'PDF-Export und Druck zeigten seit v31.20 falsche Farben \u2014 behoben' },
+    ],
+    items: [
+      {emoji:'\u25a2', bold:'Skala statt Streuung:', text:' --r-xs 4px (Marker, Balken) \u00b7 --r-sm 8px (Badges, Tags) \u00b7 --r-md 12px (Kn\u00f6pfe, Eingabefelder) \u00b7 --r-lg 16px (Karten) \u00b7 --r-xl 22px (Modale, Sheets) \u00b7 --r-pill 999px. Kreise bleiben 50%, weil das sich selbst erkl\u00e4rt. 2\u2019188 Stellen nutzen jetzt Token; 11 Werte (26/27/28px) blieben bewusst stehen, weil sie zu weit von jeder Stufe liegen, um sie stillschweigend zu verschieben.'},
+      {emoji:'\ud83d\udcd0', bold:'Wie weit sich etwas bewegt:', text:' von 2\u2019481 Einzelwerten blieben 790 exakt gleich, 1\u2019398 r\u00fcckten auf ihre Stufe, 293 blieben unber\u00fchrt (50%, 0, inherit). Gr\u00f6sste Bewegung \u00b12px \u2014 mit genau einer Ausnahme: das Onboarding-Logo (80\u00d780px) ging von 19px auf 22px. Im Browser nachgemessen, nicht gesch\u00e4tzt.'},
+      {emoji:'\ud83d\udcc4', bold:'Der \u00e4ltere Fehler:', text:' Der Garten-Plan-Export (Blob) und der Garten-Scan-Druck (iframe) bauen eigenst\u00e4ndige HTML-Dokumente. Die kennen das :root der App nicht \u2014 var(--c-success) & Co. l\u00f6sten sich dort zu nichts auf. Seit der Farb-Welle in v31.20 druckte der Export also schwarze Schrift auf transparenten Fl\u00e4chen. Mit den Radien w\u00e4re derselbe Fehler noch einmal dazugekommen. Beide Dokumente bekommen jetzt \u00fcber GS_DOC_TOKENS ihre eigenen Werte \u2014 die hellen, weil Gedrucktes nicht dem App-Modus folgt.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Beide erzeugten Dokumente im Browser gerendert und jedes Token gegen getComputedStyle gepr\u00fcft \u2014 --r-sm\u21928px, --c-success\u2192rgb(46,125,50), --c-success-d\u2192rgb(27,94,32), --bg-success-soft\u2192rgb(232,245,233) \u00b7 App vorher/nachher geladen: tats\u00e4chlich gerenderte Radien-Varianten 38 \u2192 19, keine JS-Fehler in beiden \u00b7 kein Element wechselt die Form (keine neue Pille, keine verlorene) \u2014 Abdeckung dabei nur 11 vergleichbare Elemente, weil die App ohne Anmeldung nicht mehr aufbaut \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.29 \u00b7 sw.js gs-v31.29 \u00b7 _headers v31.29 \u00b7 meta=31.29.20260901.'},
+    ],
+  },
+  {
+    v: 'v31.28', date: '01.09.2026',
+    headline: '🌤️ Die Wetterkarte passt jetzt zum Rest der Startseite',
+    summary: 'Das Wetter-Widget war der letzte laute Block auf der Startseite: kräftiger Blau-Verlauf mit weisser Schrift, während daneben alles auf heller Karte mit ruhigem Rahmen sitzt. Es hat jetzt dasselbe Material wie jede andere Karte — Farbe nur noch dort, wo sie etwas aussagt: bei der Sturmwarnung.',
+    user_summary: '🌤️ Die Wetterkarte auf der Startseite sieht aus wie alles andere — ruhig statt knallblau. Und die 4-Tage-Vorschau zeigt jetzt immer dasselbe, egal wie die App geladen hat.',
+    user_items: [
+      { emoji: '🌤️', text: 'Wetterkarte in Karten-Optik statt blauem Verlauf — Farbe bleibt der Warnung vorbehalten' },
+      { emoji: '📅', text: 'Vorschau zeigte je nach Ladeweg 3 oder 4 Tage — jetzt immer 4' },
+      { emoji: '👁️', text: 'Ein Ladeweg hätte die Vorschau weiss auf weiss gezeichnet — behoben, bevor es jemand sah' },
+    ],
+    items: [
+      {emoji:'🌤️', bold:'Ein Material für alle Karten:', text:' das Widget nutzte linear-gradient(135deg,#0d47a1,#1565c0) mit weisser Schrift. Jetzt --card / --border / --elev-1 wie jede andere Karte. Alle zehn von JavaScript beschriebenen IDs (hw-icon, hw-temp, hw-desc, hw-wind, hw-humidity, hw-uv, hw-warning, hw-warning-text, hw-forecast, home-weather-widget) unverändert — je genau einmal im Dokument geprüft.'},
+      {emoji:'👁️', bold:'Zwei Wege, zwei Ergebnisse:', text:' die 3-Tages-Vorschau wurde an zwei Stellen unabhängig gerendert. loadHomeWeather() (Live-Abruf beim Start) schrieb color:#fff und rgba(255,255,255,.7) fest — auf der neuen hellen Karte unsichtbar — und zeigte 4 Spalten; gsApplyWeatherToWidget() (Cache-Treffer) zeigte 3 mit geerbter Farbe. Beide gehen jetzt durch _gsWxForecastHtml().'},
+      {emoji:'📏', bold:'Trenner nur zwischen den Spalten:', text:' der eine Weg zeichnete border-right auf jede Spalte, also auch hinter der letzten; der andere schob ein Trenner-<div> dazwischen. Jetzt .gs-wx-day + .gs-wx-day{border-left} — eine Regel, kein Rest.'},
+      {emoji:'🔤', bold:'Wochentage aus der Übersetzung:', text:' der Cache-Weg hatte die Kürzel als deutsches Array fest im Code (So,Mo,Di…), der Live-Weg las sie aus gsI18n. Beide lesen jetzt gsI18n — die Vorschau ist damit auch in den anderen Sprachen richtig beschriftet.'},
+    ],
+    verify: [
+      {emoji:'✅', bold:'Verify:', text:' Kontrast der Vorschau in beiden Modi gerechnet (Tagesname 7,11:1 hell / 7,76:1 dunkel, Min-Temperatur 4,95:1 / 6,08:1 — alle über AA 4,5:1) · Helper-Quelle direkt aus index.html in einen Playwright-Prüfstand geladen und in drei Zuständen gerendert (hell, dunkel, hell mit Warnung), keine JS-Fehler · 10/10 IDs je genau einmal · 9/9 Inline-Scripts node --check OK · GS_VERSION=v31.28 · sw.js gs-v31.28 · _headers v31.28 · meta=31.28.20260901.'},
+    ],
+  },
+  {
+    v: 'v31.27', date: '01.09.2026',
+    headline: '🧭 Die untere Navigation war im Hellmodus kaum lesbar',
+    summary: 'Die Navigationsleiste ist in beiden Modi dunkelgrün — ihre Beschriftung nutzte aber Farb-Token für helle Flächen. Im Hellmodus ergab das 1,86:1 für den aktiven und 2,28:1 für die übrigen Reiter. Im Dunkelmodus hatte das jemand dreimal überschrieben, im Hellmodus nie.',
+    user_summary: '🧭 Die Beschriftungen der unteren Navigation sind wieder klar lesbar — im Hellmodus waren sie fast unsichtbar.',
+    user_items: [
+      { emoji: '🧭', text: 'Reiter-Beschriftungen im Hellmodus von 1,9:1 auf 7,4:1' },
+      { emoji: '🧹', text: 'Vier widersprüchliche Farbregeln für dieselben Reiter entfernt — jetzt eine' },
+    ],
+    items: [
+      {emoji:'🧭', bold:'Dunkle Fläche, helle Token:', text:' .tabs nutzt --fill-dark (in beiden Modi dunkel), .tab aber --muted und --g-main. Die stimmen nur für helle Flächen. Feste Werte (#9db89d / #a5d6a7) gegen beide Leisten-Hintergründe gerechnet: 5,7–8,8:1.'},
+      {emoji:'🧹', bold:'Eine Quelle statt fünf:', text:' es gab vier body.dark-Überschreibungen für dieselben zwei Zustände, teils widersprüchlich, plus eine doppelte Basisregel. Alle entfernt — die Fläche ist in beiden Modi dieselbe, also braucht sie auch nur eine Farbe.'},
+      {emoji:'✅', bold:'Nicht gebaut:', text:' der runde grüne Mittelknopf aus den Entwürfen existiert seit v26.86. Drittes Mal in dieser Runde, dass Nachsehen vor Doppelarbeit bewahrt hat.'},
+    ],
+  },
+  {
+    v: 'v31.26', date: '01.09.2026',
+    headline: '🌗 Jeder Hauptknopf war im Dunkelmodus blass — 146 Flächen',
+    summary: 'Nach drei Einzelfunden habe ich das Muster systematisch gesucht: Farb-Token, die im Dunkelmodus heller werden (richtig für Schrift), wurden an 146 Stellen als Fläche mit weisser Schrift benutzt. Jeder Hauptknopf, jeder aktive Chip, jeder aktive Reiter lag dort bei 2,4:1. Fläche und Schrift sind jetzt getrennte Rollen.',
+    user_summary: '🌗 Knöpfe, Chips und Reiter sind im Dunkelmodus wieder klar lesbar — vorher waren sie blassgrün mit weisser Schrift.',
+    user_items: [
+      { emoji: '🔘', text: '146 Flächen im Dunkelmodus korrigiert — Knöpfe, Chips, Reiter, Kopfleiste' },
+      { emoji: '👁️', text: 'Weisse Schrift auf Grün: von 2,4:1 auf 5,7:1' },
+      { emoji: '🔒', text: 'Hellmodus unverändert — die neuen Token tragen exakt die alten Werte' },
+    ],
+    items: [
+      {emoji:'🔍', bold:'Systematisch statt zufällig:', text:' alle Token verglichen, deren Helligkeit sich zwischen Hell- und Dunkelmodus umkehrt (29 Stück — das ist für eine Textfarbe richtig), und geprüft, welche davon als Fläche dienen. Ergebnis: 146 Stellen, davon 124 mit weisser Schrift.'},
+      {emoji:'🎭', bold:'Rollen getrennt:', text:' --fill-brand, --fill-dark, --fill-violet, --fill-warn sind Flächen und bleiben im Dunkelmodus dunkel. --g-main und Co. bleiben Schrift und werden hell. Ein Token kann nicht beides.'},
+      {emoji:'🐛', bold:'Nebenbefund:', text:' --c-warn-d als Fläche mit weisser Schrift schaffte auch im HELLmodus nur 3,79:1. --fill-warn ist deshalb bewusst dunkler (5,75:1) — der einzige Wert, der sich im Hellmodus ändert.'},
+      {emoji:'🟢', bold:'Live-Punkt:', text:' heller Puls-Hintergrund mit --c-info-d als Text — im Dunkelmodus hell auf hell. Jetzt fest dunkler Text (7,4:1).'},
+    ],
+  },
+  {
+    v: 'v31.25', date: '01.09.2026',
+    headline: '🌾 Ruhige Kopfzone — und die Kopfleiste war nachts unlesbar',
+    summary: 'Die Startseite beginnt jetzt hell und ruhig: kleine Gruss-Zeile mit Blatt, darunter „Dein Garten" in Serifen, darunter was heute gilt. Das Grün erscheint als Karte, nicht mehr als breites Band. Beim Rendern fiel ein echter Fehler auf: die Kopfleiste der App war im Dunkelmodus hellgrün mit weisser Schrift.',
+    user_summary: '🌾 Die Startseite beginnt ruhig und hell — und die Kopfleiste ist im Dunkelmodus endlich lesbar.',
+    user_items: [
+      { emoji: '🌾', text: 'Helle, ruhige Kopfzone statt grünem Band — wie in den Entwürfen' },
+      { emoji: '🌙', text: 'Kopfleiste im Dunkelmodus war hellgrün mit weisser Schrift — behoben' },
+      { emoji: '🍃', text: 'Gruss mit Namen und Blatt-Symbol, darunter „Dein Garten" in Serifen' },
+    ],
+    items: [
+      {emoji:'🐛', bold:'Kopfleiste im Dunkelmodus:', text:' body.dark .topbar setzte var(--g-dark) — und --g-dark ist im Dunkelmodus HELLGRÜN (#a5d6a7), weil sich die Skala umkehrt. Titel und alle Knöpfe sind aber fest weiss. Ergebnis: 1,64:1, praktisch unsichtbar. Jetzt #122212 → 16,6:1.'},
+      {emoji:'🌾', bold:'Nur die Startseite:', text:' .hero wird von mehreren Bildschirmen benutzt; die helle Kopfzone gilt gezielt für #screen-home. Ein globaler Eingriff wäre hier nicht prüfbar gewesen.'},
+      {emoji:'🔔', bold:'Keine zweite Glocke:', text:' die Entwürfe zeigen eine Glocke neben dem Gruss — die gibt es in der Kopfleiste bereits. Eine zweite hätte genau die Doppelung erzeugt, die eine App zusammengesetzt wirken lässt.'},
+    ],
+  },
+  {
+    v: 'v31.24', date: '01.09.2026',
+    headline: '🤍 Hochwertig und einfach — warme Flächen, „Heute zu tun"',
+    summary: 'Die Startseite folgt jetzt den neuen Entwürfen: eine warme Creme-Fläche statt grünstichigem Weiss, ein tieferes Waldgrün, und „Heute zu tun" als EINE Karte mit Kästchen zum Abhaken. Die Prioritäts-Plaketten sind weg — was bleibt, ist eine Zeile, die sagt was ansteht, und ein Kästchen, das es erledigt.',
+    user_summary: '🤍 Ruhigere, wärmere Oberfläche — und „Heute zu tun" hakst du jetzt einfach ab.',
+    user_items: [
+      { emoji: '☑️', text: 'Aufgaben mit einem Tipp abhaken — die Zeile klappt sanft zu' },
+      { emoji: '🤍', text: 'Warme Creme-Fläche statt grünstichigem Weiss' },
+      { emoji: '🌲', text: 'Tieferes Waldgrün — eleganter und endlich gut lesbar' },
+      { emoji: '✂️', text: 'Weniger auf der Seite: keine Prioritäts-Plaketten, keine zweite Hervorhebung' },
+    ],
+    items: [
+      {emoji:'🎨', bold:'Palette:', text:' --g-bg #eef7ee → #f4f1ea, --surface2 → #f7f4ee, --border → #e3ded3 (warm-neutral statt grün). --g-main #1f6b2f → #1f6b2f: lag als Text bei 4,0:1 und war damit schon vorher unter der Lesbarkeitsschwelle; jetzt 5,8:1 auf Creme und 6,6:1 mit weisser Schrift darauf.'},
+      {emoji:'☑️', bold:'Abhaken:', text:' Kästchen füllt sich, Zeile klappt zu, dann erledigt gsNcDoneTask → gsQuickDone. Weiterhin genau eine Erledigt-Logik. Bei „Bewegung reduzieren" entfällt der Übergang, die Reihenfolge bleibt.'},
+      {emoji:'✂️', bold:'Weniger:', text:' Prioritäts-Plaketten und die separate „Nächster Schritt"-Karte aus v31.16 entfernt. Beide Entwürfe zeigen sie nicht — und „sehr simpel" heisst weglassen, bis nur das übrig ist, was man antippt.'},
+    ],
+  },
+  // ── Aeltere Eintraege: data/releases.v1.js (v31.36) ──────────────────────
+  // Die Liste stand hier vollstaendig und war 787 KB gross — 14 % von
+  // index.html, geparst bei jedem Kaltstart, obwohl beim Start nur [0]
+  // gebraucht wird. Die 371 aelteren Eintraege liegen jetzt im Archiv und
+  // werden nachgeladen, wenn der Changelog im Ueber-Modal geoeffnet wird.
+  // Zum Lesen der VOLLEN Liste immer gsAllReleases() benutzen, nicht
+  // GS_RELEASES direkt.
+  {
     v: 'v31.23', date: '01.09.2026',
     headline: '🎚️ Bewegung — drei Stufen statt 85 Varianten',
     summary: 'Alle Übergänge laufen jetzt in drei abgestimmten Geschwindigkeiten. Und: wer im Betriebssystem „Bewegung reduzieren" gewählt hat, bekam dreizehn Bildläufe trotzdem animiert — der JS-Parameter hat Vorrang vor der CSS-Regel. Das ist behoben.',

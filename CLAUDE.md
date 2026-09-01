@@ -287,7 +287,43 @@ Zwei weitere Prüfstände liegen daneben:
 node scripts/contrast_check.js   # WCAG-Kontrast jeder Textstelle, beide Modi
 node scripts/touch_check.js      # Antippflächen unter 24×24 px (WCAG 2.5.8)
 node scripts/perf_check.js       # Kaltstart unter Telefon-Drosselung (1×/4×/6×)
+node scripts/wiring_check.js     # Verdrahtung: kommt an, was angetippt wird? (seit v31.45)
 ```
+
+Alle fünf teilen die Beispieldaten in `scripts/_seed.js` — dort ändern, nicht
+in den einzelnen Prüfständen.
+
+`wiring_check.js` prüft, was die anderen vier nicht sehen: die vier messen, wie
+die App **aussieht**, dieser prüft, ob das Angetippte **ankommt**. Zwei
+Richtungen, und die zweite ist die teurere:
+
+1. **Knopf → Funktion.** Jedes `on*`-Attribut aller elf Tabs einsammeln, die
+   aufgerufenen Namen ziehen, im Seitenkontext auflösen. Ein
+   `onclick="gsMachWas()"` ohne Funktion sieht normal aus, misst sich normal
+   und tut beim Antippen nichts.
+2. **Funktion → Element.** Jede `getElementById('…')`/`querySelector('#…')` mit
+   festem Namen gegen die ids, die im Quelltext wirklich entstehen. Getrennt
+   ausgewiesen wird, ob der Zugriff **abgesichert** ist (`if (el)` → still und
+   folgenlos) oder **ungesichert** (`.textContent` direkt am Ergebnis → wirft,
+   und alles danach in der Funktion läuft nicht mehr). Nur das Zweite ist ein
+   Fehler; genau so lag v31.40 im Argen.
+
+**Die Grenzen, damit sie niemand neu entdecken muss:**
+
+- Namen, die erst zur Laufzeit entstehen (`window[name]()`), findet er nicht.
+- Richtung 2 liest den **Quelltext**, nicht das Dokument: die meisten ids
+  entstehen erst beim Rendern, ein laufender Abgleich wäre lauter Falschalarm.
+- Kommentare müssen raus, sonst meldet er die eigene Fehlerdokumentation als
+  Fehler. Die naive Prüfung („steht ein `/*` näher als das letzte `*/`?")
+  reicht nicht: Zeile ~29648 enthält `accept="image/*"` — das `/*` steht in
+  einer **Zeichenkette** und schliesst nie, ab dort galt der halbe Rest der
+  Datei als Kommentar und elf echte Funde verschwanden. Er führt deshalb beim
+  Durchgehen Zeichenketten mit.
+
+Die 52 verbleibenden **abgesicherten** Nachschlagungen sind kein Fehler,
+sondern eine Liste: Reste entfernter Oberflächen (`cam-perm-dialog`,
+`gc-canvas`, `cemetery-list`, `weather-alert-card`). Jede einzeln prüfen —
+manche sind harmlos, manche sind eine Funktion ohne Anzeige.
 
 `perf_check.js` trennt **App-JS** von **Parsen/Kompilieren**. Nur die erste
 Spalte ist beeinflussbar — die zweite ist der Preis des 5,7-MB-Monolithen und

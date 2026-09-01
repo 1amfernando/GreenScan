@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.44.20260901">
+<meta name="app-version" content="31.45.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -485,7 +485,6 @@ body{height:100%;background:var(--g-bg);color:var(--text);font-family:"DM Sans",
 /* v31.38: war GROSSGESCHRIEBEN mit Sperrung. Die Vorlage nutzt normale
    Schreibung — ruhiger und bei 10,5px deutlich besser lesbar. */
 .tl{ font-size:10.5px; font-weight:600; letter-spacing:.1px; margin-top:0; }
-
 /* v26.86: Senior-Friendly Nav — Home als zentraler grosser Anker (FAB-Style).
    Andere Tabs bleiben flex:1; Center-Tab ragt nach oben hinaus und ist 1.45x grösser. */
 .tab.tab-center{
@@ -1053,7 +1052,24 @@ details > summary::marker { content: ''; }
 .menu-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text);width:38px;height:38px;border-radius:var(--r-md);font-size:var(--fs-xl);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:var(--dur);}
 .menu-btn:active{background:var(--g-light);}
 
-.tab-badge{position:absolute;top:2px;right:calc(50% - 20px);background:#e53935;color:#fff;font-size:var(--fs-xs);font-weight:800;min-width:16px;height:16px;border-radius:var(--r-sm);padding:0 4px;display:flex;align-items:center;justify-content:center;line-height:1;}
+/* v31.45 — Abzeichen fuer faellige Pflege am Pflanzen-Reiter.
+   gsUpdateGardenBadge gab es seit v30.34, aber ohne Element und ohne
+   Aufrufer: es zielte auf garden-tab-badge, und einen Garten-Reiter hat die
+   Leiste gar nicht. Faellige Aufgaben waren nirgends zu sehen.
+
+   Die Regel stand schon hier — als Rest der Menue-Reiter-Badge, die v31.01
+   entfernt hat; kein Element trug die Klasse mehr. Ich hatte zuerst weiter
+   oben eine ZWEITE .tab-badge geschrieben und dabei genau den Fehler
+   gemacht, den ich in v31.33 zweiundfuenfzigmal aufgeraeumt habe: gleiche
+   Klasse, zwei Stellen, die spaetere gewinnt. Aufgefallen ist es nur, weil
+   die gemessene Farbe nicht die geschriebene war. Also eine Regel.
+
+   #c62828 statt des alten #e53935: Weiss darauf sind 5,9:1 gegen 3,8:1 —
+   bei einer 10px-Ziffer ist das der Unterschied zwischen lesbar und geraten.
+   Fest statt ueber ein Merkmal, damit der Dunkelmodus sie nicht aufhellt.
+   [hidden] braucht eine eigene Zeile, weil display:flex es sonst ueberstimmt. */
+.tab-badge{position:absolute;top:-3px;right:-8px;background:#c62828;color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;box-sizing:border-box;border-radius:8px;padding:0 4px;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 0 0 2px var(--card);pointer-events:none;}
+.tab-badge[hidden]{display:none;}
 /* v23.70: Notification-Badge am Menü-Tab — iOS-Style, pulst sanft wenn >0 */
 /* v31.01: .gs-notif-badge entfernt — die Badge am Menue-Tab ist weg (nur noch .gs-bell-badge). */
 
@@ -6051,7 +6067,7 @@ html, body{ scroll-behavior: smooth; }
      Der Mittelknopf traegt jetzt das Edelweiss aus icons/icon.svg. -->
 <div class="tabs" id="main-tabs" role="tablist" aria-label="Haupt-Navigation">
   <button class="tab" id="tab-scanner" role="tab" aria-selected="false" aria-controls="screen-scanner" onclick="switchTab('scanner',this)"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8V5.5A2.5 2.5 0 0 1 5.5 3H8"/><path d="M16 3h2.5A2.5 2.5 0 0 1 21 5.5V8"/><path d="M21 16v2.5a2.5 2.5 0 0 1-2.5 2.5H16"/><path d="M8 21H5.5A2.5 2.5 0 0 1 3 18.5V16"/><circle cx="12" cy="12" r="3.2"/></svg></span><span class="tl" data-i18n="nav_tab_scanner" data-i18n-fallback="Scanner">Scanner</span></button>
-  <button class="tab" id="tab-favs" role="tab" aria-selected="false" aria-controls="screen-favs" onclick="switchTab('favs',this)"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20c0-7 5-12 16-13 0 10-5 15-12 15H4z"/><path d="M4 20c3-5 7-8 12-9.5"/></svg></span><span class="tl" data-i18n="nav_tab_favs" data-i18n-fallback="Pflanzen">Pflanzen</span></button>
+  <button class="tab" id="tab-favs" role="tab" aria-selected="false" aria-controls="screen-favs" onclick="switchTab('favs',this)"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20c0-7 5-12 16-13 0 10-5 15-12 15H4z"/><path d="M4 20c3-5 7-8 12-9.5"/></svg><span class="tab-badge" id="gs-tab-favs-badge" hidden></span></span><span class="tl" data-i18n="nav_tab_favs" data-i18n-fallback="Pflanzen">Pflanzen</span></button>
   <button class="tab tab-center active" id="tab-home" role="tab" aria-selected="true" aria-controls="screen-home" onclick="switchTab('home',this)" aria-label="Startseite"><span class="ti"><svg viewBox="-140 -140 280 280" aria-hidden="true" class="gs-edel"><defs><path id="gsElo" d="M0 -124 C 10 -110 14 -74 10 -40 C 7 -22 3 -19 0 -17 C -3 -19 -7 -22 -10 -40 C -14 -74 -10 -110 0 -124 Z"/><path id="gsEup" d="M0 -92 C 7 -80 10 -52 7 -28 C 5 -18 2 -15 0 -14 C -2 -15 -5 -18 -7 -28 C -10 -52 -7 -80 0 -92 Z"/></defs><g fill="#dcebdc"><use href="#gsElo"/><use href="#gsElo" transform="rotate(60)"/><use href="#gsElo" transform="rotate(120)"/><use href="#gsElo" transform="rotate(180)"/><use href="#gsElo" transform="rotate(240)"/><use href="#gsElo" transform="rotate(300)"/></g><g fill="#ffffff"><use href="#gsEup" transform="rotate(30)"/><use href="#gsEup" transform="rotate(90)"/><use href="#gsEup" transform="rotate(150)"/><use href="#gsEup" transform="rotate(210)"/><use href="#gsEup" transform="rotate(270)"/><use href="#gsEup" transform="rotate(330)"/></g><g fill="#f3cd6b"><circle r="8"/><circle cx="15.6" cy="0" r="5.4"/><circle cx="7.8" cy="13.5" r="5.4"/><circle cx="-7.8" cy="13.5" r="5.4"/><circle cx="-15.6" cy="0" r="5.4"/><circle cx="-7.8" cy="-13.5" r="5.4"/><circle cx="7.8" cy="-13.5" r="5.4"/></g></svg></span><span class="tl" data-i18n="nav_tab_home" data-i18n-fallback="Home">Home</span></button>
   <button class="tab" id="tab-social" role="tab" aria-selected="false" aria-controls="screen-social" onclick="switchTab('social',this)"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="9" r="3"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><circle cx="17" cy="7.5" r="2.3"/><path d="M16 13.4c2.6.2 4.5 2.2 4.5 5"/></svg></span><span class="tl" data-i18n="nav_tab_community" data-i18n-fallback="Community">Community</span></button>
   <button class="tab" id="tab-menu" aria-haspopup="menu" aria-label="Hauptmenü öffnen" onclick="openMainMenu()"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h11"/></svg></span><span class="tl" data-i18n="nav_tab_menu" data-i18n-fallback="Mehr">Mehr</span></button>
@@ -16046,15 +16062,20 @@ function gsNormalizeCatEmojis() {
 
 // ══ GARDEN TAB BADGE (fällige Aufgaben) ═════════════════════
 function gsUpdateGardenBadge() {
-  var n = typeof countOverdueTasks === 'function' ? countOverdueTasks() : 0;
-  var badge = document.getElementById('garden-tab-badge');
+  // v31.45: zielte auf garden-tab-badge — ein Element, das es nirgends gibt,
+  // fuer einen Reiter, den die Leiste nicht hat. Die Funktion war ausserdem
+  // ohne einen einzigen Aufrufer. Beides gefunden mit scripts/wiring_check.js.
+  var badge = document.getElementById('gs-tab-favs-badge');
   if (!badge) return;
-  if (n > 0) {
-    badge.textContent = n;
-    badge.style.display = 'inline-block';
-  } else {
-    badge.style.display = 'none';
-  }
+  var n = 0;
+  // countOverdueTasks greift ungesichert auf myPlants zu; beim ersten Lauf
+  // steht das unter Umstaenden noch nicht.
+  try { if (typeof countOverdueTasks === 'function') n = countOverdueTasks() || 0; } catch(_){ return; }
+  badge.textContent = n > 99 ? '99+' : String(n);
+  badge.hidden = !n;
+  // Vorlesen soll es die Bedeutung, nicht die nackte Zahl.
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+  badge.setAttribute('aria-label', n + ' ' + _t('tasks_due_aria', n === 1 ? 'Aufgabe fällig' : 'Aufgaben fällig'));
 }
 
 // ══ SCANNER ZOOM CONTROL ════════════════════════════════════
@@ -22847,15 +22868,6 @@ function switchTab(t, btn) {
     }
   }
   if (t !== 'light') {
-    // Stop room scan camera
-    if (typeof scanStream !== 'undefined' && scanStream) {
-      if (typeof scanLiveTick !== 'undefined') clearInterval(scanLiveTick);
-      scanStream.getTracks().forEach(tr => tr.stop()); scanStream = null;
-    }
-    // Always hide room scanner UI when leaving light screen
-    const ru = document.getElementById('room-scanner-ui'); if(ru) ru.style.display='none';
-    const rb = document.getElementById('room-scan-btn'); if(rb) { rb.style.display='block'; rb.disabled=false; }
-    const sv = document.getElementById('scan-video'); if(sv) sv.srcObject = null;
     // Stop light stream
     if (typeof lightStream !== 'undefined' && lightStream) {
       lightStream.getTracks().forEach(tr => tr.stop()); lightStream = null;
@@ -23020,8 +23032,17 @@ function switchTab(t, btn) {
     }
   }
   if (t === 'light') {
-    const lcEl=document.getElementById('lux-cat'); if(lcEl)lcEl.textContent='';
-    const lvEl=document.getElementById('lux-val')||document.getElementById('lux-n'); if(lvEl)lvEl.textContent='—';
+    // v31.45: griff auf lux-val bzw. lux-n zu — beide ids gibt es nicht, das
+    // Element heisst lux-value. Beide Nachschlagungen liefen also ins Leere,
+    // und „if(lvEl)" verschluckte es lautlos. Folge: beim erneuten Oeffnen des
+    // Lichtmessers stand die Zahl der VORIGEN Messung noch da, waehrend die
+    // Kategorie daneben schon leer war — mitsamt ihrer alten Farbe, weil die
+    // als Inline-Stil gesetzt wird und textContent='' sie nicht mitnimmt.
+    // Gefunden mit scripts/wiring_check.js; dieselbe Wurzel wie v31.40.
+    const lrEl=document.getElementById('light-result'); if(lrEl)lrEl.style.display='none';
+    const lvEl=document.getElementById('lux-value'); if(lvEl)lvEl.textContent='—';
+    const lcEl=document.getElementById('lux-cat');
+    if(lcEl){ lcEl.textContent=''; lcEl.style.background=''; lcEl.style.color=''; }
   }
 
   // Quiz auf Home-Screen initialisieren
@@ -25473,13 +25494,6 @@ async function tryStartCamera(){
           }
         } catch(e){}
         try {
-          if (typeof scanStream !== 'undefined' && scanStream) {
-            scanStream.getTracks().forEach(function(tr){ try { tr.stop(); } catch(e){} });
-            scanStream = null;
-            if (typeof scanLiveTick !== 'undefined') { try { clearInterval(scanLiveTick); } catch(e){} }
-          }
-        } catch(e){}
-        try {
           if (typeof lightStream !== 'undefined' && lightStream) {
             lightStream.getTracks().forEach(function(tr){ try { tr.stop(); } catch(e){} });
             lightStream = null;
@@ -25508,7 +25522,6 @@ async function tryStartCamera(){
     // Zusätzlich: pagehide/beforeunload räumt auf
     window.addEventListener('pagehide', function(){
       try { if (stream) { stream.getTracks().forEach(function(tr){ tr.stop(); }); stream = null; } } catch(e){}
-      try { if (scanStream) { scanStream.getTracks().forEach(function(tr){ tr.stop(); }); scanStream = null; } } catch(e){}
       try { if (lightStream) { lightStream.getTracks().forEach(function(tr){ tr.stop(); }); lightStream = null; } } catch(e){}
     });
   } catch(e){}
@@ -27906,11 +27919,13 @@ async function gsLoadCloudScans() {
 }
 window.gsLoadCloudScans = gsLoadCloudScans;
 
-function updateScanHistoryBadge() {
-  var hist = getScanHistory();
-  var badge = document.getElementById('scan-hist-badge');
-  if (badge) { badge.textContent = hist.length; badge.style.display = hist.length ? '' : 'none'; }
-}
+/* v31.45 — updateScanHistoryBadge (alte Fassung) entfernt. Sie zielte auf
+   scan-hist-badge, ein Element, das es nicht gibt, UND sie war ohnehin
+   unerreichbar: weiter oben setzt
+     window.updateScanHistoryBadge = function(){ gsRenderNotifBadge(); };
+   denselben globalen Namen neu. Da die Zuweisung zur Laufzeit nach dem
+   Hochziehen der Deklaration greift, lief seit v28.59 immer die neue
+   Fassung — dieser Rumpf war doppelt tot. */
 
 // v28.59 Block D-Rest: dedupliziert — die alte einfache Liste wurde durch die
 // reiche openScanHistoryFull (Stats/Suche/Filter/Detail + ☁️-Sync) ersetzt.
@@ -28783,6 +28798,9 @@ function savePlantsToStorage(){
   // v26.57: doppel-defensiv — direkt markDirty falls gsPushPlantsNow fehlschlägt
   // (z.B. wenn gsCloudSync noch nicht boot-fertig ist beim ersten Save)
   try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('plants'); } catch(_){}
+  // v31.45: einziger Engpass fuer Pflanzen- und Aufgaben-Aenderungen (23
+  // Aufrufstellen) — hier steht das Abzeichen immer richtig.
+  try { if (typeof gsUpdateGardenBadge === 'function') gsUpdateGardenBadge(); } catch(_){}
   return ok;
 }
 
@@ -29904,51 +29922,11 @@ setTimeout(() => {
   // v23.90 SECURITY: Admin-Flag mit Email-Whitelist-Check refreshen.
   // Falls localStorage stale ist (Account-Wechsel im selben Browser) → cleanup automatisch.
   if (typeof gsRefreshAdminFlag === 'function') gsRefreshAdminFlag();
+  try { if (typeof gsUpdateGardenBadge === 'function') gsUpdateGardenBadge(); } catch(_){}
 }, 200);
 
 // ═══ LICHTMESSUNG ═══════════════════════════════════
 
-// ─── Präzise Lux-Berechnung aus Kamerabild ───────────────
-function calcLuxFromPixels(imageData, width, height) {
-  const d = imageData.data;
-  const n = d.length / 4;
-
-  // Berechne gewichtete Luminanz (Perceptual: Y = 0.2126R + 0.7152G + 0.0722B)
-  let sumY = 0, sumR = 0, sumG = 0, sumB = 0;
-  for (let i = 0; i < d.length; i += 4) {
-    const r = d[i] / 255, g = d[i+1] / 255, b = d[i+2] / 255;
-    // sRGB to linear (gamma decode)
-    const rL = r <= 0.04045 ? r / 12.92 : Math.pow((r + 0.055) / 1.055, 2.4);
-    const gL = g <= 0.04045 ? g / 12.92 : Math.pow((g + 0.055) / 1.055, 2.4);
-    const bL = b <= 0.04045 ? b / 12.92 : Math.pow((b + 0.055) / 1.055, 2.4);
-    sumY += 0.2126 * rL + 0.7152 * gL + 0.0722 * bL;
-    sumR += rL; sumG += gL; sumB += bL;
-  }
-  const avgY = sumY / n; // linear luminance [0..1]
-
-  // EV (Exposure Value) Berechnung: EV = log2(L * S / K)
-  // Für typische Smartphone-Kamera: ISO 100, f/2.0, K=12.5
-  // Umrechnung: Lux = 2^EV × 2.5 (empirische Kalibrierung)
-  // avgY ~ L/Lmax, Lmax für Lux ≈ 100000 cd/m² (Sonnenlicht)
-  var lux;
-  if (avgY < 0.001) {
-    lux = Math.round(avgY * 500); // Sehr dunkel
-  } else if (avgY < 0.01) {
-    lux = Math.round(10 + avgY * 5000); // Dunkel
-  } else if (avgY < 0.1) {
-    lux = Math.round(100 + Math.pow(avgY / 0.1, 1.8) * 3000); // Schatten
-  } else if (avgY < 0.4) {
-    lux = Math.round(3000 + Math.pow((avgY - 0.1) / 0.3, 1.5) * 15000); // Indir. Licht
-  } else if (avgY < 0.75) {
-    lux = Math.round(18000 + Math.pow((avgY - 0.4) / 0.35, 1.3) * 30000); // Helles Licht
-  } else {
-    lux = Math.round(48000 + Math.pow((avgY - 0.75) / 0.25, 1.2) * 52000); // Volle Sonne
-  }
-
-  // Kalibrierungsfaktor (empirisch für Smartphone-Sensoren)
-  const CAL = 1.15;
-  return Math.round(Math.min(120000, Math.max(1, lux * CAL)));
-}
 
 // Camera permission state
 var cameraPermGranted = localStorage.getItem('gs_cam_perm') === 'granted';
@@ -31166,153 +31144,6 @@ function gsLightPro10Save() {
   } catch(e){}
 }
 
-function updateScanStepUI() {
-  const step = SCAN_STEPS[scanStep];
-  if (!step) return;
-
-  // Progress dots
-  const dots = document.getElementById('scan-dots');
-  if (dots) {
-    dots.innerHTML = SCAN_STEPS.map((s, i) =>
-      '<div style="width:' + (i === scanStep ? '24' : '8') + 'px;height:8px;border-radius:var(--r-xs);background:' +
-      (i < scanStep ? 'var(--g-main)' : i === scanStep ? 'var(--g-main)' : '#ddd') +
-      ';transition:var(--dur-slow);"></div>'
-    ).join('');
-  }
-
-  document.getElementById('scan-step-emoji').textContent = step.emoji;
-  document.getElementById('scan-step-name').textContent = 'Schritt ' + (scanStep+1) + '/5: ' + step.name;
-  document.getElementById('scan-step-hint').textContent = step.hint;
-
-  const btn = document.getElementById('scan-capture-btn');
-  if (btn) {
-    btn.textContent = '📸 Jetzt messen';
-    btn.disabled = false;
-    btn.style.opacity = '1';
-  }
-}
-
-async function captureCurrentStep() {
-  const btn = document.getElementById('scan-capture-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Messe…'; btn.style.opacity = '.7'; }
-
-  const video = document.getElementById('scan-video');
-  const canvas = document.getElementById('scan-canvas');
-  const ctx = canvas.getContext('2d');
-  const step = SCAN_STEPS[scanStep];
-
-  let lux;
-  if (scanStream && video.readyState >= 2) {
-    // 3 quick captures and average for accuracy
-    const measurements = [];
-    for (let i = 0; i < 3; i++) {
-      await new Promise(r => setTimeout(r, 200));
-      ctx.drawImage(video, 0, 0, 320, 240);
-      measurements.push(calcLuxFromPixels(ctx.getImageData(0,0,320,240), 320, 240));
-    }
-    measurements.sort((a,b)=>a-b);
-    lux = measurements[1]; // median
-  } else {
-    // Fallback estimate
-    const h = new Date().getHours();
-    lux = Math.round(500 + Math.random() * 8000);
-  }
-
-  scanResults.push({position: step.name, emoji: step.emoji, lux});
-
-  // Show done item
-  const doneList = document.getElementById('scan-done-list');
-  const cat = lux < 300 ? '🌑' : lux < 1000 ? '🌤' : lux < 5000 ? '⛅' : lux < 20000 ? '☀️' : '🌞';
-  doneList.innerHTML += '<div style="display:flex;align-items:center;gap:8px;background:var(--card);border-radius:var(--r-sm);padding:8px 12px;box-shadow:var(--shadow-sm);">' +
-    '<span style="font-size:var(--fs-xl);">' + step.emoji + '</span>' +
-    '<div style="flex:1;font-size:var(--fs-sm);font-weight:700;color:var(--text);">' + step.name + '</div>' +
-    '<span style="font-size:var(--fs-sm);font-weight:700;background:var(--bg-success-soft);color:var(--g-dark);padding:2px 7px;border-radius:var(--r-sm);">' + cat + ' ' + lux.toLocaleString() + ' Lux</span>' +
-    '</div>';
-
-  scanStep++;
-
-  if (scanStep >= SCAN_STEPS.length) {
-    // Done!
-    finishRoomScan();
-  } else {
-    updateScanStepUI();
-  }
-}
-
-function finishRoomScan() {
-  // Stop camera
-  if (scanLiveTick) clearInterval(scanLiveTick);
-  if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
-
-  document.getElementById('room-scanner-ui').style.display = 'none';
-  document.getElementById('room-scan-btn').style.display = 'block';
-  document.getElementById('room-scan-btn').textContent = '🔍 Raum erneut scannen';
-  document.getElementById('room-scan-result').style.display = 'block';
-
-  renderRoomScanResult(scanResults);
-}
-
-function cancelRoomScan() {
-  if (scanLiveTick) clearInterval(scanLiveTick);
-  if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
-  document.getElementById('room-scanner-ui').style.display = 'none';
-  document.getElementById('room-scan-btn').style.display = 'block';
-  document.getElementById('room-scan-btn').textContent = '🔍 Ganzen Raum scannen';
-  scanStep = 0; scanResults = [];
-}
-
-function renderRoomScanResult(results) {
-  const el = document.getElementById('room-scan-result');
-  if (!el) return;
-  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
-
-  const PLANTS_EXTENDED = [
-    {name:'Bogenhanf',   emoji:'🌿',min:50,  opt:600,  max:2500,  cat:'hauspflanze'},
-    {name:'ZZ-Pflanze',  emoji:'🌱',min:50,  opt:500,  max:2000,  cat:'hauspflanze'},
-    {name:'Efeutute',    emoji:'🌿',min:100, opt:900,  max:3500,  cat:'hauspflanze'},
-    {name:'Monstera',    emoji:'🌿',min:200, opt:2000, max:8000,  cat:'hauspflanze'},
-    {name:'Friedenslilie',emoji:'🌸',min:100,opt:1200, max:3000,  cat:'hauspflanze'},
-    {name:'Orchidee',    emoji:'🌺',min:500, opt:2500, max:9000,  cat:'hauspflanze'},
-    {name:'Ficus',       emoji:'🌳',min:500, opt:3500, max:12000, cat:'hauspflanze'},
-    {name:'Zimmerpalmem',emoji:'🌴',min:300, opt:2500, max:8000,  cat:'hauspflanze'},
-    {name:'Aloe Vera',   emoji:'🌵',min:1000,opt:6000, max:25000, cat:'hauspflanze'},
-    {name:'Kakteen',     emoji:'🌵',min:3000,opt:20000,max:80000, cat:'hauspflanze'},
-    {name:'Afrikan. Veilchen',emoji:'💜',min:500,opt:1800,max:5000,cat:'hauspflanze'},
-    {name:'Geldbaum',    emoji:'💰',min:1000,opt:5000, max:20000, cat:'hauspflanze'},
-  ];
-
-  let html = '<div style="font-weight:700;font-size:var(--fs-md);color:var(--g-dark);margin-bottom:10px;">' + _t('room_light_map','📊 Raum-Lichtkarte') + '</div>';
-
-  results.forEach(r => {
-    var cat = r.lux < 300 ? _t('room_deep_shadow','🌑 Tiefer Schatten') : r.lux < 1000 ? _t('room_shadow','🌤 Schatten') : r.lux < 5000 ? _t('room_indirect','⛅ Indirektes Licht') : r.lux < 20000 ? _t('room_bright','☀️ Helles Licht') : _t('room_full_sun','🌞 Volle Sonne');
-    // Best plants for this spot
-    const bestPlants = PLANTS_EXTENDED.map(p => {
-      var s = r.lux < p.min ? Math.max(0, r.lux/p.min*60) : r.lux <= p.opt ? 60+(r.lux-p.min)/(p.opt-p.min)*40 : r.lux <= p.max ? 100-(r.lux-p.opt)/(p.max-p.opt)*35 : Math.max(0, 65-(r.lux-p.max)/p.max*80);
-      return {...p, score: Math.round(s)};
-    }).sort((a,b)=>b.score-a.score).slice(0,3);
-
-    html += '<div style="background:var(--card);border-radius:var(--r-md);padding:10px 12px;margin-bottom:7px;box-shadow:var(--elev-1);">';
-    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">';
-    html += '<span style="font-weight:700;font-size:var(--fs-md);">' + r.emoji + ' ' + r.position + '</span>';
-    html += '<span style="font-size:var(--fs-sm);font-weight:700;background:var(--bg-success-soft);color:var(--g-dark);padding:2px 8px;border-radius:var(--r-sm);">' + r.lux.toLocaleString() + ' ' + _t('unit_lux','Lux') + '</span>';
-    html += '</div>';
-    html += '<div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:6px;">' + cat + '</div>';
-    html += '<div style="font-size:var(--fs-sm);color:var(--g-dark);font-weight:600;">' + _t('room_ideal_for','Ideal für:') + ' ' + bestPlants.map(p => p.emoji + ' ' + p.name + ' (' + p.score + '%)').join(' · ') + '</div>';
-    html += '</div>';
-
-    roomScanPoints.push(r);
-  });
-
-  // Overall best spots
-  const sorted = [...results].sort((a,b)=>b.lux-a.lux);
-  html += '<div style="margin-top:8px;padding:10px 12px;background:var(--bg-success-soft);border-radius:var(--r-md);">';
-  html += '<div style="font-weight:700;font-size:var(--fs-sm);color:var(--g-dark);margin-bottom:4px;">' + _t('room_recommendation','🏆 Empfehlung') + '</div>';
-  html += '<div style="font-size:var(--fs-sm);color:var(--g-dark);">' + _t('room_brightest','Hellster Spot:') + ' <strong>' + sorted[0].emoji + ' ' + sorted[0].position + '</strong> (' + sorted[0].lux.toLocaleString() + ' ' + _t('unit_lux','Lux') + ') → ' + _t('room_light_loving','ideal für lichtliebende Pflanzen.') + '</div>';
-  html += '<div style="font-size:var(--fs-sm);color:var(--g-dark);margin-top:3px;">' + _t('room_shadiest','Schattigster Spot:') + ' <strong>' + sorted[sorted.length-1].emoji + ' ' + sorted[sorted.length-1].position + '</strong> (' + sorted[sorted.length-1].lux.toLocaleString() + ' ' + _t('unit_lux','Lux') + ') → ' + _t('room_shade_tolerant','ideal für Schattenverträgliche.') + '</div>';
-  html += '</div>';
-
-  el.innerHTML = html;
-}
 
 /* v31.40 — showLuxResult entfernt (rund 45 Zeilen). Sie war die Vorgaengerin
    von displayLuxResult und griff auf drei ids zu, die es nicht mehr gibt:
@@ -43635,15 +43466,11 @@ function renderRecipes() {
   if (!list) return;
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
 
-  // Rezepte-Count im Header aktualisieren
-  var cntEl = document.getElementById('recipes-total-count');
-  if (cntEl) cntEl.textContent = recipesData.length;
-
+  // v31.45: hier standen zwei Zuweisungen an recipes-total-count und
+  // recipes-filter-count — beide ids gibt es nicht. Die Zahl steht laengst in
+  // der Leiste darunter („📚 x / y Rezepte", gsRenderRecipesStatsBar).
   var filtered = recipeFilter === 'all' ? recipesData : recipesData.filter(r => r.cat === recipeFilter);
   if (_gsRecipeFavsOnly) filtered = filtered.filter(function(r){ return isRecipeFav(r.id); });
-
-  var filterCntEl = document.getElementById('recipes-filter-count');
-  if (filterCntEl) filterCntEl.textContent = filtered.length + ' ' + _t('word_of','von') + ' ' + recipesData.length;
 
   var statsBar = gsRenderRecipesStatsBar(filtered, false);
 
@@ -63602,6 +63429,20 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.45', date: '01.09.2026',
+    headline: '\ud83d\udd0c Ein Pr\u00fcfstand f\u00fcr die Verdrahtung \u2014 und ein Abzeichen, das seit einem Jahr ins Leere zielte',
+    summary: 'Alle bisherigen Pr\u00fcfst\u00e4nde messen, wie die App AUSSIEHT. Keiner pr\u00fcfte, ob das Angetippte auch ankommt. Der neue scripts/wiring_check.js l\u00f6st beide Richtungen auf: 301 Knopf-Aufrufe gegen die tats\u00e4chlich vorhandenen Funktionen, und 1\u2019010 Element-Nachschlagungen gegen die ids, die es wirklich gibt.',
+    user_summary: '\ud83d\udd0c Der Lichtmesser zeigte beim erneuten \u00d6ffnen die alte Messung. F\u00e4llige Pflege ist jetzt am Pflanzen-Reiter zu sehen. Und 220 Zeilen f\u00fcr eine Funktion, die es l\u00e4ngst nicht mehr gab, sind weg.',
+    user_items: [
+      {emoji:'\ud83d\udca1', bold:'Lichtmesser zeigte die alte Zahl:', text:' Beim erneuten \u00d6ffnen sollte die Anzeige zur\u00fccksetzen \u2014 sie griff dabei auf lux-val und ersatzweise lux-n zu. Beide gibt es nicht, das Element hei\u00dft lux-value. Die Absicherung \u201eif(lvEl)\u201c verschluckte es lautlos, und so stand die Zahl der vorigen Messung noch da, w\u00e4hrend die Kategorie daneben schon leer war \u2014 mitsamt ihrer alten Farbe. Jetzt setzt es sauber zur\u00fcck.'},
+      {emoji:'\ud83d\udd34', bold:'F\u00e4llige Pflege ist wieder sichtbar:', text:' Ein rotes Abzeichen am Pflanzen-Reiter zeigt, wie viele Aufgaben \u00fcberf\u00e4llig sind. Die Z\u00e4hlfunktion gab es seit v30.34 \u2014 sie zielte auf einen Garten-Reiter, den die Leiste gar nicht hat, und hatte ausserdem keinen einzigen Aufrufer. Jetzt h\u00e4ngt sie am Speicherpunkt f\u00fcr Pflanzen, also stimmt sie immer.'},
+      {emoji:'\ud83e\uddf9', bold:'220 Zeilen f\u00fcr eine entfernte Funktion:', text:' Ein „Raum-Lichtscan\u201c in f\u00fcnf Schritten lag noch vollst\u00e4ndig im Code \u2014 ohne Knopf, ohne Oberfl\u00e4che, und mit f\u00fcnf Variablen, die nirgends angelegt werden. Er h\u00e4tte beim ersten Zugriff abgebrochen. Die 10-Punkte-Pro-Messung daneben ist die richtige Nachfolgerin und funktioniert.'},
+      {emoji:'\u2696\ufe0f', bold:'Was ich bewusst NICHT umgeh\u00e4ngt habe:', text:' In dieser Insel lag eine sorgf\u00e4ltige Lux-Berechnung mit Gamma-Korrektur. Verlockend, den laufenden Lichtmesser darauf zu zeigen \u2014 aber der ist gegen seine eigene Helligkeits-Skala kalibriert, und deine gespeicherte Kalibrierung w\u00e4re damit still ung\u00fcltig geworden. Genauer aussehen und falscher rechnen ist kein Fortschritt.'},
+      {emoji:'\ud83d\udd0d', bold:'Der Pr\u00fcfstand hat sich zweimal selbst korrigiert:', text:' Erst meldete er acht Fehler, die keine waren \u2014 verkettete Aufrufe und CSS-Funktionen. Dann verschluckte er elf echte, weil eine Zeile accept=\u201cimage/*\u201c enth\u00e4lt: das /* steht in einer Zeichenkette und schliesst nie, also galt der halbe Rest der Datei als Kommentar. Zu wenig zu melden ist schlimmer als zu viel \u2014 das Zuviel f\u00e4llt auf.'},
+      {emoji:'\ud83c\udfaf', bold:'Zum sechsten Mal dasselbe Muster \u2014 diesmal bei mir:', text:' Ich schrieb eine Regel f\u00fcr das neue Abzeichen und mass danach eine andere Farbe als die geschriebene. Die Klasse gab es schon, weiter unten, als Rest einer 2026 entfernten Men\u00fc-Badge. Genau der Fehler, den ich in v31.33 zweiundf\u00fcnfzigmal aufger\u00e4umt habe. Jetzt eine Regel statt zwei.'},
+    ],
+  },
+  {
     v: 'v31.44', date: '01.09.2026',
     headline: '\ud83c\udff7\ufe0f 22 Karten trugen ein Etikett mit der Aufschrift „undefined"',
     summary: 'Beim Durchsehen aller Seiten nach der Optik-Umstellung fiel im Heilmittel-Bereich ein Chip auf, auf dem w\u00f6rtlich „undefined" stand. Die Spur f\u00fchrte zu f\u00fcnf Kategorien, die von den Daten benutzt werden, aber in keiner Zuordnungstabelle stehen \u2014 und zu einem R\u00fcckfall ohne Beschriftung.',
@@ -63807,193 +63648,6 @@ window.GS_RELEASES = [
       {emoji:'\u2705', bold:'Verify:', text:' Antippfl\u00e4chen unter 24\u00d724: 43 \u2192 0 \u00b7 Vorher/Nachher am laufenden Programm: 1\u2019522 vergleichbare Elemente, 77 Gr\u00f6ssen\u00e4nderungen (genau die vergr\u00f6sserten Ziele), 0 Radius\u00e4nderungen, 0 Schriftgr\u00f6ssen\u00e4nderungen und 1 Farb\u00e4nderung \u2014 die nachgepr\u00fcft der Punkt-Knopf selbst ist, dessen Farbe ins ::before gewandert ist \u00b7 abgeschnittener Inhalt 17 \u2192 17, aus dem Bildschirm ragend 0 \u2192 0 \u00b7 Kontrast weiterhin 0 unter AA in beiden Modi \u00b7 alle 7\u2019081 onclick-Ziele l\u00f6sen zu echten Funktionen auf \u00b7 keine JS-Fehler \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.34 \u00b7 sw.js gs-v31.34 \u00b7 _headers v31.34 \u00b7 meta=31.34.20260901.'},
     ],
   },
-  {
-    v: 'v31.33', date: '01.09.2026',
-    headline: '\ud83e\uddf9 52 Stilregeln, die seit Jahren wirkungslos im Code standen',
-    summary: 'An 22 Stellen war dieselbe Klasse zweimal beschrieben \u2014 einmal oben im Dokument, einmal weiter unten aus einem sp\u00e4teren Umbau. Bei gleicher Spezifit\u00e4t gewinnt die sp\u00e4tere, die fr\u00fchere galt also nie. Wer die obere las, las etwas, das nicht stimmt. Entfernt; sichtbar \u00e4ndert sich nichts, und das ist nachgemessen.',
-    user_summary: '\ud83e\uddf9 Aufr\u00e4umen im Unterbau: nichts sieht anders aus, aber der Code beschreibt jetzt, was die App tats\u00e4chlich tut.',
-    user_items: [
-      { emoji: '\ud83e\uddf9', text: '52 Stilregeln entfernt, die ohnehin nie gewirkt haben' },
-      { emoji: '\u2705', text: 'Nachgemessen: an 1\u2019520 Elementen \u00e4ndert sich nichts \u2014 keine Farbe, keine Gr\u00f6sse' },
-    ],
-    items: [
-      {emoji:'\ud83e\uddf9', bold:'Das Muster:', text:' 22 Klassen waren zweimal deklariert \u2014 die urspr\u00fcngliche Regel um Zeile 400 bis 1500, eine zweite aus einem sp\u00e4teren Umbau um Zeile 81\u2019000 bis 82\u2019700. Gleiche Spezifit\u00e4t, gleicher Selektor: die sp\u00e4tere gewinnt immer. Betroffen unter anderem .modal-close-btn (acht widersprechende Angaben, darunter position sticky gegen absolute), .sec (f\u00fcnf), .settings-group-title, .stats-grid, .post-avatar, .td. Aufgefallen ist mir das in v31.31 bei .recipe-card-desc; die Suche danach fand 52 weitere.'},
-      {emoji:'\ud83d\udd0e', bold:'Vorsichtig abgegrenzt:', text:' verglichen wurden nur Regeln mit exakt EINEM Klassen-Selektor, beide ausserhalb von @media/@supports und beide ohne !important \u2014 nur dann gilt zwingend, dass die sp\u00e4tere gewinnt. Alles andere blieb unangetastet.'},
-      {emoji:'\ud83d\udd2c', bold:'Der Pr\u00fcfstand wurde dabei genauer:', text:' er meldete 1 bzw. 2 Gr\u00f6ssen\u00e4nderungen, jedes Mal woanders. Ursache war er selbst: er mass mit getBoundingClientRect(), und das liefert die GEDREHTE H\u00fclle. Ein Ladekreisel (14\u00d714px, dauerhaft rotierend) ergibt darin je nach Winkel 14 bis 20px. Jetzt offsetWidth/Height \u2014 die Layout-Box, unabh\u00e4ngig von Transformationen. Damit sind zwei aufeinanderfolgende L\u00e4ufe identisch.'},
-    ],
-    verify: [
-      {emoji:'\u2705', bold:'Verify:', text:' Vorher/Nachher am laufenden Programm, zweimal hintereinander mit gleichem Ergebnis: 1\u2019520 vergleichbare Elemente, 0 \u00c4nderungen an Radius, Schriftgr\u00f6sse, GR\u00d6SSE und Farbe \u00b7 verbleibende stille Konflikte 52 \u2192 0 \u00b7 keine leere Regel zur\u00fcckgeblieben \u00b7 Kontrast weiterhin 0 Stellen unter AA in beiden Modi \u00b7 keine JS-Fehler \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.33 \u00b7 sw.js gs-v31.33 \u00b7 _headers v31.33 \u00b7 meta=31.33.20260901.'},
-    ],
-  },
-  {
-    v: 'v31.32', date: '01.09.2026',
-    headline: '\ud83d\udc41\ufe0f 291 schlecht lesbare Textstellen \u2014 und warum meine Farbarbeit seit v31.20 nie ankam',
-    summary: 'Der neue Kontrast-Pr\u00fcfstand fand 270 Textstellen im Hell- und 21 im Dunkelmodus unter dem Lesbarkeits-Mindestwert. Die Hauptursache war eine einzige Zeile JavaScript, die meine gepr\u00fcften Farbwerte zur Laufzeit \u00fcberschrieb. Jetzt sind es null in beiden Modi.',
-    user_summary: '\ud83d\udc41\ufe0f Grauer Hilfstext, \u00dcberschriften auf farbigen Fl\u00e4chen und Filter-Kn\u00f6pfe sind jetzt \u00fcberall klar lesbar \u2014 in beiden Modi. Und die Wetterkachel im Garten sieht endlich aus wie der Rest.',
-    user_items: [
-      { emoji: '\ud83d\udc41\ufe0f', text: 'Grauer Hilfstext war 3,5:1 statt der n\u00f6tigen 4,5:1 \u2014 jetzt 6,9:1' },
-      { emoji: '\ud83c\udf19', text: 'Im Dunkelmodus war Text ohne eigene Farbe schwarz auf dunkel' },
-      { emoji: '\ud83c\udf24\ufe0f', text: 'Die Wetterkachel im Garten war als Einzige noch knallblau' },
-    ],
-    items: [
-      {emoji:'\ud83d\udd0e', bold:'Die Ursache:', text:' applyThemeColors() schrieb --text/--text2/--muted/--border per setProperty auf documentElement \u2014 ein Inline-Stil, der JEDE :root-Regel schl\u00e4gt. --muted war dadurch #888888 (3,54:1 auf Weiss) statt der gepr\u00fcften Werte. Der Kommentar dar\u00fcber behauptete "always readable on light backgrounds". Betroffen war nur der Hellmodus: der Dunkelmodus definiert seine Token auf body.dark, und ein Wert auf body sticht den geerbten von html. Die vier Aufrufe sind entfernt, alte Inline-Werte werden aktiv zur\u00fcckgenommen.'},
-      {emoji:'\ud83c\udfa8', bold:'Zwei Themen fielen durch:', text:' die Hauptfarbe des Standard-Themas Gr\u00fcn war #1f6b2f = 4,39:1 auf Weiss, Orange #e65100 = 3,79:1. Beide dienen als Textfarbe UND als Knopf-Hintergrund, der Wert gilt also in beide Richtungen. Neu #1f6b2f (6,56:1) und #bf360c (5,60:1).'},
-      {emoji:'\ud83c\udf19', bold:'body hatte nie eine Schriftfarbe:', text:' sie war damit in beiden Modi Schwarz (der Vorgabewert). Alles ohne eigene Farbe erbte Schwarz \u2014 im Dunkelmodus schwarz auf dunkel. Zw\u00f6lf Stellen auf einen Schlag behoben.'},
-      {emoji:'\ud83d\uddbc\ufe0f', bold:'Text auf farbigen Bildschirmen:', text:' vierzehn Bildschirme haben in beiden Modi eine dunkle Leinwand. Text direkt darauf nutzte --text/--muted \u2014 Token f\u00fcr HELLE Fl\u00e4chen, Ergebnis 1,01:1 bis 2,86:1. Neue Token --on-canvas / --on-canvas-2, gegen alle acht Leinwandfarben gerechnet. Meinen ersten Versuch, das \u00fcber eine gemeinsame Regel auf den Leinwaenden zu l\u00f6sen, habe ich VERWORFEN: gemessen wurde es davon schlechter (22 auf 33 Stellen).'},
-      {emoji:'\ud83c\udf24\ufe0f', bold:'Nachtrag zu v31.28:', text:' die Wetterkachel im Garten blieb damals stehen \u2014 umgestellt wurde nur die auf der Startseite. Jetzt dasselbe Material; die drei von JavaScript beschriebenen IDs unver\u00e4ndert.'},
-    ],
-    verify: [
-      {emoji:'\u2705', bold:'Verify:', text:' Kontrast-Pr\u00fcfstand \u00fcber neun Tabs in beiden Modi: 270 + 21 \u2192 0 + 0 \u00b7 Vorher/Nachher am laufenden Programm: 1\u2019522 vergleichbare Elemente, 1\u2019002 Farb\u00e4nderungen und 0 \u00c4nderungen an Radius, Schriftgr\u00f6sse und GR\u00d6SSE \u2014 genau das Profil einer reinen Farb\u00e4nderung \u00b7 abgeschnittener Inhalt 17 \u2192 17, aus dem Bildschirm ragend 0 \u2192 0 \u00b7 keine JS-Fehler \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.32 \u00b7 sw.js gs-v31.32 \u00b7 _headers v31.32 \u00b7 meta=31.32.20260901.'},
-    ],
-  },
-  {
-    v: 'v31.31', date: '01.09.2026',
-    headline: '\ud83d\udd24 Eine Typo-Skala \u2014 und 1\u2019387 Halbpixel-Schriftgr\u00f6ssen weniger',
-    summary: 'Die App hatte 4\u2019739 Schriftgr\u00f6ssen in 53 Varianten, darunter 1\u2019387 Halbpixel-Werte wie 11.5px oder 12.5px. Das entscheidet niemand \u2014 das bleibt beim Nachjustieren \u00fcbrig. Sieben Textgr\u00f6ssen lagen innerhalb von 6px. Jetzt sieben Stufen \u00fcber den ganzen Bereich, jede mit einem Zweck.',
-    user_summary: '\ud83d\udd24 Schriftgr\u00f6ssen folgen jetzt einer Skala statt 53 Einzelwerten. Kleine Texte sind an einigen Stellen etwas gr\u00f6sser und damit besser lesbar.',
-    user_items: [
-      { emoji: '\ud83d\udd24', text: 'Schriftgr\u00f6ssen: 53 Varianten \u2192 7 Stufen, keine Bewegung gr\u00f6sser als 2px' },
-      { emoji: '\ud83d\udc41\ufe0f', text: 'Winzige 7,5\u20138,5px-Texte sind jetzt 10px \u2014 unter 9px liest das niemand' },
-    ],
-    items: [
-      {emoji:'\ud83d\udd24', bold:'Die Skala:', text:' --fs-xs 10px (Marker, Fussnoten) \u00b7 --fs-sm 12px (Kleintext, Badges) \u00b7 --fs-md 14px (Fliesstext, Listen, Kn\u00f6pfe) \u00b7 --fs-lg 16px (Karten-Titel) \u00b7 --fs-xl 20px (Abschnitts-Titel) \u00b7 --fs-2xl 24px (Seiten-Titel) \u00b7 --fs-3xl 28px und --fs-4xl 32px (Kennzahlen, Hero). \u00dcber 34px bleibt alles unangetastet \u2014 das sind Hero-Ziffern und Emoji-Gr\u00f6ssen.'},
-      {emoji:'\ud83d\udcd0', bold:'Bewegung:', text:' von 4\u2019739 Angaben blieben 1\u2019362 exakt gleich, 3\u2019185 r\u00fcckten auf ihre Stufe, 139 blieben unber\u00fchrt. Gr\u00f6sste Bewegung \u00b12px \u2014 Ausnahme sind sechs winzige Stellen (7,5\u20138,5px \u2192 10px), und das ist eine Verbesserung, kein Risiko. Meine erste Zuordnung h\u00e4tte 28px auf 32px und 36px auf 32px geschoben (\u00b14px); oberes Ende aufgeteilt und neu gerechnet.'},
-      {emoji:'\ud83e\uddf9', bold:'Doppelte Regel gefunden:', text:' .recipe-card-desc war ZWEIMAL deklariert \u2014 einmal mit 12.5px, Zeilenh\u00f6he 1.5 und Umbruch, einmal mit 11.5px, 1.4 und einzeiliger Ellipsis. Gleiche Spezifit\u00e4t, also gewann die zweite; die erste war tot. Zusammengef\u00fchrt. Dasselbe Muster wie bei den Nav-Beschriftungen in v31.27.'},
-      {emoji:'\ud83d\udd2c', bold:'Zwei neue Pr\u00fcfwerkzeuge:', text:' render_check.js misst jetzt auch \u00dcberlauf \u2014 abgeschnittener Inhalt und Elemente, die aus dem Bildschirm ragen. Der erste Anlauf meldete 72 Chip-Leisten als Fehler, die absichtlich hinausragen; verworfen und die Pr\u00fcfung verengt, bis 0 Falschalarme blieben. Neu dazu: contrast_check.js misst den WCAG-Kontrast jeder Textstelle in beiden Modi.'},
-    ],
-    verify: [
-      {emoji:'\u2705', bold:'Verify:', text:' Vorher/Nachher am laufenden Programm: 1\u2019520 vergleichbare Elemente, 666 Schriftgr\u00f6ssen ge\u00e4ndert, 0 Farb\u00e4nderungen, 0 Radius\u00e4nderungen \u00b7 abgeschnittener Inhalt 17 \u2192 17 (die vorhandenen \u00dcberl\u00e4ufe wurden eher kleiner), aus dem Bildschirm ragend 0 \u2192 0 \u00b7 Ellipsis-Pr\u00fcfung \u00fcber 83 einzeilige Texte: 6 k\u00fcrzen neu (Zutaten-Vorschau in Rezeptkarten, +0,5px), 0 verlieren mehr als eine Zeile \u2014 das ist der Preis und er steht hier, statt verschwiegen zu werden \u00b7 keine JS-Fehler \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.31 \u00b7 sw.js gs-v31.31 \u00b7 _headers v31.31 \u00b7 meta=31.31.20260901.'},
-    ],
-  },
-  {
-    v: 'v31.30', date: '01.09.2026',
-    headline: '\ud83d\udd2c Ein Pr\u00fcfstand, der die App wirklich aufbaut',
-    summary: 'Bei den letzten optischen \u00c4nderungen konnte ich nur ein Dutzend Elemente am laufenden Programm nachmessen \u2014 ohne Anmeldung blieb die App im Onboarding stecken. Jetzt sind es 2\u2019596 Elemente \u00fcber elf Tabs. Beim Bauen kam heraus, warum: nicht der Gast-Modus, sondern ein Schutz gegen Aufblitzen h\u00e4lt die App-H\u00fclle zur\u00fcck. Und der Gast-Zweig daneben war seit v25.33 tot.',
-    user_summary: '\ud83d\udd2c Werkzeug f\u00fcr mich, nicht f\u00fcr dich: optische \u00c4nderungen lassen sich ab jetzt an der echten App nachmessen statt an einer Handvoll Elemente. Sichtbar \u00e4ndert sich nichts.',
-    user_items: [
-      { emoji: '\ud83d\udd2c', text: 'Optische \u00c4nderungen sind ab jetzt \u00fcberpr\u00fcfbar \u2014 2\u2019596 statt 11 Elemente' },
-      { emoji: '\ud83e\uddf9', text: 'Ein alter Gast-Modus-Schl\u00fcssel wird beim n\u00e4chsten Start entsorgt' },
-    ],
-    items: [
-      {emoji:'\ud83d\udd2c', bold:'scripts/render_check.js:', text:' l\u00e4dt index.html ohne Netz, baut jeden der elf Tabs auf und vermisst jedes sichtbare Element (Radius, Schriftgr\u00f6sse, Gr\u00f6sse, Farbe). Mit zwei Dateien als Argument vergleicht er zwei St\u00e4nde und meldet getrennt, was sich an Radius, Schrift, GR\u00d6SSE (also Layout) und Farbe ge\u00e4ndert hat.'},
-      {emoji:'\ud83d\udd0d', bold:'Warum es vorher nicht ging:', text:' nicht die fehlende Anmeldung, sondern der Login-Flash-Guard \u2014 ohne gs_sb_token setzt er html.gs-preauth und damit #app{display:none!important}. Der Pr\u00fcfstand setzt deshalb einen Token. Auf dem Weg dorthin hatte ich einen eigenen Denkfehler: mein Regel-Sucher pr\u00fcfte if (r.cssRules), und das ist seit CSS Nesting bei JEDER Style-Regel wahr \u2014 er hat nie eine Regel angesehen und meldete \u201ekeine Regel gefunden\u201c.'},
-      {emoji:'\ud83e\uddf9', bold:'Toter Gast-Zweig entfernt:', text:' gsCheckOnboarding hatte eine Ausnahme \u201eGast kehrt zur\u00fcck \u2192 kein Onboarding\u201c. Die tat seit v25.33 nichts, weil dort der Demo-Modus abgeschaltet und gsActivateGuestMode auf einen leeren Rumpf gesetzt wurde. Kein Nutzer war dadurch ausgesperrt \u2014 nachgemessen, der Alt-Gast landete im selben Zustand wie jeder Abgemeldete. Der Zweig log nur im Kommentar. Der Schl\u00fcssel gs_guest_mode wird jetzt einmalig entsorgt.'},
-      {emoji:'\u2705', bold:'v31.29 nachtr\u00e4glich belegt:', text:' die Radien-Skala aus der Vorversion mit dem neuen Pr\u00fcfstand gegengerechnet: 1\u2019524 vergleichbare Elemente, 316 Radien ge\u00e4ndert, gr\u00f6sste Bewegung 2px \u2014 und 0 Schriftgr\u00f6ssen, 0 Gr\u00f6ssen\u00e4nderungen, 0 Farb\u00e4nderungen. Genau das Profil, das eine reine Radius-\u00c4nderung haben muss.'},
-    ],
-    verify: [
-      {emoji:'\u2705', bold:'Verify:', text:' Pr\u00fcfstand auf der aktuellen index.html: Onboarding blockiert nicht, keine JS-Fehler, 2\u2019596 Elemente \u00fcber 11 Tabs \u00b7 Entfernung des toten Zweigs gegen den Vorstand vermessen: 1\u2019524 vergleichbare Elemente, 0 Unterschiede in Radius, Schrift, Gr\u00f6sse und Farbe \u00b7 Alt-Gast-Fall vorher/nachher gepr\u00fcft: gleicher Zustand wie ein neuer Nutzer, Schl\u00fcssel entsorgt \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.30 \u00b7 sw.js gs-v31.30 \u00b7 _headers v31.30 \u00b7 meta=31.30.20260901.'},
-    ],
-  },
-  {
-    v: 'v31.29', date: '01.09.2026',
-    headline: '\u25a2 Eine Radien-Skala statt 55 Einzelentscheidungen',
-    summary: 'Die App hatte 2\u2019286 Angaben f\u00fcr abgerundete Ecken in 55 verschiedenen Werten \u2014 von 2px bis 28px in Einerschritten. 9px neben 10px neben 11px, ohne dass das jemand so entschieden h\u00e4tte. Jetzt ein 4px-Raster mit sechs benannten Stufen. Beim Umbau kam ein Fehler ans Licht, der \u00e4lter ist als diese \u00c4nderung: Export und Druck erzeugen eigenst\u00e4ndige Dokumente, in denen die Farb-Token der App gar nicht gelten.',
-    user_summary: '\u25a2 Abgerundete Ecken folgen jetzt \u00fcberall demselben Raster \u2014 vorher gab es 55 leicht verschiedene Werte. Und der PDF-Export bekommt seine Farben zur\u00fcck.',
-    user_items: [
-      { emoji: '\u25a2', text: 'Ecken-Rundungen: 55 Varianten \u2192 6 Stufen, kein Wert bewegt sich mehr als 2px' },
-      { emoji: '\ud83d\udcc4', text: 'PDF-Export und Druck zeigten seit v31.20 falsche Farben \u2014 behoben' },
-    ],
-    items: [
-      {emoji:'\u25a2', bold:'Skala statt Streuung:', text:' --r-xs 4px (Marker, Balken) \u00b7 --r-sm 8px (Badges, Tags) \u00b7 --r-md 12px (Kn\u00f6pfe, Eingabefelder) \u00b7 --r-lg 16px (Karten) \u00b7 --r-xl 22px (Modale, Sheets) \u00b7 --r-pill 999px. Kreise bleiben 50%, weil das sich selbst erkl\u00e4rt. 2\u2019188 Stellen nutzen jetzt Token; 11 Werte (26/27/28px) blieben bewusst stehen, weil sie zu weit von jeder Stufe liegen, um sie stillschweigend zu verschieben.'},
-      {emoji:'\ud83d\udcd0', bold:'Wie weit sich etwas bewegt:', text:' von 2\u2019481 Einzelwerten blieben 790 exakt gleich, 1\u2019398 r\u00fcckten auf ihre Stufe, 293 blieben unber\u00fchrt (50%, 0, inherit). Gr\u00f6sste Bewegung \u00b12px \u2014 mit genau einer Ausnahme: das Onboarding-Logo (80\u00d780px) ging von 19px auf 22px. Im Browser nachgemessen, nicht gesch\u00e4tzt.'},
-      {emoji:'\ud83d\udcc4', bold:'Der \u00e4ltere Fehler:', text:' Der Garten-Plan-Export (Blob) und der Garten-Scan-Druck (iframe) bauen eigenst\u00e4ndige HTML-Dokumente. Die kennen das :root der App nicht \u2014 var(--c-success) & Co. l\u00f6sten sich dort zu nichts auf. Seit der Farb-Welle in v31.20 druckte der Export also schwarze Schrift auf transparenten Fl\u00e4chen. Mit den Radien w\u00e4re derselbe Fehler noch einmal dazugekommen. Beide Dokumente bekommen jetzt \u00fcber GS_DOC_TOKENS ihre eigenen Werte \u2014 die hellen, weil Gedrucktes nicht dem App-Modus folgt.'},
-    ],
-    verify: [
-      {emoji:'\u2705', bold:'Verify:', text:' Beide erzeugten Dokumente im Browser gerendert und jedes Token gegen getComputedStyle gepr\u00fcft \u2014 --r-sm\u21928px, --c-success\u2192rgb(46,125,50), --c-success-d\u2192rgb(27,94,32), --bg-success-soft\u2192rgb(232,245,233) \u00b7 App vorher/nachher geladen: tats\u00e4chlich gerenderte Radien-Varianten 38 \u2192 19, keine JS-Fehler in beiden \u00b7 kein Element wechselt die Form (keine neue Pille, keine verlorene) \u2014 Abdeckung dabei nur 11 vergleichbare Elemente, weil die App ohne Anmeldung nicht mehr aufbaut \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.29 \u00b7 sw.js gs-v31.29 \u00b7 _headers v31.29 \u00b7 meta=31.29.20260901.'},
-    ],
-  },
-  {
-    v: 'v31.28', date: '01.09.2026',
-    headline: '🌤️ Die Wetterkarte passt jetzt zum Rest der Startseite',
-    summary: 'Das Wetter-Widget war der letzte laute Block auf der Startseite: kräftiger Blau-Verlauf mit weisser Schrift, während daneben alles auf heller Karte mit ruhigem Rahmen sitzt. Es hat jetzt dasselbe Material wie jede andere Karte — Farbe nur noch dort, wo sie etwas aussagt: bei der Sturmwarnung.',
-    user_summary: '🌤️ Die Wetterkarte auf der Startseite sieht aus wie alles andere — ruhig statt knallblau. Und die 4-Tage-Vorschau zeigt jetzt immer dasselbe, egal wie die App geladen hat.',
-    user_items: [
-      { emoji: '🌤️', text: 'Wetterkarte in Karten-Optik statt blauem Verlauf — Farbe bleibt der Warnung vorbehalten' },
-      { emoji: '📅', text: 'Vorschau zeigte je nach Ladeweg 3 oder 4 Tage — jetzt immer 4' },
-      { emoji: '👁️', text: 'Ein Ladeweg hätte die Vorschau weiss auf weiss gezeichnet — behoben, bevor es jemand sah' },
-    ],
-    items: [
-      {emoji:'🌤️', bold:'Ein Material für alle Karten:', text:' das Widget nutzte linear-gradient(135deg,#0d47a1,#1565c0) mit weisser Schrift. Jetzt --card / --border / --elev-1 wie jede andere Karte. Alle zehn von JavaScript beschriebenen IDs (hw-icon, hw-temp, hw-desc, hw-wind, hw-humidity, hw-uv, hw-warning, hw-warning-text, hw-forecast, home-weather-widget) unverändert — je genau einmal im Dokument geprüft.'},
-      {emoji:'👁️', bold:'Zwei Wege, zwei Ergebnisse:', text:' die 3-Tages-Vorschau wurde an zwei Stellen unabhängig gerendert. loadHomeWeather() (Live-Abruf beim Start) schrieb color:#fff und rgba(255,255,255,.7) fest — auf der neuen hellen Karte unsichtbar — und zeigte 4 Spalten; gsApplyWeatherToWidget() (Cache-Treffer) zeigte 3 mit geerbter Farbe. Beide gehen jetzt durch _gsWxForecastHtml().'},
-      {emoji:'📏', bold:'Trenner nur zwischen den Spalten:', text:' der eine Weg zeichnete border-right auf jede Spalte, also auch hinter der letzten; der andere schob ein Trenner-<div> dazwischen. Jetzt .gs-wx-day + .gs-wx-day{border-left} — eine Regel, kein Rest.'},
-      {emoji:'🔤', bold:'Wochentage aus der Übersetzung:', text:' der Cache-Weg hatte die Kürzel als deutsches Array fest im Code (So,Mo,Di…), der Live-Weg las sie aus gsI18n. Beide lesen jetzt gsI18n — die Vorschau ist damit auch in den anderen Sprachen richtig beschriftet.'},
-    ],
-    verify: [
-      {emoji:'✅', bold:'Verify:', text:' Kontrast der Vorschau in beiden Modi gerechnet (Tagesname 7,11:1 hell / 7,76:1 dunkel, Min-Temperatur 4,95:1 / 6,08:1 — alle über AA 4,5:1) · Helper-Quelle direkt aus index.html in einen Playwright-Prüfstand geladen und in drei Zuständen gerendert (hell, dunkel, hell mit Warnung), keine JS-Fehler · 10/10 IDs je genau einmal · 9/9 Inline-Scripts node --check OK · GS_VERSION=v31.28 · sw.js gs-v31.28 · _headers v31.28 · meta=31.28.20260901.'},
-    ],
-  },
-  {
-    v: 'v31.27', date: '01.09.2026',
-    headline: '🧭 Die untere Navigation war im Hellmodus kaum lesbar',
-    summary: 'Die Navigationsleiste ist in beiden Modi dunkelgrün — ihre Beschriftung nutzte aber Farb-Token für helle Flächen. Im Hellmodus ergab das 1,86:1 für den aktiven und 2,28:1 für die übrigen Reiter. Im Dunkelmodus hatte das jemand dreimal überschrieben, im Hellmodus nie.',
-    user_summary: '🧭 Die Beschriftungen der unteren Navigation sind wieder klar lesbar — im Hellmodus waren sie fast unsichtbar.',
-    user_items: [
-      { emoji: '🧭', text: 'Reiter-Beschriftungen im Hellmodus von 1,9:1 auf 7,4:1' },
-      { emoji: '🧹', text: 'Vier widersprüchliche Farbregeln für dieselben Reiter entfernt — jetzt eine' },
-    ],
-    items: [
-      {emoji:'🧭', bold:'Dunkle Fläche, helle Token:', text:' .tabs nutzt --fill-dark (in beiden Modi dunkel), .tab aber --muted und --g-main. Die stimmen nur für helle Flächen. Feste Werte (#9db89d / #a5d6a7) gegen beide Leisten-Hintergründe gerechnet: 5,7–8,8:1.'},
-      {emoji:'🧹', bold:'Eine Quelle statt fünf:', text:' es gab vier body.dark-Überschreibungen für dieselben zwei Zustände, teils widersprüchlich, plus eine doppelte Basisregel. Alle entfernt — die Fläche ist in beiden Modi dieselbe, also braucht sie auch nur eine Farbe.'},
-      {emoji:'✅', bold:'Nicht gebaut:', text:' der runde grüne Mittelknopf aus den Entwürfen existiert seit v26.86. Drittes Mal in dieser Runde, dass Nachsehen vor Doppelarbeit bewahrt hat.'},
-    ],
-  },
-  {
-    v: 'v31.26', date: '01.09.2026',
-    headline: '🌗 Jeder Hauptknopf war im Dunkelmodus blass — 146 Flächen',
-    summary: 'Nach drei Einzelfunden habe ich das Muster systematisch gesucht: Farb-Token, die im Dunkelmodus heller werden (richtig für Schrift), wurden an 146 Stellen als Fläche mit weisser Schrift benutzt. Jeder Hauptknopf, jeder aktive Chip, jeder aktive Reiter lag dort bei 2,4:1. Fläche und Schrift sind jetzt getrennte Rollen.',
-    user_summary: '🌗 Knöpfe, Chips und Reiter sind im Dunkelmodus wieder klar lesbar — vorher waren sie blassgrün mit weisser Schrift.',
-    user_items: [
-      { emoji: '🔘', text: '146 Flächen im Dunkelmodus korrigiert — Knöpfe, Chips, Reiter, Kopfleiste' },
-      { emoji: '👁️', text: 'Weisse Schrift auf Grün: von 2,4:1 auf 5,7:1' },
-      { emoji: '🔒', text: 'Hellmodus unverändert — die neuen Token tragen exakt die alten Werte' },
-    ],
-    items: [
-      {emoji:'🔍', bold:'Systematisch statt zufällig:', text:' alle Token verglichen, deren Helligkeit sich zwischen Hell- und Dunkelmodus umkehrt (29 Stück — das ist für eine Textfarbe richtig), und geprüft, welche davon als Fläche dienen. Ergebnis: 146 Stellen, davon 124 mit weisser Schrift.'},
-      {emoji:'🎭', bold:'Rollen getrennt:', text:' --fill-brand, --fill-dark, --fill-violet, --fill-warn sind Flächen und bleiben im Dunkelmodus dunkel. --g-main und Co. bleiben Schrift und werden hell. Ein Token kann nicht beides.'},
-      {emoji:'🐛', bold:'Nebenbefund:', text:' --c-warn-d als Fläche mit weisser Schrift schaffte auch im HELLmodus nur 3,79:1. --fill-warn ist deshalb bewusst dunkler (5,75:1) — der einzige Wert, der sich im Hellmodus ändert.'},
-      {emoji:'🟢', bold:'Live-Punkt:', text:' heller Puls-Hintergrund mit --c-info-d als Text — im Dunkelmodus hell auf hell. Jetzt fest dunkler Text (7,4:1).'},
-    ],
-  },
-  {
-    v: 'v31.25', date: '01.09.2026',
-    headline: '🌾 Ruhige Kopfzone — und die Kopfleiste war nachts unlesbar',
-    summary: 'Die Startseite beginnt jetzt hell und ruhig: kleine Gruss-Zeile mit Blatt, darunter „Dein Garten" in Serifen, darunter was heute gilt. Das Grün erscheint als Karte, nicht mehr als breites Band. Beim Rendern fiel ein echter Fehler auf: die Kopfleiste der App war im Dunkelmodus hellgrün mit weisser Schrift.',
-    user_summary: '🌾 Die Startseite beginnt ruhig und hell — und die Kopfleiste ist im Dunkelmodus endlich lesbar.',
-    user_items: [
-      { emoji: '🌾', text: 'Helle, ruhige Kopfzone statt grünem Band — wie in den Entwürfen' },
-      { emoji: '🌙', text: 'Kopfleiste im Dunkelmodus war hellgrün mit weisser Schrift — behoben' },
-      { emoji: '🍃', text: 'Gruss mit Namen und Blatt-Symbol, darunter „Dein Garten" in Serifen' },
-    ],
-    items: [
-      {emoji:'🐛', bold:'Kopfleiste im Dunkelmodus:', text:' body.dark .topbar setzte var(--g-dark) — und --g-dark ist im Dunkelmodus HELLGRÜN (#a5d6a7), weil sich die Skala umkehrt. Titel und alle Knöpfe sind aber fest weiss. Ergebnis: 1,64:1, praktisch unsichtbar. Jetzt #122212 → 16,6:1.'},
-      {emoji:'🌾', bold:'Nur die Startseite:', text:' .hero wird von mehreren Bildschirmen benutzt; die helle Kopfzone gilt gezielt für #screen-home. Ein globaler Eingriff wäre hier nicht prüfbar gewesen.'},
-      {emoji:'🔔', bold:'Keine zweite Glocke:', text:' die Entwürfe zeigen eine Glocke neben dem Gruss — die gibt es in der Kopfleiste bereits. Eine zweite hätte genau die Doppelung erzeugt, die eine App zusammengesetzt wirken lässt.'},
-    ],
-  },
-  {
-    v: 'v31.24', date: '01.09.2026',
-    headline: '🤍 Hochwertig und einfach — warme Flächen, „Heute zu tun"',
-    summary: 'Die Startseite folgt jetzt den neuen Entwürfen: eine warme Creme-Fläche statt grünstichigem Weiss, ein tieferes Waldgrün, und „Heute zu tun" als EINE Karte mit Kästchen zum Abhaken. Die Prioritäts-Plaketten sind weg — was bleibt, ist eine Zeile, die sagt was ansteht, und ein Kästchen, das es erledigt.',
-    user_summary: '🤍 Ruhigere, wärmere Oberfläche — und „Heute zu tun" hakst du jetzt einfach ab.',
-    user_items: [
-      { emoji: '☑️', text: 'Aufgaben mit einem Tipp abhaken — die Zeile klappt sanft zu' },
-      { emoji: '🤍', text: 'Warme Creme-Fläche statt grünstichigem Weiss' },
-      { emoji: '🌲', text: 'Tieferes Waldgrün — eleganter und endlich gut lesbar' },
-      { emoji: '✂️', text: 'Weniger auf der Seite: keine Prioritäts-Plaketten, keine zweite Hervorhebung' },
-    ],
-    items: [
-      {emoji:'🎨', bold:'Palette:', text:' --g-bg #eef7ee → #f4f1ea, --surface2 → #f7f4ee, --border → #e3ded3 (warm-neutral statt grün). --g-main #1f6b2f → #1f6b2f: lag als Text bei 4,0:1 und war damit schon vorher unter der Lesbarkeitsschwelle; jetzt 5,8:1 auf Creme und 6,6:1 mit weisser Schrift darauf.'},
-      {emoji:'☑️', bold:'Abhaken:', text:' Kästchen füllt sich, Zeile klappt zu, dann erledigt gsNcDoneTask → gsQuickDone. Weiterhin genau eine Erledigt-Logik. Bei „Bewegung reduzieren" entfällt der Übergang, die Reihenfolge bleibt.'},
-      {emoji:'✂️', bold:'Weniger:', text:' Prioritäts-Plaketten und die separate „Nächster Schritt"-Karte aus v31.16 entfernt. Beide Entwürfe zeigen sie nicht — und „sehr simpel" heisst weglassen, bis nur das übrig ist, was man antippt.'},
-    ],
-  },
-  // ── Aeltere Eintraege: data/releases.v1.js (v31.36) ──────────────────────
-  // Die Liste stand hier vollstaendig und war 787 KB gross — 14 % von
-  // index.html, geparst bei jedem Kaltstart, obwohl beim Start nur [0]
-  // gebraucht wird. Die 371 aelteren Eintraege liegen jetzt im Archiv und
-  // werden nachgeladen, wenn der Changelog im Ueber-Modal geoeffnet wird.
-  // Zum Lesen der VOLLEN Liste immer gsAllReleases() benutzen, nicht
-  // GS_RELEASES direkt.
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -64181,7 +63835,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.44';
+var GS_VERSION = 'v31.45';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -75347,21 +75001,6 @@ function gsOpenHarvestTracker(){
   // v28.15: vereinheitlicht — leitet auf den kanonischen Ernte-Tracker (garden_harvests) um.
   gsMigrateLegacyHarvestLog();
   if (typeof openErnteTracking === 'function') return openErnteTracking();
-}
-function gsHarvestAdd(){
-  var n = document.getElementById('gs-h-name').value.trim();
-  var k = parseFloat(document.getElementById('gs-h-kg').value);
-  if (!n || !k) { if(typeof showProfileToast==='function') showProfileToast('Name + kg erforderlich'); return; }
-  var items = _gsNlSafeItems('gs_harvest_log');
-  items.push({ name:n, kg:k, date: new Date().toISOString().slice(0,10), ts: Date.now() });
-  try { localStorage.setItem('gs_harvest_log', JSON.stringify(items)); } catch(e){}
-  gsOpenHarvestTracker();
-}
-function gsHarvestDel(idx){
-  var items = _gsNlSafeItems('gs_harvest_log');
-  items.splice(idx,1);
-  try { localStorage.setItem('gs_harvest_log', JSON.stringify(items)); } catch(e){}
-  gsOpenHarvestTracker();
 }
 
 // ── 3. SAATGUT-INVENTAR ───────────────────────────────────────────

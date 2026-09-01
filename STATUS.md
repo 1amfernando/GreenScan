@@ -4,13 +4,79 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.44` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.45` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (ag) — v31.45: ein Prüfstand für die Verdrahtung
+
+Die vier vorhandenen Prüfstände messen alle dasselbe: wie die App **aussieht**. Keiner prüft, ob das Angetippte **ankommt**. Genau das war in v31.40 die Lücke — der Lichtmesser war komplett tot, und gefunden habe ich das beim Durchsehen, nicht beim Messen.
+
+`scripts/wiring_check.js` löst beide Richtungen auf.
+
+#### Richtung 1 — Knopf → Funktion
+
+301 `on*`-Aufrufe über elf Tabs, alle auflösbar. **0 Funde.** Ein negatives Ergebnis, aber jetzt ein wiederholbares.
+
+#### Richtung 2 — Funktion → Element
+
+1'010 Nachschlagungen mit festem Namen, davon **71 auf ids, die nirgends entstehen**. Entscheidend ist die Unterscheidung, die der Prüfstand trifft:
+
+| | | |
+|---|---|---|
+| **abgesichert** (`if (el) …`) | 58 | still und folgenlos |
+| **ungesichert** (`.textContent` direkt) | **13** | wirft — der Rest der Funktion läuft nicht mehr |
+
+#### Die Funde
+
+**1. Der Lichtmesser zeigte die alte Messung.** Beim erneuten Öffnen soll die Anzeige zurücksetzen:
+
+```js
+const lvEl = document.getElementById('lux-val') || document.getElementById('lux-n');
+if (lvEl) lvEl.textContent = '—';
+```
+
+Beide ids gibt es nicht; das Element heisst `lux-value`. Das `if` verschluckte es. Folge: die Zahl der vorigen Messung stand noch da, während die Kategorie daneben schon leer war — mitsamt ihrer alten Farbe, weil die als Inline-Stil gesetzt wird und `textContent=''` sie nicht mitnimmt. **Dieselbe Wurzel wie v31.40, zwei Zeilen weiter.**
+
+**2. 220 Zeilen für eine entfernte Funktion.** Ein „Raum-Lichtscan" in fünf Schritten lag noch vollständig im Code: `updateScanStepUI`, `captureCurrentStep`, `finishRoomScan`, `cancelRoomScan`, `renderRoomScanResult`, dazu `calcLuxFromPixels` und drei Aufräum-Blöcke an anderer Stelle. Ohne Knopf, ohne Oberfläche — und mit **fünf Variablen, die nirgends deklariert werden** (`SCAN_STEPS`, `scanStep`, `scanResults`, `scanStream`, `scanLiveTick`). Die erste Zeile hätte einen `ReferenceError` geworfen. Der `pagehide`-Block warf ihn bei jedem Verstecken der Seite, gefangen von einem `try`.
+
+**Bewusst nicht umgehängt:** In dieser Insel lag mit `calcLuxFromPixels` eine sorgfältige Lux-Berechnung — sRGB-Gamma-Dekodierung, perzeptuelle Luminanz, stückweise Kalibrierkurve. Verlockend, den laufenden Lichtmesser darauf zu zeigen. Aber der hat inzwischen Zonen-Abtastung, Varianz-Warnung, `gsLuxApplyCalibration` und Sensor-Fusion — und ist gegen **seine eigene** Helligkeits-Skala kalibriert. Die gespeicherte Nutzer-Kalibrierung wäre still ungültig geworden. Genauer aussehen und falscher rechnen ist kein Fortschritt.
+
+**3. `gsUpdateGardenBadge` — ein Abzeichen ohne beide Enden.** Seit v30.34 vorhanden, zielte auf `garden-tab-badge`. Einen Garten-Reiter hat die Leiste gar nicht, und die Funktion hatte **keinen einzigen Aufrufer**. Fällige Pflege war nirgends zu sehen. Jetzt am Pflanzen-Reiter, aufgerufen aus `savePlantsToStorage` (dem einen Engpass für Pflanzen- und Aufgaben-Änderungen, 23 Aufrufstellen) und einmal beim Start. Gemessen: 2 → 1 → 0 und dann verborgen.
+
+**4. `updateScanHistoryBadge` war doppelt tot.** Sie zielte auf `scan-hist-badge` (existiert nicht) und war ausserdem unerreichbar: weiter oben setzt `window.updateScanHistoryBadge = function(){ gsRenderNotifBadge(); }` denselben globalen Namen neu. Da die Zuweisung zur Laufzeit nach dem Hochziehen der Deklaration greift, lief seit v28.59 immer die neue Fassung.
+
+#### Zweimal hat sich der Prüfstand selbst korrigiert
+
+**Zu viel:** Der erste Lauf meldete acht Fehler, von denen keiner einer war — `then` und `classList` aus verketteten Aufrufen, `rgba` und `var` aus CSS in `style`-Zuweisungen, und `e`/`p`/`_l` aus Variablen, die **im Attribut selbst** deklariert werden.
+
+**Zu wenig — und das ist die gefährlichere Richtung:** Beim Ausblenden der Kommentare verschwanden elf **echte** Funde. Ursache: Zeile ~29648 enthält `accept="image/*"`. Das `/*` steht in einer Zeichenkette und schliesst nie, also galt ab dort der halbe Rest der Datei als Kommentar. Die naive Prüfung „steht ein `/*` näher als das letzte `*/`?" ist auf dieser Datei unbrauchbar; er führt jetzt beim Durchgehen Zeichenketten mit.
+
+#### Zum sechsten Mal dasselbe Muster — diesmal bei mir
+
+Ich schrieb eine `.tab-badge`-Regel für das neue Abzeichen und mass danach `#e53935` statt des geschriebenen `#c62828`. Die Klasse gab es schon, 570 Zeilen weiter unten, als Rest der Menü-Badge, die v31.01 entfernt hat — kein Element trug sie mehr. Die spätere Regel gewinnt. Genau der Fehler, den ich in v31.33 zweiundfünfzigmal aufgeräumt habe. Jetzt eine Regel statt zwei, und `#c62828` statt `#e53935`: Weiss darauf sind 5,9:1 gegen 3,8:1 — bei einer 10px-Ziffer der Unterschied zwischen lesbar und geraten.
+
+#### Nebenbei
+
+- `scripts/_seed.js` herausgezogen — die Beispieldaten lagen nur in `render_check.js`, der neue Prüfstand brauchte dieselben. Zweimal dasselbe zu pflegen läuft auseinander.
+- `GS_RELEASES` rotiert: 22 Einträge inline waren fast das Doppelte des in `CLAUDE.md` festgehaltenen Ziels. Zehn ins Archiv, **63 → 37 KB** inline, 393 gesamt, keine Lücke an der Naht (`v31.34 → v31.33`), keine Duplikate.
+- Zwei abgelöste Rezept-Zähler entfernt (`recipes-total-count`, `recipes-filter-count`): die Zahl steht längst in der Leiste darunter.
+
+#### Verify
+
+`wiring_check` 301 Namen / 0 nicht auflösbar / **0 ungesichert** (vorher 13) · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen, Radius/Schrift/Farbe je 0 geändert · `contrast_check` 0 unter AA in beiden Modi · `touch_check` 0 unter 24×24 · 9/9 Inline-Scripts, `sw.js`, `data/releases.v1.js` und alle sechs Prüfstände `node --check` OK.
+
+**Zur einen gemessenen Layout-Änderung:** im Wissen-Bereich wächst die Kopfzeile um 13px, weil ein dritter Chip erscheint — `🌿 4'337 Arten`. Der rendert erst, wenn die Arten-Datenbank geladen ist; nach dem Entfernen der 220 Zeilen schafft sie das innerhalb des Messfensters, vorher nicht. Direkt nachgesehen, nicht geschlossen: keine Regression, sondern der Grund dafür.
+
+#### Offen (52 abgesicherte Nachschlagungen)
+
+Kein Fehler, sondern eine Arbeitsliste: Reste entfernter Oberflächen — `cam-perm-dialog` (4×), `gc-canvas`/`gc-start`/`gc-gameover`, `cemetery-list`/`cnt-alive`/`cnt-dead`, `weather-alert-card` (3×) plus sechs `wa-*`. Jede einzeln zu prüfen: manche sind harmlos, manche eine Funktion ohne Anzeige. Die `weather-alert-*`-Gruppe ist die bekannte, auf Fernandos Entscheidung wartende.
+
+---
 
 ### 2026-09-01 (af) — Nachtrag: aus dem Zufallsfund eine wiederholbare Prüfung gemacht
 
