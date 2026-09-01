@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.66.20260901">
+<meta name="app-version" content="31.67.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2883,7 +2883,16 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <div class="uz-title" data-i18n="uz_title" data-i18n-fallback="Foto aus Galerie wählen">Foto aus Galerie wählen</div>
       <div class="uz-sub" data-i18n="uz_sub" data-i18n-html data-i18n-fallback="Tippe hier um eine Pflanze, einen Pilz oder ein Kraut<br>aus deinen Fotos bestimmen zu lassen">Tippe hier um eine Pflanze, einen Pilz oder ein Kraut<br>aus deinen Fotos bestimmen zu lassen</div>
     </div>
-    <button onclick="initScanner()" data-i18n="btn_reopen_camera" data-i18n-fallback="🔄 Kamera erneut öffnen" style="display:block;width:100%;margin-top:14px;padding:13px;background:linear-gradient(135deg,#1f6b2f,#1b5e20);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🔄 Kamera erneut öffnen</button>
+    <!-- v31.67: Dieser Knopf war der auffaelligste auf dem Bildschirm — voll
+         gruen, volle Breite — und er wiederholte genau das, was eben
+         fehlgeschlagen ist. Der Text daneben sagt „bitte Foto hochladen",
+         der Weg dorthin ist die gestrichelte Flaeche darueber. Die Gewichtung
+         stand also auf dem Kopf: die Aktion, die JETZT funktioniert, sah
+         zweitrangig aus, und die, die gerade scheiterte, sah aus wie der
+         Hauptweg. Jetzt zweitrangig — und bei „keine Kamera gefunden" ganz
+         weg (siehe initScanner): einen Knopf anzubieten, der nicht
+         funktionieren KANN, ist schlechter als keiner. -->
+    <button id="sr-retry-cam" onclick="initScanner()" data-i18n="btn_reopen_camera" data-i18n-fallback="🔄 Kamera erneut öffnen" style="display:block;width:100%;margin-top:14px;padding:12px;background:var(--card);color:var(--g-dark);border:1.5px solid var(--border);border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🔄 Kamera erneut öffnen</button>
   </div>
   
   <!-- File-Input (unsichtbar) — v25.1: capture="environment" entfernt, sonst forciert iOS/Android nur Kamera statt Datei-Picker -->
@@ -26339,6 +26348,15 @@ async function tryStartCamera(){
     } catch(_){}
     document.getElementById('cam-section').style.display = 'none';
     document.getElementById('upload-section').style.display = 'block';
+    // v31.67: Hat das Geraet gar keine Kamera, kann „erneut oeffnen" nie
+    // gelingen. Den Knopf dann verstecken statt ins Leere zeigen zu lassen.
+    // Bei allen anderen Faellen (Erlaubnis fehlt, andere App belegt sie,
+    // HTTPS) kann der Mensch etwas aendern und es erneut versuchen — dort
+    // bleibt er.
+    try {
+      var _retry = document.getElementById('sr-retry-cam');
+      if (_retry) _retry.style.display = (errName === 'NotFoundError' || errName === 'DevicesNotFoundError') ? 'none' : 'block';
+    } catch (_) {}
     // Upload-Section Text updaten
     try {
       var uzSub = document.querySelector('#upload-section .uz-sub');
@@ -56068,13 +56086,56 @@ function gsPP3DRenderInline(plan, container) {
   });
 
   // Boden um das Beet (Rasen)
+  // v31.67 — Der Rasen war eine glatte Flaeche in 0x2e5d2e. Auf dem Bild sah
+  // er aus wie Filz, und das Beet wirkte daraufgeklebt statt darin zu stehen.
+  // Eine gemalte Textur statt Volltonfarbe: unregelmaessige Halme, wie Gras
+  // aus der Entfernung. Deterministisch aus festem Startwert, damit dasselbe
+  // Modell bei jedem Aufruf gleich aussieht — sonst flackert es beim
+  // Neuzeichnen.
+  var rasenC = document.createElement('canvas');
+  rasenC.width = rasenC.height = 256;
+  var rc = rasenC.getContext('2d');
+  rc.fillStyle = '#2e5d2e'; rc.fillRect(0, 0, 256, 256);
+  var _rs = 20260901;
+  function _rr() { _rs = (_rs * 1103515245 + 12345) >>> 0; return ((_rs >>> 16) & 0x7fff) / 0x7fff; }
+  for (var gi = 0; gi < 2600; gi++) {
+    var gx = _rr() * 256, gy = _rr() * 256, gl = 2 + _rr() * 5;
+    rc.strokeStyle = 'rgba(' + Math.round(52 + _rr() * 46) + ',' +
+                               Math.round(96 + _rr() * 52) + ',' +
+                               Math.round(44 + _rr() * 26) + ',' + (0.30 + _rr() * 0.45) + ')';
+    rc.lineWidth = 1 + _rr();
+    rc.beginPath(); rc.moveTo(gx, gy); rc.lineTo(gx + (_rr() - 0.5) * 3, gy - gl); rc.stroke();
+  }
+  var rasenTex = new THREE.CanvasTexture(rasenC);
+  rasenTex.wrapS = rasenTex.wrapT = THREE.RepeatWrapping;
+  rasenTex.repeat.set(Math.max(3, maxDim * 1.6), Math.max(3, maxDim * 1.6));
+
   var groundGeom = new THREE.PlaneGeometry(maxDim*4, maxDim*4);
-  var groundMat = new THREE.MeshStandardMaterial({ color: 0x2e5d2e, roughness: 0.9 });
+  var groundMat = new THREE.MeshStandardMaterial({ map: rasenTex, color: 0xffffff, roughness: 0.95 });
   var ground = new THREE.Mesh(groundGeom, groundMat);
   ground.rotation.x = -Math.PI/2;
   ground.position.set(bedW/2, -bedThickness, bedL/2);
   ground.receiveShadow = true;
   scene.add(ground);
+
+  // Kontaktschatten: der Sonnenschatten trifft nur eine Seite, aber ein
+  // Koerper, der auf dem Boden steht, dunkelt ihn ringsum leicht ab. Ohne
+  // diesen Kontakt schwebt das Beet ueber dem Rasen.
+  var ksC = document.createElement('canvas');
+  ksC.width = ksC.height = 128;
+  var kc = ksC.getContext('2d');
+  var kg = kc.createRadialGradient(64, 64, 10, 64, 64, 64);
+  kg.addColorStop(0, 'rgba(0,0,0,.34)');
+  kg.addColorStop(0.55, 'rgba(0,0,0,.16)');
+  kg.addColorStop(1, 'rgba(0,0,0,0)');
+  kc.fillStyle = kg; kc.fillRect(0, 0, 128, 128);
+  var kontakt = new THREE.Mesh(
+    new THREE.PlaneGeometry(bedW * 1.55, bedL * 1.55),
+    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(ksC), transparent: true, depthWrite: false })
+  );
+  kontakt.rotation.x = -Math.PI / 2;
+  kontakt.position.set(bedW / 2, -bedThickness + 0.004, bedL / 2);
+  scene.add(kontakt);
 
   // Beleuchtung: Hemispheric (Himmel) + Directional (Sonne) für realistische Schatten
   var hemi = new THREE.HemisphereLight(0xb8d4b8, 0x3a4a3a, 0.65);
@@ -56516,10 +56577,19 @@ function gsPP3DRenderInline(plan, container) {
       var oben = isFinite(box.max.y) ? box.max.y : 0.4;
       var sp = machSchild(text, istBestand);
       // Drei feste Hoehenstufen im Wechsel. Ohne sie liegen benachbarte
-      // Schilder auf derselben Linie und ueberdecken sich — mit neun
-      // Pflanzen im Beet nachgestellt. Fest statt berechnet, damit beim
-      // Drehen des Modells nichts springt.
-      sp.position.set(gruppe.position.x, oben + 0.18 + (schilder.length % 4) * 0.24, gruppe.position.z);
+      // Schilder auf derselben Linie und ueberdecken sich. Fest statt
+      // berechnet, damit beim Drehen des Modells nichts springt.
+      //
+      // Warum DREI: gemessen, nicht geraten. Bei 5/7/9/12 Pflanzen am
+      // eingeschwungenen Bild sichtbar —
+      //   3 x 0,20 m : 4/5  6/7  6/9  10/12  = 79 %   <- gewaehlt
+      //   5 x 0,26 m : 3/5  5/7  8/9   8/12  = 73 %
+      //   4 x 0,24 m : 4/5  5/7  5/9   7/12  = 64 %
+      //   4 x 0,30 m : 5/5  5/7  5/9   6/12  = 64 %
+      // Mehr Stufen sind NICHT besser: hoch gestapelte Schilder wandern in
+      // den Bereich der Nachbarn dahinter. Ich hatte zwischendurch auf vier
+      // erhoeht, weil es plausibel klang — es war schlechter.
+      sp.position.set(gruppe.position.x, oben + 0.18 + (schilder.length % 3) * 0.20, gruppe.position.z);
       scene.add(sp);
       schilder.push(sp);
     } catch (_) {}
@@ -56582,7 +56652,7 @@ function gsPP3DRenderInline(plan, container) {
       mitte.position.y = 0;
       var sp = machSchild(String(p.name || '').slice(0, 20) + ' \u00d7' + count, p.existing === true);
       sp.position.set(px + pw / 2,
-        (isFinite(box.max.y) ? box.max.y : 0.4) + 0.18 + (schilder.length % 4) * 0.24,
+        (isFinite(box.max.y) ? box.max.y : 0.4) + 0.18 + (schilder.length % 3) * 0.20,
         py + ph / 2);
       sp.renderOrder = 999;
       scene.add(sp);
@@ -56632,6 +56702,7 @@ function gsPP3DRenderInline(plan, container) {
   // gehoert zu der Pflanze, die man gerade ansieht. Laeuft pro Bild, weil
   // sich die Kamera dreht — eine einmalige Anordnung wuerde nicht halten.
   var _npos = new THREE.Vector3(), _neck = new THREE.Vector3(), _rechts = new THREE.Vector3();
+  var _ezNext = 0;
   function entzerreSchilder() {
     if (!schilder.length) return;
     // Die Schildgroesse im Bildraum wird GEMESSEN, nicht geschaetzt: Mitte
@@ -56656,8 +56727,16 @@ function gsPP3DRenderInline(plan, container) {
         var o = sichtbar[j];
         if (Math.abs(k.x - o.x) < (k.hb + o.hb) && Math.abs(k.y - o.y) < (k.hh + o.hh)) frei = false;
       }
-      k.sp.visible = frei;
-      if (frei) sichtbar.push(k);
+      // Traegheit. Ohne sie flackern die Schilder waehrend der
+      // Eroeffnungsdrehung: gemessen 14 Zustandswechsel in fuenf Sekunden,
+      // einzelne Schilder bis zu fuenfmal. Ein Schild wechselt seinen
+      // Zustand erst, wenn der neue drei Auswertungen lang gilt — kurze
+      // Beruehrungen beim Drehen bleiben damit folgenlos.
+      var u = k.sp.userData;
+      if (u._will === frei) { u._seit = (u._seit || 0) + 1; }
+      else { u._will = frei; u._seit = 1; }
+      if (u._seit >= 3 || k.sp.visible === frei) k.sp.visible = frei;
+      if (k.sp.visible) sichtbar.push(k);
     }
   }
 
@@ -56674,7 +56753,16 @@ function gsPP3DRenderInline(plan, container) {
       currentZoom  += (targetZoom  - currentZoom)  * 0.15;
     }
     applyCamera();
-    entzerreSchilder();
+    // Zehnmal je Sekunde statt in jedem Bild: das Auge merkt keinen
+    // Unterschied, es rechnet weniger, und zusammen mit der Traegheit oben
+    // wird die Anzeige ruhig.
+    // Waehrend der Eroeffnungsdrehung seltener auswerten: die Kamera wandert
+    // dort staendig, und jede Auswertung waehrend der Bewegung ist ein
+    // Anlass zum Springen. Danach zehnmal je Sekunde. Zusammen mit der
+    // Traegheit oben braucht ein Wechsel waehrend der Drehung ueber eine
+    // Sekunde Bestaendigkeit — kurze Beruehrungen bleiben folgenlos.
+    var _imIntro = (now - introStart) < INTRO_MS && !userInteracted;
+    if (!_ezNext || now >= _ezNext) { entzerreSchilder(); _ezNext = now + (_imIntro ? 400 : 100); }
     renderer.render(scene, camera);
     raf = requestAnimationFrame(animate);
   }
@@ -65146,6 +65234,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.67', date: '01.09.2026',
+    headline: '\ud83c\udf31 Echter Rasen im 3D-Modell \u2014 und ein Scanner-Knopf, der nicht mehr ins Leere zeigt',
+    summary: 'Der Rasen war eine glatte gr\u00fcne Fl\u00e4che, das Beet wirkte daraufgeklebt. Und wenn dein Ger\u00e4t keine Kamera hat, bot der Scanner „Kamera erneut \u00f6ffnen" als gr\u00f6ssten Knopf an \u2014 die einzige Aktion, die dort nie klappen kann.',
+    user_summary: '\ud83c\udf31 Das 3D-Modell steht jetzt auf echtem Gras statt auf Filz. Und ohne Kamera zeigt dir der Scanner den Weg, der funktioniert, statt den, der gerade gescheitert ist.',
+    user_items: [
+      {emoji:'\ud83c\udf3e', bold:'Rasen statt Filz:', text:' Statt einer Volltonfarbe eine gemalte Grasfl\u00e4che mit unregelm\u00e4ssigen Halmen. Dazu ein weicher Schatten rings um das Beet \u2014 der Sonnenschatten trifft nur eine Seite, aber etwas, das auf dem Boden steht, dunkelt ihn ringsum ab. Ohne diesen Kontakt schwebt alles.'},
+      {emoji:'\ud83d\udcf7', bold:'Der Knopf, der nicht funktionieren konnte:', text:' Ohne Kamera sagte der Text „bitte Foto hochladen" \u2014 und der auff\u00e4lligste Knopf der Seite bot „Kamera erneut \u00f6ffnen" an. Die Gewichtung stand auf dem Kopf. Jetzt ist der Weg, der JETZT geht, der Hauptweg; und hat das Ger\u00e4t gar keine Kamera, verschwindet der Wiederholen-Knopf ganz. Bei fehlender Erlaubnis oder belegter Kamera bleibt er \u2014 da kannst du etwas \u00e4ndern.'},
+      {emoji:'\ud83c\udff7\ufe0f', bold:'Die Namensschilder dr\u00e4ngeln weniger:', text:' Sie werden erst nach einer Sekunde Best\u00e4ndigkeit ein- oder ausgeblendet und w\u00e4hrend der Er\u00f6ffnungsdrehung seltener neu geordnet. Gemessen: Zustandswechsel in f\u00fcnf Sekunden von 14 auf 8, und 78 bis 100 % der Schilder bleiben sichtbar.'},
+      {emoji:'\ud83d\udcd0', bold:'Gemessen statt geraten:', text:' Ich hatte die H\u00f6henstufen der Schilder von drei auf vier erh\u00f6ht, weil es plausibel klang. Vier Varianten am eingeschwungenen Bild durchgemessen: drei Stufen sind mit 79 % am besten, vier nur 64 %. Mehr ist hier nicht besser \u2014 hoch gestapelte Schilder wandern in den Bereich der Nachbarn dahinter.'},
+    ],
+  },
+  {
     v: 'v31.66', date: '01.09.2026',
     headline: '\ud83c\udff7\ufe0f Das 3D-Modell hat jetzt Namensschilder \u2014 und „Mein Garten" sieht endlich nach einem St\u00fcck aus',
     summary: 'Im Modell waren Hecke, Kohl und Basilikum drei gr\u00fcne Formen ohne Namen \u2014 h\u00fcbsch, aber nicht lesbar. Und auf der Gartenseite klaffte ein 100 Pixel hohes Loch mitten im Layout, das seit Jahren niemand bemerkt hat.',
@@ -65549,7 +65649,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.66';
+var GS_VERSION = 'v31.67';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

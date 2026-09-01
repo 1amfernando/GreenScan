@@ -12,6 +12,53 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-01 (be) — v31.67: Rasen statt Filz, ein Knopf ins Leere, und eine Messung, die mich widerlegt hat
+
+#### Der Scanner bot an, was nicht gehen kann
+
+Der Scanner-Bildschirm ohne Kamera, angesehen statt gelesen: der Text sagt *„Dein Gerät hat keine zugängliche Kamera — bitte Foto hochladen."* Darunter, in voller Breite und vollem Grün, der auffälligste Knopf der Seite: **„🔄 Kamera erneut öffnen"**.
+
+Die Gewichtung stand auf dem Kopf. Der Weg, der **jetzt** funktioniert (die gestrichelte Fläche „Foto aus Galerie wählen"), sah zweitrangig aus; der Weg, der gerade gescheitert ist, sah aus wie der Hauptweg. Und bei `NotFoundError` — kein Kameragerät vorhanden — kann das Wiederholen **nie** gelingen.
+
+| Fall | Wiederholen-Knopf |
+|---|---|
+| keine Kamera vorhanden | **weg** — er könnte nie funktionieren |
+| Erlaubnis verweigert | bleibt — der Mensch kann sie erteilen |
+| Kamera von anderer App belegt | bleibt — die App lässt sich schliessen |
+
+Der Knopf ist ausserdem von Vollgrün auf Kartenoptik zurückgestuft, damit die Hochladefläche der Hauptweg ist. Text 12,16:1 hell / 9,47:1 dunkel. Alle drei Fälle am laufenden Programm nachgestellt.
+
+#### Der Rasen war Filz
+
+Im 3D-Modell eine glatte Fläche in `0x2e5d2e` — das Beet wirkte daraufgeklebt statt darin zu stehen. Zwei billige Änderungen: eine gemalte Grastextur (2600 Halme, deterministisch aus festem Startwert, damit beim Neuzeichnen nichts flackert) und ein weicher Kontaktschatten rings um das Beet. Der Sonnenschatten trifft nur eine Seite; ein Körper auf dem Boden dunkelt ihn ringsum ab. Ohne diesen Kontakt schwebt alles.
+
+#### Und die Messung, die mich widerlegt hat
+
+Die Namensschilder aus v31.66 flackerten während der Eröffnungsdrehung: **14 Zustandswechsel in fünf Sekunden**, einzelne Schilder bis zu fünfmal. Zwei Mittel: Trägheit (ein Wechsel braucht drei aufeinanderfolgende Auswertungen) und seltenere Auswertung während der Drehung (alle 400 ms statt 100 ms). Ergebnis: **14 → 8**.
+
+Dabei fiel ein Fehler in meiner **eigenen Messung von gestern** auf. Ich hatte die Sichtbarkeit 900 ms nach dem Aufbau gemessen — mitten in der Eröffnungsdrehung, bevor überhaupt etwas ausgeblendet sein kann. Die schönen „100 %" waren ein Artefakt. Am eingeschwungenen Bild gemessen sieht es anders aus.
+
+Und damit war auch mein Stufen-Vergleich von gestern ungültig. Nachgeholt, vier Varianten, 5/7/9/12 Pflanzen, jeweils nach dem Einschwingen:
+
+```
+3 x 0,20 m :  4/5   6/7   6/9   10/12   = 79 %   ← gewählt
+5 x 0,26 m :  3/5   5/7   8/9    8/12   = 73 %
+4 x 0,24 m :  4/5   5/7   5/9    7/12   = 64 %
+4 x 0,30 m :  5/5   5/7   5/9    6/12   = 64 %
+```
+
+**Drei Stufen gewinnen** — genau der Wert, den ich in v31.66 als „Verbesserung" auf vier erhöht hatte, weil es plausibel klang. Mehr Stufen sind hier nicht besser: hoch gestapelte Schilder wandern in den Bereich der Nachbarn dahinter. Der Befund steht jetzt als Tabelle im Code, damit ihn nicht der Nächste erneut „verbessert".
+
+Endstand sichtbarer Schilder: 100 / 80 / 86 / 78 / 83 % bei 3/5/7/9/12 Pflanzen.
+
+**Eine Warnung an mich selbst:** die Mess-Schleife schreibt die Quelldatei um. Sie lief in die Zeitgrenze und ihre Aufräumzeile kam nicht mehr dran — `index.html` trug danach die Variante `5 × 0,34`. Gemerkt, weil ich nachgesehen habe. Wer so misst, prüft danach den Dateizustand.
+
+#### Verify
+
+`wiring_check` 307 Namen / **0** nicht auflösbar · Menü 40/0 · **929** Nachschlagungen (die neue id `sr-retry-cam`) / **0** nie erzeugt / **0** ungesichert · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen · `contrast_check` 0 unter AA beide Modi · `touch_check` 0 unter 24×24 · drei Kamera-Fehlerfälle nachgestellt · Modell in vier Stufen-Varianten × vier Bestückungen vermessen · Flackern über 50 Abtastungen gezählt · Modell als Bild angesehen · `gsAllReleases()` 414 → **415**, 0 Dopplungen · 9/9 Inline-Scripts + `sw.js` `node --check` OK · `GS_VERSION` v31.67 · `sw.js` gs-v31.67 · `_headers` v31.67 · meta 31.67.20260901.
+
+---
+
 ### 2026-09-01 (bd) — v31.66: Namensschilder im 3D-Modell, und „Mein Garten" als ein Stück
 
 Fernando: *„Mein Garten hat zu viele Widgets und die Seite sieht optisch einfach nicht schön aus"* — und die 3D-Modelle verbessern.
