@@ -12,6 +12,77 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-01 (ax) — v31.60: Den Garten-Scan korrigieren, und ihn in die Pflege übernehmen
+
+Der Garten-Zwilling (v31.57) erkennt Pflanzen. Bis heute war das eine **Anzeige**: was die KI falsch benannte, blieb falsch, und was sie richtig erkannte, musste man trotzdem von Hand in „Meine Pflanzen" anlegen. Zwei Lücken, und die zweite ist die grössere — ohne sie bleibt der Scan eine Vorführung.
+
+Der Anlass ist Fernandos Ansage, dass morgen echte Bilder kommen. Genau deshalb war die Korrektur zuerst dran: **eine Erkennung, die man korrigieren kann, muss nicht perfekt sein.**
+
+#### Was jede Zeile jetzt kann
+
+| Knopf | Wirkung |
+|---|---|
+| **Umbenennen** | `gsPromptModal`, dann Suche in der Artendatenbank → lateinischer Name und Symbol kommen mit. Namen mit `<` oder `>` werden abgelehnt. |
+| **Stimmt** | `confidence = 1`, `bestaetigt = true` → die Zeile zeigt „✓ von dir" statt einer Prozentzahl |
+| **Entfernen** | `splice` aus dem Zwilling |
+
+„✓ von dir" statt „100 %" ist Absicht: es sagt, **woher** die Sicherheit kommt. Der Knopf „Stimmt" verschwindet danach — bestätigen, was schon bestätigt ist, führt nur in die Irre.
+
+#### Vom Scan in die Pflege
+
+`gsTwinAdopt()` legt jede erkannte Pflanze in `myPlants` an — mit dem **vollen** Aufgabensatz aus `savePlant()` (acht Aufgaben: Giessen, Düngen, Umtopfen, Schneiden …), mit Beet und Lichtzone in der Notiz, `fromTwin: true`.
+
+Der Giess-Rhythmus kommt nicht aus einem Standardwert, sondern aus `gsTwinWaterStufe()`: Wasserbedarf der Art aus der Datenbank → Stufe 1/2/3. Findet die Datenbank nichts, bleibt es bei 2 (Mittel) — der ehrlichste Standard.
+
+Namen, die schon in der Pflege stehen, werden übersprungen (kleingeschrieben verglichen). Ein zweiter Druck legt also nichts doppelt an.
+
+#### Unsicheres wird als unsicher gezeigt
+
+Über der Liste steht, wie viele Erkennungen unter der Schwelle liegen — **bevor** man übernimmt. Eine App, die 30 % Sicherheit genauso darstellt wie 95 %, lügt durch Weglassen.
+
+#### Nebenbei: die Release-Liste war wieder auf 27 gewachsen
+
+§3.1 sagt „die neuesten ~12" inline, der Rest ins Archiv. Seit v31.36 war sie unbemerkt auf 26 gewachsen. 15 Einträge (v31.48 … v31.34) sind ans **Archiv-Ende vorne** gewandert: **44 KB weniger** bei jedem Kaltstart.
+
+Am laufenden Programm gegengeprüft, nicht am Text: vorher 407 Einträge über `gsAllReleases()`, nachher 408 (der neue), **0 Dopplungen**, und die Reihenfolge am Übergang lückenlos (v31.50 · v31.49 · v31.48 · v31.47).
+
+#### Farben von Hand gerechnet
+
+Die neuen Knöpfe sitzen in einem Dialog — `contrast_check` sieht dort nicht hinein, und genau das ist jetzt dreimal schiefgegangen. Also nachgerechnet, beide Modi:
+
+| | hell | dunkel |
+|---|---|---|
+| Korrekturknopf `--text2`/`--surface2` | 10,36:1 | 9,30:1 |
+| „Entfernen" `--c-danger` | 5,12:1 | 5,48:1 |
+| Warnfeld, fett `--c-warn-d` | 5,11:1 | 7,16:1 |
+| Sicherheitsmarke, alle drei Stufen | 5,13–5,60:1 | 6,64–8,99:1 |
+
+Niedrigster Wert 5,11:1. Der Dunkelmodus-Grund des Warnfelds ist `rgba(255,167,38,.12)` über `--card` — auskomponiert `#323718`.
+
+#### Durchgespielt statt behauptet
+
+Vier erkannte Pflanzen, zwölf Korrekturknöpfe:
+
+```
+1 · Liste offen    : 4 Zeilen, 12 Knöpfe, Warnhinweis da, Übernehmen da
+2 · nach Entfernen : Unkraut weg
+3 · nach Stimmt    : Kohl → „✓ von dir"
+4 · nach Umbenennen: Kohl → Federkohl
+5 · nach Übernahme : Federkohl in der Pflege, 8 Aufgaben, giessen alle 7 Tage,
+                     Notiz „Aus dem Garten-Scan übernommen · Beet A · Sonne"
+6 · zweite Übernahme: keine Dopplung
+```
+
+#### Verify
+
+`wiring_check` 307 Namen / **0** nicht auflösbar · Menü 40/0 · 928 Nachschlagungen / **0** nie erzeugt / **0** ungesichert · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen, Vergleich 2275 Elemente: **0** Layout-, 0 Farb-, 0 Radius-, 0 Schriftgrössenänderungen · `contrast_check` 0 unter AA beide Modi · `touch_check` 0 unter 24×24 · Changelog am laufenden Programm: `GS_RELEASES[0].v` = `GS_VERSION` (sonst bliebe der Dialog stumm) · 9/9 Inline-Scripts + `sw.js` + `releases.v1.js` `node --check` OK · `GS_VERSION` v31.60 · `sw.js` gs-v31.60 · `_headers` v31.60 · meta 31.60.20260901.
+
+#### Offen für morgen
+
+Kommen die echten Bilder, wird `gsTwinPrompt()` an den **konkreten** Fehlerkennungen geschärft — nicht an Vermutungen darüber, was eine Bilderkennung falsch machen könnte.
+
+---
+
 ### 2026-09-01 (aw) — v31.59: Bestand und Vorschlag im 3D unterscheidbar
 
 Nachtrag zu V3, und beim Benutzen sofort spürbar. Seit v31.58 enthält ein Plan beides — Pflanzen aus dem Garten-Scan (`existing:true`) und neu vorgeschlagene. Im Modell sahen sie **identisch** aus.

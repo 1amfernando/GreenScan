@@ -20,6 +20,263 @@
  */
 window.GS_RELEASES_ARCHIVE = [
   {
+    v: 'v31.48', date: '01.09.2026',
+    headline: '\ud83e\udded Drei Men\u00fc-Eintr\u00e4ge, die nirgendwohin f\u00fchrten',
+    summary: 'Die 40 Eintr\u00e4ge der Men\u00fc-Suche tragen ihre Aktion als Text in einer Liste \u2014 nicht als onclick am Element. Der Verdrahtungs-Pr\u00fcfstand sah sie deshalb nicht. Beim ersten gezielten Durchgang waren drei davon kaputt: sie sprangen auf einen Bildschirm und tippten dort auf ein Element, das es nicht gibt.',
+    user_summary: '\ud83e\udded Bl\u00fchkalender, Scan-Historie und Lichtmesser-Kalibrierung waren \u00fcber die Men\u00fc-Suche nicht erreichbar \u2014 tippen, und es passierte nichts. Jetzt \u00f6ffnen alle drei.',
+    user_items: [
+      {emoji:'\ud83d\udcc5', bold:'Bl\u00fchkalender:', text:' sprang auf die Startseite und suchte dort ein Element, das es nicht gibt. Der Kalender liegt als Kachel „\ud83c\udf3b Blumen" im Garten-Reiter. Jetzt \u00f6ffnet er direkt \u2014 gepr\u00fcft: „September \u00b7 4 bl\u00fchende Arten".'},
+      {emoji:'\ud83d\udcdc', bold:'Scan-Historie:', text:' sprang auf „Meine Pflanzen" und wollte dort einen Reiter antippen, den es dort nicht gibt. Die Historie ist ein eigenes Fenster. Gepr\u00fcft: „4 Scans \u00b7 3 Arten \u00b7 2 in DB".'},
+      {emoji:'\ud83c\udf3e', bold:'Lichtmesser kalibrieren:', text:' \u00f6ffnete den Lichtmesser und tippte 400 ms sp\u00e4ter auf einen Kalibrier-Knopf, den es nicht gibt. Jetzt direkt \u2014 und wenn noch keine Messung vorliegt, sagt die App das auch, statt stumm zu bleiben.'},
+      {emoji:'\ud83d\udd0d', bold:'Damit es nicht wiederkommt:', text:' Der Pr\u00fcfstand geht die Men\u00fc-Liste jetzt bei jedem Lauf durch \u2014 alle 40 Eintr\u00e4ge, Funktion und angesprochenes Element. Solche Aktionen stehen in einem Feld statt am Knopf; ohne eigene Pr\u00fcfung f\u00e4llt dort nie etwas auf.'},
+    ],
+  },
+  {
+    v: 'v31.47', date: '01.09.2026',
+    headline: '\ud83d\udcd6 Zehn Garten-Artikel, die seit v28.57 niemand sehen konnte',
+    summary: 'Die Garten-Bibliothek ist vollst\u00e4ndig: zehn geschriebene Artikel, zehn Kategorien, ein fertiges Detail-Fenster, sogar eine eigene Stilregel. Nur die Liste hatte kein Zuhause \u2014 renderGardenLibrary schreibt in ein Element, das nirgends stand, und kehrte deshalb bei jedem Wechsel auf den Garten-Reiter in der zweiten Zeile um.',
+    user_summary: '\ud83d\udcd6 Zehn Garten-Grundlagen von Boden bis Wildbienen sind jetzt zu lesen \u2014 mit Suche und Kategorien. Sie lagen die ganze Zeit fertig in der App.',
+    user_items: [
+      {emoji:'\ud83d\udcd6', bold:'Die Garten-Bibliothek ist da:', text:' Boden verstehen, richtig giessen, d\u00fcngen, Blattl\u00e4use natürlich bekämpfen, Kompost, Schweizer Aussaatkalender, Hochbeet, Wildbienen, Balkongarten, Ernte und Lagerung. Zu finden im Garten-Reiter unter „\ud83d\udcda Wissen & Werkzeuge".'},
+      {emoji:'\ud83d\udd0e', bold:'Mit Suche und Kategorien:', text:' Beides waren immer schon Parameter der Zeichenfunktion \u2014 nur hatte sie nie eine Bedienung. Jetzt filtern zehn Kategorie-Chips, und das Suchfeld durchsucht Titel und Kurzfassung.'},
+      {emoji:'\ud83d\udeaa', bold:'Warum als Fenster und nicht auf der Seite:', text:' Der Garten-Bildschirm ist ohnehin lang. Pflanzendoktor, Krankheits-Lexikon und Erntekalender sind alle Fenster \u2014 die Bibliothek f\u00fcgt sich damit ein, statt die Seite noch einmal zu verl\u00e4ngern.'},
+      {emoji:'\ud83d\udd0d', bold:'Auch der Pr\u00fcfstand hat dazugelernt:', text:' Er meldete „Farbe ge\u00e4ndert: 3", ohne zu sagen welche \u2014 eine Zahl, die man nur glauben oder ignorieren kann, und beides ist falsch. Jetzt nennt er die Stellen. In diesem Fall waren es die drei Pfeile in der Werkzeug-Gruppe: der neue Knopf sitzt vorne, also verschob sich jeder Schl\u00fcssel um eins und jedes Element trug die Farbe seines Nachbarn. Nachgesehen statt weggewunken.'},
+    ],
+  },
+  {
+    v: 'v31.46', date: '01.09.2026',
+    headline: '\ud83e\udea6 Der Pflanzenfriedhof hatte einen Eingang, aber keinen Ausgang',
+    summary: 'Auf jeder Pflanzenkarte steht ein Knopf „\ud83e\udea6 Pflanzenfriedhof". Er fragt nach der Todesursache, verschiebt die Pflanze \u2014 und danach war sie fort. renderCemetery schreibt in ein Element namens cemetery-list, das es nirgends gibt, und die einzige Funktion, die es h\u00e4tte anzeigen k\u00f6nnen, hatte keinen Aufrufer.',
+    user_summary: '\ud83e\udea6 Verabschiedete Pflanzen waren unwiederbringlich weg \u2014 jetzt gibt es den Friedhof wirklich, mit Weg zur\u00fcck. Und der Pflanzendoktor fragt nicht mehr jedes Mal neu nach der Kamera.',
+    user_items: [
+      {emoji:'\ud83e\udea6', bold:'Verabschiedete Pflanzen sind wieder da:', text:' Der Knopf auf der Pflanzenkarte hat die Pflanze immer korrekt verschoben \u2014 gespeichert war sie also die ganze Zeit. Nur ansehen konnte man sie nicht: die Ansicht schrieb in ein Element, das es nicht gibt, und der einzige Weg dorthin war eine Funktion, die niemand aufrief. Jetzt steht oben auf „Meine Pflanzen" ein Eingang \u2014 und zwar nur dann, wenn es dort etwas zu sehen gibt. Wiederherstellen geht mit einem Tipp.'},
+      {emoji:'\ud83d\udcac', bold:'Und die App sagt jetzt, wohin sie geht:', text:' Bisher verschwand die Pflanze kommentarlos aus der Liste. Das f\u00fchlt sich an wie ein Datenverlust, auch wenn es keiner war. Jetzt kommt eine kurze R\u00fcckmeldung mit dem Hinweis, wo sie zu finden ist.'},
+      {emoji:'\ud83d\udcf7', bold:'Kamera-Erlaubnis ging bei jedem Neustart verloren:', text:' F\u00fcnf Stellen merken sich die Erlaubnis, vier schreiben „granted" \u2014 eine schrieb „1". Wer die Kamera im Scanner erlaubte, wurde vom Pflanzendoktor beim n\u00e4chsten Start wieder gefragt. Jemand hatte das fr\u00fcher schon bemerkt und einen Notbehelf eingebaut, der genau diesen einen Wert abfing; behoben war es damit nicht. Jetzt an der Wurzel \u2014 und bestehende Installationen m\u00fcssen nichts neu erlauben.'},
+      {emoji:'\u26a0\ufe0f', bold:'Eine Umschaltung, die Schaden angerichtet h\u00e4tte:', text:' switchPlantsTab war tot, aber h\u00e4tte sie je jemand aufgerufen, h\u00e4tte ihre erste Zeile die Reiter im Marktplatz (Aktiv / Gewonnen / Gekauft) abger\u00e4umt \u2014 die tragen inzwischen dieselbe Klasse. Entfernt.'},
+      {emoji:'\ud83d\udd2c', bold:'Der Pr\u00fcfstand hat sich selbst im Weg gestanden:', text:' Er meldete die Community-Suche als kaputt \u2014 falscher Alarm, das Element entsteht \u00fcber eine Variable statt \u00fcber ein festes id=. Wichtiger: die Beispieldaten aller Pr\u00fcfst\u00e4nde lagen unter dem falschen Schl\u00fcssel. Seit v31.30 wurde immer eine LEERE Pflanzenliste vermessen \u2014 Leerzustand statt Karten. Aufgefallen, als ein Versuch die erste Pflanze lesen wollte und nichts bekam. Genau deshalb war der Friedhof so lange unentdeckt.'},
+    ],
+  },
+  {
+    v: 'v31.45', date: '01.09.2026',
+    headline: '\ud83d\udd0c Ein Pr\u00fcfstand f\u00fcr die Verdrahtung \u2014 und ein Abzeichen, das seit einem Jahr ins Leere zielte',
+    summary: 'Alle bisherigen Pr\u00fcfst\u00e4nde messen, wie die App AUSSIEHT. Keiner pr\u00fcfte, ob das Angetippte auch ankommt. Der neue scripts/wiring_check.js l\u00f6st beide Richtungen auf: 301 Knopf-Aufrufe gegen die tats\u00e4chlich vorhandenen Funktionen, und 1\u2019010 Element-Nachschlagungen gegen die ids, die es wirklich gibt.',
+    user_summary: '\ud83d\udd0c Der Lichtmesser zeigte beim erneuten \u00d6ffnen die alte Messung. F\u00e4llige Pflege ist jetzt am Pflanzen-Reiter zu sehen. Und 220 Zeilen f\u00fcr eine Funktion, die es l\u00e4ngst nicht mehr gab, sind weg.',
+    user_items: [
+      {emoji:'\ud83d\udca1', bold:'Lichtmesser zeigte die alte Zahl:', text:' Beim erneuten \u00d6ffnen sollte die Anzeige zur\u00fccksetzen \u2014 sie griff dabei auf lux-val und ersatzweise lux-n zu. Beide gibt es nicht, das Element hei\u00dft lux-value. Die Absicherung \u201eif(lvEl)\u201c verschluckte es lautlos, und so stand die Zahl der vorigen Messung noch da, w\u00e4hrend die Kategorie daneben schon leer war \u2014 mitsamt ihrer alten Farbe. Jetzt setzt es sauber zur\u00fcck.'},
+      {emoji:'\ud83d\udd34', bold:'F\u00e4llige Pflege ist wieder sichtbar:', text:' Ein rotes Abzeichen am Pflanzen-Reiter zeigt, wie viele Aufgaben \u00fcberf\u00e4llig sind. Die Z\u00e4hlfunktion gab es seit v30.34 \u2014 sie zielte auf einen Garten-Reiter, den die Leiste gar nicht hat, und hatte ausserdem keinen einzigen Aufrufer. Jetzt h\u00e4ngt sie am Speicherpunkt f\u00fcr Pflanzen, also stimmt sie immer.'},
+      {emoji:'\ud83e\uddf9', bold:'220 Zeilen f\u00fcr eine entfernte Funktion:', text:' Ein „Raum-Lichtscan\u201c in f\u00fcnf Schritten lag noch vollst\u00e4ndig im Code \u2014 ohne Knopf, ohne Oberfl\u00e4che, und mit f\u00fcnf Variablen, die nirgends angelegt werden. Er h\u00e4tte beim ersten Zugriff abgebrochen. Die 10-Punkte-Pro-Messung daneben ist die richtige Nachfolgerin und funktioniert.'},
+      {emoji:'\u2696\ufe0f', bold:'Was ich bewusst NICHT umgeh\u00e4ngt habe:', text:' In dieser Insel lag eine sorgf\u00e4ltige Lux-Berechnung mit Gamma-Korrektur. Verlockend, den laufenden Lichtmesser darauf zu zeigen \u2014 aber der ist gegen seine eigene Helligkeits-Skala kalibriert, und deine gespeicherte Kalibrierung w\u00e4re damit still ung\u00fcltig geworden. Genauer aussehen und falscher rechnen ist kein Fortschritt.'},
+      {emoji:'\ud83d\udd0d', bold:'Der Pr\u00fcfstand hat sich zweimal selbst korrigiert:', text:' Erst meldete er acht Fehler, die keine waren \u2014 verkettete Aufrufe und CSS-Funktionen. Dann verschluckte er elf echte, weil eine Zeile accept=\u201cimage/*\u201c enth\u00e4lt: das /* steht in einer Zeichenkette und schliesst nie, also galt der halbe Rest der Datei als Kommentar. Zu wenig zu melden ist schlimmer als zu viel \u2014 das Zuviel f\u00e4llt auf.'},
+      {emoji:'\ud83c\udfaf', bold:'Zum sechsten Mal dasselbe Muster \u2014 diesmal bei mir:', text:' Ich schrieb eine Regel f\u00fcr das neue Abzeichen und mass danach eine andere Farbe als die geschriebene. Die Klasse gab es schon, weiter unten, als Rest einer 2026 entfernten Men\u00fc-Badge. Genau der Fehler, den ich in v31.33 zweiundf\u00fcnfzigmal aufger\u00e4umt habe. Jetzt eine Regel statt zwei.'},
+    ],
+  },
+  {
+    v: 'v31.44', date: '01.09.2026',
+    headline: '\ud83c\udff7\ufe0f 22 Karten trugen ein Etikett mit der Aufschrift „undefined"',
+    summary: 'Beim Durchsehen aller Seiten nach der Optik-Umstellung fiel im Heilmittel-Bereich ein Chip auf, auf dem w\u00f6rtlich „undefined" stand. Die Spur f\u00fchrte zu f\u00fcnf Kategorien, die von den Daten benutzt werden, aber in keiner Zuordnungstabelle stehen \u2014 und zu einem R\u00fcckfall ohne Beschriftung.',
+    user_summary: '\ud83c\udff7\ufe0f 22 Rezept- und Heilmittel-Karten zeigten statt einer Kategorie das Wort „undefined". Jetzt steht dort, was drin ist.',
+    user_items: [
+      { emoji: '\ud83c\udff7\ufe0f', text: '„Fermentiert", „Salat", „Backen", „\u00d6lauszug" und „Inhalation" fehlten komplett' },
+      { emoji: '\ud83d\udee1\ufe0f', text: 'Unbekannte Kategorien zeigen jetzt gar nichts statt „undefined"' },
+    ],
+    items: [
+      {emoji:'\ud83c\udff7\ufe0f', bold:'F\u00fcnf fehlende Kategorien:', text:' die Daten nutzen fermentation (4 Rezepte), salat (2), backen (13) sowie oel (1 Heilmittel) und inhalation (2). Keine davon stand in RECIPE_CATS bzw. REMEDY_CATS. Zusammen 22 Karten. Die Tabellen enthielten stattdessen ferment und gebaeck \u2014 \u00e4hnliche Namen, die nie zugeordnet wurden.'},
+      {emoji:'\ud83d\udee1\ufe0f', bold:'Die eigentliche Ursache:', text:' der R\u00fcckfall in der Listenansicht war {emoji, bg, color} \u2014 OHNE label. Bei einer unbekannten Kategorie landete catInfo.label als das Wort „undefined" im Chip. Der R\u00fcckfall in der Detailansicht hatte label:\'\' und war deshalb unauff\u00e4llig. Jetzt beide gleich.'},
+      {emoji:'\ud83e\udde9', bold:'Zwei Fehler, die sich gegenseitig verdeckten:', text:' die Kategorie ferment trug color:#e65100 auf bg:#fff3e0 \u2014 3,46:1, also unter AA. Mein Kontrast-Pr\u00fcfstand konnte das nicht finden, WEIL kein Rezept diese Kategorie benutzt und der Chip nie gerendert wird. Beim Erg\u00e4nzen von fermentation w\u00e4re der schlechte Wert mitgekommen; jetzt sind beide auf #bf360c (5,11:1).'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' „undefined"-Chips in Rezepten und Heilmitteln: 22 \u2192 0 \u00b7 gegengepr\u00fcft, dass KEINE von den Daten benutzte Kategorie mehr in den Tabellen fehlt (beide Listen leer) \u00b7 alle neuen Farbpaare vorher gerechnet: 4,78 bis 6,08:1 \u00b7 Kontrast weiterhin 0 unter AA in beiden Modi \u00b7 keine JS-Fehler \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.44 \u00b7 sw.js gs-v31.44 \u00b7 _headers v31.44 \u00b7 meta=31.44.20260901.'},
+    ],
+  },
+  {
+    v: 'v31.43', date: '01.09.2026',
+    headline: '\u2728 Auch die Kopfleiste hell \u2014 die App ist jetzt durchgehend ruhig',
+    summary: 'Nach Startseite, Navigationsleiste und allen \u00fcbrigen Bildschirmen war die Kopfzeile das letzte dunkle Element. Jetzt kippt auch sie mit dem Modus. Dabei kam ein dunkelgr\u00fcnes Band zum Vorschein, das jahrelang unsichtbar war \u2014 weil es immer von etwas Dunklem verdeckt wurde.',
+    user_summary: '\u2728 Die App ist jetzt von oben bis unten hell und ruhig \u2014 Kopfzeile, Inhalt und Leiste sprechen dieselbe Sprache.',
+    user_items: [
+      { emoji: '\u2728', text: 'Kopfleiste hell statt dunkelgr\u00fcn \u2014 passend zum Rest' },
+      { emoji: '\ud83d\udd0d', text: 'Ein dunkles Band unter der Leiste beseitigt, das vorher niemand sehen konnte' },
+    ],
+    items: [
+      {emoji:'\u2728', bold:'Dieselbe Behandlung wie die Navigationsleiste:', text:' die Kopfzeile stand auf --fill-dark, also in BEIDEN Modi dunkelgr\u00fcn. Genau deshalb brauchte sie feste #fff-Werte fuer Titel und Symbole \u2014 samt einem `color:#ffffff !important` und zwei Dunkelmodus-\u00dcberschreibungen. Jetzt --card/--border: sie kippt selbst, die Schrift nutzt --g-dark, die Symbole --text. Alle drei Sonderregeln sind weg.'},
+      {emoji:'\ud83d\udd0d', bold:'Der Fund beim Hinsehen:', text:' nach der Umstellung zeigte sich ein dunkelgr\u00fcnes Band zwischen Kopfleiste und Inhalt. Ursache: body und #app standen ebenfalls auf --fill-dark. Solange Kopf- UND Navigationsleiste dunkel waren, hat man diesen Hintergrund nie gesehen \u2014 er war immer verdeckt. Erst als beide hell wurden, kam er zum Vorschein. Beide folgen jetzt --g-bg.'},
+      {emoji:'\ud83d\udd14', bold:'Kleinigkeit mit Wirkung:', text:' der Ring um den Glocken-Z\u00e4hler war var(--g-dark) \u2014 passend, solange die Leiste dunkel war. Jetzt --card, also immer in Leistenfarbe.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Kopfleiste in beiden Modi gerendert und angesehen \u2014 im Dunkelmodus zeigt der Knopf korrekt die Sonne statt des Monds \u00b7 Kontrast 0 unter AA in beiden Modi \u00b7 Antippfl\u00e4chen 0 unter 24\u00d724 \u00b7 Vorher/Nachher: 132 Farb\u00e4nderungen (die Leiste, quer \u00fcber elf Tabs), 0 Radius- und 0 Schriftgr\u00f6ssen\u00e4nderungen; von den 17 Gr\u00f6ssen\u00e4nderungen sind elf die Kopfleiste selbst (38\u219239px durch den neuen 1px-Rahmen) und sechs der bekannte dritte Chip im Wissens-Hero \u00b7 keine JS-Fehler \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.43 \u00b7 sw.js gs-v31.43 \u00b7 _headers v31.43 \u00b7 meta=31.43.20260901.'},
+    ],
+  },
+  {
+    v: 'v31.42', date: '01.09.2026',
+    headline: '\ud83c\udf19 Kopfleiste mit Strich-Symbolen \u2014 und ein Emoji, das sich zweimal zur\u00fcckschlich',
+    summary: 'Nach der Navigationsleiste jetzt die Kopfzeile: Mond, Glocke und Men\u00fc sind gezeichnete Symbole statt Emoji. Beim Nachsehen fiel auf, dass zwei Stellen im Code das Mond-Symbol per textContent wieder durch ein Emoji ersetzten \u2014 im Bild war die Glocke schon ein Symbol, der Mond noch gelb.',
+    user_summary: '\ud83c\udf19 Die Symbole oben rechts sind jetzt gezeichnet statt Emoji \u2014 sie sehen auf jedem Ger\u00e4t gleich aus und passen zur Leiste unten.',
+    user_items: [
+      { emoji: '\ud83c\udf19', text: 'Mond, Glocke und Men\u00fc als Strich-Symbole' },
+      { emoji: '\ud83d\udd27', text: 'Zwei Stellen, die das Symbol wieder durch ein Emoji ersetzten, umgeh\u00e4ngt' },
+    ],
+    items: [
+      {emoji:'\ud83c\udf19', bold:'Drei neue Symbole:', text:' Mond, Schl\u00fcssel und Men\u00fc im Stil des vorhandenen Satzes gezeichnet (24\u00d724, Strichst\u00e4rke 1,75, runde Enden) und in assets/icons/ abgelegt. Glocke und Sonne gab es bereits. Alle inline eingesetzt, damit sie \u00fcber currentColor die Knopf-Farbe erben.'},
+      {emoji:'\ud83d\udd27', bold:'Der Fund beim Hinsehen:', text:' im gerenderten Bild waren Glocke und Men\u00fc Symbole, der Mond aber weiter ein gelbes Emoji. Ursache: initDark() und der Umschalter in den Einstellungen setzen beide btn.textContent = on ? \'☀️\' : \'🌙\' und haben das Markup ueberschrieben. Beide nutzen jetzt innerHTML mit den Symbolen \u2014 und die sind EINMAL als GS_ICON_MOON/GS_ICON_SUN definiert, damit es nicht ein drittes Mal auseinanderl\u00e4uft.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Kopfleiste in beiden Modi gerendert und angesehen \u00b7 in beiden Modi tr\u00e4gt der Knopf ein SVG und in der ganzen Kopfleiste ist kein Emoji mehr \u00fcbrig (programmatisch gepr\u00fcft) \u00b7 keine JS-Fehler \u00b7 Kontrast 0 unter AA in beiden Modi \u00b7 Antippfl\u00e4chen 0 unter 24\u00d724 \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.42 \u00b7 sw.js gs-v31.42 \u00b7 _headers v31.42 \u00b7 meta=31.42.20260901.'},
+    ],
+  },
+  {
+    v: 'v31.41', date: '01.09.2026',
+    headline: '\ud83c\udfa8 Alle Bildschirme hell \u2014 dieselbe Sprache wie die Startseite',
+    summary: 'Vierzehn Bildschirme hatten dunkle Volltoene als Fl\u00e4che \u2014 Garten gr\u00fcn, Rezepte braun, Heilmittel blau, Einstellungen schiefer. Die Startseite ist seit v31.37 hell. Jetzt sind es alle, wie in Fernandos Vorlage: eine ruhige helle Fl\u00e4che mit Karten darauf.',
+    user_summary: '\ud83c\udfa8 Alle Seiten sehen jetzt aus wie die Startseite \u2014 hell und ruhig statt jede in einer anderen dunklen Farbe.',
+    user_items: [
+      { emoji: '\ud83c\udfa8', text: 'Garten, Wissen, Rezepte, Heilmittel, Marktplatz und acht weitere Seiten sind hell' },
+      { emoji: '\ud83e\uddf9', text: 'Zwei Sonderfarb-Token entfernt, die es nur wegen der dunklen Fl\u00e4chen gab' },
+    ],
+    items: [
+      {emoji:'\ud83c\udfa8', bold:'Zum VIERTEN Mal dasselbe Muster:', text:' die hellen Fassungen waren teils l\u00e4ngst geschrieben. Zeile ~1249 definiert f\u00fcr Rezepte und Heilmittel warme helle Verl\u00e4ufe — \u00fcberstimmt von einem Block mit vierzehn !important-Dunkelfarben am Dateiende. Genau wie bei .hero in v31.37, dem Icon-Satz in v31.38 und displayLuxResult in v31.40: die richtige Arbeit war da und nicht angeschlossen.'},
+      {emoji:'\ud83e\uddf9', bold:'Zwei Token wieder abgeschafft:', text:' --on-canvas und --on-canvas-2 kamen in v31.32 dazu, WEIL die Leinw\u00e4nde dunkel waren und Text darauf helle Farben brauchte. Auf hellen Fl\u00e4chen w\u00e4ren sie jetzt genau die Falle, gegen die sie erfunden wurden: hell auf hell. Der Pr\u00fcfstand hat das sofort gezeigt — acht Stellen bei 1,03 bis 1,09:1. Alle 14 Verwendungen zurueck auf --text und --muted, die Token entfernt.'},
+      {emoji:'\ud83d\udd0d', bold:'Die Reihenfolge war wichtig:', text:' erst die Leinw\u00e4nde umgestellt, dann gemessen, dann repariert. H\u00e4tte ich beides gleichzeitig gemacht, w\u00e4re nicht belegt, dass genau diese acht Stellen betroffen sind — und warum.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Kontrast nach der Umstellung: 8 Stellen unter AA (alle exakt die --on-canvas-Stellen) \u2192 nach der Korrektur 0 + 0 in beiden Modi \u00b7 Antippfl\u00e4chen 0 unter 24\u00d724 \u00b7 Garten und Community gerendert und angesehen \u00b7 Vorher/Nachher: 32 Farb\u00e4nderungen (die Leinw\u00e4nde), 0 Radius-, 0 Schriftgr\u00f6ssen\u00e4nderungen; die 6 Gr\u00f6ssen\u00e4nderungen sind der bekannte dritte Chip im Wissens-Hero, der erscheint sobald die Arten-Datenbank geladen ist \u00b7 keine JS-Fehler \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.41 \u00b7 sw.js gs-v31.41 \u00b7 _headers v31.41 \u00b7 meta=31.41.20260901.'},
+    ],
+  },
+  {
+    v: 'v31.40', date: '01.09.2026',
+    headline: '\ud83d\udca1 Der Lichtmesser war komplett kaputt \u2014 gefunden beim Verdrahtungs-Check',
+    summary: 'Fernando wollte einen Funktionscheck der Ein- und Ausg\u00e4nge. Ich habe alle 1\u2019012 im Code angesprochenen Elemente gegen die tats\u00e4chlich vorhandenen gepr\u00fcft: 44 Funktionen greifen auf Elemente zu, die es nirgends gibt. Die meisten sind abgesichert und tun still nichts. Eine war es nicht \u2014 und st\u00fcrzte ab.',
+    user_summary: '\ud83d\udca1 Die Lichtmessung zeigte nie ein Ergebnis \u2014 der Knopf blieb einfach h\u00e4ngen. Jetzt funktioniert sie wieder.',
+    user_items: [
+      { emoji: '\ud83d\udca1', text: 'Lichtmessung repariert \u2014 Lux-Wert, Kategorie und Pflanzen-Empfehlungen erscheinen wieder' },
+      { emoji: '\ud83e\uddf9', text: '45 Zeilen kaputter Altcode entfernt' },
+    ],
+    items: [
+      {emoji:'\ud83d\udd0e', bold:'Der Verdrahtungs-Check:', text:' 1\u2019012 im Code angesprochene Element-Kennungen gegen alle irgendwo erzeugten gepr\u00fcft. 75 werden nirgends erzeugt; sie verteilen sich auf 44 Funktionen. 16 davon haben \u00fcberhaupt keinen Aufrufer (toter Code), 28 laufen wirklich \u2014 aber alle bis auf eine pr\u00fcfen vorher auf null und tun dann still nichts. Zur Laufzeit: 0 doppelte ids, 0 JS-Fehler.'},
+      {emoji:'\ud83d\udca1', bold:'Die eine Ausnahme:', text:' showLuxResult griff ungeschuetzt zu — document.getElementById(\'lux-val\').textContent = … Die Elemente heissen aber lux-value, lux-marker und lux-plants. Am laufenden Programm nachgewiesen: TypeError in der ersten Zeile, danach lief nichts mehr. Der Lux-Wert blieb 0, das Ergebnis blieb verborgen, die Kategorie hing auf „Messung startet…", und die Zeilen NACH dem Aufruf (Knopf zuruecksetzen) wurden nie erreicht.'},
+      {emoji:'\u2705', bold:'Die L\u00f6sung lag daneben:', text:' displayLuxResult macht dasselbe richtig \u2014 korrekte ids, sauber abgesichert, und wird von zwei anderen Stellen benutzt. Nur dieser eine Aufrufer wurde beim Umbau nicht umgeh\u00e4ngt. Jetzt umgeh\u00e4ngt, die alte Fassung entfernt. Dasselbe Muster wie die helle Kopfzeile in v31.37 und der Icon-Satz in v31.38: die richtige Arbeit war fertig und nicht angeschlossen.'},
+      {emoji:'\ud83c\udf29\ufe0f', bold:'Ein Fund zum Entscheiden, nicht zum Reparieren:', text:' die Wetter-Warnkarte in der App (rund 130 Zeilen, drei Funktionen) hat kein Element im Dokument, und ihr Lader hat null Aufrufer. Das klingt schlimmer als es ist: Migration, Edge-Function und Cron existieren, die Warnungen erreichen Nutzer also \u00fcber Push und Posteingang. Nur die Karte IN der App wurde nie gebaut. Entweder bauen oder entfernen \u2014 das ist eine Produktentscheidung, keine Aufr\u00e4umarbeit.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Lichtmessung vorher/nachher am laufenden Programm: vorher TypeError, Wert 0, Ergebnis verborgen, Knopf h\u00e4ngt \u2014 nachher 26\u2019554 Lux, Ergebnis sichtbar, Kategorie „🔥 Volle Sonne", Knopf auf „Erneut messen" \u00b7 keine Aufrufe von showLuxResult mehr \u00fcbrig \u00b7 zur Laufzeit 0 doppelte ids \u00fcber alle elf Tabs \u00b7 keine JS-Fehler \u00b7 Kontrast 0 unter AA in beiden Modi \u00b7 Antippfl\u00e4chen 0 unter 24\u00d724 \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.40 \u00b7 sw.js gs-v31.40 \u00b7 _headers v31.40 \u00b7 meta=31.40.20260901.'},
+    ],
+  },
+  {
+    v: 'v31.39', date: '01.09.2026',
+    headline: '\ud83e\udded Startseite neu geordnet \u2014 erst wissen, dann tun',
+    summary: 'Der Tagesplan stand an sechster Stelle, hinter Kennzahlen und Marktplatz. Fernandos Vorlage folgt einer anderen Logik: erst was ich wissen muss, dann was ich tun soll. Genau so ist die Startseite jetzt sortiert \u2014 ohne dass ein Baustein wegf\u00e4llt.',
+    user_summary: '\ud83e\udded Die Startseite zeigt jetzt zuerst das Wetter und dann, was heute ansteht. Fortschritt, Kennzahlen und alles Weitere folgen darunter.',
+    user_items: [
+      { emoji: '\ud83e\udded', text: 'Wetter und Tagesplan stehen jetzt oben \u2014 vorher an f\u00fcnfter und sechster Stelle' },
+      { emoji: '\ud83d\udce6', text: 'Kein Baustein entf\u00e4llt, nur die Reihenfolge \u00e4ndert sich' },
+    ],
+    items: [
+      {emoji:'\ud83e\udded', bold:'Vorher \u2192 nachher:', text:' XP \u00b7 Kennzahlen \u00b7 Marktplatz \u00b7 Wetter \u00b7 Tagesplan \u00b7 Quiz \u00b7 Tagesinfo wird zu Wetter \u00b7 Tagesplan \u00b7 Fortschritt \u00b7 Kennzahlen \u00b7 Tagesinfo \u00b7 Marktplatz \u00b7 Quiz. Begr\u00fcndung aus der Vorlage: das Wetter entscheidet, was heute im Garten geht \u2014 also geh\u00f6rt es nach oben; direkt danach die Aufgaben. Fortschritt, Lesestoff und Entdeckung sind wichtig, aber nicht dringend.'},
+      {emoji:'\ud83d\udd0c', bold:'Verdrahtung gepr\u00fcft, bevor umgeordnet wurde:', text:' zwei Stellen im Code h\u00e4ngen an DOM-Reihenfolge. gsBuildWidgetStack (baut aus vier Karten den wischbaren Stapel) sucht per id und verschiebt die Karten selbst \u2014 ordnungsunabh\u00e4ngig. gsMoreFeedbackFirst betrifft einen anderen Bildschirm. Am laufenden Programm best\u00e4tigt: Stapel baut sich (4 Folien, 4 Punkte), Tagesplan f\u00fcllt sich, jede id genau einmal, keine JS-Fehler.'},
+      {emoji:'\u26a0\ufe0f', bold:'Wo mein Vergleichswerkzeug hier NICHT hilft:', text:' es paart Elemente \u00fcber einen Schl\u00fcssel aus DOM-Pfad, id, Klasse und Text. Eine Umordnung \u00e4ndert genau diesen Pfad \u2014 also paart es zwangsl\u00e4ufig falsch. Es meldete eine Schriftgr\u00f6ssen\u00e4nderung von 12px an einem 🌱; nachgemessen sind alle vier 🌱-Elemente in beiden St\u00e4nden identisch, nur ihre Position ist eine andere. Diese Grenze steht jetzt in CLAUDE.md §7.1, samt dem, was stattdessen tr\u00e4gt.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Reihenfolge im DOM ausgelesen und best\u00e4tigt \u00b7 alle 13 gepr\u00fcften ids genau einmal vorhanden, keine fehlt \u00b7 gsBuildWidgetStack gebaut (4 Folien, 4 Punkte), Tagesplan mit 3 Eintr\u00e4gen gef\u00fcllt, 5 Nav-Icons, Edelweiss vorhanden \u00b7 keine JS-Fehler \u00b7 Kontrast 0 unter AA in beiden Modi \u00b7 Antippfl\u00e4chen 0 unter 24\u00d724 \u00b7 die eine gemeldete Schrift\u00e4nderung als Fehlpaarung nachgewiesen \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.39 \u00b7 sw.js gs-v31.39 \u00b7 _headers v31.39 \u00b7 meta=31.39.20260901.'},
+    ],
+  },
+  {
+    v: 'v31.38', date: '01.09.2026',
+    headline: '\ud83e\udded Neue Navigationsleiste \u2014 hell, mit Strich-Icons und dem Edelweiss',
+    summary: 'Nach Fernandos Vorlage: helle Fl\u00e4che statt dunkelgr\u00fcnem Balken, gezeichnete Strich-Icons statt Emoji, kleine Beschriftungen in Normalschreibung. Der Mittelknopf tr\u00e4gt jetzt das Edelweiss aus dem App-Icon. Der Icon-Satz lag \u00fcbrigens schon im Repo \u2014 er war nur nie eingebaut.',
+    user_summary: '\ud83e\udded Die untere Leiste ist hell und ruhig, mit gezeichneten Symbolen statt Emoji. Der Home-Knopf in der Mitte tr\u00e4gt das Edelweiss.',
+    user_items: [
+      { emoji: '\ud83e\udded', text: 'Helle Leiste, gezeichnete Symbole, Beschriftungen in Normalschreibung' },
+      { emoji: '\ud83c\udf3c', text: 'Edelweiss im Mittelknopf \u2014 dieselbe Blume wie im App-Icon' },
+    ],
+    items: [
+      {emoji:'\ud83c\udfa8', bold:'Der Icon-Satz lag schon da:', text:' assets/icons/ enth\u00e4lt 23 eigene Strich-Symbole mit eigenem README \u2014 und darin steht genau die Begr\u00fcndung, die Fernando jetzt genannt hat: Emoji sehen auf jeder Plattform anders aus, lassen sich nicht einf\u00e4rben und tragen f\u00fcr Screenreader nichts bei. Gebaut, dokumentiert, nie eingebaut. Die Leiste benutzte weiter Emoji. Jetzt inline eingesetzt, damit sie \u00fcber currentColor mit dem Modus mitgehen und keine zus\u00e4tzlichen Anfragen kosten.'},
+      {emoji:'\ud83c\udf3c', bold:'Das Edelweiss:', text:' dieselbe Geometrie wie icons/icon.svg \u2014 zw\u00f6lf Bl\u00fctenbl\u00e4tter in zwei Lagen, sieben goldene R\u00f6hrenbl\u00fcten. Fuer 30 px mit flachen Farben statt Verl\u00e4ufen: bei der Gr\u00f6sse tr\u00e4gt ein Verlauf nichts und kostet nur Bytes.'},
+      {emoji:'\ud83c\udf17', bold:'Die Leiste kippt jetzt selbst:', text:' sie war in BEIDEN Modi dunkelgr\u00fcn (--fill-dark), weshalb die Beschriftungen in v31.27 feste Farbwerte brauchten. Jetzt --card und --border, also hell im Hell- und dunkel im Dunkelmodus \u2014 und die Beschriftungen k\u00f6nnen wieder --muted und --g-dark nutzen. Drei Dunkelmodus-\u00dcberschreibungen sind dadurch \u00fcberfl\u00fcssig geworden; eine davon h\u00e4tte den Ring um den Mittelknopf im Dunkelmodus HELLgr\u00fcn gemacht.'},
+      {emoji:'\u26a0\ufe0f', bold:'Ein Fallstrick auf dem Weg:', text:' die Beschriftung des Mittelknopfs stand auf color:#fff \u2014 auf der neuen hellen Leiste weiss auf weiss. Genau dieselbe Falle wie beim Wetter-Trenner in v31.28: was auf dunklem Grund richtig war, verschwindet auf hellem.'},
+      {emoji:'\ud83d\udd2c', bold:'Und wieder das Werkzeug:', text:' der Vorher/Nachher-Vergleich meldete eine Gr\u00f6ssen\u00e4nderung an einem SVG, das es vorher gar nicht gab. Ursache: Elemente ohne id, Klasse und Text teilten sich den Schl\u00fcssel „SVG|||", und der Vergleich paarte zwei verschiedene Elemente. render_check.js baut den Schl\u00fcssel jetzt aus einem kurzen DOM-Pfad \u2014 vergleichbare Elemente stiegen dadurch von 1\u2019388 auf 1\u2019792.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Kontrast 0 Stellen unter AA in beiden Modi \u00b7 Antippfl\u00e4chen 0 unter 24\u00d724 \u00b7 Leiste in beiden Modi gerendert und angesehen \u00b7 Vorher/Nachher: alle 46 Gr\u00f6ssen\u00e4nderungen sind Leisten-Beschriftungen (plus der Wissens-Hero, dessen Chip-Umbruch aus v31.37 stammt), gr\u00f6sste Schriftbewegung +0,5px \u00b7 Selbstvergleich der Datei 0/0/0/0 bei 2\u2019860 Elementen \u00b7 keine JS-Fehler \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.38 \u00b7 sw.js gs-v31.38 \u00b7 _headers v31.38 \u00b7 meta=31.38.20260901.'},
+    ],
+  },
+  {
+    v: 'v31.37', date: '01.09.2026',
+    headline: '\ud83d\udc41\ufe0f Die Kopfzeile der Startseite war praktisch unsichtbar \u2014 1,32:1',
+    summary: 'Fernando: „bei der Home-Seite kann man kaum lesen was oben steht." Er hatte recht, und mein Kontrast-Pr\u00fcfstand war blind daf\u00fcr: er \u00fcbersprang Text auf Farbverl\u00e4ufen, weil er ihn nicht als EINE Farbe messen konnte. Genau dort lag der schlimmste Fall der App. Der Pr\u00fcfstand misst jetzt pixelgenau \u2014 und was er dann fand, ist behoben.',
+    user_summary: '\ud83d\udc41\ufe0f Die \u00dcberschrift oben auf der Startseite ist wieder lesbar \u2014 sie war dunkelgr\u00fcn auf dunkelgr\u00fcn. Dazu 20 weitere schlecht lesbare Stellen quer durch die App.',
+    user_items: [
+      { emoji: '\ud83d\udc41\ufe0f', text: '„Natur entdecken" von 1,3:1 auf lesbar \u2014 die Kopfzeile ist jetzt hell statt dunkel' },
+      { emoji: '\ud83c\udfa8', text: 'Wissen, Rezepte, Heilmittel, Pflanzen: Text auf get\u00f6nten Fl\u00e4chen korrigiert' },
+    ],
+    items: [
+      {emoji:'\ud83d\udd0e', bold:'Die Ursache war ein halber Umbau:', text:' die Regel `#screen-home .hero{background:var(--g-bg);color:var(--text)}` steht seit L\u00e4ngerem im Code \u2014 eine HELLE Kopfzeile, samt Dunkelmodus-Variante, fertig ausformuliert. Sie wurde von einer `.hero`-Regel am Dateiende mit !important \u00fcberstimmt (dunkelgr\u00fcner Verlauf, weisse Schrift). Die Kindregeln f\u00fcr Titel und Untertitel waren aber ebenfalls f\u00fcr HELL geschrieben, ohne !important, und deshalb wirksam: dunkelgr\u00fcner Text auf dunklem Verlauf. Zwei H\u00e4lften eines Umbaus, die sich nie getroffen haben. `class="hero"` kommt in der ganzen App GENAU EINMAL vor, also betraf die Sperre nichts anderes \u2014 sie ist entfernt, zusammen mit drei weiteren .hero-Regeln, die nie gewirkt haben.'},
+      {emoji:'\ud83d\udd2c', bold:'Der Pr\u00fcfstand kann jetzt Verl\u00e4ufe:', text:' contrast_check.js las die Hintergrundfarbe bisher aus getComputedStyle und \u00fcbersprang alles mit background-image. Jetzt wird die Seite zweimal aufgenommen \u2014 einmal normal, einmal mit color:transparent \u2014 und unter jeder Textstelle der echte Pixel-Median gelesen. Damit sind Verl\u00e4ufe, Bilder und halbtransparente Schichten automatisch richtig ber\u00fccksichtigt.'},
+      {emoji:'\ud83c\udfa8', bold:'21 weitere Stellen:', text:' Z\u00e4hler-Chips und Intro-Karten in Wissen/Rezepte/Heilmittel waren 10-%-T\u00f6nungen \u00fcber dunkler Leinwand mit Text f\u00fcr helle Fl\u00e4chen (1,05 bis 1,59:1) \u2014 jetzt richtige Karten. Die Pillen im Wissens-Hero und die Kennzahl-K\u00e4sten bei den Pflanzen nutzten WEISSE Transparenz \u00fcber Gr\u00fcn, was den Untergrund aufhellt und weissen Text durchfallen l\u00e4sst \u2014 jetzt dunkle. Zwei fest verdrahtete rgba(255,255,255,.96)-Fl\u00e4chen blieben im Dunkelmodus weiss.'},
+      {emoji:'\ud83d\udd22', bold:'41\u00d7 #2d8a2d:', text:' dieser Gr\u00fcnton scheitert in BEIDE Richtungen mit 4,39:1 \u2014 als Fl\u00e4che mit weisser Schrift und als Schrift auf Weiss. Das Token hatte ich in v31.32 schon gezogen, die 41 fest verdrahteten Vorkommen nicht. Jetzt alle auf #1f6b2f (6,56:1).'},
+      {emoji:'\ud83e\udde9', bold:'Nebenbei ein Umbruch-Fehler:', text:' im Wissens-Hero kommt ein dritter Chip dazu, sobald die Arten-Datenbank geladen ist. Drei passten nicht nebeneinander und brachen INNERHALB um \u2014 „🍂 / Herbst" auf zwei Zeilen. Jetzt rutscht bei Bedarf ein ganzer Chip in die n\u00e4chste Zeile.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Kontrast pixelgenau \u00fcber neun Tabs in beiden Modi: 28 + 12 \u2192 0 + 0 \u00b7 zwei Falschmeldungs-Klassen im Pr\u00fcfstand selbst beseitigt (Text hinter der fixierten Navigationsleiste; deaktivierte Bedienelemente, die WCAG ausdr\u00fccklich ausnimmt) \u00b7 die gemeldete Gr\u00f6ssen\u00e4nderung an den Wissens-Chips direkt nachgemessen und als ECHT best\u00e4tigt \u2014 Ursache war der dritte Chip, nicht meine \u00c4nderung; trotzdem behoben \u00b7 Antippfl\u00e4chen weiterhin 0 unter 24\u00d724 \u00b7 keine JS-Fehler \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.37 \u00b7 sw.js gs-v31.37 \u00b7 _headers v31.37 \u00b7 meta=31.37.20260901.'},
+    ],
+  },
+  {
+    v: 'v31.36', date: '01.09.2026',
+    headline: '\ud83d\udce6 787 KB Changelog, die jeder bei jedem Start mitlud',
+    summary: 'Die Versionshistorie stand vollst\u00e4ndig in der Hauptdatei: 383 Eintr\u00e4ge, 787 KB, 14 Prozent der ganzen App. Geladen und geparst bei jedem Kaltstart \u2014 obwohl beim Start nur der neueste Eintrag gebraucht wird und die volle Liste nur sieht, wer den Changelog \u00f6ffnet. Jetzt bleiben die neuesten zw\u00f6lf drin, der Rest wird bei Bedarf geholt.',
+    user_summary: '\ud83d\udce6 Die App ist beim Start rund 630 KB leichter. Der Changelog zeigt weiterhin die vollst\u00e4ndige Historie \u2014 er l\u00e4dt sie jetzt beim \u00d6ffnen nach.',
+    user_items: [
+      { emoji: '\ud83d\udce6', text: 'Hauptdatei 5,50 \u2192 4,87 MB; beim ersten Besuch 260 KB weniger \u00fcbertragen' },
+      { emoji: '\u26a1', text: 'Start auf dem Telefon rund 145ms schneller' },
+    ],
+    items: [
+      {emoji:'\ud83d\udcca', bold:'Was gemessen wurde:', text:' GS_RELEASES war mit 787 KB der gr\u00f6sste Einzelblock in index.html (14 %). Danach kommen DEFAULT_RECIPES (297 KB), WEEKLY_SEASONAL_FACTS (148 KB) und GS_I18N_JS_STRINGS (83 KB) \u2014 die werden aber tats\u00e4chlich beim Start gebraucht, der Changelog nicht.'},
+      {emoji:'\ud83d\udce6', bold:'Die Aufteilung:', text:' die neuesten 12 Eintr\u00e4ge (32 KB) bleiben inline \u2014 damit funktioniert der \u201eWas ist neu\u201c-Dialog und die j\u00fcngste Historie ohne Nachladen. Die 371 \u00e4lteren (753 KB) stehen in data/releases.v1.js und werden per gsLoadReleaseArchive() geholt, wenn der Changelog ge\u00f6ffnet wird. Dasselbe Vorgehen wie bei data/plants.v1.js seit v25.10.'},
+      {emoji:'\ud83d\udeab', bold:'Bewusst NICHT vor-gecacht:', text:' der Service Worker holt das Archiv nicht beim Installieren. Sonst l\u00fcde jeder 778 KB f\u00fcr einen Bildschirm, den die meisten nie \u00f6ffnen \u2014 damit w\u00e4re der halbe Gewinn wieder weg. Es f\u00e4llt unter die Standard-Strategie und ist ab dem ersten \u00d6ffnen auch offline da.'},
+      {emoji:'\ud83d\udcac', bold:'Der Offline-Fall ist sichtbar:', text:' wer offline ist und den Changelog noch nie ge\u00f6ffnet hat, sieht die zw\u00f6lf vorhandenen Eintr\u00e4ge UND einen Hinweis, dass die \u00e4lteren einmal eine Verbindung brauchen. Eine Kurzliste stillschweigend als vollst\u00e4ndig auszugeben w\u00e4re die schlechtere L\u00f6sung.'},
+      {emoji:'\ud83e\uddea', bold:'Was das NICHT bringt:', text:' die Parse-Zeit sank nur um rund 70ms, obwohl 630 KB verschwunden sind. Grund: entfernt wurden DATEN, und Datenliterale sind fuer die JavaScript-Maschine viel billiger als Code. Der messbare Gewinn kommt aus DOMContentLoaded (rund 145ms) und aus den 260 KB, die beim Erstbesuch gar nicht mehr \u00fcbertragen werden.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Beim Start wird NICHTS nachgeladen (Netzwerk-Mitschnitt) \u00b7 GS_RELEASES[0].v = v31.36 = GS_VERSION, der Dialog erscheint also \u00b7 Changelog ge\u00f6ffnet: erst 12 Eintr\u00e4ge sofort, dann 383 nach dem Nachladen \u00b7 Archiv blockiert: 12 Eintr\u00e4ge plus Hinweis, keine JS-Fehler \u00b7 zwei Doppell\u00e4ufe 4x gedrosselt: DOMContentLoaded 1\u2019568\u21921\u2019424ms und 1\u2019591\u21921\u2019445ms \u00b7 index.html 5,50\u21924,87 MB \u00b7 9/9 Inline-Scripts und data/releases.v1.js node --check OK \u00b7 GS_VERSION=v31.36 \u00b7 sw.js gs-v31.36 \u00b7 _headers v31.36 \u00b7 meta=31.36.20260901.'},
+    ],
+  },
+  {
+    v: 'v31.35', date: '01.09.2026',
+    headline: '\u26a1 Beim Start wurde eine Sekunde lang dasselbe immer wieder durchsucht',
+    summary: 'Drei Hintergrund-Beobachter durchsuchten bei JEDER DOM-\u00c4nderung das gesamte Dokument neu \u2014 und beim Start baut die App dutzende Bausteine nacheinander auf. Auf einem Mittelklasse-Telefon waren das 1\u2019127 Millisekunden verschenkte Arbeit. Jetzt wird nur noch das Neue durchsucht, und das geb\u00fcndelt.',
+    user_summary: '\u26a1 Die App startet auf dem Telefon sp\u00fcrbar williger \u2014 rund eine Sekunde weniger Rechenarbeit, in der vorher kein Fingertipp ankam.',
+    user_items: [
+      { emoji: '\u26a1', text: 'App-Rechenzeit beim Start auf dem Telefon: 1\u2019548ms \u2192 421ms' },
+      { emoji: '\u2705', text: 'Nachgemessen: die Beobachter leisten exakt dasselbe wie vorher' },
+    ],
+    items: [
+      {emoji:'\ud83d\udd0e', bold:'Der Fund:', text:' drei MutationObserver (Auto-ARIA, Auto-Maxlength, Auto-Lazy) beobachteten document.body mit subtree:true und riefen bei jeder Mutation labelize(document) bzw. applyTo(document) bzw. patch(document) \u2014 also je ein querySelectorAll \u00fcber alle 4\u2019486 Knoten. Beim Start ergab das allein 743ms querySelectorAll.'},
+      {emoji:'\u26a1', bold:'Die L\u00f6sung:', text:' die eingef\u00fcgten Teilb\u00e4ume sammeln und in EINEM Durchgang abarbeiten, wenn der Hauptstrang frei ist (requestIdleCallback mit Frist). Notbremse bei \u00fcber 300 Wurzeln: dann ist ein Durchgang \u00fcber das ganze Dokument billiger. Alle drei Funktionen pr\u00fcfen jetzt zus\u00e4tzlich die Wurzel selbst \u2014 querySelectorAll findet nur Nachkommen, ein einzeln eingef\u00fcgter Knopf w\u00e4re sonst durchgerutscht.'},
+      {emoji:'\ud83d\udcc9', bold:'Ergebnis (4x gedrosselt, Mittelklasse-Telefon):', text:' App-JavaScript 1\u2019548ms \u2192 421ms. DOMContentLoaded 1\u2019683 \u2192 1\u2019470ms. Die drei querySelectorAll-Posten (269 + 261 + 177ms) und labelize (71ms) sind vollst\u00e4ndig aus der Messung verschwunden.'},
+      {emoji:'\ud83e\uddf1', bold:'Was NICHT besser wurde \u2014 und warum:', text:' die l\u00e4ngste Einzelblockade sank nur von 782 auf 710ms. Sie besteht n\u00e4mlich nicht aus App-Code, sondern aus dem Parsen der 5,7-MB-Datei (2\u2019633ms). Das ist eine Eigenschaft des Monolithen und liesse sich nur durch Aufteilen \u00e4ndern \u2014 eine Architektur-Entscheidung, keine Aufr\u00e4umarbeit.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Beide St\u00e4nde mit demselben Skript gemessen (scripts/perf_check.js, neu im Repo) \u00b7 Verhaltens-Gegenprobe \u00fcber alle elf Tabs: 199 aria-labels, 65 maxlength, 7 loading-Attribute \u2014 in beiden St\u00e4nden IDENTISCH, also gleiche Wirkung bei einem Drittel der Arbeit \u00b7 Vorher/Nachher am laufenden Programm: 1\u2019522 vergleichbare Elemente, 0 \u00c4nderungen an Radius, Schriftgr\u00f6sse, Gr\u00f6sse und Farbe \u00b7 Kontrast 0 unter AA, Antippfl\u00e4chen 0 unter 24\u00d724 \u00b7 keine JS-Fehler \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.35 \u00b7 sw.js gs-v31.35 \u00b7 _headers v31.35 \u00b7 meta=31.35.20260901.'},
+    ],
+  },
+  {
+    v: 'v31.34', date: '01.09.2026',
+    headline: '\ud83d\udc46 43 zu kleine Antippfl\u00e4chen \u2014 die kleinste war 8\u00d78 Pixel',
+    summary: 'Die Punkte unter den Tageskarten waren acht Pixel gross und lagen vierzehn Pixel auseinander. Die Suchfelder waren nur 18 Pixel hoch, obwohl die Leiste drumherum 37 aussieht \u2014 wer den Rand antippte, traf nichts. Beides und einiges mehr ist behoben, ohne dass sich die Optik \u00e4ndert.',
+    user_summary: '\ud83d\udc46 Kleine Schaltfl\u00e4chen lassen sich jetzt zuverl\u00e4ssig treffen \u2014 die Karussell-Punkte, die Suchfelder, die Karten-Filter. Sichtbar bleibt fast alles gleich.',
+    user_items: [
+      { emoji: '\ud83d\udc46', text: 'Karussell-Punkte: Trefferfl\u00e4che neunmal so gross, der Punkt sieht gleich aus' },
+      { emoji: '\ud83d\udd0d', text: 'Suchfelder reagieren jetzt auf die ganze sichtbare Leiste, nicht nur auf die Mitte' },
+    ],
+    items: [
+      {emoji:'\ud83d\udc46', bold:'Karussell-Punkte:', text:' 8\u00d78px, 14px Abstand von Mitte zu Mitte. WCAG 2.5.8 verlangt 24\u00d724, und die Ausnahme f\u00fcr kleinere Ziele greift nur, wenn ein 24px-Kreis kein anderes Ziel ber\u00fchrt \u2014 bei 14px Abstand also nicht. Der Knopf ist jetzt 24\u00d724, der sichtbare Punkt sitzt als ::before darin. Die Leiste wurde dadurch 2px h\u00f6her.'},
+      {emoji:'\ud83d\udd0d', bold:'Suchfelder:', text:' das Eingabefeld war 18px hoch, die Leiste drumherum 37px \u2014 deren 9px Polsterung geh\u00f6rte nicht zum Feld. Wer oben oder unten antippte, l\u00f6ste nichts aus. Das Feld reicht jetzt per padding und ausgleichendem negativem margin in die Polsterung hinein: gleiche H\u00f6he, doppelte Trefferfl\u00e4che. Betrifft Arten-, Pflanzen-, Marktplatz- und Rezeptsuche sowie die beiden Preisfelder.'},
+      {emoji:'\ud83c\udf3f', bold:'Weitere:', text:' 42 Pflanzen-Chips in der Trachten-\u00dcbersicht (18px \u2192 24px hoch), f\u00fcnf Kategorie-Chips auf der Karte (21 \u2192 25px) und der Knopf \u201e+ Hinzuf\u00fcgen\u201c im Garten (22 \u2192 26px).'},
+      {emoji:'\ud83d\udd2c', bold:'Drittes Pr\u00fcfwerkzeug:', text:' scripts/touch_check.js misst jede Antippfl\u00e4che \u00fcber alle elf Tabs. Es meldet bewusst keine Container, die selbst bedienbare Elemente enthalten \u2014 sonst z\u00e4hlt man doppelt.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Antippfl\u00e4chen unter 24\u00d724: 43 \u2192 0 \u00b7 Vorher/Nachher am laufenden Programm: 1\u2019522 vergleichbare Elemente, 77 Gr\u00f6ssen\u00e4nderungen (genau die vergr\u00f6sserten Ziele), 0 Radius\u00e4nderungen, 0 Schriftgr\u00f6ssen\u00e4nderungen und 1 Farb\u00e4nderung \u2014 die nachgepr\u00fcft der Punkt-Knopf selbst ist, dessen Farbe ins ::before gewandert ist \u00b7 abgeschnittener Inhalt 17 \u2192 17, aus dem Bildschirm ragend 0 \u2192 0 \u00b7 Kontrast weiterhin 0 unter AA in beiden Modi \u00b7 alle 7\u2019081 onclick-Ziele l\u00f6sen zu echten Funktionen auf \u00b7 keine JS-Fehler \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.34 \u00b7 sw.js gs-v31.34 \u00b7 _headers v31.34 \u00b7 meta=31.34.20260901.'},
+    ],
+  },
+  {
     v: 'v31.33', date: '01.09.2026',
     headline: '\ud83e\uddf9 52 Stilregeln, die seit Jahren wirkungslos im Code standen',
     summary: 'An 22 Stellen war dieselbe Klasse zweimal beschrieben \u2014 einmal oben im Dokument, einmal weiter unten aus einem sp\u00e4teren Umbau. Bei gleicher Spezifit\u00e4t gewinnt die sp\u00e4tere, die fr\u00fchere galt also nie. Wer die obere las, las etwas, das nicht stimmt. Entfernt; sichtbar \u00e4ndert sich nichts, und das ist nachgemessen.',
