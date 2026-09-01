@@ -77,6 +77,22 @@ um einen Nutzer-Report nachzustellen. Was von hier aus geht:
   drei anderen Prüfstände, §7.1),
 - die Deploy-Meldung der Cloudflare-Pages-Bot-Kommentare am PR lesen.
 
+**Und die Vorschau-Adressen ebenfalls nicht** (geprüft 01.09.2026). Der
+Cloudflare-Bot hängt an jeden PR zwei Adressen an — eine pro Deploy
+(`<hash>.greenscan-app.pages.dev`) und eine pro Branch
+(`<branch>.greenscan-app.pages.dev`). Beide sehen aus wie der naheliegende
+Ausweg. Beide liefern dasselbe `CONNECT … 403`:
+
+```
+curl -sS https://54e6aba1.greenscan-app.pages.dev
+curl: (56) CONNECT tunnel failed, response 403
+```
+
+Der Proxy-Status nennt es beim Namen: `connect_rejected · gateway answered
+403 to CONNECT (policy denial)`. Dasselbe gilt für die Netlify-Vorschauen.
+**Nicht noch einmal probieren** — die Sperre gilt für alles ausserhalb der
+Freigabeliste, nicht für einzelne Hostnamen.
+
 Wer schreibt „live verifiziert", muss also sagen, **womit** — sonst ist es
 geraten. Für echte Live-Prüfungen braucht es Fernando oder eine Umgebung ohne
 diese Sperre.
