@@ -320,10 +320,20 @@ Richtungen, und die zweite ist die teurere:
   Datei als Kommentar und elf echte Funde verschwanden. Er führt deshalb beim
   Durchgehen Zeichenketten mit.
 
-Die 52 verbleibenden **abgesicherten** Nachschlagungen sind kein Fehler,
-sondern eine Liste: Reste entfernter Oberflächen (`cam-perm-dialog`,
-`gc-canvas`, `cemetery-list`, `weather-alert-card`). Jede einzeln prüfen —
-manche sind harmlos, manche sind eine Funktion ohne Anzeige.
+Die verbleibenden **abgesicherten** Nachschlagungen (46, Stand v31.46) sind
+kein Fehler, sondern eine Arbeitsliste — und sie ist es wert, durchgegangen zu
+werden. „Abgesichert" heisst nur, dass nichts abstürzt; es heisst **nicht**,
+dass nichts fehlt. In v31.46 verbarg sich in dieser Liste der Pflanzenfriedhof:
+der Knopf auf jeder Pflanzenkarte verschob die Pflanze korrekt, aber
+`renderCemetery` schrieb in ein `#cemetery-list`, das es nicht gab — es gab
+schlicht keinen Weg zurück. Jede Zeile einzeln prüfen: manche sind Reste
+entfernter Oberflächen, manche eine **Funktion ohne Anzeige**.
+
+**Und noch eine Lehre aus v31.46:** `scripts/_seed.js` legte die
+Beispiel-Pflanzen unter `myPlants` ab — die App liest `ps_myplants`. Von v31.30
+bis v31.45 haben deshalb *alle* Prüfstände eine leere Pflanzenliste vermessen.
+Wer die Beispieldaten erweitert: **den Schlüssel gegen `index.html` prüfen**,
+nicht gegen den Namen der globalen Variablen.
 
 `perf_check.js` trennt **App-JS** von **Parsen/Kompilieren**. Nur die erste
 Spalte ist beeinflussbar — die zweite ist der Preis des 5,7-MB-Monolithen und
