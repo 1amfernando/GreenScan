@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.58.20260901">
+<meta name="app-version" content="31.59.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -54488,6 +54488,16 @@ function gsPPrenderPlan(plan, data) {
         '<button onclick="gsPPshow3DCad()" style="background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border:none;border-radius:var(--r-sm);padding:6px 11px;font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🔍 Vollbild</button>' +
       '</div>' +
       '<div id="pp-inline-3d" style="position:relative;height:340px;border-radius:var(--r-md);overflow:hidden;background:linear-gradient(180deg,#0a1a0a 0%,#1b3a1b 100%);"></div>' +
+      // v31.59: Legende nur, wenn der Plan tatsaechlich Bestand enthaelt —
+      // ohne Garten-Scan gibt es nichts zu unterscheiden, und eine Legende
+      // fuer eine Unterscheidung, die es nicht gibt, verwirrt mehr als sie
+      // hilft.
+      (plan._bestand
+        ? '<div style="display:flex;justify-content:center;gap:16px;margin-top:8px;font-size:var(--fs-sm);color:var(--text2);font-weight:600;flex-wrap:wrap;">' +
+            '<span style="display:inline-flex;align-items:center;gap:6px;"><i style="width:11px;height:11px;border-radius:3px;background:#bdbdbd;display:inline-block;"></i>steht schon da</span>' +
+            '<span style="display:inline-flex;align-items:center;gap:6px;"><i style="width:11px;height:11px;border-radius:50%;border:2px solid #7cb342;display:inline-block;box-sizing:border-box;"></i>Vorschlag</span>' +
+          '</div>'
+        : '') +
       '<div style="display:flex;justify-content:center;gap:14px;margin-top:8px;font-size:var(--fs-sm);color:var(--muted);font-weight:600;">' +
         '<span>🖱️ Drehen</span><span>⚙️ Zoomen</span><span>👆 Pflanze tippen für Details</span>' +
       '</div>' +
@@ -55345,13 +55355,38 @@ function gsPP3DRenderInline(plan, container) {
     function rand() { _seed = (_seed * 1103515245 + 12345) >>> 0; return ((_seed >>> 16) & 0x7fff) / 0x7fff; }
 
     // Footprint (transparente Fläche zur Markierung)
+    // v31.59: Bestand und Vorschlag unterscheidbar machen. Seit Planer V3
+    // enthaelt ein Plan beides — Pflanzen aus dem Garten-Scan (existing:true)
+    // und neu vorgeschlagene. Im Modell sahen sie identisch aus, und ein
+    // Plan, bei dem man nicht sieht, was schon da ist und was der Vorschlag
+    // waere, ist die Haelfte wert.
+    // Bestand: neutrale, blasse Flaeche — „steht bereits".
+    // Vorschlag: kraeftigere Flaeche plus ein Ring — „das waere neu".
+    var istBestand = (p.existing === true);
     var foot = new THREE.Mesh(
       new THREE.PlaneGeometry(w, h),
-      new THREE.MeshStandardMaterial({ color: col, transparent: true, opacity: 0.15, side: THREE.DoubleSide })
+      new THREE.MeshStandardMaterial({
+        color: istBestand ? 0xbdbdbd : col,
+        transparent: true,
+        opacity: istBestand ? 0.10 : 0.22,
+        side: THREE.DoubleSide
+      })
     );
     foot.rotation.x = -Math.PI/2;
     foot.position.y = 0.005;
     grp.add(foot);
+    if (!istBestand) {
+      // Duenner Ring nur um Vorschlaege. RingGeometry statt Torus: flach auf
+      // dem Boden, keine zusaetzliche Hoehe, kein Schattenwurf.
+      var r = Math.max(w, h) / 2;
+      var ring = new THREE.Mesh(
+        new THREE.RingGeometry(Math.max(0.02, r * 0.92), r, 28),
+        new THREE.MeshBasicMaterial({ color: 0x7cb342, transparent: true, opacity: 0.85, side: THREE.DoubleSide })
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.012;
+      grp.add(ring);
+    }
 
     // === Typ-Erkennung ===
     var isTomato   = /tomate/.test(pname);
@@ -64194,6 +64229,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.59', date: '01.09.2026',
+    headline: '\ud83d\udc41\ufe0f Im 3D-Modell siehst du jetzt, was schon da steht und was der Vorschlag ist',
+    summary: 'Seit Planer V3 enthält ein Plan beides: Pflanzen aus deinem Garten-Scan und neu vorgeschlagene. Im Modell sahen sie identisch aus. Jetzt ist der Bestand blass und neutral, jeder Vorschlag trägt einen Ring.',
+    user_summary: '\ud83d\udc41\ufe0f Im 3D-Modell ist Bestand jetzt von Vorschlag unterscheidbar \u2014 blass heisst „steht schon da", mit Ring heisst „das wäre neu".',
+    user_items: [
+      {emoji:'\ud83d\udc41\ufe0f', bold:'Blass gegen Ring:', text:' Was aus deinem Scan kommt, liegt neutral und zur\u00fcckhaltend da. Was der Planer vorschl\u00e4gt, bekommt einen gr\u00fcnen Ring und eine kr\u00e4ftigere Fl\u00e4che. Ein Plan, bei dem man das nicht sieht, ist die H\u00e4lfte wert.'},
+      {emoji:'\ud83d\udcd6', bold:'Mit Legende \u2014 aber nur wenn n\u00f6tig:', text:' Ohne Garten-Scan gibt es nichts zu unterscheiden, und eine Legende f\u00fcr eine Unterscheidung, die es nicht gibt, verwirrt mehr als sie hilft. Sie erscheint deshalb nur, wenn der Plan wirklich Bestand enth\u00e4lt.'},
+      {emoji:'\ud83d\udd2c', bold:'Am Modell nachgemessen:', text:' Bei zwei vorhandenen und zwei neuen Pflanzen baut der Renderer genau zwei Ringe, zwei blasse und zwei kr\u00e4ftige Fl\u00e4chen \u2014 gez\u00e4hlt an dem, was er tats\u00e4chlich konstruiert, nicht an dem, was er behauptet.'},
+    ],
+  },
+  {
     v: 'v31.58', date: '01.09.2026',
     headline: '\ud83e\udde0 Planer V3 \u2014 er plant jetzt IN deinen Garten, nicht auf ein leeres Rechteck',
     summary: 'Der KI-Planer kennt ab sofort deinen gescannten Bestand: Pflanzen mit Koordinaten, Beete und Lichtzonen in Metern. Vorhandenes bleibt stehen, Neues wird in die L\u00fccken gesetzt \u2014 mit \u00dcberschneidungspr\u00fcfung. Dazu ein Farbfehler, der 95 Stellen betraf.',
@@ -64759,7 +64805,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.58';
+var GS_VERSION = 'v31.59';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
