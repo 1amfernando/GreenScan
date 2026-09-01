@@ -12,6 +12,100 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-01 (bc) — v31.65: Planer-Optik, ehrlicher Fortschritt — und ein Speicher-Fehler, den ich selbst gebaut habe
+
+Fernandos zweiter Auftrag: den KI-Planer optisch und funktionell verbessern, mit Bildern aus dem Internet arbeiten.
+
+#### Zuerst das, was nicht geht
+
+**Bilder aus dem Internet sind aus dieser Umgebung nicht erreichbar.** Wikimedia Commons, Unsplash — alles `connect_rejected · gateway answered 403 to CONNECT (policy denial)`. Die Freigabeliste des Proxys enthält nur Paket-Register (npm, PyPI, crates.io, Go) und die Anthropic-API. Das ist dieselbe Sperre, die schon `green-scan.ch` und die Vorschau-Adressen betrifft (CLAUDE.md §2.1) — sie gilt für alles ausserhalb der Liste, nicht für einzelne Hostnamen.
+
+Statt zu behaupten, ich hätte damit gearbeitet: **Testbilder lokal gemalt** (Rasen, Hochbeet, 14 Pflanzen, Schattenzone, Hecke) und damit den Scan-Weg vermessen. Das prüft die Verarbeitung, **nicht die Erkennung** — dafür bräuchte es die KI, und zu der gibt es von hier aus ebenfalls kein Netz.
+
+#### Optik: eine Tafel statt vier Kästen
+
+Vor dem Plan stapelten sich bis zu vier eigene Hinweiskästen — Bestand, kein Platz, zu nah, Licht. **Drei davon hatte ich selbst gebaut** (v31.58, v31.62, v31.63), jeden für sich sinnvoll, zusammen ein Wall. Genau der Befund, den Fernando eine Stunde vorher über „Mein Garten" gemacht hat.
+
+Jetzt eine Tafel „🔍 Plan-Prüfung", eine Zeile je Prüfung, drei Zustände:
+
+| Fall | vorher | nachher |
+|---|---|---|
+| alles gut | 170 px in 2 Kästen | 134 px in 1 | **−21 %** |
+| zwei Hinweise | 309 px in 3 | 215 px in 1 | **−30 %** |
+| alles + kein Platz | 291 px in 3 | 212 px in 1 | **−27 %** |
+| nicht prüfbar | 85 px in 1 | 163 px in 1 | **+92 %** |
+
+Der letzte Fall ist **absichtlich länger** — und er ist der eigentliche Gewinn. Konnte eine Prüfung nicht laufen (geplante Fläche ≠ gescannte, Mischkultur-Daten noch nicht geladen), stand vorher **gar nichts** da. „Geprüft und in Ordnung" sah aus wie „gar nicht prüfbar". Jetzt steht der Grund da.
+
+#### Funktion: der Fortschrittsbalken hat gelogen
+
+Sieben Meldungen — „🌙 Mondphase + Saison berücksichtigen …", „🌱 Mischkultur-Kombinationen prüfen …" — liefen nach `elapsed / EXPECTED_MS` ab, während die App auf **einen** Netzaufruf wartete. Nichts davon geschah in dem Moment, in dem es behauptet wurde. Prozentwert aus derselben Uhr, Restzeit = Konstante minus verstrichene Zeit. Im HTML stand darüber: „Echter Progress-Balken".
+
+Jetzt melden nur Schritte, die es gibt: Zusammenstellen (10 %) → **unbestimmter Balken**, solange die KI arbeitet, mit „läuft seit N s" → Antwort prüfen (60 %) → Pflanzen setzen und messen (80 %) → aufbauen (95 %).
+
+Ein wandernder Streifen sagt „ich arbeite"; „73 %" sagt „ich bin bei 73 %", und das weiss dort niemand. `prefers-reduced-motion` bekommt einen ruhigen Balken.
+
+**Am laufenden Programm nachgewiesen** — mit einer untergeschobenen KI (4 s Wartezeit), an den echten Codewegen abgelesen:
+
+```
+läuft seit 0 s … 4 s   (unbestimmter Balken, kein Prozentwert, keine Restzeit)
+vor dem Setzen der Pflanzen  →  „🌱 Pflanzen setzen, Licht und Nachbarn prüfen …" bei 80%
+vor dem Aufbauen des Plans   →  „✨ Plan aufbauen …" bei 95%
+Ergebnis sichtbar: true · Plan-Prüfung: 3 Zeilen, alle ✓
+```
+
+#### Und dann der eigentliche Fund
+
+Der Scan-Weg hielt über vier Kameraformate (4032×3024, 3000×4000, 16:9, quadratisch): Seitenverhältnis bleibt, Ausgabe immer JPEG, Rückweg identisch, Marker auf den Prozent genau. Also der Härtefall — **voller Gerätespeicher**.
+
+`gsTwinSave` hatte dafür einen Rückfall: Foto weg, Zwilling behalten. **Er ist nie gelaufen.**
+
+Die App umhüllt `localStorage.setItem` global (Z. ~7145) und lässt die Ausnahme **nicht** durch — sie gibt `false` zurück. Der Kommentar an jener Stelle sagt es seit v30.98 wörtlich:
+
+> *„dadurch war JEDER `try{ localStorage.setItem(...) }catch{ …Fallback… }` im ganzen Monolithen toter Code (die Ausnahme kam nie an)"*
+
+Ich habe den Rückfall in v31.57 trotzdem in einen `catch` geschrieben. Folge auf einem vollen Gerät: nicht nur das Foto war weg, sondern der **ganze** Zwilling — Pflanzen, Korrekturen, Lichtzonen — und `gsTwinSave` gab `true` zurück.
+
+Nachgestellt und danach belegt:
+
+```
+gs_garden_twin 78 KB → abgelehnt (false)
+gs_garden_twin  0 KB → angenommen
+gsTwinSave sagt: 'ohne_foto'  ·  Pflanzen: 1  ·  Bildposition erhalten: true
+```
+
+Der Zwilling merkt sich jetzt `photo_weg`, damit die Liste sagen kann, warum die Marker fehlen — sonst sieht eine Platzentscheidung wie ein Fehler aus.
+
+#### Zwei weitere Warnungen, die nie erschienen
+
+Dieselbe Ursache:
+
+| Stelle | eingebaut | versprach |
+|---|---|---|
+| `toggleFav` | v30.46 | „Speicher voll — Favorit evtl. nicht gesichert." |
+| Supabase-Key speichern | v28.67 | „klares Feedback statt stillem Abbruch mit falschem ✅" |
+
+Beide bekamen genau den stillen Abbruch mit falschem ✅. Beide gehen jetzt, die Favoriten-Warnung am laufenden Programm ausgelöst.
+
+#### Die Zahlen zum Muster
+
+**228 der 316 `setItem`-Aufrufe** stehen in einem `try/catch`; **nur 12** prüfen den Rückgabewert. Die meisten `catch`-Blöcke sind harmlos (leer oder nur `console.warn`). **13 enthalten einen echten Rettungsweg.** Drei davon waren Nutzer-Warnungen; zwei sind hier repariert.
+
+**Offen, nicht angefasst** (bewusst — das ist eine eigene Welle, kein Anhängsel):
+`gsPPsavePlan` (Z. ~57000, Plan-Speicherung) · `_gsRestoreStats.failed++` an zwei Stellen (Z. ~72212) · Backup-Flags `okW`/`bakOk` (Z. ~2219/2233) · `_vk = 'anon:fallback'` (Z. ~32629) · zwei Passwort-Pfade (Z. ~70077).
+
+In `CLAUDE.md` §3.5 steht die Falle jetzt mit dem richtigen Muster daneben.
+
+#### Verify
+
+`wiring_check` 307 Namen / **0** nicht auflösbar · Menü 40/0 · 928 Nachschlagungen / **0** nie erzeugt / **0** ungesichert · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen · `contrast_check` 0 unter AA beide Modi · `touch_check` 0 unter 24×24 · Tafel in fünf Zuständen durchgespielt · ganzer Planer-Lauf mit untergeschobener KI, Stufen an den Codewegen abgelesen · Scan-Weg über vier Kameraformate · Speicher-Härtefall nachgestellt · Favoriten-Warnung ausgelöst · Licht (v31.62) und Nachbarn (v31.63) unverändert richtig · Farben der Tafel 5,33 bis 18,88:1 beide Modi · `gsAllReleases()` 412 → **413**, 0 Dopplungen · 9/9 Inline-Scripts + `sw.js` `node --check` OK · `GS_VERSION` v31.65 · `sw.js` gs-v31.65 · `_headers` v31.65 · meta 31.65.20260901.
+
+#### Für Fernando
+
+Wenn du echte Gartenfotos hast: schick sie, oder leg sie ins Repo. Dann kann ich `gsTwinPrompt()` an **konkreten** Fehlerkennungen schärfen statt an Vermutungen — und die Marker an echten Perspektiven prüfen statt an gemalten.
+
+---
+
 ### 2026-09-01 (bb) — v31.64: „Mein Garten" um ein Fünftel kürzer, ohne Verlust
 
 Fernandos Befund: *„sehr lang und hat sehr zu viele Sachen"*. Also erst gemessen, dann geschnitten.

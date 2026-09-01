@@ -182,6 +182,33 @@ GreenScan/
 - Lokal: `localStorage` mit `safeGetItem(key, fallback)` Wrapper benutzen.
   Quota-Errors werden geschluckt — bei großen Listen (Ernte-Log,
   Scan-History) selbst rotieren (`slice(-N)`).
+
+> ⚠️ **Die Falle, in die ich selbst gelaufen bin (v31.65).**
+> `localStorage.setItem` ist **global umhüllt** (`index.html` ~Z. 7145) und
+> **wirft nie**. Bei vollem Speicher gibt es `false` zurück und zeigt einen
+> Hinweis. Das heisst:
+>
+> ```js
+> try { localStorage.setItem(k, v); } catch (e) { /* Rettungsweg */ }   // TOT
+> if (localStorage.setItem(k, v) === false) { /* Rettungsweg */ }        // richtig
+> ```
+>
+> Der Kommentar an der Wrapper-Stelle sagt es seit v30.98 wörtlich — trotzdem
+> habe ich in v31.57 einen Rückfall in einen `catch` geschrieben, der nie
+> lief. Folge: bei vollem Gerät war nicht nur das Scan-Foto weg, sondern der
+> **ganze** Garten-Zwilling, und `gsTwinSave` meldete Erfolg.
+>
+> **Stand v31.65: 228 der 316 `setItem`-Aufrufe stehen in einem `try/catch`;
+> nur 12 prüfen den Rückgabewert.** Die meisten dieser `catch`-Blöcke sind
+> harmlos (leer oder nur `console.warn`). **13 enthalten einen echten
+> Rettungsweg** — die sind die gefährlichen. Drei davon waren
+> Nutzer-Warnungen, die nie erschienen; zwei sind in v31.65 repariert
+> (Favoriten, Supabase-Key), der Rest ist offen und in `STATUS.md` (bc)
+> einzeln aufgeführt.
+>
+> Gefunden wurde das nicht beim Lesen, sondern beim Nachstellen mit einem
+> echten Telefonfoto. **Wer einen Rettungsweg für vollen Speicher baut, muss
+> ihn auslösen** — sonst schreibt man Trost, keinen Code.
 - Cloud: `sbFetch(path, opts)` — hat Auto-Retry/Backoff für GET, einmaliges
   Retry für POST/PATCH/DELETE bei Netzwerk-Errors. Liefert
   `{data, error: {message, status?}}`.
