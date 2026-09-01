@@ -5,7 +5,7 @@
 > Kompagnon: `STATUS.md` (operativer Snapshot) · `CLAUDE.md` (Onboarding) ·
 > `BACKEND_FRONTEND_MAP_v26.76.md` (Architektur-Detailkarte).
 
-**Stand:** v31.37 · App **live** auf green-scan.ch · released seit v26.0.
+**Stand:** v31.38 · App **live** auf green-scan.ch · released seit v26.0.
 
 ---
 
@@ -76,6 +76,8 @@ Die App ist ein reifes, live-laufendes Produkt. Erreicht u.a.:
 **Bedienbarkeit: 43 → 0 (v31.34).** Antippflächen unter 24×24 px (WCAG 2.5.8) gemessen und behoben — die kleinste war 8×8: die Karussell-Punkte unter den Tageskarten. Trefferfläche jetzt 24×24, der sichtbare Punkt sitzt als `::before` darin, die Optik ist unverändert. Zweiter echter Fall: die Suchfelder waren 18px hoch in einer 37px hohen Leiste; deren Polsterung reagierte nicht. `scripts/touch_check.js` liegt als drittes Prüfwerkzeug im Repo. Nebenbei belegt: alle **7'081** `onclick`-Ziele lösen zu echten Funktionen auf, kein fehlender Handler.
 
 **Startleistung: App-JS 1'548ms → 421ms (v31.35).** Drei `MutationObserver` (Auto-ARIA, Auto-Maxlength, Auto-Lazy) durchsuchten bei jeder DOM-Änderung das ganze Dokument neu — 743ms `querySelectorAll` allein beim Start. Jetzt gebündelt und auf die eingefügten Teilbäume beschränkt. Gegengeprüft: die drei setzen exakt dieselben 199 `aria-label`, 65 `maxlength` und 7 `loading`-Attribute wie vorher. `scripts/perf_check.js` neu im Repo. **Bewusst nicht angefasst:** die längste Einzelblockade (710ms auf einem Mittelklasse-Telefon) ist das Parsen der 5,7-MB-Datei — das liesse sich nur durch Aufteilen des Monolithen ändern, und das ist eine Architektur-Entscheidung.
+
+**Navigationsleiste nach Vorlage (v31.38).** Helle Fläche statt dunkelgrünem Balken, gezeichnete Strich-Icons statt Emoji, Beschriftungen in Normalschreibung, Edelweiss im Mittelknopf. Der Icon-Satz (`assets/icons/`, 23 Symbole) lag mit eigenem README seit Längerem im Repo und war **nie eingebaut** — dasselbe Muster wie der halbe Hero-Umbau in v31.37. Die Leiste nutzt jetzt `--card`/`--border` und kippt selbst; drei Dunkelmodus-Überschreibungen wurden dadurch überflüssig. `render_check.js` baut Element-Schlüssel jetzt aus einem DOM-Pfad (vorher teilten sich id-, klassen- und textlose Elemente einen Schlüssel und wurden falsch gepaart) — vergleichbare Elemente 1'388 → 1'792.
 
 **Lesbarkeit, zweite Runde (v31.37).** Fernando meldete, oben auf der Startseite sei kaum etwas zu lesen — mein Prüfstand hatte „0 unter AA" gemeldet. Ursache: `contrast_check.js` übersprang Text auf **Farbverläufen**, und der Hero ist einer. „Natur entdecken" lag bei **1,32:1**. Das Werkzeug misst jetzt pixelgenau (Seite zweimal aufnehmen, einmal mit `color:transparent`, echten Hintergrund-Median lesen) und fand damit **28 + 12** Stellen; alle behoben, wieder 0 + 0. Der Kern war ein halber Umbau: die helle Kopfzeile stand fertig im Code und wurde von einer `.hero`-Regel mit `!important` überstimmt, während die Kindregeln für Titel/Untertitel (ohne `!important`) für Hell geschrieben waren. Dazu 41 fest verdrahtete `#2d8a2d` (4,39:1 in beide Richtungen) auf `#1f6b2f` gezogen.
 

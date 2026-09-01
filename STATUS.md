@@ -4,13 +4,51 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.37` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.38` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (y) — v31.38: Navigationsleiste nach Vorlage — und ein Icon-Satz, der seit Monaten ungenutzt im Repo lag
+
+> Fernando hat ein Referenzbild geschickt: helle Leiste, gezeichnete Strich-Icons, kleine Beschriftungen in Normalschreibung, dunkelgrüner runder Mittelknopf. Dazu: „den Home Button wie das Edelweiss Logo."
+
+#### Der Icon-Satz war schon da
+
+`assets/icons/` enthält **23 eigene Strich-Symbole** mit eigenem README. Und in diesem README steht wörtlich die Begründung, die Fernando jetzt genannt hat:
+
+> „Jede Plattform zeichnet [Emoji] anders. … Sie lassen sich nicht einfärben. … Sie sind nicht bedeutungstragend für Screenreader."
+
+Gebaut, dokumentiert — **nie eingebaut**. Die Leiste benutzte weiter 📷 🌱 🏠 🌿 ⋯. Dasselbe Muster wie beim Hero in v31.37: Arbeit, die fertig war und nie angeschlossen wurde.
+
+Jetzt inline eingesetzt (nicht als `<img>`), damit die Symbole über `currentColor` mit dem Modus mitgehen und keine zusätzlichen Anfragen kosten.
+
+#### Das Edelweiss
+
+Dieselbe Geometrie wie `icons/icon.svg` — zwölf Blütenblätter in zwei Lagen, sieben goldene Röhrenblüten. Für 30 px mit flachen Farben statt Verläufen: bei der Grösse trägt ein Verlauf nichts und kostet nur Bytes.
+
+#### Die Leiste kippt jetzt selbst
+
+Sie war in **beiden** Modi dunkelgrün (`--fill-dark`). Genau deshalb brauchten die Beschriftungen in v31.27 feste Farbwerte — die Fläche kippte ja nicht mit. Jetzt `--card`/`--border`, also hell im Hell- und dunkel im Dunkelmodus, und die Beschriftungen können wieder `--muted` und `--g-dark` nutzen.
+
+Drei Dunkelmodus-Überschreibungen wurden dadurch überflüssig. Eine davon hätte den Ring um den Mittelknopf im Dunkelmodus **hell**grün gemacht.
+
+#### Ein Fallstrick auf dem Weg
+
+`.tab.tab-center .tl` stand auf `color:#fff`. Auf der neuen hellen Leiste: weiss auf weiss. Exakt dieselbe Falle wie der Wetter-Trenner in v31.28 — was auf dunklem Grund richtig war, verschwindet auf hellem. Beim Schreiben bemerkt, nicht erst beim Messen.
+
+#### Und wieder das Werkzeug
+
+Der Vorher/Nachher-Vergleich meldete eine Grössenänderung an einem `svg`, das es vorher gar nicht gab. Ursache: Elemente **ohne** id, Klasse und Text teilten sich den Schlüssel `SVG|||`, und der Vergleich paarte zwei völlig verschiedene Elemente.
+
+`render_check.js` baut den Schlüssel jetzt aus einem kurzen DOM-Pfad. Vergleichbare Elemente stiegen dadurch von 1'388 auf **1'792**, und der Selbstvergleich der Datei ergibt 0/0/0/0 bei 2'860 Elementen.
+
+Achter Fall in dieser Serie, in dem die Messung selbst der Fehler war — und der erste, bei dem die Korrektur die Abdeckung *erhöht* hat.
+
+---
 
 ### 2026-09-01 (x) — v31.37: Fernando hatte recht, und mein Prüfstand war blind dafür
 
