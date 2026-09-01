@@ -4,13 +4,35 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.41` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.42` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (ac) — v31.42: Kopfleiste — und ein Emoji, das sich zweimal zurückschlich
+
+Nach der Navigationsleiste (v31.38) jetzt die Kopfzeile: Mond, Glocke und Menü als gezeichnete Symbole. Drei fehlten im Satz (Mond, Schlüssel, Menü) — im selben Stil ergänzt: 24×24, Strichstärke 1,75, runde Enden.
+
+#### Der Fund kam vom Hinsehen, nicht vom Messen
+
+Im gerenderten Bild waren Glocke und Menü Symbole — **der Mond aber weiter ein gelbes Emoji.**
+
+Ursache: `initDark()` und der Umschalter in den Einstellungen setzen beide
+
+```js
+btn.textContent = on ? '☀️' : '🌙';
+```
+
+und überschreiben damit das Markup. Zwei Stellen, dieselbe Zeile, beide unabhängig geschrieben.
+
+Beide nutzen jetzt `innerHTML` mit den Symbolen — und die sind **einmal** als `GS_ICON_MOON`/`GS_ICON_SUN` definiert, damit es nicht ein drittes Mal auseinanderläuft.
+
+Kein Prüfstand hätte das gefunden: der Kontrast stimmte, die Antippfläche stimmte, es gab keinen JS-Fehler. Nur das Bild sah falsch aus.
+
+---
 
 ### 2026-09-01 (ab) — v31.41: Alle Bildschirme hell — und zum vierten Mal dasselbe Muster
 
