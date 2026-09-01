@@ -4,13 +4,53 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.33` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.34` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (s) — v31.34: Bedienbarkeit — die kleinste Schaltfläche war 8×8 Pixel
+
+> Die Optik-Serie ist abgeschlossen (Farben, Radien, Typografie, Lesbarkeit, toter Stil — alles gemessen). Also mit demselben Werkzeug etwas anderes prüfen: ob die App sich **bedienen** lässt.
+
+#### Zuerst ein Nicht-Fund
+
+Ich habe alle `onclick`-Ziele aufgelöst: **7'081 Stück, alle vorhanden.** Kein fehlender Handler. Die drei Treffer meiner Suche (`event.preventDefault`, `if`, `event.stopPropagation`) waren Artefakte meiner eigenen Erkennung, keine Fehler.
+
+Das ist kein Ergebnis, das eine Version rechtfertigt — aber es zu wissen ist etwas wert, und es hier zu schreiben ehrlicher, als es wegzulassen.
+
+#### Der Fund
+
+43 Bedienelemente unter 24×24 CSS-px (WCAG 2.5.8, Stufe AA). Zwei Gruppen zählten wirklich:
+
+**Die Karussell-Punkte unter den Tageskarten: 8×8px, 14px Abstand von Mitte zu Mitte.** Die WCAG-Ausnahme für kleinere Ziele greift nur, wenn ein 24px-Kreis um das Ziel kein anderes berührt — bei 14px Abstand also nicht. Der Knopf ist jetzt 24×24, der sichtbare Punkt sitzt als `::before` darin. **Die Optik bleibt ein 8px-Punkt, die Trefferfläche ist neunmal so gross.** Preis: die Punkte stehen jetzt 24 statt 14px auseinander und die Leiste ist 2px höher.
+
+**Die Suchfelder: 18px hoch in einer 37px hohen Leiste.** Deren 9px Polsterung oben und unten gehörte nicht zum Eingabefeld — wer den Rand antippte, löste nichts aus. Das Feld reicht jetzt per `padding:9px 0` und ausgleichendem `margin:-9px 0` hinein: gleiche Höhe, doppelte Trefferfläche.
+
+Dazu 42 Pflanzen-Chips in der Trachten-Übersicht, fünf Kategorie-Chips auf der Karte und ein Knopf im Garten.
+
+#### Die eine Farbänderung
+
+Der Vergleich meldete `Farbe geaendert: 1` — bei einer reinen Grössen-Änderung ein Grund nachzusehen. Es war der Punkt-Knopf selbst: seine Farbe ist ins `::before` gewandert, der Knopf ist jetzt transparent. Meine Erfassung misst keine Pseudo-Elemente, sieht also eine Änderung, wo optisch keine ist. Im Rendering bestätigt.
+
+Das ist inzwischen Routine: **jede Zahl, die nicht null ist, wird angeschaut** — dreimal war es das Werkzeug, zweimal die Änderung.
+
+#### Ergebnis
+
+| | |
+|---|---|
+| Antippflächen unter 24×24 | **43 → 0** |
+| Grössenänderungen | 77 (genau die vergrösserten Ziele) |
+| Radius / Schrift geändert | 0 / 0 |
+| Farbe geändert | 1 (nachgeprüft, siehe oben) |
+| Kontrast unter AA | 0 in beiden Modi |
+
+`scripts/touch_check.js` liegt als drittes Werkzeug im Repo, in `CLAUDE.md` §7.1 beschrieben — samt der Warnung, dass eine Meldung genauso gut eine Falschmeldung des Prüfstands sein kann. Das ist bisher dreimal vorgekommen.
+
+---
 
 ### 2026-09-01 (r) — v31.33: 52 Stilregeln, die nie gewirkt haben
 

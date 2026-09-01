@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.33.20260901">
+<meta name="app-version" content="31.34.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1367,9 +1367,18 @@ body.senior p, body.senior li{ line-height:1.55; }
 .gs-wstack-viewport::-webkit-scrollbar{display:none;height:0;}
 .gs-wslide{flex:0 0 100%;min-width:100%;scroll-snap-align:start;box-sizing:border-box;display:flex;}
 .gs-wslide > *{margin-bottom:0 !important;width:100%;box-sizing:border-box;}
-.gs-wstack-dots{display:flex;justify-content:center;gap:6px;padding:9px 0 13px;}
-.gs-wdot{width:8px;height:8px;border-radius:50%;background:var(--border);border:none;padding:0;cursor:pointer;transition:background var(--dur),transform var(--dur);-webkit-tap-highlight-color:transparent;}
-.gs-wdot[aria-selected="true"]{background:var(--fill-brand);transform:scale(1.3);}
+/* v31.34 — Die Punkte waren 8x8px gross und lagen 14px auseinander (Mitte zu
+   Mitte). WCAG 2.5.8 verlangt 24x24, und die Ausnahme fuer kleinere Ziele
+   greift nur, wenn ein 24px-Kreis um das Ziel kein anderes beruehrt — bei 14px
+   Abstand also nicht. Der Knopf ist jetzt 24x24 und der sichtbare Punkt sitzt
+   als ::before darin: die Optik bleibt ein 8px-Punkt, die Trefferflaeche ist
+   neunmal so gross. Der Abstand waechst dadurch von 14 auf 24px Mitte zu Mitte
+   — bei vier bis sechs Punkten sind das 96 bis 144px, mittig auf 412px. */
+.gs-wstack-dots{display:flex;justify-content:center;gap:0;padding:2px 0 6px;}
+.gs-wdot{width:24px;height:24px;border-radius:50%;background:transparent;border:none;padding:0;position:relative;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.gs-wdot::before{content:'';position:absolute;inset:8px;border-radius:50%;background:var(--border);transition:background var(--dur),transform var(--dur);}
+.gs-wdot[aria-selected="true"]::before{background:var(--fill-brand);transform:scale(1.3);}
+@media (prefers-reduced-motion: reduce){.gs-wdot::before{transition:none;}.gs-wdot[aria-selected="true"]::before{transform:none;}}
 @media (prefers-reduced-motion: reduce){ .gs-wstack-viewport{scroll-behavior:auto;} }
 .settings-toggle-slider::before{content:'';position:absolute;width:20px;height:20px;left:3px;bottom:3px;background:var(--card);border-radius:50%;transition:var(--dur-slow);}
 .settings-toggle input:checked + .settings-toggle-slider::before{transform:translateX(22px);}
@@ -2709,7 +2718,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <input id="search-input" type="text"
       placeholder="Name, Habitat, Verwendung…"
       oninput="doSearch()" autocomplete="off" autocorrect="off" autocapitalize="off"
-      style="border:none;background:none;outline:none;flex:1;font-size:var(--fs-md);font-family:inherit;color:#fff;">
+      style="border:none;background:none;outline:none;flex:1;font-size:var(--fs-md);font-family:inherit;color:#fff;padding:9px 0;margin:-9px 0;">
     <button id="search-clear-btn" onclick="gsClearSearch()"
       style="background:none;border:none;color:rgba(255,255,255,.6);font-size:var(--fs-xl);cursor:pointer;padding:0;display:none;">✕</button>
   </div>
@@ -2804,7 +2813,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <span style="font-size:var(--fs-md);color:var(--muted);">🔍</span>
     <input id="plants-search" type="text" placeholder="Pflanze suchen…"
       oninput="gsFilterPlants(this.value)"
-      style="border:none;background:none;outline:none;flex:1;font-size:var(--fs-md);font-family:inherit;color:var(--text);">
+      style="border:none;background:none;outline:none;flex:1;font-size:var(--fs-md);font-family:inherit;color:var(--text);padding:9px 0;margin:-9px 0;">
   </div>
 </div>
 
@@ -3108,7 +3117,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <!-- ── MEINE GÄRTEN Section ── -->
 <div style="padding:16px 16px 4px;display:flex;align-items:baseline;justify-content:space-between;">
   <div style="font-size:var(--fs-md);font-weight:800;color:var(--on-canvas);">🪴 Meine Gärten</div>
-  <button onclick="openAddGarden()" style="background:none;border:none;color:var(--on-canvas);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;padding:4px 0;-webkit-tap-highlight-color:transparent;">+ Hinzufügen</button>
+  <button onclick="openAddGarden()" style="background:none;border:none;color:var(--on-canvas);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;padding:6px 0;-webkit-tap-highlight-color:transparent;">+ Hinzufügen</button>
 </div>
 
 <div id="garden-list" style="padding:2px 16px 12px;"></div>
@@ -3566,7 +3575,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   <div style="background:var(--card);border-radius:var(--r-md);display:flex;align-items:center;gap:8px;padding:9px 12px;border:1.5px solid var(--border);">
     <span style="font-size:var(--fs-lg);color:var(--muted);">🔍</span>
     <input id="market-search" type="text" placeholder="Samen, Werkzeug, Imker-Beratung…" oninput="gsMarketSearch(this.value)" autocomplete="off"
-      style="border:none;background:none;outline:none;flex:1;font-size:var(--fs-md);font-family:inherit;color:var(--text);">
+      style="border:none;background:none;outline:none;flex:1;font-size:var(--fs-md);font-family:inherit;color:var(--text);padding:9px 0;margin:-9px 0;">
     <button id="market-search-clear" onclick="gsMarketClearSearch()" style="background:none;border:none;color:var(--muted);font-size:var(--fs-xl);cursor:pointer;padding:0;display:none;">✕</button>
   </div>
 </div>
@@ -3611,9 +3620,9 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   <!-- v26.92: Preis-Range-Filter -->
   <div style="display:flex;align-items:center;gap:4px;background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:3px 9px;white-space:nowrap;flex-shrink:0;">
     <span style="font-size:var(--fs-xs);font-weight:800;color:var(--muted);">CHF</span>
-    <input id="market-price-min" type="number" inputmode="decimal" min="0" placeholder="min" oninput="gsMarketPriceFilter()" style="width:44px;border:none;background:none;outline:none;font-size:var(--fs-sm);font-family:inherit;color:var(--text);text-align:center;">
+    <input id="market-price-min" type="number" inputmode="decimal" min="0" placeholder="min" oninput="gsMarketPriceFilter()" style="width:44px;border:none;background:none;outline:none;font-size:var(--fs-sm);font-family:inherit;color:var(--text);text-align:center;padding:6px 0;margin:-6px 0;">
     <span style="font-size:var(--fs-sm);color:var(--muted);">–</span>
-    <input id="market-price-max" type="number" inputmode="decimal" min="0" placeholder="max" oninput="gsMarketPriceFilter()" style="width:44px;border:none;background:none;outline:none;font-size:var(--fs-sm);font-family:inherit;color:var(--text);text-align:center;">
+    <input id="market-price-max" type="number" inputmode="decimal" min="0" placeholder="max" oninput="gsMarketPriceFilter()" style="width:44px;border:none;background:none;outline:none;font-size:var(--fs-sm);font-family:inherit;color:var(--text);text-align:center;padding:6px 0;margin:-6px 0;">
   </div>
 </div>
 
@@ -4310,7 +4319,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <span style="font-size:var(--fs-md);color:var(--muted);">🔍</span>
       <input id="recipe-search" type="text" placeholder="Rezept suchen…"
         oninput="filterRecipesBySearch(this.value)"
-        style="border:none;background:none;outline:none;flex:1;font-size:var(--fs-md);font-family:inherit;color:var(--text);">
+        style="border:none;background:none;outline:none;flex:1;font-size:var(--fs-md);font-family:inherit;color:var(--text);padding:9px 0;margin:-9px 0;">
       <button onclick="document.getElementById('recipe-search').value='';filterRecipesBySearch('')" 
         style="background:none;border:none;color:var(--muted);font-size:var(--fs-lg);cursor:pointer;padding:0;display:none;" id="recipe-search-clear">✕</button>
     </div>
@@ -5972,11 +5981,11 @@ html, body{ scroll-behavior: smooth; }
     <button id="gs-map-heat-btn" onclick="gsTrackToggleHeatmap()" style="padding:5px 10px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.25);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;-webkit-tap-highlight-color:transparent;" title="Heatmap aller Tracks">🔥</button>
     <span id="gs-track-stats" style="font-size:var(--fs-xs);color:rgba(255,255,255,.75);white-space:nowrap;min-width:0;"></span>
     <div style="flex:1;"></div>
-    <button id="gs-cat-all" onclick="gsFilterMarkers('all',this)" class="gs-cat-chip active" style="padding:4px 9px;background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.35);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-xs);font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;" data-i18n="map_filter_all" data-i18n-fallback="🌐 Alle">🌐 Alle</button>
-    <button onclick="gsFilterMarkers('pilz',this)" class="gs-cat-chip" style="padding:4px 9px;background:rgba(141,110,99,.4);border:1px solid rgba(141,110,99,.6);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-xs);font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;" data-i18n="map_filter_mushrooms" data-i18n-fallback="🍄 Pilze">🍄 Pilze</button>
-    <button onclick="gsFilterMarkers('beere',this)" class="gs-cat-chip" style="padding:4px 9px;background:rgba(211,47,47,.4);border:1px solid rgba(211,47,47,.6);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-xs);font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;" data-i18n="map_filter_berries" data-i18n-fallback="🫐 Beeren">🫐 Beeren</button>
-    <button onclick="gsFilterMarkers('heil',this)" class="gs-cat-chip" style="padding:4px 9px;background:rgba(142,36,170,.4);border:1px solid rgba(142,36,170,.6);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-xs);font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;" data-i18n="map_filter_medicinal" data-i18n-fallback="🌿 Heil">🌿 Heil</button>
-    <button onclick="gsFilterMarkers('poi',this)" class="gs-cat-chip" style="padding:4px 9px;background:rgba(25,118,210,.4);border:1px solid rgba(25,118,210,.6);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-xs);font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;" data-i18n="map_filter_poi" data-i18n-fallback="📍 POI">📍 POI</button>
+    <button id="gs-cat-all" onclick="gsFilterMarkers('all',this)" class="gs-cat-chip active" style="padding:6px 9px;background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.35);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-xs);font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;" data-i18n="map_filter_all" data-i18n-fallback="🌐 Alle">🌐 Alle</button>
+    <button onclick="gsFilterMarkers('pilz',this)" class="gs-cat-chip" style="padding:6px 9px;background:rgba(141,110,99,.4);border:1px solid rgba(141,110,99,.6);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-xs);font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;" data-i18n="map_filter_mushrooms" data-i18n-fallback="🍄 Pilze">🍄 Pilze</button>
+    <button onclick="gsFilterMarkers('beere',this)" class="gs-cat-chip" style="padding:6px 9px;background:rgba(211,47,47,.4);border:1px solid rgba(211,47,47,.6);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-xs);font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;" data-i18n="map_filter_berries" data-i18n-fallback="🫐 Beeren">🫐 Beeren</button>
+    <button onclick="gsFilterMarkers('heil',this)" class="gs-cat-chip" style="padding:6px 9px;background:rgba(142,36,170,.4);border:1px solid rgba(142,36,170,.6);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-xs);font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;" data-i18n="map_filter_medicinal" data-i18n-fallback="🌿 Heil">🌿 Heil</button>
+    <button onclick="gsFilterMarkers('poi',this)" class="gs-cat-chip" style="padding:6px 9px;background:rgba(25,118,210,.4);border:1px solid rgba(25,118,210,.6);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-xs);font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;" data-i18n="map_filter_poi" data-i18n-fallback="📍 POI">📍 POI</button>
   </div>
   <!-- Karte -->
   <div id="gs-map" style="flex:1;position:relative;overflow:hidden;">
@@ -46036,9 +46045,9 @@ function renderTrachten() {
   function renderTrachtenPlant(name) {
     var pid = GS_TRACHTEN_IDS[name];
     if (pid) {
-      return '<span onclick="openDetail(\''+pid+'\')" style="background:var(--surface2);color:var(--text);padding:2px 8px;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:600;cursor:pointer;text-decoration:underline dotted;">🌿 '+name+'</span>';
+      return '<span onclick="openDetail(\''+pid+'\')" style="background:var(--surface2);color:var(--text);padding:5px 9px;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:600;cursor:pointer;text-decoration:underline dotted;">🌿 '+name+'</span>';
     }
-    return '<span style="background:var(--surface2);color:var(--text);padding:2px 8px;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:600;">'+name+'</span>';
+    return '<span style="background:var(--surface2);color:var(--text);padding:5px 9px;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:600;">'+name+'</span>';
   }
 
   let html = '<div style="background:var(--card);border-radius:var(--r-lg);box-shadow:var(--shadow-sm);margin-bottom:12px;padding:14px;">' +
@@ -63544,6 +63553,25 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.34', date: '01.09.2026',
+    headline: '\ud83d\udc46 43 zu kleine Antippfl\u00e4chen \u2014 die kleinste war 8\u00d78 Pixel',
+    summary: 'Die Punkte unter den Tageskarten waren acht Pixel gross und lagen vierzehn Pixel auseinander. Die Suchfelder waren nur 18 Pixel hoch, obwohl die Leiste drumherum 37 aussieht \u2014 wer den Rand antippte, traf nichts. Beides und einiges mehr ist behoben, ohne dass sich die Optik \u00e4ndert.',
+    user_summary: '\ud83d\udc46 Kleine Schaltfl\u00e4chen lassen sich jetzt zuverl\u00e4ssig treffen \u2014 die Karussell-Punkte, die Suchfelder, die Karten-Filter. Sichtbar bleibt fast alles gleich.',
+    user_items: [
+      { emoji: '\ud83d\udc46', text: 'Karussell-Punkte: Trefferfl\u00e4che neunmal so gross, der Punkt sieht gleich aus' },
+      { emoji: '\ud83d\udd0d', text: 'Suchfelder reagieren jetzt auf die ganze sichtbare Leiste, nicht nur auf die Mitte' },
+    ],
+    items: [
+      {emoji:'\ud83d\udc46', bold:'Karussell-Punkte:', text:' 8\u00d78px, 14px Abstand von Mitte zu Mitte. WCAG 2.5.8 verlangt 24\u00d724, und die Ausnahme f\u00fcr kleinere Ziele greift nur, wenn ein 24px-Kreis kein anderes Ziel ber\u00fchrt \u2014 bei 14px Abstand also nicht. Der Knopf ist jetzt 24\u00d724, der sichtbare Punkt sitzt als ::before darin. Die Leiste wurde dadurch 2px h\u00f6her.'},
+      {emoji:'\ud83d\udd0d', bold:'Suchfelder:', text:' das Eingabefeld war 18px hoch, die Leiste drumherum 37px \u2014 deren 9px Polsterung geh\u00f6rte nicht zum Feld. Wer oben oder unten antippte, l\u00f6ste nichts aus. Das Feld reicht jetzt per padding und ausgleichendem negativem margin in die Polsterung hinein: gleiche H\u00f6he, doppelte Trefferfl\u00e4che. Betrifft Arten-, Pflanzen-, Marktplatz- und Rezeptsuche sowie die beiden Preisfelder.'},
+      {emoji:'\ud83c\udf3f', bold:'Weitere:', text:' 42 Pflanzen-Chips in der Trachten-\u00dcbersicht (18px \u2192 24px hoch), f\u00fcnf Kategorie-Chips auf der Karte (21 \u2192 25px) und der Knopf \u201e+ Hinzuf\u00fcgen\u201c im Garten (22 \u2192 26px).'},
+      {emoji:'\ud83d\udd2c', bold:'Drittes Pr\u00fcfwerkzeug:', text:' scripts/touch_check.js misst jede Antippfl\u00e4che \u00fcber alle elf Tabs. Es meldet bewusst keine Container, die selbst bedienbare Elemente enthalten \u2014 sonst z\u00e4hlt man doppelt.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Antippfl\u00e4chen unter 24\u00d724: 43 \u2192 0 \u00b7 Vorher/Nachher am laufenden Programm: 1\u2019522 vergleichbare Elemente, 77 Gr\u00f6ssen\u00e4nderungen (genau die vergr\u00f6sserten Ziele), 0 Radius\u00e4nderungen, 0 Schriftgr\u00f6ssen\u00e4nderungen und 1 Farb\u00e4nderung \u2014 die nachgepr\u00fcft der Punkt-Knopf selbst ist, dessen Farbe ins ::before gewandert ist \u00b7 abgeschnittener Inhalt 17 \u2192 17, aus dem Bildschirm ragend 0 \u2192 0 \u00b7 Kontrast weiterhin 0 unter AA in beiden Modi \u00b7 alle 7\u2019081 onclick-Ziele l\u00f6sen zu echten Funktionen auf \u00b7 keine JS-Fehler \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.34 \u00b7 sw.js gs-v31.34 \u00b7 _headers v31.34 \u00b7 meta=31.34.20260901.'},
+    ],
+  },
+  {
     v: 'v31.33', date: '01.09.2026',
     headline: '\ud83e\uddf9 52 Stilregeln, die seit Jahren wirkungslos im Code standen',
     summary: 'An 22 Stellen war dieselbe Klasse zweimal beschrieben \u2014 einmal oben im Dokument, einmal weiter unten aus einem sp\u00e4teren Umbau. Bei gleicher Spezifit\u00e4t gewinnt die sp\u00e4tere, die fr\u00fchere galt also nie. Wer die obere las, las etwas, das nicht stimmt. Entfernt; sichtbar \u00e4ndert sich nichts, und das ist nachgemessen.',
@@ -69757,7 +69785,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.33';
+var GS_VERSION = 'v31.34';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
