@@ -12,6 +12,49 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-01 (w) — Backend nachgesehen: ein ungesicherter Schreibaufruf, und ein Widerspruch zu einer Meldung
+
+> Kein Release. Der Sicherheits-Advisor stand seit dem Vormittag nicht mehr an.
+
+#### Der Stand
+
+**145 Meldungen, 0 ERROR.** Aufgeteilt:
+
+| | Anzahl | Bewertung |
+|---|---|---|
+| `authenticated_security_definer_function_executable` | 120 WARN | so gebaut — das ist, wie RPCs funktionieren |
+| `anon_security_definer_function_executable` | 16 WARN | einzeln durchgegangen, siehe unten |
+| `extension_in_public` (pg_trgm, vector, citext) | 3 WARN | Supabase-Standard, Verschieben wäre störender als nützlich |
+| `rls_enabled_no_policy` | 5 INFO | **kein Mangel** — RLS an ohne Policy heisst „alles verboten ausser service_role". Genau richtig für reine Server-Tabellen (`book_ocr_pages`, `species_import_queue`, `species_search_cache`, `system_events`, `weather_forecast_cache`) |
+| `auth_leaked_password_protection` | 1 WARN | **Widerspruch, siehe unten** |
+
+#### Der Fund
+
+Von den 16 anon-ausführbaren Funktionen **schreiben zwei**. Beide angesehen:
+
+- `fn_quiz_record_answer` — macht es richtig:
+  `v_uid := (select auth.uid()); if v_uid is null then return; end if;`
+- **`fn_mkt_increment_views` — hat keine Prüfung:**
+  `UPDATE marketplace_listings SET views = COALESCE(views,0)+1 WHERE id = p_listing_id;`
+
+Der Anon-Key ist öffentlich (by design, RLS schützt die Daten). Damit kann **jeder ohne Konto** die Aufrufzahl beliebiger Inserate hochzählen — in einer Schleife auch als kleine Schreiblast. Kein Datenabfluss, kein Datenverlust; eine irreführende Kennzahl und eine unnötig offene Schreibstelle.
+
+Bricht nichts, wenn man sie schliesst: einziger Aufrufer ist `openListingDetail()`, erreichbar aus Marktplatz-Liste und Home-Widget — beide setzen eine Anmeldung voraus, seit der Gast-Modus in v25.33 abgeschaltet wurde.
+
+`supabase/migrations/v31_36_mkt_views_auth_guard.sql` liegt bereit. **Nicht angewendet** — das ist die Produktionsdatenbank, und in diesem Repo ist es Konvention, dass Fernando Migrationen anwendet (dafür existiert `scripts/apply_pending_v30_87.sh`). Bei diesem Schweregrad wäre ein Alleingang unangemessen.
+
+#### Der Widerspruch
+
+Der Advisor meldet **`auth_leaked_password_protection: Disabled`** — Fernando hatte gemeldet, das erledigt zu haben („nummer 2 und 3 habe ich gemacht").
+
+Zwei mögliche Erklärungen, und ich kann von hier aus keine davon ausschliessen:
+1. Das Advisor-Ergebnis ist gecacht und noch nicht nachgezogen.
+2. Die Einstellung hat nicht gegriffen oder wurde an anderer Stelle gesetzt.
+
+Ich melde das, statt es stillschweigend als erledigt zu führen — einmal nachsehen unter Auth → Policies kostet nichts.
+
+---
+
 ### 2026-09-01 (v) — Nachtrag zu v31.36: eine eigene Behauptung überprüft und halb widerlegt
 
 > Kein Release, nur Doku. In der v31.36-Notiz steht: *„DEFAULT_RECIPES (297 KB), WEEKLY_SEASONAL_FACTS (148 KB) und GS_I18N_JS_STRINGS (83 KB) — die werden aber tatsächlich beim Start gebraucht."* Das hatte ich **nicht geprüft, sondern angenommen.**
