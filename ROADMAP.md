@@ -5,7 +5,7 @@
 > Kompagnon: `STATUS.md` (operativer Snapshot) · `CLAUDE.md` (Onboarding) ·
 > `BACKEND_FRONTEND_MAP_v26.76.md` (Architektur-Detailkarte).
 
-**Stand:** v31.39 · App **live** auf green-scan.ch · released seit v26.0.
+**Stand:** v31.40 · App **live** auf green-scan.ch · released seit v26.0.
 
 ---
 
@@ -76,6 +76,8 @@ Die App ist ein reifes, live-laufendes Produkt. Erreicht u.a.:
 **Bedienbarkeit: 43 → 0 (v31.34).** Antippflächen unter 24×24 px (WCAG 2.5.8) gemessen und behoben — die kleinste war 8×8: die Karussell-Punkte unter den Tageskarten. Trefferfläche jetzt 24×24, der sichtbare Punkt sitzt als `::before` darin, die Optik ist unverändert. Zweiter echter Fall: die Suchfelder waren 18px hoch in einer 37px hohen Leiste; deren Polsterung reagierte nicht. `scripts/touch_check.js` liegt als drittes Prüfwerkzeug im Repo. Nebenbei belegt: alle **7'081** `onclick`-Ziele lösen zu echten Funktionen auf, kein fehlender Handler.
 
 **Startleistung: App-JS 1'548ms → 421ms (v31.35).** Drei `MutationObserver` (Auto-ARIA, Auto-Maxlength, Auto-Lazy) durchsuchten bei jeder DOM-Änderung das ganze Dokument neu — 743ms `querySelectorAll` allein beim Start. Jetzt gebündelt und auf die eingefügten Teilbäume beschränkt. Gegengeprüft: die drei setzen exakt dieselben 199 `aria-label`, 65 `maxlength` und 7 `loading`-Attribute wie vorher. `scripts/perf_check.js` neu im Repo. **Bewusst nicht angefasst:** die längste Einzelblockade (710ms auf einem Mittelklasse-Telefon) ist das Parsen der 5,7-MB-Datei — das liesse sich nur durch Aufteilen des Monolithen ändern, und das ist eine Architektur-Entscheidung.
+
+**Funktionscheck der Verdrahtung (v31.40).** Alle 1'012 im Code angesprochenen Element-Kennungen gegen die tatsächlich erzeugten geprüft: **75 werden nirgends erzeugt**, verteilt auf 44 Funktionen (16 ohne Aufrufer = toter Code, 28 laufen). Zur Laufzeit: 0 doppelte ids, 0 JS-Fehler. **Ein echter Ausfall gefunden:** `showLuxResult` griff ungeschützt auf `lux-val` zu (heisst `lux-value`) — TypeError in Zeile 1, die Lichtmessung zeigte nie ein Ergebnis und der Knopf blieb hängen. Die korrekte Fassung `displayLuxResult` existierte daneben; nur dieser Aufrufer war nie umgehängt worden. Behoben und nachgemessen. **Offen zum Entscheiden:** die Wetter-Warnkarte in der App (~130 Zeilen) hat kein DOM-Element und keinen Aufrufer — Migration, Edge-Function und Cron existieren aber, die Warnungen erreichen Nutzer über Push/Posteingang. Bauen oder entfernen ist eine Produktentscheidung.
 
 **Startseite neu geordnet (v31.39).** Nach der Logik der Vorlage: erst was ich wissen muss (Wetter), dann was ich tun soll (Tagesplan), danach Fortschritt, Kennzahlen, Lesestoff, Entdeckung. Der Tagesplan stand vorher an **sechster** Stelle, hinter Kennzahlen und Marktplatz. Kein Baustein entfällt. Vor dem Umordnen wurde geprüft, was an DOM-Reihenfolge hängt (`gsBuildWidgetStack` sucht per id — ordnungsunabhängig; `gsMoreFeedbackFirst` betrifft einen anderen Bildschirm) und danach am laufenden Programm bestätigt. **Grenze dokumentiert:** `render_check.js` paart positionsbasiert und ist für Umordnungen kein taugliches Mass — steht jetzt in `CLAUDE.md` §7.1.
 

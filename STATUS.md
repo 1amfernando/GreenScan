@@ -4,13 +4,71 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.39` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.40` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (aa) — v31.40: Funktionscheck — 44 Funktionen greifen ins Leere, eine stürzte dabei ab
+
+> Fernando: „Zusätzlich machst du einen Funktioncheck und schaust auf die In und Outputs sowie die verdrahtungen ob da auch alles intelligent und sauber verdrahtet ist."
+
+#### Wie ich geprüft habe
+
+Alle **1'012** im Code angesprochenen Element-Kennungen (`getElementById`, `querySelector('#…')`) gegen alle **irgendwo erzeugten** gestellt — statisches HTML, JS-Strings in jeder Schreibweise, `.id = …`, `setAttribute`. Dann zur Laufzeit über alle elf Tabs gegengeprüft.
+
+| | |
+|---|---|
+| angesprochen | 1'012 |
+| irgendwo erzeugt | 1'277 |
+| **nirgends erzeugt** | **75** |
+| betroffene Funktionen | **44** |
+| davon ohne jeden Aufrufer (toter Code) | 16 |
+| davon laufen wirklich | 28 |
+| doppelte ids zur Laufzeit | **0** |
+| JS-Fehler beim Durchlauf | **0** |
+
+Die 28 laufenden Funktionen prüfen — bis auf eine — vorher auf `null` und tun dann still nichts. Unschön, aber harmlos.
+
+#### Die eine Ausnahme war ein echter Ausfall
+
+```js
+function showLuxResult(lux, isReal){
+  document.getElementById('lux-val').textContent = …   // ← lux-val gibt es nicht
+```
+
+Die Elemente heissen **`lux-value`**, **`lux-marker`** und **`lux-plants`**. Und dieser Zugriff ist ungeschützt.
+
+Am laufenden Programm nachgewiesen:
+
+| | vorher | nachher |
+|---|---|---|
+| Fehler | `TypeError: Cannot set properties of null` | keiner |
+| Lux-Wert | `0` | `26'554` |
+| Ergebnis sichtbar | `none` | `block` |
+| Kategorie | „Messung startet…" (hängt) | „🔥 Volle Sonne" |
+| Knopf | hängt | „💡 Erneut messen" |
+
+Weil die Ausnahme den Rest der Funktion abbrach, wurden auch die Zeilen **nach** dem Aufruf nie erreicht — der Knopf blieb im Messzustand stehen. Die Lichtmessung war komplett tot.
+
+#### Und wieder lag die Lösung daneben
+
+`displayLuxResult` macht dasselbe **richtig**: korrekte ids, `if (!result) return;` als Schutz, und zwei andere Stellen benutzen sie bereits. Nur dieser eine Aufrufer wurde beim Umbau nicht umgehängt.
+
+Das ist heute das **dritte** Mal in derselben Form: die helle Kopfzeile (v31.37), der Icon-Satz (v31.38), jetzt `displayLuxResult`. Die richtige Arbeit war jedes Mal fertig — und nicht angeschlossen.
+
+#### Ein Fund zum Entscheiden, nicht zum Reparieren
+
+Die **Wetter-Warnkarte in der App** (~130 Zeilen, drei Funktionen) hat kein Element im Dokument, und ihr Lader hat **null Aufrufer**.
+
+Das klingt schlimmer als es ist, und das gehört dazu: Migration (`v27_00_weather_alerts.sql`), Edge-Function (`weather-alert-checker`) und Cron existieren — die Warnungen **erreichen** Nutzer über Push und Posteingang. Nur die Karte *in* der App wurde nie gebaut.
+
+Entweder bauen oder entfernen. Das ist eine Produktentscheidung, keine Aufräumarbeit, also lasse ich sie Fernando.
+
+---
 
 ### 2026-09-01 (z) — v31.39: Startseite neu geordnet — erst wissen, dann tun
 

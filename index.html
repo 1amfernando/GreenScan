@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.39.20260901">
+<meta name="app-version" content="31.40.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -30011,7 +30011,18 @@ function runLightEstimate() {
   else if (h >= 9 && h <= 17) lux = Math.round(maxLux * (0.2 + Math.random() * 0.4));
   else if (h >= 7 && h <= 19) lux = Math.round(1000 + Math.random() * 4000);
   else lux = Math.round(50 + Math.random() * 200);
-  showLuxResult(lux, false);
+  // v31.40: rief showLuxResult — die ALTE Fassung, die auf lux-val, lux-bar und
+  // light-recs zugriff. Diese drei ids gibt es nicht (die Elemente heissen
+  // lux-value, lux-marker, lux-plants), und die erste Zeile war ungeschuetzt:
+  //   document.getElementById('lux-val').textContent = …
+  // Am laufenden Programm nachgewiesen: TypeError beim ersten Zugriff, danach
+  // lief nichts mehr — der Lux-Wert blieb 0, das Ergebnis blieb verborgen, und
+  // die Zeilen NACH dem Aufruf (Knopf zuruecksetzen) wurden nie erreicht.
+  // Die korrekte Fassung displayLuxResult existiert seit Laengerem daneben und
+  // wird von zwei anderen Stellen benutzt; nur dieser Aufrufer wurde beim
+  // Umbau nicht umgehaengt.
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+  displayLuxResult(lux, ' · ' + _t('lux_estimate', '(Schätzung)'));
   const btn = document.getElementById('light-btn');
   if (btn) { btn.textContent = '💡 Erneut messen'; btn.disabled = false; }
   measuring = false;
@@ -31282,52 +31293,13 @@ function renderRoomScanResult(results) {
   el.innerHTML = html;
 }
 
-function showLuxResult(lux, isReal){
-  document.getElementById('lux-val').textContent=lux.toLocaleString('de-CH');
-  const pct=Math.min(100,Math.log10(Math.max(1,lux))/Math.log10(80000)*100);
-  document.getElementById('lux-bar').style.width=pct+'%';
-  // v28.81 i18n: _t-Guard + Lichtkategorien/Labels übersetzbar (DE/EN/ES).
-  var _t=(window.gsI18n&&gsI18n.t)?gsI18n.t:function(k,f){return f;};
-  var cat;
-  if(lux<100)cat=_t('lux_cat_deep_shade','Sehr tiefer Schatten 🌑');
-  else if(lux<500)cat=_t('lux_cat_shade','Tiefer Schatten 🌘');
-  else if(lux<1500)cat=_t('lux_cat_north','Schatten / Nordseite 🌤️');
-  else if(lux<5000)cat=_t('lux_cat_indirect','Indirektes Licht ⛅');
-  else if(lux<15000)cat=_t('lux_cat_bright','Helles Licht ☀️');
-  else if(lux<40000)cat=_t('lux_cat_verybright','Sehr helles Licht 🌞');
-  else cat=_t('lux_cat_fullsun','Volle Sonne ☀️☀️');
-  document.getElementById('lux-cat').textContent=cat+(isReal?'':' '+_t('lux_estimate','(Schätzung)'));
-
-  const plants=[
-    {name:'Bogenhanf (Sansevieria)',min:50,opt:500,max:2000,e:'🌿'},
-    {name:'ZZ-Pflanze',min:50,opt:400,max:1500,e:'🌱'},
-    {name:'Pothos',min:100,opt:800,max:3000,e:'🌿'},
-    {name:'Friedenslilie',min:100,opt:1000,max:2500,e:'🌸'},
-    {name:'Ficus benjamina',min:500,opt:3000,max:8000,e:'🌳'},
-    {name:'Monstera',min:200,opt:2000,max:6000,e:'🌿'},
-    {name:'Zimmerpalme',min:300,opt:2000,max:6000,e:'🌴'},
-    {name:'Gummibaum',min:500,opt:3000,max:10000,e:'🌲'},
-    {name:'Orchidee',min:500,opt:2000,max:8000,e:'🌺'},
-    {name:'Kakteen & Sukkulenten',min:3000,opt:15000,max:50000,e:'🌵'},
-    {name:'Aloe Vera',min:1000,opt:5000,max:20000,e:'🌵'},
-    {name:'Afrik. Veilchen',min:500,opt:1500,max:4000,e:'💜'},
-  ];
-  const recs=plants.map(p=>{
-    let s;
-    if(lux<p.min)s=Math.max(0,(lux/p.min)*50);
-    else if(lux<=p.opt)s=50+(lux-p.min)/(p.opt-p.min)*50;
-    else if(lux<=p.max)s=100-(lux-p.opt)/(p.max-p.opt)*30;
-    else s=Math.max(0,70-(lux-p.max)/p.max*100);
-    return{...p,score:Math.round(s)};
-  }).sort((a,b)=>b.score-a.score);
-
-  document.getElementById('light-recs').innerHTML=
-    '<div class="sec" style="padding-top:4px;">'+_t('lux_recs_title','🪴 Zimmerpflanzen-Empfehlungen')+'</div>'+
-    recs.map(p=>{
-      const c=p.score>=80?'#27ae60':p.score>=50?'#f9a825':'#ef5350';
-      return '<div class="lrec-card"><div class="lrp" style="color:'+c+'">'+p.score+'%</div><div><div class="lri-n">'+p.e+' '+p.name+'</div><div class="lri-r">'+_t('lux_ideal','Ideal:')+' '+p.opt.toLocaleString()+' – '+p.max.toLocaleString()+' '+_t('lux_unit','Lux')+'</div></div></div>';
-    }).join('');
-}
+/* v31.40 — showLuxResult entfernt (rund 45 Zeilen). Sie war die Vorgaengerin
+   von displayLuxResult und griff auf drei ids zu, die es nicht mehr gibt:
+   lux-val, lux-bar und light-recs. Der einzige Aufrufer (runLightEstimate)
+   zeigt jetzt auf displayLuxResult. Gefunden beim Verdrahtungs-Check:
+   44 Funktionen sprechen Elemente an, die nirgends erzeugt werden — die hier
+   war die einzige, die dabei ungeschuetzt zugriff und deshalb WIRKLICH
+   abstuerzte statt still nichts zu tun. */
 
 // ═══ KI-CHAT ════════════════════════════════════════
 // v23.57: Experten-Persona mit DB-Kontext, Nutzer-Historie, Selbst-Update
@@ -63595,6 +63567,25 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.40', date: '01.09.2026',
+    headline: '\ud83d\udca1 Der Lichtmesser war komplett kaputt \u2014 gefunden beim Verdrahtungs-Check',
+    summary: 'Fernando wollte einen Funktionscheck der Ein- und Ausg\u00e4nge. Ich habe alle 1\u2019012 im Code angesprochenen Elemente gegen die tats\u00e4chlich vorhandenen gepr\u00fcft: 44 Funktionen greifen auf Elemente zu, die es nirgends gibt. Die meisten sind abgesichert und tun still nichts. Eine war es nicht \u2014 und st\u00fcrzte ab.',
+    user_summary: '\ud83d\udca1 Die Lichtmessung zeigte nie ein Ergebnis \u2014 der Knopf blieb einfach h\u00e4ngen. Jetzt funktioniert sie wieder.',
+    user_items: [
+      { emoji: '\ud83d\udca1', text: 'Lichtmessung repariert \u2014 Lux-Wert, Kategorie und Pflanzen-Empfehlungen erscheinen wieder' },
+      { emoji: '\ud83e\uddf9', text: '45 Zeilen kaputter Altcode entfernt' },
+    ],
+    items: [
+      {emoji:'\ud83d\udd0e', bold:'Der Verdrahtungs-Check:', text:' 1\u2019012 im Code angesprochene Element-Kennungen gegen alle irgendwo erzeugten gepr\u00fcft. 75 werden nirgends erzeugt; sie verteilen sich auf 44 Funktionen. 16 davon haben \u00fcberhaupt keinen Aufrufer (toter Code), 28 laufen wirklich \u2014 aber alle bis auf eine pr\u00fcfen vorher auf null und tun dann still nichts. Zur Laufzeit: 0 doppelte ids, 0 JS-Fehler.'},
+      {emoji:'\ud83d\udca1', bold:'Die eine Ausnahme:', text:' showLuxResult griff ungeschuetzt zu — document.getElementById(\'lux-val\').textContent = … Die Elemente heissen aber lux-value, lux-marker und lux-plants. Am laufenden Programm nachgewiesen: TypeError in der ersten Zeile, danach lief nichts mehr. Der Lux-Wert blieb 0, das Ergebnis blieb verborgen, die Kategorie hing auf „Messung startet…", und die Zeilen NACH dem Aufruf (Knopf zuruecksetzen) wurden nie erreicht.'},
+      {emoji:'\u2705', bold:'Die L\u00f6sung lag daneben:', text:' displayLuxResult macht dasselbe richtig \u2014 korrekte ids, sauber abgesichert, und wird von zwei anderen Stellen benutzt. Nur dieser eine Aufrufer wurde beim Umbau nicht umgeh\u00e4ngt. Jetzt umgeh\u00e4ngt, die alte Fassung entfernt. Dasselbe Muster wie die helle Kopfzeile in v31.37 und der Icon-Satz in v31.38: die richtige Arbeit war fertig und nicht angeschlossen.'},
+      {emoji:'\ud83c\udf29\ufe0f', bold:'Ein Fund zum Entscheiden, nicht zum Reparieren:', text:' die Wetter-Warnkarte in der App (rund 130 Zeilen, drei Funktionen) hat kein Element im Dokument, und ihr Lader hat null Aufrufer. Das klingt schlimmer als es ist: Migration, Edge-Function und Cron existieren, die Warnungen erreichen Nutzer also \u00fcber Push und Posteingang. Nur die Karte IN der App wurde nie gebaut. Entweder bauen oder entfernen \u2014 das ist eine Produktentscheidung, keine Aufr\u00e4umarbeit.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Lichtmessung vorher/nachher am laufenden Programm: vorher TypeError, Wert 0, Ergebnis verborgen, Knopf h\u00e4ngt \u2014 nachher 26\u2019554 Lux, Ergebnis sichtbar, Kategorie „🔥 Volle Sonne", Knopf auf „Erneut messen" \u00b7 keine Aufrufe von showLuxResult mehr \u00fcbrig \u00b7 zur Laufzeit 0 doppelte ids \u00fcber alle elf Tabs \u00b7 keine JS-Fehler \u00b7 Kontrast 0 unter AA in beiden Modi \u00b7 Antippfl\u00e4chen 0 unter 24\u00d724 \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.40 \u00b7 sw.js gs-v31.40 \u00b7 _headers v31.40 \u00b7 meta=31.40.20260901.'},
+    ],
+  },
+  {
     v: 'v31.39', date: '01.09.2026',
     headline: '\ud83e\udded Startseite neu geordnet \u2014 erst wissen, dann tun',
     summary: 'Der Tagesplan stand an sechster Stelle, hinter Kennzahlen und Marktplatz. Fernandos Vorlage folgt einer anderen Logik: erst was ich wissen muss, dann was ich tun soll. Genau so ist die Startseite jetzt sortiert \u2014 ohne dass ein Baustein wegf\u00e4llt.',
@@ -64084,7 +64075,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.39';
+var GS_VERSION = 'v31.40';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
