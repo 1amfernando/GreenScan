@@ -12,6 +12,52 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-01 (bb) — v31.64: „Mein Garten" um ein Fünftel kürzer, ohne Verlust
+
+Fernandos Befund: *„sehr lang und hat sehr zu viele Sachen"*. Also erst gemessen, dann geschnitten.
+
+#### Ausgangslage
+
+| Gärten | vorher | nachher | |
+|---|---|---|---|
+| 1 | 1521 px (1,7 Bildschirme) | 1234 px (1,3) | **−19 %** |
+| 3 | 1693 px (1,9) | 1368 px (1,5) | **−19 %** |
+| 6 | 1951 px (2,1) | 1569 px (1,7) | **−20 %** |
+
+Sichtbare Blöcke 14 → 12. Und die Zahl, auf die es ankommt: **antippbare Stellen 38→38, 48→48, 63→63.** Kürzer heisst hier nicht weniger — es heisst dichter.
+
+#### Was weg ist
+
+- **Der doppelte Titel.** Die Kopfzeile sagt „🌻 Mein Garten · Planen · Pflegen · Ernten", und 20 px darunter sagte `garden-overview` noch einmal „Mein Garten · Dein digitaler Gartenüberblick". Zwei Titel für eine Seite (−42 px). Die beiden CSS-Klassen `.gs-go-head`/`.gs-go-sub` waren danach ohne Träger und sind mitgegangen.
+- **Der Mondkalender als Block** (123 px → 55 px). Grosser Mond, Phase in Playfair, Alter, Beleuchtung, Typ-Plakette, Gartentipp im eigenen Kasten — alles davon steht im Mondkalender, den ein Tipp öffnet. Jetzt dieselbe Form wie die Wetterkarte darüber. **Am laufenden Programm angetippt:** `modal-moon-calendar` öffnet.
+- **Die zweite Zeile auf jeder Gartenkarte.** Standort, Pflanzenzahl, Grösse und Licht standen als Text plus zwei Plaketten untereinander. Vier kurze Angaben in einer Zeile: „Zürich · 0 Pflanzen · 🌿 Mittel · ☀️ Vollsonne", 14 px hoch. −20 px **je Garten** — das ist der Posten, der mit echter Nutzung mitwächst.
+- **Die eigene Zeile „Meine gespeicherten Garten-Pläne"** (−55 px). Planung stand auf dieser Seite an drei Stellen: als Kachel in der Übersicht, als eigene Zeile, und im Akkordeon. Die Zeile war die überflüssige der drei.
+- **Der Erklärsatz unter „Garten scannen"** erscheint nur noch, solange es nichts zu erklären gibt — er stand in einem Zweig, der ohnehin nur ohne Zwilling läuft.
+
+#### Der Fehler, der beinahe durchgegangen wäre
+
+Die Achievements-Kachel sollte weg: fünfte Kachel in einem Zweierraster, macht aus zwei Reihen drei mit einer Waise. Ich habe sie entfernt und dabei behauptet, sie sei über das Hauptmenü erreichbar — **das war falsch.** Mein eigener Durchlauf hat es widerlegt (`im_menue: false`), und der Griff in den Quelltext bestätigte es: ausser dieser Kachel gab es **keinen** Aufruf von `openAchievementsModal`, der einzige weitere steht im Benachrichtigungs-Router und greift nur, wenn eine Erfolgs-Meldung ankommt.
+
+Sie zu streichen hätte ein ganzes Feature begraben — genau das Muster, das dieser Meilenstein überall entfernt hat. Sie ist deshalb als Zeile in „📚 Wissen & Werkzeuge" gewandert: kostet eingeklappt 0 px, das Raster ist trotzdem gerade.
+
+Dabei fiel auf, dass ihr Rahmen `#ffd54f` gegen den hellen Seitengrund nur **1,29:1** trägt — der Knopf war durch nichts umrissen (Soll 3:1 für Nicht-Text). Für die neue Zeile auf `#b26a00` gesetzt: **3,87:1**. Text 7,94 bis 8,77:1.
+
+#### Was NICHT weg ist, obwohl es leer aussah
+
+`garden-sync-status` (14 px), `seasonal-tasks-host`, `garden-smart-reminder`, `garden-stats-card`, `frost-warning-banner`, `garden-water-banner` — alle sechs sehen leer aus und **alle sechs werden zur Laufzeit befüllt**. Nachgesehen statt angenommen. Nur das 8-px-Polster des leeren `seasonal-tasks-host` ist gegangen; das trägt der Injektor selbst, wenn er füllt.
+
+Ein echter Fund am Rande: `widget-achievements-subline` hatte eine id, die **niemand** je gelesen oder beschrieben hat.
+
+#### Verify
+
+`wiring_check` 307 Namen / **0** nicht auflösbar · Menü 40/0 · 928 Nachschlagungen / **0** nie erzeugt / **0** ungesichert · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen · `contrast_check` 0 unter AA beide Modi · `touch_check` 0 unter 24×24 · sieben Punkte am laufenden Programm durchgespielt (Gartenkarte einzeilig · Mondzeile öffnet den Kalender · Titel nur noch einmal · Achievements aus dem Raster und in der Gruppe · Pläne im Akkordeon · vier Werkzeuge statt fünf · alle drei Akkordeons zu) · Höhe bei 1/3/6 Gärten gemessen · `gsAllReleases()` 411 → **412**, 0 Dopplungen · 9/9 Inline-Scripts + `sw.js` `node --check` OK · `GS_VERSION` v31.64 · `sw.js` gs-v31.64 · `_headers` v31.64 · meta 31.64.20260901.
+
+#### Offen
+
+Die übrigen Knöpfe in den Akkordeon-Gruppen tragen dasselbe Muster wie die alte Achievements-Kachel: heller Verlauf mit hellem Rahmen, gegen den Seitengrund unter 3:1. Sie sind über ihre Beschriftung erkennbar (AA erfüllt), aber ihre Umrisse sind es nicht. Das wäre eine eigene, saubere Welle — nicht etwas, das man nebenbei in einen Kürzungs-Release schiebt.
+
+---
+
 ### 2026-09-01 (ba) — v31.63: Mischkultur nach Abstand, nicht nach Anwesenheit
 
 Zweite Hälfte derselben Sache wie v31.62. Und diesmal war es **kein** fehlendes Feature — es war ein vorhandenes, das die falsche Frage stellte.
