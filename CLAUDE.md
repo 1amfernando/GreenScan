@@ -54,6 +54,19 @@ der Claude-Cloud-Umgebung blockiert ausgehende Verbindungen dorthin
 (`CONNECT … 403`). Wer es prüfen kann: einmal aufrufen und hier eintragen —
 und dann entscheiden, ob die zweite Auslieferung bleiben soll.
 
+**Auch `green-scan.ch` selbst ist von hier aus nicht erreichbar** (geprüft
+01.09.2026, ebenfalls `CONNECT … 403`). Eine Claude-Cloud-Session kann die
+**Live-Seite also nicht abrufen** — weder um ein Deployment zu bestätigen noch
+um einen Nutzer-Report nachzustellen. Was von hier aus geht:
+
+- die App **lokal** aus dem Repo rendern (`scripts/render_check.js` und die
+  drei anderen Prüfstände, §7.1),
+- die Deploy-Meldung der Cloudflare-Pages-Bot-Kommentare am PR lesen.
+
+Wer schreibt „live verifiziert", muss also sagen, **womit** — sonst ist es
+geraten. Für echte Live-Prüfungen braucht es Fernando oder eine Umgebung ohne
+diese Sperre.
+
 ## 2 · Repo-Struktur
 
 ```
