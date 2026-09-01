@@ -4,13 +4,54 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.19` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.20` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (d) — v31.20: Der Dunkelmodus leuchtete an 523 Stellen
+
+> Fernandos Auftrag: mehr Selbstinitiative, „Peakfein" in Front- und Backend, so futuristisch wie die Entwürfe. Statt weiter Bildschirm für Bildschirm zu gehen, habe ich zuerst **gemessen**, wo die App vom Anspruch entfernt ist. Das Ergebnis war eindeutig genug, um es zur eigenen Aufgabe zu machen.
+
+#### Die Messung
+
+474 hartkodierte helle Hintergründe in Inline-Styles. Spitzenreiter: `#e8f5e9` (76×), `#fff3e0` (50×), `#fff8e1` (41×), `#ffebee` (39×), `#e3f2fd` (32×).
+
+Und dann der eigentliche Befund: **die App hat längst ein Farbsystem für genau diese Töne** — `--bg-success-soft`, `--bg-warn-soft`, `--bg-danger-soft`, `--bg-info-soft` … **mit korrekten Dunkel-Varianten** (`rgba(102,187,106,.12)` statt `#e8f5e9`). 523 Stellen umgehen ein fertiges, gut gebautes System und schreiben den Hellwert nochmal hin. Deshalb leuchtet der Dunkelmodus.
+
+#### Warum ein blosses Suchen-und-Ersetzen falsch gewesen wäre
+
+Ich habe vor dem Umbau den Kontrast im Dunkelmodus nachgerechnet — und drei Paare fielen durch:
+
+| Kombination | vorher | Befund |
+|---|---|---|
+| `--bg-info-soft` + `--c-info-d` | **2,2:1** | praktisch unlesbar |
+| `--bg-danger-soft` + `--c-danger-d` | **2,5:1** | praktisch unlesbar |
+| `--bg-yellow-soft` + `--c-brown` | 3,5:1 | zu wenig |
+
+Der Grund: die Hintergründe werden im Dunkelmodus **durchscheinend dunkel**, während die zugehörigen Textfarben **dunkel blieben**. Ein reines Umstellen hätte das Leuchten behoben und dafür unlesbaren Text erzeugt — der Fehler wäre nur umgezogen.
+
+Also zuerst **sechs Dunkel-Werte repariert** (`--c-success-d`, `--c-danger-d`, `--c-info-d`, `--c-danger`, `--c-success`, `--c-brown`), jeder aus einer Kandidatenliste mit ausgerechnetem Kontrast gewählt — und zwar gegen **beide** Untergründe, die getönte Fläche *und* die Karte.
+
+#### Füllung ist nicht Textfarbe
+
+Beim Aufhellen fiel auf: vier gefüllte Knöpfe benutzen eine **Textfarbe** als Hintergrund (`background:var(--c-info-d); color:#fff`). Wird die im Dunkelmodus hell — und das muss sie, sonst 2,2:1 —, ist weisse Schrift darauf unlesbar. Zwei Dinge, die man nicht in einen Token pressen kann. Jetzt eigene Klassen `.gs-btn-info` / `.gs-btn-ok` mit eigener `body.dark`-Regel.
+
+#### Ergebnis
+
+- **523 Ersetzungen** (249 Hintergründe, 274 Textfarben)
+- helle hartkodierte Hintergründe: **474 → 225**
+- schlechtester Kontrast im Dunkelmodus: **2,2:1 → 4,8:1**; alle **12 tatsächlich vorkommenden** Kombinationen ≥ 4,5:1
+- **Hellmodus pixelgleich** — nachgewiesen, nicht behauptet: alle 18 Token lösen exakt auf den ersetzten Hexwert auf, 0 Abweichungen
+
+#### Was bewusst offen bleibt
+
+225 helle Hintergründe **ohne** Token-Zwilling (`#f0f7ee` 25×, `#f9fafb` 23×, `#ede7f6` 18×, `#e8eaf6` 17×, `#fce4ec` 10×, `#efebe9` 8×) und die Farbverläufe (`linear-gradient(135deg,#e3f2fd,#bbdefb)` mit Textfarben ausserhalb des Systems). Die brauchen **neue** Token — das ist Welle 2 und kein Anhängsel dieses Commits.
+
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · Hellmodus-Identität programmatisch bewiesen (18/18 Token exakt) · Kontrast aller 12 realen Kombinationen ausgerechnet, 0 unter 4,5:1 · **Vorher/Nachher in Chromium gerendert** (drei Spalten: hell unverändert, dunkel vorher, dunkel nachher) · Token-Definitionen und Release-Historie waren beim Ersetzen ausgeschlossene Schutzzonen · Version synchron v31.20.
 
 ### 2026-09-01 (c) — v31.19: Foto-zu-3D zeigt seine Stufen — letzter Entwurfs-Schritt
 

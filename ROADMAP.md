@@ -5,7 +5,7 @@
 > Kompagnon: `STATUS.md` (operativer Snapshot) · `CLAUDE.md` (Onboarding) ·
 > `BACKEND_FRONTEND_MAP_v26.76.md` (Architektur-Detailkarte).
 
-**Stand:** v31.19 · App **live** auf green-scan.ch · released seit v26.0.
+**Stand:** v31.20 · App **live** auf green-scan.ch · released seit v26.0.
 
 ---
 
@@ -58,6 +58,8 @@ Die App ist ein reifes, live-laufendes Produkt. Erreicht u.a.:
 **Entwürfe umgesetzt (v31.16–v31.19).** Startseite mit „Dein Tagesplan" (v31.16), „Mein Garten" mit Kennzahl-Kacheln (v31.17), Scan-Ergebnis mit Ursachen-Wahrscheinlichkeiten und Übergabe an Lina (v31.18), Foto-zu-3D mit Stufen-Anzeige (v31.19). Durchgehendes Prinzip: die Form aus den Entwürfen übernehmen, aber nichts behaupten, was die App nicht weiss — keine erfundenen Pflegezonen, kein erfundener Fortschritt.
 
 *(Historie)* **Entwürfe werden umgesetzt (ab v31.16).** Fernandos Bilder zeigen die Startseite als eine einzige Frage: *Was mache ich jetzt?* Umgesetzt als „Dein Tagesplan" mit Prioritäten und genau einem hervorgehobenen nächsten Schritt, gespeist aus `gsGetDueTasks()` und erledigt über den bestehenden `gsQuickDone`-Weg. Offen und je ein eigener Schritt: Mein Garten (Kennzahl-Kacheln), Scan-Ergebnis (Wahrscheinlichkeits-Zeilen), 3D-Modell-Fortschritt.
+
+**Farbsystem durchgesetzt (v31.20).** Die App hatte längst semantische Farb-Token mit korrekten Dunkel-Varianten — 523 Stellen umgingen sie und schrieben den Hellwert hart hinein, weshalb der Dunkelmodus leuchtete. Alle umgestellt; sechs Dunkel-Werte repariert, die sonst unlesbaren Text erzeugt hätten. Hellmodus pixelgleich, schlechtester Kontrast 2,2:1 → 4,8:1. **Offen (Welle 2):** 225 helle Hintergründe ohne Token-Zwilling und die Farbverläufe brauchen neue Token.
 
 Detaillierte Sprint-Historie: `STATUS.md` Sektion 0 (Routine-Einträge).
 
