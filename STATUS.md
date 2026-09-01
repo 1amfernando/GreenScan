@@ -12,6 +12,43 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-01 (as) — Leaked-Password-Protection ist aktiv · Backend-Block geschlossen
+
+Fernando hat den Schalter gesetzt (`Authentication → Providers → Email`). **Gegengeprüft, nicht geglaubt** — genau der Punkt, an dem eine frühere Meldung schon einmal von der Realität abwich:
+
+Der Advisor meldet `auth_leaked_password_protection` **nicht mehr**. Das ist derselbe Melder, der es heute früh noch als `Disabled` führte; sein eigener Zustand hat sich geändert.
+
+Die Zahlen gehen restlos auf:
+
+| Stand | Advisor-Einträge |
+|---|---|
+| heute früh | 145 |
+| + `fn_quiz_answers_verify` (neu, 2 Einträge: anon + authenticated) | 147 |
+| − `revoke execute` darauf | 145 |
+| − Leaked-Password-Protection | **144** |
+
+Durchgehend **0 ERROR**.
+
+#### Damit ist der gesamte Backend-Block zu
+
+| Punkt | Stand |
+|---|---|
+| Zwei offene Schreib-Endpunkte auf `species` | ✅ 410, Secret aus dem ausgelieferten Code |
+| Rollen-Leak über fremde UUIDs | ✅ vorher `true`, nachher `false`, Gast-Stöbern unverändert |
+| Quiz: `is_correct` kam vom Client | ✅ Server leitet ab, `UPDATE`/`DELETE` gesperrt |
+| Marktplatz-Zähler ohne Auth-Guard | ✅ 10 Versuche als anon, Zähler unverändert |
+| Standard-Grants (`TRUNCATE`/`REFERENCES`/`TRIGGER`) | ✅ 0 Reste |
+| Leaked-Password-Protection | ✅ aktiv, Advisor-gegengeprüft |
+
+#### Was bewusst NICHT gemacht wurde
+
+- **Die sechs `claude/*`-Branches mit dem alten Secret löschen.** Das Secret ist wertlos, seit beide Endpunkte 410 liefern. Branches zu löschen ist unumkehrbar und war nicht beauftragt.
+- **Das Secret rotieren.** Es schützte ausschliesslich diese zwei Funktionen; die tun nichts mehr. Eine Rotation wäre Beschäftigung ohne Wirkung.
+
+Kein App-Code, kein Versions-Bump.
+
+---
+
 ### 2026-09-01 (ar) — v31.55: Backend abgesichert · Verdrahtungs-Liste auf 0
 
 Fernando hat den Schreibzugriff freigegeben; der Supabase-Server hatte sich neu verbunden und die Schreibwerkzeuge funktionierten. **Drei der vier offenen Punkte konnte ich damit selbst erledigen**, einer bleibt bei ihm.
