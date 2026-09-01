@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.31.20260901">
+<meta name="app-version" content="31.32.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -104,6 +104,14 @@
   --fs-2xl:24px;  /* Seiten-Titel */
   --fs-3xl:28px;  /* Kennzahlen */
   --fs-4xl:32px;  /* Hero-Ziffern */
+  /* v31.32 — Text, der DIREKT auf einer der vierzehn dunklen Bildschirm-
+     Leinwaende sitzt (#screen-garden #33691e, #screen-social #1b5e20 …).
+     Die sind in beiden Modi dunkel, also gilt derselbe Wert in beiden Modi.
+     Gegen alle acht Leinwandfarben gerechnet: #ffffff mindestens 5.13:1,
+     #eef3ee mindestens 4.56:1. NICHT fuer Text in Karten benutzen — die
+     haben ihre eigene, helle Flaeche und bleiben bei --text. */
+  --on-canvas:#ffffff;
+  --on-canvas-2:#eef3ee;
   --r-xs:4px;    /* Marker, Fortschrittsbalken, winzige Chips */
   --r-sm:8px;    /* Badges, Tags, kleine Knoepfe */
   --r-md:12px;   /* Knoepfe, Eingabefelder, Listenzeilen */
@@ -387,7 +395,11 @@ body.dark .planting-row:active{background:#1e3a1e;}
 body.dark .notif-banner{background:#1e3a1e;border-color:#2a4f2a;color:var(--g-main);}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,html,body{background:var(--g-bg);}
-body{height:100%;background:var(--fill-dark);font-family:"DM Sans",sans-serif;overflow:hidden;font-size:var(--base-font,16px);}
+/* v31.32 — body setzte NIE eine Schriftfarbe. Sie war damit in beiden Modi
+   Schwarz (der Vorgabewert), und alles ohne eigene Farbe erbte Schwarz — im
+   Dunkelmodus schwarz auf dunkel. Jetzt --text: hell #111111 (praktisch
+   derselbe Wert wie zuvor), dunkel #f0f9f0. */
+body{height:100%;background:var(--fill-dark);color:var(--text);font-family:"DM Sans",sans-serif;overflow:hidden;font-size:var(--base-font,16px);}
 #app{position:fixed;inset:0;overflow:hidden;background:var(--fill-dark);}
 
 
@@ -1134,7 +1146,7 @@ body.dark #gs-task-note{background:linear-gradient(160deg,#4a4224,#3a331b);color
 .comment-expert-note{font-size:var(--fs-sm);color:var(--c-warn-d);font-weight:700;margin-top:3px;}
 .social-input-bar{display:flex;gap:8px;padding:10px 14px;border-top:1px solid #f5f5f5;background:var(--card);}
 .social-tabs{display:flex;gap:6px;padding:10px 16px 4px;overflow-x:auto;scrollbar-width:none;}
-.social-tab{flex:0 0 auto;padding:7px 14px;border:1.5px solid var(--g-light);border-radius:var(--r-xl);font-size:var(--fs-sm);font-weight:700;cursor:pointer;background:transparent;color:var(--g-dark);font-family:inherit;white-space:nowrap;transition:var(--dur);}
+.social-tab{flex:0 0 auto;padding:7px 14px;border:1.5px solid var(--g-light);border-radius:var(--r-xl);font-size:var(--fs-sm);font-weight:700;cursor:pointer;background:transparent;color:var(--on-canvas);font-family:inherit;white-space:nowrap;transition:var(--dur);}
 .social-tab.active{background:var(--fill-brand);border-color:var(--g-main);color:#fff;}
 
 
@@ -1566,7 +1578,7 @@ body.dark .gs-doc-urg-critical{background:#7f1d1d;color:#ffe3e3;}
 body.dark .gs-doc-pro{background:#3a2c10;border-color:#8d6e2a;color:#ffcc80;}
 /* v31.17: Gartenüberblick — Kennzahl-Kacheln nach denselben Regeln wie der
    Tagesplan: nur Token-Farben, damit Hell und Dunkel beide stimmen. */
-.gs-go-head{font-family:'Playfair Display',serif;font-size:var(--fs-lg);font-weight:800;color:var(--text);margin:0 0 9px;letter-spacing:-.01em;}
+.gs-go-head{font-family:'Playfair Display',serif;font-size:var(--fs-lg);font-weight:800;color:var(--on-canvas);margin:0 0 9px;letter-spacing:-.01em;}
 .gs-go-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:9px;}
 .gs-go-tile{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px 13px;box-shadow:var(--shadow-sm);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform var(--dur-fast) ease;}
 .gs-go-tile:active{transform:scale(.985);}
@@ -2737,7 +2749,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 </div>
 
 <!-- ── ERGEBNIS-INFO (nur 1x, kompakt) ─────────────── -->
-<div id="search-status" style="padding:4px 16px 2px;font-size:var(--fs-sm);font-weight:700;color:var(--muted);flex-shrink:0;"></div>
+<div id="search-status" style="padding:4px 16px 2px;font-size:var(--fs-sm);font-weight:700;color:var(--on-canvas-2);flex-shrink:0;"></div>
 
 <!-- ── ARTENLISTE ──────────────────────────────────── -->
 <div id="recent-searches" style="display:none;"></div>
@@ -3032,16 +3044,21 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <div id="garden-overview" style="margin:12px 16px 0;"></div>
 
 <!-- ── WETTER-CARD (eigenständig unter Header) ── -->
-<div onclick="openWeatherDetail()" style="margin:10px 16px 0;background:linear-gradient(135deg,#0d47a1,#1565c0);border-radius:var(--r-md);padding:11px 14px;color:#fff;display:flex;align-items:center;gap:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;">
+<!-- v31.32: Diese Kachel blieb bei v31.28 stehen — dort wurde nur das Wetter
+     auf der Startseite vom blauen Verlauf auf Karten-Optik umgestellt. Auf dem
+     Garten-Bildschirm leuchtete danach als Einzige noch
+     linear-gradient(135deg,#0d47a1,#1565c0). Jetzt dasselbe Material wie die
+     Kacheln daneben. Die drei von JS beschriebenen IDs sind unveraendert. -->
+<div onclick="openWeatherDetail()" style="margin:10px 16px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--elev-1);padding:11px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;">
   <span id="garden-hw-icon" style="font-size:var(--fs-3xl);flex-shrink:0;">🌤️</span>
   <div style="flex:1;min-width:0;">
-    <div data-i18n="garden_weather_label" data-i18n-fallback="Gartenwetter" style="font-size:var(--fs-xs);font-weight:800;opacity:.7;text-transform:uppercase;letter-spacing:.5px;line-height:1;margin-bottom:3px;">Gartenwetter</div>
+    <div data-i18n="garden_weather_label" data-i18n-fallback="Gartenwetter" style="font-size:var(--fs-xs);font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;line-height:1;margin-bottom:3px;">Gartenwetter</div>
     <div style="display:flex;align-items:baseline;gap:8px;">
-      <span id="garden-hw-temp" style="font-size:var(--fs-xl);font-weight:900;line-height:1;">–°</span>
-      <span id="garden-hw-desc" data-i18n="garden_weather_tap_details" data-i18n-fallback="Tippen für Details" style="font-size:var(--fs-sm);opacity:.85;line-height:1.3;">Tippen für Details</span>
+      <span id="garden-hw-temp" style="font-size:var(--fs-xl);font-weight:900;line-height:1;color:var(--text);">–°</span>
+      <span id="garden-hw-desc" data-i18n="garden_weather_tap_details" data-i18n-fallback="Tippen für Details" style="font-size:var(--fs-sm);color:var(--text2);line-height:1.3;">Tippen für Details</span>
     </div>
   </div>
-  <span style="opacity:.45;font-size:var(--fs-xl);">›</span>
+  <span style="color:var(--muted);font-size:var(--fs-xl);">›</span>
 </div>
 
 <!-- ── SYNC STATUS (Cloud-Sync Indikator) ── -->
@@ -3098,8 +3115,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
 <!-- ── MEINE GÄRTEN Section ── -->
 <div style="padding:16px 16px 4px;display:flex;align-items:baseline;justify-content:space-between;">
-  <div style="font-size:var(--fs-md);font-weight:800;color:var(--text);">🪴 Meine Gärten</div>
-  <button onclick="openAddGarden()" style="background:none;border:none;color:var(--g-main);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;padding:4px 0;-webkit-tap-highlight-color:transparent;">+ Hinzufügen</button>
+  <div style="font-size:var(--fs-md);font-weight:800;color:var(--on-canvas);">🪴 Meine Gärten</div>
+  <button onclick="openAddGarden()" style="background:none;border:none;color:var(--on-canvas);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;padding:4px 0;-webkit-tap-highlight-color:transparent;">+ Hinzufügen</button>
 </div>
 
 <div id="garden-list" style="padding:2px 16px 12px;"></div>
@@ -3118,7 +3135,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <!-- v25.18: Saisonkalender-Inline-Host (wird via gsRenderSeasonalInline gefüllt) -->
 <div id="seasonal-tasks-host" style="padding:0 16px 8px;"></div>
 <details style="margin:0 0 8px;border-top:1px solid var(--border);">
-  <summary style="padding:12px 16px;font-size:var(--fs-md);font-weight:800;color:var(--text);cursor:pointer;">🩺 Pflege & Diagnose</summary>
+  <summary style="padding:12px 16px;font-size:var(--fs-md);font-weight:800;color:var(--on-canvas);cursor:pointer;">🩺 Pflege & Diagnose</summary>
   <div style="padding-top:2px;">
 <!-- v25.31: KI-Pflanzendoktor (Vision-AI via plant-doctor-diagnose Edge-Fn) -->
 <div style="padding:0 16px 12px;">
@@ -3153,7 +3170,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   </div>
 </details>
 <details style="margin:0 0 8px;border-top:1px solid var(--border);">
-  <summary style="padding:12px 16px;font-size:var(--fs-md);font-weight:800;color:var(--text);cursor:pointer;">🗓️ Planen & Gestalten</summary>
+  <summary style="padding:12px 16px;font-size:var(--fs-md);font-weight:800;color:var(--on-canvas);cursor:pointer;">🗓️ Planen & Gestalten</summary>
   <div style="padding-top:2px;">
 <!-- v25.18: Saisonkalender-Modal-Trigger (Voll-Jahres-Übersicht) -->
 <div style="padding:0 16px 8px;">
@@ -3188,7 +3205,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   </div>
 </details>
 <details style="margin:0 0 8px;border-top:1px solid var(--border);">
-  <summary style="padding:12px 16px;font-size:var(--fs-md);font-weight:800;color:var(--text);cursor:pointer;">📚 Wissen & Werkzeuge</summary>
+  <summary style="padding:12px 16px;font-size:var(--fs-md);font-weight:800;color:var(--on-canvas);cursor:pointer;">📚 Wissen & Werkzeuge</summary>
   <div style="padding-top:2px;">
 <!-- v25.20: Garten-Insights-Dashboard (aggregiert pollinators + diseases + tasks + myPlants) -->
 <div style="padding:0 16px 8px;">
@@ -21558,13 +21575,17 @@ function renderMarket() {
   // v26.36 Toggle-Visuals
   var orgBtn = document.getElementById('market-filter-organic');
   if (orgBtn) {
+    // v31.32: die inaktiven Farben standen als '#1b5e20' / '#bf360c' fest —
+    // Hellmodus-Werte, die im Dunkelmodus auf --card (#162816) 1.98:1 bzw.
+    // 2.78:1 ergaben. Als Token kippen sie mit dem Modus mit.
+    // Der aktive Hintergrund war #e65100; weisser Text darauf 3.79:1.
     orgBtn.style.background = fOrganic ? '#2e7d32' : 'var(--card)';
-    orgBtn.style.color = fOrganic ? '#fff' : '#1b5e20';
+    orgBtn.style.color = fOrganic ? '#fff' : 'var(--c-success-d)';
   }
   var pfBtn = document.getElementById('market-filter-pestfree');
   if (pfBtn) {
-    pfBtn.style.background = fPestfree ? '#e65100' : 'var(--card)';
-    pfBtn.style.color = fPestfree ? '#fff' : '#bf360c';
+    pfBtn.style.background = fPestfree ? '#bf360c' : 'var(--card)';
+    pfBtn.style.color = fPestfree ? '#fff' : 'var(--c-danger-d)';
   }
   var searchInp = document.getElementById('market-search');
   if (searchInp && search !== searchInp.value.toLowerCase()) {
@@ -32803,7 +32824,9 @@ function renderSocialFeed() {
     socialPosts.filter(function(p){ return (p.type || p.category) === currentSocialFilter; });
 
   if (!filtered.length) {
-    feed.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--muted);">' +
+    // v31.32: --muted ist eine Farbe fuer HELLE Flaechen; dieser Block sitzt
+    // direkt auf der Leinwand von #screen-social (#1b5e20) — dort 1.14:1.
+    feed.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--on-canvas-2);">' +
       '<div style="font-size:48px;margin-bottom:12px;">🌿</div>' +
       '<p>' + _t('feed_empty','Noch keine Posts. Tippe auf + und teile deine Entdeckung!') + '</p></div>';
     return;
@@ -33033,7 +33056,7 @@ function loadSocialPosts(reset) {
         var fe = document.getElementById('social-feed');
         if (fe && reset) {
           var msg = (res && res.error && res.error.message) || 'Verbindung fehlgeschlagen';
-          fe.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--muted);">' +
+          fe.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--on-canvas-2);">' +
             '<div style="font-size:48px;margin-bottom:12px;">⚠️</div>' +
             '<p style="margin-bottom:14px;">' + escHtml(msg) + '</p>' +
             '<button onclick="loadSocialPosts(true)" style="padding:10px 20px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-md);font-weight:700;cursor:pointer;font-family:inherit;">🔄 Nochmal versuchen</button>' +
@@ -33044,7 +33067,7 @@ function loadSocialPosts(reset) {
       _communityLoading = false;
       var fe2 = document.getElementById('social-feed');
       if (fe2 && reset) {
-        fe2.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--muted);">' +
+        fe2.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--on-canvas-2);">' +
           '<div style="font-size:48px;margin-bottom:12px;">📡</div>' +
           '<p style="margin-bottom:14px;">Keine Verbindung zur Community</p>' +
           '<button onclick="loadSocialPosts(true)" style="padding:10px 20px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-md);font-weight:700;cursor:pointer;font-family:inherit;">🔄 Nochmal versuchen</button>' +
@@ -38702,12 +38725,12 @@ const RECIPE_CATS = {
   all:          {label:'🌿 Alle',         emoji:'🌿', color:'#2e7d32', bg:'#e8f5e9'},
   kochen:       {label:'🍳 Kochen',       emoji:'🍳', color:'#5d4037', bg:'#efebe9'},
   tee:          {label:'🍵 Tee',          emoji:'🍵', color:'#4a148c', bg:'#f3e5f5'},
-  sirup:        {label:'🍯 Sirup',        emoji:'🍯', color:'#f57f17', bg:'#fff8e1'},
+  sirup:        {label:'🍯 Sirup',        emoji:'🍯', color:'#bf360c', bg:'#fff8e1'}  /* v31.32: #f57f17 war 2.49:1 auf #fff8e1 */,
   aufstrich:    {label:'🥪 Aufstrich',    emoji:'🥪', color:'#2e7d32', bg:'#e8f5e9'},
   getraenk:     {label:'🍹 Getränk',      emoji:'🍹', color:'#1565c0', bg:'#e3f2fd'},
   oel:          {label:'🫒 Öl',           emoji:'🫒', color:'#33691e', bg:'#f1f8e9'},
   gebaeck:      {label:'🥐 Gebäck',       emoji:'🥐', color:'#bf360c', bg:'#fbe9e7'},
-  suppe:        {label:'🍲 Suppe',        emoji:'🍲', color:'#e65100', bg:'#fff3e0'},
+  suppe:        {label:'🍲 Suppe',        emoji:'🍲', color:'#bf360c', bg:'#fff3e0'}  /* v31.32: weisser Text auf #e65100 war 3.46:1 */,
   konservieren: {label:'🫙 Konservieren', emoji:'🫙', color:'#3e2723', bg:'#efebe9'},
   dessert:      {label:'🍰 Dessert',      emoji:'🍰', color:'#ad1457', bg:'#fce4ec'},
   eingelegt:    {label:'🥒 Eingelegt',    emoji:'🥒', color:'#1b5e20', bg:'#e8f5e9'},
@@ -38726,7 +38749,7 @@ const REMEDY_CATS = {
   tinktur:  {label:'💧 Tinktur',     emoji:'💧', color:'#1565c0', bg:'#e3f2fd'},
   salbe:    {label:'🧴 Salbe/Öl',    emoji:'🧴', color:'#6a1b9a', bg:'#f3e5f5'},
   umschlag: {label:'🩹 Umschlag',    emoji:'🩹', color:'#b71c1c', bg:'#ffebee'},
-  sirup:    {label:'🍯 Hustensaft',  emoji:'🍯', color:'#e65100', bg:'#fff3e0'},
+  sirup:    {label:'🍯 Hustensaft',  emoji:'🍯', color:'#bf360c', bg:'#fff3e0'}  /* v31.32: #e65100 war 3.46:1 auf #fff3e0 */,
   bad:      {label:'🛁 Kräuterbad',  emoji:'🛁', color:'#00695c', bg:'#e0f2f1'},
   essig:    {label:'🫙 Kräuteressig',emoji:'🫙', color:'#4e342e', bg:'#efebe9'},
 };
@@ -43601,7 +43624,7 @@ function renderRecipes() {
   if (_gsRecipesState.shown < filtered.length) {
     var remaining = filtered.length - _gsRecipesState.shown;
     sentinelHtml =
-      '<div id="recipes-sentinel" data-loadmore="recipes-list" style="text-align:center;padding:18px 14px;color:var(--muted);font-size:var(--fs-sm);font-weight:600;border:2px dashed var(--border);border-radius:var(--r-md);margin:8px 0;">' +
+      '<div id="recipes-sentinel" data-loadmore="recipes-list" style="text-align:center;padding:18px 14px;color:var(--on-canvas-2);font-size:var(--fs-sm);font-weight:600;border:2px dashed var(--border);border-radius:var(--r-md);margin:8px 0;">' +
         '<span class="gs-spin" style="display:inline-block;width:14px;height:14px;border:2px solid var(--g-light);border-top-color:var(--g-main);border-radius:50%;animation:gs-spin 1s linear infinite;vertical-align:middle;margin-right:6px;"></span>' +
         _t('load_more_label','Lade weitere') + ' ' + Math.min(BATCH, remaining) + ' ' + _t('word_of','von') + ' ' + remaining + '…' +
       '</div>';
@@ -43653,7 +43676,7 @@ function renderRemedies() {
   if (_gsRemediesState.shown < filtered.length) {
     var remaining = filtered.length - _gsRemediesState.shown;
     sentinelHtml =
-      '<div id="remedies-sentinel" data-loadmore="remedies-list" style="text-align:center;padding:18px 14px;color:var(--muted);font-size:var(--fs-sm);font-weight:600;border:2px dashed var(--border);border-radius:var(--r-md);margin:8px 0;">' +
+      '<div id="remedies-sentinel" data-loadmore="remedies-list" style="text-align:center;padding:18px 14px;color:var(--on-canvas-2);font-size:var(--fs-sm);font-weight:600;border:2px dashed var(--border);border-radius:var(--r-md);margin:8px 0;">' +
         '<span class="gs-spin" style="display:inline-block;width:14px;height:14px;border:2px solid var(--g-light);border-top-color:var(--g-main);border-radius:50%;animation:gs-spin 1s linear infinite;vertical-align:middle;margin-right:6px;"></span>' +
         _t('load_more_label','Lade weitere') + ' ' + Math.min(BATCH, remaining) + ' ' + _t('word_of','von') + ' ' + remaining + '…' +
       '</div>';
@@ -46217,11 +46240,15 @@ function renderPflanzentafel() {
 
 // Farb-Themes
 const THEMES = {
-  green:  { main:'#2d8a2d', dark:'#1a3d1a', mid:'#4caf50', light:'#c8e6c9', bg:'#f0f7ee', darkMain:'#4caf50', darkDark:'#81c784', darkBg:'#0f1a0f', darkCard:'#1a2e1a', darkLight:'#1e3a1e' },
+  /* v31.32: green main war #2d8a2d = 4.39:1 auf Weiss (unter AA), orange
+     #e65100 = 3.79:1. Beide sind Textfarbe UND Knopf-Hintergrund, der Wert
+     gilt also in beide Richtungen. Neu: #1f6b2f = 6.56:1 (deckt sich mit
+     --g-main im Stylesheet) und #bf360c = 5.60:1. */
+  green:  { main:'#1f6b2f', dark:'#1a3d1a', mid:'#4caf50', light:'#c8e6c9', bg:'#f0f7ee', darkMain:'#4caf50', darkDark:'#81c784', darkBg:'#0f1a0f', darkCard:'#1a2e1a', darkLight:'#1e3a1e' },
   teal:   { main:'#00695c', dark:'#003d33', mid:'#009688', light:'#b2dfdb', bg:'#e0f2f1', darkMain:'#26a69a', darkDark:'#80cbc4', darkBg:'#0a1514', darkCard:'#0f2522', darkLight:'#0d2320' },
   blue:   { main:'#1565c0', dark:'#003c8f', mid:'#1976d2', light:'#bbdefb', bg:'#e3f2fd', darkMain:'#42a5f5', darkDark:'#90caf9', darkBg:'#0a0f1a', darkCard:'#0f1e2e', darkLight:'#0d1b2a' },
   purple: { main:'#6a1b9a', dark:'#38006b', mid:'#8e24aa', light:'#e1bee7', bg:'#f3e5f5', darkMain:'#ba68c8', darkDark:'#ce93d8', darkBg:'#120a17', darkCard:'#1e0f2a', darkLight:'#1c0c28' },
-  orange: { main:'#e65100', dark:'#8d3200', mid:'#f4511e', light:'#ffccbc', bg:'#fbe9e7', darkMain:'#ff7043', darkDark:'#ff8a65', darkBg:'#1a0a05', darkCard:'#2a1205', darkLight:'#281005' },
+  orange: { main:'#bf360c', dark:'#8d3200', mid:'#f4511e', light:'#ffccbc', bg:'#fbe9e7', darkMain:'#ff7043', darkDark:'#ff8a65', darkBg:'#1a0a05', darkCard:'#2a1205', darkLight:'#281005' },
   brown:  { main:'#4e342e', dark:'#260e04', mid:'#6d4c41', light:'#d7ccc8', bg:'#efebe9', darkMain:'#a1887f', darkDark:'#bcaaa4', darkBg:'#110906', darkCard:'#1e0f0a', darkLight:'#1c0d08' },
 };
 
@@ -46463,6 +46490,16 @@ function applyTheme(themeName, btn, save = true) {
   applyThemeColors(themeName, document.body.classList.contains('dark'));
 }
 
+// v31.32 — Entfernt die Inline-Werte, die aeltere Versionen auf
+// documentElement gesetzt haben. Ohne das blieben sie nach einem
+// Themenwechsel in derselben Sitzung stehen und wuerden das Stylesheet
+// weiterhin ueberstimmen.
+function _gsClearTextTokens(root) {
+  ['--text', '--text2', '--muted', '--border'].forEach(function(n) {
+    try { root.removeProperty(n); } catch (_) {}
+  });
+}
+
 function applyThemeColors(themeName, isDark) {
   const t = THEMES[themeName] || THEMES.green;
   const root = document.documentElement.style;
@@ -46474,11 +46511,9 @@ function applyThemeColors(themeName, isDark) {
     root.setProperty('--card',    t.darkCard);
     root.setProperty('--g-light', t.darkLight);
     root.setProperty('--g-mid',   t.darkMain);
-    // Dark text colors – always readable on dark backgrounds
-    root.setProperty('--text',    '#e8e8e8');
-    root.setProperty('--text2',   '#aaaaaa');
-    root.setProperty('--muted',   '#666666');
-    root.setProperty('--border',  '#2a3a2a');
+    // v31.32: --text/--text2/--muted/--border werden hier NICHT mehr gesetzt.
+    // Siehe die Begruendung im hellen Zweig weiter unten.
+    _gsClearTextTokens(root);
   } else {
     root.setProperty('--g-main',  t.main);
     root.setProperty('--g-dark',  t.dark);
@@ -46486,11 +46521,23 @@ function applyThemeColors(themeName, isDark) {
     root.setProperty('--card',    '#ffffff');
     root.setProperty('--g-light', t.light);
     root.setProperty('--g-mid',   t.mid);
-    // Light text colors – always readable on light backgrounds
-    root.setProperty('--text',    '#1a1a1a');
-    root.setProperty('--text2',   '#444444');
-    root.setProperty('--muted',   '#888888');
-    root.setProperty('--border',  '#e0e0e0');
+    // ── v31.32 ────────────────────────────────────────────────────────────
+    // Hier standen vier setProperty-Aufrufe fuer --text/--text2/--muted/--border,
+    // ueberschrieben mit '#1a1a1a'/'#444444'/'#888888'/'#e0e0e0' und dem
+    // Kommentar "always readable on light backgrounds". Das stimmte nicht:
+    // #888888 erreicht auf Weiss 3.54:1 und liegt damit unter AA (4.5:1).
+    //
+    // Schwerer wiegt das WIE: root ist documentElement.style, also ein
+    // Inline-Style. Der schlaegt JEDE :root-Regel im Stylesheet. Die gesamte
+    // Farb-Arbeit ab v31.20 — gerechnete, gepruefte Token-Werte — kam an
+    // dieser Stelle nie an. 270 Textstellen lagen im Hellmodus unter AA,
+    // allein 179 davon wegen dieser einen Zeile fuer --muted.
+    //
+    // Diese vier Token sind nicht themenabhaengig; sie gehoeren ins
+    // Stylesheet, wo sie in beiden Modi definiert und geprueft sind
+    // (hell --muted #5a5a5a = 6.90:1, dunkel #7ab87a = 6.64:1 auf --card).
+    // Themenabhaengig sind nur die Markenfarben darueber — die bleiben.
+    _gsClearTextTokens(root);
   }
 }
 
@@ -50834,7 +50881,7 @@ const GARDEN_KNOWLEDGE = {
             plants: ['Blumenkohl','Broccoli','Blaukabis','Weisskabis','Wirz (Kohl)','Rosenkohl','Federkohl','Chinakohl','Pak Choi','Kohlrabi','Fenchel','Knollensellerie','Stangensellerie','Zuckermais','Tomaten','Kartoffeln','Auberginen','Peperoni','Gurken','Zucchetti','Kürbis','Melonen','Lauch']
           },
           'II. Tracht (Mittelzehrer)': {
-            color: '#e65100', bg: '#fff3e0',
+            color: '#bf360c', bg: '#fff3e0',   /* v31.32: wird als Kopf-Hintergrund mit weisser Schrift benutzt — #e65100 ergab 3.79:1 */
             desc: 'Mittlerer Nährstoffbedarf. Grunddüngung: 2l Kompost/m² im Frühling.',
             plants: ['Karotten','Pastinaken','Kopfsalat','Krachsalat','Endivien','Cicorino','Zuckerhut','Neuseeländer Spinat','Schnittsalat','Lattich','Stielmangold','Schnittmangold','Randen','Rettich','Herbstrüben','Schwarzwurzeln','Brüsseler','Zwiebeln gesteckt','Knoblauch','Topinambur','Spinat','Lauch (Winterlauch)']
           },
@@ -63505,6 +63552,27 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.32', date: '01.09.2026',
+    headline: '\ud83d\udc41\ufe0f 291 schlecht lesbare Textstellen \u2014 und warum meine Farbarbeit seit v31.20 nie ankam',
+    summary: 'Der neue Kontrast-Pr\u00fcfstand fand 270 Textstellen im Hell- und 21 im Dunkelmodus unter dem Lesbarkeits-Mindestwert. Die Hauptursache war eine einzige Zeile JavaScript, die meine gepr\u00fcften Farbwerte zur Laufzeit \u00fcberschrieb. Jetzt sind es null in beiden Modi.',
+    user_summary: '\ud83d\udc41\ufe0f Grauer Hilfstext, \u00dcberschriften auf farbigen Fl\u00e4chen und Filter-Kn\u00f6pfe sind jetzt \u00fcberall klar lesbar \u2014 in beiden Modi. Und die Wetterkachel im Garten sieht endlich aus wie der Rest.',
+    user_items: [
+      { emoji: '\ud83d\udc41\ufe0f', text: 'Grauer Hilfstext war 3,5:1 statt der n\u00f6tigen 4,5:1 \u2014 jetzt 6,9:1' },
+      { emoji: '\ud83c\udf19', text: 'Im Dunkelmodus war Text ohne eigene Farbe schwarz auf dunkel' },
+      { emoji: '\ud83c\udf24\ufe0f', text: 'Die Wetterkachel im Garten war als Einzige noch knallblau' },
+    ],
+    items: [
+      {emoji:'\ud83d\udd0e', bold:'Die Ursache:', text:' applyThemeColors() schrieb --text/--text2/--muted/--border per setProperty auf documentElement \u2014 ein Inline-Stil, der JEDE :root-Regel schl\u00e4gt. --muted war dadurch #888888 (3,54:1 auf Weiss) statt der gepr\u00fcften Werte. Der Kommentar dar\u00fcber behauptete "always readable on light backgrounds". Betroffen war nur der Hellmodus: der Dunkelmodus definiert seine Token auf body.dark, und ein Wert auf body sticht den geerbten von html. Die vier Aufrufe sind entfernt, alte Inline-Werte werden aktiv zur\u00fcckgenommen.'},
+      {emoji:'\ud83c\udfa8', bold:'Zwei Themen fielen durch:', text:' die Hauptfarbe des Standard-Themas Gr\u00fcn war #2d8a2d = 4,39:1 auf Weiss, Orange #e65100 = 3,79:1. Beide dienen als Textfarbe UND als Knopf-Hintergrund, der Wert gilt also in beide Richtungen. Neu #1f6b2f (6,56:1) und #bf360c (5,60:1).'},
+      {emoji:'\ud83c\udf19', bold:'body hatte nie eine Schriftfarbe:', text:' sie war damit in beiden Modi Schwarz (der Vorgabewert). Alles ohne eigene Farbe erbte Schwarz \u2014 im Dunkelmodus schwarz auf dunkel. Zw\u00f6lf Stellen auf einen Schlag behoben.'},
+      {emoji:'\ud83d\uddbc\ufe0f', bold:'Text auf farbigen Bildschirmen:', text:' vierzehn Bildschirme haben in beiden Modi eine dunkle Leinwand. Text direkt darauf nutzte --text/--muted \u2014 Token f\u00fcr HELLE Fl\u00e4chen, Ergebnis 1,01:1 bis 2,86:1. Neue Token --on-canvas / --on-canvas-2, gegen alle acht Leinwandfarben gerechnet. Meinen ersten Versuch, das \u00fcber eine gemeinsame Regel auf den Leinwaenden zu l\u00f6sen, habe ich VERWORFEN: gemessen wurde es davon schlechter (22 auf 33 Stellen).'},
+      {emoji:'\ud83c\udf24\ufe0f', bold:'Nachtrag zu v31.28:', text:' die Wetterkachel im Garten blieb damals stehen \u2014 umgestellt wurde nur die auf der Startseite. Jetzt dasselbe Material; die drei von JavaScript beschriebenen IDs unver\u00e4ndert.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Kontrast-Pr\u00fcfstand \u00fcber neun Tabs in beiden Modi: 270 + 21 \u2192 0 + 0 \u00b7 Vorher/Nachher am laufenden Programm: 1\u2019522 vergleichbare Elemente, 1\u2019002 Farb\u00e4nderungen und 0 \u00c4nderungen an Radius, Schriftgr\u00f6sse und GR\u00d6SSE \u2014 genau das Profil einer reinen Farb\u00e4nderung \u00b7 abgeschnittener Inhalt 17 \u2192 17, aus dem Bildschirm ragend 0 \u2192 0 \u00b7 keine JS-Fehler \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.32 \u00b7 sw.js gs-v31.32 \u00b7 _headers v31.32 \u00b7 meta=31.32.20260901.'},
+    ],
+  },
+  {
     v: 'v31.31', date: '01.09.2026',
     headline: '\ud83d\udd24 Eine Typo-Skala \u2014 und 1\u2019387 Halbpixel-Schriftgr\u00f6ssen weniger',
     summary: 'Die App hatte 4\u2019739 Schriftgr\u00f6ssen in 53 Varianten, darunter 1\u2019387 Halbpixel-Werte wie 11.5px oder 12.5px. Das entscheidet niemand \u2014 das bleibt beim Nachjustieren \u00fcbrig. Sieben Textgr\u00f6ssen lagen innerhalb von 6px. Jetzt sieben Stufen \u00fcber den ganzen Bereich, jede mit einem Zweck.',
@@ -69679,7 +69747,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.31';
+var GS_VERSION = 'v31.32';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -81561,6 +81629,29 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
 #garden-library-content { padding-bottom: 100px !important; }
 
 
+/* v31.32 — Leerzustaende sitzen direkt auf der Leinwand, nicht in einer
+   Karte. Auf die dunklen Bildschirme beschraenkt, damit dieselbe Klasse auf
+   hellen Flaechen unveraendert bleibt. */
+#screen-favs .gs-empty, #screen-search .gs-empty, #screen-social .gs-empty,
+#screen-market .gs-empty, #screen-garden .gs-empty, #screen-wissen .gs-empty,
+#screen-recipes .gs-empty, #screen-remedies .gs-empty { color: var(--on-canvas-2); }
+#screen-favs .gs-empty-title, #screen-search .gs-empty-title,
+#screen-social .gs-empty-title, #screen-market .gs-empty-title,
+#screen-garden .gs-empty-title, #screen-wissen .gs-empty-title,
+#screen-recipes .gs-empty-title, #screen-remedies .gs-empty-title { color: var(--on-canvas); }
+
+/* v31.32 — Diese vierzehn Bildschirme haben in BEIDEN Modi eine dunkle
+   Leinwand (bewusst: jeder Bereich hat seine Farbe). Text, der direkt darauf
+   sitzt, benutzte aber --text / --muted — Token fuer HELLE Flaechen. Ergebnis
+   im Hellmodus: 1.55:1 bis 2.86:1. Dieselbe Verwechslung wie bei der
+   Kopfleiste (v31.25) und der Navigation (v31.27).
+   VERWORFEN: eine gemeinsame helle Schriftfarbe auf den Leinwaenden. Am
+   laufenden Programm gemessen wurde es davon SCHLECHTER (22 auf 33 Stellen) —
+   sie erzeugte elf Weiss-auf-Weiss-Faelle in Karten und erreichte die
+   gemeinten Elemente gar nicht, weil die eine eigene Farbe setzen. Also
+   gezielt an den Stellen, die tatsaechlich auf der Leinwand sitzen.
+   #screen-light war #e65100 — darauf erreicht Weiss nur 3.79:1; auf #bf360c
+   sind es 5.60:1, derselbe Wert wie fuer das orange Thema. */
 #screen-social   { background: #1b5e20 !important; }
 #screen-recipes  { background: #4e342e !important; }
 #screen-remedies { background: #1a237e !important; }
@@ -81574,7 +81665,7 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
 #screen-search   { background: #1a3d1a !important; }
 #screen-favs     { background: #1a3d1a !important; }
 #screen-guide    { background: #1b5e20 !important; }
-#screen-light    { background: #e65100 !important; }
+#screen-light    { background: #bf360c !important; }
 
 
 .gs-back-bar-top {
