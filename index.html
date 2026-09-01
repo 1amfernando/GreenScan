@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.20.20260901">
+<meta name="app-version" content="31.21.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -148,6 +148,23 @@
   --z-toast:    9999;    /* Toast/Snackbar — über allem */
   --z-image-overlay: 99999; /* v24.50: Lightbox/Photo-Fullscreen — über Toasts */
   --z-debug:    999999;  /* Debug-Overlay, nur Dev-Mode */
+  /* v31.21 — Welle 2: eigene Token fuer die restlichen getoenten Flaechen.
+     Bewusst KEINE Zusammenlegung mit vorhandenen Toenen: der Farbabstand
+     (CIE76) lag bei allen ausser #f0f7ee ueber der Wahrnehmungsschwelle —
+     Zusammenlegen haette das HELLE Design veraendert, und das war nicht
+     bestellt. Jeder Hellwert unten ist exakt der Wert, den er ersetzt. */
+  --surface-neutral: #f9fafb;   /* neutrale Panel-Flaeche (Diagnose/Detail) */
+  --bg-violet-soft:  #ede7f6;
+  --bg-indigo-soft:  #e8eaf6;
+  --bg-lime-soft:    #f1f8e9;
+  --bg-pink-soft:    #fce4ec;
+  --bg-brown-soft:   #efebe9;
+  --c-violet:        #311b92;
+  --c-indigo:        #283593;
+  --c-lime-d:        #33691e;
+  --c-pink:          #c2185b;
+  --c-brown-d:       #4e342e;
+
 }
 
 body.dark{
@@ -194,6 +211,20 @@ body.dark{
   --hero-badge-border: rgba(165,214,167,0.2);
   --input-bg:#1e341e;
   --input-border:#3a5f3a;
+  /* v31.21 — Welle 2, Dunkelwerte. Jeder Textwert wurde gegen den EIGENEN
+     Tint UND gegen --card durchgerechnet; alle liegen ueber 4.5:1. */
+  --surface-neutral: #1c2b1c;
+  --bg-violet-soft:  rgba(179,157,219,.12);
+  --bg-indigo-soft:  rgba(121,134,203,.12);
+  --bg-lime-soft:    rgba(156,204,101,.12);
+  --bg-pink-soft:    rgba(240,98,146,.12);
+  --bg-brown-soft:   rgba(161,136,127,.14);
+  --c-violet:        #b39ddb;   /* 5.3:1 auf Tint · 6.5:1 auf Karte */
+  --c-indigo:        #9fa8da;   /* 5.8 · 6.7 */
+  --c-lime-d:        #c5e1a5;   /* 8.4 · 10.9 */
+  --c-pink:          #f48fb1;   /* 6.0 · 7.0 */
+  --c-brown-d:       #bcaaa4;   /* 5.8 · 7.0 */
+
 }
 body.dark html,body.dark body{background:var(--g-dark);}
 
@@ -765,8 +796,8 @@ body.gs-scanner-active #screen-scanner { bottom: 0 !important; }
 .tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:9px;}
 .tag.e{background:var(--bg-success-soft);color:var(--c-success);}
 .tag.t{background:var(--bg-danger-soft);color:var(--c-danger);}
-.tag.m{background:#e8eaf6;color:#3949ab;}
-.tag.p{background:#fce4ec;color:#c2185b;}
+.tag.m{background:var(--bg-indigo-soft);color:var(--c-indigo);}
+.tag.p{background:var(--bg-pink-soft);color:var(--c-pink);}
 
 
 
@@ -793,7 +824,7 @@ body.gs-scanner-active #screen-scanner { bottom: 0 !important; }
 
 .di { background: var(--card); border-radius: 8px; padding: 10px 12px; }
 body.dark .di { background: #1e3a1e; }
-.dsec { background: #f9fafb; border-radius: var(--r-sm); padding: 13px; margin-bottom: 9px; }
+.dsec { background:var(--surface-neutral); border-radius: var(--r-sm); padding: 13px; margin-bottom: 9px; }
 body.dark .dsec { background: #1e3a1e; }
 .detail-tag-row { display:flex; gap:5px; flex-wrap:wrap; margin-top:4px; }
 
@@ -821,11 +852,11 @@ details > summary::marker { content: ''; }
 .mhdr h2{font-family:"Playfair Display",serif;font-size:20px;font-weight:800;color:var(--g-dark);}
 .mhdr p{font-style:italic;font-size:12px;color:var(--muted);margin-top:2px;}
 .mbody{padding:14px 18px;}
-.dsec{background:#f9fafb;border-radius:var(--r-sm);padding:13px;margin-bottom:9px;}
+.dsec{background:var(--surface-neutral);border-radius:var(--r-sm);padding:13px;margin-bottom:9px;}
 .dsec h3{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:7px;}
 .dsec p{font-size:13.5px;color:var(--text2);line-height:1.6;}
 .dgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:9px;}
-.di{background:#f9fafb;border-radius:var(--r-sm);padding:11px;min-width:0;}
+.di{background:var(--surface-neutral);border-radius:var(--r-sm);padding:11px;min-width:0;}
 .dil{font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.3px;}
 .div2{font-size:13px;font-weight:700;color:var(--text);margin-top:2px;overflow-wrap:anywhere;}
 .tox-scale{display:flex;gap:7px;margin-top:8px;}
@@ -872,7 +903,7 @@ details > summary::marker { content: ''; }
 .menu-title{font-family:'Playfair Display',serif;font-size:18px;font-weight:800;color:var(--g-dark);padding:4px 20px 14px;text-align:center;}
 .menu-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 16px 8px;}
 .menu-item{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 6px;border-radius:16px;cursor:pointer;transition:.15s;border:none;background:transparent;font-family:inherit;}
-.menu-item:active{background:#f0f7ee;transform:scale(.94);}
+.menu-item:active{background:var(--surface2);transform:scale(.94);}
 .menu-item-icon{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px;}
 .menu-item-label{font-size:11px;font-weight:700;color:var(--g-dark);text-align:center;line-height:1.2;}
 .menu-item.active .menu-item-icon{box-shadow:0 0 0 3px var(--g-main);}
@@ -958,7 +989,7 @@ body.dark #gs-task-note{background:linear-gradient(160deg,#4a4224,#3a331b);color
 .cemetery-date{font-size:11px;opacity:.7;margin-top:2px;}
 .cemetery-cause{font-size:12px;opacity:.85;margin-top:5px;line-height:1.4;}
 .cemetery-restore-btn{margin-top:8px;padding:6px 12px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;}
-.mp-header-tabs{display:flex;gap:0;margin:10px 16px 0;background:#f0f7ee;border-radius:10px;padding:3px;}
+.mp-header-tabs{display:flex;gap:0;margin:10px 16px 0;background:var(--surface2);border-radius:10px;padding:3px;}
 .mp-htab{flex:1;padding:8px 6px;border:none;background:transparent;font-size:12px;font-weight:700;cursor:pointer;border-radius:8px;font-family:inherit;color:var(--muted);transition:.15s;}
 .mp-htab.active{background:var(--g-main);color:#fff;}
 
@@ -979,7 +1010,7 @@ body.dark #gs-task-note{background:linear-gradient(160deg,#4a4224,#3a331b);color
 .badge-verified{background:var(--bg-info-soft);color:var(--c-info);}
 .post-time{font-size:11px;color:var(--muted);}
 .post-plant-tag{font-size:11px;color:var(--g-main);font-weight:700;}
-.post-image{width:100%;max-height:280px;object-fit:cover;background:#f0f7ee;display:flex;align-items:center;justify-content:center;font-size:60px;}
+.post-image{width:100%;max-height:280px;object-fit:cover;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:60px;}
 .post-image-placeholder{width:100%;height:200px;background:linear-gradient(135deg,#e8f5e9,#c8e6c9);display:flex;align-items:center;justify-content:center;font-size:56px;}
 .post-text{padding:10px 14px;font-size:13.5px;color:var(--text2);line-height:1.6;}
 .post-help-tag{display:inline-flex;align-items:center;gap:4px;background:var(--bg-warn-soft);color:var(--c-warn-d);padding:3px 9px;border-radius:8px;font-size:11px;font-weight:700;margin:0 14px 8px;}
@@ -990,7 +1021,7 @@ body.dark #gs-task-note{background:linear-gradient(160deg,#4a4224,#3a331b);color
 .comments-section{padding:8px 14px 12px;border-top:1px solid #f5f5f5;display:none;}
 .comment{display:flex;gap:8px;margin-bottom:8px;}
 .comment-avatar{width:28px;height:28px;border-radius:50%;background:var(--g-light);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
-.comment-bubble{background:#f9fafb;border-radius:10px;padding:7px 10px;flex:1;}
+.comment-bubble{background:var(--surface-neutral);border-radius:10px;padding:7px 10px;flex:1;}
 .comment-name{font-size:11.5px;font-weight:800;color:var(--text);}
 .comment-text{font-size:12.5px;color:var(--text2);margin-top:1px;line-height:1.4;}
 .comment-expert-note{font-size:11px;color:var(--c-warn-d);font-weight:700;margin-top:3px;}
@@ -1025,7 +1056,7 @@ body.dark #gs-task-note{background:linear-gradient(160deg,#4a4224,#3a331b);color
 .ig-photo-zone img{width:100%;height:200px;object-fit:cover;border-radius:calc(var(--r) - 2px);}
 .ig-photo-zone-btns{display:flex;gap:8px;margin-bottom:14px;}
 .ig-char-counter{font-size:11px;color:var(--muted);text-align:right;margin-top:4px;}
-.ig-plant-tag{display:flex;align-items:center;gap:10px;background:#f0f7ee;border-radius:10px;padding:10px 13px;margin-bottom:12px;cursor:pointer;}
+.ig-plant-tag{display:flex;align-items:center;gap:10px;background:var(--surface2);border-radius:10px;padding:10px 13px;margin-bottom:12px;cursor:pointer;}
 .ig-author-row{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
 .ig-avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--g-main),#558b2f);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
 body.dark .ig-photo-zone{background:#1e3a1e;border-color:var(--g-light);}
@@ -1059,7 +1090,7 @@ body.dark .social-input-bar{background:var(--card);}
 .market-actions{display:flex;gap:8px;padding:8px 14px;}
 .market-btn-buy{flex:2;padding:11px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;transition:.15s;}
 .market-btn-buy:active{transform:scale(.97);}
-.market-btn-wish{flex:1;padding:11px;background:#f0f7ee;border:1.5px solid var(--g-light);border-radius:10px;font-size:13.5px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;transition:.15s;}
+.market-btn-wish{flex:1;padding:11px;background:var(--surface2);border:1.5px solid var(--g-light);border-radius:10px;font-size:13.5px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;transition:.15s;}
 .market-btn-bid{flex:2;padding:11px;background:linear-gradient(135deg,#e53935,#c62828);color:#fff;border:none;border-radius:10px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;}
 .market-search{padding:10px 16px 6px;position:sticky;top:0;background:var(--g-bg);z-index:5;}
 .market-search-input{width:100%;padding:11px 14px 11px 38px;border:2px solid var(--g-light);border-radius:12px;font-size:14px;font-family:inherit;background:var(--card);color:var(--text);outline:none;}
@@ -1126,7 +1157,7 @@ body.dark .recipe-card-img{background:linear-gradient(135deg,#1e3a1e,#2a4f2a);}
 .bid-amount-input{flex:1;padding:14px 16px;font-size:22px;font-weight:800;border:2px solid var(--g-light);border-radius:12px;font-family:'Playfair Display',serif;text-align:center;color:var(--g-dark);background:var(--card);outline:none;}
 .bid-amount-input:focus{border-color:var(--g-main);}
 .bid-step-btns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
-.bid-step-btn{padding:8px 14px;background:#f0f7ee;border:1.5px solid var(--g-light);border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;transition:.15s;}
+.bid-step-btn{padding:8px 14px;background:var(--surface2);border:1.5px solid var(--g-light);border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;transition:.15s;}
 .bid-step-btn:active{background:var(--g-light);}
 .mkt-chat-wrap{display:flex;flex-direction:column;height:100%;}
 .mkt-chat-msgs{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px;min-height:200px;max-height:45vh;}
@@ -1153,7 +1184,7 @@ body.dark .mkt-chat-msg.them{background:#2a3f2a;color:var(--text);}
 .moon-phase-name{font-family:'Playfair Display',serif;font-size:16px;font-weight:800;text-align:center;}
 .moon-type-row{display:flex;gap:6px;justify-content:center;margin-top:6px;flex-wrap:wrap;}
 .moon-type-badge{padding:3px 10px;border-radius:8px;font-size:11px;font-weight:700;background:rgba(255,255,255,.15);color:#fff;}
-.moon-type-badge.active{background:var(--card);color:#1a237e;}
+.moon-type-badge.active{background:var(--card);color:var(--c-indigo);}
 .moon-days-row{display:flex;gap:4px;justify-content:center;margin-top:10px;}
 .moon-day{text-align:center;flex:1;}
 .moon-day-icon{font-size:18px;}
@@ -1170,7 +1201,7 @@ body.dark .mkt-chat-msg.them{background:#2a3f2a;color:var(--text);}
 .fruchtfolge-row{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;}
 .keimtyp-badge{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:700;}
 .keimtyp-licht{background:var(--bg-yellow-soft);color:#f57f17;}
-.keimtyp-dunkel{background:#1a237e22;color:#1a237e;}
+.keimtyp-dunkel{background:#1a237e22;color:var(--c-indigo);}
 body.dark .plant-info-card{background:var(--card);}
 body.dark .keimtyp-dunkel{background:rgba(255,255,255,.1);color:#90caf9;}
 
@@ -1292,7 +1323,7 @@ body.dark .menu-search-wrap{background:var(--card);}
 .map-layer-btn:active{opacity:.8;}
 
 
-.farm-res{display:flex;align-items:center;gap:4px;padding:5px 10px;background:#f0f7ee;border-radius:8px;font-size:12px;font-weight:700;color:var(--g-dark);white-space:nowrap;border:1px solid var(--g-light);}
+.farm-res{display:flex;align-items:center;gap:4px;padding:5px 10px;background:var(--surface2);border-radius:8px;font-size:12px;font-weight:700;color:var(--g-dark);white-space:nowrap;border:1px solid var(--g-light);}
 
 
 .farm-plot{border-radius:12px;aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;transition:.15s;position:relative;border:2px solid transparent;font-family:inherit;}
@@ -1345,7 +1376,7 @@ body.dark .menu-search-wrap{background:var(--card);}
 .garden-card-badges{display:flex;gap:5px;margin-top:4px;flex-wrap:wrap;}
 .garden-weather-strip{background:linear-gradient(90deg,#1565c0,#1976d2);color:#fff;padding:11px 14px;display:flex;align-items:center;gap:12px;border-radius:var(--r);font-size:13px;}
 .planting-row{display:flex;align-items:center;gap:9px;padding:9px 14px;border-top:1px solid #f5f5f5;cursor:pointer;}
-.planting-row:active{background:#f9fafb;}
+.planting-row:active{background:var(--surface-neutral);}
 .planting-emoji{font-size:22px;flex-shrink:0;}
 .planting-info{flex:1;min-width:0;}
 .planting-name{font-size:13.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -1357,7 +1388,7 @@ body.dark .menu-search-wrap{background:var(--card);}
 
 
 .shop-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px;}
-.shop-item{background:#f9fafb;border-radius:10px;padding:12px;text-align:center;cursor:pointer;transition:.15s;border:1.5px solid #eee;}
+.shop-item{background:var(--surface-neutral);border-radius:10px;padding:12px;text-align:center;cursor:pointer;transition:.15s;border:1.5px solid #eee;}
 .shop-item:active{background:var(--bg-success-soft);border-color:var(--g-light);}
 .shop-item-emoji{font-size:30px;display:block;margin-bottom:5px;}
 .shop-item-name{font-size:12.5px;font-weight:700;color:var(--text);}
@@ -1382,7 +1413,7 @@ body.dark .menu-search-wrap{background:var(--card);}
 .mpcard-name{font-size:15px;font-weight:700;color:var(--g-dark);font-family:'Playfair Display',serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .mpcard-loc{font-size:11.5px;color:var(--muted);margin-top:1px;}
 .mpcard-badges{display:flex;gap:5px;margin-top:5px;flex-wrap:wrap;}
-.mpbadge{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:8px;background:#f0f7ee;color:var(--g-dark);}
+.mpbadge{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:8px;background:var(--surface2);color:var(--g-dark);}
 .mpbadge.warn{background:var(--bg-warn-soft);color:var(--c-warn-d);}
 .mpbadge.ok{background:var(--bg-success-soft);color:var(--c-success-d);}
 .mpcard-chevron{font-size:18px;color:var(--muted);flex-shrink:0;transition:.2s;}
@@ -1390,7 +1421,7 @@ body.dark .menu-search-wrap{background:var(--card);}
 
 
 .mp-stats{display:flex;gap:8px;padding:0 13px 10px;}
-.mp-stat{flex:1;background:#f9fafb;border-radius:10px;padding:8px 6px;text-align:center;}
+.mp-stat{flex:1;background:var(--surface-neutral);border-radius:10px;padding:8px 6px;text-align:center;}
 .mp-stat-icon{font-size:22px;line-height:1;display:block;margin-bottom:3px;}
 .mp-stat-label{font-size:9.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:3px;}
 .mp-stat-dots{display:flex;justify-content:center;gap:3px;}
@@ -1464,8 +1495,8 @@ body.dark .gs-doc-pro{background:#3a2c10;border-color:#8d6e2a;color:#ffcc80;}
 @media (prefers-reduced-motion: reduce){.gs-dp-row,.gs-dp-next{transition:none;}.gs-dp-row:active,.gs-dp-next:active{transform:none;}}
 .mp-tasks{padding:0 13px 12px;}
 .mp-tasks-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:6px;}
-.mp-task{display:flex;align-items:center;gap:9px;padding:8px 10px;background:#f9fafb;border-radius:10px;margin-bottom:5px;cursor:pointer;transition:.15s;}
-.mp-task:active{background:#f0f7ee;}
+.mp-task{display:flex;align-items:center;gap:9px;padding:8px 10px;background:var(--surface-neutral);border-radius:10px;margin-bottom:5px;cursor:pointer;transition:.15s;}
+.mp-task:active{background:var(--surface2);}
 .mp-task-icon{font-size:18px;flex-shrink:0;}
 .mp-task-info{flex:1;}
 .mp-task-name{font-size:12.5px;font-weight:700;color:var(--text);}
@@ -1478,9 +1509,9 @@ body.dark .gs-doc-pro{background:#3a2c10;border-color:#8d6e2a;color:#ffcc80;}
 
 
 .mp-ai-section{padding:0 13px 13px;}
-.mp-ai-btn{width:100%;padding:10px;background:#f0f7ee;border:1.5px solid var(--g-light);border-radius:10px;font-size:13px;font-weight:700;color:var(--g-main);cursor:pointer;font-family:inherit;transition:.15s;display:flex;align-items:center;justify-content:center;gap:7px;}
+.mp-ai-btn{width:100%;padding:10px;background:var(--surface2);border:1.5px solid var(--g-light);border-radius:10px;font-size:13px;font-weight:700;color:var(--g-main);cursor:pointer;font-family:inherit;transition:.15s;display:flex;align-items:center;justify-content:center;gap:7px;}
 .mp-ai-btn:active{background:var(--g-light);}
-.mp-ai-result{background:#f9fafb;border-radius:10px;padding:11px 13px;margin-top:7px;font-size:13px;color:var(--text2);line-height:1.6;}
+.mp-ai-result{background:var(--surface-neutral);border-radius:10px;padding:11px 13px;margin-top:7px;font-size:13px;color:var(--text2);line-height:1.6;}
 
 
 .mp-actions{display:flex;gap:7px;padding:0 13px 13px;}
@@ -1521,7 +1552,7 @@ body.dark .gs-doc-pro{background:#3a2c10;border-color:#8d6e2a;color:#ffcc80;}
 .ai-send{background:var(--g-main);border:none;color:#fff;width:42px;height:42px;border-radius:21px;font-size:18px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
 .ai-suggestions{display:flex;gap:7px;overflow-x:auto;padding:8px 16px 0;scrollbar-width:none;}
 .ai-suggestions::-webkit-scrollbar{display:none;}
-.ai-sug{flex-shrink:0;background:#f0f7ee;border:1.5px solid var(--g-light);border-radius:16px;padding:6px 12px;font-size:12px;color:var(--g-dark);cursor:pointer;font-weight:600;white-space:nowrap;}
+.ai-sug{flex-shrink:0;background:var(--surface2);border:1.5px solid var(--g-light);border-radius:16px;padding:6px 12px;font-size:12px;color:var(--g-dark);cursor:pointer;font-weight:600;white-space:nowrap;}
 
 
 .fb-screen{padding:16px;}
@@ -1530,7 +1561,7 @@ body.dark .gs-doc-pro{background:#3a2c10;border-color:#8d6e2a;color:#ffcc80;}
 .fb-tag{display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;margin-bottom:10px;}
 .fb-tag.bug{background:var(--bg-danger-soft);color:var(--c-danger);}
 .fb-tag.idea{background:var(--bg-success-soft);color:var(--c-success);}
-.fb-tag.ui{background:#e8eaf6;color:#3949ab;}
+.fb-tag.ui{background:var(--bg-indigo-soft);color:var(--c-indigo);}
 .fb-tag.data{background:var(--bg-warn-soft);color:var(--c-warn-d);}
 .fb-body{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:12px;}
 .vote-row{display:flex;align-items:center;gap:10px;}
@@ -1555,7 +1586,7 @@ body.dark .gs-doc-pro{background:#3a2c10;border-color:#8d6e2a;color:#ffcc80;}
 .sup-q-title{font-size:13.5px;font-weight:600;color:var(--g-dark);}
 .sup-q-ans{font-size:12.5px;color:var(--text2);line-height:1.6;margin-top:7px;display:none;}
 .sup-q.open .sup-q-ans{display:block;}
-.contact-btn{display:flex;align-items:center;gap:10px;background:#f0f7ee;border:none;border-radius:var(--r-sm);padding:13px 15px;font-size:13.5px;font-weight:600;color:var(--g-dark);cursor:pointer;width:100%;font-family:inherit;margin-bottom:8px;text-align:left;}
+.contact-btn{display:flex;align-items:center;gap:10px;background:var(--surface2);border:none;border-radius:var(--r-sm);padding:13px 15px;font-size:13.5px;font-weight:600;color:var(--g-dark);cursor:pointer;width:100%;font-family:inherit;margin-bottom:8px;text-align:left;}
 
 
 /* v23.71: z-index von 300 → 2400 damit Modals über Menü-Overlay liegen.
@@ -2365,9 +2396,9 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6d4c41;">🌾 Bauernregel des Tages</div>
         <span id="wisdom-validity-badge" style="font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:7px;"></span>
       </div>
-      <div id="wisdom-saying" style="font-family:'Playfair Display',serif;font-size:14.5px;font-weight:800;color:#3e2723;line-height:1.4;margin-bottom:6px;font-style:italic;"></div>
+      <div id="wisdom-saying" style="font-family:'Playfair Display',serif;font-size:14.5px;font-weight:800;color:var(--c-brown-d);line-height:1.4;margin-bottom:6px;font-style:italic;"></div>
       <div id="wisdom-source" style="font-size:10.5px;color:#6d4c41;margin-bottom:6px;font-weight:600;"></div>
-      <div id="wisdom-meaning" style="font-size:12px;color:#4e342e;line-height:1.55;margin-bottom:6px;"></div>
+      <div id="wisdom-meaning" style="font-size:12px;color:var(--c-brown-d);line-height:1.55;margin-bottom:6px;"></div>
       <div id="wisdom-modern" style="font-size:11.5px;color:#5d4037;line-height:1.5;background:rgba(255,255,255,.55);padding:6px 9px;border-radius:7px;border-left:3px solid #8d6e63;"></div>
     </div>
 
@@ -3561,11 +3592,11 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <div class="mp-field">
         <label>Lieferoptionen</label>
         <div style="display:flex;flex-direction:column;gap:6px;" id="shipping-options">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:9px 11px;background:#f9fafb;border-radius:8px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:9px 11px;background:var(--surface-neutral);border-radius:8px;">
             <input type="checkbox" id="ship-local" checked style="accent-color:var(--g-main);width:16px;height:16px;">
             <div><div style="font-size:12.5px;font-weight:700;">📍 Abholung / Lokal</div><div style="font-size:11px;color:var(--muted);">Abgabe vor Ort</div></div>
           </label>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:9px 11px;background:#f9fafb;border-radius:8px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:9px 11px;background:var(--surface-neutral);border-radius:8px;">
             <input type="checkbox" id="ship-post" style="accent-color:var(--g-main);width:16px;height:16px;">
             <div><div style="font-size:12.5px;font-weight:700;">📦 Versand per Post</div><div style="font-size:11px;color:var(--muted);">Schweizweit</div></div>
           </label>
@@ -3928,8 +3959,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <div class="mp-field">
         <label>📷 Foto (optional)</label>
         <div style="display:flex;gap:8px;">
-          <button onclick="document.getElementById('diary-photo-camera').click()" style="flex:1;padding:11px;background:#f1f8e9;border:1.5px solid #689f38;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:#33691e;font-family:inherit;">📷 Kamera</button>
-          <button onclick="document.getElementById('diary-photo-gallery').click()" style="flex:1;padding:11px;background:#f1f8e9;border:1.5px solid #689f38;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:#33691e;font-family:inherit;">🖼️ Galerie</button>
+          <button onclick="document.getElementById('diary-photo-camera').click()" style="flex:1;padding:11px;background:var(--bg-lime-soft);border:1.5px solid #689f38;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:var(--c-lime-d);font-family:inherit;">📷 Kamera</button>
+          <button onclick="document.getElementById('diary-photo-gallery').click()" style="flex:1;padding:11px;background:var(--bg-lime-soft);border:1.5px solid #689f38;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:var(--c-lime-d);font-family:inherit;">🖼️ Galerie</button>
         </div>
         <input type="file" id="diary-photo-camera" accept="image/*" capture="environment" style="display:none;" onchange="gsDiaryLoadPhoto(this)">
         <input type="file" id="diary-photo-gallery" accept="image/*" style="display:none;" onchange="gsDiaryLoadPhoto(this)">
@@ -4009,8 +4040,8 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <div class="mp-field">
         <label data-i18n="pest_lbl_photo" data-i18n-fallback="📷 Foto vom Befall (Pflicht)">📷 Foto vom Befall (Pflicht)</label>
         <div id="pest-photo-area" style="display:flex;gap:8px;">
-          <button onclick="document.getElementById('pest-photo-camera').click()" style="flex:1;padding:11px;background:#efebe9;border:1.5px solid #8d6e63;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:#4e342e;font-family:inherit;" data-i18n="btn_pest_camera" data-i18n-fallback="📷 Kamera">📷 Kamera</button>
-          <button onclick="document.getElementById('pest-photo-gallery').click()" style="flex:1;padding:11px;background:#efebe9;border:1.5px solid #8d6e63;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:#4e342e;font-family:inherit;" data-i18n="btn_pest_gallery" data-i18n-fallback="🖼️ Galerie">🖼️ Galerie</button>
+          <button onclick="document.getElementById('pest-photo-camera').click()" style="flex:1;padding:11px;background:var(--bg-brown-soft);border:1.5px solid #8d6e63;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:var(--c-brown-d);font-family:inherit;" data-i18n="btn_pest_camera" data-i18n-fallback="📷 Kamera">📷 Kamera</button>
+          <button onclick="document.getElementById('pest-photo-gallery').click()" style="flex:1;padding:11px;background:var(--bg-brown-soft);border:1.5px solid #8d6e63;border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;color:var(--c-brown-d);font-family:inherit;" data-i18n="btn_pest_gallery" data-i18n-fallback="🖼️ Galerie">🖼️ Galerie</button>
         </div>
         <input type="file" id="pest-photo-camera" accept="image/*" capture="environment" style="display:none;" onchange="gsPestLoadPhoto(this)">
         <input type="file" id="pest-photo-gallery" accept="image/*" style="display:none;" onchange="gsPestLoadPhoto(this)">
@@ -4253,7 +4284,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <div><h2>Gebot abgeben</h2><p id="bid-modal-subtitle">Biete auf dieses Angebot</p></div>
     </div>
     <div class="bid-modal-box">
-      <div style="background:#f9fafb;border-radius:10px;padding:10px 13px;margin-bottom:12px;" id="bid-listing-info"></div>
+      <div style="background:var(--surface-neutral);border-radius:10px;padding:10px 13px;margin-bottom:12px;" id="bid-listing-info"></div>
       <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;">Dein Gebot (CHF)</div>
       <div class="bid-input-row">
         <span style="font-size:18px;font-weight:800;color:var(--g-dark);flex-shrink:0;">CHF</span>
@@ -4350,7 +4381,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       </div>
       <input type="file" id="gs-file-input" accept="image/*" style="display:none;" onchange="loadGardenScanImage(this)">
       <!-- Manuelle Grösseneingabe -->
-      <div style="background:#f0f7ee;border-radius:10px;padding:11px 13px;margin-bottom:10px;">
+      <div style="background:var(--surface2);border-radius:10px;padding:11px 13px;margin-bottom:10px;">
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--g-main);margin-bottom:6px;">📐 Gartengrösse (oder manuell eingeben)</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;">
           <div><label style="font-size:11px;color:var(--muted);font-weight:700;">Breite (m)</label>
@@ -5007,7 +5038,7 @@ html, body{ scroll-behavior: smooth; }
       </div>
       <!-- v29.22 SET-05: 'Mein Plan' aus der Datenschutz-Gruppe hierher in die Abo-Karte verschoben (Struktur) -->
       <div class="settings-row" id="settings-myplan-row" style="cursor:pointer;" onclick="if(typeof gsOpenMyPlan==='function')gsOpenMyPlan()">
-        <div class="settings-icon" style="background:#ede7f6;">💎</div>
+        <div class="settings-icon" style="background:var(--bg-violet-soft);">💎</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_myplan" data-i18n-fallback="Mein Plan">Mein Plan</div>
           <div class="settings-label-sub" data-i18n="settings_myplan_hint" data-i18n-fallback="Dein Tarif &amp; deine heutigen Frei-Kontingente">Dein Tarif &amp; deine heutigen Frei-Kontingente</div>
@@ -5023,7 +5054,7 @@ html, body{ scroll-behavior: smooth; }
         <div style="font-size:18px;color:var(--muted);">›</div>
       </div>
       <div class="settings-row" onclick="gsOpenRedeemVoucher()" style="cursor:pointer;">
-        <div class="settings-icon" style="background:#ede7f6;">🎟️</div>
+        <div class="settings-icon" style="background:var(--bg-violet-soft);">🎟️</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_redeem_voucher" data-i18n-fallback="Gutschein einlösen">Gutschein einlösen</div>
           <div class="settings-label-sub" data-i18n="settings_redeem_voucher_hint" data-i18n-fallback="Code für Pro/Lifetime eingeben">Code für Pro/Lifetime eingeben</div>
@@ -5065,7 +5096,7 @@ html, body{ scroll-behavior: smooth; }
       </div>
       <!-- v23.54: Immer nach Standort fragen (für Nutzer die das wollen) -->
       <div class="settings-row">
-        <div class="settings-icon" style="background:#fce4ec;">🔁</div>
+        <div class="settings-icon" style="background:var(--bg-pink-soft);">🔁</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_gps_ask_always" data-i18n-fallback="Standort immer neu abfragen">Standort immer neu abfragen</div>
           <div class="settings-label-sub" data-i18n="settings_gps_ask_always_hint" data-i18n-fallback="Statt zu merken — jede Anfrage bestätigen. Standard: aus.">Statt zu merken — jede Anfrage bestätigen. Standard: aus.</div>
@@ -5077,7 +5108,7 @@ html, body{ scroll-behavior: smooth; }
       </div>
       <!-- v23.54: Immer nach Kamera fragen -->
       <div class="settings-row">
-        <div class="settings-icon" style="background:#fce4ec;">🔁</div>
+        <div class="settings-icon" style="background:var(--bg-pink-soft);">🔁</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_cam_ask_always" data-i18n-fallback="Kamera immer neu abfragen">Kamera immer neu abfragen</div>
           <div class="settings-label-sub" data-i18n="settings_cam_ask_always_hint" data-i18n-fallback="Statt zu merken — jede Anfrage bestätigen. Standard: aus.">Statt zu merken — jede Anfrage bestätigen. Standard: aus.</div>
@@ -5135,7 +5166,7 @@ html, body{ scroll-behavior: smooth; }
       </div>
       <!-- Kompakt-Modus -->
       <div class="settings-row">
-        <div class="settings-icon" style="background:#fce4ec;">📱</div>
+        <div class="settings-icon" style="background:var(--bg-pink-soft);">📱</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_compact" data-i18n-fallback="Kompakt-Ansicht">Kompakt-Ansicht</div>
           <div class="settings-label-sub" data-i18n="settings_compact_hint" data-i18n-fallback="Kleinere Karten und Abstände">Kleinere Karten und Abstände</div>
@@ -5147,7 +5178,7 @@ html, body{ scroll-behavior: smooth; }
       </div>
       <!-- v28.19: Senior-Modus (Accessibility) -->
       <div class="settings-row">
-        <div class="settings-icon" style="background:#e8eaf6;">👵</div>
+        <div class="settings-icon" style="background:var(--bg-indigo-soft);">👵</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_senior" data-i18n-fallback="Senioren-Modus">Senioren-Modus</div>
           <div class="settings-label-sub" data-i18n="settings_senior_hint" data-i18n-fallback="Grössere Schrift, grössere Tasten &amp; mehr Kontrast">Grössere Schrift, grössere Tasten &amp; mehr Kontrast</div>
@@ -5280,7 +5311,7 @@ html, body{ scroll-behavior: smooth; }
     <div class="settings-group-title" data-i18n="settings_group_ai" data-i18n-fallback="🤖 KI & Scanner">🤖 KI &amp; Scanner</div>
     <div class="settings-card">
       <div class="settings-row admin-only-row" id="settings-api-row" style="display:none;cursor:pointer;" onclick="openApiKey()">
-        <div class="settings-icon" style="background:#e8eaf6;">🔑</div>
+        <div class="settings-icon" style="background:var(--bg-indigo-soft);">🔑</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_api_key" data-i18n-fallback="API-Schlüssel">API-Schlüssel</div>
           <div class="settings-label-sub" id="settings-api-status">Wird geprüft…</div>
@@ -5350,7 +5381,7 @@ html, body{ scroll-behavior: smooth; }
       </div>
       <!-- v27.02: Profil & Privatsphäre (Community) -->
       <div class="settings-row" id="settings-profile-row" style="cursor:pointer;" onclick="if(typeof gsOpenProfileSettings==='function')gsOpenProfileSettings()">
-        <div class="settings-icon" style="background:#e8eaf6;">👤</div>
+        <div class="settings-icon" style="background:var(--bg-indigo-soft);">👤</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_profile" data-i18n-fallback="Profil &amp; Privatsphäre">Profil &amp; Privatsphäre</div>
           <div class="settings-label-sub" data-i18n="settings_profile_hint" data-i18n-fallback="Sichtbarkeit, Bio, Region, Blockierte">Sichtbarkeit, Bio, Region, Blockierte</div>
@@ -5395,7 +5426,7 @@ html, body{ scroll-behavior: smooth; }
       </div>
       <!-- v28.04 Block C: KI-Dienst (Globaler-Key) Status -->
       <div class="settings-row" id="settings-keystatus-row" style="cursor:pointer;" onclick="if(typeof gsRenderKeyStatus==='function')gsRenderKeyStatus()">
-        <div class="settings-icon" style="background:#e8eaf6;">🔑</div>
+        <div class="settings-icon" style="background:var(--bg-indigo-soft);">🔑</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_keystatus" data-i18n-fallback="KI-Dienst-Status">KI-Dienst-Status</div>
           <div class="settings-label-sub" id="gs-key-status" aria-live="polite">Wird geprüft…</div>
@@ -5442,7 +5473,7 @@ html, body{ scroll-behavior: smooth; }
       </div>
       <!-- v30.60: aus dem Menü hierher verschoben (Sammlungen + App-Verwaltung) — alle Funktionen verifiziert funktionsfähig -->
       <div class="settings-row" id="settings-collections-row" style="cursor:pointer;" onclick="if(typeof gsOpenCollections==='function')gsOpenCollections()">
-        <div class="settings-icon" style="background:#ede7f6;">📁</div>
+        <div class="settings-icon" style="background:var(--bg-violet-soft);">📁</div>
         <div class="settings-label">
           <div class="settings-label-title" data-i18n="settings_collections" data-i18n-fallback="Meine Sammlungen">Meine Sammlungen</div>
           <div class="settings-label-sub" data-i18n="settings_collections_hint" data-i18n-fallback="Eigene Ordner für Pflanzen, Arten &amp; Funde">Eigene Ordner für Pflanzen, Arten &amp; Funde</div>
@@ -5499,7 +5530,7 @@ html, body{ scroll-behavior: smooth; }
         <div style="font-size:18px;color:var(--c-danger);">›</div>
       </div>
       <div class="settings-row admin-only-row" id="settings-sb-key-row" style="display:none;cursor:pointer;" onclick="openAdminSbKeyPanel()">
-        <div class="settings-icon" style="background:#e8eaf6;">🔑</div>
+        <div class="settings-icon" style="background:var(--bg-indigo-soft);">🔑</div>
         <div class="settings-label">
           <div class="settings-label-title" style="color:#1a3d1a;" data-i18n="settings_sb_key" data-i18n-fallback="Supabase API-Key wechseln">Supabase API-Key wechseln</div>
           <div class="settings-label-sub" data-i18n="settings_sb_key_hint" data-i18n-fallback="Nur Admin · Gilt für alle Nutzer">Nur Admin · Gilt für alle Nutzer</div>
@@ -5609,7 +5640,7 @@ html, body{ scroll-behavior: smooth; }
     <div style="padding:8px 18px 22px;">
 
       <!-- Status Box -->
-      <div id="loc-status" style="background:#f0f7ee;border-radius:10px;padding:11px 14px;font-size:13px;color:var(--g-dark);margin-bottom:14px;line-height:1.5;">
+      <div id="loc-status" style="background:var(--surface2);border-radius:10px;padding:11px 14px;font-size:13px;color:var(--g-dark);margin-bottom:14px;line-height:1.5;">
         Kein Standort gespeichert
       </div>
 
@@ -5733,7 +5764,7 @@ html, body{ scroll-behavior: smooth; }
     </div>
 
     <!-- Location tag -->
-    <div style="display:flex;align-items:center;gap:10px;background:#f0f7ee;border-radius:10px;padding:10px 13px;margin-bottom:12px;">
+    <div style="display:flex;align-items:center;gap:10px;background:var(--surface2);border-radius:10px;padding:10px 13px;margin-bottom:12px;">
       <span style="font-size:20px;">📍</span>
       <div style="flex:1;font-size:13.5px;font-weight:700;color:var(--text);" id="ig-location-display">
         <span id="ig-loc-text" style="color:var(--muted);">Standort hinzufügen (optional)</span>
@@ -5915,11 +5946,11 @@ html, body{ scroll-behavior: smooth; }
     <div class="menu-section" data-i18n="msec_wissen" data-i18n-fallback="Wissen">Wissen</div>
     <div class="menu-grid">
       <button class="menu-item" onclick="menuNav('wissen')" id="mi-wissen">
-        <div class="menu-item-icon" style="background:#efebe9;">📚</div>
+        <div class="menu-item-icon" style="background:var(--bg-brown-soft);">📚</div>
         <span class="menu-item-label" data-i18n="menu_gartenwissen" data-i18n-fallback="Gartenwissen">Gartenwissen</span>
       </button>
       <button class="menu-item" onclick="menuNav('map')" id="mi-map">
-        <div class="menu-item-icon" style="background:#e8eaf6;">🗺️</div>
+        <div class="menu-item-icon" style="background:var(--bg-indigo-soft);">🗺️</div>
         <span class="menu-item-label" data-i18n="menu_karte" data-i18n-fallback="Karte">Karte</span>
       </button>
     </div>
@@ -5944,7 +5975,7 @@ html, body{ scroll-behavior: smooth; }
         <span class="menu-item-label" data-i18n="menu_rezepte" data-i18n-fallback="Rezepte">Rezepte</span>
       </button>
       <button class="menu-item" onclick="menuNav('remedies')" id="mi-remedies">
-        <div class="menu-item-icon" style="background:#e8eaf6;">🌿</div>
+        <div class="menu-item-icon" style="background:var(--bg-indigo-soft);">🌿</div>
         <span class="menu-item-label" data-i18n="menu_heilmittel" data-i18n-fallback="Heilmittel">Heilmittel</span>
       </button>
     </div>
@@ -5968,7 +5999,7 @@ html, body{ scroll-behavior: smooth; }
         <span class="menu-item-label" data-i18n="menu_biodiversitaet" data-i18n-fallback="Biodiversität">Biodiversität</span>
       </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){gsOpenGardenTimeline();},200)" id="mi-timeline">
-        <div class="menu-item-icon" style="background:#ede7f6;">📆</div>
+        <div class="menu-item-icon" style="background:var(--bg-violet-soft);">📆</div>
         <span class="menu-item-label" data-i18n="menu_garten_timeline" data-i18n-fallback="Garten-Timeline">Garten-Timeline</span>
       </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(function(){gsOpenWeatherWarn();},200)" id="mi-weatherwarn">
@@ -5992,7 +6023,7 @@ html, body{ scroll-behavior: smooth; }
         <span class="menu-item-label" data-i18n="menu_einstellungen" data-i18n-fallback="Einstellungen">Einstellungen</span>
       </button>
       <button class="menu-item" onclick="menuNav('more')" id="mi-more">
-        <div class="menu-item-icon" style="background:#fce4ec;">💬</div>
+        <div class="menu-item-icon" style="background:var(--bg-pink-soft);">💬</div>
         <span class="menu-item-label" data-i18n="menu_feedback_amp_hilfe" data-i18n-fallback="Feedback &amp; Hilfe">Feedback &amp; Hilfe</span>
       </button>
       <button class="menu-item" onclick="closeMainMenu();setTimeout(openAbout,200)" id="mi-about">
@@ -6000,7 +6031,7 @@ html, body{ scroll-behavior: smooth; }
         <span class="menu-item-label" data-i18n="menu_ueber_greenscan" data-i18n-fallback="Über GreenScan">Über GreenScan</span>
       </button>
       <button class="menu-item" id="mi-apikey" style="display:none;" onclick="closeMainMenu();openApiKey()">
-        <div class="menu-item-icon" style="background:#e8eaf6;">🔑</div>
+        <div class="menu-item-icon" style="background:var(--bg-indigo-soft);">🔑</div>
         <span class="menu-item-label" data-i18n="menu_api_key" data-i18n-fallback="API-Key">API-Key</span>
       </button>
       <button class="menu-item admin-only-row" id="mi-book-ingest" style="display:none;" onclick="closeMainMenu();setTimeout(openBookIngest,200)">
@@ -6013,7 +6044,7 @@ html, body{ scroll-behavior: smooth; }
       </button>
     </div>
 
-    <div style="margin:10px 16px 0;padding:12px 14px;background:#f0f7ee;border-radius:14px;display:flex;align-items:center;gap:10px;">
+    <div style="margin:10px 16px 0;padding:12px 14px;background:var(--surface2);border-radius:14px;display:flex;align-items:center;gap:10px;">
       <span style="font-size:22px;">🚨</span>
       <div style="font-size:12px;color:var(--g-dark);">
         <strong>Notfall:</strong> Tox Info Suisse <strong>145</strong> · Notruf <strong>144</strong>
@@ -6030,7 +6061,7 @@ html, body{ scroll-behavior: smooth; }
     <h3>&#x1F916; KI-Feedback-Analyse</h3>
     <p style="font-size:13px;color:#666;margin-bottom:14px;">Die KI analysiert alle Community-Feedbacks nach Priorität und schlägt konkrete Verbesserungen vor.</p>
     <div id="ki-improve-status" style="font-size:13px;color:var(--g-main);font-weight:600;margin-bottom:10px;"></div>
-    <div id="ki-improve-result" style="font-size:13px;color:var(--text2);line-height:1.7;background:#f9fafb;border-radius:10px;padding:12px;display:none;"></div>
+    <div id="ki-improve-result" style="font-size:13px;color:var(--text2);line-height:1.7;background:var(--surface-neutral);border-radius:10px;padding:12px;display:none;"></div>
     <button onclick="runKiImprove()" id="ki-run-btn" style="width:100%;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:10px;">&#x1F680; Analyse starten</button>
     <button onclick="gsRunServerTriage()" id="ki-run-server-btn" style="width:100%;padding:11px;background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:8px;">&#x1F9E0; Server-KI-Triage (Admin)</button>
     <div style="font-size:10.5px;color:var(--muted);margin-top:6px;text-align:center;line-height:1.4;">Lokal = nur deine lokalen Feedbacks · Server-KI = alle gepushten User-Ideen aus Supabase</div>
@@ -7127,7 +7158,7 @@ function gsNewPlantCard(p) {
       // v28.23: Pflanzen-Dossier (alle verknüpften Inhalte). v30.75: „📁 Sammlung"-Button entfernt (funktionslos
       // in der Wohnung-Ansicht; Sammlungen leben seit v30.60 in den Einstellungen → gsOpenCollections).
       '<div style="display:flex;gap:7px;margin-bottom:8px;">' +
-        '<button style="flex:1;padding:9px;background:#ede7f6;border:1.5px solid #b39ddb;border-radius:10px;font-size:12.5px;font-weight:800;color:#4527a0;cursor:pointer;font-family:inherit;" onclick="event.stopPropagation();if(typeof gsOpenPlantDossier===\'function\')gsOpenPlantDossier(\''+_pidSafe+'\')">' + _t('btn_dossier','📂 Dossier') + '</button>' +
+        '<button style="flex:1;padding:9px;background:var(--bg-violet-soft);border:1.5px solid #b39ddb;border-radius:10px;font-size:12.5px;font-weight:800;color:var(--c-violet);cursor:pointer;font-family:inherit;" onclick="event.stopPropagation();if(typeof gsOpenPlantDossier===\'function\')gsOpenPlantDossier(\''+_pidSafe+'\')">' + _t('btn_dossier','📂 Dossier') + '</button>' +
       '</div>' +
       // Edit / Delete
       '<div style="display:flex;gap:7px;">' +
@@ -7984,8 +8015,8 @@ function openGartenTagebuch() {
     quickHtml = '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;">' +
       '<button onclick="gsTbQuick(\'care\',\'Gegossen\')\" style="padding:4px 10px;background:#e1f5fe;color:#0277bd;border:1px solid #b3e5fc;border-radius:12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">💧 Gegossen</button>' +
       '<button onclick="gsTbQuick(\'care\',\'Gedüngt\')\" style="padding:4px 10px;background:var(--bg-warn-soft);color:#ef6c00;border:1px solid #ffe0b2;border-radius:12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🌱 Gedüngt</button>' +
-      '<button onclick="gsTbQuick(\'care\',\'Gejätet\')\" style="padding:4px 10px;background:#f1f8e9;color:#558b2f;border:1px solid #dcedc8;border-radius:12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🌿 Gejätet</button>' +
-      '<button onclick="gsTbQuick(\'observe\',\'Blattläuse entdeckt\')" style="padding:4px 10px;background:#fce4ec;color:#c2185b;border:1px solid #f8bbd0;border-radius:12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🐞 Schädling</button>' +
+      '<button onclick="gsTbQuick(\'care\',\'Gejätet\')\" style="padding:4px 10px;background:var(--bg-lime-soft);color:var(--c-lime-d);border:1px solid #dcedc8;border-radius:12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🌿 Gejätet</button>' +
+      '<button onclick="gsTbQuick(\'observe\',\'Blattläuse entdeckt\')" style="padding:4px 10px;background:var(--bg-pink-soft);color:var(--c-pink);border:1px solid #f8bbd0;border-radius:12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🐞 Schädling</button>' +
     '</div>';
   }
   
@@ -9875,7 +9906,7 @@ function gsOpenQuizLeaderboard() {
         '</div>' +
       '</div>' +
       '<div id="gs-quiz-lb-list" style="margin-bottom:12px;color:var(--muted);font-size:13px;text-align:center;padding:18px 0;">⏳ Lade Rangliste…</div>' +
-      '<div id="gs-quiz-lb-myrank" style="font-size:12px;color:var(--muted);text-align:center;padding:8px;background:#f1f8e9;border-radius:8px;"></div>' +
+      '<div id="gs-quiz-lb-myrank" style="font-size:12px;color:var(--muted);text-align:center;padding:8px;background:var(--bg-lime-soft);border-radius:8px;"></div>' +
     '</div>';
   openModal('detail-modal');
   Promise.all([ dqLoadLeaderboardTop(20), dqLoadMyRank() ]).then(function(arr){
@@ -13738,7 +13769,7 @@ async function gsOpenMyPlan() {
           + '</div>';
       }
     });
-    h += '<div style="margin-top:8px;background:#f1f8e9;border-radius:12px;padding:14px;font-size:13px;color:var(--text);line-height:1.6;">🌿 Diese Limits sind nur eine faire Kosten-Bremse für den geteilten KI-Schlüssel — kein Verkaufstrick. Wer mehr möchte: einen <b>eigenen Anthropic-Key</b> hinterlegen (dann komplett unbegrenzt &amp; gratis) oder GreenScan freiwillig mit Pro/Lifetime unterstützen.</div>';
+    h += '<div style="margin-top:8px;background:var(--bg-lime-soft);border-radius:12px;padding:14px;font-size:13px;color:var(--text);line-height:1.6;">🌿 Diese Limits sind nur eine faire Kosten-Bremse für den geteilten KI-Schlüssel — kein Verkaufstrick. Wer mehr möchte: einen <b>eigenen Anthropic-Key</b> hinterlegen (dann komplett unbegrenzt &amp; gratis) oder GreenScan freiwillig mit Pro/Lifetime unterstützen.</div>';
     h += '<button onclick="if(typeof gsShowAboScreen===\'function\')gsShowAboScreen()" style="margin-top:14px;width:100%;padding:13px;background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">Pläne ansehen</button>';
   }
   h += '<div style="font-size:11px;color:var(--muted);text-align:center;margin-top:14px;line-height:1.5;">Abo jederzeit mit 2 Klicks kündbar. Lina &amp; die Natur-Features bleiben für alle gratis.</div>';
@@ -13965,7 +13996,7 @@ function gsShowAboScreen() {
     '</div>';
 
   var proCard =
-    '<div style="border:' + (isPro?'2px solid #1a237e':'1.5px solid var(--border)') + ';border-radius:14px;padding:14px 16px;margin-bottom:10px;' + (isPro?'background:#e8eaf6':'background:var(--card)') + ';">' +
+    '<div style="border:' + (isPro?'2px solid #1a237e':'1.5px solid var(--border)') + ';border-radius:14px;padding:14px 16px;margin-bottom:10px;' + (isPro?'background:var(--bg-indigo-soft)':'background:var(--card)') + ';">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
         '<div style="font-size:15px;font-weight:900;">⭐ Pro</div>' +
         (isPro ? '<span style="background:#1a237e;color:#fff;padding:2px 9px;border-radius:8px;font-size:11px;font-weight:800;">Aktiv</span>' : '<span style="background:#1a237e;color:#fff;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:800;">CHF 7.90/Mt</span>') +
@@ -13979,7 +14010,7 @@ function gsShowAboScreen() {
       (!paid ?
         '<div style="display:flex;gap:8px;margin-top:12px;">' +
           '<button onclick="gsStartCheckout(\'pro_monthly\', false, 7)" style="flex:1;padding:11px;background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;border:none;border-radius:12px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;">7 Tage gratis · 7.90/Mt</button>' +
-          '<button onclick="gsStartCheckout(\'pro_yearly\', false, 7)" style="flex:1;padding:11px;background:#fff;color:#1a237e;border:1.5px solid #1a237e;border-radius:12px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;">Jährlich 79.- · −17%</button>' +
+          '<button onclick="gsStartCheckout(\'pro_yearly\', false, 7)" style="flex:1;padding:11px;background:#fff;color:var(--c-indigo);border:1.5px solid #1a237e;border-radius:12px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;">Jährlich 79.- · −17%</button>' +
         '</div>' : '') +
     '</div>';
 
@@ -13990,7 +14021,7 @@ function gsShowAboScreen() {
         '<div style="font-size:15px;font-weight:900;color:var(--c-success-d);">🏆 Pro Lifetime</div>' +
         (isLife ? '<span style="background:#2e7d32;color:#fff;padding:2px 9px;border-radius:8px;font-size:11px;font-weight:800;">Aktiv</span>' : '<span style="background:#2e7d32;color:#fff;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:800;">CHF 45.60</span>') +
       '</div>' +
-      '<div style="font-size:12px;color:#33691e;line-height:1.7;">' +
+      '<div style="font-size:12px;color:var(--c-lime-d);line-height:1.7;">' +
         '✅ Pro <strong>lebenslang</strong> (= 6 Jahre Pro-Abo gratis)<br>' +
         '✅ Einmalzahlung · keine Verlängerung<br>' +
         '✅ Unterstütze den Schweizer Indie-Dev' +
@@ -20250,7 +20281,7 @@ function renderDailyQuizTeaser() {
     // Teaser: großer Start-Button öffnet das Quizduell-Modal
     qEl.innerHTML = '🎯 ' + _t('quiz_ready','Tägliche Frage bereit');
     oEl.innerHTML =
-      '<button onclick="openDailyQuiz()" style="width:100%;padding:13px 16px;background:rgba(255,255,255,.95);color:#4527a0;border:none;border-radius:11px;font-size:14px;font-weight:900;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:0 2px 8px rgba(0,0,0,.18);">' +
+      '<button onclick="openDailyQuiz()" style="width:100%;padding:13px 16px;background:rgba(255,255,255,.95);color:var(--c-violet);border:none;border-radius:11px;font-size:14px;font-weight:900;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:0 2px 8px rgba(0,0,0,.18);">' +
         '▶ ' + _t('btn_start_now','Jetzt starten') + ' <span style="opacity:.6;font-weight:700;margin-left:6px;">' + _t('quiz_20s','20 Sek') + '</span>' +
       '</button>' +
       '<div style="font-size:10.5px;opacity:.8;margin-top:6px;text-align:center;">' + _t('quiz_rules','Keine zweite Chance · Nicht schummeln · App verlassen = verloren') + '</div>' +
@@ -28217,9 +28248,9 @@ function openDetail(id){
     }
     lightHtml = '<div class="dsec" style="margin-bottom:9px;"><h3>' + _t('detail_light_need','☀️ Lichtbedarf') + '</h3>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;margin-bottom:8px;">' +
-        '<div style="background:#f9fafb;border-radius:8px;padding:7px 5px;"><div style="font-size:10px;color:var(--muted);font-weight:700;">' + _t('light_min','MIN') + '</div><div style="font-size:13px;font-weight:800;color:var(--text);">'+lMin.toLocaleString()+'</div><div style="font-size:9px;color:var(--muted);">' + _t('unit_lux','Lux') + '</div></div>' +
+        '<div style="background:var(--surface-neutral);border-radius:8px;padding:7px 5px;"><div style="font-size:10px;color:var(--muted);font-weight:700;">' + _t('light_min','MIN') + '</div><div style="font-size:13px;font-weight:800;color:var(--text);">'+lMin.toLocaleString()+'</div><div style="font-size:9px;color:var(--muted);">' + _t('unit_lux','Lux') + '</div></div>' +
         '<div style="background:var(--bg-success-soft);border-radius:8px;padding:7px 5px;"><div style="font-size:10px;color:var(--g-main);font-weight:700;">' + _t('light_optimal','OPTIMAL') + '</div><div style="font-size:13px;font-weight:800;color:var(--g-dark);">'+lOpt.toLocaleString()+'</div><div style="font-size:9px;color:var(--g-main);">' + _t('unit_lux','Lux') + '</div></div>' +
-        '<div style="background:#f9fafb;border-radius:8px;padding:7px 5px;"><div style="font-size:10px;color:var(--muted);font-weight:700;">' + _t('light_max','MAX') + '</div><div style="font-size:13px;font-weight:800;color:var(--text);">'+lMax.toLocaleString()+'</div><div style="font-size:9px;color:var(--muted);">' + _t('unit_lux','Lux') + '</div></div>' +
+        '<div style="background:var(--surface-neutral);border-radius:8px;padding:7px 5px;"><div style="font-size:10px;color:var(--muted);font-weight:700;">' + _t('light_max','MAX') + '</div><div style="font-size:13px;font-weight:800;color:var(--text);">'+lMax.toLocaleString()+'</div><div style="font-size:9px;color:var(--muted);">' + _t('unit_lux','Lux') + '</div></div>' +
       '</div>' + fitHtml + sourceHint + '</div>';
   }
 
@@ -28301,13 +28332,13 @@ function openDetail(id){
   return '<div class="dsec" style="margin-bottom:9px;background:var(--bg-warn-soft);"><h3>' + _t('detail_confusion','👀 Verwechslungsgefahr') + '</h3><p style="color:var(--c-warn-d);font-weight:600;">'+lk+'</p></div>';
 })(),
       // Bookmark / Buch
-      sp.bookRef && sp.bookRef!=='–' ? '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#f0f7ee;border-radius:8px;margin-bottom:9px;"><span style="font-size:18px;">📚</span><div style="font-size:12px;color:var(--g-dark);font-weight:600;">' + _t('detail_db_ref','GreenScan Datenbank · Ref.') + ' '+sp.bookRef+'</div></div>' : '',
+      sp.bookRef && sp.bookRef!=='–' ? '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface2);border-radius:8px;margin-bottom:9px;"><span style="font-size:18px;">📚</span><div style="font-size:12px;color:var(--g-dark);font-weight:600;">' + _t('detail_db_ref','GreenScan Datenbank · Ref.') + ' '+sp.bookRef+'</div></div>' : '',
       // Favoriten-Button
       // KI-Fragen Button
       '<button onclick="gsAddSpeciesToGarden(\'' + id + '\')" style="width:100%;padding:11px;background:var(--bg-success-soft);color:var(--c-success-d);border:1.5px solid var(--g-light);border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;"><span>🌱</span> <span>' + _t('btn_add_to_garden','Zu meinem Garten hinzufügen') + '</span></button>',
       '<button onclick="openDetailChat(\''+id+'\',\''+escHtml(sp.name)+'\',\''+escHtml(sp.lat||'')+'\','+sp.tox+')" style="width:100%;padding:11px;background:var(--surface2);color:var(--g-dark);border:1px solid var(--g-light);border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px;"><span>🤖</span> <span>' + _t('ai_ask_pre','KI über') + ' '+escHtml(sp.name)+' ' + _t('ai_ask_post','befragen') + '</span></button>',
       // v28.25: Art zu Sammlung hinzufügen (Wrapper, nur ID im onclick = Hard-Lesson #12)
-      '<button onclick="if(typeof gsAddSpeciesToCollection===\'function\')gsAddSpeciesToCollection(\''+id+'\')" style="width:100%;padding:11px;background:#ede7f6;color:#4527a0;border:1.5px solid #b39ddb;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;"><span>📁</span> <span>' + _t('btn_add_collection','Zu Sammlung hinzufügen') + '</span></button>',
+      '<button onclick="if(typeof gsAddSpeciesToCollection===\'function\')gsAddSpeciesToCollection(\''+id+'\')" style="width:100%;padding:11px;background:var(--bg-violet-soft);color:var(--c-violet);border:1.5px solid #b39ddb;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;"><span>📁</span> <span>' + _t('btn_add_collection','Zu Sammlung hinzufügen') + '</span></button>',
       // Rezept-Link wenn vorhanden
       (function(){
         var hasRecipe = (typeof DEFAULT_RECIPES !== 'undefined' && DEFAULT_RECIPES.some(function(r){ return r.plant === sp.name || r.plantId === sp.id; })) ||
@@ -32245,7 +32276,7 @@ async function gsRenderSeasonRegionPanel() {
   if (!slug) {
     host.innerHTML = '<div style="background:linear-gradient(135deg,#e8f5e9,#f1f8e9);border:1.5px dashed #81c784;border-radius:13px;padding:13px 15px;margin-bottom:14px;">' +
       '<div style="font-size:13px;font-weight:800;color:var(--c-success-d);margin-bottom:3px;">📍 ' + ed(_t('season_region_cta_title','Lokale Saison-Tipps')) + '</div>' +
-      '<div style="font-size:11.5px;color:#33691e;line-height:1.5;margin-bottom:9px;">' + ed(_t('season_region_cta_body','Wähle deine Schweizer Region — dann zeigt der Kalender Frostdaten, Wachstumssaison und was genau bei dir gerade dran ist.')) + '</div>' +
+      '<div style="font-size:11.5px;color:var(--c-lime-d);line-height:1.5;margin-bottom:9px;">' + ed(_t('season_region_cta_body','Wähle deine Schweizer Region — dann zeigt der Kalender Frostdaten, Wachstumssaison und was genau bei dir gerade dran ist.')) + '</div>' +
       '<button onclick="openRegionalCalendarModal()" style="background:#2e7d32;color:#fff;border:none;border-radius:9px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' + ed(_t('season_region_cta_btn','Region wählen')) + ' ›</button>' +
     '</div>';
     return;
@@ -32567,7 +32598,7 @@ Antworte NUR mit dem JSON-Objekt, kein Text davor/danach.`;
         (diag.urgency && diag.urgency !== 'gering' ? '<div style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:7px;background:' + urgColors[diag.urgency] + '22;color:' + urgColors[diag.urgency] + ';font-size:10.5px;font-weight:800;margin-left:5px;">' + urgIcon[diag.urgency] + ' ' + diag.urgency.toUpperCase() + '</div>' : '') +
         '<div style="font-size:14px;font-weight:800;color:var(--text);margin:8px 0 6px;">' + escHtml(diag.diagnosis||'') + '</div>' +
         (diag.problems && diag.problems.length ? '<div style="margin-bottom:8px;">' + diag.problems.map(pr =>
-          '<div style="display:flex;align-items:center;gap:7px;background:#f9fafb;border-radius:8px;padding:7px 9px;margin-bottom:4px;">' +
+          '<div style="display:flex;align-items:center;gap:7px;background:var(--surface-neutral);border-radius:8px;padding:7px 9px;margin-bottom:4px;">' +
           '<span style="font-size:14px;">⚡</span>' +
           '<div><div style="font-size:12.5px;font-weight:700;color:var(--text);">' + escHtml(pr.name||'') + '</div>' +
           '<div style="font-size:11px;color:var(--muted);">' + escHtml(pr.cause||'') + (pr.confidence?' · ' + pr.confidence + '% sicher':'') + '</div></div></div>'
@@ -32576,7 +32607,7 @@ Antworte NUR mit dem JSON-Objekt, kein Text davor/danach.`;
           '<div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--g-dark);margin-bottom:4px;">💊 Behandlung</div>' +
           '<div style="font-size:12.5px;color:var(--text2);line-height:1.55;">' + escHtml(diag.treatment||'').replace(/\n/g,'<br>') + '</div>' +
         '</div>' +
-        (diag.prevention ? '<div style="background:#f9fafb;border-radius:8px;padding:10px 12px;">' +
+        (diag.prevention ? '<div style="background:var(--surface-neutral);border-radius:8px;padding:10px 12px;">' +
           '<div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">🛡️ Vorbeugung</div>' +
           '<div style="font-size:12px;color:var(--text2);line-height:1.55;">' + escHtml(diag.prevention).replace(/\n/g,'<br>') + '</div>' +
         '</div>' : '') +
@@ -32944,7 +32975,7 @@ function gsOpenVerifyModal(postId) {
       '<div style="font-size:12px;color:var(--muted);margin-bottom:6px;">Post von ' + author + '</div>' +
       photoBlock +
       '<p style="font-size:13px;color:var(--text);line-height:1.55;margin:0 0 14px;">' + text + (text.length >= 240 ? '…' : '') + '</p>' +
-      '<div style="background:#f1f8e9;border-left:3px solid #2e7d32;border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--text);line-height:1.55;">' +
+      '<div style="background:var(--bg-lime-soft);border-left:3px solid #2e7d32;border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--text);line-height:1.55;">' +
         '🎓 Du bestätigst als <strong>Experte</strong>: Diese Bestimmung/Information ist fachlich korrekt. Falsche Verifikationen können den Status entziehen.' +
       '</div>' +
       '<div style="display:flex;gap:8px;">' +
@@ -33618,7 +33649,7 @@ function gsBattleRenderList(rows){
   var h = '';
   h += '<div style="text-align:center;margin-bottom:14px;">';
   h += '<div style="font-size:19px;font-weight:900;color:var(--text);">⚔️ ' + _t('battle_title','Quiz-Battles') + '</div>';
-  h += '<div style="font-size:12.5px;color:var(--muted);margin-top:3px;">' + _t('battle_your_elo','Dein ELO:') + ' <b style="color:#5e35b1;">' + (myElo|0) + '</b></div>';
+  h += '<div style="font-size:12.5px;color:var(--muted);margin-top:3px;">' + _t('battle_your_elo','Dein ELO:') + ' <b style="color:var(--c-violet);">' + (myElo|0) + '</b></div>';
   h += '</div>';
   h += '<button onclick="gsBattleNewRandom()" style="width:100%;padding:14px;background:linear-gradient(135deg,#7e57c2,#4527a0);color:#fff;border:none;border-radius:13px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:0 3px 12px rgba(69,39,160,.35);margin-bottom:16px;">🎲 ' + _t('btn_new_battle_random','Neues Battle (Zufalls-Gegner)') + '</button>';
 
@@ -33645,7 +33676,7 @@ function gsBattleRenderList(rows){
       s += '<div ' + (clickable ? 'onclick="gsBattleOpenFromList(' + b._i + ')" ' : '') + 'style="display:flex;align-items:center;gap:11px;padding:11px 13px;border:1.5px solid ' + border + ';border-radius:12px;margin-bottom:9px;' + (clickable ? 'cursor:pointer;' : '') + 'background:var(--card-bg,#fff);">';
       s += '<div style="font-size:24px;flex-shrink:0;">' + emoji + '</div>';
       s += '<div style="flex:1;min-width:0;"><div style="font-weight:800;font-size:14px;color:var(--text);">' + name + '</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">' + sub + '</div></div>';
-      if (b.opponent_elo) s += '<div style="font-size:11.5px;color:#5e35b1;font-weight:800;flex-shrink:0;">' + (b.opponent_elo|0) + '</div>';
+      if (b.opponent_elo) s += '<div style="font-size:11.5px;color:var(--c-violet);font-weight:800;flex-shrink:0;">' + (b.opponent_elo|0) + '</div>';
       if (clickable) s += '<div style="font-size:18px;color:#7e57c2;flex-shrink:0;margin-left:4px;">›</div>';
       s += '</div>';
     });
@@ -33755,7 +33786,7 @@ function _gsBattleMaybeOfferResume(){
     b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);z-index:var(--z-toast,9999);background:linear-gradient(135deg,#5e35b1,#7e57c2);color:#fff;border-radius:14px;padding:12px 14px;box-shadow:0 6px 22px rgba(0,0,0,.35);display:flex;gap:12px;align-items:center;font-family:inherit;';
     b.innerHTML = '<div style="font-size:24px;flex-shrink:0;">⚔️</div>'
       + '<div style="flex:1;min-width:0;font-size:13px;line-height:1.35;"><b>Battle fortsetzen?</b><br><span style="opacity:.9;font-size:11.5px;">Du warst bei Runde ' + ((s.idx||0)+1) + ' / ' + s.questions.length + '.</span></div>'
-      + '<button onclick="gsBattleResume()" style="background:#fff;color:#5e35b1;border:none;border-radius:8px;padding:8px 14px;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit;flex-shrink:0;">Weiter</button>'
+      + '<button onclick="gsBattleResume()" style="background:#fff;color:var(--c-violet);border:none;border-radius:8px;padding:8px 14px;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit;flex-shrink:0;">Weiter</button>'
       + '<button onclick="(function(){try{sessionStorage.removeItem(\'gs_battle_ip\');}catch(_){}var e=document.getElementById(\'gs-battle-resume-banner\');if(e)e.remove();})()" aria-label="Schließen" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:8px;width:30px;height:30px;font-size:16px;cursor:pointer;flex-shrink:0;font-family:inherit;">×</button>';
     document.body.appendChild(b);
   } catch(e){ console.warn('[gsBattleResumeOffer]', e && e.message); }
@@ -33782,7 +33813,7 @@ function gsBattleRenderRound(){
 
   var h = '';
   h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
-  h += '<div style="font-size:12.5px;font-weight:900;color:#5e35b1;">' + _t('battle_round','Runde') + ' ' + (b.idx + 1) + ' / ' + b.questions.length + '</div>';
+  h += '<div style="font-size:12.5px;font-weight:900;color:var(--c-violet);">' + _t('battle_round','Runde') + ' ' + (b.idx + 1) + ' / ' + b.questions.length + '</div>';
   h += '<div id="gs-btl-timer" style="font-size:13px;font-weight:900;color:#43a047;">30s</div>';
   h += '</div>';
   h += '<div style="height:5px;background:rgba(126,87,194,.15);border-radius:3px;overflow:hidden;margin-bottom:16px;"><div id="gs-btl-bar" style="height:100%;width:100%;background:linear-gradient(90deg,#43a047,#7e57c2);transition:width 1s linear;"></div></div>';
@@ -33852,7 +33883,7 @@ function gsBattleRenderResult(res){
     // Gegner noch nicht fertig
     h += '<div style="font-size:48px;">⏳</div>';
     h += '<div style="font-size:19px;font-weight:900;margin:12px 0 6px;color:var(--text);">' + _t('battle_done','Geschafft!') + '</div>';
-    h += '<div style="font-size:14px;color:var(--muted);">' + _t('battle_your_score','Dein Score:') + ' <b style="color:#5e35b1;">' + (res.your_score|0) + '</b></div>';
+    h += '<div style="font-size:14px;color:var(--muted);">' + _t('battle_your_score','Dein Score:') + ' <b style="color:var(--c-violet);">' + (res.your_score|0) + '</b></div>';
     h += '<div style="font-size:13px;color:var(--muted);margin-top:10px;">' + _t('battle_waiting_result_hint','Warte auf deinen Gegner. Schau später wieder rein — das ⚔️-Badge zeigt dir an, sobald das Ergebnis da ist.') + '</div>';
   } else {
     var won = res.you_won;
@@ -33862,7 +33893,7 @@ function gsBattleRenderResult(res){
     h += '<div style="font-size:23px;font-weight:900;margin:10px 0;color:' + col + ';">' + verdict + '</div>';
     h += '<div style="font-size:15px;color:var(--text);font-weight:800;">' + _t('battle_your_score','Dein Score:') + ' ' + (res.your_score|0) + '</div>';
     var dlt = (res.elo_delta > 0 ? '+' : '') + (res.elo_delta || 0);
-    h += '<div style="font-size:14px;color:var(--muted);margin-top:8px;">' + _t('battle_elo_label','ELO') + ' ' + dlt + ' → <b style="color:#5e35b1;">' + (res.your_elo|0) + '</b></div>';
+    h += '<div style="font-size:14px;color:var(--muted);margin-top:8px;">' + _t('battle_elo_label','ELO') + ' ' + dlt + ' → <b style="color:var(--c-violet);">' + (res.your_elo|0) + '</b></div>';
     // Achievement-Hooks (idempotent via p_set=true)
     try {
       if (typeof gsAchBump === 'function') {
@@ -34267,7 +34298,7 @@ async function gsMushroomRenderResult(j) {
   html += '<div style="font-size:18px;font-weight:900;color:var(--text);margin-bottom:2px;">' + ed(_gsMushName(m)) + '</div>';
   if (m.scientific_name) html += '<div style="font-size:12px;font-style:italic;color:var(--muted);margin-bottom:6px;">' + ed(m.scientific_name) + (m.family ? ' · ' + ed(m.family) : '') + '</div>';
   // VAPKO-Klasse
-  if (m.vapko_klasse) html += '<div style="display:inline-block;background:#ede7f6;color:#311b92;padding:3px 10px;border-radius:7px;font-size:11px;font-weight:800;margin-bottom:8px;">' + _t('mush_vapko_class','VAPKO-Klasse:') + ' ' + ed(m.vapko_klasse) + '</div>';
+  if (m.vapko_klasse) html += '<div style="display:inline-block;background:var(--bg-violet-soft);color:var(--c-violet);padding:3px 10px;border-radius:7px;font-size:11px;font-weight:800;margin-bottom:8px;">' + _t('mush_vapko_class','VAPKO-Klasse:') + ' ' + ed(m.vapko_klasse) + '</div>';
 
   if (j.safety_advice) html += '<div style="padding:9px 12px;background:' + sm.bg + ';border-left:3px solid ' + sm.border + ';border-radius:9px;font-size:12.5px;color:' + sm.col + ';line-height:1.55;margin-bottom:10px;font-weight:700;">' + ed(j.safety_advice) + '</div>';
   if (j.reasoning) html += '<div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:10px;">' + ed(j.reasoning) + '</div>';
@@ -34336,11 +34367,11 @@ function gsMushroomVapkoBox(j, ed) {
   if (!j) return '';
   if (!j.vapko_required && !j.vapko_kontrollstelle) return '';
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
-  var html = '<div style="margin-top:10px;padding:11px 13px;background:#ede7f6;border:1.5px solid #5e35b1;border-radius:11px;">';
-  html += '<div style="font-size:12px;font-weight:800;color:#311b92;margin-bottom:4px;">' + _t('mush_vapko_recommended','🔒 VAPKO-Kontrolle empfohlen') + '</div>';
-  if (j.vapko_kontrollstelle) html += '<div style="font-size:11.5px;color:#311b92;line-height:1.5;"><b>' + _t('mush_control_station','Kontrollstelle:') + '</b> ' + ed(j.vapko_kontrollstelle) + '</div>';
-  if (j.vapko_phone) html += '<div style="font-size:13px;color:#311b92;margin-top:4px;"><b>☎️ <a href="tel:' + ed(j.vapko_phone).replace(/\s/g,'') + '" style="color:#311b92;text-decoration:underline;">' + ed(j.vapko_phone) + '</a></b></div>';
-  if (j.vapko_link) html += '<div style="font-size:11px;margin-top:3px;"><a href="' + ed(j.vapko_link) + '" target="_blank" rel="noopener" style="color:#5e35b1;">' + ed(j.vapko_link) + '</a></div>';
+  var html = '<div style="margin-top:10px;padding:11px 13px;background:var(--bg-violet-soft);border:1.5px solid #5e35b1;border-radius:11px;">';
+  html += '<div style="font-size:12px;font-weight:800;color:var(--c-violet);margin-bottom:4px;">' + _t('mush_vapko_recommended','🔒 VAPKO-Kontrolle empfohlen') + '</div>';
+  if (j.vapko_kontrollstelle) html += '<div style="font-size:11.5px;color:var(--c-violet);line-height:1.5;"><b>' + _t('mush_control_station','Kontrollstelle:') + '</b> ' + ed(j.vapko_kontrollstelle) + '</div>';
+  if (j.vapko_phone) html += '<div style="font-size:13px;color:var(--c-violet);margin-top:4px;"><b>☎️ <a href="tel:' + ed(j.vapko_phone).replace(/\s/g,'') + '" style="color:var(--c-violet);text-decoration:underline;">' + ed(j.vapko_phone) + '</a></b></div>';
+  if (j.vapko_link) html += '<div style="font-size:11px;margin-top:3px;"><a href="' + ed(j.vapko_link) + '" target="_blank" rel="noopener" style="color:var(--c-violet);">' + ed(j.vapko_link) + '</a></div>';
   html += '</div>';
   return html;
 }
@@ -34461,7 +34492,7 @@ async function gsRunSoilRecommend() {
     var top5 = scored.slice(0, 5);
 
     var ed = function(s){ return (typeof gsHTMLEscape==='function') ? gsHTMLEscape(String(s||'')) : String(s||'').replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
-    var html = '<div style="margin-top:14px;padding:10px 12px;background:#efebe9;border-radius:9px;font-size:11.5px;color:#4e342e;text-align:center;">';
+    var html = '<div style="margin-top:14px;padding:10px 12px;background:var(--bg-brown-soft);border-radius:9px;font-size:11.5px;color:var(--c-brown-d);text-align:center;">';
     html += '<b>Dein Profil:</b> pH ' + ed(ph) + ' · ' + ed(type) + (goal ? ' · Ziel: ' + ed(goal) : '');
     html += '</div>';
     html += '<div style="margin-top:8px;">';
@@ -34873,7 +34904,7 @@ async function gsOpenSaisonPilze() {
     });
     html += '</div>';
     if (!matched.length) html += '<div style="text-align:center;color:var(--muted);padding:30px;">' + ed(_lt('sp_empty','Für diese Region sind noch keine Pilze hinterlegt.')) + '</div>';
-    html += '<div style="margin-top:18px;padding:12px 14px;background:#ede7f6;border:1.5px solid #5e35b1;border-radius:12px;font-size:12px;color:#311b92;line-height:1.5;"><b>🔒 VAPKO</b> · ' + ed(_lt('sp_vapko_note','Lass jeden Fund vor dem Essen bei einer offiziellen Pilzkontrolle prüfen. Im Zweifel: nie essen.')) + '<br>☎️ <a href="tel:145" style="color:#311b92;font-weight:800;">' + ed(_lt('mush_emergency','Vergiftungsnotfall')) + ' 145</a></div>';
+    html += '<div style="margin-top:18px;padding:12px 14px;background:var(--bg-violet-soft);border:1.5px solid #5e35b1;border-radius:12px;font-size:12px;color:var(--c-violet);line-height:1.5;"><b>🔒 VAPKO</b> · ' + ed(_lt('sp_vapko_note','Lass jeden Fund vor dem Essen bei einer offiziellen Pilzkontrolle prüfen. Im Zweifel: nie essen.')) + '<br>☎️ <a href="tel:145" style="color:var(--c-violet);font-weight:800;">' + ed(_lt('mush_emergency','Vergiftungsnotfall')) + ' 145</a></div>';
     if (body) body.innerHTML = html;
     if (typeof gsWireMushChips === 'function') gsWireMushChips(body);
     else if (body) body.querySelectorAll('[data-mush]').forEach(function(el){ el.addEventListener('click', function(){ if(typeof gsOpenMushroomLearnCard==='function') gsOpenMushroomLearnCard(el.getAttribute('data-mush')); }); });
@@ -35156,7 +35187,7 @@ async function gsRenderRegionalMushrooms(zone) {
       if (rg.altitude_min_m != null && rg.altitude_max_m != null) sub.push(ed(rg.altitude_min_m) + '–' + ed(rg.altitude_max_m) + ' m');
       if (rg.region_type) sub.push(ed(rg.region_type));
       if (sub.length) html += '<div style="font-size:11px;color:#6a1b9a;margin:2px 0 6px;font-weight:700;">' + sub.join(' · ') + '</div>';
-      if (rg.landscape) html += '<div style="font-size:11.5px;color:#4e342e;line-height:1.5;margin-bottom:6px;">🌲 ' + ed(rg.landscape) + '</div>';
+      if (rg.landscape) html += '<div style="font-size:11.5px;color:var(--c-brown-d);line-height:1.5;margin-bottom:6px;">🌲 ' + ed(rg.landscape) + '</div>';
       // good_mushrooms-Chips: Anfänger-Ampel-Farbe + tappbar (Steckbrief) + Saison-Marker
       var chips = (Array.isArray(rg.good_mushrooms) ? rg.good_mushrooms : []).map(function(g){
         var m = _gsMatchRegistry(g, reg);
@@ -35166,7 +35197,7 @@ async function gsRenderRegionalMushrooms(zone) {
         return '<span data-mush="' + ed(g) + '" style="cursor:pointer;display:inline-flex;align-items:center;min-height:34px;box-sizing:border-box;background:' + amp.bg + ';color:' + amp.c + ';border:1px solid ' + amp.c + '55;padding:4px 11px;border-radius:8px;margin:4px 4px 4px 0;font-size:11px;white-space:nowrap;font-weight:' + (inSeason?'800':'600') + ';-webkit-tap-highlight-color:transparent;">' + amp.e + ' ' + ed(g) + (inSeason ? ' · ' + ed(_lt('mush_season_now','jetzt in Saison')) : '') + ' ›</span>';
       }).join('');
       if (chips) html += '<div style="margin-bottom:6px;">' + chips + '</div>';
-      if (rg.foraging_notes) html += '<div style="font-size:11px;color:#4e342e;line-height:1.5;background:rgba(255,255,255,.6);padding:6px 9px;border-radius:8px;">🧺 ' + ed(rg.foraging_notes) + '</div>';
+      if (rg.foraging_notes) html += '<div style="font-size:11px;color:var(--c-brown-d);line-height:1.5;background:rgba(255,255,255,.6);padding:6px 9px;border-radius:8px;">🧺 ' + ed(rg.foraging_notes) + '</div>';
       if (rg.highlights) html += '<div style="font-size:10.5px;color:#6a1b9a;line-height:1.45;margin-top:5px;">⭐ ' + ed(rg.highlights) + '</div>';
       html += '</div>';
     });
@@ -35824,8 +35855,8 @@ async function gsDiaryRenderStats() {
   // Pest-Count
   if (stats.pest_count > 0) {
     html += '<div style="padding:11px 14px;background:var(--bg-warn-soft);border:1.5px solid #6d4c41;border-radius:11px;margin-bottom:10px;">';
-    html += '<div style="font-size:11.5px;color:#4e342e;font-weight:700;">🪲 Schädlings-Beobachtungen</div>';
-    html += '<div style="font-size:16px;font-weight:900;color:#4e342e;">' + stats.pest_count + '</div>';
+    html += '<div style="font-size:11.5px;color:var(--c-brown-d);font-weight:700;">🪲 Schädlings-Beobachtungen</div>';
+    html += '<div style="font-size:16px;font-weight:900;color:var(--c-brown-d);">' + stats.pest_count + '</div>';
     html += '</div>';
   }
   // Per-Type-Liste
@@ -35836,7 +35867,7 @@ async function gsDiaryRenderStats() {
     var meta = types[k] || { emoji: '📝', label: k };
     html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 11px;background:var(--card);border:1px solid var(--border);border-radius:9px;margin-bottom:5px;">';
     html += '<span style="font-size:12.5px;color:var(--text);"><span style="margin-right:6px;">' + (meta.emoji || '📝') + '</span>' + ed(meta.label || k) + '</span>';
-    html += '<span style="font-size:13px;font-weight:800;color:#33691e;">' + (perType[k] || 0) + '</span>';
+    html += '<span style="font-size:13px;font-weight:800;color:var(--c-lime-d);">' + (perType[k] || 0) + '</span>';
     html += '</div>';
   });
   box.innerHTML = html;
@@ -37592,7 +37623,7 @@ function openListingDetail(lid) {
     var primaryBtn = canPayOnline
       ? '<button class="market-btn-buy" onclick="buyNow(\'' + l.id + '\')">' + _t('btn_buy_now','💳 Jetzt kaufen') + '</button>'
       : '<button class="market-btn-buy" onclick="contactSeller(\'' + l.id + '\')" style="background:linear-gradient(135deg,#1565c0,#0d47a1);color:#fff;">' + _t('btn_contact_seller','💬 Kontakt aufnehmen') + '</button>';
-    var tuttiHint = canPayOnline ? '' : '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;padding:7px 10px;background:#f9fafb;border-radius:8px;line-height:1.4;">' + _t('tutti_style_hint','💡 Tutti-Style: Verkäufer akzeptiert nur direkte Kontaktaufnahme. Bezahlung privat (TWINT/Bargeld) und Übergabe nach Absprache.') + '</div>';
+    var tuttiHint = canPayOnline ? '' : '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;padding:7px 10px;background:var(--surface-neutral);border-radius:8px;line-height:1.4;">' + _t('tutti_style_hint','💡 Tutti-Style: Verkäufer akzeptiert nur direkte Kontaktaufnahme. Bezahlung privat (TWINT/Bargeld) und Übergabe nach Absprache.') + '</div>';
     priceSection =
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;background:var(--bg-success-soft);border-radius:12px;padding:12px 14px;">' +
         '<div><div style="font-size:11px;color:var(--g-main);font-weight:700;">' + _t('label_price','Preis') + '</div><div style="font-size:26px;font-weight:800;color:var(--g-dark);font-family:\'Playfair Display\',serif;">CHF ' + (l.price||0).toFixed(2) + '</div></div>' +
@@ -37632,7 +37663,7 @@ function openListingDetail(lid) {
       '<div class="market-tags" style="margin-bottom:10px;">' + tagHtml + '</div>' +
       priceSection +
       '<div style="font-size:13.5px;color:var(--text2);line-height:1.7;margin-bottom:12px;">' + escHtml(l.desc) + '</div>' +
-      '<div style="background:#f9fafb;border-radius:10px;padding:11px 13px;margin-bottom:10px;">' +
+      '<div style="background:var(--surface-neutral);border-radius:10px;padding:11px 13px;margin-bottom:10px;">' +
         '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">' + _t('seller_shipping_heading','Verkäufer & Lieferung') + '</div>' +
         '<div style="display:flex;align-items:center;gap:9px;">' +
           '<div class="post-avatar">' + (l.sellerAvatar||'🌿') + '</div>' +
@@ -43550,7 +43581,7 @@ function openRecipeDetail(id) {
         '</div></div>' +
       '</div>' +
       _photoHtml +
-      (r.plant ? '<div onclick="_openPlantFromRecipe((r.plantId)||(window.GS_ING_LINK_MAP&&window.GS_ING_LINK_MAP[r.plant])||r.plant)" style="background:#f0f7ee;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12.5px;color:var(--g-dark);font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:space-between;">🌿 ' + escHtml(r.plant) + '<span style="font-size:10px;color:var(--g-main);font-weight:600;">' + _t('plant_card_link','Infokarte →') + '</span></div>' : '') +
+      (r.plant ? '<div onclick="_openPlantFromRecipe((r.plantId)||(window.GS_ING_LINK_MAP&&window.GS_ING_LINK_MAP[r.plant])||r.plant)" style="background:var(--surface2);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12.5px;color:var(--g-dark);font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:space-between;">🌿 ' + escHtml(r.plant) + '<span style="font-size:10px;color:var(--g-main);font-weight:600;">' + _t('plant_card_link','Infokarte →') + '</span></div>' : '') +
       // Heilwirkung (nur für Heilmittel)
       (isRemedy && r.wirkung ? '<div style="background:var(--bg-info-soft);border-radius:8px;padding:11px 13px;margin-bottom:10px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--c-info);margin-bottom:4px;">' + _t('remedy_effect_heading','💊 Wirkung & Anwendung') + '</div><div style="font-size:13px;color:var(--c-info);line-height:1.55;">' + escHtml(r.wirkung) + '</div></div>' : '') +
       (isRemedy && r.warning ? '<div style="background:var(--bg-danger-soft);border-radius:8px;padding:11px 13px;margin-bottom:10px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--c-danger);margin-bottom:4px;">' + _t('remedy_warning_heading','⚠️ Warnhinweis') + '</div><div style="font-size:13px;color:var(--c-danger);line-height:1.55;">' + escHtml(r.warning) + '</div></div>' : '') +
@@ -43561,13 +43592,13 @@ function openRecipeDetail(id) {
       '<div style="font-size:13px;font-weight:800;color:var(--g-dark);margin-bottom:8px;">' + _t('recipe_preparation_heading','👨‍🍳 Zubereitung') + '</div>' +
       '<div style="background:var(--card);border-radius:10px;padding:8px 12px;margin-bottom:14px;box-shadow:var(--shadow-sm);">' + stepsHtml + '</div>' +
       // Tipps
-      (r.notes ? '<div style="background:#f9fafb;border-radius:8px;padding:11px 13px;margin-bottom:14px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">' + _t('recipe_tips_heading','💡 Tipps & Hinweise') + '</div><div style="font-size:12.5px;color:var(--text2);line-height:1.55;">' + escHtml(r.notes) + '</div></div>' : '') +
+      (r.notes ? '<div style="background:var(--surface-neutral);border-radius:8px;padding:11px 13px;margin-bottom:14px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">' + _t('recipe_tips_heading','💡 Tipps & Hinweise') + '</div><div style="font-size:12.5px;color:var(--text2);line-height:1.55;">' + escHtml(r.notes) + '</div></div>' : '') +
       // Actions
       (gsIsAdmin() ? '<div style="display:flex;gap:8px;margin-bottom:10px;">' +
-        '<button onclick="editRecipe(\'' + r.id + '\')" style="flex:1;padding:10px;background:#f0f7ee;border:1.5px solid var(--g-light);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;">' + _t('btn_edit','✏️ Bearbeiten') + '</button>' +
+        '<button onclick="editRecipe(\'' + r.id + '\')" style="flex:1;padding:10px;background:var(--surface2);border:1.5px solid var(--g-light);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;color:var(--g-dark);font-family:inherit;">' + _t('btn_edit','✏️ Bearbeiten') + '</button>' +
         '<button onclick="deleteRecipe(\'' + r.id + '\')" style="flex:1;padding:10px;background:var(--bg-danger-soft);border:1.5px solid #ffcdd2;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;color:var(--c-danger);font-family:inherit;">' + _t('btn_delete','🗑️ Löschen') + '</button>' +
       '</div>' +
-      '<button onclick="gsRecipePhotoUpload(\'' + r.id + '\')" style="width:100%;padding:10px;background:#e8eaf6;border:1.5px solid #c5cae9;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;color:#283593;font-family:inherit;margin-bottom:10px;">' + _t('btn_add_photo','📷 Foto hinzufügen') + '</button>' : '') +
+      '<button onclick="gsRecipePhotoUpload(\'' + r.id + '\')" style="width:100%;padding:10px;background:var(--bg-indigo-soft);border:1.5px solid #c5cae9;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;color:var(--c-indigo);font-family:inherit;margin-bottom:10px;">' + _t('btn_add_photo','📷 Foto hinzufügen') + '</button>' : '') +
     '</div>';
 
   var isFav = typeof isRecipeFav==='function' && isRecipeFav(r.id);
@@ -43819,7 +43850,7 @@ function renderBodenTypen() {
           '</div>' +
           '<div style="font-size:11.5px;font-weight:700;color:var(--g-dark);margin-bottom:4px;">' + _t('boden_improvement','💊 Verbesserung:') + '</div>' +
           b.verbesserung.slice(0,3).map(v => '<div style="font-size:11.5px;color:var(--text2);margin-bottom:2px;">• ' + v + '</div>').join('') +
-          '<div style="margin-top:7px;background:#f0f7ee;border-radius:7px;padding:8px 10px;">' +
+          '<div style="margin-top:7px;background:var(--surface2);border-radius:7px;padding:8px 10px;">' +
             '<div style="font-size:10.5px;font-weight:800;color:var(--g-main);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px;">' + _t('boden_suitable','🌱 Gut geeignet für diese Arten') + '</div>' +
             '<div style="display:flex;flex-wrap:wrap;gap:3px;">' + (b.geeignet||[]).map(function(p){ return gsWissenPlantChip(p); }).join('') + '</div>' +
           '</div>' +
@@ -44833,7 +44864,7 @@ function _gsWave9RenderSeedSaving(r, ed) {
   if (r.isolation_distance_m != null) html += '<span style="background:var(--bg-warn-soft);color:#bf360c;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">📏 Isolation ' + ed(r.isolation_distance_m) + ' m</span>';
   if (r.viability_years != null) html += '<span style="background:var(--bg-success-soft);color:var(--c-success-d);padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">🌱 ' + ed(r.viability_years) + ' Jahre keimfähig</span>';
   if (r.difficulty) html += '<span style="background:var(--bg-info-soft);color:#01579b;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">💪 ' + ed(r.difficulty) + '</span>';
-  if (r.variety_stability) html += '<span style="background:var(--bg-purple-soft);color:#4527a0;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">🧬 ' + ed(r.variety_stability) + '</span>';
+  if (r.variety_stability) html += '<span style="background:var(--bg-purple-soft);color:var(--c-violet);padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">🧬 ' + ed(r.variety_stability) + '</span>';
   html += '</div>';
 
   if (r.description) html += '<div style="font-size:12.5px;color:var(--text2);line-height:1.55;margin-bottom:10px;">' + ed(r.description) + '</div>';
@@ -44852,13 +44883,13 @@ function _gsWave9RenderSeedSaving(r, ed) {
   if (r.storage_container) storageBits.push('Behälter: ' + r.storage_container);
   if (r.storage_temp_c) storageBits.push('Temp: ' + r.storage_temp_c + '°C');
   if (r.storage_humidity_pct) storageBits.push('Luftfeuchte: ' + r.storage_humidity_pct + '%');
-  if (storageBits.length) html += '<div style="margin-top:8px;padding:9px 12px;background:#ede7f6;border-radius:10px;font-size:12px;color:#311b92;"><b>📦 Lagerung:</b> ' + ed(storageBits.join(' · ')) + '</div>';
+  if (storageBits.length) html += '<div style="margin-top:8px;padding:9px 12px;background:var(--bg-violet-soft);border-radius:10px;font-size:12px;color:var(--c-violet);"><b>📦 Lagerung:</b> ' + ed(storageBits.join(' · ')) + '</div>';
 
   // Yield + Stability
   if (r.seeds_per_plant) html += '<div style="margin-top:6px;font-size:11.5px;color:var(--text2);"><b>🌾 Ausbeute:</b> ' + ed(r.seeds_per_plant) + '</div>';
 
   // Legales + Kulturelles
-  if (r.swiss_legal_status) html += '<div style="margin-top:8px;padding:8px 11px;background:var(--bg-purple-soft);border-radius:9px;font-size:11.5px;color:#4527a0;"><b>📍 Schweizer Rechtslage:</b> ' + ed(r.swiss_legal_status) + '</div>';
+  if (r.swiss_legal_status) html += '<div style="margin-top:8px;padding:8px 11px;background:var(--bg-purple-soft);border-radius:9px;font-size:11.5px;color:var(--c-violet);"><b>📍 Schweizer Rechtslage:</b> ' + ed(r.swiss_legal_status) + '</div>';
   if (r.cultural_significance) html += '<div style="margin-top:5px;padding:8px 11px;background:var(--bg-warn-soft);border-radius:9px;font-size:11.5px;color:#bf360c;"><b>🏛️ Kulturelle Bedeutung:</b> ' + ed(r.cultural_significance) + '</div>';
 
   if (r.source) html += '<div style="margin-top:14px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(r.source) + '</div>';
@@ -44902,7 +44933,7 @@ function _gsWave9RenderMushroom(r, ed) {
   // Edibility-Pill + VAPKO
   html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">' +
     '<span style="background:' + (isDanger ? '#ffebee' : isEdible ? '#e8f5e9' : '#fff8e1') + ';color:' + (isDanger ? '#b71c1c' : isEdible ? '#1b5e20' : '#bf360c') + ';padding:4px 10px;border-radius:8px;font-size:11.5px;font-weight:800;">' + ed(ediLbl) + '</span>' +
-    (r.vapko_klasse ? '<span style="background:#ede7f6;color:#311b92;padding:4px 10px;border-radius:8px;font-size:11.5px;font-weight:800;">VAPKO ' + ed(r.vapko_klasse) + '</span>' : '') +
+    (r.vapko_klasse ? '<span style="background:var(--bg-violet-soft);color:var(--c-violet);padding:4px 10px;border-radius:8px;font-size:11.5px;font-weight:800;">VAPKO ' + ed(r.vapko_klasse) + '</span>' : '') +
     (r.protected_status ? '<span style="background:var(--bg-info-soft);color:#01579b;padding:4px 10px;border-radius:8px;font-size:11.5px;font-weight:800;">🛡 ' + ed(r.protected_status) + '</span>' : '') +
   '</div>';
 
@@ -44949,8 +44980,8 @@ function _gsWave9RenderMushroom(r, ed) {
   if (isEdible) html += '<div id="gs-mushroom-recipes-' + ed(r.slug) + '" style="margin-top:10px;"></div>';
   // VAPKO-Footer immer (Prosa lokalisiert; 145 als tel-Link nach Escaping re-injiziert)
   var _vapkoFoot = ed(_lt('mush_vapko_footer','Diese App ersetzt keine offizielle Pilzkontrolle. Im Zweifel: nie essen. Bei Verzehr-Verdacht ☎️ 145.'))
-    .replace('145', '<a href="tel:145" style="color:#311b92;">145</a>');
-  html += '<div style="margin-top:14px;padding:10px 12px;background:#ede7f6;border:1.5px solid #5e35b1;border-radius:11px;font-size:11.5px;color:#311b92;line-height:1.5;"><b>🔒 VAPKO:</b> ' + _vapkoFoot + '</div>';
+    .replace('145', '<a href="tel:145" style="color:var(--c-violet);">145</a>');
+  html += '<div style="margin-top:14px;padding:10px 12px;background:var(--bg-violet-soft);border:1.5px solid #5e35b1;border-radius:11px;font-size:11.5px;color:var(--c-violet);line-height:1.5;"><b>🔒 VAPKO:</b> ' + _vapkoFoot + '</div>';
   if (r.source) html += '<div style="margin-top:8px;font-size:10.5px;color:var(--muted);text-align:right;">' + _lt('mush_l_quelle','Quelle') + ': ' + ed(r.source) + '</div>';
   html += '</div>';
 
@@ -45143,7 +45174,7 @@ function _gsWave9RenderWater(r, ed) {
 
   // CH-Genehmigung-Hinweis bei Teich-Designs
   if (r.feature_type === 'teich_design') {
-    html += '<div style="margin-top:10px;padding:9px 12px;background:#ede7f6;border:1.5px solid #5e35b1;border-radius:10px;font-size:11.5px;color:#311b92;line-height:1.55;"><b>📋 CH-Recht:</b> Teiche über bestimmten Größen können Bewilligung der Gemeinde brauchen. Vor Bau kurz beim Bauamt nachfragen.</div>';
+    html += '<div style="margin-top:10px;padding:9px 12px;background:var(--bg-violet-soft);border:1.5px solid #5e35b1;border-radius:10px;font-size:11.5px;color:var(--c-violet);line-height:1.55;"><b>📋 CH-Recht:</b> Teiche über bestimmten Größen können Bewilligung der Gemeinde brauchen. Vor Bau kurz beim Bauamt nachfragen.</div>';
   }
 
   if (r.source) html += '<div style="margin-top:12px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(r.source) + '</div>';
@@ -45184,7 +45215,7 @@ function _gsWave9RenderBird(r, ed) {
   if (Array.isArray(r.feeder_seeds) && r.feeder_seeds.length) html += _gsWave9ListSection('🥜 Futterhaus-Körner', r.feeder_seeds, ed, '#fff3e0');
 
   // Nistkasten
-  if (r.birdhouse_type) html += '<div style="margin-top:10px;padding:10px 12px;background:#efebe9;border-left:3px solid #6d4c41;border-radius:9px;font-size:12px;color:#4e342e;line-height:1.55;"><b>🏠 Nistkasten:</b> ' + ed(r.birdhouse_type) + (r.nesting_location ? ' · <b>Lage:</b> ' + ed(r.nesting_location) : '') + '</div>';
+  if (r.birdhouse_type) html += '<div style="margin-top:10px;padding:10px 12px;background:var(--bg-brown-soft);border-left:3px solid #6d4c41;border-radius:9px;font-size:12px;color:var(--c-brown-d);line-height:1.55;"><b>🏠 Nistkasten:</b> ' + ed(r.birdhouse_type) + (r.nesting_location ? ' · <b>Lage:</b> ' + ed(r.nesting_location) : '') + '</div>';
 
   // Attracting-Tips (Bird-Friendly)
   if (r.attracting_tips) html += '<div style="margin-top:10px;padding:10px 12px;background:var(--bg-success-soft);border-left:3px solid #2e7d32;border-radius:9px;font-size:12px;color:var(--c-success-d);line-height:1.55;"><b>🌳 Bird-Friendly-Garten:</b> ' + ed(r.attracting_tips) + '</div>';
@@ -45262,7 +45293,7 @@ function _gsWave9RenderAlpine(r, ed) {
 
   // Garten-Eignung
   if (r.garden_suitability) html += '<div style="margin-top:10px;padding:10px 12px;background:var(--bg-success-soft);border-left:3px solid #2e7d32;border-radius:9px;font-size:12px;color:var(--c-success-d);line-height:1.55;"><b>🌿 Garten-Eignung:</b> ' + ed(r.garden_suitability) + '</div>';
-  if (r.rock_garden_role) html += '<div style="margin-top:6px;padding:9px 11px;background:#efebe9;border-left:3px solid #6d4c41;border-radius:9px;font-size:11.5px;color:#4e342e;line-height:1.5;"><b>🪨 Steingarten-Rolle:</b> ' + ed(r.rock_garden_role) + '</div>';
+  if (r.rock_garden_role) html += '<div style="margin-top:6px;padding:9px 11px;background:var(--bg-brown-soft);border-left:3px solid #6d4c41;border-radius:9px;font-size:11.5px;color:var(--c-brown-d);line-height:1.5;"><b>🪨 Steingarten-Rolle:</b> ' + ed(r.rock_garden_role) + '</div>';
 
   // Kultivierungs-Notizen
   if (r.cultivation_notes) html += '<div style="margin-top:8px;padding:10px 12px;background:#e0f7fa;border-left:3px solid #00838f;border-radius:9px;font-size:12px;color:#004d40;line-height:1.55;"><b>🌱 Kultivierung:</b> ' + ed(r.cultivation_notes) + '</div>';
@@ -45275,7 +45306,7 @@ function _gsWave9RenderAlpine(r, ed) {
 
   // Schutz-Disclaimer wenn protected
   if (isProtected) {
-    html += '<div style="margin-top:10px;padding:9px 12px;background:#ede7f6;border:1.5px solid #5e35b1;border-radius:10px;font-size:11.5px;color:#311b92;line-height:1.55;"><b>📋 Schweizer Naturschutz:</b> Wildpflanzen dieser Art dürfen nicht gepflückt, ausgegraben oder beschädigt werden. Kauf nur aus zertifiziertem Anbau (Gärtnerei mit Alpinpflanzen-Lizenz).</div>';
+    html += '<div style="margin-top:10px;padding:9px 12px;background:var(--bg-violet-soft);border:1.5px solid #5e35b1;border-radius:10px;font-size:11.5px;color:var(--c-violet);line-height:1.55;"><b>📋 Schweizer Naturschutz:</b> Wildpflanzen dieser Art dürfen nicht gepflückt, ausgegraben oder beschädigt werden. Kauf nur aus zertifiziertem Anbau (Gärtnerei mit Alpinpflanzen-Lizenz).</div>';
   }
 
   if (r.source) html += '<div style="margin-top:12px;font-size:10.5px;color:var(--muted);text-align:right;">Quelle: ' + ed(r.source) + '</div>';
@@ -45355,7 +45386,7 @@ function _gsWave9RenderIndoor(r, ed) {
 
   // Pflege-Schedule
   if (r.fertilizer_schedule) html += '<div style="margin-top:8px;padding:9px 11px;background:var(--bg-success-soft);border-left:3px solid #2e7d32;border-radius:9px;font-size:11.5px;color:var(--c-success-d);line-height:1.5;"><b>🌿 Dünger:</b> ' + ed(r.fertilizer_schedule) + '</div>';
-  if (r.repotting_frequency) html += '<div style="margin-top:6px;padding:9px 11px;background:#efebe9;border-left:3px solid #6d4c41;border-radius:9px;font-size:11.5px;color:#4e342e;line-height:1.5;"><b>🪴 Umtopfen:</b> ' + ed(r.repotting_frequency) + '</div>';
+  if (r.repotting_frequency) html += '<div style="margin-top:6px;padding:9px 11px;background:var(--bg-brown-soft);border-left:3px solid #6d4c41;border-radius:9px;font-size:11.5px;color:var(--c-brown-d);line-height:1.5;"><b>🪴 Umtopfen:</b> ' + ed(r.repotting_frequency) + '</div>';
   if (r.preferred_pot_material) html += '<div style="margin-top:6px;font-size:11.5px;color:var(--text2);"><b>🏺 Topf:</b> ' + ed(r.preferred_pot_material) + '</div>';
 
   // Vermehrung
@@ -45422,7 +45453,7 @@ function _gsWave9RenderVisitor(r, ed) {
   badges += '<span style="background:var(--bg-info-soft);color:#01579b;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">' + emoji + ' ' + ed(catLblMap[r.category] || r.category) + '</span>';
   if (r.size_cm != null) badges += '<span style="background:var(--bg-yellow-soft);color:#827717;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">📏 ' + ed(r.size_cm) + ' cm</span>';
   if (r.swiss_native) badges += '<span style="background:var(--bg-success-soft);color:var(--c-success-d);padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🇨🇭 CH-heimisch</span>';
-  if (r.protected_status) badges += '<span style="background:#ede7f6;color:#311b92;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🔒 ' + ed(r.protected_status) + '</span>';
+  if (r.protected_status) badges += '<span style="background:var(--bg-violet-soft);color:var(--c-violet);padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">🔒 ' + ed(r.protected_status) + '</span>';
   if (r.active_time) badges += '<span style="background:var(--bg-purple-soft);color:#6a1b9a;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:800;margin-right:4px;">⏰ ' + ed(r.active_time) + '</span>';
   html += '<div style="margin-bottom:10px;">' + badges + '</div>';
 
@@ -45436,7 +45467,7 @@ function _gsWave9RenderVisitor(r, ed) {
   if (r.potential_damage && (isDanger || isModerate)) html += '<div style="margin-top:8px;padding:10px 12px;background:' + (isDanger ? '#ffebee' : '#fff3e0') + ';border-left:3px solid ' + (isDanger ? '#c62828' : '#e65100') + ';border-radius:10px;font-size:12px;color:' + (isDanger ? '#b71c1c' : '#bf360c') + ';line-height:1.55;"><b>⚠ Schaden:</b> ' + ed(r.potential_damage) + '</div>';
 
   // Lebensraum + Futter
-  if (r.habitat_in_garden) html += '<div style="margin-top:8px;padding:9px 11px;background:#f1f8e9;border-left:3px solid #689f38;border-radius:9px;font-size:11.5px;color:#33691e;line-height:1.5;"><b>🏡 Lebensraum:</b> ' + ed(r.habitat_in_garden) + '</div>';
+  if (r.habitat_in_garden) html += '<div style="margin-top:8px;padding:9px 11px;background:var(--bg-lime-soft);border-left:3px solid #689f38;border-radius:9px;font-size:11.5px;color:var(--c-lime-d);line-height:1.5;"><b>🏡 Lebensraum:</b> ' + ed(r.habitat_in_garden) + '</div>';
   if (Array.isArray(r.food_preferences) && r.food_preferences.length) html += _gsWave9ListSection('🍇 Futter', r.food_preferences, ed, '#fff8e1');
 
   // What attracts / repels (Bird-Friendly-Pattern)
@@ -45485,7 +45516,7 @@ function _gsWave9RenderCompost(r, ed) {
     '<span style="background:var(--bg-success-soft);color:var(--c-success-d);padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">📦 ' + ed(r.method || '') + '</span>' +
     '<span style="background:var(--bg-yellow-soft);color:var(--c-warn-d);padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">⏱ ' + ed((r.duration_weeks_min||'?') + '-' + (r.duration_weeks_max||'?') + ' Wochen') + '</span>' +
     '<span style="background:var(--bg-info-soft);color:#01579b;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">💪 ' + ed(r.difficulty || '') + '</span>' +
-    (r.space_needed_m2 ? '<span style="background:var(--bg-purple-soft);color:#4527a0;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">📏 ' + ed(r.space_needed_m2 + ' m²') + '</span>' : '') +
+    (r.space_needed_m2 ? '<span style="background:var(--bg-purple-soft);color:var(--c-violet);padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">📏 ' + ed(r.space_needed_m2 + ' m²') + '</span>' : '') +
     '</div>';
   html += _gsWave9ListSection('Braunes Material', r.inputs_browns, ed, '#fff3e0');
   html += _gsWave9ListSection('Grünes Material', r.inputs_greens, ed, '#e8f5e9');
@@ -45526,7 +45557,7 @@ function _gsWave9RenderPropagation(r, ed) {
   var html = _gsWave9HeaderHtml('✂️', r.name_de, r.description || '', 'linear-gradient(135deg,#5e35b1,#3f1f7a)', ed);
   html += '<div style="padding:16px 18px 20px;">';
   html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">' +
-    '<span style="background:#ede7f6;color:#311b92;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">🌱 ' + ed(r.method_type || '') + '</span>' +
+    '<span style="background:var(--bg-violet-soft);color:var(--c-violet);padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">🌱 ' + ed(r.method_type || '') + '</span>' +
     '<span style="background:var(--bg-success-soft);color:var(--c-success-d);padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">✅ Erfolg ' + ed(r.success_rate_pct || '?') + '%</span>' +
     '<span style="background:var(--bg-yellow-soft);color:var(--c-warn-d);padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">💪 ' + ed(r.difficulty || '') + '</span>' +
     (r.duration_weeks ? '<span style="background:var(--bg-info-soft);color:#01579b;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">⏱ ' + ed(r.duration_weeks) + '</span>' : '') +
@@ -45561,7 +45592,7 @@ function _gsWave9RenderSoilAmend(r, ed) {
   var html = _gsWave9HeaderHtml('🪨', r.name_de, r.description || '', 'linear-gradient(135deg,#6d4c41,#3e2723)', ed);
   html += '<div style="padding:16px 18px 20px;">';
   html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">' +
-    '<span style="background:#efebe9;color:#3e2723;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">📦 ' + ed(r.category || '') + '</span>' +
+    '<span style="background:var(--bg-brown-soft);color:var(--c-brown-d);padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">📦 ' + ed(r.category || '') + '</span>' +
     '<span style="background:var(--bg-yellow-soft);color:var(--c-warn-d);padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">⚗️ pH ' + ed(r.ph_effect || 'neutral') + '</span>' +
     (r.swiss_availability ? '<span style="background:var(--bg-info-soft);color:#01579b;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">🇨🇭 ' + ed(r.swiss_availability) + '</span>' : '') +
     '</div>';
@@ -45599,7 +45630,7 @@ function _gsWave9RenderMedicinal(r, ed) {
     (r.evidence_level ? '<span style="background:var(--bg-success-soft);color:var(--c-success-d);padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">📊 Evidenz: ' + ed(r.evidence_level) + '</span>' : '') +
     (r.swiss_native ? '<span style="background:var(--bg-info-soft);color:var(--c-info);padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">🇨🇭 CH-heimisch</span>' : '') +
     (r.protected_species ? '<span style="background:var(--bg-danger-soft);color:var(--c-danger);padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">🛡️ Geschützt</span>' : '') +
-    (r.family ? '<span style="background:var(--bg-purple-soft);color:#4527a0;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">' + ed(r.family) + '</span>' : '') +
+    (r.family ? '<span style="background:var(--bg-purple-soft);color:var(--c-violet);padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">' + ed(r.family) + '</span>' : '') +
     '</div>';
 
   // WICHTIG: Warnungen ZUERST und PROMINENT
@@ -45979,7 +46010,7 @@ function renderAussaat() {
         '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;">' +
           data.aktionen.map(a => '<div style="display:flex;gap:6px;font-size:12.5px;color:var(--text2);line-height:1.7;"><span style="color:var(--g-main);font-weight:800;flex-shrink:0;">🌱</span><span>' + linkifyAction(a) + '</span></div>').join('') +
         '</div>' +
-        '<div style="background:#f0f7ee;border-radius:7px;padding:7px 10px;font-size:11.5px;color:var(--g-dark);">💡 ' + data.tipp + '</div>' +
+        '<div style="background:var(--surface2);border-radius:7px;padding:7px 10px;font-size:11.5px;color:var(--g-dark);">💡 ' + data.tipp + '</div>' +
       '</div></div>';
   });
   return html;
@@ -51078,7 +51109,7 @@ function renderBodenInfoCard(pflanzName, gardenSoil) {
   
   // Ideal-Boden Info
   if (idealInfo) {
-    html += '<div style="background:#f9fafb;border-radius:8px;padding:8px 11px;margin-bottom:5px;">' +
+    html += '<div style="background:var(--surface-neutral);border-radius:8px;padding:8px 11px;margin-bottom:5px;">' +
       '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">' + _t('boden_ideal_for','🌍 Idealer Boden für') + ' ' + pflanzName + '</div>' +
       '<div style="font-size:12.5px;color:var(--text2);">' + idealInfo.emoji + ' <strong>' + idealInfo.label + '</strong> · pH ' + info.pH + '</div>' +
       '<div style="font-size:12px;color:var(--text2);margin-top:3px;">' + info.bodenbeschreibung + '</div>' +
@@ -53879,10 +53910,10 @@ function gsPPrenderPlan(plan, data) {
   // Fertilizer
   if (plan.fertilizer && plan.fertilizer.length) {
     html += '<div class="pp-planbox" style="background:linear-gradient(135deg,rgba(139,195,74,.10),rgba(139,195,74,.02));border-left:3px solid #558b2f;">' +
-      '<h4 style="color:#33691e;">🌱 Dünge-Plan</h4><div style="display:flex;flex-direction:column;gap:4px;">';
+      '<h4 style="color:var(--c-lime-d);">🌱 Dünge-Plan</h4><div style="display:flex;flex-direction:column;gap:4px;">';
     plan.fertilizer.forEach(function(f) {
       html += '<div style="display:flex;gap:8px;font-size:12px;color:var(--text2);line-height:1.5;">' +
-        '<span style="min-width:40px;font-weight:800;color:#558b2f;">' + esc(f.month || '') + '</span>' +
+        '<span style="min-width:40px;font-weight:800;color:var(--c-lime-d);">' + esc(f.month || '') + '</span>' +
         '<span>' + esc(f.type || '') + (f.amount_per_m2 ? ' · <b>' + esc(f.amount_per_m2) + '/m²</b>' : '') + '</span>' +
       '</div>';
     });
@@ -53964,7 +53995,7 @@ function gsPPbuildSvg(plan, data) {
   var svgH = Math.min(260, Math.round(svgW * bedL / bedW));
   var scale = svgW / bedW;
   var esc = function(s) { return String(s || '').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
-  var svg = '<svg viewBox="0 0 ' + svgW + ' ' + svgH + '" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;background:#f1f8e9;border:1.5px solid #2e7d32;border-radius:10px;">';
+  var svg = '<svg viewBox="0 0 ' + svgW + ' ' + svgH + '" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;background:var(--bg-lime-soft);border:1.5px solid #2e7d32;border-radius:10px;">';
   // Grid (je 1m)
   svg += '<defs><pattern id="ppGrid" width="' + scale + '" height="' + scale + '" patternUnits="userSpaceOnUse"><path d="M ' + scale + ' 0 L 0 0 0 ' + scale + '" fill="none" stroke="rgba(46,125,50,.22)" stroke-width="1"/></pattern></defs>';
   svg += '<rect width="' + svgW + '" height="' + svgH + '" fill="url(#ppGrid)"/>';
@@ -54146,8 +54177,8 @@ function gsPPshowVisual() {
         (p.depth_cm ? 'Tiefe ' + p.depth_cm + ' cm · ' : '') +
         (p.spacing_cm ? 'Abstand ' + p.spacing_cm + ' cm · ' : '') +
         (p.water_l_per_week ? 'Wasser ' + p.water_l_per_week + ' L/Woche' : '');
-      if (p.note) step += '<br><span style="color:#558b2f;font-size:11.5px;">💡 ' + esc(p.note) + '</span>';
-      if (p.harvest_from) step += '<br><span style="color:#33691e;font-size:11.5px;">🧺 Ernte ab ' + esc(p.harvest_from.slice(0,10)) + (p.yield_kg ? ' (~' + p.yield_kg + ' ' + esc(p.yield_unit||'kg') + ')' : '') + '</span>';
+      if (p.note) step += '<br><span style="color:var(--c-lime-d);font-size:11.5px;">💡 ' + esc(p.note) + '</span>';
+      if (p.harvest_from) step += '<br><span style="color:var(--c-lime-d);font-size:11.5px;">🧺 Ernte ab ' + esc(p.harvest_from.slice(0,10)) + (p.yield_kg ? ' (~' + p.yield_kg + ' ' + esc(p.yield_unit||'kg') + ')' : '') + '</span>';
       steps.push(step);
     });
   }
@@ -54173,7 +54204,7 @@ function gsPPshowVisual() {
   var biodiv = '';
   if (plan.biodiversity) {
     var bd = plan.biodiversity;
-    biodiv = '<div style="background:#fce4ec;border-left:3px solid #c2185b;padding:10px 12px;margin:8px 0;border-radius:0 8px 8px 0;font-size:12.5px;color:#880e4f;line-height:1.55;"><b>🐝 Biodiversität: ' + (bd.score||'?') + '/100</b><br>' +
+    biodiv = '<div style="background:var(--bg-pink-soft);border-left:3px solid #c2185b;padding:10px 12px;margin:8px 0;border-radius:0 8px 8px 0;font-size:12.5px;color:var(--c-pink);line-height:1.55;"><b>🐝 Biodiversität: ' + (bd.score||'?') + '/100</b><br>' +
       esc(bd.hint || '') +
       (bd.pollinators && bd.pollinators.length ? '<br><b>Bienenfreunde:</b> ' + bd.pollinators.map(esc).join(', ') : '') +
       '</div>';
@@ -56297,7 +56328,7 @@ function gsBuildGardenScanSvg(analysis) {
   // SVG-Container: viewBox mit kleinem Padding für Beschriftungen
   var pad = 30;
   var vb = '-' + pad + ' -' + pad + ' ' + (W + pad*2) + ' ' + (D + pad*2);
-  return '<div style="background:#f1f8e9;border:1.5px solid #c5e1a5;border-radius:14px;padding:10px;margin-bottom:14px;">' +
+  return '<div style="background:var(--bg-lime-soft);border:1.5px solid #c5e1a5;border-radius:14px;padding:10px;margin-bottom:14px;">' +
     '<div style="font-size:11px;font-weight:700;color:var(--c-success);margin-bottom:6px;text-align:center;">📐 Plan-Skizze (' + w.toFixed(1) + 'm × ' + d.toFixed(1) + 'm · ' + rp.length + ' Pflanzen)</div>' +
     '<svg viewBox="' + vb + '" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;max-height:60vh;display:block;background:#fafff5;border-radius:8px;">' +
       '<rect x="0" y="0" width="' + W + '" height="' + D + '" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2" rx="6"/>' +
@@ -56339,7 +56370,7 @@ function gsGardenScanShowPlant(idx) {
     '</div>' +
     '<div style="padding:16px;">' +
       rowsHtml +
-      (pl.reason ? '<div style="margin-top:12px;padding:10px 12px;background:#f1f8e9;border-left:3px solid #2e7d32;border-radius:6px;font-size:12px;line-height:1.55;color:var(--text);"><strong style="color:var(--c-success-d);">💡 Warum hier:</strong> ' + pl.reason + '</div>' : '') +
+      (pl.reason ? '<div style="margin-top:12px;padding:10px 12px;background:var(--bg-lime-soft);border-left:3px solid #2e7d32;border-radius:6px;font-size:12px;line-height:1.55;color:var(--text);"><strong style="color:var(--c-success-d);">💡 Warum hier:</strong> ' + pl.reason + '</div>' : '') +
       // v26.40: Companion-Lookup über v_companion_lookup View (Top-3 gut + Top-2 schlecht)
       '<div id="ai-plant-companions-block-' + idx + '"></div>' +
       // v26.24: Pest-Filter + Companion-Plants async geladen nach Modal-Render
@@ -57282,7 +57313,7 @@ function gsBuildGardenScanResultPreview(analysis, planId) {
   var visualBlock;
   if (viewMode === '3d') {
     // 3D-Host wird nach Render gefüllt via gsRenderGardenScan3D
-    visualBlock = '<div style="background:#f1f8e9;border:1.5px solid #c5e1a5;border-radius:14px;padding:10px;margin-bottom:14px;">' +
+    visualBlock = '<div style="background:var(--bg-lime-soft);border:1.5px solid #c5e1a5;border-radius:14px;padding:10px;margin-bottom:14px;">' +
       '<div style="font-size:11px;font-weight:700;color:var(--c-success);margin-bottom:6px;text-align:center;">🧊 3D-Plan (Drag zum Drehen, Scroll für Zoom)</div>' +
       // v26.74: 3D-Controls — Sonnen-Slider (4-20h) + Photo-Export-Button
       // v26.77: Mini-Map-Toggle + Konflikt-Highlight-Toggle
@@ -61831,7 +61862,7 @@ function openPlantingDetail(plantingId) {
   // Fruchtfolge
   const fruchtfolgeHtml = info.fruchtfolge ? (
     '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:6px;letter-spacing:.4px;">' + _t('pd_crop_rotation','🔄 Fruchtfolge') + '</div>' +
-    '<div style="background:#f9fafb;border-radius:9px;padding:10px 12px;margin-bottom:9px;">' +
+    '<div style="background:var(--surface-neutral);border-radius:9px;padding:10px 12px;margin-bottom:9px;">' +
       '<div style="font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:4px;">' + _t('pd_pause_pre','⏳ Pause: mindestens') + ' <strong>' + info.fruchtfolge + ' ' + (info.fruchtfolge>1?_t('pd_years','Jahre'):_t('pd_year','Jahr')) + '</strong> ' + _t('pd_same_location','am gleichen Standort') + '</div>' +
       (info.fruchtfolge_nach && info.fruchtfolge_nach.length ? '<div style="font-size:11.5px;color:var(--c-success);margin-top:3px;">' + _t('pd_good_predecessors','👍 Gute Vorgänger:') + ' ' + (info.fruchtfolge_nach||[]).join(', ') + '</div>' : '') +
       (info.fruchtfolge_nicht && info.fruchtfolge_nicht.length ? '<div style="font-size:11.5px;color:var(--c-danger);margin-top:3px;">' + _t('pd_avoid_after','👎 Nicht nach:') + ' ' + (info.fruchtfolge_nicht||[]).join(', ') + '</div>' : '') +
@@ -61840,7 +61871,7 @@ function openPlantingDetail(plantingId) {
 
   document.getElementById('pd2-body').innerHTML =
     // Progress bar
-    '<div style="background:#f0f7ee;border-radius:10px;padding:12px;margin-bottom:10px;">' +
+    '<div style="background:var(--surface2);border-radius:10px;padding:12px;margin-bottom:10px;">' +
       '<div style="display:flex;justify-content:space-between;margin-bottom:4px;">' +
         '<span style="font-size:11px;font-weight:700;color:var(--g-dark);">' + _t('pd_growth','🌱 Wachstum:') + ' ' + harv.progress + '%</span>' +
         '<span style="font-size:11px;color:var(--muted);">' + harv.daysGrown + ' / ' + harv.adjustedDays + ' ' + _t('unit_days','Tage') + '</span>' +
@@ -61874,7 +61905,7 @@ function openPlantingDetail(plantingId) {
     // Fruchtfolge
     fruchtfolgeHtml +
     // Notizen
-    (p.notes ? '<div style="background:#f9fafb;border-radius:9px;padding:10px 12px;margin-bottom:9px;"><div style="font-size:11px;font-weight:700;color:var(--muted);">' + _t('pd_notes','📝 Notizen') + '</div><div style="font-size:13px;color:var(--text2);margin-top:4px;">' + escHtml(p.notes) + '</div></div>' : '') +
+    (p.notes ? '<div style="background:var(--surface-neutral);border-radius:9px;padding:10px 12px;margin-bottom:9px;"><div style="font-size:11px;font-weight:700;color:var(--muted);">' + _t('pd_notes','📝 Notizen') + '</div><div style="font-size:13px;color:var(--text2);margin-top:4px;">' + escHtml(p.notes) + '</div></div>' : '') +
     '<button onclick="deletePlantingById(this)" data-pid="' + escHtml(p.id) + '" style="width:100%;padding:11px;background:transparent;border:1.5px solid #ffcdd2;border-radius:10px;color:var(--c-danger);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;">' + _t('pd_delete_planting','🗑️ Pflanzung entfernen') + '</button>';
 
   openModal('modal-planting-detail');
@@ -63306,6 +63337,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v31.21', date: '01.09.2026',
+    headline: '🌗 Dunkelmodus, zweite Welle — 184 weitere Stellen',
+    summary: 'Weiter beim Farbsystem: sechs neue Flächen-Familien (Violett, Indigo, Limette, Rosa, Braun, neutrale Panel-Fläche) mit je eigenem Dunkel-Wert. Dabei kam ein echter Lesbarkeits-Fehler ans Licht: die neutralen Diagnose-Flächen blieben im Dunkelmodus weiss — und der helle Text darauf war praktisch unsichtbar.',
+    user_summary: '🌗 Zweite Welle im Dunkelmodus: 184 weitere Flächen sitzen jetzt richtig — darunter ein Abschnitt, der nachts unlesbar war.',
+    user_items: [
+      { emoji: '🌗', text: '184 weitere Flächen und Beschriftungen im Dunkelmodus korrigiert' },
+      { emoji: '👁️', text: 'Die neutralen Diagnose-Flächen waren nachts weiss mit hellem Text — jetzt lesbar' },
+      { emoji: '🔒', text: 'Hellmodus wieder unverändert: jeder neue Token trägt exakt den ersetzten Wert' },
+    ],
+    items: [
+      {emoji:'📐', bold:'Farbabstand statt Bauchgefühl:', text:' vor dem Zusammenlegen von Tönen den CIE76-Abstand gerechnet. Nur #f0f7ee lag unter der Wahrnehmungsschwelle (ΔE 1,98). Alles andere hätte das HELLE Design sichtbar verändert — deshalb bekam jeder Ton einen eigenen Token statt einer Zusammenlegung.'},
+      {emoji:'🎨', bold:'11 neue Token:', text:' --surface-neutral, --bg-violet/indigo/lime/pink/brown-soft plus die passenden Textfarben. Jeder Dunkel-Wert gegen den eigenen Tint UND gegen die Karte durchgerechnet; alle 18 vorkommenden Kombinationen liegen über 4,5:1.'},
+      {emoji:'🚫', bold:'#fff bewusst NICHT angefasst:', text:' unter den 25 Stellen sind weisse Knöpfe auf farbigen Bannern, ein SVG für den PDF-Export und die Raster-Linien des Scanners. Ein pauschales Ersetzen hätte die kaputtgemacht — das braucht Einzelfall-Prüfung, keine Tabelle.'},
+      {emoji:'📉', bold:'Bilanz:', text:' hartkodierte helle Hintergründe 474 → 225 → 111. Der Rest sind Einzelfälle (7×, 6×, 5× …) und die 25 #fff.'},
+    ],
+  },
   {
     v: 'v31.20', date: '01.09.2026',
     headline: '🌗 Dunkelmodus — 523 Stellen leuchteten nicht mehr',
@@ -69291,7 +69339,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.20';
+var GS_VERSION = 'v31.21';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -70467,7 +70515,7 @@ async function profileRequestMagicLink() {
         '<strong style="color:var(--g-dark);">' + email + '</strong><br>',
         'gesendet. Tippe auf den Link in der E-Mail — du bist dann sofort eingeloggt.',
       '</div>',
-      '<div style="background:#f0f7ee;border:1.5px solid var(--g-light);border-radius:12px;padding:13px 15px;font-size:12.5px;color:var(--g-dark);text-align:left;margin-bottom:16px;line-height:1.8;">',
+      '<div style="background:var(--surface2);border:1.5px solid var(--g-light);border-radius:12px;padding:13px 15px;font-size:12.5px;color:var(--g-dark);text-align:left;margin-bottom:16px;line-height:1.8;">',
         '<strong>Nächste Schritte:</strong><br>',
         '1️⃣ E-Mail-Postfach öffnen<br>',
         '2️⃣ Auch Spam-Ordner prüfen<br>',
@@ -78455,9 +78503,9 @@ function _gsAdminFlagsHtml(flags) {
       '<button onclick="gsAdminEditFlag(\'' + f.key + '\', this.getAttribute(\'data-v\'))" data-v="' + v.replace(/"/g,'&quot;') + '" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card);font-size:11px;cursor:pointer;font-family:inherit;">✏️</button>' +
     '</div>';
   }).join('') : '<div style="color:var(--muted);font-size:12px;padding:6px 0;">Keine Flags.</div>';
-  return '<div style="margin-top:14px;padding:11px 13px;background:#ede7f6;border-radius:8px;">' +
-    '<div style="font-weight:800;font-size:12.5px;margin-bottom:4px;color:#4527a0;">🚩 Feature-Flags (live, ohne Deploy)</div>' +
-    '<div style="font-size:10.5px;color:#5e35b1;margin-bottom:6px;">flag_maintenance_banner: Text eintragen = Banner für alle User · leer = aus</div>' +
+  return '<div style="margin-top:14px;padding:11px 13px;background:var(--bg-violet-soft);border-radius:8px;">' +
+    '<div style="font-weight:800;font-size:12.5px;margin-bottom:4px;color:var(--c-violet);">🚩 Feature-Flags (live, ohne Deploy)</div>' +
+    '<div style="font-size:10.5px;color:var(--c-violet);margin-bottom:6px;">flag_maintenance_banner: Text eintragen = Banner für alle User · leer = aus</div>' +
     inner + '</div>';
 }
 // v28.98 Admin-Ausbau: Maintenance-Banner — Admin setzt flag_maintenance_banner (Text),
@@ -78621,8 +78669,8 @@ function _gsAdminClientErrorsHtml(errs) {
       '<div style="color:var(--muted);">' + (e.n||0) + '× · ' + (e.users||0) + ' Nutzer · ' + esc(e.app_version||'?') + ' · ' + esc(e.err_type||'') + ' · zuletzt ' + last + (e.last_context ? ' · ' + esc(String(e.last_context).slice(0,50)) : '') + '</div>' +
     '</div>';
   }).join('') : '<div style="color:var(--c-success);font-size:12px;padding:6px 0;">✅ Keine Client-Fehler in den letzten 7 Tagen.</div>';
-  return '<div style="margin-top:10px;padding:11px 13px;background:#fce4ec;border-radius:8px;">' +
-    '<div style="font-weight:800;font-size:12.5px;margin-bottom:4px;color:#880e4f;">🐛 Client-Fehler (alle Nutzer · 7 Tage · server-seitig)</div>' + rows + '</div>';
+  return '<div style="margin-top:10px;padding:11px 13px;background:var(--bg-pink-soft);border-radius:8px;">' +
+    '<div style="font-weight:800;font-size:12.5px;margin-bottom:4px;color:var(--c-pink);">🐛 Client-Fehler (alle Nutzer · 7 Tage · server-seitig)</div>' + rows + '</div>';
 }
 
 // v29.11 Admin-Ausbau: Content-Moderation — Posts/Inserate/Kommentare verstecken/löschen
@@ -78774,8 +78822,8 @@ function _gsAdminVouchersHtml(vouchers) {
       '<button data-vc-code="' + esc(v.code) + '" data-vc-next="' + (active?'0':'1') + '" onclick="gsAdminToggleVoucher(this.getAttribute(\'data-vc-code\'), this.getAttribute(\'data-vc-next\')===\'1\')" style="padding:3px 8px;border:1px solid var(--border);border-radius:6px;background:var(--card);font-size:11px;cursor:pointer;font-family:inherit;flex-shrink:0;">' + (active?'⏸️ Aus':'▶️ An') + '</button>' +
     '</div>';
   }).join('') : '<div style="color:var(--muted);font-size:12px;padding:4px 0;">Noch keine Gutscheine.</div>';
-  return '<div id="gs-admin-vouchers-sec" style="margin-top:10px;padding:11px 13px;background:#ede7f6;border-radius:8px;">' +
-    '<div style="font-weight:800;font-size:12.5px;margin-bottom:6px;color:#4527a0;">🎟️ Gutscheine (Pro/Lifetime verschenken)</div>' +
+  return '<div id="gs-admin-vouchers-sec" style="margin-top:10px;padding:11px 13px;background:var(--bg-violet-soft);border-radius:8px;">' +
+    '<div style="font-weight:800;font-size:12.5px;margin-bottom:6px;color:var(--c-violet);">🎟️ Gutscheine (Pro/Lifetime verschenken)</div>' +
     '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;align-items:center;">' +
       '<input id="gs-vc-code" placeholder="CODE" style="flex:1;min-width:90px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:monospace;">' +
       '<select id="gs-vc-tier" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;"><option value="pro">💎 Pro</option><option value="lifetime">♾️ Lifetime</option></select>' +
@@ -79525,8 +79573,8 @@ async function openAdminPanel() {
       _gsAdminFinanceHtml(finance) +
       _gsAdminSystemEventsHtml(sysEvents) +
       _gsAdminVouchersHtml(vouchers) +
-      '<div style="margin-top:10px;padding:11px 13px;background:#e8eaf6;border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:10px;">' +
-        '<div style="font-weight:800;font-size:12.5px;color:#283593;">🧠 Wissens-DB-Editor</div>' +
+      '<div style="margin-top:10px;padding:11px 13px;background:var(--bg-indigo-soft);border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:10px;">' +
+        '<div style="font-weight:800;font-size:12.5px;color:var(--c-indigo);">🧠 Wissens-DB-Editor</div>' +
         '<button onclick="gsAdminOpenKnowledgeEditor()" style="padding:7px 13px;background:#3949ab;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Öffnen ›</button>' +
       '</div>' +
       _gsAdminAuditHtml(audit) +
@@ -80331,7 +80379,7 @@ async function gsDoctorRun(file){
         var prompt = 'Du bist Dr. phil. nat. Regina Bollinger — Phytopathologin am Agroscope Wädenswil, Expertin für Pflanzen-Krankheiten, Schädlingsbefall und Mangelerscheinungen im Schweizer Kontext. Diagnostiziere präzise anhand der sichtbaren Symptome auf dem Foto. Strukturiere die Antwort als:\n1. **Diagnose:** (1 Satz)\n2. **Wahrscheinliche Ursache:** (Krankheit/Schädling/Mangel + lat. Name wenn möglich)\n3. **Sofortmassnahmen:** (3 Bulletpoints)\n4. **Bio-Behandlung:** (Schweiz-geeignet, FiBL-konform)\n5. **Vorbeugung:** (kurz)\nWenn unsicher: sage es und nenne Alternativen.';
         var reply = await callVisionAI(b64, mt, prompt);
         var replyHtml = (reply || 'Keine Antwort').replace(/\n/g,'<br>').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
-        out.innerHTML = '<div style="padding:12px;background:#f1f8e9;border-radius:10px;">' + replyHtml + '</div>';
+        out.innerHTML = '<div style="padding:12px;background:var(--bg-lime-soft);border-radius:10px;">' + replyHtml + '</div>';
         // v23.58: In Historie speichern
         try {
           var hist = _gsNlSafeItems('gs_doctor_history');
@@ -80509,9 +80557,9 @@ function gsOpenBiodiversity(){
       '<div style="font-size:14px;color:var(--muted);">' + rating + '</div>' +
     '</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">' +
-      '<div style="padding:10px;background:#f1f8e9;border-radius:10px;text-align:center;"><div style="font-size:11px;color:var(--muted);">🌿 Arten</div><div style="font-size:20px;font-weight:800;color:var(--g-dark);">' + nameList.length + '</div></div>' +
+      '<div style="padding:10px;background:var(--bg-lime-soft);border-radius:10px;text-align:center;"><div style="font-size:11px;color:var(--muted);">🌿 Arten</div><div style="font-size:20px;font-weight:800;color:var(--g-dark);">' + nameList.length + '</div></div>' +
       '<div style="padding:10px;background:var(--bg-yellow-soft);border-radius:10px;text-align:center;"><div style="font-size:11px;color:var(--muted);">🌳 Familien</div><div style="font-size:20px;font-weight:800;color:var(--g-dark);">' + famCount + '</div></div>' +
-      '<div style="padding:10px;background:#fce4ec;border-radius:10px;text-align:center;"><div style="font-size:11px;color:var(--muted);">🐝 Bestäuber</div><div style="font-size:20px;font-weight:800;color:var(--g-dark);">' + pollinators.length + '</div></div>' +
+      '<div style="padding:10px;background:var(--bg-pink-soft);border-radius:10px;text-align:center;"><div style="font-size:11px;color:var(--muted);">🐝 Bestäuber</div><div style="font-size:20px;font-weight:800;color:var(--g-dark);">' + pollinators.length + '</div></div>' +
     '</div>' +
     '<div style="padding:12px;background:var(--bg-success-soft);border-radius:10px;font-size:12.5px;line-height:1.6;">' +
       '<b>💡 Tipps zur Steigerung:</b><br>' +
@@ -81626,8 +81674,8 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
 }
 .tag.e { background:var(--bg-success-soft); color:var(--c-success-d); }
 .tag.t { background:var(--bg-danger-soft); color:var(--c-danger-d); }
-.tag.m { background: #e8eaf6; color: #283593; }
-.tag.p { background: #fce4ec; color: #880e4f; }
+.tag.m { background:var(--bg-indigo-soft); color:var(--c-indigo); }
+.tag.p { background:var(--bg-pink-soft); color:var(--c-pink); }
 
 
 #results-list {
@@ -82589,8 +82637,8 @@ body.dark [style*="color: #666"] {
   color: var(--muted) !important;
 }
 /* Modal-Backgrounds anpassen für bessere Lesbarkeit im Dark */
-body.dark [style*="background:#e8eaf6"],
-body.dark [style*="background: #e8eaf6"] {
+body.dark [style*="background:var(--bg-indigo-soft)"],
+body.dark [style*="background:var(--bg-indigo-soft)"] {
   background: #1a2540 !important;
   color: #c5d4ff !important;
 }
@@ -82626,8 +82674,8 @@ body.dark [style*="background:#fff3cd"],
 body.dark [style*="background: #fff3cd"] { background: #3a3014 !important; color: var(--text) !important; }
 body.dark [style*="background:#fffde7"],
 body.dark [style*="background: #fffde7"] { background: #3a3a14 !important; color: var(--text) !important; }
-body.dark [style*="background:#f0f7ee"],
-body.dark [style*="background: #f0f7ee"] { background: var(--card) !important; color: var(--text) !important; }
+body.dark [style*="background:var(--surface2)"],
+body.dark [style*="background:var(--surface2)"] { background: var(--card) !important; color: var(--text) !important; }
 
 /* Tabs im Dark — Kontrast erhöhen */
 body.dark .tab{color:rgba(240,249,240,0.6);}
@@ -82974,7 +83022,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
       <button onclick="closeLightMeter()" aria-label="Schliessen" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.2);border:none;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;">×</button>
     </div>
     <div style="padding:16px 20px 22px;">
-      <div style="background:#e8eaf6;border-radius:10px;padding:11px 13px;margin-bottom:14px;font-size:12px;color:#1a237e;line-height:1.5;">
+      <div style="background:var(--bg-indigo-soft);border-radius:10px;padding:11px 13px;margin-bottom:14px;font-size:12px;color:var(--c-indigo);line-height:1.5;">
         📸 <strong>So funktioniert's:</strong> Richte die Kamera auf den Pflanzen-Standort. Die App misst Helligkeit (Lux) und empfiehlt passende Pflanzen.
       </div>
       <div id="light-result" style="display:none;text-align:center;margin-bottom:14px;">

@@ -4,13 +4,61 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.20` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.21` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (f) — v31.21: Farbsystem, zweite Welle — und ein Abschnitt, der nachts unsichtbar war
+
+> Fortsetzung von v31.20. Nach der ersten Welle blieben 225 helle Hintergründe ohne Token-Zwilling. Die brauchten **neue** Token — und die Frage, ob man Töne zusammenlegen darf.
+
+#### Die Messung, die den Plan geändert hat
+
+Mein erster Plan war, ähnliche Töne auf vorhandene Token zusammenzulegen. Vor dem Umbau habe ich den **Farbabstand (CIE76)** ausgerechnet:
+
+| Zusammenlegung | ΔE | Urteil |
+|---|---|---|
+| `#f0f7ee` → `--surface2` | **1,98** | unter der Wahrnehmungsschwelle |
+| `#f1f8e9` → `--surface2` | 4,73 | sichtbar |
+| `#ede7f6` → `#e8eaf6` | 3,24 | sichtbar |
+| `#311b92` → `#283593` | 18,55 | deutlich |
+| `#880e4f` → `#c2185b` | 22,50 | deutlich |
+
+Nur **eine** Zusammenlegung ist unsichtbar. Alles andere hätte das **helle** Design verändert — und das hat niemand bestellt. Ich wäre unter der Überschrift „Dunkelmodus-Fix" dabei gewesen, Fernandos Farben umzugestalten.
+
+Also: **jeder Ton bekommt einen eigenen Token mit exakt seinem Hellwert.** 11 neue Token, jeder Dunkel-Wert gegen den eigenen Tint *und* gegen die Karte durchgerechnet.
+
+#### Der Fund beim Rendern
+
+Die neutralen Panel-Flächen (`#f9fafb`, 23×, u.a. die Abschnitte im Diagnose- und Detail-Dialog) blieben im Dunkelmodus **weiss** — mit hellem Text darauf. Im Vorher-Bild ist die Zeile „Diagnose-Abschnitt" praktisch nicht zu lesen. Interessant: für die Schwester-Klasse `.di` gab es längst ein manuelles `body.dark`-Override, für `.dsec` nicht. Genau die Art Lücke, die entsteht, wenn man Ausnahmen pflegt statt ein System.
+
+#### Was ich bewusst NICHT angefasst habe
+
+**`#fff` als Hintergrund, 25 Stellen.** Ich wollte sie auf `--card` mappen — und habe vorher die Kontexte angesehen. Darunter sind:
+
+- **weisse Knöpfe auf farbigen Bannern** (Abo-Hinweis, Notruf 145, Update-Banner, Wiederherstellen) — in Dunkel würde daraus ein dunkler Knopf mit dunklem Text
+- ein **SVG für den PDF-Export** (`background:#fff;border:1px solid #333`) — muss weiss bleiben
+- die **Raster-Linien des Scanners** (1 px weisse Linien über dem Kamerabild)
+
+Ein pauschales Ersetzen hätte alle drei kaputtgemacht. Das braucht Einzelfall-Prüfung, keine Tabelle — eigene Aufgabe.
+
+#### Bilanz
+
+| | hartkodierte helle Hintergründe |
+|---|---|
+| Ausgangslage | 474 |
+| nach Welle 1 (v31.20) | 225 |
+| nach Welle 2 | **111** |
+
+Davon 25× `#fff` (bewusst offen) und ein langer Schwanz aus Einzelfällen (`#e0f7fa` 7×, `#e1f5fe` 6×, `#fffde7` 6×, `#f5f5f5` 6× …).
+
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · **11/11 neue Token lösen im Hellmodus exakt auf den ersetzten Wert auf** · alle **18** vorkommenden Tint+Text-Kombinationen ≥ 4,5:1 (Welle 1 und 2 zusammen) · Vorher/Nachher in Chromium gerendert · Kontexte aller sieben Töne vor dem Ersetzen stichprobenartig geprüft (Panels, Icon-Flächen, Tags — keine Knöpfe auf farbigen Bannern) · Version synchron v31.21.
+
+*Nebenbei: mein erstes Testgerüst zeigte „nachher" identisch zu „vorher" — ein überzähliges `}` im generierten CSS hatte die Regeln zerschossen. Nicht die App, das Gerüst. Ohne die Sichtprüfung wäre mir das nicht aufgefallen, und ich hätte den Fehler beim nächsten Vergleich wiederholt.*
 
 ### 2026-09-01 (e) — Backend durchgemessen: gesund, mit einer lohnenden Aufräumung
 
