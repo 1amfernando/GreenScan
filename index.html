@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.61.20260901">
+<meta name="app-version" content="31.62.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -54100,6 +54100,7 @@ async function gsPPrun(opts) {
     '    { "name": "<Name DE, exakt wie in GreenScan-DB wenn möglich>", "latin": "<Bot.>", "count": <int>, "x_m": <number>, "y_m": <number>, "w_m": <number>, "h_m": <number>, "icon": "<1 Emoji>", "color": "<hex ohne #>", "note": "<kurz: Warum diese Sorte?>",\n' +
     '      "yield_kg": <number>, "yield_unit": "<kg/Stück/Bund>", "sow_date": "<ISO YYYY-MM-DD>", "harvest_from": "<ISO>", "harvest_to": "<ISO>", "water_l_per_week": <number>,\n' +
     '      "family": "<z.B. Nachtschatten/Kreuzblütler/Doldenblütler>", "spacing_cm": <number>, "depth_cm": <number>, "difficulty": "<leicht/mittel/anspruchsvoll>",\n' +
+    '      "light": "<sonne|halbschatten|schatten — was die Pflanze BRAUCHT, nicht wo du sie hinlegst>",\n' +
     '      "matches_wish": <true|false — passt diese Pflanze zu den User-Wünschen?>, "matches_constraint": <true|false — verletzt sie keine Anmerkung/Einschränkung?> }\n' +
     '  ],\n' +
     '  "constraints_applied": {\n' +
@@ -54695,6 +54696,36 @@ function gsPPrenderPlan(plan, data) {
       '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.5;">' +
       esc(plan._ohnePlatz.join(', ')) + ' passt neben dem Bestand nicht mehr in die Fläche. ' +
       'Im Plan steht es trotzdem — aber ohne festen Ort.</div></div>';
+  }
+
+  // ── v31.62: was das gemessene Licht sagt ────────────────────────────────
+  // Zwei Faelle, und beide gehoeren gezeigt. Passt alles, ist das eine echte
+  // Aussage ueber den Plan und keine Floskel — sie steht nur da, wenn wirklich
+  // gegen gemessene Zonen geprueft wurde. Passt etwas nicht, wird es benannt
+  // statt still verschoben: der Platz kann schlicht knapp sein, und dann ist
+  // die richtige Antwort ein Hinweis an den Menschen.
+  if (plan._licht && plan._licht.zonen) {
+    if (plan._licht.konflikt.length) {
+      html += '<div style="background:var(--bg-warn-soft);border-left:4px solid var(--c-warn-d);border-radius:0 var(--r-md) var(--r-md) 0;padding:10px 13px;margin-bottom:12px;">' +
+        '<div style="font-size:var(--fs-sm);font-weight:800;color:var(--c-warn-d);margin-bottom:3px;">☀️ Licht passt nicht überall</div>' +
+        '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.5;">' +
+        plan._licht.konflikt.map(function (k) {
+          return esc(k.name) + ' braucht ' + esc(k.braucht) + ', steht aber in einer Zone, die dein Scan als ' +
+                 esc(k.zone) + ' gemessen hat' + (k.label ? ' (' + esc(k.label) + ')' : '');
+        }).join('. ') + '. Neben dem Bestand war kein passender Platz mehr frei — ' +
+        'verschieb sie von Hand oder nimm eine andere Sorte.</div></div>';
+    } else if (plan._licht.passt) {
+      html += '<div style="background:var(--bg-success-soft);border-left:4px solid var(--c-success);border-radius:0 var(--r-md) var(--r-md) 0;padding:10px 13px;margin-bottom:12px;">' +
+        '<div style="font-size:var(--fs-sm);font-weight:800;color:var(--c-success-d);margin-bottom:3px;">☀️ Licht geprüft</div>' +
+        '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.5;">' +
+        plan._licht.passt + ' neue Pflanze' + (plan._licht.passt === 1 ? ' steht' : 'n stehen') +
+        ' im passenden Licht — gemessen an den ' + plan._licht.zonen +
+        ' Lichtzonen aus deinem Garten-Scan, nicht geschätzt.' +
+        (plan._licht.ohne_aussage
+          ? ' Bei ' + plan._licht.ohne_aussage + ' war der Lichtbedarf oder die Zone unbekannt — die wurden nicht bewertet.'
+          : '') +
+        '</div></div>';
+    }
   }
 
   // v24.25: Constraint-Issues-Banner ganz oben falls Validator was gefunden hat
@@ -55389,6 +55420,85 @@ window._gsPP3DInlineState = null;
 // v29.52: KI-Planer-Layout säubern — Pflanzen-Footprints ins Beet clampen + per Shelf-Packing
 // entüberlappen, damit 3D-Szenen UND PDF-SVG dieselbe saubere, überlappungsfreie Anordnung nutzen.
 // Modifiziert plan.plants[].x_m/y_m/w_m/h_m in-place (deterministisch, Reihen-Packing nach Fläche).
+// ══════════════════════════════════════════════════════════════════════════
+// v31.62 — LICHT: der Planer plant ins gemessene Licht, und sagt es, wenn nicht
+// ══════════════════════════════════════════════════════════════════════════
+//
+// Der Prompt verlangte schon seit v31.58 „Sonnenpflanzen nicht in den
+// Schatten". Nur hat das nie jemand geprueft — und der Packer hat die
+// Platzierung der KI ohnehin ueberschrieben. Am laufenden Programm
+// nachgestellt: Tomate von 3,0/2,2 (Sonnenecke) nach 1,2/0. Genau die Sorte
+// Arbeit, die getan und dann stillgelegt wird.
+//
+// Drei kleine Funktionen, alle rein rechnend und darum pruefbar — im
+// Unterschied zu einer Prompt-Zeile, die man von hier aus nicht messen kann.
+
+// Was die KI schreibt, ist nicht normiert: „Sonne", "sonne", "full sun",
+// „Halbschatten". Alles, was nicht auf eine der drei Stufen faellt, gilt als
+// unbekannt — und unbekannt heisst: keine Aussage, nicht „Sonne".
+function _gsLichtNorm(v) {
+  var t = String(v == null ? '' : v).toLowerCase();
+  if (/halbschatt|partial|halb/.test(t)) return 'halbschatten';
+  if (/schatt|shade/.test(t)) return 'schatten';
+  if (/sonne|sonnig|sun|voll/.test(t)) return 'sonne';
+  return '';
+}
+
+// In welcher gemessenen Zone liegt dieser Punkt? Die erste, die ihn enthaelt.
+// Ueberlappen sich Zonen, gewinnt die zuerst genannte — das ist willkuerlich,
+// aber nachvollziehbar, und Zonen sollten sich ohnehin nicht ueberlappen.
+function _gsZoneAn(zonen, x, y) {
+  if (!Array.isArray(zonen)) return null;
+  for (var i = 0; i < zonen.length; i++) {
+    var z = zonen[i];
+    if (x >= z.x_m && x <= z.x_m + z.w_m && y >= z.y_m && y <= z.y_m + z.h_m) return z;
+  }
+  return null;   // ausserhalb jeder Zone → keine Aussage, kein Vorwurf
+}
+
+// Passt der Lichtbedarf zur Zone? Halbschatten ist die Mitte und vertraegt
+// sich mit allem; hart falsch sind nur die beiden Extreme gegeneinander —
+// Sonnenpflanze im Schatten (kuemmert) und Schattenpflanze in der prallen
+// Sonne (verbrennt). Strenger zu sein hiesse, Warnungen zu erfinden.
+function _gsLichtPasst(braucht, zone) {
+  var z = _gsLichtNorm(zone && zone.kind);
+  if (!braucht || !z) return true;
+  if (braucht === 'sonne'   && z === 'schatten') return false;
+  if (braucht === 'schatten' && z === 'sonne')   return false;
+  return true;
+}
+
+// Nach dem Setzen: wo steht was, und stimmt das Licht? Ergebnis haengt am
+// Plan (plan._licht), damit die Anzeige es zeigen kann. Es wird NICHT still
+// korrigiert — der Platz kann schlicht knapp sein, und dann ist die richtige
+// Antwort ein Hinweis an den Menschen, keine heimliche Verschiebung.
+function _gsPlanLichtPruefung(plan, zonen) {
+  try {
+    if (!plan || !Array.isArray(plan.plants)) return;
+    if (!Array.isArray(zonen) || !zonen.length) { plan._licht = null; return; }
+    var passt = 0, konflikt = [], ohneAussage = 0;
+    plan.plants.forEach(function (p) {
+      if (p.existing === true) return;                 // Bestand steht, wo er steht
+      var braucht = _gsLichtNorm(p.light);
+      if (!braucht) { ohneAussage++; return; }
+      var z = _gsZoneAn(zonen, (parseFloat(p.x_m) || 0) + (parseFloat(p.w_m) || 0) / 2,
+                               (parseFloat(p.y_m) || 0) + (parseFloat(p.h_m) || 0) / 2);
+      if (!z) { ohneAussage++; return; }
+      if (_gsLichtPasst(braucht, z)) { passt++; p._licht_ok = true; }
+      else {
+        p._licht_ok = false;
+        p._licht_konflikt = braucht + ' gebraucht, ' + _gsLichtNorm(z.kind) + ' gemessen';
+        konflikt.push({ name: p.name, braucht: braucht, zone: _gsLichtNorm(z.kind), label: z.label || '' });
+      }
+    });
+    plan._licht = { passt: passt, konflikt: konflikt, ohne_aussage: ohneAussage, zonen: zonen.length };
+  } catch (_) {}
+}
+window._gsLichtNorm = _gsLichtNorm;
+window._gsZoneAn = _gsZoneAn;
+window._gsLichtPasst = _gsLichtPasst;
+window._gsPlanLichtPruefung = _gsPlanLichtPruefung;
+
 function _gsSanitizePlannerPlan(plan) {
   try {
     if (!plan || !plan.bed || !Array.isArray(plan.plants) || !plan.plants.length) return plan;
@@ -55405,6 +55515,20 @@ function _gsSanitizePlannerPlan(plan) {
     // Deshalb: was aus dem Bestand kommt (existing:true), behaelt seine
     // Position und wird nur geklemmt. Gepackt wird ausschliesslich das Neue —
     // und zwar in die Luecken, mit Ueberschneidungspruefung gegen den Bestand.
+    // ── v31.62: Lichtzonen aus dem Garten-Scan ──────────────────────────
+    // Nur brauchbar, wenn die geplante Flaeche DIESELBE ist wie die
+    // gescannte. Sonst zeigen die Zonen-Koordinaten auf ein anderes
+    // Rechteck, und eine Zone am falschen Ort ist schlimmer als keine.
+    var zonen = [];
+    try {
+      var _t = (typeof gsTwinGet === 'function') ? gsTwinGet() : null;
+      if (_t && _t.bed && Array.isArray(_t.zones) && _t.zones.length &&
+          Math.abs((_t.bed.width_m || 0) - bedW) < 0.26 &&
+          Math.abs((_t.bed.length_m || 0) - bedL) < 0.26) {
+        zonen = _t.zones;
+      }
+    } catch (_) {}
+
     var fest = [], frei = [];
     plan.plants.forEach(function (p, i) {
       var w = Math.min(bedW, Math.max(0.2, parseFloat(p.w_m) || 0.3));
@@ -55420,7 +55544,7 @@ function _gsSanitizePlannerPlan(plan) {
       }
     });
 
-    if (fest.length) {
+    if (fest.length || zonen.length) {
       // Nur das Neue platzieren — Rasterschritte von 10cm, erste freie Stelle
       // gewinnt. Kein Optimierer: nachvollziehbar schlaegt clever, und ein
       // Gaertner soll sehen koennen, WARUM etwas dort liegt.
@@ -55436,9 +55560,48 @@ function _gsSanitizePlannerPlan(plan) {
       frei.sort(function (a, b) { return (b.w * b.h) - (a.w * a.h); });
       frei.forEach(function (it) {
         var gesetzt = false;
-        for (var y = 0; y <= bedL - it.h + 0.001 && !gesetzt; y += schritt) {
-          for (var x = 0; x <= bedW - it.w + 0.001 && !gesetzt; x += schritt) {
-            if (frei_an(x, y, it.w, it.h)) {
+        var xk = parseFloat(it.p.x_m), yk = parseFloat(it.p.y_m);
+
+        // ── v31.62, Schritt 1: die Stelle der KI achten ──────────────────
+        // Bis v31.61 wurde JEDE neue Pflanze aus (0,0) heraus neu gesetzt —
+        // auch dann, wenn die KI sie bewusst irgendwohin gelegt hatte. Der
+        // Prompt verlangt „Sonnenpflanzen nicht in den Schatten", die KI
+        // haelt sich daran, und der Packer warf es weg. Am laufenden
+        // Programm nachgestellt: Tomate 3,0/2,2 → 1,2/0. Jetzt gilt der
+        // Vorschlag, sofern er ueberhaupt passt.
+        var brauchtLicht = _gsLichtNorm(it.p.light);
+        // „Frei" ist nicht dasselbe wie „sinnvoll". Der erste Anlauf hat den
+        // Vorschlag der KI genommen, sobald er nicht kollidierte — und damit
+        // eine Tomate im Schatten stehen lassen, obwohl die Sonnenzone leer
+        // war (im Durchgang B nachgestellt). Der Vorschlag gilt also nur,
+        // wenn er auch ins gemessene Licht passt; sonst wird weitergesucht.
+        var ktPasst = !zonen.length || !brauchtLicht ||
+          _gsLichtPasst(brauchtLicht, _gsZoneAn(zonen, xk + it.w / 2, yk + it.h / 2));
+        if (isFinite(xk) && isFinite(yk) && ktPasst && frei_an(xk, yk, it.w, it.h)) {
+          it.p.x_m = Math.round(xk * 100) / 100;
+          it.p.y_m = Math.round(yk * 100) / 100;
+          it.p.w_m = Math.round(it.w * 100) / 100;
+          it.p.h_m = Math.round(it.h * 100) / 100;
+          fest.push({ x: xk, y: yk, w: it.w, h: it.h });
+          gesetzt = true;
+        }
+
+        // ── Schritt 2: umlegen, aber ins passende Licht ──────────────────
+        // Erster Durchgang nur ueber Stellen, deren Mitte in einer Zone mit
+        // dem gebrauchten Licht liegt. Findet sich keine, zweiter Durchgang
+        // ueber alles Freie — und die Pruefung weiter unten sagt dann, dass
+        // die Pflanze nicht im richtigen Licht steht. Lieber gepflanzt und
+        // benannt als gar nicht im Plan.
+        var durchgaenge = (brauchtLicht && zonen.length) ? [true, false] : [false];
+        for (var d = 0; d < durchgaenge.length && !gesetzt; d++) {
+          var nurPassend = durchgaenge[d];
+          for (var y = 0; y <= bedL - it.h + 0.001 && !gesetzt; y += schritt) {
+            for (var x = 0; x <= bedW - it.w + 0.001 && !gesetzt; x += schritt) {
+              if (!frei_an(x, y, it.w, it.h)) continue;
+              if (nurPassend) {
+                var z = _gsZoneAn(zonen, x + it.w / 2, y + it.h / 2);
+                if (!z || !_gsLichtPasst(brauchtLicht, z)) continue;
+              }
               it.p.x_m = Math.round(x * 100) / 100;
               it.p.y_m = Math.round(y * 100) / 100;
               it.p.w_m = Math.round(it.w * 100) / 100;
@@ -55457,6 +55620,7 @@ function _gsSanitizePlannerPlan(plan) {
           it.p.h_m = Math.round(it.h * 100) / 100;
         }
       });
+      _gsPlanLichtPruefung(plan, zonen);
       return plan;
     }
 
@@ -64490,6 +64654,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.62', date: '01.09.2026',
+    headline: '\u2600\ufe0f Der Planer plant ins gemessene Licht \u2014 und sagt es, wenn etwas nicht passt',
+    summary: 'Der Planer war seit v31.58 angewiesen, Sonnenpflanzen nicht in den Schatten zu setzen. Die KI hielt sich daran \u2014 und der Platzierer warf es hinterher weg. Jetzt bleibt eine gute Platzierung stehen, eine schlechte wird ins passende Licht gelegt, und was nirgends passt, wird benannt.',
+    user_summary: '\u2600\ufe0f Neue Pflanzen landen in der Lichtzone, die dein Garten-Scan tats\u00e4chlich gemessen hat \u2014 und wenn kein Platz mehr im richtigen Licht ist, sagt der Plan das, statt es zu verschweigen.',
+    user_items: [
+      {emoji:'\ud83d\udd0e', bold:'Ein Auftrag, der nie ankam:', text:' Der Planer bekam die Anweisung „Sonnenpflanzen nicht in den Schatten" \u2014 aber danach ordnete er jede neue Pflanze von links oben her neu an. Am laufenden Programm nachgestellt: die KI legte die Tomate in die Sonnenecke bei 3,0/2,2 m, der Platzierer schob sie auf 1,2/0. Die \u00dcberlegung war da, das Ergebnis nicht.'},
+      {emoji:'\u2600\ufe0f', bold:'Jetzt in drei Stufen:', text:' Eine gute Platzierung der KI bleibt, wo sie ist. Eine schlechte wird in eine Zone mit dem passenden Licht gelegt \u2014 gemessen an deinem Scan, nicht geraten. Und wenn dort nichts mehr frei ist, steht die Pflanze trotzdem im Plan, aber mit einem Hinweis, welche und warum.'},
+      {emoji:'\ud83e\udd1d', bold:'Halbschatten ist kein Vorwurf:', text:' Gemeldet werden nur die zwei echten Fehler \u2014 Sonnenpflanze im Schatten und Schattenpflanze in der prallen Sonne. Alles dazwischen vertr\u00e4gt sich. Strenger zu sein hiesse, Warnungen zu erfinden.'},
+      {emoji:'\ud83e\uddea', bold:'Sechs Durchg\u00e4nge nachgespielt:', text:' Richtige Platzierung bleibt \u00b7 falsche wandert in die Sonne \u00b7 volle Sonnenzone meldet den Konflikt mit Namen und Grund \u00b7 ohne bekannten Lichtbedarf wird nichts bewertet \u00b7 planst du eine ANDERE Fl\u00e4che als die gescannte, gelten die Zonen gar nicht (sie l\u00e4gen sonst auf dem falschen Rechteck) \u00b7 und ohne Scan bleibt alles wie zuvor.'},
+    ],
+  },
+  {
     v: 'v31.61', date: '01.09.2026',
     headline: '\ud83d\udccd Du siehst jetzt im Foto, WELCHE Pflanze die KI meint',
     summary: 'Der Garten-Scan sagte bisher nur, WAS er erkannt hat. Jetzt zeigt er auf dem eigenen Foto, WO — nummerierte Marker, und ein Tipp darauf f\u00fchrt zur passenden Zeile. Ohne das ist jede Korrektur ein Ratespiel.',
@@ -64833,7 +65009,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.61';
+var GS_VERSION = 'v31.62';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
