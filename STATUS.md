@@ -4,13 +4,52 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.21` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.22` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (g) — v31.22: Oberflächen aus einem Guss — Tiefe und Glas
+
+> „So futuristisch wie in den Bildern." Nach den Farben die zweite Ebene: was eine Oberfläche modern wirken lässt, sind nicht einzelne Effekte, sondern dass alle Flächen **derselben** Sprache folgen.
+
+#### Die Messung
+
+| | Angaben | verschiedene Werte |
+|---|---|---|
+| `border-radius` | 2 287 | **58** |
+| `box-shadow` | 237 | **133** |
+| `transition` | 192 | **85** |
+| `backdrop-filter` | 90 | **10** |
+
+133 verschiedene Schatten sind keine Gestaltung, das ist Rauschen. Genau daher kommt der Eindruck „zusammengesetzt" statt „aus einem Guss".
+
+#### Was ich angefasst habe — und was nicht
+
+**Schatten und Glas.** Beides ist begrenzt (rund 330 Stellen), hat hohe optische Wirkung und lässt sich prüfen.
+
+**Die 2 287 Radien nicht.** Ein Umbau von 58 auf 6 Stufen wäre ein Eingriff ins Layout jeder einzelnen Fläche, mit einer Streubreite, die ich nicht seriös verifizieren kann. Das ist ein eigenes Vorhaben, kein Nebensatz.
+
+#### Vier Höhenstufen, drei Unschärfen
+
+`--elev-1` Listenzeile · `--elev-2` Karte · `--elev-3` hervorgehoben · `--elev-4` Dialog, dazu `--elev-brand` für die Hauptaktion. Im Dunkelmodus **eigene Werte**: ein Schatten mit 7 % Deckkraft ist auf dunklem Grund schlicht unsichtbar, dort braucht Tiefe 40–65 %. Der Marken-Glow wird dunkel neutral, weil Grün auf Grün keine Kante zeichnet.
+
+Glas: `blur(3–14px)` auf `--blur-sm/md/lg` (4/8/12) abgebildet. Die beiden häufigsten Werte (`blur(8px)` 27×, `blur(4px)` 13×) bleiben dabei **unverändert**.
+
+#### Bewusst nicht umgestellt
+
+- **13 mehrschichtige Schatten** — das sind Puls-Animationen, keine Höhen
+- **Fokus-Ringe** (`0 0 0 3px`) — dieselbe CSS-Eigenschaft, völlig andere Aufgabe
+- **4 Inset-Schatten** — Vertiefung statt Erhebung
+
+#### Ein eigener Fehler, der die Arbeit fast wertlos gemacht hätte
+
+Der erste Lauf ersetzte **3 von 132** Schatten. Mein Schutz gegen mehrschichtige Werte prüfte auf ein Komma — und **jedes `rgba(0,0,0,.07)` enthält Kommas**. Der Filter hat praktisch alles abgelehnt. Aufgefallen ist es nur, weil ich die Trefferzahl ausgegeben und mit der Erwartung verglichen habe. Jetzt werden Klammer-Ausdrücke zuerst entfernt, dann auf echte Schicht-Kommas geprüft.
+
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · **74/74** `backdrop-filter` auf Token · `box-shadow` mit Token **73 → 195 von 238**; die 43 verbleibenden sind genau die drei ausgenommenen Klassen · Höhenstufen und Glas in Chromium gerendert, hell und dunkel · Version synchron v31.22.
 
 ### 2026-09-01 (f) — v31.21: Farbsystem, zweite Welle — und ein Abschnitt, der nachts unsichtbar war
 
