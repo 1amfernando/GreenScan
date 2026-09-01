@@ -96,6 +96,19 @@ GreenScan/
   Felder: `v`, `date`, `headline`, `summary`, optional `user_summary` /
   `user_items` (werden bevorzugt gerendert). **Reiner Fliesstext** — die
   Werte werden beim Rendern escaped, Markup in den Strings wirkt nicht.
+- **Seit v31.36 ist die Liste zweigeteilt.** In `index.html` stehen nur noch
+  die **neuesten ~12** Einträge (vorher alle 383 — 787 KB, 14 % der Datei,
+  bei jedem Kaltstart geparst). Alles Ältere liegt in
+  `data/releases.v1.js` (`window.GS_RELEASES_ARCHIVE`) und wird erst geladen,
+  wenn jemand den Changelog im Über-Modal öffnet.
+  - Neue Einträge kommen weiterhin **oben in `index.html`** dazu — daran
+    ändert sich nichts.
+  - Wer die **vollständige** Liste braucht: `gsAllReleases()`, nie
+    `GS_RELEASES` direkt. Letzteres sind nur die inline vorhandenen.
+  - Wird die Inline-Liste zu lang, wandern die ältesten Einträge an den
+    **Anfang** von `data/releases.v1.js` — die Reihenfolge ist überall neu → alt.
+  - Das Archiv ist bewusst **nicht** in `SHELL_URLS` vor-gecacht: sonst lädt
+    jeder 778 KB für einen Bildschirm, den die meisten nie öffnen.
 
 ### 3.2 · Branches
 - `main` ist Produktion. NIE direkt darauf pushen.

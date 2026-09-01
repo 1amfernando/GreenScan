@@ -4,13 +4,63 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.35` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.36` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (u) — v31.36: 787 KB Changelog, die jeder bei jedem Start mitlud
+
+> In (t) habe ich geschrieben, das Parsen der 5,7-MB-Datei sei „eine Eigenschaft der Architektur". Das stimmt — aber bevor ich es stehen lasse, wollte ich wissen, **woraus** die Datei besteht.
+
+#### Die Zusammensetzung
+
+| Block | Grösse | Anteil |
+|---|---|---|
+| **`GS_RELEASES`** | **787 KB** | **14 %** |
+| `DEFAULT_RECIPES` | 297 KB | 5 % |
+| `WEEKLY_SEASONAL_FACTS` | 148 KB | 3 % |
+| `GS_I18N_JS_STRINGS` | 83 KB | 1 % |
+
+Der grösste Einzelblock ist die **Versionshistorie**: 383 Einträge, geladen und geparst bei jedem Kaltstart. Beim Start braucht die App davon **einen** — `GS_RELEASES[0]` für den „Was ist neu"-Dialog. Die volle Liste sieht nur, wer den Changelog im Über-Modal öffnet.
+
+(Die anderen drei werden tatsächlich beim Start gebraucht. Die bleiben.)
+
+#### Die Aufteilung
+
+Die neuesten **12** Einträge (32 KB) bleiben inline — damit funktioniert der Dialog und die jüngste Historie ohne Nachladen. Die **371 älteren** (753 KB) stehen in `data/releases.v1.js` und werden per `gsLoadReleaseArchive()` geholt, wenn der Changelog geöffnet wird. Dasselbe Vorgehen wie bei `data/plants.v1.js` seit v25.10 — ich erfinde keine Architektur, ich wende die vorhandene an.
+
+`index.html`: **5,50 → 4,87 MB.**
+
+#### Eine Entscheidung, die ich erst falsch getroffen hatte
+
+Mein erster Schritt war, das Archiv in `SHELL_URLS` vor-cachen zu lassen — damit der Changelog offline vollständig ist. Beim Nachdenken fiel mir auf: **dann lädt jeder 778 KB für einen Bildschirm, den die meisten nie öffnen.** Damit wäre der halbe Gewinn wieder weg.
+
+Zurückgenommen. Das Archiv fällt unter die Standard-Strategie des Service Workers (`networkFirst` + Laufzeit-Cache) und ist ab dem ersten Öffnen auch offline da. Wer offline ist und ihn noch nie geöffnet hat, sieht die zwölf vorhandenen Einträge **und einen Hinweis** — eine Kurzliste stillschweigend als vollständig auszugeben wäre die schlechtere Lösung.
+
+#### Was das NICHT bringt
+
+Die Parse-Zeit sank nur um rund **70ms**, obwohl 630 KB verschwunden sind. Grund: entfernt wurden **Daten**, und Datenliterale sind für die JavaScript-Maschine deutlich billiger als Code. Wer 630 KB entfernt und proportional weniger Parse-Zeit erwartet, rechnet falsch.
+
+Der messbare Gewinn liegt woanders:
+
+| (4× gedrosselt, zwei Doppelläufe) | vorher | nachher |
+|---|---|---|
+| DOMContentLoaded | 1'568 / 1'591ms | **1'424 / 1'445ms** |
+| längste Blockade | 689 / 734ms | 608 / 658ms |
+| Erstbesuch übertragen | — | **260 KB weniger** (gzip) |
+
+#### Zwei Zahlen, die ich nicht durchgewunken habe
+
+Der Vergleich meldete `GROESSE geaendert: 5` und `abgeschnittener Inhalt 17 → 5`. Bei einer reinen Daten-Auslagerung gehört da nichts hin.
+
+- Die fünf Grössenänderungen betrafen zwei Chips im Wissens-Hero. **Direkt nachgemessen: in beiden Ständen 72×18 und 144×18 — identisch.** Nicht reproduzierbar, also Zeitrauschen zwischen zwei Browser-Sitzungen. Bestätigt durch einen Selbstvergleich der Datei: **0/0/0/0**.
+- Die Clipping-Differenz liegt ausschliesslich in `IMG`-Einträgen (4–5px), deren Zustand vom Ladezeitpunkt abhängt; die fünf inhaltlichen Container sind in beiden Ständen identisch. Plausibel, weil die Seite jetzt schneller parst.
+
+---
 
 ### 2026-09-01 (t) — v31.35: „smooth" endlich gemessen — eine Sekunde verschenkte Arbeit beim Start
 

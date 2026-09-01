@@ -5,7 +5,7 @@
 > Kompagnon: `STATUS.md` (operativer Snapshot) · `CLAUDE.md` (Onboarding) ·
 > `BACKEND_FRONTEND_MAP_v26.76.md` (Architektur-Detailkarte).
 
-**Stand:** v31.35 · App **live** auf green-scan.ch · released seit v26.0.
+**Stand:** v31.36 · App **live** auf green-scan.ch · released seit v26.0.
 
 ---
 
@@ -76,6 +76,8 @@ Die App ist ein reifes, live-laufendes Produkt. Erreicht u.a.:
 **Bedienbarkeit: 43 → 0 (v31.34).** Antippflächen unter 24×24 px (WCAG 2.5.8) gemessen und behoben — die kleinste war 8×8: die Karussell-Punkte unter den Tageskarten. Trefferfläche jetzt 24×24, der sichtbare Punkt sitzt als `::before` darin, die Optik ist unverändert. Zweiter echter Fall: die Suchfelder waren 18px hoch in einer 37px hohen Leiste; deren Polsterung reagierte nicht. `scripts/touch_check.js` liegt als drittes Prüfwerkzeug im Repo. Nebenbei belegt: alle **7'081** `onclick`-Ziele lösen zu echten Funktionen auf, kein fehlender Handler.
 
 **Startleistung: App-JS 1'548ms → 421ms (v31.35).** Drei `MutationObserver` (Auto-ARIA, Auto-Maxlength, Auto-Lazy) durchsuchten bei jeder DOM-Änderung das ganze Dokument neu — 743ms `querySelectorAll` allein beim Start. Jetzt gebündelt und auf die eingefügten Teilbäume beschränkt. Gegengeprüft: die drei setzen exakt dieselben 199 `aria-label`, 65 `maxlength` und 7 `loading`-Attribute wie vorher. `scripts/perf_check.js` neu im Repo. **Bewusst nicht angefasst:** die längste Einzelblockade (710ms auf einem Mittelklasse-Telefon) ist das Parsen der 5,7-MB-Datei — das liesse sich nur durch Aufteilen des Monolithen ändern, und das ist eine Architektur-Entscheidung.
+
+**Changelog ausgelagert (v31.36).** `GS_RELEASES` war mit **787 KB der grösste Einzelblock** in `index.html` (14 %) — 383 Einträge, geparst bei jedem Kaltstart, obwohl beim Start nur `[0]` gebraucht wird. Die neuesten 12 bleiben inline, die 371 älteren liegen in `data/releases.v1.js` und werden beim Öffnen des Changelogs nachgeladen (Muster von `data/plants.v1.js`). `index.html` 5,50 → 4,87 MB, DOMContentLoaded auf einem Mittelklasse-Telefon ~145ms schneller, Erstbesuch 260 KB weniger. **Bewusst nicht vor-gecacht** — sonst lädt jeder 778 KB für einen selten geöffneten Bildschirm; der Offline-Fall zeigt stattdessen einen Hinweis. Parse-Zeit sank nur ~70ms: Datenliterale sind billiger zu parsen als Code.
 
 **Backend durchgemessen (01.09.).** Leistungs-Advisors zum ersten Mal ausgewertet: 0 ERROR, 0 WARN, kein Fremdschlüssel ohne Index. Die Datenbank ist gesund. Einzige lohnende Aufräumung: 38 Indizes, deren Spalten ein echtes Präfix eines breiteren Index sind — bereitgelegt als `20260901_redundante_indizes.sql`, umkehrbar, nicht Teil der Pflichtschritte.
 
