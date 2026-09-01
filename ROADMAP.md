@@ -5,7 +5,7 @@
 > Kompagnon: `STATUS.md` (operativer Snapshot) · `CLAUDE.md` (Onboarding) ·
 > `BACKEND_FRONTEND_MAP_v26.76.md` (Architektur-Detailkarte).
 
-**Stand:** v31.28 · App **live** auf green-scan.ch · released seit v26.0.
+**Stand:** v31.29 · App **live** auf green-scan.ch · released seit v26.0.
 
 ---
 
@@ -62,6 +62,8 @@ Die App ist ein reifes, live-laufendes Produkt. Erreicht u.a.:
 **Farbsystem durchgesetzt (v31.20).** Die App hatte längst semantische Farb-Token mit korrekten Dunkel-Varianten — 523 Stellen umgingen sie und schrieben den Hellwert hart hinein, weshalb der Dunkelmodus leuchtete. Alle umgestellt; sechs Dunkel-Werte repariert, die sonst unlesbaren Text erzeugt hätten. Hellmodus pixelgleich, schlechtester Kontrast 2,2:1 → 4,8:1. **Offen (Welle 2):** 225 helle Hintergründe ohne Token-Zwilling und die Farbverläufe brauchen neue Token.
 
 **Startseite optisch geschlossen (v31.21–v31.28).** Die Entwürfe zeigen ruhige helle Karten; die App hatte an mehreren Stellen noch Farbflächen und Token, die für den falschen Zusammenhang benutzt wurden. Nacheinander repariert: Rollentrennung der Token (eine Farbe ist entweder Text **oder** Fläche, nie beides — 29 Token, 146 Flächen, 124 davon mit weisser Schrift auf 2,36:1), Kopfleiste (1,64:1), untere Navigation im **Hell**modus (1,86:1), zuletzt die Wetterkarte (v31.28): blauer Verlauf → Karten-Material, Farbe nur noch bei der Sturmwarnung. Dabei fiel auf, dass die Wetter-Vorschau an **zwei** Stellen unabhängig gerendert wurde (3 vs. 4 Spalten, ein Weg mit fest verdrahtetem Weiss) — jetzt eine gemeinsame Funktion. **Offen:** die Radien-Skala — 2'287 `border-radius`-Angaben in 58 Varianten, bewusst als eigenes Vorhaben aufgehoben.
+
+**Radien-Skala (v31.29).** 2'286 `border-radius`-Angaben in 55 Varianten, lückenlos von 2px bis 28px — jetzt ein 4px-Raster mit sechs benannten Stufen plus `50%` für Kreise. Keine Bewegung grösser als 2px (eine Ausnahme, im Browser nachgemessen); 11 Werte bewusst stehen gelassen, weil ihre Verschiebung eine Gestaltungsentscheidung wäre. Dabei aufgefallen: Export und Druck erzeugen eigenständige Dokumente, in denen `:root` nicht gilt — die Farb-Token dort waren **seit v31.20 tot**. Behoben über `GS_DOC_TOKENS`. Damit ist die in v31.22 aufgeschobene Aufgabe erledigt.
 
 **Backend durchgemessen (01.09.).** Leistungs-Advisors zum ersten Mal ausgewertet: 0 ERROR, 0 WARN, kein Fremdschlüssel ohne Index. Die Datenbank ist gesund. Einzige lohnende Aufräumung: 38 Indizes, deren Spalten ein echtes Präfix eines breiteren Index sind — bereitgelegt als `20260901_redundante_indizes.sql`, umkehrbar, nicht Teil der Pflichtschritte.
 
