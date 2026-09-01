@@ -4,13 +4,51 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.55` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.56` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (at) — v31.56: Startseite neu geordnet
+
+Vier Wünsche von Fernando, alle gemessen statt gehofft.
+
+#### Neue Reihenfolge auf der Startseite
+
+| vorher | nachher |
+|---|---|
+| Wetter · Heute zu tun · **XP-Balken** · Zahlen · Wochenübersicht · Quiz · Inserate · Rangliste | Wetter · Heute zu tun · Zahlen · Wochenübersicht · **Inserate** · **Rangliste** · **Quiz** |
+
+Am laufenden Programm ausgelesen (die Reihenfolge lässt sich mit `render_check` nicht vergleichen — positionsbasierte Schlüssel, siehe `CLAUDE.md` §7.1):
+
+```
+ 835  home-marketplace-live   🛒 Aktive Inserate · Live
+ 943  home-lb-card            🏆 Quiz-Rangliste
+1024  quiz-card               🎯 Täglich-Quiz
+```
+
+Die beiden Karten standen bisher **ausserhalb** des Containers, der `padding:0 16px` liefert, und brachten ihren eigenen 16px-Rand mit. Beim Verschieben hätte sich das verdoppelt. Nachgemessen: alle drei sitzen bei `x=16`, Breite 380 — bündig wie zuvor.
+
+#### XP-Balken: die zweite Hälfte war die wichtigere
+
+Das Markup zu entfernen war trivial. `gsUpdateXPBar` bedient aber **beide** Balken über eine `widgets`-Liste, alle Zugriffe abgesichert. Hätte ich nur das Sichtbare entfernt, wären fünf Nachschlagungen auf nicht mehr vorhandene Elemente zurückgeblieben — genau die stille Sorte Rest, die der Meilenstein heute auf null gebracht hat. Der Home-Eintrag ist deshalb auch aus der Liste raus.
+
+Gegenprobe: `wiring_check` weiterhin **0** offene Nachschlagungen.
+
+#### Luft zwischen Wetter und Werkzeugen
+
+Wetterkarte `margin-bottom: 0`, Werkzeug-Raster `margin-top: 6px`, dazwischen nur die 14px hohe und meist leere Sync-Zeile — gemessener Abstand **24px**. Das las sich als ein Klotz.
+
+Jetzt **39px** mit einer 1px-Linie in `--border` darin. Bewusst keine weitere Karte: der Garten-Bildschirm ist ohnehin lang, und eine Trennung braucht keinen eigenen Rahmen.
+
+#### Verify
+
+`wiring_check` 305 Namen / 0 nicht auflösbar · Menü 40/0 · **0** offene Nachschlagungen · 0 ungesichert · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen · `contrast_check` 0 unter AA beide Modi · `touch_check` 0 unter 24×24 · Home-Reihenfolge und Ränder am laufenden Programm ausgelesen · Garten-Abstand 24 → 39px gemessen · 9/9 Inline-Scripts + `sw.js` `node --check` OK · `GS_VERSION` v31.56 · `sw.js` gs-v31.56 · `_headers` v31.56 · meta 31.56.20260901.
+
+---
 
 ### 2026-09-01 (as) — Leaked-Password-Protection ist aktiv · Backend-Block geschlossen
 
