@@ -48,11 +48,25 @@ für jede Änderung an Auslieferungs-Dateien wichtig ist.
 - Der Anon-Key ist öffentlich by design und die Daten sind über RLS geschützt;
   eine zweite Auslieferung ist deshalb **kein** Datenrisiko.
 
-**Nicht verifiziert:** ob `green-scanswitzerland.netlify.app` tatsächlich
-öffentlich erreichbar ist oder nur Deploy-Previews baut. Die Netzwerk-Richtlinie
-der Claude-Cloud-Umgebung blockiert ausgehende Verbindungen dorthin
-(`CONNECT … 403`). Wer es prüfen kann: einmal aufrufen und hier eintragen —
-und dann entscheiden, ob die zweite Auslieferung bleiben soll.
+**Teilweise beantwortet (01.09.2026).** Der Netlify-Bot kommentiert an jedem PR
+mit einer Deploy-Preview-Adresse der Form
+`https://deploy-preview-<PR>--green-scanswitzerland.netlify.app`, zuletzt an
+PR #83 mit dem Vermerk „Deploy Preview … ready". **Belegt ist damit:** Netlify
+baut pro PR eine eigene Vorschau, und diese Vorschauen sind erreichbare
+Adressen. Das ist nützlich — sie sind der einzige Weg, einen Stand vor dem
+Merge auf einem echten Telefon anzusehen (den QR-Code hängt der Bot an).
+
+**Weiterhin nicht verifiziert:** ob die nackte Adresse
+`green-scanswitzerland.netlify.app` eine öffentliche Produktions-Auslieferung
+bedient oder nur die Vorschauen existieren. Die Netzwerk-Richtlinie der
+Claude-Cloud-Umgebung blockiert ausgehende Verbindungen dorthin
+(`CONNECT … 403`), der Bot-Kommentar sagt dazu nichts. Wer es prüfen kann:
+einmal aufrufen und hier eintragen — und dann entscheiden, ob die zweite
+Auslieferung bleiben soll.
+
+**Warum das nicht egal ist:** existiert sie öffentlich, ist sie eine zweite
+PWA-Installationsquelle mit **eigenem** localStorage (siehe oben) — und damit
+eine wiederkehrende Support-Frage.
 
 **Auch `green-scan.ch` selbst ist von hier aus nicht erreichbar** (geprüft
 01.09.2026, ebenfalls `CONNECT … 403`). Eine Claude-Cloud-Session kann die
