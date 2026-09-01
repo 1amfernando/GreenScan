@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.52.20260901">
+<meta name="app-version" content="31.53.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5292,6 +5292,21 @@ html, body{ scroll-behavior: smooth; }
           <div class="settings-label-sub" data-i18n="settings_myplan_hint" data-i18n-fallback="Dein Tarif &amp; deine heutigen Frei-Kontingente">Dein Tarif &amp; deine heutigen Frei-Kontingente</div>
         </div>
         <div style="font-size:var(--fs-xl);color:var(--muted);">›</div>
+      </div>
+      <!-- v31.53: Anzeige des KI-Tageskontingents. Der Code dafuer steht seit
+           v26.65 in initSettingsScreen und fuellt #settings-ai-quota-row und
+           #settings-ai-quota-sub — beide Elemente gab es nie. Folge: ein
+           Gratis-Nutzer erfuhr von seinem Tageslimit erst, wenn es erreicht
+           war („🚫 Tageslimit erreicht — heute 15/15 KI-Aufrufe verbraucht").
+           Vorher war es nirgends zu sehen. Startet verborgen, genau wie die
+           Portal-Zeile darunter; initSettingsScreen blendet es ein, sobald es
+           etwas anzuzeigen gibt. -->
+      <div class="settings-row" id="settings-ai-quota-row" style="display:none;">
+        <div class="settings-icon" style="background:var(--bg-success-soft);">🤖</div>
+        <div class="settings-label">
+          <div class="settings-label-title" data-i18n="settings_ai_quota" data-i18n-fallback="KI-Aufrufe heute">KI-Aufrufe heute</div>
+          <div class="settings-label-sub" id="settings-ai-quota-sub">–</div>
+        </div>
       </div>
       <div class="settings-row" id="settings-portal-row" onclick="gsOpenBillingPortal()" style="cursor:pointer;display:none;">
         <div class="settings-icon" style="background:var(--bg-info-soft);">💳</div>
@@ -46697,9 +46712,11 @@ function initSettingsScreen() {
     notifEl.textContent = 'Nicht unterstützt';
   }
 
-  // DB count
-  const dbEl = document.getElementById('about-db');
-  if (dbEl && DB) dbEl.textContent = DB.length + ' Schweizer Arten in der Datenbank';
+  // v31.53: hier stand eine Zuweisung an #about-db — das Element gibt es
+  // nicht. Die Artenzahl wird zwoelf Zeilen tiefer ohnehin in vier Elemente
+  // geschrieben (settings-arten-count, about-arten-count, modal-about-arten,
+  // search-header-count), und modal-about-arten fuellt zusaetzlich der
+  // Ueber-Dialog. Die Zahl war also nie weg, nur diese eine Stelle war es.
   // v26.65: Dynamische Arten-Zahl auch im About-Card-Grid + Settings-Header
   try {
     var artenCount = (DB && DB.length) ? DB.length : 0;
@@ -46732,7 +46749,11 @@ function initSettingsScreen() {
         var pct = q.limit > 0 ? Math.round((q.used / q.limit) * 100) : 0;
         var icon = q.remaining === 0 ? '🚫' : q.remaining <= 3 ? '⚠️' : '✅';
         aqSub.textContent = icon + ' ' + q.used + ' / ' + q.limit + ' Calls heute · ' + q.remaining + ' übrig';
-        aqSub.style.color = q.remaining === 0 ? '#c62828' : q.remaining <= 3 ? '#e65100' : 'var(--muted)';
+        // v31.53: das Warn-Orange war #e65100 — auf der weissen Karte 3,79:1
+        // und damit unter AA. #bf360c ergibt 5,60:1. Nachgerechnet, bevor die
+        // Zeile das erste Mal ueberhaupt sichtbar wird; der Kontrast-Pruefstand
+        // haette sie nicht gesehen, weil sie bis jetzt gar nicht existierte.
+        aqSub.style.color = q.remaining === 0 ? '#c62828' : q.remaining <= 3 ? '#bf360c' : 'var(--muted)';
       }
     }
   } catch(_){}
@@ -47238,8 +47259,11 @@ window.addEventListener('DOMContentLoaded', () => {
   // ── Admin-Buttons zeigen wenn Admin-Modus aktiv ─────────
   try {
     if (IS_ADMIN) {
-      var apBtn = document.getElementById('mi-adminpanel');
-      if (apBtn) apBtn.style.display = '';
+      // v31.53: hier wurde #mi-adminpanel eingeblendet — ein Menue-Eintrag aus
+      // einer frueheren Fassung, den es nicht mehr gibt. Das Admin-Panel ist
+      // erreichbar: ueber die Einstellungen (#settings-admin-dashboard-row,
+      // Klasse admin-only-row) und ueber die Menue-Suche, die openAdminPanel
+      // direkt aufruft.
       var badge = document.getElementById('admin-badge');
       if (badge) { badge.textContent = '🛡️ Admin'; badge.style.background='#1a3d1a'; badge.style.color='#4caf50'; badge.style.border='1px solid #1f6b2f'; }
     } else {
@@ -47260,8 +47284,10 @@ window.addEventListener('DOMContentLoaded', () => {
       if (seen[k]) { hasDupes = true; break; }
       seen[k] = true;
     }
-    var badge = document.getElementById('dedup-badge');
-    if (badge && hasDupes) badge.style.display = 'block';
+    // v31.53: hier wurde #dedup-badge eingeblendet — ein Menue-Abzeichen aus
+    // derselben frueheren Fassung. Die Duplikat-Pruefung selbst laeuft weiter
+    // beim Start (deduplicateDB) und raeumt selbstaendig auf; sie braucht
+    // keine Bedienung durch den Nutzer.
   } catch(e) {}
 
   // ── Abo-Entitlements beim Start laden + Settings-Card aktualisieren
@@ -63597,6 +63623,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.53', date: '01.09.2026',
+    headline: '\ud83e\udd16 Dein KI-Tageskontingent ist endlich zu sehen \u2014 vorher erfuhrst du davon erst beim Anschlagen',
+    summary: 'Gratis-Nutzer haben 15 KI-Aufrufe pro Tag. Die Anzeige daf\u00fcr steht seit v26.65 fertig im Code und f\u00fcllt zwei Elemente, die es nie gab. Wer sein Kontingent verbrauchte, erfuhr davon zum ersten Mal in dem Moment, in dem er blockiert wurde.',
+    user_summary: '\ud83e\udd16 In den Einstellungen steht jetzt, wie viele KI-Aufrufe du heute noch hast. Bisher merktest du es erst, wenn keine mehr da waren.',
+    user_items: [
+      {emoji:'\ud83e\udd16', bold:'Das Kontingent steht in den Einstellungen:', text:' „✅ 0 / 15 Calls heute · 15 \u00fcbrig", bei drei oder weniger in Orange, bei null in Rot. Gemessen f\u00fcr alle drei Zust\u00e4nde. Die Zeile bleibt verborgen, wenn du Pro hast oder einen eigenen Schl\u00fcssel nutzt \u2014 dann gibt es kein Limit anzuzeigen.'},
+      {emoji:'\u26a0\ufe0f', bold:'Warum das mehr als Kosmetik ist:', text:' Der einzige Hinweis auf das Limit war bisher die Absage selbst („\ud83d\udeab Tageslimit erreicht \u2014 heute 15/15 verbraucht"). Man konnte nicht einteilen, was man nicht sehen konnte.'},
+      {emoji:'\ud83c\udfa8', bold:'Und die Farbe stimmte auch nicht:', text:' Der Warnton war #e65100 \u2014 auf der weissen Karte 3,79:1 und damit unter der Lesbarkeitsschwelle. Nachgerechnet und auf 5,60:1 gebracht, bevor die Zeile das erste Mal \u00fcberhaupt sichtbar wird. Der Kontrast-Pr\u00fcfstand h\u00e4tte sie nicht gefunden: was es nicht gibt, kann er nicht messen.'},
+      {emoji:'\ud83e\uddf9', bold:'Drei weitere Reste aufgel\u00f6st:', text:' Ein Men\u00fc-Eintrag zum Admin-Panel (das \u00fcber zwei andere Wege erreichbar ist), eine zweite Artenzahl-Anzeige (die Zahl steht in vier anderen Elementen) und ein Abzeichen f\u00fcr Duplikate (die Pr\u00fcfung l\u00e4uft ohnehin beim Start und r\u00e4umt selbst auf).'},
+    ],
+  },
+  {
     v: 'v31.52', date: '01.09.2026',
     headline: '\ud83c\udff7\ufe0f Der Beitragstyp wurde beim Absenden weggeworfen',
     summary: 'Im Beitrags-Fenster las das Absenden ein Feld namens post-category. Das gibt es nicht \u2014 das Auswahlfeld hei\u00dft post-type. Der Ausdruck fiel deshalb IMMER auf „fund" zur\u00fcck: Showcase, Hilfe, Tipp, Frage und Rarit\u00e4t wurden alle als dasselbe gespeichert.',
@@ -64088,7 +64126,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.52';
+var GS_VERSION = 'v31.53';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
