@@ -12,6 +12,70 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-01 (az) — v31.62: Der Planer plant ins gemessene Licht
+
+Wieder das Muster, das diese Sitzung ein Dutzend Mal getroffen hat: **Arbeit, die getan und dann stillgelegt wird.**
+
+Seit v31.58 steht im Planer-Prompt wörtlich „Beachte die Lichtzonen (Sonnenpflanzen nicht in den Schatten)". Die KI hält sich daran. Danach lief `_gsSanitizePlannerPlan` und ordnete **jede** neue Pflanze aus (0,0) heraus neu an — erste freie 10-cm-Stelle gewinnt. Der Auftrag kam nie an.
+
+Am laufenden Programm nachgestellt, bevor eine Zeile geändert wurde:
+
+```
+KI hatte gelegt: Hecke@0,0 · Tomate@3,2.2 · Farn@0.2,1.5
+Packer machte  : Hecke@0,0 · Tomate@1.2,0 · Farn@1.8,0
+```
+
+Die Tomate lag in der Sonnenecke, der Farn im Schatten. Beide landeten in der obersten Reihe.
+
+#### Die Platzierung in drei Stufen
+
+| Stufe | Regel |
+|---|---|
+| 1 | Die Stelle der KI **bleibt** — wenn sie frei ist **und** das Licht passt |
+| 2 | Sonst: Rastersuche, **erster Durchgang nur über Stellen im passenden Licht** |
+| 3 | Sonst: irgendeine freie Stelle — und der Konflikt wird **benannt** |
+
+Stufe 3 ist Absicht. Der Platz kann schlicht knapp sein; dann ist die richtige Antwort ein Hinweis an den Menschen, keine heimliche Verschiebung und kein Weglassen der Pflanze.
+
+**Ein Fehler, den ich beim Testen selbst gebaut habe** und der genau deshalb aufgefallen ist: Stufe 1 nahm zuerst *jede* kollisionsfreie Stelle der KI. „Frei" ist aber nicht dasselbe wie „sinnvoll" — im Durchgang B blieb die Tomate im Schatten stehen, obwohl die Sonnenzone leer war. Stufe 1 prüft jetzt beides.
+
+#### Vier Funktionen, alle rein rechnend
+
+`_gsLichtNorm` (alles, was nicht auf eine der drei Stufen fällt, ist **unbekannt** — nicht „Sonne"), `_gsZoneAn`, `_gsLichtPasst`, `_gsPlanLichtPruefung`. Rein rechnend, also **prüfbar** — im Unterschied zu einer Prompt-Zeile, die sich von hier aus nicht messen lässt. Das ist der eigentliche Punkt: die Absicht steht weiterhin im Prompt, aber sie hängt nicht mehr allein daran.
+
+Gemeldet werden nur die zwei **echten** Fehler: Sonnenpflanze im Schatten (kümmert) und Schattenpflanze in der prallen Sonne (verbrennt). Halbschatten ist die Mitte und verträgt sich mit allem. Strenger zu sein hiesse, Warnungen zu erfinden.
+
+#### Die Zonen gelten nur, wenn sie gelten dürfen
+
+Der Plan hat eine eigene Fläche (aus dem Formular), der Scan eine gemessene. Sind das nicht dieselben Masse (Toleranz 26 cm), liegen die Zonen-Koordinaten auf einem **anderen Rechteck** — dann bleiben sie ungenutzt und es wird nichts behauptet. Dieselbe Regel wie bei den Foto-Markern gestern.
+
+#### Sechs Durchgänge
+
+```
+A · KI legt richtig  → Tomate@3,2.2 · Farn@0.2,1.5 bleiben  | 2 passen, 0 Konflikte
+B · KI legt falsch   → Tomate 0.3,2.0 (Schatten) → 1.8,0 (Sonne) | 0 Konflikte
+C · Sonnenzone voll  → steht trotzdem im Plan, gemeldet: „Tomate: sonne/schatten"
+D · kein Lichtbedarf → nicht bewertet, ohne_aussage:1, kein erfundener Vorwurf
+E · andere Fläche    → _licht:null, Zonen gelten nicht, Position unangetastet
+F · gar kein Scan    → Reihen-Packung wie bisher (A@0,0 · B@1.1,0)
+```
+
+#### Anzeige
+
+Zwei Meldungen über dem Plan. „☀️ Licht geprüft" steht nur da, wenn **wirklich** gegen gemessene Zonen geprüft wurde — sonst wäre es eine Floskel. „☀️ Licht passt nicht überall" nennt Pflanze, Bedarf und gemessene Zone.
+
+Farben gerechnet (beide sitzen in einem Dialog): Titel 7,00 / 7,57:1 grün · 5,11 / 7,16:1 orange · Fliesstext 9,21 bis 10,37:1 · Rahmen 4,56 / 6,18:1 (Nicht-Text, Soll 3:1).
+
+#### Verify
+
+`wiring_check` 307 Namen / **0** nicht auflösbar · Menü 40/0 · 928 Nachschlagungen / **0** nie erzeugt / **0** ungesichert · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen, Vergleich 2275 Elemente: **0** Layout-, 0 Farb-, 0 Radius-, 0 Schriftgrössenänderungen · `contrast_check` 0 unter AA beide Modi · `touch_check` 0 unter 24×24 · sechs Platzierungsfälle am laufenden Programm · `gsAllReleases()` 409 → **410**, 0 Dopplungen · 9/9 Inline-Scripts + `sw.js` `node --check` OK · `GS_VERSION` v31.62 · `sw.js` gs-v31.62 · `_headers` v31.62 · meta 31.62.20260901.
+
+#### Was als Nächstes drankäme
+
+Mischkultur ist die zweite Hälfte derselben Sache: der Prompt verlangt sie, geprüft wird sie nicht. Eine Nachbarschaftstabelle gegen die tatsächlichen Abstände im fertigen Plan wäre genauso deterministisch — und genauso prüfbar — wie das Licht jetzt.
+
+---
+
 ### 2026-09-01 (ay) — v31.61: Marker auf dem Foto — man sieht, WELCHE Pflanze gemeint ist
 
 Direkt aus Fernandos zweitem Bild („Garten wird erkannt", mit Beschriftungen auf den Pflanzen). Und es ist kein Schmuck, sondern die Voraussetzung für das, was gestern gebaut wurde: **die Korrektur aus v31.60 ist ohne diesen Schritt ein Ratespiel.** Eine Liste sagt „Tomate, 92 %". Sie sagt nicht, welche der drei Pflanzen im Bild damit gemeint ist — und wer das nicht weiss, kann nicht korrigieren.
