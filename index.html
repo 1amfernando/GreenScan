@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.53.20260901">
+<meta name="app-version" content="31.54.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1027,7 +1027,7 @@ details > summary::marker { content: ''; }
 
 
 
-.cam-perm-dialog{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:400;display:flex;align-items:center;justify-content:center;padding:20px;}
+/* v31.54: .cam-perm-dialog entfernt — kein Element traegt die Klasse mehr. */
 .cam-perm-box{background:var(--card);border-radius:var(--r-xl);padding:24px 20px;max-width:340px;width:100%;text-align:center;}
 .cam-perm-icon{font-size:56px;margin-bottom:12px;}
 .cam-perm-title{font-family:'Playfair Display',serif;font-size:var(--fs-xl);font-weight:800;color:var(--g-dark);margin-bottom:8px;}
@@ -2997,6 +2997,16 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <div style="background:var(--card);border-radius:var(--r-lg);padding:14px;box-shadow:var(--shadow-sm);">
       <div id="more-quiz-correct" style="font-size:var(--fs-3xl);font-weight:900;color:var(--g-dark);line-height:1;">0/0</div>
       <div data-i18n="more_stat_quiz" data-i18n-fallback="Quiz" style="font-size:var(--fs-sm);color:var(--muted);font-weight:700;margin-top:3px;">Quiz</div>
+<!-- v31.54: Zuhause fuer die Kategorien-Aufschluesselung. switchTab fuellt seit
+     Langem #more-db-cats mit „🌿 Wildpflanzen · 🍄 Pilze · 🌱 Kraeuter …" samt
+     Zahlen und Gesamtsumme — das Element gab es nie, also kehrte der Block
+     jedes Mal folgenlos um. Die Gesamtzahl steht anderswo, die Aufteilung
+     nirgends. Zugeklappt, damit der Bildschirm nicht laenger wird als noetig. -->
+<details style="margin:0 16px 12px;background:var(--card);border-radius:var(--r-lg);box-shadow:var(--shadow-sm);">
+  <summary style="padding:12px 14px;font-size:var(--fs-md);font-weight:800;color:var(--text);cursor:pointer;">🌿 Was in der Artendatenbank steckt</summary>
+  <div id="more-db-cats" style="padding:0 14px 12px;"></div>
+</details>
+
 <!-- v23.95: Mehr-Screen XP-Bar — klickbar zum Profil + theme-aware Bar-Color -->
 <div style="margin:0 16px 12px;background:var(--hero-bg);border-radius:var(--r-lg);padding:12px 16px;color:#fff;cursor:pointer;" onclick="(typeof sbIsLoggedIn==='function' &amp;&amp; sbIsLoggedIn()) ? openUserProfile() : openLoginModal();">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:8px;">
@@ -16299,8 +16309,10 @@ function gsClearSearch() {
   document.querySelectorAll('#search-cat-chips button').forEach(function(b){
     b.style.background='var(--surface2)'; b.style.color='var(--text)';
   });
-  var allChip = document.getElementById('chip-all');
-  if(allChip){allChip.style.background='var(--g-main)';allChip.style.color='#fff';}
+  // v31.54: hier wurde #chip-all wieder eingefaerbt. Die Kategorie-Chips der
+  // Artensuche entstehen inzwischen dynamisch in #search-cat-chips; ein festes
+  // chip-all gibt es nicht mehr. Die Zeile darueber setzt ohnehin ALLE Chips
+  // zurueck, also fehlt nichts.
   if(typeof renderList==='function') renderList();
 }
 
@@ -16679,7 +16691,8 @@ function gsUpdateMoreStats() {
     'more-total-scans': scansTotal,
     'more-fav-count':  favCount,
     'more-xp-count':   xp,
-    'more-stat-total': total,
+    // v31.54: 'more-stat-total' entfernt — Element gibt es nicht. Die
+    // Gesamtzahl steht jetzt in der Aufschluesselung und im Ueber-Dialog.
     'more-quiz-correct': (stats.correct||0) + '/' + (stats.total||0),
     'stat-scans': scansTotal,
   };
@@ -22929,9 +22942,9 @@ function switchTab(t, btn) {
     _gsCurrentTab = t;
   }
   if (typeof updateFabVisibility === 'function') updateFabVisibility(t);
-  // Immer: Permission-Dialog schliessen beim Tab-Wechsel
-  const cpd = document.getElementById('cam-perm-dialog');
-  if (cpd) cpd.style.display = 'none';
+  // v31.54: hier wurde bei JEDEM Tabwechsel #cam-perm-dialog geschlossen — den
+  // eigenen Erlaubnis-Dialog gibt es seit v31.50 nicht mehr (die Kamera fragt
+  // der Browser selbst, mit vorangestellter Begruendung).
   // v23.69: Tab-Bar am Scanner ausblenden für Fullscreen-Feel (wie iOS Camera)
   try { document.body.classList.toggle('gs-scanner-active', t === 'scanner'); } catch(_){}
 
@@ -23034,22 +23047,12 @@ function switchTab(t, btn) {
     if (typeof loadGardenWeather === 'function') { try { loadGardenWeather(true); } catch(e){} }
     if (typeof gsCheckFrostWarning === 'function') { try { setTimeout(gsCheckFrostWarning, 600); } catch(e){} }
  renderGarden(); renderMoonWidget(); }   /* v31.47: renderGardenLibrary hier entfernt — die Liste steht jetzt im Fenster (gsOpenGardenLibrary) und wird dort gezeichnet. Der Aufruf hier kehrte seit v28.57 jedes Mal in der zweiten Zeile um, weil sein Element fehlte. */
-  if (t === 'farm') {
-    // BlattFänger: Start-Screen zeigen
-    var gcStartEl = document.getElementById('gc-start');
-    var gcGoEl = document.getElementById('gc-gameover');
-    if (gcStartEl && (!window.gcGame || !window.gcGame.running)) {
-      gcStartEl.style.display = 'flex';
-      if(gcGoEl) gcGoEl.style.display = 'none';
-      // Canvas-Grösse
-      var gcCv = document.getElementById('gc-canvas');
-      if(gcCv && gcCv.parentElement) {
-        gcCv.width = gcCv.parentElement.clientWidth || 375;
-        var scEl = document.getElementById('screen-farm');
-        gcCv.height = Math.max(300, (scEl ? scEl.clientHeight : 500) - 120);
-      }
-    }
-  }
+  // v31.54: Der ganze farm-Zweig ist entfallen. Er baute #gc-start,
+  // #gc-gameover und #gc-canvas auf — einen BlattFaenger als Arcade-Spiel auf
+  // einer Zeichenflaeche. Den gibt es nicht mehr: der Farm-Bildschirm ist
+  // heute ein Rasterspiel (farm-grid, farm-seeds, farm-tools, farm-shop) und
+  // enthaelt ueberhaupt kein <canvas>. Auch window.gcGame wurde nirgends
+  // gesetzt, die aeussere Bedingung konnte also nie zutreffen.
   if (t === 'season') { initSeasonCalendar(); }
   if (t === 'social') {
     initSocialFeed();
@@ -23122,8 +23125,9 @@ function switchTab(t, btn) {
         '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;margin-top:4px;">' +
         '<span style="font-size:var(--fs-md);font-weight:800;color:var(--text);">Total</span>' +
         '<span style="font-size:var(--fs-md);font-weight:900;color:var(--g-main);">' + DB.length + ' Arten</span></div>';
-      const totalEl = document.getElementById('more-stat-total');
-      if(totalEl) totalEl.textContent = DB.length;
+      // v31.54: hier wurde zusaetzlich #more-stat-total gesetzt — Element gibt
+      // es nicht, und die Gesamtzahl steht als letzte Zeile in dieser
+      // Aufschluesselung ohnehin drin.
     }
   }
   if (t === 'light') {
@@ -63623,6 +63627,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.54', date: '01.09.2026',
+    headline: '\ud83c\udf3f Was in der Artendatenbank steckt \u2014 und der Meilenstein von 42 auf 7',
+    summary: 'Letzte Welle des Verdrahtungs-Meilensteins. Die Aufschl\u00fcsselung der 4\u2019337 Arten nach Kategorien wurde bei jedem Aufruf berechnet und in ein Element geschrieben, das es nicht gab. Dazu die letzten Reste zweier abgel\u00f6ster Funktionen.',
+    user_summary: '\ud83c\udf3f Auf der Mehr-Seite steht jetzt, wie sich die 4\u2019337 Arten aufteilen \u2014 2\u2019226 Wildpflanzen, 636 Pilze, 431 B\u00e4ume und so weiter. Die Zahlen wurden immer berechnet, nur nirgends angezeigt.',
+    user_items: [
+      {emoji:'\ud83c\udf3f', bold:'Die Aufschl\u00fcsselung ist sichtbar:', text:' Wildpflanzen 2\u2019226 \u00b7 Pilze 636 \u00b7 B\u00e4ume & Str\u00e4ucher 431 \u00b7 Kr\u00e4uter 388 \u00b7 Hauspflanzen 286 \u00b7 Flechten 118 \u00b7 Moose 115 \u00b7 Algen 97 \u00b7 Gem\u00fcse 40. Zugeklappt auf der Mehr-Seite, damit sie niemandem im Weg steht.'},
+      {emoji:'\ud83d\udc7e', bold:'Ein Spiel, das es zweimal gab:', text:' Beim Wechsel auf den Farm-Reiter baute die App jedes Mal ein Arcade-Spiel auf einer Zeichenfl\u00e4che auf \u2014 den BlattF\u00e4nger in seiner alten Fassung. Heute ist der Farm-Bildschirm ein Rasterspiel und enth\u00e4lt gar keine Zeichenfl\u00e4che mehr. Der Aufbau lief also bei jedem Besuch ins Leere.'},
+      {emoji:'\ud83d\udee0\ufe0f', bold:'Ich habe dabei die App kurz zerbrochen:', text:' Beim Entfernen des Spiel-Codes blieb eine Klammer stehen \u2014 damit war das gesamte Programm nicht mehr lesbar und die App h\u00e4tte gar nicht mehr gestartet. Der Pr\u00fcfstand meldete es sofort („Unexpected token"), also ist es nie ausgeliefert worden. Genau daf\u00fcr ist er da.'},
+      {emoji:'\ud83c\udfaf', bold:'Der Meilenstein steht bei 7 von 42:', text:' Sechs davon sind die Wetterwarnungs-Karte, die auf eine Entscheidung wartet; der siebte ist gepr\u00fcft harmlos. Alles andere ist entweder angeschlossen oder belegt entfernt.'},
+      {emoji:'\ud83d\udd0d', bold:'Und der Pr\u00fcfstand meldet keinen Falschalarm mehr:', text:' Er hat drei Stellen bem\u00e4ngelt, die vorbildlich geschrieben sind \u2014 Rueckfallketten der Form „nimm A, sonst B, sonst C". Er erkennt sie jetzt. Ein Pr\u00fcfstand, der an gutem Code meckert, wird ignoriert, und dann findet er auch die echten Fehler nicht mehr.'},
+    ],
+  },
+  {
     v: 'v31.53', date: '01.09.2026',
     headline: '\ud83e\udd16 Dein KI-Tageskontingent ist endlich zu sehen \u2014 vorher erfuhrst du davon erst beim Anschlagen',
     summary: 'Gratis-Nutzer haben 15 KI-Aufrufe pro Tag. Die Anzeige daf\u00fcr steht seit v26.65 fertig im Code und f\u00fcllt zwei Elemente, die es nie gab. Wer sein Kontingent verbrauchte, erfuhr davon zum ersten Mal in dem Moment, in dem er blockiert wurde.',
@@ -64126,7 +64143,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.53';
+var GS_VERSION = 'v31.54';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
