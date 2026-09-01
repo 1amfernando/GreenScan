@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.60.20260901">
+<meta name="app-version" content="31.61.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1708,6 +1708,24 @@ body.dark .gs-go-cta2{background:var(--card);color:var(--g-dark);}
 /* v31.60 — Korrekturknoepfe je Zeile. Bewusst klein und ruhig: sie sollen
    verfuegbar sein, ohne die Liste in ein Formular zu verwandeln. 30px hoch
    erfuellt WCAG 2.5.8 (24px) mit Reserve. */
+/* v31.61 — Das Foto mit Markern. Nach Fernandos Vorlage: man soll sehen,
+   WELCHE Pflanze die KI meint, nicht nur WAS sie erkannt hat. Die Marker
+   tragen feste Farben statt Variablen — sie liegen auf einem Foto, und
+   welcher Modus gerade eingestellt ist, sagt nichts darueber, wie hell das
+   Foto darunter ist. Weiss auf dunkelgruen mit weissem Ring traegt auf
+   beidem. */
+.gs-twin-foto{position:relative;border-radius:var(--r-md);overflow:hidden;margin-bottom:12px;background:#0d2818;line-height:0;}
+.gs-twin-foto img{width:100%;height:auto;display:block;}
+.gs-twin-mark{position:absolute;transform:translate(-50%,-50%);min-width:26px;height:26px;padding:0 5px;
+  border-radius:13px;border:2px solid #ffffff;background:#1b5e20;color:#ffffff;
+  font-family:inherit;font-size:12px;font-weight:800;line-height:1;cursor:pointer;
+  box-shadow:0 1px 4px rgba(0,0,0,.5);-webkit-tap-highlight-color:transparent;
+  display:flex;align-items:center;justify-content:center;}
+.gs-twin-mark.gs-aktiv{background:#ffffff;color:#1b5e20;border-color:#1b5e20;transform:translate(-50%,-50%) scale(1.25);}
+.gs-twin-nr{flex-shrink:0;min-width:22px;height:22px;border-radius:11px;background:#1b5e20;color:#ffffff;
+  font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-right:2px;}
+body.dark .gs-twin-nr{background:#a5d6a7;color:#0d2818;}
+.gs-twin-row.gs-aktiv{background:var(--bg-success-soft);border-radius:var(--r-sm);}
 .gs-twin-fix{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;}
 .gs-twin-fix button{min-height:30px;padding:5px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface2);color:var(--text2);font-family:inherit;font-size:var(--fs-xs);font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent;}
 .gs-twin-fix button.gs-twin-weg{color:var(--c-danger);}
@@ -7272,6 +7290,12 @@ function gsTwinNormalize(roh, foto) {
     if (!isFinite(n)) return fallback;
     return Math.min(max, Math.max(min, Math.round(n * 100) / 100));
   }
+  // v31.61 — Bildkoordinate: 0–1 oder gar nichts. Kein Rueckfallwert.
+  function bildzahl(x) {
+    var n = parseFloat(x);
+    if (!isFinite(n) || n < 0 || n > 1) return null;
+    return Math.round(n * 1000) / 1000;
+  }
   var bedW = zahl(roh && roh.bed && roh.bed.width_m, 0.5, 60, 4);
   var bedL = zahl(roh && roh.bed && roh.bed.length_m, 0.5, 60, 3);
 
@@ -7291,6 +7315,12 @@ function gsTwinNormalize(roh, foto) {
         bed: txt(p && p.bed, 24),
         light: GS_TWIN_LICHT[String((p && p.light) || '').toLowerCase()] || '',
         confidence: zahl(p && p.confidence, 0, 1, 0.5),
+        // v31.61 — Position IM BILD (0–1), fuer die Marker auf dem Foto.
+        // Bewusst null statt 0, wenn die KI nichts gesagt hat: eine
+        // Markierung, die in Wahrheit „links oben" heisst, weil ein Feld
+        // fehlte, zeigt auf die falsche Pflanze. Lieber kein Marker.
+        ix: bildzahl(p && p.ix),
+        iy: bildzahl(p && p.iy),
       };
     })
     .filter(Boolean);
@@ -7342,6 +7372,7 @@ function gsTwinPrompt() {
     '  "bed":   {"width_m": <Breite der sichtbaren Fläche in Metern>, "length_m": <Tiefe in Metern>},\n' +
     '  "plants":[{"name":"Tomate","latin":"Solanum lycopersicum","emoji":"🍅",\n' +
     '             "x_m":0.4,"y_m":0.2,"w_m":0.5,"h_m":0.5,\n' +
+    '             "ix":0.31,"iy":0.62,\n' +
     '             "bed":"Beet A","light":"sonne","confidence":0.9}],\n' +
     '  "beds":  [{"label":"Beet A","x_m":0,"y_m":0,"w_m":2,"h_m":1}],\n' +
     '  "zones": [{"kind":"sonne","label":"Südseite","x_m":0,"y_m":0,"w_m":2,"h_m":1}],\n' +
@@ -7349,6 +7380,11 @@ function gsTwinPrompt() {
     '}\n\n' +
     'REGELN:\n' +
     '• x_m/y_m ist die Position von links oben, in Metern, innerhalb von bed.\n' +
+    '• ix/iy ist etwas ANDERES: die Mitte der Pflanze IM BILD, 0–1 von links\n' +
+    '  oben. ix=0.5/iy=0.5 ist die Bildmitte. Damit markiere ich die Pflanze\n' +
+    '  auf dem Foto, damit der Mensch sieht, welche du meinst.\n' +
+    '• Kannst du bei einer Pflanze NICHT sagen, wo im Bild sie steht, dann\n' +
+    '  LASS ix/iy WEG. Eine geratene Markierung ist schlimmer als keine.\n' +
     '• light und kind sind ausschliesslich: sonne, halbschatten, schatten.\n' +
     '• confidence 0–1. Bist du dir bei einer Pflanze nicht sicher, LASS SIE WEG.\n' +
     '• Schätze Masse aus Bezugsgrössen im Bild (Topfgrössen, Plattenbreite, Geländer).\n' +
@@ -7653,7 +7689,9 @@ function gsTwinOpenListe() {
               : pct >= 55 ? (dunkel ? '#ffb74d' : '#bf360c')
               : 'var(--muted)';
     var marke = p.bestaetigt ? '✓ von dir' : pct + '%';
-    return '<div class="gs-twin-row">' +
+    var hatOrt = (p.ix != null && p.iy != null);
+    return '<div class="gs-twin-row" id="gs-twin-row-' + i + '">' +
+      (hatOrt ? '<span class="gs-twin-nr" aria-hidden="true">' + (i + 1) + '</span>' : '') +
       '<span class="gs-twin-emo">' + esc(p.emoji) + '</span>' +
       '<div class="gs-twin-txt">' +
         '<div class="gs-twin-nam">' + esc(p.name) + '</div>' +
@@ -7670,10 +7708,43 @@ function gsTwinOpenListe() {
 
   var unsicher = t.plants.filter(function (p) { return !p.bestaetigt && (p.confidence || 0) < 0.8; }).length;
 
+  // v31.61 — Das Foto mit Markern, aber NUR wenn beides da ist: ein Foto und
+  // mindestens eine Pflanze, von der die KI sagen konnte, wo im Bild sie
+  // steht. Ein Foto ohne Marker waere Zierde; Marker ohne Foto gehen nicht;
+  // und geratene Marker zeigen auf die falsche Pflanze. Fehlt eines von
+  // beidem, faellt der ganze Block weg — dann ist die Liste eben nur eine
+  // Liste, wie bis v31.60 auch.
+  var mitOrt = t.plants.filter(function (p) { return p.ix != null && p.iy != null; }).length;
+  var fotoBlock = '';
+  // Das Foto kommt aus localStorage zurueck — also aus etwas, das sich von
+  // aussen beschreiben laesst. gsEscHtml verhindert schon das Ausbrechen aus
+  // dem Attribut; hier kommt dazu, dass ueberhaupt nur ein Bild-Datensatz
+  // durchgeht. Was kein 'data:image/…' ist, hat in einem src nichts zu suchen.
+  var fotoOk = /^data:image\/(png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/.test(String(t.photo || ''));
+  if (fotoOk && mitOrt) {
+    var marker = t.plants.map(function (p, i) {
+      if (p.ix == null || p.iy == null) return '';
+      return '<button type="button" class="gs-twin-mark" id="gs-twin-mark-' + i + '"' +
+        ' style="left:' + (p.ix * 100).toFixed(1) + '%;top:' + (p.iy * 100).toFixed(1) + '%"' +
+        ' onclick="gsTwinZeig(' + i + ')"' +
+        ' aria-label="' + esc(p.name) + ' im Bild zeigen">' + (i + 1) + '</button>';
+    }).join('');
+    fotoBlock =
+      '<div class="gs-twin-foto"><img src="' + esc(t.photo) + '" alt="Dein gescannter Garten">' +
+        marker + '</div>' +
+      '<div style="font-size:var(--fs-sm);color:var(--muted);margin:-6px 0 12px;line-height:1.5;">' +
+        'Tipp auf eine Nummer im Bild, dann springst du zur passenden Zeile.' +
+        (mitOrt < t.plants.length
+          ? ' Bei ' + (t.plants.length - mitOrt) + ' Pflanzen konnte die KI die Stelle im Bild nicht angeben — die stehen nur in der Liste.'
+          : '') +
+      '</div>';
+  }
+
   _gsNlOpen(
     '<div style="font-size:var(--fs-lg);font-weight:800;margin-bottom:2px;">🌿 Erkannte Pflanzen</div>' +
     '<div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:12px;">' +
       esc(t.summary || (t.plants.length + ' Pflanzen aus dem Scan')) + '</div>' +
+    fotoBlock +
     (unsicher
       ? '<div style="background:var(--bg-warn-soft);border-left:3px solid var(--c-warn-d);border-radius:0 var(--r-md) var(--r-md) 0;padding:9px 12px;margin-bottom:12px;font-size:var(--fs-sm);color:var(--text2);line-height:1.5;">' +
           '<b style="color:var(--c-warn-d);">' + unsicher + ' unsicher erkannt.</b> ' +
@@ -7687,6 +7758,27 @@ function gsTwinOpenListe() {
       'ab dann in „Heute zu tun". Was schon in deiner Pflege ist, wird übersprungen.</div>');
 }
 window.gsTwinOpenListe = gsTwinOpenListe;
+
+// v31.61 — Vom Marker zur Zeile. Zwei Dinge gleichzeitig: die Zeile wird
+// hervorgehoben UND in den Blick gescrollt. Nur eines von beidem waere zu
+// wenig — Hervorheben allein sieht man nicht, wenn die Zeile ausserhalb
+// liegt, und Scrollen allein sagt nicht, WELCHE Zeile gemeint war.
+function gsTwinZeig(i) {
+  try {
+    var zeile = document.getElementById('gs-twin-row-' + i);
+    var mark  = document.getElementById('gs-twin-mark-' + i);
+    var alt   = document.querySelectorAll('.gs-twin-row.gs-aktiv, .gs-twin-mark.gs-aktiv');
+    for (var k = 0; k < alt.length; k++) alt[k].classList.remove('gs-aktiv');
+    if (mark)  mark.classList.add('gs-aktiv');
+    if (zeile) {
+      zeile.classList.add('gs-aktiv');
+      if (typeof zeile.scrollIntoView === 'function') {
+        zeile.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+    }
+  } catch (_) {}
+}
+window.gsTwinZeig = gsTwinZeig;
 
 // ══════════════════════════════════════════════════════════════════════════
 // v31.60 — DEN ZWILLING KORRIGIEREN UND ÜBERNEHMEN
@@ -64398,6 +64490,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.61', date: '01.09.2026',
+    headline: '\ud83d\udccd Du siehst jetzt im Foto, WELCHE Pflanze die KI meint',
+    summary: 'Der Garten-Scan sagte bisher nur, WAS er erkannt hat. Jetzt zeigt er auf dem eigenen Foto, WO — nummerierte Marker, und ein Tipp darauf f\u00fchrt zur passenden Zeile. Ohne das ist jede Korrektur ein Ratespiel.',
+    user_summary: '\ud83d\udccd Dein Scan-Foto tr\u00e4gt jetzt nummerierte Marker \u2014 tipp einen an und du landest bei der Pflanze, die dort steht.',
+    user_items: [
+      {emoji:'\ud83d\udccd', bold:'Vom Bild zur Zeile:', text:' Eine Liste sagt dir, dass die KI eine Tomate gesehen hat. Sie sagt dir nicht, WELCHE der drei Pflanzen im Bild sie damit meint \u2014 und ohne das kann man nichts korrigieren. Jeder Marker tr\u00e4gt eine Nummer, dieselbe Nummer steht an der Zeile, und ein Tipp springt hin und hebt sie hervor.'},
+      {emoji:'\ud83e\udd37', bold:'Und wo sie es nicht wei\u00df, markiert sie nichts:', text:' Kann die KI bei einer Pflanze nicht sagen, wo im Bild sie steht, bekommt die Zeile keine Nummer \u2014 und darunter steht, wie viele das betrifft. Ein geratener Marker zeigt auf die falsche Pflanze, und das ist schlimmer als gar keiner.'},
+      {emoji:'\ud83d\udc41\ufe0f', bold:'Lesbar auf jedem Foto:', text:' Die Marker liegen auf deinem Bild, und welcher Anzeigemodus eingestellt ist, sagt nichts dar\u00fcber, wie hell das Foto darunter ist. Wei\u00dfe Ziffer auf dunkelgr\u00fcner Scheibe (7,9:1) mit wei\u00dfem Ring \u2014 auf einem dunklen Foto tr\u00e4gt der Ring (21:1), wo die Scheibe allein zu wenig w\u00e4re.'},
+      {emoji:'\ud83d\udd12', bold:'Nachgewiesen statt angenommen:', text:' Eine Koordinate ausserhalb des Bildes wird verworfen statt an den Rand geklemmt. Ein Foto, das kein Foto ist, wird gar nicht erst angezeigt \u2014 dann bleibt die Liste eine Liste. Und \u00e4ltere Scans, die noch keine Bildpositionen haben, funktionieren unver\u00e4ndert weiter.'},
+    ],
+  },
+  {
     v: 'v31.60', date: '01.09.2026',
     headline: '\u270f\ufe0f Den Garten-Scan korrigieren \u2014 und das Erkannte in deine Pflege \u00fcbernehmen',
     summary: 'Bisher war die Erkennung eine Anzeige: was die KI falsch benannte, blieb falsch, und was sie richtig erkannte, musstest du trotzdem von Hand anlegen. Jetzt hat jede Zeile drei Kn\u00f6pfe \u2014 und ein Knopf darunter macht aus dem Erkannten echte Pflanzen mit Giess- und Pflegeplan.',
@@ -64729,7 +64833,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.60';
+var GS_VERSION = 'v31.61';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
