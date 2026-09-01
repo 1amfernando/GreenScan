@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.47.20260901">
+<meta name="app-version" content="31.48.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -47117,13 +47117,22 @@ const MENU_ITEMS = [
   // ── v23.53: neue Einträge + Feature-Discovery ──────────────────
   {label:'🤖 KI-Gartenplaner PRO', sub:'Super-Agent mit Ernte-Prognose', action:"openGardenAI()", tags:['ki','agent','planer','garten','bepflanzung','plan','mischkultur','ernte','prognose','skizze','fläche']},
   {label:'🌙 Mondkalender', sub:'Gartenarbeiten nach Mondphase', action:"openMoonCalendar()", tags:['mond','mondkalender','phase','säen','pflanzen','aussaat','vollmond','neumond']},
-  {label:'📅 Blühkalender', sub:'Wann blüht was?', action:"menuNav('home');setTimeout(function(){var el=document.getElementById('bluehkalender-widget');if(el)el.scrollIntoView({behavior:\"smooth\"});},100)", tags:['blüh','blüte','blühkalender','saison','insekten','bienen']},
+  // v31.48: sprang auf die Startseite und scrollte zu #bluehkalender-widget —
+  // dieses Element gibt es nicht. Der Blühkalender liegt als Kachel „🌻 Blumen"
+  // im Garten-Reiter und öffnet sich über openBluehkalender().
+  {label:'📅 Blühkalender', sub:'Wann blüht was?', action:"openBluehkalender()", tags:['blüh','blüte','blühkalender','saison','insekten','bienen']},
   {label:'❄️ Frost-Warnung', sub:'Automatisch für deinen Ort', action:"if(typeof gsCheckFrostWarning==='function')gsCheckFrostWarning();menuNav('garden')", tags:['frost','warnung','kälte','temperatur','schutz','vorhersage']},
-  {label:'📜 Scan-Historie', sub:'Deine letzten Scans', action:"menuNav('favs');setTimeout(function(){var t=document.getElementById('tab-scans');if(t)t.click();},100)", tags:['historie','verlauf','letzte scans','history','archiv']},
+  // v31.48: sprang auf „Meine Pflanzen" und tippte auf #tab-scans — den Reiter
+  // gibt es dort nicht. Die Historie ist ein eigenes Fenster.
+  {label:'📜 Scan-Historie', sub:'Deine letzten Scans', action:"openScanHistory()", tags:['historie','verlauf','letzte scans','history','archiv']},
   {label:'🧠 Tages-Quiz', sub:'24h-Lock · täglich neu', action:"openDailyQuiz()", tags:['quiz','lernen','täglich','daily','challenge','wissen','punkte']},
   {label:'💬 Feedback & Ideen', sub:'Uns helfen GreenScan zu verbessern', action:"menuNav('more')", tags:['feedback','idee','vorschlag','bug','melden','verbesserung','hilfe']},
   {label:'📚 Buch hochladen', sub:'Wissen aus Büchern einlesen (Experten)', action:"if(typeof openBookIngest==='function')openBookIngest();else gsToast('Buch-Upload nur für Experten-Accounts freigeschaltet.', 'info')", tags:['buch','pdf','scan','wissen','ocr','extrahieren','upload','bibliothek']},
-  {label:'🌾 Lichtmesser kalibrieren', sub:'Dein Gerät präziser machen', action:"openLightMeter();setTimeout(function(){var b=document.getElementById('lux-calibrate-btn');if(b)b.click();},400)", tags:['lux','licht','kalibrieren','präzision','sensor']},
+  // v31.48: oeffnete den Lichtmesser und tippte nach 400ms auf
+  // #lux-calibrate-btn — den Knopf gibt es nicht. gsLuxCalibrate direkt: sie
+  // sagt selbst „Bitte zuerst eine Messung machen", wenn noch keine vorliegt.
+  // Eine Rückmeldung ist besser als gar nichts.
+  {label:'🌾 Lichtmesser kalibrieren', sub:'Dein Gerät präziser machen', action:"openLightMeter();setTimeout(function(){if(typeof gsLuxCalibrate==='function')gsLuxCalibrate();},400)", tags:['lux','licht','kalibrieren','präzision','sensor']},
   {label:'🔒 Premium freischalten', sub:'TWINT · Karte · IBAN', action:"if(typeof gsShowAboScreen==='function')gsShowAboScreen();else menuNav('settings')", tags:['premium','abo','abonnement','stripe','twint','sepa','iban','karte','bezahlen','pro','plus']},
   {label:'📊 Mein Profil', sub:'Stats · Streak · Punkte', action:"if(typeof openUserProfile==='function')openUserProfile();else menuNav('settings')", tags:['profil','stats','punkte','streak','level','rang','achievement']},
 ];
@@ -63531,6 +63540,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.48', date: '01.09.2026',
+    headline: '\ud83e\udded Drei Men\u00fc-Eintr\u00e4ge, die nirgendwohin f\u00fchrten',
+    summary: 'Die 40 Eintr\u00e4ge der Men\u00fc-Suche tragen ihre Aktion als Text in einer Liste \u2014 nicht als onclick am Element. Der Verdrahtungs-Pr\u00fcfstand sah sie deshalb nicht. Beim ersten gezielten Durchgang waren drei davon kaputt: sie sprangen auf einen Bildschirm und tippten dort auf ein Element, das es nicht gibt.',
+    user_summary: '\ud83e\udded Bl\u00fchkalender, Scan-Historie und Lichtmesser-Kalibrierung waren \u00fcber die Men\u00fc-Suche nicht erreichbar \u2014 tippen, und es passierte nichts. Jetzt \u00f6ffnen alle drei.',
+    user_items: [
+      {emoji:'\ud83d\udcc5', bold:'Bl\u00fchkalender:', text:' sprang auf die Startseite und suchte dort ein Element, das es nicht gibt. Der Kalender liegt als Kachel „\ud83c\udf3b Blumen" im Garten-Reiter. Jetzt \u00f6ffnet er direkt \u2014 gepr\u00fcft: „September \u00b7 4 bl\u00fchende Arten".'},
+      {emoji:'\ud83d\udcdc', bold:'Scan-Historie:', text:' sprang auf „Meine Pflanzen" und wollte dort einen Reiter antippen, den es dort nicht gibt. Die Historie ist ein eigenes Fenster. Gepr\u00fcft: „4 Scans \u00b7 3 Arten \u00b7 2 in DB".'},
+      {emoji:'\ud83c\udf3e', bold:'Lichtmesser kalibrieren:', text:' \u00f6ffnete den Lichtmesser und tippte 400 ms sp\u00e4ter auf einen Kalibrier-Knopf, den es nicht gibt. Jetzt direkt \u2014 und wenn noch keine Messung vorliegt, sagt die App das auch, statt stumm zu bleiben.'},
+      {emoji:'\ud83d\udd0d', bold:'Damit es nicht wiederkommt:', text:' Der Pr\u00fcfstand geht die Men\u00fc-Liste jetzt bei jedem Lauf durch \u2014 alle 40 Eintr\u00e4ge, Funktion und angesprochenes Element. Solche Aktionen stehen in einem Feld statt am Knopf; ohne eigene Pr\u00fcfung f\u00e4llt dort nie etwas auf.'},
+    ],
+  },
+  {
     v: 'v31.47', date: '01.09.2026',
     headline: '\ud83d\udcd6 Zehn Garten-Artikel, die seit v28.57 niemand sehen konnte',
     summary: 'Die Garten-Bibliothek ist vollst\u00e4ndig: zehn geschriebene Artikel, zehn Kategorien, ein fertiges Detail-Fenster, sogar eine eigene Stilregel. Nur die Liste hatte kein Zuhause \u2014 renderGardenLibrary schreibt in ein Element, das nirgends stand, und kehrte deshalb bei jedem Wechsel auf den Garten-Reiter in der zweiten Zeile um.',
@@ -63962,7 +63983,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.47';
+var GS_VERSION = 'v31.48';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

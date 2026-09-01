@@ -146,6 +146,44 @@ const IGNORIEREN = new Set([
     console.log('  vorhanden, aber keine Funktion:', keineFunktion.map(k => k.n + ':' + k.art).join(' '));
   }
 
+  // ── Das Hauptmenue: Aktionen, die in keinem on*-Attribut stehen ──────
+  //
+  // MENU_ITEMS ist eine Liste von 40 Eintraegen mit je einem action-Text.
+  // Der laeuft wie ein onclick, steht aber in einem Array — Richtung 1 sieht
+  // ihn also nicht. Beim ersten Lauf waren drei davon kaputt: sie sprangen auf
+  // einen Bildschirm und tippten dann auf ein Element, das es nicht gibt.
+  // Der Nutzer sucht im Menue, tippt den Treffer an und landet irgendwo, wo
+  // nichts passiert — ohne Fehlermeldung.
+  const menue = await page.evaluate(({ namenSrc, egalListe }) => {
+    if (typeof MENU_ITEMS === 'undefined') return null;
+    const zieh = eval('(' + namenSrc + ')');
+    const egal = new Set(egalListe);
+    const raus = [];
+    MENU_ITEMS.forEach(it => {
+      const a = it.action || '';
+      const fehltFn = [];
+      zieh(a).forEach(n => {
+        if (egal.has(n)) return;
+        let t = 'undefined';
+        try { t = eval('typeof ' + n); } catch (e) {}
+        if (t !== 'function') fehltFn.push(n);
+      });
+      const fehltId = [];
+      const rid = /getElementById\(\s*['"]([A-Za-z0-9_\-:.]+)['"]/g;
+      let g; while ((g = rid.exec(a))) if (!document.getElementById(g[1])) fehltId.push(g[1]);
+      if (fehltFn.length || fehltId.length) raus.push({ label: it.label, fehltFn, fehltId });
+    });
+    return { gesamt: MENU_ITEMS.length, kaputt: raus };
+  }, { namenSrc: NAMEN, egalListe: [...IGNORIEREN] });
+
+  if (menue) {
+    console.log('  ---');
+    console.log('  Hauptmenue-Eintraege:', menue.gesamt, '· davon kaputt:', menue.kaputt.length);
+    menue.kaputt.forEach(x => console.log('    ' + x.label +
+      (x.fehltFn.length ? '   Funktion fehlt: ' + x.fehltFn.join(', ') : '') +
+      (x.fehltId.length ? '   Element fehlt: #' + x.fehltId.join(' #') : '')));
+  }
+
   // ── Zweite Richtung: Nachschlagungen ins Leere ────────────────────────
   //
   // Der teurere Fehler geht andersherum. Ein Knopf, dessen Funktion fehlt,
@@ -245,5 +283,5 @@ const IGNORIEREN = new Set([
   }
 
   await browser.close();
-  process.exit((kaputt.length + ungesichert.length) ? 1 : 0);
+  process.exit((kaputt.length + ungesichert.length + (menue ? menue.kaputt.length : 0)) ? 1 : 0);
 })();
