@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.37.20260901">
+<meta name="app-version" content="31.38.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -349,8 +349,8 @@ body.dark .settings-label-sub, body.dark .recipe-card-desc {
 body.dark .topbar { background: #122212 !important; }
 
 body.dark .topbar{background:#122212;}   /* v31.25: siehe oben */
-body.dark .tabs{background:#1a2e1a;border-top-color:#2a3f2a;}
-body.dark .tab.active::before{background:#1e3a1e;}
+/* v31.38: beide entfernt. Die Leiste nutzt jetzt --card/--border und kippt
+   damit selbst; die Pille hinter dem aktiven Reiter gibt es nicht mehr. */
 body.dark .screen{background:var(--g-bg);}
 body.dark .sp-card,.dark .mpcard,.dark .dsec,.dark .lcard,.dark .mp-stat,
 body.dark .farm-quest,.dark .garden-card,.dark .farm-animal,.dark .farm-building{
@@ -420,7 +420,12 @@ body{height:100%;background:var(--fill-dark);color:var(--text);font-family:"DM S
 .ib:active{background:rgba(255,255,255,.28);}
 
 
-.tabs{ position:fixed; bottom:0; left:0; right:0; height:calc(var(--sb)+var(--tab-h)); background:var(--fill-dark); border-top:1px solid rgba(255,255,255,.08); display:flex; z-index:var(--z-overlay); box-shadow:var(--elev-3); }
+/* v31.38 — Die Leiste war in BEIDEN Modi dunkelgruen (--fill-dark). Fernandos
+   Vorlage zeigt eine helle, ruhige Leiste. Ueber --card/--border geht sie jetzt
+   mit dem Modus mit: weiss im Hellmodus, dunkel im Dunkelmodus. Damit fallen
+   auch die festen Beschriftungsfarben aus v31.27 weg — die waren noetig, WEIL
+   die Flaeche nicht mitkippte. */
+.tabs{ position:fixed; bottom:0; left:0; right:0; height:calc(var(--sb)+var(--tab-h)); background:var(--card); border-top:1px solid var(--border); display:flex; z-index:var(--z-overlay); box-shadow:0 -2px 12px rgba(0,0,0,.06); }
 /* v31.28 — Gartenwetter als ruhige Karte. Der alte blaue Verlauf war das
    lauteste Element der Startseite und in beiden Modi derselbe harte Block;
    auf der warmen Creme-Flaeche wirkte er wie ein Fremdkoerper. Gleiches
@@ -458,10 +463,15 @@ body{height:100%;background:var(--fill-dark);color:var(--text);font-family:"DM S
    App war dort praktisch unlesbar. Im Dunkelmodus hatte das jemand dreimal
    ueberschrieben, im Hellmodus nie. Jetzt feste Werte, die auf dunklem Grund
    in beiden Modi stimmen — die Flaeche ist ja in beiden dieselbe. */
-.tab{ flex:1; border:none; background:transparent; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; cursor:pointer; color:#9db89d; position:relative; padding:4px 2px 2px; }
-.tab.active{color:#a5d6a7;}.tab.active::before{content:"";position:absolute;top:6px;left:50%;transform:translateX(-50%);width:36px;height:36px;background:var(--bg-success-soft);border-radius:var(--r-md);z-index:-1;}
-.ti{font-size:var(--fs-xl);line-height:1;position:relative;z-index:1;}
-.tl{font-size:var(--fs-xs);font-weight:700;letter-spacing:.2px;text-transform:uppercase;margin-top:1px;}
+.tab{ flex:1; border:none; background:transparent; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; cursor:pointer; color:var(--muted); position:relative; padding:4px 2px 2px; transition:color var(--dur-fast); }
+/* v31.38: die Pille hinter dem aktiven Reiter ist weg — die Vorlage
+   unterscheidet allein ueber die Farbe. Der kleine Punkt darunter bleibt. */
+.tab.active{ color:var(--g-dark); }
+.ti{ line-height:1; position:relative; z-index:1; display:flex; align-items:center; justify-content:center; }
+.ti svg{ width:22px; height:22px; display:block; }
+/* v31.38: war GROSSGESCHRIEBEN mit Sperrung. Die Vorlage nutzt normale
+   Schreibung — ruhiger und bei 10,5px deutlich besser lesbar. */
+.tl{ font-size:10.5px; font-weight:600; letter-spacing:.1px; margin-top:0; }
 
 /* v26.86: Senior-Friendly Nav — Home als zentraler grosser Anker (FAB-Style).
    Andere Tabs bleiben flex:1; Center-Tab ragt nach oben hinaus und ist 1.45x grösser. */
@@ -471,30 +481,35 @@ body{height:100%;background:var(--fill-dark);color:var(--text);font-family:"DM S
   margin-top:-22px;          /* hebt den Button nach oben aus der Nav-Bar */
   z-index:2;
 }
+/* v31.38: traegt jetzt das Edelweiss aus icons/icon.svg. Der Rand war
+   3px var(--g-dark) — auf der dunklen Leiste ein Absetzen, auf der hellen
+   ein dunkler Ring. Jetzt ein heller Ring in Leistenfarbe, damit der Knopf
+   auf der Flaeche zu schweben scheint (wie in der Vorlage). */
 .tab.tab-center .ti{
   width:58px; height:58px;
   border-radius:50%;
-  background:linear-gradient(145deg, var(--g-main), #1f6b1f);
-  color:#fff;
-  font-size:var(--fs-3xl);
+  background:linear-gradient(145deg, #2b7d38, #175624);
   display:flex; align-items:center; justify-content:center;
-  box-shadow:0 4px 14px rgba(45,138,45,.45), 0 2px 4px rgba(0,0,0,.18);
-  border:3px solid var(--g-dark);
+  box-shadow:0 4px 14px rgba(23,86,36,.34), 0 2px 5px rgba(0,0,0,.16);
+  border:3px solid var(--card);
   transition:transform var(--dur) ease, box-shadow var(--dur) ease;
 }
+.tab.tab-center .ti .gs-edel{ width:30px; height:30px; }
 .tab.tab-center:active .ti{ transform:scale(.94); box-shadow:var(--elev-brand); }
+/* v31.38: stand auf color:#fff — auf der hellen Leiste weiss auf weiss.
+   Erbt jetzt wie alle anderen Reiter. */
 .tab.tab-center .tl{
-  margin-top:3px;
-  font-size:var(--fs-xs);
-  color:#fff;
-  font-weight:800;
+  margin-top:4px;
+  font-size:10.5px;
+  font-weight:700;
 }
 .tab.tab-center.active::before{ display:none; }   /* der eigene grüne Kreis ersetzt die Pille */
 .tab.tab-center.active .ti{
-  background:linear-gradient(145deg, #34a934, var(--g-main));
-  box-shadow:0 5px 18px rgba(45,138,45,.55), 0 2px 4px rgba(0,0,0,.2);
+  background:linear-gradient(145deg, #328f40, #1a6329);
+  box-shadow:0 6px 18px rgba(23,86,36,.42), 0 2px 5px rgba(0,0,0,.18);
 }
-body.dark .tab.tab-center .ti{ border-color:var(--g-dark); }
+/* v31.38: entfernt — der Ring ist var(--card) und geht damit selbst mit dem
+   Modus mit. Mit --g-dark waere er im Dunkelmodus HELLgruen geworden. */
 
 
 .screen{
@@ -6010,14 +6025,20 @@ html, body{ scroll-behavior: smooth; }
   </div>
 </div>
 <!-- TABS - 5 Haupt-Tabs (v26.86: Home zentral als FAB-Anker für ältere Nutzer) -->
+<!-- v31.38 — Navigationsleiste nach Fernandos Vorlage: helle Flaeche,
+     Strich-Icons statt Emoji, kleine Beschriftungen in Normalschreibung.
+     Die Icons stammen aus assets/icons/ — der Satz lag seit v30.x im Repo
+     (23 Symbole, eigenes README mit genau dieser Begruendung), war aber nie
+     eingebaut; die Leiste benutzte weiter Emoji.
+     Inline statt <img>, damit sie ueber currentColor mit dem Modus mitgehen
+     und keine zusaetzlichen Anfragen kosten.
+     Der Mittelknopf traegt jetzt das Edelweiss aus icons/icon.svg. -->
 <div class="tabs" id="main-tabs" role="tablist" aria-label="Haupt-Navigation">
-  <button class="tab"        id="tab-scanner" role="tab" aria-selected="false" aria-controls="screen-scanner" onclick="switchTab('scanner',this)"><span class="ti" aria-hidden="true">📷</span><span class="tl" data-i18n="nav_tab_scanner" data-i18n-fallback="Scanner">Scanner</span></button>
-  <button class="tab"        id="tab-favs"    role="tab" aria-selected="false" aria-controls="screen-favs"    onclick="switchTab('favs',this)"><span class="ti" aria-hidden="true">🌱</span><span class="tl" data-i18n="nav_tab_favs" data-i18n-fallback="Pflanzen">Pflanzen</span></button>
-  <button class="tab tab-center active" id="tab-home" role="tab" aria-selected="true" aria-controls="screen-home" onclick="switchTab('home',this)" aria-label="Startseite"><span class="ti" aria-hidden="true">🏠</span><span class="tl" data-i18n="nav_tab_home" data-i18n-fallback="Home">Home</span></button>
-  <button class="tab"        id="tab-social"  role="tab" aria-selected="false" aria-controls="screen-social"  onclick="switchTab('social',this)"><span class="ti" aria-hidden="true">🌿</span><span class="tl" data-i18n="nav_tab_community" data-i18n-fallback="Community">Community</span></button>
-  <button class="tab"        id="tab-menu"    aria-haspopup="menu" aria-label="Hauptmenü öffnen" onclick="openMainMenu()"><span class="ti" aria-hidden="true">⋯</span><span class="tl" data-i18n="nav_tab_menu" data-i18n-fallback="Menü">Menü</span><!-- v31.01: Badge am Menü-Tab entfernt — sie zeigte ungelesene Benachrichtigungen an
-       und führte damit ins Menü, wo es seit dieser Version keine mehr gibt. Die Glocke
-       in der Kopfzeile (#gs-bell-btn) trägt die Zahl jetzt allein. --></button>
+  <button class="tab" id="tab-scanner" role="tab" aria-selected="false" aria-controls="screen-scanner" onclick="switchTab('scanner',this)"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8V5.5A2.5 2.5 0 0 1 5.5 3H8"/><path d="M16 3h2.5A2.5 2.5 0 0 1 21 5.5V8"/><path d="M21 16v2.5a2.5 2.5 0 0 1-2.5 2.5H16"/><path d="M8 21H5.5A2.5 2.5 0 0 1 3 18.5V16"/><circle cx="12" cy="12" r="3.2"/></svg></span><span class="tl" data-i18n="nav_tab_scanner" data-i18n-fallback="Scanner">Scanner</span></button>
+  <button class="tab" id="tab-favs" role="tab" aria-selected="false" aria-controls="screen-favs" onclick="switchTab('favs',this)"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20c0-7 5-12 16-13 0 10-5 15-12 15H4z"/><path d="M4 20c3-5 7-8 12-9.5"/></svg></span><span class="tl" data-i18n="nav_tab_favs" data-i18n-fallback="Pflanzen">Pflanzen</span></button>
+  <button class="tab tab-center active" id="tab-home" role="tab" aria-selected="true" aria-controls="screen-home" onclick="switchTab('home',this)" aria-label="Startseite"><span class="ti"><svg viewBox="-140 -140 280 280" aria-hidden="true" class="gs-edel"><defs><path id="gsElo" d="M0 -124 C 10 -110 14 -74 10 -40 C 7 -22 3 -19 0 -17 C -3 -19 -7 -22 -10 -40 C -14 -74 -10 -110 0 -124 Z"/><path id="gsEup" d="M0 -92 C 7 -80 10 -52 7 -28 C 5 -18 2 -15 0 -14 C -2 -15 -5 -18 -7 -28 C -10 -52 -7 -80 0 -92 Z"/></defs><g fill="#dcebdc"><use href="#gsElo"/><use href="#gsElo" transform="rotate(60)"/><use href="#gsElo" transform="rotate(120)"/><use href="#gsElo" transform="rotate(180)"/><use href="#gsElo" transform="rotate(240)"/><use href="#gsElo" transform="rotate(300)"/></g><g fill="#ffffff"><use href="#gsEup" transform="rotate(30)"/><use href="#gsEup" transform="rotate(90)"/><use href="#gsEup" transform="rotate(150)"/><use href="#gsEup" transform="rotate(210)"/><use href="#gsEup" transform="rotate(270)"/><use href="#gsEup" transform="rotate(330)"/></g><g fill="#f3cd6b"><circle r="8"/><circle cx="15.6" cy="0" r="5.4"/><circle cx="7.8" cy="13.5" r="5.4"/><circle cx="-7.8" cy="13.5" r="5.4"/><circle cx="-15.6" cy="0" r="5.4"/><circle cx="-7.8" cy="-13.5" r="5.4"/><circle cx="7.8" cy="-13.5" r="5.4"/></g></svg></span><span class="tl" data-i18n="nav_tab_home" data-i18n-fallback="Home">Home</span></button>
+  <button class="tab" id="tab-social" role="tab" aria-selected="false" aria-controls="screen-social" onclick="switchTab('social',this)"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="9" r="3"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><circle cx="17" cy="7.5" r="2.3"/><path d="M16 13.4c2.6.2 4.5 2.2 4.5 5"/></svg></span><span class="tl" data-i18n="nav_tab_community" data-i18n-fallback="Community">Community</span></button>
+  <button class="tab" id="tab-menu" aria-haspopup="menu" aria-label="Hauptmenü öffnen" onclick="openMainMenu()"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h11"/></svg></span><span class="tl" data-i18n="nav_tab_menu" data-i18n-fallback="Mehr">Mehr</span></button>
 </div>
 
 <!-- HAUPTMENÜ OVERLAY -->
@@ -63571,6 +63592,26 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.38', date: '01.09.2026',
+    headline: '\ud83e\udded Neue Navigationsleiste \u2014 hell, mit Strich-Icons und dem Edelweiss',
+    summary: 'Nach Fernandos Vorlage: helle Fl\u00e4che statt dunkelgr\u00fcnem Balken, gezeichnete Strich-Icons statt Emoji, kleine Beschriftungen in Normalschreibung. Der Mittelknopf tr\u00e4gt jetzt das Edelweiss aus dem App-Icon. Der Icon-Satz lag \u00fcbrigens schon im Repo \u2014 er war nur nie eingebaut.',
+    user_summary: '\ud83e\udded Die untere Leiste ist hell und ruhig, mit gezeichneten Symbolen statt Emoji. Der Home-Knopf in der Mitte tr\u00e4gt das Edelweiss.',
+    user_items: [
+      { emoji: '\ud83e\udded', text: 'Helle Leiste, gezeichnete Symbole, Beschriftungen in Normalschreibung' },
+      { emoji: '\ud83c\udf3c', text: 'Edelweiss im Mittelknopf \u2014 dieselbe Blume wie im App-Icon' },
+    ],
+    items: [
+      {emoji:'\ud83c\udfa8', bold:'Der Icon-Satz lag schon da:', text:' assets/icons/ enth\u00e4lt 23 eigene Strich-Symbole mit eigenem README \u2014 und darin steht genau die Begr\u00fcndung, die Fernando jetzt genannt hat: Emoji sehen auf jeder Plattform anders aus, lassen sich nicht einf\u00e4rben und tragen f\u00fcr Screenreader nichts bei. Gebaut, dokumentiert, nie eingebaut. Die Leiste benutzte weiter Emoji. Jetzt inline eingesetzt, damit sie \u00fcber currentColor mit dem Modus mitgehen und keine zus\u00e4tzlichen Anfragen kosten.'},
+      {emoji:'\ud83c\udf3c', bold:'Das Edelweiss:', text:' dieselbe Geometrie wie icons/icon.svg \u2014 zw\u00f6lf Bl\u00fctenbl\u00e4tter in zwei Lagen, sieben goldene R\u00f6hrenbl\u00fcten. Fuer 30 px mit flachen Farben statt Verl\u00e4ufen: bei der Gr\u00f6sse tr\u00e4gt ein Verlauf nichts und kostet nur Bytes.'},
+      {emoji:'\ud83c\udf17', bold:'Die Leiste kippt jetzt selbst:', text:' sie war in BEIDEN Modi dunkelgr\u00fcn (--fill-dark), weshalb die Beschriftungen in v31.27 feste Farbwerte brauchten. Jetzt --card und --border, also hell im Hell- und dunkel im Dunkelmodus \u2014 und die Beschriftungen k\u00f6nnen wieder --muted und --g-dark nutzen. Drei Dunkelmodus-\u00dcberschreibungen sind dadurch \u00fcberfl\u00fcssig geworden; eine davon h\u00e4tte den Ring um den Mittelknopf im Dunkelmodus HELLgr\u00fcn gemacht.'},
+      {emoji:'\u26a0\ufe0f', bold:'Ein Fallstrick auf dem Weg:', text:' die Beschriftung des Mittelknopfs stand auf color:#fff \u2014 auf der neuen hellen Leiste weiss auf weiss. Genau dieselbe Falle wie beim Wetter-Trenner in v31.28: was auf dunklem Grund richtig war, verschwindet auf hellem.'},
+      {emoji:'\ud83d\udd2c', bold:'Und wieder das Werkzeug:', text:' der Vorher/Nachher-Vergleich meldete eine Gr\u00f6ssen\u00e4nderung an einem SVG, das es vorher gar nicht gab. Ursache: Elemente ohne id, Klasse und Text teilten sich den Schl\u00fcssel „SVG|||", und der Vergleich paarte zwei verschiedene Elemente. render_check.js baut den Schl\u00fcssel jetzt aus einem kurzen DOM-Pfad \u2014 vergleichbare Elemente stiegen dadurch von 1\u2019388 auf 1\u2019792.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Kontrast 0 Stellen unter AA in beiden Modi \u00b7 Antippfl\u00e4chen 0 unter 24\u00d724 \u00b7 Leiste in beiden Modi gerendert und angesehen \u00b7 Vorher/Nachher: alle 46 Gr\u00f6ssen\u00e4nderungen sind Leisten-Beschriftungen (plus der Wissens-Hero, dessen Chip-Umbruch aus v31.37 stammt), gr\u00f6sste Schriftbewegung +0,5px \u00b7 Selbstvergleich der Datei 0/0/0/0 bei 2\u2019860 Elementen \u00b7 keine JS-Fehler \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.38 \u00b7 sw.js gs-v31.38 \u00b7 _headers v31.38 \u00b7 meta=31.38.20260901.'},
+    ],
+  },
+  {
     v: 'v31.37', date: '01.09.2026',
     headline: '\ud83d\udc41\ufe0f Die Kopfzeile der Startseite war praktisch unsichtbar \u2014 1,32:1',
     summary: 'Fernando: „bei der Home-Seite kann man kaum lesen was oben steht." Er hatte recht, und mein Kontrast-Pr\u00fcfstand war blind daf\u00fcr: er \u00fcbersprang Text auf Farbverl\u00e4ufen, weil er ihn nicht als EINE Farbe messen konnte. Genau dort lag der schlimmste Fall der App. Der Pr\u00fcfstand misst jetzt pixelgenau \u2014 und was er dann fand, ist behoben.',
@@ -64022,7 +64063,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.37';
+var GS_VERSION = 'v31.38';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

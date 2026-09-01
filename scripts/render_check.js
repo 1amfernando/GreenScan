@@ -85,7 +85,18 @@ const CENSUS = () => {
     const ell = cs.textOverflow === 'ellipsis';
 
     out.push({
-      key: el.tagName + '|' + (el.id || '') + '|' + cls + '|' + (el.textContent || '').trim().slice(0, 24),
+      // v31.38: Elemente OHNE id, Klasse und Text teilten sich sonst den
+      // Schluessel „SVG|||". Der Vergleich paarte dann zwei voellig
+      // verschiedene Elemente und meldete eine Groessenaenderung, die es nicht
+      // gab. Ein kurzer Pfad (Tag + Position unter Geschwistern, 4 Ebenen)
+      // macht ihn eindeutig.
+      key: (() => { let pfad = '', q = el, tiefe = 0;
+        while (q && q.parentElement && tiefe < 4) {
+          const gl = [...q.parentElement.children].filter(c => c.tagName === q.tagName);
+          pfad = q.tagName + (gl.length > 1 ? ':' + gl.indexOf(q) : '') + '>' + pfad;
+          q = q.parentElement; tiefe++;
+        }
+        return pfad; })() + '|' + (el.id || '') + '|' + cls + '|' + (el.textContent || '').trim().slice(0, 24),
       r: parseFloat(cs.borderTopLeftRadius) || 0,
       fs: parseFloat(cs.fontSize) || 0,
       lh: parseFloat(cs.lineHeight) || 0,
