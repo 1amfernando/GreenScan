@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.62.20260901">
+<meta name="app-version" content="31.63.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -53029,6 +53029,10 @@ function gsPPdetectLidar() {
 
 function gsPPgoStep(n) {
   _gsPP.step = n;
+  // v31.63: die Gegenspieler-Matrix schon jetzt holen (ein Aufruf, ≤200
+  // Zeilen). Bis der Mensch das Formular durch hat, ist sie da — und der
+  // Platzierer kann sie beim Setzen benutzen statt erst hinterher zu klagen.
+  try { if (typeof gsKonfliktMatrix === 'function') gsKonfliktMatrix(); } catch (_) {}
   document.querySelectorAll('#pp-stepbar .pp-step').forEach(function(s) {
     var sn = parseInt(s.getAttribute('data-step'), 10);
     s.classList.toggle('active', sn === n);
@@ -54698,6 +54702,21 @@ function gsPPrenderPlan(plan, data) {
       'Im Plan steht es trotzdem — aber ohne festen Ort.</div></div>';
   }
 
+  // ── v31.63: Mischkultur, gemessen am fertigen Plan ──────────────────────
+  // Nicht „kommt ein Gegenspieler vor" (das war der Schimmer bis v31.62),
+  // sondern „stehen zwei zu nah beieinander". Der Abstand steht dabei —
+  // ohne ihn waere es wieder nur eine Behauptung.
+  if (plan._nachbarn && plan._nachbarn.paare && plan._nachbarn.paare.length) {
+    html += '<div style="background:var(--bg-warn-soft);border-left:4px solid var(--c-warn-d);border-radius:0 var(--r-md) var(--r-md) 0;padding:10px 13px;margin-bottom:12px;">' +
+      '<div style="font-size:var(--fs-sm);font-weight:800;color:var(--c-warn-d);margin-bottom:3px;">🤝 Zu nah beieinander</div>' +
+      '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.5;">' +
+      plan._nachbarn.paare.map(function (k) {
+        return esc(k.a) + ' und ' + esc(k.b) + ' vertragen sich nicht' +
+               (k.art === 'kritisch_schlecht' ? ' (kritisch)' : '') +
+               ' und stehen nur ' + (k.abstand === 0 ? 'direkt nebeneinander' : k.abstand + ' m auseinander');
+      }).join('. ') + '. Ein halber Meter mehr Abstand reicht meist schon.</div></div>';
+  }
+
   // ── v31.62: was das gemessene Licht sagt ────────────────────────────────
   // Zwei Faelle, und beide gehoeren gezeigt. Passt alles, ist das eine echte
   // Aussage ueber den Plan und keine Floskel — sie steht nur da, wenn wirklich
@@ -55499,6 +55518,143 @@ window._gsZoneAn = _gsZoneAn;
 window._gsLichtPasst = _gsLichtPasst;
 window._gsPlanLichtPruefung = _gsPlanLichtPruefung;
 
+// ══════════════════════════════════════════════════════════════════════════
+// v31.63 — MISCHKULTUR NACH ABSTAND, NICHT NACH ANWESENHEIT
+// ══════════════════════════════════════════════════════════════════════════
+//
+// Zweite Haelfte derselben Sache wie das Licht in v31.62: der Prompt
+// verlangt Mischkultur, gemessen wurde sie nie.
+//
+// Es GAB schon einen roten Schimmer im 3D-Modell (v28.79, conflictPaint).
+// Der prueft aber nur, ob irgendwo im Plan ein Gegenspieler VORKOMMT — nicht,
+// wie weit die beiden auseinanderstehen. Zwei Antagonisten an
+// entgegengesetzten Enden eines 10-m-Gartens leuchteten beide rot. Damit war
+// der Schimmer keine Aussage ueber die Anordnung, sondern nur ueber die
+// Artenliste: wer die Pflanzen auseinanderzieht, sieht genau dasselbe Rot.
+// Mischkultur wirkt aber ueber Naehe. Also wird jetzt der Abstand gemessen.
+//
+// Die Daten kommen aus plant_companion_matrix — dieselbe Quelle wie bisher,
+// KEINE zweite Tabelle im Code (CLAUDE.md §3.3).
+
+window._gsKonfliktMap = window._gsKonfliktMap || null;
+window._gsKonfliktLaeuft = false;
+
+// Einmal laden, dann steht sie. ≤200 Zeilen, ein Aufruf. Wird beim Oeffnen
+// des Planers angestossen, damit sie warm ist, wenn ein Plan ankommt — der
+// Mensch fuellt vorher ein mehrstufiges Formular aus.
+function gsKonfliktMatrix() {
+  if (window._gsKonfliktMap || window._gsKonfliktLaeuft) return;
+  if (typeof sbFetch !== 'function') return;
+  window._gsKonfliktLaeuft = true;
+  (async function () {
+    try {
+      var r = await sbFetch('/rest/v1/plant_companion_matrix?relationship=in.(schlecht,kritisch_schlecht)' +
+                            '&select=species_a_lat,species_b_lat,relationship&limit=200', { method: 'GET' });
+      var rows = (r && Array.isArray(r.data)) ? r.data : [];
+      var m = {};
+      rows.forEach(function (row) {
+        // Die DB speichert Title-Case, wir vergleichen klein — der Fehler von
+        // v28.79 stand genau hier und liess den Schimmer nie feuern.
+        var a = String(row.species_a_lat || '').toLowerCase().trim();
+        var b = String(row.species_b_lat || '').toLowerCase().trim();
+        if (!a || !b) return;
+        if (!m[a]) m[a] = {};
+        if (!m[b]) m[b] = {};
+        m[a][b] = row.relationship;
+        m[b][a] = row.relationship;
+      });
+      window._gsKonfliktMap = m;
+    } catch (_) {
+      window._gsKonfliktMap = null;   // nicht {} — sonst hiesse „nichts gefunden"
+    }
+    window._gsKonfliktLaeuft = false;
+  })();
+}
+window.gsKonfliktMatrix = gsKonfliktMatrix;
+
+function _gsLat(p) {
+  return String((p && (p.latin || p.scientific_name || p.lat)) || '').toLowerCase().trim();
+}
+
+// Wie weit stehen zwei Pflanzen auseinander? Nicht Mittelpunkt zu Mittelpunkt
+// — eine breite Pflanze reicht weiter. Gemessen wird der Zwischenraum
+// zwischen den Rechtecken; 0 heisst „beruehren sich".
+function _gsAbstand(a, b) {
+  var ax = parseFloat(a.x_m) || 0, ay = parseFloat(a.y_m) || 0;
+  var aw = parseFloat(a.w_m) || 0.3, ah = parseFloat(a.h_m) || 0.3;
+  var bx = parseFloat(b.x_m) || 0, by = parseFloat(b.y_m) || 0;
+  var bw = parseFloat(b.w_m) || 0.3, bh = parseFloat(b.h_m) || 0.3;
+  var dx = Math.max(0, Math.max(ax - (bx + bw), bx - (ax + aw)));
+  var dy = Math.max(0, Math.max(ay - (by + bh), by - (ay + ah)));
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+// Ab wann ist es zu nah? 0,5 m Zwischenraum. Das ist keine Naturkonstante,
+// sondern eine bewusst gewaehlte Schwelle: Wurzelkonkurrenz und
+// Ausduenstungen wirken auf diese Entfernung, weiter weg wird der Effekt
+// beliebig. Ein „kritisch_schlecht"-Paar bekommt mehr Abstand zugebilligt.
+var GS_NAH_M = 0.5, GS_NAH_KRITISCH_M = 1.0;
+
+// EINE Regel fuer beide Seiten. Der erste Anlauf hatte zwei: der Platzierer
+// rechnete mit rohen Fliesskommazahlen (1.0000000000000002 — die 10-cm-
+// Schritte summieren sich), die Pruefung danach mit den auf 2 Stellen
+// gerundeten. Ergebnis: der Planer setzte eine Pflanze bewusst auf genau
+// 1,00 m Abstand und beklagte anschliessend genau diesen Abstand. Ein
+// Zentimeter Toleranz, und beide Seiten fragen dieselbe Funktion.
+function _gsZuNah(abstand, art) {
+  var schwelle = (art === 'kritisch_schlecht') ? GS_NAH_KRITISCH_M : GS_NAH_M;
+  return abstand < schwelle - 0.005;
+}
+window._gsZuNah = _gsZuNah;
+
+// Misst den FERTIGEN Plan. Ergebnis haengt am Plan, damit Anzeige und
+// 3D-Modell dieselbe Aussage benutzen — nicht zwei, die auseinanderlaufen.
+// Waere diese Stelle ein Gegenspieler-Nachbar? Prueft NUR gegen Pflanzen, die
+// schon einen Ort haben — die spaeter gesetzten kennt sie noch nicht, und das
+// ist in Ordnung: die spaetere Pflanze weicht dann ihrerseits aus.
+function _gsNachbarnOk(alle, mich, x, y, w, h) {
+  try {
+    var m = window._gsKonfliktMap;
+    var la = _gsLat(mich);
+    if (!m || !la || !m[la]) return true;
+    var kandidat = { x_m: x, y_m: y, w_m: w, h_m: h };
+    for (var i = 0; i < alle.length; i++) {
+      var o = alle[i];
+      if (o === mich) continue;
+      var lb = _gsLat(o);
+      if (!lb || !m[la][lb]) continue;
+      if (!isFinite(parseFloat(o.x_m)) || !isFinite(parseFloat(o.y_m))) continue;
+      if (_gsZuNah(_gsAbstand(kandidat, o), m[la][lb])) return false;
+    }
+  } catch (_) {}
+  return true;
+}
+window._gsNachbarnOk = _gsNachbarnOk;
+
+function _gsPlanNachbarn(plan) {
+  try {
+    var m = window._gsKonfliktMap;
+    if (!plan || !Array.isArray(plan.plants) || !m) { if (plan) plan._nachbarn = null; return; }
+    var paare = [], nah = {};
+    for (var i = 0; i < plan.plants.length; i++) {
+      var A = plan.plants[i], la = _gsLat(A);
+      if (!la || !m[la]) continue;
+      for (var j = i + 1; j < plan.plants.length; j++) {
+        var B = plan.plants[j], lb = _gsLat(B);
+        if (!lb || !m[la][lb]) continue;
+        var art = m[la][lb];
+        var d = _gsAbstand(A, B);
+        if (!_gsZuNah(d, art)) continue;               // weit genug — kein Vorwurf
+        paare.push({ a: A.name, b: B.name, abstand: Math.round(d * 100) / 100, art: art });
+        nah[la] = true; nah[lb] = true;
+      }
+    }
+    plan._nachbarn = { paare: paare, nah: nah, geprueft: plan.plants.length };
+  } catch (_) { if (plan) plan._nachbarn = null; }
+}
+window._gsAbstand = _gsAbstand;
+window._gsPlanNachbarn = _gsPlanNachbarn;
+
 function _gsSanitizePlannerPlan(plan) {
   try {
     if (!plan || !plan.bed || !Array.isArray(plan.plants) || !plan.plants.length) return plan;
@@ -55577,7 +55733,12 @@ function _gsSanitizePlannerPlan(plan) {
         // wenn er auch ins gemessene Licht passt; sonst wird weitergesucht.
         var ktPasst = !zonen.length || !brauchtLicht ||
           _gsLichtPasst(brauchtLicht, _gsZoneAn(zonen, xk + it.w / 2, yk + it.h / 2));
-        if (isFinite(xk) && isFinite(yk) && ktPasst && frei_an(xk, yk, it.w, it.h)) {
+        // v31.63: dasselbe gilt fuer die Nachbarschaft. Beim ersten Anlauf
+        // pruefte Stufe 1 nur das Licht — eine Tomate blieb dadurch 10 cm
+        // neben der Kartoffel stehen, obwohl der halbe Garten frei war. Was
+        // die KI vorschlaegt, gilt nur, wenn es BEIDE Bedingungen erfuellt.
+        var ktNachbar = _gsNachbarnOk(plan.plants, it.p, xk, yk, it.w, it.h);
+        if (isFinite(xk) && isFinite(yk) && ktPasst && ktNachbar && frei_an(xk, yk, it.w, it.h)) {
           it.p.x_m = Math.round(xk * 100) / 100;
           it.p.y_m = Math.round(yk * 100) / 100;
           it.p.w_m = Math.round(it.w * 100) / 100;
@@ -55592,16 +55753,28 @@ function _gsSanitizePlannerPlan(plan) {
         // ueber alles Freie — und die Pruefung weiter unten sagt dann, dass
         // die Pflanze nicht im richtigen Licht steht. Lieber gepflanzt und
         // benannt als gar nicht im Plan.
-        var durchgaenge = (brauchtLicht && zonen.length) ? [true, false] : [false];
+        // v31.63: drei Vorlieben, von streng nach nachgiebig. Keine davon
+        // darf eine Pflanze verhindern — die letzte nimmt jede freie Stelle.
+        //   0: passendes Licht UND kein Gegenspieler daneben
+        //   1: passendes Licht
+        //   2: irgendwo frei
+        var kannLicht = !!(brauchtLicht && zonen.length);
+        var kannNachbar = !!window._gsKonfliktMap;
+        var durchgaenge = [];
+        if (kannLicht && kannNachbar) durchgaenge.push({ licht: true,  nachbar: true });
+        if (kannNachbar)              durchgaenge.push({ licht: false, nachbar: true });
+        if (kannLicht)                durchgaenge.push({ licht: true,  nachbar: false });
+        durchgaenge.push({ licht: false, nachbar: false });
         for (var d = 0; d < durchgaenge.length && !gesetzt; d++) {
-          var nurPassend = durchgaenge[d];
+          var wunsch = durchgaenge[d];
           for (var y = 0; y <= bedL - it.h + 0.001 && !gesetzt; y += schritt) {
             for (var x = 0; x <= bedW - it.w + 0.001 && !gesetzt; x += schritt) {
               if (!frei_an(x, y, it.w, it.h)) continue;
-              if (nurPassend) {
+              if (wunsch.licht) {
                 var z = _gsZoneAn(zonen, x + it.w / 2, y + it.h / 2);
                 if (!z || !_gsLichtPasst(brauchtLicht, z)) continue;
               }
+              if (wunsch.nachbar && !_gsNachbarnOk(plan.plants, it.p, x, y, it.w, it.h)) continue;
               it.p.x_m = Math.round(x * 100) / 100;
               it.p.y_m = Math.round(y * 100) / 100;
               it.p.w_m = Math.round(it.w * 100) / 100;
@@ -55621,6 +55794,7 @@ function _gsSanitizePlannerPlan(plan) {
         }
       });
       _gsPlanLichtPruefung(plan, zonen);
+      _gsPlanNachbarn(plan);
       return plan;
     }
 
@@ -58295,8 +58469,21 @@ function gsRenderGardenScan3D(container, analysis) {
     conflictMeshes.forEach(function(item){
       var lat = item.lat;
       if (!lat || !conflictMap[lat]) return;
+      // v31.63: frueher genuegte es, dass irgendwo im Modell ein Gegenspieler
+      // VORKAM — zwei Antagonisten an entgegengesetzten Enden eines
+      // 10-m-Gartens leuchteten beide rot. Damit sagte der Schimmer nichts
+      // ueber die Anordnung, nur ueber die Artenliste: wer die Pflanzen
+      // auseinanderzieht, sah genau dasselbe Rot. Mischkultur wirkt aber
+      // ueber Naehe. Jetzt zaehlt der gemessene Abstand im Modell (Meter,
+      // dieselbe Einheit wie der Boden) gegen dieselbe Schwelle wie im Plan.
       var hasConflict = conflictMeshes.some(function(other){
-        return other.lat && other.lat !== lat && conflictMap[lat].has(other.lat);
+        if (!other.lat || other.lat === lat || !conflictMap[lat].has(other.lat)) return false;
+        try {
+          var dx = item.mesh.position.x - other.mesh.position.x;
+          var dz = item.mesh.position.z - other.mesh.position.z;
+          var schwelle = (typeof GS_NAH_KRITISCH_M === 'number') ? GS_NAH_KRITISCH_M : 1.0;
+          return Math.sqrt(dx * dx + dz * dz) <= schwelle;
+        } catch (_) { return true; }   // ohne Position lieber warnen als schweigen
       });
       if (hasConflict) {
         // Traverse: alle Child-Meshes bekommen emissive Glow
@@ -64654,6 +64841,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.63', date: '01.09.2026',
+    headline: '\ud83e\udd1d Mischkultur wird jetzt gemessen \u2014 nach Abstand, nicht nach Anwesenheit',
+    summary: 'Es gab schon einen roten Schimmer f\u00fcr sich nicht vertragende Pflanzen. Der pr\u00fcfte aber nur, OB ein Gegenspieler im Plan vorkommt \u2014 nicht, wie weit die beiden auseinanderstehen. Zwei Streithähne an entgegengesetzten Enden eines 10-Meter-Gartens leuchteten beide rot.',
+    user_summary: '\ud83e\udd1d Der Planer setzt sich nicht vertragende Pflanzen jetzt auseinander \u2014 und wenn im Beet wirklich kein Platz daf\u00fcr ist, sagt er dir, welche zwei zu nah stehen und wie nah.',
+    user_items: [
+      {emoji:'\ud83d\udccf', bold:'N\u00e4he ist der Punkt, nicht Anwesenheit:', text:' Mischkultur wirkt \u00fcber Wurzelkonkurrenz und Ausd\u00fcnstungen \u2014 also \u00fcber Entfernung. Der alte Schimmer sagte nichts \u00fcber deine Anordnung, nur \u00fcber deine Artenliste: wer die Pflanzen auseinanderzog, sah genau dasselbe Rot. Jetzt wird der Abstand zwischen den Pflanzfl\u00e4chen gerechnet, nicht Mittelpunkt zu Mittelpunkt \u2014 eine breite Pflanze reicht weiter.'},
+      {emoji:'\ud83c\udf31', bold:'Der Planer weicht von sich aus aus:', text:' Beim Setzen sucht er zuerst eine Stelle, die BEIDES erf\u00fcllt: passendes Licht und kein Gegenspieler daneben. Nachgespielt: Tomate 10 cm neben der Kartoffel \u2192 auf einen Meter Abstand verschoben. Findet er nichts, wird die Pflanze trotzdem gesetzt \u2014 nur eben mit Hinweis. Eine Pflanze wegzulassen w\u00e4re die schlechtere Antwort.'},
+      {emoji:'\ud83d\udcc9', bold:'Halber Meter, bei kritischen Paaren ein ganzer:', text:' Zwei Schwellen, weil nicht jede schlechte Nachbarschaft gleich schwer wiegt. Und der Abstand steht in der Meldung \u2014 ohne ihn w\u00e4re es wieder nur eine Behauptung.'},
+      {emoji:'\ud83e\uddee', bold:'Eine Regel f\u00fcr beide Seiten:', text:' Der erste Anlauf hatte zwei: der Platzierer rechnete mit rohen Kommazahlen, die Pr\u00fcfung danach mit gerundeten. Ergebnis \u2014 der Planer setzte eine Pflanze bewusst auf genau 1,00 m und beklagte anschliessend genau diesen Abstand. Jetzt fragen beide dieselbe Funktion.'},
+    ],
+  },
+  {
     v: 'v31.62', date: '01.09.2026',
     headline: '\u2600\ufe0f Der Planer plant ins gemessene Licht \u2014 und sagt es, wenn etwas nicht passt',
     summary: 'Der Planer war seit v31.58 angewiesen, Sonnenpflanzen nicht in den Schatten zu setzen. Die KI hielt sich daran \u2014 und der Platzierer warf es hinterher weg. Jetzt bleibt eine gute Platzierung stehen, eine schlechte wird ins passende Licht gelegt, und was nirgends passt, wird benannt.',
@@ -65009,7 +65208,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.62';
+var GS_VERSION = 'v31.63';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
