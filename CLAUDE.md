@@ -209,8 +209,17 @@ GreenScan/
   Footer-Modal.
 
 ### 3.8 · Code-Style
-- Vanilla JS, ES6+. Kein TypeScript, kein React. Keine externen Libs außer
-  **Leaflet** (Karte) und **pdf.js** (Plan-Export).
+- Vanilla JS, ES6+. Kein TypeScript, kein React. Externe Bibliotheken —
+  **alle selbst gehostet** unter `assets/`, keine CDN-Abhängigkeit:
+  | | | |
+  |---|---|---|
+  | **Leaflet** | 147 KB | Karte |
+  | **Three.js** | 603 KB | 3D-Modelle (Planer + Garten-Zwilling) |
+  | **pdf.js** | — | Plan-Export |
+
+  Three.js fehlte hier bis v31.57, obwohl es die grösste der drei ist. Es wird
+  **erst bei Bedarf** geladen (`_gsLoadThree()`), nie beim Start — wer nie ein
+  3D-Modell öffnet, lädt die 603 KB nie.
 - Defensive try/catch um nicht-essenzielle Operations (z.B. localStorage,
   Notifications). User darf nie wegen einer Sub-Funktion ein Crash sehen.
 - Funktions-Prefixes:

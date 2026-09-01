@@ -4,13 +4,86 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.56` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.57` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (au) — v31.57: Der Garten-Zwilling
+
+Fernandos Vorlage (vier Bilder): Garten scannen → erkennen → 3D-Modell → Überblick mit echten Zahlen.
+
+#### Zuerst nachgesehen, was es schon gibt
+
+Die Lektion des Tages, diesmal im grössten Massstab. Es gab **zwei** ausgewachsene Systeme:
+
+| | Umfang |
+|---|---|
+| `gsGardenScan*` | 3 Fotos, GPS, KI-Analyse, Pflanzendetails, 3D-Umschalter, What-if, Chat, PDF |
+| `gsPP*` (Planer) | LiDAR, Flächenfoto, Zeichenfläche, Bodenfoto, Lux, Wetter, Agronomie, Mondphase, Constraint-Validator, 2D-SVG, **Three.js-3D**, Verfeinerung, Speichern/Laden/Umbenennen/Duplizieren, PDF |
+
+Und: **Three.js ist selbst gehostet** (`assets/three.min.js`, 603 KB) und war in `CLAUDE.md` nicht dokumentiert — dort standen nur Leaflet und pdf.js. Jetzt korrigiert.
+
+#### Die eigentliche Lücke
+
+Der vorhandene Scan **empfiehlt** Pflanzen (`site_analysis` + `recommended_plants`). Fernandos Bilder zeigen das Gegenteil: „12 Pflanzen **erkannt**". Ein Planungswerkzeug, kein Bestandsaufnahme-Werkzeug.
+
+Genau daran scheiterte v31.17. Dort steht im Code:
+
+> „Pflegezonen" und „Lichtzonen" stammen aus dem Sensor-Produkt und haben in dieser App **KEINE Entsprechung**. Kacheln mit erfundenen Zahlen zu füllen wäre genau die Sorte Lüge, die ich in dieser Sitzung reihenweise entfernt habe.
+
+Diese Begründung war richtig. Die Antwort ist nicht, die Kacheln zu füllen — sondern die Daten zu schaffen.
+
+#### Der Zwilling
+
+`gsTwin*`: Foto → `callVisionAI` → `{bed, plants[x_m,y_m,w_m,h_m], beds, zones}`.
+
+**Bewusst dieselbe Datenform wie ein Planer-Plan.** Damit rendert `gsPP3DRenderInline` das 3D-Modell ohne eine Zeile neuen Renderer-Code. Keine zweite Engine, keine Divergenz. Am laufenden Programm belegt: Three.js geladen, Canvas erzeugt, Modell gezeichnet.
+
+Die drei Stufen aus der Vorlage („Analyse läuft" → „Modellierung" → fertig) sind **keine Dekoration**: die erste ist der echte Vision-Aufruf, die zweite das Aufbereiten und Speichern.
+
+#### Sicherheit: alles aus der KI wird geklemmt
+
+Jede Zahl auf einen Bereich, jeder Text auf eine Länge, jede Lichtart auf die drei bekannten. Mit einem Angriffs-String am laufenden Programm geprüft:
+
+| | |
+|---|---|
+| `window.__geknackt` | `false` |
+| eingeschleuste `<img>` | 0 |
+| eingeschleuste `<script>` | 0 |
+| Browser-Meldungen | 0 |
+
+Zusätzlich verwirft `txt()` jetzt alles mit spitzen Klammern — was `<` enthält, kam nicht aus einer Bilderkennung. Verteidigung in der Tiefe, nicht als Ersatz für das Escaping.
+
+#### Zum achten Mal die Doppel-Klassen-Falle
+
+Fünf meiner neuen Klassennamen gab es schon (`.gs-go-head`, `-grid`, `-num`, `-lbl`, `-cta`). Teils gewann meine Regel, teils die alte — bei `.gs-go-cta` die alte mit `var(--fill-brand)`, womit **mein durchgerechneter Dunkelmodus-Fix gar nicht wirkte**. Aufgefallen nur, weil ich die Farben gemessen habe. Alle fünf alten entfernt: eine Regel pro Klasse.
+
+#### Zwei Farbfehler, die kein Prüfstand gefunden hätte
+
+- **`.gs-go-cta`**: `#fff` auf `var(--g-dark)`. Im Dunkelmodus ist `--g-dark` **hellgrün** (`#a5d6a7`) → **1,64:1**. Jetzt feste Werte je Modus: hell 12,16:1, dunkel 11,17:1, Knopf gegen Karte 9,47:1.
+- **Vertrauenswert**: `#bf360c` ist hell richtig (5,60:1), dunkel 2,78:1. Jetzt zwei Werte, dunkel `#ffb74d` (8,99:1).
+
+Beide von Hand nachgerechnet — `contrast_check` misst nur, was auf den elf Bildschirmen sichtbar ist, und beides sitzt im Gartenüberblick bzw. in einem Fenster.
+
+#### Und der Prüfstand hat dazugelernt
+
+Er meldete `1,27:1` an der Achievements-Kachel. Gegen `origin/main` geprüft: **identische Farben, identische Kachel** — nur 158px tiefer, weil mein Überblick länger ist. Ursache: die Verdeckungs-Prüfung nimmt die **Mitte** des Textes, die Messung die **ganze Box**. Ein Text, dessen Mitte frei liegt, dessen Unterkante aber schon unter der Navigationsleiste steckt, wurde halb gegen die Leiste gemessen.
+
+`contrast_check` überspringt jetzt, was die Leiste anschneidet. Kein echter Fund ging dabei verloren — beide Modi weiterhin 0.
+
+#### Verify
+
+`wiring_check` 307 Namen / 0 nicht auflösbar · Menü 40/0 · **0** offene Nachschlagungen · 0 ungesichert · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen · `contrast_check` 0 unter AA beide Modi · `touch_check` 0 unter 24×24 · Scan-Rundlauf, Normalisierung, Angriffs-String und 3D-Modell am laufenden Programm · 9/9 Inline-Scripts + `sw.js` + alle Prüfstände `node --check` OK · `GS_VERSION` v31.57 · `sw.js` gs-v31.57 · `_headers` v31.57 · meta 31.57.20260901.
+
+#### Als Nächstes
+
+KI-Planer V3: den Zwilling als Eingabe für den Planer nutzen. Wer seinen Bestand gescannt hat, soll nicht noch einmal Fläche, Boden und Licht eintippen müssen — das steht dann schon da.
+
+---
 
 ### 2026-09-01 (at) — v31.56: Startseite neu geordnet
 

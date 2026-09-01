@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.56.20260901">
+<meta name="app-version" content="31.57.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1635,17 +1635,73 @@ body.dark .gs-doc-urg-critical{background:#7f1d1d;color:#ffe3e3;}
 body.dark .gs-doc-pro{background:#3a2c10;border-color:#8d6e2a;color:#ffcc80;}
 /* v31.17: Gartenüberblick — Kennzahl-Kacheln nach denselben Regeln wie der
    Tagesplan: nur Token-Farben, damit Hell und Dunkel beide stimmen. */
-.gs-go-head{font-family:'Playfair Display',serif;font-size:var(--fs-lg);font-weight:800;color:var(--text);margin:0 0 9px;letter-spacing:-.01em;}
-.gs-go-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:9px;}
+/* ── v31.57 · Garten-Zwilling ────────────────────────────────────────────
+   Ruhig wie die Vorlage: helle Karten auf der Creme-Flaeche, Serifen nur in
+   der Ueberschrift, ein einziges Gruen fuer Handlungen. Keine Verlaeufe auf
+   Textflaechen — die haben in v31.37 die Lesbarkeit gekostet.
+   Alle Farbwerte gegen --card (#ffffff hell / #162816 dunkel) nachgerechnet. */
+.gs-go-head{font-family:'Playfair Display',serif;font-size:var(--fs-2xl);font-weight:900;color:var(--g-dark);line-height:1.15;}
+.gs-go-sub{font-size:var(--fs-sm);color:var(--muted);margin:2px 0 12px;}
+
+.gs-go-hero{position:relative;border-radius:var(--r-lg);overflow:hidden;margin-bottom:12px;background:var(--surface2);aspect-ratio:16/10;}
+.gs-go-hero img{width:100%;height:100%;object-fit:cover;display:block;}
+.gs-go-hero-leer{display:flex;align-items:center;justify-content:center;height:100%;font-size:52px;opacity:.35;}
+.gs-go-badge{position:absolute;left:10px;bottom:10px;background:var(--card);border-radius:var(--r-md);padding:6px 10px;box-shadow:var(--shadow-sm);line-height:1.25;}
+.gs-go-badge b{display:block;font-size:var(--fs-sm);font-weight:800;color:var(--text);}
+.gs-go-badge span{display:block;font-size:var(--fs-xs);font-weight:700;color:var(--g-main);}
+
+.gs-go-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px;}
+.gs-go-ico{font-size:var(--fs-xl);line-height:1;color:var(--g-main);margin-bottom:6px;}
+.gs-go-num{font-size:var(--fs-3xl);font-weight:900;color:var(--g-dark);line-height:1;}
+.gs-go-lbl{font-size:var(--fs-sm);color:var(--muted);font-weight:600;line-height:1.3;margin-top:3px;}
+
+/* Der Knopf traegt bewusst KEINE Merkmalsfarbe fuer den Hintergrund.
+   --g-dark ist im Hellmodus #1a3d1a, im Dunkelmodus aber #a5d6a7 — weiss
+   darauf sind 1,64:1. Der Kontrast-Pruefstand haette das nie gefunden: er
+   misst nur, was auf den elf Bildschirmen sichtbar ist, und dieser Knopf
+   sitzt im Garten-Ueberblick. Von Hand nachgerechnet, bevor er das erste Mal
+   ausgeliefert wird. Hell 12,16:1, dunkel 11,17:1, und der Knopf hebt sich
+   im Dunkeln mit 9,47:1 von der Karte ab. */
+.gs-go-cta{width:100%;padding:13px;border:none;border-radius:var(--r-lg);background:#1a3d1a;color:#fff;font-family:inherit;font-size:var(--fs-md);font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;-webkit-tap-highlight-color:transparent;}
+.gs-go-cta2{background:var(--card);color:var(--g-dark);border:1.5px solid var(--border);margin-top:8px;}
+body.dark .gs-go-cta{background:#a5d6a7;color:#0c170c;}
+body.dark .gs-go-cta2{background:var(--card);color:var(--g-dark);}
+.gs-go-neu{width:100%;margin-top:8px;padding:10px;border:none;background:transparent;color:var(--muted);font-family:inherit;font-size:var(--fs-sm);font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.gs-go-hint{font-size:var(--fs-sm);color:var(--muted);line-height:1.5;margin-top:9px;text-align:center;}
+
+/* ── Scan-Fenster ─────────────────────────────────────────────────────── */
+.gs-twin-bild{border-radius:var(--r-lg);overflow:hidden;background:var(--surface2);aspect-ratio:4/3;margin-bottom:14px;}
+.gs-twin-bild img{width:100%;height:100%;object-fit:cover;display:block;}
+.gs-twin-leer{display:flex;align-items:center;justify-content:center;font-size:52px;opacity:.3;}
+.gs-twin-panel{text-align:center;}
+.gs-twin-pill{display:inline-flex;align-items:center;gap:7px;background:var(--bg-success-soft);color:var(--g-dark);border-radius:var(--r-lg);padding:5px 13px;font-size:var(--fs-sm);font-weight:700;margin-bottom:12px;}
+.gs-twin-dot{width:7px;height:7px;border-radius:50%;background:var(--g-main);animation:gs-twin-puls 1.4s ease-in-out infinite;}
+@keyframes gs-twin-puls{0%,100%{opacity:1;}50%{opacity:.3;}}
+@media (prefers-reduced-motion: reduce){.gs-twin-dot{animation:none;}}
+.gs-twin-h{font-family:'Playfair Display',serif;font-size:var(--fs-xl);font-weight:800;color:var(--g-dark);line-height:1.25;margin-bottom:14px;}
+.gs-twin-bar{height:6px;border-radius:var(--r-xs);background:var(--surface2);overflow:hidden;}
+.gs-twin-fill{height:100%;background:var(--g-dark);border-radius:var(--r-xs);transition:width .5s ease;}
+.gs-twin-pct{font-size:var(--fs-sm);font-weight:800;color:var(--muted);margin-top:6px;text-align:right;}
+.gs-twin-cta{margin-top:14px;width:100%;padding:12px;border:none;border-radius:var(--r-lg);background:var(--g-dark);color:#fff;font-family:inherit;font-size:var(--fs-md);font-weight:800;cursor:pointer;}
+
+/* ── Pflanzen-Liste + 3D-Legende ──────────────────────────────────────── */
+.gs-twin-row{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid var(--border);}
+.gs-twin-row:last-child{border-bottom:none;}
+.gs-twin-emo{font-size:var(--fs-2xl);flex-shrink:0;}
+.gs-twin-txt{flex:1;min-width:0;}
+.gs-twin-nam{font-size:var(--fs-md);font-weight:800;color:var(--text);}
+.gs-twin-lat{font-size:var(--fs-sm);color:var(--muted);font-style:italic;}
+.gs-twin-meta{font-size:var(--fs-sm);color:var(--muted);}
+.gs-twin-conf{font-size:var(--fs-sm);font-weight:800;flex-shrink:0;}
+.gs-twin-leg{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;}
+.gs-twin-leg span{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-sm);color:var(--text2);font-weight:600;}
+.gs-twin-leg i{width:11px;height:11px;border-radius:3px;display:inline-block;}
 .gs-go-tile{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px 13px;box-shadow:var(--shadow-sm);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform var(--dur-fast) ease;}
 .gs-go-tile:active{transform:scale(.985);}
-.gs-go-num{font-family:'Playfair Display',serif;font-size:var(--fs-3xl);font-weight:900;line-height:1.05;color:var(--text);}
-.gs-go-lbl{font-size:var(--fs-sm);color:var(--muted);font-weight:700;margin-top:3px;line-height:1.3;}
 .gs-go-next{background:var(--surface2);border-color:var(--border);}
 .gs-go-next-k{font-size:var(--fs-xs);font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);}
 .gs-go-next-t{font-size:var(--fs-md);font-weight:800;color:var(--text);margin-top:3px;line-height:1.25;}
 .gs-go-next-s{font-size:var(--fs-xs);color:var(--muted);margin-top:2px;line-height:1.3;}
-.gs-go-cta{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-md);padding:13px;font-size:var(--fs-md);font-weight:800;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-2);}
 @media (prefers-reduced-motion: reduce){.gs-go-tile{transition:none;}.gs-go-tile:active{transform:none;}}
 /* v31.25 — Startseite: helle Kopfzone. Beide Entwuerfe zeigen oben Ruhe —
    Creme, dunkler Text — und lassen das Gruen als KARTE auftreten statt als
@@ -3103,6 +3159,24 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
 
 <!-- ═══ MEIN GARTEN SCREEN ═══════════════════════════════════ -->
+<!-- v31.57: Garten-Zwilling — Datei-Eingabe und Scan-Fenster.
+     Bewusst OHNE capture="environment": das zwingt auf iOS/Android die Kamera
+     und schliesst die Galerie aus. Wer sein Beet schon fotografiert hat, soll
+     das Bild nehmen duerfen (dieselbe Begruendung wie bei #file-input, v25.1). -->
+<input type="file" id="gs-twin-file" accept="image/*" style="display:none" onchange="gsTwinOnPhoto(event)">
+
+<div class="modal-overlay" id="modal-twin-scan" onclick="if(event.target===this)closeModal('modal-twin-scan')">
+  <div class="modal" style="position:relative;max-height:90vh;overflow-y:auto;">
+    <div class="mhandle"></div>
+    <button class="modal-close-btn" onclick="closeModal('modal-twin-scan')" aria-label="Schliessen">&#x2715;</button>
+    <div class="mhdr">
+      <span class="memoji">🌱</span>
+      <div><h2>Garten scannen</h2><p>Pflanzen, Beete und Zonen erkennen</p></div>
+    </div>
+    <div id="twin-scan-body" style="padding:4px 18px 20px;"></div>
+  </div>
+</div>
+
 <div class="screen" id="screen-garden">
 
 <!-- ── BANNERS (Frost/Wasser, display:none wenn nicht relevant) ── -->
@@ -7100,72 +7174,477 @@ window.gsRefreshAdminFlag = function() {
 // dieselbe Form, aber ausschliesslich Zahlen, die es wirklich gibt:
 // Pflanzen, Beete und gespeicherte Pläne — jede Kachel führt dorthin, wo die
 // Zahl herkommt, damit sie nachprüfbar bleibt.
-window.gsRenderGardenOverview = function(){
+// ══════════════════════════════════════════════════════════════════════════
+// v31.57 — GARTEN-ZWILLING
+// ══════════════════════════════════════════════════════════════════════════
+//
+// WAS DAS IST: ein Abbild des Gartens, wie er WIRKLICH ist — welche Pflanzen
+// stehen wo, welche Beete gibt es, wo ist Sonne und wo Schatten. Aufgenommen
+// mit einem Foto, erkannt von der Vision-KI.
+//
+// WARUM NEU: der vorhandene Garten-Scan (gsGardenScan*) tut das Gegenteil.
+// Er analysiert eine FLÄCHE und EMPFIEHLT, was man dort pflanzen könnte
+// (site_analysis + recommended_plants). Das ist ein Planungswerkzeug. Der
+// Zwilling erkennt den Bestand — beides ist sinnvoll, aber es ist nicht
+// dasselbe, und ohne den Bestand kann der Gartenüberblick keine ehrlichen
+// Zahlen zeigen. Genau daran scheiterte v31.17: „Pflegezonen und Lichtzonen
+// haben in dieser App KEINE Entsprechung", stand dort — deshalb blieben die
+// Kacheln leer. Jetzt haben sie eine.
+//
+// WARUM DIESE DATENFORM: bed + plants[] mit Meter-Koordinaten ist exakt das,
+// was gsPP3DRenderInline erwartet. Der Zwilling bekommt sein 3D-Modell damit
+// geschenkt — keine zweite Engine, kein zweiter Renderer, keine Divergenz.
+// Three.js (assets/three.min.js, 603 KB) wird ohnehin nur bei Bedarf geladen.
+//
+// SICHERHEIT: alles unterhalb von gsTwinNormalize stammt aus einer
+// KI-Antwort und geht später durch innerHTML. Jeder Text wird gekappt und
+// beim Rendern mit gsEscHtml escaped, jede Zahl geklemmt. Eine KI, die
+// '<img onerror=…>' als Pflanzennamen zurückgibt, darf nichts anrichten.
+// ══════════════════════════════════════════════════════════════════════════
+var GS_TWIN_KEY = 'gs_garden_twin';
+
+function gsTwinGet() {
+  try {
+    var t = JSON.parse(localStorage.getItem(GS_TWIN_KEY) || 'null');
+    return (t && t.v === 1 && Array.isArray(t.plants)) ? t : null;
+  } catch (_) { return null; }
+}
+window.gsTwinGet = gsTwinGet;
+
+function gsTwinSave(t) {
+  try {
+    localStorage.setItem(GS_TWIN_KEY, JSON.stringify(t));
+    // Cloud-Abgleich, falls angemeldet — fire-and-forget, nie blockierend.
+    try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('garden_twin'); } catch (_) {}
+    return true;
+  } catch (e) {
+    // Quota: das Foto ist mit Abstand der grösste Posten. Lieber den Zwilling
+    // ohne Bild behalten als gar nichts (Muster aus CLAUDE.md §3.5).
+    try {
+      var ohneBild = JSON.parse(JSON.stringify(t)); ohneBild.photo = null;
+      localStorage.setItem(GS_TWIN_KEY, JSON.stringify(ohneBild));
+      return true;
+    } catch (_) { return false; }
+  }
+}
+
+// ── Normalisierung ────────────────────────────────────────────────────────
+// Nimmt, was die KI schickt, und lässt nur durch, was Hand und Fuss hat.
+// Grundsatz: im Zweifel weglassen. Eine Kachel mit einer erfundenen Zahl ist
+// schlimmer als eine Kachel mit einer Null.
+var GS_TWIN_LICHT = { sonne:'Sonne', halbschatten:'Halbschatten', schatten:'Schatten' };
+
+function gsTwinNormalize(roh, foto) {
+  function txt(s, max) {
+    var t = String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+    // Verteidigung in der Tiefe. Beim Rendern wird ohnehin escaped — am
+    // laufenden Programm nachgewiesen: '<img src=x onerror=…>' als Name
+    // erzeugt kein Element, kein Script, keinen Alarm, sondern steht als
+    // Text da. Trotzdem IST das kein Pflanzenname. Was spitze Klammern
+    // enthaelt, kam nicht aus einer Bilderkennung, sondern aus einem
+    // Versuch — und wird hier verworfen statt als Name angezeigt.
+    if (/[<>]/.test(t)) return '';
+    return t.slice(0, max || 60);
+  }
+  function zahl(x, min, max, fallback) {
+    var n = parseFloat(x);
+    if (!isFinite(n)) return fallback;
+    return Math.min(max, Math.max(min, Math.round(n * 100) / 100));
+  }
+  var bedW = zahl(roh && roh.bed && roh.bed.width_m, 0.5, 60, 4);
+  var bedL = zahl(roh && roh.bed && roh.bed.length_m, 0.5, 60, 3);
+
+  var pflanzen = (Array.isArray(roh && roh.plants) ? roh.plants : [])
+    .slice(0, 40)                                  // Deckel gegen Ausreisser
+    .map(function (p) {
+      var name = txt(p && p.name, 42);
+      if (!name) return null;                      // ohne Namen wertlos
+      return {
+        name: name,
+        latin: txt(p && p.latin, 60),
+        emoji: txt(p && p.emoji, 4) || '🌿',
+        x_m: zahl(p && p.x_m, 0, bedW, 0),
+        y_m: zahl(p && p.y_m, 0, bedL, 0),
+        w_m: zahl(p && p.w_m, 0.1, bedW, 0.3),
+        h_m: zahl(p && p.h_m, 0.1, bedL, 0.3),
+        bed: txt(p && p.bed, 24),
+        light: GS_TWIN_LICHT[String((p && p.light) || '').toLowerCase()] || '',
+        confidence: zahl(p && p.confidence, 0, 1, 0.5),
+      };
+    })
+    .filter(Boolean);
+
+  var beete = (Array.isArray(roh && roh.beds) ? roh.beds : [])
+    .slice(0, 12)
+    .map(function (b, i) {
+      var label = txt(b && b.label, 28);
+      if (!label) return null;
+      return { id: 'b' + i, label: label,
+               x_m: zahl(b && b.x_m, 0, bedW, 0), y_m: zahl(b && b.y_m, 0, bedL, 0),
+               w_m: zahl(b && b.w_m, 0.2, bedW, 1), h_m: zahl(b && b.h_m, 0.2, bedL, 1) };
+    })
+    .filter(Boolean);
+
+  var zonen = (Array.isArray(roh && roh.zones) ? roh.zones : [])
+    .slice(0, 8)
+    .map(function (z, i) {
+      var art = GS_TWIN_LICHT[String((z && z.kind) || '').toLowerCase()];
+      if (!art) return null;                       // nur die drei bekannten Arten
+      return { id: 'z' + i, kind: art, label: txt(z && z.label, 28) || art,
+               x_m: zahl(z && z.x_m, 0, bedW, 0), y_m: zahl(z && z.y_m, 0, bedL, 0),
+               w_m: zahl(z && z.w_m, 0.2, bedW, 1), h_m: zahl(z && z.h_m, 0.2, bedL, 1) };
+    })
+    .filter(Boolean);
+
+  return {
+    v: 1,
+    ts: Date.now(),
+    photo: foto || null,
+    bed: { width_m: bedW, length_m: bedL },
+    plants: pflanzen,
+    beds: beete,
+    zones: zonen,
+    summary: txt(roh && roh.summary, 240),
+  };
+}
+window.gsTwinNormalize = gsTwinNormalize;
+
+// ── Der Auftrag an die Vision-KI ──────────────────────────────────────────
+// Bewusst knapp und in Zahlen: je enger die Vorgabe, desto weniger muss die
+// Normalisierung oben wegwerfen. „Im Zweifel weglassen" steht auch hier drin,
+// damit die KI nicht rät — geratene Pflanzen wären genau die erfundenen
+// Zahlen, die v31.17 zu Recht vermieden hat.
+function gsTwinPrompt() {
+  return 'Du siehst das Foto eines Gartens, Balkons oder einer Terrasse. Erkenne den BESTAND — was WIRKLICH zu sehen ist. Empfiehl nichts.\n\n' +
+    'Antworte AUSSCHLIESSLICH mit diesem JSON, ohne Text davor oder danach:\n' +
+    '{\n' +
+    '  "bed":   {"width_m": <Breite der sichtbaren Fläche in Metern>, "length_m": <Tiefe in Metern>},\n' +
+    '  "plants":[{"name":"Tomate","latin":"Solanum lycopersicum","emoji":"🍅",\n' +
+    '             "x_m":0.4,"y_m":0.2,"w_m":0.5,"h_m":0.5,\n' +
+    '             "bed":"Beet A","light":"sonne","confidence":0.9}],\n' +
+    '  "beds":  [{"label":"Beet A","x_m":0,"y_m":0,"w_m":2,"h_m":1}],\n' +
+    '  "zones": [{"kind":"sonne","label":"Südseite","x_m":0,"y_m":0,"w_m":2,"h_m":1}],\n' +
+    '  "summary":"Ein Satz, was das für ein Garten ist."\n' +
+    '}\n\n' +
+    'REGELN:\n' +
+    '• x_m/y_m ist die Position von links oben, in Metern, innerhalb von bed.\n' +
+    '• light und kind sind ausschliesslich: sonne, halbschatten, schatten.\n' +
+    '• confidence 0–1. Bist du dir bei einer Pflanze nicht sicher, LASS SIE WEG.\n' +
+    '• Schätze Masse aus Bezugsgrössen im Bild (Topfgrössen, Plattenbreite, Geländer).\n' +
+    '• beds sind erkennbare Beete, Kisten, Hochbeete oder Topfgruppen — das, was\n' +
+    '  man gemeinsam pflegt. zones sind Lichtverhältnisse, die man im Bild sieht\n' +
+    '  (Schattenwurf, Ausrichtung). Erkennst du keine, gib eine leere Liste.\n' +
+    '• Lieber wenige sichere Angaben als viele geratene.';
+}
+
+// ── Der Scan ──────────────────────────────────────────────────────────────
+// Drei Stufen, wie in der Vorlage: „Garten wird erkannt" → „3D-Modell wird
+// erstellt" → fertig. Die Stufen sind KEINE Dekoration: die erste ist der
+// echte Vision-Aufruf (dauert), die zweite das Aufbereiten und Speichern.
+// Ein Fortschrittsbalken, der etwas anderes behauptet als er tut, wäre
+// dieselbe Sorte Lüge wie eine erfundene Kachel.
+function gsTwinStufe(prozent, titel, unter) {
+  var el = document.getElementById('gs-twin-stufe');
+  if (!el) return;
+  var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function (x) { return String(x == null ? '' : x); };
+  el.innerHTML =
+    '<div class="gs-twin-pill"><span class="gs-twin-dot"></span>' + esc(titel) + '</div>' +
+    '<div class="gs-twin-h">' + esc(unter || '') + '</div>' +
+    '<div class="gs-twin-bar"><div class="gs-twin-fill" style="width:' + Math.max(0, Math.min(100, prozent)) + '%"></div></div>' +
+    '<div class="gs-twin-pct">' + Math.round(prozent) + ' %</div>';
+}
+
+function gsTwinPickPhoto() {
+  var inp = document.getElementById('gs-twin-file');
+  if (inp) { inp.value = ''; inp.click(); }
+}
+window.gsTwinPickPhoto = gsTwinPickPhoto;
+
+async function gsTwinOnPhoto(ev) {
+  var datei = ev && ev.target && ev.target.files && ev.target.files[0];
+  if (!datei) return;
+  if (!/^image\//.test(datei.type)) {
+    if (typeof gsToast === 'function') gsToast('Bitte ein Bild auswählen.', 'warn');
+    return;
+  }
+  var b64, mt = datei.type || 'image/jpeg';
+  try {
+    b64 = await new Promise(function (res, rej) {
+      var fr = new FileReader();
+      fr.onload = function () { res(String(fr.result).split(',')[1]); };
+      fr.onerror = function () { rej(new Error('Bild nicht lesbar')); };
+      fr.readAsDataURL(datei);
+    });
+  } catch (e) {
+    if (typeof gsToast === 'function') gsToast('Bild konnte nicht gelesen werden.', 'error');
+    return;
+  }
+  gsTwinRun(b64, mt);
+}
+window.gsTwinOnPhoto = gsTwinOnPhoto;
+
+async function gsTwinRun(b64, mt) {
+  var vorschau = 'data:' + mt + ';base64,' + b64;
+  gsTwinOeffne(vorschau);
+  gsTwinStufe(15, 'Analyse läuft', 'Garten wird erkannt — Beete, Pflanzen und Lichtzonen zuordnen');
+
+  var roh = null;
+  try {
+    if (typeof callVisionAI !== 'function') throw new Error('Vision-KI nicht verfügbar');
+    var antwort = await callVisionAI(b64, mt, gsTwinPrompt(), [], { brain: 'gaertner' });
+    gsTwinStufe(65, 'Modellierung', '3D-Modell wird erstellt — dein Garten wird digital aufgebaut');
+    roh = gsTwinParse(antwort);
+  } catch (e) {
+    gsTwinFehler(e && e.message ? e.message : 'Die Erkennung hat nicht geklappt.');
+    return;
+  }
+  if (!roh) { gsTwinFehler('Die Antwort war nicht lesbar.'); return; }
+
+  // Das Foto klein halten — localStorage ist knapp (CLAUDE.md §3.5).
+  var klein = null;
+  try { klein = await gsTwinShrink(vorschau, 640); } catch (_) { klein = null; }
+
+  var zwilling = gsTwinNormalize(roh, klein);
+  if (!zwilling.plants.length) {
+    gsTwinFehler('Auf dem Bild war keine Pflanze sicher zu erkennen. Versuch es mit mehr Licht oder näher dran.');
+    return;
+  }
+  gsTwinStufe(100, 'Fertig', zwilling.plants.length + ' Pflanzen erkannt');
+  gsTwinSave(zwilling);
+  try { if (typeof gsAddXP === 'function') gsAddXP(25, 'Garten gescannt'); } catch (_) {}
+
+  setTimeout(function () {
+    try { if (typeof closeModal === 'function') closeModal('modal-twin-scan'); } catch (_) {}
+    try { if (typeof gsRenderGardenOverview === 'function') gsRenderGardenOverview(); } catch (_) {}
+    try { if (typeof gsToast === 'function') gsToast('🌱 Dein Garten ist digital — ' + zwilling.plants.length + ' Pflanzen erkannt', 'success'); } catch (_) {}
+  }, 900);
+}
+window.gsTwinRun = gsTwinRun;
+
+// Die KI antwortet manchmal mit ```json drumherum oder mit einem Satz davor.
+// Erst sauber versuchen, dann den ersten {…}-Block herausschneiden.
+function gsTwinParse(s) {
+  if (s && typeof s === 'object') return s;
+  var t = String(s == null ? '' : s).trim();
+  t = t.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
+  try { return JSON.parse(t); } catch (_) {}
+  var a = t.indexOf('{'), b = t.lastIndexOf('}');
+  if (a >= 0 && b > a) { try { return JSON.parse(t.slice(a, b + 1)); } catch (_) {} }
+  return null;
+}
+
+function gsTwinShrink(dataUrl, maxKante) {
+  return new Promise(function (res, rej) {
+    var img = new Image();
+    img.onload = function () {
+      var f = Math.min(1, maxKante / Math.max(img.width, img.height));
+      var c = document.createElement('canvas');
+      c.width = Math.round(img.width * f); c.height = Math.round(img.height * f);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      try { res(c.toDataURL('image/jpeg', 0.72)); } catch (e) { rej(e); }
+    };
+    img.onerror = function () { rej(new Error('Bild nicht ladbar')); };
+    img.src = dataUrl;
+  });
+}
+
+function gsTwinFehler(text) {
+  var el = document.getElementById('gs-twin-stufe');
+  if (!el) return;
+  var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function (x) { return String(x == null ? '' : x); };
+  el.innerHTML =
+    '<div class="gs-twin-pill" style="background:var(--bg-danger-soft);color:var(--c-danger);"><span class="gs-twin-dot" style="background:var(--c-danger);"></span>Nicht geklappt</div>' +
+    '<div class="gs-twin-h">' + esc(text) + '</div>' +
+    '<button type="button" class="gs-twin-cta" onclick="gsTwinPickPhoto()">Nochmal versuchen</button>';
+}
+
+// ── Das Scan-Fenster ──────────────────────────────────────────────────────
+function gsTwinOeffne(vorschauUrl) {
+  var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function (x) { return String(x == null ? '' : x); };
+  var body = document.getElementById('twin-scan-body');
+  if (!body) return;
+  body.innerHTML =
+    (vorschauUrl
+      ? '<div class="gs-twin-bild"><img src="' + esc(vorschauUrl) + '" alt="Dein Garten"></div>'
+      : '<div class="gs-twin-bild gs-twin-leer"><span>🌱</span></div>') +
+    '<div id="gs-twin-stufe" class="gs-twin-panel"></div>';
+  try { if (typeof openModal === 'function') openModal('modal-twin-scan'); } catch (_) {}
+}
+
+// ── Das 3D-Modell ─────────────────────────────────────────────────────────
+// Kein eigener Renderer: der Zwilling hat dieselbe Form wie ein Planer-Plan,
+// also zeichnet ihn gsPP3DRenderInline. Three.js kommt erst hier, beim ersten
+// Öffnen — nicht beim Start der App.
+function gsTwinOpen3D() {
+  var t = gsTwinGet();
+  if (!t) { if (typeof gsToast === 'function') gsToast('Scanne zuerst deinen Garten.', 'info'); return; }
+  var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function (x) { return String(x == null ? '' : x); };
+
+  var legende = '';
+  if (t.zones.length) {
+    legende = '<div class="gs-twin-leg">' + t.zones.map(function (z) {
+      var f = z.kind === 'Sonne' ? '#f9a825' : z.kind === 'Halbschatten' ? '#7cb342' : '#455a64';
+      return '<span><i style="background:' + f + '"></i>' + esc(z.label) + '</span>';
+    }).join('') + '</div>';
+  }
+
+  _gsNlOpen(
+    '<div style="font-size:var(--fs-lg);font-weight:800;margin-bottom:2px;">🧊 Dein Garten in 3D</div>' +
+    '<div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:10px;">' +
+      esc(t.bed.width_m + ' × ' + t.bed.length_m + ' m · ' + t.plants.length + ' Pflanzen') + '</div>' +
+    '<div id="gs-twin-3d" style="width:100%;height:320px;border-radius:var(--r-lg);overflow:hidden;background:#0d2818;"></div>' +
+    legende +
+    '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:10px;line-height:1.5;">' +
+      'Das Modell ist ein massstäblicher Grundriss aus dem Scan — kein Foto-Abbild. ' +
+      'Positionen und Grössen sind Schätzungen der Erkennung.</div>');
+
+  var c = document.getElementById('gs-twin-3d');
+  if (!c) return;
+  c.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#88a888;font-size:var(--fs-sm);">Modell wird geladen …</div>';
+  if (typeof _gsLoadThree !== 'function') {
+    c.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#88a888;font-size:var(--fs-sm);padding:20px;text-align:center;">3D ist hier nicht verfügbar.</div>';
+    return;
+  }
+  _gsLoadThree().then(function () {
+    try { gsPP3DRenderInline({ bed: t.bed, plants: t.plants }, c); }
+    catch (e) { c.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#88a888;font-size:var(--fs-sm);padding:20px;text-align:center;">Modell konnte nicht gezeichnet werden.</div>'; }
+  }).catch(function () {
+    c.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#88a888;font-size:var(--fs-sm);padding:20px;text-align:center;">3D-Bibliothek nicht geladen. Der Rest funktioniert weiter.</div>';
+  });
+}
+window.gsTwinOpen3D = gsTwinOpen3D;
+
+// ── Der Gartenüberblick ───────────────────────────────────────────────────
+// Nach Fernandos Vorlage: Bild mit Zustands-Marke, vier Kacheln, zwei Knöpfe.
+//
+// v31.17 hat diese Vorlage schon einmal umgesetzt und die Kacheln
+// „Pflegezonen" und „Lichtzonen" bewusst WEGGELASSEN, mit der Begründung:
+// die Zahlen gibt es in dieser App nicht, und erfundene Zahlen wären eine
+// Lüge. Diese Begründung war richtig. Jetzt liefert der Zwilling sie —
+// deshalb dürfen die Kacheln zurück, und nur deshalb.
+//
+// Ohne Zwilling zeigt der Überblick weiterhin, was es ohne ihn gibt
+// (Pflanzen, Beete, Pläne) und lädt zum Scan ein. Keine Platzhalter-Nullen
+// für Dinge, die nie gemessen wurden.
+window.gsRenderGardenOverview = function () {
   var el = document.getElementById('garden-overview');
   if (!el) return;
-  var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function(x){ return String(x == null ? '' : x); };
-  function n(key){
-    // Frisch aus dem Speicher statt aus den globalen Variablen: nach einem
-    // Cloud-Pull sind die Globalen noch der Stand von vorhin.
-    try { var a = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(a) ? a.length : 0; } catch(_){ return 0; }
+  var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function (x) { return String(x == null ? '' : x); };
+  function n(key) {
+    try { var a = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(a) ? a.length : 0; }
+    catch (_) { return 0; }
   }
+  var t = gsTwinGet();
+
   var nPlants = 0;
-  try { if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) nPlants = myPlants.length; } catch(_){}
+  try { if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) nPlants = myPlants.length; } catch (_) {}
   if (!nPlants) nPlants = n('ps_myplants');
   var nBeds  = n('gs_gardens');
   var nPlans = n('gs_garden_plans');
 
+  // Nächster Schritt — dieselbe Quelle wie der Tagesplan auf der Startseite.
   var tasks = [];
-  try { if (typeof gsGetDueTasks === 'function') tasks = gsGetDueTasks() || []; } catch(_){}
+  try { if (typeof gsGetDueTasks === 'function') tasks = gsGetDueTasks() || []; } catch (_) {}
   var first = tasks[0] || null;
-
-  function tile(num, label, call){
-    return '<div class="gs-go-tile" role="button" tabindex="0" onclick="' + call + '"' +
-             ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();' + call + ';}">' +
-        '<div class="gs-go-num">' + num + '</div><div class="gs-go-lbl">' + label + '</div></div>';
-  }
-
-  var nextInner;
+  var schrittTitel, schrittUnter;
   if (first) {
-    var verb = (typeof _gsDayPlanVerb === 'function') ? _gsDayPlanVerb(first.key, first.def) : (first.def && first.def.name) || '';
-    var when = (typeof _gsDayPlanWhen === 'function') ? _gsDayPlanWhen(first.days) : '';
-    nextInner = '<div class="gs-go-next-k">Nächster Schritt</div>' +
-                '<div class="gs-go-next-t">' + esc(first.plant.name) + ' ' + esc(verb) + '</div>' +
-                '<div class="gs-go-next-s">' + when + '</div>';
+    var verb = (typeof _gsDayPlanVerb === 'function') ? _gsDayPlanVerb(first.key, first.def) : ((first.def && first.def.name) || '');
+    schrittTitel = esc(first.plant.name) + ' ' + esc(verb);
+    schrittUnter = (typeof _gsDayPlanWhen === 'function') ? _gsDayPlanWhen(first.days) : '';
   } else if (nPlants) {
-    nextInner = '<div class="gs-go-next-k">Nächster Schritt</div>' +
-                '<div class="gs-go-next-t">Alles versorgt</div>' +
-                '<div class="gs-go-next-s">Nichts fällig in den nächsten Tagen.</div>';
+    schrittTitel = 'Alles versorgt'; schrittUnter = 'Nichts fällig in den nächsten Tagen.';
   } else {
-    nextInner = '<div class="gs-go-next-k">Nächster Schritt</div>' +
-                '<div class="gs-go-next-t">Erste Pflanze anlegen</div>' +
-                '<div class="gs-go-next-s">Danach plant GreenScan die Pflege mit.</div>';
+    schrittTitel = 'Erste Pflanze anlegen'; schrittUnter = 'Danach plant GreenScan die Pflege mit.';
   }
-  var nextCall = first
-    ? "gsNcDoneTask(this,'" + esc(first.plant.id) + "','" + esc(first.key) + "')"
-    : "if(typeof switchTab==='function')switchTab('" + (nPlants ? 'favs' : 'scanner') + "')";
 
-  // Jede Kachel fuehrt dorthin, wo ihre Zahl herkommt. Die Beete-Kachel scrollt
-  // zur Liste auf DIESEM Bildschirm — sie hat kein eigenes Modal, und ein
-  // erfundener Aufruf waere ein Klick ins Leere.
-  var callBeds  = "var _l=document.getElementById('garden-list');if(_l)_l.scrollIntoView({behavior:gsScrollBehavior(),block:'start'})";
-  var callPlans = "(window.gsPlansOpen?gsPlansOpen():(typeof gsPPopenSavedPlans==='function'?gsPPopenSavedPlans():null))";
+  function kachel(icon, zahl, label, aktion) {
+    return '<div class="gs-go-tile" role="button" tabindex="0" onclick="' + aktion + '"' +
+           ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();' + aktion + ';}">' +
+             '<div class="gs-go-ico" aria-hidden="true">' + icon + '</div>' +
+             '<div class="gs-go-num">' + zahl + '</div>' +
+             '<div class="gs-go-lbl">' + label + '</div>' +
+           '</div>';
+  }
+
+  var kacheln, hero = '', cta;
+
+  if (t) {
+    // ── Mit Zwilling: die Vorlage in voll ──────────────────────────────
+    hero =
+      '<div class="gs-go-hero">' +
+        (t.photo ? '<img src="' + esc(t.photo) + '" alt="Dein Garten">' : '<div class="gs-go-hero-leer">🌿</div>') +
+        '<div class="gs-go-badge"><b>3D-Modell</b><span>Fertig</span></div>' +
+      '</div>';
+    kacheln =
+      kachel('🌿', t.plants.length, 'Pflanze' + (t.plants.length === 1 ? '' : 'n') + '<br>erkannt', "gsTwinOpenListe()") +
+      kachel('▦',  t.beds.length,   'Pflegezone' + (t.beds.length === 1 ? '' : 'n') + '<br>eingerichtet', "gsTwinOpen3D()") +
+      kachel('☀',  t.zones.length,  'Lichtzone' + (t.zones.length === 1 ? '' : 'n') + '<br>erkannt', "gsTwinOpen3D()") +
+      '<div class="gs-go-tile gs-go-next" role="button" tabindex="0" onclick="' + (first ? 'gsNcDoneTask(this,\'' + esc(first.plant.id) + '\',\'' + esc(first.key) + '\')' : "if(typeof switchTab==='function')switchTab('favs')") + '">' +
+        '<div class="gs-go-next-k">Nächster Schritt</div>' +
+        '<div class="gs-go-next-t">' + schrittTitel + '</div>' +
+        '<div class="gs-go-next-s">' + esc(schrittUnter) + '</div>' +
+      '</div>';
+    cta =
+      '<button type="button" class="gs-go-cta" onclick="if(typeof switchTab===\'function\')switchTab(\'favs\')">Pflegeplan ansehen <span aria-hidden="true">→</span></button>' +
+      '<button type="button" class="gs-go-cta gs-go-cta2" onclick="gsTwinOpen3D()"><span aria-hidden="true">🧊</span> 3D-Modell öffnen</button>' +
+      '<button type="button" class="gs-go-neu" onclick="gsTwinPickPhoto()">Neu scannen</button>';
+  } else {
+    // ── Ohne Zwilling: nur echte Zahlen, plus die Einladung ────────────
+    kacheln =
+      kachel('🌿', nPlants, 'Pflanze' + (nPlants === 1 ? '' : 'n') + '<br>in Pflege', "if(typeof switchTab==='function')switchTab('favs')") +
+      kachel('▦',  nBeds,   'Beet' + (nBeds === 1 ? '' : 'e') + '<br>angelegt', "var _l=document.getElementById('garden-list');if(_l)_l.scrollIntoView({behavior:gsScrollBehavior(),block:'start'})") +
+      kachel('🗺', nPlans,  (nPlans === 1 ? 'Plan' : 'Pläne') + '<br>gespeichert', "(window.gsPlansOpen?gsPlansOpen():(typeof gsPPopenSavedPlans==='function'?gsPPopenSavedPlans():null))") +
+      '<div class="gs-go-tile gs-go-next" role="button" tabindex="0" onclick="' + (first ? 'gsNcDoneTask(this,\'' + esc(first.plant.id) + '\',\'' + esc(first.key) + '\')' : "if(typeof switchTab==='function')switchTab('favs')") + '">' +
+        '<div class="gs-go-next-k">Nächster Schritt</div>' +
+        '<div class="gs-go-next-t">' + schrittTitel + '</div>' +
+        '<div class="gs-go-next-s">' + esc(schrittUnter) + '</div>' +
+      '</div>';
+    cta =
+      '<button type="button" class="gs-go-cta" onclick="gsTwinPickPhoto()"><span aria-hidden="true">📷</span> Garten scannen</button>' +
+      '<div class="gs-go-hint">Ein Foto genügt. GreenScan erkennt Pflanzen, Beete und Lichtzonen und baut daraus dein 3D-Modell.</div>';
+  }
 
   el.innerHTML =
-    '<div class="gs-go-head">Dein Gartenüberblick</div>' +
-    '<div class="gs-go-grid">' +
-      tile(nPlants, 'Pflanze' + (nPlants === 1 ? '' : 'n') + ' in Pflege', "if(typeof switchTab==='function')switchTab('favs')") +
-      tile(nBeds,   'Beet' + (nBeds === 1 ? '' : 'e') + ' angelegt', callBeds) +
-      tile(nPlans,  (nPlans === 1 ? 'Plan' : 'Pläne') + ' gespeichert', callPlans) +
-      '<div class="gs-go-tile gs-go-next" role="button" tabindex="0" onclick="' + nextCall + '"' +
-        ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();' + nextCall + ';}">' + nextInner + '</div>' +
-    '</div>' +
-    // Ohne Pflanzen fuehrt „Pflegeplan ansehen" auf eine leere Liste — dann ist
-    // der richtige Knopf ein anderer.
-    (nPlants
-      ? '<button type="button" class="gs-go-cta" onclick="if(typeof switchTab===\'function\')switchTab(\'favs\')">Pflegeplan ansehen <span aria-hidden="true">→</span></button>'
-      : '<button type="button" class="gs-go-cta" onclick="if(typeof switchTab===\'function\')switchTab(\'scanner\')">Erste Pflanze scannen <span aria-hidden="true">→</span></button>');
+    '<div class="gs-go-head">Mein Garten</div>' +
+    '<div class="gs-go-sub">Dein digitaler Gartenüberblick</div>' +
+    hero +
+    '<div class="gs-go-grid">' + kacheln + '</div>' +
+    cta;
 };
+
+// Die erkannten Pflanzen als Liste — mit Vertrauenswert, damit sichtbar
+// bleibt, was die Erkennung sicher wusste und was nicht.
+function gsTwinOpenListe() {
+  var t = gsTwinGet();
+  if (!t) return;
+  var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function (x) { return String(x == null ? '' : x); };
+  var zeilen = t.plants.map(function (p) {
+    var pct = Math.round((p.confidence || 0) * 100);
+    // #bf360c ist im Hellmodus richtig (5,60:1 auf Weiss), im Dunkelmodus
+    // aber 2,78:1 auf der Karte. Zwei Werte statt einem — nachgerechnet:
+    // hell 5,60:1, dunkel 8,99:1.
+    var dunkel = false;
+    try { dunkel = document.body.classList.contains('dark'); } catch (_) {}
+    var farbe = pct >= 80 ? 'var(--c-success)'
+              : pct >= 55 ? (dunkel ? '#ffb74d' : '#bf360c')
+              : 'var(--muted)';
+    return '<div class="gs-twin-row">' +
+      '<span class="gs-twin-emo">' + esc(p.emoji) + '</span>' +
+      '<div class="gs-twin-txt"><div class="gs-twin-nam">' + esc(p.name) + '</div>' +
+      (p.latin ? '<div class="gs-twin-lat">' + esc(p.latin) + '</div>' : '') +
+      '<div class="gs-twin-meta">' + esc([p.bed, p.light].filter(Boolean).join(' · ')) + '</div></div>' +
+      '<span class="gs-twin-conf" style="color:' + farbe + '">' + pct + '%</span></div>';
+  }).join('');
+  _gsNlOpen(
+    '<div style="font-size:var(--fs-lg);font-weight:800;margin-bottom:2px;">🌿 Erkannte Pflanzen</div>' +
+    '<div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:12px;">' +
+      esc(t.summary || (t.plants.length + ' Pflanzen aus dem Scan')) + '</div>' +
+    zeilen +
+    '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:12px;line-height:1.5;">' +
+      'Die Prozentzahl ist der Vertrauenswert der Erkennung. Was darunter unsicher wirkt, ' +
+      'prüfst du am besten mit dem Scanner nach.</div>');
+}
+window.gsTwinOpenListe = gsTwinOpenListe;
 
 function gsUpdateGartenWidgets() {
   try { if (typeof gsRenderGardenOverview === 'function') gsRenderGardenOverview(); } catch(_){}
@@ -63510,6 +63989,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.57', date: '01.09.2026',
+    headline: '\ud83c\udf31 Der Garten-Zwilling \u2014 ein Foto, und deine Beete stehen als 3D-Modell da',
+    summary: 'Neu: ein Scan, der den BESTAND erkennt statt Pflanzen zu empfehlen. Aus einem Foto werden Pflanzen, Beete und Lichtzonen mit Meter-Koordinaten. Der Gartenüberblick zeigt endlich echte Zahlen, und das 3D-Modell entsteht aus denselben Daten.',
+    user_summary: '\ud83c\udf31 Fotografiere deinen Garten \u2014 GreenScan erkennt Pflanzen, Beete und Lichtzonen und baut daraus ein 3D-Modell. „Mein Garten" zeigt ab jetzt, was wirklich bei dir steht.',
+    user_items: [
+      {emoji:'\ud83d\udcf7', bold:'Ein Foto gen\u00fcgt:', text:' Die Erkennung liefert Pflanzen mit Namen, Position und Gr\u00f6sse, dazu Beete und Lichtzonen (Sonne, Halbschatten, Schatten). Jede Pflanze bekommt einen Vertrauenswert \u2014 was unsicher war, siehst du auch als unsicher.'},
+      {emoji:'\ud83e\uddca', bold:'Und daraus wird ein 3D-Modell:', text:' Massst\u00e4blich, drehbar, mit deinen Beeten. Kein neuer Programmteil daf\u00fcr: der Zwilling hat bewusst dieselbe Datenform wie ein Planer-Plan, also zeichnet ihn der 3D-Renderer, den es l\u00e4ngst gibt. Geladen wird er erst beim \u00d6ffnen \u2014 der Start der App bleibt gleich schnell.'},
+      {emoji:'\ud83d\udd22', bold:'Der Gartenüberblick zeigt endlich Echtes:', text:' „Pflegezonen" und „Lichtzonen" standen schon in Fernandos Vorlage \u2014 v31.17 hat sie damals bewusst WEGGELASSEN, weil es diese Zahlen in der App nicht gab und erfundene Zahlen eine L\u00fcge gewesen w\u00e4ren. Diese Begr\u00fcndung war richtig. Jetzt liefert der Zwilling sie, und nur deshalb sind die Kacheln zur\u00fcck. Ohne Scan zeigt der \u00dcberblick weiterhin nur, was es ohne ihn gibt.'},
+      {emoji:'\ud83d\udee1\ufe0f', bold:'Was die Erkennung NICHT darf:', text:' Alles, was von der KI kommt, wird geklemmt und gepr\u00fcft, bevor es angezeigt wird. Am laufenden Programm mit einem Angriffs-String getestet: kein Element erzeugt, kein Skript ausgef\u00fchrt, keine Meldung. Zus\u00e4tzlich wird so ein „Name" gar nicht erst \u00fcbernommen \u2014 was spitze Klammern enth\u00e4lt, kam nicht aus einer Bilderkennung.'},
+      {emoji:'\ud83c\udfa8', bold:'Zwei Farbfehler von Hand gefunden:', text:' Der gr\u00fcne Hauptknopf w\u00e4re im Dunkelmodus wei\u00df auf Hellgr\u00fcn gewesen \u2014 1,64:1, praktisch unlesbar. Der Kontrast-Pr\u00fcfstand h\u00e4tte das nie gefunden, weil er nur misst, was gerade sichtbar ist. Nachgerechnet und behoben, bevor es das erste Mal ausgeliefert wird.'},
+    ],
+  },
+  {
     v: 'v31.56', date: '01.09.2026',
     headline: '\ud83c\udfc6 Startseite neu geordnet \u2014 Inserate, Rangliste, dann Quiz',
     summary: 'Vier Wünsche von Fernando: die Quiz-Rangliste über das Täglich-Quiz, die aktiven Inserate über die Rangliste, der XP-Balken raus (er steht im Mehr-Tab), und mehr Luft zwischen Gartenwetter und den vier Werkzeugen.',
@@ -64050,7 +64542,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.56';
+var GS_VERSION = 'v31.57';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
