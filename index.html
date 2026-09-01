@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.57.20260901">
+<meta name="app-version" content="31.58.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -144,7 +144,16 @@
   --c-success-d:  #1b5e20;        /* dunkleres Grün (Hover, Akzent) */
   --c-success-l:  #4caf50;        /* helles Grün (Highlight) */
   --c-warn:       #f57c00;        /* warning/orange (Toast, Banner) */
-  --c-warn-d:     #e65100;        /* dunkles Orange */
+  /* v31.58 — von #e65100 auf #bf360c. Der alte Wert lag als TEXT auf JEDEM
+     Grund unter AA: --bg-warn-soft 3,46:1 · --card 3,79:1 · --surface2 3,45:1
+     · --g-bg 3,36:1 · --bg-yellow-soft 3,69:1. 95 Verwendungen, davon 36 auf
+     der Warn-Flaeche. Der Kontrast-Pruefstand meldete davon NICHTS — die
+     Stellen sitzen fast alle in Dialogen, und er misst nur, was auf den elf
+     Bildschirmen sichtbar ist. Von Hand gefunden, als eine neue Meldung des
+     Planers dieselbe Kombination benutzen sollte.
+     Neu: 5,11 · 5,60 · 5,10 · 4,97 · 5,46. Derselbe Wert, auf den v31.20 die
+     App bereits vereinheitlicht hat. */
+  --c-warn-d:     #bf360c;        /* dunkles Warnrot (war #e65100, unter AA) */
   --c-danger:     #c62828;        /* danger/giftig/rot */
   --c-danger-d:   #b71c1c;        /* dunkles Rot */
   --c-danger-l:   #e53935;        /* helles Rot */
@@ -241,7 +250,10 @@ body.dark{
   --c-success-d:  #a5d6a7;   /* v31.20: war #43a047 — auf getoenten Flaechen nur 3.8:1 */
   --c-success-l:  #81c784;
   --c-warn:       #ffb74d;
-  --c-warn-d:     #ff9800;
+  /* v31.58: hell war der Engpass, dunkel ist #ff9800 knapp aber bestanden
+     (5,50–8,52). #ffb74d hebt es auf 6,84–10,61 und haelt beide Modi in
+     derselben Familie. */
+  --c-warn-d:     #ffb74d;
   --c-danger:     #ff8a80;   /* v31.20: war #ef5350 — 4.0:1 auf getoenten Flaechen, knapp unter der Schwelle */
   --c-danger-d:   #ef9a9a;   /* v31.20: war #c62828 — nur 2.5:1, praktisch unlesbar */
   --c-danger-l:   #ff7878;
@@ -2943,7 +2955,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <!-- ── HEUTE FÄLLIG (dynamisch gefüllt) ──────────────────────── -->
 <div id="plants-due-section" style="display:none;flex-shrink:0;">
   <div style="padding:8px 16px 4px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
-    <div id="plants-due-heading" style="font-size:var(--fs-sm);font-weight:800;color:var(--c-warn-d,#e65100);text-transform:uppercase;letter-spacing:.5px;">📋 Aufgaben</div>
+    <div id="plants-due-heading" style="font-size:var(--fs-sm);font-weight:800;color:var(--c-warn-d,#bf360c);text-transform:uppercase;letter-spacing:.5px;">📋 Aufgaben</div>
     <div style="display:flex;align-items:center;gap:6px;">
       <button onclick="if(typeof gsOpenNotifCenter==='function')gsOpenNotifCenter('done')" title="Verlauf ansehen" aria-label="Erledigte Aufgaben ansehen" style="font-size:var(--fs-sm);font-weight:800;color:var(--muted);background:transparent;border:1px solid var(--border);border-radius:var(--r-sm);padding:3px 9px;cursor:pointer;font-family:inherit;">🕘 Verlauf</button>
       <button onclick="gsDoneAllDue()" style="font-size:var(--fs-sm);font-weight:800;color:var(--g-dark);background:var(--g-bg);border:1px solid var(--g-light);border-radius:var(--r-sm);padding:3px 10px;cursor:pointer;font-family:inherit;">Alle erledigt ✓</button>
@@ -4815,6 +4827,9 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
             <div class="mp-field" style="margin-bottom:4px;">
               <label style="font-size:var(--fs-xs);">Breite (m)</label>
+              <!-- v31.58: Vorbelegung aus dem Garten-Scan sichtbar machen. Startet
+                   verborgen; openGardenAI blendet es ein, wenn ein Zwilling da ist. -->
+              <div id="pp-twin-hint" style="display:none;background:var(--bg-success-soft);border-left:3px solid var(--g-main);border-radius:0 var(--r-md) var(--r-md) 0;padding:9px 12px;margin-bottom:10px;font-size:var(--fs-sm);color:var(--g-dark);line-height:1.5;"></div>
               <input class="mp-input" type="number" id="pp-width" placeholder="5" min="0.5" step="0.1" oninput="gsPPcalcArea()">
             </div>
             <div class="mp-field" style="margin-bottom:4px;">
@@ -29434,7 +29449,7 @@ function renderMyPlants() {
   var nb = document.getElementById('mp-notif-banner');
   if (nb && typeof Notification !== 'undefined') {
     if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
-      nb.innerHTML = '<div style="background:var(--bg-warn-soft,#fff8e1);border-bottom:1px solid var(--border);padding:8px 16px;font-size:var(--fs-sm);font-weight:700;color:var(--c-warn-d,#e65100);cursor:pointer;display:flex;align-items:center;gap:8px;" onclick="gsRequestNotifications()">' +
+      nb.innerHTML = '<div style="background:var(--bg-warn-soft,#fff8e1);border-bottom:1px solid var(--border);padding:8px 16px;font-size:var(--fs-sm);font-weight:700;color:var(--c-warn-d,#bf360c);cursor:pointer;display:flex;align-items:center;gap:8px;" onclick="gsRequestNotifications()">' +
         _t('mp_notif_enable','🔔 Erinnerungen aktivieren — nie eine Pflege vergessen') + '</div>';
     }
   }
@@ -32006,7 +32021,7 @@ function renderFeedback(){
     // v30.94: ehrlicher Hinweis, solange der Eintrag den Server noch nicht erreicht hat.
     // Vorher sah ein nur-lokaler Report exakt aus wie ein angekommener.
     if (fb && fb._local && !fb.sb_id) {
-      html += '<span title="Wird beim nächsten Start automatisch nachgeschickt." style="display:inline-flex;align-items:center;gap:4px;background:var(--bg-warn-soft,#fff8e1);color:var(--c-warn-d,#e65100);padding:3px 9px;border-radius:var(--r-md);font-size:var(--fs-xs);font-weight:800;letter-spacing:.2px;margin-left:5px;">📤 Noch nicht gesendet</span>';
+      html += '<span title="Wird beim nächsten Start automatisch nachgeschickt." style="display:inline-flex;align-items:center;gap:4px;background:var(--bg-warn-soft,#fff8e1);color:var(--c-warn-d,#bf360c);padding:3px 9px;border-radius:var(--r-md);font-size:var(--fs-xs);font-weight:800;letter-spacing:.2px;margin-left:5px;">📤 Noch nicht gesendet</span>';
     }
     return html;
   };
@@ -46238,7 +46253,7 @@ function _gsKbDiffLabel(d){
   if (!d) return null;
   var map = {
     easy:   { label:'leicht',        bg:'var(--bg-success-soft,#e8f5e9)', fg:'var(--c-success-d,#2e7d32)' },
-    medium: { label:'mittel',        bg:'var(--bg-warn-soft,#fff8e1)',    fg:'var(--c-warn-d,#e65100)' },
+    medium: { label:'mittel',        bg:'var(--bg-warn-soft,#fff8e1)',    fg:'var(--c-warn-d,#bf360c)' },
     hard:   { label:'anspruchsvoll', bg:'var(--bg-danger-soft,#ffebee)',  fg:'var(--c-danger,#c62828)' },
     expert: { label:'Profi',         bg:'var(--bg-purple-soft,#ede7f6)',  fg:'var(--c-purple,#5e35b1)' }
   };
@@ -46326,7 +46341,7 @@ window.gsRenderKnowledge = async function(section) {
           (r.preparation?'<div style="font-size:var(--fs-sm);margin-bottom:4px;"><b>Zubereitung:</b> ' + ed(r.preparation) + '</div>':'') +
           (r.dosage?'<div style="font-size:var(--fs-sm);margin-bottom:4px;"><b>Dosierung:</b> ' + ed(r.dosage) + '</div>':'') +
           (ing.length?'<div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:5px;">📋 ' + ing.slice(0,5).join(', ') + (ing.length>5?'…':'') + '</div>':'') +
-          (r.contraindications?'<div style="font-size:var(--fs-sm);color:var(--c-warn-d,#e65100);margin-bottom:3px;">⚠️ <b>Vorsicht:</b> ' + ed(r.contraindications) + '</div>':'') +
+          (r.contraindications?'<div style="font-size:var(--fs-sm);color:var(--c-warn-d,#bf360c);margin-bottom:3px;">⚠️ <b>Vorsicht:</b> ' + ed(r.contraindications) + '</div>':'') +
           (r.warning?'<div style="font-size:var(--fs-sm);color:var(--c-danger,#c62828);font-weight:600;">🚨 ' + ed(r.warning) + '</div>':'') +
         '</div>';
       }).join('');
@@ -46366,7 +46381,7 @@ window.gsRenderKnowledge = async function(section) {
               '</div>'
             : '') +
           (steps.length?'<details><summary style="font-size:var(--fs-sm);font-weight:700;cursor:pointer;color:var(--g-dark);">📋 Schritt-für-Schritt ('+steps.length+')</summary><ol style="margin:6px 0 0 18px;font-size:var(--fs-sm);color:var(--text2);line-height:1.5;">' + steps.slice(0,12).map(function(s){return '<li>'+ed(s)+'</li>';}).join('') + '</ol></details>':'') +
-          (r.warning?'<div style="margin-top:6px;font-size:var(--fs-sm);color:var(--c-warn-d,#e65100);">⚠️ ' + ed(r.warning) + '</div>':'') +
+          (r.warning?'<div style="margin-top:6px;font-size:var(--fs-sm);color:var(--c-warn-d,#bf360c);">⚠️ ' + ed(r.warning) + '</div>':'') +
         '</div>';
       }).join('');
     } else if (section === 'blumen') {
@@ -52647,6 +52662,44 @@ function openGardenAI() {
     }
   } catch(e) {}
 
+  // ── v31.58 (Planer V3): Der Garten-Scan hat das schon gemessen ────────
+  // Wer seinen Garten fotografiert hat, soll Flaeche und Licht nicht noch
+  // einmal eintippen. Der Zwilling ueberschreibt die Vorbelegung aus
+  // gardens[0] bewusst — eine Messung aus dem Bild ist naeher an der
+  // Wirklichkeit als eine Zahl, die irgendwann von Hand eingetragen wurde.
+  // Sichtbar gemacht wird es auch: eine stille Vorbelegung, die der Nutzer
+  // nicht erklaeren kann, ist schlimmer als ein leeres Feld.
+  try {
+    var tw = (typeof gsTwinGet === 'function') ? gsTwinGet() : null;
+    if (tw && tw.bed) {
+      var wEl2 = document.getElementById('pp-width');  if (wEl2) wEl2.value = tw.bed.width_m;
+      var lEl2 = document.getElementById('pp-length'); if (lEl2) lEl2.value = tw.bed.length_m;
+      if (typeof gsPPcalcArea === 'function') gsPPcalcArea();
+
+      // Licht aus den erkannten Zonen: die groesste Zone gibt den Ton an.
+      if (tw.zones && tw.zones.length) {
+        var groesste = tw.zones.slice().sort(function (a, b) { return (b.w_m * b.h_m) - (a.w_m * a.h_m); })[0];
+        var karte = { 'Sonne': 'full', 'Halbschatten': 'partial', 'Schatten': 'shade' };
+        var lichtEl = document.getElementById('pp-light');
+        if (lichtEl && karte[groesste.kind]) {
+          var passt = [].some.call(lichtEl.options, function (o) { return o.value === karte[groesste.kind]; });
+          if (passt) lichtEl.value = karte[groesste.kind];
+        }
+      }
+
+      var hinweis = document.getElementById('pp-twin-hint');
+      if (hinweis) {
+        var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function (x) { return String(x == null ? '' : x); };
+        hinweis.style.display = '';
+        hinweis.innerHTML =
+          '<b>Aus deinem Garten-Scan übernommen</b><br>' +
+          esc(tw.bed.width_m + ' × ' + tw.bed.length_m + ' m · ' + tw.plants.length + ' vorhandene Pflanzen' +
+              (tw.zones.length ? ' · ' + tw.zones.length + ' Lichtzone' + (tw.zones.length === 1 ? '' : 'n') : '')) +
+          '<br><span>Der Planer plant in diesen Garten hinein. Zahlen kannst du überschreiben.</span>';
+      }
+    }
+  } catch (e) {}
+
   // Pre-fill season
   try {
     var m = new Date().getMonth();
@@ -53499,6 +53552,36 @@ function gsPPmoonPhase(date) {
 }
 
 // Nutzer-Kontext für den Planer: bisherige Gärten + letzte Scans
+// v31.58 (Planer V3) — der gemessene Garten als Auftragstext.
+// Bewusst knapp und in Zahlen: die KI soll damit rechnen, nicht daraus
+// Prosa machen. Und bewusst mit Altersangabe — ein Scan von vor einem Jahr
+// beschreibt einen anderen Garten als einer von gestern, und die KI soll
+// das selbst gewichten koennen statt es zu uebersehen.
+function gsPPtwinBlock(t) {
+  if (!t || !t.plants || !t.plants.length) return '';
+  function m(x) { return (Math.round((x || 0) * 100) / 100) + 'm'; }
+  var zeilen = t.plants.map(function (p) {
+    return '  · ' + p.name + ' bei (' + m(p.x_m) + ', ' + m(p.y_m) + '), ' +
+           m(p.w_m) + '×' + m(p.h_m) + (p.bed ? ', ' + p.bed : '') + (p.light ? ', ' + p.light : '');
+  }).join('\n');
+  var beete = t.beds.length
+    ? t.beds.map(function (b) { return '  · ' + b.label + ': ' + m(b.x_m) + ',' + m(b.y_m) + ' → ' + m(b.w_m) + '×' + m(b.h_m); }).join('\n')
+    : '  · keine erkannt';
+  var zonen = t.zones.length
+    ? t.zones.map(function (z) { return '  · ' + z.kind + (z.label && z.label !== z.kind ? ' (' + z.label + ')' : '') + ': ' + m(z.x_m) + ',' + m(z.y_m) + ' → ' + m(z.w_m) + '×' + m(z.h_m); }).join('\n')
+    : '  · keine erkannt';
+  return '\n📐 GEMESSENER BESTAND (Garten-Scan vor ' + t.alter_tage + ' Tagen) — Fläche ' +
+         m(t.bed.width_m) + ' × ' + m(t.bed.length_m) + ', Nullpunkt links oben:\n' +
+         'VORHANDENE PFLANZEN:\n' + zeilen + '\n' +
+         'BEETE:\n' + beete + '\n' +
+         'LICHTZONEN:\n' + zonen + '\n' +
+         'PFLICHT: Plane IN diesen Garten. Setze neue Pflanzen in freie Flächen, ' +
+         'nicht auf besetzte. Beachte die Lichtzonen (Sonnenpflanzen nicht in den Schatten). ' +
+         'Nutze Mischkultur gegen den VORHANDENEN Bestand — nicht gegen eine gedachte Liste. ' +
+         'Markiere jede Pflanze deiner Antwort mit "existing": true (steht schon da) oder false (neu). ' +
+         'Vorhandene Pflanzen übernimmst du unverändert mit ihren Koordinaten.\n';
+}
+
 function gsPPbuildUserContext() {
   var ctx = { pastPlans: 0, lastPlants: [], hasGarden: false, trackedDays: 0, myPlants: [], myFamilies: [], harvests: [] };
   try {
@@ -53516,6 +53599,26 @@ function gsPPbuildUserContext() {
       ctx.myPlants = myPlants.map(function(p){ return (p && (p.name||p.commonName||p.title||p.label)) || ''; }).filter(Boolean).slice(0,25);
       ctx.myFamilies = Array.from(new Set(myPlants.map(function(p){ return p && (p.family||p.fam); }).filter(Boolean))).slice(0,12);
     } var _ernte = JSON.parse(localStorage.getItem('gs_ernte_log')||'[]'); if (Array.isArray(_ernte)) ctx.harvests = _ernte.slice(0,12).map(function(h){ return (h && (h.name||h.crop||h.plant)) || ''; }).filter(Boolean); }catch(_e){}
+    // ── v31.58 (Planer V3): der Garten-Zwilling ────────────────────────
+    // Bisher kannte der Planer vom Bestand nur NAMEN (myPlants). Der
+    // Zwilling liefert Positionen, Beete und Lichtzonen in Metern — damit
+    // kann die KI in die Luecken planen statt auf ein leeres Rechteck.
+    // Das ist der eigentliche Sprung: „plane 6 m²" wird zu „plane in DIESEN
+    // Garten, links steht schon die Tomate, die Nordseite ist Schatten".
+    try {
+      var _tw = (typeof gsTwinGet === 'function') ? gsTwinGet() : null;
+      if (_tw && _tw.plants && _tw.plants.length) {
+        ctx.twin = {
+          bed: _tw.bed,
+          plants: _tw.plants.slice(0, 24).map(function (p) {
+            return { name: p.name, x_m: p.x_m, y_m: p.y_m, w_m: p.w_m, h_m: p.h_m, light: p.light, bed: p.bed };
+          }),
+          beds:  _tw.beds.slice(0, 8).map(function (b) { return { label: b.label, x_m: b.x_m, y_m: b.y_m, w_m: b.w_m, h_m: b.h_m }; }),
+          zones: _tw.zones.slice(0, 6).map(function (z) { return { kind: z.kind, label: z.label, x_m: z.x_m, y_m: z.y_m, w_m: z.w_m, h_m: z.h_m }; }),
+          alter_tage: Math.round((Date.now() - (_tw.ts || Date.now())) / 86400000),
+        };
+      }
+    } catch (_) {}
   } catch(e) {}
   return ctx;
 }
@@ -53717,6 +53820,11 @@ async function gsPPrun(opts) {
     '🌙 MONDPHASE heute: ' + moon.phase + ' — ' + moon.advice + '\n' +
     '🕰️ NUTZER-HISTORIE: ' + userCtx.pastPlans + ' frühere Pläne · Letzte Pflanzen: ' + lastPlantsLine + '\n' +
     '🔬 LETZTE SCANS: ' + recentScansLine + '\n' +
+    // v31.58 (Planer V3): Wenn ein Zwilling da ist, bekommt die KI den
+    // ECHTEN Garten mit Koordinaten — nicht nur eine Namensliste. Der Block
+    // steht bewusst VOR der Namensliste: was gemessen wurde, wiegt schwerer
+    // als was aufgezaehlt wurde.
+    (userCtx.twin ? gsPPtwinBlock(userCtx.twin) : '') +
     '🪴 DEIN AKTUELLER GARTEN (myPlants — PFLICHTBEZUG für Fruchtfolge & Mischkultur): ' + (userCtx.myPlants && userCtx.myPlants.length ? userCtx.myPlants.join(', ') + (userCtx.myFamilies && userCtx.myFamilies.length ? ' [Familien: '+userCtx.myFamilies.join(', ')+']' : '') : '—') + '\n' +
     (userCtx.harvests && userCtx.harvests.length ? '🧺 BISHERIGE ERNTEN (Erfahrung nutzen): ' + userCtx.harvests.join(', ') + '\n' : '') +
     '\n' +
@@ -53951,6 +54059,16 @@ async function gsPPrun(opts) {
     // x_m/y_m/w_m/h_m oft überlappend/ausserhalb (weicher Prompt-Constraint) → 3D-Meshes durchdrangen
     // sich / hingen über den Beet-Rand ("nicht sauber konstruiert"). Sanitizer säubert 3D + PDF gemeinsam.
     try { if (typeof _gsSanitizePlannerPlan === 'function') _gsSanitizePlannerPlan(plan); } catch(_){}
+    // v31.58 (Planer V3): Der Packer markiert Pflanzen, fuer die nach dem
+    // Bestand kein Platz mehr war (_kein_platz). Dieses Flag DARF nicht still
+    // bleiben — sonst liegt eine Pflanze bei (0,0) im Plan, die dort gar
+    // nicht hinpasst, und der Nutzer glaubt, sie passe. Genau die Sorte
+    // stiller Rest, die dieser Meilenstein ueberall entfernt hat.
+    try {
+      plan._ohnePlatz = (plan.plants || []).filter(function (p) { return p && p._kein_platz; })
+                                           .map(function (p) { return p.name; });
+      plan._bestand   = (plan.plants || []).filter(function (p) { return p && p.existing === true; }).length;
+    } catch (_) {}
     // v23.57: Post-Processing — DB-Enrichment (IDs für Deep-Links + Warnungen)
     try {
       if (plan.plants && Array.isArray(plan.plants) && typeof DB !== 'undefined' && Array.isArray(DB)) {
@@ -54296,6 +54414,27 @@ function gsPPShowTab(container, k){
 function gsPPrenderPlan(plan, data) {
   var esc = function(s) { return escHtml ? escHtml(String(s || '')) : String(s || '').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
   var html = '';
+
+  // v31.58 (Planer V3): Zwei Dinge, die der Nutzer wissen MUSS, bevor er den
+  // Plan liest — beide entstehen erst durch den Garten-Zwilling.
+  if (plan._bestand) {
+    html += '<div style="background:var(--bg-success-soft);border-left:4px solid var(--g-main);border-radius:0 var(--r-md) var(--r-md) 0;padding:10px 13px;margin-bottom:12px;">' +
+      '<div style="font-size:var(--fs-sm);font-weight:800;color:var(--g-dark);margin-bottom:3px;">🌿 In deinen Garten geplant</div>' +
+      '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.5;">' +
+      plan._bestand + ' Pflanze' + (plan._bestand === 1 ? '' : 'n') + ' aus deinem Scan bleiben an ihrem Platz. ' +
+      'Neues wurde in die freien Flächen gesetzt.</div></div>';
+  }
+  if (plan._ohnePlatz && plan._ohnePlatz.length) {
+    // Farbe nachgerechnet: #bf360c auf --bg-warn-soft ist hell 5,27:1.
+    // Im Dunkelmodus traegt --bg-warn-soft eine dunkle Toenung, dort ist
+    // --c-warn (dort #ffb74d) der richtige Wert — deshalb das Merkmal statt
+    // eines festen Rots.
+    html += '<div style="background:var(--bg-warn-soft);border-left:4px solid var(--c-warn-d);border-radius:0 var(--r-md) var(--r-md) 0;padding:10px 13px;margin-bottom:12px;">' +
+      '<div style="font-size:var(--fs-sm);font-weight:800;color:var(--c-warn-d);margin-bottom:3px;">⚠️ Kein Platz mehr</div>' +
+      '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.5;">' +
+      esc(plan._ohnePlatz.join(', ')) + ' passt neben dem Bestand nicht mehr in die Fläche. ' +
+      'Im Plan steht es trotzdem — aber ohne festen Ort.</div></div>';
+  }
 
   // v24.25: Constraint-Issues-Banner ganz oben falls Validator was gefunden hat
   var _ppHiIssues = (plan._constraintIssues||[]).filter(function(i){ return i.severity === 'high'; });
@@ -54985,6 +55124,72 @@ function _gsSanitizePlannerPlan(plan) {
     var bedW = Math.max(1, plan.bed.width_m || 5);
     var bedL = Math.max(1, plan.bed.length_m || 5);
     var gap = 0.1; // 10cm Gang zwischen Beet-Rechtecken
+
+    // ── v31.58 (Planer V3): Vorhandenes bleibt, wo es steht ──────────────
+    // Der Packer weiter unten sortiert alle Pflanzen in saubere Reihen. Das
+    // ist richtig fuer einen Plan auf leerer Flaeche — und falsch, sobald ein
+    // Garten-Scan echte Koordinaten geliefert hat. Eine Tomate, die links an
+    // der Wand steht, steht dort; sie in Reihe zwei zu schieben waere kein
+    // Plan, sondern eine Behauptung.
+    // Deshalb: was aus dem Bestand kommt (existing:true), behaelt seine
+    // Position und wird nur geklemmt. Gepackt wird ausschliesslich das Neue —
+    // und zwar in die Luecken, mit Ueberschneidungspruefung gegen den Bestand.
+    var fest = [], frei = [];
+    plan.plants.forEach(function (p, i) {
+      var w = Math.min(bedW, Math.max(0.2, parseFloat(p.w_m) || 0.3));
+      var h = Math.min(bedL, Math.max(0.2, parseFloat(p.h_m) || 0.3));
+      if (p.existing === true && isFinite(parseFloat(p.x_m)) && isFinite(parseFloat(p.y_m))) {
+        p.x_m = Math.round(Math.min(bedW - w, Math.max(0, parseFloat(p.x_m))) * 100) / 100;
+        p.y_m = Math.round(Math.min(bedL - h, Math.max(0, parseFloat(p.y_m))) * 100) / 100;
+        p.w_m = Math.round(w * 100) / 100;
+        p.h_m = Math.round(h * 100) / 100;
+        fest.push({ x: p.x_m, y: p.y_m, w: w, h: h });
+      } else {
+        frei.push({ p: p, i: i, w: w, h: h });
+      }
+    });
+
+    if (fest.length) {
+      // Nur das Neue platzieren — Rasterschritte von 10cm, erste freie Stelle
+      // gewinnt. Kein Optimierer: nachvollziehbar schlaegt clever, und ein
+      // Gaertner soll sehen koennen, WARUM etwas dort liegt.
+      var schritt = 0.1;
+      function frei_an(x, y, w, h) {
+        if (x < 0 || y < 0 || x + w > bedW + 0.001 || y + h > bedL + 0.001) return false;
+        for (var k = 0; k < fest.length; k++) {
+          var f = fest[k];
+          if (x < f.x + f.w + gap && x + w + gap > f.x && y < f.y + f.h + gap && y + h + gap > f.y) return false;
+        }
+        return true;
+      }
+      frei.sort(function (a, b) { return (b.w * b.h) - (a.w * a.h); });
+      frei.forEach(function (it) {
+        var gesetzt = false;
+        for (var y = 0; y <= bedL - it.h + 0.001 && !gesetzt; y += schritt) {
+          for (var x = 0; x <= bedW - it.w + 0.001 && !gesetzt; x += schritt) {
+            if (frei_an(x, y, it.w, it.h)) {
+              it.p.x_m = Math.round(x * 100) / 100;
+              it.p.y_m = Math.round(y * 100) / 100;
+              it.p.w_m = Math.round(it.w * 100) / 100;
+              it.p.h_m = Math.round(it.h * 100) / 100;
+              fest.push({ x: x, y: y, w: it.w, h: it.h });
+              gesetzt = true;
+            }
+          }
+        }
+        if (!gesetzt) {
+          // Kein Platz mehr. Ehrlich benennen statt ueberlappend hinlegen:
+          // die Anzeige kann das melden, und der Plan bleibt wahr.
+          it.p._kein_platz = true;
+          it.p.x_m = 0; it.p.y_m = 0;
+          it.p.w_m = Math.round(it.w * 100) / 100;
+          it.p.h_m = Math.round(it.h * 100) / 100;
+        }
+      });
+      return plan;
+    }
+
+    // ── Ohne Bestand: wie bisher, Reihen-Packung auf leerer Flaeche ──────
     var items = plan.plants.map(function(p, i){
       var w = Math.min(bedW, Math.max(0.2, parseFloat(p.w_m) || 0.3));
       var h = Math.min(bedL, Math.max(0.2, parseFloat(p.h_m) || 0.3));
@@ -60511,7 +60716,7 @@ window.gsPPduplicatePlan = gsPPduplicatePlan;
    Werte — bewusst die HELLEN, weil Gedrucktes nicht dem App-Modus folgt. */
 var GS_DOC_TOKENS = ':root{'
   + '--card:#ffffff;--text:#111111;--muted:#6b6b6b;--border:#e3ded3;'
-  + '--c-success:#2e7d32;--c-success-d:#1b5e20;--c-danger:#c62828;--c-warn-d:#e65100;'
+  + '--c-success:#2e7d32;--c-success-d:#1b5e20;--c-danger:#c62828;--c-warn-d:#bf360c;'
   + '--bg-success-soft:#e8f5e9;--bg-warn-soft:#fff3e0;--bg-yellow-soft:#fff8e1;'
   + '--r-sm:8px;--r-md:12px;--r-lg:16px;--r-xl:22px;'
   + '}';
@@ -63989,6 +64194,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.58', date: '01.09.2026',
+    headline: '\ud83e\udde0 Planer V3 \u2014 er plant jetzt IN deinen Garten, nicht auf ein leeres Rechteck',
+    summary: 'Der KI-Planer kennt ab sofort deinen gescannten Bestand: Pflanzen mit Koordinaten, Beete und Lichtzonen in Metern. Vorhandenes bleibt stehen, Neues wird in die L\u00fccken gesetzt \u2014 mit \u00dcberschneidungspr\u00fcfung. Dazu ein Farbfehler, der 95 Stellen betraf.',
+    user_summary: '\ud83e\udde0 Wer seinen Garten gescannt hat, muss nichts mehr eintippen \u2014 der Planer kennt Fl\u00e4che, Licht und was schon da steht, und plant darum herum.',
+    user_items: [
+      {emoji:'\ud83d\udccf', bold:'Nichts mehr doppelt eintippen:', text:' Fl\u00e4che und Lichtverh\u00e4ltnisse kommen aus dem Garten-Scan. Ein Hinweis zeigt dir, was \u00fcbernommen wurde \u2014 eine stille Vorbelegung, die man nicht erkl\u00e4ren kann, w\u00e4re schlimmer als ein leeres Feld.'},
+      {emoji:'\ud83c\udf3f', bold:'Vorhandenes bleibt, wo es steht:', text:' Der Planer ordnete bisher ALLE Pflanzen in saubere Reihen \u2014 richtig auf leerer Fl\u00e4che, falsch sobald echte Koordinaten da sind. Eine Tomate, die an der Wand steht, steht dort. Neues wird in die freien L\u00fccken gesetzt, in 10-cm-Schritten, mit Abstandspr\u00fcfung. Gemessen: 0 \u00dcberschneidungen.'},
+      {emoji:'\u26a0\ufe0f', bold:'Und wenn nichts mehr passt, sagt er es:', text:' Was neben dem Bestand keinen Platz mehr findet, wird als solches gemeldet statt \u00fcberlappend hingelegt. Ein Plan, der behauptet, alles passe, w\u00e4re kein Plan.'},
+      {emoji:'\ud83c\udfa8', bold:'Ein Farbfehler an 95 Stellen:', text:' Beim Bauen einer neuen Warnmeldung fiel auf, dass das Warn-Orange der App auf JEDEM Untergrund unter der Lesbarkeitsschwelle lag \u2014 3,4 bis 3,8:1 statt 4,5. 36 davon in Warnfeldern. Der Kontrast-Pr\u00fcfstand hatte nichts gemeldet: die Stellen sitzen fast alle in Dialogen, und er misst nur, was gerade sichtbar ist. An der Wurzel behoben, jetzt 5,0 bis 5,6:1 \u2014 auch in gedruckten Pl\u00e4nen.'},
+    ],
+  },
+  {
     v: 'v31.57', date: '01.09.2026',
     headline: '\ud83c\udf31 Der Garten-Zwilling \u2014 ein Foto, und deine Beete stehen als 3D-Modell da',
     summary: 'Neu: ein Scan, der den BESTAND erkennt statt Pflanzen zu empfehlen. Aus einem Foto werden Pflanzen, Beete und Lichtzonen mit Meter-Koordinaten. Der Gartenüberblick zeigt endlich echte Zahlen, und das 3D-Modell entsteht aus denselben Daten.',
@@ -64542,7 +64759,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.57';
+var GS_VERSION = 'v31.58';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -67351,7 +67568,7 @@ function gsRegisterServiceWorker() {
     var _lsBytes = 0;
     try { _lsBytes = (window.gsStore && typeof gsStore.usageBytes === 'function') ? gsStore.usageBytes() : 0; } catch(_){}
     var _lsPct = Math.min(100, Math.round(_lsBytes / LS_LIMIT * 1000) / 10);
-    var _lsCol = _lsPct >= 90 ? 'var(--c-danger,#c62828)' : (_lsPct >= 75 ? 'var(--c-warn-d,#e65100)' : 'var(--g-main)');
+    var _lsCol = _lsPct >= 90 ? 'var(--c-danger,#c62828)' : (_lsPct >= 75 ? 'var(--c-warn-d,#bf360c)' : 'var(--g-main)');
     var _lsHint = _lsPct >= 90
       ? '⚠️ Fast voll. Neue Einträge und Fotos können ab jetzt fehlschlagen — bitte alte Scans oder Fotos löschen.'
       : (_lsPct >= 75 ? 'Wird eng. Ein Aufräumen alter Scans schafft Luft.' : 'Genug Platz.');

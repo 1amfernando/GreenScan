@@ -4,13 +4,83 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.57` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.58` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (av) — v31.58: Planer V3 — er plant in den Garten, nicht auf ein leeres Rechteck
+
+Der Zwilling aus v31.57 wird Eingabe für den KI-Planer.
+
+#### Was der Planer bisher vom Bestand wusste
+
+Namen. `gsPPbuildUserContext` lieferte `myPlants` als Liste von Zeichenketten. Keine Positionen, keine Beete, keine Lichtzonen.
+
+Jetzt kommt der gemessene Garten dazu — als Auftragstext in Metern:
+
+```
+📐 GEMESSENER BESTAND (Garten-Scan vor 3 Tagen) — Fläche 3m × 2m, Nullpunkt links oben:
+VORHANDENE PFLANZEN:
+  · Tomate bei (0m, 0m), 0.6m×0.6m, Beet A, Sonne
+  · Rosmarin bei (2.4m, 1.4m), 0.5m×0.5m, Töpfe, Halbschatten
+BEETE:   · Beet A: 0m,0m → 1.5m×1m
+LICHTZONEN:
+  · Sonne (Südseite): 0m,0m → 2m×2m
+  · Halbschatten (Hauswand): 2m,0m → 1m×2m
+PFLICHT: Plane IN diesen Garten. …
+```
+
+Mit **Altersangabe** — ein Scan von vor einem Jahr beschreibt einen anderen Garten als einer von gestern, und die KI soll das gewichten können statt es zu übersehen.
+
+#### Der Packer musste umlernen
+
+`_gsSanitizePlannerPlan` sortierte **alle** Pflanzen in saubere Reihen. Richtig auf leerer Fläche — falsch, sobald echte Koordinaten da sind. Eine Tomate, die an der Wand steht, steht dort; sie in Reihe zwei zu schieben wäre kein Plan, sondern eine Behauptung.
+
+Jetzt: `existing:true` behält die Position (nur geklemmt), Neues wird in die Lücken gesetzt — 10-cm-Raster, erste freie Stelle gewinnt, mit Abstandsprüfung gegen den Bestand. Kein Optimierer: nachvollziehbar schlägt clever, und ein Gärtner soll sehen können, *warum* etwas dort liegt.
+
+Gemessen mit 2 Bestands- und 3 neuen Pflanzen:
+
+| Pflanze | Position | |
+|---|---|---|
+| Tomate | (0, 0) | Bestand, unverändert |
+| Rosmarin | (2.4, 1.4) | Bestand, unverändert |
+| Salat | (0.7, 0) | neu, in der Lücke neben der Tomate |
+| Karotte | (1.2, 0) | neu |
+| Kürbis (2.9×1.9) | — | **kein Platz**, ehrlich markiert |
+
+**0 Überschneidungen.**
+
+#### „Kein Platz" darf nicht still bleiben
+
+Der Packer setzt ein Flag, wenn nach dem Bestand nichts mehr passt. Ohne Anzeige läge die Pflanze bei (0,0) im Plan und der Nutzer glaubte, sie passe — genau die Sorte stiller Rest, die dieser Meilenstein überall entfernt hat. Jetzt zwei Meldungen über dem Plan: „In deinen Garten geplant" (n Pflanzen bleiben) und „Kein Platz mehr" (welche).
+
+#### Ein Farbfehler an 95 Stellen
+
+Beim Bauen der Warnmeldung wollte ich `--c-warn-d` auf `--bg-warn-soft` verwenden. Nachgerechnet: **3,46:1**. Dann geprüft, wo diese Kombination sonst noch steht — **36 Mal**. Und `--c-warn-d` insgesamt **95 Mal**.
+
+Der alte Wert `#e65100` lag als Text auf **jedem** Untergrund unter AA:
+
+| Untergrund | alt | neu |
+|---|---|---|
+| `--bg-warn-soft` | 3,46:1 | **5,11:1** |
+| `--card` | 3,79:1 | **5,60:1** |
+| `--surface2` | 3,45:1 | **5,10:1** |
+| `--g-bg` | 3,36:1 | **4,97:1** |
+| `--bg-yellow-soft` | 3,69:1 | **5,46:1** |
+
+`contrast_check` hatte **nichts** gemeldet: die Stellen sitzen fast alle in Dialogen, und er misst nur, was auf den elf Bildschirmen sichtbar ist. Von Hand gefunden, weil ich vor dem Verwenden gerechnet habe.
+
+An der Wurzel behoben (`#bf360c` hell, `#ffb74d` dunkel — beides Werte, auf die die App bereits vereinheitlicht ist), plus die Token-Kopie für PDF und Druck und sieben Rückfallwerte, die sonst dem alten Wert widersprochen hätten.
+
+#### Verify
+
+`wiring_check` 307 Namen / 0 nicht auflösbar · Menü 40/0 · **0** offene Nachschlagungen · 0 ungesichert · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen, Radius/Schrift/Farbe je 0 gegen `origin/main` · `contrast_check` 0 unter AA beide Modi · `touch_check` 0 unter 24×24 · Kontext, Auftragstext und Packer am laufenden Programm · 9/9 Inline-Scripts + `sw.js` `node --check` OK · `GS_VERSION` v31.58 · `sw.js` gs-v31.58 · `_headers` v31.58 · meta 31.58.20260901.
+
+---
 
 ### 2026-09-01 (au) — v31.57: Der Garten-Zwilling
 
