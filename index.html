@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.34.20260901">
+<meta name="app-version" content="31.35.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -63553,6 +63553,25 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.35', date: '01.09.2026',
+    headline: '\u26a1 Beim Start wurde eine Sekunde lang dasselbe immer wieder durchsucht',
+    summary: 'Drei Hintergrund-Beobachter durchsuchten bei JEDER DOM-\u00c4nderung das gesamte Dokument neu \u2014 und beim Start baut die App dutzende Bausteine nacheinander auf. Auf einem Mittelklasse-Telefon waren das 1\u2019127 Millisekunden verschenkte Arbeit. Jetzt wird nur noch das Neue durchsucht, und das geb\u00fcndelt.',
+    user_summary: '\u26a1 Die App startet auf dem Telefon sp\u00fcrbar williger \u2014 rund eine Sekunde weniger Rechenarbeit, in der vorher kein Fingertipp ankam.',
+    user_items: [
+      { emoji: '\u26a1', text: 'App-Rechenzeit beim Start auf dem Telefon: 1\u2019548ms \u2192 421ms' },
+      { emoji: '\u2705', text: 'Nachgemessen: die Beobachter leisten exakt dasselbe wie vorher' },
+    ],
+    items: [
+      {emoji:'\ud83d\udd0e', bold:'Der Fund:', text:' drei MutationObserver (Auto-ARIA, Auto-Maxlength, Auto-Lazy) beobachteten document.body mit subtree:true und riefen bei jeder Mutation labelize(document) bzw. applyTo(document) bzw. patch(document) \u2014 also je ein querySelectorAll \u00fcber alle 4\u2019486 Knoten. Beim Start ergab das allein 743ms querySelectorAll.'},
+      {emoji:'\u26a1', bold:'Die L\u00f6sung:', text:' die eingef\u00fcgten Teilb\u00e4ume sammeln und in EINEM Durchgang abarbeiten, wenn der Hauptstrang frei ist (requestIdleCallback mit Frist). Notbremse bei \u00fcber 300 Wurzeln: dann ist ein Durchgang \u00fcber das ganze Dokument billiger. Alle drei Funktionen pr\u00fcfen jetzt zus\u00e4tzlich die Wurzel selbst \u2014 querySelectorAll findet nur Nachkommen, ein einzeln eingef\u00fcgter Knopf w\u00e4re sonst durchgerutscht.'},
+      {emoji:'\ud83d\udcc9', bold:'Ergebnis (4x gedrosselt, Mittelklasse-Telefon):', text:' App-JavaScript 1\u2019548ms \u2192 421ms. DOMContentLoaded 1\u2019683 \u2192 1\u2019470ms. Die drei querySelectorAll-Posten (269 + 261 + 177ms) und labelize (71ms) sind vollst\u00e4ndig aus der Messung verschwunden.'},
+      {emoji:'\ud83e\uddf1', bold:'Was NICHT besser wurde \u2014 und warum:', text:' die l\u00e4ngste Einzelblockade sank nur von 782 auf 710ms. Sie besteht n\u00e4mlich nicht aus App-Code, sondern aus dem Parsen der 5,7-MB-Datei (2\u2019633ms). Das ist eine Eigenschaft des Monolithen und liesse sich nur durch Aufteilen \u00e4ndern \u2014 eine Architektur-Entscheidung, keine Aufr\u00e4umarbeit.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Beide St\u00e4nde mit demselben Skript gemessen (scripts/perf_check.js, neu im Repo) \u00b7 Verhaltens-Gegenprobe \u00fcber alle elf Tabs: 199 aria-labels, 65 maxlength, 7 loading-Attribute \u2014 in beiden St\u00e4nden IDENTISCH, also gleiche Wirkung bei einem Drittel der Arbeit \u00b7 Vorher/Nachher am laufenden Programm: 1\u2019522 vergleichbare Elemente, 0 \u00c4nderungen an Radius, Schriftgr\u00f6sse, Gr\u00f6sse und Farbe \u00b7 Kontrast 0 unter AA, Antippfl\u00e4chen 0 unter 24\u00d724 \u00b7 keine JS-Fehler \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.35 \u00b7 sw.js gs-v31.35 \u00b7 _headers v31.35 \u00b7 meta=31.35.20260901.'},
+    ],
+  },
+  {
     v: 'v31.34', date: '01.09.2026',
     headline: '\ud83d\udc46 43 zu kleine Antippfl\u00e4chen \u2014 die kleinste war 8\u00d78 Pixel',
     summary: 'Die Punkte unter den Tageskarten waren acht Pixel gross und lagen vierzehn Pixel auseinander. Die Suchfelder waren nur 18 Pixel hoch, obwohl die Leiste drumherum 37 aussieht \u2014 wer den Rand antippte, traf nichts. Beides und einiges mehr ist behoben, ohne dass sich die Optik \u00e4ndert.',
@@ -69785,7 +69804,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.34';
+var GS_VERSION = 'v31.35';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -73477,7 +73496,12 @@ window.gsRenderGardenStats = function(){
   };
   function labelize(root){
     try {
-      var buttons = (root || document).querySelectorAll('button:not([aria-label])');
+      var r = root || document;
+      // v31.35: querySelectorAll findet nur NACHKOMMEN. Seit wir gezielt die
+      // eingefuegten Knoten scannen statt das ganze Dokument, kann die Wurzel
+      // selbst ein Knopf sein — der wuerde sonst durchrutschen.
+      var buttons = [].slice.call(r.querySelectorAll('button:not([aria-label])'));
+      if (r.nodeType === 1 && r.matches && r.matches('button:not([aria-label])')) buttons.push(r);
       var fixed = 0;
       buttons.forEach(function(btn){
         // Skip wenn aria-labelledby gesetzt
@@ -73510,13 +73534,35 @@ window.gsRenderGardenStats = function(){
   if (document.readyState !== 'loading') setTimeout(run, 500);
   else document.addEventListener('DOMContentLoaded', function(){ setTimeout(run, 500); });
   // MutationObserver fuer dynamisch gerenderte Modals (gsShowAboScreen, gsShowFirstTrialModal, etc.)
+  // v31.35 ── Vorher lief bei JEDER Mutation labelize(document), also ein
+  // querySelectorAll ueber das ganze Dokument (4'486 Knoten). Beim Start
+  // rendert die App dutzende Bausteine nacheinander — daraus wurden auf einem
+  // gedrosselten Geraet 649ms am Stueck, in denen kein Fingertipp ankam.
+  // Jetzt: nur die eingefuegten Teilbaeume scannen, und das gebuendelt in
+  // einem Durchgang, wenn der Hauptstrang frei ist.
   try {
+    var _ariaPend = [], _ariaSched = 0;
+    function _ariaFlush(){
+      _ariaSched = 0;
+      var roots = _ariaPend; _ariaPend = [];
+      // Notbremse: bei sehr vielen Wurzeln ist ein Durchgang ueber das ganze
+      // Dokument billiger als tausend einzelne.
+      if (roots.length > 300) { try { labelize(document); } catch(_){} return; }
+      for (var i = 0; i < roots.length; i++) {
+        if (roots[i].isConnected) { try { labelize(roots[i]); } catch(_){} }
+      }
+    }
     var obs = new MutationObserver(function(mutations){
-      var dirty = false;
-      mutations.forEach(function(m){
-        if (m.addedNodes && m.addedNodes.length) dirty = true;
-      });
-      if (dirty) { try { labelize(document); } catch(_){} }
+      for (var i = 0; i < mutations.length; i++) {
+        var an = mutations[i].addedNodes;
+        if (!an) continue;
+        for (var j = 0; j < an.length; j++) if (an[j].nodeType === 1) _ariaPend.push(an[j]);
+      }
+      if (_ariaPend.length && !_ariaSched) {
+        _ariaSched = (window.requestIdleCallback
+          ? requestIdleCallback(_ariaFlush, { timeout: 400 })
+          : setTimeout(_ariaFlush, 80)) || 1;
+      }
     });
     obs.observe(document.body || document.documentElement, { childList: true, subtree: true });
     window._gsAutoAriasObs = obs;
@@ -73573,7 +73619,10 @@ window.gsRenderGardenStats = function(){
   }
   function applyTo(root){
     try {
-      var sel = (root || document).querySelectorAll('input:not([maxlength]),textarea:not([maxlength])');
+      var r = root || document;
+      var sel = [].slice.call(r.querySelectorAll('input:not([maxlength]),textarea:not([maxlength])'));
+      // v31.35: siehe labelize — die Wurzel selbst kann das Feld sein.
+      if (r.nodeType === 1 && r.matches && r.matches('input:not([maxlength]),textarea:not([maxlength])')) sel.push(r);
       var fixed = 0;
       sel.forEach(function(el){
         var typ = (el.getAttribute('type') || 'text').toLowerCase();
@@ -73592,12 +73641,30 @@ window.gsRenderGardenStats = function(){
   }
   if (document.readyState !== 'loading') setTimeout(run, 600);
   else document.addEventListener('DOMContentLoaded', function(){ setTimeout(run, 600); });
-  // MutationObserver — gleiche Strategie wie Auto-ARIA
+  // v31.35 — MutationObserver, gleiche Strategie wie Auto-ARIA: gebuendelt und
+  // nur auf den eingefuegten Teilbaeumen statt bei jeder Mutation ueber das
+  // ganze Dokument. Der zweite Beobachter hat dieselbe Last verdoppelt.
   try {
+    var _mlPend = [], _mlSched = 0;
+    function _mlFlush(){
+      _mlSched = 0;
+      var roots = _mlPend; _mlPend = [];
+      if (roots.length > 300) { try { applyTo(document); } catch(_){} return; }
+      for (var i = 0; i < roots.length; i++) {
+        if (roots[i].isConnected) { try { applyTo(roots[i]); } catch(_){} }
+      }
+    }
     var obs = new MutationObserver(function(mutations){
-      var dirty = false;
-      mutations.forEach(function(m){ if (m.addedNodes && m.addedNodes.length) dirty = true; });
-      if (dirty) { try { applyTo(document); } catch(_){} }
+      for (var i = 0; i < mutations.length; i++) {
+        var an = mutations[i].addedNodes;
+        if (!an) continue;
+        for (var j = 0; j < an.length; j++) if (an[j].nodeType === 1) _mlPend.push(an[j]);
+      }
+      if (_mlPend.length && !_mlSched) {
+        _mlSched = (window.requestIdleCallback
+          ? requestIdleCallback(_mlFlush, { timeout: 500 })
+          : setTimeout(_mlFlush, 100)) || 1;
+      }
     });
     obs.observe(document.body || document.documentElement, { childList: true, subtree: true });
     window._gsAutoMlObs = obs;
@@ -73613,7 +73680,10 @@ window.gsRenderGardenStats = function(){
   window._gsAutoLazyInit = true;
   function patch(root){
     try {
-      var imgs = (root || document).querySelectorAll('img:not([loading])');
+      var r = root || document;
+      var imgs = [].slice.call(r.querySelectorAll('img:not([loading])'));
+      // v31.35: siehe labelize — die Wurzel selbst kann das Bild sein.
+      if (r.nodeType === 1 && r.matches && r.matches('img:not([loading])')) imgs.push(r);
       var fixed = 0, skipped = 0;
       imgs.forEach(function(img, i){
         // Top-4 Bilder im DOM = LCP-Kandidaten (Splash, Logo, Header, Hero)
@@ -73634,11 +73704,31 @@ window.gsRenderGardenStats = function(){
   }
   if (document.readyState !== 'loading') setTimeout(run, 700);
   else document.addEventListener('DOMContentLoaded', function(){ setTimeout(run, 700); });
+  // v31.35 — dritter Beobachter mit demselben Muster: gebuendelt und auf die
+  // eingefuegten Teilbaeume beschraenkt. Drei Beobachter, die bei jeder
+  // Mutation je einmal das ganze Dokument durchsuchten, ergaben zusammen
+  // 743ms querySelectorAll allein beim Start.
   try {
+    var _lazyPend = [], _lazySched = 0;
+    function _lazyFlush(){
+      _lazySched = 0;
+      var roots = _lazyPend; _lazyPend = [];
+      if (roots.length > 300) { try { patch(document); } catch(_){} return; }
+      for (var i = 0; i < roots.length; i++) {
+        if (roots[i].isConnected) { try { patch(roots[i]); } catch(_){} }
+      }
+    }
     var obs = new MutationObserver(function(mutations){
-      var dirty = false;
-      mutations.forEach(function(m){ if (m.addedNodes && m.addedNodes.length) dirty = true; });
-      if (dirty) { try { patch(document); } catch(_){} }
+      for (var i = 0; i < mutations.length; i++) {
+        var an = mutations[i].addedNodes;
+        if (!an) continue;
+        for (var j = 0; j < an.length; j++) if (an[j].nodeType === 1) _lazyPend.push(an[j]);
+      }
+      if (_lazyPend.length && !_lazySched) {
+        _lazySched = (window.requestIdleCallback
+          ? requestIdleCallback(_lazyFlush, { timeout: 600 })
+          : setTimeout(_lazyFlush, 120)) || 1;
+      }
     });
     obs.observe(document.body || document.documentElement, { childList: true, subtree: true });
     window._gsAutoLazyObs = obs;

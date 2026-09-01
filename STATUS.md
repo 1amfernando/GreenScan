@@ -4,13 +4,72 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.34` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.35` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (t) — v31.35: „smooth" endlich gemessen — eine Sekunde verschenkte Arbeit beim Start
+
+> Fernando hat „es soll auch smooth und zuverlässig funktionieren" ausdrücklich gesagt. Ich hatte das nie gemessen. Das war die letzte offene Zusage.
+
+#### Erst die guten Zahlen
+
+Auf dem Desktop: erster Anstrich 244ms, DOMContentLoaded 405ms, ein Tab-Wechsel kostet 1,3 bis 13,4ms Hauptstrang-Arbeit — unter einem 60-Hz-Bild. Nichts zu tun.
+
+**Unter Telefon-Drosselung sah es anders aus.** Bei 4× (Mittelklasse) blockierte eine einzelne Aufgabe 649ms, bei 6× über eine Sekunde. Solange kommt kein Fingertipp an.
+
+Eine Zwischenmessung musste ich verwerfen: mein erster Tab-Wechsel-Test meldete für fast jeden Tab exakt 33ms. Das war die Wartezeit meiner zwei `requestAnimationFrame` auf einem 30-Hz-Renderer, nicht die Arbeit der App. Ohne diese Wartezeit gemessen: 1,3 bis 13,4ms.
+
+#### Der Fund
+
+Drei `MutationObserver` — Auto-ARIA, Auto-Maxlength, Auto-Lazy — beobachteten `document.body` mit `subtree:true` und riefen bei **jeder** Mutation:
+
+```js
+if (dirty) { try { labelize(document); } catch(_){} }
+```
+
+Also je ein `querySelectorAll` über alle 4'486 Knoten. Beim Start rendert die App dutzende Bausteine nacheinander — jeder löst alle drei aus. Im Profil: **743ms allein für `querySelectorAll`.**
+
+#### Die Lösung
+
+Die eingefügten Teilbäume sammeln und in **einem** Durchgang abarbeiten, wenn der Hauptstrang frei ist (`requestIdleCallback` mit Frist). Notbremse bei über 300 Wurzeln: dann ist ein Durchgang über das ganze Dokument billiger als tausend einzelne.
+
+Dabei eine Falle, die ich beim Schreiben bemerkt habe: `querySelectorAll` findet nur **Nachkommen**. Solange über `document` gescannt wurde, war das egal. Sobald man gezielt die eingefügten Knoten scannt, kann die Wurzel selbst der Knopf sein — der wäre durchgerutscht. Alle drei Funktionen prüfen jetzt zusätzlich die Wurzel.
+
+#### Zahlen (4×, gleiches Skript auf beiden Ständen)
+
+| | vorher | nachher |
+|---|---|---|
+| **App-JavaScript** | **1'548ms** | **421ms** |
+| Parsen/Kompilieren | 2'755ms | 2'633ms |
+| DOMContentLoaded | 1'683ms | 1'470ms |
+| längste Einzelblockade | 782ms | 710ms |
+
+#### Was NICHT besser wurde — und warum ich das so sage
+
+Die längste Blockade sank nur um 72ms. Sie besteht nämlich nicht aus App-Code, sondern aus dem **Parsen der 5,7-MB-Datei**. Die eingesparten 1'127ms verteilten sich auf viele Aufgaben unter 50ms, die nie als „lange Aufgabe" gezählt wurden — es ist trotzdem Arbeit, die das Telefon geleistet und mit Akku bezahlt hat.
+
+Den Monolithen aufzuteilen wäre eine Architektur-Entscheidung. `CLAUDE.md` beschreibt ihn ausdrücklich als das gewählte Vorgehen; das ändere ich nicht nebenbei.
+
+#### Die wichtigste Gegenprobe
+
+Schneller ist wertlos, wenn dabei etwas ausfällt. Über alle elf Tabs gezählt, was die drei Beobachter tatsächlich gesetzt haben:
+
+| | vorher | nachher |
+|---|---|---|
+| `aria-label` gesetzt | 199 | **199** |
+| `maxlength` gesetzt | 65 | **65** |
+| `loading` gesetzt | 7 | **7** |
+
+Identisch. Gleiche Wirkung, ein Drittel der Arbeit.
+
+`scripts/perf_check.js` liegt als viertes Werkzeug im Repo.
+
+---
 
 ### 2026-09-01 (s) — v31.34: Bedienbarkeit — die kleinste Schaltfläche war 8×8 Pixel
 

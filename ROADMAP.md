@@ -5,7 +5,7 @@
 > Kompagnon: `STATUS.md` (operativer Snapshot) · `CLAUDE.md` (Onboarding) ·
 > `BACKEND_FRONTEND_MAP_v26.76.md` (Architektur-Detailkarte).
 
-**Stand:** v31.34 · App **live** auf green-scan.ch · released seit v26.0.
+**Stand:** v31.35 · App **live** auf green-scan.ch · released seit v26.0.
 
 ---
 
@@ -74,6 +74,8 @@ Die App ist ein reifes, live-laufendes Produkt. Erreicht u.a.:
 **Stille CSS-Konflikte bereinigt (v31.33).** 22 Klassen waren zweimal deklariert — die ursprüngliche Regel oben im Dokument, eine zweite aus einem späteren Umbau weiter unten. Bei gleicher Spezifität gewinnt die spätere; die frühere galt nie. 52 tote Deklarationen entfernt, streng abgegrenzt auf Einzelklassen ohne `@media` und ohne `!important`. Nachgemessen 0/0/0/0. Dabei einen Messfehler im eigenen Prüfstand behoben: `getBoundingClientRect()` misst die gedrehte Hülle, ein rotierender Ladekreisel erschien dadurch als Layout-Änderung — jetzt `offsetWidth`/`offsetHeight`.
 
 **Bedienbarkeit: 43 → 0 (v31.34).** Antippflächen unter 24×24 px (WCAG 2.5.8) gemessen und behoben — die kleinste war 8×8: die Karussell-Punkte unter den Tageskarten. Trefferfläche jetzt 24×24, der sichtbare Punkt sitzt als `::before` darin, die Optik ist unverändert. Zweiter echter Fall: die Suchfelder waren 18px hoch in einer 37px hohen Leiste; deren Polsterung reagierte nicht. `scripts/touch_check.js` liegt als drittes Prüfwerkzeug im Repo. Nebenbei belegt: alle **7'081** `onclick`-Ziele lösen zu echten Funktionen auf, kein fehlender Handler.
+
+**Startleistung: App-JS 1'548ms → 421ms (v31.35).** Drei `MutationObserver` (Auto-ARIA, Auto-Maxlength, Auto-Lazy) durchsuchten bei jeder DOM-Änderung das ganze Dokument neu — 743ms `querySelectorAll` allein beim Start. Jetzt gebündelt und auf die eingefügten Teilbäume beschränkt. Gegengeprüft: die drei setzen exakt dieselben 199 `aria-label`, 65 `maxlength` und 7 `loading`-Attribute wie vorher. `scripts/perf_check.js` neu im Repo. **Bewusst nicht angefasst:** die längste Einzelblockade (710ms auf einem Mittelklasse-Telefon) ist das Parsen der 5,7-MB-Datei — das liesse sich nur durch Aufteilen des Monolithen ändern, und das ist eine Architektur-Entscheidung.
 
 **Backend durchgemessen (01.09.).** Leistungs-Advisors zum ersten Mal ausgewertet: 0 ERROR, 0 WARN, kein Fremdschlüssel ohne Index. Die Datenbank ist gesund. Einzige lohnende Aufräumung: 38 Indizes, deren Spalten ein echtes Präfix eines breiteren Index sind — bereitgelegt als `20260901_redundante_indizes.sql`, umkehrbar, nicht Teil der Pflichtschritte.
 
