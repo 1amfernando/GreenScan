@@ -4,13 +4,62 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.31` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.32` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (q) — v31.32: Meine eigene Farbarbeit kam seit v31.20 nie an
+
+> Das Werkzeug aus (p) hat als Erstes etwas gefunden, das mich betrifft.
+
+#### 270 + 21 Textstellen unter dem Mindestwert
+
+`contrast_check.js` misst jede sichtbare Textstelle über neun Tabs in beiden Modi. Ergebnis beim ersten Lauf: **270 im Hellmodus, 21 im Dunkelmodus** unter AA.
+
+Meine erste Lesart war falsch. Ich sah dunklen Text auf dunkelgrünen Bildschirmen und hielt das für die Ursache — das waren 11 Stellen. Die eigentliche Ursache war eine Zeile:
+
+```js
+root.setProperty('--muted', '#888888');   // in applyThemeColors()
+```
+
+`root` ist `documentElement.style` — ein **Inline-Stil**. Der schlägt jede `:root`-Regel im Stylesheet. Vier Token (`--text`, `--text2`, `--muted`, `--border`) wurden dort mit eigenen Werten überschrieben, `--muted` mit `#888888` = **3,54:1** auf Weiss. Darüber der Kommentar: *„Light text colors – always readable on light backgrounds"*.
+
+**Jede Farbanpassung, die ich seit v31.20 an diesen Token gemacht habe, war wirkungslos.** Gerechnet, verifiziert, ausgeliefert — und zur Laufzeit überschrieben.
+
+Warum nur der Hellmodus betroffen war, ist die interessante Hälfte: der Dunkelmodus definiert seine Token auf `body.dark`. Ein Wert auf `body` sticht den von `html` geerbten. Im Hellmodus gibt es keine solche Regel auf `body` — dort gewann der Inline-Wert von `html`. Der Fehler war also sichtbar, aber nur in der Hälfte, in der man ihn am wenigsten sucht.
+
+#### Was noch herausfiel
+
+- **Zwei Themen fallen durch:** die Hauptfarbe des Standard-Themas Grün war `#2d8a2d` = **4,39:1** auf Weiss, Orange `#e65100` = **3,79:1**. Beide dienen als Textfarbe *und* als Knopf-Hintergrund — der Wert gilt in beide Richtungen. Neu `#1f6b2f` (6,56:1) und `#bf360c` (5,60:1).
+- **`body` hatte nie eine `color`.** Sie war damit in beiden Modi Schwarz (der Vorgabewert). Alles ohne eigene Farbe erbte Schwarz — im Dunkelmodus schwarz auf dunkel. Zwölf Stellen auf einen Schlag.
+- **Vierzehn Bildschirme mit dunkler Leinwand.** Text direkt darauf nutzte `--text`/`--muted`. Neue Token `--on-canvas` / `--on-canvas-2`, gegen alle acht Leinwandfarben gerechnet.
+
+#### Ein verworfener Versuch
+
+Für die Leinwände wollte ich eine gemeinsame Regel: `#screen-garden, #screen-social, … { color: #fff }`. Elegant, strukturell, ein Griff statt zwölf.
+
+**Gemessen wurde es davon schlechter — 22 auf 33 Stellen.** Die Regel erzeugte elf Weiss-auf-Weiss-Fälle in Karten und erreichte die gemeinten Elemente gar nicht, weil die eine eigene Farbe setzen. Zurückgenommen, gezielt gearbeitet.
+
+Ohne den Prüfstand hätte ich diese Regel für eine Verbesserung gehalten und ausgeliefert. Das ist der eigentliche Ertrag von (o) und (p): nicht dass ich mehr finde, sondern dass ich meine eigenen Ideen widerlegen kann.
+
+#### Ergebnis
+
+| | vorher | nachher |
+|---|---|---|
+| Hellmodus unter AA | **270** | **0** |
+| Dunkelmodus unter AA | **21** | **0** |
+
+Gegenprobe am laufenden Programm: 1'522 vergleichbare Elemente, **1'002 Farbänderungen und 0 Änderungen an Radius, Schriftgrösse und Grösse** — genau das Profil, das eine reine Farbänderung haben muss.
+
+#### Nachtrag zu v31.28
+
+Die Wetterkachel im **Garten** blieb damals stehen; umgestellt hatte ich nur die auf der Startseite. Auf dem Garten-Bildschirm leuchtete danach als Einzige noch der blaue Verlauf. Angeglichen — eine Unstimmigkeit, die ich selbst hinterlassen hatte.
+
+---
 
 ### 2026-09-01 (p) — v31.31: Typo-Skala, und was der neue Prüfstand sofort zutage fördert
 
