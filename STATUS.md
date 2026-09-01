@@ -4,13 +4,66 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.29` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.30` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (o) — v31.30: Die Lücke schliessen, die ich in (n) selbst benannt habe
+
+> In (n) stand: „das beruht auf nur **11 vergleichbaren Elementen** … das trage ich so vor, statt 11 Elemente als Beweis für 2'286 Stellen auszugeben." Ein benannter Mangel, den man stehen lässt, bleibt ein Mangel. Also behoben.
+
+#### Warum es nicht ging — und ein eigener Denkfehler auf dem Weg
+
+Ich war überzeugt, die fehlende Anmeldung sei schuld. Der Gast-Modus schien der vorgesehene Ausweg: `gsCheckOnboarding` prüft `gs_guest_mode` und soll das Onboarding überspringen. Gesetzt — und das Onboarding blieb.
+
+Dann ein Widerspruch, der nicht sein durfte: `element.style.display` sagte `none`, `getComputedStyle` sagte `block`. Das geht nur mit einer `!important`-Regel. Mein Regel-Sucher meldete: **keine Regel gefunden.**
+
+Der Sucher war kaputt. Er filterte mit
+
+```js
+if (r.cssRules) { /* Gruppenregel, absteigen */ }
+else if (r.selectorText) { /* Style-Regel pruefen */ }
+```
+
+Seit CSS Nesting hat **jede** Style-Regel eine `cssRules`-Liste — leer, aber ein Objekt, also wahr. Der Sucher ist bei jeder Regel abgestiegen und hat nie eine angesehen. Dasselbe Muster wie der Schatten-Fehler in v31.20 und der Regex-Fehler beim Farb-Audit: **eine Prüfung, die immer wahr ist, sieht aus wie ein sauberes Ergebnis.** Was mich stutzig machte, war nicht der Code, sondern dass „0 Treffer" zu glatt war.
+
+Nach der Korrektur stand die Antwort sofort da:
+
+```
+html.gs-preauth #gs-onboarding { display: block !important }
+```
+
+Der **Login-Flash-Guard** (v29.35). Ohne `gs_sb_token` versteckt er `#app` und zeigt das Onboarding — damit die Startseite nicht kurz aufblitzt. Der Prüfstand setzt jetzt einen Token. Nicht um sich anzumelden, sondern damit der Guard gar nicht erst greift.
+
+**11 → 2'596 Elemente** über elf Tabs.
+
+#### Der Fund daneben — und was er *nicht* ist
+
+`gsCheckOnboarding` hatte eine Ausnahme: *„Gast kehrt zurück → Demo-Banner zeigen, kein Onboarding"*. Sie ruft `gsActivateGuestMode(false)` und kehrt zurück. Diese Funktion ist seit **v25.33** ein leerer Rumpf — dort wurde der Demo-Modus abgeschaltet.
+
+Ich war auf dem Weg zu „Alt-Gäste sind ausgesperrt". **Nachgemessen: sind sie nicht.** Der Alt-Gast landet im exakt gleichen Zustand wie jeder Abgemeldete — Onboarding mit Registrieren und Anmelden. Der Zweig log nur im Kommentar. Toter Code, kein Ausfall; entfernt, Schlüssel entsorgt.
+
+Der Beweis war wichtiger als der Fund: Ich hätte hier eine Ausfallgeschichte erzählen können, die sich gut liest und nicht stimmt.
+
+#### v31.29 nachträglich belegt
+
+| | Ergebnis |
+|---|---|
+| vergleichbare Elemente | **1'524** (statt 11) |
+| Radius geändert | 316, grösste Bewegung **2px** |
+| Schriftgrösse geändert | **0** |
+| **Grösse** geändert (Layout) | **0** |
+| Farbe geändert | **0** |
+
+Genau das Profil, das eine reine Radius-Änderung haben muss. Die Entfernung des toten Zweigs ergab gegen den Vorstand **0 Unterschiede in allen vier Kategorien**.
+
+Der Prüfstand liegt als `scripts/render_check.js` im Repo und ist in `CLAUDE.md` §7.1 beschrieben — samt der Faustregel, dass eine reine Farb- oder Radius-Änderung `GROESSE geaendert: 0` ergeben **muss**.
+
+---
 
 ### 2026-09-01 (n) — v31.29: Die Radien-Skala — und ein Fehler, den ich selbst gebaut hatte
 

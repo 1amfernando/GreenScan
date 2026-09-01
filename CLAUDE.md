@@ -217,6 +217,30 @@ Mehrere Sessions arbeiten parallel an diesem Repo. Damit kein Knoten platzt:
 - Anthropic Docs: `https://docs.anthropic.com/`
 - Supabase Dashboard: bei Owner
 
+## 7.1 · Optische Änderungen überprüfen (seit v31.30)
+
+```bash
+node scripts/render_check.js                      # aktuellen Stand vermessen
+node scripts/render_check.js vorher.html nachher.html   # zwei Stände vergleichen
+```
+
+Lädt `index.html` ohne Netz, baut **jeden der elf Tabs** auf und vermisst jedes
+sichtbare Element. Der Vergleichsmodus meldet getrennt, was sich an **Radius**,
+**Schriftgrösse**, **Grösse** (= Layout!) und **Farbe** geändert hat.
+
+Zwei Dinge, die man wissen muss:
+
+- **Der Prüfstand setzt `gs_sb_token`** — nicht um sich anzumelden, sondern weil
+  der Login-Flash-Guard (`index.html` ~Z. 1836) ohne diesen Schlüssel
+  `html.gs-preauth` setzt und damit `#app{display:none!important}`. Ohne Token
+  misst man 11 Elemente statt 2'596.
+- **Der Gast-Modus ist kein Weg hinein.** Er wurde in v25.33 abgeschaltet,
+  `gsActivateGuestMode` ist ein leerer Rumpf.
+
+Faustregel für die Auswertung: eine reine Farb- oder Radius-Änderung **muss**
+`GROESSE geaendert: 0` ergeben. Steht dort etwas anderes, verschiebt die
+Änderung Layout — dann vor dem Ausliefern nachsehen, wo.
+
 ## 8 · Wenn du dich verlaufen hast
 
 - Suchst du eine Funktion? `grep -nE "function <name>" index.html`
