@@ -267,6 +267,14 @@ Faustregel für die Auswertung: eine reine Farb- oder Radius-Änderung **muss**
 `GROESSE geaendert: 0` ergeben. Steht dort etwas anderes, verschiebt die
 Änderung Layout — dann vor dem Ausliefern nachsehen, wo.
 
+**Grenze:** der Vergleich paart Elemente über einen Schlüssel aus DOM-Pfad, id,
+Klasse und Text. Wer Bausteine **umordnet**, ändert genau diesen Pfad — dann
+paart das Werkzeug zwangsläufig falsch und meldet Änderungen, die es nicht gibt.
+Für Umordnungen ist der Vergleich also **nicht** das richtige Mass. Was dort
+trägt: jede id genau einmal vorhanden, keine JS-Fehler, die abhängigen
+Funktionen laufen (bei der Startseite z.B. `gsBuildWidgetStack`), und die
+tatsächliche Reihenfolge im DOM auslesen.
+
 Zwei weitere Prüfstände liegen daneben:
 
 ```bash

@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.38.20260901">
+<meta name="app-version" content="31.39.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2389,53 +2389,21 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 </div>
 <div id="home-content-wrap" style="background:var(--g-bg);min-height:100%;">
 
-  <div id="api-banner" class="api-banner ok" style="display:none;" onclick="if(window._gsIsAdminUser)openApiKey()">
+  
+  <!-- v31.39 — Reihenfolge nach Fernandos Vorlage neu geordnet.
+       Vorher: XP · Kennzahlen · Marktplatz · Wetter · Tagesplan · Quiz · Tagesinfo.
+       Die Vorlage folgt einer anderen Logik: erst WAS ICH WISSEN MUSS (das
+       Wetter bestimmt, was heute im Garten geht), dann WAS ICH TUN SOLL
+       (Tagesplan) — und erst danach Fortschritt, Kennzahlen, Lesestoff und
+       Entdeckung. Der Tagesplan stand bisher an SECHSTER Stelle, hinter
+       Kennzahlen und Marktplatz.
+       Neu: Wetter · Tagesplan · Fortschritt · Kennzahlen · Tagesinfo ·
+       Marktplatz · Quiz. Kein Baustein entfaellt, keiner wird verdoppelt. -->
+<div id="api-banner" class="api-banner ok" style="display:none;" onclick="if(window._gsIsAdminUser)openApiKey()">
     <span>✅</span><span id="banner-text">KI-Scanner bereit</span>
   </div>
 
-  <!-- v23.95: XP-Widget mit größerem Level-Icon, Achievement-Hint und Pulse-Animation bei XP-Gewinn -->
-  <div id="home-xp-widget" style="margin:0 16px 12px;background:var(--hero-bg);border-radius:var(--r-lg);padding:13px 16px;color:#fff;cursor:pointer;position:relative;overflow:hidden;" onclick="(typeof sbIsLoggedIn==='function' &amp;&amp; sbIsLoggedIn()) ? openUserProfile() : openLoginModal();">
-    <div style="display:flex;align-items:center;gap:11px;margin-bottom:9px;">
-      <div style="font-size:var(--fs-4xl);line-height:1;flex-shrink:0;filter:drop-shadow(0 2px 4px rgba(0,0,0,.25));"><span id="home-level-icon">🌱</span></div>
-      <div style="flex:1;min-width:0;">
-        <div id="home-level-name" style="font-size:var(--fs-md);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🌱 Naturentdecker · Level 1</div>
-        <div id="home-xp-count" style="font-size:var(--fs-sm);opacity:.85;font-weight:700;margin-top:1px;">0 XP</div>
-      </div>
-      <div style="font-size:var(--fs-xl);opacity:.55;">›</div>
-    </div>
-
-    <div style="height:7px;background:rgba(255,255,255,.18);border-radius:var(--r-xs);overflow:hidden;">
-      <div id="home-xp-bar-fill" style="width:0%;height:100%;background:linear-gradient(90deg,#fff8e1,#ffd54f);border-radius:var(--r-xs);transition:width var(--dur-slow) cubic-bezier(.34,1.56,.64,1);"></div>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:8px;">
-      <div id="home-xp-achievement" style="font-size:var(--fs-xs);opacity:.78;font-weight:600;display:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0;"></div>
-      <div id="home-xp-next" style="font-size:var(--fs-xs);opacity:.9;font-weight:600;text-align:right;white-space:nowrap;">50 XP bis Level 2</div>
-    </div>
-  </div>
-  <div class="stats-grid">
-    <div class="stat-card" onclick="switchTab('search')" style="cursor:pointer;"><div class="sn" id="stat-total">–</div><div class="sl" data-i18n="stat_species" data-i18n-fallback="🌿 Arten">🌿 Arten</div></div>
-    <div class="stat-card" onclick="filterCat('wildpflanze')" style="cursor:pointer;"><div class="sn" id="stat-edible">–</div><div class="sl" data-i18n="stat_edible" data-i18n-fallback="✅ Essbar">✅ Essbar</div></div>
-    <div class="stat-card" onclick="switchTab('favs')" style="cursor:pointer;"><div class="sn" id="stat-favs">0</div><div class="sl" data-i18n="stat_plants" data-i18n-fallback="🌱 Pflanzen">🌱 Pflanzen</div></div>
-    <div class="stat-card" onclick="openScanHistoryFull()" style="cursor:pointer;"><div class="sn" id="stat-scans">0</div><div class="sl" data-i18n="stat_scans" data-i18n-fallback="📷 Scans">📷 Scans</div></div>
-  </div>
-  <!-- v26.89: „Jetzt gute Zeit für…" — saisonal + Community-beliebte Arten (fn_species_top_picks), initial leer, JS-gefüllt -->
-  <!-- v28.21 D.1: Live-Marktplatz-Karte (ersetzt „Jetzt gute Zeit für…"); Klick → Marktplatz -->
-  <div id="home-marketplace-live" onclick="if(typeof menuNav==='function')menuNav('market')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();menuNav('market');}" style="margin:0 16px 14px;padding:14px;border-radius:var(--r-lg);background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow-sm);cursor:pointer;-webkit-tap-highlight-color:transparent;">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-      <span style="font-size:var(--fs-2xl);">🛒</span>
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:var(--fs-lg);font-weight:800;color:var(--text);" data-i18n="home_mkt_live_title" data-i18n-fallback="Aktive Inserate · Live">Aktive Inserate · Live</div>
-        <div style="font-size:var(--fs-sm);color:var(--muted);" data-i18n="home_mkt_live_sub" data-i18n-fallback="Frisch aus dem Marktplatz">Frisch aus dem Marktplatz</div>
-      </div>
-      <span style="font-size:var(--fs-sm);font-weight:800;color:var(--g-main);white-space:nowrap;" data-i18n="home_mkt_live_all" data-i18n-fallback="Alle ›">Alle ›</span>
-    </div>
-    <div id="home-mkt-live-list"><div style="padding:6px 0 2px;color:var(--muted);font-size:var(--fs-sm);">⏳ Lade Inserate…</div></div>
-  </div>
-  <!-- v28.22 Block C: Home-Kategorien-Sektion entfernt (Fernando-Wunsch). Kategorie-Browsing
-       bleibt via Suche-Tab (Filter) + Pflanzen-Tab + Wissen-Tab erreichbar. cnt-*-Setter sind
-       guarded (9823 + 67143/67146). Bei Bedarf via Git-History in 1 Min wiederherstellbar. -->
-  <!-- Gartenwetter Widget -->
-  <div style="padding:0 16px 10px;">
+<div style="padding:0 16px 10px;">
     <!-- v31.28: Wetter ruhig statt laut. Vorher ein kraeftiger blauer Verlauf —
          das lauteste Element der Startseite und in beiden Modi derselbe harte
          Block. Die Entwuerfe zeigen eine ruhige Karte im selben Material wie
@@ -2482,28 +2450,35 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
   </div>
 
-  <!-- v31.16: „Dein Tagesplan" — Inhalt kommt aus gsRenderDayPlan() -->
-  <div id="home-dayplan" style="padding:0 16px 12px;"></div>
+<div id="home-dayplan" style="padding:0 16px 12px;"></div>
 
-  <!-- v26.75: Quiz-Rangliste Home-Card -->
-  <div style="padding:0 16px 12px;">
-    <div id="home-lb-card" onclick="if(typeof gsOpenQuizLeaderboard==='function')gsOpenQuizLeaderboard()" style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:13px 15px;cursor:pointer;-webkit-tap-highlight-color:transparent;">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:7px;">
-        <div style="font-size:var(--fs-2xl);">🏆</div>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:var(--fs-md);font-weight:800;color:var(--g-dark);">Quiz-Rangliste</div>
-          <div style="font-size:var(--fs-sm);color:var(--muted);">Top-Naturkenner der Schweiz</div>
-        </div>
-        <div style="font-size:var(--fs-xl);opacity:.5;">›</div>
+<div id="home-xp-widget" style="margin:0 16px 12px;background:var(--hero-bg);border-radius:var(--r-lg);padding:13px 16px;color:#fff;cursor:pointer;position:relative;overflow:hidden;" onclick="(typeof sbIsLoggedIn==='function' &amp;&amp; sbIsLoggedIn()) ? openUserProfile() : openLoginModal();">
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:9px;">
+      <div style="font-size:var(--fs-4xl);line-height:1;flex-shrink:0;filter:drop-shadow(0 2px 4px rgba(0,0,0,.25));"><span id="home-level-icon">🌱</span></div>
+      <div style="flex:1;min-width:0;">
+        <div id="home-level-name" style="font-size:var(--fs-md);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🌱 Naturentdecker · Level 1</div>
+        <div id="home-xp-count" style="font-size:var(--fs-sm);opacity:.85;font-weight:700;margin-top:1px;">0 XP</div>
       </div>
-      <div id="home-lb-preview" style="display:flex;flex-wrap:wrap;align-items:center;min-height:16px;">
-        <span style="color:var(--muted);font-size:var(--fs-sm);">⏳ Lade Top-3…</span>
-      </div>
+      <div style="font-size:var(--fs-xl);opacity:.55;">›</div>
+    </div>
+
+    <div style="height:7px;background:rgba(255,255,255,.18);border-radius:var(--r-xs);overflow:hidden;">
+      <div id="home-xp-bar-fill" style="width:0%;height:100%;background:linear-gradient(90deg,#fff8e1,#ffd54f);border-radius:var(--r-xs);transition:width var(--dur-slow) cubic-bezier(.34,1.56,.64,1);"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:8px;">
+      <div id="home-xp-achievement" style="font-size:var(--fs-xs);opacity:.78;font-weight:600;display:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0;"></div>
+      <div id="home-xp-next" style="font-size:var(--fs-xs);opacity:.9;font-weight:600;text-align:right;white-space:nowrap;">50 XP bis Level 2</div>
     </div>
   </div>
 
-  <!-- Tägliche Infotafel -->
-  <div style="padding:0 16px 16px;">
+<div class="stats-grid">
+    <div class="stat-card" onclick="switchTab('search')" style="cursor:pointer;"><div class="sn" id="stat-total">–</div><div class="sl" data-i18n="stat_species" data-i18n-fallback="🌿 Arten">🌿 Arten</div></div>
+    <div class="stat-card" onclick="filterCat('wildpflanze')" style="cursor:pointer;"><div class="sn" id="stat-edible">–</div><div class="sl" data-i18n="stat_edible" data-i18n-fallback="✅ Essbar">✅ Essbar</div></div>
+    <div class="stat-card" onclick="switchTab('favs')" style="cursor:pointer;"><div class="sn" id="stat-favs">0</div><div class="sl" data-i18n="stat_plants" data-i18n-fallback="🌱 Pflanzen">🌱 Pflanzen</div></div>
+    <div class="stat-card" onclick="openScanHistoryFull()" style="cursor:pointer;"><div class="sn" id="stat-scans">0</div><div class="sl" data-i18n="stat_scans" data-i18n-fallback="📷 Scans">📷 Scans</div></div>
+  </div>
+
+<div style="padding:0 16px 16px;">
     <!-- Heute in der Natur -->
     <div id="daily-card" style="background:var(--card);border-radius:var(--r-lg);box-shadow:var(--shadow);overflow:hidden;margin-bottom:12px;">
       <div id="daily-header" style="padding:14px 15px 10px;position:relative;">
@@ -2589,6 +2564,34 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <span style="font-size:var(--fs-2xl);">🚨</span>
       <div style="flex:1;font-size:var(--fs-sm);color:var(--c-danger);line-height:1.4;">
         <strong>Vergiftungsverdacht?</strong> Sofort Tox Info Suisse <strong>145</strong> oder Notruf <strong>144</strong> anrufen.
+      </div>
+    </div>
+  </div>
+
+<div id="home-marketplace-live" onclick="if(typeof menuNav==='function')menuNav('market')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();menuNav('market');}" style="margin:0 16px 14px;padding:14px;border-radius:var(--r-lg);background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow-sm);cursor:pointer;-webkit-tap-highlight-color:transparent;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+      <span style="font-size:var(--fs-2xl);">🛒</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:var(--fs-lg);font-weight:800;color:var(--text);" data-i18n="home_mkt_live_title" data-i18n-fallback="Aktive Inserate · Live">Aktive Inserate · Live</div>
+        <div style="font-size:var(--fs-sm);color:var(--muted);" data-i18n="home_mkt_live_sub" data-i18n-fallback="Frisch aus dem Marktplatz">Frisch aus dem Marktplatz</div>
+      </div>
+      <span style="font-size:var(--fs-sm);font-weight:800;color:var(--g-main);white-space:nowrap;" data-i18n="home_mkt_live_all" data-i18n-fallback="Alle ›">Alle ›</span>
+    </div>
+    <div id="home-mkt-live-list"><div style="padding:6px 0 2px;color:var(--muted);font-size:var(--fs-sm);">⏳ Lade Inserate…</div></div>
+  </div>
+
+<div style="padding:0 16px 12px;">
+    <div id="home-lb-card" onclick="if(typeof gsOpenQuizLeaderboard==='function')gsOpenQuizLeaderboard()" style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:13px 15px;cursor:pointer;-webkit-tap-highlight-color:transparent;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:7px;">
+        <div style="font-size:var(--fs-2xl);">🏆</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:var(--fs-md);font-weight:800;color:var(--g-dark);">Quiz-Rangliste</div>
+          <div style="font-size:var(--fs-sm);color:var(--muted);">Top-Naturkenner der Schweiz</div>
+        </div>
+        <div style="font-size:var(--fs-xl);opacity:.5;">›</div>
+      </div>
+      <div id="home-lb-preview" style="display:flex;flex-wrap:wrap;align-items:center;min-height:16px;">
+        <span style="color:var(--muted);font-size:var(--fs-sm);">⏳ Lade Top-3…</span>
       </div>
     </div>
   </div>
@@ -63592,6 +63595,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.39', date: '01.09.2026',
+    headline: '\ud83e\udded Startseite neu geordnet \u2014 erst wissen, dann tun',
+    summary: 'Der Tagesplan stand an sechster Stelle, hinter Kennzahlen und Marktplatz. Fernandos Vorlage folgt einer anderen Logik: erst was ich wissen muss, dann was ich tun soll. Genau so ist die Startseite jetzt sortiert \u2014 ohne dass ein Baustein wegf\u00e4llt.',
+    user_summary: '\ud83e\udded Die Startseite zeigt jetzt zuerst das Wetter und dann, was heute ansteht. Fortschritt, Kennzahlen und alles Weitere folgen darunter.',
+    user_items: [
+      { emoji: '\ud83e\udded', text: 'Wetter und Tagesplan stehen jetzt oben \u2014 vorher an f\u00fcnfter und sechster Stelle' },
+      { emoji: '\ud83d\udce6', text: 'Kein Baustein entf\u00e4llt, nur die Reihenfolge \u00e4ndert sich' },
+    ],
+    items: [
+      {emoji:'\ud83e\udded', bold:'Vorher \u2192 nachher:', text:' XP \u00b7 Kennzahlen \u00b7 Marktplatz \u00b7 Wetter \u00b7 Tagesplan \u00b7 Quiz \u00b7 Tagesinfo wird zu Wetter \u00b7 Tagesplan \u00b7 Fortschritt \u00b7 Kennzahlen \u00b7 Tagesinfo \u00b7 Marktplatz \u00b7 Quiz. Begr\u00fcndung aus der Vorlage: das Wetter entscheidet, was heute im Garten geht \u2014 also geh\u00f6rt es nach oben; direkt danach die Aufgaben. Fortschritt, Lesestoff und Entdeckung sind wichtig, aber nicht dringend.'},
+      {emoji:'\ud83d\udd0c', bold:'Verdrahtung gepr\u00fcft, bevor umgeordnet wurde:', text:' zwei Stellen im Code h\u00e4ngen an DOM-Reihenfolge. gsBuildWidgetStack (baut aus vier Karten den wischbaren Stapel) sucht per id und verschiebt die Karten selbst \u2014 ordnungsunabh\u00e4ngig. gsMoreFeedbackFirst betrifft einen anderen Bildschirm. Am laufenden Programm best\u00e4tigt: Stapel baut sich (4 Folien, 4 Punkte), Tagesplan f\u00fcllt sich, jede id genau einmal, keine JS-Fehler.'},
+      {emoji:'\u26a0\ufe0f', bold:'Wo mein Vergleichswerkzeug hier NICHT hilft:', text:' es paart Elemente \u00fcber einen Schl\u00fcssel aus DOM-Pfad, id, Klasse und Text. Eine Umordnung \u00e4ndert genau diesen Pfad \u2014 also paart es zwangsl\u00e4ufig falsch. Es meldete eine Schriftgr\u00f6ssen\u00e4nderung von 12px an einem 🌱; nachgemessen sind alle vier 🌱-Elemente in beiden St\u00e4nden identisch, nur ihre Position ist eine andere. Diese Grenze steht jetzt in CLAUDE.md §7.1, samt dem, was stattdessen tr\u00e4gt.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Reihenfolge im DOM ausgelesen und best\u00e4tigt \u00b7 alle 13 gepr\u00fcften ids genau einmal vorhanden, keine fehlt \u00b7 gsBuildWidgetStack gebaut (4 Folien, 4 Punkte), Tagesplan mit 3 Eintr\u00e4gen gef\u00fcllt, 5 Nav-Icons, Edelweiss vorhanden \u00b7 keine JS-Fehler \u00b7 Kontrast 0 unter AA in beiden Modi \u00b7 Antippfl\u00e4chen 0 unter 24\u00d724 \u00b7 die eine gemeldete Schrift\u00e4nderung als Fehlpaarung nachgewiesen \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.39 \u00b7 sw.js gs-v31.39 \u00b7 _headers v31.39 \u00b7 meta=31.39.20260901.'},
+    ],
+  },
+  {
     v: 'v31.38', date: '01.09.2026',
     headline: '\ud83e\udded Neue Navigationsleiste \u2014 hell, mit Strich-Icons und dem Edelweiss',
     summary: 'Nach Fernandos Vorlage: helle Fl\u00e4che statt dunkelgr\u00fcnem Balken, gezeichnete Strich-Icons statt Emoji, kleine Beschriftungen in Normalschreibung. Der Mittelknopf tr\u00e4gt jetzt das Edelweiss aus dem App-Icon. Der Icon-Satz lag \u00fcbrigens schon im Repo \u2014 er war nur nie eingebaut.',
@@ -64063,7 +64084,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.38';
+var GS_VERSION = 'v31.39';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

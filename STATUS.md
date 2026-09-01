@@ -4,13 +4,42 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.38` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.39` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (z) — v31.39: Startseite neu geordnet — erst wissen, dann tun
+
+#### Was die Vorlage anders macht
+
+Fernandos Bild zeigt: Begrüssung → **Wetter** (mit einem Satz Rat) → **„Dein Tagesplan"** mit Aufgabenzeilen → **„Nächster Schritt"**. Das ist eine klare Rangfolge: *was muss ich wissen* vor *was soll ich tun* vor allem Übrigen.
+
+Die App zeigte: XP · Kennzahlen · Marktplatz · Wetter · **Tagesplan** · Quiz · Tagesinfo. Der Tagesplan — das Einzige, was den Nutzer zum Handeln bringt — stand an **sechster** Stelle.
+
+Neu: **Wetter · Tagesplan · Fortschritt · Kennzahlen · Tagesinfo · Marktplatz · Quiz.** Kein Baustein entfällt.
+
+#### Verdrahtung zuerst, dann umgeordnet
+
+Vor dem Verschieben habe ich gesucht, was an DOM-Reihenfolge hängt. Zwei Stellen:
+
+- **`gsBuildWidgetStack`** baut aus vier Karten den wischbaren Stapel. Sie sucht **per id** und verschiebt die Karten selbst in einen Viewport — Adjazenz ist ihr egal. Ordnungsunabhängig.
+- **`gsMoreFeedbackFirst`** nutzt `hero.nextSibling`, betrifft aber `#screen-more`, nicht die Startseite.
+
+Am laufenden Programm bestätigt: Stapel baut sich (4 Folien, 4 Punkte), Tagesplan füllt sich mit 3 Einträgen, alle 13 geprüften ids genau einmal vorhanden, keine JS-Fehler.
+
+#### Wo mein Vergleichswerkzeug hier nicht hilft
+
+`render_check.js` paart Elemente über einen Schlüssel aus **DOM-Pfad**, id, Klasse und Text. Eine Umordnung ändert genau diesen Pfad — also paart es zwangsläufig falsch.
+
+Es meldete eine Schriftgrössenänderung von **12px** an einem `🌱`. Nachgemessen: alle vier `🌱`-Elemente sind in beiden Ständen identisch (40×32, 40×36, 69×24, 52×49 — jeweils gleiche Schriftgrösse), nur ihre Position ist eine andere.
+
+Das ist keine Schwäche, die man wegprogrammiert — es ist die Natur eines positionsbasierten Vergleichs. Die Grenze steht jetzt in `CLAUDE.md` §7.1, samt dem, was für Umordnungen stattdessen trägt: ids zählen, JS-Fehler prüfen, die abhängigen Funktionen laufen lassen, die tatsächliche Reihenfolge auslesen.
+
+---
 
 ### 2026-09-01 (y) — v31.38: Navigationsleiste nach Vorlage — und ein Icon-Satz, der seit Monaten ungenutzt im Repo lag
 
