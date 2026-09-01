@@ -12,6 +12,45 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-01 (e) — Backend durchgemessen: gesund, mit einer lohnenden Aufräumung
+
+> Fernando wollte „Peakfein" auch im Backend. Also zum ersten Mal die **Leistungs-Advisors** ausgewertet — und nicht bei der Zusammenfassung stehengeblieben.
+
+#### Der Befund ist gut, und das ist die eigentliche Nachricht
+
+| Prüfung | Ergebnis |
+|---|---|
+| Leistungs-Advisors | **0 ERROR, 0 WARN**, 146 INFO |
+| Sicherheits-Advisors | 0 ERROR |
+| Fremdschlüssel ohne führenden Index | **0** |
+| Tabellen mit auffälligen Seq-Scans | 3, alle klein (2 164 / 2 838 / 8 182 Zeilen) |
+
+Bei kleinen Tabellen wählt Postgres bewusst den vollen Scan — das ist kein Fehler. Ich hätte hier Arbeit erfinden können; es gibt keine.
+
+#### Die eine echte Aufräumung — und warum ich sie anders begründe als der Advisor
+
+Der Advisor meldet **145 „unused_index"**. Danach zu löschen wäre falsch: ein Index kann ungenutzt sein, weil das Feature selten benutzt wird, nicht weil er überflüssig ist. Wer so aufräumt, nimmt der App irgendwann genau den Index weg, den sie beim Wachsen braucht.
+
+Deshalb ein hartes Kriterium statt einer Statistik: **ein Index ist überflüssig, wenn seine Spalten ein echtes Präfix eines anderen Index derselben Tabelle sind.** Dann kann Postgres den breiteren für jede Abfrage nutzen, die der schmalere bedienen würde — der schmalere trägt nichts bei und wird trotzdem bei jedem Schreibvorgang mitgepflegt.
+
+Das ergibt **38** Indizes, nicht 145.
+
+#### Drei Fehler, die die Prüfung selbst fast gemacht hätte
+
+1. **Textvergleich statt Array.** `pg_index.indkey` ist `"1 2"`. Mit `LIKE '1%'` wäre `"12 3"` ein Treffer gewesen — Spalte 12 als Präfix von Spalte 1. Jetzt `int[]`-Vergleich.
+2. **Zugriffstyp ignoriert.** Der erste Lauf meldete `species_name_trgm` (GIN, Trigramm) als „enthalten in" `species_elevation_idx` (B-Tree). Zwei völlig verschiedene Indexarten. Jetzt Abgleich über `amname`.
+3. **Partielle Indizes.** `idx_notifications_user_id` schien durch `idx_notifications_dedup` gedeckt — das ist aber ein **partieller** Index und deckt nur einen Teil der Zeilen. Drei Kandidaten sind genau daran gescheitert und stehen deshalb **nicht** in der Migration.
+
+Alle drei wären als saubere Liste durchgegangen, wenn ich das erste Ergebnis genommen hätte.
+
+#### Ehrliche Einordnung des Nutzens
+
+Plattenplatz: **504 kB**. Das ist nichts. Der Gewinn liegt im Schreibpfad — `notifications`, `push_send_log`, `user_scans`, `garden_diary` und `sensor_readings` pflegen bei jedem Schreibvorgang einen Index, den keine Abfrage braucht. Spürbar, nicht dramatisch. Wer mehr verspricht, übertreibt.
+
+Die Migration `20260901_redundante_indizes.sql` liegt bereit, ist **nicht** Teil der Pflichtschritte im Runbook (reine Hygiene, jederzeit nachholbar) und jederzeit umkehrbar — die `CREATE`-Zeilen stehen auskommentiert darin. Nachkontroll-Abfrage ebenfalls enthalten; erwartet werden danach 0 Zeilen.
+
+- **Verify:** alle 38 Indexnamen gegen die Live-DB geprüft — **38 existieren, 0 fehlen, 0 sind unique, 0 sind partiell** · Deckungs-Index je Zeile in der Migration dokumentiert · `bash -n` auf dem Runbook OK · nur lesende Abfragen, keine DDL ausgeführt · **kein Versions-Bump**, weil sich an der App nichts ändert.
+
 ### 2026-09-01 (d) — v31.20: Der Dunkelmodus leuchtete an 523 Stellen
 
 > Fernandos Auftrag: mehr Selbstinitiative, „Peakfein" in Front- und Backend, so futuristisch wie die Entwürfe. Statt weiter Bildschirm für Bildschirm zu gehen, habe ich zuerst **gemessen**, wo die App vom Anspruch entfernt ist. Das Ergebnis war eindeutig genug, um es zur eigenen Aufgabe zu machen.
