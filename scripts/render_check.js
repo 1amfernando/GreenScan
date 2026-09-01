@@ -189,14 +189,22 @@ async function scan(browser, file) {
     const [[, A], [, B]] = res;
     const ma = new Map(A.rows.map(o => [o.key, o])), mb = new Map(B.rows.map(o => [o.key, o]));
     let n = 0, dr = 0, dfs = 0, dsize = 0, dcolor = 0, maxR = 0, maxFs = 0;
-    const ex = [];
+    const ex = [], exC = [];
     for (const [k, a] of ma) {
       const b = mb.get(k); if (!b) continue;
       n++;
       if (a.r !== b.r)   { dr++;  if (Math.abs(b.r-a.r)   > Math.abs(maxR))  maxR  = b.r - a.r; }
       if (a.fs !== b.fs) { dfs++; if (Math.abs(b.fs-a.fs) > Math.abs(maxFs)) maxFs = b.fs - a.fs; }
       if (a.w !== b.w || a.h !== b.h) { dsize++; if (ex.length < 10) ex.push(`${a.w}x${a.h} → ${b.w}x${b.h}  ${k.slice(0,70)}`); }
-      if (a.color !== b.color || a.bg !== b.bg) dcolor++;
+      // v31.47: bisher wurde nur GEZAEHLT. Ein „Farbe geaendert: 3" ohne
+      // Angabe, welche, ist nicht nachpruefbar — man kann es nur glauben
+      // oder ignorieren, und beides ist falsch.
+      if (a.color !== b.color || a.bg !== b.bg) {
+        dcolor++;
+        if (exC.length < 10) exC.push(
+          (a.color !== b.color ? `Schrift ${a.color} → ${b.color}` : `Flaeche ${a.bg} → ${b.bg}`) +
+          '  ' + k.slice(0, 62));
+      }
     }
     console.log('\n=== Vergleich');
     console.log('  vergleichbare Elemente:', n);
@@ -205,5 +213,6 @@ async function scan(browser, file) {
     console.log('  GROESSE geaendert (Layout!):', dsize);
     ex.forEach(e => console.log('     ', e));
     console.log('  Farbe geaendert:', dcolor);
+    exC.forEach(e => console.log('     ', e));
   }
 })();
