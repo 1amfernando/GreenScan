@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.27.20260901">
+<meta name="app-version" content="31.28.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -389,6 +389,36 @@ body{height:100%;background:var(--fill-dark);font-family:"DM Sans",sans-serif;ov
 
 
 .tabs{position:fixed;bottom:0;left:0;right:0;height:calc(var(--sb)+var(--tab-h));padding-bottom:var(--sb);background:var(--fill-dark);border-top:1px solid rgba(255,255,255,.08);display:flex;z-index:var(--z-overlay);box-shadow:var(--elev-3);}
+/* v31.28 — Gartenwetter als ruhige Karte. Der alte blaue Verlauf war das
+   lauteste Element der Startseite und in beiden Modi derselbe harte Block;
+   auf der warmen Creme-Flaeche wirkte er wie ein Fremdkoerper. Gleiches
+   Material wie alle anderen Karten, Farbe nur noch dort, wo sie etwas sagt
+   (Warnung). */
+.gs-wx{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--elev-1);
+  padding:13px 14px 10px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform var(--dur) ease;overflow:hidden;}
+.gs-wx:active{transform:scale(.99);}
+.gs-wx-top{display:flex;align-items:center;gap:12px;}
+.gs-wx-ico{font-size:32px;line-height:1;flex-shrink:0;}
+.gs-wx-main{flex:1;min-width:0;}
+.gs-wx-kick{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);}
+.gs-wx-temp{font-family:'Playfair Display',serif;font-size:24px;font-weight:800;line-height:1.15;color:var(--text);margin-top:1px;}
+.gs-wx-side{text-align:right;flex-shrink:0;font-size:11px;color:var(--muted);line-height:1.7;font-weight:600;}
+.gs-wx-desc{font-size:12px;color:var(--text2);line-height:1.45;margin-top:7px;}
+.gs-wx-warn{background:var(--bg-danger-soft);color:var(--c-danger-d);border-radius:10px;padding:8px 11px;margin-top:9px;
+  font-size:12px;font-weight:700;display:flex;align-items:center;gap:7px;}
+.gs-wx-fc{display:flex;margin-top:9px;border-top:1px solid var(--border);padding-top:8px;}
+/* v31.28 — Vorschau-Spalten: Trenner ueber :not(:first-child), damit hinter der
+   letzten Spalte KEINE Linie stehen bleibt. Vorher zeichnete der Live-Pfad
+   border-right auf jede Spalte (auch die letzte) und der Cache-Pfad schob
+   stattdessen ein <div> als Trenner dazwischen — zwei Wege, zwei Ergebnisse. */
+.gs-wx-day{flex:1;text-align:center;padding:5px 2px;min-width:0;}
+.gs-wx-day + .gs-wx-day{border-left:1px solid var(--border);}
+.gs-wx-day-n{font-size:9.5px;font-weight:700;color:var(--text);opacity:.7;margin-bottom:2px;}
+.gs-wx-day-i{font-size:16px;line-height:1.2;margin-bottom:2px;}
+.gs-wx-day-x{font-size:10.5px;font-weight:800;color:var(--text);}
+.gs-wx-day-m{font-size:9.5px;color:var(--text);opacity:.6;}
+.gs-wx-more{font-size:10px;font-weight:700;color:var(--g-main);text-align:right;margin-top:6px;letter-spacing:.2px;}
+@media (prefers-reduced-motion: reduce){.gs-wx{transition:none;}.gs-wx:active{transform:none;}}
 /* v31.27 — Die Navigationsleiste ist in BEIDEN Modi dunkel (--fill-dark).
    Ihre Beschriftung nutzte aber --muted und --g-main, also Token, die nur
    fuer helle Flaechen im jeweiligen Modus stimmen. Im HELLmodus ergab das
@@ -2353,27 +2383,34 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
        guarded (9823 + 67143/67146). Bei Bedarf via Git-History in 1 Min wiederherstellbar. -->
   <!-- Gartenwetter Widget -->
   <div style="padding:0 16px 10px;">
-    <div id="home-weather-widget" style="border-radius:var(--r);overflow:hidden;cursor:pointer;" >
-      <div onclick="openWeatherDetail()" style="cursor:pointer;background:linear-gradient(135deg,#0d47a1,#1565c0);padding:13px 15px;color:#fff;display:flex;align-items:center;gap:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;" title="Detaillierte Wetterinfos">
-        <div id="hw-icon" style="font-size:36px;flex-shrink:0;">🌤️</div>
-        <div style="flex:1;">
-          <div data-i18n="hw_label_gartenwetter" data-i18n-fallback="🌱 Gartenwetter" style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;opacity:.8;">🌱 Gartenwetter</div>
-          <div id="hw-temp" style="font-family:'Playfair Display',serif;font-size:22px;font-weight:800;line-height:1.1;">– °C</div>
-          <div id="hw-desc" style="font-size:11.5px;opacity:.88;margin-top:2px;">Standort ermitteln…</div>
+    <!-- v31.28: Wetter ruhig statt laut. Vorher ein kraeftiger blauer Verlauf —
+         das lauteste Element der Startseite und in beiden Modi derselbe harte
+         Block. Die Entwuerfe zeigen eine ruhige Karte im selben Material wie
+         alles andere. ALLE IDs bleiben unveraendert (hw-icon, hw-temp, hw-desc,
+         hw-wind, hw-humidity, hw-uv, hw-warning, hw-warning-text, hw-forecast) —
+         das JS schreibt weiter genau dorthin. -->
+    <div id="home-weather-widget" class="gs-wx" onclick="openWeatherDetail()" role="button" tabindex="0"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openWeatherDetail();}"
+         title="Detaillierte Wetterinfos">
+      <div class="gs-wx-top">
+        <div id="hw-icon" class="gs-wx-ico">🌤️</div>
+        <div class="gs-wx-main">
+          <div class="gs-wx-kick" data-i18n="hw_label_gartenwetter" data-i18n-fallback="Gartenwetter">Gartenwetter</div>
+          <div id="hw-temp" class="gs-wx-temp">– °C</div>
         </div>
-        <div style="text-align:right;">
-          <div id="hw-wind" style="font-size:11.5px;opacity:.85;">💨 – km/h</div>
-          <div id="hw-humidity" style="font-size:11px;opacity:.75;margin-top:2px;">💧 –%</div>
-          <div id="hw-uv" style="font-size:11px;opacity:.75;margin-top:2px;">☀️ UV –</div>
+        <div class="gs-wx-side">
+          <div id="hw-wind">💨 – km/h</div>
+          <div id="hw-humidity">💧 –%</div>
+          <div id="hw-uv">☀️ UV –</div>
         </div>
       </div>
+      <div id="hw-desc" class="gs-wx-desc">Standort ermitteln…</div>
       <!-- Warnung (versteckt bis Sturm) -->
-      <div id="hw-warning" style="display:none;background:#e53935;color:#fff;padding:8px 14px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:7px;">
-        <span style="font-size:18px;">⚠️</span><span id="hw-warning-text"></span>
+      <div id="hw-warning" class="gs-wx-warn" style="display:none;">
+        <span style="font-size:17px;">⚠️</span><span id="hw-warning-text"></span>
       </div>
-      <!-- 3-Tages Vorschau -->
-      <div style="font-size:9px;opacity:.6;text-align:right;padding:2px 4px 0;letter-spacing:.3px;font-weight:700;">Details →</div>
-      <div id="hw-forecast" style="background:rgba(255,255,255,.12);display:flex;border-top:1px solid rgba(255,255,255,.15);"></div>
+      <div id="hw-forecast" class="gs-wx-fc"></div>
+      <div class="gs-wx-more">Details <span aria-hidden="true">→</span></div>
     </div>
 <div style="margin:0 16px 12px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
   <div onclick="openSaekalender()" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:9px 6px;text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent;">
@@ -9532,6 +9569,25 @@ async function loadGardenWeather(forceReload) {
   }
 }
 
+/* v31.28 — EINE Vorschau-Darstellung fuer beide Wetter-Pfade.
+   Vorher rendern zwei Stellen die 3-Tages-Vorschau unabhaengig voneinander:
+   loadHomeWeather() (Live-Fetch, Boot) schrieb color:#fff und
+   rgba(255,255,255,.7) fest — auf der hellen Karte seit v31.28 unsichtbar —
+   und zeigte 4 Spalten; gsApplyWeatherToWidget() (Cache-Treffer) zeigte 3.
+   Wer die App oeffnete, sah je nach Cache-Zustand ein anderes Widget.
+   items: [{n:Tagesname, i:Emoji, x:Max, m:Min}] */
+function _gsWxForecastHtml(items) {
+  var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function(v){ return String(v == null ? '' : v); };
+  return items.map(function(it) {
+    return '<div class="gs-wx-day">' +
+      '<div class="gs-wx-day-n">' + esc(it.n) + '</div>' +
+      '<div class="gs-wx-day-i">' + esc(it.i) + '</div>' +
+      '<div class="gs-wx-day-x">' + esc(it.x) + '\u00b0</div>' +
+      '<div class="gs-wx-day-m">' + esc(it.m) + '\u00b0</div>' +
+    '</div>';
+  }).join('');
+}
+
 function gsApplyWeatherToWidget(data) {
   var cw = data.current_weather;
   if (!cw) return;
@@ -9570,18 +9626,16 @@ function gsApplyWeatherToWidget(data) {
   if (data.daily) {
     var forecastEl = document.getElementById('hw-forecast');
     if (forecastEl) {
-      var days = ['So','Mo','Di','Mi','Do','Fr','Sa'];
-      forecastEl.innerHTML = data.daily.time.slice(0,3).map(function(d,i) {
-        var dn = i===0?'Heute':i===1?'Morgen':days[new Date(d).getDay()];
-        var fi = WMO_ICONS[data.daily.weathercode[i]] || '🌡️';
-        var fm = Math.round(data.daily.temperature_2m_max[i]);
-        var fn2 = Math.round(data.daily.temperature_2m_min[i]);
-        return '<div style="flex:1;text-align:center;padding:5px 2px;">' +
-          '<div style="font-size:9px;opacity:.7;margin-bottom:2px;">' + dn + '</div>' +
-          '<div style="font-size:15px;margin-bottom:2px;">' + fi + '</div>' +
-          '<div style="font-size:10px;font-weight:800;">' + fm + '°</div>' +
-          '<div style="font-size:9px;opacity:.6;">' + fn2 + '°</div></div>';
-      }).join('<div style="width:1px;background:rgba(255,255,255,.15);"></div>');
+      var _wt2 = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k,f){ return f; };
+      var days = _wt2('days_short_mo_so','Mo,Di,Mi,Do,Fr,Sa,So').split(',');
+      forecastEl.innerHTML = _gsWxForecastHtml(data.daily.time.slice(0,4).map(function(d,i) {
+        return {
+          n: i === 0 ? _wt2('forecast_today','Heute') : days[(new Date(d).getDay()+6)%7],
+          i: WMO_ICONS[data.daily.weathercode[i]] || '🌡️',
+          x: Math.round(data.daily.temperature_2m_max[i]),
+          m: Math.round(data.daily.temperature_2m_min[i])
+        };
+      }));
     }
   }
 
@@ -20869,18 +20923,12 @@ async function loadHomeWeather() {
       const _wt = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k,f){ return f; };
       const days = _wt('days_short_mo_so','Mo,Di,Mi,Do,Fr,Sa,So').split(',');
       // getDay(): 0=So … 6=Sa → Array beginnt bei Mo, daher Index (getDay()+6)%7
-      forecastEl.innerHTML = d.daily.time.slice(0,4).map((date, i) => {
-        const dayName = i === 0 ? _wt('forecast_today','Heute') : days[(new Date(date).getDay()+6)%7];
-        const fi = WEATHER_CODE_MAP[d.daily.weather_code[i]] || '🌤️';
-        const mx = Math.round(d.daily.temperature_2m_max[i]);
-        const mn = Math.round(d.daily.temperature_2m_min[i]);
-        return '<div style="flex:1;text-align:center;padding:7px 4px;border-right:1px solid rgba(255,255,255,.1);">' +
-          '<div style="font-size:9.5px;color:rgba(255,255,255,.7);font-weight:700;">' + dayName + '</div>' +
-          '<div style="font-size:20px;margin:3px 0;">' + fi + '</div>' +
-          '<div style="font-size:10.5px;color:#fff;font-weight:700;">' + mx + '°</div>' +
-          '<div style="font-size:9.5px;color:rgba(255,255,255,.65);">' + mn + '°</div>' +
-        '</div>';
-      }).join('');
+      forecastEl.innerHTML = _gsWxForecastHtml(d.daily.time.slice(0,4).map((date, i) => ({
+        n: i === 0 ? _wt('forecast_today','Heute') : days[(new Date(date).getDay()+6)%7],
+        i: WEATHER_CODE_MAP[d.daily.weather_code[i]] || '🌤️',
+        x: Math.round(d.daily.temperature_2m_max[i]),
+        m: Math.round(d.daily.temperature_2m_min[i])
+      })));
     }
 
     // Sturmwarnung: prüfe nächste 2h
@@ -63424,6 +63472,26 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.28', date: '01.09.2026',
+    headline: '🌤️ Die Wetterkarte passt jetzt zum Rest der Startseite',
+    summary: 'Das Wetter-Widget war der letzte laute Block auf der Startseite: kräftiger Blau-Verlauf mit weisser Schrift, während daneben alles auf heller Karte mit ruhigem Rahmen sitzt. Es hat jetzt dasselbe Material wie jede andere Karte — Farbe nur noch dort, wo sie etwas aussagt: bei der Sturmwarnung.',
+    user_summary: '🌤️ Die Wetterkarte auf der Startseite sieht aus wie alles andere — ruhig statt knallblau. Und die 4-Tage-Vorschau zeigt jetzt immer dasselbe, egal wie die App geladen hat.',
+    user_items: [
+      { emoji: '🌤️', text: 'Wetterkarte in Karten-Optik statt blauem Verlauf — Farbe bleibt der Warnung vorbehalten' },
+      { emoji: '📅', text: 'Vorschau zeigte je nach Ladeweg 3 oder 4 Tage — jetzt immer 4' },
+      { emoji: '👁️', text: 'Ein Ladeweg hätte die Vorschau weiss auf weiss gezeichnet — behoben, bevor es jemand sah' },
+    ],
+    items: [
+      {emoji:'🌤️', bold:'Ein Material für alle Karten:', text:' das Widget nutzte linear-gradient(135deg,#0d47a1,#1565c0) mit weisser Schrift. Jetzt --card / --border / --elev-1 wie jede andere Karte. Alle zehn von JavaScript beschriebenen IDs (hw-icon, hw-temp, hw-desc, hw-wind, hw-humidity, hw-uv, hw-warning, hw-warning-text, hw-forecast, home-weather-widget) unverändert — je genau einmal im Dokument geprüft.'},
+      {emoji:'👁️', bold:'Zwei Wege, zwei Ergebnisse:', text:' die 3-Tages-Vorschau wurde an zwei Stellen unabhängig gerendert. loadHomeWeather() (Live-Abruf beim Start) schrieb color:#fff und rgba(255,255,255,.7) fest — auf der neuen hellen Karte unsichtbar — und zeigte 4 Spalten; gsApplyWeatherToWidget() (Cache-Treffer) zeigte 3 mit geerbter Farbe. Beide gehen jetzt durch _gsWxForecastHtml().'},
+      {emoji:'📏', bold:'Trenner nur zwischen den Spalten:', text:' der eine Weg zeichnete border-right auf jede Spalte, also auch hinter der letzten; der andere schob ein Trenner-<div> dazwischen. Jetzt .gs-wx-day + .gs-wx-day{border-left} — eine Regel, kein Rest.'},
+      {emoji:'🔤', bold:'Wochentage aus der Übersetzung:', text:' der Cache-Weg hatte die Kürzel als deutsches Array fest im Code (So,Mo,Di…), der Live-Weg las sie aus gsI18n. Beide lesen jetzt gsI18n — die Vorschau ist damit auch in den anderen Sprachen richtig beschriftet.'},
+    ],
+    verify: [
+      {emoji:'✅', bold:'Verify:', text:' Kontrast der Vorschau in beiden Modi gerechnet (Tagesname 7,11:1 hell / 7,76:1 dunkel, Min-Temperatur 4,95:1 / 6,08:1 — alle über AA 4,5:1) · Helper-Quelle direkt aus index.html in einen Playwright-Prüfstand geladen und in drei Zuständen gerendert (hell, dunkel, hell mit Warnung), keine JS-Fehler · 10/10 IDs je genau einmal · 9/9 Inline-Scripts node --check OK · GS_VERSION=v31.28 · sw.js gs-v31.28 · _headers v31.28 · meta=31.28.20260901.'},
+    ],
+  },
+  {
     v: 'v31.27', date: '01.09.2026',
     headline: '🧭 Die untere Navigation war im Hellmodus kaum lesbar',
     summary: 'Die Navigationsleiste ist in beiden Modi dunkelgrün — ihre Beschriftung nutzte aber Farb-Token für helle Flächen. Im Hellmodus ergab das 1,86:1 für den aktiven und 2,28:1 für die übrigen Reiter. Im Dunkelmodus hatte das jemand dreimal überschrieben, im Hellmodus nie.',
@@ -69522,7 +69590,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.27';
+var GS_VERSION = 'v31.28';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
