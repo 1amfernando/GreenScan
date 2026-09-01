@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.21.20260901">
+<meta name="app-version" content="31.22.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -165,6 +165,19 @@
   --c-pink:          #c2185b;
   --c-brown-d:       #4e342e;
 
+  /* v31.22 — Oberflaechen-System. Vorgefunden: 133 verschiedene Schatten und
+     10 verschiedene Unschaerfe-Werte. Das ist keine Skala, das ist Rauschen —
+     und der Grund, warum die App zusammengesetzt statt aus einem Guss wirkt.
+     Vier Hoehenstufen und drei Unschaerfen genuegen fuer alles. */
+  --blur-sm: 4px;
+  --blur-md: 8px;
+  --blur-lg: 12px;
+  --elev-1: 0 2px 8px rgba(0,0,0,.07);
+  --elev-2: 0 4px 16px rgba(0,0,0,.10);
+  --elev-3: 0 8px 28px rgba(0,0,0,.14);
+  --elev-4: 0 12px 40px rgba(0,0,0,.20);
+  --elev-brand: 0 4px 14px rgba(45,138,45,.32);
+
 }
 
 body.dark{
@@ -224,6 +237,16 @@ body.dark{
   --c-lime-d:        #c5e1a5;   /* 8.4 · 10.9 */
   --c-pink:          #f48fb1;   /* 6.0 · 7.0 */
   --c-brown-d:       #bcaaa4;   /* 5.8 · 7.0 */
+
+  /* v31.22 — Hoehenstufen im Dunkelmodus. Ein Schatten mit 7 % Deckkraft ist
+     auf dunklem Grund unsichtbar; Tiefe entsteht dort nur ueber deutlich
+     staerkere Werte. Der Marken-Glow wird neutral, weil Gruen auf Gruen
+     keine Kante zeichnet. */
+  --elev-1: 0 2px 8px rgba(0,0,0,.40);
+  --elev-2: 0 4px 16px rgba(0,0,0,.48);
+  --elev-3: 0 8px 28px rgba(0,0,0,.55);
+  --elev-4: 0 12px 40px rgba(0,0,0,.65);
+  --elev-brand: 0 4px 14px rgba(0,0,0,.50);
 
 }
 body.dark html,body.dark body{background:var(--g-dark);}
@@ -337,7 +360,7 @@ body{height:100%;background:var(--g-dark);font-family:"DM Sans",sans-serif;overf
 .ib:active{background:rgba(255,255,255,.28);}
 
 
-.tabs{position:fixed;bottom:0;left:0;right:0;height:calc(var(--sb)+var(--tab-h));padding-bottom:var(--sb);background:var(--g-dark);border-top:1px solid rgba(255,255,255,.08);display:flex;z-index:var(--z-overlay);box-shadow:0 -2px 20px rgba(0,0,0,.1);}
+.tabs{position:fixed;bottom:0;left:0;right:0;height:calc(var(--sb)+var(--tab-h));padding-bottom:var(--sb);background:var(--g-dark);border-top:1px solid rgba(255,255,255,.08);display:flex;z-index:var(--z-overlay);box-shadow:var(--elev-3);}
 .tab{flex:1;border:none;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;transition:.2s;color:var(--muted);position:relative;padding:4px 2px 2px;}
 .tab.active{color:var(--g-main);}
 .tab.active{color:var(--g-main);}.tab.active::before{content:"";position:absolute;top:6px;left:50%;transform:translateX(-50%);width:36px;height:36px;background:var(--bg-success-soft);border-radius:12px;z-index:-1;}
@@ -363,7 +386,7 @@ body{height:100%;background:var(--g-dark);font-family:"DM Sans",sans-serif;overf
   border:3px solid var(--g-dark);
   transition:transform .15s ease, box-shadow .15s ease;
 }
-.tab.tab-center:active .ti{ transform:scale(.94); box-shadow:0 2px 8px rgba(45,138,45,.35); }
+.tab.tab-center:active .ti{ transform:scale(.94); box-shadow:var(--elev-brand); }
 .tab.tab-center .tl{
   margin-top:3px;
   font-size:10px;
@@ -473,7 +496,7 @@ body.gs-scanner-active #screen-scanner { bottom: 0 !important; }
   border: 3px solid rgba(102,187,106,.2);
   border-top-color: #66bb6a;
   animation: srSpin 0.9s linear infinite;
-  box-shadow: 0 0 30px rgba(102,187,106,.3);
+  box-shadow:var(--elev-4);
 }
 .sr-loading-icon {
   position: absolute;
@@ -526,8 +549,8 @@ body.gs-scanner-active #screen-scanner { bottom: 0 !important; }
 .sr-topbar > * { pointer-events: auto; }
 .sr-topbtn {
   background: rgba(0,0,0,.48);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(var(--blur-lg));
+  -webkit-backdrop-filter: blur(var(--blur-lg));
   border: 1px solid rgba(255,255,255,.14);
   color: #fff;
   border-radius: 22px;
@@ -572,8 +595,8 @@ body.gs-scanner-active #screen-scanner { bottom: 0 !important; }
   align-items: center;
   gap: 2px;
   background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(var(--blur-lg));
+  -webkit-backdrop-filter: blur(var(--blur-lg));
   border-radius: 26px;
   padding: 4px;
   border: 1px solid rgba(255, 255, 255, 0.15);
@@ -612,8 +635,8 @@ body.gs-scanner-active #screen-scanner { bottom: 0 !important; }
   left: 50%;
   transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(var(--blur-lg));
+  -webkit-backdrop-filter: blur(var(--blur-lg));
   color: #fff;
   padding: 7px 14px;
   border-radius: 18px;
@@ -657,8 +680,8 @@ body.gs-scanner-active #screen-scanner { bottom: 0 !important; }
   gap: 7px;
   font-weight: 600;
   background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(var(--blur-lg));
+  -webkit-backdrop-filter: blur(var(--blur-lg));
   border-radius: 20px;
   letter-spacing: .1px;
 }
@@ -831,7 +854,7 @@ body.dark .dsec { background: #1e3a1e; }
 
 /* v23.60: Dezenter professioneller X-Button – 44×44px Tap-Area, subtil, konsistent */
 /* v23.71: modal-close-btn sticky damit er beim Scroll im Modal immer sichtbar bleibt */
-.modal-close-btn{position:sticky;float:right;top:10px;right:10px;width:34px;height:34px;min-width:34px;border:none;background:rgba(0,0,0,.08);border-radius:50%;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:rgba(0,0,0,.6);transition:background .18s,color .18s,transform .12s;z-index:50;font-weight:500;line-height:1;padding:0;-webkit-tap-highlight-color:transparent;backdrop-filter:saturate(1.2) blur(6px);margin-bottom:-34px;}
+.modal-close-btn{position:sticky;float:right;top:10px;right:10px;width:34px;height:34px;min-width:34px;border:none;background:rgba(0,0,0,.08);border-radius:50%;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:rgba(0,0,0,.6);transition:background .18s,color .18s,transform .12s;z-index:50;font-weight:500;line-height:1;padding:0;-webkit-tap-highlight-color:transparent;backdrop-filter:saturate(1.2) blur(var(--blur-md));margin-bottom:-34px;}
 .modal-close-btn:active{transform:scale(.92);background:rgba(0,0,0,.14);}
 .modal-close-btn:hover{background:rgba(0,0,0,.10);color:rgba(0,0,0,.85);}
 .modal-close-btn:active{transform:scale(.88);background:rgba(0,0,0,.14);}
@@ -861,7 +884,7 @@ details > summary::marker { content: ''; }
 .div2{font-size:13px;font-weight:700;color:var(--text);margin-top:2px;overflow-wrap:anywhere;}
 .tox-scale{display:flex;gap:7px;margin-top:8px;}
 .td{width:32px;height:32px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:15px;}
-.td.act{box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.td.act{box-shadow:var(--elev-1);}
 .fav-btn{width:100%;padding:13px;border:2px solid var(--g-light);border-radius:var(--r);background:transparent;font-size:13.5px;font-weight:700;color:var(--g-main);cursor:pointer;margin-top:6px;transition:.15s;font-family:inherit;}
 .fav-btn.added{background:var(--g-main);color:#fff;border-color:var(--g-main);}
 
@@ -925,14 +948,14 @@ details > summary::marker { content: ''; }
 /* v30.85: Aufgaben-Notizzettel — klebt am rechten Rand von „Meine Pflanzen",
    klappt beim Tippen auf. Bewusst wie ein Merkzettel gestaltet (Papierfarbe,
    leichte Neigung, Klebestreifen oben) statt als weiterer runder Button. */
-#gs-task-note{position:fixed;right:0;top:38%;z-index:var(--z-sticky,100);display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 9px 11px;border:none;border-right:none;border-radius:12px 0 0 12px;background:linear-gradient(160deg,#fff8d6,#ffeeb0);color:#6d4c41;box-shadow:-3px 3px 12px rgba(0,0,0,.18);cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:transform .18s ease,box-shadow .18s ease;transform:rotate(-1.5deg);}
+#gs-task-note{position:fixed;right:0;top:38%;z-index:var(--z-sticky,100);display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 9px 11px;border:none;border-right:none;border-radius:12px 0 0 12px;background:linear-gradient(160deg,#fff8d6,#ffeeb0);color:#6d4c41;box-shadow:var(--elev-2);cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:transform .18s ease,box-shadow .18s ease;transform:rotate(-1.5deg);}
 #gs-task-note:active{transform:rotate(-1.5deg) scale(.94);}
-#gs-task-note.gs-note-open{box-shadow:-2px 2px 6px rgba(0,0,0,.12);}
+#gs-task-note.gs-note-open{box-shadow:var(--elev-1);}
 body.dark #gs-task-note{background:linear-gradient(160deg,#4a4224,#3a331b);color:#f5e6a8;}
 .gs-task-note-clip{width:22px;height:5px;border-radius:3px;background:rgba(0,0,0,.14);margin-bottom:2px;}
 .gs-task-note-ico{font-size:19px;line-height:1;}
 .gs-task-note-cnt{font-size:12px;font-weight:900;line-height:1;}
-.gs-task-note-pop{position:fixed;right:8px;top:calc(38% - 6px);z-index:calc(var(--z-sticky,100) + 1);width:min(300px,84vw);max-height:52vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 34px rgba(0,0,0,.22);padding:11px 12px;animation:gsNotePop .16s ease-out;}
+.gs-task-note-pop{position:fixed;right:8px;top:calc(38% - 6px);z-index:calc(var(--z-sticky,100) + 1);width:min(300px,84vw);max-height:52vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--elev-4);padding:11px 12px;animation:gsNotePop .16s ease-out;}
 @keyframes gsNotePop{from{opacity:0;transform:translateX(10px) scale(.97);}to{opacity:1;transform:none;}}
 .gs-task-note-pop h4{margin:0 0 8px;font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
 .gs-notif-openall{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:11px 14px;background:transparent;border:none;border-top:1px solid var(--border);color:var(--g-main);font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;}
@@ -1122,10 +1145,10 @@ body.dark .market-search-input{background:var(--card);border-color:var(--border)
 #screen-remedies { background: linear-gradient(180deg, var(--g-bg) 0%, #f3f0fa 100%); }
 body.dark #screen-recipes  { background: linear-gradient(180deg, var(--g-bg) 0%, #1d1815 100%); }
 body.dark #screen-remedies { background: linear-gradient(180deg, var(--g-bg) 0%, #18162a 100%); }
-.recipe-cats{display:flex;gap:6px;overflow-x:auto;padding:8px 16px 6px;scrollbar-width:none;background:rgba(255,255,255,.55);backdrop-filter:saturate(140%) blur(6px);-webkit-backdrop-filter:saturate(140%) blur(6px);}
+.recipe-cats{display:flex;gap:6px;overflow-x:auto;padding:8px 16px 6px;scrollbar-width:none;background:rgba(255,255,255,.55);backdrop-filter:saturate(140%) blur(var(--blur-md));-webkit-backdrop-filter:saturate(140%) blur(var(--blur-md));}
 body.dark .recipe-cats{background:rgba(20,30,20,.55);}
-.recipe-cat{flex:0 0 auto;padding:7px 13px;border:1.5px solid var(--g-light);border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:var(--card);color:var(--g-dark);font-family:inherit;transition:.15s;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.04);}
-.recipe-cat.active{background:var(--g-main);border-color:var(--g-main);color:#fff;box-shadow:0 2px 8px rgba(45,138,45,.25);}
+.recipe-cat{flex:0 0 auto;padding:7px 13px;border:1.5px solid var(--g-light);border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:var(--card);color:var(--g-dark);font-family:inherit;transition:.15s;white-space:nowrap;box-shadow:var(--elev-1);}
+.recipe-cat.active{background:var(--g-main);border-color:var(--g-main);color:#fff;box-shadow:var(--elev-brand);}
 /* v25.31: Doctor-Symptom-Chips (Multi-Select) */
 .doctor-sym-chip{display:inline-flex;align-items:center;gap:4px;padding:6px 11px;border:1.5px solid var(--border);border-radius:18px;background:var(--card);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text);transition:.15s;user-select:none;-webkit-tap-highlight-color:transparent;}
 .doctor-sym-chip input{display:none;}
@@ -1136,7 +1159,7 @@ body.dark #screen-recipes .recipe-card-img{background:linear-gradient(135deg,#3a
 /* Heilmittel-Card-Image: sanft-lila */
 #screen-remedies .recipe-card-img{background:linear-gradient(135deg,#f3e5f5,#e1bee7);}
 body.dark #screen-remedies .recipe-card-img{background:linear-gradient(135deg,#311b92,#1a237e);}
-.recipe-fab{position:fixed;bottom:calc(var(--sb)+var(--tab-h)+14px);right:16px;width:52px;height:52px;border:none;border-radius:50%;color:#fff;font-size:26px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.3);z-index:90;display:flex;align-items:center;justify-content:center;transition:.2s;}
+.recipe-fab{position:fixed;bottom:calc(var(--sb)+var(--tab-h)+14px);right:16px;width:52px;height:52px;border:none;border-radius:50%;color:#fff;font-size:26px;cursor:pointer;box-shadow:var(--elev-2);z-index:90;display:flex;align-items:center;justify-content:center;transition:.2s;}
 .recipe-fab:active{transform:scale(.92);}
 .recipe-step{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid #f0f0f0;}
 .recipe-step:last-child{border-bottom:none;}
@@ -1168,7 +1191,7 @@ body.dark .mkt-chat-msg.them{background:#2a3f2a;color:var(--text);}
 .mkt-chat-msg-name{font-size:10px;font-weight:700;opacity:.7;margin-bottom:3px;}
 .mkt-chat-msg-time{font-size:10px;opacity:.6;margin-top:3px;text-align:right;}
 .mkt-chat-input-bar{display:flex;gap:8px;padding:10px 14px;border-top:1px solid #f0f0f0;background:var(--card);position:sticky;bottom:0;}
-.market-notif{position:fixed;top:calc(var(--st)+var(--top-h)+8px);left:50%;transform:translateX(-50%);background:#1b5e20;color:#fff;padding:10px 18px;border-radius:12px;font-size:13.5px;font-weight:700;z-index:500;box-shadow:0 4px 20px rgba(0,0,0,.3);max-width:90vw;text-align:center;animation:slideDown .3s ease;}
+.market-notif{position:fixed;top:calc(var(--st)+var(--top-h)+8px);left:50%;transform:translateX(-50%);background:#1b5e20;color:#fff;padding:10px 18px;border-radius:12px;font-size:13.5px;font-weight:700;z-index:500;box-shadow:var(--elev-3);max-width:90vw;text-align:center;animation:slideDown .3s ease;}
 @keyframes slideDown{from{opacity:0;transform:translateX(-50%) translateY(-20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 .purchases-list{padding:10px 16px 24px;}
 .purchase-card{background:var(--card);border-radius:12px;padding:12px 14px;margin-bottom:8px;box-shadow:var(--shadow-sm);display:flex;gap:10px;align-items:center;}
@@ -1314,7 +1337,7 @@ body.dark .menu-search-wrap{background:var(--card);}
 /* v23.95: XP-Bar Pulse-Glow bei XP-Gewinn */
 @keyframes gs-xp-pulse-anim {
   0%   { box-shadow: 0 0 0 0 rgba(255,235,150,0); filter: brightness(1); }
-  50%  { box-shadow: 0 0 16px 4px rgba(255,235,150,.85); filter: brightness(1.35); }
+  50%  { box-shadow:var(--elev-2); filter: brightness(1.35); }
   100% { box-shadow: 0 0 0 0 rgba(255,235,150,0); filter: brightness(1); }
 }
 .gs-xp-pulse { animation: gs-xp-pulse-anim 1.2s ease-out; }
@@ -1342,7 +1365,7 @@ body.dark .menu-search-wrap{background:var(--card);}
 .farm-plot-timer{position:absolute;top:4px;right:5px;font-size:8px;font-weight:700;color:var(--g-dark);background:rgba(255,255,255,.8);border-radius:4px;padding:1px 3px;}
 
 
-.farm-animal{background:var(--card);border-radius:12px;padding:10px 12px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.07);cursor:pointer;transition:.15s;min-width:72px;border:2px solid transparent;}
+.farm-animal{background:var(--card);border-radius:12px;padding:10px 12px;text-align:center;box-shadow:var(--elev-1);cursor:pointer;transition:.15s;min-width:72px;border:2px solid transparent;}
 .farm-animal:active{transform:scale(.95);}
 .farm-animal.ready{border-color:#4caf50;background:var(--bg-success-soft);}
 .farm-animal-emoji{font-size:30px;display:block;line-height:1;}
@@ -1350,13 +1373,13 @@ body.dark .menu-search-wrap{background:var(--card);}
 .farm-animal-prod{font-size:9px;color:var(--muted);}
 
 
-.farm-building{background:var(--card);border-radius:12px;padding:10px 12px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.07);min-width:72px;flex-shrink:0;}
+.farm-building{background:var(--card);border-radius:12px;padding:10px 12px;text-align:center;box-shadow:var(--elev-1);min-width:72px;flex-shrink:0;}
 .farm-building-emoji{font-size:28px;display:block;line-height:1;}
 .farm-building-name{font-size:9px;font-weight:700;color:var(--g-dark);margin-top:3px;}
 .farm-building-lvl{font-size:9px;color:var(--g-main);}
 
 
-.farm-quest{display:flex;align-items:center;gap:10px;background:var(--card);border-radius:10px;padding:10px 12px;margin-bottom:7px;box-shadow:0 2px 6px rgba(0,0,0,.06);}
+.farm-quest{display:flex;align-items:center;gap:10px;background:var(--card);border-radius:10px;padding:10px 12px;margin-bottom:7px;box-shadow:var(--elev-1);}
 .farm-quest-icon{font-size:22px;flex-shrink:0;}
 .farm-quest-info{flex:1;}
 .farm-quest-name{font-size:13px;font-weight:700;color:var(--text);}
@@ -1399,7 +1422,7 @@ body.dark .menu-search-wrap{background:var(--card);}
 .mp-header{padding:16px 16px 0;}
 .mp-title{font-family:'Playfair Display',serif;font-size:19px;font-weight:800;color:var(--g-dark);margin-bottom:2px;}
 .mp-sub{font-size:12.5px;color:var(--muted);}
-.mp-add-btn{display:flex;align-items:center;justify-content:center;gap:8px;margin:12px 16px 4px;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:var(--r);font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s;box-shadow:0 4px 14px rgba(45,138,45,.3);}
+.mp-add-btn{display:flex;align-items:center;justify-content:center;gap:8px;margin:12px 16px 4px;padding:13px;background:var(--g-main);color:#fff;border:none;border-radius:var(--r);font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s;box-shadow:var(--elev-brand);}
 .mp-add-btn:active{transform:scale(.97);}
 .mp-list{padding:10px 16px 24px;display:flex;flex-direction:column;gap:10px;}
 .mp-empty{display:flex;flex-direction:column;align-items:center;padding:50px 20px;color:var(--muted);text-align:center;gap:8px;}
@@ -1469,7 +1492,7 @@ body.dark .gs-doc-pro{background:#3a2c10;border-color:#8d6e2a;color:#ffcc80;}
 .gs-go-next-k{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);}
 .gs-go-next-t{font-size:14.5px;font-weight:800;color:var(--text);margin-top:3px;line-height:1.25;}
 .gs-go-next-s{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.3;}
-.gs-go-cta{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:var(--g-main);color:#fff;border:none;border-radius:13px;padding:13px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:0 3px 10px rgba(0,0,0,.14);}
+.gs-go-cta{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:var(--g-main);color:#fff;border:none;border-radius:13px;padding:13px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-2);}
 @media (prefers-reduced-motion: reduce){.gs-go-tile{transition:none;}.gs-go-tile:active{transform:none;}}
 /* v31.16: „Dein Tagesplan" auf der Startseite. Bewusst nur Token-Farben —
    die Karte muss in Hell UND Dunkel funktionieren, ein fest verdrahtetes
@@ -1491,7 +1514,7 @@ body.dark .gs-doc-pro{background:#3a2c10;border-color:#8d6e2a;color:#ffcc80;}
 .gs-dp-next-kicker{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);}
 .gs-dp-next-title{font-size:15px;font-weight:800;color:var(--text);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .gs-dp-next-sub{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.4;}
-.gs-dp-next-btn{width:40px;height:40px;flex-shrink:0;border-radius:50%;background:var(--g-main);color:#fff;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;box-shadow:0 3px 10px rgba(0,0,0,.18);}
+.gs-dp-next-btn{width:40px;height:40px;flex-shrink:0;border-radius:50%;background:var(--g-main);color:#fff;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;box-shadow:var(--elev-2);}
 @media (prefers-reduced-motion: reduce){.gs-dp-row,.gs-dp-next{transition:none;}.gs-dp-row:active,.gs-dp-next:active{transform:none;}}
 .mp-tasks{padding:0 13px 12px;}
 .mp-tasks-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:6px;}
@@ -1642,7 +1665,7 @@ body.dark .gs-doc-pro{background:#3a2c10;border-color:#8d6e2a;color:#ffcc80;}
 .splash-sub { font-size: 11px; color: rgba(220,240,220,.58); letter-spacing: .7px; text-transform: uppercase; white-space: nowrap; margin-bottom: 30px; animation: splUp .7s ease .4s both; }
 .splash-bar-wrap { width: 178px; animation: splUp .7s ease .52s both; }
 .splash-bar-track { width:100%; height:4px; background: rgba(255,255,255,.10); border-radius:99px; overflow:hidden; }
-.splash-bar { height:100%; width:0; border-radius:99px; background: linear-gradient(90deg,#2d8a2d,#66bb6a,#a5d6a7); background-size:220% 100%; box-shadow: 0 0 12px rgba(102,187,106,.55); transition: width .35s cubic-bezier(.4,0,.2,1); animation: splBarShimmer 1.9s linear infinite; }
+.splash-bar { height:100%; width:0; border-radius:99px; background: linear-gradient(90deg,#2d8a2d,#66bb6a,#a5d6a7); background-size:220% 100%; box-shadow:var(--elev-2); transition: width .35s cubic-bezier(.4,0,.2,1); animation: splBarShimmer 1.9s linear infinite; }
 .splash-check { font-size: 11.5px; color: rgba(255,255,255,.45); min-height: 18px; transition: color .3s; margin-top: 16px; letter-spacing:.3px; animation: splUp .7s ease .62s both; }
 .splash-check.ok { color: #7cc480; }
 
@@ -2080,7 +2103,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
         <div id="onb-hl-dots" class="onb-hl-dots"></div>
       </div>
 
-      <button onclick="onbShowRegister()" style="width:100%;padding:16px;background:linear-gradient(135deg,#2d8a2d,#1a5c1a);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px;box-shadow:0 4px 20px rgba(45,138,45,.4);-webkit-tap-highlight-color:transparent;">
+      <button onclick="onbShowRegister()" style="width:100%;padding:16px;background:linear-gradient(135deg,#2d8a2d,#1a5c1a);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px;box-shadow:var(--elev-brand);-webkit-tap-highlight-color:transparent;">
         🌱 Jetzt kostenlos registrieren
       </button>
       <button onclick="onbShowLogin()" style="width:100%;padding:15px;background:rgba(255,255,255,.08);color:#fff;border:1.5px solid rgba(255,255,255,.2);border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:20px;-webkit-tap-highlight-color:transparent;">
@@ -2124,7 +2147,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
       <div id="onb-reg-err" role="alert" aria-live="polite" style="display:none;background:rgba(198,40,40,.15);border-left:3px solid #e57373;color:#ff8a80;padding:10px 12px;border-radius:8px;font-size:12.5px;margin-bottom:12px;line-height:1.5;"></div>
 
-      <button id="onb-reg-btn" data-i18n="btn_onb_register" data-i18n-fallback="✨ Registrieren" onclick="onbDoRegister()" style="width:100%;padding:15px;background:linear-gradient(135deg,#2d8a2d,#1a5c1a);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px;box-shadow:0 4px 20px rgba(45,138,45,.4);-webkit-tap-highlight-color:transparent;">
+      <button id="onb-reg-btn" data-i18n="btn_onb_register" data-i18n-fallback="✨ Registrieren" onclick="onbDoRegister()" style="width:100%;padding:15px;background:linear-gradient(135deg,#2d8a2d,#1a5c1a);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px;box-shadow:var(--elev-brand);-webkit-tap-highlight-color:transparent;">
         ✨ Registrieren
       </button>
       <button data-i18n="btn_onb_show_login" data-i18n-fallback="Schon registriert? → Anmelden" onclick="onbShowLogin()" style="width:100%;padding:11px;background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.15);border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px;-webkit-tap-highlight-color:transparent;">
@@ -2160,7 +2183,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
       <div id="onb-login-err" role="alert" aria-live="polite" style="display:none;background:rgba(198,40,40,.15);border-left:3px solid #e57373;color:#ff8a80;padding:10px 12px;border-radius:8px;font-size:12.5px;margin-bottom:12px;line-height:1.5;"></div>
 
-      <button id="onb-login-btn" data-i18n="btn_onb_login" data-i18n-fallback="🔑 Anmelden" onclick="onbDoLogin()" style="width:100%;padding:15px;background:linear-gradient(135deg,#2d8a2d,#1a5c1a);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px;box-shadow:0 4px 20px rgba(45,138,45,.4);-webkit-tap-highlight-color:transparent;">
+      <button id="onb-login-btn" data-i18n="btn_onb_login" data-i18n-fallback="🔑 Anmelden" onclick="onbDoLogin()" style="width:100%;padding:15px;background:linear-gradient(135deg,#2d8a2d,#1a5c1a);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px;box-shadow:var(--elev-brand);-webkit-tap-highlight-color:transparent;">
         🔑 Anmelden
       </button>
 
@@ -2469,7 +2492,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
           <span id="sr-flash-ico" class="sr-ico">🔦</span>
         </button>
         <!-- API-Key-Chip (nur sichtbar wenn Key fehlt oder ungültig) -->
-        <button id="sr-apikey-chip" class="sr-topbtn" onclick="openApiKey()" aria-label="API-Key setzen" style="display:none;padding:8px 12px;background:linear-gradient(135deg,#d32f2f,#b71c1c);color:#fff;box-shadow:0 2px 8px rgba(211,47,47,.45);border-color:rgba(255,255,255,.25);">
+        <button id="sr-apikey-chip" class="sr-topbtn" onclick="openApiKey()" aria-label="API-Key setzen" style="display:none;padding:8px 12px;background:linear-gradient(135deg,#d32f2f,#b71c1c);color:#fff;box-shadow:var(--elev-1);border-color:rgba(255,255,255,.25);">
           <span class="sr-ico">🔑</span><span style="font-weight:800;">Key setzen</span>
         </button>
       </div>
@@ -2520,7 +2543,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     </div>
 
     <!-- Multi-Shot-Leiste · v23.84: position fixed über Control-Bar, klar sichtbar -->
-    <div id="gs-multishot-bar" style="display:none;position:absolute;left:0;right:0;bottom:106px;align-items:center;gap:10px;padding:10px 14px;background:rgba(0,0,0,.78);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);min-height:84px;z-index:38;flex-wrap:wrap;justify-content:flex-start;border-top:1px solid rgba(255,255,255,.1);"></div>
+    <div id="gs-multishot-bar" style="display:none;position:absolute;left:0;right:0;bottom:106px;align-items:center;gap:10px;padding:10px 14px;background:rgba(0,0,0,.78);backdrop-filter:blur(var(--blur-lg));-webkit-backdrop-filter:blur(var(--blur-lg));min-height:84px;z-index:38;flex-wrap:wrap;justify-content:flex-start;border-top:1px solid rgba(255,255,255,.1);"></div>
 
     <!-- Control-Bar · v23.74: Galerie-Button entfernt (Doppel-Button — Top-Bar hat schon "Hochladen") -->
     <div class="scan-ctrls">
@@ -2751,7 +2774,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 </div>
 
 <div style="padding:12px 16px 4px;">
-  <button onclick="gsShareApp()" style="width:100%;padding:13px;background:var(--hero-bg);color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 16px rgba(0,0,0,.2);">
+  <button onclick="gsShareApp()" style="width:100%;padding:13px;background:var(--hero-bg);color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-2);">
     <span style="font-size:18px;">↑</span> <span data-i18n="btn_share_app" data-i18n-fallback="GreenScan empfehlen">GreenScan empfehlen</span>
   </button>
 </div>
@@ -2855,7 +2878,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <div class="sec" style="padding-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
       <span data-i18n="sec_community_feedback" data-i18n-fallback="📊 Community-Feedback">📊 Community-Feedback</span>
       <span id="fb-live-dot" title="Live-Feed aus der Community" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:var(--c-success-d);background:var(--bg-success-soft);border:1px solid #a5d6a7;padding:2px 8px;border-radius:10px;letter-spacing:.3px;">
-        <span style="width:6px;height:6px;border-radius:50%;background:#43a047;box-shadow:0 0 6px #43a047;animation:fbPulse 1.6s ease-in-out infinite;"></span>LIVE
+        <span style="width:6px;height:6px;border-radius:50%;background:#43a047;box-shadow:var(--elev-1);animation:fbPulse 1.6s ease-in-out infinite;"></span>LIVE
       </span>
       <span style="flex:1;"></span>
       <button id="fb-refresh-btn" data-i18n="btn_refresh" data-i18n-fallback="🔄 Aktualisieren" onclick="gsRefreshGlobalFeedback(true)" style="padding:4px 10px;font-size:11px;font-weight:700;background:#eceff1;color:#37474f;border:1px solid #cfd8dc;border-radius:8px;cursor:pointer;font-family:inherit;">🔄 Aktualisieren</button>
@@ -2974,7 +2997,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <!-- ── ACTION BAR · v24.03: + „Meine Pläne"-Button -->
 <div style="padding:4px 16px 8px;display:flex;gap:8px;">
   <button onclick="openAddPlanting()" data-i18n="btn_garden_plant" data-i18n-fallback="🌱 Einpflanzen" style="flex:1;padding:11px 8px;background:var(--g-main);color:#fff;border:none;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🌱 Einpflanzen</button>
-  <button onclick="openGardenAI()" title="KI-Gartenplaner PRO" data-i18n="btn_garden_ai_planner" data-i18n-fallback="🤖 KI-Planer" style="flex:1;padding:11px 8px;background:linear-gradient(135deg,#2d8a2d,#1b5e20);color:#fff;border:none;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:0 2px 8px rgba(45,138,45,.25);">🤖 KI-Planer</button>
+  <button onclick="openGardenAI()" title="KI-Gartenplaner PRO" data-i18n="btn_garden_ai_planner" data-i18n-fallback="🤖 KI-Planer" style="flex:1;padding:11px 8px;background:linear-gradient(135deg,#2d8a2d,#1b5e20);color:#fff;border:none;border-radius:11px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-brand);">🤖 KI-Planer</button>
 </div>
 <div style="padding:0 16px 8px;">
   <button onclick="gsPPopenSavedPlans()" title="Gespeicherte Garten-Pläne" style="width:100%;padding:11px 12px;background:var(--card);border:1.5px solid var(--border);color:var(--text);border-radius:11px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
@@ -3083,7 +3106,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 </div>
 <!-- v24.06: Smart-Home Sensor-Dashboard -->
 <div style="padding:0 16px 20px;">
-  <button onclick="gsShOpen()" title="Smart-Home Sensoren" style="width:100%;padding:13px 14px;background:linear-gradient(135deg,var(--c-info-d),var(--c-info));color:#fff;border:none;border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 12px rgba(21,101,192,.25);">
+  <button onclick="gsShOpen()" title="Smart-Home Sensoren" style="width:100%;padding:13px 14px;background:linear-gradient(135deg,var(--c-info-d),var(--c-info));color:#fff;border:none;border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-brand);">
     <span style="display:flex;align-items:center;gap:8px;">
       <span style="font-size:18px;">🏠</span>
       <span style="display:flex;flex-direction:column;align-items:flex-start;gap:1px;">
@@ -4653,7 +4676,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
           <div id="pp-loader-msg" style="font-size:13.5px;font-weight:700;color:var(--text);margin-bottom:14px;min-height:18px;">KI analysiert alle Faktoren…</div>
           <!-- Echter Progress-Balken -->
           <div style="background:var(--surface2);height:8px;border-radius:5px;overflow:hidden;margin:0 auto 8px;max-width:380px;">
-            <div id="pp-loader-bar" style="width:0%;height:100%;background:linear-gradient(90deg,#43a047,#1b5e20);border-radius:5px;transition:width .25s linear;box-shadow:0 0 8px rgba(67,160,71,.5);"></div>
+            <div id="pp-loader-bar" style="width:0%;height:100%;background:linear-gradient(90deg,#43a047,#1b5e20);border-radius:5px;transition:width .25s linear;box-shadow:var(--elev-1);"></div>
           </div>
           <div style="display:flex;justify-content:space-between;max-width:380px;margin:0 auto;font-size:11px;color:var(--muted);">
             <span id="pp-loader-pct">5 %</span>
@@ -4755,7 +4778,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 .gs-dev-card{background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;gap:10px;align-items:center;}
 .gs-dev-card.connected{border-color:#2e7d32;background:linear-gradient(135deg,rgba(46,125,50,.08),rgba(46,125,50,.02));}
 .gs-dev-card .dot{width:8px;height:8px;border-radius:50%;background:#bdbdbd;flex-shrink:0;}
-.gs-dev-card.connected .dot{background:#2e7d32;box-shadow:0 0 4px #2e7d32;animation:gsDevPulse 2s infinite;}
+.gs-dev-card.connected .dot{background:#2e7d32;box-shadow:var(--elev-1);animation:gsDevPulse 2s infinite;}
 @keyframes gsDevPulse { 0%,100%{opacity:1;} 50%{opacity:.5;} }
 .gs-reading-tile{background:var(--bg);border-radius:10px;padding:10px 12px;text-align:center;}
 .gs-reading-tile .val{font-size:18px;font-weight:800;color:var(--g-dark);margin:2px 0;}
@@ -4875,7 +4898,7 @@ input:focus, textarea:focus, select:focus{
   width:6px; height:6px;
   border-radius:50%;
   background: linear-gradient(135deg,#d4af37,#f4e08e);
-  box-shadow: 0 0 3px rgba(212,175,55,.7);
+  box-shadow:var(--elev-1);
 }
 
 /* Premium-Skeleton-Shimmer */
@@ -4932,12 +4955,12 @@ html, body{ scroll-behavior: smooth; }
 <div class="screen" id="screen-wissen">
 
   <!-- v23.58: Modernisiertes Header mit Gradient + dezenter Pflanzen-Deko -->
-  <div style="background:linear-gradient(135deg,#1b5e20 0%,#2e7d32 50%,#33691e 100%);padding:14px 16px 18px;color:#fff;position:relative;overflow:hidden;border-radius:0 0 22px 22px;box-shadow:0 4px 18px rgba(0,0,0,.18);">
+  <div style="background:linear-gradient(135deg,#1b5e20 0%,#2e7d32 50%,#33691e 100%);padding:14px 16px 18px;color:#fff;position:relative;overflow:hidden;border-radius:0 0 22px 22px;box-shadow:var(--elev-3);">
     <!-- Dekoratives Hintergrund-Pattern -->
     <div style="position:absolute;right:-20px;top:-20px;font-size:140px;opacity:.06;pointer-events:none;">📚</div>
     <div style="position:absolute;left:-15px;bottom:-25px;font-size:90px;opacity:.05;pointer-events:none;">🌿</div>
     <div style="display:flex;align-items:center;gap:12px;position:relative;">
-      <button onclick="gsGoBack()" aria-label="Zurück" style="width:38px;height:38px;border-radius:50%;border:none;background:rgba(255,255,255,.22);backdrop-filter:blur(6px);color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.32)'" onmouseout="this.style.background='rgba(255,255,255,.22)'">&#8249;</button>
+      <button onclick="gsGoBack()" aria-label="Zurück" style="width:38px;height:38px;border-radius:50%;border:none;background:rgba(255,255,255,.22);backdrop-filter:blur(var(--blur-md));color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.32)'" onmouseout="this.style.background='rgba(255,255,255,.22)'">&#8249;</button>
       <div style="flex:1;">
         <div data-i18n="wissen_title" data-i18n-fallback="📚 Gartenwissen" style="font-family:'Playfair Display',serif;font-size:22px;font-weight:800;letter-spacing:-.3px;">📚 Gartenwissen</div>
         <div data-i18n="wissen_sub" data-i18n-fallback="Das Schweizer Hausgarten-Kompendium · 8 Kapitel · DB-verknüpft" style="font-size:12.5px;opacity:.92;margin-top:3px;line-height:1.4;">Das Schweizer Hausgarten-Kompendium · 8 Kapitel · DB-verknüpft</div>
@@ -4959,7 +4982,7 @@ html, body{ scroll-behavior: smooth; }
   </div>
 
   <!-- Navigation mit Scroll-Hint -->
-  <div class="recipe-cats" id="wissen-nav" style="padding:6px 12px 10px;background:rgba(255,255,255,.55);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;">
+  <div class="recipe-cats" id="wissen-nav" style="padding:6px 12px 10px;background:rgba(255,255,255,.55);backdrop-filter:blur(var(--blur-md));border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;">
     <button class="recipe-cat active" onclick="showWissen('trachten',this)">🔄 Trachten</button>
     <button class="recipe-cat" onclick="showWissen('bodentypen',this)">🌍 Bodentypen</button>
     <button class="recipe-cat" onclick="showWissen('boden',this)">🪨 Boden</button>
@@ -5840,11 +5863,11 @@ html, body{ scroll-behavior: smooth; }
   <div id="gs-map" style="flex:1;position:relative;overflow:hidden;">
     <div id="gs-map-div" style="width:100%;height:100%;"></div>
     <!-- v23.56: Kompass-Overlay (oben rechts) -->
-    <div id="gs-map-compass" onclick="gsMapToggleCompass()" style="display:none;position:absolute;top:12px;right:12px;z-index:401;width:46px;height:46px;background:rgba(255,255,255,.95);border-radius:50%;box-shadow:0 2px 10px rgba(0,0,0,.3);cursor:pointer;align-items:center;justify-content:center;">
+    <div id="gs-map-compass" onclick="gsMapToggleCompass()" style="display:none;position:absolute;top:12px;right:12px;z-index:401;width:46px;height:46px;background:rgba(255,255,255,.95);border-radius:50%;box-shadow:var(--elev-2);cursor:pointer;align-items:center;justify-content:center;">
       <div id="gs-compass-needle" style="transition:transform .1s ease;font-size:22px;transform:rotate(0deg);">🧭</div>
     </div>
     <!-- v23.56: Saison-Hinweis (Pilz-Saison) -->
-    <div id="gs-map-season-hint" onclick="gsShowMushroomSeason()" style="display:none;position:absolute;bottom:14px;left:14px;z-index:401;background:rgba(26,61,26,.92);color:#fff;padding:8px 12px;border-radius:10px;font-size:11.5px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.35);max-width:220px;">🍄 Saison-Tipp · tippen</div>
+    <div id="gs-map-season-hint" onclick="gsShowMushroomSeason()" style="display:none;position:absolute;bottom:14px;left:14px;z-index:401;background:rgba(26,61,26,.92);color:#fff;padding:8px 12px;border-radius:10px;font-size:11.5px;font-weight:700;cursor:pointer;box-shadow:var(--elev-1);max-width:220px;">🍄 Saison-Tipp · tippen</div>
   </div>
   <!-- Info-Leiste -->
   <div style="background:#1a3d1a;padding:4px 12px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
@@ -6124,7 +6147,7 @@ html, body{ scroll-behavior: smooth; }
         </div>
         <!-- Camera controls overlay -->
         <div id="diag-cam-controls" style="display:none;position:absolute;bottom:10px;left:0;right:0;display:flex;justify-content:center;gap:10px;">
-          <button onclick="captureDiagPhoto()" style="width:56px;height:56px;background:var(--g-main);border:3px solid #fff;border-radius:50%;font-size:22px;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.3);">📸</button>
+          <button onclick="captureDiagPhoto()" style="width:56px;height:56px;background:var(--g-main);border:3px solid #fff;border-radius:50%;font-size:22px;cursor:pointer;box-shadow:var(--elev-2);">📸</button>
         </div>
       </div>
       <div style="display:flex;gap:7px;margin-bottom:12px;">
@@ -8610,7 +8633,7 @@ function openErnteTracking() {
   var viewTabs = '<div style="display:flex;gap:4px;margin-bottom:12px;padding:3px;background:var(--surface2);border-radius:10px;">';
   VIEWS.forEach(function(v) {
     var sel = view === v.id;
-    viewTabs += '<button onclick="gsErnteSetView(\'' + v.id + '\')" style="flex:1;padding:7px 4px;border-radius:7px;border:none;background:' + (sel?'var(--card)':'transparent') + ';color:' + (sel?'var(--text)':'var(--muted)') + ';font-size:11.5px;font-weight:' + (sel?'800':'600') + ';cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;' + (sel?'box-shadow:0 1px 2px rgba(0,0,0,.08);':'') + '">' + v.e + ' ' + v.l + '</button>';
+    viewTabs += '<button onclick="gsErnteSetView(\'' + v.id + '\')" style="flex:1;padding:7px 4px;border-radius:7px;border:none;background:' + (sel?'var(--card)':'transparent') + ';color:' + (sel?'var(--text)':'var(--muted)') + ';font-size:11.5px;font-weight:' + (sel?'800':'600') + ';cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;' + (sel?'box-shadow:var(--elev-1);':'') + '">' + v.e + ' ' + v.l + '</button>';
   });
   viewTabs += '</div>';
   
@@ -9002,7 +9025,7 @@ function openBluehkalender() {
   var tabHtml = '<div style="display:flex;gap:4px;padding:3px;background:var(--surface2);border-radius:10px;margin-bottom:10px;">';
   TABS.forEach(function(t) {
     var sel = tab === t.id;
-    tabHtml += '<button onclick="gsBlSetTab(\'' + t.id + '\')" style="flex:1;padding:7px 4px;border-radius:7px;border:none;background:' + (sel?'var(--card)':'transparent') + ';color:' + (sel?'var(--text)':'var(--muted)') + ';font-size:11.5px;font-weight:' + (sel?'800':'600') + ';cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;' + (sel?'box-shadow:0 1px 2px rgba(0,0,0,.08);':'') + '">' + t.l + ' ' + t.c + '</button>';
+    tabHtml += '<button onclick="gsBlSetTab(\'' + t.id + '\')" style="flex:1;padding:7px 4px;border-radius:7px;border:none;background:' + (sel?'var(--card)':'transparent') + ';color:' + (sel?'var(--text)':'var(--muted)') + ';font-size:11.5px;font-weight:' + (sel?'800':'600') + ';cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;' + (sel?'box-shadow:var(--elev-1);':'') + '">' + t.l + ' ' + t.c + '</button>';
   });
   tabHtml += '</div>';
   
@@ -13820,7 +13843,7 @@ async function gsCheckPastDueBanner() {
     var b = document.createElement('div');
     b.id = 'gs-past-due-banner';
     b.setAttribute('role', 'alert');
-    b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:var(--z-toast,9999);background:linear-gradient(90deg,#e65100,#bf360c);color:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,.2);font-size:14px;line-height:1.35;';
+    b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:var(--z-toast,9999);background:linear-gradient(90deg,#e65100,#bf360c);color:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px;box-shadow:var(--elev-1);font-size:14px;line-height:1.35;';
     b.innerHTML =
       '<span style="font-size:20px;flex-shrink:0;">⚠️</span>' +
       '<div style="flex:1;min-width:0;"><b>Zahlung fehlgeschlagen</b><div style="font-size:12.5px;opacity:.92;">Bitte Karte aktualisieren — sonst endet dein Abo in wenigen Tagen.</div></div>' +
@@ -14608,7 +14631,7 @@ window.openAchievementsModal = async function() {
   m.setAttribute('role', 'dialog');
   m.setAttribute('aria-modal', 'true');
   m.setAttribute('aria-labelledby', 'achievements-modal-title');
-  m.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px);';
+  m.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(var(--blur-sm));';
   m.innerHTML =
     '<div style="background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:520px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;">' +
       '<div style="padding:16px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">' +
@@ -14688,9 +14711,9 @@ window.gsConfirmModal = function gsConfirmModal(a, b){
       w.setAttribute('role','dialog');
       w.setAttribute('aria-modal','true');
       w.setAttribute('aria-labelledby','gs-confirm-title');
-      w.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:var(--z-image-overlay,99999);padding:18px;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);';
+      w.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:var(--z-image-overlay,99999);padding:18px;backdrop-filter:blur(var(--blur-sm));-webkit-backdrop-filter:blur(var(--blur-sm));';
       var c = document.createElement('div');
-      c.style.cssText = 'background:var(--bg,#fff);color:var(--fg,#1a1a1a);max-width:360px;width:100%;border-radius:16px;padding:22px 22px 18px;box-shadow:0 12px 38px rgba(0,0,0,.32);font-family:inherit;';
+      c.style.cssText = 'background:var(--bg,#fff);color:var(--fg,#1a1a1a);max-width:360px;width:100%;border-radius:16px;padding:22px 22px 18px;box-shadow:var(--elev-4);font-family:inherit;';
       var safe = function(s){return String(s||'').replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];});};
       c.innerHTML =
         '<h3 id="gs-confirm-title" style="margin:0 0 8px;font-size:17px;font-weight:800;letter-spacing:-.01em;">'+safe(title)+'</h3>'+
@@ -14772,9 +14795,9 @@ window.gsPromptModal = function gsPromptModal(a, b){
       var w = document.createElement('div');
       w.id = 'gs-prompt-modal';
       w.setAttribute('role','dialog'); w.setAttribute('aria-modal','true'); w.setAttribute('aria-labelledby','gs-prompt-title');
-      w.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:var(--z-image-overlay,99999);padding:18px;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);';
+      w.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:var(--z-image-overlay,99999);padding:18px;backdrop-filter:blur(var(--blur-sm));-webkit-backdrop-filter:blur(var(--blur-sm));';
       var c = document.createElement('div');
-      c.style.cssText = 'background:var(--bg,#fff);color:var(--fg,#1a1a1a);max-width:360px;width:100%;border-radius:16px;padding:22px;box-shadow:0 12px 38px rgba(0,0,0,.32);font-family:inherit;';
+      c.style.cssText = 'background:var(--bg,#fff);color:var(--fg,#1a1a1a);max-width:360px;width:100%;border-radius:16px;padding:22px;box-shadow:var(--elev-4);font-family:inherit;';
       var safe = function(s){return String(s||'').replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];});};
       var inputHtml = multiline
         ? '<textarea id="gs-prompt-input" rows="4" maxlength="'+maxlen+'" placeholder="'+safe(ph)+'" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid var(--border,#dcdcdc);border-radius:11px;font-size:14px;font-family:inherit;background:var(--card,#fff);color:inherit;resize:vertical;">'+safe(val)+'</textarea>'
@@ -15117,7 +15140,7 @@ function gsRenderSubInfo(sub) {
       '<div style="font-size:48px;margin-bottom:8px;">🌱</div>' +
       '<div style="font-size:18px;font-weight:900;color:var(--g-dark);margin-bottom:6px;">Free-Plan aktiv</div>' +
       '<div style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.5;">15 Scans/Tag · Kein Cloud-Sync · Keine KI-Doctor-Analyse</div>' +
-      '<button onclick="gsShowFirstTrialModal()" style="background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;padding:14px 24px;border:none;border-radius:12px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 14px rgba(26,35,126,.3);">' +
+      '<button onclick="gsShowFirstTrialModal()" style="background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;padding:14px 24px;border:none;border-radius:12px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-2);">' +
         '⬆️ Pro 7 Tage gratis testen' +
       '</button>' +
       '<div style="font-size:10.5px;color:var(--muted);margin-top:10px;line-height:1.45;">Jederzeit kündbar · Keine Sofort-Sperre · Sichere Stripe-Zahlung</div>' +
@@ -15271,8 +15294,8 @@ window.gsTutorial = {
       var ex = document.getElementById('gs-tutorial'); if (ex) ex.remove();
       var ov = document.createElement('div');
       ov.id = 'gs-tutorial';
-      ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.62);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;align-items:flex-end;justify-content:center;';
-      ov.innerHTML = '<div id="gs-tut-card" style="background:var(--card,#fff);color:var(--text,#111);border:1px solid var(--border);border-radius:20px 20px 0 0;max-width:480px;width:100%;padding:24px 22px calc(22px + env(safe-area-inset-bottom));box-shadow:0 -8px 36px rgba(0,0,0,.3);"></div>';
+      ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.62);backdrop-filter:blur(var(--blur-sm));-webkit-backdrop-filter:blur(var(--blur-sm));display:flex;align-items:flex-end;justify-content:center;';
+      ov.innerHTML = '<div id="gs-tut-card" style="background:var(--card,#fff);color:var(--text,#111);border:1px solid var(--border);border-radius:20px 20px 0 0;max-width:480px;width:100%;padding:24px 22px calc(22px + env(safe-area-inset-bottom));box-shadow:var(--elev-4);"></div>';
       document.body.appendChild(ov);
       try { if (typeof gsTrapFocus==='function') gsTrapFocus(ov); } catch(_){}
       window.gsTutorial._render(0);
@@ -16697,7 +16720,7 @@ function gsScanHistoryOpen(uidOrIdx) {
   }
 
   var html =
-    '<div style="position:fixed;inset:0;z-index:6000;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:center;" onclick="if(event.target===this)closeScanDetail()">' +
+    '<div style="position:fixed;inset:0;z-index:6000;background:rgba(0,0,0,.7);backdrop-filter:blur(var(--blur-md));display:flex;align-items:flex-end;justify-content:center;" onclick="if(event.target===this)closeScanDetail()">' +
       '<div style="background:var(--card);width:100%;max-width:540px;max-height:92vh;overflow-y:auto;border-radius:20px 20px 0 0;padding:14px 16px 24px;-webkit-overflow-scrolling:touch;" onclick="event.stopPropagation()">' +
         '<div style="width:42px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 14px;"></div>' +
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;gap:8px;">' +
@@ -17606,7 +17629,7 @@ function gsShowQuickActions(id, name, lat, x, y) {
   var isFav = typeof favs !== 'undefined' && Array.isArray(favs) && favs.indexOf(id) >= 0;
   var el = document.createElement('div');
   el.id = 'gs-quick-actions';
-  el.style.cssText = 'position:fixed;z-index:9500;background:var(--card);border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.3);padding:6px;min-width:185px;animation:scaleIn .15s cubic-bezier(.34,1.56,.64,1) both;';
+  el.style.cssText = 'position:fixed;z-index:9500;background:var(--card);border-radius:16px;box-shadow:var(--elev-4);padding:6px;min-width:185px;animation:scaleIn .15s cubic-bezier(.34,1.56,.64,1) both;';
   var vy = y > window.innerHeight/2 ? (y-155) : y;
   el.style.left = Math.min(Math.max(x-92,8), window.innerWidth-200)+'px';
   el.style.top = Math.max(8, vy)+'px';
@@ -18023,7 +18046,7 @@ function gsInitPullToRefresh(screenId, onRefresh) {
       if (!indicator) {
         indicator = document.createElement('div');
         indicator.style.cssText = 'position:sticky;top:0;left:0;right:0;height:0;overflow:visible;z-index:60;pointer-events:none;display:flex;justify-content:center;';
-        indicator.innerHTML = '<div id="ptr-ind-'+screenId+'" style="width:34px;height:34px;background:var(--g-main);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;transform:translateY(-44px);transition:transform .1s;box-shadow:0 3px 10px rgba(0,0,0,.2);">↓</div>';
+        indicator.innerHTML = '<div id="ptr-ind-'+screenId+'" style="width:34px;height:34px;background:var(--g-main);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;transform:translateY(-44px);transition:transform .1s;box-shadow:var(--elev-2);">↓</div>';
         el.insertBefore(indicator, el.firstChild);
       }
       var ptr = document.getElementById('ptr-ind-'+screenId);
@@ -18404,8 +18427,8 @@ function gsUpdateHomeBadge() {
 
 function gsShowLevelUpOverlay(lvl) {
   var el = document.createElement('div');
-  el.style.cssText = 'position:fixed;inset:0;z-index:var(--z-image-overlay,99999);display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);';
-  el.innerHTML = '<div style="background:linear-gradient(145deg,'+lvl.color+' 0%,#1a3d1a 100%);border-radius:28px;padding:44px 36px;text-align:center;max-width:310px;width:86%;box-shadow:0 30px 80px rgba(0,0,0,.6);">' +
+  el.style.cssText = 'position:fixed;inset:0;z-index:var(--z-image-overlay,99999);display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(var(--blur-lg));-webkit-backdrop-filter:blur(var(--blur-lg));';
+  el.innerHTML = '<div style="background:linear-gradient(145deg,'+lvl.color+' 0%,#1a3d1a 100%);border-radius:28px;padding:44px 36px;text-align:center;max-width:310px;width:86%;box-shadow:var(--elev-4);">' +
     '<div style="font-size:70px;margin-bottom:10px;animation:bounce .6s ease;">'+lvl.icon+'</div>' +
     '<div style="color:rgba(255,255,255,.65);font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:4px;margin-bottom:8px;">Level Up!</div>' +
     '<div style="color:#fff;font-size:30px;font-weight:900;font-family:\'Playfair Display\',serif;margin-bottom:6px;">Level '+lvl.lvl+'</div>' +
@@ -19863,7 +19886,7 @@ window.gsOpenMushroomLookalikesModal = function(jsonStr) {
     if (existing) existing.remove();
     var m = document.createElement('div');
     m.id = 'modal-mushroom-lookalikes';
-    m.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px);';
+    m.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(var(--blur-sm));';
     m.onclick = function(e){ if (e.target === m) m.remove(); };
     var esc = (typeof escHtml === 'function') ? escHtml : function(s){return String(s||'');};
     var html = '<div style="background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:560px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;">' +
@@ -20281,7 +20304,7 @@ function renderDailyQuizTeaser() {
     // Teaser: großer Start-Button öffnet das Quizduell-Modal
     qEl.innerHTML = '🎯 ' + _t('quiz_ready','Tägliche Frage bereit');
     oEl.innerHTML =
-      '<button onclick="openDailyQuiz()" style="width:100%;padding:13px 16px;background:rgba(255,255,255,.95);color:var(--c-violet);border:none;border-radius:11px;font-size:14px;font-weight:900;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:0 2px 8px rgba(0,0,0,.18);">' +
+      '<button onclick="openDailyQuiz()" style="width:100%;padding:13px 16px;background:rgba(255,255,255,.95);color:var(--c-violet);border:none;border-radius:11px;font-size:14px;font-weight:900;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-1);">' +
         '▶ ' + _t('btn_start_now','Jetzt starten') + ' <span style="opacity:.6;font-weight:700;margin-left:6px;">' + _t('quiz_20s','20 Sek') + '</span>' +
       '</button>' +
       '<div style="font-size:10.5px;opacity:.8;margin-top:6px;text-align:center;">' + _t('quiz_rules','Keine zweite Chance · Nicht schummeln · App verlassen = verloren') + '</div>' +
@@ -24462,7 +24485,7 @@ function gsShowTrialEndingBanner(hoursLeft) {
   banner.setAttribute('role', 'status');
   banner.setAttribute('aria-live', 'polite');
   var hoursText = (hoursLeft < 24) ? (Math.max(1, Math.round(hoursLeft)) + 'h') : '24h';
-  banner.style.cssText = 'position:fixed;left:14px;right:14px;bottom:calc(var(--tab-h,64px) + var(--sb,0px) + 12px);background:linear-gradient(135deg,#f57f17,#ff9800);color:#fff;padding:13px 16px;border-radius:14px;box-shadow:0 4px 18px rgba(245,127,23,.4);z-index:var(--z-overlay,8000);display:flex;gap:12px;align-items:center;font-family:inherit;-webkit-tap-highlight-color:transparent;';
+  banner.style.cssText = 'position:fixed;left:14px;right:14px;bottom:calc(var(--tab-h,64px) + var(--sb,0px) + 12px);background:linear-gradient(135deg,#f57f17,#ff9800);color:#fff;padding:13px 16px;border-radius:14px;box-shadow:var(--elev-3);z-index:var(--z-overlay,8000);display:flex;gap:12px;align-items:center;font-family:inherit;-webkit-tap-highlight-color:transparent;';
   banner.innerHTML =
     '<div style="font-size:24px;flex-shrink:0;">⏰</div>' +
     '<div style="flex:1;font-size:12.5px;line-height:1.4;">' +
@@ -25294,9 +25317,9 @@ function gsShowScanTips(){
     if (existing) { existing.remove(); return; }
     var m = document.createElement('div');
     m.id = 'gs-scan-tips-modal';
-    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:var(--z-toast,9999);display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(6px);';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:var(--z-toast,9999);display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(var(--blur-md));';
     m.innerHTML =
-      '<div style="background:var(--card,#1e2a22);color:var(--text,#eaf3ea);max-width:420px;width:100%;border-radius:18px;padding:22px;box-shadow:0 16px 50px rgba(0,0,0,.5);border:1px solid rgba(102,187,106,.25);">'
+      '<div style="background:var(--card,#1e2a22);color:var(--text,#eaf3ea);max-width:420px;width:100%;border-radius:18px;padding:22px;box-shadow:var(--elev-4);border:1px solid rgba(102,187,106,.25);">'
       + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;"><span style="font-size:28px;">💡</span><div style="font-size:19px;font-weight:700;">Tipps für einen guten Scan</div></div>'
       + '<ul style="padding-left:18px;line-height:1.6;font-size:15px;margin:0 0 16px 0;">'
       + '<li><b>Gutes Licht</b> — Tageslicht ist optimal, kein direktes Gegenlicht.</li>'
@@ -25685,7 +25708,7 @@ function gsRenderMultiShotBar() {
   bar.innerHTML =
     shots.map(function(s,i){
       var lbl = s.label ? '<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.85);color:#fff;font-size:8px;text-align:center;padding:2px 0;font-weight:700;letter-spacing:.2px;">' + s.label.slice(0,12) + '</div>' : '';
-      return '<div style="position:relative;width:64px;height:64px;border-radius:9px;overflow:hidden;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);background:#000;cursor:pointer;flex-shrink:0;" data-msi="'+i+'" onclick="gsPreviewMultiShot('+i+')">' +
+      return '<div style="position:relative;width:64px;height:64px;border-radius:9px;overflow:hidden;border:2px solid #fff;box-shadow:var(--elev-1);background:#000;cursor:pointer;flex-shrink:0;" data-msi="'+i+'" onclick="gsPreviewMultiShot('+i+')">' +
         '<img src="data:'+(s.mt||'image/jpeg')+';base64,'+s.b64+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block;">' +
         lbl +
         '<button type="button" onclick="event.stopPropagation();gsDiscardMultiShot('+i+');" aria-label="Verwerfen" style="position:absolute;top:-7px;right:-7px;width:22px;height:22px;border-radius:50%;border:2px solid #fff;background:#c62828;color:#fff;font-size:13px;font-weight:800;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;z-index:5;">✕</button>' +
@@ -25708,7 +25731,7 @@ function gsPreviewMultiShot(idx) {
     '<div style="position:absolute;top:14px;right:14px;display:flex;gap:8px;">' +
       '<button onclick="document.getElementById(\'modal-shot-preview\').remove()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;width:42px;height:42px;border-radius:50%;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>' +
     '</div>' +
-    '<img src="data:'+(s.mt||'image/jpeg')+';base64,'+s.b64+'" alt="" style="max-width:100%;max-height:62vh;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.6);">' +
+    '<img src="data:'+(s.mt||'image/jpeg')+';base64,'+s.b64+'" alt="" style="max-width:100%;max-height:62vh;border-radius:14px;box-shadow:var(--elev-4);">' +
     '<div style="margin-top:14px;color:#fff;font-size:13px;text-align:center;">📷 ' + (idx+1) + ' / ' + window._gsMultiShots.length + ' · <b style="color:#69f0ae;">' + (s.label || 'Detail') + '</b></div>' +
     '<div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center;max-width:480px;">' +
       '<button onclick="gsRelabelMultiShot('+idx+');document.getElementById(\'modal-shot-preview\').remove();" style="padding:11px 18px;background:#1565c0;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">🏷️ Label ändern</button>' +
@@ -26185,7 +26208,7 @@ async function analyzeImage(b64, mt, organContext, extraImages){
     try { _kLog = (typeof sbIsLoggedIn === 'function') && sbIsLoggedIn(); } catch(_){}
     try { _kAdm = _kLog && (typeof gsIsAdmin === 'function') && gsIsAdmin(); } catch(_){}
     var heroCta = isKeyErr
-      ? '<div style="margin:14px auto 0;max-width:340px;padding:14px 16px;background:linear-gradient(135deg,#fff9c4 0%,#fff8e1 100%);border:2px solid #f9a825;border-radius:14px;text-align:left;box-shadow:0 4px 18px rgba(249,168,37,.22);">'
+      ? '<div style="margin:14px auto 0;max-width:340px;padding:14px 16px;background:linear-gradient(135deg,#fff9c4 0%,#fff8e1 100%);border:2px solid #f9a825;border-radius:14px;text-align:left;box-shadow:var(--elev-3);">'
           + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
             + '<div style="font-size:28px;">' + (_kAdm ? '🔑' : (_kLog ? '📡' : '✨')) + '</div>'
             + '<div><div style="font-weight:800;color:#b37400;font-size:14px;">'
@@ -26208,7 +26231,7 @@ async function analyzeImage(b64, mt, organContext, extraImages){
         heroCta +
         diagLine +
         '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;justify-content:center;">'+
-          '<button onclick="_gsRetryLastScan()" style="padding:10px 18px;background:var(--g-main);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:800;box-shadow:0 3px 10px rgba(45,138,45,.35);">🔁 Nochmal versuchen</button>'+
+          '<button onclick="_gsRetryLastScan()" style="padding:10px 18px;background:var(--g-main);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:800;box-shadow:var(--elev-brand);">🔁 Nochmal versuchen</button>'+
           (_kAdm ? '<button onclick="gsTestApiKey()" style="padding:10px 18px;background:#37474f;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:800;">🧪 Key testen</button>' : '')+
           (isRateErr ? '<button onclick="setTimeout(_gsRetryLastScan,60000);document.getElementById(\'scan-status\').textContent=\'⏳ Warte 60s auf Anbieter…\';" style="padding:10px 18px;background:#e65100;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:800;">⏱️ In 60s retry</button>' : '')+
         '</div>'+
@@ -26748,7 +26771,7 @@ function showScanResult(r){
   // _lastScanThumb ist an dieser Stelle noch der vorige Scan → bewusst NICHT verwenden).
   var _scanPhotoSrc = '';
   try { if (window._gsLastScanB64) _scanPhotoSrc = 'data:' + (window._gsLastScanMt || 'image/jpeg') + ';base64,' + window._gsLastScanB64; } catch(_){}
-  var heroPhoto = _scanPhotoSrc ? '<div style="margin:0 0 12px;"><img src="' + _scanPhotoSrc + '" alt="Dein Scan-Foto" loading="lazy" style="width:100%;max-height:210px;object-fit:cover;border-radius:14px;box-shadow:0 4px 14px rgba(0,0,0,.18);display:block;"></div>' : '';
+  var heroPhoto = _scanPhotoSrc ? '<div style="margin:0 0 12px;"><img src="' + _scanPhotoSrc + '" alt="Dein Scan-Foto" loading="lazy" style="width:100%;max-height:210px;object-fit:cover;border-radius:14px;box-shadow:var(--elev-2);display:block;"></div>' : '';
   var hero = '<div class="' + heroCls + '">' +
     heroPhoto +
     '<div class="sr2-hero-cat">' + catEmoji + ' ' + esc(catLabel) + premiumChip + '</div>' +
@@ -27000,7 +27023,7 @@ function showScanResult(r){
         '<button onclick="gsAddScanToMyPlants()" ' +
         'style="width:100%;padding:16px 14px;background:linear-gradient(135deg,#2d8a2d,#1a6a1a);color:#fff;' +
         'border:none;border-radius:14px;font-weight:900;font-size:16px;cursor:pointer;font-family:inherit;' +
-        'display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 14px rgba(45,138,45,.35);">' +
+        'display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:var(--elev-brand);">' +
         '<span style="font-size:22px;">🌱</span> Zu meinen Pflanzen hinzufügen' +
         '</button>';
       _container.appendChild(_addBtn);
@@ -27014,7 +27037,7 @@ function showScanResult(r){
     '<button onclick="gsResetScanner()" ' +
     'style="width:100%;padding:14px;background:linear-gradient(135deg,#1a3d1a,#2d8a2d);color:#fff;' +
     'border:none;border-radius:14px;font-weight:800;font-size:15px;cursor:pointer;' +
-    'display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 2px 10px rgba(27,94,32,.2);">' +
+    'display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:var(--elev-2);">' +
     '<span style="font-size:20px;">📷</span> Nächste Aufnahme' +
     '</button>';
   _container.appendChild(_newScanBtn);
@@ -27257,10 +27280,10 @@ function gsPickScanLocation(cat){
     var isGarden = /^(gemuese|gemüse|kraut|frucht|beere|baum|strauch|wildpflanze|blume)$/i.test(String(cat||'').trim());
     var ov = document.createElement('div');
     ov.id = 'gs-loc-pick';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.55);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);display:flex;align-items:flex-end;justify-content:center;';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.55);-webkit-backdrop-filter:blur(var(--blur-sm));backdrop-filter:blur(var(--blur-sm));display:flex;align-items:flex-end;justify-content:center;';
     var done = function(v){ try{ ov.remove(); }catch(_){} try{ if(typeof gsReleaseFocusTrap==='function') gsReleaseFocusTrap(ov); }catch(_){} resolve(v); };
     var card = document.createElement('div');
-    card.style.cssText = 'background:var(--card,#fff);color:var(--text,#111);border:1px solid var(--border);border-radius:20px 20px 0 0;max-width:480px;width:100%;padding:22px 20px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -8px 36px rgba(0,0,0,.3);';
+    card.style.cssText = 'background:var(--card,#fff);color:var(--text,#111);border:1px solid var(--border);border-radius:20px 20px 0 0;max-width:480px;width:100%;padding:22px 20px calc(20px + env(safe-area-inset-bottom));box-shadow:var(--elev-4);';
     var btn = function(loc, emoji, label, hint, primary){
       return '<button type="button" data-loc="'+loc+'" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;margin-bottom:10px;border-radius:14px;border:2px solid '+(primary?'var(--g-main,#2d8a2d)':'var(--border,#ccc)')+';background:'+(primary?'rgba(46,138,45,.08)':'transparent')+';cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">'+
         '<span style="font-size:30px;flex-shrink:0;">'+emoji+'</span>'+
@@ -28492,7 +28515,7 @@ function gsFavsRenderOutdoor(){
       '<div class="gs-empty-icon" style="font-size:54px;">🌳</div>' +
       '<div class="gs-empty-title" style="font-size:19px;font-weight:900;margin:6px 0;">' + _t('garden_empty_title','Noch kein Garten') + '</div>' +
       '<div class="gs-empty-sub" style="font-size:13.5px;margin:0 auto 18px;max-width:340px;line-height:1.5;">' + _t('garden_empty_hint','Lege einen Garten oder ein Beet an, um Outdoor-Pflanzen, Pflege-Plan und Ernte-Kalender zu nutzen.') + '</div>' +
-      '<button onclick="if(typeof openAddGarden===\'function\'){openAddGarden();}else if(typeof openModal===\'function\'){openModal(\'modal-add-garden\');}" style="display:inline-flex;align-items:center;gap:8px;padding:14px 22px;background:linear-gradient(135deg,#2d8a2d,#1a6a1a);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(45,138,45,.35);-webkit-tap-highlight-color:transparent;"><span style="font-size:20px;">＋</span> ' + _t('btn_add_garden','Garten anlegen') + '</button>' +
+      '<button onclick="if(typeof openAddGarden===\'function\'){openAddGarden();}else if(typeof openModal===\'function\'){openModal(\'modal-add-garden\');}" style="display:inline-flex;align-items:center;gap:8px;padding:14px 22px;background:linear-gradient(135deg,#2d8a2d,#1a6a1a);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;box-shadow:var(--elev-brand);-webkit-tap-highlight-color:transparent;"><span style="font-size:20px;">＋</span> ' + _t('btn_add_garden','Garten anlegen') + '</button>' +
       '</div>';
     return;
   }
@@ -28748,7 +28771,7 @@ function renderMyPlants() {
       '<div class="gs-empty-title" style="font-size:20px;font-weight:900;margin-bottom:6px;">' + _t('mp_empty_title','Noch keine Pflanzen') + '</div>' +
       '<div class="gs-empty-sub" style="font-size:14px;line-height:1.5;margin-bottom:20px;max-width:340px;margin-left:auto;margin-right:auto;">' + _t('mp_empty_sub','Füge deine erste Pflanze hinzu — am einfachsten per Foto-Scan. Wir merken uns Bestimmung, Foto und Pflege.') + '</div>' +
       '<div style="display:flex;flex-direction:column;gap:10px;max-width:340px;margin:0 auto;">' +
-        '<button onclick="if(typeof switchTab===\'function\')switchTab(\'scanner\');" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:56px;padding:14px;background:linear-gradient(135deg,#2d8a2d,#1a6a1a);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:900;cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(45,138,45,.35);"><span style="font-size:24px;">📷</span> ' + _t('btn_scan_plant','Pflanze scannen') + ' <span style="font-size:11px;background:rgba(255,255,255,.22);padding:3px 8px;border-radius:8px;margin-left:4px;">' + _t('badge_recommended','empfohlen') + '</span></button>' +
+        '<button onclick="if(typeof switchTab===\'function\')switchTab(\'scanner\');" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:56px;padding:14px;background:linear-gradient(135deg,#2d8a2d,#1a6a1a);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:900;cursor:pointer;font-family:inherit;box-shadow:var(--elev-brand);"><span style="font-size:24px;">📷</span> ' + _t('btn_scan_plant','Pflanze scannen') + ' <span style="font-size:11px;background:rgba(255,255,255,.22);padding:3px 8px;border-radius:8px;margin-left:4px;">' + _t('badge_recommended','empfohlen') + '</span></button>' +
         '<button onclick="openAddPlant()" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:56px;padding:14px;background:var(--card);color:var(--text);border:1.5px solid var(--border);border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;"><span style="font-size:22px;">✍️</span> ' + _t('btn_add_manual','Manuell hinzufügen') + '</button>' +
       '</div></div>';
     return;
@@ -29395,7 +29418,7 @@ function openPlantDiary(plantId) {
 
   var m = document.createElement('div');
   m.id = 'plant-diary-modal';
-  m.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px);';
+  m.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(var(--blur-sm));';
   m.innerHTML =
     '<div style="background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:520px;max-height:90vh;display:flex;flex-direction:column;">'+
       heroHtml +
@@ -30709,7 +30732,7 @@ function gsLightPro10Render() {
       var last = _p10.points[_p10.step - 1];
       var lastTxt = last ? ('Gemessen: ' + last.lux.toLocaleString('de-CH') + ' Lux · ') : '';
       inputEl.innerHTML =
-        '<button onclick="gsLightPro10Measure()" style="width:100%;padding:14px;background:linear-gradient(135deg,#6a1b9a,#283593);border:none;border-radius:11px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 6px 18px rgba(106,27,154,.3);">📸 Messen (' + _p10.step + '/10)</button>' +
+        '<button onclick="gsLightPro10Measure()" style="width:100%;padding:14px;background:linear-gradient(135deg,#6a1b9a,#283593);border:none;border-radius:11px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:var(--elev-3);">📸 Messen (' + _p10.step + '/10)</button>' +
         '<div id="p10-measure-status" style="margin-top:8px;font-size:11.5px;color:var(--muted);text-align:center;">' + lastTxt + 'Positioniere das Gerät und drücke Messen</div>';
     }
     if (backBtn) backBtn.style.visibility = 'visible';
@@ -31053,7 +31076,7 @@ function renderRoomScanResult(results) {
       return {...p, score: Math.round(s)};
     }).sort((a,b)=>b.score-a.score).slice(0,3);
 
-    html += '<div style="background:var(--card);border-radius:10px;padding:10px 12px;margin-bottom:7px;box-shadow:0 2px 6px rgba(0,0,0,.06);">';
+    html += '<div style="background:var(--card);border-radius:10px;padding:10px 12px;margin-bottom:7px;box-shadow:var(--elev-1);">';
     html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">';
     html += '<span style="font-weight:700;font-size:13px;">' + r.emoji + ' ' + r.position + '</span>';
     html += '<span style="font-size:11px;font-weight:700;background:var(--bg-success-soft);color:var(--g-dark);padding:2px 8px;border-radius:6px;">' + r.lux.toLocaleString() + ' ' + _t('unit_lux','Lux') + '</span>';
@@ -31568,7 +31591,7 @@ function renderFeedback(){
   else ringStops += '#e0e0e0 '+acc+'deg 360deg,';
   ringStops = ringStops.slice(0,-1);
   const dashHtml =
-    '<div style="background:linear-gradient(135deg,#fff 0%,#f7fbf5 100%);border:1px solid rgba(46,125,50,.18);border-radius:16px;padding:14px 14px 12px;margin-bottom:14px;box-shadow:0 2px 14px rgba(46,125,50,.07);">'+
+    '<div style="background:linear-gradient(135deg,#fff 0%,#f7fbf5 100%);border:1px solid rgba(46,125,50,.18);border-radius:16px;padding:14px 14px 12px;margin-bottom:14px;box-shadow:var(--elev-brand);">'+
       '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">'+
         // Donut ring
         '<div style="position:relative;width:72px;height:72px;flex-shrink:0;background:conic-gradient('+ringStops+');border-radius:50%;">'+
@@ -32965,7 +32988,7 @@ function gsOpenVerifyModal(postId) {
   var text = escHtml((post.content || post.text || '').slice(0, 240));
   var m = document.createElement('div');
   m.id = 'verify-post-modal';
-  m.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);padding:12px;';
+  m.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(var(--blur-md));padding:12px;';
   m.innerHTML = '<div style="background:var(--card);border-radius:16px;max-width:420px;width:100%;max-height:90vh;overflow-y:auto;padding:0;">' +
     '<div style="background:linear-gradient(135deg,#1b5e20,#2e7d32);padding:16px 18px;color:#fff;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;">' +
       '<div style="font-size:16px;font-weight:900;">✅ Als Experte verifizieren</div>' +
@@ -33651,7 +33674,7 @@ function gsBattleRenderList(rows){
   h += '<div style="font-size:19px;font-weight:900;color:var(--text);">⚔️ ' + _t('battle_title','Quiz-Battles') + '</div>';
   h += '<div style="font-size:12.5px;color:var(--muted);margin-top:3px;">' + _t('battle_your_elo','Dein ELO:') + ' <b style="color:var(--c-violet);">' + (myElo|0) + '</b></div>';
   h += '</div>';
-  h += '<button onclick="gsBattleNewRandom()" style="width:100%;padding:14px;background:linear-gradient(135deg,#7e57c2,#4527a0);color:#fff;border:none;border-radius:13px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:0 3px 12px rgba(69,39,160,.35);margin-bottom:16px;">🎲 ' + _t('btn_new_battle_random','Neues Battle (Zufalls-Gegner)') + '</button>';
+  h += '<button onclick="gsBattleNewRandom()" style="width:100%;padding:14px;background:linear-gradient(135deg,#7e57c2,#4527a0);color:#fff;border:none;border-radius:13px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-2);margin-bottom:16px;">🎲 ' + _t('btn_new_battle_random','Neues Battle (Zufalls-Gegner)') + '</button>';
 
   function section(title, list, kind){
     var s = '<div style="font-size:12px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin:6px 0 8px;">' + title + ' (' + list.length + ')</div>';
@@ -33783,7 +33806,7 @@ function _gsBattleMaybeOfferResume(){
     if (document.getElementById('gs-battle-resume-banner')) return;
     var b = document.createElement('div');
     b.id = 'gs-battle-resume-banner';
-    b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);z-index:var(--z-toast,9999);background:linear-gradient(135deg,#5e35b1,#7e57c2);color:#fff;border-radius:14px;padding:12px 14px;box-shadow:0 6px 22px rgba(0,0,0,.35);display:flex;gap:12px;align-items:center;font-family:inherit;';
+    b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);z-index:var(--z-toast,9999);background:linear-gradient(135deg,#5e35b1,#7e57c2);color:#fff;border-radius:14px;padding:12px 14px;box-shadow:var(--elev-3);display:flex;gap:12px;align-items:center;font-family:inherit;';
     b.innerHTML = '<div style="font-size:24px;flex-shrink:0;">⚔️</div>'
       + '<div style="flex:1;min-width:0;font-size:13px;line-height:1.35;"><b>Battle fortsetzen?</b><br><span style="opacity:.9;font-size:11.5px;">Du warst bei Runde ' + ((s.idx||0)+1) + ' / ' + s.questions.length + '.</span></div>'
       + '<button onclick="gsBattleResume()" style="background:#fff;color:var(--c-violet);border:none;border-radius:8px;padding:8px 14px;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit;flex-shrink:0;">Weiter</button>'
@@ -33797,7 +33820,7 @@ function gsBattleStartPlay(battleId, role, questions){
   window._gsBattle = { id: battleId, role: role || 'challenger', questions: questions, answers: [], idx: 0, qStart: 0, timer: null, timeLeft: 30 };
   _gsBattlePersist();
   // Match-Up-Intro kurz, dann Runde 1
-  _gsNlOpen('<div style="padding:34px 20px;text-align:center;"><div style="font-size:46px;">⚔️</div><div style="font-size:20px;font-weight:900;margin:10px 0;color:var(--text);">Battle startet!</div><div style="font-size:13px;color:var(--muted);">' + questions.length + ' Runden · 30 Sek pro Frage</div><button onclick="gsBattleRenderRound()" style="margin-top:18px;padding:12px 28px;background:linear-gradient(135deg,#7e57c2,#4527a0);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;box-shadow:0 3px 12px rgba(69,39,160,.35);">▶ Los geht\'s</button></div>');
+  _gsNlOpen('<div style="padding:34px 20px;text-align:center;"><div style="font-size:46px;">⚔️</div><div style="font-size:20px;font-weight:900;margin:10px 0;color:var(--text);">Battle startet!</div><div style="font-size:13px;color:var(--muted);">' + questions.length + ' Runden · 30 Sek pro Frage</div><button onclick="gsBattleRenderRound()" style="margin-top:18px;padding:12px 28px;background:linear-gradient(135deg,#7e57c2,#4527a0);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;box-shadow:var(--elev-2);">▶ Los geht\'s</button></div>');
 }
 window.gsBattleStartPlay = gsBattleStartPlay;
 
@@ -43287,11 +43310,11 @@ function buildRecipeCard(r, isRemedy) {
   // v23.56: Favorit-Heart direkt auf der Karte
   var isFav = (typeof isRecipeFav === 'function') && isRecipeFav(r.id);
   var heart = '<button data-rfav="' + r.id + '" onclick="event.stopPropagation();toggleRecipeFav(\'' + r.id + '\',event)" '
-    + 'style="position:absolute;top:8px;right:8px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.92);border:none;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.15);color:' + (isFav ? '#e53935' : '#9e9e9e') + ';z-index:2;" '
+    + 'style="position:absolute;top:8px;right:8px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.92);border:none;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:var(--elev-1);color:' + (isFav ? '#e53935' : '#9e9e9e') + ';z-index:2;" '
     + 'aria-label="' + _t('recipe_card_favorite','Favorit') + '" title="' + _t('recipe_save_favorite','Als Favorit speichern') + '">' + (isFav ? '♥' : '♡') + '</button>';
   // v23.56: Heilwirkung Badge — nur wenn kein Heart da ist (Heilmittel hat eh Wirkung-Info im Detail)
   var remedyBadge = (isRemedy && r.wirkung)
-    ? '<div style="position:absolute;bottom:8px;right:8px;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;background:rgba(227,242,253,.95);color:var(--c-info);box-shadow:0 1px 3px rgba(0,0,0,.08);">' + _t('remedy_healing_badge','💊 Heilwirkung') + '</div>'
+    ? '<div style="position:absolute;bottom:8px;right:8px;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;background:rgba(227,242,253,.95);color:var(--c-info);box-shadow:var(--elev-1);">' + _t('remedy_healing_badge','💊 Heilwirkung') + '</div>'
     : '';
 
   return '<div class="recipe-card" onclick="openRecipeDetail(\'' + r.id + '\')">' +
@@ -43944,7 +43967,7 @@ function gsRenderWissenHero() {
   var ringBg = 'conic-gradient(' + ringCol + ' 0deg ' + (pct*3.6) + 'deg, rgba(46,125,50,.12) ' + (pct*3.6) + 'deg 360deg)';
   hero.innerHTML =
     // ═══ Premium-Hero: Gradient + Pattern Overlay + Stats-Row ═══
-    '<div style="position:relative;background:linear-gradient(135deg,#2e7d32 0%,#43a047 55%,#66bb6a 100%);border-radius:18px;padding:14px 16px 12px;margin-bottom:10px;overflow:hidden;box-shadow:0 6px 20px rgba(46,125,50,.25);">'
+    '<div style="position:relative;background:linear-gradient(135deg,#2e7d32 0%,#43a047 55%,#66bb6a 100%);border-radius:18px;padding:14px 16px 12px;margin-bottom:10px;overflow:hidden;box-shadow:var(--elev-brand);">'
       // subtle leaf pattern
       + '<div aria-hidden="true" style="position:absolute;inset:0;opacity:.10;pointer-events:none;background-image:radial-gradient(circle at 85% 20%, #fff 0, #fff 1px, transparent 2px),radial-gradient(circle at 15% 75%, #fff 0, #fff 1px, transparent 2px);background-size:40px 40px;"></div>'
       // Top row: season/moon + DB-count + progress ring
@@ -43968,7 +43991,7 @@ function gsRenderWissenHero() {
         + '</div>'
       + '</div>'
       // Tip card (glass morphism)
-      + '<div style="position:relative;margin-top:11px;background:rgba(255,255,255,.96);backdrop-filter:blur(8px);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,.08);">'
+      + '<div style="position:relative;margin-top:11px;background:rgba(255,255,255,.96);backdrop-filter:blur(var(--blur-md));border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:var(--elev-1);">'
         + '<div style="font-size:26px;flex-shrink:0;">'+tip.i+'</div>'
         + '<div style="flex:1;min-width:0;">'
           + '<div style="font-size:9.5px;font-weight:800;color:var(--g-main);text-transform:uppercase;letter-spacing:.6px;">Tipp des Tages</div>'
@@ -47332,7 +47355,7 @@ function _gsCatIcon(cat, small) {
   var br = small ? 2 : 2.5;
   var fs = small ? 11 : 12;
   return L.divIcon({
-    html: '<div style="background:'+c.color+';width:'+sz+'px;height:'+sz+'px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:'+br+'px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;"><span style="transform:rotate(45deg);font-size:'+fs+'px;">'+c.emoji+'</span></div>',
+    html: '<div style="background:'+c.color+';width:'+sz+'px;height:'+sz+'px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:'+br+'px solid #fff;box-shadow:var(--elev-1);display:flex;align-items:center;justify-content:center;"><span style="transform:rotate(45deg);font-size:'+fs+'px;">'+c.emoji+'</span></div>',
     iconSize: [sz, sz], iconAnchor: [sz/2, sz], popupAnchor: [0, -sz-2], className: ''
   });
 }
@@ -48076,7 +48099,7 @@ function gsSetUserMarker(lat, lng) {
   if (!gsMap || !window.L) return;
   if (gsMapUserMarker) gsMap.removeLayer(gsMapUserMarker);
   const icon = L.divIcon({
-    html: '<div style="width:14px;height:14px;background:#1565c0;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);"></div>',
+    html: '<div style="width:14px;height:14px;background:#1565c0;border-radius:50%;border:3px solid #fff;box-shadow:var(--elev-1);"></div>',
     iconSize: [14, 14], iconAnchor: [7, 7], className: ''
   });
   gsMapUserMarker = L.marker([lat, lng], { icon }).addTo(gsMap)
@@ -48525,9 +48548,9 @@ function _gsTrackRecoveryChoice(points, minutes) {
       w.setAttribute('role','dialog');
       w.setAttribute('aria-modal','true');
       w.setAttribute('aria-labelledby','gs-track-recover-title');
-      w.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:var(--z-image-overlay,99999);padding:18px;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);';
+      w.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:var(--z-image-overlay,99999);padding:18px;backdrop-filter:blur(var(--blur-sm));-webkit-backdrop-filter:blur(var(--blur-sm));';
       var c = document.createElement('div');
-      c.style.cssText = 'background:var(--bg,#fff);color:var(--fg,#1a1a1a);max-width:360px;width:100%;border-radius:16px;padding:22px 22px 18px;box-shadow:0 12px 38px rgba(0,0,0,.32);font-family:inherit;';
+      c.style.cssText = 'background:var(--bg,#fff);color:var(--fg,#1a1a1a);max-width:360px;width:100%;border-radius:16px;padding:22px 22px 18px;box-shadow:var(--elev-4);font-family:inherit;';
       var bg = '#2e7d32';
       try { bg = (getComputedStyle(document.documentElement).getPropertyValue('--g-main')||'#2e7d32').trim(); } catch(_){}
       var body = 'Die letzte Aufzeichnung wurde unterbrochen: ' + points + ' Punkte, vor ' + minutes + ' Minuten. Fortsetzen hängt neue Punkte an denselben Track an.';
@@ -49501,7 +49524,7 @@ function gsTrackOpenDetail(idx) {
 
   // Modal-Aufbau
   var html =
-    '<div style="position:fixed;inset:0;z-index:6500;background:rgba(0,0,0,.78);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:center;" onclick="if(event.target===this)gsTrackCloseDetail()">' +
+    '<div style="position:fixed;inset:0;z-index:6500;background:rgba(0,0,0,.78);backdrop-filter:blur(var(--blur-md));display:flex;align-items:flex-end;justify-content:center;" onclick="if(event.target===this)gsTrackCloseDetail()">' +
       '<div style="background:var(--card);width:100%;max-width:580px;max-height:94vh;overflow-y:auto;border-radius:20px 20px 0 0;-webkit-overflow-scrolling:touch;" onclick="event.stopPropagation()">' +
         '<div style="position:sticky;top:0;background:var(--card);padding:14px 16px 10px;border-bottom:1px solid var(--border);z-index:5;display:flex;align-items:center;gap:10px;">' +
           '<div style="flex:1;min-width:0;">' +
@@ -53503,7 +53526,7 @@ window.gsPPTestConnection = async function(btnEl) {
   if (existing) existing.remove();
   var m = document.createElement('div');
   m.id = 'gs-conn-test-modal';
-  m.style.cssText = 'position:fixed;inset:0;z-index:7000;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px;';
+  m.style.cssText = 'position:fixed;inset:0;z-index:7000;background:rgba(0,0,0,.7);backdrop-filter:blur(var(--blur-md));display:flex;align-items:center;justify-content:center;padding:20px;';
   m.onclick = function(e){ if (e.target===m) m.remove(); };
   m.innerHTML = '<div style="background:var(--card);border-radius:14px;padding:20px;max-width:460px;width:100%;max-height:80vh;overflow-y:auto;">' + html +
     '<button onclick="document.getElementById(\'gs-conn-test-modal\').remove()" style="margin-top:14px;width:100%;padding:11px;background:var(--g-main);color:#fff;border:none;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;">Schliessen</button>' +
@@ -53712,8 +53735,8 @@ function gsPPrenderPlan(plan, data) {
   // v24.00: Plan-Result aufgeräumt — nur 2 Aktionen: Speichern + PDF-Export
   // 3D-CAD-Hero, 2D-Plan, Anleitung entfernt (User-Wunsch)
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">' +
-    '<button onclick="gsPPsavePlan()" style="padding:14px;background:linear-gradient(135deg,#f57c00,#e65100);color:#fff;border:none;border-radius:12px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 4px 12px rgba(245,124,0,.30);-webkit-tap-highlight-color:transparent;">💾 Plan speichern</button>' +
-    '<button onclick="gsPPexportPDF()" style="padding:14px;background:linear-gradient(135deg,#c62828,#b71c1c);color:#fff;border:none;border-radius:12px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 4px 12px rgba(198,40,40,.30);-webkit-tap-highlight-color:transparent;">📄 PDF Export</button>' +
+    '<button onclick="gsPPsavePlan()" style="padding:14px;background:linear-gradient(135deg,#f57c00,#e65100);color:#fff;border:none;border-radius:12px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:var(--elev-2);-webkit-tap-highlight-color:transparent;">💾 Plan speichern</button>' +
+    '<button onclick="gsPPexportPDF()" style="padding:14px;background:linear-gradient(135deg,#c62828,#b71c1c);color:#fff;border:none;border-radius:12px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:var(--elev-2);-webkit-tap-highlight-color:transparent;">📄 PDF Export</button>' +
   '</div>';
   html += gsPPRenderRefineBar();
 
@@ -54224,7 +54247,7 @@ function gsPPshowVisual() {
       '<h2 style="margin:0 0 6px;font-size:19px;color:var(--g-dark);">🗺️ Garten-Plan · Visualisierung</h2>' +
       '<p style="margin:0 0 12px;font-size:12px;color:var(--muted);">Massstab 1:' + Math.round(bedW*100/svgW*100) + ' · 1m-Raster, 5m-Hauptlinien</p>' +
       svg +
-      '<button onclick="gsPPshow3DCad()" style="width:100%;margin-top:10px;padding:13px;background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border:none;border-radius:11px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 12px rgba(27,94,32,.35);">📐 In 3D-CAD anschauen</button>' +
+      '<button onclick="gsPPshow3DCad()" style="width:100%;margin-top:10px;padding:13px;background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border:none;border-radius:11px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-2);">📐 In 3D-CAD anschauen</button>' +
       '<h3 style="font-size:15px;color:var(--g-dark);margin:14px 0 8px;">📋 Schritt-für-Schritt-Anleitung</h3>' +
       '<ol style="padding-left:0;list-style:none;margin:0;">' +
         steps.map(function(s){ return '<li style="background:var(--bg);border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:13px;line-height:1.55;">' + s + '</li>'; }).join('') +
@@ -54261,13 +54284,13 @@ function gsPPshow3DCad() {
   m.style.cssText = 'position:fixed;inset:0;z-index:6800;background:#0a1a0a;display:flex;flex-direction:column;';
   m.innerHTML =
     '<div style="position:absolute;top:14px;left:14px;right:14px;display:flex;align-items:center;gap:10px;z-index:5;pointer-events:none;">' +
-      '<div style="background:rgba(0,0,0,.55);color:#e0f2e0;padding:8px 12px;border-radius:10px;font-size:12.5px;backdrop-filter:blur(8px);pointer-events:auto;">' +
+      '<div style="background:rgba(0,0,0,.55);color:#e0f2e0;padding:8px 12px;border-radius:10px;font-size:12.5px;backdrop-filter:blur(var(--blur-md));pointer-events:auto;">' +
         '<div style="font-weight:800;">📐 CAD-Garten-Plan</div>' +
         '<div style="font-size:10.5px;opacity:.78;margin-top:1px;">' + bedW.toFixed(1) + ' × ' + bedL.toFixed(1) + ' m · ' + (bedW*bedL).toFixed(1) + ' m² · ' + (plan.plants||[]).length + ' Pflanzen</div>' +
       '</div>' +
       '<div style="flex:1;"></div>' +
-      '<button onclick="gsPP3DReset()" style="background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.2);color:#e0f2e0;padding:8px 12px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;backdrop-filter:blur(8px);pointer-events:auto;">↺ Ansicht</button>' +
-      '<button onclick="gsPPclose3DCad()" style="background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.2);color:#e0f2e0;width:36px;height:36px;border-radius:10px;font-size:16px;cursor:pointer;font-family:inherit;backdrop-filter:blur(8px);pointer-events:auto;">✕</button>' +
+      '<button onclick="gsPP3DReset()" style="background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.2);color:#e0f2e0;padding:8px 12px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;backdrop-filter:blur(var(--blur-md));pointer-events:auto;">↺ Ansicht</button>' +
+      '<button onclick="gsPPclose3DCad()" style="background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.2);color:#e0f2e0;width:36px;height:36px;border-radius:10px;font-size:16px;cursor:pointer;font-family:inherit;backdrop-filter:blur(var(--blur-md));pointer-events:auto;">✕</button>' +
     '</div>' +
     '<div id="pp3d-canvas" style="flex:1;position:relative;display:flex;align-items:center;justify-content:center;color:#88a888;">' +
       '<div style="text-align:center;"><div style="font-size:32px;margin-bottom:6px;">📐</div><div>3D-CAD lädt…</div></div>' +
@@ -57325,7 +57348,7 @@ function gsBuildGardenScanResultPreview(analysis, planId) {
       '</div>' +
       '<div id="garden-scan-3d-host" style="position:relative;width:100%;height:60vh;max-height:480px;border-radius:8px;background:#cfe6f5;overflow:hidden;touch-action:none;">' +
         // v26.77: Mini-Map Canvas Overlay (rechts oben), default sichtbar
-        '<canvas id="gs-3d-minimap" width="120" height="120" style="position:absolute;top:10px;right:10px;background:rgba(255,255,255,.85);border:1.5px solid #1b5e20;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.18);z-index:10;display:block;pointer-events:none;"></canvas>' +
+        '<canvas id="gs-3d-minimap" width="120" height="120" style="position:absolute;top:10px;right:10px;background:rgba(255,255,255,.85);border:1.5px solid #1b5e20;border-radius:8px;box-shadow:var(--elev-1);z-index:10;display:block;pointer-events:none;"></canvas>' +
       '</div>' +
       '<div style="font-size:10px;color:var(--muted);text-align:center;margin-top:6px;">Drag drehen · Scroll zoomen · 🗺 Mini-Map · Konflikte glühen rot · 📸 exportiert 4K-PNG</div>' +
     '</div>';
@@ -57568,7 +57591,7 @@ function gsBuildPlanWater(analysis){
   if (hasArea) {
     var totalA = zoneDefs.reduce(function(s,z){ return s + (areaByZone[z.k]||0); }, 0) || 1, acc = 0, segs = [];
     zoneDefs.forEach(function(z){ var a = areaByZone[z.k] || 0; if (a<=0) return; var start = acc/totalA*360; acc += a; var end = acc/totalA*360; segs.push(z.meta.c + ' ' + start.toFixed(1) + 'deg ' + end.toFixed(1) + 'deg'); });
-    out += '<div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;flex-wrap:wrap;"><div style="width:96px;height:96px;border-radius:50%;background:conic-gradient(' + segs.join(',') + ');flex:0 0 auto;box-shadow:0 2px 8px rgba(0,0,0,.12);"></div><div style="flex:1;min-width:140px;">' +
+    out += '<div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;flex-wrap:wrap;"><div style="width:96px;height:96px;border-radius:50%;background:conic-gradient(' + segs.join(',') + ');flex:0 0 auto;box-shadow:var(--elev-1);"></div><div style="flex:1;min-width:140px;">' +
       zoneDefs.map(function(z){ var a = areaByZone[z.k]||0; if (a<=0) return ''; var pct = Math.round(a/totalA*100); return '<div style="display:flex;align-items:center;gap:7px;font-size:12px;padding:2px 0;color:var(--text);"><span style="width:11px;height:11px;border-radius:3px;background:' + z.meta.c + ';display:inline-block;"></span><b>' + z.meta.l + '</b> · ' + (Math.round(a*10)/10) + ' m² (' + pct + '%)</div>'; }).join('') + '</div></div>';
   }
   out += zoneDefs.map(function(z){
@@ -58994,7 +59017,7 @@ function gsOpenPhotoTimeline(plantId) {
 
   var m = document.createElement('div');
   m.id = 'photo-timeline-modal';
-  m.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);padding:12px;';
+  m.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(var(--blur-md));padding:12px;';
 
   if (!photos.length) {
     m.innerHTML = '<div style="background:var(--card);border-radius:16px;padding:24px;max-width:380px;text-align:center;color:var(--text);">' +
@@ -59415,7 +59438,7 @@ function gsVoiceOpen() {
   window._gsVoiceState = { active: false, recognition: null, transcript: '', status: 'idle', errorMsg: '', reply: '' };
   var m = document.createElement('div');
   m.id = 'voice-mode-modal';
-  m.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);padding:12px;';
+  m.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(var(--blur-md));padding:12px;';
   m.innerHTML = gsBuildVoiceModalContent();
   document.body.appendChild(m);
   // v30.89: Rettungsleine — schliessbar per Escape und bei jedem Navigations-Wechsel.
@@ -59708,7 +59731,7 @@ async function gsPPopenSavedPlans() {
 
   var m = document.createElement('div');
   m.id = 'modal-saved-plans';
-  m.style.cssText = 'position:fixed;inset:0;z-index:6700;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:center;';
+  m.style.cssText = 'position:fixed;inset:0;z-index:6700;background:rgba(0,0,0,.65);backdrop-filter:blur(var(--blur-md));display:flex;align-items:flex-end;justify-content:center;';
   m.onclick = function(ev){ if (ev.target === m) m.remove(); };
   m.innerHTML =
     '<div style="background:var(--card);width:100%;max-width:560px;max-height:88vh;overflow-y:auto;border-radius:20px 20px 0 0;-webkit-overflow-scrolling:touch;">' +
@@ -60611,7 +60634,7 @@ function _gsAgentShowModal(title, bodyHtml) {
   if (existing) existing.remove();
   var m = document.createElement('div');
   m.id = 'modal-agent';
-  m.style.cssText = 'position:fixed;inset:0;z-index:6900;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:center;';
+  m.style.cssText = 'position:fixed;inset:0;z-index:6900;background:rgba(0,0,0,.65);backdrop-filter:blur(var(--blur-md));display:flex;align-items:flex-end;justify-content:center;';
   m.onclick = function(ev){ if (ev.target === m) m.remove(); };
   m.innerHTML =
     '<div style="background:var(--card);width:100%;max-width:520px;max-height:88vh;overflow-y:auto;border-radius:20px 20px 0 0;-webkit-overflow-scrolling:touch;">' +
@@ -63188,7 +63211,7 @@ window.gsOpenGlobalKeyAdmin = async function() {
   if (existing) existing.remove();
   var m = document.createElement('div');
   m.id = 'gs-global-key-admin';
-  m.style.cssText = 'position:fixed;inset:0;z-index:7000;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:18px;';
+  m.style.cssText = 'position:fixed;inset:0;z-index:7000;background:rgba(0,0,0,.7);backdrop-filter:blur(var(--blur-md));display:flex;align-items:center;justify-content:center;padding:18px;';
   m.onclick = function(e){ if (e.target === m) m.remove(); };
   var keyPreview = key ? (key.slice(0, 12) + '…' + key.slice(-4)) : '—';
   m.innerHTML =
@@ -63337,6 +63360,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v31.22', date: '01.09.2026',
+    headline: '✨ Oberflächen aus einem Guss — Tiefe und Glas',
+    summary: 'Die App benutzte 133 verschiedene Schatten und 10 verschiedene Glas-Unschärfen. Das ist keine Gestaltung, das ist Rauschen — und der Grund, warum sie zusammengesetzt statt aus einem Guss wirkte. Jetzt vier Höhenstufen und drei Unschärfen für alles, mit eigenen Werten für den Dunkelmodus.',
+    user_summary: '✨ Karten, Dialoge und die schwebenden Glas-Kacheln folgen jetzt einer gemeinsamen Bildsprache statt jeder für sich.',
+    user_items: [
+      { emoji: '🃏', text: 'Vier klare Höhenstufen: Zeile, Karte, hervorgehoben, Dialog' },
+      { emoji: '🔮', text: 'Alle Glas-Effekte in drei abgestimmten Stärken statt zehn' },
+      { emoji: '🌗', text: 'Im Dunkelmodus eigene, tiefere Schatten — ein 7-%-Schatten ist auf dunklem Grund unsichtbar' },
+    ],
+    items: [
+      {emoji:'📏', bold:'Gemessen statt geschätzt:', text:' 2287 Radien in 58 Varianten, 237 Schatten in 133 Varianten, 192 Übergänge in 85 Varianten. Angefasst wurden Schatten und Glas — beides begrenzt und prüfbar.'},
+      {emoji:'🔮', bold:'74/74 Glas-Effekte:', text:' blur(3–14px) auf drei Token (--blur-sm/md/lg) abgebildet; die häufigsten Werte bleiben unverändert.'},
+      {emoji:'🃏', bold:'119 Schatten umgestellt:', text:' Token-Anteil bei box-shadow von 73 auf 195 von 238. Bewusst NICHT angefasst: 13 mehrschichtige Puls-Animationen, 4 Inset-Schatten und die Fokus-Ringe (0 0 0 3px) — das sind keine Höhen.'},
+      {emoji:'🐛', bold:'Eigener Fehler:', text:' der erste Lauf ersetzte nur 3 Schatten. Mein Schutz gegen mehrschichtige Werte prüfte auf Kommas — und jedes rgba() enthält Kommas. Jetzt werden Klammern zuerst entfernt.'},
+    ],
+  },
   {
     v: 'v31.21', date: '01.09.2026',
     headline: '🌗 Dunkelmodus, zweite Welle — 184 weitere Stellen',
@@ -69339,7 +69379,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.21';
+var GS_VERSION = 'v31.22';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -70152,7 +70192,7 @@ async function gsHandleAuthRedirect(){
     if (!isIOS || !isSafari) return;
     var b = document.createElement('div');
     b.id = 'gs-ios-install-banner';
-    b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 84px);z-index:8500;background:linear-gradient(135deg,#1a3d1a,#2e7d32);color:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 8px 28px rgba(0,0,0,.35);display:flex;gap:12px;align-items:center;font-family:inherit;animation:gsSlideUpBanner .4s ease-out;';
+    b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 84px);z-index:8500;background:linear-gradient(135deg,#1a3d1a,#2e7d32);color:#fff;border-radius:14px;padding:14px 16px;box-shadow:var(--elev-3);display:flex;gap:12px;align-items:center;font-family:inherit;animation:gsSlideUpBanner .4s ease-out;';
     if (!document.getElementById('gs-banner-anim')) {
       var s = document.createElement('style'); s.id = 'gs-banner-anim';
       s.textContent = '@keyframes gsSlideUpBanner{from{transform:translateY(120%);opacity:0}to{transform:translateY(0);opacity:1}}';
@@ -70222,7 +70262,7 @@ window.gsInstallApp = async function(){
   m.setAttribute('role','dialog');
   m.setAttribute('aria-modal','true');
   m.setAttribute('aria-label','App installieren');
-  m.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:18px;';
+  m.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.65);backdrop-filter:blur(var(--blur-md));display:flex;align-items:center;justify-content:center;padding:18px;';
   m.onclick = function(e){ if (e.target === m) m.remove(); };
   var iosSteps = '<ol style="margin:8px 0 0 20px;padding:0;font-size:13px;color:var(--text2);line-height:1.7;">' +
     '<li>Tippe auf das <b>„Teilen"-Symbol</b> 📤 unten in Safari</li>' +
@@ -70244,7 +70284,7 @@ window.gsInstallApp = async function(){
   var platformLabel = isIOS ? 'iPhone / iPad' : isAndroid ? 'Android' : 'Desktop';
   var steps = isIOS ? iosSteps : isAndroid ? androidSteps : desktopSteps;
   m.innerHTML =
-    '<div style="background:var(--card);border-radius:18px;max-width:440px;width:100%;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.35);">' +
+    '<div style="background:var(--card);border-radius:18px;max-width:440px;width:100%;overflow:hidden;box-shadow:var(--elev-4);">' +
       '<div style="background:linear-gradient(135deg,#1a3d1a,#2e7d32);color:#fff;padding:22px;text-align:center;">' +
         '<div style="font-size:54px;margin-bottom:6px;">📱</div>' +
         '<div style="font-family:\'Playfair Display\',serif;font-size:20px;font-weight:800;">App installieren</div>' +
@@ -70303,9 +70343,9 @@ window.gsInstallApp = async function(){
       m.setAttribute('role','dialog');
       m.setAttribute('aria-modal','true');
       m.setAttribute('aria-label','Willkommen bei GreenScan — Account empfohlen');
-      m.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:18px;';
+      m.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.65);backdrop-filter:blur(var(--blur-md));display:flex;align-items:center;justify-content:center;padding:18px;';
       m.innerHTML =
-        '<div style="background:var(--card);border-radius:18px;max-width:440px;width:100%;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.35);">' +
+        '<div style="background:var(--card);border-radius:18px;max-width:440px;width:100%;overflow:hidden;box-shadow:var(--elev-4);">' +
           '<div style="background:linear-gradient(135deg,#1a3d1a,#2e7d32);color:#fff;padding:24px;text-align:center;">' +
             '<div style="font-size:54px;margin-bottom:8px;">🌿</div>' +
             '<div style="font-family:\'Playfair Display\',serif;font-size:22px;font-weight:800;margin-bottom:4px;">Willkommen bei GreenScan</div>' +
@@ -71416,7 +71456,7 @@ function gsRegisterServiceWorker() {
           var b = document.createElement('div');
           b.id = 'gs-sw-update-banner';
           // v24.49: --z-toast (9999) — Update-Banner muss über jedem Modal/Toast liegen.
-          b.style.cssText = 'position:fixed;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 8px);z-index:var(--z-toast,9999);background:linear-gradient(135deg,#1565c0,#1976d2);color:#fff;border-radius:14px;padding:12px 14px;box-shadow:0 6px 22px rgba(0,0,0,.35);display:flex;gap:12px;align-items:center;font-family:inherit;animation:gsSlideDownBanner .35s ease-out;';
+          b.style.cssText = 'position:fixed;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 8px);z-index:var(--z-toast,9999);background:linear-gradient(135deg,#1565c0,#1976d2);color:#fff;border-radius:14px;padding:12px 14px;box-shadow:var(--elev-3);display:flex;gap:12px;align-items:center;font-family:inherit;animation:gsSlideDownBanner .35s ease-out;';
           if (!document.getElementById('gs-banner-anim-down')) {
             var s = document.createElement('style'); s.id = 'gs-banner-anim-down';
             s.textContent = '@keyframes gsSlideDownBanner{from{transform:translateY(-120%);opacity:0}to{transform:translateY(0);opacity:1}}';
@@ -71885,7 +71925,7 @@ function gsRegisterServiceWorker() {
       var b = document.createElement('div');
       b.id = 'gs-conn-banner';
       // v24.49: --z-toast knapp drunter (9050) — bleibt sichtbar auch wenn Toasts aufpoppen.
-      b.style.cssText = 'position:fixed;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 8px);z-index:calc(var(--z-toast,9999) - 949);border-radius:12px;padding:10px 14px;box-shadow:0 4px 16px rgba(0,0,0,.25);display:flex;gap:10px;align-items:center;font-family:inherit;font-size:12.5px;animation:gsSlideDownBanner .25s ease-out;';
+      b.style.cssText = 'position:fixed;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 8px);z-index:calc(var(--z-toast,9999) - 949);border-radius:12px;padding:10px 14px;box-shadow:var(--elev-2);display:flex;gap:10px;align-items:center;font-family:inherit;font-size:12.5px;animation:gsSlideDownBanner .25s ease-out;';
       if (state === 'offline') {
         b.style.background = 'linear-gradient(135deg,#c62828,#ef5350)';
         b.style.color = '#fff';
@@ -71943,7 +71983,7 @@ function gsRegisterServiceWorker() {
     if (document.getElementById(BADGE_ID)) return document.getElementById(BADGE_ID);
     var b = document.createElement('div');
     b.id = BADGE_ID;
-    b.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);right:8px;z-index:8000;background:rgba(0,0,0,.55);backdrop-filter:blur(10px);color:#fff;border-radius:99px;padding:5px 10px;font-size:11px;font-weight:700;font-family:inherit;display:none;align-items:center;gap:4px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.2);transition:transform .15s,opacity .25s;user-select:none;';
+    b.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);right:8px;z-index:8000;background:rgba(0,0,0,.55);backdrop-filter:blur(var(--blur-lg));color:#fff;border-radius:99px;padding:5px 10px;font-size:11px;font-weight:700;font-family:inherit;display:none;align-items:center;gap:4px;cursor:pointer;box-shadow:var(--elev-2);transition:transform .15s,opacity .25s;user-select:none;';
     b.title = 'Verbindungs-Status (tap für Details)';
     b.onclick = function(){ window.gsShowConnDetail && window.gsShowConnDetail(); };
     document.body.appendChild(b);
@@ -72000,10 +72040,10 @@ function gsRegisterServiceWorker() {
     var swStatus = ('serviceWorker' in navigator && navigator.serviceWorker.controller) ? '✅ aktiv' : '⚠️ nicht aktiv';
     var m = document.createElement('div');
     m.id = 'gs-conn-detail';
-    m.style.cssText = 'position:fixed;inset:0;z-index:9050;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:18px;';
+    m.style.cssText = 'position:fixed;inset:0;z-index:9050;background:rgba(0,0,0,.55);backdrop-filter:blur(var(--blur-md));display:flex;align-items:center;justify-content:center;padding:18px;';
     m.onclick = function(e){ if (e.target === m) m.remove(); };
     m.innerHTML =
-      '<div style="background:var(--card);border-radius:18px;max-width:380px;width:100%;overflow:hidden;box-shadow:0 8px 36px rgba(0,0,0,.35);">' +
+      '<div style="background:var(--card);border-radius:18px;max-width:380px;width:100%;overflow:hidden;box-shadow:var(--elev-4);">' +
         '<div style="background:linear-gradient(135deg,#1a3d1a,#2e7d32);color:#fff;padding:18px 20px;text-align:center;">' +
           '<div style="font-size:36px;margin-bottom:4px;">' + (navigator.onLine ? '🌐' : '📡') + '</div>' +
           '<div style="font-family:\'Playfair Display\',serif;font-size:18px;font-weight:800;">' + (navigator.onLine ? 'Online' : 'Offline') + '</div>' +
@@ -72235,10 +72275,10 @@ function gsRegisterServiceWorker() {
       '</div>';
     var m = document.createElement('div');
     m.id = 'gs-storage-modal';
-    m.style.cssText = 'position:fixed;inset:0;z-index:9050;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:18px;';
+    m.style.cssText = 'position:fixed;inset:0;z-index:9050;background:rgba(0,0,0,.55);backdrop-filter:blur(var(--blur-md));display:flex;align-items:center;justify-content:center;padding:18px;';
     m.onclick = function(e){ if (e.target === m) m.remove(); };
     m.innerHTML =
-      '<div style="background:var(--card);border-radius:18px;max-width:420px;width:100%;overflow:hidden;box-shadow:0 8px 36px rgba(0,0,0,.35);">' +
+      '<div style="background:var(--card);border-radius:18px;max-width:420px;width:100%;overflow:hidden;box-shadow:var(--elev-4);">' +
         '<div style="background:linear-gradient(135deg,#1a3d1a,#2e7d32);color:#fff;padding:18px 20px;text-align:center;">' +
           '<div style="font-size:36px;margin-bottom:4px;">💾</div>' +
           '<div style="font-family:\'Playfair Display\',serif;font-size:18px;font-weight:800;">App-Speicher</div>' +
@@ -72603,10 +72643,10 @@ function gsRegisterServiceWorker() {
     m.setAttribute('role','dialog');
     m.setAttribute('aria-modal','true');
     m.setAttribute('aria-label','Universal-Suche');
-    m.style.cssText = 'position:fixed;inset:0;z-index:9300;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);display:flex;align-items:flex-start;justify-content:center;padding:8% 16px 16px;';
+    m.style.cssText = 'position:fixed;inset:0;z-index:9300;background:rgba(0,0,0,.55);backdrop-filter:blur(var(--blur-md));display:flex;align-items:flex-start;justify-content:center;padding:8% 16px 16px;';
     m.onclick = function(e){ if (e.target === m) window.gsCloseUniversalSearch(); };
     m.innerHTML =
-      '<div style="background:var(--card);border-radius:16px;max-width:540px;width:100%;overflow:hidden;box-shadow:0 16px 48px rgba(0,0,0,.45);">' +
+      '<div style="background:var(--card);border-radius:16px;max-width:540px;width:100%;overflow:hidden;box-shadow:var(--elev-4);">' +
         '<div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:center;">' +
           '<div style="font-size:20px;flex-shrink:0;" aria-hidden="true">🔍</div>' +
           '<input id="gs-univ-input" type="search" placeholder="Pflanzen, Wissen, Funktionen …" aria-label="Universal-Suche Eingabe" autocomplete="off" autofocus style="flex:1;border:none;outline:none;background:transparent;font-size:15px;font-family:inherit;color:var(--text);">' +
@@ -72787,7 +72827,7 @@ window.gsRenderSmartReminder = function(){
   var bg = r.level === 'urgent' ? 'linear-gradient(135deg,#c62828,#ef5350)' :
            r.level === 'tip' ? 'linear-gradient(135deg,#2e7d32,#66bb6a)' :
            'linear-gradient(135deg,#1565c0,#42a5f5)';
-  return '<div style="background:' + bg + ';color:#fff;border-radius:14px;padding:14px 16px;margin:10px 0;display:flex;gap:12px;align-items:flex-start;box-shadow:0 4px 14px rgba(0,0,0,.18);">' +
+  return '<div style="background:' + bg + ';color:#fff;border-radius:14px;padding:14px 16px;margin:10px 0;display:flex;gap:12px;align-items:flex-start;box-shadow:var(--elev-2);">' +
     '<div style="font-size:30px;flex-shrink:0;line-height:1;">' + r.icon + '</div>' +
     '<div style="flex:1;min-width:0;">' +
       '<div style="font-weight:800;font-size:13.5px;margin-bottom:2px;">' + r.title + '</div>' +
@@ -72914,7 +72954,7 @@ window.gsRenderGardenStats = function(){
     m.setAttribute('role','dialog');
     m.setAttribute('aria-modal','true');
     m.setAttribute('aria-label','Was ist neu — Release-Notes');
-    m.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:18px;';
+    m.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.65);backdrop-filter:blur(var(--blur-md));display:flex;align-items:center;justify-content:center;padding:18px;';
     m.onclick = function(e){ if (e.target === m) closeIt(); };
     function closeIt(){ try { localStorage.setItem('gs_seen_version', current); } catch(e){} m.remove(); }
     // v26.15: Auto-Heuristik fuer alte Releases ohne user_summary/user_items.
@@ -72952,7 +72992,7 @@ window.gsRenderGardenStats = function(){
       '</div>'
     ) : '');
     m.innerHTML =
-      '<div style="background:var(--card);border-radius:18px;max-width:480px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.35);">' +
+      '<div style="background:var(--card);border-radius:18px;max-width:480px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:var(--elev-4);">' +
         '<div style="background:linear-gradient(135deg,#1a3d1a,#2e7d32);color:#fff;padding:22px 22px 18px;text-align:center;position:sticky;top:0;z-index:1;">' +
           '<div style="font-size:42px;margin-bottom:4px;">✨</div>' +
           '<div style="font-family:\'Playfair Display\',serif;font-size:22px;font-weight:800;">Was ist neu in ' + _e(current) + '</div>' +
@@ -73300,10 +73340,10 @@ window.gsShowExportModal = function(){
   var diaryCount = plants.reduce(function(a, p){ return a + ((p.diary && p.diary.length) || 0); }, 0);
   var m = document.createElement('div');
   m.id = 'gs-export-modal';
-  m.style.cssText = 'position:fixed;inset:0;z-index:9050;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:18px;';
+  m.style.cssText = 'position:fixed;inset:0;z-index:9050;background:rgba(0,0,0,.55);backdrop-filter:blur(var(--blur-md));display:flex;align-items:center;justify-content:center;padding:18px;';
   m.onclick = function(e){ if (e.target === m) m.remove(); };
   m.innerHTML =
-    '<div style="background:var(--card);border-radius:18px;max-width:400px;width:100%;overflow:hidden;box-shadow:0 8px 36px rgba(0,0,0,.35);">' +
+    '<div style="background:var(--card);border-radius:18px;max-width:400px;width:100%;overflow:hidden;box-shadow:var(--elev-4);">' +
       '<div style="background:linear-gradient(135deg,#1a3d1a,#2e7d32);color:#fff;padding:20px;text-align:center;">' +
         '<div style="font-size:36px;margin-bottom:4px;">📊</div>' +
         '<div style="font-family:\'Playfair Display\',serif;font-size:18px;font-weight:800;">Daten exportieren</div>' +
@@ -73539,7 +73579,7 @@ function renderProfileLogin(mc) {
       '<button onclick="profileDoLogin()" id="prof-login-btn" ',
         'style="width:100%;padding:14px;background:linear-gradient(135deg,var(--g-forest),var(--g-main));',
         'color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;',
-        'font-family:inherit;box-shadow:0 4px 16px rgba(45,138,45,0.28);transition:opacity .15s;">',
+        'font-family:inherit;box-shadow:var(--elev-brand);transition:opacity .15s;">',
         _t('btn_login','🔑 Anmelden') + '</button>',
     '</div>',
 
@@ -73575,7 +73615,7 @@ function renderProfileLogin(mc) {
       '<button onclick="profileDoRegister()" id="prof-reg-btn" ',
         'style="width:100%;padding:14px;background:linear-gradient(135deg,var(--g-forest),var(--g-main));',
         'color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;',
-        'font-family:inherit;box-shadow:0 4px 16px rgba(45,138,45,0.28);">',
+        'font-family:inherit;box-shadow:var(--elev-brand);">',
         _t('btn_register_free','✨ Kostenlos registrieren') + '</button>',
       '<div style="text-align:center;margin-top:10px;font-size:11px;color:var(--muted);line-height:1.5;">',
         _t('register_terms_pre','Durch die Registrierung stimmst du unserer '),
@@ -73972,9 +74012,9 @@ async function profChangePassword() {
   var m = document.createElement('div');
   m.id = 'change-pw-modal';
   // Inline fixed centering — KEIN .modal-overlay-CSS-Abhängigkeit, immer sichtbar
-  m.style.cssText = 'position:fixed;inset:0;z-index:var(--z-image-overlay,99999);background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px);';
+  m.style.cssText = 'position:fixed;inset:0;z-index:var(--z-image-overlay,99999);background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(var(--blur-sm));';
   m.innerHTML =
-    '<div style="background:var(--card,#fff);border-radius:16px;max-width:400px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.4);">' +
+    '<div style="background:var(--card,#fff);border-radius:16px;max-width:400px;width:100%;box-shadow:var(--elev-4);">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border,#e0e0e0);">' +
         '<div style="font-size:16px;font-weight:800;color:var(--text,#1a1a1a);">🔒 Passwort ändern</div>' +
         '<button onclick="document.getElementById(\'change-pw-modal\').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted,#888);padding:0 4px;">✕</button>' +
@@ -74086,9 +74126,9 @@ async function profDeleteAccount() {
   if (existing) existing.remove();
   var m = document.createElement('div');
   m.id = 'delete-account-modal';
-  m.style.cssText = 'position:fixed;inset:0;z-index:var(--z-image-overlay,99999);background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px);';
+  m.style.cssText = 'position:fixed;inset:0;z-index:var(--z-image-overlay,99999);background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(var(--blur-sm));';
   m.innerHTML =
-    '<div style="background:var(--card,#fff);border-radius:16px;max-width:400px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.4);overflow:hidden;">' +
+    '<div style="background:var(--card,#fff);border-radius:16px;max-width:400px;width:100%;box-shadow:var(--elev-4);overflow:hidden;">' +
       '<div style="padding:20px;background:linear-gradient(135deg,#c62828,#e53935);color:#fff;position:relative;">' +
         // v30.85: sichtbarer Schliessen-Knopf — vorher gab es nur „Abbrechen" ganz
         // unten, ausserhalb des Blickfelds wenn der Dialog die Navigation ueberdeckte.
@@ -76317,7 +76357,7 @@ function _gsShowRestoreBanner(){
     if (document.getElementById('gs-restore-banner')) return;
     var b = document.createElement('div');
     b.id = 'gs-restore-banner';
-    b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);z-index:var(--z-toast,9999);background:linear-gradient(135deg,#2e7d32,#388e3c);color:#fff;border-radius:14px;padding:12px 14px;box-shadow:0 6px 22px rgba(0,0,0,.35);display:flex;gap:12px;align-items:center;font-family:inherit;';
+    b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);z-index:var(--z-toast,9999);background:linear-gradient(135deg,#2e7d32,#388e3c);color:#fff;border-radius:14px;padding:12px 14px;box-shadow:var(--elev-3);display:flex;gap:12px;align-items:center;font-family:inherit;';
     b.innerHTML =
       '<div style="font-size:24px;flex-shrink:0;">💾</div>' +
       '<div style="flex:1;min-width:0;font-size:13px;line-height:1.35;">' +
@@ -78088,7 +78128,7 @@ async function gsOpenWeatherAlerts(){
     ov.id = 'gs-wx-overlay';
     ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;';
     ov.addEventListener('click', function(e){ if (e.target === ov) gsCloseWeatherAlerts(); });
-    ov.innerHTML = '<div id="gs-wx-panel" role="dialog" aria-label="Wetter-Warnungen" style="background:var(--bg,#fff);color:var(--text,#222);width:100%;max-width:560px;max-height:82vh;border-radius:18px 18px 0 0;overflow-y:auto;padding:18px 16px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -8px 30px rgba(0,0,0,.25);"></div>';
+    ov.innerHTML = '<div id="gs-wx-panel" role="dialog" aria-label="Wetter-Warnungen" style="background:var(--bg,#fff);color:var(--text,#222);width:100%;max-width:560px;max-height:82vh;border-radius:18px 18px 0 0;overflow-y:auto;padding:18px 16px calc(18px + env(safe-area-inset-bottom));box-shadow:var(--elev-4);"></div>';
     document.body.appendChild(ov);
     // v30.89: Rettungsleine — schliessbar per Escape und bei jedem Navigations-Wechsel.
     try { if (typeof gsRegisterOverlay === 'function') gsRegisterOverlay(ov); } catch(_){}
@@ -80674,7 +80714,7 @@ async function gsOpenWeatherWarn(){
 <!-- GREENSCAN EMBEDDED ADMIN — Login Modal                      -->
 <!-- ═══════════════════════════════════════════════════════════ -->
 <div id="admin-login-modal" style="display:none;">
-  <div style="background:#111c11;border:1px solid #2a3f2a;border-radius:20px;width:340px;padding:36px 30px;box-shadow:0 20px 60px rgba(0,0,0,.7);">
+  <div style="background:#111c11;border:1px solid #2a3f2a;border-radius:20px;width:340px;padding:36px 30px;box-shadow:var(--elev-4);">
     <div style="text-align:center;margin-bottom:20px;">
       <div style="font-size:36px;margin-bottom:8px;">🌿</div>
       <div style="font-size:18px;font-weight:800;color:var(--c-success-l);margin-bottom:3px;">GreenScan Admin</div>
@@ -80718,7 +80758,7 @@ async function gsOpenWeatherWarn(){
 .gs-card {
   background: var(--card);
   border-radius: 16px;
-  box-shadow: 0 2px 12px rgba(0,0,0,.07);
+  box-shadow:var(--elev-2);
   overflow: hidden;
   margin-bottom: 10px;
 }
@@ -80845,14 +80885,14 @@ async function gsOpenWeatherWarn(){
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 20px rgba(46,125,50,.5);
+  box-shadow:var(--elev-brand);
   z-index: 900;
   -webkit-tap-highlight-color: transparent;
   transition: transform .15s cubic-bezier(.34,1.56,.64,1), box-shadow .15s;
 }
 #scan-fab:active {
   transform: scale(.9);
-  box-shadow: 0 2px 10px rgba(46,125,50,.4);
+  box-shadow:var(--elev-brand);
 }
 
 
@@ -80868,8 +80908,8 @@ async function gsOpenWeatherWarn(){
 
 
 .modal-overlay {
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(var(--blur-md));
+  -webkit-backdrop-filter: blur(var(--blur-md));
 }
 .modal {
   border-radius: 24px 24px 0 0;
@@ -81347,9 +81387,9 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
 .scan-wrap.scanning .scan-grid{opacity:0;transition:opacity .3s;}
 
 /* v23.70: Torch-Toggle (Blitzlicht) — links oben, wie iOS-Camera */
-.scan-torch-btn{position:absolute;top:62px;right:14px;width:42px;height:42px;border-radius:50%;background:rgba(0,0,0,.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15);color:#fff;font-size:18px;cursor:pointer;z-index:35;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;transition:.15s;}
+.scan-torch-btn{position:absolute;top:62px;right:14px;width:42px;height:42px;border-radius:50%;background:rgba(0,0,0,.5);backdrop-filter:blur(var(--blur-md));-webkit-backdrop-filter:blur(var(--blur-md));border:1px solid rgba(255,255,255,.15);color:#fff;font-size:18px;cursor:pointer;z-index:35;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;transition:.15s;}
 .scan-torch-btn:active{transform:scale(.92);}
-.scan-torch-btn.on{background:rgba(255,204,0,.85);color:#000;box-shadow:0 0 18px rgba(255,204,0,.6);}
+.scan-torch-btn.on{background:rgba(255,204,0,.85);color:#000;box-shadow:var(--elev-3);}
 
 /* v23.68: Scan-Linie NICHT dauerhaft — nur während echter Analyse (.scan-wrap.scanning .sl-line) */
 .sl-line {
@@ -81397,7 +81437,7 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
   position: absolute;
   background: rgba(255,255,255,.92);
   border-radius: 2px;
-  box-shadow: 0 0 6px rgba(76,175,80,.6);
+  box-shadow:var(--elev-1);
 }
 .sc::before { width: 3px; height: 100%; top: 0; }
 .sc::after  { width: 100%; height: 3px; top: 0; }
@@ -81446,7 +81486,7 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
   height: 100% !important;
   border-radius: 6px !important;
   transition: width 1s cubic-bezier(.34,1.56,.64,1) !important;
-  box-shadow: 0 0 8px currentColor;
+  box-shadow:var(--elev-1);
 }
 
 .res-hdr {
@@ -81500,7 +81540,7 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
   border-radius: 16px;
   margin-bottom: 8px;
   overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+  box-shadow:var(--elev-1);
   border: 1px solid var(--border);
 }
 .settings-group-title {
@@ -81564,7 +81604,7 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
   background:var(--card);
   border-radius: 50%;
   transition: transform .2s;
-  box-shadow: 0 1px 3px rgba(0,0,0,.2);
+  box-shadow:var(--elev-1);
 }
 .settings-toggle input:checked + .settings-toggle-slider { background: var(--g-main); }
 .settings-toggle input:checked + .settings-toggle-slider::before { transform: translateX(18px); }
@@ -81579,7 +81619,7 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
   overflow: hidden;
   cursor: pointer;
   transition: transform .12s, box-shadow .12s;
-  box-shadow: 0 1px 6px rgba(0,0,0,.06);
+  box-shadow:var(--elev-1);
   -webkit-tap-highlight-color: transparent;
   display: block;
   width: 100%;
@@ -81718,7 +81758,7 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
   padding: 14px 16px;
   margin-bottom: 10px;
   border: 1px solid var(--border);
-  box-shadow: 0 1px 6px rgba(0,0,0,.05);
+  box-shadow:var(--elev-1);
   -webkit-tap-highlight-color: transparent;
 }
 .post-header {
@@ -81851,7 +81891,7 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
     linear-gradient(135deg,#1b5e20 0%,#2e7d32 50%,#43a047 100%);
   color:#fff;
   overflow:hidden;
-  box-shadow: 0 4px 14px rgba(0,0,0,.12);
+  box-shadow:var(--elev-2);
 }
 .sr2-hero::before {
   content:"🌿";
@@ -81903,7 +81943,7 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
   background:rgba(255,255,255,0.96);
   border-radius:14px;
   padding:12px 14px;
-  box-shadow:0 2px 10px rgba(0,0,0,.12);
+  box-shadow:var(--elev-2);
   display:flex;
   align-items:center;
   gap:12px;
@@ -81937,7 +81977,7 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
   padding:13px 15px;
   margin-bottom:10px;
   border:1px solid var(--border);
-  box-shadow:0 1px 3px rgba(0,0,0,.03);
+  box-shadow:var(--elev-1);
 }
 .sr2-card-lbl {
   font-size:10.5px;
@@ -81999,7 +82039,7 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
   display:flex; align-items:center; justify-content:center; gap:6px;
   -webkit-tap-highlight-color:transparent;
 }
-.sr2-cta-primary { background:linear-gradient(135deg,#1b5e20,#2e7d32); color:#fff; box-shadow:0 2px 8px rgba(46,125,50,.25); }
+.sr2-cta-primary { background:linear-gradient(135deg,#1b5e20,#2e7d32); color:#fff; box-shadow:var(--elev-brand); }
 .sr2-cta-secondary { background:var(--card); color:var(--g-dark); border:1.5px solid var(--g-light); }
 
 
@@ -82030,7 +82070,7 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
   border-radius: 14px;
   overflow: hidden;
   border: 1px solid var(--border);
-  box-shadow: 0 1px 6px rgba(0,0,0,.05);
+  box-shadow:var(--elev-1);
   cursor: pointer;
   transition: transform .12s;
   -webkit-tap-highlight-color: transparent;
@@ -82111,8 +82151,8 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
   font-weight: 600;
   z-index: var(--z-toast); /* v24.49: Token-Migration */
   box-shadow: 0 8px 28px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.06);
-  backdrop-filter: blur(14px) saturate(1.4);
-  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  backdrop-filter: blur(var(--blur-lg)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--blur-lg)) saturate(1.4);
   transition: transform .32s cubic-bezier(.34,1.3,.64,1), opacity .22s ease-out;
   opacity: 0;
   pointer-events: auto;
@@ -82343,7 +82383,7 @@ body.dark .plant-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,.42), 0 2px 4px 
 .garden-card:hover { box-shadow: 0 6px 20px rgba(15,40,15,.10), 0 2px 4px rgba(15,40,15,.06) !important; transform: translateY(-1px); }
 
 /* v26.87: Autocomplete-Dropdown Dark-Mode-Polish */
-body.dark #mp-name-sug { box-shadow: 0 8px 24px rgba(0,0,0,.55) !important; border-color: var(--g-main) !important; }
+body.dark #mp-name-sug { box-shadow:var(--elev-3); border-color: var(--g-main) !important; }
 #mp-name-sug [role="option"]:hover { background: rgba(45,138,45,.10) !important; }
 body.dark #mp-name-sug [role="option"]:hover { background: rgba(45,138,45,.18) !important; }
 
@@ -82841,17 +82881,17 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
 
 
 <!-- Back-to-Top Button -->
-<button id="gs-back-to-top" onclick="gsScrollToTop()" style="display:none;position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 80px);right:16px;width:42px;height:42px;border-radius:50%;background:var(--g-dark);color:#fff;border:none;font-size:18px;cursor:pointer;z-index:800;box-shadow:0 4px 16px rgba(0,0,0,.3);align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;transition:opacity .2s,transform .2s;">↑</button>
+<button id="gs-back-to-top" onclick="gsScrollToTop()" style="display:none;position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 80px);right:16px;width:42px;height:42px;border-radius:50%;background:var(--g-dark);color:#fff;border:none;font-size:18px;cursor:pointer;z-index:800;box-shadow:var(--elev-2);align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;transition:opacity .2s,transform .2s;">↑</button>
 
 
 <!-- Tägliches Quiz Modal -->
 <div id="modal-daily-quiz" onclick="if(event.target===this)closeDailyQuiz()"
   style="display:none;opacity:0;position:fixed;inset:0;z-index:5500;background:rgba(0,0,0,.75);
-  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  backdrop-filter:blur(var(--blur-lg));-webkit-backdrop-filter:blur(var(--blur-lg));
   align-items:center;justify-content:center;transition:opacity .2s;padding:20px;box-sizing:border-box;">
   <div id="dq-content" style="background:linear-gradient(145deg,#0d2b0d,#1a4a1a,#2d7a2d);
     border-radius:24px;max-width:400px;width:100%;overflow:hidden;
-    box-shadow:0 24px 60px rgba(0,0,0,.6);max-height:90vh;overflow-y:auto;">
+    box-shadow:var(--elev-4);max-height:90vh;overflow-y:auto;">
     <div style="padding:16px 18px 12px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
         <div style="font-size:12px;font-weight:800;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:1px;">Tagesfrage</div>
@@ -82888,11 +82928,11 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
 <!-- Quiz Rangliste Modal -->
 <div id="modal-dq-ranking" onclick="if(event.target===this)closeDqRanking()"
   style="display:none;opacity:0;position:fixed;inset:0;z-index:5600;background:rgba(0,0,0,.8);
-  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  backdrop-filter:blur(var(--blur-lg));-webkit-backdrop-filter:blur(var(--blur-lg));
   align-items:center;justify-content:center;transition:opacity .2s;padding:20px;box-sizing:border-box;">
   <div style="background:linear-gradient(145deg,#0d2b0d,#1a4a1a,#2d7a2d);border-radius:24px;
     max-width:400px;width:100%;max-height:88vh;overflow:hidden;display:flex;flex-direction:column;
-    box-shadow:0 24px 60px rgba(0,0,0,.6);">
+    box-shadow:var(--elev-4);">
     <div style="padding:18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.15);">
       <div>
         <div style="font-size:18px;font-weight:900;color:#fff;">🏆 Rangliste</div>
@@ -82908,10 +82948,10 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
 <!-- Scan History Bottom Sheet -->
 <div id="modal-scan-history-full" onclick="if(event.target===this)closeScanHistoryFull()"
   style="display:none;opacity:0;position:fixed;inset:0;z-index:5400;background:rgba(0,0,0,.6);
-  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  backdrop-filter:blur(var(--blur-lg));-webkit-backdrop-filter:blur(var(--blur-lg));
   align-items:flex-end;justify-content:center;transition:opacity .2s;">
   <div style="background:var(--g-bg);border-radius:24px 24px 0 0;max-width:500px;width:100%;
-    max-height:88vh;display:flex;flex-direction:column;box-shadow:0 -8px 40px rgba(0,0,0,.3);">
+    max-height:88vh;display:flex;flex-direction:column;box-shadow:var(--elev-4);">
     <div style="width:40px;height:4px;background:var(--border);border-radius:2px;margin:10px auto 0;flex-shrink:0;"></div>
     <div style="padding:12px 18px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
       <div>
@@ -82940,7 +82980,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
 <div id="modal-weather-detail"
   data-gs-swipe="1"
   style="display:none;opacity:0;position:fixed;inset:0;z-index:5200;background:rgba(0,0,0,.6);
-  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  backdrop-filter:blur(var(--blur-md));-webkit-backdrop-filter:blur(var(--blur-md));
   transition:opacity .2s;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;"
   onclick="if(event.target===this)closeWeatherDetail()">
   <div style="background:var(--card);border-radius:20px 20px 0 0;margin-top:60px;min-height:calc(100dvh - 60px);padding-bottom:40px;">
@@ -83011,8 +83051,8 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
 </div>
 
 <!-- ══ LICHTMESSUNG MODAL ══ -->
-<div id="modal-light" style="display:none;position:fixed;inset:0;z-index:var(--z-modal-top,5000);background:rgba(0,0,0,.7);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px;box-sizing:border-box;" onclick="if(event.target===this)closeLightMeter()">
-  <div style="background:var(--card);border-radius:20px;max-width:440px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.4);color:var(--text);">
+<div id="modal-light" style="display:none;position:fixed;inset:0;z-index:var(--z-modal-top,5000);background:rgba(0,0,0,.7);backdrop-filter:blur(var(--blur-md));-webkit-backdrop-filter:blur(var(--blur-md));align-items:center;justify-content:center;padding:20px;box-sizing:border-box;" onclick="if(event.target===this)closeLightMeter()">
+  <div style="background:var(--card);border-radius:20px;max-width:440px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:var(--elev-4);color:var(--text);">
     <div style="background:linear-gradient(135deg,#1a237e,#3949ab);padding:18px 20px;color:#fff;display:flex;align-items:center;gap:12px;border-radius:20px 20px 0 0;">
       <div style="font-size:32px;">💡</div>
       <div style="flex:1;">
@@ -83042,7 +83082,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
       </div>
       <button id="light-btn" onclick="startLightMeasurement()" style="width:100%;padding:13px;background:linear-gradient(135deg,#3949ab,#1a237e);color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">💡 Messung starten</button>
       <!-- v23.55: 10-Punkte Pro-Messung -->
-      <button id="light-pro10-btn" onclick="gsLightPro10Open()" style="margin-top:8px;width:100%;padding:12px;background:linear-gradient(135deg,#6a1b9a,#283593);color:#fff;border:none;border-radius:11px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:0 6px 18px rgba(106,27,154,.3);">🎯 10-Punkte Pro-Messung · 98% Präzision</button>
+      <button id="light-pro10-btn" onclick="gsLightPro10Open()" style="margin-top:8px;width:100%;padding:12px;background:linear-gradient(135deg,#6a1b9a,#283593);color:#fff;border:none;border-radius:11px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-3);">🎯 10-Punkte Pro-Messung · 98% Präzision</button>
       <div style="margin-top:8px;padding:8px 11px;background:rgba(106,27,154,.08);border-left:2px solid #6a1b9a;border-radius:6px;font-size:11px;color:var(--text2);line-height:1.5;">
         <b>Pro-Modus:</b> Miss 10 gezielte Raum-Koordinaten (Nord, Ost, Süd, West, Decke, Boden, Fenster, Mitte). Ergebnis: Morgen-, Tag-, Abend- und Nachtlicht mit mathematischer Interpolation.
       </div>
@@ -83051,8 +83091,8 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
 </div>
 
 <!-- ══ v23.55: 10-PUNKTE-PRO MODAL ══════════════════════════════ -->
-<div id="modal-light-pro10" style="display:none;position:fixed;inset:0;z-index:5002;background:rgba(0,0,0,.85);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:16px;box-sizing:border-box;">
-  <div style="background:var(--card);border-radius:22px;max-width:480px;width:100%;max-height:94vh;overflow-y:auto;box-shadow:0 22px 70px rgba(0,0,0,.55);color:var(--text);">
+<div id="modal-light-pro10" style="display:none;position:fixed;inset:0;z-index:5002;background:rgba(0,0,0,.85);backdrop-filter:blur(var(--blur-lg));-webkit-backdrop-filter:blur(var(--blur-lg));align-items:center;justify-content:center;padding:16px;box-sizing:border-box;">
+  <div style="background:var(--card);border-radius:22px;max-width:480px;width:100%;max-height:94vh;overflow-y:auto;box-shadow:var(--elev-4);color:var(--text);">
     <div style="background:linear-gradient(135deg,#6a1b9a,#283593);padding:16px 18px;color:#fff;display:flex;align-items:center;gap:12px;border-radius:22px 22px 0 0;">
       <div style="font-size:30px;">🎯</div>
       <div style="flex:1;">
@@ -83087,8 +83127,8 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
 </div>
 
 <!-- ══ LUX-KALIBRATION MODAL (v23.48) ══ -->
-<div id="modal-lux-calib" style="display:none;position:fixed;inset:0;z-index:5001;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:18px;box-sizing:border-box;transition:opacity .2s;" onclick="if(event.target===this)gsLuxCloseCalibModal()">
-  <div style="background:var(--card);border-radius:20px;max-width:460px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5);color:var(--text);">
+<div id="modal-lux-calib" style="display:none;position:fixed;inset:0;z-index:5001;background:rgba(0,0,0,.75);backdrop-filter:blur(var(--blur-md));-webkit-backdrop-filter:blur(var(--blur-md));align-items:center;justify-content:center;padding:18px;box-sizing:border-box;transition:opacity .2s;" onclick="if(event.target===this)gsLuxCloseCalibModal()">
+  <div style="background:var(--card);border-radius:20px;max-width:460px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:var(--elev-4);color:var(--text);">
     <div style="background:linear-gradient(135deg,#1a237e,#3949ab);padding:16px 18px;color:#fff;display:flex;align-items:center;gap:12px;border-radius:20px 20px 0 0;">
       <div style="font-size:28px;">⚙️</div>
       <div style="flex:1;">
@@ -83175,7 +83215,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
           style="width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;background:var(--input-bg);color:var(--text);box-sizing:border-box;">
         <!-- v26.87: Autocomplete-Dropdown — gefüllt via gsPlantSuggest aus DB-Array (4'342 Arten) -->
         <div id="mp-name-sug" role="listbox" aria-label="Pflanzen-Vorschläge"
-             style="display:none;position:absolute;top:100%;left:0;right:0;z-index:1000;margin-top:4px;max-height:260px;overflow-y:auto;background:var(--card);border:1.5px solid var(--g-main);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.18);"></div>
+             style="display:none;position:absolute;top:100%;left:0;right:0;z-index:1000;margin-top:4px;max-height:260px;overflow-y:auto;background:var(--card);border:1.5px solid var(--g-main);border-radius:12px;box-shadow:var(--elev-3);"></div>
         <!-- v25.21: Mischkultur-Score-Auto-Block (gefüllt via gsCompanionLiveCheck) -->
         <div id="mp-companion-score" style="margin-top:8px;"></div>
       </div>
@@ -83231,7 +83271,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
       </div>
       <div style="display:flex;gap:8px;margin-top:6px;">
         <button onclick="closeModal('modal-addplant')" style="flex:1;padding:12px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:11px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">Abbrechen</button>
-        <button onclick="savePlant()" style="flex:2;padding:12px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 4px 12px rgba(45,138,45,.3);">💾 Speichern</button>
+        <button onclick="savePlant()" style="flex:2;padding:12px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:var(--elev-brand);">💾 Speichern</button>
       </div>
     </div>
   </div>
@@ -83295,7 +83335,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
       </div>
       <div style="display:flex;gap:8px;margin-top:6px;">
         <button onclick="closeModal('modal-add-garden')" style="flex:1;padding:12px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:11px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">Abbrechen</button>
-        <button onclick="saveGarden()" style="flex:2;padding:12px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 4px 12px rgba(45,138,45,.3);">💾 Garten anlegen</button>
+        <button onclick="saveGarden()" style="flex:2;padding:12px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:var(--elev-brand);">💾 Garten anlegen</button>
       </div>
     </div>
   </div>
@@ -83340,7 +83380,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
       </div>
       <div style="display:flex;gap:8px;margin-top:6px;">
         <button onclick="closeModal('modal-add-planting')" style="flex:1;padding:12px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:11px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">Abbrechen</button>
-        <button onclick="savePlanting()" style="flex:2;padding:12px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 4px 12px rgba(45,138,45,.3);">💾 Pflanzung anlegen</button>
+        <button onclick="savePlanting()" style="flex:2;padding:12px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:var(--elev-brand);">💾 Pflanzung anlegen</button>
       </div>
     </div>
   </div>
