@@ -5,7 +5,7 @@
 > Kompagnon: `STATUS.md` (operativer Snapshot) · `CLAUDE.md` (Onboarding) ·
 > `BACKEND_FRONTEND_MAP_v26.76.md` (Architektur-Detailkarte).
 
-**Stand:** v31.23 · App **live** auf green-scan.ch · released seit v26.0.
+**Stand:** v31.24 · App **live** auf green-scan.ch · released seit v26.0.
 
 ---
 
