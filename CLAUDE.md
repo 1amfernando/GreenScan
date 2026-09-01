@@ -167,6 +167,8 @@ GreenScan/
 | User-Plan/Tier | Supabase `v_user_entitlements` | NICHT auf `localStorage` für Server-Decisions vertrauen |
 | KI-Modell | `localStorage.gs_claude_model` | wird auto-bestimmt durch Fallback-Chain |
 | Lina-Gedächtnis | Supabase `coach_conversations` / `coach_messages` | (gsBrain/`gs_brain_memory` ENTFERNT — siehe §4) |
+| Garten-Zwilling | `localStorage.gs_garden_twin` (über `gsTwinGet`/`gsTwinSave`) | nie direkt parsen — `gsTwinNormalize` klemmt und verwirft |
+| Mischkultur | Supabase `plant_companion_matrix` / `v_companion_lookup` | **keine** Nachbarschaftstabelle im Code anlegen |
 
 ### 3.4 · KI-Calls
 **IMMER** über `callAI(messages, systemPrompt, maxTokens, opts)` oder
@@ -244,6 +246,83 @@ GreenScan/
 >
 > Die historischen No-Op-`gsBrain.observe`-Call-Sites können bei Gelegenheit
 > ersatzlos entfernt werden (reine Hygiene, kein funktionaler Effekt).
+
+## 4a · Garten-Zwilling und Planer — die zwei Fallen
+
+Beides seit v31.57 bzw. v31.58 gebaut und in dieser Reihenfolge gewachsen.
+Wer daran arbeitet, tritt sonst in dieselben zwei Löcher wie ich.
+
+### 4a.1 · Zwei Koordinatensysteme, die gleich aussehen
+
+Der Zwilling (`gs_garden_twin`) trägt pro Pflanze **beides**:
+
+| Feld | Bedeutung | Wofür |
+|---|---|---|
+| `x_m` / `y_m` / `w_m` / `h_m` | Meter im **Grundriss**, Nullpunkt links oben | 3D-Modell, Planer |
+| `ix` / `iy` | 0–1 **im Foto**, von links oben | Marker auf dem Bild |
+
+Das ist **nicht** ineinander umrechenbar: das eine ist eine Draufsicht, das
+andere eine perspektivische Aufnahme. Wer die Meter aufs Foto legt, bekommt
+Marker, die überzeugend aussehen und daneben zeigen.
+
+`ix`/`iy` sind **`null`**, wenn die KI nichts sagen konnte — nicht `0`. Sonst
+zeigt der Marker auf „links oben", weil ein Feld fehlte. Dieselbe Regel gilt
+überall im Zwilling: **lieber keine Angabe als eine erfundene.**
+
+Funktionen: `gsTwinRun` (Scan) · `gsTwinNormalize` (klemmt alles, verwirft
+Namen mit `<`/`>`) · `gsTwinOpenListe` (Liste mit Foto und Markern) ·
+`gsTwinFix` / `gsTwinRename` (Korrektur) · `gsTwinAdopt` (übernimmt in
+`myPlants` mit vollem Aufgabenplan).
+
+### 4a.2 · Eine Prompt-Zeile ist keine Garantie
+
+Der Planer-Prompt verlangte seit v31.58 „Sonnenpflanzen nicht in den
+Schatten". Die KI hielt sich daran. Danach lief `_gsSanitizePlannerPlan` und
+ordnete **jede** neue Pflanze aus (0,0) heraus neu an — die Überlegung war
+weg. Dasselbe bei der Mischkultur: verlangt, nie gemessen.
+
+**Die Lehre, und sie gilt über den Planer hinaus:** was der Prompt verlangt,
+prüft von hier aus niemand — die Claude-Cloud-Umgebung hat kein Netz zur KI.
+Alles, was wirklich gelten soll, braucht **zusätzlich** eine rechnende
+Prüfung im Code. Die steht dann auch im Prüfstand.
+
+Der Platzierer arbeitet deshalb mit **Vorlieben**, von streng nach nachgiebig:
+
+```
+1. Die Stelle der KI — wenn frei UND Licht passt UND kein Gegenspieler daneben
+2. Rastersuche: Licht UND Nachbarschaft
+3. Rastersuche: nur Nachbarschaft  →  4. nur Licht  →  5. irgendwo frei
+```
+
+**Keine Vorliebe darf eine Pflanze verhindern.** Findet sich nichts Besseres,
+wird gesetzt und gemeldet (`plan._licht`, `plan._nachbarn`, `plan._ohnePlatz`)
+— eine Pflanze wegzulassen wäre die schlechtere Antwort, und ein Plan, der
+behauptet alles passe, wäre kein Plan.
+
+Zwei Fehler, die ich beim Bauen selbst gemacht habe und die beide erst der
+Durchlauf gezeigt hat:
+
+- **„Frei" ist nicht „sinnvoll".** Stufe 1 nahm anfangs jede kollisionsfreie
+  Stelle der KI — die Tomate blieb im Schatten bzw. 10 cm neben der
+  Kartoffel stehen, obwohl der halbe Garten leer war. Zweimal derselbe
+  Fehler, an zwei Tagen.
+- **Zwei Regeln statt einer.** Der Platzierer rechnete mit rohen
+  Fliesskommazahlen (10-cm-Schritte summieren sich zu `1.0000000000000002`),
+  die Prüfung danach mit gerundeten. Der Planer setzte eine Pflanze bewusst
+  auf genau 1,00 m Abstand und beklagte anschliessend genau diesen Abstand.
+  Seither fragen beide Seiten dieselbe Funktion (`_gsZuNah`).
+
+### 4a.3 · Wann Messungen gelten dürfen
+
+Der Plan hat eine eigene Fläche (aus dem Formular), der Scan eine gemessene.
+Sind das nicht dieselben Masse (Toleranz 26 cm), liegen die Zonen-Koordinaten
+auf einem **anderen Rechteck** — dann bleiben sie ungenutzt und es wird
+nichts behauptet (`plan._licht = null`). Genauso, wenn die
+Mischkultur-Matrix noch nicht geladen ist: `plan._nachbarn = null`, kein
+erfundener Vorwurf.
+
+Grundregel für alles in diesem Bereich: **eine Anzeige, die etwas behauptet,
+muss sagen können, woher sie es weiss.**
 
 ## 5 · Multi-Agent-Sync
 
