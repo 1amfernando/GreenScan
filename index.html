@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.64.20260901">
+<meta name="app-version" content="31.65.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1362,6 +1362,26 @@ body.dark .mkt-chat-msg.them{background:#2a3f2a;color:var(--text);}
 /* v31.64 — die Zeilenfassung fuer den Garten-Bildschirm. Dieselbe Form wie
    die Wetterkarte darueber; der volle Mondkalender bleibt ein Tipp entfernt
    und benutzt weiterhin .moon-card ohne diesen Zusatz. */
+/* v31.65 — Die Plan-Pruefung. Eine Tafel statt vier gestapelter Kaesten.
+   Bewusst ruhig: sie steht VOR dem Plan und soll ihn nicht ueberschreien.
+   Die Marke rechts (Haken, Warnzeichen, Strich) traegt keine Bedeutung
+   allein — jede Zeile sagt in Worten, was sie meint. */
+/* v31.65 — Der unbestimmte Balken. Er laeuft, solange die App auf die KI
+   wartet, und behauptet dabei KEINEN Fortschritt: ein Streifen, der wandert,
+   sagt „ich arbeite"; eine Prozentzahl sagt „ich bin bei 73 %", und das
+   weiss an dieser Stelle niemand. Wer Bewegung ausgeschaltet hat, bekommt
+   einen ruhigen Balken statt eines zuckenden. */
+.gs-pp-unbestimmt{background:linear-gradient(90deg,#1b5e20 0%,#43a047 35%,#81c784 50%,#43a047 65%,#1b5e20 100%) !important;background-size:280% 100% !important;animation:gs-pp-lauf 1.5s linear infinite;}
+@keyframes gs-pp-lauf{0%{background-position:100% 0;}100%{background-position:0 0;}}
+@media (prefers-reduced-motion: reduce){.gs-pp-unbestimmt{animation:none;background:linear-gradient(90deg,#43a047,#1b5e20) !important;}}
+.gs-pk{background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 12px;margin-bottom:12px;}
+.gs-pk-kopf{font-size:var(--fs-xs);font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px;}
+.gs-pk-zeile{display:flex;align-items:flex-start;gap:9px;padding:5px 0;border-top:1px solid var(--border);}
+.gs-pk-zeile:first-of-type{border-top:none;padding-top:0;}
+.gs-pk-icon{font-size:var(--fs-md);line-height:1.45;flex-shrink:0;}
+.gs-pk-txt{flex:1;min-width:0;font-size:var(--fs-sm);color:var(--text2);line-height:1.45;}
+.gs-pk-txt b{color:var(--text);font-weight:800;}
+.gs-pk-marke{font-size:var(--fs-md);font-weight:900;line-height:1.45;flex-shrink:0;}
 .moon-card-zeile{display:flex;align-items:center;gap:12px;padding:11px 14px;margin-bottom:0;cursor:pointer;-webkit-tap-highlight-color:transparent;}
 .moon-phase-icon{font-size:44px;text-align:center;margin-bottom:8px;}
 .moon-phase-name{font-family:'Playfair Display',serif;font-size:var(--fs-lg);font-weight:800;text-align:center;}
@@ -7259,20 +7279,42 @@ function gsTwinGet() {
 window.gsTwinGet = gsTwinGet;
 
 function gsTwinSave(t) {
-  try {
-    localStorage.setItem(GS_TWIN_KEY, JSON.stringify(t));
+  // v31.65 — DIESE FUNKTION WAR KAPUTT, UND ZWAR SEIT ICH SIE GESCHRIEBEN HABE.
+  //
+  // Bis hierher stand ein `try { localStorage.setItem(...) } catch { ohne Bild
+  // nochmal }`. Der Rueckfall ist nie gelaufen: die App umhuellt setItem global
+  // (Z. ~7145) und laesst die Ausnahme NICHT durch — sie gibt `false` zurueck
+  // und zeigt einen Hinweis. Der Kommentar an jener Stelle sagt es woertlich:
+  // „dadurch war JEDER try{ localStorage.setItem(...) }catch{ …Fallback… } im
+  // ganzen Monolithen toter Code". Genau da bin ich hineingelaufen.
+  //
+  // Folge auf einem vollen Geraet: nicht nur das Foto war weg, sondern der
+  // GANZE Zwilling — Pflanzen, Korrekturen, Lichtzonen. Und `gsTwinSave` gab
+  // trotzdem `true` zurueck. Gefunden beim Nachstellen mit einem echten
+  // Telefonfoto, nicht beim Lesen.
+  //
+  // Der Rueckgabewert ist der einzige ehrliche Kanal, den der Wrapper laesst.
+  var ok = localStorage.setItem(GS_TWIN_KEY, JSON.stringify(t));
+  if (ok !== false) {
     // Cloud-Abgleich, falls angemeldet — fire-and-forget, nie blockierend.
     try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('garden_twin'); } catch (_) {}
     return true;
-  } catch (e) {
-    // Quota: das Foto ist mit Abstand der grösste Posten. Lieber den Zwilling
-    // ohne Bild behalten als gar nichts (Muster aus CLAUDE.md §3.5).
-    try {
-      var ohneBild = JSON.parse(JSON.stringify(t)); ohneBild.photo = null;
-      localStorage.setItem(GS_TWIN_KEY, JSON.stringify(ohneBild));
-      return true;
-    } catch (_) { return false; }
   }
+  // Speicher voll. Das Foto ist mit Abstand der groesste Posten — lieber den
+  // Zwilling ohne Bild behalten als gar nichts (CLAUDE.md §3.5). Die Marker
+  // fallen damit weg; das darf nicht stillschweigend passieren, sonst sieht
+  // es nach einem Fehler aus. gsTwinRun sagt es dem Menschen.
+  var ohneBild;
+  try { ohneBild = JSON.parse(JSON.stringify(t)); } catch (_) { return false; }
+  ohneBild.photo = null;
+  // Vermerken, WARUM kein Bild da ist. Sonst sieht ein Zwilling ohne Foto
+  // spaeter genauso aus wie einer, der nie eines hatte — und die fehlenden
+  // Marker wirken wie ein Fehler statt wie eine Platzentscheidung.
+  ohneBild.photo_weg = true;
+  var ok2 = localStorage.setItem(GS_TWIN_KEY, JSON.stringify(ohneBild));
+  if (ok2 !== false) return 'ohne_foto';
+  try { if (typeof gsToast === 'function') gsToast('⚠️ Der Garten-Scan konnte nicht gespeichert werden — Gerätespeicher voll.', 'warning', 6000); } catch (_) {}
+  return false;
 }
 
 // ── Normalisierung ────────────────────────────────────────────────────────
@@ -7475,13 +7517,25 @@ async function gsTwinRun(b64, mt) {
     return;
   }
   gsTwinStufe(100, 'Fertig', zwilling.plants.length + ' Pflanzen erkannt');
-  gsTwinSave(zwilling);
+  // v31.65: Der Rueckgabewert sagt, WAS gespeichert wurde. 'ohne_foto' heisst,
+  // dass der Speicher voll war und das Bild weichen musste — dann fehlen
+  // nachher die Marker, und das darf niemand raten muessen.
+  var wieGespeichert = gsTwinSave(zwilling);
+  if (wieGespeichert === false) { gsTwinFehler('Der Scan konnte nicht gespeichert werden — der Gerätespeicher ist voll.'); return; }
   try { if (typeof gsAddXP === 'function') gsAddXP(25, 'Garten gescannt'); } catch (_) {}
 
   setTimeout(function () {
     try { if (typeof closeModal === 'function') closeModal('modal-twin-scan'); } catch (_) {}
     try { if (typeof gsRenderGardenOverview === 'function') gsRenderGardenOverview(); } catch (_) {}
-    try { if (typeof gsToast === 'function') gsToast('🌱 Dein Garten ist digital — ' + zwilling.plants.length + ' Pflanzen erkannt', 'success'); } catch (_) {}
+    try {
+      if (typeof gsToast === 'function') {
+        if (wieGespeichert === 'ohne_foto') {
+          gsToast('🌱 ' + zwilling.plants.length + ' Pflanzen erkannt — das Foto passte nicht mehr in den Speicher, die Liste bleibt.', 'warning', 6000);
+        } else {
+          gsToast('🌱 Dein Garten ist digital — ' + zwilling.plants.length + ' Pflanzen erkannt', 'success');
+        }
+      }
+    } catch (_) {}
   }, 900);
 }
 window.gsTwinRun = gsTwinRun;
@@ -7730,6 +7784,13 @@ function gsTwinOpenListe() {
   // Liste, wie bis v31.60 auch.
   var mitOrt = t.plants.filter(function (p) { return p.ix != null && p.iy != null; }).length;
   var fotoBlock = '';
+  // v31.65: kein Bild, weil der Speicher voll war — das gehoert gesagt.
+  if (t.photo_weg && mitOrt) {
+    fotoBlock = '<div style="background:var(--bg-warn-soft);border-left:3px solid var(--c-warn-d);border-radius:0 var(--r-md) var(--r-md) 0;padding:9px 12px;margin-bottom:12px;font-size:var(--fs-sm);color:var(--text2);line-height:1.5;">' +
+      '<b style="color:var(--c-warn-d);">Kein Foto gespeichert.</b> ' +
+      'Der Gerätespeicher war beim Scan voll — die Erkennung ist vollständig, ' +
+      'nur die Marker im Bild fehlen.</div>';
+  }
   // Das Foto kommt aus localStorage zurueck — also aus etwas, das sich von
   // aussen beschreiben laesst. gsEscHtml verhindert schon das Ausbrechen aus
   // dem Attribut; hier kommt dazu, dass ueberhaupt nur ein Bild-Datensatz
@@ -29426,8 +29487,13 @@ function toggleFav(id){
   favs = favs.includes(id) ? favs.filter(f=>f!==id) : [...favs,id];
   // v30.46 FIX: HL#10 try/catch + HL#32 markDirty('state') — ps_favs ist im State-Blob, synct sonst NICHT
   // cross-device; bei vollem Speicher (Quota) brach der Write vorher kommentarlos ab.
-  try { localStorage.setItem('ps_favs',JSON.stringify(favs)); }
-  catch(_){ if (typeof gsToast==='function') gsToast('Speicher voll — Favorit evtl. nicht gesichert.','warn'); }
+  // v31.65: Der catch hier konnte nie feuern — der globale setItem-Wrapper
+  // (Z. ~7145) faengt die Ausnahme selbst ab und gibt `false` zurueck. Die
+  // Warnung, die v30.46 einbauen wollte, ist also nie erschienen. Jetzt am
+  // Rueckgabewert, dem einzigen Kanal, den der Wrapper laesst.
+  if (localStorage.setItem('ps_favs', JSON.stringify(favs)) === false) {
+    if (typeof gsToast === 'function') gsToast('Speicher voll — Favorit evtl. nicht gesichert.', 'warn');
+  }
   try { if (window.gsCloudSync && typeof gsCloudSync.markDirty==='function') gsCloudSync.markDirty('state'); } catch(_){}
   document.getElementById('stat-favs').textContent = myPlants.length;
   const btn = document.getElementById('fav-btn');
@@ -54152,54 +54218,59 @@ async function gsPPrun(opts) {
 
   try {
     // v24.05: Smooth-Loader — kontinuierliche Progress-Bar (kein 13%-Sprung mehr)
-    // Stages haben jeweils eine Start- und End-Pct; innerhalb der Stage wird linear interpoliert.
-    // Update-Frequenz: 200 ms → 5×/Sekunde, smooth aber CPU-schonend.
-    var stages = [
-      { msg:'🧠 Klima-Zone & Boden auswerten …',                  from: 0,  to: 12 },
-      { msg:'📚 GreenScan-DB nach passenden Sorten durchsuchen …', from:12, to: 25 },
-      { msg:'🌙 Mondphase + Saison berücksichtigen …',             from:25, to: 38 },
-      { msg:'🌱 Mischkultur-Kombinationen prüfen …',               from:38, to: 52 },
-      { msg:'📅 Pflanz-/Erntekalender berechnen …',                from:52, to: 66 },
-      { msg:'💧 Bewässerung & Düngung kalibrieren …',              from:66, to: 78 },
-      { msg:'✨ Plan-JSON wird strukturiert …',                    from:78, to: 92 }
-    ];
-    var startTs = Date.now();
-    // v24.04: Kompakt-Modus → ~25s; Pro-Modus → ~45s erwartet
-    var EXPECTED_MS = isCompact ? 25000 : 45000;
+    // ── v31.65: Stufen, die es wirklich gibt ────────────────────────────
+    //
+    // Was hier bis v31.64 stand, war ein Timer. Sieben Meldungen —
+    // „\ud83c\udf19 Mondphase + Saison beruecksichtigen \u2026",
+    // „\ud83c\udf31 Mischkultur-Kombinationen pruefen \u2026" — liefen nach
+    // Uhrzeit ab (elapsed / EXPECTED_MS), waehrend die App in Wahrheit auf
+    // EINEN Netzaufruf wartete. Nichts davon geschah in dem Moment, in dem
+    // es behauptet wurde. Der Prozentwert kam aus derselben Uhr, die
+    // Restzeit war eine Konstante minus verstrichene Zeit; lief die Antwort
+    // laenger, stand dort „gleich fertig\u2026" und blieb stehen.
+    // Im HTML war der Balken als „Echter Progress-Balken" kommentiert.
+    //
+    // Jetzt melden nur die Schritte, die tatsaechlich passieren. Der lange
+    // ist der Netzaufruf, und ueber den ist die einzige ehrliche Aussage:
+    // er laeuft, und zwar seit N Sekunden. Deshalb dort ein unbestimmter
+    // Balken statt einer erfundenen Zahl \u2014 ein Streifen, der laeuft,
+    // sagt „ich arbeite"; „73 %" sagt „ich bin bei 73 %", und das weiss
+    // hier niemand.
     var barEl = document.getElementById('pp-loader-bar');
     var pctEl = document.getElementById('pp-loader-pct');
     var etaEl = document.getElementById('pp-loader-eta');
-    var lastStageIdx = -1;
-    var lastDisplayPct = 0; // monoton steigend, kein Rücksprung
-    function updateProgressBar() {
-      var elapsed = Date.now() - startTs;
-      // Stage-Position als Float (z.B. 2.4 = 40 % durch Stage 2)
-      var stageFloat = (elapsed / EXPECTED_MS) * stages.length;
-      // ease-out: Anfang schnell, Ende langsamer → fühlt sich responsiv an
-      // Aber NICHT zu krass — Faktor 0.85 hält es subtil
-      var t = Math.min(1, elapsed / EXPECTED_MS);
-      var eased = 1 - Math.pow(1 - t, 1.5); // sanftes ease-out
-      var targetPct = eased * 92; // cap at 92 % bis echte Antwort
-      // Aus Stage-Float den Text wählen
-      var stageIdx = Math.min(stages.length - 1, Math.floor(stageFloat));
-      var stage = stages[stageIdx];
-      // Display-Pct: monoton steigend (kein Rücksprung wenn Schätzung wechselt)
-      var pct = Math.max(lastDisplayPct, Math.min(92, targetPct));
-      lastDisplayPct = pct;
-      if (loaderMsg && stageIdx !== lastStageIdx) {
-        loaderMsg.textContent = stage.msg;
-        lastStageIdx = stageIdx;
+    var wartetSeit = 0, warteTimer = null;
+
+    function gsPPstufe(text, pct) {
+      if (loaderMsg) loaderMsg.textContent = text;
+      if (warteTimer) { clearInterval(warteTimer); warteTimer = null; }
+      if (barEl) {
+        barEl.classList.remove('gs-pp-unbestimmt');
+        barEl.style.width = pct + '%';
       }
-      if (barEl) barEl.style.width = pct.toFixed(1) + '%';
-      if (pctEl) pctEl.textContent = Math.round(pct) + ' %';
-      if (etaEl) {
-        var remaining = Math.max(0, Math.ceil((EXPECTED_MS - elapsed) / 1000));
-        etaEl.textContent = remaining > 0 ? '~ ' + remaining + ' s' : 'gleich fertig…';
-      }
+      if (pctEl) pctEl.textContent = pct + ' %';
+      if (etaEl) etaEl.textContent = '';
     }
-    updateProgressBar();
-    // 200 ms Tick → smooth ohne CPU-Stress
-    var stageTimer = setInterval(updateProgressBar, 200);
+
+    // Der unbestimmte Zustand: kein Prozentwert, keine Restzeit, nur die
+    // verstrichene Zeit — die ist gemessen und stimmt.
+    function gsPPwarten(text) {
+      if (loaderMsg) loaderMsg.textContent = text;
+      if (barEl) { barEl.classList.add('gs-pp-unbestimmt'); barEl.style.width = '100%'; }
+      if (pctEl) pctEl.textContent = '';
+      var start = Date.now();
+      if (warteTimer) clearInterval(warteTimer);
+      warteTimer = setInterval(function () {
+        wartetSeit = Math.round((Date.now() - start) / 1000);
+        if (etaEl) etaEl.textContent = 'l\u00e4uft seit ' + wartetSeit + ' s';
+      }, 1000);
+      if (etaEl) etaEl.textContent = 'l\u00e4uft seit 0 s';
+    }
+    window._gsPPstufe = gsPPstufe;
+    window._gsPPwarten = gsPPwarten;
+
+    gsPPstufe('\ud83d\udcd0 Deine Angaben und den Garten-Scan zusammenstellen \u2026', 10);
+    gsPPwarten('\ud83e\udde0 Die KI plant deinen Garten \u2026');
 
     var resp;
     try {
@@ -54223,11 +54294,11 @@ async function gsPPrun(opts) {
         }
       }
     } finally {
-      clearInterval(stageTimer);
-      // v24.01: Progress-Bar auf 100 % schießen wenn Antwort da ist
-      if (barEl) barEl.style.width = '100%';
-      if (pctEl) pctEl.textContent = '100 %';
-      if (etaEl) etaEl.textContent = 'fertig ✓';
+      if (warteTimer) { clearInterval(warteTimer); warteTimer = null; }
+      // Die Antwort ist da — ab hier laufen wieder Schritte, die man benennen
+      // kann. Auf 100 % zu springen waere wieder eine Behauptung: nach dem
+      // Netzaufruf kommen noch Pruefen, Setzen und Messen.
+      gsPPstufe('\ud83d\udd0e Antwort pr\u00fcfen \u2026', 60);
     }
 
     if (!resp) {
@@ -54338,6 +54409,11 @@ async function gsPPrun(opts) {
     // v29.52: Pflanzen-Rechtecke ins Beet clampen + entüberlappen BEVOR gerendert wird. Die KI liefert
     // x_m/y_m/w_m/h_m oft überlappend/ausserhalb (weicher Prompt-Constraint) → 3D-Meshes durchdrangen
     // sich / hingen über den Beet-Rand ("nicht sauber konstruiert"). Sanitizer säubert 3D + PDF gemeinsam.
+    // v31.65: echte Stufe — hier wird wirklich gesetzt und gemessen
+    // (_gsSanitizePlannerPlan platziert und ruft danach die Licht- und
+    // Nachbarschaftspruefung). Der Prozentwert steht fuer einen Schritt,
+    // der stattgefunden hat, nicht fuer verstrichene Zeit.
+    try { if (typeof _gsPPstufe === 'function') _gsPPstufe('\ud83c\udf31 Pflanzen setzen, Licht und Nachbarn pr\u00fcfen \u2026', 80); } catch(_){}
     try { if (typeof _gsSanitizePlannerPlan === 'function') _gsSanitizePlannerPlan(plan); } catch(_){}
     // v31.58 (Planer V3): Der Packer markiert Pflanzen, fuer die nach dem
     // Bestand kein Platz mehr war (_kein_platz). Dieses Flag DARF nicht still
@@ -54388,6 +54464,7 @@ async function gsPPrun(opts) {
     try { if (typeof gsAgentScheduleNotifications === 'function') gsAgentScheduleNotifications(plan); } catch(e) {}
 
     // Render
+    try { if (typeof _gsPPstufe === 'function') _gsPPstufe('\u2728 Plan aufbauen \u2026', 95); } catch(_){}
     loader.style.display = 'none';
     res.style.display = 'block';
     // v24.15: Render in eigenem try → falls eine UI-Funktion crasht, soll der Plan
@@ -54695,71 +54772,89 @@ function gsPPrenderPlan(plan, data) {
   var esc = function(s) { return escHtml ? escHtml(String(s || '')) : String(s || '').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
   var html = '';
 
-  // v31.58 (Planer V3): Zwei Dinge, die der Nutzer wissen MUSS, bevor er den
-  // Plan liest — beide entstehen erst durch den Garten-Zwilling.
-  if (plan._bestand) {
-    html += '<div style="background:var(--bg-success-soft);border-left:4px solid var(--g-main);border-radius:0 var(--r-md) var(--r-md) 0;padding:10px 13px;margin-bottom:12px;">' +
-      '<div style="font-size:var(--fs-sm);font-weight:800;color:var(--g-dark);margin-bottom:3px;">🌿 In deinen Garten geplant</div>' +
-      '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.5;">' +
-      plan._bestand + ' Pflanze' + (plan._bestand === 1 ? '' : 'n') + ' aus deinem Scan bleiben an ihrem Platz. ' +
-      'Neues wurde in die freien Flächen gesetzt.</div></div>';
-  }
-  if (plan._ohnePlatz && plan._ohnePlatz.length) {
-    // Farbe nachgerechnet: #bf360c auf --bg-warn-soft ist hell 5,27:1.
-    // Im Dunkelmodus traegt --bg-warn-soft eine dunkle Toenung, dort ist
-    // --c-warn (dort #ffb74d) der richtige Wert — deshalb das Merkmal statt
-    // eines festen Rots.
-    html += '<div style="background:var(--bg-warn-soft);border-left:4px solid var(--c-warn-d);border-radius:0 var(--r-md) var(--r-md) 0;padding:10px 13px;margin-bottom:12px;">' +
-      '<div style="font-size:var(--fs-sm);font-weight:800;color:var(--c-warn-d);margin-bottom:3px;">⚠️ Kein Platz mehr</div>' +
-      '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.5;">' +
-      esc(plan._ohnePlatz.join(', ')) + ' passt neben dem Bestand nicht mehr in die Fläche. ' +
-      'Im Plan steht es trotzdem — aber ohne festen Ort.</div></div>';
-  }
-
-  // ── v31.63: Mischkultur, gemessen am fertigen Plan ──────────────────────
-  // Nicht „kommt ein Gegenspieler vor" (das war der Schimmer bis v31.62),
-  // sondern „stehen zwei zu nah beieinander". Der Abstand steht dabei —
-  // ohne ihn waere es wieder nur eine Behauptung.
-  if (plan._nachbarn && plan._nachbarn.paare && plan._nachbarn.paare.length) {
-    html += '<div style="background:var(--bg-warn-soft);border-left:4px solid var(--c-warn-d);border-radius:0 var(--r-md) var(--r-md) 0;padding:10px 13px;margin-bottom:12px;">' +
-      '<div style="font-size:var(--fs-sm);font-weight:800;color:var(--c-warn-d);margin-bottom:3px;">🤝 Zu nah beieinander</div>' +
-      '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.5;">' +
-      plan._nachbarn.paare.map(function (k) {
-        return esc(k.a) + ' und ' + esc(k.b) + ' vertragen sich nicht' +
-               (k.art === 'kritisch_schlecht' ? ' (kritisch)' : '') +
-               ' und stehen nur ' + (k.abstand === 0 ? 'direkt nebeneinander' : k.abstand + ' m auseinander');
-      }).join('. ') + '. Ein halber Meter mehr Abstand reicht meist schon.</div></div>';
-  }
-
-  // ── v31.62: was das gemessene Licht sagt ────────────────────────────────
-  // Zwei Faelle, und beide gehoeren gezeigt. Passt alles, ist das eine echte
-  // Aussage ueber den Plan und keine Floskel — sie steht nur da, wenn wirklich
-  // gegen gemessene Zonen geprueft wurde. Passt etwas nicht, wird es benannt
-  // statt still verschoben: der Platz kann schlicht knapp sein, und dann ist
-  // die richtige Antwort ein Hinweis an den Menschen.
-  if (plan._licht && plan._licht.zonen) {
-    if (plan._licht.konflikt.length) {
-      html += '<div style="background:var(--bg-warn-soft);border-left:4px solid var(--c-warn-d);border-radius:0 var(--r-md) var(--r-md) 0;padding:10px 13px;margin-bottom:12px;">' +
-        '<div style="font-size:var(--fs-sm);font-weight:800;color:var(--c-warn-d);margin-bottom:3px;">☀️ Licht passt nicht überall</div>' +
-        '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.5;">' +
-        plan._licht.konflikt.map(function (k) {
-          return esc(k.name) + ' braucht ' + esc(k.braucht) + ', steht aber in einer Zone, die dein Scan als ' +
-                 esc(k.zone) + ' gemessen hat' + (k.label ? ' (' + esc(k.label) + ')' : '');
-        }).join('. ') + '. Neben dem Bestand war kein passender Platz mehr frei — ' +
-        'verschieb sie von Hand oder nimm eine andere Sorte.</div></div>';
-    } else if (plan._licht.passt) {
-      html += '<div style="background:var(--bg-success-soft);border-left:4px solid var(--c-success);border-radius:0 var(--r-md) var(--r-md) 0;padding:10px 13px;margin-bottom:12px;">' +
-        '<div style="font-size:var(--fs-sm);font-weight:800;color:var(--c-success-d);margin-bottom:3px;">☀️ Licht geprüft</div>' +
-        '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.5;">' +
-        plan._licht.passt + ' neue Pflanze' + (plan._licht.passt === 1 ? ' steht' : 'n stehen') +
-        ' im passenden Licht — gemessen an den ' + plan._licht.zonen +
-        ' Lichtzonen aus deinem Garten-Scan, nicht geschätzt.' +
-        (plan._licht.ohne_aussage
-          ? ' Bei ' + plan._licht.ohne_aussage + ' war der Lichtbedarf oder die Zone unbekannt — die wurden nicht bewertet.'
-          : '') +
-        '</div></div>';
+  // ── v31.65: EINE Tafel statt bis zu vier Bannern ──────────────────────
+  //
+  // Bis v31.64 stapelten sich hier vier eigene Kaesten uebereinander —
+  // Bestand, kein Platz, zu nah, Licht — jeder mit eigener Ueberschrift,
+  // eigenem Rahmen, eigenem Abstand. Bis zu 400 px, bevor der Mensch eine
+  // einzige Pflanze sah. Drei davon habe ich selbst gebaut (v31.58, 62, 63),
+  // jeden fuer sich sinnvoll, zusammen ein Wall.
+  //
+  // Und sie hatten einen zweiten Fehler, der schwerer wiegt: eine Pruefung,
+  // die NICHT laufen konnte, war unsichtbar. Ob das Licht passte oder ob
+  // die Lichtzonen gar nicht galten (andere Flaeche als gescannt), sah
+  // gleich aus — naemlich nach nichts. Genau die Sorte Luecke, die den
+  // ganzen Rest unglaubwuerdig macht.
+  //
+  // Jetzt: eine Tafel, eine Zeile je Pruefung, drei Zustaende — bestanden,
+  // Hinweis, nicht geprueft (mit Grund). Wer nichts gescannt hat, sieht die
+  // Tafel gar nicht; ohne Messung gibt es nichts zu berichten.
+  (function () {
+    var zeilen = [];
+    function zeile(icon, was, zustand, text) {
+      var farbe = zustand === 'ok'   ? 'var(--c-success-d)'
+                : zustand === 'warn' ? 'var(--c-warn-d)'
+                : 'var(--muted)';
+      var marke = zustand === 'ok' ? '\u2713' : zustand === 'warn' ? '\u26a0' : '\u2013';
+      zeilen.push(
+        '<div class="gs-pk-zeile">' +
+          '<span class="gs-pk-icon" aria-hidden="true">' + icon + '</span>' +
+          '<div class="gs-pk-txt"><b>' + esc(was) + '</b> ' + text + '</div>' +
+          '<span class="gs-pk-marke" style="color:' + farbe + '" aria-hidden="true">' + marke + '</span>' +
+        '</div>');
     }
-  }
+
+    if (plan._bestand) {
+      zeile('\ud83c\udf3f', 'Bestand', 'ok',
+        plan._bestand + ' Pflanze' + (plan._bestand === 1 ? '' : 'n') + ' aus deinem Scan bleib' +
+        (plan._bestand === 1 ? 't' : 'en') + ', wo sie steh' + (plan._bestand === 1 ? 't' : 'en') + '.');
+    }
+
+    // Licht — drei Zustaende, und der dritte ist der neue.
+    if (plan._licht && plan._licht.zonen) {
+      if (plan._licht.konflikt.length) {
+        zeile('\u2600\ufe0f', 'Licht', 'warn',
+          plan._licht.konflikt.map(function (k) {
+            return esc(k.name) + ' braucht ' + esc(k.braucht) + ', steht aber im gemessenen ' + esc(k.zone) +
+                   (k.label ? ' (' + esc(k.label) + ')' : '');
+          }).join('; ') + '. Es war kein passender Platz mehr frei \u2014 verschieb sie von Hand oder nimm eine andere Sorte.');
+      } else if (plan._licht.passt) {
+        zeile('\u2600\ufe0f', 'Licht', 'ok',
+          plan._licht.passt + ' neue im passenden Licht (' + plan._licht.zonen + ' gemessene Zonen).' +
+          (plan._licht.ohne_aussage ? ' ' + plan._licht.ohne_aussage + ' ohne bekannten Bedarf.' : ''));
+      }
+    } else if (plan._bestand) {
+      zeile('\u2600\ufe0f', 'Licht', 'unbekannt',
+        'nicht gepr\u00fcft \u2014 geplante Fl\u00e4che ist nicht die gescannte, die Zonen l\u00e4gen falsch.');
+    }
+
+    // Nachbarschaft — ebenso.
+    if (plan._nachbarn) {
+      if (plan._nachbarn.paare.length) {
+        zeile('\ud83e\udd1d', 'Nachbarn', 'warn',
+          plan._nachbarn.paare.map(function (k) {
+            return esc(k.a) + ' und ' + esc(k.b) + (k.art === 'kritisch_schlecht' ? ' (kritisch)' : '') +
+                   ' stehen ' + (k.abstand === 0 ? 'direkt nebeneinander' : 'nur ' + k.abstand + ' m auseinander');
+          }).join('; ') + '. Ein halber Meter mehr reicht meist schon.');
+      } else {
+        zeile('\ud83e\udd1d', 'Nachbarn', 'ok', 'keine Gegenspieler zu nah beieinander.');
+      }
+    } else if (plan._bestand) {
+      zeile('\ud83e\udd1d', 'Nachbarn', 'unbekannt',
+        'nicht gepr\u00fcft \u2014 Mischkultur-Daten waren noch nicht geladen.');
+    }
+
+    if (plan._ohnePlatz && plan._ohnePlatz.length) {
+      zeile('\ud83d\udccf', 'Platz', 'warn',
+        esc(plan._ohnePlatz.join(', ')) + ' passt neben dem Bestand nicht mehr in die Fl\u00e4che. ' +
+        'Im Plan steht es trotzdem \u2014 aber ohne festen Ort.');
+    }
+
+    if (zeilen.length) {
+      html += '<div class="gs-pk"><div class="gs-pk-kopf">\ud83d\udd0d Plan-Pr\u00fcfung</div>' +
+              zeilen.join('') + '</div>';
+    }
+  })();
 
   // v24.25: Constraint-Issues-Banner ganz oben falls Validator was gefunden hat
   var _ppHiIssues = (plan._constraintIssues||[]).filter(function(i){ return i.severity === 'high'; });
@@ -64503,12 +64598,14 @@ function gsAdminSaveSbKey() {
   }
   // v28.67 HL#10: setItem in try/catch — bei vollem Speicher (QuotaExceededError) klares
   // Feedback statt stillem Abbruch mit falschem ✅.
-  try {
-    localStorage.setItem('gs_sb_key', newKey);
-    if (newUrl && newUrl.startsWith('https://')) {
-      localStorage.setItem('gs_sb_url', newUrl);
-    }
-  } catch(e) {
+  // v31.65: derselbe Fall wie bei den Favoriten. v28.67 wollte „klares
+  // Feedback statt stillem Abbruch mit falschem ✅" — und bekam den stillen
+  // Abbruch mit falschem ✅, weil der globale Wrapper nicht wirft.
+  var _keyOk = localStorage.setItem('gs_sb_key', newKey) !== false;
+  if (_keyOk && newUrl && newUrl.startsWith('https://')) {
+    _keyOk = localStorage.setItem('gs_sb_url', newUrl) !== false;
+  }
+  if (!_keyOk) {
     showProfileToast('⚠️ Speicher voll — Key konnte nicht gespeichert werden.');
     return;
   }
@@ -64868,6 +64965,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v31.65', date: '01.09.2026',
+    headline: '\ud83d\udd0d Der Planer sagt jetzt, was er gepr\u00fcft hat \u2014 und ein Speicher-Fehler, der den ganzen Scan fressen konnte',
+    summary: 'Vor dem Plan stapelten sich bis zu vier Hinweiskästen; jetzt ist es eine Tafel, die auch sagt, was NICHT gepr\u00fcft werden konnte. Der Fortschrittsbalken erfindet keine Stufen mehr. Und beim Nachstellen mit einem echten Telefonfoto kam ein Fehler heraus, den ich selbst gebaut hatte.',
+    user_summary: '\ud83d\udd0d Eine „Plan-Pr\u00fcfung" statt vier K\u00e4sten \u2014 und sie sagt dir auch, wenn etwas nicht gepr\u00fcft werden konnte, statt einfach zu schweigen.',
+    user_items: [
+      {emoji:'\ud83d\udd0d', bold:'Eine Tafel statt vier K\u00e4sten:', text:' Bestand, Licht, Nachbarn und Platz standen als vier eigene Hinweiskästen \u00fcbereinander \u2014 bis zu 400 Pixel, bevor du eine einzige Pflanze sahst. Jetzt eine Zeile je Pr\u00fcfung, 21 bis 30 % k\u00fcrzer. Und der wichtigere Teil: konnte eine Pr\u00fcfung nicht laufen, stand da vorher GAR NICHTS \u2014 „gepr\u00fcft und gut" sah aus wie „nicht pr\u00fcfbar". Jetzt steht der Grund da.'},
+      {emoji:'\u23f3', bold:'Der Fortschrittsbalken erfindet nichts mehr:', text:' Er zeigte sieben Meldungen wie „Mischkultur-Kombinationen pr\u00fcfen \u2026" mit Prozentzahl und Restzeit \u2014 alles nach Uhr, w\u00e4hrend die App in Wahrheit auf eine einzige Antwort wartete. Jetzt melden nur Schritte, die wirklich passieren, und w\u00e4hrend des Wartens steht dort die einzige ehrliche Angabe: wie lange es schon l\u00e4uft.'},
+      {emoji:'\ud83d\udcbe', bold:'Ein Fehler, der den ganzen Garten-Scan fressen konnte:', text:' Bei vollem Ger\u00e4tespeicher sollte das Foto weichen und die Erkennung bleiben. Der Rettungsweg lief nie \u2014 die App f\u00e4ngt Speicherfehler global ab, also kam die Ausnahme nie an, auf die er wartete. Auf einem vollen Ger\u00e4t war damit der KOMPLETTE Scan weg, und die App meldete Erfolg. Jetzt bleibt die Erkennung, das Foto weicht, und du erf\u00e4hrst es.'},
+      {emoji:'\u26a0\ufe0f', bold:'Zwei Warnungen, die es nie auf den Bildschirm schafften:', text:' Dieselbe Ursache an zwei weiteren Stellen: „Speicher voll \u2014 Favorit evtl. nicht gesichert" und „Speicher voll \u2014 Key konnte nicht gespeichert werden" waren seit v30.46 bzw. v28.67 eingebaut und sind nie erschienen. Beide gehen jetzt.'},
+    ],
+  },
   {
     v: 'v31.64', date: '01.09.2026',
     headline: '\ud83e\uddf9 „Mein Garten" ist ein F\u00fcnftel k\u00fcrzer \u2014 ohne dass ein einziger Knopf fehlt',
@@ -65248,7 +65357,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.64';
+var GS_VERSION = 'v31.65';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
