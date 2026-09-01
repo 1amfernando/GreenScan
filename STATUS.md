@@ -12,6 +12,67 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-01 (ba) — v31.63: Mischkultur nach Abstand, nicht nach Anwesenheit
+
+Zweite Hälfte derselben Sache wie v31.62. Und diesmal war es **kein** fehlendes Feature — es war ein vorhandenes, das die falsche Frage stellte.
+
+#### Zuerst gesucht, dann gebaut
+
+Der Prompt verlangt seit je Mischkultur. Bevor ich eine Nachbarschaftstabelle in den Code geschrieben habe, habe ich nachgesehen, was schon da ist — die Lehre dieser Sitzung. Ergebnis:
+
+- **`v_companion_lookup`** in Supabase: 248 Zeilen, 4 Beziehungsarten (`gut` 150 · `schlecht` 42 · `neutral` 32 · `kritisch_schlecht` 24)
+- **`gsLoadCompanionsForPlanPlant`**: zeigt pro Pflanze im Plan-Detail gute und schlechte Nachbarn
+- **`conflictPaint`** (v28.79): roter Schimmer im 3D-Modell für sich nicht vertragende Pflanzen
+
+Eine eigene Tabelle im Code wäre eine zweite Quelle geworden, die auseinanderläuft (§3.3). Es wird deshalb **dieselbe** benutzt: `plant_companion_matrix`.
+
+#### Was der Schimmer wirklich prüfte
+
+```js
+var hasConflict = conflictMeshes.some(function(other){
+  return other.lat && other.lat !== lat && conflictMap[lat].has(other.lat);
+});
+```
+
+Kein Abstand. Nirgends. Zwei Antagonisten an entgegengesetzten Enden eines 10-Meter-Gartens leuchteten **beide** rot — der Schimmer sagte nichts über die **Anordnung**, nur über die **Artenliste**. Wer die Pflanzen auseinanderzieht, sieht genau dasselbe Rot; die Anzeige konnte einem also nichts beibringen. Mischkultur wirkt aber über Wurzelkonkurrenz und Ausdünstungen, also über Nähe.
+
+#### Was jetzt passiert
+
+| | |
+|---|---|
+| `_gsAbstand` | Zwischenraum zwischen den **Rechtecken**, nicht Mittelpunkt zu Mittelpunkt — eine breite Pflanze reicht weiter |
+| `_gsZuNah` | 0,5 m; bei `kritisch_schlecht` 1,0 m |
+| `_gsNachbarnOk` | Der Platzierer meidet Gegenspieler-Nähe schon beim Setzen |
+| `_gsPlanNachbarn` | Misst den **fertigen** Plan und hängt das Ergebnis an ihn |
+
+Der Platzierer hat jetzt bis zu vier Vorlieben, von streng nach nachgiebig: Licht **und** Nachbarschaft → nur Nachbarschaft → nur Licht → irgendwo frei. **Keine davon darf eine Pflanze verhindern.** Findet er nichts Besseres, wird gesetzt und gemeldet — eine Pflanze wegzulassen wäre die schlechtere Antwort.
+
+Die Matrix wird beim Öffnen des Planers vorgeladen (ein Aufruf, ≤200 Zeilen). Bis das mehrstufige Formular ausgefüllt ist, steht sie. Ist sie es nicht, bleibt `_nachbarn` **`null`** — keine Aussage, kein erfundener Vorwurf.
+
+#### Zwei eigene Fehler, beide beim Testen gefunden
+
+1. **Stufe 1 prüfte nur das Licht.** Der Vorschlag der KI wurde genommen, sobald er frei war — die Tomate blieb 10 cm neben der Kartoffel stehen, obwohl der halbe Garten leer war. Genau derselbe Fehler wie gestern beim Licht, einen Tag später noch einmal. Stufe 1 prüft jetzt beides.
+2. **Zwei Regeln statt einer.** Der Platzierer rechnete mit rohen Fliesskommazahlen (die 10-cm-Schritte summieren sich zu `1.0000000000000002`), die Prüfung danach mit den gerundeten. Ergebnis: der Planer setzte eine Pflanze bewusst auf genau 1,00 m Abstand — und beklagte anschliessend genau diesen Abstand. Jetzt fragen beide Seiten `_gsZuNah`, mit einem Zentimeter Toleranz.
+
+#### Sieben Durchgänge
+
+```
+0 · _gsAbstand    berührend 0 · halber Meter 0.5 · diagonal 1.41 · überlappend 0
+A · weit auseinander (9 m)          → kein Vorwurf
+B · direkt nebeneinander            → gemeldet: Tomate/Kartoffel, 0.2 m, kritisch
+C · 0,7 m bei Schwelle 0,5          → kein Vorwurf
+D · Platzierer weicht aus           → 0.6,0 → 1.5,0 (1,00 m) — und beklagt es NICHT
+E · Beet wirklich voll (1,2×0,6 m)  → trotzdem gesetzt, gemeldet mit 0.1 m
+F · Matrix nicht geladen            → _nachbarn:null, Position unangetastet
+    Licht aus v31.62 unverändert    → alle sechs Fälle weiterhin richtig
+```
+
+#### Verify
+
+`wiring_check` 307 Namen / **0** nicht auflösbar · Menü 40/0 · 928 Nachschlagungen / **0** nie erzeugt / **0** ungesichert · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen, Vergleich 2281 Elemente: **0** Layout-, 0 Farb-, 0 Radius-, 0 Schriftgrössenänderungen · `contrast_check` 0 unter AA beide Modi · `touch_check` 0 unter 24×24 · Meldung nutzt dasselbe Warnmuster wie v31.62 (Titel 5,11 / 7,16:1 · Text 9,21 bis 10,37:1) · `gsAllReleases()` 410 → **411**, 0 Dopplungen · 9/9 Inline-Scripts + `sw.js` `node --check` OK · `GS_VERSION` v31.63 · `sw.js` gs-v31.63 · `_headers` v31.63 · meta 31.63.20260901.
+
+---
+
 ### 2026-09-01 (az) — v31.62: Der Planer plant ins gemessene Licht
 
 Wieder das Muster, das diese Sitzung ein Dutzend Mal getroffen hat: **Arbeit, die getan und dann stillgelegt wird.**
