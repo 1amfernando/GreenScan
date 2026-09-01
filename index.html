@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.51.20260901">
+<meta name="app-version" content="31.52.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3548,6 +3548,14 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <div class="mp-field">
         <label>Typ</label>
         <select class="mp-select" id="post-type">
+          <!-- v31.52: „Status" fehlte als Option. openPostWithType('status') setzte
+               typeSelect.value='status', dazu gibt es aber keine Option — der
+               Browser laesst das Feld dann LEER, und wer ueber „💬 Status"
+               einstieg, sah ein Auswahlfeld ohne Auswahl. Der Wert ist 'fund',
+               weil der CHECK auf social_posts.category nur
+               fund/help/tip/showcase/rare/question kennt (an der Live-DB
+               geprueft) — 'status' waere serverseitig abgewiesen worden. -->
+          <option value="fund">💬 Status – Gedanken & Updates teilen</option>
           <option value="showcase">⭐ Showcase – Meine Pflanze zeigen</option>
           <option value="help">🆘 Hilfe – Krankheit / Problem</option>
           <option value="tip">💡 Tipp – Wissen teilen</option>
@@ -3576,7 +3584,10 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
         <label>Dein Name / Anzeigename</label>
         <input class="mp-input" id="post-author" placeholder="Wie sollen andere dich nennen?">
       </div>
-      <button class="mp-save-btn" onclick="submitPost()">🌿 Post veröffentlichen</button>
+      <!-- v31.52: id ergaenzt. submitPost sucht seit jeher #post-submit-btn, um
+           waehrend des Sendens „⏳ Poste …" anzuzeigen und Doppeltippen zu
+           sperren — der Knopf trug die id nur nicht. -->
+      <button class="mp-save-btn" id="post-submit-btn" onclick="submitPost()">🌿 Post veröffentlichen</button>
     </div>
   </div>
 </div>
@@ -36886,11 +36897,41 @@ function _gsRestoreSocialDraft(reopen){
   }
   if (reopen) { try { openModal('modal-new-post'); } catch(_){} }
   var t = document.getElementById('post-text');   if (t) t.value = d.text;
-  var c = document.getElementById('post-category'); if (c && d.cat) c.value = d.cat;
+  // v31.52: schrieb in #post-category — dasselbe nicht vorhandene Feld.
+  var c = document.getElementById('post-type');   if (c && d.cat) c.value = d.cat;
   var pl= document.getElementById('post-plant');  if (pl && d.plant) pl.value = d.plant;
   return true;
 }
 window._gsRestoreSocialDraft = _gsRestoreSocialDraft;
+
+// ── v31.52: EINE Abbildung Oberflaechen-Typ → DB-Kategorie ─────────────────
+//
+// Der Fehler, den das aufloest: submitPost las #post-category. Dieses Feld
+// gibt es nicht — das Auswahlfeld im Beitrags-Fenster heisst #post-type. Der
+// Ausdruck war  ((document.getElementById('post-category')||{}).value)||'fund'
+// und lieferte deshalb IMMER 'fund'. Was der Nutzer waehlte (Showcase, Hilfe,
+// Tipp, Frage, Raritaet) wurde beim Absenden verworfen, ebenso der Typ, mit
+// dem openPostWithType das Fenster geoeffnet hatte.
+//
+// Warum das lange niemandem auffiel: der Hauptweg ist der Inline-Composer
+// (submitInlinePost), und der macht es richtig. Die Live-Datenbank zeigt drei
+// Beitraege, alle 'showcase' — durch das Fenster ist noch keiner gegangen.
+// Der Weg ist trotzdem offen und der Knopf „🌿 Post veroeffentlichen" fuehrt
+// direkt hinein.
+//
+// Warum es NICHT reicht, einfach #post-type zu lesen: die Tabelle hat einen
+// CHECK auf (fund, help, tip, showcase, rare, question) — geprueft an der
+// Live-Datenbank. openPostWithType kennt aber die Typen 'status' und 'photo',
+// die dort NICHT vorkommen. Wer „💬 Status" waehlt, haette nach einem naiven
+// Fix eine Serverabweisung bekommen statt eines Beitrags. Also dieselbe
+// Abbildung, die der Inline-Weg schon benutzt — jetzt an EINER Stelle.
+const GS_POST_KATEGORIEN = ['fund','help','tip','showcase','rare','question'];
+function gsPostKategorie(typ) {
+  var karte = { showcase:'showcase', status:'fund', tip:'tip', help:'help',
+                question:'question', photo:'fund', rare:'rare', fund:'fund' };
+  var k = karte[String(typ == null ? '' : typ).trim().toLowerCase()];
+  return GS_POST_KATEGORIEN.indexOf(k) >= 0 ? k : 'fund';
+}
 
 async function submitPost() {
   if (!gsRequire('post_community','Bitte anmelden um zu posten.')) return;
@@ -36900,7 +36941,7 @@ async function submitPost() {
   if (!uid) { showProfileToast('❌ Kein User · bitte einloggen'); return; }
   var name   = localStorage.getItem('gs_sb_display_name')||gsStore.get('gs_sb_email', null)||'Naturfreund';
   var avatar = (_sbProfile && _sbProfile.avatar_emoji)||'🌿';
-  var cat    = ((document.getElementById('post-category')||{}).value)||'fund';
+  var cat    = gsPostKategorie((document.getElementById('post-type')||{}).value);   // v31.52: las #post-category — das gibt es nicht
   var plant  = ((document.getElementById('post-plant')||{}).value)||'';
   var btn    = document.getElementById('post-submit-btn');
   if (btn) { btn.textContent='⏳ Poste …'; btn.disabled=true; }
@@ -37452,7 +37493,7 @@ function openPostPicker() {
 function openPostWithType(type) {
   closeModal('modal-post-picker');
   const typeMap = {
-    status:   {value:'status',   placeholder:'Was möchtest du teilen? Gedanken, Updates, Erfahrungen…', label:'💬 Status', requirePhoto:false},
+    status:   {value:'fund',     placeholder:'Was möchtest du teilen? Gedanken, Updates, Erfahrungen…', label:'💬 Status', requirePhoto:false},
     photo:    {value:'showcase', placeholder:'Beschreibe dein Foto und die Pflanze…', label:'📷 Foto-Post', requirePhoto:true},
     help:     {value:'help',     placeholder:'Beschreibe das Problem genau: Symptome, wann begonnen, bisherige Massnahmen…', label:'🆘 Hilfe gesucht', requirePhoto:false},
     tip:      {value:'tip',      placeholder:'Teile deinen Tipp oder dein Wissen mit der Community…', label:'💡 Tipp & Wissen', requirePhoto:false},
@@ -37471,9 +37512,9 @@ function openPostWithType(type) {
   document.getElementById('post-plant').value = '';
   document.getElementById('post-image-preview').style.display = 'none';
 
-  // Show/hide photo section based on type
-  const photoSection = document.getElementById('post-photo-section');
-  // It's always shown, just label differs
+  // v31.52: hier stand eine Variable photoSection auf #post-photo-section —
+  // Element gibt es nicht, benutzt wurde sie nie, und der Kommentar daneben
+  // sagte selbst, dass der Bereich immer sichtbar ist.
 
   // Update modal title
   const modalTitle = document.querySelector('#modal-new-post h2');
@@ -46957,9 +46998,10 @@ async function submitInlinePost() {
     || gsStore.get('gs_sb_email', null)
     || 'Naturfreund';
 
-  // Map inline-Type → DB-category (CHECK-Constraint: fund/help/tip/showcase/rare/question)
-  const catMap = { showcase:'showcase', status:'fund', tip:'tip', help:'help', question:'question', photo:'fund', rare:'rare' };
-  const cat = catMap[inlinePostType] || 'fund';
+  // v31.52: dieselbe Abbildung wie im Fenster-Weg, jetzt aus einer Hand
+  // (gsPostKategorie). Vorher stand sie hier als eigene Tabelle — richtig, aber
+  // eben nur hier; der Fenster-Weg hatte gar keine.
+  const cat = gsPostKategorie(inlinePostType);
 
   // Photo extrahieren (b64 ohne Prefix)
   let photoB64 = null;
@@ -63555,6 +63597,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.52', date: '01.09.2026',
+    headline: '\ud83c\udff7\ufe0f Der Beitragstyp wurde beim Absenden weggeworfen',
+    summary: 'Im Beitrags-Fenster las das Absenden ein Feld namens post-category. Das gibt es nicht \u2014 das Auswahlfeld hei\u00dft post-type. Der Ausdruck fiel deshalb IMMER auf „fund" zur\u00fcck: Showcase, Hilfe, Tipp, Frage und Rarit\u00e4t wurden alle als dasselbe gespeichert.',
+    user_summary: '\ud83c\udff7\ufe0f Wenn du im Beitrags-Fenster einen Typ w\u00e4hlst, wird er jetzt auch gespeichert. Und „Status" hat endlich eine eigene Auswahl \u2014 vorher blieb das Feld dabei leer.',
+    user_items: [
+      {emoji:'\ud83c\udff7\ufe0f', bold:'Der gew\u00e4hlte Typ kommt an:', text:' Gemessen f\u00fcr alle sechs Einstiege: Showcase → showcase, Hilfe → help, Tipp → tip, Frage → question, Foto → showcase, Status → fund. Vorher lieferte dieselbe Kette ausnahmslos „fund".'},
+      {emoji:'\ud83d\udd0d', bold:'Warum es lange nicht auffiel:', text:' Der Hauptweg ist der schnelle Composer oben im Community-Bereich, und der macht es richtig. Durch das Fenster ist bisher kein Beitrag gegangen \u2014 nachgesehen in der Datenbank: drei Beitr\u00e4ge, alle korrekt. Der Weg stand trotzdem offen.'},
+      {emoji:'\u26a0\ufe0f', bold:'Der naheliegende Fix w\u00e4re falsch gewesen:', text:' Einfach das richtige Feld lesen h\u00e4tte „Status" kaputt gemacht \u2014 die Datenbank l\u00e4sst diesen Wert gar nicht zu und h\u00e4tte den Beitrag abgewiesen. Jetzt gibt es EINE Umrechnung f\u00fcr beide Wege, die nur g\u00fcltige Werte herausl\u00e4sst.'},
+      {emoji:'\ud83d\udcac', bold:'„Status" hatte gar keine Auswahl:', text:' Wer \u00fcber „💬 Status" einstieg, sah ein Auswahlfeld ohne Auswahl \u2014 die Option fehlte schlicht. Beim Messen aufgefallen, jetzt vorhanden.'},
+      {emoji:'\u23f3', bold:'Und der Absende-Knopf meldet sich:', text:' Er zeigt w\u00e4hrend des Sendens „Poste …" und sperrt sich gegen Doppeltippen. Der Code daf\u00fcr war da; dem Knopf fehlte nur seine Kennung.'},
+    ],
+  },
+  {
     v: 'v31.51', date: '01.09.2026',
     headline: '\ud83c\udf31 Drei von vier Bodenarten haben ihre Warnungen nie ausgeliefert',
     summary: 'Das Auswahlfeld im Gartenformular speichert englische Werte (sand, loam, clay, humus). Die Bodenkunde dahinter arbeitet mit deutschen Schl\u00fcsseln (sandig, lehmig, tonig, humusreich). Die Zuordnung fragte, ob der gespeicherte Wert den Schl\u00fcssel ENTH\u00c4LT — und „sand" enth\u00e4lt nicht „sandig".',
@@ -64033,7 +64088,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.51';
+var GS_VERSION = 'v31.52';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

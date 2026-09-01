@@ -4,13 +4,72 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.51` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.52` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (ao) — v31.52: Der Beitragstyp wurde beim Absenden weggeworfen
+
+Welle 4. Die Community-Gruppe der Liste — `post-category`×2, `post-submit-btn`, `post-photo-section`.
+
+#### Der Fund
+
+`submitPost` ist live, am Knopf „🌿 Post veröffentlichen" im Beitrags-Fenster. Ihre Zeile:
+
+```js
+var cat = ((document.getElementById('post-category')||{}).value) || 'fund';
+```
+
+`#post-category` gibt es nicht — das Auswahlfeld heisst `#post-type`. Also `{}` → `.value` undefined → **immer `'fund'`**. Showcase, Hilfe, Tipp, Frage und Rarität wurden alle als dasselbe gespeichert, ebenso der Typ, mit dem `openPostWithType` das Fenster geöffnet hatte. Dasselbe Feld im Entwurf-Wiederherstellen (`_gsRestoreSocialDraft`).
+
+#### Warum es lange nicht auffiel — und was das für die Bewertung heisst
+
+Der Hauptweg ist der Inline-Composer (`submitInlinePost`), und der **macht es richtig**: eigene `catMap`, korrekte Zuordnung.
+
+An der Live-Datenbank nachgesehen: `social_posts` enthält **3 Beiträge, alle `showcase`** — durch das Fenster ist noch keiner gegangen. Der Schaden ist bisher also null. Der Weg steht trotzdem offen, und ein Knopf führt direkt hinein.
+
+#### Der naheliegende Fix wäre falsch gewesen
+
+Einfach `#post-type` lesen hätte „💬 Status" kaputt gemacht. An der Live-DB geprüft:
+
+```
+CHECK (category = ANY (ARRAY['fund','help','tip','showcase','rare','question']))
+```
+
+`openPostWithType` kennt aber die Typen `status` und `photo`, die dort **nicht** vorkommen. Wer „Status" gewählt hätte, bekäme eine Serverabweisung statt eines Beitrags.
+
+Also **eine** Abbildung `gsPostKategorie(typ)` für beide Wege, die nur Werte aus dem CHECK herauslässt — dasselbe Muster wie `gsBodenKey` in v31.51. Der Inline-Weg hatte seine Tabelle richtig, aber eben nur für sich.
+
+Gemessen, alle sechs Einstiege:
+
+| gewählt | `#post-type` | gesendete `category` | im CHECK |
+|---|---|---|---|
+| showcase | `showcase` | `showcase` | ✅ |
+| status | `fund` | `fund` | ✅ |
+| help | `help` | `help` | ✅ |
+| tip | `tip` | `tip` | ✅ |
+| question | `question` | `question` | ✅ |
+| photo | `showcase` | `showcase` | ✅ |
+
+Auch Unsinn und `null` landen sicher auf `fund`.
+
+#### Zwei Dinge, die erst beim Messen auffielen
+
+**„Status" hatte gar keine Option.** `openPostWithType('status')` setzte `typeSelect.value = 'status'`, aber das `<select>` kennt diesen Wert nicht — der Browser lässt das Feld dann **leer**. Wer über „💬 Status" einstieg, sah ein Auswahlfeld ohne Auswahl. Option ergänzt, mit `value="fund"`, weil der CHECK nichts anderes zulässt.
+
+**Der Absende-Knopf hatte seine Kennung nicht.** `submitPost` sucht seit jeher `#post-submit-btn`, um „⏳ Poste …" zu zeigen und Doppeltippen zu sperren. Der Knopf trug die id nicht — also keine Rückmeldung. Ergänzt.
+
+Dazu eine tote lokale Variable entfernt (`photoSection` auf `#post-photo-section`, nie benutzt, mit einem Kommentar daneben, der selbst sagte, dass der Bereich immer sichtbar ist).
+
+#### Verify
+
+`wiring_check` 305 Namen / 0 nicht auflösbar · Menü 40/0 · 25 → **22** abgesichert · 0 ungesichert · Beitrags-Rundlauf über alle sechs Typen · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen, Radius/Schrift/Farbe je 0 gegen `origin/main` · `contrast_check` 0 unter AA beide Modi · `touch_check` 0 unter 24×24 · `GS_VERSION` v31.52 · `sw.js` gs-v31.52 · `_headers` v31.52 · meta 31.52.20260901.
+
+---
 
 ### 2026-09-01 (an) — v31.51: Drei von vier Bodenarten lieferten ihre Warnungen nie aus
 
