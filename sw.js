@@ -344,7 +344,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v31.35';
+const VERSION = 'gs-v31.36';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
@@ -371,6 +371,14 @@ const SHELL_URLS = [
   // v25.10 Thema 3: PLANT_DB extern (4341 Arten, immutable-cached). Vor-Cachen
   // damit App offline mit voller Pflanzen-DB funktioniert (sonst nur leere DB).
   '/data/plants.v1.js?v=1',
+  // v31.36: Das Release-Archiv (371 aeltere Changelog-Eintraege, 778 KB) wird
+  // hier BEWUSST NICHT vor-gecacht. Vor-cachen hiesse: jeder Nutzer laedt
+  // 778 KB fuer einen Bildschirm, den die meisten nie oeffnen — damit waere
+  // der halbe Gewinn der Auslagerung wieder weg. Es faellt unter die
+  // Default-Strategie (networkFirst + RUNTIME_CACHE) und ist damit ab dem
+  // ersten Oeffnen des Changelogs auch offline da. Wer offline ist und ihn
+  // noch nie geoeffnet hat, sieht die 12 inline vorhandenen Eintraege und
+  // einen Hinweis (siehe gsRenderAboutChangelog).
   // v25.36 SELF-HOST: vorher unpkg.com fuer Leaflet+Three (siehe v25.9 Comment
   // im git log) — Cowork hat live verifiziert dass unpkg vom Browser onerror
   // returns. Jetzt aus eigenem /assets/-Ordner: kein CDN-Race, kein CSP-Issue,
