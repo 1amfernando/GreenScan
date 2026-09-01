@@ -5,7 +5,7 @@
 > Kompagnon: `STATUS.md` (operativer Snapshot) · `CLAUDE.md` (Onboarding) ·
 > `BACKEND_FRONTEND_MAP_v26.76.md` (Architektur-Detailkarte).
 
-**Stand:** v31.41 · App **live** auf green-scan.ch · released seit v26.0.
+**Stand:** v31.42 · App **live** auf green-scan.ch · released seit v26.0.
 
 ---
 
@@ -76,6 +76,8 @@ Die App ist ein reifes, live-laufendes Produkt. Erreicht u.a.:
 **Bedienbarkeit: 43 → 0 (v31.34).** Antippflächen unter 24×24 px (WCAG 2.5.8) gemessen und behoben — die kleinste war 8×8: die Karussell-Punkte unter den Tageskarten. Trefferfläche jetzt 24×24, der sichtbare Punkt sitzt als `::before` darin, die Optik ist unverändert. Zweiter echter Fall: die Suchfelder waren 18px hoch in einer 37px hohen Leiste; deren Polsterung reagierte nicht. `scripts/touch_check.js` liegt als drittes Prüfwerkzeug im Repo. Nebenbei belegt: alle **7'081** `onclick`-Ziele lösen zu echten Funktionen auf, kein fehlender Handler.
 
 **Startleistung: App-JS 1'548ms → 421ms (v31.35).** Drei `MutationObserver` (Auto-ARIA, Auto-Maxlength, Auto-Lazy) durchsuchten bei jeder DOM-Änderung das ganze Dokument neu — 743ms `querySelectorAll` allein beim Start. Jetzt gebündelt und auf die eingefügten Teilbäume beschränkt. Gegengeprüft: die drei setzen exakt dieselben 199 `aria-label`, 65 `maxlength` und 7 `loading`-Attribute wie vorher. `scripts/perf_check.js` neu im Repo. **Bewusst nicht angefasst:** die längste Einzelblockade (710ms auf einem Mittelklasse-Telefon) ist das Parsen der 5,7-MB-Datei — das liesse sich nur durch Aufteilen des Monolithen ändern, und das ist eine Architektur-Entscheidung.
+
+**Kopfleiste auf Strich-Symbole (v31.42).** Mond, Glocke und Menü gezeichnet statt Emoji; drei fehlende Symbole im Stil des Satzes ergänzt. Dabei gefunden: `initDark()` und der Einstellungs-Umschalter setzten beide `btn.textContent = '🌙'` und überschrieben das Markup — jetzt `innerHTML` mit einer **einmal** definierten Konstante. Gefunden allein durch Hinsehen: Kontrast, Antippfläche und JS-Fehler waren alle in Ordnung.
 
 **Alle Bildschirme hell (v31.41).** Vierzehn Leinwände in dunklen Volltönen auf `--g-bg` umgestellt — dieselbe Sprache wie die Startseite seit v31.37 und wie Fernandos Vorlage. **Viertes Mal desselben Musters an einem Tag:** die hellen Fassungen für Rezepte und Heilmittel standen bereits im Code und wurden von einem `!important`-Block überstimmt. Die Token `--on-canvas`/`--on-canvas-2` aus v31.32 sind wieder entfernt — sie gab es nur wegen der dunklen Flächen und wären jetzt selbst die Falle (hell auf hell); der Prüfstand zeigte genau die 14 betroffenen Stellen. Ergebnis wieder 0 + 0 unter AA.
 

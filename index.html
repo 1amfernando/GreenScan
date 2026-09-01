@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.41.20260901">
+<meta name="app-version" content="31.42.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -415,6 +415,11 @@ body{height:100%;background:var(--fill-dark);color:var(--text);font-family:"DM S
 .topbar h1{font-family:"Playfair Display",serif;font-size:var(--fs-xl);font-weight:900;color:#fff;letter-spacing:-.3px;}
 .tb-right{display:flex;gap:5px;}
 .ib{background:rgba(255,255,255,.13);border:none;color:#fff;width:36px;height:36px;border-radius:var(--r-sm);font-size:var(--fs-lg);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:var(--dur);}
+/* v31.42 — Kopfleisten-Knoepfe tragen jetzt Strich-Symbole statt Emoji
+   (🌙 🔑 🔔 ⋯). Sie erben ueber currentColor die Knopf-Farbe und sehen auf
+   jeder Plattform gleich aus — dieselbe Begruendung wie fuer die
+   Navigationsleiste in v31.38, nachzulesen in assets/icons/README.md. */
+.ib svg, .menu-btn svg{ width:19px; height:19px; display:block; }
 .ib:active{background:rgba(255,255,255,.28);}
 
 
@@ -2349,14 +2354,14 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <h1 style="font-size:var(--fs-lg);display:flex;align-items:center;gap:7px;"><img src="icons/icon.svg?v=2" alt="" width="22" height="22" style="border-radius:var(--r-sm);flex-shrink:0;">GreenScan</h1>
   </div>
   <div class="tb-right">
-    <button class="ib" id="dark-btn" onclick="toggleDark()" aria-label="Dark Mode umschalten" title="Dark Mode">🌙</button>
-    <button class="ib" id="api-key-btn" onclick="openApiKey()" aria-label="API Key öffnen" title="API Key" style="display:none;">🔑</button>
+    <button class="ib" id="dark-btn" onclick="toggleDark()" aria-label="Dark Mode umschalten" title="Dark Mode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.8A8.6 8.6 0 0 1 9.2 3.5 8.6 8.6 0 1 0 20.5 14.8z"/></svg></button>
+    <button class="ib" id="api-key-btn" onclick="openApiKey()" aria-label="API Key öffnen" title="API Key" style="display:none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="16" r="3.4"/><path d="M10.4 13.6 20 4"/><path d="M17 7l2.4 2.4"/><path d="M14.4 9.6l2 2"/></svg></button>
     <!-- v30.85: Benachrichtigungen bekommen einen EIGENEN, festen Platz.
          Vorher nur über Menü → Panel → „Alle anzeigen" erreichbar (drei Schritte,
          versteckt). Jetzt: Glocke immer sichtbar, mit Zähler für offene Aufgaben
          + ungelesene Mitteilungen, öffnet direkt das Benachrichtigungs-Center. -->
-    <button class="ib" id="gs-bell-btn" onclick="if(typeof gsOpenNotifCenter==='function')gsOpenNotifCenter('new')" aria-label="Benachrichtigungen und Aufgaben" title="Benachrichtigungen &amp; Aufgaben" style="position:relative;">🔔<span id="gs-bell-badge" class="gs-bell-badge" role="status" aria-live="polite" style="display:none;"></span></button>
-    <button class="menu-btn" onclick="openMainMenu()" aria-label="Hauptmenü" title="Hauptmenü" style="font-size:var(--fs-2xl);background:rgba(255,255,255,.15);">⋯</button>
+    <button class="ib" id="gs-bell-btn" onclick="if(typeof gsOpenNotifCenter==='function')gsOpenNotifCenter('new')" aria-label="Benachrichtigungen und Aufgaben" title="Benachrichtigungen &amp; Aufgaben" style="position:relative;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 9a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6z"/><path d="M10.5 20a1.8 1.8 0 0 0 3 0"/></svg><span id="gs-bell-badge" class="gs-bell-badge" role="status" aria-live="polite" style="display:none;"></span></button>
+    <button class="menu-btn" onclick="openMainMenu()" aria-label="Hauptmenü" title="Hauptmenü" style="background:rgba(255,255,255,.15);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h11"/></svg></button>
   </div>
 </div>
 
@@ -18777,11 +18782,19 @@ function openGardenArticle(id) {
 
 // ═══ DARK MODE ═══════════════════════════════════════════════
 const DARK_KEY = 'gs_dark';
+// v31.42 — Der Hell/Dunkel-Knopf trug ein Emoji, das an ZWEI Stellen per
+// textContent gesetzt wurde (initDark und der Umschalter in den Einstellungen).
+// Beide haben das Strich-Symbol aus dem Markup wieder ueberschrieben — im
+// Bild sah man Glocke und Menue als Symbol, den Mond weiter als Emoji.
+// Hier einmal definiert, damit es nicht ein drittes Mal auseinanderlaeuft.
+var GS_ICON_MOON = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 14.8A8.6 8.6 0 0 1 9.2 3.5 8.6 8.6 0 1 0 20.5 14.8z"/></svg>';
+var GS_ICON_SUN  = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4"/></svg>';
+
 function initDark(){
   const on = localStorage.getItem(DARK_KEY)==='1';
   document.body.classList.toggle('dark', on);
   const btn = document.getElementById('dark-btn');
-  if(btn) btn.textContent = on ? '☀️' : '🌙';
+  if(btn) btn.innerHTML = on ? GS_ICON_SUN : GS_ICON_MOON;
 }
 // toggleDark() moved to settings system below
 initDark();
@@ -46470,7 +46483,7 @@ function applyDarkMode(isDark, save = true) {
   // Sync ALL toggle elements (settings + anywhere else)
   document.querySelectorAll('#toggle-dark').forEach(t => t.checked = isDark);
   const topbarBtn = document.getElementById('dark-btn');
-  if (topbarBtn) topbarBtn.textContent = isDark ? '☀️' : '🌙';
+  if (topbarBtn) topbarBtn.innerHTML = isDark ? GS_ICON_SUN : GS_ICON_MOON;
   // Re-apply theme colors for dark/light mode
   applyThemeColors(userPrefs.theme || 'green', isDark);
 }
@@ -63565,6 +63578,23 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.42', date: '01.09.2026',
+    headline: '\ud83c\udf19 Kopfleiste mit Strich-Symbolen \u2014 und ein Emoji, das sich zweimal zur\u00fcckschlich',
+    summary: 'Nach der Navigationsleiste jetzt die Kopfzeile: Mond, Glocke und Men\u00fc sind gezeichnete Symbole statt Emoji. Beim Nachsehen fiel auf, dass zwei Stellen im Code das Mond-Symbol per textContent wieder durch ein Emoji ersetzten \u2014 im Bild war die Glocke schon ein Symbol, der Mond noch gelb.',
+    user_summary: '\ud83c\udf19 Die Symbole oben rechts sind jetzt gezeichnet statt Emoji \u2014 sie sehen auf jedem Ger\u00e4t gleich aus und passen zur Leiste unten.',
+    user_items: [
+      { emoji: '\ud83c\udf19', text: 'Mond, Glocke und Men\u00fc als Strich-Symbole' },
+      { emoji: '\ud83d\udd27', text: 'Zwei Stellen, die das Symbol wieder durch ein Emoji ersetzten, umgeh\u00e4ngt' },
+    ],
+    items: [
+      {emoji:'\ud83c\udf19', bold:'Drei neue Symbole:', text:' Mond, Schl\u00fcssel und Men\u00fc im Stil des vorhandenen Satzes gezeichnet (24\u00d724, Strichst\u00e4rke 1,75, runde Enden) und in assets/icons/ abgelegt. Glocke und Sonne gab es bereits. Alle inline eingesetzt, damit sie \u00fcber currentColor die Knopf-Farbe erben.'},
+      {emoji:'\ud83d\udd27', bold:'Der Fund beim Hinsehen:', text:' im gerenderten Bild waren Glocke und Men\u00fc Symbole, der Mond aber weiter ein gelbes Emoji. Ursache: initDark() und der Umschalter in den Einstellungen setzen beide btn.textContent = on ? \'☀️\' : \'🌙\' und haben das Markup ueberschrieben. Beide nutzen jetzt innerHTML mit den Symbolen \u2014 und die sind EINMAL als GS_ICON_MOON/GS_ICON_SUN definiert, damit es nicht ein drittes Mal auseinanderl\u00e4uft.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Kopfleiste in beiden Modi gerendert und angesehen \u00b7 in beiden Modi tr\u00e4gt der Knopf ein SVG und in der ganzen Kopfleiste ist kein Emoji mehr \u00fcbrig (programmatisch gepr\u00fcft) \u00b7 keine JS-Fehler \u00b7 Kontrast 0 unter AA in beiden Modi \u00b7 Antippfl\u00e4chen 0 unter 24\u00d724 \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.42 \u00b7 sw.js gs-v31.42 \u00b7 _headers v31.42 \u00b7 meta=31.42.20260901.'},
+    ],
+  },
+  {
     v: 'v31.41', date: '01.09.2026',
     headline: '\ud83c\udfa8 Alle Bildschirme hell \u2014 dieselbe Sprache wie die Startseite',
     summary: 'Vierzehn Bildschirme hatten dunkle Volltoene als Fl\u00e4che \u2014 Garten gr\u00fcn, Rezepte braun, Heilmittel blau, Einstellungen schiefer. Die Startseite ist seit v31.37 hell. Jetzt sind es alle, wie in Fernandos Vorlage: eine ruhige helle Fl\u00e4che mit Karten darauf.',
@@ -64091,7 +64121,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.41';
+var GS_VERSION = 'v31.42';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
