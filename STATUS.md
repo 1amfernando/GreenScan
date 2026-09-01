@@ -4,13 +4,52 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.47` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.48` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (aj) — v31.48: Drei Menü-Einträge, die nirgendwohin führten
+
+Eine blinde Stelle des Verdrahtungs-Prüfstands: er sammelt `on*`-Attribute aus dem **Dokument**. Die 40 Einträge der Menü-Suche tragen ihre Aktion aber als **Text in einer Liste** (`MENU_ITEMS`), nicht am Element. Sie wurden nie geprüft.
+
+Beim ersten gezielten Durchgang: **3 von 40 kaputt.** Alle drei nach demselben Muster — auf einen Bildschirm springen, dann dort ein Element antippen, das es nicht gibt:
+
+| Eintrag | wollte | gibt es nicht |
+|---|---|---|
+| 📅 Blühkalender | `menuNav('home')` → scroll zu `#bluehkalender-widget` | der Kalender liegt im **Garten**-Reiter |
+| 📜 Scan-Historie | `menuNav('favs')` → `#tab-scans`.click() | dort gibt es keinen solchen Reiter |
+| 🌾 Lichtmesser kalibrieren | `openLightMeter()` → nach 400ms `#lux-calibrate-btn`.click() | den Knopf gibt es nicht |
+
+Der Nutzer sucht im Menü, tippt den Treffer an — und landet irgendwo, wo nichts passiert. Ohne Fehlermeldung, ohne Hinweis.
+
+#### Die Lösung
+
+Alle drei rufen jetzt direkt die Funktion, die es längst gibt: `openBluehkalender()`, `openScanHistory()`, `gsLuxCalibrate()`. Die Umleitung über „Bildschirm wechseln, warten, Knopf antippen" ist ohnehin die zerbrechlichste Form der Verdrahtung — sie bricht bei jeder Umbenennung, und zwar lautlos.
+
+Beim Kalibrieren ist die direkte Fassung sogar besser: `gsLuxCalibrate` sagt von sich aus „Bitte zuerst eine Messung machen", wenn noch keine vorliegt. Vorher passierte nichts.
+
+**Am laufenden Programm geprüft** — jeder Eintrag einzeln ausgeführt und das Ergebnis angesehen:
+
+- Blühkalender → `modal-content`: „🌻 Blühkalender · September · 4 blühende Arten"
+- Scan-Historie → `modal-scan-history-full`: „4 Scans · 3 Arten · 2 in DB"
+- Kalibrieren ohne Messung → Lichtmesser + Hinweis
+- Kalibrieren mit Messung → `modal-lux-calib` öffnet
+
+#### Damit es nicht wiederkommt
+
+`wiring_check.js` geht `MENU_ITEMS` jetzt bei jedem Lauf durch — alle 40 Einträge, je Funktion und angesprochenes Element. Stand jetzt: **0 kaputt**.
+
+Das ist die allgemeine Lehre: Aktionen, die als *Zeichenkette in einer Datenstruktur* stehen statt am Knopf, entziehen sich jeder Prüfung, die nur das Dokument ansieht. Wer weitere solche Listen anlegt, muss sie hier eintragen.
+
+#### Verify
+
+`wiring_check` 303 Namen / 0 nicht auflösbar · **Menü 40/0 kaputt** (vorher 3) · 45 → **42** abgesicherte Nachschlagungen · 0 ungesichert · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen, Radius/Schrift/Farbe je 0 gegen `origin/main` · `contrast_check` 0 unter AA in beiden Modi · `touch_check` 0 unter 24×24 · `GS_VERSION` v31.48 · `sw.js` gs-v31.48 · `_headers` v31.48 · meta 31.48.20260901.
+
+---
 
 ### 2026-09-01 (ai) — v31.47: Zehn Garten-Artikel, die seit v28.57 niemand sehen konnte
 

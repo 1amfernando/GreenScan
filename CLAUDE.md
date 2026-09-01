@@ -308,6 +308,14 @@ Richtungen, und die zweite ist die teurere:
    und alles danach in der Funktion läuft nicht mehr). Nur das Zweite ist ein
    Fehler; genau so lag v31.40 im Argen.
 
+3. **Menü-Liste.** `MENU_ITEMS` (40 Einträge der Menü-Suche) trägt die Aktion
+   als **Zeichenkette in einem Feld**, nicht als `onclick` am Element —
+   Richtung 1 sieht sie deshalb nicht. Beim ersten gezielten Durchgang
+   (v31.48) waren drei kaputt: sie sprangen auf einen Bildschirm und tippten
+   dort ein Element an, das es nicht gibt. **Wer weitere solche Listen anlegt,
+   muss sie hier eintragen** — was nur als Datenstruktur existiert, entzieht
+   sich jeder Prüfung, die bloss das Dokument ansieht.
+
 **Die Grenzen, damit sie niemand neu entdecken muss:**
 
 - Namen, die erst zur Laufzeit entstehen (`window[name]()`), findet er nicht.
