@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.50.20260901">
+<meta name="app-version" content="31.51.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -43893,14 +43893,25 @@ let currentWissenSection = 'trachten';
 function showSoilInfo(val) {
   const box = document.getElementById('soil-info-box');
   if (!box) return;
-  const info = BODENTYPEN[val];
-  if (!info || val === 'unbekannt') {
+  // v31.51: griff mit dem Rohwert in BODENTYPEN — bei 'loam' also ins Leere.
+  // Und die Gut-Pruefung mischte deutsche und englische Schluessel
+  // ('humusreich' || 'lehmig' || 'loam'), war also je nach Herkunft des
+  // Wertes mal richtig und mal nicht. Jetzt beides ueber gsBodenKey.
+  const key = gsBodenKey(val);
+  const info = key ? BODENTYPEN[key] : null;
+  if (!info) {
     box.style.display = 'none'; return;
   }
   box.style.display = 'block';
-  const isGood = val === 'humusreich' || val === 'lehmig' || val === 'loam';
+  const isGood = key === 'humusreich' || key === 'lehmig';
+  // v31.51: das Warn-Orange war #e65100 auf #fff3e0 — gerechnet 3,46:1 und
+  // damit unter AA. Aufgefallen ist es NICHT dem Kontrast-Pruefstand: der
+  // misst, was auf den elf Bildschirmen sichtbar ist, und diese Box steckt in
+  // einem geschlossenen Fenster. Also von Hand nachgerechnet, bevor sie das
+  // erste Mal ausgeliefert wird. #bf360c ergibt 5,11:1 und ist dasselbe
+  // Warnrot, auf das v31.20 die App bereits vereinheitlicht hat.
   box.style.background = isGood ? '#e8f5e9' : '#fff3e0';
-  box.style.color = isGood ? '#2e7d32' : '#e65100';
+  box.style.color = isGood ? '#2e7d32' : '#bf360c';   // 4,56:1 / 5,11:1
   box.innerHTML =
     '<strong>' + info.emoji + ' ' + info.label + '</strong> – ' + info.beschreibung + '<br>' +
     '<span style="font-size:var(--fs-sm);">✅ Gut für: ' + info.geeignet.slice(0,4).join(', ') + '</span>' +
@@ -51202,22 +51213,51 @@ const PFLANZ_BODEN_INFO = {
 };
 
 // ─── Boden-Analyse & Tipp-Funktion ────────────────────────
+// ── v31.51: EINE Normalisierung fuer Bodenarten ────────────────────────────
+//
+// Der Fehler, den das aufloest: Das Auswahlfeld im Gartenformular liefert
+// englische Werte — sand, loam, clay, humus. BODENTYPEN und die Warntexte
+// arbeiten mit deutschen Schluesseln — sandig, lehmig, tonig, humusreich.
+// Die alte Zuordnung fragte  gespeicherterWert.includes(schluessel):
+//   'sand'.includes('sandig')  → false
+//   'loam'.includes('lehm')    → false
+//   'clay'.includes('ton')     → false
+//   'humus'.includes('humus')  → true   ← der EINZIGE Zufallstreffer
+//
+// Folge, am laufenden Programm gemessen (Tomaten): mit 'sandig' erkennt die
+// App das Problem und zeigt eine Karte mit 2'228 Zeichen konkreter Abhilfe.
+// Mit 'sand' — dem Wert, den das Formular wirklich speichert — kommt
+// bodenKey null heraus, keine Warnung, und die allgemeine Karte mit 1'220
+// Zeichen. Drei der vier waehlbaren Bodenarten waren betroffen; nur „Humus"
+// funktionierte, und das aus Versehen.
+//
+// Bewusst NICHT die gespeicherten Werte umgeschrieben: in den Gaerten der
+// Nutzer stehen die englischen Kuerzel. Die Zuordnung kennt jetzt beides,
+// alte wie neue Daten, und erst exakt, dann als Teilzeichenkette (damit
+// Freitext wie „sandiger Lehm" weiter trifft).
+const GS_BODEN_ALIAS = {
+  sand: 'sandig',   sandig: 'sandig',   sandy: 'sandig',
+  loam: 'lehmig',   lehm: 'lehmig',     lehmig: 'lehmig',  loamy: 'lehmig',
+  clay: 'tonig',    ton: 'tonig',       tonig: 'tonig',
+  humus: 'humusreich', humusreich: 'humusreich',
+  kalk: 'kalkreich',   kalkreich: 'kalkreich',  chalk: 'kalkreich',
+  moor: 'moorig',      moorig: 'moorig',        peat: 'moorig',
+};
+function gsBodenKey(wert) {
+  var w = String(wert == null ? '' : wert).trim().toLowerCase();
+  if (!w) return null;
+  if (GS_BODEN_ALIAS[w]) return GS_BODEN_ALIAS[w];          // exakt zuerst
+  var treffer = Object.keys(GS_BODEN_ALIAS)
+    .sort(function(a, b){ return b.length - a.length; })     // laengster zuerst
+    .find(function(k){ return w.indexOf(k) >= 0; });
+  return treffer ? GS_BODEN_ALIAS[treffer] : null;
+}
+
 function getBodenTipp(pflanzName, gardenBoden) {
   const info = PFLANZ_BODEN_INFO[pflanzName];
   if (!info) return null;
-  
-  const bodenMap = {
-    'sandig': 'sandig', 'sandy': 'sandig',
-    'lehm': 'lehmig', 'lehmig': 'lehmig',
-    'ton': 'tonig', 'tonig': 'tonig',
-    'humus': 'humusreich', 'humusreich': 'humusreich',
-    'kalk': 'kalkreich', 'kalkreich': 'kalkreich',
-    'moor': 'moorig', 'moorig': 'moorig',
-  };
-  
-  const bodenKey = Object.entries(bodenMap).find(([k]) => 
-    (gardenBoden||'').toLowerCase().includes(k)
-  )?.[1];
+
+  const bodenKey = gsBodenKey(gardenBoden);
   
   const problem = bodenKey && info.bodenProbleme?.[bodenKey];
   const idealInfo = BODENTYPEN[info.idealBoden];
@@ -63515,6 +63555,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.51', date: '01.09.2026',
+    headline: '\ud83c\udf31 Drei von vier Bodenarten haben ihre Warnungen nie ausgeliefert',
+    summary: 'Das Auswahlfeld im Gartenformular speichert englische Werte (sand, loam, clay, humus). Die Bodenkunde dahinter arbeitet mit deutschen Schl\u00fcsseln (sandig, lehmig, tonig, humusreich). Die Zuordnung fragte, ob der gespeicherte Wert den Schl\u00fcssel ENTH\u00c4LT — und „sand" enth\u00e4lt nicht „sandig".',
+    user_summary: '\ud83c\udf31 Wer Sand-, Lehm- oder Tonboden eingestellt hatte, bekam bei seinen Pflanzen nie die passende Boden-Warnung. Nur „Humus" funktionierte, und das aus Versehen.',
+    user_items: [
+      {emoji:'\ud83c\udf31', bold:'Der Boden-Rat kommt wieder an:', text:' Bei Tomaten auf Sandboden zeigt die App jetzt wieder die Warnung samt konkreter Abhilfe. Gemessen: dieselbe Karte war vorher 1\u2019220 Zeichen lang (die allgemeine Fassung), jetzt 2\u2019228 \u2014 rund tausend Zeichen Rat, die drei von vier Nutzern still vorenthalten wurden. Bei Tonboden dasselbe.'},
+      {emoji:'\ud83d\udd11', bold:'Woran es lag:', text:' Zwei Namenswelten f\u00fcr dieselbe Sache. Der einzige Treffer war „humus" \u2014 weil dieses eine Wort zuf\u00e4llig in „humusreich" vorkommt. Jetzt gibt es EINE Zuordnung, die beide Schreibweisen kennt, alte gespeicherte Daten eingeschlossen. Deine bestehenden G\u00e4rten musst du nicht anfassen.'},
+      {emoji:'\ud83d\udcd8', bold:'Und der Boden erkl\u00e4rt sich jetzt beim W\u00e4hlen:', text:' Unter dem Auswahlfeld steht ab sofort, was der gew\u00e4hlte Boden ausmacht, wof\u00fcr er gut ist und was man verbessern kann. Der Text daf\u00fcr lag seit Langem fertig im Code \u2014 es fehlten das Anzeigefeld und der Ausl\u00f6ser am Auswahlfeld.'},
+      {emoji:'\ud83d\udd0d', bold:'Ein Fehler, den kein Pr\u00fcfstand gefunden h\u00e4tte:', text:' Die neue Infobox h\u00e4tte Warntext mit 3,46:1 Kontrast bekommen \u2014 unter der Lesbarkeitsschwelle. Der Kontrast-Pr\u00fcfstand misst nur, was auf den Bildschirmen sichtbar ist, und diese Box steckt in einem Fenster. Von Hand nachgerechnet und auf 5,11:1 gesetzt, bevor sie das erste Mal ausgeliefert wird.'},
+    ],
+  },
+  {
     v: 'v31.50', date: '01.09.2026',
     headline: '\ud83e\uddf9 Neun tote Funktionen entfernt \u2014 und eine Begr\u00fcndung gerettet, die niemand mehr zu sehen bekam',
     summary: 'Zweite Welle des Meilensteins „Alles verdrahtet": die Funde, die sich beim Nachsehen als Reste entfernter Oberfl\u00e4chen erwiesen haben, sind jetzt weg. 41 offene Nachschlagungen \u2192 26.',
@@ -63981,7 +64033,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.50';
+var GS_VERSION = 'v31.51';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -77851,12 +77903,18 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
       </div>
       <div>
         <label style="display:block;font-size:var(--fs-sm);font-weight:700;color:var(--text2);margin-bottom:4px;">Boden</label>
-        <select id="gard-soil" style="width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:var(--r-md);font-size:var(--fs-md);font-family:inherit;background:var(--input-bg);color:var(--text);box-sizing:border-box;">
+        <select id="gard-soil" onchange="showSoilInfo(this.value)" style="width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:var(--r-md);font-size:var(--fs-md);font-family:inherit;background:var(--input-bg);color:var(--text);box-sizing:border-box;">
           <option value="sand">Sandig (trocken)</option>
           <option value="loam" selected>Lehmig (ausgewogen)</option>
           <option value="clay">Tonig (schwer)</option>
           <option value="humus">Humus (reich)</option>
         </select>
+        <!-- v31.51: showSoilInfo gibt es seit Langem und zeichnet aus BODENTYPEN
+             Beschreibung, geeignete Pflanzen, Nachteile und einen Verbesserungs-
+             Tipp. Sie hatte nur nie ein Ziel (#soil-info-box fehlte) und nie
+             einen Ausloeser (das Auswahlfeld hatte kein onchange). Wer den Boden
+             waehlte, bekam nichts zu sehen. -->
+        <div id="soil-info-box" style="display:none;margin-top:8px;padding:10px 12px;border-radius:var(--r-md);font-size:var(--fs-sm);line-height:1.5;"></div>
       </div>
       <div style="display:flex;gap:8px;margin-top:6px;">
         <button onclick="closeModal('modal-add-garden')" style="flex:1;padding:12px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:var(--r-md);font-size:var(--fs-md);font-weight:700;cursor:pointer;font-family:inherit;">Abbrechen</button>

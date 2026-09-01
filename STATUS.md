@@ -4,13 +4,72 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.50` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.51` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (an) — v31.51: Drei von vier Bodenarten lieferten ihre Warnungen nie aus
+
+Welle 3 des Meilensteins. `soil-info-box` sah nach dem harmlosesten Fund der Liste aus — eine Infobox, die fehlt. Dahinter lag der bisher schwerste Fehler dieses Meilensteins.
+
+#### Zwei Namenswelten für dieselbe Sache
+
+| | |
+|---|---|
+| `<select id="gard-soil">` liefert | `sand`, `loam`, `clay`, `humus` |
+| `BODENTYPEN` und die Warntexte kennen | `sandig`, `lehmig`, `tonig`, `humusreich`, `kalkreich`, `moorig` |
+
+Die Zuordnung in `getBodenTipp` fragte `gespeicherterWert.includes(schluessel)`:
+
+```
+'sand'.includes('sandig')  → false
+'loam'.includes('lehm')    → false
+'clay'.includes('ton')     → false
+'humus'.includes('humus')  → true   ← der einzige Treffer, und der war Zufall
+```
+
+#### Was das gekostet hat — gemessen, nicht geschätzt
+
+Für Tomaten, `renderBodenInfoCard`:
+
+| gespeicherter Wert | erkannter Boden | Warnung | Karte |
+|---|---|---|---|
+| `sand` | — | nein | 1'220 Zeichen |
+| `loam` | — | nein | 1'220 Zeichen |
+| `clay` | — | nein | 1'220 Zeichen |
+| `humus` | `humusreich` | nein | 1'220 Zeichen |
+| *(Gegenprobe)* `sandig` | `sandig` | **ja** | **2'228 Zeichen** |
+| *(Gegenprobe)* `tonig` | `tonig` | **ja** | **2'022 Zeichen** |
+
+Rund **tausend Zeichen konkreter Abhilfe** — „Boden-Warnung: Tomaten" plus Lösungsschritte — wurden drei von vier Nutzern still vorenthalten. `renderBodenInfoCard` ist live und läuft in der Pflanzenansicht.
+
+#### Die Lösung
+
+Eine gemeinsame Normalisierung `gsBodenKey(wert)`, die beide Schreibweisen kennt, **erst exakt, dann als Teilzeichenkette** (damit Freitext wie „sandiger Lehm" weiter trifft). Bewusst **nicht** die gespeicherten Werte umgeschrieben: in den Gärten der Nutzer stehen die englischen Kürzel, und eine Datenmigration für ein Anzeigeproblem wäre das falsche Werkzeug.
+
+Nachher: `sand → sandig` mit Warnung und 2'228 Zeichen, `clay → tonig` mit 2'022. `loam` und `humus` zeigen korrekt keine Warnung — Tomaten stehen dort gut.
+
+#### Dazu der Eingang, der ursprünglich gesucht war
+
+`showSoilInfo` zeichnet aus `BODENTYPEN` Beschreibung, geeignete Pflanzen, Nachteile und einen Verbesserungs-Tipp. Sie hatte **weder Ziel noch Auslöser**: `#soil-info-box` fehlte, und das Auswahlfeld hatte kein `onchange`. Beides ergänzt — wer den Boden wählt, sieht jetzt sofort, was ihn ausmacht.
+
+`showSoilInfo` griff ausserdem mit dem Rohwert in `BODENTYPEN` (bei `loam` also ins Leere) und mischte in der Gut-Prüfung deutsche und englische Schlüssel (`'humusreich' || 'lehmig' || 'loam'`). Jetzt beides über `gsBodenKey`.
+
+#### Ein Fehler, den kein Prüfstand gefunden hätte
+
+Die neue Infobox hätte ihren Warntext in `#e65100` auf `#fff3e0` bekommen — **3,46:1**, unter AA. `contrast_check` misst, was auf den elf Bildschirmen **sichtbar** ist; diese Box steckt in einem geschlossenen Fenster. Von Hand nachgerechnet und auf `#bf360c` gesetzt (5,11:1) — dasselbe Warnrot, auf das v31.20 die App bereits vereinheitlicht hat.
+
+Diese Grenze steht jetzt in `CLAUDE.md` §7.1: **wer Farbe in einem Modal setzt, rechnet selbst nach.**
+
+#### Verify
+
+`wiring_check` 305 Namen / 0 nicht auflösbar · Menü 40/0 · 26 → **25** abgesichert · 0 ungesichert · Boden-Rundlauf am laufenden Programm (Normalisierung, Warnkarten, Infobox) · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen, Radius/Schrift/Farbe je 0 gegen `origin/main` · `contrast_check` 0 unter AA beide Modi · `touch_check` 0 unter 24×24 · 9/9 Inline-Scripts + `sw.js` `node --check` OK · `GS_VERSION` v31.51 · `sw.js` gs-v31.51 · `_headers` v31.51 · meta 31.51.20260901.
+
+---
 
 ### 2026-09-01 (am) — v31.50: Neun tote Funktionen weg · Meilenstein „Alles verdrahtet", Welle 2
 
