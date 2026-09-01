@@ -12,6 +12,82 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-01 (bd) — v31.66: Namensschilder im 3D-Modell, und „Mein Garten" als ein Stück
+
+Fernando: *„Mein Garten hat zu viele Widgets und die Seite sieht optisch einfach nicht schön aus"* — und die 3D-Modelle verbessern.
+
+Diesmal habe ich die Seite **angesehen**, nicht nur vermessen. Ein Bildschirmfoto zeigt in einer Sekunde, was zehn Messungen nicht zeigen.
+
+#### Was das Bild zeigte
+
+Ein **100 Pixel hohes Loch** zwischen der letzten Gartenkarte und „Einpflanzen". Ursache:
+
+```css
+#garden-list { padding-bottom: 100px !important; }
+```
+
+Diese Regel gibt Listen einen Sockel, damit ihr Ende nicht hinter der Navigationsleiste verschwindet — sie steht dort mit acht Geschwistern (`#recipes-list`, `#favs-list` …). Für all die stimmt sie: sie sind das **Letzte** auf ihrem Bildschirm. Die Gartenliste ist es nicht — darunter kommen zwei Knöpfe und drei Werkzeug-Gruppen. Direkt unter dem Block steht sogar ein Kommentar von v31.47, der genau diese Überlegung für einen anderen Fall schon einmal angestellt hat.
+
+Dazu vier Dinge, die man nur sieht:
+
+| | vorher | jetzt |
+|---|---|---|
+| Statistik | vier Kacheln, 2×2, ~300 px — und die vierte war gar keine Zahl, sondern eine Handlungsaufforderung mit anderem Grund, anderer Ausrichtung, anderen Schriftgrössen | drei Zahlen nebeneinander in **einer** Karte (72 px); der nächste Schritt darunter als eigene Karte — sieht weiter anders aus, jetzt aber absichtlich |
+| Symbole | „▦" und „🗺" wirkten wie Platzhalter | keine — eine grosse Zahl mit klarer Beschriftung braucht kein Bild |
+| Mondkalender | der einzige dunkelblaue Balken zwischen lauter hellen Karten | dieselbe Karte wie alles andere (das volle Fenster behält seinen Nachthimmel) |
+| Werkzeug-Gruppen | nackter Text auf dem Seitengrund, nur eine Trennlinie | Karten wie der Rest, mit Winkel, der sich beim Aufklappen dreht |
+
+Die Trennlinie von v31.56 ist gegangen: sie löste ein Problem, das es nicht mehr gibt (zwei randlose Blöcke, die als ein Klotz gelesen wurden). Inzwischen ist jeder Block eine Karte — da trennt der Abstand, und der Strich war der einzige nackte Strich auf dem Bildschirm.
+
+```
+1 Garten :  1234px → 1071px   −13 %
+3 Gärten :  1368px → 1205px   −12 %
+6 Gärten :  1569px → 1406px   −10 %
+```
+
+Antippbare Stellen: **38→38, 48→48, 63→63.** Zusammen mit v31.64 sind das von ursprünglich 1693 px (3 Gärten) auf 1205 px — **−29 %**.
+
+#### Das 3D-Modell hatte keine Namen
+
+Ich habe es gerendert und angesehen: vier Pflanzen, alle grün, keine Beschriftung. Hecke, Kohl und Basilikum waren nicht auseinanderzuhalten. Ein Plan, den man nicht lesen kann, ist Dekoration.
+
+Jetzt trägt jede Pflanze ein Schild — als Sprite, dreht sich also immer zur Kamera. Grau für Bestand, mit grünem Rand für Vorschläge: **dieselbe Zeichensprache wie die Ringe am Boden** aus v31.59. Gruppen bekommen ein Schild mit Anzahl („Karotte ×12") statt zwölf gleicher Schilder übereinander.
+
+#### Zwei eigene Fehler dabei, beide durch Messen gefunden
+
+1. **Die Schilder drängelten.** Bei neun Pflanzen lagen sie übereinander. Erster Versuch: vier Höhenstufen statt drei — das machte es **schlechter** (5 statt 7 sichtbar). Statt weiter zu raten habe ich gezählt.
+2. **Die Kollisionsprüfung war geraten.** Ich hatte die Schildbreite im Bildraum mit einem Faktor geschätzt; er machte die Schilder rechnerisch über viermal so breit wie sie sind, und blendete selbst bei **drei** Pflanzen eines aus. Jetzt wird die Grösse gemessen: Mitte und Ecke werden beide projiziert, die Differenz ist die halbe Breite in Bildkoordinaten.
+
+Gemessen an den tatsächlich erzeugten Sprites:
+
+```
+ 3 Pflanzen → 3/3 sichtbar (100 %)
+ 5 Pflanzen → 5/5 (100 %)
+ 7 Pflanzen → 5/7 (71 %)
+ 9 Pflanzen → 8/9 (89 %)
+12 Pflanzen → 9/12 (75 %)
+```
+
+Alles sichtbar, solange Platz ist; sanfter Abbau, wenn es eng wird. Was sich überdeckt, tritt zurück — das vordere gewinnt, denn es gehört zu der Pflanze, die man gerade ansieht.
+
+#### Und der Scanner bekommt es mit
+
+`gsTwinOpen3D` nutzt denselben Renderer — das Scan-Modell hat also ab jetzt auch Namen. Dabei fiel auf: der Zwilling übergab seine Pflanzen **ohne** `existing:true`. Jede hätte den Ring und den grünen Schildrahmen bekommen, also die Zeichensprache für „das wäre neu" — im Scan des Bestands. Eine Zeichensprache, die je nach Fenster etwas anderes bedeutet, ist keine. Nachgemessen: **0 Ringe**, 3 Schilder, alle sichtbar.
+
+#### Verify
+
+`wiring_check` 307 Namen / **0** nicht auflösbar · Menü 40/0 · 928 Nachschlagungen / **0** nie erzeugt / **0** ungesichert · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen · `contrast_check` 0 unter AA beide Modi · `touch_check` 0 unter 24×24 · Hell- **und** Dunkelmodus als Bild angesehen · Modell in fünf Bestückungen gerendert und die Sprites gezählt · Zwilling-Modell auf 0 Ringe geprüft · Höhe bei 1/3/6 Gärten · `gsAllReleases()` 413 → **414**, 0 Dopplungen · 9/9 Inline-Scripts + `sw.js` `node --check` OK · `GS_VERSION` v31.66 · `sw.js` gs-v31.66 · `_headers` v31.66 · meta 31.66.20260901.
+
+#### Nebenbei gelernt
+
+Das 3D-Modell liess sich bisher **gar nicht** prüfen: `_gsLoadThree` lädt `/assets/three.min.js` absolut, und unter `file://` zeigt das aufs Dateisystem-Wurzelverzeichnis. Mit einem lokalen Webserver (`python3 -m http.server`) läuft es. Wer am 3D arbeitet, braucht diesen Weg — sonst prüft man ein Modell, das nie gebaut wurde.
+
+#### Offen
+
+Der Rasen ist eine flache grüne Fläche und das Beet wirkt daraufgelegt; „0 Pflanzen" auf den Gartenkarten steht im Widerspruch zu „8 Pflanzen in Pflege" darüber (zwei verschiedene Datenquellen: `plantings` gegen `myPlants`). Beides eigene Arbeiten.
+
+---
+
 ### 2026-09-01 (bc) — v31.65: Planer-Optik, ehrlicher Fortschritt — und ein Speicher-Fehler, den ich selbst gebaut habe
 
 Fernandos zweiter Auftrag: den KI-Planer optisch und funktionell verbessern, mit Bildern aus dem Internet arbeiten.
