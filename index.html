@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.42.20260901">
+<meta name="app-version" content="31.43.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -339,14 +339,16 @@ body.dark .settings-label-sub, body.dark .recipe-card-desc {
 }
 
 
-.topbar button, .topbar .ib { color: #ffffff !important; }
+/* v31.43: war color:#ffffff !important — noetig auf der dunklen Leiste,
+   auf der hellen genau falsch. Die Symbole erben jetzt --text. */
+.topbar button, .topbar .ib { color: var(--text); }
 /* v31.25 — FEHLER: --g-dark ist im Dunkelmodus HELLGRUEN (#a5d6a7, die Skala
    kehrt sich um), waehrend .topbar h1 und alle Knoepfe weiss sind. Die
    Kopfleiste war damit nachts hellgruen mit weisser Schrift — 1,64:1, also
    praktisch unsichtbar. Beim Rendern des neuen Kopfbereichs aufgefallen. */
-body.dark .topbar { background: #122212 !important; }
+/* v31.43: entfernt — die Leiste nutzt --card und kippt selbst. */
 
-body.dark .topbar{background:#122212;}   /* v31.25: siehe oben */
+/* v31.43: ebenfalls entfernt (siehe oben). */
 /* v31.38: beide entfernt. Die Leiste nutzt jetzt --card/--border und kippt
    damit selbst; die Pille hinter dem aktiven Reiter gibt es nicht mehr. */
 body.dark .screen{background:var(--g-bg);}
@@ -397,30 +399,38 @@ html,html,body{background:var(--g-bg);}
    Schwarz (der Vorgabewert), und alles ohne eigene Farbe erbte Schwarz — im
    Dunkelmodus schwarz auf dunkel. Jetzt --text: hell #111111 (praktisch
    derselbe Wert wie zuvor), dunkel #f0f9f0. */
-body{height:100%;background:var(--fill-dark);color:var(--text);font-family:"DM Sans",sans-serif;overflow:hidden;font-size:var(--base-font,16px);}
-#app{position:fixed;inset:0;overflow:hidden;background:var(--fill-dark);}
+/* v31.43: Hintergrund war --fill-dark (in beiden Modi dunkelgruen). Solange
+   Kopf- und Navigationsleiste selbst dunkel waren, sah man ihn nie. Seit beide
+   hell sind, schien er als dunkles Band unter der Kopfleiste durch. */
+body{height:100%;background:var(--g-bg);color:var(--text);font-family:"DM Sans",sans-serif;overflow:hidden;font-size:var(--base-font,16px);}
+#app{position:fixed;inset:0;overflow:hidden;background:var(--g-bg);}   /* v31.43: siehe body */
 
 
 .topbar{
   position:fixed;top:0;left:0;right:0;
   height:calc(var(--st)+var(--top-h));
   padding-top:var(--st);
-  background:var(--fill-dark);
+  /* v31.43 — Die Kopfleiste war in BEIDEN Modi dunkelgruen (--fill-dark) und
+     stand damit als letztes dunkles Element gegen die inzwischen durchgehend
+     helle App. Ueber --card/--border kippt sie jetzt selbst — genau wie die
+     Navigationsleiste seit v31.38. Damit fallen auch die festen #fff-Farben
+     weg, die es nur gab, WEIL die Flaeche nicht mitkippte. */
+  background:var(--card);
   display:flex;align-items:center;justify-content:space-between;
   padding-left:16px;padding-right:12px;
   z-index:100;
-  border-bottom:none;
+  border-bottom:1px solid var(--border);
   box-shadow:none;
 }
-.topbar h1{font-family:"Playfair Display",serif;font-size:var(--fs-xl);font-weight:900;color:#fff;letter-spacing:-.3px;}
+.topbar h1{font-family:"Playfair Display",serif;font-size:var(--fs-xl);font-weight:900;color:var(--g-dark);letter-spacing:-.3px;}
 .tb-right{display:flex;gap:5px;}
-.ib{background:rgba(255,255,255,.13);border:none;color:#fff;width:36px;height:36px;border-radius:var(--r-sm);font-size:var(--fs-lg);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:var(--dur);}
+.ib{background:var(--surface2);border:1px solid var(--border);color:var(--text);width:36px;height:36px;border-radius:var(--r-sm);font-size:var(--fs-lg);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:var(--dur);}
 /* v31.42 — Kopfleisten-Knoepfe tragen jetzt Strich-Symbole statt Emoji
    (🌙 🔑 🔔 ⋯). Sie erben ueber currentColor die Knopf-Farbe und sehen auf
    jeder Plattform gleich aus — dieselbe Begruendung wie fuer die
    Navigationsleiste in v31.38, nachzulesen in assets/icons/README.md. */
 .ib svg, .menu-btn svg{ width:19px; height:19px; display:block; }
-.ib:active{background:rgba(255,255,255,.28);}
+.ib:active{background:var(--g-light);}
 
 
 /* v31.38 — Die Leiste war in BEIDEN Modi dunkelgruen (--fill-dark). Fernandos
@@ -1040,8 +1050,8 @@ details > summary::marker { content: ''; }
 .menu-item.active .menu-item-icon{box-shadow:0 0 0 3px var(--g-main);}
 .menu-section{font-size:var(--fs-xs);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;padding:8px 20px 4px;}
 
-.menu-btn{background:rgba(255,255,255,.15);border:none;color:#fff;width:38px;height:38px;border-radius:var(--r-md);font-size:var(--fs-xl);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:var(--dur);}
-.menu-btn:active{background:rgba(255,255,255,.3);}
+.menu-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text);width:38px;height:38px;border-radius:var(--r-md);font-size:var(--fs-xl);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:var(--dur);}
+.menu-btn:active{background:var(--g-light);}
 
 .tab-badge{position:absolute;top:2px;right:calc(50% - 20px);background:#e53935;color:#fff;font-size:var(--fs-xs);font-weight:800;min-width:16px;height:16px;border-radius:var(--r-sm);padding:0 4px;display:flex;align-items:center;justify-content:center;line-height:1;}
 /* v23.70: Notification-Badge am Menü-Tab — iOS-Style, pulst sanft wenn >0 */
@@ -1051,7 +1061,7 @@ details > summary::marker { content: ''; }
    .gs-notif-openall bleibt weiter unten, die nutzt der Aufgaben-Notizzettel. */
 /* v30.85: Glocken-Badge in der Kopfleiste — eigener fester Platz für
    Benachrichtigungen UND Aufgaben (vorher nur über das Menü erreichbar). */
-.gs-bell-badge{position:absolute;top:-3px;right:-3px;min-width:17px;height:17px;padding:0 4px;border-radius:var(--r-sm);background:var(--c-danger,#e53935);color:#fff;font-size:var(--fs-xs);font-weight:900;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 0 0 2px var(--g-dark);letter-spacing:.2px;pointer-events:none;}
+.gs-bell-badge{position:absolute;top:-3px;right:-3px;min-width:17px;height:17px;padding:0 4px;border-radius:var(--r-sm);background:var(--c-danger,#e53935);color:#fff;font-size:var(--fs-xs);font-weight:900;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 0 0 2px var(--card);letter-spacing:.2px;pointer-events:none;}  /* v31.43: Ring in Leistenfarbe statt --g-dark */
 
 /* v30.85: Aufgaben-Notizzettel — klebt am rechten Rand von „Meine Pflanzen",
    klappt beim Tippen auf. Bewusst wie ein Merkzettel gestaltet (Papierfarbe,
@@ -2361,7 +2371,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
          versteckt). Jetzt: Glocke immer sichtbar, mit Zähler für offene Aufgaben
          + ungelesene Mitteilungen, öffnet direkt das Benachrichtigungs-Center. -->
     <button class="ib" id="gs-bell-btn" onclick="if(typeof gsOpenNotifCenter==='function')gsOpenNotifCenter('new')" aria-label="Benachrichtigungen und Aufgaben" title="Benachrichtigungen &amp; Aufgaben" style="position:relative;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 9a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6z"/><path d="M10.5 20a1.8 1.8 0 0 0 3 0"/></svg><span id="gs-bell-badge" class="gs-bell-badge" role="status" aria-live="polite" style="display:none;"></span></button>
-    <button class="menu-btn" onclick="openMainMenu()" aria-label="Hauptmenü" title="Hauptmenü" style="background:rgba(255,255,255,.15);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h11"/></svg></button>
+    <button class="menu-btn" onclick="openMainMenu()" aria-label="Hauptmenü" title="Hauptmenü"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h11"/></svg></button>
   </div>
 </div>
 
@@ -63578,6 +63588,24 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.43', date: '01.09.2026',
+    headline: '\u2728 Auch die Kopfleiste hell \u2014 die App ist jetzt durchgehend ruhig',
+    summary: 'Nach Startseite, Navigationsleiste und allen \u00fcbrigen Bildschirmen war die Kopfzeile das letzte dunkle Element. Jetzt kippt auch sie mit dem Modus. Dabei kam ein dunkelgr\u00fcnes Band zum Vorschein, das jahrelang unsichtbar war \u2014 weil es immer von etwas Dunklem verdeckt wurde.',
+    user_summary: '\u2728 Die App ist jetzt von oben bis unten hell und ruhig \u2014 Kopfzeile, Inhalt und Leiste sprechen dieselbe Sprache.',
+    user_items: [
+      { emoji: '\u2728', text: 'Kopfleiste hell statt dunkelgr\u00fcn \u2014 passend zum Rest' },
+      { emoji: '\ud83d\udd0d', text: 'Ein dunkles Band unter der Leiste beseitigt, das vorher niemand sehen konnte' },
+    ],
+    items: [
+      {emoji:'\u2728', bold:'Dieselbe Behandlung wie die Navigationsleiste:', text:' die Kopfzeile stand auf --fill-dark, also in BEIDEN Modi dunkelgr\u00fcn. Genau deshalb brauchte sie feste #fff-Werte fuer Titel und Symbole \u2014 samt einem `color:#ffffff !important` und zwei Dunkelmodus-\u00dcberschreibungen. Jetzt --card/--border: sie kippt selbst, die Schrift nutzt --g-dark, die Symbole --text. Alle drei Sonderregeln sind weg.'},
+      {emoji:'\ud83d\udd0d', bold:'Der Fund beim Hinsehen:', text:' nach der Umstellung zeigte sich ein dunkelgr\u00fcnes Band zwischen Kopfleiste und Inhalt. Ursache: body und #app standen ebenfalls auf --fill-dark. Solange Kopf- UND Navigationsleiste dunkel waren, hat man diesen Hintergrund nie gesehen \u2014 er war immer verdeckt. Erst als beide hell wurden, kam er zum Vorschein. Beide folgen jetzt --g-bg.'},
+      {emoji:'\ud83d\udd14', bold:'Kleinigkeit mit Wirkung:', text:' der Ring um den Glocken-Z\u00e4hler war var(--g-dark) \u2014 passend, solange die Leiste dunkel war. Jetzt --card, also immer in Leistenfarbe.'},
+    ],
+    verify: [
+      {emoji:'\u2705', bold:'Verify:', text:' Kopfleiste in beiden Modi gerendert und angesehen \u2014 im Dunkelmodus zeigt der Knopf korrekt die Sonne statt des Monds \u00b7 Kontrast 0 unter AA in beiden Modi \u00b7 Antippfl\u00e4chen 0 unter 24\u00d724 \u00b7 Vorher/Nachher: 132 Farb\u00e4nderungen (die Leiste, quer \u00fcber elf Tabs), 0 Radius- und 0 Schriftgr\u00f6ssen\u00e4nderungen; von den 17 Gr\u00f6ssen\u00e4nderungen sind elf die Kopfleiste selbst (38\u219239px durch den neuen 1px-Rahmen) und sechs der bekannte dritte Chip im Wissens-Hero \u00b7 keine JS-Fehler \u00b7 9/9 Inline-Scripts node --check OK \u00b7 GS_VERSION=v31.43 \u00b7 sw.js gs-v31.43 \u00b7 _headers v31.43 \u00b7 meta=31.43.20260901.'},
+    ],
+  },
+  {
     v: 'v31.42', date: '01.09.2026',
     headline: '\ud83c\udf19 Kopfleiste mit Strich-Symbolen \u2014 und ein Emoji, das sich zweimal zur\u00fcckschlich',
     summary: 'Nach der Navigationsleiste jetzt die Kopfzeile: Mond, Glocke und Men\u00fc sind gezeichnete Symbole statt Emoji. Beim Nachsehen fiel auf, dass zwei Stellen im Code das Mond-Symbol per textContent wieder durch ein Emoji ersetzten \u2014 im Bild war die Glocke schon ein Symbol, der Mond noch gelb.',
@@ -64121,7 +64149,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.42';
+var GS_VERSION = 'v31.43';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -75997,7 +76025,7 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
   font-size: var(--fs-xl);
   font-weight: 900;
   letter-spacing: -.2px;
-  color: #fff;
+  color: var(--g-dark);   /* v31.43: war #fff — auf heller Leiste unsichtbar */
   margin: 0;
 }
 
