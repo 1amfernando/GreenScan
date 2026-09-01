@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.63.20260901">
+<meta name="app-version" content="31.64.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1359,6 +1359,10 @@ body.dark .mkt-chat-msg.them{background:#2a3f2a;color:var(--text);}
 
 
 .moon-card{background:linear-gradient(135deg,#0d1b2a,#1a237e);border-radius:var(--r-lg);padding:14px 15px;color:#fff;margin-bottom:12px;}
+/* v31.64 — die Zeilenfassung fuer den Garten-Bildschirm. Dieselbe Form wie
+   die Wetterkarte darueber; der volle Mondkalender bleibt ein Tipp entfernt
+   und benutzt weiterhin .moon-card ohne diesen Zusatz. */
+.moon-card-zeile{display:flex;align-items:center;gap:12px;padding:11px 14px;margin-bottom:0;cursor:pointer;-webkit-tap-highlight-color:transparent;}
 .moon-phase-icon{font-size:44px;text-align:center;margin-bottom:8px;}
 .moon-phase-name{font-family:'Playfair Display',serif;font-size:var(--fs-lg);font-weight:800;text-align:center;}
 .moon-type-row{display:flex;gap:6px;justify-content:center;margin-top:6px;flex-wrap:wrap;}
@@ -1561,7 +1565,6 @@ body.dark .menu-search-wrap{background:var(--card);}
 .garden-card-info{flex:1;min-width:0;}
 .garden-card-name{font-size:var(--fs-lg);font-weight:700;color:var(--g-dark);font-family:'Playfair Display',serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .garden-card-meta{font-size:var(--fs-sm);color:var(--muted);margin-top:1px;}
-.garden-card-badges{display:flex;gap:5px;margin-top:4px;flex-wrap:wrap;}
 .garden-weather-strip{background:linear-gradient(90deg,#1565c0,#1976d2);color:#fff;padding:11px 14px;display:flex;align-items:center;gap:12px;border-radius:var(--r-lg);font-size:var(--fs-md);}
 .planting-row{display:flex;align-items:center;gap:9px;padding:9px 14px;border-top:1px solid #f5f5f5;cursor:pointer;}
 .planting-row:active{background:var(--surface-neutral);}
@@ -1652,8 +1655,6 @@ body.dark .gs-doc-pro{background:#3a2c10;border-color:#8d6e2a;color:#ffcc80;}
    der Ueberschrift, ein einziges Gruen fuer Handlungen. Keine Verlaeufe auf
    Textflaechen — die haben in v31.37 die Lesbarkeit gekostet.
    Alle Farbwerte gegen --card (#ffffff hell / #162816 dunkel) nachgerechnet. */
-.gs-go-head{font-family:'Playfair Display',serif;font-size:var(--fs-2xl);font-weight:900;color:var(--g-dark);line-height:1.15;}
-.gs-go-sub{font-size:var(--fs-sm);color:var(--muted);margin:2px 0 12px;}
 
 .gs-go-hero{position:relative;border-radius:var(--r-lg);overflow:hidden;margin-bottom:12px;background:var(--surface2);aspect-ratio:16/10;}
 .gs-go-hero img{width:100%;height:100%;object-fit:cover;display:block;}
@@ -3292,15 +3293,6 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     </div>
     <div id="widget-bloom-subline" style="font-size:var(--fs-xs);color:var(--muted);line-height:1.35;">Blüte-Kalender</div>
   </div>
-  <!-- v26.62: Achievements + Garten-Score (v26.63: A11y aria-label + Keyboard) -->
-  <div onclick="if(typeof openAchievementsModal==='function')openAchievementsModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();if(typeof openAchievementsModal==='function')openAchievementsModal()}" role="button" tabindex="0" aria-label="Achievements und Garten-Score öffnen" class="garden-widget" style="background:linear-gradient(135deg,#fff8e1,#ffecb3);border-radius:var(--r-lg);border:1px solid #ffd54f;padding:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform var(--dur-fast);">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-      <span style="font-size:var(--fs-2xl);">🏆</span>
-      <div style="font-size:var(--fs-md);font-weight:800;color:#5d4037;">Achievements</div>
-    </div>
-    <!-- v31.37: #8d6e63 auf der Bernstein-Kachel ergab 4,11:1 (noetig 4,5). -->
-    <div id="widget-achievements-subline" style="font-size:var(--fs-xs);color:#6d4c41;line-height:1.35;">Meilensteine & Garten-Score</div>
-  </div>
 </div>
 
 <!-- ── MONDKALENDER Widget (wird vom loadMoon gerendert) ── -->
@@ -3322,14 +3314,13 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   <button onclick="openAddPlanting()" data-i18n="btn_garden_plant" data-i18n-fallback="🌱 Einpflanzen" style="flex:1;padding:11px 8px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">🌱 Einpflanzen</button>
   <button onclick="openGardenAI()" title="KI-Gartenplaner PRO" data-i18n="btn_garden_ai_planner" data-i18n-fallback="🤖 KI-Planer" style="flex:1;padding:11px 8px;background:linear-gradient(135deg,#1f6b2f,#1b5e20);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-brand);">🤖 KI-Planer</button>
 </div>
-<div style="padding:0 16px 8px;">
-  <button onclick="gsPPopenSavedPlans()" title="Gespeicherte Garten-Pläne" style="width:100%;padding:11px 12px;background:var(--card);border:1.5px solid var(--border);color:var(--text);border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_saved_plans" data-i18n-fallback="📂 Meine gespeicherten Garten-Pläne">📂 Meine gespeicherten Garten-Pläne</span><span style="color:var(--muted);font-size:var(--fs-xl);">›</span>
-  </button>
-</div>
+<!-- v31.64: „Meine gespeicherten Garten-Pläne" ist nach „Planen & Gestalten"
+     gewandert. Planung stand auf dieser Seite an DREI Stellen: als Kachel in
+     der Übersicht, als eigene Zeile hier, und im Akkordeon. Der Weg über die
+     Kachel bleibt der schnellste; die Zeile war die überflüssige der drei. -->
 <!-- v30.79: Garten-Werkzeuge in ausklappbare Gruppen gebündelt (rein optisch, alle Funktionen unverändert/erreichbar) -->
 <!-- v25.18: Saisonkalender-Inline-Host (wird via gsRenderSeasonalInline gefüllt) -->
-<div id="seasonal-tasks-host" style="padding:0 16px 8px;"></div>
+<div id="seasonal-tasks-host" style="padding:0 16px;"></div>
 <details style="margin:0 0 8px;border-top:1px solid var(--border);">
   <summary style="padding:12px 16px;font-size:var(--fs-md);font-weight:800;color:var(--text);cursor:pointer;">🩺 Pflege & Diagnose</summary>
   <div style="padding-top:2px;">
@@ -3368,6 +3359,11 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <details style="margin:0 0 8px;border-top:1px solid var(--border);">
   <summary style="padding:12px 16px;font-size:var(--fs-md);font-weight:800;color:var(--text);cursor:pointer;">🗓️ Planen & Gestalten</summary>
   <div style="padding-top:2px;">
+<div style="padding:0 16px 8px;">
+  <button onclick="gsPPopenSavedPlans()" title="Gespeicherte Garten-Pläne" style="width:100%;padding:11px 12px;background:var(--card);border:1.5px solid var(--border);color:var(--text);border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_saved_plans" data-i18n-fallback="📂 Meine gespeicherten Garten-Pläne">📂 Meine gespeicherten Garten-Pläne</span><span style="color:var(--muted);font-size:var(--fs-xl);">›</span>
+  </button>
+</div>
 <!-- v25.18: Saisonkalender-Modal-Trigger (Voll-Jahres-Übersicht) -->
 <div style="padding:0 16px 8px;">
   <button onclick="gsSeasonalOpen()" title="Saisonkalender — alle 12 Monate" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#e8f5e9,#c5e1a5);border:1.5px solid #66bb6a;color:var(--c-success-d);border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
@@ -3403,6 +3399,18 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <details style="margin:0 0 8px;border-top:1px solid var(--border);">
   <summary style="padding:12px 16px;font-size:var(--fs-md);font-weight:800;color:var(--text);cursor:pointer;">📚 Wissen & Werkzeuge</summary>
   <div style="padding-top:2px;">
+<!-- v31.64: Achievements. Vorher eine eigene Kachel im Werkzeug-Raster —
+     als fuenfte in einem Zweierraster, was aus zwei Reihen drei mit einer
+     Waise machte. Sie ist hierher gewandert statt zu verschwinden: der
+     Griff in den Quelltext zeigte, dass es AUSSER dieser Kachel keinen
+     Weg zu openAchievementsModal gab (der einzige weitere Aufruf steht im
+     Benachrichtigungs-Router und greift nur, wenn eine Erfolgs-Meldung
+     ankommt). Sie zu streichen haette das Feature begraben. -->
+<div style="padding:0 16px 12px;">
+  <button onclick="if(typeof openAchievementsModal==='function')openAchievementsModal()" title="Achievements und Garten-Score" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#fff8e1,#ffecb3);border:1.5px solid #b26a00;color:#5d4037;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_achievements_open" data-i18n-fallback="🏆 Achievements · Meilensteine + Garten-Score">🏆 Achievements · Meilensteine + Garten-Score</span><span style="color:#5d4037;font-size:var(--fs-xl);">›</span>
+  </button>
+</div>
 <!-- v31.47: Garten-Bibliothek. Die zehn Artikel, ihre zehn Kategorien und das
      Detail-Fenster (#garden-article-modal-content) gibt es seit v28.57 — nur
      die Liste hatte kein Zuhause: renderGardenLibrary schreibt in
@@ -7659,11 +7667,17 @@ window.gsRenderGardenOverview = function () {
     cta =
       '<button type="button" class="gs-go-cta" onclick="gsTwinPickPhoto()"><span aria-hidden="true">📷</span> Garten scannen</button>' +
       '<div class="gs-go-hint">Ein Foto genügt. GreenScan erkennt Pflanzen, Beete und Lichtzonen und baut daraus dein 3D-Modell.</div>';
+    // Der Satz erklaert den Knopf darueber. Wer den Scan schon kennt,
+    // liest ihn bei jedem Besuch erneut — dann ist er keine Erklaerung
+    // mehr, sondern Fuellung. Dieser Zweig laeuft nur ohne Zwilling,
+    // deshalb steht er hier richtig.
   }
 
+  // v31.64: Der Bildschirm hat 20 px weiter oben schon eine Kopfzeile
+  // „🌻 Mein Garten · Planen · Pflegen · Ernten". Hier stand dieselbe
+  // Ueberschrift ein zweites Mal — zwei Titel fuer eine Seite. Die vier
+  // Kacheln sagen ohnehin, was sie sind.
   el.innerHTML =
-    '<div class="gs-go-head">Mein Garten</div>' +
-    '<div class="gs-go-sub">Dein digitaler Gartenüberblick</div>' +
     hero +
     '<div class="gs-go-grid">' + kacheln + '</div>' +
     cta;
@@ -62900,11 +62914,17 @@ async function renderGarden() {
     html += '<div class="garden-card-icon">🌻</div>';
     html += '<div class="garden-card-info">';
     html += '<div class="garden-card-name">' + escHtml(garden.name) + '</div>';
-    html += '<div class="garden-card-meta">' + escHtml(garden.location|| _t('garden_no_location','Kein Standort')) + ' · ' + gPlantings.length + ' ' + _t('unit_plants','Pflanzen') + '</div>';
-    html += '<div class="garden-card-badges">';
-    html += '<span class="mpbadge">' + (sizeLabels[garden.size]||'Mittel') + '</span>';
-    html += '<span class="mpbadge">' + (lightLabels[garden.light]||'⛅') + '</span>';
-    html += '</div></div>';
+    // v31.64: Standort, Pflanzenzahl, Groesse und Licht standen auf ZWEI
+    // Zeilen — Text, darunter zwei Plaketten. Vier kurze Angaben brauchen
+    // keine zweite Zeile. In einer Zeile spart das ~20 px je Garten, und
+    // das summiert sich: wer sechs Gaerten hat, sah bisher 120 px allein
+    // dafuer. Dieselben vier Angaben, dieselbe Reihenfolge.
+    html += '<div class="garden-card-meta">' +
+      escHtml(garden.location || _t('garden_no_location','Kein Standort')) +
+      ' · ' + gPlantings.length + ' ' + _t('unit_plants','Pflanzen') +
+      ' · ' + (sizeLabels[garden.size] || 'Mittel') +
+      ' · ' + (lightLabels[garden.light] || '⛅') + '</div>';
+    html += '</div>';
     html += '<div class="mpcard-chevron" id="gchev-' + garden.id + '">›</div></div>';
 
     // Expandable content · v23.81: Wetter-Strip entfernt (Wetter steht prominent oben)
@@ -63217,20 +63237,28 @@ function renderMoonWidget() {
   const moon = getMoonPhase(new Date());
   const typeInfo = MOON_TYPES[moon.type] || MOON_TYPES.frucht;
 
+  // v31.64 — eine Zeile statt eines Blocks. Vorher: 42-px-Mond, Phase in
+  // Playfair, Alter und Beleuchtung, Typ-Plakette und der Gartentipp als
+  // eigener Kasten — 123 px auf einem Bildschirm, der ohnehin zu lang war.
+  // Und alles davon steht bereits im Mondkalender, den ein Tipp oeffnet.
+  // Gleiche Form wie die Wetterkarte darueber: Symbol, Bezeichnung, ein
+  // Wert, ein Winkel. Was hier weggefallen ist, ist nicht verloren — es
+  // ist einen Tipp entfernt, und das ist der Unterschied zwischen
+  // Kuerzen und Streichen.
+  var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function (x) { return String(x == null ? '' : x); };
   widget.innerHTML =
-    '<div class="moon-card" onclick="openMoonCalendar()" style="cursor:pointer;">' +
-      '<div style="display:flex;align-items:center;gap:12px;">' +
-        '<div style="font-size:42px;">' + moon.icon + '</div>' +
-        '<div style="flex:1;">' +
-          '<div style="font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;opacity:.75;letter-spacing:.5px;">' + _t('moon_widget_today','🌙 Mondkalender · Heute') + '</div>' +
-          '<div style="font-family:\'Playfair Display\',serif;font-size:var(--fs-lg);font-weight:800;">' + moon.phase + '</div>' +
-          '<div style="font-size:var(--fs-sm);opacity:.8;margin-top:2px;">' + _t('moon_age','Alter:') + ' ' + moon.age + ' ' + _t('unit_days','Tage') + ' · ' + moon.illumination + _t('moon_illuminated','% beleuchtet') + '</div>' +
-        '</div>' +
-        '<div style="text-align:right;">' +
-          '<div style="background:rgba(255,255,255,.2);border-radius:var(--r-sm);padding:5px 9px;font-size:var(--fs-sm);font-weight:800;">' + typeInfo.label + '</div>' +
+    '<div class="moon-card moon-card-zeile" onclick="openMoonCalendar()" role="button" tabindex="0">' +
+      '<span style="font-size:var(--fs-3xl);flex-shrink:0;">' + esc(moon.icon) + '</span>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="font-size:var(--fs-xs);font-weight:800;text-transform:uppercase;letter-spacing:.5px;line-height:1;margin-bottom:3px;opacity:.75;">' +
+          _t('moon_widget_today', '🌙 Mondkalender · Heute') + '</div>' +
+        '<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">' +
+          '<span style="font-size:var(--fs-md);font-weight:900;line-height:1.2;">' + esc(moon.phase) + '</span>' +
+          '<span style="font-size:var(--fs-sm);opacity:.85;line-height:1.3;">' +
+            esc(moon.illumination) + _t('moon_illuminated', '% beleuchtet') + ' · ' + esc(typeInfo.label) + '</span>' +
         '</div>' +
       '</div>' +
-      '<div style="margin-top:8px;background:rgba(255,255,255,.1);border-radius:var(--r-sm);padding:7px 10px;font-size:var(--fs-sm);opacity:.9;">' + moon.gardenTip + '</div>' +
+      '<span style="font-size:var(--fs-xl);opacity:.7;flex-shrink:0;">\u203a</span>' +
     '</div>';
 }
 
@@ -64841,6 +64869,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.64', date: '01.09.2026',
+    headline: '\ud83e\uddf9 „Mein Garten" ist ein F\u00fcnftel k\u00fcrzer \u2014 ohne dass ein einziger Knopf fehlt',
+    summary: 'Die Seite war fast zwei Bildschirme lang und zeigte manches doppelt. Jetzt 19 bis 20 % k\u00fcrzer, zwei Bl\u00f6cke weniger \u2014 und die Zahl der antippbaren Stellen ist exakt dieselbe geblieben.',
+    user_summary: '\ud83e\uddf9 „Mein Garten" ist rund ein F\u00fcnftel k\u00fcrzer. Gemessen: gleich viele Kn\u00f6pfe wie vorher, nur weniger Scrollen.',
+    user_items: [
+      {emoji:'\ud83d\udd01', bold:'Der Titel stand zweimal da:', text:' Ganz oben „\ud83c\udf3b Mein Garten \u00b7 Planen \u00b7 Pflegen \u00b7 Ernten" \u2014 und 20 Pixel darunter noch einmal „Mein Garten \u00b7 Dein digitaler Garten\u00fcberblick". Die vier Kacheln sagen ohnehin, was sie sind.'},
+      {emoji:'\ud83c\udf19', bold:'Der Mondkalender ist eine Zeile:', text:' Vorher ein Block mit grossem Mond, Phase, Alter, Beleuchtung, Plakette und Gartentipp \u2014 123 Pixel. Jetzt dieselbe Form wie die Wetterkarte dar\u00fcber, 55 Pixel. Alles Weggefallene steht im Mondkalender, den ein Tipp \u00f6ffnet.'},
+      {emoji:'\ud83d\udccb', bold:'Gartenkarten in einer Zeile statt zwei:', text:' Standort, Pflanzenzahl, Gr\u00f6sse und Licht standen als Text plus zwei Plaketten untereinander. Vier kurze Angaben brauchen keine zweite Zeile \u2014 das spart 20 Pixel je Garten, bei sechs G\u00e4rten also 120.'},
+      {emoji:'\ud83c\udfc6', bold:'Und einer, der beinahe schiefgegangen w\u00e4re:', text:' Die Achievements-Kachel sollte weg \u2014 sie war die f\u00fcnfte in einem Zweierraster und machte aus zwei Reihen drei mit einer Waise. Beim Nachsehen stellte sich heraus: es gab AUSSER ihr keinen Weg zu den Achievements. Sie ist deshalb in die eingeklappte Gruppe „Wissen & Werkzeuge" gewandert, nicht in den Papierkorb.'},
+    ],
+  },
+  {
     v: 'v31.63', date: '01.09.2026',
     headline: '\ud83e\udd1d Mischkultur wird jetzt gemessen \u2014 nach Abstand, nicht nach Anwesenheit',
     summary: 'Es gab schon einen roten Schimmer f\u00fcr sich nicht vertragende Pflanzen. Der pr\u00fcfte aber nur, OB ein Gegenspieler im Plan vorkommt \u2014 nicht, wie weit die beiden auseinanderstehen. Zwei Streithähne an entgegengesetzten Enden eines 10-Meter-Gartens leuchteten beide rot.',
@@ -65208,7 +65248,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.63';
+var GS_VERSION = 'v31.64';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
