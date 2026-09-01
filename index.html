@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.24.20260901">
+<meta name="app-version" content="31.25.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -298,9 +298,13 @@ body.dark .tab { color: rgba(255,255,255,.55); }
 body.dark .tab.active { color: #fff !important; }
 
 .topbar button, .topbar .ib { color: #ffffff !important; }
-body.dark .topbar { background: var(--g-dark) !important; }
+/* v31.25 — FEHLER: --g-dark ist im Dunkelmodus HELLGRUEN (#a5d6a7, die Skala
+   kehrt sich um), waehrend .topbar h1 und alle Knoepfe weiss sind. Die
+   Kopfleiste war damit nachts hellgruen mit weisser Schrift — 1,64:1, also
+   praktisch unsichtbar. Beim Rendern des neuen Kopfbereichs aufgefallen. */
+body.dark .topbar { background: #122212 !important; }
 
-body.dark .topbar{background:var(--g-dark);}
+body.dark .topbar{background:#122212;}   /* v31.25: siehe oben */
 body.dark .tabs{background:#1a2e1a;border-top-color:#2a3f2a;}
 body.dark .tab{color:#5a8a5a;}
 body.dark .tab.active{color:var(--g-main);}
@@ -1504,6 +1508,20 @@ body.dark .gs-doc-pro{background:#3a2c10;border-color:#8d6e2a;color:#ffcc80;}
 .gs-go-next-s{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.3;}
 .gs-go-cta{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:var(--g-main);color:#fff;border:none;border-radius:13px;padding:13px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-2);}
 @media (prefers-reduced-motion: reduce){.gs-go-tile{transition:none;}.gs-go-tile:active{transform:none;}}
+/* v31.25 — Startseite: helle Kopfzone. Beide Entwuerfe zeigen oben Ruhe —
+   Creme, dunkler Text — und lassen das Gruen als KARTE auftreten statt als
+   breites Band. Bewusst NUR auf der Startseite (#screen-home): .hero wird von
+   mehreren Bildschirmen benutzt, ein globaler Eingriff waere hier nicht
+   pruefbar. */
+#screen-home .hero{background:var(--g-bg);color:var(--text);padding:16px 18px 12px;}
+#screen-home .hero::before,#screen-home .hero::after{display:none;}
+#gs-home-greet{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;color:var(--muted);letter-spacing:0;text-transform:none;opacity:1;}
+#gs-home-greet svg{color:var(--g-main);}
+#screen-home .hero #home-hero-title{color:var(--g-dark);font-size:27px;letter-spacing:-.02em;}
+#screen-home .hero #home-hero-sub{color:var(--muted);opacity:1;font-size:13px;}
+#screen-home .hero #home-streak-badge{background:var(--surface2);color:var(--g-main);border:1px solid var(--border);}
+body.dark #screen-home .hero{background:var(--g-bg);color:var(--text);}
+body.dark #screen-home .hero #home-hero-title{color:var(--text);}
 /* v31.24 — „Heute zu tun". Beide neuen Entwuerfe zeigen dieselbe Loesung:
    EINE Karte, getrennte Zeilen, rechts ein Kaestchen. Keine Prioritaets-
    Plaketten, keine zweite Hervorhebung darunter. „Hochwertig und sehr simpel"
@@ -2250,7 +2268,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   <div style="margin-bottom:10px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-        <div id="home-greeting-label" data-i18n="home_greeting" data-i18n-fallback="Schweizer Natur" style="font-size:11px;opacity:.7;font-weight:700;text-transform:uppercase;letter-spacing:2px;">Schweizer Natur</div>
+        <div id="gs-home-greet"><span id="gs-home-greet-ico" aria-hidden="true"></span><span id="home-greeting-label">Guten Tag</span></div>
         <!-- v23.66: Badge dynamisch (Streak > Saison > Tageszeit) — ersetzt statisches "Signature" -->
         <span id="home-context-badge" class="rr-signature" style="background:linear-gradient(135deg,rgba(255,251,230,.95),rgba(255,244,199,.95));"></span>
       </div>
@@ -20931,12 +20949,15 @@ function gsUpdateHomeGreeting() {
     else if (h >= 18 && h < 22) { greeting = _ht('greet_evening','Guten Abend');    emoji = '🌆'; }
     else                         { greeting = _ht('greet_night','Gute Nacht');     emoji = '🌙'; }
 
-    // v31.16: Die Begrüssung wandert in die grosse Überschrift; darüber steht
-    // nur noch die Jahreszeit. Vorher stand der Gruss klein und kursorisch über
-    // einem Titel, der jeden Tag derselbe war — der Entwurf dreht das um, und
-    // das ist richtig: die erste Zeile soll den Nutzer meinen, nicht die App.
-    var ttl = document.getElementById('home-hero-title');
-    if (ttl) ttl.textContent = greeting + (firstname ? ', ' + firstname : '');
+    // v31.25: Die neuen Entwuerfe zeigen beides — eine kleine Gruss-Zeile mit
+    // Blatt-Symbol UND darunter eine ruhige Serifen-Ueberschrift. Der Gruss
+    // meint den Nutzer, die Ueberschrift benennt den Ort.
+    var gl = document.getElementById('home-greeting-label');
+    if (gl) gl.textContent = greeting + (firstname ? ', ' + firstname : '');
+    try {
+      var gi = document.getElementById('gs-home-greet-ico');
+      if (gi && typeof gsIcon === 'function') gi.innerHTML = gsIcon('leaf', 16, '');
+    } catch(_){}
 
     // Tagestitel dynamisch (je nach Jahreszeit)
     var m = new Date().getMonth(); // 0=Jan
@@ -20946,8 +20967,13 @@ function gsUpdateHomeGreeting() {
     else if (m >= 5 && m <= 7)          { season = 'Sommer';    seasonMsg = _ht('season_msg_summer','Beeren · Blüten · Wildgemüse · Pilze'); }
     else                                 { season = 'Herbst';    seasonMsg = _ht('season_msg_autumn','Pilze · Nüsse · Hagebutten · Wurzeln'); }
     
-    var lbl = document.getElementById('home-greeting-label');
-    if (lbl) lbl.textContent = emoji + '  ' + season;
+    // Ueberschrift benennt, worum es geht — „Dein Garten" nur, wenn es einen gibt.
+    var ttl = document.getElementById('home-hero-title');
+    if (ttl) {
+      var _np2 = 0;
+      try { if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) _np2 = myPlants.length; } catch(_){}
+      ttl.textContent = _np2 ? _ht('home_title_garden','Dein Garten') : _ht('home_title_nature','Natur entdecken');
+    }
 
     // Untertitel sagt, was gerade gilt — nicht jeden Tag denselben Satz.
     // Reihenfolge: offene Aufgaben zuerst (das ist der Grund, warum jemand die
@@ -63378,6 +63404,22 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.25', date: '01.09.2026',
+    headline: '🌾 Ruhige Kopfzone — und die Kopfleiste war nachts unlesbar',
+    summary: 'Die Startseite beginnt jetzt hell und ruhig: kleine Gruss-Zeile mit Blatt, darunter „Dein Garten" in Serifen, darunter was heute gilt. Das Grün erscheint als Karte, nicht mehr als breites Band. Beim Rendern fiel ein echter Fehler auf: die Kopfleiste der App war im Dunkelmodus hellgrün mit weisser Schrift.',
+    user_summary: '🌾 Die Startseite beginnt ruhig und hell — und die Kopfleiste ist im Dunkelmodus endlich lesbar.',
+    user_items: [
+      { emoji: '🌾', text: 'Helle, ruhige Kopfzone statt grünem Band — wie in den Entwürfen' },
+      { emoji: '🌙', text: 'Kopfleiste im Dunkelmodus war hellgrün mit weisser Schrift — behoben' },
+      { emoji: '🍃', text: 'Gruss mit Namen und Blatt-Symbol, darunter „Dein Garten" in Serifen' },
+    ],
+    items: [
+      {emoji:'🐛', bold:'Kopfleiste im Dunkelmodus:', text:' body.dark .topbar setzte var(--g-dark) — und --g-dark ist im Dunkelmodus HELLGRÜN (#a5d6a7), weil sich die Skala umkehrt. Titel und alle Knöpfe sind aber fest weiss. Ergebnis: 1,64:1, praktisch unsichtbar. Jetzt #122212 → 16,6:1.'},
+      {emoji:'🌾', bold:'Nur die Startseite:', text:' .hero wird von mehreren Bildschirmen benutzt; die helle Kopfzone gilt gezielt für #screen-home. Ein globaler Eingriff wäre hier nicht prüfbar gewesen.'},
+      {emoji:'🔔', bold:'Keine zweite Glocke:', text:' die Entwürfe zeigen eine Glocke neben dem Gruss — die gibt es in der Kopfleiste bereits. Eine zweite hätte genau die Doppelung erzeugt, die eine App zusammengesetzt wirken lässt.'},
+    ],
+  },
+  {
     v: 'v31.24', date: '01.09.2026',
     headline: '🤍 Hochwertig und einfach — warme Flächen, „Heute zu tun"',
     summary: 'Die Startseite folgt jetzt den neuen Entwürfen: eine warme Creme-Fläche statt grünstichigem Weiss, ein tieferes Waldgrün, und „Heute zu tun" als EINE Karte mit Kästchen zum Abhaken. Die Prioritäts-Plaketten sind weg — was bleibt, ist eine Zeile, die sagt was ansteht, und ein Kästchen, das es erledigt.',
@@ -69428,7 +69470,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.24';
+var GS_VERSION = 'v31.25';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

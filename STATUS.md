@@ -4,13 +4,45 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.24` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-08-31 · **Branch**: `main` · **Version**: `v31.25` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (j) — v31.25: Ruhige Kopfzone — und ein Fehler, den erst das Rendern zeigte
+
+> Fortsetzung des Mix. Nach „Heute zu tun" die Kopfzone: beide Entwürfe beginnen oben **ruhig** — Creme, dunkler Text — und lassen das Grün als **Karte** auftreten statt als breites Band.
+
+#### Umgesetzt
+
+Kleine Gruss-Zeile mit Blatt-Symbol („🍃 Guten Morgen, Fernando"), darunter „Dein Garten" in Serifen, darunter die kontextuelle Zeile. Die Überschrift benennt den Ort, der Gruss meint den Nutzer — genau die Aufteilung aus Bild 2.
+
+Bewusst **nur** für `#screen-home`: `.hero` wird von mehreren Bildschirmen benutzt, ein globaler Eingriff wäre nicht prüfbar gewesen.
+
+**Keine zweite Glocke.** Die Entwürfe zeigen eine neben dem Gruss — die gibt es in der Kopfleiste bereits (`#gs-bell-btn`). Eine zweite hätte genau die Doppelung erzeugt, die eine App zusammengesetzt wirken lässt.
+
+#### 🐛 Der Fund: die Kopfleiste war im Dunkelmodus unlesbar
+
+```css
+body.dark .topbar { background: var(--g-dark) !important; }
+.topbar h1 { color:#fff; }
+.topbar button, .topbar .ib { color:#ffffff !important; }
+```
+
+`--g-dark` ist im Hellmodus `#1a3d1a` (dunkel) — im **Dunkelmodus** aber `#a5d6a7` (**hell**grün), weil sich die Helligkeitsskala dort umkehrt. Das ist für einen Textton richtig und für eine Fläche falsch. Titel und alle Knöpfe sind fest weiss.
+
+Ergebnis: **1,64:1**. Der Name der App und sämtliche Knöpfe der Kopfleiste waren im Dunkelmodus praktisch unsichtbar. Jetzt `#122212` → **16,6:1**.
+
+Dasselbe Muster wie in v31.20 bei den gefüllten Knöpfen: **eine Textfarbe als Fläche benutzt.** Beim dritten Auftreten ist das kein Zufall mehr, sondern der Preis dafür, dass Fläche und Schrift dieselbe Skala teilen.
+
+#### Ein Fehler im Testgerüst, der beinahe als App-Fehler durchgegangen wäre
+
+Der erste Durchlauf zeigte den Hero weiterhin dunkelgrün. Ursache: meine neue Regel hängt an `#screen-home`, und mein Gerüst hatte diesen Rahmen nicht. Ich hätte das leicht für einen Fehler in der Regel halten und daran herumbauen können. Gerüst korrigiert, danach stimmte es.
+
+- **Verify:** 9/9 Inline-Scripts `node --check` OK · Kontrast der Kopfleiste vorher/nachher gerechnet (1,64:1 → 16,6:1) · Startseite in Chromium gerendert, hell und dunkel, mit korrektem `#screen-home`-Rahmen · keine zweite Glocke, Bestand geprüft · Version synchron v31.25.
 
 ### 2026-09-01 (i) — v31.24: „Ein hochwertiger Mix aus diesen zwei Looks"
 
