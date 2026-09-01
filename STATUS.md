@@ -4,13 +4,42 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.42` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.43` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (ad) — v31.43: Die Kopfleiste, und ein Band das niemand sehen konnte
+
+Nach Startseite (v31.37), Navigationsleiste (v31.38) und allen übrigen Bildschirmen (v31.41) war die Kopfzeile das **letzte dunkle Element**. Sie stand auf `--fill-dark` — in beiden Modi dunkelgrün — und brauchte genau deshalb feste `#fff`-Werte, ein `color:#ffffff !important` und zwei Dunkelmodus-Überschreibungen.
+
+Jetzt `--card`/`--border`: sie kippt selbst, der Titel nutzt `--g-dark`, die Symbole `--text`. Alle drei Sonderregeln sind weg. Dasselbe Muster wie bei der Navigationsleiste — feste Farben sind fast immer ein Zeichen dafür, dass die Fläche darunter nicht mitkippt.
+
+#### Der Fund beim Hinsehen
+
+Nach der Umstellung zeigte sich ein **dunkelgrünes Band** zwischen Kopfleiste und Inhalt.
+
+Ursache: `body` und `#app` standen ebenfalls auf `--fill-dark`. Solange Kopf- **und** Navigationsleiste dunkel waren, hat man diesen Hintergrund **nie** gesehen — er war immer von etwas Dunklem verdeckt. Erst als beide hell wurden, kam er zum Vorschein.
+
+Das ist die interessante Sorte Fehler: er war die ganze Zeit da, hat aber erst durch eine *Verbesserung* Wirkung bekommen. Kein Prüfstand hätte ihn vorher melden können — es war ja nichts falsch zu sehen.
+
+#### Stand der Optik-Serie
+
+| | |
+|---|---|
+| v31.37 | Kopfzeile der Startseite hell |
+| v31.38 | Navigationsleiste hell, Strich-Icons, Edelweiss |
+| v31.39 | Startseite neu geordnet |
+| v31.41 | alle vierzehn Bildschirme hell |
+| v31.42 | Kopfleisten-Symbole gezeichnet |
+| v31.43 | Kopfleiste hell, body/#app nachgezogen |
+
+Die App ist damit von oben bis unten in einer Sprache.
+
+---
 
 ### 2026-09-01 (ac) — v31.42: Kopfleiste — und ein Emoji, das sich zweimal zurückschlich
 
