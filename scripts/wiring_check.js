@@ -250,11 +250,28 @@ const IGNORIEREN = new Set([
    /(?:var|let|const)\s+\w*[iI]d\s*=\s*['"]([A-Za-z0-9_\-:.]+)['"]/g,
   ].forEach(re => { let m; while ((m = re.exec(quelle))) erzeugt.add(m[1]); });
 
+  // Eine Nachschlagung, auf die unmittelbar ein  ||  folgt, ist KEIN Fund: sie
+  // ist das erste Glied einer Rueckfallkette, und der Autor hat den Fall, dass
+  // sie leer ausgeht, bereits bedacht. Zwei Beispiele aus dieser Datei:
+  //   getElementById('camera-wrapper') || video.parentElement || document.body
+  //   getElementById('kb-loading-biblio') || getElementById('kb-loading')
+  //     || getElementById('bibliothek-loading') || querySelector('.kb-loading')
+  // Der Pruefstand meldete davon drei Stueck. Das ist Falschalarm an
+  // vorbildlichem Code — und Falschalarme sind das Einzige, was einen
+  // Pruefstand zuverlaessig unbrauchbar macht. Das LETZTE Glied einer Kette
+  // wird weiterhin geprueft: wenn auch das ins Leere geht, faellt die Kette
+  // als Ganzes um.
+  const folgtRueckfall = (endeIndex) => {
+    const rest = quelle.slice(endeIndex, endeIndex + 40);
+    return /^\s*\|\|/.test(rest);
+  };
+
   const nachschlag = new Map();
   [/getElementById\(\s*['"]([A-Za-z0-9_\-:.]+)['"]\s*\)/g,
    /querySelector(?:All)?\(\s*['"]#([A-Za-z0-9_\-:.]+)['"]/g,
   ].forEach(re => { let m; while ((m = re.exec(quelle))) {
     if (imKommentar(m.index)) continue;
+    if (folgtRueckfall(m.index + m[0].length)) continue;
     if (!nachschlag.has(m[1])) nachschlag.set(m[1], []);
     nachschlag.get(m[1]).push(m.index);
   }});

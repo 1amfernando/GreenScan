@@ -4,13 +4,70 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.53` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.54` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (aq) — v31.54: Meilenstein „Alles verdrahtet" — von 42 auf 7
+
+Letzte Welle. Was übrig ist: **6 Wetterwarnungs-Elemente** (Fernandos Entscheidung) und **1 geprüft harmloser Rest** (`tab-map` — `switchTab` benutzt seinen zweiten Parameter gar nicht).
+
+#### Der letzte echte Fund
+
+`switchTab` berechnete beim Betreten der Mehr-Seite die **Aufschlüsselung der Artendatenbank** — zehn Kategorien mit Zahlen plus Gesamtsumme — und schrieb sie in `#more-db-cats`. Das Element gab es nie. Jetzt zugeklappt auf der Mehr-Seite, gemessen:
+
+> 🌿 Wildpflanzen 2'226 · 🍄 Pilze 636 · 🌳 Bäume & Sträucher 431 · 🌱 Kräuter 388 · 🪴 Hauspflanzen 286 · 🔵 Flechten 118 · 🌾 Moose 115 · 🫧 Algen 97 · 🥦 Gemüse 40 · **Total 4'337 Arten**
+
+#### Ein Spiel, das es zweimal gab
+
+Beim Wechsel auf den Farm-Reiter baute `switchTab` jedes Mal `#gc-start`, `#gc-gameover` und `#gc-canvas` auf — den BlattFänger als **Arcade-Spiel auf einer Zeichenfläche**. Nachgesehen: `#screen-farm` enthält heute `farm-grid`, `farm-seeds`, `farm-tools`, `farm-shop` und **kein einziges `<canvas>`**. Es ist ein Rasterspiel. Auch `window.gcGame` wurde nirgends gesetzt, die äussere Bedingung konnte also nie zutreffen.
+
+#### Ich habe die App dabei kurz zerbrochen
+
+Beim Herausschneiden des Spiel-Codes blieb der Rest des Blocks samt drei schliessenden Klammern stehen. Ergebnis: `Unexpected token '}'` — das **gesamte** Inline-Programm war nicht mehr lesbar, die App hätte nicht mehr gestartet.
+
+Der Prüfstand meldete es im selben Lauf: `JS-Fehler beim Aufbau: Unexpected token '}'`, `NICHT AUFLOESBAR: 276` (statt 0). Repariert, bevor irgendetwas gepusht wurde. Das ist der beste Beleg für den Wert dieses Meilensteins: **die teuerste Änderung des Tages wurde in derselben Minute gefunden, in der ich sie gemacht habe.**
+
+#### Weitere Reste entfernt
+
+`cam-perm-dialog` schloss bei **jedem** Tabwechsel einen Dialog, den es seit v31.50 nicht mehr gibt (samt seiner CSS-Regel) · `more-stat-total` an zwei Stellen · `chip-all` in `gsClearSearch` (die Zeile darüber setzt ohnehin alle Chips zurück).
+
+#### Der Prüfstand meldet keinen Falschalarm mehr
+
+Drei Funde waren **vorbildlicher Code**: Rückfallketten der Form
+
+```js
+getElementById('camera-wrapper') || video.parentElement || document.body
+getElementById('kb-loading-biblio') || getElementById('kb-loading')
+  || getElementById('bibliothek-loading') || querySelector('.kb-loading')
+```
+
+Wer ein `||` dahinter schreibt, hat den leeren Fall bereits bedacht. `wiring_check` überspringt solche Glieder jetzt — das **letzte** Glied einer Kette wird weiter geprüft, denn wenn auch das ins Leere geht, fällt die Kette als Ganzes um.
+
+Ein Prüfstand, der an gutem Code meckert, wird ignoriert; und dann findet er auch die echten Fehler nicht mehr.
+
+#### Bilanz des Meilensteins
+
+| Welle | Version | Fund |
+|---|---|---|
+| 1 | v31.49 | GPS im Gartenformular · Garten-Standort überschrieb den Nutzer-Standort |
+| 2 | v31.50 | neun tote Funktionen · Kamera-Begründung zurückgeholt · ein Repointing-Risiko |
+| 3 | v31.51 | drei von vier Bodenarten lieferten ihre Warnungen nie aus |
+| 4 | v31.52 | Beitragstyp wurde beim Absenden weggeworfen |
+| 5 | v31.53 | KI-Tageskontingent war nirgends zu sehen |
+| 6 | v31.54 | Artendatenbank-Aufschlüsselung · abgelöstes Spiel · Falschalarme |
+
+**42 → 7 offene Nachschlagungen, 0 ungesicherte, 0 nicht auflösbare Aufrufe, 40/40 Menü-Einträge intakt.**
+
+#### Verify
+
+`wiring_check` 305 Namen / 0 nicht auflösbar · Menü 40/0 · **7** abgesichert (6 davon Wetter) · 0 ungesichert · Aufschlüsselung und Farm-Reiter am laufenden Programm geprüft · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen, Radius/Schrift/Farbe je 0 gegen `origin/main` · `contrast_check` 0 unter AA beide Modi · `touch_check` 0 unter 24×24 · 9/9 Inline-Scripts + `sw.js` + alle Prüfstände `node --check` OK · `GS_VERSION` v31.54 · `sw.js` gs-v31.54 · `_headers` v31.54 · meta 31.54.20260901.
+
+---
 
 ### 2026-09-01 (ap) — v31.53: Das KI-Tageskontingent war nirgends zu sehen
 
