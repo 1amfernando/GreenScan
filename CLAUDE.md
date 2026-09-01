@@ -267,6 +267,12 @@ Faustregel für die Auswertung: eine reine Farb- oder Radius-Änderung **muss**
 `GROESSE geaendert: 0` ergeben. Steht dort etwas anderes, verschiebt die
 Änderung Layout — dann vor dem Ausliefern nachsehen, wo.
 
+`render_check.js` meldet ausserdem **verdächtige Textstellen** — `undefined`,
+`null`, `NaN`, `[object Object]`, `Invalid Date`, `{{platzhalter}}`. Anlass war
+v31.44: fünf Kategorien standen in keiner Zuordnungstabelle und der Rückfall
+hatte kein `label`, also stand auf 22 Karten wörtlich „undefined". Diese Zahl
+muss **0** sein.
+
 **Grenze:** der Vergleich paart Elemente über einen Schlüssel aus DOM-Pfad, id,
 Klasse und Text. Wer Bausteine **umordnet**, ändert genau diesen Pfad — dann
 paart das Werkzeug zwangsläufig falsch und meldet Änderungen, die es nicht gibt.

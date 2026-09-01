@@ -19,6 +19,20 @@ const { chromium } = require(process.env.GS_PW || '/opt/node22/lib/node_modules/
 
 const TABS = ['home','garden','wissen','favs','search','social','market','recipes','remedies','map','scanner'];
 
+// v31.45 — Klassische Zeichen einer danebengegangenen Zuordnung oder
+// Formatierung. Anlass war v31.44: fuenf Kategorien standen in keiner
+// Zuordnungstabelle, der Rueckfall hatte kein label — und auf 22 Karten stand
+// woertlich „undefined". Gefunden wurde das nur, weil ich die Seiten
+// durchgesehen habe. Diese Pruefung macht daraus etwas Wiederholbares.
+const MUELL = [
+  ['undefined',       /\bundefined\b/],
+  ['null',            /(^|[\s>(:])null([\s<),.]|$)/],
+  ['NaN',             /\bNaN\b/],
+  ['[object Object]', /\[object Object\]/],
+  ['Invalid Date',    /Invalid Date/],
+  ['{{platzhalter}}', /\{\{[^}]+\}\}/],
+];
+
 // Der Gast-Modus ist KEIN Weg hinein: er wurde in v25.33 abgeschaltet
 // (gsActivateGuestMode ist ein leerer Rumpf), der Zweig in gsCheckOnboarding
 // ist tot. Was die App-Huelle verdeckt, ist der Login-Flash-Guard: ohne
@@ -108,6 +122,8 @@ const CENSUS = () => {
       // Inline-Elemente haben offsetWidth 0; dort bleibt das Rechteck.
       w: Math.round(el.offsetWidth || b.width), h: Math.round(el.offsetHeight || b.height),
       color: cs.color, bg: cs.backgroundColor,
+      // Nur Blattknoten: sonst meldet jeder Vorfahre denselben Text mit.
+      txt: el.children.length ? '' : (el.textContent || '').trim().slice(0, 120),
       // abgeschnitten = Inhalt laeuft ueber UND wird geclippt (Ellipsis ist gewollt)
       clipX: clipX && overX > 1 && !ell ? overX : 0,
       clipY: (clipY && overY > 1 && !isScreen(el)) ? overY : 0,
@@ -175,6 +191,21 @@ async function scan(browser, file) {
     console.log('  JS-Fehler:', r.errs.length ? [...new Set(r.errs)].slice(0,4).join(' | ') : 'keine');
     console.log('  sichtbare Elemente je Tab:', Object.entries(r.perTab).map(([k,v]) => k+'='+v).join(' '));
     console.log('  gesamt vermessen:', r.rows.length);
+    const muell = [];
+    const gesehen = new Set();
+    r.rows.forEach(o => {
+      if (!o.txt) return;
+      MUELL.forEach(([name, re]) => {
+        if (!re.test(o.txt)) return;
+        const k = name + '|' + o.key;
+        if (gesehen.has(k)) return;
+        gesehen.add(k);
+        muell.push(name + '  ' + o.key.split('|')[0].split('::')[0] + '  „' + o.txt.slice(0, 46) + '"');
+      });
+    });
+    console.log('  verdaechtige Textstellen (undefined/NaN/[object Object]/…):', muell.length);
+    muell.slice(0, 8).forEach(m => console.log('     ', m));
+
     const cut  = r.rows.filter(o => o.clipX || o.clipY);
     const offs = r.rows.filter(o => o.offscreen);
     console.log('  abgeschnittener Inhalt:', cut.length, '| ragt aus dem Bildschirm:', offs.length);
