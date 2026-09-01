@@ -4,13 +4,58 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.46` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.47` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-01 (ai) — v31.47: Zehn Garten-Artikel, die seit v28.57 niemand sehen konnte
+
+Weiter durch die Liste der abgesicherten Nachschlagungen — und der zweite Fund derselben Art wie der Friedhof.
+
+#### Der Fund
+
+`GARDEN_LIBRARY` enthält **zehn geschriebene Artikel** in zehn Kategorien (Boden, Bewässerung, Düngen, Pflanzenschutz, Kompost, Aussaat, Ernte, Hochbeet, Balkon, Biodiversität), rund 4'000 Zeichen Text mit Lesezeit und Schwierigkeitsgrad. Dazu:
+
+- `renderGardenLibrary(catFilter, searchTerm)` — vollständig, mit Filter und Suche
+- `openGardenArticle(id)` — Detail-Fenster, **existiert** (`#garden-article-modal-content`)
+- eine eigene Stilregel `#garden-library-content { padding-bottom: 100px !important; }`
+- ein Aufruf bei **jedem** Wechsel auf den Garten-Reiter (`index.html:22963`)
+
+Fehlt: das `<div id="garden-library-content">`. Zweite Zeile von `renderGardenLibrary`, `if (!container) return`. Der Aufruf kehrte seit v28.57 jedes Mal sofort um.
+
+#### Die Lösung
+
+Ein Fenster, kein Seitenabschnitt. Der Garten-Bildschirm ist ohnehin lang, und Pflanzendoktor, Krankheits-Lexikon, Bodenverbesserer und Erntekalender sind alle Fenster — die Bibliothek fügt sich damit ein. Eingang in der Gruppe **„📚 Wissen & Werkzeuge"**, wo sie hingehört.
+
+`catFilter` und `searchTerm` waren immer schon Parameter, hatten aber nie eine Bedienung. Jetzt gibt es zehn Kategorie-Chips und ein Suchfeld; beide gehen über dieselbe Stelle (`gsGardenLibFilter`), damit das eine das andere nicht zurücksetzt.
+
+Gemessen: Eingang in der richtigen Gruppe · 10 Artikel · Kategorie „Boden & Erde" → 1 · Suche „biene" → Wildbienen-Artikel · Detail-Fenster öffnet mit 496 Zeichen Inhalt · keine JS-Fehler.
+
+Der tote Aufruf beim Tab-Wechsel ist weg, ebenso der 100px-Sockel in der Stilregel — der galt für die Liste als Bildschirm-Abschnitt und würde im Fenster nur einen leeren Streifen erzeugen.
+
+#### Der Prüfstand nannte eine Zahl, die niemand nachprüfen konnte
+
+`render_check` meldete `Farbe geaendert: 3` — und sagte nicht, welche. Eine solche Zahl kann man nur glauben oder ignorieren, und beides ist falsch. Er nennt die Stellen jetzt.
+
+In diesem Fall waren es die drei `›`-Pfeile in der Werkzeug-Gruppe:
+
+```
+Schrift rgb(1,87,155)   → rgb(26,61,26)     garden::DIV>DIV:0>BUTTON>SPAN:1
+Schrift rgb(255,255,255) → rgb(1,87,155)    garden::DIV>DIV:1>BUTTON>SPAN:1
+Schrift rgb(230,81,0)   → rgb(255,255,255)  garden::DIV>DIV:4>BUTTON>SPAN:1
+```
+
+Jedes Element trägt die Farbe seines Vorgängers — der neue Knopf sitzt an Position 0 und hat alle Schlüssel um eins verschoben. Das ist die bekannte Grenze der positionsbasierten Schlüssel, dieselbe, die schon Umsortierungen nicht vergleichen kann (`CLAUDE.md` §7.1). Keine Farbänderung, eine Einfügung.
+
+#### Verify
+
+`wiring_check` 303 Namen / 0 nicht auflösbar / 0 ungesichert · 46 → **45** abgesichert · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen, Radius/Schrift je 0, Farbe 3 (Schlüsselverschiebung, oben belegt) · `contrast_check` 0 unter AA in beiden Modi · `touch_check` 0 unter 24×24 · Bibliotheks-Rundlauf am laufenden Programm · `GS_VERSION` v31.47 · `sw.js` gs-v31.47 · `_headers` v31.47 · meta 31.47.20260901.
+
+---
 
 ### 2026-09-01 (ah) — v31.46: Der Pflanzenfriedhof hatte einen Eingang, aber keinen Ausgang
 

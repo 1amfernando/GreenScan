@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.46.20260901">
+<meta name="app-version" content="31.47.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3283,6 +3283,17 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 <details style="margin:0 0 8px;border-top:1px solid var(--border);">
   <summary style="padding:12px 16px;font-size:var(--fs-md);font-weight:800;color:var(--text);cursor:pointer;">📚 Wissen & Werkzeuge</summary>
   <div style="padding-top:2px;">
+<!-- v31.47: Garten-Bibliothek. Die zehn Artikel, ihre zehn Kategorien und das
+     Detail-Fenster (#garden-article-modal-content) gibt es seit v28.57 — nur
+     die Liste hatte kein Zuhause: renderGardenLibrary schreibt in
+     #garden-library-content, und dieses Element stand nirgends. Aufgerufen
+     wurde die Funktion bei jedem Wechsel auf den Garten-Reiter; sie kehrte
+     jedes Mal in der zweiten Zeile um. Gefunden mit scripts/wiring_check.js. -->
+<div style="padding:0 16px 12px;">
+  <button onclick="gsOpenGardenLibrary()" title="Garten-Bibliothek — Grundlagen von Boden bis Biodiversität" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#e8f5e9,#c8e6c9);border:1.5px solid var(--g-main);color:var(--g-dark);border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_garden_library" data-i18n-fallback="📖 Garten-Bibliothek · 10 Grundlagen-Artikel">📖 Garten-Bibliothek · 10 Grundlagen-Artikel</span><span style="color:var(--g-dark);font-size:var(--fs-xl);">›</span>
+  </button>
+</div>
 <!-- v25.20: Garten-Insights-Dashboard (aggregiert pollinators + diseases + tasks + myPlants) -->
 <div style="padding:0 16px 8px;">
   <button onclick="gsInsightsOpen()" title="Garten-Insights — Bestaeuber-Score + Risiken + DB-Stats" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#e3f2fd,#bbdefb);border:1.5px solid #0277bd;color:#01579b;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
@@ -18809,6 +18820,44 @@ function renderGardenLibrary(catFilter, searchTerm) {
   }).join('');
 }
 
+// v31.47 — das fehlende Zuhause fuer renderGardenLibrary.
+// Der Garten-Bildschirm ist bereits lang; ein Fenster ist dort das uebliche
+// Muster (Pflanzendoktor, Krankheits-Lexikon, Erntekalender — alle so).
+// catFilter und searchTerm waren immer schon Parameter von
+// renderGardenLibrary, hatten aber nie eine Bedienung. Jetzt haben sie eine.
+function gsOpenGardenLibrary(){
+  var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
+  var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function(x){ return String(x == null ? '' : x); };
+  var chips = '<button type="button" class="gs-gl-chip active" data-cat="all" onclick="gsGardenLibFilter(this,\'all\')">' +
+              _t('garden_lib_all','Alle') + '</button>' +
+    GARDEN_LIBRARY.categories.map(function(c){
+      return '<button type="button" class="gs-gl-chip" data-cat="' + esc(c.id) + '" onclick="gsGardenLibFilter(this,\'' + esc(c.id) + '\')">' + esc(c.name) + '</button>';
+    }).join('');
+  _gsNlOpen(
+    '<div style="font-size:var(--fs-lg);font-weight:800;margin-bottom:4px;">📖 ' + _t('garden_lib_title','Garten-Bibliothek') + '</div>' +
+    '<div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:10px;">' +
+      _t('garden_lib_sub','Grundlagen von Boden bis Biodiversität — kurz und für die Schweiz.') + '</div>' +
+    '<input id="gs-gl-search" type="search" placeholder="' + _t('garden_lib_search','Suchen …') + '"' +
+      ' oninput="gsGardenLibFilter(null,null)"' +
+      ' style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r-md);font-size:var(--fs-md);font-family:inherit;box-sizing:border-box;margin-bottom:8px;">' +
+    '<div id="gs-gl-chips" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:4px;">' + chips + '</div>' +
+    '<div id="garden-library-content"></div>');
+  renderGardenLibrary('all', '');
+}
+
+// Merkt sich die gewaehlte Kategorie, damit das Suchfeld sie nicht zuruecksetzt
+// (und umgekehrt) — beide Bedienungen rufen dieselbe Stelle.
+var _gsGardenLibCat = 'all';
+function gsGardenLibFilter(btn, cat){
+  if (cat) {
+    _gsGardenLibCat = cat;
+    var leiste = document.getElementById('gs-gl-chips');
+    if (leiste) leiste.querySelectorAll('.gs-gl-chip').forEach(function(b){ b.classList.toggle('active', b === btn); });
+  }
+  var feld = document.getElementById('gs-gl-search');
+  renderGardenLibrary(_gsGardenLibCat, feld ? feld.value : '');
+}
+
 function openGardenArticle(id) {
   var art = GARDEN_LIBRARY.articles.find(function(a){ return a.id===id; });
   if (!art) return;
@@ -22960,7 +23009,7 @@ function switchTab(t, btn) {
     // v23.54: Wetter zwingend neu laden beim Öffnen — zentraler Standort
     if (typeof loadGardenWeather === 'function') { try { loadGardenWeather(true); } catch(e){} }
     if (typeof gsCheckFrostWarning === 'function') { try { setTimeout(gsCheckFrostWarning, 600); } catch(e){} }
- renderGarden(); renderMoonWidget(); if(typeof renderGardenLibrary==='function') renderGardenLibrary('all',''); }
+ renderGarden(); renderMoonWidget(); }   /* v31.47: renderGardenLibrary hier entfernt — die Liste steht jetzt im Fenster (gsOpenGardenLibrary) und wird dort gezeichnet. Der Aufruf hier kehrte seit v28.57 jedes Mal in der zweiten Zeile um, weil sein Element fehlte. */
   if (t === 'farm') {
     // BlattFänger: Start-Screen zeigen
     var gcStartEl = document.getElementById('gc-start');
@@ -63482,6 +63531,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.47', date: '01.09.2026',
+    headline: '\ud83d\udcd6 Zehn Garten-Artikel, die seit v28.57 niemand sehen konnte',
+    summary: 'Die Garten-Bibliothek ist vollst\u00e4ndig: zehn geschriebene Artikel, zehn Kategorien, ein fertiges Detail-Fenster, sogar eine eigene Stilregel. Nur die Liste hatte kein Zuhause \u2014 renderGardenLibrary schreibt in ein Element, das nirgends stand, und kehrte deshalb bei jedem Wechsel auf den Garten-Reiter in der zweiten Zeile um.',
+    user_summary: '\ud83d\udcd6 Zehn Garten-Grundlagen von Boden bis Wildbienen sind jetzt zu lesen \u2014 mit Suche und Kategorien. Sie lagen die ganze Zeit fertig in der App.',
+    user_items: [
+      {emoji:'\ud83d\udcd6', bold:'Die Garten-Bibliothek ist da:', text:' Boden verstehen, richtig giessen, d\u00fcngen, Blattl\u00e4use natürlich bekämpfen, Kompost, Schweizer Aussaatkalender, Hochbeet, Wildbienen, Balkongarten, Ernte und Lagerung. Zu finden im Garten-Reiter unter „\ud83d\udcda Wissen & Werkzeuge".'},
+      {emoji:'\ud83d\udd0e', bold:'Mit Suche und Kategorien:', text:' Beides waren immer schon Parameter der Zeichenfunktion \u2014 nur hatte sie nie eine Bedienung. Jetzt filtern zehn Kategorie-Chips, und das Suchfeld durchsucht Titel und Kurzfassung.'},
+      {emoji:'\ud83d\udeaa', bold:'Warum als Fenster und nicht auf der Seite:', text:' Der Garten-Bildschirm ist ohnehin lang. Pflanzendoktor, Krankheits-Lexikon und Erntekalender sind alle Fenster \u2014 die Bibliothek f\u00fcgt sich damit ein, statt die Seite noch einmal zu verl\u00e4ngern.'},
+      {emoji:'\ud83d\udd0d', bold:'Auch der Pr\u00fcfstand hat dazugelernt:', text:' Er meldete „Farbe ge\u00e4ndert: 3", ohne zu sagen welche \u2014 eine Zahl, die man nur glauben oder ignorieren kann, und beides ist falsch. Jetzt nennt er die Stellen. In diesem Fall waren es die drei Pfeile in der Werkzeug-Gruppe: der neue Knopf sitzt vorne, also verschob sich jeder Schl\u00fcssel um eins und jedes Element trug die Farbe seines Nachbarn. Nachgesehen statt weggewunken.'},
+    ],
+  },
+  {
     v: 'v31.46', date: '01.09.2026',
     headline: '\ud83e\udea6 Der Pflanzenfriedhof hatte einen Eingang, aber keinen Ausgang',
     summary: 'Auf jeder Pflanzenkarte steht ein Knopf „\ud83e\udea6 Pflanzenfriedhof". Er fragt nach der Todesursache, verschiebt die Pflanze \u2014 und danach war sie fort. renderCemetery schreibt in ein Element namens cemetery-list, das es nirgends gibt, und die einzige Funktion, die es h\u00e4tte anzeigen k\u00f6nnen, hatte keinen Aufrufer.',
@@ -63901,7 +63962,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.46';
+var GS_VERSION = 'v31.47';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -75836,7 +75897,11 @@ button[aria-label="Back"], button[aria-label="Atrás"], button[aria-label="Retou
 #garden-list        { padding-bottom: 100px !important; }
 #season-list        { padding-bottom: 100px !important; }
 #favs-list          { padding-bottom: 100px !important; }
-#garden-library-content { padding-bottom: 100px !important; }
+/* v31.47: die Regel galt fuer die Liste als eigener Bildschirm-Abschnitt.
+   Sie steht jetzt in einem Fenster, das selbst scrollt — der 100px-Sockel
+   wuerde dort nur einen leeren Streifen erzeugen. */
+.gs-gl-chip{flex:0 0 auto;padding:6px 12px;border-radius:var(--r-lg);border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;font-size:var(--fs-sm);font-weight:700;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;}
+.gs-gl-chip.active{background:var(--g-main);border-color:var(--g-main);color:#fff;}
 
 
 /* v31.32 — Leerzustaende sitzen direkt auf der Leinwand, nicht in einer
