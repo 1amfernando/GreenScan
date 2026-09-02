@@ -413,6 +413,64 @@ const FAELLE = [
     },
   },
 
+  // ── v31.97 · Das Urteil über der Tafel ──────────────────────────────────
+  {
+    name: 'Urteil · die Zählung stimmt mit den Zeilen überein',
+    lauf: () => {
+      _pfAufbau({
+        beete: [
+          { label: 'Beet A', x_m: 0,   y_m: 0, w_m: 1.2, h_m: 3 },
+          { label: 'Beet B', x_m: 1.4, y_m: 0, w_m: 1.2, h_m: 3 },
+        ],
+        zwillingPflanzen: [
+          { name: 'Tomate', x_m: 0.2, y_m: 0.2, w_m: 0.4, h_m: 0.4 },
+          { name: 'Tomate', x_m: 1.6, y_m: 0.2, w_m: 0.4, h_m: 0.4 },
+        ],
+      });
+      const plan = _pfPlan([{ name: 'Tomate', w_m: 0.6, h_m: 0.6, x_m: 0.1, y_m: 1.0 }]);
+      const d = document.createElement('div');
+      d.innerHTML = gsPPrenderPlan(plan, { width: 4, length: 3 });
+      const summe = d.querySelector('.gs-pk-summe');
+      if (!summe) return { ok: false, warum: 'kein Urteil über der Tafel' };
+      const zeilen = d.querySelectorAll('.gs-pk-zeile');
+      if (!zeilen.length) return { ok: false, warum: 'keine Zeilen' };
+      const txt = summe.textContent || '';
+      const zahl = re => { const m = txt.match(re); return m ? Number(m[1]) : 0; };
+      const summiert = zahl(/(\d+) Hinweis/) + zahl(/(\d+) bestanden/) + zahl(/(\d+) nicht prüfbar/);
+      if (summiert !== zeilen.length)
+        return { ok: false, warum: 'Urteil zählt ' + summiert + ', die Tafel hat ' + zeilen.length + ' Zeilen — „' + txt.trim() + '"' };
+      if (zahl(/(\d+) Hinweis/) < 1) return { ok: false, warum: 'kein Hinweis gezählt, obwohl ein Fruchtfolge-Konflikt vorliegt' };
+      return { ok: true, info: txt.trim() + ' · ' + zeilen.length + ' Zeilen' };
+    },
+  },
+  {
+    name: 'Urteil · Hinweise stehen ÜBER dem Bestandenen',
+    lauf: () => {
+      _pfAufbau({
+        beete: [
+          { label: 'Beet A', x_m: 0,   y_m: 0, w_m: 1.2, h_m: 3 },
+          { label: 'Beet B', x_m: 1.4, y_m: 0, w_m: 1.2, h_m: 3 },
+        ],
+        zwillingPflanzen: [
+          { name: 'Tomate', x_m: 0.2, y_m: 0.2, w_m: 0.4, h_m: 0.4 },
+          { name: 'Tomate', x_m: 1.6, y_m: 0.2, w_m: 0.4, h_m: 0.4 },
+        ],
+      });
+      const plan = _pfPlan([{ name: 'Tomate', w_m: 0.6, h_m: 0.6, x_m: 0.1, y_m: 1.0 }]);
+      const d = document.createElement('div');
+      d.innerHTML = gsPPrenderPlan(plan, { width: 4, length: 3 });
+      const marken = [...d.querySelectorAll('.gs-pk-zeile .gs-pk-marke')].map(e => (e.textContent || '').trim());
+      const rang = { '⚠': 0, '✓': 1, '–': 2 };
+      for (let i = 1; i < marken.length; i++) {
+        const a = rang[marken[i - 1]], b = rang[marken[i]];
+        if (a !== undefined && b !== undefined && a > b)
+          return { ok: false, warum: 'falsche Reihenfolge bei ' + (i + 1) + ': ' + marken.join(' ') };
+      }
+      if (!marken.length) return { ok: false, warum: 'keine Marken gefunden' };
+      return { ok: true, info: marken.join(' ') };
+    },
+  },
+
   // ── Die Drei-Zustaende-Regel, ueber alle Regeln hinweg ───────────────────
   {
     name: 'Drei Zustände · ohne Daten ist jede Regel null, nie {} oder 0',
