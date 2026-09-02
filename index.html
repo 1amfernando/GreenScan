@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.89.20260902">
+<meta name="app-version" content="31.90.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2261,7 +2261,35 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       s._uses_korrigiert = true;
       n++; if (namen.length < 30) namen.push(s.name + ' (' + s.lat + ')');
     });
-    window._gsGiftKorrektur = { anzahl: n, arten: namen };
+    // ── Zweiter Teil: was nie geprueft wurde, soll es auch sagen ────────
+    //
+    // Der „verwendbar"-Satz war nur die Spitze. Dieselben Eintraege tragen
+    // ausserdem KEIN `warning`, KEIN `lookalike` und KEINE `season` — die
+    // drei Felder, an denen man eine redaktionell bearbeitete Art erkennt.
+    // 1'383 Stueck, und 68 davon behaupten `edible: true`.
+    //
+    // Die App hat fuer genau diesen Fall schon einen Mechanismus: seit
+    // v30.66 setzt `gsMergeCommunitySpecies` ein `_unverified`-Flag, und
+    // `openDetail` zeigt daraufhin „Noch nicht geprueft" statt der gruenen
+    // Plaketten „Essbar" und „Ungiftig" (v30.73, HL#24). Er war nur nie auf
+    // die Buch-Einlese angewandt.
+    //
+    // Hier wird nichts hinzugedichtet und nichts angeschwaerzt: es werden
+    // POSITIVE Behauptungen zurueckgenommen, die die Daten nicht tragen.
+    // Eine gruene „Essbar"-Plakette auf einem Eintrag ohne jede
+    // Verwechslungsangabe ist genau die Zusage, die diese App nicht machen
+    // darf.
+    var u = 0;
+    window.DB.forEach(function (s) {
+      if (!s || s._unverified) return;
+      var leer = !String(s.warning || '').trim() && !String(s.lookalike || '').trim();
+      if (!leer) return;
+      if (String(s.uses || '').indexOf(SATZ) < 0 && !s._uses_korrigiert) return;
+      s._unverified = true;
+      s._quelle_einlese = true;
+      u++;
+    });
+    window._gsGiftKorrektur = { anzahl: n, arten: namen, ungeprueft: u };
     if (n && typeof console !== 'undefined' && console.warn) {
       console.warn('[GreenScan] ' + n + ' als giftig eingestufte Arten trugen den generischen „verwendbar"-Text im Feld uses. Korrigiert beim Laden. Siehe docs/ARTEN-LUECKEN.md.');
     }
@@ -30359,6 +30387,26 @@ function openDetail(id){
   // toxInfo(null) würde sonst GRÜN „Ungiftig" zeigen (HL#24-Falle) → neutrale „nicht geprüft"-Anzeige + Caveat.
   var t = toxInfo(sp.tox);
   var _unv = !!sp._unverified;
+  // ── v31.90: bei „nicht geprueft" auch die UEBERSCHRIFT zurueckhalten ──
+  //
+  // Der `_unverified`-Mechanismus (v30.66/30.73) unterdrueckt die gruenen
+  // Plaketten „Essbar" und „Ungiftig" und schreibt in die Unterzeile „Noch
+  // nicht geprueft". Die grosse Zeile darueber blieb aber die Einstufung
+  // selbst — auf der Karte stand also:
+  //
+  //     ✅ Ungiftig
+  //     Noch nicht geprueft
+  //
+  // Dieselbe Sorte Widerspruch wie „verwendbar" neben „nicht essen": eine
+  // Zusage und ihr Dementi auf derselben Karte. Solange die Einstufung nicht
+  // geprueft ist, wird sie nicht als Ueberschrift behauptet.
+  //
+  // Ausnahme: eine WARNUNG bleibt stehen. Zurueckgehalten wird nur die
+  // ENTWARNUNG — im Zweifel lieber eine Warnung zu viel.
+  if (_unv && (sp.tox === 0 || sp.tox == null) && !sp.toxic) {
+    t = { sym: '❔', label: (typeof _t === 'function' ? _t('tox_open', 'Einstufung offen') : 'Einstufung offen'),
+          color: 'var(--muted)' };
+  }
   // v30.66/v30.73: nicht-verifizierte Arten (Community-Merge ODER KI-Scan-Steckbrief). Nur wenn KEINE Tox-Zahl
   // vorliegt neutral „Noch nicht geprüft" zeigen; liegt eine KI-Tox-Schätzung vor, diese SICHTBAR lassen (eine
   // giftige Art soll gewarnt sein) — die Essbarkeit wird aber nie als grün „Essbar" gezeigt (Edit unten).
@@ -68225,6 +68273,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.90', date: '02.09.2026',
+    headline: '\u2753 Was nie gepr\u00fcft wurde, sagt es jetzt \u2014 statt gr\u00fcn „Essbar" zu zeigen',
+    summary: '1383 Eintr\u00e4ge aus der Buch-Einlese haben weder Warnhinweis noch Verwechslungsangabe noch Saison. 68 davon behaupteten „essbar" mit gr\u00fcner Plakette. Die App hatte f\u00fcr genau diesen Fall schon einen Mechanismus \u2014 er war nur nie auf diese Eintr\u00e4ge angewandt.',
+    user_summary: '\u2753 Arten ohne redaktionelle Pr\u00fcfung zeigen jetzt „Einstufung offen" statt einer gr\u00fcnen Essbar-Plakette.',
+    user_items: [
+      {emoji:'\u2753', bold:'Keine gr\u00fcne Zusage ohne Pr\u00fcfung:', text:' 1383 Eintr\u00e4ge tragen weder Warnhinweis noch Verwechslungsangabe noch Saison \u2014 die drei Felder, an denen man einen bearbeiteten Eintrag erkennt. 68 davon zeigten trotzdem „\ud83c\udf7d\ufe0f Essbar" in Gr\u00fcn. Jetzt steht dort „Einstufung offen \u00b7 Noch nicht gepr\u00fcft".'},
+      {emoji:'\u267b\ufe0f', bold:'Kein neuer Mechanismus:', text:' Die App unterdr\u00fcckt gr\u00fcne Plaketten bei ungepr\u00fcften Arten seit Juni \u2014 bisher nur bei Community-Vorschl\u00e4gen. Er gilt jetzt auch f\u00fcr die Buch-Einlese. Es wird nichts hinzugedichtet: es werden POSITIVE Behauptungen zur\u00fcckgenommen, die die Daten nicht tragen.'},
+      {emoji:'\u26a0\ufe0f', bold:'Warnungen bleiben stehen:', text:' Zur\u00fcckgehalten wird nur die Entwarnung. Wo ein Eintrag als giftig eingestuft ist, steht die Warnung unver\u00e4ndert \u2014 im Zweifel lieber eine Warnung zu viel.'},
+      {emoji:'\ud83e\uddea', bold:'Und ein eigener Fehler, gefunden weil ich die Karte angesehen habe:', text:' Meine erste Fassung stand im Code VOR der Zeile, die das Pr\u00fcf-Kennzeichen liest \u2014 sie lief also nie, ohne Fehlermeldung. Aufgefallen nur, weil der Test die fertige Karte gelesen hat und nicht den Code.'},
+    ],
+  },
+  {
     v: 'v31.89', date: '02.09.2026',
     headline: '\u26a0\ufe0f Bei 25 giftigen Arten stand „verwendbar" auf derselben Karte wie „nicht essen"',
     summary: 'Gefunden beim Ausmessen der Arten-L\u00fccken: 1408 Eintr\u00e4ge tragen denselben Standardsatz im Feld Verwendung. Bei 25 davon stuft der Datensatz die Art selbst als stark giftig ein \u2014 darunter Eisenhut, Rebendolde, Stechapfel, Fingerhut und Seidelbast.',
@@ -68714,7 +68774,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.89';
+var GS_VERSION = 'v31.90';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

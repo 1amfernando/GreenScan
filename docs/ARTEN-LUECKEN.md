@@ -118,6 +118,43 @@ gemacht). Die 16 einzeln geschriebenen Texte werden ausgewiesen und nicht
 angeschwärzt — ein Prüfstand, der die richtigen Einträge anschwärzt, wird
 weggeklickt.
 
+## 4a · Nachtrag v31.90: was nie geprüft wurde, sagt es jetzt
+
+Der „verwendbar"-Satz war nur die Spitze. Dieselben Einträge tragen **kein
+`warning`, kein `lookalike` und keine `season`** — die drei Felder, an denen
+man einen redaktionell bearbeiteten Eintrag erkennt. **1'383 Stück**, und
+**68 davon behaupten `edible: true`** und zeigten dafür eine grüne
+„🍽️ Essbar"-Plakette.
+
+Die App hat für genau diesen Fall seit v30.66/v30.73 einen Mechanismus:
+`_unverified` unterdrückt die grünen Plaketten und schreibt „Noch nicht
+geprüft". Er war nur nie auf die Buch-Einlese angewandt — nur auf
+Community-Vorschläge.
+
+Jetzt wird er beim Laden gesetzt. **Es wird nichts hinzugedichtet: es werden
+positive Behauptungen zurückgenommen, die die Daten nicht tragen.** Eine
+grüne „Essbar"-Plakette auf einem Eintrag ohne jede Verwechslungsangabe ist
+genau die Zusage, die diese App nicht machen darf.
+
+Zwei Dinge blieben bewusst:
+
+- **Warnungen.** Zurückgehalten wird nur die *Ent*warnung. Wo ein Eintrag als
+  giftig eingestuft ist, steht die Warnung unverändert.
+- **Die gepflegten Arten.** Bärlauch behält „Essbar" und „Ungiftig" —
+  nachgeprüft; er hat `warning` und `lookalike`.
+
+Dabei fiel ein zweiter Widerspruch auf, den es seit v30.66 gab: die
+Toxizitäts-Überschrift zeigte weiter die Einstufung, während die Unterzeile
+„Noch nicht geprüft" sagte —
+
+```
+✅ Ungiftig
+Noch nicht geprüft
+```
+
+Dieselbe Sorte wie „verwendbar" neben „nicht essen". Bei ungeprüften,
+nicht-giftigen Einträgen steht dort jetzt **„❔ Einstufung offen"**.
+
 ## 5 · Was ich Fernando vorschlage
 
 1. **Nicht ausfüllen, sondern prüfen.** Eine Stichprobe der 1'276 Einträge

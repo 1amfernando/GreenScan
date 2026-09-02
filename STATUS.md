@@ -4,13 +4,62 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.89` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.90` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (cb) — v31.90: was nie geprüft wurde, sagt es jetzt
+
+Fortsetzung von (ca). Der „verwendbar"-Satz war die Spitze; darunter liegt das Eigentliche.
+
+#### Der Befund
+
+Dieselben Einträge aus der Buch-Einlese tragen **kein `warning`, kein `lookalike` und keine `season`** — die drei Felder, an denen man einen redaktionell bearbeiteten Eintrag erkennt.
+
+**1'383 Stück. 68 davon behaupten `edible: true`** und zeigten dafür eine grüne „🍽️ Essbar"-Plakette — gleichwertig neben Bärlauch, der einen vollständigen Warntext und eine Verwechslungsliste hat.
+
+#### Kein neuer Mechanismus — ein nie angewandter
+
+Die App unterdrückt grüne Plaketten bei ungeprüften Arten **seit v30.66/v30.73** (`_unverified`, HL#24). Der Mechanismus war da, getestet, richtig — und nur auf Community-Vorschläge angewandt. Die 1'383 Einträge der Buch-Einlese kannte er nicht.
+
+Jetzt wird das Kennzeichen beim Laden gesetzt. **Es wird nichts hinzugedichtet: es werden positive Behauptungen zurückgenommen, die die Daten nicht tragen.**
+
+Nachgemessen:
+
+| | |
+|---|---|
+| Brennnessel (Urtica pilulifera), ungeprüft | Essbar-Plakette **weg** · „❔ Einstufung offen · Noch nicht geprüft" |
+| Bärlauch, gepflegt | „Essbar" und „Ungiftig" **bleiben** — hat `warning` und `lookalike` |
+| Storchschnabel, giftig + korrigiert | kein „verwendbar", stattdessen „Keine Verwendung" |
+
+#### Der zweite Widerspruch, gefunden im selben Zug
+
+Die Toxizitäts-Überschrift zeigte weiter die Einstufung, während die Unterzeile schon „Noch nicht geprüft" sagte:
+
+```
+✅ Ungiftig
+Noch nicht geprüft
+```
+
+Dieselbe Sorte wie „verwendbar" neben „nicht essen" — eine Zusage und ihr Dementi auf derselben Karte. Das gab es seit v30.66 für alle Community-Arten; meine Änderung hätte es auf 1'383 weitere ausgeweitet. Bei ungeprüften, **nicht-giftigen** Einträgen steht dort jetzt „❔ Einstufung offen".
+
+**Warnungen bleiben unverändert.** Zurückgehalten wird nur die Entwarnung — im Zweifel lieber eine Warnung zu viel.
+
+#### Und ein eigener Fehler, der nur aufgefallen ist, weil ich die Karte angesehen habe
+
+Meine erste Fassung stand im Code **vor** der Zeile `var _unv = !!sp._unverified;`. Durch Hoisting war `_unv` dort `undefined` — die Bedingung war still falsch, **ohne jede Fehlermeldung**. Der Code sah richtig aus, der Prüfstand meldete 0 JS-Fehler, und die Karte zeigte weiter „✅ Ungiftig".
+
+Aufgefallen ist es nur, weil der Test die **fertige Karte** liest und nicht den Quelltext. Genau dieselbe Lehre wie beim Fenster-Zähler in `contrast_check` und beim Proxy in `data_check`: **ein Werkzeug, das nur prüft, ob etwas eingebaut wurde, prüft das Falsche.**
+
+#### Prüfstände
+
+`render_check` 2872 · 0 JS-Fehler · 0 verdächtig · `contrast_check` 0/0 · `touch_check` 0 · `wiring_check` 0/0/0 + 31 Ziele · `save_check` 7/7 · `data_check` 0/0.
+
+---
 
 ### 2026-09-02 (ca) — v31.89: bei 25 giftigen Arten stand „verwendbar" auf derselben Karte wie „nicht essen"
 
