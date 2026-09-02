@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.02.20260902">
+<meta name="app-version" content="32.03.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28171,9 +28171,13 @@ var SCAN_SYSTEM_PROMPT =
       '],' +
       '"lookalike_warning":"Giftiges Maiglöckchen & Herbstzeitlose — im Zweifel nicht verzehren!",' +
       '"next_photo_hint":"Foto von Blattunterseite + Reibtest für Knoblauchgeruch",' +
-      '"season_match":true,' +
-      '"db_search":"Bärlauch"' +
+      '"season_match":true' +
     '}';
+// v32.03: `db_search` ist raus. Das Feld wurde bei JEDEM Scan mitgeliefert
+// und an KEINER Stelle gelesen (gepr\u00fcft: 0 Vorkommen ausser hier). Die
+// Zuordnung zur eigenen Artenliste macht laengst `gsMatchScanToDb`, und die
+// kann mehr — Synonyme, Namenssegmente, lateinische Namen. Ein Feld, das
+// niemand liest, kostet bei jeder Antwort Tokens und Zeit.
 
 
 // ═══ v30.92 BLOCKER-FIX: Sackgasse bei Key-Fehlern ═══════════════════════
@@ -29534,7 +29538,11 @@ function showScanResult(r){
     });
   }
   if (r.season_match === false) extras.push({ico:'📅', title:'Saison-Hinweis', body:'Top-Kandidat passt nicht optimal zur aktuellen Jahreszeit/Region — prüfe die Alternativen!'});
-  if (!r.found_in_switzerland) extras.push({ico:'ℹ️', title:'Regional-Hinweis', body:'Diese Art kommt möglicherweise nicht in der Schweiz vor.'});
+  // v32.03: `!r.found_in_switzerland` war auch dann wahr, wenn das Feld
+  // schlicht FEHLTE — dann behauptete die Karte „kommt m\u00f6glicherweise nicht
+  // in der Schweiz vor" aus dem Nichts. Eine Aussage aus einer Leerstelle ist
+  // keine Aussage. Jetzt nur, wenn die Bestimmung es ausdr\u00fccklich verneint.
+  if (r.found_in_switzerland === false) extras.push({ico:'ℹ️', title:'Regional-Hinweis', body:'Diese Art kommt nach der Bestimmung nicht in der Schweiz vor — das ist ein Grund, genauer hinzusehen.'});
   if (extras.length) {
     body += '<details style="margin:8px 0 14px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;">' +
       '<summary style="padding:11px 14px;cursor:pointer;font-weight:700;font-size:var(--fs-sm);color:var(--text2);list-style:none;display:flex;align-items:center;justify-content:space-between;">' +
@@ -69490,6 +69498,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.03', date: '02.09.2026',
+    headline: '\ud83e\uddf9 Eine Warnung, die aus einer Leerstelle kam',
+    summary: 'Die Karte warnte „kommt m\u00f6glicherweise nicht in der Schweiz vor" \u2014 auch dann, wenn die Bestimmung dazu gar nichts gesagt hatte. Eine Aussage aus einem fehlenden Feld ist keine Aussage.',
+    user_summary: '\ud83e\uddf9 Der Hinweis „kommt vielleicht nicht in der Schweiz vor" erscheint nur noch, wenn das wirklich festgestellt wurde \u2014 nicht, wenn dazu nichts bekannt ist.',
+    user_items: [
+      {emoji:'\ud83c\udde8\ud83c\udded', bold:'Der Fehler:', text:' Gepr\u00fcft wurde „ist das Feld leer?" statt „steht dort ein Nein?". Fehlte die Angabe \u2014 was oft vorkommt \u2014, stand die Warnung trotzdem da. Wer sie oft grundlos sieht, glaubt ihr irgendwann auch dann nicht mehr, wenn sie stimmt.'},
+      {emoji:'\u2702\ufe0f', bold:'Ein Feld weniger bei jedem Scan:', text:' Der Scanner verlangte von der KI ein Suchwort f\u00fcr die eigene Artenliste \u2014 und las es nie. Die Zuordnung macht l\u00e4ngst eine bessere Suche. Weg damit: das kostete bei jeder Antwort Zeit und Rechenleistung.'},
+      {emoji:'\ud83d\udd0e', bold:'Und daraus wurde eine Regel:', text:' Der Pr\u00fcfstand h\u00e4lt jetzt fest, dass jedes Feld, das der Scanner von der KI verlangt, auch irgendwo gelesen wird. „Abgefragt, geliefert, weggeworfen" war heute der h\u00e4ufigste Fehler \u00fcberhaupt.'},
+    ],
+  },
+  {
     v: 'v32.02', date: '02.09.2026',
     headline: '\ud83e\udde9 Eine Karte, die sich nicht selbst widerspricht',
     summary: 'Die Scan-Karte suchte die Art in unserer Liste \u2014 und die neue Pr\u00fcfung suchte sie noch einmal, mit einem einfacheren Verfahren. Zwei Antworten auf dieselbe Frage driften auseinander: die Karte bot „Vollst\u00e4ndiger Eintrag" an, w\u00e4hrend dar\u00fcber stehen konnte „steht in keiner unserer Arten".',
@@ -70122,7 +70141,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.02';
+var GS_VERSION = 'v32.03';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

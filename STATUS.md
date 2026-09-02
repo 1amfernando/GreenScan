@@ -4,13 +4,54 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.02` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.03` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (co) — v32.03: eine Warnung, die aus einer Leerstelle kam
+
+Der Scan-Prompt verlangt 21 Felder. Die Frage war: liest die sie überhaupt
+jemand? **Korrektur an meiner ersten Zählung** — mein Suchmuster zählte die
+Prompt-Zeilen mit, und ich hielt zunächst drei Felder für unbenutzt. Es ist
+eines. Aber beim Nachsehen kam etwas Schlimmeres heraus.
+
+#### `!r.found_in_switzerland` — eine Behauptung aus einem fehlenden Feld
+
+```js
+if (!r.found_in_switzerland) extras.push({ …'kommt möglicherweise nicht in der Schweiz vor'});
+```
+
+`!undefined` ist wahr. Liefert die Bestimmung das Feld **nicht** — was oft
+vorkommt —, stand die Warnung trotzdem da. Eine Aussage aus einer Leerstelle
+ist keine Aussage, und wer sie oft grundlos sieht, glaubt ihr auch dann nicht
+mehr, wenn sie stimmt. Jetzt: `=== false`.
+
+#### `db_search` ist raus
+
+Ein Suchwort für die eigene Artenliste, bei **jedem** Scan mitgeliefert und an
+**keiner** Stelle gelesen (0 Vorkommen ausser im Prompt). Die Zuordnung macht
+längst `gsMatchScanToDb`, und die kann mehr. Ein Feld, das niemand liest,
+kostet bei jeder Antwort Tokens und Zeit.
+
+#### Und daraus eine Regel
+
+`scan_check` hält jetzt fest: **jedes Feld im JSON-Beispiel des Prompts muss
+im Code gelesen werden.** „Abgefragt, geliefert, weggeworfen" war heute der
+häufigste Fehler überhaupt — bei der Giftigkeit der Alternativen (v31.92) und
+den Merkmalen (v31.99) war er teuer.
+
+Gegenprobe gemacht: `db_search` zurückgelegt → „verlangt und nirgends gelesen:
+db_search". Wieder entfernt → 21 Felder, alle gelesen.
+
+#### Prüfstände
+
+`scan_check` **23/23**. Alle übrigen grün.
+
+---
 
 ### 2026-09-02 (cn) — v32.02: eine Karte, die sich nicht selbst widerspricht
 
