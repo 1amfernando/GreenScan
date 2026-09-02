@@ -322,8 +322,38 @@ const IGNORIEREN = new Set([
     ungesichert.push({ id: u[1], nach: u[2], zeile: quelle.slice(0, u.index).split('\n').length });
   }
 
+  // ── v31.95, Richtung 2b: Klassen-Ketten, die sofort entwertet werden ──
+  //
+  // `getElementById` oben deckt ids ab. Nicht abgedeckt war die Form
+  //   document.getElementById('x').querySelector('.y').textContent = …
+  // und genau daran hingen VIER Bildschirme: `.modal-title` gibt es in
+  // `#modal-recipe-detail` nicht, also warf die Zeile jedes Mal — und zwar
+  // VOR `openModal`. „Bestaetigte Scans", „Supabase API-Key", das
+  // ADMIN-PANEL und der Experten-Antrag liessen sich dadurch gar nicht
+  // oeffnen. Keine Fehlermeldung, kein leeres Fenster: es passierte nichts.
+  //
+  // Gemeldet wird nur, was WIRKLICH wirft: eine Klasse, die in keinem
+  // `class="…"` und in keinem `classList.add` / `className` vorkommt, und
+  // deren Ergebnis sofort dereferenziert wird.
+  const klassenDa = new Set();
+  [/class\s*=\s*["']([^"']+)["']/g,
+   /classList\.(?:add|toggle|remove)\(\s*['"]([A-Za-z0-9_\- ]+)['"]/g,
+   /className\s*=\s*['"]([A-Za-z0-9_\- ]+)['"]/g,
+  ].forEach(re => { let m; while ((m = re.exec(quelle))) m[1].split(/\s+/).forEach(c => c && klassenDa.add(c)); });
+
+  const klassenKette = [];
+  const reK = /\.querySelector\(\s*['"]\.([A-Za-z0-9_\-]+)['"]\s*\)\s*(\.[\w$]+)\s*[=.(]/g;
+  let k;
+  while ((k = reK.exec(quelle))) {
+    if (imKommentar(k.index)) continue;
+    if (klassenDa.has(k[1])) continue;
+    klassenKette.push({ cls: k[1], nach: k[2], zeile: quelle.slice(0, k.index).split('\n').length });
+  }
+
   console.log('  ---');
   console.log('  Element-Nachschlagungen:', nachschlag.size, '· davon nie erzeugt:', nirgends.length);
+  console.log('  Klassen-Ketten ohne Element (werfen sofort):', klassenKette.length);
+  klassenKette.forEach(x => console.log('    Zeile ' + x.zeile + ':  querySelector(\'.' + x.cls + '\')' + x.nach + '  → wirft'));
   console.log('  davon UNGESICHERT entwertet:', ungesichert.length);
   ungesichert.forEach(x => console.log('    Zeile ' + x.zeile + ':  getElementById(\'' + x.id + '\')' + x.nach + '  → wirft'));
   if (nirgends.length) {
@@ -333,5 +363,5 @@ const IGNORIEREN = new Set([
   }
 
   await browser.close();
-  process.exit((kaputt.length + ungesichert.length + (menue ? menue.kaputt.length : 0)) ? 1 : 0);
+  process.exit((kaputt.length + ungesichert.length + klassenKette.length + (menue ? menue.kaputt.length : 0)) ? 1 : 0);
 })();

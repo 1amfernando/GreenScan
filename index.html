@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.94.20260902">
+<meta name="app-version" content="31.95.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4895,6 +4895,13 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   <div class="modal" style="position:relative;max-height:90vh;overflow-y:auto;">
     <div class="mhandle"></div>
     <button class="modal-close-btn" onclick="closeModal('modal-recipe-detail')" aria-label="Schliessen">&#x2715;</button>
+    <!-- v31.95: Dieses Element fehlte. Vier Funktionen setzten
+         `querySelector('.modal-title').textContent` an diesem Modal — und
+         warfen deshalb JEDES MAL, und zwar VOR `openModal`. Vier Bildschirme
+         liessen sich dadurch gar nicht oeffnen: Bestaetigte Scans, der
+         Supabase-Schluessel, das ADMIN-PANEL und der Experten-Antrag.
+         Gefunden hat es der Pruefstand beim Ausloesen, nicht das Lesen. -->
+    <div class="modal-title" id="recipe-detail-title" style="display:none;padding:16px 18px 0;font-family:'Playfair Display',serif;font-size:var(--fs-xl);font-weight:800;color:var(--text);"></div>
     <div id="recipe-detail-body"></div>
   </div>
 </div>
@@ -28717,7 +28724,7 @@ function gsShowConfirmedScans() {
     }).join('') +
     '</div>';
   document.getElementById('recipe-detail-body').innerHTML = body;
-  document.getElementById('modal-recipe-detail').querySelector('.modal-title').textContent = '🔬 Bestätigte Scans';
+  gsSetModalTitel('modal-recipe-detail', '🔬 Bestätigte Scans');
   openModal('modal-recipe-detail');
 }
 
@@ -33629,7 +33636,13 @@ function renderFeedback(){
     return item;
   });
   const sorted = [...scored_fb].sort((a,b)=>b._prio - a._prio);
-  const typeLabels = {bug:'🐛 Fehler',idea:'💡 Idee',data:'📊 Daten',ui:'🎨 Design'};
+  // v31.95: Experten-Antraege landen in derselben Tabelle (feedback_items,
+  // kind='expert_application') und damit in dieser Liste — beim
+  // Antragsteller selbst und bei Staff aufwaerts, sonst bei niemandem
+  // (RLS feedback_items_select_own_or_staff, die Ansicht laeuft mit
+  // security_invoker=true — nachgesehen, nicht vermutet).
+  // Ohne diese Zeile stuende auf der Karte woertlich „expert_application".
+  const typeLabels = {bug:'🐛 Fehler',idea:'💡 Idee',data:'📊 Daten',ui:'🎨 Design',expert_application:'🎓 Experten-Antrag'};
   // v23.61: KI-Status Badges
   const statusBadge = (fb) => {
     const s = fb.ki_status || 'pending';
@@ -33769,6 +33782,12 @@ function renderFeedback(){
       '</div>'+
       '<h3>'+escHtml(fb.title||'')+'</h3>'+
       '<p class="fb-body">'+escHtml(fb.body||'')+'</p>'+
+      // v31.95: Bei einem Experten-Antrag sind die Diplome der eigentliche
+      // Punkt — sie stehen im `context` und waeren sonst unsichtbar. Ein
+      // Antrag, den man nur halb lesen kann, ist so gut wie keiner.
+      ((fb.type === 'expert_application' && fb.context && fb.context.diplomas)
+        ? '<p class="fb-body" style="margin-top:6px;"><b>Diplome / Ausbildungen:</b> ' + escHtml(String(fb.context.diplomas)) + '</p>'
+        : '')+
       kiSection+
       '<div class="vote-row">'+
         '<button class="vote-btn up'+(upVoted?' voted':'')+'" data-fid="'+safeId+'" data-dir="up" onclick="vote(this.dataset.fid,this.dataset.dir)">👍 '+up+'</button>'+
@@ -33975,7 +33994,11 @@ async function gsRefreshGlobalFeedback(showToast){
       return;
     }
     // Map kind → UI-Typ
-    var kindToType = {bug:'bug', idea:'idea', data:'data', ui:'ui'};
+    // v31.95: `expert_application` gehoert dazu. Ohne diesen Eintrag faellt
+    // die Zeile unten auf 'idea' zurueck, und ein Experten-Antrag stuende in
+    // der Liste als „💡 Idee" — die Anzeige dafuer (typeLabels, Diplome auf
+    // der Karte) waere unerreichbar gewesen.
+    var kindToType = {bug:'bug', idea:'idea', data:'data', ui:'ui', expert_application:'expert_application'};
     // Baue Merge-Set: existing local items (by sb_id or by id) + server rows
     var localArr = Array.isArray(feedbackItems) ? feedbackItems.slice() : [];
     var localBySbId = {};
@@ -34012,6 +34035,10 @@ async function gsRefreshGlobalFeedback(showToast){
         ki_priority:  Number(r && r.ki_priority || 0),
         ki_rationale: (r && r.ki_rationale) || '',
         ki_action:    (r && r.ki_action)    || '',
+        // v31.95: `context` wurde bisher gelesen (fuer `type` und `local_id`)
+        // und dann weggeworfen. Beim Experten-Antrag stehen dort die Diplome
+        // — ohne dieses Feld haette die Karte sie nie zeigen koennen.
+        context: ctx,
         _global: true
       };
       // Existierende Votes / local-only-flags erhalten
@@ -45853,6 +45880,9 @@ function openRecipeDetail(id) {
     '<button data-share="'+rTitle+'" onclick="if(typeof gsShareApp===\'function\')gsShareApp()" style="padding:11px 16px;border-radius:var(--r-md);border:1.5px solid var(--border);background:var(--surface2);font-size:var(--fs-lg);cursor:pointer;font-family:inherit;">↑</button>' +
     '</div>';
   document.getElementById('recipe-detail-body').innerHTML = actionBar + body;
+  // v31.95: leeren — sonst stuende ueber dem Rezept noch der Titel des
+  // zuletzt geoeffneten Fensters („🛡️ Admin-Panel" ueber einem Pesto).
+  gsSetModalTitel('modal-recipe-detail', '');
   openModal('modal-recipe-detail');
 }
 
@@ -68460,7 +68490,7 @@ function openAdminSbKeyPanel() {
     '</div>';
 
   document.getElementById('recipe-detail-body').innerHTML = panelHtml;
-  document.getElementById('modal-recipe-detail').querySelector('.modal-title').textContent = '🔑 Supabase API-Key';
+  gsSetModalTitel('modal-recipe-detail', '🔑 Supabase API-Key');
   openModal('modal-recipe-detail');
 }
 
@@ -68846,6 +68876,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v31.95', date: '02.09.2026',
+    headline: '\ud83c\udf93 Vier Bildschirme liessen sich nicht \u00f6ffnen, und ein Antrag wurde nie eingereicht',
+    summary: 'Eine einzige Zeile — ein Titel-Element, das es in diesem Fenster nicht gibt — legte vier Bildschirme still: Best\u00e4tigte Scans, Supabase-Schl\u00fcssel, das Admin-Panel und den Experten-Antrag. Dahinter lagen drei Funktionen, die Erfolg meldeten, ohne irgendetwas zu verschicken.',
+    user_summary: '\ud83c\udf93 Der Experten-Antrag wird jetzt wirklich eingereicht — vorher liess sich das Formular nicht einmal \u00f6ffnen, und h\u00e4tte es sich \u00f6ffnen lassen, w\u00e4re der Antrag auf dem eigenen Ger\u00e4t liegen geblieben.',
+    user_items: [
+      {emoji:'\ud83e\uddf1', bold:'Vier Fenster gingen gar nicht auf:', text:' Sie setzten alle einen Fenster-Titel an einem Element, das es in diesem Fenster nie gab. Die Zeile warf, bevor das Fenster ge\u00f6ffnet wurde \u2014 kein Fehler zu sehen, es passierte einfach nichts. Betroffen waren „Best\u00e4tigte Scans", der Supabase-Schl\u00fcssel, das Admin-Panel und der Experten-Antrag.'},
+      {emoji:'\ud83d\udce4', bold:'Der Experten-Antrag ging nie irgendwohin:', text:' Er wurde auf dem eigenen Ger\u00e4t gespeichert, und dann stand da „Antrag eingereicht, du wirst per E-Mail benachrichtigt". Kein Admin konnte ihn je sehen. Jetzt geht er wirklich an das Team \u2014 und wenn das schiefgeht, steht das da, statt eines H\u00e4kchens.'},
+      {emoji:'\ud83d\udee1\ufe0f', bold:'Rollen vergeben und sperren wirken jetzt:', text:' Beides schrieb nur ein Protokoll auf dem Ger\u00e4t des Admins und meldete Erfolg. Jetzt wird die Rolle wirklich gesetzt \u2014 und ein Erfolg nur gemeldet, wenn der Server ihn best\u00e4tigt hat.'},
+      {emoji:'\u2705', bold:'Der gr\u00fcne Haken erschien bei niemandem:', text:' Er h\u00e4ngte an einer Spalte, die es in der Datenbank nicht gibt. Jetzt liest er die Rolle, die es wirklich gibt.'},
+    ],
+  },
   {
     v: 'v31.94', date: '02.09.2026',
     headline: '\ud83c\udf31 Aus einer L\u00fccke im Kalender wird ein Platz im Garten',
@@ -69392,7 +69434,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.94';
+var GS_VERSION = 'v31.95';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -69478,10 +69520,30 @@ var GS_EXPERT_LEVELS = {
 // kommen — die echte Definition unten überschreibt diesen Stub.
 function gsIsAdmin(email){ return false; /* siehe v24.46 konsolidierte Definition unten */ }
 
+// ── v31.95: der Haken hing an einer Spalte, die es nicht gibt ─────────────
+//
+// Beide Funktionen lasen `profile.expert_level`. In `profiles` gibt es diese
+// Spalte NICHT (an der Datenbank nachgesehen, nicht vermutet) — die Tabelle
+// hat `role` mit CHECK (admin|staff|expert|user|banned), und der Kommentar
+// bei GS_ROLE_HIERARCHY sagt es selbst: „Server-Wahrheit: profiles.role".
+//
+// Folge bis v31.94: `GS_EXPERT_LEVELS[undefined || 'user']` — jeder Nutzer
+// war „Nutzer", der gruene Haken erschien bei niemandem, und ein vergebener
+// Experten-Status blieb unsichtbar. Ein zweites Rollen-System, das nie eine
+// Entsprechung im Server hatte.
+//
+// `GS_EXPERT_LEVELS` bleibt als Anzeige-Tabelle bestehen; gelesen wird ab
+// jetzt die Rolle, die es wirklich gibt.
+var GS_ROLE_ZU_LEVEL = { banned: 'user', user: 'user', expert: 'expert', staff: 'expert', admin: 'expert' };
+function _gsLevelVon(profile) {
+  var r = (profile && profile.role) || '';
+  return GS_ROLE_ZU_LEVEL[r] || 'user';
+}
+
 // Prüft ob Nutzer verifizierter Experte ist (grüner Haken)
 function gsIsVerifiedExpert(profile) {
   if (!profile) return false;
-  var lvl = GS_EXPERT_LEVELS[profile.expert_level || 'user'];
+  var lvl = GS_EXPERT_LEVELS[_gsLevelVon(profile)];
   return !!(lvl && lvl.verified);
 }
 
@@ -69491,16 +69553,21 @@ function gsGetExpertInfo(profile) {
   if (gsIsAdmin(profile.email || gsStore.get('gs_sb_email', null))) {
     return { label: 'GreenScan Admin', icon: '🛡️', color: '#c62828', rank: 99, isAdmin: true };
   }
-  return GS_EXPERT_LEVELS[profile.expert_level || 'user'] || GS_EXPERT_LEVELS.user;
+  return GS_EXPERT_LEVELS[_gsLevelVon(profile)] || GS_EXPERT_LEVELS.user;
 }
 
 // Admin-Panel öffnen (nur für Admins sichtbar)
 function openAdminActions(targetEmail) {
   if (!gsIsAdmin()) { showProfileToast('⛔ Kein Zugriff.'); return; }
-  var levels = Object.entries(GS_EXPERT_LEVELS);
-  var opts = levels.map(function(entry) {
-    var k = entry[0], v = entry[1];
-    return '<option value="' + k + '">' + (v.icon||'') + ' ' + v.label + '</option>';
+  // v31.95: angeboten wird, was `profiles.role` per CHECK-Constraint
+  // annimmt — admin|staff|expert|user|banned. Vorher standen hier die sechs
+  // Eintraege aus GS_EXPERT_LEVELS; vier davon (enthusiast, explorer,
+  // specialist, master) haben serverseitig keine Entsprechung. Ein Menue,
+  // das Werte anbietet, die die Datenbank zurueckweist, ist ein Versprechen
+  // auf einen Fehlschlag.
+  var opts = GS_ROLE_HIERARCHY.slice().reverse().map(function (r) {
+    var b = GS_ROLE_BADGES[r] || {};
+    return '<option value="' + r + '">' + (b.icon ? b.icon + ' ' : '') + (b.label || r) + '</option>';
   }).join('');
 
   // Admin-Log anzeigen
@@ -69509,7 +69576,7 @@ function openAdminActions(targetEmail) {
   var logHtml = recentLog.length ? recentLog.map(function(e){
     return '<div style="font-size:var(--fs-sm);color:#666;padding:4px 0;border-bottom:1px solid #eee;">' +
       new Date(e.ts).toLocaleDateString('de-CH') + ' – ' + escHtml(e.action) + ': ' +
-      escHtml((GS_EXPERT_LEVELS[e.level]||{label:e.level}).label) +
+      escHtml(((GS_ROLE_BADGES[e.level]||{}).label) || e.level) +
       (e.note ? ' · <em>' + escHtml(e.note.slice(0,40)) + '</em>' : '') + '</div>';
   }).join('') : '<div style="font-size:var(--fs-sm);color:#aaa;">Kein Verlauf</div>';
 
@@ -69540,7 +69607,7 @@ function openAdminActions(targetEmail) {
     '</div>';
 
   document.getElementById('recipe-detail-body').innerHTML = panelHtml;
-  document.getElementById('modal-recipe-detail').querySelector('.modal-title').textContent = '🛡️ Admin-Panel';
+  gsSetModalTitel('modal-recipe-detail', '🛡️ Admin-Panel');
   openModal('modal-recipe-detail');
 }
 
@@ -69591,17 +69658,61 @@ function _gsOpenIngCard(plantId, recipeId) {
   }, 200);
 }
 
+// v31.95: derselbe Fall wie bei der Rollen-Vergabe, nur ernster. „Gesperrt
+// (lokal protokolliert)" war immerhin ehrlich formuliert — aber der Knopf
+// heisst „Sperren", und wer ihn drueckt, will jemanden sperren, nicht eine
+// Notiz auf dem eigenen Telefon. `role='banned'` ist dafuer da; die
+// Rollen-Hierarchie behandelt es bereits ueberall als Sperre
+// (`gsRoleAtLeast` gibt fuer 'banned' immer false zurueck).
 async function gsAdminBanUser(targetEmail) {
   if (!gsIsAdmin()) return;
-  if (!(await gsConfirmModal('Nutzer ' + targetEmail + ' wirklich sperren?'))) return;
-  var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
-  log.unshift({ ts: new Date().toISOString(), admin: gsStore.get('gs_sb_email', null),
-    target: targetEmail, action: 'ban', note: 'Gesperrt durch Admin' });
-  gsStore.set('gs_admin_log', JSON.stringify(log.slice(0,200)));
-  closeModal('modal-recipe-detail');
-  showProfileToast('🚫 ' + targetEmail + ' wurde gesperrt (lokal protokolliert).');
+  if (!(await gsConfirmModal('Nutzer ' + targetEmail + ' wirklich sperren? Die Rolle wird auf „Gesperrt" gesetzt.'))) return;
+  if (typeof sbFetch !== 'function') { showProfileToast('Keine Verbindung zum Server.'); return; }
+  try {
+    var f = await sbFetch('/rest/v1/profiles?select=id,role&limit=2&email=eq.' + encodeURIComponent(targetEmail), { method: 'GET' });
+    var rows = (f && Array.isArray(f.data)) ? f.data : [];
+    if (!rows.length || rows.length > 1) {
+      showProfileToast({title:'Nicht gesperrt', body: rows.length ? 'Zu dieser Adresse gibt es mehrere Profile.' : 'Zu ' + targetEmail + ' gibt es kein Profil.', kind:'error', duration:6000});
+      return;
+    }
+    var res = await sbFetch('/rest/v1/profiles?id=eq.' + encodeURIComponent(rows[0].id), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+      body: JSON.stringify({ role: 'banned', role_assigned_at: new Date().toISOString(),
+                             role_assigned_by: gsStore.get('gs_sb_uid', null) || null,
+                             role_note: 'Gesperrt durch Admin', is_expert: false })
+    });
+    var ok = res && !res.error && Array.isArray(res.data) && res.data.length === 1 && res.data[0].role === 'banned';
+    if (!ok) {
+      showProfileToast({title:'Nicht gesperrt',
+        body:(res && res.error && res.error.message) || 'Der Server hat die Änderung nicht übernommen. Es wurde nichts geändert.',
+        kind:'error', duration:8000});
+      return;
+    }
+    var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
+    log.unshift({ ts: new Date().toISOString(), admin: gsStore.get('gs_sb_email', null),
+      target: targetEmail, action: 'ban', level: 'banned', note: 'Gesperrt durch Admin' });
+    gsStore.set('gs_admin_log', JSON.stringify(log.slice(0,200)));
+    closeModal('modal-recipe-detail');
+    showProfileToast('🚫 ' + targetEmail + ' wurde gesperrt.');
+  } catch (e) {
+    showProfileToast({title:'Fehler', body:(e && e.message) || 'Unbekannt — es wurde nichts geändert.', kind:'error'});
+  }
 }
 
+// ── v31.95: „vergeben" hiess bisher „in mein eigenes Geraet geschrieben" ──
+//
+// Hier stand ein Kommentar, der den Fehler benannte und stehen blieb:
+// „Ueber Supabase RPC oder direkt (vereinfacht: localStorage + API)". Das
+// „vereinfacht" war das ganze Problem — geschrieben wurde NUR das lokale
+// Admin-Log, und danach meldete die Funktion „✅ Status … vergeben".
+// Der Nutzer bekam nichts, ein zweiter Admin sah nichts, und beim naechsten
+// Leeren des Browsers war auch das Log weg.
+//
+// `profiles` erlaubt einem Admin das Schreiben (RLS: profiles_update ist
+// `fn_is_role('admin') OR auth.uid() = id`), und die Spalten dafuer sind
+// da: role, role_note, role_assigned_at, role_assigned_by. Also: schreiben,
+// und Erfolg NUR nach einer Antwort ohne Fehler melden.
 async function gsAdminSetExpertLevel(targetEmail) {
   if (!gsIsAdmin()) return;
   var sel = document.getElementById('admin-expert-select');
@@ -69609,27 +69720,53 @@ async function gsAdminSetExpertLevel(targetEmail) {
   if (!sel) return;
   var newLevel = sel.value;
   var noteText = reason ? reason.value.trim() : '';
+  var labelOf = function (r) { return (GS_ROLE_BADGES[r] || {}).label || r; };
 
-  // In Supabase speichern
+  if (typeof sbFetch !== 'function') { showProfileToast('Keine Verbindung zum Server.'); return; }
+  if (!gsStore.get('gs_sb_token', null)) { showProfileToast('Nicht eingeloggt.'); return; }
+  if (GS_ROLE_HIERARCHY.indexOf(newLevel) < 0) { showProfileToast('Unbekannte Rolle.'); return; }
+  if (newLevel === 'admin' &&
+      !(await gsConfirmModal(targetEmail + ' zum ADMIN machen? Damit kann diese Person Rollen aller Nutzer ändern.'))) return;
+
   try {
-    var token = gsStore.get('gs_sb_token', null);
-    if (!token) { showProfileToast('Nicht eingeloggt.'); return; }
-    // Über Supabase RPC oder direkt (vereinfacht: localStorage + API)
-    // Admin-Log lokal speichern
-    var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
-    log.unshift({
-      ts: new Date().toISOString(),
-      admin: gsStore.get('gs_sb_email', null),
-      target: targetEmail,
-      action: 'set_expert_level',
-      level: newLevel,
-      note: noteText
+    // Erst die id holen — die Rolle wird ueber die id gesetzt, nicht ueber
+    // die Adresse: eine PATCH-Bedingung auf einer Adresse trifft im
+    // Zweifel mehrere Zeilen, eine auf der id genau eine.
+    var f = await sbFetch('/rest/v1/profiles?select=id,role&limit=2&email=eq.' + encodeURIComponent(targetEmail), { method: 'GET' });
+    var rows = (f && Array.isArray(f.data)) ? f.data : [];
+    if (f && f.error) { showProfileToast({title:'Nicht gefunden', body:'Profil konnte nicht gelesen werden: ' + (f.error.message||''), kind:'error', duration:6000}); return; }
+    if (!rows.length) { showProfileToast({title:'Kein Profil', body:'Zu ' + targetEmail + ' gibt es kein Profil.', kind:'error'}); return; }
+    if (rows.length > 1) { showProfileToast({title:'Mehrdeutig', body:'Zu dieser Adresse gibt es mehrere Profile — bitte im Dashboard prüfen.', kind:'error', duration:7000}); return; }
+
+    var res = await sbFetch('/rest/v1/profiles?id=eq.' + encodeURIComponent(rows[0].id), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+      body: JSON.stringify({
+        role: newLevel,
+        role_note: noteText || null,
+        role_assigned_at: new Date().toISOString(),
+        role_assigned_by: gsStore.get('gs_sb_uid', null) || null,
+        is_expert: GS_ROLE_HIERARCHY.indexOf(newLevel) >= GS_ROLE_HIERARCHY.indexOf('expert'),
+      })
     });
+    // Eine leere Antwort ist KEIN Erfolg: PostgREST liefert bei einer von
+    // RLS abgewiesenen Zeile 0 Datensaetze und keinen Fehler.
+    var ok = res && !res.error && Array.isArray(res.data) && res.data.length === 1 && res.data[0].role === newLevel;
+    if (!ok) {
+      showProfileToast({ title:'Nicht vergeben',
+        body:(res && res.error && res.error.message) || 'Der Server hat die Änderung nicht übernommen (fehlende Berechtigung?). Es wurde nichts geändert.',
+        kind:'error', duration:8000 });
+      return;
+    }
+
+    var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
+    log.unshift({ ts: new Date().toISOString(), admin: gsStore.get('gs_sb_email', null),
+                  target: targetEmail, action: 'set_role', level: newLevel, note: noteText });
     gsStore.set('gs_admin_log', JSON.stringify(log.slice(0,200)));
     closeModal('modal-recipe-detail');
-    showProfileToast('✅ Status "' + (GS_EXPERT_LEVELS[newLevel]||{label:newLevel}).label + '" an ' + targetEmail + ' vergeben.');
+    showProfileToast('✅ Rolle „' + labelOf(newLevel) + '" an ' + targetEmail + ' vergeben.');
   } catch(e) {
-    showProfileToast('Fehler: ' + e.message);
+    showProfileToast({title:'Fehler', body:(e && e.message) || 'Unbekannt — es wurde nichts geändert.', kind:'error'});
   }
 }
 
@@ -69649,12 +69786,39 @@ function gsHasBiography(profile) {
 }
 
 // Experten-Antrag stellen
+// v31.95: Ein Helfer statt vier gleichlautender ungesicherter Ketten.
+// Er setzt den Titel, blendet ihn aus, wenn keiner gebraucht wird, und
+// bricht nicht ab, wenn das Element eines Tages wieder verschwindet — ein
+// fehlender Titel darf nie verhindern, dass ein Fenster aufgeht.
+function gsSetModalTitel(modalId, text) {
+  try {
+    var m = document.getElementById(modalId);
+    var el = m && m.querySelector('.modal-title');
+    if (!el) return false;
+    el.textContent = text || '';
+    el.style.display = text ? '' : 'none';
+    return true;
+  } catch (_) { return false; }
+}
+window.gsSetModalTitel = gsSetModalTitel;
+
 function gsOpenExpertApplication() {
   if (!_sbProfile) { showProfileToast('Bitte zuerst einloggen.'); return; }
   if (gsIsAdmin()) { showProfileToast('Admins sind automatisch verifiziert.'); return; }
 
+  // v31.95: vorausgefuellt wird aus dem Beleg des letzten Antrags. Vorher
+  // stand hier `_sbProfile.biography` / `.diplomas` — zwei Felder, die es in
+  // `profiles` nicht gibt, also immer leer.
+  var _ea = {};
+  try { _ea = JSON.parse(localStorage.getItem('gs_expert_application') || '{}') || {}; } catch (_) {}
+
   var html =
     '<div style="padding:16px;">' +
+    (_ea.status === 'submitted' && _ea.ts
+      ? '<div style="background:var(--bg-warn-soft);border-radius:var(--r-md);padding:12px;margin-bottom:14px;font-size:var(--fs-sm);color:var(--c-warn-d);">' +
+        '⏳ Du hast am ' + escHtml(new Date(_ea.ts).toLocaleDateString('de-CH')) + ' schon einen Antrag übermittelt. ' +
+        'Ein neuer ersetzt ihn nicht, sondern kommt dazu.</div>'
+      : '') +
     '<div style="background:var(--bg-success-soft);border-radius:var(--r-md);padding:12px;margin-bottom:14px;">' +
     '<p style="font-size:var(--fs-md);color:#1a3d1a;margin:0;line-height:1.6;">' +
     '✅ Der <strong>grüne Haken</strong> zeigt dass du ein verifizierter Natur-Experte bist. ' +
@@ -69662,11 +69826,11 @@ function gsOpenExpertApplication() {
     '<label style="font-size:var(--fs-sm);font-weight:700;color:#1a3d1a;display:block;margin-bottom:6px;">Biografie (mind. 30 Zeichen):</label>' +
     '<textarea id="exp-bio" rows="4" style="width:100%;padding:8px;border-radius:var(--r-sm);border:1.5px solid #c8e6c9;font-size:var(--fs-md);font-family:inherit;box-sizing:border-box;margin-bottom:12px;" ' +
     'placeholder="z.B. Botaniker seit 15 Jahren, Interesse an Pilzkunde der Alpen…">' +
-    ((_sbProfile && _sbProfile.biography)||'') + '</textarea>' +
+    escHtml(_ea.biography || '') + '</textarea>' +
     '<label style="font-size:var(--fs-sm);font-weight:700;color:#1a3d1a;display:block;margin-bottom:6px;">Diplome / Ausbildungen:</label>' +
     '<textarea id="exp-dips" rows="3" style="width:100%;padding:8px;border-radius:var(--r-sm);border:1.5px solid #c8e6c9;font-size:var(--fs-md);font-family:inherit;box-sizing:border-box;margin-bottom:16px;" ' +
     'placeholder="z.B. Dipl. Biologe Uni Zürich 2010 · VAPKO-Pilzkontrolleur seit 2015">' +
-    ((_sbProfile && _sbProfile.diplomas)||'') + '</textarea>' +
+    escHtml(_ea.diplomas || '') + '</textarea>' +
     '<div style="background:var(--bg-warn-soft);border-radius:var(--r-sm);padding:10px;margin-bottom:14px;font-size:var(--fs-sm);color:#8b4513;">' +
     '⚠️ <strong>Hinweis:</strong> Der Experten-Status berechtigt NICHT zum Beitritt ins GreenScan-Team. Er ist ein persönliches Qualifikationsmerkmal.' +
     '</div>' +
@@ -69674,28 +69838,71 @@ function gsOpenExpertApplication() {
     '</div>';
 
   document.getElementById('recipe-detail-body').innerHTML = html;
-  document.getElementById('modal-recipe-detail').querySelector('.modal-title').textContent = '🎓 Experten-Antrag';
+  gsSetModalTitel('modal-recipe-detail', '🎓 Experten-Antrag');
   openModal('modal-recipe-detail');
 }
 
+// ── v31.95: DIESER ANTRAG WURDE NIE EINGEREICHT ──────────────────────────
+//
+// Die Funktion schrieb Biografie und Diplome in den localStorage DES EIGENEN
+// GERAETS und meldete dann woertlich: „✅ Antrag eingereicht! Admins pruefen
+// ihn. Du wirst per E-Mail benachrichtigt." Nichts davon konnte stimmen —
+// kein Admin konnte den Antrag je sehen, keine E-Mail konnte je kommen, und
+// beim Leeren der Browserdaten war er weg.
+//
+// Dazu schrieb sie `_sbProfile.biography` und `.diplomas`: zwei Felder, die
+// es in `profiles` gar nicht gibt (an der Datenbank nachgesehen — es gibt
+// `bio`, sonst nichts). Auch das Vorausfuellen des Formulars lief also
+// immer ins Leere.
+//
+// Eingereicht wird jetzt in `feedback_items` — die Tabelle gibt es, ihre
+// RLS erlaubt genau das (INSERT mit eigener user_id, SELECT fuer Staff
+// aufwaerts), und sie hat den Bearbeitungs-Ablauf schon eingebaut.
 async function gsSubmitExpertApplication() {
   var bio = (document.getElementById('exp-bio') || {}).value || '';
   var dips = (document.getElementById('exp-dips') || {}).value || '';
   if (bio.trim().length < 30) { showProfileToast('Biografie mindestens 30 Zeichen.'); return; }
   if (dips.trim().length < 5) { showProfileToast('Bitte Diplome / Ausbildungen angeben.'); return; }
 
-  // Lokal speichern
-  if (_sbProfile) { _sbProfile.biography = bio; _sbProfile.diplomas = dips; }
-  localStorage.setItem('gs_expert_application', JSON.stringify({
-    ts: new Date().toISOString(),
-    email: gsStore.get('gs_sb_email', null),
-    biography: bio,
-    diplomas: dips,
-    status: 'pending'
-  }));
+  var uid = gsStore.get('gs_sb_uid', null);
+  if (typeof sbFetch !== 'function' || !uid) {
+    showProfileToast({title:'Nicht übermittelt', body:'Dafür musst du angemeldet sein — sonst weiss niemand, wessen Antrag es ist.', kind:'error', duration:6000});
+    return;
+  }
+  var btn = document.querySelector('[onclick="gsSubmitExpertApplication()"]');
+  if (btn) { btn.disabled = true; btn.textContent = '… wird übermittelt'; }
 
+  var res = await sbFetch('/rest/v1/feedback_items', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+    body: JSON.stringify({
+      user_id: uid,
+      kind: 'expert_application',
+      content: bio.trim(),
+      app_version: (typeof GS_VERSION === 'string') ? GS_VERSION : '',
+      // Die Adresse steht NICHT dabei: `user_id` fuehrt zum Profil, eine
+      // Kopie waere nur eine zweite Stelle mit denselben Personendaten.
+      context: { diplomas: dips.trim() }
+    })
+  });
+  var ok = res && !res.error && Array.isArray(res.data) && res.data.length === 1;
+  if (btn) { btn.disabled = false; btn.textContent = '📤 Antrag einreichen'; }
+  if (!ok) {
+    showProfileToast({ title:'Antrag NICHT übermittelt',
+      body:(res && res.error && res.error.message) || 'Der Server hat den Antrag nicht angenommen. Bitte später nochmals versuchen — es ist nichts verloren gegangen.',
+      kind:'error', duration:8000 });
+    return;
+  }
+
+  // Erst JETZT lokal merken, und nur als Beleg: Datum und Zustand. Der Text
+  // bleibt dabei, damit das Formular beim naechsten Oeffnen vorausgefuellt
+  // ist — bisher versuchte es das aus zwei Feldern, die es nie gab.
+  localStorage.setItem('gs_expert_application', JSON.stringify({
+    ts: new Date().toISOString(), id: res.data[0].id,
+    biography: bio.trim(), diplomas: dips.trim(), status: 'submitted'
+  }));
   closeModal('modal-recipe-detail');
-  showProfileToast('✅ Antrag eingereicht! Admins prüfen ihn. Du wirst per E-Mail benachrichtigt.');
+  showProfileToast({title:'✅ Antrag übermittelt', body:'Er liegt jetzt beim Team. Der Experten-Status wird von Hand vergeben — das kann ein paar Tage dauern.', duration:7000});
 }
 
 // Platzhalter: {{VORNAME}}, {{VERSION}}, {{RESET_LINK}},
