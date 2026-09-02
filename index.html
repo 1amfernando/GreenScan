@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.13.20260902">
+<meta name="app-version" content="32.14.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -70961,6 +70961,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.14', date: '02.09.2026',
+    headline: '\ud83d\uddd1\ufe0f Das Aufr\u00e4umen l\u00f6schte, was es h\u00e4tte hochladen sollen',
+    summary: 'Zwei Sicherheitsnetze der App wurden von einer einzigen Schleife geleert: die Warteschlange f\u00fcr offline aufgenommene Fotos und das Archiv gek\u00fcrzter Eintr\u00e4ge. Beides lautlos, beides bei jedem Start. Gemessen: 1 Foto eingereiht \u2192 0 \u00fcbrig, 2 Eintr\u00e4ge archiviert \u2192 0 \u00fcbrig.',
+    user_summary: '\ud83d\uddd1\ufe0f Ein Foto, das du ohne Empfang aufgenommen hast, wurde beim n\u00e4chsten Start gel\u00f6scht \u2014 bevor es je hochgeladen wurde. Behoben.',
+    user_items: [
+      {emoji:'\ud83d\udcf7', bold:'Offline aufgenommene Fotos:', text:' Sie warten in einer eigenen Warteschlange, bis wieder Empfang da ist. Das allgemeine Aufr\u00e4umen lief aber auch \u00fcber diese Warteschlange \u2014 und war 600 Millisekunden schneller als der Upload. Das Foto war weg, und im Eintrag stand ein Platzhalter, der auf nichts mehr zeigte.'},
+      {emoji:'\ud83d\uddc4\ufe0f', bold:'Das Archiv gek\u00fcrzter Eintr\u00e4ge:', text:' Wenn eine lange Liste gek\u00fcrzt wird (Gartentagebuch, Pflege-Historie, Gartenpl\u00e4ne, GPX-Tracks), wandert das Abgeschnittene seit v31.08 in ein Archiv statt ins Nichts. Dieses Archiv wurde 3,5 Sekunden nach jedem Start geleert \u2014 und meldete danach brav \u201eist leer\u201c.'},
+      {emoji:'\u2705', bold:'Die Reparatur:', text:' Das allgemeine Aufr\u00e4umen fasst nur noch die Ablagen an, f\u00fcr die es zust\u00e4ndig ist. Fotos haben ihren eigenen Upload, das Archiv r\u00e4umt niemand.'},
+      {emoji:'\ud83e\uddea', bold:'Und vier neue Pr\u00fcffragen:', text:' Sie reihen wirklich ein Foto und zwei Archiv-Eintr\u00e4ge ein, r\u00e4umen auf und z\u00e4hlen nach \u2014 und pr\u00fcfen danach, dass das Foto auch wirklich ankommt. Ein Eintrag, der nur liegen bleibt, ist noch nicht gerettet.'},
+    ],
+  },
+  {
     v: 'v32.13', date: '02.09.2026',
     headline: '\ud83d\udcf4 Ohne Empfang standen 0 von 4\u2019342 Arten zur Verf\u00fcgung',
     summary: 'Die Artenliste wurde beim Installieren brav vorgeladen \u2014 und danach hat sie niemand mehr dort gesucht. Wer die App installierte und ohne Netz \u00f6ffnete, bekam eine App, die startete, aber keine einzige Art kannte. Behoben, und ein neuer Pr\u00fcfstand h\u00e4lt es fest.',
@@ -71288,7 +71300,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.13';
+var GS_VERSION = 'v32.14';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -73565,7 +73577,38 @@ function gsRegisterServiceWorker() {
   // also sauber nach.
   var DB_VERSION = 3;
   // v31.08: `dropped_entries` — Archiv fuer Eintraege, die einem Listen-Deckel zum Opfer fielen.
+  //
+  // `STORES` ist die Liste der Ablagen, die `_open()` anlegen muss — sie ist
+  // vollstaendig und muss es bleiben.
   var STORES = ['pending_scans', 'pending_diary', 'pending_sync', 'pending_photos', 'dropped_entries'];
+
+  // ══ v32.14 · WER RAEUMT WAS ═══════════════════════════════════════════════
+  //
+  // Nicht dasselbe. `gsFlushOfflineQueue` lief bis v32.13 ueber `STORES` — also
+  // ueber ALLE fuenf — und loeschte jeden Eintrag, den es nicht einordnen
+  // konnte. Genau das traf die zwei, die es nicht anfassen darf:
+  //
+  //   `pending_photos`  hat einen EIGENEN Flush (`gsFlushPhotoQueue`) mit
+  //                     Upload und Versuchszaehler. Die Saetze tragen kein
+  //                     `type` → sie fielen in den generischen Zweig, bekamen
+  //                     `ok = true` und waren weg. Und zwar VOR dem eigenen
+  //                     Flush: beim Wiederverbinden laeuft dieser hier nach
+  //                     800 ms, jener nach 1400; beim Start 3500 gegen 4200.
+  //                     Jedes offline eingereihte Foto wurde also geloescht,
+  //                     bevor es je hochgeladen wurde — und der Platzhalter
+  //                     `gsphoto://<id>` in den Nutzerdaten zeigte danach ins
+  //                     Leere.
+  //   `dropped_entries` ist ein ARCHIV. Es raeumt niemand ausser dem Deckel in
+  //                     `gsArchiveDropped` selbst. Es wurde 3,5 Sekunden nach
+  //                     jedem Start geleert; `gsArchiveCount()` meldete danach
+  //                     0 und der Export sagte „Archiv ist leer".
+  //
+  // Gemessen mit `scripts/offline_check.js`: 1 Foto eingereiht → 0 uebrig,
+  // 2 Eintraege archiviert → 0 uebrig. Beides lautlos.
+  //
+  // Wer eine neue Ablage anlegt, traegt sie in `STORES` ein — und NUR dann
+  // zusaetzlich hier, wenn dieser Flush sie auch uebertragen kann.
+  var SYNC_STORES = ['pending_scans', 'pending_diary', 'pending_sync'];
 
   function _open(){
     return new Promise(function(resolve, reject){
@@ -73879,8 +73922,8 @@ function gsRegisterServiceWorker() {
     window._gsFlushing = true;
     try {
       var db = await _open();
-      for (var i = 0; i < STORES.length; i++) {
-        var storeName = STORES[i];
+      for (var i = 0; i < SYNC_STORES.length; i++) {
+        var storeName = SYNC_STORES[i];
         var tx = db.transaction(storeName, 'readwrite');
         var store = tx.objectStore(storeName);
         var items = await new Promise(function(r,j){

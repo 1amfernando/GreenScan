@@ -20,6 +20,8 @@
  *      verdrängen Caches einzeln, und der Shell-Cache ist der, der
  *      überleben soll.)
  *   5. Liegt dieselbe Datei doppelt auf dem Gerät?
+ *   6-9. Überlebt, was offline eingereiht wurde, das Aufräumen danach —
+ *        und kommt es beim zuständigen Flush auch wirklich an?
  *
  * Warum ein eigener HTTP-Server: ein Service Worker braucht einen sicheren
  * Kontext. `file://` ist keiner, `http://127.0.0.1` schon — deshalb 30
@@ -42,7 +44,7 @@ const TYPEN = {
   '.xml': 'application/xml',
 };
 
-function server() {
+function server(wunschPort) {
   return new Promise((fertig) => {
     const s = http.createServer((req, res) => {
       let p = decodeURIComponent(req.url.split('?')[0]);
@@ -58,7 +60,7 @@ function server() {
       });
       fs.createReadStream(datei).pipe(res);
     });
-    s.listen(0, '127.0.0.1', () => fertig({ s, port: s.address().port }));
+    s.listen(wunschPort || 0, '127.0.0.1', () => fertig({ s, port: s.address().port }));
   });
 }
 
@@ -197,8 +199,109 @@ function server() {
             '  (vorgeladen im Shell-Cache, aber nicht von dort ausgeliefert)'
           : 'alle drei aus dem Shell-Cache bedient');
 
+  // ── 6-8 · Die Warteschlange: überlebt, was offline eingereiht wurde? ──
+  //
+  // Das zweite Versprechen dieser App an einen Ort ohne Empfang: „📵 Offline
+  // gespeichert — wird beim nächsten Online übertragen." Wer das sagt, muss
+  // es halten; ein Fund, der beim Aufräumen verschwindet, ist schlimmer als
+  // einer, der gar nicht erst angenommen wird.
+  //
+  // Drei Ablagen, drei Zuständigkeiten:
+  //   `pending_scans/diary/sync` → gsFlushOfflineQueue (überträgt)
+  //   `pending_photos`           → gsFlushPhotoQueue   (lädt hoch, zählt Versuche)
+  //   `dropped_entries`          → NIEMAND (Archiv, v31.08, nur lesen)
+  await ctx.setOffline(false);
+  // Denselben Port zurueckfordern: ein anderer waere ein anderer URSPRUNG, und
+  // damit eine andere IndexedDB. Der Fall waere dann ein anderer als der echte.
+  const { s: s3 } = await server(port);
+  await p.goto(basis + '/index.html', { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await p.waitForTimeout(3000);
+
+  const q = await p.evaluate(async () => {
+    const zaehle = (store) => new Promise((fertig) => {
+      const rq = indexedDB.open('gs_offline', 3);
+      rq.onsuccess = () => {
+        try {
+          const db = rq.result;
+          const c = db.transaction(store, 'readonly').objectStore(store).count();
+          c.onsuccess = () => fertig(c.result);
+          c.onerror = () => fertig(-1);
+        } catch (e) { fertig(-1); }
+      };
+      rq.onerror = () => fertig(-1);
+    });
+    // Damit der Scan-Weg nicht am fehlenden Netz scheitert: er soll gelingen,
+    // dann MUSS sein Eintrag verschwinden — das ist die Gegenprobe dazu, dass
+    // der Flush ueberhaupt noch etwas tut.
+    window.gsScanPersistToCloud = async () => true;
+
+    const ref = await window.gsQueuePhoto('scans', 'AAAA', { kind: 'find', ref: 'test-1' });
+    const arch = await window.gsArchiveDropped('gs_gartentagebuch', [{ a: 1 }, { a: 2 }]);
+    await window.gsQueueOffline('scan', { name: 'Bärlauch' });
+
+    const vor = { fotos: await zaehle('pending_photos'), archiv: await zaehle('dropped_entries'), scans: await zaehle('pending_scans') };
+    await window.gsFlushOfflineQueue();
+    await new Promise(r => setTimeout(r, 600));
+    const nach = { fotos: await zaehle('pending_photos'), archiv: await zaehle('dropped_entries'), scans: await zaehle('pending_scans') };
+    return { ref: ref, arch: arch, vor: vor, nach: nach, archivZaehler: await window.gsArchiveCount() };
+  });
+  s3.close();
+
+  // Die Gegenprobe zu den beiden darunter: der Flush MUSS noch etwas tun.
+  // Ohne diesen Fall waeren sie auch dann gruen, wenn man ihn ganz entfernt.
+  const scanOk = q.vor.scans >= 1 && q.nach.scans === 0;
+  melde('Der Flush räumt seine eigenen Ablagen — der übertragene Scan geht raus', scanOk,
+        scanOk ? q.vor.scans + ' eingereiht → 0 übrig'
+          : (q.vor.scans < 1 ? 'der Scan wurde gar nicht erst eingereiht — dann prüft der Rest nichts'
+                             : 'der übertragene Scan bleibt liegen (' + q.nach.scans + ')'));
+
+  const fotoOk = q.vor.fotos >= 1 && q.nach.fotos === q.vor.fotos;
+  melde('Ein offline eingereihtes Foto überlebt den Flush', fotoOk,
+        fotoOk ? q.vor.fotos + ' Foto in der Warteschlange, ' + q.nach.fotos + ' danach — bleibt für gsFlushPhotoQueue'
+          : (q.vor.fotos < 1 ? 'das Foto wurde nicht eingereiht (' + q.ref + ')'
+             : 'von ' + q.vor.fotos + ' Foto(s) sind nach dem Flush ' + q.nach.fotos + ' übrig — gelöscht, bevor sie je hochgeladen wurden; der Platzhalter ' + q.ref + ' zeigt danach ins Leere'));
+
+  const archOk = q.arch === 2 && q.nach.archiv >= 2 && q.archivZaehler >= 2;
+  melde('Das Archiv gekürzter Einträge überlebt den Flush', archOk,
+        archOk ? q.nach.archiv + ' archivierte Einträge unangetastet (gsArchiveCount: ' + q.archivZaehler + ')'
+          : (q.arch !== 2 ? 'es wurde gar nicht archiviert (' + q.arch + ')'
+             : 'von ' + q.vor.archiv + ' archivierten Einträgen sind ' + q.nach.archiv + ' übrig (gsArchiveCount meldet ' + q.archivZaehler + ') — das Sicherheitsnetz aus v31.08 wird bei jedem Start geleert'));
+
+  // ── 9 · Und kommt es danach auch wirklich an? ────────────────────────
+  //
+  // Ohne diese Frage prueft die vorige nur, dass ein Eintrag LIEGEN BLEIBT —
+  // und das taete er auch, wenn ihn nie jemand abholte. Der zustaendige Flush
+  // muss ihn hochladen UND danach entfernen.
+  const { s: s4 } = await server(port);
+  const foto = await p.evaluate(async () => {
+    const zaehle = () => new Promise((fertig) => {
+      const rq = indexedDB.open('gs_offline', 3);
+      rq.onsuccess = () => {
+        try {
+          const c = rq.result.transaction('pending_photos', 'readonly').objectStore('pending_photos').count();
+          c.onsuccess = () => fertig(c.result); c.onerror = () => fertig(-1);
+        } catch (e) { fertig(-1); }
+      };
+      rq.onerror = () => fertig(-1);
+    });
+    const hoch = [];
+    window.sbIsLoggedIn = () => true;
+    window.gsUploadImage = async (b64, bucket, ext, key) => { hoch.push(bucket + '/' + key); return 'https://x/' + key + '.jpg'; };
+    const vor = await zaehle();
+    const done = await window.gsFlushPhotoQueue();
+    await new Promise(r => setTimeout(r, 400));
+    return { vor: vor, nach: await zaehle(), hoch: hoch, done: done };
+  });
+  s4.close();
+  const fq = foto.vor >= 1 && foto.hoch.length >= 1 && foto.nach === 0;
+  melde('Der Foto-Flush lädt das Wartende hoch und räumt erst dann', fq,
+        fq ? foto.hoch.length + '× hochgeladen (' + foto.hoch[0] + '), Warteschlange danach leer'
+          : (foto.vor < 1 ? 'nichts in der Warteschlange — dann prüft dieser Fall nichts'
+             : (foto.hoch.length ? 'hochgeladen, aber ' + foto.nach + ' bleiben liegen'
+                                 : 'kein einziger Upload versucht (' + foto.vor + ' warteten)')));
+
   console.log('  ---');
-  console.log('  Fragen geprueft: 5 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 9 · davon rot: ' + kaputt);
   console.log('  JS-Fehler im Offline-Start: ' + (fehler.length ? fehler.length + ' (' + fehler.slice(0, 2).join(' | ') + ')' : 'keine'));
   await br.close();
   process.exitCode = (kaputt || fehler.length) ? 1 : 0;

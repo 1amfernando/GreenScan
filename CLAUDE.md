@@ -751,6 +751,30 @@ Nichts stuerzte ab; die Liste war einfach leer.
   doppelt (Artenliste, Leaflet, Three.js). Dieselbe Lehre wie beim
   Ausserhalb-des-Bildschirms-Fall in v32.07.
 
+**Seit v32.14 prueft er auch die WARTESCHLANGE** — das zweite Versprechen an
+einen Ort ohne Empfang: „📵 Offline gespeichert, wird beim naechsten Online
+uebertragen." Drei Ablagen, drei Zustaendigkeiten, und die duerfen sich nicht
+vermischen:
+
+| Ablage | Wer raeumt sie |
+|---|---|
+| `pending_scans` · `pending_diary` · `pending_sync` | `gsFlushOfflineQueue` |
+| `pending_photos` | `gsFlushPhotoQueue` (laedt hoch, zaehlt Versuche) |
+| `dropped_entries` | **niemand** — Archiv (v31.08), nur lesen |
+
+`gsFlushOfflineQueue` lief bis v32.13 ueber `STORES` (alle fuenf) und loeschte
+jeden Satz, den es nicht einordnen konnte. Gemessen: **1 Foto eingereiht → 0
+uebrig, 2 Eintraege archiviert → 0 uebrig.** Beides lautlos, beides bei jedem
+Start, und der falsche Flush war immer 600 ms schneller als der richtige.
+
+**Wer eine neue Ablage anlegt, traegt sie in `STORES` ein — und nur dann
+zusaetzlich in `SYNC_STORES`, wenn dieser Flush sie auch uebertragen kann.**
+
+Und die Regel dahinter, die ueber IndexedDB hinausgeht: **eine Schleife ueber
+„alles" ist eine Annahme ueber Zustaendigkeit.** Sie stimmt so lange, bis
+jemand eine Ablage dazulegt, die anders funktioniert — und dann faellt es
+niemandem auf, weil Loeschen keine Fehlermeldung erzeugt.
+
 **Seit v31.78 misst `contrast_check` in ZWEI Fenstern** — KI-Planer und
 Blühkalender — und der Bericht nennt **je Fenster die Zahl der vermessenen
 Textstellen**. Ohne diese Zahl sieht ein Fenster, das gar nicht aufging,

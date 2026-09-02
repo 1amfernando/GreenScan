@@ -12,6 +12,73 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-02 (da) — v32.14: das Aufräumen löschte, was es hätte hochladen sollen
+
+Direkt aus dem Prüfstand von v32.13 heraus gefunden. Beim Lesen von
+`gsFlushOfflineQueue` fiel eine Zeile auf, die zu weit greift:
+
+```js
+for (var i = 0; i < STORES.length; i++) {        // ← ALLE fünf Ablagen
+```
+
+`STORES` ist die Liste der Ablagen, die `_open()` **anlegen** muss. Zwei davon
+gehören diesem Flush aber gar nicht:
+
+| Ablage | Zuständig | Was geschah |
+|---|---|---|
+| `pending_photos` | `gsFlushPhotoQueue` (Upload, Versuchszähler) | gelöscht, bevor je hochgeladen |
+| `dropped_entries` | **niemand** — Archiv aus v31.08 | 3,5 s nach jedem Start geleert |
+
+Beide Satzarten tragen kein `type`-Feld. Sie fielen deshalb in den generischen
+Zweig, bekamen `ok = true` und wurden entfernt.
+
+**Und die Reihenfolge machte es sicher, nicht zufällig:**
+
+- Wieder online: `gsFlushOfflineQueue` nach **800 ms**, `gsFlushPhotoQueue`
+  nach **1400 ms**.
+- Beim Start: **3500 ms** gegen **4200 ms**.
+
+Der falsche Flush war also immer 600 Millisekunden schneller. Wer ohne Empfang
+ein Foto aufnahm, verlor es beim nächsten Start — und im Eintrag blieb ein
+`gsphoto://<id>`, das auf nichts mehr zeigte.
+
+Beim Archiv war es noch stiller: es ist das Sicherheitsnetz für gekürzte
+Listen (Gartentagebuch, Pflege-Historie, Gartenpläne, GPX-Tracks), gebaut in
+v31.08 mit genau der Begründung, dass nichts mehr lautlos verschwinden soll.
+Danach meldete `gsArchiveCount()` **0** und der Export sagte „Archiv ist leer".
+
+#### Gemessen, nicht vermutet
+
+`offline_check` reiht wirklich ein Foto und zwei Archiv-Einträge ein, räumt
+auf und zählt nach:
+
+```
+!!   Ein offline eingereihtes Foto überlebt den Flush
+       → von 1 Foto(s) sind nach dem Flush 0 übrig
+!!   Das Archiv gekürzter Einträge überlebt den Flush
+       → von 2 archivierten Einträgen sind 0 übrig (gsArchiveCount meldet 0)
+```
+
+#### Die Reparatur
+
+`SYNC_STORES = ['pending_scans', 'pending_diary', 'pending_sync']` — der Flush
+läuft nur noch über die drei, die er auch übertragen kann. `STORES` bleibt
+vollständig, weil `_open()` es braucht.
+
+#### Und eine Frage, ohne die die anderen zwei wertlos wären
+
+Dass ein Foto den Flush **überlebt**, heisst noch nicht, dass es je ankommt —
+liegen bleiben täte es auch, wenn niemand es abholte. Also eine neunte Frage:
+`gsFlushPhotoQueue` mit gestelltem `gsUploadImage` laufen lassen und prüfen,
+dass es **hochlädt und erst dann räumt**. Ergebnis: `1× hochgeladen
+(scans/find:test-1), Warteschlange danach leer`.
+
+Dazu die Gegenprobe in die andere Richtung: ein übertragener Scan **muss**
+verschwinden (`1 eingereiht → 0 übrig`). Ohne den wären die zwei neuen Fragen
+auch dann grün, wenn man den Flush ganz entfernte.
+
+`offline_check`: **9 Fragen, 0 rot.**
+
 ### 2026-09-02 (cz) — v32.13: ohne Empfang standen 0 von 4'342 Arten zur Verfügung
 
 Der teuerste Fund dieser Woche, und er lag nicht im Code, den ich gerade
