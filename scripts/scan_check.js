@@ -27,6 +27,7 @@
 const path = require('path');
 const { chromium } = require(process.env.GS_PW || '/opt/node22/lib/node_modules/playwright');
 const SEED = require('./_seed.js');
+const { baueJpegMitExif } = require('./_exifjpeg.js');
 
 const FAELLE = [
   {
@@ -164,6 +165,103 @@ const FAELLE = [
       return { ok: true, info: 'keine Merkmale, keine erfundenen' };
     },
   },
+  // ── v32.00 · EXIF: das Foto weiss, wann und wo es entstand ─────────────
+  // Ein Binaer-Parser, der nie gegen echte Bytes gelaufen ist, ist eine
+  // Behauptung. Die Bytes entstehen in scripts/_exifjpeg.js.
+  {
+    name: 'EXIF · Datum und GPS werden aus echten Bytes gelesen',
+    lauf: async () => {
+      const bytes = window.__PRUEF_JPEG;
+      const buf = new Uint8Array(bytes).buffer;
+      const e = _gsExifLesen(buf);
+      if (!e) return { ok: false, warum: 'nichts gelesen' };
+      if (e.monat !== 7) return { ok: false, warum: 'Monat ' + e.monat + ', erwartet 7' };
+      if (!e.datum || e.datum.getFullYear() !== 2026 || e.datum.getDate() !== 14)
+        return { ok: false, warum: 'Datum falsch: ' + (e.datum && e.datum.toISOString()) };
+      if (e.lat == null || Math.abs(e.lat - 46.8182) > 0.01) return { ok: false, warum: 'Breite ' + e.lat + ', erwartet ~46.818' };
+      if (e.lng == null || Math.abs(e.lng - 8.2275) > 0.01) return { ok: false, warum: 'Länge ' + e.lng + ', erwartet ~8.227' };
+      return { ok: true, info: e.datum.toISOString().slice(0, 10) + ' · ' + e.lat.toFixed(3) + '/' + e.lng.toFixed(3) };
+    },
+  },
+  {
+    name: 'EXIF · Foto OHNE EXIF behauptet nichts',
+    lauf: () => {
+      // Ein nacktes JPEG: nur SOI und EOI.
+      const buf = new Uint8Array([0xFF, 0xD8, 0xFF, 0xD9]).buffer;
+      const e = _gsExifLesen(buf);
+      if (e) return { ok: false, warum: 'liefert Daten für ein Bild ohne EXIF: ' + JSON.stringify(e) };
+      return { ok: true, info: 'null, wie es sein soll' };
+    },
+  },
+  {
+    name: 'EXIF · kaputte Uhr (Datum in der Zukunft) wird verworfen',
+    lauf: () => {
+      const bytes = window.__PRUEF_JPEG_ZUKUNFT;
+      const e = _gsExifLesen(new Uint8Array(bytes).buffer);
+      if (e && e.datum) return { ok: false, warum: 'übernimmt ein Datum aus der Zukunft: ' + e.datum.toISOString() };
+      if (!e || e.lat == null) return { ok: false, warum: 'verwirft mit dem Datum auch das GPS' };
+      return { ok: true, info: 'Datum verworfen, GPS behalten' };
+    },
+  },
+  {
+    name: 'EXIF · der Auftragstext nennt Aufnahmedatum und Ort aus dem Foto',
+    lauf: () => {
+      window._gsScanExif = { datum: new Date(2026, 6, 14), monat: 7, lat: 46.8182, lng: 8.2275 };
+      const ctx = gsBuildScanContext();
+      const txt = gsFormatScanContext(ctx);
+      window._gsScanExif = null;
+      if (ctx.monthNum !== 7) return { ok: false, warum: 'Monat ' + ctx.monthNum + ' statt 7 — das Foto wird ignoriert' };
+      if (!/Juli/.test(txt)) return { ok: false, warum: 'Juli steht nicht im Auftragstext' };
+      if (!/Aufnahmedatum aus dem Foto/.test(txt)) return { ok: false, warum: 'die Herkunft des Datums wird nicht genannt' };
+      if (!/46\.818/.test(txt)) return { ok: false, warum: 'die Koordinaten aus dem Foto fehlen' };
+      if (!/Ort aus dem Foto/.test(txt)) return { ok: false, warum: 'die Herkunft des Orts wird nicht genannt' };
+      return { ok: true, info: txt.split('\n')[0].slice(0, 72) };
+    },
+  },
+  {
+    name: 'EXIF · ohne Foto-Datum gilt weiterhin heute',
+    lauf: () => {
+      window._gsScanExif = null;
+      const ctx = gsBuildScanContext();
+      const heute = new Date().getMonth() + 1;
+      if (ctx.monthNum !== heute) return { ok: false, warum: 'Monat ' + ctx.monthNum + ', erwartet ' + heute };
+      if (ctx.ausFoto) return { ok: false, warum: 'behauptet ein Aufnahmedatum, das es nicht gibt' };
+      return { ok: true, info: 'Monat ' + heute + ', keine Behauptung über das Foto' };
+    },
+  },
+  {
+    name: 'EXIF · S3 beurteilt nach dem Monat des FOTOS, nicht nach heute',
+    lauf: () => {
+      // Herbstzeitlose: Saison Aug–Okt. Im Juli aufgenommen → Widerspruch.
+      // Im September aufgenommen → kein Widerspruch. Der Prüfstand läuft
+      // heute im September, also zeigt der Unterschied, dass das Foto zählt.
+      const mach = monat => {
+        const r = { name: 'Herbstzeitlose', latin: 'Colchicum autumnale', confidence: 80,
+                    toxicity: 5, alternatives: [], _ctx: { monthNum: monat } };
+        return _gsScanPruefwerk(r, null).regeln.find(x => x.id === 'saison');
+      };
+      const juli = mach(7), september = mach(9);
+      if (!juli || juli.zustand !== 'warn') return { ok: false, warum: 'Juli gilt als passend für Aug–Okt' };
+      if (!september || september.zustand !== 'ok') return { ok: false, warum: 'September gilt NICHT als passend für Aug–Okt: ' + (september && september.zustand) };
+      return { ok: true, info: 'Juli → Vorbehalt, September → passt' };
+    },
+  },
+  {
+    name: 'EXIF · Anzeige: die Karte sagt, dass Datum und Ort aus dem Foto stammen',
+    lauf: () => {
+      const r = {
+        name: 'Bärlauch', latin: 'Allium ursinum', confidence: 90, edible: true, toxicity: 0,
+        alternatives: [], _ctx: { ausFoto: true, aufnahme: '2026-07-14', ortAusFoto: true, lat: '46.818', lng: '8.228', monthNum: 7 },
+      };
+      showScanResult(r);
+      const txt = (document.getElementById('scan-result') || {}).textContent || '';
+      if (!/Aus dem Foto gelesen/.test(txt)) return { ok: false, warum: 'die Karte fehlt' };
+      if (!/2026-07-14/.test(txt)) return { ok: false, warum: 'das Datum steht nicht da' };
+      if (!/46\.818/.test(txt)) return { ok: false, warum: 'der Ort steht nicht da' };
+      if (/undefined|NaN/.test(txt)) return { ok: false, warum: 'Platzhalter im Text' };
+      return { ok: true, info: (txt.match(/Dieses Bild wurde[^.]*\./) || ['gefunden'])[0].slice(0, 84) };
+    },
+  },
   {
     name: 'Drei Zustände · ohne Artenliste ist nichts „in Ordnung"',
     lauf: () => {
@@ -190,7 +288,9 @@ const FAELLE = [
   await p.addInitScript(SEED);
   await p.goto('file://' + path.resolve(__dirname, '..', 'index.html'), { waitUntil: 'domcontentloaded', timeout: 120000 });
   await p.waitForTimeout(4000);
-  await p.evaluate(() => {
+  await p.evaluate((jpegs) => {
+    window.__PRUEF_JPEG = jpegs.normal;
+    window.__PRUEF_JPEG_ZUKUNFT = jpegs.zukunft;
     document.documentElement.classList.remove('gs-preauth');
     window.gsRequire = () => true;
     window.gsToast = () => {}; window.showProfileToast = () => {};
@@ -198,6 +298,9 @@ const FAELLE = [
     window.gsScanPersistToCloud = () => Promise.resolve(true);
     window.gsAddToScanHistory = () => {};
     window.gsHaptic = () => {};
+  }, {
+    normal:  Array.from(baueJpegMitExif({ datum: '2026:07:14 09:33:12', lat: 46.8182, lng: 8.2275 })),
+    zukunft: Array.from(baueJpegMitExif({ datum: '2099:01:01 00:00:00', lat: 46.8182, lng: 8.2275 })),
   });
 
   console.log('\n=== scan_check — glaubt der Scanner der KI aufs Wort?');

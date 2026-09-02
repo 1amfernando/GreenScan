@@ -4,13 +4,60 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.99` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.00` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (cl) — v32.00: Scanner V3, Stufe 2 — das Foto weiss, wann und wo es entstand
+
+#### Der Fehler
+
+`gsBuildScanContext` nahm **immer** den heutigen Monat und den aktuellen
+Standort. Für ein Live-Foto stimmt das. Für ein Galeriefoto — seit v31.83 einer
+der Hauptwege in den Scanner — oft nicht: ein Bild vom Wanderurlaub im Juli, im
+September hochgeladen, ging mit „September" und dem Wohnort in den Auftrag.
+
+Doppelt teuer: die KI rechnete mit der falschen Jahreszeit **und** die neue
+Saison-Regel (S3, v31.99) meldete anschliessend einen Widerspruch, den es gar
+nicht gab.
+
+#### Gebaut
+
+- `_gsExifLesen(buf)` / `gsExifVonDatei(file)` — liest `DateTimeOriginal` und
+  die GPS-Tags. **Vor** dem Komprimieren: `gsCompressImage` zeichnet auf ein
+  Canvas, danach ist EXIF weg.
+- Ein Datum in der Zukunft oder vor 1990 ist eine kaputte Uhr, keine
+  Aufnahmezeit → verworfen, das GPS bleibt.
+- Kontext und Prüfwerk-Regel S3 nutzen den Monat des Fotos.
+- Der Auftragstext **nennt die Herkunft**: „Aufnahmedatum aus dem Foto:
+  2026-07-14", „Ort aus dem Foto, nicht der aktuelle Standort". Und die Karte
+  sagt es dem Nutzer ebenso — keine stille Korrektur.
+- Kein EXIF → wie bisher der heutige Tag, **ohne Behauptung**.
+
+#### Zwei Dinge, die der Prüfstand gefunden hat
+
+1. **Ein Binär-Parser, der nie gegen echte Bytes gelaufen ist, ist eine
+   Behauptung.** `scripts/_exifjpeg.js` baut jetzt ein echtes JPEG mit APP1,
+   TIFF-Kopf, Exif-IFD und GPS-IFD. Erst damit ist „liest EXIF" eine Aussage.
+2. **`gsSaisonMonate` liefert NULLBASIERTE Monate** (`[7,8,9]` = Aug/Sep/Okt).
+   Meine Regel S3 verglich einen einsbasierten — **jede Saison-Aussage war um
+   einen Monat verschoben, und zwar still.** Aufgefallen ist es nur, weil der
+   EXIF-Fall Juli gegen September stellte; im „guten" Fall war die Regel aus
+   der Behauptung ausgenommen und fiel deshalb nicht auf.
+
+   Die Stelle aus v31.98 (Blüten-Widget) ist geprüft und richtig — sie nutzt
+   `getMonth()`.
+
+#### Prüfstände
+
+`scan_check` **17/17** (vier EXIF-Fälle mehr: echte Bytes, ohne EXIF, kaputte
+Uhr, Auftragstext + Karte). Alle übrigen grün, `contrast_check` 0/0.
+
+---
 
 ### 2026-09-02 (ck) — v31.99: Scanner V3, Stufe 1 — der Scanner glaubt der KI nicht mehr aufs Wort
 
