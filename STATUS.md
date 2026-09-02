@@ -12,6 +12,97 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-02 (dc) — v32.16: 213 Stellen waren nur mit der Maus erreichbar
+
+Elf Prüfstände messen, ob die App **aussieht** wie gedacht, ob sie **rechnet**
+wie behauptet und ob sie **speichert**, was sie zusagt. Keiner fragte, ob man
+sie überhaupt bedienen kann, wenn man sie nicht sieht oder die Maus nicht
+benutzt. `a11y_check.js` ist der zwölfte.
+
+#### Was gut war — und deshalb genannt gehört
+
+`<html lang="de">` gesetzt · keine doppelten ids · **0** Knöpfe ohne Namen ·
+**0** Bilder ohne `alt` · **0** Knöpfe, deren einziger Name ein Emoji ist.
+Ein Prüfstand, der nur Fehler zeigt, verzerrt das Bild.
+
+#### Der Fund
+
+**18 Stellen im Code, 213 Elemente auf dem Bildschirm** tragen ein `onclick`
+auf einem `div` oder `span` — ohne `tabindex`, ohne `role`. Für die Maus ein
+Knopf. Für die Tastatur unsichtbar: kein Fokus, kein Enter, und ein
+Screenreader liest es als gewöhnlichen Textblock.
+
+Betroffen war der **Inhalt**, nicht die Ränder: 81 Suchergebnisse, 40 Rezepte,
+40 Heilmittel, die Startseiten-Kacheln, die Garten-Karten, die Upload-Zone.
+Wer die App mit Tastatur oder Schalter bedient, kam an nichts davon heran.
+
+Beide Zahlen stehen im Bericht, und das ist Absicht: eine Karten-Vorlage
+erzeugt vierzig Karten, und **eine** Reparatur behebt sie alle. Nur „18" zu
+melden verharmlost, nur „213" lässt es unlösbar aussehen.
+
+#### Eine Regel statt achtzehn Pflaster
+
+Achtzehn Einzelfixes hätten die nächste Renderstelle nicht erfasst. Also eine
+zentrale Nachrüstung (`gsTastaturNachruesten`) plus **ein** Zuhörer für Enter
+und Leertaste, gehalten von einem `MutationObserver`. Sie unterscheidet zwei
+Fälle:
+
+| | |
+|---|---|
+| ohne innere Bedienelemente | der Kasten **selbst** wird zum Knopf |
+| mit inneren Bedienelementen | ein Knopf im Knopf wäre falsch → die **Überschrift** darin wird fokussierbar; ihr Klick steigt ohnehin zum Kasten auf |
+
+Findet sich keine Überschrift, bleibt es liegen und der Prüfstand meldet es
+weiter. Lieber eine offene Zeile im Bericht als eine stille Halbheit.
+
+Dazu ein sichtbarer Fokusrahmen (`:focus-visible`, erscheint **nur** bei
+Tastatur-Bedienung) und drei fehlende Namen (zwei Marktplatz-Auswahlfelder,
+der Profil-Kreis der Community).
+
+#### Und drei Fehler, die ich selbst gemacht habe
+
+1. **Reparatur und Prüfung hatten zwei verschiedene Regeln.** Der Prüfstand
+   meldete danach 80 Karten als unerreichbar, die längst erreichbar waren —
+   weil er nur auf den Kasten sah und nicht auf den fokussierbaren Titel
+   darin. Dieselbe Falle wie die zwei Matcher in v32.02, nur diesmal von mir
+   gebaut. Der Prüfstand prüft jetzt die **Struktur** (`tabindex` + `role`),
+   nicht ein Merkmal, das die App sich selbst anheftet — `data-tast` wäre
+   bloss eine Selbstauskunft.
+2. **„Hat einen Schatten" ist kein Nachweis für einen Fokusrahmen.** Karten
+   und Knöpfe dieser App haben ohnehin einen. Gemessen wird jetzt der
+   **Unterschied** zwischen fokussiert und nicht fokussiert.
+3. **`touch_check` sprang von 0 auf 79** — alle 79 waren Rezept- und
+   Heilmittel-Titel mit `352×18`. Sie sind **Tastatur**-Ziele; angetippt wird
+   die ganze Karte. WCAG 2.5.8 meint die Fläche, die den Zeiger annimmt.
+   `touch_check` kennt das jetzt — aber **eng**: der erste Anlauf war zu
+   grosszügig und hätte auch ein echtes kleines Herz-Symbol in einer Karte
+   durchgewinkt. Gegenprobe mit drei Fällen: 10×10-Knopf frei → gemeldet ·
+   derselbe Knopf in einer 300×80-Karte → gemeldet · Titel-Div mit
+   `role="button"` darin → still.
+
+#### Verhalten, nicht nur Struktur
+
+Ein `tabindex` kann dastehen und ins Leere führen. Zwei Fragen drücken
+deshalb **wirklich** die Taste — mit einem echten Tastendruck des Browsers:
+
+```
+ok   Enter öffnet: Rezeptkarte (über den Titel)   [Bärlauch-Pesto → Ansicht öffnet]
+ok   Enter öffnet: Suchergebnis (Karte selbst)    [Abbiß · Succisa australis → Ansicht öffnet]
+ok   Der Fokus ist sichtbar                       [Rand +2px gegenüber unfokussiert, zusätzlicher Ring]
+```
+
+Gegenprobe: Nachrüstung ausgebaut → **16 Stellen / 211 Elemente**, und beide
+Enter-Proben melden „kein fokussierbares Element gefunden".
+
+#### Aufwand
+
+Der erste vollständige Durchgang kostet auf einem Mittelklasse-Telefon rund
+**35 ms** (`perf_check`). Er läuft deshalb in einer ruhigen Minute
+(`requestIdleCallback`), nicht beim Start — ein paar hundert Millisekunden
+später merkt niemand, ein ruckelnder Start schon.
+
+Alle zwölf Prüfstände grün.
+
 ### 2026-09-02 (db) — v32.15: der Kartenspeicher hatte keine Obergrenze
 
 Die Frage, mit der ich in diese Ecke ging, war: **verspricht die App eine

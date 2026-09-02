@@ -482,6 +482,7 @@ node scripts/save_check.js       # kommt an, was gespeichert wird? (seit v31.85)
 node scripts/planer_check.js     # rechnet der Planer, was er behauptet? (seit v31.93)
 node scripts/scan_check.js       # glaubt der Scanner der KI aufs Wort? (seit v31.99)
 node scripts/offline_check.js    # haelt die PWA, was sie ohne Empfang verspricht? (seit v32.13)
+node scripts/a11y_check.js       # bedienbar ohne Augen und ohne Maus? (seit v32.16)
 #   save_check prueft seit v31.95 auch SERVER-Wege mit gestelltem sbFetch:
 #   meldet die Funktion Erfolg, wenn der Server NEIN sagt — oder gar nichts?
 #   wiring_check meldet seit v31.95 zusaetzlich sofort dereferenzierte
@@ -803,6 +804,52 @@ gehoert der Cache-API erst recht.
 **Und die Grenze, ehrlich benannt:** wie gross der Cache in der Praxis wird,
 ist von hier aus NICHT messbar — die Kachel-Server sind aus dieser Umgebung
 nicht erreichbar. Geprueft ist der Mechanismus, nicht die Zahl.
+
+**`a11y_check.js` (seit v32.16) fragt, was keiner der elf anderen fragt:
+laesst sich die App bedienen, wenn man sie NICHT SIEHT oder die Maus nicht
+benutzt?** `touch_check` misst die Groesse einer Flaeche, `contrast_check` die
+Lesbarkeit eines Textes — beides setzt voraus, dass jemand hinsieht.
+
+Erster Lauf: **18 Stellen im Code, 213 Elemente auf dem Bildschirm** trugen
+ein `onclick` auf einem `div` ohne `tabindex` und ohne `role`. Fuer die Maus
+ein Knopf, fuer die Tastatur unsichtbar. Betroffen war der INHALT — 81
+Suchergebnisse, 40 Rezepte, 40 Heilmittel. Kein Absturz, keine Meldung.
+
+Beide Zahlen stehen im Bericht, und das ist Absicht: **eine Karten-Vorlage
+erzeugt vierzig Karten, und EINE Reparatur behebt sie alle.** Nur „18" zu
+melden verharmlost, nur „213" laesst es unloesbar aussehen.
+
+Die Antwort war eine zentrale Nachruestung (`gsTastaturNachruesten` +
+EIN Zuhoerer fuer Enter/Leertaste + `MutationObserver`), nicht achtzehn
+Einzelpflaster — die naechste Renderstelle haette den Fehler wieder
+mitgebracht. Sie laeuft in `requestIdleCallback`, weil der erste Durchgang auf
+einem Mittelklasse-Telefon 35 ms kostet.
+
+**Drei Lehren aus dem Bau, alle allgemein:**
+
+1. **Reparatur und Pruefung brauchen DIESELBE Regel.** Meine Nachruestung
+   machte bei Karten mit eigenen Knoepfen die UEBERSCHRIFT fokussierbar (ein
+   Knopf im Knopf waere falsch) — der Pruefstand sah nur auf den Kasten und
+   meldete 80 Karten als unerreichbar, die es laengst nicht mehr waren.
+   Dieselbe Falle wie die zwei Matcher in v32.02, diesmal von mir gebaut.
+   Und: **gemessen wird die Struktur** (`tabindex` + `role`), nie ein Merkmal,
+   das die App sich selbst anheftet — `data-tast` waere eine Selbstauskunft.
+2. **„Hat einen Schatten" beweist keinen Fokusrahmen.** Karten und Knoepfe
+   dieser App haben ohnehin einen. Nachweisbar ist nur der UNTERSCHIED
+   zwischen fokussiert und nicht fokussiert — derselbe Knopf, zweimal
+   gemessen.
+3. **Eine neue Auszeichnung kann einen anderen Pruefstand verwirren.**
+   `touch_check` sprang von 0 auf 79: die neuen `role="button"`-Titel sind
+   352x18 px. Sie sind aber TASTATUR-Ziele; angetippt wird die ganze Karte,
+   und WCAG 2.5.8 meint die Flaeche, die den Zeiger annimmt. Die Regel dort
+   kennt das jetzt — aber **eng**: der erste Anlauf haette auch ein echtes
+   kleines Herz-Symbol in einer Karte durchgewinkt. Gegenprobe mit DREI
+   Faellen, nicht mit einem.
+
+**Was er bewusst NICHT tut:** einen Screenreader ersetzen. Er misst die
+maschinell nachweisbare Haelfte; ob ein Name auch VERSTAENDLICH ist, kann nur
+ein Mensch beurteilen. Und er meldet nur SICHTBARES — ein Feld in einem
+geschlossenen Fenster ist fuer niemanden ein Problem.
 
 **Seit v31.78 misst `contrast_check` in ZWEI Fenstern** — KI-Planer und
 Blühkalender — und der Bericht nennt **je Fenster die Zahl der vermessenen
