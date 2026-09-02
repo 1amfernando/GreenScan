@@ -549,6 +549,110 @@ const FAELLE = [
       return { ok: true, info: gesehen.filter(x => /^erg/.test(x)).join(' · ') };
     },
   },
+  // ── v32.10 · Die Gegenprobe (Stufe 3) ────────────────────────────────
+  {
+    name: 'Gegenprobe · erscheint NUR bei essbar + giftiger Alternative',
+    lauf: () => {
+      window._gsLastScanB64 = 'AAAA';
+      const zeigt = r => {
+        showScanResult(Object.assign({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 88 }, r));
+        return !!document.querySelector('#gs-gegenprobe .gs-gp-knopf');
+      };
+      // essbar + tödliche Alternative → ja
+      if (!zeigt({ edible: true, toxicity: 0, alternatives: [
+        { name: 'Herbstzeitlose', latin: 'Colchicum autumnale', confidence: 30 }] }))
+        return { ok: false, warum: 'fehlt im gefährlichsten Fall (essbar + tödliche Verwechslung)' };
+      // essbar, aber harmlose Alternativen → nein
+      if (zeigt({ edible: true, toxicity: 0, alternatives: [
+        { name: 'Schnittlauch', latin: 'Allium schoenoprasum', confidence: 20, toxicity: 0, edible: true }] }))
+        return { ok: false, warum: 'erscheint auch ohne giftige Alternative — würde Kontingent verbrennen' };
+      // nicht essbar + giftige Alternative → nein (niemand will es essen)
+      if (zeigt({ edible: false, toxicity: 4, alternatives: [
+        { name: 'Herbstzeitlose', latin: 'Colchicum autumnale', confidence: 30 }] }))
+        return { ok: false, warum: 'erscheint, obwohl die Art gar nicht als essbar gilt' };
+      // ganz ohne Alternativen → nein
+      if (zeigt({ edible: true, toxicity: 0, alternatives: [] }))
+        return { ok: false, warum: 'erscheint ohne jede Verwechslungsmöglichkeit' };
+      return { ok: true, info: 'nur essbar + giftige Alternative' };
+    },
+  },
+  {
+    name: 'Gegenprobe · der Auftrag ist WIDERLEGEN, nicht bestätigen',
+    lauf: async () => {
+      window._gsLastScanB64 = 'AAAA'; window._gsLastScanMt = 'image/jpeg';
+      window._gsLetzterScan = { name: 'Bärlauch', latin: 'Allium ursinum', confidence: 88,
+        edible: true, toxicity: 0, _altGefahr: 5,
+        alternatives: [{ name: 'Herbstzeitlose', latin: 'Colchicum autumnale', confidence: 30 }],
+        diagnostic_features: ['Breite Blätter'] };
+      let sys = '', frage = '';
+      window.callVisionAI = async (b, m, p, ex, o) => {
+        sys = (o && o.systemPrompt) || ''; frage = p || '';
+        return JSON.stringify({ urteil: 'bestaetigt', vertrauen: 80, dagegen: [], dafuer: ['Knoblauchgeruch erwähnt'], fehlend: '', verzehr: 'ja' });
+      };
+      const host = document.createElement('div'); host.id = 'gs-gegenprobe';
+      document.body.appendChild(host);
+      await gsScanGegenprobe();
+      host.remove();
+      if (!/WIDERLEGEN|widerlegen/.test(sys)) return { ok: false, warum: 'der Auftrag verlangt kein Widerlegen' };
+      if (/bestätige|bestaetige/i.test(sys.split('REGELN')[0]) && !/NICHT/.test(sys)) return { ok: false, warum: 'der Auftrag bittet um Bestätigung' };
+      if (!/BEHAUPTUNG/.test(frage)) return { ok: false, warum: 'die erste Bestimmung wird nicht als Behauptung vorgelegt' };
+      if (!/Herbstzeitlose/.test(frage)) return { ok: false, warum: 'die giftige Alternative fehlt im Auftrag' };
+      return { ok: true, info: 'Systemauftrag „widerlegen", Bestimmung als Behauptung' };
+    },
+  },
+  {
+    name: 'Gegenprobe · Widerspruch sagt deutlich „iss das nicht"',
+    lauf: () => {
+      const host = document.createElement('div'); host.id = 'gs-gegenprobe';
+      document.body.appendChild(host);
+      gsGegenprobeRender({ urteil: 'widerlegt', vertrauen: 20,
+        dagegen: ['Kein Knoblauchgeruch beschrieben', 'Blattbasis fleischig'],
+        dafuer: [], fehlend: 'Blattunterseite', verzehr: 'nein',
+        bessere_erklaerung: { name: 'Herbstzeitlose', latin: 'Colchicum autumnale', warum: 'Blattform passt besser' } },
+        { name: 'Bärlauch' });
+      const t = host.textContent || '';
+      host.remove();
+      if (!/WIDERSPRICHT/.test(t)) return { ok: false, warum: 'der Widerspruch steht nicht als Überschrift' };
+      if (!/Iss das nicht/.test(t)) return { ok: false, warum: 'die klare Ansage fehlt' };
+      if (!/Nicht verzehren/i.test(t)) return { ok: false, warum: 'die Verzehr-Empfehlung fehlt' };
+      if (!/Herbstzeitlose/.test(t)) return { ok: false, warum: 'die bessere Erklärung wird nicht genannt' };
+      if (!/Blattunterseite/.test(t)) return { ok: false, warum: 'das fehlende Merkmal wird nicht genannt' };
+      if (/undefined|NaN|\[object Object\]/.test(t)) return { ok: false, warum: 'Platzhalter im Text' };
+      return { ok: true, info: (t.match(/Der zweite Blick[^.]*/) || ['gefunden'])[0].slice(0, 46) };
+    },
+  },
+  {
+    name: 'Gegenprobe · Einigkeit wird nicht als Beweis verkauft',
+    lauf: () => {
+      const host = document.createElement('div'); host.id = 'gs-gegenprobe';
+      document.body.appendChild(host);
+      gsGegenprobeRender({ urteil: 'bestaetigt', vertrauen: 90, dagegen: [], dafuer: ['Knoblauchgeruch'], verzehr: 'ja' }, { name: 'Bärlauch' });
+      const t = host.textContent || '';
+      host.remove();
+      if (!/dasselbe Ergebnis/.test(t)) return { ok: false, warum: 'die Übereinstimmung wird nicht genannt' };
+      if (!/Ein Beweis ist es nicht/.test(t)) return { ok: false, warum: 'verkauft Einigkeit als Beweis — das ist die gefährlichste Formulierung überhaupt' };
+      return { ok: true, info: 'Einigkeit genannt, aber ausdrücklich kein Beweis' };
+    },
+  },
+  {
+    name: 'Gegenprobe · scheitert der Aufruf, bleibt die Unsicherheit stehen',
+    lauf: async () => {
+      window._gsLastScanB64 = 'AAAA';
+      window._gsLetzterScan = { name: 'Bärlauch', latin: 'Allium ursinum', edible: true, _altGefahr: 5, alternatives: [] };
+      window.callVisionAI = async () => { throw new Error('Netz weg'); };
+      const host = document.createElement('div'); host.id = 'gs-gegenprobe';
+      document.body.appendChild(host);
+      await gsScanGegenprobe();
+      const t = host.textContent || '';
+      const nochmals = !!host.querySelector('button');
+      host.remove();
+      if (/best\u00e4tigt|dasselbe Ergebnis/.test(t)) return { ok: false, warum: 'meldet Einigkeit, obwohl der Aufruf scheiterte' };
+      if (!/nicht m\u00f6glich/i.test(t)) return { ok: false, warum: 'sagt nicht, dass es nicht geklappt hat' };
+      if (!/im Zweifel nicht verzehren/i.test(t)) return { ok: false, warum: 'die Unsicherheit wird nicht benannt' };
+      if (!nochmals) return { ok: false, warum: 'kein Weg, es nochmals zu versuchen' };
+      return { ok: true, info: 'Fehlschlag benannt, Unsicherheit bleibt, Wiederholung möglich' };
+    },
+  },
   {
     name: 'Drei Zustände · ohne Artenliste ist nichts „in Ordnung"',
     lauf: () => {

@@ -313,6 +313,46 @@ async function medianFarben(leser, pngBuffer, punkte) {
         gsSchritt('ki', 'laeuft', '6 s');
         return res;
       }],
+      // v32.10: die Gegenprobe. Rot auf rot getoent — genau die Kombination,
+      // die im Scan-Ergebnis schon einmal 3,27:1 ergab. Gemessen werden BEIDE
+      // Zustaende: das Angebot und ein fertiges (widersprechendes) Urteil.
+      ['scan-gegenprobe', () => {
+        try { if (typeof switchTab === 'function') switchTab('scanner'); } catch (_) {}
+        window.gsScanStatusShow = () => {}; window.gsStopScanStatus = () => {};
+        window.gsScanPersistToCloud = () => Promise.resolve(true);
+        window.gsAddToScanHistory = () => {}; window.gsHaptic = () => {};
+        window._gsLastScanB64 = 'AAAA';
+        if (typeof showScanResult !== 'function') return 0;
+        showScanResult({
+          name: 'Bärlauch', latin: 'Allium ursinum', family: 'Amaryllidaceae', category: 'wildpflanze',
+          confidence: 84, edible: true, toxic: false, toxicity: 0,
+          description: 'Breite Blätter mit Knoblauchgeruch.', habitat: 'Laubwälder', season: 'Apr–Jun',
+          diagnostic_features: ['Breite Einzelblätter', 'Knoblauchgeruch'],
+          alternatives: [
+            { name: 'Herbstzeitlose', latin: 'Colchicum autumnale', confidence: 34, distinguishing_feature: 'Fleischige Blattbasis', toxicity: 5, edible: false },
+            { name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 21, distinguishing_feature: 'Zwei Blätter an einem Stiel', toxicity: 5, edible: false },
+          ],
+          _shotCount: 1, _qual: { messbar: true, quality: 70, blur: 66, light: 74, warnings: [] },
+        });
+        // Und darunter ein fertiges Urteil, damit auch dessen Farben messbar sind.
+        const h = document.getElementById('gs-gegenprobe');
+        if (h && typeof gsGegenprobeRender === 'function') {
+          const zweit = document.createElement('div');
+          zweit.className = 'sr2-card gs-gp'; zweit.id = 'gs-gegenprobe-2';
+          h.parentNode.insertBefore(zweit, h.nextSibling);
+          const echt = h.id; h.id = '_weg'; zweit.id = 'gs-gegenprobe';
+          gsGegenprobeRender({ urteil: 'widerlegt', vertrauen: 25,
+            dagegen: ['Kein Knoblauchgeruch beschrieben', 'Blattbasis wirkt fleischig'],
+            dafuer: ['Blattbreite passt'], fehlend: 'Blattunterseite aus der Nähe',
+            bessere_erklaerung: { name: 'Herbstzeitlose', latin: 'Colchicum autumnale', warum: 'Blattform und Standort passen besser' },
+            verzehr: 'nein' }, { name: 'Bärlauch' });
+          h.id = echt;
+        }
+        const res = document.getElementById('scan-result');
+        if (!res) return 0;
+        res.style.display = 'block';
+        return res;
+      }],
       ['blühkalender', () => {
         localStorage.setItem('gs_bl_month', '5');
         localStorage.setItem('gs_bl_tab', 'all');
