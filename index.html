@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.75.20260902">
+<meta name="app-version" content="31.76.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1407,6 +1407,15 @@ body.dark .mkt-chat-msg.them{background:#2a3f2a;color:var(--text);}
 .gs-ernte-sp{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;gap:3px;}
 .gs-ernte-saeule{width:100%;background:var(--g-mid);border-radius:var(--r-sm) var(--r-sm) 0 0;min-height:2px;}
 .gs-ernte-sp span{font-size:var(--fs-xs);color:var(--muted);font-weight:700;}
+.gs-arbeit-saeule{background:var(--g-main);}
+/* v31.76 — Nachpruefung: was seit dem Plan passiert ist. Steht ganz oben,
+   aber ruhig; erst wenn ein Termin verstrichen ist, wird sie warm. */
+.gs-nach{background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--g-mid);border-radius:var(--r-md);padding:9px 12px;margin-bottom:12px;}
+.gs-nach-warn{border-left-color:var(--c-warn);background:var(--bg-warn-soft,var(--surface2));}
+.gs-nach-kopf{font-size:var(--fs-xs);font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
+.gs-nach-txt{font-size:var(--fs-sm);color:var(--text2);line-height:1.5;}
+.gs-nach-txt b{color:var(--text);font-weight:800;}
+.gs-nach-neben{display:block;margin-top:3px;color:var(--muted);}
 /* v31.66: Die Zeilenfassung traegt jetzt die Kartenoptik der Seite. Vorher
    erbte sie von .moon-card den dunkelblauen Verlauf — zwischen lauter hellen
    Karten war sie der einzige dunkle Balken und zog den Blick auf sich, obwohl
@@ -55724,7 +55733,7 @@ function gsPPShowTab(container, k){
       var plan=container._ppTabPlan || (window._gsPP && window._gsPP.plan);
       if(c && c.getAttribute('data-rendered')!=='1' && typeof _gsLoadThree==='function' && plan){
         c.setAttribute('data-rendered','1');
-        _gsLoadThree().then(function(){ try{ if(typeof gsPP3DRenderInline==='function') gsPP3DRenderInline(plan, c); }catch(_){} }).catch(function(){ if(c) c.innerHTML='<div style="text-align:center;padding:40px;color:#88a888;">3D benötigt Internet · siehe PDF-Plan</div>'; });
+        _gsLoadThree().then(function(){ try{ if(typeof gsPP3DRenderInline==='function') gsPP3DRenderInline(plan, c); }catch(_){} }).catch(function(){ if(c) c.innerHTML='<div style="text-align:center;padding:40px;color:var(--muted);">3D benötigt Internet · siehe PDF-Plan</div>'; });
       }
     }
   }catch(_){}
@@ -55732,6 +55741,10 @@ function gsPPShowTab(container, k){
 function gsPPrenderPlan(plan, data) {
   var esc = function(s) { return escHtml ? escHtml(String(s || '')) : String(s || '').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
   var html = '';
+
+  // v31.76: Bei einem GESPEICHERTEN Plan steht zuerst, was seither passiert
+  // ist. Ein Plan, der sich nie wieder meldet, ist ein PDF.
+  try { if (typeof gsPPnachBlock === 'function') html += gsPPnachBlock(plan); } catch (_) {}
 
   // ── v31.65: EINE Tafel statt bis zu vier Bannern ──────────────────────
   //
@@ -55867,6 +55880,33 @@ function gsPPrenderPlan(plan, data) {
         'Der Plan braucht ' + plan._wasser.bedarf + ' l/Woche. Der gemessene Regen (' + plan._wasser.mm +
         ' mm in 14 Tagen auf ' + plan._wasser.flaeche + ' m\u00b2) liefert rund ' + plan._wasser.regen + ' l \u2014 ' +
         (plan._wasser.zusatz > 0 ? plan._wasser.zusatz + ' l bleiben an dir.' : 'das reicht.'));
+    }
+
+    // R7 Frost — die Eisheiligen als Faustregel, wie im Mittelland ueblich
+    if (plan._frost && !plan._frost.gewaechshaus) {
+      if (plan._frost.riskant.length) {
+        zeile('\u2744\ufe0f', 'Frost', 'warn',
+          plan._frost.riskant.map(function (k) {
+            return esc(k.name) + ' am ' + esc(k.datum);
+          }).join('; ') + ' \u2014 frostempfindlich, vor den Eisheiligen (15. Mai) und ausserhalb des ' +
+          'Vorkultur-Fensters. Zwei Wochen sp\u00e4ter setzen oder drinnen vorziehen.');
+      } else if (plan._frost.hinweis && plan._frost.hinweis.length) {
+        zeile('\u2744\ufe0f', 'Frost', 'unbekannt',
+          esc(plan._frost.hinweis.map(function (k) { return k.name; }).join(', ')) + ' ' +
+          (plan._frost.hinweis.length === 1 ? 'ist' : 'sind') + ' frostempfindlich, das Datum liegt aber im ' +
+          'Vorkultur-Fenster. Als Aussaat drinnen richtig \u2014 ins Freiland geh\u00f6r' +
+          (plan._frost.hinweis.length === 1 ? 't' : 'en') + ' sie erst nach Mitte Mai.');
+      } else if (plan._frost.ok) {
+        zeile('\u2744\ufe0f', 'Frost', 'ok', 'kein frostempfindlicher Termin vor Mitte Mai.');
+      }
+    }
+
+    // R10 Arbeitslast — Aufgaben je Woche, KEINE erfundenen Minuten
+    if (plan._arbeit) {
+      var _ab = plan._arbeit;
+      zeile('\u23f1\ufe0f', 'Aufwand', _ab.spitze.n > 10 ? 'warn' : 'ok',
+        'Im ' + esc(_ab.spitze.monat) + ' sind es rund <b>' + _ab.spitze.n + ' Pflege-Handgriffe pro Woche</b> \u2014 die dichteste Zeit im Jahr.' +
+        (_ab.aufbau_min ? ' Dazu einmalig etwa ' + Math.round(_ab.aufbau_min / 5) * 5 + ' Minuten Aufbau in ' + _ab.aufbau_schritte + ' Schritten.' : ''));
     }
 
     if (zeilen.length) {
@@ -57142,6 +57182,9 @@ function _gsPlanPruefwerk(plan, data) {
   _gsPlanSaatgut(plan);
   _gsPlanWasser(plan, data);
   _gsPlanErnteMonate(plan);
+  _gsPlanFrost(plan, data);
+  _gsPlanArbeit(plan);
+  _gsPlanNachpruefung(plan);
 }
 window._gsPlanPruefwerk = _gsPlanPruefwerk;
 window._gsPlanBelegung = _gsPlanBelegung;
@@ -57151,6 +57194,161 @@ window._gsPlanDichte = _gsPlanDichte;
 window._gsPlanSaatgut = _gsPlanSaatgut;
 window._gsPlanWasser = _gsPlanWasser;
 window._gsPlanErnteMonate = _gsPlanErnteMonate;
+
+// ── v31.76 · Planer V3, Stufe 2 ───────────────────────────────────────────
+// docs/PLANER-V3.md, N4 · R7 · R10. Alles rechnet lokal.
+
+// ── R7 · Frost ────────────────────────────────────────────────────────────
+// Die Eisheiligen sind kein Aberglaube, sondern die Faustregel, nach der im
+// Mittelland gepflanzt wird: vor Mitte Mai steht Frostempfindliches nicht
+// draussen. Geprueft wird nur, was die Referenz als frostempfindlich fuehrt
+// — der Rest zaehlt als ungeprueft, nicht als in Ordnung.
+var GS_EISHEILIGE = { monat: 5, tag: 15 };
+function _gsPlanFrost(plan, data) {
+  try {
+    if (!plan || !Array.isArray(plan.plants) || !_gsAgroRows().length) { if (plan) plan._frost = null; return; }
+    if (data && data.greenhouse) { plan._frost = { gewaechshaus: true, ok: 0, riskant: [], hinweis: [], ungeprueft: 0 }; return; }
+    var ok = 0, riskant = [], hinweis = [], ungeprueft = 0;
+    plan.plants.forEach(function (p) {
+      var d = _gsPD(p.sow_date);
+      var r = _gsAgroFind(p.name);
+      var hart = r ? String(r.frost_hardy || '').toLowerCase() : '';
+      if (!d || !r || !hart) { ungeprueft++; return; }
+      if (hart.indexOf('empfindlich') < 0 && hart.indexOf('frostgef') < 0) { ok++; return; }
+      var m = d.getMonth() + 1, t = d.getDate();
+      // Vor den Eisheiligen UND im Fruehjahr — ein Herbsttermin ist etwas
+      // anderes und wird hier nicht beklagt.
+      var frueh = (m >= 1 && m <= 5 && (m < GS_EISHEILIGE.monat || t < GS_EISHEILIGE.tag));
+      if (!frueh) { ok++; return; }
+      // Hier liegt die Feinheit, und sie ist zwei Zustaende wert: die
+      // Referenz nennt bei Tomate „Mär/Apr" — das ist die VORKULTUR auf der
+      // Fensterbank, nicht das Beet. Faellt das Datum in dieses Fenster, ist
+      // es kein Fehler, sondern hoechstens ein Hinweis. Liegt es DANEBEN und
+      // trotzdem vor Mitte Mai, ist es einer.
+      var monate = _gsMonate(r.sow_months);
+      if (monate.length && monate.indexOf(m) >= 0) hinweis.push({ name: p.name, datum: _gsDatKurz(d) });
+      else riskant.push({ name: p.name, datum: _gsDatKurz(d) });
+    });
+    plan._frost = { gewaechshaus: false, ok: ok, riskant: riskant, hinweis: hinweis, ungeprueft: ungeprueft };
+  } catch (_) { if (plan) plan._frost = null; }
+}
+
+// ── R10 · Arbeitslast ─────────────────────────────────────────────────────
+// Wichtig: gezaehlt werden AUFGABEN je Woche, nicht Minuten. Im Schema steht
+// bei careSchedule keine Dauer — eine Minutenzahl waere erfunden, und genau
+// das soll das Pruefwerk nicht tun. Die einmalige Aufbauzeit dagegen steht
+// in stepByStep.duration_min und wird summiert.
+function _gsPlanArbeit(plan) {
+  try {
+    if (!plan || !Array.isArray(plan.careSchedule) || !plan.careSchedule.length) { if (plan) plan._arbeit = null; return; }
+    var proWoche = [0,0,0,0,0,0,0,0,0,0,0,0], gezaehlt = 0;
+    plan.careSchedule.forEach(function (c) {
+      var f = String((c && c.freq) || '').toLowerCase();
+      var n = /tägl|taegl|daily/.test(f) ? 7
+            : /wöch|woech|weekly/.test(f) ? 1
+            : /monat|monthly/.test(f) ? 0.25
+            : 0;
+      if (!n) return;
+      // „04-09" oder „04–09" oder „April-September"? Nur die Ziffernform ist
+      // eindeutig; ohne sie gilt die ganze Saison.
+      var mm = String((c && c.months) || '').match(/(\d{1,2})\s*[-–bis]+\s*(\d{1,2})/);
+      var von = mm ? Math.max(1, Math.min(12, +mm[1])) : GS_SAISON_VON;
+      var bis = mm ? Math.max(1, Math.min(12, +mm[2])) : GS_SAISON_BIS;
+      if (bis < von) bis = von;
+      for (var m = von; m <= bis; m++) proWoche[m - 1] += n;
+      gezaehlt++;
+    });
+    if (!gezaehlt) { plan._arbeit = null; return; }
+    var aufbau = 0, schritte = 0;
+    (plan.stepByStep || []).forEach(function (s) {
+      var d = parseFloat(s && s.duration_min);
+      if (isFinite(d) && d > 0) { aufbau += d; schritte++; }
+    });
+    var spitzeM = 0;
+    proWoche.forEach(function (x, i) { if (x > proWoche[spitzeM]) spitzeM = i; });
+    plan._arbeit = {
+      proWoche: proWoche.map(function (x) { return Math.round(x * 10) / 10; }),
+      spitze: { monat: GS_MON[spitzeM], n: Math.round(proWoche[spitzeM] * 10) / 10 },
+      aufgaben: gezaehlt,
+      aufbau_min: aufbau ? Math.round(aufbau) : 0, aufbau_schritte: schritte
+    };
+  } catch (_) { if (plan) plan._arbeit = null; }
+}
+
+// ── N4 · Der Plan altert und meldet sich ──────────────────────────────────
+// Ein Plan, der sich nie wieder meldet, ist ein PDF. Beim Oeffnen eines
+// GESPEICHERTEN Plans wird er gegen die Wirklichkeit gehalten: wie alt ist
+// er, was ist abgehakt, welcher Termin ist verstrichen. Kein KI-Aufruf —
+// alle drei Angaben liegen schon vor.
+function _gsPlanNachpruefung(plan) {
+  try {
+    if (!plan || !plan._gespeichert) { if (plan) plan._nach = null; return; }
+    var seit = _gsPD(plan._gespeichert) || new Date(plan._gespeichert);
+    if (!seit || isNaN(seit.getTime())) { plan._nach = null; return; }
+    var heute = new Date();
+    var alter = Math.max(0, _gsTage(seit, heute));
+    var planId = _gsPPplanId(plan);
+    var fertig = _gsPPumgesetzt(planId);
+    var abgehakt = 0;
+    (plan.plants || []).forEach(function (_, i) { if (fertig[i]) abgehakt++; });
+    // Verstrichene Aussaattermine, die noch nicht abgehakt sind. Das ist der
+    // eigentliche Wert der Nachpruefung: nicht „du bist bei 3 von 8", sondern
+    // „die Karotten waeren vor neun Tagen dran gewesen".
+    var faellig = [], schonAlt = 0;
+    (plan.plants || []).forEach(function (p, i) {
+      if (fertig[i]) return;
+      var d = _gsPD(p.sow_date);
+      if (!d || d > heute) return;
+      // Ein Termin, der schon beim SPEICHERN vorbei war, ist keine verpasste
+      // Gelegenheit — der Plan ist fuer eine andere Saison gerechnet.
+      // „Vor 150 Tagen faellig" an einem 19 Tage alten Plan waere schlicht
+      // falsch erzaehlt.
+      if (d < seit) { schonAlt++; return; }
+      faellig.push({ name: p.name, tage: _gsTage(d, heute) });
+    });
+    faellig.sort(function (a, b) { return b.tage - a.tage; });
+    plan._nach = {
+      alter: alter, seit: _gsDatKurz(seit) + ' ' + seit.getFullYear(),
+      abgehakt: abgehakt, gesamt: (plan.plants || []).length,
+      faellig: faellig.slice(0, 4), faellig_gesamt: faellig.length, alte_termine: schonAlt
+    };
+  } catch (_) { if (plan) plan._nach = null; }
+}
+window._gsPlanFrost = _gsPlanFrost;
+window._gsPlanArbeit = _gsPlanArbeit;
+window._gsPlanNachpruefung = _gsPlanNachpruefung;
+
+// Die Leiste ganz oben — nur bei gespeicherten Plaenen, und nur wenn es
+// wirklich etwas zu sagen gibt.
+window.gsPPnachBlock = function (plan) {
+  try {
+    var n = plan && plan._nach;
+    if (!n) return '';
+    var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function (s) { return String(s == null ? '' : s); };
+    var teile = [];
+    teile.push('<b>' + n.abgehakt + ' von ' + n.gesamt + '</b> umgesetzt');
+    if (n.alter > 0) teile.push('Plan vom ' + esc(n.seit) + ' (' + n.alter + ' Tag' + (n.alter === 1 ? '' : 'e') + ' alt)');
+    var warn = n.faellig.length > 0;
+    var h = '<div class="gs-nach' + (warn ? ' gs-nach-warn' : '') + '">' +
+            '<div class="gs-nach-kopf">⏱️ Seit dem Plan</div>' +
+            '<div class="gs-nach-txt">' + teile.join(' · ') + '.';
+    if (warn) {
+      h += ' Fällig gewesen: ' +
+           n.faellig.map(function (f) {
+             return '<b>' + esc(f.name) + '</b> vor ' + f.tage + ' Tag' + (f.tage === 1 ? '' : 'en');
+           }).join(', ') +
+           (n.faellig_gesamt > n.faellig.length ? ' und ' + (n.faellig_gesamt - n.faellig.length) + ' weitere' : '') + '.';
+    } else if (n.abgehakt === n.gesamt && n.gesamt) {
+      h += ' Alles gesetzt — schön.';
+    }
+    if (n.alte_termine) {
+      h += ' <span class="gs-nach-neben">' + n.alte_termine + ' Termin' + (n.alte_termine === 1 ? '' : 'e') +
+           ' im Plan lagen schon beim Speichern in der Vergangenheit — der Plan rechnet für eine andere Saison.</span>';
+    }
+    h += '</div></div>';
+    return h;
+  } catch (_) { return ''; }
+};
 
 // ── Der Reiter „Jahr" ─────────────────────────────────────────────────────
 // Zwoelf Monatsspalten, eine Zeile je Kultur, ein Balken je Belegung. Die
@@ -57164,6 +57362,13 @@ window.gsPPjahrBlock = function (plan) {
       return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     };
     var j = plan._jahr;
+    // Ein Plan aus dem Speicher hat Zeichenketten statt Datumsangaben, wenn
+    // das Pruefwerk nicht neu lief. Statt hier abzustuerzen: einlesen.
+    if (!(j.von instanceof Date)) { j.von = new Date(j.von); j.bis = new Date(j.bis); }
+    j.baender.forEach(function (b) {
+      if (!(b.von instanceof Date)) { b.von = new Date(b.von); b.bis = new Date(b.bis); }
+    });
+    if (isNaN(j.von.getTime()) || isNaN(j.bis.getTime())) return '';
     var h = '<div id="gs-jahr" class="pp-section"><h4>📆 Das Gartenjahr ' + j.jahr + '</h4>';
 
     // Monatsleiste
@@ -57241,6 +57446,27 @@ window.gsPPjahrBlock = function (plan) {
            '<div class="gs-jahr-fuss">Spitze im ' + esc(e.spitze.monat) + ' mit ' + e.spitze.kg + ' kg · insgesamt ' + e.summe + ' kg' +
              (e.leer.length ? ' · nichts reif im ' + esc(e.leer.join(', ')) : '') +
              ' · Ertrag gleichmässig über das Erntefenster verteilt (Vereinfachung)</div>';
+    }
+
+    // Arbeitslast ueber das Jahr — dieselbe Achse wie die Ernte, damit man
+    // beide uebereinander lesen kann: viel Ernte bei viel Arbeit ist ein
+    // fairer Handel, viel Arbeit ohne Ernte nicht.
+    if (plan._arbeit) {
+      var a = plan._arbeit;
+      var amax = Math.max.apply(null, a.proWoche) || 1;
+      h += '<h4 style="margin-top:16px;">⏱️ Aufwand über das Jahr</h4>' +
+           '<div class="gs-ernte-bar">';
+      for (var q = GS_SAISON_VON - 1; q <= GS_SAISON_BIS - 1; q++) {
+        var ah = Math.round(a.proWoche[q] / amax * 100);
+        h += '<div class="gs-ernte-sp" title="' + GS_MON[q] + ': ' + a.proWoche[q] + ' Handgriffe/Woche">' +
+               '<div class="gs-ernte-saeule gs-arbeit-saeule" style="height:' + Math.max(2, ah) + '%"></div>' +
+               '<span>' + GS_MON[q] + '</span></div>';
+      }
+      h += '</div>' +
+           '<div class="gs-jahr-fuss">Spitze im ' + esc(a.spitze.monat) + ' mit rund ' + a.spitze.n +
+             ' Handgriffen pro Woche, aus ' + a.aufgaben + ' Pflege-Aufgaben' +
+             (a.aufbau_min ? ' · einmaliger Aufbau rund ' + Math.round(a.aufbau_min / 5) * 5 + ' Minuten' : '') +
+             ' · gezählt werden Handgriffe, nicht Minuten — eine Dauer steht im Pflegeplan nicht drin und wird hier nicht erfunden</div>';
     }
 
     h += '</div>';
@@ -58632,17 +58858,46 @@ async function gsPPsavePlan() {
   };
 
   // Lokale Speicherung IMMER (auch ohne Login)
-  var localSaved = false;
+  // ── v31.76: derselbe Fehler wie in gsTwinSave (v31.65) ────────────────
+  //
+  // Hier stand ein `try { localStorage.setItem(...) } catch { Speicher voll,
+  // return }`. Der Wrapper (~Z. 7344) WIRFT NIE — er gibt `false` zurueck
+  // (CLAUDE.md §3.5). Also: der catch-Zweig lief nie, `localSaved = true`
+  // wurde auch dann gesetzt, wenn nichts geschrieben wurde, und die Funktion
+  // meldete anschliessend Erfolg. Wer bei vollem Geraet einen Plan
+  // speicherte, sah „gespeichert" und hatte nichts.
+  //
+  // Und der Rettungsweg muss auch etwas retten: der GERADE gemachte Plan ist
+  // mehr wert als zwanzig alte. Passt er nicht mehr, fliegen die aeltesten
+  // raus, und das wird gesagt — leise loeschen waere schlimmer als der
+  // Fehler.
+  var localSaved = false, _knappGeworden = 0;
   try {
     var saved = JSON.parse(localStorage.getItem('gs_garden_plans') || '[]');
+    if (!Array.isArray(saved)) saved = [];
     saved.unshift(planEntry);
     saved = gsCapWithArchive('gs_garden_plans', saved, 30);
-    localStorage.setItem('gs_garden_plans', JSON.stringify(saved));
-    localSaved = true;
+    localSaved = (localStorage.setItem('gs_garden_plans', JSON.stringify(saved)) !== false);
+    // Stufenweise kuerzen, bis es passt. Der neue Plan steht vorn und
+    // ueberlebt daher als letzter.
+    var stufen = [10, 5, 2, 1];
+    for (var _si = 0; !localSaved && _si < stufen.length; _si++) {
+      if (saved.length <= stufen[_si]) continue;
+      var kurz = saved.slice(0, stufen[_si]);
+      if (localStorage.setItem('gs_garden_plans', JSON.stringify(kurz)) !== false) {
+        localSaved = true;
+        _knappGeworden = saved.length - kurz.length;
+      }
+    }
   } catch(e) {
     console.warn('[gsPPsavePlan] local save:', e);
-    if (typeof showProfileToast === 'function') showProfileToast({title:'⚠️ Speicher voll', body:'localStorage Quota erschöpft — bitte alte Pläne entfernen', kind:'error', duration:4500});
+  }
+  if (!localSaved) {
+    if (typeof showProfileToast === 'function') showProfileToast({title:'⚠️ Speicher voll', body:'Der Plan konnte nicht gespeichert werden — bitte alte Fotos oder Pläne entfernen und erneut versuchen.', kind:'error', duration:6000});
     return;
+  }
+  if (_knappGeworden && typeof showProfileToast === 'function') {
+    showProfileToast({title:'💾 Speicher war knapp', body:'Der neue Plan ist gesichert. Dafür mussten die ' + _knappGeworden + ' ältesten Pläne weichen.', kind:'warn', duration:6000});
   }
 
   // Wenn eingeloggt: zusätzlich Cloud-Sync
@@ -63011,6 +63266,14 @@ function gsPPloadSavedPlan(id) {
   }
   _gsPP.plan = p.plan;
   if (p.data) window._gsPP.data = p.data;
+  // v31.76: Das Pruefwerk laeuft beim OEFFNEN erneut — aus zwei Gruenden.
+  // Erstens rechnet es mit dem heutigen Stand: dein Saatgut-Inventar hat
+  // sich geaendert, der Regen auch. Zweitens ueberlebt `_jahr` die
+  // JSON-Runde nicht als Datum, sondern als Zeichenkette; neu rechnen ist
+  // sauberer als beim Lesen zu flicken.
+  try { p.plan._gespeichert = p.created || null; } catch (_) {}
+  try { if (typeof gsPPloadAgronomy === 'function') gsPPloadAgronomy(); } catch (_) {}
+  try { if (typeof _gsPlanPruefwerk === 'function') _gsPlanPruefwerk(p.plan, p.data || {}); } catch (_) {}
   document.getElementById('modal-saved-plans') && document.getElementById('modal-saved-plans').remove();
   // Plan-Result Modal direkt öffnen + rendern
   if (typeof openModal === 'function') openModal('modal-planner-pro');
@@ -66689,6 +66952,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.76', date: '02.09.2026',
+    headline: '\u23f1\ufe0f Der gespeicherte Plan meldet sich \u2014 und das Speichern funktioniert wirklich',
+    summary: 'Ein Plan aus dem Speicher zeigt jetzt, was seither passiert ist: was abgehakt ist, welcher Termin verstrichen. Dazu Frost- und Aufwand-Pr\u00fcfung \u2014 und ein Rettungsweg beim Plan-Speichern, der bis heute toter Code war.',
+    user_summary: '\u23f1\ufe0f Ein gespeicherter Plan sagt dir jetzt, wo du stehst \u2014 und beim vollen Ger\u00e4t geht der Plan nicht mehr still verloren.',
+    user_items: [
+      {emoji:'\u23f1\ufe0f', bold:'Der Plan altert und meldet sich:', text:' \u00d6ffnest du einen gespeicherten Plan, steht ganz oben, was seit damals passiert ist \u2014 wie viele Schritte du umgesetzt hast und welcher Aussaattermin inzwischen f\u00e4llig war. Ohne KI-Aufruf, alles nachgerechnet. Ein Plan, der sich nie wieder meldet, ist ein PDF.'},
+      {emoji:'\ud83d\udcbe', bold:'Plan speichern ging bei vollem Ger\u00e4t still schief:', text:' Der Rettungsweg lag in einem `catch`, das in dieser App nie ausl\u00f6st \u2014 derselbe Fehler wie beim Garten-Zwilling im Juli. Die App meldete „gespeichert" und hatte nichts. Jetzt wird der R\u00fcckgabewert gepr\u00fcft, der neue Plan hat Vorrang vor den alten, und wenn daf\u00fcr alte weichen mussten, wird es gesagt. Beides ausprobiert, nicht nur behauptet.'},
+      {emoji:'\u2744\ufe0f', bold:'Frost, mit dem n\u00f6tigen Unterschied:', text:' Frostempfindliches vor Mitte Mai ins Freiland ist ein Fehler \u2014 dieselbe Pflanze im M\u00e4rz auf der Fensterbank vorzuziehen ist richtig. Die Pr\u00fcfung unterscheidet das jetzt und warnt nur im ersten Fall.'},
+      {emoji:'\ud83d\udcca', bold:'Aufwand \u00fcber das Jahr:', text:' Eine zweite S\u00e4ulengrafik neben der Ernte zeigt, in welchen Monaten die Pflege dicht wird. Gez\u00e4hlt werden Handgriffe, keine Minuten \u2014 eine Dauer steht im Pflegeplan nicht drin und wird hier nicht erfunden.'},
+    ],
+  },
+  {
     v: 'v31.75', date: '02.09.2026',
     headline: '\ud83d\udcc6 Der Planer denkt jetzt in Jahren, nicht in Beeten',
     summary: 'Neuer Reiter „Jahr": ein Balken je Kultur \u00fcber neun Monate, die leeren Zeitfenster daneben \u2014 mit Vorschl\u00e4gen aus der gepr\u00fcften Agronomie-Referenz. Dazu vier neue rechnende Pr\u00fcfungen: Aussaattermin, St\u00fcckzahl, Saatgut, Wasser.',
@@ -67018,7 +67293,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.75';
+var GS_VERSION = 'v31.76';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

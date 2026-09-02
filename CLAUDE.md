@@ -203,8 +203,9 @@ GreenScan/
 > harmlos (leer oder nur `console.warn`). **13 enthalten einen echten
 > Rettungsweg** — die sind die gefährlichen. Drei davon waren
 > Nutzer-Warnungen, die nie erschienen; zwei sind in v31.65 repariert
-> (Favoriten, Supabase-Key), der Rest ist offen und in `STATUS.md` (bc)
-> einzeln aufgeführt.
+> (Favoriten, Supabase-Key), der dritte in v31.76 (`gsPPsavePlan` meldete
+> „Plan gespeichert" bei vollem Gerät, obwohl nichts geschrieben wurde).
+> Der Rest ist offen und in `STATUS.md` (bc) einzeln aufgeführt.
 >
 > Gefunden wurde das nicht beim Lesen, sondern beim Nachstellen mit einem
 > echten Telefonfoto. **Wer einen Rettungsweg für vollen Speicher baut, muss
