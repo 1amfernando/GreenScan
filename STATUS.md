@@ -4,13 +4,74 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.94` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.95` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (cg) — v31.95: vier Bildschirme liessen sich nicht öffnen, ein Antrag wurde nie eingereicht
+
+#### Wie es gefunden wurde
+
+Nicht durch Lesen. Fernando: „Checke ab was vernetzt/verdrahtet werden kann."
+Also alle 191 `gs_*`-localStorage-Schlüssel gegen Lese- und Schreibstellen
+gehalten. `gs_expert_application`: geschrieben, nirgends gelesen. Beim
+Nachsehen war das nur die Spitze.
+
+#### Vier Funde, alle derselben Familie
+
+1. **Vier Bildschirme gingen gar nicht auf.** Alle setzten
+   `getElementById('modal-recipe-detail').querySelector('.modal-title').textContent`
+   — dieses Modal enthält **kein** `.modal-title` (die Klasse gibt es sechsmal
+   in der Datei, aber nicht hier). Die Zeile warf jedes Mal, und zwar **vor**
+   `openModal`. Betroffen: „Bestätigte Scans", „Supabase API-Key", das
+   **Admin-Panel** und der Experten-Antrag.
+2. **`gsSubmitExpertApplication` verschickte nichts.** Sie schrieb Biografie
+   und Diplome in den localStorage des eigenen Geräts und meldete „✅ Antrag
+   eingereicht! … Du wirst per E-Mail benachrichtigt." Dazu schrieb sie in
+   `_sbProfile.biography`/`.diplomas` — zwei Felder, die es in `profiles`
+   nicht gibt (an der Datenbank nachgesehen: es gibt `bio`).
+3. **`gsAdminSetExpertLevel` und `gsAdminBanUser` ebenso** — lokales Log,
+   Erfolgsmeldung, nichts geschehen. Der Kommentar im Code sagte es sogar:
+   „vereinfacht: localStorage + API".
+4. **Der grüne Haken erschien bei niemandem.** `gsIsVerifiedExpert` las
+   `profile.expert_level` — keine solche Spalte. Die App hatte zwei
+   Rollen-Systeme, und nur `profiles.role` existiert serverseitig; der
+   Kommentar bei `GS_ROLE_HIERARCHY` nennt es selbst „Server-Wahrheit".
+
+#### Was gebaut wurde
+
+- `gsSetModalTitel(modalId, text)` + ein Titel-Element im Modal; alle fünf
+  Aufrufer darauf umgestellt (der fünfte leert ihn, sonst stünde „🛡️
+  Admin-Panel" über einem Pesto).
+- Antrag → `feedback_items` (`kind='expert_application'`). An der Datenbank
+  geprüft: RLS erlaubt INSERT mit eigener `user_id`, SELECT für Staff
+  aufwärts, und `v_feedback_public` läuft mit `security_invoker=true` — der
+  Antrag ist also **nicht** öffentlich. Erfolg wird nur nach einer echten
+  Antwort gemeldet.
+- Rollen-Vergabe und Sperre → PATCH auf `profiles` (role, role_note,
+  role_assigned_at/by, is_expert), Auswahl auf die Werte beschränkt, die der
+  CHECK-Constraint annimmt.
+- Badge liest `profile.role`.
+- Antrag ist in der Feedback-Liste sichtbar: `kindToType` erweitert und
+  `context` beim Einlesen **mitgenommen** — es wurde bisher gelesen und
+  weggeworfen, die Diplome wären sonst unsichtbar geblieben.
+
+#### Prüfstände
+
+- `save_check` **10/10** — neu: drei Server-Wege mit gestelltem `sbFetch`. Je
+  Weg drei Fälle, und der dritte ist der wichtige: **eine leere Antwort ist
+  kein Erfolg** (PostgREST liefert bei RLS-Ablehnung 0 Zeilen und keinen
+  Fehler). Dieser Prüfstand hat Fund 1 gefunden, beim Auslösen.
+- `wiring_check` — neue Richtung 2b: sofort dereferenzierte
+  `querySelector('.klasse')`-Ketten ohne passendes Element. Gegenprobe
+  gemacht: eine künstlich eingesetzte tote Klasse wird mit Zeile gemeldet.
+- Alle übrigen unverändert grün.
+
+---
 
 ### 2026-09-02 (cf) — v31.94: aus einer Lücke im Kalender wird ein Platz im Garten
 

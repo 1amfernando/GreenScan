@@ -480,6 +480,10 @@ python3 scripts/field_check.py   # Formularfelder, die niemand liest (seit v31.7
 node scripts/data_check.js       # liest der Code Felder, die es nicht gibt? (seit v31.80)
 node scripts/save_check.js       # kommt an, was gespeichert wird? (seit v31.85)
 node scripts/planer_check.js     # rechnet der Planer, was er behauptet? (seit v31.93)
+#   save_check prueft seit v31.95 auch SERVER-Wege mit gestelltem sbFetch:
+#   meldet die Funktion Erfolg, wenn der Server NEIN sagt — oder gar nichts?
+#   wiring_check meldet seit v31.95 zusaetzlich sofort dereferenzierte
+#   querySelector('.klasse')-Ketten ohne passendes Element.
 #   data_check prueft seit v31.89 zusaetzlich Widersprueche in den
 #   Sicherheitsangaben — siehe docs/ARTEN-LUECKEN.md
 ```
@@ -534,8 +538,16 @@ Namen und erwartetem Wert gemeldet (`kind (=undefined, erwartet
 gewaechshaus)`). Ein Pruefstand, der beim ersten Lauf alles gruen meldet,
 ist erst etwas wert, wenn er auch einen Fehler findet.
 
-**Grenze:** gemeldet wird nur, was in der Liste `WEGE` steht. Ein
-Speicherweg, der dort fehlt, faellt nicht auf — **die Liste ist die
+**Seit v31.95 gibt es eine zweite Liste: `SERVER_WEGE`.** Sie prueft nicht
+den Speicher, sondern die **Aussage** — mit gestelltem `sbFetch`, je Weg drei
+Faelle: Server lehnt ab · Server antwortet **leer** · Server bestaetigt. Der
+mittlere ist der wichtige: PostgREST liefert bei einer von RLS abgewiesenen
+Zeile **0 Datensaetze und keinen Fehler**. Wer nur `error` prueft, meldet dann
+Erfolg fuer nichts — genau das taten `gsSubmitExpertApplication`,
+`gsAdminSetExpertLevel` und `gsAdminBanUser` bis v31.94.
+
+**Grenze:** gemeldet wird nur, was in den Listen `WEGE` und `SERVER_WEGE`
+steht. Ein Speicherweg, der dort fehlt, faellt nicht auf — **die Liste ist die
 Pruefung**. Wer einen neuen Speicherweg baut, traegt ihn dort ein.
 
 `data_check.js` stellt die dritte Frage. `wiring_check` fragt *kommt an, was
@@ -591,6 +603,22 @@ Richtungen, und die zweite ist die teurere:
    dort ein Element an, das es nicht gibt. **Wer weitere solche Listen anlegt,
    muss sie hier eintragen** — was nur als Datenstruktur existiert, entzieht
    sich jeder Prüfung, die bloss das Dokument ansieht.
+
+**Richtung 2b (seit v31.95): Klassen-Ketten.** `getElementById` deckt ids ab.
+Nicht abgedeckt war
+`getElementById('x').querySelector('.y').textContent = …` — und genau daran
+hingen **vier Bildschirme**: `.modal-title` gibt es in `#modal-recipe-detail`
+nicht, die Zeile warf jedes Mal, und zwar **vor** `openModal`. „Bestätigte
+Scans", „Supabase API-Key", das **Admin-Panel** und der Experten-Antrag
+liessen sich dadurch gar nicht öffnen. Keine Fehlermeldung, kein leeres
+Fenster — es passierte nichts. Gemeldet wird nur, was wirklich wirft: eine
+Klasse, die in keinem `class="…"`, `classList.add` oder `className` vorkommt.
+
+**Und die Lehre daraus, die über diesen einen Fall hinausgeht:** ein Fenster,
+das sich nicht öffnet, sieht aus wie ein Knopf, den man danebengetippt hat.
+Niemand meldet das als Fehler. Deshalb war dahinter ein zweiter Fehler
+jahrelang unbemerkt — der Experten-Antrag, den niemand absenden konnte, wurde
+auch nie abgeschickt, wenn man es doch tat.
 
 **Die Grenzen, damit sie niemand neu entdecken muss:**
 

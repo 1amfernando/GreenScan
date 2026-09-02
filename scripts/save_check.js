@@ -132,6 +132,116 @@ const WEGE = [
   },
 ];
 
+// ── v31.95: Wege, die auf den SERVER schreiben ───────────────────────────
+//
+// Die Liste oben prueft den localStorage. Sie haette drei Funktionen nie
+// gefunden, die genau deshalb kaputt waren: `gsSubmitExpertApplication`,
+// `gsAdminSetExpertLevel` und `gsAdminBanUser` schrieben ordentlich — nur
+// eben lokal — und meldeten dann „✅ eingereicht" / „✅ vergeben".
+//
+// Geprueft wird deshalb hier nicht der Speicher, sondern die AUSSAGE: was
+// ruft die Funktion auf, und was meldet sie, wenn der Server NEIN sagt.
+// `sbFetch` wird dafuer gestellt; ein Netz gibt es im Pruefstand nicht.
+//
+// Der wichtigste Fall ist der dritte je Weg: eine LEERE Antwort. PostgREST
+// liefert bei einer von RLS abgewiesenen Zeile 0 Datensaetze und KEINEN
+// Fehler — wer nur auf `error` prueft, meldet dann Erfolg fuer nichts.
+const SERVER_WEGE = [
+  {
+    name: 'Experten-Antrag (gsSubmitExpertApplication → feedback_items)',
+    lauf: async () => {
+      const setz = (id, v) => { const e = document.getElementById(id); if (e) e.value = v; };
+      const erg = { rufe: [], meldungen: [] };
+      window.showProfileToast = m => erg.meldungen.push(typeof m === 'string' ? m : (m && (m.title + ' ' + (m.body || ''))));
+      window.closeModal = () => {};
+      window.gsStore = window.gsStore || {};
+      gsStore.get = (k, d) => (k === 'gs_sb_uid' ? '00000000-0000-0000-0000-000000000001' : d);
+      if (typeof gsOpenExpertApplication !== 'function') return { ok: false, warum: 'Formular-Funktion fehlt' };
+      window._sbProfile = { id: 'x' };
+      gsOpenExpertApplication();
+      setz('exp-bio', 'Botaniker seit fünfzehn Jahren, Schwerpunkt Alpenflora und Pilzkunde.');
+      setz('exp-dips', 'Dipl. Biologe Uni Zürich 2010');
+
+      // Fall 1: der Server lehnt ab → KEIN Erfolg, KEIN lokaler Beleg.
+      localStorage.removeItem('gs_expert_application');
+      window.sbFetch = async (path, opts) => { erg.rufe.push(path); return { data: null, error: { message: 'permission denied' } }; };
+      await gsSubmitExpertApplication();
+      if (!erg.rufe.some(p => /feedback_items/.test(p))) return { ok: false, warum: 'ruft feedback_items gar nicht auf' };
+      if (erg.meldungen.some(m => /übermittelt$|✅ Antrag übermittelt/.test(m || ''))) return { ok: false, warum: 'meldet Erfolg, obwohl der Server ablehnt' };
+      if (localStorage.getItem('gs_expert_application')) return { ok: false, warum: 'legt einen Beleg an, obwohl nichts übermittelt wurde' };
+
+      // Fall 2: leere Antwort ohne Fehler → ebenfalls KEIN Erfolg.
+      erg.meldungen.length = 0;
+      window.sbFetch = async () => ({ data: [], error: null });
+      await gsSubmitExpertApplication();
+      if (localStorage.getItem('gs_expert_application')) return { ok: false, warum: 'wertet eine LEERE Antwort als Erfolg' };
+
+      // Fall 3: echte Antwort → Beleg und Erfolgsmeldung.
+      erg.meldungen.length = 0;
+      window.sbFetch = async () => ({ data: [{ id: 'fb-1' }], error: null });
+      await gsSubmitExpertApplication();
+      const beleg = JSON.parse(localStorage.getItem('gs_expert_application') || 'null');
+      if (!beleg || beleg.status !== 'submitted') return { ok: false, warum: 'kein Beleg nach erfolgreicher Übermittlung' };
+      if (!erg.meldungen.some(m => /übermittelt/i.test(m || ''))) return { ok: false, warum: 'meldet den Erfolg nicht' };
+      return { ok: true, info: 'Ablehnung, leere Antwort und Erfolg jeweils richtig' };
+    },
+  },
+  {
+    name: 'Rolle vergeben (gsAdminSetExpertLevel → profiles.role)',
+    lauf: async () => {
+      const erg = { rufe: [], meldungen: [] };
+      window.showProfileToast = m => erg.meldungen.push(typeof m === 'string' ? m : (m && (m.title + ' ' + (m.body || ''))));
+      window.closeModal = () => {};
+      window.gsConfirmModal = async () => true;
+      window.gsIsAdmin = () => true;
+      window.gsStore = window.gsStore || {};
+      gsStore.get = (k, d) => (k === 'gs_sb_token' ? 'tok' : (k === 'gs_sb_uid' ? 'admin-uid' : (k === 'gs_admin_log' ? null : d)));
+      gsStore.set = () => {};
+      const sel = document.createElement('select'); sel.id = 'admin-expert-select';
+      sel.innerHTML = '<option value="expert">x</option>'; sel.value = 'expert';
+      const ta = document.createElement('textarea'); ta.id = 'admin-expert-reason'; ta.value = 'Dipl. Botanikerin';
+      document.body.appendChild(sel); document.body.appendChild(ta);
+
+      // Fall 1: PATCH liefert 0 Zeilen (RLS hat still abgewiesen).
+      window.sbFetch = async (path, opts) => {
+        erg.rufe.push((opts && opts.method || 'GET') + ' ' + path);
+        if (!opts || opts.method === 'GET') return { data: [{ id: 'u1', role: 'user' }], error: null };
+        return { data: [], error: null };
+      };
+      await gsAdminSetExpertLevel('a@b.ch');
+      if (!erg.rufe.some(r => /^PATCH \/rest\/v1\/profiles/.test(r))) return { ok: false, warum: 'schreibt gar nicht in profiles' };
+      if (erg.meldungen.some(m => /^✅/.test(m || ''))) return { ok: false, warum: 'meldet Erfolg bei LEERER Antwort — genau der Fall, den RLS erzeugt' };
+
+      // Fall 2: PATCH gibt die Zeile mit der neuen Rolle zurueck.
+      erg.meldungen.length = 0;
+      window.sbFetch = async (path, opts) => {
+        if (!opts || opts.method === 'GET') return { data: [{ id: 'u1', role: 'user' }], error: null };
+        const body = JSON.parse(opts.body || '{}');
+        if (body.role !== 'expert') return { data: [], error: { message: 'falsche Rolle geschickt: ' + body.role } };
+        if (body.is_expert !== true) return { data: [], error: { message: 'is_expert nicht mitgesetzt' } };
+        return { data: [{ id: 'u1', role: 'expert' }], error: null };
+      };
+      await gsAdminSetExpertLevel('a@b.ch');
+      if (!erg.meldungen.some(m => /^✅/.test(m || ''))) return { ok: false, warum: 'meldet keinen Erfolg: ' + erg.meldungen.join(' | ') };
+      sel.remove(); ta.remove();
+      return { ok: true, info: 'leere Antwort abgelehnt, echte Antwort gemeldet' };
+    },
+  },
+  {
+    name: 'Experten-Haken liest die Rolle, nicht die tote Spalte',
+    lauf: async () => {
+      if (typeof gsIsVerifiedExpert !== 'function') return { ok: false, warum: 'Funktion fehlt' };
+      window.gsIsAdmin = () => false;
+      if (gsIsVerifiedExpert({ role: 'user' })) return { ok: false, warum: 'gibt jedem Nutzer den grünen Haken' };
+      if (!gsIsVerifiedExpert({ role: 'expert' })) return { ok: false, warum: 'ein Experte bekommt keinen Haken — genau der Fehler bis v31.94' };
+      if (!gsIsVerifiedExpert({ role: 'admin' })) return { ok: false, warum: 'ein Admin bekommt keinen Haken' };
+      const info = gsGetExpertInfo({ role: 'expert' });
+      if (!info || !/Experte/.test(info.label || '')) return { ok: false, warum: 'falsche Bezeichnung: ' + (info && info.label) };
+      return { ok: true, info: 'user=nein, expert=ja (' + info.label + '), admin=ja' };
+    },
+  },
+];
+
 (async () => {
   const br = await chromium.launch();
   const ctx = await br.newContext({ viewport: { width: 412, height: 915 } });
@@ -162,8 +272,18 @@ const WEGE = [
     if (r && r.ok) console.log('  ok   ' + w.name);
     else { kaputt++; console.log('  !!   ' + w.name + '  →  ' + ((r && r.warum) || 'unbekannt')); }
   }
+  console.log('  --- Server-Wege (gestelltes sbFetch, geprueft wird die AUSSAGE)');
+  for (const w of SERVER_WEGE) {
+    let r;
+    try {
+      r = await p.evaluate(new Function('return (' + w.lauf.toString() + ')()'));
+    } catch (e) { r = { ok: false, warum: 'Ausnahme: ' + e.message.split('\n')[0] }; }
+    if (r && r.ok) console.log('  ok   ' + w.name + (r.info ? '   [' + r.info + ']' : ''));
+    else { kaputt++; console.log('  !!   ' + w.name + '\n         → ' + ((r && r.warum) || 'unbekannt')); }
+  }
+
   console.log('  ---');
-  console.log('  Speicherwege geprueft: ' + WEGE.length + ' · davon kaputt: ' + kaputt);
+  console.log('  Speicherwege geprueft: ' + (WEGE.length + SERVER_WEGE.length) + ' · davon kaputt: ' + kaputt);
   console.log('  JS-Fehler waehrend der Pruefung: ' + (errs.length ? errs.length + ' (' + errs.slice(0, 2).join(' | ') + ')' : 'keine'));
   await br.close();
   process.exitCode = kaputt ? 1 : 0;
