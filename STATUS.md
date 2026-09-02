@@ -4,13 +4,37 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.96` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.97` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (ci) — v31.97: erst das Urteil, dann die Einzelheiten
+
+Durch R11 und R12 hat die Plan-Prüfung bis zu zwölf Zeilen. Zwölf Zeilen sind
+keine Auskunft, sondern eine Wand — und in einer Wand sieht ein „⚠" genauso
+aus wie ein „✓".
+
+- **Zählung oben:** `⚠ n Hinweise · ✓ n bestanden · – n nicht prüfbar`.
+- **Zeilen nach Dringlichkeit sortiert** — die Reihenfolge ist die Aussage.
+- **Ein Fusshinweis** statt dreimal derselbe Grund, wenn Prüfungen mangels
+  Garten-Scan nicht gelten. Erkannt am **Text** der Zeilen, nicht geraten.
+- **Bewusst nicht eingeklappt:** was in einem `<details>` steckt, misst der
+  Kontrast-Prüfstand nicht (CLAUDE.md §7.1) — und ein Grund, den niemand
+  liest, ist so gut wie keiner.
+
+#### Prüfstände
+
+`planer_check` **22/22**, zwei Fälle mehr: die Zählung wird gegen die Zahl der
+gerenderten Zeilen geprüft, und die Reihenfolge der Marken aus dem HTML
+gelesen. `contrast_check`: das Planer-Fenster misst jetzt **249 statt 239**
+Textstellen — das Urteil wird also wirklich vermessen und nicht stillschweigend
+übersprungen; beide Modi 0 unter AA.
+
+---
 
 ### 2026-09-02 (ch) — v31.96: die Rollen-Vergabe geht den Weg, den es schon gab
 

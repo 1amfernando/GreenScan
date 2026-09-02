@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.96.20260902">
+<meta name="app-version" content="31.97.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1393,6 +1393,9 @@ body.dark .mkt-chat-msg.them{background:#2a3f2a;color:var(--text);}
 .gs-pk-txt{flex:1;min-width:0;font-size:var(--fs-sm);color:var(--text2);line-height:1.45;}
 .gs-pk-txt b{color:var(--text);font-weight:800;}
 .gs-pk-marke{font-size:var(--fs-md);font-weight:900;line-height:1.45;flex-shrink:0;}
+/* v31.97 — Urteil ueber der Tafel und der eine Hinweis darunter. */
+.gs-pk-summe{display:flex;flex-wrap:wrap;gap:2px 4px;align-items:baseline;font-size:var(--fs-sm);margin:0 0 8px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.gs-pk-fuss{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:var(--fs-sm);color:var(--text2);line-height:1.45;}
 /* v31.75 — Planer V3, Reiter „Jahr". Ein Balken je Kultur ueber neun Monate.
    Die Spur ist prozentual, nicht in Pixeln: dieselbe Ansicht traegt vom
    Telefon bis zum Tablet, ohne zweite Berechnung. */
@@ -56825,12 +56828,12 @@ function gsPPrenderPlan(plan, data) {
                 : zustand === 'warn' ? 'var(--c-warn-d)'
                 : 'var(--muted)';
       var marke = zustand === 'ok' ? '\u2713' : zustand === 'warn' ? '\u26a0' : '\u2013';
-      zeilen.push(
+      zeilen.push({ zustand: zustand, text: text, html:
         '<div class="gs-pk-zeile">' +
           '<span class="gs-pk-icon" aria-hidden="true">' + icon + '</span>' +
           '<div class="gs-pk-txt"><b>' + esc(was) + '</b> ' + text + '</div>' +
           '<span class="gs-pk-marke" style="color:' + farbe + '" aria-hidden="true">' + marke + '</span>' +
-        '</div>');
+        '</div>' });
     }
 
     if (plan._bestand) {
@@ -57071,9 +57074,47 @@ function gsPPrenderPlan(plan, data) {
       zeile('\ud83c\udf31', 'Nachkultur', 'unbekannt', 'nicht gepr\u00fcft \u2014 ' + esc(plan._nachkultur_grund) + '.');
     }
 
+    // ── v31.97: erst das Urteil, dann die Einzelheiten ──────────────────
+    //
+    // Mit R11 und R12 hat die Tafel bis zu zwoelf Zeilen. Zwoelf Zeilen sind
+    // keine Auskunft, sondern eine Wand — und in einer Wand sieht ein „⚠"
+    // genauso aus wie ein „✓". Wer den Plan aufmacht, will zuerst EINE
+    // Aussage: ist er in Ordnung?
+    //
+    // Also: eine Zaehlung oben, und die Zeilen danach nach Dringlichkeit —
+    // Hinweise zuerst, Bestandenes darunter, Nicht-Pruefbares zuletzt. Die
+    // Reihenfolge ist die Aussage: was oben steht, ist zu tun.
+    //
+    // Bewusst NICHT eingeklappt: was in einem `<details>` steckt, misst der
+    // Kontrast-Pruefstand nicht (CLAUDE.md §7.1), und ein Grund, den niemand
+    // liest, ist so gut wie keiner.
     if (zeilen.length) {
-      html += '<div class="gs-pk"><div class="gs-pk-kopf">\ud83d\udd0d Plan-Pr\u00fcfung</div>' +
-              zeilen.join('') + '</div>';
+      var nWarn = zeilen.filter(function (z) { return z.zustand === 'warn'; }).length;
+      var nOk   = zeilen.filter(function (z) { return z.zustand === 'ok'; }).length;
+      var nUnk  = zeilen.length - nWarn - nOk;
+      var teile = [];
+      if (nWarn) teile.push('<span style="color:var(--c-warn-d);font-weight:800;">\u26a0 ' + nWarn + ' Hinweis' + (nWarn === 1 ? '' : 'e') + '</span>');
+      if (nOk)   teile.push('<span style="color:var(--c-success-d);font-weight:800;">\u2713 ' + nOk + ' bestanden</span>');
+      if (nUnk)  teile.push('<span style="color:var(--muted);font-weight:800;">\u2013 ' + nUnk + ' nicht pr\u00fcfbar</span>');
+      // Der haeufigste Grund fuers Nicht-Pruefen ist ein fehlender
+      // Garten-Scan. Statt ihn dreimal zu wiederholen: einmal sagen, was
+      // hilft. Geprueft wird das am TEXT der Zeilen, nicht geraten.
+      var scanFehlt = zeilen.some(function (z) {
+        return z.zustand !== 'warn' && z.zustand !== 'ok' && /Garten-Scan|gescannt/.test(z.text || '');
+      });
+      var rang = { warn: 0, ok: 1 };
+      var sortiert = zeilen.slice().sort(function (x, y) {
+        return (rang[x.zustand] === undefined ? 2 : rang[x.zustand]) -
+               (rang[y.zustand] === undefined ? 2 : rang[y.zustand]);
+      });
+      html += '<div class="gs-pk">' +
+                '<div class="gs-pk-kopf">\ud83d\udd0d Plan-Pr\u00fcfung</div>' +
+                '<div class="gs-pk-summe">' + teile.join('<span aria-hidden="true"> \u00b7 </span>') + '</div>' +
+                sortiert.map(function (z) { return z.html; }).join('') +
+                (scanFehlt
+                  ? '<div class="gs-pk-fuss">Scanne deinen Garten (Mein Garten \u2192 Garten scannen), damit die offenen Pr\u00fcfungen gelten \u2014 Licht, Beete und Fruchtfolge brauchen gemessene Fl\u00e4chen.</div>'
+                  : '') +
+              '</div>';
     }
   })();
 
@@ -68889,6 +68930,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.97', date: '02.09.2026',
+    headline: '\ud83d\udd0d Erst das Urteil, dann die Einzelheiten',
+    summary: 'Die Plan-Pr\u00fcfung hat durch die neuen Regeln bis zu zw\u00f6lf Zeilen bekommen. Zw\u00f6lf Zeilen sind keine Auskunft, sondern eine Wand — darin sieht ein Hinweis genauso aus wie ein Bestanden. Jetzt steht die Z\u00e4hlung obendr\u00fcber, und die Zeilen sind nach Dringlichkeit sortiert.',
+    user_summary: '\ud83d\udd0d Beim \u00d6ffnen eines Plans siehst du zuerst eine Zeile: wie viele Hinweise, wie viel bestanden, wie viel nicht pr\u00fcfbar. Was zu tun ist, steht oben.',
+    user_items: [
+      {emoji:'\u26a0\ufe0f', bold:'Hinweise zuerst:', text:' Die Reihenfolge ist die Aussage \u2014 was oben steht, ist zu tun. Bestandenes darunter, Nicht-Pr\u00fcfbares zuletzt.'},
+      {emoji:'\ud83d\udd0e', bold:'Ein Hinweis statt drei Ausreden:', text:' Wenn mehrere Pr\u00fcfungen mangels Garten-Scan nicht gelten, steht das einmal am Fuss \u2014 mit dem Weg dorthin, statt dreimal derselbe Satz.'},
+      {emoji:'\ud83d\udc41\ufe0f', bold:'Nichts wird eingeklappt:', text:' Ein Grund, den niemand liest, ist so gut wie keiner \u2014 und was in einem zugeklappten Bereich steckt, pr\u00fcft auch der Kontrast-Pr\u00fcfstand nicht mit.'},
+    ],
+  },
+  {
     v: 'v31.96', date: '02.09.2026',
     headline: '\ud83d\udee1\ufe0f Die Rollen-Vergabe geht jetzt den Weg, den es schon gab',
     summary: 'v31.95 hat aus einer Falschmeldung eine echte Änderung gemacht — aber auf dem schlechteren Weg. Die Datenbank hat dafür eine eigene Funktion, die serverseitig prüft, den letzten Admin schützt, ein Protokoll führt und die betroffene Person benachrichtigt. Genau darüber läuft es jetzt.',
@@ -69456,7 +69508,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.96';
+var GS_VERSION = 'v31.97';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
