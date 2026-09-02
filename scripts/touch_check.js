@@ -33,6 +33,43 @@ const SCAN=()=>{
     // Elemente, die andere bedienbare Elemente enthalten, sind Container — die
     // eigentliche Flaeche ist das Kind. Nicht doppelt zaehlen.
     if(el.querySelector('button,a[href],[onclick],[role="button"],input,select')) return;
+    // v32.16 — und die Umkehrung. WCAG 2.5.8 meint die Flaeche, die den
+    // Zeiger ANNIMMT. Liegt dieses Element vollstaendig in einem groesseren
+    // Bedienelement, das denselben Klick behandelt, ist NICHT dieses hier das
+    // Ziel, sondern der Kasten darum.
+    //
+    // Anlass war v32.16: die Tastatur-Nachruestung macht bei Karten mit
+    // eigenen Knoepfen die UEBERSCHRIFT fokussierbar (`role="button"`), damit
+    // kein Knopf im Knopf entsteht. Angetippt wird weiterhin die ganze Karte.
+    // Ohne diese Zeile meldete der Pruefstand 79 Rezept- und Heilmittel-Titel
+    // als „352x18, zu klein" — ein Ziel, das niemand antippt, weil der Finger
+    // die Karte trifft.
+    //
+    // Die Bedingung ist ZWEIFACH eng, und der zweite Teil hat mich einen
+    // Anlauf gekostet: der Vorfahr muss den Klick wirklich behandeln UND
+    // gross genug sein — und das Element selbst darf KEINE eigene Handlung
+    // haben. Ein echter kleiner Knopf in einer Karte (das Herz zum Merken)
+    // ist sehr wohl ein eigenes Ziel: der Finger trifft ihn, nicht die
+    // Karte. Nur ein reiner Tastatur-Stellvertreter — `role`/`tabindex` ohne
+    // eigenes `onclick` — ist keins.
+    //
+    // Gegenprobe gemacht: 10x10-Knopf frei im Fluss → gemeldet. Derselbe
+    // Knopf in einer 300x80-Karte → ebenfalls gemeldet. Ein Titel-Div mit
+    // `role="button"` in derselben Karte → still. Genau so soll es sein.
+    const eigeneHandlung = el.hasAttribute('onclick') || el.tagName==='BUTTON'
+      || (el.tagName==='A' && el.hasAttribute('href'))
+      || el.tagName==='INPUT' || el.tagName==='SELECT' || el.tagName==='SUMMARY';
+    if(!eigeneHandlung)
+    for(let a=el.parentElement; a && a!==document.body; a=a.parentElement){
+      const traegt = a.hasAttribute('onclick') || a.getAttribute('role')==='button'
+                     || a.tagName==='BUTTON' || (a.tagName==='A' && a.hasAttribute('href'));
+      if(!traegt) continue;
+      const ar=a.getBoundingClientRect();
+      if(Math.min(Math.round(ar.width),Math.round(ar.height))>=24
+         && ar.top<=r.top+1 && ar.left<=r.left+1
+         && ar.bottom>=r.bottom-1 && ar.right>=r.right-1) return;
+      break;
+    }
     const w=Math.round(r.width), h=Math.round(r.height);
     const min=Math.min(w,h);
     if(min>=24)return;

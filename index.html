@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.15.20260902">
+<meta name="app-version" content="32.16.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -406,6 +406,15 @@ body.dark .planting-row{border-top-color:#2a3f2a;}
 body.dark .planting-row:active{background:#1e3a1e;}
 body.dark .notif-banner{background:#1e3a1e;border-color:#2a4f2a;color:var(--g-main);}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+/* v32.16 — Ein sichtbarer Fokus. `:focus-visible` erscheint NUR bei Tastatur-
+   oder Schalter-Bedienung, nie beim Antippen oder Klicken: die Optik fuer
+   alle anderen bleibt unveraendert. Ohne diese Regel waere die Nachruestung
+   der Tastatur-Bedienbarkeit die halbe Miete — man koennte hinkommen, saehe
+   aber nicht, wo man ist. Zwei Ringe uebereinander (dunkel auf hell), damit
+   er auf jedem Untergrund steht, auch auf gruenen Flaechen. */
+:focus-visible{outline:3px solid var(--g-main);outline-offset:2px;
+  box-shadow:0 0 0 5px rgba(255,255,255,.85);border-radius:4px;}
+body.dark :focus-visible{box-shadow:0 0 0 5px rgba(0,0,0,.75);}
 html,html,body{background:var(--g-bg);}
 /* v31.32 — body setzte NIE eine Schriftfarbe. Sie war damit in beiden Modi
    Schwarz (der Vorgabewert), und alles ohne eigene Farbe erbte Schwarz — im
@@ -3909,7 +3918,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   <div id="social-inline-composer" style="background:var(--card);margin:8px 16px 0;border-radius:var(--r-lg);box-shadow:var(--shadow-sm);overflow:hidden;">
     <!-- Top row: avatar + text input -->
     <div style="display:flex;align-items:center;gap:10px;padding:11px 13px 8px;">
-      <div onclick="showNameInput()" id="compose-avatar" style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--g-main),#558b2f);display:flex;align-items:center;justify-content:center;font-size:var(--fs-xl);flex-shrink:0;cursor:pointer;">🌱</div>
+      <div onclick="showNameInput()" id="compose-avatar" aria-label="Anzeigenamen festlegen" style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--g-main),#558b2f);display:flex;align-items:center;justify-content:center;font-size:var(--fs-xl);flex-shrink:0;cursor:pointer;">🌱</div>
       <textarea id="inline-post-text" 
         placeholder="Was möchtest du teilen?" 
         rows="2"
@@ -4108,14 +4117,14 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
      Beschriftung abgeschnitten. Die SEITE scrollt dabei nicht, es sieht also
      nach nichts aus. Belegt durch touch_check: mit dieser Zeile 0, ohne sie 1. -->
 <div style="background:var(--g-bg);padding:4px 16px 6px;flex-shrink:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:var(--fs-sm);">
-  <select id="market-sort" onchange="gsMarketSort(this.value)" style="min-width:0;flex:0 1 auto;padding:6px 24px 6px 10px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--card);font-size:var(--fs-sm);font-weight:700;color:var(--text2);font-family:inherit;appearance:none;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 6%22><path d=%22M5 6L0 0h10z%22 fill=%22%23607d8b%22/></svg>');background-repeat:no-repeat;background-position:right 8px center;background-size:8px;">
+  <select id="market-sort" aria-label="Inserate sortieren" onchange="gsMarketSort(this.value)" style="min-width:0;flex:0 1 auto;padding:6px 24px 6px 10px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--card);font-size:var(--fs-sm);font-weight:700;color:var(--text2);font-family:inherit;appearance:none;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 6%22><path d=%22M5 6L0 0h10z%22 fill=%22%23607d8b%22/></svg>');background-repeat:no-repeat;background-position:right 8px center;background-size:8px;">
     <option value="new">🆕 Neueste</option>
     <option value="near">📍 In der Nähe</option>
     <option value="price_asc">💰 Preis ↑</option>
     <option value="price_desc">💰 Preis ↓</option>
     <option value="rating">⭐ Bewertung</option>
   </select>
-  <select id="market-region" onchange="gsMarketRegion(this.value)" style="min-width:0;flex:0 1 auto;padding:6px 24px 6px 10px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--card);font-size:var(--fs-sm);font-weight:700;color:var(--text2);font-family:inherit;appearance:none;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 6%22><path d=%22M5 6L0 0h10z%22 fill=%22%23607d8b%22/></svg>');background-repeat:no-repeat;background-position:right 8px center;background-size:8px;">
+  <select id="market-region" aria-label="Nach Region filtern" onchange="gsMarketRegion(this.value)" style="min-width:0;flex:0 1 auto;padding:6px 24px 6px 10px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--card);font-size:var(--fs-sm);font-weight:700;color:var(--text2);font-family:inherit;appearance:none;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 6%22><path d=%22M5 6L0 0h10z%22 fill=%22%23607d8b%22/></svg>');background-repeat:no-repeat;background-position:right 8px center;background-size:8px;">
     <option value="all">🇨🇭 Ganze Schweiz</option>
     <option value="ZH">Zürich</option><option value="BE">Bern</option><option value="BS">Basel</option>
     <option value="GE">Genf</option><option value="LU">Luzern</option><option value="SG">St. Gallen</option>
@@ -70961,6 +70970,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.16', date: '02.09.2026',
+    headline: '\u2328\ufe0f 213 Stellen waren nur mit der Maus erreichbar',
+    summary: 'Jedes Suchergebnis, jedes Rezept, jedes Heilmittel, jede Startseiten-Kachel: mit dem Finger ein Knopf, mit der Tastatur unsichtbar. Wer die App mit Tastatur oder Schalter bedient, kam an den ganzen Inhalt nicht heran. Eine zentrale Nachr\u00fcstung statt achtzehn Einzelpflaster \u2014 und ein zw\u00f6lfter Pr\u00fcfstand, der es festh\u00e4lt.',
+    user_summary: '\u2328\ufe0f Wer die App mit der Tastatur bedient, kam an Suchergebnisse, Rezepte und Heilmittel gar nicht heran. Jetzt schon \u2014 samt sichtbarem Fokusrahmen.',
+    user_items: [
+      {emoji:'\u2328\ufe0f', bold:'Was nicht ging:', text:' 213 Elemente auf dem Bildschirm liessen sich antippen, aber nicht mit der Tabulatortaste erreichen und nicht mit Enter \u00f6ffnen. Es gab keine Fehlermeldung \u2014 es passierte einfach nichts.'},
+      {emoji:'\ud83d\udd0d', bold:'Sichtbarer Fokus:', text:' Ein deutlicher Rahmen zeigt jetzt, wo man gerade ist. Er erscheint NUR bei Tastatur-Bedienung, nie beim Antippen \u2014 f\u00fcr alle anderen sieht die App unver\u00e4ndert aus.'},
+      {emoji:'\ud83c\udff7\ufe0f', bold:'Drei Namen nachgetragen:', text:' Zwei Auswahlfelder im Marktplatz und der Profil-Kreis in der Community sagten einem Vorlese-Programm nicht, was sie sind.'},
+      {emoji:'\ud83e\uddea', bold:'Und wirklich gedr\u00fcckt, nicht behauptet:', text:' Der Pr\u00fcfstand setzt den Fokus auf eine Rezeptkarte und dr\u00fcckt eine echte Enter-Taste. \u00d6ffnet sich die Ansicht nicht, ist er rot.'},
+    ],
+  },
+  {
     v: 'v32.15', date: '02.09.2026',
     headline: '\ud83d\uddfa\ufe0f Der Kartenspeicher hatte keine Obergrenze',
     summary: 'Jede Kartenkachel, die du je angesehen hast, blieb auf dem Ger\u00e4t \u2014 unbegrenzt, bis zum n\u00e4chsten Update. Eine Wanderung zieht Tausende davon. Jetzt gedeckelt: rund 500 Kacheln, die \u00e4ltesten weichen den neuen.',
@@ -71311,7 +71332,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.15';
+var GS_VERSION = 'v32.16';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -74046,6 +74067,113 @@ function gsRegisterServiceWorker() {
     setTimeout(function(){ window.gsFlushPhotoQueue && window.gsFlushPhotoQueue(); }, 4200); // v31.06
   }
 })();
+
+// ══ v32.16 · MIT DER TASTATUR ERREICHBAR ═════════════════════════════════
+//
+// Diese App baut ihre Oberflaeche als HTML-Zeichenketten zusammen, und die
+// naheliegende Art, eine Karte anklickbar zu machen, ist
+// `<div class="…" onclick="…">`. Fuer die Maus ist das ein Knopf. Fuer die
+// Tastatur ist es unsichtbar: kein Fokus, kein Enter, und ein Screenreader
+// liest es als gewoehnlichen Textblock vor.
+//
+// Gemessen mit `scripts/a11y_check.js`: **18 Stellen im Code, 213 Elemente
+// auf dem Bildschirm** — darunter jedes Suchergebnis (81), jedes Rezept (40),
+// jedes Heilmittel (40). Wer die App mit der Tastatur oder einem Schalter
+// bedient, kam an den GANZEN Inhalt nicht heran. Es gab keine Fehlermeldung;
+// es passierte einfach nichts.
+//
+// Achtzehn Einzelpflaster waeren die falsche Antwort gewesen: die naechste
+// Renderstelle haette den Fehler wieder mitgebracht. Deshalb EINE Regel,
+// zentral, und dieselbe, die der Pruefstand verwendet — sonst driften Code
+// und Pruefung auseinander (die Lehre aus v32.02).
+//
+// Die Regel unterscheidet zwei Faelle, und der Unterschied ist wichtig:
+//
+//   OHNE innere Bedienelemente → der Kasten SELBST wird zum Knopf.
+//   MIT   inneren Bedienelementen → ein Knopf IM Knopf waere falsch (ein
+//         Screenreader kann dann keins von beiden sauber ansagen). Statt-
+//         dessen wird die UEBERSCHRIFT darin fokussierbar; ihr Klick steigt
+//         ohnehin zum Kasten auf und loest dessen `onclick` aus.
+//         Findet sich keine Ueberschrift, bleibt es liegen — und der
+//         Pruefstand meldet es weiter. Lieber eine offene Zeile im Bericht
+//         als eine stille Halbheit.
+(function () {
+  var INTERAKTIV = 'button, a[href], input, select, textarea, [onclick], [tabindex]';
+  var EIGEN = 'button, a, input, select, textarea, label';
+
+  function _titelIn(el) {
+    var k = el.querySelectorAll('h1, h2, h3, h4, [class*="-title"], [class*="-titel"]');
+    for (var i = 0; i < k.length; i++) {
+      if (!k[i].querySelector(INTERAKTIV) && (k[i].textContent || '').trim()) return k[i];
+    }
+    return null;
+  }
+
+  function gsTastaturNachruesten(wurzel) {
+    var n = 0;
+    try {
+      var w = wurzel || document.getElementById('app') || document.body;
+      if (!w || !w.querySelectorAll) return 0;
+      var kandidaten = w.querySelectorAll('[onclick]:not([data-tast])');
+      for (var i = 0; i < kandidaten.length; i++) {
+        var el = kandidaten[i];
+        if (el.matches && el.matches(EIGEN)) { el.setAttribute('data-tast', 'eigen'); continue; }
+        var ti = el.getAttribute('tabindex');
+        if (ti !== null && Number(ti) >= 0 && el.getAttribute('role')) { el.setAttribute('data-tast', 'schon'); continue; }
+        var ziel = el.querySelector(INTERAKTIV) ? _titelIn(el) : el;
+        if (!ziel) { el.setAttribute('data-tast', 'offen'); continue; }
+        if (!ziel.hasAttribute('tabindex')) ziel.setAttribute('tabindex', '0');
+        if (!ziel.getAttribute('role')) ziel.setAttribute('role', 'button');
+        ziel.setAttribute('data-tast', 'auf');
+        if (ziel !== el) el.setAttribute('data-tast', 'ueber-titel');
+        n++;
+      }
+    } catch (_) {}
+    return n;
+  }
+  window.gsTastaturNachruesten = gsTastaturNachruesten;
+
+  // Enter und Leertaste loesen aus — EIN Zuhoerer fuer die ganze App statt
+  // 213 einzelner. Bei der Leertaste muss `preventDefault` sein, sonst
+  // scrollt die Seite zusaetzlich weg.
+  document.addEventListener('keydown', function (e) {
+    try {
+      if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+      var el = e.target;
+      if (!el || !el.getAttribute || el.getAttribute('data-tast') !== 'auf') return;
+      e.preventDefault();
+      el.click();
+    } catch (_) {}
+  });
+
+  // Neue Karten entstehen bei fast jedem Rendern. Ein Beobachter haelt die
+  // Nachruestung aktuell, ohne dass jede Renderstelle daran denken muss.
+  // NUR `childList` — wuerde er auch Attribute beobachten, loeste er sich
+  // durch die eigenen Aenderungen endlos selbst aus.
+  //
+  // Sie laeuft in einer RUHIGEN Minute, nicht sofort: der erste vollstaendige
+  // Durchgang kostet auf einem Mittelklasse-Telefon rund 35 ms (gemessen mit
+  // `perf_check`), und der Start ist der teuerste Moment dieser App. Ein paar
+  // hundert Millisekunden spaeter merkt niemand — ein ruckelnder Start schon.
+  function _wennRuhig(fn) {
+    try { if (window.requestIdleCallback) return requestIdleCallback(fn, { timeout: 1500 }); } catch (_) {}
+    return setTimeout(fn, 300);
+  }
+  var _wartet = null;
+  function _spaeter() {
+    if (_wartet) return;
+    _wartet = setTimeout(function () { _wartet = null; _wennRuhig(function () { gsTastaturNachruesten(); }); }, 250);
+  }
+  try {
+    var ziel = document.getElementById('app') || document.body;
+    if (ziel && window.MutationObserver) {
+      new MutationObserver(_spaeter).observe(ziel, { childList: true, subtree: true });
+    }
+    _wennRuhig(function () { gsTastaturNachruesten(); });
+    setTimeout(function () { _wennRuhig(function () { gsTastaturNachruesten(); }); }, 1200);
+  } catch (_) {}
+})();
+
 
 // v24.36: ═══ PERMANENTE STATUS-BADGE (oben rechts) ═══════════════════════
 // 4 Zustände: 🟢 online / 📡 offline / 🔄 syncing / ⏳ N pending
