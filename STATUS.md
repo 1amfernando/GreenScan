@@ -4,13 +4,55 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.03` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.04` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (cq) — v32.04: die Inline-Changelog-Liste war auf 40 gewachsen
+
+Nach dem Roadmap-Nachtrag den einen Prüfstand laufen lassen, der die ganze
+Session nie lief: `perf_check`. Dabei zuerst gemessen, was der Tag gekostet hat
+— `index.html` **+346 KB** (5'157 → 5'503 KB). Ein grosser Teil davon: meine
+eigenen Release-Notizen.
+
+#### Der Befund
+
+`CLAUDE.md` §3.1 sagt, nur die **neuesten ~12** Einträge bleiben inline, alles
+Ältere gehört in `data/releases.v1.js`. Es waren **40** (69 KB). Ich habe heute
+zwölf dazugelegt und **keinen** ausgelagert — genau der Weg, auf dem die Liste
+schon einmal auf 787 KB gewachsen war (v31.36).
+
+28 Einträge ins Archiv, an den **Anfang** (die Reihenfolge ist überall neu→alt,
+und `gsAllReleases` macht `basis.concat(arch)`).
+
+#### Zwei Fehler beim Auslagern, beide vom Prüfen gefunden
+
+1. **Ein führendes Komma erzeugte ein Loch im Array.** Die zusammengesetzte
+   Liste hatte an der Nahtstelle einen `undefined`-Eintrag zwischen v31.92 und
+   v31.91. Zurückgesetzt und sauber wiederholt statt daran herumzuflicken.
+2. **Meine Zahl in der Release-Notiz war falsch.** Ich hatte „299 KB"
+   geschrieben; gemessen sind es **50 KB**. Korrigiert, bevor es rausging.
+
+Gegengeprüft: Archiv 411 → **439** Einträge (genau +28), **0 Löcher**, und der
+eine Reihenfolge-Bruch (v25.28 → v25.29) war **vorher schon da** — alte
+Historie, nicht von dieser Änderung. Bleibt als kosmetischer Restposten stehen.
+
+#### Und was NICHT belegt ist
+
+`perf_check` vorher/nachher: Mittelklasse-Telefon 3811 → 4112 ms Parsen,
+Einsteiger 5907 → 5236 ms. **Das schwankt stärker als der Gewinn.** Eine
+schnellere Startzeit ist daraus nicht ableitbar, und sie steht deshalb auch
+nicht in der Release-Notiz. Belegt ist nur: 50 KB weniger im Startpfad.
+
+#### Prüfstände
+
+Alle neun grün.
+
+---
 
 ### 2026-09-02 (cp) — ROADMAP.md nachgeführt, und ein P0 war seit einem Tag erledigt
 
