@@ -4,13 +4,61 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.04` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.05` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (cr) — v32.05: ein Weg, Arten-Angaben zu korrigieren
+
+Die Arten-Daten stehen seit Wochen auf Fernandos Liste. Ich kann sie nicht aus
+dem Gedächtnis füllen — botanische Angaben in einer App, die Giftiges von
+Essbarem trennt, schreibe ich nicht ungeprüft. Was ich bauen kann, ist der
+**Weg für Leute, die es wissen**.
+
+#### Der Befund vorweg: `user_submissions` ist nicht benutzbar
+
+Die Tabelle gibt es — `species_id`, `field`, `value`, `evidence_url`,
+`status`, `reviewer_id`, `reviewed_at`, `review_note`. Ein vollständiger
+Prüf-Ablauf. Sie wird von der App **nirgends** angefasst, und beim Nachsehen
+in der Datenbank (02.09.2026) zeigte sich der Grund, warum das auch richtig
+war: sie hat **nur eine INSERT-Regel und keine einzige SELECT-Regel**.
+
+Ein Nutzer könnte hineinschreiben. **Niemand könnte es lesen** — auch kein
+Admin. Hätte ich darauf gebaut, wäre es genau der Fehler geworden, den diese
+Session überall repariert: ein Schreiber ohne Leser.
+
+#### Gebaut auf `feedback_items`
+
+Dessen Rechte sind heute schon geprüft (v31.95): INSERT mit eigener `user_id`,
+SELECT für den Einreicher **und Staff aufwärts**, UPDATE für Staff.
+`kind='species_correction'`, im `context` die Art, der Bereich, der Beleg und
+ob der Eintrag ungeprüft ist.
+
+- Knopf auf **jeder** Artenkarte; bei den `_unverified`-Einträgen hervorgehoben
+  und anders beschriftet („Kennst du diese Art? Angabe prüfen helfen").
+- Mindestens 20 Zeichen, Quelle muss eine Adresse sein oder leer bleiben.
+- **Erfolg nur nach einer echten Antwort** — eine leere Antwort ist kein Erfolg
+  (dieselbe Regel wie seit v31.95).
+- In der Feedback-Liste als „✏️ Arten-Korrektur" erkennbar, **mit Art, Bereich
+  und Beleg** — sonst wäre die Meldung wertlos. Ohne Beleg steht das da: „muss
+  von Hand nachgeschlagen werden".
+
+#### Prüfstände
+
+`save_check` **12/12** — zwei Wege mehr. Der erste fährt fünf Fälle: zu kurzer
+Text (kein Serveraufruf), krumme Quelle (kein Serveraufruf), leere Antwort
+(kein Erfolg), echte Antwort (Erfolg mit vollständigem `context`). Der zweite
+liest die gerenderte Karte.
+
+Ein Fehler dabei war meiner: `feedbackItems` ist mit `let` deklariert und liegt
+damit **nicht** auf `window` — mein `window.feedbackItems = …` erreichte die
+Funktion nicht. Blosse Zuweisung greift durch.
+
+---
 
 ### 2026-09-02 (cq) — v32.04: die Inline-Changelog-Liste war auf 40 gewachsen
 

@@ -232,6 +232,83 @@ const SERVER_WEGE = [
     },
   },
   {
+    name: 'Arten-Korrektur (gsKorrekturSenden → feedback_items)',
+    lauf: async () => {
+      const erg = { rufe: [], meldungen: [] };
+      window.showProfileToast = m => erg.meldungen.push(typeof m === 'string' ? m : (m && (m.title + ' ' + (m.body || ''))));
+      window.closeModal = () => {};
+      window.gsStore = window.gsStore || {};
+      gsStore.get = (k, d) => (k === 'gs_sb_uid' ? '00000000-0000-0000-0000-000000000001' : d);
+      const art = (window.DB || []).filter(x => x && x.lat === 'Allium ursinum')[0];
+      if (!art) return { ok: false, warum: 'Testart nicht in der Artenliste' };
+
+      if (typeof gsKorrekturOeffnen !== 'function') return { ok: false, warum: 'gsKorrekturOeffnen fehlt' };
+      gsKorrekturOeffnen(art.id);
+      const feld = document.getElementById('korr-feld');
+      const txt = document.getElementById('korr-text');
+      const q = document.getElementById('korr-quelle');
+      if (!feld || !txt || !q) return { ok: false, warum: 'das Formular hat sich nicht aufgebaut' };
+
+      // Zu kurzer Text → gar kein Serveraufruf.
+      txt.value = 'zu kurz';
+      window.sbFetch = async p => { erg.rufe.push(p); return { data: [{ id: 'x' }], error: null }; };
+      await gsKorrekturSenden(art.id);
+      if (erg.rufe.length) return { ok: false, warum: 'schickt einen 7-Zeichen-Text an den Server' };
+
+      txt.value = 'Die Blütezeit ist Mai bis Juli, nicht April bis Juni.';
+      feld.value = 'saison';
+      q.value = 'nicht-mal-eine-adresse';
+      await gsKorrekturSenden(art.id);
+      if (erg.rufe.length) return { ok: false, warum: 'nimmt eine Quelle an, die keine Adresse ist' };
+
+      q.value = 'https://www.infoflora.ch/de/flora/allium-ursinum.html';
+      // Fall 1: leere Antwort ohne Fehler → KEIN Erfolg.
+      erg.meldungen.length = 0;
+      window.sbFetch = async p => { erg.rufe.push(p); return { data: [], error: null }; };
+      await gsKorrekturSenden(art.id);
+      if (!erg.rufe.some(p => /feedback_items/.test(p))) return { ok: false, warum: 'ruft feedback_items nicht auf' };
+      if (erg.meldungen.some(m => /^✅|Danke/.test(m || ''))) return { ok: false, warum: 'wertet eine LEERE Antwort als Erfolg' };
+
+      // Fall 2: echte Antwort → Erfolg, und der context trägt Art + Beleg.
+      erg.meldungen.length = 0;
+      let gesendet = null;
+      window.sbFetch = async (p, o) => { gesendet = JSON.parse(o.body || '{}'); return { data: [{ id: 'fb-9' }], error: null }; };
+      await gsKorrekturSenden(art.id);
+      if (!erg.meldungen.some(m => /Danke/.test(m || ''))) return { ok: false, warum: 'meldet keinen Erfolg: ' + erg.meldungen.join(' | ') };
+      if (!gesendet || gesendet.kind !== 'species_correction') return { ok: false, warum: 'falsche Art: ' + (gesendet && gesendet.kind) };
+      const c = gesendet.context || {};
+      if (c.species_id !== art.id) return { ok: false, warum: 'die Art fehlt im context' };
+      if (c.feld !== 'saison') return { ok: false, warum: 'der Bereich fehlt: ' + c.feld };
+      if (!/infoflora/.test(c.quelle || '')) return { ok: false, warum: 'der Beleg fehlt' };
+      return { ok: true, info: 'kurz→still, krumme Quelle→still, leer→kein Erfolg, echt→' + c.species_name + '/' + c.feld };
+    },
+  },
+  {
+    name: 'Arten-Korrektur ist in der Feedback-Liste erkennbar',
+    lauf: () => {
+      const fb = {
+        id: 'f1', type: 'species_correction', title: 'x', body: 'Blütezeit stimmt nicht',
+        context: { species_name: 'Bärlauch', species_lat: 'Allium ursinum', feld: 'saison',
+                   quelle: 'https://www.infoflora.ch/x', ungeprueft: true },
+        votes: { up: 0, down: 0 }, date: '2026-09-02', ts: Date.now(), ki_status: 'pending',
+      };
+      // `feedbackItems` ist mit `let` deklariert und liegt damit NICHT auf
+      // `window` — ein `window.feedbackItems = …` erreicht die Funktion nicht.
+      // Blosse Zuweisung greift auf die äussere Bindung durch.
+      feedbackItems = [fb];
+      const el = document.getElementById('feedback-list');
+      if (!el) return { ok: false, warum: 'keine Feedback-Liste im Dokument' };
+      window._gsFbFilterType = 'all';
+      renderFeedback();
+      const t = el.textContent || '';
+      if (!/Arten-Korrektur/.test(t)) return { ok: false, warum: 'wird nicht als Arten-Korrektur bezeichnet' };
+      if (!/Bärlauch/.test(t)) return { ok: false, warum: 'die Art steht nicht da — die Meldung wäre wertlos' };
+      if (!/infoflora/.test(t)) return { ok: false, warum: 'der Beleg steht nicht da' };
+      if (!/ungeprüft/.test(t)) return { ok: false, warum: 'dass der Eintrag ungeprüft ist, steht nicht da' };
+      return { ok: true, info: 'Art, Bereich, Beleg und Ungeprüft-Hinweis sichtbar' };
+    },
+  },
+  {
     name: 'Experten-Haken liest die Rolle, nicht die tote Spalte',
     lauf: async () => {
       if (typeof gsIsVerifiedExpert !== 'function') return { ok: false, warum: 'Funktion fehlt' };
