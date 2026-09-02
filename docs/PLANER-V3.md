@@ -388,7 +388,42 @@ Behauptung. Das Prüfwerk hatte dreizehn Regeln und keinen einzigen Durchlauf
 gegen einen konstruierten Fall — und genau das ist der Zustand, in dem eine
 Prüfung „alles in Ordnung" sagt, weil sie nichts mehr rechnet.
 
+## 11 · Was in v31.94 dazukam — R12 · Nachkultur je Beet
+
+**Aus einer Lücke im Kalender wird ein Platz im Garten.** R6 (`_gsPlanLuecken`)
+findet Lücken im Jahr: „von Ende Juli bis Oktober passiert nichts mehr". Das ist
+eine Zeitangabe ohne Ort — der Gärtner steht dann vor dem Garten und weiss nicht,
+wohin. Seit v31.93 kennt jede Pflanze ihr Beet; damit wird dieselbe Rechnung
+umsetzbar:
+
+> Frühbeet wird am 10. Juli frei (2,4 m², nach Kohlrabi) — dort passt noch
+> Feldsalat, Spinat (143 Tage Saison).
+
+Drei Bedingungen, alle aus geprüften Daten:
+
+- **Frei ist ein Beet, wenn ALLES darin geerntet ist**, nicht das erste. Fehlt
+  auch nur einer Pflanze das Erntedatum, wird das gesagt (`_nachkultur.offen`)
+  statt ein Datum zu erfinden.
+- Die Restzeit muss für **Aussaat und Ernte** innerhalb der Saison reichen
+  (mindestens 42 Tage, danach Monatsfenster aus der Referenz).
+- Die Familie stand **weder dieses Jahr in diesem Beet** noch in den letzten
+  drei Jahren — dieselbe Historie wie R11, also auch aus dem Garten-Scan und
+  aus früheren Plänen derselben Fläche.
+
+**Was bewusst nicht gerechnet wird:** Starkzehrer → Schwachzehrer. Die
+Anbau-Referenz `garden_crop_agronomy` hat die Spalten `crop, family,
+companion_good, companion_bad, sow_months, harvest_months, frost_hardy,
+spacing_cm` — **keine Nährstoffklasse**. Eine aus dem Gedächtnis ergänzte
+sähe im Plan genauso aus wie eine gemessene, und das ist genau der
+Unterschied, um den es in diesem Dokument geht.
+
+**Nebenbefund beim Bauen:** `p._beet` wurde in `_gsPlanBeetFolge` gesetzt — und
+die Regel steigt bei einem einzigen Beet früh aus. Damit war die Zuordnung
+genau im häufigsten Fall leer (ein Hochbeet). Sie ist jetzt eine eigene,
+immer laufende Runde (`_gsPlanBeetZuordnung`).
+
 ### Weiter offen für Stufe 3
 
-R9 zeitliche Nachbarschaft (was folgt worauf im selben Beet innerhalb eines
-Jahres) · Varianten-Vergleich (Ertrag / pflegeleicht / Bienen, drei KI-Läufe).
+Varianten-Vergleich (Ertrag / pflegeleicht / Bienen, drei KI-Läufe) ·
+Nährstoffklassen in der Referenz, falls sie je dazukommen — dann wird aus R12
+eine echte Fruchtfolge-Empfehlung statt nur einer Familien-Prüfung.
