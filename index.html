@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.87.20260902">
+<meta name="app-version" content="31.88.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -56619,6 +56619,20 @@ function gsPPrenderPlan(plan, data) {
         'nicht gepr\u00fcft \u2014 Mischkultur-Daten waren noch nicht geladen.');
     }
 
+    // v31.88 · Beete aus dem Garten-Scan
+    if (plan._beete) {
+      if (plan._beete.daneben.length) {
+        zeile('\ud83e\uddf1', 'Beete', 'warn',
+          esc(plan._beete.daneben.slice(0, 4).join(', ')) +
+          (plan._beete.daneben.length > 4 ? ' und ' + (plan._beete.daneben.length - 4) + ' weitere' : '') +
+          ' liegen ausserhalb deiner ' + plan._beete.beete + ' gescannten Beete \u2014 dort ist Weg oder Rasen. ' +
+          'Es war kein Platz mehr im Beet; verschieb sie von Hand oder mach das Beet gr\u00f6sser.');
+      } else if (plan._beete.drin) {
+        zeile('\ud83e\uddf1', 'Beete', 'ok',
+          'alle ' + plan._beete.drin + ' Pflanzen liegen in deinen ' + plan._beete.beete + ' gescannten Beeten.');
+      }
+    }
+
     if (plan._ohnePlatz && plan._ohnePlatz.length) {
       zeile('\ud83d\udccf', 'Platz', 'warn',
         esc(plan._ohnePlatz.join(', ')) + ' passt neben dem Bestand nicht mehr in die Fl\u00e4che. ' +
@@ -58507,15 +58521,41 @@ function _gsSanitizePlannerPlan(plan) {
     // Nur brauchbar, wenn die geplante Flaeche DIESELBE ist wie die
     // gescannte. Sonst zeigen die Zonen-Koordinaten auf ein anderes
     // Rechteck, und eine Zone am falschen Ort ist schlimmer als keine.
-    var zonen = [];
+    var zonen = [], beete = [];
     try {
       var _t = (typeof gsTwinGet === 'function') ? gsTwinGet() : null;
-      if (_t && _t.bed && Array.isArray(_t.zones) && _t.zones.length &&
+      var _passt = _t && _t.bed &&
           Math.abs((_t.bed.width_m || 0) - bedW) < 0.26 &&
-          Math.abs((_t.bed.length_m || 0) - bedL) < 0.26) {
-        zonen = _t.zones;
+          Math.abs((_t.bed.length_m || 0) - bedL) < 0.26;
+      if (_passt && Array.isArray(_t.zones) && _t.zones.length) zonen = _t.zones;
+      // ── v31.88 (Planer V3, Stufe 3): die Beete des Zwillings ──────────
+      // Der Platzierer kannte bisher nur EIN Rechteck: die ganze Flaeche.
+      // Wer seinen Garten gescannt hat, hat aber Beete — und dazwischen
+      // Wege, Rasen, eine Terrasse. Eine Pflanze auf den Weg zu setzen ist
+      // kein Plan, sondern ein Bild.
+      // Dieselbe Bedingung wie bei den Zonen: nur wenn die geplante Flaeche
+      // die gescannte IST. Sonst zeigen die Koordinaten woandershin, und
+      // ein Beet am falschen Ort ist schlimmer als keines.
+      if (_passt && Array.isArray(_t.beds) && _t.beds.length) {
+        beete = _t.beds.filter(function (b) {
+          return b && isFinite(parseFloat(b.x_m)) && isFinite(parseFloat(b.y_m)) &&
+                 parseFloat(b.w_m) > 0.2 && parseFloat(b.h_m) > 0.2;
+        });
       }
     } catch (_) {}
+
+    // Liegt dieses Rechteck GANZ in einem der Beete? Teilweise reicht nicht:
+    // eine Pflanze halb auf dem Weg steht auf dem Weg.
+    function _inBeet(x, y, w, h) {
+      if (!beete.length) return true;                 // keine Beete bekannt → keine Einschraenkung
+      for (var b = 0; b < beete.length; b++) {
+        var e = beete[b];
+        var bx = parseFloat(e.x_m), by = parseFloat(e.y_m);
+        var bw = parseFloat(e.w_m), bh = parseFloat(e.h_m);
+        if (x >= bx - 0.01 && y >= by - 0.01 && x + w <= bx + bw + 0.01 && y + h <= by + bh + 0.01) return true;
+      }
+      return false;
+    }
 
     var fest = [], frei = [];
     plan.plants.forEach(function (p, i) {
@@ -58570,7 +58610,11 @@ function _gsSanitizePlannerPlan(plan) {
         // neben der Kartoffel stehen, obwohl der halbe Garten frei war. Was
         // die KI vorschlaegt, gilt nur, wenn es BEIDE Bedingungen erfuellt.
         var ktNachbar = _gsNachbarnOk(plan.plants, it.p, xk, yk, it.w, it.h);
-        if (isFinite(xk) && isFinite(yk) && ktPasst && ktNachbar && frei_an(xk, yk, it.w, it.h)) {
+        // v31.88: und drittens — liegt der Vorschlag ueberhaupt in einem
+        // Beet? Dieselbe Logik wie beim Licht: was frei ist, ist nicht
+        // automatisch sinnvoll.
+        var ktBeet = _inBeet(xk, yk, it.w, it.h);
+        if (isFinite(xk) && isFinite(yk) && ktPasst && ktNachbar && ktBeet && frei_an(xk, yk, it.w, it.h)) {
           it.p.x_m = Math.round(xk * 100) / 100;
           it.p.y_m = Math.round(yk * 100) / 100;
           it.p.w_m = Math.round(it.w * 100) / 100;
@@ -58592,11 +58636,23 @@ function _gsSanitizePlannerPlan(plan) {
         //   2: irgendwo frei
         var kannLicht = !!(brauchtLicht && zonen.length);
         var kannNachbar = !!window._gsKonfliktMap;
+        var kannBeet = !!beete.length;
+        // v31.88: drei Vorlieben statt zwei, von streng nach nachgiebig.
+        // Die Reihenfolge sagt, was zuerst aufgegeben wird — und das Beet
+        // wird ZULETZT aufgegeben: eine Pflanze im falschen Licht wächst
+        // schlecht, eine auf dem Weg wächst gar nicht.
+        // Unveraendert gilt: KEINE Vorliebe darf eine Pflanze verhindern.
+        // Der letzte Durchgang nimmt jede freie Stelle.
         var durchgaenge = [];
-        if (kannLicht && kannNachbar) durchgaenge.push({ licht: true,  nachbar: true });
-        if (kannNachbar)              durchgaenge.push({ licht: false, nachbar: true });
-        if (kannLicht)                durchgaenge.push({ licht: true,  nachbar: false });
-        durchgaenge.push({ licht: false, nachbar: false });
+        function w(l, n, b) { durchgaenge.push({ licht: l, nachbar: n, beet: b }); }
+        if (kannBeet && kannLicht && kannNachbar) w(true,  true,  true);
+        if (kannBeet && kannNachbar)              w(false, true,  true);
+        if (kannBeet && kannLicht)                w(true,  false, true);
+        if (kannBeet)                             w(false, false, true);
+        if (kannLicht && kannNachbar)             w(true,  true,  false);
+        if (kannNachbar)                          w(false, true,  false);
+        if (kannLicht)                            w(true,  false, false);
+        w(false, false, false);
         for (var d = 0; d < durchgaenge.length && !gesetzt; d++) {
           var wunsch = durchgaenge[d];
           for (var y = 0; y <= bedL - it.h + 0.001 && !gesetzt; y += schritt) {
@@ -58607,6 +58663,7 @@ function _gsSanitizePlannerPlan(plan) {
                 if (!z || !_gsLichtPasst(brauchtLicht, z)) continue;
               }
               if (wunsch.nachbar && !_gsNachbarnOk(plan.plants, it.p, x, y, it.w, it.h)) continue;
+              if (wunsch.beet && !_inBeet(x, y, it.w, it.h)) continue;
               it.p.x_m = Math.round(x * 100) / 100;
               it.p.y_m = Math.round(y * 100) / 100;
               it.p.w_m = Math.round(it.w * 100) / 100;
@@ -58627,6 +58684,22 @@ function _gsSanitizePlannerPlan(plan) {
       });
       _gsPlanLichtPruefung(plan, zonen);
       _gsPlanNachbarn(plan);
+      // v31.88: Was am Ende WIRKLICH in einem Beet liegt. Gerechnet, nicht
+      // gehofft — der Platzierer darf jede Vorliebe aufgeben, also muss die
+      // Anzeige sagen koennen, ob er es musste.
+      try {
+        if (beete.length) {
+          var drin = 0, daneben = [];
+          plan.plants.forEach(function (pp) {
+            var px = parseFloat(pp.x_m), py = parseFloat(pp.y_m);
+            var pw = parseFloat(pp.w_m) || 0.3, ph = parseFloat(pp.h_m) || 0.3;
+            if (!isFinite(px) || !isFinite(py)) return;
+            if (_inBeet(px, py, pw, ph)) drin++;
+            else daneben.push(pp.name);
+          });
+          plan._beete = { beete: beete.length, drin: drin, daneben: daneben };
+        } else plan._beete = null;
+      } catch (_) { plan._beete = null; }
       return plan;
     }
 
@@ -68100,6 +68173,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.88', date: '02.09.2026',
+    headline: '\ud83e\uddf1 Der Planer setzt nichts mehr auf den Weg',
+    summary: 'Wer seinen Garten gescannt hat, hat Beete \u2014 und dazwischen Wege, Rasen, eine Terrasse. Der Platzierer kannte bisher nur EIN Rechteck: die ganze Fl\u00e4che. Jetzt respektiert er deine gescannten Beete.',
+    user_summary: '\ud83e\uddf1 Neue Pflanzen landen jetzt in deinen gescannten Beeten statt irgendwo auf der Fl\u00e4che.',
+    user_items: [
+      {emoji:'\ud83e\uddf1', bold:'Beete statt Fl\u00e4che:', text:' Der Platzierer kannte nur die Gesamtfl\u00e4che und konnte eine Tomate mitten auf den Weg legen. Jetzt sind die Beete aus deinem Garten-Scan eine Vorliebe \u2014 und zwar die, die ZULETZT aufgegeben wird: eine Pflanze im falschen Licht w\u00e4chst schlecht, eine auf dem Weg w\u00e4chst gar nicht.'},
+      {emoji:'\u2696\ufe0f', bold:'Aber keine Sperre:', text:' Passt nicht alles ins Beet, wird trotzdem gesetzt \u2014 und gesagt, wer draussen liegt. Eine Pflanze wegzulassen w\u00e4re die schlechtere Antwort, und ein Plan, der behauptet alles passe, w\u00e4re kein Plan.'},
+      {emoji:'\ud83d\udd0d', bold:'Und wenn nichts gescannt ist:', text:' \u00e4ndert sich gar nichts. Ohne Beete keine Einschr\u00e4nkung \u2014 nachgepr\u00fcft: dieselben Positionen wie vorher, auf den Zentimeter.'},
+    ],
+  },
+  {
     v: 'v31.87', date: '02.09.2026',
     headline: '\ud83e\udde0 „Plan f\u00fcr diesen Garten" \u2014 ein Tipp statt vier Schritte',
     summary: 'Die App hat alle Angaben deines Gartens. Trotzdem musste man den Planer \u00f6ffnen, die Vorlagen-Liste finden und durch vier Schritte klicken. Jetzt steht der Knopf dort, wo der Garten steht.',
@@ -68566,7 +68650,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.87';
+var GS_VERSION = 'v31.88';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

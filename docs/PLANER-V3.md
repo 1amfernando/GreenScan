@@ -237,7 +237,7 @@ entscheiden.** Wo Rechnung und Prompt sich widersprechen, gewinnt die Rechnung
 |---|---|---|
 | **1** (v31.75) | N1 Belegungsplan + Jahr-Reiter + Lückenfüller · R1/R3/R4/R6/R11 | **ja**, vollständig — rechnet lokal |
 | **2** ✅ | N4 Nachprüfung · R7 Frost · R10 Aufwand (v31.76) · N9 Begründungen · R2 Standdauer · R5 Fruchtfolge (v31.77) | ja |
-| **3** | N5 Mehrbeet-Planung aus dem Zwilling · R9 zeitlich | ja |
+| **3** | N5 Beete aus dem Zwilling (v31.88) · Mehrbeet-Verteilung durch die KI · R9 zeitlich | ja |
 | **4** | N3 Varianten-Vergleich · N6 Rückfrage | teilweise (braucht KI-Antworten) |
 | **5** | N8 Kalender-Termine · N10 Jahresvorlage · N7 Preistabelle | ja |
 
@@ -304,6 +304,28 @@ eigenen Durchlauf nachvollziehbar.
   `scripts/_seed.js`, ungefaltet, durchgescrollt). Erster Lauf: 24 Stellen
   hell, 19 dunkel — alle behoben, jetzt 0/0.
 
-### Stufe 3 als Nächstes
+## 9 · Was in v31.88 dazukam (Stufe 3, erster Teil)
 
-N5 Mehrbeet-Planung aus dem Zwilling · R9 zeitliche Nachbarschaft.
+**Der Platzierer respektiert die Beete des Zwillings.** Er kannte bisher nur
+EIN Rechteck — die ganze Fläche — und konnte eine Pflanze mitten auf den Weg
+legen.
+
+- `_inBeet(x,y,w,h)` prüft, ob ein Rechteck **ganz** in einem Beet liegt.
+  Teilweise reicht nicht: eine Pflanze halb auf dem Weg steht auf dem Weg.
+- Die Beete gelten nur, wenn die geplante Fläche **die gescannte ist**
+  (Toleranz 26 cm) — dieselbe Bedingung wie bei den Lichtzonen.
+- Als **Vorliebe**, nie als Sperre. Die Kette hat jetzt acht Stufen; das Beet
+  wird **zuletzt** aufgegeben: eine Pflanze im falschen Licht wächst schlecht,
+  eine auf dem Weg wächst gar nicht.
+- `plan._beete = {beete, drin, daneben}` — was am Ende wirklich im Beet liegt,
+  gerechnet und in der Plan-Prüfung genannt.
+
+Drei Fälle nachgestellt: mit Beeten (alle vier Pflanzen hinein, Weg frei) ·
+ohne Beete (unverändert, keine erfundene Einschränkung) · Beete zu klein
+(alle gesetzt, drei namentlich als „ausserhalb" gemeldet, **keine
+weggelassen**).
+
+### Weiter offen für Stufe 3
+
+Mehrbeet-**Verteilung** durch die KI (ein Plan, der Beete benennt) ·
+R9 zeitliche Nachbarschaft.

@@ -4,13 +4,53 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.87` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.88` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (bz) — v31.88: der Planer setzt nichts mehr auf den Weg
+
+Stufe 3 aus `docs/PLANER-V3.md`, erster Teil.
+
+Wer seinen Garten gescannt hat, hat **Beete** — und dazwischen Wege, Rasen, eine Terrasse. Der Platzierer kannte bisher nur **ein** Rechteck: die ganze Fläche. Eine Tomate mitten auf dem Weg ist kein Plan, sondern ein Bild.
+
+#### Wie es funktioniert
+
+- `_inBeet(x,y,w,h)` prüft, ob ein Rechteck **ganz** in einem Beet liegt. Teilweise reicht nicht: eine Pflanze halb auf dem Weg steht auf dem Weg.
+- Die Beete gelten nur, wenn die geplante Fläche **die gescannte ist** (Toleranz 26 cm) — dieselbe Bedingung wie bei den Lichtzonen seit v31.62. Ein Beet am falschen Ort wäre schlimmer als keines.
+- Als **Vorliebe**, nie als Sperre. Die Kette hat jetzt acht Stufen statt vier, und das Beet wird **zuletzt** aufgegeben: eine Pflanze im falschen Licht wächst schlecht, eine auf dem Weg wächst gar nicht.
+
+#### Drei Fälle nachgestellt
+
+Testaufbau: 6 × 4 m, zwei Beete (0–2,5 m und 3,5–6 m), dazwischen ein Meter Weg. Die KI legt drei Pflanzen genau auf den Weg (x = 2,8 / 3,0 / 2,9).
+
+| Fall | Ergebnis |
+|---|---|
+| **mit Beeten** | Tomate 2,8 → **1,2** · Salat 3,0 → **3,5** · Bohne 2,9 → **1,9**. `drin: 4, daneben: []` |
+| **ohne Beete** | unverändert (2,8 / 3,0 / 2,9) — **keine erfundene Einschränkung** |
+| **Beete zu klein** (1,2 × 1,2 m) | alle gesetzt, **keine weggelassen**, drei namentlich als „ausserhalb" gemeldet |
+
+Der dritte Fall ist der wichtigste: er beweist die Regel aus `CLAUDE.md` §4a.2 — *keine Vorliebe darf eine Pflanze verhindern*, und was aufgegeben werden musste, wird benannt.
+
+#### In der Plan-Prüfung
+
+> 🧱 **Beete** — Tomate, Salat, Bohne liegen ausserhalb deiner 1 gescannten Beete — dort ist Weg oder Rasen. Es war kein Platz mehr im Beet; verschieb sie von Hand oder mach das Beet grösser.
+
+bzw. bei Erfolg: *„alle 4 Pflanzen liegen in deinen 2 gescannten Beeten."*
+
+#### Eine Kleinigkeit beim Testen
+
+Der erste Durchlauf meldete `_beete: null` — mein Test-Zwilling hatte kein `v: 1`, und `gsTwinGet` verlangt das. Kein Fehler im Code, aber ein Hinweis für den nächsten Prüfstand: **wer einen Zwilling im Test baut, braucht die Versionsmarke.**
+
+#### Prüfstände
+
+`render_check` 2872 · 0 JS-Fehler · 0 verdächtig · `contrast_check` 0/0 (11 Bildschirme + 2 Fenster) · `touch_check` 0 · `wiring_check` 0/0/0 + 31 Ziele · `save_check` 7/7 · `data_check` 0.
+
+---
 
 ### 2026-09-02 (by) — v31.87: „Plan für diesen Garten" — ein Tipp statt vier Schritte
 
