@@ -481,6 +481,7 @@ node scripts/data_check.js       # liest der Code Felder, die es nicht gibt? (se
 node scripts/save_check.js       # kommt an, was gespeichert wird? (seit v31.85)
 node scripts/planer_check.js     # rechnet der Planer, was er behauptet? (seit v31.93)
 node scripts/scan_check.js       # glaubt der Scanner der KI aufs Wort? (seit v31.99)
+node scripts/offline_check.js    # haelt die PWA, was sie ohne Empfang verspricht? (seit v32.13)
 #   save_check prueft seit v31.95 auch SERVER-Wege mit gestelltem sbFetch:
 #   meldet die Funktion Erfolg, wenn der Server NEIN sagt — oder gar nichts?
 #   wiring_check meldet seit v31.95 zusaetzlich sofort dereferenzierte
@@ -718,6 +719,37 @@ ein. Und wer eine Vorauswahl baut, merkt sich die eine Regel dahinter:
 drei Rueckgaben — `true`, `false`, `null` — und `null` ist nicht `false`.
 3'465 der 4'342 Arten haben keine Hoehenangabe; wuerde `null` wie `false`
 wirken, bliebe ein Fuenftel uebrig und die Zahl daneben waere eine Luege.
+
+**`offline_check.js` (seit v32.13) stellt die Frage, die keiner der anderen
+zehn stellt: laeuft die App ueberhaupt ohne Netz?** GreenScan wird im Wald
+benutzt — genau dort, wo es keinen Empfang gibt, und genau dafuer gibt es den
+Service Worker.
+
+Er braucht als einziger einen **eigenen HTTP-Server** (30 Zeilen im Skript,
+kein Paket): ein Service Worker laeuft nur in einem sicheren Kontext, und
+`file://` ist keiner. Danach: installieren lassen · den Shell-Cache gegen
+`SHELL_URLS` halten · **wirklich offline gehen** (`setOffline(true)`, Server
+zu) · neu laden · die Arten zaehlen.
+
+Der erste Lauf fand den teuersten Fehler dieser Woche: **0 von 4'342 Arten**.
+`plants.v1.js` wurde beim Install in den SHELL_CACHE gelegt und danach nie
+dort gesucht — der `fetch`-Handler schaute nur in den RUNTIME_CACHE, und der
+war leer, weil der Service Worker beim ERSTEN Besuch waehrend des Ladens
+installiert wird und die Unterdateien der Seite gar nicht sieht. Wer die App
+installierte und dann in den Wald fuhr, hatte eine App ohne Artenliste.
+Nichts stuerzte ab; die Liste war einfach leer.
+
+**Zwei Regeln, die daraus folgen:**
+
+- **Vorladen ist nur die halbe Miete.** Was in einen Cache gelegt wird, muss
+  auch von dort GELESEN werden — jede Strategie braucht den Nachschlag
+  (`ausShell`), sonst ist das Vorladen Zierde.
+- **Ein Fall, der den Zustand nicht herstellt, prueft nichts.** Die
+  Doppelspeicher-Frage war im ersten Anlauf gruen, auch mit ausgebauter
+  Weiche — sie lief vor dem zweiten Besuch MIT Netz, und ohne den kann gar
+  keine zweite Kopie entstehen. Nach dem Umbau meldete sie sofort 2,9 MB
+  doppelt (Artenliste, Leaflet, Three.js). Dieselbe Lehre wie beim
+  Ausserhalb-des-Bildschirms-Fall in v32.07.
 
 **Seit v31.78 misst `contrast_check` in ZWEI Fenstern** — KI-Planer und
 Blühkalender — und der Bericht nennt **je Fenster die Zahl der vermessenen
