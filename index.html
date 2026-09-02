@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.93.20260902">
+<meta name="app-version" content="31.94.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -57003,6 +57003,32 @@ function gsPPrenderPlan(plan, data) {
       zeile('\ud83e\uddee', 'Beet-Wechsel', 'unbekannt', 'nicht gepr\u00fcft \u2014 ' + esc(plan._beetfolge_grund) + '.');
     }
 
+    // ── v31.94 · R12 Nachkultur je Beet ────────────────────────────────
+    // Der Unterschied zu „L\u00fccken im Jahr" (R6) ist der ORT. Eine L\u00fccke
+    // sagt WANN nichts w\u00e4chst; das hier sagt WO und WIE VIEL — und pr\u00fcft
+    // die Familie gegen die Vorgeschichte genau dieses Beetes.
+    if (plan._nachkultur) {
+      var _nk = plan._nachkultur;
+      if (_nk.beete.length) {
+        zeile('\ud83c\udf31', 'Nachkultur', 'ok',
+          _nk.beete.slice(0, 3).map(function (b) {
+            return '<b>' + esc(b.label) + '</b> wird am ' + _gsDatKurz(b.frei_ab) + ' frei (' +
+                   (b.flaeche ? b.flaeche + ' m\u00b2, ' : '') + 'nach ' + esc(b.nach.slice(0, 3).join(', ')) +
+                   ') \u2014 dort passt noch ' + esc(b.vorschlaege.map(function (v) { return v.crop; }).join(', ')) +
+                   ' (' + b.tage + ' Tage Saison)';
+          }).join('; ') +
+          (_nk.beete.length > 3 ? ' und ' + (_nk.beete.length - 3) + ' weitere' : '') +
+          '. Gepr\u00fcft gegen die Vorgeschichte genau dieses Beetes \u2014 gleiche Familie kommt nicht vor.');
+      }
+      if (_nk.offen.length) {
+        zeile('\ud83c\udf31', 'Nachkultur', 'unbekannt',
+          _nk.offen.map(function (o) { return esc(o.label) + ' (' + esc(o.warum) + ')'; }).join('; ') +
+          ' \u2014 wann ein Beet frei wird, h\u00e4ngt an der letzten Ernte darin. Ohne dieses Datum w\u00e4re jede Angabe geraten.');
+      }
+    } else if (plan._nachkultur_grund) {
+      zeile('\ud83c\udf31', 'Nachkultur', 'unbekannt', 'nicht gepr\u00fcft \u2014 ' + esc(plan._nachkultur_grund) + '.');
+    }
+
     if (zeilen.length) {
       html += '<div class="gs-pk"><div class="gs-pk-kopf">\ud83d\udd0d Plan-Pr\u00fcfung</div>' +
               zeilen.join('') + '</div>';
@@ -58290,7 +58316,9 @@ function _gsPlanPruefwerk(plan, data) {
   _gsPlanNachpruefung(plan);
   _gsPlanStanddauer(plan);
   _gsPlanFolge(plan);
+  _gsPlanBeetZuordnung(plan); // v31.94 — immer, auch bei einem einzigen Beet
   _gsPlanBeetFolge(plan);     // v31.93 — muss VOR der Begruendung laufen
+  _gsPlanNachkultur(plan);    // v31.94 — braucht _beet und _jahr
   _gsPlanBegruendung(plan);   // zuletzt: sammelt ein, was die anderen markiert haben
 }
 window._gsPlanPruefwerk = _gsPlanPruefwerk;
@@ -58641,6 +58669,30 @@ function _gsBeetHistorie(beete, bedW, bedL, ausserId) {
   } catch (_) { return null; }
 }
 
+// Welche Pflanze liegt in welchem Beet? Eine eigene, IMMER laufende Runde —
+// die Zuordnung steckte zuerst in der Fruchtfolge-Regel unten, und die
+// steigt bei einem einzigen Beet frueh aus. Damit war `p._beet` in genau
+// dem Fall leer, in dem die Nachkultur (R12) es braucht: ein Hochbeet.
+function _gsPlanBeetZuordnung(plan) {
+  try {
+    if (!plan || !Array.isArray(plan.plants)) return null;
+    var geo = plan._beetgeo;
+    if (!geo || !Array.isArray(geo.beete) || !geo.beete.length) {
+      plan.plants.forEach(function (p) { p._beet = null; p._beet_txt = ''; });
+      return null;
+    }
+    function nam(i) { return (geo.beete[i] && geo.beete[i].label) || ('Beet ' + (i + 1)); }
+    plan.plants.forEach(function (p) {
+      var x = parseFloat(p.x_m), y = parseFloat(p.y_m);
+      var bi = (isFinite(x) && isFinite(y))
+        ? _gsBeetVon(geo.beete, x, y, parseFloat(p.w_m) || 0.3, parseFloat(p.h_m) || 0.3) : -1;
+      p._beet = bi >= 0 ? bi : null;
+      p._beet_txt = bi >= 0 ? nam(bi) : '';
+    });
+    return nam;
+  } catch (_) { return null; }
+}
+
 // Die Pruefung. Drei Zustaende wie jede Regel im Pruefwerk — und der Grund
 // steht dabei, wenn nicht geprueft werden konnte. `{}` oder `0` waeren hier
 // besonders falsch: sie laesen sich als „Fruchtfolge in Ordnung" lesen.
@@ -58670,11 +58722,7 @@ function _gsPlanBeetFolge(plan) {
     var ok = 0, konflikt = [], ungeprueft = 0, ausserhalb = 0;
     var belegung = geo.beete.map(function (b, i) { return { label: nam(i), n: 0, familien: [] }; });
     plan.plants.forEach(function (p) {
-      var x = parseFloat(p.x_m), y = parseFloat(p.y_m);
-      var bi = (isFinite(x) && isFinite(y))
-        ? _gsBeetVon(geo.beete, x, y, parseFloat(p.w_m) || 0.3, parseFloat(p.h_m) || 0.3) : -1;
-      p._beet = bi >= 0 ? bi : null;
-      p._beet_txt = bi >= 0 ? nam(bi) : '';
+      var bi = (p._beet === null || p._beet === undefined) ? -1 : p._beet;   // aus _gsPlanBeetZuordnung
       if (bi < 0) { ausserhalb++; return; }
       belegung[bi].n++;
       var f = p.family || _gsFamilieVon(p.name);
@@ -58712,6 +58760,113 @@ function _gsPlanBeetFolge(plan) {
 window._gsBeetVon = _gsBeetVon;
 window._gsBeetHistorie = _gsBeetHistorie;
 window._gsPlanBeetFolge = _gsPlanBeetFolge;
+
+// ── v31.94 · R12 · Nachkultur je Beet (Planer V3, Stufe 3) ────────────────
+// docs/PLANER-V3.md §11.
+//
+// `_gsPlanLuecken` (R6) findet Luecken im JAHR: „von Ende Juli bis Oktober
+// passiert nichts mehr". Das ist eine Zeitangabe ohne Ort — und ein Gaertner
+// steht dann vor dem Garten und weiss nicht, wohin.
+//
+// Seit v31.93 kennt jede Pflanze ihr Beet. Damit wird aus der Zeitangabe ein
+// PLATZ: „Beet A wird am 10. Juli frei, 1,4 m², nach dem Kohlrabi — dort
+// passt noch Feldsalat." Das ist dieselbe Rechnung, aber sie ist
+// umsetzbar.
+//
+// Drei Bedingungen, alle aus geprueften Daten:
+//   · das Beet wird frei, wenn ALLES darin geerntet ist (nicht das erste),
+//   · die Restzeit reicht fuer Aussaat UND Ernte innerhalb der Saison,
+//   · die Familie stand dieses Jahr nicht in DIESEM Beet und auch in den
+//     letzten drei Jahren nicht (dieselbe Historie wie R11).
+//
+// Was hier bewusst NICHT gerechnet wird: Starkzehrer → Schwachzehrer. Die
+// Anbau-Referenz (`garden_crop_agronomy`) hat keine Naehrstoffklasse, und
+// eine erfundene waere schlimmer als keine — sie saehe genauso aus wie eine
+// gemessene.
+var GS_NACH_TAGE = 42;
+function _gsPlanNachkultur(plan) {
+  try {
+    if (plan) plan._nachkultur_grund = '';
+    if (!plan || !Array.isArray(plan.plants)) { if (plan) plan._nachkultur = null; return; }
+    var geo = plan._beetgeo;
+    if (!geo || !Array.isArray(geo.beete) || !geo.beete.length) {
+      plan._nachkultur = null;
+      plan._nachkultur_grund = 'kein Garten-Scan mit Beeten für diese Fläche';
+      return;
+    }
+    var rows = _gsAgroRows();
+    if (!rows.length) {
+      plan._nachkultur = null;
+      plan._nachkultur_grund = 'die geprüfte Anbau-Referenz war noch nicht geladen';
+      return;
+    }
+    if (!plan._jahr) {
+      plan._nachkultur = null;
+      plan._nachkultur_grund = 'ohne Datumsangaben im Plan lässt sich nicht sagen, wann ein Beet frei wird';
+      return;
+    }
+    var hist = _gsBeetHistorie(geo.beete, geo.w, geo.l, plan._planId || null);
+    var heuer = new Date().getFullYear();
+    var saisonBis = plan._jahr.bis;
+    var beete = [], offen = [];
+    geo.beete.forEach(function (b, i) {
+      var label = b.label || ('Beet ' + (i + 1));
+      var drin = plan.plants.filter(function (p) { return p._beet === i; });
+      if (!drin.length) return;                 // ein leeres Beet ist Platz, keine Nachkultur
+      var freiAb = null, unklar = 0, familien = {};
+      drin.forEach(function (p) {
+        var f = p.family || _gsFamilieVon(p.name);
+        if (f) familien[_gsNorm(f)] = true;
+        // Frei ist das Beet erst, wenn das LETZTE darin abgeerntet ist.
+        var ht = _gsPD(p.harvest_to) || _gsPD(p.harvest_from);
+        if (!ht) { unklar++; return; }
+        if (!freiAb || ht > freiAb) freiAb = ht;
+      });
+      // Eine einzige Pflanze ohne Erntedatum macht die Aussage unmoeglich —
+      // das wird gesagt, nicht ueberspielt.
+      if (unklar || !freiAb) {
+        offen.push({ label: label, warum: unklar + ' Pflanze' + (unklar === 1 ? '' : 'n') + ' ohne Erntedatum' });
+        return;
+      }
+      var tage = _gsTage(freiAb, saisonBis);
+      if (tage < GS_NACH_TAGE) return;          // zu kurz — keine Aussage noetig
+      var mVon = freiAb.getMonth() + 1, mBis = saisonBis.getMonth() + 1;
+      var vorschlaege = [];
+      rows.forEach(function (r) {
+        if (vorschlaege.length >= 4) return;
+        var f = r.family ? _gsNorm(r.family) : '';
+        if (f && familien[f]) return;                                   // steht dieses Jahr hier
+        if (f && hist && hist.jahre[i][f] && (heuer - hist.jahre[i][f].jahr) < GS_FOLGE_PAUSE) return;
+        var sow = _gsMonate(r.sow_months), har = _gsMonate(r.harvest_months);
+        if (!sow.length || !har.length) return;
+        // Ein Aussaatmonat NACH dem Freiwerden, zu dem ein Erntemonat noch
+        // in die Saison faellt. Grob, aber aus gepruefter Tabelle.
+        var passt = sow.some(function (sm) {
+          if (sm < mVon || sm > mBis) return false;
+          return har.some(function (hm) { return hm >= sm && hm <= mBis; });
+        });
+        if (passt) vorschlaege.push({ crop: r.crop, family: r.family || '', frost: r.frost_hardy || '' });
+      });
+      if (!vorschlaege.length) return;
+      beete.push({
+        label: label, frei_ab: freiAb, tage: tage,
+        flaeche: Math.round((b.w_m * b.h_m) * 10) / 10,
+        nach: drin.map(function (p) { return p.name; }),
+        vorschlaege: vorschlaege,
+      });
+    });
+    if (!beete.length && !offen.length) {
+      plan._nachkultur = null;
+      plan._nachkultur_grund = 'kein Beet wird früh genug frei, um in dieser Saison noch etwas zu tragen';
+      return;
+    }
+    beete.sort(function (x, y) { return y.tage - x.tage; });
+    plan._nachkultur = { beete: beete, offen: offen, gepruefte: geo.beete.length };
+  } catch (_) { if (plan) plan._nachkultur = null; }
+}
+window._gsPlanBeetZuordnung = _gsPlanBeetZuordnung;
+window._gsPlanNachkultur = _gsPlanNachkultur;
+
 
 // ── N9 · Jede Pflanze sagt, warum sie dort steht ──────────────────────────
 // Aus den REGELN, nicht aus dem Prompt. Der Unterschied ist nicht kosmetisch:
@@ -68692,6 +68847,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.94', date: '02.09.2026',
+    headline: '\ud83c\udf31 Aus einer L\u00fccke im Kalender wird ein Platz im Garten',
+    summary: 'Der Planer nannte L\u00fccken bisher als Zeitraum: „von Ende Juli bis Oktober passiert nichts mehr". Jetzt sagt er, WO \u2014 welches Beet wann frei wird, wie gross es ist, und was dort noch tr\u00e4gt, gepr\u00fcft gegen die Vorgeschichte genau dieses Beetes.',
+    user_summary: '\ud83c\udf31 „Fr\u00fchbeet wird am 10. Juli frei, 2,4 m\u00b2, nach dem Kohlrabi \u2014 dort passt noch Feldsalat." Vorher stand da nur ein Zeitraum.',
+    user_items: [
+      {emoji:'\ud83c\udf31', bold:'Nachkultur je Beet:', text:' Ein Beet gilt erst als frei, wenn ALLES darin geerntet ist \u2014 nicht das erste. Dann wird gerechnet, ob die Restsaison f\u00fcr Aussaat UND Ernte reicht, und welche Familie hier weder dieses Jahr noch in den letzten drei Jahren stand.'},
+      {emoji:'\ud83d\udcc5', bold:'Fehlt ein Erntedatum, wird es gesagt:', text:' Eine einzige Pflanze ohne Erntetermin macht die Aussage unm\u00f6glich \u2014 dann steht das da, statt dass ein Datum geraten wird.'},
+      {emoji:'\ud83e\uddea', bold:'Was bewusst NICHT gerechnet wird:', text:' Stark- und Schwachzehrer. Die gepr\u00fcfte Anbau-Referenz hat keine N\u00e4hrstoffklasse, und eine erfundene s\u00e4he genauso aus wie eine gemessene.'},
+    ],
+  },
+  {
     v: 'v31.93', date: '02.09.2026',
     headline: '\ud83e\uddee Fruchtfolge je Beet \u2014 und ein Pr\u00fcfstand, der drei Fehler beim ersten Lauf fand',
     summary: 'Wer mehrere Beete hat, muss nicht drei Jahre auf Tomaten verzichten \u2014 er stellt sie ins andere Beet. Der Planer wusste das bisher nicht: er kannte nur „in einem Beet", nicht in welchem. Jetzt rechnet er je Beet, was dort zuletzt stand, und setzt neue Kulturen dorthin, wo ihre Familie am l\u00e4ngsten weg ist.',
@@ -69226,7 +69392,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.93';
+var GS_VERSION = 'v31.94';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

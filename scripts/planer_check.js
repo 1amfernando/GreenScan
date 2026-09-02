@@ -188,6 +188,91 @@ const FAELLE = [
     },
   },
 
+  // ── R12 · Nachkultur je Beet (v31.94) ───────────────────────────────────
+  {
+    name: 'R12 · Nachkultur: Beet wird frei, Vorschlag kommt MIT Ort und Fläche',
+    lauf: () => {
+      _pfAufbau({
+        beete: [{ label: 'Frühbeet', x_m: 0, y_m: 0, w_m: 1.2, h_m: 2 }],
+        zwillingPflanzen: [],
+      });
+      // Kohlrabi ist im Juli abgeerntet — danach bleibt die halbe Saison.
+      const plan = _pfPlan([{ name: 'Kohlrabi', w_m: 0.6, h_m: 0.6, x_m: 0.1, y_m: 0.1,
+                              sow_date: '2026-04-01', harvest_from: '2026-06-15', harvest_to: '2026-07-10' }]);
+      if (!plan._nachkultur) return { ok: false, warum: 'nicht gerechnet: ' + (plan._nachkultur_grund || '?') };
+      const b = plan._nachkultur.beete[0];
+      if (!b) return { ok: false, warum: 'kein Beet gemeldet, obwohl das Frühbeet im Juli frei wird' };
+      if (b.label !== 'Frühbeet') return { ok: false, warum: 'falsches Beet: ' + b.label };
+      if (!b.flaeche) return { ok: false, warum: 'keine Fläche genannt — dann ist es wieder nur eine Zeitangabe' };
+      // Kreuzbluetler standen dieses Jahr hier — duerfen NICHT vorgeschlagen werden.
+      const kreuz = b.vorschlaege.filter(v => /Kreuzbl/.test(v.family));
+      if (kreuz.length) return { ok: false, warum: 'schlägt dieselbe Familie vor: ' + kreuz.map(v => v.crop).join(', ') };
+      return { ok: true, info: b.label + ' frei, ' + b.flaeche + ' m², ' + b.tage + ' Tage → ' + b.vorschlaege.map(v => v.crop).join(', ') };
+    },
+  },
+  {
+    name: 'R12 · Beet-Vorgeschichte schliesst Vorschläge aus (nicht nur der Plan)',
+    lauf: () => {
+      _pfAufbau({
+        beete: [{ label: 'Frühbeet', x_m: 0, y_m: 0, w_m: 1.2, h_m: 2 }],
+        // Spinat (Fuchsschwanz) stand dieses Jahr schon hier.
+        zwillingPflanzen: [{ name: 'Spinat', x_m: 0.9, y_m: 1.5, w_m: 0.2, h_m: 0.2 }],
+      });
+      const plan = _pfPlan([{ name: 'Kohlrabi', w_m: 0.6, h_m: 0.6, x_m: 0.1, y_m: 0.1,
+                              sow_date: '2026-04-01', harvest_from: '2026-06-15', harvest_to: '2026-07-10' }]);
+      if (!plan._nachkultur || !plan._nachkultur.beete.length) return { ok: false, warum: 'nicht gerechnet' };
+      const v = plan._nachkultur.beete[0].vorschlaege;
+      if (v.some(x => x.crop === 'Spinat')) return { ok: false, warum: 'schlägt Spinat vor, obwohl er dieses Jahr in diesem Beet stand' };
+      if (!v.length) return { ok: false, warum: 'gar kein Vorschlag mehr — zu streng' };
+      return { ok: true, info: 'ohne Spinat: ' + v.map(x => x.crop).join(', ') };
+    },
+  },
+  {
+    name: 'R12 · eine Pflanze ohne Erntedatum → gesagt, nicht geraten',
+    lauf: () => {
+      _pfAufbau({ beete: [{ label: 'Frühbeet', x_m: 0, y_m: 0, w_m: 1.2, h_m: 2 }], zwillingPflanzen: [] });
+      const plan = _pfPlan([
+        { name: 'Kohlrabi', w_m: 0.5, h_m: 0.5, x_m: 0.1, y_m: 0.1,
+          sow_date: '2026-04-01', harvest_from: '2026-06-15', harvest_to: '2026-07-10' },
+        { name: 'Radieschen', w_m: 0.3, h_m: 0.3, x_m: 0.1, y_m: 1.0, sow_date: '2026-04-01' },
+      ]);
+      if (!plan._nachkultur) return { ok: false, warum: 'nicht gerechnet: ' + (plan._nachkultur_grund || '?') };
+      if (plan._nachkultur.beete.length) return { ok: false, warum: 'behauptet ein Freiwerdedatum, obwohl eine Pflanze keines hat' };
+      if (!plan._nachkultur.offen.length) return { ok: false, warum: 'sagt gar nichts — dann fehlt die Angabe stillschweigend' };
+      return { ok: true, info: plan._nachkultur.offen[0].label + ': ' + plan._nachkultur.offen[0].warum };
+    },
+  },
+  {
+    name: 'R12 · späte Ernte → keine Nachkultur behauptet',
+    lauf: () => {
+      _pfAufbau({ beete: [{ label: 'Frühbeet', x_m: 0, y_m: 0, w_m: 1.2, h_m: 2 }], zwillingPflanzen: [] });
+      const plan = _pfPlan([{ name: 'Tomate', w_m: 0.6, h_m: 0.6, x_m: 0.1, y_m: 0.1,
+                             sow_date: '2026-04-05', harvest_from: '2026-07-15', harvest_to: '2026-10-10' }]);
+      if (plan._nachkultur && plan._nachkultur.beete.length)
+        return { ok: false, warum: 'schlägt eine Nachkultur vor, obwohl erst im Oktober geerntet wird' };
+      if (!plan._nachkultur_grund && !(plan._nachkultur && plan._nachkultur.offen.length))
+        return { ok: false, warum: 'weder Vorschlag noch Grund' };
+      return { ok: true, info: plan._nachkultur_grund || 'nichts behauptet' };
+    },
+  },
+  {
+    name: 'R12 · Anzeige: die Nachkultur-Zeile steht wirklich in der Plan-Prüfung',
+    lauf: () => {
+      _pfAufbau({ beete: [{ label: 'Frühbeet', x_m: 0, y_m: 0, w_m: 1.2, h_m: 2 }], zwillingPflanzen: [] });
+      const plan = _pfPlan([{ name: 'Kohlrabi', w_m: 0.6, h_m: 0.6, x_m: 0.1, y_m: 0.1,
+                             sow_date: '2026-04-01', harvest_from: '2026-06-15', harvest_to: '2026-07-10' }]);
+      const html = gsPPrenderPlan(plan, { width: 4, length: 3 });
+      if (html.indexOf('Nachkultur') < 0) return { ok: false, warum: 'die Zeile fehlt im gerenderten Plan' };
+      const d = document.createElement('div'); d.innerHTML = html;
+      const txt = d.textContent || '';
+      if (/undefined|NaN|\[object Object\]|Invalid Date/.test(txt))
+        return { ok: false, warum: 'Platzhalter im Text: ' + txt.slice(txt.search(/undefined|NaN|\[object|Invalid/), 90) };
+      const m = txt.match(/Frühbeet wird am [^—]+/);
+      if (!m) return { ok: false, warum: 'kein Freiwerdedatum im Text' };
+      return { ok: true, info: m[0].trim() };
+    },
+  },
+
   // ── Der Auftragstext an die KI ──────────────────────────────────────────
   // Was im Prompt nicht steht, kann die KI nicht beachten. Und ein Prompt-
   // Baustein, der still '' zurueckgibt, sieht aus wie einer, der funktioniert.
@@ -340,7 +425,7 @@ const FAELLE = [
       localStorage.removeItem('gs_ernte_log');
       window.myPlants = [];
       const plan = _pfPlan([{ name: 'Tomate', w_m: 0.6, h_m: 0.6, x_m: 0.1, y_m: 1.0 }], true);
-      const muessenNull = ['_aussaat', '_dauer', '_folge', '_beetfolge'];
+      const muessenNull = ['_aussaat', '_dauer', '_folge', '_beetfolge', '_nachkultur'];
       const falsch = muessenNull.filter(k => plan[k] !== null && plan[k] !== undefined);
       return falsch.length
         ? { ok: false, warum: falsch.map(k => k + ' = ' + JSON.stringify(plan[k]).slice(0, 60)).join(' · ') + ' — ohne Daten muss das null sein' }
@@ -397,7 +482,9 @@ const FAELLE = [
         summary: 'Prüfstand', bed: { width_m: 4, length_m: 3 },
         plants: pflanzen.map(function (x) {
           return { name: x.name, latin: '', count: 1, w_m: x.w_m, h_m: x.h_m,
-                   x_m: x.x_m, y_m: x.y_m, light: '', sow_date: '', harvest_from: '' };
+                   x_m: x.x_m, y_m: x.y_m, light: '',
+                   sow_date: x.sow_date || '', harvest_from: x.harvest_from || '',
+                   harvest_to: x.harvest_to || '' };
         }),
       };
       _gsSanitizePlannerPlan(plan);

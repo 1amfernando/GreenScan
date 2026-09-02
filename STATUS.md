@@ -4,13 +4,45 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.93` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.94` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (cf) — v31.94: aus einer Lücke im Kalender wird ein Platz im Garten
+
+#### Der Befund
+
+`_gsPlanLuecken` (R6, seit v31.75) meldet Lücken als **Zeitraum**: „von Ende
+Juli bis Oktober passiert nichts mehr". Richtig gerechnet, aber ohne Ort — man
+liest es und weiss nicht, wohin. Seit v31.93 kennt jede Pflanze ihr Beet; damit
+ist dieselbe Rechnung umsetzbar.
+
+#### Was gebaut wurde
+
+- **R12 · `_gsPlanNachkultur`** — je Beet: wann wird es frei (erst wenn ALLES
+  darin geerntet ist), wie gross ist es, was trägt dort noch in dieser Saison.
+  Ausgeschlossen wird jede Familie, die dieses Jahr in **diesem** Beet stand
+  oder in den letzten drei Jahren — dieselbe Historie wie R11.
+- **Fehlendes Erntedatum wird benannt**, nicht überspielt: eine einzige Pflanze
+  ohne Termin macht die Aussage unmöglich, und dann steht das da.
+- **Bewusst nicht gerechnet:** Starkzehrer → Schwachzehrer. `garden_crop_agronomy`
+  hat keine Nährstoffklasse; eine ergänzte sähe aus wie eine gemessene.
+- **Nebenbefund:** `p._beet` wurde in der Fruchtfolge-Regel gesetzt, und die
+  steigt bei einem einzigen Beet früh aus — die Zuordnung war also genau im
+  häufigsten Fall leer (ein Hochbeet). Jetzt eigene, immer laufende Runde
+  `_gsPlanBeetZuordnung`.
+
+#### Prüfstände
+
+`planer_check` 20/20 (fünf Fälle mehr, darunter Anzeige aus dem gerenderten
+HTML) · `render_check` 0/0 · `contrast_check` 0/0 · `touch_check` 0 ·
+`wiring_check` 0/0/0 · `save_check` 7/7 · `data_check` 0/0.
+
+---
 
 ### 2026-09-02 (ce) — v31.93: Fruchtfolge je Beet, und ein Prüfstand, der drei Fehler beim ersten Lauf fand
 
