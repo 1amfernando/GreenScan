@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.81.20260902">
+<meta name="app-version" content="31.82.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -30526,7 +30526,11 @@ function gsFavsRenderOutdoor(){
     var gPlantings = (typeof plantings !== 'undefined' && Array.isArray(plantings)) ? plantings.filter(function(p){ return p.gardenId === gid; }) : [];
     html += '<div class="garden-card" style="margin-bottom:12px;">';
     html += '<div class="garden-card-hdr" onclick="if(typeof switchTab===\'function\')switchTab(\'garden\')">';
-    html += '<div class="garden-card-icon">🌻</div>';
+    // v31.82: Das Symbol sagt jetzt, was fuer ein Garten das ist. Vorher
+    // stand auf jeder Karte dieselbe Sonnenblume — huebsch, aber ohne
+    // Aussage; ein Gewaechshaus sah aus wie ein Balkon.
+    var _art = (typeof gsGartenArt === 'function') ? gsGartenArt(garden) : { icon: '\ud83c\udf3b', label: '' };
+    html += '<div class="garden-card-icon" title="' + esc(_art.label) + '">' + _art.icon + '</div>';
     html += '<div class="garden-card-info">';
     html += '<div class="garden-card-name">' + esc(garden.name||_t('garden_default_name','Mein Garten')) + '</div>';
     html += '<div class="garden-card-meta">' + esc(garden.location||_t('garden_no_location','Kein Standort')) + ' · ' + gPlantings.length + ' ' + _t('unit_plants','Pflanzen') + '</div>';
@@ -45734,12 +45738,36 @@ function showSoilInfo(val) {
 }
 
 // Also show soil info when editing a garden
+// v31.82 · Die Gartenarten an EINER Stelle. Vier Anzeigen lesen sie
+// (Gartenkarte, Planer-Vorlage, Planer-Uebernahme, Prüfwerk) — vier Kopien
+// derselben Tabelle waeren vier Gelegenheiten auseinanderzulaufen.
+//
+// `unter_glas` ist die Angabe, auf die es fachlich ankommt: was unter Glas
+// oder Folie steht, hat andere Aussaatfenster, keine Eisheiligen-Grenze und
+// eine laengere Saison. Genau das liest der Planer.
+var GS_GARTEN_ARTEN = {
+  freiland:     { icon: '🌱', label: 'Freiland-Beet',            unter_glas: false },
+  hochbeet:     { icon: '🪵', label: 'Hochbeet',                 unter_glas: false },
+  balkon:       { icon: '🪴', label: 'Balkon / Terrasse',        unter_glas: false },
+  gewaechshaus: { icon: '🏠', label: 'Gewächshaus',              unter_glas: true  },
+  treibhaus:    { icon: '🫧', label: 'Folientunnel / Treibhaus', unter_glas: true  },
+  wintergarten: { icon: '🪟', label: 'Wintergarten',             unter_glas: true  },
+  indoor:       { icon: '🛋️', label: 'Zimmer / Indoor',          unter_glas: true  },
+};
+function gsGartenArt(g) {
+  return GS_GARTEN_ARTEN[(g && g.kind) || 'freiland'] || GS_GARTEN_ARTEN.freiland;
+}
+window.GS_GARTEN_ARTEN = GS_GARTEN_ARTEN;
+window.gsGartenArt = gsGartenArt;
+
 function editGarden(id) {
   const g = gardens.find(x => x.id === id);
   if (!g) return;
   editingGardenId = id;
   document.getElementById('gard-name').value = g.name || '';
   document.getElementById('gard-loc').value = g.location || '';
+  const kindEl = document.getElementById('gard-kind');
+  if (kindEl) kindEl.value = g.kind || 'freiland';
   const sizeEl = document.getElementById('gard-size');
   if (sizeEl) sizeEl.value = g.size || 'medium';
   const lightEl = document.getElementById('gard-light');
@@ -54380,9 +54408,14 @@ function gsPPgartenVorlage() {
         'Masse, Licht und Boden werden \u00fcbernommen \u2014 du musst nichts noch einmal eintippen.</div>' +
       gl.map(function (g, i) {
         var flaeche = (g.width && g.length) ? (Math.round(g.width * g.length * 10) / 10) + ' m\u00b2' : 'ohne Masse';
+        // v31.82: Die Art steht dabei — ein Gewaechshaus als Vorlage zu
+        // waehlen und dann den Gewaechshaus-Haken von Hand zu setzen war
+        // doppelte Arbeit fuer etwas, das die App schon weiss.
+        var a = (typeof gsGartenArt === 'function') ? gsGartenArt(g) : { icon: '\ud83c\udf3f', label: '', unter_glas: false };
         return '<button type="button" class="gs-pp-vorl" onclick="gsPPvorlageNehmen(' + i + ')">' +
-                 '<span class="gs-pp-vorl-n">' + esc(g.name || 'Garten') + '</span>' +
+                 '<span class="gs-pp-vorl-n">' + esc(a.icon) + ' ' + esc(g.name || 'Garten') + '</span>' +
                  '<span class="gs-pp-vorl-m">' + esc(flaeche) +
+                   (g.kind && g.kind !== 'freiland' ? ' \u00b7 ' + esc(a.label) : '') +
                    (g.location ? ' \u00b7 ' + esc(g.location) : '') + '</span>' +
                '</button>';
       }).join('') +
@@ -54410,6 +54443,23 @@ function gsPPvorlageNehmen(idx) {
       uebernommen.push('Fl\u00e4che');
     }
     setz('pp-location', g.location, 'Standort');
+    // v31.82: Unter Glas ist keine Nebensache — es verschiebt Aussaatfenster,
+    // hebt die Eisheiligen-Grenze auf und verlaengert die Saison. Wer sein
+    // Gewaechshaus als Vorlage nimmt, soll den Haken nicht suchen muessen.
+    // Und es wird GEMELDET: ein Schalter, der sich von selbst umlegt, ohne
+    // dass es jemand sagt, ist eine Ueberraschung, keine Hilfe.
+    try {
+      var _ghEl = document.getElementById('pp-greenhouse');
+      var _art = (typeof gsGartenArt === 'function') ? gsGartenArt(g) : null;
+      // Die Art selbst merken: „Hochbeet" und „Balkon" aendern die
+      // Sortenwahl, auch wenn beide nicht unter Glas stehen. Der Haken
+      // allein kann das nicht sagen.
+      try { window._gsPP = window._gsPP || {}; _gsPP.gartenArt = _art.label; _gsPP.gartenKind = g.kind || 'freiland'; } catch (__) {}
+      if (_ghEl && _art) {
+        if (_art.unter_glas && !_ghEl.checked) { _ghEl.checked = true; uebernommen.push('Gew\u00e4chshaus-Modus'); }
+        else if (!_art.unter_glas && _ghEl.checked) { _ghEl.checked = false; uebernommen.push('Freiland (Gew\u00e4chshaus-Modus aus)'); }
+      }
+    } catch (_) {}
     // Licht: die Gartenstufen heissen anders als die Planerstufen.
     var lichtKarte = { full_sun: 'Vollsonne', part_sun: 'Halbschatten', shade: 'Schatten' };
     var lel = document.getElementById('pp-light');
@@ -55402,6 +55452,8 @@ async function gsPPrun(opts) {
     light: document.getElementById('pp-light').value || 'part_sun',
     luxNum: luxNum, // v24.24: gemessener Lux-Wert wenn vorhanden — präziser als Kategorie
     greenhouse: !!(document.getElementById('pp-greenhouse') && document.getElementById('pp-greenhouse').checked),
+    // v31.82: die Art des Gartens, falls eine Vorlage genommen wurde.
+    gartenArt: (window._gsPP && _gsPP.gartenArt) || null,
     weather: _gsPP.weather,
     wishes: (document.getElementById('pp-wishes').value || '').trim(),
     level: document.getElementById('pp-level').value || 'beginner',
@@ -55489,6 +55541,7 @@ async function gsPPrun(opts) {
     '☀️ LICHT: ' + lightLabel[data.light] + (data.luxNum ? ' — GEMESSEN ' + data.luxNum.toLocaleString('de-CH') + ' lx (sehr präzise! nutze diesen Wert für Sortenwahl, nicht nur die Kategorie)' : ' (geschätzt, keine Messung vorhanden)') + '\n' +
     '🌤️ WETTER: ' + weatherSum + '\n' +
     '🪟 GEWÄCHSHAUS: ' + (data.greenhouse ? 'JA — wähle Gewächshaus-taugliche Sorten, verlängere Saison' : 'Nein, Freiland') + '\n' +
+    (data.gartenArt ? '🏡 ART DES GARTENS: ' + data.gartenArt + ' — Sortenwahl und Pflanztiefe darauf abstimmen (Hochbeet erwärmt sich früher, Balkon braucht Topfkultur, unter Glas gelten andere Aussaatfenster)\n' : '') +
     '📅 STARTZEIT: ' + seasonLabel[data.season] + '\n' +
     '💪 LEVEL: ' + levelLabel[data.level] + '\n' +
     (data.location ? '📍 ORT: ' + data.location + '\n' : '') +
@@ -65721,7 +65774,11 @@ async function renderGarden() {
 
     html += '<div class="garden-card">';
     html += '<div class="garden-card-hdr" onclick="toggleGardenCard(\'' + garden.id + '\')">';
-    html += '<div class="garden-card-icon">🌻</div>';
+    // v31.82: Das Symbol sagt jetzt, was fuer ein Garten das ist. Vorher
+    // stand auf jeder Karte dieselbe Sonnenblume — huebsch, aber ohne
+    // Aussage; ein Gewaechshaus sah aus wie ein Balkon.
+    var _art = (typeof gsGartenArt === 'function') ? gsGartenArt(garden) : { icon: '\ud83c\udf3b', label: '' };
+    html += '<div class="garden-card-icon" title="' + escHtml(_art.label) + '">' + _art.icon + '</div>';
     html += '<div class="garden-card-info">';
     html += '<div class="garden-card-name">' + escHtml(garden.name) + '</div>';
     // v31.64: Standort, Pflanzenzahl, Groesse und Licht standen auf ZWEI
@@ -65746,7 +65803,10 @@ async function renderGarden() {
       ' · ' + ((garden.width && garden.length)
                 ? (Math.round(garden.width * garden.length * 10) / 10) + ' m²'
                 : (sizeLabels[garden.size] || 'Mittel')) +
-      ' · ' + (lightLabels[garden.light] || '⛅') + '</div>';
+      ' · ' + (lightLabels[garden.light] || '⛅') +
+      // Die Art als Wort dazu — bei „unter Glas" ist sie fuer alles Weitere
+      // entscheidend (Aussaatfenster, Frost, Saisonlaenge).
+      (garden.kind && garden.kind !== 'freiland' ? ' · ' + escHtml(_art.label) : '') + '</div>';
     html += '</div>';
     html += '<div class="mpcard-chevron" id="gchev-' + garden.id + '">›</div></div>';
 
@@ -65948,6 +66008,11 @@ function saveGarden() {
   const data = {
     name,
     location: document.getElementById('gard-loc').value.trim(),
+    // v31.82: Die Art wird gespeichert UND in editGarden wieder gelesen UND
+    // in der Gartenkarte angezeigt UND vom Planer uebernommen. Vier Stellen,
+    // absichtlich alle vier — ein Feld, das nur geschrieben wird, ist
+    // dasselbe stille Nichts wie die Gartenmasse vor v31.72.
+    kind: (document.getElementById('gard-kind') || {}).value || 'freiland',
     size: document.getElementById('gard-size').value,
     light: document.getElementById('gard-light').value,
     soil: document.getElementById('gard-soil').value,
@@ -67714,6 +67779,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.82', date: '02.09.2026',
+    headline: '\ud83c\udfe0 Gew\u00e4chshaus, Treibhaus, Hochbeet \u2014 dein Garten hat jetzt eine Art',
+    summary: 'Den Begriff gab es in der App bisher nicht: nur eine Gr\u00f6ssenstufe und einen Haken im Planer, den man jedes Mal von Hand setzen musste. Jetzt geh\u00f6rt die Art zum Garten, steht auf der Karte, und der Planer \u00fcbernimmt sie samt Gew\u00e4chshaus-Modus.',
+    user_summary: '\ud83c\udfe0 Sag beim Garten, ob es ein Gew\u00e4chshaus, ein Hochbeet oder ein Balkon ist \u2014 der Planer wei\u00df es dann von selbst.',
+    user_items: [
+      {emoji:'\ud83c\udfe0', bold:'Sieben Arten zur Wahl:', text:' Freiland-Beet, Hochbeet, Balkon/Terrasse, Gew\u00e4chshaus, Folientunnel/Treibhaus, Wintergarten, Zimmer. Die Art steht im Formular, wird gespeichert, beim Bearbeiten wieder eingelesen und auf der Gartenkarte angezeigt \u2014 alle vier Stellen, damit nicht wieder etwas nur geschrieben und nie gelesen wird.'},
+      {emoji:'\ud83c\udf3b', bold:'Das Symbol sagt jetzt etwas:', text:' Auf jeder Gartenkarte stand dieselbe Sonnenblume \u2014 h\u00fcbsch, aber ohne Aussage; ein Gew\u00e4chshaus sah aus wie ein Balkon. Jetzt tr\u00e4gt jede Karte ihr eigenes Zeichen.'},
+      {emoji:'\ud83e\ude9f', bold:'Der Planer wei\u00df Bescheid:', text:' W\u00e4hlst du dein Gew\u00e4chshaus als Vorlage, setzt sich der Gew\u00e4chshaus-Modus von selbst \u2014 und es wird gesagt, dass er sich gesetzt hat. W\u00e4hlst du danach den Balkon, geht er wieder aus. Unter Glas gelten andere Aussaatfenster, keine Eisheiligen-Grenze und eine l\u00e4ngere Saison; das ist keine Nebensache.'},
+    ],
+  },
+  {
     v: 'v31.81', date: '02.09.2026',
     headline: '\ud83d\uddbc\ufe0f Galerie neben dem Ausl\u00f6ser \u2014 und Mitteilungen f\u00fchren endlich irgendwohin',
     summary: 'Der Weg „Foto aus der Galerie" stand als kleines Symbol zwischen f\u00fcnf anderen in der oberen Leiste. Er steht jetzt beschriftet neben dem Ausl\u00f6ser. Und eine angetippte Mitteilung landete bei unbekannter Art nur beim Schliessen des Fensters \u2014 jetzt f\u00fchren 31 Arten an ihren Ort.',
@@ -68114,7 +68190,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.81';
+var GS_VERSION = 'v31.82';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -81991,6 +82067,24 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
         </div>
       </div>
       <div id="gard-area-preview" style="display:none;padding:8px 12px;background:var(--surface2);border-radius:var(--r-sm);font-size:var(--fs-sm);color:var(--text2);"></div>
+      <!-- v31.82: Die Art des Gartens. Fernando: „Gewächshäuser und
+           Treibhäuser die man gespeichert hat sollen ebenfalls angezeigt
+           werden können." Es gab den Begriff in der App bisher NICHT — nur
+           eine Grössenstufe und einen Haken im Planer, den man jedes Mal
+           von Hand setzen musste. Jetzt gehört die Art zum Garten, und der
+           Planer liest sie. -->
+      <div>
+        <label style="display:block;font-size:var(--fs-sm);font-weight:700;color:var(--text2);margin-bottom:4px;">Art</label>
+        <select id="gard-kind" style="width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:var(--r-md);font-size:var(--fs-md);font-family:inherit;background:var(--input-bg);color:var(--text);box-sizing:border-box;">
+          <option value="freiland" selected>🌱 Freiland-Beet</option>
+          <option value="hochbeet">🪵 Hochbeet</option>
+          <option value="balkon">🪴 Balkon / Terrasse</option>
+          <option value="gewaechshaus">🏠 Gewächshaus</option>
+          <option value="treibhaus">🫧 Folientunnel / Treibhaus</option>
+          <option value="wintergarten">🪟 Wintergarten</option>
+          <option value="indoor">🛋️ Zimmer / Indoor</option>
+        </select>
+      </div>
       <div>
         <label style="display:block;font-size:var(--fs-sm);font-weight:700;color:var(--text2);margin-bottom:4px;">Grösse</label>
         <select id="gard-size" style="width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:var(--r-md);font-size:var(--fs-md);font-family:inherit;background:var(--input-bg);color:var(--text);box-sizing:border-box;">

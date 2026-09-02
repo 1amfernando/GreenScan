@@ -4,13 +4,59 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.81` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.82` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (bt) — v31.82: Gewächshaus, Treibhaus, Hochbeet — dein Garten hat jetzt eine Art
+
+Fernando: *„Gewächshäuser und Treibhäuser die man gespeichert hat (z.B. in Mein Garten) sollen ebenfalls angezeigt werden können."*
+
+**Den Begriff gab es in der App nicht.** Ein Garten hatte Name, Standort, Masse, Grössenstufe (klein/mittel/gross), Licht und Boden — mehr nicht. Im Planer gab es einen Gewächshaus-Haken, den man bei jedem Plan neu setzen musste, ohne Verbindung zum eigenen Garten.
+
+#### Sieben Arten, an einer Stelle definiert
+
+`GS_GARTEN_ARTEN`: Freiland-Beet · Hochbeet · Balkon/Terrasse · **Gewächshaus** · **Folientunnel/Treibhaus** · Wintergarten · Zimmer. Jede mit Symbol, Bezeichnung und dem fachlich entscheidenden Merkmal `unter_glas` — was unter Glas oder Folie steht, hat andere Aussaatfenster, keine Eisheiligen-Grenze und eine längere Saison.
+
+Vier Anzeigen lesen diese eine Tabelle (Gartenkarte in „Mein Garten", Übersichtskarte auf der Startseite, Planer-Vorlagenliste, Planer-Übernahme). Vier Kopien wären vier Gelegenheiten auseinanderzulaufen.
+
+#### Alle vier Stellen, absichtlich
+
+Formular → **speichern** → beim Bearbeiten **wieder einlesen** → auf der Karte **anzeigen** → vom Planer **übernehmen**. Ein Feld, das nur geschrieben wird, ist dasselbe stille Nichts wie die Gartenmasse vor v31.72.
+
+Nachgestellt: Art auf „Treibhaus" ändern → gespeichert `treibhaus`, im Speicher `treibhaus`, Karte zeigt 🫧 „Folientunnel / Treibhaus", Planer-Vorlage ebenso.
+
+#### Das Symbol sagt jetzt etwas
+
+Auf jeder Gartenkarte stand dieselbe Sonnenblume — hübsch, aber ohne Aussage; ein Gewächshaus sah aus wie ein Balkon. Jetzt trägt jede Karte ihr eigenes Zeichen, mit der Bezeichnung im `title`.
+
+#### Der Planer weiss Bescheid
+
+Vorlage „Grosses Gewächshaus" wählen → **Gewächshaus-Modus setzt sich selbst**, und es steht in der Liste der übernommenen Felder. Danach den Balkon wählen → er geht wieder aus. Ein Schalter, der sich von selbst umlegt, ohne dass es jemand sagt, ist eine Überraschung, keine Hilfe.
+
+Zusätzlich geht die Art als Wort in den Prompt: Hochbeet erwärmt sich früher, Balkon braucht Topfkultur — Unterschiede, die der Haken allein nicht ausdrücken kann.
+
+#### Eine halbe Stunde für nichts, und die Lehre daraus
+
+Der erste Testlauf zeigte: Art wird gelesen (`treibhaus`), aber nie gespeichert. Ich habe den Sync-Hook verdächtigt, dann `renderGarden`, dann `Object.assign`. Der wahre Grund stand in der **ersten Zeile** von `saveGarden`:
+
+```js
+if (!gsRequire('save_garden', 'Bitte anmelden …')) return;
+```
+
+Der Pseudo-Token aus `_seed.js` ist keine echte Anmeldung — die Funktion brach ab, bevor irgendetwas passierte. **Jeder Prüfstand, der ein Speichern prüft, muss `gsRequire` überbrücken**, sonst misst er eine Funktion, die gar nicht gelaufen ist. Steht jetzt in CLAUDE.md §7.1.
+
+Der verräterische Wert war `editingGardenId`: nach dem Speichern hätte er `null` sein müssen und war noch `g2` — also lief der Rumpf nie. **Ein Zustand, der sich nicht geändert hat, sagt mehr als ein Wert, der falsch ist.**
+
+#### Prüfstände
+
+`render_check` 2865 · 0 JS-Fehler · 0 verdächtig · `contrast_check` 0/0 · `touch_check` 0 · `wiring_check` 0/0/0 + 31 Ziele · `field_check` 4/304 · `data_check` 0.
+
+---
 
 ### 2026-09-02 (bs) — v31.81: Galerie neben dem Auslöser · Mitteilungen führen an ihren Ort
 
