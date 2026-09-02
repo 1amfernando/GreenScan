@@ -236,7 +236,7 @@ entscheiden.** Wo Rechnung und Prompt sich widersprechen, gewinnt die Rechnung
 | Stufe | Inhalt | Prüfbar von hier? |
 |---|---|---|
 | **1** (v31.75) | N1 Belegungsplan + Jahr-Reiter + Lückenfüller · R1/R3/R4/R6/R11 | **ja**, vollständig — rechnet lokal |
-| **2** | N4 Nachprüfung · N9 Begründungszeile · R2/R5/R7/R10 | ja |
+| **2** | N4 Nachprüfung (v31.76) · R7 Frost (v31.76) · R10 Aufwand (v31.76) · N9 Begründungszeile · R2/R5 | ja |
 | **3** | N5 Mehrbeet-Planung aus dem Zwilling · R9 zeitlich | ja |
 | **4** | N3 Varianten-Vergleich · N6 Rückfrage | teilweise (braucht KI-Antworten) |
 | **5** | N8 Kalender-Termine · N10 Jahresvorlage · N7 Preistabelle | ja |
@@ -261,3 +261,35 @@ Stufe 1, vollständig:
 
 Alles davon rechnet lokal und ist mit `scripts/render_check.js` und einem
 eigenen Durchlauf nachvollziehbar.
+
+
+## 7 · Was in v31.76 dazukam (Stufe 2, erster Teil)
+
+- **N4 · Der Plan altert und meldet sich.** `_gsPlanNachpruefung` + `gsPPnachBlock`:
+  beim Öffnen eines gespeicherten Plans steht oben, wie alt er ist, wie viel
+  umgesetzt wurde und welcher Aussaattermin **seit dem Speichern** fällig war.
+  Termine, die schon beim Speichern vorbei waren, werden getrennt gemeldet —
+  „vor 150 Tagen fällig" an einem 19 Tage alten Plan wäre falsch erzählt.
+  Kein KI-Aufruf.
+- **R7 · Frost**, mit dem nötigen Unterschied: frostempfindlich + vor den
+  Eisheiligen ist nur dann ein Fehler, wenn das Datum **ausserhalb** des
+  Vorkultur-Fensters der Referenz liegt. Dieselbe Pflanze im März auf der
+  Fensterbank ist richtig. Zwei Zustände statt einem.
+- **R10 · Aufwand über das Jahr.** Aus `careSchedule.freq` + `months` eine Kurve
+  der **Handgriffe je Woche**, plus die einmalige Aufbauzeit aus
+  `stepByStep.duration_min`. Bewusst keine Minuten für die Pflege: eine Dauer
+  steht dort nicht drin, und sie zu erfinden wäre genau das, was dieses
+  Prüfwerk verhindern soll.
+- **Beim Öffnen eines gespeicherten Plans läuft das Prüfwerk neu.** Zwei
+  Gründe: es rechnet mit dem heutigen Saatgut-Inventar und dem heutigen
+  Regen — und `_jahr` überlebt die JSON-Runde nicht als Datum.
+- **`gsPPsavePlan` hatte den §3.5-Fehler.** Der Speicher-voll-Zweig lag in
+  einem `catch`, das nie feuert; `localSaved = true` wurde auch bei
+  gescheitertem Schreiben gesetzt. Jetzt Rückgabewert prüfen, stufenweise
+  kürzen (10 → 5 → 2 → 1), der neue Plan hat Vorrang, und was weichen musste,
+  wird gesagt. **Beide Zweige ausgelöst**, nicht behauptet.
+
+### Offen für Stufe 2
+
+N9 Begründungszeile je Pflanze · R2 Standdauer · R5 Fruchtfolge gegen die
+echte Historie aus `gs_plantings`/`gs_ernte_log`.

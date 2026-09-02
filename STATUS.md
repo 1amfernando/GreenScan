@@ -4,13 +4,61 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.75` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.76` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (bn) — v31.76: der gespeicherte Plan meldet sich · das Speichern funktioniert wirklich
+
+Stufe 2 aus `docs/PLANER-V3.md`, erster Teil. Und ein Fehler, der beim Bauen aufgefallen ist und schwerer wiegt als alles Neue.
+
+#### `gsPPsavePlan` hatte den §3.5-Fehler — zum zweiten Mal in dieser Codebasis
+
+```js
+try { localStorage.setItem('gs_garden_plans', …); localSaved = true; }
+catch (e) { „Speicher voll" + return; }          // lief NIE
+```
+
+Der Wrapper (~Z. 7344) **wirft nie**, er gibt `false` zurück. Also: `localSaved = true` auch bei gescheitertem Schreiben, danach der Erfolgs-Toast. Wer bei vollem Gerät einen Plan speicherte, sah „✅ Plan gespeichert" und hatte nichts. Identisch zu `gsTwinSave` in v31.65 — der zweite von den 13 gefährlichen `catch`-Blöcken aus CLAUDE.md §3.5.
+
+Jetzt: Rückgabewert prüfen, stufenweise kürzen (30 → 10 → 5 → 2 → 1), **der neue Plan steht vorn und überlebt als letzter**, und wenn alte weichen mussten, wird es gesagt. Leise löschen wäre schlimmer als der Fehler.
+
+**Ausgelöst, nicht behauptet** (CLAUDE.md §3.5: „Wer einen Rettungsweg für vollen Speicher baut, muss ihn auslösen"). Mit einer gedrosselten `setItem` beide Zweige durchlaufen:
+
+| Fall | Ergebnis |
+|---|---|
+| Speicher knapp (13 Pläne, Platz für 2) | neuer Plan gesichert, Toast „die 11 ältesten Pläne mussten weichen" |
+| Speicher ganz voll | Fehler-Toast, **alter Bestand unverändert**, kein falscher Erfolg |
+
+#### N4 — der Plan altert und meldet sich
+
+Beim Öffnen eines gespeicherten Plans steht oben eine Leiste: wie alt, wie viel umgesetzt, welcher Aussaattermin verstrichen. Kein KI-Aufruf.
+
+Der erste Anlauf meldete *„Tomate vor 150 Tagen fällig"* an einem **19 Tage alten** Plan — der Termin lag schon beim Speichern in der Vergangenheit. Das ist keine verpasste Gelegenheit, sondern ein Plan für eine andere Saison. Jetzt getrennt: fällig **seit** dem Speichern vs. „2 Termine lagen schon beim Speichern in der Vergangenheit".
+
+Ausserdem läuft das **Prüfwerk beim Öffnen neu** — es rechnet mit dem heutigen Saatgut und dem heutigen Regen, und `_jahr` überlebt die JSON-Runde nicht als Datum.
+
+#### R7 Frost — mit dem Unterschied, auf den es ankommt
+
+Frostempfindlich + vor den Eisheiligen ist nur dann ein Fehler, wenn das Datum **ausserhalb** des Vorkultur-Fensters der Referenz liegt. Tomate am 5. April ist die Fensterbank, nicht das Beet. Zwei Zustände statt einem — sonst wäre es dieselbe Falle wie bei R1 gestern.
+
+#### R10 Aufwand über das Jahr
+
+Zweite Säulengrafik neben der Ernte, auf derselben Achse: viel Ernte bei viel Arbeit ist ein fairer Handel, viel Arbeit ohne Ernte nicht. Gezählt werden **Handgriffe je Woche**, keine Minuten — im `careSchedule` steht keine Dauer, und sie zu erfinden wäre genau das, was das Prüfwerk verhindern soll. Die einmalige Aufbauzeit aus `stepByStep.duration_min` gibt es dagegen wirklich.
+
+#### Nebenbei
+
+`3D benötigt Internet · siehe PDF-Plan` stand in `#88a888` auf Weiss — **2,62:1**, unter AA. Der Prüfstand sieht es nicht, weil der Text nur bei fehlgeschlagenem Three.js-Laden erscheint. Gefunden beim Durchmessen des gerenderten Plans, jetzt `var(--muted)`.
+
+#### Prüfstände
+
+`render_check` 2868 · 0 JS-Fehler · 0 verdächtig · `contrast_check` 0/0 · `touch_check` 0 · `wiring_check` 0/0/0 · eigener Durchlauf: 136 Textstellen im gerenderten Plan, beide Modi, alle neuen bestanden.
+
+---
 
 ### 2026-09-02 (bm) — v31.75: der Planer denkt in Jahren · Entwurf für V3 im Repo
 
