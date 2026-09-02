@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.73.20260902">
+<meta name="app-version" content="31.74.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2150,6 +2150,22 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 // (per CSS-Klasse + injiziertem <style>) — passiert vor dem ersten Frame, kein Flash.
 // Eingeloggte (Token vorhanden) sehen #app sofort ohne Verzögerung. gsOnboardingHide/
 // Done entfernt die Klasse nach erfolgreichem Login wieder.
+// v31.74 — „Angemeldet bleiben" einloesen. Laeuft VOR dem Flash-Guard:
+// wer abgemeldet wird, soll erst gar kein #app sehen.
+(function _gsSessionOnly(){
+  try {
+    if (localStorage.getItem('gs_sb_session_only') === '1' &&
+        !sessionStorage.getItem('gs_sb_session_alive')) {
+      // Neue Browser-Sitzung, und beim Anmelden war „Angemeldet bleiben"
+      // abgewaehlt. Nur die Anmeldung faellt weg — Pflanzen, Gaerten und
+      // Einstellungen bleiben, die gehoeren dem Geraet, nicht der Sitzung.
+      ['gs_sb_token', 'gs_sb_refresh', 'gs_sb_user', 'gs_sb_session_only'].forEach(function (k) {
+        try { localStorage.removeItem(k); } catch (_) {}
+      });
+    }
+  } catch (_) {}
+})();
+
 (function _gsLoginFlashGuard(){
   try {
     if (!localStorage.getItem('gs_sb_token')) {
@@ -66124,6 +66140,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.74', date: '02.09.2026',
+    headline: '\ud83d\udd0d „Angemeldet bleiben" tat nichts \u2014 gefunden von einem neuen Pr\u00fcfstand',
+    summary: 'Der Haken war vorangekreuzt, und wer ihn auf einem fremden Ger\u00e4t entfernte, blieb trotzdem angemeldet. Gefunden bei einer systematischen Pr\u00fcfung aller 303 Eingabefelder der App.',
+    user_summary: '\ud83d\udd0d „Angemeldet bleiben" wirkt jetzt wirklich: Haken weg heisst, du bist beim n\u00e4chsten \u00d6ffnen des Browsers abgemeldet.',
+    user_items: [
+      {emoji:'\ud83d\udd12', bold:'Eine Zusage, die die App nicht hielt:', text:' Der Haken „Angemeldet bleiben" wurde beim Anmelden nie gelesen. Wer ihn auf einem geteilten Ger\u00e4t bewusst entfernte, blieb angemeldet \u2014 auf einem fremden Rechner keine Kleinigkeit. Jetzt gilt: Haken weg \u2192 beim n\u00e4chsten Browser-Start ist die Anmeldung weg. Deine Pflanzen, G\u00e4rten und Einstellungen bleiben \u2014 die geh\u00f6ren dem Ger\u00e4t, nicht der Sitzung.'},
+      {emoji:'\ud83d\udd2c', bold:'Ein neuer Pr\u00fcfstand:', text:' `field_check.py` sucht Eingabefelder, die niemand liest \u2014 die Umkehrung der bisherigen Pr\u00fcfung. Anlass war der Fehler von gestern, bei dem die Gartenmasse nie gespeichert wurden. Von 303 Feldern blieb nach dem Aussieben genau eines \u00fcbrig, das wirklich nichts tat.'},
+      {emoji:'\u26a0\ufe0f', bold:'Und was er NICHT findet:', text:' Zusammengesetzte Feldnamen kann keine Textsuche sehen \u2014 vier Felder sind so verdrahtet und funktionieren. Das steht jetzt im Pr\u00fcfstand selbst, damit der N\u00e4chste keine Gespenster jagt. Der erste Anlauf meldete \u00fcbrigens 172 von 172 Feldern als kaputt; ein Werkzeug, das alles f\u00fcr defekt erkl\u00e4rt, ist schlechter als keines.'},
+    ],
+  },
+  {
     v: 'v31.73', date: '02.09.2026',
     headline: '\u2705 Planer V3: Der Plan wird zur Checkliste f\u00fcr deinen echten Garten',
     summary: 'Ein Plan war bisher ein Dokument \u2014 sch\u00f6n anzusehen, und danach musste man alles von Hand eintragen. Jetzt gibt es einen Reiter „Umsetzen": jede Pflanze antippen, und sie wird mit Position, Abstand, Tiefe und Pflanzdatum in deinem Garten angelegt.',
@@ -66610,7 +66637,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.73';
+var GS_VERSION = 'v31.74';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -67668,6 +67695,25 @@ function sbSaveSession(data) {
     // Account-Wechsel erkannt: Admin-Mode strikt zurücksetzen
     localStorage.removeItem('gs_admin');
   }
+  // v31.74: „Angemeldet bleiben" wurde nie gelesen. Der Haken stand da,
+  // war vorangekreuzt — und wer ihn auf einem fremden Geraet ENTFERNTE,
+  // blieb trotzdem angemeldet. Eine Zusage, die die App nicht hielt, und
+  // auf einem geteilten Geraet keine Kleinigkeit.
+  //
+  // Umgesetzt ohne den Token-Weg anzufassen (jeder Leser holt ihn ueber
+  // gsStore): ein Merker in localStorage sagt „nur diese Sitzung", ein
+  // zweiter in sessionStorage sagt „dieselbe Sitzung wie damals". Beim
+  // Start ohne den zweiten wird abgemeldet — genau dann, wenn der Browser
+  // zwischendurch geschlossen war.
+  try {
+    var _bleib = document.getElementById('onb-login-remember');
+    if (_bleib && !_bleib.checked) {
+      localStorage.setItem('gs_sb_session_only', '1');
+      sessionStorage.setItem('gs_sb_session_alive', '1');
+    } else {
+      localStorage.removeItem('gs_sb_session_only');
+    }
+  } catch (_) {}
   gsStore.set('gs_sb_token',  data.access_token || '');
   // v30.49 FIX: refresh_token NUR überschreiben wenn vorhanden — eine Refresh-/Auth-Antwort ohne neuen RT
   // würde den gespeicherten RT sonst auf '' setzen → Refresh dauerhaft tot → späterer Silent-Logout.
