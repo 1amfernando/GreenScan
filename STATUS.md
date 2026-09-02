@@ -4,13 +4,57 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.06` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.07` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (ct) — v32.07: ein Knopf lag 38 px ausserhalb des Bildschirms
+
+Keiner der neun Prüfstände fragte bisher, ob etwas **seitlich aus dem Bild
+ragt**. Auf 412 px gemessen: fünf Tabs melden etwas, die Seite scrollt aber
+nirgends waagrecht.
+
+- **Vier davon sind Falschmeldungen** — die grossen Emoji-Wasserzeichen hinter
+  den Überschriften (Wissen, Rezepte, Heilmittel, Community) liegen mit
+  `position:absolute` absichtlich über dem Rand. Genau die Sorte, vor der
+  CLAUDE.md §7.1 warnt.
+- **Einer ist echt:** „↻ Zurücksetzen" im Marktplatz, im normalen Fluss,
+  `left 353 → right 450`. 38 px der Antippfläche ausserhalb, Beschriftung
+  abgeschnitten. Die Filterzeile war eine Flex-Zeile ohne Umbruch.
+
+#### Der Umweg, den ich dabei genommen habe
+
+Zwei Debug-Skripte massen den Knopf bei 396 px — **innerhalb**. Ich habe daraus
+geschlossen, der Fund sei ein Artefakt, und die Änderung **zurückgenommen**
+(nach der Lehre aus v31.76: nichts ändern auf einem nicht reproduzierbaren
+Messwert). Danach meldete `touch_check` gegen die zurückgesetzte Datei prompt
+wieder „38px draussen".
+
+Die Skripte waren unzuverlässig, nicht die Messung. Der saubere Beleg ist ein
+Dreifach-Durchlauf durch **dasselbe** Instrument: **ohne Fix 1 · mit Fix 0 ·
+wieder ohne Fix 1.**
+
+**Die Lehre:** ein ad-hoc-Skript ist kein Gegenbeweis zu einem gegengeprüften
+Prüfstand. Wer widersprechende Messungen hat, misst beide Stände mit
+demselben Werkzeug — nicht mit dem jeweils bequemeren.
+
+#### `touch_check` bekommt eine zweite Frage
+
+Ein Knopf halb ausserhalb ist so unerreichbar wie einer mit 8×8 px — dieselbe
+Frage, andere Ursache. Gemeldet wird **nur, was im normalen Fluss liegt**;
+`position:absolute` ist ausgenommen, und zwar nach einer Regel, nicht nach
+einer Liste.
+
+**Gegenprobe zweimal gemacht.** Der erste Versuch (ein Knopf mit `width:600px`)
+schlug fehl: der Flex-Container staucht ihn auf 380 px, er ragt gar nicht
+hinaus. Erst `min-width:600px` erzeugt den Fall — gemeldet mit „204px
+draussen". **Eine Gegenprobe, die den Fall nicht herstellt, beweist nichts.**
+
+---
 
 ### 2026-09-02 (cs) — v32.06: eine Maschine sollte nicht über eine Giftigkeits-Korrektur urteilen
 

@@ -710,6 +710,24 @@ Lauf fand **24 Stellen hell und 19 dunkel**, darunter „Vorbeugen:" mit 1,08:1
 2,70:1. Wer ein weiteres Fenster prüfen will: dieselbe Stelle in
 `contrast_check.js` erweitern, nicht einen zweiten Prüfstand bauen.
 
+**Seit v32.07 fragt `touch_check` zweierlei:** zu kleine Antippflaechen *und*
+Bedienelemente, die **seitlich aus dem Bildschirm ragen**. Ein Knopf halb
+draussen ist so unerreichbar wie einer mit 8×8 px. Gemeldet wird nur, was im
+NORMALEN FLUSS liegt — `position:absolute` ist ausgenommen, sonst meldet er die
+grossen Emoji-Wasserzeichen hinter den Ueberschriften (Wissen, Rezepte,
+Heilmittel, Community), die absichtlich ueber den Rand ragen.
+
+Zwei Dinge aus dem Bau, die allgemein gelten:
+
+- **Eine Gegenprobe, die den Fall nicht herstellt, beweist nichts.** Der erste
+  Versuch (`width:600px`) wurde vom Flex-Container auf 380 px gestaucht und ragte
+  gar nicht hinaus. Erst `min-width:600px` erzeugt den Fall.
+- **Ein ad-hoc-Skript ist kein Gegenbeweis zu einem gegengeprueften Pruefstand.**
+  Zwei Debug-Skripte massen den Marktplatz-Knopf „innerhalb" und brachten mich
+  dazu, den Fix zurueckzunehmen — der Pruefstand meldete ihn danach sofort
+  wieder. Wer widersprechende Messungen hat, misst beide Staende mit
+  **demselben** Werkzeug.
+
 **`touch_check` hat diese Grenze weiterhin** — es misst nur die elf
 Bildschirme. Und für Farbe gilt unverändert: **wer Farbe in einem Modal setzt,
 das der Prüfstand nicht öffnet, rechnet selbst nach.**

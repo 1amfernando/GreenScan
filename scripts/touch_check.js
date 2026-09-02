@@ -43,6 +43,44 @@ const SCAN=()=>{
   });
   return out;
 };
+// ── v32.07: Bedienelemente, die seitlich aus dem Bild ragen ──────────────
+//
+// Ein Knopf, dessen halbe Antippflaeche ausserhalb des Bildschirms liegt, ist
+// so unerreichbar wie einer, der 8x8 gross ist — dieselbe Frage, andere
+// Ursache. Gefunden wurde damit „↻ Zuruecksetzen" im Marktplatz: eine
+// Flex-Zeile ohne Umbruch schob ihn auf 412 px bis 450 px hinaus, 38 px
+// draussen, die Beschriftung abgeschnitten. Die SEITE scrollt dabei nicht —
+// es sieht also nach nichts aus.
+//
+// **Gemeldet wird nur, was im normalen Fluss liegt.** Dekorative Elemente mit
+// `position:absolute` (die grossen Emoji-Wasserzeichen hinter den Ueberschriften
+// von Wissen, Rezepte, Heilmittel und Community) ragen ABSICHTLICH hinaus und
+// werden vom Rand beschnitten — genau die Sorte Falschmeldung, vor der
+// CLAUDE.md §7.1 warnt. Sie sind hier ausgenommen, und zwar nach einer Regel,
+// nicht nach einer Liste.
+const AUSSERHALB = () => {
+  const W = document.documentElement.clientWidth, out = [];
+  document.querySelectorAll('button,a[href],[onclick],[role="button"],input,select,textarea').forEach(el => {
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden' || !el.getClientRects().length) return;
+    if (cs.position === 'absolute' || cs.position === 'fixed') return;   // Zierde, siehe oben
+    const r = el.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) return;
+    const fehlt = Math.round(Math.max(r.right - W, 0 - r.left));
+    if (fehlt <= 1) return;
+    // Ein waagrecht scrollender Vorfahre ist Absicht (Chip-Leisten).
+    let sc = el.parentElement;
+    while (sc && sc !== document.body) {
+      if (/(auto|scroll)/.test(getComputedStyle(sc).overflowX)) return;
+      sc = sc.parentElement;
+    }
+    out.push({ fehlt, txt: (el.textContent || '').trim().slice(0, 24),
+      el: el.tagName + (el.id ? '#' + el.id : '') +
+          (typeof el.className === 'string' && el.className ? '.' + el.className.trim().split(/\s+/)[0] : '') });
+  });
+  return out;
+};
+
 (async()=>{
   const br=await chromium.launch();
   const ctx=await br.newContext({viewport:{width:412,height:915}}); const p=await ctx.newPage();
@@ -52,12 +90,18 @@ const SCAN=()=>{
   await p.waitForTimeout(3500);
   await p.evaluate(()=>{document.documentElement.classList.remove('gs-preauth');
     const o=document.getElementById('gs-onboarding');if(o)o.style.setProperty('display','none','important');});
-  const seen=new Map();
+  const seen=new Map(); const raus=new Map();
   for(const t of TABS){ try{await p.evaluate(t=>switchTab(t),t)}catch(e){}
     await p.waitForTimeout(600);
-    (await p.evaluate(SCAN)).forEach(o=>{const k=o.el+'|'+o.txt; if(!seen.has(k))seen.set(k,{...o,tab:t});}); }
+    (await p.evaluate(SCAN)).forEach(o=>{const k=o.el+'|'+o.txt; if(!seen.has(k))seen.set(k,{...o,tab:t});});
+    (await p.evaluate(AUSSERHALB)).forEach(o=>{const k=o.el+'|'+o.txt; if(!raus.has(k))raus.set(k,{...o,tab:t});}); }
   const list=[...seen.values()].sort((a,b)=>a.min-b.min);
   console.log('Bedienelemente unter 24×24 CSS-px (WCAG 2.5.8 AA):', list.length);
   list.slice(0,20).forEach(o=>console.log(`   ${String(o.w).padStart(3)}×${String(o.h).padEnd(3)}  ${o.tab.padEnd(9)} ${o.el.slice(0,40).padEnd(41)} „${o.txt}" ${o.label?'aria:'+o.label:''}`));
+
+  const rausL=[...raus.values()].sort((a,b)=>b.fehlt-a.fehlt);
+  console.log('Bedienelemente, die seitlich aus dem Bildschirm ragen:', rausL.length);
+  rausL.slice(0,15).forEach(o=>console.log(`   ${String(o.fehlt).padStart(3)}px draussen  ${o.tab.padEnd(9)} ${o.el.slice(0,40).padEnd(41)} „${o.txt}"`));
   await br.close();
+  process.exitCode = (list.length + rausL.length) ? 1 : 0;
 })();
