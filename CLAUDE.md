@@ -864,6 +864,27 @@ einem Mittelklasse-Telefon 35 ms kostet.
    kleines Herz-Symbol in einer Karte durchgewinkt. Gegenprobe mit DREI
    Faellen, nicht mit einem.
 
+**Seit v32.21 prueft er auch FENSTER** — bis dahin nur die elf Tabs, waehrend
+`contrast_check` laengst in sechs Fenstern misst. Modale sind aber gerade die
+Stellen mit den meisten Eingaben (Planer, Eingrenzen, Korrektur). Geprueft
+werden „Ohne Netz eingrenzen", der Bluehkalender und das Scan-Ergebnis;
+geoeffnet ueber die oeffentlichen Oeffner, nicht ueber nachgebaute Zustaende.
+
+**Und die Zahl daneben ist Pflicht — mit der richtigen Bezugsgroesse.** Der
+erste Anlauf meldete „1'275 Bedienelemente" fuer ein Fenster mit vier
+Auswahlfeldern: das war die Zahl des GANZEN DOKUMENTS, mit und ohne offenes
+Fenster dieselbe. Sie haette also auch dann gestimmt, wenn gar nichts
+aufgegangen waere. Gezaehlt wird jetzt, was IM Fenster steht (308 / 88 / 11) —
+drei verschiedene Zahlen sind der Beleg, dass wirklich drei Fenster gemessen
+wurden. Dieselbe Falle wie in v31.78, diesmal von mir selbst gebaut.
+
+**Zwei Gegenproben, und die erste war die lehrreichere:** einem Auswahlfeld
+das `aria-label` genommen → **kein Fund**, und das ist RICHTIG: die Felder
+stehen in einem umschliessenden `<label>`, das sie bereits benennt. Erst ein
+Feld ganz ohne Namen (und ein Bild ohne `alt`) im Fenster wird gemeldet. Eine
+Gegenprobe, die den Fall nicht herstellt, beweist nichts — auch dann nicht,
+wenn sie plausibel aussieht.
+
 **Was er bewusst NICHT tut:** einen Screenreader ersetzen. Er misst die
 maschinell nachweisbare Haelfte; ob ein Name auch VERSTAENDLICH ist, kann nur
 ein Mensch beurteilen. Und er meldet nur SICHTBARES — ein Feld in einem

@@ -12,6 +12,58 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-02 (di) — a11y_check prüfte elf Tabs und null Fenster
+
+Wieder kein Versionssprung: die App ist unverändert.
+
+`contrast_check` misst längst in **sechs** Fenstern. `a11y_check` prüfte
+**null** — obwohl Modale gerade die Stellen mit den meisten Eingaben sind
+(Planer, Eingrenzen, Korrektur, Doktor-Fragebogen). Dreizehn Prüfstände, und
+die Zugänglichkeit hörte an der Fensterkante auf.
+
+Jetzt drei Fenster: „Ohne Netz eingrenzen", Blühkalender, Scan-Ergebnis —
+geöffnet über die öffentlichen Öffner, nicht über nachgebaute Zustände.
+Ergebnis: **0 Funde** in allen dreien.
+
+#### Und wieder die Falle mit der Bezugsgrösse
+
+Der erste Anlauf meldete stolz „**1'275 Bedienelemente**" für ein Fenster mit
+vier Auswahlfeldern. Das war die Zahl des **ganzen Dokuments** — mit und ohne
+offenes Fenster dieselbe. Sie hätte also auch dann gestimmt, wenn gar nichts
+aufgegangen wäre.
+
+Genau die Falle, die ich bei `contrast_check` in v31.78 selbst aufgeschrieben
+habe („ohne diese Zahl sieht ein Fenster, das gar nicht aufging, genauso aus
+wie eines ohne Fehler") — und hier prompt selbst gebaut. Gezählt wird jetzt,
+was **im** Fenster steht:
+
+```
+eingrenzen → 0 Funde bei 308 Bedienelementen IM Fenster
+blühkalender → 0 Funde bei  88 Bedienelementen IM Fenster
+scan-ergebnis → 0 Funde bei  11 Bedienelementen IM Fenster
+```
+
+Drei verschiedene Zahlen — das ist der Beleg. Ein Fenster, das nicht aufgeht,
+zählt jetzt als Fehler statt als leeres Ergebnis.
+
+#### Zwei Gegenproben, und die erste war die lehrreichere
+
+**Erst falsch angesetzt:** einem Auswahlfeld das `aria-label` genommen →
+**kein Fund**. Ich hätte das als Lücke im Prüfstand lesen können. Es war aber
+richtig: die Felder stehen in einem umschliessenden `<label>`, das sie bereits
+benennt — mein `aria-label` war Gürtel und Hosenträger.
+
+**Dann richtig:** ein Feld ganz ohne Namen und ein Bild ohne `alt` ins Fenster
+gesetzt → beide gemeldet, und die Fensterzahl stieg von 308 auf 312.
+
+> Eine Gegenprobe, die den Fall nicht herstellt, beweist nichts — auch dann
+> nicht, wenn sie plausibel aussieht.
+
+Das ist heute die dritte Gegenprobe, die zunächst am Ziel vorbeiging (nach dem
+600-px-Knopf in v32.07 und dem 560-Kacheln-Deckel in v32.15). Offenbar ist das
+die häufigste Art, sich selbst zu täuschen: nicht die Messung ist falsch,
+sondern der Fall, den man herstellt.
+
 ### 2026-09-02 (dh) — der Prüfstand meldete vier Dinge, die keine sind
 
 Kein Versionssprung: die App ist unverändert. Nur `render_check` ist schärfer.

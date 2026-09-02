@@ -187,6 +187,8 @@ const PRUEFUNG = () => {
 
   const alle = new Map();
   const jeTab = {};
+  // Ein Fenster, das nicht aufgeht, ist ein Fehler — nicht ein leeres Ergebnis.
+  let rot = 0;
   for (const t of TABS) {
     try { await p.evaluate(t => { if (typeof switchTab === 'function') switchTab(t); }, t); } catch (_) {}
     await p.waitForTimeout(500);
@@ -194,6 +196,77 @@ const PRUEFUNG = () => {
     jeTab[t] = f.length;
     // Über die Tabs hinweg entdoppeln: dieselbe Kopfleiste steht auf jedem.
     f.forEach(x => { const k = x.art + '|' + x.wo + '|' + x.was; if (!alle.has(k)) alle.set(k, x); });
+  }
+
+  // ── Und die FENSTER ─────────────────────────────────────────────────
+  //
+  // Bis v32.21 prüfte dieser Stand nur die elf Tabs. `contrast_check` misst
+  // längst in sechs Fenstern — hier waren es **null**. Ein Formularfeld in
+  // einem Modal ist aber genauso ein Formularfeld, und Modale sind gerade
+  // die Stellen mit den meisten Eingaben (Planer, Eingrenzen, Korrektur).
+  //
+  // Geöffnet wird über die öffentlichen Öffner, nicht über nachgebaute
+  // Zustände: was hier geprüft wird, ist das, was ein Mensch auch sieht.
+  const FENSTER = [
+    ['eingrenzen', () => {
+      if (typeof gsEingrenzenOeffnen !== 'function') return false;
+      try { localStorage.setItem('gs_eingrenzen', JSON.stringify({ monat: 6, farbe: '', gruppe: '', hoehe: null })); } catch (_) {}
+      gsEingrenzenOeffnen(); return true;
+    }],
+    ['blühkalender', () => {
+      if (typeof openBluehkalender !== 'function') return false;
+      openBluehkalender(); return true;
+    }],
+    ['scan-ergebnis', () => {
+      if (typeof showScanResult !== 'function') return false;
+      try { if (typeof switchTab === 'function') switchTab('scanner'); } catch (_) {}
+      window.gsScanStatusShow = () => {}; window.gsStopScanStatus = () => {};
+      window.gsScanPersistToCloud = () => Promise.resolve(true);
+      window.gsAddToScanHistory = () => {}; window.gsHaptic = () => {};
+      showScanResult({
+        name: 'Bärlauch', latin: 'Allium ursinum', family: 'Amaryllidaceae', category: 'wildpflanze',
+        confidence: 84, edible: true, toxic: false, toxicity: 0,
+        description: 'Breite Blätter mit Knoblauchgeruch.', habitat: 'Laubwälder', season: 'Apr–Jun',
+        diagnostic_features: ['Breite Einzelblätter', 'Knoblauchgeruch'],
+        alternatives: [{ name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 21, toxicity: 5, edible: false }],
+        _shotCount: 1, _qual: { messbar: true, quality: 70, blur: 66, light: 74, warnings: [] },
+      });
+      const r = document.getElementById('scan-result');
+      if (r) r.style.display = 'block';
+      return true;
+    }],
+  ];
+  const jeFenster = {};
+  for (const [name, oeffne] of FENSTER) {
+    let auf = false;
+    try { auf = await p.evaluate(new Function('return (' + oeffne.toString() + ')()')); } catch (_) { auf = false; }
+    await p.waitForTimeout(600);
+    if (!auf) { jeFenster[name] = 'ging nicht auf'; continue; }
+    const f = await p.evaluate(PRUEFUNG);
+    // Ohne diese Zahl sieht ein Fenster, das gar nicht aufging, genauso aus
+    // wie eines ohne Fehler — dieselbe Lehre wie bei contrast_check (v31.78).
+    // Gezählt wird, was IM Fenster steht — nicht im ganzen Dokument. Der
+    // erste Anlauf zählte 1'275 „Bedienelemente" für ein Modal mit vier
+    // Auswahlfeldern: die Zahl des ganzen Dokuments, mit und ohne offenes
+    // Fenster dieselbe. Sie hätte also auch dann gestimmt, wenn gar nichts
+    // aufgegangen wäre — genau die Falle, die contrast_check seit v31.78
+    // benennt und die ich hier prompt selbst gebaut habe.
+    const stellen = await p.evaluate((n) => {
+      const w = ['#detail-modal', '#scan-result', '.modal-overlay.open']
+        .map(sel => document.querySelector(sel))
+        .filter(el => el && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 20);
+      if (!w.length) return -1;
+      let z = 0;
+      w.forEach(el => { z += el.querySelectorAll('input, select, textarea, button, a[href], [role="button"], img').length; });
+      return z;
+    }, name);
+    jeFenster[name] = (stellen < 0)
+      ? 'kein sichtbares Fenster — nichts gemessen'
+      : f.length + ' Funde bei ' + stellen + ' Bedienelementen IM Fenster';
+    if (stellen <= 0) { rot++; }
+    f.forEach(x => { const k = x.art + '|' + x.wo + '|' + x.was; if (!alle.has(k)) alle.set(k, x); });
+    try { await p.evaluate(() => { if (typeof closeModal === 'function') { closeModal('detail-modal'); } }); } catch (_) {}
+    await p.waitForTimeout(250);
   }
 
   const nachArt = {};
@@ -299,7 +372,8 @@ const PRUEFUNG = () => {
   console.log('  und EINE Reparatur behebt sie alle. Gemeldet wird beides, damit keine der');
   console.log('  beiden Zahlen die andere verdeckt.');
   console.log('  je Tab (mit Wiederholungen): ' + TABS.map(t => t + '=' + jeTab[t]).join(' '));
+  console.log('  je Fenster: ' + Object.keys(jeFenster).map(k => k + ' → ' + jeFenster[k]).join(' · '));
   console.log('  JS-Fehler: ' + (errs.length ? errs.length + ' (' + errs.slice(0, 2).join(' | ') + ')' : 'keine'));
   await br.close();
-  process.exitCode = (summe || verhaltenRot || errs.length) ? 1 : 0;
+  process.exitCode = (summe || verhaltenRot || rot || errs.length) ? 1 : 0;
 })();
