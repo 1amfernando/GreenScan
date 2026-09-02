@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.05.20260902">
+<meta name="app-version" content="32.06.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -34397,8 +34397,31 @@ function renderFeedback(){
 }
 
 // v23.61: Auto-Triage — nimmt ein einzelnes Feedback, lässt KI Machbarkeit/Priorität entscheiden
+// ── v32.06: nicht jede Meldung ist ein Produkt-Vorschlag ─────────────────
+//
+// Diese Triage laesst eine KI als „Product Owner" ueber Community-Feedback
+// urteilen: accepted|rejected|needs_info|duplicate, Prioritaet 1–5, Aufwand.
+// Fuer Ideen und Fehlerberichte ist das richtig.
+//
+// Seit v31.95 und v32.05 liegen aber ZWEI weitere Arten in derselben
+// Tabelle, und fuer die ist es falsch:
+//
+//   · `expert_application` — ein Mensch bewirbt sich mit Biografie und
+//     Diplomen. „rejected: aus Scope" waere die Antwort einer Maschine auf
+//     eine Bewerbung.
+//   · `species_correction` — eine SACHLICHE Behauptung ueber eine Art,
+//     womoeglich ueber die Essbarkeit. Sie braucht jemanden mit einem Buch,
+//     keine Prioritaets-Zahl. Ein „rejected" auf der Karte wuerde Staff
+//     sagen, sie koennten eine Giftigkeits-Korrektur ignorieren.
+//
+// Beide Arten habe ich selbst in diese Tabelle gelegt — also gehoert der
+// Ausschluss dazu. Sie bleiben auf `ki_status: 'pending'` und damit im
+// Filter „Offen", wo ein Mensch sie sieht.
+var GS_TRIAGE_AUS = { expert_application: 1, species_correction: 1 };
+
 async function _gsFeedbackTriageOne(fb){
   if(!fb || !fb.body) return null;
+  if(GS_TRIAGE_AUS[fb.type]) return null;
   if(typeof callAI !== 'function') return null;
   try {
     const prompt =
@@ -69642,6 +69665,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.06', date: '02.09.2026',
+    headline: '\ud83e\udd16 Eine Maschine sollte nicht \u00fcber eine Giftigkeits-Korrektur urteilen',
+    summary: 'Die Feedback-Liste l\u00e4sst eine KI jeden Eintrag als „Product Owner" bewerten \u2014 angenommen, abgelehnt, Priorit\u00e4t 1 bis 5. F\u00fcr Ideen und Fehlerberichte ist das richtig. F\u00fcr die zwei Arten, die ich heute in dieselbe Tabelle gelegt habe, ist es falsch.',
+    user_summary: '\ud83e\udd16 Arten-Korrekturen und Experten-Bewerbungen werden nicht mehr automatisch von einer KI bewertet \u2014 die sieht sich ein Mensch an.',
+    user_items: [
+      {emoji:'\u2620\ufe0f', bold:'Warum das wichtig ist:', text:' Eine Korrektur zur Essbarkeit einer Art ist eine Tatsachen-Frage, keine Produkt-Idee. Ein automatisches „abgelehnt, ausserhalb des Umfangs" auf der Karte h\u00e4tte dem Team gesagt, sie k\u00f6nnten sie \u00fcbergehen.'},
+      {emoji:'\ud83c\udf93', bold:'Und eine Bewerbung erst recht nicht:', text:' Wer sich mit Biografie und Diplomen als Experte bewirbt, bekommt keine Maschinen-Absage mit Aufwandssch\u00e4tzung.'},
+    ],
+  },
+  {
     v: 'v32.05', date: '02.09.2026',
     headline: '\u270f\ufe0f Wenn du es besser weisst, kannst du es jetzt sagen',
     summary: '1\u2019276 Arten sind als „nicht fachlich gepr\u00fcft" markiert \u2014 die App sagt das seit v31.90 ehrlich. Was fehlte: ein Weg, es besser zu machen. Auf jeder Artenkarte steht jetzt ein Knopf, mit dem sich eine falsche Angabe melden l\u00e4sst.',
@@ -69982,7 +70015,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.05';
+var GS_VERSION = 'v32.06';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
