@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.71.20260902">
+<meta name="app-version" content="31.72.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1744,6 +1744,15 @@ body.dark .gs-doc-pro{background:#3a2c10;border-color:#8d6e2a;color:#ffcc80;}
 /* v31.70 — Der Fragebogen im Pflanzendoktor. Antworten zum Antippen statt
    eines leeren Freitextfelds: Fragen, die man beantworten KANN, werden
    beantwortet; Fragen, die als Beispiel in einem Platzhalter stehen, nicht. */
+/* v31.72 — Die Gartenauswahl im Planer. Volle Breite, damit lange Namen
+   nicht abschneiden, und zwei Zeilen: Name und was er mitbringt. */
+.gs-pp-vorl{display:flex;flex-direction:column;align-items:flex-start;gap:1px;width:100%;
+  min-height:40px;padding:8px 11px;margin-bottom:6px;border:1.5px solid var(--c-success);
+  border-radius:var(--r-md);background:var(--card);cursor:pointer;font-family:inherit;
+  text-align:left;-webkit-tap-highlight-color:transparent;}
+.gs-pp-vorl:active{background:var(--surface2);}
+.gs-pp-vorl-n{font-size:var(--fs-sm);font-weight:800;color:var(--text);}
+.gs-pp-vorl-m{font-size:var(--fs-xs);color:var(--muted);font-weight:600;}
 .gs-dq{margin-bottom:10px;}
 .gs-dq-f{font-size:var(--fs-sm);font-weight:800;color:var(--text2);margin-bottom:5px;}
 .gs-dq-o{display:flex;flex-wrap:wrap;gap:6px;}
@@ -4906,6 +4915,16 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
       <!-- ══ STEP 1: FLÄCHE ══ -->
       <div class="pp-stepview active" id="pp-view-1">
+        <!-- ══ v31.72: EINEN BESTEHENDEN GARTEN ÜBERNEHMEN ═══════════════
+             Fernando: „Mein Garten soll vom Ki-Planer als Option angesehen
+             werden, so muss mann nicht immer die Masse und weiteres von
+             neuem Angeben wenn man einen neuen Plan generieren möchte."
+
+             Steht GANZ OBEN, vor der Flächenerfassung: wer seinen Garten
+             schon angelegt hat, soll ihn nicht ein zweites Mal ausmessen.
+             Erscheint nur, wenn es überhaupt Gärten gibt — ein leerer
+             Auswahlkasten wäre eine Frage ohne Antwort. -->
+        <div id="pp-garten-vorlage" style="display:none;"></div>
         <!-- v23.89: LiDAR-Tipp — wird via JS sichtbar gemacht wenn iOS-Pro-Gerät erkannt -->
         <div id="pp-lidar-hint" style="display:none;background:linear-gradient(135deg,#e3f2fd,#bbdefb);border:1px solid #90caf9;border-radius:var(--r-md);padding:10px 12px;margin-bottom:10px;font-size:var(--fs-sm);line-height:1.55;color:var(--c-info-d);">
           <div style="font-weight:800;margin-bottom:4px;">📏 Du hast LiDAR!</div>
@@ -5125,15 +5144,26 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <div class="pp-stepview" id="pp-view-5">
         <!-- v24.01: Progress-Bar mit Stage-Tracking + ETA -->
         <div id="pp-plan-loader" style="text-align:center;padding:32px 18px;color:var(--text2);font-size:var(--fs-md);">
-          <div style="font-size:42px;margin-bottom:14px;animation:gs-pulse 1.4s ease-in-out infinite;">🌱</div>
-          <div id="pp-loader-msg" style="font-size:var(--fs-md);font-weight:700;color:var(--text);margin-bottom:14px;min-height:18px;">KI analysiert alle Faktoren…</div>
+          <!-- v31.72: Statt eines pulsierenden Emojis der Lebenszyklus einer
+               Pflanze — Same, Keimling, Wachstum, Blüte, Frucht, Vergehen,
+               neuer Same. Jedes Warten zeigt eine andere Art.
+               Fernando: „eine Pflanze die vom Sammen aus wächst, alt wird,
+               kaputt geht und dann eine neue wächst". -->
+          <canvas id="pp-zyklus" width="240" height="200" style="width:200px;height:167px;margin:0 auto 10px;display:block;"></canvas>
+          <div id="pp-zyklus-name" style="font-size:var(--fs-sm);color:var(--muted);font-weight:700;margin-bottom:12px;min-height:16px;"></div>
+          <div id="pp-loader-msg" style="font-size:var(--fs-md);font-weight:700;color:var(--text);margin-bottom:14px;min-height:18px;">Plan wird vorbereitet …</div>
           <!-- Echter Progress-Balken -->
           <div style="background:var(--surface2);height:8px;border-radius:var(--r-xs);overflow:hidden;margin:0 auto 8px;max-width:380px;">
             <div id="pp-loader-bar" style="width:0%;height:100%;background:linear-gradient(90deg,#43a047,#1b5e20);border-radius:var(--r-xs);transition:width var(--dur-slow) linear;box-shadow:var(--elev-1);"></div>
           </div>
           <div style="display:flex;justify-content:space-between;max-width:380px;margin:0 auto;font-size:var(--fs-sm);color:var(--muted);">
-            <span id="pp-loader-pct">5 %</span>
-            <span id="pp-loader-eta">~ 60 s</span>
+            <!-- v31.72: leer statt „5 %" und „~ 60 s". Beides waren
+                 Platzhalter, die im ersten Moment eine Zahl behaupteten,
+                 bevor irgendetwas gelaufen war — genau das, was v31.65 aus
+                 dem Balken entfernt hat. gsPPstufe fuellt sie, sobald es
+                 etwas zu sagen gibt. -->
+            <span id="pp-loader-pct"></span>
+            <span id="pp-loader-eta"></span>
           </div>
         </div>
         <div id="pp-plan-result" style="display:none;"></div>
@@ -53510,12 +53540,290 @@ function gsPPdetectLidar() {
   hint.style.display = 'block';
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// v31.72 — DEN EIGENEN GARTEN ALS VORLAGE
+// ══════════════════════════════════════════════════════════════════════════
+//
+// Wer einen Garten angelegt hat, hat Masse, Licht und Boden dort schon
+// eingetragen. Sie im Planer noch einmal zu verlangen, ist die Sorte
+// Doppelarbeit, die eine App abnehmen soll.
+//
+// Uebernommen wird nur, was WIRKLICH im Garten steht. Ein Garten ohne
+// Masse fuellt die Massfelder nicht — er sagt dann Standort, Licht und
+// Boden, und die Flaeche misst man wie bisher. Erfundene Zahlen waeren
+// schlimmer als leere Felder.
+// ══════════════════════════════════════════════════════════════════════════
+// v31.72 — DER LEBENSZYKLUS ALS WARTEANZEIGE
+// ══════════════════════════════════════════════════════════════════════════
+//
+// Fernando: „eine Pflanze die vom Sammen aus wächst, alt wird, kaputt geht
+// und dann eine neue wächst — eine Art Lebenszyklus einer Blume. Oder sonst
+// das gleiche mit einem Obstbaum oder Gemüse."
+//
+// Sieben Phasen, ~11 Sekunden je Runde, danach die naechste Art. Gezeichnet
+// statt animiert-mit-Bildern: eine Leinwand kostet nichts, laesst sich in
+// jeder Farbe des Themas malen und braucht keine Datei.
+//
+// Die Art wechselt bei JEDER Runde — wer zweimal wartet, sieht zweimal
+// etwas anderes. Das ist der Punkt der Sache.
+var GS_ZYKLUS_ARTEN = [
+  { name: 'Sonnenblume',  stiel: '#4a7c2f', blatt: '#5da13a', bluete: '#f9c623', mitte: '#7b4a12', form: 'blume' },
+  { name: 'Tomate',       stiel: '#4a7c2f', blatt: '#5da13a', bluete: '#e53935', mitte: '#c62828', form: 'frucht' },
+  { name: 'Apfelbaum',    stiel: '#6d4c31', blatt: '#3f8f3f', bluete: '#e57373', mitte: '#c62828', form: 'baum' },
+  { name: 'Kürbis',       stiel: '#4a7c2f', blatt: '#5da13a', bluete: '#f57c00', mitte: '#e65100', form: 'frucht' },
+  { name: 'Mohn',         stiel: '#5b8f3a', blatt: '#6ba24a', bluete: '#e53935', mitte: '#2b2b2b', form: 'blume' },
+  { name: 'Lavendel',     stiel: '#5b8f3a', blatt: '#6ba24a', bluete: '#8e63c9', mitte: '#5e35b1', form: 'aehre' },
+  { name: 'Karotte',      stiel: '#4a7c2f', blatt: '#5da13a', bluete: '#ef6c00', mitte: '#e65100', form: 'wurzel' },
+];
+
+var _gsZyklus = null;
+
+function gsZyklusStart() {
+  var c = document.getElementById('pp-zyklus');
+  if (!c || !c.getContext) return;
+  gsZyklusStop();
+  var ctx = c.getContext('2d');
+  var W = c.width, H = c.height;
+  var reduziert = false;
+  try { reduziert = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_) {}
+
+  var artIdx = Math.floor(Math.random() * GS_ZYKLUS_ARTEN.length);
+  var start = 0;
+  var RUNDE = 11000;   // eine Runde Leben
+
+  function nameSetzen(a) {
+    var el = document.getElementById('pp-zyklus-name');
+    if (el) el.textContent = a.name;
+  }
+  nameSetzen(GS_ZYKLUS_ARTEN[artIdx]);
+
+  function erde() {
+    ctx.fillStyle = 'rgba(109,76,49,.9)';
+    ctx.beginPath();
+    ctx.ellipse(W / 2, H - 16, W * 0.34, 13, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // t von 0 bis 1 ueber die ganze Runde. Die Phasen teilen sich diesen Weg.
+  function zeichne(t, a) {
+    ctx.clearRect(0, 0, W, H);
+    erde();
+    var boden = H - 20;
+
+    // Phase 0.00–0.10  Same liegt
+    // Phase 0.10–0.35  Keimling waechst
+    // Phase 0.35–0.55  Blaetter
+    // Phase 0.55–0.75  Bluete / Frucht
+    // Phase 0.75–0.92  Vergehen
+    // Phase 0.92–1.00  neuer Same
+    var hoehe = 0, welk = 0, bluete = 0, blatt = 0;
+    if (t < 0.10)      { hoehe = 0; }
+    else if (t < 0.35) { hoehe = (t - 0.10) / 0.25; }
+    else if (t < 0.55) { hoehe = 1; blatt = (t - 0.35) / 0.20; }
+    else if (t < 0.75) { hoehe = 1; blatt = 1; bluete = (t - 0.55) / 0.20; }
+    else if (t < 0.92) { hoehe = 1; blatt = 1; bluete = 1; welk = (t - 0.75) / 0.17; }
+    else               { hoehe = 0; }
+
+    // Same — am Anfang und am Ende
+    if (t < 0.10 || t >= 0.92) {
+      var s = (t < 0.10) ? (t / 0.10) : (1 - (t - 0.92) / 0.08);
+      ctx.fillStyle = '#6d4c31';
+      ctx.globalAlpha = Math.max(0.15, s);
+      ctx.beginPath();
+      ctx.ellipse(W / 2, boden - 2, 5, 7, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    if (hoehe <= 0) return;
+
+    var maxH = (a.form === 'baum') ? 118 : 96;
+    var h = maxH * hoehe;
+    var neigung = welk * 16;                      // beim Vergehen kippt es
+    var spitzeX = W / 2 + neigung;
+    var spitzeY = boden - h + welk * 12;
+
+    ctx.globalAlpha = 1 - welk * 0.55;            // und verblasst
+    // Stiel bzw. Stamm
+    ctx.strokeStyle = a.stiel;
+    ctx.lineWidth = (a.form === 'baum') ? 9 : 5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(W / 2, boden);
+    ctx.quadraticCurveTo(W / 2 + neigung * 0.4, boden - h * 0.55, spitzeX, spitzeY);
+    ctx.stroke();
+
+    // Blaetter
+    if (blatt > 0) {
+      ctx.fillStyle = a.blatt;
+      [[-1, 0.45], [1, 0.62], [-1, 0.78]].forEach(function (b, i) {
+        var f = Math.max(0, Math.min(1, blatt * 3 - i));
+        if (f <= 0) return;
+        var by = boden - h * b[1];
+        var bx = W / 2 + neigung * (1 - b[1]) * 0.4;
+        ctx.save();
+        ctx.translate(bx, by);
+        ctx.rotate(b[0] * (0.5 + welk * 0.5));
+        ctx.beginPath();
+        ctx.ellipse(b[0] * 15 * f, 0, 17 * f, 7 * f, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+    }
+
+    // Bluete, Frucht, Aehre oder Wurzel
+    if (bluete > 0) {
+      var g = Math.min(1, bluete);
+      if (a.form === 'blume') {
+        ctx.fillStyle = a.bluete;
+        for (var k = 0; k < 10; k++) {
+          var w = (k / 10) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.ellipse(spitzeX + Math.cos(w) * 15 * g, spitzeY + Math.sin(w) * 15 * g,
+                      8 * g, 5 * g, w, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.fillStyle = a.mitte;
+        ctx.beginPath(); ctx.arc(spitzeX, spitzeY, 9 * g, 0, Math.PI * 2); ctx.fill();
+      } else if (a.form === 'baum') {
+        ctx.fillStyle = a.blatt;
+        ctx.beginPath(); ctx.arc(spitzeX, spitzeY - 6, 34 * g, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = a.bluete;
+        [[-14, -2], [12, -12], [2, 10]].forEach(function (f) {
+          ctx.beginPath(); ctx.arc(spitzeX + f[0] * g, spitzeY - 6 + f[1] * g, 6 * g, 0, Math.PI * 2); ctx.fill();
+        });
+      } else if (a.form === 'aehre') {
+        ctx.fillStyle = a.bluete;
+        for (var m = 0; m < 7; m++) {
+          ctx.beginPath();
+          ctx.ellipse(spitzeX + ((m % 2) ? 6 : -6) * g, spitzeY + m * 7 * g, 5 * g, 4 * g, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else if (a.form === 'wurzel') {
+        ctx.fillStyle = a.bluete;
+        ctx.beginPath();
+        ctx.moveTo(W / 2 - 11 * g, boden - 2);
+        ctx.lineTo(W / 2 + 11 * g, boden - 2);
+        ctx.lineTo(W / 2, boden + 30 * g);
+        ctx.closePath(); ctx.fill();
+      } else {
+        ctx.fillStyle = a.bluete;
+        [[-13, 4], [13, 10], [0, -8]].forEach(function (f) {
+          ctx.beginPath(); ctx.arc(spitzeX + f[0] * g, spitzeY + f[1] * g, 10 * g, 0, Math.PI * 2); ctx.fill();
+        });
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function tick(jetzt) {
+    if (!start) start = jetzt;
+    var p = (jetzt - start) / RUNDE;
+    if (p >= 1) {
+      start = jetzt;
+      p = 0;
+      artIdx = (artIdx + 1 + Math.floor(Math.random() * (GS_ZYKLUS_ARTEN.length - 1))) % GS_ZYKLUS_ARTEN.length;
+      nameSetzen(GS_ZYKLUS_ARTEN[artIdx]);
+    }
+    zeichne(p, GS_ZYKLUS_ARTEN[artIdx]);
+    _gsZyklus = requestAnimationFrame(tick);
+  }
+
+  if (reduziert) {
+    // Wer Bewegung abgeschaltet hat, bekommt ein stehendes Bild: die
+    // ausgewachsene Pflanze in voller Bluete. Kein Zappeln, aber auch
+    // keine leere Flaeche.
+    zeichne(0.65, GS_ZYKLUS_ARTEN[artIdx]);
+    return;
+  }
+  _gsZyklus = requestAnimationFrame(tick);
+}
+window.gsZyklusStart = gsZyklusStart;
+
+function gsZyklusStop() {
+  if (_gsZyklus) { try { cancelAnimationFrame(_gsZyklus); } catch (_) {} _gsZyklus = null; }
+}
+window.gsZyklusStop = gsZyklusStop;
+
+function gsPPgartenVorlage() {
+  var host = document.getElementById('pp-garten-vorlage');
+  if (!host) return;
+  var gl = [];
+  try { if (typeof gardens !== 'undefined' && Array.isArray(gardens)) gl = gardens; } catch (_) {}
+  if (!gl.length) { host.style.display = 'none'; host.innerHTML = ''; return; }
+  var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function (x) { return String(x == null ? '' : x); };
+  host.style.display = 'block';
+  host.innerHTML =
+    '<div style="background:var(--bg-success-soft);border:1.5px solid var(--c-success);border-radius:var(--r-md);padding:12px 14px;margin-bottom:10px;">' +
+      '<div style="font-size:var(--fs-md);font-weight:800;color:var(--c-success-d);margin-bottom:3px;">\ud83e\udeb4 Einen deiner G\u00e4rten \u00fcbernehmen</div>' +
+      '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.5;margin-bottom:9px;">' +
+        'Masse, Licht und Boden werden \u00fcbernommen \u2014 du musst nichts noch einmal eintippen.</div>' +
+      gl.map(function (g, i) {
+        var flaeche = (g.width && g.length) ? (Math.round(g.width * g.length * 10) / 10) + ' m\u00b2' : 'ohne Masse';
+        return '<button type="button" class="gs-pp-vorl" onclick="gsPPvorlageNehmen(' + i + ')">' +
+                 '<span class="gs-pp-vorl-n">' + esc(g.name || 'Garten') + '</span>' +
+                 '<span class="gs-pp-vorl-m">' + esc(flaeche) +
+                   (g.location ? ' \u00b7 ' + esc(g.location) : '') + '</span>' +
+               '</button>';
+      }).join('') +
+    '</div>';
+}
+window.gsPPgartenVorlage = gsPPgartenVorlage;
+
+// Was uebernommen wurde, wird GEZEIGT — sonst weiss niemand, welche Felder
+// jetzt woher kommen, und korrigiert im Zweifel das Falsche.
+function gsPPvorlageNehmen(idx) {
+  try {
+    var g = (typeof gardens !== 'undefined' && Array.isArray(gardens)) ? gardens[idx] : null;
+    if (!g) return;
+    var uebernommen = [];
+    function setz(id, wert, name) {
+      var el = document.getElementById(id);
+      if (el && wert != null && wert !== '') { el.value = wert; uebernommen.push(name); }
+    }
+    if (g.width && g.length) {
+      setz('pp-width',  g.width,  'Breite');
+      setz('pp-length', g.length, 'L\u00e4nge');
+      // Die Flaeche NICHT selbst setzen: das Feld ist readonly und wird von
+      // gsPPcalcArea aus Breite x Laenge berechnet. Eine zweite Stelle, die
+      // dieselbe Zahl schreibt, laeuft frueher oder spaeter auseinander.
+      uebernommen.push('Fl\u00e4che');
+    }
+    setz('pp-location', g.location, 'Standort');
+    // Licht: die Gartenstufen heissen anders als die Planerstufen.
+    var lichtKarte = { full_sun: 'Vollsonne', part_sun: 'Halbschatten', shade: 'Schatten' };
+    var lel = document.getElementById('pp-light');
+    if (lel && lichtKarte[g.light]) {
+      var treffer = Array.prototype.find.call(lel.options, function (o) {
+        return o.value === lichtKarte[g.light] || o.textContent.indexOf(lichtKarte[g.light]) >= 0;
+      });
+      if (treffer) { lel.value = treffer.value; uebernommen.push('Licht'); }
+    }
+    var sel = document.getElementById('pp-soil-type');
+    if (sel && g.soil) {
+      var st = Array.prototype.find.call(sel.options, function (o) { return o.value === g.soil; });
+      if (st) { sel.value = st.value; uebernommen.push('Boden'); }
+    }
+    try { if (typeof gsPPcalcArea === 'function') gsPPcalcArea(); } catch (_) {}
+    if (typeof gsHaptic === 'function') gsHaptic('tap');
+    if (typeof gsToast === 'function') {
+      gsToast(uebernommen.length
+        ? '\u2713 Aus „' + (g.name || 'Garten') + '" \u00fcbernommen: ' + uebernommen.join(', ')
+        : 'In „' + (g.name || 'Garten') + '" sind noch keine Angaben hinterlegt \u2014 nichts zu \u00fcbernehmen.',
+        uebernommen.length ? 'success' : 'warn', 4500);
+    }
+  } catch (_) {}
+}
+window.gsPPvorlageNehmen = gsPPvorlageNehmen;
+
 function gsPPgoStep(n) {
   _gsPP.step = n;
   // v31.63: die Gegenspieler-Matrix schon jetzt holen (ein Aufruf, ≤200
   // Zeilen). Bis der Mensch das Formular durch hat, ist sie da — und der
   // Platzierer kann sie beim Setzen benutzen statt erst hinterher zu klagen.
   try { if (typeof gsKonfliktMatrix === 'function') gsKonfliktMatrix(); } catch (_) {}
+  // v31.72: Die Gartenliste beim Betreten von Schritt 1 aufbauen — sie
+  // kann sich zwischen zwei Planer-Besuchen geaendert haben.
+  if (n === 1) { try { gsPPgartenVorlage(); } catch (_) {} }
   document.querySelectorAll('#pp-stepbar .pp-step').forEach(function(s) {
     var sn = parseInt(s.getAttribute('data-step'), 10);
     s.classList.toggle('active', sn === n);
@@ -54674,6 +54982,7 @@ async function gsPPrun(opts) {
 
     gsPPstufe('\ud83d\udcd0 Deine Angaben und den Garten-Scan zusammenstellen \u2026', 10);
     gsPPwarten('\ud83e\udde0 Die KI plant deinen Garten \u2026');
+    try { if (typeof gsZyklusStart === 'function') gsZyklusStart(); } catch (_) {}
 
     var resp;
     try {
@@ -54706,7 +55015,9 @@ async function gsPPrun(opts) {
 
     if (!resp) {
       // v26.82: Bei null-Response → neutraler Toast statt "API-Key fehlt" (Global-Key ist da).
-      loader.style.display = 'none';
+      try { if (typeof gsZyklusStop === 'function') gsZyklusStop(); } catch (_) {}
+      try { if (typeof gsZyklusStop === 'function') gsZyklusStop(); } catch (_) {}
+    loader.style.display = 'none';
       res.style.display = 'block';
       res.innerHTML = '<div style="background:var(--bg-warn-soft);border:2px solid #ff9800;border-radius:var(--r-md);padding:18px;color:var(--c-warn-d);">' +
         '<div style="font-size:var(--fs-lg);font-weight:800;margin-bottom:8px;">⚠️ Plan konnte nicht generiert werden</div>' +
@@ -54791,7 +55102,9 @@ async function gsPPrun(opts) {
     if (!plan) {
       // v23.99: Final-Fail nach allen 4 Reparatur-Stufen — strukturierte Fehler-Karte
       console.warn('[GS-Plan] JSON-Parse failed nach Truncation-Repair (max_tokens=4096 + 4 Reparatur-Stufen)');
-      loader.style.display = 'none';
+      try { if (typeof gsZyklusStop === 'function') gsZyklusStop(); } catch (_) {}
+      try { if (typeof gsZyklusStop === 'function') gsZyklusStop(); } catch (_) {}
+    loader.style.display = 'none';
       res.style.display = 'block';
       res.innerHTML =
         '<div style="background:linear-gradient(135deg,#fff3e0,#ffe0b2);border:2px solid #ff9800;border-radius:var(--r-lg);padding:18px;text-align:center;">' +
@@ -54868,6 +55181,10 @@ async function gsPPrun(opts) {
 
     // Render
     try { if (typeof _gsPPstufe === 'function') _gsPPstufe('\u2728 Plan aufbauen \u2026', 95); } catch(_){}
+    // Die Leinwand haelt sonst einen requestAnimationFrame am Leben, auch
+    // wenn niemand mehr hinsieht — das kostet auf dem Telefon Strom.
+    try { if (typeof gsZyklusStop === 'function') gsZyklusStop(); } catch (_) {}
+    try { if (typeof gsZyklusStop === 'function') gsZyklusStop(); } catch (_) {}
     loader.style.display = 'none';
     res.style.display = 'block';
     // v24.15: Render in eigenem try → falls eine UI-Funktion crasht, soll der Plan
@@ -54888,6 +55205,7 @@ async function gsPPrun(opts) {
   } catch(e) {
     // v24.15: bessere Diagnose — echte Fehlermeldung in Console + UI
     console.error('[gsPPrun]', e);
+    try { if (typeof gsZyklusStop === 'function') gsZyklusStop(); } catch (_) {}
     loader.style.display = 'none';
     res.style.display = 'block';
     var msg = (e && e.message) ? e.message : 'Unbekannter Fehler';
@@ -61938,6 +62256,7 @@ function gsPPloadSavedPlan(id) {
     var res = document.getElementById('pp-plan-result');
     var loader = document.getElementById('pp-plan-loader');
     var actions = document.getElementById('pp-plan-actions');
+    try { if (typeof gsZyklusStop === 'function') gsZyklusStop(); } catch (_) {}
     if (loader) loader.style.display = 'none';
     if (res) { res.style.display = 'block'; res.innerHTML = gsPPrenderPlan(p.plan, p.data || {}); try{ gsPPTabify(res, p.plan); }catch(_){} }
     if (actions) actions.classList.remove('hidden');
@@ -63633,7 +63952,12 @@ async function renderGarden() {
     html += '<div class="garden-card-meta">' +
       escHtml(garden.location || _t('garden_no_location','Kein Standort')) +
       ' · ' + gPlantings.length + ' ' + _t('unit_planted','gepflanzt') +
-      ' · ' + (sizeLabels[garden.size] || 'Mittel') +
+      // v31.72: Wenn Masse da sind, stehen sie hier statt der groben
+      // Groessenstufe — „15 m²" sagt mehr als „Mittel", und es zeigt, dass
+      // die Eingabe angekommen ist.
+      ' · ' + ((garden.width && garden.length)
+                ? (Math.round(garden.width * garden.length * 10) / 10) + ' m²'
+                : (sizeLabels[garden.size] || 'Mittel')) +
       ' · ' + (lightLabels[garden.light] || '⛅') + '</div>';
     html += '</div>';
     html += '<div class="mpcard-chevron" id="gchev-' + garden.id + '">›</div></div>';
@@ -63818,12 +64142,32 @@ function saveGarden() {
   if (!gsRequire('save_garden', 'Bitte anmelden um einen Garten zu erstellen.')) return;
   const name = document.getElementById('gard-name').value.trim();
   if (!name) { try { gsToast('Bitte einen Namen eingeben.', 'warn'); } catch(_){ } return; }
+  // v31.72 — BREITE UND LAENGE WURDEN NIE GESPEICHERT.
+  //
+  // Das Formular hat die beiden Felder, `gsUpdateGardenArea` rechnet daraus
+  // live die Flaeche vor, und `editGarden` LIEST `g.width`/`g.length`, um
+  // sie beim Bearbeiten wieder einzusetzen. Nur geschrieben hat sie nie
+  // jemand: `data` enthielt Name, Standort, Groesse, Licht und Boden — die
+  // Masse fehlten.
+  //
+  // Folge: man tippt 3 x 5 m ein, sieht „📐 Fläche: 15.0 m²", speichert —
+  // und beim naechsten Oeffnen sind die Felder leer. Genau deshalb muss
+  // Fernando die Masse jedes Mal neu angeben.
+  //
+  // Der Leser war da, der Schreiber fehlte.
+  var _w = parseFloat((document.getElementById('gard-width') || {}).value);
+  var _l = parseFloat((document.getElementById('gard-length') || {}).value);
   const data = {
     name,
     location: document.getElementById('gard-loc').value.trim(),
     size: document.getElementById('gard-size').value,
     light: document.getElementById('gard-light').value,
     soil: document.getElementById('gard-soil').value,
+    // Nur uebernehmen, was wirklich eingegeben wurde. 0 oder Unsinn wird
+    // nicht gespeichert — ein Garten mit 0 m² waere schlechter als einer
+    // ohne Massangabe.
+    width:  (isFinite(_w) && _w > 0) ? Math.round(_w * 100) / 100 : null,
+    length: (isFinite(_l) && _l > 0) ? Math.round(_l * 100) / 100 : null,
   };
   if (editingGardenId) {
     const g = gardens.find(x => x.id === editingGardenId);
@@ -65582,6 +65926,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.72', date: '02.09.2026',
+    headline: '\ud83d\udccf Die Gartenmasse wurden nie gespeichert \u2014 jetzt schon, und der Planer \u00fcbernimmt sie',
+    summary: 'Im Garten-Formular gibt es Breite und L\u00e4nge, samt Fl\u00e4chen-Vorschau. Gespeichert hat sie nie jemand. Deshalb musste man die Masse im Planer jedes Mal neu eintippen. Dazu: der Planer \u00fcbernimmt jetzt einen bestehenden Garten, und beim Warten w\u00e4chst eine Pflanze.',
+    user_summary: '\ud83d\udccf Deine Gartenmasse bleiben endlich gespeichert \u2014 und der KI-Planer \u00fcbernimmt sie mit einem Tipp. Beim Warten siehst du jedes Mal eine andere Pflanze wachsen.',
+    user_items: [
+      {emoji:'\ud83d\udccf', bold:'Ein Feld, das nie ankam:', text:' Du tippst 3 \u00d7 5 m ein, siehst „Fl\u00e4che: 15 m\u00b2", speicherst \u2014 und beim n\u00e4chsten \u00d6ffnen ist alles leer. Das Formular hatte die Felder, die Bearbeiten-Ansicht LAS sie sogar wieder ein, nur geschrieben hat sie niemand. Genau deshalb musstest du die Masse im Planer jedes Mal neu angeben.'},
+      {emoji:'\ud83e\udeb4', bold:'Einen Garten \u00fcbernehmen:', text:' Ganz oben im Planer stehen jetzt deine G\u00e4rten. Ein Tipp \u00fcbernimmt Masse, Standort, Licht und Boden \u2014 und sagt dir genau, was \u00fcbernommen wurde. Ein Garten ohne Masse f\u00fcllt die Massfelder NICHT: erfundene Zahlen w\u00e4ren schlimmer als leere Felder.'},
+      {emoji:'\ud83c\udf31', bold:'Beim Warten w\u00e4chst etwas:', text:' Statt eines pulsierenden Symbols der Lebenszyklus einer Pflanze \u2014 Same, Keimling, Bl\u00e4tter, Bl\u00fcte, Vergehen, neuer Same. Sieben Arten (Sonnenblume, Tomate, Apfelbaum, K\u00fcrbis, Mohn, Lavendel, Karotte), und bei jeder Runde eine andere. Wer Bewegung abgeschaltet hat, sieht ein stehendes Bild statt eines Zappelns.'},
+      {emoji:'\ud83d\udd22', bold:'Und zwei erfundene Zahlen weniger:', text:' Der Ladebereich zeigte „5 %" und „~ 60 s", bevor \u00fcberhaupt etwas gelaufen war. Beide Platzhalter sind weg \u2014 sie werden gef\u00fcllt, sobald es etwas zu sagen gibt.'},
+    ],
+  },
+  {
     v: 'v31.71', date: '02.09.2026',
     headline: '\u2705 „N\u00e4chste Schritte" zeigt nur noch Aufgaben \u2014 und die Bilanz l\u00e4sst sich zuklappen',
     summary: 'Der Wetter-Rat stand in der Aufgabenliste. Ein Schritt ist etwas, das man TUT und abhaken kann \u2014 „Morgen wird heiss" ist eine Lage. Er steht jetzt in der Wetterkarte, wo er hingeh\u00f6rt.',
@@ -66044,7 +66400,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.71';
+var GS_VERSION = 'v31.72';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

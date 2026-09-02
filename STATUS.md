@@ -12,6 +12,66 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-02 (bj) — v31.72: Die Gartenmasse wurden nie gespeichert
+
+Fernando: *„Dann möchte ich das beim Garten hinzufügen du das mehr aufbaust … Mein Garten soll vom Ki-Planer als Option angesehen werden, so muss mann nicht immer die Masse und weiteres von neuem Angeben."*
+
+Beim Nachsehen, warum man die Masse doppelt eingeben muss, kam die eigentliche Ursache heraus.
+
+#### Der Leser war da, der Schreiber fehlte
+
+Das Garten-Formular hat `gard-width` und `gard-length`. `gsUpdateGardenArea` rechnet daraus live „📐 Fläche: 15.0 m² (3 m × 5 m)". Und `editGarden` **liest** `g.width`/`g.length`, um sie beim Bearbeiten wieder einzusetzen.
+
+Nur schreibt sie niemand. `saveGarden()` baute sein `data`-Objekt aus Name, Standort, Grösse, Licht und Boden — die Masse fehlten.
+
+Folge: man tippt 3 × 5 m ein, sieht die Fläche, speichert — und beim nächsten Öffnen sind die Felder leer. **Genau deshalb muss Fernando die Masse jedes Mal neu angeben.** Der Weg vom Formular in die Daten war nie gebaut; alles davor und danach schon.
+
+Jetzt gespeichert, und nur was wirklich eingegeben wurde: 0 oder Unsinn wird verworfen — ein Garten mit 0 m² wäre schlechter als einer ohne Massangabe. Auf der Gartenkarte steht die Fläche statt der groben Stufe („15 m²" sagt mehr als „Mittel"), was gleichzeitig zeigt, dass die Eingabe angekommen ist.
+
+```
+Vorschau        „📐 Fläche: 15.0 m² (3 m × 5 m)"
+gespeichert     {"width":3,"length":5}
+beim Bearbeiten {"w":"3","l":"5"}
+Karte           „Bern · 0 gepflanzt · 15 m² · ⛅ Halbschatten"
+ohne Masse      {"width":null,"length":null}  → Karte zeigt „🌿 Mittel"
+```
+
+#### Einen Garten in den Planer übernehmen
+
+Ganz oben in Schritt 1, **vor** der Flächenerfassung: wer seinen Garten angelegt hat, soll ihn nicht ein zweites Mal ausmessen. Übernommen werden Masse, Standort, Licht und Boden — und die Meldung sagt, **was** übernommen wurde.
+
+Ein Garten ohne Masse füllt die Massfelder **nicht**: er gibt Standort, Licht und Boden, und die Fläche misst man wie bisher. Erfundene Zahlen wären schlimmer als leere Felder. Gibt es gar keine Gärten, erscheint der Kasten nicht — eine leere Auswahl ist eine Frage ohne Antwort.
+
+Die Fläche wird dabei **nicht** selbst gesetzt: das Feld ist `readonly` und wird von `gsPPcalcArea` aus Breite × Länge berechnet. Eine zweite Stelle, die dieselbe Zahl schreibt, läuft früher oder später auseinander.
+
+```
+Hochbeet Nord (3×5)   → Breite, Länge, Fläche, Standort, Licht, Boden
+Balkon ohne Masse     → Standort, Licht, Boden   (Massfelder unberührt)
+keine Gärten          → Kasten erscheint nicht
+```
+
+#### Der Lebenszyklus als Warteanzeige
+
+Fernando: *„eine Pflanze die vom Sammen aus wächst, alt wird, kaputt geht und dann eine neue wächst."*
+
+Sieben Phasen über elf Sekunden: Same → Keimling → Blätter → Blüte/Frucht → Vergehen (kippt und verblasst) → neuer Same. Danach die nächste Art. Sieben Arten mit eigener Form: Blume (Sonnenblume, Mohn), Frucht (Tomate, Kürbis), Baum (Apfel), Ähre (Lavendel), Wurzel (Karotte).
+
+Gezeichnet auf einer Leinwand statt mit Bildern: kostet keine Datei und lässt sich in jeder Farbe malen. `prefers-reduced-motion` bekommt ein **stehendes Bild** der ausgewachsenen Pflanze — kein Zappeln, aber auch keine leere Fläche.
+
+Gemessen an den gezeichneten Bildpunkten: leer 0 → nach 1 s 3466 → nach 6 s 5436 (Blüte) → nach 12 s neue Art. Nach `gsZyklusStop` steht das Bild still.
+
+**Und die Animation muss überall stoppen.** Der Ladebereich wird an **sieben** Stellen versteckt — Erfolg, kein Ergebnis, Fehler, Abbruch. An allen sieben wird jetzt gestoppt; sonst hielte ein `requestAnimationFrame` das Telefon wach, während niemand hinsieht.
+
+#### Zwei erfundene Zahlen weniger
+
+Der Ladebereich zeigte statisch „5 %" und „~ 60 s" — bevor irgendetwas gelaufen war. Genau das, was v31.65 aus dem Balken entfernt hat, stand noch im HTML. Beide leer; `gsPPstufe` füllt sie, sobald es etwas zu sagen gibt.
+
+#### Verify
+
+`wiring_check` 307 Namen / **0** nicht auflösbar · Menü 48/0 · 936 Nachschlagungen / **0** nie erzeugt / **0** ungesichert · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen · `contrast_check` 0 unter AA beide Modi · `touch_check` 0 unter 24×24 · Garten-Speichern in sechs Schritten durchgespielt · Vorlage-Übernahme in drei Fällen · Zyklus an den gezeichneten Bildpunkten gemessen und als Bild angesehen · `GS_RELEASES[0].v` = `GS_VERSION` · `gsAllReleases()` 419 → **420**, 0 Dopplungen · 9/9 Inline-Scripts + `sw.js` `node --check` OK · `GS_VERSION` v31.72 · `sw.js` gs-v31.72 · `_headers` v31.72 · meta 31.72.20260902.
+
+---
+
 ### 2026-09-02 (bi) — v31.71: Nur Aufgaben in den Schritten, Bilanz zuklappbar, Doktor ins Menü
 
 Drei Korrekturen aus Fernandos Liste — die erste widerlegt eine Entscheidung, die ich gestern getroffen habe.
