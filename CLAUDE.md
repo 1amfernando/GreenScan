@@ -545,6 +545,17 @@ Spalte ist beeinflussbar — die zweite ist der Preis des 5,7-MB-Monolithen und
 eine Eigenschaft der Architektur, kein Fehler. Für einen Vergleich beide Stände
 mit **demselben** Aufruf messen; die Zahlen schwanken zwischen Läufen.
 
+**Seit v31.78 misst `contrast_check` in ZWEI Fenstern** — KI-Planer und
+Blühkalender — und der Bericht nennt **je Fenster die Zahl der vermessenen
+Textstellen**. Ohne diese Zahl sieht ein Fenster, das gar nicht aufging,
+genauso aus wie eines ohne Fehler; genau das ist beim Einbau passiert (das
+Aufräumen nach dem ersten Fenster blendete `#modal-content` mit aus). Zwei
+weitere Regeln stecken drin: was von etwas **Festem oder Klebendem**
+überlappt wird und was ein **scrollender Vorfahre abschneidet**, wird nicht
+vermessen — `elementFromPoint` hilft im zweiten Fall nicht, weil es dort den
+Vorfahren liefert und der das Element *enthält*, die Prüfung es also
+durchwinkt.
+
 **Seit v31.77 misst `contrast_check` auch im Planer-Fenster.** Er rendert den
 KI-Planer mit dem Musterplan aus `scripts/_seed.js` (`MUSTERPLAN` +
 `AGRONOMIE`), **ungefaltet** — ohne `gsPPTabify`, weil verborgene Abschnitte

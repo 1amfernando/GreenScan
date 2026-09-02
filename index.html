@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.77.20260902">
+<meta name="app-version" content="31.78.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1421,6 +1421,30 @@ body.dark .mkt-chat-msg.them{background:#2a3f2a;color:var(--text);}
 .gs-warum{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;}
 .gs-warum-chip{display:inline-block;padding:2px 7px;border-radius:999px;background:var(--bg-success-soft);color:var(--c-success-d);font-size:var(--fs-xs);font-weight:700;line-height:1.5;}
 .gs-warum-warn{background:var(--bg-warn-soft);color:var(--c-warn-d);}
+/* v31.78 — Blühkalender: eine Zeile je Art mit Jahresband und Marken. */
+.gs-bl-zeile{display:flex;align-items:flex-start;gap:10px;padding:9px 12px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);margin-bottom:5px;cursor:pointer;}
+.gs-bl-emoji{font-size:var(--fs-xl);line-height:1.2;flex-shrink:0;}
+.gs-bl-txt{flex:1;min-width:0;}
+.gs-bl-name{font-size:var(--fs-sm);font-weight:700;color:var(--text);}
+.gs-bl-lat{font-size:var(--fs-xs);color:var(--muted);font-style:italic;}
+.gs-bl-quelle{font-size:var(--fs-xs);font-weight:600;color:var(--muted);}
+.gs-bl-sub{font-size:var(--fs-xs);color:var(--muted);margin-top:2px;}
+.gs-bl-pfeil{color:var(--muted);font-size:var(--fs-md);align-self:center;flex-shrink:0;}
+.gs-bl-band{display:flex;gap:2px;margin-top:4px;}
+.gs-bl-band i{width:7px;height:7px;border-radius:2px;background:var(--border);display:block;}
+.gs-bl-band i.gs-bl-an{background:var(--g-mid);}
+.gs-bl-band i.gs-bl-jetzt{outline:1.5px solid var(--text);outline-offset:1px;}
+.gs-bl-marken{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;}
+.gs-bl-mark{display:inline-block;padding:1px 7px;border-radius:999px;background:var(--surface2);color:var(--text2);font-size:var(--fs-xs);font-weight:700;}
+.gs-bl-gift{background:var(--bg-danger-soft);color:var(--c-danger-d,var(--c-danger));}
+.gs-bl-essbar{background:var(--bg-success-soft);color:var(--c-success-d);}
+.gs-bl-schutz{background:var(--bg-warn-soft);color:var(--c-warn-d);}
+.gs-bl-kopf{font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:14px 0 7px;}
+.gs-bl-mehr{font-size:var(--fs-sm);color:var(--muted);text-align:center;padding:6px;}
+.gs-bl-leer{font-size:var(--fs-sm);color:var(--muted);line-height:1.5;padding:14px 4px;text-align:center;}
+.gs-bl-luecke{font-size:var(--fs-sm);color:var(--text2);line-height:1.5;padding:9px 11px;background:var(--bg-warn-soft);border-radius:var(--r-md);margin-bottom:10px;}
+.gs-bl-luecke b{color:var(--text);}
+.gs-bl-luecke-ok{background:var(--bg-success-soft);}
 /* v31.66: Die Zeilenfassung traegt jetzt die Kartenoptik der Seite. Vorher
    erbte sie von .moon-card den dunkelblauen Verlauf — zwischen lauter hellen
    Karten war sie der einzige dunkle Balken und zog den Blick auf sich, obwohl
@@ -10421,6 +10445,172 @@ async function gsErnteDelete(id) {
 }
 
 
+// ── v31.78 · Saison-Angaben in Monate uebersetzen ─────────────────────────
+//
+// Der Bluehkalender las bis hierher `s.bloom`. Dieses Feld gibt es in
+// data/plants.v1.js bei KEINER der 4'342 Arten — nachgezaehlt, nicht
+// vermutet. Die Zeile `if (!s.bloom) return false;` hat also seit jeher
+// alles aussortiert: der Reiter „Wild" war dauerhaft leer, der
+// Bienen-Schalter meldete „0 von 0". Eine halbe Ansicht, die nie etwas
+// zeigen konnte.
+//
+// Was es WIRKLICH gibt, ist `season` — bei 2'907 Arten, in der Form
+// „Apr–Jun", „Ganzjährig", vereinzelt mit Klammern und Semikola.
+//
+// Wichtig und der Grund, warum das hier so ausfuehrlich steht: `season`
+// heisst SAISON, nicht Bluete. Bei Wildpflanzen, Kraeutern und Baeumen
+// faellt beides praktisch zusammen; bei Pilzen, Moosen, Flechten und Algen
+// nicht — die bluehen gar nicht. Die werden deshalb nicht als „Bluete"
+// ausgegeben. Lieber weniger zeigen als etwas Falsches behaupten.
+
+var _GS_MON_WORT = {
+  jan:0, januar:0, feb:1, februar:1, mär:2, maer:2, mar:2, märz:2, maerz:2, mrz:2,
+  apr:3, april:3, mai:4, jun:5, juni:5, jul:6, juli:6, aug:7, august:7,
+  sep:8, sept:8, september:8, okt:9, oct:9, oktober:9, nov:10, november:10, dez:11, dezember:11
+};
+var _GS_JAHRESZEIT = { frühling:[2,3,4], fruehling:[2,3,4], frühjahr:[2,3,4],
+                       sommer:[5,6,7], herbst:[8,9,10], winter:[11,0,1] };
+
+// Gibt ein Array von Monatsindizes (0–11) zurueck — oder `null`, wenn sich
+// nichts herauslesen laesst. NICHT ein leeres Array: „keine Angabe" und
+// „blueht nie" sind verschiedene Dinge, und nur eines davon darf als
+// „nichts gefunden" angezeigt werden.
+function gsSaisonMonate(txt) {
+  if (!txt) return null;
+  var s = String(txt).toLowerCase().replace(/ß/g, 'ss');
+  if (s.indexOf('ganzjähr') >= 0 || s.indexOf('ganzjaehr') >= 0 || s.indexOf('ganzjahr') >= 0) return [0,1,2,3,4,5,6,7,8,9,10,11];
+
+  var treffer = [];
+  // Alle Monatsworte MIT Position einsammeln — die Reihenfolge entscheidet,
+  // was ein Bereich ist und was eine Aufzaehlung.
+  var re = /[a-zäöü]+/g, m;
+  while ((m = re.exec(s)) !== null) {
+    var w = m[0];
+    if (_GS_MON_WORT.hasOwnProperty(w)) treffer.push({ i: m.index, m: _GS_MON_WORT[w], laenge: w.length });
+    else if (_GS_JAHRESZEIT.hasOwnProperty(w)) treffer.push({ i: m.index, jz: _GS_JAHRESZEIT[w], laenge: w.length });
+  }
+  if (!treffer.length) return null;
+
+  var raus = {};
+  function nimm(x) { raus[x] = true; }
+  for (var k = 0; k < treffer.length; k++) {
+    var t = treffer[k];
+    if (t.jz) { t.jz.forEach(nimm); continue; }
+    var n = treffer[k + 1];
+    // Bindestrich (oder „bis") zwischen zwei Monaten → Bereich, notfalls
+    // ueber den Jahreswechsel („Nov–Feb").
+    if (n && !n.jz) {
+      var zwischen = s.slice(t.i + t.laenge, n.i);
+      if (/^[\s]*(?:[-–—]|bis)[\s]*$/.test(zwischen)) {
+        var a = t.m, b = n.m, schritte = (b - a + 12) % 12;
+        for (var d = 0; d <= schritte; d++) nimm((a + d) % 12);
+        k++;                     // den zweiten Monat nicht noch einmal
+        continue;
+      }
+    }
+    nimm(t.m);
+  }
+  var out = Object.keys(raus).map(Number).sort(function (a, b) { return a - b; });
+  return out.length ? out : null;
+}
+
+// Bluehen die ueberhaupt? Pilze, Moose, Flechten und Algen nicht.
+var GS_BLUEHT_NICHT = { pilz: 1, moos: 1, flechte: 1, alge: 1 };
+function gsBlueht(s) { return !!(s && s.cat && !GS_BLUEHT_NICHT[String(s.cat).toLowerCase()]); }
+
+window.gsSaisonMonate = gsSaisonMonate;
+window.gsBlueht = gsBlueht;
+// ── v31.78 · Deine Arten im Bluehkalender ────────────────────────────────
+// Fernando: „Blühkalender ausbauen (mehr Infos, die gespeicherten Arten
+// einbinden)". Beides hier.
+
+// Welche Arten gehoeren DIR? Drei Quellen, in dieser Reihenfolge:
+// die Pflegeliste (ps_myplants), die bestaetigten Bestimmungen
+// (gs_confirmed_species, botanische Namen) und die letzten Scans.
+// Abgeglichen wird gegen die Arten-DB — was sich nicht zuordnen laesst,
+// faellt weg, statt mit halben Angaben in der Liste zu stehen.
+function _gsBlMeineArten() {
+  var namen = {}, aus = {};
+  function merke(n, quelle) {
+    if (!n) return;
+    var k = String(n).toLowerCase().trim();
+    if (!k) return;
+    if (!namen[k]) { namen[k] = true; aus[k] = quelle; }
+  }
+  try {
+    var mp = JSON.parse(localStorage.getItem('ps_myplants') || '[]');
+    if (Array.isArray(mp)) mp.forEach(function (p) {
+      merke(p && (p.species || p.lat || p.latin), 'Meine Pflanzen');
+      merke(p && (p.name || p.commonName), 'Meine Pflanzen');
+    });
+  } catch (_) {}
+  try {
+    var cs = JSON.parse(localStorage.getItem('gs_confirmed_species') || '[]');
+    if (Array.isArray(cs)) cs.forEach(function (n) { merke(n, 'bestimmt'); });
+  } catch (_) {}
+  try {
+    var sh = JSON.parse(localStorage.getItem('gs_scan_history') || '[]');
+    if (Array.isArray(sh)) sh.slice(0, 40).forEach(function (h) {
+      merke(h && (h.latin || h.lat), 'gescannt');
+      merke(h && h.name, 'gescannt');
+    });
+  } catch (_) {}
+  if (!Object.keys(namen).length) return [];
+  // Die DB fuehrt 645 botanische Namen MEHRFACH — „Allium ursinum" steht als
+  // Bärlauch, Echter Bärlauch, Bärlauch-Pesto und Echter Bärlauch (Wald).
+  // Wer auf `lat` abgleicht, bekommt sie alle vier und die Liste wird zum
+  // Karteikasten. Also: je botanischem Namen EIN Eintrag, und zwar der, den
+  // der Mensch selbst genannt hat — sonst der mit dem kuerzesten Namen, das
+  // ist verlaesslich der Grundeintrag und nicht die Zubereitung.
+  var beste = {};
+  try {
+    if (typeof DB === 'undefined' || !Array.isArray(DB)) return [];
+    DB.forEach(function (sp) {
+      var a = String(sp.name || '').toLowerCase().trim();
+      var b = String(sp.lat || '').toLowerCase().trim();
+      var direkt = !!(a && namen[a]);
+      var q = direkt ? aus[a] : (b && namen[b]) ? aus[b] : null;
+      if (!q) return;
+      var k = b || a;
+      var alt = beste[k];
+      if (!alt) { beste[k] = { art: sp, quelle: q, direkt: direkt }; return; }
+      // Ein direkter Namenstreffer schlaegt alles; sonst der kuerzere Name.
+      if ((direkt && !alt.direkt) ||
+          (direkt === alt.direkt && String(sp.name || '').length < String(alt.art.name || '').length)) {
+        beste[k] = { art: sp, quelle: q, direkt: direkt };
+      }
+    });
+  } catch (_) {}
+  return Object.keys(beste).map(function (k) { return beste[k]; });
+}
+
+// Ein Jahresband: zwoelf Punkte, die gefuellten sind die Monate. Sagt in
+// einer Zeile, was sonst in einem Satz stuende — und macht sichtbar, ob eine
+// Art zwei Wochen oder ein halbes Jahr blueht.
+function _gsBlBand(monate, viewMonth) {
+  if (!monate || !monate.length) return '';
+  var h = '<div class="gs-bl-band" aria-hidden="true">';
+  for (var m = 0; m < 12; m++) {
+    var an = monate.indexOf(m) >= 0;
+    h += '<i class="' + (an ? 'gs-bl-an' : 'gs-bl-aus') + (m === viewMonth ? ' gs-bl-jetzt' : '') + '"></i>';
+  }
+  return h + '</div>';
+}
+
+// Die Marken an einer Art. Nur was in der DB WIRKLICH steht — in einer App,
+// die Giftiges von Essbarem unterscheidet, ist eine fehlende Warnung
+// schlimmer als eine fehlende Zierde.
+function _gsBlMarken(s) {
+  var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function (x) { return String(x == null ? '' : x); };
+  var m = [];
+  if (s.toxic || (s.tox && +s.tox > 0)) m.push('<span class="gs-bl-mark gs-bl-gift">☠️ giftig</span>');
+  else if (s.edible) m.push('<span class="gs-bl-mark gs-bl-essbar">🍽️ essbar</span>');
+  if (s.protected) m.push('<span class="gs-bl-mark gs-bl-schutz">🛡️ geschützt</span>');
+  if (s.color) m.push('<span class="gs-bl-mark">🎨 ' + esc(s.color) + '</span>');
+  if (s.alt) m.push('<span class="gs-bl-mark">⛰️ ' + esc(s.alt) + '</span>');
+  return m.length ? '<div class="gs-bl-marken">' + m.join('') + '</div>' : '';
+}
+
 function openBluehkalender() {
   gsHaptic('light');
   var mc = document.getElementById('modal-content');
@@ -10435,6 +10625,7 @@ function openBluehkalender() {
   
   var monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
   var monthAbbr = ['J','F','M','A','M','J','J','A','S','O','N','D'];
+  var monthAbbrLang = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
   
   // Bienenfreundlich-Erkennung
   function isBeeFriendly(s) {
@@ -10447,27 +10638,49 @@ function openBluehkalender() {
     return p.cat === 'Blumen' && p.harvest && p.harvest.indexOf(viewMonth) >= 0;
   });
   
-  // Wildblüten aus DB
+  // ── v31.78: Wildblüten kamen bis hierher aus `s.bloom` ─────────────
+  //
+  // Dieses Feld gibt es in data/plants.v1.js bei KEINER der 4'342 Arten
+  // (nachgezählt). `if (!s.bloom) return false;` hat also seit jeher alles
+  // aussortiert: der Reiter „Wild" war dauerhaft leer, der Bienen-Schalter
+  // meldete „0 von 0 Wildblüten". Eine halbe Ansicht, die nie etwas zeigen
+  // konnte — und der Zähler daneben sagte brav 0, als wäre das ein Ergebnis.
+  //
+  // Was es wirklich gibt, ist `season` (2'907 Arten). Siehe gsSaisonMonate.
+  var _blMon = {};                                     // id → Monate, einmal rechnen
+  function _blMonate(sp) {
+    if (_blMon[sp.id] === undefined) _blMon[sp.id] = gsSaisonMonate(sp.season);
+    return _blMon[sp.id];
+  }
   var wildBlooms = [];
-  if (DB && DB.length) {
-    wildBlooms = DB.filter(function(s) {
-      if (!s.bloom) return false;
-      if (Array.isArray(s.bloom)) return s.bloom.indexOf(viewMonth) >= 0;
-      var monthLabels = ['jan','feb','mär','apr','mai','jun','jul','aug','sep','okt','nov','dez'];
-      return s.bloom.toLowerCase().indexOf(monthLabels[viewMonth]) >= 0;
+  if (typeof DB !== 'undefined' && DB && DB.length) {
+    wildBlooms = DB.filter(function(sp) {
+      if (!gsBlueht(sp)) return false;                 // Pilze/Moose/Flechten/Algen blühen nicht
+      var mm = _blMonate(sp);
+      return !!mm && mm.indexOf(viewMonth) >= 0;
     });
   }
-  
+
+  // Deine Arten — aus der Pflegeliste, den Bestimmungen und den Scans.
+  var meineAlle = _gsBlMeineArten();
+  var meineBlooms = meineAlle.filter(function(x) {
+    if (!gsBlueht(x.art)) return false;
+    var mm = _blMonate(x.art);
+    return !!mm && mm.indexOf(viewMonth) >= 0;
+  });
+
   if (beeOnly) {
     wildBlooms = wildBlooms.filter(isBeeFriendly);
+    meineBlooms = meineBlooms.filter(function(x){ return isBeeFriendly(x.art); });
   }
-  
+
   var beeCount = wildBlooms.filter(isBeeFriendly).length;
-  var totalAll = gardenBlooms.length + wildBlooms.length;
-  
+  var totalAll = gardenBlooms.length + wildBlooms.length + meineBlooms.length;
+
   // Filterung nach Tab
   var showGarden = tab === 'all' || tab === 'garden';
   var showWild   = tab === 'all' || tab === 'wild';
+  var showMeine  = tab === 'all' || tab === 'meine';
   
   // ── Monats-Slider (13 Monate klickbar) ──
   var monthSlider = '<div style="display:flex;gap:3px;overflow-x:auto;margin-bottom:12px;padding-bottom:3px;">';
@@ -10480,7 +10693,8 @@ function openBluehkalender() {
   
   // ── Tab Switcher ──
   var TABS = [
-    {id:'all',    l:'Alle',    c:totalAll},
+    {id:'all',    l:'Alle',      c:totalAll},
+    {id:'meine',  l:'🪴 Meine',  c:meineBlooms.length},
     {id:'garden', l:'🌸 Garten', c:gardenBlooms.length},
     {id:'wild',   l:'🌿 Wild',   c:wildBlooms.length}
   ];
@@ -10496,8 +10710,14 @@ function openBluehkalender() {
     '<div style="display:flex;align-items:center;gap:8px;">' +
       '<span style="font-size:var(--fs-xl);">🐝</span>' +
       '<div>' +
-        '<div style="font-size:var(--fs-sm);font-weight:700;color:var(--text);">Nur bienenfreundliche</div>' +
-        '<div style="font-size:var(--fs-xs);color:var(--muted);">' + beeCount + ' von ' + wildBlooms.length + ' Wildblüten</div>' +
+        '<div style="font-size:var(--fs-sm);font-weight:700;color:var(--text);">Nur mit Bestäuber-Hinweis</div>' +
+        // v31.78: ehrlich beschriftet. Der Schalter sucht die Woerter
+        // „Bienen/Hummeln/Nektar/Pollen" in den Beschreibungstexten und
+        // findet sie bei 78 von 4'342 Arten. Er zeigt also nicht „alle
+        // bienenfreundlichen", sondern „die, bei denen es ausdruecklich
+        // dabeisteht" — und das muss dort auch stehen.
+        '<div style="font-size:var(--fs-xs);color:var(--muted);">' + beeCount + ' von ' + wildBlooms.length +
+          ' nennen Bestäuber ausdrücklich im Text</div>' +
       '</div>' +
     '</div>' +
     '<div style="width:38px;height:22px;border-radius:var(--r-md);background:' + (beeOnly?'#ff9800':'var(--border)') + ';position:relative;transition:background var(--dur);">' +
@@ -10505,6 +10725,67 @@ function openBluehkalender() {
     '</div>' +
   '</div>';
   
+  // Eine Zeile fuer eine Art — mit Jahresband und Marken. v31.78: bis
+  // hierher standen dort Name und lateinischer Name, sonst nichts. Jetzt
+  // steht dort, was die DB wirklich hergibt: wie lange die Saison dauert,
+  // ob essbar oder giftig, ob geschuetzt, welche Farbe, welche Hoehenlage.
+  function _blZeile(sp, quelle) {
+    var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function(x){ return String(x==null?'':x); };
+    var bee = isBeeFriendly(sp);
+    var cat = (typeof gsCatEmoji === 'function') ? gsCatEmoji(sp) : (sp.emoji || '🌿');
+    var mm = _blMonate(sp);
+    var spanne = '';
+    if (mm && mm.length) spanne = (mm.length === 12) ? 'ganzjährig'
+                                                     : monthAbbrLang[mm[0]] + '–' + monthAbbrLang[mm[mm.length - 1]];
+    return '<div onclick="showSpecies(\'' + esc(sp.id) + '\')" class="gs-bl-zeile">' +
+        '<span class="gs-bl-emoji">' + esc(cat) + '</span>' +
+        '<div class="gs-bl-txt">' +
+          '<div class="gs-bl-name">' + esc(sp.name) +
+            (bee ? ' <span title="Bienenfreundlich">🐝</span>' : '') +
+            (quelle ? ' <span class="gs-bl-quelle">' + esc(quelle) + '</span>' : '') + '</div>' +
+          (sp.lat ? '<div class="gs-bl-lat">' + esc(sp.lat) + '</div>' : '') +
+          _gsBlBand(mm, viewMonth) +
+          ((spanne || sp.habitat)
+            ? '<div class="gs-bl-sub">' + (spanne ? esc(spanne) : '') +
+              (spanne && sp.habitat ? ' · ' : '') + (sp.habitat ? esc(String(sp.habitat).slice(0, 44)) : '') + '</div>'
+            : '') +
+          _gsBlMarken(sp) +
+        '</div>' +
+        '<span class="gs-bl-pfeil">›</span>' +
+      '</div>';
+  }
+
+  // ── Blüh-Lücke über DEINE Arten ──────────────────────────────────────
+  //
+  // Der erste Anlauf hat hier eine BESTÄUBER-Lücke gerechnet. Das war eine
+  // Aussage ohne Grundlage: `isBeeFriendly` sucht die Woerter „Bienen",
+  // „Nektar", „Pollen" in den Beschreibungstexten und findet sie bei
+  // 78 von 4'342 Arten — nicht bei Löwenzahn, nicht bei Schafgarbe, nicht
+  // bei Bärlauch. Ein Mangel-Befund auf dieser Grundlage haette fast jedem
+  // „Lücke in allen Monaten" gemeldet. Ein Fehlalarm im Gewand einer
+  // Erkenntnis ist schlechter als gar keine Anzeige.
+  //
+  // Was TRÄGT, ist die Saison-Angabe: sie steht bei 2'907 Arten und ist
+  // gepruefte Redaktion. Also die schlichtere, aber belegbare Aussage —
+  // in welchen Monaten blueht von DEINEN Arten ueberhaupt nichts.
+  var lueckeHtml = '';
+  (function () {
+    var mitSaison = meineAlle.filter(function (x) { return gsBlueht(x.art) && _blMonate(x.art); });
+    if (mitSaison.length < 3) return;                 // zu wenig Grundlage
+    var proMonat = [0,0,0,0,0,0,0,0,0,0,0,0];
+    mitSaison.forEach(function (x) { _blMonate(x.art).forEach(function (m) { proMonat[m]++; }); });
+    var leer = [];
+    for (var m = 2; m <= 9; m++) if (!proMonat[m]) leer.push(monthNames[m]);
+    if (!leer.length) {
+      lueckeHtml = '<div class="gs-bl-luecke gs-bl-luecke-ok">🌼 Von März bis Oktober blüht bei dir in jedem Monat etwas — ' +
+        mitSaison.length + ' deiner Arten mit Saison-Angabe.</div>';
+      return;
+    }
+    lueckeHtml = '<div class="gs-bl-luecke">🌼 <b>Blüh-Lücke:</b> im ' +
+      (leer.length > 3 ? leer.slice(0,3).join(', ') + ' und ' + (leer.length-3) + ' weiteren Monaten' : leer.join(', ')) +
+      ' blüht von deinen Arten keine. Gerechnet über ' + mitSaison.length + ' Arten mit Saison-Angabe.</div>';
+  })();
+
   // ── Content ──
   var contentHtml = '';
   
@@ -10529,6 +10810,17 @@ function openBluehkalender() {
       }).join('') + '</div></div>';
   }
   else {
+    // Deine Arten zuerst — was DIR gehoert, ist wichtiger als was
+    // irgendwo bluehen koennte.
+    if (showMeine && meineBlooms.length) {
+      contentHtml += '<div class="gs-bl-kopf">🪴 Deine Arten · ' + meineBlooms.length + '</div>';
+      meineBlooms.slice(0, 20).forEach(function(x) { contentHtml += _blZeile(x.art, x.quelle); });
+      if (meineBlooms.length > 20) contentHtml += '<div class="gs-bl-mehr">+' + (meineBlooms.length - 20) + ' weitere</div>';
+    } else if (showMeine && tab === 'meine') {
+      contentHtml += '<div class="gs-bl-leer">Von deinen erfassten Arten blüht im ' + monthNames[viewMonth] + ' keine.' +
+        (meineAlle.length ? ' (' + meineAlle.length + ' Arten zugeordnet)' : ' Scanne etwas oder lege Pflanzen an — dann steht hier deine eigene Blütenfolge.') + '</div>';
+    }
+
     // Garten-Blumen
     if (showGarden && gardenBlooms.length) {
       contentHtml += '<div style="font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:4px 0 7px;">🌸 Garten-Blumen · ' + gardenBlooms.length + '</div>';
@@ -10547,18 +10839,8 @@ function openBluehkalender() {
     if (showWild && wildBlooms.length) {
       var showMax = 25;
       contentHtml += '<div style="font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:14px 0 7px;">🌿 Wildblüten · ' + wildBlooms.length + (beeOnly ? ' (bienenfreundlich)' : '') + '</div>';
-      wildBlooms.slice(0, showMax).forEach(function(s) {
-        var bee = isBeeFriendly(s);
-        var cat = (typeof gsCatEmoji === 'function') ? gsCatEmoji(s) : '🌿';
-        contentHtml += '<div onclick="showSpecies(\'' + s.id + '\')" style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);margin-bottom:4px;cursor:pointer;-webkit-tap-highlight-color:transparent;">' +
-          '<span style="font-size:var(--fs-xl);">' + cat + '</span>' +
-          '<div style="flex:1;min-width:0;">' +
-            '<div style="font-size:var(--fs-sm);font-weight:700;color:var(--text);">' + s.name + '</div>' +
-            (s.lat ? '<div style="font-size:var(--fs-xs);color:var(--muted);font-style:italic;">' + s.lat + '</div>' : '') +
-          '</div>' +
-          (bee ? '<span title="Bienenfreundlich" style="font-size:var(--fs-md);">🐝</span>' : '') +
-          '<span style="color:var(--muted);font-size:var(--fs-md);opacity:.4;">›</span>' +
-        '</div>';
+      wildBlooms.slice(0, showMax).forEach(function(sp) {
+        contentHtml += _blZeile(sp, null);
       });
       if (wildBlooms.length > showMax) {
         contentHtml += '<div style="font-size:var(--fs-sm);color:var(--muted);text-align:center;padding:6px;">+' + (wildBlooms.length - showMax) + ' weitere</div>';
@@ -10593,6 +10875,7 @@ function openBluehkalender() {
     monthSlider +
     tabHtml +
     beeToggle +
+    lueckeHtml +
     contentHtml +
     hintHtml +
     '</div>';
@@ -67169,6 +67452,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.78', date: '02.09.2026',
+    headline: '\ud83c\udf3b Der Bl\u00fchkalender war zur H\u00e4lfte leer \u2014 seit jeher',
+    summary: 'Der Reiter „Wild" las ein Datenfeld, das in keiner der 4342 Arten existiert. Er zeigte deshalb immer null Ergebnisse. Jetzt kommen die Angaben aus der echten Saison-Spalte: allein im Juni sind es 1395 Arten. Dazu ein neuer Reiter „Meine", ein Jahresband je Art und Marken f\u00fcr essbar/giftig/gesch\u00fctzt.',
+    user_summary: '\ud83c\udf3b Der Bl\u00fchkalender zeigt endlich Wildbl\u00fcten \u2014 und deine eigenen Arten mit Bl\u00fctezeit auf einen Blick.',
+    user_items: [
+      {emoji:'\ud83c\udf3f', bold:'Der Reiter „Wild" war immer leer:', text:' Er fragte ein Feld ab, das es in der Artendatenbank nicht gibt \u2014 bei keiner einzigen der 4342 Arten. Der Z\u00e4hler daneben sagte brav „0", als w\u00e4re das ein Ergebnis. Jetzt kommen die Bl\u00fchzeiten aus der gepflegten Saison-Angabe: im Juni allein 1395 Arten.'},
+      {emoji:'\ud83e\udeb4', bold:'Neuer Reiter „Meine":', text:' Deine gepflegten Pflanzen, deine best\u00e4tigten Bestimmungen und deine letzten Scans \u2014 zugeordnet zur Artendatenbank und nach Bl\u00fctezeit sortiert. Damit siehst du deine eigene Bl\u00fctenfolge \u00fcber das Jahr.'},
+      {emoji:'\ud83d\udcc5', bold:'Ein Jahresband je Art:', text:' Zw\u00f6lf Punkte zeigen sofort, ob etwas zwei Wochen oder ein halbes Jahr bl\u00fcht. Dazu Marken f\u00fcr essbar, giftig, gesch\u00fctzt, Bl\u00fctenfarbe und H\u00f6henlage \u2014 in einer App, die Giftiges von Essbarem unterscheidet, geh\u00f6rt die Warnung in jede Liste.'},
+      {emoji:'\ud83c\udf3c', bold:'Bl\u00fch-L\u00fccke:', text:' In welchen Monaten bl\u00fcht von DEINEN Arten gar nichts? Der erste Anlauf wollte eine Best\u00e4uber-L\u00fccke rechnen \u2014 aber die Bienen-Erkennung findet die Worte „Bienen" oder „Nektar" nur bei 78 von 4342 Arten, nicht einmal bei L\u00f6wenzahn. Ein Fehlalarm im Gewand einer Erkenntnis ist schlechter als gar keine Anzeige; der Schalter sagt jetzt ehrlich, was er tut.'},
+      {emoji:'\ud83d\udd2c', bold:'Und der Pr\u00fcfstand:', text:' Der Kontrast-Pr\u00fcfstand \u00f6ffnet jetzt auch den Bl\u00fchkalender \u2014 zwei Fenster, 392 Textstellen, 0 unter der Schwelle in beiden Modi.'},
+    ],
+  },
+  {
     v: 'v31.77', date: '02.09.2026',
     headline: '\ud83d\udd0e Jede Pflanze sagt, warum sie dort steht \u2014 und der Pr\u00fcfstand schaut endlich ins Fenster',
     summary: 'Neue Marken an jeder Pflanze („Licht passt", „Saatgut vorhanden", „Familie stand vor 1 Jahr im Beet"). Dazu zwei neue Regeln \u2014 Standdauer und Fruchtfolge gegen deine echte Historie. Und der Kontrast-Pr\u00fcfstand misst jetzt auch im Planer-Fenster: 43 unlesbare Stellen gefunden und behoben.',
@@ -67523,7 +67819,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.77';
+var GS_VERSION = 'v31.78';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

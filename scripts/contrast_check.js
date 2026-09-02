@@ -109,6 +109,19 @@ const STELLEN = () => {
     if (!meins(Math.round(r.left) + 3, Math.round(r.top) + 2)) return;
     if (!meins(Math.round(r.right) - 3, Math.round(r.bottom) - 2)) return;
     if (verdeckt(el, r)) return;
+    // v31.78: und was von einem scrollenden Vorfahren ABGESCHNITTEN wird,
+    // ebenfalls nicht. `elementFromPoint` hilft hier nicht: es liefert an
+    // dieser Stelle den Vorfahren selbst, und der ENTHAELT das Element —
+    // die Pruefung oben winkt es also durch. Gemessen wird dann der
+    // Modal-Schleier statt der weissen Karte: vier Zeilen des
+    // Bluehkalenders kamen so auf 1,2:1, obwohl sie in Wahrheit 18:1 haben.
+    for (let q = el.parentElement; q && q !== document.documentElement; q = q.parentElement) {
+      const qs = getComputedStyle(q);
+      if (qs.overflow === 'visible' && qs.overflowY === 'visible' && qs.overflowX === 'visible') continue;
+      const qr = q.getBoundingClientRect();
+      if (qr.width < 2 || qr.height < 2) continue;
+      if (r.top < qr.top - 1 || r.bottom > qr.bottom + 1 || r.left < qr.left - 1 || r.right > qr.right + 1) return;
+    }
     // v31.57: Die Pruefung oben nimmt die MITTE, die Messung weiter unten
     // nimmt die GANZE Box. Solange beide nicht dasselbe pruefen, entsteht
     // genau ein Falschalarm: ein Text, dessen Mitte noch frei liegt, dessen
@@ -216,11 +229,13 @@ async function medianFarben(leser, pngBuffer, punkte) {
       });
     }
 
-    // ── Fenster: der KI-Planer, ungefaltet ────────────────────────────────
-    // Bewusst OHNE gsPPTabify: die Reiter verbergen Abschnitte, und was
-    // verborgen ist, wird nicht gemessen. Ungefaltet sind alle da.
-    try {
-      const hoch = await p.evaluate(({ plan, agro }) => {
+    // ── Fenster ──────────────────────────────────────────────────────────
+    // Was in einem geschlossenen Fenster steckt, sah der Pruefstand bis
+    // v31.76 nie. Jedes Fenster hier oeffnet sich selbst, wird ungefaltet
+    // gerendert (verborgene Reiter werden nicht gemessen) und in
+    // Bildschirmhoehen durchgescrollt.
+    const FENSTER = [
+      ['planer', ({ plan, agro }) => {
         window._gsPPagroCache = { ts: Date.now(), rows: agro };
         window._gsPP = window._gsPP || {};
         _gsPP.plan = plan; _gsPP.data = { area: 12, width: 4, length: 3 };
@@ -235,43 +250,86 @@ async function medianFarben(leser, pngBuffer, punkte) {
         if (!res) return 0;
         res.style.display = 'block';
         res.innerHTML = gsPPrenderPlan(plan, _gsPP.data);
-        // Die Bildlaufflaeche des Fensters finden — sie ist nicht window.
-        let sc = res;
-        while (sc && sc !== document.body && sc.scrollHeight <= sc.clientHeight + 4) sc = sc.parentElement;
-        window.__gsScroll = (sc && sc !== document.body) ? sc : null;
-        return (window.__gsScroll ? window.__gsScroll.scrollHeight : document.body.scrollHeight) || 0;
-      }, { plan: JSON.parse(JSON.stringify(SEED_MOD.MUSTERPLAN)), agro: SEED_MOD.AGRONOMIE });
+        return res;
+      }],
+      ['blühkalender', () => {
+        localStorage.setItem('gs_bl_month', '5');
+        localStorage.setItem('gs_bl_tab', 'all');
+        if (typeof openBluehkalender !== 'function') return 0;
+        openBluehkalender();
+        const dm = document.getElementById('detail-modal');
+        if (dm) { dm.style.display = ''; dm.classList.add('active'); }
+        return document.getElementById('modal-content');
+      }],
+    ];
 
-      const schritte = Math.max(1, Math.min(8, Math.ceil(hoch / (H - 120))));
-      for (let i = 0; i < schritte; i++) {
-        await p.evaluate(y => {
-          if (window.__gsScroll) window.__gsScroll.scrollTop = y; else window.scrollTo(0, y);
-        }, i * (H - 120));
-        await p.waitForTimeout(180);
-        const stellen = await p.evaluate(STELLEN);
-        if (!stellen.length) continue;
+    for (const [fname, oeffnen] of FENSTER) {
+      try {
+        const hoch = await p.evaluate(([fn, arg]) => {
+          const res = (new Function('return (' + fn + ')'))()(arg);
+          if (!res || !res.getBoundingClientRect) return 0;
+          let sc = res;
+          while (sc && sc !== document.body && sc.scrollHeight <= sc.clientHeight + 4) sc = sc.parentElement;
+          window.__gsScroll = (sc && sc !== document.body) ? sc : null;
+          return (window.__gsScroll ? window.__gsScroll.scrollHeight : document.body.scrollHeight) || 0;
+        }, [oeffnen.toString(), fname === 'planer'
+              ? { plan: JSON.parse(JSON.stringify(SEED_MOD.MUSTERPLAN)), agro: SEED_MOD.AGRONOMIE }
+              : null]);
+
+        // Ein Fenster faehrt mit einer Animation ein. Wer sofort misst,
+        // liest Koordinaten aus dem Dokument und Pixel aus einem Bild, das
+        // 120 ms spaeter entstanden ist — und bekommt vier Textstellen
+        // gemeldet, die in Wahrheit 18:1 haben. Also erst zur Ruhe kommen
+        // lassen.
+        await p.waitForTimeout(600);
+        const schritte = Math.max(1, Math.min(8, Math.ceil(hoch / (H - 120))));
+        // Wie viele Stellen dieses Fenster wirklich beigetragen hat. Ohne
+        // diese Zahl sieht ein Fenster, das gar nicht aufging, genauso aus
+        // wie eines ohne Fehler — naemlich nach „0".
+        let _gemessen = 0;
+        for (let i = 0; i < schritte; i++) {
+          await p.evaluate(y => {
+            if (window.__gsScroll) window.__gsScroll.scrollTop = y; else window.scrollTo(0, y);
+          }, i * (H - 120));
+          await p.waitForTimeout(200);
+          const stellen = await p.evaluate(STELLEN);
+          if (!stellen.length) continue;
+          _gemessen += stellen.length;
+          await p.evaluate(() => {
+            const st = document.createElement('style');
+            st.id = 'gs-nur-hintergrund';
+            st.textContent = '*{color:transparent!important;text-shadow:none!important;-webkit-text-fill-color:transparent!important;}';
+            document.head.appendChild(st);
+          });
+          await p.waitForTimeout(120);
+          const shot = await p.screenshot({ clip: { x: 0, y: 0, width: W, height: H } });
+          await p.evaluate(() => { const st = document.getElementById('gs-nur-hintergrund'); if (st) st.remove(); });
+          const bgs = await medianFarben(leser, shot, stellen);
+          stellen.forEach((sx, ix) => {
+            const bg = bgs[ix];
+            const eff = sx.fg.map((v, k) => Math.round(sx.alpha*v + (1-sx.alpha)*bg[k]));
+            const r = cr(eff, bg);
+            const gross = sx.fs >= 24 || (sx.fs >= 18.66 && sx.fw >= 700);
+            const min = gross ? 3 : 4.5;
+            if (r >= min) return;
+            const k = sx.sel + '|' + sx.t;
+            if (!gefunden.has(k)) gefunden.set(k, { ...sx, r: Math.round(r*100)/100, min, bg, tab: fname });
+          });
+        }
+        console.log('  Fenster ' + fname + ': ' + _gemessen + ' Textstellen in ' + schritte + ' Abschnitten vermessen');
+        // Aufraeumen, aber gezielt. Der erste Anlauf blendete alles mit
+        // `[id^="modal-"]` aus — darunter `#modal-content`, den Behaelter,
+        // in den der Bluehkalender rendert. Das naechste Fenster mass
+        // daraufhin 0 Stellen und sah aus wie „keine Fehler".
         await p.evaluate(() => {
-          const st = document.createElement('style');
-          st.id = 'gs-nur-hintergrund';
-          st.textContent = '*{color:transparent!important;text-shadow:none!important;-webkit-text-fill-color:transparent!important;}';
-          document.head.appendChild(st);
+          document.querySelectorAll('.modal.active').forEach(m => { try { m.classList.remove('active'); } catch(_){} });
+          ['modal-planner-pro','detail-modal'].forEach(id => {
+            const m = document.getElementById(id);
+            if (m) { try { m.classList.remove('active'); m.style.display = 'none'; } catch(_){} }
+          });
         });
-        await p.waitForTimeout(120);
-        const shot = await p.screenshot({ clip: { x: 0, y: 0, width: W, height: H } });
-        await p.evaluate(() => { const st = document.getElementById('gs-nur-hintergrund'); if (st) st.remove(); });
-        const bgs = await medianFarben(leser, shot, stellen);
-        stellen.forEach((sx, ix) => {
-          const bg = bgs[ix];
-          const eff = sx.fg.map((v, k) => Math.round(sx.alpha*v + (1-sx.alpha)*bg[k]));
-          const r = cr(eff, bg);
-          const gross = sx.fs >= 24 || (sx.fs >= 18.66 && sx.fw >= 700);
-          const min = gross ? 3 : 4.5;
-          if (r >= min) return;
-          const k = sx.sel + '|' + sx.t;
-          if (!gefunden.has(k)) gefunden.set(k, { ...sx, r: Math.round(r*100)/100, min, bg, tab: 'planer' });
-        });
-      }
-    } catch (e) { console.log('  (Fenster-Durchlauf uebersprungen: ' + e.message.split('\n')[0] + ')'); }
+      } catch (e) { console.log('  (Fenster ' + fname + ' uebersprungen: ' + e.message.split('\n')[0] + ')'); }
+    }
 
     await ctx.close();
 
