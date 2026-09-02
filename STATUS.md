@@ -12,6 +12,58 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-02 (bi) — v31.71: Nur Aufgaben in den Schritten, Bilanz zuklappbar, Doktor ins Menü
+
+Drei Korrekturen aus Fernandos Liste — die erste widerlegt eine Entscheidung, die ich gestern getroffen habe.
+
+#### Der Wetter-Rat gehört nicht in eine Aufgabenliste
+
+Fernando: *„Dort sollen nur aufgaben aufplopen und nicht das Wetter."*
+
+In v31.69 hatte ich den Wetter-Rat in „Nächste Schritte" gestellt, mit der Begründung, er sei wie die anderen beiden eine Empfehlung. Das stimmt — und trifft trotzdem nicht.
+
+Der schärfere Grund: **ein Schritt ist etwas, das man tut und abhaken kann.** „Morgen wird heiss (29 °C)" ist eine Lage, keine Aufgabe. Es stünde in der Liste, ohne je zu verschwinden — während alles daneben abgehakt wird.
+
+Der Rat ist nicht weg, er steht jetzt in der **Wetterkarte** als deren Beschreibungszeile. Dort ist er richtig, denn er ist aus dem Wetter abgeleitet. `gsBuildSmartReminder` weiss mehr als der bisherige einfache Tipp: Frost in den nächsten Stunden, Regen in den nächsten zwölf, Trockenperiode, Zahl der giess-fälligen Pflanzen. Hat es etwas zu sagen, sagt es das; sonst bleibt der einfache Tipp.
+
+```
+Frost in 12 h      → „❄️ Frost in den nächsten Stunden!"
+Regen kommt        → „🌧️ Giessen kannst du heute sparen"
+morgen heiss       → „☀️ Morgen wird heiss (29°C)"
+nichts Besonderes  → „💧 1 Pflanze giessen"
+Wetter in den Schritten? → nein
+```
+
+#### Die Bilanz klappt zu
+
+`grid-template-rows: 0fr → 1fr` statt `max-height`. Das ist der eine Weg, der die Höhe **weich** animiert, ohne sie vorher zu kennen: `max-height` braucht einen geratenen Endwert (zu klein schneidet ab, zu gross macht die Bewegung ruckartig), und `height:auto` lässt sich gar nicht animieren.
+
+Startet zugeklappt — wer ganz nach unten scrollt, ist am Ende der Seite angekommen, nicht auf der Suche nach der Bilanz. Der Zustand wird gemerkt, **aber nur wenn ein Mensch getippt hat**: das Wiederherstellen beim Aufbau darf nicht als neue Entscheidung zählen.
+
+```
+1 · beim Aufbau    zu    · 0px   · gemerkt: nichts
+2 · nach Antippen  offen · 74px  · gemerkt: 1
+3 · nochmal        zu    · 0px   · gemerkt: 0
+4 · Neuaufbau      offen bleibt offen
+5 · ohne Bewegung  offen, Übergang ~0 s
+```
+
+#### Der Pflanzendoktor ist im Menü
+
+Samt Fragebogen und den vier Diagnose-Werkzeugen, die in ihm stecken. Damit ist auf „Mein Garten" **keine** Werkzeug-Zeile mehr übrig. Menü-Einträge 47 → **48**, davon kaputt: 0; alle 18 Umzugsziele weiterhin erreichbar.
+
+Die Seite: **1019 px, 1,1 Bildschirme** (zugeklappt).
+
+#### Verify
+
+`wiring_check` 307 Namen / **0** nicht auflösbar · Menü **48**/0 · 933 Nachschlagungen / **0** nie erzeugt / **0** ungesichert · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen · `contrast_check` 0 unter AA beide Modi · `touch_check` 0 unter 24×24 · vier Wetter-Fälle und fünf Klapp-Fälle durchgespielt (inkl. abgeschalteter Bewegung) · alle 18 Umzugsziele erneut geprüft · `GS_RELEASES[0].v` = `GS_VERSION` · `gsAllReleases()` 418 → **419**, 0 Dopplungen · 9/9 Inline-Scripts + `sw.js` `node --check` OK · `GS_VERSION` v31.71 · `sw.js` gs-v31.71 · `_headers` v31.71 · meta 31.71.20260902.
+
+#### Als Nächstes aus Fernandos Liste
+
+Garten als Planer-Vorlage · Lebenszyklus-Animation beim Generieren · Planer V3 mit Schritt-für-Schritt-Übernahme in den Garten · Blühkalender ausbauen · Arten vervollständigen · grosser Funktionscheck.
+
+---
+
 ### 2026-09-01 (bh) — v31.70: Fragebogen im Pflanzendoktor, drei Gruppen umgezogen
 
 Die restlichen drei Punkte aus Fernandos Liste.

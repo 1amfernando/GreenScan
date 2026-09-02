@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.70.20260901">
+<meta name="app-version" content="31.71.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1709,6 +1709,24 @@ body.dark .gs-doc-pro{background:#3a2c10;border-color:#8d6e2a;color:#ffcc80;}
 .gs-heute > div:first-child{padding:11px 14px !important;}
 .gs-heute > #moon-widget{padding:0 !important;}
 .gs-heute .moon-card-zeile{border:none !important;box-shadow:none !important;border-radius:0 !important;margin:0 !important;border-top:1px solid var(--border) !important;}
+/* v31.71 — Auf- und zuklappen mit weicher Bewegung.
+   grid-template-rows 0fr → 1fr ist der einzige Weg, der die Hoehe animiert,
+   ohne sie vorher zu kennen: `max-height` braucht einen geratenen Endwert
+   (zu klein schneidet ab, zu gross macht die Bewegung ruckartig), und
+   `height:auto` laesst sich nicht animieren. */
+.gs-klapp{display:grid;grid-template-rows:0fr;transition:grid-template-rows var(--dur-slow, .32s) cubic-bezier(.4,0,.2,1);}
+.gs-klapp.gs-offen{grid-template-rows:1fr;}
+.gs-klapp-in{overflow:hidden;min-height:0;}
+.gs-sek-klapp{width:calc(100% - 36px);background:none;border:none;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;text-align:left;min-height:32px;}
+.gs-klapp-pfeil{font-size:var(--fs-xl);line-height:1;transition:transform var(--dur-fast) ease;display:inline-block;}
+.gs-sek-klapp[aria-expanded="true"] .gs-klapp-pfeil{transform:rotate(90deg);}
+/* Wer Bewegung abgeschaltet hat, bekommt den Wechsel ohne Animation —
+   auf- und zuklappen muss trotzdem funktionieren. */
+@media (prefers-reduced-motion: reduce){
+  .gs-klapp{transition:none;}
+  .gs-klapp-pfeil{transition:none;}
+}
 .gs-sek{display:flex;align-items:baseline;justify-content:space-between;gap:8px;
   margin:18px 18px 7px;font-size:var(--fs-xs);font-weight:800;color:var(--muted);
   text-transform:uppercase;letter-spacing:.7px;}
@@ -3465,34 +3483,48 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
      in der Liste „Nächste Schritte" ganz oben, zusammen mit dem Wetter-Rat
      und den fälligen Pflege-Aufgaben — drei Kästen, die dieselbe Frage
      beantworteten, sind einer geworden. -->
-<!-- ══ v31.70: DIE DREI GRUPPEN SIND UMGEZOGEN ═══════════════════════
-     Fernando: „Pflege und Diagnose … hätte ich lieber beim Pflanzendoktor
-     implementiert" · „Wissen und Werkzeuge … gehört nicht in Mein Garten"
-     · „Planen und Gestalten … empfinde ich als nicht nötig auf dieser
-     Seite."
+<!-- ══ v31.70/71: DIE WERKZEUGE SIND UMGEZOGEN ═══════════════════════
+     Fernando, in zwei Schritten:
+       „Pflege und Diagnose … hätte ich lieber beim Pflanzendoktor
+        implementiert" · „Wissen und Werkzeuge … gehört nicht in Mein
+        Garten" · „Planen und Gestalten … nicht nötig auf dieser Seite"
+       und danach: „Der Pflanzen Doktor in mein Garten soll so mit dem
+        Fragenbogen in „Mehr" verschoben … werden."
 
-     Nichts ist verschwunden — alles hat einen Ort bekommen, an dem es
-     hingehört:
-       · Pflege & Diagnose   → in den Pflanzendoktor (die vier weiteren
-                               Werkzeuge stehen dort unter der Diagnose).
-                               Hier bleibt EINE Zeile als Eingang.
-       · Planen & Gestalten  → in den KI-Planer. Der Knopf dafür steht
-                               oben unter „Tun".
-       · Wissen & Werkzeuge  → ins Hauptmenü, wo es durchsuchbar ist.
+     Nichts ist verschwunden — alles hat einen Ort:
+       · Pflanzendoktor (mit Fragebogen) → Hauptmenü („Mehr"),
+                             die vier weiteren Diagnose-Werkzeuge stehen
+                             im Doktor selbst unter der Diagnose
+       · Planen & Gestalten  → in den KI-Planer
+       · Wissen & Werkzeuge  → ins Hauptmenü, durchsuchbar
      ══════════════════════════════════════════════════════════════════ -->
-<div style="padding:0 16px 12px;">
-  <button onclick="openDoctorModal()" title="Pflanzendoktor — Diagnose aus Foto und Fragebogen" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#00897b,#00695c);border:none;color:#fff;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_doctor_open" data-i18n-fallback="🩺 Pflanzendoktor · Foto + Fragebogen">🩺 Pflanzendoktor · Foto + Fragebogen</span><span style="font-size:var(--fs-xl);opacity:.85;">›</span>
-  </button>
+
+
+
+<!-- v31.71: Die Bilanz ist jetzt zusammenklappbar. Fernando: „nimmt sehr
+     viel Platz ein, kannst du es nicht so machen dass man es aufklappen und
+     einklappen kann?"
+
+     Zugeklappt gestartet: wer ganz nach unten scrollt, sucht selten die
+     Bilanz — er ist am Ende der Seite angekommen. Der Zustand wird gemerkt
+     (gs_zahlen_offen), damit die Entscheidung eine bleibt und nicht bei
+     jedem Besuch neu getroffen werden muss.
+
+     Die Animation laeuft ueber grid-template-rows 0fr → 1fr. Das ist der
+     eine Weg, der Hoehe WEICH animiert, ohne sie vorher kennen zu muessen:
+     max-height braucht einen geratenen Endwert (zu klein schneidet ab, zu
+     gross macht die Bewegung ruckartig), und height:auto laesst sich gar
+     nicht animieren. -->
+<button type="button" id="gs-zahlen-kopf" class="gs-sek gs-sek-klapp" onclick="gsZahlenKlapp()"
+        aria-expanded="false" aria-controls="garden-zahlen-wrap">
+  <span>📊 Mein Garten in Zahlen</span>
+  <span class="gs-klapp-pfeil" aria-hidden="true">›</span>
+</button>
+<div id="garden-zahlen-wrap" class="gs-klapp">
+  <div class="gs-klapp-in">
+    <div id="garden-zahlen" style="margin:0 16px 4px;"></div>
+  </div>
 </div>
-
-
-
-<div class="gs-sek">📊 Mein Garten in Zahlen</div>
-<!-- v31.69: Die Bilanz steht jetzt ganz unten. Sie stand oben, direkt unter
-     den Gärten — dort beantwortet sie eine Frage, die niemand stellt, bevor
-     er gesehen hat, was ansteht. -->
-<div id="garden-zahlen" style="margin:0 16px 4px;"></div>
 
 
 </div>
@@ -7730,6 +7762,26 @@ window.gsTwinOpen3D = gsTwinOpen3D;
 // Ohne Zwilling zeigt der Überblick weiterhin, was es ohne ihn gibt
 // (Pflanzen, Beete, Pläne) und lädt zum Scan ein. Keine Platzhalter-Nullen
 // für Dinge, die nie gemessen wurden.
+// v31.71 — Auf-/Zuklappen der Bilanz. Der Zustand wird gemerkt: eine
+// Entscheidung, die man trifft, soll eine bleiben.
+function gsZahlenKlapp(erzwinge) {
+  try {
+    var kopf = document.getElementById('gs-zahlen-kopf');
+    var wrap = document.getElementById('garden-zahlen-wrap');
+    if (!kopf || !wrap) return;
+    var offen = (typeof erzwinge === 'boolean') ? erzwinge : !wrap.classList.contains('gs-offen');
+    wrap.classList.toggle('gs-offen', offen);
+    kopf.setAttribute('aria-expanded', offen ? 'true' : 'false');
+    if (typeof erzwinge !== 'boolean') {
+      // Nur merken, wenn ein Mensch getippt hat — das Wiederherstellen
+      // beim Aufbau soll nicht als neue Entscheidung zaehlen.
+      localStorage.setItem('gs_zahlen_offen', offen ? '1' : '0');
+      if (typeof gsHaptic === 'function') gsHaptic('tap');
+    }
+  } catch (_) {}
+}
+window.gsZahlenKlapp = gsZahlenKlapp;
+
 window.gsRenderGardenOverview = function () {
   var el = document.getElementById('garden-overview');
   if (!el) return;
@@ -7767,18 +7819,20 @@ window.gsRenderGardenOverview = function () {
   //   3. Saison          — was diesen Monat ansteht, ohne Termin
   var schritte = [];
 
-  // 1 · Was das Wetter erzwingt. Die Quelle bleibt gsBuildSmartReminder —
-  //     die Logik dort (Frost, Regen, Hitze, Trockenperiode) ist gut und
-  //     wird nicht dupliziert, nur anders dargestellt.
-  try {
-    if (typeof window.gsBuildSmartReminder === 'function') {
-      var w = window.gsBuildSmartReminder();
-      if (w) schritte.push({ icon: w.icon, titel: w.title, unter: w.body,
-                             dringend: w.level === 'urgent', aktion: "openWeatherDetail()" });
-    }
-  } catch (_) {}
+  // v31.71: Der Wetter-Rat ist hier RAUS. In v31.69 hatte ich ihn
+  // hierhergestellt, weil er wie die anderen beiden eine Empfehlung ist.
+  // Fernando: „Dort sollen nur aufgaben aufplopen und nicht das Wetter."
+  //
+  // Er hat recht, und der Grund ist schaerfer als meine Begruendung damals:
+  // eine Liste heisst „Naechste Schritte". Ein Schritt ist etwas, das man
+  // TUT und abhaken kann. „Morgen wird heiss" ist eine Lage, keine Aufgabe
+  // — es steht in der Liste, ohne je zu verschwinden.
+  //
+  // Der Rat ist damit nicht weg: er steht jetzt in der Wetterkarte selbst,
+  // als deren Beschreibungszeile (siehe gsApplyWeatherToWidget). Dort ist
+  // er am richtigen Ort — er ist aus dem Wetter abgeleitet.
 
-  // 2 · Faellige Pflanzen-Aufgaben — dieselbe Quelle wie der Tagesplan auf
+  // 1 · Faellige Pflanzen-Aufgaben — dieselbe Quelle wie der Tagesplan auf
   //     der Startseite. Bis zu drei; wer zehn Pflanzen giessen muss, will
   //     keine Liste mit zehn Zeilen, sondern den Weg zur Pflege.
   var tasks = [];
@@ -7799,7 +7853,7 @@ window.gsRenderGardenOverview = function () {
                     unter: 'Alle in „Meine Pflanzen"', aktion: "if(typeof switchTab==='function')switchTab('favs')" });
   }
 
-  // 3 · Saison-Aufgaben werden nachgeladen (Supabase) und von
+  // 2 · Saison-Aufgaben werden nachgeladen (Supabase) und von
   //     gsFillSaisonSchritte() nachgetragen, sobald sie da sind. Sie hier
   //     abzuwarten wuerde die ganze Uebersicht blockieren.
 
@@ -7930,6 +7984,10 @@ window.gsRenderGardenOverview = function () {
     el.innerHTML = hero + naechsterSchritt();
     zielCta.innerHTML = cta;
     zielZahlen.innerHTML = zahlenBlock;
+    // Gemerkten Zustand wiederherstellen. Standard ist ZU: wer ganz nach
+    // unten scrollt, ist am Ende der Seite angekommen, nicht auf der Suche
+    // nach der Bilanz.
+    try { gsZahlenKlapp(localStorage.getItem('gs_zahlen_offen') === '1'); } catch (_) {}
   } else if (zielCta) {
     el.innerHTML = hero + kacheln;
     zielCta.innerHTML = cta;
@@ -10845,7 +10903,19 @@ function gsApplyWeatherToWidget(data) {
   var gDesc = document.getElementById('garden-hw-desc');
   if (gIcon) gIcon.textContent = icon;
   if (gTemp) gTemp.textContent = temp + ' °C';
-  if (gDesc) gDesc.textContent = tip || (typeof gsWmoText === 'function' ? gsWmoText(cw.weathercode) : '') || '';
+  // v31.71: Der Wetter-Rat steht jetzt HIER, nicht mehr in „Naechste
+  // Schritte". gsBuildSmartReminder weiss mehr als der einfache Tipp oben:
+  // es kennt Frost in den naechsten Stunden, Regen in den naechsten zwoelf,
+  // eine Trockenperiode und die Zahl der giess-faelligen Pflanzen. Wenn es
+  // etwas zu sagen hat, sagt es das; sonst bleibt der einfache Tipp.
+  var ratText = tip;
+  try {
+    if (typeof window.gsBuildSmartReminder === 'function') {
+      var rat = window.gsBuildSmartReminder();
+      if (rat && rat.title) ratText = (rat.icon ? rat.icon + ' ' : '') + rat.title;
+    }
+  } catch (_) {}
+  if (gDesc) gDesc.textContent = ratText || (typeof gsWmoText === 'function' ? gsWmoText(cw.weathercode) : '') || '';
 
   // v31.69 — Morgen in derselben Karte. Quelle ist dasselbe daily-Objekt, aus
   // dem oben die 3-Tage-Vorschau gebaut wird; hier Index 1. Regen steht nur
@@ -48157,6 +48227,7 @@ const MENU_ITEMS = [
   // Zubehoer. Im Hauptmenue stehen sie neben ihresgleichen UND sind
   // durchsuchbar; auf der Gartenseite waren sie in einer zugeklappten
   // Gruppe, die man kennen musste, um sie zu finden.
+  {label:'🩺 Pflanzendoktor', sub:'Diagnose aus Foto und Fragebogen', action:"openDoctorModal()", tags:['doktor','arzt','diagnose','krank','krankheit','schädling','schaedling','blatt','blätter','blaetter','flecken','welk','gelb','pflanzendoktor','hilfe','symptom']},
   {label:'🏆 Achievements', sub:'Meilensteine & Garten-Score', action:"openAchievementsModal()", tags:['achievement','achievements','erfolge','meilenstein','score','abzeichen','trophäe','trophae','fortschritt']},
   {label:'📖 Garten-Bibliothek', sub:'10 Grundlagen-Artikel', action:"gsOpenGardenLibrary()", tags:['bibliothek','artikel','grundlagen','lesen','wissen','garten','ratgeber']},
   {label:'📊 Garten-Insights', sub:'Score + Risiken', action:"gsInsightsOpen()", tags:['insights','statistik','score','risiko','auswertung','analyse','garten']},
@@ -65511,6 +65582,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.71', date: '02.09.2026',
+    headline: '\u2705 „N\u00e4chste Schritte" zeigt nur noch Aufgaben \u2014 und die Bilanz l\u00e4sst sich zuklappen',
+    summary: 'Der Wetter-Rat stand in der Aufgabenliste. Ein Schritt ist etwas, das man TUT und abhaken kann \u2014 „Morgen wird heiss" ist eine Lage. Er steht jetzt in der Wetterkarte, wo er hingeh\u00f6rt.',
+    user_summary: '\u2705 In „N\u00e4chste Schritte" stehen nur noch Aufgaben. „Mein Garten in Zahlen" klappt auf und zu. Der Pflanzendoktor ist ins Men\u00fc gewandert.',
+    user_items: [
+      {emoji:'\u2705', bold:'Nur noch Aufgaben:', text:' Der Wetter-Rat ist aus der Liste raus. Ich hatte ihn dort hineingestellt, weil er wie die anderen eine Empfehlung ist \u2014 aber eine Liste, die „N\u00e4chste Schritte" heisst, geh\u00f6rt Dingen, die man abhaken kann. „Morgen wird heiss" verschwindet nie. Er steht jetzt in der Wetterkarte als deren Beschreibung: Frost, Regenaussicht, Trockenperiode \u2014 dort, wo er herkommt.'},
+      {emoji:'\ud83d\udcca', bold:'Die Bilanz klappt zu:', text:' „Mein Garten in Zahlen" startet zugeklappt und merkt sich, wie du es zuletzt hattest. Die Bewegung l\u00e4uft weich \u00fcber die Rasterh\u00f6he statt \u00fcber eine geratene H\u00f6chsth\u00f6he \u2014 nichts wird abgeschnitten, nichts ruckt. Wer Bewegung abgeschaltet hat, bekommt den Wechsel sofort.'},
+      {emoji:'\ud83e\ude7a', bold:'Der Pflanzendoktor ist im Men\u00fc:', text:' Samt Fragebogen und den vier weiteren Diagnose-Werkzeugen, die in ihm stecken. Auf „Mein Garten" ist damit keine Werkzeug-Zeile mehr \u00fcbrig \u2014 die Seite zeigt deinen Garten, was ansteht, was du tun kannst und wie das Wetter ist.'},
+    ],
+  },
+  {
     v: 'v31.70', date: '01.09.2026',
     headline: '\ud83e\ude7a Der Pflanzendoktor bekommt einen Fragebogen \u2014 und „Mein Garten" gibt 18 Werkzeuge dorthin ab, wo sie hingeh\u00f6ren',
     summary: 'Drei zugeklappte Werkzeug-Gruppen sind von der Gartenseite verschwunden: die Diagnose-Werkzeuge stehen jetzt im Pflanzendoktor, die Planungs-Werkzeuge im KI-Planer, der Rest im Hauptmen\u00fc. Nichts ist weg \u2014 nachgemessen, alle 18 Eintr\u00e4ge sind erreichbar.',
@@ -65962,7 +66044,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.70';
+var GS_VERSION = 'v31.71';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
