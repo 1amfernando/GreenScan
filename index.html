@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.06.20260902">
+<meta name="app-version" content="32.07.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4102,15 +4102,20 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 </div>
 
 <!-- ── FILTER-LEISTE (Sortierung + Region) ────── -->
-<div style="background:var(--g-bg);padding:4px 16px 6px;flex-shrink:0;display:flex;gap:6px;align-items:center;font-size:var(--fs-sm);">
-  <select id="market-sort" onchange="gsMarketSort(this.value)" style="padding:6px 24px 6px 10px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--card);font-size:var(--fs-sm);font-weight:700;color:var(--text2);font-family:inherit;appearance:none;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 6%22><path d=%22M5 6L0 0h10z%22 fill=%22%23607d8b%22/></svg>');background-repeat:no-repeat;background-position:right 8px center;background-size:8px;">
+<!-- v32.07: `flex-wrap` und schrumpfbare Felder. Ohne Umbruch schob die
+     Zeile den Knopf „↻ Zurücksetzen" auf einem 412-px-Telefon 38 px aus dem
+     Bildschirm — ein Teil seiner Antippfläche war unerreichbar, die
+     Beschriftung abgeschnitten. Die SEITE scrollt dabei nicht, es sieht also
+     nach nichts aus. Belegt durch touch_check: mit dieser Zeile 0, ohne sie 1. -->
+<div style="background:var(--g-bg);padding:4px 16px 6px;flex-shrink:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:var(--fs-sm);">
+  <select id="market-sort" onchange="gsMarketSort(this.value)" style="min-width:0;flex:0 1 auto;padding:6px 24px 6px 10px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--card);font-size:var(--fs-sm);font-weight:700;color:var(--text2);font-family:inherit;appearance:none;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 6%22><path d=%22M5 6L0 0h10z%22 fill=%22%23607d8b%22/></svg>');background-repeat:no-repeat;background-position:right 8px center;background-size:8px;">
     <option value="new">🆕 Neueste</option>
     <option value="near">📍 In der Nähe</option>
     <option value="price_asc">💰 Preis ↑</option>
     <option value="price_desc">💰 Preis ↓</option>
     <option value="rating">⭐ Bewertung</option>
   </select>
-  <select id="market-region" onchange="gsMarketRegion(this.value)" style="padding:6px 24px 6px 10px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--card);font-size:var(--fs-sm);font-weight:700;color:var(--text2);font-family:inherit;appearance:none;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 6%22><path d=%22M5 6L0 0h10z%22 fill=%22%23607d8b%22/></svg>');background-repeat:no-repeat;background-position:right 8px center;background-size:8px;">
+  <select id="market-region" onchange="gsMarketRegion(this.value)" style="min-width:0;flex:0 1 auto;padding:6px 24px 6px 10px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--card);font-size:var(--fs-sm);font-weight:700;color:var(--text2);font-family:inherit;appearance:none;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 6%22><path d=%22M5 6L0 0h10z%22 fill=%22%23607d8b%22/></svg>');background-repeat:no-repeat;background-position:right 8px center;background-size:8px;">
     <option value="all">🇨🇭 Ganze Schweiz</option>
     <option value="ZH">Zürich</option><option value="BE">Bern</option><option value="BS">Basel</option>
     <option value="GE">Genf</option><option value="LU">Luzern</option><option value="SG">St. Gallen</option>
@@ -69665,6 +69670,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.07', date: '02.09.2026',
+    headline: '\u21bb Ein Knopf lag zu 38 Pixeln ausserhalb des Bildschirms',
+    summary: 'Im Marktplatz schoben die zwei Filter-Felder den Knopf „Zur\u00fccksetzen" \u00fcber den rechten Rand. Die Seite scrollt dabei nicht \u2014 es sieht also nach nichts aus, aber ein Teil der Antippfl\u00e4che war unerreichbar und die Beschriftung abgeschnitten.',
+    user_summary: '\u21bb Der Knopf „Zur\u00fccksetzen" im Marktplatz war auf schmalen Telefonen halb ausserhalb des Bildschirms. Die Filterzeile bricht jetzt um.',
+    user_items: [
+      {emoji:'\ud83d\udcf1', bold:'Warum es keiner gemeldet hat:', text:' Die Seite l\u00e4sst sich nicht zur Seite schieben \u2014 der Knopf war einfach weg. Das sieht aus wie „gibt es nicht", nicht wie ein Fehler.'},
+      {emoji:'\ud83d\udccf', bold:'Und daraus wurde eine Pr\u00fcfung:', text:' Der Pr\u00fcfstand f\u00fcr Antippfl\u00e4chen misst jetzt auch, ob ein Bedienelement seitlich hinausragt. Ein Knopf halb ausserhalb ist so unerreichbar wie einer, der zu klein ist \u2014 dieselbe Frage, andere Ursache.'},
+    ],
+  },
+  {
     v: 'v32.06', date: '02.09.2026',
     headline: '\ud83e\udd16 Eine Maschine sollte nicht \u00fcber eine Giftigkeits-Korrektur urteilen',
     summary: 'Die Feedback-Liste l\u00e4sst eine KI jeden Eintrag als „Product Owner" bewerten \u2014 angenommen, abgelehnt, Priorit\u00e4t 1 bis 5. F\u00fcr Ideen und Fehlerberichte ist das richtig. F\u00fcr die zwei Arten, die ich heute in dieselbe Tabelle gelegt habe, ist es falsch.',
@@ -70015,7 +70030,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.06';
+var GS_VERSION = 'v32.07';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
