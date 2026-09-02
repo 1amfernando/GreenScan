@@ -4,13 +4,62 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.97` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.98` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (cj) — v31.98: jetzt wird geprüft, ob ein Fenster überhaupt aufgeht
+
+Der teuerste Fund dieser Woche (v31.95) war, dass **vier Bildschirme sich nicht
+öffnen liessen** und es niemandem auffiel — ein Fenster, das nicht aufgeht,
+sieht aus wie ein Fingerfehler. `wiring_check` bekommt dafür eine dritte
+Richtung.
+
+#### Richtung 3: 43 Öffner, wirklich aufgerufen
+
+Jede Funktion nach der Öffner-Konvention (`open…` / `gsOpen…` / `show…`) ohne
+Parameter, deren Rumpf `openModal(` enthält, wird aufgerufen; danach wird
+nachgesehen, ob ein Fenster sichtbar ist und Inhalt hat.
+
+**Zwei Verfeinerungen, beide nötig:**
+
+- **Sperren werden erfüllt, nicht umgangen.** Vier Öffner brechen ohne
+  Anmeldung oder Admin-Rechte ab — das ist richtig und wurde im ersten Lauf
+  als Fehler gemeldet.
+- **Bewusstes Ablehnen ist kein Fehler.** `gsOpenExpertApplication` sagt
+  Admins „bist du schon". Unterschieden wird daran, ob die Funktion etwas
+  **sagt**: wer nichts öffnet und nichts sagt, ist kaputt.
+
+Gegenprobe gemacht: eine künstlich wieder eingesetzte tote `.modal-title`-Kette
+wird als „wirft" gemeldet.
+
+#### Zwei Fehler, einer hinter dem anderen
+
+1. **`openErnteTracking` starb an `e.ts.slice(0,10)`.** Ursache waren MEINE
+   Beispieldaten: `ts` ist im Ernte-Log ein ISO-String (so schreibt es die App
+   an vier Stellen), `_seed.js` benutzte eine Zahl. Dieselbe Lehre wie v31.46 —
+   **Beispieldaten gegen `index.html` prüfen, nicht gegen den Namen.** Der Code
+   ist trotzdem gehärtet (`String(e.ts).slice(…)`): ein krummer Eintrag darf
+   keinen Jahresüberblick töten.
+2. **Der dritte `s.bloom` — und er hat v31.78 überlebt.** Das Blumen-Widget der
+   Gartenübersicht fragte weiter ein Feld ab, das es bei keiner der 4'342 Arten
+   gibt: `wildCount` war immer 0. Rechnet jetzt wie der Blühkalender
+   (`gsBlueht` + `gsSaisonMonate`).
+
+**Und der Zusammenhang ist die eigentliche Lehre:** Fund 2 war *unerreichbar*,
+weil Fund 1 die Funktion vorher abbrach. Falsche Beispieldaten haben einen
+echten Fehler die ganze Session lang verdeckt — `data_check` meldete brav 0.
+
+#### Prüfstände
+
+`wiring_check` 43 Öffner · 42 gehen auf · 1 lehnt mit Meldung ab · **0 kaputt**.
+`data_check` wieder 0 (kurzzeitig 1, siehe oben). Alle übrigen grün.
+
+---
 
 ### 2026-09-02 (ci) — v31.97: erst das Urteil, dann die Einzelheiten
 

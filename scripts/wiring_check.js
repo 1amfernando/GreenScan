@@ -322,6 +322,86 @@ const IGNORIEREN = new Set([
     ungesichert.push({ id: u[1], nach: u[2], zeile: quelle.slice(0, u.index).split('\n').length });
   }
 
+  // ── v31.98, Richtung 3: geht das Fenster ueberhaupt auf? ──────────────
+  //
+  // Der teuerste Fund dieser Woche (v31.95): VIER Bildschirme liessen sich
+  // gar nicht oeffnen — „Bestaetigte Scans", der Supabase-Schluessel, das
+  // Admin-Panel und der Experten-Antrag. Alle vier warfen an derselben
+  // Zeile, und zwar VOR `openModal`. Keine Fehlermeldung, kein leeres
+  // Fenster: es passierte nichts.
+  //
+  // Und genau deshalb meldet das niemand. Ein Fenster, das nicht aufgeht,
+  // sieht aus wie ein Fingerfehler — man tippt nochmal, wieder nichts, man
+  // macht etwas anderes. Hinter dem Experten-Antrag lag dadurch ein zweiter
+  // Fehler jahrelang unbemerkt.
+  //
+  // Also: jeden Oeffner ohne Parameter WIRKLICH aufrufen und nachsehen, ob
+  // danach ein Fenster sichtbar ist. Aufgerufen wird nur, was der Konvention
+  // nach oeffnet (`open…` / `gsOpen…` / `show…`) und keine Argumente
+  // braucht — geraten wird nichts.
+  const oeffnerNamen = await page.evaluate((quelleTxt) => {
+    const out = [];
+    const re = /(?:async\s+)?function\s+((?:gsOpen|open|show|gsShow)[A-Za-z0-9_]*)\s*\(\s*\)\s*\{/g;
+    let m;
+    while ((m = re.exec(quelleTxt))) {
+      let d = 0, i = re.lastIndex - 1, ende = -1;
+      while (i < quelleTxt.length && i < re.lastIndex + 40000) {
+        const c = quelleTxt[i];
+        if (c === '{') d++;
+        else if (c === '}') { d--; if (d === 0) { ende = i; break; } }
+        i++;
+      }
+      if (ende > 0 && quelleTxt.slice(re.lastIndex, ende).indexOf('openModal(') >= 0) out.push(m[1]);
+    }
+    return [...new Set(out)].sort();
+  }, quelle);
+
+  const oeffner = [];
+  for (const name of oeffnerNamen) {
+    const r = await page.evaluate(async (fn) => {
+      // Vorher alles schliessen, damit ein offenes Fenster nicht als Erfolg
+      // des naechsten durchgeht.
+      document.querySelectorAll('.modal-overlay, .overlay-modal').forEach(el => {
+        el.classList.remove('open'); el.style.display = 'none';
+      });
+      const f = window[fn];
+      if (typeof f !== 'function') return { name: fn, warum: 'Funktion fehlt' };
+      // Sperren ERFUELLEN, nicht umgehen: ein Oeffner, der ohne Anmeldung
+      // absichtlich abbricht („Bitte zuerst anmelden"), ist richtig — und
+      // waere ohne das hier als Fehler gemeldet worden. Geprueft wird, ob
+      // das Fenster aufgeht, wenn es DARF.
+      window.sbIsLoggedIn = () => true;
+      window.gsIsAdmin = () => true;
+      window.gsIsStaff = () => true;
+      window.gsRequire = () => true;
+      window._sbProfile = window._sbProfile || { id: 'u1', email: 'p@r.ch', role: 'admin' };
+      // Ein Oeffner darf auch mit erfuellten Sperren bewusst ablehnen —
+      // `gsOpenExpertApplication` etwa sagt Admins „bist du schon". Solche
+      // Faelle sagen es dem Nutzer mit einer Meldung. Wer NICHTS sagt und
+      // NICHTS oeffnet, ist kaputt; das ist die Unterscheidung, die zaehlt.
+      let gesagt = null;
+      const echt = { toast: window.showProfileToast, gs: window.gsToast };
+      window.showProfileToast = m => { gesagt = typeof m === 'string' ? m : ((m && (m.title || m.body)) || 'Meldung'); };
+      window.gsToast = m => { gesagt = String(m || 'Meldung'); };
+      let fehler = null;
+      try { const p = f(); if (p && typeof p.then === 'function') await p; }
+      catch (e) { fehler = (e && e.message) || String(e); }
+      // Kurz warten: manche Oeffner rendern im naechsten Frame.
+      await new Promise(r => setTimeout(r, 60));
+      window.showProfileToast = echt.toast; window.gsToast = echt.gs;
+      const offen = [...document.querySelectorAll('.modal-overlay, .overlay-modal')]
+        .filter(el => el.classList.contains('open') || el.style.display === 'flex');
+      const mitInhalt = offen.filter(el => (el.textContent || '').trim().length > 12);
+      if (fehler) return { name: fn, warum: 'wirft: ' + fehler };
+      if (!offen.length && gesagt) return { name: fn, ok: true, abgelehnt: gesagt };
+      if (!offen.length) return { name: fn, warum: 'kein Fenster, keine Meldung — es passiert nichts' };
+      if (!mitInhalt.length) return { name: fn, warum: 'Fenster ist offen, aber leer' };
+      return { name: fn, ok: true, id: mitInhalt[0].id || '(ohne id)' };
+    }, name);
+    oeffner.push(r);
+  }
+  const oeffnerKaputt = oeffner.filter(o => !o.ok);
+
   // ── v31.95, Richtung 2b: Klassen-Ketten, die sofort entwertet werden ──
   //
   // `getElementById` oben deckt ids ab. Nicht abgedeckt war die Form
@@ -351,6 +431,15 @@ const IGNORIEREN = new Set([
   }
 
   console.log('  ---');
+  const abgelehnt = oeffner.filter(o => o.ok && o.abgelehnt);
+  console.log('  Fenster-Oeffner aufgerufen:', oeffner.length,
+              '· gehen auf:', oeffner.filter(o => o.ok && !o.abgelehnt).length,
+              '· lehnen mit Meldung ab:', abgelehnt.length,
+              '· KAPUTT:', oeffnerKaputt.length);
+  oeffnerKaputt.forEach(o => console.log('    !! ' + o.name + '()  →  ' + o.warum));
+  abgelehnt.forEach(o => console.log('    –  ' + o.name + '()  sagt: ' + o.abgelehnt));
+
+  console.log('  ---');
   console.log('  Element-Nachschlagungen:', nachschlag.size, '· davon nie erzeugt:', nirgends.length);
   console.log('  Klassen-Ketten ohne Element (werfen sofort):', klassenKette.length);
   klassenKette.forEach(x => console.log('    Zeile ' + x.zeile + ':  querySelector(\'.' + x.cls + '\')' + x.nach + '  → wirft'));
@@ -363,5 +452,5 @@ const IGNORIEREN = new Set([
   }
 
   await browser.close();
-  process.exit((kaputt.length + ungesichert.length + klassenKette.length + (menue ? menue.kaputt.length : 0)) ? 1 : 0);
+  process.exit((kaputt.length + ungesichert.length + klassenKette.length + oeffnerKaputt.length + (menue ? menue.kaputt.length : 0)) ? 1 : 0);
 })();

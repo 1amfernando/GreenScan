@@ -38,7 +38,11 @@ module.exports = () => { try {
     { id:'s1', name:'Löwenzahn', latin:'Taraxacum officinale', ts:now-2*D, confidence:0.94, kind:'plant' },
     { id:'s2', name:'Steinpilz', latin:'Boletus edulis',       ts:now-9*D, confidence:0.88, kind:'fungus' }
   ]);
-  set('gs_ernte_log', [{ id:'e1', plant:'Tomate', amount:420, unit:'g', ts:now-3*D }]);
+  // v31.98: `ts` ist im Ernte-Log ein ISO-STRING — so schreibt es die App an
+  // allen vier Stellen (gsErnteAdd u.a.). Hier stand eine Zahl, und
+  // `openErnteTracking` starb an `e.ts.slice(0,10)`. Dieselbe Lehre wie
+  // v31.46: Beispieldaten gegen index.html pruefen, nicht gegen den Namen.
+  set('gs_ernte_log', [{ id:'e1', plant:'Tomate', amount:420, unit:'g', ts:new Date(now-3*D).toISOString() }]);
   set('gs_confirmed_species', ['Taraxacum officinale','Boletus edulis']);
   set('gs_wissen_read', ['alpen-1','voegel-2']);
   set('gs_last_active_day_iso', new Date(now).toISOString().slice(0,10));
