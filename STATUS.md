@@ -4,13 +4,62 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.84` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.85` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (bw) — v31.85: neuer Prüfstand `save_check.js` — kommt an, was gespeichert wird?
+
+Fernando: *„Prüfe das Speichern und alles andere im Hintergrund."*
+
+Die vier bestehenden Prüfstände messen, wie die App **aussieht**, ob ein Tipp **ankommt**, ob jemand ein Eingabefeld **liest** und ob die gelesenen Daten **existieren**. Keiner fährt einen Speicherweg zu Ende. Genau dort lagen aber die teuersten Fehler dieses Meilensteins:
+
+| | |
+|---|---|
+| v31.72 | Gartenmasse wurden nie geschrieben — der Leser war da, der Schreiber fehlte |
+| v31.65 | `gsTwinSave` meldete Erfolg, obwohl nichts geschrieben wurde |
+| v31.76 | `gsPPsavePlan` ebenso — der Rettungsweg lag in totem Code |
+
+Drei Fehler derselben Familie, drei Mal beim Lesen gefunden statt beim Messen.
+
+#### Was er tut
+
+Formular füllen → Speicherfunktion aufrufen → **aus dem localStorage zurücklesen** → Feld für Feld vergleichen. Sieben Wege:
+
+Garten (Name, Masse, Art, Licht, Boden) · Pflanzung (Garten, Name, Sorte, Datum, Anzahl, Notiz) · Saatgut · Einstellungen · Garten-Zwilling · Plan · Aufgaben-Fortschritt.
+
+Alle sieben grün.
+
+#### Die Gegenprobe — und warum sie nötig war
+
+Ein Prüfstand, der beim ersten Lauf „alles grün" meldet, ist **erst dann etwas wert, wenn er auch einen Fehler findet**. Dieselbe Lehre wie beim Fenster-Zähler in `contrast_check` und beim Proxy in `data_check`, beide vorgestern.
+
+Also zwei Felder absichtlich entfernt:
+
+```
+!!   Garten     →  nicht gespeichert: kind (=undefined, erwartet gewaechshaus)
+!!   Pflanzung  →  nicht gespeichert: notes
+```
+
+Beide beim Namen genannt, samt erwartetem Wert. Danach zurückgesetzt.
+
+#### Was ihn vorher unmöglich machte
+
+`gsRequire('save_garden')` und Geschwister sperren mehrere Speicherwege ohne echte Anmeldung ab; der Pseudo-Token aus `_seed.js` reicht nicht. Der Prüfstand überbrückt die Sperre bewusst — sonst vermisst er eine Funktion, die gar nicht läuft. Genau das hat mich gestern bei v31.82 eine halbe Stunde gekostet, und es steht jetzt an drei Stellen: im Werkzeug, in CLAUDE.md §7.1 und hier.
+
+#### Grenze
+
+Gemeldet wird nur, was in der Liste `WEGE` steht. **Die Liste ist die Prüfung** — wer einen neuen Speicherweg baut, trägt ihn dort ein.
+
+#### Prüfstände (jetzt sechs)
+
+`render_check` · `contrast_check` · `touch_check` · `wiring_check` · `field_check` · `data_check` · **`save_check` 7/7**.
+
+---
 
 ### 2026-09-02 (bv) — v31.84: Regen und Giessplan wussten nichts voneinander
 

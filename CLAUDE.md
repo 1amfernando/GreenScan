@@ -478,6 +478,7 @@ node scripts/perf_check.js       # Kaltstart unter Telefon-Drosselung (1×/4×/6
 node scripts/wiring_check.js     # Verdrahtung: kommt an, was angetippt wird? (seit v31.45)
 python3 scripts/field_check.py   # Formularfelder, die niemand liest (seit v31.74)
 node scripts/data_check.js       # liest der Code Felder, die es nicht gibt? (seit v31.80)
+node scripts/save_check.js       # kommt an, was gespeichert wird? (seit v31.85)
 ```
 
 Die fünf JS-Prüfstände teilen die Beispieldaten in `scripts/_seed.js` — dort
@@ -498,6 +499,25 @@ Und Felder mit eigenem `on*`-Attribut werden übersprungen; ohne diese Regel
 meldet er fast jede Einstellung als kaputt. **Ein Treffer ist ein Verdacht,
 kein Urteil** — beim ersten gezielten Durchgang blieb von 303 Feldern genau
 einer übrig, der wirklich nichts tat: „Angemeldet bleiben".
+
+`save_check.js` faehrt sieben Speicherwege **wirklich zu Ende**: Formular
+fuellen → Speicherfunktion aufrufen → aus dem localStorage zuruecklesen →
+Feld fuer Feld vergleichen. Anlass sind die drei teuersten Fehler dieses
+Meilensteins, die alle dort lagen: v31.72 (Gartenmasse nie geschrieben),
+v31.65 (`gsTwinSave` meldete Erfolg ohne zu speichern), v31.76
+(`gsPPsavePlan` ebenso).
+
+**Er ueberbrueckt `gsRequire` bewusst** — siehe die Anmerkung weiter unten;
+ohne das vermisst er eine Funktion, die gar nicht laeuft.
+
+**Gegenprobe gemacht:** zwei Felder absichtlich entfernt, beide wurden mit
+Namen und erwartetem Wert gemeldet (`kind (=undefined, erwartet
+gewaechshaus)`). Ein Pruefstand, der beim ersten Lauf alles gruen meldet,
+ist erst etwas wert, wenn er auch einen Fehler findet.
+
+**Grenze:** gemeldet wird nur, was in der Liste `WEGE` steht. Ein
+Speicherweg, der dort fehlt, faellt nicht auf — **die Liste ist die
+Pruefung**. Wer einen neuen Speicherweg baut, traegt ihn dort ein.
 
 `data_check.js` stellt die dritte Frage. `wiring_check` fragt *kommt an, was
 angetippt wird?*, `field_check` *liest überhaupt jemand, was eingegeben
