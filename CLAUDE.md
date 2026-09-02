@@ -483,6 +483,7 @@ node scripts/planer_check.js     # rechnet der Planer, was er behauptet? (seit v
 node scripts/scan_check.js       # glaubt der Scanner der KI aufs Wort? (seit v31.99)
 node scripts/offline_check.js    # haelt die PWA, was sie ohne Empfang verspricht? (seit v32.13)
 node scripts/a11y_check.js       # bedienbar ohne Augen und ohne Maus? (seit v32.16)
+node scripts/i18n_check.js       # kommt in vier Sprachen an, was deutsch dasteht? (seit v32.17)
 #   save_check prueft seit v31.95 auch SERVER-Wege mit gestelltem sbFetch:
 #   meldet die Funktion Erfolg, wenn der Server NEIN sagt — oder gar nichts?
 #   wiring_check meldet seit v31.95 zusaetzlich sofort dereferenzierte
@@ -850,6 +851,54 @@ einem Mittelklasse-Telefon 35 ms kostet.
 maschinell nachweisbare Haelfte; ob ein Name auch VERSTAENDLICH ist, kann nur
 ein Mensch beurteilen. Und er meldet nur SICHTBARES — ein Feld in einem
 geschlossenen Fenster ist fuer niemanden ein Problem.
+
+**`i18n_check.js` (seit v32.17) — und die eine Regel der Sprachschicht, die
+nirgends stand.** Uebersetzungen werden ueber die DEUTSCHE PHRASE
+nachgeschlagen:
+
+```js
+keyBundle[key] = srcMap[ GS_I18N_JS_STRINGS[key] ]
+```
+
+Daraus folgt: **ein `_t`-Schluessel ohne Eintrag in `GS_I18N_JS_STRINGS` wird
+nie nachgeschlagen** und zeigt in allen vier Sprachen seinen deutschen
+Rueckfall — fuer immer, ohne Fehlermeldung. Erster Lauf: **45 solche
+Schluessel**, darunter der ganze Bildschirm „Mein Naturjahr".
+
+Zwei Muster, die daraus folgen und beim Schreiben zu beachten sind:
+
+- **Ein Schluessel, EINE deutsche Phrase.** `_t(key, n === 1 ? 'a' : 'b')`
+  laesst sich nicht nachschlagen — Einzahl und Mehrzahl brauchen zwei
+  Schluessel. Dasselbe, wenn derselbe Schluessel einmal als sichtbare
+  Beschriftung („✓ Erledigt") und einmal als `aria-label` („Erledigt")
+  gebraucht wird.
+- **Tabelle und Aufrufort muessen denselben deutschen Text tragen.**
+  Nachgeschlagen wird der TABELLENwert; der Rueckfall am Aufrufort erscheint
+  nur auf Deutsch. Gehen sie auseinander, liest ein deutscher Nutzer einen
+  anderen Satz als ein franzoesischer.
+
+**Und die Regel fuer solche Angleichungen: erst nachsehen, welche Fassung
+uebersetzt VORLIEGT.** In v32.17 hatten die Tabellenwerte alle vier Sprachen
+und die Aufrufvarianten keine einzige — die andere Richtung haette drei
+funktionierende Uebersetzungen zerstoert.
+
+Die zwei wichtigsten Fragen pruefen nicht den Quelltext, sondern die SCHICHT:
+die App wird ein zweites Mal geladen, mit untergeschobenem Sprachpaket in
+`gs_i18n_bundles`. Ein Schluessel MIT Uebersetzung muss sie zeigen, einer OHNE
+muss auf Deutsch zurueckfallen statt den rohen Schluesselnamen zu zeigen —
+**ohne die zweite Richtung waere eine Schicht, die alles auf den
+Schluesselnamen wirft, ebenfalls gruen.**
+
+**Was er nicht prueft:** ob die Uebersetzung in der Datenbank existiert und ob
+sie gut ist. Das braucht Netz und Sprachkenntnis. Er prueft, ob eine
+vorhandene Uebersetzung ueberhaupt ankommen KANN.
+
+**Und noch eine Falle, die kein Pruefstand sieht:** `_t` ist KEINE globale
+Funktion. Jede Funktion legt sich einen eigenen Alias an
+(`var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k,f){return f;}`).
+Das ist richtig so — er bindet beim AUFRUF, nicht beim Laden. Wer `window._t`
+prueft, prueft eine Variable, die es nie gab; die oeffentliche Schnittstelle
+heisst `gsI18n.t`.
 
 **Seit v31.78 misst `contrast_check` in ZWEI Fenstern** — KI-Planer und
 Blühkalender — und der Bericht nennt **je Fenster die Zahl der vermessenen

@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.16.20260902">
+<meta name="app-version" content="32.17.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13873,6 +13873,71 @@ window.gsI18nCoverage = function(){ try { return window.gsI18n.coverage(); } cat
 // v25.28: ausgebaut auf ~80 Top-Keys (Toasts, Errors, Confirms, gsConfirmModal-Buttons).
 // Verwendung: gsI18n.t('key', 'Fallback-Text-DE')
 window.GS_I18N_JS_STRINGS = {
+  // ── v32.17 · 45 Schluessel, die nie uebersetzt werden konnten ─────────
+  //
+  // Sie standen an ihren Aufrufstellen mit deutschem Rueckfalltext da, aber in
+  // KEINER Uebersetzungstabelle. `loadFromDb` baut das Sprachpaket ueber
+  // genau diese Tabelle auf (`keyBundle[k] = srcMap[GS_I18N_JS_STRINGS[k]]`)
+  // — ein Schluessel ohne Eintrag wird also nie nachgeschlagen und zeigt in
+  // ALLEN Sprachen den deutschen Rueckfall. Fuer immer, ohne Fehlermeldung.
+  //
+  // Betroffen war unter anderem der ganze Bildschirm "Mein Naturjahr", die
+  // Garten-Bibliothek und die Giftigkeits-Einstufungen.
+  //
+  // Und der teuerste Teil daran: acht der ersten fuenfzehn geprueften Phrasen
+  // sind in der Datenbank LAENGST in allen vier Sprachen uebersetzt ("Alle",
+  // "Arten", "Scans", "Funde", "Erfolge", "Streak", "Mein Naturjahr",
+  // "Einstufung offen"). Die Arbeit war getan, nur gefragt hat niemand.
+  //
+  // `scripts/i18n_check.js` haelt es fest: jeder `_t(key, …)`-Aufruf braucht
+  // hier einen Eintrag.
+  'gal_offline':              'Der Foto-Vergleich braucht eine Internet-Verbindung für die KI-Analyse. Sobald du online bist, klappt es.',
+  'nj_top_species':           '🌟 Deine Top-Arten',
+  'nj_title':                 'Mein Naturjahr',
+  'nj_sub':                   'Deine Reise durch die Natur',
+  'nj_empty':                 'Noch keine Aktivität dieses Jahr. Scanne Pflanzen, lege einen Garten an oder spiele das Quiz — dein Naturjahr füllt sich von selbst.',
+  'nj_scans':                 'Scans',
+  'nj_species':               'Arten',
+  'nj_finds':                 'Funde',
+  'nj_plantings':             'Pflanzungen',
+  'nj_harvest':               'Ernte',
+  'nj_achievements':          'Erfolge',
+  'nj_streak':                'Streak',
+  'nj_points':                'Quiz-Pkt',
+  'nj_activity':              '📈 Aktivität pro Monat',
+  'garden_lib_all':           'Alle',
+  'garden_lib_title':         'Garten-Bibliothek',
+  'garden_lib_sub':           'Grundlagen von Boden bis Biodiversität — kurz und für die Schweiz.',
+  'garden_lib_search':        'Suchen …',
+  'tox_open':                 'Einstufung offen',
+  'tasks_due_aria_one':        'Aufgabe fällig',
+  'tasks_due_aria_many':       'Aufgaben fällig',
+  'tox_unverified':           'Noch nicht geprüft',
+  'btn_contribute_photo':     'Eigenes Foto zu dieser Art beitragen',
+  'tasks_heading':            'Aufgaben',
+  'due_since_prefix':         'Seit',
+  'day_unit':                 'Tag',
+  'due_overdue':              'überfällig',
+  'due_today':                'Heute fällig',
+  'btn_snooze':               'Verschieben',
+  'tasks_all_done':           'Alles erledigt für heute',
+  'cemetery_title':           'Pflanzenfriedhof',
+  'cemetery_sub_one':         'Eine Pflanze, die du verabschiedet hast. Wiederherstellen geht jederzeit.',
+  'cemetery_sub_many':        'Pflanzen, die du verabschiedet hast. Wiederherstellen geht jederzeit.',
+  'battle_rematch':           '🔄 Revanche – neues Battle',
+  'btn_report':               'Melden',
+  'garden_empty_sub':         'Erstelle deinen ersten Garten!',
+  'unit_planted':             'gepflanzt',
+  'garden_harvest_ready':     '🌟 Erntebereit!',
+  'garden_days_left_prefix':  'Noch',
+  'garden_no_plantings':      'Noch nichts gepflanzt.',
+  'garden_plant_now':         'Pflanze einsetzen',
+  'garden_add_plant':         'Pflanze hinzufügen',
+  'garden_plan_for':          'Plan für diesen Garten',
+  'action_edit':              'Bearbeiten',
+  'profile_loading':          'Profil wird geladen…',
+  'prof_danger_zone':         '⚠️ Erweitert — Konto dauerhaft löschen',
+  'lina_local_only':          'Verlauf wird gerade nur lokal geführt (Cloud nicht erreichbar).',
   // ── v29.05 Settings: Plan-Karte (dynamisch, Paid) + Sync-Status-Zeile ──
   'settings_plan_word':        'Plan',
   'settings_plan_sub_lifetime':'Lebenslang aktiv · Vielen Dank fürs Unterstützen!',
@@ -14031,6 +14096,10 @@ window.GS_I18N_JS_STRINGS = {
   'due_soon':                  'Bald fällig',
   'days_unit':                 'Tagen',
   'btn_done':                  '✓ Erledigt',
+  // v32.17: eigener Schluessel fuer den Vorlesetext. `btn_done` traegt einen
+  // Haken fuer die SICHTBARE Beschriftung; in einem aria-label waere er
+  // Unsinn — ein Screenreader liest „Haken Erledigt".
+  'btn_done_aria':             'Erledigt',
   'task_never_done':           'Noch nie erledigt',
   'mp_notif_enable':           '🔔 Erinnerungen aktivieren — nie eine Pflege vergessen',
   'mp_empty_title':            'Noch keine Pflanzen',
@@ -18013,7 +18082,12 @@ function gsUpdateGardenBadge() {
   badge.hidden = !n;
   // Vorlesen soll es die Bedeutung, nicht die nackte Zahl.
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
-  badge.setAttribute('aria-label', n + ' ' + _t('tasks_due_aria', n === 1 ? 'Aufgabe fällig' : 'Aufgaben fällig'));
+  // v32.17: Einzahl und Mehrzahl brauchen ZWEI Schluessel. Ein Schluessel mit
+      // zwei moeglichen deutschen Texten laesst sich nicht nachschlagen — das
+      // Sprachpaket wird ueber genau EINE Phrase je Schluessel gebaut.
+      badge.setAttribute('aria-label', n + ' ' + (n === 1
+        ? _t('tasks_due_aria_one', 'Aufgabe fällig')
+        : _t('tasks_due_aria_many', 'Aufgaben fällig')));
 }
 
 // ══ SCANNER ZOOM CONTROL ════════════════════════════════════
@@ -32949,7 +33023,7 @@ function renderMyPlants() {
         else if (item.days === 1) when = _t('due_tomorrow','Morgen fällig');
         else when = _t('due_in','In') + ' ' + item.days + ' ' + _t('days_unit','Tagen');
         return '<div class="due-card' + (isDue?'':' soon') + '" data-duetask="' + escHtml(p.id) + '|' + escHtml(k) + '">' +
-          '<button type="button" class="due-card-check" aria-label="' + _t('btn_done','Erledigt') + '" onclick="gsDueCardDone(this,\''+p.id+'\',\''+k+'\')">✓</button>' +
+          '<button type="button" class="due-card-check" aria-label="' + _t('btn_done_aria','Erledigt') + '" onclick="gsDueCardDone(this,\''+p.id+'\',\''+k+'\')">✓</button>' +
           '<div class="due-card-info" style="cursor:pointer;" onclick="gsDueCardDone(this.parentElement.querySelector(\'.due-card-check\'),\''+p.id+'\',\''+k+'\')">' +
             '<div class="due-card-name">' + (p.emoji||'🌿') + ' ' + escHtml(p.name) + '</div>' +
             '<div class="due-card-task">' + (def.icon||'') + ' ' + (def.name||k) + ' · ' + when + '</div>' +
@@ -68943,7 +69017,7 @@ async function renderGarden() {
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k,f){ return f; };
 
   if (!gardens.length) {
-    list.innerHTML = '<div class="mp-empty"><span>🌻</span><p>' + _t('garden_empty_title','Noch kein Garten angelegt.') + '<br>' + _t('garden_empty_sub','Erstelle deinen ersten Garten!') + '</p></div>';
+    list.innerHTML = '<div class="mp-empty"><span>🌻</span><p>' + _t('garden_empty_title','Noch kein Garten') + '<br>' + _t('garden_empty_sub','Erstelle deinen ersten Garten!') + '</p></div>';
     return;
   }
 
@@ -70970,6 +71044,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.17', date: '02.09.2026',
+    headline: '\ud83c\udf0d 47 Texte konnten nie \u00fcbersetzt werden \u2014 acht davon lagen l\u00e4ngst fertig da',
+    summary: 'Sie standen mit deutschem Text an ihrer Stelle, aber in keiner \u00dcbersetzungstabelle \u2014 und wurden deshalb nie nachgeschlagen. Der ganze Bildschirm \u201eMein Naturjahr\u201c, die Garten-Bibliothek und die Giftigkeits-Einstufungen blieben in allen vier Sprachen deutsch. Ohne Fehlermeldung.',
+    user_summary: '\ud83c\udf0d Mehrere Bildschirme blieben in jeder Sprache deutsch \u2014 obwohl die \u00dcbersetzungen teils l\u00e4ngst fertig in der Datenbank lagen. Jetzt kommen sie an.',
+    user_items: [
+      {emoji:'\ud83c\udf0d', bold:'Was nicht ankam:', text:' 47 Texte, darunter der komplette Bildschirm \u201eMein Naturjahr\u201c, die Garten-Bibliothek und die Giftigkeits-Einstufungen. Sie zeigten in Englisch, Spanisch, Franz\u00f6sisch und Italienisch dauerhaft den deutschen Text.'},
+      {emoji:'\ud83d\udca1', bold:'Und das Bittere daran:', text:' Acht der ersten f\u00fcnfzehn gepr\u00fcften Texte waren in der Datenbank l\u00e4ngst in allen vier Sprachen \u00fcbersetzt. Die Arbeit war getan \u2014 gefragt hat nur nie jemand.'},
+      {emoji:'\ud83d\udd24', bold:'Drei Texte, zwei Wahrheiten:', text:' An drei Stellen stand auf Deutsch etwas anderes als das, was \u00fcbersetzt wurde \u2014 wer die App auf Franz\u00f6sisch las, bekam einen anderen Satz als auf Deutsch. Angeglichen.'},
+      {emoji:'\ud83e\uddea', bold:'Ein neuer Pr\u00fcfstand:', text:' Er schiebt der App ein Testpaket unter und pr\u00fcft, ob eine vorhandene \u00dcbersetzung wirklich ankommt \u2014 und ob ein Text ohne \u00dcbersetzung sauber auf Deutsch zur\u00fcckf\u00e4llt, statt einen rohen Schl\u00fcssel zu zeigen.'},
+    ],
+  },
+  {
     v: 'v32.16', date: '02.09.2026',
     headline: '\u2328\ufe0f 213 Stellen waren nur mit der Maus erreichbar',
     summary: 'Jedes Suchergebnis, jedes Rezept, jedes Heilmittel, jede Startseiten-Kachel: mit dem Finger ein Knopf, mit der Tastatur unsichtbar. Wer die App mit Tastatur oder Schalter bedient, kam an den ganzen Inhalt nicht heran. Eine zentrale Nachr\u00fcstung statt achtzehn Einzelpflaster \u2014 und ein zw\u00f6lfter Pr\u00fcfstand, der es festh\u00e4lt.',
@@ -71332,7 +71418,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.16';
+var GS_VERSION = 'v32.17';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -80628,7 +80714,7 @@ async function gsOpenRedeemVoucher(){
   if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) { if (typeof gsToast==='function') gsToast('🔐 ' + _t('voucher_login_first','Bitte zuerst einloggen.'),'warning'); return; }
   var code = (typeof gsPromptModal === 'function')
     ? await gsPromptModal({ title: _t('voucher_redeem_title','🎟️ Gutschein einlösen'), message: _t('voucher_redeem_msg','Gutschein-Code eingeben:') })
-    : (typeof prompt==='function' ? prompt(_t('voucher_redeem_msg','Gutschein-Code:')) : null);
+    : (typeof prompt==='function' ? prompt(_t('voucher_redeem_msg','Gutschein-Code eingeben:')) : null);
   if (!code || !String(code).trim()) return;
   var r = await gsRedeemVoucher(String(code).trim());
   if (r && r.ok) {
