@@ -344,7 +344,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v31.92';
+const VERSION = 'gs-v31.93';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;

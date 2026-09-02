@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.92.20260902">
+<meta name="app-version" content="31.93.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -55633,7 +55633,11 @@ function gsPPmoonPhase(date) {
 // beschreibt einen anderen Garten als einer von gestern, und die KI soll
 // das selbst gewichten koennen statt es zu uebersehen.
 function gsPPtwinBlock(t) {
-  if (!t || !t.plants || !t.plants.length) return '';
+  // v31.93: Beete allein reichen. Bis hierher fiel ein frisch gescannter,
+  // noch leerer Garten durch diese Zeile — die KI erfuhr von den drei
+  // Hochbeeten nichts und plante auf ein leeres Rechteck. Derselbe Fehler
+  // wie im Platzierer, an der zweiten Stelle.
+  if (!t || (!(t.plants && t.plants.length) && !(t.beds && t.beds.length))) return '';
   function m(x) { return (Math.round((x || 0) * 100) / 100) + 'm'; }
   var zeilen = t.plants.map(function (p) {
     return '  · ' + p.name + ' bei (' + m(p.x_m) + ', ' + m(p.y_m) + '), ' +
@@ -55645,13 +55649,37 @@ function gsPPtwinBlock(t) {
   var zonen = t.zones.length
     ? t.zones.map(function (z) { return '  · ' + z.kind + (z.label && z.label !== z.kind ? ' (' + z.label + ')' : '') + ': ' + m(z.x_m) + ',' + m(z.y_m) + ' → ' + m(z.w_m) + '×' + m(z.h_m); }).join('\n')
     : '  · keine erkannt';
+  // ── v31.93: die Vorgeschichte JE BEET ────────────────────────────────
+  // Gerechnet, nicht erzaehlt: aus dem Zwilling und aus frueheren Plaenen
+  // derselben Flaeche (siehe _gsBeetHistorie). Der Code korrigiert die
+  // Verteilung ohnehin — aber eine KI, die die Vorgeschichte kennt, muss
+  // seltener korrigiert werden, und ein Plan, den niemand umbauen musste,
+  // ist der bessere Plan.
+  var vor = '';
+  try {
+    if (t.beds && t.beds.length > 1) {
+      var _h = _gsBeetHistorie(t.beds, t.bed.width_m, t.bed.length_m, null);
+      if (_h) {
+        vor = 'BEET-VORGESCHICHTE (was zuletzt in welchem Beet stand — für die Fruchtfolge):\n' +
+          t.beds.map(function (b, i) {
+            var f = _h.jahre[i], k = Object.keys(f);
+            if (!k.length) return '  · ' + b.label + ': nichts bekannt';
+            return '  · ' + b.label + ': ' + k.map(function (x) { return f[x].family + ' ' + f[x].jahr; }).join(', ');
+          }).join('\n') + '\n' +
+          'PFLICHT: Setze eine Pflanzenfamilie NICHT in ein Beet, in dem sie in den letzten ' +
+          GS_FOLGE_PAUSE + ' Jahren stand, solange ein anderes Beet dafür frei ist. ' +
+          'Bündle Pflanzen derselben Familie in EINEM Beet — nur so lässt sich nächstes Jahr wechseln.\n';
+      }
+    }
+  } catch (_) {}
   return '\n📐 GEMESSENER BESTAND (Garten-Scan vor ' + t.alter_tage + ' Tagen) — Fläche ' +
          m(t.bed.width_m) + ' × ' + m(t.bed.length_m) + ', Nullpunkt links oben:\n' +
          'VORHANDENE PFLANZEN:\n' + zeilen + '\n' +
          'BEETE:\n' + beete + '\n' +
-         'LICHTZONEN:\n' + zonen + '\n' +
+         'LICHTZONEN:\n' + zonen + '\n' + vor +
          'PFLICHT: Plane IN diesen Garten. Setze neue Pflanzen in freie Flächen, ' +
-         'nicht auf besetzte. Beachte die Lichtzonen (Sonnenpflanzen nicht in den Schatten). ' +
+         'nicht auf besetzte, und AUSSCHLIESSLICH innerhalb der genannten Beete — dazwischen ist Weg. ' +
+         'Beachte die Lichtzonen (Sonnenpflanzen nicht in den Schatten). ' +
          'Nutze Mischkultur gegen den VORHANDENEN Bestand — nicht gegen eine gedachte Liste. ' +
          'Markiere jede Pflanze deiner Antwort mit "existing": true (steht schon da) oder false (neu). ' +
          'Vorhandene Pflanzen übernimmst du unverändert mit ihren Koordinaten.\n';
@@ -55682,7 +55710,10 @@ function gsPPbuildUserContext() {
     // Garten, links steht schon die Tomate, die Nordseite ist Schatten".
     try {
       var _tw = (typeof gsTwinGet === 'function') ? gsTwinGet() : null;
-      if (_tw && _tw.plants && _tw.plants.length) {
+      // v31.93: Beete zaehlen genauso. Stand hier nur `_tw.plants.length`,
+      // war der Block oben (gsPPtwinBlock) fuer einen leeren, aber
+      // gescannten Garten nicht erreichbar — ein Leser ohne Daten.
+      if (_tw && ((_tw.plants && _tw.plants.length) || (_tw.beds && _tw.beds.length))) {
         ctx.twin = {
           bed: _tw.bed,
           plants: _tw.plants.slice(0, 24).map(function (p) {
@@ -56934,6 +56965,42 @@ function gsPPrenderPlan(plan, data) {
           plan._folge.ok + ' Kultur' + (plan._folge.ok === 1 ? '' : 'en') + ' ohne Familien-Wiederholung \u2014 gepr\u00fcft gegen ' +
           plan._folge.eintraege + ' Eintr\u00e4ge aus deinem Garten.');
       }
+    }
+
+    // ── v31.93 · R11 Fruchtfolge JE BEET ───────────────────────────────
+    // Die genauere Aussage. Sie steht direkt unter der garten-weiten, weil
+    // sie diese oft entschaerft: „dieselbe Familie, aber im anderen Beet"
+    // ist kein Fehler, sondern genau das, wofuer man mehrere Beete hat.
+    if (plan._beetfolge) {
+      var _bf = plan._beetfolge;
+      var _quell = [];
+      if (_bf.quellen.zwilling) _quell.push(_bf.quellen.zwilling + ' Pflanze' + (_bf.quellen.zwilling === 1 ? '' : 'n') + ' aus dem Garten-Scan');
+      if (_bf.quellen.plaene) _quell.push(_bf.quellen.plaene + ' aus fr\u00fcheren Pl\u00e4nen');
+      var _qtxt = _quell.length ? ' Grundlage: ' + _quell.join(' und ') +
+                  (_bf.quellen.jahre.length > 1 ? ' (' + _bf.quellen.jahre[0] + '\u2013' + _bf.quellen.jahre[_bf.quellen.jahre.length - 1] + ')' : '') + '.' : '';
+      if (_bf.konflikt.length) {
+        zeile('\ud83e\uddee', 'Beet-Wechsel', 'warn',
+          _bf.konflikt.slice(0, 4).map(function (k) {
+            return esc(k.name) + ' liegt in ' + esc(k.beet) + ', wo ' + esc(k.family) + ' ' +
+                   (k.pause === 0 ? 'dieses Jahr' : 'vor ' + k.pause + ' Jahr' + (k.pause === 1 ? '' : 'en')) + ' schon stand' +
+                   (k.besser ? ' \u2014 ' + esc(k.besser) + ' w\u00e4re besser' + (k.besser_nie ? ' (dort noch nie)' : '') : '');
+          }).join('; ') +
+          (_bf.konflikt.length > 4 ? ' und ' + (_bf.konflikt.length - 4) + ' weitere' : '') +
+          '. Ich habe den Platz gesucht, aber der Rest des Beetes war belegt oder zu dunkel.' + _qtxt);
+      } else if (_bf.ok) {
+        var _verteilt = _bf.belegung.filter(function (b) { return b.n; })
+          .map(function (b) { return esc(b.label) + ': ' + b.n; }).join(' \u00b7 ');
+        zeile('\ud83e\uddee', 'Beet-Wechsel', 'ok',
+          _bf.ok + ' neue Kultur' + (_bf.ok === 1 ? '' : 'en') + ' in einem Beet, in dem ihre Familie mindestens ' +
+          GS_FOLGE_PAUSE + ' Jahre nicht stand.' + (_verteilt ? ' Verteilung \u2014 ' + _verteilt + '.' : '') + _qtxt);
+      }
+      if (_bf.ungeprueft) {
+        zeile('\ud83e\uddee', 'Beet-Wechsel', 'unbekannt',
+          _bf.ungeprueft + ' Kultur' + (_bf.ungeprueft === 1 ? '' : 'en') + ' ohne bekannte Pflanzenfamilie \u2014 ' +
+          'ohne Familie l\u00e4sst sich keine Fruchtfolge rechnen, und eine geratene w\u00e4re schlimmer als keine.');
+      }
+    } else if (plan._beetfolge_grund) {
+      zeile('\ud83e\uddee', 'Beet-Wechsel', 'unbekannt', 'nicht gepr\u00fcft \u2014 ' + esc(plan._beetfolge_grund) + '.');
     }
 
     if (zeilen.length) {
@@ -58223,6 +58290,7 @@ function _gsPlanPruefwerk(plan, data) {
   _gsPlanNachpruefung(plan);
   _gsPlanStanddauer(plan);
   _gsPlanFolge(plan);
+  _gsPlanBeetFolge(plan);     // v31.93 — muss VOR der Begruendung laufen
   _gsPlanBegruendung(plan);   // zuletzt: sammelt ein, was die anderen markiert haben
 }
 window._gsPlanPruefwerk = _gsPlanPruefwerk;
@@ -58484,6 +58552,167 @@ function _gsPlanFolge(plan) {
   } catch (_) { if (plan) plan._folge = null; }
 }
 
+// ── v31.93 · R11 · Fruchtfolge JE BEET (Planer V3, Stufe 3) ───────────────
+// docs/PLANER-V3.md §10.
+//
+// R5 oben fragt: „stand diese Familie schon in deinem Garten?" Das ist in
+// einem Garten mit mehreren Beeten die falsche Frage. Fruchtfolge heisst
+// nicht „drei Jahre keine Tomaten", sondern „drei Jahre keine Tomaten AN
+// DIESER STELLE" — wer vier Beete hat, kann jedes Jahr Tomaten haben.
+// Genau das sagte der Hinweistext von R5 auch selbst: „Ob im selben Beet,
+// weiss ‚Meine Pflanzen' nicht." Jetzt weiss es jemand.
+
+// In welchem Beet liegt dieses Rechteck GANZ? Teilweise reicht nicht — eine
+// Pflanze halb auf dem Weg steht auf dem Weg. Rueckgabe: Index oder -1.
+function _gsBeetVon(beete, x, y, w, h) {
+  try {
+    if (!Array.isArray(beete)) return -1;
+    for (var b = 0; b < beete.length; b++) {
+      var e = beete[b];
+      var bx = parseFloat(e.x_m), by = parseFloat(e.y_m);
+      var bw = parseFloat(e.w_m), bh = parseFloat(e.h_m);
+      if (!isFinite(bx) || !isFinite(by) || !isFinite(bw) || !isFinite(bh)) continue;
+      if (x >= bx - 0.01 && y >= by - 0.01 && x + w <= bx + bw + 0.01 && y + h <= by + bh + 0.01) return b;
+    }
+  } catch (_) {}
+  return -1;
+}
+
+// Was stand wann in welchem Beet? Zwei Quellen, beide mit Koordinaten —
+// ohne Koordinaten gibt es keine Beet-Zuordnung und also auch keine Aussage:
+//
+//   1. der Garten-Zwilling — was JETZT dort steht (Jahr = dieses Jahr),
+//   2. frueher gespeicherte Plaene DERSELBEN Flaeche — die Jahre davor.
+//
+// Die Flaechen-Bedingung ist dieselbe wie ueberall im Planer (26 cm): liegen
+// die Koordinaten auf einem anderen Rechteck, zeigen sie woanders hin, und
+// ein Beet am falschen Ort ist schlimmer als keines.
+//
+// Was hier BEWUSST fehlt: `gs_plantings` und `gs_ernte_log`. Beide tragen
+// Name und Datum, aber keinen Ort — sie koennen sagen DASS, nie WO. R5 nutzt
+// sie weiter; hier waeren sie geraten.
+function _gsBeetHistorie(beete, bedW, bedL, ausserId) {
+  try {
+    if (!Array.isArray(beete) || !beete.length) return null;
+    var jahre = beete.map(function () { return {}; });
+    var quellen = { zwilling: 0, plaene: 0, jahre: [] };
+    var heuer = new Date().getFullYear();
+    function passt(b) {
+      return b && Math.abs((parseFloat(b.width_m) || 0) - bedW) < 0.26 &&
+                  Math.abs((parseFloat(b.length_m) || 0) - bedL) < 0.26;
+    }
+    function merke(bi, name, jahr) {
+      if (bi < 0 || !jahr || !name) return false;
+      var f = _gsFamilieVon(name);
+      if (!f) return false;
+      var k = _gsNorm(f);
+      if (!jahre[bi][k] || jahr > jahre[bi][k].jahr) jahre[bi][k] = { jahr: jahr, family: f };
+      return true;
+    }
+    function ablegen(liste, jahr, zaehler) {
+      (Array.isArray(liste) ? liste : []).forEach(function (p) {
+        if (!p) return;
+        var x = parseFloat(p.x_m), y = parseFloat(p.y_m);
+        if (!isFinite(x) || !isFinite(y)) return;
+        var bi = _gsBeetVon(beete, x, y, parseFloat(p.w_m) || 0.3, parseFloat(p.h_m) || 0.3);
+        if (merke(bi, p.name, jahr)) {
+          quellen[zaehler]++;
+          if (quellen.jahre.indexOf(jahr) < 0) quellen.jahre.push(jahr);
+        }
+      });
+    }
+    try {
+      var t = (typeof gsTwinGet === 'function') ? gsTwinGet() : null;
+      if (t && passt(t.bed)) ablegen(t.plants, heuer, 'zwilling');
+    } catch (_) {}
+    try {
+      var sp = JSON.parse(localStorage.getItem('gs_garden_plans') || '[]');
+      if (Array.isArray(sp)) sp.forEach(function (e) {
+        if (!e || !e.plan || (ausserId && e.id === ausserId)) return;
+        if (!passt(e.plan.bed)) return;
+        var d = _gsPD(e.created);
+        if (!d) return;
+        ablegen(e.plan.plants, d.getFullYear(), 'plaene');
+      });
+    } catch (_) {}
+    if (!quellen.zwilling && !quellen.plaene) return null;
+    quellen.jahre.sort();
+    return { jahre: jahre, quellen: quellen };
+  } catch (_) { return null; }
+}
+
+// Die Pruefung. Drei Zustaende wie jede Regel im Pruefwerk — und der Grund
+// steht dabei, wenn nicht geprueft werden konnte. `{}` oder `0` waeren hier
+// besonders falsch: sie laesen sich als „Fruchtfolge in Ordnung" lesen.
+function _gsPlanBeetFolge(plan) {
+  try {
+    if (plan) plan._beetfolge_grund = '';
+    if (!plan || !Array.isArray(plan.plants)) { if (plan) plan._beetfolge = null; return; }
+    var geo = plan._beetgeo;
+    if (!geo || !Array.isArray(geo.beete) || !geo.beete.length) {
+      plan._beetfolge = null;
+      plan._beetfolge_grund = 'kein Garten-Scan mit Beeten für diese Fläche';
+      return;
+    }
+    if (geo.beete.length < 2) {
+      plan._beetfolge = null;
+      plan._beetfolge_grund = 'nur ein Beet erkannt — zwischen Beeten wechseln kann man erst ab zweien';
+      return;
+    }
+    var hist = _gsBeetHistorie(geo.beete, geo.w, geo.l, plan._planId || null);
+    if (!hist) {
+      plan._beetfolge = null;
+      plan._beetfolge_grund = 'keine Vorgeschichte je Beet — weder der Garten-Scan noch ein früherer Plan dieser Fläche nennt Pflanzen mit Ort';
+      return;
+    }
+    function nam(i) { return (geo.beete[i] && geo.beete[i].label) || ('Beet ' + (i + 1)); }
+    var heuer = new Date().getFullYear();
+    var ok = 0, konflikt = [], ungeprueft = 0, ausserhalb = 0;
+    var belegung = geo.beete.map(function (b, i) { return { label: nam(i), n: 0, familien: [] }; });
+    plan.plants.forEach(function (p) {
+      var x = parseFloat(p.x_m), y = parseFloat(p.y_m);
+      var bi = (isFinite(x) && isFinite(y))
+        ? _gsBeetVon(geo.beete, x, y, parseFloat(p.w_m) || 0.3, parseFloat(p.h_m) || 0.3) : -1;
+      p._beet = bi >= 0 ? bi : null;
+      p._beet_txt = bi >= 0 ? nam(bi) : '';
+      if (bi < 0) { ausserhalb++; return; }
+      belegung[bi].n++;
+      var f = p.family || _gsFamilieVon(p.name);
+      if (f && belegung[bi].familien.indexOf(f) < 0) belegung[bi].familien.push(f);
+      if (p.existing === true) return;
+      if (!f) { ungeprueft++; return; }
+      var k = _gsNorm(f), h = hist.jahre[bi][k];
+      if (!h) { ok++; p._beetfolge_ok = true; p._beetfolge_txt = nam(bi) + ': Familie noch nie hier'; return; }
+      var pause = heuer - h.jahr;
+      if (pause >= GS_FOLGE_PAUSE) {
+        ok++; p._beetfolge_ok = true;
+        p._beetfolge_txt = nam(bi) + ': Familie zuletzt ' + h.jahr;
+        return;
+      }
+      // Ein Vorwurf ohne Ausweg ist nur ein Vorwurf. Gibt es ein Beet, in
+      // dem die Familie laenger weg ist, wird es genannt.
+      var besser = null, bestPause = pause;
+      for (var i = 0; i < geo.beete.length; i++) {
+        if (i === bi) continue;
+        var hh = hist.jahre[i][k];
+        var pp = hh ? (heuer - hh.jahr) : 99;
+        if (pp > bestPause) { bestPause = pp; besser = i; }
+      }
+      p._beetfolge_ok = false;
+      p._beetfolge_txt = nam(bi) + ': Familie stand ' + (pause === 0 ? 'dieses Jahr' : 'vor ' + pause + ' Jahr' + (pause === 1 ? '' : 'en')) + ' hier';
+      konflikt.push({ name: p.name, family: f, beet: nam(bi), jahr: h.jahr, pause: pause,
+                      besser: besser === null ? null : nam(besser),
+                      besser_nie: besser !== null && bestPause === 99 });
+    });
+    plan._beetfolge = { beete: geo.beete.length, ok: ok, konflikt: konflikt,
+                        ungeprueft: ungeprueft, ausserhalb: ausserhalb,
+                        belegung: belegung, quellen: hist.quellen };
+  } catch (_) { if (plan) plan._beetfolge = null; }
+}
+window._gsBeetVon = _gsBeetVon;
+window._gsBeetHistorie = _gsBeetHistorie;
+window._gsPlanBeetFolge = _gsPlanBeetFolge;
+
 // ── N9 · Jede Pflanze sagt, warum sie dort steht ──────────────────────────
 // Aus den REGELN, nicht aus dem Prompt. Der Unterschied ist nicht kosmetisch:
 // eine Begruendung, die aus dem Prompt stammt, kann von hier aus niemand
@@ -58511,6 +58740,11 @@ function _gsPlanBegruendung(plan) {
       if (p._aussaat_ok === false) w.push('⚠ Aussaattermin ausserhalb der Referenz');
       if (p._dauer_ok === false) w.push('⚠ Standdauer sehr kurz');
       if (p._folge_txt) w.push((p._folge_ok === false ? '⚠ ' : '') + p._folge_txt);
+      // v31.93: das Beet steht VOR der garten-weiten Fruchtfolge-Aussage,
+      // weil es die genauere ist — „Beet B: Familie noch nie hier" sagt
+      // mehr als „Familie hast du schon im Garten".
+      if (p._beetfolge_txt) w.push((p._beetfolge_ok === false ? '⚠ ' : '') + p._beetfolge_txt);
+      else if (p._beet_txt) w.push('liegt in ' + p._beet_txt);
       var sh = saatHabe[p.name];
       if (sh) w.push(sh.abgelaufen ? '⚠ Saatgut abgelaufen (' + sh.expires + ')'
                                    : 'Saatgut vorhanden' + (sh.expires ? ' (' + sh.expires + ')' : ''));
@@ -58729,13 +58963,67 @@ function _gsSanitizePlannerPlan(plan) {
     // eine Pflanze halb auf dem Weg steht auf dem Weg.
     function _inBeet(x, y, w, h) {
       if (!beete.length) return true;                 // keine Beete bekannt → keine Einschraenkung
-      for (var b = 0; b < beete.length; b++) {
-        var e = beete[b];
-        var bx = parseFloat(e.x_m), by = parseFloat(e.y_m);
-        var bw = parseFloat(e.w_m), bh = parseFloat(e.h_m);
-        if (x >= bx - 0.01 && y >= by - 0.01 && x + w <= bx + bw + 0.01 && y + h <= by + bh + 0.01) return true;
-      }
-      return false;
+      return _gsBeetVon(beete, x, y, w, h) >= 0;
+    }
+
+    // ── v31.93: Fruchtfolge JE BEET, schon beim Platzieren ──────────────
+    // Bis v31.92 kannte der Platzierer nur „in einem Beet" — welchem, war
+    // ihm gleich. Damit landete die Tomate im selben Beet wie letztes Jahr,
+    // obwohl drei andere frei waren, und die Pruefung konnte hinterher nur
+    // noch schimpfen. Jetzt bekommt jede Kultur eine RANGFOLGE der Beete:
+    // je laenger ihre Familie dort weg ist, desto besser.
+    //
+    // Zwei Dinge, die dabei wichtig sind:
+    //   · Die Rangfolge ist eine Vorliebe, keine Bedingung — sie darf keine
+    //     Pflanze verhindern (dieselbe Regel wie bei Licht und Nachbarn).
+    //   · Sie steht INNERHALB der Strenge-Stufen, nicht darueber. Sonst
+    //     kaeme das rotationsrichtige Beet im Schatten vor dem
+    //     rotationszweitbesten in der Sonne — und ein Jahr Bodenpause ist
+    //     weniger wert als eine Tomate, die reif wird.
+    var _bhist = (beete.length > 1) ? _gsBeetHistorie(beete, bedW, bedL, null) : null;
+    var _beetFam = beete.map(function () { return {}; });   // in DIESEM Plan schon belegt
+    var _heuer = new Date().getFullYear();
+    function _beetRang(name) {
+      try {
+        if (!beete.length) return null;
+        var f = _gsFamilieVon(name);
+        if (!f) return null;                            // keine Familie → kein Rat, nur Reihenfolge
+        var k = _gsNorm(f);
+        var r = beete.map(function (_e, i) {
+          var h = _bhist && _bhist.jahre[i][k];
+          return { i: i, pause: h ? (_heuer - h.jahr) : 99, gleich: _beetFam[i][k] ? 1 : 0 };
+        });
+        r.sort(function (x, y) {
+          // Ueber drei Jahre Pause ist kein Unterschied mehr — sonst
+          // entstuende eine Rangfolge aus Zahlen, die nichts mehr bedeuten.
+          var px = Math.min(x.pause, GS_FOLGE_PAUSE), py = Math.min(y.pause, GS_FOLGE_PAUSE);
+          if (px !== py) return py - px;
+          // Gleichstand: die Familie buendeln. EIN Beet je Familie ist das,
+          // was die Fruchtfolge im naechsten Jahr ueberhaupt erst moeglich
+          // macht — vier Familien auf vier Beeten kann man drehen, ueber
+          // alle Beete verstreut nicht.
+          if (x.gleich !== y.gleich) return y.gleich - x.gleich;
+          return x.i - y.i;
+        });
+        return r;
+      } catch (_) { return null; }
+    }
+    // Ist DIESES Beet fuer diese Kultur vertretbar? Zwei Wege zu ja:
+    // die Familie war lange genug weg — oder es gibt schlicht kein besseres
+    // Beet. Der zweite Weg ist wichtig: sonst wuerde eine Vorliebe zur
+    // Bedingung, und die Pflanze fiele aus dem Beet heraus statt in das
+    // am wenigsten schlechte.
+    function _beetFolgeOk(bi, name) {
+      try {
+        if (bi < 0 || !beete.length) return true;
+        var r = _beetRang(name);
+        if (!r) return true;                       // keine Familie → kein Einwand
+        var eigen = null;
+        for (var i = 0; i < r.length; i++) if (r[i].i === bi) eigen = r[i];
+        if (!eigen) return true;
+        if (eigen.pause >= GS_FOLGE_PAUSE) return true;
+        return Math.min(r[0].pause, GS_FOLGE_PAUSE) <= Math.min(eigen.pause, GS_FOLGE_PAUSE);
+      } catch (_) { return true; }
     }
 
     var fest = [], frei = [];
@@ -58753,7 +59041,16 @@ function _gsSanitizePlannerPlan(plan) {
       }
     });
 
-    if (fest.length || zonen.length) {
+    // ── v31.93: `beete.length` gehoert in diese Bedingung ────────────────
+    // Bis hierher lief der ganze Platzierer nur, wenn es BESTAND oder
+    // LICHTZONEN gab. Wer seinen Garten gescannt hatte, aber noch nichts
+    // angepflanzt, fiel durch — und bekam die Reihen-Packung unten, die von
+    // Beeten nichts weiss. Also: gescannte Beete, drei leere Hochbeete, und
+    // der Plan legte die Reihen quer ueber die Wege.
+    // Gefunden hat das nicht das Lesen, sondern der neue Pruefstand
+    // (scripts/planer_check.js) im ersten Durchlauf — die Beet-Regel meldete
+    // „kein Garten-Scan mit Beeten", obwohl der Zwilling drei Beete trug.
+    if (fest.length || zonen.length || beete.length) {
       // Nur das Neue platzieren — Rasterschritte von 10cm, erste freie Stelle
       // gewinnt. Kein Optimierer: nachvollziehbar schlaegt clever, und ein
       // Gaertner soll sehen koennen, WARUM etwas dort liegt.
@@ -58795,7 +59092,14 @@ function _gsSanitizePlannerPlan(plan) {
         // Beet? Dieselbe Logik wie beim Licht: was frei ist, ist nicht
         // automatisch sinnvoll.
         var ktBeet = _inBeet(xk, yk, it.w, it.h);
-        if (isFinite(xk) && isFinite(yk) && ktPasst && ktNachbar && ktBeet && frei_an(xk, yk, it.w, it.h)) {
+        // v31.93: und viertens — zum DRITTEN Mal dieselbe Lehre (§4a.2).
+        // „Frei" ist nicht „sinnvoll" galt erst fuer das Licht (v31.62),
+        // dann fuer die Nachbarschaft (v31.63), und nun fuer die
+        // Fruchtfolge: der Vorschlag der KI lag im richtigen Beet-Rechteck
+        // und wurde genommen — auch wenn dort letztes Jahr dieselbe Familie
+        // stand und zwei andere Beete leer waren. Im Pruefstand nachgestellt.
+        var ktFolge = _beetFolgeOk(_gsBeetVon(beete, xk, yk, it.w, it.h), it.p.name);
+        if (isFinite(xk) && isFinite(yk) && ktPasst && ktNachbar && ktBeet && ktFolge && frei_an(xk, yk, it.w, it.h)) {
           it.p.x_m = Math.round(xk * 100) / 100;
           it.p.y_m = Math.round(yk * 100) / 100;
           it.p.w_m = Math.round(it.w * 100) / 100;
@@ -58834,23 +59138,36 @@ function _gsSanitizePlannerPlan(plan) {
         if (kannNachbar)                          w(false, true,  false);
         if (kannLicht)                            w(true,  false, false);
         w(false, false, false);
+        // v31.93: verlangt eine Stufe ein Beet, werden die Beete in der
+        // Rangfolge der Fruchtfolge durchgegangen — laengste Pause zuerst.
+        // Ist die Familie unbekannt, bleibt es beim alten Verhalten: ueber
+        // die ganze Flaeche suchen und mit `_inBeet` filtern.
+        var rang = kannBeet ? _beetRang(it.p.name) : null;
         for (var d = 0; d < durchgaenge.length && !gesetzt; d++) {
           var wunsch = durchgaenge[d];
-          for (var y = 0; y <= bedL - it.h + 0.001 && !gesetzt; y += schritt) {
-            for (var x = 0; x <= bedW - it.w + 0.001 && !gesetzt; x += schritt) {
-              if (!frei_an(x, y, it.w, it.h)) continue;
-              if (wunsch.licht) {
-                var z = _gsZoneAn(zonen, x + it.w / 2, y + it.h / 2);
-                if (!z || !_gsLichtPasst(brauchtLicht, z)) continue;
+          var raeume = (wunsch.beet && rang) ? rang : [null];
+          for (var rr = 0; rr < raeume.length && !gesetzt; rr++) {
+            var _e = raeume[rr] === null ? null : beete[raeume[rr].i];
+            var xVon = _e ? Math.max(0, parseFloat(_e.x_m)) : 0;
+            var yVon = _e ? Math.max(0, parseFloat(_e.y_m)) : 0;
+            var xBis = (_e ? Math.min(bedW, parseFloat(_e.x_m) + parseFloat(_e.w_m)) : bedW) - it.w;
+            var yBis = (_e ? Math.min(bedL, parseFloat(_e.y_m) + parseFloat(_e.h_m)) : bedL) - it.h;
+            for (var y = yVon; y <= yBis + 0.001 && !gesetzt; y += schritt) {
+              for (var x = xVon; x <= xBis + 0.001 && !gesetzt; x += schritt) {
+                if (!frei_an(x, y, it.w, it.h)) continue;
+                if (wunsch.licht) {
+                  var z = _gsZoneAn(zonen, x + it.w / 2, y + it.h / 2);
+                  if (!z || !_gsLichtPasst(brauchtLicht, z)) continue;
+                }
+                if (wunsch.nachbar && !_gsNachbarnOk(plan.plants, it.p, x, y, it.w, it.h)) continue;
+                if (wunsch.beet && !_inBeet(x, y, it.w, it.h)) continue;
+                it.p.x_m = Math.round(x * 100) / 100;
+                it.p.y_m = Math.round(y * 100) / 100;
+                it.p.w_m = Math.round(it.w * 100) / 100;
+                it.p.h_m = Math.round(it.h * 100) / 100;
+                fest.push({ x: x, y: y, w: it.w, h: it.h });
+                gesetzt = true;
               }
-              if (wunsch.nachbar && !_gsNachbarnOk(plan.plants, it.p, x, y, it.w, it.h)) continue;
-              if (wunsch.beet && !_inBeet(x, y, it.w, it.h)) continue;
-              it.p.x_m = Math.round(x * 100) / 100;
-              it.p.y_m = Math.round(y * 100) / 100;
-              it.p.w_m = Math.round(it.w * 100) / 100;
-              it.p.h_m = Math.round(it.h * 100) / 100;
-              fest.push({ x: x, y: y, w: it.w, h: it.h });
-              gesetzt = true;
             }
           }
         }
@@ -58861,6 +59178,14 @@ function _gsSanitizePlannerPlan(plan) {
           it.p.x_m = 0; it.p.y_m = 0;
           it.p.w_m = Math.round(it.w * 100) / 100;
           it.p.h_m = Math.round(it.h * 100) / 100;
+        } else if (beete.length) {
+          // v31.93: merken, welche Familie jetzt in welchem Beet liegt —
+          // die naechste Pflanze derselben Familie soll dorthin.
+          var _bi = _gsBeetVon(beete, it.p.x_m, it.p.y_m, it.w, it.h);
+          if (_bi >= 0) {
+            var _f = _gsFamilieVon(it.p.name);
+            if (_f) _beetFam[_bi][_gsNorm(_f)] = true;
+          }
         }
       });
       _gsPlanLichtPruefung(plan, zonen);
@@ -58881,6 +59206,19 @@ function _gsSanitizePlannerPlan(plan) {
           plan._beete = { beete: beete.length, drin: drin, daneben: daneben };
         } else plan._beete = null;
       } catch (_) { plan._beete = null; }
+      // v31.93: die Beet-Geometrie MIT dem Plan speichern. Nur so kann ein
+      // spaeter wieder geoeffneter Plan noch sagen, welche Pflanze in
+      // welchem Beet lag — der Zwilling kann bis dahin neu gescannt sein.
+      try {
+        plan._beetgeo = beete.length ? {
+          w: bedW, l: bedL,
+          beete: beete.map(function (e, i) {
+            return { label: e.label || ('Beet ' + (i + 1)),
+                     x_m: parseFloat(e.x_m), y_m: parseFloat(e.y_m),
+                     w_m: parseFloat(e.w_m), h_m: parseFloat(e.h_m) };
+          })
+        } : null;
+      } catch (_) { plan._beetgeo = null; }
       return plan;
     }
 
@@ -68354,6 +68692,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.93', date: '02.09.2026',
+    headline: '\ud83e\uddee Fruchtfolge je Beet \u2014 und ein Pr\u00fcfstand, der drei Fehler beim ersten Lauf fand',
+    summary: 'Wer mehrere Beete hat, muss nicht drei Jahre auf Tomaten verzichten \u2014 er stellt sie ins andere Beet. Der Planer wusste das bisher nicht: er kannte nur „in einem Beet", nicht in welchem. Jetzt rechnet er je Beet, was dort zuletzt stand, und setzt neue Kulturen dorthin, wo ihre Familie am l\u00e4ngsten weg ist.',
+    user_summary: '\ud83e\uddee Der Planer verteilt Pflanzenfamilien jetzt auf deine Beete statt sie nur irgendwo hinzulegen \u2014 und sagt dir bei jeder Pflanze, in welchem Beet sie liegt und warum.',
+    user_items: [
+      {emoji:'\ud83e\uddee', bold:'Fruchtfolge je Beet:', text:' Aus dem Garten-Scan und deinen fr\u00fcheren Pl\u00e4nen wird je Beet ausgerechnet, welche Pflanzenfamilie dort zuletzt stand. Eine neue Kultur kommt in das Beet, in dem ihre Familie am l\u00e4ngsten weg ist. Geht das nicht, steht es da \u2014 samt dem Beet, das besser gewesen w\u00e4re.'},
+      {emoji:'\ud83e\uddf1', bold:'Leere Beete z\u00e4hlten bisher gar nicht:', text:' Wer seinen Garten gescannt, aber noch nichts gepflanzt hatte, bekam einen Plan in Reihen quer \u00fcber die Wege \u2014 der Platzierer sprang \u00fcber die Beet-Logik hinweg, wenn kein Bestand da war. Das galt seit der Einf\u00fchrung der Beete.'},
+      {emoji:'\ud83d\udcdd', bold:'Auch die KI erf\u00e4hrt es jetzt:', text:' Der Auftragstext nennt je Beet die Vorgeschichte und verlangt, eine Familie in EIN Beet zu b\u00fcndeln. Vorher stand von einem leeren gescannten Garten \u00fcberhaupt nichts im Auftrag.'},
+      {emoji:'\ud83d\udd0e', bold:'Ein neuer Pr\u00fcfstand f\u00fcr den Planer:', text:' Die dreizehn rechnenden Regeln hatten bisher keinen. Der neue f\u00e4hrt f\u00fcnfzehn F\u00e4lle durch \u2014 auch gegen einen GUTEN Plan, der nichts melden darf. Im ersten Lauf hat er drei Fehler gefunden, die beim Lesen niemand gesehen h\u00e4tte.'},
+    ],
+  },
+  {
     v: 'v31.92', date: '02.09.2026',
     headline: '\u2620\ufe0f Der Scan verschwieg, dass eine Verwechslung t\u00f6dlich sein kann',
     summary: 'Der Scanner fragt bei jeder Bestimmung die Giftigkeit der Alternativen mit ab. Die Anzeige hat sie nie gelesen \u2014 auf dem Bildschirm standen drei Namen mit Prozentzahlen. Jetzt steht die Gefahr am Namen und dar\u00fcber eine Warnung.',
@@ -68876,7 +69226,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.92';
+var GS_VERSION = 'v31.93';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

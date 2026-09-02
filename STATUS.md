@@ -4,13 +4,67 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.92` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.93` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (ce) — v31.93: Fruchtfolge je Beet, und ein Prüfstand, der drei Fehler beim ersten Lauf fand
+
+#### Der Befund
+
+R5 (v31.77) prüft die Fruchtfolge **garten-weit**: „stand diese Familie schon
+bei dir?" In einem Garten mit vier Beeten ist das die falsche Frage — man
+verzichtet nicht drei Jahre auf Tomaten, man stellt sie ins andere Beet. Der
+Hinweistext von R5 sagte es selbst: „Ob im selben Beet, weiss ‚Meine Pflanzen'
+nicht."
+
+#### Was gebaut wurde
+
+- **R11 · `_gsPlanBeetFolge`** — Vorgeschichte je Beet aus zwei Quellen mit
+  Koordinaten: dem Garten-Zwilling (dieses Jahr) und früheren gespeicherten
+  Plänen **derselben Fläche** (26-cm-Toleranz wie überall). `gs_plantings` und
+  `gs_ernte_log` bewusst **nicht** — sie sagen DASS, nie WO.
+- **Der Platzierer verteilt.** Jede Kultur bekommt eine Rangfolge der Beete
+  (längste Familien-Pause zuerst, bei Gleichstand das Beet, in dem schon ein
+  Familienmitglied liegt). Als Vorliebe *innerhalb* der Strenge-Stufen — ein
+  Jahr Bodenpause ist weniger wert als eine Tomate, die reif wird.
+- **`plan._beetgeo`** reist mit dem Plan; sonst kann ein später geöffneter Plan
+  nicht mehr sagen, welche Pflanze in welchem Beet lag.
+- **Prompt**: Beet-Vorgeschichte im Auftragstext, plus die Pflicht, eine
+  Familie in EIN Beet zu bündeln.
+- **Anzeige**: Zeile „Beet-Wechsel" in der Plan-Prüfung — Konflikt mit
+  Ausweichvorschlag, oder die Verteilung („Beet A: 1 · Beet B: 1 · Beet C: 1").
+  An jeder Pflanze steht ihr Beet in der Begründung.
+
+#### `scripts/planer_check.js` — neu, und sofort rot
+
+Das Prüfwerk hatte **dreizehn Regeln und keinen Prüfstand**. Fünfzehn Fälle,
+darunter zwei gegen einen *guten* Plan (darf nichts melden) und einer, der die
+Drei-Zustände-Regel festhält (`null` + Grund, nie `{}` oder `0`). Erster Lauf:
+drei Fehler, alle älter als heute:
+
+1. **Der Platzierer sprang über die Beete hinweg, wenn kein Bestand da war**
+   (`if (fest.length || zonen.length)`). Gescannter, leerer Garten → Reihen
+   quer über die Wege. Seit v31.88.
+2. **Der Auftragstext erwähnte einen leeren gescannten Garten gar nicht** —
+   `gsPPtwinBlock` stieg bei `!t.plants.length` aus, `gsPPbuildUserContext`
+   baute `ctx.twin` erst gar nicht.
+3. **Zum dritten Mal „frei ist nicht sinnvoll"** — Stufe 1 nahm die Stelle der
+   KI, ohne zu fragen, ob dort letztes Jahr dieselbe Familie stand. Nach Licht
+   (v31.62) und Nachbarschaft (v31.63) dieselbe Lücke ein drittes Mal.
+
+#### Prüfstände
+
+`planer_check` 15/15 · `render_check` 0 JS-Fehler / 0 verdächtig ·
+`contrast_check` 0/0 · `touch_check` 0 · `wiring_check` 0/0/0 ·
+`save_check` 7/7 · `data_check` 0/0 · `field_check` 4 (die dokumentierten
+`tp-*`-Falschmeldungen).
+
+---
 
 ### 2026-09-02 (cd) — v31.92: der Scan verschwieg, dass eine Verwechslung tödlich sein kann
 
