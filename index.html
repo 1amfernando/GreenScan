@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.76.20260902">
+<meta name="app-version" content="31.77.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1392,7 +1392,7 @@ body.dark .mkt-chat-msg.them{background:#2a3f2a;color:var(--text);}
 .gs-jahr-name{width:96px;flex-shrink:0;font-size:var(--fs-xs);font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .gs-jahr-spur{position:relative;flex:1;min-width:0;height:26px;background:var(--surface2);border-radius:var(--r-sm);overflow:hidden;}
 .gs-jahr-balken{position:absolute;top:3px;bottom:3px;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;overflow:hidden;}
-.gs-jahr-balken span{font-size:var(--fs-xs);font-weight:800;color:inherit;white-space:nowrap;padding:0 5px;}
+.gs-jahr-balken span{font-size:var(--fs-xs);font-weight:800;color:inherit;white-space:nowrap;padding:1px 6px;border-radius:999px;background:var(--gs-jahr-scrim);}
 .gs-jahr-unsicher{background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.28) 0 5px,transparent 5px 10px);}
 .gs-jahr-fuss{font-size:var(--fs-xs);color:var(--muted);line-height:1.5;margin-top:7px;}
 .gs-luecke{border:1px dashed var(--border);border-radius:var(--r-md);padding:8px 10px;margin-top:8px;background:var(--card);}
@@ -1416,6 +1416,11 @@ body.dark .mkt-chat-msg.them{background:#2a3f2a;color:var(--text);}
 .gs-nach-txt{font-size:var(--fs-sm);color:var(--text2);line-height:1.5;}
 .gs-nach-txt b{color:var(--text);font-weight:800;}
 .gs-nach-neben{display:block;margin-top:3px;color:var(--muted);}
+/* v31.77 — „Warum hier?" je Pflanze. Kleine Marken statt Fliesstext:
+   sie sollen ueberflogen werden, nicht gelesen. */
+.gs-warum{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;}
+.gs-warum-chip{display:inline-block;padding:2px 7px;border-radius:999px;background:var(--bg-success-soft);color:var(--c-success-d);font-size:var(--fs-xs);font-weight:700;line-height:1.5;}
+.gs-warum-warn{background:var(--bg-warn-soft);color:var(--c-warn-d);}
 /* v31.66: Die Zeilenfassung traegt jetzt die Kartenoptik der Seite. Vorher
    erbte sie von .moon-card den dunkelblauen Verlauf — zwischen lauter hellen
    Karten war sie der einzige dunkle Balken und zog den Blick auf sich, obwohl
@@ -5247,16 +5252,16 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
           <div style="font-size:var(--fs-xs);font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Planen &amp; Gestalten</div>
 <div style="padding:0 0 8px;"><button onclick="gsPPopenSavedPlans()" title="Gespeicherte Garten-Pläne" style="width:100%;padding:11px 12px;background:var(--card);border:1.5px solid var(--border);color:var(--text);border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
     <span data-i18n="btn_saved_plans" data-i18n-fallback="📂 Meine gespeicherten Garten-Pläne">📂 Meine gespeicherten Garten-Pläne</span><span style="color:var(--muted);font-size:var(--fs-xl);">›</span>
-  </button></div><div style="padding:0 0 8px;"><button onclick="gsSeasonalOpen()" title="Saisonkalender — alle 12 Monate" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#e8f5e9,#c5e1a5);border:1.5px solid #66bb6a;color:var(--c-success-d);border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_seasonal_cal" data-i18n-fallback="📅 Saisonkalender · Voll-Jahres-Übersicht">📅 Saisonkalender · Voll-Jahres-Übersicht</span><span style="color:var(--c-success-d);font-size:var(--fs-xl);">›</span>
+  </button></div><div style="padding:0 0 8px;"><button onclick="gsSeasonalOpen()" title="Saisonkalender — alle 12 Monate" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#e8f5e9,#c5e1a5);border:1.5px solid #66bb6a;color:#1b5e20;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_seasonal_cal" data-i18n-fallback="📅 Saisonkalender · Voll-Jahres-Übersicht">📅 Saisonkalender · Voll-Jahres-Übersicht</span><span style="color:#1b5e20;font-size:var(--fs-xl);">›</span>
   </button></div><div style="padding:0 0 8px;"><button onclick="openRegionalCalendarModal()" title="Regional-Kalender — Monats-Tasks für deine CH-Region" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#0277bd,#01579b);border:none;color:#fff;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
     <span data-i18n="btn_region_cal_open" data-i18n-fallback="🗓️ Regional-Kalender · Monats-Tasks deiner CH-Zone">🗓️ Regional-Kalender · Monats-Tasks deiner CH-Zone</span><span style="font-size:var(--fs-xl);opacity:.85;">›</span>
-  </button></div><div style="padding:0 0 8px;"><button onclick="openGardenLayoutsModal()" title="Beet-Vorlagen: Hochbeet, Permakultur, Mandala, Kräuterspirale, ..." style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#388e3c,#2e7d32);border:none;color:#fff;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+  </button></div><div style="padding:0 0 8px;"><button onclick="openGardenLayoutsModal()" title="Beet-Vorlagen: Hochbeet, Permakultur, Mandala, Kräuterspirale, ..." style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#2e7d32,#1b5e20);border:none;color:#fff;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
     <span data-i18n="btn_layouts_open" data-i18n-fallback="📐 Beet-Layouts · 10 fertige Vorlagen">📐 Beet-Layouts · 10 fertige Vorlagen</span><span style="font-size:var(--fs-xl);opacity:.85;">›</span>
   </button></div><div style="padding:0 0 8px;"><button onclick="openForestGardenModal()" title="Forest-Garden — Permakultur 7-Schichten-Designs" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#33691e,#1b5e20);border:none;color:#fff;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
     <span data-i18n="btn_forest_open" data-i18n-fallback="🌳 Forest-Garden planen · 7-Schichten + 8 Vorlagen">🌳 Forest-Garden planen · 7-Schichten + 8 Vorlagen</span><span style="font-size:var(--fs-xl);opacity:.85;">›</span>
-  </button></div><div style="padding:0 0 8px;"><button onclick="gsBeeFriendlyOpen()" title="Bestäuber-freundlicher Garten" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#fff8e1,#fffbd0);border:1.5px solid #fbc02d;color:var(--c-warn-d);border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_bee_friendly" data-i18n-fallback="🐝 Bestäuber-Garten · Wildbienen fördern">🐝 Bestäuber-Garten · Wildbienen fördern</span><span style="color:var(--c-warn-d);font-size:var(--fs-xl);">›</span>
+  </button></div><div style="padding:0 0 8px;"><button onclick="gsBeeFriendlyOpen()" title="Bestäuber-freundlicher Garten" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#fff8e1,#fffbd0);border:1.5px solid #fbc02d;color:#8f4700;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_bee_friendly" data-i18n-fallback="🐝 Bestäuber-Garten · Wildbienen fördern">🐝 Bestäuber-Garten · Wildbienen fördern</span><span style="color:#8f4700;font-size:var(--fs-xl);">›</span>
   </button></div>        </div>
         <div style="display:flex;justify-content:space-between;gap:8px;margin-top:8px;" id="pp-plan-actions" class="hidden">
           <button class="mp-save-btn" onclick="gsPPgoStep(4)" style="background:var(--card);color:var(--text);border:1.5px solid var(--border);max-width:140px;">← Anpassen</button>
@@ -5286,7 +5291,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 .pp-step{flex:1;background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-md);padding:6px 4px;font-size:var(--fs-xs);font-weight:700;color:var(--text2);text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent;line-height:1.25;transition:var(--dur);}
 .pp-step span{display:block;font-size:var(--fs-sm);font-weight:800;color:var(--g-main);margin-bottom:2px;}
 .pp-step.active{background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border-color:#1b5e20;}
-.pp-step.active span{color:#c8e6c9;}
+.pp-step.active span{color:#e8f5e9;}
 .pp-step.done{background:rgba(46,125,50,.08);border-color:#2e7d32;color:var(--c-success-d);}
 .pp-stepview{display:none;}
 .pp-stepview.active{display:block;}
@@ -55909,6 +55914,37 @@ function gsPPrenderPlan(plan, data) {
         (_ab.aufbau_min ? ' Dazu einmalig etwa ' + Math.round(_ab.aufbau_min / 5) * 5 + ' Minuten Aufbau in ' + _ab.aufbau_schritte + ' Schritten.' : ''));
     }
 
+    // R2 Standdauer — nur die schaedliche Richtung: zu schnell
+    if (plan._dauer && plan._dauer.kurz.length) {
+      zeile('\u23f3', 'Standdauer', 'warn',
+        plan._dauer.kurz.map(function (k) {
+          return esc(k.name) + ': ' + k.tage + ' Tage von der Aussaat bis zur Ernte, die Referenz nennt rund ' + k.erwartet;
+        }).join('; ') + '. Entweder ist ein Datum verrutscht oder die Ernte kommt sp\u00e4ter als versprochen.');
+    }
+
+    // R5 Fruchtfolge gegen die echte Historie
+    if (plan._folge) {
+      if (plan._folge.konflikt.length) {
+        zeile('\ud83d\udd01', 'Fruchtfolge', 'warn',
+          plan._folge.konflikt.slice(0, 4).map(function (k) {
+            return esc(k.name) + ' (' + esc(k.family) + ') \u2014 dieselbe Familie ' +
+                   (k.pause === 0 ? 'stand dieses Jahr schon' : 'stand vor ' + k.pause + ' Jahr' + (k.pause === 1 ? '' : 'en')) +
+                   ' in deinem Beet' + (k.quelle ? ' (' + esc(k.quelle) + ')' : '');
+          }).join('; ') +
+          (plan._folge.konflikt.length > 4 ? ' und ' + (plan._folge.konflikt.length - 4) + ' weitere' : '') +
+          '. Drei Jahre Pause je Familie beugt Bodenm\u00fcdigkeit und Krankheiten vor.');
+      } else if (plan._folge.hinweis && plan._folge.hinweis.length) {
+        zeile('\ud83d\udd01', 'Fruchtfolge', 'unbekannt',
+          esc(plan._folge.hinweis.slice(0, 4).map(function (k) { return k.name; }).join(', ')) +
+          ' geh\u00f6r' + (plan._folge.hinweis.length === 1 ? 't' : 'en') + ' zu einer Familie, die du schon h\u00e4ltst. ' +
+          'Ob im selben Beet, weiss „Meine Pflanzen" nicht \u2014 mit einer erfassten Pflanzung k\u00f6nnte ich es sagen.');
+      } else if (plan._folge.ok) {
+        zeile('\ud83d\udd01', 'Fruchtfolge', 'ok',
+          plan._folge.ok + ' Kultur' + (plan._folge.ok === 1 ? '' : 'en') + ' ohne Familien-Wiederholung \u2014 gepr\u00fcft gegen ' +
+          plan._folge.eintraege + ' Eintr\u00e4ge aus deinem Garten.');
+      }
+    }
+
     if (zeilen.length) {
       html += '<div class="gs-pk"><div class="gs-pk-kopf">\ud83d\udd0d Plan-Pr\u00fcfung</div>' +
               zeilen.join('') + '</div>';
@@ -55964,7 +56000,7 @@ function gsPPrenderPlan(plan, data) {
   // v24.00: Plan-Result aufgeräumt — nur 2 Aktionen: Speichern + PDF-Export
   // 3D-CAD-Hero, 2D-Plan, Anleitung entfernt (User-Wunsch)
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">' +
-    '<button onclick="gsPPsavePlan()" style="padding:14px;background:linear-gradient(135deg,#f57c00,#e65100);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;box-shadow:var(--elev-2);-webkit-tap-highlight-color:transparent;">💾 Plan speichern</button>' +
+    '<button onclick="gsPPsavePlan()" style="padding:14px;background:linear-gradient(135deg,#bf360c,#8f2a08);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;box-shadow:var(--elev-2);-webkit-tap-highlight-color:transparent;">💾 Plan speichern</button>' +
     '<button onclick="gsPPexportPDF()" style="padding:14px;background:linear-gradient(135deg,#c62828,#b71c1c);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;box-shadow:var(--elev-2);-webkit-tap-highlight-color:transparent;">📄 PDF Export</button>' +
   '</div>';
   html += gsPPRenderRefineBar();
@@ -56014,7 +56050,7 @@ function gsPPrenderPlan(plan, data) {
     plan.plants.forEach(function(p) {
       var click = p.db_id ? ' onclick="closeModal(\'modal-planner-pro\');openDetail(\'' + p.db_id + '\')" style="cursor:pointer;"' : '';
       var badge = p.db_id ? '<span style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:var(--r-sm);font-size:var(--fs-xs);font-weight:700;background:rgba(46,125,50,.15);color:var(--g-dark);">DB ↗</span>' : '';
-      var diff = p.difficulty ? '<span style="margin-left:6px;padding:1px 6px;border-radius:var(--r-sm);font-size:var(--fs-xs);background:' + (p.difficulty==='leicht'?'#e8f5e9':p.difficulty==='mittel'?'#fff3e0':'#ffebee') + ';color:' + (p.difficulty==='leicht'?'#1b5e20':p.difficulty==='mittel'?'#e65100':'#b71c1c') + ';font-weight:700;">' + esc(p.difficulty) + '</span>' : '';
+      var diff = p.difficulty ? '<span style="margin-left:6px;padding:1px 6px;border-radius:var(--r-sm);font-size:var(--fs-xs);background:' + (p.difficulty==='leicht'?'#e8f5e9':p.difficulty==='mittel'?'#fff3e0':'#ffebee') + ';color:' + (p.difficulty==='leicht'?'#1b5e20':p.difficulty==='mittel'?'#bf360c':'#b71c1c') + ';font-weight:700;">' + esc(p.difficulty) + '</span>' : '';
       html += '<div' + click + ' style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg);border-radius:var(--r-sm);' + (p.db_id?'border-left:3px solid var(--g-main);':'') + '">' +
         '<span style="font-size:var(--fs-xl);">' + esc(p.icon || '🌿') + '</span>' +
         '<div style="flex:1;">' +
@@ -56022,6 +56058,14 @@ function gsPPrenderPlan(plan, data) {
           (p.latin ? '<div style="font-size:var(--fs-xs);color:var(--muted);font-style:italic;">' + esc(p.latin) + (p.family ? ' · ' + esc(p.family) : '') + '</div>' : '') +
           (p.note ? '<div style="font-size:var(--fs-sm);color:var(--text2);margin-top:2px;">' + esc(p.note) + '</div>' : '') +
           (p.spacing_cm ? '<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:2px;">📏 Abstand: ' + esc(p.spacing_cm) + ' cm' + (p.depth_cm ? ' · Tiefe: ' + esc(p.depth_cm) + ' cm' : '') + '</div>' : '') +
+          // v31.77 (N9): Warum steht sie hier? Aus den Regeln, nicht aus dem
+          // Prompt — was gerechnet wurde, kann man nachlesen und bestreiten.
+          ((p._warum && p._warum.length)
+            ? '<div class="gs-warum">' + p._warum.map(function (x) {
+                var warn = String(x).indexOf('⚠') === 0;
+                return '<span class="gs-warum-chip' + (warn ? ' gs-warum-warn' : '') + '">' + esc(x) + '</span>';
+              }).join('') + '</div>'
+            : '') +
         '</div>' +
         (p.w_m && p.h_m ? '<span style="font-size:var(--fs-xs);color:var(--muted);">' + p.w_m + '×' + p.h_m + 'm</span>' : '') +
       '</div>';
@@ -56054,10 +56098,10 @@ function gsPPrenderPlan(plan, data) {
       mc.forEach(function(x) { html += '<li>' + esc(x) + '</li>'; });
       html += '</ul></div>';
     } else if (typeof mc === 'object') {
-      var scoreColor = mc.score >= 80 ? '#2e7d32' : mc.score >= 60 ? '#f57c00' : '#c62828';
+      var scoreColor = mc.score >= 80 ? 'var(--c-success-d)' : mc.score >= 60 ? 'var(--c-warn-d)' : 'var(--c-danger)';
       html += '<div class="pp-planbox"><h4>🤝 Mischkultur-Analyse</h4>';
       if (typeof mc.score === 'number') {
-        html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><div style="flex:1;height:10px;background:#eee;border-radius:var(--r-xs);overflow:hidden;"><div style="width:' + Math.max(0,Math.min(100,mc.score)) + '%;height:100%;background:' + scoreColor + ';"></div></div><b style="color:' + scoreColor + ';">' + mc.score + '/100</b></div>';
+        html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><div style="flex:1;height:10px;background:var(--surface2);border-radius:var(--r-xs);overflow:hidden;"><div style="width:' + Math.max(0,Math.min(100,mc.score)) + '%;height:100%;background:' + scoreColor + ';"></div></div><b style="color:' + scoreColor + ';">' + mc.score + '/100</b></div>';
       }
       if (mc.explanation) html += '<div style="font-size:var(--fs-sm);color:var(--text2);margin-bottom:8px;line-height:1.5;">' + esc(mc.explanation) + '</div>';
       if (mc.good && mc.good.length) {
@@ -56078,7 +56122,7 @@ function gsPPrenderPlan(plan, data) {
   if (plan.cropRotation) {
     var cr = plan.cropRotation;
     html += '<div class="pp-planbox" style="background:linear-gradient(135deg,rgba(121,85,72,.08),rgba(121,85,72,.02));border-left:3px solid #6d4c41;">' +
-      '<h4 style="color:#5d4037;">🔄 Fruchtfolge</h4>';
+      '<h4 style="color:var(--text);">🔄 Fruchtfolge</h4>';
     if (cr.note) html += '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.55;margin-bottom:6px;">' + esc(cr.note) + '</div>';
     if (cr.after && cr.after.length) html += '<div style="font-size:var(--fs-sm);"><b>Nach der Ernte pflanzen:</b> ' + cr.after.map(esc).join(', ') + '</div>';
     if (cr.avoid_next_year && cr.avoid_next_year.length) html += '<div style="font-size:var(--fs-sm);margin-top:3px;"><b>Nächstes Jahr meiden:</b> ' + cr.avoid_next_year.map(esc).join(', ') + '</div>';
@@ -56119,7 +56163,7 @@ function gsPPrenderPlan(plan, data) {
     html += '<div class="pp-planbox" style="background:linear-gradient(135deg,rgba(245,124,0,.08),rgba(245,124,0,.02));border-left:3px solid #f57c00;">' +
       '<h4 style="color:var(--c-warn-d);">🐛 Schädlings-Schutz (bio)</h4>';
     plan.pestControl.forEach(function(p) {
-      html += '<div style="background:#fff;border-radius:var(--r-sm);padding:8px 10px;margin-bottom:6px;font-size:var(--fs-sm);line-height:1.5;">' +
+      html += '<div style="background:var(--card);border-radius:var(--r-sm);padding:8px 10px;margin-bottom:6px;font-size:var(--fs-sm);line-height:1.5;">' +
         '<div style="font-weight:800;color:var(--c-warn-d);margin-bottom:3px;">⚠️ ' + esc(p.pest||'') + (p.affects && p.affects.length ? ' <span style="color:var(--muted);font-weight:600;">→ ' + p.affects.map(esc).join(', ') + '</span>' : '') + '</div>' +
         (p.prevention ? '<div><b>Vorbeugen:</b> ' + esc(p.prevention) + '</div>' : '') +
         (p.treatment ? '<div><b>Behandeln:</b> ' + esc(p.treatment) + '</div>' : '') +
@@ -56161,7 +56205,7 @@ function gsPPrenderPlan(plan, data) {
   // Water Plan
   if (plan.waterPlan) {
     html += '<div class="pp-planbox" style="background:linear-gradient(135deg,rgba(3,169,244,.08),rgba(3,169,244,.02));border-left:3px solid #0288d1;">' +
-      '<h4 style="color:#01579b;">💧 Bewässerungs-Plan</h4>' +
+      '<h4 style="color:var(--text);">💧 Bewässerungs-Plan</h4>' +
       '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.6;">' +
         (plan.waterPlan.total_l_per_week ? '<div>📏 Woche: <b>~' + esc(plan.waterPlan.total_l_per_week) + ' L</b> Gesamtbedarf</div>' : '') +
         (plan.waterPlan.best_time ? '<div>⏰ Beste Zeit: <b>' + esc(plan.waterPlan.best_time) + '</b></div>' : '') +
@@ -56185,7 +56229,7 @@ function gsPPrenderPlan(plan, data) {
   // Notifications (Agent)
   if (plan.notifications && plan.notifications.length) {
     html += '<div class="pp-planbox" style="background:linear-gradient(135deg,rgba(156,39,176,.08),rgba(156,39,176,.02));border-left:3px solid #7b1fa2;">' +
-      '<h4 style="color:#6a1b9a;">🔔 Aktions-Erinnerungen</h4>' +
+      '<h4 style="color:var(--text);">🔔 Aktions-Erinnerungen</h4>' +
       '<div style="font-size:var(--fs-sm);color:var(--text2);margin-bottom:6px;">Der Agent erinnert dich automatisch an wichtige Aufgaben:</div>' +
       '<div style="display:flex;flex-direction:column;gap:6px;">';
     plan.notifications.forEach(function(n) {
@@ -56225,11 +56269,11 @@ function gsPPrenderPlan(plan, data) {
   // Biodiversitäts-Score (v23.57)
   if (plan.biodiversity) {
     var bd = plan.biodiversity;
-    var bdColor = bd.score >= 80 ? '#2e7d32' : bd.score >= 50 ? '#f57c00' : '#c62828';
+    var bdColor = bd.score >= 80 ? 'var(--c-success-d)' : bd.score >= 50 ? 'var(--c-warn-d)' : 'var(--c-danger)';
     html += '<div class="pp-planbox" style="background:linear-gradient(135deg,rgba(76,175,80,.10),rgba(76,175,80,.02));border-left:3px solid #4caf50;">' +
       '<h4 style="color:var(--c-success);">🐝 Biodiversität</h4>';
     if (typeof bd.score === 'number') {
-      html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><div style="flex:1;height:8px;background:#eee;border-radius:var(--r-xs);overflow:hidden;"><div style="width:' + Math.max(0,Math.min(100,bd.score)) + '%;height:100%;background:' + bdColor + ';"></div></div><b style="color:' + bdColor + ';font-size:var(--fs-sm);">' + bd.score + '/100</b></div>';
+      html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><div style="flex:1;height:8px;background:var(--surface2);border-radius:var(--r-xs);overflow:hidden;"><div style="width:' + Math.max(0,Math.min(100,bd.score)) + '%;height:100%;background:' + bdColor + ';"></div></div><b style="color:' + bdColor + ';font-size:var(--fs-sm);">' + bd.score + '/100</b></div>';
     }
     if (bd.hint) html += '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.5;margin-bottom:4px;">' + esc(bd.hint) + '</div>';
     if (bd.pollinators && bd.pollinators.length) html += '<div style="font-size:var(--fs-sm);color:var(--g-dark);"><b>🌸 Für Bestäuber:</b> ' + bd.pollinators.map(esc).join(', ') + '</div>';
@@ -56241,9 +56285,9 @@ function gsPPrenderPlan(plan, data) {
     '<h4 style="color:#fff;">🤖 Super-Agent aktiv</h4>' +
     '<div style="font-size:var(--fs-sm);opacity:.95;line-height:1.6;margin-bottom:10px;">Der KI-Agent verfolgt deinen Plan automatisch — er vergleicht Wetter + Sensor-Daten, schlägt Anpassungen vor und erinnert dich an wichtige Aufgaben.</div>' +
     '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
-    '<button onclick="gsAgentRefinePlan()" style="padding:8px 12px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-sm);font-weight:700;cursor:pointer;">🔄 Plan anpassen</button>' +
-    '<button onclick="gsAgentEnableNotify()" style="padding:8px 12px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-sm);font-weight:700;cursor:pointer;">🔔 Benachrichtigungen an</button>' +
-    '<button onclick="gsAgentShowStatus()" style="padding:8px 12px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-sm);font-weight:700;cursor:pointer;">📊 Agent-Status</button>' +
+    '<button onclick="gsAgentRefinePlan()" style="padding:8px 12px;background:rgba(0,0,0,.24);border:1px solid rgba(255,255,255,.5);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-sm);font-weight:700;cursor:pointer;">🔄 Plan anpassen</button>' +
+    '<button onclick="gsAgentEnableNotify()" style="padding:8px 12px;background:rgba(0,0,0,.24);border:1px solid rgba(255,255,255,.5);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-sm);font-weight:700;cursor:pointer;">🔔 Benachrichtigungen an</button>' +
+    '<button onclick="gsAgentShowStatus()" style="padding:8px 12px;background:rgba(0,0,0,.24);border:1px solid rgba(255,255,255,.5);border-radius:var(--r-sm);color:#fff;font-size:var(--fs-sm);font-weight:700;cursor:pointer;">📊 Agent-Status</button>' +
     '</div></div>';
 
   return html;
@@ -57049,7 +57093,8 @@ function _gsPlanAussaat(plan) {
       // dadurch wertlos. Zwei Monate daneben (Kohlrabi im Januar) bleibt ein
       // Fund.
       var abstand = Math.min.apply(null, mon.map(function (x) { return Math.abs(x - m); }));
-      if (abstand <= 1) { ok++; return; }
+      if (abstand <= 1) { ok++; p._aussaat_ok = true; return; }
+      p._aussaat_ok = false;
       konflikt.push({
         name: p.name, datum: _gsDatKurz(d), monat: GS_MON[m - 1], abstand: abstand,
         fenster: mon.map(function (x) { return GS_MON[x - 1]; }).join('/')
@@ -57185,6 +57230,9 @@ function _gsPlanPruefwerk(plan, data) {
   _gsPlanFrost(plan, data);
   _gsPlanArbeit(plan);
   _gsPlanNachpruefung(plan);
+  _gsPlanStanddauer(plan);
+  _gsPlanFolge(plan);
+  _gsPlanBegruendung(plan);   // zuletzt: sammelt ein, was die anderen markiert haben
 }
 window._gsPlanPruefwerk = _gsPlanPruefwerk;
 window._gsPlanBelegung = _gsPlanBelegung;
@@ -57318,6 +57366,174 @@ window._gsPlanFrost = _gsPlanFrost;
 window._gsPlanArbeit = _gsPlanArbeit;
 window._gsPlanNachpruefung = _gsPlanNachpruefung;
 
+// ── v31.77 · Planer V3, Stufe 2 (zweiter Teil) ────────────────────────────
+// docs/PLANER-V3.md: N9 · R2 · R5.
+
+// Familie einer Kultur bestimmen — erst die gepruefte Agronomie-Referenz,
+// dann die Arten-DB. Findet sich nichts, ist die Antwort `null` und nicht
+// „unbekannte Familie": eine erfundene Zuordnung waere in der Fruchtfolge
+// schlimmer als keine.
+function _gsFamilieVon(name) {
+  try {
+    var r = _gsAgroFind(name);
+    if (r && r.family) return String(r.family);
+    if (typeof gsFindSpeciesByName === 'function') {
+      var hit = gsFindSpeciesByName(name);
+      if (hit && hit.fam) return String(hit.fam);
+    }
+  } catch (_) {}
+  return null;
+}
+
+// ── R2 · Standdauer ───────────────────────────────────────────────────────
+// „Kuerbis: gesaet 20. Mai, Ernte ab 15. Juni" ist keine Ernte, sondern ein
+// Tippfehler mit Folgen — man wartet auf etwas, das nicht kommt.
+//
+// Geprueft wird nur die EINE Richtung, die schadet: zu schnell. Ein Plan,
+// der grosszuegiger rechnet als die Referenz, ist vorsichtig, nicht falsch.
+// Und die Schwelle ist bewusst weit (40 % unter dem schnellsten belegten
+// Fall) — dieselbe Lehre wie bei R1: eine Pruefung, die die richtigen Faelle
+// meldet, ist wertlos.
+function _gsPlanStanddauer(plan) {
+  try {
+    if (!plan || !Array.isArray(plan.plants) || !_gsAgroRows().length) { if (plan) plan._dauer = null; return; }
+    var ok = 0, kurz = [], ungeprueft = 0;
+    plan.plants.forEach(function (p) {
+      var s = _gsPD(p.sow_date), h = _gsPD(p.harvest_from);
+      var r = _gsAgroFind(p.name);
+      if (!s || !h || !r) { ungeprueft++; return; }
+      var sm = _gsMonate(r.sow_months), hm = _gsMonate(r.harvest_months);
+      if (!sm.length || !hm.length) { ungeprueft++; return; }
+      var minSpanne = null;
+      sm.forEach(function (a) {
+        hm.forEach(function (b) {
+          var d = b - a;
+          if (d >= 1 && (minSpanne === null || d < minSpanne)) minSpanne = d;
+        });
+      });
+      if (minSpanne === null) { ungeprueft++; return; }
+      var tage = _gsTage(s, h);
+      var minTage = Math.round(minSpanne * 30.4 * 0.6);
+      if (tage >= minTage) { ok++; p._dauer_ok = true; return; }
+      p._dauer_ok = false;
+      kurz.push({ name: p.name, tage: tage, erwartet: Math.round(minSpanne * 30.4) });
+    });
+    plan._dauer = { ok: ok, kurz: kurz, ungeprueft: ungeprueft };
+  } catch (_) { if (plan) plan._dauer = null; }
+}
+
+// ── R5 · Fruchtfolge gegen die ECHTE Historie ─────────────────────────────
+// Bisher ging der Bestand nur als NAMENSLISTE in den Prompt und die KI
+// sollte daran denken. Rechnen laesst sich mehr: gs_plantings traegt Datum
+// und Name, gs_ernte_log ebenso, myPlants den aktuellen Stand. Daraus wird
+// je Familie das JAHR der letzten Anwesenheit — und die Faustregel ist
+// unstrittig: drei Jahre Pause, bei Kreuzbluetlern eher vier.
+var GS_FOLGE_PAUSE = 3;
+function _gsPlanFolge(plan) {
+  try {
+    if (!plan || !Array.isArray(plan.plants)) { if (plan) plan._folge = null; return; }
+    var letzte = {};   // Familie (klein) → juengstes Jahr aus einer BEET-Quelle
+    var woher = {};    // Familie → wo gefunden
+    var jetzt = {};    // Familie → steht gerade in „Meine Pflanzen"
+    function merke(name, jahr, quelle) {
+      var f = _gsFamilieVon(name);
+      if (!f || !jahr) return;
+      var k = _gsNorm(f);
+      // „Meine Pflanzen" ist etwas anderes als eine Pflanzung mit Datum: die
+      // Liste sagt, WAS du hast, nicht WO. Daraus einen Fruchtfolge-Vorwurf
+      // zu bauen hiesse, jedem mit dreissig Pflanzen den halben Plan
+      // anzustreichen. Also getrennt: Vorwurf nur aus Beet-Quellen
+      // (Pflanzung, Ernte), aus der Liste nur ein Hinweis.
+      if (quelle === 'im Garten') { jetzt[k] = f; return; }
+      if (!letzte[k] || jahr > letzte[k]) { letzte[k] = jahr; woher[k] = quelle; }
+    }
+    var gefunden = 0;
+    try {
+      var pl = JSON.parse(localStorage.getItem('gs_plantings') || '[]');
+      if (Array.isArray(pl)) pl.forEach(function (x) {
+        var d = _gsPD(x && (x.date || x.added));
+        if (d && x.name) { merke(x.name, d.getFullYear(), 'Pflanzung'); gefunden++; }
+      });
+    } catch (_) {}
+    try {
+      var el = JSON.parse(localStorage.getItem('gs_ernte_log') || '[]');
+      if (Array.isArray(el)) el.forEach(function (x) {
+        var n = x && (x.name || x.crop || x.plant);
+        var d = x && x.ts ? new Date(x.ts) : null;
+        if (n && d && !isNaN(d.getTime())) { merke(n, d.getFullYear(), 'Ernte'); gefunden++; }
+      });
+    } catch (_) {}
+    try {
+      if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) myPlants.forEach(function (x) {
+        var n = x && (x.name || x.commonName);
+        if (n) { merke(n, new Date().getFullYear(), 'im Garten'); gefunden++; }
+      });
+    } catch (_) {}
+    if (!gefunden || (!Object.keys(letzte).length && !Object.keys(jetzt).length)) { plan._folge = null; return; }
+
+    var heuer = new Date().getFullYear(), ok = 0, konflikt = [], hinweis = [];
+    plan.plants.forEach(function (p) {
+      if (p.existing === true) return;
+      var f = p.family || _gsFamilieVon(p.name);
+      if (!f) return;
+      var k = _gsNorm(f), j = letzte[k];
+      if (!j) {
+        if (jetzt[k]) { p._folge_txt = 'Familie hast du schon im Garten'; hinweis.push({ name: p.name, family: f }); }
+        else { ok++; p._folge_ok = true; }
+        return;
+      }
+      var pause = heuer - j;
+      if (pause >= GS_FOLGE_PAUSE) { ok++; p._folge_ok = true; p._folge_txt = 'Familie zuletzt ' + j; return; }
+      p._folge_ok = false;
+      p._folge_txt = 'Familie stand ' + (pause === 0 ? 'dieses Jahr' : 'vor ' + pause + ' Jahr' + (pause === 1 ? '' : 'en')) + ' im Beet';
+      konflikt.push({ name: p.name, family: f, jahr: j, pause: pause, quelle: woher[k] || '' });
+    });
+    plan._folge = { ok: ok, konflikt: konflikt, hinweis: hinweis,
+                    familien: Object.keys(letzte).length, eintraege: gefunden };
+  } catch (_) { if (plan) plan._folge = null; }
+}
+
+// ── N9 · Jede Pflanze sagt, warum sie dort steht ──────────────────────────
+// Aus den REGELN, nicht aus dem Prompt. Der Unterschied ist nicht kosmetisch:
+// eine Begruendung, die aus dem Prompt stammt, kann von hier aus niemand
+// nachpruefen — eine aus der Rechnung schon. Und ein Plan, dessen
+// Begruendungen man nachlesen kann, ist einer, dem man widersprechen kann.
+function _gsPlanBegruendung(plan) {
+  try {
+    if (!plan || !Array.isArray(plan.plants)) return;
+    var saatHabe = {}, saatFehlt = {};
+    if (plan._saatgut) {
+      plan._saatgut.habe.forEach(function (h) { saatHabe[h.name] = h; });
+      plan._saatgut.fehlt.forEach(function (n) { saatFehlt[n] = true; });
+    }
+    var nahe = (plan._nachbarn && plan._nachbarn.nah) || null;
+    plan.plants.forEach(function (p) {
+      var w = [];
+      if (p.existing === true) w.push('stand schon da');
+      if (p._licht_ok === true) w.push('Licht passt (gemessen)');
+      else if (p._licht_ok === false && p._licht_konflikt) w.push('⚠ ' + p._licht_konflikt);
+      if (nahe) {
+        var la = String((p.latin || '')).toLowerCase().trim();
+        if (la && nahe[la]) w.push('⚠ Gegenspieler zu nah');
+        else if (plan._nachbarn.geprueft) w.push('Nachbarschaft geprüft');
+      }
+      if (p._aussaat_ok === false) w.push('⚠ Aussaattermin ausserhalb der Referenz');
+      if (p._dauer_ok === false) w.push('⚠ Standdauer sehr kurz');
+      if (p._folge_txt) w.push((p._folge_ok === false ? '⚠ ' : '') + p._folge_txt);
+      var sh = saatHabe[p.name];
+      if (sh) w.push(sh.abgelaufen ? '⚠ Saatgut abgelaufen (' + sh.expires + ')'
+                                   : 'Saatgut vorhanden' + (sh.expires ? ' (' + sh.expires + ')' : ''));
+      else if (saatFehlt[p.name]) w.push('Saatgut fehlt');
+      if (p._kein_platz) w.push('⚠ kein fester Platz gefunden');
+      p._warum = w;
+    });
+  } catch (_) {}
+}
+window._gsFamilieVon = _gsFamilieVon;
+window._gsPlanStanddauer = _gsPlanStanddauer;
+window._gsPlanFolge = _gsPlanFolge;
+window._gsPlanBegruendung = _gsPlanBegruendung;
+
 // Die Leiste ganz oben — nur bei gespeicherten Plaenen, und nur wenn es
 // wirklich etwas zu sagen gibt.
 window.gsPPnachBlock = function (plan) {
@@ -57395,7 +57611,8 @@ window.gsPPjahrBlock = function (plan) {
              '<div class="gs-jahr-spur">' +
                '<div class="gs-jahr-balken' + (b.unsicher ? ' gs-jahr-unsicher' : '') + '"' +
                  ' style="left:' + l.toFixed(1) + '%;width:' + br.toFixed(1) + '%;background:#' + esc(b.color) +
-                   ';color:' + _gsAufFarbe(b.color) + ';"' +
+                   ';color:' + _gsAufFarbe(b.color) +
+                   ';--gs-jahr-scrim:' + (_gsAufFarbe(b.color) === '#ffffff' ? 'rgba(0,0,0,.55)' : 'rgba(255,255,255,.88)') + ';"' +
                  ' title="' + esc(b.name + ': ' + spanneTxt) + '">' +
                  (innen ? '<span>' + esc(innen) + '</span>' : '') +
                '</div>' +
@@ -66952,6 +67169,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.77', date: '02.09.2026',
+    headline: '\ud83d\udd0e Jede Pflanze sagt, warum sie dort steht \u2014 und der Pr\u00fcfstand schaut endlich ins Fenster',
+    summary: 'Neue Marken an jeder Pflanze („Licht passt", „Saatgut vorhanden", „Familie stand vor 1 Jahr im Beet"). Dazu zwei neue Regeln \u2014 Standdauer und Fruchtfolge gegen deine echte Historie. Und der Kontrast-Pr\u00fcfstand misst jetzt auch im Planer-Fenster: 43 unlesbare Stellen gefunden und behoben.',
+    user_summary: '\ud83d\udd0e Jede Pflanze im Plan sagt jetzt, warum sie dort steht \u2014 und der ganze Planer ist im Dunkelmodus endlich lesbar.',
+    user_items: [
+      {emoji:'\ud83d\udd0e', bold:'Warum steht sie hier?', text:' Unter jeder Pflanze im Plan stehen jetzt kleine Marken: „Licht passt (gemessen)", „Saatgut vorhanden (M\u00e4r 2027)", „Familie stand vor 1 Jahr im Beet". Alles davon ist gerechnet, nicht von der KI behauptet \u2014 und deshalb kannst du widersprechen.'},
+      {emoji:'\u23f3', bold:'Standdauer:', text:' „K\u00fcrbis: 29 Tage von der Aussaat bis zur Ernte, die Referenz nennt rund 122." Ein Datum, das verrutscht ist, sieht im Plan normal aus \u2014 man merkt es erst, wenn die Ernte ausbleibt.'},
+      {emoji:'\ud83d\udd01', bold:'Fruchtfolge gegen deine echte Historie:', text:' Aus deinen erfassten Pflanzungen und Ernten wird je Familie das Jahr der letzten Anwesenheit berechnet. Drei Jahre Pause beugt Bodenm\u00fcdigkeit vor. „Meine Pflanzen" z\u00e4hlt dabei nur als Hinweis \u2014 die Liste sagt WAS du h\u00e4ltst, nicht WO.'},
+      {emoji:'\ud83c\udfa8', bold:'Der Planer war im Dunkelmodus stellenweise unlesbar:', text:' Weisse Kasten mit heller Schrift, dunkelbraune \u00dcberschriften auf dunklem Grund \u2014 43 Stellen unter der Lesbarkeitsschwelle, einige praktisch unsichtbar. Alle behoben; der Pr\u00fcfstand meldet jetzt 0 in beiden Modi.'},
+      {emoji:'\ud83d\udd2c', bold:'Und warum das niemand gemerkt hat:', text:' Der Kontrast-Pr\u00fcfstand hat nur die elf Hauptbildschirme vermessen \u2014 was in einem Fenster steckt, sah er nie. Er \u00f6ffnet den Planer jetzt selbst und scrollt ihn durch. Gestern hat mich diese L\u00fccke sogar eine falsche \u201eKorrektur\u201c gekostet, die eine Stelle schlechter gemacht hat; die ist zur\u00fcckgenommen.'},
+    ],
+  },
+  {
     v: 'v31.76', date: '02.09.2026',
     headline: '\u23f1\ufe0f Der gespeicherte Plan meldet sich \u2014 und das Speichern funktioniert wirklich',
     summary: 'Ein Plan aus dem Speicher zeigt jetzt, was seither passiert ist: was abgehakt ist, welcher Termin verstrichen. Dazu Frost- und Aufwand-Pr\u00fcfung \u2014 und ein Rettungsweg beim Plan-Speichern, der bis heute toter Code war.',
@@ -67293,7 +67523,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.76';
+var GS_VERSION = 'v31.77';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

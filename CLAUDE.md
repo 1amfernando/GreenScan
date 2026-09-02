@@ -545,12 +545,41 @@ Spalte ist beeinflussbar — die zweite ist der Preis des 5,7-MB-Monolithen und
 eine Eigenschaft der Architektur, kein Fehler. Für einen Vergleich beide Stände
 mit **demselben** Aufruf messen; die Zahlen schwanken zwischen Läufen.
 
-**Grenze von `contrast_check` und `touch_check`:** beide vermessen, was auf den
-elf Bildschirmen **sichtbar** ist. Was in einem geschlossenen Fenster steckt,
-sehen sie nicht. In v31.51 wäre so eine neue Textstelle mit 3,46:1 durchgerutscht
-(Boden-Infobox im Gartenformular, `#e65100` auf `#fff3e0`) — gefunden nur, weil
-ich die Farbe von Hand nachgerechnet habe. **Wer Farbe in einem Modal setzt,
-rechnet selbst nach.**
+**Seit v31.77 misst `contrast_check` auch im Planer-Fenster.** Er rendert den
+KI-Planer mit dem Musterplan aus `scripts/_seed.js` (`MUSTERPLAN` +
+`AGRONOMIE`), **ungefaltet** — ohne `gsPPTabify`, weil verborgene Abschnitte
+nicht gemessen werden — und scrollt ihn in Bildschirmhöhen durch. Der erste
+Lauf fand **24 Stellen hell und 19 dunkel**, darunter „Vorbeugen:" mit 1,08:1
+(heller Text auf fest weissem Kasten) und den Knopf „Plan speichern" mit
+2,70:1. Wer ein weiteres Fenster prüfen will: dieselbe Stelle in
+`contrast_check.js` erweitern, nicht einen zweiten Prüfstand bauen.
+
+**`touch_check` hat diese Grenze weiterhin** — es misst nur die elf
+Bildschirme. Und für Farbe gilt unverändert: **wer Farbe in einem Modal setzt,
+das der Prüfstand nicht öffnet, rechnet selbst nach.**
+
+**Drei Fallen beim Kontrast-Messen**, alle in v31.77 durchgemacht:
+
+1. **Ein Verlauf macht `backgroundColor` durchsichtig.** Wer die Elternkette
+   hochsteigt, misst einen Grund, der gar nicht dort ist.
+2. **Verlaufsstufen sind oft `rgba(…, 0.08)`.** Deckkraft ignorieren heisst
+   mit sattem Dunkelgrün rechnen, wo fast Weiss steht — 13 Fehler, die es
+   nicht gibt.
+3. **Was von etwas Festem oder Klebendem überlappt wird, darf nicht vermessen
+   werden.** Hit-Testing allein reicht nicht: eine Kopfleiste mit
+   `pointer-events:none` fängt keinen Treffer ab und verdeckt trotzdem.
+
+Das ist kein akademischer Hinweis. In v31.76 habe ich wegen Falle 1 zwölf
+Stellen von `#88a888` auf `var(--muted)` geändert — auf dem dunklen 3D-Feld
+sind das **6,87:1 vorher und 1,83:1 nachher**. Eine gute Stelle kaputt gemacht,
+um eine Falschmeldung zu bedienen. In v31.77 zurückgenommen. **Eine Farbe erst
+ändern, wenn der Messwert reproduzierbar ist.**
+
+**Und: eine feste Farbe kann selten beide Modi bedienen.** `#bf360c` ist hell
+richtig (5,6:1) und dunkel falsch (2,8:1). Für Text auf Themenflächen die
+Variablen nehmen (`--c-warn-d`, `--c-success-d`, `--text`); umgekehrt braucht
+eine **fest helle** Fläche eine **fest dunkle** Schrift — dort wird
+`var(--c-success-d)` im Dunkelmodus zu Hellgrün auf Hellgrün.
 
 Beide sollen **0** melden. Wenn nicht, ist es entweder ein echter Fund oder
 eine Falschmeldung des Prüfstands — und die zweite Möglichkeit ist schon
