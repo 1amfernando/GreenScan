@@ -4,13 +4,52 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.90` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.91` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (cc) — v31.91: die Suchliste zeigte weiter „Essbar", was die Karte schon zurückgenommen hatte
+
+Aufgefallen beim Testen der Suchreihenfolge — nicht gesucht, sondern gesehen.
+
+#### Eine halbe Korrektur ist keine
+
+In v31.90 habe ich die grüne „🍽️ Essbar"-Plakette auf ungeprüften Artenkarten zurückgenommen. Die **Trefferliste** zeigte sie weiter:
+
+```
+🌸 Ampfer · Rumex ucranicus     ✅ Essbar
+🌸 Ampfer · Rumex maritimus     ✅ Essbar
+🌸 Ampfer · Rumex pulcher       ✅ Essbar        … 28×
+```
+
+Und die Trefferliste sieht man **vor** der Karte. Dieselbe Zusage, einen Bildschirm früher — genau die Sorte halbe Arbeit, die ich diese Woche mehrfach an fremdem Code kritisiert habe.
+
+Jetzt steht dort „❔ nicht geprüft", und der grüne Rand der Karte fällt ebenfalls weg. **An beiden Listenrenderern** — es gibt zwei, und einer davon hätte es sonst weiter angezeigt.
+
+#### Geprüfte Arten zuerst
+
+„Brennnessel" trifft neun Einträge, „Ampfer" achtundzwanzig. Bei gleicher Relevanz entschied bisher das Alphabet — ganz oben stand, wer zufällig vorne im ABC lag.
+
+Jetzt:
+
+```
+🌸 Brennnessel · Urtica dioica       ✅ Essbar · 💊 Heilpflanze     ← geprüft
+🌸 Brennnessel · Urtica pilulifera   ❔ nicht geprüft
+🌸 Brennnessel · Urtica officinalis  ❔ nicht geprüft
+🌸 Brennnessel · Urtica ramiflora    ❔ nicht geprüft
+```
+
+**Die Relevanz selbst bleibt unangetastet** (`b.sc − a.sc` steht weiterhin zuerst): ein exakter Treffer schlägt alles. Es geht nur um die Reihenfolge bei Gleichstand — und dort ist „geprüft vor ungeprüft" die einzige Ordnung, die etwas aussagt.
+
+#### Prüfstände
+
+`render_check` 2872 · 0 JS-Fehler · 0 verdächtig · `contrast_check` 0/0 (die neue graue Marke: 6,3:1 hell, 5,3:1 dunkel, nachgerechnet) · `touch_check` 0 · `wiring_check` 0/0/0 + 31 Ziele · `save_check` 7/7 · `data_check` 0/0.
+
+---
 
 ### 2026-09-02 (cb) — v31.90: was nie geprüft wurde, sagt es jetzt
 

@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.90.20260902">
+<meta name="app-version" content="31.91.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13867,6 +13867,7 @@ window.GS_I18N_JS_STRINGS = {
   // ── v28.48: Arten-Detail (openDetail) ──────────────────────────
   'detail_not_found':          'Art nicht gefunden:',
   'tag_edible':                'Essbar',
+  'tag_unverified':            'nicht geprüft',
   'tag_medicinal':             'Heilpflanze',
   'tag_protected':             'Geschützt',
   'tag_nontoxic':              'Ungiftig',
@@ -30240,7 +30241,24 @@ function getFiltered(){
       if (d<=2) scored.push({sp:e2.sp, sc:(50-d)});
     }
   }
-  scored.sort(function(a,b){ return (b.sc-a.sc) || a.sp.name.localeCompare(b.sp.name,'de'); });
+  // v31.91: Bei GLEICHER Relevanz kommt der geprüfte Eintrag zuerst.
+  //
+  // „Ampfer" trifft 28 Einträge mit demselben Trivialnamen, „Brennnessel"
+  // vier. Bis hierher entschied bei Gleichstand das Alphabet — und ganz oben
+  // stand, wer zufällig vorne im ABC lag. Wer eine Wildpflanze sucht,
+  // bekommt jetzt zuerst den Eintrag mit Warnhinweis und
+  // Verwechslungsangabe; die ungeprüften aus der Buch-Einlese stehen
+  // darunter.
+  //
+  // Die Relevanz selbst bleibt UNANGETASTET (`b.sc - a.sc` zuerst): ein
+  // exakter Treffer schlägt weiterhin alles. Es geht nur um die Reihenfolge
+  // bei Gleichstand — und dort ist „geprüft vor ungeprüft" die einzige
+  // Ordnung, die etwas aussagt.
+  scored.sort(function(a,b){
+    return (b.sc - a.sc)
+        || ((a.sp._unverified ? 1 : 0) - (b.sp._unverified ? 1 : 0))
+        || a.sp.name.localeCompare(b.sp.name,'de');
+  });
   return scored.map(function(x){ return x.sp; });
 }
 
@@ -30285,12 +30303,17 @@ function renderList(){
     // Tags: max 2 anzeigen (Karte bleibt gleich hoch)
     const tags = [];
     if (sp.tox >= 3)    tags.push('<span class="tag t">'+t.sym+' ' + _t('badge_giftig','Giftig') + '</span>');
-    else if (sp.edible) tags.push('<span class="tag e">✅ ' + _t('tag_edible','Essbar') + '</span>');
+    // v31.91: Dieselbe Regel wie auf der Detailkarte (v31.90) — eine gruene
+    // „Essbar"-Plakette auf einem ungeprueften Eintrag ist dieselbe Zusage,
+    // ob sie in der Liste oder im Detail steht. Sie hier stehen zu lassen
+    // waere eine halbe Korrektur: der Mensch sieht die Liste ZUERST.
+    else if (sp.edible && !sp._unverified) tags.push('<span class="tag e">✅ ' + _t('tag_edible','Essbar') + '</span>');
+    else if (sp.edible && sp._unverified)  tags.push('<span class="tag" style="background:var(--surface2);color:var(--muted);">❔ ' + _t('tag_unverified','nicht geprüft') + '</span>');
     if (sp.medicinal)   tags.push('<span class="tag m">💊 ' + _t('tag_medicinal','Heilpflanze') + '</span>');
     if (sp.protected)   tags.push('<span class="tag p">🛡️ ' + _t('tag_protected','Geschützt') + '</span>');
     const tagsHtml = tags.slice(0,2).join(''); // Max 2 Tags
     const latName = sp.lat ? sp.lat : '​'; // Zero-width space wenn leer → Höhe bleibt
-    var toxBorder = sp.tox >= 4 ? '#c62828' : sp.tox >= 2 ? '#f57f17' : sp.tox === 0 && sp.edible ? '#2e7d32' : 'transparent';
+    var toxBorder = sp.tox >= 4 ? '#c62828' : sp.tox >= 2 ? '#f57f17' : (sp.tox === 0 && sp.edible && !sp._unverified) ? '#2e7d32' : 'transparent';
     return '<div class="sp-card" onclick="openDetail(this.dataset.sid)" data-sid="'+sp.id+'" style="border-left:3px solid '+toxBorder+';">' +
       '<div class="sp-inner">' +
         '<div class="sp-emoji">' + (typeof getEmoji==='function'?getEmoji(sp):(sp.emoji||'🌿')) + '</div>' +
@@ -30337,12 +30360,14 @@ function loadMoreList() {
     var t = toxInfo(sp.tox || 0);
     var tags = [];
     if (sp.tox >= 3)    tags.push('<span class="tag t">'+t.sym+' ' + _t('badge_giftig','Giftig') + '</span>');
-    else if (sp.edible) tags.push('<span class="tag e">\u2705 ' + _t('tag_edible','Essbar') + '</span>');
+    // v31.91: siehe oben — dieselbe Regel, zweite Liste.
+    else if (sp.edible && !sp._unverified) tags.push('<span class="tag e">\u2705 ' + _t('tag_edible','Essbar') + '</span>');
+    else if (sp.edible && sp._unverified)  tags.push('<span class="tag" style="background:var(--surface2);color:var(--muted);">\u2753 ' + _t('tag_unverified','nicht gepr\u00fcft') + '</span>');
     if (sp.medicinal)   tags.push('<span class="tag m">\ud83d\udc8a ' + _t('tag_medicinal','Heilpflanze') + '</span>');
     if (sp.protected)   tags.push('<span class="tag p">\ud83d\udee1\ufe0f ' + _t('tag_protected','Gesch\u00fctzt') + '</span>');
     var tagsHtml = tags.slice(0,2).join('');
     var latName = sp.lat ? sp.lat : '\u200b';
-    var toxBorder = sp.tox >= 4 ? '#c62828' : sp.tox >= 2 ? '#f57f17' : sp.tox === 0 && sp.edible ? '#2e7d32' : 'transparent';
+    var toxBorder = sp.tox >= 4 ? '#c62828' : sp.tox >= 2 ? '#f57f17' : (sp.tox === 0 && sp.edible && !sp._unverified) ? '#2e7d32' : 'transparent';
     var emoji = typeof getEmoji === 'function' ? getEmoji(sp) : (sp.emoji || '\ud83c\udf3f');
     var name = typeof escHtml === 'function' ? escHtml(sp.name) : sp.name;
     return '<div class="sp-card" onclick="openDetail(\'' + sp.id + '\')" data-sid="' + sp.id + '" style="border-left-color:' + toxBorder + ';">' +
@@ -68273,6 +68298,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.91', date: '02.09.2026',
+    headline: '\ud83d\udd0d Die Suchliste zeigte weiter „Essbar", was die Detailkarte schon zur\u00fcckgenommen hatte',
+    summary: 'Die gr\u00fcne Plakette war auf der Artenkarte weg \u2014 in der Trefferliste stand sie noch. Und die Trefferliste sieht man ZUERST. Dazu: bei gleicher Relevanz kommen gepr\u00fcfte Eintr\u00e4ge nach oben.',
+    user_summary: '\ud83d\udd0d In der Suche stehen gepr\u00fcfte Arten zuoberst, und ungepr\u00fcfte tragen dort dieselbe Kennzeichnung wie auf ihrer Karte.',
+    user_items: [
+      {emoji:'\ud83d\udd0d', bold:'Eine halbe Korrektur ist keine:', text:' Gestern habe ich die gr\u00fcne „Essbar"-Plakette auf ungepr\u00fcften Artenkarten zur\u00fcckgenommen. In der Trefferliste stand sie weiter \u2014 und die sieht man vor der Karte. Jetzt steht dort „\u2753 nicht gepr\u00fcft", und der gr\u00fcne Rand der Karte f\u00e4llt ebenfalls weg.'},
+      {emoji:'\u2b06\ufe0f', bold:'Gepr\u00fcfte Arten zuerst:', text:' „Brennnessel" trifft neun Eintr\u00e4ge, „Ampfer" achtundzwanzig. Bei gleicher Relevanz entschied bisher das Alphabet. Jetzt kommt der Eintrag mit Warnhinweis und Verwechslungsangabe zuerst \u2014 die Relevanz selbst bleibt unangetastet, ein exakter Treffer schl\u00e4gt weiterhin alles.'},
+    ],
+  },
+  {
     v: 'v31.90', date: '02.09.2026',
     headline: '\u2753 Was nie gepr\u00fcft wurde, sagt es jetzt \u2014 statt gr\u00fcn „Essbar" zu zeigen',
     summary: '1383 Eintr\u00e4ge aus der Buch-Einlese haben weder Warnhinweis noch Verwechslungsangabe noch Saison. 68 davon behaupteten „essbar" mit gr\u00fcner Plakette. Die App hatte f\u00fcr genau diesen Fall schon einen Mechanismus \u2014 er war nur nie auf diese Eintr\u00e4ge angewandt.',
@@ -68774,7 +68809,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.90';
+var GS_VERSION = 'v31.91';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
