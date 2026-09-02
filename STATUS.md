@@ -4,13 +4,106 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.11` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.21` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (dk) — v32.21: 130 Speicherplätze überlebten das Abmelden, 123 hatte niemand entschieden
+
+Fernandos Liste begann mit **Speicherorten**. Gemessen statt gelesen: alle 205
+im Quelltext vorkommenden `localStorage`-Schlüssel plus die zur Laufzeit
+entstandenen auf `SPUR-VON-NUTZER-A` gesetzt, dann den echten Abmelde-Weg
+gefahren (`gsClearUserDataKeys` · `sbClearSession` · `gsOnLogout`) und
+nachgezählt.
+
+```
+gesetzt: 209 · nach dem Abmelden noch da: 130
+davon in einer der beiden Listen genannt: 7
+```
+
+**123 Schlüssel blieben liegen, ohne dass je jemand entschieden hatte, dass
+sie liegen bleiben sollen.** Die schwersten:
+
+| Schlüssel | Was drinsteht |
+|---|---|
+| `ps_api_key` | der persönlich hinterlegte Anthropic-Schlüssel (`sk-ant-…`) |
+| `gs_global_api_key` (+5) | der vom Admin hinterlegte globale Schlüssel |
+| `gs_auth_db` | lokale Anmelde-Ablage **mit E-Mail-Adressen** |
+| `gs_sb_user` | das ganze Nutzerobjekt aus Supabase |
+| `gs_admin_pw_hash` · `gs_admin_log` | Admin-Zugang und Admin-Protokoll |
+
+Und die zweite Hälfte des Fundes, die den ersten erst teuer macht:
+`getApiConfig()` (Z. ~26574) liest `ps_api_key` und `gs_global_api_key`
+**ohne jede Anmelde-Prüfung**. Auf einem geteilten Gerät scannte der nächste
+Nutzer damit auf Rechnung des vorigen.
+
+#### Warum es sechsmal repariert wurde und trotzdem offen war
+
+Diese Klasse ist seit v29.10 **sechsmal** einzeln nachgetragen worden —
+v29.10 (Abo-Cache), v29.19 (GPS-Tracks, Anzeigename), v29.44
+(Marktplatz-Chats, Experten-Antrag), v30.94 (Community-Entwurf), v30.97
+(Snapshot-Spur), v31.12 (Wander-Aufzeichnung). Jedes Mal ein Fund, jedes Mal
+ein Eintrag in `GS_USER_KEYS`, **nie eine Prüfung dahinter**.
+
+`GS_KEEP_ON_LOGOUT` gab es seit v26.69 — mit neun Einträgen und der Ansage im
+eigenen Kopf: *„Dient als Doku."* Alles, was in keiner der beiden Listen
+stand, blieb implizit liegen. Genau darin liegt der Fehler: eine Doku, die
+nichts erzwingt, wächst nicht mit.
+
+#### Was jetzt gilt
+
+**Beide Listen sind vollständig, und die Regel ist umgekehrt:**
+
+> Jeder Schlüssel, der das Abmelden überlebt, muss **namentlich** in
+> `GS_KEEP_ON_LOGOUT` (oder `GS_KEEP_PREFIXES`) stehen.
+
+- `GS_USER_KEYS` 70 → **118** (+48), dazu `GS_USER_PREFIXES`
+  (`gs_aicalls_`, `gs_sync_dirty_at_`, `gs_sync_synced_at_` — `gsOnLogout`
+  räumte bisher genau drei Bereiche, jeder weitere blieb liegen).
+- `GS_KEEP_ON_LOGOUT` 9 → **77**, gruppiert und **je Gruppe begründet**:
+  Oberfläche · Backend-Adresse · Standort · Geräte-Berechtigungen ·
+  Zwischenspeicher öffentlicher Inhalte · Ansicht/Filter · einmalige
+  Hinweise · Entwickler-Schalter · Einmal-Migrationen.
+- `gsClearUserDataKeys` räumt jetzt auch **Präfix-Familien** und die
+  **Spiegel im Arbeitsspeicher** (`marketListings`, `farmState`,
+  `_gsDev.registry`). Ohne die zweiten wäre der Speicher sauber und der
+  Bildschirm nicht.
+- `getApiConfig()` gibt **ohne Anmeldung keinen Schlüssel** mehr heraus.
+  Bewusst als Schranke, nicht als Löschung: auf Bestandsgeräten liegt der
+  Schlüssel schon; ihn bei einer bloss **abgelaufenen** Sitzung zu vernichten
+  wäre Datenverlust an etwas, das der Nutzer selbst eingetippt hat. Meldet
+  sich ein anderes Konto an, räumt der User-Wechsel-Zweig ihn ohnehin weg.
+
+Ergebnis nach dem Umbau: **219 gesetzt · 79 überleben · 0 unbenannt.**
+
+#### Der 15. Prüfstand: `scripts/storage_check.js`
+
+Fünf Fragen, jede mit eigener Zeile im Bericht:
+
+| | |
+|---|---|
+| **A** | überlebt, steht in KEINER Liste → Fehler |
+| **B** | steht in `GS_USER_KEYS`, überlebt trotzdem → Fehler |
+| **C** | wird als bleibend geführt, ist aber weg → Fehler |
+| **D** | steht in BEIDEN Listen → Widerspruch |
+| **E** | in einer Liste, im Quelltext unbekannt → Hinweis |
+
+**Zwei Gegenproben, beide stellen den Fall wirklich her** — ein fremder
+Schlüssel, den niemand eingeordnet hat (muss in A auftauchen), und ein
+Schlüssel, der als bleibend geführt wird, aber gelöscht wird (muss in C
+auftauchen). Ohne die zweite wäre eine Prüfung, die C gar nicht mehr rechnet,
+ebenfalls grün.
+
+**Grenze, ehrlich benannt:** geprüft wird der `localStorage`. IndexedDB
+(`pending_scans`, `pending_photos`, `dropped_entries`) und die Cache-API
+prüft er **nicht** — ein Foto in der Warteschlange überlebt das Abmelden
+weiterhin. Das ist die nächste Frage, nicht diese.
+
+---
 
 ### 2026-09-02 (dj) — Kaltstart untersucht, kein lohnender Angriffspunkt
 
@@ -6640,11 +6733,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.20` (Client) · SW-Cache `gs-v32.20` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.21` (Client) · SW-Cache `gs-v32.21` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **88'261 Zeilen / 5,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Frontend:** `index.html` **88'431 Zeilen / 5,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.
-- **Prüfstände:** **14** in `scripts/` (siehe `CLAUDE.md` §7.1). Alle grün, keine Falschmeldungen.
+- **Prüfstände:** **15** in `scripts/` (siehe `CLAUDE.md` §7.1). Alle grün, keine Falschmeldungen. Neu seit v32.21: `storage_check.js` — was überlebt das Abmelden?
 - **Architektur-Detailkarte:** `BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte
@@ -6675,6 +6768,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | `book-ingest` ohne Spiegel | Dokumentiert statt gespiegelt (~250 dichte Zeilen). `backend_check` nennt es bei jedem Lauf. (df) |
 | `feedback_analysis` = 0 Zeilen | „Nie gedrückt" und „bricht immer ab" sind von hier aus nicht zu unterscheiden. Ein Knopfdruck im Admin-Panel klärt es. (df) |
 | Kaltstart 3,3 s (Einsteiger-Telefon) | Untersucht, kein lohnender Angriffspunkt für Teil-Auslagerung. Bräuchte einen echten Aufteilungsschritt. (dj) |
+| **IndexedDB und Cache-API überleben das Abmelden** | `storage_check` prüft den `localStorage` vollständig — ein Foto in `pending_photos` und ein Eintrag in `dropped_entries` bleiben weiterhin liegen. Nächste Frage, nicht diese. (dk) |
 | 3 Verzeichnisse im Repo ohne Auslieferung | `daily-push`, `entitlements`, `push-test` — nie deployed oder entfernt? (df) |
 | 4 Treffer in `field_check` | `tp-len`/`tp-wid`/`tp-soil`/`tp-light` — zusammengesetzte Namen, funktionieren. Dauerhafte Falschmeldung, in `CLAUDE.md` §7.1 benannt. |
 

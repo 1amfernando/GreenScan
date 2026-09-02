@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.20.20260902">
+<meta name="app-version" content="32.21.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26572,6 +26572,22 @@ async function gsRequestLocation(opts){
 //   Free-User ohne personal Key → bekommt global Key + 15 AI-Calls/Tag (gsAboCanUse('ai_call')).
 //   Paid-User → bekommt global Key, kein Quota-Limit.
 function getApiConfig(){
+  // ── v32.21 Sicherheitsschranke ────────────────────────────────────────
+  // Ohne Anmeldung gibt es keinen Schluessel. Das ist die zweite Haelfte des
+  // Speicher-Audits: seit v32.21 raeumt der Logout ps_api_key und
+  // gs_global_api_key weg — aber auf JEDEM Geraet, das schon vorher
+  // abgemeldet wurde, liegen sie noch. Diese Zeile macht sie unbenutzbar,
+  // ohne etwas zu loeschen, das der Nutzer selbst eingetippt hat.
+  //
+  // Sobald sich ein ANDERES Konto anmeldet, raeumt gsSyncUserDataOnLogin
+  // (User-Wechsel-Zweig) sie ebenfalls weg. Beides zusammen schliesst die
+  // Luecke auf Bestandsgeraeten, ohne bei einer bloss abgelaufenen Sitzung
+  // einen persoenlich hinterlegten Schluessel zu vernichten.
+  try {
+    if (typeof sbIsLoggedIn === 'function' && !sbIsLoggedIn()) {
+      return { provider: 'anthropic', key: '', source: 'none' };
+    }
+  } catch(_){}
   // v24.18: Provider ist IMMER 'anthropic'. NVIDIA-Pfad entfernt.
   var globalKey = localStorage.getItem('gs_global_api_key') || '';
   var personalKey = localStorage.getItem('ps_api_key') || '';
@@ -71290,6 +71306,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.21', date: '02.09.2026',
+    headline: '\ud83d\udd10 Beim Abmelden bleibt nichts Pers\u00f6nliches mehr auf dem Ger\u00e4t liegen',
+    summary: 'Nachgemessen statt vermutet: von 209 Speicherpl\u00e4tzen \u00fcberlebten 130 das Abmelden, 123 davon hatte nie jemand entschieden \u2014 darunter der pers\u00f6nlich hinterlegte KI-Schl\u00fcssel, der globale Schl\u00fcssel, die lokale Anmelde-Ablage mit E-Mail-Adressen und der Admin-Passwort-Hash. Jetzt gehen 51 weitere Pl\u00e4tze mit, und ein 15. Pr\u00fcfstand meldet jeden neuen, den niemand eingeordnet hat.',
+    user_summary: '\ud83d\udd10 Wer sich abmeldet, l\u00e4sst auf einem geteilten Ger\u00e4t nichts Pers\u00f6nliches mehr zur\u00fcck \u2014 auch keinen KI-Schl\u00fcssel, mit dem der N\u00e4chste auf deine Rechnung scannen k\u00f6nnte.',
+    user_items: [
+      {emoji:'\ud83d\udd11', bold:'Der wichtigste Fund:', text:' Dein eigener KI-Schl\u00fcssel blieb nach dem Abmelden liegen \u2014 und die App benutzte ihn weiter, ohne zu fragen, wer gerade angemeldet ist. Auf einem Familien-Tablet scannte der N\u00e4chste auf deine Rechnung. Beides ist behoben: der Schl\u00fcssel geht mit, und ohne Anmeldung wird gar keiner mehr benutzt.'},
+      {emoji:'\ud83e\uddf9', bold:'51 weitere Speicherpl\u00e4tze gehen jetzt mit:', text:' E-Mail-Adressen, Admin-Zugang, dein Hof, deine Inserate, deine Merkliste, ungesendete Korrekturen und Vorschl\u00e4ge, deine Sensoren, der zuletzt getippte Suchbegriff. Und auch im Arbeitsspeicher \u2014 sonst w\u00e4re der Speicher sauber und der Bildschirm nicht.'},
+      {emoji:'\ud83e\udded', bold:'Was BLEIBEN darf, steht jetzt auch namentlich da:', text:' Dark-Mode, Sprache, Einheiten, Standort, gemerkte Filter, Zwischenspeicher \u2014 77 Pl\u00e4tze, jeder mit Begr\u00fcndung. Vorher blieb alles liegen, was niemand aufgez\u00e4hlt hatte.'},
+      {emoji:'\ud83d\udee1\ufe0f', bold:'Damit es nicht ein siebtes Mal passiert:', text:' Diese Klasse Fehler wurde seit v29.10 sechsmal einzeln repariert. Jetzt gibt es eine Pr\u00fcfung dahinter: sie setzt jeden Speicherplatz, meldet sich wirklich ab und meldet jeden, den niemand eingeordnet hat.'},
+    ],
+  },
+  {
     v: 'v32.20', date: '02.09.2026',
     headline: '\ud83e\udded Im Wald ohne Empfang endet der Scanner nicht mehr im Nichts',
     summary: 'Bisher hiess es dort nur „\ud83d\udce1 Offline". Jetzt kannst du eingrenzen: Monat und H\u00f6henlage kennt die App auch ohne Netz, Farbe und Gruppe w\u00e4hlst du \u2014 und sie zeigt, welche der 4\u2019342 Arten hier und jetzt \u00fcberhaupt in Frage kommen. Ohne Internet, ohne KI, in Millisekunden.',
@@ -71698,7 +71726,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.20';
+var GS_VERSION = 'v32.21';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -77622,21 +77650,103 @@ function gsOnLogout() {
   } catch(e){ console.warn('[gsOnLogout]', e); }
 }
 
-// v26.69 Universal-Save Audit: explizite Whitelist von LS-Keys die beim Logout
-// ERHALTEN bleiben. Dient als Doku — gsClearUserDataKeys löscht nur GS_USER_KEYS,
-// alles andere bleibt implizit. Diese Konstante dokumentiert, was bleibt.
-// (Pendant: clearAllData / Konto-Löschung wipet komplett bis auf gs_dark/lang/theme_color.)
+// ══════════════════════════════════════════════════════════════════════════
+// Was beim Abmelden GEHT und was BLEIBT — zwei vollstaendige Listen
+// ══════════════════════════════════════════════════════════════════════════
+//
+// Bis v32.20 war nur die eine Haelfte gepflegt: `GS_USER_KEYS` sagte, was
+// geloescht wird, `GS_KEEP_ON_LOGOUT` war ausdruecklich nur Doku und nannte
+// neun Schluessel. Alles Uebrige blieb IMPLIZIT liegen — niemand hatte je
+// entschieden, ob es liegen bleiben soll.
+//
+// Nachgemessen (scripts/storage_check.js): von 209 gesetzten Schluesseln
+// ueberlebten 130 das Abmelden, 123 davon standen in KEINER der beiden
+// Listen. Darunter:
+//
+//   ps_api_key                der persoenlich hinterlegte Anthropic-Schluessel
+//   gs_global_api_key         der vom Admin hinterlegte globale Schluessel
+//   gs_auth_db                lokale Anmelde-Ablage MIT E-Mail-Adressen
+//   gs_sb_user                das ganze Nutzerobjekt aus Supabase
+//   gs_admin_pw_hash          Admin-Passwort-Hash
+//
+// `getApiConfig()` liest ps_api_key und gs_global_api_key OHNE jede
+// Anmelde-Pruefung. Wer sich auf einem geteilten Geraet abmeldete, liess
+// seinen Schluessel dort — der naechste Nutzer scannte auf seine Rechnung.
+//
+// Diese Klasse ist seit v29.10 SECHSMAL einzeln repariert worden (v29.10,
+// v29.19, v29.44, v30.94, v30.97, v31.12) — jedes Mal ein Fund, jedes Mal
+// ein Nachtrag, nie eine Pruefung dahinter. Seit v32.21 gilt deshalb eine
+// harte Regel, die `scripts/storage_check.js` durchsetzt:
+//
+//   JEDER Schluessel, der das Abmelden UEBERLEBT, muss hier NAMENTLICH
+//   stehen. Wer einen neuen anlegt und ihn in keine der beiden Listen
+//   traegt, wird gemeldet.
+//
+// Das ist der Unterschied zwischen einer Doku und einer Entscheidung.
+// (Pendant: clearAllData / Konto-Loeschung wipet komplett bis auf
+// gs_dark/gs_theme_color/gs_lang.)
+
+// ── BLEIBT: Geraet, nicht Person ─────────────────────────────────────────
 var GS_KEEP_ON_LOGOUT = [
-  'gs_dark',           // Dark-Mode (UI-Pref, nicht user-spezifisch)
-  'gs_theme_color',    // Theme-Color (UI-Pref)
-  'gs_lang',           // Sprache (UI-Pref)
-  'gs_consent',        // revDSG-Consent (Re-Login soll Consent nicht zurücksetzen)
-  'gs_prefs',          // Settings-Toggles (homeWeather, showMoon, etc — wird beim Re-Login gsPrefsPull-überschrieben)
-  'gs_user_location',  // Letzte Standort-Info (Re-Login holt vom Cloud-Profil)
-  'gs_units',          // kg/lb-Anzeige
-  'gs_sb_url',         // Supabase-Endpoint
-  'gs_sb_key'          // Supabase-Anon-Key
+  // Oberflaechen-Vorlieben dieses Geraets
+  'gs_dark',            // Dark-Mode
+  'gs_theme_color',     // Theme-Farbe
+  'gs_lang',            // Sprache
+  'gs_units',           // kg/lb-Anzeige
+  'gs_prefs',           // Settings-Toggles (Re-Login ueberschreibt via gsPrefsPull)
+  'gs_consent',         // revDSG-Consent — Re-Login soll ihn nicht zuruecksetzen
+  'gs_auto_collections',// Sammlungen automatisch anlegen (Schalter)
+  'gs_claude_model',    // per Fallback-Kette ermitteltes Modell (Geraete-Eigenschaft)
+
+  // Verbindung zum Backend — oeffentlich by design (Anon-Key, RLS schuetzt)
+  'gs_sb_url','gs_sb_key',
+
+  // Standort. BEWUSSTE Entscheidung aus v26.69: bleibt liegen, das Re-Login
+  // holt ihn ohnehin aus dem Cloud-Profil. Alles Folgende haengt daran und
+  // bleibt aus demselben Grund — AUSSER Hof- und Gartenwetter, die an den
+  // geloeschten Hof/Garten des scheidenden Nutzers gebunden sind.
+  'gs_user_location','userLocation','gs_user_location_ts',
+  'gs_region','gs_user_region',
+  'gs_weather_cache','gs_weather_cache_home','gs_home_weather_loc',
+  'gs_weather_loc_manual','gs_weather_loc_mode',
+
+  // Geraete-Berechtigungen (Kamera/Standort) — Eigenschaft des Browsers
+  'gs_cam_perm','gs_perm_camera','gs_perm_geolocation','gs_perm_location',
+
+  // Zwischenspeicher oeffentlicher Inhalte — fuer alle gleich
+  'gs_recipes','gs_remedies','gs_i18n_bundles','gs_i18n_srcmaps',
+  'gs_dq_today_cache','gs_dq_today_key','gs_last_tip_week',
+
+  // Ansicht, Reiter, Filter — wo jemand zuletzt hingeschaut hat.
+  // Der zuletzt getippte SUCHBEGRIFF gehoert NICHT hierher (siehe unten).
+  'gs_bl_month','gs_bl_tab','gs_bl_bee',
+  'gs_ernte_unit','gs_ernte_view','gs_ernte_year',
+  'gs_tb_filter','gs_tb_cat_selected','gs_sae_cat',
+  'gs_map_layer','gs_scan_mode','gs_favs_sub_mode','gs_nl_cat','gs_nl_pmode',
+  'gs_market_cat','gs_market_sort','gs_market_region',
+  'gs_market_price_min','gs_market_price_max',
+  'gs_market_filter_organic','gs_market_filter_pestfree',
+  'gs_eingrenzen','gs_zahlen_offen',
+
+  // Einmalige Hinweise und Zaehler dieses Geraets
+  'gs_first_run_done','gs_seen_version','gs_open_count',
+  'gs_install_state','gs_install_declined','gs_install_cooldown',
+  'gs_push_prompt_dismissed','gs_notif_enabled','gs_scan_warning_shown',
+  'gs_auth_prompt_skip_until',
+
+  // Entwickler-Schalter
+  'gs_debug','gs_dev','gs_sh_demo','gs_feat_aiproxy',
+
+  // Einmal-Migrationen. Muessen bleiben — ein zweiter Lauf ist im besten
+  // Fall verschwendete Zeit und im schlechtesten ein Datenverlust.
+  'gs_db_filled_v3','gs_lookalike_filled','gs_emoji_normalized_v2',
+  'gs_photos_migrated_v29_40','gs_sync_v24_23_migrated','gs_harvest_consol_2815',
+  'gs_market_chats_purged_v3093','gs_garden_sync_queue_purged_v3096',
+  'gs_nc_taskclean_ts'
 ];
+// Praefix-Familien, die bleiben. `gs_perm_<name>` ist eine Geraete-
+// Berechtigung, kein Nutzerdatum.
+var GS_KEEP_PREFIXES = ['gs_perm_'];
 
 // v23.74: User-Data-Keys-Liste zentral (Login + Logout teilen sie)
 var GS_USER_KEYS = [
@@ -77676,16 +77786,76 @@ var GS_USER_KEYS = [
   // einem geteilten Geraet nicht zum naechsten Konto durchsickern.
   'gs_social_draft',
   'gs_soil_profile','gs_pp_garden_location',  // per-User Garten-Kontext (Boden/Standort)
-  'gs_wissen_read','gs_recipe_favs','gs_recent_searches'  // Lese-Fortschritt / Favoriten / Suchverlauf (cloud-restored)
+  'gs_wissen_read','gs_recipe_favs','gs_recent_searches',  // Lese-Fortschritt / Favoriten / Suchverlauf (cloud-restored)
+
+  // ── v32.21 Speicher-Audit: die 48 Schluessel, die bisher implizit lagen ──
+  // ZUGANGSDATEN. Der schwerste Fund. `getApiConfig()` (Z. ~26574) liest
+  // ps_api_key und gs_global_api_key ohne jede Anmelde-Pruefung: der
+  // Schluessel des Vorgaengers bezahlte die Scans des Nachfolgers.
+  'ps_api_key','ps_api_provider','gs_anthropic_key','anthropic_key',
+  'gs_global_api_key','gs_global_api_provider','gs_global_api_key_set_ts',
+  'gs_global_api_key_last_alert','gs_global_api_key_last_health','gs_global_api_key_last_warn',
+  // ANMELDUNG. gs_auth_db traegt E-Mail-Adressen, gs_sb_user das ganze
+  // Nutzerobjekt — sbClearSession() raeumte beide nicht.
+  'gs_auth_db','gs_auth_session','gs_sb_user','gs_sb_display_name','gs_sb_session_only',
+  'gs_admin_pw_hash','gs_admin_log',
+  // EIGENE INHALTE und noch nicht abgeschickte Warteschlangen. Eine
+  // Warteschlange bekommt ihre user_id erst beim Flush — was von Nutzer A
+  // liegen bleibt, landet im Konto von Nutzer B (dieselbe Klasse wie v31.04).
+  'gs_farm','gs_market','gs_market_listings','gs_sae_merkliste',
+  'gs_marker_tombstones','gs_scan_corrections_queue',
+  'gs_proposal_queue','gs_last_proposal_ts',
+  'gs_agent_queue','gs_agent_notify','gs_agent_last_selfcheck',
+  'gs_plan_umgesetzt','gs_home_dismissed_picks','gs_nl_edit_id','gs_error_log',
+  'gs_devices','gs_voter_key','gs_rate_current','gs_first_login',
+  // SUCHBEGRIFFE. gs_recent_searches steht seit v29.44 in dieser Liste — der
+  // zuletzt getippte Begriff ist aus demselben Grund kein Ansichtszustand.
+  'gs_tb_search','gs_sae_search','gs_market_search',
+  // EIGENE EINSTELLUNGEN, die mit dem Konto in die Cloud gehen
+  // (gs_push_settings steht im Nutzer-Snapshot, Z. ~78288).
+  'gs_push_settings','gs_reminder_prefs',
+  // ZEITSTEMPEL von Sicherung und Abgleich des scheidenden Kontos
+  'gs_snapshot_last','gs_snapshot_auto_day','gs_last_pull','gs_last_sync_ts','gs_prefs_synced_at',
+  // WETTER zu Hof und Garten — beides Koordinaten des scheidenden Nutzers.
+  // gs_weather_cache_home haengt an gs_user_location und bleibt deshalb.
+  'gs_weather_cache_farm','gs_weather_cache_garden'
 ];
+// Praefix-Familien, die MIT muessen. Ein fester Name reicht hier nicht:
+// gs_aicalls_<datum> und gs_sync_*_at_<bereich> entstehen zur Laufzeit.
+// gsOnLogout() raeumte bisher genau drei Bereiche ('plants','garden','state')
+// — jeder weitere blieb liegen.
+var GS_USER_PREFIXES = ['gs_aicalls_','gs_sync_dirty_at_','gs_sync_synced_at_'];
+
 function gsClearUserDataKeys(){
   try {
     GS_USER_KEYS.forEach(function(k){ localStorage.removeItem(k); });
+    // Praefix-Familien: einmal ueber den Speicher, Namen VORHER einsammeln
+    // (waehrend des Loeschens verschiebt sich der Index von localStorage.key).
+    try {
+      var weg = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (!k) continue;
+        for (var j = 0; j < GS_USER_PREFIXES.length; j++) {
+          if (k.indexOf(GS_USER_PREFIXES[j]) === 0) { weg.push(k); break; }
+        }
+      }
+      weg.forEach(function(k){ localStorage.removeItem(k); });
+    } catch(_){}
     if (typeof myPlants !== 'undefined') myPlants = [];
     if (typeof feedbackItems !== 'undefined') feedbackItems = [];
     if (typeof _gsTagebuch !== 'undefined') window._gsTagebuch = null;
     if (typeof _gsErnteLog !== 'undefined') window._gsErnteLog = null;
     if (typeof _gsMultiShots !== 'undefined') window._gsMultiShots = [];
+    // v32.21: dieselben Daten liegen auch im Arbeitsspeicher. Ohne diese
+    // Zeilen zeigt die Oberflaeche bis zum naechsten Neuladen weiter die
+    // Inserate, den Hof und die Sensoren des vorigen Kontos — der Speicher
+    // waere sauber und der Bildschirm nicht.
+    // `let` statt `var`: ein `typeof` in der zeitlichen Totzone WIRFT, ein
+    // eigenes try/catch je Zuweisung ist deshalb Pflicht.
+    try { marketListings = []; } catch(_){}
+    try { farmState = (typeof _gsFarmDefault === 'function') ? _gsFarmDefault() : farmState; } catch(_){}
+    try { if (typeof _gsDev !== 'undefined' && _gsDev) _gsDev.registry = {}; } catch(_){}
   } catch(e){ console.warn('[gsClearUserDataKeys]', e); }
 }
 
