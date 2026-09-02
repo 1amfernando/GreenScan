@@ -4,13 +4,42 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.05` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.06` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (cs) — v32.06: eine Maschine sollte nicht über eine Giftigkeits-Korrektur urteilen
+
+Nachfassen zu dem, was ich gerade gebaut habe. `feedback_items` hat eine
+automatische KI-Triage (`_gsFeedbackTriageOne`): ein „Product Owner" urteilt
+`accepted|rejected|needs_info|duplicate`, Priorität 1–5, Aufwand, Kategorie.
+Für Ideen und Fehlerberichte ist das richtig.
+
+**Für die zwei Arten, die ich heute in dieselbe Tabelle gelegt habe, ist es
+falsch** — und das wäre ein Fehler gewesen, den ich selbst erzeugt hätte:
+
+- `species_correction` — eine **sachliche Behauptung** über eine Art,
+  womöglich über die Essbarkeit. Sie braucht jemanden mit einem Buch, keine
+  Prioritäts-Zahl. Ein „rejected" auf der Karte hätte Staff gesagt, sie
+  könnten eine Giftigkeits-Korrektur übergehen.
+- `expert_application` — ein Mensch bewirbt sich mit Biografie und Diplomen.
+  „rejected: aus Scope, Aufwand low" wäre die Antwort einer Maschine auf eine
+  Bewerbung.
+
+Beide bleiben auf `ki_status: 'pending'` und damit im Filter „Offen", wo ein
+Mensch sie sieht. Nebenwirkung: sie kosten auch kein KI-Kontingent mehr.
+
+#### Prüfstand
+
+`save_check` **13/13** — ein Fall mehr, mit Gegenprobe: Korrektur und
+Bewerbung werden übersprungen (und die KI **gar nicht erst gefragt**), eine
+normale Idee wird weiterhin bewertet.
+
+---
 
 ### 2026-09-02 (cr) — v32.05: ein Weg, Arten-Angaben zu korrigieren
 

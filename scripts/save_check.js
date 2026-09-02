@@ -309,6 +309,27 @@ const SERVER_WEGE = [
     },
   },
   {
+    name: 'Keine KI-Bewertung für Korrekturen und Bewerbungen',
+    lauf: async () => {
+      if (typeof _gsFeedbackTriageOne !== 'function') return { ok: false, warum: 'Triage-Funktion fehlt' };
+      let gefragt = 0;
+      window.callAI = async () => { gefragt++; return '{"status":"rejected","priority":1,"effort":"low","category":"andere","rationale":"x","action":""}'; };
+      const mach = t => _gsFeedbackTriageOne({ type: t, title: 'x', body: 'Die Blütezeit ist Mai bis Juli, nicht April bis Juni.' });
+
+      const korr = await mach('species_correction');
+      if (korr) return { ok: false, warum: 'bewertet eine Arten-Korrektur wie einen Produkt-Vorschlag' };
+      const bew = await mach('expert_application');
+      if (bew) return { ok: false, warum: 'bewertet eine Bewerbung wie einen Produkt-Vorschlag' };
+      if (gefragt) return { ok: false, warum: 'fragt die KI trotzdem (' + gefragt + '×) — kostet Kontingent für nichts' };
+
+      // Gegenprobe: eine echte Idee wird weiterhin bewertet.
+      const idee = await mach('idea');
+      if (!idee) return { ok: false, warum: 'bewertet auch eine normale Idee nicht mehr' };
+      if (gefragt !== 1) return { ok: false, warum: 'die KI wurde ' + gefragt + '× gefragt statt einmal' };
+      return { ok: true, info: 'Korrektur und Bewerbung übersprungen, Idee bewertet' };
+    },
+  },
+  {
     name: 'Experten-Haken liest die Rolle, nicht die tote Spalte',
     lauf: async () => {
       if (typeof gsIsVerifiedExpert !== 'function') return { ok: false, warum: 'Funktion fehlt' };
