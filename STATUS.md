@@ -4,13 +4,70 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-01 · **Branch**: `main` · **Version**: `v31.59` (PR offen) · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.75` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (bm) — v31.75: der Planer denkt in Jahren · Entwurf für V3 im Repo
+
+Fernando: *„Der KI-Planer wurde nicht richtig geupgradet. Ich möchte dass du V3 planst mit wahnsinnig gute ideen und neuerungen."*
+
+Er hat recht, und es lohnt sich zu sagen warum. Was v31.73 unter dem Namen „Planer V3" lieferte, war die **Umsetz-Liste** — der fertige Plan wird zur Checkliste und schreibt echte Pflanzungen. Nützlich, aber ein **Transportweg für das Ergebnis**. Dasselbe gilt für v31.58–v31.65: Zwilling-Kontext, Lichtprüfung, Nachbarschaftsprüfung, ehrlicher Fortschritt. Alles Verbesserungen **am Rand**. Der Plan in der Mitte war seit v24 derselbe: **ein Rechteck, einmal befüllt, für eine Saison.**
+
+#### Der Entwurf: `docs/PLANER-V3.md`
+
+Zehn Neuerungen, fünf Stufen, und eine Trennlinie, die für die ganze App gilt:
+
+| rechnet (Code, prüfbar, offline) | rät (KI) |
+|---|---|
+| Aussaatfenster, Standdauer, Frost | Sortenwahl und Begründung |
+| Platzbedarf, Deckung, Kollisionen | Gestaltung, Reihenfolge |
+| Wasserbilanz, Arbeitslast, Ernteverteilung | Tipps, Fallstricke |
+| Saatgut-Abgleich, Fruchtfolge-Historie | Klimazonen-Einschätzung |
+
+**Alles links darf die KI vorschlagen, aber nie allein entscheiden.** Die Reihenfolge der Stufen folgt daraus: zuerst alles, was ohne Netz zur KI beweisbar ist.
+
+#### Gebaut: Stufe 1
+
+**Das Gartenjahr.** Ein Beet im Mittelland ist neun Monate nutzbar und trägt drei Kulturen — Radieschen, Bohne, Feldsalat auf demselben Quadratmeter. Im ganzen Schema gab es kein Feld, in dem stünde, dass ein Platz zweimal belegt wird. Neuer Reiter **„Jahr"**: ein Balken je Kultur über März–November, aus `sow_date`/`harvest_from`/`harvest_to`. Wo Daten fehlen, gibt es **keinen** Balken — ein erfundener wäre schlimmer als eine Leerstelle.
+
+**Die Lückenfüller.** Zu jeder Lücke ≥ 6 Wochen sucht `_gsPlanLuecken` in `garden_crop_agronomy` nach Kulturen, deren Aussaat- **und** Erntemonate wirklich hineinfallen — Familie der Hauptkultur ausgeschlossen (Fruchtfolge). Kein KI-Aufruf, eine Auswahl aus geprüften Daten.
+
+**Vier neue rechnende Prüfungen** in derselben Tafel, mit demselben Dreizustandsschema:
+
+| Regel | Was sie fand (Testlauf) |
+|---|---|
+| R1 Aussaatfenster | „Kohlrabi am 10. Jan — geprüftes Fenster ist Mär/Apr/Jul" |
+| R3 Stückzahl | „12× Kohlrabi mit 30 cm braucht 1.08 m², das Feld hat 0.7 — dort passen 7" |
+| R4 Saatgut | „2 von 4 hast du schon — abgelaufen: Radieschen Sora. Kaufen: Kohlrabi, Basilikum" |
+| R6 Wasser | „braucht 40 l/Woche, gemessener Regen liefert 66 l — das reicht" |
+
+Dazu R11, die Ernte über die Monate als Säulen: zeigt die Zucchini-Schwemme im August neben dem leeren Mai.
+
+#### Zwei Dinge, die der eigene Testlauf korrigiert hat
+
+- **R1 meldete zuerst die Tomate.** Die Referenz sagt „Aussaat Mär/Apr" (Vorkultur), der Plan nennt den 20. Mai (Auspflanzen) — **beides richtig**. Eine Prüfung, die genau die Fälle meldet, in denen die KI recht hat, ist wertlos. Jetzt ein Monat Toleranz, begründet im Code. Kohlrabi im Januar (zwei Monate daneben) bleibt ein Fund.
+- **Weiss auf dem Balken sind 3,3:1.** Die Balkenfarbe kommt aus der KI-Antwort und kann alles sein. `_gsAufFarbe()` rechnet die relative Leuchtdichte aus und wählt Schwarz oder Weiss. Nachgemessen: **50 Textstellen, beide Modi, 0 unter AA** — auch auf Gelb (`#ffee58`) und Dunkelgrün (`#1b5e20`).
+
+Ebenso korrigiert: die Balkenbeschriftung ragte aus schmalen Balken heraus. Drei Stufen jetzt — volle Spanne, nur Monate, gar nichts; die volle Angabe steht immer im `title`.
+
+#### Nebenbei: die Release-Liste wieder auf Mass
+
+`GS_RELEASES` war inline auf **27** Einträge gewachsen — CLAUDE.md §3.1 sagt ~12, der Rest gehört ins Archiv. 15 Einträge (31 KB) sind nach `data/releases.v1.js` gewandert, Archiv jetzt 411 Einträge, **keine Doppelten**. Das ist genau der Zweck der Zweiteilung: nicht jeder Kaltstart soll die ganze Historie parsen.
+
+#### Prüfstände
+
+`render_check` 2865 Elemente · 0 JS-Fehler · 0 verdächtige Textstellen · `contrast_check` 0/0 (hell + dunkel) · `touch_check` 0 · `wiring_check` 0/0/0 · eigener Jahr-Durchlauf 0 Fehler, 50 Kontrastmessungen bestanden.
+
+#### Offen (Stufen 2–5 des Entwurfs)
+
+Nachprüfung „Plan gegen Wirklichkeit" · Begründungszeile je Pflanze · Fruchtfolge gegen echte Historie · Mehrbeet-Planung aus dem Zwilling · Varianten-Vergleich · Kalender-Termine · belegbare Preistabelle.
+
+---
 
 ### 2026-09-02 (bl) — v31.74: „Angemeldet bleiben" tat nichts · neuer Prüfstand `field_check.py`
 

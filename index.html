@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.74.20260902">
+<meta name="app-version" content="31.75.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1382,6 +1382,31 @@ body.dark .mkt-chat-msg.them{background:#2a3f2a;color:var(--text);}
 .gs-pk-txt{flex:1;min-width:0;font-size:var(--fs-sm);color:var(--text2);line-height:1.45;}
 .gs-pk-txt b{color:var(--text);font-weight:800;}
 .gs-pk-marke{font-size:var(--fs-md);font-weight:900;line-height:1.45;flex-shrink:0;}
+/* v31.75 — Planer V3, Reiter „Jahr". Ein Balken je Kultur ueber neun Monate.
+   Die Spur ist prozentual, nicht in Pixeln: dieselbe Ansicht traegt vom
+   Telefon bis zum Tablet, ohne zweite Berechnung. */
+.gs-jahr-kopf{display:grid;grid-template-columns:repeat(9,1fr);margin-left:104px;font-size:var(--fs-xs);color:var(--muted);font-weight:700;letter-spacing:.3px;}
+.gs-jahr-kopf span{text-align:center;}
+.gs-jahr-band{margin-top:4px;}
+.gs-jahr-zeile{display:flex;align-items:center;gap:8px;margin-bottom:5px;}
+.gs-jahr-name{width:96px;flex-shrink:0;font-size:var(--fs-xs);font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.gs-jahr-spur{position:relative;flex:1;min-width:0;height:26px;background:var(--surface2);border-radius:var(--r-sm);overflow:hidden;}
+.gs-jahr-balken{position:absolute;top:3px;bottom:3px;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.gs-jahr-balken span{font-size:var(--fs-xs);font-weight:800;color:inherit;white-space:nowrap;padding:0 5px;}
+.gs-jahr-unsicher{background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.28) 0 5px,transparent 5px 10px);}
+.gs-jahr-fuss{font-size:var(--fs-xs);color:var(--muted);line-height:1.5;margin-top:7px;}
+.gs-luecke{border:1px dashed var(--border);border-radius:var(--r-md);padding:8px 10px;margin-top:8px;background:var(--card);}
+.gs-luecke-kopf{font-size:var(--fs-xs);font-weight:800;color:var(--text2);margin-bottom:6px;}
+.gs-luecke-chips{display:flex;flex-wrap:wrap;gap:5px;}
+.gs-luecke-chip{display:inline-block;padding:5px 10px;border-radius:999px;background:var(--bg-success-soft);color:var(--c-success-d);font-size:var(--fs-xs);font-weight:700;}
+/* Die Familie steht klein daneben — unterschieden ueber das Gewicht, NICHT
+   ueber Transparenz: opacity .65 auf dieser Paarung sind 3,2:1 und damit
+   unter der Grenze. Gewicht kostet keinen Kontrast. */
+.gs-luecke-chip i{font-style:normal;font-weight:500;}
+.gs-ernte-bar{display:grid;grid-template-columns:repeat(9,1fr);align-items:end;gap:4px;height:96px;margin-top:6px;}
+.gs-ernte-sp{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;gap:3px;}
+.gs-ernte-saeule{width:100%;background:var(--g-mid);border-radius:var(--r-sm) var(--r-sm) 0 0;min-height:2px;}
+.gs-ernte-sp span{font-size:var(--fs-xs);color:var(--muted);font-weight:700;}
 /* v31.66: Die Zeilenfassung traegt jetzt die Kartenoptik der Seite. Vorher
    erbte sie von .moon-card den dunkelblauen Verlauf — zwischen lauter hellen
    Karten war sie der einzige dunkle Balken und zog den Blick auf sich, obwohl
@@ -55178,6 +55203,10 @@ async function gsPPrun(opts) {
                                            .map(function (p) { return p.name; });
       plan._bestand   = (plan.plants || []).filter(function (p) { return p && p.existing === true; }).length;
     } catch (_) {}
+    // v31.75 (Planer V3, Stufe 1): das Pruefwerk. Laeuft NACH dem Platzieren,
+    // weil die Platzrechnung die endgueltigen Rechtecke braucht. Rechnet
+    // lokal, ohne Netz — siehe docs/PLANER-V3.md §4 (was rechnet, was raet).
+    try { if (typeof _gsPlanPruefwerk === 'function') _gsPlanPruefwerk(plan, data); } catch (_) {}
     // v23.57: Post-Processing — DB-Enrichment (IDs für Deep-Links + Warnungen)
     try {
       if (plan.plants && Array.isArray(plan.plants) && typeof DB !== 'undefined' && Array.isArray(DB)) {
@@ -55642,14 +55671,16 @@ function gsPPTabify(container, plan){
     var TABS = [
       {k:'overview', label:'📋 '+(typeof _lt==='function'?_lt('pp_tab_overview','Überblick'):'Überblick')},
       {k:'umsetzen', label:'✅ '+(typeof _lt==='function'?_lt('pp_tab_apply','Umsetzen'):'Umsetzen')},
+      {k:'jahr',     label:'📆 '+(typeof _lt==='function'?_lt('pp_tab_year','Jahr'):'Jahr')},
       {k:'plants',   label:'🌱 '+(typeof _lt==='function'?_lt('pp_tab_plants','Pflanzen'):'Pflanzen')},
       {k:'schedule', label:'📅 '+(typeof _lt==='function'?_lt('pp_tab_schedule','Zeitplan'):'Zeitplan')},
       {k:'care',     label:'💧 '+(typeof _lt==='function'?_lt('pp_tab_care','Pflege'):'Pflege')},
       {k:'threeD',   label:'🌐 3D'}
     ];
-    var top=[], bucket={overview:[],umsetzen:[],plants:[],schedule:[],care:[],threeD:[]};
+    var top=[], bucket={overview:[],umsetzen:[],jahr:[],plants:[],schedule:[],care:[],threeD:[]};
     function cls(n){
       if(n.id==='gs-umsetzen') return 'umsetzen';
+      if(n.id==='gs-jahr') return 'jahr';
       if(n.id==='pp-refine-box') return '_top';
       if(n.querySelector && n.querySelector('[onclick*="gsPPsavePlan"]')) return '_top';
       var txt=(n.textContent||'').toLowerCase();
@@ -55780,6 +55811,64 @@ function gsPPrenderPlan(plan, data) {
         'Im Plan steht es trotzdem \u2014 aber ohne festen Ort.');
     }
 
+    // ── v31.75: vier rechnende Regeln mehr (docs/PLANER-V3.md §2) ──────
+    //
+    // Bis hierher pruefte die Tafel, was der Platzierer selbst angerichtet
+    // hatte. Was die KI BEHAUPTET — Aussaattermine, Pflanzabstaende,
+    // Wassermengen — stand ungeprueft im Plan. Alle vier lassen sich
+    // ausrechnen, drei davon ohne jede Netzverbindung.
+
+    // R1 Aussaatfenster
+    if (plan._aussaat) {
+      if (plan._aussaat.konflikt.length) {
+        zeile('\ud83c\udf31', 'Aussaat', 'warn',
+          plan._aussaat.konflikt.map(function (k) {
+            return esc(k.name) + ' am ' + esc(k.datum) + ' \u2014 gepr\u00fcftes Fenster ist ' + esc(k.fenster);
+          }).join('; ') + '.');
+      } else if (plan._aussaat.ok) {
+        zeile('\ud83c\udf31', 'Aussaat', 'ok',
+          plan._aussaat.ok + ' Termin' + (plan._aussaat.ok === 1 ? '' : 'e') + ' im gepr\u00fcften Fenster.' +
+          (plan._aussaat.ungeprueft ? ' ' + plan._aussaat.ungeprueft + ' ohne Referenz \u2014 nicht gepr\u00fcft.' : ''));
+      }
+    }
+
+    // R3 Platzrechnung
+    if (plan._dichte) {
+      if (plan._dichte.eng.length) {
+        zeile('\ud83d\udd22', 'Anzahl', 'warn',
+          plan._dichte.eng.map(function (k) {
+            return esc(k.count + '\u00d7 ' + k.name) + ' mit ' + k.spacing + ' cm Abstand braucht ' + k.braucht +
+                   ' m\u00b2, das Feld hat ' + k.hat + ' m\u00b2 \u2014 dort passen ' + k.passt;
+          }).join('; ') + '.');
+      } else if (plan._dichte.ok) {
+        zeile('\ud83d\udd22', 'Anzahl', 'ok',
+          plan._dichte.ok + ' St\u00fcckzahl' + (plan._dichte.ok === 1 ? '' : 'en') + ' passen zum Pflanzabstand.');
+      }
+    }
+
+    // R4 Saatgut — nur wenn ueberhaupt etwas erfasst ist
+    if (plan._saatgut) {
+      var abgel = plan._saatgut.habe.filter(function (h) { return h.abgelaufen; });
+      if (plan._saatgut.habe.length) {
+        zeile('\ud83c\udf30', 'Saatgut', abgel.length ? 'warn' : 'ok',
+          plan._saatgut.habe.length + ' von ' + (plan._saatgut.habe.length + plan._saatgut.fehlt.length) +
+          ' hast du schon' +
+          (abgel.length ? ' \u2014 abgelaufen: ' + esc(abgel.map(function (h) { return h.seed; }).join(', ')) : '') +
+          (plan._saatgut.fehlt.length ? '. Kaufen: ' + esc(plan._saatgut.fehlt.join(', ')) + '.' : '.'));
+      } else if (plan._saatgut.fehlt.length) {
+        zeile('\ud83c\udf30', 'Saatgut', 'unbekannt',
+          'nichts aus deinem Inventar passt \u2014 kaufen: ' + esc(plan._saatgut.fehlt.slice(0, 6).join(', ')) + '.');
+      }
+    }
+
+    // R6 Wasserbilanz
+    if (plan._wasser) {
+      zeile('\ud83d\udca7', 'Wasser', plan._wasser.zusatz > 0 ? 'warn' : 'ok',
+        'Der Plan braucht ' + plan._wasser.bedarf + ' l/Woche. Der gemessene Regen (' + plan._wasser.mm +
+        ' mm in 14 Tagen auf ' + plan._wasser.flaeche + ' m\u00b2) liefert rund ' + plan._wasser.regen + ' l \u2014 ' +
+        (plan._wasser.zusatz > 0 ? plan._wasser.zusatz + ' l bleiben an dir.' : 'das reicht.'));
+    }
+
     if (zeilen.length) {
       html += '<div class="gs-pk"><div class="gs-pk-kopf">\ud83d\udd0d Plan-Pr\u00fcfung</div>' +
               zeilen.join('') + '</div>';
@@ -55790,6 +55879,11 @@ function gsPPrenderPlan(plan, data) {
   // gsPPTabify) — im Ueberblick wuerde sie zwischen Zusammenfassung und
   // Kennzahlen untergehen, obwohl sie das ist, was man mit dem Plan TUT.
   try { html += gsPPumsetzenBlock(plan); } catch (_) {}
+
+  // v31.75: das Gartenjahr. Eigener Reiter — im Ueberblick waere das Band
+  // zwischen Zusammenfassung und Kennzahlen begraben, dabei ist es die
+  // einzige Ansicht, die zeigt, ob der Plan die Flaeche wirklich nutzt.
+  try { if (typeof gsPPjahrBlock === 'function') html += gsPPjahrBlock(plan); } catch (_) {}
 
   // v24.25: Constraint-Issues-Banner ganz oben falls Validator was gefunden hat
   var _ppHiIssues = (plan._constraintIssues||[]).filter(function(i){ return i.severity === 'high'; });
@@ -56698,6 +56792,461 @@ function _gsPlanNachbarn(plan) {
 }
 window._gsAbstand = _gsAbstand;
 window._gsPlanNachbarn = _gsPlanNachbarn;
+
+// ══════════════════════════════════════════════════════════════════════════
+// v31.75 — PLANER V3, STUFE 1: DAS JAHR UND DAS PRUEFWERK
+// ══════════════════════════════════════════════════════════════════════════
+//
+// Der Entwurf steht in docs/PLANER-V3.md. Die Kurzfassung, warum es das hier
+// gibt:
+//
+// Der Plan war bis hierher EIN Rechteck, EINMAL befuellt, fuer EINE Saison.
+// Ein Beet im Mittelland traegt aber drei Kulturen im Jahr — Radieschen,
+// Bohne, Feldsalat auf demselben Quadratmeter. Im ganzen Schema gab es kein
+// Feld, in dem stuende, dass ein Platz zweimal belegt wird. Nicht schlecht
+// umgesetzt: nicht vorhanden.
+//
+// Und die zweite Haelfte, die Fortsetzung von §4a.2 in CLAUDE.md: der Prompt
+// verlangt seit v24 praezise Aussaattermine, Pflanzabstaende, Wassermengen
+// und Ertraege. Geprueft wurde davon NICHTS. Die KI durfte „Tomate aussaeen:
+// 12.03." ins Freiland schreiben und „12 Kohlrabi mit 30 cm Abstand auf
+// 0,4 m²" — beides sieht im Plan normal aus, beides ist falsch, und beides
+// laesst sich hier ausrechnen, ohne ein einziges Byte Netz.
+//
+// Alles in dieser Datei rechnet lokal. Wo die Datengrundlage fehlt, ist das
+// Ergebnis `null` — „nicht geprueft" mit Grund, nie eine erfundene Zusage.
+
+var GS_MON = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+// Wann waechst im Mittelland ueberhaupt etwas? Keine Naturkonstante, sondern
+// die Spanne, in der eine Beetluecke ueberhaupt ein Vorwurf ist. Im Januar
+// ist ein leeres Beet richtig.
+var GS_SAISON_VON = 3, GS_SAISON_BIS = 11;
+// Ab wann ist eine Luecke eine Luecke? Sechs Wochen — kuerzer bringt keine
+// Kultur zur Ernte, da ist Leerstand die richtige Antwort.
+var GS_LUECKE_TAGE = 42;
+
+function _gsPD(s) {
+  if (!s) return null;
+  var m = String(s).match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (!m) return null;
+  var d = new Date(+m[1], +m[2] - 1, +m[3]);
+  return isNaN(d.getTime()) ? null : d;
+}
+function _gsTage(a, b) { return Math.round((b - a) / 86400000); }
+function _gsPlusTage(d, n) { var x = new Date(d.getTime()); x.setDate(x.getDate() + n); return x; }
+function _gsISO(d) {
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+}
+function _gsDatKurz(d) { return d.getDate() + '. ' + GS_MON[d.getMonth()]; }
+// Beim Saatgut zaehlt das Jahr: „1. Mär" sagt nicht, ob die Tuete 2024
+// abgelaufen ist oder 2027 ablaeuft.
+function _gsDatJahr(d) { return GS_MON[d.getMonth()] + ' ' + d.getFullYear(); }
+
+// Name auf die Agronomie-Tabelle abbilden. „Tomate Ochsenherz" und „Tomaten"
+// sollen beide die Zeile „Tomate" finden — aber „Tomatillo" nicht.
+function _gsNorm(s) {
+  return String(s || '').toLowerCase().trim()
+    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+// Welche Schriftfarbe traegt auf DIESEM Balken? Die Balkenfarbe kommt aus der
+// KI-Antwort und kann alles sein — Weiss auf Hellgruen (#43a047) sind 3,3:1
+// und damit unter der Grenze fuer kleine Schrift. Also ausrechnen statt
+// hoffen: relative Leuchtdichte nach WCAG, dann die bessere der beiden.
+function _gsAufFarbe(hex) {
+  try {
+    var h = String(hex || '').replace('#', '');
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    if (!/^[0-9a-fA-F]{6}$/.test(h)) return '#ffffff';
+    function k(t) { var v = parseInt(t, 16) / 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
+    var L = 0.2126 * k(h.slice(0, 2)) + 0.7152 * k(h.slice(2, 4)) + 0.0722 * k(h.slice(4, 6));
+    return ((L + 0.05) / 0.05) >= (1.05 / (L + 0.05)) ? '#111111' : '#ffffff';
+  } catch (_) { return '#ffffff'; }
+}
+window._gsAufFarbe = _gsAufFarbe;
+
+function _gsAgroRows() {
+  var c = window._gsPPagroCache;
+  return (c && Array.isArray(c.rows)) ? c.rows : [];
+}
+function _gsAgroFind(name) {
+  var rows = _gsAgroRows();
+  if (!rows.length) return null;
+  var n = _gsNorm(name);
+  if (!n) return null;
+  var wort = n.split(' ')[0];
+  var treffer = null;
+  for (var i = 0; i < rows.length; i++) {
+    var c = _gsNorm(rows[i].crop);
+    if (!c) continue;
+    if (c === n || c === wort) return rows[i];              // exakt schlaegt alles
+    if (!treffer && (n.indexOf(c) === 0 || c.indexOf(wort) === 0)) treffer = rows[i];
+  }
+  return treffer;
+}
+function _gsMonate(v) {
+  if (!Array.isArray(v)) return [];
+  return v.map(function (x) { return parseInt(x, 10); }).filter(function (x) { return x >= 1 && x <= 12; });
+}
+
+// ── Das Jahresband ────────────────────────────────────────────────────────
+// Aus sow_date/harvest_from/harvest_to je Pflanze eine Belegung bauen. Wo
+// keine Daten stehen, wird NICHTS geraten — die Pflanze zaehlt unter
+// `ohne_daten` und taucht im Band nicht auf. Ein erfundener Balken waere
+// schlimmer als eine Leerstelle: er sieht aus wie eine Zusage.
+function _gsPlanBelegung(plan) {
+  try {
+    if (!plan || !Array.isArray(plan.plants) || !plan.plants.length) { if (plan) plan._jahr = null; return; }
+    var jahr = null;
+    plan.plants.forEach(function (p) {
+      var d = _gsPD(p.sow_date) || _gsPD(p.harvest_from);
+      if (d && !jahr) jahr = d.getFullYear();
+    });
+    if (!jahr) jahr = new Date().getFullYear();
+    var saisonVon = new Date(jahr, GS_SAISON_VON - 1, 1);
+    var saisonBis = new Date(jahr, GS_SAISON_BIS - 1, 30);
+
+    var baender = [], ohneDaten = 0;
+    plan.plants.forEach(function (p, i) {
+      var sow = _gsPD(p.sow_date), hf = _gsPD(p.harvest_from), ht = _gsPD(p.harvest_to);
+      var von = sow || hf, bis = ht || hf;
+      // Nur eines von beiden? Dann ist die Belegung halb bekannt — das reicht
+      // fuer ein Band, aber die fehlende Seite wird nicht erfunden, sondern
+      // auf die Saisongrenze gelegt und als unsicher markiert.
+      var unsicher = !(sow && (ht || hf));
+      if (!von && !bis) { ohneDaten++; return; }
+      if (!von) von = saisonVon;
+      if (!bis) bis = saisonBis;
+      if (bis < von) { var t = von; von = bis; bis = t; }
+      // Wer ausserhalb der Saison datiert ist, wird auf die Achse geklemmt —
+      // sonst laege der Balken ausserhalb der Ansicht. Das WIRD gemeldet:
+      // ein stillschweigend verschobener Balken waere eine Falschaussage.
+      var beschnitten = false;
+      if (von < saisonVon) { von = saisonVon; beschnitten = true; }
+      if (bis > saisonBis) { bis = saisonBis; beschnitten = true; }
+      baender.push({
+        i: i, name: p.name || '?', icon: p.icon || '🌱',
+        color: (String(p.color || '').replace('#', '') || '4caf50'),
+        family: p.family || '', latin: p.latin || '',
+        von: von, bis: bis, tage: Math.max(1, _gsTage(von, bis)),
+        unsicher: unsicher, beschnitten: beschnitten,
+        flaeche: Math.round(((parseFloat(p.w_m) || 0) * (parseFloat(p.h_m) || 0)) * 100) / 100
+      });
+    });
+    if (!baender.length) { plan._jahr = null; return; }
+    baender.sort(function (a, b) { return a.von - b.von; });
+    plan._jahr = {
+      jahr: jahr, von: saisonVon, bis: saisonBis,
+      baender: baender, ohne_daten: ohneDaten,
+      tage: _gsTage(saisonVon, saisonBis)
+    };
+  } catch (_) { if (plan) plan._jahr = null; }
+}
+
+// ── Die Lueckenfueller ────────────────────────────────────────────────────
+// Wo ein Platz vor oder nach seiner Kultur leer steht, wird in der GEPRUEFTEN
+// Agronomie-Tabelle gesucht, was dort noch hineinpasst. Kein KI-Aufruf, keine
+// erfundene Sorte — eine Auswahl aus Daten, die jemand geprueft hat.
+// Familien-Ausschluss ist Pflicht: Kohl nach Kohl ist der klassische Fehler.
+function _gsPlanLuecken(plan) {
+  try {
+    if (!plan || !plan._jahr) { if (plan) plan._luecken = null; return; }
+    var rows = _gsAgroRows();
+    if (!rows.length) { plan._luecken = null; return; }   // nicht pruefbar, nicht „keine"
+    var j = plan._jahr, out = [];
+    j.baender.forEach(function (b) {
+      [['vor', j.von, b.von], ['nach', b.bis, j.bis]].forEach(function (f) {
+        var von = f[1], bis = f[2];
+        var tage = _gsTage(von, bis);
+        if (tage < GS_LUECKE_TAGE) return;
+        var vorschlaege = [];
+        rows.forEach(function (r) {
+          if (vorschlaege.length >= 4) return;
+          if (r.family && b.family && _gsNorm(r.family) === _gsNorm(b.family)) return;  // Fruchtfolge
+          var sow = _gsMonate(r.sow_months), har = _gsMonate(r.harvest_months);
+          if (!sow.length || !har.length) return;
+          // Gibt es einen Aussaatmonat IM Fenster, zu dem ein Erntemonat
+          // ebenfalls noch im Fenster liegt? Das ist die ganze Bedingung —
+          // sie ist grob, aber sie ist aus geprueften Daten und nicht geraten.
+          var mVon = von.getMonth() + 1, mBis = bis.getMonth() + 1;
+          var passt = sow.some(function (s) {
+            if (s < mVon || s > mBis) return false;
+            return har.some(function (h) { return h >= s && h <= mBis; });
+          });
+          if (passt) vorschlaege.push({ crop: r.crop, family: r.family || '', frost: r.frost_hardy || '' });
+        });
+        if (!vorschlaege.length) return;
+        out.push({
+          slot: b.name, richtung: f[0], von: von, bis: bis, tage: tage,
+          flaeche: b.flaeche, vorschlaege: vorschlaege
+        });
+      });
+    });
+    // Die groesste Luecke zuerst — dort ist am meisten zu holen.
+    out.sort(function (a, b) { return b.tage - a.tage; });
+    plan._luecken = out.slice(0, 6);
+  } catch (_) { if (plan) plan._luecken = null; }
+}
+
+// ── R1 · Aussaatfenster ───────────────────────────────────────────────────
+// Nur fuer Kulturen, die in der geprueften Tabelle stehen. Alles andere
+// zaehlt als ungeprueft — nicht als in Ordnung.
+function _gsPlanAussaat(plan) {
+  try {
+    if (!plan || !Array.isArray(plan.plants) || !_gsAgroRows().length) { if (plan) plan._aussaat = null; return; }
+    var ok = 0, konflikt = [], ungeprueft = 0;
+    plan.plants.forEach(function (p) {
+      var d = _gsPD(p.sow_date);
+      var r = _gsAgroFind(p.name);
+      var mon = r ? _gsMonate(r.sow_months) : [];
+      if (!d || !r || !mon.length) { ungeprueft++; return; }
+      var m = d.getMonth() + 1;
+      // Ein Monat Toleranz, und zwar aus einem konkreten Grund: die Tabelle
+      // meint die AUSSAAT, der Plan nennt bei Jungpflanzen oft das
+      // AUSPFLANZEN. Tomate steht mit „Mär/Apr" in der Referenz und wird
+      // Mitte Mai gesetzt — beides richtig. Ohne diese Toleranz meldet die
+      // Pruefung genau die Faelle, in denen die KI recht hat, und wird
+      // dadurch wertlos. Zwei Monate daneben (Kohlrabi im Januar) bleibt ein
+      // Fund.
+      var abstand = Math.min.apply(null, mon.map(function (x) { return Math.abs(x - m); }));
+      if (abstand <= 1) { ok++; return; }
+      konflikt.push({
+        name: p.name, datum: _gsDatKurz(d), monat: GS_MON[m - 1], abstand: abstand,
+        fenster: mon.map(function (x) { return GS_MON[x - 1]; }).join('/')
+      });
+    });
+    plan._aussaat = { ok: ok, konflikt: konflikt, ungeprueft: ungeprueft };
+  } catch (_) { if (plan) plan._aussaat = null; }
+}
+
+// ── R3 · Platzrechnung ────────────────────────────────────────────────────
+// count × (spacing/100)² gegen w×h. Der klassische stille Fehler: „12
+// Kohlrabi, 30 cm Abstand" braucht 1,08 m², das Rechteck hat 0,4.
+// Toleranz 20 %, weil Blockpflanzung dichter steht als die Reihe.
+function _gsPlanDichte(plan) {
+  try {
+    if (!plan || !Array.isArray(plan.plants)) { if (plan) plan._dichte = null; return; }
+    var ok = 0, eng = [], ungeprueft = 0;
+    plan.plants.forEach(function (p) {
+      var n = parseInt(p.count, 10) || 0;
+      var sp = parseFloat(p.spacing_cm) || 0;
+      var a = (parseFloat(p.w_m) || 0) * (parseFloat(p.h_m) || 0);
+      if (n <= 0 || sp <= 0 || a <= 0) { ungeprueft++; return; }
+      var braucht = n * Math.pow(sp / 100, 2);
+      if (braucht <= a * 1.2 + 0.001) { ok++; return; }
+      eng.push({
+        name: p.name, count: n, spacing: Math.round(sp),
+        braucht: Math.round(braucht * 100) / 100, hat: Math.round(a * 100) / 100,
+        passt: Math.max(1, Math.floor(a / Math.pow(sp / 100, 2)))
+      });
+    });
+    plan._dichte = { ok: ok, eng: eng, ungeprueft: ungeprueft };
+  } catch (_) { if (plan) plan._dichte = null; }
+}
+
+// ── R4 · Saatgut ──────────────────────────────────────────────────────────
+// Ein Plan, der zwoelf Tuetchen in deiner Schublade ignoriert, ist kein Plan
+// fuer DEINEN Garten. gs_seed_inventory liegt seit v23 da und wurde vom
+// Planer nie angesehen.
+function _gsPlanSaatgut(plan) {
+  try {
+    if (!plan || !Array.isArray(plan.plants)) { if (plan) plan._saatgut = null; return; }
+    var lager = [];
+    try { lager = JSON.parse(localStorage.getItem('gs_seed_inventory') || '[]') || []; } catch (_) { lager = []; }
+    if (!Array.isArray(lager) || !lager.length) { plan._saatgut = null; return; }  // nichts erfasst → nichts zu sagen
+    var heute = new Date();
+    var habe = [], fehlt = [];
+    plan.plants.forEach(function (p) {
+      if (p.existing === true) return;                       // steht schon, braucht kein Saatgut
+      var n = _gsNorm(p.name), w = n.split(' ')[0];
+      var hit = null;
+      for (var i = 0; i < lager.length; i++) {
+        var ln = _gsNorm(lager[i] && lager[i].name);
+        if (!ln) continue;
+        if (ln === n || ln.indexOf(w) === 0 || n.indexOf(ln.split(' ')[0]) === 0) { hit = lager[i]; break; }
+      }
+      if (!hit) { fehlt.push(p.name); return; }
+      var exp = _gsPD(hit.expires);
+      habe.push({ name: p.name, seed: hit.name, expires: exp ? _gsDatJahr(exp) : '', abgelaufen: !!(exp && exp < heute) });
+    });
+    plan._saatgut = { habe: habe, fehlt: fehlt, lager: lager.length };
+  } catch (_) { if (plan) plan._saatgut = null; }
+}
+
+// ── R6 · Wasserbilanz ─────────────────────────────────────────────────────
+// Der Regen ist gemessen (Open-Meteo, 14 Tage, liegt schon vor). 1 mm auf
+// 1 m² ist 1 Liter — die Umrechnung ist exakt, keine Schaetzung.
+function _gsPlanWasser(plan, data) {
+  try {
+    if (!plan || !Array.isArray(plan.plants)) { if (plan) plan._wasser = null; return; }
+    var bedarf = 0, gezaehlt = 0;
+    plan.plants.forEach(function (p) {
+      var l = parseFloat(p.water_l_per_week);
+      if (isFinite(l) && l > 0) { bedarf += l; gezaehlt++; }
+    });
+    var w = (window._gsPP && _gsPP.weather) || null;
+    var mm = w && isFinite(parseFloat(w.totalPrecip14)) ? parseFloat(w.totalPrecip14) : null;
+    var flaeche = (plan.bed && plan.bed.width_m && plan.bed.length_m)
+      ? plan.bed.width_m * plan.bed.length_m
+      : ((data && data.area) || 0);
+    if (!gezaehlt || mm === null || !flaeche) { plan._wasser = null; return; }
+    var regen = Math.round((mm / 2) * flaeche);              // 14 Tage → 1 Woche
+    plan._wasser = {
+      bedarf: Math.round(bedarf), regen: regen,
+      zusatz: Math.max(0, Math.round(bedarf - regen)),
+      mm: Math.round(mm * 10) / 10, flaeche: Math.round(flaeche * 10) / 10, gezaehlt: gezaehlt
+    };
+  } catch (_) { if (plan) plan._wasser = null; }
+}
+
+// ── R11 · Ernte ueber die Monate ──────────────────────────────────────────
+// Zeigt Schwemme und Luecke. Der Ertrag wird gleichmaessig ueber das
+// Erntefenster verteilt — das ist eine Vereinfachung und wird als solche
+// beschriftet, aber sie ist naeher an der Wirklichkeit als eine Jahreszahl.
+function _gsPlanErnteMonate(plan) {
+  try {
+    if (!plan || !Array.isArray(plan.plants)) { if (plan) plan._ernteMonate = null; return; }
+    var monate = [0,0,0,0,0,0,0,0,0,0,0,0], gezaehlt = 0;
+    plan.plants.forEach(function (p) {
+      var kg = parseFloat(p.yield_kg);
+      var von = _gsPD(p.harvest_from), bis = _gsPD(p.harvest_to) || von;
+      if (!isFinite(kg) || kg <= 0 || !von) return;
+      var a = von.getMonth(), b = bis.getMonth();
+      if (b < a) b = a;
+      var n = b - a + 1;
+      for (var m = a; m <= b; m++) monate[m] += kg / n;
+      gezaehlt++;
+    });
+    if (!gezaehlt) { plan._ernteMonate = null; return; }
+    var summe = monate.reduce(function (s, x) { return s + x; }, 0);
+    var spitzeM = 0;
+    monate.forEach(function (x, i) { if (x > monate[spitzeM]) spitzeM = i; });
+    var leer = [];
+    for (var i = GS_SAISON_VON - 1; i <= GS_SAISON_BIS - 1; i++) if (monate[i] < 0.05) leer.push(GS_MON[i]);
+    plan._ernteMonate = {
+      monate: monate.map(function (x) { return Math.round(x * 10) / 10; }),
+      summe: Math.round(summe * 10) / 10,
+      spitze: { monat: GS_MON[spitzeM], kg: Math.round(monate[spitzeM] * 10) / 10 },
+      leer: leer, gezaehlt: gezaehlt
+    };
+  } catch (_) { if (plan) plan._ernteMonate = null; }
+}
+
+// Ein Aufruf fuer alles. Steht bewusst NACH dem Platzieren — die
+// Platzrechnung braucht die endgueltigen Rechtecke.
+function _gsPlanPruefwerk(plan, data) {
+  _gsPlanBelegung(plan);
+  _gsPlanLuecken(plan);
+  _gsPlanAussaat(plan);
+  _gsPlanDichte(plan);
+  _gsPlanSaatgut(plan);
+  _gsPlanWasser(plan, data);
+  _gsPlanErnteMonate(plan);
+}
+window._gsPlanPruefwerk = _gsPlanPruefwerk;
+window._gsPlanBelegung = _gsPlanBelegung;
+window._gsPlanLuecken = _gsPlanLuecken;
+window._gsPlanAussaat = _gsPlanAussaat;
+window._gsPlanDichte = _gsPlanDichte;
+window._gsPlanSaatgut = _gsPlanSaatgut;
+window._gsPlanWasser = _gsPlanWasser;
+window._gsPlanErnteMonate = _gsPlanErnteMonate;
+
+// ── Der Reiter „Jahr" ─────────────────────────────────────────────────────
+// Zwoelf Monatsspalten, eine Zeile je Kultur, ein Balken je Belegung. Die
+// eine Ansicht, die es bisher nicht gab und die in einer Sekunde zeigt, ob
+// ein Plan gut ist: wo das Beet leer steht, wann alles gleichzeitig reif
+// wird, wann Arbeit anfaellt.
+window.gsPPjahrBlock = function (plan) {
+  try {
+    if (!plan || !plan._jahr) return '';
+    var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function (s) {
+      return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    };
+    var j = plan._jahr;
+    var h = '<div id="gs-jahr" class="pp-section"><h4>📆 Das Gartenjahr ' + j.jahr + '</h4>';
+
+    // Monatsleiste
+    h += '<div class="gs-jahr-kopf" aria-hidden="true">';
+    for (var m = GS_SAISON_VON; m <= GS_SAISON_BIS; m++) h += '<span>' + GS_MON[m - 1] + '</span>';
+    h += '</div>';
+
+    var spanne = j.tage;
+    h += '<div class="gs-jahr-band">';
+    j.baender.forEach(function (b) {
+      var l = Math.max(0, Math.min(100, _gsTage(j.von, b.von) / spanne * 100));
+      var br = Math.max(2, Math.min(100 - l, b.tage / spanne * 100));
+      // Die Beschriftung richtet sich nach der Balkenbreite, nicht nach dem
+      // Wunsch. Der erste Anlauf schrieb immer „20. Mär – 25. Mai" hinein —
+      // in einen 70 px breiten Balken, wo der Text hinausragte und ueber dem
+      // Rand stand. Drei Stufen: voll, nur Monate, gar nichts. Die
+      // vollstaendige Angabe steht immer im title.
+      var spanneTxt = _gsDatKurz(b.von) + ' – ' + _gsDatKurz(b.bis);
+      var innen = br >= 34 ? spanneTxt
+                : br >= 17 ? (GS_MON[b.von.getMonth()] + '–' + GS_MON[b.bis.getMonth()])
+                : '';
+      h += '<div class="gs-jahr-zeile">' +
+             '<div class="gs-jahr-name" title="' + esc(b.name) + '">' + esc(b.icon) + ' ' + esc(b.name) + '</div>' +
+             '<div class="gs-jahr-spur">' +
+               '<div class="gs-jahr-balken' + (b.unsicher ? ' gs-jahr-unsicher' : '') + '"' +
+                 ' style="left:' + l.toFixed(1) + '%;width:' + br.toFixed(1) + '%;background:#' + esc(b.color) +
+                   ';color:' + _gsAufFarbe(b.color) + ';"' +
+                 ' title="' + esc(b.name + ': ' + spanneTxt) + '">' +
+                 (innen ? '<span>' + esc(innen) + '</span>' : '') +
+               '</div>' +
+             '</div>' +
+           '</div>';
+    });
+    h += '</div>';
+
+    var fuss = [];
+    if (j.ohne_daten) fuss.push(j.ohne_daten + ' Pflanze' + (j.ohne_daten === 1 ? '' : 'n') + ' ohne Datumsangabe — nicht im Band');
+    if (j.baender.some(function (b) { return b.unsicher; })) fuss.push('gestreifte Balken: nur ein Datum bekannt, die andere Seite ist die Saisongrenze');
+    var besch = j.baender.filter(function (b) { return b.beschnitten; });
+    if (besch.length) fuss.push(esc(besch.map(function (b) { return b.name; }).join(', ')) + ': Datum liegt ausserhalb der Saison und wurde auf den Rand geklemmt \u2014 siehe Plan-Pr\u00fcfung');
+    if (fuss.length) h += '<div class="gs-jahr-fuss">' + esc(fuss.join(' · ')) + '</div>';
+
+    // Luecken + Vorschlaege
+    if (plan._luecken && plan._luecken.length) {
+      h += '<h4 style="margin-top:16px;">🧩 Was noch hineinpasst</h4>' +
+           '<div class="gs-jahr-fuss" style="margin-top:-4px;">Aus der geprüften Agronomie-Referenz, nicht von der KI erfunden. Familien der Hauptkultur sind ausgeschlossen (Fruchtfolge).</div>';
+      plan._luecken.forEach(function (L) {
+        var wochen = Math.round(L.tage / 7);
+        h += '<div class="gs-luecke">' +
+               '<div class="gs-luecke-kopf">' + esc(L.richtung === 'vor' ? 'Vor' : 'Nach') + ' ' + esc(L.slot) +
+                 ' · ' + esc(_gsDatKurz(L.von) + ' – ' + _gsDatKurz(L.bis)) +
+                 ' · ' + wochen + ' Wochen' + (L.flaeche ? ' · ' + L.flaeche + ' m²' : '') + '</div>' +
+               '<div class="gs-luecke-chips">' +
+                 L.vorschlaege.map(function (v) {
+                   return '<span class="gs-luecke-chip">' + esc(v.crop) + (v.family ? ' <i>' + esc(v.family) + '</i>' : '') + '</span>';
+                 }).join('') +
+               '</div>' +
+             '</div>';
+      });
+    }
+
+    // Ernte ueber die Monate
+    if (plan._ernteMonate) {
+      var e = plan._ernteMonate;
+      var max = Math.max.apply(null, e.monate) || 1;
+      h += '<h4 style="margin-top:16px;">🧺 Ernte über das Jahr</h4>' +
+           '<div class="gs-ernte-bar">';
+      for (var k = GS_SAISON_VON - 1; k <= GS_SAISON_BIS - 1; k++) {
+        var hh = Math.round(e.monate[k] / max * 100);
+        h += '<div class="gs-ernte-sp" title="' + GS_MON[k] + ': ' + e.monate[k] + ' kg">' +
+               '<div class="gs-ernte-saeule" style="height:' + Math.max(2, hh) + '%"></div>' +
+               '<span>' + GS_MON[k] + '</span></div>';
+      }
+      h += '</div>' +
+           '<div class="gs-jahr-fuss">Spitze im ' + esc(e.spitze.monat) + ' mit ' + e.spitze.kg + ' kg · insgesamt ' + e.summe + ' kg' +
+             (e.leer.length ? ' · nichts reif im ' + esc(e.leer.join(', ')) : '') +
+             ' · Ertrag gleichmässig über das Erntefenster verteilt (Vereinfachung)</div>';
+    }
+
+    h += '</div>';
+    return h;
+  } catch (_) { return ''; }
+};
 
 function _gsSanitizePlannerPlan(plan) {
   try {
@@ -66140,6 +66689,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.75', date: '02.09.2026',
+    headline: '\ud83d\udcc6 Der Planer denkt jetzt in Jahren, nicht in Beeten',
+    summary: 'Neuer Reiter „Jahr": ein Balken je Kultur \u00fcber neun Monate, die leeren Zeitfenster daneben \u2014 mit Vorschl\u00e4gen aus der gepr\u00fcften Agronomie-Referenz. Dazu vier neue rechnende Pr\u00fcfungen: Aussaattermin, St\u00fcckzahl, Saatgut, Wasser.',
+    user_summary: '\ud83d\udcc6 Der KI-Planer zeigt jetzt dein ganzes Gartenjahr \u2014 und sagt dir, wo dein Beet monatelang leer steht und was dort noch hineinpasst.',
+    user_items: [
+      {emoji:'\ud83d\udcc6', bold:'Das Gartenjahr auf einen Blick:', text:' Ein neuer Reiter zeigt jede Kultur als Balken \u00fcber die Monate M\u00e4rz bis November. Wo das Beet leer steht, sieht man sofort \u2014 und genau da liegt der gr\u00f6sste Hebel: derselbe Quadratmeter tr\u00e4gt oft drei Kulturen im Jahr statt einer.'},
+      {emoji:'\ud83e\udde9', bold:'Was noch hineinpasst:', text:' Zu jeder L\u00fccke schl\u00e4gt die App Kulturen vor, deren Aussaat- und Erntemonate wirklich in das Zeitfenster fallen. Die Vorschl\u00e4ge stammen aus der gepr\u00fcften Agronomie-Referenz, nicht aus einer KI-Antwort \u2014 und Pflanzen derselben Familie sind ausgeschlossen, wegen der Fruchtfolge.'},
+      {emoji:'\ud83c\udf31', bold:'Vier neue Pr\u00fcfungen, die wirklich rechnen:', text:' Liegt der Aussaattermin im gepr\u00fcften Fenster? Passen 12 Kohlrabi mit 30 cm Abstand \u00fcberhaupt auf 0,7 m\u00b2 (nein \u2014 dort passen 7)? Welches Saatgut liegt schon in deiner Schublade, und welches ist abgelaufen? Und wie viel Wasser bleibt nach dem gemessenen Regen an dir?'},
+      {emoji:'\ud83e\uddfa', bold:'Ernte \u00fcber das Jahr:', text:' Eine kleine S\u00e4ulengrafik zeigt, in welchen Monaten wie viel reif wird \u2014 und in welchen gar nichts. Eine Zucchini-Schwemme im August neben einem leeren Mai ist kein guter Plan, auch wenn die Gesamtzahl stimmt.'},
+      {emoji:'\ud83d\udcd0', bold:'Und der Entwurf dahinter:', text:' Der vollst\u00e4ndige Plan f\u00fcr V3 liegt jetzt als Dokument im Projekt \u2014 zehn Neuerungen, f\u00fcnf Stufen, und eine klare Trennlinie: was der Code ausrechnen kann, entscheidet nie die KI allein.'},
+    ],
+  },
+  {
     v: 'v31.74', date: '02.09.2026',
     headline: '\ud83d\udd0d „Angemeldet bleiben" tat nichts \u2014 gefunden von einem neuen Pr\u00fcfstand',
     summary: 'Der Haken war vorangekreuzt, und wer ihn auf einem fremden Ger\u00e4t entfernte, blieb trotzdem angemeldet. Gefunden bei einer systematischen Pr\u00fcfung aller 303 Eingabefelder der App.',
@@ -66268,188 +66830,7 @@ window.GS_RELEASES = [
       {emoji:'\ud83d\udccb', bold:'Gartenkarten in einer Zeile statt zwei:', text:' Standort, Pflanzenzahl, Gr\u00f6sse und Licht standen als Text plus zwei Plaketten untereinander. Vier kurze Angaben brauchen keine zweite Zeile \u2014 das spart 20 Pixel je Garten, bei sechs G\u00e4rten also 120.'},
       {emoji:'\ud83c\udfc6', bold:'Und einer, der beinahe schiefgegangen w\u00e4re:', text:' Die Achievements-Kachel sollte weg \u2014 sie war die f\u00fcnfte in einem Zweierraster und machte aus zwei Reihen drei mit einer Waise. Beim Nachsehen stellte sich heraus: es gab AUSSER ihr keinen Weg zu den Achievements. Sie ist deshalb in die eingeklappte Gruppe „Wissen & Werkzeuge" gewandert, nicht in den Papierkorb.'},
     ],
-  },
-  {
-    v: 'v31.63', date: '01.09.2026',
-    headline: '\ud83e\udd1d Mischkultur wird jetzt gemessen \u2014 nach Abstand, nicht nach Anwesenheit',
-    summary: 'Es gab schon einen roten Schimmer f\u00fcr sich nicht vertragende Pflanzen. Der pr\u00fcfte aber nur, OB ein Gegenspieler im Plan vorkommt \u2014 nicht, wie weit die beiden auseinanderstehen. Zwei Streithähne an entgegengesetzten Enden eines 10-Meter-Gartens leuchteten beide rot.',
-    user_summary: '\ud83e\udd1d Der Planer setzt sich nicht vertragende Pflanzen jetzt auseinander \u2014 und wenn im Beet wirklich kein Platz daf\u00fcr ist, sagt er dir, welche zwei zu nah stehen und wie nah.',
-    user_items: [
-      {emoji:'\ud83d\udccf', bold:'N\u00e4he ist der Punkt, nicht Anwesenheit:', text:' Mischkultur wirkt \u00fcber Wurzelkonkurrenz und Ausd\u00fcnstungen \u2014 also \u00fcber Entfernung. Der alte Schimmer sagte nichts \u00fcber deine Anordnung, nur \u00fcber deine Artenliste: wer die Pflanzen auseinanderzog, sah genau dasselbe Rot. Jetzt wird der Abstand zwischen den Pflanzfl\u00e4chen gerechnet, nicht Mittelpunkt zu Mittelpunkt \u2014 eine breite Pflanze reicht weiter.'},
-      {emoji:'\ud83c\udf31', bold:'Der Planer weicht von sich aus aus:', text:' Beim Setzen sucht er zuerst eine Stelle, die BEIDES erf\u00fcllt: passendes Licht und kein Gegenspieler daneben. Nachgespielt: Tomate 10 cm neben der Kartoffel \u2192 auf einen Meter Abstand verschoben. Findet er nichts, wird die Pflanze trotzdem gesetzt \u2014 nur eben mit Hinweis. Eine Pflanze wegzulassen w\u00e4re die schlechtere Antwort.'},
-      {emoji:'\ud83d\udcc9', bold:'Halber Meter, bei kritischen Paaren ein ganzer:', text:' Zwei Schwellen, weil nicht jede schlechte Nachbarschaft gleich schwer wiegt. Und der Abstand steht in der Meldung \u2014 ohne ihn w\u00e4re es wieder nur eine Behauptung.'},
-      {emoji:'\ud83e\uddee', bold:'Eine Regel f\u00fcr beide Seiten:', text:' Der erste Anlauf hatte zwei: der Platzierer rechnete mit rohen Kommazahlen, die Pr\u00fcfung danach mit gerundeten. Ergebnis \u2014 der Planer setzte eine Pflanze bewusst auf genau 1,00 m und beklagte anschliessend genau diesen Abstand. Jetzt fragen beide dieselbe Funktion.'},
-    ],
-  },
-  {
-    v: 'v31.62', date: '01.09.2026',
-    headline: '\u2600\ufe0f Der Planer plant ins gemessene Licht \u2014 und sagt es, wenn etwas nicht passt',
-    summary: 'Der Planer war seit v31.58 angewiesen, Sonnenpflanzen nicht in den Schatten zu setzen. Die KI hielt sich daran \u2014 und der Platzierer warf es hinterher weg. Jetzt bleibt eine gute Platzierung stehen, eine schlechte wird ins passende Licht gelegt, und was nirgends passt, wird benannt.',
-    user_summary: '\u2600\ufe0f Neue Pflanzen landen in der Lichtzone, die dein Garten-Scan tats\u00e4chlich gemessen hat \u2014 und wenn kein Platz mehr im richtigen Licht ist, sagt der Plan das, statt es zu verschweigen.',
-    user_items: [
-      {emoji:'\ud83d\udd0e', bold:'Ein Auftrag, der nie ankam:', text:' Der Planer bekam die Anweisung „Sonnenpflanzen nicht in den Schatten" \u2014 aber danach ordnete er jede neue Pflanze von links oben her neu an. Am laufenden Programm nachgestellt: die KI legte die Tomate in die Sonnenecke bei 3,0/2,2 m, der Platzierer schob sie auf 1,2/0. Die \u00dcberlegung war da, das Ergebnis nicht.'},
-      {emoji:'\u2600\ufe0f', bold:'Jetzt in drei Stufen:', text:' Eine gute Platzierung der KI bleibt, wo sie ist. Eine schlechte wird in eine Zone mit dem passenden Licht gelegt \u2014 gemessen an deinem Scan, nicht geraten. Und wenn dort nichts mehr frei ist, steht die Pflanze trotzdem im Plan, aber mit einem Hinweis, welche und warum.'},
-      {emoji:'\ud83e\udd1d', bold:'Halbschatten ist kein Vorwurf:', text:' Gemeldet werden nur die zwei echten Fehler \u2014 Sonnenpflanze im Schatten und Schattenpflanze in der prallen Sonne. Alles dazwischen vertr\u00e4gt sich. Strenger zu sein hiesse, Warnungen zu erfinden.'},
-      {emoji:'\ud83e\uddea', bold:'Sechs Durchg\u00e4nge nachgespielt:', text:' Richtige Platzierung bleibt \u00b7 falsche wandert in die Sonne \u00b7 volle Sonnenzone meldet den Konflikt mit Namen und Grund \u00b7 ohne bekannten Lichtbedarf wird nichts bewertet \u00b7 planst du eine ANDERE Fl\u00e4che als die gescannte, gelten die Zonen gar nicht (sie l\u00e4gen sonst auf dem falschen Rechteck) \u00b7 und ohne Scan bleibt alles wie zuvor.'},
-    ],
-  },
-  {
-    v: 'v31.61', date: '01.09.2026',
-    headline: '\ud83d\udccd Du siehst jetzt im Foto, WELCHE Pflanze die KI meint',
-    summary: 'Der Garten-Scan sagte bisher nur, WAS er erkannt hat. Jetzt zeigt er auf dem eigenen Foto, WO — nummerierte Marker, und ein Tipp darauf f\u00fchrt zur passenden Zeile. Ohne das ist jede Korrektur ein Ratespiel.',
-    user_summary: '\ud83d\udccd Dein Scan-Foto tr\u00e4gt jetzt nummerierte Marker \u2014 tipp einen an und du landest bei der Pflanze, die dort steht.',
-    user_items: [
-      {emoji:'\ud83d\udccd', bold:'Vom Bild zur Zeile:', text:' Eine Liste sagt dir, dass die KI eine Tomate gesehen hat. Sie sagt dir nicht, WELCHE der drei Pflanzen im Bild sie damit meint \u2014 und ohne das kann man nichts korrigieren. Jeder Marker tr\u00e4gt eine Nummer, dieselbe Nummer steht an der Zeile, und ein Tipp springt hin und hebt sie hervor.'},
-      {emoji:'\ud83e\udd37', bold:'Und wo sie es nicht wei\u00df, markiert sie nichts:', text:' Kann die KI bei einer Pflanze nicht sagen, wo im Bild sie steht, bekommt die Zeile keine Nummer \u2014 und darunter steht, wie viele das betrifft. Ein geratener Marker zeigt auf die falsche Pflanze, und das ist schlimmer als gar keiner.'},
-      {emoji:'\ud83d\udc41\ufe0f', bold:'Lesbar auf jedem Foto:', text:' Die Marker liegen auf deinem Bild, und welcher Anzeigemodus eingestellt ist, sagt nichts dar\u00fcber, wie hell das Foto darunter ist. Wei\u00dfe Ziffer auf dunkelgr\u00fcner Scheibe (7,9:1) mit wei\u00dfem Ring \u2014 auf einem dunklen Foto tr\u00e4gt der Ring (21:1), wo die Scheibe allein zu wenig w\u00e4re.'},
-      {emoji:'\ud83d\udd12', bold:'Nachgewiesen statt angenommen:', text:' Eine Koordinate ausserhalb des Bildes wird verworfen statt an den Rand geklemmt. Ein Foto, das kein Foto ist, wird gar nicht erst angezeigt \u2014 dann bleibt die Liste eine Liste. Und \u00e4ltere Scans, die noch keine Bildpositionen haben, funktionieren unver\u00e4ndert weiter.'},
-    ],
-  },
-  {
-    v: 'v31.60', date: '01.09.2026',
-    headline: '\u270f\ufe0f Den Garten-Scan korrigieren \u2014 und das Erkannte in deine Pflege \u00fcbernehmen',
-    summary: 'Bisher war die Erkennung eine Anzeige: was die KI falsch benannte, blieb falsch, und was sie richtig erkannte, musstest du trotzdem von Hand anlegen. Jetzt hat jede Zeile drei Kn\u00f6pfe \u2014 und ein Knopf darunter macht aus dem Erkannten echte Pflanzen mit Giess- und Pflegeplan.',
-    user_summary: '\u270f\ufe0f Jede erkannte Pflanze l\u00e4sst sich umbenennen, best\u00e4tigen oder entfernen \u2014 und mit einem Knopf wandert der ganze Scan in \u201eMeine Pflanzen\u201c, samt Aufgaben.',
-    user_items: [
-      {emoji:'\u270f\ufe0f', bold:'Umbenennen, best\u00e4tigen, entfernen:', text:' Eine Erkennung, die man korrigieren kann, muss nicht perfekt sein \u2014 und keine Bilderkennung ist perfekt. Beim Umbenennen sucht die App den Namen in der Artendatenbank und holt sich lateinischen Namen und Symbol dazu. Was du best\u00e4tigst, zeigt statt einer Prozentzahl \u201e\u2713 von dir\u201c: das ist die st\u00e4rkere Aussage, weil sie sagt, woher die Sicherheit kommt.'},
-      {emoji:'\ud83c\udf31', bold:'Vom Scan in die Pflege:', text:' Ein Knopf legt alle erkannten Pflanzen in \u201eMeine Pflanzen\u201c an \u2014 mit vollem Aufgabenplan (Giessen, D\u00fcngen, Umtopfen, Schneiden \u2026), mit Beet und Lichtzone in der Notiz. Der Giess-Rhythmus kommt aus dem Wasserbedarf der Art, nicht aus einem Standardwert. Bereits vorhandene Namen werden \u00fcbersprungen, ein zweiter Druck legt also nichts doppelt an.'},
-      {emoji:'\u26a0\ufe0f', bold:'Unsicheres wird als unsicher gezeigt:', text:' Steht \u00fcber einer Erkennung eine niedrige Zahl, sagt ein Hinweis oben, wie viele das betrifft \u2014 bevor du \u00fcbernimmst. Eine App, die 30 % Sicherheit genauso darstellt wie 95 %, l\u00fcgt durch Weglassen.'},
-      {emoji:'\ud83d\udd2c', bold:'Durchgespielt statt behauptet:', text:' Vier erkannte Pflanzen, zw\u00f6lf Korrekturkn\u00f6pfe: entfernen, best\u00e4tigen, umbenennen, \u00fcbernehmen, nochmal \u00fcbernehmen \u2014 die \u00fcbernommene Pflanze tr\u00e4gt danach acht Aufgaben, und der zweite Durchgang legt keine Dopplung an. Alle Farben von Hand nachgerechnet (5,1 bis 10,4:1), weil der Pr\u00fcfstand in Dialoge nicht hineinsieht.'},
-    ],
-  },
-  {
-    v: 'v31.59', date: '01.09.2026',
-    headline: '\ud83d\udc41\ufe0f Im 3D-Modell siehst du jetzt, was schon da steht und was der Vorschlag ist',
-    summary: 'Seit Planer V3 enthält ein Plan beides: Pflanzen aus deinem Garten-Scan und neu vorgeschlagene. Im Modell sahen sie identisch aus. Jetzt ist der Bestand blass und neutral, jeder Vorschlag trägt einen Ring.',
-    user_summary: '\ud83d\udc41\ufe0f Im 3D-Modell ist Bestand jetzt von Vorschlag unterscheidbar \u2014 blass heisst „steht schon da", mit Ring heisst „das wäre neu".',
-    user_items: [
-      {emoji:'\ud83d\udc41\ufe0f', bold:'Blass gegen Ring:', text:' Was aus deinem Scan kommt, liegt neutral und zur\u00fcckhaltend da. Was der Planer vorschl\u00e4gt, bekommt einen gr\u00fcnen Ring und eine kr\u00e4ftigere Fl\u00e4che. Ein Plan, bei dem man das nicht sieht, ist die H\u00e4lfte wert.'},
-      {emoji:'\ud83d\udcd6', bold:'Mit Legende \u2014 aber nur wenn n\u00f6tig:', text:' Ohne Garten-Scan gibt es nichts zu unterscheiden, und eine Legende f\u00fcr eine Unterscheidung, die es nicht gibt, verwirrt mehr als sie hilft. Sie erscheint deshalb nur, wenn der Plan wirklich Bestand enth\u00e4lt.'},
-      {emoji:'\ud83d\udd2c', bold:'Am Modell nachgemessen:', text:' Bei zwei vorhandenen und zwei neuen Pflanzen baut der Renderer genau zwei Ringe, zwei blasse und zwei kr\u00e4ftige Fl\u00e4chen \u2014 gez\u00e4hlt an dem, was er tats\u00e4chlich konstruiert, nicht an dem, was er behauptet.'},
-    ],
-  },
-  {
-    v: 'v31.58', date: '01.09.2026',
-    headline: '\ud83e\udde0 Planer V3 \u2014 er plant jetzt IN deinen Garten, nicht auf ein leeres Rechteck',
-    summary: 'Der KI-Planer kennt ab sofort deinen gescannten Bestand: Pflanzen mit Koordinaten, Beete und Lichtzonen in Metern. Vorhandenes bleibt stehen, Neues wird in die L\u00fccken gesetzt \u2014 mit \u00dcberschneidungspr\u00fcfung. Dazu ein Farbfehler, der 95 Stellen betraf.',
-    user_summary: '\ud83e\udde0 Wer seinen Garten gescannt hat, muss nichts mehr eintippen \u2014 der Planer kennt Fl\u00e4che, Licht und was schon da steht, und plant darum herum.',
-    user_items: [
-      {emoji:'\ud83d\udccf', bold:'Nichts mehr doppelt eintippen:', text:' Fl\u00e4che und Lichtverh\u00e4ltnisse kommen aus dem Garten-Scan. Ein Hinweis zeigt dir, was \u00fcbernommen wurde \u2014 eine stille Vorbelegung, die man nicht erkl\u00e4ren kann, w\u00e4re schlimmer als ein leeres Feld.'},
-      {emoji:'\ud83c\udf3f', bold:'Vorhandenes bleibt, wo es steht:', text:' Der Planer ordnete bisher ALLE Pflanzen in saubere Reihen \u2014 richtig auf leerer Fl\u00e4che, falsch sobald echte Koordinaten da sind. Eine Tomate, die an der Wand steht, steht dort. Neues wird in die freien L\u00fccken gesetzt, in 10-cm-Schritten, mit Abstandspr\u00fcfung. Gemessen: 0 \u00dcberschneidungen.'},
-      {emoji:'\u26a0\ufe0f', bold:'Und wenn nichts mehr passt, sagt er es:', text:' Was neben dem Bestand keinen Platz mehr findet, wird als solches gemeldet statt \u00fcberlappend hingelegt. Ein Plan, der behauptet, alles passe, w\u00e4re kein Plan.'},
-      {emoji:'\ud83c\udfa8', bold:'Ein Farbfehler an 95 Stellen:', text:' Beim Bauen einer neuen Warnmeldung fiel auf, dass das Warn-Orange der App auf JEDEM Untergrund unter der Lesbarkeitsschwelle lag \u2014 3,4 bis 3,8:1 statt 4,5. 36 davon in Warnfeldern. Der Kontrast-Pr\u00fcfstand hatte nichts gemeldet: die Stellen sitzen fast alle in Dialogen, und er misst nur, was gerade sichtbar ist. An der Wurzel behoben, jetzt 5,0 bis 5,6:1 \u2014 auch in gedruckten Pl\u00e4nen.'},
-    ],
-  },
-  {
-    v: 'v31.57', date: '01.09.2026',
-    headline: '\ud83c\udf31 Der Garten-Zwilling \u2014 ein Foto, und deine Beete stehen als 3D-Modell da',
-    summary: 'Neu: ein Scan, der den BESTAND erkennt statt Pflanzen zu empfehlen. Aus einem Foto werden Pflanzen, Beete und Lichtzonen mit Meter-Koordinaten. Der Gartenüberblick zeigt endlich echte Zahlen, und das 3D-Modell entsteht aus denselben Daten.',
-    user_summary: '\ud83c\udf31 Fotografiere deinen Garten \u2014 GreenScan erkennt Pflanzen, Beete und Lichtzonen und baut daraus ein 3D-Modell. „Mein Garten" zeigt ab jetzt, was wirklich bei dir steht.',
-    user_items: [
-      {emoji:'\ud83d\udcf7', bold:'Ein Foto gen\u00fcgt:', text:' Die Erkennung liefert Pflanzen mit Namen, Position und Gr\u00f6sse, dazu Beete und Lichtzonen (Sonne, Halbschatten, Schatten). Jede Pflanze bekommt einen Vertrauenswert \u2014 was unsicher war, siehst du auch als unsicher.'},
-      {emoji:'\ud83e\uddca', bold:'Und daraus wird ein 3D-Modell:', text:' Massst\u00e4blich, drehbar, mit deinen Beeten. Kein neuer Programmteil daf\u00fcr: der Zwilling hat bewusst dieselbe Datenform wie ein Planer-Plan, also zeichnet ihn der 3D-Renderer, den es l\u00e4ngst gibt. Geladen wird er erst beim \u00d6ffnen \u2014 der Start der App bleibt gleich schnell.'},
-      {emoji:'\ud83d\udd22', bold:'Der Gartenüberblick zeigt endlich Echtes:', text:' „Pflegezonen" und „Lichtzonen" standen schon in Fernandos Vorlage \u2014 v31.17 hat sie damals bewusst WEGGELASSEN, weil es diese Zahlen in der App nicht gab und erfundene Zahlen eine L\u00fcge gewesen w\u00e4ren. Diese Begr\u00fcndung war richtig. Jetzt liefert der Zwilling sie, und nur deshalb sind die Kacheln zur\u00fcck. Ohne Scan zeigt der \u00dcberblick weiterhin nur, was es ohne ihn gibt.'},
-      {emoji:'\ud83d\udee1\ufe0f', bold:'Was die Erkennung NICHT darf:', text:' Alles, was von der KI kommt, wird geklemmt und gepr\u00fcft, bevor es angezeigt wird. Am laufenden Programm mit einem Angriffs-String getestet: kein Element erzeugt, kein Skript ausgef\u00fchrt, keine Meldung. Zus\u00e4tzlich wird so ein „Name" gar nicht erst \u00fcbernommen \u2014 was spitze Klammern enth\u00e4lt, kam nicht aus einer Bilderkennung.'},
-      {emoji:'\ud83c\udfa8', bold:'Zwei Farbfehler von Hand gefunden:', text:' Der gr\u00fcne Hauptknopf w\u00e4re im Dunkelmodus wei\u00df auf Hellgr\u00fcn gewesen \u2014 1,64:1, praktisch unlesbar. Der Kontrast-Pr\u00fcfstand h\u00e4tte das nie gefunden, weil er nur misst, was gerade sichtbar ist. Nachgerechnet und behoben, bevor es das erste Mal ausgeliefert wird.'},
-    ],
-  },
-  {
-    v: 'v31.56', date: '01.09.2026',
-    headline: '\ud83c\udfc6 Startseite neu geordnet \u2014 Inserate, Rangliste, dann Quiz',
-    summary: 'Vier Wünsche von Fernando: die Quiz-Rangliste über das Täglich-Quiz, die aktiven Inserate über die Rangliste, der XP-Balken raus (er steht im Mehr-Tab), und mehr Luft zwischen Gartenwetter und den vier Werkzeugen.',
-    user_summary: '\ud83c\udfc6 Auf der Startseite kommen jetzt zuerst die Inserate, dann die Rangliste, dann das Quiz. Der XP-Balken ist weg \u2014 den siehst du weiterhin unter „Mehr".',
-    user_items: [
-      {emoji:'\ud83d\uded2', bold:'Neue Reihenfolge:', text:' Wetter \u2192 Heute zu tun \u2192 Zahlen \u2192 Wochen\u00fcbersicht \u2192 \ud83d\uded2 Aktive Inserate \u2192 \ud83c\udfc6 Quiz-Rangliste \u2192 \ud83c\udfaf T\u00e4glich-Quiz. Gemessen statt gehofft: die drei Karten sitzen b\u00fcndig bei 16px Rand wie zuvor.'},
-      {emoji:'\ud83d\udcca', bold:'XP-Balken von der Startseite entfernt:', text:' Er bleibt unter „Mehr". Wichtig war dabei die zweite H\u00e4lfte: die Funktion, die ihn f\u00fcllt, bediente beide Balken \u00fcber eine Liste. H\u00e4tte ich nur das Sichtbare entfernt, w\u00e4ren f\u00fcnf Zugriffe auf nicht mehr vorhandene Elemente zur\u00fcckgeblieben \u2014 genau die stille Sorte Rest, die dieser Meilenstein gerade auf null gebracht hat.'},
-      {emoji:'\ud83d\udccf', bold:'Luft im Garten:', text:' Zwischen Wetterkarte und den Werkzeugen S\u00e4en/Tagebuch/Ernte/Garten standen nur 24px, was als ein Klotz gelesen wurde. Jetzt 39px mit einer feinen Trennlinie darin \u2014 getrennt, ohne eine weitere Karte einzuf\u00fchren.'},
-    ],
-  },
-  {
-    v: 'v31.55', date: '01.09.2026',
-    headline: '\ud83d\udd12 Backend abgesichert \u2014 und der Verdrahtungs-Meilenstein steht auf null',
-    summary: 'Zwei offene Schreib-Endpunkte auf die Artendatenbank stillgelegt, drei Sicherheitsl\u00fccken in der Datenbank geschlossen, die Standard-Rechte geh\u00e4rtet. Dazu der letzte Rest der Verdrahtungs-Liste: 42 offene Nachschlagungen \u2192 0.',
-    user_summary: '\ud83d\udd12 Ein offenes Fenster zur Artendatenbank ist zu, drei Datenbank-L\u00fccken sind geschlossen. Niemand ist hindurchgegangen \u2014 das habe ich nachgepr\u00fcft, bevor ich es gemeldet habe.',
-    user_items: [
-      {emoji:'\ud83d\udeaa', bold:'Das offene Fenster ist zu:', text:' Zwei Server-Funktionen konnten die Artendatenbank ohne Anmeldung \u00fcberschreiben \u2014 gesch\u00fctzt nur durch ein Passwort, das im \u00f6ffentlichen Quelltext stand. Beide liefern jetzt „nicht mehr verf\u00fcgbar". Gepr\u00fcft: 2\u2019838 Arten unver\u00e4ndert, eine einzige neue Zeile in 90 Tagen \u2014 es ist niemand hindurchgegangen.'},
-      {emoji:'\ud83d\udd75\ufe0f', bold:'Wer wer ist, war ohne Anmeldung abfragbar:', text:' Zu jeder Nutzerkennung, die \u00f6ffentlich im Feed steht, liess sich die Berechtigungsstufe erfragen. Vorher gemessen: „ja". Jetzt: „nein" \u2014 und das Gast-St\u00f6bern funktioniert unver\u00e4ndert (Arten, Rezepte, Wissen, Feed alle weiter lesbar).'},
-      {emoji:'\ud83c\udfc6', bold:'Beim Quiz entschied der Client, was richtig ist:', text:' Und daran h\u00e4ngt ein Jahr Pro gratis f\u00fcr die Jahresbesten. Jetzt leitet der Server die Bewertung selbst aus der Frage ab; nachtr\u00e4gliches \u00c4ndern und L\u00f6schen ist gesperrt.'},
-      {emoji:'\ud83d\udcca', bold:'Aufrufz\u00e4hler im Marktplatz waren beliebig hochtreibbar:', text:' Zehn Versuche ohne Anmeldung, gemessen: Z\u00e4hler bleibt bei 6.'},
-      {emoji:'\ud83c\udf29\ufe0f', bold:'Die Unwetter-Karte kommt NICHT zur\u00fcck:', text:' Ich wollte sie schon bauen \u2014 und fand dann in der Startseite den Vermerk von v29.78: „Home-Unwetter-Card entfernt (Fernando: unn\u00f6tig im Home)." Also keine vergessene Arbeit, sondern eine getroffene Entscheidung. Nur die 150 Zeilen Code dahinter sind jetzt auch weg. Deine pers\u00f6nlichen Wetter-Warnungen per Push und in der Inbox bleiben unber\u00fchrt.'},
-    ],
-  },
-  {
-    v: 'v31.54', date: '01.09.2026',
-    headline: '\ud83c\udf3f Was in der Artendatenbank steckt \u2014 und der Meilenstein von 42 auf 7',
-    summary: 'Letzte Welle des Verdrahtungs-Meilensteins. Die Aufschl\u00fcsselung der 4\u2019337 Arten nach Kategorien wurde bei jedem Aufruf berechnet und in ein Element geschrieben, das es nicht gab. Dazu die letzten Reste zweier abgel\u00f6ster Funktionen.',
-    user_summary: '\ud83c\udf3f Auf der Mehr-Seite steht jetzt, wie sich die 4\u2019337 Arten aufteilen \u2014 2\u2019226 Wildpflanzen, 636 Pilze, 431 B\u00e4ume und so weiter. Die Zahlen wurden immer berechnet, nur nirgends angezeigt.',
-    user_items: [
-      {emoji:'\ud83c\udf3f', bold:'Die Aufschl\u00fcsselung ist sichtbar:', text:' Wildpflanzen 2\u2019226 \u00b7 Pilze 636 \u00b7 B\u00e4ume & Str\u00e4ucher 431 \u00b7 Kr\u00e4uter 388 \u00b7 Hauspflanzen 286 \u00b7 Flechten 118 \u00b7 Moose 115 \u00b7 Algen 97 \u00b7 Gem\u00fcse 40. Zugeklappt auf der Mehr-Seite, damit sie niemandem im Weg steht.'},
-      {emoji:'\ud83d\udc7e', bold:'Ein Spiel, das es zweimal gab:', text:' Beim Wechsel auf den Farm-Reiter baute die App jedes Mal ein Arcade-Spiel auf einer Zeichenfl\u00e4che auf \u2014 den BlattF\u00e4nger in seiner alten Fassung. Heute ist der Farm-Bildschirm ein Rasterspiel und enth\u00e4lt gar keine Zeichenfl\u00e4che mehr. Der Aufbau lief also bei jedem Besuch ins Leere.'},
-      {emoji:'\ud83d\udee0\ufe0f', bold:'Ich habe dabei die App kurz zerbrochen:', text:' Beim Entfernen des Spiel-Codes blieb eine Klammer stehen \u2014 damit war das gesamte Programm nicht mehr lesbar und die App h\u00e4tte gar nicht mehr gestartet. Der Pr\u00fcfstand meldete es sofort („Unexpected token"), also ist es nie ausgeliefert worden. Genau daf\u00fcr ist er da.'},
-      {emoji:'\ud83c\udfaf', bold:'Der Meilenstein steht bei 7 von 42:', text:' Sechs davon sind die Wetterwarnungs-Karte, die auf eine Entscheidung wartet; der siebte ist gepr\u00fcft harmlos. Alles andere ist entweder angeschlossen oder belegt entfernt.'},
-      {emoji:'\ud83d\udd0d', bold:'Und der Pr\u00fcfstand meldet keinen Falschalarm mehr:', text:' Er hat drei Stellen bem\u00e4ngelt, die vorbildlich geschrieben sind \u2014 Rueckfallketten der Form „nimm A, sonst B, sonst C". Er erkennt sie jetzt. Ein Pr\u00fcfstand, der an gutem Code meckert, wird ignoriert, und dann findet er auch die echten Fehler nicht mehr.'},
-    ],
-  },
-  {
-    v: 'v31.53', date: '01.09.2026',
-    headline: '\ud83e\udd16 Dein KI-Tageskontingent ist endlich zu sehen \u2014 vorher erfuhrst du davon erst beim Anschlagen',
-    summary: 'Gratis-Nutzer haben 15 KI-Aufrufe pro Tag. Die Anzeige daf\u00fcr steht seit v26.65 fertig im Code und f\u00fcllt zwei Elemente, die es nie gab. Wer sein Kontingent verbrauchte, erfuhr davon zum ersten Mal in dem Moment, in dem er blockiert wurde.',
-    user_summary: '\ud83e\udd16 In den Einstellungen steht jetzt, wie viele KI-Aufrufe du heute noch hast. Bisher merktest du es erst, wenn keine mehr da waren.',
-    user_items: [
-      {emoji:'\ud83e\udd16', bold:'Das Kontingent steht in den Einstellungen:', text:' „✅ 0 / 15 Calls heute · 15 \u00fcbrig", bei drei oder weniger in Orange, bei null in Rot. Gemessen f\u00fcr alle drei Zust\u00e4nde. Die Zeile bleibt verborgen, wenn du Pro hast oder einen eigenen Schl\u00fcssel nutzt \u2014 dann gibt es kein Limit anzuzeigen.'},
-      {emoji:'\u26a0\ufe0f', bold:'Warum das mehr als Kosmetik ist:', text:' Der einzige Hinweis auf das Limit war bisher die Absage selbst („\ud83d\udeab Tageslimit erreicht \u2014 heute 15/15 verbraucht"). Man konnte nicht einteilen, was man nicht sehen konnte.'},
-      {emoji:'\ud83c\udfa8', bold:'Und die Farbe stimmte auch nicht:', text:' Der Warnton war #e65100 \u2014 auf der weissen Karte 3,79:1 und damit unter der Lesbarkeitsschwelle. Nachgerechnet und auf 5,60:1 gebracht, bevor die Zeile das erste Mal \u00fcberhaupt sichtbar wird. Der Kontrast-Pr\u00fcfstand h\u00e4tte sie nicht gefunden: was es nicht gibt, kann er nicht messen.'},
-      {emoji:'\ud83e\uddf9', bold:'Drei weitere Reste aufgel\u00f6st:', text:' Ein Men\u00fc-Eintrag zum Admin-Panel (das \u00fcber zwei andere Wege erreichbar ist), eine zweite Artenzahl-Anzeige (die Zahl steht in vier anderen Elementen) und ein Abzeichen f\u00fcr Duplikate (die Pr\u00fcfung l\u00e4uft ohnehin beim Start und r\u00e4umt selbst auf).'},
-    ],
-  },
-  {
-    v: 'v31.52', date: '01.09.2026',
-    headline: '\ud83c\udff7\ufe0f Der Beitragstyp wurde beim Absenden weggeworfen',
-    summary: 'Im Beitrags-Fenster las das Absenden ein Feld namens post-category. Das gibt es nicht \u2014 das Auswahlfeld hei\u00dft post-type. Der Ausdruck fiel deshalb IMMER auf „fund" zur\u00fcck: Showcase, Hilfe, Tipp, Frage und Rarit\u00e4t wurden alle als dasselbe gespeichert.',
-    user_summary: '\ud83c\udff7\ufe0f Wenn du im Beitrags-Fenster einen Typ w\u00e4hlst, wird er jetzt auch gespeichert. Und „Status" hat endlich eine eigene Auswahl \u2014 vorher blieb das Feld dabei leer.',
-    user_items: [
-      {emoji:'\ud83c\udff7\ufe0f', bold:'Der gew\u00e4hlte Typ kommt an:', text:' Gemessen f\u00fcr alle sechs Einstiege: Showcase → showcase, Hilfe → help, Tipp → tip, Frage → question, Foto → showcase, Status → fund. Vorher lieferte dieselbe Kette ausnahmslos „fund".'},
-      {emoji:'\ud83d\udd0d', bold:'Warum es lange nicht auffiel:', text:' Der Hauptweg ist der schnelle Composer oben im Community-Bereich, und der macht es richtig. Durch das Fenster ist bisher kein Beitrag gegangen \u2014 nachgesehen in der Datenbank: drei Beitr\u00e4ge, alle korrekt. Der Weg stand trotzdem offen.'},
-      {emoji:'\u26a0\ufe0f', bold:'Der naheliegende Fix w\u00e4re falsch gewesen:', text:' Einfach das richtige Feld lesen h\u00e4tte „Status" kaputt gemacht \u2014 die Datenbank l\u00e4sst diesen Wert gar nicht zu und h\u00e4tte den Beitrag abgewiesen. Jetzt gibt es EINE Umrechnung f\u00fcr beide Wege, die nur g\u00fcltige Werte herausl\u00e4sst.'},
-      {emoji:'\ud83d\udcac', bold:'„Status" hatte gar keine Auswahl:', text:' Wer \u00fcber „💬 Status" einstieg, sah ein Auswahlfeld ohne Auswahl \u2014 die Option fehlte schlicht. Beim Messen aufgefallen, jetzt vorhanden.'},
-      {emoji:'\u23f3', bold:'Und der Absende-Knopf meldet sich:', text:' Er zeigt w\u00e4hrend des Sendens „Poste …" und sperrt sich gegen Doppeltippen. Der Code daf\u00fcr war da; dem Knopf fehlte nur seine Kennung.'},
-    ],
-  },
-  {
-    v: 'v31.51', date: '01.09.2026',
-    headline: '\ud83c\udf31 Drei von vier Bodenarten haben ihre Warnungen nie ausgeliefert',
-    summary: 'Das Auswahlfeld im Gartenformular speichert englische Werte (sand, loam, clay, humus). Die Bodenkunde dahinter arbeitet mit deutschen Schl\u00fcsseln (sandig, lehmig, tonig, humusreich). Die Zuordnung fragte, ob der gespeicherte Wert den Schl\u00fcssel ENTH\u00c4LT — und „sand" enth\u00e4lt nicht „sandig".',
-    user_summary: '\ud83c\udf31 Wer Sand-, Lehm- oder Tonboden eingestellt hatte, bekam bei seinen Pflanzen nie die passende Boden-Warnung. Nur „Humus" funktionierte, und das aus Versehen.',
-    user_items: [
-      {emoji:'\ud83c\udf31', bold:'Der Boden-Rat kommt wieder an:', text:' Bei Tomaten auf Sandboden zeigt die App jetzt wieder die Warnung samt konkreter Abhilfe. Gemessen: dieselbe Karte war vorher 1\u2019220 Zeichen lang (die allgemeine Fassung), jetzt 2\u2019228 \u2014 rund tausend Zeichen Rat, die drei von vier Nutzern still vorenthalten wurden. Bei Tonboden dasselbe.'},
-      {emoji:'\ud83d\udd11', bold:'Woran es lag:', text:' Zwei Namenswelten f\u00fcr dieselbe Sache. Der einzige Treffer war „humus" \u2014 weil dieses eine Wort zuf\u00e4llig in „humusreich" vorkommt. Jetzt gibt es EINE Zuordnung, die beide Schreibweisen kennt, alte gespeicherte Daten eingeschlossen. Deine bestehenden G\u00e4rten musst du nicht anfassen.'},
-      {emoji:'\ud83d\udcd8', bold:'Und der Boden erkl\u00e4rt sich jetzt beim W\u00e4hlen:', text:' Unter dem Auswahlfeld steht ab sofort, was der gew\u00e4hlte Boden ausmacht, wof\u00fcr er gut ist und was man verbessern kann. Der Text daf\u00fcr lag seit Langem fertig im Code \u2014 es fehlten das Anzeigefeld und der Ausl\u00f6ser am Auswahlfeld.'},
-      {emoji:'\ud83d\udd0d', bold:'Ein Fehler, den kein Pr\u00fcfstand gefunden h\u00e4tte:', text:' Die neue Infobox h\u00e4tte Warntext mit 3,46:1 Kontrast bekommen \u2014 unter der Lesbarkeitsschwelle. Der Kontrast-Pr\u00fcfstand misst nur, was auf den Bildschirmen sichtbar ist, und diese Box steckt in einem Fenster. Von Hand nachgerechnet und auf 5,11:1 gesetzt, bevor sie das erste Mal ausgeliefert wird.'},
-    ],
-  },
-  {
-    v: 'v31.50', date: '01.09.2026',
-    headline: '\ud83e\uddf9 Neun tote Funktionen entfernt \u2014 und eine Begr\u00fcndung gerettet, die niemand mehr zu sehen bekam',
-    summary: 'Zweite Welle des Meilensteins „Alles verdrahtet": die Funde, die sich beim Nachsehen als Reste entfernter Oberfl\u00e4chen erwiesen haben, sind jetzt weg. 41 offene Nachschlagungen \u2192 26.',
-    user_summary: '\ud83d\udcf7 Wenn die App nach der Kamera fragt, steht jetzt wieder dabei WOF\u00dcR \u2014 dieser Satz existierte im Code, kam aber seit dem Umbau nirgends mehr an.',
-    user_items: [
-      {emoji:'\ud83d\udcf7', bold:'Die Kamera-Frage erkl\u00e4rt sich wieder:', text:' Die App fragte die Kamera-Erlaubnis nackt an \u2014 nur die Browser-Abfrage, ohne ein Wort dazu. Dabei gaben die aufrufenden Stellen seit jeher eine Begr\u00fcndung mit („GreenScan braucht Kamera-Zugriff um Arten direkt zu bestimmen"); sie ging beim Entfernen des alten Dialogs still verloren. Jetzt kommt sie kurz vor der Abfrage. Wer weiss, warum gefragt wird, entscheidet anders.'},
-      {emoji:'\ud83e\uddf9', bold:'Neun Funktionen ohne Aufrufer entfernt:', text:' Reste von Oberfl\u00e4chen, die es nicht mehr gibt \u2014 die „Pflanze des Tages", ein zweiter \u00d6ffner f\u00fcrs Beitrags-Fenster, eine \u00fcberholte Zweitfassung des Magic-Link-Logins, die beiden Kn\u00f6pfe des alten Kamera-Dialogs. Rund 215 Zeilen.'},
-      {emoji:'\ud83d\udd12', bold:'Eine davon war ein Risiko:', text:' Ein verstecktes Entwickler-Formular liess URL und Schl\u00fcssel einer BELIEBIGEN Datenbank eintragen \u2014 die App h\u00e4tte danach deine Daten woanders hingeschickt. Ohne Aufrufer, aber der Code lag ausgeliefert bei jedem mit. So etwas geh\u00f6rt nicht in eine ver\u00f6ffentlichte App.'},
-      {emoji:'\ud83d\udcda', bold:'6,8 KB Dokumentation, die niemand lesen konnte:', text:' Eine Liste von acht historischen Fehlern lag als Programmcode in der App und wurde von jedem Telefon bei jedem Start mitgeladen \u2014 sichtbar war sie nirgends, gelesen hat sie eine Funktion ohne Aufrufer, zuletzt gepflegt im M\u00e4rz. Sie ist vollst\u00e4ndig ins Repo umgezogen (docs/FEHLER-LOG.md), wo sie auffindbar ist und keinen Nutzer etwas kostet.'},
-    ],
-  },
-  {
-    v: 'v31.49', date: '01.09.2026',
-    headline: '\ud83d\udce1 GPS im Gartenformular \u2014 und der Garten-Standort \u00fcberschreibt nicht mehr deinen eigenen',
-    summary: 'Beim Anlegen eines Gartens musste man die Adresse abtippen. Die GPS-Funktion daf\u00fcr gab es seit Langem, sie hatte nur keinen Knopf \u2014 und ein Meldefeld stand daneben, dauerhaft verborgen, weil es genau f\u00fcr diese R\u00fcckmeldung gebaut worden war.',
-    user_summary: '\ud83d\udce1 Beim Garten anlegen gibt es jetzt einen GPS-Knopf. Und ein Fehler, der dabei deinen pers\u00f6nlichen Standort \u00fcberschrieben h\u00e4tte, ist behoben.',
-    user_items: [
-      {emoji:'\ud83d\udce1', bold:'GPS beim Garten anlegen:', text:' Ein Tipp auf den Knopf neben dem Standortfeld, und der Ort steht drin. Vorher war Abtippen der einzige Weg \u2014 obwohl die Funktion dafuer fertig im Code lag, ohne Aufrufer.'},
-      {emoji:'\u26a0\ufe0f', bold:'Der Fehler, der dabei zutage kam:', text:' Die Funktion war eine verungl\u00fcckte Kopie aus dem Standort-Fenster. Sie las zwar die Felder des Gartenformulars, schrieb aber in die eines ganz anderen \u2014 und rief saveUserLocation. Der Standort EINES Gartens h\u00e4tte damit deinen pers\u00f6nlichen Standort \u00fcberschrieben. Wer einen Balkon in Bern eintr\u00e4gt, wohnt deswegen nicht dort. Gepr\u00fcft: Garten „Bern", Nutzer-Standort bleibt „Z\u00fcrich".'},
-      {emoji:'\ud83d\udd0d', bold:'Vier Funde, die sich beim Nachsehen aufl\u00f6sten:', text:' „Pflanze des Tages" wurde ausdr\u00fccklich entfernt, nur ein Rest blieb stehen. Der Magic-Link-Login existiert bereits im Onboarding \u2014 die zweite Fassung im Profil war \u00fcberfl\u00fcssig, nicht fehlend. Ein Beitrags-Fenster hatte zwei \u00d6ffner, einer davon ohne Aufrufer. Nicht jeder Fund ist ein fehlendes Feature; manchmal ist er ein Doppel.'},
-    ],
-  },
+  }
 ];
 
 // v31.36 — Archiv nachladen. Wird NUR aufgerufen, wenn jemand den Changelog
@@ -66637,7 +67018,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.74';
+var GS_VERSION = 'v31.75';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

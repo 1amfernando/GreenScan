@@ -351,6 +351,40 @@ erfundener Vorwurf.
 Grundregel für alles in diesem Bereich: **eine Anzeige, die etwas behauptet,
 muss sagen können, woher sie es weiss.**
 
+## 4b · KI-Planer — der Entwurf steht in `docs/PLANER-V3.md`
+
+Wer am Planer arbeitet, liest **zuerst** `docs/PLANER-V3.md`. Dort steht, was V3
+sein soll, in fuenf Stufen — und die eine Regel, die ueber den Planer
+hinausgeht:
+
+> **Was der Code ausrechnen kann, entscheidet nie die KI allein.**
+
+Die Trennlinie in Kurzform: Aussaatfenster, Standdauer, Frost, Platzbedarf,
+Kollisionen, Wasserbilanz, Arbeitslast, Ernteverteilung, Saatgut und
+Fruchtfolge **rechnen** (Code, offline pruefbar). Sortenwahl, Gestaltung,
+Tipps und Klimazonen-Einschaetzung **raet** die KI. Wo beide sich
+widersprechen, gewinnt die Rechnung — und die Anzeige sagt, dass korrigiert
+wurde.
+
+Seit v31.75 gibt es dafuer ein Pruefwerk (`_gsPlanPruefwerk`, ruft
+`_gsPlanBelegung` · `_gsPlanLuecken` · `_gsPlanAussaat` · `_gsPlanDichte` ·
+`_gsPlanSaatgut` · `_gsPlanWasser` · `_gsPlanErnteMonate`). Jede Regel hat
+**drei** Zustaende: erfuellt · verletzt · **nicht pruefbar** (Ergebnis `null`,
+mit Grund in der Anzeige). Nie `{}` oder `0` fuer „keine Daten" — das laese
+sich als „alles in Ordnung" lesen.
+
+Zwei Fallen aus dem Bau von v31.75, damit sie niemand neu findet:
+
+- **Eine Pruefung, die die richtigen Faelle meldet, ist wertlos.** R1 verglich
+  `sow_date` mit `sow_months` und meldete die Tomate: Referenz „Mär/Apr"
+  (Vorkultur), Plan „20. Mai" (Auspflanzen) — beides richtig. Ein Monat
+  Toleranz, im Code begruendet. Wer eine neue Regel baut, laesst sie einmal
+  gegen einen **guten** Plan laufen, nicht nur gegen einen schlechten.
+- **Farben aus der KI-Antwort haben keinen garantierten Kontrast.** Weiss auf
+  `#43a047` sind 3,3:1. `_gsAufFarbe(hex)` rechnet die relative Leuchtdichte
+  und waehlt Schwarz oder Weiss — fuer jede Stelle, an der Text auf einer
+  Farbe aus einer Antwort steht.
+
 ## 5 · Multi-Agent-Sync
 
 Mehrere Sessions arbeiten parallel an diesem Repo. Damit kein Knoten platzt:
