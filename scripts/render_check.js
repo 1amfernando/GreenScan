@@ -50,6 +50,28 @@ const CENSUS = () => {
   // Senkrechtes Clipping auf einem Bildschirm-Container ist normales Scrollen
   // der Seite, kein verlorener Inhalt.
   const isScreen = el => el.classList && (el.classList.contains('screen') || el.id === 'app' || el.id === 'main');
+  // v32.21: Ragt echter TEXT aus dem Kasten, oder nur Dekoration?
+  // Gezaehlt wird ein Nachfahre nur, wenn er (a) einen eigenen Textknoten hat
+  // — nicht bloss Text von Kindern — und (b) nicht absolut positioniert ist.
+  const textRagtRaus = (el, achse) => {
+    const box = el.getBoundingClientRect();
+    const kinder = el.querySelectorAll('*');
+    for (let i = 0; i < kinder.length; i++) {
+      const k = kinder[i];
+      const ks = getComputedStyle(k);
+      if (ks.position === 'absolute' || ks.position === 'fixed') continue;
+      if (ks.display === 'none' || ks.visibility === 'hidden') continue;
+      let eigenerText = false;
+      for (let n = k.firstChild; n; n = n.nextSibling) {
+        if (n.nodeType === 3 && n.textContent.trim()) { eigenerText = true; break; }
+      }
+      if (!eigenerText) continue;
+      const r = k.getBoundingClientRect();
+      if (achse === 'y' && r.bottom > box.bottom + 1) return true;
+      if (achse === 'x' && r.right  > box.right  + 1) return true;
+    }
+    return false;
+  };
   document.querySelectorAll('*').forEach(el => {
     const cs = getComputedStyle(el);
     if (cs.display === 'none' || cs.visibility === 'hidden' || !cs.opacity || cs.opacity === '0') return;
@@ -95,8 +117,20 @@ const CENSUS = () => {
       // Nur Blattknoten: sonst meldet jeder Vorfahre denselben Text mit.
       txt: el.children.length ? '' : (el.textContent || '').trim().slice(0, 120),
       // abgeschnitten = Inhalt laeuft ueber UND wird geclippt (Ellipsis ist gewollt)
-      clipX: clipX && overX > 1 && !ell ? overX : 0,
-      clipY: (clipY && overY > 1 && !isScreen(el)) ? overY : 0,
+      // v32.21 — `scrollHeight > clientHeight` allein ist ZU GROB. Vier
+      // Kopfbereiche (Wissen, Rezepte, Heilmittel, Community) tragen ein
+      // riesiges Emoji als Wasserzeichen (`position:absolute`, 140px,
+      // `opacity:.06`), das ABSICHTLICH vom `overflow:hidden` beschnitten
+      // wird. Der Prüfstand meldete sie seit jeher — vier ständige
+      // Falschmeldungen, an denen ich einen ganzen Tag lang vorbeigelaufen
+      // bin, ohne sie nachzusehen. Genau so wird ein Bericht unlesbar.
+      //
+      // Die schärfere Frage: geht wirklich TEXT verloren? Gezählt wird nur,
+      // wenn ein Nachfahre mit EIGENEM Textinhalt, der NICHT absolut
+      // positioniert ist, über den Kasten hinausragt. Dieselbe Regel wie in
+      // `touch_check` seit v32.07 — Dekoration darf hinausragen, Inhalt nicht.
+      clipX: clipX && overX > 1 && !ell && textRagtRaus(el, 'x') ? overX : 0,
+      clipY: (clipY && overY > 1 && !isScreen(el) && textRagtRaus(el, 'y')) ? overY : 0,
       // Rechts aus dem Bildschirm heraus ist NUR dann ein Fehler, wenn kein
       // Vorfahre waagrecht scrollt. Chip-Leisten (Kategorien, Filter) ragen
       // absichtlich hinaus — der erste Anlauf meldete davon 72 Stueck als
