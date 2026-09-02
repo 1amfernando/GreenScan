@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.86.20260902">
+<meta name="app-version" content="31.87.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -54529,6 +54529,37 @@ function gsZyklusStop() {
 }
 window.gsZyklusStop = gsZyklusStop;
 
+// ── v31.87 · Vom Garten direkt zum Plan ─────────────────────────────────
+//
+// Bis hierher: Planer oeffnen → Schritt 1 → „einen deiner Gaerten
+// uebernehmen" → durch vier Schritte klicken → generieren. Die Vorlage
+// fuellt alle Felder, aber man musste sie erst finden.
+//
+// Jetzt steht auf jeder Gartenkarte ein Knopf, der genau das tut: Planer
+// oeffnen, Vorlage anwenden, zum letzten Schritt springen. Generiert wird
+// NICHT von selbst — dort steht der Knopf, und wer noch Wuensche eintragen
+// will, kann das. Ein Aufruf, der ungefragt startet, kostet Kontingent und
+// ueberrascht.
+window.gsPlanFuerGarten = function (gartenId) {
+  try {
+    var i = -1;
+    try {
+      if (typeof gardens !== 'undefined' && Array.isArray(gardens)) {
+        for (var k = 0; k < gardens.length; k++) if (gardens[k] && gardens[k].id === gartenId) { i = k; break; }
+      }
+    } catch (_) {}
+    if (i < 0) { if (typeof gsToast === 'function') gsToast('Garten nicht gefunden', 'warn'); return; }
+    if (typeof openGardenAI === 'function') openGardenAI();
+    setTimeout(function () {
+      try { if (typeof gsPPgartenVorlage === 'function') gsPPgartenVorlage(); } catch (_) {}
+      try { if (typeof gsPPvorlageNehmen === 'function') gsPPvorlageNehmen(i); } catch (_) {}
+      // Schritt 4 ist der letzte VOR dem Plan — dort steht „Plan generieren".
+      try { if (typeof gsPPgoStep === 'function') gsPPgoStep(4); } catch (_) {}
+      try { if (typeof gsToast === 'function') gsToast('\u2713 Masse, Licht, Boden und Art \u00fcbernommen \u2014 nur noch W\u00fcnsche und los.', 'success', 4000); } catch (_) {}
+    }, 320);
+  } catch (_) {}
+};
+
 function gsPPgartenVorlage() {
   var host = document.getElementById('pp-garten-vorlage');
   if (!host) return;
@@ -66123,6 +66154,10 @@ async function renderGarden() {
     // Actions · v23.81: Wetter-Button raus, Einpflanzen nur 1× pro Garden
     html += '<div class="mp-actions" style="border-top:1px solid #f5f5f5;margin-top:4px;">';
     html += '<button class="mp-action-btn" onclick="openAddPlanting(\'' + garden.id + '\')">🌱 ' + _t('garden_add_plant','Pflanze hinzufügen') + '</button>';
+    // v31.87: der direkte Weg vom Garten zum Plan. Vorher musste man den
+    // Planer oeffnen, die Vorlagen-Liste finden und durch vier Schritte
+    // klicken — obwohl die App alle Angaben schon hat.
+    html += '<button class="mp-action-btn" onclick="gsPlanFuerGarten(\'' + garden.id + '\')">🧠 ' + _t('garden_plan_for','Plan für diesen Garten') + '</button>';
     html += '<button class="mp-action-btn" onclick="editGarden(\'' + garden.id + '\')">✏️ ' + _t('action_edit','Bearbeiten') + '</button>';
     html += '<button class="mp-action-btn del" onclick="deleteGarden(\'' + garden.id + '\')">🗑️</button>';
     html += '</div>';
@@ -68065,6 +68100,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.87', date: '02.09.2026',
+    headline: '\ud83e\udde0 „Plan f\u00fcr diesen Garten" \u2014 ein Tipp statt vier Schritte',
+    summary: 'Die App hat alle Angaben deines Gartens. Trotzdem musste man den Planer \u00f6ffnen, die Vorlagen-Liste finden und durch vier Schritte klicken. Jetzt steht der Knopf dort, wo der Garten steht.',
+    user_summary: '\ud83e\udde0 Auf jeder Gartenkarte: „Plan f\u00fcr diesen Garten" \u2014 Masse, Licht, Boden und Art sind sofort \u00fcbernommen.',
+    user_items: [
+      {emoji:'\ud83e\udde0', bold:'Ein Tipp statt vier Schritte:', text:' Der Knopf \u00f6ffnet den Planer, \u00fcbernimmt Masse, Standort, Licht, Boden und die Art des Gartens \u2014 und springt direkt zum letzten Schritt, wo „Plan generieren" steht.'},
+      {emoji:'\ud83c\udfe0', bold:'Bei einem Gew\u00e4chshaus:', text:' setzt sich der Gew\u00e4chshaus-Modus gleich mit, und es steht in der Meldung, was \u00fcbernommen wurde. Nachgepr\u00fcft: Breite 4, L\u00e4nge 8, Ort Bern, Boden lehmig, Vollsonne, Gew\u00e4chshaus-Modus an.'},
+      {emoji:'\u270b', bold:'Was NICHT von selbst passiert:', text:' Der Plan wird nicht ungefragt erzeugt. Ein Aufruf, der von allein startet, kostet Kontingent und \u00fcberrascht \u2014 der letzte Schritt geh\u00f6rt dir, samt Platz f\u00fcr W\u00fcnsche.'},
+    ],
+  },
+  {
     v: 'v31.86', date: '02.09.2026',
     headline: '\ud83c\udf31 „Jetzt dran" \u2014 dein Saatgut wei\u00df, wann es Zeit ist',
     summary: 'Zwei Verbindungen, die es nicht gab, obwohl beide Seiten seit Langem da sind: dein Saatgut-Inventar und der Aussaatkalender, deine erfassten Arten und ihre Bl\u00fctezeiten. In „Mein Garten" steht jetzt, was diesen Monat dran ist.',
@@ -68520,7 +68566,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.86';
+var GS_VERSION = 'v31.87';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
