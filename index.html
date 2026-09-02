@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.78.20260902">
+<meta name="app-version" content="31.79.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19182,15 +19182,11 @@ window.gsCurrentScanId = gsCurrentScanId;
 // v25.33: routet durch gsAddScanHistory (Dedup-by-id).
 function gsAddToScanHistory(r) {
   if (!r || !r.name) return;
-  // Confidence normalisieren: kann sein 0-100 (number/string) oder 0-1 (float)
-  var conf = 0;
+  // v31.79: dieselbe Funktion wie die Anzeige (gsNormConfidence). Vorher
+  // stand die Regel zweimal im Code — die Anzeige benutzte sie gar nicht,
+  // und wo zwei Regeln dasselbe tun sollen, laufen sie auseinander.
   var raw = r.confidence != null ? r.confidence : (r.score != null ? r.score : (r.match != null ? r.match : 0));
-  if (typeof raw === 'string') raw = parseFloat(raw);
-  if (typeof raw === 'number' && isFinite(raw)) {
-    if (raw > 0 && raw <= 1) conf = Math.round(raw * 100); // 0-1 → 0-100
-    else if (raw > 1 && raw <= 100) conf = Math.round(raw); // 0-100
-    else if (raw > 100) conf = 100;
-  }
+  var conf = (typeof gsNormConfidence === 'function') ? (gsNormConfidence(raw) || 0) : 0;
   gsAddScanHistory({
     id: gsCurrentScanId(),
     name: r.name, latin: r.latin||'', confidence: conf,
@@ -27186,47 +27182,133 @@ function _gsWaitForVideoReady(video, maxMs){
 }
 
 // v23.57: Pre-Capture Quality-Check — misst Helligkeit + Unschärfe am aktuellen Frame
-function gsScannerQualityCheck(video){
+
+// ── v31.79 · Scanner V2: Bildqualität für JEDES Bild ──────────────────────
+//
+// `gsScannerQualityCheck` misst seit je Schärfe und Helligkeit — aber nur am
+// LIVE-VIDEO, und nur an einer Stelle (der Auslöser der eigenen Kamera).
+// Wer ein Foto aus der Galerie wählt, den Teilen-Dialog benutzt oder eine
+// Datei ablegt, kam ungeprüft durch. Nachgesehen: drei der vier Wege in
+// `analyzeImage` messen gar nichts.
+//
+// Das ist nicht nur eine verpasste Warnung. Ein unscharfes Foto kostet einen
+// KI-Aufruf aus dem Tageskontingent UND liefert eine Bestimmung, der man
+// nicht ansieht, dass sie auf dünnem Grund steht. In einer App, die Giftiges
+// von Essbarem unterscheidet, ist das die falsche Reihenfolge: erst messen,
+// dann fragen.
+//
+// Die Messung selbst bleibt unverändert (Laplace-Varianz + mittlere
+// Helligkeit) — sie ist erprobt. Neu ist nur, dass sie jede Quelle annimmt.
+function gsBildQualitaet(quelle) {
   try {
     var w = 120, h = 90;
     var c = document.createElement('canvas');
     c.width = w; c.height = h;
-    var ctx = c.getContext('2d');
-    ctx.drawImage(video, 0, 0, w, h);
-    var img = ctx.getImageData(0, 0, w, h);
-    var d = img.data;
-    // Helligkeit (Durchschnitt Y)
-    var sum = 0, n = d.length/4;
-    for (var i=0; i<d.length; i+=4){
-      sum += (d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114);
+    var cx = c.getContext('2d', { willReadFrequently: true });
+    cx.drawImage(quelle, 0, 0, w, h);
+    var d = cx.getImageData(0, 0, w, h).data;
+
+    var sum = 0, n = d.length / 4;
+    for (var i = 0; i < d.length; i += 4) sum += (d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114);
+    var brightness = sum / n;
+
+    var gray = new Float32Array(w * h);
+    for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
+      var k = (y*w + x) * 4;
+      gray[y*w + x] = d[k]*0.299 + d[k+1]*0.587 + d[k+2]*0.114;
     }
-    var brightness = sum / n; // 0..255
-    // Unschärfe: Laplacian-Varianz auf Helligkeitskanal (Grob)
-    var gray = new Float32Array(w*h);
-    for (var y=0; y<h; y++) for (var x=0; x<w; x++){
-      var k=(y*w+x)*4;
-      gray[y*w+x] = d[k]*0.299 + d[k+1]*0.587 + d[k+2]*0.114;
-    }
-    var mean=0, cnt=0, vals=[];
-    for (var y=1; y<h-1; y++){
-      for (var x=1; x<w-1; x++){
-        var v = 4*gray[y*w+x] - gray[(y-1)*w+x] - gray[(y+1)*w+x] - gray[y*w+(x-1)] - gray[y*w+(x+1)];
-        vals.push(v); mean += v; cnt++;
-      }
+    var mean = 0, cnt = 0, vals = [];
+    for (var y2 = 1; y2 < h-1; y2++) for (var x2 = 1; x2 < w-1; x2++) {
+      var v = 4*gray[y2*w+x2] - gray[(y2-1)*w+x2] - gray[(y2+1)*w+x2] - gray[y2*w+(x2-1)] - gray[y2*w+(x2+1)];
+      vals.push(v); mean += v; cnt++;
     }
     mean /= cnt;
     var varsum = 0;
-    for (var i=0; i<vals.length; i++) varsum += (vals[i]-mean)*(vals[i]-mean);
-    var variance = varsum / vals.length; // hoch = scharf, niedrig = unscharf
-    var blurScore = Math.min(100, Math.round(variance / 3)); // 0..100
+    for (var j = 0; j < vals.length; j++) varsum += (vals[j]-mean) * (vals[j]-mean);
+    var variance = varsum / vals.length;
+
+    var blurScore = Math.min(100, Math.round(variance / 3));
     var lightScore = Math.round(Math.min(100, Math.max(0, (brightness - 20) * 100 / 180)));
-    var quality = Math.round(blurScore*0.6 + lightScore*0.4);
+    var quality = Math.round(blurScore * 0.6 + lightScore * 0.4);
     var warnings = [];
     if (brightness < 50) warnings.push('🔦 zu dunkel — mehr Licht');
     else if (brightness > 230) warnings.push('☀️ überbelichtet');
     if (blurScore < 25) warnings.push('📷 unscharf — halte still, tippe zum Fokussieren');
-    return { brightness: brightness, blur: blurScore, light: lightScore, quality: quality, warnings: warnings, ok: quality >= 40 };
-  } catch(e){ return { brightness:128, blur:50, light:50, quality:70, warnings:[], ok:true }; }
+    return { brightness: brightness, blur: blurScore, light: lightScore, quality: quality,
+             warnings: warnings, ok: quality >= 40, messbar: true };
+  } catch (e) {
+    // Konnte nicht gemessen werden — das ist NICHT „ist in Ordnung".
+    // `messbar:false` sagt der aufrufenden Stelle, dass sie nichts behaupten darf.
+    return { brightness: null, blur: null, light: null, quality: null,
+             warnings: [], ok: true, messbar: false };
+  }
+}
+window.gsBildQualitaet = gsBildQualitaet;
+
+// Dasselbe für ein Bild, das nur als base64 vorliegt (Galerie, Teilen-Dialog,
+// abgelegte Datei). Gibt ein Versprechen zurück, weil das Dekodieren eines ist.
+function gsBildQualitaetVonB64(b64, mt) {
+  return new Promise(function (fertig) {
+    try {
+      if (!b64) return fertig({ messbar: false, ok: true, quality: null, warnings: [] });
+      var img = new Image();
+      var zeit = setTimeout(function () { fertig({ messbar: false, ok: true, quality: null, warnings: [] }); }, 4000);
+      img.onload = function () { clearTimeout(zeit); fertig(gsBildQualitaet(img)); };
+      img.onerror = function () { clearTimeout(zeit); fertig({ messbar: false, ok: true, quality: null, warnings: [] }); };
+      img.src = 'data:' + (mt || 'image/jpeg') + ';base64,' + b64;
+    } catch (_) { fertig({ messbar: false, ok: true, quality: null, warnings: [] }); }
+  });
+}
+window.gsBildQualitaetVonB64 = gsBildQualitaetVonB64;
+
+// Ab wann lohnt sich der Aufruf nicht mehr? Bewusst tief angesetzt: eine
+// Warnung, die bei jedem zweiten Foto kommt, wird weggetippt und schützt
+// dann niemanden mehr. Erst wenn es wirklich schlecht ist.
+var GS_QUAL_ZU_SCHLECHT = 22;
+// Und getrennt davon die Schaerfe. Der erste Anlauf hat nur den Mischwert
+// geprueft — ein vollkommen unscharfes, aber gut belichtetes Foto kam damit
+// auf 0*0,6 + 71*0,4 = 28 und rutschte durch. Der Mischwert verdeckt genau
+// die Angabe, auf die es ankommt: ohne Schaerfe gibt es keine Merkmale,
+// egal wie hell es ist. blur < 8 heisst Laplace-Varianz unter 24 — das ist
+// keine schlechte Aufnahme mehr, das ist eine Flaeche.
+// v31.79: Die Sicherheitsangabe auf EINE Skala bringen.
+//
+// Der System-Prompt verlangt `confidence` als Zahl 0..100. Die Scan-Historie
+// normalisiert seit v23.85 sauber (0–1 ODER 0–100). Die ANZEIGE tat es
+// nicht: liefert das Modell einmal 0.42 statt 42 — und Modelle tun das —
+// stand dort „0.42 %". Das liest sich als „so gut wie nichts", gemeint war
+// „nicht ganz die Hälfte". In einer App, die Giftiges von Essbarem trennt,
+// ist eine Sicherheitsangabe, die um den Faktor 100 danebenliegen kann, kein
+// Schoenheitsfehler.
+//
+// Dieselbe Regel wie in der Historie, damit beide dasselbe sagen.
+function gsNormConfidence(v) {
+  if (typeof v === 'string') v = parseFloat(v);
+  if (typeof v !== 'number' || !isFinite(v)) return null;
+  // Die Grenze liegt bewusst UNTER 1, nicht bei 1: eine glatte `1` ist
+  // zweideutig (1 % oder 1,0 = sicher?). Sie als 1 % zu lesen irrt in die
+  // vorsichtige Richtung — zu wenig Sicherheit anzuzeigen kostet einen
+  // zweiten Blick, zu viel kostet im Zweifel mehr.
+  if (v > 0 && v < 1) return Math.round(v * 100);
+  if (v >= 1 && v <= 100) return Math.round(v);
+  if (v > 100) return 100;
+  return 0;
+}
+window.gsNormConfidence = gsNormConfidence;
+
+var GS_QUAL_ZU_UNSCHARF = 8;
+function gsQualitaetZuSchlecht(q) {
+  if (!q || !q.messbar) return false;
+  if (typeof q.blur === 'number' && q.blur < GS_QUAL_ZU_UNSCHARF) return true;
+  return typeof q.quality === 'number' && q.quality < GS_QUAL_ZU_SCHLECHT;
+}
+window.gsQualitaetZuSchlecht = gsQualitaetZuSchlecht;
+
+// v31.79: nur noch ein Durchreicher. Die Messung steht in gsBildQualitaet
+// und nimmt jede Quelle an — zwei Kopien derselben Rechnung waeren genau
+// die Sorte Doppelpflege, die auseinanderlaeuft (CLAUDE.md §3.3).
+function gsScannerQualityCheck(video){
+  return gsBildQualitaet(video);
 }
 
 // Scanner-Modus (Pflanze/Pilz/Baum/Detail) — steuert Prompt-Bias
@@ -27738,7 +27820,8 @@ async function _gsRetryAfterKeyPull(){
 }
 window._gsRetryAfterKeyPull = _gsRetryAfterKeyPull;
 
-async function analyzeImage(b64, mt, organContext, extraImages){
+async function analyzeImage(b64, mt, organContext, extraImages, opts){
+  opts = opts || {};
   // v30.74: Low-Confidence-Re-Scan — der Nutzer hat „Weiteres Foto hinzufügen" getippt; das vorige Bild wird als
   // Multi-Shot mit dem neuen kombiniert (höhere Genauigkeit). Eine Stelle → greift für Kamera UND Galerie.
   // Frische-Guard (3 Min) verhindert, dass ein verwaister Re-Scan-Intent einen späteren, fremden Scan kombiniert.
@@ -27795,31 +27878,96 @@ async function analyzeImage(b64, mt, organContext, extraImages){
 
   const rd = document.getElementById('scan-result');
   rd.style.display = 'block';
+
+  // ── v31.79: erst messen, dann fragen ────────────────────────────────
+  //
+  // Bis hierher wurde die Bildqualitaet NUR am Live-Video geprueft. Galerie,
+  // Teilen-Dialog und abgelegte Datei kamen ungeprueft durch — drei der vier
+  // Wege hierher. Ein unscharfes Foto kostet dann einen Aufruf aus dem
+  // Tageskontingent und liefert eine Bestimmung, der man nicht ansieht, wie
+  // duenn ihr Grund ist.
+  //
+  // Geblockt wird NICHT: der Mensch entscheidet. Er soll es nur vorher
+  // wissen. Und die Schwelle ist tief — eine Warnung bei jedem zweiten Foto
+  // wird weggetippt und schuetzt dann niemanden mehr.
+  var _qual = null;
+  if (!opts.trotzdem) {
+    var _einzeln = !(Array.isArray(extraImages) && extraImages.length);
+    if (_einzeln && b64 && typeof gsBildQualitaetVonB64 === 'function') {
+      try { _qual = await gsBildQualitaetVonB64(b64, mt); } catch (_) { _qual = null; }
+    }
+    if (gsQualitaetZuSchlecht(_qual)) {
+      try { window._gsQualB64 = b64; window._gsQualMt = mt; window._gsQualCtx = organContext || ''; } catch (_) {}
+      rd.innerHTML =
+        '<div style="padding:26px 20px;text-align:center;background:var(--card);">' +
+          '<div style="font-size:52px;margin-bottom:10px;">\ud83d\udcf7</div>' +
+          '<div style="font-size:var(--fs-xl);font-weight:900;color:var(--g-dark);margin-bottom:8px;">Das Foto ist schwer zu lesen</div>' +
+          '<div style="font-size:var(--fs-md);color:var(--text2);line-height:1.6;margin-bottom:6px;max-width:340px;margin-left:auto;margin-right:auto;">' +
+            (_qual.warnings.length ? gsEscHtml(_qual.warnings.join(' \u00b7 ')) : 'Sch\u00e4rfe und Licht reichen kaum f\u00fcr eine sichere Bestimmung.') +
+          '</div>' +
+          '<div style="font-size:var(--fs-sm);color:var(--muted);line-height:1.5;margin-bottom:18px;">Gemessen: Sch\u00e4rfe ' + _qual.blur + '/100 \u00b7 Licht ' + _qual.light + '/100. ' +
+            'Ein zweites Foto bringt hier meist mehr als eine Bestimmung auf dieser Grundlage \u2014 und kostet keinen Versuch aus deinem Tageskontingent.</div>' +
+          '<button onclick="gsResetScanner&&gsResetScanner()" style="display:block;width:100%;max-width:300px;margin:0 auto 8px;padding:13px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;">\ud83d\udcf8 Neues Foto</button>' +
+          '<button onclick="gsQualTrotzdem()" style="display:block;width:100%;max-width:300px;margin:0 auto;padding:11px;background:transparent;color:var(--text2);border:1px solid var(--border);border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;">Trotzdem bestimmen</button>' +
+        '</div>';
+      try { if (typeof gsScanStatusHide === 'function') gsScanStatusHide(); } catch (_) {}
+      return;
+    }
+    // Messbar und brauchbar? Dann wandert der Wert in den Prompt — die KI
+    // soll wissen, wie gut die Vorlage ist, statt es zu raten.
+    if (_qual && _qual.messbar && !organContext) {
+      organContext = 'Bildqualität: ' + _qual.quality + '/100' +
+                     (_qual.warnings.length ? ' (' + _qual.warnings.join(', ') + ')' : '');
+    }
+  }
   // v23.67: Freundlichere Status-Messages — weniger "Scan"-Sprache, mehr Natur-Kontext
-  var stages = [
-    '📷 Foto wird vorbereitet…',
-    '🔍 Merkmale werden gelesen (Blatt, Blüte, Rinde, Sporen)…',
-    '🌿 Vergleich mit der Arten-Bibliothek…',
-    '📍 Standort &amp; Saison werden abgeglichen…',
-    '⚖️ Doppelgänger &amp; Verwechslungen werden geprüft…'
-  ];
-  var stageIdx = 0;
-  var stageTimer = setInterval(function(){
-    stageIdx = Math.min(stageIdx+1, stages.length-1);
+  // ── v31.79: Schritte, die es wirklich gibt ─────────────────────────
+  //
+  // Hier stand ein Timer. Fünf Meldungen — „Merkmale werden gelesen",
+  // „Vergleich mit der Arten-Bibliothek", „Doppelgänger werden geprüft" —
+  // liefen alle 2,2 Sekunden weiter, während die App in Wahrheit auf EINEN
+  // Netzaufruf wartete. Nichts davon geschah in dem Moment, in dem es
+  // behauptet wurde. Der Balken darunter war eine CSS-Animation von 0 auf
+  // 92 % — eine Zahl, die niemand kannte.
+  //
+  // Derselbe Fehler wie im Planer vor v31.65, dieselbe Antwort: nur die
+  // Schritte melden, die stattfinden, und über den langen Aufruf die
+  // einzige ehrliche Aussage machen — er läuft, und zwar seit N Sekunden.
+  var _scanWarte = null;
+  function scanSchritt(text) {
+    if (_scanWarte) { clearInterval(_scanWarte); _scanWarte = null; }
     var el = document.getElementById('scan-stage-txt');
-    if (el) el.textContent = stages[stageIdx];
-  }, 2200);
+    if (el) el.textContent = text;
+    var b = document.getElementById('scan-bar');
+    if (b) { b.classList.remove('gs-pp-unbestimmt'); b.style.width = '18%'; }
+  }
+  function scanWarten(text) {
+    var el = document.getElementById('scan-stage-txt');
+    if (el) el.textContent = text;
+    var b = document.getElementById('scan-bar');
+    if (b) { b.classList.add('gs-pp-unbestimmt'); b.style.width = '100%'; }
+    var start = Date.now();
+    if (_scanWarte) clearInterval(_scanWarte);
+    _scanWarte = setInterval(function () {
+      var e2 = document.getElementById('scan-stage-txt');
+      if (!e2) return;
+      var s2 = Math.round((Date.now() - start) / 1000);
+      e2.textContent = text + ' (' + s2 + ' s)';
+    }, 1000);
+  }
+  function scanFertig() { if (_scanWarte) { clearInterval(_scanWarte); _scanWarte = null; } }
   var shotCount = 1 + (Array.isArray(extraImages) ? extraImages.length : 0);
   rd.innerHTML = '<div class="analyzing"><div class="spin">🔍</div>' +
-    '<p id="scan-stage-txt" style="font-size:var(--fs-md);font-weight:700;color:var(--g-dark);">'+stages[0]+'</p>' +
+    '<p id="scan-stage-txt" style="font-size:var(--fs-md);font-weight:700;color:var(--g-dark);">📷 Foto wird geprüft …</p>' +
     (shotCount>1 ? '<p style="font-size:var(--fs-sm);color:var(--muted);margin-top:6px;">Multi-Shot: '+shotCount+' Fotos werden kombiniert → höhere Genauigkeit</p>' : '') +
-    '<div style="margin-top:12px;width:180px;height:6px;background:var(--surface2);border-radius:var(--r-sm);overflow:hidden;"><div id="scan-bar" style="width:0%;height:100%;background:linear-gradient(90deg,var(--g-main),var(--g-dark));animation:scanbar 11s ease-out forwards;"></div></div>' +
-    '<style>@keyframes scanbar{from{width:0%}to{width:92%}}</style>' +
+    '<div style="margin-top:12px;width:180px;height:6px;background:var(--surface2);border-radius:var(--r-sm);overflow:hidden;"><div id="scan-bar" style="width:18%;height:100%;background:linear-gradient(90deg,var(--g-main),var(--g-dark));transition:width .3s;"></div></div>' +
+    // v31.79: die CSS-Animation von 0 auf 92 % ist raus — sie war eine Zahl, die niemand kannte.
     '</div>';
   // v23.87: Status klar zeigen während Analyse (kein Auto-Hide)
   if (typeof gsScanStatusShow === 'function') gsScanStatusShow('🔬 Art wird bestimmt …', 0);
   else document.getElementById('scan-status').textContent = '🔬 Art wird bestimmt …';
 
+  scanSchritt('📍 Standort und Saison werden zusammengestellt …');
   // Kontext aufbauen (GPS, Monat, Region, Habitat, User-History)
   var ctx = gsBuildScanContext();
   var ctxLines = gsFormatScanContext(ctx);
@@ -27845,12 +27993,19 @@ async function analyzeImage(b64, mt, organContext, extraImages){
   // Hauptbilds wäre nicht repräsentativ). dHash + exakter Lookup VOR dem Claude-Call.
   var _scanPhash = null;
   if (shotCount === 1 && b64) {
+    scanSchritt('🔎 Im Scan-Speicher nachsehen …');
     try { _scanPhash = await _gsScanDHash(b64, mt); } catch(_){ _scanPhash = null; }
     if (_scanPhash) {
       try {
         var _cachedRes = await _gsScanCacheGet(_scanPhash);
         if (_cachedRes && _cachedRes.name && _cachedRes.confidence != null) {
-          clearInterval(stageTimer);
+          scanFertig();
+          try {
+            _cachedRes.confidence = gsNormConfidence(_cachedRes.confidence);
+            if (Array.isArray(_cachedRes.alternatives)) _cachedRes.alternatives.forEach(function (a) {
+              if (a && a.confidence != null) a.confidence = gsNormConfidence(a.confidence);
+            });
+          } catch (_) {}
           if (!Array.isArray(_cachedRes.alternatives)) _cachedRes.alternatives = [];
           _cachedRes._ctx = ctx;
           _cachedRes._shotCount = shotCount;
@@ -27865,8 +28020,14 @@ async function analyzeImage(b64, mt, organContext, extraImages){
 
   try{
     if (!navigator.onLine) { var _offErr = new Error('offline'); _offErr.code = 'offline'; throw _offErr; } // v30.24: offline sofort statt 45s-Timeout (Cache-Hit oben lief bereits)
+    // Der lange Schritt. Ueber ihn ist die einzige ehrliche Aussage: er
+    // laeuft. Deshalb ein laufender Streifen und die verstrichene Zeit —
+    // die ist gemessen und stimmt.
+    scanWarten(shotCount > 1
+      ? '🌐 Die KI vergleicht ' + shotCount + ' Fotos …'
+      : '🌐 Die KI schaut sich das Foto an …');
     const text = await callVisionAI(b64, mt, prompt, extraImages, { systemPrompt: SCAN_SYSTEM_PROMPT, quotaFeature: 'scan', maxTokens: 900 }); // v30.47: Scan-JSON braucht ~400-600 Tok → 900 reicht, kürzere Generierung
-    clearInterval(stageTimer);
+    scanFertig();
     if(!text) throw new Error('Keine Antwort von der KI erhalten.');
     // v23.68: Robuster JSON-Extractor — behandelt Markdown-Fences, Prose-Einleitung,
     // nested Objects (balanced-brace-Matching statt greedy Regex), trailing Text,
@@ -27878,6 +28039,13 @@ async function analyzeImage(b64, mt, organContext, extraImages){
       var preview = (text || '').slice(0, 140).replace(/\s+/g, ' ');
       throw new Error('⚠️ KI antwortete ungültig: „' + preview + '…". Bitte nochmal scannen oder `gsTestApiKey()` prüfen.');
     }
+    // v31.79: EINE Skala, bevor irgendetwas damit rechnet oder es anzeigt.
+    try {
+      res.confidence = gsNormConfidence(res.confidence);
+      if (Array.isArray(res.alternatives)) res.alternatives.forEach(function (a) {
+        if (a && a.confidence != null) a.confidence = gsNormConfidence(a.confidence);
+      });
+    } catch (_) {}
     if (!res.name || res.confidence == null) throw new Error('KI-Antwort unvollständig — bitte erneut scannen.');
     // Normalisiere alternatives-Array
     if (!Array.isArray(res.alternatives)) res.alternatives = [];
@@ -27891,7 +28059,7 @@ async function analyzeImage(b64, mt, organContext, extraImages){
       _gsScanCachePut(_scanPhash, res);
     }
   }catch(err){
-    clearInterval(stageTimer);
+    scanFertig();
     var errMsg = (err && err.message) || 'Unbekannter Fehler';
     // v30.24: Offline → sofortige, ruhige Offline-Karte statt rotem Fehler (Scanner braucht Netz für die KI)
     if (err && err.code === 'offline') {
@@ -28367,6 +28535,15 @@ async function gsSubmitScanMistake() {
 // Setzt Scanner zurück für nächste Aufnahme. v23.71: Kamera wird beim Analyse-Start gestoppt,
 // muss hier wieder gestartet werden — aber nur wenn Permission noch gilt (Chrome erinnert sich,
 // Safari fragt eventuell erneut). gsCamPermissionCached() vermeidet unnötige Permission-Prompts.
+// v31.79: „Trotzdem bestimmen" — der Mensch entscheidet, die App misst nur.
+window.gsQualTrotzdem = function () {
+  try {
+    var b = window._gsQualB64, m = window._gsQualMt, c = window._gsQualCtx;
+    if (!b) { if (typeof gsResetScanner === 'function') gsResetScanner(); return; }
+    analyzeImage(b, m, c, null, { trotzdem: true });
+  } catch (_) { if (typeof gsResetScanner === 'function') gsResetScanner(); }
+};
+
 function gsResetScanner() {
   // Scan-Ergebnis ausblenden
   var rd = document.getElementById('scan-result');
@@ -67452,6 +67629,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.79', date: '02.09.2026',
+    headline: '\ud83d\udcf7 Scanner V2: erst messen, dann bestimmen',
+    summary: 'Die Bildqualit\u00e4t wurde bisher nur an der Live-Kamera gepr\u00fcft \u2014 Galerie, Teilen-Dialog und abgelegte Dateien kamen ungepr\u00fcft durch. Jetzt wird jedes Foto vorher vermessen. Dazu ein ehrlicher Fortschritt statt f\u00fcnf Meldungen nach Stoppuhr, und die Sicherheitsangabe kann nicht mehr um den Faktor 100 danebenliegen.',
+    user_summary: '\ud83d\udcf7 Der Scanner sagt dir jetzt VOR der Bestimmung, wenn ein Foto zu unscharf oder zu dunkel ist \u2014 das spart dir einen Versuch aus dem Tageskontingent.',
+    user_items: [
+      {emoji:'\ud83d\udcf7', bold:'Jedes Foto wird vorher vermessen:', text:' Sch\u00e4rfe und Licht wurden bisher NUR an der eigenen Kamera gepr\u00fcft \u2014 drei der vier Wege in den Scanner (Galerie, Teilen, Datei ablegen) kamen ungepr\u00fcft durch. Bei einem wirklich unlesbaren Foto siehst du jetzt vorher die gemessenen Werte und entscheidest selbst: neues Foto oder trotzdem bestimmen. Geblockt wird nichts.'},
+      {emoji:'\u23f1\ufe0f', bold:'Ehrlicher Fortschritt:', text:' W\u00e4hrend des Scans liefen f\u00fcnf Meldungen nach Stoppuhr ab \u2014 „Merkmale werden gelesen", „Doppelg\u00e4nger werden gepr\u00fcft" \u2014 w\u00e4hrend die App in Wahrheit auf EINEN Netzaufruf wartete. Der Balken darunter war eine Animation von 0 auf 92 %. Jetzt melden nur die Schritte, die wirklich stattfinden, und beim Warten steht dort die verstrichene Zeit \u2014 die ist gemessen und stimmt.'},
+      {emoji:'\ud83c\udfaf', bold:'Die Sicherheitsangabe kann nicht mehr um 100 danebenliegen:', text:' Liefert das Modell einmal 0.42 statt 42, stand dort bisher „0.42 %". Das liest sich als „so gut wie nichts", gemeint war „nicht ganz die H\u00e4lfte". Jetzt gilt \u00fcberall dieselbe Regel \u2014 und im Zweifel die vorsichtigere Lesart.'},
+    ],
+  },
+  {
     v: 'v31.78', date: '02.09.2026',
     headline: '\ud83c\udf3b Der Bl\u00fchkalender war zur H\u00e4lfte leer \u2014 seit jeher',
     summary: 'Der Reiter „Wild" las ein Datenfeld, das in keiner der 4342 Arten existiert. Er zeigte deshalb immer null Ergebnisse. Jetzt kommen die Angaben aus der echten Saison-Spalte: allein im Juni sind es 1395 Arten. Dazu ein neuer Reiter „Meine", ein Jahresband je Art und Marken f\u00fcr essbar/giftig/gesch\u00fctzt.',
@@ -67819,7 +68007,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.78';
+var GS_VERSION = 'v31.79';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
