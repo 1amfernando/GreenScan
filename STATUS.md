@@ -4,13 +4,52 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.82` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.83` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (bu) — v31.83: vier Zahlen zuerst · der Planer-Kopf passt wieder
+
+Fernando: *„Der KI-Planer soll optisch sowie funktionell einen riesigen Fortschritt machen."* Erster Teil davon.
+
+#### Kennzahlen als erster Blick
+
+Das Plan-Ergebnis begann mit Prüfungen und Listen — richtig, aber ohne ersten Eindruck. Jetzt stehen ganz oben vier Zahlen:
+
+> **12 m²** Fläche · **3** Arten · **11 kg** Ernte · **8.3/Wo** Handgriffe
+
+**Alle vier gerechnet**, keine aus der KI-Antwort: die Ernte aus `_gsPlanErnteMonate` (Summe der geprüften Erträge), der Aufwand aus `_gsPlanArbeit` (Spitze über das Jahr). Wo nichts gerechnet werden konnte, steht ein **Strich** und keine Null — „0 kg" und „keine Angabe" sind verschiedene Aussagen. Darunter die Zusammenfassung, die vorher unter der Checkliste begraben war.
+
+#### Der Kopfbereich passte nicht
+
+Titel und **drei** Werkzeug-Knöpfe standen in EINER Flex-Reihe. Auf 412 px blieben der Überschrift **96 px** — „KI-Gartenplaner PRO" brach auf drei Zeilen, die Unterzeile auf acht, und „🌳 Bäume" ragte rechts hinaus. Das war mir schon bei den Messungen in v31.77 aufgefallen und stand seither als offener Punkt in diesem Log.
+
+Jetzt zwei Zeilen: Titel oben über die volle Breite, Werkzeuge darunter als umbrechende Reihe.
+
+#### Und was dabei sichtbar wurde
+
+Sobald der Kopf richtig umbricht, meldet `contrast_check` zwei Stellen, die vorher unter dem Radar lagen:
+
+| | |
+|---|---|
+| 3,54:1 | Unterzeile — `--muted` bei `opacity:.75`. Die Farbe ist geprüft, die Transparenz macht sie kaputt. |
+| 4,06:1 | „🌳 Bäume" — weiss auf dem hellen Ende `#43a047` |
+
+**Ein zusammengequetschter Text entzieht sich der Prüfung.** Was nicht richtig gerendert wird, wird auch nicht richtig gemessen — die Layoutkorrektur war die Voraussetzung dafür, die Farbfehler überhaupt zu sehen. Beide behoben, jetzt wieder 0/0.
+
+#### Prüfstände
+
+`render_check` 2865 · 0 JS-Fehler · 0 verdächtig · `contrast_check` 0/0 (11 Bildschirme + 2 Fenster, 239 Stellen allein im Planer) · `touch_check` 0 · `wiring_check` 0/0/0 + 31 Ziele · `data_check` 0.
+
+#### Weiter offen aus Fernandos Liste
+
+Planer Stufe 3 (Mehrbeet aus dem Zwilling) · Varianten-Vergleich · Scanner: Multi-Shot als angebotener Weg · der grosse Verdrahtungs-Durchgang.
+
+---
 
 ### 2026-09-02 (bt) — v31.82: Gewächshaus, Treibhaus, Hochbeet — dein Garten hat jetzt eine Art
 
