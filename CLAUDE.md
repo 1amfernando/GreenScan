@@ -484,6 +484,7 @@ node scripts/scan_check.js       # glaubt der Scanner der KI aufs Wort? (seit v3
 node scripts/offline_check.js    # haelt die PWA, was sie ohne Empfang verspricht? (seit v32.13)
 node scripts/a11y_check.js       # bedienbar ohne Augen und ohne Maus? (seit v32.16)
 node scripts/i18n_check.js       # kommt in vier Sprachen an, was deutsch dasteht? (seit v32.17)
+node scripts/backend_check.js    # ruft das Frontend etwas auf, das es nicht gibt? (seit v32.18)
 #   save_check prueft seit v31.95 auch SERVER-Wege mit gestelltem sbFetch:
 #   meldet die Funktion Erfolg, wenn der Server NEIN sagt — oder gar nichts?
 #   wiring_check meldet seit v31.95 zusaetzlich sofort dereferenzierte
@@ -899,6 +900,42 @@ Funktion. Jede Funktion legt sich einen eigenen Alias an
 Das ist richtig so — er bindet beim AUFRUF, nicht beim Laden. Wer `window._t`
 prueft, prueft eine Variable, die es nie gab; die oeffentliche Schnittstelle
 heisst `gsI18n.t`.
+
+**`backend_check.js` (seit v32.18) prueft die NAHT** — die App spricht 97 RPCs
+und 111 Tabellen/Views in Supabase an; existiert jede davon? Ein Aufruf ins
+Leere sieht nach nichts aus: PostgREST meldet einen Fehler, die App faengt ihn
+ab, die Ansicht bleibt leer.
+
+Er vergleicht gegen eine **Momentaufnahme im Repo**
+(`docs/backend-inventar.json`), nicht gegen die lebende Datenbank. Preis: sie
+veraltet — deshalb nennt der Bericht IMMER ihr Datum; eine Zahl ohne Datum
+waere eine Behauptung. Gewinn: er laeuft ohne Netz und ohne Zugangsdaten wie
+die anderen dreizehn, und VOR dem Ausliefern.
+
+**Drei Klassen, nicht zwei** — daran haengt, ob so ein Pruefstand brauchbar
+bleibt:
+
+- **rot** — angesprochen, existiert nicht, nichts vorbereitet.
+- **offen** — existiert nicht, aber eine Migration liegt bereit. Kein Fehler im
+  Code, sondern eine Aufgabe fuer jemanden mit Schreibrecht. Wird NAMENTLICH
+  genannt, nie stillschweigend durchgewunken.
+- **neu** — seit der Momentaufnahme dazugekommen; heisst: nachziehen.
+
+Ohne die mittlere Klasse waere `comment_reactions` dauerhaft rot und der
+Pruefstand damit wertlos.
+
+**Und die Grenze, die dabei gilt und die keine Sitzung ueberschreiten
+sollte:** `STATUS.md` (2026-08-31 y) fuehrt eine LISTE OFFENER MIGRATIONEN,
+die bewusst NICHT angewandt sind. Eine fruehere Sitzung hat sie gegen das
+Live-Schema vorgeprueft und die Anwendung Fernando ueberlassen. DDL auf einer
+Produktivdatenbank mit laufenden Zahlungen ist nichts, was nebenbei passiert —
+auch dann nicht, wenn die Migration im Repo liegt, idempotent ist und man den
+Zugang haette. Nachmessen: ja, jederzeit, nur lesend. Anwenden: nein.
+
+**Was beim Nachmessen aufgefallen ist und allgemein gilt:** ein Rueckstand
+veraltet auch. Eine der fuenf Zeilen stand seit zwei Tagen auf „offen",
+obwohl der Trigger laengst da war. Wer so eine Liste liest, misst sie besser
+nach, statt sie zu glauben.
 
 **Seit v31.78 misst `contrast_check` in ZWEI Fenstern** — KI-Planer und
 Blühkalender — und der Bericht nennt **je Fenster die Zahl der vermessenen
