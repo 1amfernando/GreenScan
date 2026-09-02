@@ -4,13 +4,50 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.95` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.96` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (ch) — v31.96: die Rollen-Vergabe geht den Weg, den es schon gab
+
+#### Eine Korrektur an der eigenen Arbeit von vorhin
+
+v31.95 hat `gsAdminSetExpertLevel` und `gsAdminBanUser` von einer
+Falschmeldung zu einem echten PATCH auf `profiles` gemacht. Ehrlich, aber der
+schlechtere Weg — und das war beim Weitersuchen zu sehen: es gibt eine zweite,
+funktionierende Admin-Oberfläche (`openAdminPanel` / `gsAdminAssignRole`), die
+über die RPC **`fn_assign_role`** geht. An der Datenbank nachgesehen, was die
+kann und der PATCH nicht:
+
+- prüft die Admin-Rolle **serverseitig** (nicht nur `gsIsAdmin()` im Browser),
+- verhindert, dass sich der **letzte Admin** selbst degradiert,
+- setzt `is_admin` mit (der PATCH tat das nicht),
+- schreibt einen Eintrag ins **`audit_log`**,
+- **benachrichtigt die betroffene Person** („✓ Du bist jetzt verifizierter
+  Experte").
+
+Beide Funktionen delegieren jetzt an `gsAdminAssignRole`; die doppelte
+PATCH-Logik ist weg, `_gsAdminUidZu(email)` bleibt als gemeinsamer
+Adresse→id-Schritt.
+
+#### Und ein verschluckter Fehlschlag
+
+`✅ Neue Art in DB` stimmte — lokal. Die Cloud-Übertragung lief als
+`.catch(function(){})` ins Leere. Jetzt sagt eine zweite Meldung, wenn die Art
+nur auf diesem Gerät liegt.
+
+#### Prüfstand
+
+`save_check` prüft den Weg jetzt gegen die RPC: schlägt jemand künftig wieder
+einen direkten PATCH vor, meldet der Fall es mit Begründung („umgeht
+Audit-Log, Benachrichtigung und die Letzter-Admin-Sperre"). 10/10, alle
+übrigen grün.
+
+---
 
 ### 2026-09-02 (cg) — v31.95: vier Bildschirme liessen sich nicht öffnen, ein Antrag wurde nie eingereicht
 

@@ -187,7 +187,7 @@ const SERVER_WEGE = [
     },
   },
   {
-    name: 'Rolle vergeben (gsAdminSetExpertLevel → profiles.role)',
+    name: 'Rolle vergeben (gsAdminSetExpertLevel → RPC fn_assign_role)',
     lauf: async () => {
       const erg = { rufe: [], meldungen: [] };
       window.showProfileToast = m => erg.meldungen.push(typeof m === 'string' ? m : (m && (m.title + ' ' + (m.body || ''))));
@@ -202,29 +202,33 @@ const SERVER_WEGE = [
       const ta = document.createElement('textarea'); ta.id = 'admin-expert-reason'; ta.value = 'Dipl. Botanikerin';
       document.body.appendChild(sel); document.body.appendChild(ta);
 
-      // Fall 1: PATCH liefert 0 Zeilen (RLS hat still abgewiesen).
+      // Fall 1: die RPC lehnt ab (so meldet sie „Only admins can assign roles").
       window.sbFetch = async (path, opts) => {
         erg.rufe.push((opts && opts.method || 'GET') + ' ' + path);
-        if (!opts || opts.method === 'GET') return { data: [{ id: 'u1', role: 'user' }], error: null };
-        return { data: [], error: null };
+        if (/rpc\/fn_assign_role/.test(path)) return { data: null, error: { message: 'Only admins can assign roles' } };
+        return { data: [{ id: 'u1', role: 'user' }], error: null };
       };
       await gsAdminSetExpertLevel('a@b.ch');
-      if (!erg.rufe.some(r => /^PATCH \/rest\/v1\/profiles/.test(r))) return { ok: false, warum: 'schreibt gar nicht in profiles' };
-      if (erg.meldungen.some(m => /^✅/.test(m || ''))) return { ok: false, warum: 'meldet Erfolg bei LEERER Antwort — genau der Fall, den RLS erzeugt' };
+      if (!erg.rufe.some(r => /rpc\/fn_assign_role/.test(r)))
+        return { ok: false, warum: 'geht nicht über fn_assign_role — ein direkter PATCH umgeht Audit-Log, Benachrichtigung und die Letzter-Admin-Sperre' };
+      if (erg.meldungen.some(m => /^✅/.test(m || ''))) return { ok: false, warum: 'meldet Erfolg, obwohl die RPC ablehnt' };
 
-      // Fall 2: PATCH gibt die Zeile mit der neuen Rolle zurueck.
-      erg.meldungen.length = 0;
+      // Fall 2: die RPC bestaetigt.
+      erg.meldungen.length = 0; erg.rufe.length = 0;
       window.sbFetch = async (path, opts) => {
-        if (!opts || opts.method === 'GET') return { data: [{ id: 'u1', role: 'user' }], error: null };
-        const body = JSON.parse(opts.body || '{}');
-        if (body.role !== 'expert') return { data: [], error: { message: 'falsche Rolle geschickt: ' + body.role } };
-        if (body.is_expert !== true) return { data: [], error: { message: 'is_expert nicht mitgesetzt' } };
-        return { data: [{ id: 'u1', role: 'expert' }], error: null };
+        erg.rufe.push((opts && opts.method || 'GET') + ' ' + path);
+        if (/rpc\/fn_assign_role/.test(path)) {
+          const b = JSON.parse(opts.body || '{}');
+          if (b._user_id !== 'u1') return { data: null, error: { message: 'falsche id: ' + b._user_id } };
+          if (b._role !== 'expert') return { data: null, error: { message: 'falsche Rolle: ' + b._role } };
+          return { data: { ok: true, new_role: 'expert' }, error: null };
+        }
+        return { data: [{ id: 'u1', role: 'user' }], error: null };
       };
       await gsAdminSetExpertLevel('a@b.ch');
       if (!erg.meldungen.some(m => /^✅/.test(m || ''))) return { ok: false, warum: 'meldet keinen Erfolg: ' + erg.meldungen.join(' | ') };
       sel.remove(); ta.remove();
-      return { ok: true, info: 'leere Antwort abgelehnt, echte Antwort gemeldet' };
+      return { ok: true, info: 'Ablehnung gemeldet, Erfolg über die RPC' };
     },
   },
   {

@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.95.20260902">
+<meta name="app-version" content="31.96.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28609,7 +28609,19 @@ async function gsAutoEnrichNewSpecies(r){
             scan_confidence: r.confidence,
             created_at: new Date().toISOString()
           })
-        }).catch(function(){});
+        }).then(function (res) {
+          // v31.96: der Fehlschlag wurde bisher verschluckt (`.catch(function(){})`).
+          // „Neue Art in DB" stimmte trotzdem — die Art liegt lokal und ist
+          // sofort auffindbar. Nur eben NUR lokal: auf dem naechsten Geraet
+          // ist sie weg, und niemand hat das gesagt.
+          if (res && res.error) throw new Error(res.error.message || '');
+        }).catch(function (e) {
+          if (typeof console !== 'undefined') console.warn('[user_species] sync:', e && e.message);
+          if (typeof showProfileToast === 'function') showProfileToast({
+            title: '☁️ Nur auf diesem Gerät',
+            body: enriched.name + ' ist gespeichert, konnte aber nicht in die Cloud übertragen werden — auf einem anderen Gerät fehlt die Art.',
+            kind: 'warn', duration: 6000 });
+        });
       }
     } catch(_){}
 
@@ -68877,6 +68889,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.96', date: '02.09.2026',
+    headline: '\ud83d\udee1\ufe0f Die Rollen-Vergabe geht jetzt den Weg, den es schon gab',
+    summary: 'v31.95 hat aus einer Falschmeldung eine echte Änderung gemacht — aber auf dem schlechteren Weg. Die Datenbank hat dafür eine eigene Funktion, die serverseitig prüft, den letzten Admin schützt, ein Protokoll führt und die betroffene Person benachrichtigt. Genau darüber läuft es jetzt.',
+    user_summary: '\ud83d\udee1\ufe0f Wer eine neue Rolle bekommt, wird jetzt auch benachrichtigt — und jede Vergabe steht im Protokoll.',
+    user_items: [
+      {emoji:'\ud83d\udee1\ufe0f', bold:'Über die richtige Stelle:', text:' `fn_assign_role` prüft die Admin-Rechte auf dem Server statt nur im Browser, verhindert dass sich der letzte Admin selbst degradiert, schreibt ins Protokoll und schickt der betroffenen Person eine Nachricht („✓ Du bist jetzt verifizierter Experte"). Nichts davon konnte der direkte Schreibzugriff aus v31.95.'},
+      {emoji:'\u2601\ufe0f', bold:'Eine neu erkannte Art sagt jetzt, wenn sie nur lokal liegt:', text:' Die Übertragung in die Cloud wurde bisher still verschluckt. Die Art war gespeichert — aber nur auf diesem Gerät, und niemand hat das gesagt.'},
+    ],
+  },
+  {
     v: 'v31.95', date: '02.09.2026',
     headline: '\ud83c\udf93 Vier Bildschirme liessen sich nicht \u00f6ffnen, und ein Antrag wurde nie eingereicht',
     summary: 'Eine einzige Zeile — ein Titel-Element, das es in diesem Fenster nicht gibt — legte vier Bildschirme still: Best\u00e4tigte Scans, Supabase-Schl\u00fcssel, das Admin-Panel und den Experten-Antrag. Dahinter lagen drei Funktionen, die Erfolg meldeten, ohne irgendetwas zu verschicken.',
@@ -69434,7 +69456,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.95';
+var GS_VERSION = 'v31.96';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -69668,36 +69690,15 @@ async function gsAdminBanUser(targetEmail) {
   if (!gsIsAdmin()) return;
   if (!(await gsConfirmModal('Nutzer ' + targetEmail + ' wirklich sperren? Die Rolle wird auf „Gesperrt" gesetzt.'))) return;
   if (typeof sbFetch !== 'function') { showProfileToast('Keine Verbindung zum Server.'); return; }
-  try {
-    var f = await sbFetch('/rest/v1/profiles?select=id,role&limit=2&email=eq.' + encodeURIComponent(targetEmail), { method: 'GET' });
-    var rows = (f && Array.isArray(f.data)) ? f.data : [];
-    if (!rows.length || rows.length > 1) {
-      showProfileToast({title:'Nicht gesperrt', body: rows.length ? 'Zu dieser Adresse gibt es mehrere Profile.' : 'Zu ' + targetEmail + ' gibt es kein Profil.', kind:'error', duration:6000});
-      return;
-    }
-    var res = await sbFetch('/rest/v1/profiles?id=eq.' + encodeURIComponent(rows[0].id), {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-      body: JSON.stringify({ role: 'banned', role_assigned_at: new Date().toISOString(),
-                             role_assigned_by: gsStore.get('gs_sb_uid', null) || null,
-                             role_note: 'Gesperrt durch Admin', is_expert: false })
-    });
-    var ok = res && !res.error && Array.isArray(res.data) && res.data.length === 1 && res.data[0].role === 'banned';
-    if (!ok) {
-      showProfileToast({title:'Nicht gesperrt',
-        body:(res && res.error && res.error.message) || 'Der Server hat die Änderung nicht übernommen. Es wurde nichts geändert.',
-        kind:'error', duration:8000});
-      return;
-    }
-    var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
-    log.unshift({ ts: new Date().toISOString(), admin: gsStore.get('gs_sb_email', null),
-      target: targetEmail, action: 'ban', level: 'banned', note: 'Gesperrt durch Admin' });
-    gsStore.set('gs_admin_log', JSON.stringify(log.slice(0,200)));
-    closeModal('modal-recipe-detail');
-    showProfileToast('🚫 ' + targetEmail + ' wurde gesperrt.');
-  } catch (e) {
-    showProfileToast({title:'Fehler', body:(e && e.message) || 'Unbekannt — es wurde nichts geändert.', kind:'error'});
-  }
+  var uid = await _gsAdminUidZu(targetEmail);
+  if (!uid) return;
+  var r = await gsAdminAssignRole(uid, 'banned', 'Gesperrt durch Admin');
+  if (!r) return;
+  var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
+  log.unshift({ ts: new Date().toISOString(), admin: gsStore.get('gs_sb_email', null),
+    target: targetEmail, action: 'ban', level: 'banned', note: 'Gesperrt durch Admin' });
+  gsStore.set('gs_admin_log', JSON.stringify(log.slice(0,200)));
+  closeModal('modal-recipe-detail');
 }
 
 // ── v31.95: „vergeben" hiess bisher „in mein eigenes Geraet geschrieben" ──
@@ -69713,6 +69714,34 @@ async function gsAdminBanUser(targetEmail) {
 // `fn_is_role('admin') OR auth.uid() = id`), und die Spalten dafuer sind
 // da: role, role_note, role_assigned_at, role_assigned_by. Also: schreiben,
 // und Erfolg NUR nach einer Antwort ohne Fehler melden.
+// ── v31.95: „vergeben" hiess bisher „in mein eigenes Geraet geschrieben" ──
+//
+// Hier stand ein Kommentar, der den Fehler benannte und stehen blieb:
+// „Ueber Supabase RPC oder direkt (vereinfacht: localStorage + API)". Das
+// „vereinfacht" war das ganze Problem — geschrieben wurde NUR das lokale
+// Admin-Log, und danach meldete die Funktion „✅ Status … vergeben".
+//
+// v31.96 — und die RPC, die der alte Kommentar meinte, GIBT es: `fn_assign_role`
+// (SECURITY DEFINER). Sie kann alles, was ein direkter PATCH nicht kann:
+// sie prueft die Admin-Rolle SERVERSEITIG, verhindert dass sich der letzte
+// Admin selbst degradiert, setzt `is_admin` mit, schreibt ins `audit_log`
+// und benachrichtigt den betroffenen Nutzer („✓ Du bist jetzt verifizierter
+// Experte"). Der PATCH aus v31.95 konnte nichts davon — er war ehrlich, aber
+// der schlechtere Weg. Beide Funktionen gehen jetzt ueber `gsAdminAssignRole`.
+
+// Adresse → id. Die Rolle wird ueber die id gesetzt, nie ueber die Adresse:
+// eine Bedingung auf einer Adresse trifft im Zweifel mehrere Zeilen.
+async function _gsAdminUidZu(email) {
+  try {
+    var f = await sbFetch('/rest/v1/profiles?select=id,role&limit=2&email=eq.' + encodeURIComponent(email), { method: 'GET' });
+    if (f && f.error) { showProfileToast({title:'Nicht gefunden', body:'Profil konnte nicht gelesen werden: ' + (f.error.message||''), kind:'error', duration:6000}); return null; }
+    var rows = (f && Array.isArray(f.data)) ? f.data : [];
+    if (!rows.length) { showProfileToast({title:'Kein Profil', body:'Zu ' + email + ' gibt es kein Profil.', kind:'error'}); return null; }
+    if (rows.length > 1) { showProfileToast({title:'Mehrdeutig', body:'Zu dieser Adresse gibt es mehrere Profile — bitte im Dashboard prüfen.', kind:'error', duration:7000}); return null; }
+    return rows[0].id;
+  } catch (e) { showProfileToast({title:'Fehler', body:(e && e.message) || 'Unbekannt', kind:'error'}); return null; }
+}
+
 async function gsAdminSetExpertLevel(targetEmail) {
   if (!gsIsAdmin()) return;
   var sel = document.getElementById('admin-expert-select');
@@ -69720,54 +69749,19 @@ async function gsAdminSetExpertLevel(targetEmail) {
   if (!sel) return;
   var newLevel = sel.value;
   var noteText = reason ? reason.value.trim() : '';
-  var labelOf = function (r) { return (GS_ROLE_BADGES[r] || {}).label || r; };
-
   if (typeof sbFetch !== 'function') { showProfileToast('Keine Verbindung zum Server.'); return; }
-  if (!gsStore.get('gs_sb_token', null)) { showProfileToast('Nicht eingeloggt.'); return; }
   if (GS_ROLE_HIERARCHY.indexOf(newLevel) < 0) { showProfileToast('Unbekannte Rolle.'); return; }
   if (newLevel === 'admin' &&
       !(await gsConfirmModal(targetEmail + ' zum ADMIN machen? Damit kann diese Person Rollen aller Nutzer ändern.'))) return;
-
-  try {
-    // Erst die id holen — die Rolle wird ueber die id gesetzt, nicht ueber
-    // die Adresse: eine PATCH-Bedingung auf einer Adresse trifft im
-    // Zweifel mehrere Zeilen, eine auf der id genau eine.
-    var f = await sbFetch('/rest/v1/profiles?select=id,role&limit=2&email=eq.' + encodeURIComponent(targetEmail), { method: 'GET' });
-    var rows = (f && Array.isArray(f.data)) ? f.data : [];
-    if (f && f.error) { showProfileToast({title:'Nicht gefunden', body:'Profil konnte nicht gelesen werden: ' + (f.error.message||''), kind:'error', duration:6000}); return; }
-    if (!rows.length) { showProfileToast({title:'Kein Profil', body:'Zu ' + targetEmail + ' gibt es kein Profil.', kind:'error'}); return; }
-    if (rows.length > 1) { showProfileToast({title:'Mehrdeutig', body:'Zu dieser Adresse gibt es mehrere Profile — bitte im Dashboard prüfen.', kind:'error', duration:7000}); return; }
-
-    var res = await sbFetch('/rest/v1/profiles?id=eq.' + encodeURIComponent(rows[0].id), {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-      body: JSON.stringify({
-        role: newLevel,
-        role_note: noteText || null,
-        role_assigned_at: new Date().toISOString(),
-        role_assigned_by: gsStore.get('gs_sb_uid', null) || null,
-        is_expert: GS_ROLE_HIERARCHY.indexOf(newLevel) >= GS_ROLE_HIERARCHY.indexOf('expert'),
-      })
-    });
-    // Eine leere Antwort ist KEIN Erfolg: PostgREST liefert bei einer von
-    // RLS abgewiesenen Zeile 0 Datensaetze und keinen Fehler.
-    var ok = res && !res.error && Array.isArray(res.data) && res.data.length === 1 && res.data[0].role === newLevel;
-    if (!ok) {
-      showProfileToast({ title:'Nicht vergeben',
-        body:(res && res.error && res.error.message) || 'Der Server hat die Änderung nicht übernommen (fehlende Berechtigung?). Es wurde nichts geändert.',
-        kind:'error', duration:8000 });
-      return;
-    }
-
-    var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
-    log.unshift({ ts: new Date().toISOString(), admin: gsStore.get('gs_sb_email', null),
-                  target: targetEmail, action: 'set_role', level: newLevel, note: noteText });
-    gsStore.set('gs_admin_log', JSON.stringify(log.slice(0,200)));
-    closeModal('modal-recipe-detail');
-    showProfileToast('✅ Rolle „' + labelOf(newLevel) + '" an ' + targetEmail + ' vergeben.');
-  } catch(e) {
-    showProfileToast({title:'Fehler', body:(e && e.message) || 'Unbekannt — es wurde nichts geändert.', kind:'error'});
-  }
+  var uid = await _gsAdminUidZu(targetEmail);
+  if (!uid) return;
+  var r = await gsAdminAssignRole(uid, newLevel, noteText || null);
+  if (!r) return;                                  // gsAdminAssignRole hat schon gemeldet
+  var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
+  log.unshift({ ts: new Date().toISOString(), admin: gsStore.get('gs_sb_email', null),
+                target: targetEmail, action: 'set_role', level: newLevel, note: noteText });
+  gsStore.set('gs_admin_log', JSON.stringify(log.slice(0,200)));
+  closeModal('modal-recipe-detail');
 }
 
 // Experten-Badge im Profil anzeigen
