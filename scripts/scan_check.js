@@ -299,6 +299,46 @@ const FAELLE = [
       return { ok: true, info: 'sauberer Fund, kein Knopf' };
     },
   },
+  // ── v32.02 · Die Karte darf sich nicht selbst widersprechen ────────────
+  {
+    name: 'Einigkeit · „nicht in unserer Liste" und „Vollständiger Eintrag" schliessen sich aus',
+    lauf: () => {
+      const proben = [
+        { name: 'Bärlauch', latin: 'Allium ursinum' },
+        { name: 'Herbstzeitlose', latin: 'Colchicum autumnale' },
+        { name: 'Waldmeister', latin: 'Galium odoratum' },
+        { name: 'Zzz Fantasiekraut', latin: 'Zzzus fantasticus' },
+      ];
+      const streit = [];
+      for (const pr of proben) {
+        const pw = _gsScanPruefwerk({ ...pr, confidence: 80, toxicity: 0, alternatives: [] }, null);
+        const regel = pw.regeln.find(x => x.id === 'art');
+        const kenntPruefung = regel && regel.zustand === 'ok';
+        const kenntKarte = !!gsMatchScanToDb(pr.name, pr.latin);
+        // Die Karte darf grosszügiger sein (sie verlinkt auch ungeprüfte
+        // Einträge) — aber sie darf nie WENIGER kennen als die Prüfung.
+        if (kenntPruefung && !kenntKarte) streit.push(pr.name + ': Prüfung kennt die Art, die Karte nicht');
+      }
+      if (streit.length) return { ok: false, warum: streit.join(' · ') };
+      return { ok: true, info: proben.length + ' Proben, kein Widerspruch' };
+    },
+  },
+  {
+    name: 'Anzeige · das Scan-Foto steht genau EINMAL auf der Karte',
+    lauf: () => {
+      window._gsLastScanB64 = 'AAAA';
+      showScanResult({
+        name: 'Bärlauch', latin: 'Allium ursinum', confidence: 92, edible: true, toxicity: 0,
+        alternatives: [], diagnostic_features: ['Breite Blätter', 'Knoblauchgeruch'],
+      });
+      const el = document.getElementById('scan-result');
+      const bilder = [...el.querySelectorAll('img')].filter(i => /base64,AAAA/.test(i.getAttribute('src') || ''));
+      if (bilder.length !== 1) return { ok: false, warum: bilder.length + '× dasselbe Foto auf einer Karte' };
+      const li = el.querySelectorAll('.sr2-merkmale li');
+      if (li.length !== 2) return { ok: false, warum: 'die Merkmale sind mit dem Bild verschwunden (' + li.length + ')' };
+      return { ok: true, info: '1 Foto, ' + li.length + ' Merkmale' };
+    },
+  },
   {
     name: 'Drei Zustände · ohne Artenliste ist nichts „in Ordnung"',
     lauf: () => {

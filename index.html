@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.01.20260902">
+<meta name="app-version" content="32.02.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -29088,28 +29088,31 @@ window.gsAddPhotoForRescan = gsAddPhotoForRescan;
 function _gsScanArtFinden(res) {
   try {
     if (typeof DB === 'undefined' || !DB || !DB.length) return null;
-    var lat = String((res && res.latin) || '').toLowerCase().trim();
-    var nam = String((res && res.name) || '').toLowerCase().trim();
-    var treffer = null, ungeprueft = null;
-    for (var i = 0; i < DB.length; i++) {
-      var s = DB[i];
-      if (!s) continue;
-      var sl = String(s.lat || '').toLowerCase().trim();
-      if (lat && sl === lat) { if (s._unverified) { ungeprueft = ungeprueft || s; continue; } return s; }
-    }
-    if (!treffer && nam) {
-      for (var j = 0; j < DB.length; j++) {
-        var s2 = DB[j];
-        if (!s2) continue;
-        var sn = String(s2.name || '').toLowerCase().trim();
-        // „Waldmeister (Kraut)" soll auf „Waldmeister" passen.
-        if (sn === nam || sn.indexOf(nam + ' (') === 0) {
-          if (s2._unverified) { ungeprueft = ungeprueft || s2; continue; }
-          return s2;
-        }
+    // ── v32.02: EIN Matcher, nicht zwei ─────────────────────────────────
+    // Die Karte hat laengst `gsMatchScanToDb` (Synonyme, Normalisierung,
+    // Namenssegmente, lateinischer Name) und verlinkt damit den vollen
+    // Eintrag. Das Pruefwerk brachte einen zweiten, einfacheren mit — und
+    // zwei Matcher fuer dieselbe Frage driften auseinander: die Karte bot
+    // „Vollstaendiger Eintrag" an, waehrend die Pruefung darueber „steht in
+    // keiner unserer Arten" melden konnte. Ein Widerspruch auf einem
+    // Bildschirm.
+    //
+    // Was BLEIBT, ist die strengere Regel: ein ungeprueft eingelesener
+    // Eintrag (`_unverified`, v31.90) taugt als Verlinkung, aber nicht als
+    // BELEG — er ist selbst ungeprueft.
+    var t = (typeof gsMatchScanToDb === 'function')
+      ? gsMatchScanToDb(res && res.name, res && res.latin) : null;
+    if (!t) {
+      // Rueckfall auf den exakten lateinischen Namen: `gsMatchScanToDb` ist
+      // grosszuegiger, aber nicht in jedem Fall — und der lateinische Name
+      // ist die eindeutigste Angabe, die eine Bestimmung liefert.
+      var lat = String((res && res.latin) || '').toLowerCase().trim();
+      if (lat) for (var i = 0; i < DB.length; i++) {
+        if (DB[i] && String(DB[i].lat || '').toLowerCase().trim() === lat) { t = DB[i]; break; }
       }
     }
-    return ungeprueft ? { _nur_ungeprueft: true, art: ungeprueft } : null;
+    if (!t) return null;
+    return t._unverified ? { _nur_ungeprueft: true, art: t } : t;
   } catch (_) { return null; }
 }
 
@@ -29437,8 +29440,12 @@ function showScanResult(r){
   }
 
   var _mk = Array.isArray(r.diagnostic_features) ? r.diagnostic_features.filter(Boolean).slice(0, 6) : [];
-  var _foto = r._photoB64 || (typeof window !== 'undefined' ? window._gsLastScanB64 : null);
-  if (_mk.length || _foto) {
+  // v32.02: das Foto steht seit v30.26 SCHON im Kopf der Karte
+  // (`heroPhoto`). Ein zweites daneben ist kein Nutzen, sondern Doppelung —
+  // die habe ich in v31.99 selbst eingebaut. Die Merkmale allein genuegen
+  // hier; das Bild ist zwei Fingerbreit darueber.
+  var _foto = null;
+  if (_mk.length) {
     body += '<div class="sr2-card sr2-gesehen" style="margin-bottom:12px;">' +
       '<div class="sr2-card-lbl">\ud83d\udc41\ufe0f Das habe ich im Foto gesehen</div>' +
       '<div class="sr2-gesehen-reihe">' +
@@ -69483,6 +69490,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.02', date: '02.09.2026',
+    headline: '\ud83e\udde9 Eine Karte, die sich nicht selbst widerspricht',
+    summary: 'Die Scan-Karte suchte die Art in unserer Liste \u2014 und die neue Pr\u00fcfung suchte sie noch einmal, mit einem einfacheren Verfahren. Zwei Antworten auf dieselbe Frage driften auseinander: die Karte bot „Vollst\u00e4ndiger Eintrag" an, w\u00e4hrend dar\u00fcber stehen konnte „steht in keiner unserer Arten".',
+    user_summary: '\ud83e\udde9 Die Pr\u00fcfung und der Knopf „Vollst\u00e4ndiger Eintrag" benutzen jetzt dieselbe Suche \u2014 die Karte kann sich nicht mehr selbst widersprechen.',
+    user_items: [
+      {emoji:'\ud83d\udd0d', bold:'Ein Sucher statt zwei:', text:' Die Pr\u00fcfung nutzt jetzt die ausgereifte Suche der Karte (Synonyme, lateinische Namen, Namensteile) \u2014 dadurch erkennt sie deutlich mehr Arten wieder. Die strengere Regel bleibt: ein ungepr\u00fcft eingelesener Eintrag darf verlinkt werden, gilt aber nicht als Beleg.'},
+      {emoji:'\ud83d\udcf7', bold:'Das Foto stand zweimal da:', text:' Im Kopf der Karte und noch einmal bei den Merkmalen \u2014 die Doppelung hatte ich gestern selbst eingebaut. Jetzt steht es einmal.'},
+    ],
+  },
+  {
     v: 'v32.01', date: '02.09.2026',
     headline: '\ud83d\udcf7 Ein Vorbehalt ohne Ausweg ist nur ein Vorwurf',
     summary: 'Den Knopf „Weiteres Foto" gab es l\u00e4ngst \u2014 aber er erschien nur, wenn das Modell SELBST unsicher war. Meldet es 94 % und die Pr\u00fcfung widerspricht, stand da nichts. Jetzt h\u00e4ngt der Knopf am gerechneten Urteil.',
@@ -70105,7 +70122,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.01';
+var GS_VERSION = 'v32.02';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
