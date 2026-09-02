@@ -236,7 +236,7 @@ entscheiden.** Wo Rechnung und Prompt sich widersprechen, gewinnt die Rechnung
 | Stufe | Inhalt | Prüfbar von hier? |
 |---|---|---|
 | **1** (v31.75) | N1 Belegungsplan + Jahr-Reiter + Lückenfüller · R1/R3/R4/R6/R11 | **ja**, vollständig — rechnet lokal |
-| **2** | N4 Nachprüfung (v31.76) · R7 Frost (v31.76) · R10 Aufwand (v31.76) · N9 Begründungszeile · R2/R5 | ja |
+| **2** ✅ | N4 Nachprüfung · R7 Frost · R10 Aufwand (v31.76) · N9 Begründungen · R2 Standdauer · R5 Fruchtfolge (v31.77) | ja |
 | **3** | N5 Mehrbeet-Planung aus dem Zwilling · R9 zeitlich | ja |
 | **4** | N3 Varianten-Vergleich · N6 Rückfrage | teilweise (braucht KI-Antworten) |
 | **5** | N8 Kalender-Termine · N10 Jahresvorlage · N7 Preistabelle | ja |
@@ -289,7 +289,21 @@ eigenen Durchlauf nachvollziehbar.
   kürzen (10 → 5 → 2 → 1), der neue Plan hat Vorrang, und was weichen musste,
   wird gesagt. **Beide Zweige ausgelöst**, nicht behauptet.
 
-### Offen für Stufe 2
+## 8 · Was in v31.77 dazukam (Stufe 2 abgeschlossen)
 
-N9 Begründungszeile je Pflanze · R2 Standdauer · R5 Fruchtfolge gegen die
-echte Historie aus `gs_plantings`/`gs_ernte_log`.
+- **N9 · Jede Pflanze sagt, warum sie dort steht.** `_gsPlanBegruendung` sammelt
+  ein, was die anderen Regeln markiert haben, und rendert es als Marken unter
+  jeder Pflanze. Aus der Rechnung, nicht aus dem Prompt.
+- **R2 · Standdauer** — nur die schädliche Richtung (zu schnell), 40 % Toleranz
+  gegen die schnellste belegte Spanne der Referenz.
+- **R5 · Fruchtfolge gegen die echte Historie** — `gs_plantings` und
+  `gs_ernte_log` tragen Datum und Beet → Vorwurf. `myPlants` sagt WAS du hast,
+  nicht WO → nur ein Hinweis. Ohne diese Trennung bekäme jeder mit dreissig
+  Pflanzen den halben Plan angestrichen.
+- **`contrast_check.js` misst jetzt im Planer-Fenster** (Musterplan in
+  `scripts/_seed.js`, ungefaltet, durchgescrollt). Erster Lauf: 24 Stellen
+  hell, 19 dunkel — alle behoben, jetzt 0/0.
+
+### Stufe 3 als Nächstes
+
+N5 Mehrbeet-Planung aus dem Zwilling · R9 zeitliche Nachbarschaft.

@@ -27,6 +27,13 @@ const path = require('path');
 const { chromium } = require(process.env.GS_PW || '/opt/node22/lib/node_modules/playwright');
 const FILE = process.argv[2] ? path.resolve(process.argv[2]) : path.join(__dirname, '..', 'index.html');
 const TABS = ['home','garden','wissen','favs','search','social','market','recipes','remedies'];
+// v31.77: Fenster mitmessen. Die Grenze aus CLAUDE.md §7.1 („was in einem
+// geschlossenen Fenster steckt, sehen sie nicht") hat mich in v31.76 eine
+// Aenderung kosten lassen, die eine Falschmeldung war — und den einen echten
+// Fund (der Knopf „Plan speichern", weiss auf #f57c00, 2,70:1) monatelang
+// verdeckt. Der KI-Planer ist das groesste dieser Fenster; er wird jetzt
+// gerendert und in Bildschirmhoehen durchgescrollt.
+const SEED_MOD = require('./_seed.js');
 const W = 412, H = 915;
 
 const lum = c => { const s = c.map(v => { v /= 255; return v <= .03928 ? v/12.92 : Math.pow((v+.055)/1.055, 2.4); });
@@ -44,6 +51,29 @@ const SEED = () => { try {
 // Alle Textstellen im sichtbaren Bereich mit Kasten, Farbe und Deckkraft
 const STELLEN = () => {
   const out = [];
+  // v31.77: alles, was FEST oder KLEBEND ueber dem Inhalt liegt, einmal
+  // einsammeln. Hit-Testing allein reicht nicht: eine Kopfleiste mit
+  // pointer-events:none faengt keinen Treffer ab, verdeckt den Text aber
+  // trotzdem — und dann wird ein Hintergrund gemessen, den es an dieser
+  // Stelle gar nicht gibt. Genau so kamen im Planer-Fenster 1,93:1 fuer eine
+  // Marke heraus, die in Wahrheit 7:1 hat.
+  const deckel = [];
+  document.querySelectorAll('*').forEach(el => {
+    const cs = getComputedStyle(el);
+    if (cs.position !== 'fixed' && cs.position !== 'sticky') return;
+    if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) return;
+    const r = el.getBoundingClientRect();
+    if (r.width < 8 || r.height < 8) return;
+    // Nur was wirklich deckt: eine durchsichtige Huelle verdeckt nichts.
+    const bg = (cs.backgroundColor.match(/[\d.]+/g) || []);
+    const deckend = (bg.length < 4 || +bg[3] > 0.05) || (cs.backgroundImage && cs.backgroundImage !== 'none') || cs.backdropFilter !== 'none';
+    if (!deckend) return;
+    deckel.push({ el: el, r: r });
+  });
+  const verdeckt = (el, r) => deckel.some(d =>
+    d.el !== el && !d.el.contains(el) && !el.contains(d.el) &&
+    r.left < d.r.right - 1 && r.right > d.r.left + 1 && r.top < d.r.bottom - 1 && r.bottom > d.r.top + 1);
+
   document.querySelectorAll('*').forEach(el => {
     const cs = getComputedStyle(el);
     if (cs.display === 'none' || cs.visibility === 'hidden') return;
@@ -63,8 +93,22 @@ const STELLEN = () => {
     // wird ein Hintergrund gemessen, den niemand sieht.
     const mx = Math.round(r.left + r.width/2), my = Math.round(r.top + r.height/2);
     if (mx < 0 || my < 0 || mx >= innerWidth || my >= innerHeight) return;
-    const oben = document.elementFromPoint(mx, my);
-    if (!oben || !(oben === el || el.contains(oben) || oben.contains(el))) return;
+    // v31.77: nicht nur die MITTE pruefen, sondern auch die Ecken. Im
+    // Planer-Fenster liegt eine klebende, halbdurchsichtige Kopfleiste ueber
+    // dem Inhalt; ein Text, dessen Mitte noch frei ist, dessen Rand aber
+    // schon darunter steckt, wurde gegen einen Hintergrund gemessen, den es
+    // an dieser Stelle gar nicht gibt — gemeldet wurden 1,93:1 fuer eine
+    // Marke, die in Wahrheit 7:1 hat. Wer nicht ganz frei liegt, wird nicht
+    // vermessen.
+    const meins = (x, y) => {
+      if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) return false;
+      const o = document.elementFromPoint(x, y);
+      return !!o && (o === el || el.contains(o) || o.contains(el));
+    };
+    if (!meins(mx, my)) return;
+    if (!meins(Math.round(r.left) + 3, Math.round(r.top) + 2)) return;
+    if (!meins(Math.round(r.right) - 3, Math.round(r.bottom) - 2)) return;
+    if (verdeckt(el, r)) return;
     // v31.57: Die Pruefung oben nimmt die MITTE, die Messung weiter unten
     // nimmt die GANZE Box. Solange beide nicht dasselbe pruefen, entsteht
     // genau ein Falschalarm: ein Text, dessen Mitte noch frei liegt, dessen
@@ -171,6 +215,64 @@ async function medianFarben(leser, pngBuffer, punkte) {
         if (!gefunden.has(k)) gefunden.set(k, { ...s, r: Math.round(r*100)/100, min, bg, tab: t });
       });
     }
+
+    // ── Fenster: der KI-Planer, ungefaltet ────────────────────────────────
+    // Bewusst OHNE gsPPTabify: die Reiter verbergen Abschnitte, und was
+    // verborgen ist, wird nicht gemessen. Ungefaltet sind alle da.
+    try {
+      const hoch = await p.evaluate(({ plan, agro }) => {
+        window._gsPPagroCache = { ts: Date.now(), rows: agro };
+        window._gsPP = window._gsPP || {};
+        _gsPP.plan = plan; _gsPP.data = { area: 12, width: 4, length: 3 };
+        _gsPP.weather = { location: 'Zürich', totalPrecip14: 18, avgTemp14: 17, avgSunshine14: 6 };
+        plan._gespeichert = new Date(Date.now() - 21*86400000).toISOString();
+        if (typeof _gsPlanPruefwerk === 'function') _gsPlanPruefwerk(plan, _gsPP.data);
+        if (typeof openModal === 'function') openModal('modal-planner-pro');
+        if (typeof gsPPgoStep === 'function') gsPPgoStep(5);
+        const ld = document.getElementById('pp-plan-loader'); if (ld) ld.style.display = 'none';
+        const ac = document.getElementById('pp-plan-actions'); if (ac) ac.classList.remove('hidden');
+        const res = document.getElementById('pp-plan-result');
+        if (!res) return 0;
+        res.style.display = 'block';
+        res.innerHTML = gsPPrenderPlan(plan, _gsPP.data);
+        // Die Bildlaufflaeche des Fensters finden — sie ist nicht window.
+        let sc = res;
+        while (sc && sc !== document.body && sc.scrollHeight <= sc.clientHeight + 4) sc = sc.parentElement;
+        window.__gsScroll = (sc && sc !== document.body) ? sc : null;
+        return (window.__gsScroll ? window.__gsScroll.scrollHeight : document.body.scrollHeight) || 0;
+      }, { plan: JSON.parse(JSON.stringify(SEED_MOD.MUSTERPLAN)), agro: SEED_MOD.AGRONOMIE });
+
+      const schritte = Math.max(1, Math.min(8, Math.ceil(hoch / (H - 120))));
+      for (let i = 0; i < schritte; i++) {
+        await p.evaluate(y => {
+          if (window.__gsScroll) window.__gsScroll.scrollTop = y; else window.scrollTo(0, y);
+        }, i * (H - 120));
+        await p.waitForTimeout(180);
+        const stellen = await p.evaluate(STELLEN);
+        if (!stellen.length) continue;
+        await p.evaluate(() => {
+          const st = document.createElement('style');
+          st.id = 'gs-nur-hintergrund';
+          st.textContent = '*{color:transparent!important;text-shadow:none!important;-webkit-text-fill-color:transparent!important;}';
+          document.head.appendChild(st);
+        });
+        await p.waitForTimeout(120);
+        const shot = await p.screenshot({ clip: { x: 0, y: 0, width: W, height: H } });
+        await p.evaluate(() => { const st = document.getElementById('gs-nur-hintergrund'); if (st) st.remove(); });
+        const bgs = await medianFarben(leser, shot, stellen);
+        stellen.forEach((sx, ix) => {
+          const bg = bgs[ix];
+          const eff = sx.fg.map((v, k) => Math.round(sx.alpha*v + (1-sx.alpha)*bg[k]));
+          const r = cr(eff, bg);
+          const gross = sx.fs >= 24 || (sx.fs >= 18.66 && sx.fw >= 700);
+          const min = gross ? 3 : 4.5;
+          if (r >= min) return;
+          const k = sx.sel + '|' + sx.t;
+          if (!gefunden.has(k)) gefunden.set(k, { ...sx, r: Math.round(r*100)/100, min, bg, tab: 'planer' });
+        });
+      }
+    } catch (e) { console.log('  (Fenster-Durchlauf uebersprungen: ' + e.message.split('\n')[0] + ')'); }
+
     await ctx.close();
 
     const liste = [...gefunden.values()].sort((a, b) => a.r - b.r);

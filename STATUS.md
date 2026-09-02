@@ -4,13 +4,76 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.76` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.77` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (bo) — v31.77: Begründungen je Pflanze · zwei neue Regeln · und der Prüfstand schaut endlich ins Fenster
+
+Stufe 2 fertig (`docs/PLANER-V3.md`). Der grössere Teil dieses Eintrags handelt aber von einem Prüfstand, der eine Lücke hatte — und davon, dass diese Lücke mich gestern eine falsche „Korrektur" gekostet hat.
+
+#### N9 · Warum steht sie hier?
+
+Unter jeder Pflanze im Plan stehen kleine Marken, **aus den Regeln gebaut, nicht aus dem Prompt**:
+
+> `Licht passt (gemessen)` · `Nachbarschaft geprüft` · `Saatgut vorhanden (Mär 2027)` · `⚠ Familie stand vor 1 Jahr im Beet`
+
+Der Unterschied ist nicht kosmetisch: eine Begründung aus dem Prompt kann von hier aus niemand nachprüfen, eine aus der Rechnung schon. Und ein Plan, dessen Begründungen man nachlesen kann, ist einer, dem man widersprechen kann.
+
+#### R2 Standdauer · R5 Fruchtfolge gegen die echte Historie
+
+| Regel | Testlauf |
+|---|---|
+| R2 | „Kürbis: 29 Tage von der Aussaat bis zur Ernte, die Referenz nennt rund 122" — die drei plausiblen Kulturen blieben still |
+| R5 | „Kohlrabi (Kreuzblütler) — dieselbe Familie stand dieses Jahr schon in deinem Beet (Ernte)" |
+
+R2 prüft **nur die schädliche Richtung** (zu schnell) und mit 40 % Toleranz. R5 unterscheidet die Quellen: `gs_plantings`/`gs_ernte_log` tragen ein Datum und ein Beet → Vorwurf. `myPlants` sagt WAS du hast, nicht WO → nur ein Hinweis. Ohne diese Trennung bekäme jeder mit dreissig Pflanzen den halben Plan angestrichen.
+
+#### Der eigentliche Fund: `contrast_check` sah nie in ein Fenster
+
+CLAUDE.md §7.1 nannte die Grenze seit v31.51 beim Namen: *„beide vermessen, was auf den elf Bildschirmen sichtbar ist. Was in einem geschlossenen Fenster steckt, sehen sie nicht."* Der KI-Planer ist das grösste dieser Fenster.
+
+Der Prüfstand rendert ihn jetzt selbst (Musterplan in `scripts/_seed.js`), **ungefaltet** — ohne Reiter, weil verborgene Abschnitte nicht gemessen werden — und scrollt ihn in Bildschirmhöhen durch.
+
+**Ergebnis beim ersten Lauf: 24 Stellen im Hellmodus, 19 im Dunkelmodus.** Darunter:
+
+| Ratio | Stelle |
+|---|---|
+| **1,08:1** | „Vorbeugen:" / „Behandeln:" — heller Text auf fest weissem Kasten, im Dunkelmodus praktisch unsichtbar |
+| 1,35:1 | „📅 Saisonkalender" — `--c-success-d` wird dunkel zu Hellgrün, auf hellgrünem Verlauf |
+| 1,62:1 | „🔄 Fruchtfolge" — `#5d4037` auf dunklem Grund |
+| 1,94:1 | „💧 Bewässerungs-Plan" — `#01579b` auf dunklem Grund |
+| 2,70:1 | **„💾 Plan speichern"** — weiss auf `#f57c00`. Der wichtigste Knopf des ganzen Bildschirms |
+
+Alle behoben: feste helle Flächen bekommen feste dunkle Schrift, feste dunkle Überschriften werden `var(--text)`, `background:#fff` wird `var(--card)`, `#eee` wird `var(--surface2)`, die Punktzahl-Farben werden Themenvariablen (**eine** feste Farbe kann nicht beide Modi bedienen — `#bf360c` ist hell richtig mit 5,6:1 und dunkel falsch mit 2,8:1). **Jetzt 0 in beiden Modi**, Fenster eingeschlossen.
+
+#### Und die Lehre, die weh tut
+
+Gestern habe ich in v31.76 `#88a888` durch `var(--muted)` ersetzt — „2,62:1, unter AA". Diese Zahl war **falsch**: mein damaliger Behelfs-Prüflauf konnte Verläufe nicht lesen und hielt den Grund für Weiss. In Wahrheit sitzt der Text auf einem dunklen 3D-Feld, wo `#88a888` **6,87:1** hat und `var(--muted)` nur **1,83:1**. Ich habe eine gute Stelle kaputtgemacht, um eine Falschmeldung zu bedienen. **Alle 12 Stellen zurückgenommen.**
+
+Drei Fehler im eigenen Behelfs-Prüflauf, bis er brauchbar war — jeder für sich plausibel:
+
+| Anlauf | Meldung | Warum falsch |
+|---|---|---|
+| 1 | 10 Fehler, alle „1:1" | `backgroundColor` ist bei einem Verlauf durchsichtig |
+| 2 | 14 Fehler | Verlaufsstufen sind oft `rgba(46,125,50,0.08)` — Deckkraft ignoriert = sattes Dunkelgrün statt fast Weiss |
+| 3 | 24 Fehler | Text unter einer klebenden, halbdurchsichtigen Kopfleiste gemessen: 1,93:1 für eine Marke, die 7:1 hat |
+
+Der dritte steckt jetzt als Regel im echten Prüfstand: **was von etwas Festem oder Klebendem überlappt wird, wird nicht vermessen.** Hit-Testing allein reicht nicht — eine Leiste mit `pointer-events:none` fängt keinen Treffer ab und verdeckt trotzdem.
+
+#### Prüfstände
+
+`render_check` 2867 · 0 JS-Fehler · 0 verdächtig · **`contrast_check` 0/0 inkl. Planer-Fenster** · `touch_check` 0 · `wiring_check` 0/0/0 · `field_check` 4/303 (die bekannten zusammengesetzten `tp-*`).
+
+#### Offen
+
+Kopfbereich des Planer-Fensters: der Titel „KI-Gartenplaner PRO" wird von der Knopfreihe daneben in eine schmale Spalte gequetscht, „🌳 Bäume" ragt rechts hinaus. Vermessen, nicht behoben.
+
+---
 
 ### 2026-09-02 (bn) — v31.76: der gespeicherte Plan meldet sich · das Speichern funktioniert wirklich
 
