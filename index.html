@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.72.20260902">
+<meta name="app-version" content="31.73.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1746,6 +1746,27 @@ body.dark .gs-doc-pro{background:#3a2c10;border-color:#8d6e2a;color:#ffcc80;}
    beantwortet; Fragen, die als Beispiel in einem Platzhalter stehen, nicht. */
 /* v31.72 — Die Gartenauswahl im Planer. Volle Breite, damit lange Namen
    nicht abschneiden, und zwei Zeilen: Name und was er mitbringt. */
+/* v31.73 — Die Umsetz-Liste. Abgehakte Zeilen bleiben lesbar (nur gedaempft
+   und mit Haken), nicht durchgestrichen: man will danach noch nachsehen
+   koennen, was man wo gepflanzt hat. */
+.gs-um{margin-bottom:14px;}
+.gs-um-sub{font-size:var(--fs-sm);color:var(--muted);line-height:1.5;margin-bottom:10px;}
+.gs-um-fort{font-size:var(--fs-xs);font-weight:800;color:var(--c-success-d);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px;}
+.gs-um-leer{font-size:var(--fs-sm);color:var(--text2);background:var(--bg-warn-soft);border-radius:var(--r-sm);padding:9px 12px;margin-bottom:10px;line-height:1.5;}
+.gs-um-leer button{background:none;border:none;padding:0;font-family:inherit;font-size:var(--fs-sm);font-weight:800;color:var(--c-warn-d);cursor:pointer;text-decoration:underline;}
+.gs-um-zeile{display:flex;align-items:flex-start;gap:10px;padding:9px 11px;margin-bottom:6px;
+  background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-md);
+  cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background var(--dur-fast) ease;}
+.gs-um-zeile:active{background:var(--surface2);}
+.gs-um-fertig{border-color:var(--c-success);background:var(--bg-success-soft);}
+.gs-um-hak{flex-shrink:0;width:22px;height:22px;border-radius:11px;border:2px solid var(--border);
+  display:flex;align-items:center;justify-content:center;font-size:var(--fs-sm);font-weight:900;
+  color:var(--c-success-d);line-height:1;}
+.gs-um-fertig .gs-um-hak{border-color:var(--c-success);background:var(--c-success);color:#ffffff;}
+body.dark .gs-um-fertig .gs-um-hak{color:#0d2818;}
+.gs-um-txt{flex:1;min-width:0;}
+.gs-um-n{font-size:var(--fs-md);font-weight:800;color:var(--text);line-height:1.3;}
+.gs-um-d{font-size:var(--fs-sm);color:var(--muted);line-height:1.4;margin-top:1px;}
 .gs-pp-vorl{display:flex;flex-direction:column;align-items:flex-start;gap:1px;width:100%;
   min-height:40px;padding:8px 11px;margin-bottom:6px;border:1.5px solid var(--c-success);
   border-radius:var(--r-md);background:var(--card);cursor:pointer;font-family:inherit;
@@ -55427,6 +55448,176 @@ async function gsPPRefine(presetMsg){
   try{ if(typeof gsToast==='function') gsToast('✅ '+((typeof _lt==='function')?_lt('pp_refine_done','Plan angepasst'):'Plan angepasst')); }catch(_){}
 }
 /* v30.08: Planer-Resultat als Tabs (Post-Processor — gruppiert die Sektionen) */
+// ══════════════════════════════════════════════════════════════════════════
+// v31.73 — PLANER V3: DEN PLAN IN DEN ECHTEN GARTEN ÜBERNEHMEN
+// ══════════════════════════════════════════════════════════════════════════
+//
+// Fernando: „sobald man ein neuen Plan hat kann man diese sachen auf den
+// eigenen Garten übertragen, bzw. eine Art vorlage, der Nutzer kann dann
+// einzelne Sachen Schritt für Schritt wie abhacken und es wird dann
+// automatisch im Garten hinzugefügt. Mit dem Abstand und weiteren Angaben
+// vom generierten Ki-planer."
+//
+// Bis hierher war ein Plan ein Dokument: schoen anzusehen, mit 3D-Modell,
+// und danach musste man alles von Hand in den Garten eintragen. Der Plan
+// wusste, WAS wohin gehoert — die App hat es nur nicht uebernommen.
+//
+// Jetzt eine Liste zum Abhaken. Jede Zeile ist eine Pflanze aus dem Plan;
+// ein Tipp legt sie im gewaehlten Garten an — mit Position, Abstand,
+// Pflanztiefe und Saatdatum aus dem Plan.
+//
+// Der Zustand haengt am Plan, nicht am Bildschirm: wer das Fenster
+// schliesst und wiederkommt, sieht, was er schon gemacht hat.
+
+function _gsPPplanId(plan) {
+  // Ein Plan hat keine id. Aus Flaeche und den Pflanzennamen laesst sich
+  // eine stabile bilden — derselbe Plan ergibt denselben Schluessel, ein
+  // anderer einen anderen.
+  try {
+    var teile = [(plan.bed && plan.bed.width_m) || 0, (plan.bed && plan.bed.length_m) || 0]
+      .concat((plan.plants || []).map(function (p) { return (p.name || '') + (p.count || 1); }));
+    var h = 0, str = teile.join('|');
+    for (var i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+    return 'plan_' + h.toString(36);
+  } catch (_) { return 'plan_0'; }
+}
+
+function _gsPPumgesetzt(planId) {
+  try { var a = JSON.parse(localStorage.getItem('gs_plan_umgesetzt') || '{}'); return a[planId] || {}; }
+  catch (_) { return {}; }
+}
+function _gsPPumgesetztSetz(planId, idx, wert) {
+  try {
+    var a = JSON.parse(localStorage.getItem('gs_plan_umgesetzt') || '{}');
+    a[planId] = a[planId] || {};
+    if (wert) a[planId][idx] = wert; else delete a[planId][idx];
+    // Rueckgabewert pruefen, nicht auf eine Ausnahme warten (CLAUDE.md §3.5).
+    if (localStorage.setItem('gs_plan_umgesetzt', JSON.stringify(a)) === false) {
+      if (typeof gsToast === 'function') gsToast('Speicher voll — der Fortschritt konnte nicht gesichert werden.', 'warn', 5000);
+      return false;
+    }
+    return true;
+  } catch (_) { return false; }
+}
+
+window.gsPPumsetzenBlock = function (plan) {
+  if (!plan || !Array.isArray(plan.plants) || !plan.plants.length) return '';
+  var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function (x) { return String(x == null ? '' : x); };
+  var planId = _gsPPplanId(plan);
+  var fertig = _gsPPumgesetzt(planId);
+  var gl = [];
+  try { if (typeof gardens !== 'undefined' && Array.isArray(gardens)) gl = gardens; } catch (_) {}
+
+  var zeilen = plan.plants.map(function (p, i) {
+    var ist = !!fertig[i];
+    var det = [];
+    if (p.count && p.count > 1) det.push(p.count + '\u00d7');
+    if (p.x_m != null && p.y_m != null) det.push('bei ' + (Math.round(p.x_m * 10) / 10) + '/' + (Math.round(p.y_m * 10) / 10) + ' m');
+    if (p.spacing_cm) det.push(p.spacing_cm + ' cm Abstand');
+    if (p.depth_cm) det.push(p.depth_cm + ' cm tief');
+    return '<div class="gs-um-zeile' + (ist ? ' gs-um-fertig' : '') + '" id="gs-um-' + i + '"' +
+             ' role="button" tabindex="0" onclick="gsPPumsetzen(' + i + ')">' +
+             '<span class="gs-um-hak" aria-hidden="true">' + (ist ? '\u2713' : '') + '</span>' +
+             '<div class="gs-um-txt">' +
+               '<div class="gs-um-n">' + esc(p.name || 'Pflanze') + '</div>' +
+               (det.length ? '<div class="gs-um-d">' + esc(det.join(' \u00b7 ')) + '</div>' : '') +
+             '</div>' +
+           '</div>';
+  }).join('');
+
+  var anzahl = Object.keys(fertig).length;
+  return '<div class="gs-um" id="gs-umsetzen" data-plan="' + planId + '">' +
+    '<h4 style="margin:0 0 3px;">\ud83c\udf31 In den Garten \u00fcbernehmen</h4>' +
+    '<div class="gs-um-sub">Tipp auf eine Pflanze \u2014 sie wird mit Position, Abstand und Pflanzdatum in deinem Garten angelegt.</div>' +
+    (gl.length
+      ? '<select class="mp-select" id="gs-um-garten" style="margin-bottom:10px;">' +
+          gl.map(function (g, i) { return '<option value="' + i + '">' + esc(g.name || 'Garten') + '</option>'; }).join('') +
+        '</select>'
+      : '<div class="gs-um-leer">Du hast noch keinen Garten angelegt. ' +
+        '<button type="button" onclick="closeModal(\'modal-planner-pro\');if(typeof openAddGarden===\'function\')openAddGarden();">Jetzt anlegen</button></div>') +
+    '<div class="gs-um-fort" id="gs-um-fort">' + anzahl + ' von ' + plan.plants.length + ' \u00fcbernommen</div>' +
+    zeilen +
+  '</div>';
+};
+
+// Eine Pflanze uebernehmen — oder die Uebernahme zuruecknehmen.
+window.gsPPumsetzen = function (idx) {
+  try {
+    var plan = (window._gsPP && _gsPP.plan) || null;
+    if (!plan || !plan.plants || !plan.plants[idx]) return;
+    var host = document.getElementById('gs-umsetzen');
+    if (!host) return;
+    var planId = host.getAttribute('data-plan');
+    var fertig = _gsPPumgesetzt(planId);
+    var p = plan.plants[idx];
+
+    if (fertig[idx]) {
+      // Zuruecknehmen: die angelegte Pflanzung wieder entfernen. Ohne das
+      // waere ein Fehlgriff nicht zu korrigieren — und eine Liste, aus der
+      // man nicht heraus kann, ist eine Falle.
+      var pid = fertig[idx];
+      try {
+        if (typeof plantings !== 'undefined' && Array.isArray(plantings)) {
+          plantings = plantings.filter(function (x) { return x.id !== pid; });
+          if (typeof saveGardenData === 'function') saveGardenData();
+        }
+      } catch (_) {}
+      _gsPPumgesetztSetz(planId, idx, null);
+      if (typeof gsToast === 'function') gsToast('Zur\u00fcckgenommen: ' + (p.name || 'Pflanze'), 'info');
+    } else {
+      var gsel = document.getElementById('gs-um-garten');
+      var gl = (typeof gardens !== 'undefined' && Array.isArray(gardens)) ? gardens : [];
+      var g = gsel ? gl[parseInt(gsel.value, 10)] : gl[0];
+      if (!g) {
+        if (typeof gsToast === 'function') gsToast('Bitte zuerst einen Garten anlegen.', 'warn');
+        return;
+      }
+      // Die Angaben aus dem Plan mitnehmen — genau das ist der Punkt der
+      // Sache. Ohne sie waere es nur ein Name in einer Liste.
+      var notiz = [];
+      if (p.x_m != null && p.y_m != null) notiz.push('Position ' + (Math.round(p.x_m * 10) / 10) + '/' + (Math.round(p.y_m * 10) / 10) + ' m');
+      if (p.spacing_cm) notiz.push('Abstand ' + p.spacing_cm + ' cm');
+      if (p.depth_cm) notiz.push('Tiefe ' + p.depth_cm + ' cm');
+      if (p.water_l_per_week) notiz.push(p.water_l_per_week + ' l Wasser/Woche');
+      if (p.harvest_from) notiz.push('Ernte ab ' + p.harvest_from);
+      if (p.note) notiz.push(p.note);
+      var neuId = 'plant_' + Date.now() + '_' + idx;
+      try {
+        if (typeof plantings === 'undefined' || !Array.isArray(plantings)) return;
+        plantings.push({
+          id: neuId,
+          gardenId: g.id,
+          name: p.name || 'Pflanze',
+          variety: p.latin || '',
+          date: (p.sow_date && /^\d{4}-\d{2}-\d{2}$/.test(p.sow_date)) ? p.sow_date : new Date().toISOString().slice(0, 10),
+          count: Math.max(1, parseInt(p.count, 10) || 1),
+          notes: 'Aus KI-Plan' + (notiz.length ? ' \u00b7 ' + notiz.join(' \u00b7 ') : ''),
+          added: new Date().toISOString(),
+          fromPlan: planId,
+        });
+        if (typeof saveGardenData === 'function') saveGardenData();
+      } catch (_) { return; }
+      _gsPPumgesetztSetz(planId, idx, neuId);
+      if (typeof gsToast === 'function') gsToast('\u2713 ' + (p.name || 'Pflanze') + ' in „' + (g.name || 'Garten') + '" angelegt', 'success');
+      if (typeof gsAddXP === 'function') { try { gsAddXP(5, 'Plan umgesetzt'); } catch (_) {} }
+    }
+
+    // Zeile und Zaehler auffrischen
+    var neu2 = _gsPPumgesetzt(planId);
+    var zeile = document.getElementById('gs-um-' + idx);
+    if (zeile) {
+      var ist = !!neu2[idx];
+      zeile.classList.toggle('gs-um-fertig', ist);
+      var hak = zeile.querySelector('.gs-um-hak');
+      if (hak) hak.textContent = ist ? '\u2713' : '';
+    }
+    var f = document.getElementById('gs-um-fort');
+    if (f) f.textContent = Object.keys(neu2).length + ' von ' + plan.plants.length + ' \u00fcbernommen';
+    try { if (typeof renderGarden === 'function') renderGarden(); } catch (_) {}
+    if (typeof gsHaptic === 'function') gsHaptic('tap');
+  } catch (_) {}
+};
+
 function gsPPTabify(container, plan){
   if(!container) return;
   try{
@@ -55434,13 +55625,15 @@ function gsPPTabify(container, plan){
     if(kids.length < 4) return;
     var TABS = [
       {k:'overview', label:'📋 '+(typeof _lt==='function'?_lt('pp_tab_overview','Überblick'):'Überblick')},
+      {k:'umsetzen', label:'✅ '+(typeof _lt==='function'?_lt('pp_tab_apply','Umsetzen'):'Umsetzen')},
       {k:'plants',   label:'🌱 '+(typeof _lt==='function'?_lt('pp_tab_plants','Pflanzen'):'Pflanzen')},
       {k:'schedule', label:'📅 '+(typeof _lt==='function'?_lt('pp_tab_schedule','Zeitplan'):'Zeitplan')},
       {k:'care',     label:'💧 '+(typeof _lt==='function'?_lt('pp_tab_care','Pflege'):'Pflege')},
       {k:'threeD',   label:'🌐 3D'}
     ];
-    var top=[], bucket={overview:[],plants:[],schedule:[],care:[],threeD:[]};
+    var top=[], bucket={overview:[],umsetzen:[],plants:[],schedule:[],care:[],threeD:[]};
     function cls(n){
+      if(n.id==='gs-umsetzen') return 'umsetzen';
       if(n.id==='pp-refine-box') return '_top';
       if(n.querySelector && n.querySelector('[onclick*="gsPPsavePlan"]')) return '_top';
       var txt=(n.textContent||'').toLowerCase();
@@ -55576,6 +55769,11 @@ function gsPPrenderPlan(plan, data) {
               zeilen.join('') + '</div>';
     }
   })();
+
+  // v31.73: Die Umsetz-Liste. Sie kommt in einen eigenen Reiter (siehe
+  // gsPPTabify) — im Ueberblick wuerde sie zwischen Zusammenfassung und
+  // Kennzahlen untergehen, obwohl sie das ist, was man mit dem Plan TUT.
+  try { html += gsPPumsetzenBlock(plan); } catch (_) {}
 
   // v24.25: Constraint-Issues-Banner ganz oben falls Validator was gefunden hat
   var _ppHiIssues = (plan._constraintIssues||[]).filter(function(i){ return i.severity === 'high'; });
@@ -65926,6 +66124,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.73', date: '02.09.2026',
+    headline: '\u2705 Planer V3: Der Plan wird zur Checkliste f\u00fcr deinen echten Garten',
+    summary: 'Ein Plan war bisher ein Dokument \u2014 sch\u00f6n anzusehen, und danach musste man alles von Hand eintragen. Jetzt gibt es einen Reiter „Umsetzen": jede Pflanze antippen, und sie wird mit Position, Abstand, Tiefe und Pflanzdatum in deinem Garten angelegt.',
+    user_summary: '\u2705 Neuer Reiter „Umsetzen" im Plan: Pflanze antippen \u2192 sie landet mit allen Angaben in deinem Garten. Abhaken, zur\u00fccknehmen, sp\u00e4ter weitermachen.',
+    user_items: [
+      {emoji:'\u2705', bold:'Der Plan wusste alles \u2014 nur \u00fcbernommen hat es niemand:', text:' Position, Abstand, Pflanztiefe, Wasserbedarf, Erntezeit standen im Plan. Wer sie im Garten haben wollte, musste sie abtippen. Jetzt gen\u00fcgt ein Tipp, und die Pflanze steht im Garten \u2014 mit „Position 0.4/0.2 m \u00b7 Abstand 60 cm \u00b7 Tiefe 2 cm \u00b7 8 l Wasser/Woche \u00b7 Ernte ab 10.07." in der Notiz.'},
+      {emoji:'\u21a9\ufe0f', bold:'Und man kommt wieder heraus:', text:' Nochmal antippen nimmt die \u00dcbernahme zur\u00fcck und entfernt die Pflanzung wieder. Eine Liste, aus der man nicht heraus kommt, w\u00e4re eine Falle \u2014 ein Fehlgriff muss sich korrigieren lassen.'},
+      {emoji:'\ud83d\udcbe', bold:'Der Fortschritt bleibt:', text:' „2 von 8 \u00fcbernommen" h\u00e4ngt am Plan, nicht am Bildschirm. Fenster schliessen, sp\u00e4ter wiederkommen \u2014 du siehst, was du schon gemacht hast. Und wenn der Speicher voll ist, sagt die App das, statt still zu vergessen.'},
+      {emoji:'\ud83e\udeb4', bold:'Ohne Garten kein Blindflug:', text:' Hast du noch keinen Garten angelegt, steht das da \u2014 samt Knopf, der dich direkt zum Anlegen bringt. Eine Auswahlliste ohne Auswahl w\u00e4re eine Frage ohne Antwort.'},
+    ],
+  },
+  {
     v: 'v31.72', date: '02.09.2026',
     headline: '\ud83d\udccf Die Gartenmasse wurden nie gespeichert \u2014 jetzt schon, und der Planer \u00fcbernimmt sie',
     summary: 'Im Garten-Formular gibt es Breite und L\u00e4nge, samt Fl\u00e4chen-Vorschau. Gespeichert hat sie nie jemand. Deshalb musste man die Masse im Planer jedes Mal neu eintippen. Dazu: der Planer \u00fcbernimmt jetzt einen bestehenden Garten, und beim Warten w\u00e4chst eine Pflanze.',
@@ -66400,7 +66610,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.72';
+var GS_VERSION = 'v31.73';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

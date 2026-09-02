@@ -12,6 +12,60 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-02 (bk) — v31.73: Planer V3 — der Plan wird zur Checkliste
+
+Fernando: *„sobald man ein neuen Plan hat kann man diese sachen auf den eigenen Garten übertragen … der Nutzer kann dann einzelne Sachen Schritt für Schritt wie abhacken und es wird dann automatisch im Garten hinzugefügt. Mit dem Abstand und weiteren Angaben vom generierten Ki-planer."*
+
+#### Der Plan wusste alles — nur übernommen hat es niemand
+
+Ein Plan enthält je Pflanze: Position in Metern, Abstand in cm, Pflanztiefe, Wasserbedarf pro Woche, Saatdatum, Erntefenster, eine Begründung. Das alles stand im Dokument, und wer es im Garten haben wollte, musste es abtippen.
+
+Jetzt ein Reiter **„✅ Umsetzen"** mit einer Zeile je Pflanze. Ein Tipp legt sie im gewählten Garten an:
+
+```
+name    „Tomate"
+count   3
+date    „2026-04-15"            (Saatdatum aus dem Plan)
+notes   „Aus KI-Plan · Position 0.4/0.2 m · Abstand 60 cm · Tiefe 2 cm
+         · 8 l Wasser/Woche · Ernte ab 2026-07-10 · Sonnig stellen"
+```
+
+#### Drei Entscheidungen, die dazugehören
+
+**Zurücknehmen muss gehen.** Nochmal antippen entfernt die Pflanzung wieder. Eine Liste, aus der man nicht herauskommt, ist eine Falle — ein Fehlgriff (falscher Garten, falsche Pflanze) muss sich korrigieren lassen.
+
+**Der Fortschritt hängt am Plan, nicht am Bildschirm.** Der Schlüssel wird aus Fläche und Pflanzennamen gebildet: derselbe Plan ergibt denselben Schlüssel. Fenster schliessen, wiederkommen — „2 von 3 übernommen" steht noch da. Und beim Speichern wird der **Rückgabewert** geprüft, nicht auf eine Ausnahme gewartet (CLAUDE.md §3.5): bei vollem Speicher sagt die App das.
+
+**Ohne Garten kein Blindflug.** Gibt es keinen Garten, steht das da — samt Knopf, der direkt zum Anlegen führt. Eine Auswahlliste ohne Auswahl wäre eine Frage ohne Antwort.
+
+Durchgespielt:
+
+```
+Reiter        📋 Überblick · ✅ Umsetzen · 🌱 Pflanzen · 🌐 3D
+Liste         3 Zeilen, „0 von 3 übernommen"
+übernehmen    plantings 0 → 1, „✓ Tomate in „Hochbeet Nord" angelegt"
+              mit Position, Abstand, Tiefe, Wasser, Erntedatum, Notiz
+zurücknehmen  plantings 1 → 0, „Zurückgenommen: Tomate"
+neu rendern   „2 von 3 übernommen", 2 Zeilen abgehakt
+ohne Garten   Hinweis mit Anlegen-Knopf
+```
+
+Farben 4,74 bis 18,88:1 in beiden Modi.
+
+#### Ein Fehler in meinem eigenen Test, kein App-Fehler
+
+Der erste Durchlauf legte nichts an. Diagnose statt Raten: `plan_da: false` — `_gsPP.plan` war leer. Ursache: mein Test setzte den Plan **vor** `openGardenAI()`, und das setzt `_gsPP` zurück. Der Aufbau war falsch, nicht der Code. Wer so testet, muss den Zustand nach dem Öffnen setzen.
+
+#### Verify
+
+`wiring_check` 307 Namen / **0** nicht auflösbar · Menü 48/0 · 939 Nachschlagungen / **0** nie erzeugt / **0** ungesichert · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen · `contrast_check` 0 unter AA beide Modi · `touch_check` 0 unter 24×24 · sechs Umsetz-Fälle durchgespielt · Farben gerechnet · `GS_RELEASES[0].v` = `GS_VERSION` · `gsAllReleases()` 420 → **421**, 0 Dopplungen · 9/9 Inline-Scripts + `sw.js` `node --check` OK · `GS_VERSION` v31.73 · `sw.js` gs-v31.73 · `_headers` v31.73 · meta 31.73.20260902.
+
+#### Offen aus Fernandos Liste
+
+Scanner V2 · Blühkalender ausbauen · Arten vervollständigen · der grosse Funktionscheck über alle Seiten, Werkzeuge und Speicherwege.
+
+---
+
 ### 2026-09-02 (bj) — v31.72: Die Gartenmasse wurden nie gespeichert
 
 Fernando: *„Dann möchte ich das beim Garten hinzufügen du das mehr aufbaust … Mein Garten soll vom Ki-Planer als Option angesehen werden, so muss mann nicht immer die Masse und weiteres von neuem Angeben."*
