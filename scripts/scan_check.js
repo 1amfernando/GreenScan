@@ -339,6 +339,50 @@ const FAELLE = [
       return { ok: true, info: '1 Foto, ' + li.length + ' Merkmale' };
     },
   },
+  // ── v32.03 · Was der Prompt verlangt, muss auch jemand lesen ───────────
+  //
+  // Das Muster dieser Session, hier zum vierten Mal: abgefragt, geliefert,
+  // weggeworfen. Bei der Giftigkeit der Alternativen (v31.92) und den
+  // Merkmalen (v31.99) war es teuer. Diese Prüfung macht daraus eine Regel:
+  // jedes Feld im JSON-Beispiel des Prompts muss im Code gelesen werden.
+  //
+  // Kostet ein unbenutztes Feld nur Tokens? Ja — und das ist schon Grund
+  // genug. Aber es ist auch das verlässlichste Zeichen für eine Ansicht,
+  // die es nie gab.
+  {
+    name: 'Prompt · jedes verlangte Feld wird irgendwo gelesen',
+    lauf: () => {
+      const quelle = window.__QUELLE || '';
+      if (!quelle) return { ok: false, warum: 'Quelltext nicht übergeben' };
+      const sp = window.SCAN_SYSTEM_PROMPT || '';
+      if (!sp) return { ok: false, warum: 'SCAN_SYSTEM_PROMPT nicht erreichbar' };
+      // Die Feldnamen aus dem JSON-Beispiel am Ende des Prompts.
+      const felder = [...new Set((sp.match(/"([a-z_]{3,30})"\s*:/g) || [])
+        .map(x => x.replace(/["\s:]/g, '')))];
+      if (felder.length < 10) return { ok: false, warum: 'nur ' + felder.length + ' Felder erkannt — das Muster passt nicht mehr' };
+      const tot = felder.filter(f => {
+        // Gelesen heisst: irgendwo `.feld` ausserhalb des Prompts selbst.
+        const re = new RegExp('\\.' + f + '\\b', 'g');
+        return (quelle.match(re) || []).length === 0;
+      });
+      if (tot.length) return { ok: false, warum: 'verlangt und nirgends gelesen: ' + tot.join(', ') };
+      return { ok: true, info: felder.length + ' Felder, alle gelesen' };
+    },
+  },
+  {
+    name: 'Regional-Hinweis · nur bei ausdrücklichem Nein, nicht bei fehlendem Feld',
+    lauf: () => {
+      const zeigt = r => {
+        showScanResult(Object.assign({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 90,
+                                       edible: true, toxicity: 0, alternatives: [] }, r));
+        return /Regional-Hinweis/.test((document.getElementById('scan-result') || {}).textContent || '');
+      };
+      if (zeigt({})) return { ok: false, warum: 'warnt, obwohl das Feld gar nicht geliefert wurde' };
+      if (zeigt({ found_in_switzerland: true })) return { ok: false, warum: 'warnt trotz ausdrücklichem Ja' };
+      if (!zeigt({ found_in_switzerland: false })) return { ok: false, warum: 'warnt NICHT bei ausdrücklichem Nein' };
+      return { ok: true, info: 'fehlt → still · ja → still · nein → Hinweis' };
+    },
+  },
   {
     name: 'Drei Zustände · ohne Artenliste ist nichts „in Ordnung"',
     lauf: () => {
@@ -365,9 +409,9 @@ const FAELLE = [
   await p.addInitScript(SEED);
   await p.goto('file://' + path.resolve(__dirname, '..', 'index.html'), { waitUntil: 'domcontentloaded', timeout: 120000 });
   await p.waitForTimeout(4000);
-  await p.evaluate((jpegs) => {
-    window.__PRUEF_JPEG = jpegs.normal;
-    window.__PRUEF_JPEG_ZUKUNFT = jpegs.zukunft;
+  await p.evaluate((jetzt) => {
+    window.__PRUEF_JPEG = jetzt.normal;
+    window.__PRUEF_JPEG_ZUKUNFT = jetzt.zukunft;
     document.documentElement.classList.remove('gs-preauth');
     window.gsRequire = () => true;
     window.gsToast = () => {}; window.showProfileToast = () => {};
@@ -375,9 +419,11 @@ const FAELLE = [
     window.gsScanPersistToCloud = () => Promise.resolve(true);
     window.gsAddToScanHistory = () => {};
     window.gsHaptic = () => {};
+    window.__QUELLE = jetzt.quelle;
   }, {
     normal:  Array.from(baueJpegMitExif({ datum: '2026:07:14 09:33:12', lat: 46.8182, lng: 8.2275 })),
     zukunft: Array.from(baueJpegMitExif({ datum: '2099:01:01 00:00:00', lat: 46.8182, lng: 8.2275 })),
+    quelle:  require('fs').readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8'),
   });
 
   console.log('\n=== scan_check — glaubt der Scanner der KI aufs Wort?');

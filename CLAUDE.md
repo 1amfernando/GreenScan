@@ -676,6 +676,14 @@ das Sicherheitswort mit **1,87:1**. Beim Einbau meldete das Fenster zuerst
 **18 Stellen bei 71 Textknoten** — die Karte war vollstaendig da und trotzdem
 unmessbar, weil der Scanner-Tab ausgeblendet ist (`switchTab('scanner')` fehlte).
 
+**Eine Regel aus `scan_check`, die ueber den Scanner hinausgeht:** *was ein
+Prompt verlangt, muss auch jemand lesen.* Jedes Feld im JSON-Beispiel des
+`SCAN_SYSTEM_PROMPT` wird gegen seine Verwendung im Code gehalten. „Abgefragt,
+geliefert, weggeworfen" war der haeufigste Fehler dieser Session — bei der
+Giftigkeit der Alternativen (v31.92) und den Merkmalen (v31.99) war er teuer,
+bei `db_search` kostete er nur Tokens. **Wer einen neuen Prompt mit festem
+Antwortformat baut, sollte dieselbe Pruefung dafuer anlegen.**
+
 **Und ein neuer Prueftand: `scan_check.js`** — er fragt, ob der Scanner der KI
 aufs Wort glaubt. Kernfall: eine Art, die unsere Liste als toedlich fuehrt, vom
 Modell als „essbar" gemeldet. Die vorsichtigere Angabe MUSS gewinnen, und zwar
