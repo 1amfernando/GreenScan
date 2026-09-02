@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.99.20260902">
+<meta name="app-version" content="32.00.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27128,15 +27128,31 @@ async function callVisionAI(b64, mediaType, prompt, extraImages, opts){
 function gsBuildScanContext() {
   var ctx = {};
   try {
+    // ── v32.00: das FOTO hat Vorrang vor dem Jetzt ────────────────────
+    // Steht im Bild ein Aufnahmedatum, gilt DAS — nicht der Tag, an dem
+    // jemand es hochlaedt. Fuer ein Live-Foto ist beides dasselbe; fuer ein
+    // Galeriefoto ist es der Unterschied zwischen Juli und September.
+    var _ex = null;
+    try { _ex = window._gsScanExif || null; } catch (_) {}
     // 1) Zeit
-    var d = new Date();
+    var d = (_ex && _ex.datum) ? _ex.datum : new Date();
     var month = d.getMonth() + 1;
     var monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
     ctx.month = monthNames[month-1];
     ctx.monthNum = month;
     ctx.season = (month>=3&&month<=5)?'Frühling' : (month>=6&&month<=8)?'Sommer' : (month>=9&&month<=11)?'Herbst' : 'Winter';
-    // 2) GPS
-    var locStr = localStorage.getItem('gs_user_location');
+    if (_ex && _ex.datum) {
+      ctx.ausFoto = true;
+      ctx.aufnahme = d.toISOString().slice(0, 10);
+    }
+    // 2) GPS — auch hier zuerst das Bild. Ein Urlaubsfoto in der Galerie
+    //    kommt sonst mit der Hoehenlage des Wohnorts in die Bewertung.
+    if (_ex && _ex.lat != null && _ex.lng != null) {
+      ctx.lat = Number(_ex.lat).toFixed(3);
+      ctx.lng = Number(_ex.lng).toFixed(3);
+      ctx.ortAusFoto = true;
+    }
+    var locStr = ctx.lat ? null : localStorage.getItem('gs_user_location');
     if (locStr) {
       try {
         var loc = JSON.parse(locStr);
@@ -27173,9 +27189,14 @@ function gsBuildScanContext() {
 function gsFormatScanContext(ctx) {
   if (!ctx) return '';
   var lines = [];
-  lines.push('📅 ' + (ctx.month||'') + ' · ' + (ctx.season||'') + ' (Schweiz)');
+  // v32.00: Woher die Angabe stammt, gehoert dazu. „Juli (aus dem Foto)"
+  // ist eine andere Aussage als „Juli" — die KI soll wissen, ob sie ein
+  // gemessenes Aufnahmedatum vor sich hat oder nur den heutigen Tag.
+  lines.push('📅 ' + (ctx.month||'') + ' · ' + (ctx.season||'') + ' (Schweiz)' +
+             (ctx.ausFoto ? ' — Aufnahmedatum aus dem Foto: ' + ctx.aufnahme : ''));
   if (ctx.region || ctx.canton) lines.push('📍 ' + (ctx.region||'') + (ctx.canton?' (Kanton '+ctx.canton+')':''));
-  if (ctx.lat) lines.push('🗺️ ' + ctx.lat + '°N, ' + ctx.lng + '°E' + (ctx.elevation?' · '+ctx.elevation+'m ü.M.':''));
+  if (ctx.lat) lines.push('🗺️ ' + ctx.lat + '°N, ' + ctx.lng + '°E' + (ctx.elevation?' · '+ctx.elevation+'m ü.M.':'') +
+                          (ctx.ortAusFoto ? ' — Ort aus dem Foto, nicht der aktuelle Standort' : ''));
   if (ctx.habitat) lines.push('🏔️ ' + ctx.habitat);
   if (ctx.userFocus) lines.push('👤 User scannt häufig: ' + ctx.userFocus);
   return lines.join('\n');
@@ -27461,6 +27482,16 @@ async function handleUpload(e){
   if(!file) return;
   document.getElementById('scan-status').textContent = 'Bild geladen – analysiere…';
   e.target.value = '';
+  // ── v32.00: EXIF VOR dem Komprimieren lesen ─────────────────────────
+  // `gsCompressImage` zeichnet das Bild auf ein Canvas — dabei gehen die
+  // EXIF-Daten verloren. Danach waere es zu spaet.
+  //
+  // Und das ist keine Kleinigkeit: bis hierher bekam JEDES Galeriefoto den
+  // HEUTIGEN Monat und den AKTUELLEN Standort in den Auftrag. Ein Bild vom
+  // Wanderurlaub im Juli, im September hochgeladen, wurde mit „September"
+  // und „Zuerich" bewertet — und die Saison-Regel des Pruefwerks meldete
+  // anschliessend einen Widerspruch, den es gar nicht gab.
+  try { window._gsScanExif = await gsExifVonDatei(file); } catch (_) { window._gsScanExif = null; }
   // v30.47 Scanner-Speed: Galerie-Foto komprimieren (maxDim 1280, q0.8) wie alle anderen Upload-Pfade —
   // ein 12MP-Foto roh an die Vision-API ist der zweitgrößte Latenz-Treiber. Fallback: roher FileReader.
   try {
@@ -29143,13 +29174,25 @@ function _gsScanPruefwerk(res, qual) {
     }
 
     // ── S3 · Jahreszeit ──────────────────────────────────────────────────
-    var mon = new Date().getMonth() + 1;
+    // v32.00: der Monat des FOTOS, wenn er im Bild steht. Sonst meldet die
+    // Regel bei jedem alten Galeriefoto einen Widerspruch, den es nicht gibt.
+    var _exM = null;
+    try { _exM = (res._ctx && res._ctx.monthNum) || (window._gsScanExif && window._gsScanExif.monat) || null; } catch (_) {}
+    var mon = _exM || (new Date().getMonth() + 1);
     var monate = db ? _gsScanMonate(db.season) : null;
     if (!db) {
       regel('saison', 'unbekannt', 'Ohne Eintrag in unserer Artenliste keine Saison-Angabe zum Vergleich.');
     } else if (!monate || !monate.length) {
       regel('saison', 'unbekannt', 'Für diese Art ist keine Saison hinterlegt.');
-    } else if (monate.indexOf(mon) >= 0) {
+    // ── Die Falle: `gsSaisonMonate` liefert NULLBASIERTE Monate ──────────
+    // `[7,8,9]` heisst Aug/Sep/Okt, nicht Jul/Aug/Sep — die Liste ist fuer
+    // `Date.getMonth()` gemacht. `mon` hier ist einsbasiert (aus
+    // `_ctx.monthNum` bzw. dem EXIF-Monat). Ohne das `- 1` verschiebt sich
+    // jede Saison-Aussage um einen Monat, und zwar STILL: die Regel meldet
+    // dann plausibel klingenden Unsinn.
+    // Gefunden hat es der Pruefstand, nicht das Lesen — im „guten" Fall war
+    // die Regel aus der Behauptung ausgenommen und fiel deshalb nicht auf.
+    } else if (monate.indexOf(mon - 1) >= 0) {
       regel('saison', 'ok', 'Passt zur Jahreszeit: ' + (db.season || '') + '.');
     } else {
       regel('saison', 'warn', 'Die hinterlegte Zeit ist ' + (db.season || '?') + ' — wir haben aber ' +
@@ -29365,6 +29408,19 @@ function showScanResult(r){
   // aus und zeigt daneben — dieselbe Falle wie beim Garten-Zwilling
   // (CLAUDE.md §4a.1). Die Merkmale stehen deshalb neben dem Bild, nicht
   // darauf.
+  // v32.00: Stammt Datum oder Ort aus dem Foto, steht das dabei — sonst
+  // wundert sich jemand, warum ein Julifoto im September nach Juli beurteilt
+  // wird. Eine Anzeige, die etwas behauptet, muss sagen koennen, woher.
+  if (r._ctx && (r._ctx.ausFoto || r._ctx.ortAusFoto)) {
+    var _teile = [];
+    if (r._ctx.ausFoto) _teile.push('aufgenommen am <b>' + esc(String(r._ctx.aufnahme)) + '</b>');
+    if (r._ctx.ortAusFoto) _teile.push('am Ort <b>' + esc(String(r._ctx.lat)) + '°N, ' + esc(String(r._ctx.lng)) + '°E</b>');
+    body += '<div class="sr2-card" style="margin-bottom:12px;">' +
+      '<div class="sr2-card-lbl">\ud83d\udcc5 Aus dem Foto gelesen</div>' +
+      '<div class="sr2-card-body">Dieses Bild wurde ' + _teile.join(' ') +
+      '. Jahreszeit und Verbreitung wurden danach beurteilt \u2014 nicht nach dem heutigen Tag.</div></div>';
+  }
+
   var _mk = Array.isArray(r.diagnostic_features) ? r.diagnostic_features.filter(Boolean).slice(0, 6) : [];
   var _foto = r._photoB64 || (typeof window !== 'undefined' ? window._gsLastScanB64 : null);
   if (_mk.length || _foto) {
@@ -55293,6 +55349,135 @@ function gsPPcalcArea() {
 }
 
 // ── Foto der Garten-Fläche ──
+
+// ══ v32.00 · EXIF LESEN (Scanner V3, Stufe 2) ════════════════════════════
+// docs/SCANNER-V3.md §3.
+//
+// Der Fehler, um den es geht: `gsBuildScanContext` nimmt IMMER den aktuellen
+// Standort und den HEUTIGEN Monat. Fuer ein Live-Foto stimmt das. Fuer ein
+// Foto aus der Galerie — seit v31.83 einer der Hauptwege in den Scanner —
+// stimmt es oft nicht: ein Bild vom Wanderurlaub im Juli, im September
+// hochgeladen, bekommt „September" und „Zuerich" in den Auftrag. Die KI
+// rechnet dann mit der falschen Jahreszeit und der falschen Hoehenlage, und
+// die Saison-Regel des Pruefwerks (S3) meldet einen Widerspruch, den es
+// gar nicht gibt.
+//
+// Das Foto selbst weiss es besser. `DateTimeOriginal` und die GPS-Tags
+// stehen in fast jedem Handy-Foto.
+//
+// Grenzen, die bleiben und die genannt werden muessen:
+//   · Viele Apps und Messenger STREICHEN EXIF beim Teilen — dann gibt es
+//     nichts, und dann wird auch nichts behauptet.
+//   · Ein Screenshot hat keine Aufnahmedaten.
+//   · Gelesen werden nur die ersten 256 KB; das reicht fuer den APP1-Block.
+function _gsExifLesen(buf) {
+  try {
+    var dv = new DataView(buf);
+    if (dv.getUint16(0) !== 0xFFD8) return null;            // kein JPEG
+    var off = 2;
+    while (off < dv.byteLength - 4) {
+      var marker = dv.getUint16(off);
+      if (marker === 0xFFE1) {
+        if (dv.getUint32(off + 4) !== 0x45786966) return null;   // kein „Exif"
+        var tiff = off + 10;
+        var little = dv.getUint16(tiff) === 0x4949;
+        var g16 = function (o) { return dv.getUint16(o, little); };
+        var g32 = function (o) { return dv.getUint32(o, little); };
+        function rational(o) { var n = g32(o), d = g32(o + 4); return d ? n / d : null; }
+        function text(e) {
+          var len = g32(e + 4);
+          var p = len > 4 ? tiff + g32(e + 8) : e + 8;
+          var s = '';
+          for (var k = 0; k < len - 1 && p + k < dv.byteLength; k++) {
+            var c = dv.getUint8(p + k);
+            if (!c) break;
+            s += String.fromCharCode(c);
+          }
+          return s;
+        }
+        var ifd0 = tiff + g32(tiff + 4);
+        var n0 = g16(ifd0), exifIfd = null, gpsIfd = null, dtIfd0 = null;
+        for (var i = 0; i < n0; i++) {
+          var e0 = ifd0 + 2 + i * 12, t0 = g16(e0);
+          if (t0 === 0x8769) exifIfd = tiff + g32(e0 + 8);
+          else if (t0 === 0x8825) gpsIfd = tiff + g32(e0 + 8);
+          else if (t0 === 0x0132) dtIfd0 = text(e0);           // DateTime (Fallback)
+        }
+        var datum = null;
+        if (exifIfd) {
+          var nE = g16(exifIfd);
+          for (var j = 0; j < nE; j++) {
+            var eE = exifIfd + 2 + j * 12, tE = g16(eE);
+            if (tE === 0x9003 || (tE === 0x9004 && !datum)) datum = text(eE);   // DateTimeOriginal / Digitizedd
+          }
+        }
+        if (!datum && dtIfd0) datum = dtIfd0;
+
+        var lat = null, lng = null;
+        if (gpsIfd) {
+          var nG = g16(gpsIfd), latRef = '', lngRef = '', latV = null, lngV = null;
+          for (var k2 = 0; k2 < nG; k2++) {
+            var eG = gpsIfd + 2 + k2 * 12, tG = g16(eG);
+            if (tG === 0x0001) latRef = text(eG);
+            else if (tG === 0x0003) lngRef = text(eG);
+            else if (tG === 0x0002 || tG === 0x0004) {
+              var p2 = tiff + g32(eG + 8);
+              var d1 = rational(p2), m1 = rational(p2 + 8), s1 = rational(p2 + 16);
+              if (d1 != null && m1 != null && s1 != null) {
+                var wert = d1 + m1 / 60 + s1 / 3600;
+                if (tG === 0x0002) latV = wert; else lngV = wert;
+              }
+            }
+          }
+          if (latV != null) lat = (latRef === 'S' ? -latV : latV);
+          if (lngV != null) lng = (lngRef === 'W' ? -lngV : lngV);
+        }
+
+        var d = null;
+        if (datum) {
+          // EXIF-Format: „2026:07:14 09:33:12"
+          var m = String(datum).match(/^(\d{4}):(\d{2}):(\d{2})/);
+          if (m) {
+            var kandidat = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+            // Ein Datum in der Zukunft oder vor 1990 ist eine kaputte Uhr,
+            // keine Aufnahmezeit — dann lieber nichts.
+            var jetzt = new Date();
+            if (!isNaN(kandidat.getTime()) && kandidat <= new Date(jetzt.getTime() + 86400000) && kandidat.getFullYear() >= 1990) d = kandidat;
+          }
+        }
+        if (!d && lat == null) return null;
+        return {
+          datum: d,
+          monat: d ? (d.getMonth() + 1) : null,
+          lat: (lat != null && isFinite(lat) && Math.abs(lat) <= 90) ? lat : null,
+          lng: (lng != null && isFinite(lng) && Math.abs(lng) <= 180) ? lng : null,
+        };
+      } else if ((marker & 0xFF00) === 0xFF00) {
+        var sz = dv.getUint16(off + 2);
+        if (!sz) return null;
+        off += 2 + sz;
+      } else return null;
+    }
+  } catch (_) {}
+  return null;
+}
+window._gsExifLesen = _gsExifLesen;
+
+// Aus einer Datei lesen (Galerie, Teilen-Dialog, abgelegte Datei).
+async function gsExifVonDatei(file) {
+  try {
+    if (!file || !file.slice) return null;
+    var buf = await new Promise(function (res, rej) {
+      var fr = new FileReader();
+      fr.onload = function () { res(fr.result); };
+      fr.onerror = rej;
+      fr.readAsArrayBuffer(file.slice(0, Math.min(file.size, 256 * 1024)));
+    });
+    return _gsExifLesen(buf);
+  } catch (_) { return null; }
+}
+window.gsExifVonDatei = gsExifVonDatei;
+
 // v23.86: EXIF-Parser für FocalLength — best-effort Weitwinkel-Detection
 async function gsPPreadExifFocalLength(file) {
   try {
@@ -69277,6 +69462,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.00', date: '02.09.2026',
+    headline: '\ud83d\udcc5 Ein Urlaubsfoto wird nach dem Urlaub beurteilt, nicht nach heute',
+    summary: 'Jedes Foto aus der Galerie bekam bisher den HEUTIGEN Monat und den AKTUELLEN Standort in den Auftrag. Ein Bild vom Juli, im September hochgeladen, wurde als September-Fund bewertet. Das Bild selbst weiss es besser \u2014 Aufnahmedatum und Ort stehen darin.',
+    user_summary: '\ud83d\udcc5 L\u00e4dst du ein \u00e4lteres Foto hoch, z\u00e4hlen jetzt Datum und Ort AUS DEM FOTO \u2014 nicht der heutige Tag und dein jetziger Standort.',
+    user_items: [
+      {emoji:'\ud83d\uddfa\ufe0f', bold:'Warum das die Bestimmung verbessert:', text:' Jahreszeit und H\u00f6henlage sind zwei der st\u00e4rksten Hinweise \u00fcberhaupt. Mit den falschen wird nicht nur schlechter bestimmt \u2014 die Pr\u00fcfung meldete anschliessend auch noch einen Saison-Widerspruch, den es gar nicht gab.'},
+      {emoji:'\ud83e\uddfe', bold:'Und es steht auf der Karte:', text:' „Dieses Bild wurde aufgenommen am 14. Juli am Ort 46.818\u00b0N \u2014 Jahreszeit und Verbreitung wurden danach beurteilt." Keine stille Korrektur.'},
+      {emoji:'\ud83e\udd10', bold:'Wo nichts steht, wird nichts behauptet:', text:' Viele Messenger l\u00f6schen diese Angaben beim Teilen, und ein Bildschirmfoto hat sie nie. Dann gilt wie bisher der heutige Tag \u2014 ohne Behauptung.'},
+    ],
+  },
+  {
     v: 'v31.99', date: '02.09.2026',
     headline: '\ud83d\udd0d Der Scanner glaubt der KI nicht mehr aufs Wort',
     summary: 'Jede Bestimmung wird jetzt gegen unsere 4\u2019342 Arten, den Monat und die gemessene Bildqualit\u00e4t nachgerechnet. Sagt das Modell „essbar" \u00fcber etwas, das unsere Liste als t\u00f6dlich f\u00fchrt, gewinnt die vorsichtigere Angabe \u2014 sichtbar. Dazu bleibt dein Foto w\u00e4hrend der Bestimmung stehen.',
@@ -69878,7 +70074,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.99';
+var GS_VERSION = 'v32.00';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

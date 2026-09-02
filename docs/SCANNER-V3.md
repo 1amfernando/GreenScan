@@ -77,11 +77,31 @@ mit einem wandernden Lichtstreifen darüber. Danach erscheinen die **echten**
 > Netzaufruf. Das kommt nicht zurück. Merkmale erscheinen **erst, wenn sie
 > wirklich da sind** — und dann sind es die gemessenen.
 
-### Stufe 2 — Mehr aus dem Foto, bevor die KI ran muss
+### Stufe 2 — EXIF (v32.00, ausgeliefert)
 
-- **EXIF lesen**: Aufnahmedatum und GPS *aus dem Bild*. Heute nimmt ein
-  Galeriefoto den heutigen Standort — ein Urlaubsfoto bekommt so den falschen
-  Ort und die falsche Jahreszeit in den Prompt.
+**Das Foto weiss besser, wann und wo es entstand.** `gsBuildScanContext` nahm
+immer den heutigen Monat und den aktuellen Standort — für ein Galeriefoto oft
+falsch, und doppelt teuer: die KI rechnete mit der falschen Jahreszeit *und*
+Regel S3 meldete anschliessend einen Widerspruch, den es gar nicht gab.
+
+- `_gsExifLesen` / `gsExifVonDatei` lesen `DateTimeOriginal` und die GPS-Tags,
+  **vor** dem Komprimieren (Canvas verwirft EXIF).
+- Datum in der Zukunft oder vor 1990 → kaputte Uhr, verworfen; GPS bleibt.
+- Auftragstext und Karte **nennen die Herkunft** — keine stille Korrektur.
+- Kein EXIF → heutiger Tag, ohne Behauptung.
+
+**Zwei Lehren aus dem Bau:**
+
+1. **Ein Binär-Parser, der nie gegen echte Bytes gelaufen ist, ist eine
+   Behauptung.** `scripts/_exifjpeg.js` baut ein echtes JPEG mit APP1,
+   TIFF-Kopf, Exif-IFD und GPS-IFD.
+2. **`gsSaisonMonate` liefert NULLBASIERTE Monate** (`[7,8,9]` = Aug/Sep/Okt).
+   S3 verglich einen einsbasierten — jede Saison-Aussage war still um einen
+   Monat verschoben. Gefunden nur, weil der EXIF-Fall Juli gegen September
+   stellte.
+
+### Offen für Stufe 2
+
 - Mehrere Fotos automatisch anbieten, wenn die Prüfung dünn ausfällt.
 
 ### Stufe 3 — Gegenprobe, aber nur wo es zählt
