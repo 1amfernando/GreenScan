@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.68.20260901">
+<meta name="app-version" content="31.69.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1720,6 +1720,23 @@ body.dark .gs-doc-pro{background:#3a2c10;border-color:#8d6e2a;color:#ffcc80;}
   min-height:24px;font-family:inherit;
   font-size:var(--fs-xs);font-weight:800;color:var(--g-main);cursor:pointer;
   text-transform:none;letter-spacing:0;-webkit-tap-highlight-color:transparent;}
+/* v31.69 — „Nächste Schritte": eine Liste statt dreier Kaesten (Wetter-Rat,
+   faellige Pflege, Saison). Jede Zeile eine Empfehlung, oben die
+   dringendste. Der Haken rechts zeigt, was sich direkt abhaken laesst. */
+.gs-ns{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-sm);margin-bottom:9px;overflow:hidden;}
+.gs-ns-kopf{font-size:var(--fs-xs);font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;padding:10px 13px 6px;}
+.gs-ns-zeile{display:flex;align-items:flex-start;gap:10px;padding:9px 13px;border-top:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.gs-ns-zeile:first-child{border-top:none;}
+.gs-ns-zeile:active{background:var(--surface2);}
+.gs-ns-ico{font-size:var(--fs-xl);line-height:1.3;flex-shrink:0;}
+.gs-ns-txt{flex:1;min-width:0;}
+.gs-ns-t{font-size:var(--fs-md);font-weight:800;color:var(--text);line-height:1.3;}
+.gs-ns-s{font-size:var(--fs-sm);color:var(--muted);line-height:1.4;margin-top:1px;}
+.gs-ns-hak{font-size:var(--fs-lg);font-weight:900;color:var(--c-success);flex-shrink:0;line-height:1.3;}
+/* Zeitkritisches faellt auf, ohne zu schreien: ein Streifen links, kein
+   roter Kasten. Frost heute Nacht soll man sehen, nicht erschrecken. */
+.gs-ns-dringend{box-shadow:inset 3px 0 0 var(--c-danger);}
+.gs-ns-dringend .gs-ns-t{color:var(--c-danger);}
 .gs-go-zahlen{display:flex;background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-sm);margin-bottom:9px;overflow:hidden;}
 .gs-go-z{flex:1;min-width:0;padding:11px 6px;text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent;border-left:1px solid var(--border);transition:background var(--dur-fast) ease;}
 .gs-go-z:first-child{border-left:none;}
@@ -3363,6 +3380,12 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <span id="garden-hw-temp" style="font-size:var(--fs-xl);font-weight:900;line-height:1;color:var(--text);">–°</span>
       <span id="garden-hw-desc" data-i18n="garden_weather_tap_details" data-i18n-fallback="Tippen für Details" style="font-size:var(--fs-sm);color:var(--text2);line-height:1.3;">Tippen für Details</span>
     </div>
+    <!-- v31.69: Morgen. Bisher stand die Vorhersage in einem ZWEITEN
+         Wetter-Widget („Morgen wird heiss (28°C)"). Fernando: „Das Wetter ist
+         zwei mal darauf … bitte füge die Prognose in dem Wetterwidget nummer 1
+         hinzu." Genau hier gehört sie hin. Bleibt leer, solange keine Daten da
+         sind — eine leere Zeile ist besser als eine erfundene Prognose. -->
+    <div id="garden-hw-morgen" style="font-size:var(--fs-sm);color:var(--muted);line-height:1.35;margin-top:2px;"></div>
   </div>
   <span style="color:var(--muted);font-size:var(--fs-xl);">›</span>
 </div>
@@ -3414,8 +3437,10 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
      Karte mit eigenem Rand — da trennt der Abstand schon, und der Strich war
      der einzige nackte Strich auf dem Bildschirm. -->
 
-<!-- v24.39: Smart-Reminder Card (wetter-aware) -->
-<div id="garden-smart-reminder" style="margin:0 16px;"></div>
+<!-- v31.69: #garden-smart-reminder ist raus. Sein Inhalt („Morgen wird
+     heiss", „Frost in den nächsten Stunden", „Giessen kannst du heute
+     sparen") steht jetzt als oberste Zeile in „Nächste Schritte". Fernando:
+     „Das Wetter ist zwei mal darauf" — genau das war es. -->
 
 <!-- v24.39: Garten-Statistik-Dashboard -->
 <div id="garden-stats-card" style="padding:0 16px;"></div>
@@ -3425,8 +3450,10 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
      der Übersicht, als eigene Zeile hier, und im Akkordeon. Der Weg über die
      Kachel bleibt der schnellste; die Zeile war die überflüssige der drei. -->
 <!-- v30.79: Garten-Werkzeuge in ausklappbare Gruppen gebündelt (rein optisch, alle Funktionen unverändert/erreichbar) -->
-<!-- v25.18: Saisonkalender-Inline-Host (wird via gsRenderSeasonalInline gefüllt) -->
-<div id="seasonal-tasks-host" style="padding:0 16px;"></div>
+<!-- v31.69: #seasonal-tasks-host ist raus. Die Saison-Aufgaben stehen jetzt
+     in der Liste „Nächste Schritte" ganz oben, zusammen mit dem Wetter-Rat
+     und den fälligen Pflege-Aufgaben — drei Kästen, die dieselbe Frage
+     beantworteten, sind einer geworden. -->
 <details class="gs-grp">
   <summary>🩺 Pflege & Diagnose</summary>
   <div style="padding-top:2px;">
@@ -3567,6 +3594,13 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 </div>
   </div>
 </details>
+
+<div class="gs-sek">📊 Mein Garten in Zahlen</div>
+<!-- v31.69: Die Bilanz steht jetzt ganz unten. Sie stand oben, direkt unter
+     den Gärten — dort beantwortet sie eine Frage, die niemand stellt, bevor
+     er gesehen hat, was ansteht. -->
+<div id="garden-zahlen" style="margin:0 16px 4px;"></div>
+
 
 </div>
 
@@ -7767,19 +7801,72 @@ window.gsRenderGardenOverview = function () {
   var nBeds  = n('gs_gardens');
   var nPlans = n('gs_garden_plans');
 
-  // Nächster Schritt — dieselbe Quelle wie der Tagesplan auf der Startseite.
+  // ── v31.69: EIN Block statt drei ──────────────────────────────────────
+  //
+  // Auf dieser Seite standen DREI Widgets, die alle dasselbe tun — sagen,
+  // was als Naechstes zu tun ist:
+  //   · „Naechster Schritt"      — die naechste faellige Pflanzen-Aufgabe
+  //   · der Wetter-Ratgeber      — „Morgen wird heiss", „Frost in den
+  //                                naechsten Stunden", „Giessen kannst du
+  //                                heute sparen"
+  //   · „Im September im Garten" — die Saison-Aufgaben
+  //
+  // Drei Kaesten, drei Ueberschriften, dieselbe Frage. Fernando hat beim
+  // Wetter-Ratgeber gesagt, das sei ein zweites Wetter-Widget, und die
+  // Saison-Aufgaben gehoerten zum naechsten Schritt. Beides stimmt — und
+  // beides folgt aus derselben Einsicht.
+  //
+  // Jetzt eine Liste „Naechste Schritte", nach Dringlichkeit sortiert:
+  //   1. Wetter-Warnung  — zeitkritisch, heute Abend oder gar nicht
+  //   2. Faellige Pflege — was JETZT dran ist
+  //   3. Saison          — was diesen Monat ansteht, ohne Termin
+  var schritte = [];
+
+  // 1 · Was das Wetter erzwingt. Die Quelle bleibt gsBuildSmartReminder —
+  //     die Logik dort (Frost, Regen, Hitze, Trockenperiode) ist gut und
+  //     wird nicht dupliziert, nur anders dargestellt.
+  try {
+    if (typeof window.gsBuildSmartReminder === 'function') {
+      var w = window.gsBuildSmartReminder();
+      if (w) schritte.push({ icon: w.icon, titel: w.title, unter: w.body,
+                             dringend: w.level === 'urgent', aktion: "openWeatherDetail()" });
+    }
+  } catch (_) {}
+
+  // 2 · Faellige Pflanzen-Aufgaben — dieselbe Quelle wie der Tagesplan auf
+  //     der Startseite. Bis zu drei; wer zehn Pflanzen giessen muss, will
+  //     keine Liste mit zehn Zeilen, sondern den Weg zur Pflege.
   var tasks = [];
   try { if (typeof gsGetDueTasks === 'function') tasks = gsGetDueTasks() || []; } catch (_) {}
   var first = tasks[0] || null;
-  var schrittTitel, schrittUnter;
-  if (first) {
-    var verb = (typeof _gsDayPlanVerb === 'function') ? _gsDayPlanVerb(first.key, first.def) : ((first.def && first.def.name) || '');
-    schrittTitel = esc(first.plant.name) + ' ' + esc(verb);
-    schrittUnter = (typeof _gsDayPlanWhen === 'function') ? _gsDayPlanWhen(first.days) : '';
-  } else if (nPlants) {
-    schrittTitel = 'Alles versorgt'; schrittUnter = 'Nichts fällig in den nächsten Tagen.';
-  } else {
-    schrittTitel = 'Erste Pflanze anlegen'; schrittUnter = 'Danach plant GreenScan die Pflege mit.';
+  tasks.slice(0, 3).forEach(function (tk) {
+    var verb = (typeof _gsDayPlanVerb === 'function') ? _gsDayPlanVerb(tk.key, tk.def) : ((tk.def && tk.def.name) || '');
+    schritte.push({
+      icon: (tk.def && tk.def.icon) || '🌱',
+      titel: esc(tk.plant.name) + ' ' + esc(verb),
+      unter: (typeof _gsDayPlanWhen === 'function') ? _gsDayPlanWhen(tk.days) : '',
+      erledigbar: { id: tk.plant.id, key: tk.key },
+      aktion: "if(typeof switchTab==='function')switchTab('favs')"
+    });
+  });
+  if (tasks.length > 3) {
+    schritte.push({ icon: '📋', titel: 'Und ' + (tasks.length - 3) + ' weitere fällig',
+                    unter: 'Alle in „Meine Pflanzen"', aktion: "if(typeof switchTab==='function')switchTab('favs')" });
+  }
+
+  // 3 · Saison-Aufgaben werden nachgeladen (Supabase) und von
+  //     gsFillSaisonSchritte() nachgetragen, sobald sie da sind. Sie hier
+  //     abzuwarten wuerde die ganze Uebersicht blockieren.
+
+  if (!schritte.length) {
+    schritte.push(nPlants
+      ? { icon: '✅', titel: 'Alles versorgt', unter: 'Nichts fällig in den nächsten Tagen.',
+          // Auch ohne Aufgabe fuehrt die Zeile zu den Pflanzen. Der alte
+          // Einzel-Kasten tat das ebenfalls; ohne Aktion waere sie die
+          // einzige tote Zeile der Liste.
+          aktion: "if(typeof switchTab==='function')switchTab('favs')" }
+      : { icon: '🌱', titel: 'Erste Pflanze anlegen', unter: 'Danach plant GreenScan die Pflege mit.',
+          aktion: "if(typeof switchTab==='function')switchTab('favs')" });
   }
 
   function kachel(icon, zahl, label, aktion) {
@@ -7815,17 +7902,31 @@ window.gsRenderGardenOverview = function () {
              '</div>';
     }).join('') + '</div>';
   }
+  // Die Liste. Jede Zeile ist antippbar; faellige Pflege-Aufgaben lassen
+  // sich direkt abhaken, ohne die Seite zu verlassen — das war beim alten
+  // Einzel-Kasten schon so und bleibt.
   function naechsterSchritt() {
-    return '<div class="gs-go-tile gs-go-next" role="button" tabindex="0" onclick="' +
-      (first ? 'gsNcDoneTask(this,\'' + esc(first.plant.id) + '\',\'' + esc(first.key) + '\')'
-             : "if(typeof switchTab==='function')switchTab('favs')") + '">' +
-      '<div class="gs-go-next-k">N\u00e4chster Schritt</div>' +
-      '<div class="gs-go-next-t">' + schrittTitel + '</div>' +
-      '<div class="gs-go-next-s">' + esc(schrittUnter) + '</div>' +
-    '</div>';
+    var zeilen = schritte.map(function (sr, i) {
+      var akt = sr.erledigbar
+        ? 'gsNcDoneTask(this,\'' + esc(sr.erledigbar.id) + '\',\'' + esc(sr.erledigbar.key) + '\')'
+        : (sr.aktion || '');
+      return '<div class="gs-ns-zeile' + (sr.dringend ? ' gs-ns-dringend' : '') + '"' +
+             (akt ? ' role="button" tabindex="0" onclick="' + akt + '"' : '') + '>' +
+               '<span class="gs-ns-ico" aria-hidden="true">' + sr.icon + '</span>' +
+               '<div class="gs-ns-txt">' +
+                 '<div class="gs-ns-t">' + sr.titel + '</div>' +
+                 (sr.unter ? '<div class="gs-ns-s">' + esc(sr.unter) + '</div>' : '') +
+               '</div>' +
+               (sr.erledigbar ? '<span class="gs-ns-hak" aria-hidden="true">\u2713</span>' : '') +
+             '</div>';
+    }).join('');
+    return '<div class="gs-ns" id="gs-naechste-schritte">' +
+             '<div class="gs-ns-kopf">N\u00e4chste Schritte</div>' +
+             '<div id="gs-ns-liste">' + zeilen + '</div>' +
+           '</div>';
   }
 
-  var kacheln, hero = '', cta;
+  var kacheln, hero = '', cta, zahlenBlock = '';
 
   if (t) {
     // ── Mit Zwilling: die Vorlage in voll ──────────────────────────────
@@ -7834,22 +7935,24 @@ window.gsRenderGardenOverview = function () {
         (t.photo ? '<img src="' + esc(t.photo) + '" alt="Dein Garten">' : '<div class="gs-go-hero-leer">🌿</div>') +
         '<div class="gs-go-badge"><b>3D-Modell</b><span>Fertig</span></div>' +
       '</div>';
-    kacheln = zahlenzeile([
+    zahlenBlock = zahlenzeile([
       { zahl: t.plants.length, label: 'Pflanze' + (t.plants.length === 1 ? '' : 'n') + ' erkannt', aktion: 'gsTwinOpenListe()' },
       { zahl: t.beds.length,   label: 'Pflegezone' + (t.beds.length === 1 ? '' : 'n'),             aktion: 'gsTwinOpen3D()' },
       { zahl: t.zones.length,  label: 'Lichtzone' + (t.zones.length === 1 ? '' : 'n'),             aktion: 'gsTwinOpen3D()' },
-    ]) + naechsterSchritt();
+    ]);
+    kacheln = zahlenBlock + naechsterSchritt();
     cta =
       '<button type="button" class="gs-go-cta" onclick="if(typeof switchTab===\'function\')switchTab(\'favs\')">Pflegeplan ansehen <span aria-hidden="true">→</span></button>' +
       '<button type="button" class="gs-go-cta gs-go-cta2" onclick="gsTwinOpen3D()"><span aria-hidden="true">🧊</span> 3D-Modell öffnen</button>' +
       '<button type="button" class="gs-go-neu" onclick="gsTwinPickPhoto()">Neu scannen</button>';
   } else {
     // ── Ohne Zwilling: nur echte Zahlen, plus die Einladung ────────────
-    kacheln = zahlenzeile([
+    zahlenBlock = zahlenzeile([
       { zahl: nPlants, label: 'Pflanze' + (nPlants === 1 ? '' : 'n') + ' in Pflege', aktion: "if(typeof switchTab==='function')switchTab('favs')" },
       { zahl: nBeds,   label: 'Beet' + (nBeds === 1 ? '' : 'e') + ' angelegt',       aktion: "var _l=document.getElementById('garden-list');if(_l)_l.scrollIntoView({behavior:gsScrollBehavior(),block:'start'})" },
       { zahl: nPlans,  label: (nPlans === 1 ? 'Plan' : 'Pl\u00e4ne') + ' gespeichert', aktion: "(window.gsPlansOpen?gsPlansOpen():(typeof gsPPopenSavedPlans==='function'?gsPPopenSavedPlans():null))" },
-    ]) + naechsterSchritt();
+    ]);
+    kacheln = zahlenBlock + naechsterSchritt();
     cta =
       '<button type="button" class="gs-go-cta" onclick="gsTwinPickPhoto()"><span aria-hidden="true">📷</span> Garten scannen</button>' +
       '<div class="gs-go-hint">Ein Foto genügt — GreenScan baut daraus dein 3D-Modell.</div>';
@@ -7868,9 +7971,26 @@ window.gsRenderGardenOverview = function () {
   // Faellt der Zielcontainer weg (aeltere Ansicht), bleibt alles beisammen —
   // ein Knopf, der nirgends landet, waere schlimmer als einer am falschen
   // Ort.
-  var ziel = document.getElementById('garden-cta');
-  if (ziel) { el.innerHTML = hero + kacheln; ziel.innerHTML = cta; }
-  else { el.innerHTML = hero + kacheln + cta; }
+  // v31.69: Drei Ziele statt einem. Fernando: „Mein Garten in Zahlen soll zu
+  // unterst gelistet werden." Die Zahlen sind eine Bilanz — man liest sie,
+  // wenn man sonst nichts mehr sucht, nicht bevor man den Garten gesehen hat.
+  //   #garden-overview → Foto und die naechsten Schritte
+  //   #garden-cta      → der Scan-Knopf, im Abschnitt „Tun"
+  //   #garden-zahlen   → die Bilanz, ganz unten
+  // Fehlt ein Ziel (aeltere Ansicht), bleibt alles beisammen — kein Teil
+  // soll verschwinden, nur weil ein Container fehlt.
+  var zielCta    = document.getElementById('garden-cta');
+  var zielZahlen = document.getElementById('garden-zahlen');
+  if (zielCta && zielZahlen) {
+    el.innerHTML = hero + naechsterSchritt();
+    zielCta.innerHTML = cta;
+    zielZahlen.innerHTML = zahlenBlock;
+  } else if (zielCta) {
+    el.innerHTML = hero + kacheln;
+    zielCta.innerHTML = cta;
+  } else {
+    el.innerHTML = hero + kacheln + cta;
+  }
 };
 
 // Die erkannten Pflanzen als Liste — mit Vertrauenswert, damit sichtbar
@@ -8199,11 +8319,10 @@ function gsUpdateGartenWidgets() {
       else bl.textContent = 'Bald wieder Farbe';
     }
 
-    // v24.39: Smart-Reminder + Garten-Stats Cards
-    var smartHost = document.getElementById('garden-smart-reminder');
-    if (smartHost && typeof window.gsRenderSmartReminder === 'function') {
-      smartHost.innerHTML = window.gsRenderSmartReminder();
-    }
+    // v31.69: Der Smart-Reminder hat kein eigenes Ziel mehr — sein Inhalt
+    // ist die oberste Zeile in „Naechste Schritte" (gsRenderGardenOverview
+    // ruft gsBuildSmartReminder direkt). Der Schreiber hier haette in ein
+    // Element geschrieben, das es nicht mehr gibt.
     var statsHost = document.getElementById('garden-stats-card');
     if (statsHost && typeof window.gsRenderGardenStats === 'function') {
       statsHost.innerHTML = window.gsRenderGardenStats();
@@ -10639,7 +10758,11 @@ async function loadGardenWeather(forceReload) {
       '?latitude=' + lat + '&longitude=' + lon +
       '&current_weather=true' +
       '&hourly=temperature_2m,relativehumidity_2m,apparent_temperature,precipitation_probability,precipitation,weathercode,windspeed_10m,uv_index,visibility' +
-      '&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,sunrise,sunset,uv_index_max' +
+      // v31.69: precipitation_probability_max dazu — die Morgen-Zeile in der
+      // Gartenkarte nennt die Regenwahrscheinlichkeit. Ohne dieses Feld
+      // waere der Regenteil dort still leer geblieben: der Code haette
+      // richtig ausgesehen und nie etwas angezeigt.
+      '&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,windspeed_10m_max,sunrise,sunset,uv_index_max' +
       '&timezone=Europe%2FZurich' +
       '&forecast_days=7' +
       '&wind_speed_unit=kmh';
@@ -10778,6 +10901,35 @@ function gsApplyWeatherToWidget(data) {
   if (gIcon) gIcon.textContent = icon;
   if (gTemp) gTemp.textContent = temp + ' °C';
   if (gDesc) gDesc.textContent = tip || (typeof gsWmoText === 'function' ? gsWmoText(cw.weathercode) : '') || '';
+
+  // v31.69 — Morgen in derselben Karte. Quelle ist dasselbe daily-Objekt, aus
+  // dem oben die 3-Tage-Vorschau gebaut wird; hier Index 1. Regen steht nur
+  // dabei, wenn er ueberhaupt eine Rolle spielt (ab 20 %) — „0 % Regen" ist
+  // keine Information, sondern Fuellung.
+  var gMorgen = document.getElementById('garden-hw-morgen');
+  if (gMorgen) {
+    var txtM = '';
+    try {
+      var dd = data.daily;
+      if (dd && dd.temperature_2m_max && dd.temperature_2m_max.length > 1) {
+        var icM  = (typeof WMO_ICONS !== 'undefined' && dd.weathercode) ? (WMO_ICONS[dd.weathercode[1]] || '') : '';
+        var maxM = Math.round(dd.temperature_2m_max[1]);
+        var minM = Math.round(dd.temperature_2m_min[1]);
+        var popM = (dd.precipitation_probability_max && dd.precipitation_probability_max[1] != null)
+                     ? Math.round(dd.precipitation_probability_max[1]) : null;
+        var regen = '';
+        if (popM != null) { if (popM >= 20) regen = ' · ' + popM + ' % Regen'; }
+        else if (dd.precipitation_sum && dd.precipitation_sum[1] != null) {
+          // Rueckfall: der 30-Minuten-Cache kann eine Antwort von VOR dieser
+          // Version enthalten, die das Wahrscheinlichkeits-Feld noch nicht hat.
+          var mm = Math.round(dd.precipitation_sum[1] * 10) / 10;
+          if (mm >= 0.5) regen = ' · ' + mm + ' mm Regen';
+        }
+        txtM = 'Morgen ' + (icM ? icM + ' ' : '') + maxM + '° / ' + minM + '°' + regen;
+      }
+    } catch (_) { txtM = ''; }
+    gMorgen.textContent = txtM;
+  }
 }
 
 function openWeatherDetail() {
@@ -14657,7 +14809,7 @@ function gsI18nRerenderDynamic(){
     function(){ if (typeof gsLoadTodaysWisdom === 'function') gsLoadTodaysWisdom(); }, // Bauernregel
     function(){ if (typeof gsLoadTodaysMushroomSeason === 'function') gsLoadTodaysMushroomSeason(); }, // Pilz-Saison-Karte
     function(){ var hl = document.getElementById('home-lb-preview'); if (hl) { hl._gsFilled = false; if (typeof gsHomeFillLeaderboard === 'function') gsHomeFillLeaderboard(); } },
-    function(){ if (typeof gsRenderSeasonalInline === 'function') gsRenderSeasonalInline(); },
+    function(){ if (typeof gsFillSaisonSchritte === 'function') gsFillSaisonSchritte(); },
     function(){ window._gsMktHomeCache = null; if (typeof gsHomeRenderTopPicks === 'function') gsHomeRenderTopPicks(); },
     function(){ if (typeof updateMenuProfileBar === 'function') updateMenuProfileBar(); },
     function(){ if (typeof gsUpdateXPBar === 'function') gsUpdateXPBar({animate:false}); },
@@ -60354,42 +60506,54 @@ function gsTaskCategoryEmoji(cat) {
 }
 
 // Inline-Render der aktuellen-Monat-Tasks für Garten-Tab. Wird in den
-// Container #seasonal-tasks-host injiziert sobald geladen.
-async function gsRenderSeasonalInline() {
-  var host = document.getElementById('seasonal-tasks-host');
-  if (!host) return;
+// v31.69 — Die Saison-Aufgaben stehen nicht mehr in einem eigenen Kasten
+// („\ud83d\udcc5 Im September im Garten"), sondern werden in die Liste
+// „N\u00e4chste Schritte" nachgetragen. Sie sind Empfehlungen wie die
+// anderen auch; ein zweiter Kasten mit eigener \u00dcberschrift daneben war
+// eine Grenze zu viel.
+//
+// Warum NACHTRAGEN und nicht gleich mitrendern: die Aufgaben kommen aus
+// Supabase. Die \u00dcbersicht darauf warten zu lassen hiesse, die halbe
+// Seite fuer einen Netzaufruf anzuhalten.
+async function gsFillSaisonSchritte() {
+  var liste = document.getElementById('gs-ns-liste');
+  if (!liste) return;
   var rows = await gsLoadSeasonalTasks();
-  if (!rows || !rows.length) {
-    host.innerHTML = '';
-    return;
-  }
+  if (!rows || !rows.length) return;
   var month = new Date().getMonth() + 1;
   var monthName = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'][month - 1];
   var tasks = gsFilterTasksForMonth(rows, month);
-  if (!tasks.length) {
-    host.innerHTML = '';
-    return;
-  }
-  var top = tasks.slice(0, 4);   // Inline nur die ersten 4 — Modal zeigt alle
-  var cards = top.map(function(t){
+  if (!tasks.length) return;
+  // Erneut suchen: zwischen await und hier kann die Seite neu gebaut worden
+  // sein, und dann schriebe man in ein Element, das niemand mehr sieht.
+  liste = document.getElementById('gs-ns-liste');
+  if (!liste || liste.getAttribute('data-saison') === '1') return;
+  liste.setAttribute('data-saison', '1');
+  // „Alles versorgt" ist keine Aussage mehr, wenn Saison-Aufgaben anstehen.
+  try {
+    var leer = liste.querySelector('.gs-ns-zeile');
+    if (leer && /Alles versorgt/.test(leer.textContent) && liste.children.length === 1) liste.innerHTML = '';
+  } catch (_) {}
+  var zwei = tasks.slice(0, 2).map(function (t) {
     var emoji = gsTaskCategoryEmoji(t.category || t.task_type || t.title || '');
-    return '<div style="background:var(--card);border-left:3px solid #2e7d32;border-radius:var(--r-sm);padding:8px 10px;margin-bottom:6px;display:flex;align-items:flex-start;gap:8px;">' +
-      '<span style="font-size:var(--fs-xl);flex-shrink:0;">' + emoji + '</span>' +
-      '<div style="flex:1;min-width:0;">' +
-        '<div style="font-size:var(--fs-sm);font-weight:800;color:var(--text);">' + gsEscHtml(t.title || t.name || 'Aufgabe') + '</div>' +
-        (t.description || t.note ? '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px;line-height:1.45;">' + gsEscHtml(t.description || t.note) + '</div>' : '') +
-      '</div>' +
-    '</div>';
+    return '<div class="gs-ns-zeile" role="button" tabindex="0" onclick="gsSeasonalOpen()">' +
+             '<span class="gs-ns-ico" aria-hidden="true">' + emoji + '</span>' +
+             '<div class="gs-ns-txt">' +
+               '<div class="gs-ns-t">' + gsEscHtml(t.title || t.name || 'Aufgabe') + '</div>' +
+               '<div class="gs-ns-s">Im ' + monthName + ' im Garten' +
+                 (tasks.length > 2 ? ' \u00b7 ' + tasks.length + ' Aufgaben' : '') + '</div>' +
+             '</div>' +
+           '</div>';
   }).join('');
-  host.innerHTML = '<div style="background:linear-gradient(135deg,#e8f5e9,#fff);border:1.5px solid #2e7d32;border-radius:var(--r-md);padding:12px 14px;margin-bottom:10px;">' +
-    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
-      '<div style="font-size:var(--fs-md);font-weight:900;color:var(--c-success-d);">📅 Im ' + monthName + ' im Garten</div>' +
-      '<button onclick="gsSeasonalOpen()" style="font-size:var(--fs-sm);font-weight:800;background:none;border:none;color:var(--c-success);cursor:pointer;font-family:inherit;padding:2px 0;">Alle ' + tasks.length + ' Tasks ›</button>' +
-    '</div>' +
-    cards +
-  '</div>';
+  liste.insertAdjacentHTML('beforeend', zwei);
 }
+window.gsFillSaisonSchritte = gsFillSaisonSchritte;
 
+// v31.69: gsRenderSeasonalInline ist entfernt. Sie baute den Kasten
+// „\ud83d\udcc5 Im September im Garten" in #seasonal-tasks-host — beides
+// gibt es nicht mehr. Die Aufgaben stehen jetzt in „Naechste Schritte"
+// (gsFillSaisonSchritte weiter oben). Der Saisonkalender als Vollansicht
+// bleibt: gsSeasonalOpen darunter.
 // Modal mit Voll-Jahres-Übersicht (alle Monate).
 async function gsSeasonalOpen() {
   if (typeof gsHaptic === 'function') gsHaptic('light');
@@ -60458,7 +60622,11 @@ function gsBuildSeasonalModal(rows) {
 // Auto-Trigger Inline-Render nach Boot (1h-Cache schützt gegen Spam).
 (function(){
   function _scheduleSeasonalRender(){
-    setTimeout(function(){ try { gsRenderSeasonalInline(); } catch(_){} }, 2200);
+    // v31.69: fuellt jetzt die Liste „Naechste Schritte" statt eines
+    // eigenen Kastens. gsRenderSeasonalInline bleibt bestehen, wird aber
+    // nicht mehr automatisch aufgerufen — der Kasten wuerde neben der
+    // Liste stehen und dasselbe sagen.
+    setTimeout(function(){ try { gsFillSaisonSchritte(); } catch(_){} }, 2200);
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', _scheduleSeasonalRender);
@@ -65308,6 +65476,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.69', date: '01.09.2026',
+    headline: '\u2705 „N\u00e4chste Schritte" \u2014 drei Widgets, die dasselbe sagten, sind eins geworden',
+    summary: 'Der Wetter-Rat, die f\u00e4lligen Pflege-Aufgaben und „Im September im Garten" standen als drei getrennte K\u00e4sten da und beantworteten dieselbe Frage. Jetzt eine Liste. Und die Morgen-Prognose steht in der Wetterkarte statt in einem zweiten Wetter-Widget.',
+    user_summary: '\u2705 Alles, was ansteht, in einer Liste: Wetter-Warnung, f\u00e4llige Pflege, Saison-Aufgaben. Und nur noch EIN Wetter-Widget \u2014 mit Prognose auf morgen.',
+    user_items: [
+      {emoji:'\u2705', bold:'Eine Liste statt drei K\u00e4sten:', text:' „N\u00e4chster Schritt", der Wetter-Ratgeber („Morgen wird heiss", „Frost in den n\u00e4chsten Stunden") und „Im September im Garten" sagten alle dasselbe: was jetzt zu tun ist. Jetzt eine Liste, nach Dringlichkeit sortiert \u2014 zeitkritisches oben mit rotem Streifen, dann die f\u00e4llige Pflege (direkt abhakbar), dann die Saison-Aufgaben.'},
+      {emoji:'\ud83c\udf24\ufe0f', bold:'Nur noch ein Wetter-Widget:', text:' Die Prognose auf morgen steht jetzt in der Wetterkarte selbst \u2014 „Morgen \u2600\ufe0f 29\u00b0 / 18\u00b0 \u00b7 45 % Regen". Regen erscheint nur, wenn er eine Rolle spielt: „0 % Regen" ist keine Information.'},
+      {emoji:'\ud83d\udd0e', bold:'Ein Feld, das gefehlt h\u00e4tte:', text:' Die Regenwahrscheinlichkeit wurde von der Wetter-Schnittstelle gar nicht abgefragt. Der Code h\u00e4tte richtig ausgesehen und den Regen NIE angezeigt \u2014 aufgefallen beim Nachrechnen, nicht beim Lesen. Und f\u00fcr \u00e4ltere zwischengespeicherte Antworten gibt es einen R\u00fcckfall auf Millimeter.'},
+      {emoji:'\ud83d\udcca', bold:'Die Zahlen nach unten:', text:' „Mein Garten in Zahlen" ist eine Bilanz \u2014 man liest sie, wenn man sonst nichts mehr sucht, nicht bevor man gesehen hat, was ansteht.'},
+    ],
+  },
+  {
     v: 'v31.68', date: '01.09.2026',
     headline: '\ud83e\udeb4 Deine G\u00e4rten stehen jetzt ganz oben \u2014 und die Seite hat endlich eine Gliederung',
     summary: 'Auf einer Seite namens „Mein Garten" standen die eigenen G\u00e4rten an zehnter Stelle, hinter Wetter, Werkzeugen, Mond und Statistik. Und zehn gleich aussehende Karten ohne \u00dcberschrift lasen sich als Chaos.',
@@ -65735,7 +65915,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.68';
+var GS_VERSION = 'v31.69';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
