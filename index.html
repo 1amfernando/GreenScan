@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.08.20260902">
+<meta name="app-version" content="32.09.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -29238,6 +29238,18 @@ window.gsQualTrotzdem = function () {
   } catch (_) { if (typeof gsResetScanner === 'function') gsResetScanner(); }
 };
 
+// v32.09: Fernando: „Zurück zum Scanner gibt es ja schon, lieber ein Zurück
+// ins Hauptmenü." Also: Ergebnis schliessen UND das Menü öffnen.
+//
+// `gsResetScanner()` zuerst — es blendet das Ergebnis aus und startet die
+// Kamera wieder. Das kostet einen Moment, ist aber richtig: wer das Menü
+// gleich wieder zumacht, steht sonst vor einem toten Sucher.
+function gsScanZumMenue() {
+  try { if (typeof gsResetScanner === 'function') gsResetScanner(); } catch (_) {}
+  try { if (typeof openMainMenu === 'function') openMainMenu(); } catch (_) {}
+}
+window.gsScanZumMenue = gsScanZumMenue;
+
 function gsResetScanner() {
   // Scan-Ergebnis ausblenden
   var rd = document.getElementById('scan-result');
@@ -29590,13 +29602,15 @@ function showScanResult(r){
   // Richtige: Ergebnis weg, Kamera-Bereich zurueck, Kamera neu starten.
   // NUR beim Ergebnis, wie gewuenscht: diese Leiste steht in
   // `showScanResult` und nirgends sonst.
+  // v32.09: der linke Knopf geht ins HAUPTMENÜ (der Weg zurück zum Scanner
+  // ist ohnehin schon da — „📸 Neues Foto" und das ✕ hier rechts).
   var zurueckLeiste =
     '<div class="sr2-zurueck">' +
-      '<button onclick="gsResetScanner&&gsResetScanner()" class="sr2-zurueck-btn" aria-label="Ergebnis schliessen und zur\u00fcck zum Scanner">' +
-        '\u2190 Zur\u00fcck' +
+      '<button onclick="gsScanZumMenue&&gsScanZumMenue()" class="sr2-zurueck-btn" aria-label="Ergebnis schliessen und Hauptmen\u00fc \u00f6ffnen">' +
+        '\u2630 Hauptmen\u00fc' +
       '</button>' +
       '<span class="sr2-zurueck-txt">' + esc(r.name || 'Ergebnis') + '</span>' +
-      '<button onclick="gsResetScanner&&gsResetScanner()" class="sr2-zurueck-x" aria-label="Schliessen">\u2715</button>' +
+      '<button onclick="gsResetScanner&&gsResetScanner()" class="sr2-zurueck-x" aria-label="Ergebnis schliessen, zur\u00fcck zum Scanner" title="Zur\u00fcck zum Scanner">\u2715</button>' +
     '</div>';
 
   var heroCls = 'sr2-hero' + (conf >= 85 ? ' rr-premium' : '');
@@ -69944,6 +69958,15 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.09', date: '02.09.2026',
+    headline: '\u2630 Vom Scan-Ergebnis direkt ins Hauptmen\u00fc',
+    summary: 'Der Knopf oben auf dem Ergebnis f\u00fchrte zur\u00fcck zum Scanner \u2014 den Weg gab es aber ohnehin schon. Jetzt \u00f6ffnet er das Hauptmen\u00fc.',
+    user_summary: '\u2630 Oben auf dem Scan-Ergebnis kommst du jetzt mit einem Tipp ins Hauptmen\u00fc. Das \u2715 daneben bleibt der Weg zur\u00fcck zum Scanner.',
+    user_items: [
+      {emoji:'\u2630', bold:'Zwei Wege, klar getrennt:', text:' Links ins Hauptmen\u00fc, rechts das \u2715 zur\u00fcck zur Kamera. Beide schliessen das Ergebnis \u2014 der Sucher l\u00e4uft danach wieder, auch wenn du das Men\u00fc gleich wieder zumachst.'},
+    ],
+  },
+  {
     v: 'v32.08', date: '02.09.2026',
     headline: '\ud83d\udd2c Das Scangitter f\u00e4hrt jetzt die echten Bl\u00e4tter ab',
     summary: 'Drei Dinge am Scanner: ein Weg zur\u00fcck aus dem Ergebnis, ein Gitter, das aus deinem Foto gerechnet wird und den Bl\u00e4ttern, Adern und dem Stiel folgt, und statt „Die KI schaut sich das Foto an" eine Liste, die Schritt f\u00fcr Schritt abhakt \u2014 mit dem Ergebnis jedes Schritts.',
@@ -70315,7 +70338,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.08';
+var GS_VERSION = 'v32.09';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
