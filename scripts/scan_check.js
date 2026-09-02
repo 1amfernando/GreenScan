@@ -995,6 +995,61 @@ const FAELLE = [
       return { ok: true, info: 'Auftrag sauber · vor dem Aufruf: „' + ergF.slice(0, 26) + '" / „' + ergV.slice(0, 32) + '"' };
     },
   },
+  // ── v32.20 · Ohne Netz eingrenzen ────────────────────────────────────
+  {
+    name: 'Eingrenzen · grenzt wirklich ein, und nur mit Begründung',
+    lauf: () => {
+      const alle = gsEingrenzen({ monat: null, hoehe: null, farbe: '', gruppe: '' });
+      if (alle.treffer.length !== DB.length) return { ok: false, warum: 'ohne jede Angabe fehlen schon Arten: ' + alle.treffer.length + ' von ' + DB.length };
+
+      const jan = gsEingrenzen({ monat: 1, hoehe: null, farbe: '', gruppe: '' });
+      if (jan.treffer.length >= DB.length) return { ok: false, warum: 'der Monat grenzt nicht ein' };
+      if (jan.treffer.length < 300) return { ok: false, warum: 'nur ' + jan.treffer.length + ' im Januar — das schliesst zu viel aus' };
+
+      // Der Kern: eine Art OHNE Höhenangabe darf durch eine Höhenangabe NIE
+      // herausfallen. „Unbekannt" ist nicht „passt nicht".
+      const ohneBand = DB.filter(s => !_gsHoehenband(s));
+      const mitHoehe = gsEingrenzen({ monat: 1, hoehe: 3000, farbe: '', gruppe: '' });
+      const drin = new Set(mitHoehe.treffer.map(s => s.id));
+      const janIds = new Set(jan.treffer.map(s => s.id));
+      const verloren = ohneBand.filter(s => janIds.has(s.id) && !drin.has(s.id));
+      if (verloren.length) return { ok: false, warum: verloren.length + ' Arten ohne Höhenangabe fielen auf 3000 m heraus' };
+
+      // Dasselbe für die Farbe — hier ist Ausschluss ERWÜNSCHT, weil der
+      // Nutzer eine Farbe aktiv wählt; geprüft wird, dass er greift.
+      const gelb = gsEingrenzen({ monat: null, hoehe: null, farbe: 'Gelb', gruppe: '' });
+      if (!gelb.treffer.length) return { ok: false, warum: 'Farbe Gelb liefert nichts' };
+      if (gelb.treffer.some(s => _gsFarbWorte(s).indexOf('Gelb') < 0)) return { ok: false, warum: 'eine Art ohne Gelb ist in der Gelb-Liste' };
+      const gruppe = gsEingrenzen({ monat: null, hoehe: null, farbe: '', gruppe: 'pilz' });
+      if (gruppe.treffer.some(s => s.cat !== 'pilz')) return { ok: false, warum: 'die Gruppen-Auswahl greift nicht' };
+
+      return { ok: true, info: DB.length + ' → Januar ' + jan.treffer.length + ' · Gelb ' + gelb.treffer.length +
+                               ' · Pilze ' + gruppe.treffer.length + ' · ' + ohneBand.length + ' ohne Höhenangabe bleiben drin' };
+    },
+  },
+  {
+    name: 'Eingrenzen · die Anzeige nennt, worauf UND worauf nicht',
+    lauf: () => {
+      // Ohne Standort darf die Höhe nicht benutzt werden — und die Karte muss
+      // das sagen, statt eine Zahl ohne Grundlage zu zeigen.
+      localStorage.removeItem('gs_user_location');
+      localStorage.setItem('gs_eingrenzen', JSON.stringify({ monat: 5, farbe: '', gruppe: '', hoehe: null }));
+      gsEingrenzenOeffnen();
+      const t = (document.getElementById('modal-content') || {}).textContent || '';
+      if (!/Das ist keine Bestimmung/.test(t)) return { ok: false, warum: 'der Hinweis fehlt — eine Liste, die wie ein Ergebnis aussieht' };
+      if (!/Eingegrenzt nach/.test(t)) return { ok: false, warum: 'sagt nicht, worauf eingegrenzt wurde' };
+      if (!/Nicht genutzt/.test(t)) return { ok: false, warum: 'sagt nicht, dass die Höhe fehlte — eine Zahl ohne ihre Grundlage' };
+      if (!/H\u00f6henlage/.test(t) && !/Höhenlage/.test(t)) return { ok: false, warum: 'benennt die fehlende Angabe nicht' };
+      if (/undefined|NaN|\[object Object\]/.test(t)) return { ok: false, warum: 'Platzhalter im Text' };
+      // Und mit Standort MUSS die Höhe auftauchen.
+      localStorage.setItem('gs_user_location', JSON.stringify({ lat: 46.8, lng: 8.2, elevation: 1850 }));
+      localStorage.setItem('gs_eingrenzen', JSON.stringify({ monat: 5, farbe: '', gruppe: '', hoehe: null }));
+      gsEingrenzenOeffnen();
+      const t2 = (document.getElementById('modal-content') || {}).textContent || '';
+      if (!/1850 m/.test(t2)) return { ok: false, warum: 'mit Standort wird die Höhe trotzdem nicht genutzt' };
+      return { ok: true, info: 'ohne Ort: „Nicht genutzt …" · mit Ort: „Höhenlage (1850 m)"' };
+    },
+  },
   {
     name: 'Aufwand · die Vorauswahl darf den Scan nicht ausbremsen',
     lauf: async () => {

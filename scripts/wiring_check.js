@@ -341,7 +341,13 @@ const IGNORIEREN = new Set([
   // braucht — geraten wird nichts.
   const oeffnerNamen = await page.evaluate((quelleTxt) => {
     const out = [];
-    const re = /(?:async\s+)?function\s+((?:gsOpen|open|show|gsShow)[A-Za-z0-9_]*)\s*\(\s*\)\s*\{/g;
+    // v32.20: `…Oeffnen` gehoert dazu. Dieses Repo benennt auf Deutsch
+    // (`gsKorrekturOeffnen` seit v32.05, `gsEingrenzenOeffnen` seit v32.20) —
+    // und beide fielen durch dieses Muster, weil es nur die englischen
+    // Praefixe kannte. Zwei Fenster, die niemand geprueft hat, ohne dass
+    // irgendetwas rot war. Ein Pruefstand, der nach NAMEN sucht, uebersieht
+    // genau das, was anders heisst.
+    const re = /(?:async\s+)?function\s+((?:gsOpen|open|show|gsShow)[A-Za-z0-9_]*|gs[A-Za-z0-9_]*Oeffnen)\s*\(\s*\)\s*\{/g;
     let m;
     while ((m = re.exec(quelleTxt))) {
       let d = 0, i = re.lastIndex - 1, ende = -1;

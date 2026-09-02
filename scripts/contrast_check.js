@@ -313,6 +313,20 @@ async function medianFarben(leser, pngBuffer, punkte) {
         gsSchritt('ki', 'laeuft', '6 s');
         return res;
       }],
+      // v32.20: „Ohne Netz eingrenzen". Sechs Sicherheitsstufen als farbige
+      // Plaketten in einer Liste — genau die Stelle, an der in v31.99 schon
+      // einmal 3,27:1 stand, und diesmal in einer anderen Umgebung.
+      ['eingrenzen', () => {
+        if (typeof gsEingrenzenOeffnen !== 'function') return 0;
+        // Ohne Filter bleibt die Liste lang genug, dass alle sechs Stufen
+        // vorkommen — mit Filter waere die Messung vom Zufall abhaengig.
+        try { localStorage.setItem('gs_eingrenzen', JSON.stringify({ monat: 6, farbe: '', gruppe: '', hoehe: null })); } catch (_) {}
+        gsEingrenzenOeffnen();
+        const el = document.getElementById('detail-modal');
+        if (!el) return 0;
+        el.style.display = 'flex';
+        return el;
+      }],
       // v32.10: die Gegenprobe. Rot auf rot getoent — genau die Kombination,
       // die im Scan-Ergebnis schon einmal 3,27:1 ergab. Gemessen werden BEIDE
       // Zustaende: das Angebot und ein fertiges (widersprechendes) Urteil.
