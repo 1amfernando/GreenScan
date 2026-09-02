@@ -4,13 +4,62 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.91` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.92` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (cd) — v31.92: der Scan verschwieg, dass eine Verwechslung tödlich sein kann
+
+Der dritte Fund derselben Familie an einem Tag: **abgefragt, geliefert, dann weggeworfen.**
+
+#### Der Befund
+
+Der System-Prompt des Scanners verlangt ausdrücklich:
+
+> „`alternatives` = IMMER 2 weitere Kandidaten mit name/latin/confidence/distinguishing_feature **SOWIE toxicity(0..5)+edible(true|false) je Alternative** — konservativ"
+
+Das Modell liefert sie. **Die Anzeige hat sie nie gelesen** — sie rendert Name, Latein, Unterscheidungsmerkmal und Prozentwert.
+
+Der Fall steht wörtlich im Prompt-Beispiel:
+
+```
+Bärlauch                    62 %
+  Maiglöckchen              28 %      ← tox 4
+  Herbstzeitlose            12 %      ← tox 5, tödlich
+```
+
+Drei Namen mit Prozentzahlen nebeneinander. Kein Hinweis darauf, dass eine davon tödlich ist.
+
+#### Was jetzt passiert
+
+Die Giftigkeit steht **am Namen**, nicht in einer Fussnote, und darüber ein Warnkasten, sobald irgendeine Alternative bei ≥ 3 liegt.
+
+**Zwei Quellen, die vorsichtigere gewinnt:** was das Modell zur Alternative sagt, und was die Arten-DB über denselben botanischen Namen weiss (ungeprüfte Einträge zählen dabei nicht). Widersprechen sie sich, gilt der höhere Wert.
+
+#### Vier Fälle nachgestellt
+
+| Fall | Ergebnis |
+|---|---|
+| Modell liefert `toxicity` (Bärlauch-Beispiel) | Warnkasten „☠️ Achtung bei den Alternativen … **tödlich giftig**", Marken am Namen |
+| Modell liefert **keine** `toxicity` | **DB springt ein** — Colchicum autumnale, tox 5, geprüft → Warnkasten erscheint trotzdem |
+| harmlose Alternativen | kein Warnkasten, „🍽️ essbar"-Marke |
+| gar keine Angabe | **nichts behauptet** — keine Marke, keine Warnung |
+
+Der zweite Fall ist der wichtigste: er schützt auch dann, wenn das Modell die Angabe weglässt.
+
+#### Kontrast nachgerechnet (Scan-Ergebnis ist kein gemessener Bildschirm)
+
+`#b71c1c` auf `#ffebee` = **5,75:1** · dunkel `#ef9a9a` auf komponiertem `#302d1d` = **6,43:1** · die grüne Marke 7,00:1 hell und 7,57:1 dunkel.
+
+#### Prüfstände
+
+`render_check` 2872 · 0 JS-Fehler · 0 verdächtig · `contrast_check` 0/0 · `touch_check` 0 · `wiring_check` 0/0/0 + 31 Ziele · `save_check` 7/7 · `data_check` 0/0.
+
+---
 
 ### 2026-09-02 (cc) — v31.91: die Suchliste zeigte weiter „Essbar", was die Karte schon zurückgenommen hatte
 

@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.91.20260902">
+<meta name="app-version" content="31.92.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5450,6 +5450,9 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 .gs-jd-t{flex:1;min-width:0;font-size:var(--fs-sm);color:var(--text2);line-height:1.5;}
 .gs-jd-t b{color:var(--text);font-weight:800;}
 .gs-jd-p{color:var(--muted);font-size:var(--fs-md);align-self:center;flex-shrink:0;}
+/* v31.92 — Giftigkeit einer Verwechslungs-Alternative, am Namen. */
+.sr2-alt-gift{display:inline-block;margin-left:5px;padding:1px 7px;border-radius:999px;background:var(--bg-danger-soft);color:var(--c-danger-d);font-size:var(--fs-xs);font-weight:800;vertical-align:middle;}
+.sr2-alt-ok{display:inline-block;margin-left:5px;padding:1px 7px;border-radius:999px;background:var(--bg-success-soft);color:var(--c-success-d);font-size:var(--fs-xs);font-weight:800;vertical-align:middle;}
 .gs-kz{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;}
 .gs-kz-z{background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:9px 4px;text-align:center;}
 .gs-kz-w{font-size:var(--fs-lg);font-weight:900;color:var(--text);line-height:1.15;}
@@ -29108,9 +29111,57 @@ function showScanResult(r){
   if (r.alternatives && r.alternatives.length) {
     body += '<div style="margin:14px 0 8px;">' +
       '<div style="font-size:var(--fs-sm);font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px;padding:0 2px;">Top-Alternativen · tippen zum Wechseln</div>';
+    // ── v31.92: die Giftigkeit der Alternativen wurde weggeworfen ───────
+    //
+    // Der System-Prompt verlangt sie ausdruecklich:
+    //   „alternatives = IMMER 2 weitere Kandidaten mit name/latin/
+    //    confidence/distinguishing_feature SOWIE toxicity(0..5)+edible"
+    // Das Modell liefert sie. Diese Anzeige hat sie nie gelesen.
+    //
+    // Der Fall, um den es geht, steht woertlich im Prompt-Beispiel: Baerlauch
+    // mit 62 %, Alternativen Maigloeckchen (tox 4) und Herbstzeitlose
+    // (tox 5, toedlich). Auf dem Bildschirm standen bisher drei Namen mit
+    // Prozentzahlen — kein Hinweis darauf, dass eine davon toedlich ist.
+    //
+    // Zwei Quellen, und die vorsichtigere gewinnt: was das Modell sagt, und
+    // was die Arten-DB ueber denselben botanischen Namen weiss. Widersprechen
+    // sie sich, gilt der hoehere Wert. Fehlt beides, wird nichts behauptet.
+    function _altTox(a) {
+      var vomModell = null;
+      if (typeof a.toxicity === 'number' && isFinite(a.toxicity)) vomModell = Math.max(0, Math.min(5, Math.round(a.toxicity)));
+      else if (a.toxic === true) vomModell = 3;
+      var ausDB = null;
+      try {
+        if (a.latin && typeof DB !== 'undefined' && Array.isArray(DB)) {
+          var lat = String(a.latin).toLowerCase().trim();
+          for (var i = 0; i < DB.length; i++) {
+            if (String(DB[i].lat || '').toLowerCase().trim() !== lat) continue;
+            if (DB[i]._unverified) continue;              // ungepruefte Eintraege zaehlen hier nicht
+            var tx = DB[i].tox;
+            if (typeof tx === 'number') ausDB = Math.max(ausDB == null ? -1 : ausDB, tx);
+            if (DB[i].toxic === true) ausDB = Math.max(ausDB == null ? -1 : ausDB, 3);
+          }
+        }
+      } catch (_) {}
+      if (vomModell == null && ausDB == null) return null;
+      return Math.max(vomModell == null ? -1 : vomModell, ausDB == null ? -1 : ausDB);
+    }
+
+    var _gefahr = 0;
+    r.alternatives.slice(0,3).forEach(function(a) { var t = _altTox(a); if (t != null && t > _gefahr) _gefahr = t; });
+    if (_gefahr >= 3) {
+      body += '<div class="sr2-card" style="background:var(--bg-danger-soft);border-left:3px solid var(--c-danger);margin-bottom:8px;">' +
+        '<div class="sr2-card-lbl" style="color:var(--c-danger-d);">\u2620\ufe0f Achtung bei den Alternativen</div>' +
+        '<div class="sr2-card-body">Eine der Verwechslungsm\u00f6glichkeiten unten ist ' +
+        (_gefahr >= 5 ? 'nach den vorliegenden Angaben <b>t\u00f6dlich giftig</b>' :
+         _gefahr >= 4 ? '<b>stark giftig</b>' : '<b>giftig</b>') +
+        '. Vergleiche die Unterscheidungsmerkmale, bevor du etwas erntest \u2014 und im Zweifel: nicht essen.</div></div>';
+    }
+
     r.alternatives.slice(0,3).forEach(function(a, idx) {
       var ac = a.confidence || 0;
       var acc = ac >= 70 ? '#27ae60' : ac >= 50 ? '#f9a825' : '#ef5350';
+      var atox = _altTox(a);
       var alt = { name:a.name||'', latin:a.latin||'', confidence:ac, distinguishing_feature:a.distinguishing_feature||a.reason||'' };
       window._gsAltCandidates = window._gsAltCandidates || {};
       var altKey = 'alt_' + Date.now() + '_' + idx;
@@ -29118,7 +29169,12 @@ function showScanResult(r){
       body += '<div class="sr2-alt-card" onclick="gsPickAlternative(\'' + altKey + '\')">' +
         '<div class="sr2-alt-emoji">' + catEmoji + '</div>' +
         '<div class="sr2-alt-info">' +
-          '<div class="sr2-alt-name">' + esc(alt.name) + '</div>' +
+          '<div class="sr2-alt-name">' + esc(alt.name) +
+            // Die Giftigkeit steht AM NAMEN, nicht in einer Fussnote.
+            (atox != null && atox >= 3
+              ? ' <span class="sr2-alt-gift">' + (atox >= 5 ? '\u2620\ufe0f t\u00f6dlich' : atox >= 4 ? '\u2620\ufe0f stark giftig' : '\u26a0\ufe0f giftig') + '</span>'
+              : (atox === 0 && a.edible === true ? ' <span class="sr2-alt-ok">\ud83c\udf7d\ufe0f essbar</span>' : '')) +
+          '</div>' +
           (alt.latin ? '<div class="sr2-alt-lat">' + esc(alt.latin) + '</div>' : '') +
           (alt.distinguishing_feature ? '<div class="sr2-alt-reason">→ ' + esc(alt.distinguishing_feature) + '</div>' : '') +
         '</div>' +
@@ -68298,6 +68354,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.92', date: '02.09.2026',
+    headline: '\u2620\ufe0f Der Scan verschwieg, dass eine Verwechslung t\u00f6dlich sein kann',
+    summary: 'Der Scanner fragt bei jeder Bestimmung die Giftigkeit der Alternativen mit ab. Die Anzeige hat sie nie gelesen \u2014 auf dem Bildschirm standen drei Namen mit Prozentzahlen. Jetzt steht die Gefahr am Namen und dar\u00fcber eine Warnung.',
+    user_summary: '\u2620\ufe0f Wenn eine der Verwechslungsm\u00f6glichkeiten giftig ist, steht das jetzt gross da \u2014 vorher nur der Name und ein Prozentwert.',
+    user_items: [
+      {emoji:'\u2620\ufe0f', bold:'Der Fall, um den es geht:', text:' B\u00e4rlauch mit 62 % Sicherheit, Alternativen Maigl\u00f6ckchen und Herbstzeitlose. Beide sind giftig, eine davon t\u00f6dlich \u2014 und auf dem Bildschirm standen drei Namen mit Prozentzahlen nebeneinander. Der Scanner FRAGT die Giftigkeit jeder Alternative ausdr\u00fccklich ab; die Anzeige hat sie weggeworfen.'},
+      {emoji:'\ud83d\udd0e', bold:'Jetzt zwei Quellen, die vorsichtigere gewinnt:', text:' was die KI zur Alternative sagt UND was die Artendatenbank \u00fcber denselben botanischen Namen wei\u00df. Widersprechen sie sich, gilt der h\u00f6here Wert. Auch wenn die KI die Angabe weglässt, greift die Datenbank \u2014 nachgestellt mit der Herbstzeitlose.'},
+      {emoji:'\u2696\ufe0f', bold:'Und wenn nichts bekannt ist:', text:' wird nichts behauptet. Keine Marke, keine Warnung \u2014 dieselbe Regel wie \u00fcberall: lieber keine Aussage als eine erfundene.'},
+    ],
+  },
+  {
     v: 'v31.91', date: '02.09.2026',
     headline: '\ud83d\udd0d Die Suchliste zeigte weiter „Essbar", was die Detailkarte schon zur\u00fcckgenommen hatte',
     summary: 'Die gr\u00fcne Plakette war auf der Artenkarte weg \u2014 in der Trefferliste stand sie noch. Und die Trefferliste sieht man ZUERST. Dazu: bei gleicher Relevanz kommen gepr\u00fcfte Eintr\u00e4ge nach oben.',
@@ -68809,7 +68876,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.91';
+var GS_VERSION = 'v31.92';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
