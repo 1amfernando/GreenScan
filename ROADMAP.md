@@ -5,7 +5,7 @@
 > Kompagnon: `STATUS.md` (operativer Snapshot) · `CLAUDE.md` (Onboarding) ·
 > `BACKEND_FRONTEND_MAP_v26.76.md` (Architektur-Detailkarte).
 
-**Stand:** v32.12 · App **live** auf green-scan.ch · released seit v26.0.
+**Stand:** v32.13 · App **live** auf green-scan.ch · released seit v26.0.
 **Zuletzt gegen die Produktionsdatenbank geprüft:** 02.09.2026 (P0-1, P1-1, P1-2 — siehe unten).
 
 ---
@@ -144,7 +144,7 @@ App **erhebt und dann verschweigt**. Neun Funde, zwei davon ernst:
   fehlenden Feld (v32.03), die Giftigkeit der Verwechslungs-Alternativen
   (v31.92), die Merkmale aus dem Scan (v31.99).
 
-**Zehn Prüfstände (`scripts/`).** Aus dem Funktionscheck ist Infrastruktur
+**Elf Prüfstände (`scripts/`).** Aus dem Funktionscheck ist Infrastruktur
 geworden. Jeder beantwortet **eine** Frage:
 
 | Prüfstand | Frage |
@@ -158,6 +158,7 @@ geworden. Jeder beantwortet **eine** Frage:
 | `data_check` | gibt es, was gelesen wird? |
 | `save_check` | kommt an, was gespeichert wird — auch auf dem Server? |
 | `planer_check` · `scan_check` | rechnet die App, was sie behauptet? |
+| `offline_check` | läuft die App ohne Empfang — mit allen 4'342 Arten? |
 
 Detaillierte Sprint-Historie: `STATUS.md` Sektion 0 (Routine-Einträge).
 

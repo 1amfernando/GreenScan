@@ -344,7 +344,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v32.12';
+const VERSION = 'gs-v32.13';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
@@ -393,6 +393,50 @@ const SHELL_URLS = [
   // genutzt — nicht kritisch fuer Karte/3D-Render).
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs'
 ];
+
+// v32.13: Dieselbe Liste noch einmal als PFADE — daran erkennt der
+// fetch-Handler, dass eine Anfrage eine vorgeladene Datei meint.
+//
+// Warum das noetig wurde: bis v32.12 fiel `/data/plants.v1.js?v=1` unter die
+// Default-Regel (networkFirst + RUNTIME_CACHE). Vorgeladen wurde sie in den
+// SHELL_CACHE — und dort hat sie NIEMAND je gesucht. Gemessen mit
+// `scripts/offline_check.js`: nach dem ersten Besuch ohne Netz standen
+// **0 von 4'342 Arten** zur Verfuegung. Die App startete, die Artenliste war
+// leer, und keine Fehlermeldung sagte warum.
+//
+// Der Grund, dass es niemandem auffiel: beim ERSTEN Besuch installiert sich
+// der Service Worker waehrend die Seite laedt — ihre eigenen Unterdateien
+// holt der Browser also noch OHNE ihn. Der Runtime-Cache bleibt dabei leer.
+// Wer die App installiert und dann in den Wald faehrt, hatte genau den Fall.
+//
+// `/` und `/index.html` stehen bewusst NICHT hier: Navigationen sollen
+// weiterhin zuerst das Netz fragen (Regel 2), sonst sieht niemand je ein
+// Update. Dasselbe fuer `manifest.json` (Regel 3).
+const SHELL_SOFORT = new Set(
+  SHELL_URLS
+    .filter((u) => u.startsWith('/') && u !== '/' && u !== '/index.html' && u !== '/manifest.json')
+);
+
+// Liegt die Anfrage als vorgeladene Datei im Shell-Cache? Vergleicht Pfad UND
+// Abfrage — `plants.v1.js?v=1` ist eine andere Datei als `plants.v1.js`.
+function istShellDatei(req) {
+  try {
+    const u = new URL(req.url);
+    if (u.origin !== self.location.origin) return false;
+    return SHELL_SOFORT.has(u.pathname + u.search) || SHELL_SOFORT.has(u.pathname);
+  } catch (e) { return false; }
+}
+
+// Der letzte Ausweg fuer JEDE Strategie: was vorgeladen wurde, muss auch
+// gefunden werden — egal, in welchem Cache die Strategie zuerst gesucht hat.
+// Browser verdraengen Caches EINZELN; der Shell-Cache ist der, der ueberleben
+// soll. Ohne diesen Nachschlag ist das Vorladen reine Zierde.
+async function ausShell(req) {
+  try {
+    const shell = await caches.open(SHELL_CACHE);
+    return (await shell.match(req)) || (await shell.match(req, { ignoreSearch: true })) || null;
+  } catch (e) { return null; }
+}
 
 // Domains, die NIE gecached werden (immer Network)
 const NEVER_CACHE_HOSTS = [
@@ -490,6 +534,12 @@ async function networkFirst(req, cacheName) {
   } catch (err) {
     const cached = await cache.match(req);
     if (cached) return cached;
+    // v32.13: bevor irgendetwas scheitert — steht die Datei im Shell-Cache?
+    // Sie wurde beim Install vorgeladen; ohne diesen Nachschlag war das
+    // Vorladen fuer alles ausser Navigationen wirkungslos (siehe die
+    // Anmerkung bei SHELL_SOFORT).
+    const vorgeladen = await ausShell(req);
+    if (vorgeladen) return vorgeladen;
     // Final fallback für HTML-Navigation: index.html → offline.html
     if (isHTMLNav(req)) {
       const shell = await caches.open(SHELL_CACHE);
@@ -515,6 +565,8 @@ async function cacheFirst(req, cacheName) {
     return fresh;
   } catch (err) {
     if (cached) return cached;
+    const vorgeladen = await ausShell(req);
+    if (vorgeladen) return vorgeladen;
     throw err;
   }
 }
@@ -527,7 +579,11 @@ async function staleWhileRevalidate(req, cacheName) {
       cache.put(req, res.clone()).catch(() => {});
     }
     return res;
-  }).catch(() => cached);
+  // v32.13: `cached` ist hier oft `undefined` — beim ERSTEN Besuch war der
+  // Service Worker beim Laden der Bilder noch nicht zustaendig. Dann gab
+  // diese Kette `undefined` an `respondWith` weiter, und das ist ein
+  // Netzwerkfehler: die Symbole fehlten offline, obwohl sie vorgeladen sind.
+  }).catch(() => cached || ausShell(req));
   return cached || fetchPromise;
 }
 
@@ -555,6 +611,20 @@ self.addEventListener('fetch', (event) => {
   // 3. Manifest + statische Skripte → Network-First (Updates wichtig)
   if (/\/(manifest\.json|sw\.js)$/.test(url)) {
     event.respondWith(networkFirst(req, STATIC_CACHE));
+    return;
+  }
+
+  // v32.13 · 3b. Vorgeladene Dateien → Cache-First aus dem SHELL_CACHE.
+  //
+  // Das sind die grossen, unveraenderlichen Brocken: die Artenliste (2,1 MB),
+  // Leaflet, Three.js, die Symbole. Drei Dinge auf einmal:
+  //   · offline da, auch beim allerersten Start ohne Netz,
+  //   · sofort da (kein Netz-Versuch, der erst ablaufen muss),
+  //   · genau EINMAL auf dem Geraet statt in zwei Caches.
+  // Aktuell gehalten werden sie ueber den Cache-NAMEN: er traegt die Version,
+  // und `activate` loescht jeden Cache, der nicht zur laufenden gehoert.
+  if (istShellDatei(req)) {
+    event.respondWith(cacheFirst(req, SHELL_CACHE));
     return;
   }
 

@@ -12,6 +12,74 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-02 (cz) — v32.13: ohne Empfang standen 0 von 4'342 Arten zur Verfügung
+
+Der teuerste Fund dieser Woche, und er lag nicht im Code, den ich gerade
+geschrieben habe, sondern in einem Versprechen, das seit Jahren niemand
+nachgemessen hat.
+
+GreenScan ist eine PWA. Ihr ganzer Sinn ist Wald und Wiese — genau dort, wo
+es keinen Empfang gibt. Der Service Worker lädt beim Installieren 23 Dateien
+aufs Gerät, darunter die **2,1 MB Artenliste**, mit dem ausdrücklichen
+Kommentar im Code: „damit App offline mit voller Pflanzen-DB funktioniert
+(sonst nur leere DB)".
+
+**Sie funktionierte nicht.** Gemessen: `0 von 4'342 Arten`.
+
+#### Warum
+
+`/data/plants.v1.js?v=1` fiel unter die Default-Regel des `fetch`-Handlers —
+`networkFirst(req, RUNTIME_CACHE)`. Vorgeladen wurde sie in den
+**SHELL_CACHE**, und dort hat sie niemand je gesucht. Der Runtime-Cache war
+leer, weil der Service Worker beim **ersten** Besuch erst während des Ladens
+installiert wird: die Unterdateien der Seite holt der Browser da noch ohne
+ihn.
+
+Wer die App also installierte und dann in den Wald fuhr, hatte eine App, die
+startete, die Version anzeigte, die Oberfläche aufbaute — und keine einzige
+Art kannte. Kein Absturz, keine Meldung. Und melden kann es dort niemand.
+
+Dasselbe galt für Leaflet, Three.js und die Symbole.
+
+#### Die Reparatur
+
+- **`ausShell(req)`** — der letzte Ausweg für **jede** Strategie
+  (`networkFirst`, `cacheFirst`, `staleWhileRevalidate`). Was vorgeladen
+  wurde, wird auch gefunden, egal wo die Strategie zuerst gesucht hat.
+- **Regel 3b: vorgeladene Dateien → `cacheFirst(SHELL_CACHE)`.** Die grossen
+  unveränderlichen Brocken kommen sofort aus dem Vorrat statt über einen
+  Netz-Versuch, der erst ablaufen muss. Aktuell gehalten werden sie über den
+  Cache-**Namen**: er trägt die Version, und `activate` löscht jeden Cache,
+  der nicht zur laufenden gehört.
+- Nebenbei **2,9 MB** gespart: Artenliste, Leaflet und Three.js lagen doppelt
+  auf dem Gerät (Shell **und** Runtime).
+
+#### `offline_check.js` — der elfte Prüfstand
+
+Fünf Fragen: installiert sich der Service Worker · enthält der Shell-Cache,
+was `SHELL_URLS` verspricht · liegt etwas doppelt · startet die App ohne Netz
+· überlebt eine vorgeladene Datei die Verdrängung des Runtime-Caches.
+
+Er braucht als einziger einen **eigenen HTTP-Server** (30 Zeilen, kein
+Paket): ein Service Worker läuft nur in einem sicheren Kontext, `file://` ist
+keiner. Und er geht **wirklich** offline — `setOffline(true)` plus Server zu.
+
+**Reihenfolge eingehalten:** erst der Prüfstand, dann der Fund (2 von 5 rot),
+dann die Reparatur, dann grün.
+
+#### Und ein Fehler im Prüfstand selbst, gleich im ersten Lauf
+
+Die Doppelspeicher-Frage war grün — **auch mit ausgebauter Weiche**. Sie lief
+vor dem zweiten Besuch mit Netz, und ohne den kann gar keine zweite Kopie
+entstehen. Sie prüfte also nur, dass nichts passiert.
+
+Nach dem Umbau (zweiter Besuch **mit** Netz, dann zählen) meldete sie sofort:
+`4× doppelt: leaflet.js · leaflet.css · three.min.js · plants.v1.js?v=1, je
+in gs-v32.13-shell + gs-v32.13-runtime`.
+
+> Dieselbe Lehre wie in v32.07: **ein Fall, der den Zustand nicht herstellt,
+> beweist nichts.**
+
 ### 2026-09-02 (cy) — v32.12: der Scanner sieht selbst hin, bevor die KI antwortet
 
 v32.11 war die optische Hälfte von Fernandos „BOOOOOOM". Das hier ist die
