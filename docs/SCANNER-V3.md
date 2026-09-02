@@ -104,12 +104,25 @@ Regel S3 meldete anschliessend einen Widerspruch, den es gar nicht gab.
 
 - Mehrere Fotos automatisch anbieten, wenn die Prüfung dünn ausfällt.
 
-### Stufe 3 — Gegenprobe, aber nur wo es zählt
+### Stufe 3 — Gegenprobe (v32.10, ausgeliefert)
 
 Wenn die Art als **essbar** gilt UND eine Alternative Giftstufe ≥ 3 hat: ein
-zweiter, unabhängiger Aufruf mit umgekehrtem Auftrag („widerlege diese
-Bestimmung"). Kostet ein zusätzliches Kontingent — deshalb **nur im
-gefährlichen Fall**, nie als Regel.
+zweiter, unabhängiger Aufruf mit **umgekehrtem Auftrag**. Der erste soll
+bestimmen, der zweite soll **widerlegen** — ein Modell, das seine eigene
+Antwort bestätigen soll, bestätigt sie fast immer.
+
+Der zweite Aufruf bekommt die erste Bestimmung als **Behauptung** vorgesetzt
+(Art, Sicherheit, genannte Alternativen, angeführte Merkmale) und antwortet in
+festem Format: `urteil` · `dagegen[]` · `dafuer[]` · `fehlend` ·
+`bessere_erklaerung` · `verzehr`.
+
+**Nur auf Knopfdruck** — sie kostet ein weiteres Kontingent des Nutzers, und
+der Knopf nennt den Preis. Drei Ausgänge, und beim vierten (Aufruf
+gescheitert) bleibt die Unsicherheit ausdrücklich stehen.
+
+> **Die Formulierung, auf die es ankommt:** Einigkeit wird *nie* als Beweis
+> verkauft. „Zwei unabhängige Blicke, dasselbe Ergebnis — ein Beweis ist es
+> nicht." Ein eigener Prüffall hält genau diesen Satz fest.
 
 ## 4 · Was bewusst NICHT gebaut wird
 

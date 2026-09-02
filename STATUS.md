@@ -4,13 +4,63 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.09` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.10` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (cw) — v32.10: Scanner V3 Stufe 3 — die Gegenprobe
+
+Der gefährlichste Fall, den dieser Scanner kennt: die Bestimmung sagt
+**essbar**, und eine der Verwechslungsmöglichkeiten ist **giftig**. Bärlauch
+gegen Herbstzeitlose ist genau das.
+
+**Die Idee ist die Umkehrung des Auftrags.** Der erste Aufruf soll bestimmen;
+der zweite soll **widerlegen**. Ein Modell, das man bittet, seine eigene
+Antwort zu bestätigen, bestätigt sie fast immer — deshalb bekommt der zweite
+Aufruf die erste Bestimmung als **Behauptung** vorgesetzt, samt der genannten
+Alternativen und Merkmale, und den ausdrücklichen Auftrag, dagegen zu
+argumentieren.
+
+**Sie läuft nicht von selbst.** Sie kostet einen weiteren Aufruf aus dem
+Tageskontingent *des Nutzers*, und darüber entscheidet der Mensch. Der Knopf
+sagt beides: warum es sich lohnt und was es kostet.
+
+Drei Ausgänge, alle mit klarer Ansage:
+- **bestätigt** → „Zwei unabhängige Blicke, dasselbe Ergebnis" — und
+  ausdrücklich: **ein Beweis ist es nicht.**
+- **widerlegt** → „☠️ Der zweite Blick WIDERSPRICHT. **Iss das nicht.**"
+- **unsicher** → bei giftiger Verwechslung heisst das: nicht verzehren.
+- **Aufruf gescheitert** → gesagt, nicht überspielt; die Unsicherheit bleibt
+  stehen, mit einem Weg zum zweiten Versuch.
+
+#### Nebenbei: `_altTox` war eine Kopie zu viel
+
+Sie lag als lokale Funktion in `showScanResult` und wurde nach der Stelle
+berechnet, an der die Gegenprobe-Karte sie braucht — die Reihenfolge-Falle aus
+v31.90. Jetzt `_gsAltTox`/`_gsAltGefahr` oben, **eine** Funktion für beide.
+
+#### Drei unlesbare Gift-Plaketten
+
+Der neue Kontrast-Fall (fünftes Fenster) brachte sie ans Licht: „Ungiftig"
+**2,55:1**, „Leicht giftig" **1,85:1**, „Mässig giftig" **2,81:1**. In v31.99
+hatte ich nur die tödliche Stufe repariert; die anderen kamen nie in ein
+gemessenes Fenster. **Diesmal alle sechs ausgerechnet statt abgewartet** —
+WCAG-Leuchtdichte, direkt im Terminal, statt auf einen Prüfstand zu warten,
+der immer nur eine Stufe rendert.
+
+#### Prüfstände
+
+`scan_check` **33/33** — fünf Fälle mehr: wann die Gegenprobe erscheint (vier
+Kombinationen), dass der Auftrag „widerlegen" lautet und die Bestimmung als
+Behauptung vorliegt, dass Widerspruch „iss das nicht" sagt, dass Einigkeit
+**nicht als Beweis** verkauft wird, und dass ein gescheiterter Aufruf die
+Unsicherheit stehen lässt. `contrast_check` misst jetzt **fünf** Fenster, 0/0.
+
+---
 
 ### 2026-09-02 (cv) — v32.09: der Zurück-Knopf führt ins Hauptmenü
 

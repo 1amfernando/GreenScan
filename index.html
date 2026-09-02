@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.09.20260902">
+<meta name="app-version" content="32.10.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5508,6 +5508,28 @@ li.fertig .gs-s-txt{color:var(--text);}
   font-size:var(--fs-xs);font-weight:800;color:var(--c-success-d);}
 li.laeuft .gs-s-erg{color:var(--muted);}
 @media (prefers-reduced-motion: reduce){ li.laeuft .gs-s-mark{animation:none;} }
+
+/* v32.10 — Die Gegenprobe. Rot, weil sie nur im gefaehrlichen Fall
+   erscheint; der Preis steht unter dem Knopf, nicht im Kleingedruckten. */
+.gs-gp{background:linear-gradient(135deg,rgba(198,40,40,.10),rgba(198,40,40,.02));
+  border-left:4px solid var(--c-danger);margin-bottom:12px;}
+.gs-gp-knopf{width:100%;margin-top:10px;padding:13px;background:var(--c-danger-d);color:#fff;border:none;
+  border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;
+  -webkit-tap-highlight-color:transparent;}
+.gs-gp-preis{margin-top:7px;font-size:var(--fs-xs);color:var(--text2);text-align:center;line-height:1.45;}
+.gs-gp-laeuft{height:4px;margin-top:10px;border-radius:2px;background:var(--surface2);overflow:hidden;position:relative;}
+.gs-gp-laeuft::after{content:'';position:absolute;inset:0;width:40%;border-radius:2px;
+  background:linear-gradient(90deg,transparent,var(--c-danger),transparent);animation:gsGpLauf 1.1s linear infinite;}
+@keyframes gsGpLauf{0%{transform:translateX(-100%)}100%{transform:translateX(280%)}}
+.gs-gp-block{margin-top:9px;padding-top:8px;border-top:1px solid var(--border);font-size:var(--fs-sm);
+  color:var(--text2);line-height:1.5;}
+.gs-gp-block b{color:var(--text);}
+.gs-gp-block ul{margin:4px 0 0;padding-left:18px;}
+.gs-gp-block li{margin:2px 0;}
+.gs-gp-verzehr{margin-top:10px;padding:9px 11px;border:2px solid;border-radius:var(--r-md);
+  font-size:var(--fs-sm);font-weight:800;line-height:1.45;}
+.gs-gp-fuss{margin-top:8px;font-size:var(--fs-xs);color:var(--muted);line-height:1.45;}
+@media (prefers-reduced-motion: reduce){ .gs-gp-laeuft::after{animation:none;width:100%;} }
 
 /* v32.08 — Die Zurueck-Leiste ueber dem Ergebnis. Bleibt beim Scrollen
    stehen, damit der Weg heraus nicht am Ende einer langen Karte liegt. */
@@ -23315,12 +23337,27 @@ let myVotes = safeGetItem('ps_votes', {});
 })();
 
 // ═══ TOXIZITÄT ════════════════════════════════════════
+// ── v32.10: alle sechs Stufen nachgerechnet ──────────────────────────────
+// In v31.99 hatte ich nur die toedliche Stufe repariert (3,27:1). Die
+// anderen fuenf habe ich nie gemessen — der Kontrast-Pruefstand kam nie an
+// sie heran, weil im Fenster immer nur EINE Stufe gerendert wird. Diesmal
+// ausgerechnet statt abgewartet (WCAG-Leuchtdichte, alle sechs Paare):
+//
+//   Ungiftig       #27ae60 auf #e8f5e9 = 2,55:1   ← unlesbar
+//   Leicht giftig  #f9a825 auf #fff8e1 = 1,85:1   ← unlesbar
+//   Maessig giftig #ef6c00 auf #fff3e0 = 2,81:1   ← unlesbar
+//   Giftig         #c62828 auf #ffebee = 4,92:1   ok
+//   Stark giftig   #b71c1c auf #ffcdd2 = 4,67:1   ok
+//
+// Die Farben waren fuer FLAECHEN gedacht und standen als TEXT darauf —
+// derselbe Fehler wie beim Sicherheitswort in v31.99. Neue Werte, alle
+// ueber 4,5:1, die Flaechen unveraendert.
 const TOX = [
-  {sym:'✅',label:'Ungiftig',        color:'#27ae60',bg:'#e8f5e9'},
-  {sym:'🟡',label:'Leicht giftig',   color:'#f9a825',bg:'#fff8e1'},
-  {sym:'🟠',label:'Mässig giftig',   color:'#ef6c00',bg:'#fff3e0'},
-  {sym:'⚠️', label:'Giftig',         color:'#c62828',bg:'#ffebee'},
-  {sym:'🔴',label:'Stark giftig',    color:'#b71c1c',bg:'#ffcdd2'},
+  {sym:'✅',label:'Ungiftig',        color:'#1b7a43',bg:'#e8f5e9'},   /* 4,77:1 */
+  {sym:'🟡',label:'Leicht giftig',   color:'#7a5200',bg:'#fff8e1'},   /* 6,51:1 */
+  {sym:'🟠',label:'Mässig giftig',   color:'#9a4500',bg:'#fff3e0'},   /* 5,94:1 */
+  {sym:'⚠️', label:'Giftig',         color:'#a81b1b',bg:'#ffebee'},   /* 6,47:1 */
+  {sym:'🔴',label:'Stark giftig',    color:'#8c1414',bg:'#ffcdd2'},   /* 6,70:1 */
   // v31.99: war `#4a0000` auf `#d32f2f` — 3,27:1, gemessen. Ausgerechnet
   // die wichtigste Angabe der ganzen Karte war die am schlechtesten lesbare.
   // Weiss auf dunkelrot statt dunkelrot auf rot.
@@ -29510,6 +29547,188 @@ function _gsScanPruefwerk(res, qual) {
 window._gsScanArtFinden = _gsScanArtFinden;
 window._gsScanPruefwerk = _gsScanPruefwerk;
 
+
+// ══ v32.10 · DIE GEGENPROBE (Scanner V3, Stufe 3) ════════════════════════
+// docs/SCANNER-V3.md §3.
+//
+// Der gefährlichste Fall, den dieser Scanner kennt: die Bestimmung sagt
+// **essbar**, und eine der Verwechslungsmöglichkeiten ist **giftig**. Bärlauch
+// gegen Herbstzeitlose ist genau das, und es ist tödlich.
+//
+// In diesem einen Fall ist ein zweiter Blick jeden Aufwand wert. Er läuft
+// aber NICHT von selbst, und zwar aus einem Grund, den man aussprechen muss:
+// **er kostet einen weiteren Aufruf aus dem Tageskontingent des Nutzers.**
+// Ihn ungefragt zu verbrauchen wäre eine Entscheidung über fremdes Geld.
+//
+// Also ein Knopf — aber einer, den man nicht übersieht: rot, ganz oben, mit
+// dem Grund und mit dem Preis.
+//
+// Die eigentliche Idee ist die UMKEHRUNG des Auftrags. Der erste Aufruf sollte
+// bestimmen; dieser soll **widerlegen**. Ein Modell, das man bittet, seine
+// eigene Antwort zu bestätigen, bestätigt sie fast immer — deshalb bekommt
+// dieser Aufruf die erste Antwort als BEHAUPTUNG vorgesetzt und den
+// ausdrücklichen Auftrag, dagegen zu argumentieren.
+var GS_GEGENPROBE_PROMPT =
+  'Du bist ein kritischer Zweitgutachter für Arten-Bestimmungen. Deine Aufgabe ist NICHT, die vorliegende ' +
+  'Bestimmung zu bestätigen, sondern sie ernsthaft zu PRÜFEN und wo möglich zu WIDERLEGEN.\n\n' +
+  'Warum das zählt: Jemand will diese Art möglicherweise essen, und mindestens eine Verwechslungsmöglichkeit ' +
+  'ist giftig. Ein zu freundliches Urteil kann hier jemanden umbringen.\n\n' +
+  'REGELN:\n' +
+  '- Geh von der Bestimmung NICHT aus. Sieh dir das Foto unvoreingenommen an.\n' +
+  '- Nenne die stärksten Gründe, die GEGEN die Bestimmung sprechen — auch schwache.\n' +
+  '- Fehlt ein entscheidendes Merkmal auf dem Foto, sag das. „Nicht erkennbar" ist eine gültige Antwort.\n' +
+  '- Im Zweifel IMMER die vorsichtigere Aussage.\n' +
+  '- Antworte AUSSCHLIESSLICH als EIN JSON-Objekt, ohne Markdown-Fences.\n\n' +
+  'JSON-Format:\n' +
+  '{"urteil":"bestaetigt|zweifel|widerlegt",' +
+  '"vertrauen":<0-100>,' +
+  '"dagegen":["konkreter Grund gegen die Bestimmung", "..."],' +
+  '"dafuer":["konkreter Grund dafür", "..."],' +
+  '"fehlend":"welches Merkmal auf dem Foto fehlt, um sicher zu sein (leer wenn nichts fehlt)",' +
+  '"bessere_erklaerung":{"name":"","latin":"","warum":""},' +
+  '"verzehr":"ja|nein|nur_nach_fachpruefung"}';
+
+// Soll die Gegenprobe angeboten werden? Nur im gefaehrlichen Fall.
+function gsGegenprobeNoetig(r) {
+  try {
+    if (!r) return false;
+    if (r._gegenprobe) return false;                 // schon gelaufen
+    if (r.edible !== true) return false;             // nur wenn „essbar" behauptet wird
+    return Number(r._altGefahr || 0) >= 3;           // und eine Alternative giftig ist
+  } catch (_) { return false; }
+}
+window.gsGegenprobeNoetig = gsGegenprobeNoetig;
+
+async function gsScanGegenprobe() {
+  var r = window._gsLetzterScan;
+  var b64 = window._gsLastScanB64, mt = window._gsLastScanMt || 'image/jpeg';
+  if (!r || !b64) { showProfileToast({title:'Nicht möglich', body:'Das Foto zu dieser Bestimmung liegt nicht mehr vor.', kind:'error'}); return; }
+  if (typeof callVisionAI !== 'function') { showProfileToast('Keine Verbindung.'); return; }
+
+  var host = document.getElementById('gs-gegenprobe');
+  if (host) host.innerHTML =
+    '<div class="sr2-card-lbl" style="color:var(--c-danger-d);">⚖️ Gegenprobe läuft</div>' +
+    '<div class="sr2-card-body">Ein zweiter, unabhängiger Blick auf dasselbe Foto — mit dem ausdrücklichen Auftrag, die Bestimmung zu widerlegen.</div>' +
+    '<div class="gs-gp-laeuft" aria-hidden="true"></div>';
+
+  var alts = (Array.isArray(r.alternatives) ? r.alternatives : []).slice(0, 3)
+    .map(function (a) { return (a.name || '?') + (a.latin ? ' (' + a.latin + ')' : ''); }).join(', ');
+  var frage =
+    'BEHAUPTUNG, die du prüfen sollst:\n' +
+    '  Art: ' + (r.name || '?') + (r.latin ? ' (' + r.latin + ')' : '') + '\n' +
+    '  Als essbar eingestuft, Sicherheit ' + (r.confidence || '?') + ' %.\n' +
+    (alts ? '  Genannte Verwechslungsmöglichkeiten: ' + alts + '\n' : '') +
+    (r.diagnostic_features && r.diagnostic_features.length
+      ? '  Angeführte Merkmale: ' + r.diagnostic_features.slice(0, 6).join(' · ') + '\n' : '') +
+    '\nPrüfe diese Behauptung am Foto. Antworte im vorgegebenen JSON-Format.';
+
+  var text = null, fehler = null;
+  try {
+    text = await callVisionAI(b64, mt, frage, [], { systemPrompt: GS_GEGENPROBE_PROMPT, quotaFeature: 'scan', maxTokens: 700 });
+  } catch (e) { fehler = (e && e.message) || 'Unbekannter Fehler'; }
+
+  var g = null;
+  if (text) { try { g = _gsRobustJsonParse(text); } catch (_) { g = null; } }
+  if (!g || !g.urteil) {
+    if (host) host.innerHTML =
+      '<div class="sr2-card-lbl" style="color:var(--c-danger-d);">⚖️ Gegenprobe nicht möglich</div>' +
+      '<div class="sr2-card-body">' + gsEscHtml(fehler || 'Die Antwort war unbrauchbar.') +
+      ' <b>Damit bleibt die Unsicherheit bestehen</b> — im Zweifel nicht verzehren.</div>' +
+      '<button onclick="gsScanGegenprobe()" class="sr2-cta sr2-cta-secondary" style="width:100%;margin-top:8px;">Nochmals versuchen</button>';
+    return;
+  }
+  r._gegenprobe = g;
+  try { if (typeof gsGegenprobeRender === 'function') gsGegenprobeRender(g, r); } catch (_) {}
+}
+window.gsScanGegenprobe = gsScanGegenprobe;
+
+// Die Anzeige. Sie sagt zuerst, ob die zwei Blicke sich EINIG sind — das ist
+// die Aussage, auf die es ankommt.
+function gsGegenprobeRender(g, r) {
+  var host = document.getElementById('gs-gegenprobe');
+  if (!host) return;
+  var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function (x) { return String(x || ''); };
+  var u = String(g.urteil || '').toLowerCase();
+  var kopf, farbe, satz;
+  if (u === 'bestaetigt') {
+    kopf = '✓ Zwei unabhängige Blicke, dasselbe Ergebnis';
+    farbe = 'var(--c-success-d)';
+    satz = 'Der Zweitgutachter kommt — mit dem ausdrücklichen Auftrag zu widerlegen — zum selben Schluss. Das ist der stärkste Beleg, den diese App liefern kann. <b>Ein Beweis ist es nicht.</b>';
+  } else if (u === 'widerlegt') {
+    kopf = '☠️ Der zweite Blick WIDERSPRICHT';
+    farbe = 'var(--c-danger-d)';
+    satz = '<b>Iss das nicht.</b> Zwei Bestimmungen desselben Fotos kommen zu verschiedenen Ergebnissen, und eine Verwechslung wäre hier giftig. Zeig den Fund einer Fachperson — bei Pilzen der Pilzkontrolle (VAPKO).';
+  } else {
+    kopf = '⚠️ Der zweite Blick ist unsicher';
+    farbe = 'var(--c-warn-d)';
+    satz = 'Der Zweitgutachter kann die Bestimmung weder stützen noch ausschliessen. <b>Bei einer giftigen Verwechslungsmöglichkeit heisst das: nicht verzehren</b>, solange die Unsicherheit besteht.';
+  }
+  function liste(arr, titel, ico) {
+    if (!Array.isArray(arr) || !arr.length) return '';
+    return '<div class="gs-gp-block"><b>' + ico + ' ' + titel + '</b><ul>' +
+      arr.slice(0, 4).map(function (x) { return '<li>' + esc(String(x)) + '</li>'; }).join('') + '</ul></div>';
+  }
+  var verzehr = String(g.verzehr || '').toLowerCase();
+  host.innerHTML =
+    '<div class="sr2-card-lbl" style="color:' + farbe + ';">' + kopf + '</div>' +
+    '<div class="sr2-card-body">' + satz + '</div>' +
+    liste(g.dagegen, 'Was dagegen spricht', '✖') +
+    liste(g.dafuer, 'Was dafür spricht', '✔') +
+    (g.fehlend ? '<div class="gs-gp-block"><b>📷 Was auf dem Foto fehlt</b><div>' + esc(String(g.fehlend)) + '</div></div>' : '') +
+    (g.bessere_erklaerung && g.bessere_erklaerung.name
+      ? '<div class="gs-gp-block"><b>🔁 Der Zweitgutachter hält für wahrscheinlicher</b><div>' +
+        esc(g.bessere_erklaerung.name) + (g.bessere_erklaerung.latin ? ' <i>(' + esc(g.bessere_erklaerung.latin) + ')</i>' : '') +
+        (g.bessere_erklaerung.warum ? ' — ' + esc(g.bessere_erklaerung.warum) : '') + '</div></div>'
+      : '') +
+    '<div class="gs-gp-verzehr" style="border-color:' + farbe + ';color:' + farbe + ';">' +
+      (verzehr === 'ja' ? '🍽️ Beide Blicke halten den Verzehr für vertretbar — die Verantwortung bleibt bei dir.'
+       : verzehr === 'nein' ? '⛔ Nicht verzehren.'
+       : '🏥 Nur nach Prüfung durch eine Fachperson verzehren.') +
+    '</div>' +
+    '<div class="gs-gp-fuss">⚖️ Zweite, unabhängige Bestimmung desselben Fotos — mit dem Auftrag zu widerlegen, nicht zu bestätigen.</div>';
+}
+window.gsGegenprobeRender = gsGegenprobeRender;
+
+// ── v32.10 · Giftigkeit einer Verwechslungs-Alternative ──────────────────
+// Modell-Angabe ∪ eigene Artenliste, hoehere gewinnt, `null` wenn keine der
+// beiden etwas weiss. Ungeprueft eingelesene Eintraege zaehlen NICHT als
+// Beleg (v31.90). Seit v32.10 steht sie hier oben statt in showScanResult,
+// weil die Gegenprobe sie frueher braucht als der Alternativen-Streifen.
+function _gsAltTox(a) {
+  if (!a) return null;
+  var vomModell = null;
+  if (typeof a.toxicity === 'number' && isFinite(a.toxicity)) vomModell = Math.max(0, Math.min(5, Math.round(a.toxicity)));
+  else if (a.toxic === true) vomModell = 3;
+  var ausDB = null;
+  try {
+    if (a.latin && typeof DB !== 'undefined' && Array.isArray(DB)) {
+      var lat = String(a.latin).toLowerCase().trim();
+      for (var i = 0; i < DB.length; i++) {
+        if (String(DB[i].lat || '').toLowerCase().trim() !== lat) continue;
+        if (DB[i]._unverified) continue;
+        var tx = DB[i].tox;
+        if (typeof tx === 'number') ausDB = Math.max(ausDB == null ? -1 : ausDB, tx);
+        if (DB[i].toxic === true) ausDB = Math.max(ausDB == null ? -1 : ausDB, 3);
+      }
+    }
+  } catch (_) {}
+  if (vomModell == null && ausDB == null) return null;
+  return Math.max(vomModell == null ? -1 : vomModell, ausDB == null ? -1 : ausDB);
+}
+// Die gefaehrlichste der ersten drei Alternativen.
+function _gsAltGefahr(res) {
+  var g = 0;
+  try {
+    (Array.isArray(res && res.alternatives) ? res.alternatives : []).slice(0, 3).forEach(function (a) {
+      var t = _gsAltTox(a);
+      if (t != null && t > g) g = t;
+    });
+  } catch (_) {}
+  return g;
+}
+window._gsAltTox = _gsAltTox;
+window._gsAltGefahr = _gsAltGefahr;
+
 function showScanResult(r){
   // ── v31.99: das Pruefwerk laeuft ZUERST ──────────────────────────────
   //
@@ -29521,6 +29740,9 @@ function showScanResult(r){
   // Anzeige-Block wegen der Reihenfolge tot war und niemand es merkte.
   var _pw = null;
   try { _pw = _gsScanPruefwerk(r, r._qual || null); } catch (_) { _pw = null; }
+  // v32.10: die gefaehrlichste Alternative — GLEICH HIER, weil die
+  // Gegenprobe-Karte weiter oben steht als der Alternativen-Streifen.
+  try { r._altGefahr = _gsAltGefahr(r); } catch (_) { r._altGefahr = 0; }
   // v32.08: der letzte Schritt der Liste hakt sich hier ab — mit dem, was
   // wirklich herausgekommen ist. Die Liste steht noch, wenn dieser Code
   // laeuft; erst danach wird sie durch die Ergebniskarte ersetzt.
@@ -29708,6 +29930,31 @@ function showScanResult(r){
   }
 
 
+  // ── v32.10 · 1b2) DIE GEGENPROBE ────────────────────────────────────
+  //
+  // Nur im gefährlichsten Fall, den dieser Scanner kennt: die Bestimmung
+  // sagt ESSBAR, und eine Verwechslungsmöglichkeit ist GIFTIG. Bärlauch
+  // gegen Herbstzeitlose ist genau das.
+  //
+  // Sie läuft nicht von selbst — sie kostet einen weiteren Aufruf aus dem
+  // Tageskontingent, und darüber entscheidet der Mensch. Der Knopf sagt
+  // deshalb beides: warum es sich lohnt und was es kostet.
+  try { window._gsLetzterScan = r; } catch (_) {}
+  if (gsGegenprobeNoetig(r)) {
+    body += '<div class="sr2-card gs-gp" id="gs-gegenprobe">' +
+      '<div class="sr2-card-lbl" style="color:var(--c-danger-d);">\u2696\ufe0f Zweite Meinung einholen?</div>' +
+      '<div class="sr2-card-body">Diese Bestimmung sagt <b>essbar</b> \u2014 und eine der Verwechslungsm\u00f6glichkeiten ist ' +
+        (r._altGefahr >= 5 ? '<b>t\u00f6dlich giftig</b>' : r._altGefahr >= 4 ? '<b>stark giftig</b>' : '<b>giftig</b>') +
+        '. Genau hier lohnt sich ein zweiter, <b>unabh\u00e4ngiger</b> Blick auf dasselbe Foto \u2014 einer, der ausdr\u00fccklich versucht, ' +
+        'die Bestimmung zu <b>widerlegen</b> statt sie zu best\u00e4tigen.</div>' +
+      '<button onclick="gsScanGegenprobe()" class="gs-gp-knopf">\u2696\ufe0f Gegenprobe starten</button>' +
+      '<div class="gs-gp-preis">Kostet eine weitere Bestimmung aus deinem Tageskontingent.</div>' +
+    '</div>';
+  } else if (r._gegenprobe) {
+    // Schon gelaufen (z.B. beim erneuten Rendern) — Ergebnis stehen lassen.
+    body += '<div class="sr2-card gs-gp" id="gs-gegenprobe"></div>';
+  }
+
   // ── v31.99 · 1c) „Das habe ich im Foto gesehen" ──────────────────────
   //
   // `diagnostic_features` steht seit jeher im Prompt („Array visueller
@@ -29871,29 +30118,10 @@ function showScanResult(r){
     // Zwei Quellen, und die vorsichtigere gewinnt: was das Modell sagt, und
     // was die Arten-DB ueber denselben botanischen Namen weiss. Widersprechen
     // sie sich, gilt der hoehere Wert. Fehlt beides, wird nichts behauptet.
-    function _altTox(a) {
-      var vomModell = null;
-      if (typeof a.toxicity === 'number' && isFinite(a.toxicity)) vomModell = Math.max(0, Math.min(5, Math.round(a.toxicity)));
-      else if (a.toxic === true) vomModell = 3;
-      var ausDB = null;
-      try {
-        if (a.latin && typeof DB !== 'undefined' && Array.isArray(DB)) {
-          var lat = String(a.latin).toLowerCase().trim();
-          for (var i = 0; i < DB.length; i++) {
-            if (String(DB[i].lat || '').toLowerCase().trim() !== lat) continue;
-            if (DB[i]._unverified) continue;              // ungepruefte Eintraege zaehlen hier nicht
-            var tx = DB[i].tox;
-            if (typeof tx === 'number') ausDB = Math.max(ausDB == null ? -1 : ausDB, tx);
-            if (DB[i].toxic === true) ausDB = Math.max(ausDB == null ? -1 : ausDB, 3);
-          }
-        }
-      } catch (_) {}
-      if (vomModell == null && ausDB == null) return null;
-      return Math.max(vomModell == null ? -1 : vomModell, ausDB == null ? -1 : ausDB);
-    }
-
-    var _gefahr = 0;
-    r.alternatives.slice(0,3).forEach(function(a) { var t = _altTox(a); if (t != null && t > _gefahr) _gefahr = t; });
+    // v32.10: `_altTox` steht jetzt oben als `_gsAltTox` — EINE Funktion,
+    // zwei Nutzer (dieser Streifen und die Gegenprobe). Zwei Kopien derselben
+    // Rechnung driften auseinander; das war die Lehre aus v32.02.
+    var _gefahr = r._altGefahr != null ? r._altGefahr : _gsAltGefahr(r);
     if (_gefahr >= 3) {
       body += '<div class="sr2-card" style="background:var(--bg-danger-soft);border-left:3px solid var(--c-danger);margin-bottom:8px;">' +
         '<div class="sr2-card-lbl" style="color:var(--c-danger-d);">\u2620\ufe0f Achtung bei den Alternativen</div>' +
@@ -29910,7 +30138,7 @@ function showScanResult(r){
       // Text gedacht. Dunklere Toene, damit die Prozentzahl lesbar ist;
       // gemessen, nicht geschaetzt (contrast_check, Fenster scan-ergebnis).
       var acc = ac >= 70 ? '#1b7a43' : ac >= 50 ? '#8a5a00' : '#c0392b';
-      var atox = _altTox(a);
+      var atox = _gsAltTox(a);
       var alt = { name:a.name||'', latin:a.latin||'', confidence:ac, distinguishing_feature:a.distinguishing_feature||a.reason||'' };
       window._gsAltCandidates = window._gsAltCandidates || {};
       var altKey = 'alt_' + Date.now() + '_' + idx;
@@ -29964,6 +30192,12 @@ function showScanResult(r){
   body += '</div>';
 
   document.getElementById('scan-result').innerHTML = hero + body;
+  // v32.10: eine bereits gelaufene Gegenprobe wieder einsetzen — sonst waere
+  // sie beim naechsten Rendern der Karte still verschwunden, und der Nutzer
+  // haette einen Aufruf seines Kontingents fuer nichts ausgegeben.
+  try {
+    if (r._gegenprobe && typeof gsGegenprobeRender === 'function') gsGegenprobeRender(r._gegenprobe, r);
+  } catch (_) {}
   // Scan in History speichern
   _lastScanResult = r;
   if (r && r.name) profileTrackScan(r.category || '');
@@ -69958,6 +70192,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.10', date: '02.09.2026',
+    headline: '\u2696\ufe0f Eine zweite Meinung, die widersprechen SOLL',
+    summary: 'Wenn eine Bestimmung „essbar" sagt und eine Verwechslungsm\u00f6glichkeit giftig ist, kannst du jetzt eine unabh\u00e4ngige Gegenprobe starten \u2014 einen zweiten Blick auf dasselbe Foto, dessen ausdr\u00fcckliche Aufgabe es ist, die Bestimmung zu widerlegen.',
+    user_summary: '\u2696\ufe0f Bei „essbar" mit giftiger Verwechslungsm\u00f6glichkeit gibt es einen Knopf f\u00fcr eine zweite, unabh\u00e4ngige Meinung \u2014 die ausdr\u00fccklich dagegen argumentieren soll.',
+    user_items: [
+      {emoji:'\u2696\ufe0f', bold:'Warum „widerlegen" und nicht „best\u00e4tigen":', text:' Ein Modell, das seine eigene Antwort best\u00e4tigen soll, best\u00e4tigt sie fast immer. Der zweite Blick bekommt die erste Bestimmung deshalb als BEHAUPTUNG vorgelegt \u2014 mit dem Auftrag, die st\u00e4rksten Gr\u00fcnde dagegen zu finden.'},
+      {emoji:'\ud83d\udcb0', bold:'Nur auf deinen Knopfdruck:', text:' Die Gegenprobe kostet eine weitere Bestimmung aus deinem Tageskontingent. Das ungefragt zu verbrauchen w\u00e4re eine Entscheidung \u00fcber dein Guthaben \u2014 deshalb ein Knopf, und der Preis steht darauf.'},
+      {emoji:'\ud83c\udfa8', bold:'Drei unlesbare Gift-Plaketten:', text:' „Ungiftig" stand mit 2,6:1 da, „Leicht giftig" mit 1,9:1, „M\u00e4ssig giftig" mit 2,8:1. Die Farben waren f\u00fcr Fl\u00e4chen gedacht und standen als Text darauf. Diesmal alle sechs Stufen ausgerechnet statt abgewartet.'},
+    ],
+  },
+  {
     v: 'v32.09', date: '02.09.2026',
     headline: '\u2630 Vom Scan-Ergebnis direkt ins Hauptmen\u00fc',
     summary: 'Der Knopf oben auf dem Ergebnis f\u00fchrte zur\u00fcck zum Scanner \u2014 den Weg gab es aber ohnehin schon. Jetzt \u00f6ffnet er das Hauptmen\u00fc.',
@@ -70338,7 +70583,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.09';
+var GS_VERSION = 'v32.10';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
