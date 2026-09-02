@@ -170,3 +170,34 @@ nicht-giftigen Einträgen steht dort jetzt **„❔ Einstufung offen"**.
    Warntext. Die 35 Einträge, die gleichzeitig `edible` und `toxic` tragen,
    sind **korrekt** — Holunder (roh giftig, gekocht essbar), Morchel,
    Perlpilz, Hallimasch. Nachgesehen, nicht angenommen.
+
+
+## Nachtrag 02.09.2026 — ein Weg für Korrekturen (v32.05)
+
+Die Lücken lassen sich von hier aus **messen**, nicht füllen: botanische
+Angaben in einer App, die Giftiges von Essbarem trennt, dürfen nicht aus dem
+Gedächtnis eines Modells stammen. Was gebaut werden kann, ist der Weg für
+Leute, die es wissen.
+
+**Auf jeder Artenkarte** steht jetzt ein Knopf, mit dem sich eine Angabe
+melden lässt — Bereich (Essbarkeit · Verwechslung · Saison · Standort · Name),
+Beschreibung und freiwillig eine Quelle. Bei den **1'276 ungeprüften**
+Einträgen ist er hervorgehoben: dort sagt die Karte ohnehin, dass sie unsicher
+ist, und dort ist eine belegte Korrektur am meisten wert.
+
+### Warum nicht `user_submissions`
+
+Die Tabelle ist genau dafür gemacht (`species_id`, `field`, `value`,
+`evidence_url`, `status`, `reviewer_id`, `review_note`) und wird von der App
+**nirgends** benutzt. Beim Nachsehen in der Datenbank zeigte sich der Grund,
+warum das richtig war: sie hat **nur eine INSERT-Regel und keine einzige
+SELECT-Regel**. Ein Nutzer kann hineinschreiben — niemand kann es lesen, auch
+kein Admin.
+
+Solange dort keine Leseregel existiert, ist sie nicht benutzbar. Die
+Korrekturen laufen deshalb über `feedback_items` (`kind='species_correction'`),
+dessen Rechte geprüft sind: SELECT für den Einreicher **und Staff aufwärts**.
+
+**Falls die eigene Tabelle gewünscht ist**, braucht es eine Migration mit einer
+SELECT-Regel für Staff — dann liesse sich der Weg dorthin umhängen, ohne dass
+sich für Nutzer etwas ändert.

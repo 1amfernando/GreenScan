@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.04.20260902">
+<meta name="app-version" content="32.05.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -30913,6 +30913,128 @@ function loadMoreList() {
 const _origGetFiltered = getFiltered;
 
 // ═══ DETAIL MODAL ════════════════════════════════════
+
+// ══ v32.05 · ARTEN-KORREKTUREN MELDEN ════════════════════════════════════
+//
+// Die Arten-Daten haben Lücken (docs/ARTEN-LUECKEN.md): 1'276 Einträge aus
+// einem Bucheinlesen sind als `_unverified` markiert, weil bei ihnen weder
+// eine Warnung noch ein Verwechslungshinweis steht. Die App sagt das seit
+// v31.90 ehrlich — „Einstufung offen" statt eines grünen Hakens.
+//
+// Was bisher fehlte: ein Weg, es besser zu machen. Wer weiss, dass ein
+// Eintrag falsch ist, konnte es niemandem sagen.
+//
+// WARUM NICHT `user_submissions`: die Tabelle gibt es, mit species_id,
+// field, value, evidence_url und einem vollständigen Prüf-Ablauf. Sie hat
+// aber (geprüft am 02.09.2026) **nur eine INSERT-Regel und KEINE einzige
+// SELECT-Regel**. Ein Nutzer könnte hineinschreiben — und niemand, auch kein
+// Admin, könnte es je lesen. Das wäre genau der Fehler, den diese Session
+// überall repariert hat: ein Schreiber ohne Leser. Solange dort keine
+// Leseregel existiert, ist sie nicht benutzbar.
+//
+// Also über `feedback_items` (kind='species_correction'): INSERT mit eigener
+// user_id erlaubt, SELECT für den Einreicher selbst und für Staff aufwärts,
+// UPDATE für Staff — alles am 02.09.2026 an der Datenbank nachgesehen.
+var GS_KORR_FELDER = [
+  { k: 'essbarkeit', l: '🍽️ Essbarkeit / Giftigkeit' },
+  { k: 'verwechslung', l: '⚠️ Verwechslungsmöglichkeit' },
+  { k: 'saison', l: '📅 Saison / Blütezeit' },
+  { k: 'standort', l: '🌍 Standort / Verbreitung' },
+  { k: 'name', l: '🏷️ Name oder lateinischer Name' },
+  { k: 'sonstiges', l: '✏️ Etwas anderes' },
+];
+
+function gsKorrekturOeffnen(spId) {
+  try {
+    var sp = (typeof DB !== 'undefined' && DB) ? DB.filter(function (x) { return x && x.id === spId; })[0] : null;
+    if (!sp) { if (typeof showProfileToast === 'function') showProfileToast('Art nicht gefunden.'); return; }
+    var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function (s) { return String(s || ''); };
+    var html =
+      '<div style="padding:16px;">' +
+        '<div style="font-size:var(--fs-sm);color:var(--text2);line-height:1.5;margin-bottom:14px;">' +
+          'Du meldest eine Angabe zu <b>' + esc(sp.name) + '</b>' + (sp.lat ? ' <i>(' + esc(sp.lat) + ')</i>' : '') + '. ' +
+          'Die Meldung geht an das GreenScan-Team und wird von Hand geprüft — sie ändert die Angabe nicht sofort.' +
+        '</div>' +
+        (sp._unverified
+          ? '<div style="background:var(--bg-yellow-soft);border-radius:var(--r-md);padding:10px 12px;margin-bottom:14px;font-size:var(--fs-sm);color:var(--c-warn-d);line-height:1.5;">' +
+            '❔ Dieser Eintrag ist ohnehin als <b>nicht fachlich geprüft</b> markiert. Eine belegte Korrektur ist hier besonders wertvoll.</div>'
+          : '') +
+        '<label style="font-size:var(--fs-sm);font-weight:700;color:var(--text);display:block;margin-bottom:6px;">Worum geht es?</label>' +
+        '<select id="korr-feld" style="width:100%;padding:10px;border-radius:var(--r-sm);border:1.5px solid var(--border);font-size:var(--fs-md);font-family:inherit;background:var(--surface);color:var(--text);margin-bottom:12px;">' +
+          GS_KORR_FELDER.map(function (f) { return '<option value="' + f.k + '">' + f.l + '</option>'; }).join('') +
+        '</select>' +
+        '<label style="font-size:var(--fs-sm);font-weight:700;color:var(--text);display:block;margin-bottom:6px;">Was stimmt nicht, und was wäre richtig? (mind. 20 Zeichen)</label>' +
+        '<textarea id="korr-text" rows="4" style="width:100%;padding:9px;border-radius:var(--r-sm);border:1.5px solid var(--border);font-size:var(--fs-md);font-family:inherit;box-sizing:border-box;background:var(--surface);color:var(--text);margin-bottom:12px;" ' +
+          'placeholder="z.B. Die Blütezeit ist Mai bis Juli, nicht April bis Juni — siehe Info Flora."></textarea>' +
+        '<label style="font-size:var(--fs-sm);font-weight:700;color:var(--text);display:block;margin-bottom:6px;">Beleg (Adresse einer Quelle, freiwillig)</label>' +
+        '<input id="korr-quelle" type="url" inputmode="url" placeholder="https://www.infoflora.ch/…" ' +
+          'style="width:100%;padding:9px;border-radius:var(--r-sm);border:1.5px solid var(--border);font-size:var(--fs-md);font-family:inherit;box-sizing:border-box;background:var(--surface);color:var(--text);margin-bottom:6px;">' +
+        '<div style="font-size:var(--fs-xs);color:var(--muted);line-height:1.5;margin-bottom:16px;">' +
+          'Eine Quelle beschleunigt die Prüfung erheblich — ohne sie muss jemand von Hand nachschlagen.' +
+        '</div>' +
+        '<button onclick="gsKorrekturSenden(\'' + esc(spId) + '\')" style="width:100%;padding:13px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">📤 Korrektur melden</button>' +
+      '</div>';
+    document.getElementById('recipe-detail-body').innerHTML = html;
+    gsSetModalTitel('modal-recipe-detail', '✏️ Angabe korrigieren');
+    openModal('modal-recipe-detail');
+  } catch (e) {
+    if (typeof showProfileToast === 'function') showProfileToast('Konnte nicht geöffnet werden.');
+  }
+}
+window.gsKorrekturOeffnen = gsKorrekturOeffnen;
+
+async function gsKorrekturSenden(spId) {
+  var feldEl = document.getElementById('korr-feld');
+  var txtEl = document.getElementById('korr-text');
+  var qEl = document.getElementById('korr-quelle');
+  var feld = feldEl ? feldEl.value : 'sonstiges';
+  var txt = (txtEl ? txtEl.value : '').trim();
+  var quelle = (qEl ? qEl.value : '').trim();
+  if (txt.length < 20) { if (typeof showProfileToast === 'function') showProfileToast('Bitte etwas ausführlicher — mindestens 20 Zeichen.'); return; }
+  if (quelle && !/^https?:\/\//i.test(quelle)) { if (typeof showProfileToast === 'function') showProfileToast('Die Quelle muss mit http:// oder https:// beginnen.'); return; }
+
+  var uid = (typeof gsStore !== 'undefined' && gsStore.get) ? gsStore.get('gs_sb_uid', null) : null;
+  if (typeof sbFetch !== 'function' || !uid) {
+    showProfileToast({ title: 'Nicht übermittelt', body: 'Dafür musst du angemeldet sein — sonst kann niemand nachfragen.', kind: 'error', duration: 6000 });
+    return;
+  }
+  var sp = (typeof DB !== 'undefined' && DB) ? DB.filter(function (x) { return x && x.id === spId; })[0] : null;
+  var btn = document.querySelector('[onclick^="gsKorrekturSenden"]');
+  if (btn) { btn.disabled = true; btn.textContent = '… wird übermittelt'; }
+
+  var res = await sbFetch('/rest/v1/feedback_items', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+    body: JSON.stringify({
+      user_id: uid,
+      kind: 'species_correction',
+      content: txt,
+      app_version: (typeof GS_VERSION === 'string') ? GS_VERSION : '',
+      context: {
+        species_id: spId,
+        species_name: sp ? sp.name : '',
+        species_lat: sp ? (sp.lat || '') : '',
+        feld: feld,
+        quelle: quelle || '',
+        ungeprueft: !!(sp && sp._unverified),
+      },
+    }),
+  });
+  if (btn) { btn.disabled = false; btn.textContent = '📤 Korrektur melden'; }
+  // Dieselbe Regel wie überall seit v31.95: eine LEERE Antwort ist kein
+  // Erfolg — PostgREST liefert bei einer von RLS abgewiesenen Zeile 0
+  // Datensätze und keinen Fehler.
+  if (!res || res.error || !Array.isArray(res.data) || res.data.length !== 1) {
+    showProfileToast({ title: 'Nicht übermittelt',
+      body: (res && res.error && res.error.message) || 'Der Server hat die Meldung nicht angenommen. Bitte später nochmals versuchen — dein Text ist nicht verloren.',
+      kind: 'error', duration: 8000 });
+    return;
+  }
+  closeModal('modal-recipe-detail');
+  showProfileToast({ title: '✅ Danke — Meldung ist da', body: 'Sie wird von Hand geprüft. Du findest sie unter „Mehr → Feedback" wieder.', duration: 7000 });
+}
+window.gsKorrekturSenden = gsKorrekturSenden;
+
 function openDetail(id){
   var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k, f){ return f; };
   // Strong input validation
@@ -31182,6 +31304,16 @@ function openDetail(id){
       })(),
     '</div>',
   ].join('');
+
+  // v32.05: der Weg, eine falsche Angabe zu melden. Bei ungeprueften
+  // Eintraegen betont — dort sagt die Karte selbst, dass sie unsicher ist,
+  // und genau dort ist eine belegte Korrektur am meisten wert.
+  html += '<div style="padding:0 16px 18px;">' +
+    '<button onclick="gsKorrekturOeffnen(\'' + String(sp.id).replace(/'/g, "\\'") + '\')" ' +
+      'style="width:100%;padding:11px;background:' + (_unv ? 'var(--bg-yellow-soft)' : 'transparent') + ';color:var(--text2);' +
+      'border:1px solid ' + (_unv ? '#ffe082' : 'var(--border)') + ';border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' +
+      (_unv ? '✏️ Kennst du diese Art? Angabe pr\u00fcfen helfen' : '✏️ Angabe stimmt nicht? Melden') +
+    '</button></div>';
 
   html = '<button class="modal-close-btn" onclick="closeModal(\'detail-modal\')" title="' + _t('modal_close','Schliessen') + '">✕</button>' + html;
   // v26.26: Heilpflanzen-Hook — async-Container fuer medicinal_plants_register-Match.
@@ -34096,7 +34228,7 @@ function renderFeedback(){
   // (RLS feedback_items_select_own_or_staff, die Ansicht laeuft mit
   // security_invoker=true — nachgesehen, nicht vermutet).
   // Ohne diese Zeile stuende auf der Karte woertlich „expert_application".
-  const typeLabels = {bug:'🐛 Fehler',idea:'💡 Idee',data:'📊 Daten',ui:'🎨 Design',expert_application:'🎓 Experten-Antrag'};
+  const typeLabels = {bug:'🐛 Fehler',idea:'💡 Idee',data:'📊 Daten',ui:'🎨 Design',expert_application:'🎓 Experten-Antrag',species_correction:'✏️ Arten-Korrektur'};
   // v23.61: KI-Status Badges
   const statusBadge = (fb) => {
     const s = fb.ki_status || 'pending';
@@ -34241,6 +34373,18 @@ function renderFeedback(){
       // Antrag, den man nur halb lesen kann, ist so gut wie keiner.
       ((fb.type === 'expert_application' && fb.context && fb.context.diplomas)
         ? '<p class="fb-body" style="margin-top:6px;"><b>Diplome / Ausbildungen:</b> ' + escHtml(String(fb.context.diplomas)) + '</p>'
+        : '')+
+      // v32.05: Bei einer Arten-Korrektur ist die Angabe ohne die ART sinnlos —
+      // und ohne die Quelle muss jemand von Hand nachschlagen. Beides steht im
+      // `context` und wäre sonst unsichtbar (derselbe Fall wie die Diplome).
+      ((fb.type === 'species_correction' && fb.context)
+        ? '<p class="fb-body" style="margin-top:6px;">' +
+            '<b>Art:</b> ' + escHtml(String(fb.context.species_name || fb.context.species_id || '?')) +
+            (fb.context.species_lat ? ' <i>(' + escHtml(String(fb.context.species_lat)) + ')</i>' : '') +
+            (fb.context.feld ? ' · <b>Bereich:</b> ' + escHtml(String(fb.context.feld)) : '') +
+            (fb.context.ungeprueft ? ' · <span style="color:var(--c-warn-d);font-weight:700;">Eintrag ist ungeprüft</span>' : '') +
+            (fb.context.quelle ? '<br><b>Beleg:</b> ' + escHtml(String(fb.context.quelle)) : '<br><span style="color:var(--muted);">ohne Beleg — muss von Hand nachgeschlagen werden</span>') +
+          '</p>'
         : '')+
       kiSection+
       '<div class="vote-row">'+
@@ -34452,7 +34596,7 @@ async function gsRefreshGlobalFeedback(showToast){
     // die Zeile unten auf 'idea' zurueck, und ein Experten-Antrag stuende in
     // der Liste als „💡 Idee" — die Anzeige dafuer (typeLabels, Diplome auf
     // der Karte) waere unerreichbar gewesen.
-    var kindToType = {bug:'bug', idea:'idea', data:'data', ui:'ui', expert_application:'expert_application'};
+    var kindToType = {bug:'bug', idea:'idea', data:'data', ui:'ui', expert_application:'expert_application', species_correction:'species_correction'};
     // Baue Merge-Set: existing local items (by sb_id or by id) + server rows
     var localArr = Array.isArray(feedbackItems) ? feedbackItems.slice() : [];
     var localBySbId = {};
@@ -69498,6 +69642,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.05', date: '02.09.2026',
+    headline: '\u270f\ufe0f Wenn du es besser weisst, kannst du es jetzt sagen',
+    summary: '1\u2019276 Arten sind als „nicht fachlich gepr\u00fcft" markiert \u2014 die App sagt das seit v31.90 ehrlich. Was fehlte: ein Weg, es besser zu machen. Auf jeder Artenkarte steht jetzt ein Knopf, mit dem sich eine falsche Angabe melden l\u00e4sst.',
+    user_summary: '\u270f\ufe0f Auf jeder Artenkarte kannst du jetzt melden, wenn eine Angabe nicht stimmt \u2014 mit Bereich, Beschreibung und einer Quelle.',
+    user_items: [
+      {emoji:'\u2753', bold:'Besonders dort, wo die App unsicher ist:', text:' Bei den nicht gepr\u00fcften Eintr\u00e4gen ist der Knopf hervorgehoben \u2014 dort ist eine belegte Korrektur am meisten wert. Die Meldung geht an das Team und wird von Hand gepr\u00fcft; sie \u00e4ndert die Angabe nicht sofort.'},
+      {emoji:'\ud83d\udd17', bold:'Eine Quelle hilft am meisten:', text:' Mit einer Adresse (z.B. Info Flora) l\u00e4sst sich die Meldung schnell pr\u00fcfen. Ohne muss jemand von Hand nachschlagen \u2014 das steht auch so auf der Karte des Teams.'},
+      {emoji:'\ud83d\udee1\ufe0f', bold:'Und was dabei auffiel:', text:' Es gibt daf\u00fcr eine eigene Tabelle in der Datenbank \u2014 mit Schreibrecht, aber ohne jedes Leserecht. Eine Meldung dorthin h\u00e4tte niemand je lesen k\u00f6nnen. Sie wird deshalb nicht benutzt.'},
+    ],
+  },
+  {
     v: 'v32.04', date: '02.09.2026',
     headline: '\ud83d\udce6 50 KB Changelog raus aus dem Kaltstart',
     summary: 'Die Release-Notizen sollten laut eigener Konvention nur mit den neuesten zw\u00f6lf Eintr\u00e4gen in der Hauptdatei stehen \u2014 es waren vierzig. Achtundzwanzig sind ins Archiv gewandert, das erst beim \u00d6ffnen des Changelogs geladen wird.',
@@ -69827,7 +69982,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.04';
+var GS_VERSION = 'v32.05';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
