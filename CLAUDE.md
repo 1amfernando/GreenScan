@@ -479,6 +479,8 @@ node scripts/wiring_check.js     # Verdrahtung: kommt an, was angetippt wird? (s
 python3 scripts/field_check.py   # Formularfelder, die niemand liest (seit v31.74)
 node scripts/data_check.js       # liest der Code Felder, die es nicht gibt? (seit v31.80)
 node scripts/save_check.js       # kommt an, was gespeichert wird? (seit v31.85)
+#   data_check prueft seit v31.89 zusaetzlich Widersprueche in den
+#   Sicherheitsangaben — siehe docs/ARTEN-LUECKEN.md
 ```
 
 Die fünf JS-Prüfstände teilen die Beispieldaten in `scripts/_seed.js` — dort

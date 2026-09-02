@@ -4,13 +4,67 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.88` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.89` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (ca) — v31.89: bei 25 giftigen Arten stand „verwendbar" auf derselben Karte wie „nicht essen"
+
+Fernando hat auf meine Frage nach einer botanischen Quelle noch nicht geantwortet. Was ich ohne Antwort tun kann, ist **messen** — und beim Messen ist etwas aufgetaucht, das nicht warten konnte.
+
+#### Der Fund
+
+**1'408 Einträge** der Arten-DB tragen im Feld `uses` denselben Satz:
+
+> „Wildpflanze der Schweizer Flora. Junge Blätter, Blüten oder Samen je nach Art **verwendbar**. Vor Verzehr sicher bestimmen."
+
+Bei **25** davon steht im selben Datensatz `toxic: true, tox: 3`. Die Gattungen:
+
+> Geranium · Alisma · Ranunculus · Delphinium · **Aconitum** · **Daphne** · **Oenanthe** · **Solanum** · **Datura** · **Digitalis**
+
+Eisenhut, Rebendolde, Stechapfel, Fingerhut, Seidelbast. Auf ihrer Karte stand unter „Verwendung", junge Blätter seien verwendbar — **während das Warnfeld derselben Karte „⚠️ Giftig — nicht essen." sagte.**
+
+Der Satz stand nie da, weil jemand diese Art geprüft hätte. Er stand auf 1'408 Einträgen gleichzeitig.
+
+#### Die Korrektur
+
+Beim Laden der Datenbank: wo der Datensatz **selbst** die Art als giftig einstuft (`toxic:true` oder `tox≥2`) und der generische Satz dort steht, wird er ersetzt durch „Keine Verwendung — dieser Eintrag ist als giftig eingestuft."
+
+**Hier wird nichts botanisch entschieden.** Die Einstufung kommt aus dem Datensatz; entfernt wird ein Text, der ihr widerspricht. Die Korrektur läuft bei jedem Start und fängt denselben Fall wieder auf, falls eine künftige Datenlieferung ihn erneut mitbringt.
+
+Nachgemessen: 25 korrigiert, 0 offen, **1'383 ungiftige Einträge unverändert**.
+
+#### Die Dauerprüfung — und zwei Anläufe, bis sie taugte
+
+`data_check.js` prüft ab sofort: **generischer Text darf auf einer als giftig eingestuften Art keine Verwendung versprechen.** „Generisch" ist messbar: derselbe Text auf ≥ 50 Arten — ein Text, der auf vielen Arten gleichzeitig steht, kann über keine einzelne etwas aussagen.
+
+| Anlauf | Meldung | Warum falsch |
+|---|---|---|
+| 1 | u. a. Knollenblätterpilz | suchte „essbar" und traf „**NICHT** essbar oder nur mit Fachkenntnis" |
+| 2 | 16 Treffer | Robinie (Blüten essbar, Rinde giftig), Tintling (essbar, aber nicht mit Alkohol) — **sorgfältig geschriebene** Einträge |
+| 3 | **0** | nur noch generische Texte; Gegenprobe ohne Korrektur: **25** |
+
+Ein Prüfstand, der die richtigen Einträge anschwärzt, wird weggeklickt. Deshalb werden die 16 einzeln geschriebenen Texte ausgewiesen statt gemeldet.
+
+#### Der Rest des Befunds: `docs/ARTEN-LUECKEN.md`
+
+Die Kurzfassung, alles gezählt:
+
+- **Die Lücken sind nicht verteilt.** Pilze, Kräuter, Zimmerpflanzen: 100 % in allen Feldern. Bäume: 94–98 %. Nur `wildpflanze` (2'226 Arten) liegt bei 37–66 %.
+- **Und auch dort konzentriert.** 133 Trivialnamen zeigen auf mehr als zwei Binome — „Levkoje" auf **98**, „Königskerze" auf 97, „Gaspeldorn" auf 96. Zusammen 1'276 Einträge, und die sind systematisch leer: season 2 %, warning 4 %, lookalike 2 % (im Rest der DB je 94 %).
+- **Woher sie kommen:** `bookRef: "Schmeil/Fitschen"`, `desc` sind rohe OCR-Fetzen. Das ist die Buch-Einlese aus der Roadmap („PDF → OCR → Kandidaten → **Review**") — der Review-Schritt hat für diese Einträge nie stattgefunden.
+- **Deshalb ist „vervollständigen" wahrscheinlich die falsche Antwort.** Ob „Rumex persicaria" oder „Urtica officinalis" akzeptierte Namen sind, kann ich von hier aus **nicht** prüfen. Die Häufung ist ein Signal, zuerst zu prüfen und zusammenzufassen statt auszufüllen.
+- **Sonst ist die Sicherheit in Ordnung:** 0 giftige Arten ohne Warntext. Die 35 Einträge mit gleichzeitig `edible` und `toxic` sind **korrekt** (Holunder roh giftig/gekocht essbar, Morchel, Perlpilz, Hallimasch) — nachgesehen, nicht angenommen.
+
+#### Prüfstände
+
+`render_check` 2872 · 0 JS-Fehler · 0 verdächtig · `contrast_check` 0/0 · `touch_check` 0 · `wiring_check` 0/0/0 + 31 Ziele · `save_check` 7/7 · `data_check` 0 Zugriffe ins Leere, **0 generische Verwendungs-Versprechen auf giftigen Arten**.
+
+---
 
 ### 2026-09-02 (bz) — v31.88: der Planer setzt nichts mehr auf den Weg
 
