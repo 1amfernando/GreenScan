@@ -12,6 +12,49 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-02 (dh) — der Prüfstand meldete vier Dinge, die keine sind
+
+Kein Versionssprung: die App ist unverändert. Nur `render_check` ist schärfer.
+
+Er meldete seit jeher **„abgeschnittener Inhalt: 4"** — die Kopfbereiche von
+Wissen, Rezepte, Heilmittel und Community. Ich bin heute zehn Versionen lang
+daran vorbeigelaufen, ohne einmal nachzusehen.
+
+Nachgesehen: alle vier tragen ein riesiges Emoji als Wasserzeichen
+(`position:absolute`, 140 px, `opacity:.06`) und beschneiden es **absichtlich**
+mit `overflow:hidden`. Gemessen, ob echter Text verloren geht:
+
+```
+wissen:   Kasten  97px, scrollHeight 144 · echter Text abgeschnitten: NEIN
+recipes:  Kasten  69px, scrollHeight  97 · echter Text abgeschnitten: NEIN
+remedies: Kasten  69px, scrollHeight  97 · echter Text abgeschnitten: NEIN
+social:   Kasten  70px, scrollHeight  97 · echter Text abgeschnitten: NEIN
+```
+
+Vier Falschmeldungen. Die Regel `scrollHeight > clientHeight` war zu grob.
+
+**Jetzt zählt nur, was wirklich Text verliert:** ein Nachfahre mit eigenem
+Textknoten, der nicht absolut positioniert ist und über den Kasten hinausragt.
+Dieselbe Regel wie in `touch_check` seit v32.07.
+
+**Gegenprobe mit zwei Fällen**, weil einer nichts beweist:
+
+| Fall | erwartet | gemessen |
+|---|---|---|
+| zu hoher Textblock in einem 30-px-Kasten | gemeldet | ✅ „Diese Zeile ist viel zu …" |
+| derselbe Kasten, nur ein absolutes Emoji darin | still | ✅ still |
+
+Von 4 auf **0** — und die Regel ist dabei **schärfer** geworden, nicht
+nachgiebiger.
+
+> Ein Bericht wird nicht durch eine falsche Zahl unlesbar, sondern durch eine,
+> die man zu ignorieren gelernt hat.
+
+Das ist der eigentliche Fund: nicht die vier Zeilen, sondern dass ich sie
+zehn Versionen lang gelesen und übergangen habe. Wer einen Prüfstand baut,
+schuldet ihm, jede Zeile einmal nachzugehen — sonst erzieht er sich selbst
+zum Wegsehen.
+
 ### 2026-09-02 (dg) — v32.20: im Wald ohne Empfang endet der Scanner nicht mehr im Nichts
 
 Der Fall, für den diese App gebaut ist: jemand steht vor einer Pflanze, kein

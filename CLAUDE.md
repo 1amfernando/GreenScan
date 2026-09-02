@@ -455,6 +455,22 @@ Faustregel für die Auswertung: eine reine Farb- oder Radius-Änderung **muss**
 `GROESSE geaendert: 0` ergeben. Steht dort etwas anderes, verschiebt die
 Änderung Layout — dann vor dem Ausliefern nachsehen, wo.
 
+**Seit v32.21 zählt „abgeschnittener Inhalt" nur noch echten TEXT.** Vorher
+reichte `scrollHeight > clientHeight` — und damit meldete der Prüfstand vier
+Kopfbereiche (Wissen, Rezepte, Heilmittel, Community), die ein riesiges Emoji
+als Wasserzeichen tragen (`position:absolute`, 140 px, `opacity:.06`) und es
+ABSICHTLICH beschneiden. Vier ständige Falschmeldungen — an denen ich einen
+ganzen Tag lang vorbeigelaufen bin, ohne sie nachzusehen. **Genau so wird ein
+Bericht unlesbar: nicht durch eine falsche Zahl, sondern durch eine, die man
+zu ignorieren gelernt hat.**
+
+Die schärfere Frage lautet jetzt: ragt ein Nachfahre mit EIGENEM Textknoten,
+der NICHT absolut positioniert ist, über den Kasten hinaus? Dieselbe Regel wie
+in `touch_check` seit v32.07 — Dekoration darf hinausragen, Inhalt nicht.
+**Gegenprobe mit zwei Fällen:** ein zu hoher Textblock in einem 30-px-Kasten →
+gemeldet; derselbe Kasten mit nur einem absolut positionierten Emoji darin →
+still.
+
 `render_check.js` meldet ausserdem **verdächtige Textstellen** — `undefined`,
 `null`, `NaN`, `[object Object]`, `Invalid Date`, `{{platzhalter}}`. Anlass war
 v31.44: fünf Kategorien standen in keiner Zuordnungstabelle und der Rückfall
