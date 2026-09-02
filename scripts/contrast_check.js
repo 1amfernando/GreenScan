@@ -252,6 +252,41 @@ async function medianFarben(leser, pngBuffer, punkte) {
         res.innerHTML = gsPPrenderPlan(plan, _gsPP.data);
         return res;
       }],
+      // v31.99: das Scan-Ergebnis. Es ist der Bildschirm, auf dem jemand
+      // ueber Giftigkeit liest — dort ist schlechter Kontrast am teuersten,
+      // und gemessen wurde er bis hierher nie (er gehoert zu keinem der elf
+      // Tabs). Der Fall ist bewusst der gefaehrliche: eine Art, die unsere
+      // Liste giftiger fuehrt als die Bestimmung.
+      ['scan-ergebnis', () => {
+        // Der Scanner-Tab MUSS aktiv sein: `#scan-result` liegt darin, und ein
+        // ausgeblendeter Tab hat Hoehe 0 — die Karte war beim ersten Anlauf
+        // vollstaendig da (71 Textknoten) und trotzdem unmessbar. Genau
+        // deshalb nennt der Bericht je Fenster die Zahl der Stellen.
+        try { if (typeof switchTab === 'function') switchTab('scanner'); } catch (_) {}
+        window.gsScanStatusShow = () => {}; window.gsStopScanStatus = () => {};
+        window.gsScanPersistToCloud = () => Promise.resolve(true);
+        window.gsAddToScanHistory = () => {}; window.gsHaptic = () => {};
+        if (typeof showScanResult !== 'function') return 0;
+        showScanResult({
+          name: 'Herbstzeitlose', latin: 'Colchicum autumnale', family: 'Colchicaceae',
+          category: 'wildpflanze', confidence: 71, edible: true, toxic: false, toxicity: 0,
+          description: 'Schmale Blätter, im Frühjahr ohne Blüte.',
+          habitat: 'Fettwiesen, Auen', season: 'Aug–Okt', uses: '',
+          warning: 'Alle Pflanzenteile stark giftig.',
+          diagnostic_features: ['Blätter aus dem Boden', 'Kein Knoblauchgeruch', 'Fleischige Blattbasis'],
+          next_photo_hint: 'Blattbasis und Zwiebel freilegen',
+          alternatives: [
+            { name: 'Bärlauch', latin: 'Allium ursinum', confidence: 62, distinguishing_feature: 'Knoblauchgeruch', toxicity: 0, edible: true },
+            { name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 24, distinguishing_feature: 'Zwei Blätter an einem Stiel', toxicity: 5, edible: false },
+          ],
+          lookalike_warning: 'Verwechslung mit Bärlauch ist tödlich.',
+          _shotCount: 1, _qual: { messbar: true, quality: 44, blur: 38, light: 52, warnings: ['etwas unscharf'] },
+        });
+        const res = document.getElementById('scan-result');
+        if (!res) return 0;
+        res.style.display = 'block';
+        return res;
+      }],
       ['blühkalender', () => {
         localStorage.setItem('gs_bl_month', '5');
         localStorage.setItem('gs_bl_tab', 'all');

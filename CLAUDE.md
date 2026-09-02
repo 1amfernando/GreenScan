@@ -480,6 +480,7 @@ python3 scripts/field_check.py   # Formularfelder, die niemand liest (seit v31.7
 node scripts/data_check.js       # liest der Code Felder, die es nicht gibt? (seit v31.80)
 node scripts/save_check.js       # kommt an, was gespeichert wird? (seit v31.85)
 node scripts/planer_check.js     # rechnet der Planer, was er behauptet? (seit v31.93)
+node scripts/scan_check.js       # glaubt der Scanner der KI aufs Wort? (seit v31.99)
 #   save_check prueft seit v31.95 auch SERVER-Wege mit gestelltem sbFetch:
 #   meldet die Funktion Erfolg, wenn der Server NEIN sagt — oder gar nichts?
 #   wiring_check meldet seit v31.95 zusaetzlich sofort dereferenzierte
@@ -666,6 +667,20 @@ nicht gegen den Namen der globalen Variablen.
 Spalte ist beeinflussbar — die zweite ist der Preis des 5,7-MB-Monolithen und
 eine Eigenschaft der Architektur, kein Fehler. Für einen Vergleich beide Stände
 mit **demselben** Aufruf messen; die Zahlen schwanken zwischen Läufen.
+
+**Seit v31.99 misst `contrast_check` in DREI Fenstern** — dazu kam das
+**Scan-Ergebnis**, der Bildschirm, auf dem jemand ueber Giftigkeit liest. Er
+gehoert zu keinem der elf Tabs und war deshalb nie vermessen; der erste Lauf
+fand fuenf Stellen unter AA, darunter „☠️ Toedlich giftig" mit **3,27:1** und
+das Sicherheitswort mit **1,87:1**. Beim Einbau meldete das Fenster zuerst
+**18 Stellen bei 71 Textknoten** — die Karte war vollstaendig da und trotzdem
+unmessbar, weil der Scanner-Tab ausgeblendet ist (`switchTab('scanner')` fehlte).
+
+**Und ein neuer Prueftand: `scan_check.js`** — er fragt, ob der Scanner der KI
+aufs Wort glaubt. Kernfall: eine Art, die unsere Liste als toedlich fuehrt, vom
+Modell als „essbar" gemeldet. Die vorsichtigere Angabe MUSS gewinnen, und zwar
+sichtbar. `docs/SCANNER-V3.md` erklaert, warum das der Punkt ist, an dem diese
+App eine reine Bilderkennung schlagen kann: **nicht im Sehen, im Pruefen.**
 
 **Seit v31.78 misst `contrast_check` in ZWEI Fenstern** — KI-Planer und
 Blühkalender — und der Bericht nennt **je Fenster die Zahl der vermessenen

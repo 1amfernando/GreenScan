@@ -4,13 +4,91 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.98` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.99` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (ck) — v31.99: Scanner V3, Stufe 1 — der Scanner glaubt der KI nicht mehr aufs Wort
+
+Auftrag (Fernando): *„Bringe ihn auf ein Highend-Level … besser als Google
+Lens. Zusätzlich will ich, dass während der Diagnose das Foto gezeigt wird."*
+Entwurf und Begründung: `docs/SCANNER-V3.md`.
+
+#### Der Check zuerst
+
+Der Scanner ist **nicht** naiv gebaut: Multi-Shot, Bildqualität vor dem Aufruf,
+dHash-Cache, GPS/Saison-Kontext, ehrlicher Fortschritt, Giftigkeit der
+Alternativen. Was fehlte, war die Ebene, die diese ganze Session durchzieht:
+**die Antwort wurde an keiner Stelle nachgerechnet** — ausser bei den
+Alternativen (v31.92). Der Haupttreffer ging ungeprüft durch.
+
+**Die Linie des Entwurfs:** in der Bilderkennung ist gegen Lens nichts zu
+gewinnen, und es hat keinen Zweck, so zu tun. Was Lens *nicht* hat: eine
+kuratierte Artenliste, den Monat, den Kanton, die gemessene Bildqualität.
+**Die Überlegenheit liegt nicht im Sehen, sondern im Prüfen.**
+
+#### Gebaut: `_gsScanPruefwerk` — fünf Regeln, drei Zustände
+
+| Regel | Frage |
+|---|---|
+| S1 · Art bekannt | Steht der lateinische Name in unseren 4'342 Arten? |
+| S2 · Sicherheit | Widerspricht die Giftangabe der Artenliste? |
+| S3 · Jahreszeit | Passt der Aufnahmemonat zur hinterlegten Saison? |
+| S4 · Abstand | Wie weit liegt der Zweitbeste zurück? |
+| S5 · Grundlage | Schärfe, Licht, Zahl der Fotos |
+
+**Bei S2 gewinnt immer die vorsichtigere Angabe** — `r.toxicity` wird nach oben
+korrigiert, `edible` auf `false` gesetzt, und die Karte sagt warum. Deshalb
+läuft das Prüfwerk als **allererstes** in `showScanResult`: die nächste Zeile
+liest `r.toxicity`. Stünde es weiter unten, zeigte die Karte die ungeprüften
+Zahlen und die Korrektur daneben — der Fehler aus v31.90.
+
+#### Gebaut: der Blick aufs Foto
+
+Während des Aufrufs bleibt das eigene Foto stehen, mit Lichtstreifen und
+Sucher-Ecken. **Die Texte bleiben die gemessenen** — die fünf erfundenen
+Meldungen von vor v31.79 kommen nicht zurück. Danach erscheinen die
+`diagnostic_features`: ein Feld, das der Prompt seit jeher verlangt und das an
+**keiner** Stelle angezeigt wurde. Bewusst **ohne** Marker auf dem Bild — die
+Antwort enthält keine Koordinaten, und ein Marker an erfundener Stelle zeigt
+überzeugend daneben (§4a.1).
+
+#### Fünf unlesbare Stellen — auf dem Bildschirm, auf dem man über Gift liest
+
+`contrast_check` misst jetzt das **Scan-Ergebnis** als drittes Fenster. Erster
+Lauf: 5 hell, danach 3 dunkel. Alle bestanden vorher:
+
+- **„☠️ Tödlich giftig" mit 3,27:1** — dunkelrot auf rot. Die wichtigste Angabe
+  der Karte war die am schlechtesten lesbare.
+- **„Wahrscheinlich" mit 1,87:1** — die Ring-Farbe wurde als Textfarbe benutzt.
+  Jetzt getrennt: `ccRing` für die Fläche, `ccTxt` für den Text.
+- **Die ganze Sicherheits-Karte war fest hell** (`rgba(255,255,255,.96)`), die
+  Schrift theme-abhängig → im Dunkelmodus „71 %" mit **1,02:1**.
+- Dazu zwei Labels knapp unter AA.
+
+**Zweimal in derselben Runde in dieselbe Falle getappt** (CLAUDE.md §7.1: eine
+feste Farbe bedient selten beide Modi) — erst hell repariert, dann dunkel
+kaputt gemacht. Erst die Variablen lösen es.
+
+Und: beim Einbau zeigte das Fenster zunächst **18 Stellen bei 71 Textknoten** —
+die Karte war vollständig da und trotzdem unmessbar, weil der Scanner-Tab
+ausgeblendet ist. Genau dafür nennt der Bericht je Fenster die Zahl.
+
+#### Prüfstände
+
+**`scripts/scan_check.js` (neu) — 10/10.** Der wichtigste Fall: eine Art, die
+unsere Liste als tödlich führt, vom Modell als „essbar" gemeldet → muss auf 5/5
+korrigiert werden **und** auf der Karte stehen. Dazu: gute Antwort meldet
+nichts, erfundene Art wird erkannt, knapper Abstand benannt, ohne Artenliste
+ist **nichts** „in Ordnung".
+
+Alle übrigen grün · `contrast_check` 0/0 in beiden Modi.
+
+---
 
 ### 2026-09-02 (cj) — v31.98: jetzt wird geprüft, ob ein Fenster überhaupt aufgeht
 
