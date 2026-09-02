@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.85.20260902">
+<meta name="app-version" content="31.86.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3504,6 +3504,9 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
 <div class="gs-sek">🪴 Mein Garten<button type="button" class="gs-sek-akt" onclick="openAddGarden()">+ Garten</button></div>
 <div id="garden-list" style="padding:2px 16px 12px;"></div>
+<!-- v31.86: Was die App laengst weiss, sagt sie jetzt auch. Gefuellt von
+     gsJetztDranRender() — leer, wenn es nichts zu sagen gibt. -->
+<div id="gs-jetzt-dran" style="padding:0 16px 10px;"></div>
 <!-- ── SYNC STATUS (Cloud-Sync Indikator) ── -->
 <div id="garden-sync-status" aria-live="polite" style="margin:-8px 18px 0;font-size:var(--fs-xs);color:var(--muted);height:14px;text-align:right;"></div>
 
@@ -5360,6 +5363,13 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
    412 px. */
 /* v31.83 — Kennzahlen: vier gerechnete Zahlen als erster Blick. */
 .gs-nc-regen{display:block;margin-top:2px;font-size:var(--fs-xs);font-weight:700;color:var(--c-info-d,var(--g-main));}
+/* v31.86 — „Jetzt dran": zwei Verbindungen, die es nicht gab. */
+.gs-jd{display:flex;flex-direction:column;gap:6px;}
+.gs-jd-z{display:flex;align-items:flex-start;gap:10px;width:100%;text-align:left;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-left:3px solid var(--g-mid);border-radius:var(--r-md);cursor:pointer;font-family:inherit;}
+.gs-jd-i{font-size:var(--fs-lg);line-height:1.3;flex-shrink:0;}
+.gs-jd-t{flex:1;min-width:0;font-size:var(--fs-sm);color:var(--text2);line-height:1.5;}
+.gs-jd-t b{color:var(--text);font-weight:800;}
+.gs-jd-p{color:var(--muted);font-size:var(--fs-md);align-self:center;flex-shrink:0;}
 .gs-kz{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;}
 .gs-kz-z{background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:9px 4px;text-align:center;}
 .gs-kz-w{font-size:var(--fs-lg);font-weight:900;color:var(--text);line-height:1.15;}
@@ -10565,8 +10575,18 @@ function gsSaisonMonate(txt) {
   return out.length ? out : null;
 }
 
-// Bluehen die ueberhaupt? Pilze, Moose, Flechten und Algen nicht.
-var GS_BLUEHT_NICHT = { pilz: 1, moos: 1, flechte: 1, alge: 1 };
+// Bluehen die ueberhaupt — und heisst `season` bei ihnen wirklich Bluetezeit?
+//
+// v31.86 nachgeschaerft. Der erste Anlauf schloss nur Pilze, Moose, Flechten
+// und Algen aus (die bluehen gar nicht). Beim Bau der „Jetzt dran"-Leiste
+// stand dann da: „Bluht im September: … Monstera, Fleischtomate". Beides
+// falsch, und zwar aus demselben Grund wie bei den Pilzen: `season` heisst
+// SAISON. Bei Wildpflanzen, Kraeutern und Baeumen faellt das mit der Bluete
+// zusammen; bei einer Zimmerpflanze steht dort die Verfuegbarkeit, bei
+// Gemuese die ERNTE. Eine Tomate im September bluet nicht, sie ist reif.
+//
+// Also: nur die drei Kategorien, bei denen die Angabe traegt.
+var GS_BLUEHT_NICHT = { pilz: 1, moos: 1, flechte: 1, alge: 1, hauspflanze: 1, gemuese: 1 };
 function gsBlueht(s) { return !!(s && s.cat && !GS_BLUEHT_NICHT[String(s.cat).toLowerCase()]); }
 
 window.gsSaisonMonate = gsSaisonMonate;
@@ -65893,8 +65913,127 @@ function calcHarvestDate(planting, weather) {
 }
 
 // ── Garden Render ──────────────────────────────────────────
+
+// ── v31.86 · „Jetzt dran" — was die App laengst weiss ────────────────────
+//
+// Fernando: „Checke ab was vernetzt/verdrahtet werden kann und die App noch
+// intelligenter zu machen. Sie soll selbstständig intelligent sein."
+//
+// Zwei Verbindungen, die es nicht gab, obwohl beide Seiten seit Langem da
+// sind:
+//
+//   Saatgut-Inventar  +  Aussaatkalender  →  „das kannst du jetzt säen"
+//   deine Arten       +  Saison-Angaben   →  „das blüht bei dir gerade"
+//
+// Beides rechnet lokal. Kein Netz, keine KI, keine neue Datenquelle — nur
+// zwei Listen, die bisher nebeneinander lagen.
+
+// Welches Saatgut kann JETZT ausgesaet werden? Abgeglichen gegen
+// GS_SAE_DB (39 Kulturen mit Vorkultur-, Auspflanz- und Erntemonaten).
+// Was sich nicht zuordnen laesst, faellt weg — eine erfundene Aussaatzeit
+// waere schlimmer als keine.
+function gsSaatgutJetzt() {
+  try {
+    var lager = JSON.parse(localStorage.getItem('gs_seed_inventory') || '[]');
+    if (!Array.isArray(lager) || !lager.length) return null;
+    if (typeof GS_SAE_DB === 'undefined' || !Array.isArray(GS_SAE_DB)) return null;
+    var m = new Date().getMonth() + 1;
+    var heute = new Date();
+    var drinnen = [], draussen = [], abgelaufen = [];
+    lager.forEach(function (e) {
+      var n = _gsNorm(e && e.name);
+      if (!n) return;
+      var w = n.split(' ')[0];
+      var k = null;
+      for (var i = 0; i < GS_SAE_DB.length; i++) {
+        var c = _gsNorm(GS_SAE_DB[i].n);
+        if (c === n || c === w || c.indexOf(w) === 0 || n.indexOf(c) === 0) { k = GS_SAE_DB[i]; break; }
+      }
+      var exp = _gsPD(e && e.expires);
+      if (exp && exp < heute) { abgelaufen.push(e.name); return; }   // abgelaufenes Saatgut nicht empfehlen
+      if (!k) return;
+      if (Array.isArray(k.indoor)  && k.indoor.indexOf(m)  >= 0) drinnen.push({ name: e.name, kultur: k.n, emoji: k.e });
+      else if (Array.isArray(k.outdoor) && k.outdoor.indexOf(m) >= 0) draussen.push({ name: e.name, kultur: k.n, emoji: k.e });
+    });
+    if (!drinnen.length && !draussen.length && !abgelaufen.length) return null;
+    return { monat: m, drinnen: drinnen, draussen: draussen, abgelaufen: abgelaufen, lager: lager.length };
+  } catch (_) { return null; }
+}
+window.gsSaatgutJetzt = gsSaatgutJetzt;
+
+// Welche DEINER Arten bluehen in diesem Monat? Nutzt dieselben Helfer wie
+// der Bluehkalender — eine zweite Zuordnungslogik waere die naechste
+// Doppelpflege.
+function gsBluehtJetzt() {
+  try {
+    if (typeof _gsBlMeineArten !== 'function' || typeof gsSaisonMonate !== 'function') return null;
+    var m = new Date().getMonth();
+    var alle = _gsBlMeineArten();
+    if (!alle || !alle.length) return null;
+    var jetzt = alle.filter(function (x) {
+      if (!gsBlueht(x.art)) return false;
+      var mm = gsSaisonMonate(x.art.season);
+      return !!mm && mm.indexOf(m) >= 0;
+    });
+    if (!jetzt.length) return null;
+    return { monat: m, arten: jetzt.map(function (x) { return { name: x.art.name, id: x.art.id }; }), gesamt: alle.length };
+  } catch (_) { return null; }
+}
+window.gsBluehtJetzt = gsBluehtJetzt;
+
+// Die Leiste. Zeigt sich nur, wenn es etwas zu sagen gibt — eine Kachel,
+// die „nichts" meldet, ist Platz ohne Aussage.
+window.gsJetztDranRender = function () {
+  try {
+    var host = document.getElementById('gs-jetzt-dran');
+    if (!host) return;
+    var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function (x) { return String(x == null ? '' : x); };
+    var mon = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+    var zeilen = [];
+
+    var s = gsSaatgutJetzt();
+    if (s) {
+      if (s.drinnen.length) {
+        zeilen.push({ icon: '🌱', txt: '<b>Jetzt vorziehen:</b> ' +
+          esc(s.drinnen.slice(0, 4).map(function (x) { return x.kultur; }).join(', ')) +
+          (s.drinnen.length > 4 ? ' und ' + (s.drinnen.length - 4) + ' weitere' : '') +
+          ' — Saatgut hast du.', tap: 'gsOpenSeedInventory' });
+      }
+      if (s.draussen.length) {
+        zeilen.push({ icon: '🌤️', txt: '<b>Jetzt ins Beet:</b> ' +
+          esc(s.draussen.slice(0, 4).map(function (x) { return x.kultur; }).join(', ')) +
+          (s.draussen.length > 4 ? ' und ' + (s.draussen.length - 4) + ' weitere' : '') +
+          ' — Saatgut hast du.', tap: 'gsOpenSeedInventory' });
+      }
+      if (s.abgelaufen.length) {
+        zeilen.push({ icon: '⚠️', txt: '<b>Abgelaufen:</b> ' + esc(s.abgelaufen.slice(0, 3).join(', ')) +
+          (s.abgelaufen.length > 3 ? ' und ' + (s.abgelaufen.length - 3) + ' weitere' : '') +
+          ' — Keimfähigkeit prüfen oder ersetzen.', tap: 'gsOpenSeedInventory' });
+      }
+    }
+
+    var b = gsBluehtJetzt();
+    if (b) {
+      zeilen.push({ icon: '🌻', txt: '<b>Blüht im ' + mon[b.monat] + ':</b> ' +
+        esc(b.arten.slice(0, 4).map(function (x) { return x.name; }).join(', ')) +
+        (b.arten.length > 4 ? ' und ' + (b.arten.length - 4) + ' weitere' : '') +
+        ' — aus deinen erfassten Arten.', tap: 'openBluehkalender' });
+    }
+
+    if (!zeilen.length) { host.innerHTML = ''; return; }
+    host.innerHTML = '<div class="gs-jd">' + zeilen.map(function (z) {
+      return '<button type="button" class="gs-jd-z" onclick="if(typeof ' + z.tap + '===\'function\')' + z.tap + '()">' +
+               '<span class="gs-jd-i" aria-hidden="true">' + z.icon + '</span>' +
+               '<span class="gs-jd-t">' + z.txt + '</span>' +
+               '<span class="gs-jd-p" aria-hidden="true">›</span>' +
+             '</button>';
+    }).join('') + '</div>';
+  } catch (_) {}
+};
+
 async function renderGarden() {
   initDefaultGarden();
+  try { if (typeof gsJetztDranRender === 'function') gsJetztDranRender(); } catch (_) {}
   // v26.90: Sub-Tab-Badge-Counts (🌳 Garten) mitziehen
   try { if (typeof gsFavsUpdateSubCounts === 'function') gsFavsUpdateSubCounts(); } catch(_){}
   const list = document.getElementById('garden-list');
@@ -67926,6 +68065,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.86', date: '02.09.2026',
+    headline: '\ud83c\udf31 „Jetzt dran" \u2014 dein Saatgut wei\u00df, wann es Zeit ist',
+    summary: 'Zwei Verbindungen, die es nicht gab, obwohl beide Seiten seit Langem da sind: dein Saatgut-Inventar und der Aussaatkalender, deine erfassten Arten und ihre Bl\u00fctezeiten. In „Mein Garten" steht jetzt, was diesen Monat dran ist.',
+    user_summary: '\ud83c\udf31 „Mein Garten" sagt dir jetzt, welches Saatgut du gerade s\u00e4en kannst \u2014 und was von deinen Arten bl\u00fcht.',
+    user_items: [
+      {emoji:'\ud83c\udf31', bold:'Dein Saatgut trifft den Kalender:', text:' Die App wusste, was in deiner Schublade liegt, und sie wusste, wann welche Kultur ges\u00e4t wird \u2014 nur nie beides zusammen. Jetzt steht in „Mein Garten": „Jetzt vorziehen: …" oder „Jetzt ins Beet: … \u2014 Saatgut hast du." Abgelaufenes wird nicht empfohlen, sondern gemeldet.'},
+      {emoji:'\ud83c\udf3b', bold:'Und was bei dir bl\u00fcht:', text:' Aus deinen erfassten Arten, mit den gepr\u00fcften Saison-Angaben. Wer nichts erfasst hat, sieht die Zeile gar nicht \u2014 eine Kachel, die „nichts" meldet, ist Platz ohne Aussage.'},
+      {emoji:'\ud83c\udf45', bold:'Eine Korrektur beim Bauen:', text:' Der erste Anlauf schrieb „Bl\u00fcht im September: Monstera, Fleischtomate". Beides falsch, und aus demselben Grund wie bei den Pilzen: das Datenfeld hei\u00dft SAISON. Bei Wildpflanzen und Kr\u00e4utern ist das die Bl\u00fcte, bei Gem\u00fcse die ERNTE, bei Zimmerpflanzen die Verf\u00fcgbarkeit. Eine Tomate im September bl\u00fcht nicht, sie ist reif. Gilt jetzt auch im Bl\u00fchkalender.'},
+    ],
+  },
+  {
     v: 'v31.85', date: '02.09.2026',
     headline: '\ud83d\udcbe Ein Pr\u00fcfstand, der jeden Speicherweg wirklich zu Ende f\u00e4hrt',
     summary: 'Die teuersten Fehler dieses Meilensteins lagen alle beim Speichern: Gartenmasse wurden nie geschrieben, der Garten-Zwilling meldete Erfolg ohne zu speichern, der Plan ebenso. Jetzt f\u00e4hrt ein Werkzeug sieben Wege zu Ende \u2014 Formular f\u00fcllen, speichern, zur\u00fccklesen, vergleichen.',
@@ -68370,7 +68520,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.85';
+var GS_VERSION = 'v31.86';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

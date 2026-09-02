@@ -4,13 +4,48 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.85` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.86` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (bx) — v31.86: „Jetzt dran" — dein Saatgut weiss, wann es Zeit ist
+
+Zwei Verbindungen, die es nicht gab, obwohl **beide Seiten seit Langem da sind**:
+
+| hat die App | hat die App auch | fehlte |
+|---|---|---|
+| `gs_seed_inventory` — was in deiner Schublade liegt | `GS_SAE_DB` — 39 Kulturen mit Vorkultur-, Auspflanz- und Erntemonaten | „das kannst du jetzt säen" |
+| deine erfassten Arten (`_gsBlMeineArten`) | die geprüften Saison-Angaben | „das blüht bei dir gerade" |
+
+Beides rechnet lokal. Kein Netz, keine KI, keine neue Datenquelle — nur zwei Listen, die nebeneinander lagen.
+
+#### Was jetzt in „Mein Garten" steht
+
+> 🌤️ **Jetzt ins Beet:** Feldsalat — Saatgut hast du.
+> ⚠️ **Abgelaufen:** Tomate Ochsenherz — Keimfähigkeit prüfen oder ersetzen.
+> 🌻 **Blüht im September:** Schafgarbe, Löwenzahn, Basilikum — aus deinen erfassten Arten.
+
+Jede Zeile führt an ihren Ort (Saatgut-Inventar bzw. Blühkalender). **Abgelaufenes Saatgut wird nicht empfohlen**, sondern gemeldet. Was sich keiner Kultur zuordnen lässt („Etwas Unbekanntes"), fällt weg — eine erfundene Aussaatzeit wäre schlimmer als keine. Und wenn es nichts zu sagen gibt, ist die Leiste **gar nicht da**: eine Kachel, die „nichts" meldet, ist Platz ohne Aussage.
+
+#### Die Korrektur, die der Testlauf erzwungen hat
+
+Der erste Anlauf schrieb: *„Blüht im September: Schafgarbe, Löwenzahn, Basilikum, **Monstera, Fleischtomate**"*.
+
+Beides falsch — und aus **demselben Grund wie bei den Pilzen in v31.78**: das Feld heisst `season`, nicht `bloom`. Bei Wildpflanzen, Kräutern und Bäumen fällt Saison mit Blüte zusammen; bei Gemüse steht dort die **Ernte**, bei Zimmerpflanzen die Verfügbarkeit. Eine Tomate im September blüht nicht, sie ist reif.
+
+`GS_BLUEHT_NICHT` schliesst jetzt auch `hauspflanze` und `gemuese` aus — **und das gilt auch im Blühkalender**, wo die Junizahl dadurch von 1'395 auf 1'130 sinkt. Weniger Einträge, aber keine falschen mehr.
+
+Dass ich denselben Fehler zweimal in vier Tagen gemacht habe, ist der eigentliche Hinweis: **ein Feldname, der etwas anderes bedeutet als er suggeriert, wird immer wieder falsch gelesen.** Deshalb steht die Begründung jetzt direkt an der Tabelle, nicht nur im Log.
+
+#### Prüfstände
+
+`render_check` 2872 · 0 JS-Fehler · 0 verdächtig · `contrast_check` 0/0 · `touch_check` 0 · `save_check` 7/7 · `data_check` 0 · `wiring_check` 0/0/0 + 31 Ziele.
+
+---
 
 ### 2026-09-02 (bw) — v31.85: neuer Prüfstand `save_check.js` — kommt an, was gespeichert wird?
 
