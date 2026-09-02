@@ -4,13 +4,86 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.21` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.22` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (dl) — v32.22: v31.04 war nur die halbe Reparatur
+
+Der Speicher-Audit von gestern (dk) endete mit einem offenen Punkt: IndexedDB
+überlebt das Abmelden vollständig. Nachgesehen, was das konkret heisst — und
+es ist derselbe Fehler, den **v31.04 im `localStorage` schon einmal behoben
+hat**, an der anderen Ablage:
+
+> `gs_sync_queue` überlebte den Logout. Die `user_id` wird aber erst **beim
+> Flush** eingesetzt — ungesendete Vorgänge von Nutzer A landeten im Konto
+> von Nutzer B.
+
+In IndexedDB stand er weiter, und dort geht es um mehr als eine Zeile:
+
+| Ablage | Was passierte |
+|---|---|
+| `pending_scans` · `pending_diary` · `pending_sync` | `gsScanPersistToCloud` schreibt für den, der **gerade** angemeldet ist. A scannt offline, B meldet sich an — der Scan wird B gutgeschrieben. |
+| `pending_photos` | `gsUploadImage` lädt in den Bucket des Angemeldeten. As Foto landet in Bs Speicher und auf Bs Kontingent. |
+| `dropped_entries` | Der Archiv-Export gab As gekürzte Tagebuch-Einträge an jeden weiter, der danach am Gerät sass. |
+
+#### Warum nicht „beim Abmelden wegwerfen"
+
+Das wäre die schnelle Antwort und die falsche: dann verliert A seine offline
+gemachte Arbeit **in dem Moment, in dem er sich abmeldet** — genau die Arbeit,
+für die die Warteschlange existiert.
+
+Stattdessen trägt jeder Eintrag seit v32.22 die `uid` seines Einreichers
+(`gsQueueOffline` · `gsQueuePhoto` · `gsArchiveDropped`). Der Flush
+**überspringt** fremde Sätze, statt sie zu löschen. Kommt A zurück, gehen sie
+raus — nachgemessen, siehe unten.
+
+- Sätze **ohne** `uid` stammen aus einer Version vor v32.22 und gelten als
+  eigene. Die Alternative wäre, sie zu verwerfen — das hiesse, beim Update
+  jede bestehende Warteschlange lautlos zu leeren. Das Fenster ist begrenzt
+  und schliesst sich mit dem ersten Einreihen.
+- Damit Fremdes nicht ewig mitwandert: **90-Tage-Deckel** (`_gsRaeumeFremde`),
+  bei jedem Flush. Ohne ihn hält ein einmal benutztes Gerät base64-Fotos eines
+  Kontos fest, das nie wiederkommt.
+- `gsFlushOfflineQueue` braucht jetzt eine **Anmeldung**. Ohne sie konnte er
+  nichts übertragen, setzte im generischen Zweig aber `ok = true` und löschte
+  die Sätze.
+
+#### Zwei Nebenfunde derselben Stelle
+
+- **`gsCountOfflineQueue` zählte über alle fünf Ablagen** — also auch über
+  `dropped_entries`. Das Archiv wartet auf gar nichts und wird nie kleiner.
+  Wer einmal 3'000 gekürzte Einträge archiviert hatte, sah dauerhaft
+  „3'000 wartend" im Offline-Banner. Zählt jetzt `SYNC_STORES` +
+  `pending_photos`, und nur das eigene.
+- **`gsArchiveCount` / `gsArchiveExport` zeigten beide Konten.** Filtern jetzt
+  über `_gsArchivEigene()`.
+
+#### Prüfstand: `offline_check` 10 → 13 Fragen
+
+Jede der drei neuen Fragen wird **zweimal gefahren** — einmal als der Fremde
+(nichts darf passieren) und einmal als der Eigentümer (es MUSS passieren).
+Nur die zweite Hälfte unterscheidet „schützt richtig" von „tut gar nichts
+mehr".
+
+**Gegenprobe gemacht:** die beiden Eigentums-Zeilen aus `index.html` entfernt
+→ der Prüfstand meldete sofort *„B hat den Scan von A ins eigene Konto
+geschrieben"* und *„B hat das Foto von A in den eigenen Bucket geladen"*.
+
+**Und eine Lehre über diesen Fall hinaus:** die drei neuen Fragen liessen die
+bestehenden Fragen 6, 8 und 9 rot werden — der Prüfstand stellte „angemeldet"
+bisher nur mit einem Token her, und Eigentum braucht eine `uid`. Ein Prüfstand,
+der einen Zustand nur halb herstellt, prüft ab dem Moment etwas anderes, als
+er behauptet. Der erste Anlauf der Zähler-Frage erwartete ausserdem eine feste
+Zahl (2 archivierte) und mass 4, weil Frage 8 als derselbe Nutzer schon
+archiviert hatte — **ein Fall misst seine eigene Grundlinie, statt eine Zahl
+zu erwarten, die eine andere Frage mitbestimmt.**
+
+---
 
 ### 2026-09-02 (dk) — v32.21: 130 Speicherplätze überlebten das Abmelden, 123 hatte niemand entschieden
 
@@ -6733,7 +6806,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.21` (Client) · SW-Cache `gs-v32.21` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.22` (Client) · SW-Cache `gs-v32.22` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **88'431 Zeilen / 5,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.
@@ -6768,7 +6841,6 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | `book-ingest` ohne Spiegel | Dokumentiert statt gespiegelt (~250 dichte Zeilen). `backend_check` nennt es bei jedem Lauf. (df) |
 | `feedback_analysis` = 0 Zeilen | „Nie gedrückt" und „bricht immer ab" sind von hier aus nicht zu unterscheiden. Ein Knopfdruck im Admin-Panel klärt es. (df) |
 | Kaltstart 3,3 s (Einsteiger-Telefon) | Untersucht, kein lohnender Angriffspunkt für Teil-Auslagerung. Bräuchte einen echten Aufteilungsschritt. (dj) |
-| **IndexedDB und Cache-API überleben das Abmelden** | `storage_check` prüft den `localStorage` vollständig — ein Foto in `pending_photos` und ein Eintrag in `dropped_entries` bleiben weiterhin liegen. Nächste Frage, nicht diese. (dk) |
 | 3 Verzeichnisse im Repo ohne Auslieferung | `daily-push`, `entitlements`, `push-test` — nie deployed oder entfernt? (df) |
 | 4 Treffer in `field_check` | `tp-len`/`tp-wid`/`tp-soil`/`tp-light` — zusammengesetzte Namen, funktionieren. Dauerhafte Falschmeldung, in `CLAUDE.md` §7.1 benannt. |
 

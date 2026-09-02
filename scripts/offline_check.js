@@ -244,6 +244,12 @@ function server(wunschPort) {
     // dann MUSS sein Eintrag verschwinden — das ist die Gegenprobe dazu, dass
     // der Flush ueberhaupt noch etwas tut.
     window.gsScanPersistToCloud = async () => true;
+    // v32.22: Seit die Warteschlange nach dem EIGENTUEMER fragt, ist
+    // „angemeldet" nicht mehr nur ein Token — es braucht eine uid. Der
+    // Prüfstand stellt deshalb beides her, sonst prüft er einen Flush, der
+    // gleich in der ersten Zeile aussteigt.
+    localStorage.setItem('gs_sb_uid', 'nutzer-A');
+    window.sbIsLoggedIn = () => true;
 
     const ref = await window.gsQueuePhoto('scans', 'AAAA', { kind: 'find', ref: 'test-1' });
     const arch = await window.gsArchiveDropped('gs_gartentagebuch', [{ a: 1 }, { a: 2 }]);
@@ -295,6 +301,7 @@ function server(wunschPort) {
       rq.onerror = () => fertig(-1);
     });
     const hoch = [];
+    localStorage.setItem('gs_sb_uid', 'nutzer-A');
     window.sbIsLoggedIn = () => true;
     window.gsUploadImage = async (b64, bucket, ext, key) => { hoch.push(bucket + '/' + key); return 'https://x/' + key + '.jpg'; };
     const vor = await zaehle();
@@ -351,8 +358,100 @@ function server(wunschPort) {
              : deckel.geholt + ' Kacheln geholt, ' + deckel.drin + ' liegen im Cache (erlaubt bis ' +
                deckel.obergrenze + ') — der Deckel greift nicht; auf einer Wanderung wächst er ungebremst'));
 
+  // ── 11-13 · Wem gehört ein Eintrag in der Warteschlange? ─────────────
+  //
+  // v31.04 hat genau diesen Fehler im localStorage behoben: `gs_sync_queue`
+  // überlebte den Logout, die `user_id` wird aber erst BEIM FLUSH eingesetzt —
+  // ungesendete Vorgänge von Nutzer A landeten im Konto von Nutzer B. In
+  // IndexedDB stand er weiter, und dort geht es um Scans und um Fotos.
+  //
+  // Jeder Fall wird ZWEIMAL gefahren: einmal als der Fremde (nichts darf
+  // passieren) und einmal als der Eigentümer (es MUSS passieren). Nur die
+  // zweite Hälfte unterscheidet „schützt richtig" von „tut gar nichts mehr" —
+  // dieselbe Lehre wie beim Doppelspeicher-Fall in v32.13.
+  const { s: s6 } = await server(port);
+  const eig = await p.evaluate(async () => {
+    const zaehle = (store) => new Promise((fertig) => {
+      const rq = indexedDB.open('gs_offline', 3);
+      rq.onsuccess = () => {
+        try {
+          const c = rq.result.transaction(store, 'readonly').objectStore(store).count();
+          c.onsuccess = () => fertig(c.result); c.onerror = () => fertig(-1);
+        } catch (e) { fertig(-1); }
+      };
+      rq.onerror = () => fertig(-1);
+    });
+    const alsWer = (uid) => { localStorage.setItem('gs_sb_uid', uid); };
+    const hoch = [];
+    const gesendet = [];
+    window.sbIsLoggedIn = () => true;
+    window.gsUploadImage = async (b64, bucket, ext, key) => { hoch.push(bucket + '/' + key); return 'https://x/' + key + '.jpg'; };
+    window.gsScanPersistToCloud = async (d) => { gesendet.push(d && d.name); return true; };
+
+    // A reiht ein: ein Scan, ein Foto, zwei Archiv-Einträge
+    alsWer('nutzer-A');
+    // Eigene Grundlinie messen: Fall 8 hat als A bereits archiviert. Ein Fall,
+    // der eine feste Zahl erwartet, geht bei der nächsten Erweiterung kaputt,
+    // ohne dass irgendetwas am Code falsch wäre.
+    const archivVor = await window.gsArchiveCount();
+    await window.gsQueueOffline('scan', { name: 'Bärlauch von A' });
+    await window.gsQueuePhoto('scans', 'AAAA', { kind: 'find', ref: 'a-1' });
+    await window.gsArchiveDropped('gs_gartentagebuch', [{ a: 1 }, { a: 2 }]);
+    const nachA = { scans: await zaehle('pending_scans'), fotos: await zaehle('pending_photos') };
+    const zaehlerA = await window.gsCountOfflineQueue();
+    const archivA = await window.gsArchiveCount();
+
+    // B meldet sich an und flusht: nichts von A darf rausgehen — und nichts
+    // von A darf verschwinden.
+    alsWer('nutzer-B');
+    await window.gsFlushOfflineQueue();
+    await window.gsFlushPhotoQueue();
+    await new Promise(r => setTimeout(r, 500));
+    const alsB = {
+      scans: await zaehle('pending_scans'), fotos: await zaehle('pending_photos'),
+      gesendet: gesendet.length, hoch: hoch.length,
+      zaehler: await window.gsCountOfflineQueue(), archiv: await window.gsArchiveCount(),
+    };
+
+    // A kommt zurück: jetzt MUSS beides rausgehen.
+    alsWer('nutzer-A');
+    await window.gsFlushOfflineQueue();
+    await window.gsFlushPhotoQueue();
+    await new Promise(r => setTimeout(r, 500));
+    const zurueck = {
+      scans: await zaehle('pending_scans'), fotos: await zaehle('pending_photos'),
+      gesendet: gesendet.length, hoch: hoch.length, archiv: await window.gsArchiveCount(),
+    };
+    return { nachA, zaehlerA, archivVor, archivA, alsB, zurueck };
+  });
+  s6.close();
+
+  const scanOwn = eig.nachA.scans >= 1 && eig.alsB.scans === eig.nachA.scans && eig.alsB.gesendet === 0
+                  && eig.zurueck.gesendet >= 1 && eig.zurueck.scans === 0;
+  melde('Ein offline eingereihter Scan geht nur an das Konto, das ihn gemacht hat', scanOwn,
+        scanOwn ? 'als B: 0 gesendet, ' + eig.alsB.scans + ' liegen geblieben · als A: ' + eig.zurueck.gesendet + ' gesendet, 0 übrig'
+          : (eig.nachA.scans < 1 ? 'nichts eingereiht — dann prüft dieser Fall nichts'
+             : (eig.alsB.gesendet ? 'B hat den Scan von A ins eigene Konto geschrieben'
+                : (eig.alsB.scans < eig.nachA.scans ? 'B hat den Scan von A gelöscht statt liegen zu lassen'
+                   : 'A bekam den eigenen Scan nicht mehr raus (' + eig.zurueck.scans + ' übrig)'))));
+
+  const fotoOwn = eig.nachA.fotos >= 1 && eig.alsB.fotos === eig.nachA.fotos && eig.alsB.hoch === 0
+                  && eig.zurueck.hoch >= 1 && eig.zurueck.fotos === 0;
+  melde('Ein offline eingereihtes Foto landet nicht im Speicher des nächsten Nutzers', fotoOwn,
+        fotoOwn ? 'als B: 0 Uploads, ' + eig.alsB.fotos + ' liegen geblieben · als A: ' + eig.zurueck.hoch + ' hochgeladen, 0 übrig'
+          : (eig.nachA.fotos < 1 ? 'kein Foto eingereiht — dann prüft dieser Fall nichts'
+             : (eig.alsB.hoch ? 'B hat das Foto von A in den eigenen Bucket geladen'
+                : 'A bekam das eigene Foto nicht mehr raus (' + eig.zurueck.fotos + ' übrig)')));
+
+  const neuArchiviert = eig.archivA - eig.archivVor;
+  const zOk = eig.zaehlerA === 2 && eig.alsB.zaehler === 0 && neuArchiviert === 2 && eig.alsB.archiv === 0;
+  melde('Zähler und Archiv zeigen nur das eigene — und nur was wirklich wartet', zOk,
+        zOk ? 'A: 2 wartend (Scan + Foto, Archiv zählt nicht mit), +2 archiviert · B: 0 und 0'
+          : 'A meldet ' + eig.zaehlerA + ' wartend (erwartet 2) und +' + neuArchiviert + ' archiviert (erwartet +2); '
+            + 'B meldet ' + eig.alsB.zaehler + ' und ' + eig.alsB.archiv + ' (erwartet 0 und 0)');
+
   console.log('  ---');
-  console.log('  Fragen geprueft: 10 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 13 · davon rot: ' + kaputt);
   console.log('  JS-Fehler im Offline-Start: ' + (fehler.length ? fehler.length + ' (' + fehler.slice(0, 2).join(' | ') + ')' : 'keine'));
   await br.close();
   process.exitCode = (kaputt || fehler.length) ? 1 : 0;

@@ -803,6 +803,39 @@ Und die Regel dahinter, die ueber IndexedDB hinausgeht: **eine Schleife ueber
 jemand eine Ablage dazulegt, die anders funktioniert — und dann faellt es
 niemandem auf, weil Loeschen keine Fehlermeldung erzeugt.
 
+**Seit v32.22 prueft er auch das EIGENTUM an den Warteschlangen.** v31.04 hat
+diesen Fehler im `localStorage` schon einmal behoben — `gs_sync_queue`
+ueberlebte den Logout, die `user_id` wird aber erst BEIM FLUSH eingesetzt, also
+landeten ungesendete Vorgaenge von Nutzer A im Konto von Nutzer B. **In
+IndexedDB stand er weiter**, und dort geht es um Scans, Fotos und das Archiv:
+`gsScanPersistToCloud` schreibt fuer den gerade Angemeldeten, `gsUploadImage`
+laedt in dessen Bucket.
+
+Seit v32.22 traegt jeder Satz die `uid` seines Einreichers
+(`gsQueueOffline` · `gsQueuePhoto` · `gsArchiveDropped`), und der Flush
+**ueberspringt** Fremdes statt es zu loeschen. Wer eine neue Ablage anlegt,
+stempelt sie ebenso.
+
+Drei Regeln daraus, alle allgemein:
+
+- **„Beim Abmelden wegwerfen" ist die schnelle und die falsche Antwort.** Dann
+  verliert A seine offline gemachte Arbeit in genau dem Moment, in dem er sich
+  abmeldet — die Arbeit, fuer die die Warteschlange existiert. Ueberspringen
+  statt loeschen, und ein Deckel (90 Tage) fuer das, was nie abgeholt wird.
+- **Ein Pruefstand, der einen Zustand nur halb herstellt, prueft ab dem Moment
+  etwas anderes, als er behauptet.** Die drei neuen Fragen liessen die
+  bestehenden 6, 8 und 9 rot werden: „angemeldet" war dort nur ein Token, und
+  Eigentum braucht eine `uid`.
+- **Ein Fall misst seine eigene Grundlinie.** Die Zaehler-Frage erwartete eine
+  feste Zahl (2 archivierte) und mass 4, weil eine fruehere Frage als
+  derselbe Nutzer schon archiviert hatte. Feste Zahlen, die eine andere Frage
+  mitbestimmt, gehen bei der naechsten Erweiterung kaputt, ohne dass am Code
+  etwas falsch waere.
+
+**Gegenprobe gemacht:** die zwei Eigentums-Zeilen aus `index.html` entfernt →
+der Pruefstand meldete sofort „B hat den Scan von A ins eigene Konto
+geschrieben" und „B hat das Foto von A in den eigenen Bucket geladen".
+
 **Seit v32.15 prueft er auch den BILD-CACHE.** Regel 4 des Service Workers
 legt jedes Bild ab — Kartenkacheln eingeschlossen (swisstopo steht auf keiner
 Ausnahmeliste, OpenStreetMap schon). Eine Obergrenze gab es nicht; geleert
@@ -1046,10 +1079,11 @@ Drei Dinge aus dem Bau, die allgemein gelten:
   nichts heraus, statt zu loeschen — und der User-Wechsel-Zweig raeumt auf,
   sobald wirklich jemand anderes kommt.
 
-**Grenze, ehrlich benannt:** geprueft wird der `localStorage`. IndexedDB
-(`pending_scans`, `pending_photos`, `dropped_entries`) und die Cache-API
-prueft er **nicht** — ein Foto in der Warteschlange ueberlebt das Abmelden
-weiterhin.
+**Grenze, ehrlich benannt:** geprueft wird der `localStorage`. IndexedDB und
+die Cache-API prueft er **nicht** — dafuer ist `offline_check` zustaendig
+(seit v32.22 mit den Eigentums-Fragen, siehe unten). Ein Foto in der
+Warteschlange ueberlebt das Abmelden weiterhin; es geht seither aber nur noch
+an das Konto, das es aufgenommen hat.
 
 **Seit v31.78 misst `contrast_check` in ZWEI Fenstern** — KI-Planer und
 Blühkalender — und der Bericht nennt **je Fenster die Zahl der vermessenen
