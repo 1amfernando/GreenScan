@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.88.20260902">
+<meta name="app-version" content="31.89.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2216,6 +2216,58 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
        v26.11 Note: kein defer — Inline-Scripts Z.14082 erwarten window.DB
        synchron. Bei spaeter Migration auf async-DB-Load: gsLoadDB() Helper bauen. -->
   <script src="data/plants.v1.js?v=1"></script>
+<script>
+// ══════════════════════════════════════════════════════════════════════════
+// v31.89 — EIN WIDERSPRUCH AUF DERSELBEN KARTE
+// ══════════════════════════════════════════════════════════════════════════
+//
+// Gefunden beim Ausmessen der Arten-Luecken. 1'408 Eintraege der Arten-DB
+// tragen im Feld `uses` denselben Standardsatz — sie stammen erkennbar aus
+// der Buch-Einlese (bookRef „Schmeil/Fitschen", `desc` sind rohe
+// OCR-Fetzen):
+//
+//   „Wildpflanze der Schweizer Flora. Junge Blätter, Blüten oder Samen
+//    je nach Art VERWENDBAR. Vor Verzehr sicher bestimmen."
+//
+// Bei 25 davon steht im selben Datensatz `toxic: true, tox: 3`. Die
+// Gattungen: Geranium, Alisma, Ranunculus, Delphinium, **Aconitum**,
+// **Daphne**, **Oenanthe**, **Solanum**, **Datura**, **Digitalis**.
+//
+// Eisenhut, Rebendolde, Stechapfel, Fingerhut, Seidelbast — das sind die
+// gefaehrlichsten Pflanzen Mitteleuropas, und auf ihrer Karte stand unter
+// „Verwendung", junge Blaetter seien verwendbar. Das `warning`-Feld sagt
+// gleichzeitig „⚠️ Giftig — nicht essen." Zwei Aussagen, dieselbe Karte.
+//
+// Hier wird NICHTS botanisch entschieden: der Datensatz selbst stuft die
+// Art als giftig ein. Entfernt wird nur ein GENERISCHER Satz, der dieser
+// eigenen Einstufung widerspricht. Der Satz stand nie da, weil jemand diese
+// Art geprueft haette — er stand auf 1'408 Eintraeggen gleichzeitig.
+//
+// Das laeuft bei jedem Start, direkt nach dem Laden der DB. Damit ist die
+// Korrektur unabhaengig davon, wann `data/plants.v1.js` selbst berichtigt
+// wird — und sie faengt denselben Fall wieder auf, falls eine kuenftige
+// Datenlieferung ihn erneut mitbringt.
+(function () {
+  try {
+    if (typeof window.DB === 'undefined' || !Array.isArray(window.DB)) return;
+    var SATZ = 'Junge Blätter, Blüten oder Samen je nach Art verwendbar';
+    var n = 0, namen = [];
+    window.DB.forEach(function (s) {
+      if (!s) return;
+      var giftig = (s.toxic === true) || (typeof s.tox === 'number' && s.tox >= 2);
+      if (!giftig) return;
+      if (String(s.uses || '').indexOf(SATZ) < 0) return;
+      s.uses = 'Keine Verwendung — dieser Eintrag ist als giftig eingestuft.';
+      s._uses_korrigiert = true;
+      n++; if (namen.length < 30) namen.push(s.name + ' (' + s.lat + ')');
+    });
+    window._gsGiftKorrektur = { anzahl: n, arten: namen };
+    if (n && typeof console !== 'undefined' && console.warn) {
+      console.warn('[GreenScan] ' + n + ' als giftig eingestufte Arten trugen den generischen „verwendbar"-Text im Feld uses. Korrigiert beim Laden. Siehe docs/ARTEN-LUECKEN.md.');
+    }
+  } catch (_) {}
+})();
+</script>
 <script>
 // ── v29.35 LOGIN-FLASH-GUARD (allererstes, VOR dem ersten Paint) ──────────
 // Bug: ohne eingeloggten Token paintete die App-Shell (#app/Home) kurz, BEVOR das
@@ -68173,6 +68225,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.89', date: '02.09.2026',
+    headline: '\u26a0\ufe0f Bei 25 giftigen Arten stand „verwendbar" auf derselben Karte wie „nicht essen"',
+    summary: 'Gefunden beim Ausmessen der Arten-L\u00fccken: 1408 Eintr\u00e4ge tragen denselben Standardsatz im Feld Verwendung. Bei 25 davon stuft der Datensatz die Art selbst als stark giftig ein \u2014 darunter Eisenhut, Rebendolde, Stechapfel, Fingerhut und Seidelbast.',
+    user_summary: '\u26a0\ufe0f Wichtig: Bei 25 giftigen Arten stand unter „Verwendung" ein Standardsatz, der zum Sammeln einlud. Behoben.',
+    user_items: [
+      {emoji:'\u26a0\ufe0f', bold:'Was los war:', text:' 1408 Eintr\u00e4ge aus der Bucheinlese tragen im Feld „Verwendung" denselben Satz: „Junge Bl\u00e4tter, Bl\u00fcten oder Samen je nach Art verwendbar." Bei 25 davon sagt derselbe Datensatz gleichzeitig „\u26a0\ufe0f Giftig \u2014 nicht essen." Betroffen sind Gattungen wie Eisenhut, Rebendolde, Stechapfel und Fingerhut \u2014 die gef\u00e4hrlichsten Pflanzen Mitteleuropas.'},
+      {emoji:'\u2705', bold:'Was jetzt gilt:', text:' Wo der Datensatz die Art selbst als giftig einstuft, steht dort „Keine Verwendung \u2014 dieser Eintrag ist als giftig eingestuft." Es wird nichts botanisch neu entschieden: entfernt wird nur ein allgemeiner Satz, der der eigenen Einstufung des Eintrags widerspricht.'},
+      {emoji:'\ud83d\udd0e', bold:'Und damit es nicht zur\u00fcckkommt:', text:' Der Pr\u00fcfstand meldet ab sofort jeden allgemeinen Text, der auf einer als giftig eingestuften Art eine Verwendung verspricht. Sorgf\u00e4ltig geschriebene Eintr\u00e4ge \u00fcber teilweise essbare Arten (Robinie, Tintling) werden dabei NICHT angeschw\u00e4rzt \u2014 der Unterschied ist messbar: ein Text auf 1400 Arten sagt \u00fcber keine einzelne etwas.'},
+      {emoji:'\ud83d\udcd0', bold:'Der ganze Befund:', text:' steht in docs/ARTEN-L\u00dcCKEN.md \u2014 samt der Erkenntnis, dass die Datenl\u00fccken nicht verteilt sind, sondern sich auf 1276 unbearbeitete Eintr\u00e4ge aus der Bucheinlese konzentrieren. Die gepflegten 3066 Arten sind zu 94\u2013100 % vollst\u00e4ndig.'},
+    ],
+  },
+  {
     v: 'v31.88', date: '02.09.2026',
     headline: '\ud83e\uddf1 Der Planer setzt nichts mehr auf den Weg',
     summary: 'Wer seinen Garten gescannt hat, hat Beete \u2014 und dazwischen Wege, Rasen, eine Terrasse. Der Platzierer kannte bisher nur EIN Rechteck: die ganze Fl\u00e4che. Jetzt respektiert er deine gescannten Beete.',
@@ -68650,7 +68714,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.88';
+var GS_VERSION = 'v31.89';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

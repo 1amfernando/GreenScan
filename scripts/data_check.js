@@ -148,7 +148,60 @@ const SPAEHER = () => {
     unbekannt: window.__gsUnbekannt, gelesen: window.__gsGelesen, schema: window.__gsSchema || { alle: {}, voll: {}, arten: 0 },
   }));
 
+  // ── v31.89: Widersprueche in den Sicherheitsangaben ──────────────────
+  //
+  // Gefunden beim Ausmessen der Arten-Luecken: 25 Eintraege mit
+  // `toxic:true, tox:3` trugen im Feld `uses` den Standardsatz „Junge
+  // Blätter, Blüten oder Samen je nach Art verwendbar" — darunter Aconitum,
+  // Oenanthe, Datura, Digitalis und Daphne. Auf derselben Karte stand
+  // gleichzeitig „⚠️ Giftig — nicht essen."
+  //
+  // Der Ladevorgang korrigiert das seit v31.89. Diese Pruefung sorgt dafuer,
+  // dass es nicht unbemerkt zurueckkommt — weder durch eine neue
+  // Datenlieferung noch durch ein Entfernen der Korrektur.
+  const widerspruch = await p.evaluate(() => {
+    if (typeof DB === 'undefined' || !Array.isArray(DB)) return null;
+    // Der erste Anlauf pruefte nur auf „essbar|verwendbar" — und meldete
+    // prompt den Knollenblaetterpilz, weil dort „NICHT essbar oder nur mit
+    // Fachkenntnis" steht. Ein Werkzeug, das die richtigen Eintraege
+    // anschwaerzt, wird weggeklickt. Also satzweise pruefen und alles
+    // verwerfen, was eine Verneinung enthaelt.
+    const einladend = /verwendbar|essbar|Salat|roh gegessen|schmeckt/i;
+    const verneint  = /\bnicht\b|\bkein|\bnie\b|\bunge|\bmeiden\b|\bgiftig\b|Fachkenntnis/i;
+    const wirbt = txt => String(txt || '').split(/[.;!?]+/).some(satz =>
+      einladend.test(satz) && !verneint.test(satz));
+    const giftig = s => s.toxic === true || (typeof s.tox === 'number' && s.tox >= 2);
+
+    // Zweiter Anlauf, und der entscheidende Unterschied: es blieben 16
+    // Treffer uebrig, die KEINE Fehler sind — Robinie (Blueten essbar,
+    // Rinde giftig), Tintling (essbar, aber nicht mit Alkohol),
+    // Natternkopf (Blueten im Salat). Das sind sorgfaeltig geschriebene
+    // Eintraege ueber teilweise essbare Arten, und ein Pruefstand, der
+    // sie jedes Mal anschwaerzt, wird weggeklickt.
+    //
+    // Der Unterschied zum echten Fehler ist messbar: der Fehler war ein
+    // IDENTISCHER Satz auf 1'408 Eintraegen. Ein Text, der auf vielen Arten
+    // gleichzeitig steht, kann ueber keine einzelne etwas aussagen — und
+    // darf deshalb auf einer als giftig eingestuften Art keine Verwendung
+    // versprechen. Genau das wird geprueft.
+    const haeufig = {};
+    DB.forEach(s => { const u = String(s.uses || '').trim(); if (u) haeufig[u] = (haeufig[u] || 0) + 1; });
+    const GENERISCH_AB = 50;
+    const treffer = DB.filter(s => giftig(s) && wirbt(s.uses) && (haeufig[String(s.uses || '').trim()] || 0) >= GENERISCH_AB)
+                      .map(s => s.name + ' (' + s.lat + ', tox=' + s.tox + ', Text steht auf ' +
+                                haeufig[String(s.uses || '').trim()] + ' Arten): ' + String(s.uses || '').slice(0, 55));
+    const einzeln = DB.filter(s => giftig(s) && wirbt(s.uses) && (haeufig[String(s.uses || '').trim()] || 0) < GENERISCH_AB).length;
+    return { gesamt: DB.length, giftig: DB.filter(giftig).length, treffer: treffer, einzeln: einzeln };
+  });
+
   console.log('\n=== data_check — Feldzugriffe auf die Arten-Datenbank');
+  if (widerspruch) {
+    console.log('  Als giftig eingestuft: ' + widerspruch.giftig + ' von ' + widerspruch.gesamt);
+    console.log('  DAVON mit GENERISCHEM Verwendungs-Versprechen: ' + widerspruch.treffer.length + (widerspruch.treffer.length ? '' : '  (gut)'));
+    widerspruch.treffer.slice(0, 12).forEach(t => console.log('    !! ' + t));
+    if (widerspruch.treffer.length > 12) console.log('    … und ' + (widerspruch.treffer.length - 12) + ' weitere');
+    console.log('  (' + widerspruch.einzeln + " einzeln geschriebene Texte ueber teilweise essbare Arten — kein Fehler)");
+  }
   console.log('  JS-Fehler beim Durchlauf: ' + (errs.length ? errs.length + ' (' + errs.slice(0,2).join(' | ') + ')' : 'keine'));
   const gel = Object.keys(gelesen).sort((a,b) => gelesen[b]-gelesen[a]);
   console.log('  gelesene Felder: ' + gel.length);
@@ -177,5 +230,5 @@ const SPAEHER = () => {
       ' (' + Math.round((schema.voll[k]||0)/schema.arten*100) + ' %), ' + gelesen[k] + '× gelesen'));
   }
   await br.close();
-  process.exitCode = nirgends.length ? 1 : 0;
+  process.exitCode = (nirgends.length || (widerspruch && widerspruch.treffer.length)) ? 1 : 0;
 })();
