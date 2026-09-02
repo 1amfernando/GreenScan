@@ -653,6 +653,122 @@ const FAELLE = [
       return { ok: true, info: 'Fehlschlag benannt, Unsicherheit bleibt, Wiederholung möglich' };
     },
   },
+  // ── v32.11 · Netz, Fokuszonen, Phasen, Enthüllung ────────────────────
+  {
+    name: 'Netz · Linien und Fokuszonen kommen aus dem echten Bild',
+    lauf: async () => {
+      const mach = zeichne => new Promise(res => {
+        const c = document.createElement('canvas'); c.width = 260; c.height = 260;
+        const g = c.getContext('2d');
+        g.fillStyle = '#4a3b2a'; g.fillRect(0, 0, 260, 260);
+        zeichne(g);
+        const im = new Image(); im.onload = () => res(im); im.src = c.toDataURL('image/jpeg', 0.92);
+      });
+      const blatt = await mach(g => {
+        g.fillStyle = '#3f9142';
+        g.beginPath(); g.ellipse(130, 118, 80, 48, -0.5, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = '#1d5c22'; g.lineWidth = 3;
+        g.beginPath(); g.moveTo(62, 172); g.lineTo(198, 66); g.stroke();
+        for (let i = 1; i < 7; i++) {
+          g.beginPath(); g.moveTo(62 + i * 20, 172 - i * 16); g.lineTo(62 + i * 20 + 18, 172 - i * 16 - 36); g.stroke();
+        }
+        g.strokeStyle = '#2c6b30'; g.lineWidth = 7;
+        g.beginPath(); g.moveTo(130, 166); g.lineTo(138, 248); g.stroke();
+      });
+      const leer = await mach(() => {});
+
+      const S = _gsScanStruktur(blatt, 160);
+      const L = _gsScanStruktur(leer, 160);
+      if (!S) return { ok: false, warum: 'keine Struktur am Blatt gefunden' };
+      if (L) return { ok: false, warum: 'findet Struktur auf einer leeren Fläche — das wäre erfunden' };
+      if (!S.kanten.length) return { ok: false, warum: 'Punkte ohne Verbindungen — kein Netz' };
+      if (S.kanten.length % 2) return { ok: false, warum: 'ungerade Kantenliste' };
+      // Jede Linie muss zwei echte Punkte verbinden, und nicht quer durchs Bild gehen.
+      let lang = 0;
+      for (let e = 0; e < S.kanten.length; e += 2) {
+        const a1 = S.kanten[e], b1 = S.kanten[e + 1];
+        if (a1 === b1) return { ok: false, warum: 'eine Linie verbindet einen Punkt mit sich selbst' };
+        if (!(a1 >= 0 && a1 < S.n && b1 >= 0 && b1 < S.n)) return { ok: false, warum: 'Linie zeigt auf einen Punkt, den es nicht gibt' };
+        const dx = S.px[a1] - S.px[b1], dy = S.py[a1] - S.py[b1];
+        if (Math.sqrt(dx * dx + dy * dy) > 0.056) lang++;
+      }
+      if (lang) return { ok: false, warum: lang + ' Linien länger als die Nachbarschaft — das Netz würde quer durchs Bild gehen' };
+      if (!S.fokus.length) return { ok: false, warum: 'keine Fokuszone berechnet' };
+      if (S.fokus.length > 4) return { ok: false, warum: S.fokus.length + ' Fokuszonen — zu viele, das wirkt wie ein Fehler' };
+      // Die Fokuszonen müssen dort liegen, wo das Blatt ist, nicht am Rand.
+      const drin = S.fokus.filter(f => f.x > 0.12 && f.x < 0.88 && f.y > 0.12 && f.y < 0.95).length;
+      if (drin !== S.fokus.length) return { ok: false, warum: 'Fokuszonen liegen am Bildrand statt auf der Pflanze' };
+      // Und sie dürfen nicht aufeinander liegen.
+      for (let i = 0; i < S.fokus.length; i++) for (let j = i + 1; j < S.fokus.length; j++) {
+        if (Math.abs(S.fokus[i].x - S.fokus[j].x) < 0.1 && Math.abs(S.fokus[i].y - S.fokus[j].y) < 0.1)
+          return { ok: false, warum: 'zwei Fokusringe liegen übereinander' };
+      }
+      return { ok: true, info: S.n + ' Knoten · ' + (S.kanten.length / 2) + ' Linien · ' + S.fokus.length + ' Fokuszonen · leere Fläche: nichts' };
+    },
+  },
+  {
+    name: 'Phasen · hängen am echten Ablauf, nicht an einem Timer',
+    lauf: async () => {
+      const c = document.createElement('canvas'); c.width = 160; c.height = 160;
+      const g = c.getContext('2d');
+      g.fillStyle = '#4a3b2a'; g.fillRect(0, 0, 160, 160);
+      g.fillStyle = '#3f9142'; g.beginPath(); g.ellipse(80, 74, 50, 30, -0.5, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#1d5c22'; g.lineWidth = 2; g.beginPath(); g.moveTo(38, 104); g.lineTo(122, 42); g.stroke();
+      const b64 = c.toDataURL('image/jpeg', 0.9).split(',')[1];
+
+      window.getApiConfig = () => ({ key: 'k' });
+      window.stopCamera = () => {}; window.gsScanStatusShow = () => {}; window.gsStopScanStatus = () => {};
+      window.gsScanPersistToCloud = () => Promise.resolve(true);
+      window.gsAddToScanHistory = () => {}; window.gsHaptic = () => {};
+      window._gsScanDHash = async () => 'h'; window._gsScanCacheGet = async () => null; window._gsScanCachePut = () => {};
+      const phasen = [];
+      window.callVisionAI = async () => {
+        phasen.push('beimAufruf=' + window._gsScanPhase);
+        await new Promise(r => setTimeout(r, 30));
+        return JSON.stringify({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 88,
+          edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' });
+      };
+      window._gsScanPhase = 'unbekannt';
+      const vorher = window._gsScanPhase;
+      await analyzeImage(b64, 'image/jpeg');
+      phasen.push('danach=' + window._gsScanPhase);
+
+      if (!phasen.includes('beimAufruf=netz')) return { ok: false, warum: 'während des KI-Aufrufs lief nicht die Netz-Phase: ' + phasen.join(' | ') };
+      if (!phasen.includes('danach=treffer')) return { ok: false, warum: 'nach der Antwort wurde nicht auf Treffer geschaltet: ' + phasen.join(' | ') };
+      return { ok: true, info: 'vor dem Aufruf „' + vorher + '" → netz → treffer' };
+    },
+  },
+  {
+    name: 'Enthüllung · der Ring zählt hoch, die Prüfzeilen haken nacheinander ab',
+    lauf: async () => {
+      window._gsLastScanB64 = 'AAAA';
+      showScanResult({ name: 'Herbstzeitlose', latin: 'Colchicum autumnale', confidence: 71,
+        edible: true, toxicity: 0, alternatives: [], description: 'x' });
+      const el = document.getElementById('scan-result');
+      const lbl = el.querySelector('.sr2-conf-ring .ring-lbl');
+      if (!lbl) return { ok: false, warum: 'kein Sicherheits-Ring' };
+      const start = (lbl.textContent || '').trim();
+      const zeilen = [...el.querySelectorAll('.sr2-pruef-zeile')];
+      if (!zeilen.length) return { ok: false, warum: 'keine Prüfzeilen' };
+      // Die Zeilen laufen über CSS ein — GESTAFFELT, aber nie hinter einem
+      // Timer versteckt. Geprüft wird beides: dass gestaffelt wird, und dass
+      // am Ende jede Zeile wirklich sichtbar ist.
+      const verzoeg = zeilen.map(z => parseFloat(getComputedStyle(z).animationDelay) || 0);
+      if (new Set(verzoeg).size < Math.min(3, zeilen.length))
+        return { ok: false, warum: 'alle Zeilen erscheinen gleichzeitig — keine Staffelung' };
+      // Die Zeilen duerfen zu KEINEM Zeitpunkt unsichtbar sein — auch nicht
+      // waehrend der Animation. Deshalb gleich messen, nicht erst am Ende.
+      const sofortUnsichtbar = zeilen.filter(z => Number(getComputedStyle(z).opacity) < 0.9).length;
+      await new Promise(r => setTimeout(r, 1600));
+      const ende = (lbl.textContent || '').trim();
+      const unsichtbar = zeilen.filter(z => Number(getComputedStyle(z).opacity) < 0.9);
+      if (sofortUnsichtbar) return { ok: false, warum: sofortUnsichtbar + ' Zeilen starten unsichtbar — faellt die Animation aus, bleiben sie es' };
+      if (start === ende && start !== '0%') return { ok: false, warum: 'der Ring zählt nicht hoch (blieb bei ' + start + ')' };
+      if (ende !== '71%') return { ok: false, warum: 'der Ring endet bei ' + ende + ' statt 71%' };
+      if (unsichtbar.length) return { ok: false, warum: unsichtbar.length + ' von ' + zeilen.length + ' Zeilen bleiben unsichtbar' };
+      return { ok: true, info: start + ' → ' + ende + ' · ' + zeilen.length + ' Zeilen gestaffelt, nie unsichtbar' };
+    },
+  },
   {
     name: 'Drei Zustände · ohne Artenliste ist nichts „in Ordnung"',
     lauf: () => {

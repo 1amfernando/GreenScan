@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.10.20260902">
+<meta name="app-version" content="32.11.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5560,6 +5560,31 @@ li.laeuft .gs-s-erg{color:var(--muted);}
 .sr2-pruef-stufe{font-size:var(--fs-md);font-weight:900;margin:2px 0 4px;}
 .sr2-pruef-zeile{display:flex;gap:7px;align-items:flex-start;padding:4px 0;border-top:1px solid var(--border);font-size:var(--fs-sm);color:var(--text2);line-height:1.45;}
 .sr2-pruef-zeile:first-of-type{border-top:none;}
+/* ── v32.11 — die Zeilen laufen gestaffelt ein ──────────────────────────
+   ZWEI ANLÄUFE HAT DAS GEBRAUCHT, und beide Fehler waren derselbe:
+
+   1. `opacity:0` per Klasse, per Timer wieder weggenommen. Faellt der Timer
+      aus, bleibt die Zeile fuer immer unsichtbar.
+   2. `animation … both` mit `from{opacity:0}`. Laeuft die Animation nie —
+      etwa weil das Element beim Rendern in einem verborgenen Bereich liegt —
+      gilt der `from`-Zustand weiter. Wieder unsichtbar, nur eleganter.
+
+   Der Kontrast-Pruefstand meldete beim ersten Anlauf 1:1, der Scan-Pruefstand
+   beim zweiten „5 von 5 Zeilen bleiben unsichtbar".
+
+   DIE REGEL, die daraus folgt und die ueber diese Stelle hinausgeht:
+   **Inhalt, auf den es ankommt, wird nie NACH UNSICHTBAR animiert.** Hier
+   bewegt sich die Zeile und bekommt kurz einen farbigen Grund — sichtbar ist
+   sie in jedem Zustand, auch wenn gar nichts laeuft. */
+.sr2-pruef-zeile.gs-pz{animation:gsPzRein .42s ease-out;}
+@keyframes gsPzRein{
+  0%  {transform:translateX(-8px);background:rgba(76,175,80,.18);}
+  60% {background:rgba(76,175,80,.10);}
+  100%{transform:none;background:transparent;}
+}
+@media (prefers-reduced-motion: reduce){
+  .sr2-pruef-zeile.gs-pz{animation:none;}
+}
 .sr2-pruef-knopf{display:block;width:100%;margin:2px 0 9px;padding:11px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;}
 .sr2-alt-gift{display:inline-block;margin-left:5px;padding:1px 7px;border-radius:999px;background:var(--bg-danger-soft);color:var(--c-danger-d);font-size:var(--fs-xs);font-weight:800;vertical-align:middle;}
 .sr2-alt-ok{display:inline-block;margin-left:5px;padding:1px 7px;border-radius:999px;background:var(--bg-success-soft);color:var(--c-success-d);font-size:var(--fs-xs);font-weight:800;vertical-align:middle;}
@@ -28380,15 +28405,139 @@ function _gsScanKanten(img, N) {
 }
 window._gsScanKanten = _gsScanKanten;
 
-// Zeichnet das wandernde Gitter. Gibt eine Funktion zum Anhalten zurueck.
+
+// ══ v32.11 · AUS DEM FOTO WIRD EINE STRUKTUR ═════════════════════════════
+//
+// v32.08 hat aus dem Foto die Kantenpunkte gerechnet — Blattränder, Adern,
+// Stiel. Das war die halbe Miete. Punkte allein sehen aber aus wie Rauschen;
+// was man erkennt, ist erst ein NETZ.
+//
+// Also drei Dinge statt einem:
+//
+//   1. `punkte`  — die Kantenpunkte (wie bisher)
+//   2. `kanten`  — welche Punkte benachbart sind. Daraus wird ein Drahtgitter,
+//                  das der Form der Pflanze folgt statt sie zu überziehen.
+//   3. `fokus`   — die Zellen mit der höchsten Kantendichte. Das sind die
+//                  Stellen, an denen wirklich am meisten Information sitzt:
+//                  Blattspitzen, Aderkreuzungen, der Ansatz des Stiels.
+//                  Der Scanner rastet dort ein wie ein Autofokus.
+//
+// Alles einmal gerechnet, danach nur noch gezeichnet. Die Nachbarschaft läuft
+// über ein Raster (nicht über alle Paare) — sonst wären es bei 1'000 Punkten
+// eine Million Vergleiche pro Bild.
+function _gsScanStruktur(img, N) {
+  try {
+    var roh = _gsScanKanten(img, N || 160);
+    if (!roh || roh.length < 30) return null;
+
+    // Auf eine Zahl dünnen, die ein Telefon flüssig zeichnet.
+    var MAX = 900, n = roh.length / 3, schritt = Math.max(1, Math.ceil(n / MAX));
+    var px = [], py = [], ps = [];
+    for (var i = 0; i < n; i += schritt) {
+      px.push(roh[i * 3]); py.push(roh[i * 3 + 1]); ps.push(roh[i * 3 + 2]);
+    }
+    var m = px.length;
+
+    // ── Nachbarschaft über ein Raster ────────────────────────────────────
+    var R = 0.055;                       // Reichweite in Bildanteilen
+    var Z = Math.max(4, Math.round(1 / R));
+    var zellen = new Array(Z * Z);
+    for (var z = 0; z < Z * Z; z++) zellen[z] = [];
+    function zi(x, y) {
+      var cx = Math.min(Z - 1, Math.max(0, Math.floor(x * Z)));
+      var cy = Math.min(Z - 1, Math.max(0, Math.floor(y * Z)));
+      return cy * Z + cx;
+    }
+    for (var k = 0; k < m; k++) zellen[zi(px[k], py[k])].push(k);
+
+    var kanten = [], grad = new Uint8Array(m), R2 = R * R;
+    for (var a = 0; a < m; a++) {
+      if (grad[a] >= 3) continue;
+      var cx0 = Math.floor(px[a] * Z), cy0 = Math.floor(py[a] * Z), best = [];
+      for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) {
+        var cx = cx0 + dx, cy = cy0 + dy;
+        if (cx < 0 || cy < 0 || cx >= Z || cy >= Z) continue;
+        var liste = zellen[cy * Z + cx];
+        for (var q = 0; q < liste.length; q++) {
+          var b = liste[q];
+          if (b <= a || grad[b] >= 3) continue;
+          var ddx = px[a] - px[b], ddy = py[a] - py[b], d2 = ddx * ddx + ddy * ddy;
+          if (d2 > R2 || d2 < 1e-7) continue;
+          best.push([d2, b]);
+        }
+      }
+      best.sort(function (u, v) { return u[0] - v[0]; });
+      for (var t = 0; t < best.length && grad[a] < 3 && t < 3; t++) {
+        var bb = best[t][1];
+        if (grad[bb] >= 3) continue;
+        kanten.push(a, bb);
+        grad[a]++; grad[bb]++;
+      }
+    }
+
+    // ── Fokuszonen: wo sitzt die meiste Information? ─────────────────────
+    // Ein grobes Raster über die Kantendichte. Die dichtesten Zellen sind
+    // Blattspitzen, Aderkreuzungen, der Stielansatz — dort rastet der
+    // Scanner ein. Gerechnet, nicht gesetzt.
+    var F = 10, dichte = new Float32Array(F * F);
+    for (var p2 = 0; p2 < m; p2++) {
+      var fx = Math.min(F - 1, Math.floor(px[p2] * F)), fy = Math.min(F - 1, Math.floor(py[p2] * F));
+      dichte[fy * F + fx] += ps[p2];
+    }
+    var rang = [];
+    for (var c = 0; c < F * F; c++) if (dichte[c] > 0) rang.push([dichte[c], c]);
+    rang.sort(function (u, v) { return v[0] - u[0]; });
+    var fokus = [], genommen = [];
+    for (var rI = 0; rI < rang.length && fokus.length < 4; rI++) {
+      var zc = rang[rI][1], zx = (zc % F + 0.5) / F, zy = (Math.floor(zc / F) + 0.5) / F;
+      // Nicht zwei Ringe nebeneinander — sonst wirkt es wie ein Fehler.
+      var zuNah = genommen.some(function (g) {
+        return Math.abs(g[0] - zx) < 1.6 / F && Math.abs(g[1] - zy) < 1.6 / F;
+      });
+      if (zuNah) continue;
+      genommen.push([zx, zy]);
+      fokus.push({ x: zx, y: zy, staerke: rang[rI][0] / (rang[0][0] || 1) });
+    }
+    return { px: px, py: py, ps: ps, kanten: kanten, fokus: fokus, n: m };
+  } catch (_) { return null; }
+}
+window._gsScanStruktur = _gsScanStruktur;
+
+// ══ v32.11 · DREI PHASEN, DREI ECHTE VORGÄNGE ════════════════════════════
+//
+// Fernando wollte einen Wow-Effekt. Der billige Weg wäre gewesen: mehr
+// Partikel, mehr Glühen. Das sieht drei Sekunden lang gut aus.
+//
+// Was hängen bleibt, ist etwas anderes: dass die App sichtbar VERSTEHT, was
+// sie ansieht. Das Netz beeindruckt nicht, weil es leuchtet — sondern weil es
+// die eigenen Blattadern trifft.
+//
+// Deshalb drei Phasen, und jede gehört zu etwas, das wirklich passiert:
+//
+//   `tasten`  — während Bildqualität und Kontext gerechnet werden. Kurz.
+//               Ein Balken fährt durch, die Punkte leuchten auf. Grobes
+//               Abtasten, so wie es sich anfühlt.
+//   `netz`    — während die KI antwortet. Das ist der lange Schritt, und er
+//               dauert so lange wie er dauert. Hier baut sich das Drahtgitter
+//               auf, und die Fokusringe rasten nacheinander auf den
+//               informationsreichsten Stellen ein.
+//   `treffer` — die Antwort ist da. Alles zieht sich zusammen und verglimmt.
+//
+// Die Phase wird von aussen gesetzt (`gsScanPhase`), aus dem echten Ablauf
+// heraus. Kein Timer erfindet einen Fortschritt.
 function _gsScanAnimation(host) {
   var stop = false, raf = null;
+  window._gsScanPhase = 'tasten';
+  window._gsScanPhaseSeit = performance.now();
   try {
     var img = host.querySelector('img');
     var cv = host.querySelector('canvas.gs-scangitter');
     if (!img || !cv) return function () {};
+    var ruhig = false;
+    try { ruhig = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_) {}
+
     function start() {
-      var kanten = _gsScanKanten(img, 160);
+      var S = _gsScanStruktur(img, 160);
       var W = host.clientWidth || 260, H = host.clientHeight || 260;
       var dpr = Math.min(window.devicePixelRatio || 1, 2);
       cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
@@ -28396,35 +28545,110 @@ function _gsScanAnimation(host) {
       var g = cv.getContext('2d');
       if (!g) return;
       g.scale(dpr, dpr);
-      // Kein Kantenbild (einfarbige Fläche, Fehler)? Dann nur der Balken —
-      // ein Gitter aus dem Nichts wäre erfunden.
-      var t0 = performance.now();
-      var DAUER = 2600;   // ein Durchlauf
+
+      // Ohne Struktur (einfarbige Fläche, Fehler beim Lesen) wird NICHTS
+      // gezeichnet. Ein Netz aus dem Nichts wäre eine Behauptung.
+      if (!S) return;
+
+      if (ruhig) {
+        // Wer Bewegung abgestellt hat, bekommt das Netz einmal ruhig gezeichnet.
+        g.strokeStyle = 'rgba(129,199,132,.55)'; g.lineWidth = 1;
+        g.beginPath();
+        for (var q = 0; q < S.kanten.length; q += 2) {
+          g.moveTo(S.px[S.kanten[q]] * W, S.py[S.kanten[q]] * H);
+          g.lineTo(S.px[S.kanten[q + 1]] * W, S.py[S.kanten[q + 1]] * H);
+        }
+        g.stroke();
+        return;
+      }
+
+      var TASTEN = 1700;      // ein Durchlauf des Balkens
       function bild(t) {
         if (stop) return;
-        var p = ((t - t0) % DAUER) / DAUER;          // 0..1, Position des Balkens
-        var by = p * H;
+        var phase = window._gsScanPhase || 'tasten';
+        var seit = t - (window._gsScanPhaseSeit || t);
         g.clearRect(0, 0, W, H);
-        if (kanten) {
-          // Die Kanten, die der Balken schon passiert hat — je frischer,
-          // desto heller. Das ist das „Benetzen".
-          for (var i = 0; i < kanten.length; i += 3) {
-            var x = kanten[i] * W, y = kanten[i + 1] * H, st = kanten[i + 2];
-            var d = by - y;
-            if (d < 0 || d > H * 0.55) continue;
-            var frisch = 1 - (d / (H * 0.55));
-            g.fillStyle = 'rgba(129,199,132,' + (0.16 + 0.72 * frisch * st) + ')';
-            var s = 1 + 1.6 * frisch;
-            g.fillRect(x - s / 2, y - s / 2, s, s);
+
+        if (phase === 'tasten') {
+          // Grobes Abtasten: Balken durch, Punkte leuchten kurz auf.
+          var p = (seit % TASTEN) / TASTEN, by = p * H;
+          g.fillStyle = 'rgba(129,199,132,.85)';
+          for (var i2 = 0; i2 < S.n; i2++) {
+            var d = by - S.py[i2] * H;
+            if (d < 0 || d > H * 0.42) continue;
+            var f = 1 - d / (H * 0.42);
+            g.globalAlpha = 0.12 + 0.8 * f * S.ps[i2];
+            var sz = 1 + 1.8 * f;
+            g.fillRect(S.px[i2] * W - sz / 2, S.py[i2] * H - sz / 2, sz, sz);
           }
+          g.globalAlpha = 1;
+          var gr = g.createLinearGradient(0, by - H * 0.09, 0, by + H * 0.02);
+          gr.addColorStop(0, 'rgba(129,199,132,0)');
+          gr.addColorStop(0.8, 'rgba(129,199,132,.34)');
+          gr.addColorStop(1, 'rgba(210,255,215,.95)');
+          g.fillStyle = gr; g.fillRect(0, by - H * 0.09, W, H * 0.11);
+
+        } else if (phase === 'netz') {
+          // Das Netz baut sich auf: in den ersten 1,2 s wachsen die Linien
+          // heran, danach atmet es ruhig weiter, solange die KI rechnet.
+          var auf = Math.min(1, seit / 1200);
+          var bis = Math.floor((S.kanten.length / 2) * auf);
+          var puls = 0.72 + 0.20 * Math.sin(seit / 620);
+          g.strokeStyle = 'rgba(129,199,132,' + (0.30 * puls).toFixed(3) + ')';
+          g.lineWidth = 1;
+          g.beginPath();
+          for (var e = 0; e < bis; e++) {
+            var a1 = S.kanten[e * 2], b1 = S.kanten[e * 2 + 1];
+            g.moveTo(S.px[a1] * W, S.py[a1] * H);
+            g.lineTo(S.px[b1] * W, S.py[b1] * H);
+          }
+          g.stroke();
+          // Die Knoten
+          g.fillStyle = 'rgba(200,255,205,' + (0.5 * puls).toFixed(3) + ')';
+          for (var i3 = 0; i3 < S.n; i3 += 2) {
+            if (S.px[i3] === undefined) continue;
+            g.fillRect(S.px[i3] * W - 0.8, S.py[i3] * H - 0.8, 1.6, 1.6);
+          }
+          // Die Fokusringe rasten NACHEINANDER ein — alle 900 ms einer mehr.
+          for (var f2 = 0; f2 < S.fokus.length; f2++) {
+            var an = seit - 500 - f2 * 900;
+            if (an < 0) continue;
+            var fz = S.fokus[f2];
+            var wachs = Math.min(1, an / 420);
+            var rad = (10 + 22 * fz.staerke) * (0.35 + 0.65 * wachs);
+            g.strokeStyle = 'rgba(210,255,215,' + (0.85 * wachs).toFixed(3) + ')';
+            g.lineWidth = 1.6;
+            g.beginPath(); g.arc(fz.x * W, fz.y * H, rad, 0, Math.PI * 2); g.stroke();
+            // Ecken-Winkel, wie ein Sucher, der zupackt
+            var ec = rad * 0.62;
+            g.lineWidth = 2;
+            [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (v) {
+              g.beginPath();
+              g.moveTo(fz.x * W + v[0] * ec, fz.y * H + v[1] * ec - v[1] * 5);
+              g.lineTo(fz.x * W + v[0] * ec, fz.y * H + v[1] * ec);
+              g.lineTo(fz.x * W + v[0] * ec - v[0] * 5, fz.y * H + v[1] * ec);
+              g.stroke();
+            });
+          }
+
+        } else {
+          // treffer: alles zieht sich zusammen und verglimmt.
+          var w2 = Math.min(1, seit / 620), rest = 1 - w2;
+          if (rest <= 0.02) return;      // fertig, nichts mehr zeichnen
+          g.strokeStyle = 'rgba(200,255,205,' + (0.55 * rest).toFixed(3) + ')';
+          g.lineWidth = 1 + 1.4 * rest;
+          g.beginPath();
+          for (var e2 = 0; e2 < S.kanten.length; e2 += 2) {
+            var a2 = S.kanten[e2], b2 = S.kanten[e2 + 1];
+            // zur Bildmitte hin zusammenziehen
+            var ax = (S.px[a2] + (0.5 - S.px[a2]) * w2 * 0.22) * W;
+            var ay = (S.py[a2] + (0.5 - S.py[a2]) * w2 * 0.22) * H;
+            var bx = (S.px[b2] + (0.5 - S.px[b2]) * w2 * 0.22) * W;
+            var by2 = (S.py[b2] + (0.5 - S.py[b2]) * w2 * 0.22) * H;
+            g.moveTo(ax, ay); g.lineTo(bx, by2);
+          }
+          g.stroke();
         }
-        // Der Balken selbst
-        var grd = g.createLinearGradient(0, by - H * 0.10, 0, by + H * 0.03);
-        grd.addColorStop(0, 'rgba(129,199,132,0)');
-        grd.addColorStop(0.75, 'rgba(129,199,132,.30)');
-        grd.addColorStop(1, 'rgba(200,255,205,.92)');
-        g.fillStyle = grd;
-        g.fillRect(0, by - H * 0.10, W, H * 0.13);
         raf = requestAnimationFrame(bild);
       }
       raf = requestAnimationFrame(bild);
@@ -28434,6 +28658,16 @@ function _gsScanAnimation(host) {
   } catch (_) {}
   return function () { stop = true; if (raf) cancelAnimationFrame(raf); };
 }
+
+// Die Phase umschalten — aus dem ECHTEN Ablauf heraus, nicht aus einem Timer.
+function gsScanPhase(name) {
+  try {
+    if (window._gsScanPhase === name) return;
+    window._gsScanPhase = name;
+    window._gsScanPhaseSeit = performance.now();
+  } catch (_) {}
+}
+window.gsScanPhase = gsScanPhase;
 window._gsScanAnimation = _gsScanAnimation;
 
 // ══ v32.08 · DIE SCHRITTLISTE ════════════════════════════════════════════
@@ -28623,7 +28857,13 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
   }
   function scanFertig() {
     if (_scanWarte) { clearInterval(_scanWarte); _scanWarte = null; }
-    try { if (window._gsScanAniStop) { window._gsScanAniStop(); window._gsScanAniStop = null; } } catch (_) {}
+    // v32.11: NICHT sofort abwuergen. Die Treffer-Phase laeuft ~0,6 s aus —
+    // das ist der Moment, den man sehen soll. Sie hoert danach von selbst
+    // auf zu zeichnen; der Stopper ist nur die Rettungsleine.
+    try {
+      var _s = window._gsScanAniStop;
+      if (_s) { window._gsScanAniStop = null; setTimeout(function () { try { _s(); } catch (_) {} }, 900); }
+    } catch (_) {}
   }
   var shotCount = 1 + (Array.isArray(extraImages) ? extraImages.length : 0);
   // ── v31.99: das eigene Foto bleibt stehen ────────────────────────────
@@ -28741,9 +28981,14 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
     // v32.08: Schritt 3 ist hier entschieden — kein Cache-Treffer, sonst
     // waeren wir oben schon draussen.
     scanSchritt('cache', _scanPhash ? 'kein Treffer' : (shotCount > 1 ? 'bei Multi-Shot nicht genutzt' : 'nicht verfügbar'));
+    // v32.11: ab hier baut sich das Netz auf — der lange Schritt beginnt.
+    gsScanPhase('netz');
     scanWarten('ki');
     const text = await callVisionAI(b64, mt, prompt, extraImages, { systemPrompt: SCAN_SYSTEM_PROMPT, quotaFeature: 'scan', maxTokens: 900 }); // v30.47: Scan-JSON braucht ~400-600 Tok → 900 reicht, kürzere Generierung
     var _kiSek = Math.max(1, Math.round((Date.now() - _kiStart) / 1000));
+    // v32.11: Treffer — das Netz zieht sich zusammen. Erst DANACH wird die
+    // Karte gebaut, damit man den Moment sieht.
+    gsScanPhase('treffer');
     scanFertig();
     scanSchritt('ki', 'Antwort nach ' + _kiSek + ' s');
     if(!text) throw new Error('Keine Antwort von der KI erhalten.');
@@ -29689,6 +29934,54 @@ function gsGegenprobeRender(g, r) {
 }
 window.gsGegenprobeRender = gsGegenprobeRender;
 
+// ── v32.11 · Die Enthüllung des Ergebnisses ─────────────────────────────
+// Der Ring zählt von 0 auf den Wert hoch, die Merkmale erscheinen nacheinander,
+// und die Zeilen der Prüfung haken der Reihe nach ab. Alles rein sichtbar —
+// die Zahlen selbst stehen längst fest, hier wird nur gezeigt, woraus sie
+// bestehen. Wer Bewegung abgestellt hat, sieht sofort den Endzustand.
+function _gsErgebnisAufbau(conf) {
+  var ruhig = false;
+  try { ruhig = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_) {}
+  var el = document.getElementById('scan-result');
+  if (!el) return;
+
+  // a) Der Sicherheits-Ring
+  var kreis = el.querySelector('.sr2-conf-ring .ring-fg');
+  var lbl = el.querySelector('.sr2-conf-ring .ring-lbl');
+  var ziel = Math.max(0, Math.min(100, Number(conf) || 0));
+  if (kreis && lbl && !ruhig) {
+    var umfang = 2 * Math.PI * 26;
+    kreis.style.transition = 'none';
+    kreis.setAttribute('stroke-dashoffset', String(umfang));
+    lbl.textContent = '0%';
+    var t0 = performance.now(), DAUER = 900;
+    (function lauf(t) {
+      var p = Math.min(1, (t - t0) / DAUER);
+      var e = 1 - Math.pow(1 - p, 3);                 // weich auslaufend
+      var w = Math.round(ziel * e);
+      lbl.textContent = w + '%';
+      kreis.setAttribute('stroke-dashoffset', String(umfang * (1 - w / 100)));
+      if (p < 1) requestAnimationFrame(lauf);
+    })(t0);
+  }
+
+  // b) Die Merkmale — sie stehen schon im HTML mit gestaffelter Verzögerung.
+  //    Hier nur der Fall „Bewegung aus": sofort sichtbar.
+  if (ruhig) {
+    el.querySelectorAll('.sr2-merkmale li').forEach(function (li) {
+      li.style.animation = 'none'; li.style.opacity = '1';
+    });
+  }
+
+  // c) Die Prüfzeilen laufen über CSS ein (gestaffelte `animation-delay`,
+  //    im Markup gesetzt). Hier steht bewusst NICHTS mehr: was per Timer
+  //    versteckt und wieder eingeblendet wird, bleibt irgendwann versteckt.
+  if (ruhig) {
+    el.querySelectorAll('.sr2-pruef-zeile.gs-pz').forEach(function (z) { z.style.animation = 'none'; });
+  }
+}
+window._gsErgebnisAufbau = _gsErgebnisAufbau;
+
 // ── v32.10 · Giftigkeit einer Verwechslungs-Alternative ──────────────────
 // Modell-Angabe ∪ eigene Artenliste, hoehere gewinnt, `null` wenn keine der
 // beiden etwas weiss. Ungeprueft eingelesene Eintraege zaehlen NICHT als
@@ -29918,10 +30211,18 @@ function showScanResult(r){
       _pw.regeln.slice().sort(function (x, y) {
         var rg = { warn: 0, ok: 1 };
         return (rg[x.zustand] === undefined ? 2 : rg[x.zustand]) - (rg[y.zustand] === undefined ? 2 : rg[y.zustand]);
-      }).map(function (rr) {
+      }).map(function (rr, ix) {
         var f = rr.zustand === 'ok' ? 'var(--c-success-d)' : rr.zustand === 'warn' ? 'var(--c-warn-d)' : 'var(--muted)';
         var m = rr.zustand === 'ok' ? '\u2713' : rr.zustand === 'warn' ? '\u26a0' : '\u2013';
-        return '<div class="sr2-pruef-zeile">' +
+        // v32.11: die Staffelung steckt in der Verzoegerung, NICHT in einer
+        // Klasse, die per Timer wieder weggenommen wird. Der erste Anlauf
+        // setzte `opacity:0` und holte es nach 420 ms zurueck — faellt der
+        // Timer aus (Tab im Hintergrund, ein Fehler davor), waeren die
+        // Pruefzeilen fuer immer unsichtbar gewesen. Der Kontrast-Pruefstand
+        // hat es sofort gemeldet: 1:1.
+        // Mit `animation … both` gilt: laeuft die Animation nicht, ist die
+        // Zeile schlicht normal sichtbar. Der sichere Zustand ist der Normalfall.
+        return '<div class="sr2-pruef-zeile gs-pz" style="animation-delay:' + (120 + ix * 110) + 'ms;">' +
                  '<span style="color:' + f + ';font-weight:900;flex-shrink:0;" aria-hidden="true">' + m + '</span>' +
                  '<span>' + rr.text + '</span>' +
                '</div>';
@@ -30192,6 +30493,16 @@ function showScanResult(r){
   body += '</div>';
 
   document.getElementById('scan-result').innerHTML = hero + body;
+  // ── v32.11: die Enthüllung ──────────────────────────────────────────
+  //
+  // Die Karte stand bisher fertig da. Jetzt baut sie sich auf — und zwar in
+  // der Reihenfolge, in der die Erkenntnisse entstanden sind: erst die
+  // Sicherheit (der Ring zählt hoch), dann die Merkmale, die die KI gesehen
+  // hat, zuletzt die Prüfregeln, die dagegengehalten haben.
+  //
+  // Das ist kein Zierrat: es ist dieselbe Reihenfolge wie im Prüfwerk, und
+  // wer hinsieht, versteht danach, WORAUS sich das Urteil zusammensetzt.
+  try { _gsErgebnisAufbau(conf); } catch (_) {}
   // v32.10: eine bereits gelaufene Gegenprobe wieder einsetzen — sonst waere
   // sie beim naechsten Rendern der Karte still verschwunden, und der Nutzer
   // haette einen Aufruf seines Kontingents fuer nichts ausgegeben.
@@ -70192,6 +70503,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.11', date: '02.09.2026',
+    headline: '\ud83d\udd78\ufe0f Ein Drahtgitter, das deine Bl\u00e4tter kennt',
+    summary: 'Aus den Kantenpunkten deines Fotos wird jetzt ein NETZ \u2014 Linien zwischen benachbarten Punkten, die der Form der Pflanze folgen. Dazu Fokusringe, die auf den informationsreichsten Stellen einrasten, und drei Phasen, die drei echten Vorg\u00e4ngen entsprechen.',
+    user_summary: '\ud83d\udd78\ufe0f Beim Scannen legt sich ein Drahtgitter \u00fcber deine Pflanze, das ihrer Form folgt \u2014 und Ringe rasten dort ein, wo am meisten zu sehen ist.',
+    user_items: [
+      {emoji:'\ud83d\udd78\ufe0f', bold:'Aus Punkten wird ein Netz:', text:' Benachbarte Kantenpunkte werden verbunden. Das Ergebnis folgt Blattr\u00e4ndern, Adern und Stiel \u2014 auf einem gezeichneten Blatt sind das rund 730 Knoten und 1\u2019100 Linien, auf einer leeren Fl\u00e4che nichts.'},
+      {emoji:'\ud83c\udfaf', bold:'Ringe, die einrasten:', text:' Die Stellen mit der h\u00f6chsten Kantendichte sind rechenbar \u2014 Blattspitzen, Aderkreuzungen, der Stielansatz. Dort setzt der Scanner Ringe, nacheinander, wie ein Sucher der zupackt.'},
+      {emoji:'\u23f1\ufe0f', bold:'Drei Phasen, drei echte Vorg\u00e4nge:', text:' Grobes Abtasten w\u00e4hrend Bildpr\u00fcfung und Kontext. Das Netz baut sich auf, w\u00e4hrend die KI rechnet \u2014 so lange, wie sie eben braucht. Und beim Eintreffen der Antwort zieht sich alles zusammen.'},
+      {emoji:'\ud83d\udcaf', bold:'Und das Ergebnis baut sich auf:', text:' Der Sicherheitsring z\u00e4hlt von 0 hoch, die erkannten Merkmale erscheinen nacheinander, die Pr\u00fcfregeln haken der Reihe nach ab \u2014 in derselben Reihenfolge, in der sie gerechnet wurden.'},
+    ],
+  },
+  {
     v: 'v32.10', date: '02.09.2026',
     headline: '\u2696\ufe0f Eine zweite Meinung, die widersprechen SOLL',
     summary: 'Wenn eine Bestimmung „essbar" sagt und eine Verwechslungsm\u00f6glichkeit giftig ist, kannst du jetzt eine unabh\u00e4ngige Gegenprobe starten \u2014 einen zweiten Blick auf dasselbe Foto, dessen ausdr\u00fcckliche Aufgabe es ist, die Bestimmung zu widerlegen.',
@@ -70583,7 +70906,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.10';
+var GS_VERSION = 'v32.11';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
