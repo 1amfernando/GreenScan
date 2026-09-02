@@ -433,10 +433,27 @@ node scripts/contrast_check.js   # WCAG-Kontrast jeder Textstelle, beide Modi
 node scripts/touch_check.js      # Antippflächen unter 24×24 px (WCAG 2.5.8)
 node scripts/perf_check.js       # Kaltstart unter Telefon-Drosselung (1×/4×/6×)
 node scripts/wiring_check.js     # Verdrahtung: kommt an, was angetippt wird? (seit v31.45)
+python3 scripts/field_check.py   # Formularfelder, die niemand liest (seit v31.74)
 ```
 
-Alle fünf teilen die Beispieldaten in `scripts/_seed.js` — dort ändern, nicht
-in den einzelnen Prüfständen.
+Die fünf JS-Prüfstände teilen die Beispieldaten in `scripts/_seed.js` — dort
+ändern, nicht in den einzelnen Prüfständen. `field_check.py` liest nur den
+Quelltext und braucht keine.
+
+`field_check.py` sucht die Umkehrung von `wiring_check`: **Eingabefelder, die
+niemand liest.** Anlass war v31.72 — das Garten-Formular hatte Breite und
+Länge, eine Vorschau rechnete live die Fläche daraus, und `editGarden` LAS
+sie beim Bearbeiten wieder ein. Nur geschrieben hat sie nie jemand. Man tippte
+die Masse ein, sah die Fläche, speicherte, und beim nächsten Öffnen war alles
+leer.
+
+**Zwei Grenzen, damit sie niemand neu entdeckt:** zusammengesetzte Namen
+(`getElementById('tp-' + k)`) findet keine Textsuche — die vier Felder
+`tp-len`/`tp-wid`/`tp-soil`/`tp-light` sind so verdrahtet und funktionieren.
+Und Felder mit eigenem `on*`-Attribut werden übersprungen; ohne diese Regel
+meldet er fast jede Einstellung als kaputt. **Ein Treffer ist ein Verdacht,
+kein Urteil** — beim ersten gezielten Durchgang blieb von 303 Feldern genau
+einer übrig, der wirklich nichts tat: „Angemeldet bleiben".
 
 `wiring_check.js` prüft, was die anderen vier nicht sehen: die vier messen, wie
 die App **aussieht**, dieser prüft, ob das Angetippte **ankommt**. Zwei

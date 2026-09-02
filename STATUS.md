@@ -12,6 +12,58 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-02 (bl) — v31.74: „Angemeldet bleiben" tat nichts · neuer Prüfstand `field_check.py`
+
+Fernando: *„Checke allgemein jede einzelne Seite, jedes Tool und jedes Widget nach Funktionalität, Verdrahtung, ob das speichern funktioniert."*
+
+Der Fehler von gestern (Gartenmasse werden nie gespeichert) wurde beim Lesen gefunden, nicht beim Messen. Daraus wurde ein Prüfstand.
+
+#### Was er sucht — die Umkehrung von `wiring_check`
+
+`wiring_check` fragt: *kommt an, was angetippt wird?* `field_check.py` fragt: **liest überhaupt jemand, was eingegeben wird?**
+
+Er zählt jedes Vorkommen einer Feld-id im Quelltext **ausserhalb ihrer eigenen Definition**. Bewusst grob — so erfasst er auch Helfer (`g('x')`), maskierte Anführungszeichen (`\'x\'`) und jede querySelector-Variante.
+
+#### Drei Anläufe, bis er brauchbar war
+
+| Anlauf | Ergebnis | Warum falsch |
+|---|---|---|
+| 1 | **172 von 172 kaputt** | Suchmuster im Template kaputt-maskiert |
+| 2 | 37 kaputt | zählte `onchange="savePref(…,this.checked)"` nicht mit — meldete fast jede Einstellung |
+| 3 | 11 kaputt | fand `getElementById(\'x\')` mit maskierten Anführungszeichen nicht, und Helfer `g('x')` |
+| 4 | **1 echter Fund** von 303 | zählt jedes Vorkommen ausserhalb der Definition |
+
+Ein Werkzeug, das alles für defekt erklärt, ist schlechter als keines. Die Grenzen stehen jetzt im Prüfstand selbst und in CLAUDE.md §7.1.
+
+**Was er nicht finden kann:** zusammengesetzte Namen. `getElementById('tp-' + k)` ist von keiner Textsuche zu erfassen — `tp-len`/`tp-wid`/`tp-soil`/`tp-light` sind so verdrahtet und funktionieren. Sie bleiben als bekannte Fehlalarme in der Ausgabe, dokumentiert.
+
+#### Der eine echte Fund
+
+**„Angemeldet bleiben" wurde nie gelesen.** `onbDoLogin()` holt E-Mail und Passwort — der Haken `onb-login-remember` kommt in der ganzen Datei kein zweites Mal vor. Er ist vorangekreuzt, also passte das Verhalten zum Standard. Aber wer ihn auf einem **geteilten Gerät** bewusst entfernte, blieb trotzdem angemeldet. Eine Zusage, die die App nicht hielt — und auf einem fremden Rechner keine Kleinigkeit.
+
+Umgesetzt, **ohne den Token-Weg anzufassen** (jeder Leser holt ihn über `gsStore`): ein Merker in `localStorage` sagt „nur diese Sitzung", ein zweiter in `sessionStorage` sagt „dieselbe Sitzung wie damals". Beim Start ohne den zweiten wird abgemeldet — genau dann, wenn der Browser zwischendurch zu war. Die Prüfung läuft **vor** dem Login-Flash-Guard, damit gar kein `#app` aufblitzt.
+
+Nur die Anmeldung fällt weg. Pflanzen, Gärten und Einstellungen bleiben — die gehören dem Gerät, nicht der Sitzung.
+
+```
+A · Haken gesetzt, neue Sitzung        → angemeldet (preauth false)
+B · ohne Haken, Sitzung lebt noch      → angemeldet (preauth false)
+C · ohne Haken, Browser war geschlossen→ abgemeldet (preauth true),
+                                          Merker geräumt, Pflanzen + Gärten da
+```
+
+**Zur Ehrlichkeit der Messung:** in A und B zeigt der Test `token:false` — das ist nicht mein Code, sondern die App-eigene Token-Prüfung, die mein Platzhalter-Token (`'tok'`, kein echtes JWT) verwirft. Das aussagekräftige Signal ist `preauth`, das zum Zeitpunkt des Guards gesetzt wird, und es trennt alle drei Fälle richtig.
+
+#### Verify
+
+`wiring_check` 307 Namen / **0** nicht auflösbar · Menü 48/0 · 940 Nachschlagungen / **0** nie erzeugt / **0** ungesichert · `field_check` 303 Felder, 4 bekannte Fehlalarme, 0 echte · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen · `contrast_check` 0 unter AA beide Modi · `touch_check` 0 unter 24×24 · drei Sitzungs-Fälle durchgespielt · `GS_RELEASES[0].v` = `GS_VERSION` · `gsAllReleases()` 421 → **422**, 0 Dopplungen · 9/9 Inline-Scripts + `sw.js` `node --check` OK · `GS_VERSION` v31.74 · `sw.js` gs-v31.74 · `_headers` v31.74 · meta 31.74.20260902.
+
+#### Offen aus Fernandos Liste
+
+Scanner V2 · Blühkalender ausbauen · Arten-Infos vervollständigen. Der Funktionscheck geht weiter: `field_check` deckt Eingaben ab, aber nicht, ob die gespeicherten Werte beim nächsten Öffnen auch **angezeigt** werden.
+
+---
+
 ### 2026-09-02 (bk) — v31.73: Planer V3 — der Plan wird zur Checkliste
 
 Fernando: *„sobald man ein neuen Plan hat kann man diese sachen auf den eigenen Garten übertragen … der Nutzer kann dann einzelne Sachen Schritt für Schritt wie abhacken und es wird dann automatisch im Garten hinzugefügt. Mit dem Abstand und weiteren Angaben vom generierten Ki-planer."*
