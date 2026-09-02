@@ -262,6 +262,43 @@ const FAELLE = [
       return { ok: true, info: (txt.match(/Dieses Bild wurde[^.]*\./) || ['gefunden'])[0].slice(0, 84) };
     },
   },
+  // ── v32.01 · Das Urteil muss handlungsfähig sein ───────────────────────
+  {
+    name: 'Handlung · bei Vorbehalten steht der Knopf für ein zweites Foto',
+    lauf: () => {
+      window._gsLastScanB64 = 'AAAA';   // so, als läge ein erstes Foto vor
+      // Hohe Modell-Sicherheit, aber die Prüfung widerspricht: genau der
+      // Fall, in dem die alte Bedingung (conf < 85) nichts angeboten hätte.
+      const r = {
+        name: 'Herbstzeitlose', latin: 'Colchicum autumnale', confidence: 94,
+        edible: true, toxic: false, toxicity: 0, alternatives: [],
+      };
+      showScanResult(r);
+      const el = document.getElementById('scan-result');
+      const knopf = el.querySelector('.sr2-pruef-knopf');
+      if (!knopf) return { ok: false, warum: 'kein Knopf, obwohl die Prüfung widerspricht (Modell meldet 94 %)' };
+      if (!/gsAddPhotoForRescan/.test(knopf.getAttribute('onclick') || '')) return { ok: false, warum: 'der Knopf führt nirgendwohin' };
+      const doppelt = el.querySelectorAll('[onclick*="gsAddPhotoForRescan"]');
+      if (doppelt.length > 1) return { ok: false, warum: doppelt.length + ' Knöpfe für dieselbe Handlung' };
+      return { ok: true, info: (knopf.textContent || '').trim() };
+    },
+  },
+  {
+    name: 'Handlung · ohne Vorbehalte kein Knopf',
+    lauf: () => {
+      window._gsLastScanB64 = 'AAAA';
+      const r = {
+        name: 'Bärlauch', latin: 'Allium ursinum', confidence: 95, edible: true, toxicity: 0,
+        alternatives: [{ name: 'Maiglöckchen', latin: 'Convallaria majalis', confidence: 15 }],
+        _ctx: { monthNum: 5 },   // Mai — passt zu Apr–Jun
+        _qual: { messbar: true, quality: 82, blur: 78, light: 86, warnings: [] },
+      };
+      showScanResult(r);
+      const el = document.getElementById('scan-result');
+      if (el.querySelector('.sr2-pruef-knopf')) return { ok: false, warum: 'bietet ein zweites Foto an, obwohl nichts widerspricht' };
+      return { ok: true, info: 'sauberer Fund, kein Knopf' };
+    },
+  },
   {
     name: 'Drei Zustände · ohne Artenliste ist nichts „in Ordnung"',
     lauf: () => {

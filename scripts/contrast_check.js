@@ -266,6 +266,10 @@ async function medianFarben(leser, pngBuffer, punkte) {
         window.gsScanStatusShow = () => {}; window.gsStopScanStatus = () => {};
         window.gsScanPersistToCloud = () => Promise.resolve(true);
         window.gsAddToScanHistory = () => {}; window.gsHaptic = () => {};
+        // v32.01: so tun, als laege ein erstes Foto vor — sonst rendert der
+        // Knopf „Zweites Foto" nicht, und ein neues Bedienelement auf einem
+        // Sicherheits-Bildschirm bliebe ungemessen.
+        window._gsLastScanB64 = 'AAAA';
         if (typeof showScanResult !== 'function') return 0;
         showScanResult({
           name: 'Herbstzeitlose', latin: 'Colchicum autumnale', family: 'Colchicaceae',
