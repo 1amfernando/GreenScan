@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.82.20260902">
+<meta name="app-version" content="31.83.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5013,17 +5013,29 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
   <div class="modal" style="position:relative;max-height:96vh;overflow-y:auto;">
     <div class="mhandle"></div>
     <button class="modal-close-btn" onclick="closeModal('modal-planner-pro')" aria-label="Schliessen">&#x2715;</button>
-    <div class="mhdr" style="background:linear-gradient(135deg,rgba(27,94,32,.10),rgba(46,125,50,.04));border-radius:var(--r-lg);padding:10px 14px;margin:0 16px 8px;">
+    <!-- v31.83: Der Kopf hatte Titel und DREI Werkzeug-Knoepfe in EINER
+         Reihe. Auf 412 px blieb fuer die Ueberschrift eine schmale Spalte —
+         „KI-Gartenplaner PRO" brach auf drei Zeilen, die Unterzeile auf
+         acht, und der dritte Knopf ragte rechts hinaus. Gemessen, nicht
+         geschaetzt: der Titel bekam 96 von 412 px.
+         Jetzt zwei Zeilen: oben der Titel ueber die volle Breite, darunter
+         die Werkzeuge als eigene, umbrechende Reihe. -->
+    <div class="mhdr pp-hdr" style="background:linear-gradient(135deg,rgba(27,94,32,.10),rgba(46,125,50,.04));border-radius:var(--r-lg);padding:10px 14px;margin:0 16px 8px;">
+      <div class="pp-hdr-top">
       <span class="memoji">🧠</span>
       <div style="flex:1;min-width:0;">
         <h2 style="display:flex;align-items:center;gap:8px;">KI-Gartenplaner PRO <span style="font-size:var(--fs-xs);font-weight:800;background:#2e7d32;color:#fff;padding:2px 7px;border-radius:var(--r-sm);letter-spacing:.3px;">v2</span></h2>
-        <p style="font-size:var(--fs-sm);opacity:.75;">Foto-Flächen­messung · Boden-Scan · Wetter · 3D-Modell · Gewächshaus</p>
+        <p style="font-size:var(--fs-sm);color:var(--muted);">Foto-Flächenmessung · Boden-Scan · Wetter · 3D-Modell · Gewächshaus</p>
       </div>
+      </div>
+      <div class="pp-hdr-tools">
       <!-- v24.03: „Meine Pläne"-Direkt-Zugang im Header -->
       <!-- v25.11: Neuer KI-Garten-Scan (3-Foto-Wizard via Edge-Fn garden-scan-analyze) -->
       <button onclick="gsOpenGardenScan()" style="background:linear-gradient(135deg,#1b5e20,#2e7d32);border:none;color:#fff;padding:7px 11px;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;flex-shrink:0;margin-right:6px;" title="Neuer KI-Garten-Scan mit 3 Fotos">✨ KI-Scan</button>
       <button onclick="(window.gsPlansOpen?gsPlansOpen():gsPPopenSavedPlans())" style="background:rgba(27,94,32,.15);border:1px solid rgba(27,94,32,.3);color:var(--g-dark);padding:7px 11px;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;flex-shrink:0;" title="Gespeicherte Pläne ansehen">📂 Meine Pläne</button>
-      <button onclick="gsOpenTreePlanner()" style="background:linear-gradient(135deg,#2e7d32,#43a047);border:none;color:#fff;padding:7px 11px;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;flex-shrink:0;margin-left:6px;" title="Baum pflanzen — Planer">🌳 Bäume</button>
+
+      <button onclick="gsOpenTreePlanner()" style="background:linear-gradient(135deg,#2e7d32,#1b5e20);border:none;color:#fff;padding:7px 11px;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;flex-shrink:0;margin-left:6px;" title="Baum pflanzen — Planer">🌳 Bäume</button>
+      </div>
     </div>
 
     <!-- Step Progress Bar -->
@@ -5343,6 +5355,20 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 .pp-step.done{background:rgba(46,125,50,.08);border-color:#2e7d32;color:var(--c-success-d);}
 .pp-stepview{display:none;}
 .pp-stepview.active{display:block;}
+/* v31.83 — Kopf des Planers auf zwei Zeilen: Titel oben ueber die volle
+   Breite, Werkzeuge darunter. In einer Reihe blieben dem Titel 96 von
+   412 px. */
+/* v31.83 — Kennzahlen: vier gerechnete Zahlen als erster Blick. */
+.gs-kz{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;}
+.gs-kz-z{background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:9px 4px;text-align:center;}
+.gs-kz-w{font-size:var(--fs-lg);font-weight:900;color:var(--text);line-height:1.15;}
+.gs-kz-e{font-size:var(--fs-xs);font-weight:700;color:var(--muted);margin-left:1px;}
+.gs-kz-b{font-size:var(--fs-xs);font-weight:700;color:var(--muted);margin-top:2px;}
+.gs-kz-txt{font-size:var(--fs-sm);color:var(--text2);line-height:1.55;background:var(--surface2);border-radius:var(--r-md);padding:10px 12px;margin-bottom:12px;}
+.pp-hdr{flex-direction:column;align-items:stretch;gap:8px;}
+.pp-hdr-top{display:flex;align-items:center;gap:12px;min-width:0;}
+.pp-hdr-tools{display:flex;flex-wrap:wrap;gap:6px;}
+.pp-hdr-tools button{flex:1 1 auto;min-width:0;white-space:nowrap;}
 .pp-planbox{background:var(--card);border-radius:var(--r-md);padding:14px;margin-bottom:10px;box-shadow:var(--shadow-sm);}
 .pp-planbox h4{font-size:var(--fs-md);font-weight:800;color:var(--g-dark);margin:0 0 6px 0;}
 .pp-tabbar{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:2px 2px 10px;position:sticky;top:0;background:var(--bg,#fff);z-index:3;scrollbar-width:none;}
@@ -56345,6 +56371,37 @@ function gsPPrenderPlan(plan, data) {
   var esc = function(s) { return escHtml ? escHtml(String(s || '')) : String(s || '').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
   var html = '';
 
+  // ── v31.83: Kennzahlen ganz oben ────────────────────────────────────
+  //
+  // Das Ergebnis beginnt bisher mit Pruefungen und Listen — richtig, aber
+  // es fehlt der erste Blick. Vier Zahlen sagen in einer Zeile, was fuer ein
+  // Plan das ist: wie gross, wie viele Arten, wie viel Ernte, wie viel
+  // Arbeit in der dichtesten Woche.
+  //
+  // ALLE VIER sind gerechnet, keine aus der KI-Antwort uebernommen — Ertrag
+  // aus _gsPlanErnteMonate (Summe der gepruefeten Ertraege), Aufwand aus
+  // _gsPlanArbeit. Wo nichts gerechnet werden konnte, steht ein Strich und
+  // nicht eine Null: „0 kg" und „keine Angabe" sind verschiedene Aussagen.
+  (function () {
+    try {
+      var z = [];
+      var flaeche = (plan.bed && plan.bed.width_m && plan.bed.length_m)
+        ? Math.round(plan.bed.width_m * plan.bed.length_m * 10) / 10 : null;
+      z.push({ wert: flaeche != null ? flaeche : '–', einheit: 'm²', was: 'Fläche' });
+      z.push({ wert: (plan.plants || []).length || '–', einheit: '', was: 'Arten' });
+      z.push({ wert: (plan._ernteMonate ? plan._ernteMonate.summe : '–'), einheit: 'kg', was: 'Ernte' });
+      z.push({ wert: (plan._arbeit ? plan._arbeit.spitze.n : '–'), einheit: '/Wo', was: 'Handgriffe' });
+      html += '<div class="gs-kz">' + z.map(function (k) {
+        return '<div class="gs-kz-z"><div class="gs-kz-w">' + esc(String(k.wert)) +
+               (k.einheit ? '<span class="gs-kz-e">' + esc(k.einheit) + '</span>' : '') + '</div>' +
+               '<div class="gs-kz-b">' + esc(k.was) + '</div></div>';
+      }).join('') + '</div>';
+      if (plan.summary) {
+        html += '<div class="gs-kz-txt">' + esc(String(plan.summary)) + '</div>';
+      }
+    } catch (_) {}
+  })();
+
   // v31.76: Bei einem GESPEICHERTEN Plan steht zuerst, was seither passiert
   // ist. Ein Plan, der sich nie wieder meldet, ist ein PDF.
   try { if (typeof gsPPnachBlock === 'function') html += gsPPnachBlock(plan); } catch (_) {}
@@ -67779,6 +67836,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.83', date: '02.09.2026',
+    headline: '\ud83d\udcca Vier Zahlen zuerst \u2014 und der Planer-Kopf passt endlich auf den Bildschirm',
+    summary: 'Das Plan-Ergebnis beginnt jetzt mit Fl\u00e4che, Artenzahl, gepr\u00fcfter Ernte und Arbeitsspitze \u2014 alle vier gerechnet, keine aus der KI-Antwort. Und der \u00fcberladene Kopfbereich steht auf zwei Zeilen statt einer.',
+    user_summary: '\ud83d\udcca Der fertige Plan sagt dir in einer Zeile, worum es geht: wie gross, wie viele Arten, wie viel Ernte, wie viel Arbeit.',
+    user_items: [
+      {emoji:'\ud83d\udcca', bold:'Vier Zahlen als erster Blick:', text:' Fl\u00e4che \u00b7 Arten \u00b7 Ernte \u00b7 Handgriffe pro Woche in der dichtesten Zeit. Alle vier sind gerechnet \u2014 die Ernte aus den gepr\u00fcften Ertr\u00e4gen, der Aufwand aus dem Pflegeplan. Wo nichts gerechnet werden konnte, steht ein Strich und keine Null: „0 kg" und „keine Angabe" sind verschiedene Aussagen.'},
+      {emoji:'\ud83e\uddf1', bold:'Der Kopfbereich passt wieder:', text:' Titel und drei Werkzeug-Kn\u00f6pfe standen in EINER Reihe. Auf einem Telefon blieben der \u00dcberschrift 96 von 412 Pixeln \u2014 „KI-Gartenplaner PRO" brach auf drei Zeilen, die Unterzeile auf acht, und der dritte Knopf ragte rechts hinaus. Jetzt zwei Zeilen: Titel oben \u00fcber die volle Breite, Werkzeuge darunter.'},
+      {emoji:'\ud83c\udfa8', bold:'Zwei Stellen, die dabei auffielen:', text:' Die Unterzeile war zu 75 % durchsichtig (3,5:1) und der Kn\u00f6pf „B\u00e4ume" zu hell (4,1:1) \u2014 beide erst messbar, seit der Kopf richtig umbricht. Ein zusammengequetschter Text entzieht sich der Pr\u00fcfung: was nicht richtig gerendert wird, wird auch nicht richtig gemessen.'},
+    ],
+  },
+  {
     v: 'v31.82', date: '02.09.2026',
     headline: '\ud83c\udfe0 Gew\u00e4chshaus, Treibhaus, Hochbeet \u2014 dein Garten hat jetzt eine Art',
     summary: 'Den Begriff gab es in der App bisher nicht: nur eine Gr\u00f6ssenstufe und einen Haken im Planer, den man jedes Mal von Hand setzen musste. Jetzt geh\u00f6rt die Art zum Garten, steht auf der Karte, und der Planer \u00fcbernimmt sie samt Gew\u00e4chshaus-Modus.',
@@ -68190,7 +68258,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.82';
+var GS_VERSION = 'v31.83';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
