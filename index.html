@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.21.20260902">
+<meta name="app-version" content="32.22.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -71306,6 +71306,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.22', date: '02.09.2026',
+    headline: '\ud83d\udce6 Was du ohne Empfang aufnimmst, geht nur an DEIN Konto',
+    summary: 'Scans, Fotos und Tagebuch-Eintr\u00e4ge, die ohne Netz entstehen, warten auf dem Ger\u00e4t. Bisher fragte beim n\u00e4chsten \u00dcbertragen niemand, WER sie eingereiht hatte \u2014 auf einem geteilten Ger\u00e4t landeten sie im Konto dessen, der sich als N\u00e4chstes anmeldete. Jetzt tr\u00e4gt jeder Eintrag seinen Absender, und er wartet auf ihn statt gel\u00f6scht oder verschickt zu werden.',
+    user_summary: '\ud83d\udce6 Ein Fund, den du im Wald ohne Empfang aufnimmst, geht auch dann an dein Konto, wenn sich am selben Ger\u00e4t vorher jemand anderes anmeldet.',
+    user_items: [
+      {emoji:'\ud83d\udce6', bold:'Was los war:', text:' Dein offline gemachter Scan bekommt seinen Besitzer erst beim \u00dcbertragen. Auf einem Familien-Tablet hiess das: wer sich als N\u00e4chstes anmeldete, bekam deinen Fund gutgeschrieben \u2014 und dein Foto in seinen Speicher.'},
+      {emoji:'\u2705', bold:'Was jetzt passiert:', text:' Jeder wartende Eintrag tr\u00e4gt, wer ihn gemacht hat. Ein fremder Eintrag wird weder \u00fcbertragen noch gel\u00f6scht \u2014 er wartet auf seinen Besitzer. Meldest du dich wieder an, geht er raus.'},
+      {emoji:'\ud83d\udd22', bold:'Und das Wartezeichen stimmt endlich:', text:' Die Zahl im Offline-Hinweis z\u00e4hlte auch das Archiv gek\u00fcrzter Eintr\u00e4ge mit \u2014 das wartet auf gar nichts. Wer einmal viel archiviert hatte, sah dauerhaft eine Zahl, die nie kleiner wurde.'},
+    ],
+  },
+  {
     v: 'v32.21', date: '02.09.2026',
     headline: '\ud83d\udd10 Beim Abmelden bleibt nichts Pers\u00f6nliches mehr auf dem Ger\u00e4t liegen',
     summary: 'Nachgemessen statt vermutet: von 209 Speicherpl\u00e4tzen \u00fcberlebten 130 das Abmelden, 123 davon hatte nie jemand entschieden \u2014 darunter der pers\u00f6nlich hinterlegte KI-Schl\u00fcssel, der globale Schl\u00fcssel, die lokale Anmelde-Ablage mit E-Mail-Adressen und der Admin-Passwort-Hash. Jetzt gehen 51 weitere Pl\u00e4tze mit, und ein 15. Pr\u00fcfstand meldet jeden neuen, den niemand eingeordnet hat.',
@@ -71726,7 +71737,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.21';
+var GS_VERSION = 'v32.22';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -74036,6 +74047,73 @@ function gsRegisterServiceWorker() {
   // zusaetzlich hier, wenn dieser Flush sie auch uebertragen kann.
   var SYNC_STORES = ['pending_scans', 'pending_diary', 'pending_sync'];
 
+  // ══ v32.22 · WEM GEHOERT EIN EINTRAG? ═════════════════════════════════════
+  //
+  // v31.04 hat genau diesen Fehler im localStorage behoben: `gs_sync_queue`
+  // ueberlebte den Logout, die `user_id` wird aber erst BEIM FLUSH eingesetzt —
+  // ungesendete Vorgaenge von Nutzer A landeten im Konto von Nutzer B.
+  //
+  // In IndexedDB stand er weiter. Dieselben fuenf Ablagen ueberleben das
+  // Abmelden vollstaendig, und der Flush fragt nicht, wer sie eingereiht hat:
+  //
+  //   pending_scans/diary/sync  gsScanPersistToCloud schreibt fuer den, der
+  //                             GERADE angemeldet ist. A scannt offline, B
+  //                             meldet sich an — der Scan landet bei B.
+  //   pending_photos            gsUploadImage laedt in den Bucket des
+  //                             Angemeldeten. As Foto in Bs Speicher.
+  //   dropped_entries           Archiv-Export gab As gekuerzte Eintraege an
+  //                             jeden weiter, der danach an dem Geraet sass.
+  //
+  // Die Loesung ist NICHT „beim Abmelden wegwerfen": dann verliert A seine
+  // offline gemachte Arbeit in dem Moment, in dem er sich abmeldet. Jeder
+  // Eintrag traegt seit v32.22 die uid dessen, der ihn eingereiht hat; der
+  // Flush ueberspringt fremde Saetze, statt sie zu loeschen. Kommt A zurueck,
+  // gehen sie raus.
+  function _gsUid(){
+    try { return localStorage.getItem('gs_sb_uid') || ''; } catch(_){ return ''; }
+  }
+  function _gsGehoertMir(satz){
+    var mir = _gsUid();
+    if (!mir) return false;               // niemand angemeldet -> gehoert niemandem
+    if (!satz || !satz.uid) return true;  // vor v32.22 eingereiht (siehe unten)
+    return satz.uid === mir;
+  }
+  // Ein Satz OHNE uid stammt aus einer Version vor v32.22 und wird als eigener
+  // behandelt. Die Alternative waere, ihn zu verwerfen — das hiesse, beim
+  // Update jede bestehende Warteschlange lautlos zu leeren. Das Zeitfenster
+  // ist begrenzt und schliesst sich mit dem ersten Einreihen.
+
+  // Fremde Saetze wandern nicht ewig mit: was einem anderen Konto gehoert und
+  // aelter als 90 Tage ist, wird verworfen. Ohne diesen Deckel haelt ein
+  // einmal benutztes Geraet base64-Fotos eines Konts fest, das nie
+  // wiederkommt.
+  var FREMD_MAX_MS = 90 * 24 * 3600 * 1000;
+  async function _gsRaeumeFremde(db){
+    var mir = _gsUid();
+    if (!mir) return 0;
+    var weg = 0;
+    for (var i = 0; i < STORES.length; i++) {
+      try {
+        var name = STORES[i];
+        var tx = db.transaction(name, 'readonly');
+        var rows = await new Promise(function(r,j){
+          var q = tx.objectStore(name).getAll();
+          q.onsuccess = function(){ r(q.result || []); }; q.onerror = function(){ j(q.error); };
+        });
+        var alt = rows.filter(function(x){
+          if (!x || !x.uid || x.uid === mir) return false;
+          var t = x.queued_at || x.dropped_at || 0;
+          return t && (Date.now() - t) > FREMD_MAX_MS;
+        });
+        if (!alt.length) continue;
+        var dtx = db.transaction(name, 'readwrite');
+        alt.forEach(function(x){ try { dtx.objectStore(name).delete(x.id); weg++; } catch(_){} });
+      } catch(_){}
+    }
+    if (weg) console.info('[Warteschlange] ' + weg + ' Satz/Saetze eines anderen Kontos nach 90 Tagen verworfen.');
+    return weg;
+  }
+
   function _open(){
     return new Promise(function(resolve, reject){
       var rq = indexedDB.open(DB_NAME, DB_VERSION);
@@ -74059,7 +74137,7 @@ function gsRegisterServiceWorker() {
     try {
       var db = await _open();
       var tx = db.transaction(storeName, 'readwrite');
-      tx.objectStore(storeName).add({ data: data, queued_at: Date.now(), type: type });
+      tx.objectStore(storeName).add({ data: data, queued_at: Date.now(), type: type, uid: _gsUid() });
       await new Promise(function(r,j){ tx.oncomplete = r; tx.onerror = function(){ j(tx.error); }; });
       console.log('[gsQueueOffline] In ' + storeName + ' eingereiht');
       // Background-Sync registrieren wenn supported
@@ -74091,7 +74169,7 @@ function gsRegisterServiceWorker() {
       var tx = db.transaction('dropped_entries', 'readwrite');
       var st = tx.objectStore('dropped_entries');
       for (var i = 0; i < items.length; i++) {
-        st.add({ src: key, item: items[i], dropped_at: Date.now() });
+        st.add({ src: key, item: items[i], dropped_at: Date.now(), uid: _gsUid() });
       }
       await new Promise(function(r,j){ tx.oncomplete = r; tx.onerror = function(){ j(tx.error); }; });
       // Aeltestes abraeumen, wenn das Archiv selbst zu gross wird.
@@ -74118,20 +74196,10 @@ function gsRegisterServiceWorker() {
     } catch(e){ console.warn('[gsArchiveDropped]', e); return 0; }
   };
 
-  window.gsArchiveCount = async function(){
-    try {
-      var db = await _open();
-      var tx = db.transaction('dropped_entries', 'readonly');
-      return await new Promise(function(r,j){
-        var q = tx.objectStore('dropped_entries').count();
-        q.onsuccess = function(){ r(q.result); }; q.onerror = function(){ j(q.error); };
-      });
-    } catch(_){ return 0; }
-  };
-
-  // Erreichbarkeit: als JSON herunterladen. Ohne diesen Weg waere das Archiv
-  // nur eine weitere Schublade, die niemand oeffnen kann.
-  window.gsArchiveExport = async function(){
+  // v32.22: nur das eigene Archiv. Ein Geraet, an dem zwei Konten benutzt
+  // wurden, zeigte sonst die Zahl BEIDER — und der Export gab die gekuerzten
+  // Eintraege des Vorgaengers mit heraus.
+  async function _gsArchivEigene(){
     try {
       var db = await _open();
       var tx = db.transaction('dropped_entries', 'readonly');
@@ -74139,6 +74207,18 @@ function gsRegisterServiceWorker() {
         var q = tx.objectStore('dropped_entries').getAll();
         q.onsuccess = function(){ r(q.result || []); }; q.onerror = function(){ j(q.error); };
       });
+      return rows.filter(_gsGehoertMir);
+    } catch(_){ return []; }
+  }
+  window.gsArchiveCount = async function(){
+    return (await _gsArchivEigene()).length;
+  };
+
+  // Erreichbarkeit: als JSON herunterladen. Ohne diesen Weg waere das Archiv
+  // nur eine weitere Schublade, die niemand oeffnen kann.
+  window.gsArchiveExport = async function(){
+    try {
+      var rows = await _gsArchivEigene();
       if (!rows.length) {
         if (typeof gsToast === 'function') gsToast('Archiv ist leer — es wurde noch nichts gekürzt.', 'info');
         return 0;
@@ -74180,7 +74260,7 @@ function gsRegisterServiceWorker() {
       var rq = tx.objectStore('pending_photos').add({
         bucket: bucket, b64: b64, target: target,
         key: target.kind + ':' + target.ref,
-        queued_at: Date.now(), tries: 0
+        queued_at: Date.now(), tries: 0, uid: _gsUid()
       });
       var newId = await new Promise(function(r,j){
         rq.onsuccess = function(){ r(rq.result); };
@@ -74300,8 +74380,11 @@ function gsRegisterServiceWorker() {
         rq.onsuccess = function(){ r(rq.result || []); };
         rq.onerror = function(){ j(rq.error); };
       });
+      try { await _gsRaeumeFremde(db); } catch(_){}
       for (var i = 0; i < items.length; i++) {
         var it = items[i];
+        // v32.22: fremdes Foto nicht in den eigenen Bucket laden.
+        if (!_gsGehoertMir(it)) continue;
         var drop = false;
         try {
           var url = await gsUploadImage(it.b64, it.bucket, 'jpg', it.key);
@@ -74344,10 +74427,14 @@ function gsRegisterServiceWorker() {
   // Public API: gsFlushOfflineQueue — alle pending Items abarbeiten (wenn online)
   window.gsFlushOfflineQueue = async function(){
     if (!navigator.onLine) return;
+    // v32.22: ohne Anmeldung kann dieser Flush nichts uebertragen — er wuerde
+    // im generischen Zweig nur `ok = true` setzen und die Saetze loeschen.
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
     if (window._gsFlushing) return; // v30.30: Re-Entrancy-Guard — SW-'sync'-Event + window-'online' feuern parallel → sonst Doppel-Insert
     window._gsFlushing = true;
     try {
       var db = await _open();
+      try { await _gsRaeumeFremde(db); } catch(_){}
       for (var i = 0; i < SYNC_STORES.length; i++) {
         var storeName = SYNC_STORES[i];
         var tx = db.transaction(storeName, 'readwrite');
@@ -74359,6 +74446,10 @@ function gsRegisterServiceWorker() {
         });
         for (var j = 0; j < items.length; j++) {
           var it = items[j];
+          // v32.22: Saetze eines anderen Kontos NICHT uebertragen und NICHT
+          // loeschen — sie gehoeren ihrem Einreicher, nicht dem, der gerade
+          // angemeldet ist.
+          if (!_gsGehoertMir(it)) continue;
           var ok = false;
           try {
             // Routing nach Typ
@@ -74391,18 +74482,26 @@ function gsRegisterServiceWorker() {
   };
 
   // Public API: gsCountOfflineQueue — Anzahl pending Items (für UI)
+  // v32.22: zaehlt, was WIRKLICH auf Uebertragung wartet — und nur das
+  // eigene. Vorher lief die Schleife ueber alle fuenf STORES, also auch ueber
+  // `dropped_entries`: das Archiv wartet auf gar nichts und wird nie kleiner.
+  // Wer einmal 3'000 gekuerzte Eintraege archiviert hatte, sah dauerhaft
+  // „3'000 wartend" im Offline-Banner. Und Saetze eines anderen Kontos zaehlen
+  // ebenfalls nicht mit — sie gehen bei DIESER Anmeldung nicht raus.
+  var ZAEHL_STORES = SYNC_STORES.concat(['pending_photos']);
   window.gsCountOfflineQueue = async function(){
     try {
       var db = await _open();
       var total = 0;
-      for (var i = 0; i < STORES.length; i++) {
-        var tx = db.transaction(STORES[i], 'readonly');
-        var c = await new Promise(function(r,j){
-          var rq = tx.objectStore(STORES[i]).count();
-          rq.onsuccess = function(){ r(rq.result); };
+      for (var i = 0; i < ZAEHL_STORES.length; i++) {
+        var name = ZAEHL_STORES[i];
+        var tx = db.transaction(name, 'readonly');
+        var rows = await new Promise(function(r,j){
+          var rq = tx.objectStore(name).getAll();
+          rq.onsuccess = function(){ r(rq.result || []); };
           rq.onerror = function(){ j(rq.error); };
         });
-        total += c;
+        total += rows.filter(_gsGehoertMir).length;
       }
       return total;
     } catch(e) { return 0; }
