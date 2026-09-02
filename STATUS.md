@@ -4,13 +4,52 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.00` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.01` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (cm) — v32.01: ein Vorbehalt ohne Ausweg ist nur ein Vorwurf
+
+Das Prüfwerk aus v31.99 meldet Vorbehalte — und liess den Nutzer damit stehen.
+Den Knopf „Weiteres Foto hinzufügen" gab es seit v30.74, aber seine Bedingung
+war die **Selbsteinschätzung des Modells**:
+
+```js
+if ((r.next_photo_hint && conf < 85) || (conf > 0 && conf < 60))
+```
+
+Genau das falsche Signal. Meldet das Modell 94 % und die Prüfung findet zwei
+Widersprüche, stand dort nichts.
+
+- Der Knopf hängt jetzt an `_pw.warn > 0` und steht **dort, wo das Urteil
+  steht** — nicht weit unten auf der Karte.
+- Die untere Karte bietet ihn dann nicht mehr an: zwei Knöpfe für dieselbe
+  Handlung sind keine Auswahl.
+
+#### Und noch eine unlesbare Stelle
+
+`contrast_check` misst im Scan-Fenster jetzt **46 statt 40** Stellen — weil der
+Prüfstand so tut, als läge ein erstes Foto vor und damit auch der neue Knopf
+rendert. Prompt fiel etwas auf, das vorher **gar nicht messbar war**: die
+Prozentzahl neben einer Verwechslungsmöglichkeit, weiss auf `#ef5350` =
+**3,49:1 in beiden Modi**. Die drei Farben dort waren für Flächen ohne Text
+gedacht.
+
+**Die Lehre:** ein Prüfstand misst nur, was wirklich gerendert wird. Wer eine
+Ansicht misst, muss sie auch in ihren Zuständen herstellen — sonst ist „0
+Fehler" eine Aussage über zu wenig.
+
+#### Prüfstände
+
+`scan_check` **19/19** (zwei Fälle mehr: Knopf bei Vorbehalten trotz 94 %
+Modell-Sicherheit · kein Knopf bei sauberem Fund · kein doppelter Knopf).
+`contrast_check` 0/0. Alle übrigen grün.
+
+---
 
 ### 2026-09-02 (cl) — v32.00: Scanner V3, Stufe 2 — das Foto weiss, wann und wo es entstand
 
