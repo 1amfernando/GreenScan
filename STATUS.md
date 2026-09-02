@@ -4,13 +4,44 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.86` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.87` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (by) — v31.87: „Plan für diesen Garten" — ein Tipp statt vier Schritte
+
+Die App hat **alle** Angaben deines Gartens: Masse, Standort, Licht, Boden, seit gestern auch die Art. Trotzdem war der Weg zum Plan: Planer öffnen → Schritt 1 → Vorlagen-Liste finden → „einen deiner Gärten übernehmen" → durch vier Schritte klicken.
+
+Jetzt steht der Knopf dort, wo der Garten steht — auf der Gartenkarte selbst.
+
+#### Was er tut
+
+Planer öffnen · Vorlage anwenden · zum letzten Schritt springen (dort steht „🧠 Plan generieren").
+
+Nachgeprüft mit einem Gewächshaus als Testgarten:
+
+| | |
+|---|---|
+| Breite / Länge | 4 / 8 |
+| Ort | Bern |
+| Boden · Licht | lehmig · Vollsonne |
+| **Gewächshaus-Modus** | **an** |
+| Schritt | 4 (der letzte vor dem Plan) |
+| Modal sichtbar | ja, 915 px hoch |
+
+#### Was NICHT von selbst passiert
+
+**Der Plan wird nicht ungefragt erzeugt.** Ein KI-Aufruf, der von allein startet, kostet Tageskontingent und überrascht. Der letzte Schritt gehört dem Menschen — samt Feld für Wünsche und Einschränkungen.
+
+#### Prüfstände
+
+`render_check` 2872 · 0 JS-Fehler · 0 verdächtig · `contrast_check` 0/0 · `touch_check` 0 · `wiring_check` 0/0/0 + 31 Ziele · `save_check` 7/7.
+
+---
 
 ### 2026-09-02 (bx) — v31.86: „Jetzt dran" — dein Saatgut weiss, wann es Zeit ist
 
