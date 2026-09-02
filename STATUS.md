@@ -12,6 +12,76 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-01 (bh) — v31.70: Fragebogen im Pflanzendoktor, drei Gruppen umgezogen
+
+Die restlichen drei Punkte aus Fernandos Liste.
+
+#### Der Fragebogen — der Inhalt war schon da, nur an der falschen Stelle
+
+Fernando: *„anhand von Bilder und einem Fragebogen gezielt eine sehr gute diagnose"*.
+
+Der Doktor hatte ein Notizfeld mit dem Platzhalter **„z.B. seit wann · Standort · Düngung · Wassergabe…"**. Das ist der Fragebogen — als grauer Beispieltext in einem leeren Feld. So beantwortet ihn niemand.
+
+Jetzt sechs Fragen mit Antworten zum Antippen:
+
+| Frage | warum sie zählt |
+|---|---|
+| Seit wann? | akut oder chronisch |
+| **Wo an der Pflanze?** | junge gegen alte Blätter trennt Stickstoff- von Eisenmangel |
+| **Breitet es sich aus?** | eine Pflanze gegen mehrere trennt Standortproblem von Krankheit |
+| Standort | drinnen/draussen/Gewächshaus/Balkon |
+| Zuletzt gegossen | die häufigste Ursache überhaupt |
+| Zuletzt gedüngt | Mangel oder Überdüngung |
+
+Die zwei fett markierten sind nicht aus dem Platzhalter — sie machen in der Pflanzenpathologie den grössten Unterschied.
+
+Alles freiwillig. Was leer bleibt, geht **nicht** in die Anfrage: eine geratene Antwort ist schlechter als keine. Erneutes Antippen wählt ab — sonst könnte man eine versehentliche Angabe nie zurücknehmen.
+
+Die Antworten werden dem Freitext vorangestellt statt in ein neues Feld gelegt: die Edge-Function reicht `user_note` an die KI durch, ein neues Feld müsste dort erst ausgewertet werden. **Ein Fragebogen, dessen Antworten nirgends ankommen, wäre Zierde** — auf diesem Weg wirkt er sofort.
+
+Durchgespielt: 6 Fragen / 24 Knöpfe · leer → `[]` · drei gesetzt → drei Zeilen · Wechseln ersetzt · nochmal tippen wählt ab · in der Anfrage steht `„Wo an der Pflanze? junge Blätter · Zuletzt gegossen unregelmässig\nBlätter fühlen sich weich an"` · Neu-Öffnen setzt zurück.
+
+#### Achtzehn Werkzeuge haben einen Ort bekommen
+
+| Gruppe | wohin | warum |
+|---|---|---|
+| 🩺 Pflege & Diagnose (5) | 4 in den **Pflanzendoktor**, unter die Diagnose | wer den Doktor öffnet, will zuerst diagnostizieren; wer nicht weiterkommt, sucht dort den Schädling-Scanner |
+| 🗓️ Planen & Gestalten (6) | in den **KI-Planer** | alles davon ist Planung; auf der Gartenseite war es eine zweite Tür zum selben Raum |
+| 📚 Wissen & Werkzeuge (7) | ins **Hauptmenü** | ein Sammelsurium aus Spielstand, Nachschlagewerk, Statistik und Zubehör — dort stehen sie neben ihresgleichen und sind durchsuchbar |
+
+Auf „Mein Garten" bleibt **eine** Zeile: „🩺 Pflanzendoktor · Foto + Fragebogen".
+
+**Nachgemessen statt gehofft.** Alle 18 Ziele am laufenden Programm geprüft — jedes ist von mindestens einer Stelle erreichbar, **keines begraben**:
+
+```
+openDoctorModal            Garten          gsPPopenSavedPlans         Planer
+openPestModal              Doktor          gsSeasonalOpen             Planer
+gsDiseaseOpen              Doktor          openRegionalCalendarModal  Planer
+openSoilAmendmentModal     Doktor          openGardenLayoutsModal     Planer
+openFertilizerModal        Doktor          openForestGardenModal      Planer
+                                           gsBeeFriendlyOpen          Planer
+openAchievementsModal      Menü            openHarvestStatsModal      Menü
+gsOpenGardenLibrary        Menü            openDiaryEntryModal        Menü
+gsInsightsOpen             Menü            gsVoiceOpen                Menü
+                                           gsShOpen                   Menü
+```
+
+Menü-Einträge 40 → **47**, davon kaputt: **0**.
+
+Die Gartenseite: **213 → 132 Elemente**. Antippbare Stellen 48 → 31 — diesmal ein gewollter Rückgang, und der einzige Fall in dieser Reihe, in dem er richtig ist: die 18 Einträge sind nicht weg, sie sind woanders.
+
+#### Ein Verlust, den ich benenne statt zu verschweigen
+
+Der Sensor-Dashboard-Knopf trug einen **Live-Punkt** (`gs-sh-livedot`), der anzeigte, dass mindestens ein Sensor online ist. Ein Menü-Eintrag kann ihn nicht tragen — `MENU_ITEMS` kennt nur Beschriftung und Unterzeile. Der Hinweis ist damit weg, und das ist ein echter Verlust: er war die einzige Stelle, an der man ohne Öffnen sah, dass Sensoren laufen. Der Status steht weiterhin im Dashboard selbst („n Sensoren · m online").
+
+Gefunden hat das mein eigener Prüfstand: vor dem Umzug 0 verwaiste Nachschlagungen, danach 1. **Wer Sensoren wirklich nutzt, soll es sagen — dann bekommt der Menü-Eintrag ein Merkmal.**
+
+#### Verify
+
+`wiring_check` 307 Namen / **0** nicht auflösbar · Menü **47**/0 · 931 Nachschlagungen / **0** nie erzeugt / **0** ungesichert · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen · `contrast_check` 0 unter AA beide Modi · `touch_check` 0 unter 24×24 · Fragebogen in sieben Schritten durchgespielt · alle 18 Umzugsziele auf Erreichbarkeit geprüft · `GS_RELEASES[0].v` = `GS_VERSION` geprüft · `gsAllReleases()` 417 → **418**, 0 Dopplungen · 9/9 Inline-Scripts + `sw.js` `node --check` OK · `GS_VERSION` v31.70 · `sw.js` gs-v31.70 · `_headers` v31.70 · meta 31.70.20260901.
+
+---
+
 ### 2026-09-01 (bg) — v31.69: Drei Widgets, die dasselbe sagten, sind eins geworden
 
 Fernandos Liste hatte sechs Punkte. Zwei davon — *„Das Wetter ist zwei mal darauf"* und *„Im September im Garten → soll bei nächsten Schritt angezeigt werden"* — hatten dieselbe Ursache, die er selbst nicht benannt hat.

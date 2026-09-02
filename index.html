@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.69.20260901">
+<meta name="app-version" content="31.70.20260901">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1723,6 +1723,17 @@ body.dark .gs-doc-pro{background:#3a2c10;border-color:#8d6e2a;color:#ffcc80;}
 /* v31.69 — „Nächste Schritte": eine Liste statt dreier Kaesten (Wetter-Rat,
    faellige Pflege, Saison). Jede Zeile eine Empfehlung, oben die
    dringendste. Der Haken rechts zeigt, was sich direkt abhaken laesst. */
+/* v31.70 — Der Fragebogen im Pflanzendoktor. Antworten zum Antippen statt
+   eines leeren Freitextfelds: Fragen, die man beantworten KANN, werden
+   beantwortet; Fragen, die als Beispiel in einem Platzhalter stehen, nicht. */
+.gs-dq{margin-bottom:10px;}
+.gs-dq-f{font-size:var(--fs-sm);font-weight:800;color:var(--text2);margin-bottom:5px;}
+.gs-dq-o{display:flex;flex-wrap:wrap;gap:6px;}
+.gs-dq-b{min-height:32px;padding:6px 11px;border:1.5px solid var(--border);border-radius:var(--r-md);
+  background:var(--card);color:var(--text2);font-family:inherit;font-size:var(--fs-sm);font-weight:700;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background var(--dur-fast) ease;}
+.gs-dq-b.gs-dq-an{background:#00695c;border-color:#00695c;color:#ffffff;}
+body.dark .gs-dq-b.gs-dq-an{background:#4db6ac;border-color:#4db6ac;color:#06231f;}
 .gs-ns{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-sm);margin-bottom:9px;overflow:hidden;}
 .gs-ns-kopf{font-size:var(--fs-xs);font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;padding:10px 13px 6px;}
 .gs-ns-zeile{display:flex;align-items:flex-start;gap:10px;padding:9px 13px;border-top:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;}
@@ -3454,146 +3465,28 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
      in der Liste „Nächste Schritte" ganz oben, zusammen mit dem Wetter-Rat
      und den fälligen Pflege-Aufgaben — drei Kästen, die dieselbe Frage
      beantworteten, sind einer geworden. -->
-<details class="gs-grp">
-  <summary>🩺 Pflege & Diagnose</summary>
-  <div style="padding-top:2px;">
-<!-- v25.31: KI-Pflanzendoktor (Vision-AI via plant-doctor-diagnose Edge-Fn) -->
+<!-- ══ v31.70: DIE DREI GRUPPEN SIND UMGEZOGEN ═══════════════════════
+     Fernando: „Pflege und Diagnose … hätte ich lieber beim Pflanzendoktor
+     implementiert" · „Wissen und Werkzeuge … gehört nicht in Mein Garten"
+     · „Planen und Gestalten … empfinde ich als nicht nötig auf dieser
+     Seite."
+
+     Nichts ist verschwunden — alles hat einen Ort bekommen, an dem es
+     hingehört:
+       · Pflege & Diagnose   → in den Pflanzendoktor (die vier weiteren
+                               Werkzeuge stehen dort unter der Diagnose).
+                               Hier bleibt EINE Zeile als Eingang.
+       · Planen & Gestalten  → in den KI-Planer. Der Knopf dafür steht
+                               oben unter „Tun".
+       · Wissen & Werkzeuge  → ins Hauptmenü, wo es durchsuchbar ist.
+     ══════════════════════════════════════════════════════════════════ -->
 <div style="padding:0 16px 12px;">
-  <button onclick="openDoctorModal()" title="KI-Pflanzendoktor — Symptome diagnostizieren + Behandlungsplan" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#00897b,#00695c);border:none;color:#fff;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_doctor_open" data-i18n-fallback="🩺 KI-Pflanzendoktor · Symptom-Analyse">🩺 KI-Pflanzendoktor · Symptom-Analyse</span><span style="font-size:var(--fs-xl);opacity:.85;">›</span>
+  <button onclick="openDoctorModal()" title="Pflanzendoktor — Diagnose aus Foto und Fragebogen" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#00897b,#00695c);border:none;color:#fff;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_doctor_open" data-i18n-fallback="🩺 Pflanzendoktor · Foto + Fragebogen">🩺 Pflanzendoktor · Foto + Fragebogen</span><span style="font-size:var(--fs-xl);opacity:.85;">›</span>
   </button>
 </div>
-<!-- v26.19: Schädlings-Scanner (Vision-AI via pest-identify Edge-Fn) -->
-<div style="padding:0 16px 12px;">
-  <button onclick="openPestModal()" title="Schädlings-Scanner — Foto → KI identifiziert + Bio-Behandlung" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#6d4c41,#4e342e);border:none;color:#fff;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_pest_open" data-i18n-fallback="🪲 Schädling-Scanner · Foto → Bio-Behandlung">🪲 Schädling-Scanner · Foto → Bio-Behandlung</span><span style="font-size:var(--fs-xl);opacity:.85;">›</span>
-  </button>
-</div>
-<!-- v25.17: Krankheits-Lexikon (nutzt plant_diseases-Tabelle) -->
-<div style="padding:0 16px 8px;">
-  <button onclick="gsDiseaseOpen()" title="Krankheits-Lexikon — Symptome erkennen + behandeln" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#ffebee,#ffcdd2);border:1.5px solid #ef5350;color:var(--c-danger);border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_disease_lexicon" data-i18n-fallback="🦠 Krankheits-Lexikon · Symptome + Treatment">🦠 Krankheits-Lexikon · Symptome + Treatment</span><span style="color:var(--c-danger);font-size:var(--fs-xl);">›</span>
-  </button>
-</div>
-<!-- v26.25: Bodenverbesserer-Recommender (soil_amendments-DB) -->
-<div style="padding:0 16px 12px;">
-  <button onclick="openSoilAmendmentModal()" title="Bodenverbesserer-Empfehlung basierend auf pH + Bodenart" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#5d4037,#3e2723);border:none;color:#fff;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_soil_amend_open" data-i18n-fallback="🪨 Boden verbessern · NPK + pH-Empfehlung">🪨 Boden verbessern · NPK + pH-Empfehlung</span><span style="font-size:var(--fs-xl);opacity:.85;">›</span>
-  </button>
-</div>
-<!-- v26.29: Düngeplan-Coach (fertilization_schedules-DB) -->
-<div style="padding:0 16px 12px;">
-  <button onclick="openFertilizerModal()" title="Düngeplan für deine Pflanze nach Wachstumsphase" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#2e7d32,#1b5e20);border:none;color:#fff;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_fertilizer_open" data-i18n-fallback="🌱 Düngeplan-Coach · Phase + Menge + Bio-Tipp">🌱 Düngeplan-Coach · Phase + Menge + Bio-Tipp</span><span style="font-size:var(--fs-xl);opacity:.85;">›</span>
-  </button>
-</div>
-  </div>
-</details>
-<details class="gs-grp">
-  <summary>🗓️ Planen & Gestalten</summary>
-  <div style="padding-top:2px;">
-<div style="padding:0 16px 8px;">
-  <button onclick="gsPPopenSavedPlans()" title="Gespeicherte Garten-Pläne" style="width:100%;padding:11px 12px;background:var(--card);border:1.5px solid var(--border);color:var(--text);border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_saved_plans" data-i18n-fallback="📂 Meine gespeicherten Garten-Pläne">📂 Meine gespeicherten Garten-Pläne</span><span style="color:var(--muted);font-size:var(--fs-xl);">›</span>
-  </button>
-</div>
-<!-- v25.18: Saisonkalender-Modal-Trigger (Voll-Jahres-Übersicht) -->
-<div style="padding:0 16px 8px;">
-  <button onclick="gsSeasonalOpen()" title="Saisonkalender — alle 12 Monate" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#e8f5e9,#c5e1a5);border:1.5px solid #66bb6a;color:var(--c-success-d);border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_seasonal_cal" data-i18n-fallback="📅 Saisonkalender · Voll-Jahres-Übersicht">📅 Saisonkalender · Voll-Jahres-Übersicht</span><span style="color:var(--c-success-d);font-size:var(--fs-xl);">›</span>
-  </button>
-</div>
-<!-- v26.27: Regional-Calendar (7 CH-Höhenzonen) -->
-<div style="padding:0 16px 12px;">
-  <button onclick="openRegionalCalendarModal()" title="Regional-Kalender — Monats-Tasks für deine CH-Region" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#0277bd,#01579b);border:none;color:#fff;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_region_cal_open" data-i18n-fallback="🗓️ Regional-Kalender · Monats-Tasks deiner CH-Zone">🗓️ Regional-Kalender · Monats-Tasks deiner CH-Zone</span><span style="font-size:var(--fs-xl);opacity:.85;">›</span>
-  </button>
-</div>
-<!-- v26.31: Beet-Layout-Designer (garden_layouts-DB) -->
-<div style="padding:0 16px 12px;">
-  <button onclick="openGardenLayoutsModal()" title="Beet-Vorlagen: Hochbeet, Permakultur, Mandala, Kräuterspirale, ..." style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#388e3c,#2e7d32);border:none;color:#fff;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_layouts_open" data-i18n-fallback="📐 Beet-Layouts · 10 fertige Vorlagen">📐 Beet-Layouts · 10 fertige Vorlagen</span><span style="font-size:var(--fs-xl);opacity:.85;">›</span>
-  </button>
-</div>
-<!-- v26.44: Forest-Garden Designer (Permakultur 7-Schichten + 8 Designs aus forest_garden_design) -->
-<div style="padding:0 16px 12px;">
-  <button onclick="openForestGardenModal()" title="Forest-Garden — Permakultur 7-Schichten-Designs" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#33691e,#1b5e20);border:none;color:#fff;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_forest_open" data-i18n-fallback="🌳 Forest-Garden planen · 7-Schichten + 8 Vorlagen">🌳 Forest-Garden planen · 7-Schichten + 8 Vorlagen</span><span style="font-size:var(--fs-xl);opacity:.85;">›</span>
-  </button>
-</div>
-<!-- v25.16: Bee-Friendly-Garden-Modal (nutzt pollinators-Tabelle) -->
-<div style="padding:0 16px 8px;">
-  <button onclick="gsBeeFriendlyOpen()" title="Bestäuber-freundlicher Garten" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#fff8e1,#fffbd0);border:1.5px solid #fbc02d;color:var(--c-warn-d);border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_bee_friendly" data-i18n-fallback="🐝 Bestäuber-Garten · Wildbienen fördern">🐝 Bestäuber-Garten · Wildbienen fördern</span><span style="color:var(--c-warn-d);font-size:var(--fs-xl);">›</span>
-  </button>
-</div>
-  </div>
-</details>
-<details class="gs-grp">
-  <summary>📚 Wissen & Werkzeuge</summary>
-  <div style="padding-top:2px;">
-<!-- v31.64: Achievements. Vorher eine eigene Kachel im Werkzeug-Raster —
-     als fuenfte in einem Zweierraster, was aus zwei Reihen drei mit einer
-     Waise machte. Sie ist hierher gewandert statt zu verschwinden: der
-     Griff in den Quelltext zeigte, dass es AUSSER dieser Kachel keinen
-     Weg zu openAchievementsModal gab (der einzige weitere Aufruf steht im
-     Benachrichtigungs-Router und greift nur, wenn eine Erfolgs-Meldung
-     ankommt). Sie zu streichen haette das Feature begraben. -->
-<div style="padding:0 16px 12px;">
-  <button onclick="if(typeof openAchievementsModal==='function')openAchievementsModal()" title="Achievements und Garten-Score" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#fff8e1,#ffecb3);border:1.5px solid #b26a00;color:#5d4037;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_achievements_open" data-i18n-fallback="🏆 Achievements · Meilensteine + Garten-Score">🏆 Achievements · Meilensteine + Garten-Score</span><span style="color:#5d4037;font-size:var(--fs-xl);">›</span>
-  </button>
-</div>
-<!-- v31.47: Garten-Bibliothek. Die zehn Artikel, ihre zehn Kategorien und das
-     Detail-Fenster (#garden-article-modal-content) gibt es seit v28.57 — nur
-     die Liste hatte kein Zuhause: renderGardenLibrary schreibt in
-     #garden-library-content, und dieses Element stand nirgends. Aufgerufen
-     wurde die Funktion bei jedem Wechsel auf den Garten-Reiter; sie kehrte
-     jedes Mal in der zweiten Zeile um. Gefunden mit scripts/wiring_check.js. -->
-<div style="padding:0 16px 12px;">
-  <button onclick="gsOpenGardenLibrary()" title="Garten-Bibliothek — Grundlagen von Boden bis Biodiversität" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#e8f5e9,#c8e6c9);border:1.5px solid var(--g-main);color:var(--g-dark);border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_garden_library" data-i18n-fallback="📖 Garten-Bibliothek · 10 Grundlagen-Artikel">📖 Garten-Bibliothek · 10 Grundlagen-Artikel</span><span style="color:var(--g-dark);font-size:var(--fs-xl);">›</span>
-  </button>
-</div>
-<!-- v25.20: Garten-Insights-Dashboard (aggregiert pollinators + diseases + tasks + myPlants) -->
-<div style="padding:0 16px 8px;">
-  <button onclick="gsInsightsOpen()" title="Garten-Insights — Bestaeuber-Score + Risiken + DB-Stats" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#e3f2fd,#bbdefb);border:1.5px solid #0277bd;color:#01579b;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_garden_insights" data-i18n-fallback="📊 Garten-Insights · Score + Risiken">📊 Garten-Insights · Score + Risiken</span><span style="color:#01579b;font-size:var(--fs-xl);">›</span>
-  </button>
-</div>
-<!-- v25.31: Erntekalender-Trigger (Statistik aller Ernten dieses Jahr) -->
-<div style="padding:0 16px 12px;">
-  <button onclick="openHarvestStatsModal()" title="Erntekalender — Jahres-Statistik aller Ernten" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#f57c00,#e65100);border:none;color:#fff;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_harvest_open" data-i18n-fallback="🥕 Erntekalender · Jahres-Statistik">🥕 Erntekalender · Jahres-Statistik</span><span style="font-size:var(--fs-xl);opacity:.85;">›</span>
-  </button>
-</div>
-<!-- v26.34: Garten-Tagebuch UI-Form + Saison-Statistik (User-Form für 11 entry_types aus v26.32-Migration) -->
-<div style="padding:0 16px 12px;">
-  <button onclick="openDiaryEntryModal()" title="Tagebuch-Eintrag — 11 Typen mit Saison-Statistik" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#558b2f,#33691e);border:none;color:#fff;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_diary_open" data-i18n-fallback="📔 Tagebuch-Eintrag · 11 Typen + Saison-Stats">📔 Tagebuch-Eintrag · 11 Typen + Saison-Stats</span><span style="font-size:var(--fs-xl);opacity:.85;">›</span>
-  </button>
-</div>
-<!-- v25.24: Voice-Mode-Trigger (Web Speech API) -->
-<div style="padding:0 16px 12px;">
-  <button onclick="gsVoiceOpen()" title="Hey GreenScan — sprich mit deiner Garten-App" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#1a237e,#3949ab);border:none;color:#fff;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
-    <span data-i18n="btn_voice_mode" data-i18n-fallback="🎙️ Hey GreenScan · Voice-Mode">🎙️ Hey GreenScan · Voice-Mode</span><span style="font-size:var(--fs-xl);opacity:.85;">›</span>
-  </button>
-</div>
-<!-- v24.06: Smart-Home Sensor-Dashboard -->
-<div style="padding:0 16px 20px;">
-  <button onclick="gsShOpen()" title="Smart-Home Sensoren" style="width:100%;padding:13px 14px;background:linear-gradient(135deg,var(--c-info-d),var(--c-info));color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-brand);">
-    <span style="display:flex;align-items:center;gap:8px;">
-      <span style="font-size:var(--fs-xl);">🏠</span>
-      <span style="display:flex;flex-direction:column;align-items:flex-start;gap:1px;">
-        <span>Smart-Home Sensor-Dashboard</span>
-        <span style="font-size:var(--fs-xs);opacity:.85;font-weight:600;">Echtzeit · Alarme · Verlauf</span>
-      </span>
-    </span>
-    <span id="gs-sh-livedot" style="background:var(--c-live-pulse);color:#0b3d1f;font-size:var(--fs-xs);font-weight:800;padding:3px 8px;border-radius:var(--r-md);display:none;">● LIVE</span>
-  </button>
-</div>
-  </div>
-</details>
+
+
 
 <div class="gs-sek">📊 Mein Garten in Zahlen</div>
 <!-- v31.69: Die Bilanz steht jetzt ganz unten. Sie stand oben, direkt unter
@@ -4237,14 +4130,46 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
           <label class="doctor-sym-chip"><input type="checkbox" value="parasit"><span data-i18n="sym_parasite" data-i18n-fallback="🪱 Parasit">🪱 Parasit</span></label>
         </div>
       </div>
+      <!-- ══ v31.70: FRAGEBOGEN ══════════════════════════════════════════
+           Fernando: „anhand von Bilder und einem Fragebogen gezielt eine
+           sehr gute diagnose".
+
+           Der Inhalt war schon da — als Platzhalter im Freitextfeld:
+           „z.B. seit wann · Standort · Düngung · Wassergabe…". Genau die
+           Fragen stellt ein Pflanzenarzt. Nur beantwortet sie niemand,
+           wenn sie als graue Beispielzeile in einem leeren Feld stehen.
+
+           Sechs Fragen, jede mit Antworten zum Antippen, alle freiwillig.
+           Was beantwortet ist, geht in die Anfrage; was leer bleibt, wird
+           weggelassen statt geraten. -->
+      <div class="mp-field">
+        <label>🩺 Fragebogen <span style="font-weight:600;color:var(--muted);">— je mehr, desto genauer</span></label>
+        <div id="doctor-fragen"></div>
+      </div>
       <!-- Notiz -->
       <div class="mp-field">
         <label data-i18n="doctor_lbl_note" data-i18n-fallback="📝 Zusätzliche Beobachtungen (optional)">📝 Zusätzliche Beobachtungen (optional)</label>
-        <textarea class="mp-input fb-textarea" id="doctor-note" placeholder="z.B. seit wann · Standort · Düngung · Wassergabe…" rows="3" style="resize:vertical;min-height:60px;"></textarea>
+        <textarea class="mp-input fb-textarea" id="doctor-note" placeholder="Was sonst noch auffällt…" rows="3" style="resize:vertical;min-height:60px;"></textarea>
       </div>
       <button onclick="gsRunDiagnose()" id="doctor-submit-btn" style="width:100%;padding:14px;background:linear-gradient(135deg,#00897b,#00695c);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;" data-i18n="btn_doctor_start" data-i18n-fallback="🔍 Diagnose starten">🔍 Diagnose starten</button>
     </div>
     <div id="doctor-result" style="padding:0 18px 20px;"></div>
+    <!-- v31.70: Die vier weiteren Werkzeuge aus „Pflege & Diagnose". Sie
+         stehen UNTER der Diagnose, nicht darüber: wer den Doktor öffnet,
+         will zuerst diagnostizieren. Wer damit nicht weiterkommt, findet
+         hier den Schädling-Scanner, das Krankheits-Lexikon und die zwei
+         Boden-Werkzeuge — genau dort, wo man sie dann sucht. -->
+    <div style="padding:0 18px 18px;border-top:1px solid var(--border);">
+      <div style="font-size:var(--fs-xs);font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 8px;">Weitere Werkzeuge</div>
+<div style="padding:0 0 8px;"><button onclick="openPestModal()" title="Schädlings-Scanner — Foto → KI identifiziert + Bio-Behandlung" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#6d4c41,#4e342e);border:none;color:#fff;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_pest_open" data-i18n-fallback="🪲 Schädling-Scanner · Foto → Bio-Behandlung">🪲 Schädling-Scanner · Foto → Bio-Behandlung</span><span style="font-size:var(--fs-xl);opacity:.85;">›</span>
+  </button></div><div style="padding:0 0 8px;"><button onclick="gsDiseaseOpen()" title="Krankheits-Lexikon — Symptome erkennen + behandeln" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#ffebee,#ffcdd2);border:1.5px solid #ef5350;color:var(--c-danger);border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_disease_lexicon" data-i18n-fallback="🦠 Krankheits-Lexikon · Symptome + Treatment">🦠 Krankheits-Lexikon · Symptome + Treatment</span><span style="color:var(--c-danger);font-size:var(--fs-xl);">›</span>
+  </button></div><div style="padding:0 0 8px;"><button onclick="openSoilAmendmentModal()" title="Bodenverbesserer-Empfehlung basierend auf pH + Bodenart" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#5d4037,#3e2723);border:none;color:#fff;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_soil_amend_open" data-i18n-fallback="🪨 Boden verbessern · NPK + pH-Empfehlung">🪨 Boden verbessern · NPK + pH-Empfehlung</span><span style="font-size:var(--fs-xl);opacity:.85;">›</span>
+  </button></div><div style="padding:0 0 8px;"><button onclick="openFertilizerModal()" title="Düngeplan für deine Pflanze nach Wachstumsphase" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#2e7d32,#1b5e20);border:none;color:#fff;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_fertilizer_open" data-i18n-fallback="🌱 Düngeplan-Coach · Phase + Menge + Bio-Tipp">🌱 Düngeplan-Coach · Phase + Menge + Bio-Tipp</span><span style="font-size:var(--fs-xl);opacity:.85;">›</span>
+  </button></div>    </div>
   </div>
 </div>
 
@@ -5180,6 +5105,26 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
           </div>
         </div>
         <div id="pp-plan-result" style="display:none;"></div>
+        <!-- v31.70: „Planen & Gestalten" aus „Mein Garten". Alles davon ist
+             Planung — gespeicherte Pläne, Saison- und Regionalkalender,
+             Beet-Vorlagen, Forest-Garden, Bestäuber-Garten. Der Planer ist
+             der Ort dafür; auf der Gartenseite war es eine zweite Tür zum
+             selben Raum. -->
+        <div id="pp-weitere" style="padding:14px 0 4px;border-top:1px solid var(--border);margin-top:12px;">
+          <div style="font-size:var(--fs-xs);font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Planen &amp; Gestalten</div>
+<div style="padding:0 0 8px;"><button onclick="gsPPopenSavedPlans()" title="Gespeicherte Garten-Pläne" style="width:100%;padding:11px 12px;background:var(--card);border:1.5px solid var(--border);color:var(--text);border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_saved_plans" data-i18n-fallback="📂 Meine gespeicherten Garten-Pläne">📂 Meine gespeicherten Garten-Pläne</span><span style="color:var(--muted);font-size:var(--fs-xl);">›</span>
+  </button></div><div style="padding:0 0 8px;"><button onclick="gsSeasonalOpen()" title="Saisonkalender — alle 12 Monate" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#e8f5e9,#c5e1a5);border:1.5px solid #66bb6a;color:var(--c-success-d);border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_seasonal_cal" data-i18n-fallback="📅 Saisonkalender · Voll-Jahres-Übersicht">📅 Saisonkalender · Voll-Jahres-Übersicht</span><span style="color:var(--c-success-d);font-size:var(--fs-xl);">›</span>
+  </button></div><div style="padding:0 0 8px;"><button onclick="openRegionalCalendarModal()" title="Regional-Kalender — Monats-Tasks für deine CH-Region" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#0277bd,#01579b);border:none;color:#fff;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_region_cal_open" data-i18n-fallback="🗓️ Regional-Kalender · Monats-Tasks deiner CH-Zone">🗓️ Regional-Kalender · Monats-Tasks deiner CH-Zone</span><span style="font-size:var(--fs-xl);opacity:.85;">›</span>
+  </button></div><div style="padding:0 0 8px;"><button onclick="openGardenLayoutsModal()" title="Beet-Vorlagen: Hochbeet, Permakultur, Mandala, Kräuterspirale, ..." style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#388e3c,#2e7d32);border:none;color:#fff;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_layouts_open" data-i18n-fallback="📐 Beet-Layouts · 10 fertige Vorlagen">📐 Beet-Layouts · 10 fertige Vorlagen</span><span style="font-size:var(--fs-xl);opacity:.85;">›</span>
+  </button></div><div style="padding:0 0 8px;"><button onclick="openForestGardenModal()" title="Forest-Garden — Permakultur 7-Schichten-Designs" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#33691e,#1b5e20);border:none;color:#fff;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_forest_open" data-i18n-fallback="🌳 Forest-Garden planen · 7-Schichten + 8 Vorlagen">🌳 Forest-Garden planen · 7-Schichten + 8 Vorlagen</span><span style="font-size:var(--fs-xl);opacity:.85;">›</span>
+  </button></div><div style="padding:0 0 8px;"><button onclick="gsBeeFriendlyOpen()" title="Bestäuber-freundlicher Garten" style="width:100%;padding:11px 12px;background:linear-gradient(135deg,#fff8e1,#fffbd0);border:1.5px solid #fbc02d;color:var(--c-warn-d);border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent;">
+    <span data-i18n="btn_bee_friendly" data-i18n-fallback="🐝 Bestäuber-Garten · Wildbienen fördern">🐝 Bestäuber-Garten · Wildbienen fördern</span><span style="color:var(--c-warn-d);font-size:var(--fs-xl);">›</span>
+  </button></div>        </div>
         <div style="display:flex;justify-content:space-between;gap:8px;margin-top:8px;" id="pp-plan-actions" class="hidden">
           <button class="mp-save-btn" onclick="gsPPgoStep(4)" style="background:var(--card);color:var(--text);border:1.5px solid var(--border);max-width:140px;">← Anpassen</button>
           <button class="mp-save-btn" onclick="gsPPopenSavedPlans()" style="background:linear-gradient(135deg,#1b5e20,#2e7d32);max-width:200px;">📂 Meine Pläne</button>
@@ -34237,12 +34182,79 @@ if (typeof window.gsFileToBase64 !== 'function') {
 }
 
 // ── Doctor: Modal öffnen ─────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════
+// v31.70 — DER FRAGEBOGEN
+// ══════════════════════════════════════════════════════════════════════════
+//
+// Sechs Fragen, die eine Diagnose tatsaechlich schaerfen. Sie sind nicht
+// erfunden: es sind die Fragen, die im Platzhalter des Freitextfelds standen
+// („seit wann · Standort · Duengung · Wassergabe"), plus die zwei, die in der
+// Pflanzenpathologie den groessten Unterschied machen — WO an der Pflanze
+// (junge gegen alte Blaetter trennt Stickstoff- von Eisenmangel) und OB es
+// sich ausbreitet (eine Pflanze gegen mehrere trennt Standortproblem von
+// Krankheit).
+//
+// Alles freiwillig. Was leer bleibt, geht nicht in die Anfrage — eine
+// geratene Antwort ist schlechter als keine.
+var GS_DOC_FRAGEN = [
+  { id: 'seit',     frage: 'Seit wann?',            opt: ['heute', 'wenige Tage', '1–2 Wochen', 'länger'] },
+  { id: 'wo',       frage: 'Wo an der Pflanze?',    opt: ['junge Blätter', 'alte Blätter', 'überall', 'Stängel', 'Wurzelbereich', 'Früchte'] },
+  { id: 'ausbreit', frage: 'Breitet es sich aus?',  opt: ['nur eine Pflanze', 'mehrere', 'wird schnell mehr'] },
+  { id: 'standort', frage: 'Standort',              opt: ['drinnen', 'draussen', 'Gewächshaus', 'Balkon'] },
+  { id: 'giessen',  frage: 'Zuletzt gegossen',      opt: ['heute', 'diese Woche', 'länger her', 'unregelmässig'] },
+  { id: 'duenger',  frage: 'Zuletzt gedüngt',       opt: ['nie', 'im letzten Monat', 'länger her'] },
+];
+
+function gsDoctorRenderFragen() {
+  var host = document.getElementById('doctor-fragen');
+  if (!host) return;
+  host.innerHTML = GS_DOC_FRAGEN.map(function (f) {
+    return '<div class="gs-dq">' +
+      '<div class="gs-dq-f">' + f.frage + '</div>' +
+      '<div class="gs-dq-o">' + f.opt.map(function (o) {
+        return '<button type="button" class="gs-dq-b" data-frage="' + f.id + '" data-wert="' + gsEscHtml(o) + '"' +
+               ' onclick="gsDoctorAntwort(this)">' + gsEscHtml(o) + '</button>';
+      }).join('') + '</div></div>';
+  }).join('');
+}
+
+// Eine Antwort je Frage; erneutes Antippen waehlt ab. Abwaehlen muss gehen —
+// sonst kann man eine versehentliche Angabe nie zuruecknehmen, und eine
+// falsche Antwort ist schlechter als keine.
+function gsDoctorAntwort(btn) {
+  try {
+    var frage = btn.getAttribute('data-frage');
+    var schon = btn.classList.contains('gs-dq-an');
+    document.querySelectorAll('.gs-dq-b[data-frage="' + frage + '"]').forEach(function (b) {
+      b.classList.remove('gs-dq-an');
+    });
+    if (!schon) btn.classList.add('gs-dq-an');
+    if (typeof gsHaptic === 'function') gsHaptic('tap');
+  } catch (_) {}
+}
+window.gsDoctorAntwort = gsDoctorAntwort;
+
+// Die Antworten als Text, so wie sie in die Anfrage gehen. Nur Beantwortetes.
+function gsDoctorAntworten() {
+  var out = [];
+  try {
+    GS_DOC_FRAGEN.forEach(function (f) {
+      var an = document.querySelector('.gs-dq-b.gs-dq-an[data-frage="' + f.id + '"]');
+      if (an) out.push(f.frage + ' ' + an.getAttribute('data-wert'));
+    });
+  } catch (_) {}
+  return out;
+}
+window.gsDoctorAntworten = gsDoctorAntworten;
+
 function openDoctorModal() {
   // Reset Form-State
   window._gsDoctorPhotoB64 = null;
   var preview = document.getElementById('doctor-photo-preview');
   if (preview) { preview.innerHTML = ''; preview.style.display = 'none'; }
   var note = document.getElementById('doctor-note'); if (note) note.value = '';
+  // Der Fragebogen wird weiter unten neu aufgebaut — damit sind alte
+  // Antworten weg, ohne dass man sie einzeln zuruecksetzen muss.
   document.querySelectorAll('#doctor-symptoms input').forEach(function(c){ c.checked = false; });
   var result = document.getElementById('doctor-result'); if (result) result.innerHTML = '';
   // Pflanzen-Picker aus myPlants füllen
@@ -34261,6 +34273,7 @@ function openDoctorModal() {
   } catch(_){}
   // v26.96: Symptome dynamisch aus symptom_library (Fallback: statische Chips bleiben)
   try { gsDoctorLoadSymptoms(); } catch(_){}
+  try { gsDoctorRenderFragen(); } catch(_){}
   if (typeof openModal === 'function') openModal('modal-doctor');
   else document.getElementById('modal-doctor').classList.add('open');
 }
@@ -34339,6 +34352,15 @@ async function gsRunDiagnose() {
   var plantId = plantSelect ? plantSelect.value : '';
   var plant = (Array.isArray(window.myPlants) ? window.myPlants : []).find(function(p){ return p.id === plantId; });
   var note = (document.getElementById('doctor-note') || {}).value || '';
+  // v31.70: Die Fragebogen-Antworten gehen mit. Sie werden dem Freitext
+  // vorangestellt statt in ein eigenes Feld gelegt: die Edge-Function
+  // reicht `user_note` an die KI durch, ein neues Feld muesste dort erst
+  // ausgewertet werden — und ein Fragebogen, dessen Antworten nirgends
+  // ankommen, waere Zierde. Auf diesem Weg wirkt er sofort.
+  try {
+    var antworten = (typeof gsDoctorAntworten === 'function') ? gsDoctorAntworten() : [];
+    if (antworten.length) note = antworten.join(' · ') + (note ? '\n' + note : '');
+  } catch (_) {}
   var btn = document.getElementById('doctor-submit-btn');
   if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = '⏳ Analysiere…'; }
 
@@ -48129,6 +48151,19 @@ async function submitInlinePost() {
 // MENÜ-SUCHE (Intelligent, keine KI nötig)
 const MENU_ITEMS = [
   // Navigation
+  // v31.70: Die sieben Eintraege der Gruppe „Wissen & Werkzeuge" aus
+  // „Mein Garten". Fernando: „gehört nicht in Mein Garten" — richtig, es
+  // war ein Sammelsurium aus Spielstand, Nachschlagewerk, Statistik und
+  // Zubehoer. Im Hauptmenue stehen sie neben ihresgleichen UND sind
+  // durchsuchbar; auf der Gartenseite waren sie in einer zugeklappten
+  // Gruppe, die man kennen musste, um sie zu finden.
+  {label:'🏆 Achievements', sub:'Meilensteine & Garten-Score', action:"openAchievementsModal()", tags:['achievement','achievements','erfolge','meilenstein','score','abzeichen','trophäe','trophae','fortschritt']},
+  {label:'📖 Garten-Bibliothek', sub:'10 Grundlagen-Artikel', action:"gsOpenGardenLibrary()", tags:['bibliothek','artikel','grundlagen','lesen','wissen','garten','ratgeber']},
+  {label:'📊 Garten-Insights', sub:'Score + Risiken', action:"gsInsightsOpen()", tags:['insights','statistik','score','risiko','auswertung','analyse','garten']},
+  {label:'🥕 Erntekalender', sub:'Jahres-Statistik deiner Ernten', action:"openHarvestStatsModal()", tags:['ernte','erntekalender','statistik','kilo','jahr','bilanz']},
+  {label:'📔 Tagebuch-Eintrag', sub:'11 Typen + Saison-Statistik', action:"openDiaryEntryModal()", tags:['tagebuch','eintrag','notiz','journal','saison','protokoll']},
+  {label:'🎙️ Hey GreenScan', sub:'Voice-Mode — per Sprache steuern', action:"gsVoiceOpen()", tags:['voice','sprache','sprachsteuerung','mikrofon','diktat','hey']},
+  {label:'🏠 Sensor-Dashboard', sub:'Smart-Home Sensoren', action:"gsShOpen()", tags:['sensor','smarthome','smart','home','feuchtigkeit','messung','dashboard']},
   {label:'🏠 Home', sub:'Startseite', action:"menuNav('home')", tags:['home','start','hauptseite']},
   {label:'🎓 Lernen', sub:'Pilze & Garten — Anfänger-Lektionen', action:"gsOpenLearnHub()", tags:['lernen','lektion','lektionen','wissen','pilze','garten','anfänger','anfaenger','sammeln','kurs','tutorial','vapko','mischkultur']},
   {label:'📷 Scanner', sub:'Pflanze/Pilz scannen', action:"menuNav('scanner')", tags:['scan','kamera','foto','bestimmen','erkennen','pilz','pflanze']},
@@ -65476,6 +65511,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.70', date: '01.09.2026',
+    headline: '\ud83e\ude7a Der Pflanzendoktor bekommt einen Fragebogen \u2014 und „Mein Garten" gibt 18 Werkzeuge dorthin ab, wo sie hingeh\u00f6ren',
+    summary: 'Drei zugeklappte Werkzeug-Gruppen sind von der Gartenseite verschwunden: die Diagnose-Werkzeuge stehen jetzt im Pflanzendoktor, die Planungs-Werkzeuge im KI-Planer, der Rest im Hauptmen\u00fc. Nichts ist weg \u2014 nachgemessen, alle 18 Eintr\u00e4ge sind erreichbar.',
+    user_summary: '\ud83e\ude7a Der Pflanzendoktor fragt jetzt nach: sechs Fragen zum Antippen ergeben eine deutlich genauere Diagnose. Und „Mein Garten" ist um drei Werkzeug-Gruppen leichter.',
+    user_items: [
+      {emoji:'\ud83e\ude7a', bold:'Sechs Fragen statt eines leeren Feldes:', text:' Seit wann? Wo an der Pflanze? Breitet es sich aus? Standort, zuletzt gegossen, zuletzt ged\u00fcngt. Genau diese Fragen standen vorher als grauer Beispieltext in einem leeren Notizfeld \u2014 und wurden deshalb kaum beantwortet. Jetzt sind es Antworten zum Antippen, alle freiwillig, und was du beantwortest geht in die Diagnose.'},
+      {emoji:'\ud83d\udd2c', bold:'Warum gerade diese Fragen:', text:' Junge oder alte Bl\u00e4tter trennt Stickstoff- von Eisenmangel. Eine Pflanze oder mehrere trennt ein Standortproblem von einer Krankheit. Das sind die Fragen, die ein Pflanzenarzt zuerst stellt.'},
+      {emoji:'\ud83d\udce6', bold:'Achtzehn Werkzeuge sind umgezogen:', text:' Sch\u00e4dling-Scanner, Krankheits-Lexikon und die zwei Boden-Werkzeuge stehen jetzt IM Pflanzendoktor, unter der Diagnose \u2014 dort, wo man sie sucht, wenn die Diagnose allein nicht reicht. Saisonkalender, Beet-Vorlagen, Forest-Garden und die gespeicherten Pl\u00e4ne stehen im KI-Planer. Achievements, Bibliothek, Insights, Erntekalender, Tagebuch, Voice-Mode und das Sensor-Dashboard im Hauptmen\u00fc \u2014 dort sind sie durchsuchbar.'},
+      {emoji:'\u2705', bold:'Nachgemessen, nicht gehofft:', text:' Alle 18 Ziele wurden am laufenden Programm gepr\u00fcft \u2014 jedes ist von mindestens einer Stelle aus erreichbar, keines begraben. Die Gartenseite ist dabei von 213 auf 132 Elemente geschrumpft.'},
+    ],
+  },
+  {
     v: 'v31.69', date: '01.09.2026',
     headline: '\u2705 „N\u00e4chste Schritte" \u2014 drei Widgets, die dasselbe sagten, sind eins geworden',
     summary: 'Der Wetter-Rat, die f\u00e4lligen Pflege-Aufgaben und „Im September im Garten" standen als drei getrennte K\u00e4sten da und beantworteten dieselbe Frage. Jetzt eine Liste. Und die Morgen-Prognose steht in der Wetterkarte statt in einem zweiten Wetter-Widget.',
@@ -65915,7 +65962,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.69';
+var GS_VERSION = 'v31.70';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -80999,9 +81046,17 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
         ? n + ' Sensoren · ' + online + ' online' + (SH.demoMode ? ' · Demo-Modus' : '')
         : (loggedIn ? 'Keine Sensoren angelegt' : 'Anmelden für Cloud-Sensoren');
     }
-    // Live-Dot in Mein Garten anzeigen wenn ≥1 Sensor online
-    var dot = document.getElementById('gs-sh-livedot');
-    if (dot) dot.style.display = (online > 0 || SH.demoMode) ? '' : 'none';
+    // v31.70: Der Live-Punkt sass IM Sensor-Knopf auf „Mein Garten" und
+    // zeigte an, dass mindestens ein Sensor online ist. Der Knopf ist ins
+    // Hauptmenue gewandert (Fernando: „Wissen und Werkzeuge … gehört nicht
+    // in Mein Garten"), und ein Menue-Eintrag kann diesen Punkt nicht
+    // tragen — MENU_ITEMS kennt nur Beschriftung und Unterzeile.
+    //
+    // Damit ist dieser Hinweis weg, und das ist ein echter Verlust: er war
+    // die einzige Stelle, an der man ohne Oeffnen sah, dass Sensoren laufen.
+    // Der Status steht weiterhin im Dashboard selbst („n Sensoren · m
+    // online", eine Zeile darueber). Wer Sensoren wirklich nutzt, soll das
+    // sagen — dann bekommt der Menue-Eintrag ein Merkmal.
 
     // Threshold-Check → neue Alerts
     gsShCheckThresholds();
