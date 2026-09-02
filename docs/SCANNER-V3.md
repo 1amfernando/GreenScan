@@ -157,3 +157,80 @@ was stimmt: er läuft, seit N Sekunden.
 
 **Und der Weg zurück** aus dem Ergebnis — eine `sticky`-Leiste zuoberst. Nur
 dort, nicht während der Analyse.
+
+
+### Stufe 4 — Der Scanner sieht selbst hin (v32.12, ausgeliefert)
+
+Bis v32.11 lief zwischen Foto und Antwort nichts als ein Cache-Blick. Die
+Wartezeit war ehrlich, aber leer — und das war eine verpasste Gelegenheit:
+die App hat 4'342 kuratierte Arten und ein Foto, aus dem sich etwas
+ausrechnen lässt.
+
+**Zwei Vorgänge, beide gerechnet, beide vor der Antwort:**
+
+| | | |
+|---|---|---|
+| `gsBildFarben(quelle)` | HSV-Klassierung auf 96×72 px | „Grün 75 % · Gelb 25 %" |
+| `gsScanVorauswahl(ctx, farben)` | Monat · Farbe · Höhenlage über die ganze Liste | „4'342 → 2'087" |
+
+Die Farbklassierung arbeitet in HSV, weil Blüten unter Schweizer Licht in RGB
+wandern: dieselbe gelbe Blüte ist im Schatten `#8a7a10` und in der Sonne
+`#ffe94a` — der Farbton bleibt beide Male bei ~52°. Dunkles Orange (`v < 0,55`)
+wird als **Braun** geführt; ohne diese eine Zeile wäre jeder Waldboden und
+jede Rinde eine gelbe Blüte.
+
+**Die eine Entscheidung, an der alles hängt: das Ergebnis geht NICHT in den
+Prompt.**
+
+Es wäre leicht gewesen, „Farbanteile: Gelb 25 %" und „diese 2'087 Arten
+kommen in Frage" in den Auftrag zu schreiben — das klingt nach besserer
+Genauigkeit. Es ist das Gegenteil. Ein Modell, dem man die eigene Vorauswahl
+zeigt, bestätigt sie; die spätere Gegenprüfung wäre dann ein Echo und keine
+Prüfung. Der ganze Wert liegt in der Unabhängigkeit: was danach
+übereinstimmt, stimmt aus **zwei getrennten Richtungen** überein.
+
+`scan_check` hält das fest — der Fall *„Unabhängigkeit · Farben und
+Vorauswahl gehen NICHT in den Auftrag"* liest den echten Prompt aus einem
+vollen `analyzeImage`-Durchlauf und prüft zugleich, dass beide Schritte
+trotzdem gelaufen sind. Ohne diese zweite Hälfte prüfte er nur, dass nichts
+passiert.
+
+**Drei Prädikate, je eine Quelle.** `_gsPasstMonat` · `_gsPasstFarbe` ·
+`_gsPasstHoehe`. Sie werden von zwei Seiten gebraucht — von den Prüfregeln
+(sie beurteilen die EINE bestimmte Art) und von der Vorauswahl (sie
+beurteilt alle 4'342). Wären das zwei Rechnungen, würden sie auseinander-
+driften; genau der Fehler aus v32.02, wo zwei Matcher für dieselbe Frage
+dazu führten, dass die Karte einen Eintrag verlinkte, über den die Prüfung
+darüber sagte, es gebe ihn nicht.
+
+Jedes Prädikat hat **drei** Rückgaben: `true` · `false` · `null`. Und `null`
+ist nicht `false`:
+
+> Die Vorauswahl schliesst nur aus, was sich **begründen** lässt.
+
+3'465 der 4'342 Arten haben keine Höhenangabe. Würde `null` wie `false`
+wirken, bliebe von der Liste ein Fünftel übrig und die Zahl daneben wäre eine
+Lüge. Der Prüfstand hält genau das fest (Gegenprobe gemacht: `null` → `false`
+geändert, der Fall meldete sofort).
+
+**Zwei neue Prüfregeln.**
+
+- **S6 · Farbe.** Erfüllt, wenn eine der hinterlegten Farben im Foto ≥ 5 %
+  ausmacht. Vorbehalt nur, wenn davon **nichts** da ist UND eine fremde Farbe
+  ≥ 12 % überwiegt. Sonst „nicht prüfbar" — ein reines Blattfoto sagt weder
+  ja noch nein, und das steht dann auch so da.
+- **S7 · Höhenlage.** Erfüllt/Vorbehalt nur mit Standort UND hinterlegtem
+  Höhenband, Toleranz 200 m (Verbreitungsangaben sind gerundet).
+
+**Die Vorauswahl ist KEINE Prüfregel.** Eine Art fällt genau dann aus ihr
+heraus, wenn Monat, Farbe oder Höhe sie ausschliessen — und dafür gibt es
+S3, S6 und S7. Als vierte Regel gezählt, stünde derselbe Einwand zweimal in
+der Bilanz und die Karte läse sich als doppelt so schlecht. Sie steht
+deshalb als **Beleg** unter den Regeln: „Vor der Antwort eingegrenzt:
+4'342 → 2'087 Arten (Monat · Farbe). Bärlauch war darunter."
+
+**Aufwand, gemessen:** Farbmessung 1,5 ms, Vorauswahl über alle 4'342 Arten
+6,1 ms (Mittel aus fünf Läufen, ungedrosselt). Auf einem Einsteiger-Telefon
+etwa das Sechsfache — gegen einen KI-Aufruf von mehreren Sekunden nicht
+messbar. `scan_check` hält ein Budget von 20 bzw. 60 ms fest, damit das so
+bleibt.

@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.11.20260902">
+<meta name="app-version" content="32.12.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5500,6 +5500,12 @@ li.laeuft .gs-s-mark{border-color:var(--g-main);border-top-color:transparent;ani
 li.fertig .gs-s-mark{border-color:var(--c-success-d);background:var(--c-success-d);
   background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2 6.4L4.6 9 10 3.2' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/></svg>");
   background-size:12px;background-position:center;background-repeat:no-repeat;}
+/* Dasselbe eine Zeile hoeher, und der Pruefstand sieht es NICHT: der Haken
+   ist ein Hintergrundbild, keine Textstelle. Im Dunkelmodus ist
+   `--c-success-d` hellgruen (#a5d6a7) — ein weisser Haken darauf sind
+   1,64:1, also ein leerer Kreis. Nur `background-color` setzen, sonst
+   loescht die Kurzschreibweise das Haken-Bild gleich mit. */
+body.dark li.fertig .gs-s-mark{border-color:#2e7d32;background-color:#2e7d32;}
 @keyframes gsSpin{to{transform:rotate(360deg)}}
 .gs-s-ico{flex-shrink:0;font-size:var(--fs-md);}
 .gs-s-txt{flex:1;min-width:0;color:var(--text2);font-weight:700;}
@@ -5507,13 +5513,27 @@ li.fertig .gs-s-txt{color:var(--text);}
 .gs-s-erg{flex-shrink:0;max-width:46%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   font-size:var(--fs-xs);font-weight:800;color:var(--c-success-d);}
 li.laeuft .gs-s-erg{color:var(--muted);}
+/* v32.12: die gemessenen Farben als Tupfen. Sie stehen NEBEN der Zahl, nicht
+   statt ihr — ein Farbpunkt allein ist fuer niemanden lesbar, der die Farben
+   nicht unterscheiden kann, und der Text sagt dasselbe. */
+.gs-s-tupfen{flex-shrink:0;display:inline-flex;gap:3px;margin-right:6px;align-items:center;}
+.gs-s-tupfen i{width:9px;height:9px;border-radius:50%;display:block;
+  box-shadow:0 0 0 1px rgba(0,0,0,.18) inset;}
 @media (prefers-reduced-motion: reduce){ li.laeuft .gs-s-mark{animation:none;} }
 
 /* v32.10 — Die Gegenprobe. Rot, weil sie nur im gefaehrlichen Fall
    erscheint; der Preis steht unter dem Knopf, nicht im Kleingedruckten. */
 .gs-gp{background:linear-gradient(135deg,rgba(198,40,40,.10),rgba(198,40,40,.02));
   border-left:4px solid var(--c-danger);margin-bottom:12px;}
-.gs-gp-knopf{width:100%;margin-top:10px;padding:13px;background:var(--c-danger-d);color:#fff;border:none;
+/* v32.12: `--c-danger-d` ist eine TEXT-Farbe. Im Dunkelmodus wird sie hell
+   (#ef9a9a) — weisse Schrift darauf sind 2,15:1, also unlesbar. Genau die
+   Falle, die bei `.gs-btn-info` schon einmal zugeschlagen hat und in
+   CLAUDE.md §7.1 steht: Fuellung und Textfarbe sind zwei Dinge.
+   Eine FEST dunkle Fuellung bedient beide Modi (weiss darauf 6,6:1).
+   Gefunden hat es der Kontrast-Pruefstand — aber erst, als die Karte durch
+   die neue Vorauswahl-Zeile hoeher wurde und der Knopf in den vermessenen
+   Bereich rutschte. Er stand seit v32.10 so da. */
+.gs-gp-knopf{width:100%;margin-top:10px;padding:13px;background:#b71c1c;color:#fff;border:none;
   border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;
   -webkit-tap-highlight-color:transparent;}
 .gs-gp-preis{margin-top:7px;font-size:var(--fs-xs);color:var(--text2);text-align:center;line-height:1.45;}
@@ -5585,6 +5605,8 @@ li.laeuft .gs-s-erg{color:var(--muted);}
 @media (prefers-reduced-motion: reduce){
   .sr2-pruef-zeile.gs-pz{animation:none;}
 }
+.sr2-pruef-vorab{margin-top:8px;padding-top:7px;border-top:1px solid var(--border);
+  font-size:var(--fs-xs);color:var(--text2);line-height:1.5;}
 .sr2-pruef-knopf{display:block;width:100%;margin:2px 0 9px;padding:11px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;}
 .sr2-alt-gift{display:inline-block;margin-left:5px;padding:1px 7px;border-radius:999px;background:var(--bg-danger-soft);color:var(--c-danger-d);font-size:var(--fs-xs);font-weight:800;vertical-align:middle;}
 .sr2-alt-ok{display:inline-block;margin-left:5px;padding:1px 7px;border-radius:999px;background:var(--bg-success-soft);color:var(--c-success-d);font-size:var(--fs-xs);font-weight:800;vertical-align:middle;}
@@ -27770,6 +27792,126 @@ function gsBildQualitaetVonB64(b64, mt) {
 }
 window.gsBildQualitaetVonB64 = gsBildQualitaetVonB64;
 
+// ══ v32.12 · WAS DER SCANNER SELBST SIEHT ════════════════════════════════
+//
+// Bis hierher hat die App das Foto gemessen (Schärfe, Licht) und die Kanten
+// gerechnet (das Gitter). Was sie NICHT getan hat: hinsehen, WELCHE FARBEN
+// darin vorkommen — obwohl die Artenliste zu 939 der 4'342 Arten eine
+// Blütenfarbe führt und das eines der wenigen Merkmale ist, die sich aus
+// einem Foto ohne Modell ausrechnen lassen.
+//
+// Warum das mehr ist als Zierde: die Farbmessung ist von der KI UNABHÄNGIG.
+// Sagt die Bestimmung „Bärlauch" (Artenliste: Weiss) und im Foto sind 24 %
+// Gelb und kein Weiss, dann widersprechen sich zwei Quellen — und genau
+// dieser Widerspruch ist das Einzige, was eine App gegen eine Bilderkennung
+// in der Hand hat.
+//
+// Deshalb wandert das Ergebnis auch NICHT in den Prompt. Täte es das, wäre
+// die Farbe keine unabhängige Gegenprüfung mehr, sondern ein Hinweis, dem
+// das Modell folgt — und eine Prüfung, die die eigene Vorgabe bestätigt,
+// prüft nichts.
+//
+// Die Klassierung arbeitet in HSV, weil Blüten unter Schweizer Licht in RGB
+// wandern (dieselbe gelbe Blüte ist im Schatten `#8a7a10`, in der Sonne
+// `#ffe94a` — der Farbton bleibt beide Male bei ~52°).
+var GS_FARBTON = [
+  // von, bis (Grad), Name, Anzeige-Hex — die NAMEN sind das Vokabular der
+  // Artenliste („Weiss", „Gelb", „Rosa", „Violett" …), nicht ein eigenes.
+  [345, 360, 'Rot',      '#d32f2f'], [0, 14, 'Rot',      '#d32f2f'],
+  [14,   42, 'Orange',   '#ef6c00'],
+  [42,   70, 'Gelb',     '#f9a825'],
+  [70,  160, 'Grün',     '#388e3c'],
+  [160, 200, 'Türkis',   '#00838f'],
+  [200, 260, 'Blau',     '#1565c0'],
+  [260, 295, 'Violett',  '#6a1b9a'],
+  [295, 345, 'Rosa',     '#c2185b'],
+];
+var GS_FARBE_HEX = { Rot: '#d32f2f', Orange: '#ef6c00', Gelb: '#f9a825', Grün: '#388e3c',
+  Türkis: '#00838f', Blau: '#1565c0', Violett: '#6a1b9a', Rosa: '#c2185b',
+  Braun: '#5d4037', Weiss: '#eceff1', Grau: '#90a4ae', Schwarz: '#263238' };
+
+function _gsFarbeVonPixel(r, g, b) {
+  var max = Math.max(r, g, b), min = Math.min(r, g, b);
+  var v = max / 255, d = max - min, s = max ? d / max : 0;
+  // Erst die unbunten Fälle — sonst bekommt ein fast graues Pixel einen
+  // Farbton zugewiesen, den niemand sieht.
+  if (v < 0.14) return 'Schwarz';
+  if (s < 0.16) return v > 0.80 ? 'Weiss' : 'Grau';
+  var h;
+  if (max === r)      h = 60 * (((g - b) / d) % 6);
+  else if (max === g) h = 60 * (((b - r) / d) + 2);
+  else                h = 60 * (((r - g) / d) + 4);
+  if (h < 0) h += 360;
+  // Braun ist kein eigener Farbton, sondern dunkles Orange. Ohne diese
+  // Zeile wird jeder Waldboden und jede Rinde als „Orange" gemeldet.
+  if (h >= 14 && h < 45 && v < 0.55) return 'Braun';
+  for (var i = 0; i < GS_FARBTON.length; i++) {
+    if (h >= GS_FARBTON[i][0] && h < GS_FARBTON[i][1]) return GS_FARBTON[i][2];
+  }
+  return 'Grau';
+}
+
+// Der Blickfang ist die stärkste Farbe, die WEDER Grün (Blattwerk) NOCH
+// unbunt (Grau/Schwarz — Schatten, Erde, Himmel) ist. Weiss zählt mit:
+// „Weiss" ist die häufigste Blütenfarbe der Liste (113 Arten).
+var GS_FARBE_KULISSE = { 'Grün': 1, 'Grau': 1, 'Schwarz': 1, 'Braun': 1 };
+
+function gsBildFarben(quelle) {
+  try {
+    var w = 96, h = 72;
+    var c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    var cx = c.getContext('2d', { willReadFrequently: true });
+    if (!cx) return { messbar: false, anteile: {}, liste: [], blickfang: null, gruen: null };
+    cx.drawImage(quelle, 0, 0, w, h);
+    var d = cx.getImageData(0, 0, w, h).data;
+    var zaehl = {}, n = 0;
+    for (var i = 0; i < d.length; i += 4) {
+      // Vollständig durchsichtige Pixel gibt es bei einem Foto nicht — bei
+      // einer gezeichneten Vorlage schon, und die würden als Schwarz zählen.
+      if (d[i + 3] < 8) continue;
+      var f = _gsFarbeVonPixel(d[i], d[i + 1], d[i + 2]);
+      zaehl[f] = (zaehl[f] || 0) + 1; n++;
+    }
+    if (!n) return { messbar: false, anteile: {}, liste: [], blickfang: null, gruen: null };
+    var anteile = {}, liste = [];
+    Object.keys(zaehl).forEach(function (k) {
+      var pct = Math.round(zaehl[k] / n * 100);
+      anteile[k] = pct;
+      if (pct >= 1) liste.push({ name: k, anteil: pct, hex: GS_FARBE_HEX[k] || '#90a4ae' });
+    });
+    liste.sort(function (a, b) { return b.anteil - a.anteil; });
+    var blickfang = null;
+    for (var q = 0; q < liste.length; q++) {
+      if (!GS_FARBE_KULISSE[liste[q].name]) { blickfang = liste[q]; break; }
+    }
+    return { messbar: true, anteile: anteile, liste: liste,
+             blickfang: (blickfang && blickfang.anteil >= 6) ? blickfang : null,
+             gruen: anteile['Grün'] || 0 };
+  } catch (_) {
+    // Nicht gemessen ist NICHT „keine Farbe" — jede Regel darunter muss das
+    // unterscheiden können, sonst behauptet sie etwas über ein Bild, das sie
+    // nie gesehen hat.
+    return { messbar: false, anteile: {}, liste: [], blickfang: null, gruen: null };
+  }
+}
+window.gsBildFarben = gsBildFarben;
+
+function gsBildFarbenVonB64(b64, mt) {
+  return new Promise(function (fertig) {
+    var leer = { messbar: false, anteile: {}, liste: [], blickfang: null, gruen: null };
+    try {
+      if (!b64) return fertig(leer);
+      var img = new Image();
+      var zeit = setTimeout(function () { fertig(leer); }, 4000);
+      img.onload = function () { clearTimeout(zeit); fertig(gsBildFarben(img)); };
+      img.onerror = function () { clearTimeout(zeit); fertig(leer); };
+      img.src = 'data:' + (mt || 'image/jpeg') + ';base64,' + b64;
+    } catch (_) { fertig(leer); }
+  });
+}
+window.gsBildFarbenVonB64 = gsBildFarbenVonB64;
+
 // Ab wann lohnt sich der Aufruf nicht mehr? Bewusst tief angesetzt: eine
 // Warnung, die bei jedem zweiten Foto kommt, wird weggetippt und schützt
 // dann niemanden mehr. Erst wenn es wirklich schlecht ist.
@@ -28695,9 +28837,18 @@ window._gsScanAnimation = _gsScanAnimation;
 //
 // Der vierte Schritt ist der einzige lange, und über ihn wird weiterhin nur
 // das gesagt, was stimmt: er läuft, seit N Sekunden.
+// v32.12: zwei Schritte dazu, und beide sind ECHTE Arbeit, die vorher
+// niemand gemacht hat — nicht zwei Zeilen mehr fuer dasselbe:
+//   🎨 Farben gemessen   → „Grün 61 % · Weiss 14 %"   (aus dem Foto gerechnet)
+//   📚 Eigene Vorauswahl → „4'342 → 1'268 Arten"      (aus der Artenliste)
+// Der entscheidende Punkt an beiden: sie laufen VOR der KI-Antwort und
+// fliessen NICHT in den Prompt. Was danach uebereinstimmt, stimmt aus zwei
+// unabhaengigen Richtungen ueberein.
 var GS_SCAN_SCHRITTE = [
   { id: 'bild',  ico: '\u{1F4F7}', txt: 'Bild geprüft' },
   { id: 'ort',   ico: '\u{1F5FA}️', txt: 'Ort und Jahreszeit' },
+  { id: 'farbe', ico: '\u{1F3A8}', txt: 'Farben im Foto gemessen' },
+  { id: 'vorab', ico: '\u{1F4DA}', txt: 'Eigene Vorauswahl aus 4’342 Arten' },
   { id: 'cache', ico: '\u{1F4BE}', txt: 'Im Scan-Speicher nachgesehen' },
   { id: 'ki',    ico: '\u{1F310}', txt: 'Die KI vergleicht' },
   { id: 'pruef', ico: '\u{1F50D}', txt: 'Gegenprüfung mit der Artenliste' },
@@ -28717,13 +28868,32 @@ function _gsSchritteHtml() {
 window._gsSchritteHtml = _gsSchritteHtml;
 
 // zustand: 'laeuft' | 'fertig' | 'weg'
-function gsSchritt(id, zustand, ergebnis) {
+// `farben` (optional, v32.12): eine Liste {name, anteil, hex} aus
+// `gsBildFarben`. Die Hex-Werte stammen aus UNSERER Tabelle (GS_FARBE_HEX),
+// nie aus einer Antwort — sonst stuende hier eine fremde Zeichenkette in
+// einem style-Attribut.
+function gsSchritt(id, zustand, ergebnis, farben) {
   try {
     var li = document.getElementById('schritt-' + id);
     if (!li) return;
     li.className = zustand;
     var e = li.querySelector('.gs-s-erg');
     if (e) e.textContent = ergebnis || '';
+    var t = li.querySelector('.gs-s-tupfen');
+    if (t) t.parentNode.removeChild(t);
+    if (farben && farben.length && e) {
+      var sp = document.createElement('span');
+      sp.className = 'gs-s-tupfen';
+      sp.setAttribute('aria-hidden', 'true');
+      farben.slice(0, 4).forEach(function (f) {
+        var d = document.createElement('i');
+        // Nur Werte aus der eigenen Tabelle zulassen — kein Durchreichen.
+        d.style.background = (GS_FARBE_HEX[f.name] || '#90a4ae');
+        d.title = f.name + ' ' + f.anteil + ' %';
+        sp.appendChild(d);
+      });
+      e.parentNode.insertBefore(sp, e);
+    }
   } catch (_) {}
 }
 window.gsSchritt = gsSchritt;
@@ -28846,7 +29016,7 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
   // `scanWarten` markiert den einen langen Schritt als laufend und zaehlt
   // die verstrichenen Sekunden — die einzige ehrliche Aussage darueber.
   var _scanWarte = null, _kiStart = 0;
-  function scanSchritt(id, ergebnis) { gsSchritt(id, 'fertig', ergebnis || ''); }
+  function scanSchritt(id, ergebnis, farben) { gsSchritt(id, 'fertig', ergebnis || '', farben); }
   function scanWarten(id) {
     _kiStart = Date.now();
     gsSchritt(id, 'laeuft', '0 s');
@@ -28924,6 +29094,32 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
     ctx.ausFoto || ctx.ortAusFoto ? 'aus dem Foto' : ''
   ].filter(Boolean).join(' · ') || 'ohne Ortsangabe');
 
+  // ── v32.12 · zwei Schritte, in denen die App selbst arbeitet ─────────
+  //
+  // Bis v32.11 stand zwischen „Ort und Jahreszeit" und dem langen KI-Aufruf
+  // nichts als der Cache-Blick. Die Wartezeit war leer, und das war ehrlich,
+  // aber es war auch eine verpasste Gelegenheit: die App hat 4'342 kuratierte
+  // Arten und ein Foto, aus dem sich etwas ausrechnen laesst.
+  //
+  // Beides laeuft VOR der Antwort und geht NICHT in den Prompt. Das ist der
+  // ganze Wert: was danach uebereinstimmt, stimmt aus zwei unabhaengigen
+  // Richtungen ueberein. Ein Hinweis im Prompt haette das Gegenteil bewirkt —
+  // das Modell haette ihn bestaetigt, und die Pruefung waere ein Echo.
+  var _farben = null, _vorab = null;
+  try {
+    if (b64 && typeof gsBildFarbenVonB64 === 'function') _farben = await gsBildFarbenVonB64(b64, mt);
+  } catch (_) { _farben = null; }
+  scanSchritt('farbe',
+    (_farben && _farben.messbar && _farben.liste.length)
+      ? _farben.liste.slice(0, 3).map(function (f) { return f.name + ' ' + f.anteil + ' %'; }).join(' · ')
+      : 'nicht messbar',
+    (_farben && _farben.messbar) ? _farben.liste : null);
+
+  try { _vorab = (typeof gsScanVorauswahl === 'function') ? gsScanVorauswahl(ctx, _farben) : null; } catch (_) { _vorab = null; }
+  scanSchritt('vorab', (_vorab && _vorab.messbar)
+    ? (gsTsd(_vorab.gesamt) + ' \u2192 ' + gsTsd(_vorab.uebrig) + ' (' + _vorab.kriterien.join(' \u00b7 ') + ')')
+    : ((typeof DB === 'undefined' || !DB || !DB.length) ? 'Artenliste nicht geladen' : 'ohne Monat, Farbe und Ort nicht m\u00f6glich'));
+
   // v23.58: organContext enthält jetzt NUR noch den Qualitäts-Hint (autonom — kein Modus)
   const qualityHint = (organContext && String(organContext).trim()) ? ('🎯 ' + organContext + '\n\n') : '';
   // v23.67: Spezialisiert für Natur-Sammler (Wanderer, Gärtner, Pilzsammler, Kräuter-Sammler, Floristen)
@@ -28963,6 +29159,8 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
           _cachedRes._shotCount = shotCount;
           _cachedRes._fromCache = true;
           _cachedRes._qual = _qual;          // v31.99: das Pruefwerk braucht die Messung
+          _cachedRes._farben = _farben;      // v32.12
+          _cachedRes._vorauswahl = _vorab;   // v32.12
           _gsScanCachePut(_scanPhash, _cachedRes); // hit_count++ (fire-and-forget)
           scanSchritt('cache', 'Treffer — ohne KI-Aufruf, kostet kein Kontingent');
           scanSchritt('ki', 'übersprungen');
@@ -29016,6 +29214,8 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
     res._ctx = ctx;
     res._shotCount = shotCount;
     res._qual = _qual;                       // v31.99: das Pruefwerk braucht die Messung
+    res._farben = _farben;                   // v32.12: S6 braucht die Farbmessung
+    res._vorauswahl = _vorab;                // v32.12: die Karte nennt die Vorauswahl
     showScanResult(res);
     // v28.04 Block A: Cache-Miss → Identifikation ablegen (nur Single-Image, eingeloggt).
     // Spart bei jedem künftigen identischen Re-Scan den Claude-Vision-Call.
@@ -29670,6 +29870,171 @@ function _gsScanMonate(sais) {
   return null;
 }
 
+// ══ v32.12 · DREI FRAGEN, DREI ANTWORTEN, JE EINE QUELLE ═════════════════
+//
+// Monat, Farbe und Höhenlage werden ab hier an ZWEI Stellen gebraucht: von
+// den Prüfregeln (S3/S6/S7 — sie beurteilen die EINE bestimmte Art) und von
+// der Vorauswahl (sie beurteilt alle 4'342). Wären das zwei Rechnungen,
+// würden sie auseinanderdriften — genau der Fehler aus v32.02, wo zwei
+// Matcher für dieselbe Frage dazu führten, dass die Karte einen Eintrag
+// verlinkte, über den die Prüfung darüber sagte, es gebe ihn nicht.
+//
+// Also drei Prädikate, und jedes hat DREI Rückgaben:
+//   true  — passt
+//   false — passt nicht
+//   null  — lässt sich nicht sagen (Feld fehlt, Foto nicht messbar, kein Ort)
+//
+// `null` ist nicht `false`. Eine Art ohne Höhenangabe wird von der
+// Vorauswahl NICHT ausgeschlossen — ausgeschlossen wird nur, was sich
+// begründen lässt. 3'465 der 4'342 Arten haben keine Höhenangabe; würde
+// `null` wie `false` wirken, bliebe von der Liste ein Fünftel übrig, und
+// die Zahl daneben wäre eine Lüge.
+
+function _gsPasstMonat(sp, mon1) {
+  try {
+    if (!sp || !mon1) return null;
+    var monate = _gsScanMonate(sp.season);
+    if (!monate || !monate.length) return null;
+    // `gsSaisonMonate` liefert NULLBASIERTE Monate — siehe die lange
+    // Anmerkung bei S3. `mon1` ist einsbasiert.
+    return monate.indexOf(mon1 - 1) >= 0;
+  } catch (_) { return null; }
+}
+
+// Aus „Blau-Violett" wird ['Blau','Violett'], aus „–" wird nichts.
+var GS_FARB_WORT = {
+  'weiss': 'Weiss', 'weiß': 'Weiss', 'creme': 'Weiss', 'cremeweiss': 'Weiss',
+  'gelb': 'Gelb', 'gelblich': 'Gelb', 'gelbgrün': 'Gelb', 'goldgelb': 'Gelb',
+  'rot': 'Rot', 'rötlich': 'Rot', 'purpur': 'Rot', 'purpurrot': 'Rot', 'scharlachrot': 'Rot',
+  'rosa': 'Rosa', 'pink': 'Rosa', 'rosarot': 'Rosa',
+  'lila': 'Violett', 'violett': 'Violett', 'purpurviolett': 'Violett',
+  'blau': 'Blau', 'hellblau': 'Blau', 'dunkelblau': 'Blau',
+  'orange': 'Orange', 'orangerot': 'Orange',
+  'braun': 'Braun', 'braunrot': 'Braun', 'rotbraun': 'Braun', 'hellbraun': 'Braun', 'dunkelbraun': 'Braun',
+  'grün': 'Grün', 'gruen': 'Grün', 'hellgrün': 'Grün', 'dunkelgrün': 'Grün', 'grüngelb': 'Grün',
+  'schwarz': 'Schwarz', 'grau': 'Grau', 'silbergrau': 'Grau', 'silber': 'Grau', 'beige': 'Weiss',
+  'türkis': 'Türkis', 'tuerkis': 'Türkis',
+};
+function _gsFarbWorte(sp) {
+  var raus = [];
+  try {
+    var t = String((sp && sp.color) || '').toLowerCase();
+    if (!t || t === '–' || t === '-') return raus;
+    // Zusammensetzungen zerlegen: „Grau-Grün-Gelb", „Weiss/Rosa", „Blau, Lila".
+    t.split(/[\s\/,;()]+|[-–—]/).forEach(function (w) {
+      w = w.trim();
+      if (!w) return;
+      var n = GS_FARB_WORT[w];
+      // Nicht jedes Wort steht in der Tabelle („bunt", „konzentrisch"). Ein
+      // Wort, das wir nicht kennen, wird ÜBERGANGEN und nicht geraten.
+      if (n && raus.indexOf(n) < 0) raus.push(n);
+    });
+  } catch (_) {}
+  return raus;
+}
+
+// Wann darf die Farbe überhaupt etwas sagen? Nur wenn beide Seiten etwas
+// hergeben: das Foto eine messbare Farbverteilung und die Art ein Farbwort,
+// das wir kennen. Und selbst dann bleibt sie vorsichtig — was auf einem Foto
+// gelb ist, kann eine Blüte sein, eine Jacke oder das Abendlicht. Deshalb
+// meldet sie einen Widerspruch erst, wenn die fremde Farbe DEUTLICH ist und
+// von der eigenen NICHTS zu sehen ist.
+var GS_FARBE_DA = 5;        // Prozent: so viel muss die Farbe der Art haben
+var GS_FARBE_FREMD = 12;    // Prozent: so stark muss die fremde Farbe sein
+
+function _gsPasstFarbe(sp, farben) {
+  try {
+    if (!farben || !farben.messbar) return null;
+    var worte = _gsFarbWorte(sp);
+    if (!worte.length) return null;
+    for (var i = 0; i < worte.length; i++) {
+      if ((farben.anteile[worte[i]] || 0) >= GS_FARBE_DA) return true;
+    }
+    if (farben.blickfang && farben.blickfang.anteil >= GS_FARBE_FREMD
+        && worte.indexOf(farben.blickfang.name) < 0) return false;
+    return null;   // grünes Blattfoto ohne Blüte — das sagt nichts, weder so noch so
+  } catch (_) { return null; }
+}
+
+// „0–1500m" → {von:0, bis:1500}. „–" → nichts.
+function _gsHoehenband(sp) {
+  try {
+    var m = String((sp && sp.alt) || '').match(/(\d{1,4})\s*[–\-—]\s*(\d{1,4})/);
+    if (!m) return null;
+    var a = Number(m[1]), b = Number(m[2]);
+    if (!isFinite(a) || !isFinite(b) || b < a) return null;
+    return { von: a, bis: b };
+  } catch (_) { return null; }
+}
+var GS_HOEHE_TOLERANZ = 200;   // Meter — Verbreitungsangaben sind gerundet
+
+function _gsPasstHoehe(sp, elev) {
+  try {
+    if (elev == null || !isFinite(Number(elev))) return null;
+    var band = _gsHoehenband(sp);
+    if (!band) return null;
+    var e = Number(elev);
+    return e >= band.von - GS_HOEHE_TOLERANZ && e <= band.bis + GS_HOEHE_TOLERANZ;
+  } catch (_) { return null; }
+}
+
+// ══ v32.12 · DIE EIGENE VORAUSWAHL ═══════════════════════════════════════
+//
+// Das Neue an dieser Stufe: die App wartet nicht mehr bloss auf die Antwort,
+// sie arbeitet vorher selbst. Aus 4'342 Arten wird — allein aus Monat,
+// gemessener Farbe und Höhenlage — die Menge derer, die hier und jetzt
+// überhaupt in Frage kommen.
+//
+// Drei Dinge, die diese Zahl ehrlich halten:
+//
+//   1. Ausgeschlossen wird nur, was sich BEGRÜNDEN lässt (`false`), nie was
+//      unbekannt ist (`null`).
+//   2. Sie geht NICHT in den Prompt. Sonst wäre die spätere Gegenprüfung
+//      keine Prüfung mehr, sondern ein Echo der eigenen Vorgabe.
+//   3. Sie sagt dazu, WORAUF sie sich stützt. Ohne Ort keine Höhe, ohne
+//      messbares Foto keine Farbe — und dann steht das da.
+function gsScanVorauswahl(ctx, farben) {
+  var e = { messbar: false, gesamt: 0, uebrig: 0, kriterien: [], raus: { monat: 0, farbe: 0, hoehe: 0 }, ids: null };
+  try {
+    if (typeof DB === 'undefined' || !DB || !DB.length) return e;
+    ctx = ctx || {};
+    var mon = Number(ctx.monthNum) || null;
+    if (!mon) { try { mon = new Date().getMonth() + 1; } catch (_) { mon = null; } }
+    var elev = (ctx.elevation != null && isFinite(Number(ctx.elevation))) ? Number(ctx.elevation) : null;
+    var farbeGeht = !!(farben && farben.messbar);
+
+    if (mon) e.kriterien.push('Monat');
+    if (farbeGeht) e.kriterien.push('Farbe');
+    if (elev != null) e.kriterien.push('Höhe');
+    if (!e.kriterien.length) return e;
+
+    var ids = Object.create(null), uebrig = 0;
+    for (var i = 0; i < DB.length; i++) {
+      var sp = DB[i];
+      if (!sp) continue;
+      var draussen = false;
+      if (mon && _gsPasstMonat(sp, mon) === false) { e.raus.monat++; draussen = true; }
+      if (farbeGeht && _gsPasstFarbe(sp, farben) === false) { e.raus.farbe++; draussen = true; }
+      if (elev != null && _gsPasstHoehe(sp, elev) === false) { e.raus.hoehe++; draussen = true; }
+      if (draussen) continue;
+      uebrig++;
+      if (sp.id) ids[sp.id] = 1;
+    }
+    e.messbar = true; e.gesamt = DB.length; e.uebrig = uebrig; e.ids = ids;
+    e.monat = mon; e.elevation = elev;
+  } catch (_) {}
+  return e;
+}
+window._gsPasstMonat = _gsPasstMonat;
+window._gsPasstFarbe = _gsPasstFarbe;
+window._gsPasstHoehe = _gsPasstHoehe;
+window._gsFarbWorte = _gsFarbWorte;
+window._gsHoehenband = _gsHoehenband;
+window.gsScanVorauswahl = gsScanVorauswahl;
+// Schweizer Tausendertrennung — 4'342 liest sich als eine Zahl, 4342 nicht.
+function gsTsd(n) { try { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '\u2019'); } catch (_) { return String(n); } }
+window.gsTsd = gsTsd;
+
 var GS_SCAN_ABSTAND_KNAPP = 15;   // Prozentpunkte zum Zweitbesten
 
 function _gsScanPruefwerk(res, qual) {
@@ -29741,13 +30106,83 @@ function _gsScanPruefwerk(res, qual) {
     // dann plausibel klingenden Unsinn.
     // Gefunden hat es der Pruefstand, nicht das Lesen — im „guten" Fall war
     // die Regel aus der Behauptung ausgenommen und fiel deshalb nicht auf.
-    } else if (monate.indexOf(mon - 1) >= 0) {
+    // v32.12: die Entscheidung selbst liegt jetzt in `_gsPasstMonat` — sie
+    // wird auch von der Vorauswahl gebraucht, und zwei Rechnungen fuer
+    // dieselbe Frage driften auseinander.
+    } else if (_gsPasstMonat(db, mon) === true) {
       regel('saison', 'ok', 'Passt zur Jahreszeit: ' + (db.season || '') + '.');
     } else {
       regel('saison', 'warn', 'Die hinterlegte Zeit ist ' + (db.season || '?') + ' — wir haben aber ' +
             (['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'][mon - 1]) +
             '. Ausserhalb der Saison ist eine Verwechslung wahrscheinlicher.');
     }
+
+
+    // ── S6 · Farbe — die einzige Messung, die vom Modell unabhaengig ist ──
+    // v32.12. Sie ist bewusst zurueckhaltend: was auf einem Foto gelb ist,
+    // kann eine Bluete sein, eine Jacke oder das Abendlicht. Deshalb meldet
+    // sie einen Widerspruch erst, wenn von der hinterlegten Farbe NICHTS zu
+    // sehen ist UND eine fremde Farbe deutlich ueberwiegt.
+    var farben = (res && res._farben) || null;
+    var pFarbe = db ? _gsPasstFarbe(db, farben) : null;
+    if (!db) {
+      regel('farbe', 'unbekannt', 'Ohne Eintrag in unserer Artenliste keine Farbangabe zum Vergleich.');
+    } else if (!farben || !farben.messbar) {
+      regel('farbe', 'unbekannt', 'Die Farben des Fotos wurden auf diesem Weg nicht gemessen.');
+    } else if (!_gsFarbWorte(db).length) {
+      regel('farbe', 'unbekannt', 'Für diese Art ist keine verwertbare Farbe hinterlegt' + (db.color && db.color !== '–' ? ' („' + db.color + '")' : '') + '.');
+    } else if (pFarbe === true) {
+      var _tr = _gsFarbWorte(db).filter(function (w) { return (farben.anteile[w] || 0) >= GS_FARBE_DA; });
+      regel('farbe', 'ok', 'Die hinterlegte Farbe ist im Foto da: ' +
+            _tr.map(function (w) { return w + ' ' + (farben.anteile[w] || 0) + ' %'; }).join(' · ') + '.');
+    } else if (pFarbe === false) {
+      regel('farbe', 'warn', 'Unsere Artenliste führt <b>' + gsEscHtml(String(db.color || '')) +
+            '</b> — im Foto ist davon nichts, dafür ' + farben.blickfang.anteil + ' % ' +
+            gsEscHtml(farben.blickfang.name) + '. Das kann am Licht liegen, an einem anderen Pflanzenteil oder an der Bestimmung.');
+    } else {
+      regel('farbe', 'unbekannt', 'Im Foto überwiegt das Blattwerk' +
+            (farben.gruen != null ? ' (Grün ' + farben.gruen + ' %)' : '') + ' — daraus lässt sich keine Blütenfarbe ablesen.');
+    }
+
+    // ── S7 · Hoehenlage ───────────────────────────────────────────────────
+    // 877 der 4'342 Arten tragen ein Hoehenband, und der Ort liefert die
+    // Hoehe nur, wenn GPS erlaubt wurde. Beides zusammen ist selten — aber
+    // wo es zutrifft, ist es ein harter, vom Modell unabhaengiger Einwand:
+    // eine Art, die bis 1'500 m verbreitet ist, waechst nicht auf 2'400 m.
+    var _elev = null;
+    try { _elev = (res._ctx && res._ctx.elevation != null) ? Number(res._ctx.elevation) : null; } catch (_) {}
+    var pHoehe = db ? _gsPasstHoehe(db, _elev) : null;
+    var _band = db ? _gsHoehenband(db) : null;
+    if (!db) {
+      regel('hoehe', 'unbekannt', 'Ohne Eintrag in unserer Artenliste keine Höhenangabe zum Vergleich.');
+    } else if (_elev == null || !isFinite(_elev)) {
+      regel('hoehe', 'unbekannt', 'Ohne Standort ist die Höhenlage nicht bekannt.');
+    } else if (!_band) {
+      regel('hoehe', 'unbekannt', 'Für diese Art ist keine Höhenverbreitung hinterlegt.');
+    } else if (pHoehe === true) {
+      regel('hoehe', 'ok', 'Auf ' + Math.round(_elev) + ' m ü. M. — die Art ist von ' + _band.von + ' bis ' + _band.bis + ' m verbreitet.');
+    } else {
+      regel('hoehe', 'warn', 'Du bist auf ' + Math.round(_elev) + ' m ü. M.; die Art ist von ' +
+            _band.von + ' bis ' + _band.bis + ' m verbreitet. Ausserhalb ihres Bandes ist eine Verwechslung wahrscheinlicher.');
+    }
+
+    // ── Die Vorauswahl: Beleg, nicht Vorwurf ─────────────────────────────
+    // Sie zaehlt NICHT als eigene Regel. Wuerde sie es, staende derselbe
+    // Einwand zweimal in der Bilanz: eine Art faellt genau dann aus der
+    // Vorauswahl, wenn Monat, Farbe oder Hoehe sie ausschliessen — und
+    // dafuer gibt es S3, S6 und S7. Doppelt gezaehlte Vorbehalte lesen sich
+    // als doppelt so schlecht, und das waere schlicht falsch.
+    try {
+      var _va = res._vorauswahl;
+      if (_va && _va.messbar && db && db.id) {
+        p.vorauswahl = {
+          gesamt: _va.gesamt, uebrig: _va.uebrig, kriterien: _va.kriterien,
+          drin: !!(_va.ids && _va.ids[db.id]),
+        };
+      } else if (_va && _va.messbar) {
+        p.vorauswahl = { gesamt: _va.gesamt, uebrig: _va.uebrig, kriterien: _va.kriterien, drin: null };
+      }
+    } catch (_) {}
 
     // ── S4 · Abstand zum Zweitbesten ─────────────────────────────────────
     var alt = Array.isArray(res.alternatives) ? res.alternatives : [];
@@ -30227,6 +30662,29 @@ function showScanResult(r){
                  '<span>' + rr.text + '</span>' +
                '</div>';
       }).join('') +
+      // ── v32.12 · was die App VOR der Antwort schon wusste ────────────
+      //
+      // Keine eigene Pruefregel, mit Absicht: eine Art faellt genau dann aus
+      // der Vorauswahl, wenn Monat, Farbe oder Hoehe sie ausschliessen — und
+      // dafuer gibt es S3, S6 und S7. Als vierte Regel gezaehlt, stuende
+      // derselbe Einwand zweimal in der Bilanz und die Karte laese sich als
+      // doppelt so schlecht.
+      //
+      // Was hier steht, ist deshalb ein BELEG, kein Vorwurf: die App hat aus
+      // ihrer eigenen Artenliste eingegrenzt, bevor die Antwort da war, und
+      // sagt, ob die Antwort in dieser Menge lag.
+      ((_pw.vorauswahl && _pw.vorauswahl.uebrig)
+        ? '<div class="sr2-pruef-vorab">\ud83d\udcda Vor der Antwort eingegrenzt: <b>' +
+            gsTsd(_pw.vorauswahl.gesamt) + ' \u2192 ' + gsTsd(_pw.vorauswahl.uebrig) + '</b> Arten' +
+            (_pw.vorauswahl.kriterien && _pw.vorauswahl.kriterien.length
+              ? ' (' + esc(_pw.vorauswahl.kriterien.join(' \u00b7 ')) + ')' : '') + '. ' +
+            (_pw.vorauswahl.drin === true
+              ? esc(String(r.name || 'Die Bestimmung')) + ' war darunter.'
+              : _pw.vorauswahl.drin === false
+                ? esc(String(r.name || 'Die Bestimmung')) + ' war <b>nicht</b> darunter \u2014 die Gr\u00fcnde stehen oben.'
+                : '') +
+          '</div>'
+        : '') +
     '</div>';
   }
 
@@ -70503,6 +70961,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.12', date: '02.09.2026',
+    headline: '\ud83c\udfa8 Der Scanner sieht selbst hin \u2014 bevor die KI antwortet',
+    summary: 'Zwischen deinem Foto und der Antwort arbeitet die App jetzt selbst: Sie misst die Farben im Bild und grenzt aus den 4\u2019342 Arten die ein, die hier und jetzt \u00fcberhaupt in Frage kommen. Beides l\u00e4uft VOR der Antwort und geht NICHT in die Anfrage \u2014 was danach \u00fcbereinstimmt, stimmt aus zwei unabh\u00e4ngigen Richtungen \u00fcberein. Dazu zwei neue Pr\u00fcfregeln: Farbe und H\u00f6henlage.',
+    user_summary: '\ud83c\udfa8 W\u00e4hrend du wartest, arbeitet die App: Sie misst die Farben deines Fotos und grenzt aus 4\u2019342 Arten die ein, die hier und jetzt passen \u2014 unabh\u00e4ngig von der KI.',
+    user_items: [
+      {emoji:'\ud83c\udfa8', bold:'Farben werden gemessen:', text:' Aus deinem Foto liest die App die Farbanteile heraus \u2014 zum Beispiel \u201eGr\u00fcn 75 %, Gelb 25 %\u201c, mit Farbtupfen daneben. Dunkles Orange gilt dabei als Rinde und nicht als Bl\u00fcte.'},
+      {emoji:'\ud83d\udcda', bold:'Eigene Vorauswahl aus 4\u2019342 Arten:', text:' Aus Monat, gemessener Farbe und H\u00f6henlage grenzt die App selbst ein, welche Arten \u00fcberhaupt in Frage kommen \u2014 im Januar zum Beispiel 2\u2019087. Ausgeschlossen wird nur, was sich begr\u00fcnden l\u00e4sst: eine Art ohne Angabe f\u00e4llt nie heraus.'},
+      {emoji:'\ud83d\udd0d', bold:'Zwei neue Pr\u00fcfregeln:', text:' Passt die Bl\u00fctenfarbe im Foto zu der, die unsere Artenliste f\u00fchrt? Und liegst du \u00fcberhaupt in der H\u00f6henlage, in der die Art w\u00e4chst? Beide sagen auch, wenn sie nichts sagen k\u00f6nnen \u2014 statt zu raten.'},
+      {emoji:'\u2696\ufe0f', bold:'Unabh\u00e4ngig, mit Absicht:', text:' Weder die Farben noch die Vorauswahl gehen in die Anfrage an die KI. W\u00fcrden sie es, best\u00e4tigte das Modell nur die eigene Vorgabe \u2014 und die Gegenpr\u00fcfung w\u00e4re ein Echo statt einer Pr\u00fcfung.'},
+      {emoji:'\ud83c\udf19', bold:'Zwei Lesefehler im Dunkelmodus:', text:' Der Knopf \u201eGegenprobe starten\u201c war weisse Schrift auf Hellrot (2,15:1), und die H\u00e4kchen der Schrittliste waren weiss auf Hellgr\u00fcn \u2014 also gar nicht zu sehen. Beides behoben.'},
+    ],
+  },
+  {
     v: 'v32.11', date: '02.09.2026',
     headline: '\ud83d\udd78\ufe0f Ein Drahtgitter, das deine Bl\u00e4tter kennt',
     summary: 'Aus den Kantenpunkten deines Fotos wird jetzt ein NETZ \u2014 Linien zwischen benachbarten Punkten, die der Form der Pflanze folgen. Dazu Fokusringe, die auf den informationsreichsten Stellen einrasten, und drei Phasen, die drei echten Vorg\u00e4ngen entsprechen.',
@@ -70616,107 +71087,6 @@ window.GS_RELEASES = [
     user_items: [
       {emoji:'\ud83d\udcf7', bold:'Am richtigen Signal:', text:' Vorher zeigte der Knopf sich bei „unter 85 % Sicherheit" \u2014 also nach der Selbsteinsch\u00e4tzung des Modells. Jetzt z\u00e4hlt, was nachgerechnet wurde. Und er steht dort, wo das Urteil steht, statt weit unten.'},
       {emoji:'\ud83c\udfa8', bold:'Noch eine unlesbare Stelle:', text:' Die Prozentzahl neben einer Verwechslungsm\u00f6glichkeit stand weiss auf hellrot \u2014 3,5:1 in beiden Modi. Sie war vorher gar nicht messbar, weil dieser Teil der Karte im Pr\u00fcfstand nie gerendert wurde.'},
-    ],
-  },
-  {
-    v: 'v32.00', date: '02.09.2026',
-    headline: '\ud83d\udcc5 Ein Urlaubsfoto wird nach dem Urlaub beurteilt, nicht nach heute',
-    summary: 'Jedes Foto aus der Galerie bekam bisher den HEUTIGEN Monat und den AKTUELLEN Standort in den Auftrag. Ein Bild vom Juli, im September hochgeladen, wurde als September-Fund bewertet. Das Bild selbst weiss es besser \u2014 Aufnahmedatum und Ort stehen darin.',
-    user_summary: '\ud83d\udcc5 L\u00e4dst du ein \u00e4lteres Foto hoch, z\u00e4hlen jetzt Datum und Ort AUS DEM FOTO \u2014 nicht der heutige Tag und dein jetziger Standort.',
-    user_items: [
-      {emoji:'\ud83d\uddfa\ufe0f', bold:'Warum das die Bestimmung verbessert:', text:' Jahreszeit und H\u00f6henlage sind zwei der st\u00e4rksten Hinweise \u00fcberhaupt. Mit den falschen wird nicht nur schlechter bestimmt \u2014 die Pr\u00fcfung meldete anschliessend auch noch einen Saison-Widerspruch, den es gar nicht gab.'},
-      {emoji:'\ud83e\uddfe', bold:'Und es steht auf der Karte:', text:' „Dieses Bild wurde aufgenommen am 14. Juli am Ort 46.818\u00b0N \u2014 Jahreszeit und Verbreitung wurden danach beurteilt." Keine stille Korrektur.'},
-      {emoji:'\ud83e\udd10', bold:'Wo nichts steht, wird nichts behauptet:', text:' Viele Messenger l\u00f6schen diese Angaben beim Teilen, und ein Bildschirmfoto hat sie nie. Dann gilt wie bisher der heutige Tag \u2014 ohne Behauptung.'},
-    ],
-  },
-  {
-    v: 'v31.99', date: '02.09.2026',
-    headline: '\ud83d\udd0d Der Scanner glaubt der KI nicht mehr aufs Wort',
-    summary: 'Jede Bestimmung wird jetzt gegen unsere 4\u2019342 Arten, den Monat und die gemessene Bildqualit\u00e4t nachgerechnet. Sagt das Modell „essbar" \u00fcber etwas, das unsere Liste als t\u00f6dlich f\u00fchrt, gewinnt die vorsichtigere Angabe \u2014 sichtbar. Dazu bleibt dein Foto w\u00e4hrend der Bestimmung stehen.',
-    user_summary: '\ud83d\udd0d Nach jeder Bestimmung steht jetzt, wie viele unabh\u00e4ngige Pr\u00fcfungen daf\u00fcr sprechen \u2014 und dein Foto bleibt w\u00e4hrend der Analyse sichtbar.',
-    user_items: [
-      {emoji:'\u2620\ufe0f', bold:'Die wichtigste \u00c4nderung:', text:' Widerspricht die Bestimmung unserer Artenliste bei der Giftigkeit, gilt IMMER die vorsichtigere Angabe \u2014 und es steht gross da, warum. Vorher ging der Haupttreffer ungepr\u00fcft durch; nur die Verwechslungs-Alternativen wurden gegengerechnet.'},
-      {emoji:'\ud83d\udd0e', bold:'F\u00fcnf Pr\u00fcfungen statt einer Zahl:', text:' Kennen wir die Art? Passt die Jahreszeit? Wie gross ist der Abstand zur zweiten M\u00f6glichkeit? Wie gut war das Foto? Die Prozentzahl sagt, wie sicher sich das Modell ist \u2014 die Stufe daneben sagt, wie viele unabh\u00e4ngige Belege es daf\u00fcr gibt. Das ist etwas anderes.'},
-      {emoji:'\ud83d\udcf7', bold:'Zuschauen beim Bestimmen:', text:' Dein Foto bleibt w\u00e4hrend der Analyse stehen, mit einem wandernden Lichtstreifen. Danach erscheinen die Merkmale, die die KI wirklich im Bild gesehen hat \u2014 die standen schon immer in der Antwort und wurden nie angezeigt.'},
-      {emoji:'\ud83c\udfa8', bold:'F\u00fcnf unlesbare Stellen behoben:', text:' „\u2620\ufe0f T\u00f6dlich giftig" stand mit 3,3:1 dunkelrot auf rot, das Sicherheitswort mit 1,9:1. Im Dunkelmodus war die ganze Sicherheits-Karte fest hell und ihre Schrift damit unsichtbar. Diese Karte war nie vermessen worden \u2014 jetzt ist sie es bei jedem Durchlauf.'},
-    ],
-  },
-  {
-    v: 'v31.98', date: '02.09.2026',
-    headline: '\ud83d\udeaa Jetzt wird gepr\u00fcft, ob ein Fenster \u00fcberhaupt aufgeht',
-    summary: 'Der teuerste Fehler dieser Woche war, dass vier Bildschirme sich nicht \u00f6ffnen liessen und es niemandem auffiel. Alle 43 Fenster werden jetzt bei jedem Durchlauf wirklich aufgerufen. Dabei kamen zwei weitere Fehler heraus \u2014 einer davon versteckt hinter dem anderen.',
-    user_summary: '\ud83d\udeaa Alle 43 Fenster der App werden jetzt automatisch daraufhin gepr\u00fcft, ob sie sich \u00f6ffnen. Zwei Bildschirme, die still kaputt waren, sind repariert.',
-    user_items: [
-      {emoji:'\ud83c\udf3e', bold:'Der Ernte-\u00dcberblick stirbt nicht mehr an einem krummen Eintrag:', text:' Ein einziger Datensatz mit einem ungewohnten Datum hat den ganzen Bildschirm mitgerissen. Jetzt nicht mehr.'},
-      {emoji:'\ud83c\udf3c', bold:'Das Bl\u00fcten-Feld auf der Garten\u00fcbersicht z\u00e4hlt endlich:', text:' Es fragte ein Feld ab, das es bei keiner der 4\u2019342 Arten gibt \u2014 die Zahl der Wildbl\u00fcten war immer null, und man sah stattdessen „Bald wieder Farbe". Derselbe Fehler wie im Bl\u00fchkalender, nur an einer dritten Stelle.'},
-      {emoji:'\ud83d\udd0e', bold:'Und warum das so lange keiner sah:', text:' Die Bl\u00fcten-Zeile war gar nicht erreichbar \u2014 die Ernte-Summe direkt dar\u00fcber brach vorher ab und riss alles Folgende mit. Ein Fehler hat den anderen verdeckt.'},
-    ],
-  },
-  {
-    v: 'v31.97', date: '02.09.2026',
-    headline: '\ud83d\udd0d Erst das Urteil, dann die Einzelheiten',
-    summary: 'Die Plan-Pr\u00fcfung hat durch die neuen Regeln bis zu zw\u00f6lf Zeilen bekommen. Zw\u00f6lf Zeilen sind keine Auskunft, sondern eine Wand — darin sieht ein Hinweis genauso aus wie ein Bestanden. Jetzt steht die Z\u00e4hlung obendr\u00fcber, und die Zeilen sind nach Dringlichkeit sortiert.',
-    user_summary: '\ud83d\udd0d Beim \u00d6ffnen eines Plans siehst du zuerst eine Zeile: wie viele Hinweise, wie viel bestanden, wie viel nicht pr\u00fcfbar. Was zu tun ist, steht oben.',
-    user_items: [
-      {emoji:'\u26a0\ufe0f', bold:'Hinweise zuerst:', text:' Die Reihenfolge ist die Aussage \u2014 was oben steht, ist zu tun. Bestandenes darunter, Nicht-Pr\u00fcfbares zuletzt.'},
-      {emoji:'\ud83d\udd0e', bold:'Ein Hinweis statt drei Ausreden:', text:' Wenn mehrere Pr\u00fcfungen mangels Garten-Scan nicht gelten, steht das einmal am Fuss \u2014 mit dem Weg dorthin, statt dreimal derselbe Satz.'},
-      {emoji:'\ud83d\udc41\ufe0f', bold:'Nichts wird eingeklappt:', text:' Ein Grund, den niemand liest, ist so gut wie keiner \u2014 und was in einem zugeklappten Bereich steckt, pr\u00fcft auch der Kontrast-Pr\u00fcfstand nicht mit.'},
-    ],
-  },
-  {
-    v: 'v31.96', date: '02.09.2026',
-    headline: '\ud83d\udee1\ufe0f Die Rollen-Vergabe geht jetzt den Weg, den es schon gab',
-    summary: 'v31.95 hat aus einer Falschmeldung eine echte Änderung gemacht — aber auf dem schlechteren Weg. Die Datenbank hat dafür eine eigene Funktion, die serverseitig prüft, den letzten Admin schützt, ein Protokoll führt und die betroffene Person benachrichtigt. Genau darüber läuft es jetzt.',
-    user_summary: '\ud83d\udee1\ufe0f Wer eine neue Rolle bekommt, wird jetzt auch benachrichtigt — und jede Vergabe steht im Protokoll.',
-    user_items: [
-      {emoji:'\ud83d\udee1\ufe0f', bold:'Über die richtige Stelle:', text:' `fn_assign_role` prüft die Admin-Rechte auf dem Server statt nur im Browser, verhindert dass sich der letzte Admin selbst degradiert, schreibt ins Protokoll und schickt der betroffenen Person eine Nachricht („✓ Du bist jetzt verifizierter Experte"). Nichts davon konnte der direkte Schreibzugriff aus v31.95.'},
-      {emoji:'\u2601\ufe0f', bold:'Eine neu erkannte Art sagt jetzt, wenn sie nur lokal liegt:', text:' Die Übertragung in die Cloud wurde bisher still verschluckt. Die Art war gespeichert — aber nur auf diesem Gerät, und niemand hat das gesagt.'},
-    ],
-  },
-  {
-    v: 'v31.95', date: '02.09.2026',
-    headline: '\ud83c\udf93 Vier Bildschirme liessen sich nicht \u00f6ffnen, und ein Antrag wurde nie eingereicht',
-    summary: 'Eine einzige Zeile — ein Titel-Element, das es in diesem Fenster nicht gibt — legte vier Bildschirme still: Best\u00e4tigte Scans, Supabase-Schl\u00fcssel, das Admin-Panel und den Experten-Antrag. Dahinter lagen drei Funktionen, die Erfolg meldeten, ohne irgendetwas zu verschicken.',
-    user_summary: '\ud83c\udf93 Der Experten-Antrag wird jetzt wirklich eingereicht — vorher liess sich das Formular nicht einmal \u00f6ffnen, und h\u00e4tte es sich \u00f6ffnen lassen, w\u00e4re der Antrag auf dem eigenen Ger\u00e4t liegen geblieben.',
-    user_items: [
-      {emoji:'\ud83e\uddf1', bold:'Vier Fenster gingen gar nicht auf:', text:' Sie setzten alle einen Fenster-Titel an einem Element, das es in diesem Fenster nie gab. Die Zeile warf, bevor das Fenster ge\u00f6ffnet wurde \u2014 kein Fehler zu sehen, es passierte einfach nichts. Betroffen waren „Best\u00e4tigte Scans", der Supabase-Schl\u00fcssel, das Admin-Panel und der Experten-Antrag.'},
-      {emoji:'\ud83d\udce4', bold:'Der Experten-Antrag ging nie irgendwohin:', text:' Er wurde auf dem eigenen Ger\u00e4t gespeichert, und dann stand da „Antrag eingereicht, du wirst per E-Mail benachrichtigt". Kein Admin konnte ihn je sehen. Jetzt geht er wirklich an das Team \u2014 und wenn das schiefgeht, steht das da, statt eines H\u00e4kchens.'},
-      {emoji:'\ud83d\udee1\ufe0f', bold:'Rollen vergeben und sperren wirken jetzt:', text:' Beides schrieb nur ein Protokoll auf dem Ger\u00e4t des Admins und meldete Erfolg. Jetzt wird die Rolle wirklich gesetzt \u2014 und ein Erfolg nur gemeldet, wenn der Server ihn best\u00e4tigt hat.'},
-      {emoji:'\u2705', bold:'Der gr\u00fcne Haken erschien bei niemandem:', text:' Er h\u00e4ngte an einer Spalte, die es in der Datenbank nicht gibt. Jetzt liest er die Rolle, die es wirklich gibt.'},
-    ],
-  },
-  {
-    v: 'v31.94', date: '02.09.2026',
-    headline: '\ud83c\udf31 Aus einer L\u00fccke im Kalender wird ein Platz im Garten',
-    summary: 'Der Planer nannte L\u00fccken bisher als Zeitraum: „von Ende Juli bis Oktober passiert nichts mehr". Jetzt sagt er, WO \u2014 welches Beet wann frei wird, wie gross es ist, und was dort noch tr\u00e4gt, gepr\u00fcft gegen die Vorgeschichte genau dieses Beetes.',
-    user_summary: '\ud83c\udf31 „Fr\u00fchbeet wird am 10. Juli frei, 2,4 m\u00b2, nach dem Kohlrabi \u2014 dort passt noch Feldsalat." Vorher stand da nur ein Zeitraum.',
-    user_items: [
-      {emoji:'\ud83c\udf31', bold:'Nachkultur je Beet:', text:' Ein Beet gilt erst als frei, wenn ALLES darin geerntet ist \u2014 nicht das erste. Dann wird gerechnet, ob die Restsaison f\u00fcr Aussaat UND Ernte reicht, und welche Familie hier weder dieses Jahr noch in den letzten drei Jahren stand.'},
-      {emoji:'\ud83d\udcc5', bold:'Fehlt ein Erntedatum, wird es gesagt:', text:' Eine einzige Pflanze ohne Erntetermin macht die Aussage unm\u00f6glich \u2014 dann steht das da, statt dass ein Datum geraten wird.'},
-      {emoji:'\ud83e\uddea', bold:'Was bewusst NICHT gerechnet wird:', text:' Stark- und Schwachzehrer. Die gepr\u00fcfte Anbau-Referenz hat keine N\u00e4hrstoffklasse, und eine erfundene s\u00e4he genauso aus wie eine gemessene.'},
-    ],
-  },
-  {
-    v: 'v31.93', date: '02.09.2026',
-    headline: '\ud83e\uddee Fruchtfolge je Beet \u2014 und ein Pr\u00fcfstand, der drei Fehler beim ersten Lauf fand',
-    summary: 'Wer mehrere Beete hat, muss nicht drei Jahre auf Tomaten verzichten \u2014 er stellt sie ins andere Beet. Der Planer wusste das bisher nicht: er kannte nur „in einem Beet", nicht in welchem. Jetzt rechnet er je Beet, was dort zuletzt stand, und setzt neue Kulturen dorthin, wo ihre Familie am l\u00e4ngsten weg ist.',
-    user_summary: '\ud83e\uddee Der Planer verteilt Pflanzenfamilien jetzt auf deine Beete statt sie nur irgendwo hinzulegen \u2014 und sagt dir bei jeder Pflanze, in welchem Beet sie liegt und warum.',
-    user_items: [
-      {emoji:'\ud83e\uddee', bold:'Fruchtfolge je Beet:', text:' Aus dem Garten-Scan und deinen fr\u00fcheren Pl\u00e4nen wird je Beet ausgerechnet, welche Pflanzenfamilie dort zuletzt stand. Eine neue Kultur kommt in das Beet, in dem ihre Familie am l\u00e4ngsten weg ist. Geht das nicht, steht es da \u2014 samt dem Beet, das besser gewesen w\u00e4re.'},
-      {emoji:'\ud83e\uddf1', bold:'Leere Beete z\u00e4hlten bisher gar nicht:', text:' Wer seinen Garten gescannt, aber noch nichts gepflanzt hatte, bekam einen Plan in Reihen quer \u00fcber die Wege \u2014 der Platzierer sprang \u00fcber die Beet-Logik hinweg, wenn kein Bestand da war. Das galt seit der Einf\u00fchrung der Beete.'},
-      {emoji:'\ud83d\udcdd', bold:'Auch die KI erf\u00e4hrt es jetzt:', text:' Der Auftragstext nennt je Beet die Vorgeschichte und verlangt, eine Familie in EIN Beet zu b\u00fcndeln. Vorher stand von einem leeren gescannten Garten \u00fcberhaupt nichts im Auftrag.'},
-      {emoji:'\ud83d\udd0e', bold:'Ein neuer Pr\u00fcfstand f\u00fcr den Planer:', text:' Die dreizehn rechnenden Regeln hatten bisher keinen. Der neue f\u00e4hrt f\u00fcnfzehn F\u00e4lle durch \u2014 auch gegen einen GUTEN Plan, der nichts melden darf. Im ersten Lauf hat er drei Fehler gefunden, die beim Lesen niemand gesehen h\u00e4tte.'},
-    ],
-  },
-  {
-    v: 'v31.92', date: '02.09.2026',
-    headline: '\u2620\ufe0f Der Scan verschwieg, dass eine Verwechslung t\u00f6dlich sein kann',
-    summary: 'Der Scanner fragt bei jeder Bestimmung die Giftigkeit der Alternativen mit ab. Die Anzeige hat sie nie gelesen \u2014 auf dem Bildschirm standen drei Namen mit Prozentzahlen. Jetzt steht die Gefahr am Namen und dar\u00fcber eine Warnung.',
-    user_summary: '\u2620\ufe0f Wenn eine der Verwechslungsm\u00f6glichkeiten giftig ist, steht das jetzt gross da \u2014 vorher nur der Name und ein Prozentwert.',
-    user_items: [
-      {emoji:'\u2620\ufe0f', bold:'Der Fall, um den es geht:', text:' B\u00e4rlauch mit 62 % Sicherheit, Alternativen Maigl\u00f6ckchen und Herbstzeitlose. Beide sind giftig, eine davon t\u00f6dlich \u2014 und auf dem Bildschirm standen drei Namen mit Prozentzahlen nebeneinander. Der Scanner FRAGT die Giftigkeit jeder Alternative ausdr\u00fccklich ab; die Anzeige hat sie weggeworfen.'},
-      {emoji:'\ud83d\udd0e', bold:'Jetzt zwei Quellen, die vorsichtigere gewinnt:', text:' was die KI zur Alternative sagt UND was die Artendatenbank \u00fcber denselben botanischen Namen wei\u00df. Widersprechen sie sich, gilt der h\u00f6here Wert. Auch wenn die KI die Angabe weglässt, greift die Datenbank \u2014 nachgestellt mit der Herbstzeitlose.'},
-      {emoji:'\u2696\ufe0f', bold:'Und wenn nichts bekannt ist:', text:' wird nichts behauptet. Keine Marke, keine Warnung \u2014 dieselbe Regel wie \u00fcberall: lieber keine Aussage als eine erfundene.'},
     ],
   },
 ];
@@ -70906,7 +71276,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.11';
+var GS_VERSION = 'v32.12';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

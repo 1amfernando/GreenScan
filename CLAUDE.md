@@ -699,6 +699,26 @@ Modell als „essbar" gemeldet. Die vorsichtigere Angabe MUSS gewinnen, und zwar
 sichtbar. `docs/SCANNER-V3.md` erklaert, warum das der Punkt ist, an dem diese
 App eine reine Bilderkennung schlagen kann: **nicht im Sehen, im Pruefen.**
 
+**Seit v32.12 haelt `scan_check` eine Eigenschaft fest, die man leicht
+kaputtmacht, ohne es zu merken: die UNABHAENGIGKEIT.** Der Scanner misst vor
+der Antwort die Farben des Fotos (`gsBildFarben`) und grenzt die 4'342 Arten
+selbst ein (`gsScanVorauswahl`). Beides geht **bewusst nicht** in den Prompt —
+ein Modell, dem man die eigene Vorauswahl zeigt, bestaetigt sie, und die
+spaetere Gegenpruefung waere ein Echo statt einer Pruefung.
+
+Der Pruefstand liest deshalb den echten Prompt aus einem vollen
+`analyzeImage`-Durchlauf UND prueft, dass beide Schritte trotzdem gelaufen
+sind. **Ohne die zweite Haelfte prueft ein solcher Fall nur, dass nichts
+passiert** — und ist damit gruen, auch wenn man die ganze Funktion entfernt.
+(Gegenprobe gemacht: Farbmessung ausgebaut → der Fall meldete sofort.)
+
+Wer eine weitere Rechnung baut, die die KI gegenpruefen soll, traegt sie dort
+ein. Und wer eine Vorauswahl baut, merkt sich die eine Regel dahinter:
+**ausgeschlossen wird nur, was sich begruenden laesst.** Ein Praedikat hat
+drei Rueckgaben — `true`, `false`, `null` — und `null` ist nicht `false`.
+3'465 der 4'342 Arten haben keine Hoehenangabe; wuerde `null` wie `false`
+wirken, bliebe ein Fuenftel uebrig und die Zahl daneben waere eine Luege.
+
 **Seit v31.78 misst `contrast_check` in ZWEI Fenstern** — KI-Planer und
 Blühkalender — und der Bericht nennt **je Fenster die Zahl der vermessenen
 Textstellen**. Ohne diese Zahl sieht ein Fenster, das gar nicht aufging,
@@ -709,6 +729,27 @@ weitere Regeln stecken drin: was von etwas **Festem oder Klebendem**
 vermessen — `elementFromPoint` hilft im zweiten Fall nicht, weil es dort den
 Vorfahren liefert und der das Element *enthält*, die Prüfung es also
 durchwinkt.
+
+**Und zwei Grenzen, die v32.12 gezeigt hat — beide gelten fuer jeden
+Pruefstand, nicht nur fuer diesen:**
+
+1. **Ein Pruefstand misst, was er ERREICHT.** Die neue Vorauswahl-Zeile machte
+   die Scan-Karte hoeher; dadurch rutschte der Knopf „Gegenprobe starten"
+   erstmals in den vermessenen Bereich — und meldete **2,15:1**. Der Fehler
+   war seit v32.10 da. Ein neuer Fund heisst also nicht, dass die letzte
+   Aenderung ihn verursacht hat; vor dem Beheben nachsehen, **seit wann** die
+   Stelle so aussieht (`git stash` + denselben Pruefstand laufen lassen).
+2. **Was keine Textstelle ist, sieht er nie.** Der Haken der Schrittliste ist
+   ein `background-image` mit weissem SVG-Strich — im Dunkelmodus weiss auf
+   `#a5d6a7`, also 1,64:1 und damit ein leerer Kreis. Kein Pruefstand hat das
+   gemeldet, gefunden wurde es beim Nachsehen eine Zeile hoeher. Dasselbe gilt
+   fuer `::before`-Inhalte und SVG-Fuellungen.
+
+Und die Ursache in beiden Faellen war dieselbe wie in v31.20: **ein
+`-d`-Token ist eine TEXTfarbe, keine Fuellung.** `--c-danger-d` ist hell
+`#b71c1c` und dunkel `#ef9a9a`; als Hintergrund mit `color:#fff` ist das
+einmal 6,6:1 und einmal 2,15:1. Wer eine Flaeche faerbt, nimmt eine feste
+dunkle Farbe oder schreibt eine `body.dark`-Regel dazu.
 
 **Seit v31.77 misst `contrast_check` auch im Planer-Fenster.** Er rendert den
 KI-Planer mit dem Musterplan aus `scripts/_seed.js` (`MUSTERPLAN` +

@@ -474,31 +474,49 @@ const FAELLE = [
     },
   },
   {
-    name: 'Schrittliste · fünf Schritte, jeder mit echtem Ergebnis',
+    name: 'Schrittliste · sieben Schritte, jeder mit echtem Ergebnis',
     lauf: async () => {
       const el = document.getElementById('scan-result');
       el.innerHTML = '<div class="analyzing gs-scanview">' + _gsSchritteHtml() + '</div>';
       const li = [...el.querySelectorAll('.gs-schritte li')];
-      if (li.length !== 5) return { ok: false, warum: li.length + ' Schritte statt 5' };
+      // Die Zahl steht in GS_SCAN_SCHRITTE — hier wird gegen die Liste
+      // geprüft, nicht gegen eine im Prüfstand wiederholte Zahl. Sonst
+      // meldet er bei jedem neuen Schritt einen Fehler, den es nicht gibt.
+      const soll = GS_SCAN_SCHRITTE.length;
+      if (soll < 5) return { ok: false, warum: 'nur ' + soll + ' Schritte definiert' };
+      if (li.length !== soll) return { ok: false, warum: li.length + ' Schritte statt ' + soll };
       if (!li.every(x => x.className === 'offen')) return { ok: false, warum: 'nicht alle beginnen offen' };
 
       gsSchritt('bild', 'fertig', 'Schärfe 72 · Licht 80');
       gsSchritt('ort', 'fertig', 'Juli · Sommer · aus dem Foto');
+      gsSchritt('farbe', 'fertig', 'Grün 61 % · Weiss 14 %',
+                [{ name: 'Grün', anteil: 61 }, { name: 'Weiss', anteil: 14 }]);
+      gsSchritt('vorab', 'fertig', '4’342 → 1’268 (Monat · Farbe)');
       gsSchritt('cache', 'fertig', 'kein Treffer');
       gsSchritt('ki', 'laeuft', '3 s');
       const kiL = document.getElementById('schritt-ki');
       if (kiL.className !== 'laeuft') return { ok: false, warum: 'der laufende Schritt ist nicht markiert' };
       if ((kiL.querySelector('.gs-s-erg').textContent || '') !== '3 s') return { ok: false, warum: 'die Sekunden fehlen' };
       gsSchritt('ki', 'fertig', 'Antwort nach 7 s');
-      gsSchritt('pruef', 'fertig', '5 Regeln · 1 Vorbehalt');
+      gsSchritt('pruef', 'fertig', '7 Regeln · 1 Vorbehalt');
 
       const fertig = [...el.querySelectorAll('.gs-schritte li.fertig')];
-      if (fertig.length !== 5) return { ok: false, warum: fertig.length + ' von 5 abgehakt' };
+      if (fertig.length !== soll) return { ok: false, warum: fertig.length + ' von ' + soll + ' abgehakt' };
       const ohne = fertig.filter(x => !(x.querySelector('.gs-s-erg').textContent || '').trim());
       if (ohne.length) return { ok: false, warum: ohne.length + ' Schritte ohne Ergebnis — dann ist es wieder nur eine Ansage' };
+      // Die Farbtupfen dürfen den Text nicht ERSETZEN: wer Farben nicht
+      // unterscheidet, liest sonst gar nichts.
+      const tup = document.querySelectorAll('#schritt-farbe .gs-s-tupfen i');
+      if (tup.length !== 2) return { ok: false, warum: tup.length + ' Farbtupfen statt 2' };
+      if (!/Grün 61 %/.test(document.getElementById('schritt-farbe').textContent || ''))
+        return { ok: false, warum: 'die Farben stehen nur als Punkt da, nicht als Text' };
+      // Und sie dürfen sich nicht aufstapeln, wenn der Schritt erneut gesetzt wird.
+      gsSchritt('farbe', 'fertig', 'Grün 61 %', [{ name: 'Grün', anteil: 61 }]);
+      if (document.querySelectorAll('#schritt-farbe .gs-s-tupfen i').length !== 1)
+        return { ok: false, warum: 'die Farbtupfen stapeln sich bei erneutem Setzen' };
       const txt = el.textContent || '';
       if (/schaut sich das Foto an/.test(txt)) return { ok: false, warum: 'der alte Text steht noch da' };
-      return { ok: true, info: '5 abgehakt, alle mit Ergebnis' };
+      return { ok: true, info: soll + ' abgehakt, alle mit Ergebnis, Farben auch als Text' };
     },
   },
   {
@@ -767,6 +785,238 @@ const FAELLE = [
       if (ende !== '71%') return { ok: false, warum: 'der Ring endet bei ' + ende + ' statt 71%' };
       if (unsichtbar.length) return { ok: false, warum: unsichtbar.length + ' von ' + zeilen.length + ' Zeilen bleiben unsichtbar' };
       return { ok: true, info: start + ' → ' + ende + ' · ' + zeilen.length + ' Zeilen gestaffelt, nie unsichtbar' };
+    },
+  },
+  // ── v32.12 · Farbmessung, Vorauswahl, S6, S7 ─────────────────────────
+  {
+    name: 'Farbmessung · misst, was wirklich im Bild ist',
+    lauf: async () => {
+      const mal = zeichne => new Promise(res => {
+        const c = document.createElement('canvas'); c.width = 200; c.height = 150;
+        const g = c.getContext('2d'); zeichne(g);
+        const im = new Image(); im.onload = () => res(im); im.src = c.toDataURL('image/png');
+      });
+      // Drei Viertel Blattgrün, ein Viertel gelbe Blüte.
+      const gelb = await mal(g => {
+        g.fillStyle = '#3f9142'; g.fillRect(0, 0, 200, 150);
+        g.fillStyle = '#f2c31a'; g.fillRect(0, 0, 200, 38);
+      });
+      const nurGruen = await mal(g => { g.fillStyle = '#3f9142'; g.fillRect(0, 0, 200, 150); });
+      const rinde = await mal(g => { g.fillStyle = '#6b4a23'; g.fillRect(0, 0, 200, 150); });
+
+      const f1 = gsBildFarben(gelb), f2 = gsBildFarben(nurGruen), f3 = gsBildFarben(rinde);
+      if (!f1.messbar) return { ok: false, warum: 'nicht messbar' };
+      if ((f1.anteile['Grün'] || 0) < 60) return { ok: false, warum: 'Grün nur ' + f1.anteile['Grün'] + ' % statt ~75' };
+      if (!f1.blickfang || f1.blickfang.name !== 'Gelb')
+        return { ok: false, warum: 'Blickfang ist ' + (f1.blickfang ? f1.blickfang.name : 'nichts') + ' statt Gelb' };
+      if (f1.blickfang.anteil < 18) return { ok: false, warum: 'Gelb nur ' + f1.blickfang.anteil + ' % statt ~25' };
+      // Gegenprobe: ein reines Blattfoto darf KEINEN Blickfang melden.
+      if (f2.blickfang) return { ok: false, warum: 'meldet auf einem reinen Blattfoto einen Blickfang: ' + f2.blickfang.name };
+      // Und dunkles Orange ist Rinde, nicht Blüte.
+      if ((f3.anteile['Braun'] || 0) < 80) return { ok: false, warum: 'Rinde gilt als ' + JSON.stringify(f3.anteile) + ' statt Braun' };
+      if (f3.blickfang) return { ok: false, warum: 'Braun wird als Blickfang gemeldet — dann ist jeder Waldboden eine Blüte' };
+      return { ok: true, info: 'Grün ' + f1.anteile['Grün'] + ' % · Blickfang Gelb ' + f1.blickfang.anteil + ' % · Rinde = Braun' };
+    },
+  },
+  {
+    name: 'Farbmessung · nicht gemessen ist nicht „keine Farbe"',
+    lauf: () => {
+      const f = gsBildFarben(null);
+      if (f.messbar) return { ok: false, warum: 'behauptet, gemessen zu haben' };
+      if (f.gruen !== null) return { ok: false, warum: 'meldet einen Grünanteil von ' + f.gruen + ' ohne Messung' };
+      if (f.blickfang) return { ok: false, warum: 'meldet einen Blickfang ohne Messung' };
+      // Und die Regel darüber darf daraus NICHTS folgern.
+      const sp = { color: 'Weiss', season: 'Apr–Jun', alt: '0–1500m' };
+      if (_gsPasstFarbe(sp, f) !== null) return { ok: false, warum: 'die Farbregel urteilt über ein Bild, das sie nie gesehen hat' };
+      return { ok: true, info: 'messbar=false, Regel bleibt still' };
+    },
+  },
+  {
+    name: 'S6 · Farbe: passende Blüte erfüllt, fremde Blüte meldet',
+    lauf: async () => {
+      const mal = zeichne => new Promise(res => {
+        const c = document.createElement('canvas'); c.width = 200; c.height = 150;
+        const g = c.getContext('2d'); zeichne(g);
+        const im = new Image(); im.onload = () => res(im); im.src = c.toDataURL('image/png');
+      });
+      // Bärlauch: Artenliste sagt Weiss.
+      const weiss = gsBildFarben(await mal(g => {
+        g.fillStyle = '#3f9142'; g.fillRect(0, 0, 200, 150);
+        g.fillStyle = '#f4f6f5'; g.fillRect(0, 0, 200, 45);      // weisse Dolde
+      }));
+      const gelb = gsBildFarben(await mal(g => {
+        g.fillStyle = '#3f9142'; g.fillRect(0, 0, 200, 150);
+        g.fillStyle = '#f2c31a'; g.fillRect(0, 0, 200, 60);      // gelb statt weiss
+      }));
+      const basis = () => ({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 90,
+        edible: true, toxic: false, toxicity: 0, alternatives: [] });
+
+      const rGut = basis(); rGut._farben = weiss;
+      const rSchlecht = basis(); rSchlecht._farben = gelb;
+      const gut = _gsScanPruefwerk(rGut, null).regeln.find(x => x.id === 'farbe');
+      const schlecht = _gsScanPruefwerk(rSchlecht, null).regeln.find(x => x.id === 'farbe');
+      if (!gut || !schlecht) return { ok: false, warum: 'die Farbregel läuft gar nicht' };
+      if (gut.zustand !== 'ok') return { ok: false, warum: 'weisse Blüte + Art „Weiss" gilt nicht als erfüllt: ' + gut.zustand + ' — ' + gut.text };
+      if (schlecht.zustand !== 'warn') return { ok: false, warum: 'gelbe Blüte + Art „Weiss" meldet nichts: ' + schlecht.zustand + ' — ' + schlecht.text };
+      if (!/Weiss/.test(schlecht.text)) return { ok: false, warum: 'der Vorbehalt nennt die hinterlegte Farbe nicht' };
+      return { ok: true, info: 'weiss → erfüllt · gelb → „' + schlecht.text.replace(/<[^>]+>/g, '').slice(0, 60) + '"' };
+    },
+  },
+  {
+    name: 'S6 · ein reines Blattfoto sagt weder ja noch nein',
+    lauf: async () => {
+      const c = document.createElement('canvas'); c.width = 200; c.height = 150;
+      const g = c.getContext('2d'); g.fillStyle = '#3f9142'; g.fillRect(0, 0, 200, 150);
+      const im = await new Promise(res => { const i = new Image(); i.onload = () => res(i); i.src = c.toDataURL('image/png'); });
+      const r = { name: 'Bärlauch', latin: 'Allium ursinum', confidence: 90, alternatives: [], _farben: gsBildFarben(im) };
+      const reg = _gsScanPruefwerk(r, null).regeln.find(x => x.id === 'farbe');
+      if (!reg) return { ok: false, warum: 'die Farbregel fehlt' };
+      if (reg.zustand !== 'unbekannt') return { ok: false, warum: 'urteilt über ein Foto ohne Blüte: ' + reg.zustand + ' — ' + reg.text };
+      if (!/Blattwerk/.test(reg.text)) return { ok: false, warum: 'sagt nicht, warum sie nichts sagen kann' };
+      return { ok: true, info: reg.text.slice(0, 70) };
+    },
+  },
+  {
+    name: 'S7 · Höhenlage: im Band erfüllt, darüber gemeldet, ohne Ort still',
+    lauf: () => {
+      const basis = () => ({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 90, alternatives: [] });
+      const hol = ctx => { const r = basis(); r._ctx = ctx; return _gsScanPruefwerk(r, null).regeln.find(x => x.id === 'hoehe'); };
+      // Bärlauch steht mit „0–1500m" in der Liste.
+      const tief = hol({ elevation: 620 });
+      const hoch = hol({ elevation: 2400 });
+      const ohne = hol({});
+      if (!tief || !hoch || !ohne) return { ok: false, warum: 'die Höhenregel läuft gar nicht' };
+      if (tief.zustand !== 'ok') return { ok: false, warum: '620 m gilt nicht als passend: ' + tief.zustand + ' — ' + tief.text };
+      if (hoch.zustand !== 'warn') return { ok: false, warum: '2400 m meldet nichts: ' + hoch.zustand + ' — ' + hoch.text };
+      if (ohne.zustand !== 'unbekannt') return { ok: false, warum: 'urteilt ohne Standort: ' + ohne.zustand };
+      if (!/Standort/.test(ohne.text)) return { ok: false, warum: 'sagt nicht, warum sie nichts sagen kann' };
+      // Die Toleranz muss greifen — knapp über dem Band ist kein Vorwurf wert.
+      if (hol({ elevation: 1600 }).zustand !== 'ok') return { ok: false, warum: '1600 m (100 m über dem Band) wird bereits gemeldet — zu streng' };
+      return { ok: true, info: '620 → erfüllt · 1600 → Toleranz · 2400 → Vorbehalt · ohne Ort → still' };
+    },
+  },
+  {
+    name: 'Vorauswahl · schliesst nur aus, was sich begründen lässt',
+    lauf: () => {
+      const v = gsScanVorauswahl({ monthNum: 1 }, null);          // nur Monat
+      if (!v.messbar) return { ok: false, warum: 'nicht berechenbar, obwohl der Monat da ist' };
+      if (v.gesamt !== DB.length) return { ok: false, warum: 'zählt ' + v.gesamt + ' statt ' + DB.length };
+      if (v.uebrig >= v.gesamt) return { ok: false, warum: 'im Januar bleibt alles übrig — dann filtert sie nicht' };
+      if (v.uebrig < 500) return { ok: false, warum: 'nur ' + v.uebrig + ' übrig — das schliesst zu viel aus' };
+      if (v.kriterien.join() !== 'Monat') return { ok: false, warum: 'nennt Kriterien, die es nicht gibt: ' + v.kriterien.join() };
+      // Ganzjährige Arten MÜSSEN in jedem Monat übrig bleiben.
+      const ganz = DB.filter(s => /ganzj/i.test(String(s.season || '')));
+      const raus = ganz.filter(s => s.id && !v.ids[s.id]);
+      if (raus.length) return { ok: false, warum: raus.length + ' ganzjährige Arten fallen aus der Januar-Auswahl' };
+      // Und eine Art OHNE Höhenangabe darf die Höhe nicht aussortieren.
+      const ohneAlt = DB.filter(s => !_gsHoehenband(s));
+      const v2 = gsScanVorauswahl({ monthNum: 1, elevation: 3000 }, null);
+      const weg = ohneAlt.filter(s => s.id && v.ids[s.id] && !v2.ids[s.id]);
+      if (weg.length) return { ok: false, warum: weg.length + ' Arten ohne Höhenangabe wurden auf 3000 m ausgeschlossen — „unbekannt" wirkt wie „passt nicht"' };
+      return { ok: true, info: gsTsd(v.gesamt) + ' → ' + gsTsd(v.uebrig) + ' im Januar · ' + ganz.length + ' ganzjährige alle drin' };
+    },
+  },
+  {
+    name: 'Vorauswahl · ohne Grundlage behauptet sie nichts',
+    lauf: () => {
+      const echt = window.DB;
+      window.DB = [];
+      const v = gsScanVorauswahl({ monthNum: 5 }, null);
+      window.DB = echt;
+      if (v.messbar) return { ok: false, warum: 'behauptet eine Vorauswahl ohne Artenliste' };
+      if (v.uebrig) return { ok: false, warum: 'meldet ' + v.uebrig + ' übrige Arten aus einer leeren Liste' };
+      return { ok: true, info: 'leere Liste → messbar=false, uebrig=0' };
+    },
+  },
+  {
+    name: 'Vorauswahl · die Karte nennt sie und sagt, ob die Bestimmung darunter war',
+    lauf: () => {
+      const bau = drin => {
+        const r = { name: 'Bärlauch', latin: 'Allium ursinum', confidence: 90,
+          edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x',
+          _ctx: { monthNum: 5 } };
+        r._vorauswahl = gsScanVorauswahl({ monthNum: drin ? 5 : 11 }, null);
+        showScanResult(r);
+        return (document.getElementById('scan-result') || {}).textContent || '';
+      };
+      const ja = bau(true);
+      const nein = bau(false);
+      if (!/Vor der Antwort eingegrenzt/.test(ja)) return { ok: false, warum: 'die Vorauswahl steht nicht auf der Karte' };
+      if (!/war darunter/.test(ja)) return { ok: false, warum: 'sagt nicht, dass die Bestimmung in der Vorauswahl lag' };
+      if (!/nicht.{0,3} darunter/.test(nein)) return { ok: false, warum: 'im November wird Bärlauch nicht als ausgeschlossen gemeldet' };
+      if (/undefined|NaN|\[object Object\]/.test(ja + nein)) return { ok: false, warum: 'Platzhalter im Text' };
+      return { ok: true, info: (ja.match(/Vor der Antwort eingegrenzt[^.]*\./) || ['?'])[0].slice(0, 80) };
+    },
+  },
+  {
+    name: 'Unabhängigkeit · Farben und Vorauswahl gehen NICHT in den Auftrag',
+    lauf: async () => {
+      // Der ganze Wert der beiden Schritte hängt daran. Stünde die
+      // Vorauswahl im Prompt, bestätigte das Modell die eigene Vorgabe und
+      // die spätere Gegenprüfung wäre ein Echo statt einer Prüfung.
+      const c = document.createElement('canvas'); c.width = 160; c.height = 160;
+      const g = c.getContext('2d');
+      g.fillStyle = '#3f9142'; g.fillRect(0, 0, 160, 160);
+      g.fillStyle = '#f2c31a'; g.fillRect(0, 0, 160, 44);
+      g.strokeStyle = '#1d5c22'; g.lineWidth = 2; g.beginPath(); g.moveTo(30, 120); g.lineTo(130, 60); g.stroke();
+      const b64 = c.toDataURL('image/jpeg', 0.9).split(',')[1];
+
+      window.getApiConfig = () => ({ key: 'k' });
+      window.stopCamera = () => {};
+      window._gsScanDHash = async () => null;
+      window._gsScanCacheGet = async () => null;
+      window._gsScanCachePut = () => {};
+      window.gsBuildScanContext = () => ({ month: 'Mai', season: 'Frühling', monthNum: 5, canton: 'ZH', elevation: 440 });
+      let auftrag = '', ergF = '', ergV = '', tupfen = 0;
+      window.callVisionAI = async (_b, _m, prompt) => {
+        auftrag = String(prompt || '');
+        // Beide Schritte müssen VOR dem Aufruf abgehakt sein — danach ist
+        // die Liste weg, dort gemessen misst man nichts.
+        ergF = (document.querySelector('#schritt-farbe .gs-s-erg') || {}).textContent || '';
+        ergV = (document.querySelector('#schritt-vorab .gs-s-erg') || {}).textContent || '';
+        tupfen = document.querySelectorAll('#schritt-farbe .gs-s-tupfen i').length;
+        return JSON.stringify({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 88,
+          edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' });
+      };
+      await analyzeImage(b64, 'image/jpeg');
+
+      if (!/Gr\u00fcn \d+ %/.test(ergF)) return { ok: false, warum: 'der Farb-Schritt zeigt beim KI-Aufruf kein Ergebnis: „' + ergF + '"' };
+      if (!/\u2192/.test(ergV)) return { ok: false, warum: 'der Vorauswahl-Schritt zeigt beim KI-Aufruf kein Ergebnis: „' + ergV + '"' };
+      if (!tupfen) return { ok: false, warum: 'keine Farbtupfen neben dem Ergebnis' };
+
+      if (!auftrag) return { ok: false, warum: 'es wurde gar kein Auftrag gestellt' };
+      if (/Vorauswahl|eingegrenzt|kommen in Frage/i.test(auftrag))
+        return { ok: false, warum: 'die Vorauswahl steht im Auftrag — dann prüft sie nichts mehr' };
+      if (/Farbanteil|Blickfang|Grün \d+ ?%|Gelb \d+ ?%/i.test(auftrag))
+        return { ok: false, warum: 'die Farbmessung steht im Auftrag — dann ist sie kein unabhängiger Beleg' };
+      const karte = (document.getElementById('scan-result') || {}).textContent || '';
+      if (!/Vor der Antwort eingegrenzt/.test(karte))
+        return { ok: false, warum: 'die Vorauswahl ist nirgends angekommen — dann prüft dieser Fall nur, dass nichts passiert' };
+      return { ok: true, info: 'Auftrag sauber · vor dem Aufruf: „' + ergF.slice(0, 26) + '" / „' + ergV.slice(0, 32) + '"' };
+    },
+  },
+  {
+    name: 'Aufwand · die Vorauswahl darf den Scan nicht ausbremsen',
+    lauf: async () => {
+      // Sie laeuft ueber alle 4'342 Arten und wird bei JEDEM Scan gerechnet.
+      // Auf einem Einsteiger-Telefon ist das ungefaehr das Sechsfache dieser
+      // Zahl — deshalb ein Budget, das auch dort noch nicht auffaellt.
+      const c = document.createElement('canvas'); c.width = 400; c.height = 300;
+      const g = c.getContext('2d');
+      g.fillStyle = '#3f9142'; g.fillRect(0, 0, 400, 300);
+      g.fillStyle = '#f2c31a'; g.fillRect(0, 0, 400, 80);
+      const im = await new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = c.toDataURL('image/png'); });
+
+      let tF = 0, tV = 0, farben = null;
+      for (let i = 0; i < 5; i++) {
+        let t0 = performance.now(); farben = gsBildFarben(im); tF += performance.now() - t0;
+        t0 = performance.now(); gsScanVorauswahl({ monthNum: 5, elevation: 600 }, farben); tV += performance.now() - t0;
+      }
+      tF /= 5; tV /= 5;
+      if (!farben.messbar) return { ok: false, warum: 'die Messung lief gar nicht — dann misst dieser Fall nichts' };
+      if (tF > 20) return { ok: false, warum: 'Farbmessung ' + tF.toFixed(1) + ' ms (Budget 20)' };
+      if (tV > 60) return { ok: false, warum: 'Vorauswahl ' + tV.toFixed(1) + ' ms über 4342 Arten (Budget 60)' };
+      return { ok: true, info: 'Farben ' + tF.toFixed(1) + ' ms · Vorauswahl ' + tV.toFixed(1) + ' ms (je Mittel aus 5)' };
     },
   },
   {
