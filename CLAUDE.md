@@ -604,6 +604,21 @@ Richtungen, und die zweite ist die teurere:
    muss sie hier eintragen** — was nur als Datenstruktur existiert, entzieht
    sich jeder Prüfung, die bloss das Dokument ansieht.
 
+**Richtung 3 (seit v31.98): geht das Fenster ueberhaupt auf?** Alle 43
+Oeffner ohne Parameter (`open…` / `gsOpen…` / `show…` mit `openModal(` im
+Rumpf) werden **wirklich aufgerufen**. Zwei Regeln stecken drin, beide im
+ersten Lauf gelernt: **Sperren werden erfuellt, nicht umgangen** (vier Oeffner
+brechen ohne Anmeldung oder Admin-Rechte ab — das ist richtig), und
+**bewusstes Ablehnen ist kein Fehler** — unterschieden wird daran, ob die
+Funktion etwas *sagt*. Wer nichts oeffnet und nichts sagt, ist kaputt.
+
+**Und eine Warnung zu den Beispieldaten:** im selben Lauf starb
+`openErnteTracking` an `e.ts.slice(…)` — weil `_seed.js` eine Zahl schrieb, wo
+die App einen ISO-String schreibt. Dahinter lag ein echter Fehler (der dritte
+`s.bloom`, siehe v31.98), den `data_check` die ganze Zeit **nicht** sehen
+konnte, weil die Zeile unerreichbar war. **Falsche Beispieldaten verdecken
+echte Fehler und melden dabei gruen.**
+
 **Richtung 2b (seit v31.95): Klassen-Ketten.** `getElementById` deckt ids ab.
 Nicht abgedeckt war
 `getElementById('x').querySelector('.y').textContent = …` — und genau daran

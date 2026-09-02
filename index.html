@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.97.20260902">
+<meta name="app-version" content="31.98.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -8592,15 +8592,31 @@ function gsUpdateGartenWidgets() {
       var blooming = GS_SAE_DB.filter(function(p) {
         return p.cat === 'Blumen' && p.harvest && p.harvest.indexOf(month) >= 0;
       });
+      // ── v31.98: der DRITTE `s.bloom` — und er hat v31.78 überlebt ──────
+      //
+      // v31.78 hat den Blühkalender von `s.bloom` auf `season` umgestellt,
+      // weil es `bloom` in KEINER der 4'342 Arten gibt. Diese Stelle blieb
+      // stehen: `wildCount` war immer 0, das Widget fiel jedes Mal auf
+      // „Gartenblumen" oder „Bald wieder Farbe" zurück, und die versprochene
+      // Zahl der Wildblüten hat nie jemand gesehen.
+      //
+      // Gefunden hat es der Prüfstand erst jetzt — weil die Zeile
+      // UNERREICHBAR war: die Ernte-Summe direkt darüber starb an einem
+      // Eintrag mit einer Zahl statt eines ISO-Datums, und riss alles
+      // Folgende mit. Falsche Beispieldaten haben einen echten Fehler die
+      // ganze Zeit verdeckt (scripts/_seed.js, v31.98).
+      //
+      // Gerechnet wird jetzt wie im Blühkalender: `gsBlueht` + `gsSaisonMonate`.
       var wildCount = 0;
-      if (DB && DB.length) {
-        wildCount = DB.filter(function(s) {
-          if (!s.bloom) return false;
-          if (Array.isArray(s.bloom)) return s.bloom.indexOf(month) >= 0;
-          var monthAbbr = ['jan','feb','mär','apr','mai','jun','jul','aug','sep','okt','nov','dez'];
-          return s.bloom.toLowerCase().indexOf(monthAbbr[month]) >= 0;
-        }).length;
-      }
+      try {
+        if (DB && DB.length && typeof gsBlueht === 'function' && typeof gsSaisonMonate === 'function') {
+          wildCount = DB.filter(function (sp) {
+            if (!gsBlueht(sp)) return false;           // Pilze/Moose/Flechten blühen nicht
+            var mm = gsSaisonMonate(sp.season);
+            return !!mm && mm.indexOf(month) >= 0;
+          }).length;
+        }
+      } catch (_) { wildCount = 0; }
       if (wildCount > 0) bl.textContent = wildCount + ' Wildblüten aktiv';
       else if (blooming.length > 0) bl.textContent = blooming.length + ' Gartenblumen';
       else bl.textContent = 'Bald wieder Farbe';
@@ -9612,7 +9628,11 @@ function openGartenTagebuch() {
   if (entries.length) {
     var dates = {};
     entries.forEach(function(e){
-      if (e.ts) dates[e.ts.slice(0,10)] = true;
+      // v31.98: `String(...)` statt roher `.slice` — ein einziger Eintrag mit
+      // einer Zahl statt eines ISO-Strings (Alt-Daten, Import) hat bisher den
+      // ganzen Bildschirm mitgerissen. Ein krummer Eintrag darf einen
+      // Jahresueberblick nicht toeten.
+      if (e.ts) dates[String(e.ts).slice(0, 10)] = true;
     });
     var d = new Date();
     for (var i = 0; i < 90; i++) {
@@ -10174,7 +10194,7 @@ function openErnteTracking() {
   // Verfügbare Jahre
   var allYears = {};
   log.forEach(function(e){
-    if (e.ts) allYears[e.ts.slice(0,4)] = true;
+    if (e.ts) allYears[String(e.ts).slice(0, 4)] = true;   // v31.98, siehe oben
   });
   allYears[String(now.getFullYear())] = true;
   var yearList = Object.keys(allYears).sort().reverse();
@@ -68930,6 +68950,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.98', date: '02.09.2026',
+    headline: '\ud83d\udeaa Jetzt wird gepr\u00fcft, ob ein Fenster \u00fcberhaupt aufgeht',
+    summary: 'Der teuerste Fehler dieser Woche war, dass vier Bildschirme sich nicht \u00f6ffnen liessen und es niemandem auffiel. Alle 43 Fenster werden jetzt bei jedem Durchlauf wirklich aufgerufen. Dabei kamen zwei weitere Fehler heraus \u2014 einer davon versteckt hinter dem anderen.',
+    user_summary: '\ud83d\udeaa Alle 43 Fenster der App werden jetzt automatisch daraufhin gepr\u00fcft, ob sie sich \u00f6ffnen. Zwei Bildschirme, die still kaputt waren, sind repariert.',
+    user_items: [
+      {emoji:'\ud83c\udf3e', bold:'Der Ernte-\u00dcberblick stirbt nicht mehr an einem krummen Eintrag:', text:' Ein einziger Datensatz mit einem ungewohnten Datum hat den ganzen Bildschirm mitgerissen. Jetzt nicht mehr.'},
+      {emoji:'\ud83c\udf3c', bold:'Das Bl\u00fcten-Feld auf der Garten\u00fcbersicht z\u00e4hlt endlich:', text:' Es fragte ein Feld ab, das es bei keiner der 4\u2019342 Arten gibt \u2014 die Zahl der Wildbl\u00fcten war immer null, und man sah stattdessen „Bald wieder Farbe". Derselbe Fehler wie im Bl\u00fchkalender, nur an einer dritten Stelle.'},
+      {emoji:'\ud83d\udd0e', bold:'Und warum das so lange keiner sah:', text:' Die Bl\u00fcten-Zeile war gar nicht erreichbar \u2014 die Ernte-Summe direkt dar\u00fcber brach vorher ab und riss alles Folgende mit. Ein Fehler hat den anderen verdeckt.'},
+    ],
+  },
+  {
     v: 'v31.97', date: '02.09.2026',
     headline: '\ud83d\udd0d Erst das Urteil, dann die Einzelheiten',
     summary: 'Die Plan-Pr\u00fcfung hat durch die neuen Regeln bis zu zw\u00f6lf Zeilen bekommen. Zw\u00f6lf Zeilen sind keine Auskunft, sondern eine Wand — darin sieht ein Hinweis genauso aus wie ein Bestanden. Jetzt steht die Z\u00e4hlung obendr\u00fcber, und die Zeilen sind nach Dringlichkeit sortiert.',
@@ -69508,7 +69539,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.97';
+var GS_VERSION = 'v31.98';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
