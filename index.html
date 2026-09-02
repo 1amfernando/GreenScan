@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.79.20260902">
+<meta name="app-version" content="31.80.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10629,7 +10629,13 @@ function openBluehkalender() {
   
   // Bienenfreundlich-Erkennung
   function isBeeFriendly(s) {
-    var t = ((s.uses || '') + ' ' + (s.desc || '') + ' ' + (s.tip || '')).toLowerCase();
+    // v31.80: `s.tip` gibt es an einem Arten-Datensatz nicht — nachgewiesen
+    // von scripts/data_check.js, 26'042 Zugriffe ins Leere. Das Feld heisst
+    // dort `uses`/`desc`/`medicinalUse`; `tip` haben nur die Garten-Blumen
+    // aus GS_SAE_DB. Ein Drittel der Beweislage dieser Erkennung war also
+    // immer leer — was miterklaert, warum sie nur 78 von 4'342 Arten findet.
+    // Ersetzt durch das Feld, das es wirklich gibt.
+    var t = ((s.uses || '') + ' ' + (s.desc || '') + ' ' + (s.medicinalUse || '')).toLowerCase();
     return t.indexOf('bien') >= 0 || t.indexOf('hummel') >= 0 || t.indexOf('schmetterling') >= 0 || t.indexOf('nektar') >= 0 || t.indexOf('pollen') >= 0 || t.indexOf('insekt') >= 0;
   }
   
@@ -67629,6 +67635,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.80', date: '02.09.2026',
+    headline: '\ud83d\udd2c Neuer Pr\u00fcfstand: gibt es \u00fcberhaupt, was der Code liest?',
+    summary: 'Nach dem Bl\u00fchkalender-Fund (ein Feld, das in keiner der 4342 Arten existiert) ein Werkzeug, das genau diese Fehlerklasse findet \u2014 dynamisch, nicht per Textsuche. Erster Durchlauf: ein weiterer Zugriff ins Leere, 26042-mal.',
+    user_summary: '\ud83d\udd2c Ein neues Pr\u00fcfwerkzeug findet Stellen, an denen die App Daten liest, die es gar nicht gibt \u2014 lautlose Fehler, die nichts abst\u00fcrzen lassen.',
+    user_items: [
+      {emoji:'\ud83d\udd2c', bold:'Die dritte Frage:', text:' Bisher pr\u00fcften zwei Werkzeuge, ob ankommt was du antippst, und ob jemand liest was du eingibst. Das neue fragt: GIBT es, was gelesen wird? Es h\u00e4ngt sich an die Artendatenbank und schreibt jeden Feldzugriff mit \u2014 jeder Zugriff auf einen Namen, den kein Datensatz kennt, ist ein belegter Fund, kein Verdacht.'},
+      {emoji:'\ud83d\udc1d', bold:'Erster Fund:', text:' Die Bienen-Erkennung durchsuchte drei Textfelder einer Art \u2014 eines davon gibt es an Arten gar nicht (26042 Zugriffe ins Leere). Ein Drittel ihrer Beweislage war immer leer. Behoben; die Erkennung bleibt trotzdem schwach, und genau deshalb ist sie seit gestern ehrlich beschriftet.'},
+      {emoji:'\ud83d\udcd0', bold:'Und eine Deckungs-\u00dcbersicht:', text:' Der Pr\u00fcfstand meldet jetzt auch Felder, die zwar existieren, aber bei \u00fcber der H\u00e4lfte der Arten leer sind \u2014 Bl\u00fctenfarbe etwa steht nur bei 22 % der Arten. Wer eine Anzeige darauf baut, sollte das wissen.'},
+    ],
+  },
+  {
     v: 'v31.79', date: '02.09.2026',
     headline: '\ud83d\udcf7 Scanner V2: erst messen, dann bestimmen',
     summary: 'Die Bildqualit\u00e4t wurde bisher nur an der Live-Kamera gepr\u00fcft \u2014 Galerie, Teilen-Dialog und abgelegte Dateien kamen ungepr\u00fcft durch. Jetzt wird jedes Foto vorher vermessen. Dazu ein ehrlicher Fortschritt statt f\u00fcnf Meldungen nach Stoppuhr, und die Sicherheitsangabe kann nicht mehr um den Faktor 100 danebenliegen.',
@@ -68007,7 +68024,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.79';
+var GS_VERSION = 'v31.80';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

@@ -469,6 +469,7 @@ node scripts/touch_check.js      # Antippflächen unter 24×24 px (WCAG 2.5.8)
 node scripts/perf_check.js       # Kaltstart unter Telefon-Drosselung (1×/4×/6×)
 node scripts/wiring_check.js     # Verdrahtung: kommt an, was angetippt wird? (seit v31.45)
 python3 scripts/field_check.py   # Formularfelder, die niemand liest (seit v31.74)
+node scripts/data_check.js       # liest der Code Felder, die es nicht gibt? (seit v31.80)
 ```
 
 Die fünf JS-Prüfstände teilen die Beispieldaten in `scripts/_seed.js` — dort
@@ -489,6 +490,28 @@ Und Felder mit eigenem `on*`-Attribut werden übersprungen; ohne diese Regel
 meldet er fast jede Einstellung als kaputt. **Ein Treffer ist ein Verdacht,
 kein Urteil** — beim ersten gezielten Durchgang blieb von 303 Feldern genau
 einer übrig, der wirklich nichts tat: „Angemeldet bleiben".
+
+`data_check.js` stellt die dritte Frage. `wiring_check` fragt *kommt an, was
+angetippt wird?*, `field_check` *liest überhaupt jemand, was eingegeben
+wird?* — `data_check` fragt: **gibt es, was gelesen wird?**
+
+Anlass war v31.78: der Blühkalender fragte seit jeher `s.bloom` ab, ein Feld,
+das in **keiner** der 4'342 Arten vorkommt. Kein Absturz, keine Lücke im
+Layout — nur eine Ansicht, die nie etwas zeigen konnte, mit einem Zähler
+daneben, der brav `0` meldete.
+
+Er arbeitet **dynamisch**, nicht per Textsuche: `window.DB` wird durch einen
+Proxy ersetzt, der jeden Feldzugriff mitschreibt; danach läuft die App durch
+alle elf Tabs und ein paar Fenster. Zwei Klassen im Bericht — ein Name, den
+**kein** Datensatz kennt (Fehler), und ein optionales Feld, das nur manche
+haben (kein Fehler). Dazu eine Deckungsliste: `.color` und `.alt` stehen nur
+bei 22 % der Arten, `.care`/`.lightMin` bei 40 von 4'342.
+
+**Zwei Grenzen:** gemeldet wird nur, was in diesem Durchlauf wirklich lief —
+ein Zweig, den niemand betritt, fällt nicht auf. Und beim Bau war der erste
+Anlauf falsch: die Array-Methoden waren ans **rohe** Array gebunden, `DB.filter`
+lief am Proxy vorbei, und der Späher sah **3** Feldzugriffe statt 26'000. Wer
+so ein Werkzeug baut, prüft zuerst, ob es überhaupt etwas sieht.
 
 `wiring_check.js` prüft, was die anderen vier nicht sehen: die vier messen, wie
 die App **aussieht**, dieser prüft, ob das Angetippte **ankommt**. Zwei
