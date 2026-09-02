@@ -12,6 +12,66 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-02 (dj) — Kaltstart untersucht, kein lohnender Angriffspunkt
+
+Ohne Code-Änderung. Festgehalten, damit es niemand ein zweites Mal untersucht.
+
+`perf_check` meldet auf einem Einsteiger-Telefon (6×) **3,3 s** bis DCL und
+**5,6 s** Parsen. Das ist der grösste verbleibende messbare Nutzerkosten-Posten
+der App. Die Frage war: gibt es noch einen Block wie den Changelog von v31.36
+(787 KB ausgelagert, ~145 ms gewonnen)?
+
+#### Gemessen
+
+Die Datei ist **5,31 MB** in 88'260 Zeilen und 2'681 Deklarationen auf oberster
+Ebene. Die grössten:
+
+| | |
+|---|---|
+| `DEFAULT_RECIPES` | 296,6 KB |
+| `WEEKLY_SEASONAL_FACTS` | 147,8 KB |
+| `GS_I18N_JS_STRINGS` | 86,6 KB |
+| `gsRegisterServiceWorker` | 77,4 KB |
+| `gsPPrenderPlan` | 45,3 KB |
+| `PLANT_DB` | 35,6 KB |
+| Summe der grössten 22 | **1,31 MB** von 5,31 MB |
+
+#### Warum ich es trotzdem gelassen habe
+
+`DEFAULT_RECIPES` war der einzige ernsthafte Kandidat. Drei Gründe dagegen,
+und der dritte allein hätte gereicht:
+
+1. **Sie wird nicht nur im Rezepte-Tab gebraucht.** `openDetail` (Z. 32884)
+   prüft für JEDE Art, ob es ein Rezept dazu gibt — das Arten-Detail ist eine
+   der meistbenutzten Ansichten überhaupt.
+2. **Offline müsste sie ohnehin mitgeladen werden**, sonst bricht der
+   Rezepte-Tab ohne Empfang — genau das Versprechen, das v32.13 repariert hat.
+   Der Gewinn wäre also reine PARSE-Zeit, nicht Übertragung.
+3. **Und der ist klein.** Der Changelog-Split brachte ~145 ms für 787 KB;
+   296 KB entsprechen grob **55 ms**. Dafür einen Umbau, der Rezepte,
+   Heilmittel, Arten-Detail, den Service-Worker-Vorrat und drei Prüfstände
+   berührt — das Verhältnis stimmt nicht.
+
+`WEEKLY_SEASONAL_FACTS` (148 KB) fällt aus einem anderen Grund weg: die
+Tages-Info der **Startseite** liest sie (Z. 23175). Auslagern hiesse, die
+Startseite auf einen Nachladevorgang warten zu lassen.
+
+#### Und ein Verdacht, der sich auflöste
+
+Meine erste, grobe Segmentierung meldete `async function gsOpenWeatherWarn`
+mit **208 KB** — das klang nach einer Funktion, die aus dem Ruder gelaufen
+ist. Nachgesehen: es ist schlicht das Dateiende, 5'098 Zeilen gewöhnlicher
+Code ohne weitere Deklaration auf oberster Ebene, die mein Muster hätte
+finden können. Kein Fund.
+
+> Eine Messung mit einem groben Werkzeug erzeugt Verdachtsfälle, keine
+> Befunde. Nachsehen kostet Minuten, ein Umbau auf falscher Grundlage Tage.
+
+**Fazit:** die Parse-Zeit bleibt eine Eigenschaft der Architektur, wie
+`CLAUDE.md` §7.1 es beschreibt. Wer sie wirklich angehen will, braucht einen
+echten Aufteilungsschritt (Tabs als eigene Dateien), nicht das Auslagern
+einzelner Datenblöcke.
+
 ### 2026-09-02 (di) — a11y_check prüfte elf Tabs und null Fenster
 
 Wieder kein Versionssprung: die App ist unverändert.
