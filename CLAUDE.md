@@ -443,6 +443,14 @@ Zwei Dinge, die man wissen muss:
 - **Der Gast-Modus ist kein Weg hinein.** Er wurde in v25.33 abgeschaltet,
   `gsActivateGuestMode` ist ein leerer Rumpf.
 
+**Und eine Sperre, über die jeder Prüfstand stolpert:** viele Speicherwege
+beginnen mit `gsRequire('…')` und brechen ohne echte Anmeldung ab — der
+Pseudo-Token aus `_seed.js` reicht dafür nicht. Ein Test, der ein Speichern
+prüft, muss `window.gsRequire = function(){ return true; };` setzen, sonst
+misst er eine Funktion, die gar nicht gelaufen ist. Beim Bau von v31.82
+hat mich das eine halbe Stunde gekostet: die Gartenart kam nie im Speicher
+an, und der Fehler lag nicht im neuen Code, sondern in der Anmelde-Sperre.
+
 Faustregel für die Auswertung: eine reine Farb- oder Radius-Änderung **muss**
 `GROESSE geaendert: 0` ergeben. Steht dort etwas anderes, verschiebt die
 Änderung Layout — dann vor dem Ausliefern nachsehen, wo.
