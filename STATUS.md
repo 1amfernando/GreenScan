@@ -4,13 +4,64 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.77` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.78` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (bp) — v31.78: der Blühkalender war zur Hälfte leer, seit jeher
+
+Fernando: *„Blühkalender ausbauen (mehr Infos, die gespeicherten Arten einbinden)."* — Beim Öffnen der Datei stand da:
+
+```js
+wildBlooms = DB.filter(function(s) {
+  if (!s.bloom) return false;      // ← s.bloom gibt es NIRGENDS
+  …
+});
+```
+
+**Nachgezählt, nicht vermutet: `bloom` existiert bei keiner einzigen der 4'342 Arten.** Die Zeile hat also seit jeher alles aussortiert. Der Reiter „🌿 Wild" war dauerhaft leer, der Bienen-Schalter meldete „0 von 0 Wildblüten", und der Zähler daneben sagte brav `0` — als wäre das ein Ergebnis und kein Fehler.
+
+Dieselbe Sorte stiller Rest wie der Pflanzenfriedhof (v31.46) und die Gartenmasse (v31.72): **etwas fertig gebaut und dann verstummt.**
+
+#### Was es wirklich gibt
+
+`season` — bei **2'907** Arten, in der Form „Apr–Jun", „Ganzjährig", vereinzelt „Blüte: Mai–Jul; Frucht: Sep". `gsSaisonMonate()` übersetzt das in Monate: **2'907 von 2'907 gelesen**, inklusive Jahreswechsel („Nov–Feb" → Nov, Dez, Jan, Feb) und Jahreszeitworten.
+
+**Eine Ehrlichkeitsgrenze:** `season` heisst Saison, nicht Blüte. Bei Wildpflanzen, Kräutern und Bäumen fällt beides zusammen; Pilze, Moose, Flechten und Algen blühen gar nicht — die werden ausgeschlossen (`gsBlueht`). Bleiben 1'935 blühfähige Arten mit lesbarer Angabe, im Juni 1'395.
+
+#### Neu
+
+- **Reiter „🪴 Meine"** — aus `ps_myplants`, `gs_confirmed_species` und `gs_scan_history`, zugeordnet zur Arten-DB.
+- **Jahresband je Art** — zwölf Punkte, der laufende Monat umrandet.
+- **Marken** — essbar / **giftig** / geschützt / Blütenfarbe / Höhenlage. In einer App, die Giftiges von Essbarem unterscheidet, gehört die Warnung in jede Liste, nicht nur in die Detailseite.
+- **Blüh-Lücke** über deine Arten.
+
+#### Zwei eigene Fehlgriffe, vom Testlauf korrigiert
+
+- **645 botanische Namen stehen mehrfach in der DB.** „Allium ursinum" ist Bärlauch, Echter Bärlauch, Bärlauch-Pesto und Echter Bärlauch (Wald). Der erste Abgleich lieferte für 4 gespeicherte Arten **32 Zeilen**. Jetzt: je botanischem Namen ein Eintrag — der direkt benannte, sonst der mit dem kürzesten Namen (das ist verlässlich der Grundeintrag, nicht die Zubereitung). 32 → 7.
+- **Die Bestäuber-Lücke musste wieder raus.** `isBeeFriendly` sucht „Bienen/Hummeln/Nektar/Pollen" in den Beschreibungstexten und findet sie bei **78 von 4'342** Arten — nicht bei Löwenzahn, nicht bei Schafgarbe, nicht bei Bärlauch. Ein Mangel-Befund auf dieser Grundlage hätte fast jedem „Lücke in allen Monaten" gemeldet. **Ein Fehlalarm im Gewand einer Erkenntnis ist schlechter als gar keine Anzeige.** Stattdessen die schlichtere, belegbare Blüh-Lücke — und der Schalter heisst jetzt „Nur mit Bestäuber-Hinweis" und sagt darunter, dass es um die Textnennung geht.
+
+#### Der Prüfstand: zweites Fenster, zwei neue Regeln
+
+`contrast_check` öffnet jetzt **zwei** Fenster (Planer + Blühkalender). Beim Einbau drei Fehler im Prüfstand selbst, jeder für sich lehrreich:
+
+| Fehler | Symptom |
+|---|---|
+| Aufräumen mit `[id^="modal-"]` blendete `#modal-content` aus | zweites Fenster mass **0 Stellen** und sah aus wie „keine Fehler" |
+| Text, den ein **scrollender** Vorfahre abschneidet, wurde vermessen | vier Zeilen mit 1,2:1 gemeldet, die in Wahrheit 18:1 haben |
+| kein Zähler je Fenster | ein Fenster, das gar nicht aufging, war von einem fehlerfreien nicht zu unterscheiden |
+
+Der Zähler steht jetzt im Bericht: **Planer 224 · Blühkalender 168 Textstellen**. `elementFromPoint` allein reicht dort nicht — es liefert an einer abgeschnittenen Stelle den Vorfahren, und der *enthält* das Element, also winkt die Prüfung es durch.
+
+#### Prüfstände
+
+`render_check` 2865 · 0 JS-Fehler · 0 verdächtig · **`contrast_check` 0/0 über 11 Bildschirme + 2 Fenster (392 Textstellen)** · `touch_check` 0 · `wiring_check` 0/0/0 · `field_check` 4/303.
+
+---
 
 ### 2026-09-02 (bo) — v31.77: Begründungen je Pflanze · zwei neue Regeln · und der Prüfstand schaut endlich ins Fenster
 
