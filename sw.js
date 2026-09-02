@@ -344,7 +344,7 @@
    ──────────────────────────────────────────────────────────── */
 'use strict';
 
-const VERSION = 'gs-v32.14';
+const VERSION = 'gs-v32.15';
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
@@ -426,6 +426,51 @@ function istShellDatei(req) {
     return SHELL_SOFORT.has(u.pathname + u.search) || SHELL_SOFORT.has(u.pathname);
   } catch (e) { return false; }
 }
+
+// ══ v32.15 · EIN DECKEL FUER DEN BILD-CACHE ══════════════════════════════
+//
+// Regel 4 legt JEDES Bild in den IMAGE_CACHE — und dazu gehoeren die
+// Kartenkacheln (swisstopo `wmts.geo.admin.ch` steht auf keiner Ausnahmeliste,
+// OpenStreetMap schon). Eine Wanderung auf Zoomstufe 16 zieht schnell
+// Tausende davon.
+//
+// Eine Obergrenze gab es nicht. Geleert wurde der Cache nur durch einen
+// Versionswechsel — `activate` loescht jeden Cache, dessen Name nicht zur
+// laufenden Version gehoert. Das ist Zufall, kein Entwurf: bei einer ruhigen
+// Woche waechst er ungebremst weiter.
+//
+// Warum das mehr ist als Speicherplatz: geht der Platz auf dem Geraet aus,
+// raeumt der Browser auf — und mancher raeumt den GANZEN Ursprung ab, also
+// auch `localStorage`. Dort liegt der Garten-Zwilling, das Ernte-Log, die
+// Einstellungen. Der groesste unbegrenzte Verbraucher gefaehrdet damit den
+// wertvollsten Speicher.
+//
+// EHRLICH DAZU: wie gross er in der Praxis wirklich wird, ist von hier aus
+// nicht messbar — die Kachel-Server sind aus dieser Umgebung nicht
+// erreichbar. Geprueft ist der MECHANISMUS (siehe offline_check), nicht die
+// Zahl. Der Deckel ist deshalb bewusst grosszuegig gewaehlt.
+// Der Deckel ist ein ZIEL, keine harte Schranke — und das ist Absicht. Bei
+// jedem einzelnen Bild `keys()` aufzurufen kostet mehr, als es bringt.
+// Geprueft wird alle `IMAGE_CACHE_INTERVALL` Bilder; dazwischen darf der
+// Cache darueber hinauswachsen. Die tatsaechliche Obergrenze ist also
+// `MAX + INTERVALL` plus das, was gerade gleichzeitig unterwegs ist.
+const IMAGE_CACHE_MAX = 500;        // ~35 KB je Kachel → grob 17 MB
+const IMAGE_CACHE_INTERVALL = 50;   // so oft wird nachgesehen
+let _bildZaehler = 0;               // nicht bei jedem Bild `keys()` aufrufen
+
+async function deckelCache(cacheName, max) {
+  try {
+    const c = await caches.open(cacheName);
+    const keys = await c.keys();
+    if (keys.length <= max) return 0;
+    // `keys()` liefert die EINFUEGEreihenfolge — vorne steht das Aelteste.
+    const weg = keys.slice(0, keys.length - max);
+    await Promise.all(weg.map((k) => c.delete(k)));
+    console.log('[SW] Bild-Cache gedeckelt: ' + weg.length + ' entfernt, ' + max + ' behalten');
+    return weg.length;
+  } catch (e) { return 0; }
+}
+self.deckelCache = deckelCache;
 
 // Der letzte Ausweg fuer JEDE Strategie: was vorgeladen wurde, muss auch
 // gefunden werden — egal, in welchem Cache die Strategie zuerst gesucht hat.
@@ -577,6 +622,11 @@ async function staleWhileRevalidate(req, cacheName) {
   const fetchPromise = fetch(req).then((res) => {
     if (res && res.status === 200 && res.type !== 'opaqueredirect') {
       cache.put(req, res.clone()).catch(() => {});
+      // v32.15: alle 50 Bilder nachsehen, ob der Deckel greift. NICHT
+      // abgewartet — eine Aufraeumaktion darf keine Antwort verzoegern.
+      if (cacheName === IMAGE_CACHE && (++_bildZaehler % IMAGE_CACHE_INTERVALL) === 0) {
+        deckelCache(IMAGE_CACHE, IMAGE_CACHE_MAX);
+      }
     }
     return res;
   // v32.13: `cached` ist hier oft `undefined` — beim ERSTEN Besuch war der

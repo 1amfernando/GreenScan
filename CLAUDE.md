@@ -775,6 +775,35 @@ Und die Regel dahinter, die ueber IndexedDB hinausgeht: **eine Schleife ueber
 jemand eine Ablage dazulegt, die anders funktioniert — und dann faellt es
 niemandem auf, weil Loeschen keine Fehlermeldung erzeugt.
 
+**Seit v32.15 prueft er auch den BILD-CACHE.** Regel 4 des Service Workers
+legt jedes Bild ab — Kartenkacheln eingeschlossen (swisstopo steht auf keiner
+Ausnahmeliste, OpenStreetMap schon). Eine Obergrenze gab es nicht; geleert
+wurde nur durch einen Versionswechsel, also durch Zufall statt durch Entwurf.
+
+Das ist nicht bloss Speicherplatz: geht der Platz aus, raeumt der Browser auf
+— und mancher raeumt den **ganzen Ursprung** ab, mitsamt `localStorage`.
+Dieselbe Sorgfalt, die dieses Repo seit v30.98 den 5 MB localStorage widmet,
+gehoert der Cache-API erst recht.
+
+**Zwei Regeln aus dem Bau, beide allgemein:**
+
+- **Ein Deckel, der alle N Eintraege nachsieht, ist ein ZIEL, keine
+  Schranke.** Die echte Obergrenze ist `ZIEL + INTERVALL` plus das gerade
+  Unterwegse — und genau so muss sie heissen (`IMAGE_CACHE_MAX`,
+  `IMAGE_CACHE_INTERVALL`), statt eine Schaerfe zu behaupten, die es nicht
+  gibt. Der erste Lauf meldete rot bei 516 von 500: die Zahl war richtig, die
+  ERWARTUNG war falsch.
+- **Ein Fall muss weit genug ueber das Ziel hinausfahren, um „gedeckelt" von
+  „nicht gedeckelt" zu unterscheiden.** Bei 560 geholten Kacheln liegen beide
+  Antworten zu nah beieinander; bei 900 nicht (900 → 507 mit Deckel, ~900
+  ohne). Und er faehrt den ECHTEN Weg — die Kacheln gehen wirklich durch den
+  Service Worker (der Pruefserver liefert dafuer `/__kachel/<n>.png`), sonst
+  waere nicht geprueft, ob der Deckel ueberhaupt ausgeloest wird.
+
+**Und die Grenze, ehrlich benannt:** wie gross der Cache in der Praxis wird,
+ist von hier aus NICHT messbar — die Kachel-Server sind aus dieser Umgebung
+nicht erreichbar. Geprueft ist der Mechanismus, nicht die Zahl.
+
 **Seit v31.78 misst `contrast_check` in ZWEI Fenstern** — KI-Planer und
 Blühkalender — und der Bericht nennt **je Fenster die Zahl der vermessenen
 Textstellen**. Ohne diese Zahl sieht ein Fenster, das gar nicht aufging,
