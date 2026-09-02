@@ -12,6 +12,37 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-02 (cp) — ROADMAP.md nachgeführt, und ein P0 war seit einem Tag erledigt
+
+`CLAUDE.md` §5 verlangt, abgeschlossene Meilensteine in `ROADMAP.md` zu
+verschieben. Die Datei stand auf **v31.44** — 59 Releases zurück. Das ist meine
+Nachlässigkeit über die ganze Session.
+
+#### Drei Punkte an der Produktionsdatenbank geprüft, nicht am Changelog
+
+- **P0-1 ist geschlossen.** Die beiden offenen Schreib-Endpunkte auf
+  `public.species` (`admin-seed-species`, `species-bulk-seed`) wurden am
+  **01.09.2026** durch 410-Stubs ersetzt. Der ausgelieferte Quelltext enthält
+  **keinen Service-Role-Key und kein Secret mehr** — an der Quelle gelesen.
+  `species` unverändert bei 2'838 Zeilen, neueste vom 2026-07-02: kein
+  Missbrauch. **Der einzige P0 der Roadmap stand einen Tag lang zu Unrecht auf
+  🔴 offen.** Eine veraltete Warnung ist billiger als eine veraltete Entwarnung
+  — aber sie kostet Vertrauen in das ganze Dokument, und es ist das erste, was
+  jemand liest.
+- **P1-1** (Leaked-Password-Protection) erscheint im Advisor vom 02.09. **nicht
+  mehr** — 144 Meldungen, 0 ERROR. Notiert als *wahrscheinlich erledigt*, nicht
+  als erledigt: **Abwesenheit aus einer Prüfliste ist kein Beweis**, der Advisor
+  könnte die Regel auch nicht mehr prüfen.
+- **P1-2** (Stripe-Webhook) **bestätigt offen**: `stripe_webhook_events` hat
+  weiterhin **0 Zeilen**.
+
+#### Nachgeführt
+
+Planer V3, Scanner V3, der grosse Funktionscheck und die neun Prüfstände als
+eigener Abschnitt — mit der Tabelle, welche Frage jeder beantwortet.
+
+---
+
 ### 2026-09-02 (co) — v32.03: eine Warnung, die aus einer Leerstelle kam
 
 Der Scan-Prompt verlangt 21 Felder. Die Frage war: liest die sie überhaupt

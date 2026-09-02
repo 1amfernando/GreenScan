@@ -5,7 +5,8 @@
 > Kompagnon: `STATUS.md` (operativer Snapshot) · `CLAUDE.md` (Onboarding) ·
 > `BACKEND_FRONTEND_MAP_v26.76.md` (Architektur-Detailkarte).
 
-**Stand:** v31.44 · App **live** auf green-scan.ch · released seit v26.0.
+**Stand:** v32.03 · App **live** auf green-scan.ch · released seit v26.0.
+**Zuletzt gegen die Produktionsdatenbank geprüft:** 02.09.2026 (P0-1, P1-1, P1-2 — siehe unten).
 
 ---
 
@@ -101,6 +102,59 @@ Die App ist ein reifes, live-laufendes Produkt. Erreicht u.a.:
 
 **Backend durchgemessen (01.09.).** Leistungs-Advisors zum ersten Mal ausgewertet: 0 ERROR, 0 WARN, kein Fremdschlüssel ohne Index. Die Datenbank ist gesund. Einzige lohnende Aufräumung: 38 Indizes, deren Spalten ein echtes Präfix eines breiteren Index sind — bereitgelegt als `20260901_redundante_indizes.sql`, umkehrbar, nicht Teil der Pflichtschritte.
 
+**Planer V3 (v31.75–v31.94).** Der Planer rechnet nach, statt der KI zu
+glauben. Ein Prüfwerk mit dreizehn Regeln (Aussaatfenster, Standdauer, Dichte,
+Saatgut, Wasser, Erntemonate, Frost, Arbeitslast, Fruchtfolge), jede mit **drei**
+Zuständen — erfüllt · verletzt · **nicht prüfbar mit Grund**. Dazu die
+**Fruchtfolge je Beet** (v31.93): aus dem Garten-Scan und früheren Plänen
+derselben Fläche wird je Beet berechnet, welche Familie dort zuletzt stand; der
+Platzierer setzt neue Kulturen dorthin, wo ihre Familie am längsten weg ist. Und
+die **Nachkultur** (v31.94): aus einer Lücke im Kalender wird ein Platz im Garten
+(„Frühbeet wird am 10. Juli frei, 2,4 m², nach Kohlrabi"). Entwurf und Grenzen:
+`docs/PLANER-V3.md`.
+
+**Scanner V3 (v31.99–v32.03).** Dieselbe Linie beim Scanner. In der
+Bilderkennung ist gegen Google Lens nichts zu gewinnen — was Lens *nicht* hat,
+ist eine kuratierte Artenliste, der Monat, der Kanton und eine gemessene
+Bildqualität. **Die Überlegenheit liegt nicht im Sehen, sondern im Prüfen.**
+Fünf Regeln nach jeder Bestimmung; bei einem Widerspruch in der Giftigkeit
+gewinnt **immer** die vorsichtigere Angabe (eine als „essbar" gemeldete
+Herbstzeitlose wird auf 5/5 korrigiert, sichtbar). Dazu EXIF (ein Urlaubsfoto
+wird nach dem Urlaub beurteilt, nicht nach heute), das Foto bleibt während der
+Analyse sichtbar, und das Urteil ist handlungsfähig. Entwurf:
+`docs/SCANNER-V3.md`.
+
+**Der grosse Funktionscheck (v31.45–v31.98).** Systematisch geprüft, was die
+App **erhebt und dann verschweigt**. Neun Funde, zwei davon ernst:
+
+- **Der Experten-Antrag wurde nie eingereicht** (v31.95). Er landete im
+  localStorage des eigenen Geräts, und die App meldete „✅ Antrag eingereicht,
+  du wirst per E-Mail benachrichtigt". Dasselbe bei Rollenvergabe und Sperren.
+- **Vier Bildschirme liessen sich gar nicht öffnen** (v31.95) — alle setzten
+  einen Fenstertitel an einem Element, das es in diesem Fenster nicht gibt, und
+  warfen **vor** dem Öffnen. Betroffen: Bestätigte Scans, Supabase-Schlüssel,
+  das **Admin-Panel** und der Experten-Antrag.
+- **1'408 Arten trugen denselben generischen Verwendungs-Satz** (v31.89), 25
+  davon als tödlich giftig eingestuft — korrigiert und dauerhaft geprüft.
+- Dazu: der dritte überlebende `s.bloom` (v31.98), eine Warnung aus einem
+  fehlenden Feld (v32.03), die Giftigkeit der Verwechslungs-Alternativen
+  (v31.92), die Merkmale aus dem Scan (v31.99).
+
+**Neun Prüfstände (`scripts/`).** Aus dem Funktionscheck ist Infrastruktur
+geworden. Jeder beantwortet **eine** Frage:
+
+| Prüfstand | Frage |
+|---|---|
+| `render_check` | wie sieht es aus, und was hat sich verschoben? |
+| `contrast_check` | ist jede Textstelle lesbar (11 Tabs + 3 Fenster, beide Modi)? |
+| `touch_check` | ist jede Antippfläche gross genug? |
+| `perf_check` | wie lange dauert der Kaltstart unter Drosselung? |
+| `wiring_check` | kommt an, was angetippt wird — und **geht das Fenster auf**? |
+| `field_check` | liest überhaupt jemand, was eingegeben wird? |
+| `data_check` | gibt es, was gelesen wird? |
+| `save_check` | kommt an, was gespeichert wird — auch auf dem Server? |
+| `planer_check` · `scan_check` | rechnet die App, was sie behauptet? |
+
 Detaillierte Sprint-Historie: `STATUS.md` Sektion 0 (Routine-Einträge).
 
 ---
@@ -113,7 +167,25 @@ Detaillierte Sprint-Historie: `STATUS.md` Sektion 0 (Routine-Einträge).
 
 | # | Punkt | Wer | Stand |
 |---|---|---|---|
-| **P0-1** | **Zwei offene Schreib-Endpunkte auf `public.species`.** `admin-seed-species` (v3) und `species-bulk-seed` (v4) sind ACTIVE mit `verify_jwt=false`, schreiben mit dem Service-Role-Key an der RLS vorbei und sind nur durch **ein hartcodiertes Secret** geschützt — das im Klartext im **öffentlichen** Repo liegt (aktueller Tree von 6 gepushten `claude/*`-Branches). Die v29-Rotation hat sie übersehen, weil sie kein Repo-Verzeichnis hatten. **Kein Missbrauch nachweisbar** (species = 2'838 Zeilen, 1 in 90 Tagen, neueste 02.07.). | **Owner** | 🔴 **offen** — 410-Stubs liegen fertig im Repo, `bash scripts/apply_pending_v30_87.sh` (Schritt 0) legt sie still |
+| **P0-1** | **Zwei offene Schreib-Endpunkte auf `public.species`.** `admin-seed-species` und `species-bulk-seed` waren ACTIVE mit `verify_jwt=false`, schrieben mit dem Service-Role-Key an der RLS vorbei und waren nur durch **ein hartcodiertes Secret** geschützt — das im Klartext im **öffentlichen** Repo lag. | Owner | ✅ **erledigt** — siehe darunter |
+
+**P0-1 ist geschlossen (geprüft 02.09.2026 an der Quelle, nicht am Changelog).**
+Beide Funktionen wurden am **01.09.2026** durch die 410-Stubs ersetzt. Der
+Quelltext, den Supabase heute ausliefert, enthält **keinen Service-Role-Key und
+kein Secret mehr** — nur noch:
+
+```
+Deno.serve(() => new Response(JSON.stringify({error:"gone", …}), {status:410}))
+```
+
+`verify_jwt` bleibt bewusst `false`: die Funktion tut nichts mehr, und ein 410
+ist die ehrlichere Antwort an Altaufrufer als ein 401. Gegengeprüft:
+`species` = **2'838 Zeilen, neueste vom 2026-07-02** — unverändert gegenüber
+dem Befund von v30.95, also kein Missbrauch in der Zwischenzeit.
+
+**Wird wieder geseedet?** Nicht diese Funktionen reaktivieren, sondern den
+SQL-Editor mit dem Service-Key aus dem Dashboard benutzen — kein dauerhaft
+offener HTTP-Endpunkt für eine Aufgabe, die einmal im Jahr vorkommt.
 
 Der v26.51-Self-Audit hat seinerzeit alle Security-**ERROR**-Advisors eliminiert;
 das gilt weiterhin (Stand v31.08: 0 ERROR, nur WARNs). P0-1 ist kein
@@ -126,8 +198,8 @@ hat ihn keine automatische Prüfung gefunden.
 
 | # | Punkt | Wer |
 |---|---|---|
-| P1-1 | **Leaked-Password-Protection** aktivieren (Supabase → Auth → Settings). Alle 13 Konten nutzen E-Mail+Passwort, `auth.mfa_factors` = 0 — das Passwort ist der einzige Credential, auch bei den 6 internen Admin-/Staff-Konten. | Owner, 1 Klick |
-| P1-2 | **Stripe-Webhook reparieren.** Nicht mehr nur „verifizieren": `stripe_webhook_events` hat **0 Zeilen**, und die Tabelle wird *vor* jedem Handler beschrieben — es hat also **noch nie ein Event die Signaturprüfung passiert**. Die eine Subscription hängt seit 23.05. auf `trialing` mit abgelaufener Periode; alle 9 „bezahlten" Konten sind manuelle `comp_tier`-Zuteilungen. **Entwarnung:** niemandem ist etwas verloren gegangen, es hat schlicht noch nie jemand über Stripe bezahlt. Beim ersten echten Zahlungsvorgang wäre es aber so. Die Secret-Rotation ist womöglich gleich die Lösung — 4-Schritt-Diagnose im Runbook. | Owner |
+| P1-1 | **Leaked-Password-Protection** — im Security-Advisor vom 02.09.2026 **nicht mehr gemeldet** (144 Meldungen, 0 ERROR: 120+16 SECURITY-DEFINER-WARNs, 5 `rls_enabled_no_policy`, 3 `extension_in_public`). ⚠️ **Abwesenheit ist kein Beweis für Aktivierung** — der Advisor könnte die Regel auch nicht mehr prüfen. Wer es genau wissen will: Supabase → Auth → Settings ansehen. Bis dahin gilt der Punkt als *wahrscheinlich erledigt*, nicht als erledigt. | Owner, 1 Blick |
+| P1-2 | **Stripe-Webhook reparieren** (🔴 **bestätigt offen, 02.09.2026**: `stripe_webhook_events` = **0 Zeilen**, 1 Subscription, 9 `comp_tier`-Konten). Nicht mehr nur „verifizieren": `stripe_webhook_events` hat **0 Zeilen**, und die Tabelle wird *vor* jedem Handler beschrieben — es hat also **noch nie ein Event die Signaturprüfung passiert**. Die eine Subscription hängt seit 23.05. auf `trialing` mit abgelaufener Periode; alle 9 „bezahlten" Konten sind manuelle `comp_tier`-Zuteilungen. **Entwarnung:** niemandem ist etwas verloren gegangen, es hat schlicht noch nie jemand über Stripe bezahlt. Beim ersten echten Zahlungsvorgang wäre es aber so. Die Secret-Rotation ist womöglich gleich die Lösung — 4-Schritt-Diagnose im Runbook. | Owner |
 | P1-3 | `seasonal_highlights` Knowledge-Tabelle unter Threshold (36/40) — Topic in `knowledge-bulk-gen` ergänzen ODER Seed-Quelle | Backend/Cowork |
 
 ---
