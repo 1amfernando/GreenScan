@@ -4,13 +4,64 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.78` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.79` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (bq) — v31.79: Scanner V2, erste Stufe — erst messen, dann bestimmen
+
+Fernando: *„verbessere den scaner"* / *„Scanner V2"*. Drei Funde, alle beim Lesen der vier Wege in `analyzeImage`.
+
+#### 1 · Die Bildqualität wurde nur an EINEM der vier Wege geprüft
+
+`gsScannerQualityCheck` misst seit je Schärfe (Laplace-Varianz) und Helligkeit — aber der einzige Aufrufer ist der Auslöser der **Live-Kamera**. Galerie, Teilen-Dialog und abgelegte Datei gingen ungeprüft in den KI-Aufruf.
+
+Das ist nicht nur eine verpasste Warnung: ein unlesbares Foto kostet einen Aufruf aus dem Tageskontingent **und** liefert eine Bestimmung, der man nicht ansieht, wie dünn ihr Grund ist. In einer App, die Giftiges von Essbarem unterscheidet, ist das die falsche Reihenfolge.
+
+Jetzt misst `gsBildQualitaetVonB64` jedes Einzelbild vor dem Aufruf. `gsScannerQualityCheck` ist nur noch ein Durchreicher — zwei Kopien derselben Rechnung wären genau die Doppelpflege, die auseinanderläuft.
+
+**Geblockt wird nichts.** Bei einem wirklich unlesbaren Foto stehen die gemessenen Werte da („Schärfe 0/100 · Licht 71/100") und zwei Knöpfe: *Neues Foto* oder *Trotzdem bestimmen*.
+
+**Ein eigener Fehler, vom Testlauf gefunden:** die erste Schwelle prüfte nur den Mischwert `blur*0.6 + light*0.4`. Ein vollkommen unscharfes, aber gut belichtetes Testbild kam damit auf **28** und rutschte durch — der Mischwert verdeckt genau die Angabe, auf die es ankommt. Jetzt zusätzlich `blur < 8` (Laplace-Varianz unter 24; das ist keine schlechte Aufnahme mehr, das ist eine Fläche).
+
+| Testbild | quality | blur | light | Tor |
+|---|---|---|---|---|
+| scharf (Raster) | 90 | 100 | 74 | nein |
+| unscharf (Verlauf) | 28 | 0 | 71 | **ja** |
+| dunkel | 0 | 0 | 0 | **ja** |
+
+„Trotzdem bestimmen" ausgelöst: 0 KI-Aufrufe im Tor, 1 danach, Ergebnis gerendert.
+
+#### 2 · Der Fortschritt war wieder eine Uhr
+
+```js
+var stageTimer = setInterval(function(){ … }, 2200);   // fünf Meldungen nach Stoppuhr
+'<style>@keyframes scanbar{from{width:0%}to{width:92%}}</style>'   // erfundener Balken
+```
+
+„Merkmale werden gelesen", „Vergleich mit der Arten-Bibliothek", „Doppelgänger werden geprüft" — nichts davon geschah in dem Moment, in dem es behauptet wurde; die App wartete auf **einen** Netzaufruf. Derselbe Fehler wie im Planer vor v31.65, dieselbe Antwort: nur echte Schritte melden (Qualität → Kontext → Scan-Speicher), und über den langen Aufruf die einzige ehrliche Aussage — er läuft, seit N Sekunden. Nachgemessen: `🌐 Die KI schaut sich das Foto an … (1 s)`, Balken unbestimmt.
+
+#### 3 · Die Sicherheitsangabe konnte um den Faktor 100 danebenliegen
+
+Der System-Prompt verlangt `confidence` als 0..100. Die **Historie** normalisiert seit v23.85 sauber (0–1 oder 0–100) — die **Anzeige** tat es nicht. Liefert das Modell einmal `0.42` statt `42`, stand dort **„0.42 %"**: liest sich als „so gut wie nichts", gemeint war „nicht ganz die Hälfte".
+
+Jetzt eine Funktion (`gsNormConfidence`) für beide Stellen. Die Grenze liegt bewusst **unter** 1: eine glatte `1` ist zweideutig, und sie als 1 % zu lesen irrt in die vorsichtige Richtung — zu wenig Sicherheit anzuzeigen kostet einen zweiten Blick, zu viel kostet im Zweifel mehr.
+
+Geprüft: `0.42→42 · 42→42 · 1→1 · 0.99→99 · 100→100 · 150→100 · "abc"→null`.
+
+#### Prüfstände
+
+`render_check` 2865 · 0 JS-Fehler · 0 verdächtig · `contrast_check` 0/0 (11 Bildschirme + 2 Fenster) · `touch_check` 0 · `wiring_check` 0/0/0.
+
+#### Offen für Scanner V2
+
+Multi-Shot als angebotener Weg statt nur als Nachbesserung · Qualitätswert im Ergebnis sichtbar machen · Verwechslungspartner prominenter, wenn die Sicherheit tief ist.
+
+---
 
 ### 2026-09-02 (bp) — v31.78: der Blühkalender war zur Hälfte leer, seit jeher
 
