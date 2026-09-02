@@ -509,6 +509,7 @@ node scripts/offline_check.js    # haelt die PWA, was sie ohne Empfang versprich
 node scripts/a11y_check.js       # bedienbar ohne Augen und ohne Maus? (seit v32.16)
 node scripts/i18n_check.js       # kommt in vier Sprachen an, was deutsch dasteht? (seit v32.17)
 node scripts/backend_check.js    # ruft das Frontend etwas auf, das es nicht gibt? (seit v32.18)
+node scripts/storage_check.js    # was ueberlebt das Abmelden? (seit v32.21)
 #   save_check prueft seit v31.95 auch SERVER-Wege mit gestelltem sbFetch:
 #   meldet die Funktion Erfolg, wenn der Server NEIN sagt — oder gar nichts?
 #   wiring_check meldet seit v31.95 zusaetzlich sofort dereferenzierte
@@ -517,7 +518,7 @@ node scripts/backend_check.js    # ruft das Frontend etwas auf, das es nicht gib
 #   Sicherheitsangaben — siehe docs/ARTEN-LUECKEN.md
 ```
 
-Die sieben JS-Prüfstände teilen die Beispieldaten in `scripts/_seed.js` — dort
+Zehn der vierzehn JS-Prüfstände teilen die Beispieldaten in `scripts/_seed.js` — dort
 ändern, nicht in den einzelnen Prüfständen. `field_check.py` liest nur den
 Quelltext und braucht keine.
 
@@ -995,6 +996,60 @@ Zugang haette. Nachmessen: ja, jederzeit, nur lesend. Anwenden: nein.
 veraltet auch. Eine der fuenf Zeilen stand seit zwei Tagen auf „offen",
 obwohl der Trigger laengst da war. Wer so eine Liste liest, misst sie besser
 nach, statt sie zu glauben.
+
+**`storage_check.js` (seit v32.21) fragt, was auf dem Geraet LIEGEN BLEIBT,
+wenn sich jemand abmeldet.** Keiner der vierzehn anderen fragte das — und
+genau dort lag eine Klasse, die seit v29.10 **sechsmal** einzeln repariert
+wurde (v29.10, v29.19, v29.44, v30.94, v30.97, v31.12): jedes Mal ein Fund,
+jedes Mal ein Nachtrag in `GS_USER_KEYS`, nie eine Pruefung dahinter.
+
+Erster Lauf: von 209 gesetzten Schluesseln ueberlebten **130** das Abmelden,
+**123 davon standen in keiner Liste** — darunter `ps_api_key` (der persoenlich
+hinterlegte Anthropic-Schluessel), `gs_global_api_key`, `gs_auth_db` (lokale
+Anmelde-Ablage mit E-Mail-Adressen) und `gs_admin_pw_hash`. Dazu die zweite
+Haelfte, die den Fund erst teuer macht: `getApiConfig()` las beide Schluessel
+**ohne jede Anmelde-Pruefung** — auf einem geteilten Geraet scannte der
+naechste Nutzer auf Rechnung des vorigen.
+
+**Die Regel, die seither gilt und die der Pruefstand durchsetzt:**
+
+> Jeder Schluessel, der das Abmelden ueberlebt, muss **namentlich** in
+> `GS_KEEP_ON_LOGOUT` (oder `GS_KEEP_PREFIXES`) stehen.
+
+`GS_KEEP_ON_LOGOUT` gab es seit v26.69 — mit neun Eintraegen und der Ansage im
+eigenen Kopf: *„Dient als Doku."* **Eine Doku, die nichts erzwingt, waechst
+nicht mit.** Wer einen neuen Schluessel anlegt, traegt ihn in eine der beiden
+Listen ein, sonst meldet der Pruefstand ihn.
+
+Fuenf Fragen (A ueberlebt/unbenannt · B in `GS_USER_KEYS` und ueberlebt
+trotzdem · C als bleibend gefuehrt, aber weg · D in beiden Listen · E in einer
+Liste, im Quelltext unbekannt). **Zwei Gegenproben, beide stellen den Fall
+wirklich her** — ohne die zweite waere eine Pruefung, die C gar nicht mehr
+rechnet, ebenfalls gruen.
+
+Drei Dinge aus dem Bau, die allgemein gelten:
+
+- **Ein Praefix ist kein Schluessel.** Der erste Bericht meldete
+  `gs_aicalls_` als unklassifiziert — diesen Schluessel gibt es nie, nur
+  `gs_aicalls_<datum>`. Praefix-Familien brauchen eigene Listen
+  (`GS_USER_PREFIXES` / `GS_KEEP_PREFIXES`) und eigene Probewerte.
+- **Ein sauberer Speicher ist kein sauberer Bildschirm.** `marketListings`,
+  `farmState` und `_gsDev.registry` spiegeln geloeschte Schluessel im
+  Arbeitsspeicher; ohne Ruecksetzen zeigt die Oberflaeche bis zum naechsten
+  Neuladen die Inserate des vorigen Kontos. Und: bei `let` **wirft** ein
+  `typeof` in der zeitlichen Totzone — jede Zuweisung braucht ihr eigenes
+  `try/catch`.
+- **Eine Schranke ist nicht dasselbe wie eine Loeschung.** Auf
+  Bestandsgeraeten liegt der Schluessel schon; ihn bei einer bloss
+  ABGELAUFENEN Sitzung zu vernichten waere Datenverlust an etwas, das der
+  Nutzer selbst eingetippt hat. Deshalb gibt `getApiConfig()` ohne Anmeldung
+  nichts heraus, statt zu loeschen — und der User-Wechsel-Zweig raeumt auf,
+  sobald wirklich jemand anderes kommt.
+
+**Grenze, ehrlich benannt:** geprueft wird der `localStorage`. IndexedDB
+(`pending_scans`, `pending_photos`, `dropped_entries`) und die Cache-API
+prueft er **nicht** — ein Foto in der Warteschlange ueberlebt das Abmelden
+weiterhin.
 
 **Seit v31.78 misst `contrast_check` in ZWEI Fenstern** — KI-Planer und
 Blühkalender — und der Bericht nennt **je Fenster die Zahl der vermessenen
