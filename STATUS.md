@@ -12,6 +12,76 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-01 (bg) — v31.69: Drei Widgets, die dasselbe sagten, sind eins geworden
+
+Fernandos Liste hatte sechs Punkte. Zwei davon — *„Das Wetter ist zwei mal darauf"* und *„Im September im Garten → soll bei nächsten Schritt angezeigt werden"* — hatten dieselbe Ursache, die er selbst nicht benannt hat.
+
+#### Der Befund
+
+Auf der Seite standen **drei** Kästen, die alle dieselbe Frage beantworteten: *was ist jetzt zu tun?*
+
+| Widget | Inhalt |
+|---|---|
+| „Nächster Schritt" | die nächste fällige Pflanzen-Aufgabe |
+| Wetter-Ratgeber | „Morgen wird heiss (28°C)" · „Frost in den nächsten Stunden!" · „Giessen kannst du heute sparen" |
+| „📅 Im September im Garten" | die Saison-Aufgaben |
+
+Drei Überschriften, drei Rahmen, eine Frage. Fernando sah beim mittleren „ein zweites Wetter-Widget" — richtig, aber der Inhalt ist **Handlungsrat**, kein Wetter. Genau deshalb gehört er zu den anderen beiden.
+
+#### Eine Liste, nach Dringlichkeit
+
+```
+1. Wetter-Warnung   zeitkritisch — heute Abend oder gar nicht (roter Streifen)
+2. Fällige Pflege   was JETZT dran ist, direkt abhakbar (bis zu 3, Rest gebündelt)
+3. Saison           was diesen Monat ansteht, ohne Termin
+```
+
+`gsBuildSmartReminder` bleibt die Quelle für Punkt 1 — die Logik dort (Frost ≤ 1 °C, Regen ≥ 70 %, Hitze ≥ 26 °C, Trockenperiode ≥ 4 Tage) ist gut und wird nicht dupliziert, nur anders dargestellt.
+
+Die Saison-Aufgaben kommen aus Supabase und werden **nachgetragen**, sobald sie da sind (`gsFillSaisonSchritte`). Die Übersicht darauf warten zu lassen hiesse, die halbe Seite für einen Netzaufruf anzuhalten. Beim Nachtragen wird das Element erneut gesucht — zwischen `await` und Rückkehr kann die Seite neu gebaut worden sein.
+
+Durchgespielt:
+
+```
+A · nichts fällig        → eine Zeile „Alles versorgt"
+B · Frost + 5 fällige    → Frost (rot) · 3 abhakbare · „Und 2 weitere fällig"
+C · + Saison             → zwei Zeilen „Im September im Garten · 3 Aufgaben"
+D · zweiter Aufruf       → 7 Zeilen, keine Dopplung
+```
+
+#### Nur noch ein Wetter-Widget
+
+Die Prognose steht jetzt in der Wetterkarte: „Morgen ☀️ 29° / 18° · 45 % Regen". Regen nur, wenn er eine Rolle spielt (ab 20 %) — „0 % Regen" ist keine Information.
+
+**Und dabei ein Fehler, der still durchgegangen wäre:** die Wetter-Schnittstelle wurde gar nicht nach `precipitation_probability_max` gefragt. Der Code hätte richtig ausgesehen und den Regen **nie** angezeigt. Feld ergänzt, plus ein Rückfall auf Millimeter für Antworten aus dem 30-Minuten-Cache, die von vor dieser Version stammen.
+
+Vier Fälle nachgestellt:
+
+```
+mit Wahrscheinlichkeit    → „Morgen ☀️ 28° / 17° · 45 % Regen"
+trocken                   → „Morgen ☀️ 24° / 12°"        (kein Regenteil)
+alte Antwort ohne Feld    → „Morgen 🌧️ 15° / 9° · 4.2 mm Regen"
+nur ein Tag Daten         → leer                          (keine erfundene Prognose)
+```
+
+#### Die Zahlen nach unten
+
+„Mein Garten in Zahlen" ist eine Bilanz. Sie beantwortet eine Frage, die niemand stellt, bevor er gesehen hat, was ansteht. `gsRenderGardenOverview` schreibt jetzt in drei Ziele (`#garden-overview`, `#garden-cta`, `#garden-zahlen`); fehlt eines, bleibt alles beisammen.
+
+#### Toter Code mitgenommen
+
+`gsRenderSeasonalInline` (2092 Zeichen) baute den Kasten, den es nicht mehr gibt — entfernt. Der Schreiber für `#garden-smart-reminder` ebenso. Beide hatte `wiring_check` sofort als verwaiste Nachschlagungen gemeldet; danach wieder **0**.
+
+#### Verify
+
+`wiring_check` 307 Namen / **0** nicht auflösbar · Menü 40/0 · 931 Nachschlagungen / **0** nie erzeugt / **0** ungesichert · `render_check` 0 JS-Fehler, 0 verdächtige Textstellen · `contrast_check` 0 unter AA beide Modi · `touch_check` 0 unter 24×24 · Farben der Liste 5,13 bis 18,88:1 beide Modi · vier Schritte-Fälle und vier Wetter-Fälle durchgespielt · antippbare Stellen 48 → 48 (die Zeile „Alles versorgt" führt weiterhin zu den Pflanzen) · beide Modi als Bild angesehen · `GS_RELEASES[0].v` = `GS_VERSION` geprüft · `gsAllReleases()` 416 → **417**, 0 Dopplungen · 9/9 Inline-Scripts + `sw.js` `node --check` OK · `GS_VERSION` v31.69 · `sw.js` gs-v31.69 · `_headers` v31.69 · meta 31.69.20260901.
+
+#### Offen aus Fernandos Liste
+
+Drei Punkte kommen als eigener Release: „Pflege & Diagnose" in den Pflanzendoktor (mit Fragebogen), „Wissen & Werkzeuge" woandershin, „Planen & Gestalten" ausblenden oder durchdacht lösen. Das sind Umzüge über mehrere Fenster — die gehören nicht in denselben Release wie eine Layout-Umstellung.
+
+---
+
 ### 2026-09-01 (bf) — v31.68: Die Gärten nach oben, vier Abschnitte statt eines Stapels
 
 Fernando, nach zwei Kürzungsrunden: *„Ich finde immer noch dass die Seite (Mein Garten) soviele Sachen/Widget hat und es chaotisch wirkt. Der eigene Garten muss zudem höher gelistet werden."*
