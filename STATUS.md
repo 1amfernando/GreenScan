@@ -12,6 +12,91 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-02 (dd) — v32.17: 47 Texte konnten nie übersetzt werden
+
+GreenScan führt fünf Sprachen. Die Übersetzungen liegen in Supabase und werden
+über die **deutsche Phrase** nachgeschlagen:
+
+```js
+keyBundle[key] = srcMap[ GS_I18N_JS_STRINGS[key] ]
+```
+
+Daraus folgt eine Regel, die nirgends stand: **ein Schlüssel ohne Eintrag in
+`GS_I18N_JS_STRINGS` wird nie nachgeschlagen.** Er zeigt in allen vier
+Sprachen seinen deutschen Rückfalltext. Für immer, ohne Fehlermeldung, ohne
+Lücke im Layout.
+
+**45 solcher Schlüssel.** Darunter der komplette Bildschirm „Mein Naturjahr",
+die Garten-Bibliothek und die Giftigkeits-Einstufungen.
+
+#### Und der teuerste Teil daran
+
+Von den ersten fünfzehn geprüften Phrasen sind **acht in der Datenbank längst
+in allen vier Sprachen übersetzt** — „Alle", „Arten", „Scans", „Funde",
+„Erfolge", „Streak", „Mein Naturjahr", „Einstufung offen". Die Arbeit war
+getan und bezahlt. Gefragt hat nur nie jemand.
+
+Das ist dieselbe Form wie der ganze Rest dieser Session: nicht fehlende
+Arbeit, sondern **fertige Arbeit, die verstummt**.
+
+#### Zwei Sonderfälle
+
+- **`tasks_due_aria`** rief `_t(key, n === 1 ? 'Aufgabe fällig' : 'Aufgaben
+  fällig')` — ein Schlüssel mit ZWEI möglichen deutschen Texten lässt sich
+  nicht nachschlagen, weil das Sprachpaket über genau eine Phrase je Schlüssel
+  gebaut wird. Jetzt zwei Schlüssel.
+- **`btn_done`** trägt in der Tabelle „✓ Erledigt", die Aufrufstelle ist aber
+  ein `aria-label` an einem Knopf, dessen sichtbarer Inhalt bereits „✓" ist.
+  Ein Haken im Vorlesetext wäre Unsinn („Haken Erledigt"). Auch hier: ein
+  eigener Schlüssel statt eines erzwungenen Kompromisses.
+
+#### Drei Stellen, zwei Wahrheiten
+
+Nachgeschlagen wird über den **Tabellen**wert; der Rückfall am Aufrufort
+erscheint nur auf Deutsch. Wo beide auseinandergehen, liest ein deutscher
+Nutzer einen anderen Satz als ein französischer:
+
+| Schlüssel | Tabelle (übersetzt) | Aufrufort (nur Deutsch) |
+|---|---|---|
+| `garden_empty_title` | „Noch kein Garten" | „Noch kein Garten angelegt." |
+| `voucher_redeem_msg` | „Gutschein-Code eingeben:" | „Gutschein-Code:" |
+
+**Vor dem Ändern nachgesehen, welche Fassung übersetzt vorliegt:** die
+Tabellenwerte haben alle vier Sprachen, die Aufrufvarianten **keine einzige**.
+Also die Aufrufstellen angeglichen — die andere Richtung hätte drei
+funktionierende Übersetzungen zerstört.
+
+#### `i18n_check.js` — der dreizehnte Prüfstand
+
+Sechs Fragen. Die zwei wichtigsten prüfen nicht den Quelltext, sondern die
+**Schicht**: die App wird ein zweites Mal geladen, mit einem untergeschobenen
+Sprachpaket im Cache, den sie beim Start ohnehin liest.
+
+- Ein Schlüssel **mit** Übersetzung muss sie zeigen.
+- Ein Schlüssel **ohne** muss sauber auf Deutsch zurückfallen — nicht den
+  rohen Schlüsselnamen zeigen.
+
+Ohne die zweite Richtung wäre eine Schicht, die alles auf den Schlüsselnamen
+wirft, ebenfalls grün.
+
+**Gegenprobe gemacht, beide Hälften:** einen Schlüssel aus der Tabelle
+entfernt → Frage 1 rot. Den Paket-Zugriff gekappt → Frage 5 rot („liefert
+„Plan" statt der Übersetzung — die Schicht trägt nicht").
+
+#### Was er bewusst nicht prüft
+
+Ob die Übersetzung in der Datenbank **existiert** und ob sie **gut** ist. Das
+braucht Netz und einen Menschen, der die Sprache spricht. Er prüft, ob eine
+vorhandene Übersetzung überhaupt ankommen **kann**.
+
+#### Nebenbei gemessen (einmalig, über die Datenbank)
+
+2'041 Phrasen für EN/ES, 2'050 für FR/IT, keine leeren Übersetzungen. Die App
+verwendet 1'641 verschiedene deutsche Phrasen. Der genaue Abgleich beider
+Mengen ist **nicht** Teil des Prüfstands — er bräuchte Netz.
+
+Alle dreizehn Prüfstände grün.
+
 ### 2026-09-02 (dc) — v32.16: 213 Stellen waren nur mit der Maus erreichbar
 
 Elf Prüfstände messen, ob die App **aussieht** wie gedacht, ob sie **rechnet**
