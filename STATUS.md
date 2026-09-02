@@ -4,13 +4,80 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.07` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.08` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (cu) — v32.08: Zurück-Knopf, Scangitter auf der echten Pflanze, Schrittliste
+
+Drei Wünsche von Fernando, und der dritte hat eine Vorgeschichte.
+
+#### 1 · Der Weg zurück
+
+„Ich komme eben nicht ins Menü zurück, sobald ein Resultat aufplopt." Stimmt:
+`#scan-result` legt sich über den Scanner, und der einzige Ausweg lag **ganz
+unten** hinter Alternativen, Steckbrief, Merkmalen und Prüfung. Jetzt eine
+`position:sticky`-Leiste zuoberst, die `gsResetScanner()` ruft — die Funktion
+gab es längst. **Nur beim Ergebnis**, wie gewünscht: sie steht in
+`showScanResult` und nirgends sonst.
+
+#### 2 · Das Gitter wird gerechnet, nicht gemalt
+
+„Der Scan soll die Pflanze quasi benetzen … man soll visuell dieses Scangitter
+sehen, wie es die Blätter analysiert, den Stiel."
+
+Ein hübsches Gitter über dem Bild wäre wieder eine Behauptung — es läge über
+der Pflanze, ohne sie zu kennen. Stattdessen: **Sobel-Kantenfilter auf dem
+eigenen Foto** (160 px, ~15 ms, einmal). Was herauskommt, sind die
+Blattränder, Blattadern, der Stiel und der Blütenumriss. Der Lichtbalken fährt
+darüber und lässt sie aufleuchten und verglimmen.
+
+Belegt: **1'427 Kantenpunkte** auf einem gezeichneten Blatt, **0** auf einer
+leeren Fläche. Es folgt der wirklichen Pflanze, und wo keine ist, erscheint
+nichts.
+
+#### 3 · Die Schrittliste — und warum sie diesmal darf
+
+⚠️ **Genau so eine Liste hat v31.79 entfernt.** Sie zählte fünf Schritte
+herunter, während die App auf EINEN Netzaufruf wartete. Nichts geschah in dem
+Moment, in dem es behauptet wurde.
+
+Sie kommt zurück, aber jeder Schritt findet wirklich statt und **jedes Ergebnis
+ist gemessen**:
+
+| Schritt | Ergebnis |
+|---|---|
+| 📷 Bild geprüft | „Schärfe 72 · Licht 80" (gemessen) |
+| 🗺️ Ort und Jahreszeit | „Juli · Sommer · Kanton UR · aus dem Foto" |
+| 💾 Scan-Speicher | „kein Treffer" / „Treffer — kostet kein Kontingent" |
+| 🌐 Die KI vergleicht | läuft, `N s` → „Antwort nach 7 s" |
+| 🔍 Gegenprüfung | „5 Regeln · 1 Vorbehalt" |
+
+Das ist **besser** als die alte Liste: sie zeigt nicht, was gerade behauptet
+wird, sondern was herausgekommen ist.
+
+#### Ein eigener Fehler, vom Kontrast-Prüfstand gefunden
+
+`li.offen{opacity:.45}` machte die noch offenen Schritte unlesbar — **2,43:1
+hell, 3,51:1 dunkel**. Statt den Text zu dimmen jetzt `var(--muted)`; der leere
+Kreis links sagt ohnehin, dass ein Schritt noch nicht dran war.
+
+#### Prüfstände
+
+`scan_check` **28/28** — fünf Fälle mehr, darunter ein **Durchlauf durch
+`analyzeImage`** mit gestelltem Netz: der KI-Schritt muss während des Aufrufs
+als laufend markiert sein, die zwei davor abgehakt und mit echten Werten
+gefüllt, die Gitter-Leinwand über dem Foto liegen, und danach die
+Zurück-Leiste stehen.
+
+`contrast_check` misst jetzt **vier** Fenster — die Analyse-Ansicht kam dazu.
+0/0 in beiden Modi. Alle übrigen grün.
+
+---
 
 ### 2026-09-02 (ct) — v32.07: ein Knopf lag 38 px ausserhalb des Bildschirms
 

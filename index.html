@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.07.20260902">
+<meta name="app-version" content="32.08.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5472,17 +5472,55 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 .gs-scanview{display:flex;flex-direction:column;align-items:center;}
 .gs-scanfoto{position:relative;width:min(72vw,260px);aspect-ratio:1;border-radius:var(--r-md);overflow:hidden;margin-bottom:14px;background:var(--surface2);box-shadow:var(--elev-2);}
 .gs-scanfoto img{width:100%;height:100%;object-fit:cover;display:block;}
-.gs-scanstrahl{position:absolute;left:0;right:0;height:38%;pointer-events:none;
-  background:linear-gradient(180deg,rgba(76,175,80,0) 0%,rgba(76,175,80,.28) 45%,rgba(129,199,132,.85) 50%,rgba(76,175,80,.28) 55%,rgba(76,175,80,0) 100%);
-  animation:gsScanSweep 2.4s ease-in-out infinite;}
-@keyframes gsScanSweep{0%{top:-38%}50%{top:100%}100%{top:-38%}}
+/* v32.08: der CSS-Streifen ist raus. Er lag ueber der Pflanze, ohne sie zu
+   kennen. Jetzt zeichnet eine Leinwand die aus dem Foto GERECHNETEN Kanten —
+   Blattraender, Blattadern, Stiel — und der Balken laesst sie aufleuchten. */
+.gs-scangitter{position:absolute;inset:0;pointer-events:none;}
+@media (prefers-reduced-motion: reduce){ .gs-scangitter{opacity:.55;} }
 .gs-scanecke{position:absolute;width:20px;height:20px;border:2.5px solid rgba(255,255,255,.9);pointer-events:none;filter:drop-shadow(0 0 3px rgba(0,0,0,.45));}
 .gs-se-lo{top:8px;left:8px;border-right:none;border-bottom:none;border-radius:4px 0 0 0;}
 .gs-se-ro{top:8px;right:8px;border-left:none;border-bottom:none;border-radius:0 4px 0 0;}
 .gs-se-lu{bottom:8px;left:8px;border-right:none;border-top:none;border-radius:0 0 0 4px;}
 .gs-se-ru{bottom:8px;right:8px;border-left:none;border-top:none;border-radius:0 0 4px 0;}
 .gs-scanzahl{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);padding:3px 10px;border-radius:999px;background:rgba(0,0,0,.62);color:#fff;font-size:var(--fs-xs);font-weight:800;letter-spacing:.3px;}
-@media (prefers-reduced-motion: reduce){ .gs-scanstrahl{animation:none;top:50%;} }
+/* v32.08 — Die Schrittliste. Jede Zeile ein Schritt, der wirklich
+   stattfindet; rechts sein gemessenes Ergebnis. */
+.gs-schritte{list-style:none;margin:14px 0 0;padding:0;width:min(86vw,320px);}
+.gs-schritte li{display:flex;align-items:center;gap:9px;padding:7px 2px;border-top:1px solid var(--border);
+  font-size:var(--fs-sm);line-height:1.35;transition:opacity .25s;}
+.gs-schritte li:first-child{border-top:none;}
+/* v32.08: hier stand `opacity:.45` — das ergab 2,43:1 (hell) und 3,51:1
+   (dunkel), gemessen. Ein noch offener Schritt soll zurueckhaltend
+   aussehen, aber lesbar bleiben; der leere Kreis links sagt ohnehin, dass
+   er noch nicht dran war. Deshalb das Token statt der Deckkraft. */
+.gs-schritte li.offen .gs-s-txt{color:var(--muted);font-weight:700;}
+.gs-schritte li.offen .gs-s-ico{opacity:.6;}
+.gs-s-mark{flex-shrink:0;width:16px;height:16px;border-radius:50%;border:2px solid var(--border);}
+li.laeuft .gs-s-mark{border-color:var(--g-main);border-top-color:transparent;animation:gsSpin .7s linear infinite;}
+li.fertig .gs-s-mark{border-color:var(--c-success-d);background:var(--c-success-d);
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2 6.4L4.6 9 10 3.2' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-size:12px;background-position:center;background-repeat:no-repeat;}
+@keyframes gsSpin{to{transform:rotate(360deg)}}
+.gs-s-ico{flex-shrink:0;font-size:var(--fs-md);}
+.gs-s-txt{flex:1;min-width:0;color:var(--text2);font-weight:700;}
+li.fertig .gs-s-txt{color:var(--text);}
+.gs-s-erg{flex-shrink:0;max-width:46%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:var(--fs-xs);font-weight:800;color:var(--c-success-d);}
+li.laeuft .gs-s-erg{color:var(--muted);}
+@media (prefers-reduced-motion: reduce){ li.laeuft .gs-s-mark{animation:none;} }
+
+/* v32.08 — Die Zurueck-Leiste ueber dem Ergebnis. Bleibt beim Scrollen
+   stehen, damit der Weg heraus nicht am Ende einer langen Karte liegt. */
+.sr2-zurueck{position:sticky;top:0;z-index:12;display:flex;align-items:center;gap:10px;
+  padding:9px 12px;background:var(--card);border-bottom:1px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,.06);}
+.sr2-zurueck-btn{flex-shrink:0;padding:8px 14px;min-height:36px;background:var(--surface2);color:var(--text);
+  border:1px solid var(--border);border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:800;
+  cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;}
+.sr2-zurueck-txt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:var(--fs-sm);font-weight:800;color:var(--text2);}
+.sr2-zurueck-x{flex-shrink:0;width:36px;height:36px;background:transparent;color:var(--text2);
+  border:1px solid var(--border);border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;
+  cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;}
 
 /* v31.99 — „Das habe ich gesehen": Foto plus die ECHTEN Merkmale. */
 .sr2-gesehen-reihe{display:flex;gap:11px;align-items:flex-start;}
@@ -28233,6 +28271,192 @@ async function _gsRetryAfterKeyPull(){
 }
 window._gsRetryAfterKeyPull = _gsRetryAfterKeyPull;
 
+
+// ══ v32.08 · DAS SCANGITTER AUF DER ECHTEN PFLANZE ═══════════════════════
+//
+// Fernando: „Der Scan soll die Pflanze mit dem Scan quasi benetzen. Also die
+// Blätter sollen detailliert benetzt werden, man soll visuell dieses
+// Scangitter sehen, wie es schön die Blätter analysiert, den Stiel und halt
+// alles andere."
+//
+// Die naheliegende Lösung wäre ein hübsches Gitter über dem Bild. Das wäre
+// aber wieder eine Behauptung: es läge über der Pflanze, ohne sie zu kennen,
+// und würde bei einem Foto mit der Blüte links genauso aussehen wie bei einem
+// mit der Blüte rechts.
+//
+// Deshalb wird es AUSGERECHNET. Aus dem Foto selbst: Graustufen → Sobel-
+// Kantenfilter → die Punkte, an denen sich die Helligkeit stark ändert. Das
+// sind genau die Blattränder, die Blattadern, der Stiel und die Umrisse der
+// Blüte. Der Lichtbalken wandert darüber, und was er passiert hat, leuchtet
+// als Gitter nach und verglimmt.
+//
+// Es folgt also der wirklichen Pflanze auf dem wirklichen Foto — nicht einer
+// gedachten. Kostet ~15 ms bei 160 px Kantenlänge und läuft einmal.
+function _gsScanKanten(img, N) {
+  try {
+    N = N || 160;
+    var c = document.createElement('canvas');
+    c.width = N; c.height = N;
+    var g = c.getContext('2d', { willReadFrequently: true });
+    if (!g) return null;
+    g.drawImage(img, 0, 0, N, N);
+    var d = g.getImageData(0, 0, N, N).data;
+    // Graustufen
+    var grau = new Float32Array(N * N);
+    for (var i = 0, p = 0; i < d.length; i += 4, p++) {
+      grau[p] = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) / 255;
+    }
+    // Sobel
+    var punkte = [], max = 0, roh = new Float32Array(N * N);
+    for (var y = 1; y < N - 1; y++) {
+      for (var x = 1; x < N - 1; x++) {
+        var o = y * N + x;
+        var gx = -grau[o - N - 1] - 2 * grau[o - 1] - grau[o + N - 1]
+                 + grau[o - N + 1] + 2 * grau[o + 1] + grau[o + N + 1];
+        var gy = -grau[o - N - 1] - 2 * grau[o - N] - grau[o - N + 1]
+                 + grau[o + N - 1] + 2 * grau[o + N] + grau[o + N + 1];
+        var m = Math.sqrt(gx * gx + gy * gy);
+        roh[o] = m;
+        if (m > max) max = m;
+      }
+    }
+    if (max <= 0.0001) return null;
+    // Nur die deutlichen Kanten — sonst wird aus dem Gitter ein Rauschen.
+    // Die Schwelle ist RELATIV zum stärksten Wert des Bildes: ein flaues Foto
+    // hat schwächere Kanten, soll aber trotzdem ein Gitter bekommen.
+    var schwelle = max * 0.28;
+    for (var y2 = 1; y2 < N - 1; y2++) {
+      for (var x2 = 1; x2 < N - 1; x2++) {
+        var o2 = y2 * N + x2;
+        if (roh[o2] < schwelle) continue;
+        punkte.push(x2 / N, y2 / N, Math.min(1, roh[o2] / max));   // 0..1, 0..1, Stärke
+      }
+    }
+    // Zu viele Punkte kosten Bildrate ohne mehr zu zeigen — gleichmässig dünnen.
+    if (punkte.length > 3 * 4000) {
+      var jeder = Math.ceil((punkte.length / 3) / 4000), aus = [];
+      for (var k = 0; k < punkte.length / 3; k += jeder) aus.push(punkte[k * 3], punkte[k * 3 + 1], punkte[k * 3 + 2]);
+      punkte = aus;
+    }
+    return punkte.length ? punkte : null;
+  } catch (_) { return null; }
+}
+window._gsScanKanten = _gsScanKanten;
+
+// Zeichnet das wandernde Gitter. Gibt eine Funktion zum Anhalten zurueck.
+function _gsScanAnimation(host) {
+  var stop = false, raf = null;
+  try {
+    var img = host.querySelector('img');
+    var cv = host.querySelector('canvas.gs-scangitter');
+    if (!img || !cv) return function () {};
+    function start() {
+      var kanten = _gsScanKanten(img, 160);
+      var W = host.clientWidth || 260, H = host.clientHeight || 260;
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+      cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+      cv.style.width = W + 'px'; cv.style.height = H + 'px';
+      var g = cv.getContext('2d');
+      if (!g) return;
+      g.scale(dpr, dpr);
+      // Kein Kantenbild (einfarbige Fläche, Fehler)? Dann nur der Balken —
+      // ein Gitter aus dem Nichts wäre erfunden.
+      var t0 = performance.now();
+      var DAUER = 2600;   // ein Durchlauf
+      function bild(t) {
+        if (stop) return;
+        var p = ((t - t0) % DAUER) / DAUER;          // 0..1, Position des Balkens
+        var by = p * H;
+        g.clearRect(0, 0, W, H);
+        if (kanten) {
+          // Die Kanten, die der Balken schon passiert hat — je frischer,
+          // desto heller. Das ist das „Benetzen".
+          for (var i = 0; i < kanten.length; i += 3) {
+            var x = kanten[i] * W, y = kanten[i + 1] * H, st = kanten[i + 2];
+            var d = by - y;
+            if (d < 0 || d > H * 0.55) continue;
+            var frisch = 1 - (d / (H * 0.55));
+            g.fillStyle = 'rgba(129,199,132,' + (0.16 + 0.72 * frisch * st) + ')';
+            var s = 1 + 1.6 * frisch;
+            g.fillRect(x - s / 2, y - s / 2, s, s);
+          }
+        }
+        // Der Balken selbst
+        var grd = g.createLinearGradient(0, by - H * 0.10, 0, by + H * 0.03);
+        grd.addColorStop(0, 'rgba(129,199,132,0)');
+        grd.addColorStop(0.75, 'rgba(129,199,132,.30)');
+        grd.addColorStop(1, 'rgba(200,255,205,.92)');
+        g.fillStyle = grd;
+        g.fillRect(0, by - H * 0.10, W, H * 0.13);
+        raf = requestAnimationFrame(bild);
+      }
+      raf = requestAnimationFrame(bild);
+    }
+    if (img.complete && img.naturalWidth) start();
+    else img.addEventListener('load', start, { once: true });
+  } catch (_) {}
+  return function () { stop = true; if (raf) cancelAnimationFrame(raf); };
+}
+window._gsScanAnimation = _gsScanAnimation;
+
+// ══ v32.08 · DIE SCHRITTLISTE ════════════════════════════════════════════
+//
+// Fernando: „Der Text ‚KI schaut sich das Foto an' soll geändert werden. Es
+// soll lieber eine Liste zeigen, die Schritt für Schritt abhakt und zeigt,
+// was analysiert wurde bzw. was das Resultat des Schritts ist."
+//
+// ⚠️ GENAU SO EINE LISTE HAT v31.79 ENTFERNT — und aus gutem Grund: sie
+// zählte fünf Schritte herunter („Merkmale werden gelesen", „Vergleich mit
+// der Arten-Bibliothek", „Doppelgänger werden geprüft"), während die App in
+// Wahrheit auf EINEN Netzaufruf wartete. Nichts davon geschah in dem Moment,
+// in dem es behauptet wurde.
+//
+// Die Liste kommt deshalb zurück, aber mit einer Bedingung: **jeder Schritt
+// findet wirklich statt, und jedes Ergebnis ist gemessen.** Und genau das
+// macht sie besser als die alte — sie zeigt nicht, was gerade behauptet
+// wird, sondern was herausgekommen ist:
+//
+//   📷 Bildqualität      → „Schärfe 72 · Licht 80"        (gemessen)
+//   🗺️ Ort und Jahreszeit → „Juli · Sommer · aus dem Foto" (gelesen)
+//   💾 Scan-Speicher      → „kein Treffer"                 (nachgesehen)
+//   🌐 KI vergleicht      → läuft seit 6 s → „Antwort nach 7 s"
+//   🔍 Gegenprüfung       → „5 Regeln · 1 Vorbehalt"       (gerechnet)
+//
+// Der vierte Schritt ist der einzige lange, und über ihn wird weiterhin nur
+// das gesagt, was stimmt: er läuft, seit N Sekunden.
+var GS_SCAN_SCHRITTE = [
+  { id: 'bild',  ico: '\u{1F4F7}', txt: 'Bild geprüft' },
+  { id: 'ort',   ico: '\u{1F5FA}️', txt: 'Ort und Jahreszeit' },
+  { id: 'cache', ico: '\u{1F4BE}', txt: 'Im Scan-Speicher nachgesehen' },
+  { id: 'ki',    ico: '\u{1F310}', txt: 'Die KI vergleicht' },
+  { id: 'pruef', ico: '\u{1F50D}', txt: 'Gegenprüfung mit der Artenliste' },
+];
+
+function _gsSchritteHtml() {
+  return '<ul class="gs-schritte" id="scan-schritte">' +
+    GS_SCAN_SCHRITTE.map(function (s) {
+      return '<li id="schritt-' + s.id + '" class="offen">' +
+               '<span class="gs-s-mark" aria-hidden="true"></span>' +
+               '<span class="gs-s-ico" aria-hidden="true">' + s.ico + '</span>' +
+               '<span class="gs-s-txt">' + s.txt + '</span>' +
+               '<span class="gs-s-erg"></span>' +
+             '</li>';
+    }).join('') + '</ul>';
+}
+window._gsSchritteHtml = _gsSchritteHtml;
+
+// zustand: 'laeuft' | 'fertig' | 'weg'
+function gsSchritt(id, zustand, ergebnis) {
+  try {
+    var li = document.getElementById('schritt-' + id);
+    if (!li) return;
+    li.className = zustand;
+    var e = li.querySelector('.gs-s-erg');
+    if (e) e.textContent = ergebnis || '';
+  } catch (_) {}
+}
+window.gsSchritt = gsSchritt;
+
 async function analyzeImage(b64, mt, organContext, extraImages, opts){
   opts = opts || {};
   // v30.74: Low-Confidence-Re-Scan — der Nutzer hat „Weiteres Foto hinzufügen" getippt; das vorige Bild wird als
@@ -28346,29 +28570,24 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
   // Derselbe Fehler wie im Planer vor v31.65, dieselbe Antwort: nur die
   // Schritte melden, die stattfinden, und über den langen Aufruf die
   // einzige ehrliche Aussage machen — er läuft, und zwar seit N Sekunden.
-  var _scanWarte = null;
-  function scanSchritt(text) {
-    if (_scanWarte) { clearInterval(_scanWarte); _scanWarte = null; }
-    var el = document.getElementById('scan-stage-txt');
-    if (el) el.textContent = text;
-    var b = document.getElementById('scan-bar');
-    if (b) { b.classList.remove('gs-pp-unbestimmt'); b.style.width = '18%'; }
-  }
-  function scanWarten(text) {
-    var el = document.getElementById('scan-stage-txt');
-    if (el) el.textContent = text;
-    var b = document.getElementById('scan-bar');
-    if (b) { b.classList.add('gs-pp-unbestimmt'); b.style.width = '100%'; }
-    var start = Date.now();
+  // v32.08: die beiden Helfer schreiben jetzt in die Schrittliste statt in
+  // eine Zeile. `scanSchritt` hakt einen Schritt MIT SEINEM ERGEBNIS ab,
+  // `scanWarten` markiert den einen langen Schritt als laufend und zaehlt
+  // die verstrichenen Sekunden — die einzige ehrliche Aussage darueber.
+  var _scanWarte = null, _kiStart = 0;
+  function scanSchritt(id, ergebnis) { gsSchritt(id, 'fertig', ergebnis || ''); }
+  function scanWarten(id) {
+    _kiStart = Date.now();
+    gsSchritt(id, 'laeuft', '0 s');
     if (_scanWarte) clearInterval(_scanWarte);
     _scanWarte = setInterval(function () {
-      var e2 = document.getElementById('scan-stage-txt');
-      if (!e2) return;
-      var s2 = Math.round((Date.now() - start) / 1000);
-      e2.textContent = text + ' (' + s2 + ' s)';
+      gsSchritt(id, 'laeuft', Math.round((Date.now() - _kiStart) / 1000) + ' s');
     }, 1000);
   }
-  function scanFertig() { if (_scanWarte) { clearInterval(_scanWarte); _scanWarte = null; } }
+  function scanFertig() {
+    if (_scanWarte) { clearInterval(_scanWarte); _scanWarte = null; }
+    try { if (window._gsScanAniStop) { window._gsScanAniStop(); window._gsScanAniStop = null; } } catch (_) {}
+  }
   var shotCount = 1 + (Array.isArray(extraImages) ? extraImages.length : 0);
   // ── v31.99: das eigene Foto bleibt stehen ────────────────────────────
   //
@@ -28384,11 +28603,14 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
   // nichts. Die Merkmale, die die KI wirklich gesehen hat, erscheinen
   // nachher auf der Karte.
   var _vorschau = b64 ? ('data:' + (mt || 'image/jpeg') + ';base64,' + b64) : '';
+  // v32.08: das Gitter liegt als Leinwand ueber dem Foto und wird aus dem
+  // Foto selbst gerechnet (siehe _gsScanKanten). Der alte CSS-Streifen ist
+  // raus — er lag ueber der Pflanze, ohne sie zu kennen.
   rd.innerHTML = '<div class="analyzing gs-scanview">' +
     (_vorschau
-      ? '<div class="gs-scanfoto">' +
+      ? '<div class="gs-scanfoto" id="gs-scanfoto">' +
           '<img src="' + _vorschau + '" alt="Das Foto, das gerade bestimmt wird">' +
-          '<div class="gs-scanstrahl" aria-hidden="true"></div>' +
+          '<canvas class="gs-scangitter" aria-hidden="true"></canvas>' +
           '<span class="gs-scanecke gs-se-lo" aria-hidden="true"></span>' +
           '<span class="gs-scanecke gs-se-ro" aria-hidden="true"></span>' +
           '<span class="gs-scanecke gs-se-lu" aria-hidden="true"></span>' +
@@ -28396,19 +28618,34 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
           (shotCount > 1 ? '<span class="gs-scanzahl">' + shotCount + ' Fotos</span>' : '') +
         '</div>'
       : '<div class="spin">🔍</div>') +
-    '<p id="scan-stage-txt" style="font-size:var(--fs-md);font-weight:700;color:var(--g-dark);">📷 Foto wird geprüft …</p>' +
-    (shotCount>1 ? '<p style="font-size:var(--fs-sm);color:var(--muted);margin-top:6px;">Multi-Shot: '+shotCount+' Fotos werden kombiniert → höhere Genauigkeit</p>' : '') +
-    '<div style="margin-top:12px;width:180px;height:6px;background:var(--surface2);border-radius:var(--r-sm);overflow:hidden;"><div id="scan-bar" style="width:18%;height:100%;background:linear-gradient(90deg,var(--g-main),var(--g-dark));transition:width .3s;"></div></div>' +
-    // v31.79: die CSS-Animation von 0 auf 92 % ist raus — sie war eine Zahl, die niemand kannte.
+    _gsSchritteHtml() +
+    (shotCount>1 ? '<p style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px;">Multi-Shot: '+shotCount+' Fotos werden kombiniert → höhere Genauigkeit</p>' : '') +
     '</div>';
+  // Die Animation starten, sobald das Bild da ist. Der Rueckgabewert haelt sie an.
+  try {
+    var _host = document.getElementById('gs-scanfoto');
+    if (_host && typeof _gsScanAnimation === 'function') window._gsScanAniStop = _gsScanAnimation(_host);
+  } catch (_) {}
   // v23.87: Status klar zeigen während Analyse (kein Auto-Hide)
   if (typeof gsScanStatusShow === 'function') gsScanStatusShow('🔬 Art wird bestimmt …', 0);
   else document.getElementById('scan-status').textContent = '🔬 Art wird bestimmt …';
 
-  scanSchritt('📍 Standort und Saison werden zusammengestellt …');
+  // v32.08: Schritt 1 — die Bildqualitaet ist an dieser Stelle bereits
+  // gemessen (oben, vor der Rueckfrage bei schlechten Fotos). Was hier
+  // steht, ist also ein Messwert und keine Ansage.
+  scanSchritt('bild', (_qual && _qual.messbar)
+    ? ('Schärfe ' + _qual.blur + ' · Licht ' + _qual.light)
+    : (shotCount > 1 ? shotCount + ' Fotos' : 'nicht messbar'));
+
   // Kontext aufbauen (GPS, Monat, Region, Habitat, User-History)
   var ctx = gsBuildScanContext();
   var ctxLines = gsFormatScanContext(ctx);
+  // Schritt 2 — was wirklich zusammengekommen ist, samt Herkunft.
+  scanSchritt('ort', [
+    ctx.month || '', ctx.season || '',
+    ctx.canton ? 'Kanton ' + ctx.canton : (ctx.lat ? ctx.lat + '°N' : ''),
+    ctx.ausFoto || ctx.ortAusFoto ? 'aus dem Foto' : ''
+  ].filter(Boolean).join(' · ') || 'ohne Ortsangabe');
 
   // v23.58: organContext enthält jetzt NUR noch den Qualitäts-Hint (autonom — kein Modus)
   const qualityHint = (organContext && String(organContext).trim()) ? ('🎯 ' + organContext + '\n\n') : '';
@@ -28431,7 +28668,7 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
   // Hauptbilds wäre nicht repräsentativ). dHash + exakter Lookup VOR dem Claude-Call.
   var _scanPhash = null;
   if (shotCount === 1 && b64) {
-    scanSchritt('🔎 Im Scan-Speicher nachsehen …');
+
     try { _scanPhash = await _gsScanDHash(b64, mt); } catch(_){ _scanPhash = null; }
     if (_scanPhash) {
       try {
@@ -28450,6 +28687,8 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
           _cachedRes._fromCache = true;
           _cachedRes._qual = _qual;          // v31.99: das Pruefwerk braucht die Messung
           _gsScanCachePut(_scanPhash, _cachedRes); // hit_count++ (fire-and-forget)
+          scanSchritt('cache', 'Treffer — ohne KI-Aufruf, kostet kein Kontingent');
+          scanSchritt('ki', 'übersprungen');
           showScanResult(_cachedRes);
           return;
         }
@@ -28462,11 +28701,14 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
     // Der lange Schritt. Ueber ihn ist die einzige ehrliche Aussage: er
     // laeuft. Deshalb ein laufender Streifen und die verstrichene Zeit —
     // die ist gemessen und stimmt.
-    scanWarten(shotCount > 1
-      ? '🌐 Die KI vergleicht ' + shotCount + ' Fotos …'
-      : '🌐 Die KI schaut sich das Foto an …');
+    // v32.08: Schritt 3 ist hier entschieden — kein Cache-Treffer, sonst
+    // waeren wir oben schon draussen.
+    scanSchritt('cache', _scanPhash ? 'kein Treffer' : (shotCount > 1 ? 'bei Multi-Shot nicht genutzt' : 'nicht verfügbar'));
+    scanWarten('ki');
     const text = await callVisionAI(b64, mt, prompt, extraImages, { systemPrompt: SCAN_SYSTEM_PROMPT, quotaFeature: 'scan', maxTokens: 900 }); // v30.47: Scan-JSON braucht ~400-600 Tok → 900 reicht, kürzere Generierung
+    var _kiSek = Math.max(1, Math.round((Date.now() - _kiStart) / 1000));
     scanFertig();
+    scanSchritt('ki', 'Antwort nach ' + _kiSek + ' s');
     if(!text) throw new Error('Keine Antwort von der KI erhalten.');
     // v23.68: Robuster JSON-Extractor — behandelt Markdown-Fences, Prose-Einleitung,
     // nested Objects (balanced-brace-Matching statt greedy Regex), trailing Text,
@@ -29267,6 +29509,16 @@ function showScanResult(r){
   // Anzeige-Block wegen der Reihenfolge tot war und niemand es merkte.
   var _pw = null;
   try { _pw = _gsScanPruefwerk(r, r._qual || null); } catch (_) { _pw = null; }
+  // v32.08: der letzte Schritt der Liste hakt sich hier ab — mit dem, was
+  // wirklich herausgekommen ist. Die Liste steht noch, wenn dieser Code
+  // laeuft; erst danach wird sie durch die Ergebniskarte ersetzt.
+  try {
+    if (typeof gsSchritt === 'function') {
+      gsSchritt('pruef', 'fertig', _pw && _pw.regeln && _pw.regeln.length
+        ? (_pw.regeln.length + ' Regeln · ' + (_pw.warn ? _pw.warn + ' Vorbehalt' + (_pw.warn === 1 ? '' : 'e') : 'kein Vorbehalt'))
+        : 'nicht möglich');
+    }
+  } catch (_) {}
   const t = toxInfo(r.toxicity||0);
   const conf = r.confidence||0;
   // v31.99: die drei Farben waren fuer FLAECHEN gedacht und standen als
@@ -29325,6 +29577,28 @@ function showScanResult(r){
 
   // Hero (v23.63 – Premium-Glanz bei ≥85% Confidence)
   var dbSp = typeof gsLinkScanToDb==='function' ? gsLinkScanToDb(r.name||r.plant, r.latin) : null;
+  // ── v32.08: der Weg zurueck ──────────────────────────────────────────
+  //
+  // Fernando: „Ich komme eben nicht ins Menue zurueck, sobald ein Resultat
+  // aufplopt." Stimmt: `#scan-result` legt sich ueber den ganzen Scanner,
+  // und der einzige Ausweg lag ganz unten hinter einer langen Karte —
+  // Alternativen, Steckbrief, Merkmale, Pruefung. Wer nur weg wollte,
+  // musste erst alles durchscrollen.
+  //
+  // Die Leiste bleibt beim Scrollen oben stehen (`position:sticky`) und
+  // ruft `gsResetScanner()` — das gibt es laengst und macht genau das
+  // Richtige: Ergebnis weg, Kamera-Bereich zurueck, Kamera neu starten.
+  // NUR beim Ergebnis, wie gewuenscht: diese Leiste steht in
+  // `showScanResult` und nirgends sonst.
+  var zurueckLeiste =
+    '<div class="sr2-zurueck">' +
+      '<button onclick="gsResetScanner&&gsResetScanner()" class="sr2-zurueck-btn" aria-label="Ergebnis schliessen und zur\u00fcck zum Scanner">' +
+        '\u2190 Zur\u00fcck' +
+      '</button>' +
+      '<span class="sr2-zurueck-txt">' + esc(r.name || 'Ergebnis') + '</span>' +
+      '<button onclick="gsResetScanner&&gsResetScanner()" class="sr2-zurueck-x" aria-label="Schliessen">\u2715</button>' +
+    '</div>';
+
   var heroCls = 'sr2-hero' + (conf >= 85 ? ' rr-premium' : '');
   var premiumChip = conf >= 85 ? '<span class="rr-signature" style="margin-left:8px;vertical-align:middle;">Top-Treffer</span>' : '';
   // v30.26 Teil A: das aufgenommene Scan-Foto direkt in der Resultat-Karte zeigen.
@@ -29333,7 +29607,7 @@ function showScanResult(r){
   var _scanPhotoSrc = '';
   try { if (window._gsLastScanB64) _scanPhotoSrc = 'data:' + (window._gsLastScanMt || 'image/jpeg') + ';base64,' + window._gsLastScanB64; } catch(_){}
   var heroPhoto = _scanPhotoSrc ? '<div style="margin:0 0 12px;"><img src="' + _scanPhotoSrc + '" alt="Dein Scan-Foto" loading="lazy" style="width:100%;max-height:210px;object-fit:cover;border-radius:var(--r-lg);box-shadow:var(--elev-2);display:block;"></div>' : '';
-  var hero = '<div class="' + heroCls + '">' +
+  var hero = zurueckLeiste + '<div class="' + heroCls + '">' +
     heroPhoto +
     '<div class="sr2-hero-cat">' + catEmoji + ' ' + esc(catLabel) + premiumChip + '</div>' +
     '<div class="sr2-hero-name">' + esc(r.name || 'Unbekannt') + '</div>' +
@@ -69670,6 +69944,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.08', date: '02.09.2026',
+    headline: '\ud83d\udd2c Das Scangitter f\u00e4hrt jetzt die echten Bl\u00e4tter ab',
+    summary: 'Drei Dinge am Scanner: ein Weg zur\u00fcck aus dem Ergebnis, ein Gitter, das aus deinem Foto gerechnet wird und den Bl\u00e4ttern, Adern und dem Stiel folgt, und statt „Die KI schaut sich das Foto an" eine Liste, die Schritt f\u00fcr Schritt abhakt \u2014 mit dem Ergebnis jedes Schritts.',
+    user_summary: '\ud83d\udd2c Beim Scannen siehst du jetzt, wie das Gitter deine Pflanze abf\u00e4hrt, und daneben eine Liste, die abhakt, was schon gepr\u00fcft wurde \u2014 mit dem jeweiligen Ergebnis.',
+    user_items: [
+      {emoji:'\u2190', bold:'Endlich wieder zur\u00fcck:', text:' Oben auf dem Ergebnis steht jetzt eine Leiste, die beim Scrollen stehen bleibt. Vorher lag der einzige Ausweg ganz unten hinter der ganzen Karte \u2014 wer nur weg wollte, musste erst alles durchscrollen.'},
+      {emoji:'\ud83c\udf3f', bold:'Das Gitter ist nicht gemalt, sondern gerechnet:', text:' Aus deinem Foto werden die Kanten bestimmt \u2014 Blattr\u00e4nder, Blattadern, Stiel, Bl\u00fctenumriss. Der Lichtbalken f\u00e4hrt dar\u00fcber und l\u00e4sst sie aufleuchten. Es folgt also DEINER Pflanze; auf einer leeren Fl\u00e4che erscheint nichts.'},
+      {emoji:'\u2705', bold:'F\u00fcnf Schritte statt einem Satz:', text:' Bildqualit\u00e4t („Sch\u00e4rfe 72 \u00b7 Licht 80"), Ort und Jahreszeit, Scan-Speicher, die KI (mit laufenden Sekunden) und die Gegenpr\u00fcfung („5 Regeln \u00b7 1 Vorbehalt"). Jeder Schritt findet wirklich statt, jedes Ergebnis ist gemessen \u2014 erfunden wird nichts.'},
+    ],
+  },
+  {
     v: 'v32.07', date: '02.09.2026',
     headline: '\u21bb Ein Knopf lag zu 38 Pixeln ausserhalb des Bildschirms',
     summary: 'Im Marktplatz schoben die zwei Filter-Felder den Knopf „Zur\u00fccksetzen" \u00fcber den rechten Rand. Die Seite scrollt dabei nicht \u2014 es sieht also nach nichts aus, aber ein Teil der Antippfl\u00e4che war unerreichbar und die Beschriftung abgeschnitten.',
@@ -70030,7 +70315,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.07';
+var GS_VERSION = 'v32.08';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
