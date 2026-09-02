@@ -12,6 +12,110 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-02 (cy) — v32.12: der Scanner sieht selbst hin, bevor die KI antwortet
+
+v32.11 war die optische Hälfte von Fernandos „BOOOOOOM". Das hier ist die
+funktionale: zwischen Foto und Antwort arbeitet die App jetzt **selbst**.
+
+Bis hierher stand zwischen „Ort und Jahreszeit" und dem langen KI-Aufruf
+nichts als ein Cache-Blick. Die Wartezeit war ehrlich, aber leer — und das
+war eine verpasste Gelegenheit: die App hat 4'342 kuratierte Arten und ein
+Foto, aus dem sich etwas ausrechnen lässt.
+
+#### Zwei Vorgänge, beide gerechnet
+
+- **`gsBildFarben(quelle)`** — HSV-Klassierung auf 96×72 px, deutsche
+  Farbnamen im Vokabular der Artenliste. HSV, weil Blüten unter Schweizer
+  Licht in RGB wandern: dieselbe gelbe Blüte ist im Schatten `#8a7a10` und in
+  der Sonne `#ffe94a` — der Farbton bleibt beide Male bei ~52°. Dunkles
+  Orange (`v < 0,55`) gilt als **Braun**; ohne diese eine Zeile wäre jeder
+  Waldboden eine gelbe Blüte.
+- **`gsScanVorauswahl(ctx, farben)`** — grenzt aus Monat, gemessener Farbe
+  und Höhenlage ein, welche Arten hier und jetzt überhaupt in Frage kommen.
+  Im Januar: **4'342 → 2'087**.
+
+Beide erscheinen als eigene Schritte in der Liste, mit ihrem echten Ergebnis
+— beim Farb-Schritt zusätzlich als Farbtupfen. Die Tupfen stehen **neben**
+der Zahl, nie statt ihr: wer Farben nicht unterscheidet, läse sonst nichts.
+
+#### Die eine Entscheidung, an der alles hängt
+
+**Das Ergebnis geht NICHT in den Prompt.**
+
+Es wäre leicht gewesen, „Farbanteile: Gelb 25 %" und „diese 2'087 Arten
+kommen in Frage" mitzuschicken — das klingt nach besserer Genauigkeit. Es ist
+das Gegenteil. Ein Modell, dem man die eigene Vorauswahl zeigt, bestätigt
+sie; die spätere Gegenprüfung wäre dann ein Echo und keine Prüfung. Der ganze
+Wert liegt in der Unabhängigkeit.
+
+`scan_check` hält das fest — der Fall liest den echten Prompt aus einem
+vollen `analyzeImage`-Durchlauf **und** prüft, dass beide Schritte trotzdem
+gelaufen sind. Ohne die zweite Hälfte prüfte er nur, dass nichts passiert.
+
+#### Drei Prädikate, je eine Quelle
+
+`_gsPasstMonat` · `_gsPasstFarbe` · `_gsPasstHoehe` werden von zwei Seiten
+gebraucht: von den Prüfregeln (die EINE Art) und von der Vorauswahl (alle
+4'342). Zwei Rechnungen für dieselbe Frage driften auseinander — genau der
+Fehler aus v32.02.
+
+Jedes hat **drei** Rückgaben, und `null` ist nicht `false`:
+
+> Die Vorauswahl schliesst nur aus, was sich **begründen** lässt.
+
+3'465 der 4'342 Arten haben keine Höhenangabe. Würde `null` wie `false`
+wirken, bliebe ein Fünftel übrig und die Zahl daneben wäre eine Lüge.
+**Gegenprobe gemacht:** `null` → `false` geändert, der Prüfstand meldete
+sofort („Arten ohne Höhenangabe wurden auf 3000 m ausgeschlossen").
+
+#### Zwei neue Prüfregeln — und eine, die bewusst keine ist
+
+- **S6 · Farbe.** Erfüllt ab 5 % der hinterlegten Farbe im Foto. Vorbehalt
+  nur, wenn davon **nichts** da ist UND eine fremde Farbe ≥ 12 % überwiegt.
+  Sonst „nicht prüfbar" — ein reines Blattfoto sagt weder ja noch nein.
+- **S7 · Höhenlage.** Nur mit Standort UND hinterlegtem Höhenband, Toleranz
+  200 m (Verbreitungsangaben sind gerundet).
+- **Die Vorauswahl ist KEINE Regel.** Eine Art fällt genau dann heraus, wenn
+  Monat, Farbe oder Höhe sie ausschliessen — dafür gibt es S3, S6 und S7. Als
+  vierte Regel gezählt, stünde derselbe Einwand zweimal in der Bilanz. Sie
+  steht deshalb als **Beleg** unter den Regeln.
+
+#### Was der Kontrast-Prüfstand nebenbei fand
+
+Die neue Vorauswahl-Zeile macht die Karte höher — und dadurch rutschte der
+Knopf „Gegenprobe starten" erstmals in den vermessenen Bereich. Er stand seit
+v32.10 mit **weisser Schrift auf `--c-danger-d`** da, im Dunkelmodus hellrot:
+**2,15:1**. Dieselbe Falle wie bei `.gs-btn-info` in v31.20 — ein `-d`-Token
+ist eine **Text**farbe, keine Füllung. Jetzt fest `#b71c1c` (6,6:1 in beiden
+Modi).
+
+Beim Nachsehen fiel eine Zeile höher dasselbe auf, und die sieht der
+Prüfstand **nicht**: die Häkchen der Schrittliste sind ein Hintergrundbild,
+keine Textstelle. Weiss auf `#a5d6a7` sind 1,64:1 — im Dunkelmodus war dort
+ein leerer Kreis. Dunkelmodus-Füllung nachgezogen.
+
+**Die Lehre, und sie gilt über diesen Fall hinaus:** ein Prüfstand misst, was
+er **erreicht**. Wächst eine Karte, wächst sein Blickfeld — ein Fund kann
+also einen Fehler betreffen, der lange vorher entstanden ist. Und was gar
+keine Textstelle ist (Hintergrundbilder, SVG, `::before`-Inhalte), sieht er
+nie.
+
+#### Aufwand und Zahlen
+
+- Farbmessung **1,5 ms**, Vorauswahl über alle 4'342 Arten **6,1 ms** (Mittel
+  aus fünf Läufen, ungedrosselt). Budget im Prüfstand: 20 bzw. 60 ms.
+- `scan_check` **46 Fälle, 0 kaputt** (vorher 36). Neu: Farbmessung
+  (gut/schlecht/nicht messbar), S6, S7, Vorauswahl (drei Fälle),
+  Unabhängigkeit, Aufwand.
+- Alle zehn Prüfstände grün: `contrast_check` 0/0 über fünf Fenster,
+  `touch_check` 0/0, `wiring_check` 0 kaputt, `data_check` 0 Zugriffe ins
+  Leere, `save_check` 13/13, `planer_check` 22/22, `render_check` 0
+  verdächtige Textstellen.
+- Nebenbei: die Inline-Changelog-Liste war wieder auf 21 Einträge (31 KB)
+  gewachsen. Die ältesten 9 sind ins Archiv gewandert — 12 inline, 448 im
+  Archiv, **0 Löcher, 0 Doppelte**, Naht durchgehend (v32.02 → v32.01 →
+  v32.00 → v31.99).
+
 ### 2026-09-02 (cx) — v32.11: ein Drahtgitter, das die Blätter kennt
 
 Fernando wollte einen Wow-Effekt — „Brainfuck und Brainmelting". Der billige

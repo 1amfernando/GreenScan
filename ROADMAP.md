@@ -5,7 +5,7 @@
 > Kompagnon: `STATUS.md` (operativer Snapshot) · `CLAUDE.md` (Onboarding) ·
 > `BACKEND_FRONTEND_MAP_v26.76.md` (Architektur-Detailkarte).
 
-**Stand:** v32.03 · App **live** auf green-scan.ch · released seit v26.0.
+**Stand:** v32.12 · App **live** auf green-scan.ch · released seit v26.0.
 **Zuletzt gegen die Produktionsdatenbank geprüft:** 02.09.2026 (P0-1, P1-1, P1-2 — siehe unten).
 
 ---
@@ -113,16 +113,20 @@ die **Nachkultur** (v31.94): aus einer Lücke im Kalender wird ein Platz im Gart
 („Frühbeet wird am 10. Juli frei, 2,4 m², nach Kohlrabi"). Entwurf und Grenzen:
 `docs/PLANER-V3.md`.
 
-**Scanner V3 (v31.99–v32.03).** Dieselbe Linie beim Scanner. In der
+**Scanner V3 (v31.99–v32.12).** Dieselbe Linie beim Scanner. In der
 Bilderkennung ist gegen Google Lens nichts zu gewinnen — was Lens *nicht* hat,
 ist eine kuratierte Artenliste, der Monat, der Kanton und eine gemessene
 Bildqualität. **Die Überlegenheit liegt nicht im Sehen, sondern im Prüfen.**
-Fünf Regeln nach jeder Bestimmung; bei einem Widerspruch in der Giftigkeit
+Sieben Regeln nach jeder Bestimmung; bei einem Widerspruch in der Giftigkeit
 gewinnt **immer** die vorsichtigere Angabe (eine als „essbar" gemeldete
 Herbstzeitlose wird auf 5/5 korrigiert, sichtbar). Dazu EXIF (ein Urlaubsfoto
-wird nach dem Urlaub beurteilt, nicht nach heute), das Foto bleibt während der
-Analyse sichtbar, und das Urteil ist handlungsfähig. Entwurf:
-`docs/SCANNER-V3.md`.
+wird nach dem Urlaub beurteilt, nicht nach heute), eine **unabhängige
+Gegenprobe** bei „essbar + giftige Verwechslung" (v32.10), ein Drahtgitter,
+das aus den Kanten des echten Fotos gerechnet wird (v32.11), und seit v32.12
+**eigene Arbeit vor der Antwort**: die App misst die Farben des Fotos und
+grenzt aus den 4'342 Arten die ein, die hier und jetzt in Frage kommen —
+beides bewusst **nicht** im Prompt, sonst bestätigte das Modell nur die
+eigene Vorgabe. Entwurf: `docs/SCANNER-V3.md`.
 
 **Der grosse Funktionscheck (v31.45–v31.98).** Systematisch geprüft, was die
 App **erhebt und dann verschweigt**. Neun Funde, zwei davon ernst:
@@ -140,13 +144,13 @@ App **erhebt und dann verschweigt**. Neun Funde, zwei davon ernst:
   fehlenden Feld (v32.03), die Giftigkeit der Verwechslungs-Alternativen
   (v31.92), die Merkmale aus dem Scan (v31.99).
 
-**Neun Prüfstände (`scripts/`).** Aus dem Funktionscheck ist Infrastruktur
+**Zehn Prüfstände (`scripts/`).** Aus dem Funktionscheck ist Infrastruktur
 geworden. Jeder beantwortet **eine** Frage:
 
 | Prüfstand | Frage |
 |---|---|
 | `render_check` | wie sieht es aus, und was hat sich verschoben? |
-| `contrast_check` | ist jede Textstelle lesbar (11 Tabs + 3 Fenster, beide Modi)? |
+| `contrast_check` | ist jede Textstelle lesbar (11 Tabs + 5 Fenster, beide Modi)? |
 | `touch_check` | ist jede Antippfläche gross genug? |
 | `perf_check` | wie lange dauert der Kaltstart unter Drosselung? |
 | `wiring_check` | kommt an, was angetippt wird — und **geht das Fenster auf**? |

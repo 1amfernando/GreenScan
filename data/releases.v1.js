@@ -19,6 +19,107 @@
  * aeltesten hierher — ans ANFANG des Arrays, die Reihenfolge ist neu → alt.
  */
 window.GS_RELEASES_ARCHIVE = [
+  {
+    v: 'v32.00', date: '02.09.2026',
+    headline: '\ud83d\udcc5 Ein Urlaubsfoto wird nach dem Urlaub beurteilt, nicht nach heute',
+    summary: 'Jedes Foto aus der Galerie bekam bisher den HEUTIGEN Monat und den AKTUELLEN Standort in den Auftrag. Ein Bild vom Juli, im September hochgeladen, wurde als September-Fund bewertet. Das Bild selbst weiss es besser \u2014 Aufnahmedatum und Ort stehen darin.',
+    user_summary: '\ud83d\udcc5 L\u00e4dst du ein \u00e4lteres Foto hoch, z\u00e4hlen jetzt Datum und Ort AUS DEM FOTO \u2014 nicht der heutige Tag und dein jetziger Standort.',
+    user_items: [
+      {emoji:'\ud83d\uddfa\ufe0f', bold:'Warum das die Bestimmung verbessert:', text:' Jahreszeit und H\u00f6henlage sind zwei der st\u00e4rksten Hinweise \u00fcberhaupt. Mit den falschen wird nicht nur schlechter bestimmt \u2014 die Pr\u00fcfung meldete anschliessend auch noch einen Saison-Widerspruch, den es gar nicht gab.'},
+      {emoji:'\ud83e\uddfe', bold:'Und es steht auf der Karte:', text:' „Dieses Bild wurde aufgenommen am 14. Juli am Ort 46.818\u00b0N \u2014 Jahreszeit und Verbreitung wurden danach beurteilt." Keine stille Korrektur.'},
+      {emoji:'\ud83e\udd10', bold:'Wo nichts steht, wird nichts behauptet:', text:' Viele Messenger l\u00f6schen diese Angaben beim Teilen, und ein Bildschirmfoto hat sie nie. Dann gilt wie bisher der heutige Tag \u2014 ohne Behauptung.'},
+    ],
+  },
+  {
+    v: 'v31.99', date: '02.09.2026',
+    headline: '\ud83d\udd0d Der Scanner glaubt der KI nicht mehr aufs Wort',
+    summary: 'Jede Bestimmung wird jetzt gegen unsere 4\u2019342 Arten, den Monat und die gemessene Bildqualit\u00e4t nachgerechnet. Sagt das Modell „essbar" \u00fcber etwas, das unsere Liste als t\u00f6dlich f\u00fchrt, gewinnt die vorsichtigere Angabe \u2014 sichtbar. Dazu bleibt dein Foto w\u00e4hrend der Bestimmung stehen.',
+    user_summary: '\ud83d\udd0d Nach jeder Bestimmung steht jetzt, wie viele unabh\u00e4ngige Pr\u00fcfungen daf\u00fcr sprechen \u2014 und dein Foto bleibt w\u00e4hrend der Analyse sichtbar.',
+    user_items: [
+      {emoji:'\u2620\ufe0f', bold:'Die wichtigste \u00c4nderung:', text:' Widerspricht die Bestimmung unserer Artenliste bei der Giftigkeit, gilt IMMER die vorsichtigere Angabe \u2014 und es steht gross da, warum. Vorher ging der Haupttreffer ungepr\u00fcft durch; nur die Verwechslungs-Alternativen wurden gegengerechnet.'},
+      {emoji:'\ud83d\udd0e', bold:'F\u00fcnf Pr\u00fcfungen statt einer Zahl:', text:' Kennen wir die Art? Passt die Jahreszeit? Wie gross ist der Abstand zur zweiten M\u00f6glichkeit? Wie gut war das Foto? Die Prozentzahl sagt, wie sicher sich das Modell ist \u2014 die Stufe daneben sagt, wie viele unabh\u00e4ngige Belege es daf\u00fcr gibt. Das ist etwas anderes.'},
+      {emoji:'\ud83d\udcf7', bold:'Zuschauen beim Bestimmen:', text:' Dein Foto bleibt w\u00e4hrend der Analyse stehen, mit einem wandernden Lichtstreifen. Danach erscheinen die Merkmale, die die KI wirklich im Bild gesehen hat \u2014 die standen schon immer in der Antwort und wurden nie angezeigt.'},
+      {emoji:'\ud83c\udfa8', bold:'F\u00fcnf unlesbare Stellen behoben:', text:' „\u2620\ufe0f T\u00f6dlich giftig" stand mit 3,3:1 dunkelrot auf rot, das Sicherheitswort mit 1,9:1. Im Dunkelmodus war die ganze Sicherheits-Karte fest hell und ihre Schrift damit unsichtbar. Diese Karte war nie vermessen worden \u2014 jetzt ist sie es bei jedem Durchlauf.'},
+    ],
+  },
+  {
+    v: 'v31.98', date: '02.09.2026',
+    headline: '\ud83d\udeaa Jetzt wird gepr\u00fcft, ob ein Fenster \u00fcberhaupt aufgeht',
+    summary: 'Der teuerste Fehler dieser Woche war, dass vier Bildschirme sich nicht \u00f6ffnen liessen und es niemandem auffiel. Alle 43 Fenster werden jetzt bei jedem Durchlauf wirklich aufgerufen. Dabei kamen zwei weitere Fehler heraus \u2014 einer davon versteckt hinter dem anderen.',
+    user_summary: '\ud83d\udeaa Alle 43 Fenster der App werden jetzt automatisch daraufhin gepr\u00fcft, ob sie sich \u00f6ffnen. Zwei Bildschirme, die still kaputt waren, sind repariert.',
+    user_items: [
+      {emoji:'\ud83c\udf3e', bold:'Der Ernte-\u00dcberblick stirbt nicht mehr an einem krummen Eintrag:', text:' Ein einziger Datensatz mit einem ungewohnten Datum hat den ganzen Bildschirm mitgerissen. Jetzt nicht mehr.'},
+      {emoji:'\ud83c\udf3c', bold:'Das Bl\u00fcten-Feld auf der Garten\u00fcbersicht z\u00e4hlt endlich:', text:' Es fragte ein Feld ab, das es bei keiner der 4\u2019342 Arten gibt \u2014 die Zahl der Wildbl\u00fcten war immer null, und man sah stattdessen „Bald wieder Farbe". Derselbe Fehler wie im Bl\u00fchkalender, nur an einer dritten Stelle.'},
+      {emoji:'\ud83d\udd0e', bold:'Und warum das so lange keiner sah:', text:' Die Bl\u00fcten-Zeile war gar nicht erreichbar \u2014 die Ernte-Summe direkt dar\u00fcber brach vorher ab und riss alles Folgende mit. Ein Fehler hat den anderen verdeckt.'},
+    ],
+  },
+  {
+    v: 'v31.97', date: '02.09.2026',
+    headline: '\ud83d\udd0d Erst das Urteil, dann die Einzelheiten',
+    summary: 'Die Plan-Pr\u00fcfung hat durch die neuen Regeln bis zu zw\u00f6lf Zeilen bekommen. Zw\u00f6lf Zeilen sind keine Auskunft, sondern eine Wand — darin sieht ein Hinweis genauso aus wie ein Bestanden. Jetzt steht die Z\u00e4hlung obendr\u00fcber, und die Zeilen sind nach Dringlichkeit sortiert.',
+    user_summary: '\ud83d\udd0d Beim \u00d6ffnen eines Plans siehst du zuerst eine Zeile: wie viele Hinweise, wie viel bestanden, wie viel nicht pr\u00fcfbar. Was zu tun ist, steht oben.',
+    user_items: [
+      {emoji:'\u26a0\ufe0f', bold:'Hinweise zuerst:', text:' Die Reihenfolge ist die Aussage \u2014 was oben steht, ist zu tun. Bestandenes darunter, Nicht-Pr\u00fcfbares zuletzt.'},
+      {emoji:'\ud83d\udd0e', bold:'Ein Hinweis statt drei Ausreden:', text:' Wenn mehrere Pr\u00fcfungen mangels Garten-Scan nicht gelten, steht das einmal am Fuss \u2014 mit dem Weg dorthin, statt dreimal derselbe Satz.'},
+      {emoji:'\ud83d\udc41\ufe0f', bold:'Nichts wird eingeklappt:', text:' Ein Grund, den niemand liest, ist so gut wie keiner \u2014 und was in einem zugeklappten Bereich steckt, pr\u00fcft auch der Kontrast-Pr\u00fcfstand nicht mit.'},
+    ],
+  },
+  {
+    v: 'v31.96', date: '02.09.2026',
+    headline: '\ud83d\udee1\ufe0f Die Rollen-Vergabe geht jetzt den Weg, den es schon gab',
+    summary: 'v31.95 hat aus einer Falschmeldung eine echte Änderung gemacht — aber auf dem schlechteren Weg. Die Datenbank hat dafür eine eigene Funktion, die serverseitig prüft, den letzten Admin schützt, ein Protokoll führt und die betroffene Person benachrichtigt. Genau darüber läuft es jetzt.',
+    user_summary: '\ud83d\udee1\ufe0f Wer eine neue Rolle bekommt, wird jetzt auch benachrichtigt — und jede Vergabe steht im Protokoll.',
+    user_items: [
+      {emoji:'\ud83d\udee1\ufe0f', bold:'Über die richtige Stelle:', text:' `fn_assign_role` prüft die Admin-Rechte auf dem Server statt nur im Browser, verhindert dass sich der letzte Admin selbst degradiert, schreibt ins Protokoll und schickt der betroffenen Person eine Nachricht („✓ Du bist jetzt verifizierter Experte"). Nichts davon konnte der direkte Schreibzugriff aus v31.95.'},
+      {emoji:'\u2601\ufe0f', bold:'Eine neu erkannte Art sagt jetzt, wenn sie nur lokal liegt:', text:' Die Übertragung in die Cloud wurde bisher still verschluckt. Die Art war gespeichert — aber nur auf diesem Gerät, und niemand hat das gesagt.'},
+    ],
+  },
+  {
+    v: 'v31.95', date: '02.09.2026',
+    headline: '\ud83c\udf93 Vier Bildschirme liessen sich nicht \u00f6ffnen, und ein Antrag wurde nie eingereicht',
+    summary: 'Eine einzige Zeile — ein Titel-Element, das es in diesem Fenster nicht gibt — legte vier Bildschirme still: Best\u00e4tigte Scans, Supabase-Schl\u00fcssel, das Admin-Panel und den Experten-Antrag. Dahinter lagen drei Funktionen, die Erfolg meldeten, ohne irgendetwas zu verschicken.',
+    user_summary: '\ud83c\udf93 Der Experten-Antrag wird jetzt wirklich eingereicht — vorher liess sich das Formular nicht einmal \u00f6ffnen, und h\u00e4tte es sich \u00f6ffnen lassen, w\u00e4re der Antrag auf dem eigenen Ger\u00e4t liegen geblieben.',
+    user_items: [
+      {emoji:'\ud83e\uddf1', bold:'Vier Fenster gingen gar nicht auf:', text:' Sie setzten alle einen Fenster-Titel an einem Element, das es in diesem Fenster nie gab. Die Zeile warf, bevor das Fenster ge\u00f6ffnet wurde \u2014 kein Fehler zu sehen, es passierte einfach nichts. Betroffen waren „Best\u00e4tigte Scans", der Supabase-Schl\u00fcssel, das Admin-Panel und der Experten-Antrag.'},
+      {emoji:'\ud83d\udce4', bold:'Der Experten-Antrag ging nie irgendwohin:', text:' Er wurde auf dem eigenen Ger\u00e4t gespeichert, und dann stand da „Antrag eingereicht, du wirst per E-Mail benachrichtigt". Kein Admin konnte ihn je sehen. Jetzt geht er wirklich an das Team \u2014 und wenn das schiefgeht, steht das da, statt eines H\u00e4kchens.'},
+      {emoji:'\ud83d\udee1\ufe0f', bold:'Rollen vergeben und sperren wirken jetzt:', text:' Beides schrieb nur ein Protokoll auf dem Ger\u00e4t des Admins und meldete Erfolg. Jetzt wird die Rolle wirklich gesetzt \u2014 und ein Erfolg nur gemeldet, wenn der Server ihn best\u00e4tigt hat.'},
+      {emoji:'\u2705', bold:'Der gr\u00fcne Haken erschien bei niemandem:', text:' Er h\u00e4ngte an einer Spalte, die es in der Datenbank nicht gibt. Jetzt liest er die Rolle, die es wirklich gibt.'},
+    ],
+  },
+  {
+    v: 'v31.94', date: '02.09.2026',
+    headline: '\ud83c\udf31 Aus einer L\u00fccke im Kalender wird ein Platz im Garten',
+    summary: 'Der Planer nannte L\u00fccken bisher als Zeitraum: „von Ende Juli bis Oktober passiert nichts mehr". Jetzt sagt er, WO \u2014 welches Beet wann frei wird, wie gross es ist, und was dort noch tr\u00e4gt, gepr\u00fcft gegen die Vorgeschichte genau dieses Beetes.',
+    user_summary: '\ud83c\udf31 „Fr\u00fchbeet wird am 10. Juli frei, 2,4 m\u00b2, nach dem Kohlrabi \u2014 dort passt noch Feldsalat." Vorher stand da nur ein Zeitraum.',
+    user_items: [
+      {emoji:'\ud83c\udf31', bold:'Nachkultur je Beet:', text:' Ein Beet gilt erst als frei, wenn ALLES darin geerntet ist \u2014 nicht das erste. Dann wird gerechnet, ob die Restsaison f\u00fcr Aussaat UND Ernte reicht, und welche Familie hier weder dieses Jahr noch in den letzten drei Jahren stand.'},
+      {emoji:'\ud83d\udcc5', bold:'Fehlt ein Erntedatum, wird es gesagt:', text:' Eine einzige Pflanze ohne Erntetermin macht die Aussage unm\u00f6glich \u2014 dann steht das da, statt dass ein Datum geraten wird.'},
+      {emoji:'\ud83e\uddea', bold:'Was bewusst NICHT gerechnet wird:', text:' Stark- und Schwachzehrer. Die gepr\u00fcfte Anbau-Referenz hat keine N\u00e4hrstoffklasse, und eine erfundene s\u00e4he genauso aus wie eine gemessene.'},
+    ],
+  },
+  {
+    v: 'v31.93', date: '02.09.2026',
+    headline: '\ud83e\uddee Fruchtfolge je Beet \u2014 und ein Pr\u00fcfstand, der drei Fehler beim ersten Lauf fand',
+    summary: 'Wer mehrere Beete hat, muss nicht drei Jahre auf Tomaten verzichten \u2014 er stellt sie ins andere Beet. Der Planer wusste das bisher nicht: er kannte nur „in einem Beet", nicht in welchem. Jetzt rechnet er je Beet, was dort zuletzt stand, und setzt neue Kulturen dorthin, wo ihre Familie am l\u00e4ngsten weg ist.',
+    user_summary: '\ud83e\uddee Der Planer verteilt Pflanzenfamilien jetzt auf deine Beete statt sie nur irgendwo hinzulegen \u2014 und sagt dir bei jeder Pflanze, in welchem Beet sie liegt und warum.',
+    user_items: [
+      {emoji:'\ud83e\uddee', bold:'Fruchtfolge je Beet:', text:' Aus dem Garten-Scan und deinen fr\u00fcheren Pl\u00e4nen wird je Beet ausgerechnet, welche Pflanzenfamilie dort zuletzt stand. Eine neue Kultur kommt in das Beet, in dem ihre Familie am l\u00e4ngsten weg ist. Geht das nicht, steht es da \u2014 samt dem Beet, das besser gewesen w\u00e4re.'},
+      {emoji:'\ud83e\uddf1', bold:'Leere Beete z\u00e4hlten bisher gar nicht:', text:' Wer seinen Garten gescannt, aber noch nichts gepflanzt hatte, bekam einen Plan in Reihen quer \u00fcber die Wege \u2014 der Platzierer sprang \u00fcber die Beet-Logik hinweg, wenn kein Bestand da war. Das galt seit der Einf\u00fchrung der Beete.'},
+      {emoji:'\ud83d\udcdd', bold:'Auch die KI erf\u00e4hrt es jetzt:', text:' Der Auftragstext nennt je Beet die Vorgeschichte und verlangt, eine Familie in EIN Beet zu b\u00fcndeln. Vorher stand von einem leeren gescannten Garten \u00fcberhaupt nichts im Auftrag.'},
+      {emoji:'\ud83d\udd0e', bold:'Ein neuer Pr\u00fcfstand f\u00fcr den Planer:', text:' Die dreizehn rechnenden Regeln hatten bisher keinen. Der neue f\u00e4hrt f\u00fcnfzehn F\u00e4lle durch \u2014 auch gegen einen GUTEN Plan, der nichts melden darf. Im ersten Lauf hat er drei Fehler gefunden, die beim Lesen niemand gesehen h\u00e4tte.'},
+    ],
+  },
+  {
+    v: 'v31.92', date: '02.09.2026',
+    headline: '\u2620\ufe0f Der Scan verschwieg, dass eine Verwechslung t\u00f6dlich sein kann',
+    summary: 'Der Scanner fragt bei jeder Bestimmung die Giftigkeit der Alternativen mit ab. Die Anzeige hat sie nie gelesen \u2014 auf dem Bildschirm standen drei Namen mit Prozentzahlen. Jetzt steht die Gefahr am Namen und dar\u00fcber eine Warnung.',
+    user_summary: '\u2620\ufe0f Wenn eine der Verwechslungsm\u00f6glichkeiten giftig ist, steht das jetzt gross da \u2014 vorher nur der Name und ein Prozentwert.',
+    user_items: [
+      {emoji:'\u2620\ufe0f', bold:'Der Fall, um den es geht:', text:' B\u00e4rlauch mit 62 % Sicherheit, Alternativen Maigl\u00f6ckchen und Herbstzeitlose. Beide sind giftig, eine davon t\u00f6dlich \u2014 und auf dem Bildschirm standen drei Namen mit Prozentzahlen nebeneinander. Der Scanner FRAGT die Giftigkeit jeder Alternative ausdr\u00fccklich ab; die Anzeige hat sie weggeworfen.'},
+      {emoji:'\ud83d\udd0e', bold:'Jetzt zwei Quellen, die vorsichtigere gewinnt:', text:' was die KI zur Alternative sagt UND was die Artendatenbank \u00fcber denselben botanischen Namen wei\u00df. Widersprechen sie sich, gilt der h\u00f6here Wert. Auch wenn die KI die Angabe weglässt, greift die Datenbank \u2014 nachgestellt mit der Herbstzeitlose.'},
+      {emoji:'\u2696\ufe0f', bold:'Und wenn nichts bekannt ist:', text:' wird nichts behauptet. Keine Marke, keine Warnung \u2014 dieselbe Regel wie \u00fcberall: lieber keine Aussage als eine erfundene.'},
+    ],
+  },
   // ── v32.04: aus index.html hierher ausgelagert (CLAUDE.md §3.1) ──
   {
     v: 'v31.91', date: '02.09.2026',
