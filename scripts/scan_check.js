@@ -383,6 +383,161 @@ const FAELLE = [
       return { ok: true, info: 'fehlt → still · ja → still · nein → Hinweis' };
     },
   },
+  // ── v32.08 · Zurück-Knopf, Scangitter, Schrittliste ───────────────────
+  {
+    name: 'Zurück · das Ergebnis hat oben einen Weg heraus',
+    lauf: () => {
+      window._gsLastScanB64 = 'AAAA';
+      showScanResult({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 92,
+                       edible: true, toxicity: 0, alternatives: [] });
+      const el = document.getElementById('scan-result');
+      const leiste = el.querySelector('.sr2-zurueck');
+      if (!leiste) return { ok: false, warum: 'keine Zurück-Leiste' };
+      const knoepfe = [...leiste.querySelectorAll('button')];
+      if (knoepfe.length < 2) return { ok: false, warum: 'nur ' + knoepfe.length + ' Knopf' };
+      if (!knoepfe.every(b => /gsResetScanner/.test(b.getAttribute('onclick') || '')))
+        return { ok: false, warum: 'ein Knopf führt nicht zu gsResetScanner' };
+      // Sie muss die ERSTE Sache auf der Karte sein — sonst liegt der Weg
+      // heraus wieder hinter der ganzen Karte.
+      if (el.firstElementChild !== leiste) return { ok: false, warum: 'steht nicht zuoberst' };
+      if (getComputedStyle(leiste).position !== 'sticky') return { ok: false, warum: 'bleibt beim Scrollen nicht stehen' };
+      // Und der Knopf muss wirklich schliessen.
+      let gerufen = 0;
+      const echt = window.gsResetScanner;
+      window.gsResetScanner = () => { gerufen++; };
+      knoepfe[0].click();
+      window.gsResetScanner = echt;
+      if (!gerufen) return { ok: false, warum: 'ein Tipp bewirkt nichts' };
+      return { ok: true, info: knoepfe.length + ' Knöpfe, sticky, führen zu gsResetScanner' };
+    },
+  },
+  {
+    name: 'Zurück-Leiste gibt es NUR beim Ergebnis',
+    lauf: () => {
+      const el = document.getElementById('scan-result');
+      el.innerHTML = ''; el.style.display = 'none';
+      // Der Zustand während der Analyse darf sie nicht haben.
+      el.innerHTML = '<div class="analyzing gs-scanview">' + _gsSchritteHtml() + '</div>';
+      if (el.querySelector('.sr2-zurueck')) return { ok: false, warum: 'steht auch während der Analyse da' };
+      return { ok: true, info: 'nur auf der Ergebniskarte' };
+    },
+  },
+  {
+    name: 'Scangitter · die Kanten kommen aus dem echten Foto',
+    lauf: async () => {
+      // Ein Bild MIT Struktur (ein blattähnlicher Umriss) und eines ohne.
+      const mach = zeichne => new Promise(res => {
+        const c = document.createElement('canvas'); c.width = 240; c.height = 240;
+        const g = c.getContext('2d');
+        g.fillStyle = '#4a3b2a'; g.fillRect(0, 0, 240, 240);
+        zeichne(g);
+        const im = new Image(); im.onload = () => res(im); im.src = c.toDataURL('image/jpeg', 0.92);
+      });
+      const mitBlatt = await mach(g => {
+        g.fillStyle = '#3f9142';
+        g.beginPath(); g.ellipse(120, 110, 74, 44, -0.5, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = '#1d5c22'; g.lineWidth = 3;
+        g.beginPath(); g.moveTo(58, 158); g.lineTo(182, 62); g.stroke();       // Mittelrippe
+        for (let i = 1; i < 6; i++) {                                          // Blattadern
+          g.beginPath(); g.moveTo(58 + i * 21, 158 - i * 16); g.lineTo(58 + i * 21 + 16, 158 - i * 16 - 34); g.stroke();
+        }
+        g.strokeStyle = '#2c6b30'; g.lineWidth = 6;
+        g.beginPath(); g.moveTo(120, 154); g.lineTo(126, 226); g.stroke();     // Stiel
+      });
+      const flach = await mach(() => {});
+
+      const k1 = _gsScanKanten(mitBlatt, 160);
+      const k2 = _gsScanKanten(flach, 160);
+      if (!k1 || k1.length < 90) return { ok: false, warum: 'findet am Blatt kaum Kanten: ' + (k1 ? k1.length / 3 : 0) + ' Punkte' };
+      if (k2 && k2.length / 3 > 40) return { ok: false, warum: 'findet auf einer leeren Fläche ' + (k2.length / 3) + ' Kanten — das wäre erfunden' };
+      // Die Punkte müssen im Bild liegen und dort, wo das Blatt ist.
+      let drin = 0, mitte = 0;
+      for (let i = 0; i < k1.length; i += 3) {
+        const x = k1[i], y = k1[i + 1];
+        if (x >= 0 && x <= 1 && y >= 0 && y <= 1) drin++;
+        if (x > 0.2 && x < 0.8 && y > 0.2 && y < 0.8) mitte++;
+      }
+      if (drin !== k1.length / 3) return { ok: false, warum: 'Punkte ausserhalb des Bildes' };
+      if (mitte < k1.length / 3 * 0.4) return { ok: false, warum: 'die Kanten liegen nicht dort, wo das Blatt ist' };
+      return { ok: true, info: (k1.length / 3) + ' Kantenpunkte am Blatt · ' + (k2 ? k2.length / 3 : 0) + ' auf leerer Fläche' };
+    },
+  },
+  {
+    name: 'Schrittliste · fünf Schritte, jeder mit echtem Ergebnis',
+    lauf: async () => {
+      const el = document.getElementById('scan-result');
+      el.innerHTML = '<div class="analyzing gs-scanview">' + _gsSchritteHtml() + '</div>';
+      const li = [...el.querySelectorAll('.gs-schritte li')];
+      if (li.length !== 5) return { ok: false, warum: li.length + ' Schritte statt 5' };
+      if (!li.every(x => x.className === 'offen')) return { ok: false, warum: 'nicht alle beginnen offen' };
+
+      gsSchritt('bild', 'fertig', 'Schärfe 72 · Licht 80');
+      gsSchritt('ort', 'fertig', 'Juli · Sommer · aus dem Foto');
+      gsSchritt('cache', 'fertig', 'kein Treffer');
+      gsSchritt('ki', 'laeuft', '3 s');
+      const kiL = document.getElementById('schritt-ki');
+      if (kiL.className !== 'laeuft') return { ok: false, warum: 'der laufende Schritt ist nicht markiert' };
+      if ((kiL.querySelector('.gs-s-erg').textContent || '') !== '3 s') return { ok: false, warum: 'die Sekunden fehlen' };
+      gsSchritt('ki', 'fertig', 'Antwort nach 7 s');
+      gsSchritt('pruef', 'fertig', '5 Regeln · 1 Vorbehalt');
+
+      const fertig = [...el.querySelectorAll('.gs-schritte li.fertig')];
+      if (fertig.length !== 5) return { ok: false, warum: fertig.length + ' von 5 abgehakt' };
+      const ohne = fertig.filter(x => !(x.querySelector('.gs-s-erg').textContent || '').trim());
+      if (ohne.length) return { ok: false, warum: ohne.length + ' Schritte ohne Ergebnis — dann ist es wieder nur eine Ansage' };
+      const txt = el.textContent || '';
+      if (/schaut sich das Foto an/.test(txt)) return { ok: false, warum: 'der alte Text steht noch da' };
+      return { ok: true, info: '5 abgehakt, alle mit Ergebnis' };
+    },
+  },
+  {
+    name: 'Ganzer Ablauf · analyzeImage füllt die Schritte mit echten Werten',
+    lauf: async () => {
+      // Ein echtes kleines JPEG mit Struktur.
+      const c = document.createElement('canvas'); c.width = 160; c.height = 160;
+      const g = c.getContext('2d');
+      g.fillStyle = '#4a3b2a'; g.fillRect(0, 0, 160, 160);
+      g.fillStyle = '#3f9142'; g.beginPath(); g.ellipse(80, 74, 50, 30, -0.5, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#1d5c22'; g.lineWidth = 2; g.beginPath(); g.moveTo(38, 104); g.lineTo(122, 42); g.stroke();
+      const b64 = c.toDataURL('image/jpeg', 0.9).split(',')[1];
+
+      // Sperren und Netz stellen — geprüft wird der ABLAUF, nicht die KI.
+      window.getApiConfig = () => ({ key: 'k' });
+      window.stopCamera = () => {};
+      window.gsScanStatusShow = () => {}; window.gsStopScanStatus = () => {};
+      window.gsScanPersistToCloud = () => Promise.resolve(true);
+      window.gsAddToScanHistory = () => {}; window.gsHaptic = () => {};
+      window._gsScanDHash = async () => 'hash-xyz';
+      window._gsScanCacheGet = async () => null;      // kein Treffer
+      window._gsScanCachePut = () => {};
+      window.gsBuildScanContext = () => ({ month: 'Juli', season: 'Sommer', monthNum: 7, canton: 'UR', ausFoto: true, aufnahme: '2026-07-14' });
+      const gesehen = [];
+      window.callVisionAI = async () => {
+        // Während des Aufrufs muss der KI-Schritt als LAUFEND markiert sein.
+        const li = document.getElementById('schritt-ki');
+        gesehen.push('ki=' + (li ? li.className : 'weg'));
+        gesehen.push('bild=' + ((document.getElementById('schritt-bild') || {}).className || '?'));
+        gesehen.push('ergBild=' + ((document.querySelector('#schritt-bild .gs-s-erg') || {}).textContent || ''));
+        gesehen.push('ergOrt=' + ((document.querySelector('#schritt-ort .gs-s-erg') || {}).textContent || ''));
+        gesehen.push('gitter=' + (document.querySelector('#gs-scanfoto canvas.gs-scangitter') ? 'da' : 'fehlt'));
+        await new Promise(r => setTimeout(r, 30));
+        return JSON.stringify({ name: 'Bärlauch', latin: 'Allium ursinum', confidence: 88,
+          edible: true, toxic: false, toxicity: 0, alternatives: [], description: 'x' });
+      };
+
+      await analyzeImage(b64, 'image/jpeg');
+
+      if (!gesehen.includes('ki=laeuft')) return { ok: false, warum: 'der KI-Schritt war während des Aufrufs nicht als laufend markiert: ' + gesehen.join(' | ') };
+      if (!gesehen.includes('bild=fertig')) return { ok: false, warum: 'der Bild-Schritt war beim KI-Aufruf noch nicht abgehakt' };
+      if (!gesehen.some(x => /^ergBild=Schärfe/.test(x))) return { ok: false, warum: 'kein gemessenes Bild-Ergebnis: ' + gesehen.join(' | ') };
+      if (!gesehen.some(x => /^ergOrt=Juli/.test(x))) return { ok: false, warum: 'kein Orts-Ergebnis: ' + gesehen.join(' | ') };
+      if (!gesehen.includes('gitter=da')) return { ok: false, warum: 'die Gitter-Leinwand lag nicht über dem Foto' };
+      // Danach steht die Ergebniskarte mit der Zurück-Leiste.
+      const el = document.getElementById('scan-result');
+      if (!el.querySelector('.sr2-zurueck')) return { ok: false, warum: 'nach dem Scan fehlt die Zurück-Leiste' };
+      return { ok: true, info: gesehen.filter(x => /^erg/.test(x)).join(' · ') };
+    },
+  },
   {
     name: 'Drei Zustände · ohne Artenliste ist nichts „in Ordnung"',
     lauf: () => {

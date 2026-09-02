@@ -119,3 +119,28 @@ gefährlichen Fall**, nie als Regel.
 - **Keine Merkmale, die nicht aus der Antwort stammen.** Ein Marker auf dem Foto,
   den niemand berechnet hat, zeigt überzeugend auf die falsche Stelle (dieselbe
   Falle wie beim Garten-Zwilling, CLAUDE.md §4a.1).
+
+
+## Nachtrag v32.08 — das Gitter, die Liste und der Weg zurück
+
+**Das Scangitter wird gerechnet.** `_gsScanKanten(img)` legt das Foto auf ein
+160-px-Canvas, macht Graustufen und fährt einen Sobel-Kantenfilter darüber. Die
+Punkte über einer **relativen** Schwelle (28 % des stärksten Werts im Bild —
+ein flaues Foto soll trotzdem ein Gitter bekommen) werden als 0–1-Koordinaten
+gespeichert und auf 4'000 gedünnt. `_gsScanAnimation` zeichnet sie: der Balken
+wandert, und was er passiert hat, leuchtet auf und verglimmt.
+
+Gemessen: 1'427 Punkte auf einem gezeichneten Blatt, **0 auf einer leeren
+Fläche**. Wo keine Pflanze ist, erscheint kein Gitter.
+
+**Die Schrittliste.** Fünf Schritte, jeder mit seinem gemessenen Ergebnis
+(siehe STATUS.md cu). Die Regel dabei ist dieselbe wie im ganzen Dokument:
+
+> Ein Schritt darf nur angezeigt werden, wenn er stattfindet, und sein
+> Ergebnis nur, wenn es gemessen ist.
+
+Der KI-Aufruf ist der einzige lange, und über ihn wird weiterhin nur gesagt,
+was stimmt: er läuft, seit N Sekunden.
+
+**Und der Weg zurück** aus dem Ergebnis — eine `sticky`-Leiste zuoberst. Nur
+dort, nicht während der Analyse.

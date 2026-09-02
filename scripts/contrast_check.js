@@ -291,6 +291,28 @@ async function medianFarben(leser, pngBuffer, punkte) {
         res.style.display = 'block';
         return res;
       }],
+      // v32.08: die Analyse-Ansicht. Man sieht sie mehrere Sekunden lang,
+      // waehrend die KI antwortet — und sie war nie vermessen. Der Zustand
+      // wird hier von Hand hergestellt (ein abgehakter, ein laufender, ein
+      // offener Schritt), damit alle drei Farben vorkommen.
+      ['scan-analyse', () => {
+        try { if (typeof switchTab === 'function') switchTab('scanner'); } catch (_) {}
+        const res = document.getElementById('scan-result');
+        if (!res || typeof _gsSchritteHtml !== 'function') return 0;
+        res.style.display = 'block';
+        res.innerHTML = '<div class="analyzing gs-scanview">' +
+          '<div class="gs-scanfoto" id="gs-scanfoto"><canvas class="gs-scangitter"></canvas>' +
+          '<span class="gs-scanecke gs-se-lo"></span><span class="gs-scanecke gs-se-ro"></span>' +
+          '<span class="gs-scanzahl">2 Fotos</span></div>' +
+          _gsSchritteHtml() +
+          '<p style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px;">Multi-Shot: 2 Fotos werden kombiniert → höhere Genauigkeit</p>' +
+          '</div>';
+        gsSchritt('bild', 'fertig', 'Schärfe 72 · Licht 80');
+        gsSchritt('ort', 'fertig', 'Juli · Sommer · aus dem Foto');
+        gsSchritt('cache', 'fertig', 'kein Treffer');
+        gsSchritt('ki', 'laeuft', '6 s');
+        return res;
+      }],
       ['blühkalender', () => {
         localStorage.setItem('gs_bl_month', '5');
         localStorage.setItem('gs_bl_tab', 'all');
