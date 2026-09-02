@@ -668,6 +668,15 @@ Spalte ist beeinflussbar — die zweite ist der Preis des 5,7-MB-Monolithen und
 eine Eigenschaft der Architektur, kein Fehler. Für einen Vergleich beide Stände
 mit **demselben** Aufruf messen; die Zahlen schwanken zwischen Läufen.
 
+**Eine Regel aus v32.11, die ueber die Optik hinausgeht:** *Inhalt, auf den es
+ankommt, wird nie NACH UNSICHTBAR animiert.* Zwei Anlaeufe an derselben Stelle
+sind daran gescheitert — erst `opacity:0` per Timer (contrast_check: **1:1**),
+dann `animation … both` mit `from{opacity:0}` (scan_check: „5 von 5 Zeilen
+bleiben unsichtbar", weil die Animation in einem verborgenen Bereich nie
+startet). Wer eine Zeile einlaufen laesst: **bewegen und faerben, nicht
+ausblenden** — und den Pruefstand zu BEGINN der Animation messen lassen, nicht
+erst am Ende.
+
 **Seit v31.99 misst `contrast_check` in DREI Fenstern** — dazu kam das
 **Scan-Ergebnis**, der Bildschirm, auf dem jemand ueber Giftigkeit liest. Er
 gehoert zu keinem der elf Tabs und war deshalb nie vermessen; der erste Lauf

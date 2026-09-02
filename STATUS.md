@@ -4,13 +4,74 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.10` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.11` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (cx) — v32.11: ein Drahtgitter, das die Blätter kennt
+
+Fernando wollte einen Wow-Effekt — „Brainfuck und Brainmelting". Der billige
+Weg wäre mehr Glühen und mehr Partikel gewesen; das sieht drei Sekunden lang
+gut aus. Was hängen bleibt, ist etwas anderes: **dass die App sichtbar
+versteht, was sie ansieht.**
+
+#### Aus Punkten wird eine Struktur
+
+`_gsScanStruktur` liefert drei Dinge statt einem:
+
+- **Punkte** — die Kanten aus dem Foto (v32.08).
+- **Kanten** — welche Punkte benachbart sind, über ein Raster statt über alle
+  Paare (bei 900 Punkten wären das sonst 810'000 Vergleiche). Daraus wird ein
+  Drahtgitter, das der Form folgt statt sie zu überziehen.
+- **Fokuszonen** — die Zellen mit der höchsten Kantendichte. Blattspitzen,
+  Aderkreuzungen, der Stielansatz. Dort rastet der Scanner ein.
+
+Gemessen: **732 Knoten · 1'097 Linien · 4 Fokuszonen** auf einem gezeichneten
+Blatt, **nichts auf einer leeren Fläche**. Jede Linie kürzer als die
+Nachbarschaftsreichweite (sonst ginge das Netz quer durchs Bild), keine zwei
+Ringe übereinander.
+
+#### Drei Phasen an drei echten Vorgängen
+
+`tasten` während Bildprüfung und Kontext · `netz` während die KI rechnet, so
+lange wie sie braucht · `treffer` wenn die Antwort da ist. **Kein Timer
+erfindet einen Fortschritt** — `gsScanPhase()` wird aus dem echten Ablauf
+gerufen, und ein Prüffall hält fest, dass beim KI-Aufruf wirklich `netz` läuft.
+
+#### Die Enthüllung
+
+Ring zählt von 0 hoch, Merkmale erscheinen nacheinander, Prüfregeln haken der
+Reihe nach ab — in derselben Reihenfolge, in der sie gerechnet wurden.
+
+#### Zwei Anläufe, derselbe Fehler — und die Regel daraus
+
+1. `opacity:0` per Klasse, per Timer wieder weggenommen. Fällt der Timer aus,
+   bleibt die Zeile **für immer unsichtbar**. `contrast_check`: **1:1**.
+2. `animation … both` mit `from{opacity:0}`. Läuft die Animation nie — etwa
+   weil das Element beim Rendern in einem verborgenen Bereich liegt — gilt der
+   `from`-Zustand weiter. `scan_check`: **„5 von 5 Zeilen bleiben unsichtbar"**.
+
+> **Inhalt, auf den es ankommt, wird nie NACH UNSICHTBAR animiert.**
+
+Jetzt bewegt sich die Zeile und bekommt kurz einen farbigen Grund — sichtbar
+in jedem Zustand, auch wenn gar nichts läuft. Der Prüffall misst das
+ausdrücklich **zu Beginn** der Animation, nicht erst am Ende.
+
+#### Leistung gemessen, nicht gehofft
+
+Bei 6-facher Drosselung: Struktur einmalig **36 ms**, ein Bild **1,0 ms** —
+also rund 6 % des Bildbudgets bei 60 Bildern/s.
+
+#### Prüfstände
+
+`scan_check` **36/36** (drei Fälle mehr) · `contrast_check` fünf Fenster, 0/0 ·
+alle übrigen grün.
+
+---
 
 ### 2026-09-02 (cw) — v32.10: Scanner V3 Stufe 3 — die Gegenprobe
 
