@@ -4,13 +4,53 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.79` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.80` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (br) — v31.80: neuer Prüfstand `data_check.js` — gibt es überhaupt, was der Code liest?
+
+Nach dem Blühkalender-Fund (`s.bloom` existiert in **keiner** der 4'342 Arten) war klar: das ist eine eigene Fehlerklasse, und keiner der bestehenden Prüfstände sieht sie.
+
+| Prüfstand | Frage |
+|---|---|
+| `wiring_check` | kommt an, was angetippt wird? |
+| `field_check` | liest überhaupt jemand, was eingegeben wird? |
+| **`data_check`** | **gibt es, was gelesen wird?** |
+
+#### Wie er arbeitet
+
+**Dynamisch, nicht per Textsuche.** `window.DB` wird durch einen Proxy ersetzt, der jeden Feldzugriff auf einen Arten-Datensatz mitschreibt; danach läuft die App durch alle elf Tabs, den Blühkalender in drei Monaten, ein Arten-Detail und die Suche. Jeder Zugriff auf einen Namen, den **kein** Datensatz kennt, ist ein belegter Fund — kein Verdacht.
+
+Zwei Klassen im Bericht, und nur die erste ist ein Fehler:
+- **Existiert nirgends** → Zugriff ins Leere.
+- **Optionales Feld** (existiert bei manchen Arten) → normal.
+
+Dazu eine Deckungsliste: `.color` und `.alt` sind nur bei **967 von 4'342** Arten gefüllt (22 %), `.care`/`.lightMin`/`.waterFrequency` bei 40. Wer eine Anzeige darauf baut, sollte das wissen.
+
+#### Erster Durchlauf: ein Fund
+
+`.tip` — **26'042 Zugriffe ins Leere**. Die Bienen-Erkennung (`isBeeFriendly`) durchsucht `uses` + `desc` + `tip`; das dritte Feld gibt es nur an den Garten-Blumen aus `GS_SAE_DB`, nicht an Arten. Ein Drittel ihrer Beweislage war immer leer. Ersetzt durch `medicinalUse` — das Ergebnis ändert sich von **78 auf 79** von 4'342, was die gestrige Entscheidung bestätigt, die Erkennung ehrlich zu beschriften statt eine Anzeige darauf zu bauen.
+
+#### Ein Fehler im Prüfstand selbst, und er ist der lehrreichste
+
+Der erste Anlauf band die Array-Methoden ans **rohe** Array:
+
+```js
+return typeof v === 'function' ? v.bind(t) : v;   // FALSCH
+```
+
+`DB.filter(fn)` lief damit am Proxy vorbei, die Datensätze kamen ungewickelt beim Aufrufer an — und der Späher meldete **3** Feldzugriffe statt 26'000. Ein Prüfstand, der nichts sieht, meldet „alles in Ordnung". **Wer so ein Werkzeug baut, prüft zuerst, ob es überhaupt etwas sieht** — dieselbe Lehre wie beim Fenster-Zähler in `contrast_check` gestern.
+
+#### Prüfstände
+
+`render_check` 2865 · 0 JS-Fehler · 0 verdächtig · `contrast_check` 0/0 · `touch_check` 0 · `wiring_check` 0/0/0 · `field_check` 4/303 · **`data_check` 0 Zugriffe ins Leere**.
+
+---
 
 ### 2026-09-02 (bq) — v31.79: Scanner V2, erste Stufe — erst messen, dann bestimmen
 
