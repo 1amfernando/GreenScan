@@ -12,6 +12,117 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-02 (df) — v32.19: fünf Server-Funktionen hatten keinen Quelltext im Repo
+
+Fortsetzung von (de). Der neue Prüfstand fragte nach Tabellen und RPCs; die
+Edge-Functions kamen danach. 35 sind ausgeliefert.
+
+#### Der Ausgangsbefund
+
+**Fünf aktive Funktionen hatten keinen Spiegel im Repo** — obwohl die
+Konvention dieses Repos „mirror-first" heisst und in einem Dutzend
+Changelog-Einträgen so steht. Betroffen unter anderem `marketplace-publish`,
+die im Namen des Nutzers Inserate anlegt und Fotos in einen öffentlichen
+Bucket lädt.
+
+Vier davon liegen jetzt als **wortgetreue Abbilder** im Repo, mit Datum,
+Version und `ezbr_sha256` im Kopf. Die fünfte (`book-ingest`, ~250 sehr dichte
+Zeilen) ist **dokumentiert statt gespiegelt** — siehe unten, warum.
+
+#### Befund 1 · `send-receipt` verschickt E-Mails, die niemand bestellt hat
+
+Ausgeliefert seit April, `verify_jwt: true`, **0 Aufrufe** aus Frontend, cron
+oder anderen Funktionen. Sie schickt eine gestaltete Quittung über Resend von
+`GreenScan <info@greenscan.ch>` — und nimmt **alles** aus dem Anfrage-Rumpf:
+
+```ts
+const { type, email, name, amount, currency, date,
+        transactionId, charityName, isSubscription } = await req.json()
+```
+
+Keine Prüfung gegen Stripe. Keine Prüfung, ob die aufrufende Person mit dieser
+Zahlung zu tun hat. Keine Prüfung, ob ihr die Empfängeradresse gehört.
+`verify_jwt: true` verlangt nur **irgendeinen** gültigen Nutzer-Token.
+
+**Jede angemeldete Person kann damit eine frei erfundene GreenScan-Quittung an
+jede beliebige Adresse schicken** — beliebiger Betrag, beliebige Organisation,
+von der verifizierten Absenderdomäne. Im Text steht wörtlich „Diese E-Mail ist
+deine Zahlungsbestätigung. Bitte aufbewahren."
+
+Kein Datenabfluss — eine Vorlage für Betrug im Namen der App, und nebenbei
+verbraucht es das Resend-Kontingent.
+
+**Empfehlung:** stilllegen (410-Stub), wie in v30.18 und v30.95 mit den
+anderen Einmal-Werkzeugen. Sollen Quittungen später wirklich verschickt
+werden, gehört der Auslöser in den `stripe-webhook` — dort ist die Zahlung
+durch Stripes Signatur belegt statt vom Aufrufer behauptet.
+Analyse: `supabase/functions/send-receipt/BEFUND.md`.
+
+**Ausgeliefert habe ich nichts.** Das Stilllegen ist ein Eingriff in die
+laufende Auslieferung und gehört zu Fernando — wie die offenen Migrationen.
+
+#### Befund 2 · Neun fest verdrahtete Modellnamen ohne Rückfall
+
+| Funktion | Modell |
+|---|---|
+| `garden-scan-analyze`, `plan-iterate`, `plant-doctor-diagnose` (3×) | `claude-sonnet-4-20250514` |
+| `i18n-translate` (2×), `mushroom-identify`, `pest-identify` | `claude-haiku-4-5-20251001` |
+| `feedback-triage` | `claude-sonnet-4-6` |
+
+Jede dieser Stellen nennt **einen** Namen. Fällt er weg, endet jeder Aufruf in
+einem Fehler — und die Funktion hört still auf zu arbeiten.
+
+**Das Frontend hat für genau diese Frage längst eine Kette**
+(`index.html` ~Z. 27079: `sonnet-4-6` → `sonnet-4-5` → `sonnet-4-5-20250929`
+→ `sonnet-4-20250514` → `3-5-sonnet`). Und **`book-ingest` macht es auch schon
+richtig**: `CLAUDE_MODELS` als Liste, bei `404` das nächste, und erst wenn alle
+scheitern eine Meldung. Die Vorlage liegt also im eigenen Repo.
+
+**Was ich NICHT behaupte:** dass einer dieser Namen heute nicht mehr auflöst.
+Von hier aus ist das nicht prüfbar — die Netz-Richtlinie lässt keine Anfrage
+an Anthropic zu. Der Befund ist die **fehlende Kette**, nicht ein bewiesener
+Ausfall.
+
+#### Ein Fall, der sich nicht entscheiden lässt — und warum das der Punkt ist
+
+`feedback_analysis` hat **0 Zeilen**, bei 2 Feedback-Einträgen (letzter vom
+07.06.2026). Die Funktion wird von Hand ausgelöst. „Nie gedrückt" sieht damit
+**genau gleich aus** wie „bricht jedes Mal ab". Ich kann es von hier aus nicht
+unterscheiden und sage das, statt eine Zahl zu deuten.
+
+Ein Knopfdruck würde es entscheiden.
+
+#### Wo ich mich selbst korrigiert habe
+
+Aus den Zeitstempeln schloss ich zunächst, sieben 410-Stubs lägen **nur** im
+Repo und die gefährlichen Fassungen liefen weiter (Repo-Stub 28.08., letztes
+Deployment 22.06.). Dann habe ich den **ausgelieferten Quelltext gelesen**: es
+sind längst Stubs, seit v30.18. Der Repo-Kommentar war nur später erneuert
+worden.
+
+> Ein Zeitstempel sagt, wann etwas geschrieben wurde — nicht, was drinsteht.
+
+#### `book-ingest`: dokumentiert statt gespiegelt
+
+~250 sehr dichte Zeilen. Eine Handabschrift, die ich „wortgetreu" nenne und
+die es an einer Stelle nicht ist, wäre schlechter als keine — sie sähe aus wie
+eine Quelle und wäre keine. Stattdessen `BEFUND.md` mit Herkunft, Prüfsumme
+und Bezugsanweisung.
+
+`backend_check` hat dafür jetzt **drei** Zustände statt zwei: gespiegelt ·
+dokumentiert (wird bei JEDEM Lauf namentlich genannt) · nichts (rot). Dieselbe
+Bauweise wie bei den offenen Migrationen, aus demselben Grund: ein dauerhaft
+roter Prüfstand wird ignoriert, ein stillschweigend grüner verschweigt.
+**Gegenprobe:** `BEFUND.md` entfernt → sofort rot.
+
+#### Nebenbei
+
+Drei Verzeichnisse liegen im Repo, sind aber **nicht** (mehr) ausgeliefert:
+`daily-push`, `entitlements`, `push-test`. Der Prüfstand nennt sie —
+entweder nie deployed oder inzwischen entfernt, beides ist eine Frage wert.
+
+Alle vierzehn Prüfstände grün.
+
 ### 2026-09-02 (de) — v32.18: ruft das Frontend etwas auf, das es nicht gibt?
 
 Dreizehn Prüfstände fragen, was **im Browser** passiert. Keiner fragte nach der

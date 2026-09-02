@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.18.20260902">
+<meta name="app-version" content="32.19.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -71044,6 +71044,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.19', date: '02.09.2026',
+    headline: '\ud83d\udce6 F\u00fcnf Server-Funktionen hatten keinen Quelltext im Repo',
+    summary: 'Sie liefen, wurden benutzt \u2014 und niemand konnte nachlesen, was sie tun. Nachgezogen. Dabei zwei Befunde: eine ungenutzte Funktion, die E-Mails im Namen der App verschickt, und neun fest verdrahtete KI-Modellnamen ohne Rückfall.',
+    user_summary: '\ud83d\udce6 Aufr\u00e4umen hinter den Kulissen: der Server-Teil der App ist jetzt vollst\u00e4ndig im Quelltext nachlesbar \u2014 und zwei Schwachstellen sind benannt.',
+    user_items: [
+      {emoji:'\ud83d\udce6', bold:'Was gefehlt hat:', text:' F\u00fcnf aktive Server-Funktionen \u2014 darunter die, die deine Marktplatz-Inserate anlegt \u2014 gab es nur auf dem Server, nicht im Quelltext. Wer pr\u00fcfen wollte, was sie tun, konnte es nicht.'},
+      {emoji:'\u2709\ufe0f', bold:'Ein Befund beim Nachlesen:', text:' Eine ungenutzte Funktion verschickt E-Mails von der GreenScan-Adresse \u2014 mit Empf\u00e4nger, Betrag und Text frei aus der Anfrage. Empfehlung zur Stilllegung steht bereit; abgeschaltet wird sie nur von Fernando.'},
+      {emoji:'\ud83e\udd16', bold:'Und ein zweiter:', text:' Neun Stellen nennen ein KI-Modell mit festem Namen und ohne Ausweichm\u00f6glichkeit. F\u00e4llt einer weg, h\u00f6rt die Funktion still auf zu arbeiten. Eine der Funktionen macht es bereits richtig \u2014 sie ist die Vorlage.'},
+    ],
+  },
+  {
     v: 'v32.18', date: '02.09.2026',
     headline: '\ud83d\udd0c Ein Pr\u00fcfstand f\u00fcr die Naht zwischen App und Server',
     summary: 'Die App spricht 97 Server-Funktionen und 111 Tabellen an. Ein Aufruf ins Leere sieht nach nichts aus \u2014 die Ansicht bleibt einfach leer. Nachgemessen: 97 von 97 und 110 von 111 sind da. Die eine Ausnahme ist bekannt und vorbereitet.',
@@ -71429,7 +71440,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.18';
+var GS_VERSION = 'v32.19';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

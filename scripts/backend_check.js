@@ -104,6 +104,52 @@ if (Object.keys(offen).length) {
   console.log('  Produktivdatenbank hat; dieser Prüfstand fasst nichts an.');
 }
 
+// ── Edge-Functions: liegt zu jeder ausgelieferten ein Spiegel im Repo? ───
+//
+// Die Konvention dieses Repos heisst „mirror-first": was ausgeliefert wird,
+// liegt auch als Quelltext hier. Wo der Spiegel fehlt, ist das Repo nicht
+// mehr die Quelle der Wahrheit für den eigenen Server-Teil — und niemand kann
+// nachlesen oder prüfen, was die Funktion tut, ohne Supabase zu fragen.
+//
+// Genau so ist `send-receipt` durchgerutscht: ausgeliefert seit April,
+// von niemandem aufgerufen, ohne Spiegel — und sie verschickt E-Mails von
+// der verifizierten Absenderdomäne mit Inhalten aus dem Anfrage-Rumpf.
+const fnListe = snap.edge_functions || [];
+if (fnListe.length) {
+  const verz = path.join(WURZEL, 'supabase', 'functions');
+  const gespiegelt = new Set(fs.existsSync(verz) ? fs.readdirSync(verz) : []);
+  // Drei Zustände, wie bei den Migrationen — und aus demselben Grund:
+  //   gespiegelt   — `index.ts` liegt da, der Quelltext ist nachlesbar.
+  //   dokumentiert — kein Quelltext, aber eine BEFUND.md, die sagt WARUM und
+  //                  WIE man ihn zieht. Kein Fehler, aber auch kein Spiegel:
+  //                  wird bei JEDEM Lauf namentlich genannt, damit es nicht
+  //                  hinter der Datei verschwindet.
+  //   nichts       — rot.
+  const hatDatei = (f, name) => fs.existsSync(path.join(verz, f, name));
+  const ohneSpiegel = fnListe.filter(f => !gespiegelt.has(f) || !hatDatei(f, 'index.ts'));
+  const dokumentiert = ohneSpiegel.filter(f => gespiegelt.has(f) && hatDatei(f, 'BEFUND.md'));
+  const garnichts = ohneSpiegel.filter(f => dokumentiert.indexOf(f) < 0);
+  melde(garnichts.length === 0, 'Jede ausgelieferte Edge-Function ist im Repo nachlesbar',
+        garnichts.length ? garnichts.length + ' weder gespiegelt noch dokumentiert: ' + garnichts.join(', ')
+                         : (fnListe.length - ohneSpiegel.length) + ' gespiegelt' +
+                           (dokumentiert.length ? ' · ' + dokumentiert.length + ' dokumentiert statt gespiegelt (siehe unten)' : ''));
+  if (dokumentiert.length) {
+    dokumentiert.forEach(f => {
+      const erste = (fs.readFileSync(path.join(verz, f, 'BEFUND.md'), 'utf8').split('\n')[0] || '').replace(/^#\s*/, '');
+      console.log('       · ' + f + ' — kein Quelltext im Repo. ' + erste);
+    });
+  }
+
+  // Und die Umkehrung, damit die Momentaufnahme nicht schleichend veraltet.
+  const nurRepo = [...gespiegelt].filter(d => fnListe.indexOf(d) < 0 &&
+    fs.existsSync(path.join(verz, d, 'index.ts')));
+  if (nurRepo.length) {
+    console.log('       Nur im Repo, nicht (mehr) ausgeliefert: ' + nurRepo.join(', '));
+    console.log('       Entweder nie deployed oder inzwischen entfernt — beides ist eine Frage wert.');
+  }
+}
+
 console.log('  ---');
-console.log('  Angesprochen: ' + rpc.length + ' RPCs · ' + tbl.length + ' Tabellen/Views · davon rot: ' + rot);
+console.log('  Angesprochen: ' + rpc.length + ' RPCs · ' + tbl.length + ' Tabellen/Views · ' +
+            (snap.edge_functions || []).length + ' Edge-Functions · davon rot: ' + rot);
 process.exitCode = rot ? 1 : 0;

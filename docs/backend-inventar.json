@@ -318,5 +318,60 @@
  ],
  "offen": {
   "comment_reactions": "supabase/migrations/20260831_community_reaktionen_v31_09.sql — vorbereitet, bewusst nicht angewandt (STATUS.md: Liste offener Migrationen)"
- }
+ },
+ "edge_functions": [
+  "create-checkout",
+  "stripe-webhook",
+  "customer-portal",
+  "send-receipt",
+  "admin-seed-species",
+  "stripe-checkout",
+  "stripe-portal",
+  "stripe-bootstrap",
+  "book-ingest",
+  "feedback-triage",
+  "delete-user",
+  "stripe-setup-webhook",
+  "garden-scan-analyze",
+  "plan-iterate",
+  "species-bulk-seed",
+  "knowledge-bulk-gen",
+  "daily-push-checker",
+  "i18n-translate",
+  "stripe-expert-checkout",
+  "plant-doctor-diagnose",
+  "marketplace-publish",
+  "stripe-restructure-pro-only",
+  "stripe-import-fernando-sub",
+  "stripe-complete-setup",
+  "stripe-final-audit",
+  "stripe-create-connect-account",
+  "pest-identify",
+  "mushroom-identify",
+  "stripe-admin-extend-webhook",
+  "species-search",
+  "send-push",
+  "weather-alert-checker",
+  "key-health-check",
+  "engagement-push-checker",
+  "ai-proxy"
+ ],
+ "edge_cron": [
+  "daily-push-checker",
+  "engagement-push-checker",
+  "key-health-check",
+  "weather-alert-checker"
+ ],
+ "edge_extern": [
+  "stripe-webhook",
+  "stripe-setup-webhook",
+  "stripe-admin-extend-webhook"
+ ],
+ "edge_admin_secret": [
+  "stripe-bootstrap",
+  "knowledge-bulk-gen",
+  "i18n-translate",
+  "species-search",
+  "book-ingest"
+ ]
 }
