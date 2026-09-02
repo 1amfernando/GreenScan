@@ -528,7 +528,16 @@ Richtungen, und die zweite ist die teurere:
    und alles danach in der Funktion läuft nicht mehr). Nur das Zweite ist ein
    Fehler; genau so lag v31.40 im Argen.
 
-3. **Menü-Liste.** `MENU_ITEMS` (40 Einträge der Menü-Suche) trägt die Aktion
+3. **Benachrichtigungs-Ziele.** `GS_NOTIF_ZIELE` (31 Arten) bildet die Art
+   einer Mitteilung auf eine Zielfunktion oder einen Tab ab — auch das eine
+   reine Datenstruktur, die kein Blick aufs Dokument findet. Bis v31.81
+   deckte der Router **sieben** Arten ab; alles andere ohne `link` landete
+   bei `closeMainMenu();`, einem Tipp ins Leere. Beim ersten Durchgang meldete
+   der Prüfstand prompt drei Zeilen, in denen ich selbst eine Zielfunktion
+   erfunden hatte (`openSubscriptionModal` heisst `gsShowAboScreen`).
+   **Neue Art? In `GS_NOTIF_ZIELE` eintragen** — sonst meldet er sie.
+
+4. **Menü-Liste.** `MENU_ITEMS` (40 Einträge der Menü-Suche) trägt die Aktion
    als **Zeichenkette in einem Feld**, nicht als `onclick` am Element —
    Richtung 1 sieht sie deshalb nicht. Beim ersten gezielten Durchgang
    (v31.48) waren drei kaputt: sie sprangen auf einen Bildschirm und tippten
