@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.17.20260902">
+<meta name="app-version" content="32.18.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -71044,6 +71044,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.18', date: '02.09.2026',
+    headline: '\ud83d\udd0c Ein Pr\u00fcfstand f\u00fcr die Naht zwischen App und Server',
+    summary: 'Die App spricht 97 Server-Funktionen und 111 Tabellen an. Ein Aufruf ins Leere sieht nach nichts aus \u2014 die Ansicht bleibt einfach leer. Nachgemessen: 97 von 97 und 110 von 111 sind da. Die eine Ausnahme ist bekannt und vorbereitet.',
+    user_summary: '\ud83d\udd0c Ein neuer Pr\u00fcfstand vergleicht, was die App beim Server anfragt, mit dem, was es dort wirklich gibt. Ergebnis: fast alles stimmt.',
+    user_items: [
+      {emoji:'\ud83d\udd0c', bold:'Warum das wichtig ist:', text:' Fragt die App nach etwas, das es nicht gibt, sieht man keinen Fehler \u2014 die Stelle bleibt einfach leer. Genau solche stillen L\u00fccken findet der neue Pr\u00fcfstand.'},
+      {emoji:'\u2705', bold:'Das Ergebnis:', text:' 97 von 97 Server-Funktionen und 110 von 111 Tabellen sind vorhanden. Die eine fehlende geh\u00f6rt zu den Kommentar-Reaktionen \u2014 die sind im Programm fertig gebaut, der Server-Teil wartet auf Freigabe.'},
+      {emoji:'\ud83e\uddf9', bold:'Und eine veraltete Notiz korrigiert:', text:' Eine interne Liste f\u00fchrte etwas als offen, das l\u00e4ngst erledigt war. Nachgemessen und richtiggestellt.'},
+    ],
+  },
+  {
     v: 'v32.17', date: '02.09.2026',
     headline: '\ud83c\udf0d 47 Texte konnten nie \u00fcbersetzt werden \u2014 acht davon lagen l\u00e4ngst fertig da',
     summary: 'Sie standen mit deutschem Text an ihrer Stelle, aber in keiner \u00dcbersetzungstabelle \u2014 und wurden deshalb nie nachgeschlagen. Der ganze Bildschirm \u201eMein Naturjahr\u201c, die Garten-Bibliothek und die Giftigkeits-Einstufungen blieben in allen vier Sprachen deutsch. Ohne Fehlermeldung.',
@@ -71418,7 +71429,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.17';
+var GS_VERSION = 'v32.18';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

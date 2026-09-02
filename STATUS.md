@@ -12,6 +12,95 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-02 (de) — v32.18: ruft das Frontend etwas auf, das es nicht gibt?
+
+Dreizehn Prüfstände fragen, was **im Browser** passiert. Keiner fragte nach der
+Naht dahinter: die App spricht **97 RPCs** und **111 Tabellen/Views** in
+Supabase an. Existiert jede davon?
+
+Ein Aufruf ins Leere sieht nach nichts aus. PostgREST antwortet mit einem
+Fehler, die App fängt ihn ab — und die Ansicht bleibt leer. Kein Absturz,
+keine Meldung.
+
+#### Gemessen (nur lesend gegen die Produktivdatenbank)
+
+- **97 von 97 RPCs** existieren.
+- **110 von 111 Tabellen/Views** existieren.
+- Die eine Ausnahme: **`comment_reactions`**.
+
+#### Und was dahinter steckt, war schon dokumentiert
+
+`comment_reactions` trägt die Kommentar-Reaktionen aus v31.09 — Liken und
+Disliken von Kommentaren, das Fernando ausdrücklich gewünscht hatte. Das
+Frontend ist **fertig und vorbildlich gebaut**: es tastet die Tabelle ab und
+rendert die Knöpfe gar nicht erst, wenn sie fehlt, statt sie sichtbar ins
+Leere laufen zu lassen. Bei einem fehlgeschlagenen Schreibvorgang nimmt es die
+optimistische Anzeige zurück, statt Erfolg zu behaupten.
+
+Die Migration `20260831_community_reaktionen_v31_09.sql` liegt im Repo, ist
+idempotent und hat saubere RLS. Sie ist **bewusst nicht angewandt** — STATUS.md
+(y) führt sie in einer Liste offener Migrationen, eine frühere Session hat sie
+gegen das Live-Schema vorgeprüft und die Anwendung ausdrücklich Fernando
+überlassen.
+
+**Ich habe sie nicht angewandt.** Eine gesetzte Grenze bleibt eine Grenze,
+auch wenn man sie überschreiten könnte: DDL auf einer Produktivdatenbank mit
+laufenden Zahlungen ist nichts, was nebenbei passiert.
+
+#### Die Liste war an einer Stelle veraltet
+
+Beim Nachmessen (alles lesend):
+
+| Artefakt | STATUS (y) sagte | heute gemessen |
+|---|---|---|
+| `comment_reactions` + 2 Notify-Funktionen | nein | **weiterhin nein** |
+| `daily_quizzes.image_url` | nein | **weiterhin nein** |
+| Integritäts-Trigger auf `quiz_answers` | nein | **JA** — `trg_quiz_answers_verify` ist da |
+| `fn_is_role`/`fn_role_at_least` für `anon` | offen | **weiterhin offen** |
+
+Ein Rückstand, der „noch offen" sagt für etwas längst Erledigtes, kostet den
+Nächsten Zeit. Zeile korrigiert.
+
+#### `backend_check.js` — der vierzehnte Prüfstand
+
+Er vergleicht nicht gegen die lebende Datenbank, sondern gegen eine
+Momentaufnahme im Repo (`docs/backend-inventar.json`, 213 Objekte, einmal
+lesend gezogen). Preis und Gewinn stehen im Kopf der Datei:
+
+> **Preis:** die Momentaufnahme veraltet — deshalb nennt der Bericht IMMER ihr
+> Datum. Eine Zahl ohne Datum wäre eine Behauptung.
+> **Gewinn:** er läuft ohne Netz und ohne Zugangsdaten wie die anderen
+> dreizehn — und VOR dem Ausliefern, nicht danach.
+
+**Drei Klassen, nicht zwei** — das ist der Punkt, an dem so ein Prüfstand
+sonst unbrauchbar wird:
+
+- **rot** — angesprochen, existiert nicht, nichts vorbereitet.
+- **offen** — existiert nicht, aber eine Migration liegt bereit. Kein Fehler
+  im Code. Wird **namentlich** genannt, nie stillschweigend durchgewunken.
+- **neu** — seit der Momentaufnahme dazugekommen; heisst: nachziehen.
+
+Ohne die mittlere Klasse wäre `comment_reactions` dauerhaft rot, der Prüfstand
+dauerhaft rot, und damit wertlos.
+
+**Gegenprobe, beide Klassen:** eine erfundene Tabelle eingesetzt → rot mit
+Namen. Einen RPC umbenannt → als „seit der Momentaufnahme dazugekommen,
+noch niemand hat nachgesehen" gemeldet.
+
+#### Was der Advisor sagt
+
+**0 ERROR**, 144 Hinweise. Davon sind 136 das bewusste
+SECURITY-DEFINER-RPC-Muster dieser App (jede solche Funktion wird generisch
+gemeldet) — kein Fund. Die fünf Tabellen mit RLS ohne Policy habe ich einzeln
+geprüft: vier werden nur serverseitig benutzt, `system_events` erreicht das
+Frontend ausschliesslich über SECURITY-DEFINER-RPCs. Die Sperre ist dort also
+richtig, nicht vergessen.
+
+`fn_quiz_record_answer` ist für anonyme Aufrufer erreichbar — gelesen: sie
+bricht bei `auth.uid() IS NULL` sofort ab. Ebenfalls kein Fund.
+
+Alle vierzehn Prüfstände grün.
+
 ### 2026-09-02 (dd) — v32.17: 47 Texte konnten nie übersetzt werden
 
 GreenScan führt fünf Sprachen. Die Übersetzungen liegen in Supabase und werden
@@ -5282,7 +5371,7 @@ Die restlichen Entwürfe (Mein Garten mit Kennzahl-Kacheln, Scan-Ergebnis mit Wa
 |---|---|---|
 | `comment_reactions`, `fn_notify_post_like`, `fn_notify_comment_like` | v31.09 | **nein** |
 | `daily_quizzes.image_url` | v30.85 | **nein** |
-| Integritäts-Trigger auf `quiz_answers` | v30.95 | **nein** |
+| Integritäts-Trigger auf `quiz_answers` | v30.95 | ~~nein~~ → **ja** (am 02.09.2026 nachgemessen: `trg_quiz_answers_verify` ist da) |
 | `fn_is_role` / `fn_role_at_least` für `anon` gesperrt | v30.95 | **nein** (Leak offen) |
 | Leaked-Password-Protection | Dashboard | **nein** |
 
