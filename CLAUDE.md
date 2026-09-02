@@ -924,6 +924,20 @@ bleibt:
 Ohne die mittlere Klasse waere `comment_reactions` dauerhaft rot und der
 Pruefstand damit wertlos.
 
+**Eine Lehre aus v32.20, die JEDEN Pruefstand betrifft, der nach Namen
+sucht:** `wiring_check` Richtung 3 kannte nur `open…` / `gsOpen…` / `show…`.
+Dieses Repo benennt aber auch auf Deutsch — `gsKorrekturOeffnen` (v32.05) und
+`gsEingrenzenOeffnen` (v32.20) fielen beide durch das Muster. **Zwei Fenster,
+die nie jemand geprueft hat, ohne dass irgendetwas rot war.** Muster
+erweitert; wer eine neue Namensform einfuehrt, traegt sie dort nach.
+
+**Und noch einmal die Farbregel, diesmal in der anderen Richtung:**
+`--g-dark` und `--g-light` KIPPEN im Dunkelmodus (dort ist `--g-dark` das
+HELLE Gruen). In v32.20 habe ich „vorsorglich" eine `body.dark`-Zeile
+geschrieben und damit dunkelgruen auf dunkelgruen erzeugt — 1,23:1. Der
+Basiswert war in beiden Modi richtig. **Eine Farbe erst aendern, wenn der
+Messwert da ist** — nicht vorbeugend, und auch nicht auf Verdacht.
+
 **Und die Grenze, die dabei gilt und die keine Sitzung ueberschreiten
 sollte:** `STATUS.md` (2026-08-31 y) fuehrt eine LISTE OFFENER MIGRATIONEN,
 die bewusst NICHT angewandt sind. Eine fruehere Sitzung hat sie gegen das

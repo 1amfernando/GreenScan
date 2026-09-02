@@ -12,6 +12,80 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-02 (dg) — v32.20: im Wald ohne Empfang endet der Scanner nicht mehr im Nichts
+
+Der Fall, für den diese App gebaut ist: jemand steht vor einer Pflanze, kein
+Empfang. Der Scanner braucht die KI und sagte deshalb **„📡 Offline"** — und
+das war das Ende.
+
+Dabei liegt alles Nötige längst auf dem Gerät:
+
+- seit **v32.13** wirklich alle 4'342 Arten (vorher waren es offline **null**),
+- seit **v32.12** drei rechnende Prädikate — Monat, Farbe, Höhenlage.
+
+Aus zwei Reparaturen dieser Session wird damit ein Bildschirm: **„🧭 Ohne Netz
+eingrenzen"**. Er nimmt, was das Gerät von selbst weiss (Monat; Höhe aus dem
+Standort), fragt nach dem, was man sieht (Farbe, Gruppe), und zeigt, was
+übrig bleibt. Kein Netz, kein KI-Aufruf, Millisekunden.
+
+Gemessen: **4'337 → 2'087** im Januar · mit Gelb **199** · nur Pilze **636**.
+
+#### Die Höhenlage wird zum ersten Mal benutzt
+
+877 Arten tragen ein Verbreitungsband (`alt: '0–1500m'`). Bis heute hat das
+**nichts** in der App gelesen — ausser der Scan-Prüfregel S7 aus v32.12. Wer
+auf 1'850 m steht, sieht jetzt nur, was dort auch wächst.
+
+#### Zwei Regeln, an denen alles hängt
+
+1. **Es ist KEINE Bestimmung, und es sagt das auch.** In einer App, die
+   Giftiges von Essbarem trennt, wäre eine Liste, die wie ein Ergebnis
+   aussieht, fahrlässig. Sie heisst „kommt in Frage", steht unter einem
+   ausdrücklichen Hinweis, und jede Zeile trägt ihre Giftigkeitsstufe mit.
+2. **Ausgeschlossen wird nur, was sich begründen lässt.** Eine Art ohne
+   Höhenangabe fällt nicht heraus. Und der Kopf nennt, worauf eingegrenzt
+   wurde **und** was nicht genutzt werden konnte — ohne Standort steht dort
+   „Nicht genutzt: ohne Standort blieb die Höhenlage aussen vor — dafür wurde
+   nichts ausgeschlossen."
+
+Der Prüfstand hält beides fest: **3'464 Arten ohne Höhenangabe bleiben auch
+bei 3'000 m in der Liste**, und die Anzeige nennt ihre Grundlage.
+
+#### Drei Fehler, alle in meinem eigenen neuen Code, alle von Prüfständen gefangen
+
+**1 · Das Fenster ging gar nicht auf.** `#modal-content` ist die innere
+Tafel, die Hülle heisst `#detail-modal`. Mein `openModal('modal-content')`
+öffnete die Tafel und liess die Hülle zu — sichtbar passierte nichts, und die
+`try/catch`-Klammer darum hätte es auch noch verschluckt.
+
+Gefunden hat es `wiring_check`, aber **erst nachdem ich sein Namensmuster
+erweitert hatte**: es kannte nur `open…` / `gsOpen…` / `show…`. Dieses Repo
+benennt auf Deutsch — `gsKorrekturOeffnen` (v32.05) und mein
+`gsEingrenzenOeffnen` fielen beide durch. **Zwei Fenster, die nie jemand
+geprüft hat, ohne dass irgendetwas rot war.**
+
+> Ein Prüfstand, der nach NAMEN sucht, übersieht genau das, was anders heisst.
+
+**2 · Ich habe eine Farbe vorbeugend kaputt gemacht.** `--g-dark` und
+`--g-light` **kippen** im Dunkelmodus (dort ist `--g-dark` = `#a5d6a7`, das
+helle Grün). Ich hatte „vorsorglich" eine `body.dark`-Zeile auf `--g-light`
+gesetzt — dunkelgrün auf dunkelgrün, **1,23:1**. Der Basiswert war von Anfang
+an in beiden Modi richtig. Dieselbe Lehre wie in v31.76, diesmal ohne
+Falschmeldung als Ausrede: **eine Farbe erst ändern, wenn der Messwert da
+ist.**
+
+**3 · Falsche Feldnamen.** `TOX` heisst `sym`/`color`/`bg`, nicht
+`icon`/`fg`. Beim Schreiben nachgesehen statt es dem Prüfstand zu überlassen —
+billiger.
+
+#### Einstiege
+
+- Aus der **Offline-Karte des Scanners** — der Moment, in dem es zählt.
+- Aus dem **Hauptmenü** (49 Einträge, alle geprüft).
+
+Alle vierzehn Prüfstände grün. `scan_check` 48 Fälle, `contrast_check` jetzt
+über **sechs** Fenster (72 Textstellen im neuen), `wiring_check` 44 Öffner.
+
 ### 2026-09-02 (df) — v32.19: fünf Server-Funktionen hatten keinen Quelltext im Repo
 
 Fortsetzung von (de). Der neue Prüfstand fragte nach Tabellen und RPCs; die

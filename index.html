@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.19.20260902">
+<meta name="app-version" content="32.20.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5525,6 +5525,46 @@ li.laeuft .gs-s-erg{color:var(--muted);}
 /* v32.12: die gemessenen Farben als Tupfen. Sie stehen NEBEN der Zahl, nicht
    statt ihr — ein Farbpunkt allein ist fuer niemanden lesbar, der die Farben
    nicht unterscheiden kann, und der Text sagt dasselbe. */
+
+/* ── v32.20 · Ohne Netz eingrenzen ───────────────────────────────────── */
+.gs-eg-kopf{font-size:var(--fs-xl);font-weight:900;color:var(--text);margin-bottom:2px;}
+.gs-eg-unter{font-size:var(--fs-sm);color:var(--muted);line-height:1.5;margin-bottom:10px;}
+/* Der Hinweis ist keine Randnotiz — er steht vor der Liste und sieht auch so
+   aus. Feste dunkle Schrift auf fester heller Flaeche, damit er in beiden
+   Modi gleich deutlich bleibt (die Lehre aus v31.20 und v32.12). */
+.gs-eg-hinweis{background:#fff4e5;color:#5c3200;border-left:4px solid #b26500;
+  border-radius:var(--r-sm);padding:10px 12px;font-size:var(--fs-sm);line-height:1.55;margin-bottom:12px;}
+.gs-eg-wahl{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+.gs-eg-wahl label{display:flex;flex-direction:column;gap:3px;font-size:var(--fs-xs);
+  font-weight:800;color:var(--muted);}
+.gs-eg-wahl select,.gs-eg-wahl input{padding:9px 10px;border:1.5px solid var(--border);
+  border-radius:var(--r-sm);background:var(--card);color:var(--text);font-size:var(--fs-sm);
+  font-weight:700;font-family:inherit;min-width:0;}
+.gs-eg-zahl{font-size:var(--fs-lg);font-weight:900;color:var(--text);}
+/* KEINE body.dark-Zeile hier — und das ist der Punkt: `--g-dark` und
+   `--g-light` KIPPEN im Dunkelmodus (dort ist `--g-dark` = #a5d6a7, also das
+   helle Gruen). Der Wert traegt beide Modi von selbst. Mein erster Anlauf
+   hatte „vorsorglich" auf `--g-light` umgestellt und damit dunkelgruen auf
+   dunkelgruen erzeugt: 1,23:1, vom Kontrast-Pruefstand gemeldet.
+   Dieselbe Lehre wie in v31.76 — eine Farbe erst aendern, wenn der Messwert
+   da ist, nicht vorbeugend. */
+.gs-eg-zahl b{color:var(--g-dark);font-size:var(--fs-xl);}
+.gs-eg-grund{font-size:var(--fs-xs);color:var(--text2);line-height:1.5;margin:2px 0 12px;}
+.gs-eg-fehlt{color:var(--muted);}
+.gs-eg-leer{font-size:var(--fs-sm);color:var(--text2);line-height:1.6;padding:14px;
+  background:var(--surface2);border-radius:var(--r-md);}
+.gs-eg-liste{display:flex;flex-direction:column;gap:6px;}
+.gs-eg-zeile{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  padding:9px 10px;background:var(--card);border:1px solid var(--border);
+  border-radius:var(--r-md);cursor:pointer;font-family:inherit;color:var(--text);}
+.gs-eg-emoji{font-size:22px;flex-shrink:0;}
+.gs-eg-txt{flex:1;min-width:0;display:flex;flex-direction:column;}
+.gs-eg-txt b{font-size:var(--fs-sm);font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.gs-eg-txt i{font-size:var(--fs-xs);color:var(--muted);font-style:italic;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.gs-eg-tox{flex-shrink:0;font-size:var(--fs-xs);font-weight:800;padding:3px 8px;
+  border-radius:var(--r-sm);white-space:nowrap;}
+.gs-eg-mehr{font-size:var(--fs-xs);color:var(--muted);text-align:center;margin-top:10px;}
 .gs-s-tupfen{flex-shrink:0;display:inline-flex;gap:3px;margin-right:6px;align-items:center;}
 .gs-s-tupfen i{width:9px;height:9px;border-radius:50%;display:block;
   box-shadow:0 0 0 1px rgba(0,0,0,.18) inset;}
@@ -29316,7 +29356,10 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
         ord.innerHTML = '<div style="text-align:center;padding:34px 22px;">'
           + '<div style="font-size:52px;margin-bottom:10px;">📡</div>'
           + '<div style="font-size:var(--fs-xl);font-weight:900;color:var(--g-dark);margin-bottom:8px;">Offline</div>'
-          + '<div style="font-size:var(--fs-md);color:var(--text2);line-height:1.6;max-width:340px;margin:0 auto;">Der KI-Scanner braucht eine Internet-Verbindung. Deine bereits gespeicherten Arten, Pflanzen und Funde bleiben offline verfügbar — die Bestimmung klappt wieder, sobald du online bist.</div></div>';
+          + '<div style="font-size:var(--fs-md);color:var(--text2);line-height:1.6;max-width:340px;margin:0 auto;">Der KI-Scanner braucht eine Internet-Verbindung. Deine bereits gespeicherten Arten, Pflanzen und Funde bleiben offline verfügbar — die Bestimmung klappt wieder, sobald du online bist.</div></div>'
+          + '<button onclick="gsEingrenzenOeffnen()" style="margin-top:18px;padding:12px 24px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;">\ud83e\udded Ohne Netz eingrenzen</button>'
+          + '<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:8px;">Alle 4\u2019342 Arten liegen auf dem Ger\u00e4t. Monat und H\u00f6henlage kennt die App auch ohne Empfang.</div>'
+          + '</div>';
       }
       return;
     }
@@ -30114,6 +30157,208 @@ window._gsPasstHoehe = _gsPasstHoehe;
 window._gsFarbWorte = _gsFarbWorte;
 window._gsHoehenband = _gsHoehenband;
 window.gsScanVorauswahl = gsScanVorauswahl;
+
+
+// ══ v32.20 · OHNE NETZ EINGRENZEN ════════════════════════════════════════
+//
+// Der Fall, für den diese App gebaut ist: jemand steht im Wald vor einer
+// Pflanze. Kein Empfang. Der Scanner braucht die KI und sagt deshalb „📡
+// Offline" — und das war bis hierher das Ende.
+//
+// Dabei liegt alles Nötige längst auf dem Gerät:
+//   • seit v32.13 wirklich alle 4'342 Arten (vorher waren es offline NULL),
+//   • seit v32.12 drei rechnende Prädikate — Monat, Farbe, Höhenlage.
+//
+// Daraus wird ein Bildschirm, der ohne Netz und ohne einen einzigen
+// KI-Aufruf arbeitet. Er nimmt, was das Gerät von selbst weiss (Monat,
+// Höhe aus dem Standort), fragt nach dem, was man sieht (Farbe, Gruppe),
+// und zeigt, was übrig bleibt.
+//
+// ── Die zwei Regeln, an denen hier alles hängt ──────────────────────────
+//
+// 1. **Es ist KEINE Bestimmung, und es sagt das auch.** In einer App, die
+//    Giftiges von Essbarem trennt, wäre eine Liste, die wie ein Ergebnis
+//    aussieht, fahrlässig. Sie heisst deshalb „kommt in Frage", steht unter
+//    einem ausdrücklichen Hinweis, und jede Zeile trägt ihre
+//    Sicherheitsstufe mit.
+//
+// 2. **Ausgeschlossen wird nur, was sich begründen lässt** — dieselbe Regel
+//    wie bei der Scan-Vorauswahl. Eine Art ohne Höhenangabe fällt nicht
+//    heraus, wenn die Höhe bekannt ist; sie ist nur nicht dadurch bestätigt.
+//    Und der Kopf sagt, worauf eingegrenzt wurde UND was nicht genutzt
+//    werden konnte. Eine Zahl ohne ihre Grundlage ist eine Behauptung.
+//
+// Die Höhenlage ist dabei der Teil, den es vorher NIRGENDS in der App gab:
+// 877 Arten tragen ein Verbreitungsband, und bis heute hat es niemand
+// gelesen ausser der Scan-Prüfung.
+
+var GS_EG_GRUPPEN = [
+  ['', 'Alle'], ['wildpflanze', 'Wildpflanzen'], ['pilz', 'Pilze'], ['baum', 'Bäume'],
+  ['kraut', 'Kräuter'], ['moos', 'Moose'], ['flechte', 'Flechten'], ['alge', 'Algen'],
+];
+// Nur Farben, die im Bestand wirklich vorkommen — eine Auswahl, die zu
+// nichts führt, ist Zierde.
+var GS_EG_FARBEN = ['Weiss', 'Gelb', 'Rot', 'Rosa', 'Violett', 'Blau', 'Orange', 'Braun', 'Grün'];
+
+function _gsEgStand() {
+  var s = { monat: null, hoehe: null, farbe: '', gruppe: '' };
+  try {
+    var g = JSON.parse(localStorage.getItem('gs_eingrenzen') || '{}');
+    if (g && typeof g === 'object') { s.farbe = g.farbe || ''; s.gruppe = g.gruppe || ''; if (g.monat) s.monat = Number(g.monat); if (g.hoehe != null) s.hoehe = g.hoehe; }
+  } catch (_) {}
+  if (!s.monat) { try { s.monat = new Date().getMonth() + 1; } catch (_) { s.monat = 1; } }
+  if (s.hoehe == null) {
+    // Aus dem gespeicherten Standort — die eine Quelle laut CLAUDE.md §3.3.
+    try {
+      var loc = JSON.parse(localStorage.getItem('gs_user_location') || 'null');
+      if (loc && loc.elevation != null && isFinite(Number(loc.elevation))) s.hoehe = Math.round(Number(loc.elevation));
+    } catch (_) {}
+  }
+  return s;
+}
+
+function _gsEgSpeichern(s) {
+  try { localStorage.setItem('gs_eingrenzen', JSON.stringify(s)); } catch (_) {}
+}
+
+// Die eigentliche Rechnung. Sie benutzt DIESELBEN Prädikate wie die
+// Scan-Vorauswahl — zwei Rechnungen für dieselbe Frage würden auseinander
+// driften (die Lehre aus v32.02 und v32.16).
+function gsEingrenzen(s) {
+  var raus = { treffer: [], gesamt: 0, benutzt: [], ungenutzt: [], raus: { monat: 0, farbe: 0, hoehe: 0, gruppe: 0 } };
+  try {
+    if (typeof DB === 'undefined' || !DB || !DB.length) { raus.ungenutzt.push('die Artenliste ist nicht geladen'); return raus; }
+    raus.gesamt = DB.length;
+    if (s.monat) raus.benutzt.push('Monat'); else raus.ungenutzt.push('kein Monat gewählt');
+    if (s.gruppe) raus.benutzt.push('Gruppe');
+    if (s.farbe) raus.benutzt.push('Farbe');
+    if (s.hoehe != null) raus.benutzt.push('Höhenlage (' + s.hoehe + ' m)');
+    else raus.ungenutzt.push('ohne Standort blieb die Höhenlage aussen vor');
+
+    for (var i = 0; i < DB.length; i++) {
+      var sp = DB[i];
+      if (!sp) continue;
+      if (s.gruppe && sp.cat !== s.gruppe) { raus.raus.gruppe++; continue; }
+      if (s.monat && _gsPasstMonat(sp, s.monat) === false) { raus.raus.monat++; continue; }
+      // Farbe: hier ist die Frage eine ANDERE als beim Scan — dort „passt die
+      // gemessene Bildfarbe zur Art", hier „führt die Art diese Farbe".
+      // Geteilt ist deshalb nur `_gsFarbWorte`, nicht das ganze Prädikat.
+      if (s.farbe) {
+        var w = _gsFarbWorte(sp);
+        if (!w.length || w.indexOf(s.farbe) < 0) { raus.raus.farbe++; continue; }
+      }
+      if (s.hoehe != null && _gsPasstHoehe(sp, s.hoehe) === false) { raus.raus.hoehe++; continue; }
+      raus.treffer.push(sp);
+    }
+    raus.treffer.sort(function (a, b) {
+      var ca = String(a.cat || ''), cb = String(b.cat || '');
+      if (ca !== cb) return ca < cb ? -1 : 1;
+      return String(a.name || '').localeCompare(String(b.name || ''), 'de');
+    });
+  } catch (_) {}
+  return raus;
+}
+window.gsEingrenzen = gsEingrenzen;
+
+var GS_EG_DECKEL = 150;   // mehr als das liest niemand — die Zahl steht trotzdem da
+
+function gsEingrenzenOeffnen() {
+  try {
+    if (typeof gsHaptic === 'function') gsHaptic('light');
+    var mc = document.getElementById('modal-content');
+    if (!mc) return;
+    _gsEgRender();
+    // `#modal-content` ist die innere TAFEL, die Huelle heisst `#detail-modal`.
+    // Der erste Anlauf oeffnete die Tafel und liess die Huelle zu — sichtbar
+    // passierte gar nichts, und die try/catch-Klammer darum haette es auch
+    // noch verschluckt. Gefunden hat es `wiring_check` (Richtung 3), nachdem
+    // ich sein Namensmuster um `…Oeffnen` erweitert hatte.
+    if (typeof openModal === 'function') openModal('detail-modal');
+  } catch (_) {}
+}
+window.gsEingrenzenOeffnen = gsEingrenzenOeffnen;
+
+function gsEgSetzen(feld, wert) {
+  var s = _gsEgStand();
+  if (feld === 'monat') s.monat = Number(wert) || null;
+  else if (feld === 'hoehe') s.hoehe = (wert === '' || wert == null) ? null : Number(wert);
+  else s[feld] = wert || '';
+  _gsEgSpeichern(s);
+  _gsEgRender();
+}
+window.gsEgSetzen = gsEgSetzen;
+
+function _gsEgRender() {
+  var mc = document.getElementById('modal-content');
+  if (!mc) return;
+  var s = _gsEgStand();
+  var e = gsEingrenzen(s);
+  var esc = (typeof gsEscHtml === 'function') ? gsEscHtml : function (x) { return String(x == null ? '' : x); };
+  var MON = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+
+  var kopf =
+    '<div class="gs-eg-hinweis">' +
+      '<b>Das ist keine Bestimmung.</b> Die Liste sagt, was in dieser Jahreszeit und ' +
+      'Höhenlage überhaupt in Frage kommt — nicht, was du vor dir hast. ' +
+      'Bei Pilzen und allem, was gegessen werden soll, gilt weiterhin: im Zweifel stehen lassen.' +
+    '</div>';
+
+  var wahl =
+    '<div class="gs-eg-wahl">' +
+      '<label>Monat<select onchange="gsEgSetzen(\'monat\', this.value)" aria-label="Monat wählen">' +
+        MON.map(function (m, i) { return '<option value="' + (i + 1) + '"' + (s.monat === i + 1 ? ' selected' : '') + '>' + m + '</option>'; }).join('') +
+      '</select></label>' +
+      '<label>Gruppe<select onchange="gsEgSetzen(\'gruppe\', this.value)" aria-label="Gruppe wählen">' +
+        GS_EG_GRUPPEN.map(function (g) { return '<option value="' + g[0] + '"' + (s.gruppe === g[0] ? ' selected' : '') + '>' + g[1] + '</option>'; }).join('') +
+      '</select></label>' +
+      '<label>Farbe<select onchange="gsEgSetzen(\'farbe\', this.value)" aria-label="Farbe wählen">' +
+        '<option value=""' + (s.farbe ? '' : ' selected') + '>Alle</option>' +
+        GS_EG_FARBEN.map(function (f) { return '<option value="' + f + '"' + (s.farbe === f ? ' selected' : '') + '>' + f + '</option>'; }).join('') +
+      '</select></label>' +
+      '<label>Höhe ü. M.<input type="number" inputmode="numeric" placeholder="unbekannt" value="' +
+        (s.hoehe == null ? '' : s.hoehe) + '" onchange="gsEgSetzen(\'hoehe\', this.value)" aria-label="Höhe über Meer in Metern"></label>' +
+    '</div>';
+
+  // Die Zahl NIE ohne ihre Grundlage — und ohne das, was fehlte.
+  var grund =
+    '<div class="gs-eg-zahl"><b>' + gsTsd(e.treffer.length) + '</b> von ' + gsTsd(e.gesamt) + ' Arten</div>' +
+    '<div class="gs-eg-grund">' +
+      (e.benutzt.length ? 'Eingegrenzt nach ' + esc(e.benutzt.join(', ')) + '.' : 'Nichts eingegrenzt.') +
+      (e.ungenutzt.length ? ' <span class="gs-eg-fehlt">Nicht genutzt: ' + esc(e.ungenutzt.join('; ')) + ' — dafür wurde nichts ausgeschlossen.</span>' : '') +
+    '</div>';
+
+  var liste;
+  if (!e.treffer.length) {
+    liste = '<div class="gs-eg-leer">Nichts übrig. Nimm eine Angabe zurück — meist ist es die Farbe: ' +
+            'nur etwa jede fünfte Art hat überhaupt eine hinterlegt.</div>';
+  } else {
+    var zeigen = e.treffer.slice(0, GS_EG_DECKEL);
+    liste = '<div class="gs-eg-liste">' + zeigen.map(function (sp) {
+      var t = (typeof toxInfo === 'function') ? toxInfo(sp.tox || 0) : null;
+      var em = (typeof getEmoji === 'function') ? getEmoji(sp) : (sp.emoji || '🌿');
+      return '<button class="gs-eg-zeile" onclick="openDetail(\'' + esc(String(sp.id || '')) + '\')">' +
+               '<span class="gs-eg-emoji" aria-hidden="true">' + esc(em) + '</span>' +
+               '<span class="gs-eg-txt"><b>' + esc(sp.name || '') + '</b>' +
+                 '<i>' + esc(sp.lat || '') + '</i></span>' +
+               // TOX heisst `sym`/`color`/`bg` — nicht `icon`/`fg`. Beim ersten
+               // Anlauf stand hier das Falsche; `data_check` haette es
+               // gefunden, aber es beim Schreiben nachzusehen ist billiger.
+               (t ? '<span class="gs-eg-tox" style="background:' + esc(t.bg || '#eee') + ';color:' + esc(t.color || '#222') + ';">' +
+                     esc(t.sym || '') + ' ' + esc(t.label || '') + '</span>' : '') +
+             '</button>';
+    }).join('') + '</div>' +
+    (e.treffer.length > GS_EG_DECKEL
+      ? '<div class="gs-eg-mehr">… und ' + gsTsd(e.treffer.length - GS_EG_DECKEL) + ' weitere. Grenze weiter ein.</div>'
+      : '');
+  }
+
+  mc.innerHTML = '<div style="padding:16px;">' +
+    '<div class="gs-eg-kopf">🧭 Ohne Netz eingrenzen</div>' +
+    '<div class="gs-eg-unter">Was in dieser Jahreszeit und Höhenlage überhaupt in Frage kommt — ' +
+      'gerechnet auf dem Gerät, ohne Internet und ohne KI.</div>' +
+    kopf + wahl + grund + liste +
+  '</div>';
+}
 // Schweizer Tausendertrennung — 4'342 liest sich als eine Zahl, 4342 nicht.
 function gsTsd(n) { try { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '\u2019'); } catch (_) { return String(n); } }
 window.gsTsd = gsTsd;
@@ -51256,6 +51501,7 @@ const MENU_ITEMS = [
   {label:'🩺 Pflanzendoktor', sub:'Diagnose aus Foto und Fragebogen', action:"openDoctorModal()", tags:['doktor','arzt','diagnose','krank','krankheit','schädling','schaedling','blatt','blätter','blaetter','flecken','welk','gelb','pflanzendoktor','hilfe','symptom']},
   {label:'🏆 Achievements', sub:'Meilensteine & Garten-Score', action:"openAchievementsModal()", tags:['achievement','achievements','erfolge','meilenstein','score','abzeichen','trophäe','trophae','fortschritt']},
   {label:'📖 Garten-Bibliothek', sub:'10 Grundlagen-Artikel', action:"gsOpenGardenLibrary()", tags:['bibliothek','artikel','grundlagen','lesen','wissen','garten','ratgeber']},
+  {label:'🧭 Ohne Netz eingrenzen', sub:'Was hier und jetzt in Frage kommt — ohne Internet', action:"gsEingrenzenOeffnen()", tags:['offline','ohne netz','eingrenzen','wald','empfang','monat','höhe','hoehe','farbe','saison','bestimmen','filter','kein internet']},
   {label:'📊 Garten-Insights', sub:'Score + Risiken', action:"gsInsightsOpen()", tags:['insights','statistik','score','risiko','auswertung','analyse','garten']},
   {label:'🥕 Erntekalender', sub:'Jahres-Statistik deiner Ernten', action:"openHarvestStatsModal()", tags:['ernte','erntekalender','statistik','kilo','jahr','bilanz']},
   {label:'📔 Tagebuch-Eintrag', sub:'11 Typen + Saison-Statistik', action:"openDiaryEntryModal()", tags:['tagebuch','eintrag','notiz','journal','saison','protokoll']},
@@ -71044,6 +71290,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.20', date: '02.09.2026',
+    headline: '\ud83e\udded Im Wald ohne Empfang endet der Scanner nicht mehr im Nichts',
+    summary: 'Bisher hiess es dort nur „\ud83d\udce1 Offline". Jetzt kannst du eingrenzen: Monat und H\u00f6henlage kennt die App auch ohne Netz, Farbe und Gruppe w\u00e4hlst du \u2014 und sie zeigt, welche der 4\u2019342 Arten hier und jetzt \u00fcberhaupt in Frage kommen. Ohne Internet, ohne KI, in Millisekunden.',
+    user_summary: '\ud83e\udded Ohne Empfang zeigt dir die App jetzt, welche Arten in dieser Jahreszeit und H\u00f6henlage in Frage kommen \u2014 statt nur „offline" zu melden.',
+    user_items: [
+      {emoji:'\ud83e\udded', bold:'Was neu ist:', text:' Ein Bildschirm, der ganz auf dem Ger\u00e4t rechnet. Monat und H\u00f6he wei\u00df die App selbst, Farbe und Gruppe w\u00e4hlst du. Im Januar bleiben von 4\u2019342 Arten 2\u2019087 \u00fcbrig, mit Gelb noch 199.'},
+      {emoji:'\u26f0\ufe0f', bold:'Die H\u00f6henlage wird endlich benutzt:', text:' 877 Arten tragen ein Verbreitungsband \u2014 bis heute hat das nichts in der App gelesen. Wer auf 1\u2019850 m steht, sieht jetzt nur, was dort auch w\u00e4chst.'},
+      {emoji:'\u26a0\ufe0f', bold:'Und ganz wichtig:', text:' Das ist KEINE Bestimmung, und der Bildschirm sagt das auch. Er zeigt, was in Frage kommt \u2014 nicht, was du vor dir hast. Jede Zeile tr\u00e4gt ihre Giftigkeitsstufe mit.'},
+      {emoji:'\ud83d\udcdd', bold:'Ehrlich \u00fcber sich selbst:', text:' Der Kopf nennt, worauf eingegrenzt wurde UND was nicht genutzt werden konnte. Ohne Standort bleibt die H\u00f6he au\u00dfen vor \u2014 und dann wird deswegen auch nichts ausgeschlossen.'},
+    ],
+  },
+  {
     v: 'v32.19', date: '02.09.2026',
     headline: '\ud83d\udce6 F\u00fcnf Server-Funktionen hatten keinen Quelltext im Repo',
     summary: 'Sie liefen, wurden benutzt \u2014 und niemand konnte nachlesen, was sie tun. Nachgezogen. Dabei zwei Befunde: eine ungenutzte Funktion, die E-Mails im Namen der App verschickt, und neun fest verdrahtete KI-Modellnamen ohne Rückfall.',
@@ -71440,7 +71698,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.19';
+var GS_VERSION = 'v32.20';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
