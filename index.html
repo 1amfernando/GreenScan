@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.83.20260902">
+<meta name="app-version" content="31.84.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5359,6 +5359,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
    Breite, Werkzeuge darunter. In einer Reihe blieben dem Titel 96 von
    412 px. */
 /* v31.83 — Kennzahlen: vier gerechnete Zahlen als erster Blick. */
+.gs-nc-regen{display:block;margin-top:2px;font-size:var(--fs-xs);font-weight:700;color:var(--c-info-d,var(--g-main));}
 .gs-kz{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;}
 .gs-kz-z{background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:9px 4px;text-align:center;}
 .gs-kz-w{font-size:var(--fs-lg);font-weight:900;color:var(--text);line-height:1.15;}
@@ -25000,6 +25001,79 @@ function gsCollectNotifs(){
 
 // v30.81: Fällige Pflege-Aufgaben aus myPlants — EINE Quelle für Badge,
 // Menü-Panel, Notification-Center und Meine-Pflanzen-Liste.
+
+// ── v31.84 · Der Regen und der Giessplan wussten nichts voneinander ──────
+//
+// Die App holt seit v26.60 stuendliche Niederschlagswerte von Open-Meteo und
+// legt sie in `gs_weather_cache`. Sie fuehrt einen Giessplan mit Intervallen
+// je Pflanze. Beides lief nebeneinander her: nach einem Gewitter stand am
+// naechsten Morgen „💧 Giessen faellig" fuer den Balkon, als waere nichts
+// gewesen.
+//
+// Das ist die Sorte Verdrahtung, die Fernando meint: nichts Neues holen,
+// sondern zusammenbringen, was die App schon weiss.
+//
+// Drei Regeln, damit daraus keine falsche Zusage wird:
+//   1. Gemessen wird, was GEFALLEN ist — die Stunden von Mitternacht bis
+//      jetzt. Eine Vorhersage ist kein Regen.
+//   2. Nur fuer Pflanzen, von denen die App WEISS, dass sie draussen stehen.
+//      Im Zweifel keine Aussage: eine Monstera im Wohnzimmer hat noch nie
+//      jemand giessen muessen, weil es geregnet hat.
+//   3. Die Aufgabe verschwindet NICHT. Sie bekommt einen Vermerk mit der
+//      gemessenen Menge, und der Mensch entscheidet.
+
+// Wie viel Regen ist heute schon gefallen? Aus dem stuendlichen Verlauf des
+// laufenden Tages bis zur aktuellen Stunde. Gibt `null`, wenn keine Daten
+// da sind — nicht 0: „kein Regen" und „keine Angabe" sind verschieden.
+function gsRegenGefallen() {
+  try {
+    var c = JSON.parse(localStorage.getItem('gs_weather_cache') || 'null');
+    var d = c && c.data;
+    if (!d || !d.hourly || !Array.isArray(d.hourly.precipitation) || !Array.isArray(d.hourly.time)) return null;
+    // Der stuendliche Verlauf beginnt um 00:00 des heutigen Tages
+    // (timezone=Europe/Zurich). Gesucht ist der Abschnitt bis JETZT.
+    var jetzt = new Date();
+    var heute = jetzt.getFullYear() + '-' +
+                ('0' + (jetzt.getMonth() + 1)).slice(-2) + '-' +
+                ('0' + jetzt.getDate()).slice(-2);
+    var mm = 0, stunden = 0, gefunden = false;
+    for (var i = 0; i < d.hourly.time.length; i++) {
+      var t = String(d.hourly.time[i] || '');
+      if (t.indexOf(heute) !== 0) { if (gefunden) break; else continue; }
+      gefunden = true;
+      var std = parseInt(t.slice(11, 13), 10);
+      if (!isFinite(std) || std > jetzt.getHours()) break;
+      var v = parseFloat(d.hourly.precipitation[i]);
+      if (isFinite(v) && v > 0) mm += v;
+      stunden++;
+    }
+    if (!gefunden) return null;
+    return { mm: Math.round(mm * 10) / 10, stunden: stunden, alter_min: Math.round((Date.now() - (c.ts || 0)) / 60000) };
+  } catch (_) { return null; }
+}
+window.gsRegenGefallen = gsRegenGefallen;
+
+// Steht diese Pflanze im Freien? true / false / null (= weiss die App nicht).
+// Unter Glas zaehlt NICHT als draussen — im Gewaechshaus regnet es nicht.
+var _GS_DRAUSSEN = ['balkon', 'terrasse', 'garten', 'beet', 'draussen', 'freiland', 'hochbeet', 'hof', 'dachterrasse'];
+var _GS_DRINNEN  = ['zimmer', 'wohn', 'kueche', 'küche', 'fenster', 'bad', 'buero', 'büro', 'schlaf', 'flur', 'indoor',
+                    'gewaechshaus', 'gewächshaus', 'treibhaus', 'wintergarten', 'folientunnel'];
+function gsPflanzeDraussen(p) {
+  try {
+    var s = String((p && (p.location || p.standort || p.place)) || '').toLowerCase();
+    if (!s) return null;
+    for (var i = 0; i < _GS_DRINNEN.length; i++) if (s.indexOf(_GS_DRINNEN[i]) >= 0) return false;
+    for (var j = 0; j < _GS_DRAUSSEN.length; j++) if (s.indexOf(_GS_DRAUSSEN[j]) >= 0) return true;
+    return null;
+  } catch (_) { return null; }
+}
+window.gsPflanzeDraussen = gsPflanzeDraussen;
+
+// Ab wann darf das Giessen warten? 6 mm ist kein willkuerlicher Wert: das
+// entspricht rund 6 Litern je Quadratmeter und durchfeuchtet die oberen
+// Zentimeter zuverlaessig. Darunter wird nichts behauptet.
+var GS_REGEN_REICHT_MM = 6;
+
 function gsGetDueTasks(){
   var out = [];
   try {
@@ -25011,7 +25085,15 @@ function gsGetDueTasks(){
         var t = p.tasks[k];
         if (!t || !t.active || !TASK_DEFS[k]) return;
         var d = getDaysUntilDue(t.lastDone, t.intervalDays);
-        if (d <= 2) out.push({ plant:p, key:k, days:d, def:TASK_DEFS[k] });
+        if (d > 2) return;
+        var eintrag = { plant:p, key:k, days:d, def:TASK_DEFS[k] };
+        // v31.84: Giessen und Regen zusammenbringen. Nur beim Giessen, nur
+        // draussen, nur mit gemessenem Wert — und die Aufgabe bleibt stehen.
+        if (k === 'water' && gsPflanzeDraussen(p) === true) {
+          var r = gsRegenGefallen();
+          if (r && r.mm >= GS_REGEN_REICHT_MM) eintrag.regen = r;
+        }
+        out.push(eintrag);
       });
     });
     out.sort(function(a,b){ return a.days - b.days; });
@@ -25110,7 +25192,11 @@ window.gsRenderDayPlan = function(){
         '<div class="gs-dp-ico" aria-hidden="true">' + ico(_GS_DP_ICON[t.key] || 'leaf') + '</div>' +
         '<div class="gs-dp-body">' +
           '<div class="gs-dp-title">' + title + '</div>' +
-          '<div class="gs-dp-sub">' + _gsDayPlanWhen(t.days) + '</div>' +
+          '<div class="gs-dp-sub">' + _gsDayPlanWhen(t.days) +
+            // v31.84: Auch hier — „Nächste Schritte" ist die Stelle, an der
+            // die meisten Menschen ihre Aufgaben sehen. Ein Hinweis nur im
+            // Benachrichtigungs-Fenster waere die halbe Verdrahtung.
+            (t.regen ? ' \u00b7 \ud83c\udf27\ufe0f ' + t.regen.mm + ' mm Regen heute' : '') + '</div>' +
         '</div>' +
         '<button type="button" class="gs-dp-box" onclick="' + call + '"' +
           ' aria-label="' + title + ' erledigt"></button>' +
@@ -25477,7 +25563,11 @@ function gsNcRender(){
           '<button type="button" class="gs-nc-check" aria-label="Erledigt" onclick="gsNcDoneTask(this,\'' + esc(t.plant.id) + '\',\'' + esc(t.key) + '\')">✓</button>' +
           '<div class="gs-nc-task-body" onclick="gsNcDoneTask(this.parentElement.querySelector(\'.gs-nc-check\'),\'' + esc(t.plant.id) + '\',\'' + esc(t.key) + '\')">' +
             '<div class="gs-nc-task-name">' + (t.plant.emoji||'🌿') + ' ' + esc(t.plant.name) + '</div>' +
-            '<div class="gs-nc-task-sub">' + (t.def.icon||'') + ' ' + esc(t.def.name||t.key) + ' · ' + when + '</div>' +
+            '<div class="gs-nc-task-sub">' + (t.def.icon||'') + ' ' + esc(t.def.name||t.key) + ' · ' + when +
+              // v31.84: Wenn es geregnet hat, steht die gemessene Menge hier.
+              // Die Aufgabe bleibt — entschieden wird nicht fuer den Menschen.
+              (t.regen ? '<span class="gs-nc-regen">\ud83c\udf27\ufe0f ' + t.regen.mm +
+                ' mm Regen heute \u2014 kann warten</span>' : '') + '</div>' +
           '</div>' +
           '<button type="button" class="gs-nc-ghost" title="1 Tag verschieben" onclick="event.stopPropagation();gsSnoozeTask(\'' + esc(t.plant.id) + '\',\'' + esc(t.key) + '\',1);setTimeout(gsNcRender,400);">⏰</button>' +
         '</div>';
@@ -67836,6 +67926,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.84', date: '02.09.2026',
+    headline: '\ud83c\udf27\ufe0f Nach dem Regen sagt die App, dass Giessen warten kann',
+    summary: 'Die App holt seit Langem st\u00fcndliche Niederschlagswerte und f\u00fchrt einen Giessplan. Beides lief nebeneinander her: nach einem Gewitter stand am n\u00e4chsten Morgen „Giessen f\u00e4llig" f\u00fcr den Balkon, als w\u00e4re nichts gewesen.',
+    user_summary: '\ud83c\udf27\ufe0f Hat es geregnet, steht das jetzt bei der Giess-Aufgabe \u2014 mit der gemessenen Menge.',
+    user_items: [
+      {emoji:'\ud83c\udf27\ufe0f', bold:'Regen und Giessplan wussten nichts voneinander:', text:' Jetzt steht bei einer f\u00e4lligen Giess-Aufgabe, wie viel heute schon gefallen ist \u2014 in „N\u00e4chste Schritte" und im Benachrichtigungs-Fenster. Nichts Neues geholt, nur zusammengebracht, was die App l\u00e4ngst wei\u00df.'},
+      {emoji:'\ud83d\udccf', bold:'Drei Regeln, damit daraus keine falsche Zusage wird:', text:' Gemessen wird, was GEFALLEN ist (die Stunden von Mitternacht bis jetzt) \u2014 eine Vorhersage ist kein Regen. Nur f\u00fcr Pflanzen, von denen die App wei\u00df, dass sie drau\u00dfen stehen \u2014 im Gew\u00e4chshaus und im Wohnzimmer regnet es nicht. Und die Aufgabe verschwindet NICHT: sie bekommt einen Vermerk, du entscheidest.'},
+      {emoji:'\ud83e\udd14', bold:'Und wenn die App es nicht wei\u00df:', text:' sagt sie nichts. Eine Pflanze ohne Standort-Angabe bekommt keinen Hinweis \u2014 lieber keine Aussage als eine erfundene.'},
+    ],
+  },
+  {
     v: 'v31.83', date: '02.09.2026',
     headline: '\ud83d\udcca Vier Zahlen zuerst \u2014 und der Planer-Kopf passt endlich auf den Bildschirm',
     summary: 'Das Plan-Ergebnis beginnt jetzt mit Fl\u00e4che, Artenzahl, gepr\u00fcfter Ernte und Arbeitsspitze \u2014 alle vier gerechnet, keine aus der KI-Antwort. Und der \u00fcberladene Kopfbereich steht auf zwei Zeilen statt einer.',
@@ -68258,7 +68359,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.83';
+var GS_VERSION = 'v31.84';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

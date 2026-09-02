@@ -4,13 +4,51 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.83` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.84` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (bv) — v31.84: Regen und Giessplan wussten nichts voneinander
+
+Fernando: *„Checke ab was vernetzt/verdrahtet werden kann und die App noch intelligenter zu machen. Sie soll selbstständig intelligent sein."*
+
+Das hier ist genau diese Sorte Arbeit: **nichts Neues holen, sondern zusammenbringen, was die App schon weiss.**
+
+Seit v26.60 holt sie stündliche Niederschlagswerte von Open-Meteo (`gs_weather_cache`). Seit je führt sie einen Giessplan mit Intervallen je Pflanze. Die beiden liefen nebeneinander her — nach einem Gewitter stand am nächsten Morgen „💧 Giessen fällig" für den Balkon, als wäre nichts gewesen.
+
+#### Drei Regeln, damit daraus keine falsche Zusage wird
+
+1. **Gemessen wird, was GEFALLEN ist** — die Stunden von Mitternacht bis jetzt aus dem stündlichen Verlauf. Eine Vorhersage ist kein Regen. (Im Testlauf standen für morgen 99 mm im Datensatz; sie werden korrekt nicht mitgezählt.)
+2. **Nur für Pflanzen, von denen die App weiss, dass sie draussen stehen.** Balkon, Terrasse, Beet, Hochbeet → ja. Wohnzimmer, Küchenfenster, **Gewächshaus**, Wintergarten → nein: dort regnet es nicht. Ohne Standort-Angabe → **keine Aussage**.
+3. **Die Aufgabe verschwindet nicht.** Sie bekommt einen Vermerk mit der gemessenen Menge — entschieden wird nicht für den Menschen.
+
+#### Nachgestellt
+
+| Pflanze | Standort | Hinweis |
+|---|---|---|
+| Tomate | Balkon | **🌧️ 20.6 mm Regen heute — kann warten** |
+| Gurke | Gewächshaus | keiner |
+| Monstera | Wohnzimmer | keiner |
+
+Ohne Regen: kein Hinweis. Ohne Wetterdaten: `null`, nicht `0` — „kein Regen" und „keine Angabe" sind verschiedene Aussagen.
+
+#### An beiden Stellen, nicht an einer
+
+Der Hinweis steht in **„Nächste Schritte"** auf der Startseite *und* im Benachrichtigungs-Fenster. Beide lesen dieselbe Quelle (`gsGetDueTasks`), also reichte eine Ergänzung an der Quelle — ein Hinweis nur im Fenster wäre die halbe Verdrahtung gewesen.
+
+#### Die Schwelle
+
+6 mm, und das ist kein willkürlicher Wert: rund 6 Liter je Quadratmeter durchfeuchten die oberen Zentimeter zuverlässig. Darunter wird nichts behauptet.
+
+#### Prüfstände
+
+`render_check` 2865 · 0 JS-Fehler · 0 verdächtig · `contrast_check` 0/0 · `touch_check` 0 · `wiring_check` 0/0/0 + 31 Ziele.
+
+---
 
 ### 2026-09-02 (bu) — v31.83: vier Zahlen zuerst · der Planer-Kopf passt wieder
 
