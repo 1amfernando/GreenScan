@@ -4,13 +4,44 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.01` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.02` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (cn) — v32.02: eine Karte, die sich nicht selbst widerspricht
+
+Beim Nachsehen, ob die Scan-Karte auf den vollen Arten-Eintrag verlinkt (sie
+tut es, seit v30.26), fielen zwei Dinge auf — beide durch meine eigene Arbeit
+von heute entstanden:
+
+1. **Zwei Matcher für dieselbe Frage.** Die Karte nutzt `gsMatchScanToDb`
+   (Synonyme, Normalisierung, Namenssegmente, lateinischer Name). Mein
+   Prüfwerk brachte einen zweiten, einfacheren mit. Zwei Antworten auf
+   dieselbe Frage driften auseinander: die Karte konnte „📖 Vollständiger
+   Eintrag" anbieten, während die Prüfung darüber „steht in keiner unserer
+   4'342 Arten" meldete. Ein Widerspruch auf einem Bildschirm.
+
+   `_gsScanArtFinden` nutzt jetzt `gsMatchScanToDb`, mit Rückfall auf den
+   exakten lateinischen Namen. **Was bleibt, ist die strengere Regel:** ein
+   ungeprüft eingelesener Eintrag (`_unverified`) taugt zur Verlinkung, aber
+   nicht als **Beleg** — er ist selbst ungeprüft.
+
+2. **Das Foto stand zweimal auf der Karte.** Im Kopf (seit v30.26) und noch
+   einmal in meiner Merkmals-Karte von v31.99. Die Doppelung ist raus; die
+   Merkmale bleiben.
+
+#### Prüfstände
+
+`scan_check` **21/21**, zwei Fälle mehr — und beide halten genau das fest, was
+gerade schiefging: die Prüfung darf nie eine Art kennen, die die Karte nicht
+kennt (vier Proben), und das Scan-Foto muss genau **einmal** vorkommen. Alle
+übrigen grün.
+
+---
 
 ### 2026-09-02 (cm) — v32.01: ein Vorbehalt ohne Ausweg ist nur ein Vorwurf
 
