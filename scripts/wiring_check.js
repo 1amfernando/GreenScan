@@ -184,6 +184,39 @@ const IGNORIEREN = new Set([
       (x.fehltId.length ? '   Element fehlt: #' + x.fehltId.join(' #') : '')));
   }
 
+  // ── Dritte Liste: wohin fuehren Benachrichtigungen? ───────────────────
+  //
+  // Wie MENU_ITEMS eine Datenstruktur, die kein Blick aufs Dokument findet:
+  // GS_NOTIF_ZIELE bildet die Art einer Mitteilung auf eine Zielfunktion
+  // oder einen Tab ab. Bis v31.81 deckte der Router sieben Arten ab; alles
+  // andere ohne Link landete bei `closeMainMenu();` — ein Tipp, der nur das
+  // Fenster schloss. Genau das hat Fernando gemeldet.
+  //
+  // Hier wird jede eingetragene Art durchgefahren: loest die Zielfunktion
+  // auf? Gibt es den Tab? Eine Zeile, die ins Leere zeigt, ist ein Fund.
+  const notif = await page.evaluate(() => {
+    if (typeof GS_NOTIF_ZIELE !== 'object' || !GS_NOTIF_ZIELE) return null;
+    const tabs = ['home','garden','wissen','favs','search','social','market','recipes','remedies','map','scanner'];
+    const kaputt = [];
+    Object.keys(GS_NOTIF_ZIELE).forEach(k => {
+      const z = GS_NOTIF_ZIELE[k];
+      const a = (typeof _gsNotifZiel === 'function') ? _gsNotifZiel(k) : null;
+      if (!a) { kaputt.push({ kind: k, grund: 'kein Ziel' }); return; }
+      if (z.fn && typeof window[z.fn] !== 'function') kaputt.push({ kind: k, grund: 'Funktion fehlt: ' + z.fn });
+      if (z.tab && tabs.indexOf(z.tab) < 0)          kaputt.push({ kind: k, grund: 'Tab gibt es nicht: ' + z.tab });
+    });
+    return { gesamt: Object.keys(GS_NOTIF_ZIELE).length, kaputt };
+  });
+
+  if (notif) {
+    console.log('  ---');
+    console.log('  Benachrichtigungs-Ziele:', notif.gesamt, '· davon kaputt:', notif.kaputt.length);
+    notif.kaputt.forEach(x => console.log('    ' + x.kind + '   ' + x.grund));
+  } else {
+    console.log('  ---');
+    console.log('  Benachrichtigungs-Ziele: GS_NOTIF_ZIELE nicht gefunden (Pruefung uebersprungen)');
+  }
+
   // ── Zweite Richtung: Nachschlagungen ins Leere ────────────────────────
   //
   // Der teurere Fehler geht andersherum. Ein Knopf, dessen Funktion fehlt,

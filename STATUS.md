@@ -4,13 +4,57 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.80` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v31.81` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (bs) — v31.81: Galerie neben dem Auslöser · Mitteilungen führen an ihren Ort
+
+Erste zwei Punkte aus Fernandos neuer Liste.
+
+#### 1 · „Kamera öffnen oder Bilder von der Galerie aufladen"
+
+Der zweite Weg in den Scanner gab es — als kleines Symbol zwischen fünf gleich aussehenden in der oberen Leiste. Ein Kommentar von v23.74 erklärt, warum er unten entfernt wurde: *„Doppel-Button — Top-Bar hat schon Hochladen"*. Die Begründung stimmte, die Folge nicht: wer keine Kamera benutzen will oder kann, findet ihn dort nicht.
+
+Jetzt steht er **unten, beschriftet, neben dem Auslöser** — und oben ist er weg. Ein Umzug, kein Doppel. Dazu tragen alle Nebenknöpfe ein Wort: **🖼️ Galerie · ➕📷 Sammeln · ⬤ · 🔄 Wechseln**. Ein blosses Emoji sagt nicht, was es tut.
+
+Nachgemessen mit einer Fake-Kamera im Prüfstand (`--use-fake-device-for-media-stream`): vier Knöpfe, 60 px breit, kein Überlauf (398 von 412 px), `touch_check` 0. Weisse Beschriftung auf `rgba(0,0,0,.78)` über beliebigem Video: **im schlechtesten Fall 11,7:1** (nachgerechnet, weil kein Prüfstand über Video messen kann).
+
+#### 2 · „Beim Anwählen einer Benachrichtigung soll es mich direkt auf die entsprechende Seite weiterleiten"
+
+Der Wegweiser stand eingebettet in `gsCollectNotifs` und kannte **sieben** Arten. Alles andere ohne `link`:
+
+```js
+} else {
+  action = "closeMainMenu();";     // ein Tipp, der nur das Fenster schliesst
+}
+```
+
+Jetzt eine Tabelle an einer Stelle — `GS_NOTIF_ZIELE`, **31 Arten**: Ernte, Wetter, Frost und Sensor-Alarm in den Garten · Likes, Kommentare, Follows in die Community · Nachrichten in den Marktplatz-Posteingang · Abo-Hinweise ins Abo · Erfolge ins Erfolge-Fenster · Scans in den Verlauf.
+
+**Und wenn wirklich keine Zuordnung besteht**, sagt die App das (mit der Art im Text) statt still zu schliessen. Ein Fehler, der sich meldet, wird behoben; einer, der schweigt, bleibt.
+
+#### 3 · Der Prüfstand, der das absichert
+
+`wiring_check` hat eine dritte Liste bekommen. Sie fährt jede der 31 Arten durch den Router und prüft, ob die Zielfunktion existiert und der Tab bekannt ist — dieselbe Bauart wie die `MENU_ITEMS`-Prüfung, weil beides **reine Datenstrukturen** sind, die kein Blick aufs Dokument findet.
+
+**Beim ersten Lauf meldete er drei Zeilen — meine eigenen.** Ich hatte `openSubscriptionModal` eingetragen; die Funktion heisst `gsShowAboScreen`. Ohne den Prüfstand wären drei Abo-Mitteilungen still ins Leere gelaufen, und zwar genau die, mit denen Geld zusammenhängt.
+
+Ende-zu-Ende nachgestellt: 15 Arten durch `gsCollectNotifs` geschickt, **0 ohne Ziel**, ein `#garden`-Link weiterhin korrekt geroutet, eine erfundene Art meldet sich ehrlich.
+
+#### Prüfstände
+
+`render_check` 2865 · 0 JS-Fehler · 0 verdächtig · `contrast_check` 0/0 (11 Bildschirme + 2 Fenster) · `touch_check` 0 · `wiring_check` 0/0/0 + **31 Benachrichtigungs-Ziele, 0 kaputt** · `field_check` 4/303 · `data_check` 0.
+
+#### Als Nächstes aus Fernandos Liste
+
+KI-Planer optisch und funktionell · Gewächshäuser aus „Mein Garten" im Planer · Verdrahtungs- und Speicher-Durchgang.
+
+---
 
 ### 2026-09-02 (br) — v31.80: neuer Prüfstand `data_check.js` — gibt es überhaupt, was der Code liest?
 

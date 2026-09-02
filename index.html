@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="31.80.20260902">
+<meta name="app-version" content="31.81.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -838,16 +838,19 @@ body.gs-scanner-active #screen-scanner { bottom: 0 !important; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 14px 22px max(28px, calc(env(safe-area-inset-bottom, 0px) + 14px));
+  gap: 8px;
+  padding: 14px 14px max(28px, calc(env(safe-area-inset-bottom, 0px) + 14px));
   background: linear-gradient(to top, rgba(0,0,0,.78) 0%, rgba(0,0,0,.45) 70%, transparent 100%);
   z-index: 50;
   pointer-events: auto;
 }
 .scan-sidebtn {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
+  width: 60px;
+  min-height: 52px;
+  border-radius: var(--r-md);
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 2px;
   background: rgba(255, 255, 255, 0.1);
   border: 1.5px solid rgba(255, 255, 255, 0.15);
   cursor: pointer;
@@ -858,6 +861,14 @@ body.gs-scanner-active #screen-scanner { bottom: 0 !important; }
   -webkit-tap-highlight-color: transparent;
   transition: all var(--dur-fast);
   color: #fff;
+}
+.scan-sidebtn-lbl {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .2px;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,.9);
+  line-height: 1.1;
 }
 .scan-sidebtn:active {
   transform: scale(0.92);
@@ -2971,9 +2982,6 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
         <button class="sr-topbtn" onclick="if(typeof stopCamera==='function')stopCamera();switchTab('home',document.getElementById('tab-home'));" aria-label="Zurück zur Startseite" style="padding:8px 12px;" title="Home">
           <span class="sr-ico">🏠</span>
         </button>
-        <button class="sr-topbtn" onclick="uploadImage()" aria-label="Foto aus Galerie hochladen">
-          <span class="sr-ico">🖼️</span><span data-i18n="btn_upload" data-i18n-fallback="Hochladen">Hochladen</span>
-        </button>
         <button class="sr-topbtn" onclick="gsShowScanTips()" aria-label="Tipps zum Scannen" style="padding:8px 12px;" title="Tipps">
           <span class="sr-ico">💡</span>
         </button>
@@ -3038,22 +3046,38 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
     <!-- Multi-Shot-Leiste · v23.84: position fixed über Control-Bar, klar sichtbar -->
     <div id="gs-multishot-bar" style="display:none;position:absolute;left:0;right:0;bottom:106px;align-items:center;gap:10px;padding:10px 14px;background:rgba(0,0,0,.78);backdrop-filter:blur(var(--blur-lg));-webkit-backdrop-filter:blur(var(--blur-lg));min-height:84px;z-index:38;flex-wrap:wrap;justify-content:flex-start;border-top:1px solid rgba(255,255,255,.1);"></div>
 
-    <!-- Control-Bar · v23.74: Galerie-Button entfernt (Doppel-Button — Top-Bar hat schon "Hochladen") -->
+    <!-- Control-Bar
+         v23.74 hatte den Galerie-Knopf hier entfernt: „Doppel-Button — Top-Bar
+         hat schon Hochladen". Die Begründung stimmte, die Folge nicht. In der
+         oberen Leiste steht er zwischen fünf gleich aussehenden Symbolen und
+         wird schlicht übersehen — wer keine Kamera benutzen will oder kann,
+         findet den zweiten Weg nicht.
+         v31.81: Er steht jetzt dort, wo man ihn sucht — neben dem Auslöser —
+         und OBEN ist er dafür weg. Kein Doppel, sondern ein Umzug. Und alle
+         Nebenknöpfe tragen ein Wort: ein blosses Emoji sagt nicht, was es tut. -->
     <div class="scan-ctrls">
 
-      <!-- Multi-Shot manuell sammeln (links) -->
-      <button onclick="gsCaptureMultiShot()" class="scan-sidebtn" aria-label="Foto manuell sammeln" title="Manuell Foto sammeln (z.B. für Blatt/Frucht/Stamm separat)">
-        <div style="font-size:var(--fs-2xl);">➕📷</div>
+      <!-- Galerie (links) -->
+      <button onclick="uploadImage()" class="scan-sidebtn" aria-label="Foto aus der Galerie wählen" title="Foto aus der Galerie">
+        <div style="font-size:var(--fs-xl);line-height:1;">🖼️</div>
+        <div class="scan-sidebtn-lbl">Galerie</div>
+      </button>
+
+      <!-- Multi-Shot manuell sammeln -->
+      <button onclick="gsCaptureMultiShot()" class="scan-sidebtn" aria-label="Weiteres Foto derselben Art sammeln" title="Mehrere Aufnahmen derselben Art sammeln (Blatt, Frucht, Stamm)">
+        <div style="font-size:var(--fs-xl);line-height:1;">➕📷</div>
+        <div class="scan-sidebtn-lbl">Sammeln</div>
       </button>
 
       <!-- Shutter (mitte, gross) · v23.74: Burst-Mode (3 Bilder automatisch) -->
-      <button id="shutter-btn" onclick="shutterAndScan()" class="scan-shutter" aria-label="Foto aufnehmen — 3 Aufnahmen für höchste Genauigkeit">
+      <button id="shutter-btn" onclick="shutterAndScan()" class="scan-shutter" aria-label="Foto aufnehmen und bestimmen">
         <div class="scan-shutter-inner"></div>
       </button>
 
       <!-- Kamera-Wechsel (rechts) -->
-      <button onclick="if(typeof gsToggleCamera==='function')gsToggleCamera();else showProfileToast('Kamera-Wechsel nicht verfügbar');" class="scan-sidebtn" aria-label="Kamera wechseln" title="Front/Rück-Kamera">
-        <div style="font-size:var(--fs-2xl);">🔄</div>
+      <button onclick="if(typeof gsToggleCamera==='function')gsToggleCamera();else showProfileToast('Kamera-Wechsel nicht verfügbar');" class="scan-sidebtn" aria-label="Zwischen Front- und Rückkamera wechseln" title="Front/Rück-Kamera">
+        <div style="font-size:var(--fs-xl);line-height:1;">🔄</div>
+        <div class="scan-sidebtn-lbl">Wechseln</div>
       </button>
 
     </div>
@@ -24732,6 +24756,64 @@ function gsRelTime(ts){
 }
 
 // Sammelt alle ungelesenen Events aus den verschiedenen Quellen
+// ── v31.81 · Wohin fuehrt eine Mitteilung? ───────────────────────────────
+//
+// Fernando: „beim Anwählen einer Benachrichtigung soll es mich direkt auf die
+// entsprechende Seite weiterleiten." Der Router dafuer stand bis hierher
+// eingebettet in gsCollectNotifs und deckte sieben Arten ab; alles andere
+// ohne `link` landete bei `closeMainMenu();` — ein Tipp ins Leere.
+//
+// Jetzt eine Tabelle an EINER Stelle, von aussen pruefbar. Jede Zeile nennt
+// eine Zielfunktion oder einen Tab; `scripts/wiring_check.js` faehrt alle
+// Arten durch und meldet, was nicht aufloest. Neue Art? Hier eintragen —
+// sonst meldet der Pruefstand sie.
+var GS_NOTIF_ZIELE = {
+  admin:              { fn: 'openAdminPanel' },
+  admin_proposals:    { fn: 'openAdminPanel' },
+  admin_report:       { fn: 'openAdminPanel' },
+  admin_submission:   { fn: 'openAdminPanel' },
+  scan:               { fn: 'openScanHistory' },
+  scan_result:        { fn: 'openScanHistory' },
+  species_proposal:   { fn: 'openScanHistory' },
+  expert_verification:{ fn: 'openScanHistory' },
+  achievement:        { fn: 'openAchievementsModal' },
+  marketplace:        { tab: 'market' },
+  message:            { fn: 'gsOpenConversations' },
+  like:               { tab: 'social' },
+  comment:            { tab: 'social' },
+  follow:             { tab: 'social' },
+  community:          { tab: 'social' },
+  feedback:           { tab: 'social' },
+  quiz:               { tab: 'home' },
+  streak:             { tab: 'home' },
+  level:              { tab: 'home' },
+  weather:            { tab: 'garden' },
+  frost:              { tab: 'garden' },
+  weather_alert:      { tab: 'garden' },
+  sensor_alert:       { tab: 'garden' },
+  harvest:            { tab: 'garden' },
+  garden:             { tab: 'garden' },
+  plant:              { tab: 'favs' },
+  trial_ending:       { fn: 'gsShowAboScreen' },
+  billing:            { fn: 'gsShowAboScreen' },
+  abo:                { fn: 'gsShowAboScreen' },
+  system:             { fn: 'gsOpenNotifCenter' },
+  info:               { fn: 'gsOpenNotifCenter' },
+};
+function _gsNotifZiel(kind) {
+  var z = GS_NOTIF_ZIELE[String(kind || '').toLowerCase()];
+  if (!z) return null;
+  if (z.fn) {
+    // Der typeof-Schutz bleibt: eine Zielfunktion, die es nicht (mehr) gibt,
+    // darf keinen Fehler werfen — sie soll auffallen, nicht abstuerzen.
+    return "closeMainMenu();setTimeout(function(){if(typeof " + z.fn + "==='function')" + z.fn + "();" +
+           "else if(typeof gsToast==='function')gsToast('Ziel nicht verfügbar','warn',3000);},250);";
+  }
+  return "closeMainMenu();setTimeout(function(){if(typeof switchTab==='function')switchTab('" + z.tab + "');},250);";
+}
+window._gsNotifZiel = _gsNotifZiel;
+window.GS_NOTIF_ZIELE = GS_NOTIF_ZIELE;
+
 function gsCollectNotifs(){
   var state = gsGetNotifState();
   var out = [];
@@ -24834,25 +24916,12 @@ function gsCollectNotifs(){
               : n.kind === 'like' ? '❤️'        // v31.09
               : '🔔';
         }
-        // v30.59: kind→Aktion-Router — admin/scan/etc.-Notifs sollen direkt zur passenden Seite führen.
-        // Vorher: admin_proposals/admin_report/system hatten link=NULL → Klick schloss nur das Menü (toter Klick).
-        // Alle Ziel-Funktionen sind verifiziert vorhanden (openAdminPanel/openScanHistory/openAchievementsModal/switchTab).
+        // v31.81: der Router steht jetzt in _gsNotifZiel — EINE Stelle, von
+        // aussen pruefbar (scripts/wiring_check.js faehrt jede bekannte Art
+        // durch). Vorher standen die Regeln hier eingebettet und liessen sich
+        // nur finden, indem man diese Funktion las.
         var _k = n.kind || '';
-        var kindAction = null;
-        if (_k === 'admin_proposals' || _k === 'admin_report' || _k === 'admin_submission' || _k === 'admin') {
-          kindAction = "closeMainMenu();setTimeout(function(){if(typeof openAdminPanel==='function')openAdminPanel();},250);";
-        } else if (_k === 'scan' || _k === 'scan_result' || _k === 'species_proposal') {
-          kindAction = "closeMainMenu();setTimeout(function(){if(typeof openScanHistory==='function')openScanHistory();},250);";
-        } else if (_k === 'achievement') {
-          kindAction = "closeMainMenu();setTimeout(function(){if(typeof openAchievementsModal==='function')openAchievementsModal();},250);";
-        } else if (_k === 'marketplace') {
-          kindAction = "closeMainMenu();setTimeout(function(){if(typeof switchTab==='function')switchTab('market');},250);";
-        } else if (_k === 'like') {
-          // v31.09: Likes auf Beitraege und Kommentare fuehren in die Community.
-          // Der Trigger setzt zusaetzlich einen Link mit #post-<id>; der Tab-Wechsel
-          // reicht als verlaesslicher Anker, falls der Beitrag nicht mehr existiert.
-          kindAction = "closeMainMenu();setTimeout(function(){if(typeof switchTab==='function')switchTab('social');},250);";
-        }
+        var kindAction = _gsNotifZiel(_k);
         // v24.26: link → Deep-Link-Routing
         var link = n.link || n.action_url || '';
         var action;
@@ -24873,7 +24942,17 @@ function gsCollectNotifs(){
         } else if (link) {
           action = "closeMainMenu();setTimeout(function(){location.href='" + link.replace(/'/g,'') + "';},250);";
         } else {
-          action = "closeMainMenu();";
+          // v31.81: Hier stand `closeMainMenu();` — ein Tipp, der nichts tat
+          // ausser das Fenster zu schliessen. Fernando: „beim Anwählen einer
+          // Benachrichtigung soll es mich direkt auf die entsprechende Seite
+          // weiterleiten."
+          //
+          // Jetzt sagt die App, wenn sie kein Ziel kennt, statt so zu tun,
+          // als waere nichts gewesen. Das Fenster bleibt offen — irgendwohin
+          // zu springen waere schlechter als hierzubleiben — und die Meldung
+          // nennt die Art, damit der naechste Fund nicht wieder still ist.
+          action = "gsToast&&gsToast('Für diese Mitteilung (" + String(_k || 'unbekannt').replace(/[^a-z_]/gi,'') + ") ist noch kein Ziel hinterlegt.','info',4000);";
+          try { console.warn('[gsCollectNotifs] kein Ziel fuer kind=' + _k); } catch(_e){}
         }
         out.push({
           type:'server', id:'srv_' + n.id, ts: ts,
@@ -67635,6 +67714,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v31.81', date: '02.09.2026',
+    headline: '\ud83d\uddbc\ufe0f Galerie neben dem Ausl\u00f6ser \u2014 und Mitteilungen f\u00fchren endlich irgendwohin',
+    summary: 'Der Weg „Foto aus der Galerie" stand als kleines Symbol zwischen f\u00fcnf anderen in der oberen Leiste. Er steht jetzt beschriftet neben dem Ausl\u00f6ser. Und eine angetippte Mitteilung landete bei unbekannter Art nur beim Schliessen des Fensters \u2014 jetzt f\u00fchren 31 Arten an ihren Ort.',
+    user_summary: '\ud83d\uddbc\ufe0f Kamera oder Galerie \u2014 beide Wege stehen jetzt gleichberechtigt nebeneinander. Und wenn du eine Mitteilung antippst, kommst du dorthin, wo sie hingeh\u00f6rt.',
+    user_items: [
+      {emoji:'\ud83d\uddbc\ufe0f', bold:'Galerie neben dem Ausl\u00f6ser:', text:' Bisher lag der zweite Weg in den Scanner als kleines Symbol zwischen f\u00fcnf gleich aussehenden in der oberen Leiste \u2014 wer keine Kamera benutzen will oder kann, fand ihn nicht. Jetzt steht er unten, beschriftet, gleich neben dem Ausl\u00f6ser. Oben ist er daf\u00fcr weg: ein Umzug, kein Doppel. Und alle Nebenkn\u00f6pfe tragen jetzt ein Wort \u2014 ein blosses Emoji sagt nicht, was es tut.'},
+      {emoji:'\ud83d\udd14', bold:'Mitteilungen f\u00fchren an ihren Ort:', text:' Der Wegweiser kannte sieben Arten von Mitteilungen. Alle anderen landeten bei „Fenster schliessen" \u2014 ein Tipp ins Leere. Jetzt sind es 31: Ernte und Wetter in den Garten, Likes und Kommentare in die Community, Nachrichten in den Marktplatz-Posteingang, Abo-Hinweise ins Abo.'},
+      {emoji:'\ud83e\udded', bold:'Und wenn wirklich kein Ziel bekannt ist:', text:' sagt die App das jetzt, statt so zu tun, als w\u00e4re nichts gewesen. Ein neuer Pr\u00fcfstand-Teil f\u00e4hrt alle 31 Arten durch und meldet jede, die ins Leere zeigt \u2014 beim ersten Lauf hat er prompt drei eigene Fehler von mir gefunden.'},
+    ],
+  },
+  {
     v: 'v31.80', date: '02.09.2026',
     headline: '\ud83d\udd2c Neuer Pr\u00fcfstand: gibt es \u00fcberhaupt, was der Code liest?',
     summary: 'Nach dem Bl\u00fchkalender-Fund (ein Feld, das in keiner der 4342 Arten existiert) ein Werkzeug, das genau diese Fehlerklasse findet \u2014 dynamisch, nicht per Textsuche. Erster Durchlauf: ein weiterer Zugriff ins Leere, 26042-mal.',
@@ -68024,7 +68114,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v31.80';
+var GS_VERSION = 'v31.81';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
