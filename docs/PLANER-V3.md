@@ -329,3 +329,66 @@ weggelassen**).
 
 Mehrbeet-**Verteilung** durch die KI (ein Plan, der Beete benennt) ·
 R9 zeitliche Nachbarschaft.
+
+## 10 · Was in v31.93 dazukam (Stufe 3, zweiter Teil)
+
+**Fruchtfolge je Beet — R11.** R5 (v31.77) fragte: „stand diese Familie schon
+in deinem Garten?" In einem Garten mit vier Beeten ist das die falsche Frage.
+Fruchtfolge heisst nicht „drei Jahre keine Tomaten", sondern „drei Jahre keine
+Tomaten **an dieser Stelle**". Der Hinweistext von R5 sagte das selbst: „Ob im
+selben Beet, weiss ‚Meine Pflanzen' nicht."
+
+**Woher die Vorgeschichte kommt** — beides mit Koordinaten, denn ohne Ort gibt
+es keine Beet-Zuordnung:
+
+1. der **Garten-Zwilling** — was jetzt dort steht (Jahr = dieses Jahr),
+2. **frühere gespeicherte Pläne derselben Fläche** — die Jahre davor.
+
+Bewusst **nicht** dabei: `gs_plantings` und `gs_ernte_log`. Beide tragen Name
+und Datum, aber keinen Ort — sie können sagen DASS, nie WO. R5 nutzt sie
+weiter; hier wären sie geraten.
+
+**Wie es wirkt:**
+
+- `_gsBeetVon` · `_gsBeetHistorie` · `_gsPlanBeetFolge` (die Regel, drei
+  Zustände wie alle anderen), `plan._beetgeo` reist **mit dem Plan** — ein
+  später wieder geöffneter Plan kann sonst nicht mehr sagen, welche Pflanze in
+  welchem Beet lag, weil der Zwilling neu gescannt sein kann.
+- Beim **Platzieren** bekommt jede Kultur eine Rangfolge der Beete: je länger
+  ihre Familie dort weg ist, desto besser. Gleichstand → das Beet, in dem in
+  diesem Plan schon ein Familienmitglied liegt (ein Beet je Familie ist das,
+  was die Rotation im nächsten Jahr überhaupt erst möglich macht).
+- Die Rangfolge steht **innerhalb** der Strenge-Stufen, nicht darüber. Sonst
+  käme das rotationsrichtige Beet im Schatten vor dem zweitbesten in der
+  Sonne — ein Jahr Bodenpause ist weniger wert als eine Tomate, die reif wird.
+- Ein Vorwurf ohne Ausweg ist nur ein Vorwurf: gibt es ein besseres Beet, wird
+  es genannt.
+
+### Die drei Fehler, die der neue Prüfstand im ersten Lauf fand
+
+`scripts/planer_check.js` ist neu und war beim ersten Durchlauf sofort rot.
+Alle drei Funde sind älter als v31.93 und keiner davon wäre beim Lesen
+aufgefallen:
+
+1. **Der Platzierer sprang über die Beete hinweg, wenn kein Bestand da war.**
+   Die ganze Platzierung lief nur unter `if (fest.length || zonen.length)`.
+   Wer seinen Garten gescannt, aber noch nichts gepflanzt hatte, bekam die
+   Reihen-Packung — Reihen quer über die Wege. Seit v31.88 so.
+2. **Der Auftragstext erwähnte einen leeren gescannten Garten gar nicht.**
+   `gsPPtwinBlock` stieg bei `!t.plants.length` aus, und `gsPPbuildUserContext`
+   baute `ctx.twin` erst gar nicht. Drei Hochbeete, und im Prompt stand nichts.
+3. **Zum dritten Mal „frei ist nicht sinnvoll".** Stufe 1 der Platzierung
+   nimmt den Vorschlag der KI, wenn er frei ist, ins Licht passt und im Beet
+   liegt — aber ohne zu fragen, ob dort letztes Jahr dieselbe Familie stand.
+   Nach Licht (v31.62) und Nachbarschaft (v31.63) dieselbe Lücke ein drittes
+   Mal.
+
+**Die Lehre, die daraus folgt:** eine rechnende Regel ohne Prüfstand ist eine
+Behauptung. Das Prüfwerk hatte dreizehn Regeln und keinen einzigen Durchlauf
+gegen einen konstruierten Fall — und genau das ist der Zustand, in dem eine
+Prüfung „alles in Ordnung" sagt, weil sie nichts mehr rechnet.
+
+### Weiter offen für Stufe 3
+
+R9 zeitliche Nachbarschaft (was folgt worauf im selben Beet innerhalb eines
+Jahres) · Varianten-Vergleich (Ertrag / pflegeleicht / Bienen, drei KI-Läufe).

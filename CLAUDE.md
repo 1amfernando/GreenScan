@@ -479,13 +479,30 @@ node scripts/wiring_check.js     # Verdrahtung: kommt an, was angetippt wird? (s
 python3 scripts/field_check.py   # Formularfelder, die niemand liest (seit v31.74)
 node scripts/data_check.js       # liest der Code Felder, die es nicht gibt? (seit v31.80)
 node scripts/save_check.js       # kommt an, was gespeichert wird? (seit v31.85)
+node scripts/planer_check.js     # rechnet der Planer, was er behauptet? (seit v31.93)
 #   data_check prueft seit v31.89 zusaetzlich Widersprueche in den
 #   Sicherheitsangaben — siehe docs/ARTEN-LUECKEN.md
 ```
 
-Die fünf JS-Prüfstände teilen die Beispieldaten in `scripts/_seed.js` — dort
+Die sieben JS-Prüfstände teilen die Beispieldaten in `scripts/_seed.js` — dort
 ändern, nicht in den einzelnen Prüfständen. `field_check.py` liest nur den
 Quelltext und braucht keine.
+
+`planer_check.js` fährt die rechnenden Regeln des Planers gegen konstruierte
+Fälle. Anlass: das Prüfwerk hatte dreizehn Regeln und **keinen** Prüfstand —
+die schlechteste Kombination, die es gibt, denn eine ungeprüfte Prüfung sagt
+„alles in Ordnung" auch dann noch, wenn sie gar nichts mehr rechnet. Im
+ersten Lauf (v31.93) fand er drei Fehler, keinen davon hätte man beim Lesen
+gesehen (siehe `docs/PLANER-V3.md` §10).
+
+Zwei Regeln, nach denen er gebaut ist, gelten für **jede** neue Prüfung:
+
+- **Jede Regel läuft gegen einen guten Plan UND gegen einen schlechten.** Nur
+  beides zusammen ist eine Aussage — eine Prüfung, die die richtigen Fälle
+  meldet, ist wertlos (§4b).
+- **Was die Anzeige zeigt, wird aus dem gerenderten HTML gelesen**, nicht aus
+  dem Objekt. In v31.90 war ein Anzeige-Block wegen Hoisting tot, ohne dass
+  irgendetwas einen Fehler meldete — die Karte sah nur unverändert aus.
 
 `field_check.py` sucht die Umkehrung von `wiring_check`: **Eingabefelder, die
 niemand liest.** Anlass war v31.72 — das Garten-Formular hatte Breite und
