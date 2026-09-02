@@ -6633,26 +6633,52 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 
 > Die tagesaktuellen Details stehen in Sektion 0 (Routine-Einträge, neueste zuerst).
 > Dieser Abschnitt hält nur die groben Eckdaten.
+>
+> **Nachgemessen am 02.09.2026.** Er stand bis dahin auf `v30.80` — 140
+> Versionen daneben. Ein Überblick, der so weit hinterherhinkt, führt den
+> nächsten Leser in die Irre, statt ihm Arbeit zu sparen. Wer eine Version
+> ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
+> alle mit einem Befehl nachzählbar.
 
-- **Version:** `v30.80` (Client) · SW-Cache `gs-v30.80` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
-- **Release:** ✅ live seit v26.0 (Pre-Release-stable getagged auf v25.38). Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` ~82'000 Zeilen (Monolith HTML+CSS+JS, kein Build). `sw.js`, `data/plants.v1.js` (~2.1 MB, 4'342 Arten).
-- **Backend:** Supabase — 117 Tabellen (alle RLS, 0 Security-ERROR-Advisors seit v26.51/v26.76), ~30 Edge-Functions LIVE, 195 Migrationen.
-- **Architektur-Detailkarte:** siehe `BACKEND_FRONTEND_MAP_v26.76.md` (Backend↔Frontend-Mapping, Edge-Fn-Liste, Advisor-Stand).
+- **Version:** `v32.20` (Client) · SW-Cache `gs-v32.20` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
+- **Frontend:** `index.html` **88'261 Zeilen / 5,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.
+- **Prüfstände:** **14** in `scripts/` (siehe `CLAUDE.md` §7.1). Alle grün, keine Falschmeldungen.
+- **Architektur-Detailkarte:** `BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
-## 2 · Offene Punkte (aus den Routine-Einträgen)
+## 2 · Offene Punkte
 
-Meist **Owner-Dashboard-Aktionen** (kein Code):
+### Warten auf Fernando (Eingriffe in die laufende Auslieferung)
 
-| Punkt | Wer | Status |
+| Punkt | Warum es wartet | Belegt in |
 |---|---|---|
-| Leaked-Password-Protection aktivieren (Supabase Auth-Setting) | Owner | offen (1 Dashboard-Klick) |
-| Stripe Live-Mode End-to-End verifizieren (Checkout → Webhook → Tier) | Owner | laufend |
-| `seasonal_highlights` Knowledge-Tabelle unter Threshold (36/40) — `knowledge-bulk-gen` Topic ergänzen | Backend/Cowork | offen |
-| Verbleibende `alert()` → `gsToast` in nicht-kritischen Flows | Frontend | nice-to-have |
-| 75 verbleibende Supabase-Advisor-WARN (meist by-design: SD-Functions, Storage-Buckets) | — | dokumentiert, optional |
+| **`send-receipt` stilllegen** | Ausgeliefert, von niemandem aufgerufen, verschickt E-Mails von `info@greenscan.ch` mit Empfänger/Betrag/Text aus dem Anfrage-Rumpf. Jede angemeldete Person kann eine erfundene Quittung an jede Adresse schicken. | `supabase/functions/send-receipt/BEFUND.md` · (df) |
+| **Migration `comment_reactions`** | Kommentar-Reaktionen sind im Frontend fertig und tasten die Tabelle ab; die Migration liegt idempotent im Repo und ist bewusst nicht angewandt. | `20260831_community_reaktionen_v31_09.sql` · (de) |
+| `daily_quizzes.image_url` | Aus derselben Liste offener Migrationen. | (2026-08-31 y) |
+| `fn_is_role` / `fn_role_at_least` für `anon` sperren | Weiterhin offen (am 02.09. nachgemessen). | (de) |
+| Leaked-Password-Protection | Ein Dashboard-Klick. | (2026-08-31 y) |
 
-Keine **Release-Blocker** offen — der v26.51-Self-Audit hat alle 14 Security-ERROR eliminiert.
+### Braucht eine Entscheidung oder eine Quelle
+
+| Punkt | Was fehlt |
+|---|---|
+| **Arten-Daten vervollständigen** | 78 % der 4'342 Arten haben keine verwertbare Farb- oder Höhenangabe (`color` 967, `alt` 967). Damit bleiben die Prüfregeln S6/S7 und die Offline-Eingrenzung bei den meisten Arten still. **Botanik wird hier nicht aus dem Gedächtnis geschrieben** — es braucht eine Quelle. |
+| Feinere Experten-Level | Braucht eine DB-Spalte; die Migration würde ins Repo geschrieben und NICHT angewandt. |
+| Stripe-Webhook End-to-End | `stripe_webhook_events` = 0 Zeilen. Owner-Aktion. |
+
+### Technische Schuld, benannt und bewusst offen
+
+| Punkt | Stand |
+|---|---|
+| **Modell-Rückfallketten in 8 Edge-Functions** | Neun Stellen nennen genau EIN Modell ohne Ausweichmöglichkeit. Vorlage liegt im Repo (`book-ingest`, `CLAUDE_MODELS`). Ob ein Name heute noch auflöst, ist von hier aus nicht prüfbar. (df) |
+| `book-ingest` ohne Spiegel | Dokumentiert statt gespiegelt (~250 dichte Zeilen). `backend_check` nennt es bei jedem Lauf. (df) |
+| `feedback_analysis` = 0 Zeilen | „Nie gedrückt" und „bricht immer ab" sind von hier aus nicht zu unterscheiden. Ein Knopfdruck im Admin-Panel klärt es. (df) |
+| Kaltstart 3,3 s (Einsteiger-Telefon) | Untersucht, kein lohnender Angriffspunkt für Teil-Auslagerung. Bräuchte einen echten Aufteilungsschritt. (dj) |
+| 3 Verzeichnisse im Repo ohne Auslieferung | `daily-push`, `entitlements`, `push-test` — nie deployed oder entfernt? (df) |
+| 4 Treffer in `field_check` | `tp-len`/`tp-wid`/`tp-soil`/`tp-light` — zusammengesetzte Namen, funktionieren. Dauerhafte Falschmeldung, in `CLAUDE.md` §7.1 benannt. |
+
+Keine **Release-Blocker** offen.
 
 ## 3 · Konventionen
 

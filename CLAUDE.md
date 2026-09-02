@@ -398,6 +398,14 @@ Mehrere Sessions arbeiten parallel an diesem Repo. Damit kein Knoten platzt:
 
 ### Nach dem Edit
 1. `STATUS.md` aktualisieren („Recently shipped" / „Known issues").
+   **Und zwar BEIDES**: den Routine-Eintrag oben in Sektion 0 UND die
+   Zusammenfassung in Sektion 1/2. Am 02.09.2026 stand Sektion 1 auf
+   `v30.80`, waehrend die App bei `v32.20` war — **140 Versionen daneben**,
+   weil hundert Sitzungen brav ihren Routine-Eintrag angehaengt und den
+   Ueberblick nie mitgezogen haben. Ein Ueberblick, der so weit
+   hinterherhinkt, kostet den naechsten Leser mehr Zeit als er ihm spart.
+   Die Zahlen dort sind alle mit einem Befehl nachzaehlbar (Zeilen,
+   Migrationen, Edge-Verzeichnisse, Pruefstaende) — es dauert eine Minute.
 2. Wenn ein Meilenstein abgeschlossen wurde, in `ROADMAP.md` von
    „In Progress" → „Shipped" verschieben + Commit-Hash daneben.
 3. Commit-Message gemäß Konvention in 3.1.
