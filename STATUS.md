@@ -4,13 +4,32 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.08` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.09` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-02 (cv) — v32.09: der Zurück-Knopf führt ins Hauptmenü
+
+Fernando: „Zurück zum Scanner gibt es ja schon, lieber ein Zurück ins
+Hauptmenü." Stimmt — `gsResetScanner()` ist genau das, und „📸 Neues Foto"
+steht ohnehin auf der Karte.
+
+- Links **☰ Hauptmenü** → `gsScanZumMenue()`: schliesst das Ergebnis **und**
+  öffnet das Menü.
+- Rechts **✕** → `gsResetScanner()`: zurück zum Scanner.
+
+`gsResetScanner()` läuft in beiden Fällen zuerst. Das startet die Kamera wieder
+— kostet einen Moment, ist aber richtig: wer das Menü gleich wieder zumacht,
+stünde sonst vor einem toten Sucher.
+
+Der Prüffall dazu klickt jetzt **beide** Knöpfe und prüft, dass jeder das Seine
+tut — vorher hätte ein Knopf, der ins Leere führt, nicht auffallen können.
+
+---
 
 ### 2026-09-02 (cu) — v32.08: Zurück-Knopf, Scangitter auf der echten Pflanze, Schrittliste
 

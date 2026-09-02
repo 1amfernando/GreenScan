@@ -395,20 +395,31 @@ const FAELLE = [
       if (!leiste) return { ok: false, warum: 'keine Zurück-Leiste' };
       const knoepfe = [...leiste.querySelectorAll('button')];
       if (knoepfe.length < 2) return { ok: false, warum: 'nur ' + knoepfe.length + ' Knopf' };
-      if (!knoepfe.every(b => /gsResetScanner/.test(b.getAttribute('onclick') || '')))
-        return { ok: false, warum: 'ein Knopf führt nicht zu gsResetScanner' };
+      // v32.09: links ins Hauptmenü, rechts zurück zum Scanner.
+      if (!/gsScanZumMenue/.test(knoepfe[0].getAttribute('onclick') || ''))
+        return { ok: false, warum: 'der Hauptknopf führt nicht ins Hauptmenü' };
+      if (!/Hauptmen/.test(knoepfe[0].textContent || ''))
+        return { ok: false, warum: 'der Hauptknopf sagt nicht, wohin er führt: „' + knoepfe[0].textContent + '"' };
+      if (!/gsResetScanner/.test(knoepfe[knoepfe.length - 1].getAttribute('onclick') || ''))
+        return { ok: false, warum: 'das ✕ schliesst das Ergebnis nicht' };
       // Sie muss die ERSTE Sache auf der Karte sein — sonst liegt der Weg
       // heraus wieder hinter der ganzen Karte.
       if (el.firstElementChild !== leiste) return { ok: false, warum: 'steht nicht zuoberst' };
       if (getComputedStyle(leiste).position !== 'sticky') return { ok: false, warum: 'bleibt beim Scrollen nicht stehen' };
       // Und der Knopf muss wirklich schliessen.
-      let gerufen = 0;
-      const echt = window.gsResetScanner;
-      window.gsResetScanner = () => { gerufen++; };
+      // Und beide müssen wirklich etwas tun.
+      let reset = 0, menue = 0;
+      const eR = window.gsResetScanner, eM = window.openMainMenu;
+      window.gsResetScanner = () => { reset++; };
+      window.openMainMenu = () => { menue++; };
       knoepfe[0].click();
-      window.gsResetScanner = echt;
-      if (!gerufen) return { ok: false, warum: 'ein Tipp bewirkt nichts' };
-      return { ok: true, info: knoepfe.length + ' Knöpfe, sticky, führen zu gsResetScanner' };
+      if (!menue) return { ok: false, warum: 'der Hauptmenü-Knopf öffnet kein Menü' };
+      if (!reset) return { ok: false, warum: 'das Ergebnis bleibt beim Wechsel ins Menü stehen' };
+      reset = 0;
+      knoepfe[knoepfe.length - 1].click();
+      window.gsResetScanner = eR; window.openMainMenu = eM;
+      if (!reset) return { ok: false, warum: 'das ✕ bewirkt nichts' };
+      return { ok: true, info: '☰ → Menü + Ergebnis zu · ✕ → zurück zum Scanner' };
     },
   },
   {
