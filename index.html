@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.14.20260902">
+<meta name="app-version" content="32.15.20260902">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -70961,6 +70961,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.15', date: '02.09.2026',
+    headline: '\ud83d\uddfa\ufe0f Der Kartenspeicher hatte keine Obergrenze',
+    summary: 'Jede Kartenkachel, die du je angesehen hast, blieb auf dem Ger\u00e4t \u2014 unbegrenzt, bis zum n\u00e4chsten Update. Eine Wanderung zieht Tausende davon. Jetzt gedeckelt: rund 500 Kacheln, die \u00e4ltesten weichen den neuen.',
+    user_summary: '\ud83d\uddfa\ufe0f Der Kartenspeicher wuchs ungebremst. Jetzt hat er eine Obergrenze \u2014 damit dem Telefon nicht der Platz ausgeht.',
+    user_items: [
+      {emoji:'\ud83d\uddfa\ufe0f', bold:'Warum das wichtig ist:', text:' Geht dem Ger\u00e4t der Platz aus, r\u00e4umt der Browser auf \u2014 und mancher r\u00e4umt dabei ALLES weg, was diese App gespeichert hat: den Garten-Zwilling, das Ernte-Log, deine Einstellungen. Der gr\u00f6sste ungebremste Verbraucher gef\u00e4hrdete damit das Wertvollste.'},
+      {emoji:'\ud83e\uddf9', bold:'Der Deckel:', text:' Rund 500 Kacheln bleiben, die \u00e4ltesten weichen. Nachgesehen wird alle 50 Bilder \u2014 bei jedem einzelnen nachzuz\u00e4hlen w\u00fcrde mehr kosten, als es bringt.'},
+      {emoji:'\ud83e\uddea', bold:'Wirklich gefahren, nicht behauptet:', text:' Der Pr\u00fcfstand holt 900 Kacheln durch den echten Weg und z\u00e4hlt nach: 507 bleiben \u00fcbrig. Ohne Deckel w\u00e4ren es 900.'},
+    ],
+  },
+  {
     v: 'v32.14', date: '02.09.2026',
     headline: '\ud83d\uddd1\ufe0f Das Aufr\u00e4umen l\u00f6schte, was es h\u00e4tte hochladen sollen',
     summary: 'Zwei Sicherheitsnetze der App wurden von einer einzigen Schleife geleert: die Warteschlange f\u00fcr offline aufgenommene Fotos und das Archiv gek\u00fcrzter Eintr\u00e4ge. Beides lautlos, beides bei jedem Start. Gemessen: 1 Foto eingereiht \u2192 0 \u00fcbrig, 2 Eintr\u00e4ge archiviert \u2192 0 \u00fcbrig.',
@@ -71300,7 +71311,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.14';
+var GS_VERSION = 'v32.15';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

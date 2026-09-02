@@ -22,6 +22,7 @@
  *   5. Liegt dieselbe Datei doppelt auf dem Gerät?
  *   6-9. Überlebt, was offline eingereiht wurde, das Aufräumen danach —
  *        und kommt es beim zuständigen Flush auch wirklich an?
+ *   10. Wächst der Bild-Cache (Kartenkacheln!) unbegrenzt?
  *
  * Warum ein eigener HTTP-Server: ein Service Worker braucht einen sicheren
  * Kontext. `file://` ist keiner, `http://127.0.0.1` schon — deshalb 30
@@ -48,6 +49,15 @@ function server(wunschPort) {
   return new Promise((fertig) => {
     const s = http.createServer((req, res) => {
       let p = decodeURIComponent(req.url.split('?')[0]);
+      // Nur fuer den Deckel-Fall: beliebig viele unterscheidbare „Kacheln".
+      // Ein echtes 1x1-PNG, damit der Service Worker es als Bild behandelt.
+      if (p.startsWith('/__kachel/')) {
+        res.writeHead(200, { 'Content-Type': 'image/png' });
+        res.end(Buffer.from(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+          'base64'));
+        return;
+      }
       if (p === '/') p = '/index.html';
       // Kein Ausbruch aus dem Repo — der Server steht nur fuer diesen Lauf.
       const datei = path.join(WURZEL, path.normalize(p).replace(/^([/\\])+/, ''));
@@ -300,8 +310,49 @@ function server(wunschPort) {
              : (foto.hoch.length ? 'hochgeladen, aber ' + foto.nach + ' bleiben liegen'
                                  : 'kein einziger Upload versucht (' + foto.vor + ' warteten)')));
 
+  // ── 10 · Wächst der Bild-Cache unbegrenzt? ───────────────────────────
+  //
+  // Regel 4 legt jedes Bild ab — Kartenkacheln eingeschlossen. Eine
+  // Wanderung auf Zoomstufe 16 zieht Tausende davon. Ohne Deckel wächst
+  // der Cache bis zum nächsten Versionswechsel, und geht dem Gerät der
+  // Platz aus, räumt mancher Browser den GANZEN Ursprung ab — mitsamt
+  // localStorage, wo der Garten-Zwilling liegt.
+  //
+  // Dieser Fall fährt den ECHTEN Weg: er holt die Kacheln wirklich durch
+  // den Service Worker, statt den Cache von aussen zu füllen. Nur so ist
+  // auch geprüft, dass der Deckel überhaupt ausgelöst wird.
+  const { s: s5 } = await server(port);
+  const deckel = await p.evaluate(async () => {
+    // Weit ueber den Deckel hinaus holen, sonst ist „gedeckelt" und
+    // „nicht gedeckelt" nicht zu unterscheiden: die echte Obergrenze ist
+    // ZIEL + INTERVALL, hier also rund 550 + das gleichzeitig Unterwegse.
+    const grenze = 500, intervall = 50, hole = 900;
+    const zaehle = async () => {
+      const namen = (await caches.keys()).filter(n => n.indexOf('-images') > 0);
+      let n = 0;
+      for (const k of namen) n += (await (await caches.open(k)).keys()).length;
+      return n;
+    };
+    // In Schüben, sonst öffnet der Browser 560 Verbindungen auf einmal.
+    for (let i = 0; i < hole; i += 40) {
+      const teil = [];
+      for (let j = i; j < Math.min(i + 40, hole); j++) teil.push(fetch('/__kachel/' + j + '.png'));
+      await Promise.all(teil).catch(() => {});
+    }
+    await new Promise(r => setTimeout(r, 1200));   // dem Deckel Zeit lassen
+    return { geholt: hole, grenze: grenze, obergrenze: grenze + intervall + 70, drin: await zaehle() };
+  });
+  s5.close();
+  const dOk = deckel.drin > 0 && deckel.drin <= deckel.obergrenze;
+  melde('Der Bild-Cache hat eine Obergrenze', dOk,
+        dOk ? deckel.geholt + ' Kacheln geholt → ' + deckel.drin + ' im Cache (Ziel ' + deckel.grenze +
+              ', geprüft alle 50 → Obergrenze ' + deckel.obergrenze + ')'
+          : (deckel.drin === 0 ? 'gar nichts gecacht — dann prüft dieser Fall nichts'
+             : deckel.geholt + ' Kacheln geholt, ' + deckel.drin + ' liegen im Cache (erlaubt bis ' +
+               deckel.obergrenze + ') — der Deckel greift nicht; auf einer Wanderung wächst er ungebremst'));
+
   console.log('  ---');
-  console.log('  Fragen geprueft: 9 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 10 · davon rot: ' + kaputt);
   console.log('  JS-Fehler im Offline-Start: ' + (fehler.length ? fehler.length + ' (' + fehler.slice(0, 2).join(' | ') + ')' : 'keine'));
   await br.close();
   process.exitCode = (kaputt || fehler.length) ? 1 : 0;

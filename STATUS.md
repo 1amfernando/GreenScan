@@ -12,6 +12,62 @@
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
 
+### 2026-09-02 (db) — v32.15: der Kartenspeicher hatte keine Obergrenze
+
+Die Frage, mit der ich in diese Ecke ging, war: **verspricht die App eine
+Karte ohne Empfang?** Antwort: nein. Die einzige Stelle, an der „Offline-
+Karten" steht, handelt von SchweizMobil, nicht von GreenScan. Kein
+gebrochenes Versprechen — Fall geschlossen.
+
+Beim Nachsehen fiel aber etwas anderes auf. Regel 4 des Service Workers legt
+**jedes** Bild in den `IMAGE_CACHE`, und dazu gehören die Kartenkacheln:
+swisstopo (`wmts.geo.admin.ch`) steht auf keiner Ausnahmeliste, OpenStreetMap
+schon. Eine Wanderung auf Zoomstufe 16 zieht schnell Tausende davon.
+
+**Eine Obergrenze gab es nicht.** Geleert wurde der Cache nur durch einen
+Versionswechsel — `activate` löscht jeden Cache, dessen Name nicht zur
+laufenden Version gehört. Das ist Zufall, kein Entwurf: bei einer ruhigen
+Woche wächst er ungebremst weiter.
+
+**Warum das mehr ist als Speicherplatz:** geht der Platz aus, räumt der
+Browser auf — und mancher räumt den **ganzen Ursprung** ab, also auch
+`localStorage`. Dort liegt der Garten-Zwilling, das Ernte-Log, die
+Einstellungen. Der grösste unbegrenzte Verbraucher gefährdete damit den
+wertvollsten Speicher. Dieselbe Sorgfalt, die diese App seit v30.98 den 5 MB
+localStorage widmet, hatte die Cache-API nie bekommen — obwohl sie um
+Grössenordnungen mehr fasst.
+
+#### Der Deckel ist ein Ziel, keine Schranke — und das steht dabei
+
+500 Einträge, nachgesehen alle 50 Bilder. Bei jedem einzelnen `keys()`
+aufzurufen kostet mehr, als es bringt. Die echte Obergrenze ist deshalb
+`ZIEL + INTERVALL` plus das gerade Unterwegse — und genau so ist es im Code
+benannt (`IMAGE_CACHE_MAX`, `IMAGE_CACHE_INTERVALL`), statt eine Schärfe zu
+behaupten, die es nicht gibt.
+
+Der erste Anlauf hat mich das gelehrt: der Prüfstand holte 560 Kacheln und
+meldete 516 — rot, obwohl der Deckel arbeitete. Die Zahl war richtig, die
+**Erwartung** war falsch.
+
+#### Gefahren, nicht behauptet
+
+Der Fall holt **900 Kacheln wirklich durch den Service Worker** (der
+Prüfserver liefert dafür synthetische 1×1-PNGs unter `/__kachel/<n>.png`),
+statt den Cache von aussen zu füllen. Nur so ist auch geprüft, dass der
+Deckel überhaupt **ausgelöst** wird.
+
+- mit Deckel: **900 geholt → 507 im Cache**
+- Gegenprobe ohne Deckel: rot
+
+#### Ehrlich zur Grenze
+
+Wie gross der Cache in der Praxis wirklich wird, ist von hier aus **nicht
+messbar** — die Kachel-Server sind aus dieser Umgebung nicht erreichbar
+(`CONNECT … 403`). Geprüft ist der **Mechanismus**, nicht die Zahl. Der
+Deckel ist deshalb bewusst grosszügig gewählt (~17 MB bei 35 KB je Kachel).
+
+`offline_check`: **10 Fragen, 0 rot.**
+
 ### 2026-09-02 (da) — v32.14: das Aufräumen löschte, was es hätte hochladen sollen
 
 Direkt aus dem Prüfstand von v32.13 heraus gefunden. Beim Lesen von
