@@ -4,13 +4,52 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.40` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.41` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-03 (ed) — v32.41: die Falschmeldung, die man zu überspringen gelernt hat
+
+Kein sichtbarer Unterschied in der App, einer im Werkzeug dahinter.
+
+`field_check` meldete seit v31.74 vier Formularfelder als „liest niemand" —
+`tp-len`, `tp-wid`, `tp-soil`, `tp-light`. Sie funktionieren tadellos: sie
+werden über einen zusammengesetzten Namen angesprochen
+(`getElementById('tp-' + k)`), und eine Textsuche findet den vollen Namen
+nirgends. Die Meldung stand in `STATUS.md` als „technische Schuld, bewusst
+offen" und in `CLAUDE.md` als bekannte Grenze.
+
+> **Ein Bericht wird nicht durch eine falsche Zahl unlesbar, sondern durch
+> eine, die man zu ignorieren gelernt hat.** Dieselbe Lehre wie bei
+> `render_check` in v32.21, wo vier Emoji-Wasserzeichen jahrelang als
+> „abgeschnittener Inhalt" gemeldet wurden — und wo ich einen ganzen Tag lang
+> daran vorbeigelaufen bin.
+
+Der Prüfstand erkennt jetzt die **Bauform**: ein Nachschlagen, dessen Argument
+mit einer Zeichenkette beginnt und dann verkettet wird (33 solche Präfixe im
+Quelltext). Felder, deren id mit einem davon anfängt, bekommen eine **eigene
+Klasse** — dieselbe Dreiteilung wie in `backend_check` und
+`versprechen_check`.
+
+> **Was man nicht beweisen kann, sagt man gesondert, statt es unter die Fehler
+> zu mischen.**
+
+**Der Preis, ehrlich benannt und im Kopf des Prüfstands vermerkt:** ein totes
+Feld, dessen Name mit einem erkannten Präfix ANFÄNGT, landet in der mittleren
+Klasse statt in der oberen. Genau deshalb verschwindet diese Klasse nicht aus
+dem Bericht.
+
+**Gegenprobe zweifach:** ein totes Feld mit eigenem Namen → weiterhin rot; ein
+totes `tp-gegenprobe` → sichtbar in der mittleren Klasse, nicht mitgezählt.
+
+Damit steht `field_check` auf **0 roten Treffern bei 307 Feldern** — und die
+Zahl bedeutet wieder etwas.
+
+---
 
 ### 2026-09-03 (ec) — v32.40: die elf ungeprüften Meldungen nachgemessen
 
@@ -8128,7 +8167,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.40` (Client) · SW-Cache `gs-v32.40` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.41` (Client) · SW-Cache `gs-v32.41` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.
@@ -8164,7 +8203,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | `feedback_analysis` = 0 Zeilen | „Nie gedrückt" und „bricht immer ab" sind von hier aus nicht zu unterscheiden. Ein Knopfdruck im Admin-Panel klärt es. (df) |
 | Kaltstart 3,3 s (Einsteiger-Telefon) | Untersucht, kein lohnender Angriffspunkt für Teil-Auslagerung. Bräuchte einen echten Aufteilungsschritt. (dj) |
 | 3 Verzeichnisse im Repo ohne Auslieferung | `daily-push`, `entitlements`, `push-test` — nie deployed oder entfernt? (df) |
-| 4 Treffer in `field_check` | `tp-len`/`tp-wid`/`tp-soil`/`tp-light` — zusammengesetzte Namen, funktionieren. Dauerhafte Falschmeldung, in `CLAUDE.md` §7.1 benannt. |
+
 
 Keine **Release-Blocker** offen.
 

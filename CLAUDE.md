@@ -550,9 +550,23 @@ sie beim Bearbeiten wieder ein. Nur geschrieben hat sie nie jemand. Man tippte
 die Masse ein, sah die Fläche, speicherte, und beim nächsten Öffnen war alles
 leer.
 
-**Zwei Grenzen, damit sie niemand neu entdeckt:** zusammengesetzte Namen
-(`getElementById('tp-' + k)`) findet keine Textsuche — die vier Felder
-`tp-len`/`tp-wid`/`tp-soil`/`tp-light` sind so verdrahtet und funktionieren.
+**Seit v32.41 kennt er zusammengesetzte Namen.** `getElementById('tp-' + k)`
+enthaelt die id `tp-len` nirgends als Zeichenkette; die vier Felder
+`tp-len`/`tp-wid`/`tp-soil`/`tp-light` standen deshalb seit v31.74 als
+DAUERHAFTE Falschmeldung im Bericht. Er erkennt jetzt die Bauform (ein
+Nachschlagen, dessen Argument verkettet wird) und gibt diesen Feldern eine
+EIGENE Klasse — sie verschwinden nicht, sie zaehlen nur nicht mehr als Fehler.
+
+> **Was man nicht beweisen kann, sagt man gesondert, statt es unter die Fehler
+> zu mischen.** Ein Bericht wird nicht durch eine falsche Zahl unlesbar,
+> sondern durch eine, die man zu ignorieren gelernt hat (dieselbe Lehre wie
+> bei `render_check` in v32.21).
+
+Der Preis, ehrlich benannt: ein totes Feld, das mit einem erkannten Praefix
+ANFAENGT, landet in der mittleren Klasse statt in der oberen. Gegenprobe
+gemacht: ein totes Feld mit eigenem Namen wird weiter rot gemeldet.
+
+**Eine Grenze bleibt:**
 Und Felder mit eigenem `on*`-Attribut werden übersprungen; ohne diese Regel
 meldet er fast jede Einstellung als kaputt. **Ein Treffer ist ein Verdacht,
 kein Urteil** — beim ersten gezielten Durchgang blieb von 303 Feldern genau

@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.40.20260903">
+<meta name="app-version" content="32.41.20260903">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -72290,6 +72290,16 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.41', date: '03.09.2026',
+    headline: '\ud83e\uddf9 Eine Dauer-Falschmeldung im Pr\u00fcfwerk beseitigt',
+    summary: 'Kein sichtbarer Unterschied in der App \u2014 aber einer im Werkzeug dahinter. Ein Pr\u00fcfstand meldete seit v31.74 vier Formularfelder als „liest niemand", die tadellos funktionieren. Solche Zeilen lernt man zu \u00fcberspringen, und dann \u00fcbersieht man daneben auch die echten.',
+    user_summary: '\ud83e\uddf9 Aufr\u00e4umen im Pr\u00fcfwerk: eine Meldung, die seit Monaten falsch war, ist weg \u2014 die echten bleiben sichtbar.',
+    user_items: [
+      {emoji:'\ud83d\udd0e', bold:'Der Grund:', text:' Die vier Felder werden \u00fcber einen zusammengesetzten Namen angesprochen (`tp-` + Kennung). Eine Textsuche findet den vollen Namen nirgends \u2014 und meldete sie deshalb als tot.'},
+      {emoji:'\ud83d\udcd0', bold:'Die L\u00f6sung:', text:' Der Pr\u00fcfstand erkennt jetzt diese Bauform und gibt solchen Feldern eine eigene Klasse. Sie verschwinden nicht aus dem Bericht \u2014 sie z\u00e4hlen nur nicht mehr als Fehler.'},
+    ],
+  },
+  {
     v: 'v32.40', date: '03.09.2026',
     headline: '\ud83d\udd0d Die elf ungepr\u00fcften Meldungen nachgemessen \u2014 zehn stimmten',
     summary: 'Aus dem Einstellungs-Audit blieben elf Meldungen ohne Gegenpr\u00fcfung liegen. Ungepr\u00fcft anzufassen w\u00e4re falsch gewesen (von 35 gepr\u00fcften sind elf durchgefallen) \u2014 also selbst nachgemessen. Zehn haben sich best\u00e4tigt und sind behoben, eine liess sich nicht nachstellen.',
@@ -72928,7 +72938,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.40';
+var GS_VERSION = 'v32.41';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
