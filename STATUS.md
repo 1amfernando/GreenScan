@@ -4,13 +4,79 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.27` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.28` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-03 (dr) — v32.28: „gespeichert" heisst ab jetzt nachgesehen
+
+Der offene Punkt aus (dq) beantwortet — und zwar mit der schärferen Frage, die
+ich dort selbst formuliert hatte. **Nicht jeder fehlende Blick ist ein
+Fehler:** ein stiller Hintergrund-Schreibvorgang darf scheitern, er verspricht
+ja nichts. Zum Fehler wird es erst, wenn die App dem Nutzer sagt
+„gespeichert", ohne nachgesehen zu haben.
+
+#### Prüfstand 17: `scripts/versprechen_check.js`
+
+`save_check` fährt einzelne Wege wirklich zu Ende — genauer, aber Handarbeit
+je Weg. Dieser stellt dieselbe Frage **statisch über alle 103**, in drei
+Klassen: **rot** (Versprechen ohne Prüfung) · **grün** (Antwort angesehen) ·
+**still** (kein Versprechen, wird nur gezählt).
+
+Erster Lauf: **vier rot, alle vier echt.**
+
+| Stelle | Was versprochen wurde |
+|---|---|
+| `gsDoctorFollowup` | „Danke für dein Feedback!" |
+| `gsPestAddToDiary` | „📓 Im Garten-Tagebuch gespeichert" |
+| `gsFertilizerLogDone` | „✅ Düngung im Tagebuch festgehalten" |
+| `saveListing` | „🌱 Bio" in der Bestätigung — auch wenn genau der PATCH, der dieses Feld schreibt, abgelehnt worden war |
+
+#### Die Regel, und sie gilt für jeden Schreibvorgang
+
+`sbFetch` **wirft nicht**. Ein `try/catch` fängt nur Netz- und JS-Fehler; eine
+Ablehnung läuft mitten hindurch. Und PostgREST liefert bei einer von RLS
+abgewiesenen Zeile **0 Datensätze und keinen Fehler**.
+
+Seit v32.28 gibt es dafür `_gsSchreibOk(r)` — beides in einer Zeile, damit die
+nächste Stelle es nicht wieder einzeln macht. Und: wer `Prefer: return=minimal`
+schickt, macht die Ablehnung **unsichtbar**; für geprüftes Schreiben gehört
+dort `return=representation` hin. Alle vier Stellen sind entsprechend
+umgestellt.
+
+Beim Marktplatz war die richtige Antwort nicht, die ganze Meldung umzuwerfen —
+das Inserat ist ja da. Sondern **genau das wegzulassen, was nicht stimmt**,
+und es zu sagen: „⚠️ Bio-/Pestizid-Angabe nicht gespeichert".
+
+#### Drei Fallen aus dem Bau, alle allgemein
+
+- **Eine Absage ist kein Versprechen.** Nach der Reparatur meldete der
+  Prüfstand meine eigenen Fehlermeldungen — „Eintrag NICHT gespeichert"
+  enthält „gespeichert". Wer nach Wortstämmen sucht, braucht die Verneinung.
+- **Ein Zeichen, das zwei Dinge bedeuten kann, taugt nicht als Merkmal.** 🚫
+  stand in meiner Absage-Liste und heisst in dieser App „Pestizid-frei" — es
+  hat den einen echten Fund verschluckt, und der Prüfstand meldete grün.
+- **Reparatur und Prüfung brauchen dieselbe Regel** (schon v32.16): der neue
+  Helfer musste in die Erkennung, sonst meldet der Prüfstand jede Stelle rot,
+  die ihn benutzt.
+
+Dazu ein `--alle`-Schalter, der auch grün und still zeigt. **Ein Prüfstand,
+der nur Fehler druckt, lässt offen, WARUM eine Stelle nicht auffällt** — daran
+habe ich beim Bau zweimal falsch geraten und musste beide Male nachsehen
+statt schliessen.
+
+**Gegenprobe gemacht:** eine Reparatur zurückgenommen → sofort
+`!! gsFertilizerLogDone`.
+
+**Grenze, ehrlich benannt:** rein statisch. Wer die Antwort in einem HELFER
+prüft, den die Funktion aufruft, wird rot gemeldet. Ein Treffer ist ein
+Verdacht, kein Urteil — wie bei `field_check.py`.
+
+---
 
 ### 2026-09-03 (dq) — v32.27: vier Fehler in einer Ecke, drei davon still
 
@@ -7176,11 +7242,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.27` (Client) · SW-Cache `gs-v32.27` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.28` (Client) · SW-Cache `gs-v32.28` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **88'431 Zeilen / 5,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.
-- **Prüfstände:** **16** in `scripts/` (siehe `CLAUDE.md` §7.1). Alle grün, keine Falschmeldungen. Neu seit v32.21: `storage_check.js` (was überlebt das Abmelden?) und seit v32.23 `sync_check.js` (kommt zurück, was hochgeladen wird?).
+- **Prüfstände:** **17** in `scripts/` (siehe `CLAUDE.md` §7.1). Alle grün, keine Falschmeldungen. Neu seit v32.21: `storage_check.js` (was überlebt das Abmelden?) und seit v32.23 `sync_check.js` (kommt zurück, was hochgeladen wird?).
 - **Architektur-Detailkarte:** `BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte
@@ -7211,7 +7277,6 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | `book-ingest` ohne Spiegel | Dokumentiert statt gespiegelt (~250 dichte Zeilen). `backend_check` nennt es bei jedem Lauf. (df) |
 | `feedback_analysis` = 0 Zeilen | „Nie gedrückt" und „bricht immer ab" sind von hier aus nicht zu unterscheiden. Ein Knopfdruck im Admin-Panel klärt es. (df) |
 | Kaltstart 3,3 s (Einsteiger-Telefon) | Untersucht, kein lohnender Angriffspunkt für Teil-Auslagerung. Bräuchte einen echten Aufteilungsschritt. (dj) |
-| **33 Schreibvorgänge ohne Blick auf die Antwort** | Von 109. Die meisten still im Hintergrund und ohne Versprechen — vertretbar. Zu prüfen ist, wer etwas VERSPRICHT, das niemand geprüft hat. (dq) |
 | 3 Verzeichnisse im Repo ohne Auslieferung | `daily-push`, `entitlements`, `push-test` — nie deployed oder entfernt? (df) |
 | 4 Treffer in `field_check` | `tp-len`/`tp-wid`/`tp-soil`/`tp-light` — zusammengesetzte Namen, funktionieren. Dauerhafte Falschmeldung, in `CLAUDE.md` §7.1 benannt. |
 

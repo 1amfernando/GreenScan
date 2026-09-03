@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.27.20260903">
+<meta name="app-version" content="32.28.20260903">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -24237,25 +24237,34 @@ async function saveListing() {
     // sofort auf der Startseite erscheinen statt bis zu 60s alten Snapshot zu zeigen.
     try { window._gsMktHomeCache = null; if (typeof gsHomeRenderTopPicks === 'function') gsHomeRenderTopPicks(); } catch(_){}
     // v26.36: Bio / Pestizid-frei nachträglich PATCHen wenn aktiviert (Edge-Fn kennt diese Spalten noch nicht)
+    var _zertOk = true;   // v32.28: hat der Zertifikat-PATCH wirklich gegriffen?
     if ((nlOrganic || nlPestfree) && j.id && typeof sbFetch === 'function') {
       try {
-        await sbFetch('/rest/v1/marketplace_listings?id=eq.' + encodeURIComponent(j.id), {
+        // v32.28: 'return=representation', damit eine von RLS abgewiesene
+        // Zeile ueberhaupt erkennbar ist.
+        var _zert = await sbFetch('/rest/v1/marketplace_listings?id=eq.' + encodeURIComponent(j.id), {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+          headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
           body: JSON.stringify({
             organic_certified: nlOrganic,
             pesticide_free: nlPestfree,
             certification_label: nlCertLabel || null
           })
         });
-      } catch(_){}
+        _zertOk = _gsSchreibOk(_zert);
+      } catch(_){ _zertOk = false; }
     }
     try { localStorage.removeItem('gs_nl_edit_id'); } catch(_){} // v29.46: Edit abgeschlossen
     if (typeof showProfileToast === 'function') showProfileToast(
       (_editId
         ? (window.gsI18n ? gsI18n.t('toast_market_updated', '✅ Inserat aktualisiert') : '✅ Inserat aktualisiert')
         : (window.gsI18n ? gsI18n.t('toast_market_published', '✅ Live im Marketplace!') : '✅ Live im Marketplace!')) +
-      ' (' + (j.photo_count || 0) + ' Foto)' + (nlOrganic ? ' · 🌱 Bio' : nlPestfree ? ' · 🚫 Pestizid-frei' : ''),
+      ' (' + (j.photo_count || 0) + ' Foto)' +
+      // v32.28: die Auszeichnung nur nennen, wenn sie auch gespeichert wurde.
+      // Vorher stand „🌱 Bio" auch dann in der Meldung, wenn der PATCH, der
+      // genau dieses Feld schreibt, abgelehnt worden war.
+      (_zertOk ? (nlOrganic ? ' · 🌱 Bio' : nlPestfree ? ' · 🚫 Pestizid-frei' : '')
+               : ' · ⚠️ Bio-/Pestizid-Angabe nicht gespeichert'),
       'success');
     try { gsNlClearPhotos(); } catch(_){}
     closeModal('detail-modal');
@@ -29839,6 +29848,24 @@ function gsReportScanMistake() {
 //     der Server abgelehnt hatte — die v31.95-Klasse.
 //
 // Ab hier gibt es genau EINEN Sender, EINE Warteschlange und EINE Wahrheit.
+
+// ═══ v32.28 · HAT DER SERVER ES ANGENOMMEN? ══════════════════════════════
+//
+// `sbFetch` WIRFT NICHT. Es liefert `{data, error}`. Ein `try/catch` um einen
+// Schreibvorgang faengt deshalb nur Netz- und JS-Fehler — eine Ablehnung durch
+// den Server laeuft mitten hindurch, und die Erfolgsmeldung dahinter feuert.
+//
+// Und PostgREST liefert bei einer von RLS abgewiesenen Zeile **0 Datensaetze
+// und keinen Fehler**. Wer nur `error` prueft, meldet dann Erfolg fuer nichts.
+//
+// Beides in EINER Zeile, damit die naechste Stelle es nicht wieder einzeln
+// macht. `scripts/versprechen_check.js` haelt jede Erfolgsmeldung dagegen.
+function _gsSchreibOk(r){
+  if (!r) return false;
+  if (r.error) return false;
+  if (Array.isArray(r.data) && r.data.length === 0) return false;  // RLS: still abgewiesen
+  return true;
+}
 
 // Was die Tabelle `scan_corrections` wirklich hat (nachgesehen, nicht geraten):
 // user_id · ai_name · ai_latin · ai_confidence · user_name (NOT NULL) ·
@@ -37954,11 +37981,17 @@ window.gsRenderDoctorResult = gsRenderDoctorResult;
 async function gsDoctorFollowup(historyId, status) {
   if (!historyId) return;
   try {
-    await sbFetch('/rest/v1/plant_doctor_history?id=eq.' + encodeURIComponent(historyId), {
+    // v32.28: 'return=representation' statt 'minimal' — sonst gibt es nichts,
+    // woran sich eine von RLS abgewiesene Zeile erkennen liesse.
+    var _r = await sbFetch('/rest/v1/plant_doctor_history?id=eq.' + encodeURIComponent(historyId), {
       method: 'PATCH',
-      headers: {'Content-Type':'application/json','Prefer':'return=minimal'},
+      headers: {'Content-Type':'application/json','Prefer':'return=representation'},
       body: JSON.stringify({ user_followup: status, followup_at: new Date().toISOString() })
     });
+    if (!_gsSchreibOk(_r)) {
+      if (typeof showProfileToast === 'function') showProfileToast('Rückmeldung nicht angekommen — bitte später nochmal.', 'error');
+      return;
+    }
     if (typeof showProfileToast === 'function') showProfileToast(
       (window.gsI18n ? gsI18n.t('doctor_followup_thanks', 'Danke für dein Feedback! Hilft anderen Usern.') : 'Danke für dein Feedback! Hilft anderen Usern.'),
       'success');
@@ -38719,9 +38752,9 @@ async function gsPestAddToDiary(slug) {
     return;
   }
   try {
-    await sbFetch('/rest/v1/garden_diary', {
+    var _r = await sbFetch('/rest/v1/garden_diary', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
       body: JSON.stringify({
         user_id: uid,
         ts: new Date().toISOString(),
@@ -38734,6 +38767,10 @@ async function gsPestAddToDiary(slug) {
         metadata: { pest_slug: slug, source: 'pest_scanner_v26.21' }
       })
     });
+    if (!_gsSchreibOk(_r)) {
+      if (typeof showProfileToast === 'function') showProfileToast('Eintrag nicht gespeichert — bitte später nochmal.', 'error');
+      return;
+    }
     if (typeof showProfileToast === 'function') showProfileToast(
       (window.gsI18n ? gsI18n.t('pest_diary_saved', '📓 Im Garten-Tagebuch gespeichert') : '📓 Im Garten-Tagebuch gespeichert'),
       'success');
@@ -39984,9 +40021,9 @@ async function gsFertilizerLogDone(slug, lat, name, phase) {
     return;
   }
   try {
-    await sbFetch('/rest/v1/garden_diary', {
+    var _r = await sbFetch('/rest/v1/garden_diary', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
       body: JSON.stringify({
         user_id: uid,
         ts: new Date().toISOString(),
@@ -39999,6 +40036,10 @@ async function gsFertilizerLogDone(slug, lat, name, phase) {
         metadata: { fertilizer_slug: slug, phase: phase, source: 'fertilizer_coach_v26.29' }
       })
     });
+    if (!_gsSchreibOk(_r)) {
+      if (typeof showProfileToast === 'function') showProfileToast('Eintrag nicht gespeichert — bitte später nochmal.', 'error');
+      return;
+    }
     if (typeof showProfileToast === 'function') showProfileToast('✅ Düngung im Tagebuch festgehalten', 'success');
   } catch(_) {
     if (typeof showProfileToast === 'function') showProfileToast('⚠️ Konnte nicht speichern', 'error');
@@ -71413,6 +71454,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.28', date: '03.09.2026',
+    headline: '\u2705 „Gespeichert" hei\u00dft ab jetzt: nachgesehen, dass es gespeichert ist',
+    summary: 'Vier Stellen sagten „gespeichert" oder „Danke", ohne die Antwort des Servers anzusehen \u2014 Doktor-R\u00fcckmeldung, Sch\u00e4dling im Tagebuch, D\u00fcngung im Tagebuch und die Bio-Auszeichnung eines Inserats. Ein neuer, 17. Pr\u00fcfstand h\u00e4lt jede Erfolgsmeldung gegen die Frage, ob jemand nachgesehen hat.',
+    user_summary: '\u2705 Wenn die App „gespeichert" sagt, hat sie nachgesehen. Wenn nicht, sagt sie das \u2014 statt Erfolg zu melden und nichts zu tun.',
+    user_items: [
+      {emoji:'\ud83d\udcd3', bold:'Tagebuch-Eintr\u00e4ge:', text:' „\ud83d\udcd3 Im Garten-Tagebuch gespeichert" und „\u2705 D\u00fcngung festgehalten" kamen, ohne dass jemand gepr\u00fcft hatte, ob der Eintrag ankam. Jetzt kommen sie nur noch, wenn er ankam.'},
+      {emoji:'\ud83c\udf31', bold:'Und beim Inserat:', text:' Die Best\u00e4tigung nannte „\ud83c\udf31 Bio", auch wenn genau die Speicherung dieser Auszeichnung abgelehnt worden war. Jetzt wird nur genannt, was wirklich gespeichert ist.'},
+      {emoji:'\ud83d\udd0d', bold:'Warum das eine ganze Klasse ist:', text:' Ein `try/catch` um einen Serveraufruf f\u00e4ngt hier gar nichts \u2014 die App bekommt bei Ablehnung keinen Fehler, sondern eine leere Antwort. Der neue Pr\u00fcfstand pr\u00fcft alle 103 Schreibvorg\u00e4nge auf einmal.'},
+    ],
+  },
+  {
     v: 'v32.27', date: '03.09.2026',
     headline: '\ud83d\ude4f Gemeldete Arten-Korrekturen kommen jetzt wirklich an',
     summary: 'Wer dem Scanner einen Fehler meldete, bekam „Danke für die Korrektur!" \u2014 unabh\u00e4ngig davon, ob sie ankam. Wurde sie abgelehnt, landete sie in einer Liste, die niemand verschickt. Und die Offline-Warteschlange versprach „wird beim n\u00e4chsten Login synchronisiert", obwohl es diesen Vorgang gar nicht gab.',
@@ -71899,7 +71951,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.27';
+var GS_VERSION = 'v32.28';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
