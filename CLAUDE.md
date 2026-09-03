@@ -512,6 +512,7 @@ node scripts/backend_check.js    # ruft das Frontend etwas auf, das es nicht gib
 node scripts/storage_check.js    # was ueberlebt das Abmelden? (seit v32.21)
 node scripts/sync_check.js       # kommt zurueck, was hochgeladen wird? (seit v32.23)
 node scripts/versprechen_check.js # wer verspricht etwas, das niemand geprueft hat? (seit v32.28)
+node scripts/einstellungen_check.js # haelt der Schalter, was er verspricht? (seit v32.33)
 node scripts/kamera_check.js     # stimmt, was der Scanner ueber seine Kamera behauptet? (seit v32.29)
 #   save_check prueft seit v31.95 auch SERVER-Wege mit gestelltem sbFetch:
 #   meldet die Funktion Erfolg, wenn der Server NEIN sagt — oder gar nichts?
@@ -1190,6 +1191,48 @@ aus der Beschriftung, sonst eine Nummer.
 - **Eine Attrappe ist kein MediaStream.** `video.srcObject = …` wirft bei
   einem gestellten Objekt; der Linsenwechsel schlug daran fehl, nicht am
   Code. Im Pruefstand wird `srcObject` deshalb entschaerft.
+
+**`einstellungen_check.js` (seit v32.33) faehrt die Versprechen der Schalter
+wirklich durch.** Anlass war ein Audit des Einstellungs-Bildschirms aus sechs
+Blickwinkeln: 48 Stellen, 20 davon haben eine gegnerische Gegenpruefung
+ueberstanden. Der rote Faden war derselbe wie im ganzen Repo — **ein Schalter,
+der etwas behauptet, das niemand nachgesehen hat.** Die drei schwersten:
+
+| Schalter | sagte | war |
+|---|---|---|
+| Push-Master | „🔔 Push-Notifications aktiv!" | Browser-Abonnement da, Serverzeile nie geprueft — ohne sie kommt nie ein Push |
+| GPS | „✅ GPS aktiv — Standort wird automatisch erkannt" | Browser hatte die Freigabe entzogen, die App wusste es und las den falschen Speicher |
+| „Kamera immer neu abfragen" | „jede Anfrage bestaetigen" | genau EINE Bestaetigung, beim ersten Scan; zwoelf weitere Kamera-Wege kannten den Schalter nie |
+
+Drei Regeln daraus, alle allgemein:
+
+- **Zwei Speicher fuer dieselbe Frage sind ein Fehler, der auf sein Datum
+  wartet.** `gs_gps_perm` (App) und `gs_perm_location` / `gsPermState`
+  (Browser) beantworteten beide „darf ich orten?", und niemand glich sie ab.
+  Wo zwei Speicher dieselbe Frage beantworten, gewinnt der, der sie
+  beantworten DARF — hier der Browser.
+- **Dasselbe beim Zuruecksetzen: wer einen Zustand raeumt, raeumt ALLE
+  Kopien.** Der Kamera-Schalter loeschte `gs_cam_perm` und liess
+  `gs_perm_camera` und `gsPermState.camera` stehen — und `gsRequestCamera`
+  liest genau die.
+- **Dreizehn Aufrufstellen brauchen EINE Nachruestung, nicht dreizehn
+  Pflaster** (dieselbe Entscheidung wie bei der Tastatur in v32.16). Das Tor
+  fuer „jede Anfrage bestaetigen" sitzt an `navigator.mediaDevices
+  .getUserMedia` selbst — der einzigen Stelle, durch die alle muessen. Die
+  naechste Kamera-Stelle bringt den Fehler damit nicht wieder mit.
+
+**Zwei Sperren stellt er ausdruecklich, statt sie zu umgehen:**
+`Notification.requestPermission` (ohne Antwort bricht der Push-Weg ab, bevor
+irgendetwas passiert) und `location.reload` (der Sprachwechsel laedt die Seite
+neu und nimmt den Pruefstand mit).
+
+**Gegenprobe gemacht** — alle vier Reparaturen einzeln zurueckgebaut: der
+Pruefstand meldete 4 von 4 rot, mit den echten Zahlen daneben
+(`{"abgelehnt":true,"leer":true,"ok":true,"abgemeldet":true}`).
+
+**Grenze:** es gibt hier weder eine echte Kamera noch einen echten
+Supabase-Server. Geprueft ist die RECHNUNG und die AUSSAGE — was die App aus
+einer Antwort macht, nicht ob die Antwort echt ist.
 
 **`versprechen_check.js` (seit v32.28) stellt `save_check`s Frage STATISCH
 ueber alle.** `save_check` faehrt einzelne Wege wirklich zu Ende — genauer,
