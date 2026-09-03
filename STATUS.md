@@ -4,13 +4,91 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.32` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.33` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-03 (dv) — v32.33: drei Schalter, die die Unwahrheit sagten
+
+Der Einstellungs-Bildschirm ist aus **sechs Blickwinkeln** geprüft worden
+(Berechtigungen · tote Einstellungen · Cloud-Sync · Suche · Sicherheit &
+Löschen · Optik/Zugänglichkeit), jede Meldung anschliessend von einem
+**gegnerischen** Durchgang angegriffen, der sie widerlegen sollte.
+
+**48 Meldungen · 31 angegriffen · 20 haben standgehalten · 11 widerlegt · 17
+noch ohne Urteil.** Die Widerlegungen waren gut: zweimal stimmte die
+Beobachtung und die Folgerung nicht, einmal war die Voraussetzung ein Zustand,
+den kein Browser herstellt.
+
+Diese Auslieferung behebt die drei schwersten. Sie gehören zur selben Familie —
+und es ist dieselbe, die dieses Repo seit v32.28 verfolgt: **ein Schalter, der
+etwas behauptet, das niemand nachgesehen hat.**
+
+| Schalter | sagte | war |
+|---|---|---|
+| Push-Master | „🔔 Push-Notifications aktiv!" | Browser-Abonnement da, Serverzeile nie geprüft — ohne sie kommt nie ein Push, und es korrigiert sich nie |
+| GPS | „✅ GPS aktiv — Standort wird automatisch erkannt" | Der Browser hatte die Freigabe entzogen; die App wusste es in derselben Sitzung und las den falschen Speicher |
+| „Kamera immer neu abfragen" | „jede Anfrage bestätigen" | genau EINE Bestätigung, beim ersten Scan — danach nie wieder, obwohl der Schalter an blieb |
+
+#### Warum der Kamera-Fall der lehrreichste ist
+
+`gsCamAlwaysAsk()` wurde an **genau einer** von dreizehn Stellen gelesen, die
+eine Kamera öffnen. Pflanzendoktor, Garten-Scan und Sortier-Kamera kannten den
+Schalter nie. Und dort, wo er gelesen wurde, lautete die Bedingung
+`if (alwaysAsk && !granted)` — vier Zeilen weiter setzte der Erfolgsweg
+`cameraPermGranted = true`.
+
+Dreizehn Einzelpflaster wären die falsche Antwort gewesen; die vierzehnte
+Kamera-Stelle hätte den Fehler wieder mitgebracht. Das Tor sitzt jetzt an
+`navigator.mediaDevices.getUserMedia` selbst — **der einzigen Stelle, durch die
+alle müssen** (dieselbe Entscheidung wie bei der Tastatur-Bedienbarkeit in
+v32.16). Es greift nur bei eingeschaltetem Schalter; der gewohnte Weg bleibt
+unberührt.
+
+Nebenbei: die Erklärung „GreenScan braucht Kamera-Zugriff um Arten direkt zu
+bestimmen" hing an `alwaysAsk` — also genau falsch herum. Wer den Schalter nie
+angefasst hat (fast alle), bekam sie **nie**. Jetzt sieht sie, wer die Kamera
+zum ersten Mal öffnet.
+
+#### Zwei Speicher für dieselbe Frage
+
+Beim GPS: `gs_gps_perm` (schreibt die App) und `gs_perm_location` /
+`gsPermState.location` (kommt aus der Permissions-API). Beide beantworten
+„darf ich orten?", abgeglichen hat sie nie jemand.
+
+> **Wo zwei Speicher dieselbe Frage beantworten, gewinnt der, der sie
+> beantworten DARF.** Der Browser entscheidet über die Freigabe, nicht die App.
+
+Dasselbe beim Zurücksetzen: der Kamera-Schalter löschte `gs_cam_perm` und liess
+`gs_perm_camera` und `gsPermState.camera` stehen — und `gsRequestCamera` liest
+genau die. **Wer einen Zustand räumt, räumt alle Kopien.**
+
+#### 19. Prüfstand: `einstellungen_check.js`
+
+Vier Fragen, alle vier gegengeprüft. Er stellt die zwei Sperren ausdrücklich,
+statt sie zu umgehen: `Notification.requestPermission` (ohne Antwort bricht der
+Push-Weg ab, bevor irgendetwas passiert) und `location.reload` (der
+Sprachwechsel lädt die Seite neu und nimmt den Prüfstand mit).
+
+**Gegenprobe:** alle vier Reparaturen einzeln zurückgebaut → 4 von 4 rot, mit
+den echten Zahlen daneben (`{"abgelehnt":true,"leer":true,"ok":true,
+"abgemeldet":true}` für den Push-Weg).
+
+**Grenze, ehrlich benannt:** hier gibt es weder eine echte Kamera noch einen
+echten Supabase-Server. Geprüft ist die RECHNUNG und die AUSSAGE — was die App
+aus einer Antwort macht, nicht ob die Antwort echt ist.
+
+#### Was aus dem Audit noch offen ist
+
+17 der 20 bestätigten Meldungen sind noch nicht behoben, 17 weitere noch nicht
+angegriffen. Die Liste liegt in `docs/EINSTELLUNGEN-AUDIT.md`; die nächsten
+Wellen arbeiten sie nach Schwere ab.
+
+---
 
 ### 2026-09-03 (du) — v32.32: drei Dinge auf einem Bild, und keines davon war Meinung
 
@@ -7515,11 +7593,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.32` (Client) · SW-Cache `gs-v32.32` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.33` (Client) · SW-Cache `gs-v32.33` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.
-- **Prüfstände:** **18** in `scripts/` (siehe `CLAUDE.md` §7.1). Alle grün, keine Falschmeldungen. Neu seit v32.21: `storage_check.js` (was überlebt das Abmelden?) und seit v32.23 `sync_check.js` (kommt zurück, was hochgeladen wird?).
+- **Prüfstände:** **19** in `scripts/` (siehe `CLAUDE.md` §7.1). Alle grün, keine Falschmeldungen. Neu seit v32.33: `einstellungen_check.js` (hält der Schalter, was er verspricht?).
 - **Architektur-Detailkarte:** `BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte

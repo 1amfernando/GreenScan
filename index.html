@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.32.20260903">
+<meta name="app-version" content="32.33.20260903">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27804,8 +27804,14 @@ function initScanner(){
   // eigene Schreibstelle vier Zeilen weiter unten hinterliess. Behoben ist es
   // jetzt an der Wurzel (Schreiber wie Leser kennen 'granted' und '1'),
   // deshalb ist hier nichts mehr noetig.
-  if (alwaysAsk && !granted) {
-    // Nur beim ERSTEN mal Dialog — nicht bei jedem Öffnen
+  // v32.33: Diese Stelle erklaert beim ERSTEN Mal, wofuer die Kamera gebraucht
+  // wird — ein Hinweis-Toast, kein Riegel. Sie war bisher an `alwaysAsk`
+  // gebunden und damit genau falsch herum: wer den Schalter nie angefasst hat
+  // (also fast alle), bekam die Erklaerung NIE. Jetzt sieht sie, wer die Kamera
+  // zum ersten Mal oeffnet.
+  // Ist der Schalter AN, fragt stattdessen das Tor an `getUserMedia` — sonst
+  // kaemen zwei Nachfragen hintereinander.
+  if (!granted && !alwaysAsk) {
     showCameraPermDialog(tryStartCamera, {
       icon: '📷',
       title: 'Kamera starten',
@@ -56510,11 +56516,31 @@ function openLocationSettings() {
 
 var GS_GPS_PERM_KEY = 'gs_gps_perm'; // 'granted' | 'denied' | null
 
+// v32.33: Es gibt zwei Speicher fuer denselben Sachverhalt — `gs_gps_perm`
+// (schreibt die App selbst) und `gs_perm_location` / `gsPermState.location`
+// (kommt aus der Permissions-API des Browsers). Abgeglichen hat sie niemand.
+// Folge: Wer die Standortfreigabe im Browser entzieht, sah in den
+// Einstellungen weiter „✅ GPS aktiv — Standort wird automatisch erkannt",
+// und `gsLiveTrackingStart` startete `watchPosition` auf eine Zusage, die das
+// Betriebssystem nicht deckt.
+//
+// **Die Regel: wo zwei Speicher dieselbe Frage beantworten, gewinnt der, der
+// sie beantworten DARF.** Der Browser entscheidet ueber die Freigabe, nicht
+// die App — ein „denied" von dort schlaegt jedes eigene „granted".
+function _gsGpsBrowserPerm() {
+  try {
+    if (typeof gsGetCachedPermission === 'function') return gsGetCachedPermission('geolocation');
+  } catch(_){}
+  return 'unknown';
+}
+
 function gsGpsIsGranted() {
+  if (_gsGpsBrowserPerm() === 'denied') return false;
   return localStorage.getItem(GS_GPS_PERM_KEY) === 'granted';
 }
 
 function gsGpsIsDenied() {
+  if (_gsGpsBrowserPerm() === 'denied') return true;
   return localStorage.getItem(GS_GPS_PERM_KEY) === 'denied';
 }
 
@@ -56540,6 +56566,13 @@ function gsGpsUpdateToggleUI() {
 
   if (label) {
     if (granted) { label.textContent = '✅ GPS aktiv — Standort wird automatisch erkannt'; label.style.color = '#2e7d32'; }
+    else if (_gsGpsBrowserPerm() === 'denied') {
+      // v32.33: Der Browser hat die Freigabe entzogen. Das kann die App nicht
+      // zurueckholen — der Hinweis muss deshalb sagen, WO es zu aendern ist,
+      // statt „tippe zum Aktivieren" anzubieten, was hier nichts bewirkt.
+      label.textContent = '🚫 Vom Browser gesperrt — in den Website-Einstellungen des Browsers freigeben';
+      label.style.color = '#c62828';
+    }
     else if (denied) { label.textContent = '❌ GPS deaktiviert — tippe zum Aktivieren'; label.style.color = '#c62828'; }
     else { label.textContent = '⚪ GPS noch nicht eingerichtet'; label.style.color = 'var(--muted)'; }
   }
@@ -56757,6 +56790,12 @@ function gsCamAlwaysAskToggle(checked) {
   try { localStorage.setItem(GS_CAM_ALWAYS_ASK_KEY, checked ? '1' : '0'); } catch(e){}
   if (checked) {
     try { localStorage.removeItem('gs_cam_perm'); } catch(e){}
+    // v32.33: Es gibt DREI Speicher fuer „Kamera erlaubt" — `gs_cam_perm`,
+    // `gs_perm_camera` und `gsPermState.camera`. Der Schalter raeumte nur den
+    // ersten weg; `gsRequestCamera` liest den zweiten und haette weiter
+    // durchgewinkt. Wer einen Zustand zuruecksetzt, setzt ALLE Kopien zurueck.
+    try { localStorage.removeItem('gs_perm_camera'); } catch(e){}
+    try { if (window.gsPermState) window.gsPermState.camera = null; } catch(e){}
     try { cameraPermGranted = false; } catch(e){}
     if (typeof showProfileToast === 'function') showProfileToast('🔁 Kamera-Nachfrage aktiv — jede Anfrage wird neu bestätigt.');
   } else {
@@ -56769,6 +56808,57 @@ function gsUpdateAlwaysAskUI() {
   if (g) g.checked = gsGpsAlwaysAsk();
   if (c) c.checked = gsCamAlwaysAsk();
 }
+
+// ═══ v32.33 · „Kamera immer neu abfragen" gilt jetzt fuer JEDE Anfrage ═════
+//
+// Der Schalter verspricht „Statt zu merken — jede Anfrage bestätigen". Er
+// lieferte genau EINE Bestaetigung, beim allerersten Scan: die Bedingung hiess
+// `if (alwaysAsk && !granted)`, und vier Zeilen weiter setzte der Erfolgsweg
+// `cameraPermGranted = true`. Ab dem zweiten Scan war die Bedingung falsch.
+//
+// Dazu kannte den Schalter nur EINE der dreizehn Stellen, die eine Kamera
+// oeffnen — Pflanzendoktor, Garten-Scan und die Sortier-Kamera nie.
+//
+// **Eine zentrale Nachruestung statt dreizehn Einzelpflaster** (dieselbe
+// Entscheidung wie bei der Tastatur-Bedienbarkeit in v32.16): das Tor sitzt an
+// `navigator.mediaDevices.getUserMedia` selbst — der einzigen Stelle, durch
+// die alle dreizehn Wege muessen. Die naechste Kamera-Stelle bringt den Fehler
+// damit nicht wieder mit.
+//
+// Es greift NUR bei eingeschaltetem Schalter (Standard: aus); der gewohnte
+// Weg bleibt unberuehrt.
+window._gsKamTorFrei = false;   // einmalige Freigabe, wird verbraucht
+async function _gsKamFragen(){
+  try { if (typeof gsCamAlwaysAsk !== 'function' || !gsCamAlwaysAsk()) return true; } catch(_){ return true; }
+  if (window._gsKamTorFrei) { window._gsKamTorFrei = false; return true; }
+  if (typeof gsConfirmModal !== 'function') return true;
+  try {
+    return await gsConfirmModal({
+      title: '📷 Kamera öffnen?',
+      message: 'Du hast „Kamera immer neu abfragen" eingeschaltet. GreenScan fragt deshalb vor jedem Kamerazugriff nach.',
+      ok: 'Kamera öffnen', cancel: 'Nicht jetzt'
+    });
+  } catch(_){ return true; }
+}
+(function(){
+  try {
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') return;
+    if (navigator.mediaDevices._gsTorGesetzt) return;
+    var echt = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+    navigator.mediaDevices.getUserMedia = async function(c){
+      if (c && c.video) {
+        var frei = await _gsKamFragen();
+        if (!frei) {
+          var e = new Error('Kamera-Zugriff abgelehnt');
+          e.name = 'NotAllowedError';
+          throw e;
+        }
+      }
+      return echt(c);
+    };
+    navigator.mediaDevices._gsTorGesetzt = true;
+  } catch(_){}
+})();
 
 // Beim App-Start autostart wenn aktiviert
 try {
@@ -71776,6 +71866,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.33', date: '03.09.2026',
+    headline: '\ud83d\udd0f Drei Schalter in den Einstellungen sagten die Unwahrheit',
+    summary: 'Ein Audit der Einstellungen aus sechs Blickwinkeln fand 48 Stellen; 20 haben eine gegnerische Gegenpr\u00fcfung \u00fcberstanden. Diese Auslieferung behebt die drei schwersten \u2014 alle drei geh\u00f6ren zur selben Familie: ein Schalter, der etwas behauptet, das niemand nachgesehen hat.',
+    user_summary: '\ud83d\udd0f Push, GPS und „Kamera immer neu abfragen" zeigen jetzt den echten Zustand \u2014 und der Kamera-Schalter wirkt endlich \u00fcberall.',
+    user_items: [
+      {emoji:'\ud83d\udd14', bold:'Push sagt nicht mehr „aktiv", wenn es nicht aktiv ist:', text:' Bisher meldete die App „Push-Notifications aktiv!", sobald der Browser ein Abonnement angelegt hatte \u2014 ob der Server es angenommen hatte, sah niemand nach. Ohne Eintrag beim Server kommt aber nie eine Benachrichtigung. Jetzt wird nachgesehen, bei Bedarf einmal selbst nachgetragen, und sonst steht dort, was ist.'},
+      {emoji:'\ud83d\udccd', bold:'GPS zeigt, was der Browser sagt:', text:' Wer die Standortfreigabe im Browser entzieht, sah in GreenScan weiter „✅ GPS aktiv \u2014 Standort wird automatisch erkannt". Jetzt steht dort „🚫 Vom Browser gesperrt" mit dem Hinweis, wo es freizugeben ist.'},
+      {emoji:'\ud83d\udcf7', bold:'„Kamera immer neu abfragen" fragt wirklich jedes Mal:', text:' Der Schalter lieferte genau EINE Best\u00e4tigung, beim allerersten Scan \u2014 danach nie wieder, obwohl er an blieb. Und zw\u00f6lf weitere Kamera-Wege (Pflanzendoktor, Garten-Scan, Sortier-Kamera) kannten ihn \u00fcberhaupt nicht. Jetzt gilt er f\u00fcr jede Kamera-Anfrage in der ganzen App.'},
+      {emoji:'\ud83e\uddea', bold:'Und ein 19. Pr\u00fcfstand dazu:', text:' `einstellungen_check` f\u00e4hrt diese Versprechen wirklich durch \u2014 gegengepr\u00fcft: mit dem alten Code meldet er alle vier Fragen rot.'},
+    ],
+  },
+  {
     v: 'v32.32', date: '03.09.2026',
     headline: '\ud83d\udcf1 Kamera: kein schwarzer Streifen mehr, und nur noch EIN Zoom-Bedienelement',
     summary: 'Fernandos Aufnahme zeigte drei Dinge auf einmal: ein Viertel des Bildschirms unter den Kn\u00f6pfen schwarz und leer, eine Leiste \u201eLinse 1\u2013Linse 4\u201c mit nichtssagenden Namen, und \u201e1.0\u00d7\u201c am weitesten Punkt einer Kamera, die dort 0,5\u00d7 steht. Alle drei behoben \u2014 und die Bildschirmh\u00f6he wird nicht mehr von Hand nachgerechnet, sondern kommt aus dem Layout.',
@@ -72318,7 +72420,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.32';
+var GS_VERSION = 'v32.33';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -81373,10 +81475,17 @@ async function gsNotifMarkRead(id){
 // Web-Push-Subscription registrieren (für PWA-Notifications)
 // v25.26: Schema-Fix — Cowork-Tabelle hat „auth_secret" (NICHT „auth")
 // und 7 neue Spalten (gps_lat/lng + 4 notify_*-Toggles + quiet_start/end_hour).
+// v32.33: gibt jetzt ZURUECK, ob die Zeile wirklich angekommen ist.
+// Vorher lief die Funktion auf drei Wegen lautlos ins Leere (nicht angemeldet,
+// keine uid, sbFetch fehlt) und schickte den POST mit `return=minimal` — was
+// eine RLS-Ablehnung UNSICHTBAR macht (CLAUDE.md §7.1, `versprechen_check`).
+// Der Aufrufer meldete danach „Push aktiv!", ohne dass je eine Zeile in
+// `push_subscriptions` stand: der Schalter blieb auf „an" fuer eine Funktion,
+// die nie lief, und korrigierte sich nie.
 async function gsRegisterPushSubscription(subscription){
-  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return;
+  if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn()) return false;
   var uid = gsStore.get('gs_sb_uid', null);
-  if (!uid || !subscription || typeof sbFetch !== 'function') return;
+  if (!uid || !subscription || typeof sbFetch !== 'function') return false;
   try {
     var json = subscription.toJSON ? subscription.toJSON() : subscription;
     var keys = json.keys || {};
@@ -81386,9 +81495,9 @@ async function gsRegisterPushSubscription(subscription){
     // Push-Settings aus localStorage-Cache (Defaults true)
     var s = {};
     try { s = JSON.parse(localStorage.getItem('gs_push_settings') || '{}'); } catch(_){}
-    await sbFetch('/rest/v1/push_subscriptions', {
+    var _r = await sbFetch('/rest/v1/push_subscriptions', {
       method:'POST',
-      headers:{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
+      headers:{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=representation'},
       body: JSON.stringify({
         user_id: uid,
         endpoint: json.endpoint,
@@ -81412,7 +81521,8 @@ async function gsRegisterPushSubscription(subscription){
         quiet_end_hour:   (typeof s.quietEnd === 'number')   ? s.quietEnd   : 7
       })
     });
-  } catch(e){ console.warn('[gsRegisterPushSubscription]', e); }
+    return _gsSchreibOk(_r);
+  } catch(e){ console.warn('[gsRegisterPushSubscription]', e); return false; }
 }
 
 // ═════════════════════════════════════════════════════════════════════
@@ -81518,7 +81628,16 @@ async function gsSubscribeWebPush(){
       userVisibleOnly: true,
       applicationServerKey: gsBase64UrlToUint8(vapidB64)
     });
-    await gsRegisterPushSubscription(sub);
+    // v32.33: erst nachsehen, dann behaupten. Ohne Zeile in `push_subscriptions`
+    // gibt es kein Push — daily-push, weather-alert-checker und
+    // engagement-push-checker lesen alle diese Tabelle. Der Browser-Abonnement
+    // allein sagt darueber nichts.
+    var _ok = await gsRegisterPushSubscription(sub);
+    if (!_ok) {
+      try { await sub.unsubscribe(); } catch(_){}
+      if (typeof showProfileToast === 'function') showProfileToast({title:'Push konnte nicht eingerichtet werden', body:'Das Gerät wurde nicht beim Server angemeldet. Bitte später erneut versuchen.', type:'error', duration: 6000});
+      return null;
+    }
     if (typeof showProfileToast === 'function') showProfileToast('🔔 Push-Notifications aktiv!', 'success');
     if (typeof gsBrain !== 'undefined' && gsBrain && typeof gsBrain.observe === 'function') {
       try { gsBrain.observe('push_subscribed', {}); } catch(_){}
@@ -81660,8 +81779,23 @@ async function gsPushSettingsRefresh(){
     var reg = await navigator.serviceWorker.ready;
     var sub = await reg.pushManager.getSubscription();
     toggle.checked = !!sub;
-    if (statusSub) statusSub.textContent = sub ? 'Status: aktiv' : 'Status: aus';
     if (detail) detail.style.display = sub ? '' : 'none';
+    if (!sub) { if (statusSub) statusSub.textContent = 'Status: aus'; return; }
+    // v32.33: Ein Abonnement im BROWSER ist nur die halbe Miete — geschickt wird
+    // aus `push_subscriptions`. Fehlt die Zeile dort (RLS abgewiesen, Konto
+    // gewechselt, Server-Fehler beim Einrichten), kam bis hierher trotzdem
+    // „Status: aktiv" — dauerhaft, denn genau diese Zeile prüfte niemand.
+    // Jetzt: einmal nachsehen, einmal selbst nachtragen, und sonst sagen was ist.
+    if (typeof sbIsLoggedIn !== 'function' || !sbIsLoggedIn() || typeof sbFetch !== 'function') {
+      if (statusSub) statusSub.textContent = 'Status: aktiv (nur auf diesem Gerät — für Push bitte anmelden)';
+      return;
+    }
+    var uid = gsStore.get('gs_sb_uid', null);
+    var srv = uid ? await sbFetch('/rest/v1/push_subscriptions?select=endpoint&user_id=eq.' +
+                encodeURIComponent(uid) + '&endpoint=eq.' + encodeURIComponent(sub.endpoint)) : null;
+    var da = srv && Array.isArray(srv.data) && srv.data.length > 0;
+    if (!da) da = await gsRegisterPushSubscription(sub);
+    if (statusSub) statusSub.textContent = da ? 'Status: aktiv' : 'Status: nicht beim Server angemeldet — bitte aus- und wieder einschalten';
   } catch(_){}
 }
 
