@@ -5688,7 +5688,10 @@ li.laeuft .gs-s-erg{color:var(--muted);}
 .gs-eg-mehr{font-size:var(--fs-xs);color:var(--muted);text-align:center;margin-top:10px;}
 /* v32.46 — Kalender (docs/KALENDER-V1.md). Nur Merkmale, keine festen
    Farben auf Themenflaechen; die Punkte tragen die Ereignisart. */
-.gs-dp-kal{margin-left:auto;background:transparent;border:1px solid var(--border);border-radius:var(--r-sm);padding:4px 8px;font-size:var(--fs-md);cursor:pointer;line-height:1;}
+.gs-dp-kal{margin-left:auto;background:transparent;border:1px solid var(--border);border-radius:var(--r-sm);padding:4px 8px;font-size:var(--fs-md);cursor:pointer;line-height:1;color:var(--text);font-family:inherit;}
+/* ^ v32.48: ohne `color` erbte der Knopf im Kalender Schwarz — auf der dunklen
+   Karte 1,35:1 (contrast_check, Dunkelmodus). Ein Knopf traegt seine Textfarbe
+   selbst, nicht die Hoffnung auf den Vorfahren. */
 .gs-kal-kopf{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0 8px;}
 .gs-kal-werkzeuge{display:flex;justify-content:flex-end;margin:-4px 0 8px;}
 .gs-kal-titel{font-size:var(--fs-lg);font-weight:900;color:var(--text);}
