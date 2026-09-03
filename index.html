@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.46.20260903">
+<meta name="app-version" content="32.47.20260903">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5706,6 +5706,17 @@ li.laeuft .gs-s-erg{color:var(--muted);}
 .gs-kal-p-aufgabe{background:var(--c-warn-d,#bf360c);}
 .gs-kal-p-tagebuch{background:var(--g-dark);}
 .gs-kal-p-gepflanzt{background:var(--c-info,#1565c0);}
+.gs-kal-p-ernte{background:#8d6e63;}
+.gs-pfl-zeile{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);}
+.gs-pfl-zeile:last-of-type{border-bottom:none;}
+.gs-pfl-ico{font-size:18px;width:24px;text-align:center;flex-shrink:0;}
+.gs-pfl-txt{flex:1;min-width:0;display:flex;flex-direction:column;}
+.gs-pfl-txt b{font-size:var(--fs-sm);font-weight:800;color:var(--text);}
+.gs-pfl-txt i{font-size:var(--fs-xs);color:var(--muted);font-style:normal;}
+.gs-pfl-zeile.due .gs-pfl-txt i{color:var(--c-danger-d,#b71c1c);font-weight:700;}
+.gs-pfl-ok{width:30px;height:30px;border-radius:50%;border:2px solid var(--g-main);background:transparent;color:var(--g-dark);font-weight:900;cursor:pointer;flex-shrink:0;font-family:inherit;}
+.gs-kal-p-erinnerung{background:var(--c-warn-d,#bf360c);opacity:.55;}
+.gs-kal-p-wetter{background:#5c6bc0;}
 .gs-kal-tag.gewaehlt .gs-kal-p{background:#fff;}
 .gs-kal-legende{display:flex;gap:12px;flex-wrap:wrap;font-size:var(--fs-xs);color:var(--muted);margin:8px 0 12px;}
 .gs-kal-legende span{display:inline-flex;align-items:center;gap:5px;}
@@ -9769,7 +9780,8 @@ window.gsRpcTaskDone = gsRpcTaskDone;
 
 function gsQuickDone(plantId, taskKey) {
   gsHaptic('success');
-  var p = myPlants.find(function(x){ return x.id === plantId; });
+  var _f = _gsPflanzeFinden(plantId);            // v32.47: beide Listen
+  var p = _f && _f.p;
   if (!p || !p.tasks || !p.tasks[taskKey]) return;
   var nowIso = new Date().toISOString();
   p.tasks[taskKey].lastDone = nowIso;
@@ -9784,7 +9796,7 @@ function gsQuickDone(plantId, taskKey) {
     // Cap auf 200 Diary-Einträge pro Pflanze (sonst Blob-Bloat)
     p.diary = gsCapWithArchive('plant_diary', p.diary, 200);
   } catch(_){}
-  savePlantsToStorage();
+  if (_f && _f.liste === 'plantings') { try { saveGardenData(); } catch(_){} } else savePlantsToStorage();
   try { if (typeof scheduleAllNotifications === 'function') scheduleAllNotifications(); } catch(_){} // v30.76: konsistent mit doneTask
   // v24.25: Server-Cron-Reminder als gelesen markieren
   try { gsMarkPlantReminderRead(plantId, taskKey); } catch(_){}
@@ -9828,7 +9840,8 @@ window.gsDueCardDone = gsDueCardDone;
 function gsSnoozeTask(plantId, taskKey, days) {
   try {
     gsHaptic('light');
-    var p = myPlants.find(function(x){ return x && x.id === plantId; });
+    var _fs = _gsPflanzeFinden(plantId);           // v32.47: beide Listen
+    var p = _fs && _fs.p;
     if (!p || !p.tasks || !p.tasks[taskKey]) return;
     var d = parseInt(days, 10) || 1;
     // v32.46: NICHT mehr `lastDone` faelschen — die Pflanze wurde nicht
@@ -9836,7 +9849,7 @@ function gsSnoozeTask(plantId, taskKey, days) {
     // getDaysUntilDue rechnet damit; das Tagebuch behaelt die Wahrheit.
     // (Ein frueher gefaelschtes lastDone laesst sich nicht zurueckrechnen.)
     p.tasks[taskKey].snoozedUntil = new Date(Date.now() + d * 86400000).toISOString();
-    savePlantsToStorage();
+    if (_fs.liste === 'plantings') { try { saveGardenData(); } catch(_){} } else savePlantsToStorage();
     try { if (typeof scheduleAllNotifications === 'function') scheduleAllNotifications(); } catch(_){}
     if (typeof showProfileToast === 'function') showProfileToast('⏰ Um ' + d + ' Tag' + (d > 1 ? 'e' : '') + ' verschoben', 'info');
     setTimeout(function(){ renderMyPlants(); }, 300);
@@ -10146,7 +10159,13 @@ function openGartenTagebuch() {
     '<div style="background:var(--surface2);border-radius:var(--r-md);padding:10px;margin-bottom:10px;">' +
       '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;">' + catPickerHtml + '</div>' +
       '<input id="tb-plant" type="text" placeholder="Pflanze (optional)" list="tb-plant-list" maxlength="50" style="width:100%;padding:8px 10px;border-radius:var(--r-sm);border:1.5px solid var(--border);background:var(--card);font-size:var(--fs-sm);font-family:inherit;color:var(--text);outline:none;margin-bottom:5px;box-sizing:border-box;">' +
-      '<datalist id="tb-plant-list">' + GS_SAE_DB.map(function(p){return '<option value="'+p.n+'">';}).join('') + '</datalist>' +
+      // v32.47: die EIGENEN Pflanzen zuerst in der Liste — ein Eintrag zu „Tomate"
+      // soll die Tomate im Garten meinen, nicht irgendeine.
+      '<datalist id="tb-plant-list">' +
+        ((typeof myPlants !== 'undefined' && Array.isArray(myPlants)) ? myPlants.map(function(p){ return p && p.name ? '<option value="' + escHtml(p.name) + '">' : ''; }).join('') : '') +
+        ((typeof plantings !== 'undefined' && Array.isArray(plantings)) ? plantings.map(function(p){ return p && p.name ? '<option value="' + escHtml(p.name) + '">' : ''; }).join('') : '') +
+        GS_SAE_DB.map(function(p){return '<option value="'+p.n+'">';}).join('') + '</datalist>' +
+      '<input id="tb-date" type="date" aria-label="Datum des Eintrags" title="Datum — leer heisst heute; ein Datum in der Zukunft wird zur Erinnerung" style="width:100%;padding:8px 10px;border-radius:var(--r-sm);border:1.5px solid var(--border);background:var(--card);font-size:var(--fs-sm);font-family:inherit;color:var(--text);outline:none;margin-bottom:5px;box-sizing:border-box;">' +
       '<textarea id="tb-input" placeholder="Was hast du heute gemacht?" maxlength="500" style="width:100%;padding:8px 10px;border-radius:var(--r-sm);border:1.5px solid var(--border);background:var(--card);font-size:var(--fs-sm);font-family:inherit;color:var(--text);outline:none;resize:none;min-height:44px;box-sizing:border-box;"></textarea>' +
       '<div style="display:flex;justify-content:flex-end;margin-top:5px;">' +
         '<button onclick="gsTbAdd()" style="padding:6px 14px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">+ Speichern</button>' +
@@ -10229,13 +10248,29 @@ function gsTbAdd() {
   } catch(e) {}
   
   gsTagebuchLoad(true);
+  // v32.47: Datum waehlbar (leer = jetzt). Ein Datum in der Zukunft ist eine
+  // ERINNERUNG — sie steht im Kalender an dem Tag, nicht heute im Tagebuch.
+  // Und die Pflanze bekommt ihre Id, wenn der Name eindeutig ist.
+  var _dateEl = document.getElementById('tb-date');
+  var _wann = new Date();
+  if (_dateEl && _dateEl.value && /^\d{4}-\d{2}-\d{2}$/.test(_dateEl.value)) { var _p = _dateEl.value.split('-'); _wann = new Date(+_p[0], +_p[1]-1, +_p[2], 12, 0, 0); }
+  var _pname = plantEl && plantEl.value.trim() ? plantEl.value.trim().slice(0,50) : '';
+  var _pid = null;
+  try {
+    var _tr = [];
+    if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) _tr = _tr.concat(myPlants.filter(function(p){ return p && p.name === _pname; }));
+    if (typeof plantings !== 'undefined' && Array.isArray(plantings)) _tr = _tr.concat(plantings.filter(function(p){ return p && p.name === _pname; }));
+    if (_tr.length === 1) _pid = _tr[0].id;
+  } catch(_){}
   _gsTagebuch.unshift({
     id: Date.now(), cat: cat,
-    plant: plantEl && plantEl.value.trim() ? plantEl.value.trim().slice(0,50) : '',
+    plant: _pname,
+    pflanze_id: _pid,
     text: input.value.trim().slice(0,500),
-    date: new Date().toLocaleDateString('de-CH'),
+    date: _wann.toLocaleDateString('de-CH'),
     weather: weather,
-    ts: new Date().toISOString()
+    ts: _wann.toISOString(),
+    zukunft: _wann.getTime() > Date.now() + 60000
   });
   gsTagebuchSave();
   gsHaptic('success');
@@ -26340,9 +26375,12 @@ var GS_REGEN_REICHT_MM = 6;
 function gsGetDueTasks(){
   var out = [];
   try {
-    if (typeof myPlants === 'undefined' || !Array.isArray(myPlants)) return out;
     if (typeof TASK_DEFS === 'undefined' || typeof getDaysUntilDue !== 'function') return out;
-    myPlants.forEach(function(p){
+    // v32.47: beide Listen — Garten-Pflanzungen bekommen ihre Aufgaben beim ersten Lesen
+    var alle = [];
+    if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) alle = alle.concat(myPlants);
+    if (typeof plantings !== 'undefined' && Array.isArray(plantings)) { _gsPflanzungenNachruesten(); alle = alle.concat(plantings); }
+    alle.forEach(function(p){
       if (!p || !p.tasks) return;
       Object.keys(p.tasks).forEach(function(k){
         var t = p.tasks[k];
@@ -26393,6 +26431,69 @@ var _GS_TB_EMOJI = { note: '📝', water: '💧', fertilize: '🌱', harvest: '�
 // Tage bis faellig — mit Verschiebung. Wer eine Faelligkeit braucht, ruft das.
 function _gsTaskDays(t) { return getDaysUntilDue(t && t.lastDone, t && t.intervalDays, t && t.snoozedUntil); }
 
+// v32.47: Eine Pflanze steht in EINER von zwei Listen — „Meine Pflanzen"
+// (ps_myplants) oder Garten-Pflanzungen (gs_plantings). Wer erledigt,
+// verschiebt oder liest, fragt hier; die Antwort sagt, wo gespeichert wird.
+function _gsPflanzeFinden(id) {
+  try {
+    if (typeof myPlants !== 'undefined' && Array.isArray(myPlants)) {
+      var a = myPlants.find(function (x) { return x && x.id === id; });
+      if (a) return { p: a, liste: 'myPlants', speichern: function () { return (typeof savePlantsToStorage === 'function') ? savePlantsToStorage() : false; } };
+    }
+    if (typeof plantings !== 'undefined' && Array.isArray(plantings)) {
+      var b = plantings.find(function (x) { return x && x.id === id; });
+      if (b) return { p: b, liste: 'plantings', speichern: function () { return (typeof saveGardenData === 'function') ? saveGardenData() : false; } };
+    }
+  } catch (_) {}
+  return null;
+}
+window._gsPflanzeFinden = _gsPflanzeFinden;
+
+// Pflege-Vorgaben fuer Garten-Pflanzungen — INTERVALLE, keine Botanik. Sie
+// haengen an der Gartenart (unter Glas trocknet schneller) und die Karte
+// sagt, dass es eine Vorgabe ist; die Person aendert sie mit einem Tipp.
+var GS_PFLANZUNG_VORGABEN = {
+  freiland:     { water: 3, fertilize: 30, check: 7 },
+  hochbeet:     { water: 2, fertilize: 21, check: 7 },
+  balkon:       { water: 2, fertilize: 14, check: 7 },
+  gewaechshaus: { water: 1, fertilize: 14, check: 7 },
+  treibhaus:    { water: 1, fertilize: 14, check: 7 },
+  wintergarten: { water: 2, fertilize: 14, check: 7 },
+  indoor:       { water: 3, fertilize: 30, check: 14 },
+};
+// Bestehende Pflanzungen bekommen ihre Aufgaben beim ersten Lesen — mit
+// `lastDone = jetzt`, damit nichts „seit 27 Tagen" ueberfaellig ist (die
+// Lehre aus v28: lastDone = now statt null beim Hinzufuegen).
+function gsPflanzungAufgabenNachruesten(pl, garden) {
+  try {
+    if (!pl || pl.tasks) return false;
+    var art = (garden && garden.kind) || 'freiland';
+    var v = GS_PFLANZUNG_VORGABEN[art] || GS_PFLANZUNG_VORGABEN.freiland;
+    var now = new Date().toISOString();
+    pl.tasks = {
+      water:     { active: true, intervalDays: v.water,     lastDone: now },
+      fertilize: { active: true, intervalDays: v.fertilize, lastDone: now },
+      check:     { active: true, intervalDays: v.check,     lastDone: now },
+    };
+    pl._aufgaben_vorgabe = art;
+    return true;
+  } catch (_) { return false; }
+}
+window.gsPflanzungAufgabenNachruesten = gsPflanzungAufgabenNachruesten;
+function _gsPflanzungenNachruesten() {
+  try {
+    if (typeof plantings === 'undefined' || !Array.isArray(plantings)) return 0;
+    var n = 0;
+    plantings.forEach(function (pl) {
+      var g = (typeof gardens !== 'undefined' && Array.isArray(gardens)) ? gardens.find(function (x) { return x && x.id === pl.gardenId; }) : null;
+      if (gsPflanzungAufgabenNachruesten(pl, g)) n++;
+    });
+    if (n && typeof saveGardenData === 'function') saveGardenData();
+    return n;
+  } catch (_) { return 0; }
+}
+window._gsPflanzungenNachruesten = _gsPflanzungenNachruesten;
+
 // Alle Tagebuch-Eintraege, EINE Lesefunktion (§3.3): das Gartentagebuch
 // (gs_gartentagebuch, Pflanze als Name) und die Pflanzentagebuecher (p.diary,
 // dort landet jedes Abhaken). Bis v32.45 wusste keins vom anderen.
@@ -26407,6 +26508,7 @@ function gsTagebuchAlle() {
         var m = myPlants.find(function (p) { return p && p.name === e.plant; }); if (m) pid = m.id;
       }
       var ts = e.ts || null;
+      if (!pid && e.pflanze_id) pid = e.pflanze_id;
       out.push({ id: e.id, ts: ts, datum: _gsKalTag(ts), text: e.text || '', note: '', emoji: e.emoji || _GS_TB_EMOJI[e.cat] || '📝',
         cat: e.cat || 'note', plant: e.plant || '', pflanze_id: pid, photo: e.photo || null, weather: e.weather || '',
         date: e.date || (ts ? new Date(ts).toLocaleDateString('de-CH') : ''), herkunft: 'garten', quelle: e.quelle || 'hand' });
@@ -26464,7 +26566,8 @@ function gsKalenderEreignisse(von, bis) {
   try {
     gsTagebuchAlle().forEach(function (e) {
       if (!im(e.datum)) return;
-      out.push({ id: 'tagebuch:' + e.id, art: 'tagebuch', datum: e.datum, zeit: _gsKalZeit(e.ts), ts: e.ts, titel: e.text, emoji: e.emoji,
+      var zukunft = e.ts && new Date(e.ts).getTime() > Date.now();
+      out.push({ id: 'tagebuch:' + e.id, art: zukunft ? 'erinnerung' : 'tagebuch', datum: e.datum, zeit: _gsKalZeit(e.ts), ts: e.ts, titel: e.text, emoji: zukunft ? '⏰' : e.emoji,
         pflanze: e.pflanze_id ? { id: e.pflanze_id, name: e.plant } : null, garten_id: null, quelle: e.quelle, status: 'info', faellig_seit: null,
         verweis: (e.pflanze_id && e.herkunft === 'pflanze') ? { fn: 'openPlantDiary', args: [e.pflanze_id] } : { fn: 'openGartenTagebuch', args: [] },
         grund: e.herkunft === 'pflanze' ? 'aus dem Pflanzentagebuch' + (e.quelle === 'regel' ? ' (abgehakt)' : '') : 'aus dem Gartentagebuch' });
@@ -26484,6 +26587,27 @@ function gsKalenderEreignisse(von, bis) {
         pflanze: { id: p.id, name: p.name, liste: 'myPlants' }, garten_id: null, quelle: 'hand', status: 'info', faellig_seit: null,
         verweis: { fn: 'openPlantDiary', args: [p.id] }, grund: 'Datum der Aufnahme in „Meine Pflanzen"' });
     });
+  } catch (_) {}
+  // 4 · Ernte-Schaetzung je Pflanzung (calcHarvestDate rechnet aus Pflanzdatum
+  //     und typischer Dauer der PLANT_DB — eine Schaetzung, und der Grund sagt es)
+  try {
+    if (typeof plantings !== 'undefined' && Array.isArray(plantings) && typeof calcHarvestDate === 'function') plantings.forEach(function (p) {
+      if (!p || !p.date) return;
+      var h = null; try { h = calcHarvestDate(p, null); } catch (_) { h = null; }
+      var tag = (h && h.harvestDate) ? _gsKalTag(h.harvestDate) : null;   // calcHarvestDate → {harvestDate, adjustedDays, daysGrown, progress, daysLeft}
+      if (!tag || !im(tag)) return;
+      out.push({ id: 'ernte:' + p.id, art: 'ernte', datum: tag, zeit: null, ts: null, titel: (p.name || '') + ' — Ernte voraussichtlich', emoji: '🧺',
+        pflanze: { id: p.id, name: p.name, liste: 'plantings' }, garten_id: p.gardenId || null, quelle: 'regel', status: 'info', faellig_seit: null,
+        verweis: { fn: 'openPlantingDetail', args: [p.id] }, grund: 'Schätzung aus Pflanzdatum und typischer Kulturdauer — kein Versprechen' });
+    });
+  } catch (_) {}
+  // 5 · Regen heute (Open-Meteo-Zwischenspeicher, nur mit gemessenem Wert)
+  try {
+    if (im(heute) && typeof gsRegenGefallen === 'function') {
+      var r = gsRegenGefallen();
+      if (r && r.mm > 0) out.push({ id: 'wetter:' + heute, art: 'wetter', datum: heute, zeit: null, ts: null, titel: r.mm + ' mm Regen bis jetzt', emoji: '🌧️',
+        pflanze: null, garten_id: null, quelle: 'wetter', status: 'info', faellig_seit: null, verweis: null, grund: 'Open-Meteo, Stundenwerte bis zur aktuellen Stunde' });
+    }
   } catch (_) {}
   var rang = { aufgabe: 0, alarm: 1, erinnerung: 2, tagebuch: 3, gepflanzt: 4, aussaat: 5, ernte: 6, messung: 7, wetter: 8 };
   out.sort(function (a, b) {
@@ -26574,7 +26698,7 @@ function _gsKalRender() {
   var tl = (gewaehlt.slice(0, 7) === mon) ? (proTag[gewaehlt] || []) : gsKalenderEreignisse(gewaehlt, gewaehlt);
   var zeilen = tl.length ? tl.map(function (e) {
     var kasten;
-    if (e.art === 'aufgabe' && e.pflanze && e.pflanze.liste === 'myPlants')
+    if (e.art === 'aufgabe' && e.pflanze && (e.pflanze.liste === 'myPlants' || e.pflanze.liste === 'plantings'))
       kasten = '<button type="button" class="gs-kal-box" aria-label="' + esc(e.titel) + ' ' + _t('kal_erledigt', 'erledigt') + '" onclick="event.stopPropagation();gsKalErledigt(this,\'' + esc(e.pflanze.id) + '\',\'' + esc(e.key) + '\')"></button>';
     else if (e.verweis && e.verweis.fn)
       kasten = '<button type="button" class="gs-kal-hin" aria-label="' + _t('kal_oeffnen', 'Öffnen') + '" onclick="event.stopPropagation();gsKalHin(\'' + esc(e.verweis.fn) + '\',' + esc(JSON.stringify(e.verweis.args || [])).replace(/&quot;/g, '&quot;') + ')">›</button>';
@@ -26587,7 +26711,7 @@ function _gsKalRender() {
       '<div class="gs-kal-txt"><b>' + esc(e.titel) + '</b><i>' + esc(sub) + '</i><small class="gs-kal-grund" hidden>' + esc(e.grund || '') + '</small></div>' + kasten + '</div>';
   }).join('') : '<div class="gs-kal-leerzeile">' + _t('kal_nichts', 'Nichts an diesem Tag.') + '</div>';
 
-  var legende = '<div class="gs-kal-legende">' + ['aufgabe', 'tagebuch', 'gepflanzt'].map(function (a) { return '<span><i class="gs-kal-p gs-kal-p-' + a + '"></i>' + (_GS_KAL_ART[a] || a) + '</span>'; }).join('') + '</div>';
+  var legende = '<div class="gs-kal-legende">' + ['aufgabe', 'tagebuch', 'gepflanzt', 'ernte'].map(function (a) { return '<span><i class="gs-kal-p gs-kal-p-' + a + '"></i>' + (_GS_KAL_ART[a] || a) + '</span>'; }).join('') + '</div>';
   var nOffen = ev.filter(function (e) { return e.art === 'aufgabe' && e.datum <= heute; }).length;
 
   mc.innerHTML = '<div class="gs-kal" style="padding:16px;">' +
@@ -34432,9 +34556,12 @@ function gsFavsRenderOutdoor(){
         var emoji = (info && info.emoji) ? info.emoji : '🌱';
         var dStr = '';
         try { if (p.date) dStr = new Date(p.date).toLocaleDateString('de-CH'); } catch(_){}
+        // v32.47: die dringendste Pflege-Aufgabe der Pflanzung — dieselbe Rechnung wie in „Wohnung"
+        var _u = (typeof gsGetMostUrgentTask === 'function') ? gsGetMostUrgentTask(p) : null;
+        var _uTxt = (_u && typeof TASK_DEFS !== 'undefined' && TASK_DEFS[_u.key]) ? ' · ' + TASK_DEFS[_u.key].icon + ' ' + TASK_DEFS[_u.key].name + ' ' + (typeof getDueLabel === 'function' ? getDueLabel(_u.days).text : '') : '';
         html += '<div class="planting-row" onclick="if(typeof openPlantingDetail===\'function\')openPlantingDetail(\'' + p.id + '\')">';
         html += '<div class="planting-emoji">' + emoji + '</div>';
-        html += '<div class="planting-info"><div class="planting-name">' + esc(p.name||'') + '</div><div class="planting-meta">' + (dStr ? _t('planting_date_label','Gepflanzt:') + ' ' + dStr : '') + '</div></div>';
+        html += '<div class="planting-info"><div class="planting-name">' + esc(p.name||'') + '</div><div class="planting-meta">' + esc(_uTxt).replace(/^ · /, '') + (_uTxt && dStr ? ' · ' : '') + (dStr ? _t('planting_date_label','Gepflanzt:') + ' ' + dStr : '') + '</div></div>';
         html += '</div>';
       });
       if (gPlantings.length > 5) {
@@ -34577,7 +34704,10 @@ function renderMyPlants() {
   // → zweite überfällige Aufgabe derselben Pflanze blieb versteckt). Sortiert nach Dringlichkeit.
   var allDue = [];   // {plant, key, days}
   var okCount = 0;
-  myPlants.forEach(function(p) {
+  // v32.47: Garten-Pflanzungen zaehlen mit — „Aufgaben" ist keine Frage des Reiters
+  var _alleMitAufgaben = myPlants.slice();
+  try { if (typeof plantings !== 'undefined' && Array.isArray(plantings)) { _gsPflanzungenNachruesten(); _alleMitAufgaben = _alleMitAufgaben.concat(plantings); } } catch(_){}
+  _alleMitAufgaben.forEach(function(p) {
     if (!p) return;
     var anyDue = false;
     if (p.tasks) {
@@ -34699,76 +34829,7 @@ function renderMyPlants() {
 
 }
 
-function buildPlantCard(p){
-  if (!p || !p.id) return '';
-  const waterDots = [1,2,3].map(i => '<div class="mp-dot on water" style="opacity:' + (i<=p.water?'1':'0.18') + '"></div>').join('');
-  const sunDots   = [1,2,3].map(i => '<div class="mp-dot on sun"   style="opacity:' + (i<=p.sun?'1':'0.18')   + '"></div>').join('');
-  const fertDots  = p.tasks && p.tasks.fertilize && p.tasks.fertilize.active
-    ? [1,2,3].map(i => '<div class="mp-dot on fert" style="opacity:' + (i<= (p.tasks.fertilize.intervalDays<=14?3:p.tasks.fertilize.intervalDays<=30?2:1) ?'1':'0.18') + '"></div>').join('')
-    : [1,2,3].map(() => '<div class="mp-dot"></div>').join('');
-
-  // Nächste Aufgabe berechnen
-  let nextTaskHtml = '';
-  if(p.tasks){
-    const dueSoon = Object.entries(p.tasks)
-      .filter(([,t]) => t.active)
-      .map(([k, t]) => ({key:k, def:TASK_DEFS[k], days:getDaysUntilDue(t.lastDone, t.intervalDays, t.snoozedUntil)}))
-      .filter(t => t.def) // skip unknown task types
-      .sort((a,b) => a.days - b.days)
-      .slice(0, 3);
-
-    if(dueSoon.length){
-      nextTaskHtml = '<div class="mp-tasks"><div class="mp-tasks-title">Aufgaben</div>' +
-        dueSoon.map(t => {
-          const due = getDueLabel(t.days);
-          const isDone = t.days > 0;
-          return '<div class="mp-task" data-action="donetask" data-pid="' + p.id + '" data-tkey="' + t.key + '"><span class="mp-task-icon">' + t.def.icon + '</span>' +
-            '<div class="mp-task-info"><div class="mp-task-name">' + t.def.name + '</div>' +
-            '<div class="mp-task-due ' + due.cls + '">' + due.text + '</div></div>' +
-            '<div class="mp-task-check' + (isDone?' ':'') + '" data-action="donetask" data-pid="' + p.id + '" data-tkey="' + t.key + '">✓</div>' +
-            '</div>';
-        }).join('') + '</div>';
-    }
-  }
-
-  // v23.91: Photo-Thumb statt Emoji wenn Foto vorhanden
-  var emojiOrPhoto = p.photo
-    ? '<div class="mpcard-emoji" style="width:44px;height:44px;border-radius:var(--r-sm);overflow:hidden;background:var(--surface2);flex-shrink:0;"><img src="'+p.photo+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block;"></div>'
-    : '<div class="mpcard-emoji">' + (p.emoji||'🌿') + '</div>';
-  return '<div class="mpcard" id="mpcard-' + p.id + '">' +
-    '<div class="mpcard-header" data-action="toggle" data-id="' + p.id + '">' + emojiOrPhoto +
-    '<div class="mpcard-info">' +
-      '<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">' +
-        '<div class="mpcard-name">' + escHtml(p.name) + '</div>' +
-        getRarityBadgeHtml(detectRarity(p)) +
-      '</div>' +
-      '<div class="mpcard-loc">' + escHtml(p.nick||'') + '</div></div>' +
-    '<div class="mpcard-chevron" id="chev-' + p.id + '">›</div></div>' +
-    '<div class="mp-stats">' +
-      '<div class="mp-stat"><span class="mp-stat-icon">💧</span><span class="mp-stat-label">Wasser</span><div class="mp-stat-dots">' + waterDots + '</div></div>' +
-      '<div class="mp-stat"><span class="mp-stat-icon">☀️</span><span class="mp-stat-label">Sonne</span><div class="mp-stat-dots">' + sunDots + '</div></div>' +
-      '<div class="mp-stat"><span class="mp-stat-icon">🌱</span><span class="mp-stat-label">Dünger</span><div class="mp-stat-dots">' + fertDots + '</div></div>' +
-    '</div>' +
-    '<div class="mp-expand" id="expand-' + p.id + '" style="display:none;">' +
-      nextTaskHtml +
-      '<div class="mp-ai-section">' +
-        '<div style="display:flex;gap:7px;">' +
-          '<button class="mp-ai-btn" style="flex:1;" data-action="ai" data-id="' + p.id + '">🤖 Pflegeberatung</button>' +
-          '<button class="mp-ai-btn" style="flex:1;background:var(--bg-warn-soft);border-color:#ffcc80;color:var(--c-warn-d);" onclick="event.stopPropagation();openDiagnosisCamera()">🔬 Diagnose</button>' +
-        '</div>' +
-        '<div id="ai-result-' + p.id + '" style="display:none;" class="mp-ai-result"></div>' +
-      '</div>' +
-      '<div class="mp-actions">' +
-        '<button class="mp-action-btn" data-action="tasks" data-id="' + p.id + '">⚙️ Aufgaben</button>' +
-        '<button class="mp-action-btn" onclick="event.stopPropagation();openPlantDiary(\''+p.id+'\')" style="background:var(--bg-yellow-soft);border-color:#ffc107;color:#5d4037;">📓 Tagebuch'+(Array.isArray(p.diary) && p.diary.length ? ' · '+p.diary.length : '')+'</button>' +
-        '<button class="mp-action-btn" data-action="edit" data-id="' + p.id + '">✏️ Bearbeiten</button>' +
-        '<button class="mp-action-btn" data-action="cemetery" data-id="' + p.id + '" style="background:#37474f;color:#fff;border-color:#37474f;">🪦 Pflanzenfriedhof</button>' +
-        '<button class="mp-action-btn del" data-action="delete" data-id="' + p.id + '">🗑️ Löschen</button>' +
-      '</div>' +
-    '</div>' +
-  '</div>';
-}
-
+// v32.47: `buildPlantCard` (60 Zeilen, nie aufgerufen — gsNewPlantCard rendert seit v26.x) ersatzlos entfernt.
 function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 // v27.03 Hard-Lesson #9: gsHTMLEscape war als „Kurz-Alias" dokumentiert, aber NIE definiert
 // → alle `typeof gsHTMLEscape==='function' ? gsHTMLEscape(x) : fallback`-Sites (8+) nahmen
@@ -71427,7 +71488,30 @@ function openPlantingDetail(plantingId) {
     '</div>'
   ) : '';
 
+  // v32.47: Pflege der Pflanzung — dieselben Aufgaben wie in „Meine Pflanzen",
+  // mit dem Hinweis, dass die Intervalle eine Vorgabe je Gartenart sind.
+  var _pflegeHtml = '';
+  try {
+    gsPflanzungAufgabenNachruesten(p, garden);
+    if (p.tasks && typeof TASK_DEFS !== 'undefined') {
+      var _rows = Object.keys(p.tasks).filter(function(k){ return p.tasks[k] && p.tasks[k].active && TASK_DEFS[k]; }).map(function(k){
+        var t = p.tasks[k], d = _gsTaskDays(t), def = TASK_DEFS[k];
+        var lbl = (typeof getDueLabel === 'function') ? getDueLabel(d) : { text: d + ' d', cls: '' };
+        return '<div class="gs-pfl-zeile' + (d <= 0 ? ' due' : d <= 2 ? ' soon' : '') + '">' +
+          '<span class="gs-pfl-ico" aria-hidden="true">' + def.icon + '</span>' +
+          '<div class="gs-pfl-txt"><b>' + escHtml(def.name) + '</b><i>' + escHtml(lbl.text) + ' · alle ' + (parseInt(t.intervalDays,10)||7) + ' Tage</i></div>' +
+          '<button type="button" class="gs-pfl-ok" aria-label="' + escHtml(def.name) + ' erledigt" onclick="gsQuickDone(\'' + p.id + '\',\'' + k + '\');setTimeout(function(){ openPlantingDetail(\'' + p.id + '\'); }, 900);">✓</button>' +
+        '</div>';
+      }).join('');
+      _pflegeHtml = '<div style="background:var(--surface2);border-radius:var(--r-md);padding:12px;margin-bottom:10px;">' +
+        '<div style="font-size:var(--fs-sm);font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">🧑‍🌾 Pflege</div>' +
+        _rows +
+        (p._aufgaben_vorgabe ? '<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:6px;">Intervalle sind die Vorgabe für „' + escHtml((GS_GARTEN_ARTEN[p._aufgaben_vorgabe] || {}).label || p._aufgaben_vorgabe) + '" — keine Aussage über diese Art. Anpassen: in „Meine Pflanzen" die Pflanzung antippen.</div>' : '') +
+      '</div>';
+    }
+  } catch(_){}
   document.getElementById('pd2-body').innerHTML =
+    _pflegeHtml +
     // Progress bar
     '<div style="background:var(--surface2);border-radius:var(--r-md);padding:12px;margin-bottom:10px;">' +
       '<div style="display:flex;justify-content:space-between;margin-bottom:4px;">' +
@@ -72917,6 +73001,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.47', date: '03.09.2026',
+    headline: '\ud83c\udf31 Garten-Pflanzungen bekommen Pflege \u2014 Kalender Stufe 2',
+    summary: 'Pflanzungen im Garten hatten keine Pflege-Aufgaben; \u201eHeute zu tun\u201c kannte nur Zimmerpflanzen. Jetzt bekommen sie Giessen, D\u00fcngen und Pr\u00fcfen mit Vorgaben je Gartenart (Balkon, Beet, Gew\u00e4chshaus \u2026), die das Pflanzungs-Detail als Vorgabe benennt. Dazu: Ernte-Sch\u00e4tzung und Regen im Kalender, ein Datum im Tagebuch-Formular (Zukunft = Erinnerung), und der Eintrag merkt sich die Pflanze.',
+    user_summary: '\ud83c\udf31 Auch deine Garten-Pflanzungen stehen jetzt in \u201eHeute zu tun\u201c \u2014 mit Giessen, D\u00fcngen und Pr\u00fcfen, deren Abst\u00e4nde du anpassen kannst.',
+    user_items: [
+      {emoji:'\ud83c\udf31', bold:'Pflege f\u00fcr Beet und Balkon:', text:' Jede Pflanzung bekommt Aufgaben mit einer Vorgabe je Gartenart. Die Vorgabe ist ein Abstand, keine Aussage \u00fcber die Art \u2014 das Detail sagt es dazu.'},
+      {emoji:'\ud83e\uddfa', bold:'Ernte im Kalender:', text:' Die gesch\u00e4tzte Ernte steht als Hinweis am Tag \u2014 mit dem Vermerk, dass es eine Sch\u00e4tzung ist.'},
+      {emoji:'\ud83d\udcc5', bold:'Tagebuch mit Datum:', text:' Ein Eintrag f\u00fcr morgen wird zur Erinnerung im Kalender. Und ein Eintrag zu \u201eTomate\u201c meint deine Tomate.'},
+    ],
+  },
+  {
     v: 'v32.46', date: '03.09.2026',
     headline: '\ud83d\udcc5 Kalender: Aufgaben, Tagebuch und Pflanzungen nach Tag \u2014 aus einer Antwort',
     summary: 'Neuer Kalender (Startseite bei \u201eHeute zu tun\u201c, Meine Pflanzen, Men\u00fc-Suche): ein Monatsraster mit Punkten je Ereignisart und darunter der Tag. Er rechnet aus deinen Pflanzen und Tageb\u00fcchern, speichert nichts doppelt, und jede Zeile sagt auf Tippen, woher sie es weiss. Dazu drei Reparaturen: Verschieben f\u00e4lscht kein \u201ezuletzt gegossen\u201c mehr, das Gartentagebuch zeigt jedes Abhaken (bisher stand das nur im Pflanzentagebuch), und die Pr\u00fcfst\u00e4nde sehen Aufgaben jetzt \u00fcberhaupt (die Beispieldaten hatten keine).',
@@ -73623,7 +73718,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.46';
+var GS_VERSION = 'v32.47';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
