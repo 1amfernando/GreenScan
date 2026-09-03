@@ -118,27 +118,39 @@ const AUSSERHALB = () => {
   return out;
 };
 
+// v32.25: ZWEI Breiten. Bis v32.24 mass dieser Pruefstand nur 412 px — die
+// Breite eines heutigen Mittelklasse-Telefons. 320 px (iPhone SE, aeltere
+// Android-Geraete) ist die schmalste Breite, die real vorkommt, und dort
+// wird jede zu enge Zeile zuerst eng. Eine Antippflaeche, die bei 412 passt
+// und bei 320 aus dem Bild laeuft, faellt sonst niemandem auf.
+// Gemeldet wird MIT Breite, sonst weiss der Leser nicht, wo er nachsehen muss.
+const BREITEN = [412, 320];
+
 (async()=>{
   const br=await chromium.launch();
-  const ctx=await br.newContext({viewport:{width:412,height:915}}); const p=await ctx.newPage();
+  const seen=new Map(); const raus=new Map();
+  for (const BR of BREITEN) {
+  const ctx=await br.newContext({viewport:{width:BR,height:915}}); const p=await ctx.newPage();
   await p.route('**',r=>r.request().url().startsWith('file:')?r.continue():r.abort());
   await p.addInitScript(SEED);
   await p.goto('file://' + require('path').join(__dirname,'..','index.html'),{waitUntil:'domcontentloaded',timeout:90000});
   await p.waitForTimeout(3500);
   await p.evaluate(()=>{document.documentElement.classList.remove('gs-preauth');
     const o=document.getElementById('gs-onboarding');if(o)o.style.setProperty('display','none','important');});
-  const seen=new Map(); const raus=new Map();
   for(const t of TABS){ try{await p.evaluate(t=>switchTab(t),t)}catch(e){}
     await p.waitForTimeout(600);
-    (await p.evaluate(SCAN)).forEach(o=>{const k=o.el+'|'+o.txt; if(!seen.has(k))seen.set(k,{...o,tab:t});});
-    (await p.evaluate(AUSSERHALB)).forEach(o=>{const k=o.el+'|'+o.txt; if(!raus.has(k))raus.set(k,{...o,tab:t});}); }
+    (await p.evaluate(SCAN)).forEach(o=>{const k=BR+'|'+o.el+'|'+o.txt; if(!seen.has(k))seen.set(k,{...o,tab:t,br:BR});});
+    (await p.evaluate(AUSSERHALB)).forEach(o=>{const k=BR+'|'+o.el+'|'+o.txt; if(!raus.has(k))raus.set(k,{...o,tab:t,br:BR});}); }
+  await ctx.close();
+  }
   const list=[...seen.values()].sort((a,b)=>a.min-b.min);
+  console.log('Breiten gemessen: ' + BREITEN.map(b=>b+' px').join(' · '));
   console.log('Bedienelemente unter 24×24 CSS-px (WCAG 2.5.8 AA):', list.length);
-  list.slice(0,20).forEach(o=>console.log(`   ${String(o.w).padStart(3)}×${String(o.h).padEnd(3)}  ${o.tab.padEnd(9)} ${o.el.slice(0,40).padEnd(41)} „${o.txt}" ${o.label?'aria:'+o.label:''}`));
+  list.slice(0,20).forEach(o=>console.log(`   ${String(o.w).padStart(3)}×${String(o.h).padEnd(3)}  ${(o.br+'px').padEnd(6)} ${o.tab.padEnd(9)} ${o.el.slice(0,40).padEnd(41)} „${o.txt}" ${o.label?'aria:'+o.label:''}`));
 
   const rausL=[...raus.values()].sort((a,b)=>b.fehlt-a.fehlt);
   console.log('Bedienelemente, die seitlich aus dem Bildschirm ragen:', rausL.length);
-  rausL.slice(0,15).forEach(o=>console.log(`   ${String(o.fehlt).padStart(3)}px draussen  ${o.tab.padEnd(9)} ${o.el.slice(0,40).padEnd(41)} „${o.txt}"`));
+  rausL.slice(0,15).forEach(o=>console.log(`   ${String(o.fehlt).padStart(3)}px draussen  ${(o.br+'px').padEnd(6)} ${o.tab.padEnd(9)} ${o.el.slice(0,40).padEnd(41)} „${o.txt}"`));
   await br.close();
   process.exitCode = (list.length + rausL.length) ? 1 : 0;
 })();

@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.24.20260903">
+<meta name="app-version" content="32.25.20260903">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1742,7 +1742,7 @@ body.dark .menu-search-wrap{background:var(--card);}
    TEXT-Farbe und wird im Dunkelmodus hell (sonst 2.2:1 auf getoenten Flaechen) —
    weisse Schrift darauf waere unlesbar. Fuellung und Textfarbe sind zwei Dinge. */
 .gs-btn-info{background:var(--c-info-d);color:#fff;}
-.gs-btn-ok{background:var(--c-success);color:#fff;}
+.gs-btn-ok{background:var(--fill-brand);color:#fff;} /* v32.25: eine FLAECHE nimmt --fill-brand (hell #1f6b2f, dunkel #2b7530 — beide tragen weiss). --c-success wird im Dunkelmodus hellgruen: 1,96:1 */
 body.dark .gs-btn-ok{background:#2e7d32;color:#fff;}
 body.dark .gs-btn-info{background:#1565c0;color:#fff;}
 /* v31.18: Dringlichkeits-Band und „Profi rufen"-Kasten des Pflanzendoktors
@@ -1924,7 +1924,7 @@ body.dark .gs-go-cta2{background:var(--card);color:var(--g-dark);}
 .gs-twin-bar{height:6px;border-radius:var(--r-xs);background:var(--surface2);overflow:hidden;}
 .gs-twin-fill{height:100%;background:var(--g-dark);border-radius:var(--r-xs);transition:width .5s ease;}
 .gs-twin-pct{font-size:var(--fs-sm);font-weight:800;color:var(--muted);margin-top:6px;text-align:right;}
-.gs-twin-cta{margin-top:14px;width:100%;padding:12px;border:none;border-radius:var(--r-lg);background:var(--g-dark);color:#fff;font-family:inherit;font-size:var(--fs-md);font-weight:800;cursor:pointer;}
+.gs-twin-cta{margin-top:14px;width:100%;padding:12px;border:none;border-radius:var(--r-lg);background:var(--fill-brand);color:#fff;font-family:inherit;font-size:var(--fs-md);font-weight:800;cursor:pointer;} /* v32.25: --g-dark kippt im Dunkelmodus auf #a5d6a7 — weiss darauf ist 1,64:1 */
 
 /* ── Pflanzen-Liste + 3D-Legende ──────────────────────────────────────── */
 .gs-twin-row{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid var(--border);}
@@ -3474,7 +3474,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
     </div>
   </div>
-  <div style="background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:var(--r-lg);padding:12px 15px;color:#fff;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+  <div style="background:var(--fill-brand);border-radius:var(--r-lg);padding:12px 15px;color:#fff;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
     <div id="more-level-name-alt" style="font-size:var(--fs-md);font-weight:800;">🌱 Naturentdecker</div>
     <div style="font-size:var(--fs-sm);opacity:.75;" id="more-quiz-streak">0 Tage 🎯 Quiz</div>
   </div>
@@ -4024,27 +4024,27 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <div style="display:flex;flex-direction:column;gap:9px;">
         <button onclick="openPostWithType('status')" class="post-type-pick-btn" style="background:linear-gradient(135deg,#e8f5e9,#c8e6c9);">
           <span style="font-size:var(--fs-3xl);">💬</span>
-          <div><div style="font-size:var(--fs-md);font-weight:800;color:var(--g-dark);">Status</div><div style="font-size:var(--fs-sm);color:var(--text2);">Kurze Nachricht, Gedanke oder Update</div></div>
+          <div><div style="font-size:var(--fs-md);font-weight:800;color:#1b5e20;">Status</div><div style="font-size:var(--fs-sm);color:#37474f;">Kurze Nachricht, Gedanke oder Update</div></div>
         </button>
         <button onclick="openPostWithType('photo')" class="post-type-pick-btn" style="background:linear-gradient(135deg,#e3f2fd,#bbdefb);">
           <span style="font-size:var(--fs-3xl);">📷</span>
-          <div><div style="font-size:var(--fs-md);font-weight:800;color:var(--g-dark);">Foto</div><div style="font-size:var(--fs-sm);color:var(--text2);">Zeige deine Pflanze der Community</div></div>
+          <div><div style="font-size:var(--fs-md);font-weight:800;color:#1b5e20;">Foto</div><div style="font-size:var(--fs-sm);color:#37474f;">Zeige deine Pflanze der Community</div></div>
         </button>
         <button onclick="openPostWithType('help')" class="post-type-pick-btn" style="background:linear-gradient(135deg,#fff3e0,#ffe0b2);">
           <span style="font-size:var(--fs-3xl);">🆘</span>
-          <div><div style="font-size:var(--fs-md);font-weight:800;color:var(--g-dark);">Hilfe gesucht</div><div style="font-size:var(--fs-sm);color:var(--text2);">Problem oder Krankheit — Community hilft</div></div>
+          <div><div style="font-size:var(--fs-md);font-weight:800;color:#1b5e20;">Hilfe gesucht</div><div style="font-size:var(--fs-sm);color:#37474f;">Problem oder Krankheit — Community hilft</div></div>
         </button>
         <button onclick="openPostWithType('tip')" class="post-type-pick-btn" style="background:linear-gradient(135deg,#f3e5f5,#e1bee7);">
           <span style="font-size:var(--fs-3xl);">💡</span>
-          <div><div style="font-size:var(--fs-md);font-weight:800;color:var(--g-dark);">Tipp oder Wissen</div><div style="font-size:var(--fs-sm);color:var(--text2);">Teile dein Pflanzenwissen</div></div>
+          <div><div style="font-size:var(--fs-md);font-weight:800;color:#1b5e20;">Tipp oder Wissen</div><div style="font-size:var(--fs-sm);color:#37474f;">Teile dein Pflanzenwissen</div></div>
         </button>
         <button onclick="openPostWithType('showcase')" class="post-type-pick-btn" style="background:linear-gradient(135deg,#fff8e1,#ffe082);">
           <span style="font-size:var(--fs-3xl);">⭐</span>
-          <div><div style="font-size:var(--fs-md);font-weight:800;color:var(--g-dark);">Showcase</div><div style="font-size:var(--fs-sm);color:var(--text2);">Zeig was du erreicht hast!</div></div>
+          <div><div style="font-size:var(--fs-md);font-weight:800;color:#1b5e20;">Showcase</div><div style="font-size:var(--fs-sm);color:#37474f;">Zeig was du erreicht hast!</div></div>
         </button>
         <button onclick="openPostWithType('question')" class="post-type-pick-btn" style="background:linear-gradient(135deg,#fce4ec,#f8bbd0);">
           <span style="font-size:var(--fs-3xl);">❓</span>
-          <div><div style="font-size:var(--fs-md);font-weight:800;color:var(--g-dark);">Frage stellen</div><div style="font-size:var(--fs-sm);color:var(--text2);">Frag Experten und die Community</div></div>
+          <div><div style="font-size:var(--fs-md);font-weight:800;color:#1b5e20;">Frage stellen</div><div style="font-size:var(--fs-sm);color:#37474f;">Frag Experten und die Community</div></div>
         </button>
       </div>
     </div>
@@ -6533,7 +6533,7 @@ html, body{ scroll-behavior: smooth; }
       <div class="settings-row admin-only-row" id="settings-sb-key-row" style="display:none;cursor:pointer;" onclick="openAdminSbKeyPanel()">
         <div class="settings-icon" style="background:var(--bg-indigo-soft);">🔑</div>
         <div class="settings-label">
-          <div class="settings-label-title" style="color:#1a3d1a;" data-i18n="settings_sb_key" data-i18n-fallback="Supabase API-Key wechseln">Supabase API-Key wechseln</div>
+          <div class="settings-label-title" style="color:var(--g-dark);" data-i18n="settings_sb_key" data-i18n-fallback="Supabase API-Key wechseln">Supabase API-Key wechseln</div>
           <div class="settings-label-sub" data-i18n="settings_sb_key_hint" data-i18n-fallback="Nur Admin · Gilt für alle Nutzer">Nur Admin · Gilt für alle Nutzer</div>
         </div>
         <div style="font-size:var(--fs-xl);color:var(--muted);">›</div>
@@ -10198,7 +10198,7 @@ function openSaekalender() {
     var sel = catFilter === c;
     var count = currentPlants.filter(function(p){return p.cat===c;}).length;
     if (count === 0) return;
-    catChips += '<button onclick="gsSaeFilterCat(\'' + c + '\')" style="padding:5px 10px;border-radius:var(--r-lg);border:1.5px solid ' + (sel?'var(--g-main)':'var(--border)') + ';background:' + (sel?'var(--g-main)':'var(--card)') + ';color:' + (sel?'#fff':'var(--text2)') + ';font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;-webkit-tap-highlight-color:transparent;">' + catEmojis[c] + ' ' + c + '</button>';
+    catChips += '<button onclick="gsSaeFilterCat(\'' + c + '\')" style="padding:5px 10px;border-radius:var(--r-lg);border:1.5px solid ' + (sel?'var(--g-main)':'var(--border)') + ';background:' + (sel?'var(--fill-brand)':'var(--card)') + ';color:' + (sel?'#fff':'var(--text2)') + ';font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;-webkit-tap-highlight-color:transparent;">' + catEmojis[c] + ' ' + c + '</button>';
   });
   
   // Hauptcontent
@@ -10228,7 +10228,7 @@ function openSaekalender() {
       if (!grouped[cat]) return;
       mainHtml += '<div style="font-size:var(--fs-xs);font-weight:800;text-transform:uppercase;color:var(--muted);letter-spacing:.5px;margin:12px 0 5px;display:flex;align-items:center;gap:6px;">' +
         '<span>' + catEmojis[cat] + '</span> ' + cat +
-        ' <span style="opacity:.6;font-weight:600;">(' + grouped[cat].length + ')</span></div>';
+        ' <span style="color:var(--text2);font-weight:600;">(' + grouped[cat].length + ')</span></div>';
       grouped[cat].forEach(function(p) { mainHtml += plantCard(p); });
     });
   }
@@ -10458,7 +10458,7 @@ function openErnteTracking() {
   var yearSwitcher = '<div style="display:flex;gap:4px;margin-bottom:10px;overflow-x:auto;">';
   yearList.forEach(function(y) {
     var sel = parseInt(y) === selectedYear;
-    yearSwitcher += '<button onclick="gsErnteSetYear(' + y + ')" style="padding:5px 12px;border-radius:var(--r-sm);border:1.5px solid ' + (sel?'var(--g-dark)':'var(--border)') + ';background:' + (sel?'var(--g-dark)':'var(--card)') + ';color:' + (sel?'#fff':'var(--text2)') + ';font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;-webkit-tap-highlight-color:transparent;">' + y + '</button>';
+    yearSwitcher += '<button onclick="gsErnteSetYear(' + y + ')" style="padding:5px 12px;border-radius:var(--r-sm);border:1.5px solid ' + (sel?'var(--g-dark)':'var(--border)') + ';background:' + (sel?'var(--fill-brand)':'var(--card)') + ';color:' + (sel?'#fff':'var(--text2)') + ';font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;-webkit-tap-highlight-color:transparent;">' + y + '</button>';
   });
   yearSwitcher += '</div>';
   
@@ -10467,7 +10467,7 @@ function openErnteTracking() {
   var UNITS = [{v:'kg',l:'kg'},{v:'g',l:'g'},{v:'stk',l:'Stück'},{v:'bund',l:'Bund'}];
   var unitPicker = UNITS.map(function(u) {
     var sel = u.v === unit;
-    return '<button type="button" onclick="gsErnteSetUnit(\'' + u.v + '\',this)" data-unit="' + u.v + '" style="padding:5px 10px;border-radius:var(--r-sm);border:1.5px solid ' + (sel?'var(--g-main)':'var(--border)') + ';background:' + (sel?'var(--g-main)':'var(--card)') + ';color:' + (sel?'#fff':'var(--text2)') + ';font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' + u.l + '</button>';
+    return '<button type="button" onclick="gsErnteSetUnit(\'' + u.v + '\',this)" data-unit="' + u.v + '" style="padding:5px 10px;border-radius:var(--r-sm);border:1.5px solid ' + (sel?'var(--g-main)':'var(--border)') + ';background:' + (sel?'var(--fill-brand)':'var(--card)') + ';color:' + (sel?'#fff':'var(--text2)') + ';font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;">' + u.l + '</button>';
   }).join('');
   
   // ── Header-Stats ──
@@ -10500,7 +10500,7 @@ function openErnteTracking() {
     contentHtml = '<div style="text-align:center;padding:30px 16px;color:var(--muted);">' +
       '<div style="font-size:42px;opacity:.25;margin-bottom:10px;">🧺</div>' +
       '<div style="font-size:var(--fs-md);">Noch keine Ernten in ' + selectedYear + '</div>' +
-      (selectedYear === now.getFullYear() ? '<div style="font-size:var(--fs-sm);margin-top:4px;opacity:.7;">Eintrag oben hinzufügen</div>' : '') +
+      (selectedYear === now.getFullYear() ? '<div style="font-size:var(--fs-sm);margin-top:4px;color:var(--text2);">Eintrag oben hinzufügen</div>' : '') +
     '</div>';
   }
   else if (view === 'overview') {
@@ -11073,7 +11073,7 @@ function openBluehkalender() {
   for (var m = 0; m < 12; m++) {
     var sel = m === viewMonth;
     var isNow = m === realMonth;
-    monthSlider += '<button onclick="gsBlSetMonth(' + m + ')" style="flex-shrink:0;padding:7px 11px;border-radius:var(--r-sm);border:1.5px solid ' + (sel?'var(--g-main)':'var(--border)') + ';background:' + (sel?'var(--g-main)':'var(--card)') + ';color:' + (sel?'#fff':'var(--text2)') + ';font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;font-family:inherit;-webkit-tap-highlight-color:transparent;' + (isNow && !sel ? 'border-color:var(--g-main);color:var(--g-main);' : '') + '">' + monthAbbr[m] + (isNow ? ' •' : '') + '</button>';
+    monthSlider += '<button onclick="gsBlSetMonth(' + m + ')" style="flex-shrink:0;padding:7px 11px;border-radius:var(--r-sm);border:1.5px solid ' + (sel?'var(--g-main)':'var(--border)') + ';background:' + (sel?'var(--fill-brand)':'var(--card)') + ';color:' + (sel?'#fff':'var(--text2)') + ';font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;font-family:inherit;-webkit-tap-highlight-color:transparent;' + (isNow && !sel ? 'border-color:var(--g-main);color:var(--g-main);' : '') + '">' + monthAbbr[m] + (isNow ? ' •' : '') + '</button>';
   }
   monthSlider += '</div>';
   
@@ -12117,7 +12117,7 @@ function gsOpenQuizLeaderboard() {
       '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">' +
         '<div style="font-size:var(--fs-4xl);">🏆</div>' +
         '<div>' +
-          '<div style="font-family:\'Playfair Display\',serif;font-size:var(--fs-xl);font-weight:900;color:#1a3d1a;">Quiz-Rangliste</div>' +
+          '<div style="font-family:\'Playfair Display\',serif;font-size:var(--fs-xl);font-weight:900;color:var(--g-dark);">Quiz-Rangliste</div>' +
           '<div style="font-size:var(--fs-sm);color:var(--muted);">Top 20 + dein Rang</div>' +
         '</div>' +
       '</div>' +
@@ -12136,7 +12136,7 @@ function gsOpenQuizLeaderboard() {
       var html = rows.map(function(r){
         var medal = (r.rnk <= 3) ? medals[r.rnk-1] : (r.rnk + '.');
         return '<div style="display:flex;align-items:center;gap:10px;padding:9px 11px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);margin-bottom:5px;">' +
-          '<div style="font-size:var(--fs-xl);min-width:30px;text-align:center;font-weight:800;color:#1a3d1a;">' + medal + '</div>' +
+          '<div style="font-size:var(--fs-xl);min-width:30px;text-align:center;font-weight:800;color:var(--g-dark);">' + medal + '</div>' +
           '<div style="flex:1;font-size:var(--fs-md);color:var(--text);font-weight:700;">' + _gsProfileChip(r.user_id, r.display_name||'GreenScan-Mitglied') + '</div>' +
           '<div style="font-size:var(--fs-md);color:var(--c-success);font-weight:800;">✓ ' + r.total_correct + '</div>' +
           (r.streak_max > 0 ? '<div style="font-size:var(--fs-sm);color:var(--c-warn-d);font-weight:700;">🔥 ' + r.streak_max + '</div>' : '') +
@@ -16273,7 +16273,7 @@ function gsShowAboScreen() {
   if (!mc) return;
 
   var freeCard =
-    '<div style="border:' + (plan==='free'?'2px solid var(--g-main)':'1px solid var(--border)') + ';border-radius:var(--r-lg);padding:14px 16px;margin-bottom:10px;' + (plan==='free'?'background:#f0fff0':'background:var(--card)') + ';">' +
+    '<div style="border:' + (plan==='free'?'2px solid var(--g-main)':'1px solid var(--border)') + ';border-radius:var(--r-lg);padding:14px 16px;margin-bottom:10px;' + (plan==='free'?'background:var(--bg-success-soft)':'background:var(--card)') + ';">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
         '<div style="font-size:var(--fs-lg);font-weight:900;">🌱 Gratis</div>' +
         (plan==='free' ? '<span style="background:var(--fill-brand);color:#fff;padding:2px 9px;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:800;">Aktiv</span>' : '') +
@@ -16304,10 +16304,10 @@ function gsShowAboScreen() {
     '<div id="abo-lifetime-card" style="border:' + (isLife?'2px solid #2e7d32':'1.5px solid #2e7d32') + ';border-radius:var(--r-lg);padding:14px 16px;margin-bottom:16px;background:linear-gradient(135deg,#e8f5e9,#fff);position:relative;">' +
       '<div style="position:absolute;top:-8px;right:14px;background:#2e7d32;color:#fff;padding:3px 10px;border-radius:var(--r-sm);font-size:var(--fs-xs);font-weight:800;text-transform:uppercase;letter-spacing:.5px;">🚀 Launch-Angebot</div>' +
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
-        '<div style="font-size:var(--fs-lg);font-weight:900;color:var(--c-success-d);">🏆 Pro Lifetime</div>' +
+        '<div style="font-size:var(--fs-lg);font-weight:900;color:#1b5e20;">🏆 Pro Lifetime</div>' +
         (isLife ? '<span style="background:#2e7d32;color:#fff;padding:2px 9px;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:800;">Aktiv</span>' : '<span style="background:#2e7d32;color:#fff;padding:3px 10px;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:800;">CHF 45.60</span>') +
       '</div>' +
-      '<div style="font-size:var(--fs-sm);color:var(--c-lime-d);line-height:1.7;">' +
+      '<div style="font-size:var(--fs-sm);color:#33691e;line-height:1.7;">' +
         '✅ Pro <strong>lebenslang</strong> (= 6 Jahre Pro-Abo gratis)<br>' +
         '✅ Einmalzahlung · keine Verlängerung<br>' +
         '✅ Unterstütze den Schweizer Indie-Dev' +
@@ -17401,12 +17401,12 @@ function gsRenderSubInfo(sub) {
   if (!sub) {
     return '<div style="text-align:center;padding:24px 20px;background:linear-gradient(135deg,#f5f5f5,#eaeaea);border-radius:var(--r-lg);margin-bottom:14px;">' +
       '<div style="font-size:48px;margin-bottom:8px;">🌱</div>' +
-      '<div style="font-size:var(--fs-xl);font-weight:900;color:var(--g-dark);margin-bottom:6px;">Free-Plan aktiv</div>' +
-      '<div style="font-size:var(--fs-md);color:var(--muted);margin-bottom:16px;line-height:1.5;">15 Scans/Tag · Kein Cloud-Sync · Keine KI-Doctor-Analyse</div>' +
+      '<div style="font-size:var(--fs-xl);font-weight:900;color:#1b5e20;margin-bottom:6px;">Free-Plan aktiv</div>' +
+      '<div style="font-size:var(--fs-md);color:#37474f;margin-bottom:16px;line-height:1.5;">15 Scans/Tag · Kein Cloud-Sync · Keine KI-Doctor-Analyse</div>' +
       '<button onclick="gsShowFirstTrialModal()" style="background:linear-gradient(135deg,#1a237e,#3949ab);color:#fff;padding:14px 24px;border:none;border-radius:var(--r-md);font-weight:800;font-size:var(--fs-md);cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;box-shadow:var(--elev-2);">' +
         '⬆️ Pro 7 Tage gratis testen' +
       '</button>' +
-      '<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:10px;line-height:1.45;">Jederzeit kündbar · Keine Sofort-Sperre · Sichere Stripe-Zahlung</div>' +
+      '<div style="font-size:var(--fs-xs);color:#37474f;margin-top:10px;line-height:1.45;">Jederzeit kündbar · Keine Sofort-Sperre · Sichere Stripe-Zahlung</div>' +
     '</div>';
   }
   var now = new Date();
@@ -19593,8 +19593,8 @@ function gsOpenNaturjahr(){
   var empty = (totalActivity===0 && uniqueSpecies===0 && !(dq.points>0) && achN===0);
 
   function tile(icon,val,label,bg){ return '<div style="flex:1;min-width:0;background:'+bg+';border-radius:var(--r-lg);padding:11px 8px;text-align:center;">'+
-    '<div style="font-size:var(--fs-xl);">'+icon+'</div><div style="font-size:var(--fs-xl);font-weight:900;color:var(--g-dark);line-height:1.1;margin-top:2px;">'+val+'</div>'+
-    '<div style="font-size:var(--fs-xs);color:var(--muted);font-weight:600;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+label+'</div></div>'; }
+    '<div style="font-size:var(--fs-xl);">'+icon+'</div><div style="font-size:var(--fs-xl);font-weight:900;color:#1b5e20;line-height:1.1;margin-top:2px;">'+val+'</div>'+
+    '<div style="font-size:var(--fs-xs);color:#37474f;font-weight:600;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+label+'</div></div>'; }
 
   var bars = months.map(function(v,i){ var h=Math.round((v/maxMonth)*44)+2; var cur=(i===CURM);
     return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">'+
@@ -32148,7 +32148,7 @@ function openScanHistoryDetail(idx) {
   }
   var html =
     '<div class="modal" style="max-width:520px;width:96vw;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;">' +
-      '<div style="background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:#fff;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">' +
+      '<div style="background:var(--fill-brand);color:#fff;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">' +
         '<div style="min-width:0;flex:1;">' +
           '<h2 style="margin:0;font-size:var(--fs-lg);font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(e.name) + '</h2>' +
           '<div style="font-size:var(--fs-sm);opacity:.85;font-style:italic;margin-top:2px;">' + esc(e.latin||'') + '</div>' +
@@ -42724,7 +42724,7 @@ async function gsOpenConversations(filterListingId){
       '<button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(0,0,0,.08);font-size:var(--fs-xl);cursor:pointer;">×</button>' +
       '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">' +
         '<div style="font-size:var(--fs-3xl);">📨</div>' +
-        '<div><div style="font-family:\'Playfair Display\',serif;font-size:var(--fs-xl);font-weight:900;color:#1a3d1a;">Nachrichten</div>' +
+        '<div><div style="font-family:\'Playfair Display\',serif;font-size:var(--fs-xl);font-weight:900;color:var(--g-dark);">Nachrichten</div>' +
         '<div style="font-size:var(--fs-sm);color:var(--muted);">Deine Marktplatz-Chats</div></div>' +
       '</div>' +
       '<div id="gs-conv-list" style="color:var(--muted);font-size:var(--fs-md);text-align:center;padding:18px 0;">⏳ Lade…</div>' +
@@ -51892,7 +51892,7 @@ function gsCreateMap() {
       .setLatLng(e.latlng)
       .setContent(
         '<div style="padding:4px 0;">' +
-        '<div style="font-weight:800;font-size:var(--fs-md);color:#1a3d1a;margin-bottom:8px;">📍 Neuer Fundort / POI</div>' +
+        '<div style="font-weight:800;font-size:var(--fs-md);color:var(--g-dark);margin-bottom:8px;">📍 Neuer Fundort / POI</div>' +
         '<select id="gs-pin-cat" style="width:100%;padding:7px 9px;border:1.5px solid #c8e6c9;border-radius:var(--r-sm);font-size:var(--fs-md);font-family:inherit;box-sizing:border-box;margin-bottom:6px;background:#fff;">'+catOpts+'</select>' +
         '<input id="gs-pin-name" placeholder="Name (z.B. Steinpilz, Aussichtspunkt)" style="width:100%;padding:7px 9px;border:1.5px solid #c8e6c9;border-radius:var(--r-sm);font-size:var(--fs-md);font-family:inherit;box-sizing:border-box;margin-bottom:6px;">' +
         '<input id="gs-pin-note" placeholder="Notiz (Anzahl, Qualität, …)" style="width:100%;padding:7px 9px;border:1.5px solid #c8e6c9;border-radius:var(--r-sm);font-size:var(--fs-md);font-family:inherit;box-sizing:border-box;margin-bottom:8px;">' +
@@ -52225,7 +52225,7 @@ function _gsBuildFindPopup(catMeta, name, note, dateObj, photoUrl){
     photoBlock = '<div style="margin-bottom:6px;text-align:center;"><img src="' + photoUrl + '" style="max-width:100%;max-height:140px;border-radius:var(--r-sm);border:1px solid #c8e6c9;" alt="" loading="lazy"></div>';
   }
   return '<div style="font-size:var(--fs-md);">' + photoBlock +
-    '<b style="color:#1a3d1a;">' + catMeta.emoji + ' ' + escHtml(name || '') + '</b>' +
+    '<b style="color:var(--g-dark);">' + catMeta.emoji + ' ' + escHtml(name || '') + '</b>' +
     '<span style="display:inline-block;margin-left:6px;padding:1px 7px;border-radius:var(--r-sm);font-size:var(--fs-xs);background:' + catMeta.color + '22;color:' + catMeta.color + ';font-weight:700;">' + catMeta.label + '</span>' +
     (note ? '<br><span style="color:#666;font-size:var(--fs-sm);">' + escHtml(note) + '</span>' : '') +
     '<br><span style="color:#999;font-size:var(--fs-sm);">' + (dateObj || new Date()).toLocaleDateString('de-CH') + '</span>' +
@@ -52282,7 +52282,7 @@ async function gsLoadMarkersFromCloud() {
       }
       var marker = L.marker([row.lat, row.lng], { icon: icon }).addTo(gsMap).bindPopup(
         '<div style="font-size:var(--fs-md);">' + photoBlock +
-        '<b style="color:#1a3d1a;">' + catMeta.emoji + ' ' + escHtml(row.species_name || '') + '</b>' +
+        '<b style="color:var(--g-dark);">' + catMeta.emoji + ' ' + escHtml(row.species_name || '') + '</b>' +
         '<span style="display:inline-block;margin-left:6px;padding:1px 7px;border-radius:var(--r-sm);font-size:var(--fs-xs);background:' + catMeta.color + '22;color:' + catMeta.color + ';font-weight:700;">' + catMeta.label + '</span>' +
         (row.note ? '<br><span style="color:#666;font-size:var(--fs-sm);">' + escHtml(row.note) + '</span>' : '') +
         '<br><span style="color:#999;font-size:var(--fs-sm);">☁️ ' + d.toLocaleDateString('de-CH') + (row.is_private===false ? ' · 🌍 Community' : '') + '</span>' +
@@ -52505,7 +52505,7 @@ async function gsOpenMyFinds(){
       '<button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(0,0,0,.08);font-size:var(--fs-xl);cursor:pointer;">×</button>' +
       '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">' +
         '<div style="font-size:var(--fs-3xl);">📋</div>' +
-        '<div><div style="font-family:\'Playfair Display\',serif;font-size:var(--fs-xl);font-weight:900;color:#1a3d1a;">Meine Funde</div>' +
+        '<div><div style="font-family:\'Playfair Display\',serif;font-size:var(--fs-xl);font-weight:900;color:var(--g-dark);">Meine Funde</div>' +
         '<div style="font-size:var(--fs-sm);color:var(--muted);">Pilze, Pflanzen &amp; POIs auf der Karte</div></div>' +
       '</div>' +
       '<div id="gs-myfinds-list" style="color:var(--muted);font-size:var(--fs-md);text-align:center;padding:18px 0;">⏳ Lade Funde…</div>' +
@@ -53373,7 +53373,7 @@ function gsTrackOpenList() {
 
   // Total-Stats-Card (alle echt summiert)
   var totalCard = totalCount > 0 ? (
-    '<div style="background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:#fff;padding:14px 16px;border-radius:var(--r-lg);margin-bottom:12px;">' +
+    '<div style="background:var(--fill-brand);color:#fff;padding:14px 16px;border-radius:var(--r-lg);margin-bottom:12px;">' +
       '<div style="font-size:var(--fs-sm);font-weight:800;opacity:.85;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">' + totalCount + ' Track' + (totalCount===1?'':'s') + ' · Total</div>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">' +
         '<div><div style="font-size:var(--fs-xs);opacity:.85;">Strecke</div><div style="font-size:var(--fs-lg);font-weight:900;">📏 ' + totalDistStr + '</div></div>' +
@@ -70430,7 +70430,7 @@ function openFarmShop() {
   ];
   resources.forEach(r => {
     const canAfford = farmState.coins >= r.coins;
-    html += '<div class="shop-item" onclick="buyResource(\'' + JSON.stringify(r).replace(/'/g,"\\'").replace(/"/g,'&quot;') + '\')" style="' + (!canAfford?'opacity:.55;':'') + '">' +
+    html += '<div class="shop-item" onclick="buyResource(\'' + JSON.stringify(r).replace(/'/g,"\\'").replace(/"/g,'&quot;') + '\')" style="' + (!canAfford?'filter:grayscale(1);opacity:.9;':'') + '">' +
       '<span class="shop-item-emoji">' + r.emoji + '</span>' +
       '<div class="shop-item-name">' + r.name + '</div>' +
       '<div class="shop-item-price">' + r.coins + ' 🌾</div></div>';
@@ -70444,7 +70444,7 @@ function openFarmShop() {
     const locked = level < animal.unlockLevel;
     const owned = !!farmState.animals[key];
     const canAfford = !owned && !locked && farmState.coins >= animal.cost;
-    html += '<div class="shop-item" onclick="' + (!owned && !locked ? 'buyAnimal(\'' + key + '\')' : '') + '" style="' + (locked||owned?'opacity:.55;':'') + '">' +
+    html += '<div class="shop-item" onclick="' + (!owned && !locked ? 'buyAnimal(\'' + key + '\')' : '') + '" style="' + (locked||owned?'filter:grayscale(1);opacity:.9;':'') + '">' +
       '<span class="shop-item-emoji">' + animal.emoji + '</span>' +
       '<div class="shop-item-name">' + _farmAnimalName(key) + (owned?' ✓':'') + '</div>' +
       '<div class="shop-item-price">' + (locked ? '🔒 ' + _farmT('farm_lv','Lv.') + animal.unlockLevel : owned ? _farmT('farm_owned','Besitz') : animal.cost + ' 🌾') + '</div></div>';
@@ -70457,7 +70457,7 @@ function openFarmShop() {
   Object.entries(FARM_BUILDINGS).forEach(([key, building]) => {
     const locked = level < building.unlockLevel;
     const owned = !!farmState.buildings[key];
-    html += '<div class="shop-item" onclick="' + (!owned && !locked && building.cost > 0 ? 'buyBuilding(\'' + key + '\')' : '') + '" style="' + (locked||owned?'opacity:.55;':'') + '">' +
+    html += '<div class="shop-item" onclick="' + (!owned && !locked && building.cost > 0 ? 'buyBuilding(\'' + key + '\')' : '') + '" style="' + (locked||owned?'filter:grayscale(1);opacity:.9;':'') + '">' +
       '<span class="shop-item-emoji">' + building.emoji + '</span>' +
       '<div class="shop-item-name">' + _farmBldgName(key) + (owned?' ✓':'') + '</div>' +
       '<div class="shop-item-price">' + (locked ? '🔒 ' + _farmT('farm_lv','Lv.') + building.unlockLevel : owned ? _farmT('farm_owned','Besitz') : building.cost + ' 🌾') + '</div></div>';
@@ -70919,12 +70919,12 @@ function openAdminSbKeyPanel() {
     '</div>' +
     '<p style="font-size:var(--fs-md);color:var(--text2);margin:0 0 12px;">Aktueller Key: <code style="font-size:var(--fs-sm);background:var(--surface2);padding:2px 6px;border-radius:var(--r-xs);">' + maskedKey + '</code></p>' +
     '<div style="margin-bottom:12px;">' +
-    '<label style="font-size:var(--fs-sm);font-weight:700;color:#1a3d1a;display:block;margin-bottom:6px;">Neuer Supabase Publishable Key:</label>' +
+    '<label style="font-size:var(--fs-sm);font-weight:700;color:var(--g-dark);display:block;margin-bottom:6px;">Neuer Supabase Publishable Key:</label>' +
     '<input id="admin-sb-key-input" type="password" maxlength="300" autocomplete="off" placeholder="sb_publishable_..." ' +
     'style="width:100%;padding:11px 14px;border:1.5px solid #c8e6c9;border-radius:var(--r-md);font-size:var(--fs-md);font-family:monospace;box-sizing:border-box;background:var(--card);">' +
     '</div>' +
     '<div style="margin-bottom:16px;">' +
-    '<label style="font-size:var(--fs-sm);font-weight:700;color:#1a3d1a;display:block;margin-bottom:6px;">Neue Supabase URL (optional):</label>' +
+    '<label style="font-size:var(--fs-sm);font-weight:700;color:var(--g-dark);display:block;margin-bottom:6px;">Neue Supabase URL (optional):</label>' +
     '<input id="admin-sb-url-input" type="text" placeholder="https://xxx.supabase.co" value="' + (localStorage.getItem('gs_sb_url') || SB_URL_DEFAULT) + '" ' +
     'style="width:100%;padding:11px 14px;border:1.5px solid #c8e6c9;border-radius:var(--r-md);font-size:var(--fs-sm);font-family:monospace;box-sizing:border-box;background:var(--card);">' +
     '</div>' +
@@ -71326,6 +71326,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v32.25', date: '03.09.2026',
+    headline: '\ud83d\udc41\ufe0f Im Dunkelmodus war Schrift unsichtbar \u2014 in Fenstern, die nie jemand gepr\u00fcft hat',
+    summary: 'Der Kontrast-Pr\u00fcfstand mass sechs Fenster. Die App hat rund vierzig. Seit v32.25 \u00f6ffnet er jedes selbst \u2014 und fand auf Anhieb hundert Textstellen, die zu schwach sind, darunter hellgr\u00fcne Schrift auf hellrosa Fl\u00e4che: 1,01:1, also gar nichts. Betroffen waren „Was m\u00f6chtest du teilen?", „Mein Naturjahr", die Abo-Karten, der Hofladen und ein Dutzend weitere.',
+    user_summary: '\ud83d\udc41\ufe0f Mehrere Fenster hatten im Dunkelmodus Schrift, die man schlicht nicht lesen konnte. Jetzt sind sie lesbar \u2014 und ein Pr\u00fcfstand sieht ab sofort in JEDES Fenster.',
+    user_items: [
+      {emoji:'\ud83c\udf19', bold:'Was los war:', text:' Gr\u00fcne Schrift, die im Dunkelmodus hell wird, stand auf Fl\u00e4chen, die hell BLEIBEN. Im Post-Fenster war die Beschriftung der sechs Kn\u00f6pfe damit praktisch unsichtbar, in „Mein Naturjahr" alle acht Kacheln, auf den Abo-Karten die Preise.'},
+      {emoji:'\ud83d\udd0d', bold:'Warum es niemandem auffiel:', text:' Der Pr\u00fcfstand kannte nur sechs Fenster. F\u00fcr die anderen stand im Handbuch „dann rechnet man eben selbst nach" \u2014 und niemand rechnet selbst nach. Jetzt \u00f6ffnet er jedes Fenster selbst, auch jedes k\u00fcnftige.'},
+      {emoji:'\ud83d\udcf1', bold:'Und schmale Telefone werden mitgemessen:', text:' Antippfl\u00e4chen werden jetzt bei 412 px UND bei 320 px gepr\u00fcft \u2014 der Breite eines iPhone SE oder eines \u00e4lteren Android-Ger\u00e4ts.'},
+    ],
+  },
   {
     v: 'v32.24', date: '03.09.2026',
     headline: '\ud83d\udd17 „Anna gef\u00e4llt dein Beitrag" f\u00fchrt jetzt zu DEM Beitrag',
@@ -71780,7 +71791,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.24';
+var GS_VERSION = 'v32.25';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -71932,12 +71943,12 @@ function openAdminActions(targetEmail) {
     '<p style="font-size:var(--fs-md);color:var(--text2);margin:0 0 14px;">Nutzer: <strong>' + escHtml(targetEmail||'?') + '</strong></p>' +
 
     '<div style="margin-bottom:12px;">' +
-    '<label style="font-size:var(--fs-sm);font-weight:700;color:#1a3d1a;display:block;margin-bottom:6px;">🎓 Experten-Level vergeben:</label>' +
+    '<label style="font-size:var(--fs-sm);font-weight:700;color:var(--g-dark);display:block;margin-bottom:6px;">🎓 Experten-Level vergeben:</label>' +
     '<select id="admin-expert-select" style="width:100%;padding:10px;border-radius:var(--r-sm);border:1.5px solid #c8e6c9;font-size:var(--fs-md);font-family:inherit;">' +
     opts + '</select></div>' +
 
     '<div style="margin-bottom:12px;">' +
-    '<label style="font-size:var(--fs-sm);font-weight:700;color:#1a3d1a;display:block;margin-bottom:6px;">📝 Admin-Notiz (Qualifikation):</label>' +
+    '<label style="font-size:var(--fs-sm);font-weight:700;color:var(--g-dark);display:block;margin-bottom:6px;">📝 Admin-Notiz (Qualifikation):</label>' +
     '<textarea id="admin-expert-reason" rows="2" style="width:100%;padding:8px;border-radius:var(--r-sm);border:1.5px solid #c8e6c9;font-size:var(--fs-md);font-family:inherit;box-sizing:border-box;" placeholder="z.B. Dipl. Botanikerin, Uni Bern 2019"></textarea>' +
     '</div>' +
 
@@ -72138,14 +72149,14 @@ function gsOpenExpertApplication() {
         'Ein neuer ersetzt ihn nicht, sondern kommt dazu.</div>'
       : '') +
     '<div style="background:var(--bg-success-soft);border-radius:var(--r-md);padding:12px;margin-bottom:14px;">' +
-    '<p style="font-size:var(--fs-md);color:#1a3d1a;margin:0;line-height:1.6;">' +
+    '<p style="font-size:var(--fs-md);color:var(--g-dark);margin:0;line-height:1.6;">' +
     '✅ Der <strong>grüne Haken</strong> zeigt dass du ein verifizierter Natur-Experte bist. ' +
     'Admins prüfen deinen Antrag und vergeben den Status manuell.</p></div>' +
-    '<label style="font-size:var(--fs-sm);font-weight:700;color:#1a3d1a;display:block;margin-bottom:6px;">Biografie (mind. 30 Zeichen):</label>' +
+    '<label style="font-size:var(--fs-sm);font-weight:700;color:var(--g-dark);display:block;margin-bottom:6px;">Biografie (mind. 30 Zeichen):</label>' +
     '<textarea id="exp-bio" rows="4" style="width:100%;padding:8px;border-radius:var(--r-sm);border:1.5px solid #c8e6c9;font-size:var(--fs-md);font-family:inherit;box-sizing:border-box;margin-bottom:12px;" ' +
     'placeholder="z.B. Botaniker seit 15 Jahren, Interesse an Pilzkunde der Alpen…">' +
     escHtml(_ea.biography || '') + '</textarea>' +
-    '<label style="font-size:var(--fs-sm);font-weight:700;color:#1a3d1a;display:block;margin-bottom:6px;">Diplome / Ausbildungen:</label>' +
+    '<label style="font-size:var(--fs-sm);font-weight:700;color:var(--g-dark);display:block;margin-bottom:6px;">Diplome / Ausbildungen:</label>' +
     '<textarea id="exp-dips" rows="3" style="width:100%;padding:8px;border-radius:var(--r-sm);border:1.5px solid #c8e6c9;font-size:var(--fs-md);font-family:inherit;box-sizing:border-box;margin-bottom:16px;" ' +
     'placeholder="z.B. Dipl. Biologe Uni Zürich 2010 · VAPKO-Pilzkontrolleur seit 2015">' +
     escHtml(_ea.diplomas || '') + '</textarea>' +
@@ -76845,7 +76856,7 @@ async function renderProfileLoggedIn(mc) {
         return '<div title="'+escHtml(m.name)+': '+escHtml(m.desc)+'" style="' +
           'padding:5px 10px;border-radius:var(--r-lg);font-size:var(--fs-sm);font-weight:700;cursor:pointer;' +
           (earned ? 'background:var(--g-bg);color:var(--g-dark);border:1.5px solid var(--g-light);' : 
-                    'background:var(--surface2);color:var(--muted);border:1.5px solid var(--border);filter:grayscale(1);opacity:.6;') +
+                    'background:var(--surface2);color:var(--muted);border:1.5px solid var(--border);filter:grayscale(1);') +
           '">'+m.icon+' '+escHtml(m.name)+'</div>';
       }).join(''),
       '</div>',
@@ -86187,7 +86198,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
       <div style="font-size:var(--fs-sm);font-weight:800;color:var(--text);margin-bottom:6px;">🎯 Eigenen Wert eingeben</div>
       <div style="display:flex;gap:6px;margin-bottom:14px;">
         <input id="lux-calib-custom-input" type="number" min="1" max="150000" placeholder="Lux" style="flex:1;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:var(--fs-md);font-family:inherit;background:var(--input-bg);color:var(--text);">
-        <button onclick="gsLuxAddCalibPointCustom()" style="padding:10px 16px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:#fff;border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;">✓ Speichern</button>
+        <button onclick="gsLuxAddCalibPointCustom()" style="padding:10px 16px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:800;cursor:pointer;font-family:inherit;">✓ Speichern</button>
       </div>
 
       <div style="font-size:var(--fs-sm);font-weight:800;color:var(--text);margin-bottom:6px;">📍 Gespeicherte Kalibrier­punkte</div>
@@ -86297,7 +86308,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
       </div>
       <div style="display:flex;gap:8px;margin-top:6px;">
         <button onclick="closeModal('modal-addplant')" style="flex:1;padding:12px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:var(--r-md);font-size:var(--fs-md);font-weight:700;cursor:pointer;font-family:inherit;">Abbrechen</button>
-        <button onclick="savePlant()" style="flex:2;padding:12px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;box-shadow:var(--elev-brand);">💾 Speichern</button>
+        <button onclick="savePlant()" style="flex:2;padding:12px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;box-shadow:var(--elev-brand);">💾 Speichern</button>
       </div>
     </div>
   </div>
@@ -86394,7 +86405,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
       </div>
       <div style="display:flex;gap:8px;margin-top:6px;">
         <button onclick="closeModal('modal-add-garden')" style="flex:1;padding:12px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:var(--r-md);font-size:var(--fs-md);font-weight:700;cursor:pointer;font-family:inherit;">Abbrechen</button>
-        <button onclick="saveGarden()" style="flex:2;padding:12px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;box-shadow:var(--elev-brand);">💾 Garten anlegen</button>
+        <button onclick="saveGarden()" style="flex:2;padding:12px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;box-shadow:var(--elev-brand);">💾 Garten anlegen</button>
       </div>
     </div>
   </div>
@@ -86439,7 +86450,7 @@ CREATE POLICY "upd" ON profiles FOR UPDATE TO authenticated USING (auth.uid()=id
       </div>
       <div style="display:flex;gap:8px;margin-top:6px;">
         <button onclick="closeModal('modal-add-planting')" style="flex:1;padding:12px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:var(--r-md);font-size:var(--fs-md);font-weight:700;cursor:pointer;font-family:inherit;">Abbrechen</button>
-        <button onclick="savePlanting()" style="flex:2;padding:12px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;box-shadow:var(--elev-brand);">💾 Pflanzung anlegen</button>
+        <button onclick="savePlanting()" style="flex:2;padding:12px;background:var(--fill-brand);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;box-shadow:var(--elev-brand);">💾 Pflanzung anlegen</button>
       </div>
     </div>
   </div>
