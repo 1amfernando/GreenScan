@@ -529,6 +529,7 @@ node scripts/tour_check.js       # zeigt die App-Tour auf etwas, oder erzaehlt s
 node scripts/kamera_check.js     # stimmt, was der Scanner ueber seine Kamera behauptet? (seit v32.29)
 node scripts/arten_quellen_vergleich.js # was sagen die zwei belegten Repo-Datensaetze zur Artenliste? (seit v32.43, nur Messung)
 node scripts/speicher_check.js   # was tut die App, wenn der Geraetespeicher voll ist? (seit v32.44)
+node scripts/kalender_check.js   # beantwortet der Kalender dieselbe Frage wie „Heute zu tun"? (seit v32.46)
 #   save_check prueft seit v31.95 auch SERVER-Wege mit gestelltem sbFetch:
 #   meldet die Funktion Erfolg, wenn der Server NEIN sagt — oder gar nichts?
 #   wiring_check meldet seit v31.95 zusaetzlich sofort dereferenzierte
@@ -537,7 +538,7 @@ node scripts/speicher_check.js   # was tut die App, wenn der Geraetespeicher vol
 #   Sicherheitsangaben — siehe docs/ARTEN-LUECKEN.md
 ```
 
-Elf der siebzehn JS-Prüfstände teilen die Beispieldaten in `scripts/_seed.js` — dort
+Sechzehn der einundzwanzig JS-Prüfstände teilen die Beispieldaten in `scripts/_seed.js` — dort
 ändern, nicht in den einzelnen Prüfständen. `field_check.py` liest nur den
 Quelltext und braucht keine.
 
@@ -757,6 +758,33 @@ Beispiel-Pflanzen unter `myPlants` ab — die App liest `ps_myplants`. Von v31.3
 bis v31.45 haben deshalb *alle* Prüfstände eine leere Pflanzenliste vermessen.
 Wer die Beispieldaten erweitert: **den Schlüssel gegen `index.html` prüfen**,
 nicht gegen den Namen der globalen Variablen.
+
+**Dieselbe Falle, eine Ebene tiefer (v32.46):** die drei Pflanzen trugen
+`lastWatered`/`waterEvery` — Felder, die die App NIRGENDS liest; sie rechnet
+Aufgaben aus `p.tasks[key] = {active, intervalDays, lastDone}`. Von v31.46 bis
+v32.45 hatten die Beispielpflanzen deshalb KEINE Aufgaben: „Heute zu tun",
+Faellig-Liste, Notizzettel und Glocke wurden in allen Pruefstaenden leer
+vermessen. Richtiger Schluessel, falsche Felder. Seit v32.46 tragen sie echte
+Aufgaben (eine ueberfaellig, eine heute, eine in Ordnung) — und der erste Lauf
+danach meldete den Notizzettel, der 1 px ueber den Rand ragte. Wer
+Beispieldaten anlegt, prueft die FELDER gegen die Lesestellen, nicht nur den
+Schluessel.
+
+**`kalender_check.js` (seit v32.46) haelt die eine Regel aus
+`docs/KALENDER-V1.md` fest:** es gibt EINE Frage — „was ist an diesem Tag?" —
+und EINE Funktion (`gsKalenderEreignisse`). Der Kalender, „Heute zu tun",
+die Faellig-Liste, der Notizzettel und die Glocke sind Anzeigen derselben
+Antwort; `gsGetDueTasks` ist ihre Sonderform fuer heute. Wer eine
+Faelligkeit braucht, ruft eine der beiden — ein `getDaysUntilDue` in einer
+neuen Anzeige ist ein Fehler. Die Uhr wird im Pruefstand GESTELLT
+(`page.clock.setFixedTime`), kein Fall haengt am echten Datum. Drei
+Reparaturen stecken drin, jede mit Gegenprobe: `gsSnoozeTask` schreibt
+`snoozedUntil` statt `lastDone` zu faelschen (der Server-Cron kennt das
+Feld erst nach `20260903_plant_tasks_due_snooze.sql`); `gsTagebuchAlle()`
+liest Gartentagebuch UND Pflanzentagebuecher (`p.diary`) zusammen — bis
+v32.45 sah das Gartentagebuch kein einziges Abhaken; und `MENU_ITEMS` ist
+wie `socialPosts` ein Skript-Bereichs-Name ohne `window.` — ein Fall, der
+`window.MENU_ITEMS` prueft, prueft eine Variable, die es nie gab.
 
 `perf_check.js` trennt **App-JS** von **Parsen/Kompilieren**. Nur die erste
 Spalte ist beeinflussbar — die zweite ist der Preis des 5,7-MB-Monolithen und

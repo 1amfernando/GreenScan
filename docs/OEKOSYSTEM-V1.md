@@ -41,7 +41,7 @@ Gemessen am 03.09.2026 (Grep über `index.html`, `supabase/`, `docs/`,
 | Diagramm-Routine im Frontend | **keine** (kein Chart-Paket; Three.js und Leaflet werden nur bei Bedarf geladen) |
 | Schwellwerte in den Artendaten | `care` / `lightMin` / `lightOptimal` / `lightMax` / `waterFrequency` bei **40 von 4'342** Arten |
 | Web-Bluetooth / Web-Serial / WebUSB in der `Permissions-Policy` | `_headers` Z. 9: `usb=()` ist **gesperrt**, `bluetooth` und `serial` sind **nicht genannt** (gelten damit als `self`). Für Stufe 2 wird `usb` bewusst freigegeben oder bewusst gesperrt gelassen — mit Begründung in `_headers`, wie bei `camera=(self)` |
-| Andockstellen, die es schon gibt | `gsCloudSync`/`markDirty` (Sync), RLS-own-only-Muster in den Migrationen, `GS_NOTIF_ZIELE` (31 Benachrichtigungsarten mit Ziel), der tägliche Cron (`daily-push`), die IndexedDB-Ablagen (`STORES`), `_gsAufFarbe` (Kontrast für Farben aus Daten) |
+| Andockstellen, die es schon gibt | `gsCloudSync`/`markDirty` (Sync), RLS-own-only-Muster in den Migrationen, `GS_NOTIF_ZIELE` (31 Benachrichtigungsarten mit Ziel), der tägliche Cron (`daily-push`), die IndexedDB-Ablagen (`STORES`), `_gsAufFarbe` (Kontrast für Farben aus Daten) — und seit v32.46 die Ereignis-Schicht `gsKalenderEreignisse` (`KALENDER-V1.md`), in der die Arten `messung` und `alarm` schon vorgesehen sind |
 
 Es existiert also **nichts** für Geräte — und genau deshalb lohnt sich der
 Entwurf jetzt: nichts muss umgebaut werden, und die Konventionen des Repos

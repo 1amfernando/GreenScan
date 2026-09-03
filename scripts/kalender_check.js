@@ -1,0 +1,213 @@
+#!/usr/bin/env node
+// kalender_check.js — beantwortet der Kalender dieselbe Frage wie „Heute zu tun"?
+//
+//   node scripts/kalender_check.js
+//
+// Entwurf: docs/KALENDER-V1.md. Die eine Regel dort: es gibt EINE Frage —
+// „was ist an diesem Tag?" — und EINE Funktion, die sie beantwortet
+// (gsKalenderEreignisse). Der Kalender, „Heute zu tun" auf der Startseite,
+// die Faellig-Liste, der Notizzettel und die Glocke sind Anzeigen derselben
+// Antwort. Dieser Stand haelt das fest — und die drei Reparaturen, die mit
+// dem Kalender kamen: Verschieben faelscht kein lastDone mehr, Abhaken
+// steht im Gartentagebuch, beide Tagebuecher werden zusammen gelesen.
+//
+// Die Uhr wird GESTELLT (Playwright clock.setFixedTime), nicht abgewartet:
+// kein Fall haengt am echten Datum. „Heute" ist `now` aus _seed.js plus zwoelf
+// Stunden (1756684800000 = 1. September 2025, 12:00 UTC) — derselbe Tag, an
+// dem die Beispieldaten ihre Aufgaben faellig haben (Basilikum seit einem Tag
+// ueberfaellig, Tomate heute, Monstera in sechs Tagen). Das Jahr ist egal;
+// die Beispieldaten sind relativ zu `now` gebaut. Der erste Lauf erwartete
+// „September 2026" und war damit selbst der Fehler.
+//
+// Gemessen wird, was die Anzeige ZEIGT (gerendertes HTML), nicht das Objekt
+// (Lehre aus v31.90) — und jede Reparatur hat eine Gegenprobe: ausgebaut
+// muss der Fall rot werden.
+'use strict';
+const path = require('path');
+const { chromium } = require(process.env.GS_PW || '/opt/node22/lib/node_modules/playwright');
+const SEED = require('./_seed.js');
+
+const HEUTE_MS = 1756684800000 + 12 * 3600 * 1000;   // `now` aus _seed.js + 12 h (2025-09-01 12:00 UTC)
+
+const FAELLE = [
+  {
+    name: 'Grundlage · die Beispieldaten haben Aufgaben, Tagebuch und eine Pflanzung',
+    lauf: () => {
+      const n = (myPlants || []).filter(p => p && p.tasks && Object.keys(p.tasks).length).length;
+      const tb = gsTagebuchLoad(true).length;
+      const pl = (typeof plantings !== 'undefined' && Array.isArray(plantings)) ? plantings.length : 0;
+      if (n < 3) return { ok: false, warum: 'nur ' + n + ' Pflanzen mit Aufgaben — bis v32.45 waren es 0, und alle Prüfstände massen eine leere Fällig-Liste' };
+      if (!tb) return { ok: false, warum: 'kein Tagebuch-Eintrag in den Beispieldaten' };
+      if (!pl) return { ok: false, warum: 'keine Garten-Pflanzung in den Beispieldaten' };
+      const due = gsGetDueTasks();
+      if (!due.length) return { ok: false, warum: 'gsGetDueTasks liefert nichts — die gestellte Uhr oder die Beispieldaten stimmen nicht' };
+      return { ok: true, info: n + ' Pflanzen mit Aufgaben · ' + due.length + ' fällig/bald · ' + tb + ' Tagebuch · ' + pl + ' Pflanzung · heute ' + gsHeuteTag() };
+    },
+  },
+  {
+    name: 'Eine Antwort · „Heute zu tun" und der Kalender liefern dieselben Aufgaben',
+    lauf: () => {
+      const heute = gsHeuteTag();
+      const due = gsGetDueTasks();                       // days <= 2
+      const ev = gsKalenderEreignisse(heute, _gsKalTagPlus(heute, 2)).filter(e => e.art === 'aufgabe');
+      const fehlt = [];
+      due.forEach(t => {
+        const tag = t.days <= 0 ? heute : _gsKalTagPlus(heute, t.days);
+        const id = 'aufgabe:' + t.plant.id + ':' + t.key + ':' + tag;
+        if (!ev.some(e => e.id === id)) fehlt.push(id);
+      });
+      if (fehlt.length) return { ok: false, warum: fehlt.length + ' Aufgaben aus „Heute zu tun" fehlen im Kalender: ' + fehlt.slice(0, 3).join(', ') };
+      if (ev.length !== due.length) return { ok: false, warum: 'Kalender ' + ev.length + ' Aufgaben, „Heute zu tun" ' + due.length + ' — zwei Antworten auf eine Frage' };
+      const ohneGrund = ev.filter(e => !e.grund || e.grund.length < 8);
+      if (ohneGrund.length) return { ok: false, warum: ohneGrund.length + ' Aufgaben ohne Grund' };
+      return { ok: true, info: due.length + ' Aufgaben, Eintrag für Eintrag gleich · Grund z.B. „' + ev[0].grund + '"' };
+    },
+  },
+  {
+    name: 'Verschieben · fälscht kein lastDone, und der Kalender sagt „verschoben"',
+    lauf: () => {
+      const p = myPlants.find(x => x && x.id === 'p3');
+      if (!p || !p.tasks || !p.tasks.water) return { ok: false, warum: 'Probe-Pflanze p3 fehlt' };
+      const vorher = p.tasks.water.lastDone;
+      const heute = gsHeuteTag();
+      if (!gsGetDueTasks().some(t => t.plant.id === 'p3' && t.key === 'water' && t.days <= 0)) return { ok: false, warum: 'Tomate giessen ist heute nicht fällig — Fall nicht hergestellt' };
+      gsSnoozeTask('p3', 'water', 2);
+      if (p.tasks.water.lastDone !== vorher) return { ok: false, warum: 'lastDone wurde verändert (' + vorher + ' → ' + p.tasks.water.lastDone + ') — die Geschichte ist gefälscht' };
+      if (!p.tasks.water.snoozedUntil) return { ok: false, warum: 'snoozedUntil fehlt' };
+      if (gsGetDueTasks().some(t => t.plant.id === 'p3' && t.key === 'water' && t.days <= 0)) return { ok: false, warum: 'die Aufgabe ist trotz Verschieben heute fällig' };
+      const in2 = _gsKalTagPlus(heute, 2);
+      const e = gsKalenderEreignisse(in2, in2).find(x => x.art === 'aufgabe' && x.pflanze.id === 'p3' && x.key === 'water');
+      if (!e) return { ok: false, warum: 'die verschobene Aufgabe steht nicht in zwei Tagen im Kalender' };
+      if (e.status !== 'verschoben' || !/verschoben/.test(e.grund)) return { ok: false, warum: 'der Kalender nennt die Verschiebung nicht (status=' + e.status + ', grund=' + e.grund + ')' };
+      // Erledigen hebt die Verschiebung auf
+      gsQuickDone('p3', 'water');
+      if (p.tasks.water.snoozedUntil) return { ok: false, warum: 'nach dem Erledigen bleibt snoozedUntil stehen' };
+      return { ok: true, info: 'lastDone unverändert · in 2 Tagen als „verschoben" · Erledigen räumt auf' };
+    },
+  },
+  {
+    name: 'Abhaken · steht im Gartentagebuch und im Kalender — ein Eintrag, zwei Ansichten',
+    lauf: () => {
+      const heute = gsHeuteTag();
+      const vorher = gsTagebuchAlle().length;
+      gsQuickDone('p1', 'water');
+      const alle = gsTagebuchAlle();
+      const neu = alle.find(e => e.pflanze_id === 'p1' && e.datum === heute && e.quelle === 'regel');
+      if (!neu) return { ok: false, warum: 'das Abhaken erscheint nicht in gsTagebuchAlle (' + vorher + ' → ' + alle.length + ')' };
+      if (alle.length !== vorher + 1) return { ok: false, warum: 'ein Abhaken, ' + (alle.length - vorher) + ' neue Einträge — doppelt geschrieben?' };
+      const ev = gsKalenderEreignisse(heute, heute).find(e => e.art === 'tagebuch' && e.pflanze && e.pflanze.id === 'p1');
+      if (!ev) return { ok: false, warum: 'der Kalender zeigt das Abhaken nicht am heutigen Tag' };
+      // …und das Gartentagebuch RENDERT es (bis v32.45 sah es kein einziges Abhaken)
+      openGartenTagebuch();
+      const t = (document.getElementById('modal-content') || {}).textContent || '';
+      if (!/Giessen/.test(t)) return { ok: false, warum: 'das Gartentagebuch zeigt den Abhaken-Eintrag nicht' };
+      const global = gsTagebuchLoad(true).length;
+      if (!new RegExp('Basilikum').test(t)) return { ok: false, warum: 'der Pflanzenname fehlt im Gartentagebuch' };
+      return { ok: true, info: 'ein Eintrag (' + neu.text + ') · Kalender: ja · Gartentagebuch zeigt ihn · global weiterhin ' + global + ' Einträge, nichts kopiert' };
+    },
+  },
+  {
+    name: 'Anzeige · das Monatsraster und die Tagesliste werden aus dem HTML gelesen',
+    lauf: () => {
+      gsKalenderOeffnen();
+      const mc = document.getElementById('modal-content');
+      if (!mc) return { ok: false, warum: 'kein modal-content' };
+      const heute = gsHeuteTag();
+      const tage = mc.querySelectorAll('.gs-kal-tag');
+      if (tage.length < 28 || tage.length > 31) return { ok: false, warum: tage.length + ' Tageskästchen statt 28–31' };
+      const h = mc.querySelector('.gs-kal-tag.heute');
+      if (!h) return { ok: false, warum: 'kein Kästchen trägt „heute"' };
+      const erwartet = _GS_KAL_MON[+heute.slice(5, 7) - 1] + ' ' + heute.slice(0, 4);
+      if (((mc.querySelector('.gs-kal-titel') || {}).textContent || '') !== erwartet) return { ok: false, warum: 'Monatstitel „' + (mc.querySelector('.gs-kal-titel') || {}).textContent + '" statt „' + erwartet + '"' };
+      const ev = gsKalenderEreignisse(heute.slice(0, 7) + '-01', heute.slice(0, 7) + '-30');
+      const tageMit = new Set(ev.map(e => e.datum));
+      let ohnePunkt = 0;
+      tageMit.forEach(tag => { const d = +tag.slice(8); const k = tage[d - 1]; if (!k || !k.querySelector('.gs-kal-p')) ohnePunkt++; });
+      if (ohnePunkt) return { ok: false, warum: ohnePunkt + ' Tage mit Ereignissen ohne Punkt im Raster' };
+      const heuteEv = ev.filter(e => e.datum === heute);
+      const zeilen = mc.querySelectorAll('.gs-kal-zeile');
+      if (zeilen.length !== heuteEv.length) return { ok: false, warum: 'Tagesliste zeigt ' + zeilen.length + ' Zeilen, der Tag hat ' + heuteEv.length + ' Ereignisse' };
+      const boxen = mc.querySelectorAll('.gs-kal-box:not(.info)');
+      const ohneName = Array.from(boxen).filter(b => !b.getAttribute('aria-label'));
+      if (ohneName.length) return { ok: false, warum: ohneName.length + ' Kästchen ohne aria-label' };
+      if (/undefined|NaN|\[object Object\]/.test(mc.textContent)) return { ok: false, warum: 'Platzhalter im Text' };
+      // Tippen zeigt den Grund
+      const z = mc.querySelector('.gs-kal-zeile');
+      if (z) { gsKalGrund(z); const g = z.querySelector('.gs-kal-grund'); if (!g || g.hidden) return { ok: false, warum: 'Tippen zeigt den Grund nicht' }; }
+      return { ok: true, info: tage.length + ' Tage · ' + tageMit.size + ' mit Punkten · heute ' + zeilen.length + ' Zeilen, ' + boxen.length + ' Kästchen benannt' };
+    },
+  },
+  {
+    name: 'Zugänge · Startseite, Meine Pflanzen und Menü-Suche führen zum Kalender',
+    lauf: () => {
+      const fehlt = [];
+      gsRenderDayPlan();
+      const hp = document.getElementById('home-dayplan');
+      if (!hp || !hp.querySelector('[onclick*="gsKalenderOeffnen"]')) fehlt.push('Startseite („Heute zu tun")');
+      const fav = document.getElementById('plants-due-section');
+      if (!fav || !fav.querySelector('[onclick*="gsKalenderOeffnen"]')) fehlt.push('Meine Pflanzen (Fällig-Liste)');
+      // MENU_ITEMS ist ein Skript-Bereichs-Name, NICHT auf window (dieselbe Falle wie socialPosts, CLAUDE.md §7.1)
+      let menu = []; try { menu = MENU_ITEMS; } catch (_) { menu = window.MENU_ITEMS || []; }
+      if (!(menu || []).some(m => /gsKalenderOeffnen/.test(String(m.action || '')))) fehlt.push('Menü-Suche');
+      if (fehlt.length) return { ok: false, warum: 'ohne Zugang: ' + fehlt.join(', ') };
+      return { ok: true, info: 'drei Zugänge verdrahtet' };
+    },
+  },
+  {
+    name: 'Ohne Daten · keine Pflanzen, kein Tagebuch → ein leerer Kalender, der es sagt',
+    lauf: () => {
+      const sichern = { mp: myPlants, pl: (typeof plantings !== 'undefined') ? plantings : null, tb: localStorage.getItem('gs_gartentagebuch') };
+      try {
+        myPlants = []; if (typeof plantings !== 'undefined') plantings = [];
+        localStorage.setItem('gs_gartentagebuch', '[]'); gsTagebuchLoad(true);
+        const ev = gsKalenderEreignisse(gsHeuteTag(), _gsKalTagPlus(gsHeuteTag(), 30));
+        if (ev.length) return { ok: false, warum: ev.length + ' Ereignisse ohne jede Datengrundlage' };
+        gsKalenderOeffnen();
+        const t = (document.getElementById('modal-content') || {}).textContent || '';
+        if (!/Nichts an diesem Tag/.test(t)) return { ok: false, warum: 'die leere Tagesliste sagt nichts' };
+        return { ok: true, info: '0 Ereignisse · „Nichts an diesem Tag."' };
+      } finally {
+        myPlants = sichern.mp; if (sichern.pl) plantings = sichern.pl;
+        if (sichern.tb != null) localStorage.setItem('gs_gartentagebuch', sichern.tb); gsTagebuchLoad(true);
+      }
+    },
+  },
+];
+
+(async () => {
+  const br = await chromium.launch();
+  const ctx = await br.newContext({ viewport: { width: 412, height: 915 } });
+  const p = await ctx.newPage();
+  const errs = [];
+  p.on('pageerror', e => errs.push(e.message.split('\n')[0]));
+  await p.route('**', r => r.request().url().startsWith('file:') ? r.continue() : r.abort());
+  await p.clock.setFixedTime(HEUTE_MS);          // die Uhr wird gestellt, nicht abgewartet
+  await p.addInitScript(SEED);
+  await p.goto('file://' + path.resolve(__dirname, '..', 'index.html'), { waitUntil: 'domcontentloaded', timeout: 120000 });
+  await p.waitForTimeout(4000);
+  await p.evaluate(() => {
+    document.documentElement.classList.remove('gs-preauth');
+    window.gsRequire = () => true;
+    window.gsToast = () => {}; window.showProfileToast = () => {}; window.gsHaptic = () => {};
+    window.gsRpcTaskDone = () => {}; window.scheduleAllNotifications = () => {};
+  });
+
+  console.log('\n=== kalender_check — beantwortet der Kalender dieselbe Frage wie „Heute zu tun"?');
+  const stand = await p.evaluate(() => ({ heute: gsHeuteTag(), uhr: new Date().toISOString() }));
+  console.log('  gestellte Uhr: ' + stand.uhr + ' · heute = ' + stand.heute);
+  let kaputt = 0;
+  for (const f of FAELLE) {
+    let r;
+    try { r = await p.evaluate(new Function('return (' + f.lauf.toString() + ')()')); }
+    catch (e) { r = { ok: false, warum: 'Ausnahme: ' + e.message.split('\n')[0] }; }
+    if (r && r.ok) console.log('  ok   ' + f.name + (r.info ? '   [' + r.info + ']' : ''));
+    else { kaputt++; console.log('  !!   ' + f.name + '\n         → ' + ((r && r.warum) || 'unbekannt')); }
+  }
+  console.log('  ---');
+  console.log('  Fälle geprueft: ' + FAELLE.length + ' · davon kaputt: ' + kaputt);
+  console.log('  JS-Fehler waehrend der Pruefung: ' + (errs.length ? errs.length + ' (' + errs.slice(0, 2).join(' | ') + ')' : 'keine'));
+  console.log('  Grenze: Garten-Pflanzungen haben in Stufe 1 noch keine Aufgaben, und der Server-Cron');
+  console.log('  (v_plant_tasks_due) kennt snoozedUntil erst nach der Migration 20260903_plant_tasks_due_snooze.sql.');
+  await br.close();
+  process.exitCode = kaputt ? 1 : 0;
+})();
