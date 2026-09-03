@@ -109,11 +109,14 @@ einlesen, prüfen und abgleichen — nicht beschaffen.
 | davon `data->>'source' = 'inline_db_v1'` | 2'738 |
 | `= 'seed'` | 39 |
 | ohne `source` | 61 |
-| Zeilen mit `bloom_color`, die in der App-Datei leer sind | siehe Gegenprüfung (§6) |
+| Zeilen mit `bloom_color` | 586 — davon **568 wortgleich** mit der Datei, 4 abweichend, 9 nicht in der Datei |
+| **Farbe in der Datenbank, in der Datei leer** | **5** (Akelei, Sonnenblume, Alpen-Mohn, Aurikel, Kapuzinerkresse) |
 
 Die Tabelle hat **weniger** Zeilen als die Datei und nennt die Datei als
 Quelle. Sie wurde aus der App befüllt, nicht umgekehrt. Was dort steht,
-weiss die App schon.
+weiss die App schon — bis auf fünf Arten, deren Farbe nur in der Datenbank
+steht (vermutlich aus den 39 `seed`-Zeilen). Fünf von 3'375: das ist keine
+Quelle, das ist ein Rest.
 
 ### 3.3 · Repo — zwei belegte Datensätze, und warum sie nicht einfach
 übernommen werden dürfen
@@ -135,8 +138,8 @@ Arten-Liste fehlt. Abgeglichen über das normalisierte Binomen:
 | **Lücken, die sich füllen liessen** | **220 × Farbe · 93 × Höhe** | **117 × Höhe** |
 | beide haben eine Höhe | 122 | 75 |
 | davon **identisch** | **2** | **18** |
-| überlappend / bis 300 m auseinander | 120 | 48 |
-| weiter auseinander | 8 | 9 |
+| überlappend (Pilze) / Obergrenze bis 300 m auseinander (Bäume) | 120 — davon 8 an der Obergrenze über 500 m auseinander | 48 |
+| ohne jede Überlappung (Pilze) / über 300 m auseinander (Bäume) | 0 | 9 |
 
 Die Höhen widersprechen sich also fast immer — beim Pilz-Register
 **systematisch** (Register-Untergrenze höher in 115 von 120 Fällen: es
