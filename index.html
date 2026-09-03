@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.43.20260903">
+<meta name="app-version" content="32.44.20260903">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11524,20 +11524,28 @@ function gsTagebuchLoad(forceReload) {
   return _gsTagebuch;
 }
 function gsTagebuchSave() {
+  // v32.44: Der Rueckfall „aelteste entfernen" stand in einem catch — und der
+  // Wrapper um setItem WIRFT NIE (CLAUDE.md §3.5), er gibt false zurueck. Der
+  // Zweig ist seit v30.98 nie gelaufen; bei vollem Geraet war der Eintrag
+  // still weg. Jetzt am Rueckgabewert, und wer es trotzdem nicht schafft,
+  // sagt es. Liefert true/false.
+  var voll = false;
   try {
-    localStorage.setItem('gs_gartentagebuch', JSON.stringify(gsCapWithArchive('gs_gartentagebuch', _gsTagebuch, 500)));
-    // v23.55: Cross-Tab-Sync Event auslösen (für PWA mit mehreren Fenstern)
-    try { window.dispatchEvent(new Event('gs-tagebuch-changed')); } catch(_){}
-    // v24.23: Cross-Device-Sync — Tagebuch wird im plants-Blob (data.diary) mitgepusht
-    try { if (window.gsCloudSync) gsCloudSync.markDirty('plants'); } catch(_){}
-  } catch(e) {
-    // Fallback wenn localStorage voll — älteste 100 entfernen
-    try {
-      _gsTagebuch = _gsTagebuch.slice(0,300);
-      localStorage.setItem('gs_gartentagebuch', JSON.stringify(_gsTagebuch));
+    var ok = localStorage.setItem('gs_gartentagebuch', JSON.stringify(gsCapWithArchive('gs_gartentagebuch', _gsTagebuch, 500)));
+    if (ok === false) {
+      _gsTagebuch = _gsTagebuch.slice(0, 300);
+      ok = localStorage.setItem('gs_gartentagebuch', JSON.stringify(_gsTagebuch));
+    }
+    if (ok === false) voll = true;
+    else {
+      // v23.55: Cross-Tab-Sync Event auslösen (für PWA mit mehreren Fenstern)
+      try { window.dispatchEvent(new Event('gs-tagebuch-changed')); } catch(_){}
+      // v24.23: Cross-Device-Sync — Tagebuch wird im plants-Blob (data.diary) mitgepusht
       try { if (window.gsCloudSync) gsCloudSync.markDirty('plants'); } catch(_){}
-    } catch(e2) {}
-  }
+    }
+  } catch(e) { voll = true; }
+  if (voll && typeof gsToast === 'function') gsToast('Speicher voll — der Tagebuch-Eintrag konnte nicht gesichert werden.', 'warn', 5000);
+  return !voll;
 }
 function gsTagebuchAdd(text, emoji, cat, plant) {
   if (!text || !text.trim()) return false;
@@ -37115,11 +37123,18 @@ function vote(id, dir){
       var _vk;
       if (_uid) { _vk = String(_uid); }
       else {
+        // v32.44: 'anon:fallback' war EIN Schluessel fuer alle, deren Speicher
+        // voll ist — eine geteilte Stimme. Und der catch lief ohnehin nie
+        // (CLAUDE.md §3.5). Bleibt der Schluessel ungespeichert, merkt ihn
+        // sich die Sitzung; jede Person behaelt ihre eigene Stimme.
         try {
           var k = localStorage.getItem('gs_voter_key');
-          if (!k || k.indexOf('anon:') !== 0) { k = 'anon:' + Math.random().toString(36).slice(2,10) + Date.now().toString(36); localStorage.setItem('gs_voter_key', k); }
+          if (!k || k.indexOf('anon:') !== 0) {
+            k = window._gsVoterKeyMem || ('anon:' + Math.random().toString(36).slice(2,10) + Date.now().toString(36));
+            if (localStorage.setItem('gs_voter_key', k) === false) window._gsVoterKeyMem = k;
+          }
           _vk = k;
-        } catch(_){ _vk = 'anon:fallback'; }
+        } catch(_){ _vk = window._gsVoterKeyMem || (window._gsVoterKeyMem = 'anon:' + Math.random().toString(36).slice(2,10) + Date.now().toString(36)); }
       }
       var _cur = myVotes[id]; // 'up' | 'down' | undefined (zurückgenommen)
       if (_cur === 'up' || _cur === 'down') {
@@ -53145,8 +53160,11 @@ async function gsAddMarker(lat, lng) {
   try {
     var markers = gsGetSavedMarkers();
     markers.push({ id: clientId, lat: lat, lng: lng, name: name, note: note, cat: cat, date: Date.now(), photo_url: photoUrl });
-    localStorage.setItem('greenscan_markers', JSON.stringify(markers));
-    lsOk = true;
+    // v32.44: Rueckgabewert statt Ausnahme (CLAUDE.md §3.5). `lsOk = true`
+    // stand hier bedingungslos; die Quota-Meldung im catch darunter ist seit
+    // v30.98 nie erschienen — bei vollem Geraet hiess es „gespeichert".
+    lsOk = (localStorage.setItem('greenscan_markers', JSON.stringify(markers)) !== false);
+    if (!lsOk && typeof gsToast === 'function') gsToast('Speicher voll — lokaler Cache konnte nicht gesichert werden.', 'error');
   } catch(e) {
     var quota = e && (e.name === 'QuotaExceededError' || /quota|exceeded/i.test(e.message || ''));
     console.error('[v26.84] gsAddMarker LS-setItem fail', e && (e.name + ': ' + e.message));
@@ -53903,13 +53921,15 @@ function _gsTrackSaveTrack(track) {
   if (!Array.isArray(saved)) saved = [];
   saved.push(rec);
   saved = gsCapWithArchive('gs_gpx_tracks', saved, 30, 'tail');
-  try {
-    localStorage.setItem('gs_gpx_tracks', JSON.stringify(saved));
-  } catch(e) {
-    // Bisher landete das in einem catch mit einer Zeile Konsole — der Track
-    // war weg und niemand erfuhr es. Jetzt bleibt der Live-Snapshot liegen,
-    // damit der nächste Start erneut anbietet zu retten.
-    console.warn('[gsTrack] Speichern fehlgeschlagen:', e && e.message);
+  // Bisher landete das in einem catch mit einer Zeile Konsole — der Track
+  // war weg und niemand erfuhr es. Jetzt bleibt der Live-Snapshot liegen,
+  // damit der nächste Start erneut anbietet zu retten.
+  // v32.44: …und dieser Rueckfall stand selbst wieder in einem catch, der nie
+  // lief (der Wrapper wirft nicht, CLAUDE.md §3.5). Jetzt am Rueckgabewert.
+  var _trackOk = false;
+  try { _trackOk = (localStorage.setItem('gs_gpx_tracks', JSON.stringify(saved)) !== false); }
+  catch(e) { _trackOk = false; console.warn('[gsTrack] Speichern fehlgeschlagen:', e && e.message); }
+  if (!_trackOk) {
     if (typeof showProfileToast === 'function') showProfileToast('Track konnte nicht gespeichert werden — Speicher voll. Er bleibt zur Wiederherstellung liegen.','error');
     return -1;
   }
@@ -72480,6 +72500,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.44', date: '03.09.2026',
+    headline: '\ud83d\udcbe Sechs Stellen sagen jetzt die Wahrheit, wenn der Speicher voll ist',
+    summary: 'Die App f\u00e4ngt einen vollen Ger\u00e4tespeicher seit v30.98 leise ab \u2014 und sechs Rettungswege (Tagebuch, Fundorte, GPS-Tracks, gespeicherte Pl\u00e4ne, Abstimmungen, Passwort\u00e4nderung) warteten auf eine Ausnahme, die nie kam. Sie liefen nie. Jetzt pr\u00fcfen sie das Ergebnis, schrumpfen wo m\u00f6glich und sagen, wenn etwas nicht gesichert wurde. Ein neuer Pr\u00fcfstand stellt den vollen Speicher her und l\u00f6st jeden Weg aus.',
+    user_summary: '\ud83d\udcbe Ist dein Ger\u00e4tespeicher voll, sagt die App es dir jetzt an sechs weiteren Stellen \u2014 statt „gespeichert" zu melden, obwohl nichts gespeichert wurde.',
+    user_items: [
+      {emoji:'\ud83d\udcd3', bold:'Tagebuch:', text:' Bei vollem Speicher werden die \u00e4ltesten Eintr\u00e4ge ausgelagert und der neue gesichert; reicht auch das nicht, steht es da.'},
+      {emoji:'\ud83d\udccd', bold:'Fundorte und GPS-Tracks:', text:' „Gespeichert" erscheint nur, wenn wirklich geschrieben wurde. Ein Track bleibt zur Wiederherstellung liegen.'},
+      {emoji:'\ud83d\udd11', bold:'Passwort \u00e4ndern:', text:' Konnte die neue Sitzung nicht gesichert werden, sagt die Best\u00e4tigung das \u2014 und dass du dich nach dem n\u00e4chsten Start neu anmelden musst.'},
+      {emoji:'\ud83d\uddf3\ufe0f', bold:'Abstimmungen:', text:' Bisher teilten sich alle mit vollem Speicher EINEN Abstimmungs-Schl\u00fcssel. Jetzt beh\u00e4lt jede Person ihre eigene Stimme.'},
+    ],
+  },
+  {
     v: 'v32.43', date: '03.09.2026',
     headline: '\ud83c\udf3f Bei mehreren Eintr\u00e4gen zur selben Art gewinnt die vorsichtigere Angabe',
     summary: 'Die Artenliste f\u00fchrt 657 Arten mehrfach, und 167 davon sind sich \u00fcber die Giftigkeit uneins \u2014 Holunder steht neunmal drin, mit drei verschiedenen Stufen. Welche davon nach einem Scan erschien, hing bisher an der Reihenfolge in der Datei. Jetzt gewinnt bei Widerspruch die vorsichtigere Angabe, und der lateinische Name wird vor dem deutschen gesucht. Dazu sagt die Offline-Eingrenzung, wie viele Arten wegen FEHLENDER Farbangabe nicht gezeigt werden.',
@@ -73151,7 +73183,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.43';
+var GS_VERSION = 'v32.44';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -78487,6 +78519,7 @@ async function doChangePassword() {
   // 1) Re-Auth via current password
   var email = (gsStore.get('gs_sb_email', null) || '').toLowerCase();
   if (!email) { showErr('Nicht angemeldet. Bitte erneut einloggen.'); if (btn) { btn.textContent = '🔒 Passwort speichern'; btn.disabled = false; } return; }
+  var _sitzungNichtGesichert = false;
   try {
     // v24.46: _gsFetch mit 15s Timeout
     var reauth = await (window._gsFetch || fetch)(SB_URL + '/auth/v1/token?grant_type=password', {
@@ -78502,9 +78535,15 @@ async function doChangePassword() {
     var fresh = await reauth.json().catch(function(){return null;});
     if (fresh && fresh.access_token) {
       // Token aktualisieren — der nächste Update-Call muss mit gültigem Token gehen
-      gsStore.set('gs_sb_token',fresh.access_token);
-      if (fresh.refresh_token) localStorage.setItem('gs_sb_refresh', fresh.refresh_token);
-      if (fresh.expires_in) localStorage.setItem('gs_sb_expires', String(Date.now() + fresh.expires_in*1000));
+      // v32.44: am Rueckgabewert (CLAUDE.md §3.5). Der catch darunter faengt
+      // NETZfehler; ein voller Speicher kam dort nie an — die neue Sitzung
+      // stand dann nur im Arbeitsspeicher, und nach dem naechsten Start war
+      // die Person mit dem alten Token unterwegs. Das Passwort wird trotzdem
+      // geaendert (der Server hat es), aber die Meldung sagt, was fehlt.
+      var _tokOk = (gsStore.set('gs_sb_token', fresh.access_token) !== false);
+      if (fresh.refresh_token && localStorage.setItem('gs_sb_refresh', fresh.refresh_token) === false) _tokOk = false;
+      if (fresh.expires_in && localStorage.setItem('gs_sb_expires', String(Date.now() + fresh.expires_in*1000)) === false) _tokOk = false;
+      if (!_tokOk) _sitzungNichtGesichert = true;
     }
   } catch(e) {
     showErr('Verbindungsfehler. Bitte später erneut versuchen.');
@@ -78522,7 +78561,12 @@ async function doChangePassword() {
   }
 
   // Erfolg
-  if (okEl) { okEl.textContent = '✅ Passwort erfolgreich geändert!'; okEl.style.display = 'block'; }
+  if (okEl) {
+    okEl.textContent = _sitzungNichtGesichert
+      ? '✅ Passwort geändert — aber der Speicher ist voll, die Sitzung konnte nicht gesichert werden. Bitte nach dem nächsten Start neu anmelden.'
+      : '✅ Passwort erfolgreich geändert!';
+    okEl.style.display = 'block';
+  }
   if (btn) { btn.textContent = '✅ Erledigt'; btn.style.background = '#2e7d32'; }
   setTimeout(function(){
     var mm = document.getElementById('change-pw-modal');
@@ -89642,7 +89686,9 @@ function L(k,f){ return (typeof _lt==='function') ? _lt(k,f) : f; }
 function loggedIn(){ try{ return typeof sbIsLoggedIn==='function' && sbIsLoggedIn() && typeof sbFetch==='function'; }catch(_){ return false; } }
 function uid(){ try{ return (typeof gsStore!=='undefined'&&gsStore.get)?gsStore.get('gs_sb_uid',null):null; }catch(_){ return null; } }
 function readLS(){ try{ var a=JSON.parse(localStorage.getItem(LS)||'[]'); return Array.isArray(a)?a:[]; }catch(_){ return []; } }
-function writeLS(a){ try{ localStorage.setItem(LS, JSON.stringify(a.slice(0,60))); return true; }catch(e){ try{ localStorage.setItem(LS, JSON.stringify(a.slice(0,20))); }catch(_){} return false; } }
+// v32.44: am Rueckgabewert (CLAUDE.md §3.5) — vorher hiess es `return true`,
+// egal ob geschrieben wurde, und der Schrumpf-Rueckfall im catch lief nie.
+function writeLS(a){ try{ var ok = localStorage.setItem(LS, JSON.stringify(a.slice(0,60))) !== false; if (!ok) ok = localStorage.setItem(LS, JSON.stringify(a.slice(0,20))) !== false; return ok; }catch(e){ return false; } }
 function toast(t){ try{ if(typeof gsToast==='function') gsToast(t); else if(typeof showProfileToast==='function') showProfileToast({title:t}); }catch(_){} }
 
 var _lastList = [];
@@ -89656,7 +89702,13 @@ async function save(p){
     starred:false, cloud:false };
   entry.id = entry.localId;
   // 1) localStorage IMMER zuerst (nie verlierbar)
-  var list = readLS(); list.unshift(entry); writeLS(list);
+  // v32.44: „nie verlierbar" stimmte nur, solange writeLS nicht log. Jetzt
+  // sagt der Eintrag, ob er auf dem Geraet liegt — und die Person erfaehrt es.
+  var list = readLS(); list.unshift(entry);
+  if (!writeLS(list)) {
+    entry.local_failed = true;
+    toast(L('pl_speicher_voll', 'Speicher voll — der Plan konnte auf dem Gerät nicht gesichert werden.'));
+  }
   // 2) Cloud best-effort
   if (loggedIn() && uid()){
     try {

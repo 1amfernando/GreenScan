@@ -198,14 +198,26 @@ GreenScan/
 > lief. Folge: bei vollem Gerät war nicht nur das Scan-Foto weg, sondern der
 > **ganze** Garten-Zwilling, und `gsTwinSave` meldete Erfolg.
 >
-> **Stand v31.65: 228 der 316 `setItem`-Aufrufe stehen in einem `try/catch`;
-> nur 12 prüfen den Rückgabewert.** Die meisten dieser `catch`-Blöcke sind
-> harmlos (leer oder nur `console.warn`). **13 enthalten einen echten
-> Rettungsweg** — die sind die gefährlichen. Drei davon waren
-> Nutzer-Warnungen, die nie erschienen; zwei sind in v31.65 repariert
-> (Favoriten, Supabase-Key), der dritte in v31.76 (`gsPPsavePlan` meldete
-> „Plan gespeichert" bei vollem Gerät, obwohl nichts geschrieben wurde).
-> Der Rest ist offen und in `STATUS.md` (bc) einzeln aufgeführt.
+> **Stand v32.44: die Welle ist geschlossen.** 336 `setItem`-Aufrufe, 250
+> davon in einem `try/catch`; die `catch`-Blöcke sind entweder harmlos
+> (leer, `console.warn`) oder decken etwas anderes ab (Netz, JSON). Die
+> **dreizehn echten Rettungswege** sind alle am Rückgabewert: Favoriten und
+> Supabase-Key (v31.65), `gsPPsavePlan` (v31.76), und in v32.44 Tagebuch
+> (schrumpft auf 300, dann Meldung), Fundorte (`lsOk` nur bei Erfolg),
+> GPS-Tracks (`-1` + Meldung), gespeicherte Pläne (`local_failed`),
+> Abstimmungs-Schlüssel (kein geteilter `anon:fallback` mehr — der war EIN
+> Schlüssel für alle mit vollem Speicher) und Passwortänderung (sagt, wenn
+> die Sitzung nicht gesichert wurde).
+>
+> **Und seither gibt es den Prüfstand dafür:** `node scripts/speicher_check.js`
+> stellt den vollen Speicher HER (jeder Schreibversuch liefert `false` und
+> wird protokolliert) und löst alle zehn Wege aus. Gegenprobe gemacht: zwei
+> Reparaturen zurückgebaut → beide rot, mit der echten Rückgabe daneben
+> („liefert true statt false"). **Wer einen neuen Rettungsweg baut, trägt
+> ihn dort ein** — und der Fall muss den Schreibversuch im Protokoll sehen,
+> sonst hat er eine Funktion vermessen, die vorher ausgestiegen ist (der
+> Fundort-Fall brauchte eine Karten-Attrappe, sonst kam er nie bis zum
+> Speichern).
 >
 > Gefunden wurde das nicht beim Lesen, sondern beim Nachstellen mit einem
 > echten Telefonfoto. **Wer einen Rettungsweg für vollen Speicher baut, muss
@@ -516,6 +528,7 @@ node scripts/einstellungen_check.js # haelt der Schalter, was er verspricht? (se
 node scripts/tour_check.js       # zeigt die App-Tour auf etwas, oder erzaehlt sie nur? (seit v32.39)
 node scripts/kamera_check.js     # stimmt, was der Scanner ueber seine Kamera behauptet? (seit v32.29)
 node scripts/arten_quellen_vergleich.js # was sagen die zwei belegten Repo-Datensaetze zur Artenliste? (seit v32.43, nur Messung)
+node scripts/speicher_check.js   # was tut die App, wenn der Geraetespeicher voll ist? (seit v32.44)
 #   save_check prueft seit v31.95 auch SERVER-Wege mit gestelltem sbFetch:
 #   meldet die Funktion Erfolg, wenn der Server NEIN sagt — oder gar nichts?
 #   wiring_check meldet seit v31.95 zusaetzlich sofort dereferenzierte

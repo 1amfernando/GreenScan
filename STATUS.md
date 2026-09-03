@@ -4,13 +4,60 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.43` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.44` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-03 (eg) — v32.44: die Welle aus (bc), zwei Tage später geschlossen
+
+Vor Fernandos neuen Aufträgen (Meine Pflanzen, Kalender, Sensoren) das
+Angefangene zu Ende: die **toten Rettungswege um `localStorage.setItem`**.
+Der Wrapper wirft nie (v30.98), also lief kein `catch { Rettungsweg }` je —
+(bc) hatte drei repariert und sechs benannt.
+
+#### Nachgezählt, nicht geglaubt
+
+Die Liste aus (bc) war zwei Tage alt. Ein Skript über alle 336
+`setItem`-Aufrufe (250 in `try`) fand **30 `catch`-Blöcke mit Inhalt**; nach
+Lesen jeder Stelle blieben **sechs echte**, drei davon anders als in (bc)
+vermerkt (`_gsRestoreStats` und die Backup-Flags waren längst am
+Rückgabewert). Die sechs:
+
+| Stelle | sagte bei vollem Gerät | jetzt |
+|---|---|---|
+| `gsTagebuchSave` | nichts — Eintrag still weg, Schrumpf-Rückfall tot | schrumpft auf 300, dann Meldung, `false` |
+| `gsAddMarker` | `lsOk = true` bedingungslos → „gespeichert" | `lsOk` nur bei Erfolg, Quota-Meldung erscheint |
+| `_gsTrackSaveTrack` | Index zurück → Track galt als gespeichert | `-1` + Meldung, Live-Stand bleibt liegen |
+| `gsPlans.save` (`writeLS`) | `return true` immer; Schrumpf auf 20 tot | echter Rückgabewert, `entry.local_failed`, Meldung |
+| `vote` (Abstimmung) | `_vk = 'anon:fallback'` — **EIN Schlüssel für alle** mit vollem Speicher | Sitzungs-Schlüssel je Person, nie geteilt |
+| `doChangePassword` | „✅ Passwort erfolgreich geändert!" — Sitzung nur im Arbeitsspeicher | Passwort wird geändert, die Bestätigung sagt „Speicher voll, bitte neu anmelden" |
+
+Die Abstimmung war die unerwartete: der Rückfall war nicht nur tot, er war
+auch **falsch** — hätte er gelebt, hätten alle Betroffenen als eine Person
+gestimmt (`voter_key` ist der Merge-Schlüssel in `feedback_votes`).
+
+#### Der Prüfstand, der bisher fehlte — `speicher_check.js` (Nr. 22)
+
+Stellt den vollen Speicher HER: eine Schicht über dem Wrapper, die jeden
+Schreibversuch mit `false` beantwortet und den Schlüssel protokolliert.
+Zehn Fälle (sechs neue + Favoriten, Zwilling, Plan-Fortschritt,
+Korrektur-Warteschlange als Regression). Jeder Fall verlangt den
+**Schreibversuch im Protokoll** — der Fundort-Fall meldete zuerst „nicht
+hergestellt", weil `gsAddMarker` ohne Karte aussteigt; eine Attrappe für
+`gsMap`/`L` reicht, gemessen wird der Speicherweg.
+
+Gegenprobe: Tagebuch- und Plan-Reparatur zurückgebaut → „liefert true statt
+false" · „local_failed=undefined". Beide rot.
+
+> **Ein Fall, der grün ist, weil die Funktion vorher ausgestiegen ist, hat
+> nichts gemessen.** Deshalb der Protokoll-Zwang.
+
+Prüfstände: `speicher_check` 10/10 · `versprechen_check` grün ·
+`wiring_check` 0 kaputt · `render_check` 0/0/0.
 
 ### 2026-09-03 (ef) — v32.43: die Liste führt Holunder neunmal, und die Reihenfolge entschied die Giftstufe
 
@@ -8339,7 +8386,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.43` (Client) · SW-Cache `gs-v32.43` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.44` (Client) · SW-Cache `gs-v32.44` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.
