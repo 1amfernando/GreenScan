@@ -1114,6 +1114,22 @@ Telefon sichtbar — und alle drei aus dieser Sitzung.** Sie sind hier
 festgehalten, weil jeder davon eine Regel traegt, die weit ueber die Kamera
 hinausgeht.
 
+**0 · Und v32.34 hat das Ganze wieder VEREINFACHT.** Fuenf Fassungen in zwei
+Tagen, jede mit mehr Technik als die davor — v32.32 loeste es mit einer
+CSS-Variablen, zwei Ereignis-Zuhoerern und einem Timer. Dasselbe Bild liefern
+drei Zeilen: `width:100%; height:100%; object-fit:contain` in einem
+bildschirmfuellenden Kasten. Alles andere ist ersatzlos weg.
+
+> **Was ohne Zutun richtig ist, braucht kein Zutun.** Wer an einer Stelle
+> mehrfach nachbessert, sollte pruefen, ob die einfachste Regel das Ergebnis
+> nicht von selbst liefert — statt Technik hinzuzufuegen, um es zu erzwingen.
+
+`kamera_check` misst das entsprechend **rechnend** statt ablesend: fuer drei
+Seitenverhaeltnisse muss das dargestellte Bild GANZ in den Kasten passen
+(sonst beschnitten) UND mindestens eine Kante BERUEHREN (sonst kleiner als
+noetig). Gegengeprueft mit `cover` (ragt hinaus) und einem verkleinerten
+Kasten (fuellt den Rahmen nicht).
+
 **1 · Ein Viertel des Bildschirms schwarz.** v32.31 hat den RAHMEN aufs
 Bildformat geschrumpft; die Bedienelemente haengen mit `position:absolute;
 bottom:0` an ihm und rutschten mit.
@@ -1221,13 +1237,22 @@ Drei Regeln daraus, alle allgemein:
   .getUserMedia` selbst — der einzigen Stelle, durch die alle muessen. Die
   naechste Kamera-Stelle bringt den Fehler damit nicht wieder mit.
 
+**Und eine Frage, die es ohne v32.34 nicht gaebe:** geht die Kamera-Anfrage
+bei AUSGESCHALTETEM Schalter unveraendert durch? Das Tor lief als
+`async function`, also mit einem `await` vor dem Durchreichen. Gemessen wird
+mit einer Attrappe UNTER dem Tor (im `addInitScript`, bevor die App ihr Tor
+baut), die vermerkt, ob eine vom Aufrufer gesetzte Marke noch steht.
+
+> **Ein Riegel, der nur fuer wenige gilt, darf den Weg der vielen nicht
+> anfassen.**
+
 **Zwei Sperren stellt er ausdruecklich, statt sie zu umgehen:**
 `Notification.requestPermission` (ohne Antwort bricht der Push-Weg ab, bevor
 irgendetwas passiert) und `location.reload` (der Sprachwechsel laedt die Seite
 neu und nimmt den Pruefstand mit).
 
-**Gegenprobe gemacht** — alle vier Reparaturen einzeln zurueckgebaut: der
-Pruefstand meldete 4 von 4 rot, mit den echten Zahlen daneben
+**Gegenprobe gemacht** — alle Reparaturen einzeln zurueckgebaut: der
+Pruefstand meldete jede davon rot, mit den echten Zahlen daneben
 (`{"abgelehnt":true,"leer":true,"ok":true,"abgemeldet":true}`).
 
 **Grenze:** es gibt hier weder eine echte Kamera noch einen echten
