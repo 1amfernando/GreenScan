@@ -181,34 +181,63 @@ dir die passende Migration und du spielst sie ein wie unter Punkt 2.
 
 ## 4 · Das, was keine Anleitung ist, sondern eine Entscheidung
 
-### Die Arten-Daten
+### Die Arten-Daten — Stand 03.09.2026, nach dem Nachsehen
 
-**4'342 Arten liegen in der App.** Nachgezählt am 02.09.2026:
+**4'342 Arten liegen in der App.** Nachgezählt:
 
 | | verwertbar | fehlt bei |
 |---|---|---|
 | Blütenfarbe | **939** | 3'403 |
-| Höhenverbreitung | **877** | 3'465 |
+| Höhenverbreitung | **877** (seit v32.43: 903, 26 aus dem Lebensraum-Text) | 3'439 |
 
 „Verwertbar" heisst: die Angabe lässt sich rechnen. Ein `color`-Feld mit
 „Bunt-konzentrisch" oder „–" ist zwar gefüllt, sagt aber nichts.
-
-Das kostet konkret:
-
-- Die neue Prüfregel **Farbe** kann bei vier von fünf Arten nichts sagen.
-- Die Prüfregel **Höhenlage** ebenso.
-- „Ohne Netz eingrenzen" grenzt viel weniger scharf ein, als es könnte.
 
 **Ich schreibe diese Angaben nicht aus dem Gedächtnis.** In einer App, die
 Giftiges von Essbarem trennt, wäre erfundene Botanik das Gefährlichste, was
 ich tun könnte — sie sähe genauso aus wie richtige.
 
-Was ich brauche, ist **eine Quelle**. Zum Beispiel:
+Du hast gesagt: *„Mach du das für mich."* Hier ist, was sich von hier aus
+machen liess — alles in `docs/ARTEN-DATEN.md`, mit Zahlen:
+
+**1 · Eine Quelle gibt es von hier aus nicht.** GBIF, Wikidata, Wikipedia
+und iNaturalist sind aus dieser Umgebung gesperrt (`CONNECT 403`, das ist
+Richtlinie, kein Netzfehler). Die Supabase-Tabelle `species` ist eine Kopie
+der App-Datei. Die Liste selbst kam in einem Commit und hat kein
+Herkunftsfeld — niemand weiss, woher `tox` und `edible` der 2'900 Einträge
+ohne `bookRef` stammen.
+
+**2 · Im Repo liegen zwei belegte Datensätze**, die ich beim ersten
+Anlauf übersehen hatte: das Pilz-Register (268 Arten, Hutfarbe und Höhe,
+Quellen VAPKO/SwissFungi/…) und die Baum-Spezifikationen (76 Arten, Höhe,
+Quellen BAFU/Flora Helvetica). Sie würden **303 Lücken** füllen. Ich habe
+sie **nicht** übernommen, und das ist der Punkt, an dem ich dich brauche:
+
+> Wo Register und Liste beide eine Höhe haben, stimmen sie in **2 von 122**
+> Fällen überein. Das Register beginnt bei 300 m, die Liste bei 0 — zwei
+> Konventionen, und keine ist irgendwo benannt.
+
+Der Scanner liest die Höhe als Ausschlussgrund. Welche Konvention gelten
+soll, ist eine fachliche Entscheidung. Sobald du sie triffst, ist die
+Übernahme ein Skript (`node scripts/arten_quellen_vergleich.js` misst heute
+schon alles, nur lesend).
+
+**3 · Schlimmer als die Lücke: die Liste führt Holunder neunmal.** 657
+Arten stehen mehrfach drin, 167 davon widersprechen sich bei der
+Giftigkeit (Holunder tox 0/1/2, Perlpilz 0/1/2/4, Wacholder 0/2). Welche
+Stufe der Scan zeigte, hing an der Reihenfolge in der Datei. Seit v32.43
+gewinnt die vorsichtigere Angabe — das ist keine Botanik, nur die Richtung
+des Zweifels. **Entscheiden musst du sie:** `docs/arten-widersprueche.csv`
+listet alle 167 Gruppen mit jedem Eintrag, jeder Stufe und jedem Warntext.
+Mit einer Flora daneben ist das ein Nachmittag. Solange die Liste neun
+Holunder führt, wäre jede neue Quelle ein zehnter.
+
+Was danach — für die 3'000 Lücken, die kein Repo-Datensatz deckt:
 
 | Möglichkeit | Was ich dann tue |
 |---|---|
 | Ein Buch, das du hast | Du fotografierst die Seiten, `book-ingest` liest sie aus — die Funktion existiert schon und ist admin-geschützt |
-| Info Flora (die nationale Datenbank) | Ich schreibe den Abgleich, du klärst die Nutzungsrechte |
+| Info Flora (die nationale Datenbank) | Ich schreibe den Abgleich, du klärst die Nutzungsrechte — was die Datei mitbringen muss, steht in `ARTEN-DATEN.md` §5 |
 | Eine Tabelle, die du selbst pflegst | Ich baue den Einlese-Weg und die Prüfung |
 | „Mach es mit KI" | **Sage ich Nein** — mit Begründung: ein Modell, das eine Höhenangabe erfindet, tut das mit derselben Sicherheit wie eine richtige |
 

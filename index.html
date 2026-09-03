@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.42.20260903">
+<meta name="app-version" content="32.43.20260903">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16037,6 +16037,81 @@ function _gsNormLat(s){
     .replace(/\s+/g,' ').trim()
     .split(' ').slice(0,2).join(' ');                          // Gattung + Art
 }
+// ══ v32.43 · BEI MEHREREN EINTRÄGEN GEWINNT DIE VORSICHTIGERE ANGABE ══════
+//
+// Gemessen an der geladenen Liste (nach `deduplicateDB`, 4'337 Arten):
+// **657 Gruppen tragen denselben lateinischen Namen** (1'855 Einträge, 43 %
+// der Liste) — und **167 dieser Gruppen widersprechen sich bei `tox` oder
+// `edible`** (529 Einträge):
+//
+//   sambucus nigra        tox = 0 / 1 / 2   (9 Einträge)
+//   hypericum perforatum  edible = true / false
+//   morchella esculenta   tox = 0 / 1 / 2
+//   aconitum napellus     tox = 4 / 5       (6 Einträge)
+//
+// Jede Nachschlagung hier war ein `DB.find(…)`, also **der erste Treffer**.
+// Welche Giftstufe der Nutzer nach einem Scan sieht, hing damit an der
+// REIHENFOLGE in der Datei — nicht an der Art.
+//
+// Das lässt sich nicht ohne Botanik entscheiden, und Botanik schreibe ich
+// nicht aus dem Gedächtnis. Was sich OHNE Botanik entscheiden lässt, ist die
+// Richtung des Zweifels:
+//
+// > **Widersprechen sich zwei Einträge zur selben Art, gewinnt die
+// > vorsichtigere Angabe.** Dieselbe Regel wie in der Gegenprobe des
+// > Scanners (v31.99): lieber eine Warnung zu viel als eine zu wenig.
+//
+// Das behebt die Dubletten nicht — sie stehen in `docs/ARTEN-DATEN.md` und
+// brauchen eine Quelle. Es sorgt nur dafür, dass sie nicht mehr in die
+// gefährliche Richtung ausschlagen können.
+// Nach der Identifikation ALLE Einträge derselben Art einsammeln — sonst
+// greift die Vorsicht nur innerhalb einer Suchstrategie. Gemessen: „Holunder"
+// trifft über den deutschen Namen genau EINEN Eintrag (tox 0), während
+// dieselbe Art unter `sambucus nigra` neunmal vorkommt, mit tox bis 2.
+// **Die Vorsicht muss an der ART hängen, nicht an der Suchstrategie.**
+// Binomen → Einträge, einmal gebaut. `_gsNormLat` sind sieben Regexe je
+// Eintrag; ein `DB.filter` damit über 4'337 Arten kostet ~7 ms — pro Scan
+// egal, aber `scan_check` fragt seit v32.43 JEDEN Eintrag ab und brauchte
+// dafür 32 s. Neu gebaut, sobald sich die Länge ändert
+// (`gsMergeCommunitySpecies` schiebt später Einträge nach).
+var _gsLatIdx = null, _gsLatIdxN = -1;
+function _gsLatIndex() {
+  if (_gsLatIdx && _gsLatIdxN === DB.length) return _gsLatIdx;
+  var m = {};
+  for (var i = 0; i < DB.length; i++) {
+    var x = DB[i]; if (!x || !x.lat) continue;
+    var k = _gsNormLat(x.lat); if (!k || k.indexOf(' ') < 0) continue;
+    (m[k] || (m[k] = [])).push(x);
+  }
+  _gsLatIdx = m; _gsLatIdxN = DB.length;
+  return m;
+}
+function _gsArtGruppe(sp) {
+  try {
+    if (!sp) return [];
+    var lat = _gsNormLat(sp.lat);
+    if (!lat || lat.indexOf(' ') < 0) return [sp];   // ohne Gattung+Art nicht gruppierbar
+    var g = _gsLatIndex()[lat];
+    return (g && g.length) ? g : [sp];
+  } catch (_) { return [sp]; }
+}
+function _gsVorsichtigste(treffer) {
+  if (!treffer || !treffer.length) return null;
+  if (treffer.length === 1) return treffer[0];
+  return treffer.slice().sort(function (a, b) {
+    var ta = Number(a && a.tox) || 0, tb = Number(b && b.tox) || 0;
+    if (tb !== ta) return tb - ta;                          // höhere Giftstufe zuerst
+    var ea = (a && a.edible) ? 1 : 0, eb = (b && b.edible) ? 1 : 0;
+    if (ea !== eb) return ea - eb;                          // „nicht essbar" zuerst
+    // Gleichstand in der Sicherheit → der inhaltsreichere Eintrag, damit die
+    // Karte nicht ärmer wird als nötig.
+    var fa = ((a && a.warning) ? 1 : 0) + ((a && a.lookalike) ? 1 : 0) + ((a && a.desc) ? 1 : 0);
+    var fb = ((b && b.warning) ? 1 : 0) + ((b && b.lookalike) ? 1 : 0) + ((b && b.desc) ? 1 : 0);
+    return fb - fa;
+  })[0];
+}
+window._gsVorsichtigste = _gsVorsichtigste;
+
 function gsMatchScanToDb(name, latin) {
   if (!DB || !Array.isArray(DB) || (!name && !latin)) return null;
   var n = String(name||'').toLowerCase().trim();
@@ -16047,25 +16122,40 @@ function gsMatchScanToDb(name, latin) {
   try {
     if (window.GS_SYNONYMS && typeof _gsSearchNorm === 'function') {
       var _syn = window.GS_SYNONYMS[_gsSearchNorm(name)];
-      if (_syn) { hit = DB.find(function(sp){ return sp && sp.lat && _gsSearchNorm(sp.lat).indexOf(_syn) >= 0; }); if (hit) return hit; }
+      if (_syn) { hit = _gsVorsichtigste(DB.filter(function(sp){ return sp && sp.lat && _gsSearchNorm(sp.lat).indexOf(_syn) >= 0; })); if (hit) return _gsVorsichtigste(_gsArtGruppe(hit)); }
     }
   } catch(_){}
-  // 1) exakter deutscher Name
-  if (n) { hit = DB.find(function(sp){ return sp && sp.name && sp.name.toLowerCase().trim() === n; }); if (hit) return hit; }
-  // 2) deutsches Namens-Segment exakt (beide Seiten zerlegen, volle normalisierte Tokens)
+  // ══ v32.43 · LATEIN VOR DEUTSCH ═══════════════════════════════════
+  //
+  // Der deutsche Name stand bis v32.42 an erster Stelle — und hat den
+  // gelieferten lateinischen Namen dabei stillschweigend überstimmt.
+  // Gemessen an „Wacholder / Juniperus communis": der exakte deutsche Name
+  // trifft `FD0660 Wacholder`, dessen Latein aber `Juniperus nana` ist, eine
+  // ANDERE Art (tox 0). Die vier Einträge zu `Juniperus communis` — drei
+  // davon tox 2 — kamen nie zum Zug.
+  //
+  // Ein deutscher Trivialname ist mehrdeutig („Wacholder", „Holunder",
+  // „Enzian"), ein Binomen nicht. Liefert das Modell beides, ist das Binomen
+  // die genauere Angabe — und damit die, nach der zuerst gesucht wird.
+  // Findet sie nichts (Synonym, Tippfehler, Art nicht in der Liste), greifen
+  // die deutschen Strategien unverändert weiter.
+  //
+  // 1) lateinische Gattung+Art (nur wenn beide vorhanden → kein zu unscharfer genus-only-Match)
+  if (lat && lat.indexOf(' ') > 0) {
+    hit = _gsVorsichtigste(_gsLatIndex()[lat] || []);
+    if (hit) return _gsVorsichtigste(_gsArtGruppe(hit));
+  }
+  // 2) exakter deutscher Name
+  if (n) { hit = _gsVorsichtigste(DB.filter(function(sp){ return sp && sp.name && sp.name.toLowerCase().trim() === n; })); if (hit) return _gsVorsichtigste(_gsArtGruppe(hit)); }
+  // 3) deutsches Namens-Segment exakt (beide Seiten zerlegen, volle normalisierte Tokens)
   if (segs.length) {
-    hit = DB.find(function(sp){
+    hit = _gsVorsichtigste(DB.filter(function(sp){
       if (!sp || !sp.name) return false;
       var dbsegs = String(sp.name).split(/[\/,()]+/).map(function(x){ return _gsNorm(x); }).filter(function(x){ return x && x.length>=5; });
       for (var i=0;i<segs.length;i++){ if (dbsegs.indexOf(segs[i])>=0) return true; }
       return false;
-    });
-    if (hit) return hit;
-  }
-  // 3) lateinische Gattung+Art (nur wenn beide vorhanden → kein zu unscharfer genus-only-Match)
-  if (lat && lat.indexOf(' ') > 0) {
-    hit = DB.find(function(sp){ return sp && sp.lat && _gsNormLat(sp.lat) === lat; });
-    if (hit) return hit;
+    }));
+    if (hit) return _gsVorsichtigste(_gsArtGruppe(hit));
   }
   return null;
 }
@@ -29888,7 +29978,11 @@ async function analyzeImage(b64, mt, organContext, extraImages, opts){
 
   try { _vorab = (typeof gsScanVorauswahl === 'function') ? gsScanVorauswahl(ctx, _farben) : null; } catch (_) { _vorab = null; }
   scanSchritt('vorab', (_vorab && _vorab.messbar)
-    ? (gsTsd(_vorab.gesamt) + ' \u2192 ' + gsTsd(_vorab.uebrig) + ' (' + _vorab.kriterien.join(' \u00b7 ') + ')')
+    ? (gsTsd(_vorab.gesamt) + ' \u2192 ' + gsTsd(_vorab.uebrig) + ' (' +
+        _vorab.kriterien.map(function (k) {
+          var f = (k === 'Monat') ? 'monat' : (k === 'Farbe') ? 'farbe' : 'hoehe';
+          return _gsMitDeckung(k, f, _vorab.gesamt, _vorab.hinterlegt);
+        }).join(' \u00b7 ') + ')')
     : ((typeof DB === 'undefined' || !DB || !DB.length) ? 'Artenliste nicht geladen' : 'ohne Monat, Farbe und Ort nicht m\u00f6glich'));
 
   // v23.58: organContext enthält jetzt NUR noch den Qualitäts-Hint (autonom — kein Modus)
@@ -30841,13 +30935,48 @@ function _gsPasstFarbe(sp, farben) {
 }
 
 // „0–1500m" → {von:0, bis:1500}. „–" → nichts.
+//
+// v32.43: liest ZWEITRANGIG auch den `habitat`-Text. Gemessen: 3'395 der
+// 4'342 Arten haben kein `alt` — bei 26 davon steht die Höhe trotzdem da,
+// nur im falschen Feld:
+//
+//   Eisenhut (Blauer)  alt: „–"  habitat: „…Hochstaudenfluren; bis 2500m"
+//   Alpenrose          alt: „–"  habitat: „Alpenweiden 1500–3000m"
+//
+// Das ist keine Botanik aus dem Gedächtnis, sondern dieselbe Angabe, die
+// schon in der Datei steht — nur bisher von niemandem gelesen. Alle 26
+// Ergebnisse sind einzeln nachgelesen (siehe STATUS (ef)).
+//
+// GRENZE, ehrlich benannt: an den 947 gefüllten Arten lässt sich die Regel
+// NICHT gegenprüfen — dort steht in `habitat` nie eine Höhe, es gibt also
+// keine Überlappung. Bei 26 Ergebnissen ist das vertretbar, weil man jedes
+// einzelne lesen kann; bei 2'600 wäre es das nicht.
+function _gsHoehenbandAus(text, streng) {
+  var t = String(text || '');
+  var m = t.match(/(\d{1,4})\s*[–\-—]\s*(\d{1,4})\s*m\b/);
+  if (m) {
+    var a = Number(m[1]), b = Number(m[2]);
+    if (isFinite(a) && isFinite(b) && b > a && b <= 5000) return { von: a, bis: b };
+  }
+  // „bis 2500m" — nur im Fliesstext, und erst ab 100 m: darunter ist es
+  // eher eine Wuchshöhe als eine Verbreitungsgrenze.
+  if (!streng) {
+    m = t.match(/\bbis\s*(\d{3,4})\s*m\b/i);
+    if (m) { var c = Number(m[1]); if (isFinite(c) && c >= 100 && c <= 5000) return { von: 0, bis: c }; }
+  }
+  return null;
+}
 function _gsHoehenband(sp) {
   try {
-    var m = String((sp && sp.alt) || '').match(/(\d{1,4})\s*[–\-—]\s*(\d{1,4})/);
-    if (!m) return null;
-    var a = Number(m[1]), b = Number(m[2]);
-    if (!isFinite(a) || !isFinite(b) || b < a) return null;
-    return { von: a, bis: b };
+    if (!sp) return null;
+    // 1) das eigentliche Feld — hier steht das Band ohne Einheit-Zwang („0–1500m")
+    var m = String(sp.alt || '').match(/(\d{1,4})\s*[–\-—]\s*(\d{1,4})/);
+    if (m) {
+      var a = Number(m[1]), b = Number(m[2]);
+      if (isFinite(a) && isFinite(b) && b >= a) return { von: a, bis: b };
+    }
+    // 2) sonst der Lebensraum-Text, mit Einheit-Zwang und Plausibilitätsgrenze
+    return _gsHoehenbandAus(sp.habitat, false);
   } catch (_) { return null; }
 }
 var GS_HOEHE_TOLERANZ = 200;   // Meter — Verbreitungsangaben sind gerundet
@@ -30878,7 +31007,19 @@ function _gsPasstHoehe(sp, elev) {
 //   3. Sie sagt dazu, WORAUF sie sich stützt. Ohne Ort keine Höhe, ohne
 //      messbares Foto keine Farbe — und dann steht das da.
 function gsScanVorauswahl(ctx, farben) {
-  var e = { messbar: false, gesamt: 0, uebrig: 0, kriterien: [], raus: { monat: 0, farbe: 0, hoehe: 0 }, ids: null };
+  // v32.43: `hinterlegt` sagt, auf WIE VIELE Arten ein Kriterium überhaupt
+  // anwendbar war. Bis hierher nannte der Kopf nur, welche Kriterien
+  // VERFÜGBAR waren (Monat · Farbe · Höhe) — wer mit Standort scannte, durfte
+  // annehmen, die Höhe habe die Liste eingegrenzt. Tatsächlich ist ein
+  // Höhenband nur bei 903 der 4'342 Arten hinterlegt; bei den übrigen 3'439
+  // gab die Prüfung `null` zurück und änderte nichts.
+  //
+  // Das ist kein Rechenfehler — `null` statt `false` ist genau richtig. Es
+  // ist ein ANZEIGE-Fehler: **eine Zahl ohne ihre Grundlage ist eine
+  // Behauptung**, und „Höhe" in der Kriterienliste war eine.
+  var e = { messbar: false, gesamt: 0, uebrig: 0, kriterien: [],
+            raus: { monat: 0, farbe: 0, hoehe: 0 },
+            hinterlegt: { monat: 0, farbe: 0, hoehe: 0 }, ids: null };
   try {
     if (typeof DB === 'undefined' || !DB || !DB.length) return e;
     ctx = ctx || {};
@@ -30897,6 +31038,11 @@ function gsScanVorauswahl(ctx, farben) {
       var sp = DB[i];
       if (!sp) continue;
       var draussen = false;
+      // Mitzählen, worauf das Kriterium überhaupt ANWENDBAR war — nicht nur,
+      // was es ausgeschlossen hat.
+      if ((_gsScanMonate(sp.season) || []).length) e.hinterlegt.monat++;
+      if (_gsFarbWorte(sp).length) e.hinterlegt.farbe++;
+      if (_gsHoehenband(sp)) e.hinterlegt.hoehe++;
       if (mon && _gsPasstMonat(sp, mon) === false) { e.raus.monat++; draussen = true; }
       if (farbeGeht && _gsPasstFarbe(sp, farben) === false) { e.raus.farbe++; draussen = true; }
       if (elev != null && _gsPasstHoehe(sp, elev) === false) { e.raus.hoehe++; draussen = true; }
@@ -30909,6 +31055,32 @@ function gsScanVorauswahl(ctx, farben) {
   } catch (_) {}
   return e;
 }
+// v32.43: Ein Kriterium ist nur so viel wert, wie die Artenliste dazu
+// hergibt. Diese Zeile hängt an jedes benutzte Kriterium, bei WIE VIELEN
+// Arten es überhaupt hinterlegt ist — dieselbe Zahl, die `gsScanVorauswahl`
+// mitzählt. Ohne sie liest sich „eingegrenzt nach Höhe" so, als hätte die
+// Höhe alle 4'342 Arten geprüft; tatsächlich sind es 903.
+function _gsHinterlegtZahl(feld) {
+  try {
+    if (typeof DB === 'undefined' || !DB || !DB.length) return null;
+    var n = 0;
+    for (var i = 0; i < DB.length; i++) {
+      var sp = DB[i]; if (!sp) continue;
+      if (feld === 'monat' && (_gsScanMonate(sp.season) || []).length) n++;
+      else if (feld === 'farbe' && _gsFarbWorte(sp).length) n++;
+      else if (feld === 'hoehe' && _gsHoehenband(sp)) n++;
+    }
+    return n;
+  } catch (_) { return null; }
+}
+function _gsMitDeckung(name, feld, gesamt, hinterlegt) {
+  var n = (hinterlegt && hinterlegt[feld] != null) ? hinterlegt[feld] : _gsHinterlegtZahl(feld);
+  if (n == null || !gesamt) return name;
+  var t = (typeof gsTsd === 'function') ? gsTsd : function (x) { return String(x); };
+  return name + ' (bei ' + t(n) + ' von ' + t(gesamt) + ' hinterlegt)';
+}
+window._gsHinterlegtZahl = _gsHinterlegtZahl;
+window._gsMitDeckung = _gsMitDeckung;
 window._gsPasstMonat = _gsPasstMonat;
 window._gsPasstFarbe = _gsPasstFarbe;
 window._gsPasstHoehe = _gsPasstHoehe;
@@ -30983,14 +31155,21 @@ function _gsEgSpeichern(s) {
 // Scan-Vorauswahl — zwei Rechnungen für dieselbe Frage würden auseinander
 // driften (die Lehre aus v32.02 und v32.16).
 function gsEingrenzen(s) {
-  var raus = { treffer: [], gesamt: 0, benutzt: [], ungenutzt: [], raus: { monat: 0, farbe: 0, hoehe: 0, gruppe: 0 } };
+  // v32.43: `farbeOhne` zählt getrennt, was wegen FEHLENDER Farbangabe
+  // draussen bleibt. Gemessen (Juni, 500 m, Gelb): 3'229 Ausschlüsse über
+  // die Farbe — 2'816 davon Arten OHNE jede Angabe, nur 413 mit einer
+  // anderen. In einem Topf wäre das eine Zahl, die etwas Falsches sagt.
+  var raus = { treffer: [], gesamt: 0, benutzt: [], ungenutzt: [], raus: { monat: 0, farbe: 0, farbeOhne: 0, hoehe: 0, gruppe: 0 } };
   try {
     if (typeof DB === 'undefined' || !DB || !DB.length) { raus.ungenutzt.push('die Artenliste ist nicht geladen'); return raus; }
     raus.gesamt = DB.length;
-    if (s.monat) raus.benutzt.push('Monat'); else raus.ungenutzt.push('kein Monat gewählt');
+    // v32.43: jedes Kriterium mit seiner Deckung — „Höhenlage (1800 m)" allein
+    // liest sich, als sei die ganze Artenliste danach geprüft worden.
+    var _g = DB.length;
+    if (s.monat) raus.benutzt.push(_gsMitDeckung('Monat', 'monat', _g)); else raus.ungenutzt.push('kein Monat gewählt');
     if (s.gruppe) raus.benutzt.push('Gruppe');
-    if (s.farbe) raus.benutzt.push('Farbe');
-    if (s.hoehe != null) raus.benutzt.push('Höhenlage (' + s.hoehe + ' m)');
+    if (s.farbe) raus.benutzt.push(_gsMitDeckung('Farbe', 'farbe', _g));
+    if (s.hoehe != null) raus.benutzt.push(_gsMitDeckung('Höhenlage (' + s.hoehe + ' m)', 'hoehe', _g));
     else raus.ungenutzt.push('ohne Standort blieb die Höhenlage aussen vor');
 
     for (var i = 0; i < DB.length; i++) {
@@ -31001,9 +31180,15 @@ function gsEingrenzen(s) {
       // Farbe: hier ist die Frage eine ANDERE als beim Scan — dort „passt die
       // gemessene Bildfarbe zur Art", hier „führt die Art diese Farbe".
       // Geteilt ist deshalb nur `_gsFarbWorte`, nicht das ganze Prädikat.
+      // Ohne Angabe bleibt die Art draussen — bewusst: „führt diese Farbe"
+      // lässt sich ohne Angabe nicht bejahen, und eine Liste, in der drei
+      // Viertel „vielleicht" sind, grenzt nichts ein. Aber sie wird GETRENNT
+      // gezählt und unten GENANNT; ein Ausschluss ohne Grund sähe sonst aus
+      // wie einer mit.
       if (s.farbe) {
         var w = _gsFarbWorte(sp);
-        if (!w.length || w.indexOf(s.farbe) < 0) { raus.raus.farbe++; continue; }
+        if (!w.length) { raus.raus.farbeOhne++; continue; }
+        if (w.indexOf(s.farbe) < 0) { raus.raus.farbe++; continue; }
       }
       if (s.hoehe != null && _gsPasstHoehe(sp, s.hoehe) === false) { raus.raus.hoehe++; continue; }
       raus.treffer.push(sp);
@@ -31083,6 +31268,11 @@ function _gsEgRender() {
     '<div class="gs-eg-grund">' +
       (e.benutzt.length ? 'Eingegrenzt nach ' + esc(e.benutzt.join(', ')) + '.' : 'Nichts eingegrenzt.') +
       (e.ungenutzt.length ? ' <span class="gs-eg-fehlt">Nicht genutzt: ' + esc(e.ungenutzt.join('; ')) + ' — dafür wurde nichts ausgeschlossen.</span>' : '') +
+      // Was wegen FEHLENDER Angabe draussen blieb, steht hier mit Zahl —
+      // sonst liest sich „135 von 4'337" wie „4'202 haben eine andere Farbe".
+      (e.raus && e.raus.farbeOhne
+        ? ' <span class="gs-eg-fehlt">' + gsTsd(e.raus.farbeOhne) + ' Arten ohne Farbangabe sind nicht gezeigt — sie könnten passen.</span>'
+        : '') +
     '</div>';
 
   var liste;
@@ -72290,6 +72480,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.43', date: '03.09.2026',
+    headline: '\ud83c\udf3f Bei mehreren Eintr\u00e4gen zur selben Art gewinnt die vorsichtigere Angabe',
+    summary: 'Die Artenliste f\u00fchrt 657 Arten mehrfach, und 167 davon sind sich \u00fcber die Giftigkeit uneins \u2014 Holunder steht neunmal drin, mit drei verschiedenen Stufen. Welche davon nach einem Scan erschien, hing bisher an der Reihenfolge in der Datei. Jetzt gewinnt bei Widerspruch die vorsichtigere Angabe, und der lateinische Name wird vor dem deutschen gesucht. Dazu sagt die Offline-Eingrenzung, wie viele Arten wegen FEHLENDER Farbangabe nicht gezeigt werden.',
+    user_summary: '\ud83c\udf3f Steht eine Art mehrfach in der Liste und die Eintr\u00e4ge widersprechen sich bei der Giftigkeit, zeigt der Scanner jetzt die vorsichtigere Stufe.',
+    user_items: [
+      {emoji:'\u26a0\ufe0f', bold:'Vorsicht gewinnt:', text:' Holunder, Perlpilz, Wacholder, Morchel \u2014 bei 167 Arten widersprechen sich die Eintr\u00e4ge. Bisher entschied die Reihenfolge in der Datei, welche Giftstufe du sahst. Jetzt ist es die vorsichtigere.'},
+      {emoji:'\ud83d\udd0e', bold:'Der lateinische Name z\u00e4hlt zuerst:', text:' \u201eWacholder\u201c ist mehrdeutig, \u201eJuniperus communis\u201c nicht. Liefert die Erkennung beides, wird jetzt zuerst nach dem genauen Namen gesucht. Nachgemessen: bisher landete gut jeder vierte Eintrag der Liste bei seiner eigenen Abfrage auf der Karte einer anderen Art \u2014 jetzt keiner mehr.'},
+      {emoji:'\ud83e\udded', bold:'Eingrenzen ohne Netz sagt, was fehlt:', text:' W\u00e4hlst du eine Farbe, steht jetzt dabei, wie viele Arten ohne Farbangabe nicht gezeigt werden \u2014 sie k\u00f6nnten passen.'},
+      {emoji:'\ud83d\udcc4', bold:'Und ein Bericht:', text:' Woher die Artendaten stammen, was fehlt und was eine brauchbare Quelle mitbringen muss \u2014 docs/ARTEN-DATEN.md.'},
+    ],
+  },
+  {
     v: 'v32.42', date: '03.09.2026',
     headline: '\ud83d\udd12 Eine Server-Funktion stillgelegt, die erfundene Quittungen verschicken konnte',
     summary: 'Ein Server-Baustein aus dem April lief unbenutzt weiter und verschickte Quittungs-E-Mails von info@greenscan.ch \u2014 mit Empf\u00e4nger, Betrag und Text frei aus der Anfrage. Jede angemeldete Person h\u00e4tte damit eine erfundene GreenScan-Quittung an jede Adresse schicken k\u00f6nnen. Er ist jetzt stillgelegt.',
@@ -72949,7 +73151,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.42';
+var GS_VERSION = 'v32.43';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
