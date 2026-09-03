@@ -4,13 +4,89 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.26` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.27` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-03 (dq) — v32.27: vier Fehler in einer Ecke, drei davon still
+
+Nach Fernandos fünf Punkten die nächste Frage gestellt: **sieht überhaupt
+jemand hin, was der Server geantwortet hat?** `save_check` prüft das für
+sechs Wege — die App hat **109 echte Schreibvorgänge** (214 `sbFetch` mit
+POST/PATCH/DELETE, davon 105 RPC-Aufrufe, bei denen POST das Protokoll ist
+und kein Schreiben).
+
+**Erst das Werkzeug prüfen.** Mein erster Zähler meldete „180 von 214 sehen
+nicht hin" — Unsinn aus zwei Gründen: RPCs als Schreibvorgänge gezählt, und
+ein `.rstrip()`, das genau das Leerzeichen nach `await` entfernte, auf das
+mein Muster wartete. Erst die Stichprobe an vier Fundstellen hat es gezeigt.
+**Eine Zahl, die man nicht an einem Einzelfall nachgesehen hat, ist keine
+Zahl.**
+
+Richtig gezählt: **34 von 109** sehen die Antwort nirgends an. Und sie sind
+nicht gleich schwer — was daraus einen Fehler macht, ist nicht der fehlende
+Blick, sondern **ein Versprechen, das niemand geprüft hat.**
+
+#### Die Ecke, in der vier zusammenkamen
+
+`scan_corrections` — der Weg, auf dem Nutzer dem Scanner einen Fehler melden.
+
+1. **`gsSubmitScanMistake` schickte fire-and-forget** und dankte danach
+   bedingungslos: `🙏 Danke für die Korrektur!`. Wurde sie abgewiesen, lag sie
+   nur in `gs_scan_corrections` — einer Liste, die **niemand sendet** (sie
+   steht nur im Backup-Snapshot).
+2. **Der Offline-Zweig von `gsScanCorrect` schrieb `correct_name`** — eine
+   Spalte, die es in `scan_corrections` nicht gibt (nachgesehen, nicht
+   geraten: `user_name` ist die richtige und `NOT NULL`). Der Kommentar
+   daneben sagt es selbst: *„v29.07 (Bug-Sweep): 'correct_name'/'scan_ts'
+   existieren NICHT … Korrektur ging sonst IMMER verloren (trotz
+   'Danke'-Toast)."* **Damals wurde nur der ONLINE-Zweig repariert.**
+   Dieselbe Klasse wie der Tagebuch-Reiter gestern: zwei Stellen, eine
+   behoben.
+3. **`gs_scan_corrections_queue` wurde nie gesendet.** Der Toast versprach
+   „Wird beim nächsten Login synchronisiert" — es gab keinen Flush. Kein
+   Aufrufer, kein Zuhörer, nichts.
+4. **`.then()` auf `sbFetch` ist keine Erfolgsprüfung.** `sbFetch` wirft
+   nicht, es liefert `{data, error}`. Der Erfolgs-Toast lief also auch dann,
+   wenn der Server abgelehnt hatte — die v31.95-Klasse zum wiederholten Mal.
+
+#### Was jetzt gilt
+
+Ein Sender, eine Warteschlange, eine Wahrheit:
+
+- `_gsKorrekturSatz` baut den Satz aus den **echten** Spalten.
+- `_gsKorrekturSenden` prüft `error` **und** ein leeres Ergebnis (PostgREST
+  liefert bei einer von RLS abgewiesenen Zeile 0 Datensätze und keinen
+  Fehler) und liefert `ok` · `abgelehnt` · `kein-netz`.
+- `gsFlushKorrekturen` gibt es überhaupt erst — er läuft beim Start und beim
+  Wiederverbinden, dort wo die anderen zwei Warteschlangen abgearbeitet
+  werden. **Was abgelehnt wird, bleibt liegen**; nur Zugestelltes
+  verschwindet.
+- Beide Meldewege sagen jetzt dasselbe und die Wahrheit: Dank nur bei
+  Zustellung, sonst „gespeichert, wird später übertragen" — und bei vollem
+  Gerät die dritte Antwort, statt stillschweigend zu verlieren.
+
+#### Prüfstand
+
+`save_check` `SERVER_WEGE` 6 → 7, vier Fälle: Ablehnung · **leere Antwort
+ohne Fehler** · Erfolg · Flush (ablehnen lässt liegen, annehmen räumt weg).
+Dazu die Spaltenprüfung: die Warteschlange darf `user_name` tragen und
+`correct_name` nicht.
+
+**Gegenprobe gemacht:** den bedingungslosen Dank wiederhergestellt → sofort
+`!! Arten-Korrektur (gsSubmitScanMistake → scan_corrections)`.
+
+**Offen und benannt:** 33 weitere Schreibvorgänge sehen die Antwort nicht an.
+Die meisten sind stille Hintergrund-Schreibvorgänge ohne Versprechen
+(Sammlungs-Aufräumen, Garten-Punktestand) — das ist vertretbar. Die Frage für
+die nächste Runde ist nicht „wer sieht nicht hin", sondern **„wer verspricht
+etwas, das niemand geprüft hat"**.
+
+---
 
 ### 2026-09-03 (dp) — v32.26: dreizehn Stellen, eine Rechnung
 
@@ -7100,7 +7176,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.26` (Client) · SW-Cache `gs-v32.26` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.27` (Client) · SW-Cache `gs-v32.27` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **88'431 Zeilen / 5,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.
@@ -7135,6 +7211,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | `book-ingest` ohne Spiegel | Dokumentiert statt gespiegelt (~250 dichte Zeilen). `backend_check` nennt es bei jedem Lauf. (df) |
 | `feedback_analysis` = 0 Zeilen | „Nie gedrückt" und „bricht immer ab" sind von hier aus nicht zu unterscheiden. Ein Knopfdruck im Admin-Panel klärt es. (df) |
 | Kaltstart 3,3 s (Einsteiger-Telefon) | Untersucht, kein lohnender Angriffspunkt für Teil-Auslagerung. Bräuchte einen echten Aufteilungsschritt. (dj) |
+| **33 Schreibvorgänge ohne Blick auf die Antwort** | Von 109. Die meisten still im Hintergrund und ohne Versprechen — vertretbar. Zu prüfen ist, wer etwas VERSPRICHT, das niemand geprüft hat. (dq) |
 | 3 Verzeichnisse im Repo ohne Auslieferung | `daily-push`, `entitlements`, `push-test` — nie deployed oder entfernt? (df) |
 | 4 Treffer in `field_check` | `tp-len`/`tp-wid`/`tp-soil`/`tp-light` — zusammengesetzte Namen, funktionieren. Dauerhafte Falschmeldung, in `CLAUDE.md` §7.1 benannt. |
 

@@ -148,6 +148,71 @@ const WEGE = [
 // Fehler — wer nur auf `error` prueft, meldet dann Erfolg fuer nichts.
 const SERVER_WEGE = [
   {
+    // v32.27: Der teuerste Fund dieser Ecke. Die Korrektur ging fire-and-forget
+    // hinaus, danach kam BEDINGUNGSLOS „🙏 Danke für die Korrektur!". Wurde sie
+    // abgewiesen, lag sie in einer Liste, die niemand sendet — und die
+    // Offline-Warteschlange versprach „wird beim nächsten Login synchronisiert",
+    // obwohl es keinen Flush gab und ihre Sätze eine Spalte trugen, die es in
+    // `scan_corrections` nicht gibt.
+    name: 'Arten-Korrektur (gsSubmitScanMistake → scan_corrections)',
+    lauf: async () => {
+      const erg = { rufe: [], meldungen: [] };
+      window.showProfileToast = m => erg.meldungen.push(typeof m === 'string' ? m : (m && ((m.title || '') + ' ' + (m.body || ''))));
+      window.closeModal = () => {};
+      window.gsStore = window.gsStore || {};
+      gsStore.get = (k, d) => (k === 'gs_sb_uid' ? '00000000-0000-0000-0000-000000000001' : d);
+      window.sbIsLoggedIn = () => true;
+      if (typeof gsSubmitScanMistake !== 'function') return { ok: false, warum: 'gsSubmitScanMistake fehlt' };
+
+      // Das Formular stellen, das die Funktion liest.
+      window._lastScanResult = { name: 'Bärlauch', latin: 'Allium ursinum', confidence: 71, _ctx: { q: 1 } };
+      const feld = (id, v) => {
+        let e = document.getElementById(id);
+        if (!e) { e = document.createElement('input'); e.id = id; document.body.appendChild(e); }
+        e.value = v;
+      };
+      const fuellen = () => { feld('scan-fix-name', 'Maiglöckchen'); feld('scan-fix-latin', 'Convallaria majalis'); feld('scan-fix-note', 'Blatt riecht nicht nach Lauch'); };
+
+      // Fall 1: Server lehnt ab → KEIN Dank, und der Satz wartet.
+      localStorage.removeItem('gs_scan_corrections_queue');
+      erg.meldungen.length = 0;
+      window.sbFetch = async (path) => { erg.rufe.push(path); return { data: null, error: { message: 'permission denied' } }; };
+      fuellen(); await gsSubmitScanMistake();
+      if (!erg.rufe.some(p => /scan_corrections/.test(p))) return { ok: false, warum: 'ruft scan_corrections gar nicht auf' };
+      if (erg.meldungen.some(m => /Danke für die Korrektur/i.test(m || ''))) return { ok: false, warum: 'dankt, obwohl der Server ablehnt' };
+      let q = JSON.parse(localStorage.getItem('gs_scan_corrections_queue') || '[]');
+      if (q.length !== 1) return { ok: false, warum: 'die abgelehnte Korrektur wartet nirgends (' + q.length + ')' };
+      if (!('user_name' in q[0]) || 'correct_name' in q[0]) return { ok: false, warum: 'die Warteschlange trägt Spalten, die es in scan_corrections nicht gibt' };
+
+      // Fall 2: LEERE Antwort ohne Fehler (der RLS-Fall) → ebenfalls kein Dank.
+      erg.meldungen.length = 0;
+      window.sbFetch = async () => ({ data: [], error: null });
+      fuellen(); await gsSubmitScanMistake();
+      if (erg.meldungen.some(m => /Danke für die Korrektur/i.test(m || ''))) return { ok: false, warum: 'wertet eine LEERE Antwort als Erfolg' };
+
+      // Fall 3: echte Antwort → Dank, und nichts Neues in der Warteschlange.
+      erg.meldungen.length = 0;
+      const vorher = JSON.parse(localStorage.getItem('gs_scan_corrections_queue') || '[]').length;
+      window.sbFetch = async () => ({ data: [{ id: 'sc-1' }], error: null });
+      fuellen(); await gsSubmitScanMistake();
+      if (!erg.meldungen.some(m => /Danke für die Korrektur/i.test(m || ''))) return { ok: false, warum: 'meldet den Erfolg nicht' };
+      if (JSON.parse(localStorage.getItem('gs_scan_corrections_queue') || '[]').length !== vorher) return { ok: false, warum: 'reiht auch bei Erfolg ein' };
+
+      // Fall 4: der Flush, den es nie gab. Was ankommt, verschwindet; was
+      // abgelehnt wird, BLEIBT — sonst wäre die Korrektur endgültig weg.
+      if (typeof gsFlushKorrekturen !== 'function') return { ok: false, warum: 'gsFlushKorrekturen fehlt — die Warteschlange wird nie gesendet' };
+      window.sbFetch = async () => ({ data: null, error: { message: 'nein' } });
+      const offen = JSON.parse(localStorage.getItem('gs_scan_corrections_queue') || '[]').length;
+      await gsFlushKorrekturen();
+      if (JSON.parse(localStorage.getItem('gs_scan_corrections_queue') || '[]').length !== offen) return { ok: false, warum: 'der Flush verwirft, was der Server ablehnt' };
+      window.sbFetch = async () => ({ data: [{ id: 'sc-2' }], error: null });
+      const raus = await gsFlushKorrekturen();
+      if (raus !== offen) return { ok: false, warum: 'der Flush übermittelt nicht alles (' + raus + ' von ' + offen + ')' };
+      if (JSON.parse(localStorage.getItem('gs_scan_corrections_queue') || '[]').length !== 0) return { ok: false, warum: 'der Flush räumt das Übermittelte nicht weg' };
+      return { ok: true, info: 'Ablehnung, leere Antwort, Erfolg und Flush jeweils richtig' };
+    },
+  },
+  {
     name: 'Experten-Antrag (gsSubmitExpertApplication → feedback_items)',
     lauf: async () => {
       const setz = (id, v) => { const e = document.getElementById(id); if (e) e.value = v; };
