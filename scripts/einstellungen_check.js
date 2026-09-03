@@ -84,6 +84,10 @@ const melde = (frage, ok, wie) => {
 
   const r = await page.evaluate(async () => {
     const aus = {};
+    // Die echte Fassung sichern, BEVOR spätere Fragen sie durch eine Attrappe
+    // ersetzen — `delete` holt sie nicht zurück, sie ist eine einfache
+    // Zuweisung an `window`, keine Prototyp-Eigenschaft.
+    const echterConfirm = window.gsConfirmModal;
     document.documentElement.classList.remove('gs-preauth');
     try { if (typeof switchTab === 'function') switchTab('settings'); } catch (_) {}
     await new Promise(w => setTimeout(w, 300));
@@ -289,6 +293,79 @@ const melde = (frage, ok, wie) => {
     try { if (window.gsI18n && gsI18n.setLang) gsI18n.setLang('fr'); } catch (_) {}
     aus.stillePush = { gepusht: gepusht.slice(), schmutzig: schmutzig.slice() };
     try { if (window.gsI18n && gsI18n.setLang) gsI18n.setLang('de'); } catch (_) {}
+
+    // ── 11 · „Alle Daten löschen" — löscht es wirklich alles? ───────────
+    //
+    // Der Dialog verspricht „alles im Gerät gespeicherte". Gelöscht wurden
+    // zwei Präfixe. Gemessen wird deshalb mit Schlüsseln, die absichtlich
+    // ANDERS heissen — genau die zwei, die in der App wirklich so heissen.
+    localStorage.setItem('greenscan_markers', '[{"lat":47.1,"lng":8.2}]');
+    localStorage.setItem('userLocation', '{"name":"Zuhause"}');
+    localStorage.setItem('gs_prefs', '{"x":1}');
+    localStorage.setItem('ps_myplants', '[]');
+    // `Object.keys(localStorage)` zählt hier NICHT nur Einträge: dieses Repo
+    // hat eigene `setItem`/`getItem`/`removeItem`-Eigenschaften am
+    // localStorage-Objekt (seit v30.98, und genau sie verdecken den
+    // Prototyp-Patch aus dem Auto-Track). Gezählt wird deshalb über die
+    // echte Schnittstelle.
+    var alleKeys = function(){
+      var out = [];
+      for (var i = 0; i < localStorage.length; i++) out.push(localStorage.key(i));
+      return out;
+    };
+    var vorher = alleKeys().length;
+    // `clearAllData` startet die App nach 1,5 s neu — das würde den Prüfstand
+    // mitnehmen. `location.reload` lässt sich nicht zuverlässig ersetzen
+    // (`Location` ist exotisch; der erste Versuch mit `defineProperty` sah
+    // gestellt aus und navigierte trotzdem — die Frage stürzte ab, statt
+    // stillschweigend falsch zu messen, was Glück war).
+    // Also wird der TIMER abgefangen: der geplante Neustart ist damit sogar
+    // besser belegt als ein abgewarteter, und nichts navigiert.
+    var echterTimeout = window.setTimeout;
+    var geplant = [];
+    window.setTimeout = function (fn, ms) { geplant.push(ms); return 0; };
+    try { clearAllData(); } finally { window.setTimeout = echterTimeout; }
+    aus.loeschen = {
+      vorher: vorher,
+      uebrig: alleKeys(),
+      neustartGeplant: geplant.indexOf(1500) >= 0,
+      queueLeererDa: typeof window.gsQueueLeeren === 'function',
+    };
+
+    // ── 12 · Fragt ein Admin-Eingriff nach? ─────────────────────────────
+    var gefragt2 = 0, ausgefuehrt = 0;
+    window.gsIsAdmin = () => true;
+    window.sbFetch = async () => { ausgefuehrt++; return { data: { ok: true }, error: null }; };
+    window.gsConfirmModal = () => { gefragt2++; return Promise.resolve(false); };   // Nutzer sagt NEIN
+    await gsAdminAssignRole('u1', 'banned');
+    await gsAdminSetTier('u1', 'lifetime');
+    aus.admin = { nein: { gefragt: gefragt2, ausgefuehrt: ausgefuehrt } };
+    gefragt2 = 0; ausgefuehrt = 0;
+    window.gsConfirmModal = () => { gefragt2++; return Promise.resolve(true); };    // Nutzer sagt JA
+    await gsAdminAssignRole('u1', 'banned');
+    await gsAdminSetTier('u1', 'lifetime');
+    aus.admin.ja = { gefragt: gefragt2, ausgefuehrt: ausgefuehrt };
+    // Und wer schon gefragt hat, darf nicht zweimal fragen.
+    gefragt2 = 0;
+    await gsAdminAssignRole('u1', 'banned', null, { bestaetigt: true });
+    aus.admin.durchgereicht = gefragt2;
+
+    // ── 13 · Welche Antwort ist im Zerstör-Dialog die bequeme? ──────────
+    window.gsConfirmModal = echterConfirm;   // die echte Fassung zurück
+    const dialog = async (kind) => {
+      const p2 = window.gsConfirmModal({ title: 'Test', message: 'Test',
+                                         ok: 'Endgültig löschen', cancel: 'Abbrechen', kind });
+      await new Promise(w => setTimeout(w, 60));
+      const fokus = document.activeElement ? document.activeElement.id : null;
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      return { fokus, enter: await p2 };
+    };
+    aus.dialog = { gefahr: await dialog('danger'), normal: await dialog('primary') };
+    // Und Escape muss weiterhin abbrechen.
+    const p3 = window.gsConfirmModal({ title: 'T', message: 'T', kind: 'danger' });
+    await new Promise(w => setTimeout(w, 60));
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    aus.dialog.escape = await p3;
 
     aus.reloads = window.__reloads;
     return aus;
@@ -501,11 +578,37 @@ const melde = (frage, ok, wie) => {
       : JSON.stringify(PP) + ' — `savePrefs()` schreibt nur den localStorage, und der Auto-Track über '
         + 'STATE_KEYS ist wirkungslos (er patcht `Storage.prototype`, das eine eigene Eigenschaft verdeckt)');
 
+  const L = r.loeschen;
+  const loeschtOk = L && L.uebrig.length === 0 && L.neustartGeplant === true && L.queueLeererDa === true;
+  melde('„Alle Daten löschen" lässt nichts liegen', loeschtOk,
+    loeschtOk ? 'von ' + L.vorher + ' Schlüsseln 0 übrig · IndexedDB-Warteschlangen werden mitgeleert · Neustart geplant'
+      : 'übrig: ' + JSON.stringify(L && L.uebrig) + ' (von ' + (L && L.vorher) + ') · Warteschlangen-Leerer da: '
+        + (L && L.queueLeererDa) + ' — eine Löschung nach Präfix ist eine Wette darauf, dass niemand je '
+        + 'einen Schlüssel anders benannt hat; liegen blieben die GPS-Fundorte und der eigene Standort');
+
+  const A = r.admin;
+  const adminOk = A && A.nein.gefragt === 2 && A.nein.ausgefuehrt === 0
+    && A.ja.gefragt === 2 && A.ja.ausgefuehrt === 2 && A.durchgereicht === 0;
+  melde('Sperren und Lifetime fragen nach — und nur einmal', adminOk,
+    adminOk ? '„Nein" → 2 Rückfragen, 0 ausgeführt · „Ja" → 2 Rückfragen, 2 ausgeführt · '
+      + 'wer schon gefragt hat, fragt nicht nochmal'
+      : JSON.stringify(A) + ' — vier Wege führten zu derselben Aktion, drei ohne Rückfrage; '
+        + 'die Rückfrage gehört in die Funktion, nicht an den Aufrufort');
+
+  const D2 = r.dialog;
+  const dialogOk = D2 && D2.gefahr.fokus === 'gs-confirm-cancel' && D2.gefahr.enter === false
+    && D2.normal.fokus === 'gs-confirm-ok' && D2.normal.enter === true && D2.escape === false;
+  melde('Im Zerstör-Dialog ist die harmlose Antwort die bequeme', dialogOk,
+    dialogOk ? 'danger → Fokus auf „Abbrechen", Enter bricht ab · normal → Fokus auf OK, Enter bestätigt · Escape bricht immer ab'
+      : JSON.stringify(D2) + ' — der Fokus lag auf „Endgültig löschen", und Enter löste es aus, '
+        + 'ohne dass der Finger je den Knopf berührt hatte');
+
   console.log('  ---');
-  console.log('  Fragen geprueft: 16 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 19 · davon rot: ' + kaputt);
   console.log('  JS-Fehler: ' + (fehler.length ? fehler.slice(0, 4).join(' | ') : 'keine'));
-  console.log('  Gestellte Sperren: Notification.requestPermission → granted · location.reload → gezählt ('
-    + r.reloads + ')');
+  console.log('  Gestellte Sperren: Notification.requestPermission → granted · setTimeout beim');
+  console.log('  Löschen abgefangen (`location.reload` lässt sich nicht zuverlässig ersetzen —');
+  console.log('  geprüft wird deshalb der GEPLANTE Neustart, nicht der ausgeführte).');
   console.log('  Nicht prüfbar von hier: ob eine ECHTE Kamera aufgeht und ob der');
   console.log('  ECHTE Server die Zeile nimmt. Geprüft ist, was die App aus der');
   console.log('  Antwort macht — nicht, ob die Antwort echt ist.');

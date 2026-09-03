@@ -1294,6 +1294,35 @@ Dazu ein drittes Muster: **ein Pull muss WIRKEN, nicht nur schreiben.**
 der Bildschirm sagte danach etwas anderes als der Speicher, und beim naechsten
 `loadPrefs()` sprang die Oberflaeche ohne erkennbaren Anlass um.
 
+**v32.37 kamen die zerstoerenden Aktionen dazu** (19 Fragen). Drei Regeln:
+
+> **Eine Loeschung nach PRAEFIX ist eine Wette darauf, dass niemand je einen
+> Schluessel anders benannt hat.** „Alle Daten loeschen" raeumte `gs_` und
+> `ps_`; von 36 Schluesseln blieben zwei — `greenscan_markers` (Fundorte mit
+> GPS) und `userLocation`. Genau die Daten, wegen denen jemand den Knopf
+> drueckt.
+
+> **Die zerstoerende Antwort darf nie die bequemste sein.** `gsConfirmModal`
+> fokussierte den OK-Knopf und liess Enter bestaetigen — bei JEDEM
+> `kind:'danger'`-Dialog. Escape auf „Abbrechen" war schon richtig; die
+> Vorauswahl war die falsche Haelfte.
+
+> **Die Rueckfrage gehoert in die FUNKTION, nicht an den Aufrufort.** Vier
+> Wege fuehrten zum Sperren und zum Lifetime-Abo, drei ohne Rueckfrage. Wer
+> die Frage am Aufrufort platziert, laesst jede neue Aufrufstelle neu
+> entscheiden — hier haben sich drei von vier falsch entschieden.
+
+Zwei Messfallen aus derselben Sitzung, beide allgemein:
+
+- **`location.reload` laesst sich nicht zuverlaessig ersetzen.**
+  `Object.defineProperty(location,'reload',…)` sah gestellt aus und
+  navigierte trotzdem. Abfangen laesst sich statt dessen der TIMER — der
+  geplante Neustart ist damit sogar besser belegt als ein abgewarteter.
+- **`Object.keys(localStorage)` zaehlt in diesem Repo nicht nur Eintraege.**
+  Die eigenen `setItem`/`getItem`/`removeItem`-Eigenschaften am
+  localStorage-Objekt tauchen dort auf. Ueber `localStorage.length` /
+  `key(i)` zaehlen.
+
 **Und eine Frage, die es ohne v32.34 nicht gaebe:** geht die Kamera-Anfrage
 bei AUSGESCHALTETEM Schalter unveraendert durch? Das Tor lief als
 `async function`, also mit einem `await` vor dem Durchreichen. Gemessen wird

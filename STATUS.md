@@ -4,13 +4,90 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.36` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.37` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-03 (dz) — v32.37: der Löschknopf, der zwei Präfixe löschte
+
+Vierte Welle aus dem Einstellungs-Audit. Drei bestätigte Meldungen, alle im
+selben Themenfeld: **Aktionen, die mehr versprechen oder mehr anrichten, als
+sie sollten.**
+
+#### „Alles im Gerät gespeicherte" hiess: `gs_` und `ps_`
+
+```js
+const keys = Object.keys(localStorage).filter(k => k.startsWith('gs_') || k.startsWith('ps_'));
+```
+
+Nachgestellt blieben von 36 Schlüsseln genau zwei übrig — und es sind die
+heikelsten: `greenscan_markers` (die Karten-Fundorte **mit GPS-Koordinaten**)
+und `userLocation` (der eigene Standort). Genau die Daten, wegen denen jemand
+so einen Knopf drückt.
+
+> **Eine Löschung nach Präfix ist eine Wette darauf, dass niemand je einen
+> Schlüssel anders benannt hat.**
+
+Auf diesem Ursprung gehört alles der App, also geht alles
+(`localStorage.clear()`). Dazu die IndexedDB-Warteschlangen: dort liegen die
+offline eingereihten Scans und die Fotos als base64 — „im Gerät gespeichert"
+im wörtlichsten Sinn. Die Cache-API bleibt: das ist die App selbst, keine
+Nutzerdaten.
+
+#### Die zerstörende Antwort war die vorausgewählte
+
+`gsConfirmModal` setzte den Fokus auf den OK-Knopf und liess Enter bestätigen
+— bei **jedem** `kind:'danger'`-Dialog: „Alle Daten löschen", „Backup
+importieren? Alle aktuellen Daten werden überschrieben!", „API-Key
+entfernen", „Cache leeren". Ein Enter mit einer Tastatur am Tablet reichte.
+
+> **Die zerstörende Antwort darf nie die bequemste sein.** Escape auf
+> „Abbrechen" war schon richtig; die Vorauswahl war die falsche Hälfte.
+
+#### Vier Wege, drei ohne Rückfrage
+
+Sperren und „Lifetime" vergeben ging über vier Wege; nur `gsAdminBanUser`
+fragte nach. Zwei Auswahlfelder stehen in **jeder Zeile einer scrollenden
+Nutzerliste** direkt nebeneinander — auf dem Telefon ist eine daneben
+getippte Auswahl eine Sperrung oder ein verschenktes Lifetime-Abo, und beim
+Tier steht Geld dahinter.
+
+> **Die Rückfrage gehört in die Funktion, nicht an den Aufrufort.** Sonst
+> entscheidet jede neue Aufrufstelle neu — und drei von vier haben sich falsch
+> entschieden.
+
+`gsAdminBanUser` und der Admin-Fall in `gsAdminSetExpertLevel` fragen weiter
+selbst (mit der E-Mail im Text) und reichen `{bestaetigt:true}` durch.
+
+#### Prüfstand: 16 → 19 Fragen
+
+Alle drei gegengeprüft, und die Gegenproben zeigen genau die gemeldeten
+Symptome: `["greenscan_markers","userLocation"]` übrig · `gefragt: 0,
+ausgefuehrt: 2` auch bei „Nein" · `fokus: "gs-confirm-ok", enter: true`.
+
+Zwei Dinge aus dem Bau:
+
+- **`location.reload` lässt sich nicht zuverlässig ersetzen.** Der erste
+  Versuch mit `Object.defineProperty` sah gestellt aus und navigierte
+  trotzdem; der Prüfstand stürzte ab, statt stillschweigend falsch zu messen —
+  das war Glück. Abgefangen wird jetzt der **Timer**, und der geplante
+  Neustart ist damit sogar besser belegt als ein abgewarteter.
+- **`Object.keys(localStorage)` zählt hier nicht nur Einträge.** Dieses Repo
+  hat eigene `setItem`/`getItem`/`removeItem`-Eigenschaften am
+  localStorage-Objekt — dieselben, die den Auto-Track aus v32.36 verdecken.
+  Die erste Fassung meldete sie als „übrig geblieben". Gezählt wird jetzt über
+  `localStorage.length` / `key(i)`.
+
+#### Stand des Audits
+
+**24 bestätigt · 21 behoben · 3 offen · 11 ohne Urteil.** Offen sind die drei
+toten Einstellungen (Wetter-Standort, `DEFAULT_PREFS`, `gs_theme_color`).
+
+---
 
 ### 2026-09-03 (dy) — v32.36: drei Fehler, die einander verstärkt haben
 
@@ -69,8 +146,13 @@ Namensraum.
 
 #### Stand des Audits
 
-**24 bestätigt · 20 behoben · 4 offen · 12 ohne Urteil** (Befund 23 und 44
-sind beim Nachmessen mitbehoben worden).
+**24 bestätigt · 18 davon behoben · 6 offen · 13 ohne Urteil** (dazu 23 und 44,
+die ohne Urteil waren und beim Nachmessen mitbehoben wurden).
+
+> Hier stand zuerst „4 offen". Falsch: gezählt waren die behobenen inklusive
+> 23 und 44, die gar nicht zu den 24 bestätigten gehören. Korrigiert in
+> v32.37 — **eine Rückstandsliste, die sich verzählt, ist schlimmer als
+> keine.**
 
 ---
 
@@ -7820,7 +7902,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.36` (Client) · SW-Cache `gs-v32.36` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.37` (Client) · SW-Cache `gs-v32.37` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.

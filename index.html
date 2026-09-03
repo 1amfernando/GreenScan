@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.36.20260903">
+<meta name="app-version" content="32.37.20260903">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17161,7 +17161,23 @@ window.gsConfirmModal = function gsConfirmModal(a, b){
       }
       function onKey(e){
         if (e.key === 'Escape'){ e.preventDefault(); finish(false); return; }
-        if (e.key === 'Enter'){ e.preventDefault(); finish(true);  return; }
+        if (e.key === 'Enter'){
+          e.preventDefault();
+          // v32.36b: Bei einem Zerstör-Dialog bestätigt Enter NICHT. Vorher war
+          // die gefährliche Antwort die vorausgewählte: der Fokus lag auf
+          // „Endgültig löschen", und ein Enter — beim Tippen, mit einer
+          // Bluetooth-Tastatur am Tablet, oder weil man gerade in einem Feld
+          // war — löste sie aus, ohne dass der Finger je den Knopf berührt
+          // hatte. Betroffen war jeder `kind:'danger'`-Dialog der App:
+          // „Alle Daten löschen", „Backup importieren", „API-Key entfernen",
+          // „Cache leeren".
+          //
+          // **Die zerstörende Antwort darf nie die bequemste sein.**
+          // Escape auf „Abbrechen" war schon richtig; die Vorauswahl war die
+          // falsche Hälfte.
+          finish(kind !== 'danger');
+          return;
+        }
         if (e.key === 'Tab') {
           // Mini-Focus-Trap auf 2 Buttons
           var f = w.querySelectorAll('button');
@@ -17175,7 +17191,8 @@ window.gsConfirmModal = function gsConfirmModal(a, b){
       w.addEventListener('click', function(ev){ if (ev.target === w) finish(false); });
       c.querySelector('#gs-confirm-ok').addEventListener('click', function(){ finish(true); });
       c.querySelector('#gs-confirm-cancel').addEventListener('click', function(){ finish(false); });
-      try { c.querySelector('#gs-confirm-ok').focus(); } catch(_){}
+      // v32.36b: Bei einem Zerstör-Dialog bekommt „Abbrechen" den Fokus.
+      try { c.querySelector(kind === 'danger' ? '#gs-confirm-cancel' : '#gs-confirm-ok').focus(); } catch(_){}
     } catch(e){
       // Fallback: native confirm — sollte selten passieren
       try { resolve(window.confirm(opts && opts.message || 'Bestätigen?')); } catch(__){ resolve(false); }
@@ -51815,8 +51832,25 @@ function importUserData() {
 }
 
 function clearAllData() {
-  const keys = Object.keys(localStorage).filter(k => k.startsWith('gs_') || k.startsWith('ps_'));
-  keys.forEach(k => localStorage.removeItem(k));
+  // v32.36b: Der Dialog verspricht „alles im Gerät gespeicherte". Gelöscht
+  // wurden zwei Präfixe — `gs_` und `ps_`. Nachgestellt blieben von 36
+  // Schlüsseln genau zwei übrig, und es sind die heikelsten:
+  //   · `greenscan_markers` — die Karten-Fundorte MIT GPS-Koordinaten
+  //   · `userLocation`      — der eigene Standort
+  // Genau die Daten, wegen denen jemand so einen Knopf drückt.
+  //
+  // **Eine Löschung nach Präfix ist eine Wette darauf, dass niemand je einen
+  // Schlüssel anders benannt hat.** Auf diesem Ursprung gehört alles der App,
+  // also geht alles.
+  try { localStorage.clear(); }
+  catch (_) {
+    Object.keys(localStorage).forEach(function(k){ try { localStorage.removeItem(k); } catch(_){} });
+  }
+  // Und der Speicher ist nicht nur der localStorage: in IndexedDB liegen die
+  // offline eingereihten Scans und die Fotos als base64 — „im Gerät
+  // gespeichert" im wörtlichsten Sinn. Die Cache-API bleibt: das ist die App
+  // selbst, keine Nutzerdaten.
+  try { if (typeof gsQueueLeeren === 'function') gsQueueLeeren(); } catch(_){}
   showMarketNotif('Alle Daten gelöscht. App wird neu gestartet…', '🗑️', '#c62828');
   setTimeout(() => location.reload(), 1500);
 }
@@ -71977,6 +72011,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.37', date: '03.09.2026',
+    headline: '\ud83d\uddd1\ufe0f „Alle Daten l\u00f6schen" l\u00e4sst jetzt wirklich nichts liegen',
+    summary: 'Der Knopf versprach „alles im Ger\u00e4t gespeicherte" und l\u00f6schte zwei Namens-Pr\u00e4fixe. Liegen blieben ausgerechnet die Karten-Fundorte mit GPS-Koordinaten und der eigene Standort \u2014 genau die Daten, wegen denen jemand so einen Knopf dr\u00fcckt. Dazu: gef\u00e4hrliche Dialoge haben nicht mehr die zerst\u00f6rende Antwort vorausgew\u00e4hlt.',
+    user_summary: '\ud83d\uddd1\ufe0f Der L\u00f6sch-Knopf l\u00f6scht wirklich alles, und ein versehentliches Enter kann nichts mehr zerst\u00f6ren.',
+    user_items: [
+      {emoji:'\ud83d\udccd', bold:'Die Fundorte blieben liegen:', text:' „Alle Daten l\u00f6schen" r\u00e4umte nur Schl\u00fcssel auf, die mit `gs_` oder `ps_` beginnen. Deine Karten-Fundorte mit GPS-Koordinaten und dein gespeicherter Standort heissen anders \u2014 sie blieben im Ger\u00e4t. Jetzt geht alles, auch die offline wartenden Scans und Fotos.'},
+      {emoji:'\u23ce', bold:'Enter zerst\u00f6rt nichts mehr:', text:' Bei „Endg\u00fcltig l\u00f6schen", „Backup importieren" und \u00e4hnlichen Fragen lag der Finger-Fokus auf dem gef\u00e4hrlichen Knopf \u2014 ein Enter, etwa mit einer Tastatur am Tablet, l\u00f6ste ihn aus. Jetzt ist „Abbrechen" vorausgew\u00e4hlt.'},
+      {emoji:'\ud83d\udee1\ufe0f', bold:'Admin-Eingriffe fragen nach:', text:' Sperren und „Lifetime" vergeben ging \u00fcber vier Wege, drei davon ohne jede R\u00fcckfrage \u2014 in einer scrollenden Liste, wo zwei Auswahlfelder nebeneinander stehen. Jetzt fragt jeder Weg, und wer schon gefragt hat, fragt nicht zweimal.'},
+    ],
+  },
+  {
     v: 'v32.36', date: '03.09.2026',
     headline: '\u2601\ufe0f Deine Einstellungen bleiben jetzt wirklich, wo du sie hingestellt hast',
     summary: 'Der Abgleich mit der Cloud hatte drei zusammenh\u00e4ngende Fehler: er ERSETZTE den lokalen Einstellungs-Block durch die Serverzeile (die nur kennt, was je hochgeladen wurde), was er zur\u00fcckholte wirkte nicht, und drei Schalter luden nie etwas hoch. Zusammen hiess das: Kompakt- und Senioren-Modus fielen sp\u00e4testens zwei Minuten nach dem Einschalten auf den Standard zur\u00fcck.',
@@ -72567,7 +72612,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.36';
+var GS_VERSION = 'v32.37';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -72803,7 +72848,8 @@ async function gsAdminBanUser(targetEmail) {
   if (typeof sbFetch !== 'function') { showProfileToast('Keine Verbindung zum Server.'); return; }
   var uid = await _gsAdminUidZu(targetEmail);
   if (!uid) return;
-  var r = await gsAdminAssignRole(uid, 'banned', 'Gesperrt durch Admin');
+  // Diese Stelle hat oben schon gefragt (mit der E-Mail im Text) — nicht zweimal.
+  var r = await gsAdminAssignRole(uid, 'banned', 'Gesperrt durch Admin', {bestaetigt:true});
   if (!r) return;
   var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
   log.unshift({ ts: new Date().toISOString(), admin: gsStore.get('gs_sb_email', null),
@@ -72862,11 +72908,16 @@ async function gsAdminSetExpertLevel(targetEmail) {
   var noteText = reason ? reason.value.trim() : '';
   if (typeof sbFetch !== 'function') { showProfileToast('Keine Verbindung zum Server.'); return; }
   if (GS_ROLE_HIERARCHY.indexOf(newLevel) < 0) { showProfileToast('Unbekannte Rolle.'); return; }
-  if (newLevel === 'admin' &&
+  // v32.36b: Diese Stelle fragt seit jeher — aber NUR beim Hochstufen zum
+  // Admin. Für alles andere übernimmt jetzt `gsAdminAssignRole` die Rückfrage;
+  // beim Admin-Fall wird sie hier abgehandelt (mit der E-Mail im Text) und
+  // dort übersprungen, damit nicht zweimal gefragt wird.
+  var _adminFall = (newLevel === 'admin');
+  if (_adminFall &&
       !(await gsConfirmModal(targetEmail + ' zum ADMIN machen? Damit kann diese Person Rollen aller Nutzer ändern.'))) return;
   var uid = await _gsAdminUidZu(targetEmail);
   if (!uid) return;
-  var r = await gsAdminAssignRole(uid, newLevel, noteText || null);
+  var r = await gsAdminAssignRole(uid, newLevel, noteText || null, _adminFall ? {bestaetigt:true} : undefined);
   if (!r) return;                                  // gsAdminAssignRole hat schon gemeldet
   var log = JSON.parse(gsStore.get('gs_admin_log', null) || '[]');
   log.unshift({ ts: new Date().toISOString(), admin: gsStore.get('gs_sb_email', null),
@@ -75335,6 +75386,32 @@ function gsRegisterServiceWorker() {
       }
       return total;
     } catch(e) { return 0; }
+  };
+
+  // v32.36b: „Alle Daten löschen" verspricht „alles im Gerät gespeicherte".
+  // In IndexedDB liegen die offline eingereihten Scans, Tagebucheinträge und
+  // die Fotos als base64 — im wörtlichsten Sinn im Gerät gespeichert. Ohne
+  // diese Funktion räumte der Knopf nur den localStorage.
+  //
+  // Sie leert ALLE fünf Ablagen, `dropped_entries` eingeschlossen: das Archiv
+  // sind ebenfalls Nutzerdaten. Und sie fragt NICHT nach dem Eigentümer —
+  // wer diesen Knopf drückt, will das Gerät leer haben, nicht nur sein Konto.
+  window.gsQueueLeeren = async function(){
+    try {
+      var db = await _open();
+      for (var i = 0; i < STORES.length; i++) {
+        var name = STORES[i];
+        try {
+          var tx = db.transaction(name, 'readwrite');
+          await new Promise(function(r){
+            var rq = tx.objectStore(name).clear();
+            rq.onsuccess = function(){ r(); };
+            rq.onerror = function(){ r(); };
+          });
+        } catch(_){}
+      }
+      return true;
+    } catch(e) { return false; }
   };
 
   // ═══ ONLINE/OFFLINE-BANNER ════════════════════════════════
@@ -82476,8 +82553,33 @@ async function gsSyncUserRole() {
 }
 
 // Admin-API: Rolle vergeben
-async function gsAdminAssignRole(userId, role, note) {
+// v32.36b: Vier Wege führten zu derselben folgenschweren Aktion, DREI davon
+// ohne jede Rückfrage — zwei Auswahlfelder stehen in jeder Zeile einer
+// scrollenden Nutzerliste direkt nebeneinander. Auf dem Telefon ist eine
+// daneben getippte Auswahl eine Sperrung („banned" macht `gsRoleAtLeast`
+// dauerhaft false) oder ein verschenktes Lifetime-Abo; beim Tier steht Geld
+// dahinter, und beides ist nur von Hand rückgängig zu machen.
+//
+// **Die Rückfrage gehört in die Funktion, nicht an den Aufrufort.** Sonst
+// entscheidet jede neue Aufrufstelle neu — und drei von vier haben sich
+// falsch entschieden. `gsAdminBanUser` fragt schon selbst und reicht deshalb
+// `bestaetigt: true` durch.
+async function _gsAdminRueckfrage(text) {
+  if (typeof gsConfirmModal !== 'function') return true;
+  try {
+    return await gsConfirmModal({
+      title: '⚠️ Admin-Eingriff', message: text,
+      ok: 'Ja, ausführen', cancel: 'Abbrechen', kind: 'danger'
+    });
+  } catch(_) { return false; }
+}
+
+async function gsAdminAssignRole(userId, role, note, opts) {
   if (!gsIsAdmin()) { showProfileToast && showProfileToast('🔐 Nur Admins'); return null; }
+  if (!(opts && opts.bestaetigt)) {
+    var wort = (role === 'banned') ? 'SPERREN' : (role === 'admin') ? 'zum ADMIN machen' : ('auf „' + role + '" setzen');
+    if (!(await _gsAdminRueckfrage('Diesen Nutzer wirklich ' + wort + '? Das wirkt sofort und ist nur von Hand rückgängig zu machen.'))) return null;
+  }
   try {
     var r = await sbFetch('/rest/v1/rpc/fn_assign_role', {
       method: 'POST',
@@ -82507,8 +82609,13 @@ async function gsAdminListUsers() {
 // v29.16: setzt jetzt einen Stripe-UNABHÄNGIGEN comp-Grant (comp_tier) → v_user_entitlements
 // schaltet Features sofort frei (greift beim nächsten Boot/Vordergrund/Restore des Nutzers).
 // stripe_warning=true → User hat bereits ein aktives Stripe-Abo (Comp ist dann nur zusätzlich/redundant).
-async function gsAdminSetTier(userId, tier) {
+async function gsAdminSetTier(userId, tier, opts) {
   if (!gsIsAdmin() || !tier) return;
+  // v32.36b: siehe `gsAdminAssignRole` — „♾️ Lifetime" war ein einziges
+  // onchange in einer scrollenden Liste, ohne Rückfrage, mit Geld dahinter.
+  if (!(opts && opts.bestaetigt)) {
+    if (!(await _gsAdminRueckfrage('Diesem Nutzer wirklich die Stufe „' + tier + '" geben? Das schaltet Bezahl-Funktionen frei.'))) return;
+  }
   try {
     var r = await sbFetch('/rest/v1/rpc/fn_admin_set_tier', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ p_user_id: userId, p_tier: tier }) });
     var d = (r && r.data) || {};

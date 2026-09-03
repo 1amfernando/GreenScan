@@ -55,11 +55,11 @@ sie sind ein Anhaltspunkt, kein Fundort. Der zitierte Code stimmt.
 | 26 | ✅ | mittel | `#settings-search-none` („Keine Einstellung gefunden.") erscheint gleichzeitig mit sichtbaren Einstellungen —  |
 | 27 | ✅ | niedrig | Leere Karten-Huellen bleiben als duenne Striche stehen: 7 Karten a 2 px pro Suche. |
 | 28 | ✅ | niedrig | Der Gruppentitel behaelt im Suchmodus `gs-collapsed` und `aria-expanded="false"`, obwohl die Suche den Abschni |
-| 29 | 🔴 | hoch | „Alle Daten löschen" löscht nur gs_*/ps_* — die GPS-Fundorte (greenscan_markers) und userLocation bleiben lieg |
+| 29 | ✅ | hoch | „Alle Daten löschen" löscht nur gs_*/ps_* — die GPS-Fundorte (greenscan_markers) und userLocation bleiben lieg |
 | 30 | ❌ | hoch | „Backup importieren" meldet Erfolg, ohne hinzusehen: 7 der 11 exportierten Bereiche werden nie zurückgeschrieb |
 | 31 | ❌ | hoch | saveApiKey() nimmt jede beliebige Zeichenkette an — getApiConfig() verwirft sie danach stumm; ein leeres Feld  |
-| 32 | 🔴 | hoch | Im Admin-Panel sperrt und beschenkt ein einziges onchange am Auswahlfeld — „🚫 Gesperrt" und „♾️ Lifetime" ohn |
-| 33 | 🔴 | mittel | gsConfirmModal setzt den Fokus auf den Zerstör-Knopf, und Enter bestätigt — bei jedem einzelnen kind:'danger'- |
+| 32 | ✅ | hoch | Im Admin-Panel sperrt und beschenkt ein einziges onchange am Auswahlfeld — „🚫 Gesperrt" und „♾️ Lifetime" ohn |
+| 33 | ✅ | mittel | gsConfirmModal setzt den Fokus auf den Zerstör-Knopf, und Enter bestätigt — bei jedem einzelnen kind:'danger'- |
 | 34 | ❌ | mittel | gsAdminAssignRole meldet „✅ Rolle zugewiesen" allein aufgrund von !r.error — obwohl sbFetch nicht wirft und di |
 | 35 | ⚪ | mittel | „Konto löschen" verspricht „Alle Scans & Bilder" — räumt aber nur den localStorage; die IndexedDB-Warteschlang |
 | 36 | ⚪ | mittel | gsSnapshotCreate macht aus einer leeren Serverantwort ausdrücklich einen Erfolg (return r.data \|\| true) — de |
@@ -1182,7 +1182,7 @@ EINSCHRAENKUNG, ehrlich benannt: Die OPTISCHE Haelfte laesst sich verteidigen �
 
 ## Sicherheit, Löschen und Admin
 
-### 🔴 [29] „Alle Daten löschen" löscht nur gs_*/ps_* — die GPS-Fundorte (greenscan_markers) und userLocation bleiben liegen, obwohl der Dialog „alles im Gerät gespeicherte" verspricht
+### ✅ [29] „Alle Daten löschen" löscht nur gs_*/ps_* — die GPS-Fundorte (greenscan_markers) und userLocation bleiben liegen, obwohl der Dialog „alles im Gerät gespeicherte" verspricht
 
 - **Schwere:** hoch  ·  **Zeile (v32.31):** 51639
 - **Folge:** Wer die App weggibt, verkauft oder aus Datenschutzgründen aufräumt, drückt „Endgültig löschen", liest „Alle Daten gelöscht" — und die Karten-Fundorte mit GPS-Koordinaten plus der eigene Wohnort-Standort liegen unverändert weiter im Gerät. Es sind genau die Daten, wegen denen man so einen Knopf drückt.
@@ -1304,7 +1304,7 @@ function saveApiKey(){
 
 </details>
 
-### 🔴 [32] Im Admin-Panel sperrt und beschenkt ein einziges onchange am Auswahlfeld — „🚫 Gesperrt" und „♾️ Lifetime" ohne jede Rückfrage; derselbe Vorgang über gsAdminBanUser fragt sehr wohl
+### ✅ [32] Im Admin-Panel sperrt und beschenkt ein einziges onchange am Auswahlfeld — „🚫 Gesperrt" und „♾️ Lifetime" ohne jede Rückfrage; derselbe Vorgang über gsAdminBanUser fragt sehr wohl
 
 - **Schwere:** hoch  ·  **Zeile (v32.31):** 83097
 - **Folge:** Vier Wege zur selben folgenschweren Aktion, drei davon ohne Rückfrage. Zwei Auswahlfelder stehen in jeder Zeile einer scrollenden Nutzerliste direkt nebeneinander — auf dem Telefon ist eine daneben getippte Auswahl eine Sperrung („banned" macht gsRoleAtLeast dauerhaft false) oder ein verschenktes Lifetime-Abo. Beides ist danach nur von Hand rückgängig zu machen, und beim Tier steht Geld dahinter.
@@ -1343,7 +1343,7 @@ Zwei ehrliche Einschränkungen, die den Befund aber nicht kippen: Die Formulieru
 
 </details>
 
-### 🔴 [33] gsConfirmModal setzt den Fokus auf den Zerstör-Knopf, und Enter bestätigt — bei jedem einzelnen kind:'danger'-Dialog der App
+### ✅ [33] gsConfirmModal setzt den Fokus auf den Zerstör-Knopf, und Enter bestätigt — bei jedem einzelnen kind:'danger'-Dialog der App
 
 - **Schwere:** mittel  ·  **Zeile (v32.31):** 17068
 - **Folge:** Die gefährliche Antwort ist die vorausgewählte. Ein Enter oder eine Leertaste — beim Tippen, mit Bluetooth-Tastatur am Tablet, oder weil man gerade in einem Feld war — löst „Endgültig löschen" bzw. „Alle aktuellen Daten werden überschrieben" aus, ohne dass der Finger je den Knopf berührt hat. Escape auf „Abbrechen" ist richtig gebaut; die Vorauswahl ist die falsche Hälfte.
