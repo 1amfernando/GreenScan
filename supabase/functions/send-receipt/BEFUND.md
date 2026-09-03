@@ -1,4 +1,19 @@
-# `send-receipt` — Befund vom 02.09.2026 (v32.19)
+# `send-receipt` — STILLGELEGT am 03.09.2026 (v32.42)
+
+> **Erledigt.** Fernando hat die Stilllegung am 03.09.2026 ausdrücklich
+> beauftragt; ausgeliefert ist seither ein 410-Stub (Version 4,
+> `ezbr_sha256` `55e089b4…`, `verify_jwt` weiterhin `true`). Der Quelltext
+> daneben in `index.ts` IST der Stub — der wortgetreue Spiegel der alten
+> Fassung steht in der Versionsgeschichte:
+> `git show 70ddf9e:supabase/functions/send-receipt/index.ts`
+> (Commit-Hash, kein Tag — dieses Repo vergibt seit v26.5 keine Tags mehr;
+> `git show v32.41:…` liefe ins Leere. Befehl geprüft.)
+>
+> Nachgemessen NACH dem Deploy, am Inhalt und nicht am Zeitstempel.
+>
+> Der Befund unten bleibt stehen — er ist die Begründung.
+
+## Der Befund (Stand 02.09.2026, v32.19)
 
 **Stand beim Prüfen:** ausgeliefert, `status: ACTIVE`, `version: 3`,
 `verify_jwt: true`, zuletzt geändert am 10.04.2026 (`created_at == updated_at`).
@@ -48,15 +63,33 @@ Wenn Quittungen später wirklich verschickt werden sollen, gehört der Auslöser
 in den **`stripe-webhook`** — dort ist die Zahlung durch Stripes Signatur
 belegt, statt vom Aufrufer behauptet.
 
-## Was hier NICHT passiert ist
+## Was am 03.09.2026 passiert ist
 
-Ich habe nichts ausgeliefert. Das Stilllegen ist ein Eingriff in die laufende
-Auslieferung; er gehört zu Fernando, so wie die offenen Migrationen
-(`STATUS.md`, 2026-08-31 y). Dieser Befund ist die Vorarbeit dazu, nicht die
-Handlung.
+Fernando hat die Stilllegung ausdrücklich beauftragt. Vor dem Deploy geprüft:
 
-## Der Spiegel
+| Prüfung | Ergebnis |
+|---|---|
+| Aufrufe in `index.html` | 0 |
+| Aufrufe in anderen Edge-Functions / Migrationen | 0 |
+| Ausgelieferte Fassung noch die des Befunds? | ja — v3, `ezbr_sha256` `54412e83…`, unverändert |
 
-`index.ts` daneben ist ein **wortgetreues Abbild der laufenden Fassung**,
-gezogen am 02.09.2026 (`ezbr_sha256` 54412e83…). Es ist keine Überarbeitung —
-wer stilllegt, ersetzt es; wer sie behalten will, sieht hier, was sie tut.
+Die letzte Prüfung war die wichtigste: hätte sich seit dem 02.09. etwas
+geändert, hätte der Deploy eine fremde Änderung überschrieben.
+
+Danach ausgeliefert (v4) und **nachgemessen** — den Quelltext wieder
+ausgelesen und bestätigt, dass dort der Stub steht. Am Inhalt, nicht am
+Zeitstempel; genau dieser Fehler ist einer früheren Sitzung schon
+unterlaufen.
+
+## Der Spiegel — jetzt der Stub
+
+`index.ts` daneben war bis v32.41 ein **wortgetreues Abbild der laufenden
+Fassung** (gezogen am 02.09.2026, `ezbr_sha256` `54412e83…`). Seit v32.42 ist
+es der 410-Stub, also wieder deckungsgleich mit dem, was läuft.
+
+Wer die alte Fassung braucht — etwa für die Mail-Vorlage, wenn Quittungen
+später über den `stripe-webhook` verschickt werden sollen:
+
+```bash
+git show 70ddf9e:supabase/functions/send-receipt/index.ts
+```

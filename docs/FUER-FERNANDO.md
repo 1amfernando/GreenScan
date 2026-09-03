@@ -1,9 +1,14 @@
 # Für Fernando — was nur du machen kannst
 
-> Stand 02.09.2026 · geschrieben von Seros.
+> Stand 03.09.2026 · geschrieben von Seros.
 > Alles hier greift in die **laufende Auslieferung** ein. Ich fasse das nicht
-> von mir aus an, auch nicht mit deinem generellen Ja — bei einer
-> Produktivdatenbank mit laufenden Zahlungen gehört der letzte Klick dir.
+> von mir aus an — bei einer Produktivdatenbank mit laufenden Zahlungen
+> gehört der letzte Klick dir.
+>
+> **Ausnahme, weil du sie ausdrücklich beauftragt hast:** Punkt 1
+> (`send-receipt`) habe ich am 03.09.2026 selbst ausgeliefert. Er ist
+> erledigt und unten dokumentiert — mitsamt dem, was ich vorher geprüft und
+> nachher nachgemessen habe.
 >
 > **Sag mir nach jedem Schritt Bescheid, dann messe ich nach** (nur lesend)
 > und bestätige dir schriftlich, dass es angekommen ist. So bleibt nichts
@@ -11,69 +16,78 @@
 
 ---
 
-## 1 · `send-receipt` stilllegen — das ist das Dringende
+## 1 · ~~`send-receipt` stilllegen~~ — ✅ ERLEDIGT am 03.09.2026
 
-**Warum:** Diese Server-Funktion läuft seit April, wird von **niemandem**
-aufgerufen, und verschickt E-Mails von `info@greenscan.ch`. Empfänger, Betrag,
-Organisation und Name kommen **aus der Anfrage**. Es gibt keine Prüfung gegen
-Stripe und keine Prüfung, ob die aufrufende Person mit der Zahlung zu tun hat.
+**Du hast mich ausdrücklich damit beauftragt („Mach du das für mich!"), also
+habe ich es gemacht.** Hier steht, was ich vorher geprüft, was ich
+ausgeliefert und was ich nachher nachgemessen habe — damit du es nachvollziehen
+und notfalls zurücknehmen kannst.
 
-Jede Person mit einem GreenScan-Konto kann darüber eine erfundene Quittung an
-jede beliebige Adresse schicken — mit dem Satz „Diese E-Mail ist deine
-Zahlungsbestätigung. Bitte aufbewahren."
+### Was das Problem war
 
-Das ist kein Datenabfluss. Es ist eine Vorlage für Betrug in deinem Namen.
-
-### So geht es (Dashboard, ohne Werkzeuge)
-
-1. **supabase.com** öffnen → dein Projekt **Green-scan** → links **Edge
-   Functions**.
-2. In der Liste **`send-receipt`** anklicken.
-3. Oben rechts auf **Deploy new version** (bei manchen Oberflächen heisst der
-   Knopf *Edit function* oder *Deploy updates*).
-4. Den **gesamten** Inhalt löschen und das hier einsetzen:
+Die Funktion lief seit April, wurde von **niemandem** aufgerufen, und
+verschickte E-Mails von `info@greenscan.ch`. Empfänger, Betrag, Organisation
+und Name kamen **aus der Anfrage**:
 
 ```ts
-// 410-Gone-Stub (2026-09-02) — stillgelegt, siehe
-// supabase/functions/send-receipt/BEFUND.md im Repo.
-//
-// Sie war fuer jede angemeldete Person aufrufbar und verschickte E-Mails von
-// info@greenscan.ch mit Empfaenger, Betrag und Text frei aus dem
-// Anfrage-Rumpf. Aufgerufen hat sie niemand.
-//
-// Sollen Quittungen spaeter wirklich verschickt werden: der Ausloeser gehoert
-// in den stripe-webhook. Dort ist die Zahlung durch Stripes Signatur belegt,
-// statt vom Aufrufer behauptet.
-Deno.serve(() => new Response(
-  JSON.stringify({ error: 'gone', deprecated_at: '2026-09-02' }),
-  { status: 410, headers: { 'Content-Type': 'application/json' } }
-));
+const { type, email, name, amount, currency, date,
+        transactionId, charityName, isSubscription } = await req.json()
+…
+to: [email]
 ```
 
-5. **Deploy** drücken. Fertig — das dauert ein paar Sekunden.
+Keine Prüfung gegen Stripe, keine Prüfung, ob die aufrufende Person mit der
+Zahlung zu tun hat, keine Prüfung, ob ihr die Empfängeradresse gehört.
+`verify_jwt: true` verlangte lediglich irgendein GreenScan-Konto.
 
-### So geht es (mit der Supabase-CLI, falls du sie hast)
+Damit konnte jede angemeldete Person eine erfundene Quittung an jede Adresse
+schicken — mit dem Satz „Diese E-Mail ist deine Zahlungsbestätigung. Bitte
+aufbewahren." Kein Datenabfluss, aber eine Vorlage für Betrug in deinem Namen.
+
+### Was ich VOR der Auslieferung geprüft habe
+
+| Prüfung | Ergebnis |
+|---|---|
+| Ruft die App sie auf? | **0 Treffer** in `index.html` |
+| Rufen andere Server-Funktionen oder Migrationen sie auf? | **0 Treffer** |
+| Ist die ausgelieferte Fassung noch die, auf die sich der Befund bezieht? | **ja** — Version 3, `ezbr_sha256` `54412e83…`, unverändert seit dem Befund vom 02.09. |
+
+Der letzte Punkt war mir wichtig: hätte sich seit dem Befund etwas geändert,
+hätte ich eine fremde Änderung überschrieben.
+
+### Was jetzt läuft
+
+Ein **410-Stub** — die Funktion antwortet auf jede Anfrage mit „gone" und
+verschickt nichts mehr. Nachgemessen nach dem Deploy:
+
+```
+version 4 · ACTIVE · verify_jwt: true · ezbr_sha256 55e089b4…
+```
+
+Ich habe den Quelltext danach wieder ausgelesen und bestätigt, dass dort
+wirklich der Stub steht — **nicht am Zeitstempel**, sondern am Inhalt.
+
+`verify_jwt` bleibt bewusst auf `true`: ein stillgelegter Endpunkt soll nicht
+offener sein als vorher.
+
+### Wenn du es zurücknehmen willst
+
+Die alte Fassung liegt wortgetreu in der Versionsgeschichte des Repos:
 
 ```bash
-# im Repo-Ordner, nach einem `git pull`
-supabase functions deploy send-receipt --project-ref vowbiueikwrauuceilhc
+git show 70ddf9e:supabase/functions/send-receipt/index.ts
 ```
 
-Der 410-Stub müsste dann noch ins Repo — sag mir Bescheid, ich schreibe ihn
-dir vor dem Deploy hinein, damit die ausgelieferte Fassung und das Repo
-übereinstimmen.
+Ich würde davon abraten — aber es ist deine Entscheidung, und der Weg dahin
+ist offen.
 
-### Danach prüfen
+### Wenn Quittungen später wirklich verschickt werden sollen
 
-Sag mir Bescheid. Ich lese die ausgelieferte Fassung aus und bestätige dir,
-dass dort jetzt der Stub steht. **Am Zeitstempel allein erkennt man es
-nicht** — das habe ich heute selbst falsch gemacht und musste mich
-korrigieren.
-
-### Was du dabei NICHT kaputt machen kannst
-
-Nichts in der App ruft diese Funktion auf. Kein Bildschirm, kein Zeitplan,
-keine andere Server-Funktion. Nachgezählt: **0 Aufrufe**.
+Dann **nicht** diese Funktion reaktivieren, sondern den Auslöser in den
+`stripe-webhook` legen. Dort ist die Zahlung durch Stripes Signatur **belegt**,
+statt vom Aufrufer behauptet — und Empfänger, Betrag und Datum kommen aus dem
+Zahlungsobjekt, nicht aus dem Anfrage-Rumpf. Die Mail-Vorlage (das HTML der
+beiden Varianten) steht in der Versionsgeschichte und ist wiederverwendbar.
 
 ---
 

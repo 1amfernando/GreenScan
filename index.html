@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.41.20260903">
+<meta name="app-version" content="32.42.20260903">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -72290,6 +72290,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.42', date: '03.09.2026',
+    headline: '\ud83d\udd12 Eine Server-Funktion stillgelegt, die erfundene Quittungen verschicken konnte',
+    summary: 'Ein Server-Baustein aus dem April lief unbenutzt weiter und verschickte Quittungs-E-Mails von info@greenscan.ch \u2014 mit Empf\u00e4nger, Betrag und Text frei aus der Anfrage. Jede angemeldete Person h\u00e4tte damit eine erfundene GreenScan-Quittung an jede Adresse schicken k\u00f6nnen. Er ist jetzt stillgelegt.',
+    user_summary: '\ud83d\udd12 Ein ungenutzter Server-Baustein, der f\u00fcr gef\u00e4lschte Quittungen missbraucht werden konnte, ist abgeschaltet.',
+    user_items: [
+      {emoji:'\ud83d\udce7', bold:'Was m\u00f6glich gewesen w\u00e4re:', text:' Die Funktion nahm Empf\u00e4nger, Betrag und Organisation ungepr\u00fcft aus der Anfrage und verschickte daraus eine gestaltete Quittung von der echten GreenScan-Adresse \u2014 mit dem Satz „Diese E-Mail ist deine Zahlungsbest\u00e4tigung. Bitte aufbewahren."'},
+      {emoji:'\u2705', bold:'Nichts in der App hat sie benutzt:', text:' Vor dem Abschalten nachgez\u00e4hlt \u2014 null Aufrufe. F\u00fcr dich \u00e4ndert sich nichts.'},
+      {emoji:'\ud83e\uddfe', bold:'Falls es sp\u00e4ter echte Quittungen gibt:', text:' Dann werden sie dort ausgel\u00f6st, wo die Zahlung durch Stripe belegt ist \u2014 nicht dort, wo sie jemand behaupten kann.'},
+    ],
+  },
+  {
     v: 'v32.41', date: '03.09.2026',
     headline: '\ud83e\uddf9 Eine Dauer-Falschmeldung im Pr\u00fcfwerk beseitigt',
     summary: 'Kein sichtbarer Unterschied in der App \u2014 aber einer im Werkzeug dahinter. Ein Pr\u00fcfstand meldete seit v31.74 vier Formularfelder als „liest niemand", die tadellos funktionieren. Solche Zeilen lernt man zu \u00fcberspringen, und dann \u00fcbersieht man daneben auch die echten.',
@@ -72938,7 +72949,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.41';
+var GS_VERSION = 'v32.42';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
