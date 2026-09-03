@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.37.20260903">
+<meta name="app-version" content="32.38.20260903">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11581,14 +11581,35 @@ function gsGetWeatherLocation() {
   // UND beide Property-Schreibweisen (lon vs lng — Inkonsistenz im Codebase)
   var city = 'Zürich', lat = 47.37, lon = 8.54;
   try {
+    // v32.38: 0) Der in den Einstellungen gewählte Wetter-Standort — siehe
+    // `loadHomeWeather`. Er hat Vorrang vor allem anderen, weil er die
+    // ausdrückliche Wahl des Nutzers ist.
+    //
+    // ACHTUNG bei Änderungen hier: diese Funktion GIBT NICHTS ZURÜCK. Sie
+    // setzt `_gsWeatherLat` / `_gsWeatherLon` / `_gsWeatherCity`, und
+    // `loadGardenWeather` liest genau die. Mein erster Anlauf hat an dieser
+    // Stelle ein Objekt zurückgegeben — damit wären die drei Variablen bei
+    // gewähltem Wetter-Standort NIE gesetzt worden und das Gartenwetter hätte
+    // die Vorgabewerte benutzt. Aufgefallen ist es nur, weil die Gegenprobe
+    // zum neuen Prüfstand abstürzte.
+    var _gewaehlt = false;
+    if (typeof gsGetLocationFor === 'function') {
+      var _w = gsGetLocationFor('weather');
+      if (_w && _w.lat != null) {
+        lat = _w.lat;
+        lon = (_w.lon != null) ? _w.lon : _w.lng;
+        if (_w.name) city = _w.name;
+        _gewaehlt = true;
+      }
+    }
     // 1) Globale userLocation (in-memory, gepflegt von saveUserLocation)
-    if (typeof userLocation !== 'undefined' && userLocation) {
+    if (!_gewaehlt && typeof userLocation !== 'undefined' && userLocation) {
       if (userLocation.lat) lat = userLocation.lat;
       if (userLocation.lon || userLocation.lng) lon = userLocation.lon || userLocation.lng;
       if (userLocation.name || userLocation.city) city = userLocation.name || userLocation.city;
     }
     // 2) localStorage „userLocation" (Schreibweise von saveUserLocation)
-    if (lat === 47.37) {
+    if (!_gewaehlt && lat === 47.37) {
       var locStr1 = localStorage.getItem('userLocation') || '';
       if (locStr1) {
         var lp1 = JSON.parse(locStr1);
@@ -11598,7 +11619,7 @@ function gsGetWeatherLocation() {
       }
     }
     // 3) localStorage „gs_user_location" (alternative Schreibweise)
-    if (lat === 47.37) {
+    if (!_gewaehlt && lat === 47.37) {
       var locStr2 = localStorage.getItem('gs_user_location') || '';
       if (locStr2) {
         var lp2 = JSON.parse(locStr2);
@@ -23214,8 +23235,24 @@ async function loadHomeWeather() {
   // Use saved location or GPS or default
   // Priority: gs_user_location (Einstellungen) > gs_home_weather_loc > GPS > Default
   let lat, lon, locName;
+  // v32.38: ZUERST den in den Einstellungen gewählten Wetter-Standort fragen.
+  // `gsGetLocationFor` gibt es seit v28.03 und funktioniert einwandfrei — es
+  // rief nur NIEMAND auf (zwei Treffer im ganzen Repo: die Definition und die
+  // Zuweisung an `window`). Die Zeile „🌦️ Wetter-Standort" speicherte also,
+  // bestätigte mit einem Haken und einem Toast, und wirkte auf nichts: der
+  // Balkon in Zürich und der Garten im Wallis zeigten dieselbe Frostwarnung.
+  //
+  // **Eine Wahl, die bestätigt und nicht umgesetzt wird, ist schlimmer als
+  // keine Wahl** — niemand meldet sie als Fehler, weil das Wetter ja
+  // plausibel aussieht.
+  try {
+    if (typeof gsGetLocationFor === 'function') {
+      const w = gsGetLocationFor('weather');
+      if (w && w.lat != null) { lat = w.lat; lon = (w.lon != null) ? w.lon : w.lng; locName = w.name; }
+    }
+  } catch(_){}
   const userLocStr = localStorage.getItem('gs_user_location');
-  if (userLocStr) {
+  if ((lat == null || lon == null) && userLocStr) {
     try { const d = JSON.parse(userLocStr); lat=d.lat; lon=d.lon; locName=d.name; } catch(e){}
   }
   // Falls nur Name aber keine Koordinaten (manuell getippt): geocode
@@ -51221,20 +51258,33 @@ const DEFAULT_PREFS = {
   darkMode:     false,
   compact:      false,
   units:        'metric',
-  lang:         'de',
-  waterNotif:   true,
-  weatherNotif: true,
-  marketNotif:  true,
-  socialNotif:  true,
-  harvestNotif: true,
   showMoon:     true,
   homeWeather:  true,
-  pestTips:     true,
-  // rearCam removed - user controls camera in device settings
-  safetyWarnings: true,
   scanHistory:  true,
   achFeed:      true,
+  // v32.38: NEUN Felder entfernt — `fontSize`, `lang`, `waterNotif`,
+  // `weatherNotif`, `marketNotif`, `socialNotif`, `harvestNotif`, `pestTips`
+  // und `safetyWarnings`. Ihre Schalter sind in v29.21 aus dem Dokument
+  // geflogen (die Kommentare dazu stehen noch bei 6302 und 6412), in v31.11
+  // auch aus der `toggleMap` — die DATENQUELLE blieb beide Male stehen.
+  // Nachgezählt: `userPrefs.<name>` hat für acht davon NULL Treffer;
+  // `fontSize` wird dreimal gelesen und ausschliesslich an `applyFontSize`
+  // gereicht, einen dokumentierten Leerlauf.
+  //
+  // Teuer war nicht der Platz, sondern die Irreführung: wer
+  // `user_preferences.prefs` in der Datenbank ansah, las `safetyWarnings:
+  // true` und `pestTips: true` und musste glauben, es gebe abschaltbare
+  // Giftwarnungen. Es gibt sie nicht — die Sicherheitshinweise sind
+  // bedingungslos, und das ist richtig so.
+  //
+  // **Wer einen Schalter entfernt, entfernt auch seinen Wert.** Sonst reist
+  // eine Behauptung weiter, für die es keinen Code mehr gibt.
 };
+
+// Dieselben neun aus den Blöcken von Bestandsgeräten räumen — sonst schleppt
+// sie `Object.assign` aus dem Speicher endlos weiter.
+var GS_PREFS_TOT = ['fontSize','lang','waterNotif','weatherNotif','marketNotif',
+                    'socialNotif','harvestNotif','pestTips','safetyWarnings'];
 
 let userPrefs = {};
 
@@ -51296,6 +51346,10 @@ function loadPrefs() {
 }
 
 function savePrefs() {
+  // v32.38: die neun toten Felder beim Schreiben abstreifen (siehe
+  // GS_PREFS_TOT). Ohne das bleiben sie auf Bestandsgeräten für immer im
+  // Block und werden bei jedem Klick in zwei Cloud-Tabellen mitgeschickt.
+  try { GS_PREFS_TOT.forEach(function(k){ delete userPrefs[k]; }); } catch(_){}
   gsStore.set('gs_prefs', JSON.stringify(userPrefs));
 }
 
@@ -51475,6 +51529,18 @@ function applyTheme(themeName, btn, save = true) {
   if (save) {
     userPrefs.theme = themeName;
     savePrefs();
+    // v32.38: `gs_theme_color` hatte ACHT Leser und keinen einzigen
+    // Schreiber. Er wird beim Konto-Löschen bewahrt (`keepKeys`), steht in
+    // `GS_KEEP_ON_LOGOUT`, reist in jedem Snapshot mit (`ui.theme_color`) und
+    // wird beim Wiederherstellen zurückgeschrieben — nur hatte er nie einen
+    // Wert. Acht Stellen Sicherungslogik für `null`, und die Farbe reiste
+    // deshalb NICHT im State-Blob mit.
+    //
+    // Zwei Wege wären möglich gewesen: alle acht entfernen oder den einen
+    // Schreiber ergänzen. Der Schreiber gewinnt — er macht die acht Stellen
+    // auf einen Schlag richtig, statt einen funktionierenden Weg abzureissen.
+    try { localStorage.setItem('gs_theme_color', themeName); } catch(_){}
+    try { if (window.gsCloudSync && typeof gsCloudSync.markDirty === 'function') gsCloudSync.markDirty('state'); } catch(_){}
   }
   applyThemeColors(themeName, document.body.classList.contains('dark'));
 }
@@ -56501,6 +56567,11 @@ function gsGetLocationFor(context){
   if (context === 'weather') {
     var mode = 'auto'; try { mode = localStorage.getItem('gs_weather_loc_mode') || 'auto'; } catch(_){}
     if (mode === 'garden') return _gardenLoc() || _loc();
+    // v32.38: Der Zweig für 'manual' ist geblieben, damit ein alter,
+    // gespeicherter Modus auf einem Bestandsgerät nichts kaputtmacht — er
+    // fällt dann auf den Profil-Standort zurück, wie er es immer getan hat.
+    // Die OPTION dazu gibt es nicht mehr (siehe `gsOpenWeatherLocPicker`):
+    // `gs_weather_loc_manual` wird nirgends geschrieben.
     if (mode === 'manual') { try { var m = JSON.parse(localStorage.getItem('gs_weather_loc_manual')||'null'); if (m && m.lat!=null) return Object.assign({source:'manual'}, m); } catch(_){} return _loc(); }
     return _loc(); // 'auto'
   }
@@ -56509,7 +56580,7 @@ function gsGetLocationFor(context){
 window.gsGetLocationFor = gsGetLocationFor;
 // Wetter-Standort-Modus setzen (Settings) + Wetter neu laden
 function gsSetWeatherLocMode(mode){
-  if (['auto','garden','manual'].indexOf(mode) < 0) mode = 'auto';
+  if (['auto','garden'].indexOf(mode) < 0) mode = 'auto';   // v32.38: 'manual' entfernt
   try { localStorage.setItem('gs_weather_loc_mode', mode); } catch(_){}
   if (typeof gsHaptic==='function') { try { gsHaptic('light'); } catch(_){} }
   var lbl = mode==='garden' ? 'Mein Garten' : (mode==='manual' ? 'Manuell' : 'Automatisch (Live)');
@@ -56530,8 +56601,14 @@ function gsOpenWeatherLocPicker(){
   var h = '<div style="font-size:var(--fs-lg);font-weight:800;margin-bottom:4px;">🌦️ Wetter-Standort</div>'
     + '<div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:14px;">Welcher Standort fürs Wetter? (Karte nutzt immer Live-GPS, Mein Garten den fixen Garten-Ort.)</div>'
     + _opt('auto','📍','Automatisch (Live)','Dein aktueller bzw. Profil-Standort')
-    + _opt('garden','🌳','Mein Garten','Der fix gespeicherte Garten-Standort')
-    + _opt('manual','✏️','Manuell','Zuletzt manuell gesetzter Ort');
+    + _opt('garden','🌳','Mein Garten','Der fix gespeicherte Garten-Standort');
+  // v32.38: „✏️ Manuell" ist raus. Es las `gs_weather_loc_manual` — einen
+  // Schlüssel, den im ganzen Repo NIEMAND schreibt. Die Option konnte also
+  // nie etwas anderes bedeuten als „Automatisch", zeigte aber einen eigenen
+  // Haken. Eine dritte Wahl, die dasselbe tut wie die erste, ist keine Wahl.
+  //
+  // Wer sie zurückwill, braucht zuerst ein Eingabefeld dafür — dann ist es
+  // ein Feature, keine Reparatur.
   if (typeof _gsNlOpen === 'function') _gsNlOpen(h);
 }
 window.gsOpenWeatherLocPicker = gsOpenWeatherLocPicker;
@@ -72011,6 +72088,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.38', date: '03.09.2026',
+    headline: '\ud83c\udf26\ufe0f Der Wetter-Standort wirkt jetzt \u2014 und neun tote Einstellungen sind weg',
+    summary: 'Letzte Welle des Einstellungs-Audits. „Wetter-Standort: Mein Garten" speicherte, best\u00e4tigte mit Haken und Meldung \u2014 und wirkte auf nichts: der Balkon in Z\u00fcrich und der Garten im Wallis zeigten dieselbe Frostwarnung. Dazu neun Einstellungen, die niemand mehr liest, und ein Schl\u00fcssel mit acht Lesern und keinem Schreiber.',
+    user_summary: '\ud83c\udf26\ufe0f W\u00e4hlst du „Mein Garten" als Wetter-Standort, bekommst du jetzt auch das Wetter von dort.',
+    user_items: [
+      {emoji:'\ud83c\udf33', bold:'Der Wetter-Standort wirkt:', text:' Die Wahl wurde gespeichert und best\u00e4tigt, aber kein Wetter-Bildschirm hat sie je gelesen. Jetzt richten sich Startseiten-Wetter, Gartenwetter und die Frostwarnung danach.'},
+      {emoji:'\u270f\ufe0f', bold:'„Manuell" ist raus:', text:' Die Option las einen gespeicherten Ort, den nichts in der App je geschrieben hat \u2014 sie konnte nie etwas anderes bedeuten als „Automatisch", zeigte aber einen eigenen Haken.'},
+      {emoji:'\ud83e\uddf9', bold:'Neun tote Einstellungen entfernt:', text:' Ihre Schalter sind vor L\u00e4ngerem verschwunden, die Werte blieben und reisten bei jedem Klick in die Cloud. Darunter „safetyWarnings" \u2014 wer die Daten ansah, musste glauben, es gebe abschaltbare Giftwarnungen. Gibt es nicht: die Sicherheitshinweise sind immer an.'},
+      {emoji:'\ud83c\udfa8', bold:'Die App-Farbe reist wieder mit:', text:' Sie wurde beim Sichern, Wiederherstellen und Konto-L\u00f6schen ber\u00fccksichtigt \u2014 nur geschrieben hat sie niemand. Acht Stellen arbeiteten mit einem leeren Wert.'},
+    ],
+  },
+  {
     v: 'v32.37', date: '03.09.2026',
     headline: '\ud83d\uddd1\ufe0f „Alle Daten l\u00f6schen" l\u00e4sst jetzt wirklich nichts liegen',
     summary: 'Der Knopf versprach „alles im Ger\u00e4t gespeicherte" und l\u00f6schte zwei Namens-Pr\u00e4fixe. Liegen blieben ausgerechnet die Karten-Fundorte mit GPS-Koordinaten und der eigene Standort \u2014 genau die Daten, wegen denen jemand so einen Knopf dr\u00fcckt. Dazu: gef\u00e4hrliche Dialoge haben nicht mehr die zerst\u00f6rende Antwort vorausgew\u00e4hlt.',
@@ -72612,7 +72701,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.37';
+var GS_VERSION = 'v32.38';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

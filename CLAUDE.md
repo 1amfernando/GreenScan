@@ -1323,6 +1323,33 @@ Zwei Messfallen aus derselben Sitzung, beide allgemein:
   localStorage-Objekt tauchen dort auf. Ueber `localStorage.length` /
   `key(i)` zaehlen.
 
+**v32.38 schloss das Audit ab** (21 Fragen, alle 24 bestaetigten Meldungen
+behoben). Drei Regeln aus der letzten Welle:
+
+> **Eine Wahl, die bestaetigt und nicht umgesetzt wird, ist schlimmer als
+> keine Wahl.** `gsGetLocationFor('weather')` gab es seit v28.03 und
+> funktionierte — es rief nur niemand auf (zwei Treffer im Repo: Definition
+> und `window`-Zuweisung). Die Zeile „Wetter-Standort" setzte einen Haken,
+> zeigte einen Toast, und alle fuenf Wetter-Verbraucher loesten den Ort selbst
+> auf. Niemand meldet so etwas, weil das Ergebnis plausibel aussieht.
+
+> **Wer einen Schalter entfernt, entfernt auch seinen Wert.** Neun Felder in
+> `DEFAULT_PREFS` ueberlebten das Entfernen ihrer Schalter (v29.21) und ihrer
+> `toggleMap`-Eintraege (v31.11). `safetyWarnings: true` stand damit in der
+> Datenbank und liess auf abschaltbare Giftwarnungen schliessen, die es nicht
+> gibt.
+
+> **Gemessen wird der VERTRAG einer Funktion, nicht das, was sie zufaellig
+> zurueckgibt.** `gsGetWeatherLocation()` gibt nichts zurueck — sie setzt
+> `_gsWeatherLat`/`_gsWeatherLon`/`_gsWeatherCity`. Mein erster Anlauf gab
+> dort ein Objekt zurueck und haette die drei Variablen nie gesetzt. Die
+> erste Fassung der Pruefstands-Frage las den Rueckgabewert und haette den
+> Umbau durchgewinkt.
+
+Dazu, aus derselben Stelle: **ein Pruefstand, der abstuerzt, hat nichts
+gemessen.** Eine Frage muss auch dann MELDEN, wenn die Funktion dahinter
+kaputt ist — sonst ist die Gegenprobe weder rot noch gruen.
+
 **Und eine Frage, die es ohne v32.34 nicht gaebe:** geht die Kamera-Anfrage
 bei AUSGESCHALTETEM Schalter unveraendert durch? Das Tor lief als
 `async function`, also mit einem `await` vor dem Durchreichen. Gemessen wird

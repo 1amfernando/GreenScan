@@ -4,13 +4,99 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.37` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.38` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-03 (ea) — v32.38: die letzten drei, und ein Fehler, den nur die Gegenprobe fand
+
+Fünfte und letzte Welle des Einstellungs-Audits. **Alle 24 bestätigten
+Meldungen sind damit behoben**, dazu zwei ohne Urteil, die beim Nachmessen
+mitbehoben wurden.
+
+#### Eine Wahl, die bestätigt und nicht umgesetzt wird
+
+`gsGetLocationFor('weather')` gibt es seit v28.03 und **funktioniert
+einwandfrei** — es rief nur niemand auf. Zwei Treffer im ganzen Repo: die
+Definition und die Zuweisung an `window`. Die Zeile „🌦️ Wetter-Standort"
+speicherte den Modus, setzte einen Haken, zeigte einen Toast — und alle fünf
+Wetter-Verbraucher lösten den Ort selbst auf. Der Balkon in Zürich und der
+Garten im Wallis zeigten dieselbe Frostwarnung.
+
+> **Eine Wahl, die bestätigt und nicht umgesetzt wird, ist schlimmer als
+> keine Wahl** — niemand meldet sie als Fehler, weil das Ergebnis ja
+> plausibel aussieht.
+
+„✏️ Manuell" ist raus: die Option las `gs_weather_loc_manual`, einen
+Schlüssel, den im ganzen Repo niemand schreibt. Sie konnte nie etwas anderes
+bedeuten als „Automatisch", zeigte aber einen eigenen Haken. Wer sie
+zurückwill, braucht zuerst ein Eingabefeld — dann ist es ein Feature, keine
+Reparatur.
+
+#### Und der Fehler, den ich dabei selbst gebaut habe
+
+`gsGetWeatherLocation()` **gibt nichts zurück**. Sie setzt `_gsWeatherLat` /
+`_gsWeatherLon` / `_gsWeatherCity`, und `loadGardenWeather` liest genau die.
+Mein erster Anlauf hat dort ein Objekt zurückgegeben — bei gewähltem
+Wetter-Standort wären die drei Variablen also **nie gesetzt** worden, und das
+Gartenwetter hätte die Vorgabewerte benutzt.
+
+Aufgefallen ist es nur, weil die **Gegenprobe abstürzte**: die Frage las den
+Rückgabewert ungeschützt. Zwei Lehren, beide allgemein:
+
+> **Gemessen wird der Vertrag einer Funktion, nicht das, was sie zufällig
+> zurückgibt.** Die erste Fassung der Frage hätte den Umbau durchgewinkt.
+
+> **Ein Prüfstand, der abstürzt, hat nichts gemessen.** Eine Frage muss auch
+> dann MELDEN, wenn die Funktion dahinter kaputt ist — sonst ist die
+> Gegenprobe weder rot noch grün.
+
+#### Neun tote Felder
+
+`DEFAULT_PREFS` trug weiter `fontSize`, `lang`, `waterNotif`, `weatherNotif`,
+`marketNotif`, `socialNotif`, `harvestNotif`, `pestTips` und
+`safetyWarnings`. Die Schalter flogen in v29.21 aus dem Dokument, in v31.11
+aus der `toggleMap` — die **Datenquelle** blieb beide Male stehen.
+Nachgezählt: `userPrefs.<name>` hat für acht davon null Treffer; `fontSize`
+wird dreimal gelesen und ausschliesslich an `applyFontSize` gereicht, einen
+dokumentierten Leerlauf.
+
+Teuer war nicht der Platz, sondern die Irreführung: wer
+`user_preferences.prefs` in der Datenbank ansah, las `safetyWarnings: true`
+und musste glauben, es gebe abschaltbare Giftwarnungen. Gibt es nicht — die
+Sicherheitshinweise sind bedingungslos, und das ist richtig so.
+
+> **Wer einen Schalter entfernt, entfernt auch seinen Wert.**
+
+`savePrefs()` streift sie beim Schreiben ab, damit sie auch von
+Bestandsgeräten verschwinden.
+
+#### Acht Leser, kein Schreiber
+
+`gs_theme_color` wird beim Konto-Löschen bewahrt, steht in
+`GS_KEEP_ON_LOGOUT`, reist in jedem Snapshot mit und wird beim
+Wiederherstellen zurückgeschrieben — nur hatte er **nie einen Wert**.
+Zwei Wege wären möglich gewesen: alle acht Stellen entfernen oder den einen
+Schreiber ergänzen. Der Schreiber gewinnt: er macht acht Stellen auf einen
+Schlag richtig, statt einen funktionierenden Weg abzureissen. Nebenbei reist
+die App-Farbe damit jetzt wirklich zwischen Geräten.
+
+#### Stand des Audits
+
+**48 Meldungen · 35 angegriffen · 24 bestätigt · 11 widerlegt · 11 ohne
+Urteil. Alle 24 bestätigten behoben**, dazu 23 und 44 aus der Gruppe ohne
+Urteil. `einstellungen_check` hat 21 Fragen, jede gegengeprüft.
+
+Die 11 ohne Urteil bleiben offen und werden **nicht** ungeprüft abgearbeitet:
+von 35 angegriffenen Meldungen sind elf an der Gegenprüfung gescheitert. Wer
+die restlichen ungeprüft anfasst, arbeitet mit einer Trefferquote von rund
+zwei Dritteln an lebendem Code.
+
+---
 
 ### 2026-09-03 (dz) — v32.37: der Löschknopf, der zwei Präfixe löschte
 
@@ -7902,7 +7988,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.37` (Client) · SW-Cache `gs-v32.37` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.38` (Client) · SW-Cache `gs-v32.38` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.
