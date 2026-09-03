@@ -4,13 +4,85 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.33` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.34` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-03 (dw) — v32.34: fünf Anläufe, und der sechste hat weniger Technik
+
+Fernando, nach v32.32: *„Bitte fixe das mit dem Scanner und der Kamera. Ich
+möchte dass die Kamera sich sonst normal und ganz öffnet wenn das weniger
+Störung verursacht. Ansonsten finde eine saubere und langanhaltende sowie
+durchdachte Lösung. Sie muss Sinn ergeben und simpel sein."*
+
+Berechtigt. An dieser einen Stelle standen innerhalb von zwei Tagen fünf
+Fassungen, und **jede hatte mehr Technik als die davor**:
+
+| | Ansatz | Ergebnis |
+|---|---|---|
+| v32.28 | `object-fit: cover` | 69 % Bildwinkel abgeschnitten |
+| v32.29 | `aspectRatio` an die Kamera | 31 % Restwinkel, auch im Foto |
+| v32.30 | `contain`, Rahmen bildschirmhoch | richtig, aber viel Schwarz |
+| v32.31 | Rahmen aufs Bildformat | Bedienelemente rutschten mit nach oben |
+| v32.32 | Bild aufs Bildformat, per JS | richtig — mit drei beweglichen Teilen |
+
+v32.32 war nicht falsch. Es hatte eine CSS-Variable (`--gs-cam-ar`), zwei
+Ereignis-Zuhörer (`loadedmetadata`, `resize`) und einen Timer, die alle
+dasselbe erreichen sollten wie:
+
+```css
+width: 100%;
+height: 100%;
+object-fit: contain;
+```
+
+Diese drei Zeilen sind jetzt alles. Kein JavaScript, keine Hilfsvariable, kein
+Timer. Das Ergebnis ist Bild für Bild identisch — nur kann nichts mehr
+veralten, zu spät kommen oder ins Leere laufen.
+
+> **Was ohne Zutun richtig ist, braucht kein Zutun.** Fünf Fassungen lang habe
+> ich Technik hinzugefügt, um ein Ergebnis zu erzwingen, das die einfachste
+> Regel von selbst liefert.
+
+#### Und der Riegel aus v32.33 hält den gewöhnlichen Weg nicht mehr auf
+
+Das Tor für „Kamera immer neu abfragen" lief als `async function` — bei
+ausgeschaltetem Schalter also mit einem `await` vor dem Durchreichen. Ein
+Mikrotask reicht in der Praxis zwar meist, aber die Nutzer-Geste ist genau
+das, wovon auf manchen Browsern abhängt, ob `getUserMedia` überhaupt
+aufgehen darf. Jetzt geht der Standardweg **synchron** durch: gleicher
+Aufruf, gleicher Aufrufstapel.
+
+> **Ein Riegel, der nur für wenige gilt, darf den Weg der vielen nicht
+> anfassen.**
+
+#### Prüfstände
+
+`kamera_check` Frage 2 mass bis hierher die CSS-Variable — die es nicht mehr
+gibt. Sie fragt jetzt das, worauf es ankommt, und **rechnet** es für drei
+Seitenverhältnisse (quer, hochkant, sehr breit):
+
+- **ganz** — nichts ragt über den Kasten hinaus (sonst beschnitten)
+- **so gross wie möglich** — mindestens eine Kante wird berührt (sonst kleiner
+  als nötig)
+
+Gemessen: Rahmen 412×859 voll genutzt · quer 412×309 · hochkant 412×549 ·
+breit 412×232. **Gegenprobe zweifach:** `cover` → alle drei Bilder ragen
+hinaus (1145×859 bei quer); Bildkasten auf 60 %×40 % → `fuellt: false`.
+
+`einstellungen_check` 4 → 5 Fragen; die neue misst, ob der echte
+`getUserMedia`-Aufruf bei ausgeschaltetem Schalter im **selben synchronen
+Block** ankommt. Dafür liegt eine Attrappe UNTER dem Tor (im
+`addInitScript`, also bevor die App ihr Tor baut) und vermerkt, ob eine vom
+Aufrufer gesetzte Marke noch steht. **Gegenprobe:** ein
+`Promise.resolve().then(…)` vor dem Durchreichen → `{"rufe":1,
+"synchron":false}`.
+
+---
 
 ### 2026-09-03 (dv) — v32.33: drei Schalter, die die Unwahrheit sagten
 
@@ -7593,7 +7665,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.33` (Client) · SW-Cache `gs-v32.33` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.34` (Client) · SW-Cache `gs-v32.34` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.

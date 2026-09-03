@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.33.20260903">
+<meta name="app-version" content="32.34.20260903">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -637,15 +637,30 @@ body.gs-scanner-active #screen-scanner::after { display: none !important; }
      eine nachgerechnete schon. */
 }
 .scan-wrap video {
+  /* ══ v32.34 · DREI ZEILEN, UND SIE REICHEN ═════════════════════════════
+     Der Sucher soll das tun, was jede Telefon-Kamera-App tut: das ganze
+     Bild zeigen, so gross wie der Bildschirm es zulaesst, mittig, mit den
+     Bedienelementen in den dunklen Streifen darueber und darunter.
+
+     Genau das ist `object-fit: contain` in einem bildschirmfuellenden
+     Kasten — mehr braucht es nicht. Vier Anlaeufe standen hier vorher:
+
+       v32.28  cover                          → 69 % Bildwinkel abgeschnitten
+       v32.29  aspectRatio an die Kamera      → 31 % Restwinkel, auch im Foto
+       v32.30  contain, Rahmen bildschirmhoch → richtig, aber viel Schwarz
+       v32.31  Rahmen aufs Bildformat         → Bedienelemente rutschten mit
+       v32.32  Bild aufs Bildformat, per JS   → richtig, aber drei bewegliche
+                                                Teile: eine CSS-Variable, zwei
+                                                Ereignis-Zuhoerer, ein Timer
+
+     Alle fuenf haben dasselbe Bild ergeben wie diese drei Zeilen — nur mit
+     mehr Teilen, die kaputtgehen koennen. Die Variable `--gs-cam-ar` konnte
+     veralten, der `resize`-Zuhoerer beim Objektivwechsel zu spaet kommen,
+     der Timer ins Leere laufen.
+
+     **Was ohne Zutun richtig ist, braucht kein Zutun.** */
   width: 100%;
-  /* v32.32: Das BILD nimmt das Format des echten Streams an und wird in den
-     Rahmen eingepasst — so gross wie möglich, ohne je beschnitten zu werden.
-     `contain` bleibt als Zusicherung für den Fall, dass die Masse noch nicht
-     bekannt sind. */
-  aspect-ratio: var(--gs-cam-ar, 4 / 3);
-  height: auto;
-  max-height: 100%;
-  margin: auto;
+  height: 100%;
   object-fit: contain;
   opacity: 0;
   transition: opacity var(--dur-slow) cubic-bezier(.22,.61,.36,1);
@@ -27916,20 +27931,10 @@ async function tryStartCamera(){
       // v23.87: Hint nur 4s — dann fadet er aus
       gsScanStatusShow('<div class="scan-status-inner"><span style="font-size:var(--fs-lg);">✓</span> <span>Bereit — Art zentrieren und <b style="color:#69f0ae;">grünen Kreis ↓</b> tippen</span></div>', 4500);
     };
-    // v32.30b: Sobald die Masse des Streams bekannt sind, bekommt der Rahmen
-    // GENAU dieses Format — dann gibt es weder Zuschnitt noch dunkle Ränder.
-    if (v) {
-      var _ar = function(){
-        try {
-          if (!v.videoWidth || !v.videoHeight) return;
-          var w = document.querySelector('.scan-wrap');
-          if (w) w.style.setProperty('--gs-cam-ar', v.videoWidth + ' / ' + v.videoHeight);
-        } catch(_){}
-      };
-      v.addEventListener('loadedmetadata', _ar);
-      v.addEventListener('resize', _ar);          // Linsenwechsel ändert die Masse
-      setTimeout(_ar, 600);
-    }
+    // v32.34: Hier standen zwei Ereignis-Zuhoerer und ein Timer, die das
+    // Seitenverhaeltnis des Streams in eine CSS-Variable schrieben. Sie sind
+    // ersatzlos weg: `object-fit: contain` macht dasselbe von selbst, in jeder
+    // Groesse, bei jedem Objektivwechsel, ohne dass etwas veralten kann.
     if (v) {
       var _done = false;
       var _once = function(){ if(_done) return; _done = true; _fadeIn(); };
@@ -56845,16 +56850,23 @@ async function _gsKamFragen(){
     if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') return;
     if (navigator.mediaDevices._gsTorGesetzt) return;
     var echt = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
-    navigator.mediaDevices.getUserMedia = async function(c){
-      if (c && c.video) {
-        var frei = await _gsKamFragen();
-        if (!frei) {
-          var e = new Error('Kamera-Zugriff abgelehnt');
-          e.name = 'NotAllowedError';
-          throw e;
-        }
-      }
-      return echt(c);
+    navigator.mediaDevices.getUserMedia = function(c){
+      // v32.34: Der GEWOEHNLICHE Weg (Schalter aus — der Standard) geht hier
+      // ohne jede Verzoegerung durch: gleicher Aufruf, gleicher Aufrufstapel.
+      // Ein `await` davor wuerde die Nutzer-Geste unterbrechen, und genau
+      // davon haengt auf manchen Browsern ab, ob die Kamera aufgehen DARF.
+      // **Ein Riegel, der nur fuer wenige gilt, darf den Weg der vielen nicht
+      // anfassen.**
+      var fragen = false;
+      try { fragen = !!(c && c.video) && typeof gsCamAlwaysAsk === 'function' && gsCamAlwaysAsk(); } catch(_){}
+      if (!fragen) return echt(c);
+      if (window._gsKamTorFrei) { window._gsKamTorFrei = false; return echt(c); }
+      return _gsKamFragen().then(function(frei){
+        if (frei) return echt(c);
+        var e = new Error('Kamera-Zugriff abgelehnt');
+        e.name = 'NotAllowedError';
+        throw e;
+      });
     };
     navigator.mediaDevices._gsTorGesetzt = true;
   } catch(_){}
@@ -71866,6 +71878,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.34', date: '03.09.2026',
+    headline: '\ud83d\udcf7 Der Sucher tut jetzt einfach das, was eine Kamera-App tut',
+    summary: 'F\u00fcnf Anl\u00e4ufe an derselben Stelle, jeder mit mehr Technik als der davor. Dieser hat weniger: drei Zeilen CSS, kein JavaScript, keine Hilfsvariable. Das Bild ist ganz zu sehen, so gross wie der Bildschirm es zul\u00e4sst, mit den Bedienelementen in den dunklen Streifen darum \u2014 wie in jeder Telefon-Kamera-App.',
+    user_summary: '\ud83d\udcf7 Die Kamera \u00f6ffnet sich normal und ganz: nichts abgeschnitten, kein toter Streifen, und der gewohnte Weg wird durch nichts mehr aufgehalten.',
+    user_items: [
+      {emoji:'\ud83d\uddbc\ufe0f', bold:'Ganz und so gross wie m\u00f6glich:', text:' Der Sucher zeigt alles, was das Objektiv sieht, in der gr\u00f6ssten Darstellung, die auf den Bildschirm passt \u2014 gemessen f\u00fcr quer, hochkant und sehr breit.'},
+      {emoji:'\ud83e\uddf9', bold:'Weniger Technik, nicht mehr:', text:' Die Vorschau kam zuletzt mit einer CSS-Variablen, zwei Ereignis-Zuh\u00f6rern und einem Timer aus dem Takt. Alles drei ist ersatzlos weg \u2014 was ohne Zutun richtig ist, braucht kein Zutun.'},
+      {emoji:'\u26a1', bold:'Nichts h\u00e4lt den Kamerastart mehr auf:', text:' Die neue Nachfrage aus v32.33 greift nur, wenn du „Kamera immer neu abfragen" eingeschaltet hast. Ist sie aus \u2014 der Standard \u2014 geht die Anfrage unver\u00e4ndert und unverz\u00f6gert durch.'},
+    ],
+  },
+  {
     v: 'v32.33', date: '03.09.2026',
     headline: '\ud83d\udd0f Drei Schalter in den Einstellungen sagten die Unwahrheit',
     summary: 'Ein Audit der Einstellungen aus sechs Blickwinkeln fand 48 Stellen; 20 haben eine gegnerische Gegenpr\u00fcfung \u00fcberstanden. Diese Auslieferung behebt die drei schwersten \u2014 alle drei geh\u00f6ren zur selben Familie: ein Schalter, der etwas behauptet, das niemand nachgesehen hat.',
@@ -72420,7 +72443,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.33';
+var GS_VERSION = 'v32.34';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

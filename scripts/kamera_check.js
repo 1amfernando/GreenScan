@@ -122,28 +122,50 @@ const melde = (frage, ok, wie) => {
     const vid = document.getElementById('video');
     aus.anzeige = vid ? getComputedStyle(vid).objectFit : '(kein Video-Element)';
 
-    // ── 1c · Nimmt der Rahmen das Format des Bildes an? ──────────────────
+    // ── 1c · Ist das Bild so gross wie möglich UND nie beschnitten? ─────
     //
-    // `contain` allein zeigt zwar alles, lässt in einem bildschirmhohen Rahmen
-    // aber grosse dunkle Ränder. Der Rahmen soll deshalb dem ECHTEN Stream
-    // folgen (`--gs-cam-ar` aus videoWidth/videoHeight). Zwei Verhältnisse
-    // messen — mit nur einem wäre ein fest verdrahteter Wert nicht von einem
-    // folgenden zu unterscheiden.
+    // Die Frage hiess bis v32.33 „nimmt der Rahmen das Format des Bildes an?"
+    // und mass eine CSS-Variable, die die App aus `videoWidth/videoHeight`
+    // schrieb. Die Variable gibt es nicht mehr: `object-fit: contain` in einem
+    // bildschirmfüllenden Kasten leistet dasselbe ohne bewegliche Teile.
+    //
+    // Gemessen wird deshalb, was WIRKLICH zählt — und zwar gerechnet, nicht
+    // aus einer Eigenschaft abgelesen: für drei Seitenverhältnisse (quer,
+    // hochkant, sehr breit) muss das dargestellte Bild
+    //   a) VOLLSTÄNDIG in den Kasten passen  (sonst ist es beschnitten)
+    //   b) mindestens eine Kante BERÜHREN    (sonst ist es kleiner als nötig)
+    // Beides zusammen ist genau „ganz und so gross wie möglich".
+    //
+    // Warum drei und nicht eines: mit einem einzigen Verhältnis wäre ein fest
+    // verdrahteter Wert nicht von einem rechnenden zu unterscheiden.
     const camSec2 = document.getElementById('cam-section');
     if (camSec2) camSec2.style.setProperty('display', 'flex', 'important');
     const wrap2 = document.querySelector('.scan-wrap');
     const vid2 = document.getElementById('video');
-    const miss = (ar) => {
-      wrap2.style.setProperty('--gs-cam-ar', ar);
-      const rv = vid2.getBoundingClientRect();
-      const rw = wrap2.getBoundingClientRect();
-      return { q: rv.height ? +(rv.width / rv.height).toFixed(3) : 0,
-               box: [Math.round(rv.width), Math.round(rv.height)],
-               passt: rv.height <= rw.height + 1 };
+    const fit = getComputedStyle(vid2).objectFit;
+    const rw2 = wrap2.getBoundingClientRect();
+    const rv2 = vid2.getBoundingClientRect();
+    const rechne = (w, h) => {
+      // Was der Browser bei diesem `object-fit` mit einem w×h-Bild macht.
+      const sx = rv2.width / w, sy = rv2.height / h;
+      const sk = (fit === 'cover') ? Math.max(sx, sy)
+               : (fit === 'contain') ? Math.min(sx, sy) : null;
+      if (sk === null) return { fit, ganz: false, gross: false };
+      const bw = w * sk, bh = h * sk;
+      return {
+        bild: [Math.round(bw), Math.round(bh)],
+        ganz:  bw <= rv2.width + 1 && bh <= rv2.height + 1,
+        gross: Math.abs(bw - rv2.width) < 1 || Math.abs(bh - rv2.height) < 1,
+      };
     };
-    aus.rahmen43 = miss('1920 / 1440');
-    aus.rahmen169 = miss('1920 / 1080');
-    wrap2.style.removeProperty('--gs-cam-ar');
+    aus.bild = {
+      kasten: [Math.round(rv2.width), Math.round(rv2.height)],
+      rahmen: [Math.round(rw2.width), Math.round(rw2.height)],
+      fuellt: Math.abs(rv2.width - rw2.width) < 1 && Math.abs(rv2.height - rw2.height) < 1,
+      quer:     rechne(4, 3),
+      hochkant: rechne(3, 4),
+      breit:    rechne(16, 9),
+    };
 
     // ── 1d · Bleibt unten eine tote Fläche? ─────────────────────────────
     //
@@ -278,12 +300,17 @@ const melde = (frage, ok, wie) => {
       : 'angefordert wird ' + JSON.stringify(M) + ' — ein vorgegebenes Seitenverhältnis ist ein '
         + 'Zuschnitt-Auftrag an den Sensor und nimmt Bildwinkel WEG (v32.29-Fehler)');
 
-  const R4 = r.rahmen43, R16 = r.rahmen169;
-  const folgt = R4 && R16 && Math.abs(R4.q - 4 / 3) < 0.02 && Math.abs(R16.q - 16 / 9) < 0.03 && R4.passt && R16.passt;
-  melde('Das Bild nimmt das Format des Streams an und passt in den Rahmen', folgt,
-    folgt ? '4:3 → ' + R4.box.join('×') + ' (' + R4.q + ') · 16:9 → ' + R16.box.join('×') + ' (' + R16.q + ')'
-      : 'gemessen 4:3 → ' + JSON.stringify(R4) + ' · 16:9 → ' + JSON.stringify(R16)
-        + ' — ein Bild, das dem Stream nicht folgt, wird entweder verzerrt oder umrandet');
+  const B = r.bild;
+  const ganzUndGross = B && B.fuellt
+    && B.quer.ganz && B.quer.gross
+    && B.hochkant.ganz && B.hochkant.gross
+    && B.breit.ganz && B.breit.gross;
+  melde('Das Bild ist ganz zu sehen und so gross wie der Bildschirm es zulässt', ganzUndGross,
+    ganzUndGross ? 'Rahmen ' + B.rahmen.join('×') + ' voll genutzt · quer ' + B.quer.bild.join('×')
+      + ' · hochkant ' + B.hochkant.bild.join('×') + ' · breit ' + B.breit.bild.join('×')
+      + ' — jedes passt ganz hinein und berührt eine Kante'
+      : JSON.stringify(B) + ' — „ganz" heisst: nichts ragt über den Kasten hinaus (sonst beschnitten). '
+        + '„So gross wie möglich" heisst: mindestens eine Kante wird berührt (sonst kleiner als nötig)');
 
   const F = r.flaeche;
   const kein_loch = F && Math.abs(F.luecke) <= 4;

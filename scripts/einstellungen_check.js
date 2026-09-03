@@ -62,6 +62,22 @@ const melde = (frage, ok, wie) => {
       window.Notification.permission = 'granted';
       window.Notification.requestPermission = () => Promise.resolve('granted');
     } catch (_) {}
+    // Eine Attrappe UNTER dem Tor: sie wird gesetzt, bevor die App ihr Tor
+    // baut, also wickelt das Tor sie ein. So lässt sich messen, ob der
+    // gewöhnliche Weg den echten Aufruf noch im SELBEN synchronen Block
+    // erreicht — davon hängt auf manchen Browsern ab, ob die Kamera aufgehen
+    // darf (die Nutzer-Geste gilt nur unmittelbar).
+    window.__gum = { rufe: 0, synchron: null };
+    try {
+      if (navigator.mediaDevices) {
+        navigator.mediaDevices.getUserMedia = function (c) {
+          window.__gum.rufe++;
+          window.__gum.synchron = (window.__gumMarke === true);
+          return Promise.resolve({ getTracks: () => [{ stop(){}, readyState: 'live' }],
+                                   getVideoTracks: () => [] });
+        };
+      }
+    } catch (_) {}
   });
   await page.goto('file://' + path.join(__dirname, '..', 'index.html'), { waitUntil: 'domcontentloaded', timeout: 90000 });
   await page.waitForTimeout(3500);
@@ -154,6 +170,21 @@ const melde = (frage, ok, wie) => {
     try { await navigator.mediaDevices.getUserMedia({ audio: true }); } catch (_) {}
     aus.kamera.tonGefragt = gefragt;
 
+    // ── 4 · Der gewöhnliche Weg bleibt unangetastet ──────────────────────
+    //
+    // Ein Riegel, der nur für wenige gilt, darf den Weg der vielen nicht
+    // anfassen. Bei ausgeschaltetem Schalter (Standard) muss der echte
+    // `getUserMedia`-Aufruf im SELBEN synchronen Block ankommen — ein `await`
+    // davor unterbricht die Nutzer-Geste, und davon hängt auf manchen
+    // Browsern ab, ob die Kamera überhaupt aufgehen darf.
+    localStorage.setItem('gs_cam_always_ask', '0');
+    window.__gum.rufe = 0; window.__gum.synchron = null;
+    window.__gumMarke = true;
+    const p = navigator.mediaDevices.getUserMedia({ video: true });
+    window.__gumMarke = false;
+    try { await p; } catch (_) {}
+    aus.kamera.durchgereicht = { rufe: window.__gum.rufe, synchron: window.__gum.synchron };
+
     // Der Schalter muss ALLE drei Kopien des Merkzettels räumen.
     localStorage.setItem('gs_cam_perm', 'granted');
     localStorage.setItem('gs_perm_camera', 'granted');
@@ -197,8 +228,15 @@ const melde = (frage, ok, wie) => {
       : JSON.stringify(K.reste) + ' — wer einen Zustand zurücksetzt, setzt alle Kopien zurück; '
         + 'sonst liest die nächste Stelle die stehengebliebene');
 
+  const D = K.durchgereicht;
+  const dOk = D && D.rufe === 1 && D.synchron === true;
+  melde('Ist der Schalter aus, geht die Kamera-Anfrage unverzögert durch', dOk,
+    dOk ? 'echter Aufruf im selben synchronen Block — die Nutzer-Geste bleibt gültig'
+      : JSON.stringify(D) + ' — ein `await` vor dem Durchreichen unterbricht die Geste; '
+        + 'ein Riegel, der nur für wenige gilt, darf den Weg der vielen nicht anfassen');
+
   console.log('  ---');
-  console.log('  Fragen geprueft: 4 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 5 · davon rot: ' + kaputt);
   console.log('  JS-Fehler: ' + (fehler.length ? fehler.slice(0, 4).join(' | ') : 'keine'));
   console.log('  Gestellte Sperren: Notification.requestPermission → granted · location.reload → gezählt ('
     + r.reloads + ')');
