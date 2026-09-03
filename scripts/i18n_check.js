@@ -80,6 +80,37 @@ function aufrufe() {
           ohneEintrag.slice(0, 8).join(', ') + (ohneEintrag.length > 8 ? ' …' : '')
         : tab.size + ' Einträge decken ' + alle.size + ' Schlüssel');
 
+  // ── 1b · Datenstrukturen mit BERECHNETEN Schlüsseln ──────────────────
+  //
+  // `_GS_TUT_STEPS` (die App-Tour) trägt seine Schlüssel als Feld `t` und
+  // baut daraus `t + '_title'` / `t + '_body'`. Eine Textsuche nach `_t('…')`
+  // sieht davon nichts — dieselbe Lücke wie bei `MENU_ITEMS` und
+  // `GS_NOTIF_ZIELE` in `wiring_check`.
+  //
+  // **Was nur als Datenstruktur existiert, entzieht sich jeder Prüfung, die
+  // bloss nach Aufrufen sucht.** Also wird sie hier ausdrücklich eingetragen.
+  // Wer eine weitere solche Liste baut, trägt sie ebenso ein.
+  const DATENLISTEN = [
+    { name: '_GS_TUT_STEPS', feld: 't', endungen: ['_title', '_body'] },
+  ];
+  const listenLuecken = [];
+  let listenSchluessel = 0;
+  for (const L of DATENLISTEN) {
+    const i2 = QUELLE.indexOf('var ' + L.name + ' = [');
+    if (i2 < 0) { listenLuecken.push(L.name + ' (Liste nicht gefunden)'); continue; }
+    const blk = QUELLE.slice(i2, QUELLE.indexOf('\n];', i2));
+    for (const m of blk.matchAll(new RegExp("\\b" + L.feld + ":\\s*'([^']+)'", 'g'))) {
+      for (const e of L.endungen) {
+        listenSchluessel++;
+        if (!tab.has(m[1] + e)) listenLuecken.push(m[1] + e);
+      }
+    }
+  }
+  melde(listenLuecken.length === 0 && listenSchluessel > 0,
+        'Auch berechnete Schlüssel aus Datenlisten haben einen Eintrag',
+        listenLuecken.length ? listenLuecken.length + ' ohne Eintrag: ' + listenLuecken.slice(0, 8).join(', ')
+        : listenSchluessel + ' Schlüssel aus ' + DATENLISTEN.length + ' Datenliste(n) geprüft');
+
   // ── 2 · Derselbe deutsche Text hier wie dort ─────────────────────────
   // Kein Fehler, der etwas kaputt macht: nachgeschlagen wird über den
   // TABELLENwert, der Rückfall am Aufrufort erscheint nur ohne Übersetzung.

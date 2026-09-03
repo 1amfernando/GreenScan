@@ -513,6 +513,7 @@ node scripts/storage_check.js    # was ueberlebt das Abmelden? (seit v32.21)
 node scripts/sync_check.js       # kommt zurueck, was hochgeladen wird? (seit v32.23)
 node scripts/versprechen_check.js # wer verspricht etwas, das niemand geprueft hat? (seit v32.28)
 node scripts/einstellungen_check.js # haelt der Schalter, was er verspricht? (seit v32.33)
+node scripts/tour_check.js       # zeigt die App-Tour auf etwas, oder erzaehlt sie nur? (seit v32.39)
 node scripts/kamera_check.js     # stimmt, was der Scanner ueber seine Kamera behauptet? (seit v32.29)
 #   save_check prueft seit v31.95 auch SERVER-Wege mit gestelltem sbFetch:
 #   meldet die Funktion Erfolg, wenn der Server NEIN sagt — oder gar nichts?
@@ -1207,6 +1208,38 @@ aus der Beschriftung, sonst eine Nummer.
 - **Eine Attrappe ist kein MediaStream.** `video.srcObject = …` wirft bei
   einem gestellten Objekt; der Linsenwechsel schlug daran fehl, nicht am
   Code. Im Pruefstand wird `srcObject` deshalb entschaerft.
+
+**`tour_check.js` (seit v32.39) fragt, ob die App-Tour auf etwas ZEIGT.**
+Anlass war Fernandos „eine bessere App Tour". Vor dem Bauen gemessen — und
+der erste Befund war der lehrreiche: Karte 2 sagte „Tippe unten auf
+‚Scanner'", und die Tab-Leiste war in genau diesem Moment **0x0 px gross**.
+Die Karte rief `switchTab('scanner')`, das setzt `body.gs-scanner-active`, und
+die Regel dazu (v23.69) blendet die Leiste aus. **Die Tour versteckte den
+Knopf, auf den sie zeigte.** Dazu: kein Zurueck, keine Tastatur, keine
+Hervorhebung, null Uebersetzungsschluessel.
+
+> **Eine Tour, die nur erzaehlt, ist ein Text. Eine Tour, die ZEIGT, ist eine
+> Tour.** Und was sie zeigt, muss sichtbar sein — sonst zeigt sie auf nichts.
+
+Seit v32.39 nennt jede Karte ein `ziel` (echter CSS-Selektor), ein Ring hebt
+es hervor, und die Karte weicht nach oben aus, wenn das Ziel unten steht.
+**Gegenprobe mit der alten Fassung: vier von sieben Fragen rot.**
+
+Drei Dinge aus dem Bau, alle allgemein:
+
+- **Der Scheinwerfer GLEITET** (CSS-Uebergang). Die erste Fassung mass 90 ms
+  nach dem Rendern und meldete drei von vier Karten als „passt nicht" — der
+  Ring sass 300 ms spaeter genau. Dieselbe Falle wie in v32.32.
+- **Eine Ueberdeckungs-Frage muss zuerst pruefen, dass es etwas zu ueberdecken
+  GIBT.** In der Gegenprobe war die Tab-Leiste 0x0, und „kein Ueberlapp mit
+  einem unsichtbaren Ziel" meldete gruen — die Frage konnte im Fehlerfall gar
+  nicht rot werden.
+- **Berechnete Schluessel entziehen sich `i18n_check`.** Die Karten bauen
+  `t + '_title'` / `t + '_body'`; eine Textsuche nach `_t('…')` sieht davon
+  nichts. `i18n_check` hat deshalb eine Frage bekommen, die DATENLISTEN
+  ausdruecklich eintraegt — dieselbe Antwort wie bei `MENU_ITEMS` und
+  `GS_NOTIF_ZIELE` in `wiring_check`. **Wer eine weitere solche Liste baut,
+  traegt sie dort ein.**
 
 **`einstellungen_check.js` (seit v32.33) faehrt die Versprechen der Schalter
 wirklich durch.** Anlass war ein Audit des Einstellungs-Bildschirms aus sechs

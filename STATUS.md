@@ -4,13 +4,75 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.38` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.39` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-03 (eb) — v32.39: die Tour zeigte auf einen Knopf, den sie selbst versteckte
+
+Fernandos nächster Punkt: „eine bessere App Tour". Vor dem Bauen gemessen —
+und die Zahlen waren eindeutiger als erwartet.
+
+Es gab eine Tour (`gsTutorial`, sechs Karten, Neustart über die
+Einstellungen). Sechs belegte Schwächen:
+
+| | |
+|---|---|
+| Karte 2 sagte „Tippe unten auf ‚Scanner'" | die Tab-Leiste war in genau diesem Moment **0×0 px** |
+| Zurück-Knopf | gab es nicht |
+| Escape / Pfeiltasten | taten nichts |
+| Hervorhebung | keine — die Tour zeigte auf **kein einziges** echtes Element |
+| Übersetzungsschlüssel | **null**, in einer App mit fünf Sprachen |
+| Tab-Wechsel | riss den Bildschirm unter der Erklärung weg |
+
+Der erste Punkt ist der lehrreiche: die Karte rief `switchTab('scanner')`, das
+setzt `body.gs-scanner-active`, und die Regel dazu (v23.69) blendet die
+Tab-Leiste aus. **Die Tour versteckte den Knopf, auf den sie zeigte.**
+
+> **Eine Tour, die nur erzählt, ist ein Text. Eine Tour, die ZEIGT, ist eine
+> Tour.** Und was sie zeigt, muss sichtbar sein — sonst zeigt sie auf nichts.
+
+#### Was jetzt gilt
+
+- **Scheinwerfer statt Tab-Wechsel.** Jede Karte nennt ein `ziel` (ein echter
+  CSS-Selektor); ein Ring mit riesigem Schatten hebt es hervor. Ist das
+  Element gerade nicht sichtbar, zeigt der Scheinwerfer **gar nichts**, statt
+  auf eine leere Stelle zu deuten.
+- **Die Karte weicht aus.** Liegt das Ziel in der unteren Bildschirmhälfte,
+  rückt die Karte nach oben — sonst deckt die Erklärung das Erklärte zu.
+  Genau dieser Fall ist der häufige: die Tab-Leiste steht unten.
+- **Zurück-Knopf** ab Karte 2, **Escape** schliesst, **←/→** blättern.
+- **Übersetzbar:** `t`-Schlüssel je Karte plus 21 Einträge in
+  `GS_I18N_JS_STRINGS`.
+
+#### 21. Prüfstand: `tour_check.js`
+
+Sieben Fragen. **Gegenprobe mit der alten Fassung: vier von sieben rot** —
+und die drei grünen sind es zu Recht (Übersetzung und `startOnce` waren schon
+in Ordnung).
+
+Drei Dinge aus dem Bau, alle allgemein:
+
+- **Der Scheinwerfer GLEITET.** Die erste Fassung mass 90 ms nach dem Rendern
+  und meldete drei von vier Karten als „passt nicht" — der Ring sass 300 ms
+  später genau. Dieselbe Falle wie in v32.32: **ein Element in Bewegung wird
+  erst nach der Bewegung vermessen.**
+- **Eine Überdeckungs-Frage muss zuerst prüfen, dass es etwas zu überdecken
+  gibt.** In der Gegenprobe war die Tab-Leiste 0×0, und „kein Überlapp mit
+  einem unsichtbaren Ziel" meldete brav grün — die Frage konnte im Fehlerfall
+  gar nicht rot werden. Sie verlangt jetzt zuerst ein Ziel mit Grösse.
+- **Berechnete Schlüssel entziehen sich `i18n_check`.** Die Karten bauen
+  `t + '_title'` / `t + '_body'`; eine Textsuche nach `_t('…')` sieht davon
+  nichts. `i18n_check` hat deshalb eine neue Frage bekommen, die
+  **Datenlisten** ausdrücklich einträgt — dieselbe Antwort wie bei
+  `MENU_ITEMS` und `GS_NOTIF_ZIELE` in `wiring_check`. Wer eine weitere solche
+  Liste baut, trägt sie dort ein.
+
+---
 
 ### 2026-09-03 (ea) — v32.38: die letzten drei, und ein Fehler, den nur die Gegenprobe fand
 
@@ -7988,11 +8050,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.38` (Client) · SW-Cache `gs-v32.38` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.39` (Client) · SW-Cache `gs-v32.39` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.
-- **Prüfstände:** **19** in `scripts/` (siehe `CLAUDE.md` §7.1). Alle grün, keine Falschmeldungen. Neu seit v32.33: `einstellungen_check.js` (hält der Schalter, was er verspricht?).
+- **Prüfstände:** **21** in `scripts/` (siehe `CLAUDE.md` §7.1). Alle grün, keine Falschmeldungen. Neu seit v32.33: `einstellungen_check.js` (hält der Schalter, was er verspricht?) und seit v32.39 `tour_check.js` (zeigt die App-Tour auf etwas?).
 - **Architektur-Detailkarte:** `BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte
