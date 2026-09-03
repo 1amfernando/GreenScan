@@ -8199,7 +8199,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | Punkt | Stand |
 |---|---|
 | **Modell-Rückfallketten in 8 Edge-Functions** | Neun Stellen nennen genau EIN Modell ohne Ausweichmöglichkeit. Vorlage liegt im Repo (`book-ingest`, `CLAUDE_MODELS`). Ob ein Name heute noch auflöst, ist von hier aus nicht prüfbar. (df) |
-| `book-ingest` ohne Spiegel | Dokumentiert statt gespiegelt (~250 dichte Zeilen). `backend_check` nennt es bei jedem Lauf. (df) |
+| `book-ingest` ohne Spiegel | Dokumentiert statt gespiegelt. **Am 03.09. nachgeprüft:** Quelltext gezogen und gelesen, ausgelieferter Stand unverändert (v9, `611bb9da…`). Bewusst NICHT abgelegt — eine Abschrift ist nur dann eine Quelle, wenn sich maschinell zeigen lässt, dass sie stimmt, und dafür gibt es von hier aus keinen Weg. Der richtige Weg ist `supabase functions download`. Die Schnittstelle steht jetzt vollständig in der `BEFUND.md`. |
 | `feedback_analysis` = 0 Zeilen | „Nie gedrückt" und „bricht immer ab" sind von hier aus nicht zu unterscheiden. Ein Knopfdruck im Admin-Panel klärt es. (df) |
 | Kaltstart 3,3 s (Einsteiger-Telefon) | Untersucht, kein lohnender Angriffspunkt für Teil-Auslagerung. Bräuchte einen echten Aufteilungsschritt. (dj) |
 | 3 Verzeichnisse im Repo ohne Auslieferung | `daily-push`, `entitlements`, `push-test` — nie deployed oder entfernt? (df) |
