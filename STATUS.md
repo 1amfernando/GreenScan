@@ -4,13 +4,86 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-02 · **Branch**: `main` · **Version**: `v32.22` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.23` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-03 (dm) — v32.23: 46 von 47 Feldern kommen zurück. Das eine war der Ausschalter.
+
+Fernandos dritter Punkt: **Vernetzung**. Die App schiebt drei Blobs in die
+Cloud (`user_plants`, `user_gardens`, `user_app_state`), gebaut aus **47**
+localStorage-Schlüsseln. Der Rückweg ist eine **andere**, von Hand gepflegte
+Liste — und ob beide deckungsgleich sind, hatte nie jemand nachgezählt.
+
+Nachgezählt: **46 von 47.** Der fehlende war `gs_reminder_prefs`.
+
+#### Warum ausgerechnet der wehtut
+
+Er steht seit v24.26 im hochgeladenen Blob, und der **Server-Cron liest ihn**
+(`reminder_prefs.disabled[plantId]`). Die Abschaltung war also serverseitig
+wirksam — aber gerätelokal bekannt. Daraus wird eine Kette, die genau falsch
+herum ausgeht:
+
+1. Handy: „Giess-Erinnerung für diese Pflanze aus." → Cloud bekommt
+   `{disabled:{p1:true}}`.
+2. Tablet: kennt den Schlüssel nicht, hat `{}`.
+3. Nächster State-Push vom Tablet: `{}` überschreibt die Cloud.
+4. Der Cron schickt die Erinnerung wieder.
+
+Der Nutzer hatte sie ausgeschaltet. Sie kam zurück, und niemand konnte ihm
+sagen warum.
+
+#### Und ein zweiter Fund an derselben Stelle
+
+Der Schutz aus v28.97 („ein leeres Cloud-**Array** darf keine gefüllte lokale
+Liste ersetzen") prüfte `Array.isArray(v) && v.length === 0`. Vier
+State-Felder sind aber **Objekte**: `ps_votes`, `gs_wissen_read`,
+`gs_dq_stats` und jetzt `gs_reminder_prefs`. Für sie galt der Schutz nie —
+derselbe Verlust, andere Klammern. Der Guard kennt jetzt beide Formen.
+
+#### Prüfstand 16: `scripts/sync_check.js`
+
+Er stellt `sbFetch`: ein Push landet in einer Attrappe der Cloud, ein Pull
+holt ihn von dort, dazwischen wird der localStorage geleert. Was danach fehlt,
+hat die Rundreise nicht überlebt.
+
+**Die Schlüsselliste liest er aus dem Quelltext** (aus den drei Blob-Bauern),
+nicht aus einer eigenen Tabelle. Wer dem Blob ein Feld hinzufügt, ist damit
+automatisch geprüft — und Frage 7 meldet ihn, solange er keinen Probewert
+hinterlegt hat. Genau das ist der Unterschied zu einer Liste, die man pflegen
+müsste und die deshalb veraltet.
+
+Sieben Fragen: gehen die drei Blobs überhaupt hinaus · kommt jedes Feld zurück
+· **Gegenprobe** (ein Feld umbenennen → muss gemeldet werden) · leerer
+Cloud-Wert löscht weder Liste noch Objekt (mit Gegenprobe: eine **gefüllte**
+Cloud MUSS überschreiben) · ein Pull markiert nichts als ungesendet · sagt der
+Server NEIN, bleibt es schmutzig (die v30.99-Klasse) · hat jeder Blob-Schlüssel
+einen Probewert.
+
+**Gegenprobe zu beiden Reparaturen gemacht:** die `gs_reminder_prefs`-Zeile
+und die Objekt-Hälfte des Guards entfernt → sofort *„kommt NICHT zurück:
+gs_reminder_prefs"* und *„das leere Cloud-OBJEKT hat den lokalen Stand
+gelöscht"*.
+
+#### Zwei Fallen beim Bau, beide allgemein
+
+- **`flushNow()` ist nicht der Weg.** Das ist der Beacon-Pfad (`sync = true`)
+  und geht mit rohem `fetch` an `sbFetch` vorbei. Der erste Lauf meldete
+  fröhlich „0 Tabellen gepusht" und hätte damit **alle 47 Felder als fehlend
+  gemeldet** — ein Prüfstand, der nichts sieht, sieht auch keinen Fehler.
+  Der echte Weg im Betrieb ist `markDirty(scope)` → `flushDebounced`.
+- **Falsche Probewerte ERFINDEN Befunde.** Mit `gs_streak = '{"n":7}'` meldete
+  der Lauf vier Fehler, die keine waren: `_gsStreakApplyCloud` macht
+  `parseInt` daraus, bekommt `NaN` und steigt aus — richtigerweise. Mit einem
+  Tag von vorgestern greift die Lückenprüfung — ebenfalls richtig. In v31.98
+  haben falsche Beispieldaten einen echten Fehler **verdeckt**; hier hätten sie
+  drei erfunden. Beide Richtungen kosten dieselbe halbe Stunde.
+
+---
 
 ### 2026-09-02 (dl) — v32.22: v31.04 war nur die halbe Reparatur
 
@@ -6806,11 +6879,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.22` (Client) · SW-Cache `gs-v32.22` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.23` (Client) · SW-Cache `gs-v32.23` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **88'431 Zeilen / 5,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.
-- **Prüfstände:** **15** in `scripts/` (siehe `CLAUDE.md` §7.1). Alle grün, keine Falschmeldungen. Neu seit v32.21: `storage_check.js` — was überlebt das Abmelden?
+- **Prüfstände:** **16** in `scripts/` (siehe `CLAUDE.md` §7.1). Alle grün, keine Falschmeldungen. Neu seit v32.21: `storage_check.js` (was überlebt das Abmelden?) und seit v32.23 `sync_check.js` (kommt zurück, was hochgeladen wird?).
 - **Architektur-Detailkarte:** `BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte
