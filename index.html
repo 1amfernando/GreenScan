@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.38.20260903">
+<meta name="app-version" content="32.39.20260903">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14048,6 +14048,28 @@ window.gsI18nCoverage = function(){ try { return window.gsI18n.coverage(); } cat
 // v25.28: ausgebaut auf ~80 Top-Keys (Toasts, Errors, Confirms, gsConfirmModal-Buttons).
 // Verwendung: gsI18n.t('key', 'Fallback-Text-DE')
 window.GS_I18N_JS_STRINGS = {
+  // ── v32.39 · Die App-Tour war deutsch ────────────────────────────────
+  // Sechs Karten, zwölf Texte, kein einziger Schluessel — in einer App mit
+  // fuenf Sprachen. Nachgeschlagen wird ueber die DEUTSCHE Phrase
+  // (`keyBundle[k] = srcMap[GS_I18N_JS_STRINGS[k]]`), die Werte hier muessen
+  // also woertlich mit dem Rueckfall an der Aufrufstelle uebereinstimmen.
+  'tour_1_title': 'Willkommen bei GreenScan',
+  'tour_1_body':  'In 30 Sekunden zeige ich dir, wie du Schweizer Pflanzen, Pilze, Bäume & Kräuter bestimmst und deinen Garten pflegst. Du kannst jederzeit überspringen.',
+  'tour_2_title': '1 · Scannen',
+  'tour_2_body':  'Dieser Knopf öffnet die Kamera. Fotografiere eine Pflanze oder einen Pilz — die KI bestimmt die Art und zeigt Giftigkeit, Pflege und Verwechsler.',
+  'tour_3_title': '2 · Meine Pflanzen',
+  'tour_3_body':  'Hier sammelst du deine Funde, führst ein Tagebuch und bekommst Giess- und Pflege-Erinnerungen.',
+  'tour_4_title': '3 · Start & Saison',
+  'tour_4_body':  'Die Startseite zeigt Wetter, Saisonkalender, Saison-Pilze deiner Region, das Tagesquiz und „Jetzt gute Zeit für…"-Tipps.',
+  'tour_5_title': '4 · Community & Lina',
+  'tour_5_body':  'Hier tauschst du dich mit Naturfreunden aus. Und Lina, deine KI-Coachin, hilft dir kostenlos bei jeder Frage — sie kennt die ganze App.',
+  'tour_6_title': 'Los geht\'s!',
+  'tour_6_body':  'Alles Weitere findest du im Menü (⋯) und in den Einstellungen. Diese Tour kannst du dort jederzeit neu starten. Viel Freude mit der Natur! 🌱',
+  'tour_zurueck': 'Zurück',
+  'tour_ueberspringen': 'Überspringen',
+  'tour_weiter':  'Weiter →',
+  'tour_los':     'Los geht\'s 🌱',
+  'tour_fortschritt': 'Schritt',
   // ── v32.17 · 45 Schluessel, die nie uebersetzt werden konnten ─────────
   //
   // Sie standen an ihren Aufrufstellen mit deutschem Rueckfalltext da, aber in
@@ -17737,13 +17759,50 @@ function gsTrialSkip() {
 // Vorher rief der First-Login-Pfad die nie definierte gsWelcomeTour (toter No-Op, HL#34).
 // Mission-konform: die Tour ist die Erstnutzer-Erfahrung (kein Upsell-Modal zuerst).
 var GS_TUTORIAL_KEY = 'gs_onboarded_v1';
+
+// ══ v32.39 · DIE TOUR ZEIGT JETZT AUF ETWAS ═══════════════════════════════
+//
+// Gemessen am Stand v32.38, und jede dieser sechs Zahlen war ein eigener
+// Fehler:
+//
+//   · Karte 2 sagte „Tippe unten auf ‚Scanner'" — und die Tab-Leiste war in
+//     genau diesem Moment **0×0**. Die Karte rief `switchTab('scanner')`,
+//     das setzt `body.gs-scanner-active`, und die Regel dazu blendet die
+//     Leiste aus. Die Tour zeigte auf einen Knopf, den sie selbst versteckt
+//     hatte.
+//   · Kein Zurück-Knopf (nur „Überspringen" und „Weiter").
+//   · Escape schloss nicht, Pfeiltasten taten nichts.
+//   · Nichts wurde hervorgehoben — die Tour zeigte auf KEIN echtes Element.
+//   · Null Übersetzungsschlüssel: in einer App mit fünf Sprachen war die
+//     Tour deutsch.
+//
+// **Eine Tour, die nur erzählt, ist ein Text. Eine Tour, die ZEIGT, ist eine
+// Tour.** Jede Karte nennt jetzt ein `ziel` — ein echtes Element, das
+// hervorgehoben wird. Der Tab-Wechsel ist weg: er hat mehr verdeckt als
+// gezeigt, und wer den Bildschirm unter der Erklärung wegzieht, erklärt
+// nichts.
+//
+// `t` ist der Übersetzungs-Schlüssel, `title`/`body` der deutsche Rückfall
+// (dieselbe Form wie überall sonst, siehe CLAUDE.md §7.1 zu `i18n_check`).
 var _GS_TUT_STEPS = [
-  {emoji:'🌿', title:'Willkommen bei GreenScan', body:'In 30 Sekunden zeige ich dir, wie du Schweizer Pflanzen, Pilze, Bäume & Kräuter bestimmst und deinen Garten pflegst. Du kannst jederzeit überspringen.'},
-  {emoji:'📷', title:'1 · Scannen', body:'Tippe unten auf „Scanner" und fotografiere eine Pflanze oder einen Pilz. Die KI bestimmt die Art und zeigt Giftigkeit, Pflege & Verwechsler.', tab:'scanner'},
-  {emoji:'🌱', title:'2 · Meine Pflanzen', body:'Im Tab „Pflanzen" sammelst du deine Funde, führst ein Tagebuch und bekommst Giess- & Pflege-Erinnerungen.', tab:'favs'},
-  {emoji:'🏠', title:'3 · Start & Saison', body:'Die Startseite zeigt Wetter, Saisonkalender, Saison-Pilze deiner Region, das Tagesquiz und „Jetzt gute Zeit für…"-Tipps.', tab:'home'},
-  {emoji:'🤝', title:'4 · Community & Lina', body:'Im Tab „Community" tauschst du dich mit Naturfreunden aus. Und Lina, deine KI-Coachin, hilft dir kostenlos bei jeder Frage — sie kennt die ganze App.', tab:'social'},
-  {emoji:'🎉', title:'Los geht\'s!', body:'Alles Weitere findest du im Menü (⋯) und in den Einstellungen. Diese Tour kannst du dort jederzeit neu starten. Viel Freude mit der Natur! 🌱'}
+  {emoji:'🌿', t:'tour_1',
+   title:'Willkommen bei GreenScan',
+   body:'In 30 Sekunden zeige ich dir, wie du Schweizer Pflanzen, Pilze, Bäume & Kräuter bestimmst und deinen Garten pflegst. Du kannst jederzeit überspringen.'},
+  {emoji:'📷', t:'tour_2', ziel:'#tab-scanner',
+   title:'1 · Scannen',
+   body:'Dieser Knopf öffnet die Kamera. Fotografiere eine Pflanze oder einen Pilz — die KI bestimmt die Art und zeigt Giftigkeit, Pflege und Verwechsler.'},
+  {emoji:'🌱', t:'tour_3', ziel:'#tab-favs',
+   title:'2 · Meine Pflanzen',
+   body:'Hier sammelst du deine Funde, führst ein Tagebuch und bekommst Giess- und Pflege-Erinnerungen.'},
+  {emoji:'🏠', t:'tour_4', ziel:'#tab-home',
+   title:'3 · Start & Saison',
+   body:'Die Startseite zeigt Wetter, Saisonkalender, Saison-Pilze deiner Region, das Tagesquiz und „Jetzt gute Zeit für…"-Tipps.'},
+  {emoji:'🤝', t:'tour_5', ziel:'#tab-social',
+   title:'4 · Community & Lina',
+   body:'Hier tauschst du dich mit Naturfreunden aus. Und Lina, deine KI-Coachin, hilft dir kostenlos bei jeder Frage — sie kennt die ganze App.'},
+  {emoji:'🎉', t:'tour_6',
+   title:'Los geht\'s!',
+   body:'Alles Weitere findest du im Menü (⋯) und in den Einstellungen. Diese Tour kannst du dort jederzeit neu starten. Viel Freude mit der Natur! 🌱'}
 ];
 window.gsTutorial = {
   start: function(){
@@ -17751,13 +17810,55 @@ window.gsTutorial = {
       var ex = document.getElementById('gs-tutorial'); if (ex) ex.remove();
       var ov = document.createElement('div');
       ov.id = 'gs-tutorial';
-      ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.62);backdrop-filter:blur(var(--blur-sm));-webkit-backdrop-filter:blur(var(--blur-sm));display:flex;align-items:flex-end;justify-content:center;';
-      ov.innerHTML = '<div id="gs-tut-card" style="background:var(--card,#fff);color:var(--text,#111);border:1px solid var(--border);border-radius:var(--r-xl) var(--r-xl) 0 0;max-width:480px;width:100%;padding:24px 22px calc(22px + env(safe-area-inset-bottom));box-shadow:var(--elev-4);"></div>';
+      // v32.39: Der dunkle Grund liegt jetzt in einem EIGENEN Element unter
+      // der Karte. Nur so lässt sich ein Loch hineinschneiden (der Scheinwerfer
+      // auf das Element, um das es gerade geht) — bei einem Grund, der auch
+      // die Karte trägt, ginge das nicht.
+      ov.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:flex-end;justify-content:center;';
+      ov.innerHTML =
+        '<div id="gs-tut-grund" style="position:absolute;inset:0;background:rgba(0,0,0,.62);backdrop-filter:blur(var(--blur-sm));-webkit-backdrop-filter:blur(var(--blur-sm));"></div>' +
+        '<div id="gs-tut-spot" style="position:absolute;display:none;border-radius:var(--r-lg);box-shadow:0 0 0 3px #a5d6a7, 0 0 0 9999px rgba(0,0,0,.62);pointer-events:none;transition:top var(--dur) ease,left var(--dur) ease,width var(--dur) ease,height var(--dur) ease;"></div>' +
+        '<div id="gs-tut-card" role="dialog" aria-modal="true" aria-labelledby="gs-tut-title" style="position:relative;background:var(--card,#fff);color:var(--text,#111);border:1px solid var(--border);border-radius:var(--r-xl) var(--r-xl) 0 0;max-width:480px;width:100%;padding:24px 22px calc(22px + env(safe-area-inset-bottom));box-shadow:var(--elev-4);"></div>';
       document.body.appendChild(ov);
       try { if (typeof gsTrapFocus==='function') gsTrapFocus(ov); } catch(_){}
+      // v32.39: Escape schliesst, Pfeiltasten blättern. Vorher tat die
+      // Tastatur GAR NICHTS — gemessen: Escape liess das Fenster offen,
+      // ArrowLeft änderte den Schritt nicht.
+      window.gsTutorial._onKey = function(e){
+        if (!document.getElementById('gs-tutorial')) return;
+        if (e.key === 'Escape')     { e.preventDefault(); window.gsTutorial._close(); }
+        else if (e.key === 'ArrowRight') { e.preventDefault(); window.gsTutorial._render((window._gsTutIdx||0) + 1); }
+        else if (e.key === 'ArrowLeft')  { e.preventDefault(); window.gsTutorial._render((window._gsTutIdx||0) - 1); }
+      };
+      document.addEventListener('keydown', window.gsTutorial._onKey, true);
       window.gsTutorial._render(0);
       try { if (typeof gsHaptic==='function') gsHaptic('tap'); } catch(_){}
     } catch(_){}
+  },
+  // v32.39: Der Scheinwerfer. Er zeigt auf ein ECHTES Element — und wenn es
+  // gerade nicht sichtbar ist (Höhe 0, ausgeblendet), zeigt er GAR NICHTS,
+  // statt auf eine Stelle zu deuten, an der nichts steht.
+  _spot: function(sel){
+    var sp = document.getElementById('gs-tut-spot');
+    var grund = document.getElementById('gs-tut-grund');
+    if (!sp) return null;
+    var el = sel ? document.querySelector(sel) : null;
+    var r = el ? el.getBoundingClientRect() : null;
+    if (!r || r.width < 4 || r.height < 4) {
+      sp.style.display = 'none';
+      if (grund) grund.style.display = '';
+      return null;
+    }
+    // Der Ring trägt den Grund selbst (riesiger Schatten) — der normale
+    // Grund muss weg, sonst liegt er doppelt und das Loch bleibt dunkel.
+    if (grund) grund.style.display = 'none';
+    var pad = 6;
+    sp.style.display = '';
+    sp.style.top    = Math.max(0, r.top - pad) + 'px';
+    sp.style.left   = Math.max(0, r.left - pad) + 'px';
+    sp.style.width  = (r.width + pad * 2) + 'px';
+    sp.style.height = (r.height + pad * 2) + 'px';
+    return r;
   },
   _render: function(i){
     try {
@@ -17768,25 +17869,47 @@ window.gsTutorial = {
       var s = steps[i];
       var esc = (typeof gsHTMLEscape==='function') ? gsHTMLEscape : function(x){ return String(x==null?'':x); };
       var card = document.getElementById('gs-tut-card'); if (!card) return;
-      if (s.tab && typeof switchTab==='function') { try { switchTab(s.tab); } catch(_){} }
+      // v32.39: KEIN `switchTab` mehr. Die alte Fassung wechselte auf den Tab,
+      // den sie gerade erklärte — beim Scanner blendet das die Tab-Leiste aus
+      // (`body.gs-scanner-active .tabs{display:none}`), und die Karte sagte
+      // „Tippe unten auf ‚Scanner'", während dieser Knopf 0×0 gross war.
+      // Gezeigt wird jetzt, nicht navigiert.
+      var _t = (window.gsI18n && gsI18n.t) ? gsI18n.t : function(k,f){ return f; };
+      var titel = s.t ? _t(s.t + '_title', s.title) : s.title;
+      var text  = s.t ? _t(s.t + '_body',  s.body)  : s.body;
+      var ziel = window.gsTutorial._spot(s.ziel);
       var dots = steps.map(function(_x,j){ return '<span style="width:7px;height:7px;border-radius:50%;background:'+(j===i?'var(--g-main,#1f6b2f)':'var(--border,#ccc)')+';display:inline-block;margin:0 3px;"></span>'; }).join('');
       var last = (i === steps.length-1);
+      var erste = (i === 0);
+      // Liegt das hervorgehobene Element in der unteren Hälfte, rückt die
+      // Karte nach OBEN — sonst deckt sie zu, worauf sie zeigt. Genau dieser
+      // Fall ist der häufige: die Tab-Leiste steht unten.
+      var ov = document.getElementById('gs-tutorial');
+      if (ov) ov.style.alignItems = (ziel && ziel.top > window.innerHeight * 0.55) ? 'flex-start' : 'flex-end';
+      if (card) card.style.borderRadius = (ziel && ziel.top > window.innerHeight * 0.55)
+        ? '0 0 var(--r-xl) var(--r-xl)' : 'var(--r-xl) var(--r-xl) 0 0';
       card.innerHTML =
-        '<div style="text-align:center;font-size:44px;margin-bottom:8px;">'+esc(s.emoji)+'</div>' +
-        '<div style="text-align:center;font-family:\'Playfair Display\',serif;font-size:var(--fs-xl);font-weight:800;margin-bottom:8px;color:var(--text);">'+esc(s.title)+'</div>' +
-        '<div style="text-align:center;font-size:var(--fs-md);line-height:1.55;color:var(--muted,#666);margin-bottom:16px;">'+esc(s.body)+'</div>' +
-        '<div style="text-align:center;margin-bottom:16px;">'+dots+'</div>' +
+        '<div style="text-align:center;font-size:44px;margin-bottom:8px;" aria-hidden="true">'+esc(s.emoji)+'</div>' +
+        '<div id="gs-tut-title" style="text-align:center;font-family:\'Playfair Display\',serif;font-size:var(--fs-xl);font-weight:800;margin-bottom:8px;color:var(--text);">'+esc(titel)+'</div>' +
+        '<div style="text-align:center;font-size:var(--fs-md);line-height:1.55;color:var(--muted,#666);margin-bottom:16px;">'+esc(text)+'</div>' +
+        '<div style="text-align:center;margin-bottom:16px;" role="status" aria-label="'+esc(_t('tour_fortschritt','Schritt') + ' ' + (i+1) + '/' + steps.length)+'">'+dots+'</div>' +
         '<div style="display:flex;gap:10px;align-items:center;">' +
-          (last ? '' : '<button onclick="window.gsTutorial._close(true)" style="flex:0 0 auto;padding:12px 14px;background:transparent;border:none;color:var(--muted,#888);font-size:var(--fs-md);font-weight:700;cursor:pointer;font-family:inherit;">Überspringen</button>') +
-          '<button onclick="window.gsTutorial._render('+(i+1)+')" style="flex:1;padding:13px;background:var(--g-main,#1f6b2f);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;">'+(last?'Los geht\'s 🌱':'Weiter →')+'</button>' +
+          // v32.39: ZURÜCK. Vorher gab es nur „Überspringen" und „Weiter" —
+          // wer eine Karte zu schnell weggetippt hatte, kam nicht mehr hin.
+          (erste ? '' : '<button onclick="window.gsTutorial._render('+(i-1)+')" aria-label="'+esc(_t('tour_zurueck','Zurück'))+'" style="flex:0 0 auto;padding:12px 14px;background:transparent;border:none;color:var(--muted,#888);font-size:var(--fs-md);font-weight:700;cursor:pointer;font-family:inherit;">← '+esc(_t('tour_zurueck','Zurück'))+'</button>') +
+          (last ? '' : '<button onclick="window.gsTutorial._close(true)" style="flex:0 0 auto;padding:12px 14px;background:transparent;border:none;color:var(--muted,#888);font-size:var(--fs-md);font-weight:700;cursor:pointer;font-family:inherit;">'+esc(_t('tour_ueberspringen','Überspringen'))+'</button>') +
+          '<button onclick="window.gsTutorial._render('+(i+1)+')" style="flex:1;padding:13px;background:var(--fill-brand,#1f6b2f);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;">'+esc(last?_t('tour_los','Los geht\'s 🌱'):_t('tour_weiter','Weiter →'))+'</button>' +
         '</div>';
     } catch(_){}
   },
   _close: function(){
     // v30.64: Focus-Trap MIT Element freigeben (vor remove) — sonst no-op (kein Fokus-Restore, WCAG 2.4.3).
+    try { if (window.gsTutorial._onKey) { document.removeEventListener('keydown', window.gsTutorial._onKey, true); window.gsTutorial._onKey = null; } } catch(_){}
     try { var ov=document.getElementById('gs-tutorial'); if (ov){ if (typeof gsReleaseFocusTrap==='function') gsReleaseFocusTrap(ov); ov.remove(); } } catch(_){}
     try { if (typeof gsStore!=='undefined' && gsStore.set) gsStore.set(GS_TUTORIAL_KEY, '1'); else localStorage.setItem(GS_TUTORIAL_KEY,'1'); } catch(_){}
-    try { if (typeof switchTab==='function') switchTab('home'); } catch(_){}
+    // v32.39: Kein Sprung auf die Startseite mehr. Die Tour wechselt keinen
+    // Tab mehr, also hat sie auch keinen zurückzugeben — wer sie aus den
+    // Einstellungen startet, will danach wieder in den Einstellungen sein.
   },
   // v30.92: Tour genau EINMAL pro Geraet. GS_TUTORIAL_KEY wurde bisher in _close
   // geschrieben, aber NIRGENDS gelesen — der Schluessel war reine Dekoration.
@@ -72088,6 +72211,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.39', date: '03.09.2026',
+    headline: '\ud83d\udc49 Die App-Tour zeigt jetzt auf das, wovon sie spricht',
+    summary: 'Die alte Tour sagte „Tippe unten auf ‚Scanner\u2018" \u2014 und hatte diesen Knopf in genau dem Moment selbst ausgeblendet: sie wechselte auf den Scanner-Bildschirm, und der versteckt die Tab-Leiste. Jetzt hebt sie das echte Bedienelement hervor, statt den Bildschirm zu wechseln. Dazu Zur\u00fcck-Knopf, Tastatur und f\u00fcnf Sprachen.',
+    user_summary: '\ud83d\udc49 Die Tour hebt jetzt hervor, wovon sie gerade spricht \u2014 mit Zur\u00fcck-Knopf, Tastaturbedienung und in allen f\u00fcnf Sprachen.',
+    user_items: [
+      {emoji:'\ud83d\udd26', bold:'Ein Scheinwerfer statt einer Behauptung:', text:' Jede Karte hebt das Bedienelement hervor, um das es geht. Die Karte weicht dabei nach oben aus, wenn das Ziel unten steht \u2014 sonst deckt die Erkl\u00e4rung das Erkl\u00e4rte zu.'},
+      {emoji:'\u21a9\ufe0f', bold:'Zur\u00fcck-Knopf:', text:' Wer eine Karte zu schnell weggetippt hatte, kam vorher nicht mehr hin \u2014 es gab nur „\u00dcberspringen" und „Weiter".'},
+      {emoji:'\u2328\ufe0f', bold:'Tastatur:', text:' Pfeil links und rechts bl\u00e4ttern, Escape schliesst. Vorher tat die Tastatur gar nichts.'},
+      {emoji:'\ud83c\udf0d', bold:'F\u00fcnf Sprachen:', text:' Die Tour war komplett deutsch \u2014 in einer App, die Franz\u00f6sisch, Italienisch, Englisch und Spanisch spricht.'},
+    ],
+  },
+  {
     v: 'v32.38', date: '03.09.2026',
     headline: '\ud83c\udf26\ufe0f Der Wetter-Standort wirkt jetzt \u2014 und neun tote Einstellungen sind weg',
     summary: 'Letzte Welle des Einstellungs-Audits. „Wetter-Standort: Mein Garten" speicherte, best\u00e4tigte mit Haken und Meldung \u2014 und wirkte auf nichts: der Balkon in Z\u00fcrich und der Garten im Wallis zeigten dieselbe Frostwarnung. Dazu neun Einstellungen, die niemand mehr liest, und ein Schl\u00fcssel mit acht Lesern und keinem Schreiber.',
@@ -72701,7 +72836,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.38';
+var GS_VERSION = 'v32.39';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
