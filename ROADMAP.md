@@ -167,6 +167,13 @@ Detaillierte Sprint-Historie: `STATUS.md` Sektion 0 (Routine-Einträge).
 
 ---
 
+### Seit dem 03.09.2026 (v32.43 – v32.46)
+
+- **Scanner-Zuordnung**: Binomen vor deutschem Namen (1'194 von 4'311 Einträgen landeten auf einer anderen Art → 0); bei Dubletten gewinnt die vorsichtigere Angabe, Unterarten und Einlese-Rümpfe entscheiden nicht mit (`scan_check` 55 Fälle).
+- **Voller Speicher**: alle 13 Rettungswege am Rückgabewert, `speicher_check` (Prüfstand 22).
+- **Kalender V1 Stufe 1** (`docs/KALENDER-V1.md`): eine Ereignis-Schicht für Aufgaben, Tagebuch, Pflanzungen; Verschieben fälscht nichts mehr; beide Tagebücher zusammen gelesen; `kalender_check` (Prüfstand 23). **Stufe 2 offen:** Aufgaben für Garten-Pflanzungen, Aussaat-/Erntefenster, Regen.
+- **Ökosystem V1** (`docs/OEKOSYSTEM-V1.md`): Entwurf + Stufe-0-Schema im Repo (nicht angewandt). **Offen:** Messwerte von Hand, Dashboard mit Verlauf, `sensor_check`.
+
 ## 🔥 P0 — Blocker
 
 > ⚠️ **Diese Sektion stand bis v31.08 auf „Keine offen" — das war seit dem

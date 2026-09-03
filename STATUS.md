@@ -4,13 +4,76 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.45` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.46` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-03 (ei) — v32.46: der Kalender — und die Beispielpflanzen, die nie eine Aufgabe hatten
+
+Fernandos nächster Auftrag: *„Meine Pflanzen verbessern … einen Kalender,
+mit dem Tagebuch verbunden, sehr intelligent verdrahtet; ‚Heute zu tun'
+muss damit verknüpft sein."* Die Untersuchung (solo — das Agenten-Kontingent
+der Umgebung war bis 20:00 UTC erschöpft) steht in `docs/KALENDER-V1.md` §1;
+die drei wichtigsten Befunde:
+
+| Befund | Beleg |
+|---|---|
+| **Garten-Pflanzungen haben keine Pflege.** `gs_plantings` trägt kein `tasks`-Feld; „Heute zu tun" kennt nur Zimmerpflanzen | `savePlanting` ~Z. 70865 |
+| **Verschieben fälschte die Geschichte.** `gsSnoozeTask` setzte `lastDone` auf ein erfundenes Datum | ~Z. 9788 |
+| **Drei Tagebücher, die nichts voneinander wissen.** Jedes Abhaken landet in `p.diary`; das Gartentagebuch las nur `gs_gartentagebuch` — der Kommentar versprach beides, der Code tat eines | `gsQuickDone` ~Z. 9737 |
+
+#### Gebaut (Stufe 1 des Entwurfs)
+
+- **`gsKalenderEreignisse(von, bis)`** — EINE Funktion für „was ist an diesem
+  Tag": Aufgaben (aus `lastDone + Intervall`, mit Verschiebung), Tagebuch
+  (beide Bücher), Pflanzungen. Gerechnet, nicht gespeichert; jedes Ereignis
+  trägt `grund`. `gsGetDueTasks` bleibt die Sonderform für heute.
+- **Kalender-Bildschirm** `gsKalenderOeffnen(tag?)`: Monatsraster mit Punkten
+  je Ereignisart, darunter der Tag mit Kästchen zum Abhaken; Tippen zeigt den
+  Grund. Drei Zugänge (Startseite, Meine Pflanzen, Menü-Suche).
+- **`gsTagebuchAlle()`** — Gartentagebuch ∪ Pflanzentagebücher, eine
+  Lesefunktion; `openGartenTagebuch` und das Startseiten-Widget lesen sie.
+  Löschen aus der gemeinsamen Sicht trifft das richtige Buch (`pd:`-Ids).
+- **`snoozedUntil`** statt gefälschtem `lastDone`; `getDaysUntilDue` hat den
+  dritten Parameter, alle elf Aufrufstellen geben ihn mit; Erledigen räumt
+  ihn ab. Migration `20260903_plant_tasks_due_snooze.sql` für den Server-Cron
+  (nicht angewandt — bis dahin kann der Push eine verschobene Aufgabe
+  anmahnen; steht in `docs/FUER-FERNANDO.md` §5).
+
+#### Und der Fund, der alles andere erst messbar machte
+
+`_seed.js` gab den drei Beispielpflanzen `lastWatered`/`waterEvery` — Felder,
+die die App nirgends liest. **Von v31.46 bis v32.45 hatten sie keine einzige
+Aufgabe.** Fällig-Liste, „Heute zu tun", Notizzettel, Glocke: in allen 22
+Prüfständen leer vermessen. Richtiger Schlüssel (die Lehre aus v31.46),
+falsche Felder. Seit v32.46: eine überfällig, eine heute, eine in Ordnung —
+`favs` misst 206 statt 120 Elemente, `home` 225 statt 195, und der erste Lauf
+meldete den Notizzettel, der 1 px über den Rand ragte (`right:0` +
+`rotate(-1.5deg)`).
+
+`kalender_check.js` (Prüfstand 23, sieben Fälle, gestellte Uhr): eine
+Antwort · Verschieben fälscht nichts · Abhaken steht im Gartentagebuch ·
+Anzeige aus dem HTML · drei Zugänge · ohne Daten ein leerer Kalender, der
+es sagt. Gegenprobe je Reparatur gemacht.
+
+Zwei Fallen beim Bau: der erste Lauf erwartete „September 2026" — `now` in
+`_seed.js` ist 2025, und die Beispieldaten sind relativ dazu gebaut (das
+Jahr ist egal, die Erwartung war der Fehler); und `MENU_ITEMS` ist ein
+Skript-Bereichs-Name ohne `window.`, wie `socialPosts` seit v32.24.
+
+Die ganze Bestandsaufnahme mit elf Befunden (5 behoben, 2 teilweise, 4
+offen) steht in `docs/MEINE-PFLANZEN-AUDIT.md` — darunter der Notizzettel,
+der bei drei fälligen Aufgaben den Pfeil der ersten Karte verdeckt, und
+`buildPlantCard`, 60 Zeilen ohne einen einzigen Aufruf.
+
+**Offen (Stufe 2, `KALENDER-V1.md` §6):** Aufgaben für Garten-Pflanzungen,
+Aussaat-/Erntefenster aus den Artendaten, Regen als Ereignis, Datumsfeld im
+Tagebuch-Formular; das dritte Tagebuch (Cloud-Formular `gsDiarySubmitEntry`
+→ `garden_diary`) in die gemeinsame Sicht.
 
 ### 2026-09-03 (eh) — v32.45: die Vorsichts-Regel, gegnerisch geprüft — und dreimal korrigiert
 
@@ -8450,7 +8513,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.45` (Client) · SW-Cache `gs-v32.45` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.46` (Client) · SW-Cache `gs-v32.46` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.
@@ -8467,12 +8530,14 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | `daily_quizzes.image_url` | Aus derselben Liste offener Migrationen. | (2026-08-31 y) |
 | `fn_is_role` / `fn_role_at_least` für `anon` sperren | Weiterhin offen (am 02.09. nachgemessen). | (de) |
 | Leaked-Password-Protection | Ein Dashboard-Klick. | (2026-08-31 y) |
+| **Migration `20260903_plant_tasks_due_snooze.sql`** | Seit v32.46 schreibt „Verschieben" `snoozedUntil` statt ein gefälschtes `lastDone`; die Server-Sicht des Push-Crons kennt das Feld erst nach der Migration — bis dahin kann ein Push eine verschobene Aufgabe anmahnen. Bringt Server und App auf dieselbe Regel (Kalendertag). | `docs/FUER-FERNANDO.md` §5 · (ei) |
+| Migration `20260903_oekosystem_v1_geraete.sql` | Ökosystem V1 Stufe 0 (Geräte, Messwerte, Regeln, Befehle, Sichten, RLS). Bewusst nicht angewandt; das Frontend dazu folgt. | `docs/OEKOSYSTEM-V1.md` §8 · (eh) |
 
 ### Braucht eine Entscheidung oder eine Quelle
 
 | Punkt | Was fehlt |
 |---|---|
-| **Arten-Daten vervollständigen** | 78 % der 4'342 Arten haben keine verwertbare Farb- oder Höhenangabe (`color` 967, `alt` 967). Damit bleiben die Prüfregeln S6/S7 und die Offline-Eingrenzung bei den meisten Arten still. **Botanik wird hier nicht aus dem Gedächtnis geschrieben** — es braucht eine Quelle. |
+| **Arten-Daten vervollständigen** | 78 % der 4'342 Arten haben keine verwertbare Farb- oder Höhenangabe. Drei Wege abgegangen (`docs/ARTEN-DATEN.md`): keine Quelle von hier aus; vier Nebentabellen in der Datenbank (114 Arten, zwei Tabellen nur live); **167 Dubletten-Gruppen mit widersprüchlicher Giftstufe** in `docs/arten-widersprueche.csv` — brauchen eine Flora, keinen Code. Seit v32.43 gewinnt bei Widerspruch die vorsichtigere Angabe (v32.45 korrigiert: Unterarten, Platzhalter). |
 | Feinere Experten-Level | Braucht eine DB-Spalte; die Migration würde ins Repo geschrieben und NICHT angewandt. |
 | Stripe-Webhook End-to-End | `stripe_webhook_events` = 0 Zeilen. Owner-Aktion. |
 

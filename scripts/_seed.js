@@ -28,12 +28,35 @@ module.exports = () => { try {
   // Die Pruefstaende haben deshalb seit v31.30 IMMER eine leere Pflanzenliste
   // vermessen: Leerzustand statt Karten, kein Pflegeplan, keine Aufgaben.
   // Aufgefallen erst, als ein Versuch myPlants[0] lesen wollte und undefined bekam.
+  // v32.46: `lastWatered`/`waterEvery` liest die App NIRGENDS — sie rechnet
+  // Aufgaben aus `p.tasks[key] = {active, intervalDays, lastDone}` (TASK_DEFS,
+  // getDaysUntilDue). Bis v32.45 hatten die drei Pflanzen deshalb KEINE
+  // Aufgaben: „Heute zu tun" auf der Startseite, die Fällig-Liste, der
+  // Notizzettel und der Glocken-Zähler waren in allen Prüfständen leer —
+  // dieselbe Falle wie v31.46 (falscher Schlüssel), nur eine Ebene tiefer
+  // (richtiger Schlüssel, falsche Felder). Jetzt: eine überfällige, eine
+  // heute fällige, eine in Ordnung — damit jeder Zustand einmal vorkommt.
+  var iso = function (ms) { return new Date(ms).toISOString(); };
   set('ps_myplants', [
-    { id:'p1', name:'Basilikum', species:'Ocimum basilicum', emoji:'🌿', added:now-20*D, lastWatered:now-4*D, waterEvery:3, location:'Küchenfenster' },
-    { id:'p2', name:'Monstera',  species:'Monstera deliciosa', emoji:'🪴', added:now-90*D, lastWatered:now-1*D, waterEvery:7, location:'Wohnzimmer' },
-    { id:'p3', name:'Tomate',    species:'Solanum lycopersicum', emoji:'🍅', added:now-45*D, lastWatered:now-2*D, waterEvery:2, location:'Balkon' }
+    { id:'p1', name:'Basilikum', species:'Ocimum basilicum', emoji:'🌿', added:now-20*D, location:'Küchenfenster', nick:'Küchenfenster',
+      tasks:{ water:{active:true,intervalDays:3,lastDone:iso(now-4*D)}, fertilize:{active:true,intervalDays:30,lastDone:iso(now-10*D)}, check:{active:true,intervalDays:14,lastDone:iso(now-3*D)} },
+      diary:[{ ts:iso(now-4*D), action:'water', title:'💧 Giessen (Quick)', source:'quick_done' }] },
+    { id:'p2', name:'Monstera',  species:'Monstera deliciosa', emoji:'🪴', added:now-90*D, location:'Wohnzimmer', nick:'Wohnzimmer',
+      tasks:{ water:{active:true,intervalDays:7,lastDone:iso(now-1*D)}, fertilize:{active:true,intervalDays:30,lastDone:iso(now-5*D)}, dust:{active:true,intervalDays:30,lastDone:iso(now-12*D)} } },
+    { id:'p3', name:'Tomate',    species:'Solanum lycopersicum', emoji:'🍅', added:now-45*D, location:'Balkon', nick:'Balkon', outdoor:true,
+      tasks:{ water:{active:true,intervalDays:2,lastDone:iso(now-2*D)}, fertilize:{active:true,intervalDays:14,lastDone:iso(now-14*D)}, check:{active:true,intervalDays:7,lastDone:iso(now-2*D)} } }
   ]);
-  set('gs_gardens', [{ id:'g1', name:'Balkon Süd', size_m2:6, type:'balkon', created:now-60*D }]);
+  // v32.47: die App liest `kind` (gsGartenArt, editGarden) — `type` las nie jemand.
+  set('gs_gardens', [{ id:'g1', name:'Balkon Süd', size_m2:6, kind:'balkon', type:'balkon', created:now-60*D }]);
+  // v32.46: eine Garten-Pflanzung und zwei Tagebuch-Eintraege — der Kalender
+  // (KALENDER-V1.md) liest beides; ohne sie wuerde er leer vermessen.
+  set('gs_plantings', [
+    { id:'plant_seed_1', gardenId:'g1', name:'Zucchini', variety:'Black Beauty', date:new Date(now-30*D).toISOString().slice(0,10), count:2, notes:'', added:iso(now-30*D) }
+  ]);
+  set('gs_gartentagebuch', [
+    { id:now-1*D, ts:iso(now-1*D), text:'Tomate hat die erste rote Frucht', emoji:'🍅', cat:'harvest', plant:'Tomate', date:new Date(now-1*D).toLocaleDateString('de-CH') },
+    { id:now-6*D, ts:iso(now-6*D), text:'Balkon aufgeräumt, Töpfe umgestellt', emoji:'📝', cat:'note', plant:'', date:new Date(now-6*D).toLocaleDateString('de-CH') }
+  ]);
   set('gs_scan_history', [
     { id:'s1', name:'Löwenzahn', latin:'Taraxacum officinale', ts:now-2*D, confidence:0.94, kind:'plant' },
     { id:'s2', name:'Steinpilz', latin:'Boletus edulis',       ts:now-9*D, confidence:0.88, kind:'fungus' }

@@ -252,6 +252,18 @@ Sag mir, welcher Weg dir passt, und ich baue ihn.
 
 ---
 
+## 5 · Migration `20260903_plant_tasks_due_snooze.sql` — die Server-Regel für Aufgaben
+
+Seit v32.46 fälscht „Verschieben" kein `lastDone` mehr, sondern schreibt
+`snoozedUntil`. Die App rechnet damit; die Sicht `v_plant_tasks_due`, aus
+der der tägliche Push-Cron liest, kennt das Feld noch nicht. **Bis du die
+Migration einspielst, kann der Push eine verschobene Aufgabe anmahnen, die
+in der App „in 2 Tagen" steht.** Die Migration bringt ausserdem beide
+Seiten auf dieselbe Regel (Kalendertag statt Sekunde, Europe/Zurich).
+
+Idempotent, nur eine Sicht (`CREATE OR REPLACE VIEW`), keine Daten. Sag
+Bescheid, dann messe ich nach.
+
 ## Und wenn etwas schiefgeht
 
 Nichts hier ist unumkehrbar ausser dem Löschen von Daten — und nichts hier
