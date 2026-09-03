@@ -119,6 +119,11 @@ const FAELLE = [
       if (!cv) return { ok: false, warum: 'kein Verlaufs-Diagramm (canvas.gs-mw-verlauf)' };
       if (cv.width < 100 || cv.height < 40) return { ok: false, warum: 'Diagramm ' + cv.width + '×' + cv.height };
       if (!cv.getAttribute('aria-label') && !cv.getAttribute('role')) return { ok: false, warum: 'das Diagramm hat keinen Namen für Screenreader' };
+      // Der unplausible 250er darf die Achse nicht auf 270 ziehen — er wird am
+      // Rand gezeigt, die Skala folgt den plausiblen Werten (und der Schwelle).
+      const vmax = Number(cv.dataset.vmax);
+      if (!isFinite(vmax)) return { ok: false, warum: 'das Diagramm nennt seine Skala nicht (data-vmax)' };
+      if (vmax > 100) return { ok: false, warum: 'die Achse reicht bis ' + vmax + ' — ein unplausibler Wert (250) bestimmt die Skala und quetscht die Linie' };
       if (!/verletzt|unter 40/i.test(t)) return { ok: false, warum: 'die verletzte Regel steht nicht im Dashboard' };
       if (!/nicht prüfbar/i.test(t)) return { ok: false, warum: 'die nicht prüfbare Regel wird nicht als solche genannt' };
       if (/undefined|NaN|\[object Object\]/.test(t)) return { ok: false, warum: 'Platzhalter im Text' };

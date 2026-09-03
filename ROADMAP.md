@@ -172,7 +172,7 @@ Detaillierte Sprint-Historie: `STATUS.md` Sektion 0 (Routine-Einträge).
 - **Scanner-Zuordnung**: Binomen vor deutschem Namen (1'194 von 4'311 Einträgen landeten auf einer anderen Art → 0); bei Dubletten gewinnt die vorsichtigere Angabe, Unterarten und Einlese-Rümpfe entscheiden nicht mit (`scan_check` 55 Fälle).
 - **Voller Speicher**: alle 13 Rettungswege am Rückgabewert, `speicher_check` (Prüfstand 22).
 - **Kalender V1 Stufe 1** (`docs/KALENDER-V1.md`): eine Ereignis-Schicht für Aufgaben, Tagebuch, Pflanzungen; Verschieben fälscht nichts mehr; beide Tagebücher zusammen gelesen; `kalender_check` (Prüfstand 23). **Stufe 2 offen:** Aufgaben für Garten-Pflanzungen, Aussaat-/Erntefenster, Regen.
-- **Ökosystem V1** (`docs/OEKOSYSTEM-V1.md`): Entwurf + Stufe-0-Schema im Repo (nicht angewandt). **Offen:** Messwerte von Hand, Dashboard mit Verlauf, `sensor_check`.
+- **Ökosystem V1 Stufe 0** (`docs/OEKOSYSTEM-V1.md`): Schema im Repo (nicht angewandt), Messwerte von Hand, Dashboard mit Verlauf und Regeln, Kalender-Anschluss, `sensor_check` (Prüfstand 24, test-first). **Stufe 1 offen:** `device-ingest`, Token-Pairing, Cron, Push — braucht ein Gerät.
 
 ## 🔥 P0 — Blocker
 
