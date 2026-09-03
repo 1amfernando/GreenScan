@@ -30,6 +30,22 @@ Gespenster:
 Ein Treffer ist also ein VERDACHT, kein Urteil. Jede Zeile einzeln
 nachsehen. Beim ersten gezielten Durchgang (v31.74) blieb von 303 Feldern
 genau einer uebrig, der wirklich nichts tat: „Angemeldet bleiben".
+
+DREI KLASSEN seit v32.41 (vorher zwei):
+
+  !!  nirgends gelesen, kein eigenes on*, kein zusammengesetzter Name
+      -> das ist der Verdacht
+  .   zusammengesetzt nachgeschlagen (`getElementById('tp-' + k)`)
+      -> KEIN Fehler; die vier `tp-`-Felder standen seit v31.74 als
+         Dauer-Falschmeldung im Bericht
+  (still) normal gelesen
+
+DER PREIS, ehrlich benannt: ein Feld, das mit einem erkannten Praefix
+ANFAENGT, aber trotzdem tot ist, landet in der mittleren Klasse statt in der
+oberen. Genau deshalb verschwindet diese Klasse nicht aus dem Bericht - sie
+wird nur nicht mehr mitgezaehlt. Gegenprobe gemacht: ein totes Feld mit
+eigenem Namen wird weiter rot gemeldet, ein totes `tp-gegenprobe` landet
+sichtbar in der mittleren Klasse.
 """
 
 import io, re
@@ -57,15 +73,49 @@ def wo(pos):
         else: break
     return letzter
 
+# -- v32.41 - Zusammengesetzte Namen erkennen, statt sie zu melden --------
+#
+# `getElementById('tp-' + k)` enthaelt die id `tp-len` nirgends als
+# Zeichenkette. Vier solche Felder standen seit v31.74 als Treffer im Bericht
+# und funktionieren tadellos - eine DAUERHAFTE Falschmeldung.
+#
+# Das ist nicht bloss Kosmetik. Genau so wird ein Bericht unlesbar: nicht
+# durch eine falsche Zahl, sondern durch eine, die man zu ignorieren gelernt
+# hat (dieselbe Lehre wie bei `render_check` in v32.21, wo vier
+# Emoji-Wasserzeichen jahrelang als "abgeschnittener Inhalt" gemeldet wurden).
+#
+# Erkannt wird deshalb die BAUFORM: ein Nachschlagen, dessen Argument mit
+# einer Zeichenkette beginnt und dann verkettet wird. Die so gefundenen
+# Praefixe bekommen eine EIGENE Klasse - sie verschwinden nicht, sie werden
+# nur nicht mehr als Fehler gezaehlt.
+#
+# **Was man nicht beweisen kann, sagt man gesondert, statt es unter die
+# Fehler zu mischen.**
+VERKETTUNG = r"(?:getElementById|querySelector|querySelectorAll)\(\s*['\"]#?([A-Za-z0-9_-]{2,})['\"]\s*\+"
+praefixe = set(m.group(1) for m in re.finditer(VERKETTUNG, src))
+
 verdaechtig = []
+zusammengesetzt = []
 for fid, f in felder.items():
-    # Jedes Vorkommen der id im Quelltext zaehlen …
+    # Jedes Vorkommen der id im Quelltext zaehlen ...
     treffer = [m.start() for m in re.finditer(re.escape(fid), src)]
-    # … ausser denen INNERHALB der eigenen Definition
+    # ... ausser denen INNERHALB der eigenen Definition
     aussen = [t for t in treffer if not (f['pos'] <= t <= f['ende'])]
-    if not aussen and not f['eigen']:
-        verdaechtig.append((fid, wo(f['pos']), f['tag'] + (':' + f['typ'] if f['typ'] else ''), f['ph']))
+    if aussen or f['eigen']:
+        continue
+    passend = sorted([p for p in praefixe if fid.startswith(p) and len(fid) > len(p)],
+                     key=len, reverse=True)
+    zeile = (fid, wo(f['pos']), f['tag'] + (':' + f['typ'] if f['typ'] else ''), f['ph'])
+    if passend:
+        zusammengesetzt.append(zeile + (passend[0],))
+    else:
+        verdaechtig.append(zeile)
 
 print('Formularfelder gesamt :', len(felder))
 print('Kommen NIRGENDS sonst vor (weder gelesen noch eigenes on*):', len(verdaechtig))
 for z in sorted(verdaechtig): print('   !! %-26s %-26s %-15s %s' % z)
+print('Zusammengesetzt nachgeschlagen (kein Fehler):', len(zusammengesetzt))
+for z in sorted(zusammengesetzt):
+    print("   .  %-26s %-26s %-15s ueber '%s' + ..." % (z[0], z[1], z[2], z[4]))
+print('Erkannte Verkettungs-Praefixe:', len(praefixe),
+      ('(' + ', '.join(sorted(praefixe)[:8]) + ('...' if len(praefixe) > 8 else '') + ')') if praefixe else '')
