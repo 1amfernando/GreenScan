@@ -33,22 +33,22 @@ sie sind ein Anhaltspunkt, kein Fundort. Der zitierte Code stimmt.
 | 4 | ❌ | mittel | Der Push-Master zeigt "Status: aktiv" bei blockierten Benachrichtigungen — zwei Zeilen unter der Zeile, die ko |
 | 5 | ❌ | mittel | Push-Kategorien: lokal abgewaehlt, auf dem Server unveraendert an — und die Anzeige spiegelt fuer immer nur de |
 | 6 | ❌ | niedrig | gsUnsubscribeWebPush meldet "Push-Notifications deaktiviert", auch wenn der Server das Loeschen ablehnt. |
-| 7 | ⚪ | niedrig | loadHomeWeather schreibt den Berechtigungs-Cache unter einen Schluessel, den keine Lesestelle kennt. |
-| 8 | ⚪ | niedrig | "Standort immer neu abfragen" akzeptiert weiterhin eine bis zu 60 Minuten alte Position und gilt nur fuer eine |
+| 7 | ✅ | niedrig | loadHomeWeather schreibt den Berechtigungs-Cache unter einen Schluessel, den keine Lesestelle kennt. |
+| 8 | ✅ | niedrig | "Standort immer neu abfragen" akzeptiert weiterhin eine bis zu 60 Minuten alte Position und gilt nur fuer eine |
 | 9 | ✅ | hoch | Die Zeile „🌦️ Wetter-Standort" speichert, bestätigt per Toast und wirkt auf nichts — ihr einziger Leser wird  |
 | 10 | ✅ | mittel | Neun Schlüssel in DEFAULT_PREFS werden bei jedem Speichern mitgeschrieben und in die Cloud gepusht — gelesen w |
 | 11 | ❌ | mittel | Der ganze Analytics-/Consent-Apparat ist tot, und der eine Riegel darin steht auf „an": er prüft ein Feld, das |
 | 12 | ✅ | mittel | `gs_theme_color` wird an acht Stellen gepflegt, gesichert, wiederhergestellt und beim Konto-Löschen geschützt  |
 | 13 | ❌ | niedrig | Zwei Einträge in `GS_KEEP_ON_LOGOUT` zeigen ins Leere: ein Schlüssel, den es nicht gibt, und ein „Schalter" oh |
 | 14 | ❌ | niedrig | Die Artenzahl wird an zwei Elemente geschrieben, die es nicht gibt — und der Kommentar daneben führt beide als |
-| 15 | ⚪ | niedrig | Der orange Farbpunkt in „App-Farbe" zeigt eine Farbe, die das Thema seit v31.32 nicht mehr benutzt. |
+| 15 | ✅ | niedrig | Der orange Farbpunkt in „App-Farbe" zeigt eine Farbe, die das Thema seit v31.32 nicht mehr benutzt. |
 | 16 | ✅ | hoch | gsPrefsPull ERSETZT den kompletten gs_prefs-Blob durch die Serverzeile, statt zu mergen — jede Einstellung, di |
 | 17 | ✅ | hoch | Kompakt- und Senioren-Modus loesen ueberhaupt keinen Push aus — sie stehen in keinem der beiden Sync-Wege |
 | 18 | ✅ | hoch | Was der Pull zurueckholt, WIRKT nicht — gsPrefsPull schreibt nur Speicher und Variable, ruft aber keine apply* |
 | 19 | ❌ | mittel | Der Rueckweg des Nachtmodus ist einseitig: „dunkel an" reist, „dunkel aus" nicht |
 | 20 | ✅ | mittel | Nachtmodus und Sprache planen beim Umschalten keinen Push — der Auto-Track ueber STATE_KEYS ist tot, und an di |
 | 21 | ❌ | mittel | gs_dark, gs_theme_color und gs_lang sind im Code ausdruecklich als GERAETE-Eigenschaft deklariert und werden t |
-| 22 | ⚪ | mittel | Der Schalter „Standort immer neu bestaetigen" leert den Standort des KONTOS, nicht nur den des Geraets |
+| 22 | ✅ | mittel | Der Schalter „Standort immer neu bestaetigen" leert den Standort des KONTOS, nicht nur den des Geraets |
 | 23 | ✅ | niedrig | Die prefs-Verschachtelung waechst mit jeder Rundreise um eine Ebene — gsPrefsPull entfernt das jsonb-Unterobje |
 | 24 | ✅ | hoch | Inhalt einer Karte, der nicht in einer `.settings-row` steht, wird von der Suche NIE ausgeblendet — er bleibt  |
 | 25 | ✅ | hoch | 18 Bedienelemente im Smart-Push-Panel liegen ausserhalb jeder `.settings-row` und sind damit ueberhaupt nicht  |
@@ -61,9 +61,9 @@ sie sind ein Anhaltspunkt, kein Fundort. Der zitierte Code stimmt.
 | 32 | ✅ | hoch | Im Admin-Panel sperrt und beschenkt ein einziges onchange am Auswahlfeld — „🚫 Gesperrt" und „♾️ Lifetime" ohn |
 | 33 | ✅ | mittel | gsConfirmModal setzt den Fokus auf den Zerstör-Knopf, und Enter bestätigt — bei jedem einzelnen kind:'danger'- |
 | 34 | ❌ | mittel | gsAdminAssignRole meldet „✅ Rolle zugewiesen" allein aufgrund von !r.error — obwohl sbFetch nicht wirft und di |
-| 35 | ⚪ | mittel | „Konto löschen" verspricht „Alle Scans & Bilder" — räumt aber nur den localStorage; die IndexedDB-Warteschlang |
-| 36 | ⚪ | mittel | gsSnapshotCreate macht aus einer leeren Serverantwort ausdrücklich einen Erfolg (return r.data \|\| true) — de |
-| 37 | ⚪ | mittel | gsAdminSaveSbKey biegt die Datenverbindung der ganzen Installation um — ohne Rückfrage, ohne Testaufruf, mit e |
+| 35 | ✅ | mittel | „Konto löschen" verspricht „Alle Scans & Bilder" — räumt aber nur den localStorage; die IndexedDB-Warteschlang |
+| 36 | ✅ | mittel | gsSnapshotCreate macht aus einer leeren Serverantwort ausdrücklich einen Erfolg (return r.data \|\| true) — de |
+| 37 | ✅ | mittel | gsAdminSaveSbKey biegt die Datenverbindung der ganzen Installation um — ohne Rückfrage, ohne Testaufruf, mit e |
 | 38 | ✅ | hoch | 22 von 77 Bedienelementen auf #screen-settings haben keinen zugänglichen Namen — darunter ALLE 11 Kippschalter |
 | 39 | ✅ | hoch | Die sechs Farbfelder sagen zusätzlich nicht, WELCHES gewählt ist — der aktive Ton ist nur an einem Rahmen erke |
 | 40 | ✅ | mittel | Die als „sticky" gebaute Einstellungs-Suche klebt nirgends — sie scrollt nach 139 px aus dem Bild und ist auf  |
@@ -71,9 +71,9 @@ sie sind ein Anhaltspunkt, kein Fundort. Der zitierte Code stimmt.
 | 42 | ✅ | mittel | Bei 320 px Breite ragt die Versionsnummer 13 px über den Bildrand und wird von overflow-x:hidden abgeschnitten |
 | 43 | ✅ | mittel | Knopf „🔔 Aktiv": weisse Schrift auf --g-main — im Dunkelmodus 2,36:1 statt der geforderten 4,5:1 |
 | 44 | ✅ | mittel | --accent ist in der ganzen Datei nie definiert; „12 h" fällt deshalb immer auf das feste #2e7d32 zurück und st |
-| 45 | ⚪ | mittel | Die E-Mail-Adresse im Impressum löst beim Antippen ZWEI Dinge gleichzeitig aus und ist nur 103,6×14 px gross |
-| 46 | ⚪ | niedrig | Der Regler „Wetter-Vorlauf" ist 342×16 px — 16 px hoch statt der geforderten 24 |
-| 47 | ⚪ | niedrig | Die Versionszeile im Kopfbereich steht im Hellmodus bei 3,19:1 — Deckkraft auf TEXT senkt den Kontrast blind |
+| 45 | ✅ | mittel | Die E-Mail-Adresse im Impressum löst beim Antippen ZWEI Dinge gleichzeitig aus und ist nur 103,6×14 px gross |
+| 46 | ✅ | niedrig | Der Regler „Wetter-Vorlauf" ist 342×16 px — 16 px hoch statt der geforderten 24 |
+| 47 | ✅ | niedrig | Die Versionszeile im Kopfbereich steht im Hellmodus bei 3,19:1 — Deckkraft auf TEXT senkt den Kontrast blind |
 | 48 | ⚪ | niedrig | Drei Flächen im Einstellungs-Bildschirm kippen nicht mit dem Thema und leuchten im Dunkelmodus als helle Blöck |
 
 ## Berechtigungen (Push · GPS · Kamera)
@@ -300,7 +300,7 @@ Die Zeile traegt gps_lat/gps_lng des Nutzers (81295/81296, aus gs_user_location)
 
 </details>
 
-### ⚪ [7] loadHomeWeather schreibt den Berechtigungs-Cache unter einen Schluessel, den keine Lesestelle kennt.
+### ✅ [7] loadHomeWeather schreibt den Berechtigungs-Cache unter einen Schluessel, den keine Lesestelle kennt.
 
 - **Schwere:** niedrig  ·  **Zeile (v32.31):** 23129
 - **Folge:** Der Startseiten-Wetterblock holt bei 23116 selbst eine Position — mit Erfolg. Danach weiss die App davon nichts: weder gs_gps_perm noch gs_perm_location aendern sich, der Standort-Schalter bleibt auf "⚪ GPS noch nicht eingerichtet". Ein toter Schreibvorgang, der so aussieht, als wuerde er den Cache pflegen.
@@ -319,7 +319,7 @@ Saemtliche Treffer fuer 'gs_perm_geolocation' im Repo: dieser Schreibvorgang (23
 
 </details>
 
-### ⚪ [8] "Standort immer neu abfragen" akzeptiert weiterhin eine bis zu 60 Minuten alte Position und gilt nur fuer einen von vier GPS-Wegen.
+### ✅ [8] "Standort immer neu abfragen" akzeptiert weiterhin eine bis zu 60 Minuten alte Position und gilt nur fuer einen von vier GPS-Wegen.
 
 - **Schwere:** niedrig  ·  **Zeile (v32.31):** 56594
 - **Folge:** Der Untertitel sagt "Statt zu merken — jede Anfrage bestätigen" (6146). Tatsaechlich darf der Browser eine Stunde alte Koordinaten zurueckgeben, und drei der vier Standort-Abfragen der App sehen den Schalter gar nicht erst an. Wer ihn einschaltet, bekommt weder eine neue Messung noch eine Nachfrage.
@@ -574,7 +574,7 @@ Der Kommentar unmittelbar darüber, 51511–51515, begründet mit genau dieser L
 
 </details>
 
-### ⚪ [15] Der orange Farbpunkt in „App-Farbe" zeigt eine Farbe, die das Thema seit v31.32 nicht mehr benutzt.
+### ✅ [15] Der orange Farbpunkt in „App-Farbe" zeigt eine Farbe, die das Thema seit v31.32 nicht mehr benutzt.
 
 - **Schwere:** niedrig  ·  **Zeile (v32.31):** 6210
 - **Folge:** Der Punkt zeigt weiterhin das alte, wegen zu geringem Kontrast verworfene Orange. Wer ihn antippt, bekommt ein sichtbar dunkleres Rotbraun — der einzige der sechs Punkte, der eine andere Farbe verspricht als er einstellt. Und er ist zugleich der Rest der Aufräumarbeit von v31.32: die Farbe wurde an einer Stelle korrigiert und an der anderen vergessen.
@@ -893,7 +893,7 @@ Das Schiedsverfahren ist reines Zuletzt-gewinnt (_shouldOverwriteLocal, 78571ff:
 
 </details>
 
-### ⚪ [22] Der Schalter „Standort immer neu bestaetigen" leert den Standort des KONTOS, nicht nur den des Geraets
+### ✅ [22] Der Schalter „Standort immer neu bestaetigen" leert den Standort des KONTOS, nicht nur den des Geraets
 
 - **Schwere:** mittel  ·  **Zeile (v32.31):** 56681
 - **Folge:** Ein Schalter, der eine Berechtigungs-Nachfrage pro Geraet regelt, loescht den fuer das ganze Konto gespeicherten Standort. Bestehende Geraete merken nichts (der Pull ueberspringt leere Werte, 78760), ein frisch installiertes Geraet startet aber ohne Standort — und daran haengen Wetter, Saison und Regional-Pilze.
@@ -1431,7 +1431,7 @@ async function gsAdminAssignRole(userId, role, note) {
 
 </details>
 
-### ⚪ [35] „Konto löschen" verspricht „Alle Scans & Bilder" — räumt aber nur den localStorage; die IndexedDB-Warteschlange mit den base64-Fotos bleibt auf dem Gerät
+### ✅ [35] „Konto löschen" verspricht „Alle Scans & Bilder" — räumt aber nur den localStorage; die IndexedDB-Warteschlange mit den base64-Fotos bleibt auf dem Gerät
 
 - **Schwere:** mittel  ·  **Zeile (v32.31):** 77603
 - **Folge:** Nach der Konto-Löschung ist niemand mehr angemeldet — also läuft der 90-Tage-Deckel nie an, und die noch nicht hochgeladenen Fotos sowie das Archiv gekürzter Einträge bleiben unbegrenzt im Gerät. Bei einer Aktion, die ausdrücklich mit „unwiderruflich" und revDSG wirbt, ist das genau der Rest, den niemand vermutet — und der Nutzer hat keinen Weg mehr, ihn zu erreichen, weil das Konto weg ist.
@@ -1461,7 +1461,7 @@ async function gsAdminAssignRole(userId, role, note) {
 
 </details>
 
-### ⚪ [36] gsSnapshotCreate macht aus einer leeren Serverantwort ausdrücklich einen Erfolg (return r.data || true) — der Backup-Knopf meldet danach „✅ Backup in der Cloud gesichert"
+### ✅ [36] gsSnapshotCreate macht aus einer leeren Serverantwort ausdrücklich einen Erfolg (return r.data || true) — der Backup-Knopf meldet danach „✅ Backup in der Cloud gesichert"
 
 - **Schwere:** mittel  ·  **Zeile (v32.31):** 79739
 - **Folge:** Liefert die RPC nichts zurück (abgewiesene Zeile, Funktion ohne Rückgabe), bekommt der Nutzer „✅ Backup in der Cloud gesichert", gs_snapshot_last wird auf jetzt gesetzt und die Sync-Zeile zeigt „Backup vor 0 Min". Er verlässt sich auf ein Backup, das es nicht gibt — und weil das ein Sicherheitsnetz ist, merkt er es erst in dem Moment, in dem er es braucht.
@@ -1485,7 +1485,7 @@ async function gsAdminAssignRole(userId, role, note) {
 
 </details>
 
-### ⚪ [37] gsAdminSaveSbKey biegt die Datenverbindung der ganzen Installation um — ohne Rückfrage, ohne Testaufruf, mit einer URL-Prüfung, die nur „https://" verlangt
+### ✅ [37] gsAdminSaveSbKey biegt die Datenverbindung der ganzen Installation um — ohne Rückfrage, ohne Testaufruf, mit einer URL-Prüfung, die nur „https://" verlangt
 
 - **Schwere:** mittel  ·  **Zeile (v32.31):** 71354
 - **Folge:** Ein Tippfehler in der URL oder ein Key aus dem falschen Projekt wird angenommen, sofort scharf geschaltet („✅ … gespeichert und aktiviert!") und ohne einen einzigen Probeaufruf bestätigt. Ab da geht jeder sbFetch ins Leere: kein Login mehr, kein Sync, keine Cloud-Daten — und der Weg zurück (gsAdminResetSbKey, 71675) liegt hinter einem Admin-Panel, das man ohne Anmeldung nicht mehr öffnen kann. Die Begründung, mit der v31.50 die eine Hälfte dieser Oberfläche entfernt hat, gilt für die verbliebene Hälfte unverändert.
@@ -1896,7 +1896,7 @@ Der Knopf „📨 Test-Push senden" bleibt mit 5,13:1 in beiden Modi bestanden �
 
 </details>
 
-### ⚪ [45] Die E-Mail-Adresse im Impressum löst beim Antippen ZWEI Dinge gleichzeitig aus und ist nur 103,6×14 px gross
+### ✅ [45] Die E-Mail-Adresse im Impressum löst beim Antippen ZWEI Dinge gleichzeitig aus und ist nur 103,6×14 px gross
 
 - **Schwere:** mittel  ·  **Zeile (v32.31):** 6638
 - **Folge:** Wer die Adresse antippt, um sie zu kopieren oder eine Mail zu schreiben, bekommt zusätzlich das Impressum-Fenster über den gerade startenden Mail-Entwurf gelegt. Und bei 14 px Höhe trifft man sie ohnehin selten beim ersten Versuch.
@@ -1921,7 +1921,7 @@ NICHT gemeldet, weil nachgemessen und in Ordnung: die neun Push-Kategorie-Kästc
 
 </details>
 
-### ⚪ [46] Der Regler „Wetter-Vorlauf" ist 342×16 px — 16 px hoch statt der geforderten 24
+### ✅ [46] Der Regler „Wetter-Vorlauf" ist 342×16 px — 16 px hoch statt der geforderten 24
 
 - **Schwere:** niedrig  ·  **Zeile (v32.31):** 6285
 - **Folge:** Auf dem Telefon muss man ein 16 px hohes Band treffen, um die Vorwarnzeit für Frost und Sturm einzustellen. Daneben getippt heisst: nichts passiert, oder der Wert springt.
@@ -1942,7 +1942,7 @@ Zum Vergleich derselbe Bildschirm, gleiche Messung: #push-quiet-start 79×33, #s
 
 </details>
 
-### ⚪ [47] Die Versionszeile im Kopfbereich steht im Hellmodus bei 3,19:1 — Deckkraft auf TEXT senkt den Kontrast blind
+### ✅ [47] Die Versionszeile im Kopfbereich steht im Hellmodus bei 3,19:1 — Deckkraft auf TEXT senkt den Kontrast blind
 
 - **Schwere:** niedrig  ·  **Zeile (v32.31):** 6045
 - **Folge:** Die Versionsnummer ist auf dem grünen Kopfbereich schwer zu lesen — genau die Angabe, die man im Support-Fall abliest.
@@ -1999,14 +1999,28 @@ Der Text im Banner selbst ist mit 9,80:1 (#4a148c auf ≈rgb(237,231,245)) NICHT
 ## Stand
 
 **Alle 24 bestätigten Meldungen sind behoben** (v32.33 · v32.35 · v32.36 ·
-v32.37 · v32.38), dazu zwei ohne Urteil, die beim Nachmessen mitbehoben
-wurden (23 und 44). Jede Reparatur hat eine Frage in
-`scripts/einstellungen_check.js` (21 Fragen), und jede Frage eine Gegenprobe,
-die den Fall wirklich herstellt.
+v32.37 · v32.38).
 
-## Was als Nächstes
+Die 13 ohne gegnerische Prüfung sind in **v32.40 selbst nachgemessen**
+worden: **zehn haben sich bestätigt und sind behoben** (7, 8, 15, 22, 35,
+36, 37, 45, 46, 47), zwei waren beim Nachmessen schon mitbehoben (23, 44),
+und eine liess sich **nicht nachstellen**: Befund 48 („drei Flächen kippen
+nicht mit dem Thema") — gesucht wurden helle, fest verdrahtete Hintergründe
+im Einstellungs-Bildschirm, gefunden wurden null. Sie bleibt als ⚪ stehen,
+weil „nicht nachstellbar" nicht „widerlegt" heisst: es kann an meiner
+Messung liegen.
 
-Die 11 ohne Urteil (⚪) brauchen zuerst eine eigene Messung. **Ein Treffer
-ist ein Verdacht, kein Urteil** — von 35 angegriffenen Meldungen sind elf
-genau daran gescheitert. Sie hier ungeprüft abzuarbeiten hiesse, mit einer
-Trefferquote von rund zwei Dritteln an lebendem Code zu arbeiten.
+Jede Reparatur hat eine Frage in `scripts/einstellungen_check.js`
+(29 Fragen), und jede Frage eine Gegenprobe, die den Fall wirklich
+herstellt.
+
+## Was das Audit gekostet und gebracht hat
+
+48 Meldungen · 35 gegnerisch geprüft · 24 bestätigt · 11 widerlegt ·
+13 selbst nachgemessen (10 bestätigt, 1 nicht nachstellbar, 2 schon behoben).
+
+**Von 48 Meldungen waren 34 echt** — gut zwei Drittel. Die elf
+Widerlegungen sind der Grund, warum der gegnerische Durchgang existiert:
+zweimal stimmte die Beobachtung und die Folgerung nicht, einmal war die
+Voraussetzung ein Zustand, den kein Browser herstellt. **Ein Treffer ist
+ein Verdacht, kein Urteil.**

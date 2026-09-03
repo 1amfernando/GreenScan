@@ -4,13 +4,91 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.39` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.40` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-03 (ec) — v32.40: die elf ungeprüften Meldungen nachgemessen
+
+Aus dem Einstellungs-Audit blieben elf Meldungen ohne gegnerische Prüfung
+liegen. Sie ungeprüft abzuarbeiten wäre falsch gewesen — von 35 geprüften
+sind elf durchgefallen. Also selbst nachgemessen, eine nach der anderen.
+
+**Zehn haben sich bestätigt und sind behoben. Eine liess sich nicht
+nachstellen.**
+
+| # | Befund | Nachgemessen |
+|---|---|---|
+| 7 | Berechtigungs-Cache unter unbekanntem Namen | `setItem('gs_perm_geolocation')`, gelesen wird `gs_perm_location` — bestätigt |
+| 8 | „Standort immer neu abfragen" nimmt alte Position | an EINER von vier Stellen gelesen, dort `maximumAge: 3600000` — bestätigt |
+| 15 | Farbpunkt zeigt eine andere Farbe | Punkt `#e65100`, Thema `#bf360c` — bestätigt |
+| 22 | Schalter löscht den Standort des Kontos | `removeItem('gs_user_location')`, und der steht im State-Blob — bestätigt |
+| 35 | Konto löschen lässt die Fotos liegen | `localStorage.clear()`, IndexedDB unberührt — bestätigt |
+| 36 | Leere Serverantwort = Erfolg | `return r.data || true` — bestätigt |
+| 37 | Datenverbindung ohne Rückfrage umbiegbar | keine Rückfrage, kein Testaufruf, URL-Prüfung nur `https://` — bestätigt |
+| 45 | Mail-Adresse löst zwei Dinge aus | Zeile hat `onclick="openLegalModal(…)"`, 104×14 px — bestätigt |
+| 46 | Regler 16 px hoch | gemessen 342×16 — bestätigt |
+| 47 | Deckkraft auf der Versionszeile | `opacity:.6` auf Text — bestätigt |
+| 48 | Drei Flächen kippen nicht mit dem Thema | **nicht nachstellbar**: null helle, fest verdrahtete Hintergründe gefunden |
+
+Befund 48 bleibt als ⚪ stehen. **„Nicht nachstellbar" heisst nicht
+„widerlegt"** — es kann an meiner Messung liegen (ich habe nach inline
+gesetzten hellen Hintergründen gesucht; der Beleg nennt eine Fläche, die über
+ein Merkmal kommt).
+
+#### Die zwei, die mehr sind als Kleinkram
+
+**[22] + [8] zusammen** ergeben denselben Fehler wie beim Kamera-Schalter in
+v32.33: ein Schalter, der regelt, WIE OFT gefragt wird, löschte stattdessen,
+WAS eingetragen war — und weil `gs_user_location` im State-Blob steht, reiste
+die Löschung in die Cloud und auf jedes andere Gerät. Gleichzeitig fragte er
+nicht wirklich neu: der Browser durfte eine bis zu einer Stunde alte Position
+liefern. Beides behoben, und `gsGpsMaxAge()` sitzt jetzt an **allen vier**
+GPS-Stellen statt an einer.
+
+**[36]** ist die dritte Stelle dieser Sitzung mit demselben Muster:
+`return r.data || true` machte aus einer leeren Antwort ausdrücklich einen
+Erfolg. PostgREST liefert bei einer von RLS abgewiesenen Zeile null Datensätze
+ohne Fehler — der Backup-Knopf meldete danach „✅ Backup in der Cloud
+gesichert".
+
+#### Prüfstand: 21 → 29 Fragen
+
+Alle acht neuen gegengeprüft, jede mit dem gemeldeten Symptom.
+
+**Vier Messfallen beim Bau, und alle vier haben zuerst FALSCH gemeldet:**
+
+- **Eine Frage, die nach einer Löschung misst, misst die Löschung.** Frage 11
+  fährt `clearAllData()`; die Fragen danach massen „Regler 0 px" und „Backup
+  liefert immer null" — beides Folgen des leeren Speichers.
+- **Wer einen Zustand braucht, stellt ihn HER — er schaltet ihn nicht um.**
+  `gsSettingsToggleAll()` kippt; nach den vorherigen Fragen war der Zustand
+  unbekannt und die Elemente blieben in `display:none`. Jetzt werden die
+  Klassen direkt entfernt.
+- **Eine Attrappe, die mehr ersetzt als nötig, misst die Attrappe.** Mein
+  `gsStore.get`-Stub gab für alles ausser der uid den Vorgabewert zurück —
+  damit sah `gsSnapshotBuildState()` keine Pflanzen, und `gsSnapshotCreate`
+  stieg in allen drei Fällen vor dem Server aus.
+- **`--g-main` kippt im Dunkelmodus.** Die Farbprobe wurde gegen `#ff7043`
+  (die dunkle Variante) verglichen, weil eine frühere Frage `applyDarkMode(true)`
+  gefahren hatte.
+
+Und eine Zähl-Falle: die statische Frage nach `gs_perm_geolocation` zählte
+zuerst **jede** Erwähnung mit — auch den eigenen Kommentar und die
+Aufräumliste, in der der alte Name berechtigterweise stehen bleibt (auf
+Bestandsgeräten liegt er noch). Gezählt wird jetzt der SCHREIBER.
+
+#### Stand des Audits — abgeschlossen
+
+**48 Meldungen · 35 gegnerisch geprüft · 24 bestätigt · 11 widerlegt · 13
+selbst nachgemessen.** Von 48 waren **34 echt**, gut zwei Drittel — und genau
+deshalb gibt es den gegnerischen Durchgang.
+
+---
 
 ### 2026-09-03 (eb) — v32.39: die Tour zeigte auf einen Knopf, den sie selbst versteckte
 
@@ -8050,7 +8128,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.39` (Client) · SW-Cache `gs-v32.39` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.40` (Client) · SW-Cache `gs-v32.40` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.

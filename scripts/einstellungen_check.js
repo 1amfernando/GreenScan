@@ -101,7 +101,17 @@ const melde = (frage, ok, wie) => {
       window.sbFetch = async () => antwort;
       window.sbIsLoggedIn = () => true;
       window.gsStore = window.gsStore || {};
-      window.gsStore.get = (k, d) => (k === 'gs_sb_uid' ? 'u-test' : d);
+      // Der Stub darf nur die uid erfinden und muss sonst DURCHREICHEN. Die
+    // erste Fassung gab für alles andere den Vorgabewert zurück — damit sah
+    // `gsSnapshotBuildState()` keine Pflanzen mehr, `_gsSnapshotHasContent`
+    // war false, und `gsSnapshotCreate` stieg in ALLEN drei Fällen vor dem
+    // Server aus. Die Frage konnte nicht mehr unterscheiden und meldete rot
+    // für eine Reparatur, die richtig war.
+    // **Eine Attrappe, die mehr ersetzt als nötig, misst die Attrappe.**
+    window.gsStore.get = (k, d) => {
+      if (k === 'gs_sb_uid') return 'u-test';
+      try { var v = localStorage.getItem(k); return v === null ? d : v; } catch (_) { return d; }
+    };
       return await gsRegisterPushSubscription({
         toJSON: () => ({ endpoint: 'https://push.example/abc', keys: { p256dh: 'p', auth: 'a' } })
       });
@@ -426,6 +436,116 @@ const melde = (frage, ok, wie) => {
       themeInPrefs: (function(){ try { return JSON.parse(localStorage.getItem('gs_prefs')||'{}').theme; } catch(_){ return null; } })(),
     };
 
+    // ── 16 · Die elf Meldungen ohne Gegenprüfung, selbst nachgemessen ───
+    //
+    // Sieben davon haben sich bestätigt. Jede bekommt hier ihre Frage, damit
+    // sie nicht zurückkommt.
+    aus.rest = {};
+    // Den Zustand WIEDERHERSTELLEN. Frage 11 hat `clearAllData()` gefahren —
+    // der Speicher ist leer, die Einstellungs-Gruppen sind wieder zu, und die
+    // Elemente unten haben deshalb Höhe 0. Der erste Lauf meldete prompt
+    // „Regler 0 px" und „Backup liefert immer null": beides Folgen des
+    // gelöschten Zustands, keine echten Befunde.
+    // **Eine Frage, die nach einer Löschung misst, misst die Löschung.**
+    localStorage.setItem('ps_myplants', JSON.stringify([{ id: 'p1', name: 'Basilikum' }]));
+    localStorage.setItem('gs_sb_token', 'pruefstand');
+    // `gsSnapshotBuildState` liest die App-Variablen, nicht nur den Speicher.
+    // `myPlants` ist ein `var` im Skript-Bereich und steht NICHT auf `window`
+    // (dieselbe Falle wie `socialPosts` in v32.24) — ohne `window.` zuweisen.
+    try { myPlants = [{ id: 'p1', name: 'Basilikum' }]; } catch (_) {}
+    try { if (typeof switchTab === 'function') switchTab('settings'); } catch (_) {}
+    // Nicht UMSCHALTEN, sondern AUFKLAPPEN. `gsSettingsToggleAll` kippt den
+    // Zustand — nach den vorherigen Fragen war er unbekannt, und die Elemente
+    // blieben in `gs-acc-hide` (display:none) hängen. Der Lauf meldete dann
+    // „Regler 0 px" bei aktivem, 795 px hohem Bildschirm: nicht zu klein,
+    // sondern unsichtbar.
+    // **Wer einen Zustand braucht, stellt ihn HER — er schaltet ihn nicht um.**
+    document.querySelectorAll('#screen-settings .gs-acc-hide').forEach(e => e.classList.remove('gs-acc-hide'));
+    document.querySelectorAll('#screen-settings .gs-grp-nomatch').forEach(e => e.classList.remove('gs-grp-nomatch'));
+    const panel2 = document.getElementById('push-detail-settings');
+    if (panel2) panel2.style.display = '';
+    await new Promise(w => setTimeout(w, 250));
+
+    // [22] Der Schalter darf den Profil-Standort nicht löschen.
+    localStorage.setItem('gs_user_location', JSON.stringify({lat:47.3769, lon:8.5417, name:'Zürich'}));
+    localStorage.setItem('gs_user_location_ts', String(Date.now()));
+    gsGpsAlwaysAskToggle(true);
+    aus.rest.standort = {
+      ortDa: !!localStorage.getItem('gs_user_location'),
+      stempelWeg: !localStorage.getItem('gs_user_location_ts'),
+    };
+
+    // [8] „immer neu abfragen" darf keine alte Position akzeptieren.
+    aus.rest.maxAge = { an: gsGpsMaxAge(3600000) };
+    localStorage.setItem('gs_gps_always_ask', '0');
+    aus.rest.maxAge.aus = gsGpsMaxAge(3600000);
+    localStorage.setItem('gs_gps_always_ask', '1');
+
+    // [15] Die Farbprobe muss die Farbe zeigen, die sie einstellt.
+    aus.rest.farbe = (function () {
+      var sw = document.getElementById('swatch-orange');
+      var probe = sw ? getComputedStyle(sw).backgroundColor : null;
+      // Was das Thema wirklich benutzt:
+      // `THEMES` ist ein `const` im Skript-Bereich und steht NICHT auf
+      // `window` — dieselbe Falle wie bei `socialPosts` (v32.24). Der Wert
+      // kommt deshalb über die Wirkung: Thema setzen, Merkmal auslesen.
+      // Im DUNKELmodus liefert `--g-main` die dunkle Variante (#ff7043) — eine
+      // frühere Frage hat `applyDarkMode(true)` gefahren. Gemessen wird der
+      // helle Grundwert, den die Farbprobe zeigt.
+      applyDarkMode(false, false);
+      applyTheme('orange', null, false);
+      var thema = getComputedStyle(document.documentElement).getPropertyValue('--g-main').trim();
+      applyTheme('green', null, false);
+      return { probe: probe, thema: thema };
+    })();
+
+    // [36] Ein leeres Server-Ergebnis ist kein Backup.
+    window.sbIsLoggedIn = () => true;
+    // Der Stub darf nur die uid erfinden und muss sonst DURCHREICHEN. Die
+    // erste Fassung gab für alles andere den Vorgabewert zurück — damit sah
+    // `gsSnapshotBuildState()` keine Pflanzen mehr, `_gsSnapshotHasContent`
+    // war false, und `gsSnapshotCreate` stieg in ALLEN drei Fällen vor dem
+    // Server aus. Die Frage konnte nicht mehr unterscheiden und meldete rot
+    // für eine Reparatur, die richtig war.
+    // **Eine Attrappe, die mehr ersetzt als nötig, misst die Attrappe.**
+    window.gsStore.get = (k, d) => {
+      if (k === 'gs_sb_uid') return 'u-test';
+      try { var v = localStorage.getItem(k); return v === null ? d : v; } catch (_) { return d; }
+    };
+    const snap = async (antwort) => { window.sbFetch = async () => antwort; 
+      try { return await gsSnapshotCreate('test'); } catch (e) { return 'FEHLER'; } };
+    aus.rest.backup = {
+      // Ohne Inhalt steigt `gsSnapshotCreate` schon vor dem Server aus
+      // (`_gsSnapshotHasContent`) — dann liefert JEDER Fall `null` und die
+      // Frage kann nicht mehr unterscheiden. Deshalb erst nachsehen.
+      inhalt: (function(){ try { return _gsSnapshotHasContent(gsSnapshotBuildState()); } catch(e){ return 'FEHLER: ' + e.message; } })(),
+      leer: await snap({ data: [], error: null }),
+      abgelehnt: await snap({ data: null, error: { message: 'RLS' } }),
+      ok: await snap({ data: [{ id: 's1' }], error: null }),
+    };
+
+    // [46] Der Regler muss 24 px hoch sein (WCAG 2.5.8).
+    const reg = document.getElementById('push-lead-hours');
+    aus.rest.regler = reg ? Math.round(reg.getBoundingClientRect().height) : null;
+    // Eine nackte 0 sagt nicht, OB gemessen werden konnte. Diese zwei Werte
+    // trennen „zu klein" von „gar nicht sichtbar".
+    aus.rest.buehne = {
+      screenAktiv: !!document.querySelector('#screen-settings.active'),
+      screenHoehe: Math.round((document.getElementById('screen-settings') || {getBoundingClientRect:()=>({height:0})}).getBoundingClientRect().height),
+      preauth: document.documentElement.classList.contains('gs-preauth'),
+    };
+
+    // [45] Die Mail-Adresse darf nicht zusätzlich die Zeile auslösen.
+    const mail = document.querySelector('#screen-settings a[href^="mailto"]');
+    aus.rest.mail = mail ? {
+      hoehe: Math.round(mail.getBoundingClientRect().height),
+      stoppt: /stopPropagation/.test(mail.getAttribute('onclick') || ''),
+    } : null;
+
+    // [47] Keine Deckkraft auf dem Versionstext.
+    const ver = document.getElementById('settings-version');
+    aus.rest.version = ver ? getComputedStyle(ver).opacity : null;
+
     aus.reloads = window.__reloads;
     return aus;
   });
@@ -679,8 +799,69 @@ const melde = (frage, ok, wie) => {
       : JSON.stringify(T2) + ' — wer einen Schalter entfernt, entfernt auch seinen Wert; '
         + 'und acht Stellen Sicherungslogik für einen Schlüssel ohne Schreiber sind acht Leerläufe');
 
+  // ── Die sieben nachgemessenen Meldungen ──────────────────────────────
+  const R2 = r.rest;
+
+  // [7] rein statisch: der Name, den niemand liest, darf nicht mehr vorkommen.
+  const QUELLE = require('fs').readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  // Gezählt wird der SCHREIBER, nicht jede Erwähnung: der Name steht
+  // berechtigterweise noch in der Aufräumliste (Bestandsgeräte tragen den
+  // alten Schlüssel) und in einem Kommentar. Die erste Fassung zählte beide
+  // mit und meldete rot für eine Reparatur, die schon da war.
+  const geoName = (QUELLE.match(/setItem\(\s*'gs_perm_geolocation'/g) || []).length;
+  melde('Der Berechtigungs-Cache wird unter dem Namen geschrieben, der gelesen wird', geoName === 0,
+    geoName === 0 ? 'kein `setItem(\'gs_perm_geolocation\')` mehr — geschrieben wird `gs_perm_location`'
+      : geoName + '× `gs_perm_geolocation` — `gsGetCachedPermission` bildet `geolocation` auf '
+        + '`location` ab und liest `gs_perm_location`; der Schreiber traf einen Namen, den niemand kennt');
+
+  const ST = R2.standort;
+  const stOk = ST && ST.ortDa === true && ST.stempelWeg === true;
+  melde('„Standort immer neu abfragen" löscht nicht den eingetragenen Ort', stOk,
+    stOk ? 'Ort bleibt, nur der Frische-Zeitstempel geht'
+      : JSON.stringify(ST) + ' — `gs_user_location` steht im State-Blob; die Löschung reiste in die '
+        + 'Cloud und auf jedes andere Gerät. Ein Schalter für das WIE OFT darf nicht löschen, WAS eingetragen ist');
+
+  const MA = R2.maxAge;
+  const maOk = MA && MA.an === 0 && MA.aus === 3600000;
+  melde('Bei „immer neu abfragen" zählt keine alte Position mehr', maOk,
+    maOk ? 'Schalter an → maximumAge 0 · aus → 3600000 (unverändert)'
+      : JSON.stringify(MA) + ' — der Schalter wurde an EINER von vier GPS-Stellen gelesen, und dort '
+        + 'blieb `maximumAge: 3600000` stehen: der Browser durfte eine Stunde alte Position liefern');
+
+  const F2 = R2.farbe;
+  const probeOk = F2 && F2.probe && F2.thema
+    && F2.probe.replace(/\s/g, '') === 'rgb(191,54,12)' && F2.thema.toLowerCase() === '#bf360c';
+  melde('Die Farbprobe zeigt die Farbe, die sie einstellt', probeOk,
+    probeOk ? 'Punkt rgb(191,54,12) = Thema #bf360c'
+      : JSON.stringify(F2) + ' — der Punkt stand auf #e65100, das Thema benutzt seit v31.32 #bf360c; '
+        + 'eine Farbprobe, die eine andere Farbe zeigt als die, die sie einstellt, ist eine falsche Auskunft');
+
+  const B2 = R2.backup;
+  const backupOk = B2 && B2.inhalt === true && B2.leer === null && B2.abgelehnt === null && Array.isArray(B2.ok);
+  melde('Eine leere Serverantwort ist kein Backup', backupOk,
+    backupOk ? 'leer → null · abgelehnt → null · bestätigt → Daten'
+      : JSON.stringify(B2) + ' — `return r.data || true` machte aus einer leeren Antwort ausdrücklich '
+        + 'einen Erfolg, und der Knopf meldete „✅ Backup in der Cloud gesichert"');
+
+  melde('Der Wetter-Vorlauf-Regler ist gross genug zum Antippen', R2.regler >= 24,
+    R2.regler >= 24 ? R2.regler + ' px hoch (WCAG 2.5.8 verlangt 24)'
+      : R2.regler + ' px (Bühne: ' + JSON.stringify(R2.buehne) + ') — WCAG 2.5.8 verlangt 24. `touch_check` misst nur die elf Tabs; '
+        + 'der Einstellungs-Bildschirm gehört nicht dazu, deshalb ist es nie aufgefallen');
+
+  const M2 = R2.mail;
+  const mailOk = M2 && M2.hoehe >= 24 && M2.stoppt === true;
+  melde('Die Mail-Adresse löst nur EINE Sache aus und ist gross genug', mailOk,
+    mailOk ? M2.hoehe + ' px hoch, hält den Klick von der Zeile ab'
+      : JSON.stringify(M2) + ' — sie liegt in einer Zeile mit `onclick="openLegalModal(…)"`: '
+        + 'ein Tipp öffnete gleichzeitig das Mail-Programm UND das Impressum');
+
+  melde('Die Versionszeile bekommt ihre Farbe, nicht Deckkraft', R2.version === '1',
+    R2.version === '1' ? 'opacity 1 — die Dämpfung steckt in der Farbe'
+      : 'opacity ' + R2.version + ' — Deckkraft auf TEXT senkt den Kontrast blind, sie fragt nicht, '
+        + 'worauf der Text steht (CLAUDE.md §7.1)');
+
   console.log('  ---');
-  console.log('  Fragen geprueft: 21 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 29 · davon rot: ' + kaputt);
   console.log('  JS-Fehler: ' + (fehler.length ? fehler.slice(0, 4).join(' | ') : 'keine'));
   console.log('  Gestellte Sperren: Notification.requestPermission → granted · setTimeout beim');
   console.log('  Löschen abgefangen (`location.reload` lässt sich nicht zuverlässig ersetzen —');

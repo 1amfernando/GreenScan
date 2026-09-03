@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.39.20260903">
+<meta name="app-version" content="32.40.20260903">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -577,6 +577,34 @@ body.gs-scanner-active #screen-scanner { bottom: 0 !important; }
    schwarzer Streifen unter den Bedienelementen. Genau der Streifen, den
    Fernandos Aufnahme zeigt, bloss kleiner als der aus v32.31. */
 body.gs-scanner-active #screen-scanner::after { display: none !important; }
+
+/* v32.40: Ein Schieberegler ist von Haus aus 16 px hoch — unter den 24 px, die
+   WCAG 2.5.8 verlangt. Gemessen: 342×16. Die Bahn bleibt schmal (sonst sieht
+   es nach Fortschrittsbalken aus), die ANTIPPFLAECHE wird hoch genug.
+   `touch_check` misst nur die elf Tabs, der Einstellungs-Bildschirm gehoert
+   nicht dazu — deshalb ist das nie aufgefallen. */
+input[type=range].gs-regler {
+  height: 24px;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+}
+input[type=range].gs-regler::-webkit-slider-runnable-track {
+  height: 6px; border-radius: 3px; background: var(--border);
+}
+input[type=range].gs-regler::-moz-range-track {
+  height: 6px; border-radius: 3px; background: var(--border);
+}
+input[type=range].gs-regler::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 22px; height: 22px; border-radius: 50%; margin-top: -8px;
+  background: var(--fill-brand, #1f6b2f); border: 2px solid var(--card);
+  box-shadow: var(--elev-1); cursor: pointer;
+}
+input[type=range].gs-regler::-moz-range-thumb {
+  width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--card);
+  background: var(--fill-brand, #1f6b2f); box-shadow: var(--elev-1); cursor: pointer;
+}
 
 
 .api-banner{display:none;align-items:center;gap:10px;margin:12px 16px 0;padding:11px 14px;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:600;cursor:pointer;}
@@ -6089,7 +6117,10 @@ html, body{ scroll-behavior: smooth; }
        darunter, und bei 320 px ragte die Versionsnummer 13 px ueber den
        Bildrand, wo `overflow-x:hidden` sie abschnitt. -->
   <div data-i18n="settings_title" data-i18n-fallback="⚙️ Einstellungen" style="font-family:'Playfair Display',serif;font-size:var(--fs-xl);font-weight:900;margin-bottom:2px;">⚙️ Einstellungen</div>
-  <div data-i18n="settings_sub" data-i18n-fallback="App personalisieren &amp; konfigurieren" style="font-size:var(--fs-sm);opacity:.78;">App personalisieren &amp; konfigurieren</div><div id="settings-version" style="font-size:var(--fs-xs);opacity:.6;margin-top:2px;"></div></div>
+  <div data-i18n="settings_sub" data-i18n-fallback="App personalisieren &amp; konfigurieren" style="font-size:var(--fs-sm);opacity:.78;">App personalisieren &amp; konfigurieren</div><!-- v32.40: `opacity:.6` auf TEXT senkt den Kontrast blind — sie fragt nicht,
+       worauf der Text steht (CLAUDE.md §7.1). Auf der Kopfleiste sind das
+       3,19:1. Statt Deckkraft eine feste, gedämpfte Weiss-Variante. -->
+  <div id="settings-version" style="font-size:var(--fs-xs);color:rgba(255,255,255,.85);margin-top:2px;"></div></div>
 </div>
 
 
@@ -6266,7 +6297,12 @@ html, body{ scroll-behavior: smooth; }
           <div class="theme-swatch"        id="swatch-teal"   data-theme="teal"   style="background:#00695c;" onclick="applyTheme('teal',this)"></div>
           <div class="theme-swatch"        id="swatch-blue"   data-theme="blue"   style="background:#1565c0;" onclick="applyTheme('blue',this)"></div>
           <div class="theme-swatch"        id="swatch-purple" data-theme="purple" style="background:#6a1b9a;" onclick="applyTheme('purple',this)"></div>
-          <div class="theme-swatch"        id="swatch-orange" data-theme="orange" style="background:#e65100;" onclick="applyTheme('orange',this)"></div>
+          <!-- v32.40: stand auf #e65100. Das Thema „orange" benutzt seit v31.32
+               aber #bf360c (`main`). Der Punkt zeigte also eine Farbe, die man
+               nach dem Antippen nirgends wiederfand. Eine Farbprobe, die eine
+               andere Farbe zeigt als die, die sie einstellt, ist eine falsche
+               Auskunft. -->
+          <div class="theme-swatch"        id="swatch-orange" data-theme="orange" style="background:#bf360c;" onclick="applyTheme('orange',this)"></div>
           <div class="theme-swatch"        id="swatch-brown"  data-theme="brown"  style="background:#4e342e;" onclick="applyTheme('brown',this)"></div>
         </div>
       </div>
@@ -6336,7 +6372,7 @@ html, body{ scroll-behavior: smooth; }
         <!-- v27.00: Wetter-Vorlauf (Lead-Time) — wie viele Stunden im Voraus warnen -->
         <div style="margin-top:12px;font-size:var(--fs-sm);color:var(--text);">
           <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:4px;"><span>🌦️ Wetter-Vorlauf</span><span id="push-lead-display" style="color:var(--c-success-d);">12 h</span></div>
-          <input type="range" id="push-lead-hours" aria-label="Wetter-Vorlauf in Stunden" min="2" max="48" step="2" value="12" oninput="var d=document.getElementById('push-lead-display');if(d)d.textContent=this.value+' h';" onchange="gsSavePushSettings({leadHours:parseInt(this.value)})" style="width:100%;cursor:pointer;accent-color:var(--fill-brand,#1f6b2f);">
+          <input type="range" id="push-lead-hours" aria-label="Wetter-Vorlauf in Stunden" min="2" max="48" step="2" value="12" class="gs-regler" oninput="var d=document.getElementById('push-lead-display');if(d)d.textContent=this.value+' h';" onchange="gsSavePushSettings({leadHours:parseInt(this.value)})" style="width:100%;cursor:pointer;accent-color:var(--fill-brand,#1f6b2f);">
           <div style="font-size:var(--fs-xs);color:var(--muted);">Frost/Hitze/Sturm werden so viele Stunden im Voraus geprüft (alle 3 h).</div>
         </div>
         <div style="margin-top:14px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:var(--fs-sm);color:var(--text);">
@@ -6689,7 +6725,7 @@ html, body{ scroll-behavior: smooth; }
       </div>
       <div class="settings-row" onclick="openLegalModal('impressum')" style="cursor:pointer;">
         <div class="settings-icon" style="background:var(--bg-purple-soft);">🏢</div>
-        <div class="settings-label"><div class="settings-label-title" data-i18n="settings_imprint" data-i18n-fallback="Impressum">Impressum</div><div class="settings-label-sub"><span data-i18n="settings_contact" data-i18n-fallback="Kontakt">Kontakt</span> · <a href="mailto:info@greenscan.ch" style="color:inherit;text-decoration:underline;">info@greenscan.ch</a></div></div>
+        <div class="settings-label"><div class="settings-label-title" data-i18n="settings_imprint" data-i18n-fallback="Impressum">Impressum</div><div class="settings-label-sub"><span data-i18n="settings_contact" data-i18n-fallback="Kontakt">Kontakt</span> · <a href="mailto:info@greenscan.ch" onclick="event.stopPropagation();" style="color:inherit;text-decoration:underline;display:inline-block;min-height:24px;line-height:24px;padding:0 2px;">info@greenscan.ch</a></div></div>
         <div class="settings-arrow">›</div>
       </div>
     </div>
@@ -23426,7 +23462,13 @@ async function loadHomeWeather() {
           locName = gd.address?.city || gd.address?.town || gd.address?.village || gd.address?.municipality || ((window.gsI18n && gsI18n.t) ? gsI18n.t('loc_my_location','Mein Standort') : 'Mein Standort');
         } catch(e){ locName = (window.gsI18n && gsI18n.t) ? gsI18n.t('loc_my_location','Mein Standort') : 'Mein Standort'; }
         locResolved = true;
-        try { localStorage.setItem('gs_perm_geolocation', 'granted'); } catch(_){}
+        // v32.40: hier stand `gs_perm_geolocation` — ein Name, den KEINE
+        // Lesestelle kennt. `gsGetCachedPermission` bildet `geolocation` auf
+        // `location` ab und liest `gs_perm_location`. Der erfolgreiche
+        // Standortabruf hat den Cache also nie aktualisiert; seit v32.36
+        // liest der GPS-Schalter genau diesen Cache mit.
+        try { localStorage.setItem('gs_perm_location', 'granted'); } catch(_){}
+        try { if (window.gsPermState) window.gsPermState.location = 'granted'; } catch(_){}
       }
     } catch(gpsErr) {
       console.log('[loadHomeWeather] GPS unavailable:', gpsErr.message);
@@ -56988,7 +57030,7 @@ function gsGetPosition(onSuccess, onError, opts) {
               } catch(e){}
             },
             function(){ /* silent */ },
-            { enableHighAccuracy: false, timeout: 10000, maximumAge: 3600000 }
+            { enableHighAccuracy: false, timeout: 10000, maximumAge: gsGpsMaxAge(3600000) }
           );
         } catch(e){}
       }, 400);
@@ -57031,7 +57073,7 @@ function gsDoGetPosition(onSuccess, onError) {
         if (onError) onError('GPS-Zeitüberschreitung. Nochmals versuchen.');
       }
     },
-    { enableHighAccuracy: false, timeout: 15000, maximumAge: 3600000 }
+    { enableHighAccuracy: false, timeout: 15000, maximumAge: gsGpsMaxAge(3600000) }
   );
 }
 
@@ -57062,7 +57104,7 @@ function gsLiveTrackingStart() {
         } catch(e){}
       },
       function(){ /* silent */ },
-      { enableHighAccuracy: true, timeout: 30000, maximumAge: 20000 }
+      { enableHighAccuracy: true, timeout: 30000, maximumAge: gsGpsMaxAge(20000) }
     );
     localStorage.setItem(GS_LIVE_TRACK_KEY, '1');
     return true;
@@ -57113,12 +57155,30 @@ function gsLiveTrackingUpdateUI() {
 var GS_GPS_ALWAYS_ASK_KEY = 'gs_gps_always_ask';
 var GS_CAM_ALWAYS_ASK_KEY = 'gs_cam_always_ask';
 function gsGpsAlwaysAsk() { try { return localStorage.getItem(GS_GPS_ALWAYS_ASK_KEY) === '1'; } catch(e){ return false; } }
+// v32.40: „Standort immer neu abfragen" wurde an EINER von vier GPS-Stellen
+// gelesen, und selbst dort blieb `maximumAge: 3600000` stehen — der Browser
+// durfte also eine bis zu EINE STUNDE alte Position zurückgeben, ohne den
+// Nutzer zu fragen. Der Schalter versprach das Gegenteil.
+//
+// Dieselbe Antwort wie bei der Kamera in v32.33: EINE Stelle, durch die alle
+// müssen, statt vier Einzelpflaster. Wer eine neue Standortabfrage baut,
+// holt sich das Alter hier.
+function gsGpsMaxAge(standard) {
+  try { if (gsGpsAlwaysAsk()) return 0; } catch(_){}
+  return (typeof standard === 'number') ? standard : 3600000;
+}
+window.gsGpsMaxAge = gsGpsMaxAge;
 function gsCamAlwaysAsk() { try { return localStorage.getItem(GS_CAM_ALWAYS_ASK_KEY) === '1'; } catch(e){ return false; } }
 function gsGpsAlwaysAskToggle(checked) {
   try { localStorage.setItem(GS_GPS_ALWAYS_ASK_KEY, checked ? '1' : '0'); } catch(e){}
   if (checked) {
-    // Reset — nächste Anfrage wird neu fragen
-    try { localStorage.removeItem('gs_user_location'); localStorage.removeItem('gs_user_location_ts'); } catch(e){}
+    // v32.40: Hier stand `removeItem('gs_user_location')`. Das ist der
+    // PROFIL-Standort, und er steht im State-Blob — die Löschung reiste also
+    // in die Cloud und auf jedes andere Gerät. Ein Schalter, der regelt, WIE
+    // OFT gefragt wird, darf nicht löschen, WAS jemand eingetragen hat.
+    // Der Zeitstempel darf weg: er ist der Frische-Nachweis, und genau den
+    // soll der Schalter entwerten.
+    try { localStorage.removeItem('gs_user_location_ts'); } catch(e){}
     if (typeof showProfileToast === 'function') showProfileToast('🔁 Standort-Nachfrage aktiv — jede Anfrage wird neu bestätigt.');
   } else {
     if (typeof showProfileToast === 'function') showProfileToast('✅ Standort wird gemerkt — keine erneute Abfrage.');
@@ -64843,7 +64903,7 @@ function gsGardenScanGPS() {
     _gsGardenScanRefresh();
   }, function(err){
     if (typeof gsToast === 'function') gsToast({title:'GPS-Fehler', body:(err && err.message)||'GPS-Zugriff verweigert', type:'error'});
-  }, { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 });
+  }, { enableHighAccuracy: false, timeout: 8000, maximumAge: gsGpsMaxAge(60000) });
 }
 
 function _gsGardenScanRefresh() {
@@ -71829,7 +71889,15 @@ function openAdminSbKeyPanel() {
 }
 
 // Speichert den neuen SB_KEY
-function gsAdminSaveSbKey() {
+// v32.40: Diese Funktion biegt die Datenverbindung der ganzen Installation um
+// — ohne Rückfrage, ohne Testaufruf, und die URL-Prüfung verlangte nur
+// „https://". Ein Tippfehler in der Adresse schickt ab dem nächsten Aufruf
+// alle Daten woanders hin, und die App merkt es erst, wenn nichts mehr geht.
+//
+// Die Rückfrage sitzt jetzt davor (dieselbe wie bei den Admin-Rollen seit
+// v32.37), und die URL muss wie eine Supabase-Adresse aussehen, statt nur wie
+// irgendein https-Ziel.
+async function gsAdminSaveSbKey() {
   if (!gsIsAdmin || !gsIsAdmin()) return;
   var newKey = document.getElementById('admin-sb-key-input')?.value?.trim();
   var newUrl = document.getElementById('admin-sb-url-input')?.value?.trim();
@@ -71846,8 +71914,19 @@ function gsAdminSaveSbKey() {
   // v31.65: derselbe Fall wie bei den Favoriten. v28.67 wollte „klares
   // Feedback statt stillem Abbruch mit falschem ✅" — und bekam den stillen
   // Abbruch mit falschem ✅, weil der globale Wrapper nicht wirft.
+  // v32.40: `startsWith('https://')` liess jede Adresse durch. Eine
+  // Supabase-URL hat eine erkennbare Form; alles andere ist mit grosser
+  // Wahrscheinlichkeit ein Tippfehler und schickt die Daten ins Nichts.
+  if (newUrl && !/^https:\/\/[a-z0-9-]+\.supabase\.(co|in|net)\/?$/i.test(newUrl)) {
+    showProfileToast('⚠️ Die Adresse sieht nicht wie eine Supabase-URL aus (https://<projekt>.supabase.co).');
+    return;
+  }
+  if (typeof _gsAdminRueckfrage === 'function' &&
+      !(await _gsAdminRueckfrage('Die Datenverbindung dieser Installation wirklich umbiegen? '
+        + 'Ab dem nächsten Aufruf gehen ALLE Daten an ' + (newUrl || 'die bisherige Adresse')
+        + '. Ein Tippfehler hier legt die App still.'))) return;
   var _keyOk = localStorage.setItem('gs_sb_key', newKey) !== false;
-  if (_keyOk && newUrl && newUrl.startsWith('https://')) {
+  if (_keyOk && newUrl) {
     _keyOk = localStorage.setItem('gs_sb_url', newUrl) !== false;
   }
   if (!_keyOk) {
@@ -72210,6 +72289,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // Ältere Versionen (vor v23.91) bleiben als statisches HTML im Modal darunter.
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
+  {
+    v: 'v32.40', date: '03.09.2026',
+    headline: '\ud83d\udd0d Die elf ungepr\u00fcften Meldungen nachgemessen \u2014 zehn stimmten',
+    summary: 'Aus dem Einstellungs-Audit blieben elf Meldungen ohne Gegenpr\u00fcfung liegen. Ungepr\u00fcft anzufassen w\u00e4re falsch gewesen (von 35 gepr\u00fcften sind elf durchgefallen) \u2014 also selbst nachgemessen. Zehn haben sich best\u00e4tigt und sind behoben, eine liess sich nicht nachstellen.',
+    user_summary: '\ud83d\udd0d Zehn kleinere, aber echte Fehler behoben \u2014 vom gel\u00f6schten Standort bis zum Backup, das keines war.',
+    user_items: [
+      {emoji:'\ud83d\udccd', bold:'Dein Standort blieb nicht mehr:', text:' Der Schalter „Standort immer neu abfragen" l\u00f6schte den eingetragenen Ort \u2014 und weil der in die Cloud reist, auch auf allen anderen Ger\u00e4ten. Jetzt bleibt der Ort, nur der Frische-Vermerk geht.'},
+      {emoji:'\u23f1\ufe0f', bold:'…und fragte trotzdem nicht neu:', text:' Der Browser durfte eine bis zu einer Stunde alte Position zur\u00fcckgeben. Der Schalter wurde ausserdem nur an einer von vier Stellen gelesen \u2014 jetzt an allen.'},
+      {emoji:'\ud83d\udcbe', bold:'„Backup gesichert" nur, wenn es eines gibt:', text:' Eine leere Server-Antwort wurde ausdr\u00fccklich als Erfolg gewertet.'},
+      {emoji:'\ud83d\uddd1\ufe0f', bold:'Konto l\u00f6schen r\u00e4umt auch die Fotos:', text:' Die offline wartenden Scans und Bilder blieben nach dem L\u00f6schen des Kontos auf dem Ger\u00e4t liegen.'},
+      {emoji:'\ud83c\udfa8', bold:'Kleinigkeiten mit Wirkung:', text:' Der orange Farbpunkt zeigte eine andere Farbe, als er einstellte. Die Mail-Adresse im Impressum \u00f6ffnete gleichzeitig Mail-Programm UND Impressum. Der Wetter-Vorlauf-Regler war zu schmal zum Antippen.'},
+    ],
+  },
   {
     v: 'v32.39', date: '03.09.2026',
     headline: '\ud83d\udc49 Die App-Tour zeigt jetzt auf das, wovon sie spricht',
@@ -72836,7 +72928,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.39';
+var GS_VERSION = 'v32.40';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -78322,6 +78414,13 @@ async function gsExecuteDeleteAccount() {
     localStorage.clear();
     Object.keys(keep).forEach(function(k){ localStorage.setItem(k, keep[k]); });
   } catch(_){}
+  // v32.40: Der Dialog verspricht „Alle Scans & Bilder". Geräumt wurde nur der
+  // localStorage — in IndexedDB blieben die offline eingereihten Scans und die
+  // Fotos als base64 auf dem Gerät liegen, nach dem Löschen des KONTOS.
+  // Beim lokalen „Alle Daten löschen" ist das seit v32.37 richtig; hier fehlte
+  // es noch. **Zwei Wege, die dasselbe versprechen, brauchen dieselbe
+  // Gründlichkeit.**
+  try { if (typeof gsQueueLeeren === 'function') gsQueueLeeren(); } catch(_){}
 
   // Toast + Hard-Reload zur Registrierungsseite
   if (typeof showProfileToast==='function') showProfileToast({title:'👋 Konto gelöscht', body:'Auf Wiedersehen — du wirst zur Registrierung weitergeleitet', kind:'success', duration:2500});
@@ -80455,7 +80554,13 @@ async function gsSnapshotCreate(trigger){
     if (r && !r.error) {
       try { localStorage.setItem('gs_snapshot_last', new Date().toISOString()); } catch(_){}
       try { _gsSnapshotMarkHad(); } catch(_){}   // v30.97: Spur fuer den Verdraengungs-Schutz
-      return r.data || true;
+      // v32.40: hier stand `return r.data || true` — eine leere Antwort wurde
+      // ausdrücklich zu einem Erfolg gemacht, und der Knopf meldete danach
+      // „✅ Backup in der Cloud gesichert". PostgREST liefert bei einer von
+      // RLS abgewiesenen Zeile 0 Datensätze OHNE Fehler; genau dieser Fall
+      // sah damit aus wie ein gelungenes Backup.
+      if (!_gsSchreibOk(r)) return null;
+      return r.data;
     }
     return null;
   } catch(e){ console.warn('[gsSnapshot] create', e && e.message); return null; }
