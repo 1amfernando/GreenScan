@@ -4,13 +4,78 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.29` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.30` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-03 (dt) — v32.30: die richtige Ursache, die falsche Abhilfe
+
+Fernando nach v32.29: *„Das mit der Kamera beim Scanner wurde verschlimmert
+anstatt verbessert. Jetzt sieht man nur die hälfte des Bildes und auch immer
+noch wie herein gezoomt oder als hätte man die 3 Fach Linse an."*
+
+Er hat recht, und der Fehler ist meiner.
+
+#### Was ich richtig hatte und was ich daraus falsch gefolgert habe
+
+Richtig: `object-fit: cover` schnitt 69 % des Bildwinkels weg, weil ein
+16:9-Querformat in einem hochkanten Streifen gezeigt wurde.
+
+Falsch: die Folgerung, man müsse der Kamera ein **hochkantes Format
+abverlangen**. Nachgerechnet:
+
+```
+Sensor liefert    1.778  (16:9)
+angefordert       0.549  (Behälter hochkant)
+bleibt vom Winkel   31 %
+```
+
+**Dieselben 31 % wie vorher** — nur diesmal schon in der Kamera. Eine Kamera
+kann ihren Bildwinkel nicht vergrössern; ein vorgegebenes Seitenverhältnis ist
+ein **Zuschnitt-Auftrag an den Sensor**. Und es wurde schlimmer als vorher,
+weil nun auch das aufgenommene Foto beschnitten war — vorher war wenigstens
+das noch vollständig.
+
+> **Die Regel, und sie gilt weit über Kameras hinaus: ein Zuschnitt in der
+> ANZEIGE ist umkehrbar, einer in der QUELLE nicht.** Wer etwas zurückhaben
+> will, darf es nicht an einer früheren Stelle wegnehmen.
+
+#### Was jetzt gilt
+
+- `_gsKamMasse()` gibt **kein Seitenverhältnis** mehr vor. Nur ein
+  Auflösungswunsch im nativen Format der allermeisten Telefonsensoren (4:3) —
+  schon 16:9 schneidet oben und unten etwas weg.
+- Die Vorschau nutzt **`object-fit: contain`**. Dunkle Ränder statt fehlendem
+  Bildwinkel: was man sieht, ist alles, was das Objektiv sieht — und genau das
+  wird auch aufgenommen.
+
+#### Prüfstand
+
+`kamera_check` 9 → 10 Fragen. Die alte Frage 1 („folgt das Seitenverhältnis
+dem Behälter?") prüfte ab sofort das **Falsche** und ist ersetzt durch zwei:
+
+| | |
+|---|---|
+| Die App verlangt der Kamera **kein** Seitenverhältnis ab | kein `aspectRatio`, kein `exact` |
+| Die Vorschau **beschneidet nicht** | `object-fit: contain` |
+
+**Beide gegengeprüft:** das Seitenverhältnis wieder angefordert → gemeldet;
+`cover` wieder gesetzt → gemeldet.
+
+#### Offen, und Fernandos Entscheidung
+
+`contain` zeigt alles, lässt aber auf einem hochkanten Telefon oben und unten
+dunkle Ränder — ein 4:3-Bild in einem sehr hohen Rahmen füllt nur die Mitte.
+Die Alternative wäre, den **Vorschau-Rahmen** auf das Bildformat zu setzen,
+statt das Bild in einen zu hohen Rahmen zu legen: dann ist das Bild so gross
+wie möglich BEI vollem Bildwinkel, und der Platz darunter trägt die
+Bedienelemente. Das ist ein Layout-Eingriff und wartet auf seine Zustimmung.
+
+---
 
 ### 2026-09-03 (ds) — v32.29: die Kamera war nie im Zoom
 
@@ -7326,7 +7391,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.29` (Client) · SW-Cache `gs-v32.29` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.30` (Client) · SW-Cache `gs-v32.30` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **88'431 Zeilen / 5,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.

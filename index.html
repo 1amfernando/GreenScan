@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.29.20260903">
+<meta name="app-version" content="32.30.20260903">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -614,7 +614,12 @@ body.gs-scanner-active #screen-scanner { bottom: 0 !important; }
 .scan-wrap video {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* v32.30: `contain` statt `cover`. `cover` füllt den Rahmen, indem es das
+     Bild BESCHNEIDET — auf einem hochkanten Telefon waren das 69 % des
+     Bildwinkels. `contain` zeigt das ganze Bild und lässt oben/unten dunkle
+     Ränder. Die sind gewollt: was man sieht, ist alles, was das Objektiv
+     sieht — und genau das wird auch aufgenommen. */
+  object-fit: contain;
   opacity: 0;
   transition: opacity var(--dur-slow) cubic-bezier(.22,.61,.36,1);
 }
@@ -27772,33 +27777,43 @@ function initScanner(){
   tryStartCamera();
 }
 
-// ═══ v32.29 · WARUM DIE KAMERA „IMMER IM ZOOM" WAR ═══════════════════════
+// ═══ v32.30 · DEN GANZEN BILDWINKEL ZEIGEN ═══════════════════════════════
 //
-// Sie war es nie. Die App forderte 1920x1080 an — QUERFORMAT — und zeigte es
-// mit `object-fit: cover` in einem hochkanten Streifen. Nachgerechnet für ein
-// typisches Telefon (412x750 sichtbar):
+// v32.29 hat die richtige Ursache gefunden und die FALSCHE Abhilfe gebaut.
 //
-//   Videobild gerendert: 1333 x 750 px
-//   sichtbar davon:       412 x 750 px
-//   waagerecht abgeschnitten: 69 % des Bildwinkels
+// Richtig war: `object-fit: cover` schnitt 69 % des Bildwinkels weg, weil ein
+// 16:9-Querformat in einem hochkanten Streifen gezeigt wurde.
 //
-// Zwei Drittel des Bildes lagen ausserhalb. Das sieht aus wie ein Zoom, ist
-// aber ein Zuschnitt — und kein Zoom-Knopf der Welt holt es zurueck.
+// Falsch war die Folgerung, man müsse der Kamera ein hochkantes Format
+// abverlangen. **Eine Kamera kann ihren Bildwinkel nicht vergrössern.**
+// Verlangt man ein schmales Seitenverhältnis, schneidet sie den SENSOR zu:
 //
-// Deshalb wird jetzt ein Seitenverhaeltnis angefordert, das zum Behaelter
-// passt. `cover` schneidet dann fast nichts mehr weg.
+//     Sensor liefert    1.778  (16:9)
+//     angefordert       0.549  (Behälter hochkant)
+//     bleibt vom Winkel   31 %
+//
+// Dieselben 31 % wie vorher — nur diesmal schon in der Kamera, also auch im
+// aufgenommenen Foto. Fernando: „jetzt sieht man nur die hälfte des Bildes und
+// auch immer noch wie herein gezoomt oder als hätte man die 3 Fach Linse an."
+// Genau das.
+//
+// DIE REGEL, die ich dabei gelernt habe: ein Zuschnitt in der ANZEIGE ist
+// umkehrbar, einer in der QUELLE nicht. Wer einen Bildwinkel zurückhaben will,
+// darf ihn nicht an einer früheren Stelle wegnehmen.
+//
+// Also jetzt umgekehrt:
+//  1. Die Kamera bekommt KEIN Seitenverhältnis vorgegeben. Nur ein
+//     Auflösungswunsch im NATIVEN Format der allermeisten Telefonsensoren
+//     (4:3) — schon 16:9 schneidet oben und unten etwas weg.
+//  2. Die Anzeige zeigt das ganze Bild (`object-fit: contain`, siehe CSS).
+//     Dunkle Ränder statt fehlender Bildwinkel: was man sieht, ist alles, was
+//     das Objektiv sieht — und genau das wird auch aufgenommen.
 function _gsKamMasse(){
-  var r = null;
-  try { var w = document.querySelector('.scan-wrap'); if (w) r = w.getBoundingClientRect(); } catch(_){}
-  var bw = (r && r.width)  ? r.width  : (window.innerWidth  || 412);
-  var bh = (r && r.height) ? r.height : (window.innerHeight || 750);
-  var q  = bw / bh;
-  var hochkant = q < 1;
-  // `ideal`, nie `exact`: eine Kamera, die dieses Verhaeltnis nicht kann, soll
-  // ihr bestes liefern statt gar nichts.
-  return hochkant
-    ? { aspectRatio: { ideal: q }, width: { ideal: 1080 }, height: { ideal: Math.round(1080 / q) } }
-    : { aspectRatio: { ideal: q }, width: { ideal: Math.round(1080 * q) }, height: { ideal: 1080 } };
+  // 4:3 ist das native Seitenverhältnis nahezu aller Telefonkameras. Als
+  // `ideal`, nie `exact` — eine Kamera, die es nicht kann, soll ihr bestes
+  // liefern statt gar nichts. KEIN `aspectRatio`: das wäre wieder ein
+  // Zuschnitt-Auftrag an die Kamera.
+  return { width: { ideal: 1920 }, height: { ideal: 1440 } };
 }
 
 async function tryStartCamera(){
@@ -71707,6 +71722,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.30', date: '03.09.2026',
+    headline: '\ud83d\udcf7 Jetzt siehst du wirklich das ganze Kamerabild',
+    summary: 'Die Reparatur von v32.29 hat es schlimmer gemacht: sie forderte von der Kamera ein hochkantes Format an — und eine Kamera kann ihren Bildwinkel nicht vergr\u00f6ssern, sie schneidet dann den Sensor zu. Statt 69 % in der Anzeige zu verlieren, gingen sie nun schon in der Aufnahme verloren. Jetzt wird der Kamera gar kein Format mehr vorgegeben, und die Vorschau zeigt das Bild vollst\u00e4ndig.',
+    user_summary: '\ud83d\udcf7 Der Scanner zeigt dir jetzt alles, was das Objektiv sieht \u2014 nichts wird mehr abgeschnitten, weder in der Vorschau noch im Foto.',
+    user_items: [
+      {emoji:'\ud83d\ude4f', bold:'Mein Fehler in v32.29:', text:' Ich hatte die richtige Ursache gefunden und die falsche Abhilfe gebaut. Der Kamera ein schmales Format abzuverlangen nimmt Bildwinkel WEG, statt ihn zur\u00fcckzuholen \u2014 und diesmal auch im gespeicherten Foto.'},
+      {emoji:'\ud83d\uddbc\ufe0f', bold:'Was jetzt gilt:', text:' Die Kamera bekommt kein Seitenverh\u00e4ltnis mehr vorgegeben, nur einen Aufl\u00f6sungswunsch im nat\u00fcrlichen Format des Sensors. Die Vorschau zeigt das ganze Bild, mit dunklen R\u00e4ndern oben und unten statt fehlendem Bildwinkel.'},
+      {emoji:'\ud83d\udca1', bold:'Die Regel dahinter:', text:' Ein Zuschnitt in der Anzeige l\u00e4sst sich r\u00fcckg\u00e4ngig machen, einer in der Quelle nicht. Wer Bildwinkel zur\u00fcckhaben will, darf ihn nicht an einer fr\u00fcheren Stelle wegnehmen.'},
+    ],
+  },
+  {
     v: 'v32.29', date: '03.09.2026',
     headline: '\ud83d\udcf7 Die Kamera war nie im Zoom \u2014 zwei Drittel des Bildes lagen ausserhalb',
     summary: 'Die App forderte ein Querformat-Bild an und zeigte es in einem hochkanten Streifen: 69 % des Bildwinkels wurden weggeschnitten. Das sieht aus wie ein Zoom, ist aber ein Zuschnitt. Dazu klemmte der Zoom auf eine geratene Spanne 1,0\u20135,0 \u2014 auf Telefonen mit Weitwinkel ab 0,5\u00d7 war der weiteste Bildwinkel damit gar nicht erreichbar.',
@@ -72215,7 +72241,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.29';
+var GS_VERSION = 'v32.30';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

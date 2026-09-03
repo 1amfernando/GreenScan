@@ -9,6 +9,13 @@
  *     `object-fit: cover` in einem hochkanten Streifen. Nachgerechnet für ein
  *     typisches Telefon: **69 % des Bildwinkels lagen ausserhalb.** Das sieht
  *     aus wie ein Zoom, ist aber ein Zuschnitt.
+ *
+ *     v32.29 hat daraufhin ein hochkantes Seitenverhältnis ANGEFORDERT — und
+ *     damit dasselbe noch einmal getan, nur früher: eine Kamera kann ihren
+ *     Bildwinkel nicht vergrössern, ein schmales Format schneidet den SENSOR
+ *     zu. Es wurde schlimmer, weil nun auch das Foto beschnitten war.
+ *     **Ein Zuschnitt in der Anzeige ist umkehrbar, einer in der Quelle nicht.**
+ *     Seit v32.30: kein Seitenverhältnis anfordern, und `object-fit: contain`.
  *  2. `gsSetZoom` klemmte auf eine **geratene** Spanne 1,0–5,0. Auf Telefonen,
  *     deren Weitwinkel bei `zoom.min = 0.5` beginnt, war der weiteste
  *     Bildwinkel damit unerreichbar — die Klemme schob jeden Versuch zurück.
@@ -92,39 +99,22 @@ const melde = (frage, ok, wie) => {
     // sonst legt man eine zweite, unbenutzte Eigenschaft an (Lehre aus v32.24).
     const setzeStream = (t) => { stream = machStream(t); };
 
-    // ── 1 · Der Zuschnitt: folgt das Seitenverhältnis dem Behälter? ──────
+    // ── 1 · Verlangt die App der Kamera etwas Schmales ab? ───────────────
     //
-    // Der Behälter muss dafür eine MESSBARE Grösse haben. `#cam-section` steht
-    // im Ruhezustand auf `display:none` — dann liefert `_gsKamMasse` korrekt
-    // den Fensterwert, und beide Messungen wären gleich. Ein Fall, der so
-    // grün wird, hat nichts gezeigt: deshalb wird die hergestellte Grösse
-    // MITGEMESSEN und der Fall fällt durch, wenn sie 0 ist.
-    // Der Behälter hängt unter `#screen-scanner`, und das steht ausserhalb des
-    // laufenden Scans auf `display:none` — ein verborgener Vorfahre macht JEDE
-    // Grösse zu 0, auch bei `position:fixed`. Für die Messung wandert er
-    // deshalb kurz an den Körper und danach zurück. Geprüft wird die FUNKTION,
-    // nicht die Bildschirm-Verwaltung.
-    const wrap = document.querySelector('.scan-wrap');
-    const heim = wrap && wrap.parentElement;
-    const platz = wrap && wrap.nextSibling;
-    if (wrap) document.body.appendChild(wrap);
-    const messeMit = (bw, bh) => {
-      wrap.style.cssText = 'position:fixed;left:0;top:0;width:' + bw + 'px;height:' + bh + 'px;min-height:0;';
-      const rc = wrap.getBoundingClientRect();
-      const q2 = _gsKamMasse();
-      return { rect: [Math.round(rc.width), Math.round(rc.height)], q: q2.aspectRatio.ideal,
-               w: q2.width.ideal, h: q2.height.ideal };
+    // v32.29 tat genau das — und schnitt damit den SENSOR zu (31 % Restwinkel
+    // bei 16:9). Eine Kamera kann ihren Bildwinkel nicht vergrössern; jedes
+    // vorgegebene Seitenverhältnis ist ein Zuschnitt-Auftrag. Diese Frage
+    // hält das fest, damit es niemand zurückbaut.
+    const m = _gsKamMasse();
+    aus.masse = {
+      hatAspect: Object.prototype.hasOwnProperty.call(m, 'aspectRatio'),
+      w: m.width && m.width.ideal, h: m.height && m.height.ideal,
+      exact: JSON.stringify(m).indexOf('exact') >= 0,
     };
-    let hoch = null, quer = null, zurueck = null;
-    if (wrap) {
-      const alt = wrap.getAttribute('style') || '';
-      hoch = messeMit(400, 800);
-      quer = messeMit(800, 300);
-      wrap.setAttribute('style', alt);
-      if (heim) { if (platz) heim.insertBefore(wrap, platz); else heim.appendChild(wrap); }
-      zurueck = _gsKamMasse().aspectRatio.ideal;   // wieder verborgen → Fenster-Rückfall
-    }
-    aus.masse = hoch; aus.masseQuer = quer; aus.masseRueckfall = zurueck;
+
+    // ── 1b · Beschneidet die Vorschau? ──────────────────────────────────
+    const vid = document.getElementById('video');
+    aus.anzeige = vid ? getComputedStyle(vid).objectFit : '(kein Video-Element)';
 
     // ── 2/3 · Spanne vom Gerät, weitester Punkt erreichbar ───────────────
     const t1 = machTrack({ zoom: { min: 0.5, max: 8, step: 0.1 }, _id: 'weit' }, 1);
@@ -208,14 +198,18 @@ const melde = (frage, ok, wie) => {
 
   await b.close();
 
-  const H = r.masse, Q = r.masseQuer;
-  const gestellt = H && Q && H.rect[0] > 0 && H.rect[1] > 0 && Q.rect[0] > 0;
-  const folgt = gestellt && Math.abs(H.q - 0.5) < 0.02 && Math.abs(Q.q - 800 / 300) < 0.05;
-  melde('Das angeforderte Seitenverhältnis folgt dem Behälter', folgt,
-    folgt ? '400×800 → ' + H.q.toFixed(2) + ' (' + H.w + '×' + H.h + ') · 800×300 → ' + Q.q.toFixed(2) +
-            ' · eingeklappt → Fenster-Rückfall ' + Number(r.masseRueckfall).toFixed(2)
-      : (!gestellt ? 'der Behälter blieb 0×0 (' + JSON.stringify(H && H.rect) + ') — dann vergleicht dieser Fall zweimal das Fenster und zeigt nichts'
-                   : 'hochkant ' + H.q + ' (erwartet 0.50), quer ' + Q.q + ' (erwartet 2.67)'));
+  const M = r.masse;
+  const frei = M && !M.hatAspect && !M.exact;
+  melde('Die App verlangt der Kamera KEIN Seitenverhältnis ab', frei,
+    frei ? 'nur ein Auflösungswunsch ' + M.w + '×' + M.h + ' (4:3, nativ), kein aspectRatio, kein exact'
+      : 'angefordert wird ' + JSON.stringify(M) + ' — ein vorgegebenes Seitenverhältnis ist ein '
+        + 'Zuschnitt-Auftrag an den Sensor und nimmt Bildwinkel WEG (v32.29-Fehler)');
+
+  const ganz = r.anzeige === 'contain';
+  melde('Die Vorschau zeigt das ganze Bild, statt es zu beschneiden', ganz,
+    ganz ? 'object-fit: contain — dunkle Ränder statt fehlendem Bildwinkel'
+      : 'object-fit: ' + r.anzeige + ' — „cover" füllt den Rahmen, indem es beschneidet (auf einem '
+        + 'hochkanten Telefon 69 % des Bildwinkels)');
 
   const sp = r.spanne;
   const spOk = sp && sp.min === 0.5 && sp.max === 8;
@@ -256,10 +250,10 @@ const melde = (frage, ok, wie) => {
     namenOk ? 'Weit · Tele · ohne Beschriftung „Linse 2" · einzelne „Kamera"' : JSON.stringify(n));
 
   console.log('  ---');
-  console.log('  Fragen geprueft: 9 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 10 · davon rot: ' + kaputt);
   console.log('  JS-Fehler: ' + (fehler.length ? fehler.slice(0, 3).join(' | ') : 'keine'));
-  console.log('  Nicht prüfbar von hier: ob eine ECHTE Kamera das angeforderte');
-  console.log('  Seitenverhältnis liefert. Geprüft ist, dass die App das richtige');
-  console.log('  anfordert und die Antwort des Geräts respektiert.');
+  console.log('  Nicht prüfbar von hier: wie breit der Bildwinkel einer ECHTEN');
+  console.log('  Kamera ausfällt. Geprüft ist, dass die App ihn nirgends WEGNIMMT');
+  console.log('  — weder durch eine Anforderung noch durch die Anzeige.');
   process.exitCode = (kaputt || fehler.length) ? 1 : 0;
 })();
