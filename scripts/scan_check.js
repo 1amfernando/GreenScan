@@ -917,6 +917,132 @@ const FAELLE = [
     },
   },
   {
+    // v32.43: Ein Kriterium ist nur so viel wert, wie die Artenliste dazu
+    // hergibt. Bis hierher nannte der Kopf nur, WELCHE Kriterien verfügbar
+    // waren — wer mit Standort scannte, durfte annehmen, die Höhe habe alle
+    // 4'342 Arten geprüft. Hinterlegt ist sie bei 903.
+    // **Eine Zahl ohne ihre Grundlage ist eine Behauptung.**
+    name: 'Vorauswahl · sagt, auf wie viele Arten ein Kriterium anwendbar war',
+    lauf: () => {
+      if (typeof DB === 'undefined' || !DB || !DB.length) return { ok: false, warum: 'keine Artenliste' };
+      const v = gsScanVorauswahl({ monthNum: 6, elevation: 1800 }, null);
+      if (!v.hinterlegt) return { ok: false, warum: 'die Vorauswahl meldet keine Deckung (hinterlegt fehlt)' };
+      const h = v.hinterlegt;
+      for (const k of ['monat', 'farbe', 'hoehe']) {
+        if (typeof h[k] !== 'number') return { ok: false, warum: 'hinterlegt.' + k + ' ist ' + typeof h[k] };
+        if (h[k] > v.gesamt) return { ok: false, warum: 'hinterlegt.' + k + ' (' + h[k] + ') > gesamt (' + v.gesamt + ')' };
+      }
+      // ZWEI Schranken, nicht eine. Die erste Fassung prüfte nur nach OBEN
+      // („deutlich unter der Gesamtzahl") — mit ausgebautem Mitzählen kam 0
+      // heraus, und 0 ist auch deutlich unter der Gesamtzahl. Die Gegenprobe
+      // blieb grün, obwohl die Reparatur entfernt war.
+      // **Eine Schranke nach oben ohne eine nach unten lässt den Totalausfall
+      // durch** — er sieht aus wie ein besonders gutes Ergebnis.
+      for (const k of ['monat', 'farbe', 'hoehe']) {
+        if (h[k] < 100)
+          return { ok: false, warum: 'hinterlegt.' + k + ' = ' + h[k] + ' — gemessen sind es 2902/856/899; so wenig heisst, dass gar nicht gezählt wird' };
+      }
+      if (h.hoehe >= v.gesamt * 0.5)
+        return { ok: false, warum: 'Höhe angeblich bei ' + h.hoehe + ' von ' + v.gesamt + ' hinterlegt — gemessen sind es rund 900' };
+      // …und die Anzeige muss sie auch nennen.
+      const zeile = _gsMitDeckung('Höhe', 'hoehe', v.gesamt, h);
+      if (!/hinterlegt/.test(zeile) || !/\d/.test(zeile))
+        return { ok: false, warum: 'die Anzeige nennt die Deckung nicht: „' + zeile + '"' };
+      return { ok: true, info: 'Monat ' + h.monat + ' · Farbe ' + h.farbe + ' · Höhe ' + h.hoehe + ' von ' + v.gesamt + ' · Anzeige: „' + zeile + '"' };
+    },
+  },
+  {
+    // v32.43: Die Höhe stand bei 26 Arten im `habitat`-Text statt im Feld
+    // `alt` — „Alpenweiden 1500–3000m", „…Hochstaudenfluren; bis 2500m".
+    // Keine erfundene Botanik: dieselbe Angabe, nur bisher ungelesen.
+    name: 'Höhenband · wird auch aus dem Lebensraum-Text gelesen',
+    lauf: () => {
+      if (typeof DB === 'undefined' || !DB || !DB.length) return { ok: false, warum: 'keine Artenliste' };
+      // GENAUER Name: die Liste führt SIEBEN „Eisenhut"-Einträge (darunter
+      // „Echter Echter Eisenhut"), und die meisten haben ein eigenes `alt`.
+      // Ein `find(/Eisenhut/)` traf den falschen — der Fall meldete rot für
+      // eine Reparatur, die funktioniert.
+      const eisenhut = DB.find(x => x.name === 'Eisenhut (Blauer)');
+      if (!eisenhut) return { ok: false, warum: 'Probe-Art „Eisenhut (Blauer)" nicht in der Liste' };
+      if (String(eisenhut.alt || '').match(/\d/))
+        return { ok: false, warum: 'die Probe-Art hat inzwischen ein eigenes alt — dieser Fall prüft dann nichts mehr' };
+      const b = _gsHoehenband(eisenhut);
+      if (!b) return { ok: false, warum: 'Eisenhut: kein Band, obwohl habitat „bis 2500m" sagt' };
+      if (b.bis !== 2500) return { ok: false, warum: 'Eisenhut: Band ' + JSON.stringify(b) + ', erwartet bis 2500' };
+      // Und keine Wuchshöhe als Verbreitung missdeuten.
+      if (_gsHoehenbandAus('Wälder, Sträucher bis 3 m hoch', false))
+        return { ok: false, warum: 'liest „bis 3 m" als Höhenverbreitung' };
+      let ausText = 0;
+      for (const sp of DB) if (!String(sp.alt || '').match(/\d/) && _gsHoehenband(sp)) ausText++;
+      if (ausText < 20) return { ok: false, warum: 'nur ' + ausText + ' Arten aus dem Text gewonnen (gemessen 26)' };
+      return { ok: true, info: ausText + ' Arten bekommen ihr Band aus dem habitat-Text (Eisenhut 0–2500m)' };
+    },
+  },
+  {
+    // v32.43: 657 Gruppen der Artenliste tragen denselben lateinischen Namen,
+    // 167 davon widersprechen sich bei `tox`/`edible`. Jede Nachschlagung war
+    // ein `DB.find(…)` — welche Giftstufe nach einem Scan erschien, hing an
+    // der REIHENFOLGE in der Datei. Zwei Reparaturen, und dieser Fall prüft
+    // beide getrennt, weil jede für sich unbemerkt zurückfallen kann:
+    //   (a) LATEIN VOR DEUTSCH — „Wacholder" trifft sonst `Juniperus nana`
+    //   (b) `_gsArtGruppe` — ohne Latein bleibt die Vorsicht sonst in der
+    //       Suchstrategie hängen statt an der Art zu haften
+    name: 'Dubletten · bei Widerspruch gewinnt die vorsichtigere Angabe',
+    lauf: () => {
+      if (typeof DB === 'undefined' || !DB || !DB.length) return { ok: false, warum: 'keine Artenliste' };
+      const nl = (s) => String(s || '').toLowerCase()
+        .replace(/\([^)]*\)/g, ' ')
+        .replace(/\b(ssp|subsp|var|f|agg|cv|sp|spp)\.?\b/g, ' ')
+        .replace(/[×x]\s/g, ' ')
+        .replace(/[^a-zäöü ]/g, ' ')
+        .replace(/ö/g, 'o').replace(/ä/g, 'a').replace(/ü/g, 'u').replace(/ß/g, 'ss')
+        .replace(/\s+/g, ' ').trim().split(' ').slice(0, 2).join(' ');
+
+      // (a) Der benannte Fall: das Binomen muss den mehrdeutigen deutschen
+      //     Trivialnamen schlagen. `FD0660 Wacholder` ist `Juniperus nana`.
+      const w = gsMatchScanToDb('Wacholder', 'Juniperus communis');
+      if (!w) return { ok: false, warum: '„Wacholder / Juniperus communis" findet gar nichts' };
+      if (nl(w.lat) !== 'juniperus communis')
+        return { ok: false, warum: 'der deutsche Name überstimmt das Binomen: „Wacholder / Juniperus communis" → ' + w.name + ' (' + w.lat + ')' };
+      const jMax = Math.max.apply(null, DB.filter(x => nl(x.lat) === 'juniperus communis').map(x => Number(x.tox) || 0));
+      if ((Number(w.tox) || 0) !== jMax)
+        return { ok: false, warum: 'Juniperus communis → tox ' + (Number(w.tox) || 0) + ' statt ' + jMax };
+
+      // (b) Ohne Latein: der exakte deutsche Name trifft EINEN harmlosen
+      //     Eintrag; die Vorsicht muss trotzdem an der Art hängen.
+      const roh = DB.filter(x => x && x.name && x.name.toLowerCase().trim() === 'holunder');
+      if (roh.length !== 1 || (Number(roh[0].tox) || 0) !== 0)
+        return { ok: false, warum: 'Probe-Art „Holunder" ist nicht mehr der eine harmlose Eintrag — dieser Fall prüft dann nichts mehr' };
+      const h = gsMatchScanToDb('Holunder', '');
+      const sMax = Math.max.apply(null, DB.filter(x => nl(x.lat) === 'sambucus nigra').map(x => Number(x.tox) || 0));
+      if (!h || (Number(h.tox) || 0) !== sMax)
+        return { ok: false, warum: '„Holunder" ohne Binomen → tox ' + (h ? (Number(h.tox) || 0) : 'kein Treffer') + ' statt ' + sMax + ' — die Vorsicht hängt an der Suchstrategie statt an der Art' };
+
+      // (c) Und dann ALLE widersprüchlichen Gruppen, Eintrag für Eintrag.
+      //     Ein benannter Fall beweist nur sich selbst.
+      const g = {};
+      DB.forEach(sp => { if (!sp || !sp.lat) return; const k = nl(sp.lat); if (!k || k.indexOf(' ') < 0) return; (g[k] = g[k] || []).push(sp); });
+      let abfragen = 0, falsch = 0, gruppen = 0, bsp = '';
+      Object.keys(g).forEach(k => {
+        const a = g[k];
+        if (a.length < 2) return;
+        const t = new Set(a.map(x => Number(x.tox) || 0)), e = new Set(a.map(x => x.edible ? 1 : 0));
+        if (t.size < 2 && e.size < 2) return;
+        gruppen++;
+        const mx = Math.max.apply(null, a.map(x => Number(x.tox) || 0));
+        a.forEach(x => {
+          abfragen++;
+          const hit = gsMatchScanToDb(x.name, x.lat);
+          const got = hit ? (Number(hit.tox) || 0) : -1;
+          if (got !== mx) { falsch++; if (!bsp) bsp = k + ' → tox ' + got + ' statt ' + mx; }
+        });
+      });
+      if (gruppen < 50) return { ok: false, warum: 'nur ' + gruppen + ' widersprüchliche Gruppen gefunden (gemessen 167) — der Fall misst nicht, was er behauptet' };
+      if (falsch) return { ok: false, warum: falsch + ' von ' + abfragen + ' Abfragen liefern nicht die vorsichtigste Angabe, z.B. ' + bsp };
+      return { ok: true, info: gruppen + ' widersprüchliche Gruppen · ' + abfragen + ' Abfragen, alle vorsichtigste Angabe' };
+    },
+  },
+  {
     name: 'Vorauswahl · ohne Grundlage behauptet sie nichts',
     lauf: () => {
       const echt = window.DB;
@@ -1048,6 +1174,43 @@ const FAELLE = [
       const t2 = (document.getElementById('modal-content') || {}).textContent || '';
       if (!/1850 m/.test(t2)) return { ok: false, warum: 'mit Standort wird die Höhe trotzdem nicht genutzt' };
       return { ok: true, info: 'ohne Ort: „Nicht genutzt …" · mit Ort: „Höhenlage (1850 m)"' };
+    },
+  },
+  {
+    // v32.43: Die Farb-Eingrenzung schloss 3'229 Arten aus und zählte alle in
+    // EINEN Topf — 2'816 davon hatten gar keine Farbangabe. Die Liste sah
+    // aus, als hätten 4'202 Arten eine ANDERE Farbe. Gefunden hat es der
+    // Arten-Daten-Workflow (Blickwinkel „Verbraucher"), nicht ich.
+    // **Ein Ausschluss ohne Grund muss anders aussehen als einer mit.**
+    name: 'Eingrenzen · „keine Farbangabe" wird getrennt gezählt und genannt',
+    lauf: () => {
+      if (typeof DB === 'undefined' || !DB || !DB.length) return { ok: false, warum: 'keine Artenliste' };
+      const e = gsEingrenzen({ monat: null, hoehe: null, farbe: 'Gelb', gruppe: '' });
+      if (!e.raus || typeof e.raus.farbeOhne !== 'number') return { ok: false, warum: 'raus.farbeOhne fehlt — „keine Angabe" und „andere Farbe" liegen in einem Topf' };
+      // Grundlinie selbst messen, nicht als feste Zahl erwarten.
+      const ohne = DB.filter(sp => !_gsFarbWorte(sp).length).length;
+      if (e.raus.farbeOhne !== ohne) return { ok: false, warum: 'farbeOhne = ' + e.raus.farbeOhne + ', ohne Farbangabe sind aber ' + ohne };
+      if (e.raus.farbeOhne < 1000) return { ok: false, warum: 'farbeOhne = ' + e.raus.farbeOhne + ' — so wenig heisst, dass nicht gezählt wird (gemessen ~3\'400)' };
+      if (e.raus.farbe + e.raus.farbeOhne + e.treffer.length !== e.gesamt)
+        return { ok: false, warum: 'Treffer + andere Farbe + ohne Angabe ergibt nicht die Gesamtzahl (' + e.treffer.length + '+' + e.raus.farbe + '+' + e.raus.farbeOhne + ' ≠ ' + e.gesamt + ')' };
+      // …und die Anzeige nennt es, mit Zahl. Gemessen gegen den Zustand, der
+      // WIRKLICH auf dem Bildschirm steht: `_gsEgStand()` setzt ohne Monat den
+      // laufenden ein — mein erster Anlauf verglich mit der Rechnung ohne
+      // Monat (3'481) und die Anzeige sagte 2'602. Beides richtig, nur nicht
+      // dasselbe. Die Zahl auf dem Schirm muss zur Rechnung FÜR DIESEN Schirm
+      // passen, nicht zu einer anderen.
+      localStorage.setItem('gs_eingrenzen', JSON.stringify({ monat: null, farbe: 'Gelb', gruppe: '', hoehe: null }));
+      gsEingrenzenOeffnen();
+      const t = (document.getElementById('modal-content') || {}).textContent || '';
+      const eS = gsEingrenzen(_gsEgStand());
+      if (!/ohne Farbangabe/.test(t)) return { ok: false, warum: 'die Anzeige sagt nicht, dass Arten ohne Angabe fehlen' };
+      if (!eS.raus.farbeOhne || t.indexOf(gsTsd(eS.raus.farbeOhne)) < 0) return { ok: false, warum: 'die Anzeige nennt die Zahl nicht (erwartet ' + gsTsd(eS.raus.farbeOhne) + ')' };
+      // Ohne Farbwahl darf der Satz NICHT erscheinen — sonst steht er als Dauerhinweis da.
+      localStorage.setItem('gs_eingrenzen', JSON.stringify({ monat: null, farbe: '', gruppe: '', hoehe: null }));
+      gsEingrenzenOeffnen();
+      const t0 = (document.getElementById('modal-content') || {}).textContent || '';
+      if (/ohne Farbangabe/.test(t0)) return { ok: false, warum: 'der Hinweis erscheint auch ohne Farbwahl' };
+      return { ok: true, info: 'Gelb: ' + e.treffer.length + ' Treffer · ' + e.raus.farbe + ' andere Farbe · ' + gsTsd(e.raus.farbeOhne) + ' ohne Angabe · Anzeige nennt ' + gsTsd(eS.raus.farbeOhne) };
     },
   },
   {

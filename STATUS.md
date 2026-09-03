@@ -4,13 +4,99 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.42` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.43` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-03 (ef) — v32.43: die Liste führt Holunder neunmal, und die Reihenfolge entschied die Giftstufe
+
+Fernando: *„Eine Quelle für die Arten-Daten."* Die Quelle gibt es von hier
+aus nicht (drei Wege abgegangen, alle in `docs/ARTEN-DATEN.md`). Beim
+Nachsehen fiel etwas auf, das keine Quelle braucht, um falsch zu sein.
+
+#### Der Fund
+
+`data/plants.v1.js` führt **657 Arten mehrfach** (gleiches Binomen nach
+`_gsNormLat`, 1'855 Einträge, 43 %). **167 dieser Gruppen widersprechen sich
+bei `tox` oder `edible`** — 529 Einträge:
+
+```
+sambucus nigra        9×   tox 0 / 1 / 2
+amanita rubescens     6×   tox 0 / 1 / 2 / 4    edible ja / nein
+morchella esculenta   6×   tox 0 / 1 / 2
+juniperus communis    4×   tox 0 / 2
+vaccinium uliginosum  2×   tox 0 / 3            edible ja / nein
+```
+
+Jede Nachschlagung in `gsMatchScanToDb` war ein `DB.find(…)` — der erste
+Treffer in Dateireihenfolge. Für „Holunder" war das `W036`, tox 0.
+
+Und ein zweiter, der erst beim Reparieren sichtbar wurde: der **deutsche
+Name wurde vor dem lateinischen gesucht.** „Wacholder / *Juniperus
+communis*" traf `FD0660 Wacholder` — dessen Latein ist *Juniperus nana*, eine
+andere Art, tox 0. Die vier Einträge zur gelieferten Art (drei davon tox 2)
+kamen nie zum Zug. Das war die eine Gruppe von 107, die nach dem ersten
+Umbau noch falsch lag; ich habe sie mir angesehen, statt sie stehen zu
+lassen.
+
+#### Was seither gilt
+
+> **Widersprechen sich zwei Einträge zur selben Art, gewinnt die
+> vorsichtigere Angabe.** Höheres `tox`, dann `edible = false`, dann der
+> inhaltsreichere Eintrag. Dieselbe Richtung des Zweifels wie in der
+> Scanner-Gegenprobe (v31.99).
+
+Drei Teile: `_gsVorsichtigste` (die Sortierung) · `_gsArtGruppe` (sammelt
+nach der Identifikation ALLE Einträge der Art — sonst greift die Vorsicht
+nur innerhalb einer Suchstrategie) · **Binomen vor deutschem Namen** in
+`gsMatchScanToDb`.
+
+Gemessen: 167 Gruppen, 527 Abfragen, **0** liefern etwas anderes als die
+vorsichtigste Angabe. Ein `scan_check`-Fall prüft beide Reparaturen
+GETRENNT; Gegenprobe je Teil gemacht (ohne `_gsArtGruppe`: „Holunder → tox
+0 statt 2"; deutsch-zuerst: „Wacholder → Juniperus nana").
+
+Das behebt die Dubletten nicht. Sie stehen in `docs/arten-widersprueche.csv`
+(167 Zeilen, alle Werte, wer heute gewinnt) für jemanden mit einer Flora.
+
+#### Ein zweiter Fund, aus dem Workflow
+
+Der gegnerische Workflow (fünf Blickwinkel, dann je ein Gegner) fand in der
+Offline-Eingrenzung eine Zahl, die zwei Dinge in einen Topf warf: bei
+gewählter Farbe waren **3'229 Arten draussen, 2'816 davon OHNE jede
+Farbangabe** — gezählt wie „andere Farbe". Seit v32.43 getrennt
+(`raus.farbeOhne`) und genannt: „2'602 Arten ohne Farbangabe sind nicht
+gezeigt — sie könnten passen." Auch das mit Fall und Gegenprobe.
+
+#### Die Quelle
+
+Drei Wege, alle in `docs/ARTEN-DATEN.md`:
+
+| Weg | Ergebnis |
+|---|---|
+| Netz | GBIF/Wikidata/Wikipedia/iNaturalist `CONNECT 403`. Paketregister offen, nichts Passendes dort. |
+| Supabase | `species` = Kopie der App-Datei (2'738 × `inline_db_v1`), weniger Zeilen als die Datei. |
+| Repo | **Zwei belegte Datensätze** (Pilz-Register 268, Baum-Specs 76) — 303 Lücken füllbar, aber die Höhen widersprechen der Liste zu 98 % (Untergrenze 300 vs. 0: zwei Konventionen, keine benannt). **Nicht übernommen.** `scripts/arten_quellen_vergleich.js` misst es nach. |
+
+#### Zwei Lehren
+
+- **Ein Workflow-Skript, das bei einem Fehler in Stufe 2 die Ergebnisse
+  von Stufe 1 verschluckt, ist ein `catch {}`.** Der erste Lauf verlor vier
+  gelieferte Befunde an API-Fehler in der Gegenprüfung und gab `{}`
+  zurück. Jetzt werden ungeprüfte Befunde gesondert ausgewiesen.
+- **Ein Prüfstands-Fall vergleicht mit dem Zustand, der auf dem Bildschirm
+  steht — nicht mit einem, den er sich selbst ausgedacht hat.**
+  `_gsEgStand()` setzt ohne Monat den laufenden ein; mein Fall verglich mit
+  der Rechnung ohne Monat (3'481) und die Anzeige sagte 2'602. Beides
+  richtig, nur nicht dasselbe.
+
+Prüfstände: `scan_check` 52 Fälle grün (2 neu), `render_check` 0/0/0,
+`a11y_check` 0, `i18n_check` grün, `versprechen_check` grün, `wiring_check`
+0 kaputt, `data_check` unverändert.
 
 ### 2026-09-03 (ee) — v32.42: `send-receipt` stillgelegt (erste eigene Auslieferung)
 
@@ -8244,7 +8330,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.42` (Client) · SW-Cache `gs-v32.42` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.43` (Client) · SW-Cache `gs-v32.43` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.

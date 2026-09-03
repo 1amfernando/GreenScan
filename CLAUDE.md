@@ -515,6 +515,7 @@ node scripts/versprechen_check.js # wer verspricht etwas, das niemand geprueft h
 node scripts/einstellungen_check.js # haelt der Schalter, was er verspricht? (seit v32.33)
 node scripts/tour_check.js       # zeigt die App-Tour auf etwas, oder erzaehlt sie nur? (seit v32.39)
 node scripts/kamera_check.js     # stimmt, was der Scanner ueber seine Kamera behauptet? (seit v32.29)
+node scripts/arten_quellen_vergleich.js # was sagen die zwei belegten Repo-Datensaetze zur Artenliste? (seit v32.43, nur Messung)
 #   save_check prueft seit v31.95 auch SERVER-Wege mit gestelltem sbFetch:
 #   meldet die Funktion Erfolg, wenn der Server NEIN sagt — oder gar nichts?
 #   wiring_check meldet seit v31.95 zusaetzlich sofort dereferenzierte
@@ -779,6 +780,29 @@ aufs Wort glaubt. Kernfall: eine Art, die unsere Liste als toedlich fuehrt, vom
 Modell als „essbar" gemeldet. Die vorsichtigere Angabe MUSS gewinnen, und zwar
 sichtbar. `docs/SCANNER-V3.md` erklaert, warum das der Punkt ist, an dem diese
 App eine reine Bilderkennung schlagen kann: **nicht im Sehen, im Pruefen.**
+
+**Seit v32.43 haelt `scan_check` auch die DUBLETTEN-REGEL fest.** Die
+Artenliste fuehrt 657 Arten mehrfach (gleiches Binomen nach `_gsNormLat`),
+167 Gruppen widersprechen sich bei `tox`/`edible`. Bis v32.42 war jede
+Nachschlagung ein `DB.find(…)` — der ERSTE Treffer in Dateireihenfolge
+entschied, welche Giftstufe der Scan zeigte. Seither:
+
+- **Bei Widerspruch gewinnt die vorsichtigere Angabe** (`_gsVorsichtigste`:
+  hoeheres `tox`, dann `edible=false`, dann der inhaltsreichere Eintrag).
+- **Die Vorsicht haengt an der ART, nicht an der Suchstrategie**
+  (`_gsArtGruppe` sammelt nach der Identifikation alle Eintraege derselben
+  Art ein — „Holunder" trifft ueber den deutschen Namen genau EINEN Eintrag,
+  tox 0; die Art hat neun).
+- **Das Binomen wird VOR dem deutschen Namen gesucht.** „Wacholder /
+  Juniperus communis" traf sonst `FD0660 Wacholder` = *Juniperus nana*, eine
+  andere Art. Ein Trivialname ist mehrdeutig, ein Binomen nicht.
+
+Der Fall prueft alle drei Teile GETRENNT, weil jeder fuer sich unbemerkt
+zurueckfallen kann; Gegenprobe je Teil gemacht. Wer `gsMatchScanToDb` eine
+neue Strategie hinzufuegt, gibt ihr Ergebnis durch
+`_gsVorsichtigste(_gsArtGruppe(hit))` — nie `DB.find`. Die Dubletten selbst
+stehen in `docs/arten-widersprueche.csv` und brauchen eine Flora, keinen
+Code (`docs/ARTEN-DATEN.md`).
 
 **Seit v32.12 haelt `scan_check` eine Eigenschaft fest, die man leicht
 kaputtmacht, ohne es zu merken: die UNABHAENGIGKEIT.** Der Scanner misst vor
