@@ -795,7 +795,10 @@ entschied, welche Giftstufe der Scan zeigte. Seither:
   tox 0; die Art hat neun).
 - **Das Binomen wird VOR dem deutschen Namen gesucht.** „Wacholder /
   Juniperus communis" traf sonst `FD0660 Wacholder` = *Juniperus nana*, eine
-  andere Art. Ein Trivialname ist mehrdeutig, ein Binomen nicht.
+  andere Art. Ein Trivialname ist mehrdeutig, ein Binomen nicht. Gemessen
+  mit der Selbstabfrage (jeder Eintrag mit eigenem name+lat): v32.42
+  landeten **1'194 von 4'311** auf einer anderen Art, seither 0. Der Fall
+  bleibt im Pruefstand — wer die Reihenfolge je wieder umdreht, sieht ihn.
 
 Der Fall prueft alle drei Teile GETRENNT, weil jeder fuer sich unbemerkt
 zurueckfallen kann; Gegenprobe je Teil gemacht. Wer `gsMatchScanToDb` eine

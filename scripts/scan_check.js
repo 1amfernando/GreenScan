@@ -1043,6 +1043,43 @@ const FAELLE = [
     },
   },
   {
+    // v32.43: Die teuerste Zahl dieser Reparatur kam erst bei der
+    // Gegenprobe heraus. Jeder Eintrag mit seinem EIGENEN Namen und Binomen
+    // abgefragt: in v32.42 kam bei **1'194 von 4'311** eine ANDERE Art zurück
+    // — „Brennnessel / Urtica pilulifera" → Urtica dioica, „Rotbuche / Fagus
+    // silvatica" → Fagus sylvatica, „Aloe Vera / Aloe barbadensis" → Aloe
+    // vera. Der deutsche Name gewann, und deutsche Namen teilen sich viele
+    // Arten. Ein richtiger Scan landete bei jedem vierten Eintrag auf der
+    // falschen Karte. Nachher: 0.
+    name: 'Selbstabfrage · jeder Eintrag findet mit eigenem Namen und Binomen seine eigene Art',
+    lauf: () => {
+      if (typeof DB === 'undefined' || !DB || !DB.length) return { ok: false, warum: 'keine Artenliste' };
+      const nl = (x) => String(x || '').toLowerCase()
+        .replace(/\([^)]*\)/g, ' ')
+        .replace(/\b(ssp|subsp|var|f|agg|cv|sp|spp)\.?\b/g, ' ')
+        .replace(/[×x]\s/g, ' ')
+        .replace(/[^a-zäöü ]/g, ' ')
+        .replace(/ö/g, 'o').replace(/ä/g, 'a').replace(/ü/g, 'u').replace(/ß/g, 'ss')
+        .replace(/\s+/g, ' ').trim().split(' ').slice(0, 2).join(' ');
+      const t0 = performance.now();
+      let n = 0, kein = 0, andere = 0, gleich = 0, bsp = '';
+      DB.forEach(sp => {
+        if (!sp || !sp.name) return;
+        const k = nl(sp.lat); if (!k || k.indexOf(' ') < 0) return;
+        n++;
+        const h = gsMatchScanToDb(sp.name, sp.lat);
+        if (!h) { kein++; return; }
+        if (nl(h.lat) === k) gleich++; else { andere++; if (!bsp) bsp = sp.name + ' / ' + sp.lat + ' → ' + h.name + ' (' + h.lat + ')'; }
+      });
+      const ms = Math.round(performance.now() - t0);
+      // Untere Schranke, damit „nichts gefunden" nicht als „nichts falsch" durchgeht.
+      if (n < 4000) return { ok: false, warum: 'nur ' + n + ' Einträge mit Binomen — der Fall misst nicht, was er behauptet' };
+      if (kein) return { ok: false, warum: kein + ' Einträge finden sich selbst nicht (kein Treffer)' };
+      if (andere) return { ok: false, warum: andere + ' von ' + n + ' Einträgen landen auf einer ANDEREN Art, z.B. ' + bsp + ' (v32.42: 1\'194)' };
+      return { ok: true, info: n + ' Einträge, alle finden ihre eigene Art · ' + ms + ' ms' };
+    },
+  },
+  {
     name: 'Vorauswahl · ohne Grundlage behauptet sie nichts',
     lauf: () => {
       const echt = window.DB;

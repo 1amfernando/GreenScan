@@ -16069,13 +16069,30 @@ function _gsNormLat(s){
 // trifft über den deutschen Namen genau EINEN Eintrag (tox 0), während
 // dieselbe Art unter `sambucus nigra` neunmal vorkommt, mit tox bis 2.
 // **Die Vorsicht muss an der ART hängen, nicht an der Suchstrategie.**
+// Binomen → Einträge, einmal gebaut. `_gsNormLat` sind sieben Regexe je
+// Eintrag; ein `DB.filter` damit über 4'337 Arten kostet ~7 ms — pro Scan
+// egal, aber `scan_check` fragt seit v32.43 JEDEN Eintrag ab und brauchte
+// dafür 32 s. Neu gebaut, sobald sich die Länge ändert
+// (`gsMergeCommunitySpecies` schiebt später Einträge nach).
+var _gsLatIdx = null, _gsLatIdxN = -1;
+function _gsLatIndex() {
+  if (_gsLatIdx && _gsLatIdxN === DB.length) return _gsLatIdx;
+  var m = {};
+  for (var i = 0; i < DB.length; i++) {
+    var x = DB[i]; if (!x || !x.lat) continue;
+    var k = _gsNormLat(x.lat); if (!k || k.indexOf(' ') < 0) continue;
+    (m[k] || (m[k] = [])).push(x);
+  }
+  _gsLatIdx = m; _gsLatIdxN = DB.length;
+  return m;
+}
 function _gsArtGruppe(sp) {
   try {
     if (!sp) return [];
     var lat = _gsNormLat(sp.lat);
     if (!lat || lat.indexOf(' ') < 0) return [sp];   // ohne Gattung+Art nicht gruppierbar
-    var g = DB.filter(function (x) { return x && x.lat && _gsNormLat(x.lat) === lat; });
-    return g.length ? g : [sp];
+    var g = _gsLatIndex()[lat];
+    return (g && g.length) ? g : [sp];
   } catch (_) { return [sp]; }
 }
 function _gsVorsichtigste(treffer) {
@@ -16125,7 +16142,7 @@ function gsMatchScanToDb(name, latin) {
   //
   // 1) lateinische Gattung+Art (nur wenn beide vorhanden → kein zu unscharfer genus-only-Match)
   if (lat && lat.indexOf(' ') > 0) {
-    hit = _gsVorsichtigste(DB.filter(function(sp){ return sp && sp.lat && _gsNormLat(sp.lat) === lat; }));
+    hit = _gsVorsichtigste(_gsLatIndex()[lat] || []);
     if (hit) return _gsVorsichtigste(_gsArtGruppe(hit));
   }
   // 2) exakter deutscher Name
@@ -72469,7 +72486,7 @@ window.GS_RELEASES = [
     user_summary: '\ud83c\udf3f Steht eine Art mehrfach in der Liste und die Eintr\u00e4ge widersprechen sich bei der Giftigkeit, zeigt der Scanner jetzt die vorsichtigere Stufe.',
     user_items: [
       {emoji:'\u26a0\ufe0f', bold:'Vorsicht gewinnt:', text:' Holunder, Perlpilz, Wacholder, Morchel \u2014 bei 167 Arten widersprechen sich die Eintr\u00e4ge. Bisher entschied die Reihenfolge in der Datei, welche Giftstufe du sahst. Jetzt ist es die vorsichtigere.'},
-      {emoji:'\ud83d\udd0e', bold:'Der lateinische Name z\u00e4hlt zuerst:', text:' \u201eWacholder\u201c ist mehrdeutig, \u201eJuniperus communis\u201c nicht. Liefert die Erkennung beides, wird jetzt zuerst nach dem genauen Namen gesucht.'},
+      {emoji:'\ud83d\udd0e', bold:'Der lateinische Name z\u00e4hlt zuerst:', text:' \u201eWacholder\u201c ist mehrdeutig, \u201eJuniperus communis\u201c nicht. Liefert die Erkennung beides, wird jetzt zuerst nach dem genauen Namen gesucht. Nachgemessen: bisher landete gut jeder vierte Eintrag der Liste bei seiner eigenen Abfrage auf der Karte einer anderen Art \u2014 jetzt keiner mehr.'},
       {emoji:'\ud83e\udded', bold:'Eingrenzen ohne Netz sagt, was fehlt:', text:' W\u00e4hlst du eine Farbe, steht jetzt dabei, wie viele Arten ohne Farbangabe nicht gezeigt werden \u2014 sie k\u00f6nnten passen.'},
       {emoji:'\ud83d\udcc4', bold:'Und ein Bericht:', text:' Woher die Artendaten stammen, was fehlt und was eine brauchbare Quelle mitbringen muss \u2014 docs/ARTEN-DATEN.md.'},
     ],

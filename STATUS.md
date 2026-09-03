@@ -43,6 +43,14 @@ kamen nie zum Zug. Das war die eine Gruppe von 107, die nach dem ersten
 Umbau noch falsch lag; ich habe sie mir angesehen, statt sie stehen zu
 lassen.
 
+**Und die Gegenprobe dazu hat die grössere Zahl geliefert.** Jeder Eintrag
+mit seinem EIGENEN Namen und Binomen abgefragt — die Frage eines korrekten
+Scans: in v32.42 landeten **1'194 von 4'311 (28 %) auf einer anderen Art**
+(„Brennnessel / Urtica pilulifera" → Urtica dioica, „Rotbuche / Fagus
+silvatica" → Fagus sylvatica). Deutsche Namen teilen sich viele Arten. Nach
+dem Umbau: 0. Das ist kein Dubletten-Problem; das ist die Reihenfolge
+zweier Zeilen, und sie stand seit dem ersten `gsMatchScanToDb` so.
+
 #### Was seither gilt
 
 > **Widersprechen sich zwei Einträge zur selben Art, gewinnt die
@@ -94,9 +102,10 @@ Drei Wege, alle in `docs/ARTEN-DATEN.md`:
   der Rechnung ohne Monat (3'481) und die Anzeige sagte 2'602. Beides
   richtig, nur nicht dasselbe.
 
-Prüfstände: `scan_check` 52 Fälle grün (2 neu), `render_check` 0/0/0,
-`a11y_check` 0, `i18n_check` grün, `versprechen_check` grün, `wiring_check`
-0 kaputt, `data_check` unverändert.
+Prüfstände: `scan_check` 53 Fälle grün (3 neu, darunter die Selbstabfrage
+über alle 4'311 Einträge), `render_check` 0/0/0, `contrast_check` 0/0 in
+44 Fenstern, `a11y_check` 0, `i18n_check` grün, `versprechen_check` grün,
+`wiring_check` 0 kaputt, `data_check` unverändert.
 
 ### 2026-09-03 (ee) — v32.42: `send-receipt` stillgelegt (erste eigene Auslieferung)
 

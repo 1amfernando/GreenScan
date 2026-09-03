@@ -23,6 +23,7 @@ Kurzfassung für Eilige:
 | Ist von hier aus eine Quelle erreichbar? | Nein für GBIF, Wikidata, Wikipedia, iNaturalist (`CONNECT 403`, Richtlinie). Paketregister sind offen — dort liegt aber nichts Passendes. |
 | Liegt im Repo etwas? | **Ja, zwei belegte Datensätze** (Pilz-Register, Baum-Spezifikationen), zusammen 9 % der Lücken — und sie **widersprechen** der Liste dort, wo beide etwas sagen. |
 | Was war schlimmer als die Lücke? | **657 Gruppen mit demselben lateinischen Namen, 167 davon uneins über die Giftigkeit.** Welche Stufe der Scan zeigte, hing an der Reihenfolge in der Datei. Seit v32.43 gewinnt die vorsichtigere Angabe. |
+| Und noch schlimmer? | **1'194 von 4'311 Einträgen (28 %) landeten mit ihrem eigenen Binomen auf einer anderen Art**, weil der deutsche Name zuerst gesucht wurde. Seit v32.43: 0. |
 
 ## 1 · Was da ist
 
@@ -190,11 +191,34 @@ erste Treffer in Dateireihenfolge. Welche Giftstufe der Nutzer sah, hing
 also nicht an der Art, sondern daran, welcher der neun Holunder-Einträge
 zufällig weiter oben stand. Für „Holunder" war das der eine mit tox 0.
 
-Dazu ein zweiter Fehler, der erst beim Reparieren sichtbar wurde: der
-deutsche Name wurde **vor** dem lateinischen gesucht. „Wacholder /
-*Juniperus communis*" traf über den deutschen Namen `FD0660 Wacholder` —
-dessen Latein ist *Juniperus nana*, eine andere Art, tox 0. Die vier
-Einträge zur gelieferten Art (drei davon tox 2) kamen nie zum Zug.
+Dazu ein zweiter Fehler, der erst beim Reparieren sichtbar wurde — und
+der sich als der grössere herausstellte: der deutsche Name wurde **vor**
+dem lateinischen gesucht. „Wacholder / *Juniperus communis*" traf über den
+deutschen Namen `FD0660 Wacholder` — dessen Latein ist *Juniperus nana*,
+eine andere Art, tox 0. Die vier Einträge zur gelieferten Art (drei davon
+tox 2) kamen nie zum Zug.
+
+Wie gross das ist, zeigte erst die Gegenprobe: **jeder Eintrag mit seinem
+eigenen Namen und Binomen abgefragt** — die Frage, die ein korrekter Scan
+stellt.
+
+| | v32.42 | v32.43 |
+|---|---|---|
+| Einträge mit Binomen | 4'311 | 4'311 |
+| finden ihre **eigene** Art | 3'117 | **4'311** |
+| landen auf einer **anderen** Art | **1'194** (28 %) | **0** |
+
+```
+Brennnessel / Urtica pilulifera   →  Urtica dioica
+Rotbuche    / Fagus silvatica     →  Fagus sylvatica
+Aloe Vera   / Aloe barbadensis    →  Aloe vera
+Platane     / Platanus occidentalis → Platanus × acerifolia
+```
+
+Deutsche Namen teilen sich viele Arten. Für gut ein Viertel der Liste
+landete ein Scan mit dem richtigen Binomen auf der Karte einer anderen
+Art — mit deren Giftstufe, deren Verwechslungshinweis, deren Saison. Das
+ist kein Dubletten-Problem mehr; das ist die Reihenfolge zweier Zeilen.
 
 ### Was seit v32.43 gilt
 
