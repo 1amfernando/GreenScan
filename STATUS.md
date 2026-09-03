@@ -32,7 +32,11 @@ Leuchtdichte **≤ 0,183** (aus `1,05 / (L + 0,05) ≥ 4,5`).
 | API-Hilfe | `#888` → `var(--text2)` |
 | Naturjahr-Rangziffer | `#43a047` → `var(--g-main)` |
 
-**Zwei Dinge, die dabei auffielen:**
+**Gemessen nach der Welle: `automatisch geoeffnet: 44 Fenster · ohne Befund`
+— 0 Textstellen unter AA in BEIDEN Modi.** Von 100 auf 0, in zwei Schritten
+(v32.25: 100 → 26 · v32.26: 26 → 0).
+
+**Drei Dinge, die dabei auffielen:**
 
 - **`#e65100` war ein Rest.** Das Farbsystem hat seit v31.58 `--c-warn-d:#bf360c`
   mit dem Kommentar „war `#e65100`, unter AA". In `MOON_TYPES` stand der alte
@@ -43,6 +47,22 @@ Leuchtdichte **≤ 0,183** (aus `1,05 / (L + 0,05) ≥ 4,5`).
   kein Gold mehr, sondern Oliv. Also die andere Richtung: helleres Gold,
   **dunkle** Schrift. Lesbar — und als „Lifetime"-Angebot eher hochwertiger.
   Wo die Rechnung zwei Auswege hat, entscheidet der Zweck der Fläche.
+- **Eine Reparatur kann richtig aussehen und trotzdem nichts ändern.** Der
+  Tagebuch-Reiter setzt seine Farbe an ZWEI Stellen: in der Auszeichnung des
+  Knopfes und in `gsDiarySwitchTab`, das beim Umschalten den ganzen `cssText`
+  überschreibt. Ich hatte nur die erste — und der Prüflauf meldete danach in
+  beiden Modi **genau diese eine** Stelle weiter. Ohne ihn wäre sie als
+  „behoben" durchgegangen. Genau dafür ist er da.
+
+  Nachgemessen nach dem zweiten Fix, gezielt in beiden Modi und beiden
+  Zuständen des Reiters: **6,55:1 hell, 6,60:1 dunkel.**
+
+  Und noch eine Regel aus derselben Minute: mein Wegwerf-Skript meldete
+  daneben **1,70:1** für den INAKTIVEN Reiter — eine Zahl, die der Prüfstand
+  nie gemeldet hat, weil er den tatsächlich gerenderten Grund misst statt
+  `backgroundColor` am Element. **Ein ad-hoc-Skript ist kein Gegenbeweis zu
+  einem gegengeprüften Prüfstand** (die Lehre aus v32.07, hier zum zweiten
+  Mal).
 
 ---
 
