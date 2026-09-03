@@ -335,6 +335,29 @@ Vertrag sind so gebaut, dass Stufe 1 nichts an Stufe 0 ändert.
 9. **Prüfstand vor Hardware.** `sensor_check.js` fährt ein simuliertes Gerät (Ingest-Antwort gestellt, 7 Tage Werte, eine Regel, eine Bestätigung) — und misst das gerenderte Dashboard, nicht das Objekt.
 10. **Datenschutz wie überall.** Messwerte sind Personendaten: Export mit dem Konto, Löschung mit dem Konto, EU-Region, kein Analytics-Ereignis ohne Zustimmung.
 
+## 9a · Der Frontend-Vertrag für Stufe 0 (so heissen die Dinge)
+
+Damit `sensor_check.js` vor dem Code geschrieben werden kann — und damit die
+nächste Sitzung nicht rät:
+
+| Funktion | Tut | Gibt zurück |
+|---|---|---|
+| `gsMetricKatalog()` | Katalog aus `gs_metric_catalog` (Cache der Tabelle) oder dem eingebauten Startbestand (elf Grössen) — **nie leer** | Array von Katalogzeilen |
+| `gsGeraete()` | Geräte aus `gs_geraete` | Array |
+| `gsGeraetAnlegen({kind, name, garden_id?, plant_id?})` | legt ein Gerät an (Stufe 0: `kind = 'manual'`); Rückgabe `false`, wenn der Speicher voll ist | Gerät oder `false` |
+| `gsMesswertEintragen(geraetId, metric, wert, ts?)` | prüft gegen den Katalog (unbekannte Grösse → Fehler; ausserhalb → `quality 1`, **angenommen**), hängt an `gs_messwerte` an (Deckel 2'000, Rest ins Archiv), merkt `pending` für die Cloud | `{ok, quality, grund}` — `ok:false` bei vollem Speicher, mit Meldung |
+| `gsMesswerte(geraetId, metric, von?, bis?)` | liest, nach `ts` sortiert | Array |
+| `gsRegelnPruefen(geraetId)` | wertet `gs_geraete_regeln` aus — je Regel `erfuellt` · `verletzt` · `nicht_pruefbar` (keine Werte, oder zu wenige für `for_minutes`) | Array mit Zustand und Grund |
+| `gsMesswerteOeffnen()` | das Dashboard (ohne Parameter, mit `openModal(` im Rumpf — sonst sehen `wiring_check` und `contrast_check` es nicht) | — |
+| `_gsVerlauf(canvas, reihen, optionen)` | Linien, Schwellen, Markierungen aus dem Kalender; ohne Paket | — |
+
+Speicher: `gs_geraete`, `gs_geraete_regeln`, `gs_messwerte` → `GS_USER_KEYS`
+(gehen beim Abmelden); `gs_metric_catalog` → `GS_KEEP_ON_LOGOUT` (öffentlich).
+`gs_geraete` und `gs_geraete_regeln` reisen im `state`-Blob (klein);
+`gs_messwerte` **nicht** — dafür ist die Tabelle da (Stufe 1). Kalender:
+Messwerte von Hand sind Ereignisse der Art `messung`, verletzte Regeln der
+Art `alarm` (`KALENDER-V1.md` §3.4).
+
 ## 10 · Was ich Fernando frage, bevor Stufe 1 beginnt
 
 - **Welche Messgrössen hat das erste GreenScan-Gerät?** Der Katalog
