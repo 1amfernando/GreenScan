@@ -1081,6 +1081,29 @@ Kamera in einem Zoom". **Sie war es nie.** Zwei Ursachen, beide im Code:
    damit unerreichbar. Die Spanne kommt jetzt aus
    `track.getCapabilities().zoom`.
 
+**UND DIE TEUERSTE LEHRE (v32.30): die richtige Ursache, die falsche Abhilfe.**
+v32.29 hat aus dem Zuschnitt gefolgert, man muesse der Kamera ein hochkantes
+Format ABVERLANGEN. Eine Kamera kann ihren Bildwinkel aber nicht vergroessern —
+ein vorgegebenes Seitenverhaeltnis ist ein **Zuschnitt-Auftrag an den Sensor**:
+
+```
+Sensor liefert    1.778  (16:9)
+angefordert       0.549  (Behaelter hochkant)
+bleibt vom Winkel   31 %
+```
+
+Dieselben 31 % wie vorher, nur frueher — und damit auch im aufgenommenen Foto.
+Es wurde SCHLIMMER als der Zustand, den es reparieren sollte.
+
+> **Ein Zuschnitt in der ANZEIGE ist umkehrbar, einer in der QUELLE nicht.**
+> Wer etwas zurueckhaben will, darf es nicht an einer frueheren Stelle
+> wegnehmen. Das gilt weit ueber Kameras hinaus — fuer jede Kette, in der
+> Daten erst erhoben und dann dargestellt werden.
+
+Seit v32.30 wird der Kamera **kein** Seitenverhaeltnis vorgegeben (nur ein
+Aufloesungswunsch im nativen 4:3), und die Vorschau nutzt `object-fit: contain`.
+`kamera_check` haelt beides fest.
+
 **Die Regel, die daraus folgt:** eine Spanne, die man nicht beim Geraet
 erfragt hat, ist geraten — und Geraeteklassen unterscheiden sich hier
 tatsaechlich. Dasselbe gilt fuer den Faktor: die Anzeige nennt `zoom / min`
