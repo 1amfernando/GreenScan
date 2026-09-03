@@ -4,13 +4,47 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.25` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.26` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-03 (dp) — v32.26: dreizehn Stellen, eine Rechnung
+
+Der offene Punkt aus (do) abgearbeitet. Die 26 verbliebenen Kontrast-Stellen
+waren **in beiden Modi dieselben dreizehn** — also modusunabhängig, also kein
+Kipp-Fehler mehr, sondern durchweg derselbe Typ: **eine Fläche, die für weisse
+Schrift ein wenig zu hell ist.**
+
+Eine Rechnung für alle: weisse Schrift braucht eine Fläche mit relativer
+Leuchtdichte **≤ 0,183** (aus `1,05 / (L + 0,05) ≥ 4,5`).
+
+| Stelle | Was |
+|---|---|
+| Sensor-Knöpfe (2×) | `#0277bd`→`#01579b`, `#388e3c`→`#1b5e20` |
+| Tagebuch: Reiter + Chip „Alle" | `#558b2f`→`#33691e`, `#607d8b`→`#455a64` |
+| Säkalender-Chip „Alle" | die letzte `var(--g-main)`-Füllung → `var(--fill-brand)` |
+| Mondkalender „Fruchttag" | `#e65100`→`#bf360c` |
+| Doktor · Trial · Garten-Scan · Tagebuch (4×) | weisse Schrift mit `opacity` — die Fläche trägt sie, die Deckkraft nahm sie wieder weg |
+| API-Hilfe | `#888` → `var(--text2)` |
+| Naturjahr-Rangziffer | `#43a047` → `var(--g-main)` |
+
+**Zwei Dinge, die dabei auffielen:**
+
+- **`#e65100` war ein Rest.** Das Farbsystem hat seit v31.58 `--c-warn-d:#bf360c`
+  mit dem Kommentar „war `#e65100`, unter AA". In `MOON_TYPES` stand der alte
+  Wert weiter — weil diese Tabelle bis v32.25 in keinem gemessenen Fenster lag.
+  **Eine Regel, die nur dort gilt, wo jemand hinsieht, ist keine Regel.**
+- **Der Gold-Knopf war der einzige, der eine Entscheidung statt einer Rechnung
+  brauchte.** Weiss trägt auf Gold nie (2,2:1); ein Gold, das Weiss trägt, ist
+  kein Gold mehr, sondern Oliv. Also die andere Richtung: helleres Gold,
+  **dunkle** Schrift. Lesbar — und als „Lifetime"-Angebot eher hochwertiger.
+  Wo die Rechnung zwei Auswege hat, entscheidet der Zweck der Fläche.
+
+---
 
 ### 2026-09-03 (do) — v32.25: der Kontrast-Prüfstand mass sechs von vierzig Fenstern
 
@@ -7046,7 +7080,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.25` (Client) · SW-Cache `gs-v32.25` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.26` (Client) · SW-Cache `gs-v32.26` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **88'431 Zeilen / 5,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.
@@ -7081,7 +7115,6 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | `book-ingest` ohne Spiegel | Dokumentiert statt gespiegelt (~250 dichte Zeilen). `backend_check` nennt es bei jedem Lauf. (df) |
 | `feedback_analysis` = 0 Zeilen | „Nie gedrückt" und „bricht immer ab" sind von hier aus nicht zu unterscheiden. Ein Knopfdruck im Admin-Panel klärt es. (df) |
 | Kaltstart 3,3 s (Einsteiger-Telefon) | Untersucht, kein lohnender Angriffspunkt für Teil-Auslagerung. Bräuchte einen echten Aufteilungsschritt. (dj) |
-| **26 Kontrast-Stellen unter AA** | Nach der Welle in v32.25 übrig, in beiden Modi dieselben. Keine unsichtbar (2,36:1–4,39:1), alle mit derselben Rechnung zu beheben: eine Fläche für weisse Schrift braucht Leuchtdichte ≤ 0,183. Namentlich in (do). |
 | 3 Verzeichnisse im Repo ohne Auslieferung | `daily-push`, `entitlements`, `push-test` — nie deployed oder entfernt? (df) |
 | 4 Treffer in `field_check` | `tp-len`/`tp-wid`/`tp-soil`/`tp-light` — zusammengesetzte Namen, funktionieren. Dauerhafte Falschmeldung, in `CLAUDE.md` §7.1 benannt. |
 
