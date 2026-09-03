@@ -4,13 +4,83 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.28` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.29` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-03 (ds) — v32.29: die Kamera war nie im Zoom
+
+Fernando: *„immer wenn ich ein Scan machen möchte ist die Kamera in einem
+Zoom."* **Sie war es nie.** Nachgerechnet:
+
+```
+angefordert:          1920 x 1080  (Querformat)
+Behälter (Telefon):    412 x  750  (hochkant)
+object-fit: cover  →  1333 x  750 gerendert, 412 sichtbar
+waagerecht abgeschnitten: 69 % des Bildwinkels
+```
+
+Zwei Drittel des Bildes lagen ausserhalb. Das sieht aus wie ein Zoom, ist aber
+ein **Zuschnitt** — und kein Zoom-Knopf der Welt holt ihn zurück.
+
+#### Der zweite Fehler, der dieselbe Beschwerde erzeugt
+
+```js
+_gsZoomLevel = Math.max(1.0, Math.min(5.0, level));
+```
+
+Eine **geratene** Spanne. Auf Telefonen, deren Weitwinkel bei `zoom.min = 0.5`
+beginnt, schob diese Klemme jeden Versuch auf 1,0 zurück — der weiteste
+Bildwinkel war schlicht unerreichbar. Dazu `.catch(function(){})`: die Anzeige
+zeigte den neuen Wert auch dann, wenn die Kamera ihn nie übernommen hat.
+
+#### Was jetzt gilt
+
+- `_gsKamMasse()` fordert das Seitenverhältnis des **Behälters** an (`ideal`,
+  nie `exact`) — `cover` schneidet dann fast nichts mehr weg. Ist der Behälter
+  eingeklappt, fällt es auf das Fenster zurück.
+- Die Zoom-Spanne kommt aus `track.getCapabilities().zoom`.
+- **Am Anschlag übernimmt die Nachbarlinse**, in beide Richtungen. Gibt es
+  keine mehr, sagt die App das, statt still zu bleiben.
+- **Ohne Zoom-Fähigkeit sind die Linsen die Stufen** — das ist der iOS-Fall,
+  und dieselben Knöpfe tun dort genau das.
+- Eine Objektiv-Leiste erscheint, sobald das Gerät mehr als eine Rückkamera
+  hat. Die Namen kommen aus der Geräte-Beschriftung; was sich nicht erkennen
+  lässt, heisst „Linse 2" — **kein erfundenes „0,5×"**.
+- Die Anzeige nennt den Faktor **relativ zum weitesten Punkt DIESER Linse**.
+  Ein linsenübergreifendes „0,5×" wäre geraten: keine Schnittstelle sagt, wie
+  weit die Linsen zueinander stehen.
+- Nebenbei: `gsToggleCamera` zog `window._gsSharedCameraStream` nicht mit —
+  `gsRequestCamera` hätte beim nächsten Öffnen den **gestoppten** Stream
+  zurückgegeben (schwarzes Bild ohne Fehlermeldung).
+
+#### Prüfstand 18: `scripts/kamera_check.js`
+
+Echte Hardware lässt sich von hier aus nicht fahren, die **Leiter-Logik**
+vollständig: gestellte `getCapabilities`, gestellte Geräteliste, gestelltes
+`applyConstraints`. Neun Fragen, alle grün.
+
+**Zwei Gegenproben, beide stellen ihren Fall her:** die alte Klemme 1,0–5,0
+wieder eingesetzt → *„gsResetZoom() landet bei 1 — genau die alte Klemme"*;
+die festen 1920×1080 wieder eingesetzt → *„hochkant 1.78 (erwartet 0.50)"*.
+
+#### Und zwei Fallen beim Bau, beide bekannt und trotzdem wieder eingetreten
+
+- **Der Fall muss hergestellt UND nachgewiesen werden.** `.scan-wrap` hängt
+  unter `#screen-scanner`, das ausserhalb eines laufenden Scans auf
+  `display:none` steht — ein verborgener Vorfahre macht jede Grösse zu 0, auch
+  bei `position:fixed`. Beide Messungen lieferten deshalb den Fenster-Rückfall,
+  **denselben Wert**, und der Fall wäre grün gewesen, ohne etwas zu zeigen.
+  Er misst jetzt die hergestellte Grösse mit und fällt durch, wenn sie 0 ist.
+- **Eine Attrappe ist kein MediaStream.** `video.srcObject = …` wirft bei einem
+  gestellten Objekt; der Linsenwechsel schlug daran fehl, nicht am Code. Vier
+  rote Zeilen, keine davon im Code — alle in meinem Prüfstand.
+
+---
 
 ### 2026-09-03 (dr) — v32.28: „gespeichert" heisst ab jetzt nachgesehen
 
@@ -7242,11 +7312,11 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.28` (Client) · SW-Cache `gs-v32.28` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.29` (Client) · SW-Cache `gs-v32.29` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **88'431 Zeilen / 5,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.
-- **Prüfstände:** **17** in `scripts/` (siehe `CLAUDE.md` §7.1). Alle grün, keine Falschmeldungen. Neu seit v32.21: `storage_check.js` (was überlebt das Abmelden?) und seit v32.23 `sync_check.js` (kommt zurück, was hochgeladen wird?).
+- **Prüfstände:** **18** in `scripts/` (siehe `CLAUDE.md` §7.1). Alle grün, keine Falschmeldungen. Neu seit v32.21: `storage_check.js` (was überlebt das Abmelden?) und seit v32.23 `sync_check.js` (kommt zurück, was hochgeladen wird?).
 - **Architektur-Detailkarte:** `BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
 
 ## 2 · Offene Punkte
