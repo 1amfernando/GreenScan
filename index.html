@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.22.20260902">
+<meta name="app-version" content="32.23.20260903">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -71306,6 +71306,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.23', date: '03.09.2026',
+    headline: '\ud83d\udd15 Abgeschaltete Erinnerungen bleiben abgeschaltet \u2014 auf jedem Ger\u00e4t',
+    summary: 'Die App schiebt 47 Speicherpl\u00e4tze in die Cloud und holt sie wieder. Nachgez\u00e4hlt: 46 kamen zur\u00fcck. Der eine, der fehlte, war ausgerechnet die Liste der abgeschalteten Pflanzen-Erinnerungen \u2014 sie war serverseitig wirksam, aber nur auf EINEM Ger\u00e4t bekannt, und das zweite \u00fcberschrieb sie mit einer leeren Liste.',
+    user_summary: '\ud83d\udd15 Wenn du die Erinnerungen f\u00fcr eine Pflanze ausschaltest, bleiben sie aus \u2014 auch auf deinem zweiten Ger\u00e4t.',
+    user_items: [
+      {emoji:'\ud83d\udd15', bold:'Was los war:', text:' Du schaltest die Giess-Erinnerung f\u00fcr eine Pflanze am Handy aus. Am Tablet wei\u00df die App nichts davon und schickt beim n\u00e4chsten Abgleich ihre leere Liste hoch \u2014 und die Erinnerung geht dir wieder an. Ausgeschaltet, und trotzdem wieder da.'},
+      {emoji:'\ud83d\udee1\ufe0f', bold:'Und noch ein Schutz dazu:', text:' Ein leerer Stand aus der Cloud konnte gef\u00fcllte Einstellungen \u00fcberschreiben, wenn sie als Objekt statt als Liste gespeichert sind \u2014 also Stimmen, Lesefortschritt, Quiz-Werte. Listen waren seit v28.97 gesch\u00fctzt, Objekte nicht. Jetzt beide.'},
+      {emoji:'\ud83d\udd0d', bold:'Damit es auffiele:', text:' Ein neuer Pr\u00fcfstand f\u00e4hrt jeden der 47 Pl\u00e4tze wirklich die Runde \u2014 hoch, l\u00f6schen, zur\u00fcck \u2014 und meldet jeden, der nicht ankommt. Er liest die Liste aus dem Quelltext, w\u00e4chst also mit.'},
+    ],
+  },
+  {
     v: 'v32.22', date: '02.09.2026',
     headline: '\ud83d\udce6 Was du ohne Empfang aufnimmst, geht nur an DEIN Konto',
     summary: 'Scans, Fotos und Tagebuch-Eintr\u00e4ge, die ohne Netz entstehen, warten auf dem Ger\u00e4t. Bisher fragte beim n\u00e4chsten \u00dcbertragen niemand, WER sie eingereiht hatte \u2014 auf einem geteilten Ger\u00e4t landeten sie im Konto dessen, der sich als N\u00e4chstes anmeldete. Jetzt tr\u00e4gt jeder Eintrag seinen Absender, und er wartet auf ihn statt gel\u00f6scht oder verschickt zu werden.',
@@ -71737,7 +71748,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.22';
+var GS_VERSION = 'v32.23';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -78115,6 +78126,14 @@ async function gsSyncUserDataOnLogin(){
             // → forcen auf Array damit confirmed.find() im Scan-Code nicht crashed.
             'gs_confirmed_species': Array.isArray(sd.confirmed_species) ? sd.confirmed_species : [],
             'gs_achievements': sd.achievements,
+            // v32.23: gs_reminder_prefs stand seit v24.26 im HOCHgeladenen Blob
+            // und in keiner Zeile des Rueckwegs. Der Server-Cron liest
+            // `reminder_prefs.disabled[plantId]` — abgeschaltete Erinnerungen
+            // waren also serverseitig wirksam, aber geraetelokal. Folge: Geraet
+            // B kannte sie nicht, schickte beim naechsten State-Push sein
+            // leeres `{}` hoch, und die abgeschalteten Erinnerungen gingen dem
+            // Nutzer wieder an. Er hatte sie ausgeschaltet; sie kamen zurueck.
+            'gs_reminder_prefs': sd.reminder_prefs,
             // v26.51: Mein-Garten Merklisten/Prefs
             'gs_sae_merkliste': sd.sae_merkliste
           };
@@ -78166,12 +78185,22 @@ async function gsSyncUserDataOnLogin(){
                 // Liste NIE ersetzen (Boot-Race: frisches Gerät pusht leeren State bevor es
                 // pullt → Favoriten/Achievements weg). Lokal behalten + Repair-Push mergen.
                 // Analogon zum v28.22-Count-Guard für plants, hier für state-Arrays.
-                if (Array.isArray(v) && v.length === 0) {
+                // v32.23: dieselbe Ueberlegung fuer OBJEKTE. ps_votes,
+                // gs_wissen_read, gs_dq_stats und gs_reminder_prefs sind keine
+                // Listen — ein leeres `{}` aus der Cloud loeschte sie
+                // stillschweigend, waehrend das Array-Pendant seit v28.97
+                // geschuetzt ist. Derselbe Verlust, andere Klammern.
+                var _leer = (Array.isArray(v) && v.length === 0) ||
+                            (v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0);
+                if (_leer) {
                   try {
                     var _locArr = JSON.parse(localStorage.getItem(k) || 'null');
-                    if (Array.isArray(_locArr) && _locArr.length > 0) {
+                    var _locVoll = (Array.isArray(_locArr) && _locArr.length > 0) ||
+                                   (_locArr && typeof _locArr === 'object' && !Array.isArray(_locArr) && Object.keys(_locArr).length > 0);
+                    if (_locVoll) {
                       window._gsStateRepairNeeded = true;
-                      console.warn('[gsSync] v28.97 state-guard: cloud ' + k + ' leer, lokal ' + _locArr.length + ' Einträge — lokal behalten + Cloud reparieren');
+                      var _n = Array.isArray(_locArr) ? _locArr.length : Object.keys(_locArr).length;
+                      console.warn('[gsSync] state-guard: cloud ' + k + ' leer, lokal ' + _n + ' Eintrag/Einträge — lokal behalten + Cloud reparieren');
                       continue;
                     }
                   } catch(_){}

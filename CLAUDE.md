@@ -510,6 +510,7 @@ node scripts/a11y_check.js       # bedienbar ohne Augen und ohne Maus? (seit v32
 node scripts/i18n_check.js       # kommt in vier Sprachen an, was deutsch dasteht? (seit v32.17)
 node scripts/backend_check.js    # ruft das Frontend etwas auf, das es nicht gibt? (seit v32.18)
 node scripts/storage_check.js    # was ueberlebt das Abmelden? (seit v32.21)
+node scripts/sync_check.js       # kommt zurueck, was hochgeladen wird? (seit v32.23)
 #   save_check prueft seit v31.95 auch SERVER-Wege mit gestelltem sbFetch:
 #   meldet die Funktion Erfolg, wenn der Server NEIN sagt — oder gar nichts?
 #   wiring_check meldet seit v31.95 zusaetzlich sofort dereferenzierte
@@ -518,7 +519,7 @@ node scripts/storage_check.js    # was ueberlebt das Abmelden? (seit v32.21)
 #   Sicherheitsangaben — siehe docs/ARTEN-LUECKEN.md
 ```
 
-Zehn der vierzehn JS-Prüfstände teilen die Beispieldaten in `scripts/_seed.js` — dort
+Elf der fünfzehn JS-Prüfstände teilen die Beispieldaten in `scripts/_seed.js` — dort
 ändern, nicht in den einzelnen Prüfständen. `field_check.py` liest nur den
 Quelltext und braucht keine.
 
@@ -1029,6 +1030,52 @@ Zugang haette. Nachmessen: ja, jederzeit, nur lesend. Anwenden: nein.
 veraltet auch. Eine der fuenf Zeilen stand seit zwei Tagen auf „offen",
 obwohl der Trigger laengst da war. Wer so eine Liste liest, misst sie besser
 nach, statt sie zu glauben.
+
+**`sync_check.js` (seit v32.23) fragt die Umkehrung zu `save_check`:** dieser
+prueft, ob das Gespeicherte im Geraet ankommt — jener, ob es aus der Cloud
+auch **zurueckkommt**.
+
+Die App schiebt drei Blobs hinaus (`user_plants` · `user_gardens` ·
+`user_app_state`), gebaut aus **47** localStorage-Schluesseln. Der Rueckweg
+(`stateMap` im Pull) ist eine **andere**, von Hand gepflegte Liste. Erster
+Lauf: **46 von 47.** Der fehlende war `gs_reminder_prefs` — seit v24.26 im
+Blob, in keiner Zeile des Rueckwegs, und vom Server-Cron gelesen. Die
+abgeschaltete Erinnerung war serverseitig wirksam und nur EINEM Geraet
+bekannt; das zweite schickte sein leeres `{}` hoch und schaltete sie wieder
+ein.
+
+**Die Schluesselliste liest er aus dem QUELLTEXT** (aus den drei Blob-Bauern),
+nicht aus einer eigenen Tabelle. Wer dem Blob ein Feld hinzufuegt, ist damit
+automatisch geprueft — und Frage 7 meldet ihn, solange er keinen Probewert
+hinterlegt hat. Eine Liste, die man pflegen muesste, veraltet; eine, die sich
+aus dem Code speist, nicht.
+
+Zwei Fallen aus dem Bau, beide allgemein:
+
+- **`gsCloudSync.flushNow()` ist nicht der Weg.** Das ist der Beacon-Pfad
+  (`sync = true`) und geht mit rohem `fetch` an `sbFetch` vorbei — die
+  Attrappe sieht nichts. Der erste Lauf meldete „0 Tabellen gepusht" und
+  haette damit ALLE 47 Felder als fehlend gemeldet. Der echte Weg im Betrieb
+  ist `markDirty(scope)` → `flushDebounced` (500 ms). **Ein Pruefstand, der
+  nichts sieht, sieht auch keinen Fehler** — erst pruefen, ob er ueberhaupt
+  etwas misst.
+- **Falsche Probewerte ERFINDEN Befunde.** Mit `gs_streak = '{"n":7}'` meldete
+  der Lauf vier Fehler, die keine waren: `_gsStreakApplyCloud` macht
+  `parseInt` daraus und steigt bei `NaN` richtigerweise aus; mit einem Tag von
+  vorgestern greift die Lueckenpruefung. In v31.98 haben falsche
+  Beispieldaten einen echten Fehler VERDECKT — hier haetten sie drei
+  erfunden. Beide Richtungen kosten dieselbe halbe Stunde.
+
+**Und eine Regel fuer den Pull-Schutz:** der Guard aus v28.97 („ein leeres
+Cloud-Array darf keine gefuellte lokale Liste ersetzen") prueft seit v32.23
+auch **Objekte**. `ps_votes`, `gs_wissen_read`, `gs_dq_stats` und
+`gs_reminder_prefs` sind keine Listen — fuer sie galt der Schutz nie.
+**Derselbe Verlust, andere Klammern.** Wer einen Schutz fuer eine Datenform
+baut, sieht nach, welche anderen Formen dieselbe Stelle passieren.
+
+**Grenze:** geprueft wird der Weg localStorage → Blob → localStorage. Ob die
+Cloud den Blob wirklich annimmt (RLS, Spaltentypen), sagt nur ein echter
+Server; dafuer ist `save_check` mit seinen SERVER_WEGEN zustaendig.
 
 **`storage_check.js` (seit v32.21) fragt, was auf dem Geraet LIEGEN BLEIBT,
 wenn sich jemand abmeldet.** Keiner der vierzehn anderen fragte das — und
