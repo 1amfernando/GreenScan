@@ -35,10 +35,10 @@ sie sind ein Anhaltspunkt, kein Fundort. Der zitierte Code stimmt.
 | 6 | ❌ | niedrig | gsUnsubscribeWebPush meldet "Push-Notifications deaktiviert", auch wenn der Server das Loeschen ablehnt. |
 | 7 | ⚪ | niedrig | loadHomeWeather schreibt den Berechtigungs-Cache unter einen Schluessel, den keine Lesestelle kennt. |
 | 8 | ⚪ | niedrig | "Standort immer neu abfragen" akzeptiert weiterhin eine bis zu 60 Minuten alte Position und gilt nur fuer eine |
-| 9 | 🔴 | hoch | Die Zeile „🌦️ Wetter-Standort" speichert, bestätigt per Toast und wirkt auf nichts — ihr einziger Leser wird  |
-| 10 | 🔴 | mittel | Neun Schlüssel in DEFAULT_PREFS werden bei jedem Speichern mitgeschrieben und in die Cloud gepusht — gelesen w |
+| 9 | ✅ | hoch | Die Zeile „🌦️ Wetter-Standort" speichert, bestätigt per Toast und wirkt auf nichts — ihr einziger Leser wird  |
+| 10 | ✅ | mittel | Neun Schlüssel in DEFAULT_PREFS werden bei jedem Speichern mitgeschrieben und in die Cloud gepusht — gelesen w |
 | 11 | ❌ | mittel | Der ganze Analytics-/Consent-Apparat ist tot, und der eine Riegel darin steht auf „an": er prüft ein Feld, das |
-| 12 | 🔴 | mittel | `gs_theme_color` wird an acht Stellen gepflegt, gesichert, wiederhergestellt und beim Konto-Löschen geschützt  |
+| 12 | ✅ | mittel | `gs_theme_color` wird an acht Stellen gepflegt, gesichert, wiederhergestellt und beim Konto-Löschen geschützt  |
 | 13 | ❌ | niedrig | Zwei Einträge in `GS_KEEP_ON_LOGOUT` zeigen ins Leere: ein Schlüssel, den es nicht gibt, und ein „Schalter" oh |
 | 14 | ❌ | niedrig | Die Artenzahl wird an zwei Elemente geschrieben, die es nicht gibt — und der Kommentar daneben führt beide als |
 | 15 | ⚪ | niedrig | Der orange Farbpunkt in „App-Farbe" zeigt eine Farbe, die das Thema seit v31.32 nicht mehr benutzt. |
@@ -341,7 +341,7 @@ gsGpsAlwaysAsk() wird an genau einer Stelle gelesen (56517, in gsGetPosition). D
 
 ## Tote Einstellungen — geschrieben, nie gelesen
 
-### 🔴 [9] Die Zeile „🌦️ Wetter-Standort" speichert, bestätigt per Toast und wirkt auf nichts — ihr einziger Leser wird nirgends aufgerufen.
+### ✅ [9] Die Zeile „🌦️ Wetter-Standort" speichert, bestätigt per Toast und wirkt auf nichts — ihr einziger Leser wird nirgends aufgerufen.
 
 - **Schwere:** hoch  ·  **Zeile (v32.31):** 6438
 - **Folge:** Wer im Einstellungs-Bildschirm „Mein Garten" oder „Manuell" als Wetter-Standort wählt, bekommt ein grünes Häkchen im Auswahlfeld und die Bestätigung „🌦️ Wetter-Standort: Mein Garten" — und sieht danach exakt dasselbe Wetter wie vorher. Der Balkon in Zürich und der Garten im Wallis zeigen dieselbe Frostwarnung. Ein Fenster, das eine Wahl bestätigt, die es nicht umsetzt, ist schlimmer als gar keine Wahl: niemand meldet es als Fehler, weil das Wetter ja plausibel aussieht.
@@ -392,7 +392,7 @@ KORREKTUREN AM BEFUND: Zeilennummern 6438→6453, 56278→56316, 56296→56334, 
 
 </details>
 
-### 🔴 [10] Neun Schlüssel in DEFAULT_PREFS werden bei jedem Speichern mitgeschrieben und in die Cloud gepusht — gelesen wird keiner davon.
+### ✅ [10] Neun Schlüssel in DEFAULT_PREFS werden bei jedem Speichern mitgeschrieben und in die Cloud gepusht — gelesen wird keiner davon.
 
 - **Schwere:** mittel  ·  **Zeile (v32.31):** 51064
 - **Folge:** Neun Felder, die niemand auswertet, reisen bei jedem Einstellungs-Klick in zwei getrennte Cloud-Tabellen. Teuer ist nicht der Platz, sondern die Irreführung: Wer `user_preferences.prefs` in der Datenbank ansieht, liest `safetyWarnings: true` und `pestTips: true` und glaubt, es gebe abschaltbare Giftwarnungen und Schädlings-Tipps. Der v29.21-Kommentar sagt ausdrücklich das Gegenteil („Giftwarnung nicht abschaltbar (immer an)"). Das ist genau die Hälfte der Aufräumarbeit, die v31.11 an der `toggleMap` erledigt hat — die Datenquelle wurde beide Male vergessen.
@@ -476,7 +476,7 @@ Dem stehen zwei Behauptungen gegenüber: CLAUDE.md §3.7 („Analytics ist Opt-I
 
 </details>
 
-### 🔴 [12] `gs_theme_color` wird an acht Stellen gepflegt, gesichert, wiederhergestellt und beim Konto-Löschen geschützt — geschrieben wird der Schlüssel nie.
+### ✅ [12] `gs_theme_color` wird an acht Stellen gepflegt, gesichert, wiederhergestellt und beim Konto-Löschen geschützt — geschrieben wird der Schlüssel nie.
 
 - **Schwere:** mittel  ·  **Zeile (v32.31):** 51289
 - **Folge:** Acht Stellen der Sicherungs- und Abmelde-Logik halten einen Schlüssel am Leben, der nie einen Wert hat: `ui.theme_color` reist bei jedem Snapshot als `null` in die Cloud, die Wiederherstellung ist ein Leerlauf, und der Schutz beim Konto-Löschen bewahrt nichts. Praktisch geht die Farbe nicht verloren (sie hängt an `gs_prefs.theme`) — der Schaden ist, dass eine Audit-Tabelle im Repo diesen Weg als geprüft ✅ ausweist. Der nächste, der eine Farb-Einstellung debuggt, sucht sie zuerst dort.
@@ -1996,9 +1996,17 @@ Der Text im Banner selbst ist mit 9,80:1 (#4a148c auf ≈rgb(237,231,245)) NICHT
 
 </details>
 
+## Stand
+
+**Alle 24 bestätigten Meldungen sind behoben** (v32.33 · v32.35 · v32.36 ·
+v32.37 · v32.38), dazu zwei ohne Urteil, die beim Nachmessen mitbehoben
+wurden (23 und 44). Jede Reparatur hat eine Frage in
+`scripts/einstellungen_check.js` (21 Fragen), und jede Frage eine Gegenprobe,
+die den Fall wirklich herstellt.
+
 ## Was als Nächstes
 
-Die offenen bestätigten Meldungen (🔴) werden nach Schwere abgearbeitet; jede
-Reparatur bekommt eine Frage in `scripts/einstellungen_check.js`, und jede
-Frage eine Gegenprobe. Die 13 ohne Urteil (⚪) brauchen zuerst eine eigene
-Messung.
+Die 11 ohne Urteil (⚪) brauchen zuerst eine eigene Messung. **Ein Treffer
+ist ein Verdacht, kein Urteil** — von 35 angegriffenen Meldungen sind elf
+genau daran gescheitert. Sie hier ungeprüft abzuarbeiten hiesse, mit einer
+Trefferquote von rund zwei Dritteln an lebendem Code zu arbeiten.

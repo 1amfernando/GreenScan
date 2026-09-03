@@ -367,6 +367,65 @@ const melde = (frage, ok, wie) => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     aus.dialog.escape = await p3;
 
+    // ── 14 · Wirkt der gewählte Wetter-Standort? ────────────────────────
+    //
+    // Ein Garten im Wallis, ein Profil in Zürich. Steht der Schalter auf
+    // „Mein Garten", muss das Wetter aus dem Wallis kommen.
+    localStorage.setItem('gs_user_location', JSON.stringify({lat:47.3769, lon:8.5417, name:'Zürich'}));
+    localStorage.setItem('gs_gardens', JSON.stringify([{id:'g9', name:'Wallis', lat:46.2276, lng:7.3589}]));
+    const wo = (modus) => {
+      gsSetWeatherLocMode(modus);
+      const w = gsGetLocationFor('weather');
+      return { name: w && w.name, lat: w && Math.round(w.lat * 100) / 100 };
+    };
+    aus.wetterort = {
+      auto: wo('auto'),
+      garten: wo('garden'),
+      // Und der Verbraucher muss ihn auch nehmen — nicht nur der Helfer.
+      // Eine Frage muss auch dann MELDEN, wenn die Funktion dahinter kaputt
+      // ist. Die erste Fassung las `g.lat` ungeschützt — in der Gegenprobe
+      // gab `gsGetWeatherLocation()` `undefined` zurück, der ganze Prüfstand
+      // stürzte ab, und die Gegenprobe war damit weder rot noch grün.
+      // **Ein Prüfstand, der abstürzt, hat nichts gemessen.**
+      // `gsGetWeatherLocation` GIBT NICHTS ZURÜCK — sie setzt `_gsWeatherLat`
+      // / `_gsWeatherLon` / `_gsWeatherCity`, und `loadGardenWeather` liest
+      // genau die. Die erste Fassung dieser Frage las einen Rückgabewert und
+      // hätte damit einen Umbau durchgewinkt, der die drei Variablen nicht
+      // mehr setzt (genau der Fehler, den ich beim Reparieren gemacht habe).
+      //
+      // **Gemessen wird der Vertrag der Funktion, nicht das, was sie zufällig
+      // zurückgibt.**
+      genommen: (function () {
+        gsSetWeatherLocMode('garden');
+        try { gsGetWeatherLocation(); } catch (e) { return { fehler: String(e && e.message) }; }
+        if (typeof _gsWeatherLat !== 'number') return { fehler: '_gsWeatherLat ist ' + typeof _gsWeatherLat };
+        return { lat: Math.round(_gsWeatherLat * 100) / 100, city: _gsWeatherCity };
+      })(),
+      // „Manuell" ist raus: die Option las einen Schlüssel, den niemand schreibt.
+      optionen: (function () {
+        try { gsOpenWeatherLocPicker(); } catch (_) {}
+        var t = document.body.innerText || '';
+        return { manuell: t.indexOf('Manuell') >= 0, garten: t.indexOf('Mein Garten') >= 0 };
+      })(),
+    };
+    try { var nl = document.getElementById('gs-nl-modal'); if (nl && nl.parentNode) nl.parentNode.removeChild(nl); } catch (_) {}
+    gsSetWeatherLocMode('auto');
+
+    // ── 15 · Tote Felder und der Schlüssel ohne Schreiber ───────────────
+    userPrefs.safetyWarnings = true; userPrefs.pestTips = true; userPrefs.fontSize = 16;
+    userPrefs.lang = 'de'; userPrefs.waterNotif = true;
+    savePrefs();
+    var blob = {};
+    try { blob = JSON.parse(localStorage.getItem('gs_prefs') || '{}'); } catch (_) {}
+    localStorage.removeItem('gs_theme_color');
+    applyTheme('purple', null);
+    aus.tot = {
+      uebrig: ['fontSize','lang','waterNotif','weatherNotif','marketNotif','socialNotif',
+               'harvestNotif','pestTips','safetyWarnings'].filter(k => k in blob),
+      themeGeschrieben: localStorage.getItem('gs_theme_color'),
+      themeInPrefs: (function(){ try { return JSON.parse(localStorage.getItem('gs_prefs')||'{}').theme; } catch(_){ return null; } })(),
+    };
+
     aus.reloads = window.__reloads;
     return aus;
   });
@@ -603,8 +662,25 @@ const melde = (frage, ok, wie) => {
       : JSON.stringify(D2) + ' — der Fokus lag auf „Endgültig löschen", und Enter löste es aus, '
         + 'ohne dass der Finger je den Knopf berührt hatte');
 
+  const W = r.wetterort;
+  const wetterOk = W && W.auto.name === 'Zürich' && W.garten.name === 'Wallis'
+    && W.genommen.lat === 46.23 && W.optionen.garten === true && W.optionen.manuell === false;
+  melde('Der gewählte Wetter-Standort wirkt auch wirklich', wetterOk,
+    wetterOk ? 'auto → Zürich (47.38) · Garten → Wallis (46.23) · der Wetter-Lader nimmt ihn · '
+      + '„Manuell" ist raus'
+      : JSON.stringify(W) + ' — `gsGetLocationFor` gab es seit v28.03 und funktionierte; '
+        + 'es rief nur niemand auf. Eine Wahl, die bestätigt und nicht umgesetzt wird, ist '
+        + 'schlimmer als keine Wahl');
+
+  const T2 = r.tot;
+  const totOk = T2 && T2.uebrig.length === 0 && T2.themeGeschrieben === 'purple' && T2.themeInPrefs === 'purple';
+  melde('Kein totes Feld im Block, und die App-Farbe wird geschrieben', totOk,
+    totOk ? 'neun tote Felder abgestreift · `gs_theme_color` = „purple" (acht Leser hatten nie einen Schreiber)'
+      : JSON.stringify(T2) + ' — wer einen Schalter entfernt, entfernt auch seinen Wert; '
+        + 'und acht Stellen Sicherungslogik für einen Schlüssel ohne Schreiber sind acht Leerläufe');
+
   console.log('  ---');
-  console.log('  Fragen geprueft: 19 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 21 · davon rot: ' + kaputt);
   console.log('  JS-Fehler: ' + (fehler.length ? fehler.slice(0, 4).join(' | ') : 'keine'));
   console.log('  Gestellte Sperren: Notification.requestPermission → granted · setTimeout beim');
   console.log('  Löschen abgefangen (`location.reload` lässt sich nicht zuverlässig ersetzen —');
