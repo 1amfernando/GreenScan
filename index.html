@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.31.20260903">
+<meta name="app-version" content="32.32.20260903">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -571,6 +571,12 @@ body.dark .gs-map-lb{border-color:rgba(255,255,255,.2);}
 /* v23.69: Scanner = Fullscreen-Immersive — Tab-Bar weg für Platz + native Camera-Feel */
 body.gs-scanner-active .tabs { display: none !important; }
 body.gs-scanner-active #screen-scanner { bottom: 0 !important; }
+/* v32.32: `.screen::after` hängt an JEDEN Bildschirm 80 px Luft, damit der
+   letzte Eintrag nicht unter der Tab-Leiste klebt. Auf dem Scanner ist die
+   Tab-Leiste ausgeblendet (Regel darüber) — die 80 px sind dort nur ein
+   schwarzer Streifen unter den Bedienelementen. Genau der Streifen, den
+   Fernandos Aufnahme zeigt, bloss kleiner als der aus v32.31. */
+body.gs-scanner-active #screen-scanner::after { display: none !important; }
 
 
 .api-banner{display:none;align-items:center;gap:10px;margin:12px 16px 0;padding:11px 14px;border-radius:var(--r-md);font-size:var(--fs-sm);font-weight:600;cursor:pointer;}
@@ -606,28 +612,40 @@ body.gs-scanner-active #screen-scanner { bottom: 0 !important; }
   width: 100%;
   background: radial-gradient(circle at 50% 35%, #0a1f0f 0%, #050a08 70%);
   overflow: hidden;
-  /* v32.30b: Der Rahmen nimmt das Format des ECHTEN Kamerabildes an
-     (`--gs-cam-ar`, gesetzt aus `videoWidth/videoHeight`, sobald der Stream
-     läuft). Vorher war er so hoch wie der Bildschirm — ein 4:3-Bild darin
-     ergab entweder einen Zuschnitt (`cover`, bis v32.29) oder grosse dunkle
-     Ränder (`contain`, v32.30). Jetzt ist das Bild so gross wie möglich BEI
-     vollem Bildwinkel, und der Platz darunter trägt den Auslöser.
-     `contain` am Video bleibt als Zusicherung: sollte der Rahmen doch einmal
-     nicht passen, wird trotzdem nie beschnitten. */
-  aspect-ratio: var(--gs-cam-ar, 4 / 3);
-  max-height: 100%;
-  flex: 0 0 auto;
-  margin: auto 0;
+  /* v32.32: Der RAHMEN füllt wieder den Bildschirm, das BILD wird darin
+     eingepasst (Regel unten am <video>). v32.31 hatte es umgekehrt — den
+     Rahmen aufs Bildformat geschrumpft. Folge auf dem Telefon: die
+     Bedienelemente hängen an der Unterkante des Rahmens, rutschen also mit
+     nach oben, und darunter bleibt eine tote schwarze Fläche über ein
+     Viertel des Bildschirms. Genau das zeigt Fernandos Aufnahme.
+     Ein Rahmen, an dem etwas anderes hängt, darf sich nicht nach seinem
+     Inhalt richten. */
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   min-height: 0;
+  /* v32.32: KEINE gerechnete Höhe mehr. Bis hierher stand hier
+     `calc(100dvh - --st - --top-h - --sb - --tab-h)` — eine Nachbildung der
+     Bildschirmhöhe von Hand. Sie zog die Tab-Leiste ab, die auf dem
+     Scanner-Bildschirm gar nicht da ist (`body.gs-scanner-active .tabs
+     {display:none}`), und lag damit 64 px daneben; unten blieb ein dunkler
+     Streifen. Jetzt gibt der Bildschirm-Kasten selbst die Höhe vor:
+     `#screen-scanner` ist wieder `position:absolute` mit `top`/`bottom` aus
+     `.screen`, `#cam-section` ist `flex:1` darin, dieser Rahmen `flex:1`
+     darin. Eine Grösse, die aus dem Layout kommt, kann nicht danebenliegen —
+     eine nachgerechnete schon. */
 }
 .scan-wrap video {
   width: 100%;
-  height: 100%;
-  /* v32.30: `contain` statt `cover`. `cover` füllt den Rahmen, indem es das
-     Bild BESCHNEIDET — auf einem hochkanten Telefon waren das 69 % des
-     Bildwinkels. `contain` zeigt das ganze Bild und lässt oben/unten dunkle
-     Ränder. Die sind gewollt: was man sieht, ist alles, was das Objektiv
-     sieht — und genau das wird auch aufgenommen. */
+  /* v32.32: Das BILD nimmt das Format des echten Streams an und wird in den
+     Rahmen eingepasst — so gross wie möglich, ohne je beschnitten zu werden.
+     `contain` bleibt als Zusicherung für den Fall, dass die Masse noch nicht
+     bekannt sind. */
+  aspect-ratio: var(--gs-cam-ar, 4 / 3);
+  height: auto;
+  max-height: 100%;
+  margin: auto;
   object-fit: contain;
   opacity: 0;
   transition: opacity var(--dur-slow) cubic-bezier(.22,.61,.36,1);
@@ -3105,7 +3123,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
 
 
 <!-- SCANNER -->
-<div class="screen" id="screen-scanner" style="overflow:hidden;position:relative;background:#0a0a0a;">
+<div class="screen" id="screen-scanner" style="overflow:hidden;background:#0a0a0a;">
 
   <!-- KAMERA-SECTION (fullscreen) -->
   <div id="cam-section" style="flex:1;display:flex;flex-direction:column;min-height:0;position:relative;">
@@ -18347,17 +18365,30 @@ window.gsKam = (function(){
       var sp = spanne();
       if (el) {
         if (sp) {
-          // Faktor RELATIV zum weitesten Punkt dieser Linse. Ein
-          // linsenuebergreifendes „0.5x" waere geraten — die Kamera sagt
-          // nirgends, wie weit ihre Linsen zueinander stehen.
-          el.textContent = (wert() / sp.min).toFixed(1) + '×';
+          // v32.32: der ECHTE Wert des Geraets, nicht auf das Minimum
+          // normiert. Die Normierung war gut gemeint und schlecht: am
+          // weitesten Punkt einer 0,5–8-Kamera stand „1.0×", was nach „kein
+          // Zoom" aussieht, und am Anschlag „16.0×", was es nie war. Was die
+          // Kamera meldet, ist auch das, was Telefon-Kamera-Apps anzeigen.
+          el.textContent = wert().toFixed(1) + '×';
         } else {
           el.textContent = linsen.length ? (linsen[idx] ? linsen[idx].kurz : 'Kamera') : '—';
         }
       }
       var reihe = document.getElementById('gs-linsen');
       if (reihe) {
-        if (linsen.length < 2) { reihe.style.display = 'none'; reihe.innerHTML = ''; }
+        // v32.32: Die Leiste erscheint nur dort, wo sie das TATSAECHLICHE
+        // Bedienelement ist — also wenn das Geraet keinen steuerbaren Zoom
+        // meldet (iOS). Wo es einen meldet (Android), deckt der Zoom bereits
+        // den ganzen optischen Bereich ueber alle Objektive ab; die Leiste
+        // waere dann eine zweite, konkurrierende Bedienung mit nichtssagenden
+        // Namen. Genau so sah es auf Fernandos Telefon aus: „Linse 1" bis
+        // „Linse 4", weil Android seine Kameras „camera2 0, facing back"
+        // nennt und daraus kein Mensch etwas ableiten kann.
+        //
+        // Die Regel dahinter: EINE Aufgabe, EIN Bedienelement. Zwei Wege zum
+        // selben Ziel sind keine Wahlfreiheit, sondern eine Zumutung.
+        if (linsen.length < 2 || spanne()) { reihe.style.display = 'none'; reihe.innerHTML = ''; }
         else {
           reihe.style.display = '';
           reihe.innerHTML = linsen.map(function(l, i){
@@ -71745,6 +71776,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.32', date: '03.09.2026',
+    headline: '\ud83d\udcf1 Kamera: kein schwarzer Streifen mehr, und nur noch EIN Zoom-Bedienelement',
+    summary: 'Fernandos Aufnahme zeigte drei Dinge auf einmal: ein Viertel des Bildschirms unter den Kn\u00f6pfen schwarz und leer, eine Leiste \u201eLinse 1\u2013Linse 4\u201c mit nichtssagenden Namen, und \u201e1.0\u00d7\u201c am weitesten Punkt einer Kamera, die dort 0,5\u00d7 steht. Alle drei behoben \u2014 und die Bildschirmh\u00f6he wird nicht mehr von Hand nachgerechnet, sondern kommt aus dem Layout.',
+    user_summary: '\ud83d\udcf1 Der Sucher f\u00fcllt jetzt den ganzen Bildschirm, die Zoom-Anzeige sagt die Wahrheit, und die verwirrende Objektiv-Leiste ist weg, wo sie nichts n\u00fctzt.',
+    user_items: [
+      {emoji:'\u2b1b', bold:'Kein toter Streifen mehr:', text:' Der Kamerabereich reicht wieder bis an die Unterkante des Bildschirms. Vorher rechnete die App die H\u00f6he von Hand aus und zog die Tab-Leiste ab, die auf dem Scanner gar nicht da ist \u2014 daher der schwarze Rand.'},
+      {emoji:'\ud83d\udd22', bold:'Die Zoom-Anzeige zeigt den echten Wert:', text:' Steht deine Kamera am weitesten Punkt auf 0,5\u00d7, steht dort jetzt auch \u201e0.5\u00d7\u201c \u2014 wie in der Kamera-App deines Telefons. Vorher wurde umgerechnet, und der weiteste Punkt hiess \u201e1.0\u00d7\u201c.'},
+      {emoji:'\ud83d\udd0d', bold:'Nur noch ein Bedienelement f\u00fcr den Zoom:', text:' Auf Android deckt der Zoom-Regler bereits alle Objektive ab. Die zus\u00e4tzliche Leiste \u201eLinse 1\u20134\u201c war eine zweite, konkurrierende Bedienung mit Namen, die das Ger\u00e4t selbst nicht kennt. Sie erscheint jetzt nur noch dort, wo sie wirklich die Zoom-Stufen sind (iPhone).'},
+      {emoji:'\ud83e\uddea', bold:'Und daf\u00fcr gepr\u00fcft:', text:' Der Kamera-Pr\u00fcfstand misst jetzt auch, ob unter den Kn\u00f6pfen leere Fl\u00e4che bleibt \u2014 gegengepr\u00fcft mit dem alten Stand, der prompt 550 px meldet.'},
+    ],
+  },
+  {
     v: 'v32.31', date: '03.09.2026',
     headline: '\ud83d\udcd0 Das Kamerabild f\u00fcllt jetzt seinen Rahmen \u2014 ohne Zuschnitt, ohne dunkle R\u00e4nder',
     summary: 'v32.30 zeigte endlich das ganze Bild, lie\u00df daf\u00fcr aber oben und unten viel Schwarz: ein 4:3-Bild in einem bildschirmhohen Rahmen f\u00fcllt nur die Mitte. Jetzt nimmt der Rahmen das Format des tats\u00e4chlichen Kamerabildes an \u2014 das Bild ist so gross wie m\u00f6glich BEI vollem Bildwinkel, und der Platz darunter tr\u00e4gt den Ausl\u00f6ser.',
@@ -72275,7 +72318,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.31';
+var GS_VERSION = 'v32.32';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt

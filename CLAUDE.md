@@ -1075,7 +1075,7 @@ Kamera in einem Zoom". **Sie war es nie.** Zwei Ursachen, beide im Code:
    uebliches Telefon (412x750 sichtbar): das Bild wird auf 1333x750 skaliert,
    sichtbar bleiben 412 — **69 % des Bildwinkels liegen ausserhalb.** Das
    sieht aus wie ein Zoom und ist ein Zuschnitt; kein Zoom-Knopf holt es
-   zurueck. `_gsKamMasse()` fordert jetzt das Verhaeltnis des BEHAELTERS an.
+   zurueck. (Die Abhilfe von v32.29 war falsch — siehe den Kasten unten.)
 2. `gsSetZoom` klemmte auf eine **geratene** Spanne 1,0–5,0. Auf Telefonen,
    deren Weitwinkel bei `zoom.min = 0.5` beginnt, war der weiteste Bildwinkel
    damit unerreichbar. Die Spanne kommt jetzt aus
@@ -1106,9 +1106,70 @@ Aufloesungswunsch im nativen 4:3), und die Vorschau nutzt `object-fit: contain`.
 
 **Die Regel, die daraus folgt:** eine Spanne, die man nicht beim Geraet
 erfragt hat, ist geraten — und Geraeteklassen unterscheiden sich hier
-tatsaechlich. Dasselbe gilt fuer den Faktor: die Anzeige nennt `zoom / min`
-DIESER Linse. Ein linsenuebergreifendes „0,5x" waere erfunden, denn keine
-Schnittstelle sagt, wie weit die Linsen zueinander stehen.
+tatsaechlich.
+
+**v32.32 hat drei weitere Fehler behoben, alle auf EINER Aufnahme von Fernandos
+Telefon sichtbar — und alle drei aus dieser Sitzung.** Sie sind hier
+festgehalten, weil jeder davon eine Regel traegt, die weit ueber die Kamera
+hinausgeht.
+
+**1 · Ein Viertel des Bildschirms schwarz.** v32.31 hat den RAHMEN aufs
+Bildformat geschrumpft; die Bedienelemente haengen mit `position:absolute;
+bottom:0` an ihm und rutschten mit.
+
+> **Ein Rahmen, an dem etwas anderes haengt, darf sich nicht nach seinem
+> Inhalt richten.**
+
+Seither traegt das `<video>` das `aspect-ratio`, nicht der Rahmen.
+
+**1b · Und zwei aeltere Streifen, die nie jemand gemessen hat.** `.screen::after`
+haengt an JEDEN Bildschirm 80 px Luft fuer die Tab-Leiste — die auf dem Scanner
+ausgeblendet ist. Und `.scan-wrap` rechnete die Bildschirmhoehe von Hand nach
+(`calc(100dvh − --st − --top-h − --sb − --tab-h)`) und zog dieselbe Tab-Leiste
+ein zweites Mal ab. Die gerechnete Hoehe ist **ersatzlos** gestrichen; die
+Hoehe kommt jetzt aus dem Layout. Dafuer musste `#screen-scanner` sein inline
+`position:relative` abgeben — es ueberschrieb das `position:absolute` aus
+`.screen` und machte den Bildschirm-Kasten **inhaltshoch** statt bildschirmhoch
+(womit nebenbei auch `#scan-result` mit seinem `inset:0` zu kurz war).
+
+> **Eine Groesse, die aus dem Layout kommt, kann nicht danebenliegen — eine
+> nachgerechnete schon.**
+
+**2 · „Linse 1 · Linse 2 · Linse 3 · Linse 4".** Android nennt seine Kameras
+`camera2 0, facing back`; daraus wird kein Name. Und die Leiste stand
+ZUSAETZLICH zum Zoom-Regler, der auf Android bereits alle Objektive abdeckt.
+
+> **EINE Aufgabe, EIN Bedienelement.** Zwei Wege zum selben Ziel sind keine
+> Wahlfreiheit, sondern eine Zumutung.
+
+Die Leiste erscheint jetzt nur, wenn das Geraet **keinen** steuerbaren Zoom
+meldet (iOS, wo die Objektive die Stufen sind).
+
+**3 · „1.0x" am weitesten Punkt.** Die Anzeige normierte auf `zoom.min` — bei
+einer 0,5–8-Kamera stand am weitesten Punkt „1.0x" (sieht aus wie „kein
+Zoom") und am Anschlag „16.0x" (gab es nie). Jetzt steht dort der Wert des
+Geraets, wie in jeder Telefon-Kamera-App. Die Normierung war gut gemeint:
+sie sollte nichts erfinden, was die Schnittstelle nicht hergibt. Sie hat
+stattdessen etwas VERAENDERT, was die Schnittstelle klar sagt.
+
+**Und die Frage nach der toten Flaeche war in drei Anlaeufen gruen, ohne etwas
+zu pruefen** — je nach Bezug: Rahmen gegen Abschnitt (schrumpfen gemeinsam),
+Knoepfe gegen die Tab-Leiste (die auf dem Scanner ausgeblendet ist, Rechteck
+0x0 — es wurde mit lauter Nullen gerechnet), Knoepfe gegen `#screen-scanner`
+(der Kasten schrumpft im Fehlerfall MIT: gemeldet wuerden 80 px statt 470).
+
+> **Ein Bezug, der mit dem Fehler mitwandert, verharmlost ihn.** Gemessen wird
+> gegen den einzigen Kasten, der nie mitwandert — hier `#app`
+> (`position:fixed` ueber den ganzen Bildschirm).
+
+**Dazu eine Messfalle, die JEDEN Pruefstand betrifft:** `.screen.active > *`
+traegt `animation: rrFadeSlideUp .42s … both` mit
+`from{transform:translateY(12px)}`. Wer einen Abschnitt sichtbar schaltet und
+**sofort** misst, misst einen Keyframe — ich habe eine halbe Stunde einen
+16-px-Versatz gesucht, den es 420 ms spaeter nicht mehr gibt.
+
+> **Ein Element, das gerade sichtbar geworden ist, wird erst NACH seiner
+> Eintritts-Animation vermessen.**
 
 Neun Fragen, alle mit gestellten Faehigkeiten: Seitenverhaeltnis folgt dem
 Behaelter · Spanne kommt vom Geraet · weitester Punkt erreichbar · am oberen

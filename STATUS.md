@@ -4,13 +4,116 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.31` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.32` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-03 (du) — v32.32: drei Dinge auf einem Bild, und keines davon war Meinung
+
+Fernando, mit einer Aufnahme seines Telefons: *„jetzt sieht es so au und mit
+das mit den Linsen funktioniert auch nicht wie gewünscht."*
+
+Auf dem Bild waren drei Fehler gleichzeitig zu sehen. Alle drei sind meine.
+
+#### 1 · Ein Viertel des Bildschirms schwarz und leer
+
+v32.31 hat den **Rahmen** aufs Bildformat geschrumpft. An diesem Rahmen hängen
+aber die Bedienelemente (`.scan-ctrls`, `position:absolute; bottom:0`) — sie
+rutschten mit nach oben, und darunter blieb Schwarz.
+
+> **Ein Rahmen, an dem etwas anderes hängt, darf sich nicht nach seinem Inhalt
+> richten.**
+
+Umgedreht: der Rahmen füllt wieder den Bildschirm, das **Bild** nimmt das
+Format des Streams an (`aspect-ratio: var(--gs-cam-ar)` am `<video>`, nicht am
+Rahmen). Voller Bildwinkel wie in v32.31, Knöpfe unten wie vor v32.31.
+
+#### 1b · Und dahinter zwei ältere Streifen, die nie jemand gemessen hat
+
+Beim Nachmessen kam heraus, dass auch der reparierte Stand unten 80 px
+verschenkte — seit langem, unabhängig von v32.31:
+
+| Ursache | px |
+|---|---|
+| `.screen::after` hängt an JEDEN Bildschirm 80 px Luft für die Tab-Leiste — die auf dem Scanner ausgeblendet ist | 80 |
+| `.scan-wrap` rechnete die Bildschirmhöhe von Hand nach (`calc(100dvh − …)`) und zog dieselbe Tab-Leiste ein zweites Mal ab | 64 |
+
+Beides ist jetzt weg. Die gerechnete Höhe ist **ersatzlos** gestrichen: der
+Bildschirm-Kasten gibt die Höhe vor, `#cam-section` ist `flex:1` darin, der
+Rahmen `flex:1` darin. Dafür musste `#screen-scanner` sein inline
+`position:relative` abgeben — es überschrieb das `position:absolute` aus
+`.screen` und machte den Bildschirm-Kasten **inhaltshoch** statt bildschirmhoch.
+
+> **Eine Grösse, die aus dem Layout kommt, kann nicht danebenliegen — eine
+> nachgerechnete schon.**
+
+Nebenbei repariert: `#scan-result` ist `position:absolute; inset:0` in diesem
+Kasten. Solange der Kasten inhaltshoch war, war auch das Ergebnis-Fenster zu
+kurz.
+
+#### 2 · „Linse 1 · Linse 2 · Linse 3 · Linse 4"
+
+Android nennt seine Kameras `camera2 0, facing back`. Daraus wird kein Name,
+also numerierte die App durch. Und sie tat es **zusätzlich** zum Zoom-Regler,
+der auf Android bereits den ganzen optischen Bereich über alle Objektive
+abdeckt.
+
+> **EINE Aufgabe, EIN Bedienelement.** Zwei Wege zum selben Ziel sind keine
+> Wahlfreiheit, sondern eine Zumutung.
+
+Die Leiste erscheint jetzt nur noch dort, wo sie das tatsächliche
+Bedienelement ist: wenn das Gerät **keinen** steuerbaren Zoom meldet (iOS,
+wo die Objektive die Stufen sind).
+
+#### 3 · „1.0×" am weitesten Punkt
+
+Die Anzeige normierte auf `zoom.min`. Bei einer 0,5–8-Kamera stand am
+weitesten Punkt „1.0×" (sieht aus wie „kein Zoom") und am Anschlag „16.0×"
+(gab es nie). Jetzt steht dort, was das Gerät meldet — wie in jeder
+Telefon-Kamera-App.
+
+#### Prüfstand: die Frage, die ich dreimal falsch gestellt habe
+
+`kamera_check` 11 → 12 Fragen. Die neue misst die tote Fläche. Sie war in drei
+Anläufen **grün, ohne etwas zu prüfen**:
+
+| Bezug | warum unbrauchbar |
+|---|---|
+| Rahmen gegen Abschnitt | schrumpfen gemeinsam — immer erfüllt |
+| Knöpfe gegen die Tab-Leiste | die ist auf dem Scanner ausgeblendet, ihr Rechteck ist 0×0 — die Frage rechnete mit lauter Nullen |
+| Knöpfe gegen `#screen-scanner` | der Kasten schrumpft im Fehlerfall **mit**: gemeldet würden 80 px statt 470 |
+
+> **Ein Bezug, der mit dem Fehler mitwandert, verharmlost ihn.**
+
+Richtig ist `#app` — `position:fixed` über den ganzen Bildschirm, der einzige
+Kasten, der nie mitwandert. **Gegenprobe** mit dem vollen v32.31-Zustand
+(Rahmen inhaltshoch, Bildschirm `position:relative`, Abstandhalter zurück):
+gemeldet „550 px leer unter den Knöpfen (belegt 309 von 915 px)". Repariert:
+„Kamerabereich 859 px hoch, Knöpfe an der Unterkante des 915-px-Bildschirms".
+
+#### Und eine Messfalle, die jeden Prüfstand betrifft
+
+`.screen.active > *` trägt `animation: rrFadeSlideUp .42s … both` mit
+`from{transform:translateY(12px)}`. Wer einen Abschnitt sichtbar schaltet und
+**sofort** misst, misst einen Keyframe: ich habe eine halbe Stunde lang einen
+16-px-Versatz gesucht, den es 420 ms später nicht mehr gibt.
+
+> **Ein Element, das gerade sichtbar geworden ist, wird erst nach seiner
+> Eintritts-Animation vermessen.**
+
+#### Alle Prüfstände nach der Änderung
+
+`render` 2'900 Elemente · 0 abgeschnitten · 0 ragt hinaus — `touch` 0/0 bei
+412 und 320 px — `a11y` 0/0 — `contrast` 0 hell / 0 dunkel über 44 automatisch
+geöffnete Fenster — `wiring` 0 — `kamera` 12/12 — dazu `scan` 48, `save` 14,
+`planer` 22, `offline` 13, `sync` 7, `storage`, `i18n`, `backend`,
+`versprechen`, `data` alle ohne roten Befund.
+
+---
 
 ### 2026-09-03 (dt) — v32.30: die richtige Ursache, die falsche Abhilfe
 
@@ -7412,9 +7515,9 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.31` (Client) · SW-Cache `gs-v32.31` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.32` (Client) · SW-Cache `gs-v32.32` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
-- **Frontend:** `index.html` **88'431 Zeilen / 5,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
+- **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.
 - **Prüfstände:** **18** in `scripts/` (siehe `CLAUDE.md` §7.1). Alle grün, keine Falschmeldungen. Neu seit v32.21: `storage_check.js` (was überlebt das Abmelden?) und seit v32.23 `sync_check.js` (kommt zurück, was hochgeladen wird?).
 - **Architektur-Detailkarte:** `BACKEND_FRONTEND_MAP_v26.76.md` (älter — die verlässliche, nachgemessene Momentaufnahme ist `docs/backend-inventar.json`, 02.09.2026).
