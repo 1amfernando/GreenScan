@@ -40128,7 +40128,11 @@ function gsDiarySwitchTab(tab) {
   var paneStats = document.getElementById('diary-pane-stats');
   var btnNew = document.getElementById('diary-tab-new');
   var btnStats = document.getElementById('diary-tab-stats');
-  var active = 'background:#558b2f;color:#fff;border:none;font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;flex:1;padding:12px;';
+  // v32.26: dieselbe Farbe wie im Markup (#33691e). Sie steht an ZWEI
+  // Stellen — hier und in der Auszeichnung des Knopfes — und der Prueflauf
+  // hat die zweite gemeldet, nachdem die erste repariert war: `cssText`
+  // ueberschreibt beim Umschalten alles, also gewinnt diese hier.
+  var active = 'background:#33691e;color:#fff;border:none;font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;flex:1;padding:12px;';
   var inactive = 'background:transparent;color:var(--text2);border:none;font-size:var(--fs-md);font-weight:700;cursor:pointer;font-family:inherit;flex:1;padding:12px;';
   if (tab === 'stats') {
     if (paneNew) paneNew.style.display = 'none';
