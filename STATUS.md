@@ -58,6 +58,20 @@ zeigte den neuen Wert auch dann, wenn die Kamera ihn nie übernommen hat.
   `gsRequestCamera` hätte beim nächsten Öffnen den **gestoppten** Stream
   zurückgegeben (schwarzes Bild ohne Fehlermeldung).
 
+#### Es war auch ein GENAUIGKEITS-Fehler
+
+Beim Nachprüfen der eigenen Änderung aufgefallen: `captureAndAnalyze` und
+`_gsGrabFrame` zeichnen `video.videoWidth × videoHeight` — also den **ganzen**
+Stream. Vorher hiess das:
+
+> Der Sucher zeigte 412 von 1333 Bildpunkten Breite (31 %). An die KI ging
+> aber das **ganze** 1920×1080-Bild. Die Pflanze war darin klein und von
+> 69 % Umgebung umgeben, die der Nutzer nie gesehen hatte.
+
+Wer eine Pflanze mittig anvisierte, schickte dem Modell also eine viel weitere
+Szene mit viel mehr Störung. Seit Stream und Sucher dieselbe Form haben, ist
+das analysierte Bild das, was jemand tatsächlich anvisiert hat.
+
 #### Prüfstand 18: `scripts/kamera_check.js`
 
 Echte Hardware lässt sich von hier aus nicht fahren, die **Leiter-Logik**
