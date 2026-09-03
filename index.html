@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.25.20260903">
+<meta name="app-version" content="32.26.20260903">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4359,7 +4359,7 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <span class="memoji">🩺</span>
       <div>
         <h2 data-i18n="doctor_title" data-i18n-fallback="KI-Pflanzendoktor" style="color:#fff;">KI-Pflanzendoktor</h2>
-        <p data-i18n="doctor_sub" data-i18n-fallback="Foto + Symptome → KI-Analyse + Behandlungsplan" style="color:rgba(255,255,255,.85);">Foto + Symptome → KI-Analyse + Behandlungsplan</p>
+        <p data-i18n="doctor_sub" data-i18n-fallback="Foto + Symptome → KI-Analyse + Behandlungsplan" style="color:#fff;">Foto + Symptome → KI-Analyse + Behandlungsplan</p>
       </div>
     </div>
     <div id="doctor-form" style="padding:14px 18px 18px;">
@@ -4637,12 +4637,12 @@ button, a, [role="button"], .settings-row, .mp-add-btn, .modal-close-btn, [oncli
       <span class="memoji">📔</span>
       <div>
         <h2 data-i18n="diary_title" data-i18n-fallback="Garten-Tagebuch" style="color:#fff;">Garten-Tagebuch</h2>
-        <p data-i18n="diary_sub" data-i18n-fallback="Neuer Eintrag + Saison-Statistik dieses Jahres" style="color:rgba(255,255,255,.85);">Neuer Eintrag + Saison-Statistik dieses Jahres</p>
+        <p data-i18n="diary_sub" data-i18n-fallback="Neuer Eintrag + Saison-Statistik dieses Jahres" style="color:#fff;">Neuer Eintrag + Saison-Statistik dieses Jahres</p>
       </div>
     </div>
     <!-- Tabs: Neuer Eintrag | Statistik -->
     <div style="display:flex;border-bottom:1px solid var(--border);background:var(--card);">
-      <button id="diary-tab-new" onclick="gsDiarySwitchTab('new')" style="flex:1;padding:12px;background:#558b2f;color:#fff;border:none;font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;">➕ Neuer Eintrag</button>
+      <button id="diary-tab-new" onclick="gsDiarySwitchTab('new')" style="flex:1;padding:12px;background:#33691e;color:#fff;border:none;font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;">➕ Neuer Eintrag</button>
       <button id="diary-tab-stats" onclick="gsDiarySwitchTab('stats')" style="flex:1;padding:12px;background:transparent;color:var(--text2);border:none;font-size:var(--fs-md);font-weight:700;cursor:pointer;font-family:inherit;">📊 Saison-Statistik</button>
     </div>
     <!-- Pane: Neuer Eintrag -->
@@ -5707,8 +5707,8 @@ li.laeuft .gs-s-erg{color:var(--muted);}
           Viele günstige Pflanzen-Sensoren (z.B. Xiaomi Mi Flora, Flower Care, Govee H5100, ThermoPro, etc.) werden direkt erkannt.
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;">
-          <button class="mp-save-btn" onclick="gsDevConnect()" style="background:linear-gradient(135deg,#0277bd,#0288d1);">🔍 Sensor suchen</button>
-          <button class="mp-save-btn" onclick="gsDevConnect('flower')" style="background:linear-gradient(135deg,#388e3c,#4caf50);">🌱 Flower Care</button>
+          <button class="mp-save-btn" onclick="gsDevConnect()" style="background:linear-gradient(135deg,#01579b,#0277bd);">🔍 Sensor suchen</button>
+          <button class="mp-save-btn" onclick="gsDevConnect('flower')" style="background:linear-gradient(135deg,#1b5e20,#2e7d32);">🌱 Flower Care</button>
         </div>
         <div style="font-size:var(--fs-xs);color:var(--muted);text-align:center;">Tipp: Halte den Sensor in Reichweite (bis ~5m) und aktiviere Bluetooth.</div>
       </div>
@@ -7189,7 +7189,7 @@ html, body{ scroll-behavior: smooth; }
       <option value="anthropic">Anthropic Claude</option>
     </select>
     <input class="oinput" id="apikey-input" type="password" maxlength="200" autocomplete="off" placeholder="API Key eingeben (sk-ant-…)">
-    <div id="api-help" style="font-size:var(--fs-sm);color:#888;margin-bottom:12px;line-height:1.5;">
+    <div id="api-help" style="font-size:var(--fs-sm);color:var(--text2);margin-bottom:12px;line-height:1.5;">
       Anthropic: console.anthropic.com → API Keys
     </div>
     <button class="obtn-prim" onclick="saveApiKey()">✅ Speichern &amp; aktivieren</button>
@@ -9865,7 +9865,7 @@ function openGartenTagebuch() {
   });
   
   var CATS = [
-    {id:'all',     l:'Alle',       e:'📋', c:'#607d8b'},
+    {id:'all',     l:'Alle',       e:'📋', c:'#455a64'},
     {id:'sowed',   l:'Gesät',      e:'🌱', c:'#2e7d32'},
     {id:'planted', l:'Gepflanzt',  e:'🪴', c:'#558b2f'},
     {id:'harvest', l:'Geerntet',   e:'🧺', c:'#ef6c00'},
@@ -10193,7 +10193,7 @@ function openSaekalender() {
   }
   
   // Kategorie-Filter Chips
-  var catChips = '<button onclick="gsSaeFilterCat(\'all\')" style="padding:5px 10px;border-radius:var(--r-lg);border:1.5px solid ' + (catFilter==='all'?'var(--g-main)':'var(--border)') + ';background:' + (catFilter==='all'?'var(--g-main)':'var(--card)') + ';color:' + (catFilter==='all'?'#fff':'var(--text2)') + ';font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;-webkit-tap-highlight-color:transparent;">Alle</button>';
+  var catChips = '<button onclick="gsSaeFilterCat(\'all\')" style="padding:5px 10px;border-radius:var(--r-lg);border:1.5px solid ' + (catFilter==='all'?'var(--g-main)':'var(--border)') + ';background:' + (catFilter==='all'?'var(--fill-brand)':'var(--card)') + ';color:' + (catFilter==='all'?'#fff':'var(--text2)') + ';font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;-webkit-tap-highlight-color:transparent;">Alle</button>';
   catOrder.forEach(function(c) {
     var sel = catFilter === c;
     var count = currentPlants.filter(function(p){return p.cat===c;}).length;
@@ -17494,11 +17494,11 @@ function gsShowFirstTrialModal() {
       '<button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:var(--fs-xl);cursor:pointer;">×</button>' +
       '<div style="font-size:48px;margin-bottom:8px;">🌱</div>' +
       '<div style="font-family:\'Playfair Display\',serif;font-size:var(--fs-2xl);font-weight:900;margin-bottom:6px;">Willkommen bei GreenScan</div>' +
-      '<div style="font-size:var(--fs-md);opacity:.92;line-height:1.5;">7 Tage lang ALLES kostenlos testen.<br>Jederzeit kündbar — keine Sofort-Sperre.</div>' +
+      '<div style="font-size:var(--fs-md);line-height:1.5;">7 Tage lang ALLES kostenlos testen.<br>Jederzeit kündbar — keine Sofort-Sperre.</div>' +
     '</div>' +
     '<div style="padding:18px;">' +
       // Pro Lifetime (Launch-Aktion) — einmalig, kein Trial
-      '<button onclick="gsTrialStart(\'pro_lifetime\')" style="width:100%;display:block;padding:16px;margin-bottom:10px;background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;border-radius:var(--r-lg);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;text-align:left;">' +
+      '<button onclick="gsTrialStart(\'pro_lifetime\')" style="width:100%;display:block;padding:16px;margin-bottom:10px;background:linear-gradient(135deg,#daa520,#f0c85a);color:#3e2723;border:none;border-radius:var(--r-lg);font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;text-align:left;">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;">' +
           '<div><div style="font-size:var(--fs-lg);margin-bottom:2px;">🏆 Pro Lifetime — einmalig CHF 45.60</div>' +
           '<div style="font-size:var(--fs-sm);opacity:.9;font-weight:600;">Launch-Aktion · nur erste 100 Nutzer · alle Features für immer</div></div>' +
@@ -19602,7 +19602,7 @@ function gsOpenNaturjahr(){
       '<div style="font-size:var(--fs-xs);color:'+(cur?'#43a047':'var(--muted)')+';font-weight:'+(cur?'800':'400')+';">'+monNames[i]+'</div></div>'; }).join('');
 
   var topHtml = topSpecies.length ? ('<div style="margin-top:14px;"><div style="font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px;">'+_t('nj_top_species','🌟 Deine Top-Arten')+'</div>'+
-    topSpecies.map(function(nm,i){ return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:var(--fs-md);"><span style="font-weight:800;color:#43a047;flex-shrink:0;">'+(i+1)+'.</span><span style="flex:1;min-width:0;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(nm)+'</span><span style="color:var(--muted);font-size:var(--fs-sm);flex-shrink:0;">'+speciesCount[nm]+'×</span></div>'; }).join('')+'</div>') : '';
+    topSpecies.map(function(nm,i){ return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:var(--fs-md);"><span style="font-weight:800;color:var(--g-main);flex-shrink:0;">'+(i+1)+'.</span><span style="flex:1;min-width:0;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(nm)+'</span><span style="color:var(--muted);font-size:var(--fs-sm);flex-shrink:0;">'+speciesCount[nm]+'×</span></div>'; }).join('')+'</div>') : '';
 
   var mc=document.getElementById('modal-content'); if(!mc) return;
   mc.innerHTML='<button class="modal-close-btn" onclick="closeModal(\'detail-modal\')" title="'+_t('modal_close','Schliessen')+'">✕</button>'+
@@ -40128,7 +40128,11 @@ function gsDiarySwitchTab(tab) {
   var paneStats = document.getElementById('diary-pane-stats');
   var btnNew = document.getElementById('diary-tab-new');
   var btnStats = document.getElementById('diary-tab-stats');
-  var active = 'background:#558b2f;color:#fff;border:none;font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;flex:1;padding:12px;';
+  // v32.26: dieselbe Farbe wie im Markup (#33691e). Sie steht an ZWEI
+  // Stellen — hier und in der Auszeichnung des Knopfes — und der Prueflauf
+  // hat die zweite gemeldet, nachdem die erste repariert war: `cssText`
+  // ueberschreibt beim Umschalten alles, also gewinnt diese hier.
+  var active = 'background:#33691e;color:#fff;border:none;font-size:var(--fs-md);font-weight:800;cursor:pointer;font-family:inherit;flex:1;padding:12px;';
   var inactive = 'background:transparent;color:var(--text2);border:none;font-size:var(--fs-md);font-weight:700;cursor:pointer;font-family:inherit;flex:1;padding:12px;';
   if (tab === 'stats') {
     if (paneNew) paneNew.style.display = 'none';
@@ -63488,7 +63492,7 @@ function gsBuildGardenScanWizard() {
       '<button onclick="closeModal(\'detail-modal\')" aria-label="Schliessen" style="position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:var(--fs-xl);cursor:pointer;">×</button>' +
       '<div style="font-size:38px;margin-bottom:6px;">🌱</div>' +
       '<div style="font-family:\'Playfair Display\',serif;font-size:var(--fs-xl);font-weight:900;margin-bottom:4px;">KI-Garten-Scan</div>' +
-      '<div style="font-size:var(--fs-sm);opacity:.92;line-height:1.5;">3 Fotos für den smarten Plan — Top-Down, Boden, Umgebung. Min. 1 Foto reicht.</div>' +
+      '<div style="font-size:var(--fs-sm);line-height:1.5;">3 Fotos für den smarten Plan — Top-Down, Boden, Umgebung. Min. 1 Foto reicht.</div>' +
     '</div>' +
     '<div style="padding:14px;">' +
       '<div style="display:grid;grid-template-columns:1fr;gap:10px;">' + slotsHtml + '</div>' +
@@ -69680,7 +69684,7 @@ function getMoonPhase(date) {
 
 // Mondtyp → welcher Tag für welche Pflanzen
 const MOON_TYPES = {
-  frucht: { label:'Fruchttag 🍎', desc:'Günstig für: Tomaten, Gurken, Bohnen, Kürbis, Paprika, Zucchini, Erbsen', color:'#e65100', bg:'#fff3e0' },
+  frucht: { label:'Fruchttag 🍎', desc:'Günstig für: Tomaten, Gurken, Bohnen, Kürbis, Paprika, Zucchini, Erbsen', color:'#bf360c', bg:'#fff3e0' },
   blatt:  { label:'Blatttag 🥬', desc:'Günstig für: Salat, Spinat, Kohl, Kräuter, Lauch, Schnittlauch', color:'#2e7d32', bg:'#e8f5e9' },
   wurzel: { label:'Wurzeltag 🥕', desc:'Günstig für: Karotten, Kartoffeln, Zwiebeln, Rüebli, Knoblauch, Randen', color:'#5d4037', bg:'#efebe9' },
   blüte:  { label:'Blütentag 🌸', desc:'Günstig für: Blumenkohl, Brokkoli, Artischocken, Blumen, Kräuter ernten', color:'#6a1b9a', bg:'#f3e5f5' },
@@ -71327,6 +71331,17 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.26', date: '03.09.2026',
+    headline: '\ud83c\udfa8 Die letzten schwach lesbaren Stellen \u2014 mit einer einzigen Rechnung behoben',
+    summary: 'v32.25 hat den Pr\u00fcfstand in alle vierzig Fenster schauen lassen und hundert zu schwache Textstellen gefunden; 26 blieben \u00fcbrig. Die waren alle vom selben Typ: eine Fl\u00e4che, die f\u00fcr weisse Schrift ein bisschen zu hell ist. Eine Rechnung, dreizehn Stellen, fertig.',
+    user_summary: '\ud83c\udfa8 Kn\u00f6pfe und Hinweise, die etwas blass waren, sind jetzt \u00fcberall klar lesbar \u2014 auf hellem wie auf dunklem Hintergrund.',
+    user_items: [
+      {emoji:'\ud83d\udd18', bold:'Kn\u00f6pfe mit weisser Schrift:', text:' Sensor-Suche, Tagebuch-Reiter, Filter-Chips und der Doktor-Kopf hatten F\u00fcllungen, die f\u00fcr weisse Schrift zu hell waren. Jetzt sind sie dunkel genug \u2014 dieselbe Rechnung f\u00fcr alle.'},
+      {emoji:'\ud83c\udf15', bold:'Der Mondkalender:', text:' „Fruchttag" stand in einem Orange, das die App seit v31.58 eigentlich schon ersetzt hat \u2014 diese Tabelle hatte nie jemand gemessen.'},
+      {emoji:'\ud83c\udfc6', bold:'Und das Lifetime-Angebot:', text:' Weiss auf Gold ist nie lesbar. Statt das Gold abzudunkeln steht die Schrift jetzt dunkel darauf \u2014 lesbar, und es sieht sogar wertiger aus.'},
+    ],
+  },
+  {
     v: 'v32.25', date: '03.09.2026',
     headline: '\ud83d\udc41\ufe0f Im Dunkelmodus war Schrift unsichtbar \u2014 in Fenstern, die nie jemand gepr\u00fcft hat',
     summary: 'Der Kontrast-Pr\u00fcfstand mass sechs Fenster. Die App hat rund vierzig. Seit v32.25 \u00f6ffnet er jedes selbst \u2014 und fand auf Anhieb hundert Textstellen, die zu schwach sind, darunter hellgr\u00fcne Schrift auf hellrosa Fl\u00e4che: 1,01:1, also gar nichts. Betroffen waren „Was m\u00f6chtest du teilen?", „Mein Naturjahr", die Abo-Karten, der Hofladen und ein Dutzend weitere.',
@@ -71791,7 +71806,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.25';
+var GS_VERSION = 'v32.26';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
