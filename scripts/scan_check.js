@@ -984,9 +984,15 @@ const FAELLE = [
     // ein `DB.find(…)` — welche Giftstufe nach einem Scan erschien, hing an
     // der REIHENFOLGE in der Datei. Zwei Reparaturen, und dieser Fall prüft
     // beide getrennt, weil jede für sich unbemerkt zurückfallen kann:
-    //   (a) LATEIN VOR DEUTSCH — „Wacholder" trifft sonst `Juniperus nana`
+    //   (a) LATEIN VOR DEUTSCH — der deutsche Name darf das Binomen nicht
+    //       überstimmen (v32.42: 1'194 von 4'311 auf einer anderen Art)
     //   (b) `_gsArtGruppe` — ohne Latein bleibt die Vorsicht sonst in der
     //       Suchstrategie hängen statt an der Art zu haften
+    // v32.45: die Gegenprüfung hat die erste Begründung von (a) widerlegt —
+    // „Wacholder trifft Juniperus nana" beschrieb einen Zwischenstand meines
+    // Umbaus, nicht v32.42. Die Messung (1'194) hält; die Anekdote nicht.
+    // Und die Regel selbst brauchte zwei Korrekturen (die zwei nächsten
+    // Fälle: Unterart, Platzhalter).
     name: 'Dubletten · bei Widerspruch gewinnt die vorsichtigere Angabe',
     lauf: () => {
       if (typeof DB === 'undefined' || !DB || !DB.length) return { ok: false, warum: 'keine Artenliste' };
@@ -1029,17 +1035,77 @@ const FAELLE = [
         const t = new Set(a.map(x => Number(x.tox) || 0)), e = new Set(a.map(x => x.edible ? 1 : 0));
         if (t.size < 2 && e.size < 2) return;
         gruppen++;
-        const mx = Math.max.apply(null, a.map(x => Number(x.tox) || 0));
+        // v32.45: erwartet wird die Gruppe auf der STUFE der Anfrage — ein
+        // Eintrag ohne Qualifier misst sich an der Art ohne Unterarten, einer
+        // mit Qualifier an seiner Unterart. Gerechnet mit demselben Helfer,
+        // den die App benutzt: Reparatur und Prüfung haben EINE Regel.
         a.forEach(x => {
           abfragen++;
+          const stufe = _gsArtGruppe(x, x.lat);
+          const mx = Math.max.apply(null, stufe.map(y => Number(y.tox) || 0));
           const hit = gsMatchScanToDb(x.name, x.lat);
           const got = hit ? (Number(hit.tox) || 0) : -1;
-          if (got !== mx) { falsch++; if (!bsp) bsp = k + ' → tox ' + got + ' statt ' + mx; }
+          if (got !== mx) { falsch++; if (!bsp) bsp = x.name + ' / ' + x.lat + ' → tox ' + got + ' statt ' + mx; }
         });
       });
       if (gruppen < 50) return { ok: false, warum: 'nur ' + gruppen + ' widersprüchliche Gruppen gefunden (gemessen 167) — der Fall misst nicht, was er behauptet' };
       if (falsch) return { ok: false, warum: falsch + ' von ' + abfragen + ' Abfragen liefern nicht die vorsichtigste Angabe, z.B. ' + bsp };
       return { ok: true, info: gruppen + ' widersprüchliche Gruppen · ' + abfragen + ' Abfragen, alle vorsichtigste Angabe' };
+    },
+  },
+  {
+    // v32.45 (aus der Gegenprüfung): `_gsNormLat` streicht var./ssp./f. —
+    // damit gewann `PI427 Kleiner Perlpilz (Amanita rubescens f.
+    // annulosulphurea, tox 4)` jeden Perlpilz-Scan, obwohl sein eigenes
+    // lookalike-Feld ihn vom Perlpilz abgrenzt. Und „Broccoli / Brassica
+    // oleracea var. italica" landete bei FD0778 „Kohl", einem Einlese-Rumpf.
+    // **Eine Unterart ist nicht die Art — in beide Richtungen.**
+    name: 'Unterart · entscheidet nicht über die Art, und die Art nicht über die Unterart',
+    lauf: () => {
+      if (typeof DB === 'undefined' || !DB || !DB.length) return { ok: false, warum: 'keine Artenliste' };
+      const forma = DB.find(x => /^amanita rubescens\s+f\b/i.test(String(x.lat || '')));
+      const reine = DB.filter(x => _gsNormLat(x.lat) === 'amanita rubescens' && !_gsHatQualifier(x));
+      if (!forma || !reine.length) return { ok: false, warum: 'Probe-Einträge fehlen (Forma ' + !!forma + ', reine ' + reine.length + ') — der Fall prüft nichts mehr' };
+      const mxReine = Math.max.apply(null, reine.map(x => Number(x.tox) || 0));
+      if ((Number(forma.tox) || 0) <= mxReine) return { ok: false, warum: 'die Forma ist nicht mehr giftiger als die Art — der Fall prüft nichts mehr' };
+      const h = gsMatchScanToDb('Perlpilz', 'Amanita rubescens');
+      if (!h) return { ok: false, warum: 'Perlpilz nicht gefunden' };
+      if (_gsHatQualifier(h)) return { ok: false, warum: '„Perlpilz / Amanita rubescens" → ' + h.name + ' (' + h.lat + ', tox ' + h.tox + ') — die Forma entscheidet über die Art' };
+      if ((Number(h.tox) || 0) !== mxReine) return { ok: false, warum: 'Perlpilz → tox ' + h.tox + ' statt ' + mxReine + ' (Maximum der Art ohne Unterarten)' };
+      const hf = gsMatchScanToDb(forma.name, forma.lat);
+      if (!hf || _gsNormLatVoll(hf.lat) !== _gsNormLatVoll(forma.lat)) return { ok: false, warum: 'die Forma selbst abgefragt → ' + (hf ? hf.name + ' (' + hf.lat + ')' : 'nichts') };
+      const br = DB.find(x => /^Broccoli$/i.test(String(x.name || '')) && /var\./i.test(String(x.lat || '')));
+      if (!br) return { ok: false, warum: 'Probe-Eintrag Broccoli (var.) fehlt' };
+      const hb = gsMatchScanToDb(br.name, br.lat);
+      if (!hb || hb.id !== br.id) return { ok: false, warum: '„' + br.name + ' / ' + br.lat + '" → ' + (hb ? hb.id + ' ' + hb.name + ' (' + hb.lat + ')' : 'nichts') + ' statt ' + br.id };
+      if (hb._unverified) return { ok: false, warum: 'Broccoli landet auf einem ungeprüften Einlese-Rumpf' };
+      return { ok: true, info: 'Perlpilz → tox ' + h.tox + ' (Art), Forma → sie selbst (tox ' + forma.tox + ') · Broccoli → ' + hb.id };
+    },
+  },
+  {
+    // v32.45 (aus der Gegenprüfung): 1'383 Einlese-Einträge tragen ein
+    // Platzhalter-`edible:false` und sind `_unverified`. „Nicht essbar zuerst"
+    // hielt sie für vorsichtiger und zog 94 Namens-Abfragen auf solche
+    // Rümpfe — 82 davon auf eine ANDERE Art. **Ein Platzhalter ist keine
+    // Vorsicht.**
+    name: 'Platzhalter · ein ungeprüfter Rumpf gewinnt nicht gegen einen geprüften Eintrag',
+    lauf: () => {
+      if (typeof DB === 'undefined' || !DB || !DB.length) return { ok: false, warum: 'keine Artenliste' };
+      const h = gsMatchScanToDb('Wacholder', '');
+      if (!h) return { ok: false, warum: '„Wacholder" ohne Latein findet nichts' };
+      if (h._unverified) return { ok: false, warum: '„Wacholder" → ' + h.id + ' ' + h.name + ' (' + h.lat + '), ein ungeprüfter Rumpf' };
+      if (_gsNormLat(h.lat) !== 'juniperus communis') return { ok: false, warum: '„Wacholder" → ' + h.name + ' (' + h.lat + ') statt Juniperus communis' };
+      const mx = Math.max.apply(null, _gsArtGruppe(h, '').map(y => Number(y.tox) || 0));
+      if ((Number(h.tox) || 0) !== mx) return { ok: false, warum: 'Wacholder → tox ' + h.tox + ' statt ' + mx };
+      let n = 0, rumpf = 0, bsp = '';
+      DB.forEach(sp => {
+        if (!sp || !sp.name || sp._unverified) return;
+        n++;
+        const r = gsMatchScanToDb(sp.name, '');
+        if (r && r._unverified) { rumpf++; if (!bsp) bsp = sp.name + ' → ' + r.id + ' ' + r.name; }
+      });
+      if (rumpf) return { ok: false, warum: rumpf + ' von ' + n + ' gepflegten Einträgen landen mit ihrem Namen auf einem ungeprüften Rumpf, z.B. ' + bsp + ' (vor v32.45: 94)' };
+      return { ok: true, info: 'Wacholder → ' + h.id + ' tox ' + h.tox + ' · 0 von ' + n + ' gepflegten Namen auf einem Rumpf' };
     },
   },
   {

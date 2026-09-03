@@ -232,6 +232,13 @@ listet alle 167 Gruppen mit jedem Eintrag, jeder Stufe und jedem Warntext.
 Mit einer Flora daneben ist das ein Nachmittag. Solange die Liste neun
 Holunder führt, wäre jede neue Quelle ein zehnter.
 
+**2b · Und in der Datenbank liegen noch zwei Tabellen, die es im Repo nicht
+gibt:** `alpine_garden_plants` und `water_features` (je 60 Zeilen, Quellen
+Pro Natura/SAC), die die App liest. Zusammen mit den zwei Repo-Datensätzen
+hätten **114 Arten** Farbe oder Höhe aus der Datenbank — mit derselben
+Konventions-Frage wie oben. Die zwei Tabellen sollten als Snapshot ins Repo;
+das kann ich vorbereiten, nur lesend.
+
 Was danach — für die 3'000 Lücken, die kein Repo-Datensatz deckt:
 
 | Möglichkeit | Was ich dann tue |

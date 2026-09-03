@@ -317,7 +317,14 @@
   "toggle_post_like"
  ],
  "offen": {
-  "comment_reactions": "supabase/migrations/20260831_community_reaktionen_v31_09.sql — vorbereitet, bewusst nicht angewandt (STATUS.md: Liste offener Migrationen)"
+  "comment_reactions": "supabase/migrations/20260831_community_reaktionen_v31_09.sql — vorbereitet, bewusst nicht angewandt (STATUS.md: Liste offener Migrationen)",
+  "metric_catalog": "supabase/migrations/20260903_oekosystem_v1_geraete.sql — Ökosystem V1 Stufe 0, vorbereitet, bewusst nicht angewandt (docs/OEKOSYSTEM-V1.md §8)",
+  "devices": "supabase/migrations/20260903_oekosystem_v1_geraete.sql — Ökosystem V1 Stufe 0, vorbereitet, bewusst nicht angewandt (docs/OEKOSYSTEM-V1.md §8)",
+  "device_readings": "supabase/migrations/20260903_oekosystem_v1_geraete.sql — Ökosystem V1 Stufe 0, vorbereitet, bewusst nicht angewandt (docs/OEKOSYSTEM-V1.md §8)",
+  "device_rules": "supabase/migrations/20260903_oekosystem_v1_geraete.sql — Ökosystem V1 Stufe 0, vorbereitet, bewusst nicht angewandt (docs/OEKOSYSTEM-V1.md §8)",
+  "device_commands": "supabase/migrations/20260903_oekosystem_v1_geraete.sql — Ökosystem V1 Stufe 0, vorbereitet, bewusst nicht angewandt (docs/OEKOSYSTEM-V1.md §8)",
+  "v_device_latest": "supabase/migrations/20260903_oekosystem_v1_geraete.sql — Ökosystem V1 Stufe 0, vorbereitet, bewusst nicht angewandt (docs/OEKOSYSTEM-V1.md §8)",
+  "v_device_daily": "supabase/migrations/20260903_oekosystem_v1_geraete.sql — Ökosystem V1 Stufe 0, vorbereitet, bewusst nicht angewandt (docs/OEKOSYSTEM-V1.md §8)"
  },
  "edge_functions": [
   "create-checkout",

@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.44.20260903">
+<meta name="app-version" content="32.45.20260903">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11127,8 +11127,14 @@ function _gsBlMarken(s) {
   if (s.toxic || (s.tox && +s.tox > 0)) m.push('<span class="gs-bl-mark gs-bl-gift">☠️ giftig</span>');
   else if (s.edible) m.push('<span class="gs-bl-mark gs-bl-essbar">🍽️ essbar</span>');
   if (s.protected) m.push('<span class="gs-bl-mark gs-bl-schutz">🛡️ geschützt</span>');
-  if (s.color) m.push('<span class="gs-bl-mark">🎨 ' + esc(s.color) + '</span>');
-  if (s.alt) m.push('<span class="gs-bl-mark">⛰️ ' + esc(s.alt) + '</span>');
+  // v32.45: „–" ist ein Platzhalter (20 Arten, X301–X320), kein Wert — die
+  // Karte (openDetail) schliesst ihn seit jeher aus, der Kalender zeigte
+  // „🎨 –" als Ergebnis. Und wo die Höhe nur im Lebensraum-Text steht,
+  // liest sie dieselbe Funktion wie das Scan-Prüfwerk (v32.43).
+  if (s.color && s.color !== '–') m.push('<span class="gs-bl-mark">🎨 ' + esc(s.color) + '</span>');
+  var _hb = (s.alt && s.alt !== '–') ? null : ((typeof _gsHoehenband === 'function') ? _gsHoehenband(s) : null);
+  if (s.alt && s.alt !== '–') m.push('<span class="gs-bl-mark">⛰️ ' + esc(s.alt) + '</span>');
+  else if (_hb) m.push('<span class="gs-bl-mark">⛰️ ' + esc(_hb.von + '–' + _hb.bis + ' m') + '</span>');
   return m.length ? '<div class="gs-bl-marken">' + m.join('') + '</div>' : '';
 }
 
@@ -13746,7 +13752,10 @@ function gsTouchStreak() {
 // ══ ART-VOLLSTÄNDIGKEIT ════════════════════════════════════════
 function gsGetCompleteness(sp) {
   if (!sp) return 0;
-  var fields = ['desc','uses','habitat','season','color','warning','lookalike','lat','fam'];
+  // v32.45: `alt` fehlte in der Liste — eine fehlende Höhenverbreitung
+  // kostete 0 Prozentpunkte, während `color` zählte. Beide fehlen bei
+  // denselben 3'375 Einträgen; jetzt zählen beide.
+  var fields = ['desc','uses','habitat','season','color','alt','warning','lookalike','lat','fam'];
   var filled = fields.filter(function(f) {
     return sp[f] && sp[f] !== '' && sp[f] !== '–';
   }).length;
@@ -16094,13 +16103,65 @@ function _gsLatIndex() {
   _gsLatIdx = m; _gsLatIdxN = DB.length;
   return m;
 }
-function _gsArtGruppe(sp) {
+// ══ v32.45 · ZWEI KORREKTUREN AN DER VORSICHTS-REGEL (aus der Gegenprüfung) ═
+//
+// Die Regel aus v32.43 hat zwei Dinge gleich behandelt, die es nicht sind:
+//
+// 1. **Eine Unterart ist nicht die Art.** `_gsNormLat` streicht var./ssp./f.
+//    — damit stand `PI427 „Kleiner Perlpilz" (Amanita rubescens f.
+//    annulosulphurea, tox 4)` in derselben Gruppe wie der Perlpilz (tox 0–2)
+//    und gewann JEDEN Perlpilz-Scan. Der Eintrag grenzt sich in seinem
+//    eigenen `lookalike` vom Perlpilz ab. Und „Broccoli / Brassica oleracea
+//    var. italica" landete bei `FD0778 Kohl` (Brassica oleracea), einem
+//    Einlese-Rumpf ohne Text. Gruppiert wird jetzt auf der STUFE der
+//    Anfrage: ohne Qualifier zählen nur Einträge ohne Qualifier; mit
+//    Qualifier zählt zuerst der exakte Treffer.
+// 2. **Ein Platzhalter ist keine Vorsicht.** 1'383 Einlese-Einträge tragen
+//    `edible: false` ohne Warnung, ohne Text — die App markiert sie beim
+//    Laden als `_unverified` (v31.90). Die Regel „nicht essbar zuerst" hielt
+//    sie für den vorsichtigeren Eintrag und zog 94 Namens-Abfragen (82 auf
+//    eine ANDERE Art) und 12 gepflegte Gemüse-Einträge auf solche Rümpfe;
+//    das Prüfwerk meldete dann „nur als ungeprüfter Einlese-Eintrag
+//    vorhanden" für Broccoli und Mangold. Bei gleicher Giftstufe gewinnt
+//    jetzt der GEPRÜFTE Eintrag; `edible` zählt erst danach.
+//
+// Beides hat die gegnerische Prüfung gefunden, nicht ich — mit Zahlen, die
+// scan_check jetzt festhält (Perlpilz, Broccoli, Wacholder ohne Latein).
+
+// Latein MIT Qualifier, normalisiert — „brassica oleracea var italica".
+function _gsNormLatVoll(s) {
+  return String(s || '').toLowerCase()
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/[×x]\s/g, ' ')
+    .replace(/[^a-zäöü ]/g, ' ')
+    .replace(/ö/g, 'o').replace(/ä/g, 'a').replace(/ü/g, 'u').replace(/ß/g, 'ss')
+    .replace(/\s+/g, ' ').trim()
+    .split(' ').slice(0, 4).join(' ');
+}
+function _gsHatQualifier(sp) {
+  return /\b(ssp|subsp|var|f|agg|cv)\.?\s/i.test(String((sp && sp.lat) || '') + ' ');
+}
+// Alle Einträge derselben Art — auf der Stufe der Anfrage.
+//   sp:          der gefundene Eintrag
+//   abfrageLat:  was der Aufrufer geliefert hat (kann fehlen)
+function _gsArtGruppe(sp, abfrageLat) {
   try {
     if (!sp) return [];
     var lat = _gsNormLat(sp.lat);
     if (!lat || lat.indexOf(' ') < 0) return [sp];   // ohne Gattung+Art nicht gruppierbar
     var g = _gsLatIndex()[lat];
-    return (g && g.length) ? g : [sp];
+    if (!g || !g.length) return [sp];
+    var frage = String(abfrageLat || sp.lat || '');
+    var mitQ = /\b(ssp|subsp|var|f|agg|cv)\.?\s/i.test(frage + ' ');
+    if (mitQ) {
+      var voll = _gsNormLatVoll(frage);
+      var exakt = g.filter(function (x) { return _gsNormLatVoll(x.lat) === voll; });
+      if (exakt.length) return exakt;                // die Unterart selbst
+      var ohne = g.filter(function (x) { return !_gsHatQualifier(x); });
+      return ohne.length ? ohne : g;                 // sonst die Art
+    }
+    var reine = g.filter(function (x) { return !_gsHatQualifier(x); });
+    return reine.length ? reine : g;                 // ohne Qualifier: Unterarten entscheiden nicht mit
   } catch (_) { return [sp]; }
 }
 function _gsVorsichtigste(treffer) {
@@ -16109,16 +16170,32 @@ function _gsVorsichtigste(treffer) {
   return treffer.slice().sort(function (a, b) {
     var ta = Number(a && a.tox) || 0, tb = Number(b && b.tox) || 0;
     if (tb !== ta) return tb - ta;                          // höhere Giftstufe zuerst
+    var ua = (a && a._unverified) ? 1 : 0, ub = (b && b._unverified) ? 1 : 0;
+    if (ua !== ub) return ua - ub;                          // geprüft vor ungeprüft — ein Platzhalter ist keine Vorsicht
+    // Ein Eintrag OHNE Warnung und OHNE Verwechslungshinweis ist ein Rumpf —
+    // dieselben zwei Felder, an denen v31.90 die redaktionelle Bearbeitung
+    // erkennt. `desc` zählt hier NICHT: FD0660 „Wacholder" (Juniperus nana)
+    // trägt 280 Zeichen OCR-Fetzen, `edible:false` und sonst nichts; seine
+    // Einlese-Floskel („Heimischer Baum …") ist eine andere als die, die
+    // v31.90 markiert. Ein Rumpf sagt nichts über Vorsicht; er sagt nur,
+    // dass niemand hingesehen hat.
+    // Vorlagen-Text (gsAutoFillDBGaps / gsAutoFillLookalikes, ~4 s nach dem
+    // Start) zählt NICHT als Bearbeitung — er steht auf ganzen Kategorien.
+    var wa = (a && a.warning && !a._warning_tpl) ? 1 : 0, la = (a && a.lookalike && !a._lookalike_tpl) ? 1 : 0;
+    var wb = (b && b.warning && !b._warning_tpl) ? 1 : 0, lb = (b && b.lookalike && !b._lookalike_tpl) ? 1 : 0;
+    var ra = (wa || la) ? 1 : 0, rb = (wb || lb) ? 1 : 0;
+    if (ra !== rb) return rb - ra;                           // Rumpf nach hinten
+    var fa = wa + la + ((a && a.desc) ? 1 : 0);
+    var fb = wb + lb + ((b && b.desc) ? 1 : 0);
     var ea = (a && a.edible) ? 1 : 0, eb = (b && b.edible) ? 1 : 0;
     if (ea !== eb) return ea - eb;                          // „nicht essbar" zuerst
-    // Gleichstand in der Sicherheit → der inhaltsreichere Eintrag, damit die
-    // Karte nicht ärmer wird als nötig.
-    var fa = ((a && a.warning) ? 1 : 0) + ((a && a.lookalike) ? 1 : 0) + ((a && a.desc) ? 1 : 0);
-    var fb = ((b && b.warning) ? 1 : 0) + ((b && b.lookalike) ? 1 : 0) + ((b && b.desc) ? 1 : 0);
-    return fb - fa;
+    return fb - fa;                                         // dann der inhaltsreichere
   })[0];
 }
 window._gsVorsichtigste = _gsVorsichtigste;
+window._gsArtGruppe = _gsArtGruppe;
+window._gsNormLatVoll = _gsNormLatVoll;
+window._gsHatQualifier = _gsHatQualifier;
 
 function gsMatchScanToDb(name, latin) {
   if (!DB || !Array.isArray(DB) || (!name && !latin)) return null;
@@ -16130,17 +16207,19 @@ function gsMatchScanToDb(name, latin) {
   try {
     if (window.GS_SYNONYMS && typeof _gsSearchNorm === 'function') {
       var _syn = window.GS_SYNONYMS[_gsSearchNorm(name)];
-      if (_syn) { hit = _gsVorsichtigste(DB.filter(function(sp){ return sp && sp.lat && _gsSearchNorm(sp.lat).indexOf(_syn) >= 0; })); if (hit) return _gsVorsichtigste(_gsArtGruppe(hit)); }
+      if (_syn) { hit = _gsVorsichtigste(DB.filter(function(sp){ return sp && sp.lat && _gsSearchNorm(sp.lat).indexOf(_syn) >= 0; })); if (hit) return _gsVorsichtigste(_gsArtGruppe(hit, latin)); }
     }
   } catch(_){}
   // ══ v32.43 · LATEIN VOR DEUTSCH ═══════════════════════════════════
   //
   // Der deutsche Name stand bis v32.42 an erster Stelle — und hat den
   // gelieferten lateinischen Namen dabei stillschweigend überstimmt.
-  // Gemessen an „Wacholder / Juniperus communis": der exakte deutsche Name
-  // trifft `FD0660 Wacholder`, dessen Latein aber `Juniperus nana` ist, eine
-  // ANDERE Art (tox 0). Die vier Einträge zu `Juniperus communis` — drei
-  // davon tox 2 — kamen nie zum Zug.
+  // Gemessen mit der Selbstabfrage (jeder Eintrag mit eigenem name+lat):
+  // 1'194 von 4'311 landeten auf einer ANDEREN Art — „Brennnessel / Urtica
+  // pilulifera" → Urtica dioica, „Rotbuche / Fagus silvatica" → Fagus
+  // sylvatica. (Die erste Begründung hier — „Wacholder trifft Juniperus
+  // nana" — war falsch gemessen: sie beschrieb einen Zwischenstand meines
+  // eigenen Umbaus, nicht v32.42. Die Gegenprüfung hat es gefunden.)
   //
   // Ein deutscher Trivialname ist mehrdeutig („Wacholder", „Holunder",
   // „Enzian"), ein Binomen nicht. Liefert das Modell beides, ist das Binomen
@@ -16150,11 +16229,15 @@ function gsMatchScanToDb(name, latin) {
   //
   // 1) lateinische Gattung+Art (nur wenn beide vorhanden → kein zu unscharfer genus-only-Match)
   if (lat && lat.indexOf(' ') > 0) {
-    hit = _gsVorsichtigste(_gsLatIndex()[lat] || []);
-    if (hit) return _gsVorsichtigste(_gsArtGruppe(hit));
+    var kand = _gsLatIndex()[lat] || [];
+    if (kand.length) {
+      // Mit Qualifier zuerst der exakte Treffer, sonst die Art ohne Unterarten.
+      hit = _gsVorsichtigste(_gsArtGruppe(kand[0], latin));
+      if (hit) return hit;
+    }
   }
   // 2) exakter deutscher Name
-  if (n) { hit = _gsVorsichtigste(DB.filter(function(sp){ return sp && sp.name && sp.name.toLowerCase().trim() === n; })); if (hit) return _gsVorsichtigste(_gsArtGruppe(hit)); }
+  if (n) { hit = _gsVorsichtigste(DB.filter(function(sp){ return sp && sp.name && sp.name.toLowerCase().trim() === n; })); if (hit) return _gsVorsichtigste(_gsArtGruppe(hit, latin)); }
   // 3) deutsches Namens-Segment exakt (beide Seiten zerlegen, volle normalisierte Tokens)
   if (segs.length) {
     hit = _gsVorsichtigste(DB.filter(function(sp){
@@ -16163,7 +16246,7 @@ function gsMatchScanToDb(name, latin) {
       for (var i=0;i<segs.length;i++){ if (dbsegs.indexOf(segs[i])>=0) return true; }
       return false;
     }));
-    if (hit) return _gsVorsichtigste(_gsArtGruppe(hit));
+    if (hit) return _gsVorsichtigste(_gsArtGruppe(hit, latin));
   }
   return null;
 }
@@ -18222,12 +18305,19 @@ function gsAutoFillDBGaps() {
   var filled = 0;
   DB.forEach(function(sp) {
     if (!sp || !sp.cat) return;
+    // v32.45: Vorlagen-Text wird MARKIERT (`_uses_tpl`, `_lookalike_tpl`,
+    // `_warning_tpl`). Er ist keine Aussage über die Art, sondern ein
+    // Satz für die ganze Kategorie — die Vorsichts-Regel des Scanners
+    // (`_gsVorsichtigste`) hielt einen so gefüllten Einlese-Rumpf für einen
+    // bearbeiteten Eintrag und liess ihn gegen den gepflegten gewinnen.
     if (!sp.uses || sp.uses === '' || sp.uses === '–') {
       sp.uses = GS_USES_TEMPLATES[sp.cat] || '';
+      sp._uses_tpl = true;
       filled++;
     }
     if (!sp.lookalike || sp.lookalike === '' || sp.lookalike === '–') {
       sp.lookalike = GS_LOOKALIKE_TEMPLATES[sp.cat] || '';
+      sp._lookalike_tpl = true;
     }
     if (!sp.warning || sp.warning === '' || sp.warning === '–') {
       var wt = '';
@@ -18236,7 +18326,7 @@ function gsAutoFillDBGaps() {
         wt = GS_WARNING_TEMPLATES['tox_' + Math.min(toxLvl,5)] || '';
       }
       if (!wt) wt = GS_WARNING_TEMPLATES[sp.cat] || GS_WARNING_TEMPLATES.generic;
-      sp.warning = wt;
+      sp.warning = wt; sp._warning_tpl = true;
       filled++;
     }
     if (!sp.desc || sp.desc === '' || sp.desc === '–') {
@@ -19263,6 +19353,7 @@ function gsAutoFillLookalikes() {
     // Deterministisch basierend auf Art-ID
     var h = sp.id.split('').reduce(function(a,c){ return a + c.charCodeAt(0); }, 0);
     sp.lookalike = templates[h % templates.length];
+    sp._lookalike_tpl = true;   // v32.45: Vorlage, keine Aussage über die Art
     filled++;
   });
   
@@ -31501,7 +31592,9 @@ function _gsScanPruefwerk(res, qual) {
     var warn = p.regeln.filter(function (r) { return r.zustand === 'warn'; }).length;
     p.ok = ok; p.warn = warn;
     p.unbekannt = p.regeln.length - ok - warn;
-    if (warn === 0 && ok >= 4) p.stufe = { schl: 'stark', label: 'Gut belegt', text: ok + ' unabhängige Prüfungen sprechen dafür, keine dagegen.' };
+    // v32.45: auch „Gut belegt" nennt, was nichts sagen konnte — sonst sieht
+    // „4 dafür, keine dagegen" bei 7 Regeln aus wie 7 dafür.
+    if (warn === 0 && ok >= 4) p.stufe = { schl: 'stark', label: 'Gut belegt', text: ok + ' unabhängige Prüfungen sprechen dafür, keine dagegen.' + (p.unbekannt ? ' ' + p.unbekannt + ' konnten nichts sagen.' : '') };
     else if (warn === 0)       p.stufe = { schl: 'mittel', label: 'Nichts spricht dagegen', text: 'Keine Prüfung widerspricht — aber ' + p.unbekannt + ' konnten nichts sagen.' };
     else if (warn === 1)       p.stufe = { schl: 'mittel', label: 'Ein Vorbehalt', text: 'Eine Prüfung widerspricht. Sieh sie dir an, bevor du dich darauf verlässt.' };
     else                       p.stufe = { schl: 'schwach', label: warn + ' Vorbehalte', text: 'Mehrere Prüfungen widersprechen. Ein zweites Foto ist hier die schnellste Antwort.' };
@@ -33697,6 +33790,10 @@ function openDetail(id){
   const ecoItems = [];
   if(sp.color && sp.color!=='–') ecoItems.push({icon:'🎨',label:_t('eco_color','Blütenfarbe'),val:sp.color});
   if(sp.alt && sp.alt!=='–') ecoItems.push({icon:'⛰️',label:_t('eco_alt','Höhenverbreitung'),val:sp.alt});
+  else { // v32.45: 26 Arten tragen die Höhe nur im Lebensraum-Text — das Prüfwerk las sie, die Karte nicht
+    try { var _hbK = (typeof _gsHoehenband === 'function') ? _gsHoehenband(sp) : null;
+          if (_hbK) ecoItems.push({icon:'⛰️',label:_t('eco_alt','Höhenverbreitung'),val:_hbK.von + '–' + _hbK.bis + ' m (aus dem Lebensraum-Text)'}); } catch(_){}
+  }
   if(sp.habitat && sp.habitat!=='–') ecoItems.push({icon:'🗺️',label:_t('eco_habitat','Lebensraum'),val:sp.habitat});
   if(sp.season && sp.season!=='–') ecoItems.push({icon:'📅',label:_t('eco_season','Saison/Blüte'),val:sp.season});
   if(ecoItems.length){
@@ -72500,6 +72597,18 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.45', date: '03.09.2026',
+    headline: '\ud83d\udd0d Die Vorsichts-Regel, gegnerisch gepr\u00fcft \u2014 zwei Korrekturen',
+    summary: 'Die Regel aus v32.43 (bei Widerspruch gewinnt die vorsichtigere Angabe) hat zwei Dinge gleich behandelt, die es nicht sind: eine Unterart entschied \u00fcber die ganze Art (der \u201eKleine Perlpilz\u201c, eine Forma mit Stufe 4, gewann jeden Perlpilz-Scan), und Einlese-R\u00fcmpfe mit einem Platzhalter-\u201enicht essbar\u201c galten als vorsichtiger als gepr\u00fcfte Eintr\u00e4ge (Broccoli landete bei \u201eKohl\u201c ohne Text). Beides behoben; dazu z\u00e4hlt die Vollst\u00e4ndigkeit einer Art jetzt auch die H\u00f6henangabe, der Bl\u00fchkalender zeigt keinen Platzhalter-Strich mehr als Wert, die Artenkarte liest die H\u00f6he auch aus dem Lebensraum-Text, und \u201eGut belegt\u201c nennt, was nichts sagen konnte.',
+    user_summary: '\ud83d\udd0d Der Scanner ordnet Unterarten und ungepr\u00fcfte Eintr\u00e4ge jetzt richtig ein: ein Perlpilz wird nicht mehr mit seiner giftigen Forma verwechselt, Broccoli nicht mehr mit einem leeren \u201eKohl\u201c-Eintrag.',
+    user_items: [
+      {emoji:'\ud83c\udf44', bold:'Perlpilz:', text:' Die Liste f\u00fchrt eine giftige Forma (\u201eKleiner Perlpilz\u201c, Stufe 4). Sie entschied bisher \u00fcber jeden Perlpilz-Scan. Jetzt z\u00e4hlt bei einer Art nur die Art \u2014 und bei einer Unterart nur die Unterart.'},
+      {emoji:'\ud83e\udd66', bold:'Broccoli, Mangold, Radieschen:', text:' landeten bei ungepr\u00fcften Einlese-Eintr\u00e4gen ohne Text, weil deren \u201enicht essbar\u201c ein Platzhalter war. Gepr\u00fcfte Eintr\u00e4ge gewinnen jetzt bei gleicher Giftstufe.'},
+      {emoji:'\u26f0\ufe0f', bold:'H\u00f6he auf der Artenkarte:', text:' 26 Arten tragen ihre H\u00f6henverbreitung nur im Lebensraum-Text \u2014 die Karte zeigt sie jetzt, mit Herkunft.'},
+      {emoji:'\u2705', bold:'\u201eGut belegt\u201c sagt auch, was offen blieb:', text:' \u201e4 daf\u00fcr, keine dagegen, 3 konnten nichts sagen.\u201c'},
+    ],
+  },
+  {
     v: 'v32.44', date: '03.09.2026',
     headline: '\ud83d\udcbe Sechs Stellen sagen jetzt die Wahrheit, wenn der Speicher voll ist',
     summary: 'Die App f\u00e4ngt einen vollen Ger\u00e4tespeicher seit v30.98 leise ab \u2014 und sechs Rettungswege (Tagebuch, Fundorte, GPS-Tracks, gespeicherte Pl\u00e4ne, Abstimmungen, Passwort\u00e4nderung) warteten auf eine Ausnahme, die nie kam. Sie liefen nie. Jetzt pr\u00fcfen sie das Ergebnis, schrumpfen wo m\u00f6glich und sagen, wenn etwas nicht gesichert wurde. Ein neuer Pr\u00fcfstand stellt den vollen Speicher her und l\u00f6st jeden Weg aus.',
@@ -73183,7 +73292,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.44';
+var GS_VERSION = 'v32.45';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
