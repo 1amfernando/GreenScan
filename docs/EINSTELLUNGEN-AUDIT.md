@@ -50,11 +50,11 @@ sie sind ein Anhaltspunkt, kein Fundort. Der zitierte Code stimmt.
 | 21 | ❌ | mittel | gs_dark, gs_theme_color und gs_lang sind im Code ausdruecklich als GERAETE-Eigenschaft deklariert und werden t |
 | 22 | ⚪ | mittel | Der Schalter „Standort immer neu bestaetigen" leert den Standort des KONTOS, nicht nur den des Geraets |
 | 23 | ⚪ | niedrig | Die prefs-Verschachtelung waechst mit jeder Rundreise um eine Ebene — gsPrefsPull entfernt das jsonb-Unterobje |
-| 24 | 🔴 | hoch | Inhalt einer Karte, der nicht in einer `.settings-row` steht, wird von der Suche NIE ausgeblendet — er bleibt  |
-| 25 | 🔴 | hoch | 18 Bedienelemente im Smart-Push-Panel liegen ausserhalb jeder `.settings-row` und sind damit ueberhaupt nicht  |
-| 26 | 🔴 | mittel | `#settings-search-none` („Keine Einstellung gefunden.") erscheint gleichzeitig mit sichtbaren Einstellungen —  |
-| 27 | 🔴 | niedrig | Leere Karten-Huellen bleiben als duenne Striche stehen: 7 Karten a 2 px pro Suche. |
-| 28 | 🔴 | niedrig | Der Gruppentitel behaelt im Suchmodus `gs-collapsed` und `aria-expanded="false"`, obwohl die Suche den Abschni |
+| 24 | ✅ | hoch | Inhalt einer Karte, der nicht in einer `.settings-row` steht, wird von der Suche NIE ausgeblendet — er bleibt  |
+| 25 | ✅ | hoch | 18 Bedienelemente im Smart-Push-Panel liegen ausserhalb jeder `.settings-row` und sind damit ueberhaupt nicht  |
+| 26 | ✅ | mittel | `#settings-search-none` („Keine Einstellung gefunden.") erscheint gleichzeitig mit sichtbaren Einstellungen —  |
+| 27 | ✅ | niedrig | Leere Karten-Huellen bleiben als duenne Striche stehen: 7 Karten a 2 px pro Suche. |
+| 28 | ✅ | niedrig | Der Gruppentitel behaelt im Suchmodus `gs-collapsed` und `aria-expanded="false"`, obwohl die Suche den Abschni |
 | 29 | 🔴 | hoch | „Alle Daten löschen" löscht nur gs_*/ps_* — die GPS-Fundorte (greenscan_markers) und userLocation bleiben lieg |
 | 30 | ❌ | hoch | „Backup importieren" meldet Erfolg, ohne hinzusehen: 7 der 11 exportierten Bereiche werden nie zurückgeschrieb |
 | 31 | ❌ | hoch | saveApiKey() nimmt jede beliebige Zeichenkette an — getApiConfig() verwirft sie danach stumm; ein leeres Feld  |
@@ -64,12 +64,12 @@ sie sind ein Anhaltspunkt, kein Fundort. Der zitierte Code stimmt.
 | 35 | ⚪ | mittel | „Konto löschen" verspricht „Alle Scans & Bilder" — räumt aber nur den localStorage; die IndexedDB-Warteschlang |
 | 36 | ⚪ | mittel | gsSnapshotCreate macht aus einer leeren Serverantwort ausdrücklich einen Erfolg (return r.data \|\| true) — de |
 | 37 | ⚪ | mittel | gsAdminSaveSbKey biegt die Datenverbindung der ganzen Installation um — ohne Rückfrage, ohne Testaufruf, mit e |
-| 38 | 🔴 | hoch | 22 von 77 Bedienelementen auf #screen-settings haben keinen zugänglichen Namen — darunter ALLE 11 Kippschalter |
-| 39 | 🔴 | hoch | Die sechs Farbfelder sagen zusätzlich nicht, WELCHES gewählt ist — der aktive Ton ist nur an einem Rahmen erke |
-| 40 | 🔴 | mittel | Die als „sticky" gebaute Einstellungs-Suche klebt nirgends — sie scrollt nach 139 px aus dem Bild und ist auf  |
-| 41 | 🔴 | mittel | Ein </div> zu früh in der Kopfzeile: Untertitel und Versionsnummer stehen NEBEN dem Titel statt darunter |
-| 42 | 🔴 | mittel | Bei 320 px Breite ragt die Versionsnummer 13 px über den Bildrand und wird von overflow-x:hidden abgeschnitten |
-| 43 | 🔴 | mittel | Knopf „🔔 Aktiv": weisse Schrift auf --g-main — im Dunkelmodus 2,36:1 statt der geforderten 4,5:1 |
+| 38 | ✅ | hoch | 22 von 77 Bedienelementen auf #screen-settings haben keinen zugänglichen Namen — darunter ALLE 11 Kippschalter |
+| 39 | ✅ | hoch | Die sechs Farbfelder sagen zusätzlich nicht, WELCHES gewählt ist — der aktive Ton ist nur an einem Rahmen erke |
+| 40 | ✅ | mittel | Die als „sticky" gebaute Einstellungs-Suche klebt nirgends — sie scrollt nach 139 px aus dem Bild und ist auf  |
+| 41 | ✅ | mittel | Ein </div> zu früh in der Kopfzeile: Untertitel und Versionsnummer stehen NEBEN dem Titel statt darunter |
+| 42 | ✅ | mittel | Bei 320 px Breite ragt die Versionsnummer 13 px über den Bildrand und wird von overflow-x:hidden abgeschnitten |
+| 43 | ✅ | mittel | Knopf „🔔 Aktiv": weisse Schrift auf --g-main — im Dunkelmodus 2,36:1 statt der geforderten 4,5:1 |
 | 44 | ⚪ | mittel | --accent ist in der ganzen Datei nie definiert; „12 h" fällt deshalb immer auf das feste #2e7d32 zurück und st |
 | 45 | ⚪ | mittel | Die E-Mail-Adresse im Impressum löst beim Antippen ZWEI Dinge gleichzeitig aus und ist nur 103,6×14 px gross |
 | 46 | ⚪ | niedrig | Der Regler „Wetter-Vorlauf" ist 342×16 px — 16 px hoch statt der geforderten 24 |
@@ -946,7 +946,7 @@ GEMESSEN, zwei Rundreisen:
 
 ## Die Einstellungs-Suche
 
-### 🔴 [24] Inhalt einer Karte, der nicht in einer `.settings-row` steht, wird von der Suche NIE ausgeblendet — er bleibt bei jedem Suchbegriff stehen.
+### ✅ [24] Inhalt einer Karte, der nicht in einer `.settings-row` steht, wird von der Suche NIE ausgeblendet — er bleibt bei jedem Suchbegriff stehen.
 
 - **Schwere:** hoch  ·  **Zeile (v32.31):** 16251
 - **Folge:** Gemessen bei 412x900, Standard-Aufklappzustand, Suche „nachtmodus": 1 Treffer-Zeile — darunter aber 209 px Ueber-Karte („🌿 GreenScan Version v32.29 · 2026 / 4'337 Arten in DB / 🇨🇭 Schweiz Focus / Die #1 Natur-App der Schweiz …") bei JEDEM Nutzer, und bei aktiviertem Smart-Push zusaetzlich das komplette Detailpanel #push-detail-settings (646 px, 18 Bedienelemente: 9 Kategorie-Haken, Wetter-Vorlauf-Regler, 2 Stille-Zeit-Selects, 4 Urlaubs-Knoepfe, Test-Push, Wetter-Warnungen). Scrollhoehe bei EINEM Treffer: 547 px ohne Push, 1211 px mit Push. Der Screenshot zeigt unter dem einen Treffer „Nachtmodus" neun fremde Push-Haken.
@@ -990,7 +990,7 @@ Kleine Korrekturen am Befund: #settings-admin-row steht auf 6683 (nicht 6664), d
 
 </details>
 
-### 🔴 [25] 18 Bedienelemente im Smart-Push-Panel liegen ausserhalb jeder `.settings-row` und sind damit ueberhaupt nicht auffindbar.
+### ✅ [25] 18 Bedienelemente im Smart-Push-Panel liegen ausserhalb jeder `.settings-row` und sind damit ueberhaupt nicht auffindbar.
 
 - **Schwere:** hoch  ·  **Zeile (v32.31):** 6265
 - **Folge:** Gemessen mit aufgeklapptem Panel — je 0 Treffer und Anzeige „Keine Einstellung gefunden.", obwohl das gesuchte Wort im selben Moment sichtbar auf dem Bildschirm steht: „hitzewarnung", „stille", „urlaub", „vorlauf", „giessen", „quiz-duell", „wetter-warnungen", „test-push" (8 von 8). Gegenprobe: alle 41 nicht-Admin-`.settings-row` sind auffindbar (0 Ausfaelle bei 41 gepruefen Zeilen) — die Luecke ist genau diese eine Gruppe.
@@ -1045,7 +1045,7 @@ EINE PRAEZISIERUNG ZUM TITEL (kein Widerspruch, aber wichtig fuer die Reparatur)
 
 </details>
 
-### 🔴 [26] `#settings-search-none` („Keine Einstellung gefunden.") erscheint gleichzeitig mit sichtbaren Einstellungen — die Meldung widerspricht dem Bildschirm.
+### ✅ [26] `#settings-search-none` („Keine Einstellung gefunden.") erscheint gleichzeitig mit sichtbaren Einstellungen — die Meldung widerspricht dem Bildschirm.
 
 - **Schwere:** mittel  ·  **Zeile (v32.31):** 16261
 - **Folge:** Suche „zzz-gibtsnicht" ohne Push: Meldung sichtbar, darunter 457 px Inhalt. innerText des Scrollbereichs: „🔍 ⇕ Keine Einstellung gefunden. 🌿 GreenScan Version v32.29 · 2026 4'337 Arten in DB 🇨🇭 Schweiz Focus Die #1 Natur-App der Schweiz. …". Mit aktiviertem Push: 1162 px, Text beginnt „Keine Einstellung gefunden. Welche Benachrichtigungen? 🥶 Frostgefahr 🥵 Hitzewarnung 🌪️ Sturm / Starkregen …". Der Nutzer liest „nichts gefunden" und sieht darunter neun Schalter.
@@ -1086,7 +1086,7 @@ NEBENBEFUND aus demselben Lauf: acht weitere `.settings-card` bleiben als 2-px-S
 
 </details>
 
-### 🔴 [27] Leere Karten-Huellen bleiben als duenne Striche stehen: 7 Karten a 2 px pro Suche.
+### ✅ [27] Leere Karten-Huellen bleiben als duenne Striche stehen: 7 Karten a 2 px pro Suche.
 
 - **Schwere:** niedrig  ·  **Zeile (v32.31):** 16244
 - **Folge:** Gemessen bei Suche „nachtmodus": Hoehen der sichtbaren Karten ohne einzige sichtbare Zeile = [2, 2, 2, 2, 2, 2, 2, 209] px. Sieben duenne, leere Kaesten mit Rahmen und Schatten rahmen den einen Treffer ein (im Screenshot ueber „DARSTELLUNG" sichtbar); der achte ist die Ueber-Karte aus Befund 1.
@@ -1137,7 +1137,7 @@ Korrekte Fassung: index.html:16284 (+ 16278) und index.html:85061.
 
 </details>
 
-### 🔴 [28] Der Gruppentitel behaelt im Suchmodus `gs-collapsed` und `aria-expanded="false"`, obwohl die Suche den Abschnitt aufklappt.
+### ✅ [28] Der Gruppentitel behaelt im Suchmodus `gs-collapsed` und `aria-expanded="false"`, obwohl die Suche den Abschnitt aufklappt.
 
 - **Schwere:** niedrig  ·  **Zeile (v32.31):** 16242
 - **Folge:** Gemessen bei Suche „nachtmodus": Klasse des sichtbaren Titels = „settings-group-title gs-acc-h gs-collapsed", aria-expanded = „false", ::after-transform = matrix(1,0,0,1,0,0) (= rotate(0deg), also der ZU-Pfeil ▸). Der Pfeil zeigt „zugeklappt", waehrend die Treffer-Zeile darunter sichtbar ist; ein Screenreader meldet den Abschnitt als eingeklappt. Betroffen ist jeder Treffer ausserhalb der ersten Gruppe (8 von 9 Gruppen sind standardmaessig zu).
@@ -1518,7 +1518,7 @@ function gsAdminSaveSbKey() {
 
 ## Optik und Zugänglichkeit
 
-### 🔴 [38] 22 von 77 Bedienelementen auf #screen-settings haben keinen zugänglichen Namen — darunter ALLE 11 Kippschalter, alle 4 Auswahlfelder, die 6 Farbfelder und der Regler
+### ✅ [38] 22 von 77 Bedienelementen auf #screen-settings haben keinen zugänglichen Namen — darunter ALLE 11 Kippschalter, alle 4 Auswahlfelder, die 6 Farbfelder und der Regler
 
 - **Schwere:** hoch  ·  **Zeile (v32.31):** 6198
 - **Folge:** Mit VoiceOver/TalkBack liest der Bildschirm elfmal „Kontrollkästchen, nicht aktiviert" und viermal „Kombinationsfeld" — ohne zu sagen, wozu. Wer nicht sieht, kann Nachtmodus, Senioren-Modus, Push, Sprache und Masseinheiten nicht auseinanderhalten und schaltet blind. Ausgerechnet der Senioren-Modus, der für schlechte Sicht gebaut ist, ist selbst unbeschriftet.
@@ -1585,7 +1585,7 @@ KORREKTUREN AM BEFUND (kleiner, aendern das Urteil nicht):
 
 </details>
 
-### 🔴 [39] Die sechs Farbfelder sagen zusätzlich nicht, WELCHES gewählt ist — der aktive Ton ist nur an einem Rahmen erkennbar, es gibt kein aria-pressed/aria-checked
+### ✅ [39] Die sechs Farbfelder sagen zusätzlich nicht, WELCHES gewählt ist — der aktive Ton ist nur an einem Rahmen erkennbar, es gibt kein aria-pressed/aria-checked
 
 - **Schwere:** hoch  ·  **Zeile (v32.31):** 6211
 - **Folge:** Sechs Schaltflächen hintereinander, die alle „Schaltfläche" heissen und deren einziger Unterschied die Farbe ist — genau die Information, die ein blinder Nutzer nicht hat. Und selbst wer sieht, aber Rahmenkontraste schlecht wahrnimmt, erkennt die aktive App-Farbe nicht: sie unterscheidet sich nur durch einen 2-px-Rahmen und 15 % Vergrösserung.
@@ -1638,7 +1638,7 @@ Einzige Einschränkung meines Ergebnisses: dass der aktive Ton "nur an einem 2-p
 
 </details>
 
-### 🔴 [40] Die als „sticky" gebaute Einstellungs-Suche klebt nirgends — sie scrollt nach 139 px aus dem Bild und ist auf den restlichen 4'200 px des Bildschirms weg
+### ✅ [40] Die als „sticky" gebaute Einstellungs-Suche klebt nirgends — sie scrollt nach 139 px aus dem Bild und ist auf den restlichen 4'200 px des Bildschirms weg
 
 - **Schwere:** mittel  ·  **Zeile (v32.31):** 1570
 - **Folge:** Der Einstellungs-Bildschirm ist 4'342 px hoch und startet mit 8 von 9 zugeklappten Gruppen — die Suche und der ⇕-Knopf („Alle auf/zu") sind der einzige schnelle Weg hinein. Beide sind nach der ersten Wischbewegung verschwunden. Wer weiter unten merkt, dass er etwas sucht, muss erst ganz nach oben zurückscrollen.
@@ -1698,7 +1698,7 @@ EINSCHRÄNKUNG: die behauptete Gesamthöhe „4'342 px" reproduziert nicht (geme
 
 </details>
 
-### 🔴 [41] Ein </div> zu früh in der Kopfzeile: Untertitel und Versionsnummer stehen NEBEN dem Titel statt darunter
+### ✅ [41] Ein </div> zu früh in der Kopfzeile: Untertitel und Versionsnummer stehen NEBEN dem Titel statt darunter
 
 - **Schwere:** mittel  ·  **Zeile (v32.31):** 6044
 - **Folge:** Statt „⚙️ Einstellungen" mit einer Unterzeile darunter steht alles in einer Reihe: Titel, dann rechts daneben klein der Untertitel, dann die Version. Auf schmalen Geräten bricht der Untertitel in drei Stummel um. Die Kopfzeile sieht wie ein Layoutfehler aus — und ist einer.
@@ -1757,7 +1757,7 @@ Der Titel endet bei x=189, der Untertitel beginnt bei x=201 — er steht NEBEN d
 
 </details>
 
-### 🔴 [42] Bei 320 px Breite ragt die Versionsnummer 13 px über den Bildrand und wird von overflow-x:hidden abgeschnitten
+### ✅ [42] Bei 320 px Breite ragt die Versionsnummer 13 px über den Bildrand und wird von overflow-x:hidden abgeschnitten
 
 - **Schwere:** mittel  ·  **Zeile (v32.31):** 6045
 - **Folge:** Auf einem iPhone SE oder älteren Android-Geräten endet die Versionsanzeige mitten im Datum. Genau diese Zeichenkette ist das, wonach man einen Nutzer im Support-Fall fragt („welche Version hast du?") — sie ist dort nicht vollständig ablesbar.
@@ -1817,7 +1817,7 @@ EINSCHRAENKUNG, ehrlich: die FOLGE ist milder als beschrieben. #about-version (Z
 
 </details>
 
-### 🔴 [43] Knopf „🔔 Aktiv": weisse Schrift auf --g-main — im Dunkelmodus 2,36:1 statt der geforderten 4,5:1
+### ✅ [43] Knopf „🔔 Aktiv": weisse Schrift auf --g-main — im Dunkelmodus 2,36:1 statt der geforderten 4,5:1
 
 - **Schwere:** mittel  ·  **Zeile (v32.31):** 6307
 - **Folge:** Wer den Nachtmodus benutzt und Smart-Push einschaltet, sieht die Beschriftung des Knopfes, mit dem er die Urlaubs-Pause wieder aufhebt, praktisch nicht — hellgrüne Fläche mit weisser Schrift darauf. Der Knopf sieht leer aus.

@@ -4,13 +4,106 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.34` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.35` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-03 (dx) — v32.35: die Suche fand nur, was die richtige Klasse trug
+
+Zweite Welle aus dem Einstellungs-Audit. Elf weitere bestätigte Meldungen
+behoben, alle in `einstellungen_check` festgehalten (5 → 13 Fragen), jede
+gegengeprüft.
+
+#### Die Suche kannte nur eine Bauart
+
+Die durchsuchbare Einheit war ausschliesslich `.settings-row`. Was nicht so
+ausgezeichnet war, existierte für die Suche nicht — und das sind keine
+Randfälle:
+
+| Suchwort | vorher |
+|---|---|
+| hitzewarnung · stille · urlaub · vorlauf · giessen · quiz-duell · wetter-warnungen · test-push | **8 von 8**: „Keine Einstellung gefunden.", während das Wort sichtbar auf dem Bildschirm stand |
+
+Umgekehrt liess der Zweig für Karten MIT Zeilen die Karte **bedingungslos**
+stehen (`b.classList.remove('gs-grp-nomatch')`), auch wenn keine ihrer Zeilen
+passte. Bei jeder Suche blieben deshalb sieben leere 2-px-Kartenhüllen und die
+209 px hohe Über-Karte stehen und rahmten den einen Treffer ein — und
+„Keine Einstellung gefunden." erschien über 457 px sichtbarem Inhalt.
+
+Jetzt gibt es **eine** Regel für jeden Karten-Rumpf: sichtbar, wenn der
+Gruppentitel passt ODER eine Zeile passt ODER der Text ausserhalb der Zeilen
+passt. Inline Ausgeblendetes zählt nicht mit.
+
+> **Eine Suche darf nicht davon abhängen, wie der Inhalt ausgezeichnet ist.
+> Sie durchsucht, was auf dem Bildschirm steht.**
+
+#### 22 Bedienelemente ohne Namen — eine Nachrüstung statt 22 Pflastern
+
+Alle elf Kippschalter, alle vier Auswahlfelder, die sechs Farbfelder und der
+Regler hatten im Barrierefreiheits-Baum `name=""`. Die Bauform ist immer
+dieselbe: das umschliessende `<label>` enthält nur den Schieber, der Titel
+steht daneben ohne `for` und ohne `aria-labelledby`.
+
+`gsNamenNachruesten` nimmt den Namen aus der Zeile, in der das Element steht —
+dieselbe Entscheidung wie bei der Tastatur-Bedienbarkeit in v32.16. Drei
+Elemente im Push-Panel stehen in keiner Zeile; sie haben ein ausdrückliches
+`aria-label` bekommen, statt dafür eine Heuristik zu erfinden.
+
+Dazu: das gewählte Farbfeld war **nur am Rahmen** erkennbar. Jetzt trägt es
+`role="radio"` und `aria-checked`.
+
+#### Zwei Fassungen dieser Prüfung waren wertlos, bevor sie taugte
+
+Und beide sahen grün aus:
+
+1. **Sie mass `aria-label` statt des Namens.** Ein Name entsteht auch aus
+   einem umschliessenden `<label>` mit Text — die neun Push-Kategorien wären
+   fälschlich als namenlos gemeldet worden. Gemessen wird jetzt der ECHTE
+   Barrierefreiheits-Baum über CDP, wie im Audit.
+2. **Sie mass im zugeklappten Zustand.** Der Bildschirm startet mit einer
+   offenen Gruppe; alles andere steht in `display:none`. Der Lauf sah neun
+   Elemente statt einunddreissig — und meldete „alle benannt". Die Gegenprobe
+   (Nachrüstung ausgebaut) blieb deshalb **grün**, und genau daran ist sie
+   aufgefallen.
+
+> **Eine Gegenprobe, die grün bleibt, ist der Beweis, dass die Frage nichts
+> misst — nicht dass alles in Ordnung ist.**
+
+Und eine dritte, kleinere: die Sticky-Frage rief `gsSettingsToggleAll()`
+blind auf. Eine frühere Frage hatte bereits aufgeklappt, das zweite
+Umschalten klappte wieder zu, und die Seite war nicht mehr scrollbar. **Ein
+Fall misst seine eigene Grundlinie** — sie stellt den Zustand jetzt her,
+statt ihn anzunehmen.
+
+#### Der Rest der Welle
+
+- **Kopfzeile:** ein `</div>` eine Zeile zu früh schloss die Spalte schon nach
+  dem Titel. Untertitel und Versionsnummer wurden dadurch zu Geschwistern in
+  der Flex-Reihe — sie standen NEBEN dem Titel, und bei 320 px ragte die
+  Version 13 px über den Rand, wo `overflow-x:hidden` sie abschnitt.
+- **Sticky-Suche:** `#settings-scroll` trug `overflow-y:auto` und hat NIE
+  gescrollt (`scrollHeight === clientHeight`) — war damit aber der Scrollport,
+  gegen den `position:sticky` rechnet. Gemessen bewegte sich die Suche 1:1 mit
+  dem Scrollweg. Das `overflow` ist ersatzlos weg.
+  > **Ein `overflow`, das nie etwas abschneidet, ist kein harmloses Beiwerk —
+  > es verschiebt, woran `sticky` hängt.**
+- **`--accent` gibt es in der ganzen Datei nicht.** Drei Stellen benutzten
+  `var(--accent, #2e7d32)` und fielen immer auf den festen Wert zurück — als
+  Fläche mit weisser Schrift im Dunkelmodus 2,44:1. Jetzt `--fill-brand`
+  bzw. `--c-success-d`.
+- **Knopf „🔔 Aktiv":** Füllung aus `--g-main` (kippt) mit weisser Schrift —
+  2,36:1 im Dunkelmodus. Jetzt `--fill-brand`.
+
+#### Stand des Audits
+
+**24 bestätigt · 14 behoben · 10 offen · 13 ohne Urteil.**
+`docs/EINSTELLUNGEN-AUDIT.md` führt jede Meldung mit Beleg und Gegenprüfung.
+
+---
 
 ### 2026-09-03 (dw) — v32.34: fünf Anläufe, und der sechste hat weniger Technik
 
@@ -7665,7 +7758,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.34` (Client) · SW-Cache `gs-v32.34` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.35` (Client) · SW-Cache `gs-v32.35` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.

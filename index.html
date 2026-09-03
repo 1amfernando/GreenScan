@@ -67,7 +67,7 @@
 <meta name="twitter:description" content="4342 Schweizer Arten mit KI bestimmen. Installierbar als App.">
 <meta name="twitter:image" content="icons/icon-512.png">
 <title>GreenScan – Pflanzen &amp; Natur Schweiz</title>
-<meta name="app-version" content="32.34.20260903">
+<meta name="app-version" content="32.35.20260903">
 <!-- v26.11 Performance: Preconnect zu kritischen 3rd-party Origins (DNS+TLS warm) -->
 <link rel="preconnect" href="https://vowbiueikwrauuceilhc.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -6083,13 +6083,25 @@ html, body{ scroll-behavior: smooth; }
 <div class="screen" id="screen-settings">
 
 <div style="background:var(--hero-bg);padding:10px 16px 12px;color:#fff;display:flex;align-items:center;gap:12px;flex-shrink:0;"><button onclick="gsGoBack()" aria-label="Zurück" style="width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:var(--fs-2xl);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent;">&#8249;</button><div style="flex:1;">
-  <div data-i18n="settings_title" data-i18n-fallback="⚙️ Einstellungen" style="font-family:'Playfair Display',serif;font-size:var(--fs-xl);font-weight:900;margin-bottom:2px;">⚙️ Einstellungen</div></div>
-  <div data-i18n="settings_sub" data-i18n-fallback="App personalisieren &amp; konfigurieren" style="font-size:var(--fs-sm);opacity:.78;">App personalisieren &amp; konfigurieren</div><div id="settings-version" style="font-size:var(--fs-xs);opacity:.6;margin-top:2px;"></div>
+  <!-- v32.35: Das </div> stand eine Zeile zu frueh und schloss die flex:1-Spalte
+       schon nach dem Titel. Untertitel und Versionsnummer wurden dadurch zu
+       GESCHWISTERN des Titels in der Flex-Reihe — sie standen NEBEN ihm statt
+       darunter, und bei 320 px ragte die Versionsnummer 13 px ueber den
+       Bildrand, wo `overflow-x:hidden` sie abschnitt. -->
+  <div data-i18n="settings_title" data-i18n-fallback="⚙️ Einstellungen" style="font-family:'Playfair Display',serif;font-size:var(--fs-xl);font-weight:900;margin-bottom:2px;">⚙️ Einstellungen</div>
+  <div data-i18n="settings_sub" data-i18n-fallback="App personalisieren &amp; konfigurieren" style="font-size:var(--fs-sm);opacity:.78;">App personalisieren &amp; konfigurieren</div><div id="settings-version" style="font-size:var(--fs-xs);opacity:.6;margin-top:2px;"></div></div>
 </div>
 
 
   
-  <div id="settings-scroll" style="padding:12px 16px 80px;overflow-y:auto;">
+  <!-- v32.35: `overflow-y:auto` ist hier ersatzlos weg. Dieser Kasten hat NIE
+       gescrollt (scrollHeight === clientHeight); gescrollt wird `#screen-settings`.
+       Er war damit trotzdem der naechste Scrollport, gegen den das
+       `position:sticky` der Suche rechnet — und deshalb klebte sie nirgends:
+       gemessen bewegte sie sich 1:1 mit dem Scrollweg und war nach 139 px weg.
+       **Ein `overflow`, das nie etwas abschneidet, ist kein harmloses
+       Beiwerk — es verschiebt, woran `sticky` haengt.** -->
+  <div id="settings-scroll" style="padding:12px 16px 80px;">
 
     <!-- v28.14 B-004: Live-Suche über alle Einstellungen (sticky) -->
     <div id="settings-search-wrap">
@@ -6323,17 +6335,17 @@ html, body{ scroll-behavior: smooth; }
         <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:var(--fs-md);color:var(--text);"><input type="checkbox" id="push-cat-battle" checked onchange="gsSavePushSettings({battle:this.checked})" style="width:18px;height:18px;cursor:pointer;"> ⚔️ Quiz-Duell-Antworten</label>
         <!-- v27.00: Wetter-Vorlauf (Lead-Time) — wie viele Stunden im Voraus warnen -->
         <div style="margin-top:12px;font-size:var(--fs-sm);color:var(--text);">
-          <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:4px;"><span>🌦️ Wetter-Vorlauf</span><span id="push-lead-display" style="color:var(--accent,#2e7d32);">12 h</span></div>
-          <input type="range" id="push-lead-hours" min="2" max="48" step="2" value="12" oninput="var d=document.getElementById('push-lead-display');if(d)d.textContent=this.value+' h';" onchange="gsSavePushSettings({leadHours:parseInt(this.value)})" style="width:100%;cursor:pointer;accent-color:var(--accent,#2e7d32);">
+          <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:4px;"><span>🌦️ Wetter-Vorlauf</span><span id="push-lead-display" style="color:var(--c-success-d);">12 h</span></div>
+          <input type="range" id="push-lead-hours" aria-label="Wetter-Vorlauf in Stunden" min="2" max="48" step="2" value="12" oninput="var d=document.getElementById('push-lead-display');if(d)d.textContent=this.value+' h';" onchange="gsSavePushSettings({leadHours:parseInt(this.value)})" style="width:100%;cursor:pointer;accent-color:var(--fill-brand,#1f6b2f);">
           <div style="font-size:var(--fs-xs);color:var(--muted);">Frost/Hitze/Sturm werden so viele Stunden im Voraus geprüft (alle 3 h).</div>
         </div>
         <div style="margin-top:14px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:var(--fs-sm);color:var(--text);">
           <span style="font-weight:700;">🌙 Stille-Zeit:</span>
-          <select id="push-quiet-start" onchange="gsSavePushSettings({quietStart:parseInt(this.value)})" style="padding:6px 8px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;color:var(--text);">
+          <select id="push-quiet-start" aria-label="Stille-Zeit Beginn" onchange="gsSavePushSettings({quietStart:parseInt(this.value)})" style="padding:6px 8px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;color:var(--text);">
             <option value="20">20:00</option><option value="21">21:00</option><option value="22" selected>22:00</option><option value="23">23:00</option><option value="0">0:00</option>
           </select>
           <span>bis</span>
-          <select id="push-quiet-end" onchange="gsSavePushSettings({quietEnd:parseInt(this.value)})" style="padding:6px 8px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;color:var(--text);">
+          <select id="push-quiet-end" aria-label="Stille-Zeit Ende" onchange="gsSavePushSettings({quietEnd:parseInt(this.value)})" style="padding:6px 8px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);font-size:var(--fs-sm);font-family:inherit;color:var(--text);">
             <option value="5">5:00</option><option value="6">6:00</option><option value="7" selected>7:00</option><option value="8">8:00</option><option value="9">9:00</option>
           </select>
         </div>
@@ -6346,11 +6358,11 @@ html, body{ scroll-behavior: smooth; }
             <button onclick="gsPushPause(3)" style="flex:1;min-width:64px;padding:8px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;color:var(--text);font-family:inherit;">3 Tage</button>
             <button onclick="gsPushPause(7)" style="flex:1;min-width:64px;padding:8px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;color:var(--text);font-family:inherit;">7 Tage</button>
             <button onclick="gsPushPause(14)" style="flex:1;min-width:64px;padding:8px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;color:var(--text);font-family:inherit;">14 Tage</button>
-            <button onclick="gsPushPause(0)" style="flex:1;min-width:64px;padding:8px;background:var(--g-main,#43a047);border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;color:#fff;font-family:inherit;">🔔 Aktiv</button>
+            <button onclick="gsPushPause(0)" style="flex:1;min-width:64px;padding:8px;background:var(--fill-brand,#1f6b2f);border:none;border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:700;cursor:pointer;color:#fff;font-family:inherit;">🔔 Aktiv</button>
           </div>
         </div>
         <!-- v26.93: Test-Push (an eigene Subscriptions via send-push Edge-Fn) -->
-        <button id="push-test-btn" onclick="gsSendTestPush()" style="margin-top:14px;width:100%;padding:10px;background:var(--accent,#2e7d32);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:700;cursor:pointer;">📨 Test-Push senden</button>
+        <button id="push-test-btn" onclick="gsSendTestPush()" style="margin-top:14px;width:100%;padding:10px;background:var(--fill-brand,#1f6b2f);color:#fff;border:none;border-radius:var(--r-md);font-size:var(--fs-md);font-weight:700;cursor:pointer;">📨 Test-Push senden</button>
         <!-- v27.00: Wetter-Warnungen-Inbox (weather_alerts) -->
         <button id="push-wx-btn" onclick="gsOpenWeatherAlerts()" style="margin-top:8px;width:100%;padding:10px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:var(--r-md);font-size:var(--fs-md);font-weight:700;cursor:pointer;">🌦️ Wetter-Warnungen ansehen <span id="push-wx-badge" style="display:none;margin-left:4px;background:#e53935;color:#fff;border-radius:var(--r-pill);padding:1px 7px;font-size:var(--fs-sm);"></span></button>
       </div>
@@ -16263,8 +16275,38 @@ function gsUpdateSettingsPlanCard() {
     groups.forEach(function(g, i){
       var open = isOpen(i, state);
       g.title.classList.toggle('gs-collapsed', !open);
+      try { g.title.setAttribute('aria-expanded', open ? 'true' : 'false'); } catch(_){}
       g.bodies.forEach(function(b){ b.classList.toggle('gs-acc-hide', !open); });
     });
+  }
+  /* v32.35: Was die Suche SIEHT.
+     Bis hierher war die durchsuchbare Einheit ausschliesslich `.settings-row`.
+     Alles andere im Einstellungs-Bildschirm war fuer die Suche nicht
+     vorhanden — und das sind keine Randfaelle:
+       · die 18 Bedienelemente im Smart-Push-Panel (Frostgefahr, Hitzewarnung,
+         Sturm, Stille-Zeit, Wetter-Vorlauf, Urlaub, Test-Push …) — acht von
+         acht Suchbegriffen ergaben „Keine Einstellung gefunden.", waehrend das
+         gesuchte Wort im selben Moment sichtbar auf dem Bildschirm stand;
+       · die Ueber-Karte („Version · Arten in DB · Schweiz Focus"), die
+         umgekehrt bei JEDEM Suchbegriff stehen blieb.
+     Diese Funktion liefert den Text eines Karten-Rumpfes OHNE seine Zeilen —
+     damit wird jeder Inhalt durchsuchbar, nicht nur der, der zufaellig eine
+     Klasse traegt. Inline ausgeblendetes (Admin-Zeilen, zugeklapptes
+     Push-Panel) zaehlt nicht mit: gefunden werden soll, was auch zu sehen ist.
+
+     **Die Regel: eine Suche darf nicht davon abhaengen, wie der Inhalt
+     ausgezeichnet ist. Sie durchsucht, was auf dem Bildschirm steht.** */
+  function restText(b, rows){
+    if (!rows || !rows.length) return (b.textContent || '');
+    var t = '';
+    (function walk(n){
+      if (n.nodeType === 3) { t += n.nodeValue; return; }
+      if (n.nodeType !== 1) return;
+      if (n.classList && n.classList.contains('settings-row')) return;   // gehoert einer Zeile
+      if (n.style && n.style.display === 'none') return;                  // nicht sichtbar
+      for (var i = 0; i < n.childNodes.length; i++) walk(n.childNodes[i]);
+    })(b);
+    return t;
   }
   function clearSearch(){
     groups.forEach(function(g){
@@ -16288,21 +16330,33 @@ function gsUpdateSettingsPlanCard() {
       g.bodies.forEach(function(b){
         b.classList.remove('gs-acc-hide');   // im Suchmodus alle Bodies aufklappen
         var rows = b.querySelectorAll ? b.querySelectorAll('.settings-row') : [];
-        if (rows.length){
-          Array.prototype.forEach.call(rows, function(r){
-            var adminHidden = (r.style.display === 'none');   // admin-only-row aus → bleibt unsichtbar
-            var match = grpMatch || ((r.textContent || '').toLowerCase().indexOf(q) !== -1);
-            r.classList.toggle('gs-row-nomatch', !match);
-            if (match && !adminHidden) groupHasVisible = true;
-          });
-          b.classList.remove('gs-grp-nomatch');
-        } else {
-          // Bodies ohne Rows (Über-Card, Legal-Banner): nur bei Treffer im Gruppentitel zeigen
-          b.classList.toggle('gs-grp-nomatch', !grpMatch);
-          if (grpMatch) groupHasVisible = true;
-        }
+        // v32.35: EINE Regel fuer jeden Karten-Rumpf, egal ob er Zeilen hat.
+        // Vorher gab es zwei — und der Zweig MIT Zeilen liess die Karte
+        // bedingungslos stehen (`b.classList.remove('gs-grp-nomatch')`), auch
+        // wenn keine einzige ihrer Zeilen passte. Ergebnis bei jeder Suche:
+        // sieben leere Kartenhuellen als 2-px-Striche, dazu die 209 px hohe
+        // Ueber-Karte und, bei aktivem Push, das komplette 646-px-Detailpanel.
+        var zeileSichtbar = false;
+        Array.prototype.forEach.call(rows, function(r){
+          var adminHidden = (r.style.display === 'none');   // admin-only-row aus → bleibt unsichtbar
+          var match = grpMatch || ((r.textContent || '').toLowerCase().indexOf(q) !== -1);
+          r.classList.toggle('gs-row-nomatch', !match);
+          if (match && !adminHidden) zeileSichtbar = true;
+        });
+        var restMatch = (restText(b, rows).toLowerCase().indexOf(q) !== -1);
+        var sichtbar = grpMatch || zeileSichtbar || restMatch;
+        b.classList.toggle('gs-grp-nomatch', !sichtbar);
+        if (sichtbar) groupHasVisible = true;
       });
       g.title.classList.toggle('gs-grp-nomatch', !groupHasVisible);
+      // v32.35: Die Suche klappt jeden Abschnitt auf — der Titel muss das auch
+      // sagen. Vorher behielt er `gs-collapsed` und `aria-expanded="false"`:
+      // der Pfeil zeigte „zugeklappt" ueber einer sichtbaren Treffer-Zeile, und
+      // ein Screenreader meldete den Abschnitt als eingeklappt.
+      if (groupHasVisible) {
+        g.title.classList.remove('gs-collapsed');
+        try { g.title.setAttribute('aria-expanded', 'true'); } catch(_){}
+      }
       if (groupHasVisible) anyGroup = true;
     });
     if (none) none.style.display = anyGroup ? 'none' : 'block';
@@ -51364,6 +51418,15 @@ function applyTheme(themeName, btn, save = true) {
   if (btn) btn.classList.add('active');
   const swatchEl = document.getElementById('swatch-' + themeName);
   if (swatchEl) swatchEl.classList.add('active');
+  // v32.35: Der gewaehlte Ton war NUR am Rahmen zu erkennen (`.theme-swatch
+  // .active` setzt `border-color` und `transform`). Wer nicht hinsieht, kann
+  // nicht wissen, welche Farbe eingestellt ist — deshalb sagt es das Element
+  // jetzt auch. Die Namen setzt `gsNamenNachruesten`, den Zustand hier, weil
+  // er sich bei jedem Klick aendert.
+  try {
+    document.querySelectorAll('.theme-swatch').forEach(s =>
+      s.setAttribute('aria-checked', s.classList.contains('active') ? 'true' : 'false'));
+  } catch (_) {}
 
   if (save) {
     userPrefs.theme = themeName;
@@ -51508,6 +51571,7 @@ function initSettingsScreen() {
   const savedTheme = userPrefs.theme || 'green';
   document.querySelectorAll('.theme-swatch').forEach(s => {
     s.classList.toggle('active', s.dataset.theme === savedTheme);
+    try { s.setAttribute('aria-checked', s.classList.contains('active') ? 'true' : 'false'); } catch (_) {}
   });
 
   const toggleMap = {
@@ -71878,6 +71942,19 @@ function closeApiKey(){closeModal('apikey-modal');}
 // ═══════════════════════════════════════════════════════════
 window.GS_RELEASES = [
   {
+    v: 'v32.35', date: '03.09.2026',
+    headline: '\ud83d\udd0e Die Einstellungs-Suche findet endlich, was auf dem Bildschirm steht',
+    summary: 'Die Suche kannte nur Eintr\u00e4ge einer bestimmten Bauart. Alles andere war f\u00fcr sie nicht vorhanden \u2014 die 18 Bedienelemente der Push-Einstellungen waren gar nicht auffindbar, und die Info-Karte blieb umgekehrt bei jedem Suchbegriff stehen. Dazu: alle Schalter haben jetzt einen Namen, die Kopfzeile stimmt wieder, und die Suche klebt tats\u00e4chlich oben.',
+    user_summary: '\ud83d\udd0e Suche in den Einstellungen findet jetzt alles, r\u00e4umt sauber auf und bleibt beim Scrollen oben \u2014 und jeder Schalter sagt, was er ist.',
+    user_items: [
+      {emoji:'\ud83d\udd0d', bold:'Die Suche findet alles:', text:' „Hitzewarnung", „Stille-Zeit", „Wetter-Vorlauf", „Test-Push" \u2014 acht von acht dieser W\u00f6rter ergaben vorher „Keine Einstellung gefunden.", obwohl das Wort im selben Moment sichtbar auf dem Bildschirm stand.'},
+      {emoji:'\ud83e\uddf9', bold:'Und r\u00e4umt auf:', text:' Was nicht passt, verschwindet ganz \u2014 auch die leere Kartenh\u00fclle. Vorher blieben bei jeder Suche sieben d\u00fcnne Striche und eine 209 px hohe Info-Karte stehen und rahmten den einen Treffer ein.'},
+      {emoji:'\ud83d\udccc', bold:'Das Suchfeld bleibt oben:', text:' Es war als „klebend" gebaut und scrollte trotzdem nach 139 px aus dem Bild. Jetzt bleibt es beim Scrollen an der Oberkante.'},
+      {emoji:'\ud83d\udde3\ufe0f', bold:'Jeder Schalter hat einen Namen:', text:' Alle elf Kippschalter, die vier Auswahlfelder, die sechs Farbfelder und der Regler waren f\u00fcr eine Sprachausgabe namenlos. Jetzt nennen sie ihre Zeile \u2014 und das gew\u00e4hlte Farbfeld sagt auch, dass es gew\u00e4hlt ist.'},
+      {emoji:'\ud83d\udcd0', bold:'Kopfzeile und Farben:', text:' Untertitel und Versionsnummer standen NEBEN dem Titel statt darunter und ragten bei schmalen Ger\u00e4ten \u00fcber den Rand. Dazu drei Stellen, die eine Farbe benutzten, die es in der App gar nicht gibt.'},
+    ],
+  },
+  {
     v: 'v32.34', date: '03.09.2026',
     headline: '\ud83d\udcf7 Der Sucher tut jetzt einfach das, was eine Kamera-App tut',
     summary: 'F\u00fcnf Anl\u00e4ufe an derselben Stelle, jeder mit mehr Technik als der davor. Dieser hat weniger: drei Zeilen CSS, kein JavaScript, keine Hilfsvariable. Das Bild ist ganz zu sehen, so gross wie der Bildschirm es zul\u00e4sst, mit den Bedienelementen in den dunklen Streifen darum \u2014 wie in jeder Telefon-Kamera-App.',
@@ -72443,7 +72520,7 @@ var SB_URL_DEFAULT = 'https://vowbiueikwrauuceilhc.supabase.co';
 var SB_KEY_DEFAULT = 'sb_publishable_2hCSq4Lc3t1czsagDG-7qQ_92S-fHNi';
 var GS_SUPPORT_EMAIL = 'info@greenscan.ch';  // Offiziell · Gmail: www.greenscan@gmail.com
 var GS_APP_NAME = 'GreenScan';
-var GS_VERSION = 'v32.34';
+var GS_VERSION = 'v32.35';
 
 // v23.89: __DEV__-Flag — bestimmt ob console.log/warn ausgegeben werden
 // Aktiv nur auf localhost ODER wenn explizit per ?dev=1 oder localStorage('gs_dev') gesetzt
@@ -75360,18 +75437,84 @@ function gsRegisterServiceWorker() {
     try { if (window.requestIdleCallback) return requestIdleCallback(fn, { timeout: 1500 }); } catch (_) {}
     return setTimeout(fn, 300);
   }
+  // ═══ v32.35 · UND EIN NAME DAZU ═══════════════════════════════════════
+  //
+  // Erreichbar zu sein ist die halbe Miete — ein Bedienelement muss auch
+  // sagen koennen, WAS es tut. Auf dem Einstellungs-Bildschirm hatten 22 von
+  // 77 Bedienelementen keinen zugaenglichen Namen: ALLE elf Kippschalter,
+  // alle vier Auswahlfelder, die sechs Farbfelder und der Regler. Gemessen
+  // wurde das nicht am Markup, sondern am echten Barrierefreiheits-Baum
+  // (`Accessibility.getPartialAXTree`) — dort stand ueberall `name=""`.
+  //
+  // Die Ursache ist immer dieselbe Bauform:
+  //     <div class="settings-row">
+  //       <div class="settings-label"><div class="settings-label-title">Nachtmodus</div>…</div>
+  //       <label class="settings-toggle"><input type="checkbox" id="toggle-dark"><span/></label>
+  //     </div>
+  // Das umschliessende `<label>` enthaelt nur den Input und den Schieber —
+  // keinen Text. Der Titel steht DANEBEN, ohne `for` und ohne
+  // `aria-labelledby`. Fuer das Auge offensichtlich, fuer alles andere nicht.
+  //
+  // Wieder EINE Nachruestung statt 22 Einzelpflaster (wie in v32.16): der
+  // Name kommt aus der Zeile, in der das Element steht. Die naechste
+  // Einstellungs-Zeile bringt den Fehler damit nicht wieder mit.
+  var STEUER = 'input[type=checkbox], input[type=radio], input[type=range], select, .theme-swatch';
+  function gsNamenNachruesten(wurzel) {
+    var n = 0;
+    try {
+      var w = wurzel || document.getElementById('screen-settings');
+      if (!w || !w.querySelectorAll) return 0;
+      var els = w.querySelectorAll(STEUER);
+      for (var i = 0; i < els.length; i++) {
+        var el = els[i];
+        if (el.getAttribute('aria-label') || el.getAttribute('aria-labelledby')) continue;
+        var name = '';
+        if (el.classList && el.classList.contains('theme-swatch')) {
+          // Die Farbfelder tragen keinen Text; ihr Name ist die Farbe.
+          var FARBEN = { green:'Grün', teal:'Petrol', blue:'Blau',
+                         purple:'Violett', orange:'Orange', brown:'Braun' };
+          name = FARBEN[el.getAttribute('data-theme')] || el.getAttribute('data-theme') || '';
+          if (name) name = 'App-Farbe ' + name;
+          // Und der aktive Ton muss sich ANSAGEN lassen — sichtbar ist er nur
+          // an einem Rahmen (`.theme-swatch.active`), das sieht kein
+          // Screenreader.
+          try {
+            el.setAttribute('role', 'radio');
+            el.setAttribute('aria-checked', el.classList.contains('active') ? 'true' : 'false');
+          } catch (_) {}
+        } else {
+          var reihe = el.closest ? el.closest('.settings-row') : null;
+          var titel = reihe ? reihe.querySelector('.settings-label-title') : null;
+          name = titel ? (titel.textContent || '').trim() : '';
+          if (!name && reihe) {
+            var lab = reihe.querySelector('.settings-label');
+            name = lab ? (lab.textContent || '').trim().split('\n')[0] : '';
+          }
+        }
+        if (!name) continue;
+        el.setAttribute('aria-label', name.slice(0, 120));
+        n++;
+      }
+    } catch (_) {}
+    return n;
+  }
+  window.gsNamenNachruesten = gsNamenNachruesten;
+
   var _wartet = null;
   function _spaeter() {
     if (_wartet) return;
-    _wartet = setTimeout(function () { _wartet = null; _wennRuhig(function () { gsTastaturNachruesten(); }); }, 250);
+    _wartet = setTimeout(function () {
+      _wartet = null;
+      _wennRuhig(function () { gsTastaturNachruesten(); gsNamenNachruesten(); });
+    }, 250);
   }
   try {
     var ziel = document.getElementById('app') || document.body;
     if (ziel && window.MutationObserver) {
       new MutationObserver(_spaeter).observe(ziel, { childList: true, subtree: true });
     }
-    _wennRuhig(function () { gsTastaturNachruesten(); });
-    setTimeout(function () { _wennRuhig(function () { gsTastaturNachruesten(); }); }, 1200);
+    _wennRuhig(function () { gsTastaturNachruesten(); gsNamenNachruesten(); });
+    setTimeout(function () { _wennRuhig(function () { gsTastaturNachruesten(); gsNamenNachruesten(); }); }, 1200);
   } catch (_) {}
 })();
 

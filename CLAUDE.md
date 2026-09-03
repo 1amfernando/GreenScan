@@ -1237,6 +1237,39 @@ Drei Regeln daraus, alle allgemein:
   .getUserMedia` selbst — der einzigen Stelle, durch die alle muessen. Die
   naechste Kamera-Stelle bringt den Fehler damit nicht wieder mit.
 
+**v32.35 hat ihn auf 13 Fragen erweitert** — Einstellungs-Suche, Namen,
+Kopfzeile, Klebeverhalten. Drei Lehren aus dem Bau, alle allgemein:
+
+- **Eine Suche darf nicht davon abhaengen, wie der Inhalt AUSGEZEICHNET ist.**
+  Die Einstellungs-Suche kannte nur `.settings-row`. Die 18 Bedienelemente des
+  Push-Panels waren damit gar nicht auffindbar (8 von 8 Suchwoertern:
+  „Keine Einstellung gefunden.", waehrend das Wort sichtbar dastand), und
+  Karten mit Zeilen blieben umgekehrt bedingungslos stehen. Jetzt gibt es EINE
+  Regel fuer jeden Rumpf, und sie fragt den Text ausserhalb der Zeilen mit.
+- **Ein Name ist nicht `aria-label`.** Er entsteht auch aus einem
+  umschliessenden `<label>` mit Text, aus `for`, aus `title`. Die erste
+  Fassung dieser Frage suchte nach `aria-label` und haette neun korrekt
+  benannte Kaestchen als namenlos gemeldet. Gemessen wird der ECHTE
+  Barrierefreiheits-Baum ueber CDP (`Accessibility.getPartialAXTree`).
+- **Und sie mass im ZUGEKLAPPTEN Zustand** — neun Elemente statt
+  einunddreissig, und meldete „alle benannt". Aufgefallen ist das nur, weil
+  die Gegenprobe (Nachruestung ausgebaut) **gruen blieb**.
+
+  > **Eine Gegenprobe, die gruen bleibt, ist der Beweis, dass die Frage nichts
+  > misst — nicht dass alles in Ordnung ist.**
+
+Dazu zwei Fundstuecke, die ueber die Einstellungen hinausgehen:
+
+- **Ein `overflow`, das nie etwas abschneidet, ist kein harmloses Beiwerk.**
+  `#settings-scroll` trug `overflow-y:auto` und hat NIE gescrollt
+  (`scrollHeight === clientHeight`) — war damit aber der Scrollport, gegen den
+  das `position:sticky` der Suche rechnet. Die Suche bewegte sich 1:1 mit dem
+  Scrollweg.
+- **`--accent` gibt es in dieser Datei nicht** (0 Definitionen, 3 Nutzungen).
+  Ein `var(--X, fallback)` mit einem Namen, den niemand definiert, ist eine
+  feste Farbe mit Tarnkappe: sie kippt nicht mit dem Modus und faellt keinem
+  auf, der nach Farbnamen sucht.
+
 **Und eine Frage, die es ohne v32.34 nicht gaebe:** geht die Kamera-Anfrage
 bei AUSGESCHALTETEM Schalter unveraendert durch? Das Tor lief als
 `async function`, also mit einem `await` vor dem Durchreichen. Gemessen wird

@@ -196,6 +196,48 @@ const melde = (frage, ok, wie) => {
       state: window.gsPermState.camera,
     };
 
+    // ── 5 · Die Suche findet, was auf dem Bildschirm steht ──────────────
+    //
+    // Gemessen wird am GERENDERTEN Bildschirm, nicht am Objekt: was zählt,
+    // ist was sichtbar bleibt und was verschwindet.
+    const scroll = document.getElementById('settings-scroll');
+    const sichtbar = (el) => {
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 2;   // 2 px = leere Kartenhülle (Rahmen)
+    };
+    const suche = (q) => {
+      gsSettingsSearch(q);
+      const karten = Array.prototype.filter.call(scroll.querySelectorAll('.settings-card'), sichtbar);
+      const zeilen = Array.prototype.filter.call(scroll.querySelectorAll('.settings-row'), sichtbar);
+      const none = document.getElementById('settings-search-none');
+      const huellen = Array.prototype.filter.call(scroll.querySelectorAll('.settings-card'), (k) => {
+        const r = k.getBoundingClientRect();
+        return r.height > 0 && r.height <= 4;   // sichtbar, aber ohne Inhalt
+      }).length;
+      return { karten: karten.length, zeilen: zeilen.length, huellen,
+               keine: !!(none && getComputedStyle(none).display !== 'none'),
+               text: (scroll.innerText || '').replace(/\s+/g, ' ').slice(0, 120) };
+    };
+    // Das Push-Panel aufklappen — genau dort liegen die 18 Bedienelemente,
+    // die zu KEINER `.settings-row` gehören.
+    const panel = document.getElementById('push-detail-settings');
+    if (panel) panel.style.display = '';
+    aus.suche = {
+      leer:      suche(''),
+      treffer:   suche('nachtmodus'),
+      imPanel:   suche('hitzewarnung'),
+      imPanel2:  suche('test-push'),
+      nichts:    suche('zzz-gibtsnicht'),
+    };
+    // Klappt die Suche einen Abschnitt auf, muss der Titel das auch sagen.
+    gsSettingsSearch('nachtmodus');
+    const t = Array.prototype.find.call(
+      document.querySelectorAll('.settings-group-title'),
+      (x) => !x.classList.contains('gs-grp-nomatch') && x.getBoundingClientRect().height > 0);
+    aus.suche.titel = t ? { zu: t.classList.contains('gs-collapsed'),
+                            aria: t.getAttribute('aria-expanded') } : null;
+    gsSettingsSearch('');
+
     aus.reloads = window.__reloads;
     return aus;
   });
@@ -235,8 +277,155 @@ const melde = (frage, ok, wie) => {
       : JSON.stringify(D) + ' — ein `await` vor dem Durchreichen unterbricht die Geste; '
         + 'ein Riegel, der nur für wenige gilt, darf den Weg der vielen nicht anfassen');
 
+  // ── 6 · Hat jedes Bedienelement einen Namen? ─────────────────────────
+  //
+  // Gemessen am ECHTEN Barrierefreiheits-Baum über CDP, nicht am Markup: was
+  // zählt, ist der Name, den ein Screenreader vorliest — und der entsteht auf
+  // mehreren Wegen (umschliessendes `<label>` mit Text, `for`, `aria-label`,
+  // `aria-labelledby`, `title`). Wer nur nach `aria-label` sucht, meldet die
+  // Push-Kategorien fälschlich als namenlos: ihr `<label>` trägt den Text.
+  //
+  // Und ZUERST alles aufklappen. Der Bildschirm startet mit einer offenen
+  // Gruppe; alle anderen Zeilen stehen in `display:none`. Ein Lauf ohne das
+  // misst neun Elemente statt einunddreissig und meldet fröhlich „alle
+  // benannt" — genau die Falle aus v32.21 (eine Zahl ohne Bezugsgrösse).
+  const namen = await (async () => {
+    await page.evaluate(async () => {
+      try { if (typeof gsSettingsToggleAll === 'function') gsSettingsToggleAll(); } catch (_) {}
+      const panel = document.getElementById('push-detail-settings');
+      if (panel) panel.style.display = '';
+      await new Promise(w => setTimeout(w, 250));
+    });
+    const ids = await page.evaluate(() => {
+      const w = document.getElementById('screen-settings');
+      const sel = 'input[type=checkbox], input[type=radio], input[type=range], select, .theme-swatch';
+      return Array.from(w.querySelectorAll(sel))
+        .filter(e => e.offsetParent !== null || e.getBoundingClientRect().height > 0)
+        .map(e => e.id).filter(Boolean);
+    });
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('DOM.enable'); await cdp.send('Accessibility.enable');
+    const { root } = await cdp.send('DOM.getDocument', { depth: 1 });
+    const ohne = [];
+    for (const id of ids) {
+      let nm = '';
+      try {
+        const { nodeId } = await cdp.send('DOM.querySelector', { nodeId: root.nodeId, selector: '#' + id });
+        if (nodeId) {
+          const { nodes } = await cdp.send('Accessibility.getPartialAXTree', { nodeId, fetchRelatives: false });
+          const kn = nodes.find(x => x.backendDOMNodeId != null && x.name);
+          nm = kn && kn.name ? String(kn.name.value || '').trim() : '';
+        }
+      } catch (_) {}
+      if (!nm) ohne.push(id);
+    }
+    await cdp.detach();
+    return { sichtbar: ids.length, ohne };
+  })();
+  const namenOk = namen.ohne.length === 0 && namen.sichtbar >= 25;
+  melde('Jedes sichtbare Bedienelement der Einstellungen hat einen Namen', namenOk,
+    namenOk ? namen.sichtbar + ' Schalter, Auswahlfelder, Farbfelder und Regler — alle mit Namen im Barrierefreiheits-Baum'
+      : namen.ohne.length + ' von ' + namen.sichtbar + ' ohne Namen: ' + namen.ohne.slice(0, 10).join(', ')
+        + ' — das umschliessende <label> enthält nur den Schieber, der Titel steht daneben ohne `for`');
+
+  // Und der gewählte Farbton muss sich ansagen lassen.
+  const farb = await page.evaluate(() => {
+    const sw = Array.from(document.querySelectorAll('.theme-swatch'));
+    return { n: sw.length,
+             aktiv: sw.filter(s => s.classList.contains('active')).map(s => s.dataset.theme),
+             checked: sw.filter(s => s.getAttribute('aria-checked') === 'true').map(s => s.dataset.theme) };
+  });
+  const farbOk = farb.n === 6 && farb.aktiv.length === 1 && farb.checked.length === 1
+    && farb.aktiv[0] === farb.checked[0];
+  melde('Das gewählte Farbfeld sagt, dass es gewählt ist', farbOk,
+    farbOk ? farb.n + ' Farbfelder · gewählt „' + farb.aktiv[0] + '" · aria-checked ebenso'
+      : JSON.stringify(farb) + ' — der aktive Ton war nur an einem Rahmen erkennbar; '
+        + 'wer nicht hinsieht, kann nicht wissen, welche Farbe eingestellt ist');
+
+  // ── 7 · Kopfzeile: Untertitel unter dem Titel, nichts ragt hinaus ────
+  const kopf = await page.evaluate(() => {
+    const w = document.getElementById('screen-settings');
+    const titel = w.querySelector('[data-i18n="settings_title"]');
+    const sub   = w.querySelector('[data-i18n="settings_sub"]');
+    const ver   = document.getElementById('settings-version');
+    const R = (e) => { const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top), Math.round(b.right)]; };
+    return { titel: R(titel), sub: R(sub), ver: R(ver), breite: window.innerWidth,
+             raus: Math.round(Math.max(0, R(ver)[2] - window.innerWidth)) };
+  });
+  const kopfOk = kopf.sub[1] > kopf.titel[1] && kopf.sub[0] <= kopf.titel[0] + 2 && kopf.raus === 0;
+  melde('Untertitel und Version stehen UNTER dem Titel, nicht daneben', kopfOk,
+    kopfOk ? 'Titel y=' + kopf.titel[1] + ' · Untertitel y=' + kopf.sub[1] + ' (darunter, gleiche Kante) · nichts ragt hinaus'
+      : JSON.stringify(kopf) + ' — ein </div> zu früh schliesst die Spalte schon nach dem Titel; '
+        + 'Untertitel und Version werden dadurch zu Geschwistern in der Flex-Reihe');
+
+  // ── 8 · Klebt die Suche wirklich? ───────────────────────────────────
+  const kleben = await page.evaluate(async () => {
+    const scr = document.getElementById('screen-settings');
+    const box = document.getElementById('settings-search-wrap');
+    // Alle Gruppen aufklappen, damit es überhaupt etwas zu scrollen gibt.
+    // `gsSettingsToggleAll` SCHALTET UM — eine frühere Frage hat schon
+    // aufgeklappt, ein blindes zweites Aufrufen klappt also wieder zu und die
+    // Seite ist nicht mehr scrollbar. (Dieselbe Falle wie in v32.22: ein Fall
+    // misst seine eigene Grundlinie.) Deshalb: umschalten, bis es scrollt.
+    for (let i = 0; i < 2 && scr.scrollHeight <= scr.clientHeight; i++) {
+      try { if (typeof gsSettingsToggleAll === 'function') gsSettingsToggleAll(); } catch (_) {}
+      await new Promise(w => setTimeout(w, 200));
+    }
+    const oben = Math.round(box.getBoundingClientRect().top);
+    scr.scrollTop = 600;
+    await new Promise(w => setTimeout(w, 120));
+    const nach = Math.round(box.getBoundingClientRect().top);
+    const hoehe = scr.scrollHeight, sicht = scr.clientHeight;
+    const port = Math.round(scr.getBoundingClientRect().top);
+    scr.scrollTop = 0;
+    return { oben, nach, port, mitgewandert: oben - 600,
+             gescrollt: hoehe - sicht, scrollbar: hoehe > sicht };
+  });
+  // „Klebt" heisst NICHT „bewegt sich gar nicht": der Kasten startet unter der
+  // Kopfzeile und wandert beim Scrollen bis an die Oberkante des Scrollports —
+  // und bleibt DORT. Das Gegenteil (gar keine Klebewirkung) wäre y = oben−600.
+  const klebtOk = kleben.scrollbar
+    && Math.abs(kleben.nach - kleben.port) <= 4
+    && kleben.nach > kleben.mitgewandert + 50;
+  melde('Die Suche klebt beim Scrollen wirklich oben', klebtOk,
+    klebtOk ? 'von y=' + kleben.oben + ' an die Oberkante y=' + kleben.nach + ' und dort geblieben '
+      + '(ohne Klebewirkung wäre sie bei ' + kleben.mitgewandert + ')'
+      : JSON.stringify(kleben) + ' — `position:sticky` rechnet gegen den nächsten Scrollport; '
+        + 'ein innerer Kasten mit `overflow-y:auto`, der selbst nie scrollt, ist genau dieser Port');
+
+  const S = r.suche;
+  const findetPanel = S.imPanel.zeilen + S.imPanel.karten > 0 && !S.imPanel.keine
+    && S.imPanel2.karten > 0 && !S.imPanel2.keine;
+  melde('Die Suche findet auch, was in keiner `.settings-row` steht', findetPanel,
+    findetPanel ? '„hitzewarnung" → ' + S.imPanel.karten + ' Karte(n) · „test-push" → ' + S.imPanel2.karten + ' Karte(n)'
+      : JSON.stringify({ hitzewarnung: S.imPanel, testpush: S.imPanel2 })
+        + ' — 18 Bedienelemente im Push-Panel gehören zu keiner Zeile; eine Suche darf nicht davon '
+        + 'abhängen, wie der Inhalt ausgezeichnet ist');
+
+  const raeumtAuf = S.treffer.huellen === 0 && S.treffer.karten <= 2
+    && S.nichts.karten === 0 && S.nichts.huellen === 0;
+  melde('Was nicht passt, verschwindet ganz — auch die Kartenhülle', raeumtAuf,
+    raeumtAuf ? '„nachtmodus" → ' + S.treffer.karten + ' Karte(n), 0 leere Hüllen · '
+      + '„zzz-gibtsnicht" → 0 Karten (statt 8 mit ' + S.leer.karten + ' im Ruhezustand)'
+      : JSON.stringify({ treffer: S.treffer, nichts: S.nichts })
+        + ' — leere Kartenhüllen bleiben als 2-px-Striche stehen und rahmen den einen Treffer ein');
+
+  const ehrlich = S.nichts.keine === true && S.nichts.karten === 0
+    && S.treffer.keine === false && S.imPanel.keine === false;
+  melde('„Keine Einstellung gefunden." erscheint nur, wenn wirklich nichts da ist', ehrlich,
+    ehrlich ? 'ohne Treffer: Meldung + 0 Karten · mit Treffer: keine Meldung'
+      : JSON.stringify({ ohneTreffer: S.nichts, mitTreffer: S.treffer })
+        + ' — die Meldung stand gleichzeitig mit 457 px sichtbarem Inhalt darunter');
+
+  const T = S.titel;
+  const titelOk = T && T.zu === false && T.aria === 'true';
+  melde('Klappt die Suche einen Abschnitt auf, sagt der Titel das auch', titelOk,
+    titelOk ? 'sichtbarer Gruppentitel: nicht `gs-collapsed`, aria-expanded="true"'
+      : JSON.stringify(T) + ' — der Pfeil zeigte „zugeklappt" über einer sichtbaren '
+        + 'Treffer-Zeile, und ein Screenreader meldete den Abschnitt als eingeklappt');
+
   console.log('  ---');
-  console.log('  Fragen geprueft: 5 · davon rot: ' + kaputt);
+  console.log('  Fragen geprueft: 13 · davon rot: ' + kaputt);
   console.log('  JS-Fehler: ' + (fehler.length ? fehler.slice(0, 4).join(' | ') : 'keine'));
   console.log('  Gestellte Sperren: Notification.requestPermission → granted · location.reload → gezählt ('
     + r.reloads + ')');
