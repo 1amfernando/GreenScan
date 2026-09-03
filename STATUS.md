@@ -4,13 +4,102 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.24` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.25` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-03 (do) — v32.25: der Kontrast-Prüfstand mass sechs von vierzig Fenstern
+
+Fernandos fünfter Punkt: **die Optik**. Alle vier optischen Prüfstände melden
+null — `render_check`, `contrast_check`, `touch_check`, `a11y_check`. Also die
+Frage gestellt, was sie NICHT ansehen. Die Antwort stand seit v31.78 in
+`CLAUDE.md` §7.1, als Satz, den alle gelesen und niemand befolgt hat:
+
+> „Wer Farbe in einem Modal setzt, das der Prüfstand nicht öffnet, rechnet
+> selbst nach."
+
+**Niemand rechnet selbst nach.** `contrast_check` mass sechs Fenster. Die App
+hat rund vierzig.
+
+#### Die Reparatur am Prüfstand
+
+Die Liste von Hand zu verlängern wäre der falsche Weg gewesen — sie veraltet,
+wie jede gepflegte Liste. Stattdessen dieselbe Entdeckung wie in
+`wiring_check` Richtung 3: **jeder Öffner ohne Parameter mit `openModal(` im
+Rumpf wird wirklich aufgerufen und vermessen.** Neue Fenster sind damit ab dem
+Tag ihrer Entstehung dabei. Die sechs von Hand gestellten bleiben — sie
+brauchen Daten, die kein Öffner allein herbeiruft (Musterplan, Scan-Ergebnis).
+
+Erster Lauf: **44 Stellen im Hellmodus, 56 im Dunkelmodus**, in Fenstern, die
+noch nie jemand gemessen hatte. Die schlimmste bei **1,01:1** — hellgrüner Text
+auf hellrosa Fläche, also schlicht unsichtbar.
+
+#### Vier Ursachen, vier Regeln
+
+| Ursache | Regel |
+|---|---|
+| Text aus einem **kippenden** Merkmal auf **fest heller** Fläche | Eine feste Fläche braucht eine **feste** Schrift. `--g-dark` wird im Dunkelmodus `#a5d6a7` — auf einem festen Pastellton sind das 1,0:1. |
+| Fest dunkelgrüne Schrift (`#1a3d1a`) auf einer Fläche, die im Dunkelmodus dunkel wird | Umgekehrt: Schrift auf einer **Themen**-Fläche nimmt ein Merkmal, keine feste Farbe. (15 Stellen) |
+| **Füllung** aus `--g-main` / `--g-dark` / `--c-success` mit weisser Schrift | Füllungen nehmen `--fill-brand` (hell `#1f6b2f`, dunkel `#2b7530` — beide tragen Weiss). Die Grün-Merkmale sind Marken-Töne und kippen. |
+| `opacity` auf **Text**, um einen Zustand zu zeigen | Deckkraft senkt den Kontrast **blind** — sie fragt nicht, worauf der Text steht. „Gesperrt" zeigt man mit `filter:grayscale(1)` oder einer anderen Textfarbe. |
+
+Betroffen waren unter anderem: die sechs Knöpfe im „Was möchtest du
+teilen?"-Fenster, die acht Kacheln in „Mein Naturjahr", die Abo-Karten, die
+Meilenstein-Chips im Profil, der Hofladen, der Säkalender und die
+Jahres-Umschalter in Ernte und Tagebuch.
+
+**Ergebnis nach der Reparatur: 100 → 26.** Hellmodus 44 → 13, Dunkelmodus
+56 → 13.
+
+Und die beiden Listen sind jetzt **fast deckungsgleich** — das ist die
+eigentliche Aussage: die verbliebenen Stellen sind **modusunabhängig**, also
+keine Kipp-Fehler mehr, sondern schlicht Füllungen, die ein wenig zu hell für
+weisse Schrift sind (2,36:1 bis 4,39:1; neun davon knapp unter der
+4,5er-Schwelle). Keine einzige ist unsichtbar. Namentlich:
+
+| Fenster | Was |
+|---|---|
+| `gsShowFirstTrialModal` (3×) | weiss auf Gold `#c79415` — Gold trägt kein Weiss |
+| `openDevicesModal` (2×) | weiss auf `#429f46` bzw. `#027fc7` |
+| `openDiaryEntryModal` (2×), `gsOpenGardenScan`, `openDoctorModal` | weiss auf mittelgrünen/petrolfarbenen Flächen, teils mit `opacity` |
+| `openSaekalender`, `openGartenTagebuch` | ausgewählter Filter-Chip |
+| `openMoonCalendar` | `#e65100` auf `#fff3e0` |
+| `openApiKey` | `#888` als Hilfetext |
+
+Alle mit derselben Rechnung zu beheben: eine Fläche für weisse Schrift braucht
+eine Leuchtdichte ≤ 0,183. Nächste Welle.
+
+#### Der Fehler, den ich dabei selbst gemacht habe
+
+Ich habe `background:#2e7d32;color:#fff;` **global** durch `var(--fill-brand)`
+ersetzt — und damit **21 nie gemessene Stellen** mitgenommen. Die Rücknahme
+traf dann **122**, weil die Gegenrichtung auch die ursprünglichen
+`--fill-brand`-Nutzer erwischte. Die Datei war beschädigt und musste aus dem
+letzten Commit zurückgeholt werden.
+
+> **Ein Suchen-und-Ersetzen über eine 5-MB-Datei ist keine Aufräumarbeit,
+> sondern ein Eingriff.**
+
+Der zweite Anlauf prüft jede einzelne Ersetzung gegen eine **erwartete
+Trefferzahl** (`viele(alt, neu, name, 7)`) und bricht ab, wenn sie nicht
+stimmt. Und die Regel aus v31.77 gilt weiter: eine Farbe wird nur dort
+geändert, wo ein Messwert vorliegt — nicht vorbeugend, nicht „passt schon".
+
+#### `touch_check` misst zwei Breiten
+
+412 px und **320 px** (iPhone SE, ältere Android-Geräte). Eine Antippfläche,
+die bei 412 passt und bei 320 aus dem Bild läuft, fällt sonst niemandem auf.
+Beide Breiten sauber. **Gegenprobe:** ein Fehler, den es nur unter 340 px gibt
+— gemeldet, mit der Breite dahinter, und zwar ausschliesslich für 320 px.
+(Zwei frühere Anläufe der Gegenprobe zeigten NICHTS und waren trotzdem
+richtig: sie trafen ein `div` und einen Knopf in einem geschlossenen Fenster —
+beides sieht die Regel zu Recht nicht an.)
+
+---
 
 ### 2026-09-03 (dn) — v32.24: drei Erzeuger, null Leser — Deep-Links endeten immer oben
 
@@ -6957,7 +7046,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.24` (Client) · SW-Cache `gs-v32.24` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.25` (Client) · SW-Cache `gs-v32.25` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **88'431 Zeilen / 5,3 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.
@@ -6992,6 +7081,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 | `book-ingest` ohne Spiegel | Dokumentiert statt gespiegelt (~250 dichte Zeilen). `backend_check` nennt es bei jedem Lauf. (df) |
 | `feedback_analysis` = 0 Zeilen | „Nie gedrückt" und „bricht immer ab" sind von hier aus nicht zu unterscheiden. Ein Knopfdruck im Admin-Panel klärt es. (df) |
 | Kaltstart 3,3 s (Einsteiger-Telefon) | Untersucht, kein lohnender Angriffspunkt für Teil-Auslagerung. Bräuchte einen echten Aufteilungsschritt. (dj) |
+| **26 Kontrast-Stellen unter AA** | Nach der Welle in v32.25 übrig, in beiden Modi dieselben. Keine unsichtbar (2,36:1–4,39:1), alle mit derselben Rechnung zu beheben: eine Fläche für weisse Schrift braucht Leuchtdichte ≤ 0,183. Namentlich in (do). |
 | 3 Verzeichnisse im Repo ohne Auslieferung | `daily-push`, `entitlements`, `push-test` — nie deployed oder entfernt? (df) |
 | 4 Treffer in `field_check` | `tp-len`/`tp-wid`/`tp-soil`/`tp-light` — zusammengesetzte Namen, funktionieren. Dauerhafte Falschmeldung, in `CLAUDE.md` §7.1 benannt. |
 

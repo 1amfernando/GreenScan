@@ -1165,6 +1165,40 @@ die Cache-API prueft er **nicht** — dafuer ist `offline_check` zustaendig
 Warteschlange ueberlebt das Abmelden weiterhin; es geht seither aber nur noch
 an das Konto, das es aufgenommen hat.
 
+**Seit v32.25 oeffnet `contrast_check` JEDES Fenster selbst.** Bis dahin mass
+er SECHS — die App hat rund vierzig. Fuer alles andere galt die Ansage aus
+diesem Abschnitt: „wer Farbe in einem Modal setzt, das der Pruefstand nicht
+oeffnet, rechnet selbst nach". **Niemand rechnet selbst nach.**
+
+Die Liste von Hand zu verlaengern waere der falsche Weg gewesen — sie
+veraltet, wie jede gepflegte Liste. Stattdessen dieselbe Entdeckung wie in
+`wiring_check` Richtung 3: jeder Oeffner ohne Parameter, dessen Rumpf
+`openModal(` enthaelt, wird wirklich aufgerufen und vermessen. **Neue Fenster
+sind damit ab dem Tag ihrer Entstehung vermessen.** Die sechs von Hand
+gestellten bleiben — sie brauchen Daten, die kein Oeffner allein herbeiruft
+(Musterplan, Scan-Ergebnis).
+
+Der erste Lauf fand **44 Stellen im Hellmodus und 56 im Dunkelmodus**, in
+Fenstern, die noch nie jemand gemessen hatte. Vier Ursachen, und alle vier
+sind allgemeine Regeln:
+
+| Ursache | Regel |
+|---|---|
+| Text aus einem KIPPENDEN Merkmal auf FEST heller Flaeche | Eine feste Flaeche braucht eine FESTE Schrift. `--g-dark` wird im Dunkelmodus `#a5d6a7` — auf einem festen Pastellton sind das 1,0:1. |
+| Fest dunkelgruene Schrift (`#1a3d1a`) auf einer Flaeche, die im Dunkelmodus dunkel wird | Umgekehrt: eine Schrift auf einer THEMEN-Flaeche nimmt ein Merkmal, keine feste Farbe. |
+| FLAECHE aus `--g-main` / `--g-dark` / `--c-success` mit weisser Schrift | Fuellungen nehmen `--fill-brand` (hell `#1f6b2f`, dunkel `#2b7530` — beide tragen Weiss). Die Grün-Merkmale sind MARKEN-Toene und kippen. |
+| `opacity` auf TEXT, um einen Zustand zu zeigen | Deckkraft senkt den Kontrast BLIND — sie fragt nicht, worauf der Text steht. „Gesperrt" zeigt man mit `filter:grayscale(1)` oder einer anderen Textfarbe. |
+
+**Eine Lehre aus dem Aufraeumen selbst, und sie ist teuer:** ich habe
+`background:#2e7d32;color:#fff;` global durch `var(--fill-brand)` ersetzt und
+damit **21 nie gemessene Stellen** mitgenommen; die Ruecknahme traf dann 122
+Stellen, weil die Gegenrichtung auch die urspruenglichen `--fill-brand`-Nutzer
+erwischte. Die Datei war beschaedigt und musste aus dem letzten Commit
+zurueckgeholt werden. **Eine Suchen-und-Ersetzen-Aktion ueber eine 5-MB-Datei
+ist keine Aufraeumarbeit, sondern ein Eingriff** — jede Ersetzung braucht eine
+erwartete Trefferzahl, gegen die sie prueft (`viele(alt, neu, name, 7)`), und
+Farben werden nur geaendert, wo ein Messwert vorliegt.
+
 **Seit v31.78 misst `contrast_check` in ZWEI Fenstern** — KI-Planer und
 Blühkalender — und der Bericht nennt **je Fenster die Zahl der vermessenen
 Textstellen**. Ohne diese Zahl sieht ein Fenster, das gar nicht aufging,
@@ -1224,7 +1258,10 @@ Zwei Dinge aus dem Bau, die allgemein gelten:
   wieder. Wer widersprechende Messungen hat, misst beide Staende mit
   **demselben** Werkzeug.
 
-**`touch_check` hat diese Grenze weiterhin** — es misst nur die elf
+**`touch_check` misst seit v32.25 ZWEI Breiten** — 412 px und 320 px (iPhone SE,
+aeltere Android-Geraete). Eine Antippflaeche, die bei 412 passt und bei 320 aus
+dem Bild laeuft, faellt sonst niemandem auf; der Bericht nennt die Breite bei
+jedem Fund. **Seine andere Grenze bleibt** — es misst nur die elf
 Bildschirme. Und für Farbe gilt unverändert: **wer Farbe in einem Modal setzt,
 das der Prüfstand nicht öffnet, rechnet selbst nach.**
 

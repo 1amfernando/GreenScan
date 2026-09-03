@@ -378,7 +378,14 @@ async function medianFarben(leser, pngBuffer, punkte) {
       }],
     ];
 
-    for (const [fname, oeffnen] of FENSTER) {
+    // v32.25: der Messvorgang als FUNKTION — er wird jetzt von zwei Seiten
+    // gebraucht: von der Liste oben (Fenster, die gestellte Daten brauchen)
+    // und vom automatischen Durchgang darunter (jeder Oeffner ohne
+    // Parameter). Vorher stand er in der Schleife, und ein zweiter Durchgang
+    // haette ihn kopiert — zwei Fassungen derselben Messung sind der
+    // sicherste Weg zu zwei verschiedenen Ergebnissen.
+    async function messeFenster(fname, oeffnenQuelle, arg, deckel) {
+      deckel = deckel || 8;
       try {
         const hoch = await p.evaluate(([fn, arg]) => {
           const res = (new Function('return (' + fn + ')'))()(arg);
@@ -387,9 +394,7 @@ async function medianFarben(leser, pngBuffer, punkte) {
           while (sc && sc !== document.body && sc.scrollHeight <= sc.clientHeight + 4) sc = sc.parentElement;
           window.__gsScroll = (sc && sc !== document.body) ? sc : null;
           return (window.__gsScroll ? window.__gsScroll.scrollHeight : document.body.scrollHeight) || 0;
-        }, [oeffnen.toString(), fname === 'planer'
-              ? { plan: JSON.parse(JSON.stringify(SEED_MOD.MUSTERPLAN)), agro: SEED_MOD.AGRONOMIE }
-              : null]);
+        }, [oeffnenQuelle, arg]);
 
         // Ein Fenster faehrt mit einer Animation ein. Wer sofort misst,
         // liest Koordinaten aus dem Dokument und Pixel aus einem Bild, das
@@ -397,7 +402,7 @@ async function medianFarben(leser, pngBuffer, punkte) {
         // gemeldet, die in Wahrheit 18:1 haben. Also erst zur Ruhe kommen
         // lassen.
         await p.waitForTimeout(600);
-        const schritte = Math.max(1, Math.min(8, Math.ceil(hoch / (H - 120))));
+        const schritte = Math.max(1, Math.min(deckel, Math.ceil(hoch / (H - 120))));
         // Wie viele Stellen dieses Fenster wirklich beigetragen hat. Ohne
         // diese Zahl sieht ein Fenster, das gar nicht aufging, genauso aus
         // wie eines ohne Fehler — naemlich nach „0".
@@ -446,14 +451,82 @@ async function medianFarben(leser, pngBuffer, punkte) {
       } catch (e) { console.log('  (Fenster ' + fname + ' uebersprungen: ' + e.message.split('\n')[0] + ')'); }
     }
 
+    // ── Durchgang 1: die Fenster, die gestellte Daten brauchen ────────────
+    for (const [fname, oeffnen] of FENSTER) {
+      await messeFenster(fname, oeffnen.toString(), fname === 'planer'
+        ? { plan: JSON.parse(JSON.stringify(SEED_MOD.MUSTERPLAN)), agro: SEED_MOD.AGRONOMIE }
+        : null);
+    }
+
+    // ── Durchgang 2 (v32.25): JEDES Fenster, das sich von allein oeffnet ──
+    //
+    // Bis v32.24 mass dieser Pruefstand SECHS Fenster. Die App hat rund
+    // vierzig. Alles andere stand unter der Ansage aus CLAUDE.md §7.1:
+    // „wer Farbe in einem Modal setzt, das der Pruefstand nicht oeffnet,
+    // rechnet selbst nach" — und niemand rechnet selbst nach.
+    //
+    // Die Liste von Hand zu verlaengern waere der falsche Weg: sie veraltet,
+    // wie jede gepflegte Liste. Stattdessen dieselbe Entdeckung wie in
+    // `wiring_check` Richtung 3 — jeder Oeffner ohne Parameter, dessen Rumpf
+    // `openModal(` enthaelt, wird WIRKLICH aufgerufen. Neue Fenster sind
+    // damit ab dem Tag ihrer Entstehung vermessen.
+    const autoNamen = await p.evaluate((quelleTxt) => {
+      const out = [];
+      const re = /(?:async\s+)?function\s+((?:gsOpen|open|show|gsShow)[A-Za-z0-9_]*|gs[A-Za-z0-9_]*Oeffnen)\s*\(\s*\)\s*\{/g;
+      let m;
+      while ((m = re.exec(quelleTxt))) {
+        let d = 0, i = re.lastIndex - 1, ende = -1;
+        while (i < quelleTxt.length && i < re.lastIndex + 40000) {
+          const c = quelleTxt[i];
+          if (c === '{') d++;
+          else if (c === '}') { d--; if (d === 0) { ende = i; break; } }
+          i++;
+        }
+        if (ende > 0 && quelleTxt.slice(re.lastIndex, ende).indexOf('openModal(') >= 0) out.push(m[1]);
+      }
+      return [...new Set(out)].sort();
+    }, require('fs').readFileSync(require('path').join(__dirname, '..', 'index.html'), 'utf8'));
+
+    // Der Oeffner als Quelltext — `messeFenster` fuehrt ihn im Seitenkontext
+    // aus und erwartet das Element, in dem gemessen werden soll.
+    const AUTO_OEFFNER = `(function(name){
+      document.querySelectorAll('.modal-overlay, .overlay-modal').forEach(function(el){
+        el.classList.remove('open'); el.style.display = 'none';
+      });
+      // Sperren ERFUELLEN, nicht umgehen — dieselbe Regel wie in wiring_check.
+      window.sbIsLoggedIn = function(){ return true; };
+      window.gsIsAdmin = function(){ return true; };
+      window.gsIsStaff = function(){ return true; };
+      window.gsRequire = function(){ return true; };
+      window._sbProfile = window._sbProfile || { id:'u1', email:'p@r.ch', role:'admin' };
+      var f = window[name];
+      if (typeof f !== 'function') return 0;
+      try { f(); } catch(_) { return 0; }
+      var offen = [].slice.call(document.querySelectorAll('.modal-overlay, .overlay-modal'))
+        .filter(function(el){ return el.classList.contains('open') || el.style.display === 'flex'; })
+        .filter(function(el){ return (el.textContent||'').trim().length > 12; });
+      return offen.length ? offen[0] : 0;
+    })`;
+
+    let autoGemessen = 0, autoLeer = 0;
+    for (const name of autoNamen) {
+      const vorher = gefunden.size;
+      await messeFenster(name, AUTO_OEFFNER, name, 3);
+      if (gefunden.size > vorher) autoGemessen++;
+      else autoLeer++;
+    }
+    console.log('  automatisch geoeffnet: ' + autoNamen.length + ' Fenster' +
+                (autoGemessen ? ' · davon mit Befund: ' + autoGemessen : ' · ohne Befund'));
+
+
     await ctx.close();
 
     const liste = [...gefunden.values()].sort((a, b) => a.r - b.r);
     console.log('\n=== ' + (dark ? 'DUNKELMODUS' : 'HELLMODUS') + ' — ' + liste.length + ' Textstellen unter AA');
-    liste.slice(0, 24).forEach(o => console.log(
+    liste.slice(0, 70).forEach(o => console.log(
       `  ${String(o.r).padStart(5)}:1 (soll ${o.min})  ${o.tab.padEnd(9)} ${o.sel.slice(0,32).padEnd(33)} ` +
       `rgb(${o.fg})@${o.alpha.toFixed(2)} auf rgb(${o.bg})  „${o.t}"`));
-    if (liste.length > 24) console.log(`  … und ${liste.length-24} weitere`);
+    if (liste.length > 70) console.log(`  … und ${liste.length-70} weitere`);
   }
   await br.close();
 })();
