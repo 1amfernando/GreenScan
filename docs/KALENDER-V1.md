@@ -147,13 +147,16 @@ Drei Entscheidungen stecken darin:
 `datum === heute`. Neu daran:
 
 - **Beide Pflanzenlisten.** `gs_plantings`-Einträge bekommen `tasks` wie
-  `ps_myplants` — beim Anlegen mit Vorgaben je Gartenart (Balkon: giessen
-  2 Tage; Beet: giessen 3 Tage, prüfen 7; Gewächshaus: giessen 1). Keine
-  Botanik: das sind Intervalle, die die Person sofort ändern kann, und die
-  Karte sagt „Vorgabe für Balkon — anpassen?". Bestehende Pflanzungen
-  bekommen sie beim ersten Öffnen nachgerüstet (`lastDone = date` der
-  Pflanzung, damit nichts sofort fällig ist — die Lehre aus v28.xx,
-  `lastDone = now statt null`).
+  `ps_myplants` — mit Vorgaben je Gartenart (`GS_PFLANZUNG_VORGABEN`:
+  Balkon giessen 2 / düngen 14 / prüfen 7; Freiland 3 / 30 / 7; unter Glas
+  1 / 14 / 7). Keine Botanik: das sind Intervalle, die die Person ändern
+  kann, und das Pflanzungs-Detail sagt „Vorgabe für Balkon — keine Aussage
+  über diese Art". Bestehende Pflanzungen bekommen sie beim ersten Lesen
+  nachgerüstet (`_gsPflanzungenNachruesten`), mit `lastDone = jetzt`, damit
+  nichts „seit 27 Tagen" überfällig ist (die Lehre aus v28: `lastDone = now`
+  statt `null`). Erledigen, Verschieben und Tagebuch laufen über
+  `_gsPflanzeFinden(id)`, das sagt, in welcher Liste die Pflanze steht und wo
+  gespeichert wird (`saveGardenData` statt `savePlantsToStorage`).
 - **Verschieben speichert `snoozedUntil`** statt `lastDone` zu fälschen. Die
   Rechnung: fällig = max(lastDone + Intervall, snoozedUntil). Das Tagebuch
   behält das echte letzte Giessen. `gsSnoozeTask` wird umgebaut, nicht
@@ -270,7 +273,8 @@ Beispieldaten aus `_seed.js`:
 |---|---|---|
 | **0** | Beispieldaten mit echten Aufgaben (erledigt) · Rand-Fehler des Notizzettels | v32.46 |
 | **1** | `gsKalenderEreignisse` + `gsTagebuchAlle` · Snooze ohne Fälschung · Abhaken = ein Tagebuch-Eintrag · Kalender-Bildschirm (Monat + Tag) · vier Zugänge · `kalender_check` Fälle 1–3, 7, 8 | v32.46 |
-| **2** | Aufgaben für Garten-Pflanzungen · Aussaat-/Erntefenster aus den Artendaten · Regen als Ereignis · `kalender_check` Fälle 4–6 · Migration für die Server-Regel (nicht angewandt) | v32.47 |
+| **2** | Aufgaben für Garten-Pflanzungen (Vorgaben je Gartenart, beim ersten Lesen nachgerüstet) · Ernte-Schätzung aus `calcHarvestDate` als Info-Ereignis · Regen als Ereignis · Datumsfeld und `pflanze_id` im Tagebuch, Zukunft = Erinnerung · Pflege-Abschnitt im Pflanzungs-Detail · `buildPlantCard` entfernt · `kalender_check` 11 Fälle · Migration für die Server-Regel (nicht angewandt) | **v32.47 gebaut** |
+| **2b** | Aussaatfenster aus den Artendaten (`gsSaisonMonate` auf `season` — Monatsauflösung, nur wo hinterlegt) · das Cloud-Tagebuch (`gsDiarySubmitEntry` → `garden_diary`) in `gsTagebuchAlle` | offen |
 | **3** | Sensor-Ereignisse (`messung`, `alarm`) aus `OEKOSYSTEM-V1` Stufe 0 · Bestätigung erledigter Aufgaben durch Messwerte | mit dem Dashboard |
 
 ## 7 · Regeln, die beim Bau gelten

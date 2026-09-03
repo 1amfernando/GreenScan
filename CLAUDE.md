@@ -786,6 +786,15 @@ v32.45 sah das Gartentagebuch kein einziges Abhaken; und `MENU_ITEMS` ist
 wie `socialPosts` ein Skript-Bereichs-Name ohne `window.` — ein Fall, der
 `window.MENU_ITEMS` prueft, prueft eine Variable, die es nie gab.
 
+**Seit v32.47 gilt fuer BEIDE Pflanzenlisten dasselbe:** `ps_myplants` und
+`gs_plantings` tragen `tasks`; wer eine Pflanze zum Erledigen, Verschieben
+oder Lesen sucht, ruft `_gsPflanzeFinden(id)` — es sagt, in welcher Liste sie
+steht und wo gespeichert wird (`savePlantsToStorage` vs. `saveGardenData`).
+Ein `myPlants.find(…)` an einer neuen Stelle uebersieht die Haelfte der
+Pflanzen. Garten-Pflanzungen bekommen ihre Aufgaben beim ersten Lesen
+(`_gsPflanzungenNachruesten`, Vorgaben je Gartenart in
+`GS_PFLANZUNG_VORGABEN` — Intervalle, keine Botanik).
+
 `perf_check.js` trennt **App-JS** von **Parsen/Kompilieren**. Nur die erste
 Spalte ist beeinflussbar — die zweite ist der Preis des 5,7-MB-Monolithen und
 eine Eigenschaft der Architektur, kein Fehler. Für einen Vergleich beide Stände

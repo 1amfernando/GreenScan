@@ -4,13 +4,40 @@
 > Wenn du etwas änderst, **aktualisiere dieses File im selben Commit**.
 > Kompagnon: `CLAUDE.md` (Onboarding) und `ROADMAP.md` (Meilensteine).
 
-**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.46` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
+**Stand**: 2026-09-03 · **Branch**: `main` · **Version**: `v32.47` · **Release**: ✅ live seit v26.0 (Stripe Live-Mode seit v26.40)
 
 ---
 
 ## 0 · Daily-/Weekly-/Monthly-Routine-Eintraege (neueste zuerst)
 
 > Eingefuehrt 2026-05-20 mit `CODE_ROUTINE_MASTER.md`. Code haengt nach jeder Session einen Eintrag hier oben an.
+
+### 2026-09-03 (ej) — v32.47: Garten-Pflanzungen bekommen Pflege — Kalender Stufe 2
+
+Die grösste Lücke aus `docs/MEINE-PFLANZEN-AUDIT.md`: **Garten-Pflanzungen
+hatten keine Pflege.** `gs_plantings` kannte kein `tasks`; „Heute zu tun"
+galt nur für Zimmerpflanzen — in einer Garten-App. Jetzt:
+
+- **Vorgaben je Gartenart** (`GS_PFLANZUNG_VORGABEN`: Balkon giessen 2 /
+  düngen 14 / prüfen 7 · Freiland 3 / 30 / 7 · unter Glas 1 / 14 / 7) — Intervalle,
+  keine Botanik; das Pflanzungs-Detail sagt, dass es eine Vorgabe ist.
+  Bestehende Pflanzungen werden beim ersten Lesen nachgerüstet
+  (`_gsPflanzungenNachruesten`), mit `lastDone = jetzt`.
+- **`_gsPflanzeFinden(id)`** sagt, in welcher Liste eine Pflanze steht und
+  wo gespeichert wird — `gsQuickDone` und `gsSnoozeTask` laufen für beide
+  Listen über denselben Weg, ins richtige Buch, in den richtigen Speicher.
+- **Ernte-Schätzung** (`calcHarvestDate`, seit v13 im Code, nie im Kalender)
+  als Info-Ereignis mit Grund „Schätzung … kein Versprechen"; **Regen** nur
+  mit Messwert; das **Tagebuch-Formular** hat ein Datum (Zukunft =
+  Erinnerung) und speichert `pflanze_id`, wenn der Name eindeutig ist.
+- `buildPlantCard` (60 Zeilen, nie aufgerufen) entfernt.
+
+`kalender_check` 11 Fälle (4 neu, test-first: geschrieben vor dem Code,
+beim ersten Lauf danach alle grün — die Gegenprobe war deshalb Pflicht:
+Nachrüsten ausgebaut → rot, Zukunfts-Erkennung ausgebaut → rot).
+
+**Offen:** das Cloud-Tagebuch (`garden_diary`) in `gsTagebuchAlle`;
+Aussaatfenster aus `season`; der Notizzettel über dem Karten-Pfeil (Befund 7).
 
 ### 2026-09-03 (ei) — v32.46: der Kalender — und die Beispielpflanzen, die nie eine Aufgabe hatten
 
@@ -8513,7 +8540,7 @@ Die Korrektheit stammte aus einem `data`-Attribut im DOM; keine Policy, kein CHE
 > ausliefert, zieht diesen Abschnitt bitte mit nach; die Zahlen darin sind
 > alle mit einem Befehl nachzählbar.
 
-- **Version:** `v32.46` (Client) · SW-Cache `gs-v32.46` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
+- **Version:** `v32.47` (Client) · SW-Cache `gs-v32.47` · Domain **green-scan.ch** (kanonisch mit Bindestrich).
 - **Release:** ✅ live seit v26.0. Stripe **Live-Mode** aktiv seit v26.40.
 - **Frontend:** `index.html` **89'283 Zeilen / 5,4 MB** (Monolith HTML+CSS+JS, kein Build) · `sw.js` · `data/plants.v1.js` (2,1 MB, **4'342 Arten**) · `data/releases.v1.js` (Changelog-Archiv, 448 Einträge, wird erst beim Öffnen geladen).
 - **Backend:** Supabase — **213 Objekte** (178 Tabellen + 35 Views, alle RLS) · **97 RPCs** vom Frontend gerufen, alle vorhanden · **38 Edge-Function-Verzeichnisse** im Repo, **35 ausgeliefert** · **206 Migrationen**. Advisor: **0 ERROR**.

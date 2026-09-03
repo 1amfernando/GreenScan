@@ -154,6 +154,89 @@ const FAELLE = [
     },
   },
   {
+    // v32.47 (Stufe 2): Garten-Pflanzungen hatten KEINE Pflege — „Heute zu tun"
+    // kannte nur Zimmerpflanzen. Jetzt bekommen sie Aufgaben mit Vorgaben je
+    // Gartenart, nachgeruestet beim ersten Lesen, lastDone = jetzt.
+    name: 'Garten-Pflanzungen · bekommen Pflege-Aufgaben, und die Karte sagt, dass es eine Vorgabe ist',
+    lauf: () => {
+      const pl = (typeof plantings !== 'undefined' && Array.isArray(plantings)) ? plantings.find(x => x && x.id === 'plant_seed_1') : null;
+      if (!pl) return { ok: false, warum: 'Probe-Pflanzung fehlt' };
+      delete pl.tasks; delete pl._aufgaben_vorgabe;
+      const due0 = gsGetDueTasks();                           // ruestet nach
+      if (!pl.tasks || !pl.tasks.water) return { ok: false, warum: 'die Pflanzung hat nach gsGetDueTasks keine Aufgaben' };
+      if (pl._aufgaben_vorgabe !== 'balkon') return { ok: false, warum: 'Vorgabe-Art ' + pl._aufgaben_vorgabe + ' statt balkon (Garten g1 ist ein Balkon)' };
+      if (pl.tasks.water.intervalDays !== 2) return { ok: false, warum: 'Balkon-Vorgabe giessen = ' + pl.tasks.water.intervalDays + ' statt 2' };
+      const d = _gsTaskDays(pl.tasks.water);
+      if (d <= 0) return { ok: false, warum: 'frisch nachgeruestet und sofort faellig (' + d + ') — lastDone muss jetzt sein' };
+      // in zwei Tagen steht sie im Kalender
+      const in2 = _gsKalTagPlus(gsHeuteTag(), 2);
+      const e = gsKalenderEreignisse(in2, in2).find(x => x.art === 'aufgabe' && x.pflanze.id === 'plant_seed_1' && x.key === 'water');
+      if (!e) return { ok: false, warum: 'die Giess-Aufgabe der Pflanzung steht nicht in zwei Tagen im Kalender' };
+      // Erledigen ueber denselben Weg wie Zimmerpflanzen, Speichern im Garten-Speicher
+      gsQuickDone('plant_seed_1', 'water');
+      const gespeichert = JSON.parse(localStorage.getItem('gs_plantings') || '[]').find(x => x.id === 'plant_seed_1');
+      if (!gespeichert || !gespeichert.tasks || !gespeichert.tasks.water || gespeichert.tasks.water.lastDone !== pl.tasks.water.lastDone) return { ok: false, warum: 'das Erledigen kam nicht in gs_plantings an' };
+      if (!(pl.diary || []).some(x => x.action === 'water')) return { ok: false, warum: 'kein Tagebuch-Eintrag an der Pflanzung' };
+      // …und das Pflanzungs-Detail zeigt die Pflege
+      openPlantingDetail('plant_seed_1');
+      const t = (document.getElementById('pd2-body') || {}).textContent || '';
+      if (!/Pflege/.test(t) || !/Vorgabe/.test(t)) return { ok: false, warum: 'das Pflanzungs-Detail zeigt keine Pflege mit Vorgabe-Hinweis' };
+      return { ok: true, info: 'balkon: giessen 2 · in ' + d + ' Tagen · Erledigen → gs_plantings + Tagebuch · Detail nennt die Vorgabe' };
+    },
+  },
+  {
+    // v32.47: Ernte-Schaetzung (calcHarvestDate, existiert seit v13) als
+    // Info-Ereignis — mit Grund, ohne Kaestchen. Und Regen nur mit Messwert.
+    name: 'Ernte und Regen · Schätzung mit Grund, Wetter nur mit Messwert',
+    lauf: () => {
+      const pl = plantings.find(x => x && x.id === 'plant_seed_1');
+      const h = calcHarvestDate(pl, null);
+      const tag = _gsKalTag(h.harvestDate);
+      const e = gsKalenderEreignisse(tag, tag).find(x => x.art === 'ernte' && x.pflanze.id === 'plant_seed_1');
+      if (!e) return { ok: false, warum: 'kein Ernte-Ereignis am ' + tag };
+      if (e.status !== 'info' || !/Schätzung/.test(e.grund)) return { ok: false, warum: 'die Ernte ist kein Info-Ereignis mit „Schätzung" im Grund' };
+      gsKalenderOeffnenAm(tag);
+      const mc = document.getElementById('modal-content');
+      const zeile = Array.from(mc.querySelectorAll('.gs-kal-zeile')).find(z => /Ernte/.test(z.textContent));
+      if (!zeile) return { ok: false, warum: 'die Tagesliste zeigt die Ernte nicht' };
+      if (zeile.querySelector('.gs-kal-box:not(.info)')) return { ok: false, warum: 'die Ernte-Schaetzung hat ein Abhak-Kaestchen' };
+      // Regen: ohne Wetter-Zwischenspeicher KEIN Ereignis
+      localStorage.removeItem('gs_weather_cache');
+      if (gsKalenderEreignisse(gsHeuteTag(), gsHeuteTag()).some(x => x.art === 'wetter')) return { ok: false, warum: 'Regen-Ereignis ohne Messwert' };
+      return { ok: true, info: 'Ernte am ' + tag + ' als Info · ohne Wetterdaten kein Regen' };
+    },
+  },
+  {
+    // v32.47: Datum im Tagebuch-Formular — leer heisst heute, ein Datum in
+    // der Zukunft wird zur Erinnerung im Kalender. Und die Pflanze bekommt
+    // ihre Id, wenn der Name eindeutig ist.
+    name: 'Tagebuch · ein Datum in der Zukunft wird zur Erinnerung, die Pflanze bekommt ihre Id',
+    lauf: () => {
+      openGartenTagebuch();
+      const inp = document.getElementById('tb-input'), pl = document.getElementById('tb-plant'), dt = document.getElementById('tb-date');
+      if (!inp || !pl || !dt) return { ok: false, warum: 'Formularfelder fehlen (tb-input/tb-plant/tb-date)' };
+      const in5 = _gsKalTagPlus(gsHeuteTag(), 5);
+      inp.value = 'Tomaten ausgeizen'; pl.value = 'Tomate'; dt.value = in5;
+      gsTbAdd();
+      const e = gsTagebuchLoad(true)[0];
+      if (!e || e.text !== 'Tomaten ausgeizen') return { ok: false, warum: 'Eintrag nicht gespeichert' };
+      if (e.pflanze_id !== 'p3') return { ok: false, warum: 'pflanze_id = ' + e.pflanze_id + ' statt p3 (Tomate ist eindeutig)' };
+      if (_gsKalTag(e.ts) !== in5) return { ok: false, warum: 'Eintrag am ' + _gsKalTag(e.ts) + ' statt ' + in5 };
+      const ev = gsKalenderEreignisse(in5, in5).find(x => x.pflanze && x.pflanze.id === 'p3' && /ausgeizen/.test(x.titel));
+      if (!ev) return { ok: false, warum: 'der Eintrag steht nicht am gewaehlten Tag im Kalender' };
+      if (ev.art !== 'erinnerung') return { ok: false, warum: 'ein Zukunfts-Eintrag ist „' + ev.art + '" statt „erinnerung"' };
+      return { ok: true, info: 'am ' + in5 + ' als Erinnerung · pflanze_id p3' };
+    },
+  },
+  {
+    name: 'Aufräumen · buildPlantCard ist weg, gsNewPlantCard rendert',
+    lauf: () => {
+      if (typeof buildPlantCard === 'function') return { ok: false, warum: 'buildPlantCard existiert noch (nie aufgerufen, 60 Zeilen)' };
+      if (typeof gsNewPlantCard !== 'function') return { ok: false, warum: 'gsNewPlantCard fehlt' };
+      return { ok: true, info: 'tote Karte entfernt' };
+    },
+  },
+  {
     name: 'Ohne Daten · keine Pflanzen, kein Tagebuch → ein leerer Kalender, der es sagt',
     lauf: () => {
       const sichern = { mp: myPlants, pl: (typeof plantings !== 'undefined') ? plantings : null, tb: localStorage.getItem('gs_gartentagebuch') };
@@ -206,8 +289,8 @@ const FAELLE = [
   console.log('  ---');
   console.log('  Fälle geprueft: ' + FAELLE.length + ' · davon kaputt: ' + kaputt);
   console.log('  JS-Fehler waehrend der Pruefung: ' + (errs.length ? errs.length + ' (' + errs.slice(0, 2).join(' | ') + ')' : 'keine'));
-  console.log('  Grenze: Garten-Pflanzungen haben in Stufe 1 noch keine Aufgaben, und der Server-Cron');
-  console.log('  (v_plant_tasks_due) kennt snoozedUntil erst nach der Migration 20260903_plant_tasks_due_snooze.sql.');
+  console.log('  Grenze: der Server-Cron (v_plant_tasks_due) kennt snoozedUntil erst nach der Migration');
+  console.log('  20260903_plant_tasks_due_snooze.sql; das Cloud-Tagebuch (garden_diary) ist noch nicht in der Sicht.');
   await br.close();
   process.exitCode = kaputt ? 1 : 0;
 })();
